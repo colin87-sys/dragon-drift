@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { hitPlayer, bulletGraze } from './collision.js';
-import { burst, wispTrail, wispImpact } from './particles.js';
+import { burst, wispImpact } from './particles.js';
 import { emit } from './events.js';
 
 // Boss bullet pool — one InstancedMesh, recycled by the same windowed-cursor
@@ -90,8 +90,7 @@ const eul = new THREE.Euler();
 const posV = new THREE.Vector3();
 const sclV = new THREE.Vector3();
 const colV = new THREE.Color();
-const trailV = new THREE.Vector3();   // wisp trail/impact world-pos scratch
-let lastWispRing = -1;                // rate gate: ≤1 wisp impact ring per 150ms
+const trailV = new THREE.Vector3();   // wisp impact world-pos scratch
 const HIDDEN = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
 
 function makeSlot() {
@@ -111,8 +110,7 @@ function makeSlot() {
     // WYRMFIRE WISPS (lances only; inert 0 for every other owner):
     homeDelay: 0,   // seconds of pure fan-arc before the homing steer engages
     curl: 0,        // rad/s velocity rotation during the fan phase (sign = volley-slot parity)
-    trailT: 0,      // per-wisp trail-emit clock
-    trailFlip: false, // alternates hot/dim trail motes (deterministic 2-tone ribbon)
+    ribbonIdx: -1,  // index into the wisp light-ribbon pool (-1 = none; lances only)
   };
 }
 
@@ -184,6 +182,184 @@ function resetHoops() {
   for (const h of hoops) { h.active = false; if (h.mesh) h.mesh.visible = false; }
 }
 
+// ---- WISP LIGHT-RIBBONS (PR4b) ---------------------------------------------
+// The silhouette fix (owner: the volley was lost in the bullet sea): each wisp
+// tows a continuous tapered light-ribbon tracing its curved flight path — the
+// Panzer-Dragoon homing-laser read. The volley becomes the ONLY line-class
+// shape among the enemy's dot-class bullets, and on arrival the ribbon hangs
+// as an afterimage draining TAIL-first (never a frozen line — the classic bug).
+// Geometry recipe forked from EITHERWING's comet-tails (makeTailStrip — the
+// engine's proven deforming quad-strip, 1 draw + 1 small buffer upload each;
+// BOSS-DESIGN §2 explicitly endorses separate meshes with buffer uploads over
+// animated instancing). Cross-sections face the CAMERA (side = tangent × view)
+// so the strip never collapses when a wisp flies down the view ray — on this
+// rail the view dir is a constant (0,0,-1) to within camera sway.
+// Hot head: the EYE_HOT idiom (toneMapped=false + colour scaled past the bloom
+// threshold) — the bullet discs are toneMapped by design and can never compete.
+const RIBBON_POOL = 6;   // = max concurrent wisps (cap 6 at tier 4+)
+const ribbons = [];      // { active, drain, drainT, n, pts: Float32Array, geo, mesh, mat, head, headMat }
+const _rTan = new THREE.Vector3(), _rSide = new THREE.Vector3();
+const _rA = new THREE.Vector3(), _rB = new THREE.Vector3(), _rP = new THREE.Vector3();
+const RIBBON_VIEW = new THREE.Vector3(0, 0, -1);   // rail-shooter view dir (chase cam)
+
+function initWispRibbons(scene, headTex) {
+  const L = CONFIG.LOCK;
+  const rings = L.ribbonRings;
+  for (let r = 0; r < RIBBON_POOL; r++) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rings * 2 * 3), 3));
+    const idx = [];
+    for (let i = 0; i < rings - 1; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, c, b, b, c, d); }
+    geo.setIndex(idx);
+    const mat = new THREE.MeshBasicMaterial({
+      transparent: true, blending: THREE.AdditiveBlending,
+      depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+    });
+    mat.toneMapped = false;
+    mat.color.setHex(0x50ffaa).multiplyScalar(L.ribbonHot);   // jade, just past the bloom threshold
+    const m = new THREE.Mesh(geo, mat);
+    m.frustumCulled = false;
+    m.renderOrder = TIERS.wispRibbon;
+    m.visible = false;
+    scene.add(m);
+    // The white-hot head: one small additive sprite riding the newest sample —
+    // the brightest pixel in its neighbourhood (jade-white × headHot blooms).
+    const headMat = new THREE.SpriteMaterial({
+      map: headTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
+    });
+    headMat.toneMapped = false;
+    headMat.color.setHex(0xeafff6).multiplyScalar(L.headHot);
+    const head = new THREE.Sprite(headMat);
+    head.renderOrder = TIERS.bulletOutline - 1;   // just below the bullets (the hoop precedent)
+    head.scale.setScalar(1.15);
+    head.visible = false;
+    scene.add(head);
+    ribbons.push({ active: false, drain: false, drainT: 0, n: 0,
+      pts: new Float32Array(rings * 3), geo, mesh: m, mat, head, headMat });
+  }
+}
+
+// Claim a free ribbon for a fresh wisp (−1 when all busy incl. draining
+// afterimages — silently skip, it's presentation, never gameplay).
+function acquireRibbon() {
+  for (let r = 0; r < ribbons.length; r++) {
+    const rb = ribbons[r];
+    if (!rb.active && !rb.drain) {
+      rb.active = true; rb.drain = false; rb.drainT = 0; rb.n = 0;
+      rb.mesh.visible = true; rb.head.visible = true; rb.mat.opacity = 1;
+      return r;
+    }
+  }
+  return -1;
+}
+
+// Push the wisp's current world position into its ribbon's sliding window
+// (newest sample = the HEAD; the fixed-size window slides via copyWithin).
+function ribbonSample(idx, x, y, z) {
+  const rb = ribbons[idx];
+  const rings = CONFIG.LOCK.ribbonRings;
+  if (rb.n === rings) rb.pts.copyWithin(0, 3);
+  else rb.n++;
+  const o = (rb.n - 1) * 3;
+  rb.pts[o] = x; rb.pts[o + 1] = y; rb.pts[o + 2] = z;
+  rb.head.position.set(x, y, z);
+}
+
+// The wisp died at its brand: freeze the head AT the impact point and drain the
+// afterimage tail-first over ribbonFade.
+function ribbonRelease(idx) {
+  if (idx < 0 || !ribbons[idx] || !ribbons[idx].active) return;
+  const rb = ribbons[idx];
+  rb.active = false;
+  rb.drain = true;
+  rb.drainT = 0;
+  rb.head.visible = false;   // the impact burst takes over from the hot head
+}
+
+// Rebuild every live ribbon's strip from its sample window. Vertex math is the
+// EITHERWING updateTailStrip recipe in world space: tangent from neighbours,
+// side = tangent × VIEW (camera-facing — never collapses down the view ray),
+// tapered half-width head→tail. A draining ribbon consumes its own tail (the
+// drawn window shrinks from the oldest sample) while the whole strip fades.
+function updateWispRibbons(dt) {
+  const L = CONFIG.LOCK;
+  const rings = L.ribbonRings;
+  for (const rb of ribbons) {
+    if (!rb.active && !rb.drain) continue;
+    let start = 0, count = rb.n;
+    if (rb.drain) {
+      rb.drainT += dt;
+      const k = rb.drainT / L.ribbonFade;
+      if (k >= 1 || rb.n < 2) {
+        rb.drain = false; rb.mesh.visible = false; rb.head.visible = false; rb.n = 0;
+        continue;
+      }
+      start = Math.floor(k * rb.n);            // the tail burns toward the head
+      count = rb.n - start;
+      rb.mat.opacity = 1 - k;
+    }
+    const pos = rb.geo.attributes.position.array;
+    if (count < 2) { rb.mesh.visible = false; continue; }
+    rb.mesh.visible = true;
+    for (let i = 0; i < rings; i++) {
+      // Clamp past-the-window rings onto the ends (degenerate — zero area).
+      const si = Math.min(start + i, start + count - 1);
+      _rP.fromArray(rb.pts, si * 3);
+      const ai = Math.max(start, si - 1), bi = Math.min(start + count - 1, si + 1);
+      _rA.fromArray(rb.pts, ai * 3); _rB.fromArray(rb.pts, bi * 3);
+      _rTan.subVectors(_rB, _rA);
+      _rSide.crossVectors(_rTan, RIBBON_VIEW);
+      if (_rSide.lengthSq() < 1e-6) _rSide.set(1, 0, 0);
+      // Taper: the NEWEST sample (head) is fattest, the tail fine — and past-the-
+      // window rings collapse to zero width (i clamped ⇒ t clamps to the head).
+      const t = count > 1 ? (si - start) / (count - 1) : 1;   // 0 = tail, 1 = head
+      _rSide.normalize().multiplyScalar(L.ribbonHalfWMax * (0.12 + 0.88 * t));
+      const o = i * 6;
+      pos[o] = _rP.x + _rSide.x; pos[o + 1] = _rP.y + _rSide.y; pos[o + 2] = _rP.z + _rSide.z;
+      pos[o + 3] = _rP.x - _rSide.x; pos[o + 4] = _rP.y - _rSide.y; pos[o + 5] = _rP.z - _rSide.z;
+    }
+    rb.geo.attributes.position.needsUpdate = true;
+  }
+}
+
+function resetWispRibbons() {
+  for (const rb of ribbons) {
+    rb.active = false; rb.drain = false; rb.drainT = 0; rb.n = 0;
+    if (rb.mesh) rb.mesh.visible = false;
+    if (rb.head) rb.head.visible = false;
+  }
+}
+
+// ---- WISP IMPACT DRUM-ROLL (PR4b) ------------------------------------------
+// Damage always lands on the arrival frame (the arrival-frame LAW) — but the
+// impact PRESENTATION staggers: same-window arrivals queue at impactStaggerMs
+// spacing, each firing the burst + a 'lockStrike' (the ascending impact-
+// arpeggio note, k = position in the roll). Plural payoff reads as a drum-roll,
+// not one boom (the Rez lesson). Only the FIRST strike of a window carries the
+// small shockwave ring (the §2 additive-volume cap).
+const impactQ = [];          // { x, y, z, t, k }
+let impactWindowAt = -1;     // clock of the window's first arrival
+let impactWindowK = 0;
+
+function queueWispImpact(x, y, z) {
+  if (clock - impactWindowAt > 0.15) { impactWindowAt = clock; impactWindowK = 0; }
+  const k = impactWindowK++;
+  impactQ.push({ x, y, z, t: k * (CONFIG.LOCK.impactStaggerMs / 1000), k });
+}
+
+function updateWispImpacts(dt) {
+  if (!impactQ.length) return;
+  for (const q of impactQ) q.t -= dt;
+  for (let i = impactQ.length - 1; i >= 0; i--) {
+    const q = impactQ[i];
+    if (q.t > 0) continue;
+    trailV.set(q.x, q.y, q.z);
+    wispImpact(trailV, q.k === 0);
+    emit('lockStrike', { k: q.k });
+    impactQ.splice(i, 1);
+  }
+}
+
 export function initBossBullets(scene) {
   if (mesh) return;
   const tex = makeBulletTex();
@@ -248,6 +424,7 @@ export function initBossBullets(scene) {
   scene.add(mesh);
   scene.add(coreMesh);   // added last → drawn on top
   initHoops(scene);
+  initWispRibbons(scene, tex);   // the soft radial disc doubles as the hot-head glow
 }
 
 // Quality scales the concurrent-bullet ceiling (mobile draws fewer) AND the
@@ -295,8 +472,10 @@ export function spawnBossBullet(opts) {
   s.age = 0;   // reset the spawn-in ramp for this fresh bullet
   s.homeDelay = opts.homeDelay ?? 0;
   s.curl = opts.curl ?? 0;
-  s.trailT = 0;
-  s.trailFlip = false;
+  // A fresh wisp tows a light-ribbon (silently none when the pool is busy —
+  // presentation only, never gameplay). fxQuality ≤ 0.3 skips ribbons entirely
+  // (the hot instanced head + impact bursts still carry the read on potatoes).
+  s.ribbonIdx = (s.owner === 'lance' && fxQuality > 0.3) ? acquireRibbon() : -1;
   // §5f destructible sub-parts: an optional source-part tag (e.g. HOLLOWGATE's
   // pane index) rides the bullet so a REFLECTED amber lands its damage on the
   // part it came from (parry a pane's radial → crack THAT pane). null for the
@@ -316,6 +495,20 @@ export function debugActiveBullets() {
     if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age });
   }
   return out;
+}
+
+// Test seam (PR4b): the wisp light-ribbon pool's live state — active/draining
+// counts, per-ribbon sample counts and head positions, and the impact queue.
+export function debugWispRibbons() {
+  return {
+    active: ribbons.filter((r) => r.active).length,
+    draining: ribbons.filter((r) => r.drain).length,
+    ribbons: ribbons.map((r) => ({
+      active: r.active, drain: r.drain, n: r.n,
+      hx: r.n ? r.pts[(r.n - 1) * 3] : 0, hy: r.n ? r.pts[(r.n - 1) * 3 + 1] : 0,
+    })),
+    impactQ: impactQ.length,
+  };
 }
 
 function deactivate(i) {
@@ -459,21 +652,22 @@ export function updateBossBullets(dt, player) {
           s.vx = nvx;
         } else {
           // HOMING — the arrive controller, gain ramped in so there's no elbow.
+          // A small SNAKE-WOBBLE bends the steering target laterally (the PD
+          // homing-laser weave); its amplitude DECAYS to zero over the last
+          // stretch of flight so the landing law is untouched. Deterministic:
+          // sine of age + pool-slot phase, zero RNG in gameplay fields.
           const ramp = Math.min(1, (s.age - s.homeDelay) / L.lanceHomeBlend);
           const tLeft = Math.max((s.targetRel - s.rel) / Math.max(s.vrel, 1), 0.06);
+          const decay = Math.min(1, Math.max(0, (tLeft - 0.15) / 0.2));
+          const wob = Math.sin(s.age * L.wobbleHz * Math.PI * 2 + i * 2.1) * L.wobbleAmp * decay;
           const k = Math.min(1, dt * L.lanceSteerGain * ramp);
-          s.vx += ((s.tx - s.x) / tLeft - s.vx) * k;
-          s.vy += ((s.ty - s.y) / tLeft - s.vy) * k;
+          s.vx += ((s.tx + wob - s.x) / tLeft - s.vx) * k;
+          s.vy += ((s.ty - wob * 0.6 - s.y) / tLeft - s.vy) * k;
         }
-        // The wisp's ribbon: small additive motes dropped in world space; forward
-        // flight strings them out (the dragon-trail trick). Throttled at the SOURCE
-        // by quality; skipped entirely on potato tiers.
-        s.trailT -= dt;
-        if (s.trailT <= 0 && fxQuality > 0.3) {
-          s.trailT = 1 / (L.lanceTrailHz * fxQuality);
-          trailV.set(s.x, s.y, -(player.dist + s.rel));
-          wispTrail(trailV, (s.trailFlip = !s.trailFlip));
-        }
+        // Tow the light-ribbon: push this frame's world position into the
+        // ribbon's sliding window (the strip rebuild happens once per frame in
+        // updateWispRibbons — the trail IS the wisp's flight history).
+        if (s.ribbonIdx >= 0) ribbonSample(s.ribbonIdx, s.x, s.y, -(player.dist + s.rel));
       }
       if (s.rel >= s.targetRel) {
         const dx = s.x - s.tx, dy = s.y - s.ty;
@@ -484,17 +678,18 @@ export function updateBossBullets(dt, player) {
           // or gunfire can never sculpt a sub-part; CP2 gate finding 4).
           emit('bossDamage', { amount: s.dmg, kind: s.owner, x: s.x, y: s.y, part: s.part });
         }
-        // A wisp POPS at its brand (hit or whiff — it visibly dies where it aimed);
-        // the small shockwave ring is rate-gated so a 6-pip Surge fork over the
-        // shield-shatter never stacks large additive volumes (§2 overdraw cap).
+        // A wisp POPS at its brand (hit or whiff — it visibly dies where it
+        // aimed). The pop QUEUES into the impact drum-roll (presentation stagger
+        // + lockStrike arpeggio; damage above stayed same-frame — the LAW), and
+        // the ribbon freezes its head at the impact point and drains tail-first.
         if (s.owner === 'lance') {
-          trailV.set(s.x, s.y, -(player.dist + s.rel));
-          const ring = clock - lastWispRing > 0.15;
-          if (ring) lastWispRing = clock;
-          wispImpact(trailV, ring);
+          queueWispImpact(s.x, s.y, -(player.dist + s.rel));
+          ribbonRelease(s.ribbonIdx);
+          s.ribbonIdx = -1;
         }
         deactivate(i);
       } else if (s.life <= 0) {
+        if (s.owner === 'lance') { ribbonRelease(s.ribbonIdx); s.ribbonIdx = -1; }
         deactivate(i);
       }
     }
@@ -506,6 +701,8 @@ export function updateBossBullets(dt, player) {
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   if (coreMesh.instanceColor) coreMesh.instanceColor.needsUpdate = true;
   if (outlineMesh.instanceColor) outlineMesh.instanceColor.needsUpdate = true;
+  updateWispRibbons(dt);
+  updateWispImpacts(dt);
   updateHoops(dt, player);
 }
 
@@ -586,4 +783,8 @@ export function resetBossBullets() {
   if (outlineMesh) outlineMesh.instanceMatrix.needsUpdate = true;
   if (shadowMesh) shadowMesh.instanceMatrix.needsUpdate = true;
   resetHoops();
+  resetWispRibbons();
+  impactQ.length = 0;
+  impactWindowAt = -1;
+  impactWindowK = 0;
 }

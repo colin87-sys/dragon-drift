@@ -331,9 +331,25 @@ on('lockPaint', (p) => sfx.brandSet?.((p && p.count) || 1));
 on('lockCap', () => sfx.brandCap?.());
 // A DELIBERATE loose sounds the full exhale — the cap auto-volley, the PR3 manual
 // tap-loose, and the Surge fork are all the player's earned release (brandLoose); only
-// a lone brand ashing off on decay is the lesser fizzle.
-on('lockVolley', (p) => (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')
-  ? sfx.brandLoose?.(p.count) : sfx.brandFizzle?.()));
+// a lone brand ashing off on decay is the lesser fizzle. PR4b RELEASE PUNCTUATION:
+// the deliberate loose also lands a 45ms hitstop + postfx kick (the authored beat —
+// release ONLY, never the impacts amid dense bullets) and a jade muzzle flash off
+// the dragon's launch shoulder, so the moment reads even in peripheral vision.
+const _muzzleV = new THREE.Vector3();
+on('lockVolley', (p) => {
+  if (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')) {
+    sfx.brandLoose?.(p.count);
+    juiceEvent('wispVolley');
+    _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
+    burst(_muzzleV, 0x50ffaa, { count: 10, speed: 12, size: 0.8, life: 0.35 });
+    burst(_muzzleV, 0xeafff6, { count: 4, speed: 18, size: 0.5, life: 0.25 });
+  } else {
+    sfx.brandFizzle?.();
+  }
+});
+// PR4b: each wisp landing plays a note of the impact ARPEGGIO (k = position in
+// the drum-roll window) — N locks land as an ascending riff, not one boom.
+on('lockStrike', (p) => sfx.brandStrike?.((p && p.k) || 0));
 // PR3: loosing onto a SEALED boss can't take — a soft muffled thunk names the miss;
 // the pips are kept (the lock layer never wastes them), the reticle row shakes once.
 on('lockSealed', () => sfx.brandSeal?.());

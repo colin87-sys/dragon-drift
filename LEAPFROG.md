@@ -7104,3 +7104,48 @@ spawnBossBullet; the (i, n) volley threading through lanceQ/fireLance is the sea
 per-slot choreography (E1 beat-release can ride it). Deferred list unchanged (L178/L180) plus:
 per-dragon wisp tint (Eternal cosmetic hook), wisp-trail LineSegments ribbon if sprites ever
 read muddy on device.
+
+### L187 — wisp readability round 2: silhouette CLASS beats everything — the volley became the only LINE in a sea of dots
+
+**Did / learned.** The merged PR4a wisps (fan arcs + sprite-mote trails + pulsing discs) still
+underwhelmed the owner live: "I see the arc but amongst the sea of bullets it seems underwhelming."
+Games research (Panzer Dragoon/Orta, Rez, Ikaruga, the Itano Circus lineage) converged on one
+diagnosis and three laws: (1) **canonical homing volleys are read by their TRAILS, not their
+heads — PD's homing lasers are persistent curved light-RIBBONS that stay lit as full paths and
+fade TAIL-first** (the afterimage bouquet IS the signature image); (2) **silhouette-CLASS contrast
+is the strongest legibility lever in a bullet hell** — pre-attentive shape recognition beats hue:
+if the player's ordnance is the only line-class object among dot-class bullets, it parses under
+any load (our failure was discs among discs — no amount of arc/pulse/mote fixes silhouette
+sameness); (3) **impacts should land as a plural staggered drum-roll** (Rez: N locks = N staggered
+musical hits; the payoff is a riff, not a boom). Shipped accordingly: a 6-slot RIBBON POOL in
+bossBullets.js — each wisp tows a tapered additive quad-strip rebuilt per frame from a sliding
+window of its own world positions (the EITHERWING makeTailStrip vertex recipe in world space),
+with `side = tangent × VIEW(0,0,−1)` (camera-facing — a strip built with the ×up cross collapses
+when a wisp flies down the view ray, which on a rail shooter is MOST of the flight); an EYE_HOT
+hot-head sprite (toneMapped=false, jade-white ×3.5 — the toneMapped bullet discs can never
+out-bloom it); tail-first drain over ribbonFade on arrival (head frozen AT the impact point —
+never the frozen-line trail bug); a homing snake-wobble (decays to zero before landing);
+`juiceEvent('wispVolley')` 45ms hitstop + kick + muzzle burst on the release ONLY (never impacts
+amid dense bullets); an impact PRESENTATION queue at 40ms stagger emitting `lockStrike{k}` →
+`brandStrike(k)` pentatonic plucks (the impact arpeggio); and the release audio reworked to
+thump + UP-sweeping noise + detuned plural chirps. The PR4a sprite-mote trail was RETIRED
+(ribbon supersedes; keeping both over-glows the additive budget).
+
+**The engine patterns that made it cheap.** The perf docs' own measurement decided the
+architecture: per-frame `instanceMatrix` uploads jank real phones, but SEPARATE meshes with
+per-frame BufferAttribute uploads are the shipped, blessed path (EITHERWING rebuilds 4 tails
+every tick) — so 6 individual ribbon meshes (~40 verts each) are endorsed, not risky. THIN is
+the overdraw law: a narrow strip is near-line (the §2 LineSegments exemption's spirit); bloom
+carries the apparent width, so `ribbonHalfWMax` is a config LINT (≤0.34), not a vibe. And the
+arrival-frame law (vrel untouched) again let a whole FX rework ship with kill-time coexist
+proven by ONE unchanged test assert (T-W2's exact-frame landing, now also proving the wobble
+harmless).
+
+**→ Leapfrog.** The ribbon pool is a general "projectile tows a light-path" primitive: reflected
+ambers (cyan — the role color already reserves it) are the obvious next tenant, and BOSS-DESIGN
+§1052's "reflected cyan gets a directional trail" ask becomes a 3-line adoption. The lockStrike
+event is the seam for E1 perfect-release scoring (beat-window bonus can ride k=0's timing).
+Deferred: audio bus duck under the release (needs sfxBus gain automation), per-dragon wisp tint
+(Eternal cosmetic), the shelved PR4 lock-snap parry brief (reflectBossBullets must return parried
+parts; rib ambers need part tags; Calamities lockParts data; "relics/profiles" maps to nothing —
+ask, don't build).

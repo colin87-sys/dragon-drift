@@ -220,9 +220,23 @@ export const CONFIG = {
     lanceHomeBlend: 0.15,   // TUNE(0.10–0.25) — steer-gain ramp-in after engage (no elbow)
     lanceSteerGain: 9,      // TUNE(6–12) — arrive gain once engaged (pre-wisp inline was 5)
     lanceCurlRate: 3.2,     // TUNE(2.0–5.0) — rad/s velocity rotation during the arc; sign = i parity
-    lanceTrailHz: 30,       // TUNE(20–40) — trail sprites/s per wisp, ×quality at the source
-    lanceTrailLife: 0.3,    // TUNE(0.2–0.4) — BUDGET LAW: 6 wisps × Hz × life ≤ ~⅓ of the
-                            // particles VISIBLE_CAP (150) so gameplay bursts keep headroom
+    // WISP LIGHT-RIBBONS (PR4b — owner: the volley was lost in the bullet sea).
+    // The silhouette law: the volley must be the ONLY LINE-class shape among the
+    // enemy's dot-class bullets (Panzer Dragoon's homing lasers are persistent
+    // curved light-ribbons fading tail-first — the afterimage IS the spectacle).
+    // Ribbons replace the PR4a sprite-mote trails (retired).
+    ribbonRings: 22,        // LAW — position-history samples per wisp ribbon (~0.37s of path)
+    ribbonHalfWMax: 0.26,   // TUNE(0.18–0.34) — head half-width; THIN is the overdraw law
+                            // (a thin strip is near-line/exempt; bloom carries the glow)
+    ribbonHot: 1.6,         // TUNE(1.2–2.4) — ribbon HDR colour scale (mild bloom, toneMapped off)
+    headHot: 3.5,           // TUNE(2.5–6) — hot-head HDR scale (the EYE_HOT idiom: the head is
+                            // the brightest pixel in its neighbourhood; toneMapped bullets can't compete)
+    ribbonFade: 0.35,       // TUNE(0.25–0.6) — tail-first afterimage drain after arrival
+    wobbleAmp: 0.55,        // TUNE(0–0.9) — homing snake-wobble (m); DECAYS to 0 before arrival
+                            // so the landing law is untouched (T-W2 is the wall)
+    wobbleHz: 2.6,          // TUNE(1.5–4) — snake frequency; phase = volley slot
+    impactStaggerMs: 40,    // LAW — plural-impact PRESENTATION spacing (damage stays same-frame;
+                            // the drum-roll is FX + the lockStrike arpeggio only)
     paintCooldown: 0.45,    // TUNE(0.3–0.6) — cross-organ paint spacing: min gap between ANY
                             // two paints (paintHopGrace only embargoes the SAME organ) —
                             // owner playtest: back-to-back paints read spammy
@@ -278,6 +292,7 @@ export const CONFIG = {
     renderTiers: {
       bulletShadow: -1, arenaWall: 2, shield: 3, surgeFx: 4,
       focusTrack: 5, focusFill: 6, focusHead: 7,
+      wispRibbon: 12,   // wisp light-ribbons: over boss/shield/surge FX, under every bullet
       bulletOutline: 20, bulletBody: 21, bulletCore: 22,
     },
     // Graze: skimming a bullet (inside the graze band but outside the hit radius)
@@ -348,6 +363,8 @@ export const CONFIG = {
       phasePerfect:     { hitstop: 95, kick: 'surgeStart' },  // perfect phase: big magenta kick
       comboBreak:       { hitstop: 0,  kick: 'comboBreak' },
       death:            { hitstop: 0,  kick: 'death' }, // sustained grade over the freeze
+      wispVolley:       { hitstop: 45, kick: 'surgeStart' }, // brand loose: the release beat
+                        // (RELEASE only — never hitstop the impacts amid dense bullets)
     },
   },
 };

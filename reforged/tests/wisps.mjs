@@ -56,11 +56,14 @@ function spawnWisp(i, tx, ty, targetRel) {
 const flight = (B.settleGap - 1.5) / B.bossSpeed;
 assert(L.lanceHomeDelay + 0.3 <= flight,
   `homing-window law: homeDelay ${L.lanceHomeDelay} + 0.3s homing ≤ flight ${flight.toFixed(3)}s`);
-assert(6 * L.lanceTrailHz * L.lanceTrailLife <= 60,
-  `trail budget law: 6 wisps × ${L.lanceTrailHz}Hz × ${L.lanceTrailLife}s = ${6 * L.lanceTrailHz * L.lanceTrailLife} ≤ 60 concurrent sprites (cap 150 keeps headroom)`);
+// PR4b ribbon lints: THIN is the overdraw law (a thin strip is near-line/exempt;
+// bloom carries the glow); the wobble must stay small next to the landing radius.
+assert(L.ribbonHalfWMax <= 0.34, `ribbon half-width ${L.ribbonHalfWMax} ≤ 0.34 (thin-line overdraw law)`);
+assert(L.ribbonRings <= 24, `ribbonRings ${L.ribbonRings} ≤ 24 (buffer-upload budget)`);
+assert(L.wobbleAmp < B.bossHitRadius / 4, `wobbleAmp ${L.wobbleAmp} < bossHitRadius/4 (landing margin)`);
 assertEq(L.lanceFanDeg.length, 6, 'fan table covers the max volley (cap 6 at tier 4+)');
 assert(L.paintCooldown >= 0.3 && L.paintCooldown <= 0.6, `paintCooldown ${L.paintCooldown} within TUNE range [0.3, 0.6]`);
-ok('T-W4 config lints: homing window, trail budget, fan table size, paint cooldown range');
+ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan table, paint cooldown');
 
 // --- T-W2 — convergence + arrival-frame invariance (the coexist proof) --------
 // Worst-case volley: 6 wisps incl. slot 5 (215° — launched AWAY from the boss),
@@ -155,6 +158,54 @@ ok('T-W4 config lints: homing window, trail budget, fan table size, paint cooldo
   assertEq(rec[1][1], 1, 'second launch carries fan slot i=1');
   assert(rec[0][2] === 2 && rec[1][2] === 2, 'both launches carry n=2 (the volley size)');
   ok('T-W3 lanceQ threads (i, n) to every launch — auto/manual volleys fan like the fork');
+}
+
+// --- T-W6 — light-ribbon lifecycle (PR4b: the silhouette system) ---------------
+// Each wisp tows a ribbon: active while flying (head tracks the slot), then the
+// afterimage DRAINS tail-first over ribbonFade and frees the pool slot.
+{
+  for (let i = 0; i < 3; i++) spawnWisp(i, (i - 1) * 6, 13, 28.5);
+  let rb = bullets.debugWispRibbons();
+  assertEq(rb.active, 3, 'three fresh wisps claim three ribbons');
+  for (let f = 0; f < 10; f++) bullets.updateBossBullets(DT, player);
+  rb = bullets.debugWispRibbons();
+  const ws = bullets.debugActiveBullets().filter((b) => b.owner === 'lance');
+  assert(rb.ribbons.filter((r) => r.active).every((r) => r.n >= 10),
+    'ribbons accumulate one sample per frame');
+  for (const r of rb.ribbons.filter((r) => r.active)) {
+    const near = ws.some((w) => (w.x - r.hx) ** 2 + (w.y - r.hy) ** 2 < 0.01);
+    assert(near, `a ribbon head rides its wisp (head ${r.hx.toFixed(2)},${r.hy.toFixed(2)})`);
+  }
+  for (let f = 0; f < 40; f++) bullets.updateBossBullets(DT, player);   // through arrival
+  rb = bullets.debugWispRibbons();
+  assertEq(rb.active, 0, 'after arrival no ribbon is still active');
+  assert(rb.draining >= 1 || rb.ribbons.every((r) => r.n === 0),
+    'arrived ribbons drain as afterimages (or already finished)');
+  const drainFrames = Math.ceil(L.ribbonFade / DT) + 3;
+  for (let f = 0; f < drainFrames; f++) bullets.updateBossBullets(DT, player);
+  rb = bullets.debugWispRibbons();
+  assertEq(rb.active + rb.draining, 0, 'afterimages fully drain and free the pool');
+  ok('T-W6 ribbon lifecycle: claim → track → afterimage drain → pool freed');
+  bullets.resetBossBullets();
+}
+
+// --- T-W7 — impact drum-roll: staggered presentation + lockStrike arpeggio ----
+// Damage lands same-frame (the LAW, proven by T-W2); the impact FX + strike
+// notes stagger at impactStaggerMs so N landings read as a roll, not one boom.
+{
+  const strikes = [];   // { k, frame }
+  let frameNow = 0;
+  on('lockStrike', (e) => strikes.push({ k: e.k, frame: frameNow }));
+  for (let i = 0; i < 3; i++) spawnWisp(i, 0, 13, 28.5);   // same target → same arrival frame
+  for (frameNow = 1; frameNow <= 90 && strikes.length < 3; frameNow++) {
+    bullets.updateBossBullets(DT, player);
+  }
+  assertEq(strikes.length, 3, 'three landings emit three lockStrike notes');
+  assertEq(strikes.map((s) => s.k).join(','), '0,1,2', 'strike ks ascend 0,1,2 (the arpeggio order)');
+  assert(strikes[2].frame - strikes[0].frame >= 2,
+    `the roll spans ≥2 frames (k0 @${strikes[0].frame}, k2 @${strikes[2].frame} — staggered, not one boom)`);
+  ok('T-W7 impact drum-roll: 3 staggered strikes, ascending ks');
+  bullets.resetBossBullets();
 }
 
 console.log(`\n${n} wisp checks passed.`);
