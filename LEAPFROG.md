@@ -6253,3 +6253,38 @@ capturable; also tag the crest + horn tips so the head target box excludes them 
 `eyeScale·shape` formula; the rebuilt `hotEye` sizes off a head-length fraction (`0.33 − es·0.16`),
 so the proxy was made `hotEye`-aware. When you change an eye's sizing law, update its test proxy in
 the same commit or the band asserts measure a formula that no longer exists.
+
+---
+
+## L166 — JADE "ICONIC GREEN" direction formalized (pre-slot-C art-direction, mirrors ember PR #237)
+
+**What we did.** Human locked an ICONIC GREEN art-direction for jade — same authority as ember's
+iconic-flame pivot (PR #237): jade is THE green starter of the new trio (old/cinderwing/alt starters
+retiring), and a stranger's one-word read of every frame must be GREEN. The §5d starting hexes were
+too dark (near-black moss `0x123026` body). Formalized it in `DRAGON-DESIGN.md` ONLY (no code recolor
+yet — the actual paint is the gated slot-C build, exactly as ember's direction commit `1770f9d` touched
+only the doc + a test comment and the recolor came in the later gated `flame r1/r2` rounds):
+- **§2 law-9 accent table + §5 registry**: jade accent `0xeafff4` cool pearl → `0xd6ffe9` **mint-pearl**
+  (green-leaning, still inside the §7 ~149° cool band so the accentHue ±20° assert stays valid); carrier
+  text rewritten to a VIVID mid-value jade body + pale mint belly + green-family fin gradients.
+- **§5d jade sheet**: added a `PALETTE DIRECTION: ICONIC GREEN` block (the ember-block pattern) with
+  approved hexes — body ramp `0x3cb883`→`0x28a06b`→`0x178a54` (light→rich; value DOWN + saturation UP
+  per §4), deep-jade shadow tier `0x0d5c3a`, pale mint belly `0xdaf7e6`, mint-pearl bloom/rim `0xd6ffe9`,
+  fin gradient `0x116b45`→`0x2f9e77`→`0x9ff0c8`, scales `0x8fe0be`/horn `0xc7ebcf`/eye `0x8ff0c2`.
+- **§7 palette carrier**: jade clause now asserts the body diffuse reads VIVID mid-value jade (green at a
+  glance, NOT near-black) with saturation carried in accents/fins; gate judges greenness-at-distance.
+
+**Learned / reusable.** (1) **Design the palette in HSL before writing hexes.** A quick `hsl()` script
+showed the current body ramp is H160–166 **L13–14** (near-black — that IS the "too dark" bug in numbers);
+the new ramp holds H152–154 at **L32–48** (unmistakably green midtones) with saturation ramping 51→60→71
+and value 48→39→32 — i.e. §4's "value down, saturation up" satisfied WITHOUT going dark, because the whole
+band sits at mid-lightness. Verify hue AND lightness, not vibes. (2) **Keep the accent inside the registered
+band when re-tinting.** Mint-pearl `0xd6ffe9` computes to H148 — still within `accentHue 149°±20°`, so no
+test/`def.accentHue` change is needed; had I pushed the pearl toward pure white or cyan it would have broken
+the §7 assert the moment jade joins SPECS. (3) **The direction-vs-build split is the process.** Ember's
+`1770f9d` proved the pattern: formalize the human art-direction in the doc (approved hexes recorded) as a
+clean doc-only commit, THEN paint it through the gated slot rounds where the fable gate — not the builder —
+judges greenness. Jade is not yet in `tests/starters.mjs` SPECS ("joins in its slot"), so this commit is
+doc-only; roster gates stay green untouched (blueprint 4/4, starters 120/0, tricount 0 over budget).
+(4) **When in doubt, choose GREEN** — the sheet now instructs the gate to treat greenness-at-gameplay-
+distance as part of color/rim beauty, so "tasteful dark jade" is a FAIL, not a safe hedge.
