@@ -70,7 +70,9 @@ export const BOSSES = {
     //                                   lockParts (must resolve via model.partWorldPos).
     //   lockParts: [{ part, phases?, hot? }]   V2 paintable organs (PR2).
     //   lockMuted: true                 reticle ashen, V1 rate bonus off (slot 13).
-    virtualLockOrgan: 'focalEye',     // V1: the hollow-idol eye core (bossIdol.js)
+    virtualLockOrgan: 'faceCore',     // V1 slot-1 TUTORIAL: aim at the whole FACE (a big,
+                                      // stable central anchor), not the tiny fast-swaying eye —
+                                      // so the first teach is easy to lock (bossIdol.js faceCore)
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
     // crystal-core construct. A def WITHOUT `archetype` still falls through

@@ -158,7 +158,9 @@ export const CONFIG = {
     // V1 aim-line
     coneXY: 2.6,            // LAW — m/axis at the boss plane; NEVER per-dragon or per-boss
     dwellTime: 0.35,        // LAW (shared clock: V1 acquire + V2 paint)
-    coyote: 0.12,           // TUNE(0.10–0.20) — dwell survives a cone flicker up to this
+    coyote: 0.20,           // TUNE(0.10–0.20) — dwell survives a cone flicker up to this;
+                            // at the max so a strafing organ (VOIDMAW's eye) stays lockable
+                            // as it briefly crosses out of the cone
     linger: 0.6,            // TUNE(0.4–0.8) — aim-line persistence after leaving the cone
     chipRateMult: 1.15,     // LAW — rider interval ÷ this while the line holds an organ
     exposureTickInterval: 0.8, // TUNE(0.6–1.0)

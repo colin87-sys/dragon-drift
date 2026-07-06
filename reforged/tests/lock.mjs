@@ -59,15 +59,15 @@ const t11b = await runAim({ frames: [{ dt: 0.06, n: 6, live: true }] });        
 check('T1.1 dwell 0.30s → not held', t11a.d.aimHeld === false);
 check('T1.1 dwell 0.36s continuous → aimHeld', t11b.d.aimHeld === true);
 
-// T1.2 — coyote: a ≤0.12s cone flicker keeps the dwell; >0.12s resets it.
+// T1.2 — coyote (now 0.20): a ≤0.20s cone flicker keeps the dwell; >0.20s resets it.
 const t12keep = await runAim({ frames: [
   { dt: 0.06, n: 4, px: 0, live: true },   // 0.24s in cone
-  { dt: 0.10, n: 1, px: 20, live: true },  // 0.10s out (≤ coyote) — dwell frozen
+  { dt: 0.18, n: 1, px: 20, live: true },  // 0.18s out (≤ coyote 0.20) — dwell frozen
   { dt: 0.06, n: 3, px: 0, live: true },   // back in → crosses 0.35s → held
 ] });
 const t12reset = await runAim({ frames: [
   { dt: 0.06, n: 4, px: 0, live: true },   // 0.24s in cone
-  { dt: 0.15, n: 1, px: 20, live: true },  // 0.15s out (> coyote) — dwell reset
+  { dt: 0.25, n: 1, px: 20, live: true },  // 0.25s out (> coyote 0.20) — dwell reset
   { dt: 0.06, n: 3, px: 0, live: true },   // back in → only 0.18s → NOT held
 ] });
 check('T1.2 ≤coyote cone flicker preserves dwell (held)', t12keep.d.aimHeld === true);
@@ -96,9 +96,12 @@ const t14none = await runAim({ frames: [
 ] });
 check('T1.4 no ticks outside an exposure window', t14none.dmg.length === 0);
 
-// T1.6 — quiet dwell: no live fire → rate halves, so 0.40s real ≈ 0.20 dwell (not held).
-const t16 = await runAim({ frames: [{ dt: 0.05, n: 8, px: 0, live: false }] });   // 0.40s, quiet
-check('T1.6 quiet period accrues dwell at 0.5× (0.40s → not held)', t16.d.aimHeld === false);
+// T1.6 — V1 acquires at FULL rate even in a quiet lull (the quiet-rate penalty is
+// reserved for V2 painting, not V1 aiming — otherwise the slot-1 teach was unlockable).
+const t16 = await runAim({ frames: [{ dt: 0.05, n: 8, px: 0, live: false }] });   // 0.40s in a QUIET window
+check('T1.6 V1 acquires at full rate even in a quiet lull (0.40s → held)', t16.d.aimHeld === true);
+const t16b = await runAim({ frames: [{ dt: 0.05, n: 6, px: 0, live: false }] });  // 0.30s quiet
+check('T1.6 still needs the full dwell time (0.30s → not held)', t16b.d.aimHeld === false);
 
 // T1.5 (coexist, unit half) — a def with NO lock candidates never activates the
 // reticle boss-skin (hudState.active stays false), so the layer is fully inert.
