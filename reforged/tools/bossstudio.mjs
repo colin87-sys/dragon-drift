@@ -61,6 +61,15 @@ const HG_EXTRAS = [
   { name: 'ignite', o: { entrance: 0.55, steer: -1, t: 3.0 } },
   { name: 'gaze',   o: { gx: 0.9, gy: -0.3, t: 6.0 } },
 ];
+// BRINEHOLM extras (the colossal head + maw): the EYE WEAK-POINT WINDOW (surfaced
+// vs submerged — the §5f turn-taking tell), a FREED snout shackle (the mercy read),
+// and the §5j mid-rise HESITATION frame (the head inhaling up through the fog).
+const BH_EXTRAS = [
+  { name: 'eyeup',   o: { eye: 1, t: 4.0 } },   // the eye SURFACED — the weak-point window (chip damage lands)
+  { name: 'eyedown', o: { eye: 0, t: 4.0 } },   // the eye SUBMERGED — invulnerable (the other half of the tell)
+  { name: 'freed',   o: { crack: 1, t: 2.0 } }, // a snout shackle post SNAPPED (mercy — it vents + unbinds)
+  { name: 'rise',    o: { entrance: 0.55, t: 3.0 } },   // the mid-rise HESITATION (the head holds half-risen)
+];
 // THRUMSWARM (slot 7, the SWARM): the generic STATES are eitherwing-flavored
 // (charge:1 on the dread state would spear-contract the swarm and DESTROY the
 // dragon copy) — so slot 7 authors its OWN canonical states. idle = the wide
@@ -84,6 +93,7 @@ const TS_EXTRAS = [
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
   : bossId === 'hollowgate' ? [...STATES, ...HG_EXTRAS]
+  : bossId === 'brineholm' ? [...STATES, ...BH_EXTRAS]
   : bossId === 'thrumswarm' ? [...TS_STATES, ...TS_EXTRAS] : STATES;
 
 const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
@@ -94,11 +104,18 @@ const FIGHT_STATES = bossId === 'eitherwing'
   ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'handoff', o: { handoff: 0.5, t: 2.85 } }]
   : bossId === 'hollowgate'
     ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0 } }]
-  : bossId === 'thrumswarm'
-    // idle = the scatter field at full spread (must FILL the frame, L140/L141);
-    // dragon = the CONDENSED YOUR-DRAGON copy (the meme frame — the money shot).
-    ? [{ name: 'idle', o: { formation: 'scatter', condense: 0, t: 3.0 } }, { name: 'dragon', o: { formation: 'yourDragon', condense: 1, sp: 1, dread: true, t: 2.4 } }]
-    : [{ name: 'idle', o: { t: 2.85 } }];
+    // BRINEHOLM: the fight-distance frame shows the colossal HEAD filling/exceeding
+    // the frame (the eye is the focal you fight; the body never appears). rel 26
+    // frames the head + maw; the freed frame is closer (rel 22) for the mercy read.
+    : bossId === 'brineholm'
+      ? [{ name: 'idle', o: { eye: 1, t: 4.0, fightRel: 26 } },
+         { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0, fightRel: 26 } },
+         { name: 'freed', o: { crack: 1, eye: 1, t: 2.0, fightRel: 22 } }]
+      : bossId === 'thrumswarm'
+        // idle = the scatter field at full spread (must FILL the frame, L140/L141);
+        // dragon = the CONDENSED YOUR-DRAGON copy (the meme frame — the money shot).
+        ? [{ name: 'idle', o: { formation: 'scatter', condense: 0, t: 3.0 } }, { name: 'dragon', o: { formation: 'yourDragon', condense: 1, sp: 1, dread: true, t: 2.4 } }]
+        : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
   { name: 'front',        label: 'front' },
@@ -146,7 +163,7 @@ for (const st of FIGHT_STATES) {
   for (const bgName of BGS) {
     await page.evaluate(() => window.studioSheetInit(1, 1, 1000));
     await page.evaluate((o) => window.renderState(o), { boss: bossId, seed: SEED, bg: bgName, fight: true, ...st.o });
-    await page.evaluate((label) => window.studioTile(0, label), `fight · rel30 · ${st.name}`);
+    await page.evaluate((label) => window.studioTile(0, label), `fight · rel${st.o.fightRel ?? 30} · ${st.name}`);
     const path = `reforged-captures/${bossId}-fight-${st.name}-${bgName}-${round}.png`;
     writeFileSync(path, await page.screenshot({ clip: SHEET_CLIP }));
     written.push(path);

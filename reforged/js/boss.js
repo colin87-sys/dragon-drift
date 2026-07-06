@@ -196,6 +196,7 @@ let staggerT = 0;             // >0 = the queen is STAGGERED (parry job): the sw
 let staggerHits = 0;         // amber-volley parries banked toward the next stagger (SCATTER-STAGGER, §5i.C)
 let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
 let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
+let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
 let condHold = 0;            // seconds the swarm stays CONDENSED past its last shot (bridges the ostinato)
 // §5i.B ABSORB-A-COLOR (THRUMSWARM's Calamities graze, def-gated `grazeForm:'absorbColor'`):
 // the swarm SHEDS surge-pink motes braided into the magenta stream; weaving in and SOAKing
@@ -225,6 +226,8 @@ let wingsPath = null;        // snapshot of poseRing taken when Your Own Wings a
 let beamHeld = 0;              // seconds of unbroken beam contact (the ramp)
 let beamTick = 0;              // countdown to the next tick payout
 let beamGrace = 0;             // seconds of contact-loss tolerated before reset
+let eyeHold = 0;              // §5f slot 8: seconds to KEEP the eye submerged after a strike (so the heavy lid actually closes)
+let lastPlayer = null;       // the player from the last updateBoss (for event-driven mote spawns with no player arg)
 // NO-HIT ADRENALINE LADDER (§5i.B meta spine, global — lands with slot 6).
 // Five per-fight rungs on unbroken no-hit fight time, reset on hit:
 //   R1 magnet (graze annulus ×1.18) → R2 +gain (surge charge ×1.5) →
@@ -350,6 +353,25 @@ const SETPIECE_PATHS = {
     }
     const t = easeInOut((k - 0.72) / 0.28);   // recover to station
     return { x: 0, y: DIVE_Y + (B.fightHeight - DIVE_Y) * t, rel: DIVE_REL + (B.settleGap - DIVE_REL) * t };
+  },
+  // BRINEHOLM — SOUNDING (§5e "below" dread, "it dives"): the head SOUNDS — it
+  // SINKS below the frame line and draws back (the drowned god submerges), HOLDS
+  // under while the arena floor erupts in geyser curtains (MOVING → the P4 patterns
+  // keep firing from below-frame), then SURFACES back to station. The below-frame
+  // counterpart to ASHTALON's stoop-from-above; the model dread-submerges on top.
+  sounding(k) {
+    const B = CONFIG.BOSS;
+    const SINK_Y = -7, BACK_REL = B.settleGap + 4;
+    if (k < 0.32) {                        // SOUND — sink under the frame + draw back
+      const t = easeInOut(k / 0.32);
+      return { x: 0, y: B.fightHeight + (SINK_Y - B.fightHeight) * t, rel: B.settleGap + (BACK_REL - B.settleGap) * t };
+    }
+    if (k < 0.74) {                        // HOLD submerged — a slow tidal sweep as the floor erupts
+      const u = (k - 0.32) / 0.42;
+      return { x: Math.sin(u * Math.PI * 2) * 6, y: SINK_Y - Math.sin(u * Math.PI) * 1.5, rel: BACK_REL };
+    }
+    const t = easeInOut((k - 0.74) / 0.26);   // SURFACE back to station
+    return { x: 0, y: SINK_Y + (B.fightHeight - SINK_Y) * t, rel: BACK_REL + (B.settleGap - BACK_REL) * t };
   },
   // MARROWCOIL — RIB THREAD (§5c "the rail threads its negative space"): the bone
   // dragon LOOMS straight in until the rail passes THROUGH the ribcage (rel drops
@@ -963,7 +985,7 @@ export function startBossEncounter(player, defOverride) {
   rhythm = def.rhythm ? makeRhythm(def) : null;
   rhythmRest = null;
   perfectHealsUsed = 0;   // §5i C: the perfect-parry heal cap resets each fight
-  paneHits.clear();       // §5f: per-part crack counters reset per encounter
+  partHits.clear();       // §5f: per-part crack counters reset per encounter (panes + shackles)
   // §5i.B: beam-edge ramp + adrenaline ladder reset per encounter (rung-0 = neutral).
   beamHeld = 0; beamTick = 0; beamGrace = 0;
   adrenT = 0; adrenRung = 0; adrenHits0 = game.bossHitsTakenRun; adrenPing = 0;
@@ -994,7 +1016,7 @@ export function startBossEncounter(player, defOverride) {
   } else if (def.approachFrom === 'below') {
     start.rel = B.settleGap;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
-    start.y = -8;                   // rises from below the frame (Brineholm/Marrowcoil)
+    start.y = def.startDepth ?? -8;   // rises from below the frame (Marrowcoil −8; BRINEHOLM deepened to −14, §5d)
   } else if (def.approachFrom === 'ahead') {
     // DEAD AHEAD (§5b/§5d slot 6, HOLLOWGATE): the only boss that never comes
     // to you — it holds the horizon and the RAIL closes the distance. Large
@@ -1035,6 +1057,7 @@ export function startBossEncounter(player, defOverride) {
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
+  eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
 
@@ -1263,6 +1286,7 @@ function updateEntrance(dt, player, time) {
 // ---- Per-frame update -------------------------------------------------------
 
 export function updateBoss(dt, player, time) {
+  lastPlayer = player;   // stashed for event-driven spawns (the shackle SPRAY-SOAK vent) that have no player arg
   if (!active) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
@@ -1615,6 +1639,21 @@ export function updateBoss(dt, player, time) {
       }
     }
 
+    // ---- §5i.B SHADOW-RIDE (BRINEHOLM's Calamities graze, def-gated) — ride the
+    // leviathan's LEE (the shadow under its bulk) to bank Surge; the risk is the
+    // geysers that erupt there. Same tick economy as beamEdge (one grazeForm/boss). ----
+    if (def.grazeForm === 'shadowRide') {
+      const halfW = 9 * (def.scale ?? 1);
+      const inLee = Math.abs(player.position.x - pose.x) < halfW * 0.55   // centred under the head
+        && player.position.y < pose.y - 2                                 // beneath the maw
+        && Math.abs(pose.rel - B.settleGap) < 22;                         // at fight distance
+      if (inLee) {
+        beamGrace = 0.3; beamHeld += dt; beamTick -= dt;
+        if (beamTick <= 0) { bulletGraze(player); emit('shadowGraze', { held: beamHeld }); beamTick = Math.max(0.2, 0.5 - beamHeld * 0.06); }
+      } else if (beamGrace > 0) { beamGrace -= dt; }
+      else { beamHeld = 0; beamTick = 0; }
+    }
+
     // ---- NO-HIT ADRENALINE LADDER (global §5i.B meta spine) ----
     {
       if (game.bossHitsTakenRun > adrenHits0) {            // took a hit since last frame
@@ -1654,6 +1693,19 @@ export function updateBoss(dt, player, time) {
       }
     }
 
+    // §5f slot 8 (BRINEHOLM): the eye SURFACES in the recovery gap (the vulnerable
+    // weak-point window) and SUBMERGES while the beast winds up or fires (invulnerable)
+    // — the turn-taking tell the damage gate reads. Shield/entrance own their own
+    // down-state (the model clamps the eye there), so only drive it when unshielded.
+    if (def.eyeWeakPoint && model.setEyeUp && !shielded) {
+      // Submerge through the wind-up AND a short hold past the strike, so the heavy
+      // lid has time to fully close (the eased lid can't shut inside a brief
+      // telegraph) — a real, readable invulnerable window; surfaced in the gap.
+      if (chargeT > 0) eyeHold = 0.45;
+      else eyeHold = Math.max(0, eyeHold - dt);
+      model.setEyeUp((chargeT > 0 || eyeHold > 0) ? 0 : 1);
+    }
+
     if (shielded) {
       // Armour is up: the boss FLOODS graze-bait — dense rings streaming close past
       // you with a threadable lane. Weaving them tight is how you charge the Surge
@@ -1688,7 +1740,11 @@ export function updateBoss(dt, player, time) {
         // §5i: a rhythm def uses the machine's authored rest (its signature's
         // fingerprint, stashed when the attack was picked); else the legacy roll.
         // cadenceMult: the §5h recurring-slot tighten (1 on a first encounter).
-        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult;
+        // §5f BRINEHOLM mercy: each shackle freed EARLY relaxes the cadence in the
+        // bound phases (P3+) — freeing the beast softens the strain (a mechanic, not
+        // a stat). Def-gated; every other boss keeps mercy = 1.
+        const mercy = (def.destructibleShackles && phaseIdx >= 2 && model.brokenCount) ? 1 + 0.16 * model.brokenCount() : 1;
+        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult * mercy;
         rhythmRest = null;
       }
     } else if (pending.length === 0) {
@@ -2186,32 +2242,64 @@ function fireRiderShot(player) {
 // hits crack the pane: its radial deletes from the composite (visual + pattern)
 // and a bonus chunk of hp rewards the sculpting. Bosses without the def flag /
 // model hooks never enter this path (coexist).
-const PANE_CRACK_HITS = 3;
-const paneHits = new Map();          // pane idx → accumulated counted hits (reset per encounter)
+// §5f DESTRUCTIBLE SUB-PARTS — a def-gated SYSTEM (prove on HOLLOWGATE's panes,
+// slot 6; extend to BRINEHOLM's shackle posts, slot 8, with zero new plumbing).
+// Each entry names the def flag + the model's own hit-test/crack/alive/live hooks
+// so the routing is part-agnostic; a boss without the flag/hooks never enters it.
+const PART_CRACK_HITS = 3;
+const PART_SYS = [
+  { flag: 'destructiblePanes', crack: 'crackPane', hit: 'paneHitTest', alive: 'paneAlive', live: 'livePanes',
+    key: 'pane', note: ['✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED'], event: 'bossPaneBreak' },
+  // BRINEHOLM: `shackleBroken(i)` is the alive-inverse; freeing a post vents a pink
+  // SPRAY-SOAK graze beat and softens phase 3 (the mercy payoff — handled below).
+  { flag: 'destructibleShackles', crack: 'crackShackle', hit: 'shackleHitTest', broken: 'shackleBroken', live: 'liveShackles',
+    key: 'shackle', note: ['✦ SHACKLE SNAPPED ✦', 'FREED EARLY — IT EASES'], event: 'bossShackleBreak', spray: true },
+];
+const partHits = new Map();          // "key:idx" → accumulated counted hits (reset per encounter)
 function routePartDamage(e) {
-  if (!def?.destructiblePanes || !model?.crackPane) return 0;
-  let idx = (typeof e.part === 'number') ? e.part : -1;
-  // Fallback routing by landing point (boss-local frame: world x/y minus the
-  // group origin at pose) — rider chips aimed at the centre miss the glass by
-  // design; only a shot that actually lands on the window ring routes here.
-  if (idx < 0 && model.paneHitTest && e.x != null && e.y != null) {
-    idx = model.paneHitTest(e.x - pose.x, e.y - pose.y);
-  }
-  if (idx < 0 || !model.paneAlive?.(idx)) return 0;
-  // Reflected ambers count FULL; a rider chip that happens to land on the glass
-  // counts half (the parry is the sculptor, gunfire helps — §5i.C job).
-  const w = (typeof e.part === 'number') ? 1 : 0.5;
-  const n = (paneHits.get(idx) ?? 0) + w;
-  paneHits.set(idx, n);
-  if (n >= PANE_CRACK_HITS && model.crackPane(idx)) {
-    sfx.shieldShatter?.();
-    if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
-    cameraCtl.shake?.(0.6);
-    ui.bossNote?.('✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED', 'gold', 2.2);
-    emit('bossPaneBreak', { pane: idx, left: model.livePanes().length });
-    return 6;                        // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
+  for (const sys of PART_SYS) {
+    if (!def?.[sys.flag] || !model?.[sys.crack]) continue;
+    let idx = (typeof e.part === 'number') ? e.part : -1;
+    // Fallback routing by landing point (boss-local frame: world x/y minus the
+    // group origin at pose) — rider chips aimed at the centre miss the part by
+    // design; only a shot that actually lands on it routes here.
+    if (idx < 0 && model[sys.hit] && e.x != null && e.y != null) idx = model[sys.hit](e.x - pose.x, e.y - pose.y);
+    const isAlive = sys.alive ? model[sys.alive]?.(idx) : (idx >= 0 && !model[sys.broken]?.(idx));
+    if (idx < 0 || !isAlive) continue;
+    // Reflected ambers count FULL; a rider chip that happens to land counts half
+    // (the parry is the sculptor, gunfire helps — §5i.C job).
+    const w = (typeof e.part === 'number') ? 1 : 0.5;
+    const mk = `${sys.key}:${idx}`;
+    const n = (partHits.get(mk) ?? 0) + w;
+    partHits.set(mk, n);
+    if (n >= PART_CRACK_HITS && model[sys.crack](idx)) {
+      sfx.shieldShatter?.();
+      if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
+      cameraCtl.shake?.(0.6);
+      ui.bossNote?.(sys.note[0], sys.note[1], 'gold', 2.2);
+      emit(sys.event, { [sys.key]: idx, left: model[sys.live]?.().length ?? 0 });
+      if (sys.spray) ventSprayBeat();   // §5i.B the freed post vents a 2× pink SPRAY-SOAK graze beat
+      return 6;                        // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
+    }
+    return 0;
   }
   return 0;
+}
+// §5i.B SPRAY-SOAK: a freed shackle VENTS a burst of pink graze motes from the maw
+// that drift down the lane TOWARD the player (aimed like the absorbColor shed) to be
+// soaked for Surge — the mercy vents a reward. Rides the existing soak-mote economy.
+function ventSprayBeat() {
+  const p = lastPlayer; if (!p) return;
+  const my = pose.y - 3 * (def.scale ?? 1), rel0 = pose.rel;
+  for (let i = 0; i < 8 && soakList.length < SOAK_MAX; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const sx = pose.x + Math.cos(a) * 2, sy = my + Math.sin(a) * 1.2;
+    soakList.push({ x: sx, y: sy, rel: rel0,
+      vx: (p.position.x - sx) * 0.06 + Math.cos(a) * 1.4,
+      vy: (p.position.y - sy) * 0.06 + Math.sin(a) * 1.4,
+      vrel: -(rel0 + 2) / 2.2,   // reach the player's plane over ~2.2s (the absorbColor convention)
+      ttl: 2.8, spray: true });
+  }
 }
 
 function damageBoss(amount, kind, e = null) {
@@ -2235,7 +2323,21 @@ function damageBoss(amount, kind, e = null) {
     emit('bossDeflect', { reason: 'scattered' });
     return;
   }
-  if (e) amount += routePartDamage(e);   // §5f: a landed part-hit can crack a pane (+bonus chip)
+  // §5f part routing runs FIRST — the shackle mercy is ALWAYS live: a shot on a post
+  // still counts toward freeing it even while the eye is submerged (you free the
+  // beast during the invulnerable windows). Returns the +bonus chip on a break.
+  const partBonus = e ? routePartDamage(e) : 0;   // §5f: a landed part-hit cracks a pane/shackle (+bonus chip)
+  // §5f slot 8 (BRINEHOLM): body CHIP only lands while the EYE is SURFACED (the
+  // turn-taking tell) — while the heavy lid is DOWN the drowned god is invulnerable
+  // and the shot pings off (the shackle count above still applied). SURGE is exempt
+  // (the player's banked graze always lands). Def-gated on `eyeWeakPoint`.
+  if (def.eyeWeakPoint && kind !== 'surge' && model.eyeIsUp && !model.eyeIsUp()) {
+    sfx.shieldPing?.();
+    if (!eyeDeflectHinted) { eyeDeflectHinted = true; ui.bossNote?.('✦ SUBMERGED — UNTOUCHABLE ✦', 'STRIKE WHEN THE EYE SURFACES', 'gold', 2.6); }
+    emit('bossDeflect', { reason: 'eyeDown' });
+    return;
+  }
+  amount += partBonus;
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash

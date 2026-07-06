@@ -5864,6 +5864,41 @@ justify it, which forced the invuln to make it fair, which forced homing to give
 feature needs another feature to be fair, which needs another to have a purpose, the first feature is probably wrong. Pull
 the root (the rear camera) and the whole tower comes down.
 
+### L157 — BRINEHOLM CP1: an HDR "eye" needs ANATOMY (a bright ball is a sun), and the "never-fits" boss is judged only at the fight frame
+
+**Did.** Built slot 8's CP1 (the bound-leviathan Calamity — a bottom-anchored kelp-black ridge, abalone banding, one
+surfacing heavy-lidded EYE, breakable shackle posts): builder (`bossBrineholm.js`) + def (tier 3, 4 phases/4 cards,
+TIDAL-DRONE rhythm, `destructibleShackles`, `eyeWeakPoint`), the *Reef Was Breathing* entrance data, brineholm studio
+states (`eye`/`crack` dials), the §5f shackle-break API mirroring HOLLOWGATE's pane grammar, and the named-pivot
+telegraph + per-sheet asserts. Cleared `bossgate --studio` G1–G7.
+
+**Learned.** (1) **A glowing HDR "eye" reads as a SUN unless it has eye-anatomy.** The first pass — a bright pale
+hemisphere with a hot core at its centre — passed G1 (a 6% bright cluster) but read as a featureless searchlight, and the
+core was *invisible to G1 anyway* because it was buried INSIDE the opaque sclera hemisphere (the identical L142 occlusion
+trap: a focal peak is scalar × size × **unoccluded-proudness** — miss proudness and bloom never sees it). The fix that
+read as an eye AND carried a clean small G1 pinpoint: a flattened **lens** sclera (a deep dome occludes everything behind
+its front surface — flatten it) + a bold abalone **iris ring** (the identity) + a dark **pupil** + a tiny **catchlight**
+glint offset up-left, every layer seated strictly PROUD front-to-back (socket −0.05 → sclera 0.25 → iris 0.7 → pupil 0.78
+→ catchlight 0.98) and the whole assembly pushed clear of the hull flank (`EYE_Z` past the flank's z). Result: G1 cluster
+6.2% wash → **0.16% glint**, and the eye reads as a dread whale-eye. (2) **A hinged lid must lift UP-AND-BACK, not
+forward.** A cowl hinged above the eye and rotated the "obvious" way swung its mass toward +z, occluding the surfaced eye
+from the front camera (the model said `eyeGlow 0.89` while the render showed a dark blob — the tell that it's occlusion,
+not brightness). Flip the hinge sign so it lifts back behind the eye; verify with a frame DUMP, never the model state.
+(3) **"Never fits the frame" is judged ONLY on the fight-distance frame.** The §7c contact sheets auto-frame the whole
+36-unit hull to 57% height, so the leviathan looks fully-contained and small there — the presence claim (the ridge
+exceeding both frame edges) is only visible on the no-auto-frame fight frame at the boss's true close settle (rel 22 for a
+bottom-anchored boss). Author a per-boss `fightRel` into the studio's fight state or the presence read is a lie. (4)
+**TIDAL DRONE clears rhythmprint by being the slowest:** all-long gaps (never below ~1.4s, where every other roster boss
+has sub-1s gaps) makes the KS distance large by construction; the `rests` array the gate samples includes intra-phrase
+gaps, so slow gaps ARE the fingerprint, not just the rest length.
+
+**Gotcha.** Adding a 7th boss to `BOSS_ORDER` pushed the `bossrush.mjs` full-gauntlet past its frame budget (640→820s) —
+the same per-boss bump the test's own comment documents; and the eye-window telegraph test flips sign with the lid (the
+lid now grinds OPEN positive). Both are expected consequences of the boss joining the roster, not regressions.
+
+**Pattern.** Studio-first + a frame DUMP (`GATE_DUMP=dir`) paid for itself: three G1 failures (buried core → dim wash →
+occluding lid) were each diagnosed in one deterministic dump, not a debugging session. When a pixel gate disagrees with
+the model state, dump the actual scored frame — the disagreement is almost always occlusion/proudness.
 ### L157 — AZURE slot A, the aesthetics-gate climb (2.25 → 4.19): where the wins and the wall were
 
 **What we did.** Built AZURE ("Azure Drake") to its §5d sheet — `bladeFeatherWings` comb, `sweptLoft`
@@ -6253,3 +6288,89 @@ capturable; also tag the crest + horn tips so the head target box excludes them 
 `eyeScale·shape` formula; the rebuilt `hotEye` sizes off a head-length fraction (`0.33 − es·0.16`),
 so the proxy was made `hotEye`-aware. When you change an eye's sizing law, update its test proxy in
 the same commit or the band asserts measure a formula that no longer exists.
+
+### L164 — BRINEHOLM CP1 (the head+maw rebuild): the SILHOUETTE is judged at the FIGHT frame, not the fit frame — a boss can pass every pixel gate and still read as the wrong noun
+
+The island-back ridge was scrapped (read as a battleship); the merged §5d spec re-cast slot 8 as a
+**colossal leviathan HEAD + MAW** that fills the frame — you fight the face, never the body. The rebuild
+(`bossBrineholm.js`) and its independent Fable gate taught the following, all of which generalize:
+
+**A bright HDR eye is necessary but the FOCAL can be occluded by its own anatomy.** First pass failed G1
+(maxLum 243) not because the catchlight was dim but because it sat at eye-local `y +0.28` — *under the
+hooded brow-lid* — and the dark pupil (r0.62) filled the sclera, so the eye read as a dark teacup. Fix:
+seat the catchlight in the EXPOSED lower-inner sclera, shrink the pupil to a slit so the pale glow (not
+black) fills the eye, floor the core brightness whenever it's SHOWN (it leashes for G6 by HIDING under
+shield/death, not by dimming). When a focal fails the gate, check occlusion before you crank intensity.
+
+**The studio fit-frame lies about scale reads; the FIGHT frame is the verdict (§3b law 6/7).** At the
+zoomed-out auto-fit distance the head read as a smooth ball/egg with one eye (a cyclops orb) and every
+gate still PASSED — G1–G7 are colour/luma/coverage laws, blind to "reads as the wrong object." The SAME
+model at fight distance (rel 26, no auto-fit, head exceeds the frame) read as a menacing drowned-god
+face. Judge the fight frame on the DARK home backdrop first; the fit-frame contact sheet is the stress
+test, not the gate.
+
+**The three carrying cues have to reach a LIT EDGE at fight distance, or the dominant one eats the read.**
+Fable's first verdict was REVISE: the maw was dark-on-dark (fangs invisible in idle) so the eye owned ~10×
+the visual weight → cyclops. Four fixes, each a reusable move: (1) **dim always-on abalone ember on the
+fang material + a raised, brighter gullet** so the jagged jawline is a lit edge even at rest; (2) **hood
+the eye** — the brow-lid covers the top third so it's a lidded ARC, not a full circle (hood *hardest* in
+the dread pose, where a bare disc read worst); (3) **sell the one scar** — thicken it, run it diagonal,
+put a glint on the broken end so it reaches a lit edge instead of reading as clutter; (4) **keep the
+positive signal (the blowhole spout) inside the tight fight framing** — lower the vent + lean the plume
+forward, else the one cue that says "leviathan not cyclops" crops out exactly where the player fights.
+Re-judge → PASS.
+
+**Telegraph must change the OUTLINE, not just the glow.** G5 measured 33% silhouette diff (pixels) yet
+Fable read the charge as "a lighting change" — because at a wide idle gape, opening the jaw further barely
+moves the outline. Rearing the whole head (chin up, crown higher) is what makes the wind-up read as a POSE.
+
+**"Never fits the frame" is a per-axis property.** Narrowing + heightening the skull (vertical thrust,
+not a ball) dropped the width-based `hullLength()` below the test's ≥34 floor; the honest span is now the
+VERTICAL extent. When you re-proportion a boss, the "never-fits" number must follow its largest axis —
+update `hullLength()` (and its test proxy) in the same commit.
+
+### L165 — BRINEHOLM CP2 (in-game integration): a weak-point window is a DURATION, not a flag, and the "relief" boss is relief in PATTERN, not kill-time
+
+Landed the live fight for slot 8 — the eye weak-point damage gate, the destructible
+shackle mercy mechanic, the SHADOW-RIDE graze, the SOUNDING dive, and the below-frame
+rise. Each was def-gated so the seven shipped bosses stayed byte-neutral (all suites green
+untouched). What generalized:
+
+**Destructible sub-parts is now a SYSTEM, not HOLLOWGATE's one-off.** `routePartDamage`
+was pane-specific; extended it to a `PART_SYS` table naming each boss's own hooks
+(`crackPane`/`paneHitTest`/`paneAlive` vs `crackShackle`/`shackleHitTest`/`shackleBroken`).
+Slot 8 added a destructible mechanic with ZERO new routing code — the reflected-amber-counts-
+full / rider-chip-counts-half economy and the +bonus-chip-on-break came free. When the second
+user of a mechanic appears, promote the first one's plumbing to a table; don't fork it.
+
+**A weak-point gate driven by a boolean leaks; it needs a HOLD long enough for the animation
+to complete.** The eye gate read `!model.eyeIsUp()`, and the model's eye eases (dt·2.4 — a
+heavy leviathan lid). Setting the controller's target to "down" only while `chargeT>0` (a ~0.5s
+telegraph) left the eased lid still 85% open when the telegraph ended → the probe measured
+46/47 charge-frames STILL VULNERABLE (a gate that doesn't gate). Fix: latch the eye down for
+`telegraph + 0.45s` so the eased lid actually crosses the `>0.55` threshold and stays down — a
+measured 72%-up / 28%-down real alternating window, surge-exempt. Lesson: when a gate reads an
+EASED state, the drive must hold the target past the ease time-constant, or verify the state
+the gate actually reads (not the intent) — a headless probe classifying by the deflect signal,
+not by `charging`, is what exposed the leak.
+
+**The mechanic that gates chip doubles the kill time — budget for it, and don't confuse
+"relief" with "fast."** The eye gate pushed BRINEHOLM's headless kill from ~113s to ~166s (it's
+now the slowest boss to kill) and blew the bossrush single-pick budget (180→240s). That's
+correct: BRINEHOLM is the band's RELIEF in bullet PATTERN (the sub-1.4s-never TIDAL DRONE, the
+lowest pressure), not in time-to-kill. When you add a chip gate, re-measure every kill-budget
+test in the same commit; a longer kill is a feature, a blown budget is a bug.
+
+**An event-driven spawn needs the player, and the soak-mote `rel` is player-relative.** The
+freed-shackle SPRAY-SOAK vent fires from the `bossDamage` event handler, which has no player
+arg — stash `lastPlayer` in `updateBoss`. And the motes only soak near `rel≈0` (the player's
+plane): a burst spawned at the boss's `rel` with a slow `vrel` never arrives. Reuse the
+absorbColor convention — `vrel = -(rel0+2)/2.2` and aim `vx/vy` at the player — so the vent
+travels the lane and is actually grazeable (verified: motes soak).
+
+**A DIVE is a station-leave the excursion test didn't know about.** The SOUNDING setpiece sinks
+the head below the frame (the §5e "below" counterpart to ASHTALON's stoop-from-above). The
+kill-test's "left station" check only counted up / lateral / near-camera excursions, so a pure
+downward dive read as "never left." Generalized it to also accept `minY < fightHeight−6` (track
+`setpieceMinY`) — the honest fix, and it can't false-pass the shipped bosses (their setpieces
+don't dive).

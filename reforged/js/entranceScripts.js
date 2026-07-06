@@ -166,6 +166,62 @@ export const ENTRANCE_SCRIPTS = {
     // NO camera fn: hijack 0s — the chase camera never leaves home (BANKED, §5j).
   },
 
+  // BRINEHOLM — THE REEF WAS BREATHING (§5j slot 8, hijack ≤3s @0.35 — spends the
+  // roster's ONE "environment wakes" archetype). The crest tease starts AT WARN
+  // behind a scoped sub-rig exemption to the group gate (the breathing crest only;
+  // CP2 wires the exemption) — a kelp-black ridge parallels the lane just above the
+  // fog, lifting and settling on the tidal-drone swells. At fight start setOvertake
+  // slews LOW across the wing as the 24-unit hull INHALES up through the fog floor
+  // (the model's setEntrance(u) drives the internal rise — sails unfolding
+  // bow-to-stern, banding lighting in a wave, the crest exiting frame-top: it never
+  // fits). Mid-rise the ascent HOLDS one fixed segment (u≈0.5–0.6) as the dragon's
+  // shadow crosses it — the canon HESITATION (BRINEHOLM's relationship beat, §5c).
+  // The eye stays SUBMERGED (a pale glow at the bow); the lid grinds and the iris
+  // LOCKS once at settle (no continuous tracking). This script owns the approach
+  // path, the low camera slew, the dilate window, and the setEntrance clock feed;
+  // the rise/unfold/hesitation/lid choreography lives in the model's setEntrance(u).
+  reefWasBreathing: {
+    dur: 2.4,                  // ~3s wall inside the low-slew dilate — the hijack ceiling (§5j)
+    skipTo: 0.82,              // a tap fast-forwards to the settle (the iris still LOCKS)
+    anchorToDragon: false,     // the leviathan owns the lane centre; the dragon flew ALONGSIDE it (the crest paralleled the lane)
+    initYaw: 0,                // it faces the lane — a leviathan does not turn to you (it hesitates)
+    eyeLock: false,            // the eye stays submerged through the rise; it does not track
+    announce: { title: '☰  BELOW  ☰', sub: 'THE REEF WAS BREATHING', tone: 'gold', dur: 2.2 },
+    slowWindow: { uIn: 0.4, uOut: 0.76, depth: 0.35 },   // the low slew dwells @0.35 across the HESITATION hold
+    // The pose holds near STATION while the model's setEntrance(u) rises the hull
+    // internally (rig.y from deep → 0, studio-visible): live == studio. A gentle
+    // rel settle from a touch further closes the last of the distance as it surfaces.
+    // (CP2 may migrate the gross rise to a per-def deepened pose.y from startDepth
+    // once the below-horizon-rise engine + widened cull land — the model rise is
+    // the CP1 stand-in and already reads correctly live via this onFrame feed.)
+    path(u, ctx) {
+      const { B } = ctx;
+      const t = 1 - Math.pow(1 - clamp01(u / 0.92), 2.0);   // ease-out, settled by u≈0.92
+      return { x: 0, y: B.fightHeight, rel: L(B.settleGap * 1.28, B.settleGap, t) };
+    },
+    tuck() { return 0; },                                    // the hull rise is internal (setEntrance), not a body tuck
+    yaw() { return 0; },                                     // it never turns — stillness + the hesitation are the read
+    gaze() { return { gx: 0, gy: 0 }; },                     // the eye is submerged; the iris LOCKS at settle (setEntrance)
+    // Drive the model's rise + sail-unfold + banding wave + lid grind + iris lock.
+    onFrame(u, ctx, pose, player, model) {
+      model.setEntrance?.(u);
+      model.setEntranceSteer?.(0);   // the eye does not track during the entrance (§5d)
+    },
+    onStart(model) { model.setEntrance?.(0); },
+    // setOvertake slews the camera LOW across the wing (framing the surfacing hull
+    // from just above the fog), easing back toward home through the settle. Feeds
+    // the boss world position with a LOWERED look target so the rise reads as an
+    // ascent past the frame. A shallow pivot keeps the chase framing (no rear look).
+    camera(u, pose, player) {
+      const rise = clamp01((u - 0.05) / 0.85);
+      const low = (1 - rise) * 5.5;                 // start the look LOW (near the fog), rise with the hull
+      const home = clamp01((u - 0.82) / 0.18);      // ease back toward the chase framing at the settle
+      return {
+        k: u, bx: pose.x, by: pose.y - low, bz: -(player.dist + pose.rel),
+        pivot: 0.34 * (1 - home), blend: 0.30, fov: L(80, 72, home),
+      };
+    },
+  },
   // THRUMSWARM — THE SHAPE IT REMEMBERS (§5j slot 7, hijack 2.8s @0.24× dilate). The
   // 28 unlit motes converge from AHEAD (approachFrom 'condense' spawns them at rel
   // ~45) and CLICK slot-by-slot into the YOUR-DRAGON formation — a stippled copy of

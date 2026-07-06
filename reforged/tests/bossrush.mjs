@@ -76,8 +76,9 @@ let t = 0;
 // joined; raised 320→440s when MARROWCOIL (boss 4) joined; raised 440→640s when
 // EITHERWING (boss 5, the Colossi PEAK) joined — hp 330 + the figure-eight
 // moving-station runs ~120s solo, so the 5-boss gauntlet clears well past the old cap.
-// Raised 640→800s when THRUMSWARM (boss 7) joined (HOLLOWGATE/THRUMSWARM each ~100s solo).
-for (let i = 0; i < 60 * 800 && !rushClear; i++) {
+// Raised 640→800s when THRUMSWARM (boss 7) joined; 800→980s when BRINEHOLM (boss 8,
+// a Calamity — hp 410, the slowest TIDAL-DRONE cadence) joined the tail (8 bosses now).
+for (let i = 0; i < 60 * 980 && !rushClear; i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks
@@ -107,7 +108,10 @@ on('bossStart', (e) => { if (e && e.id) f2.add(e.id); });
 on('rushClear', (e) => { rc2 = e; });
 boss.startBossRush(player, only);
 let t2 = 0;
-for (let i = 0; i < 60 * 180 && !rc2; i++) {
+// Budget raised 180→240s: the last boss (BRINEHOLM) gates chip on its eye-surface
+// weak-point window (~20% invulnerable) + a 7.5s SOUNDING dive, so a solo pick of
+// the slowest boss clears well past the old 3-minute cap even under adequate play.
+for (let i = 0; i < 60 * 240 && !rc2; i++) {
   const dt = 1 / 60; t2 += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;
   if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
