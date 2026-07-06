@@ -348,6 +348,19 @@ const t216b = await runLock({ organs: { A: { x: 0, y: 0 } }, candidates: ['A'],
 check('T2.16 the break fires the celebration AND the paint instantly',
   t216b.count === 1 && t216b.events.some((e) => e.name === 'aimLock'));
 
+// T2.18 — the AIM ANCHOR PROMOTED to a brand target (owner playtest #4: locked the
+// head, it never took a pip, the reticle stranded on it). T2.17's three-class rule
+// still governs a V1-ONLY anchor; here MARROWCOIL's head is data-promoted INTO
+// `paintables` (boss.js paintableParts adds virtualLockOrgan on a V2 boss), so it
+// leaves class C and behaves like any brand target: landing on it paints a pip AND
+// hops onward — no dead-green stranding, and the head is the easy first mark.
+const t218 = await runLock({ organs: { head: { x: 0, y: 0 }, rib: { x: 12, y: 0 } },
+  candidates: ['head', 'rib'], paintables: ['head', 'rib'],
+  frames: [{ dt: 0.06, n: 8, px: 0 }, { dt: 0.06, n: 2, px: 0 }] });
+check('T2.18 a promoted anchor paints a pip and the reticle hops off it (UNPAINTED-FIRST)',
+  t218.count === 1 && t218.hud.aimPart === 'rib' &&
+  t218.events.some((e) => e.name === 'lockPaint' && e.part === 'head'));
+
 // T2.15 — UNPAINTED-FIRST LAW (owner playtest: swinging back after a dodge
 // re-grabbed the painted rib and pinned the player on refresh): while an unpainted
 // paintable remains, sitting on a painted organ acquires NOTHING — even past the
@@ -383,6 +396,7 @@ const gates = await page.evaluate(async () => {
     caps: L.capByTier, decay: L.decay,
     tutorialAmp: voidmaw.holdSway?.amp ?? 5.0,
     marrowTier: marrow.tier, marrowParts: (marrow.lockParts || []).map((p) => p.part),
+    marrowVirtual: marrow.virtualLockOrgan,
     roiWorst: (L.capByTier[4] * L.lanceDmg),
   };
 });
@@ -395,6 +409,8 @@ check(`T2.G decay ${gates.decay}s within the TUNE range [3,4]`, gates.decay >= 3
 check(`T2.G TUTORIAL INEQUALITY: voidmaw sway amp ${gates.tutorialAmp} < retention ${gates.retention}`,
   gates.tutorialAmp < gates.retention);
 check('T2.G marrowcoil is tier 2 with 4 rib lockParts', gates.marrowTier === 2 && gates.marrowParts.length === 4);
+check('T2.G marrowcoil head is a brand target (virtualLockOrgan present, not already a rib)',
+  gates.marrowVirtual === 'skullGroup' && !gates.marrowParts.includes(gates.marrowVirtual));
 
 // T2.12 — def-lint: every marrowcoil lockPart resolves via the BUILT model's
 // partWorldPos (a def naming a nonexistent part would silently never paint).

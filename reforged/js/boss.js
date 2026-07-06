@@ -2357,13 +2357,25 @@ function currentPhaseHp() {
   return Math.max(1, (cur - next) * hpMax);
 }
 
-// V2 paintable organs this phase: def.lockParts filtered by their optional phase gate.
+// V2 paintable organs this phase: def.lockParts filtered by their optional phase
+// gate, PLUS the virtualLockOrgan on a V2 boss. On a lock-capable boss the aim
+// anchor greens under the reticle (V1 rider-retarget) whenever the real lockParts
+// coil out of the acquire cone — if it isn't ALSO brandable, the player locks it,
+// gets no pip, and the aim can't hop (hop only fires on a paint), stranding the
+// reticle on it until they fly out of retention (owner playtest: 'stuck on the
+// head, have to disengage and wait for reset'). Making the anchor a real brand
+// target closes that: every organ the reticle greens on now takes a mark. It's
+// fair — the anchor is the muzzle (always emitting → always under fire, never a
+// free rest-beat paint) — and UNPAINTED-FIRST still drives the sweep to the ribs
+// for the rest of the cap. Slots 1–3 (virtualLockOrgan, NO lockParts) stay V1-only
+// (this returns null there → no painting at all).
 function paintableParts() {
   if (!def || !def.lockParts) return null;
   const out = [];
   for (const lp of def.lockParts) {
     if (!lp.phases || lp.phases.includes(phaseIdx)) out.push(lp.part);
   }
+  if (def.virtualLockOrgan && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
   return out;
 }
 

@@ -289,10 +289,14 @@ export const BOSSES = {
     // through. Distinct from slot 1's mask, slot 2's ring-eye, slot 3's raptor.
     archetype: 'boneCoil',
     muzzle: 'skullGroup',     // head-origin patterns (aimed/fan/stream) emit from the skull, not lane centre (L148)
-    virtualLockOrgan: 'skullGroup',   // V1 aim anchor (big, central) — live even before V2 unlocks
+    virtualLockOrgan: 'skullGroup',   // V1 aim anchor (big, central) — live even before V2
+                                      // unlocks. On a V2 boss the anchor is ALSO brandable
+                                      // (paintableParts adds it): the head is the easy first
+                                      // mark, then UNPAINTED-FIRST drives the sweep to the ribs.
     // V2 LANCE-PAINT anatomy (PR2, the teach fight): the four rib emitters — the SAME
     // pivots that vent the parryable rib ambers, so the C3 exemption is felt here first
     // (a venting rib can't be dwell-painted; parry-paint is PR4's answer). All phases.
+    // (+ the skull head via virtualLockOrgan → 5 brand targets, cap 3.)
     lockParts: [
       { part: 'ribPivotL1' }, { part: 'ribPivotR1' },
       { part: 'ribPivotL3' }, { part: 'ribPivotR3' },
