@@ -605,6 +605,89 @@ for (const key of BOSS_ORDER) {
   ok(`hollowgate geometry: gap ${gapW.toFixed(1)}w, portcullis drop ${dropped.toFixed(1)}, pupil ${leftPane}→${rightPane} in ${stepLog.size} steps, ignition ${litEarly}→${litLate}, pane-break ✓`);
 }
 
+// BRINEHOLM (slot 8) — the telegraph gate + the §5d/§7b per-sheet geometry
+// asserts: NAMED telegraph pivots (the jawPivot GAPES the maw + eyeLidPivot grinds
+// on charge), the ONE focal (brineEye/eyeCore), the ONE scar (brineScar), the head
+// span (the "never fits the frame" number), the EYE WEAK-POINT WINDOW (surfaces/
+// submerges — the §5f turn-taking tell), and the DESTRUCTIBLE SHACKLE posts (the
+// §5f mercy mechanic: per-part hit test + break, mirroring the pane API).
+{
+  const bh = buildBoss(BOSSES.brineholm, 1);
+  // Named parts the gate + the §5f plumbing find by name (the colossal head+maw:
+  // the jawPivot gapes the maw, the eye is the sole focal, chains bind the snout).
+  assert(!!bh.group.getObjectByName('jawPivot'), 'brineholm exposes the named jawPivot (the maw-gape telegraph)');
+  assert(!!bh.group.getObjectByName('eyeLidPivot'), 'brineholm exposes the named eyeLidPivot (the heavy-lid telegraph)');
+  assert(!!bh.group.getObjectByName('brineEye'), 'brineholm exposes the named brineEye (the one HDR focal + weak point)');
+  assert(!!bh.group.getObjectByName('eyeCore'), 'brineholm exposes the named eyeCore (the G1 pinpoint)');
+  assert(!!bh.group.getObjectByName('brineScar'), 'brineholm exposes the ONE asymmetric scar (the snapped snout chain)');
+  for (let i = 0; i < 3; i++) assert(!!bh.group.getObjectByName(`shacklePost${i}`), `brineholm exposes named shacklePost${i}`);
+
+  // The "NEVER FITS THE FRAME" presence number (§5d / L140): the head spans an
+  // arena scale that exceeds the ~34-wide portrait envelope at fight distance.
+  const span = bh.hullLength();
+  assert(span >= 34, `brineholm head spans ${span.toFixed(1)} world units ≥ 34 (exceeds the fight-frame envelope — "never fits the frame")`);
+
+  // Telegraph gate (§3.5): setCharge(1) + tick GAPES the maw (jawPivot opens) AND
+  // grinds the eye-lid open (a silhouette change, not a recolour).
+  bh.tick(0.05, 0.5);
+  const preJaw = bh.jawOpen();
+  const preLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
+  bh.setCharge(1);
+  for (let s = 0; s < 24; s++) bh.tick(0.05, 1.0 + s * 0.05);   // let the maw + lid ease open
+  const postJaw = bh.jawOpen();
+  assert(postJaw > preJaw + 0.2, `brineholm charge GAPES the maw (jawPivot.rot.x ${postJaw.toFixed(2)} > ${preJaw.toFixed(2)} + 0.2 — the beast exhales, a silhouette change)`);
+  const postLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
+  assert(postLid > preLid + 0.4, `brineholm charge grinds the eye-lid open (lidPivot.rot.x ${postLid.toFixed(2)} > ${preLid.toFixed(2)} — the lid lifts up-and-back, the eye surfaces to be hit)`);
+
+  // THE EYE WEAK-POINT WINDOW (§5f law 5): the eye surfaces (chip-damage window)
+  // and submerges (invulnerable) — the unmistakable turn-taking tell. Clear the
+  // charge first (a live wind-up forces the eye UP so it can be hit — intended).
+  bh.setCharge(0);
+  bh.setEyeUp(1);
+  for (let s = 0; s < 40; s++) bh.tick(0.05, 3.0 + s * 0.05);
+  assert(bh.eyeIsUp(), `brineholm eye SURFACES on setEyeUp(1) (eyeSurfaced ${bh.eyeSurfaced().toFixed(2)} — the weak-point window opens)`);
+  bh.setEyeUp(0);
+  for (let s = 0; s < 40; s++) bh.tick(0.05, 5.0 + s * 0.05);
+  assert(!bh.eyeIsUp(), `brineholm eye SUBMERGES on setEyeUp(0) (eyeSurfaced ${bh.eyeSurfaced().toFixed(2)} — invulnerable, no chip damage)`);
+
+  // DESTRUCTIBLE SHACKLE POSTS (§5f mercy mechanic; reuses slot 6's per-part
+  // grammar): the hit test routes a hit near a post to that post, crackShackle
+  // breaks it (idempotent), and a broken post never reroutes.
+  assertEq(bh.shackleCount(), 3, 'brineholm has 3 shackle posts');
+  assertEq(bh.liveShackles().length, 3, 'brineholm starts with all 3 shackles bound');
+  const sc8 = BOSSES.brineholm.scale;
+  // A hit near the centre snout shackle post (local ≈ 1.5, −2.4 → world ×scale).
+  const hitIdx = bh.shackleHitTest(1.5 * sc8, -2.4 * sc8);
+  assert(hitIdx >= 0, `brineholm shackleHitTest routes a hit near a post to a live post (got ${hitIdx})`);
+  assert(bh.crackShackle(hitIdx), 'brineholm crackShackle breaks a bound post');
+  assert(!bh.crackShackle(hitIdx), 'brineholm crackShackle is idempotent (already broken)');
+  assertEq(bh.liveShackles().length, 2, 'brineholm a broken post leaves 2 bound');
+  assert(bh.shackleBroken(hitIdx), 'brineholm the broken post reports broken');
+  const reroute = bh.shackleHitTest(1.5 * sc8, -2.4 * sc8);
+  assert(reroute !== hitIdx, `brineholm shackleHitTest never reroutes to a broken post (got ${reroute})`);
+
+  // NOTICE state JUMP (§4b — the notice beat must be a discrete state change, not
+  // idle+ε; the CP1 gate caught the first pass reading identical to idle). A fresh
+  // build so prior charge/eye/shackle state can't muddy the baseline.
+  {
+    const bn = buildBoss(BOSSES.brineholm, 1);
+    bn.setGaze(0, 0);
+    for (let s = 0; s < 30; s++) bn.tick(0.05, 1.0 + s * 0.05);   // settle a calm idle
+    const idleJaw = bn.jawOpen();
+    const idleLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
+    bn.notice();
+    for (let s = 0; s < 8; s++) bn.tick(0.05, 2.6 + s * 0.05);    // sample mid-notice (before it decays)
+    const nJaw = bn.jawOpen();
+    const nLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
+    assert(nJaw > idleJaw + 0.15 && nLid > idleLid + 0.2,
+      `brineholm NOTICE is a state JUMP (maw gaped ${nJaw.toFixed(2)} > ${idleJaw.toFixed(2)}, lid flung ${nLid.toFixed(2)} > ${idleLid.toFixed(2)}) — not idle+ε`);
+    bn.dispose();
+  }
+
+  bh.dispose();
+  ok(`brineholm geometry: head ${span.toFixed(1)}w, maw-gape + lid telegraph, eye surface/submerge, notice-jump, shackle-break ✓`);
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def
@@ -820,7 +903,7 @@ function driveKill(idx) {
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
   let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
-  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinRel = 99, chargedDuringSetpiece = false;
+  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinY = 99, setpieceMinRel = 99, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
     t += dt;
@@ -839,6 +922,7 @@ function driveKill(idx) {
       sawSetpiece = true;
       setpieceMaxX = Math.max(setpieceMaxX, Math.abs(st.poseX));
       setpieceMaxY = Math.max(setpieceMaxY, st.poseY);
+      setpieceMinY = Math.min(setpieceMinY, st.poseY);
       setpieceMinRel = Math.min(setpieceMinRel, st.poseRel);
       if (st.charging) chargedDuringSetpiece = true;
     }
@@ -846,7 +930,7 @@ function driveKill(idx) {
     boss.updateBoss(dt, player, t);
   }
   return { t, sawFight, sawShield, sawNarrow,
-    sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinRel, chargedDuringSetpiece,
+    sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
 }
@@ -888,8 +972,11 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     // "Left station" on ANY excursion axis: lateral (|x|), vertical (y), or DEPTH
     // (rel through/near the camera — the fly-through axis; L141: HOLLOWGATE's
     // archPass and EITHERWING's figure-eight cross the player at rel < 0).
-    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3 || r.setpieceMinRel < 4,
-      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)}, min rel ${r.setpieceMinRel.toFixed(1)})`);
+    // Excursion on ANY axis: lateral (|x|), UP (y high), DOWN (y below the frame —
+    // BRINEHOLM's SOUNDING dive, the §5e "below" counterpart to the stoop), or DEPTH
+    // (rel through/near the camera — the fly-through axis).
+    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3 || r.setpieceMinY < CONFIG.BOSS.fightHeight - 6 || r.setpieceMinRel < 4,
+      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)}, min y ${r.setpieceMinY.toFixed(1)}, min rel ${r.setpieceMinRel.toFixed(1)})`);
     if (setpieces.some((s) => s.moving)) {
       assert(r.chargedDuringSetpiece, `${key}: a moving-station setpiece keeps firing while it travels (§5e)`);
     } else {

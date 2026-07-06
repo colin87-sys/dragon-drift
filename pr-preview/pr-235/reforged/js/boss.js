@@ -115,6 +115,9 @@ let riderTimer = 0;
 let cineT = 0;
 let entranceId = null;         // §5j: which ENTRANCE_SCRIPTS entry is playing (null = plain approach)
 let cineYaw = null;            // null = normal facing; else a scripted world-yaw for the turn-around
+let cineRoll = 0;              // scripted bank (rotation.z) — a setpiece path may return `roll`; 0 = level (L155)
+let ribEmitT = 0;             // sub-cadence accumulator for the ribThread rib-bullet emit (L155)
+let headShotT = 0;            // sub-cadence for the L155 flank head-turn mouth shots
 // Fight-phase group x/y smoothing (seeded at enterFight from the entrance-end pose). Absorbs the
 // single-frame lateral JUMP when the fight's station-bob (pose.x = sin(t)*5) takes over from the
 // entrance (which ends at x=0) and at every setpiece boundary (station ↔ scripted path). rel is
@@ -185,6 +188,35 @@ const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'strea
 // byte-unchanged (the lifecycle test asserts the shipped two never see one).
 let setpieceT = -1;            // <0 idle · ≥0 seconds into the active setpiece
 let setpieceDef = null;
+// §5b/§5d slot 7 (THRUMSWARM): the swarm's condense/scatter cycle is the PRESSURE-
+// OSTINATO puzzle read — CONDENSED = vulnerable + firing, SCATTERED = invulnerable
+// (chip only lands while condensed, the turn-taking tell). Def-gated on
+// `condenseInvuln`; every value is inert (0/false) for every other archetype.
+let staggerT = 0;             // >0 = the queen is STAGGERED (parry job): the swarm is LOCKED condensed (exposed)
+let staggerHits = 0;         // amber-volley parries banked toward the next stagger (SCATTER-STAGGER, §5i.C)
+let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
+let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
+let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
+let condHold = 0;            // seconds the swarm stays CONDENSED past its last shot (bridges the ostinato)
+// §5i.B ABSORB-A-COLOR (THRUMSWARM's Calamities graze, def-gated `grazeForm:'absorbColor'`):
+// the swarm SHEDS surge-pink motes braided into the magenta stream; weaving in and SOAKing
+// them feeds the Surge meter (ANATOMY — the pink is shed by the swarm body). Rendered as ONE
+// additive THREE.Points (well inside the ≤2 large-additive-volume overdraw law, L124). A
+// SOAK is non-lethal: touching a pink mote absorbs it (bulletGraze → surge). Inert for every
+// other archetype (no grazeForm, no shed).
+let soakMotes = null;        // the THREE.Points object (one additive draw)
+let soakPos = null;          // its position attribute buffer
+const soakList = [];         // active pink motes {x,y,rel,vx,vy,vrel,ttl}
+const SOAK_MAX = 16;         // hard cap on-screen (overdraw + fairness)
+let soakShed = 0;            // countdown between sheds
+// §5e INPUT/POSE RING BUFFER (the roster's ring buffer — ONEWING reuses it at slot 12).
+// Records the player's recent flight path; THRUMSWARM's *Your Own Wings* replays it as the
+// swarm-dragon's own path (§5f rule-break: boss-side mirroring that NEVER touches input).
+// General + inert (recorded for any boss; only a setpiece that reads it does anything).
+const poseRing = [];         // recent player {x,y} samples (newest last)
+let poseRingT = 0;           // sample cadence
+const POSE_RING_MAX = 90;    // ~9s at 0.1s cadence
+let wingsPath = null;        // snapshot of poseRing taken when Your Own Wings arms
 // §5i.B RIDE-THE-BEAM-EDGE (Calamities graze debut, def-gated `grazeForm:
 // 'beamEdge'`): per-frame ticking graze with its OWN dedup story — the tick
 // clock rate-limits payout (vs the crossing check's one-per-bullet), and the
@@ -194,6 +226,8 @@ let setpieceDef = null;
 let beamHeld = 0;              // seconds of unbroken beam contact (the ramp)
 let beamTick = 0;              // countdown to the next tick payout
 let beamGrace = 0;             // seconds of contact-loss tolerated before reset
+let eyeHold = 0;              // §5f slot 8: seconds to KEEP the eye submerged after a strike (so the heavy lid actually closes)
+let lastPlayer = null;       // the player from the last updateBoss (for event-driven mote spawns with no player arg)
 // NO-HIT ADRENALINE LADDER (§5i.B meta spine, global — lands with slot 6).
 // Five per-fight rungs on unbroken no-hit fight time, reset on hit:
 //   R1 magnet (graze annulus ×1.18) → R2 +gain (surge charge ×1.5) →
@@ -320,6 +354,25 @@ const SETPIECE_PATHS = {
     const t = easeInOut((k - 0.72) / 0.28);   // recover to station
     return { x: 0, y: DIVE_Y + (B.fightHeight - DIVE_Y) * t, rel: DIVE_REL + (B.settleGap - DIVE_REL) * t };
   },
+  // BRINEHOLM — SOUNDING (§5e "below" dread, "it dives"): the head SOUNDS — it
+  // SINKS below the frame line and draws back (the drowned god submerges), HOLDS
+  // under while the arena floor erupts in geyser curtains (MOVING → the P4 patterns
+  // keep firing from below-frame), then SURFACES back to station. The below-frame
+  // counterpart to ASHTALON's stoop-from-above; the model dread-submerges on top.
+  sounding(k) {
+    const B = CONFIG.BOSS;
+    const SINK_Y = -7, BACK_REL = B.settleGap + 4;
+    if (k < 0.32) {                        // SOUND — sink under the frame + draw back
+      const t = easeInOut(k / 0.32);
+      return { x: 0, y: B.fightHeight + (SINK_Y - B.fightHeight) * t, rel: B.settleGap + (BACK_REL - B.settleGap) * t };
+    }
+    if (k < 0.74) {                        // HOLD submerged — a slow tidal sweep as the floor erupts
+      const u = (k - 0.32) / 0.42;
+      return { x: Math.sin(u * Math.PI * 2) * 6, y: SINK_Y - Math.sin(u * Math.PI) * 1.5, rel: BACK_REL };
+    }
+    const t = easeInOut((k - 0.74) / 0.26);   // SURFACE back to station
+    return { x: 0, y: SINK_Y + (B.fightHeight - SINK_Y) * t, rel: BACK_REL + (B.settleGap - BACK_REL) * t };
+  },
   // MARROWCOIL — RIB THREAD (§5c "the rail threads its negative space"): the bone
   // dragon LOOMS straight in until the rail passes THROUGH the ribcage (rel drops
   // to ~7, centred, raised so the mid-body cage sits on the frame centre — the
@@ -327,28 +380,31 @@ const SETPIECE_PATHS = {
   // MOVING so the coil's iris rings keep expanding as it closes (emitter=organ).
   ribThread(k) {
     const B = CONFIG.BOSS;
-    // L141 fix — a TRUE fly-through, not a loom. The old path parked at rel 7 so
-    // the cage only LOOMED (the spine trailed away, the rail never entered it).
-    // Now the group SWEEPS from the loom straight through rel −6 (the cage passes
-    // OVER the camera): the rail threads the barrel, ribs rush past on both flanks
-    // + overhead, then the tail clears behind and it re-approaches to station.
-    // Kept CENTERED (x≈0) — unlike EITHERWING's flank scissor, MARROWCOIL's whole
-    // identity is the rail going THROUGH the aperture, so the big bottom-open cage
-    // (clearance ~6u scaled) is held over the lane rather than dodged aside; the
-    // coil's own sway supplies a small in-aperture wobble that never leaves it.
-    // The barrel interior sits ~4u ABOVE the rail (its dorsal rib roots are high,
-    // the arcs hang bottom-open below them). So the pass also DIVES: the boss drops
-    // ~DIVE units at the thread instant, dropping the barrel INTERIOR down around the
-    // camera (ribs then flank the dragon on both sides + overhead — a true tunnel,
-    // not a canopy skimmed from beneath).
-    const NEAR_REL = 7, PASS_REL = -6, DIVE = 4.2;
-    // 0–0.30 — approach: close from station to the loom, held at frame height.
-    if (k < 0.30) { const t = easeInOut(k / 0.30); return { x: 0, y: B.fightHeight, rel: B.settleGap + (NEAR_REL - B.settleGap) * t }; }
-    // 0.30–0.70 — THE PASS: rel sweeps NEAR → PASS while the boss dives, deepest at the
-    // thread instant (rel 0 ≈ k 0.52). Small sway stays well inside the aperture.
-    if (k < 0.70) { const t = (k - 0.30) / 0.40; const s = Math.sin(t * Math.PI); return { x: s * 0.9, y: B.fightHeight - DIVE * s, rel: NEAR_REL + (PASS_REL - NEAR_REL) * easeInOut(t) }; }
-    // 0.70–1.0 — recover: rise back to frame height and re-approach to station.
-    const t = easeInOut((k - 0.70) / 0.30); return { x: 0, y: B.fightHeight, rel: PASS_REL + (B.settleGap - PASS_REL) * t };
+    // L155 — a clean readable FLYBY (the rear-look cinematic was reverted (the over-reach, L156): a
+    // camera-takeover + player-lock read as a cutscene interruption, not a boss move). Returns
+    // {x,y,rel,yaw,roll}; the runner routes yaw→cineYaw, roll→cineRoll, and fires two beats:
+    //   1 loom       — close from station to the aperture, facing you.
+    //   2 fly past   — DIVE thread (L147) + recede to DEEP (off-screen behind), x≈0 straight back.
+    //   3 emerge     — re-enter from ONE flank and fly FORWARD (overtake rel DEEP→AHEAD), yaw 0→π
+    //                  (body flies its heading); the runner turns the HEAD at you + fires mouth shots.
+    //   4 bank in    — curve x→0 with a cineRoll bank, wheel yaw π→0 to face you, ease rel→station.
+    //   5 restore    — settle to centre, level, facing you.
+    const NEAR = 7, DEEP = -22, DIVE = 4.2, AHEAD = 13, FLANK = 11, side = 1;
+    // 1 — loom (facing you: no yaw key → cineYaw null → placeGroup face-player default).
+    if (k < 0.15) { const t = easeInOut(k / 0.15); return { x: 0, y: B.fightHeight, rel: B.settleGap + (NEAR - B.settleGap) * t }; }
+    // 2 — thread + fly fully past: dive at the thread, recede to DEEP (off-screen behind), x≈0.
+    if (k < 0.34) { const t = (k - 0.15) / 0.19, e = easeInOut(t), s = Math.sin(t * Math.PI);
+      return { x: 0, y: B.fightHeight - DIVE * s, rel: NEAR + (DEEP - NEAR) * e, roll: 0 }; }
+    // 3 — emerge from a flank + fly forward: swing x to the side, overtake rel DEEP→AHEAD, yaw 0→π
+    // (body faces its flight direction = back-turned to you as it draws alongside). Head-turn + mouth
+    // shots fire from the runner once it's ahead (pose.rel>3).
+    if (k < 0.66) { const t = easeInOut((k - 0.34) / 0.32);
+      return { x: side * FLANK * t, y: B.fightHeight, rel: DEEP + (AHEAD - DEEP) * t, yaw: Math.PI * t, roll: 0 }; }
+    // 4 — bank into the lane: curve x→0, wheel yaw π→0 to face you, gentle bank, ease rel→station.
+    if (k < 0.88) { const t = (k - 0.66) / 0.22, e = easeInOut(t), s = Math.sin(t * Math.PI);
+      return { x: side * FLANK * (1 - e), y: B.fightHeight, rel: AHEAD + (B.settleGap - AHEAD) * e, yaw: Math.PI * (1 - e), roll: -side * s * 0.4 }; }
+    // 5 — restore: hold station, level, facing you.
+    return { x: 0, y: B.fightHeight, rel: B.settleGap, yaw: 0, roll: 0 };
   },
   // MARROWCOIL — THE CLOSING RIBS (§5f dread): holds at mid-close range (the cage
   // readable + threadable) while the model constricts the ribcage one pair at a
@@ -415,11 +471,50 @@ const SETPIECE_PATHS = {
       rel: B.settleGap + (dive - B.settleGap) * env,   // station(26) → the dive (rel −6, past the camera) → station
     };
   },
+  // THRUMSWARM — CONDENSE PASS (§5e moving-station, P2): the swarm sweeps ACROSS the lane
+  // (leaving station, |x| → ~12) as it condenses to fire, dipping close on the near pass,
+  // then re-centres. Moving → the ring/wall volleys keep coming from wherever it travels.
+  condensePass(k) {
+    const B = CONFIG.BOSS;
+    const env = k < 0.15 ? k / 0.15 : k > 0.85 ? (1 - k) / 0.15 : 1;
+    return {
+      x: Math.sin(k * Math.PI * 2) * 12 * env,               // out to ±12 and back (leaves station)
+      y: B.fightHeight + Math.sin(k * Math.PI) * 2.5,
+      rel: B.settleGap - Math.sin(k * Math.PI) * (B.settleGap - 12) * env,   // dips close on the near pass
+    };
+  },
+  // THRUMSWARM — YOUR OWN WINGS (§5f dread, P4): the swarm becomes the player's dragon and
+  // flies the RECORDED flight path (wingsPath) back at them — the roster's ring-buffer break
+  // (boss-side mirroring, never touches input). The lateral x/y REPLAYS what the player just
+  // flew (clamped to the arena for fairness — §5f "capped to fairness"); rel sweeps in for a
+  // genuine CLOSE PASS (L141: cross the player) and back. wingsPath is snapshotted at arm.
+  yourWings(k) {
+    const B = CONFIG.BOSS;
+    let x = 0, y = B.fightHeight;
+    const path = wingsPath;
+    if (path && path.length > 1) {
+      const f = k * (path.length - 1);
+      const i = Math.min(path.length - 1, Math.floor(f));
+      const j = Math.min(path.length - 1, i + 1);
+      const t = f - i;
+      x = path[i].x + (path[j].x - path[i].x) * t;
+      y = path[i].y + (path[j].y - path[i].y) * t;
+    } else {
+      x = Math.sin(k * Math.PI * 2) * 8;   // fallback weave if no path was recorded
+    }
+    x = Math.max(-14, Math.min(14, x));    // fairness clamp to the portrait envelope
+    y = Math.max(2, Math.min(22, y));
+    return { x, y, rel: B.settleGap - Math.sin(k * Math.PI) * (B.settleGap - 3) };   // a close flyby (min rel ~3)
+  },
 };
 function clearSetpiece() {
   if (setpieceT >= 0) model?.setSetpiece?.(0);
   setpieceT = -1;
   setpieceDef = null;
+  cineYaw = null;   // hand facing/banking back to placeGroup's face-player default (L155) —
+  cineRoll = 0;     // covers both normal completion (k≥1) and the mid-beat shield abort
+  ribEmitT = 0; headShotT = 0;   // reset the sub-cadences for the next pass
+  model?.setHeadLook?.(0);   // release the L155 head-turn so an aborted beat never leaves the head cranked
 }
 // Resolve the setpiece armed on entering `idx` (per-phase array first, then the
 // legacy single) and arm it. A `moving` setpiece keeps the attack/rider clocks
@@ -434,9 +529,114 @@ function armSetpieceForPhase(idx) {
   if (!sp || !SETPIECE_PATHS[sp.id]) return;
   setpieceDef = sp;
   setpieceT = 0;
+  // §5e/§5f Your Own Wings: snapshot the player's recorded flight path NOW so the copy
+  // replays exactly what they just flew (capped to fairness in the path fn).
+  if (sp.id === 'yourWings') wingsPath = poseRing.slice(-70);
   if (!sp.moving) {   // quiet pass → suppress fire for a capture-safe window
     attackTimer = Math.max(attackTimer, sp.dur + 1.2);
     riderTimer = Math.max(riderTimer, sp.dur);
+  }
+}
+
+// §5b/§5d slot 7 (THRUMSWARM): map each attack to the swarm FORMATION it fires from
+// (ring = radial, wall = lane-denial, line = swept). Emitter = organ (§5f): the swarm
+// condenses into the shape, then the shape fires.
+const SWARM_ATTACK_FORM = {
+  spiral: 'ring', iris: 'ring', aimed: 'ring', fan: 'ring',
+  curtain: 'wall', movingGap: 'wall', secondWave: 'wall',
+  stream: 'line', crossfire: 'line', spiralStream: 'line',
+};
+// driveSwarm: drive the swarm's condense/scatter cycle + formation from the live fight
+// state (the PRESSURE-OSTINATO puzzle read). CONDENSED while a volley winds up or is in
+// flight (vulnerable + firing); SCATTERED during the rest (invulnerable — chip only lands
+// while condensed). A parry-STAGGER locks it condensed (the exposed bonus window). Def-
+// gated on `condenseInvuln`; a model without setCondense (every other archetype) no-ops.
+function driveSwarm(dt, player) {
+  if (!def || (!def.condenseInvuln && def.grazeForm !== 'absorbColor') || !model || !model.setCondense) return;
+  if (staggerT > 0) staggerT = Math.max(0, staggerT - dt);
+  if (phase !== 'fight') { swarmScattered = false; return; }   // entrance/approach/death own the form
+  if (debugSetpiecePin) { swarmScattered = false; return; }    // a capture pin owns the model (don't fight it)
+  if (shielded) { swarmScattered = false; return; }            // onShieldChange owns the ring-shield
+  if (setpieceT >= 0 && setpieceDef && setpieceDef.dread) { swarmScattered = false; return; }  // Your Own Wings owns the dragon form
+  // CONDENSED while a volley winds up / is in flight (vulnerable + firing), held through the
+  // dense ostinato by `condHold` so the swarm only SCATTERS at the phrase RESTS — brief
+  // invulnerable micro-pauses (the turn-taking tell), not a half-fight gate. A parry-stagger
+  // locks it condensed. SCATTERED = chip does nothing (the puzzle read).
+  const firing = chargeT > 0 || pending.length > 0 || staggerT > 0;
+  if (firing) condHold = 1.1;                     // stay exposed ~1.1s past the last shot
+  else condHold = Math.max(0, condHold - dt);
+  if (firing || condHold > 0) {
+    if (firing) model.setFormation(SWARM_ATTACK_FORM[curAttack] || 'ring');
+    model.setCondense(1);
+  } else {
+    model.setCondense(0);   // the lerp blends the motes back to the scatter cloud (invulnerable)
+  }
+  swarmScattered = (model.condenseLive ? model.condenseLive() : 1) < 0.45;
+
+  // §5i.B ABSORB-A-COLOR: while CONDENSED and firing, the swarm SHEDS surge-pink motes
+  // (braided into the magenta stream) that drift toward the player's lane to be soaked.
+  if (def.grazeForm === 'absorbColor' && soakList.length < SOAK_MAX) {
+    soakShed -= dt;
+    if (soakShed <= 0 && (chargeT > 0 || pending.length > 0 || staggerT > 0)) {
+      soakShed = 0.5 + Math.random() * 0.5;
+      shedSoakMote(player);
+    }
+  }
+}
+
+// Shed one surge-pink soak mote from the swarm (the muzzle = the queen) drifting toward the
+// player's lane. Non-lethal — the player weaves in to SOAK it (feeds Surge).
+function shedSoakMote(player) {
+  const mp = model.partWorldPos ? model.partWorldPos(def.muzzle) : null;
+  const sx = mp ? mp.x : pose.x, sy = mp ? mp.y : pose.y;
+  const relFromPlayer = mp ? (-mp.z - player.dist) : pose.rel;
+  const spread = 3.2;
+  soakList.push({
+    x: sx + (Math.random() - 0.5) * spread, y: sy + (Math.random() - 0.5) * spread,
+    rel: relFromPlayer,
+    vx: (player.position.x - sx) * 0.05 + (Math.random() - 0.5) * 1.2,
+    vy: (player.position.y - sy) * 0.05 + (Math.random() - 0.5) * 1.2,
+    vrel: -(relFromPlayer + 2) / 2.4,     // close to the player over ~2.4s
+    ttl: 3.2,
+  });
+}
+
+// Move the soak motes; a mote within soak radius of the player is ABSORBED (bulletGraze →
+// Surge). Expire on ttl or once well past the player. Writes the Points buffer + visibility.
+function updateSoakMotes(dt, player) {
+  if (!soakMotes) return;
+  const SOAK_R = 2.2;
+  for (let i = soakList.length - 1; i >= 0; i--) {
+    const m = soakList[i];
+    m.ttl -= dt;
+    m.x += m.vx * dt; m.y += m.vy * dt; m.rel += m.vrel * dt;
+    const near = Math.abs(m.rel) < 2.4;
+    if (near && Math.hypot(m.x - player.position.x, m.y - player.position.y) < SOAK_R) {
+      bulletGraze(player);                       // ABSORBED → feeds Surge (the graze economy)
+      emit('absorbColor', {});
+      tmp.set(player.position.x, player.position.y, -player.dist);
+      burst(tmp, 0xff5ab0, { count: 4, speed: 8, size: 0.5, life: 0.3 });
+      soakList.splice(i, 1); continue;
+    }
+    if (m.ttl <= 0 || m.rel < -6) { soakList.splice(i, 1); continue; }
+  }
+  for (let i = 0; i < SOAK_MAX; i++) {
+    const m = soakList[i];
+    if (m) soakPos.set([m.x, m.y, -(player.dist + m.rel)], i * 3);
+    else soakPos.set([9999, 9999, 9999], i * 3);
+  }
+  soakMotes.geometry.attributes.position.needsUpdate = true;
+  soakMotes.visible = soakList.length > 0;
+}
+
+// Drop every live soak mote and hide the cloud — called on fight teardown so a mote
+// shed just before death/reset (life 3.2s > the 2.6s death dissolve) can't survive
+// frozen into the normal course (review P2).
+function clearSoakMotes() {
+  soakList.length = 0; soakShed = 0;
+  if (soakMotes) {
+    if (soakPos) { soakPos.fill(9999); soakMotes.geometry.attributes.position.needsUpdate = true; }
+    soakMotes.visible = false;
   }
 }
 
@@ -540,6 +740,24 @@ export function initBoss(sc) {
   wallL.renderOrder = wallR.renderOrder = TIERS.arenaWall;
   wallL.visible = wallR.visible = false;
   scene.add(wallL); scene.add(wallR);
+
+  // §5i.B ABSORB-A-COLOR soak motes: ONE additive Points cloud (surge-pink), parked
+  // off-screen until a swarm boss sheds into it. One draw, one additive volume.
+  {
+    const g = new THREE.BufferGeometry();
+    soakPos = new Float32Array(SOAK_MAX * 3).fill(9999);
+    g.setAttribute('position', new THREE.BufferAttribute(soakPos, 3));
+    g.setDrawRange(0, SOAK_MAX);
+    const m = new THREE.PointsMaterial({
+      color: 0xff5ab0, size: 1.5, sizeAttenuation: true, transparent: true, opacity: 0.95,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    soakMotes = new THREE.Points(g, m);
+    soakMotes.frustumCulled = false;
+    soakMotes.renderOrder = TIERS.surgeFx;
+    soakMotes.visible = false;
+    scene.add(soakMotes);
+  }
   // Surge callout is fired from activateSurge (one note only — "REFLECT ANYTHING"),
   // so there's no duplicate banner here.
 
@@ -767,7 +985,7 @@ export function startBossEncounter(player, defOverride) {
   rhythm = def.rhythm ? makeRhythm(def) : null;
   rhythmRest = null;
   perfectHealsUsed = 0;   // §5i C: the perfect-parry heal cap resets each fight
-  paneHits.clear();       // §5f: per-part crack counters reset per encounter
+  partHits.clear();       // §5f: per-part crack counters reset per encounter (panes + shackles)
   // §5i.B: beam-edge ramp + adrenaline ladder reset per encounter (rung-0 = neutral).
   beamHeld = 0; beamTick = 0; beamGrace = 0;
   adrenT = 0; adrenRung = 0; adrenHits0 = game.bossHitsTakenRun; adrenPing = 0;
@@ -798,13 +1016,21 @@ export function startBossEncounter(player, defOverride) {
   } else if (def.approachFrom === 'below') {
     start.rel = B.settleGap;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
-    start.y = -8;                   // rises from below the frame (Brineholm/Marrowcoil)
+    start.y = def.startDepth ?? -8;   // rises from below the frame (Marrowcoil −8; BRINEHOLM deepened to −14, §5d)
   } else if (def.approachFrom === 'ahead') {
     // DEAD AHEAD (§5b/§5d slot 6, HOLLOWGATE): the only boss that never comes
     // to you — it holds the horizon and the RAIL closes the distance. Large
     // start.rel is the §5j degrade path until the fog-exempt horizon-presence
     // seed ships (the arch is visible far up the lane through the haze).
     start.rel = 150;
+    start.x = 0;
+    start.y = B.fightHeight;
+  } else if (def.approachFrom === 'condense') {
+    // CONDENSE FROM AHEAD (§5b/§5d slot 7, THRUMSWARM): the swarm's unlit motes
+    // converge from up the lane and CLICK into the YOUR-DRAGON copy (§5j The Shape
+    // It Remembers). The group settles forward in rel only; the model owns the
+    // per-mote convergence (setEntrance). Reads as a scatter assembling ahead.
+    start.rel = 45;
     start.x = 0;
     start.y = B.fightHeight;
   } else if (def.approachFrom === 'sides') {
@@ -830,6 +1056,10 @@ export function startBossEncounter(player, defOverride) {
   clearAhead(player.dist + 800);
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
+  staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
+  eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
+  condHold = 0; clearSoakMotes();
+  poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
 
   phase = 'warn';
   warnT = B.warnTime;
@@ -843,7 +1073,7 @@ export function startBossEncounter(player, defOverride) {
   // clears as the boss flies in — anchored WHERE it emerges. 'side' → left/right;
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
-    : (def.approachFrom === 'above' || def.approachFrom === 'ahead') ? 'top' : 'bottom';
+    : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
   ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
@@ -878,6 +1108,7 @@ function endEncounter(player) {
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   if (group) { scene.remove(group); model.dispose?.(); }
   resetBossBullets();
+  clearSoakMotes();            // §5i.B: a late-shed pink mote must not outlive the fight (review P2)
   group = null; model = null; def = null;
   active = false;
   phase = 'idle';
@@ -1055,6 +1286,7 @@ function updateEntrance(dt, player, time) {
 // ---- Per-frame update -------------------------------------------------------
 
 export function updateBoss(dt, player, time) {
+  lastPlayer = player;   // stashed for event-driven spawns (the shackle SPRAY-SOAK vent) that have no player arg
   if (!active) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
@@ -1121,6 +1353,17 @@ export function updateBoss(dt, player, time) {
   }
 
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
+  driveSwarm(dt, player);          // §5d slot 7: the condense/scatter cycle + formation (inert for other bosses)
+  updateSoakMotes(dt, player);     // §5i.B ABSORB-A-COLOR (inert unless grazeForm='absorbColor')
+  // §5e ring buffer: sample the player's flight path while fighting (for Your Own Wings).
+  if (phase === 'fight' || phase === 'flythrough') {
+    poseRingT -= dt;
+    if (poseRingT <= 0) {
+      poseRingT = 0.1;
+      poseRing.push({ x: player.position.x, y: player.position.y });
+      if (poseRing.length > POSE_RING_MAX) poseRing.shift();
+    }
+  }
   model.tick(dt, time);
   updateSurgeAura(dt, player, time, surge);
   updateSurgeBeam(dt, player, time);
@@ -1188,7 +1431,13 @@ export function updateBoss(dt, player, time) {
     // `moveGroup` also applies the path's group TRANSLATION — EITHERWING's close pass IS
     // the group diving past the camera, so its money frame needs the real rel/x/y.
     const p = SETPIECE_PATHS[debugSetpiecePin.id]?.(debugSetpiecePin.k);
-    if (p && debugSetpiecePin.moveGroup) { pose.x = p.x; pose.y = p.y; pose.rel = p.rel; }
+    if (p && debugSetpiecePin.moveGroup) {
+      pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      // L155: a maneuver pin also holds the path's FACING + BANK so a still shows the
+      // back-turn / bank, not just the translation. clearSetpiece/enterFight reset these.
+      cineYaw = (p.yaw !== undefined) ? p.yaw : null;
+      cineRoll = p.roll ?? 0;
+    }
     else if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
     model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI), { id: debugSetpiecePin.id });
     model.setCharge(0);
@@ -1223,6 +1472,11 @@ export function updateBoss(dt, player, time) {
       const k = Math.min(setpieceT / setpieceDef.dur, 1);
       const p = SETPIECE_PATHS[setpieceDef.id](k);
       pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      // A setpiece path MAY drive facing + banking (L155): `yaw` present → cineYaw owns
+      // the world-yaw (else null → placeGroup's face-player default); `roll` → the bank.
+      // Paths that return neither leave facing untouched — un-opted setpieces byte-unchanged.
+      cineYaw = (p.yaw !== undefined) ? p.yaw : null;
+      cineRoll = p.roll ?? 0;
       // Whoosh as a close pass crosses toward the camera (EITHERWING's flyby dives past
       // the player). Fires once per inbound crossing of rel≈8, never every frame.
       if (pose.rel < 8 && prevPassRel >= 8) sfx.nearMiss?.();
@@ -1231,6 +1485,36 @@ export function updateBoss(dt, player, time) {
       // the 2nd arg; MARROWCOIL reads it to tell a fly-through pass — cage OPEN —
       // from its Closing-Ribs dread — cage CONSTRICTING).
       model.setSetpiece?.(Math.sin(k * Math.PI), setpieceDef);   // pose spread eases in and back out
+      // THE RIB THREAD FLYBY (L155): the beat owns its fire — SUPPRESS the normal skull cadence
+      // for the ENTIRE ribThread (hold the timer + cancel any in-flight charge) so nothing fires
+      // on its own while the head dives/turns; the runner drives two scripted beats by k.
+      if (setpieceDef.id === 'ribThread') {
+        attackTimer = Math.max(attackTimer, 0.6);   // never let the cadence reach a fire this frame
+        if (chargeT > 0) { chargeT = 0; model.setAttackTell?.(null); }
+
+        // seg 2 — rib bullets converging from inside the ribs while the cage straddles the
+        // player plane (the L155 close-range thread beat), only during the thread (k<0.34).
+        if (k < 0.34 && pose.rel > -5 && pose.rel < 8) {
+          ribEmitT += dt;
+          if (ribEmitT >= 0.32) { ribEmitT = 0; emitRibBullets(player); }
+        }
+
+        // seg 3–4 — FLANK FLYBY: once the boss is AHEAD on the flank (rel>3, body flying forward
+        // = back-turned, yaw π), TURN THE HEAD at you (setHeadLook counters the body yaw so the
+        // skull's world-yaw points at you) and fire a few skull/mouth shots — normal front-closing,
+        // dodgeable/parryable. Eased back to 0 as it wheels around to face you (seg 4→5).
+        if (pose.rel > 3 && k < 0.90) {
+          const desired = Math.atan2(player.position.x - pose.x, Math.max(pose.rel, 4));
+          let hl = desired - (cineYaw || 0);   // local yaw so the skull's WORLD yaw points at you
+          while (hl > Math.PI) hl -= Math.PI * 2;
+          while (hl < -Math.PI) hl += Math.PI * 2;
+          model.setHeadLook?.(hl);
+          headShotT += dt;
+          if (headShotT >= 0.5) { headShotT = 0; emitHeadShots(player); }
+        } else {
+          model.setHeadLook?.(0);
+        }
+      }
       if (k >= 1) clearSetpiece();
     } else {
       if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly
@@ -1318,6 +1602,19 @@ export function updateBoss(dt, player, time) {
           ui.parryPopup?.(pts, perfect, streak);
           sfx.parry?.(perfect, streak);
           emit('bossReflect', { perfect, streak });
+          // §5i.C SCATTER-STAGGER (THRUMSWARM's parry job): parry the queen's amber-eye
+          // volley 3× → the queen recoils and the swarm can't re-scatter for 2.5s (LOCKED
+          // condensed = a guaranteed chip window — parry ACCELERATES, never gates, §5i.C
+          // law 4). Surge reflects don't count (they're free-for-all, not the amber read).
+          if (def.condenseInvuln && !surge) {
+            staggerHits++;
+            if (staggerHits >= 3) {
+              staggerHits = 0; staggerT = 2.5;
+              ui.bossNote?.('✦ STAGGERED — STRIKE NOW ✦', 'THE SWARM CAN\'T SCATTER', 'gold', 2.4);
+              sfx.milestone?.();
+              emit('bossStagger', {});
+            }
+          }
         }
       }
     } else {
@@ -1340,6 +1637,21 @@ export function updateBoss(dt, player, time) {
       } else {
         beamHeld = 0; beamTick = 0;                        // contact broken → the ramp resets
       }
+    }
+
+    // ---- §5i.B SHADOW-RIDE (BRINEHOLM's Calamities graze, def-gated) — ride the
+    // leviathan's LEE (the shadow under its bulk) to bank Surge; the risk is the
+    // geysers that erupt there. Same tick economy as beamEdge (one grazeForm/boss). ----
+    if (def.grazeForm === 'shadowRide') {
+      const halfW = 9 * (def.scale ?? 1);
+      const inLee = Math.abs(player.position.x - pose.x) < halfW * 0.55   // centred under the head
+        && player.position.y < pose.y - 2                                 // beneath the maw
+        && Math.abs(pose.rel - B.settleGap) < 22;                         // at fight distance
+      if (inLee) {
+        beamGrace = 0.3; beamHeld += dt; beamTick -= dt;
+        if (beamTick <= 0) { bulletGraze(player); emit('shadowGraze', { held: beamHeld }); beamTick = Math.max(0.2, 0.5 - beamHeld * 0.06); }
+      } else if (beamGrace > 0) { beamGrace -= dt; }
+      else { beamHeld = 0; beamTick = 0; }
     }
 
     // ---- NO-HIT ADRENALINE LADDER (global §5i.B meta spine) ----
@@ -1381,6 +1693,19 @@ export function updateBoss(dt, player, time) {
       }
     }
 
+    // §5f slot 8 (BRINEHOLM): the eye SURFACES in the recovery gap (the vulnerable
+    // weak-point window) and SUBMERGES while the beast winds up or fires (invulnerable)
+    // — the turn-taking tell the damage gate reads. Shield/entrance own their own
+    // down-state (the model clamps the eye there), so only drive it when unshielded.
+    if (def.eyeWeakPoint && model.setEyeUp && !shielded) {
+      // Submerge through the wind-up AND a short hold past the strike, so the heavy
+      // lid has time to fully close (the eased lid can't shut inside a brief
+      // telegraph) — a real, readable invulnerable window; surfaced in the gap.
+      if (chargeT > 0) eyeHold = 0.45;
+      else eyeHold = Math.max(0, eyeHold - dt);
+      model.setEyeUp((chargeT > 0 || eyeHold > 0) ? 0 : 1);
+    }
+
     if (shielded) {
       // Armour is up: the boss FLOODS graze-bait — dense rings streaming close past
       // you with a threadable lane. Weaving them tight is how you charge the Surge
@@ -1415,7 +1740,11 @@ export function updateBoss(dt, player, time) {
         // §5i: a rhythm def uses the machine's authored rest (its signature's
         // fingerprint, stashed when the attack was picked); else the legacy roll.
         // cadenceMult: the §5h recurring-slot tighten (1 on a first encounter).
-        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult;
+        // §5f BRINEHOLM mercy: each shackle freed EARLY relaxes the cadence in the
+        // bound phases (P3+) — freeing the beast softens the strain (a mechanic, not
+        // a stat). Def-gated; every other boss keeps mercy = 1.
+        const mercy = (def.destructibleShackles && phaseIdx >= 2 && model.brokenCount) ? 1 + 0.16 * model.brokenCount() : 1;
+        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult * mercy;
         rhythmRest = null;
       }
     } else if (pending.length === 0) {
@@ -1471,12 +1800,13 @@ function placeGroup(player, time, dt) {
     group.position.set(pose.x, pose.y, -(player.dist + pose.rel));
   }
   // Face the player (local +z = front maw, world +z = toward the player) with a
-  // little menacing yaw/roll wobble. During the cinematic entrance, cineYaw owns
-  // the yaw instead (it faces its dive line, then wheels 180° to face you).
-  if (cineYaw != null) group.rotation.set(0, cineYaw, 0);
+  // little menacing yaw/roll wobble. During the cinematic entrance OR a facing-owning
+  // setpiece, cineYaw owns the yaw and cineRoll the bank (it faces its line, wheels
+  // 180° to face you, and banks as it curves into the lane — L155).
+  if (cineYaw != null) group.rotation.set(0, cineYaw, cineRoll);
   else {
     // Ease the wobble amplitude in after a cinematic entrance so the group doesn't snap from its
-    // settled square facing (cineYaw≈0) to the full sin-wobble in one frame. Full within ~0.6s.
+    // settled square facing (cineYaw≈0) to the full sin-wobble in one frame (L150). Full within ~0.6s.
     fightWobbleT += dt || 0.016;
     const w = Math.min(1, fightWobbleT / 0.6);
     group.rotation.set(0, Math.sin(time * 0.5) * 0.12 * w, Math.sin(time * 0.9) * 0.08 * w);
@@ -1484,9 +1814,11 @@ function placeGroup(player, time, dt) {
   // GAZE FEED (optional model hook): normalized offset of the player relative to
   // the boss's facing axis, in WORLD axes — placeGroup keeps rotation near-
   // identity so world≈local, and the model handles its own local conversion.
-  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet) and
-  // during the flythrough (updateFlythrough drives the tracking gaze itself).
-  if (phase !== 'warn' && phase !== 'flythrough') {
+  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet),
+  // during the flythrough (updateFlythrough drives the tracking gaze itself), and
+  // whenever cineYaw owns facing (L155): at a scripted yaw — the back-turned pass
+  // especially — world≈local inverts, so a naive feed would track backwards.
+  if (phase !== 'warn' && phase !== 'flythrough' && cineYaw == null) {
     const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
     const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
     model.setGaze?.(nx, ny);
@@ -1592,6 +1924,42 @@ function resolveEmitOrigin(player) {
 function aimVel(targetX, targetY, closing) {
   const t = Math.max(emitOrigin.rel / closing, 0.05);
   return { vx: (targetX - emitOrigin.x) / t, vy: (targetY - emitOrigin.y) / t };
+}
+
+// THREAD-THE-GAP rib emit (L155): during the fly-through pass, a few SLOW, reflectable
+// AMBER bullets spawn from INSIDE the ribcage (rib-pivot parts) and CONVERGE toward the
+// dragon's spine centre — the player is threading the barrel, so they read as closing in
+// from all sides. Slow + parryable (the amber floor) because the boss is right on top of
+// you; reflecting swats them boss-ward via the normal reflect path. Emits only from ribs
+// still AHEAD of the player plane (rrel>0) so the convergence closes toward you, not away.
+const _ribV = new THREE.Vector3();
+const RIB_EMITTERS = ['ribPivotL1', 'ribPivotR1', 'ribPivotL3', 'ribPivotR3'];
+function emitRibBullets(player) {
+  if (!(model && model.partWorldPos)) return;
+  const T = 0.9;   // convergence time — slow (a rib ~4u out closes at ~4u/0.9s ≈ fair)
+  const cx = pose.x, cy = pose.y, crel = pose.rel;   // spine centre in the bullet frame
+  for (const name of RIB_EMITTERS) {
+    const w = model.partWorldPos(name, _ribV);
+    if (!w) continue;
+    const rx = w.x, ry = w.y, rrel = -w.z - player.dist;
+    if (rrel <= 0.5) continue;   // rib already at/behind the player → skip (would fly away)
+    // Constant-velocity aim so all bullets reach the spine centre together (converge),
+    // then keep flying through it and cross the player plane (the dodge/parry check).
+    emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel);
+  }
+}
+
+// FLANK head-turn shots (L155): the body is flying forward on the flank but the head is
+// craned at you (setHeadLook), so a few skull-origin amber shots close the normal FORWARD
+// way (it's ahead of you now). Reuses the head-origin solver from PR1.
+function emitHeadShots(player) {
+  resolveEmitOrigin(player);
+  const closing = B.bulletSpeed;
+  const px = player.position.x, py = player.position.y;
+  for (let i = -1; i <= 1; i++) {
+    const v = aimVel(px + i * 1.8, py, closing);
+    emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
+  }
 }
 
 // Resolve an attack id to bullets. Instant patterns fire one volley now; sustained
@@ -1874,32 +2242,64 @@ function fireRiderShot(player) {
 // hits crack the pane: its radial deletes from the composite (visual + pattern)
 // and a bonus chunk of hp rewards the sculpting. Bosses without the def flag /
 // model hooks never enter this path (coexist).
-const PANE_CRACK_HITS = 3;
-const paneHits = new Map();          // pane idx → accumulated counted hits (reset per encounter)
+// §5f DESTRUCTIBLE SUB-PARTS — a def-gated SYSTEM (prove on HOLLOWGATE's panes,
+// slot 6; extend to BRINEHOLM's shackle posts, slot 8, with zero new plumbing).
+// Each entry names the def flag + the model's own hit-test/crack/alive/live hooks
+// so the routing is part-agnostic; a boss without the flag/hooks never enters it.
+const PART_CRACK_HITS = 3;
+const PART_SYS = [
+  { flag: 'destructiblePanes', crack: 'crackPane', hit: 'paneHitTest', alive: 'paneAlive', live: 'livePanes',
+    key: 'pane', note: ['✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED'], event: 'bossPaneBreak' },
+  // BRINEHOLM: `shackleBroken(i)` is the alive-inverse; freeing a post vents a pink
+  // SPRAY-SOAK graze beat and softens phase 3 (the mercy payoff — handled below).
+  { flag: 'destructibleShackles', crack: 'crackShackle', hit: 'shackleHitTest', broken: 'shackleBroken', live: 'liveShackles',
+    key: 'shackle', note: ['✦ SHACKLE SNAPPED ✦', 'FREED EARLY — IT EASES'], event: 'bossShackleBreak', spray: true },
+];
+const partHits = new Map();          // "key:idx" → accumulated counted hits (reset per encounter)
 function routePartDamage(e) {
-  if (!def?.destructiblePanes || !model?.crackPane) return 0;
-  let idx = (typeof e.part === 'number') ? e.part : -1;
-  // Fallback routing by landing point (boss-local frame: world x/y minus the
-  // group origin at pose) — rider chips aimed at the centre miss the glass by
-  // design; only a shot that actually lands on the window ring routes here.
-  if (idx < 0 && model.paneHitTest && e.x != null && e.y != null) {
-    idx = model.paneHitTest(e.x - pose.x, e.y - pose.y);
-  }
-  if (idx < 0 || !model.paneAlive?.(idx)) return 0;
-  // Reflected ambers count FULL; a rider chip that happens to land on the glass
-  // counts half (the parry is the sculptor, gunfire helps — §5i.C job).
-  const w = (typeof e.part === 'number') ? 1 : 0.5;
-  const n = (paneHits.get(idx) ?? 0) + w;
-  paneHits.set(idx, n);
-  if (n >= PANE_CRACK_HITS && model.crackPane(idx)) {
-    sfx.shieldShatter?.();
-    if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
-    cameraCtl.shake?.(0.6);
-    ui.bossNote?.('✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED', 'gold', 2.2);
-    emit('bossPaneBreak', { pane: idx, left: model.livePanes().length });
-    return 6;                        // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
+  for (const sys of PART_SYS) {
+    if (!def?.[sys.flag] || !model?.[sys.crack]) continue;
+    let idx = (typeof e.part === 'number') ? e.part : -1;
+    // Fallback routing by landing point (boss-local frame: world x/y minus the
+    // group origin at pose) — rider chips aimed at the centre miss the part by
+    // design; only a shot that actually lands on it routes here.
+    if (idx < 0 && model[sys.hit] && e.x != null && e.y != null) idx = model[sys.hit](e.x - pose.x, e.y - pose.y);
+    const isAlive = sys.alive ? model[sys.alive]?.(idx) : (idx >= 0 && !model[sys.broken]?.(idx));
+    if (idx < 0 || !isAlive) continue;
+    // Reflected ambers count FULL; a rider chip that happens to land counts half
+    // (the parry is the sculptor, gunfire helps — §5i.C job).
+    const w = (typeof e.part === 'number') ? 1 : 0.5;
+    const mk = `${sys.key}:${idx}`;
+    const n = (partHits.get(mk) ?? 0) + w;
+    partHits.set(mk, n);
+    if (n >= PART_CRACK_HITS && model[sys.crack](idx)) {
+      sfx.shieldShatter?.();
+      if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
+      cameraCtl.shake?.(0.6);
+      ui.bossNote?.(sys.note[0], sys.note[1], 'gold', 2.2);
+      emit(sys.event, { [sys.key]: idx, left: model[sys.live]?.().length ?? 0 });
+      if (sys.spray) ventSprayBeat();   // §5i.B the freed post vents a 2× pink SPRAY-SOAK graze beat
+      return 6;                        // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
+    }
+    return 0;
   }
   return 0;
+}
+// §5i.B SPRAY-SOAK: a freed shackle VENTS a burst of pink graze motes from the maw
+// that drift down the lane TOWARD the player (aimed like the absorbColor shed) to be
+// soaked for Surge — the mercy vents a reward. Rides the existing soak-mote economy.
+function ventSprayBeat() {
+  const p = lastPlayer; if (!p) return;
+  const my = pose.y - 3 * (def.scale ?? 1), rel0 = pose.rel;
+  for (let i = 0; i < 8 && soakList.length < SOAK_MAX; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const sx = pose.x + Math.cos(a) * 2, sy = my + Math.sin(a) * 1.2;
+    soakList.push({ x: sx, y: sy, rel: rel0,
+      vx: (p.position.x - sx) * 0.06 + Math.cos(a) * 1.4,
+      vy: (p.position.y - sy) * 0.06 + Math.sin(a) * 1.4,
+      vrel: -(rel0 + 2) / 2.2,   // reach the player's plane over ~2.2s (the absorbColor convention)
+      ttl: 2.8, spray: true });
+  }
 }
 
 function damageBoss(amount, kind, e = null) {
@@ -1911,7 +2311,33 @@ function damageBoss(amount, kind, e = null) {
     if (group && Math.random() < 0.5) burst(group.position, def.glow, { count: 4, speed: 10, size: 0.7, life: 0.3 });
     return;
   }
-  if (e) amount += routePartDamage(e);   // §5f: a landed part-hit can crack a pane (+bonus chip)
+  // §5d slot 7 (THRUMSWARM): CHIP only lands while the swarm is CONDENSED. Scattered =
+  // invulnerable (the turn-taking tell) — the hit sparks off the dispersed cloud with no
+  // damage, so the player learns to strike the condensed windows. The SURGE beam is
+  // EXEMPT (`kind === 'surge'`): banked surge is the player's big investment and always
+  // lands, whether it breaks a shield or chips an unshielded boss (review P2 — otherwise
+  // firing Surge on a scattered swarm wasted it). Def-gated on `condenseInvuln`.
+  if (def.condenseInvuln && kind !== 'surge' && model.condenseLive && model.condenseLive() < 0.45) {
+    sfx.shieldPing?.();
+    if (!swarmDeflectHinted) { swarmDeflectHinted = true; ui.bossNote?.('✦ SCATTERED — UNTOUCHABLE ✦', 'STRIKE WHEN IT CONDENSES', 'gold', 2.6); }
+    emit('bossDeflect', { reason: 'scattered' });
+    return;
+  }
+  // §5f part routing runs FIRST — the shackle mercy is ALWAYS live: a shot on a post
+  // still counts toward freeing it even while the eye is submerged (you free the
+  // beast during the invulnerable windows). Returns the +bonus chip on a break.
+  const partBonus = e ? routePartDamage(e) : 0;   // §5f: a landed part-hit cracks a pane/shackle (+bonus chip)
+  // §5f slot 8 (BRINEHOLM): body CHIP only lands while the EYE is SURFACED (the
+  // turn-taking tell) — while the heavy lid is DOWN the drowned god is invulnerable
+  // and the shot pings off (the shackle count above still applied). SURGE is exempt
+  // (the player's banked graze always lands). Def-gated on `eyeWeakPoint`.
+  if (def.eyeWeakPoint && kind !== 'surge' && model.eyeIsUp && !model.eyeIsUp()) {
+    sfx.shieldPing?.();
+    if (!eyeDeflectHinted) { eyeDeflectHinted = true; ui.bossNote?.('✦ SUBMERGED — UNTOUCHABLE ✦', 'STRIKE WHEN THE EYE SURFACES', 'gold', 2.6); }
+    emit('bossDeflect', { reason: 'eyeDown' });
+    return;
+  }
+  amount += partBonus;
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash
@@ -1956,6 +2382,7 @@ export function resetBoss() {
   ui.bossCardClear?.();
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
   resetBossBullets();
+  clearSoakMotes();            // §5i.B: no stray pink mote frozen across a run teardown (review P2)
   active = false;
   phase = 'idle';
   group = null; model = null; def = null;
@@ -2049,6 +2476,36 @@ export function debugFireAttack(id, player) {
 export function debugCrackPane(i) {
   if (!active || !model?.crackPane) return false;
   return model.crackPane(i);
+}
+
+// Capture hook (?debug): arm a named setpiece LIVE from the current fight so a tool can
+// watch the whole moving beat play out (the ribThread maneuver + its rib bullets) without
+// having to drive the boss down to the phase that arms it. No-op outside an active fight.
+export function debugRunSetpiece(id) {
+  if (!active || phase !== 'fight') return;
+  const sp = (Array.isArray(def.setpieces) && def.setpieces.find((s) => s.id === id))
+    || (def.setpiece && def.setpiece.id === id ? def.setpiece : null)
+    || { id, dur: 8.0, moving: true };
+  if (!SETPIECE_PATHS[sp.id]) return;
+  setpieceDef = sp;
+  setpieceT = 0;
+  if (!sp.moving) { attackTimer = Math.max(attackTimer, sp.dur + 1.2); riderTimer = Math.max(riderTimer, sp.dur); }
+}
+
+// Capture hook: snap straight to the FIGHT phase at station, skipping warn + the
+// entrance. THRUMSWARM's deep-dilate entrance (2.8s @0.24×) crawls under headless rAF
+// throttle, stalling capture tools for minutes; this lands the fight instantly for a
+// still. Capture-only (never wired into gameplay); no-op once already fighting.
+export function debugForceFight(player) {
+  if (!active || !player) return;
+  if (phase === 'fight' || phase === 'dying') return;
+  const B = CONFIG.BOSS;
+  pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap;
+  cineSkip = false; cineYaw = null; entranceId = null; poseSmooth = false; fightWobbleT = 1e9;
+  releaseCineSlow();
+  cameraCtl.setOvertake?.(null);
+  placeGroup(player, 0, 0.016);
+  enterFight();
 }
 
 export function bossDebugState() {

@@ -30,7 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -232,6 +232,10 @@ if (urlParams.has('debug')) {
     bossState: () => bossDebugState(),
     // Capture hook: fire one live volley (default 'aimed') to catch body-origin emit + grow-in.
     bossFireNow: (id) => debugFireAttack(id, player),
+    // Capture hook: arm a setpiece live (e.g. 'ribThread') to watch the whole moving beat + its bullets.
+    bossRunSetpiece: (id) => debugRunSetpiece(id),
+    // Capture hook: snap to fight (skip the slow-to-skip entrance headless).
+    bossForceFight: () => debugForceFight(player),
     // Capture hook: pin/release the charge (mantle) pose for still crops.
     bossPinCharge: (lvl) => setBossDebugCharge(lvl),
     // Capture hook: pin/release a setpiece pose (e.g. the stooping dive) for stills.

@@ -60,7 +60,7 @@ export async function renderStation(idx, {
   const c0 = compiled[0];
   const totalS = totalLoopS + tailS;
   const a = new OfflineAudioContext(2, Math.ceil(totalS * sampleRate), sampleRate);
-  const buses = __render.buildBusGraph(a, 1, 1, { v2: audioV2 });
+  const buses = __render.buildBusGraph(a, 1, 1, { v2: audioV2, irPreset: tr.mix && tr.mix.irPreset });
   // Mirror the live v2 upgrade (worklet lookahead limiter) so calibration
   // measures through the chain the player actually hears.
   if (audioV2 && !(await upgradeMasterChain(a, buses))) {

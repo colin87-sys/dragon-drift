@@ -60,24 +60,28 @@ export function funkBass(roots) {
 // `drive` (bass saturation), `bright` (filter openness). 1.0 = the neutral global
 // default, so omitting a field leaves that dimension at the engine's baseline.
 // Genres share a preset; one-offs spread + override, e.g. { ...MIX.trance, bright: 1.25 }.
+// `irPreset` picks the reverb SPACE (see IR_PRESETS in sfx.js): hall = vast
+// orchestral, plate = bright dense sheen, room = tight/dry, dark = warm/muffled.
+// Omitted → the default space. `lofiPack: true` adds tape wow/flutter + a vinyl
+// crackle bed.
 export const MIX = {
   anthem:    { reverb: 1.0,  pump: 1.0,  width: 1.05, drive: 1.0,  bright: 1.05 }, // chiptune-pop
-  epic:      { reverb: 1.6,  pump: 0.9,  width: 1.2,  drive: 1.0,  bright: 0.9  }, // orchestral, lush+warm (slow/cinematic)
-  epicdrive: { reverb: 1.3,  pump: 1.05, width: 1.2,  drive: 1.1,  bright: 1.0  }, // driving battle-epic, keeps kick punch
-  trance:    { reverb: 1.5,  pump: 1.1,  width: 1.3,  drive: 1.05, bright: 1.2  }, // wide, bright, euphoric
-  bigroom:   { reverb: 1.15, pump: 1.2,  width: 1.1,  drive: 1.15, bright: 1.15 }, // punchy, some space
-  hardstyle: { reverb: 0.8,  pump: 1.2,  width: 1.0,  drive: 1.3,  bright: 1.1  }, // dry, hard, gritty
-  dnb:       { reverb: 0.6,  pump: 1.1,  width: 1.1,  drive: 1.25, bright: 1.1  }, // bone-dry, punchy
-  liquid:    { reverb: 1.1,  pump: 1.0,  width: 1.2,  drive: 1.0,  bright: 1.05 }, // rolling, airier D&B
-  synthwave: { reverb: 1.25, pump: 1.0,  width: 1.25, drive: 1.05, bright: 1.1  }, // neon, wide
-  lofi:      { reverb: 0.7,  pump: 0.8,  width: 0.85, drive: 0.9,  bright: 0.8  }, // warm, narrow, dry
-  house:     { reverb: 0.95, pump: 1.1,  width: 1.1,  drive: 1.05, bright: 1.05 }, // groove punch
-  tropical:  { reverb: 1.2,  pump: 0.95, width: 1.15, drive: 0.95, bright: 0.95 }, // sunny, soft
-  futurebass:{ reverb: 1.45, pump: 0.9,  width: 1.3,  drive: 0.95, bright: 0.9  }, // lush, wide, soft
+  epic:      { reverb: 1.6,  pump: 0.9,  width: 1.2,  drive: 1.0,  bright: 0.9,  irPreset: 'hall'  }, // orchestral, lush+warm
+  epicdrive: { reverb: 1.3,  pump: 1.05, width: 1.2,  drive: 1.1,  bright: 1.0,  irPreset: 'hall'  }, // driving battle-epic
+  trance:    { reverb: 1.5,  pump: 1.1,  width: 1.3,  drive: 1.05, bright: 1.2,  irPreset: 'plate' }, // wide, bright, euphoric
+  bigroom:   { reverb: 1.15, pump: 1.2,  width: 1.1,  drive: 1.15, bright: 1.15, irPreset: 'plate' }, // punchy, some space
+  hardstyle: { reverb: 0.8,  pump: 1.2,  width: 1.0,  drive: 1.3,  bright: 1.1,  irPreset: 'room'  }, // dry, hard, gritty
+  dnb:       { reverb: 0.6,  pump: 1.1,  width: 1.1,  drive: 1.25, bright: 1.1,  irPreset: 'room'  }, // bone-dry, punchy
+  liquid:    { reverb: 1.1,  pump: 1.0,  width: 1.2,  drive: 1.0,  bright: 1.05, irPreset: 'room'  }, // rolling, airier D&B
+  synthwave: { reverb: 1.25, pump: 1.0,  width: 1.25, drive: 1.05, bright: 1.1,  irPreset: 'plate' }, // neon, wide
+  lofi:      { reverb: 0.7,  pump: 0.8,  width: 0.85, drive: 0.9,  bright: 0.8,  irPreset: 'dark', lofiPack: true }, // warm, aged
+  house:     { reverb: 0.95, pump: 1.1,  width: 1.1,  drive: 1.05, bright: 1.05, irPreset: 'room'  }, // groove punch
+  tropical:  { reverb: 1.2,  pump: 0.95, width: 1.15, drive: 0.95, bright: 0.95, irPreset: 'dark'  }, // sunny, soft
+  futurebass:{ reverb: 1.45, pump: 0.9,  width: 1.3,  drive: 0.95, bright: 0.9,  irPreset: 'plate' }, // lush, wide, soft
   idol:      { reverb: 1.1,  pump: 1.1,  width: 1.15, drive: 1.0,  bright: 1.1  }, // clean, bright, wide
-  world:     { reverb: 1.05, pump: 0.85, width: 1.1,  drive: 0.95, bright: 0.95 }, // organic
+  world:     { reverb: 1.05, pump: 0.85, width: 1.1,  drive: 0.95, bright: 0.95, irPreset: 'dark'  }, // organic
   celtic:    { reverb: 0.9,  pump: 0.7,  width: 1.05, drive: 0.9,  bright: 1.0  }, // acoustic-ish, low pump
-  rock:      { reverb: 0.85, pump: 1.15, width: 1.05, drive: 1.25, bright: 1.15 }, // dry, punchy anthem
+  rock:      { reverb: 0.85, pump: 1.15, width: 1.05, drive: 1.25, bright: 1.15, irPreset: 'room'  }, // dry, punchy anthem
 };
 
 // ============================ DRAGON RADIO ============================
@@ -389,6 +393,13 @@ export const TRACKS = [
     desc: 'Euphoric golden hardstyle hymn',
     cost: 800,
     bpm: 130,
+    sections: {
+      A:    {},
+      brk:  { bars: 4, mute: ['perc2', 'high', 'arp'], energy: 0.4 },
+      bld:  { bars: 4, energy: 0.7, riser: true },
+      drop: { energy: 1.0, crash: true },
+    },
+    form: ['A', 'A', 'brk', 'bld', 'drop', 'A', 'drop'],
     voices: {
       melody: { osc: 'sawtooth', vol: 0.15, stack: 'detune' },
       bass:   { osc: 'sawtooth', vol: 0.17 },
@@ -482,6 +493,13 @@ export const TRACKS = [
     desc: 'Girl-crush EDM-trap — sub-808 menace',
     cost: 800,
     bpm: 142,
+    sections: {
+      A:    {},
+      bld:  { bars: 4, mute: ['perc2', 'high'], energy: 0.6, riser: true },
+      drop: { energy: 1.0, crash: true },
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'perc3', 'bass', 'arp'], energy: 0.3 },
+    },
+    form: ['A', 'bld', 'drop', 'brk', 'bld', 'drop', 'drop', 'A'],
     voices: {
       melody: { osc: 'sawtooth', vol: 0.14, stack: 'detune', inst: 'supersaw' },
       bass:   { osc: 'sine', vol: 0.28 },
@@ -717,6 +735,13 @@ export const TRACKS = [
     cost: 800,
     bpm: 100,
     swing: 0.14,
+    sections: {
+      A:    {},
+      bld:  { bars: 4, mute: ['perc2'], energy: 0.6, riser: true },
+      drop: { energy: 1.0, crash: true, melVariant: 1 },
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'perc3'], energy: 0.4 },
+    },
+    form: ['A', 'bld', 'drop', 'brk', 'bld', 'drop'],
     voices: {
       melody: { osc: 'triangle', vol: 0.18, stack: 'octave', inst: 'supersaw' },
       bass:   { osc: 'sine', vol: 0.26 },
@@ -769,6 +794,13 @@ export const TRACKS = [
     cost: 800,
     bpm: 174,
     swing: 0.08,
+    sections: {
+      A:    {},
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'bass'], energy: 0.35 },
+      bld:  { bars: 4, mute: ['high'], energy: 0.6, riser: true },
+      drop: { energy: 1.0, crash: true },
+    },
+    form: ['A', 'drop', 'brk', 'bld', 'drop', 'A'],
     voices: {
       melody: { osc: 'triangle', vol: 0.16, inst: 'supersaw' },
       bass:   { osc: 'sawtooth', vol: 0.17 },
@@ -913,6 +945,13 @@ export const TRACKS = [
     desc: 'Touge racing — detuned saw hook',
     cost: 800,
     bpm: 140,
+    sections: {
+      A:    {},
+      bld:  { bars: 4, mute: ['perc2', 'high'], energy: 0.6, riser: true },
+      drop: { energy: 1.0, crash: true },
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'bass'], energy: 0.35 },
+    },
+    form: ['A', 'A', 'bld', 'drop', 'brk', 'bld', 'drop', 'drop'],
     voices: {
       melody: { osc: 'sawtooth', vol: 0.14, stack: 'detune', inst: 'supersaw' },
       bass:   { osc: 'sawtooth', vol: 0.17 },
@@ -1391,6 +1430,14 @@ export const TRACKS = [
     desc: 'Uplifting trance — euphoric supersaw',
     cost: 800,
     bpm: 138,
+    sections: {
+      A:    {},
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'perc3', 'bass'], energy: 0.3 },
+      bld:  { bars: 4, mute: ['high', 'perc2'], energy: 0.65, riser: true },
+      drop: { energy: 1.0, crash: true },
+      lift: { energy: 1.0, crash: true, melVariant: 1 },
+    },
+    form: ['A', 'drop', 'brk', 'bld', 'drop', 'lift', 'brk', 'bld', 'lift'],
     voices: {
       melody: { osc: 'sawtooth', vol: 0.14, stack: 'detune', inst: 'supersaw' },
       bass:   { osc: 'sawtooth', vol: 0.17 },

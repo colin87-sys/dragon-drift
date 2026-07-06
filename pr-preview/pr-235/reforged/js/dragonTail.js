@@ -25,6 +25,35 @@ import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSu
 // The clean tail's geometry (buildCleanTail) lives here; the shape PRIMITIVES it
 // builds from (fork/blade/spade outlines, layered fins) stay in dragonParts.js.
 
+// A swept forked-banner (swallowtail) membrane laid flat at the tail tip, pointing
+// back (+z), with DIFFUSE gold tips painted per-vertex (law-9 carrier — no emissive
+// on the azure accent). Reuses buildForkShape for the outline. `spread`/`length`/
+// `notch` size the swallowtail; a fork HINT is small, the apex banner is large.
+function buildForkedBanner(def, spread, length, notch) {
+  const geo = new THREE.ShapeGeometry(buildForkShape(spread, length, notch), lod(8));
+  geo.rotateX(Math.PI / 2);                         // lay flat, fork points back (+z)
+  // paint: dark sky root → gold outer tips (the last third along +z)
+  geo.computeBoundingBox();
+  const { min, max } = geo.boundingBox;
+  const z0 = min.z, span = (max.z - min.z) || 1;
+  const pos = geo.attributes.position;
+  const base = new THREE.Color(def.wingOuter ?? def.body ?? 0x2f5d84);
+  const gold = new THREE.Color(def.accentHue ?? 0xd9b36a);
+  const c = new THREE.Color(), col = [];
+  for (let i = 0; i < pos.count; i++) {
+    const t = (pos.getZ(i) - z0) / span;
+    c.copy(base).lerp(gold, t > 0.75 ? (t - 0.75) / 0.25 : 0);   // gold ONLY the outer 25% (dir 11)
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.08, side: THREE.DoubleSide,
+  });
+  const banner = new THREE.Mesh(geo, mat);
+  banner.position.set(0, 0.02, 0.05);
+  return banner;
+}
+
 // Old segmented tail: cone chain + a mace / fan / plain tip. Built in tail-local
 // space at its original absolute z so it renders exactly as before.
 function buildLegacyTail(def, model, mats) {
@@ -122,19 +151,33 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   const segLen = spacing * 2.4;            // big overlap → seamless even when coiling
 
   // Spine plates: dull at the whelp (def.scales), molten from the lit forms.
-  const accentCol = g > 0 ? (def.apexSeam || def.scales) : def.scales;
+  // tailIron (additive, default off): a MATTE DARK-IRON tail — zero emissive, low
+  // metalness so it never catches the cool rim light as a steel-blue sheen (ember's
+  // tail must not glow — fire owns the tail bloom, roster law §5). Default = shipped.
+  const iron = !!model.tailIron;
+  const ironCol = model.tailIronColor ?? 0x2a1a12;   // WARM dark iron (not navy) — ember blacks are warm
+  // A LIT iron tail (iron + spineGlow>0): the matte-warm plates carry a warm emissive
+  // scaled by spineGlow — a glowing flame tail with NO cool metallic sheen (gate flame-r1
+  // dir 5). Un-lit iron (g=0) stays matte dark. Non-iron keeps the shipped accent glow.
+  const ironGlow = iron && g > 0;
+  const ironEmis = model.tailFlameColor ?? 0xff7a26;
+  const accentCol = iron ? ironCol
+    : (g > 0 ? (def.apexSeam || def.scales) : def.scales);
   const plateMat = new THREE.MeshStandardMaterial({
-    color: accentCol, emissive: accentCol, emissiveIntensity: (0.3 + g * 1.5) * giM,
-    roughness: 0.35, metalness: 0.5,
+    color: accentCol, emissive: iron ? (ironGlow ? ironEmis : 0x000000) : accentCol,
+    emissiveIntensity: iron ? (ironGlow ? (0.5 + g * 1.4) * giM : 0) : (0.3 + g * 1.5) * giM,
+    roughness: iron ? 0.9 : 0.35, metalness: iron ? 0.0 : 0.5, envMapIntensity: iron ? 0.2 : 1,   // very rough + zero metal + low env → holds warm iron, never a steel-blue sheen
   });
-  plateMat.userData.baseEmissive = accentCol;
-  plateMat.userData.baseIntensity = (0.3 + g * 1.5) * giM;
-  const accentMats = [plateMat];
-  const membraneMat = new THREE.MeshStandardMaterial({
-    color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
-    roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,
-    transparent: true, opacity: 0.9,
-  });
+  plateMat.userData.baseEmissive = ironGlow ? ironEmis : (iron ? 0x000000 : accentCol);
+  plateMat.userData.baseIntensity = iron ? (ironGlow ? (0.5 + g * 1.4) * giM : 0) : (0.3 + g * 1.5) * giM;
+  const accentMats = (iron && !ironGlow) ? [] : [plateMat];      // lit iron/normal: the Surge flare lights the plate
+  const membraneMat = iron
+    ? new THREE.MeshStandardMaterial({ color: ironCol, emissive: ironGlow ? ironEmis : 0x000000, emissiveIntensity: ironGlow ? 0.3 * giM : 0, roughness: 0.9, metalness: 0.0, envMapIntensity: 0.2, side: THREE.DoubleSide })
+    : new THREE.MeshStandardMaterial({
+        color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
+        roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,
+        transparent: true, opacity: 0.9,
+      });
   // Bright rim material for edged fins (tail stabilizers) — created lazily so only
   // the apex tail pays for it; flares on Surge via spineMats. The intensity is
   // CLAMPED (giM) so the cyan rim stays cyan under the ACES tone-map.
@@ -188,7 +231,7 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
       frustum.rotation.x = Math.PI / 2;
       seg.add(frustum);
     }
-    if (!smoothStem) seg.add(spinePlate(r0));
+    if (!smoothStem && (model.tailPlates ?? true)) seg.add(spinePlate(r0));   // young forms opt OUT: the row of dorsal cones + frustum lips read as a screw-thread/drill-bit from rear-chase (fable gate). Default true = roster byte-identical
     root.add(seg);
     segs.push(seg);
   }
@@ -465,19 +508,29 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
       tip.add(shard);
     }
   } else if (style === 'finned') {
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, lod(4)), plateMat);
-    fin.scale.set(1, 1, 0.5);
-    fin.position.set(0, 0.26, -0.05);
-    tip.add(fin);
+    // Dorsal fin spike — suppressed under the AZURE banner fork (gate r4 dir 13: it read
+    // as a stray needle poking up mid-tail; the swallowtail banner is the tail read there).
+    if (!model.tailBannerFork) {
+      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, lod(4)), plateMat);
+      fin.scale.set(1, 1, 0.5);
+      fin.position.set(0, 0.26, -0.05);
+      tip.add(fin);
+    }
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.6, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.3);
     tip.add(point);
+    // AZURE forked-banner read (opt-in; shipped finned geometry untouched): a swept
+    // swallowtail membrane echoing the wing blades, DIFFUSE gold tips (law-9 carrier).
+    if (model.tailBannerFork) tip.add(buildForkedBanner(def, 0.62, 1.7, 0.7));
   } else {
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.55, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.28);
     tip.add(point);
+    // AZURE tier-0 fork HINT (opt-in; shipped simple tip cone untouched): a small
+    // forked tail-tip membrane — the hatchling silhouette key.
+    if (model.tailTipFork) tip.add(buildForkedBanner(def, 0.30, 0.66, 0.55));
   }
   root.add(tip);
   segs.push(tip);

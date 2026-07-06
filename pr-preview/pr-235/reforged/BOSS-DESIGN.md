@@ -45,7 +45,8 @@ on a real phone (`tools/stress.mjs` for relative curves; headless numbers are rA
 
 1. **Silhouette first.** The outline must be describable in ONE sentence and recognizable as
    a solid black fill at 30m. Author FEW hard points — dense outlines read as circles at
-   distance. Dominant mass ≥3× secondary forms ≥3× detail.
+   distance. Dominant mass ≥3× secondary forms ≥3× detail. (Necessary but NOT sufficient — a
+   one-sentence outline can still read as the WRONG noun; the translation discipline is §3b.)
 2. **One focal point = the brightest emissive**, almost always an eye/face, HDR-overdriven.
    Everything else ≤ half its intensity. Weak point = focal point (Zelda grammar).
 3. **Three color tiers, dark body**: ~75% near-black desaturated base (identity hue lives in
@@ -65,6 +66,73 @@ on a real phone (`tools/stress.mjs` for relative curves; headless numbers are rA
    flat-shaded orbiters reads as pale glitchy debris.
 9. **Never animate the root**: `boss.js placeGroup` stomps `group.rotation` every frame and
    `kit.setDissolve` owns `group.scale`. Everything animated lives on an inner `rig`/pivots.
+
+## 3b. LOW-POLY SILHOUETTE TRANSLATION (the anti-failure discipline, 2026-07 — L150)
+
+**Read this before modeling any boss.** Two shipped failures came from the SAME root cause and
+they will keep happening as bosses get grander unless this is a hard step: EITHERWING was
+modeled correctly but read TINY (L140/L141); BRINEHOLM modeled a genuine whale — brow, jaw,
+throat pleats, barnacled arched back, all in the mesh — and read as **a battleship with a
+headlight**. The build sheet describes the boss in WORDS; the builder faithfully models the
+words; but the player reads the **SILHOUETTE** (the black outline + the lit emissive edges),
+and the silhouette can betray every word. §3.1 ("silhouette first") is necessary but not
+sufficient — BRINEHOLM's outline WAS describable in one sentence and still read as the wrong
+object. This section is the translation layer from grand concept → low-poly that actually reads.
+
+**The eight translation laws:**
+
+1. **Judge the silhouette, not the part list.** At 30m on a phone, a low-poly boss is an
+   outline plus a few glowing lines. Modeled detail that never reaches the outline or an emissive
+   edge is INVISIBLE (BRINEHOLM's brow/jaw/pleats were all there and all lost). Every gate judges
+   a pure black-fill render + a lit-edge-only render FIRST, then the beauty pass.
+2. **Name the ANTI-READS before building.** Write what the silhouette must NOT read as — a ship,
+   a blob, a generic bug, another boss — then name the exact primitive choices that cause each
+   and forbid them. (BRINEHOLM "ship" = a straight horizontal lit stripe + a row of small
+   triangular fins + symmetric bow/stern taper + a lamp on a raised deck. All five were present.)
+3. **Lit edges ARE the drawing.** On a near-black body the EMISSIVE lines are the shape the eye
+   traces. A straight, level, horizontal lit line reads as MAN-MADE (waterline, deck, gunwale) no
+   matter how organic the mesh under it is. Emissive must follow character/organic anatomy —
+   ridges, creases, throat grooves, rims — NEVER a level rule line. (EITHERWING's fix was
+   full-perimeter rims; BRINEHOLM's is: kill the waterline stripe, move the glow to the pleats
+   and dorsal crest.)
+4. **Every identity reduces to 2–3 CARRYING CUES that must survive to the outline.** A whale =
+   one big curved dorsal fin + a blunt heavy head + a fluke/blow. Not forty modeled details.
+   Build the 2–3 cues BIG and unmistakable (dominant ≥3× per §3.1); everything else is texture.
+   One iconic cue beats ten subtle ones. If the cues aren't in the outline, nothing else matters.
+5. **Plant a POSITIVE signal — don't just avoid the negative.** The brain defaults to the
+   nearest familiar shape; removing the anti-read isn't enough, you must give it the right shape
+   loudly. A blowhole spout says "whale" louder than deleting masts does; a single hooked orca
+   fin says "it swims." Add one signal the intended object has that NOTHING else does.
+6. **Scale is a silhouette property (L140/L141).** Presence = on-screen span × lit-edge area at
+   FIGHT distance; for multi-body/ensemble bosses the FIELD must read, not the parts. Set an
+   explicit on-screen scale target vs the shipped anchors (ASHTALON ≈24u wingspan; MARROWCOIL ≈
+   screen-length; a Sentinel ≈ small-medium). If the concept needs to feel HUGE, author a
+   PROXIMITY beat (a true pass/fly-through where rel crosses negative) — distance shrinks
+   everything and proximity is the cheapest multiplier.
+7. **Judge on the boss's HOME backdrop first.** A dark boss on a pale backdrop is a flat cutout —
+   all relief vanishes and only the outline + lit lines survive (this is exactly what made
+   BRINEHOLM's studio sheet read featureless). A pale boss on dark, likewise. The home-biome
+   value backdrop + the fight-distance frame are the PRIMARY judgment; the neutral studio
+   backdrops are the stress test, not the verdict. (§7c now defaults the studio to home value.)
+8. **The stranger test.** Show the pure black-fill silhouette to someone with zero context: do
+   they name the intended object in ~2 seconds? If not, it is not translated yet — no amount of
+   in-mesh detail or beauty lighting will fix a silhouette that reads as the wrong noun.
+
+**The per-boss SILHOUETTE TRANSLATION SHEET (fill BEFORE modeling; lives in the §5d entry):**
+- **Reads as:** the intended object, one noun-phrase (the stranger-test target).
+- **Carrying cues (2–3):** the shapes that MUST reach the outline, each sized dominant.
+- **Anti-reads:** what it must NOT look like + the forbidden primitive choices for each.
+- **Lit-edge plan:** where the emissive goes (organic anatomy only — no level lines) + the one focal.
+- **Scale target:** on-screen span vs the anchors; the proximity beat if it must feel huge.
+- **Home backdrop:** value/temperature the boss is judged against first.
+
+**Process (both cheap, both catch the failure before it costs a rebuild):**
+- **PRE-BUILD Fable sign-off:** the builder fills the translation sheet and a Fable agent
+  approves it (or names missing cues / un-forbidden anti-reads) BEFORE any geometry exists. This
+  is where BRINEHOLM should have been caught — at the sheet, not after modeling.
+- **CP1 silhouette gate:** the Fable design gate judges the black-fill + lit-edge renders on the
+  home backdrop + fight-distance frame against the translation sheet's cues, anti-reads, and the
+  stranger test — BEFORE the beauty pass. A boss that fails the stranger test does not proceed.
 
 ## 4. The shareability system (research-backed — this is the game's bar now)
 
@@ -230,14 +298,14 @@ safe-lane gates exactly once.
 
 | # | Working name | Silhouette family | Hook | Palette (hue·value·glow-shape) | Approach | Status | Parry job (§5i.C) |
 |---|---|---|---|---|---|---|---|
-| 1 | VOIDMAW | shattered mask | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped | —³ |
+| 1 | VOIDMAW | shattered mask (dead STONE — keep distinct from BRINEHOLM's living wet head, slot 8) | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped | —³ |
 | 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped | —³ |
 | 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | claimed (replaces retired CRAGHOLD¹) | —³ |
 | 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / ring-aperture + pinpoints | below (new) | claimed (absorbs VESPERCOIL²) | **rib-slam ambers → ORGAN BREAK** (Colossi debut): parry a rib-slam's ambers N× → that rib CRACKS, its pattern component deleted (reused at 5 on the eye-holder) |
 | 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides (new) | claimed | **eye-holder's amber volley → ORGAN BREAK** (Colossi reuse): parry the holder's amber volley 3× mid-possession → the handoff STAGGERS, the eye DROPS to the thread midpoint for a 2.5s bonus-damage window |
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | shipped | **pane-radial ambers → PANE BREAK** (Calamities ORGAN-BREAK reuse): parry a lit pane's amber volley 3× → that pane CRACKS and its radial component is deleted from the composite (rides the §5f destructible-pane plumbing — parry and gunfire sculpt the same window) |
-| 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open | — |
-| 8 | BRINEHOLM | bottom-anchored ridge | the surfacing whale-eye | kelp-black·abalone / iridescent sheen | below-horizon | open | — |
+| 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon (side-profile copy) | void-black·star-white + amber focal-eye / scattered points | condenses | shipped | **queen's amber-eye volley → SCATTER STAGGER** (Calamities): parry the eye's amber volley 3× → the queen recoils, the swarm can't re-condense for a 2.5s bonus-damage window (the condensed weak-point stays exposed — parry answers the same condense/scatter puzzle read the fight is built on) |
+| 8 | BRINEHOLM | colossal leviathan head + maw (living/wet — NOT Voidmaw's dead mask) | the one surfacing eye — you fight the FACE, never the body | kelp-black·abalone / bioluminescent gullet + one white eye-point | below-horizon (the head lunges up through the fog) | claimed | **shackle-strain ambers → SHACKLE BREAK** (Calamities ORGAN-BREAK reuse + mercy mechanic): parry a snout shackle post's amber strain-volley 3× → that post SNAPS, vents a 2× pink SPRAY-SOAK graze beat, and frees it EARLY — softening phase 3 (rides the §5f destructible per-part plumbing — parry and gunfire unbind the same post) |
 | 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars | tarnished-iron·trophy glints | alongside | open | — |
 | 10 | KNELLGRAVE | hanging pendulum | bound figure as the clapper | patina-copper·candle / vertical slit | pre-heard, fades in | open | — |
 | 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open | — |
@@ -442,6 +510,22 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   the ribs flank the dragon on both flanks + overhead and the pillar corridor reads THROUGH
   the aperture on exit. Verified in-game from the rail camera (tools/marrowpass.mjs). The
   sheet claims the fly-through again.
+  FLY-THROUGH → FULL MANEUVER (2026-07 — L155): `ribThread` is now the whole aerobatic over 8s —
+  loom → fly completely past → re-emerge on a flank with its BACK TURNED (flying your heading) →
+  accelerate past → BANK into the lane → wheel around to face you. A setpiece path may now return
+  `{yaw, roll}` alongside `{x,y,rel}` (the runner routes them to `cineYaw`/new `cineRoll`; roll/banking
+  is a new roster-wide axis) — a general FACING+BANKING seam any boss can use, default-off. During the
+  close band the pass OWNS its fire: the normal skull-origin cadence is suppressed and slow reflectable
+  AMBER bullets emit from the rib-pivots (`ribPivot{L,R}{1,3}`) converging on the spine centre — the
+  close-range THREAD-THE-GAP + parry beat. Verified live (tools/ribmaneuver.mjs + `bossRunSetpiece`).
+  → FLYBY, SIMPLIFIED (2026-07 — L155, dur 8.5s): the rear-look CINEMATIC (camera takeover +
+  from-behind bullets + player freeze/invuln + homing) was **reverted** — on-rails, a camera-takeover +
+  stick-lock reads as a cutscene interruption, not a boss move (owner rejected it 2×; the over-reach lesson is L156). The shipped beat is a
+  readable flyby from the player's seat: loom → thread + fly fully OFF-SCREEN behind → **emerge from ONE flank
+  and fly forward** (body flies its heading, `yaw 0→π`) → **TURN THE HEAD at you and fire a few mouth shots**
+  (`setHeadLook` + skull-origin `emitHeadShots`, front-closing amber, dodge-or-parry) → **bank into the lane**
+  (`cineRoll`) and settle to centre. Kept: the facing+banking seam, `setHeadLook`, the rib bullets (all L155).
+  LESSON: author the drama into what the boss DOES from a fixed viewport, not into where the camera goes.
 - **5 EITHERWING** — **REACH SPEC (r8, 2026-07 — supersedes the conservative first sheet;
   L140):** the first draft built to "~2×900 tris, 2.2-long bodies" and presented ~40% of
   ASHTALON's presence at the band PEAK. The ensemble is the body; this boss's wingspan is
@@ -514,11 +598,20 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   drops once and LIFTS — a door opening in invitation. Title card, first murmured verse.
   Motion risk: portcullis + pane beat must carry it or it reads as a loading screen.
 - **7 THRUMSWARM** — queen: bone-white lantern rhombus (stretched octahedron + 6 rib fins
-  + dark edge cage) with ONE amber eye; swarm: 28 dark tetra motes (separate meshes)
-  lerping between authored formation tables: ring / wall / line / YOUR-DRAGON (~30 slots
-  sampled once from the player's model vertices — the meme frame). Chip damage only lands
-  while condensed; shield phase = the swarm becomes a ring around YOU (L106 law: ring,
-  never a filled volume). Void-black motes ei ≤0.1 / star-white queen. ~1.6k tris.
+  + dark edge cage) with ONE amber eye; swarm: **40** dark tetra motes (separate meshes;
+  the first sheet said 28 — CP1 raised it, L162: 28 was too few to fill the meme frame's
+  wing MEMBRANES; it read as a jellyfish. 40 lets each wing carry a 12-point filled
+  triangle. Still ~54 draws ≪ the tier-3 70 gate) lerping between authored formation
+  tables: ring / wall / line / YOUR-DRAGON (the copy is authored as a SIDE-PROFILE flying
+  dragon DOODLE — a dark HORNED SKULL with the queen's amber eye set inside it as a
+  contained ember (the lantern DIMS in dragon-mode so it reads as an eye, not a lamp),
+  one big filled near-wing, a long tapering serpentine TAIL, a rider hump; the runtime
+  hook `setYourDragonSlots()` can replace the authored slots with the player model's own
+  vertices at fight start — the meme frame. L162: a front-on symmetric winged shape reads
+  as a moth; the SIDE PROFILE is the unmistakable dragon doodle).
+  Chip damage only lands while condensed; shield phase = the swarm becomes a ring around
+  YOU (L106 law: ring, never a filled volume). Void-black motes / star-white queen +
+  amber eye. ~1.1k tris.
   ENTRANCE (§5j *The Shape It Remembers*, hijack 2.8s @0.24×): standard warn, ash sold via
   the `bossGradeTarget` ambient channel (the group gate hides ALL parts during warn — no
   per-mote exemption). At hijack u=0 the 28 unlit motes converge at rel ~45 and click,
@@ -530,27 +623,51 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   station ring; title card; ostinato opens. Do NOT live-mirror input here — the copy holds
   a neutral glide (the ring-buffer payoff belongs to its *Your Own Wings* card). Skip
   clamps the formation lerp to the ring or the settle pops.
-- **8 BRINEHOLM** — never fully on screen: whale-back ridge = ONE long low-facet hull
-  (~24 units, 8 radial facets) spanning the frame bottom; 4 fin-sails (flat tapered
-  extrudes) rising/falling on pivots; THE EYE: 3-unit HDR hemisphere + iris ring + heavy
-  stone lid that surfaces for weak-point windows; broken shackle posts + snapped chain
-  tori along the ridge. Geyser curtains rise from below-frame (off-rel spawns). Kelp-black
-  0x0c1210 / abalone 2-tone emissive banding / white eye. ~3k tris. NEEDS: below-horizon
-  rise + widened bullet cull bounds (§5e).
-  ENTRANCE (§5j *The Reef Was Breathing*, hijack ≤3s @0.35 — spends the roster's ONE
-  environment-wakes archetype): the crest tease starts AT WARN behind a scoped sub-rig
-  exemption to the group gate (crest only): a kelp-black facet ridge slides into
-  frame-bottom-right paralleling the lane just above the fog, lifting ~0.6m and settling
-  every few seconds, synced to tidal-drone swells driven off the `bossStart` emit. Dragon's
-  head turns down-toward-it; rider: "That reef is keeping pace." Honest bottom banner —
-  the dragon reacted FIRST. Fight start: `setOvertake` slews low across the wing as the
-  24-unit hull INHALES up through the fog floor (start deepened to y≈−14), fin-sails
-  unfolding bow-to-stern, banding lighting in a wave; the crest exits frame-top — it never
-  fits. Mid-rise the ascent HOLDS one fixed ~0.4s u-segment as the dragon's shadow crosses
-  it (the canon hesitation). The eye stays SUBMERGED — a pale glow at the bow; the lid
-  grinds and the iris LOCKS once at settle (no continuous tracking). Rider lore line on a
-  shackle-post flypast: "Same forge as the hunter's chains." Rush re-entry degrades to
-  spawn-at-warn gracefully; the crest stays lane-adjacent, never under the rail.
+- **8 BRINEHOLM** — **SILHOUETTE TRANSLATION (§3b, r-pass 2026-07, L150 — supersedes the
+  rejected island-back ridge, which read as a battleship):**
+  - *Reads as:* a colossal deep-sea leviathan's head lunging up out of the fog.
+  - *Carrying cues (must reach the outline):* (1) the gaping MAW across the lower third — a
+    hard jagged jawline; (2) the one heavy-lidded EYE under a jutting brow (the focal); (3) the
+    vertical UPWARD thrust of the head breaking the fog, one snapped chain across the snout (scar).
+  - *Anti-reads:* NOT a ship/terrain (no horizontal lit line anywhere — the mass is vertical);
+    NOT Voidmaw's mask (must be WET, fleshy, breathing — a living eye + a working maw, never a
+    dead stone face with hollow sockets); NOT a generic dragon head (kelp-black + abalone
+    bioluminescence in the gullet + barnacles + binding chains = a BOUND deep-sea leviathan).
+  - *Lit-edge plan:* abalone glow INSIDE the maw + along the gill rakes; the white-hot eye is
+    the one focal. NO level horizontal line anywhere (that was the rejected waterline).
+  - *Scale target:* the head fills the frame vertically at fight distance; the body is NEVER
+    shown (arena-scale implied — the never-fits requirement, now native).
+  - *Home backdrop:* dark.
+
+  **Geometry:** a titanic HEAD breaching straight up through the fog — you fight the face; the
+  body never appears. Skull mass = a heavy deformed sphere/box-blend with a jutting BROW shelf;
+  the MAW = upper + lower jaw on a named `jawPivot` (the telegraph), jagged teeth (cone/wedge
+  silhouette) along the bite line, a bioluminescent abalone GULLET glowing inside (the lit-edge
+  identity — never a flank stripe); GILL RAKES down each side (raked slits, abalone-lit, flare
+  on breath); BARNACLE clusters breaking the brow/crown edge (organic top silhouette); a
+  BLOWHOLE vent behind the brow that SPOUTS a mist plume on the tidal-drone beat (the positive
+  "leviathan" signal + a rhythm tell). THE EYE (reuse the proven assembly — socket → sclera →
+  iris ring → pupil → catchlight → heavy brow-LID that grinds up/down): ONE eye seated under the
+  brow, the sole white-hot focal, surfaces for weak-point windows (chip only while the lid is
+  open). CHAINS: shackle posts + snapped chain tori binding the JAW/snout (destructible —
+  freeing softens phase 3; one snapped chain across the snout = the asymmetric scar). Kelp-black
+  0x0c1210 body / abalone 2-tone emissive (gullet + gill rakes ONLY) / white eye. NO horizontal
+  banding. Wet specular skin so it reads ALIVE, not stone. def.scale sized so the head spans the
+  portrait vertically. ~4–5k tris (Calamities cap 14k). REUSES: the eye assembly + chain/shackle
+  destructible + geyser system from the r0 build; jawPivot precedent (marrowcoil). NEEDS:
+  below-horizon rise + widened bullet cull bounds (§5e).
+  ENTRANCE (§5j *The Reef Was Breathing*, hijack ≤3s @0.35 — the roster's ONE environment-wakes
+  archetype, now paying off harder): the tease at WARN (scoped sub-rig exemption to the group
+  gate) is a barnacled kelp-black hump sliding into frame-bottom just above the fog, reading as a
+  REEF/rock — the dragon's head turns toward it; rider: "That reef is keeping pace." Honest
+  bottom banner — the dragon reacted FIRST. Fight start: the "reef" INHALES and LUNGES up through
+  the fog floor (start deepened to y≈−14) — the terrain was a HEAD; the maw yawns, gill rakes
+  light in a wave; the crown exits frame-top — it never fits. Mid-lunge the rise HOLDS one fixed
+  ~0.4s u-segment (the canon hesitation — it considers you). The eye stays SUBMERGED — a pale
+  glow below the fog — then the brow clears and the lid grinds open + LOCKS once at settle (no
+  continuous tracking). Rider lore line on a shackle flypast: "Same forge as the hunter's
+  chains." Rush re-entry degrades to spawn-at-warn gracefully; the head stays lane-adjacent on
+  the tease, never under the rail.
 - **9 KARNVOW** — vertical figure ~9 tall: hooded cowl (tapered extrude) whose face is an
   EMPTY VOID with one cold glint deep inside (no face — the anti-mask); pauldrons; lance =
   Voidmaw's snapped-horn geometry (same tube-taper kernel, violet-scarred); trophy chain
@@ -1327,10 +1444,15 @@ already carries an equivalent viewer, adopt and rename it — never rebuild):
 - Boots the builder DIRECTLY (buildBoss(def) — no game world, no fog, no biome, no props);
   the game's real lighting rig (sun + hemisphere) and real postfx chain (bloom/ACES — the
   design laws are written against the bloom pipeline, so the studio must keep it).
-- TWO backdrops per shoot, judged on both: near-dark 0x14121a and pale 0xcfd6e4 (a boss must
-  read against a dark sky AND a bright horizon). **PLUS (L140, EITHERWING lesson): a warm
-  sunset-gold backdrop 0xd9a24a** — warm dark accents (oxblood, ember) vanish against warm
-  skies in a way neither neutral backdrop catches.
+- Backdrops per shoot: near-dark 0x14121a, pale 0xcfd6e4, and warm sunset-gold 0xd9a24a (L140 —
+  warm dark accents vanish against warm skies). **The boss's HOME-value backdrop is the PRIMARY
+  verdict (§3b.7, L150):** judge a dark boss on the dark/home backdrop first — a dark boss on the
+  pale backdrop is a flat cutout whose relief vanishes (this made BRINEHOLM's sheet read
+  featureless and shiplike). The off-value backdrops are the stress test, not the verdict.
+- **SILHOUETTE RENDERS (L150, mandatory, judged BEFORE the beauty pass):** per state, also emit a
+  pure BLACK-FILL render (identity-hue outline only) and a LIT-EDGE-ONLY render (emissive alone on
+  black). §3b's stranger test + anti-reads are checked on these. The beauty contact sheet is
+  secondary — if the black fill reads as the wrong noun, the boss fails regardless of its lighting.
 - **FIGHT-DISTANCE FRAME (L140, mandatory alongside the contact sheet):** one shot at the
   REAL encounter geometry — camera at the live chase FOV (72) and the boss at its true
   station distance (rel 30, or its own settle rel), NO auto-framing. The 60%-height
@@ -1371,6 +1493,15 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
+- **L162** — THRUMSWARM CP1: a SWARM's identity is the FORMATION (motes carry none alone); the meme frame is a
+  point-cloud silhouette authored like a constellation; a migrating focal (queen = swarm-centre → the copy's skull) does
+  two jobs with one part; a dark boss needs a LIFTED near-black albedo to read on the dark studio sky (lit facets, no rim);
+  G6 fails when the additive shield rim out-blooms the leashed eye — hide the focal core under the shield.
+- **L157** — BRINEHOLM CP1: an HDR "eye" needs ANATOMY (lens sclera + iris ring + pupil + a proud
+  offset catchlight — a bright ball is a sun and its buried core is invisible to G1); a hinged lid
+  must lift UP-AND-BACK or it occludes the eye from the front; "never fits the frame" is judged ONLY
+  on the fight-distance frame (contact sheets auto-frame and hide it — author a per-boss fightRel);
+  TIDAL DRONE clears rhythmprint by being the slowest (all-long gaps ARE the fingerprint).
 - **L153** — HOLLOWGATE CP1: a faceless architecture face is a per-part emissive STATE TABLE
   (pupil = a different CLASS, notice = a state JUMP, the DEFAULT state carries the registry
   claim); dark decoration on a pale mass forges a second scar; ambient drift can silently

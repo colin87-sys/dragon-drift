@@ -150,6 +150,43 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
   const torsoGeo = bodyMesh ? geoFn(profile, stretch) : null;
+  // POSTURE keel-bend (gate r5 dir 11): spineCurl must bend the VISIBLE body, not just the
+  // neck chain + the spinePoints metadata — otherwise the side silhouette's back is a dead
+  // flat line (STRAIGHT SPINE). Overlay the same S-wave the spinePoints use (sin over the
+  // tail→shoulder z-run) onto the loft verts so the chest drops and the after-body/tail
+  // counter-arcs, giving a clear inflection. Additive: spineCurl 0 → geometry byte-identical.
+  const sc = model.spineCurl ?? 0;
+  if (torsoGeo && sc) {
+    torsoGeo.computeBoundingBox();
+    const bb = torsoGeo.boundingBox, z0 = bb.min.z, z1 = bb.max.z, dz = (z1 - z0) || 1;
+    const amp = sc * 0.24;                       // proud upright S at apex (sc 0.95), curled whelp when <0
+    const pos = torsoGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const f = (pos.getZ(i) - z0) / dz;         // 0 tail(+later) → 1 shoulder; matches spinePoints' f
+      pos.setY(i, pos.getY(i) + amp * Math.sin(f * Math.PI * 2));
+    }
+    pos.needsUpdate = true;
+    torsoGeo.computeVertexNormals();
+  }
+  // BELLY PAINT (opt-in model.bellyPaint): vertex-paint the ventral torso with
+  // def.belly (a cream two-tone underside — the Charizard read) while the dorsal keeps
+  // the body colour. Additive; default off → torsoMat stays single-colour byte-identical.
+  if (torsoGeo && model.bellyPaint && def.belly != null) {
+    torsoGeo.computeBoundingBox();
+    const bbB = torsoGeo.boundingBox, y0 = bbB.min.y, dyB = (bbB.max.y - bbB.min.y) || 1;
+    const pos = torsoGeo.attributes.position;
+    const cBack = new THREE.Color(def.body ?? 0xffffff), cBelly = new THREE.Color(def.belly), cM = new THREE.Color();
+    const cols = [];
+    for (let i = 0; i < pos.count; i++) {
+      const ny = (pos.getY(i) - y0) / dyB;         // 0 belly → 1 back
+      let t = Math.min(1, Math.max(0, (ny - 0.34) / 0.22)); t = t * t * (3 - 2 * t);   // ventral ~35% = belly, smooth blend up the flank
+      cM.copy(cBelly).lerp(cBack, t);
+      cols.push(cM.r, cM.g, cM.b);
+    }
+    torsoGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    torsoMat.vertexColors = true;
+    torsoMat.color.set(0xffffff);                  // the vertex colours carry the hue now
+  }
   // Pass 2 (opt-in): weight the body verts near each wing root to that side's
   // shoulder bone so the torso surface itself bulges with the wingbeat. The bones
   // live in the wing mounts → the orchestrator binds this mesh once both exist.
@@ -179,10 +216,28 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   const bridged = def.parts && def.parts.wings === 'skinnedMembraneBridge';
   const fr = profile.fairing;
   const fScale = shoulderW;
+  // squareShoulders (additive, default off): a beveled BLOCK scapula plate instead of
+  // the rounded sphere fairing — the ANVIL shoulder read (gate: "two round balls").
+  // Chamfered top edge (a scaled cylinder cross-section reads as a bevelled block from
+  // rear chase). Default keeps the shipped sphere byte-identical.
+  const squareShoulder = !!model.squareShoulders;
   if (bodyMesh && !bridged) for (const s of [-1, 1]) {
-    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
-    root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
-    root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
+    let root;
+    if (squareShoulder) {
+      // a BEVELED squared scapula (a 6-sided prism reads as a chamfered muscular block
+      // from rear chase — never a bare flat cuboid, gate r5 dir 1), broad so the anvil
+      // shoulder line reads in the rear silhouette.
+      const g = new THREE.CylinderGeometry(fr.r * fScale * 1.15, fr.r * fScale * 1.3, fr.r * fScale * 2.4, 6, 1);
+      g.rotateZ(Math.PI / 2);                              // lie the prism along the flank (length in x)
+      root = new THREE.Mesh(g, bodyMat);
+      root.scale.set(1.0, 0.92, 1.15);
+      root.rotation.set(0.0, s * 0.14, s * -0.22);         // cant up-and-out (chamfer read)
+      root.position.set(s * fr.pos[0] * fScale * 1.1, fr.pos[1] + fr.r * 0.22, fr.pos[2]);
+    } else {
+      root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
+      root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
+      root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
+    }
     group.add(root);
   }
 
@@ -190,22 +245,62 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   // hull-grown creature passes opts.neck:false to suppress it (the neck becomes a
   // continuous hull extension instead); the `n &&` guard also makes a profile with
   // no neck spec safe. Default unchanged → the roster stays byte-identical.
+  // POSTURE / spine-curl dial (§4/§6 — the one genuinely-missing proportion dial).
+  // spineCurl < 0 = a curled, chest-down whelp (neck + head droop); spineCurl > 0 =
+  // a proud upright S (neck arcs up). Additive + default 0 → the roster is
+  // byte-identical. Applied to the neck chain here + folded into headBase below,
+  // and published as parts.spinePoints (the line-of-action assert reads it).
+  const spineCurl = model.spineCurl ?? 0;
   const n = profile.neck;
   const neckSegs = model.neckSegments;
+  const postureAmp = (n?.yStep ?? 0.08) * (neckSegs || 4) * 0.9;
+  const neckArc = (i) => spineCurl * postureAmp * ((i + 1) / Math.max(1, neckSegs)); // grows head-ward
+  // neckBlend (additive, default 1 = byte-identical): thickens + elongates the neck
+  // spheres so a dense chain fuses into a smooth taper instead of visible beads.
+  const nb = model.neckBlend ?? 1;
   if (n && opts.neck !== false) for (let i = 0; i < neckSegs; i++) {
     const neck = new THREE.Mesh(
-      new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin), seg(9), seg(7)), bodyMat);
-    neck.scale.set(n.scale[0], n.scale[1], n.scale[2]);
+      new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin) * nb, seg(9), seg(7)), bodyMat);
+    neck.scale.set(n.scale[0], n.scale[1], n.scale[2] * (1 + (nb - 1) * 0.6));
     neck.position.set(
       Math.sin(i * n.wobbleFreq) * n.wobbleAmp,
-      n.y0 + i * n.yStep,
+      n.y0 + i * n.yStep + neckArc(i),
       n.z0 + i * n.zStep);
     group.add(neck);
   }
 
   const wr = profile.wingRoot;
-  const hb = profile.headBase(neckSegs);
+  const hb0 = profile.headBase(neckSegs);
+  const hb = { x: hb0.x, y: hb0.y + spineCurl * postureAmp, z: hb0.z };  // posture lifts/drops the head
   const tailShift = (profile.tailShiftRefZ - profile.zHold) * (stretch - 1);
+
+  // parts.spinePoints — the DESIGNED line-of-action polyline (group space, tail→head),
+  // published for the §7 line-of-action assert. Sampled from the keel + neck + head
+  // with an S-curl overlay (neck arcs one way, the after-body counter-arcs) so the
+  // idle spine is an S with ≥1 inflection (law 2), not a dead straight axis.
+  const spinePoints = (() => {
+    const pts = [];
+    const zTail = profile.tailAnchorZ + tailShift;
+    pts.push(new THREE.Vector3(0, TORSO_Y + profile.tailAnchorY, zTail));
+    for (let i = profile.keel.length - 1; i >= 0; i--) {          // hips → shoulder (z decreasing)
+      const [z, y] = profile.keel[i];
+      pts.push(new THREE.Vector3(0, TORSO_Y + y, z));
+    }
+    const nk = profile.neck;
+    const nSeg = Math.max(2, neckSegs);
+    for (let i = 0; i < nSeg; i += Math.max(1, Math.floor(nSeg / 3))) {
+      pts.push(new THREE.Vector3(0, (nk?.y0 ?? 0.3) + i * (nk?.yStep ?? 0.08) + neckArc(i), (nk?.z0 ?? -2) + i * (nk?.zStep ?? -0.36)));
+    }
+    pts.push(new THREE.Vector3(hb.x, hb.y, hb.z));
+    // S-curl overlay: a half-wave along the chain (0 at ends, ± mid) guarantees a
+    // curvature sign-change (inflection) whose direction tracks the posture.
+    const amp = 0.14 * (0.5 + 0.5 * Math.abs(spineCurl)) * (spineCurl >= 0 ? 1 : -1);
+    for (let s = 0; s < pts.length; s++) {
+      const f = pts.length > 1 ? s / (pts.length - 1) : 0;         // 0 tail → 1 head
+      pts[s].y += amp * Math.sin(f * Math.PI * 2);
+    }
+    return pts;
+  })();
 
   const attach = {
     wingRoot: (side) => ({ x: wr.x * shoulderW * side, y: wr.y + (model.wingRootOffset?.y ?? 0), z: wr.z + (model.wingRootOffset?.z ?? 0) }),
@@ -240,7 +335,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
       halfWidthFor: (z) => halfWidthFor(finalProfile, z),
     };
   }
-  return { group, attach };
+  return { group, attach, spinePoints };
 }
 
 // ===========================================================================

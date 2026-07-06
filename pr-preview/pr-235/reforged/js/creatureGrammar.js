@@ -42,6 +42,7 @@ export const CREATURE_GRAMMAR = Object.freeze([
   // --- hull / proportions (model.*) -------------------------------------------
   { path: 'model.scale', group: 'hull', kind: 'number', min: 0.3, max: 2.5, desc: 'Overall body size multiplier.' },
   { path: 'model.wingScale', group: 'hull', kind: 'number', min: 0.4, max: 2.2, forms: true, desc: 'Wing span multiplier (independent of body).' },
+  { path: 'model.spineCurl', group: 'hull', kind: 'number', min: -1.5, max: 1.5, forms: true, desc: 'Posture / line-of-action: <0 curled chest-down whelp, >0 proud upright S.' },
   { path: 'model.wingChordScale', group: 'hull', kind: 'number', min: 0.5, max: 2.2, forms: true, desc: 'Wing front-to-back depth/fullness, independent of span (seraphWing).' },
   { path: 'model.tailSegments', group: 'hull', kind: 'int', min: 0, max: 16, forms: true, desc: 'Segmented-tail count (0 for hull-grown tails).' },
   { path: 'model.neckSegments', group: 'hull', kind: 'int', min: 0, max: 12, forms: true, desc: 'Neck-chain segment count.' },
@@ -52,6 +53,20 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.wingRootScale', group: 'hull', kind: 'number', min: 0.4, max: 2.5, desc: 'Wing-root attachment thickness.' },
   { path: 'model.headScale', group: 'hull', kind: 'number', min: 0.4, max: 2.2, forms: true, desc: 'Head proportion.' },
   { path: 'model.eyeScale', group: 'hull', kind: 'number', min: 0.3, max: 2.2, forms: true, desc: 'Eye proportion.' },
+  { path: 'model.eyeShape', group: 'hull', kind: 'number', min: 0, max: 1, forms: true, desc: 'Eye shape dial: 1 almond/keen · 0 round/cute-low-set.' },
+  { path: 'model.crestBlades', group: 'hull', kind: 'int', min: 0, max: 7, forms: true, desc: 'Brow-crest motif blade count (0 = none).' },
+  { path: 'model.crestScale', group: 'hull', kind: 'number', min: 0.2, max: 2.5, forms: true, desc: 'Brow-crest motif bloom scale.' },
+
+  // --- blade-feather comb (AZURE §3 col 1) — per-form wing-shape dials -----------
+  { path: 'model.bladeCount', group: 'wing', kind: 'int', min: 3, max: 8, forms: true, desc: 'Feather-blade count per wing.' },
+  { path: 'model.bladeSpan', group: 'wing', kind: 'number', min: 1.5, max: 7, forms: true, desc: 'Blade-comb half-span reach (pre wingScale).' },
+  { path: 'model.bladeSweep', group: 'wing', kind: 'number', min: 0, max: 0.9, forms: true, desc: 'Leading-arm back-sweep (rad).' },
+  { path: 'model.bladeRake', group: 'wing', kind: 'number', min: 0, max: 0.9, forms: true, desc: 'Per-blade tip rake back (rad).' },
+  { path: 'model.bladeStagger', group: 'wing', kind: 'number', min: 0.12, max: 0.5, forms: true, desc: 'Z-stagger between comb blades (≥0.12).' },
+  { path: 'model.bladeCamber', group: 'wing', kind: 'number', min: 0, max: 0.5, forms: true, desc: 'Blade cambered-plane billow.' },
+  { path: 'model.bladeDihedral', group: 'wing', kind: 'number', min: 0, max: 1.4, forms: true, desc: 'Per-blade dihedral up-tilt.' },
+  { path: 'model.bladeRise', group: 'wing', kind: 'number', min: 0, max: 4, forms: true, desc: 'Leading-arm dihedral rise (absolute).' },
+  { path: 'model.bladeDetail', group: 'wing', kind: 'number', min: 0.4, max: 1.6, forms: true, desc: 'Per-form blade tessellation multiplier (form escalation).' },
 
   // --- wing shape + surface (model.*) -----------------------------------------
   { path: 'model.wingOpacity', group: 'wing', kind: 'number', min: 0, max: 1, forms: true, desc: 'Membrane translucency.' },
@@ -93,6 +108,11 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.armorPlates', group: 'surfaceLayers', kind: 'bool', forms: true, desc: 'Angular shoulder/flank armour plates.' },
   { path: 'model.glowSeams', group: 'surfaceLayers', kind: 'bool', forms: true, desc: 'Under-scale emissive vein seams.' },
   { path: 'model.bladeFins', group: 'surfaceLayers', kind: 'bool', forms: true, desc: 'Sharp lateral blade fins.' },
+
+  // --- tail (model.*) — tailStyle itself is declared in the recipe group above (master's
+  //     registry-resolved enum); these are AZURE's additive fork-hint knobs.
+  { path: 'model.tailTipFork', group: 'hull', kind: 'bool', forms: true, desc: 'Fork-hint knob on the simple tail tip (default off; shipped simple geometry untouched).' },
+  { path: 'model.tailBannerFork', group: 'hull', kind: 'bool', forms: true, desc: 'Forked-banner (swallowtail) read on the finned tail tip (default off).' },
 ]);
 
 // Fast lookup: path → descriptor.
