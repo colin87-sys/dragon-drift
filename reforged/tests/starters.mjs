@@ -48,7 +48,7 @@ const SPECS = {
     // [1.4,1.7]/[2.0,2.3]/[2.8,3.2] were against the spine-polyline z-range, which under-reads
     // the body (it excludes the snout + the long forked tail-banner) and so read ~1.4× higher
     // than the eye does. Bands retuned to the visual metric (ember/jade retune when they build).
-    spanBody: [[0.7, 1.05], [1.1, 1.6], [1.6, 2.5]],
+    spanBody: [[0.42, 0.68], [0.72, 1.02], [1.1, 1.5]],   // RETUNED DOWN (human art direction): azure's wingspan was matched to PHOENIX's footprint (visual span:body ~1.55, apex rendered span ~12.3) — the old apex band [1.6,2.5] read "wings take too much space / distracting". bladeSpan cut ~0.64× across forms; body unchanged (already phoenix-sized)
     accentHue: 39,                              // gold ~39°
     carrier: 'diffuse',                         // azure: NO accent-hued emissive on the wing
   },

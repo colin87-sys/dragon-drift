@@ -6032,3 +6032,26 @@ eyes pop against the deep navy head.
 rim crescent (widen a few degrees for EYE 3→4); only one front eye catches a highlight; the apex face-front
 neck-segment "pinecone" + wing-root blade clutter are the crudest close-ups. The baby comb still serrates
 (a solid baby wing is a different membrane part, not a dial). None hold the PASS.
+
+
+### L162 — Wingspan is a ROSTER-RELATIVE metric: match new dragons to a reference, don't tune them in isolation
+
+**What we did.** The human read AZURE and EMBER as "too wide — the wingspan takes too much space, distracting"
+and named PHOENIX as the perfect amount. Measured all four at apex (mesh x-extent span ÷ visual nose-to-tail
+body, both de-scaled, so the ratio is scale-independent): **phoenix 1.55, azure 2.42, ember 1.61, solar 1.62**.
+Azure was the offender at 2.42 (wings ~58% wider footprint than phoenix); ember was milder (absolute span +14%).
+Fix: cut azure `bladeSpan` ~0.64× across all three forms (2.42→1.58) — its BODY was already phoenix-sized, so
+only the wings moved; cut ember `wingScale` 1.15→1.0 (absolute span → 12.3, matches phoenix exactly) and, since
+that left ember's long wyrm body proportionally over-long (ratio dropped to 1.41), trimmed its tail
+(`tailSegments` −1 per form) back to 1.48. All three now sit in a tight 1.48–1.58 band with ~12.3 rendered span.
+
+**The gotchas.** (1) **Span:body is the portable knob, not raw span** — dragons render at different `model.scale`
+(phoenix 1.04, azure 0.82, ember 0.89), so compare the SCALE-INDEPENDENT ratio, then sanity-check absolute
+rendered span (`local × scale`) for the on-screen footprint. (2) **Cutting wings alone can leave the body
+over-long** — the human flagged this in advance ("adjust beak to tail proportionally"): after shrinking ember's
+wings its ratio fell BELOW phoenix, so the body had to come in too to keep the silhouette balanced. Azure needed
+no body change (already right). (3) **Reconcile the §7 proxy to the new intent** (L136/L147): azure's `spanBody`
+band was retuned DOWN ([1.6,2.5]→[1.1,1.5] apex) — the old band certified the very "wings dominate" look the
+human rejected. Only azure has a span band; ember/jade/phoenix are still untested there. (4) The measurement
+helper (mesh-extent span vs the test's `wingElements`-tip span) read ~20% apart — fine for cross-dragon
+comparison, but know which metric each number is when you set a band.

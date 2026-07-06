@@ -53,7 +53,7 @@ export const DRAGONS = {
     forms: [
       // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
       // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
-      { wingScale: 0.72, bladeSpan: 5.4, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
+      { wingScale: 0.72, bladeSpan: 3.5, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
         spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,   // CP2 dir 1: SHORT button muzzle; headScale 1.3 keeps the BIG cute head; eyeScale 1.25 opens a nose-bridge GAP between the eyes (1.45 merged them into a figure-8) — still the ladder's biggest eyes (> f1's 1.02) and in the [0.3,0.45] band
         keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
         crestBlades: 1, crestScale: 0.7, crestGoldAmount: 0.1,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), body-hued (no gold on the baby), not a wire feeler
@@ -65,7 +65,7 @@ export const DRAGONS = {
           apexSeam: 0x9cbcd6, eye: 0x8ec6ee, coreGlow: 0x9cc0dc } },
       // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
       // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
-      { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
+      { wingScale: 0.9, bladeSpan: 4.7, bladeCount: 5, bladeDetail: 0.92,
         spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
         keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
         crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,   // CP2 r3 dir 3: mute crest gold to body-hue + seat the sprouts into the crown (0.13 = as deep as the §7 motif-invariance drift cap allows) so they root rather than hover
@@ -78,7 +78,7 @@ export const DRAGONS = {
       // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
       // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 11.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
+      { wingScale: 1.0, bladeSpan: 7.4, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
         // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
         // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
@@ -115,7 +115,7 @@ export const DRAGONS = {
     // flame. Dark-cinder → bright lava.
     stats: { speed: 1.04, handling: 1.06, drain: 0.95, regen: 1.05 },
     model: {
-      scale: 1.08, wingScale: 1.15, tailSegments: 8, neckSegments: 4,
+      scale: 1.08, wingScale: 1.0, tailSegments: 8, neckSegments: 4,
       hornLen: 1.4, hornPairs: 2, ridgeCount: 14,
       flapBias: 0.95, flapAmp: 0.95, // heavy, powerful beat, smoothed toward the Phoenix feel
     },
@@ -139,20 +139,20 @@ export const DRAGONS = {
     // blade-finned spine, crest + soft spine-glow). Restrained — no premium seams.
     forms: [
       // Hatchling — bare cinder whelp: no horns, no back ridges, dull ember.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 0,
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 0,
         spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 0,
         colors: { body: 0x2a1610, wingInner: 0x8a3a1e, wingOuter: 0x5c2414,
           wingEmissive: 0x9a4420, scales: 0x9a5a34, horn: 0xb08058,
           apexSeam: 0x7a3418, eye: 0xcf7a44, coreGlow: 0xc25a2a } },
       // Kindled — horns + back ridges sprout, wings broaden, warmer ember-orange.
-      { wingForm: 1, tailStyle: 'simple', tailSegments: 6, ridgeCount: 10,
+      { wingForm: 1, tailStyle: 'simple', tailSegments: 5, ridgeCount: 10,
         spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.1,
         colors: { body: 0x281410, wingInner: 0xe3561f, wingOuter: 0x7a3018,
           wingEmissive: 0xff8b2a, scales: 0xe0884a, horn: 0xe0b070,
           apexSeam: 0xff8b2a, eye: 0xffa347, coreGlow: 0xff7a30 } },
       // Radiant = the SSR apex: jagged flame wings, finned tail, back-spines,
       // crest + soft spine-glow — bright ember-orange, NO premium glow-seams.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 7, ridgeCount: 13,
+      { wingForm: 2, tailStyle: 'finned', tailSegments: 6, ridgeCount: 13,
         spineGlow: 0.32, backSpines: true, crest: 1,
         colors: { body: 0x261208, wingInner: 0xff8b2a, wingOuter: 0x7a3018,
           wingEmissive: 0xffb347, scales: 0xffc070, horn: 0xffd28a,
