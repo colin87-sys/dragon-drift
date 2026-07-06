@@ -206,6 +206,26 @@ export const CONFIG = {
     lanceWeight: 0.5,       // LAW — counts HALF toward PART_CRACK_HITS (rider-chip parity)
     lanceStaggerMs: 60,     // LAW
     volleyRoiFrac: 0.10,    // LAW — hard clamp at release: volley total ≤ this × current phase hp
+    // WYRMFIRE WISPS (PR4a) — lance-volley flight FX. READS ONLY: vrel and the
+    // arrival/damage laws are untouched, so a wisp lands on the same frame the
+    // plain lance did (boss.mjs kill-time invariance by construction).
+    lanceFanDeg: [65, 115, 15, 165, -35, 215],
+                            // LAW — authored launch bearings (degrees, screen plane, 0=+x):
+                            // mirrored PAIRS widening around 90° (§3.6 symmetry: authored
+                            // placements, never random); index = volley slot i % 6
+    lanceFanSpeed: 26,      // TUNE(18–32) — m/s along the fan bearing at release
+    lanceHomeDelay: 0.16,   // TUNE(0.10–0.22) — pure-arc seconds before homing engages.
+                            // CEILING LAW: flight ≈ (settleGap−1.5)/bossSpeed ≈ 0.55s and
+                            // the arrive controller needs ≥0.3s to close fanSpeed×delay
+    lanceHomeBlend: 0.15,   // TUNE(0.10–0.25) — steer-gain ramp-in after engage (no elbow)
+    lanceSteerGain: 9,      // TUNE(6–12) — arrive gain once engaged (pre-wisp inline was 5)
+    lanceCurlRate: 3.2,     // TUNE(2.0–5.0) — rad/s velocity rotation during the arc; sign = i parity
+    lanceTrailHz: 30,       // TUNE(20–40) — trail sprites/s per wisp, ×quality at the source
+    lanceTrailLife: 0.3,    // TUNE(0.2–0.4) — BUDGET LAW: 6 wisps × Hz × life ≤ ~⅓ of the
+                            // particles VISIBLE_CAP (150) so gameplay bursts keep headroom
+    paintCooldown: 0.45,    // TUNE(0.3–0.6) — cross-organ paint spacing: min gap between ANY
+                            // two paints (paintHopGrace only embargoes the SAME organ) —
+                            // owner playtest: back-to-back paints read spammy
     // V3
     beamAimDisc: 4.0,       // LAW — m; nearest partWorldPos within this of the player line
     beamPartWeight: 1.5,    // TUNE(1.0–2.0)

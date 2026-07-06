@@ -975,7 +975,8 @@ function surgeForkLances(player) {
   let pips = 0;
   for (const lk of locks) pips += lk.stacks;
   const dmgEach = lanceDmgEach(pips, currentPhaseHp());
-  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach);
+  let i = 0;
+  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips);
   emit('lockVolley', { count: pips, source: 'fork', dmgEach });
 }
 
@@ -1689,7 +1690,7 @@ export function updateBoss(dt, player, time) {
       paintUnlocked: !!saveData.flags.lockUnlocked,
       paintables: paintableParts(),
       amberVenting: (part) => (amberVent.get(part) ?? -1) > fightNow,
-      fireLance: (part, dmg) => fireLanceAt(player, part, dmg),
+      fireLance: (part, dmg, i, n) => fireLanceAt(player, part, dmg, i, n),
     };
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);
@@ -2439,26 +2440,29 @@ function paintableParts() {
   return out;
 }
 
-// Launch one homing lance at a painted organ: a pooled boss-ward bullet (the rider-shot
-// kinematics, aimed at the PART's live world position). Arrival emits the standard
-// bossDamage event with kind:'lance' — every deflect gate in damageBoss applies, and
-// PART_SYS counts it half (landing-point route), the rider-chip weight. Spawned from
-// the dragon's off-shoulder (the rider fires from +0.6; lances leave from −0.6).
+// Launch one WYRMFIRE WISP at a painted organ: a pooled boss-ward bullet that FANS
+// OUT on its authored launch bearing (lanceFanDeg[i], Panzer-Dragoon lock-on style —
+// mirrored pairs widening around straight-up), arcs for homeDelay, then homes onto
+// the PART's live world position. Arrival emits the standard bossDamage event with
+// kind:'lance' — every deflect gate in damageBoss applies, and PART_SYS counts it
+// half (landing-point route), the rider-chip weight. Spawned from the dragon's
+// off-shoulder (the rider fires from +0.6; wisps leave from −0.6). `vrel` is the
+// plain bossSpeed — the arrival FRAME is identical to the pre-wisp straight lance.
 const _lanceV = new THREE.Vector3();
-function fireLanceAt(player, part, dmg) {
+function fireLanceAt(player, part, dmg, i = 0, n = 1) {
   const w = model && model.partWorldPos ? model.partWorldPos(part, _lanceV) : null;
   const tx = w ? w.x : pose.x, ty = w ? w.y : pose.y;
   const trel = w ? Math.max(-w.z - player.dist, 4) : pose.rel;
   const ox = player.position.x - 0.6, oy = player.position.y + 0.4;
-  const t = Math.max((trel - 1.5) / B.bossSpeed, 0.05);
-  // Launch curl (wisp arc): a deterministic per-part sideways+upward kick that the
-  // in-flight steering bends back onto the brand — each wisp takes its own path.
-  const curl = (part && part.charCodeAt(part.length - 1) % 2 === 0) ? 5 : -5;
+  const L = CONFIG.LOCK;
+  const a = L.lanceFanDeg[i % L.lanceFanDeg.length] * (Math.PI / 180);
   spawnBossBullet({
     owner: 'lance', x: ox, y: oy, rel: 1.5,
-    vx: (tx - ox) / t + curl, vy: (ty - oy) / t + 4, vrel: B.bossSpeed,
+    vx: Math.cos(a) * L.lanceFanSpeed, vy: Math.sin(a) * L.lanceFanSpeed, vrel: B.bossSpeed,
     targetRel: trel, tx, ty,
-    color: 0x50ffaa, dmg, r: 0.5, life: 4, part,
+    color: 0x50ffaa, coreColor: 0xeafff6, dmg, r: 0.5, life: 4, part,
+    homeDelay: L.lanceHomeDelay,
+    curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,   // deterministic: slot parity, no RNG
   });
 }
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
 import { makeGlowTexture, makeRingTexture, makeRectTexture } from './util.js';
 
 // Celebration particle engine. One pooled set of additive glow sprites
@@ -112,6 +113,29 @@ export function rollWake(pos, dir = 1, count = 4) {
     tmpV.set(dir * (3 + Math.random() * 5), (Math.random() - 0.5) * 6, 5 + Math.random() * 6);
     spawn(pos, 0xcdeaff, { speed: 6, size: 1.0, life: 0.42, velBias: tmpV, drag: 1.5, gravityScale: 0, stretch: 2.4 });
   }
+}
+
+// WYRMFIRE WISP trail (Hunter's Brand): one small additive mote dropped in world
+// space at the wisp's position — the wisp's ~65 m/s flight strings successive
+// motes into a glowing ribbon for free (the dragon.js trail trick). Two-tone:
+// the caller alternates hot jade-white / dim green so the ribbon reads
+// head-hot → green → dim with zero per-sprite color animation. Small sprites
+// only — never a large additive volume (BOSS-DESIGN §2 overdraw cliff).
+export function wispTrail(pos, hot) {
+  spawn(pos, hot ? 0xeafff6 : 0x2fbf7f, {
+    speed: 1.5, size: hot ? 0.42 : 0.55, life: CONFIG.LOCK.lanceTrailLife,
+    gravityScale: 0, drag: 0.6, stretch: 1,
+  });
+}
+
+// Wisp impact — jade sparks + fast white-hot pips; the small shockwave ring only
+// when the caller says so (rate-gated to ≤1 per volley window) so a 6-pip Surge
+// fork over the shield-shatter never stacks large additive volumes. Legibility
+// through the shatter comes from LUMINANCE (hot pips at speed), not area.
+export function wispImpact(pos, ring) {
+  burst(pos, 0x50ffaa, { count: 7, speed: 9, size: 0.6, life: 0.32 });
+  burst(pos, 0xeafff6, { count: 3, speed: 15, size: 0.4, life: 0.22 });
+  if (ring) shockwave(pos, 0x50ffaa, { grow: 10, life: 0.35 });
 }
 
 function shockwave(pos, colorHex, { rect = false, grow = 16, life = 0.5, aspect = 1 } = {}) {

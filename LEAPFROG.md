@@ -7056,3 +7056,51 @@ fabricated-ctx harness — integration tests must read the REAL candidate (`boss
 the climax" problem. Still deferred (L178/L180): tether LineSegments, feats/analytics hooks, the `lockdps` persona
 TTK sim, E1 perfect-release (beat window — `beatWindow`/`beatMult` data present, inert). The owner still owes a
 verdict on Q1 (ready-tap-ALWAYS-Surge vs a context-split) — flagged in the PR body per the SOP.
+
+### L186 — LANCE PR4a (wyrmfire wisps): FX rides existing pools, the arrival-frame law IS the coexist proof, and a first-run tutorial was silently pausing the test fights
+
+**Did.** The owner's PR3 playtest: the volley read as "boring bullets" (the fork lost in the
+shield-shatter), painting felt spammy, paint sounds thin, and single-organ EITHERWING was a
+regression after MARROWCOIL's rib teach. Shipped: (1) **wyrmfire wisps** — lances now FAN OUT on
+authored bearings (`lanceFanDeg` [65,115,15,165,−35,215], mirrored pairs widening around
+straight-up; Panzer-Dragoon lock-on fan) at `lanceFanSpeed`, arc for `lanceHomeDelay` (velocity
+rotated by `lanceCurlRate`, sign = slot parity), then the arrive steer ramps in over
+`lanceHomeBlend` at gain 9 — plus per-wisp two-tone trails (`wispTrail`, jade-white/dim-green
+motes off the shared particles pool at `lanceTrailHz`×quality), a render-side luminance
+pulse + 10% breathing head, and `wispImpact` (jade sparks + white-hot pips + ONE small
+rate-gated shockwave ring per volley window). (2) `paintCooldown` 0.45s — cross-organ pip
+spacing; aim/hop stay instant, only conversion waits (the refresh clock converts the held line
+the moment it clears). (3) brandSet/brandLoose upgraded with noiseWhoosh bodies + shimmer/sub
+layers. (4) EITHERWING `lockParts` = eye + `seekerFin`/`seekerScar` — **named EMPTY Object3D
+markers** on the seeker's fin mesh and scar-chain pivot (zero geometry, tricount unchanged).
+
+**The load-bearing laws.** (1) **The arrival-frame law:** the whole flight rework never touches
+`vrel`, so a wisp lands on the SAME frame the old straight lance did — T-W2 spawns the worst-case
+6-slot fan (incl. the 215° away-facing bearing) at fixed dt and asserts 6/6 land ON the computed
+straight-lance frame. That single invariant makes the entire FX pass coexist-proof (boss.mjs kill
+times can't drift) without touching the sim. (2) **FX rides existing pools or doesn't ship:**
+trails/impacts are small additive sprites from particles.js (spawn/burst/shockwave) — zero new
+draw layers, no instanced-matrix additions (the §2 jank trap), budget lints in-code
+(6×Hz×life ≤ 60 ≤ cap headroom). (3) **Anchors must track the VISIBLE organ:** `eitherScar`
+names a strip whose geometry rebuilds in twin-local space — its mesh origin sits at the twin
+CENTRE, so partWorldPos on it would brand the body. When an organ is a deforming strip, anchor
+an empty on its pivot CHAIN, and test that the anchor resolves ≠ the body centre (T3.E).
+
+**The gotcha that ate a day: the first-run GESTURE TUTORIAL pauses headless fights.** On a fresh
+profile (`runs===0`) gestureTutorial.js freezes the game (pauseReason 'tutorial') at t>1.2s /
+150m / 225m waiting for steer/boost/roll — squarely inside a `?boss=180` test fight. The T0.x
+synthesized touches satisfied steps at semi-random times, so the Surge-tap integration checks
+flaked run-to-run for THREE debugging rounds (blamed on rAF throttle twice). The failure-only
+forensic dump (frames-per-500ms + game.state + pauseReason) found it in one run. LAWS: (a) test
+boots that reach gameplay must call `skipGestureTutorial()` before starting; (b) when an
+integration wait times out, dump `game.state`/`pauseReason`/a frame-counter BEFORE theorizing —
+"paused" vs "throttled" vs "broken" are three different bugs; (c) detect one-shot activations by
+EVENT (`on('surge')`), never by polling a state flag a single throttled frame can raise and
+lower invisibly.
+
+**→ Leapfrog.** The wisp flight fields (`homeDelay`/`curl` on bullet slots) are a general
+two-phase-path primitive — any future projectile can fan/arc then home by passing them to
+spawnBossBullet; the (i, n) volley threading through lanceQ/fireLance is the seam for
+per-slot choreography (E1 beat-release can ride it). Deferred list unchanged (L178/L180) plus:
+per-dragon wisp tint (Eternal cosmetic hook), wisp-trail LineSegments ribbon if sprites ever
+read muddy on device.

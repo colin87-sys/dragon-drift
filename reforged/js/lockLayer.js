@@ -45,6 +45,8 @@ const S = {
   deflected: false,  // last ctx.deflected (pips freeze ashen)
   hopPart: null,     // the just-painted organ (re-acquire embargo → the reticle hops onward)
   hopT: 0,
+  paintCd: 0,        // cross-organ paint cooldown (PR4a): min gap between ANY two paints —
+                     // the reticle still hops/aims instantly; only the pip conversion waits
   _atCap: false,     // edge-detect: the fuse starting = the dragon DRAWS BREATH (lockCap event)
   looseReq: false,   // V3 MANUAL LOOSE (PR3): a not-ready tap requested a volley; the
                      // state machine consumes it next step (releaseVolley needs ctx.phaseHp)
@@ -60,7 +62,7 @@ export function initLockLayer() {
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.cap = 0; S.deflected = false;
-  S.hopPart = null; S.hopT = 0;
+  S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
 }
 
@@ -72,7 +74,7 @@ export function clearLocks(_reason) {
   S.anchorPart = null;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
-  S.hopPart = null; S.hopT = 0;
+  S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
 }
 
@@ -126,6 +128,7 @@ export function updateLockLayer(dt, player, ctx) {
   refreshHud(ctx, dt, player);
   const px = player.position.x, py = player.position.y;
   if (S.hopT > 0) { S.hopT -= dt; if (S.hopT <= 0) S.hopPart = null; }
+  if (S.paintCd > 0) S.paintCd -= dt;
 
   // ---- V1 aim: acquire (tight cone) / hold (retention cone + drain) — L177 ----
   if (!S.aimPart) {
@@ -213,12 +216,17 @@ export function updateLockLayer(dt, player, ctx) {
     && !(ctx.amberVenting && ctx.amberVenting(part)));   // amber-carriers are dwell-exempt while venting (C3)
   if (canPaint && held && isPaintable(S.aimPart)) {
     const existing = S.locks.find((lk) => lk.part === S.aimPart);
-    if (justLocked && !existing && totalPips() < S.cap) {
+    // PAINT COOLDOWN (PR4a, owner playtest "a bit spammy"): a slight cross-organ
+    // gap between ANY two paints. Only pip CREATION waits — aim, the reticle hop,
+    // and existing-pip refresh stay instant; a dwell completed inside the window
+    // converts via the refresh clock the moment the cooldown clears.
+    if (justLocked && !existing && totalPips() < S.cap && S.paintCd <= 0) {
       // The dwell that completed IS the first paint (one clock to learn).
       const part = S.aimPart;
       S.locks.push({ part, stacks: 1, age: 0 });
       emit('lockPaint', { part, count: totalPips() });
       S.refreshT = 0;
+      S.paintCd = L.paintCooldown;
       paintHop(part);
     } else {
       // Held re-dwell (refreshDwell): refresh an existing pip's decay (and STACK at
@@ -234,10 +242,11 @@ export function updateLockLayer(dt, player, ctx) {
             existing.stacks++;
             emit('lockPaint', { part: S.aimPart, count: totalPips(), stacked: true });
           }
-        } else if (totalPips() < S.cap) {
+        } else if (totalPips() < S.cap && S.paintCd <= 0) {
           const part = S.aimPart;
           S.locks.push({ part, stacks: 1, age: 0 });
           emit('lockPaint', { part, count: totalPips() });
+          S.paintCd = L.paintCooldown;
           paintHop(part);
         }
       }
@@ -287,7 +296,7 @@ export function updateLockLayer(dt, player, ctx) {
     for (const q of S.lanceQ) q.t -= dt;
     while (S.lanceQ.length && S.lanceQ[0].t <= 0) {
       const q = S.lanceQ.shift();
-      ctx.fireLance?.(q.part, q.dmg);
+      ctx.fireLance?.(q.part, q.dmg, q.i, q.n);   // (i, n) = the wisp's authored fan bearing
     }
   }
 
@@ -433,7 +442,7 @@ function releaseVolley(ctx, source) {
   let i = 0;
   for (const lk of S.locks) {
     for (let s = 0; s < lk.stacks; s++) {
-      S.lanceQ.push({ part: lk.part, dmg: dmgEach, t: i++ * (L.lanceStaggerMs / 1000) });
+      S.lanceQ.push({ part: lk.part, dmg: dmgEach, t: i * (L.lanceStaggerMs / 1000), i: i++, n: pips });
     }
   }
   emit('lockVolley', { count: pips, source, dmgEach });
