@@ -64,6 +64,22 @@ export const BOSSES = {
     epithet: 'The Hollow Judgment',   // bossTitleCard's reveal-card subtitle
     tier: 1,                          // SENTINEL (§5b band 1)
     hpMax: 180,
+    // THE LANCE layer (combat-verbs SOP §II.9). Per-def lock data — all optional and
+    // neutral-at-rung-0 (a def with none behaves byte-identically to before):
+    //   virtualLockOrgan: '<partName>'  V1 aim-line target when there are no/limited
+    //                                   lockParts (must resolve via model.partWorldPos).
+    //   lockParts: [{ part, phases?, hot? }]   V2 paintable organs (PR2).
+    //   lockMuted: true                 reticle ashen, V1 rate bonus off (slot 13).
+    virtualLockOrgan: 'faceCore',     // V1 slot-1 TUTORIAL: aim at the whole FACE (a big,
+                                      // stable central anchor), not the tiny fast-swaying eye —
+                                      // so the first teach is easy to lock (bossIdol.js faceCore)
+    holdSway: { amp: 3.2, freq: 0.6 },// slot-1 TEACH sway, re-livened (L177). The TUTORIAL
+                                      // inequality: amp < LOCK.retentionConeXY (4.0) means a
+                                      // centred player NEVER drops a held lock — the whole swing
+                                      // fits inside the retention cone — while the mask still
+                                      // visibly strafes. (The prior ±1.8m calm was compensating
+                                      // for the old binary dwell; retention+drain+anchor
+                                      // smoothing carry the motion now. Default sway is ±5m@0.7.)
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
     // crystal-core construct. A def WITHOUT `archetype` still falls through
@@ -111,6 +127,7 @@ export const BOSSES = {
     epithet: 'Eye of the Unending Gale',   // bossTitleCard's reveal-card subtitle
     tier: 1,                               // SENTINEL (§5b band 1)
     hpMax: 220,
+    virtualLockOrgan: 'focalEye',          // LANCE V1: the storm-eye core (bossMandala.js)
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the
     // legacy crystal-core construct — see voidmaw's `archetype` comment above.
@@ -204,6 +221,9 @@ export const BOSSES = {
     title: 'the Ember Hunter',
     epithet: 'What the Ash Still Hunts',   // the lore gap: what is it hunting FOR?
     tier: 2,                               // COLOSSUS (§5b band 2), slot-3 opener
+    // LANCE V1: the visor slit. NO lockParts by design (LAW §II.9) — ASHTALON is the
+    // mover stress test; its dwell windows are the mantle-hold rest beats, no painting.
+    virtualLockOrgan: 'visorSlit',
     // Boss-archetype dispatch (bossModel.js buildBoss): the Ember-Hunter builder
     // (bossAshtalon.js) — BOSS-DESIGN.md §5b registry slot 3, replacing the
     // retired CRAGHOLD. A charcoal raptor of two vast scythe-wings with ONE

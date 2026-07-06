@@ -21,6 +21,7 @@ import {
   beamContact, setGrazeBonus,
   spawnBossRingHoop,
 } from './bossBullets.js';
+import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld } from './lockLayer.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
 // game.inBoss, mirroring game.inCanyon): forward motion continues, the boss holds
@@ -107,6 +108,8 @@ let phaseIdx = 0;
 let warnT = 0;
 let approachT = 0;
 let attackTimer = 0;
+let aimHeldT = 0;              // V1 teach: continuous seconds a line has been held (≥1s = performed)
+let aimTeachCd = 0;           // V1 teach: cooldown between re-armed prompts
 let riderTimer = 0;
 // Cinematic overtake entrance (§5f, ASHTALON): a scripted flythrough — rise from
 // behind, a bullet-time close pass with the visor/eyes tracking you, pull ahead
@@ -1104,6 +1107,7 @@ export function inBossRush() { return rushMode; }
 
 function endEncounter(player) {
   clearSetpiece();
+  clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   if (group) { scene.remove(group); model.dispose?.(); }
@@ -1217,6 +1221,8 @@ function applyReticle(timeLeft, time) {
 // the cinematic flythrough entrance.
 function enterFight() {
   phase = 'fight';
+  initLockLayer();   // THE LANCE layer: fresh aim/lock state per fight
+  aimHeldT = 0; aimTeachCd = 1.5;   // V1 teach: first prompt after a short settle
   poseSX = pose.x; poseSY = pose.y; poseSmooth = true;   // seed the group x/y smoother from the entrance-end pose (no handoff jump)
   if (cineYaw != null) fightWobbleT = 0;   // released from a scripted entrance → ease the yaw/roll wobble in from its settled facing (no snap)
   entranceId = null;                  // the scripted entrance is done
@@ -1519,8 +1525,13 @@ export function updateBoss(dt, player, time) {
     } else {
       if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly
       // Hold station ahead and "fly backward"; gentle strafe/bob keeps it alive.
+      // Sway amplitude/speed are def-tunable so a TUTORIAL boss (slot 1) can drift
+      // slowly enough that its face stays inside the V1 aim cone long enough to
+      // lock — LANCE §II.9. Defaults reproduce the shipped ±5m sway byte-for-byte
+      // (every existing boss omits `holdSway`, so this is a coexist no-op).
+      const sway = def.holdSway;
       pose.rel = B.settleGap;
-      pose.x = Math.sin(time * 0.7) * 5.0;
+      pose.x = Math.sin(time * (sway?.freq ?? 0.7)) * (sway?.amp ?? 5.0);
       pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
     }
 
@@ -1564,9 +1575,30 @@ export function updateBoss(dt, player, time) {
       if (pending[i].t <= 0) { pending[i].fire(); pending.splice(i, 1); }
     }
 
+    // THE LANCE layer (V1 aim-line). Build the per-frame ctx and step the state
+    // machine BEFORE the rider fires, so a held line retargets THIS frame's shot.
+    // Danger-binding: `emittersLive` gates the dwell rate (full while fire is live,
+    // half during authored quiet); `exposureWindow` = the §5f post-string turn-taking
+    // gap where a held line pays crack ticks.
+    const lockCtx = {
+      fightRunning: true,
+      model,
+      candidates: lockCandidates(),
+      muted: !!def.lockMuted,
+      emittersLive: bossBulletCount() > 0 || chargeT > 0 || pending.length > 0,
+      exposureWindow: !shielded && chargeT <= 0 && pending.length === 0 && attackTimer > 0,
+      damageBoss,
+      flashPart: () => model.flash?.(0.15),
+    };
+    updateLockLayer(dt, player, lockCtx);
+    driveAimTeach(dt, lockCtx);
+
     riderTimer -= dt;
     if (riderTimer <= 0) {
-      riderTimer = B.riderShotInterval * (surge ? B.surgeRiderMult : 1);   // double-fire in Surge
+      // A held aim-line quickens the rider's cadence (÷ chipRateMult) — never a fire
+      // button, never touching the unconditional chip; it CONDITIONS on flight state.
+      const held = lockAimHeld() ? CONFIG.LOCK.chipRateMult : 1;
+      riderTimer = (B.riderShotInterval / held) * (surge ? B.surgeRiderMult : 1);   // double-fire in Surge
       fireRiderShot(player);
     }
 
@@ -2224,15 +2256,51 @@ function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMul
 
 // Rider auto-attack: a homing chip shot fired from beside the player up at the boss.
 function fireRiderShot(player) {
+  // V1 aim-line retarget: a held line steers the auto-fire onto that organ (tagged
+  // with the part), else the shot arcs to the pose centre exactly as before.
+  const aim = lockAimTarget();
+  const tgx = aim ? aim.x : pose.x;
+  const tgy = aim ? aim.y : pose.y;
   const ox = player.position.x + 0.6;
   const oy = player.position.y + 0.4;
   const t = Math.max((pose.rel - 1.5) / B.bossSpeed, 0.05);
   spawnBossBullet({
     owner: 'rider', x: ox, y: oy, rel: 1.5,
-    vx: (pose.x - ox) / t, vy: (pose.y - oy) / t, vrel: B.bossSpeed,
-    targetRel: pose.rel, tx: pose.x, ty: pose.y,
+    vx: (tgx - ox) / t, vy: (tgy - oy) / t, vrel: B.bossSpeed,
+    targetRel: pose.rel, tx: tgx, ty: tgy,
     color: 0x8fe9ff, dmg: B.riderShotDamage * (adrenRung >= 3 ? 1.25 : 1), r: 0.45, life: 4,   // R3 weak-point chip bonus
+    part: aim ? aim.part : null,
   });
+}
+
+// The organ names the V1 aim-line may target this fight: painted lockParts (PR2)
+// plus the virtualLockOrgan V1 falls back to. Empty for a def with no lock data
+// (coexist — the whole layer is inert and the rider fires exactly as before).
+function lockCandidates() {
+  if (!def) return [];
+  const out = [];
+  if (def.lockParts) for (const lp of def.lockParts) out.push(lp.part);
+  if (def.virtualLockOrgan) out.push(def.virtualLockOrgan);
+  return out;
+}
+
+// V1 teach (slot 1 VOIDMAW, §II.11): prompt in an opening exposure lull via the
+// queued bossNote channel; RE-ARM until performed — mark seen only when the player
+// holds a line ≥1s. Its own save bit (independent of V2's lockTaught).
+function driveAimTeach(dt, ctx) {
+  if (!def || !def.virtualLockOrgan || saveData.flags.aimTaught) return;
+  if (lockAimHeld()) {
+    aimHeldT += dt;
+    if (aimHeldT >= 1.0) { saveData.flags.aimTaught = true; persist(); return; }
+  } else {
+    aimHeldT = 0;
+  }
+  if (def.id !== 'voidmaw') return;   // only the slot-1 teach fight prompts
+  aimTeachCd -= dt;
+  if (ctx.exposureWindow && !lockAimHeld() && aimTeachCd <= 0) {
+    ui.bossNote?.('HOLD YOUR LINE ON THE EYE', 'YOUR RIDER STRIKES IT', 'gold', 2.6);
+    aimTeachCd = 8;   // re-arm the prompt later if still unperformed
+  }
 }
 
 // §5f DESTRUCTIBLE SUB-PARTS (HOLLOWGATE panes — the prove-then-extend hero).
@@ -2367,6 +2435,7 @@ function damageBoss(amount, kind, e = null) {
 
 export function resetBoss() {
   clearSetpiece();
+  clearLocks('death');   // THE LANCE layer: drop aim/lock state on a hard teardown
   removeSeed();   // §5e: no stale horizon silhouette across a run teardown
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.

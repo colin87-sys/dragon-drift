@@ -436,6 +436,39 @@ body.app-loaded > canvas { opacity: 1; }
 #reticle.gate .rsq { border-color: rgba(170, 230, 255, 0.92); box-shadow: 0 0 12px rgba(120, 210, 255, 0.55); animation: ret-spin 4s linear infinite; }
 #reticle.gate .rsq.inner { border-color: rgba(220, 245, 255, 0.85); animation: ret-spin-rev 2.5s linear infinite; }
 #reticle.gate.locked .rsq { border-color: rgba(235, 250, 255, 0.97); box-shadow: 0 0 16px rgba(150, 225, 255, 0.8); }
+/* THE LANCE reticle — the in-boss SECOND job (aim-line on a boss organ). Made BOLD
+   and legible (the first pass was too faint next to the dragon's cyan focus ring):
+   a bright steel target that BREATHES, tints toward green as your dwell builds
+   (--dwell 0..1, set per-frame), then SNAPS green with a ring-flash on lock — so
+   "you're doing it right" reads instantly, visually and (via sfx) audibly. Still
+   NOT the amber ring skin (parry-amber role collision §II.1.6); ashen when muted. */
+#reticle.boss .rsq {
+  border-width: 3.5px;
+  border-color: color-mix(in srgb, rgba(222,234,246,0.94), rgba(80,255,170,0.98) calc(var(--dwell,0) * 100%));
+  box-shadow: 0 0 12px rgba(150,210,240,0.45), 0 0 3px rgba(255,255,255,0.55);
+  animation: ret-spin 6s linear infinite, ret-boss-breathe 1.5s ease-in-out infinite;
+}
+#reticle.boss .rsq.inner {
+  border-color: color-mix(in srgb, rgba(232,242,251,0.88), rgba(120,255,190,0.98) calc(var(--dwell,0) * 100%));
+}
+/* Building toward a lock: the glow swells with dwell progress. */
+#reticle.boss.aiming .rsq { box-shadow: 0 0 16px rgba(90,255,180,calc(0.3 + var(--dwell,0)*0.5)), 0 0 4px rgba(255,255,255,0.6); }
+/* Locked: full green, energised (spins faster), strong bloom. */
+#reticle.boss.locked .rsq {
+  border-color: rgba(90,255,175,1); border-width: 4px;
+  box-shadow: 0 0 20px rgba(60,255,160,0.9), 0 0 6px rgba(200,255,230,0.9);
+  animation: ret-spin 3s linear infinite, ret-boss-breathe 1.5s ease-in-out infinite;
+}
+#reticle.boss.locked .rsq.inner { border-color: rgba(190,255,225,1); }
+/* Muted (slot 13): ashen, no green, no breathe. */
+#reticle.boss.sealed .rsq { border-color: rgba(150,160,175,0.42); box-shadow: none; animation: ret-spin 6s linear infinite; }
+#reticle.boss.sealed .rsq.inner { border-color: rgba(160,170,185,0.38); }
+/* The one-shot green ring flash fired on the lock snap. */
+.rsnap { position: absolute; inset: -6%; border: 3px solid rgba(120,255,190,0.95); border-radius: 8px;
+  opacity: 0; pointer-events: none; }
+#reticle.snap .rsnap { animation: ret-snap 0.42s ease-out 1; }
+@keyframes ret-snap { 0% { opacity: 0.95; transform: scale(0.55); } 100% { opacity: 0; transform: scale(1.9); } }
+@keyframes ret-boss-breathe { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.42); } }
 @keyframes ret-spin { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
 @keyframes ret-spin-rev { from { transform: rotate(45deg); } to { transform: rotate(-45deg); } }
 

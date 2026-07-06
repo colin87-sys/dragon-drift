@@ -6605,3 +6605,197 @@ confirmation of the L171 rule: measure first, re-trim only what drifts.
 **Pattern.** Both features are pure event-consumers with a single seam each — boss music on the event bus,
 forms as opt-in track data — so the roster's un-formed stations and the whole offline calibration path are
 provably unaffected. That's what let two "big" features land in one increment without a calibration cycle.
+
+### L173 — LANCE PR1 (V1 AIM-LINE): a dependency-injected state machine is unit-testable in the browser via a live `import()`; and "aim at an organ" needs the organ to be NAMED
+
+**Did / learned.** Second PR of the combat-verb build — V1 AIM-LINE (§I.c V1): holding the
+flight line inside a 2.6m cone on a boss organ for 0.35s wakes the dormant reticle (its SECOND
+job), retargets the rider's auto-fire onto that organ (×1.15 cadence), and — during a §5f
+post-string exposure lull — pays ≤3 visible crack ticks. New `js/lockLayer.js` owns the state
+machine; boss.js builds a per-frame `ctx` and steps it; reticle.js reads its published HUD state.
+Slots 1/2/3 (VOIDMAW/STORMREND/ASHTALON) got `virtualLockOrgan` + the slot-1 teach. Everything
+def-gated and neutral-at-rung-0: boss.mjs kill times, bossboot, tricount all byte-stable for the
+un-opted roster (marrowcoil→brineholm), because a def with no lock data yields zero candidates →
+the rider fires pose-centre with `part:null` exactly as before.
+
+**The two lessons that generalize:**
+
+**1. Dependency injection makes a game-loop state machine unit-testable with ZERO engine boot.**
+`updateLockLayer(dt, player, ctx)` takes ALL its world coupling through `ctx` (model.partWorldPos,
+candidates, emittersLive, exposureWindow, damageBoss callback). So T1.1–T1.6 drive the REAL module
+with a fabricated ctx (a fake model whose `partWorldPos` writes fixed coords, a fake player, a
+`damageBoss` that just records) — deterministic dwell/coyote/linger/quiet-rate/exposure-tick
+assertions at chosen dt, no rAF, no renderer. The seam that made this work in the BROWSER harness
+(not just a node shim): `await import(new URL('./js/lockLayer.js', document.baseURI).href)` inside
+`page.evaluate` returns the same singleton module the game uses — so you unit-drive the exact
+shipped code. Caveat baked in: do it on the HUB (no live fight), or updateBoss races your calls on
+the shared module state. Reusable rule: **any per-frame system should take world state as an
+injected ctx, never reach into globals — then its logic is testable without the world.** This is
+the pattern for V2's paint/decay/volley machine next.
+
+**2. "Aim at an organ" requires the organ to be addressable — and naming a mesh is byte-neutral.**
+The models BUILD an eye/visor focal but none NAMED it, so `model.partWorldPos('eye')` returned
+null. The SOP's own STOP-protocol flags "a needed model part name doesn't exist" — but adding
+`mesh.name = 'focalEye'` is not a workaround, it's the legitimate wiring the feature needs, and
+it's exactly the codebase's existing idiom (the telegraph-silhouette gate already names pivots for
+tooling to find). Naming is metadata: zero geometry, zero render, zero tri-count change (tricount
+byte-identical), so it can't break the shipped look. Named the idol eyeGroup (voidmaw), the mandala
+eyeMesh (stormrend), and the ashtalon visor `slit` — all `'focalEye'`/`'visorSlit'`, resolved by
+`partWorldPos` (recursive getObjectByName, cached). Generalize: **when a new system needs to address
+a sub-part, NAME the real part in the builder (additive, byte-neutral) rather than inventing a proxy
+position** — the name becomes the stable contract across PRs.
+
+**Off-by-one caught by the unit test:** the acquisition frame originally set the target but didn't
+accrue that frame's dwell, so 6×0.06s read as 0.30 not 0.36. At 60fps (dt 0.016) invisible; the
+fabricated-dt unit test exposed it. Fixed so time-in-cone counts from the first in-cone frame — a
+concrete case for why injected-ctx unit tests at coarse dt beat "looks fine in play."
+
+**→ Systematize.** The ctx-injection + live-`import()` browser-unit pattern is now the template for
+every remaining verb (V2 paint machine, V3 tap table, V5 focus detector): build the logic as a pure
+function of an injected ctx, unit-drive the real module on the hub, integration-check in a forced
+fight. And the "name the real sub-part" move is the standard way to grow `partWorldPos` addressing —
+it's how V2's `lockParts` (rib pivots, panes, shackles) will resolve. The affordance vocabulary from
+PR0 (LIVE / SEALED / ASHEN) now has its reticle form: neutral-steel boss-skin → GREEN on dwell →
+ashen when muted.
+
+**→ Leapfrog (innovate).** V1 ships the whole spine V2 bolts onto: the same 0.35s dwell CLOCK
+(reused verbatim for paint), the same cone, the same ctx/`damageBoss` seam (lances will spawn
+through it), the same reticle skin (pips render in the same lock-green family). Because lockLayer
+already exports the inert PR2 surface (lockCount/paintFromParry/consumeAllLocks/clearLocks), boss.js
+can wire the V2 seams against a stable API with no churn. Next: PR2 — V2 LANCE-PAINT (the big one):
+the paint/decay/cap/volley machine, the deflect predicate, lances as pooled player-ward bullets, HUD
+pips/tethers, plus the DPS-sim personas + lockdiet/anti-camp CI gates in the SAME PR. The unit
+harness proven here means the paint-cycle math can be asserted headlessly before a single lance flies.
+
+### L174 — LANCE PR1 juice pass: a new mechanic is INVISIBLE until it announces itself — legibility is a feature, not polish
+
+**Did / learned.** Owner feel-test on the VOIDMAW preview surfaced the real gap: V1's aim-reticle
+was mechanically correct but *unnoticeable* — a faint steel square on the eye, easily confused with
+the pre-existing bright cyan **focus ring on the dragon** (two circular UI elements competing, the
+louder one unrelated to the new verb). The fix wasn't the mechanic, it was the FEEDBACK: (1) the
+reticle now BREATHES + is bold steel, (2) tints steel→green as the dwell builds via a per-frame
+`--dwell` CSS var (`color-mix`), so you see it *working before it locks*, (3) a green SNAP with a
+one-shot ring-flash the instant it locks, (4) a `lockOn` chime + a soft `lockTick` on each crack
+tick — so "you're doing the right thing" is unmistakable, visually AND audibly. Wiring: lockLayer
+emits `aimLock` on the false→true edge (unit-tested: fires exactly once per lock); main.js maps
+`aimLock`→`sfx.lockOn` and `lockTick`→`sfx.lockTick`; reticle.js reads `hud.dwell` for the closing-in
+scale and edge-detects the snap.
+
+**The screenshot was the unlock.** No amount of describing the reticle resolved the confusion; a
+single headless capture (drive into the fight, screenshot the DOM-overlay reticle) instantly showed
+BOTH of us that the bright ring the owner saw was the *old* focus circle, and mine was the faint
+thing on the eye. Generalize: when a UI/feel disagreement stalls, **capture the actual frame** — the
+`page.screenshot` after forcing the game state is cheap and ends the guessing. (Gotcha: forcing a
+lock in the capture by writing `player.position` fails — flight physics overwrites it every frame;
+steer via `input`, or for a pure *visual* capture temporarily widen `CONFIG.LOCK.coneXY` so the line
+is trivially "on" the organ. The mechanic stays honest because it's unit-tested at the real cone.)
+
+**→ Systematize.** Every verb in this build now owes three feedback channels the moment it fires: a
+BUILD cue (progress you can watch), a COMMIT cue (the snap/pop + sound on success), and a distinct
+identity that doesn't collide with existing UI (the aim-green vs the focus-cyan vs parry-amber role
+colors). Bake this into the V2+ checklist: a lock painted, a lance loosed, a perfect release — none
+ship without their own build/commit/identity cues, or they'll read as "nothing happened" exactly
+like V1 first did. The `aimLock`-style edge event + `--progress` CSS var is the reusable rig.
+
+**→ Leapfrog.** The reticle now has a full state vocabulary — idle-steel → aiming-greening → locked-
+green-snap → ashen-muted — which is precisely the surface V2's pips/tethers render into. And the
+audio hooks (`lockOn`/`lockTick`) are the first two of the lock layer's sound set; V2's paint/volley/
+cap-release cues slot into the same emit→sfx map. Legibility work done now is amortized across every
+later verb.
+
+### L175 — LANCE PR1 mover tuning: a world-space aim cone fights a fast-strafing focal, and dwell-RATE isn't the lever — target MOTION is
+
+**Did / learned.** Owner feel-test: locking VOIDMAW's eye was near-impossible. Chose the "forgiving"
+fix — V1 acquires at FULL rate (the danger-binding quiet-rate penalty is now reserved for V2 paint,
+its real anti-camp purpose) + coyote 0.12→0.20 (max of its tune range). Tests updated + green. But a
+headless probe (still player) exposed the deeper truth: **VOIDMAW's tracked focal (`focalEye`)
+oscillates ±4.5m at ~0.38Hz, peaking ~10 m/s — inherent boss idle/strafe motion, NOT self-amplified
+by the player.** The dragon's max lateral speed (~4 m/s) is below that, so you physically cannot
+*chase* the eye through its zero-crossing; the only lock is to CAMP at a swing extreme, where the eye
+slows (speed→0) and lingers ~1s inside a 2.6m cone. Forgiving tuning makes that camp-catch easy; it
+does nothing for chasing. For a slot-1 TEACH, "wait at the edge of its swing" is too subtle.
+
+**Two reusable lessons.** (1) **The `partWorldPos` target of a V1/paint organ must be a SLOW-moving
+point, or the world-cone is unwinnable no matter the dwell tuning.** Measure the candidate's world
+velocity (a still-player probe) BEFORE shipping a `virtualLockOrgan`/`lockPart` — if its peak speed
+exceeds the player's tracking speed, the cone can only be satisfied at motion turnarounds, which is
+not teachable. This is a def-authoring gate, not a constant to tune. (2) **Dwell RATE and MOTION are
+different failure axes.** Full-rate + coyote widen the *time* tolerance; they can't help when the
+*target* leaves the cone for ~1s per swing. When a lock feels bad, probe whether it's a time problem
+(rate/coyote) or a motion problem (target velocity) — they have disjoint fixes.
+
+**→ Systematize.** Add a `lockmotion` check to the PR2 sim battery: for every `virtualLockOrgan`/
+`lockPart`, assert peak world-speed ≤ the dragon's lateral speed OR the organ dwells ≥ dwellTime
+inside the cone at its turnaround — else the def must pick a steadier anchor (skull/mask centre for
+slot 1) or the boss's opening must calm its strafe. This catches "unlockable focal" at authoring time
+across the whole roster (ASHTALON's moving visor is the next at-risk case).
+
+**→ Leapfrog.** This is the empirical case FOR the screen-space aim model (reticle-over-organ vs
+world-x/y match): at 30m depth a ±4.5m world swing is a bounded screen arc, and small steering re-aims
+faster than flying the whole dragon to match — decoupling "aim" from "body position" is exactly what a
+fast focal needs. The world-cone stays viable only for slow/steady organs. Next decision point with the
+owner: calm VOIDMAW's opening (cheap, unblocks the teach) vs. build screen-space aim (correct, broader).
+
+### L176 — LANCE PR1 mover fix landed: calm the TUTORIAL boss's motion via a def-param, not the shared sway — and the win is measurable
+
+**Did / learned.** Closing L175: VOIDMAW (slot-1 teach) strafed ±5m at ~15 m/s — unlockable by
+chasing. Fix chosen by owner: calm the tutorial's motion. The shared hold-station line
+(`pose.x = Math.sin(time*0.7)*5`) is used by EVERY boss, so it was made def-tunable —
+`def.holdSway = { amp, freq }` with defaults `(5.0, 0.7)` that reproduce the shipped sway
+byte-for-byte (every other boss omits it → coexist no-op, boss.mjs kill times unchanged). VOIDMAW
+opts into `{ amp: 1.8, freq: 0.45 }`: a slow ±1.8m drift. Headless proof: poseX now ≤4 m/s, and the
+same crude P-controller that could NEVER lock the ±5m version rode the dwell to `held=true` on the
+gentle one. So the tutorial is now lockable by construction, not by hope.
+
+**The pattern (reusable).** A shared per-frame motion constant that one boss needs to differ on →
+promote it to a `def.*` with a default that equals the old literal (`x ?? DEFAULT`), so the change
+is provably a no-op for everyone who doesn't opt in. This is the same coexist move as `virtualLockOrgan`/
+`lockParts`/`holdSway` — the roster stays byte-identical while one creature gets new behavior. And when
+a feel fix is claimed "done," back it with a MEASUREMENT (the pose-speed probe + the bot now locking),
+not just "should be better" — the probes caught that anchor-choice and dwell-tuning DIDN'T fix it, and
+that the motion change DID.
+
+**→ Leapfrog.** The `holdSway` dial is now the per-boss knob for tuning aim difficulty across the
+roster: later movers (ASHTALON's designed mover stress test) can pick their own amp/freq so V1 stays
+fair without touching the global cone (principle-5 safe). Combined with the L175 `lockmotion` sim gate
+(assert every lock anchor's peak speed ≤ trackable), the roster can be authored so every boss's aim
+difficulty is a deliberate, measured choice. The world-cone model is now viable roster-wide *given*
+per-boss motion budgets — deferring (not forcing) the bigger screen-space rework.
+
+### L177 — the aim model was the problem, not the boss: retention + drain + a smoothed anchor replace the motion nerf (and the L175/L176 probes were clock-polluted)
+
+**Did.** Reconciled the "fast strafing focal vs world-space cone" problem (L175/L176) at the MODEL,
+not the boss: (1) **acquire/retention asymmetry** — acquisition keeps the tight 2.6m cone (it prices
+exposure: corner 3.68m < grazeR 4.15m), but once a dwell is accruing/held the test widens to a 4.0m
+RETENTION cone (`LOCK.retentionConeXY`) — tight to catch, forgiving to keep; (2) **drain, don't
+reset** — past coyote the dwell melts at 2×dt (`dwellDrainMult`) instead of zeroing, so a
+swing-through carries partial credit and the progress fill teaches "catch it at the turn" wordlessly;
+(3) **the SMOOTHED ANCHOR** — an EMA (`anchorSmoothT` 0.25s) low-passes the tracked organ's world
+position, and the reticle, the rider retarget, AND the cone tests all use it: the marker the player
+chases IS the point that locks, and §3-law-7 idle jitter (every boss wobbles at ≥2 frequencies)
+can never break a line by construction. With these, VOIDMAW's holdSway nerf (±1.8m sleepy drift)
+was reverted to a re-livened ±3.2m @ 0.6 under the **TUTORIAL INEQUALITY: sway amplitude <
+retentionConeXY ⇒ a centred player never drops a held lock while the boss still visibly strafes.**
+Motion sims are now tests (lock.mjs T1.10/T1.11): the ORIGINAL ±5m@0.7 sway and the L175 "unlockable"
+fast focal (±4.5m@2.4) both lock from a still centre line; jitter never breaks a hold.
+
+**The correction (important).** L175/L176's alarming numbers were measurement artifacts. The
+hold-station line is `sin(time*0.7)*5` — the analytic peak is **3.5 m/s**, not "~15 m/s"; and the
+dragon's lateral speed target is `lateralSpeed 24` m/s (damp toward axes.x×24), not "~4 m/s". Both
+probe figures are consistent with one clock-scaling error — headless runs rAF-throttle ~15×
+(documented in BOSS-DESIGN §7 as a known flake), which poisons any Δx/Δt velocity estimate. The
+design conclusion half-survived (casuals genuinely can't TRACK an oscillating focal through
+zero-crossings while dodging — accel lag + divided attention), but the boss got calmed on numbers
+that were ~4× wrong. **LAW: velocity/frequency probes must be computed analytically or with
+fixed-dt stepping (drive the module directly, as lock.mjs runAim does) — never from wall-clock
+deltas in a headless rAF loop.** And when a feel problem appears, separate the axes before fixing:
+anchor CHOICE (size/visibility — faceCore fixed this), target MOTION (retention/smoothing fix
+this), and dwell TIME (rate/coyote fix this). L175 conflated them and the boss paid.
+
+**→ Leapfrog.** `holdSway` stays as the def seam (a legit authoring knob), but it is no longer the
+aim-difficulty crutch: the L175 `lockmotion` PR2 gate should assert the TUTORIAL INEQUALITY for
+teach bosses (sway amp < retentionConeXY) and "anchor's SMOOTHED amplitude < retentionConeXY OR
+acquire-window ≥ dwellTime at crossings" for everyone else — both checkable analytically from def
+data + the anchor's motion, no engine boot needed. The screen-space aim rework (L175's leapfrog
+candidate) is now unnecessary: the world-cone with a smoothed anchor handles the measured worst
+case with margin.
