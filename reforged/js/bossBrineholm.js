@@ -486,10 +486,11 @@ export function buildBrineholm(def, quality = 1) {
       p.scale.setScalar(clamp(1.15 - f * 0.7, 0.28, 1.15) * (0.55 + spoutPower * 0.6));
     }
 
-    // --- THE EYE WEAK-POINT WINDOW (the sole focal). ---
+    // --- THE EYE WEAK-POINT WINDOW (the sole focal). In-game the CONTROLLER owns
+    // the window (setEyeUp: surfaced in the recovery gap, submerged while attacking
+    // — the §5f turn-taking tell + the damage gate). When no controller drives it
+    // (the studio), the model free-runs the tidal auto-cycle so the captures pose. ---
     if (eyeAuto && entranceU == null && dyingK <= 0) eyeUpTarget = (Math.sin(time * 0.34) > 0.2) ? 1 : 0;
-    if (charge > 0.15 && !shieldClamp && dyingK <= 0 && entranceU == null) eyeUpTarget = 1;
-    if (noticeT > 0 && !shieldClamp && dyingK <= 0 && entranceU == null) eyeUpTarget = 1;
     if (shieldClamp || dyingK > 0.05) eyeUpTarget = 0;
     if (entranceU != null) eyeUpTarget = 0;
     eyeUp += (eyeUpTarget - eyeUp) * Math.min(1, dt * 2.4);

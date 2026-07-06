@@ -603,12 +603,14 @@ export const BOSSES = {
     // for one beat before hardening lethal (anatomy: the lee is the body's shadow,
     // the spray is the shackle venting). Def-gated (the continuous detector, slot 6).
     grazeForm: 'shadowRide',
-    // §5e below-frame setpiece — SOUNDING (dread, P4): it DIVES and the arena
-    // floor erupts in geyser curtains from below-frame. DEFERRED to CP2: it needs
-    // the `sounding` SETPIECE_PATHS dive entry + the widened bullet cull bounds +
-    // off-rel geyser spawns (the engine tranche this slot carries). The P4 dread
-    // CARD stands here now; the studio drives the model's dive pose directly via
-    // setSetpiece(k,{dread}). CP2 adds the `setpieces:[{id:'sounding',…dread}]` line.
+    // §5e below-frame setpiece — SOUNDING (dread, P4): the head DIVES below the
+    // frame and the arena floor erupts in geyser curtains from below (the P4
+    // patterns keep firing — a MOVING setpiece). The below-frame counterpart to
+    // ASHTALON's stoop-from-above; the model dread-submerges on top (setSetpiece
+    // k,{dread}). Landed CP2: the `sounding` SETPIECE_PATHS dive drives the pose.
+    setpieces: [
+      { id: 'sounding', atPhase: 3, dur: 7.5, moving: true, dread: true },   // P4 THE ISLAND BREATHES — Sounding
+    ],
     // Tier 3 difficulty: the geyser walls (tunnel/curtain/iris) are the tide's
     // signature; the slow tracking `stream` is the drone's sustained hose (the
     // amber carrier). Escalation by pattern unlock + cadence (floor 1.2), never

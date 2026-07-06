@@ -108,7 +108,10 @@ on('bossStart', (e) => { if (e && e.id) f2.add(e.id); });
 on('rushClear', (e) => { rc2 = e; });
 boss.startBossRush(player, only);
 let t2 = 0;
-for (let i = 0; i < 60 * 180 && !rc2; i++) {
+// Budget raised 180→240s: the last boss (BRINEHOLM) gates chip on its eye-surface
+// weak-point window (~20% invulnerable) + a 7.5s SOUNDING dive, so a solo pick of
+// the slowest boss clears well past the old 3-minute cap even under adequate play.
+for (let i = 0; i < 60 * 240 && !rc2; i++) {
   const dt = 1 / 60; t2 += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;
   if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }

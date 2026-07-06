@@ -903,7 +903,7 @@ function driveKill(idx) {
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
   let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
-  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinRel = 99, chargedDuringSetpiece = false;
+  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinY = 99, setpieceMinRel = 99, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
     t += dt;
@@ -922,6 +922,7 @@ function driveKill(idx) {
       sawSetpiece = true;
       setpieceMaxX = Math.max(setpieceMaxX, Math.abs(st.poseX));
       setpieceMaxY = Math.max(setpieceMaxY, st.poseY);
+      setpieceMinY = Math.min(setpieceMinY, st.poseY);
       setpieceMinRel = Math.min(setpieceMinRel, st.poseRel);
       if (st.charging) chargedDuringSetpiece = true;
     }
@@ -929,7 +930,7 @@ function driveKill(idx) {
     boss.updateBoss(dt, player, t);
   }
   return { t, sawFight, sawShield, sawNarrow,
-    sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinRel, chargedDuringSetpiece,
+    sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
 }
@@ -971,8 +972,11 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     // "Left station" on ANY excursion axis: lateral (|x|), vertical (y), or DEPTH
     // (rel through/near the camera — the fly-through axis; L141: HOLLOWGATE's
     // archPass and EITHERWING's figure-eight cross the player at rel < 0).
-    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3 || r.setpieceMinRel < 4,
-      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)}, min rel ${r.setpieceMinRel.toFixed(1)})`);
+    // Excursion on ANY axis: lateral (|x|), UP (y high), DOWN (y below the frame —
+    // BRINEHOLM's SOUNDING dive, the §5e "below" counterpart to the stoop), or DEPTH
+    // (rel through/near the camera — the fly-through axis).
+    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3 || r.setpieceMinY < CONFIG.BOSS.fightHeight - 6 || r.setpieceMinRel < 4,
+      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)}, min y ${r.setpieceMinY.toFixed(1)}, min rel ${r.setpieceMinRel.toFixed(1)})`);
     if (setpieces.some((s) => s.moving)) {
       assert(r.chargedDuringSetpiece, `${key}: a moving-station setpiece keeps firing while it travels (§5e)`);
     } else {

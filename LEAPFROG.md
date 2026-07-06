@@ -6328,3 +6328,49 @@ moves the outline. Rearing the whole head (chin up, crown higher) is what makes 
 not a ball) dropped the width-based `hullLength()` below the test's ≥34 floor; the honest span is now the
 VERTICAL extent. When you re-proportion a boss, the "never-fits" number must follow its largest axis —
 update `hullLength()` (and its test proxy) in the same commit.
+
+### L165 — BRINEHOLM CP2 (in-game integration): a weak-point window is a DURATION, not a flag, and the "relief" boss is relief in PATTERN, not kill-time
+
+Landed the live fight for slot 8 — the eye weak-point damage gate, the destructible
+shackle mercy mechanic, the SHADOW-RIDE graze, the SOUNDING dive, and the below-frame
+rise. Each was def-gated so the seven shipped bosses stayed byte-neutral (all suites green
+untouched). What generalized:
+
+**Destructible sub-parts is now a SYSTEM, not HOLLOWGATE's one-off.** `routePartDamage`
+was pane-specific; extended it to a `PART_SYS` table naming each boss's own hooks
+(`crackPane`/`paneHitTest`/`paneAlive` vs `crackShackle`/`shackleHitTest`/`shackleBroken`).
+Slot 8 added a destructible mechanic with ZERO new routing code — the reflected-amber-counts-
+full / rider-chip-counts-half economy and the +bonus-chip-on-break came free. When the second
+user of a mechanic appears, promote the first one's plumbing to a table; don't fork it.
+
+**A weak-point gate driven by a boolean leaks; it needs a HOLD long enough for the animation
+to complete.** The eye gate read `!model.eyeIsUp()`, and the model's eye eases (dt·2.4 — a
+heavy leviathan lid). Setting the controller's target to "down" only while `chargeT>0` (a ~0.5s
+telegraph) left the eased lid still 85% open when the telegraph ended → the probe measured
+46/47 charge-frames STILL VULNERABLE (a gate that doesn't gate). Fix: latch the eye down for
+`telegraph + 0.45s` so the eased lid actually crosses the `>0.55` threshold and stays down — a
+measured 72%-up / 28%-down real alternating window, surge-exempt. Lesson: when a gate reads an
+EASED state, the drive must hold the target past the ease time-constant, or verify the state
+the gate actually reads (not the intent) — a headless probe classifying by the deflect signal,
+not by `charging`, is what exposed the leak.
+
+**The mechanic that gates chip doubles the kill time — budget for it, and don't confuse
+"relief" with "fast."** The eye gate pushed BRINEHOLM's headless kill from ~113s to ~166s (it's
+now the slowest boss to kill) and blew the bossrush single-pick budget (180→240s). That's
+correct: BRINEHOLM is the band's RELIEF in bullet PATTERN (the sub-1.4s-never TIDAL DRONE, the
+lowest pressure), not in time-to-kill. When you add a chip gate, re-measure every kill-budget
+test in the same commit; a longer kill is a feature, a blown budget is a bug.
+
+**An event-driven spawn needs the player, and the soak-mote `rel` is player-relative.** The
+freed-shackle SPRAY-SOAK vent fires from the `bossDamage` event handler, which has no player
+arg — stash `lastPlayer` in `updateBoss`. And the motes only soak near `rel≈0` (the player's
+plane): a burst spawned at the boss's `rel` with a slow `vrel` never arrives. Reuse the
+absorbColor convention — `vrel = -(rel0+2)/2.2` and aim `vx/vy` at the player — so the vent
+travels the lane and is actually grazeable (verified: motes soak).
+
+**A DIVE is a station-leave the excursion test didn't know about.** The SOUNDING setpiece sinks
+the head below the frame (the §5e "below" counterpart to ASHTALON's stoop-from-above). The
+kill-test's "left station" check only counted up / lateral / near-camera excursions, so a pure
+downward dive read as "never left." Generalized it to also accept `minY < fightHeight−6` (track
+`setpieceMinY`) — the honest fix, and it can't false-pass the shipped bosses (their setpieces
+don't dive).
