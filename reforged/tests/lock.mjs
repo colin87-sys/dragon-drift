@@ -311,6 +311,15 @@ const t213 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 30, y: 0 }, C:
 check('T2.13 a fast-swinging organ paints on a multi-organ boss (smoothed acquisition)',
   t213.count >= 1 && t213.events.some((e) => e.name === 'lockPaint' && e.part === 'A'));
 
+// T2.14 — PAINT-HOP (owner playtest): the instant a paint completes, the aim
+// releases, the painted organ is briefly embargoed, and the reticle leads to the
+// nearest UNPAINTED organ — hovering the painted rib must never pin the flow.
+const t214 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 8, y: 0 }, C: { x: 30, y: 0 } },
+  candidates: ['A', 'B', 'C'],
+  frames: [{ dt: 0.06, n: 8, px: 0 }, { dt: 0.06, n: 2, px: 0 }] });
+check('T2.14 after a paint the reticle hops to the nearest unpainted organ',
+  t214.count === 1 && t214.hud.aimPart === 'B');
+
 // ---------------------------------------------------------------------------
 // T2.G — config/def gate lints (the honest arithmetic gates; printed value-vs-law).
 // ---------------------------------------------------------------------------

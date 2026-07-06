@@ -43,6 +43,8 @@ const S = {
   lanceQ: [],        // staggered launches: [{ part, dmg, t }] — held while deflected
   cap: 0,            // last ctx.cap (published to the HUD)
   deflected: false,  // last ctx.deflected (pips freeze ashen)
+  hopPart: null,     // the just-painted organ (re-acquire embargo → the reticle hops onward)
+  hopT: 0,
 };
 
 const _w = new THREE.Vector3();       // scratch for partWorldPos
@@ -55,6 +57,7 @@ export function initLockLayer() {
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.cap = 0; S.deflected = false;
+  S.hopPart = null; S.hopT = 0;
 }
 
 // Reset transient aim + paint state. SILENT by design for every reason
@@ -65,6 +68,7 @@ export function clearLocks(_reason) {
   S.anchorPart = null;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
+  S.hopPart = null; S.hopT = 0;
 }
 
 // NB — the danger-binding quiet-rate penalty (`quietDwellMult`, kills rest-beat
@@ -95,6 +99,17 @@ function releaseAim() {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
 }
 
+// PAINT-HOP (owner playtest): a completed paint RELEASES the aim line and embargoes
+// the painted organ from re-acquisition for paintHopGrace, so the display's
+// unpainted-first preference takes over next frame — the reticle visibly hops to
+// the next target instead of pinning under the player. Hovering past the grace
+// still re-acquires (deliberate refresh stays reachable).
+function paintHop(part) {
+  S.hopPart = part;
+  S.hopT = L.paintHopGrace;
+  releaseAim();
+}
+
 export function updateLockLayer(dt, player, ctx) {
   S.fightRunning = !!ctx.fightRunning;
   S.muted = !!ctx.muted;
@@ -105,6 +120,7 @@ export function updateLockLayer(dt, player, ctx) {
   // the player chases IS the thing that locks).
   refreshHud(ctx, dt, player);
   const px = player.position.x, py = player.position.y;
+  if (S.hopT > 0) { S.hopT -= dt; if (S.hopT <= 0) S.hopPart = null; }
 
   // ---- V1 aim: acquire (tight cone) / hold (retention cone + drain) — L177 ----
   if (!S.aimPart) {
@@ -114,14 +130,15 @@ export function updateLockLayer(dt, player, ctx) {
     // and out of the cone while the player is correctly on the smoothed marker,
     // the exact L177 failure re-introduced; owner playtest caught it on slot 4).
     let hit = null;
-    if (S.hasOrgan && S.hudPart &&
+    const embargoed = (p) => p === S.hopPart && S.hopT > 0;
+    if (S.hasOrgan && S.hudPart && !embargoed(S.hudPart) &&
         Math.abs(px - S.ax) < L.coneXY && Math.abs(py - S.ay) < L.coneXY) hit = S.hudPart;
     // Fallback: another candidate dead-on in the raw cone (the player deliberately
     // went elsewhere — e.g. re-dwelling a painted organ while the display leads to
     // an unpainted one; the display follows the acquisition next frame).
     if (!hit && ctx.candidates && ctx.candidates.length > 1) {
       const cand = coneCandidate(player, ctx);
-      if (cand) hit = cand.part;
+      if (cand && !embargoed(cand.part)) hit = cand.part;
     }
     if (hit) {
       S.aimPart = hit;
@@ -180,9 +197,11 @@ export function updateLockLayer(dt, player, ctx) {
     const existing = S.locks.find((lk) => lk.part === S.aimPart);
     if (justLocked && !existing && totalPips() < S.cap) {
       // The dwell that completed IS the first paint (one clock to learn).
-      S.locks.push({ part: S.aimPart, stacks: 1, age: 0 });
-      emit('lockPaint', { part: S.aimPart, count: totalPips() });
+      const part = S.aimPart;
+      S.locks.push({ part, stacks: 1, age: 0 });
+      emit('lockPaint', { part, count: totalPips() });
       S.refreshT = 0;
+      paintHop(part);
     } else {
       // Held re-dwell (refreshDwell): refresh an existing pip's decay (and STACK at
       // tier ≥3, ≤ stackMax, stacks count toward the cap) — or paint a held organ
@@ -198,8 +217,10 @@ export function updateLockLayer(dt, player, ctx) {
             emit('lockPaint', { part: S.aimPart, count: totalPips(), stacked: true });
           }
         } else if (totalPips() < S.cap) {
-          S.locks.push({ part: S.aimPart, stacks: 1, age: 0 });
-          emit('lockPaint', { part: S.aimPart, count: totalPips() });
+          const part = S.aimPart;
+          S.locks.push({ part, stacks: 1, age: 0 });
+          emit('lockPaint', { part, count: totalPips() });
+          paintHop(part);
         }
       }
     }

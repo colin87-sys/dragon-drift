@@ -174,6 +174,11 @@ export const CONFIG = {
                             // anchor must chase the organ's centre of motion, not its animation
                             // frame — a raw anchor jitter-breaks locks by construction
     linger: 0.6,            // TUNE(0.4–0.8) — aim-line persistence after leaving the cone
+    paintHopGrace: 0.8,     // TUNE(0.5–1.2) — after a paint the aim RELEASES and the painted
+                            // organ can't re-acquire for this long, so the reticle decisively
+                            // HOPS to the next unpainted organ (owner playtest: hovering the
+                            // painted rib pinned the whole flow — you waited for a second
+                            // reticle that could never come). Deliberate refresh = hover past it.
     chipRateMult: 1.15,     // LAW — rider interval ÷ this while the line holds an organ
     exposureTickInterval: 0.8, // TUNE(0.6–1.0)
     exposureTickDmg: 1.0,   // TUNE(0.5–1.5); max 3 ticks per exposure window (LAW)
