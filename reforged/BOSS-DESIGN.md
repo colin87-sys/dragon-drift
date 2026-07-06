@@ -705,13 +705,29 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   hard pauldrons + arm couters; a HARD-EDGED faceted FAULD (tasset staves, no soft fade) +
   surcoat with a cut hem; lance = Voidmaw's snapped-horn tube-taper kernel (violet-scar seam,
   a spiral horn ridge) on `lancePivot`, `lanceTip` = the amber organ/`def.muzzle`; trophy
-  chain = a heavy baldric strap + charms (Ashtalon's feather-blade, relics, one EMPTY hook)
-  on `chainPivot`; named pivots `lancePivot`/`chainPivot`/`cowlPivot`/`lanceTip`. Tarnished
+  chain = a heavy baldric strap (R-shoulder → L-hip) + charms (Ashtalon's feather-blade,
+  relics, one EMPTY hook) on `chainPivot` at the LEFT hip — the side OPPOSITE the lance grip
+  (owner CP1.5 fix: de-clutter the weapon arm, free jiggle space); named pivots
+  `lancePivot`/`chainPivot`/`cowlPivot`/`lanceTip`/`surcoatPivot`. Tarnished
   iron 0x1c1e22 (albedo lifted, L162) / cold-steel accent 0x5aa0d8 + glow 0x74b4e4 / amber
   organ 0xffc23c (isolated HDR, §5i.C.3 sanction) / owed-boss trophy glints. **~6k tris**
   (Calamities-band detail spent on the chain, fauld/pauldron facets, cowl folds, lance
   horn-ridge — NOT bulk; the L140 presence fix is PROXIMITY + the assembly, not height).
   Gates: `boss.mjs` (tri/telegraph/amberdiet/rhythmprint/lifecycle) green; `bossgate` G1–G7 PASS.
+  **MOTION (CP1.5, owner verdict "stiff like Lego" → the fluidity pass):** (1) velocity-coupled
+  body BANK — the model diffs `group.position` frame-to-frame (placeGroup runs after tick, so
+  the position is a clean one-frame-lag velocity; the dragon.js banking idiom, first boss to use
+  it) and leans into lateral travel; (2) multi-frequency idle (two lean sines + a weave + a bob —
+  the eitherwing layering); (3) the cowl TRAILS the bank a beat behind (ashtalon covert-lag);
+  (4) trophy chain = a damped-SPRING pendulum driven by the body's own velocity + flinch/notice
+  impulses (real inertia, not a canned sine), charms lag it with graded ease; (5) the surcoat
+  lag-sways with the bank + streams back with travel (cloth over motion); (6) per-attack TELL
+  FAMILIES — thrust (aimed: level + forward jab), sweep (crossfire: the lance arcs across, torso
+  counter-rotates), flourish (stream: overhead rolling twirl) — plus a follow-through overshoot
+  on release and a restless grip-float at rest. Machine-checked: boss.mjs asserts sweep yaw and
+  flourish roll differ from thrust. Palette-gate law learned here: cold emissive must stay
+  SATURATED, not bright — over-bright cold clips white under bloom and drops out of the G3
+  accent tier.
   **ENGINE (Part 3.4 verified):** `approachFrom: 'alongside'` is NOT a shipped branch — reuses
   `side` + the moving-station SETPIECE machinery (ASHTALON's circling-pass idiom; CP2).
   `grazeForm: 'holdFlinch'` — GRAZE FORM (HOLD-UNTIL-FLINCH): the lance's threat-line is the
