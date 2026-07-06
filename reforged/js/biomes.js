@@ -12,6 +12,10 @@ import { CONFIG } from './config.js';
 //   ambient.fall < 0 — particles RISE (volcanic embers)
 //   fauna    — the background flock's look (color/size/wingbeat)
 //   whale    — a colossal sky whale drifts the horizon (astral only)
+//   hazard   — OPTIONAL dodge-only hazard spec (BIOME-DESIGN.md §5.3):
+//              { type, every:[minM,maxM], warn:sec, radius }. Absent → no
+//              hazards spawn in this biome (byte-identical). Consumed by
+//              level.js#overlayBiomeHazards (independent RNG stream) + hazards.js.
 //   fogFarColor — OPTIONAL far-field fog COLOR (dual-fog, BIOME-DESIGN.md §5.2):
 //              scene THREE.Fog keeps the NEAR color; the sky-dome horizon band
 //              and the water shader's fog term blend toward this at distance.
@@ -103,6 +107,10 @@ export const BIOMES = [
     // prefers this BOSS_ORDER key (biomeBoss.js). OPTIONAL — absent on every
     // other biome, so their selection is byte-identical to the shipped game.
     anchor: 'ashtalon',
+    // Geyser hazard (§5.3 / §4): timed magenta-cored ember columns burst from
+    // vents in the lane — the biome's signature "read the vent rhythm, weave the
+    // columns" verb. Dodge-only. OPTIONAL — absent everywhere else.
+    hazard: { type: 'geyser', every: [150, 280], warn: 1.3, radius: 3.2 },
     props: ['basalt', 'vent'],
     matIndex: 3, // basalt + ember veins
     // Contrast gate: dark band vs this biome's near-black fog (L≈0.18) — lifted.

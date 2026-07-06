@@ -6969,3 +6969,42 @@ T2.18 (promoted anchor) both pass — the same mechanism, two data configs.
 is to make it do the useful thing, not to teach the cursor to avoid it. "Every green takes a mark"
 is a simpler, unbreakable contract than "some greens are special and the reticle should dodge them."
 Prefer collapsing a special case into the general one over adding avoidance logic around it.
+
+### L184 — Biome increment 3 shipped (Caldera geyser hazards): the third RNG stream + a game-state-pure generator, suppression lives entirely on the consumer
+
+**Did.** Built `BIOME-DESIGN.md §7` increment 3 — the first biome MECHANIC (dodge-only geyser columns in the
+Caldera). Five files: `config.js` (`hazardBurstDur`/`hazardIdle`/`hazardDamage`), `biomes.js` (`hazard: {type,
+every:[150,280], warn:1.3, radius:3.2}` on Caldera ONLY), NEW `js/hazards.js` (runtime: shared-resource init →
+per-vent meshes → timing-loop/telegraph/collision → reset, cloned from `goldEmbers.js`'s lifecycle), `level.js`
+(the determinism overlay), `main.js` (consume + init + reset + update wiring).
+
+**The determinism spine (the whole point).** A THIRD independent stream `hazardRnd = mulberry32((seed ^
+0x3d81c94b))` beside `goldRnd`/`canyonRnd`, a NEW `out.hazards` array, and `overlayBiomeHazards(out)` as a purely
+additive post-pass twinned with `overlayCanyons` — it never reads/writes `rnd`/rings/obstacles/golds, so
+`gold-determinism.mjs` stays byte-identical (verified). A module-level cursor `nextHazardAt` walks the course
+(like `nextGoldAt`): at each site it consults `BIOMES[biomeIndexAt(at)]?.hazard`, and when placing advances by a
+gap drawn from `hazardRnd`, else steps a FIXED 120m WITHOUT consuming the stream (so scan spacing can't perturb
+placement). `resume(target)` reseats `nextHazardAt = target` (the §5.3 hard rule — a forgotten cursor backfills
+vents across the boss arena gap).
+
+**The law this increment proves.** Generation in `level.js` stays GAME-STATE-PURE — it runs ahead of time and
+must never read `game.inBoss`/grace/`inCanyon`. ALL suppression lives on the CONSUMER: `main.js` spawns
+`chunk.hazards` only BELOW both the `if (game.inBoss) return` (clean arena) and the grace-band return, and
+`resetHazards()` fires on `bossStart` (a column left standing would collide the instant the fight ends) and on
+run reset. Collision is additionally guarded `!game.inBoss && game.state === 'playing'` inside `updateHazards`.
+Two places enforce the same rule (spawn-gate + collision-gate) because the vent meshes outlive a single frame.
+
+**Gotchas banked.** (a) Dodge-only = damage via `collision.hitPlayer(player, dmg, 'geyser')` — it routes to
+`hit(player, 0, 0, …)`, i.e. ZERO knockback + barrel-roll i-frames clear it: "never applies force" (owner
+decision #2) for free, no new damage path. (b) Overdraw rule (§8): the column is a SLIM OPAQUE core cylinder +
+ONE small additive base flare + occasional rim embers — never an enclosing additive shell. (c) The burst loop
+runs on `clock.getElapsedTime()` (same clock `updateObstacles` gets), phase-offset per vent by its placement
+`phase ∈ [0,1)` so the field never pulses in lockstep. (d) `hazards.js` → `collision.js` → `obstacles.js` import
+chain has no cycle back to hazards; the WebGL smoke boot compiles it clean.
+
+**Proof + preview.** A 9-assert headless gen proof (`hazardcheck.mjs` shape): hazards generated; EVERY vent in
+Caldera (`biomeIndexAt===3`) past the entry crossfade and inside the lane; spec fields intact; in-stretch gaps
+in `[150,280]`; same-seed byte-identical / different-seed different; `resume()` no-backfill. Suite: gold-det
+byte-identical, bulletcontrast 36 combos green (danger magenta unchanged), smoke/canyon/boss boots green,
+tricount 0 over budget. Reaching them on the preview needs no new code: `?debug` exposes `window.__dd.player`, so
+`__dd.player.dist = 4300` warps to the Caldera lip — the human judges telegraph fairness / dodgeability / fun.

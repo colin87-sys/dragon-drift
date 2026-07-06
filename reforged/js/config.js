@@ -48,6 +48,16 @@ export const CONFIG = {
   groundDamage: 15,
   invulnTime: 1.0,
 
+  // Biome hazards (dodge-only; BIOME-DESIGN.md §5.3). Each placed vent runs a
+  // burst loop on GAME TIME: warn (magenta telegraph, per-biome hazard.warn) →
+  // hazardBurstDur (the column is up + lethal) → hazardIdle (dormant), phase-
+  // offset per vent so they never fire in lockstep. Damage routes through
+  // collision.hitPlayer — zero knockback, a barrel-roll clears it (owner
+  // decision #2: hazards never apply force).
+  hazardBurstDur: 0.8,   // seconds the erupted column stays lethal
+  hazardIdle: 2.6,       // seconds of dormancy between cycles
+  hazardDamage: 25,      // same sting as an obstacle; i-frames / a roll dodge it
+
   // Scoring
   ringScore: 100,
   ringCenterBonus: 50,
