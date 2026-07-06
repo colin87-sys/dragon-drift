@@ -6920,3 +6920,25 @@ channel. Suite: bulletcontrast 36 combos green (2 pre-existing accepted exceptio
 byte-identical (render-only change), smoke/canyon/boss boots compile the edited GLSL in headless-Chromium WebGL.
 Human judges on the preview: Caldera far-field depth, sandstone columns/slabs/domes in the Wastes, no prop
 pop-in at seams (the visible-gate).
+
+### L182 — a V1-only virtual anchor counts as "unpainted" forever: the reticle must hunt in CLASSES (brandable prey first, the anchor last)
+
+**Did / learned.** Owner playtest #3 on the paint loop: with one pip banked and no shield up,
+returning to centre "stuck" the reticle. Root cause: MARROWCOIL carries FIVE lock candidates but
+only four are paintable — the fifth (`virtualLockOrgan: 'skullGroup'`, the V1 chip-retarget
+anchor) can never take a pip, so the unpainted-first preference scored it as "unpainted"
+FOREVER. Every return to centre (naturally toward the face) elected the skull as the lead
+target; it even locks green (V1 working as designed), but no paint can occur and no paint-hop
+can fire — an infinite decoy that only cleared when the lone pip decay-volleyed and the scene
+reshuffled. **Fix: three preference CLASSES** in both display and acquisition — (A) unpainted
+paintable while cap room remains, (B) any paintable (refresh), (C) the virtual anchor last —
+and during the hunt (class A non-empty) neither painted organs nor the anchor may steal the
+aim at all. Once the set is branded/capped, the anchor unlocks again (bonus chip while the
+inhale burns — the right rhythm anyway). Hysteresis now sticks only within the winning class.
+Bosses without paintables (VOIDMAW/STORMREND/ASHTALON) have only class C — byte-identical.
+
+**The general law.** When one UI cursor serves TWO overlapping target sets with different
+capabilities (aim-only vs paintable), any "prefer the un-done one" heuristic must score
+capability FIRST, completion second — an un-completable target is otherwise a permanent
+magnet exactly where the player most often flies. Regression wall: T2.17 ×3 (anchor never
+acquires mid-hunt; return-to-centre leads to the next rib; hunt-complete unlocks the anchor).
