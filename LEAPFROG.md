@@ -7009,7 +7009,148 @@ byte-identical, bulletcontrast 36 combos green (danger magenta unchanged), smoke
 tricount 0 over budget. Reaching them on the preview needs no new code: `?debug` exposes `window.__dd.player`, so
 `__dd.player.dist = 4300` warps to the Caldera lip — the human judges telegraph fairness / dodgeability / fun.
 
-### L185 — KARNVOW CP1 (the band-peak trophy-duelist): presence from PROXIMITY + assembly not height; the lance is ONE part with THREE jobs; a COLD accent is a palette-gate minefield
+### L185 — LANCE PR3 shipped: the tap became ONE verb (unleash), the Surge fork, and the aimed beam — one arithmetic, one deflect rule, one latency LAW
+
+**Did.** V3 SURGE FORK / AIMED UNLEASH (combat-verbs SOP §II.x, PR3 Option A). The tap seam that was a single
+`if (ready) activateSurge` became a 4-case table with ZERO added latency: **ready → always Surge** (cases 1&2;
+the shielded/unshielded split lives downstream in `strikeSurge`, not at the seam); **not-ready + `lockCount() ≥
+tapVolleyMinLocks` (2) → MANUAL LOOSE** (case 3); **else no-op** (case 4). The manual loose is a REQUEST the
+state machine consumes (`requestLoose()` sets a flag; `updateLockLayer` processes it with the live ctx) — because
+`releaseVolley` needs `ctx.phaseHp` for the ROI clamp, and the seam runs THEN `updateLockLayer` runs in the SAME
+fight frame, so "flag now, process this frame" is latency-free by construction. **The fork:** after the shield/chip
+resolves inside `strikeSurge`, `surgeForkLances` consumes every banked pip and fires one direct `fireLanceAt` per
+stack onto the freshly EXPOSED organs — a shielded burst forks AFTER `breakShield`, so no lance ever pings the
+shield, and the fork clamps against the CURRENT (post-break, phase-advanced) hp. **The aimed beam:** the unshielded
+chip resolves at the lock candidate nearest the player's flight line (`beamAimPart`, within `beamAimDisc` 4.0m),
+carrying `{part, x, y, w: beamPartWeight}`; no candidate lined up → the exact legacy `damageBoss(14,'surge')`.
+EITHERWING (slot 5) shipped its lock data: `lockParts:[{part:'eyeRig'}]` — the shared EYE ONLY (the twins' dart
+bodies are never lockable, LAW §II.9); the smoothed anchor (L177) carries the brand across the holder→seeker
+handoff. 13 new T3.x checks (69 total green); `boss.mjs` kill times byte-stable (eitherwing ~95.2s), tricount
+unchanged (naming `eyeRig` is byte-neutral metadata — the group already existed).
+
+**The load-bearing patterns.** (1) **One arithmetic for one law.** The ROI clamp existed inline in `releaseVolley`;
+the fork needed the SAME clamp. Rather than copy the `Math.min(lanceDmg, roiFrac*hp/pips)`, it was extracted to
+an exported `lanceDmgEach(pips, phaseHp)` that BOTH the volley and the fork call — so "a volley can never exceed
+volleyRoiFrac × phase hp" is enforced by one function, not asserted in two places that could drift. When a second
+caller needs a clamped/derived value, promote the arithmetic to a shared export; don't re-derive it. (2) **A weight
+override that's byte-neutral when absent.** The aimed beam counts 1.5 toward part cracks via `e.w ?? (typeof
+e.part === 'number' ? 1 : 0.5)` in `routePartDamage` — every legacy caller omits `e.w`, so the count is
+byte-identical everywhere it isn't set (the same coexist shape as `holdSway`/`lockParts`: a new field with a
+default that reproduces the old literal). (3) **The deflect rule reaches the new verb too.** A manual loose onto a
+sealed boss keeps every pip (never wasted), emits `lockSealed` (pips shake + soft thunk), and waits for the break —
+the ONE deflect predicate (L178) governs the player's deliberate release exactly as it governs the auto-volley.
+
+**Gotchas (headless).** (1) A new event needs adding to the test harness's capture list — `lockSealed` emitted fine
+but `runLock` only subscribed to five names, so the assert saw nothing until the sixth was added. When a test
+"can't see" an emit, check the SUBSCRIPTION list before the emit site. (2) The rAF-throttled surge-tap integration
+flaked at a 3s timeout under the full suite (cumulative throttling ~15×): the fix is a `waitForFunction` that
+re-arms ready AND re-pokes `surgeTap` every poll (50ms) with a 6s ceiling — a single poke can be read on a frame
+where a stray reset made `ready` false. Never single-poke-then-wait for a throttled game-loop side effect; re-assert
+the precondition each poll. (3) The live slot-1 boss's V1 organ is `faceCore` (the def), NOT the `focalEye` of the
+fabricated-ctx harness — integration tests must read the REAL candidate (`bossLockCandidates()[0]` + its live
+`partWorldPos`), never hardcode a part name from a unit fixture.
+
+**→ Leapfrog.** Deterministic Surge-climax seams now exist (`bossStrikeSurge`/`bossRaiseShield`/`bossBankLocks`/
+`bossBeamAimPart`) — the fork/beam are testable synchronously without flying a headless dwell+charge, so PR4's
+`paintFromParry` (lock-snap parry) and PR5's focus/beat-release can extend these instead of re-solving the "observe
+the climax" problem. Still deferred (L178/L180): tether LineSegments, feats/analytics hooks, the `lockdps` persona
+TTK sim, E1 perfect-release (beat window — `beatWindow`/`beatMult` data present, inert). The owner still owes a
+verdict on Q1 (ready-tap-ALWAYS-Surge vs a context-split) — flagged in the PR body per the SOP.
+
+### L186 — LANCE PR4a (wyrmfire wisps): FX rides existing pools, the arrival-frame law IS the coexist proof, and a first-run tutorial was silently pausing the test fights
+
+**Did.** The owner's PR3 playtest: the volley read as "boring bullets" (the fork lost in the
+shield-shatter), painting felt spammy, paint sounds thin, and single-organ EITHERWING was a
+regression after MARROWCOIL's rib teach. Shipped: (1) **wyrmfire wisps** — lances now FAN OUT on
+authored bearings (`lanceFanDeg` [65,115,15,165,−35,215], mirrored pairs widening around
+straight-up; Panzer-Dragoon lock-on fan) at `lanceFanSpeed`, arc for `lanceHomeDelay` (velocity
+rotated by `lanceCurlRate`, sign = slot parity), then the arrive steer ramps in over
+`lanceHomeBlend` at gain 9 — plus per-wisp two-tone trails (`wispTrail`, jade-white/dim-green
+motes off the shared particles pool at `lanceTrailHz`×quality), a render-side luminance
+pulse + 10% breathing head, and `wispImpact` (jade sparks + white-hot pips + ONE small
+rate-gated shockwave ring per volley window). (2) `paintCooldown` 0.45s — cross-organ pip
+spacing; aim/hop stay instant, only conversion waits (the refresh clock converts the held line
+the moment it clears). (3) brandSet/brandLoose upgraded with noiseWhoosh bodies + shimmer/sub
+layers. (4) EITHERWING `lockParts` = eye + `seekerFin`/`seekerScar` — **named EMPTY Object3D
+markers** on the seeker's fin mesh and scar-chain pivot (zero geometry, tricount unchanged).
+
+**The load-bearing laws.** (1) **The arrival-frame law:** the whole flight rework never touches
+`vrel`, so a wisp lands on the SAME frame the old straight lance did — T-W2 spawns the worst-case
+6-slot fan (incl. the 215° away-facing bearing) at fixed dt and asserts 6/6 land ON the computed
+straight-lance frame. That single invariant makes the entire FX pass coexist-proof (boss.mjs kill
+times can't drift) without touching the sim. (2) **FX rides existing pools or doesn't ship:**
+trails/impacts are small additive sprites from particles.js (spawn/burst/shockwave) — zero new
+draw layers, no instanced-matrix additions (the §2 jank trap), budget lints in-code
+(6×Hz×life ≤ 60 ≤ cap headroom). (3) **Anchors must track the VISIBLE organ:** `eitherScar`
+names a strip whose geometry rebuilds in twin-local space — its mesh origin sits at the twin
+CENTRE, so partWorldPos on it would brand the body. When an organ is a deforming strip, anchor
+an empty on its pivot CHAIN, and test that the anchor resolves ≠ the body centre (T3.E).
+
+**The gotcha that ate a day: the first-run GESTURE TUTORIAL pauses headless fights.** On a fresh
+profile (`runs===0`) gestureTutorial.js freezes the game (pauseReason 'tutorial') at t>1.2s /
+150m / 225m waiting for steer/boost/roll — squarely inside a `?boss=180` test fight. The T0.x
+synthesized touches satisfied steps at semi-random times, so the Surge-tap integration checks
+flaked run-to-run for THREE debugging rounds (blamed on rAF throttle twice). The failure-only
+forensic dump (frames-per-500ms + game.state + pauseReason) found it in one run. LAWS: (a) test
+boots that reach gameplay must call `skipGestureTutorial()` before starting; (b) when an
+integration wait times out, dump `game.state`/`pauseReason`/a frame-counter BEFORE theorizing —
+"paused" vs "throttled" vs "broken" are three different bugs; (c) detect one-shot activations by
+EVENT (`on('surge')`), never by polling a state flag a single throttled frame can raise and
+lower invisibly.
+
+**→ Leapfrog.** The wisp flight fields (`homeDelay`/`curl` on bullet slots) are a general
+two-phase-path primitive — any future projectile can fan/arc then home by passing them to
+spawnBossBullet; the (i, n) volley threading through lanceQ/fireLance is the seam for
+per-slot choreography (E1 beat-release can ride it). Deferred list unchanged (L178/L180) plus:
+per-dragon wisp tint (Eternal cosmetic hook), wisp-trail LineSegments ribbon if sprites ever
+read muddy on device.
+
+### L187 — wisp readability round 2: silhouette CLASS beats everything — the volley became the only LINE in a sea of dots
+
+**Did / learned.** The merged PR4a wisps (fan arcs + sprite-mote trails + pulsing discs) still
+underwhelmed the owner live: "I see the arc but amongst the sea of bullets it seems underwhelming."
+Games research (Panzer Dragoon/Orta, Rez, Ikaruga, the Itano Circus lineage) converged on one
+diagnosis and three laws: (1) **canonical homing volleys are read by their TRAILS, not their
+heads — PD's homing lasers are persistent curved light-RIBBONS that stay lit as full paths and
+fade TAIL-first** (the afterimage bouquet IS the signature image); (2) **silhouette-CLASS contrast
+is the strongest legibility lever in a bullet hell** — pre-attentive shape recognition beats hue:
+if the player's ordnance is the only line-class object among dot-class bullets, it parses under
+any load (our failure was discs among discs — no amount of arc/pulse/mote fixes silhouette
+sameness); (3) **impacts should land as a plural staggered drum-roll** (Rez: N locks = N staggered
+musical hits; the payoff is a riff, not a boom). Shipped accordingly: a 6-slot RIBBON POOL in
+bossBullets.js — each wisp tows a tapered additive quad-strip rebuilt per frame from a sliding
+window of its own world positions (the EITHERWING makeTailStrip vertex recipe in world space),
+with `side = tangent × VIEW(0,0,−1)` (camera-facing — a strip built with the ×up cross collapses
+when a wisp flies down the view ray, which on a rail shooter is MOST of the flight); an EYE_HOT
+hot-head sprite (toneMapped=false, jade-white ×3.5 — the toneMapped bullet discs can never
+out-bloom it); tail-first drain over ribbonFade on arrival (head frozen AT the impact point —
+never the frozen-line trail bug); a homing snake-wobble (decays to zero before landing);
+`juiceEvent('wispVolley')` 45ms hitstop + kick + muzzle burst on the release ONLY (never impacts
+amid dense bullets); an impact PRESENTATION queue at 40ms stagger emitting `lockStrike{k}` →
+`brandStrike(k)` pentatonic plucks (the impact arpeggio); and the release audio reworked to
+thump + UP-sweeping noise + detuned plural chirps. The PR4a sprite-mote trail was RETIRED
+(ribbon supersedes; keeping both over-glows the additive budget).
+
+**The engine patterns that made it cheap.** The perf docs' own measurement decided the
+architecture: per-frame `instanceMatrix` uploads jank real phones, but SEPARATE meshes with
+per-frame BufferAttribute uploads are the shipped, blessed path (EITHERWING rebuilds 4 tails
+every tick) — so 6 individual ribbon meshes (~40 verts each) are endorsed, not risky. THIN is
+the overdraw law: a narrow strip is near-line (the §2 LineSegments exemption's spirit); bloom
+carries the apparent width, so `ribbonHalfWMax` is a config LINT (≤0.34), not a vibe. And the
+arrival-frame law (vrel untouched) again let a whole FX rework ship with kill-time coexist
+proven by ONE unchanged test assert (T-W2's exact-frame landing, now also proving the wobble
+harmless).
+
+**→ Leapfrog.** The ribbon pool is a general "projectile tows a light-path" primitive: reflected
+ambers (cyan — the role color already reserves it) are the obvious next tenant, and BOSS-DESIGN
+§1052's "reflected cyan gets a directional trail" ask becomes a 3-line adoption. The lockStrike
+event is the seam for E1 perfect-release scoring (beat-window bonus can ride k=0's timing).
+Deferred: audio bus duck under the release (needs sfxBus gain automation), per-dragon wisp tint
+(Eternal cosmetic), the shelved PR4 lock-snap parry brief (reflectBossBullets must return parried
+parts; rib ambers need part tags; Calamities lockParts data; "relics/profiles" maps to nothing —
+ask, don't build).
+
+### L188 — KARNVOW CP1 (the band-peak trophy-duelist): presence from PROXIMITY + assembly not height; the lance is ONE part with THREE jobs; a COLD accent is a palette-gate minefield
 
 **Did.** Built slot 9 CP1 — `archetype: 'trophyDuelist'`, new `bossKarnvow.js` + one `bossModel.js` dispatch
 line + the def + `BOSS_ORDER` append + a `boss.mjs` named-pivot telegraph test. A lean HOODED DUELIST: peaked
@@ -7038,19 +7179,21 @@ and shrink it (kills the lamp), attach the chain with VISIBLE link bars overlapp
 All four fixes landed and the re-gate PASSed. **Judge the silhouette at the canonical FIGHT angle, not just the
 angles that flatter it.**
 
-**A COLD accent on a warm-lit game is a palette-gate minefield — the two robust levers.** bossgate G3 flaked
-wildly (12%↔61% across identical runs) for a cold-steel boss: (1) cold edges/bloom over a WARM sky fringe
-false-magenta (danger-band fail), the symmetric twin of the warm-boss-cool-sky trap the DIST table already
-guards — so PAIR the capture with a COOL sky (added `karnvow: 6600` = LUMEN MIRE; NOT a `gate.pale` override, a
-DARK boss); (2) attribution flaked because the cold identity rode THIN aliasing seam-LINES while the biome tint +
-saturated trophy charms polluted the accent tier. Fixes: carry the cold identity on SOLID emissive elements
-(gorget/belt bands, rim) not just lines (solid = stable pixel count frame-to-frame), and DIM the satellite charms
-so they drop out of the accent tier at idle (their owed-palette moment is the CP2 entrance flare). Floor went
-from a flaky 12% to a robust ~30–52%. **Reusable: solid emissive > thin lines for any gate that counts pixels;
-a cold accent needs a cool, ideally accent-aligned, capture sky.**
+**A COLD accent on a warm-lit game is a palette-gate minefield — the robust levers.** bossgate G3 flaked wildly
+(12%↔61% across identical runs) for a cold-steel boss: (1) cold edges/bloom over a WARM sky fringe false-magenta
+(danger-band fail), the symmetric twin of the warm-boss-cool-sky trap the DIST table already guards — so PAIR
+the capture with a COOL sky (`karnvow: 6600` = LUMEN MIRE; NOT a `gate.pale` override, a DARK boss); (2)
+attribution flaked because the cold identity rode THIN aliasing seam-LINES while the biome tint + saturated
+trophy charms polluted the accent tier. Fixes: carry the cold identity on SOLID emissive elements (gorget/belt
+bands, a chest sigil, the rim) not just lines (solid = stable pixel count frame-to-frame), and DIM the satellite
+charms so they drop out of the accent tier at idle. **A guttering FOCAL is a G1 flake too — make the blink a
+SIZE breath, not a brightness drop, so the core never dips below the ≥250 focal floor on a gutter-frame capture
+(the ashtalon core-stays-lit lesson).** Floor went from a flaky 12% to a reliable ~25–52%.
 
-**Residuals for CP2 / owner (non-gating, Fable-flagged):** strengthen the recessed-socket rim read; tuck two
-small detached hip plates against the fauld; one more front-on hood-cone asymmetry break. **Deferred to CP2
-(Decision C1):** the reflect-once riposte, the *It Kept Count* stat-taunt entrance + MANDATORY top-killer charm
-flare, the moving-station flank setpiece (reuse ashtalon's), and the HOLD-UNTIL-FLINCH graze (discrete tiers, not
-slot 6's beam-ride). Pipeline stopped at posted crops for the owner's green-light before CP2 (the anti-rebuild law).
+**Owner review (CP1 crops).** Two fixes: (1) the cowl back-sweep hook read as a detached "floating horn beside
+the head" → re-embedded as a continuous curled peak-TIP (base sunk into the apex, in-line); (2) the cold glint
+now TRACKS the dragon (looks AT you as you move) — the owner overrode the earlier "looks past" indifference bias.
+**Residuals for CP2:** strengthen the recessed-socket rim; tuck two small detached hip plates; one more hood-cone
+asymmetry break. **Deferred to CP2 (Decision C1):** reflect-once riposte, the *It Kept Count* stat-taunt entrance
++ MANDATORY top-killer charm flare, the moving-station flank setpiece (reuse ashtalon's), HOLD-UNTIL-FLINCH graze.
+Pipeline stopped at posted crops for the owner's green-light before CP2 (the anti-rebuild law).

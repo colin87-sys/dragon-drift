@@ -394,6 +394,20 @@ export const BOSSES = {
     // one eye passed between them (the charge tell). Distinct from every prior
     // slot: not a mask (1), a ring-eye (2), a raptor (3), or a bone dragon (4).
     archetype: 'eitherwing',
+    // LANCE anatomy (PR3 + PR4a): the shared EYE plus TWO organs on the SEEKER twin
+    // — the slot-4 teach (MARROWCOIL's ribs) makes multi-organ the floor from here on
+    // (owner ruling; a single-organ slot 5 read as regression). The twins' dart
+    // BODIES are never lockable (LAW §II.9 — these are organs/wounds, not hulls):
+    //   eyeRig     — the handed-off eye (slow thread midpoint; the EASY primary —
+    //                the smoothed anchor L177 carries the brand across the handoff)
+    //   seekerFin  — the scarred twin's crescent fin (empty marker; rides the orbit)
+    //   seekerScar — its snapped-tail scar chain (empty marker on the mid pivot)
+    // The seeker organs ride the twin's lemniscate (~3–6 u/s with turnarounds) —
+    // DELIBERATELY harder targets than the teach ribs, caught at the reversals
+    // (the T1.10a-proven shape); cones stay untouched (principle-5). Cap 3 at
+    // tier 2 ⇒ eye + fin + scar = the full set. All markers are byte-neutral
+    // metadata (empty Object3Ds / names) — model + tricount unchanged.
+    lockParts: [{ part: 'eyeRig' }, { part: 'seekerFin' }, { part: 'seekerScar' }],
     accent: 0x86200f,         // OXBLOOD — a WARM dark red (identity in the emissive rims); pushed WARM off
                               // pure blood-red (rendered hue ~9°) so NO lit pixel enters danger-magenta's
                               // reserved band (0xff2b6a≈342°, ±15° = 327–357°) on any state — the §5d/gate
