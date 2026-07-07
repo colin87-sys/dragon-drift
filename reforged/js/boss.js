@@ -249,6 +249,15 @@ let wingsPath = null;        // snapshot of poseRing taken when Your Own Wings a
 // tick PERIOD RAMPS DOWN with unbroken contact (payout richest at the scariest
 // instant). A short grace bridges the gaps between a radial's bullets; losing
 // contact past it resets the ramp. Defs without the flag never tick (coexist).
+// CP2 def-gated state (KARNVOW slot 9; every var inert unless the def opts in):
+let entranceFlareAt = null;    // §5j stat-taunt: fire model.flareCharm at this entrance-u
+let entranceFlareId = null;    // ...with this top-killer boss id (null = fresh save, hook-only beat)
+let holdBreakerT = 0;          // §5f the ONE hold-breaker: countdown to the reveal-hold shot
+let riposteUsed = false;       // §5i.C reflect-once riposte: one per phase
+let riposteNoted = false;      // the teach-note fires once per fight
+let riposteReturnT = 0;        // the parried shot comes BACK a beat after the swat
+let holdTier = 0;              // §5i.B hold-until-flinch: the current stare-down tier
+let holdFlinchDone = false;    // offered once per phase
 let beamHeld = 0;              // seconds of unbroken beam contact (the ramp)
 let beamTick = 0;              // countdown to the next tick payout
 let beamGrace = 0;             // seconds of contact-loss tolerated before reset
@@ -366,6 +375,22 @@ const SETPIECE_PATHS = {
       x: Math.sin(ang) * 13,
       y: B.fightHeight + Math.sin(k * Math.PI) * 3,
       rel: 19 + Math.cos(ang) * 11,                // k0 far(30) → k0.5 near(8) → k1 far(30)
+    };
+  },
+
+  // KARNVOW — FLANK CUT-IN (§5e moving-station, the L140/L141 proximity beat): the
+  // duelist leaves station, draws level on the flank, and CUTS IN for a true
+  // shoulder-brush near-pass (rel dips to ~8 at the apex while it slides across
+  // your lane), then recovers to station — FIRING the whole way (moving: true).
+  // Banks into the cut (roll) like the rider it is.
+  flankCutIn(k) {
+    const B = CONFIG.BOSS;
+    const s = Math.sin(k * Math.PI);               // 0→1→0 envelope (out and back)
+    return {
+      x: Math.sin(k * Math.PI * 2) * 11,           // out RIGHT → crosses YOUR lane at the apex → out LEFT → home
+      y: B.fightHeight + Math.sin(k * Math.PI * 2) * 1.5,
+      rel: B.settleGap - s * 22,                   // 30 → ~8 at the apex (the near-pass) → 30
+      roll: -Math.sin(k * Math.PI * 2) * 0.28,     // banks into the cut, counter-banks the recover
     };
   },
   // ASHTALON — STOOPING STRIKE (§5f dread, "from above"): CLIMB high and hold (the
@@ -1114,6 +1139,11 @@ export function startBossEncounter(player, defOverride) {
   partHits.clear();       // §5f: per-part crack counters reset per encounter (panes + shackles)
   // §5i.B: beam-edge ramp + adrenaline ladder reset per encounter (rung-0 = neutral).
   beamHeld = 0; beamTick = 0; beamGrace = 0;
+  // CP2 (KARNVOW, all def-gated — inert for every other def): the stat-taunt charm
+  // flare, the reveal-hold breaker shot, the reflect-once riposte, hold-until-flinch.
+  entranceFlareAt = null; entranceFlareId = null;
+  holdBreakerT = 0; riposteUsed = false; riposteNoted = false; riposteReturnT = 0;
+  holdTier = 0; holdFlinchDone = false;
   adrenT = 0; adrenRung = 0; adrenHits0 = game.bossHitsTakenRun; adrenPing = 0;
   setGrazeBonus(1); game.adrenGainMult = 1;
   // Fresh fight = full-width arena; the walls take the boss's accent colour.
@@ -1384,6 +1414,11 @@ function enterFight() {
   beginCard(0);
   attackTimer = Math.max(attackTimer, 1.9);
   riderTimer = Math.max(riderTimer, 1.9);
+  // §5f THE HOLD-BREAKER (def-gated — the roster's ONE, KARNVOW: "the trophy-hunter
+  // has no honor"): a single SLOW, survivable, PARRYABLE amber shot fired INTO the
+  // reveal hold. The cinematic itself stays fire-free (the Mantis rule) — this is a
+  // deliberately separate beat, breaking a truce every other boss honors.
+  holdBreakerT = def.holdBreaker ? 1.1 : 0;
   if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
 }
 
@@ -1426,6 +1461,12 @@ function updateEntrance(dt, player, time) {
   if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
   // Per-boss entrance FX hook (EITHERWING's eye-thread cross, twin brackets) — optional.
   script.onFrame?.(u, ctx, pose, player, model, time);
+  // §5j stat-taunt charm flare (armed by def.statTaunt at script start): fires ONCE
+  // mid-hold — the top-killer trophy burns in its owed palette as the line lands.
+  if (entranceFlareAt != null && u >= entranceFlareAt) {
+    model.flareCharm?.(entranceFlareId);
+    entranceFlareAt = null;
+  }
   // Feed the cinematic camera the boss's world position so it tracks the flythrough.
   if (script.camera) cameraCtl.setOvertake?.(script.camera(u, pose, player, ctx));
 
@@ -1561,6 +1602,25 @@ export function updateBoss(dt, player, time) {
         ui.surgeReady?.(false);
         const a = script.announce;
         if (a) ui.bossNote?.(a.title, a.sub, a.tone ?? 'gold', a.dur ?? 2.0);
+        // §5j STAT-TAUNT (def-gated — KARNVOW's It Kept Count): the taunt quotes the
+        // player's REAL ledger (deaths per boss, the diegetic Psycho Mantis) and arms
+        // the mid-hold charm FLARE for the TOP KILLER (the §5j escalation hinge —
+        // without it this is the roster's weakest entrance). Fresh save → the
+        // mandatory fallback line + the empty-hook beat alone.
+        if (def.statTaunt) {
+          let topId = null, topDeaths = 0, total = 0;
+          for (const id of BOSS_ORDER) {
+            const st = bossLedgerStats(id);
+            total += st.deathsTo;
+            if (st.deathsTo > topDeaths) { topDeaths = st.deathsTo; topId = id; }
+          }
+          const line = total > 0
+            ? `FELLED YOU ×${total}. MOST: ${BOSSES[topId].name}.`
+            : 'NO RECORD. IT WILL START ONE.';
+          ui.bossNote?.(`${def.name} — WEARS THE HORN IT TOOK`, line, 'gold', 2.8);
+          entranceFlareId = topId;            // null on a fresh save → hook-present beat only
+          entranceFlareAt = 0.4;              // the flare lands mid-hold, as the line reads
+        }
         script.onStart?.(model, player, { side: cineSide, B });
       } else {
         phase = 'approach';
@@ -1733,6 +1793,27 @@ export function updateBoss(dt, player, time) {
       if (pending[i].t <= 0) { pending[i].fire(); pending.splice(i, 1); }
     }
 
+    // §5f the HOLD-BREAKER shot (armed by enterFight on a def.holdBreaker boss):
+    // one slow, survivable, PARRYABLE amber lobbed into the reveal hold.
+    if (holdBreakerT > 0) {
+      holdBreakerT -= dt;
+      if (holdBreakerT <= 0) {
+        const slow = B.bulletSpeed * 0.5;
+        const v = aimVel(player.position.x, player.position.y, slow);
+        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, true, null, 1.15, null, emitOrigin.rel);
+      }
+    }
+    // §5i.C the riposte RETURN: the parried shot comes back a beat after the swat —
+    // slow and AMBER (re-reflect it: the C1 seed of the tennis exchange).
+    if (riposteReturnT > 0) {
+      riposteReturnT -= dt;
+      if (riposteReturnT <= 0) {
+        const slow = B.bulletSpeed * 0.62;
+        const v = aimVel(player.position.x, player.position.y, slow);
+        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, true, null, 1.1, null, emitOrigin.rel);
+      }
+    }
+
     // THE LANCE layer (V1 aim-line). Build the per-frame ctx and step the state
     // machine BEFORE the rider fires, so a held line retargets THIS frame's shot.
     // Danger-binding: `emittersLive` gates the dwell rate (full while fire is live,
@@ -1892,6 +1973,41 @@ export function updateBoss(dt, player, time) {
         if (beamTick <= 0) { bulletGraze(player); emit('shadowGraze', { held: beamHeld }); beamTick = Math.max(0.2, 0.5 - beamHeld * 0.06); }
       } else if (beamGrace > 0) { beamGrace -= dt; }
       else { beamHeld = 0; beamTick = 0; }
+    }
+
+    // ---- §5i.B HOLD-UNTIL-FLINCH (KARNVOW's Calamities graze, def-gated) — a
+    // DISCRETE stare-down, deliberately NOT slot 6's continuous beam-edge ride:
+    // hold the duelist's THREAT-LINE (the corridor its lance aims down — you are
+    // standing in front of a couched lance, daring it) through escalating TIERS,
+    // each tier crossing paying a graze burst; the THIRD tier ends it — the hunter
+    // FLINCHES (the amber cross-flick) and pays out big. Offered ONCE per phase.
+    // Reuses the beamHeld/beamGrace ramp plumbing (one grazeForm per boss). ----
+    if (def.grazeForm === 'holdFlinch' && !holdFlinchDone && !shielded && setpieceT < 0) {
+      const inLine = Math.abs(player.position.x - pose.x) < 5
+        && Math.abs(player.position.y - pose.y) < 7
+        && Math.abs(pose.rel - B.settleGap) < 24;
+      if (inLine) {
+        beamGrace = 0.4; beamHeld += dt;
+        const tier = beamHeld > 3.4 ? 3 : beamHeld > 2.2 ? 2 : beamHeld > 1.1 ? 1 : 0;
+        if (tier > holdTier) {
+          holdTier = tier;
+          for (let i = 0; i <= tier; i++) bulletGraze(player);   // escalating tier payout
+          sfx.graze?.(14 + tier * 8);
+          model.flash(0.15 + tier * 0.1);
+          emit('holdTier', { tier });
+          if (tier >= 3) {
+            // THE FLINCH — the stare-down breaks: the amber cross-flick, the big
+            // payout, and the offer closes until the next phase.
+            holdFlinchDone = true;
+            model.riposte?.();
+            for (let i = 0; i < 4; i++) bulletGraze(player);
+            ui.bossNote?.('IT FLINCHED', 'THE STARE-DOWN PAYS OUT', 'gold', 1.8);
+            emit('holdFlinch', {});
+            beamHeld = 0; holdTier = 0;
+          }
+        }
+      } else if (beamGrace > 0) { beamGrace -= dt; }
+      else { beamHeld = 0; holdTier = 0; }
     }
 
     // ---- NO-HIT ADRENALINE LADDER (global §5i.B meta spine) ----
@@ -2131,6 +2247,11 @@ function breakShield(player) {
     // `def.setpiece` and the per-phase `def.setpieces` array (voidmaw/stormrend
     // carry neither → byte-unchanged, the lifecycle test asserts they never arm).
     armSetpieceForPhase(phaseIdx);
+    // CP2 per-phase re-offers (def-gated; plain var resets, inert otherwise): the
+    // duelist's riposte answers ONE reflected shot per phase, and the stare-down
+    // (hold-until-flinch) is offered once per phase.
+    riposteUsed = false;
+    holdFlinchDone = false; holdTier = 0;
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
     if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) {
@@ -2844,6 +2965,24 @@ function damageBoss(amount, kind, e = null) {
     // thing is needed now" (charge Surge), not "keep hitting it".
     sfx.shieldPing?.();
     if (group && Math.random() < 0.5) burst(group.position, def.glow, { count: 4, speed: 10, size: 0.7, life: 0.3 });
+    return;
+  }
+  // §5i.C the C1 REFLECT-ONCE RIPOSTE (def-gated — KARNVOW, "the first boss that
+  // parries YOU"): from `fromPhase` on, ONCE per phase, an arriving REFLECTED bullet
+  // (kind 'player' — the roll-parry return, the only kind a duelist answers in kind)
+  // is itself PARRIED: no damage, the lance cross-swats with the amber flash, and
+  // the shot comes BACK as a slow parryable amber — re-reflect it (the C1 seed of
+  // the tennis exchange; the full rally + reflect-only seal stays deferred C2 scope).
+  // Surge ('surge') and gun chip ('lance'/'rider') are untouched.
+  if (def.reflectRiposte && kind === 'player' && !riposteUsed
+      && phaseIdx >= (def.reflectRiposte.fromPhase ?? 0)) {
+    riposteUsed = true;
+    model.riposte?.();
+    riposteReturnT = 0.22;
+    sfx.shieldPing?.();
+    if (group) burst(group.position, 0xffc23c, { count: 10, speed: 14, size: 0.9, life: 0.4 });
+    if (!riposteNoted) { riposteNoted = true; ui.bossNote?.('⚔ RIPOSTE ⚔', 'IT PARRIED YOUR PARRY — SWAT IT BACK', 'gold', 2.2); }
+    emit('bossRiposte', { phase: phaseIdx });
     return;
   }
   // §5d slot 7 (THRUMSWARM): CHIP only lands while the swarm is CONDENSED. Scattered =

@@ -306,7 +306,7 @@ safe-lane gates exactly once.
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | shipped | **pane-radial ambers → PANE BREAK** (Calamities ORGAN-BREAK reuse): parry a lit pane's amber volley 3× → that pane CRACKS and its radial component is deleted from the composite (rides the §5f destructible-pane plumbing — parry and gunfire sculpt the same window) |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon (side-profile copy) | void-black·star-white + amber focal-eye / scattered points | condenses | shipped | **queen's amber-eye volley → SCATTER STAGGER** (Calamities): parry the eye's amber volley 3× → the queen recoils, the swarm can't re-condense for a 2.5s bonus-damage window (the condensed weak-point stays exposed — parry answers the same condense/scatter puzzle read the fight is built on) |
 | 8 | BRINEHOLM | colossal leviathan head + maw (living/wet — NOT Voidmaw's dead mask) | the one surfacing eye — you fight the FACE, never the body | kelp-black·abalone / bioluminescent gullet + one white eye-point | below-horizon (the head lunges up through the fog) | claimed | **shackle-strain ambers → SHACKLE BREAK** (Calamities ORGAN-BREAK reuse + mercy mechanic): parry a snout shackle post's amber strain-volley 3× → that post SNAPS, vents a 2× pink SPRAY-SOAK graze beat, and frees it EARLY — softening phase 3 (rides the §5f destructible per-part plumbing — parry and gunfire unbind the same post) |
-| 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars + one EMPTY hook | tarnished-iron·cold-glint / multi-hue trophy glints + amber organ | alongside (moving-station: `side` + setpiece) | open (CP1 model built, gated) | TENNIS RALLY + REFLECT-ONLY SEAL (Calamities showcase, §5i.C) — v1: reflect-once riposte; full seal deferred |
+| 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars + one EMPTY hook | tarnished-iron·cold-glint / multi-hue trophy glints + amber organ | alongside (`side` + flankCutIn moving setpiece) | **shipped** (CP1 merged; CP2 wired: entrance + riposte + holdFlinch + charm paint) | TENNIS RALLY + REFLECT-ONLY SEAL (Calamities showcase, §5i.C) — v1 SHIPPED as reflect-once riposte (once/phase, amber return); full rally + seal deferred (own PR) |
 | 10 | KNELLGRAVE | hanging pendulum | bound figure as the clapper | patina-copper·candle / vertical slit | pre-heard, fades in | open | — |
 | 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open | — |
 | 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused in its chest | ashen-rose·blackened silver | behind, NO warning banner | open | — |
@@ -754,6 +754,17 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   anatomy; hold it through discrete proximity TIERS to the amber FLINCH flash (a stare-down,
   NOT slot 6's continuous beam-ride); offered once per phase (CP2, may reuse the beamEdge
   detector plumbing — a small addition flagged before build).
+  **CP2 SHIPPED:** `entrance: 'itKeptCount'` + the boss.js `statTaunt` seam (real-ledger
+  taunt + the MANDATORY top-killer charm flare + the empty-hook present); `holdBreaker`
+  (the roster's ONE — a slow parryable amber INTO the reveal hold, a separate beat from
+  the fire-free cinematic); `reflectRiposte {fromPhase:1}` (the C1 reflect-once — parry
+  swat + amber return, once per phase, teach-note once); `grazeForm: 'holdFlinch'`
+  (discrete 3-tier stare-down in the threat-line → the amber FLINCH, once per phase);
+  `setpieces: [flankCutIn]` (moving near-pass, rel dips to ~8 crossing the lane);
+  `lockParts: trophyCharm0..4` (BRAND THE TROPHIES — the empty hook stays unpaintable,
+  the open thread). Entrance fade-in = a visibility-only `setEntrance` (the kit dissolve
+  is a death effect — it ghost-washes paint and its `transparent:true` empties bossgate's
+  opaque mask; both were CP2 gate catches).
   ENTRANCE (§5j *It Kept Count*, hijack 2.8s @0.5 shallow, CP2): banner RIGHT, honest. It fades
   in alongside at x+12, rel 16 — rel ROCK-STEADY, no pull-ahead ever (any rel change reads
   as 3's spent overtake); lance held LOW; the cowl TURNS toward you but the GLINT looks

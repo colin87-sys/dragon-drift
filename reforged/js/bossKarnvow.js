@@ -665,18 +665,22 @@ export function buildKarnvow(def, quality = 1) {
   rig.add(chainPivot);
 
   // Charm palette: owed-boss glints (§5b lore web) at low intensity + the EMPTY HOOK.
-  // [hue, isHook]. The feather-blade (ashtalon ember), voidmaw violet, a cold relic,
-  // and the empty hook (unlit — the scar). Kept to trophy-scale hard points.
+  // Each charm carries the BOSS ID it was taken from (`of`) — the entrance charm-
+  // FLARE (§5j, the escalation hinge) looks the player's top killer up by id and
+  // flares THAT trophy in its owed palette. The hook is `of: null` (unnamed, open).
   const charmSpecs = [
-    { color: 0xff6a30, len: 0.7, kind: 'blade' },   // Ashtalon's snapped feather-blade (ember)
-    { color: 0x8a5cff, len: 0.55, kind: 'shard' },  // Voidmaw's violet relic
-    { color: 0x2ad0c0, len: 0.5, kind: 'shard' },   // a teal relic (a felled tenant)
-    { color: 0x69c94f, len: 0.5, kind: 'shard' },   // a green relic (Craghold lineage)
-    { color: 0xffd27a, len: 0.45, kind: 'ring' },   // a dull gilt trophy-ring
-    { color: 0x000000, len: 0.6, kind: 'hook' },    // the EMPTY HOOK — the scar (unlit, unnamed)
+    { of: 'ashtalon',  color: 0xff6a30, len: 0.7, kind: 'blade' },   // Ashtalon's snapped feather-blade (ember)
+    { of: 'voidmaw',   color: 0x8a5cff, len: 0.55, kind: 'shard' },  // Voidmaw's violet relic
+    { of: 'stormrend', color: 0x2ad0c0, len: 0.5, kind: 'shard' },   // Stormrend's teal storm-shard
+    { of: 'marrowcoil', color: 0x69c94f, len: 0.5, kind: 'shard' },  // a bone-lure relic (Craghold-lineage green)
+    { of: 'hollowgate', color: 0xffd27a, len: 0.45, kind: 'ring' },  // a dull gilt window-ring
+    { of: null,        color: 0x000000, len: 0.6, kind: 'hook' },    // the EMPTY HOOK — the scar (unlit, unnamed)
   ];
   const charms = [];
-  const nCharm = lowQ ? 4 : charmSpecs.length;
+  // ALL charms always build (no lowQ cut): they are CP2 lock/paint targets
+  // (`trophyCharm0..4`) + the entrance-flare nodes — a def-referenced part that
+  // vanishes at low quality would silently fall back to the boss centre.
+  const nCharm = charmSpecs.length;
   for (let i = 0; i < nCharm; i++) {
     const spec = charmSpecs[i];
     const hang = new THREE.Object3D();          // per-charm hang pivot (each swings a beat apart)
@@ -706,10 +710,11 @@ export function buildKarnvow(def, quality = 1) {
     else if (spec.kind === 'ring') { cg = new THREE.TorusGeometry(0.19, 0.05, lowQ ? 5 : 8, lowQ ? 10 : 16); }                // a trophy-ring
     else { cg = new THREE.IcosahedronGeometry(spec.len * 0.5, lowQ ? 1 : 2); }                // a faceted relic shard
     const charm = new THREE.Mesh(cg, charmMat);
+    charm.name = `trophyCharm${i}`;   // CP2: the lock/paint target (branding the hunter's trophies) + the flare node
     charm.position.set(0, -dropLen - 0.2, 0);
     hang.add(charm);
     chainPivot.add(hang);
-    charms.push({ hang, mat: charmMat, isHook, base: spec.color, phase: i * 1.7 });
+    charms.push({ hang, mat: charmMat, isHook, of: spec.of, base: spec.color, phase: i * 1.7 });
   }
 
   // ---------------------------------------------------------------------
@@ -794,6 +799,23 @@ export function buildKarnvow(def, quality = 1) {
   function notice() { noticeT = 1.0; gutterT = 0; nextGutter = 3; }
   let painT = 0;
   function flinch(amt) { if (amt > 0.3) painT = Math.max(painT, 0.34); kit.flash(amt); }
+
+  // --- CP2 hooks ---
+  // CHARM FLARE (§5j, the escalation hinge): the entrance calls this with the
+  // player's TOP-KILLER boss id — that trophy flares HOT in its owed palette,
+  // then the chain presents the tilted EMPTY hook ("the next one is for you").
+  let flareIdx = -1, flareT = 0, hookT = 0;
+  const FLARE_DUR = 2.0, HOOK_DUR = 1.4;
+  function flareCharm(bossId) {
+    flareIdx = charms.findIndex((c) => c.of === bossId);
+    flareT = flareIdx >= 0 ? FLARE_DUR : 0;
+    hookT = HOOK_DUR + (flareIdx >= 0 ? FLARE_DUR * 0.6 : 0);   // the hook beat follows the flare
+    chainVel += 3;                                              // the chain jolts awake
+  }
+  // RIPOSTE (the C1 parry beat): a fast cross-SWAT of the lance + a hot amber
+  // flash — the controller calls this the instant it parries a reflected bullet.
+  let riposteT = 0;
+  function riposte() { riposteT = 0.42; chainVel -= 4; kit.flash(0.5); }
   let dyingK = 0;
   // Death: the lance drops + clatters, the charms gutter out ONE BY ONE, the glint
   // eases shut LAST. `charmsOut` counts how many have died.
@@ -968,7 +990,18 @@ export function buildKarnvow(def, quality = 1) {
     let target = LANCE_REST, poseSpeed = 6;
     let sweepYawTarget = 0;
     let jabZ = 0;                                     // forward push of the grip (the thrust jab)
+    if (riposteT > 0) riposteT -= dt;
     if (dyingK > 0.15) { target = new THREE.Euler(1.35, -0.2, 0.15); poseSpeed = 4; }   // dropped + clattered
+    else if (riposteT > 0) {                                                             // the PARRY SWAT (CP2)
+      // A fast cross-flick: the lance whips across the body and back — "your shot,
+      // returned". Two beats inside one window (out fast, back on the decay).
+      const k = riposteT / 0.42;
+      target = k > 0.45
+        ? new THREE.Euler(0.1, -0.95, 0.3)    // the swat across
+        : new THREE.Euler(0.55, 0.2, 0.12);   // the recover through guard
+      poseSpeed = 26;
+      sweepYawTarget = 0.1 * k;               // the torso throws behind the swat
+    }
     else if (noticeT > 0.5) { target = LANCE_SALUTE; poseSpeed = 16; }                  // the salute (respect)
     else if (charge > 0.02) {
       const fam = tell ?? 'thrust';
@@ -1026,6 +1059,7 @@ export function buildKarnvow(def, quality = 1) {
     // at rest; a hot flash on notice; guttering out in death.
     let tipK = 0.22 + charge * 2.0;
     if (noticeT > 0.6) tipK = Math.max(tipK, 1.6);
+    if (riposteT > 0.2) tipK = Math.max(tipK, 2.4);   // the PARRY FLASH — amber, on the swat (§5i.C)
     if (shieldPlant) tipK = 0.08;   // the organ leashes with the shield (G6)
     tipK *= 1 - dyingK * 0.85;
     tipMat.color.copy(TIP_BASE).multiplyScalar(Math.max(0.1, tipK));
@@ -1052,17 +1086,25 @@ export function buildKarnvow(def, quality = 1) {
     }
     chainPivot.rotation.z = chainAng + Math.sin(time * 1.6) * 0.04;   // pendulum + a faint idle sway
     chainPivot.rotation.x = rig.rotation.z * 0.5;   // hangs with gravity as the body leans
+    if (flareT > 0) flareT -= dt;
+    if (hookT > 0 && flareT <= FLARE_DUR * 0.4) hookT -= dt;   // the hook beat trails the flare peak
     charms.forEach((c, i) => {
       // Each hang LAGS the pendulum with a graded ease (deeper charm = slower — the
-      // eitherwing ribbon-chain trailing read) + its own phase-offset flutter.
+      // eitherwing ribbon-chain trailing read) + its own phase-offset flutter. The
+      // EMPTY HOOK tilts up and PRESENTS itself during the hookT beat ("the next
+      // one is for you" — the §5j entrance closer).
+      const present = c.isHook && hookT > 0 ? -0.85 : 0;
       const hangTarget = chainAng * (0.7 + i * 0.12) + Math.sin(time * (1.4 + i * 0.2) + c.phase) * 0.1;
       c.hang.rotation.z += (hangTarget - c.hang.rotation.z) * Math.min(1, dt * (4.5 - i * 0.45));
+      c.hang.rotation.x += (present - c.hang.rotation.x) * Math.min(1, dt * 6);
       if (!c.isHook) {
-        // Idle: a low emissive pulse in the owed palette. Death: gutter out staggered
-        // (charm i dies as dyingK crosses (i+1)/(nCharm+1)) — the trophies freed.
+        // Idle: a low emissive pulse in the owed palette. FLARE (§5j): the top-killer
+        // charm burns HOT in its owed palette while flareT runs — the escalation
+        // hinge. Death: gutter out staggered — the trophies freed one by one.
         const dieThresh = (i + 1) / (charms.length + 1.5);
         const alive = dyingK < dieThresh ? 1 : Math.max(0, 1 - (dyingK - dieThresh) / 0.12);
-        c.mat.emissiveIntensity = (0.06 + Math.sin(time * 1.6 + c.phase) * 0.02) * alive;
+        const flare = (i === flareIdx && flareT > 0) ? 1.8 * Math.min(1, flareT / (FLARE_DUR * 0.35)) * (0.75 + Math.sin(time * 14) * 0.25) : 0;
+        c.mat.emissiveIntensity = (0.06 + Math.sin(time * 1.6 + c.phase) * 0.02 + flare) * alive;
       }
     });
 
@@ -1161,13 +1203,35 @@ export function buildKarnvow(def, quality = 1) {
     return out;
   }
 
+  // CP2 entrance fade-in (It Kept Count): VISIBILITY-ONLY. The kit's dissolve is a
+  // DEATH effect — it blows every emissive toward white and parks emissiveIntensity
+  // at 0.5, so using it as a fade-in left the body permanently ghost-washed (the
+  // CP2 gate catch). This drives ONLY opacity, from the finalize() baseOpacity
+  // cache; null (the driver's release at enterFight) restores full.
+  function setEntrance(u) {
+    const k = u == null ? 1 : Math.max(0, Math.min(1, u));
+    for (const m of kit.mats) {
+      // Cache the ORIGINAL transparency flag on first touch and RESTORE it once the
+      // fade completes — leaving `transparent: true` on the whole roster of body
+      // materials reclassifies the boss as glow in bossgate's mask pass (an EMPTY
+      // opaque silhouette → every idle law reads 0/NaN; the CP2 gate catch).
+      if (m.userData.baseTransparent === undefined) m.userData.baseTransparent = m.transparent;
+      m.transparent = k < 1 ? true : m.userData.baseTransparent;
+      m.opacity = (m.userData.baseOpacity ?? 1) * k;
+      if (m.uniforms && m.uniforms.uOpacity) m.uniforms.uOpacity.value = (m.userData.baseOpacity ?? 1) * k;
+    }
+  }
+
   return {
     group, muzzle, orbiters,
+    setEntrance,
     setDissolve: setDissolveEmotive,
     setCharge,
     setAttackTell,
     setGaze,
     notice,
+    flareCharm,   // CP2: the entrance top-killer trophy flare (§5j, the escalation hinge)
+    riposte,      // CP2: the parry cross-swat + amber flash (the C1 reflect-once beat)
     partWorldPos,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,

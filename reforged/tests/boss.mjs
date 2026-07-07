@@ -28,7 +28,7 @@ const { BOSSES, BOSS_ORDER, bossDefForIndex } = await import('../js/bossDefs.js'
 const { buildBoss } = await import('../js/bossModel.js');
 const { CONFIG } = await import('../js/config.js');
 const { game } = await import('../js/gameState.js');
-const { on } = await import('../js/events.js');
+const { on, emit } = await import('../js/events.js');
 const { resetCollision } = await import('../js/collision.js');
 const bullets = await import('../js/bossBullets.js');
 const boss = await import('../js/boss.js');
@@ -764,6 +764,34 @@ for (const key of BOSS_ORDER) {
   const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
   assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
 
+  // CP2 — the V2 paint anatomy: all five trophy charms exist as named nodes (the
+  // EMPTY hook is trophyCharm5 and deliberately NOT in lockParts — the open thread).
+  for (let ci = 0; ci < 5; ci++) assert(!!kv.group.getObjectByName(`trophyCharm${ci}`), `karnvow trophyCharm${ci} exists (the paint target)`);
+  assert(BOSSES.karnvow.lockParts.length === 5 && BOSSES.karnvow.lockParts.every((lp, i) => lp.part === `trophyCharm${i}`),
+    'karnvow lockParts brand the five taken trophies (never the empty hook)');
+
+  // CP2 — the charm FLARE (§5j): flareCharm('ashtalon') burns trophyCharm0 hot in
+  // its owed palette, then the chain PRESENTS the tilted empty hook.
+  {
+    const c0 = kv.group.getObjectByName('trophyCharm0');
+    kv.flareCharm('ashtalon');
+    for (let i = 0; i < 12; i++) kv.tick(0.05, 20 + i * 0.05);
+    assert(c0.material.emissiveIntensity > 0.5,
+      `karnvow flareCharm burns the top-killer trophy hot (ei ${c0.material.emissiveIntensity.toFixed(2)} > 0.5)`);
+    const hookHang = kv.group.getObjectByName('trophyCharm5').parent;
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 21 + i * 0.05);
+    assert(hookHang.rotation.x < -0.3,
+      `karnvow the empty hook PRESENTS after the flare (hang rot.x ${hookHang.rotation.x.toFixed(2)} < -0.3 — "the next one is for you")`);
+  }
+
+  // CP2 — the riposte cross-SWAT: riposte() whips the lance across the body.
+  {
+    kv.riposte();
+    for (let i = 0; i < 4; i++) kv.tick(0.05, 30 + i * 0.05);
+    const lp = kv.group.getObjectByName('lancePivot');
+    assert(lp.rotation.y < -0.4, `karnvow riposte() cross-swats the lance (rot.y ${lp.rotation.y.toFixed(2)} < -0.4)`);
+  }
+
   kv.dispose();
   ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
 }
@@ -1066,6 +1094,51 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// --- 5. KARNVOW CP2 — the entrance-script data law + the riposte/stare-down live drive.
+{
+  const { ENTRANCE_SCRIPTS } = await import('../js/entranceScripts.js');
+  const sc = ENTRANCE_SCRIPTS.itKeptCount;
+  assert(!!sc, 'itKeptCount entrance script registered');
+  const ctx = { AX: 0, AY: CONFIG.BOSS.fightHeight, S: 1, B: CONFIG.BOSS, sc: 2.0 };
+  // rel ROCK-STEADY through the ride (§5d: any rel change reads as slot 3's spent
+  // overtake) — only the final settle recedes to station.
+  assertEq(sc.path(0.3, ctx).rel, 16, 'itKeptCount rel steady at 16 (hold)');
+  assertEq(sc.path(0.7, ctx).rel, 16, 'itKeptCount rel steady at 16 (point)');
+  assertEq(sc.path(1, ctx).rel, CONFIG.BOSS.settleGap, 'itKeptCount settles at station');
+  ok('karnvow itKeptCount entrance: rel rock-steady ride → station settle');
+
+  // Live drive: after the first shield break (phase ≥ 1) an injected REFLECTED hit
+  // (kind 'player') is RIPOSTED — answered once, the second one lands; the parked
+  // immortal player also sits in the threat-line long enough to earn the FLINCH.
+  let riposteN = 0, flinchN = 0;
+  on('bossRiposte', () => riposteN++);
+  on('holdFlinch', () => flinchN++);
+  game.inBoss = false;
+  game.reset();
+  game.state = 'playing';
+  game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('karnvow'));
+  const kills0 = killsSeen;
+  let sawShield = false, injected = 0;
+  for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
+    const dt = 1 / 60;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    const st = boss.bossDebugState();
+    if (st.shielded) { sawShield = true; game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+    if (sawShield && !st.shielded && st.phase === 'fight' && injected < 2) {
+      emit('bossDamage', { amount: 4, kind: 'player', x: 0, y: 8 });
+      injected++;
+    }
+    boss.updateBoss(dt, player, i / 60);
+  }
+  assert(killsSeen > kills0, 'karnvow CP2 drive: the instrumented encounter still resolves to a kill');
+  assertEq(riposteN, 1, 'riposte answers exactly the FIRST reflected hit of the phase (the second lands)');
+  assert(flinchN >= 1, `hold-until-flinch fired for the parked-in-the-threat-line player (${flinchN}×)`);
+  ok(`karnvow CP2 live drive: riposte ×${riposteN} (once per phase), stare-down flinch ×${flinchN}`);
 }
 
 console.log(`\n${n} boss checks passed.`);

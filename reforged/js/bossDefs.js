@@ -892,8 +892,41 @@ export const BOSSES = {
     // only lockParts + virtualLockOrgan, and karnvow had neither → the late-game
     // aim/lock verb would vanish on slot 9). The organ IS the anchor (the ashtalon
     // muzzle-as-anchor precedent — always emitting, always under fire, never a free
-    // rest-beat paint). V2 lockParts are a CP2+ decision.
+    // rest-beat paint).
     virtualLockOrgan: 'lanceTip',
+    // V2 LANCE-PAINT anatomy (CP2): BRAND THE TROPHIES — the five taken charms on
+    // the hip chain are the paint targets (claiming his collection back, one mark
+    // at a time; they swing on the pendulum chain of a DARTING boss = the Tier-3
+    // peak paint hunt). The EMPTY hook is deliberately NOT paintable — that thread
+    // stays open (§3 law 6; it awaits YOU). The lanceTip anchor is the easy first
+    // mark (L183 promotion: on a V2 boss the anchor is paintable too).
+    lockParts: [
+      { part: 'trophyCharm0' }, { part: 'trophyCharm1' }, { part: 'trophyCharm2' },
+      { part: 'trophyCharm3' }, { part: 'trophyCharm4' },
+    ],
+    // §5j the scripted entrance (entranceScripts.js): fades in riding at your
+    // shoulder, rel rock-steady, while the stat-taunt lands. Zero shots (Mantis).
+    entrance: 'itKeptCount',
+    // §5j the diegetic Psycho Mantis: boss.js quotes the player's REAL ledger
+    // (deaths per boss) in the announce and flares the TOP KILLER's charm mid-hold
+    // (the MANDATORY escalation hinge; fresh-save fallback wired).
+    statTaunt: true,
+    // §5f the roster's ONE hold-breaker: a single slow, survivable, PARRYABLE amber
+    // fired INTO the reveal hold — the trophy-hunter has no honor.
+    holdBreaker: true,
+    // §5i.C Decision C1: the reflect-once RIPOSTE — from P2 (the WEARS THE HORN —
+    // Riposte card) on, once per phase, it PARRIES your reflected bullet (cross-swat
+    // + amber flash) and returns it slow + amber (re-reflect it). The full TENNIS
+    // RALLY + REFLECT-ONLY SEAL stays deferred C2 scope (its own PR).
+    reflectRiposte: { fromPhase: 1 },
+    // §5i.B the Calamities graze debut for slot 9 — HOLD-UNTIL-FLINCH: a discrete
+    // stare-down in the lance's threat-line (escalating tiers → the amber flinch),
+    // once per phase. NOT slot 6's continuous beam-ride (the graze-ladder law).
+    grazeForm: 'holdFlinch',
+    // §5e moving-station setpiece (P2 entry): the FLANK CUT-IN — draws level on the
+    // flank and cuts ACROSS your lane at rel ~8 (the L140 proximity near-pass),
+    // firing the whole way.
+    setpieces: [{ id: 'flankCutIn', atPhase: 1, dur: 6.0, moving: true }],
     // bossgate capture: the r3 dart footwork moves the body ~15u/s mid-hop, hitting
     // the tool's documented two-frame mask/screenshot race (the marrowcoil pale-slide
     // twin) — freeze the sim for the grab pair. NOT a G-law override; no thresholds change.

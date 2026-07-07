@@ -7411,3 +7411,42 @@ lights up exactly on charge frames — painted violet it flooded the G3 denomina
 effectively part of the palette-gate's charge-frame sample — choose it accordingly. Bonus: the correctly-aligned
 shielded capture exposed a real G6 miss (the glint never leashed under shield — now dims to an ember, the
 ashtalon idiom).
+
+### L195 — KARNVOW CP2 shipped (entrance + riposte + stare-down + trophy paint): the whole fight is DATA + def-gated seams; a fade-in is NOT a dissolve; `transparent:true` is a mask classifier
+
+**Did.** CP2 in one pass, zero un-gated boss.js behavior: `entrance: 'itKeptCount'` (a pure-math
+ENTRANCE_SCRIPTS entry — fades in riding at your shoulder, rel ROCK-STEADY 16 the whole hold, wheels to
+station) + a def-gated `statTaunt` seam at the announce site (quotes the REAL ledger via bossLedgerStats —
+"FELLED YOU ×N. MOST: <BOSS>." with the fresh-save fallback — and arms the mid-hold `model.flareCharm(topKiller)`
+= the §5j escalation hinge, ending on the PRESENTED empty hook); `holdBreaker` (ONE slow parryable amber fired
+1.1s INTO the reveal hold — the cinematic stays fire-free, two separate beats); `reflectRiposte {fromPhase:1}`
+(a gate at the TOP of damageBoss keyed on kind==='player' — the reflected-bullet discriminator — once per
+phase: no damage, the lance cross-SWAT + amber flash, and a slow amber RETURN the player can re-reflect);
+`grazeForm: 'holdFlinch'` (a new branch beside beamEdge/shadowRide: DISCRETE tiers 1.1/2.2/3.4s held in the
+lance's threat-line corridor, escalating graze payouts, tier 3 = the FLINCH + the offer closes for the phase —
+a stare-down, not slot 6's per-tick ramp); `setpieces: [flankCutIn]` (x=sin(2πk)·11 crosses YOUR lane exactly
+at the rel~8 apex — the L140 proximity beat, firing the whole way); `lockParts: trophyCharm0..4` (BRAND THE
+TROPHIES; the empty hook stays unpaintable — the open lore thread).
+
+**Machine-checked before claiming.** New boss.mjs asserts: the entrance rel-steady LAW as data
+(path(u).rel === 16 mid-script); a LIVE instrumented drive — after the first shield break an injected
+kind-'player' hit is riposted EXACTLY once (the second lands) and the parked player earns the FLINCH once per
+phase (×3 across the fight); flareCharm burns the owed charm hot then the hook presents; riposte() swats the
+lance. 58 checks; the ASHTALON entrance golden byte-identical; bossgate ×4 PASS.
+
+**Two graphics-pipeline laws, both caught by the gate not the eye.** (1) **A fade-in is NOT a dissolve**: the
+kit's setDissolve is a DEATH effect — every call parks emissiveIntensity at 0.5 on all tracked materials and
+stateful-lerps their emissive hue toward white, so driving it 1→0 as an entrance materialise left the body
+PERMANENTLY ghost-washed. Fade-ins need a visibility-only channel (the new setEntrance: opacity from the
+finalize baseOpacity cache, emissive untouched). (2) **`transparent: true` is a CLASSIFIER, not just a render
+flag**: bossgate's analytic mask files transparent materials under GLOW — leaving the flag set after the fade
+emptied the OPAQUE silhouette (every idle law read 0/NaN — maxLum LITERALLY 0 is "the mask found nothing",
+not "the boss is dark"). Cache + restore the original flag when the fade completes. **Reusable: any effect
+that touches material flags must restore them; the gate's NaN reads are a mask-classification symptom, not a
+color problem.**
+
+**The seam map that made this a one-pass build** (for slot 10+): entrance = ENTRANCE_SCRIPTS entry (pure math,
+announce is static; DYNAMIC text/flare belongs at boss.js's announce dispatch, which has save/ui in scope);
+reveal-hold beats = enterFight + a timer in the fight loop (player in scope there, not in enterFight);
+reflected-arrival interception = the top of damageBoss (kind==='player'); per-phase re-offers = the
+armSetpieceForPhase call site in breakShield; moving setpieces = SETPIECE_PATHS[id](k) returning {x,y,rel,roll}.

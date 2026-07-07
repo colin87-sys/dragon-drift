@@ -259,6 +259,62 @@ export const ENTRANCE_SCRIPTS = {
     // NO camera fn: the camera STAYS FORWARD (§5j uniqueness ruling — the glance-back is
     // the copy quoting you, never a rear-view hijack). Bullet-time carries the hijack.
   },
+
+  // KARNVOW — IT KEPT COUNT (§5j slot 9). The duelist FADES IN already riding at
+  // your shoulder (rel ROCK-STEADY through the whole hold — any rel change would
+  // read as slot 3's spent overtake), the cowl turned to you while the stat-taunt
+  // lands (boss.js's def.statTaunt seam quotes your REAL ledger and flares the
+  // top-killer charm mid-hold — the §5j escalation hinge), then WITHOUT breaking
+  // pace the lance snaps low→POINT, it cuts in for a shoulder-brush, wheels, and
+  // settles. Zero shots here (Mantis rule); the ONE hold-breaker shot is a
+  // SEPARATE beat inside the reveal hold (def.holdBreaker, boss.js).
+  itKeptCount: {
+    dur: 2.0,                  // ~2.8s wall under the shallow dilate — room for the taunt to land
+    skipTo: 0.8,               // a tap fast-forwards to the point + cut-in
+    anchorToDragon: true,      // it rides at YOUR shoulder (snapshot the dragon's x/y)
+    initYaw: Math.PI,          // flies your heading (a rider, not a face-off) until the wheel
+    eyeLock: false,            // the cowl-track is model-side (setGaze) — no pupil hijack
+    announce: { title: '⟢  AT YOUR SIDE  ⟢', sub: 'IT KEPT COUNT', tone: 'gold', dur: 2.0 },
+    slowWindow: { uIn: 0.22, uOut: 0.74, depth: 0.5 },   // SHALLOW dilate — a held breath, not a dive
+    U: { U1: 0.25, U2: 0.72, U3: 0.88 },
+    _seg(u, u0, u1) { return easeInOut(clamp01((u - u0) / (u1 - u0))); },
+    path(u, ctx) {
+      const { AX, AY, S, B } = ctx, { U1, U2, U3 } = this.U, seg = (a, b) => this._seg(u, a, b);
+      // rel holds DEAD STEADY at 16 through the fade-in + hold + point; only the
+      // final settle recedes to station (receding = taking post, never a pull-ahead).
+      let x, y, rel = 16;
+      if (u < U1) { const t = seg(0, U1); x = AX + S * L(14, 11.5, t); y = AY + L(2.5, 1.5, t); }         // fade in, drawing level
+      else if (u < U2) { const t = seg(U1, U2); x = AX + S * (11.5 + Math.sin(t * Math.PI) * 0.8); y = AY + 1.5; }   // the HOLD (a shallow flank slew)
+      else if (u < U3) { const t = seg(U2, U3); x = AX + S * L(11.5, 6, t); y = AY + L(1.5, 1.0, t); }    // the CUT-IN (the shoulder-brush)
+      else { const t = seg(U3, 1); x = L(AX + S * 6, 0, t); y = L(AY + 1.0, B.fightHeight, t); rel = L(16, B.settleGap, t); }   // wheel + settle
+      return { x, y, rel };
+    },
+    tuck() { return 0; },
+    // Rides your heading through the hold + cut-in, then wheels 180° to face you.
+    yaw(u) {
+      const { U3 } = this.U, seg = (a, b) => this._seg(u, a, b);
+      return Math.PI * (u < U3 ? 1 : 1 - seg(U3, 1));
+    },
+    // The COWL tracks the dragon the whole ride (the model's setGaze turns the hood
+    // + the eye — the hunter sizing you up while it quotes your deaths).
+    gaze(u, ctx, pose, player) {
+      const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+      return { gx: clamp(-dx / 5, -1, 1), gy: clamp(dy / 5, -1, 1) };
+    },
+    onStart(model) { model.setEntrance?.(0); },   // born from nothing — the fade-in starts invisible
+    onFrame(u, ctx, pose, player, model) {
+      const { U2, U3 } = this.U;
+      // FADE-IN materialise over the first quarter — setEntrance is VISIBILITY-ONLY
+      // (the kit dissolve is a death effect and ghost-washes the paint; gate catch).
+      model.setEntrance?.(this._seg(u, 0, 0.22));
+      // The lance SNAP low→POINT on the U2 beat (the §4b charge-tell — the amber tip
+      // ignites), held through the cut-in, released as it wheels to station. Runs
+      // AFTER the driver's setCharge(0), so this write wins the frame.
+      const point = u < U2 ? 0 : u < U3 ? this._seg(u, U2, U2 + 0.06) : 1 - this._seg(u, 0.94, 1);
+      model.setCharge?.(point);
+    },
+    camera(u, pose, player) { return { k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) }; },
+  },
 };
 
 // Pure per-frame sampler (for tests + any tooling): returns the full frame a script
