@@ -885,6 +885,12 @@ export const BOSSES = {
     // read; that rule is inviolable (§3b sheet in BOSS-DESIGN.md §5d).
     archetype: 'weftwitch',
     muzzle: 'loomHeart',      // she emits from the loom-heart at the hub (emitter = organ, §5f law 7 / L148)
+    // LANCE V1 aim anchor (the karnvow lesson, PR #258: lockCandidates() returns only
+    // lockParts + virtualLockOrgan — a def naming neither loses the whole aim/lock verb).
+    // The organ IS the anchor (ashtalon muzzle-as-anchor precedent): the loom-heart is
+    // always emitting, always under fire, never a free rest-beat paint. V2 lockParts
+    // (per-spinneret brands?) are a CP2+ decision.
+    virtualLockOrgan: 'loomHeart',
     accent: 0xe8c466,         // WARM PALE-GOLD woven-thread (Decision C — pushed OFF the WE rose-triple). Hue ≈43°,
                               // far clear of danger-magenta's 327–357° reserved band; saturated enough to HOLD its
                               // hue under bloom (bossgate G3 attribution — a paler gold washed to white). Resolves
@@ -894,16 +900,29 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'above',    // SHIPPED branch (audit #35 — do NOT re-implement): she descends on a single thread
     startDepth: 26,           // §5d: the descent starts high (y≈+26) — she lowers to station on one thread
+    entrance: 'mendedBanner', // §5j scripted arrival (CP2): the thread-descent + the banner lash (entranceScripts.js)
+    // §5b GRANTED RULE-BREAK (registry row 11: "re-weaves the arena — even the HUD
+    // chrome"): golden threads stitch across the HUD ONCE at her entrance and the
+    // warn banner is cross-stitched + PINNED half-deployed until enterFight tears
+    // it free. RENDER-ORDER LAW: fired only in the bullet-free warn window,
+    // cleared before the first bullet can exist (boss.js owns both edges).
+    hudSew: true,
     scale: 1.3,               // medium bust — presence is the WEB, not the body mass (L141); TUNE in studio
     // §5i CANCEL-CONVERT MOTE HARVEST: a cut thread blooms into falling surge-motes;
     // steer the bloom to harvest (offered once per phase). Def-gated (reuses slot 6's
     // continuous-graze detector); shipped bosses inert.
     grazeForm: 'moteHarvest',
+    // §5i.C THREAD-CUT (registry row 11 parry cell, CP2): her 'aimed' volleys ride the
+    // taut hand-thread (needle-pull wind-up + laserLance HDR beam at release + an
+    // in-key stitch-pluck); parry the ambers 3× → the thread is CUT — the woven
+    // volley UNRAVELS (in-flight ambers delete, queued sub-volleys drop) and the
+    // loom is STILLED for a 2.5s strike window. Inert for every other def.
+    threadCut: true,
     // Tier-4 difficulty: precision + lattice patterns re-expressed as thread-visualised
     // gaps (curtain/movingGap/aimed/crossfire = the loom's warp/weft). The `aimed`
     // carrier is the taut pre-fire thread (the amber organ) — the laserLance is a beam
-    // VISUAL of an existing pattern (CP2), NOT a new attack id (the WE band's ≤1-new-id
-    // budget is left for a sibling slot; confirm with owner). Escalation by pattern
+    // VISUAL of an existing pattern (owner-confirmed at CP2), NOT a new attack id (the
+    // WE band's ≤1-new-id budget is left for a sibling slot). Escalation by pattern
     // unlock + cadence, never raw count.
     phases: [
       { atFrac: 1.00, cadence: [1.3, 1.7], attacks: ['aimed', 'curtain'] },                          // P1: the loom wakes (a measured weave)

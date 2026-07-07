@@ -38,5 +38,26 @@ const end = entranceFrame('overtake', 1, ctx, player);
 if (r6(end.x) === 0 && r6(end.y) === 13 && r6(end.rel) === 30) ok('overtake terminates at station (0, fightHeight, settleGap)');
 else bad(`overtake u=1 not at station: (${end.x}, ${end.y}, ${end.rel})`);
 
+// WEFTWITCH mendedBanner (§5j slot 11, CP2): every sampled frame is finite and the
+// path terminates at station — the enterFight handoff contract every script owes.
+{
+  let finite = true, bad0 = '';
+  for (let u = 0; u <= 1.0001; u += 0.05) {
+    const fr = entranceFrame('mendedBanner', Math.min(u, 1), ctx, player);
+    for (const k of ['x', 'y', 'rel', 'tuck', 'yaw', 'gx', 'gy']) {
+      if (!Number.isFinite(fr[k])) { finite = false; bad0 = `u=${u} ${k}=${fr[k]}`; }
+    }
+  }
+  if (finite) ok('mendedBanner: every sampled frame is finite');
+  else bad(`mendedBanner produced a non-finite frame: ${bad0}`);
+  const e2 = entranceFrame('mendedBanner', 1, ctx, player);
+  if (r6(e2.x) === 0 && r6(e2.y) === 13 && r6(e2.rel) === 30) ok('mendedBanner terminates at station (0, fightHeight, settleGap)');
+  else bad(`mendedBanner u=1 not at station: (${e2.x}, ${e2.y}, ${e2.rel})`);
+  // She watches you through the drop: the gaze pitches DOWN early, level at settle.
+  const g0 = entranceFrame('mendedBanner', 0.1, ctx, player), g1 = entranceFrame('mendedBanner', 1, ctx, player);
+  if (g0.gy < -0.3 && Math.abs(g1.gy) < 0.01) ok('mendedBanner gaze: down through the drop, level at settle');
+  else bad(`mendedBanner gaze wrong: gy(0.1)=${g0.gy}, gy(1)=${g1.gy}`);
+}
+
 console.log(`\n${pass} entrance checks passed${fail ? `, ${fail} FAILED` : ''}.`);
 if (fail) process.exit(1);
