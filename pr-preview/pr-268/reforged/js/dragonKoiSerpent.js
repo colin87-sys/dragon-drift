@@ -32,9 +32,14 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   // a longer serpent (jade is the LONG one — apex body ~8× the head, vs a winged
   // dragon's ~5×). bodyLength scales the section count; bodySpacing spreads them.
   const lenHint = (model.neckSegments ?? 6) + (model.tailSegments ?? 10);
-  const N = Math.max(10, Math.min(28, Math.round(lenHint * (model.bodyLength ?? 1.0))));
+  // segDensity packs MORE, smaller, heavily-overlapped sections at the SAME total length
+  // (N × SPACE held constant) → a smoother continuous tube (kills the astral-worm bead read)
+  // and more travelling-wave samples (a finer, more fluid ripple). Human ask: "more segments
+  // to break it up + more lag."
+  const density = model.segDensity ?? 1.0;
+  const N = Math.max(10, Math.min(48, Math.round(lenHint * (model.bodyLength ?? 1.0) * density)));
   const leadR = (model.bodyGirth ?? 0.58) * scale;      // lead cross-section radius
-  const SPACE = model.bodySpacing ?? 1.45;              // >1 spreads sections (still overlapping) → a longer serpent
+  const SPACE = (model.bodySpacing ?? 1.45) / density;  // spread ÷ density → length invariant to density
   const bodyY = 0.5;
 
   // KOI girth profile: plump behind the head (front third), tapering smoothly to a fine
@@ -122,10 +127,12 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
 
     // Smooth koi cross-section: a touch wider than tall + elongated along the body so
     // neighbours overlap into a flowing tube (not a bead necklace).
-    const sphere = new THREE.SphereGeometry(r, 8, 6);
+    const sphere = new THREE.SphereGeometry(r, 6, 5);
     paint(sphere, r);
     const body = new THREE.Mesh(sphere, bodyMat);
-    body.scale.set(1.05, 0.92, 1.18);
+    // Round cross-section, only slightly elongated: heavy overlap + near-round sections read
+    // as ONE smooth tube (the elongated/bulbous scale is what made the bead-chain "worm" pop).
+    body.scale.set(1.04, 0.96, 1.12);
     seg.add(body);
 
     group.add(seg);
