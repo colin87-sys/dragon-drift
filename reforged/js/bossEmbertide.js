@@ -3,55 +3,47 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './util.js';
 import { createBossCommon, stripForMerge } from './bossKit.js';
 
-// EMBERTIDE's body — "THE SKY SET LOOSE": the horizon standing up as a frame-wide
-// wall of living light (vermilion→warm-coral-rose) with a colossal FRONTAL FACE
-// deforming through it as dark NEGATIVE relief. The World-Enders SPATIAL peak
-// (§5b slot 13, the 2nd-to-last boss). 13 is the sky in MAXIMUM MOTION; 14 (THE
-// UNMASKED) is the sky perfectly STILL — this boss must be the loudest thing the
-// player has seen so the finale's quiet is deafening.
+// EMBERTIDE's body — "THE SKY SET LOOSE": THE HORIZON STANDING UP. A frame-wide
+// wall of living light (vermilion→coral-rose light-bands) that FILLS and overflows
+// the frame and IS the boss body; a colossal face pushes through it as DARK NEGATIVE
+// relief — darkness WITHIN the light, not an object on top of it. The World-Enders
+// SPATIAL peak (§5b slot 13, the 2nd-to-last boss).
 //
-// ⚠ THE VALUE INVERSION (owner Decision C; the sanctioned §3-law-2 exception, §4b):
-// unlike every other boss (a DARK body with a BRIGHT focal), EMBERTIDE's "body" is
-// the BRIGHT field and its focal/identity is the DARKNESS — the dark face + the two
-// eye-hollows. The def carries `gate: { inverted: true, frameFill: true }` (the §7b
-// override: G1 → dark-focal, G2/G4 exempt).
+// ⚠ r1 REDESIGN (owner rejected r0 as a floating idol-mask). The figure-ground is
+// the whole point and r0 had it backwards: r0 = bright sky GROUND + a discrete lit
+// dark mask FIGURE floating on it (rim halo, clean perimeter, downward spikes → it
+// read as Voidmaw's mask / BRINEHOLM's solid head). r1 = the bright light-field IS
+// the body; the face is DARKNESS torn into that light, with NO rim, NO discrete
+// perimeter, NO spikes — its crown and sides DISSOLVE into the light-field / run off
+// the edges; only the brow, nose, chin and the two eye-hollows are the hard read.
 //
-// ⛔ THE OVERDRAW DISCIPLINE (L124/L126 — overdraw is the ONLY real perf cliff, and
-// it is EMBERTIDE's genuine risk: a frame-filling boss + the in-game fever/Surge
-// volume + the kit shield). The resolution: this model has ZERO large additive
-// volumes. The "wall of light" is an OPAQUE HDR-emissive field (it REPLACES the sky
-// dome exactly like the dome is opaque — bright color multiplied past 1.0 with
-// toneMapped=false blooms through the UnrealBloom pass regardless of blend mode,
-// the mandala-eye trick), the dark face is opaque relief, and the edge-light is
-// emissive, NOT an additive shell. So the only additive/fresnel volume the G7 gate
-// counts is the kit shield (1) — leaving the whole additive budget for the in-game
-// fever volume (≤2 total). Everything here is fog-exempt (material.fog=false) for
-// the CP2 sky-replacement crossfade.
+// THE TECHNIQUE that makes "darkness in the light" true (not a dark object on light):
+// the face is rendered with **MultiplyBlending** — it DARKENS the light-bands behind
+// it (occludes the glow) and fades to no-effect at its edges (dissolving into the
+// field). Nothing here is a lit, opaque, rimmed sculpture. The eye-hollows are pure
+// black (opaque) — TEARS in the glow, the absolute darkest.
 //
-// §3b SILHOUETTE TRANSLATION (rev.2, Fable-gated PASS): reads as "a giant FACE in
-// the sky" (two eye-hollows + a MOUTH — the pareidolia triangle), NOT a sunset, NOT
-// storm-clouds (the face is ONE connected dark form, no floating blobs), NOT
-// BRINEHOLM's solid breaching head (the bands are OCCLUDED/pushed aside by the
-// relief — negative relief, not an object in front). See BOSS-DESIGN.md §5d.
+// ⛔ OVERDRAW (L124/L126 — the only real perf cliff, EMBERTIDE's genuine risk): the
+// field is OPAQUE HDR (blooms via toneMapped=false; replaces the sky dome), the face
+// is MULTIPLY, the motes are opaque. ZERO AdditiveBlending/fresnel volumes from the
+// model → the whole additive budget (≤2, incl. the in-game fever + kit shield) stays
+// free. Everything is fog-exempt (material.fog=false) for the CP2 sky crossfade.
 //
-// CONTRACT: boss.js stomps `group.rotation` every frame (placeGroup) and
-// `kit.setDissolve` owns `group.scale` — every animated part lives on `rig` or a
-// pivot under it, NEVER on `group` itself.
+// §3b SILHOUETTE TRANSLATION (r1, re-stated in BOSS-DESIGN.md §5d): reads as "the
+// HORIZON with a face in it" — NOT a floating mask (Voidmaw), NOT a solid breaching
+// head (BRINEHOLM), NOT a plain gradient. The light IS the body; the face is the
+// darkness in it.
+//
+// CONTRACT: boss.js stomps `group.rotation` (placeGroup) and `kit.setDissolve` owns
+// `group.scale` — every animated part lives on `rig`/a pivot, NEVER on `group`.
 
 export function buildEmbertide(def, quality = 1) {
   const accent = new THREE.Color(def.accent ?? 0xff3a1e);   // VERMILION — the tide's deep (bottom) end
-  const rose = new THREE.Color(def.glow ?? 0xff7a5e);       // WARM coral-rose — the tide's light (top) end + edge-light
-  const RELIEF_DARK = 0x352b22;                              // DESATURATED warm brown (the face base): low saturation
-                                                            // (s≈0.36) so lit face pixels never cross the danger-magenta
-                                                            // check's s>0.5 gate — a SATURATED dark red/plum face renders
-                                                            // in the reserved 327–357° band (G3 fail). Kept ABOVE the
-                                                            // near-black hollows so the HOLLOWS stay the DARKEST (G1).
+  const rose = new THREE.Color(def.glow ?? 0xff7a5e);       // WARM coral-rose — the tide's light (top) end
   const lowQ = quality < 0.75;
 
   // Shared plumbing. The field is frame-wide, so the HP bar + shield are counter-
-  // scaled small: the shield wards the FACE (the weak point / focal), not the whole
-  // sky. hpBarScale keeps the bar at the roster's usual on-screen width against a
-  // boss whose field spans ~80 units.
+  // scaled small: the shield wards the FACE (the focal), not the whole sky.
   const kit = createBossCommon(def, quality, {
     shieldRadius: 12, shieldY: 0.5, hpBarY: 15, hpBarZ: 6, hpBarScale: 2.0,
     shieldRimStrength: 0.5, shieldCageOpacity: 0.34,
@@ -70,17 +62,16 @@ export function buildEmbertide(def, quality = 1) {
   };
 
   // ---------------------------------------------------------------------
-  // THE FIELD — the frame-wide wall of light. ONE opaque plane, vertex-coloured
-  // vermilion(bottom)→coral-rose(top) with brighter baked horizontal BAND stripes
-  // (the layered tide) and a hot CREST band low in the frame. Opaque + HDR
-  // (toneMapped=false, colours baked past 1.0 so the crest/bands bloom) → it reads
-  // as the backdrop AND contributes ZERO additive overdraw. The z-sits BEHIND the
-  // face so the relief occludes it (light pushed aside = negative relief).
-  // lowQ drops the band/segment count (the grandeur dial — never below a legible field).
+  // THE FIELD — the frame-wide wall of light, the BODY. ONE opaque plane, vertex-
+  // coloured vermilion(bottom)→coral-rose(top) with BOLD structured horizontal
+  // light-BANDS (the layered tide, not a soft gradient — the r0 gradient read as a
+  // plain sky) and a hot CREST low in the frame. Opaque + HDR (toneMapped=false →
+  // blooms) → it reads as the backdrop AND costs ZERO additive overdraw. Sized to
+  // OVERFLOW both portrait edges at fight distance (it never fits — the spatial peak).
   // ---------------------------------------------------------------------
-  const FIELD_W = 88, FIELD_H = 52, FIELD_Z = -4;
-  const BAND_COUNT = lowQ ? 4 : 7;   // staggered light bands — the layered tide (grandeur; watch overdraw — but they're baked into ONE opaque mesh)
-  const segX = lowQ ? 24 : 40, segY = lowQ ? 24 : 44;
+  const FIELD_W = 96, FIELD_H = 62, FIELD_Z = -4;
+  const BAND_COUNT = lowQ ? 4 : 6;   // bold structured strata (the tide's layers)
+  const segX = lowQ ? 24 : 40, segY = lowQ ? 26 : 48;
   const fieldGeo = new THREE.PlaneGeometry(FIELD_W, FIELD_H, segX, segY);
   {
     const pos = fieldGeo.attributes.position;
@@ -89,24 +80,16 @@ export function buildEmbertide(def, quality = 1) {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i);
       const t = THREE.MathUtils.clamp((y + FIELD_H / 2) / FIELD_H, 0, 1);   // 0 bottom → 1 top
-      // Base gradient vermilion → coral-rose.
-      cTmp.copy(accent).lerp(rose, t);
-      // BEND THE BANDS AROUND THE FACE (Fable fix #2 — "light pushed aside" = negative
-      // relief, NOT an object in front): near the face column the band PHASE bows
-      // UPWARD, so the bright bands arc up and over the head instead of running
-      // straight behind it. This is the single cue that separates EMBERTIDE from
-      // BRINEHOLM's solid breaching head — the light is visibly displaced by the relief.
-      const faceProx = Math.exp(-Math.pow(x / 12, 2)) * Math.exp(-Math.pow(y / 20, 2));
-      const tBow = THREE.MathUtils.clamp((y + faceProx * 10 + FIELD_H / 2) / FIELD_H, 0, 1);
-      // Baked BAND stripes: a periodic brightening (the tide's layered crests),
-      // sharpened so the bands read as EDGES (the §3b "not a smooth gradient" anti-read).
-      const band = Math.pow(Math.max(0, Math.sin(tBow * Math.PI * BAND_COUNT)), 3);
-      // The hot CREST: a bright swell low in the frame (t≈0.30) — the surge edge.
-      const crest = Math.exp(-Math.pow((t - 0.30) / 0.06, 2)) * 0.65;
-      // Keep the HDR modest so the field stays SATURATED vermilion→rose (a blow-out to
-      // white desaturates the accent hue → G3 fails, and a smooth white wash is the
-      // §3b "pretty gradient" anti-read). The bands read as EDGES; only the crest bloom.
-      const hdr = 1 + band * 0.5 + crest;   // >1 on the bands/crest → blooms (toneMapped=false)
+      cTmp.copy(accent).lerp(rose, t);   // base gradient vermilion → coral-rose
+      // BEND THE BANDS AROUND THE FACE ("light pushed aside" = negative relief): near
+      // the face column the band PHASE bows UPWARD, so the bright bands arc up and over
+      // the head instead of running straight behind it — the light is visibly displaced.
+      const faceProx = Math.exp(-Math.pow(x / 14, 2)) * Math.exp(-Math.pow(y / 22, 2));
+      const tBow = THREE.MathUtils.clamp((y + faceProx * 11 + FIELD_H / 2) / FIELD_H, 0, 1);
+      // BOLD bands: a wide, strong periodic brightening (structured strata, not a wash).
+      const band = Math.pow(Math.max(0, Math.sin(tBow * Math.PI * BAND_COUNT)), 2);
+      const crest = Math.exp(-Math.pow((t - 0.30) / 0.07, 2)) * 0.7;   // the hot surge edge
+      const hdr = 1 + band * 0.7 + crest;   // >1 on bands/crest → blooms; kept warm-saturated (G3)
       colors[i * 3] = cTmp.r * hdr;
       colors[i * 3 + 1] = cTmp.g * hdr;
       colors[i * 3 + 2] = cTmp.b * hdr;
@@ -117,272 +100,170 @@ export function buildEmbertide(def, quality = 1) {
   const field = new THREE.Mesh(fieldGeo, fieldMat);
   field.name = 'lightField';
   field.position.z = FIELD_Z;
-  field.renderOrder = -10;   // draws first (it's the backdrop) — nothing hides behind a bullet, but this sits behind the boss
+  field.renderOrder = -10;   // the backdrop draws first
   rig.add(field);
 
-  // The SCAR (§3.6, de-conflicted per the Fable gate): a torn, permanently DARK
-  // leash-notch — a HORIZONTAL band-shaped dark bar riding ONE band, off to the
-  // side where the FACE never reaches, smaller than the smallest facial feature.
-  // The memory hook + the forward lore gap: who/what leashed EMBERTIDE? → the Apex.
-  const scarMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0508, fog: false }));
-  const scarGeo = strip(new THREE.BoxGeometry(7.5, 0.9, 0.2));
-  const scar = new THREE.Mesh(scarGeo, scarMat);
+  // The SCAR (§3.6): a torn, permanently DARK leash-notch — a HORIZONTAL band-shaped
+  // dark bar riding ONE band, off to the side where the FACE never reaches, smaller
+  // than the smallest facial feature. The forward lore gap: who leashed EMBERTIDE? → the Apex.
+  const scarMat = track(new THREE.MeshBasicMaterial({ color: 0x000000, fog: false, blending: THREE.MultiplyBlending, transparent: true, depthWrite: false }));
+  const scar = new THREE.Mesh(strip(new THREE.BoxGeometry(8, 0.9, 0.2)), scarMat);
   scar.name = 'leashNotch';
-  scar.position.set(-27, 9.5, FIELD_Z + 0.2);
+  scar.position.set(-30, 11, FIELD_Z + 0.5);
   rig.add(scar);
 
   // ---------------------------------------------------------------------
-  // THE FACE — one CONNECTED dark form deforming through the light (frontal). A
-  // base head-shape (the single connected silhouette + overflow read) plus RELIEF
-  // masses raised on top (brow / nose / cheeks / jaw — value + self-shadow so it
-  // reads as a face, not a flat sticker). Sits IN FRONT of the field so it occludes
-  // the bright bands = the light pushed aside. Named movers (browMass/noseMass/
-  // chinMass) surge forward on setCharge (the silhouette-changing telegraph, §3.5).
+  // THE FACE — DARKNESS torn into the light (NOT an object on it). Everything is
+  // MULTIPLY-blended: it DARKENS the bands behind it and fades to no-effect at the
+  // edges, so the face dissolves into the field with NO perimeter and NO rim. Layered
+  // occlusion, darkest at the tears: field(bright) → base shadow → brow/nose/chin
+  // masses (darker) → eye-hollows/mouth (pure black). The whole thing overflows.
   // ---------------------------------------------------------------------
-  const FACE_Z = 1.2;   // in front of the field, toward the player (+z)
-  const EYE_Y = 2.2, EYE_X = 4.2, EYE_Z = 2.4;   // eye-hollow placement (frontal, level, matched, symmetric)
-  const faceRig = new THREE.Group();     // the whole face; surges forward + turns its regard (setGaze/setCharge)
+  const FACE_Z = 1.2;
+  const EYE_Y = 2.0, EYE_X = 4.2, EYE_Z = 2.6;   // eye-hollow placement (frontal, level, matched, symmetric)
+  const faceRig = new THREE.Group();
   faceRig.name = 'faceRig';
   faceRig.position.z = FACE_Z;
   rig.add(faceRig);
 
-  const EMBER_GLOW = 0xd9782e;   // WARM AMBER ember-glow (hue ~22°) — the face's emissive floor. NOT the 7° accent
-                                 // (a red emissive pushes lit face pixels into the danger-magenta band); amber reads
-                                 // as embers smouldering in the relief AND keeps the face clear of the reserved band.
-  const faceMat = track(new THREE.MeshStandardMaterial({
-    color: RELIEF_DARK, emissive: EMBER_GLOW, emissiveIntensity: 0.12,   // a warm emissive FLOOR so the darkest face
-    roughness: 0.85, metalness: 0.0, flatShading: true, fog: false,      // pixel stays above the pure-black hollows (G1)
-  }));
-
-  // Base connected form — a frontal head Shape (wide brow, tapering to a jaw),
-  // extruded shallow. This is the ONE continuous dark region (no floating blobs).
-  const FW = 9, FTOP = 11, FBOT = -12;   // face half-width + top/bottom (spans a big share of the field height)
-  function buildFaceBase() {
-    const s = new THREE.Shape();
-    s.moveTo(-FW, FTOP * 0.55);
-    s.quadraticCurveTo(-FW * 1.05, FTOP, 0, FTOP);          // brow crown
-    s.quadraticCurveTo(FW * 1.05, FTOP, FW, FTOP * 0.55);
-    s.quadraticCurveTo(FW * 1.08, 0, FW * 0.82, FBOT * 0.5); // cheek down to jaw
-    s.quadraticCurveTo(FW * 0.5, FBOT, 0, FBOT);             // jaw to chin
-    s.quadraticCurveTo(-FW * 0.5, FBOT, -FW * 0.82, FBOT * 0.5);
-    s.quadraticCurveTo(-FW * 1.08, 0, -FW, FTOP * 0.55);
-    s.closePath();
-    const geo = strip(new THREE.ExtrudeGeometry(s, {
-      depth: 1.4, steps: 1, bevelEnabled: !lowQ, bevelThickness: 0.6, bevelSize: 0.5, bevelSegments: 1, curveSegments: lowQ ? 5 : 9,
-    }));
-    geo.translate(0, 0, -0.7);
-    return geo;
+  // BASE SHADOW — a large head-shaped region of darkened light (multiply), soft-edged
+  // so its CROWN and SIDES dissolve into the field (no discrete mask perimeter). Its
+  // vertex colour is the multiply factor: dark in the core → 1.0 (no effect) at the
+  // rim. Taller than wide (a head), the jaw tapering narrower.
+  const BASE_W = 34, BASE_H = 46;
+  const baseGeo = new THREE.PlaneGeometry(BASE_W, BASE_H, lowQ ? 28 : 44, lowQ ? 36 : 56);
+  {
+    const pos = baseGeo.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    const CY = -1.5;                       // centre slightly low (the face rises from below)
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i);
+      // Head-shaped elliptical distance, jaw narrower below centre.
+      const below = y < CY ? (CY - y) / 15 : 0;
+      const rx = 11 * (1 - 0.35 * Math.min(1, below));
+      const ry = 16;
+      const d = Math.sqrt((x / rx) ** 2 + ((y - CY) / ry) ** 2);
+      const f = THREE.MathUtils.smoothstep(d, 0.42, 1.12);   // 0 core → 1 rim
+      const m = 0.16 + (1 - 0.16) * f;                        // 0.16 core (dark) → 1.0 rim (no effect)
+      // Faintly warm shadow (a touch more red kept in the core) so the occluded light
+      // reads as warm dusk, never a cool/magenta veil.
+      col[i * 3] = m; col[i * 3 + 1] = m * 0.985; col[i * 3 + 2] = m * 0.965;
+    }
+    baseGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   }
+  const baseMat = track(new THREE.MeshBasicMaterial({
+    vertexColors: true, fog: false, blending: THREE.MultiplyBlending, transparent: true, depthWrite: false,
+  }));
+  const faceBase = new THREE.Mesh(baseGeo, baseMat);
+  faceBase.name = 'faceRelief';   // the connected dark form (test seam)
+  faceBase.position.z = 0.2;
+  faceBase.renderOrder = 0;
+  faceRig.add(faceBase);
 
-  // A relief mass: a rounded box wedge raised toward the player (self-shadowing
-  // ridge). `detail` drops at lowQ (the grandeur dial for the face richness).
-  function reliefBox(w, h, d, x, y, z) {
-    const g = strip(new THREE.BoxGeometry(w, h, d, 1, 1, 1));
-    g.translate(x, y, z);
+  // The MASS features — brow / nose / chin as DARKER multiply occlusion (shadow-shapes
+  // in the glow, the hard read), each on a NAMED pivot that surges forward on the charge
+  // tell. Soft, feathered shapes (radial multiply gradient), never a hard-edged block.
+  const massMat = track(new THREE.MeshBasicMaterial({
+    vertexColors: true, fog: false, blending: THREE.MultiplyBlending, transparent: true, depthWrite: false,
+  }));
+  // A feathered dark mass: a plane whose multiply factor is dark in the middle → 1.0 at
+  // the edge (so it darkens the light where the mass is, with no hard outline).
+  function darkMass(w, h, dark, ry = 1) {
+    const g = new THREE.PlaneGeometry(w, h, 12, 12);
+    const p = g.attributes.position;
+    const c = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) {
+      const nx = p.getX(i) / (w / 2), ny = p.getY(i) / (h / 2) / ry;
+      const d = Math.sqrt(nx * nx + ny * ny);
+      const f = THREE.MathUtils.smoothstep(d, 0.15, 1.0);
+      const m = dark + (1 - dark) * f;
+      c[i * 3] = m; c[i * 3 + 1] = m * 0.985; c[i * 3 + 2] = m * 0.96;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     return g;
   }
-
-  // Merge the base + the QUIET relief (cheeks + jaw + temple) into ONE dark mesh —
-  // the connected form. The EXPRESSIVE relief (brow/nose/chin) stay separate named
-  // pivots so they can surge on the charge tell.
-  const cheekParts = [buildFaceBase()];
-  cheekParts.push(reliefBox(6.5, 3.2, 1.6, -4.4, -1.5, 1.0));   // left cheek
-  cheekParts.push(reliefBox(6.5, 3.2, 1.6, 4.4, -1.5, 1.0));    // right cheek
-  cheekParts.push(reliefBox(5.0, 2.4, 1.4, 0, -8.5, 1.0));      // jaw block (chin base)
-  if (!lowQ) {
-    cheekParts.push(reliefBox(2.6, 4.5, 1.2, -7.6, 4.2, 0.8));  // left temple
-    cheekParts.push(reliefBox(2.6, 4.5, 1.2, 7.6, 4.2, 0.8));   // right temple
+  function massPivot(name, x, y, z, geo) {
+    const pv = new THREE.Object3D(); pv.name = name; pv.position.set(x, y, z);
+    const m = new THREE.Mesh(geo, massMat); m.renderOrder = 1;
+    pv.add(m); faceRig.add(pv); return pv;
   }
-  const faceMesh = new THREE.Mesh(mergeParts(cheekParts, 'face-base'), faceMat);
-  faceMesh.name = 'faceRelief';
-  faceRig.add(faceMesh);
+  const browPivot = massPivot('browMass', 0, 5.2, 0.5, darkMass(19, 5.0, 0.10, 0.8));   // heavy brow bar (wide, low arc)
+  const nosePivot = massPivot('noseMass', 0, -1.0, 0.7, darkMass(4.6, 11, 0.06, 1.0));   // central nose ridge (tall, narrow — the deepest)
+  const chinPivot = massPivot('chinMass', 0, -10.5, 0.5, darkMass(13, 7, 0.12, 0.9));    // chin/jaw mass low, fading into the tide below
 
-  // ASYMMETRIC edge-RIM (Fable fix #3): light PILING against the relief — thickest/
-  // brightest at the brow (where the face pushes hardest out of the light), thinning
-  // to NOTHING at the jaw (where the face dissolves back into the tide). A uniform
-  // stroke reads as a sticker border; asymmetric piling reads as light displaced.
-  // OPAQUE warm-coral HDR-emissive (toneMapped=false → blooms), NOT an additive shell.
-  // Vertex-coloured: bright at top → 0 at the bottom.
-  const rimGeo = strip(buildFaceBase());
-  rimGeo.scale(1.09, 1.07, 1.0);
-  rimGeo.translate(0, 0.6, -0.5);   // pushed UP so the piling favours the brow
-  {
-    const rp = rimGeo.attributes.position;
-    const rc = new Float32Array(rp.count * 3);
-    const rcol = rose.clone().multiplyScalar(1.9);   // warm coral (not white-cream — keeps it off the pale-gold sibling)
-    for (let i = 0; i < rp.count; i++) {
-      const yy = rp.getY(i);
-      const k = Math.max(0, Math.min(1, (yy - FBOT * 0.35) / (FTOP - FBOT * 0.35)));   // 0 low → 1 high
-      const w = k * k;   // steep: the rim vanishes over the jaw, piles at the brow
-      rc[i * 3] = rcol.r * w; rc[i * 3 + 1] = rcol.g * w; rc[i * 3 + 2] = rcol.b * w;
-    }
-    rimGeo.setAttribute('color', new THREE.BufferAttribute(rc, 3));
-  }
-  const rimMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false, side: THREE.BackSide }));
-  const faceRim = new THREE.Mesh(rimGeo, rimMat);
-  faceRim.name = 'faceRim';
-  faceRig.add(faceRim);
-
-  // A SECOND dark value (Fable fix #6): recess shadows one step darker than the face
-  // base but clearly ABOVE the pure-black hollows — so the face reads as SCULPTED
-  // relief (field bright > face dark > recess darker > hollows darkest), not a flat
-  // fill. Sized to survive rel 30 (big soft masses, not hairline strokes).
-  const socketMat = track(new THREE.MeshStandardMaterial({
-    color: 0x241708, emissive: EMBER_GLOW, emissiveIntensity: 0.08,  // WARM dark brown (G≥B) + amber floor — a plum/magenta
-    roughness: 0.9, metalness: 0.0, flatShading: true, fog: false,   // recess (B>G) would drift into the danger band (G3)
-  }));
-  const socketGeo = new THREE.SphereGeometry(1.0, lowQ ? 10 : 14, lowQ ? 7 : 10);
-  function reliefShadow(w, h, x, y, z) {
-    const g = socketGeo.clone(); g.scale(w, h, 0.4); g.translate(x, y, z); return g;
-  }
-  // Eye-socket recesses (behind the hollows), a brow-ridge shadow, cheek hollows, and
-  // nose-side shadows — merged into ONE mid-dark mesh (one draw). z just under the face
-  // front so they read as carved-in shadow, over the face base.
-  const shadowParts = [
-    reliefShadow(3.4, 2.4, -EYE_X, EYE_Y, 2.0), reliefShadow(3.4, 2.4, EYE_X, EYE_Y, 2.0),  // eye sockets
-    reliefShadow(9.0, 1.1, 0, 4.0, 2.0),                                                     // brow-ridge shadow
-    reliefShadow(2.2, 2.2, -6.0, -1.0, 1.6), reliefShadow(2.2, 2.2, 6.0, -1.0, 1.6),         // cheek hollows
-    reliefShadow(1.0, 3.2, -1.7, -1.5, 2.0), reliefShadow(1.0, 3.2, 1.7, -1.5, 2.0),         // nose-side shadows
-  ];
-  faceRig.add(new THREE.Mesh(mergeParts(shadowParts.map((g) => strip(g)), 'face-shadows'), socketMat));
-
-  // Named EXPRESSIVE relief — brow / nose / chin on pivots (they DEEPEN/surge forward
-  // on the charge tell: the face pushing further out of the light).
-  const browPivot = new THREE.Object3D(); browPivot.name = 'browMass'; browPivot.position.set(0, 5.4, 1.4);
-  browPivot.add(new THREE.Mesh(strip(new THREE.BoxGeometry(14, 2.4, 2.2, 1, 1, 1)), faceMat));
-  faceRig.add(browPivot);
-
-  const nosePivot = new THREE.Object3D(); nosePivot.name = 'noseMass'; nosePivot.position.set(0, -0.5, 1.6);
-  { // a central vertical wedge (a ridge), apex toward the player — catches a lit edge
-    let ng = strip(new THREE.ConeGeometry(1.9, 9.0, 3));
-    ng.rotateX(Math.PI / 2);   // point +z (toward player)
-    ng.scale(1, 0.5, 1);
-    nosePivot.add(new THREE.Mesh(ng, faceMat));
-  }
-  faceRig.add(nosePivot);
-
-  // The JAW dissolves DOWNWARD into the tide (Fable fix #1 + #4): NO closed bottom
-  // outline — instead of a rectangular chin block, tapering dark streaks bleed off the
-  // jaw into the field, so the face can't parse as a bounded floating mask. `chinMass`
-  // stays a NAMED pivot (a subtle jaw ridge + the streaks) so it still surges on charge.
-  const chinPivot = new THREE.Object3D(); chinPivot.name = 'chinMass'; chinPivot.position.set(0, -9.5, 1.0);
-  {
-    const jawParts = [strip(new THREE.CylinderGeometry(2.6, 1.6, 3.2, lowQ ? 6 : 10, 1))];   // a rounded jaw ridge (no square corners)
-    jawParts[0].scale(1, 1, 0.6);
-    const streakN = lowQ ? 3 : 5;
-    for (let i = 0; i < streakN; i++) {
-      const sx = (i / (streakN - 1) - 0.5) * 9;
-      const len = 7 + (2 - Math.abs(i - (streakN - 1) / 2)) * 2.5;   // longer near centre
-      let sg = strip(new THREE.ConeGeometry(0.9, len, 4));           // a tapering drip (point DOWN into the tide)
-      sg.rotateX(Math.PI);
-      sg.scale(1, 1, 0.35);
-      sg.translate(sx, -2.0 - len / 2, -0.2);
-      jawParts.push(sg);
-    }
-    chinPivot.add(new THREE.Mesh(mergeParts(jawParts, 'jaw-dissolve'), faceMat));
-  }
-  faceRig.add(chinPivot);
-
-  // ---------------------------------------------------------------------
-  // THE DARKEST VALUES — the pareidolia triangle: two EYE-HOLLOWS + a MOUTH. Pure
-  // near-black (darker than the RELIEF_DARK face so they win the G1-inverted
-  // dark-focal contest), level, matched, symmetric about the vertical axis. The
-  // hollows TEAR OPEN on notice() and WIDEN on the charge tell (scale.y); a rare
-  // band of light FILLS them (scale.y→~0) = the blink-analog.
-  // ---------------------------------------------------------------------
-  const hollowMat = track(new THREE.MeshBasicMaterial({ color: 0x000000, fog: false }));
-  const hollowSeg = lowQ ? [10, 7] : [16, 11];
+  // THE TEARS — the two EYE-HOLLOWS + the MOUTH: pure black, OPAQUE (holes torn in the
+  // glow, not sockets on a mask), the absolute DARKEST value (the G1-inverted focal),
+  // level / matched / symmetric. The hollows TEAR OPEN on notice + WIDEN on charge; a
+  // rare band of light FILLS them (scale.y→~0) = the blink-analog.
+  const tearMat = track(new THREE.MeshBasicMaterial({ color: 0x000000, fog: false }));
+  const hollowSeg = lowQ ? [12, 8] : [18, 12];
   function makeHollow(sx, name) {
-    const pivot = new THREE.Object3D();
-    pivot.name = name;
-    pivot.position.set(sx * EYE_X, EYE_Y, EYE_Z);
+    const pv = new THREE.Object3D(); pv.name = name; pv.position.set(sx * EYE_X, EYE_Y, EYE_Z);
     const g = new THREE.SphereGeometry(1.0, hollowSeg[0], hollowSeg[1]);
-    g.scale(2.3, 1.5, 0.6);   // an almond (wide, shorter, flat)
-    const m = new THREE.Mesh(g, hollowMat);
-    pivot.add(m);
-    faceRig.add(pivot);
-    return pivot;
+    g.scale(2.4, 1.6, 0.5);   // an almond torn open (wide, shorter, flat)
+    const m = new THREE.Mesh(g, tearMat); m.renderOrder = 5;
+    pv.add(m); faceRig.add(pv); return pv;
   }
   const eyeHollow0 = makeHollow(-1, 'eyeHollow0');
   const eyeHollow1 = makeHollow(1, 'eyeHollow1');
 
-  // The MOUTH — the third dark anchor, centred below and between the eyes (the
-  // 2-second face guarantee). A dark lens notch; subordinate to the eyes (smaller).
-  const mouthPivot = new THREE.Object3D(); mouthPivot.name = 'mouthNotch'; mouthPivot.position.set(0, -6.2, 2.2);
+  const mouthPivot = new THREE.Object3D(); mouthPivot.name = 'mouthNotch'; mouthPivot.position.set(0, -6.4, 2.6);
   {
-    const mg = new THREE.SphereGeometry(1.0, lowQ ? 10 : 14, lowQ ? 6 : 9);
-    mg.scale(3.4, 0.9, 0.5);
-    mouthPivot.add(new THREE.Mesh(mg, hollowMat));
+    const mg = new THREE.SphereGeometry(1.0, lowQ ? 12 : 16, lowQ ? 7 : 10);
+    mg.scale(3.6, 1.0, 0.5);
+    const m = new THREE.Mesh(mg, tearMat); m.renderOrder = 5;
+    mouthPivot.add(m);
   }
   faceRig.add(mouthPivot);
 
-  // ---------------------------------------------------------------------
-  // THE CREST — the tide's surge edge (the emitter organ, def.muzzle='crestPivot').
-  // A positional node low in the field (bullets crest from here); the visible crest
-  // is baked into the field's hot band, so no extra additive geometry.
-  // ---------------------------------------------------------------------
+  // THE CREST — the tide's surge edge (the emitter organ, def.muzzle='crestPivot'). A
+  // positional node low in the field; the visible crest is baked into the field's hot band.
   const crestPivot = new THREE.Object3D();
   crestPivot.name = 'crestPivot';
   crestPivot.position.set(0, -FIELD_H * 0.20, 0.5);
   rig.add(crestPivot);
 
-  // ---------------------------------------------------------------------
-  // EMBER MOTES — small opaque HDR-emissive points drifting up the tide (thematic
-  // embers; also the handle's `orbiters` — the roster contract needs ≥2). Cheap,
-  // opaque (no overdraw), animated in tick.
-  // ---------------------------------------------------------------------
-  const moteMat = track(new THREE.MeshBasicMaterial({ color: rose.clone().multiplyScalar(2.3), fog: false, toneMapped: false }));
-  const moteGeo = new THREE.SphereGeometry(0.55, 7, 6);
+  // EMBER MOTES — small opaque HDR points drifting UP the tide (embers; also the
+  // handle's `orbiters`, ≥2 by contract). Opaque (no overdraw); they make the wall of
+  // light read ALIVE, not a static skybox. They ride the field, BEHIND the face.
+  const moteMat = track(new THREE.MeshBasicMaterial({ color: rose.clone().multiplyScalar(2.4), fog: false, toneMapped: false }));
+  const moteGeo = new THREE.SphereGeometry(0.5, 7, 6);
   const orbiters = [];
-  const moteCount = lowQ ? 5 : 11;   // enough embers riding the tide that the field reads ALIVE at fight distance, not a static skybox (Fable fix #5)
+  const moteCount = lowQ ? 5 : 12;
   for (let i = 0; i < moteCount; i++) {
     const m = new THREE.Mesh(moteGeo, moteMat);
-    m.userData = {
-      baseX: (i / moteCount - 0.5) * FIELD_W * 0.8,
-      phase: i * 1.7,
-      speed: 2.4 + (i % 3) * 0.7,
-      sway: 3 + (i % 4),
-    };
+    m.userData = { baseX: (i / moteCount - 0.5) * FIELD_W * 0.85, phase: i * 1.7, speed: 2.4 + (i % 3) * 0.7, sway: 3 + (i % 4) };
     m.position.set(m.userData.baseX, -FIELD_H / 2, FIELD_Z + 0.6);
+    m.renderOrder = -5;   // in the field, behind the face-shadow
     rig.add(m);
     orbiters.push(m);
   }
-
-  // Hit flash targets the field material's... the field has no emissive; bind the
-  // face material (the "alive" dark body — a flash surges its emissive so the whole
-  // relief pulses hot for a frame, the field-shudder flinch's colour partner).
-  kit.flashBind(faceMat, 0.05);
 
   kit.finalize();
 
   // ---------------------------------------------------------------------
   // ANIMATION + THE §4b CHARISMA CHANNELS (the focal is DARKNESS — the sanctioned
   // §3-law-2 exception): GAZE (the hollows track), BLINK (light fills the hollows),
-  // CHARGE-TELL (the face SURGES forward, relief deepens, crest gathers), EXPRESSION
-  // (submerged / surfacing / hollows-widening), FLINCH (the field SHUDDERS + the
-  // face recoils), NOTICE (the hollows TEAR OPEN + settle on you), DEATH (the tide
-  // RECEDES — the light drains, the face SINKS below the horizon, the hollows close,
-  // the sky SETS).
+  // CHARGE-TELL (the face pushes further through the light + the tide crest rises
+  // TALLER), EXPRESSION (submerged / surfacing / hollows widening), FLINCH (the field
+  // shudders + brightens), NOTICE (the hollows tear open + settle on you), DEATH (the
+  // tide RECEDES — the light drains, the face SINKS below the horizon, the sky SETS).
   // ---------------------------------------------------------------------
   let charge = 0;
   function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
 
-  // GAZE — the face turns its dark regard toward the dragon (lagged; a mind, not a
-  // turret). The eye-hollows lead the turn.
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
   function setGaze(nx, ny) { gazeTX = Math.max(-1, Math.min(1, nx)); gazeTY = Math.max(-1, Math.min(1, ny)); }
 
   let noticeT = 0;
-  function notice() { noticeT = 1.1; }   // the hollows tear open + settle on the dragon
+  function notice() { noticeT = 1.1; }
 
-  let shudderT = 0, recoil = 0;   // FLINCH: field shudder + face recoil
-  function flinch(amt) { if (amt > 0.3) { shudderT = Math.max(shudderT, 0.35); recoil = Math.max(recoil, 0.4); } kit.flash(amt); }
+  let shudderT = 0, recoil = 0, flashT = 0;
+  function flinch(amt) { if (amt > 0.3) { shudderT = Math.max(shudderT, 0.35); recoil = Math.max(recoil, 0.4); flashT = Math.max(flashT, 0.5); } kit.flash(amt); }
 
-  let dyingK = 0;   // DEATH: the tide recedes / the sky sets
+  let dyingK = 0;
   function setDissolveEmotive(k) { dyingK = Math.max(0, Math.min(1, k)); kit.setDissolve(k); }
 
-  // BLINK-analog: rare — a band of light closes over the hollows (this thing FIXATES,
-  // like Stormrend "the unblinking"; each blink is an event).
   let blinkT = 0;
   const BLINK_DUR = 0.3;
   let nextBlink = 6 + Math.random() * 5;
@@ -390,38 +271,33 @@ export function buildEmbertide(def, quality = 1) {
   const _rnd = mulberry32(0xe3be7de0);
   const fieldBaseX = field.position.x, fieldBaseY = field.position.y;
   const faceBaseZ = FACE_Z, faceBaseY = faceRig.position.y;
+  const _fieldCol = fieldMat.color.clone();
 
   function tickBody(dt, time) {
-    // --- GAZE: lagged pursuit; snappier under notice/charge (it locks on). ---
+    // GAZE — the face turns its dark regard toward the dragon (lagged; a mind).
     const gLag = (noticeT > 0 || charge > 0.5) ? 10 : 3.5;
     gazeX += (gazeTX - gazeX) * Math.min(1, dt * gLag);
     gazeY += (gazeTY - gazeY) * Math.min(1, dt * gLag);
-    // The face turns its regard; the hollows lead (they shift a touch further).
-    faceRig.rotation.y = gazeX * 0.18 * (1 - dyingK);
-    faceRig.rotation.x = -gazeY * 0.10 * (1 - dyingK);
+    faceRig.rotation.y = gazeX * 0.16 * (1 - dyingK);
+    faceRig.rotation.x = -gazeY * 0.09 * (1 - dyingK);
 
-    // --- NOTICE / EXPRESSION: how far the face is pushed through the light. Idle =
-    // submerged (barely surfaced); charge = surfacing/looming (further out, relief
-    // deepening); notice = the hollows tear WIDE. The face SURGES FORWARD on charge
-    // — the silhouette-changing charge tell. ---
+    // CHARGE / NOTICE — the face pushes FURTHER through the light (surges +z, the masses
+    // deepen); notice tears the hollows wide. Recoil (flinch) pulls it back briefly.
     if (noticeT > 0) noticeT -= dt;
     if (recoil > 0) recoil = Math.max(0, recoil - dt / 0.3);
-    const surge = charge * 3.2;                 // the face pushes out of the light as it charges
     const noticePush = noticeT > 0 ? (noticeT / 1.1) * 1.4 : 0;
-    faceRig.position.z = faceBaseZ + surge + noticePush - recoil * 2.0;
-    // Relief deepens: brow/nose/chin push further toward the player on charge.
+    faceRig.position.z = faceBaseZ + charge * 3.0 + noticePush - recoil * 1.8;
     const deepen = 1 + charge * 0.5 + noticePush * 0.15;
-    browPivot.position.z = 1.2 * deepen;
-    nosePivot.position.z = 1.6 * deepen + charge * 0.8;
-    chinPivot.position.z = 1.0 * deepen;
+    browPivot.position.z = 0.5 * deepen;
+    nosePivot.position.z = 0.7 * deepen + charge * 0.6;
+    chinPivot.position.z = 0.5 * deepen;
 
-    // --- Eye-hollows: TEAR OPEN on notice + WIDEN with charge (wrath), track the
-    // gaze, and rarely BLINK (light fills them). Kept level + matched + symmetric. ---
+    // Eye-hollows: TEAR OPEN on notice + WIDEN with charge, track the gaze, rare BLINK.
     if (blinkT > 0) blinkT -= dt;
     else { nextBlink -= dt; if (nextBlink <= 0 && charge < 0.4 && dyingK <= 0) { blinkT = BLINK_DUR; nextBlink = 6 + Math.random() * 5; } }
-    const blinkK = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;   // 0→1→0
-    const tear = 1 + (noticeT > 0 ? (noticeT / 1.1) * 0.9 : 0) + charge * 0.5;    // widen
-    const openY = tear * (1 - blinkK * 0.92) * (1 - dyingK);   // blink/death close the light over the dark
+    const blinkK = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
+    const tear = 1 + (noticeT > 0 ? (noticeT / 1.1) * 0.9 : 0) + charge * 0.5;
+    const openY = tear * (1 - blinkK * 0.92) * (1 - dyingK);
     for (const [pv, sgn] of [[eyeHollow0, -1], [eyeHollow1, 1]]) {
       pv.scale.set(1 + charge * 0.15, Math.max(0.02, openY), 1);
       pv.position.x = sgn * EYE_X + gazeX * 0.5;
@@ -429,48 +305,37 @@ export function buildEmbertide(def, quality = 1) {
     }
     mouthPivot.scale.y = Math.max(0.05, (1 + charge * 0.25) * (1 - dyingK * 0.8));
 
-    // --- CHARGE TELL on the FIELD: the tide CREST GATHERS — the whole wall of light
-    // SWELLS UP and out before a big volley (a silhouette-changing telegraph, §3.5 /
-    // §4b "the crest gathers"). Off the death path (charge=0 there). ---
+    // CHARGE TELL on the FIELD: the tide CREST GATHERS — the wall of light rises TALLER
+    // (aspect change; a uniform scale auto-frames away in the studio, an aspect change
+    // survives). Off the death path (charge=0 there).
     const chargeRise = dyingK <= 0 ? charge * 4.0 : 0;
-    // Non-uniform: the tide rises TALLER (scale.y), so the field's ASPECT changes —
-    // the silhouette-mask read the auto-framed studio CAN see (a uniform scale
-    // normalizes away; an aspect change survives). The face surges independently.
-    if (dyingK <= 0) field.scale.set(1, 1 + charge * 0.42, 1);
+    if (dyingK <= 0) field.scale.set(1, 1 + charge * 0.4, 1);
 
-    // --- FLINCH: the whole light field SHUDDERS on a hit; the face recoiled above. ---
-    if (shudderT > 0) {
-      shudderT -= dt;
-      const s = (shudderT / 0.35);
-      field.position.x = fieldBaseX + (_rnd() - 0.5) * 2.4 * s;
-      field.position.y = fieldBaseY + chargeRise + (_rnd() - 0.5) * 1.6 * s;
-    } else { field.position.x = fieldBaseX; field.position.y = fieldBaseY + chargeRise; }
+    // FLINCH: the whole light field SHUDDERS + BRIGHTENS on a hit (the face recoiled above).
+    if (flashT > 0) flashT = Math.max(0, flashT - dt * 3);
+    let fx = fieldBaseX, fy = fieldBaseY + chargeRise;
+    if (shudderT > 0) { shudderT -= dt; const s = shudderT / 0.35; fx += (_rnd() - 0.5) * 2.6 * s; fy += (_rnd() - 0.5) * 1.8 * s; }
+    field.position.x = fx; field.position.y = fy;
 
-    // --- The FIELD lives: a slow breathing swell + a charge brighten (the crest
-    // gathers before a big volley). Driven on the material colour (opaque HDR). ---
-    const swell = 1 + Math.sin(time * 0.8) * 0.06 + charge * 0.35;
-    fieldMat.color.setRGB(swell, swell, swell);
-    // Keep the face fill at least two value-steps below the field even at full charge
-    // (Fable note): a small emissive rise, never enough to spend down the dark identity.
-    faceMat.emissiveIntensity = 0.12 + charge * 0.10;
-    rimMat.color.setScalar(1 + charge * 0.6 + (noticeT > 0 ? 0.4 : 0));   // brighten the piled rim (vertex colours carry the coral)
+    // The FIELD lives: a slow breathing swell + a charge brighten (the crest gathers) +
+    // the flinch flash. Driven on the material colour (opaque HDR, multiply-safe).
+    const swell = 1 + Math.sin(time * 0.8) * 0.05 + charge * 0.3 + flashT * 0.5;
+    fieldMat.color.copy(_fieldCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92)));
 
-    // --- EMBER MOTES: drift UP the tide, swaying, recycling at the crest. ---
+    // EMBER MOTES — drift UP the tide, swaying, recycling at the crest.
     for (const o of orbiters) {
       const u = o.userData;
       const yy = ((time * u.speed + u.phase * 7) % (FIELD_H + 6)) - FIELD_H / 2 - 3;
       o.position.set(u.baseX + Math.sin(time * 0.9 + u.phase) * u.sway, yy, FIELD_Z + 0.6);
-      const near = 1 - Math.min(1, Math.abs(yy) / (FIELD_H / 2));   // brightest crossing the mid tide
+      const near = 1 - Math.min(1, Math.abs(yy) / (FIELD_H / 2));
       o.scale.setScalar((0.7 + near * 0.9) * (1 - dyingK));
     }
 
-    // --- DEATH — the tide RECEDES: the light drains (field dims + slides down), the
-    // face SINKS below the horizon line, the hollows close, the sky SETS. ---
+    // DEATH — the tide RECEDES: the light drains (field dims, above) + slides down, and
+    // the face SINKS below the horizon line (the sky sets, §4b DEATH / §4.7).
     if (dyingK > 0) {
-      const d = dyingK;
-      field.position.y = fieldBaseY - d * FIELD_H * 0.7;   // the bands drop to the ground line
-      faceRig.position.y = faceBaseY - d * 22;             // the face sinks back below the horizon
-      fieldMat.color.multiplyScalar(1 - d * 0.9);          // the light drains
+      field.position.y = fieldBaseY - dyingK * FIELD_H * 0.7;
+      faceRig.position.y = faceBaseY - dyingK * 26;
     } else if (faceRig.position.y !== faceBaseY) {
       faceRig.position.y = faceBaseY;
     }
@@ -485,15 +350,12 @@ export function buildEmbertide(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve: setDissolveEmotive,   // kit dissolve + the tide receding / the sky setting
     setCharge,
-    setGaze,                           // optional charisma hooks — controller calls with ?.
-    notice,
+    setGaze, notice,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
     shatterShield: kit.shatterShield,
-    flash: flinch,                     // kit flash + the field shudder / face recoil
-    // Write order matches every archetype: body tick FIRST, kit.tickCommon (flash
-    // decay) LAST so a hit flash always wins on the shared face material.
+    flash: flinch,                     // kit flash + the field shudder / brighten / face recoil
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     dispose() {
       group.traverse((o) => {

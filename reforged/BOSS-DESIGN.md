@@ -968,20 +968,24 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   lag + saccade; rider yaw is pitch-less — never fake a look-up.
 
 - **13 — EMBERTIDE, "the Sky Set Loose"** (Tier 4 peak, the World-Enders SPATIAL peak, the
-  2nd-to-last boss; `bossEmbertide.js`). **§3b SILHOUETTE TRANSLATION (rev.2, Fable-gated PASS):**
-  *Reads as* "a giant FACE in the sky" — a frame-wide wall of light with ONE colossal FRONTAL
-  face deforming through it (two eye-hollows + a MOUTH = the pareidolia triangle). *Projection:*
-  FRONTAL, single — brow/nose/chin are relief WITHIN the frontal form, never a profile outline.
-  *ONE connected dark form* — all facial mass fuses into a single continuous region; isolated
-  floating dark blobs are FORBIDDEN (= "storm clouds at sunset"). *Band deformation defines the
-  face* — the bright bands visibly BOW and re-enter around the relief (the face is read from
-  DISPLACED light, not its own contour); a closed occluding contour is FORBIDDEN (= BRINEHOLM's
-  SOLID head — the clean split: negative-relief vs solid-head). *Anti-reads:* smooth sunset
-  gradient; storm-clouds; BRINEHOLM's head; any discrete object. *Face size:* the connected dark
-  form spans the majority of the field height + ~50–60% width (cannot shrink to a smudge). *Scale:*
-  FRAME-WIDE, overflows both edges, it REPLACES the sky (it IS the backdrop). *Scar (§3.6):* a
-  horizontal band-shaped dark LEASH-NOTCH in a band the face never touches, smaller than the
-  smallest facial feature (the leash-collar mark → the Apex). **§4b CHARISMA (the focal is
+  2nd-to-last boss; `bossEmbertide.js`). **§3b SILHOUETTE TRANSLATION (r1 — owner-directed redesign
+  after r0 read as a floating idol-mask; Fable-gated PASS "the horizon standing up"):** *Reads as*
+  THE HORIZON STANDING UP — a frame-wide wall of light with a colossal face pushing through it. The
+  figure-ground is the whole point: the BRIGHT LIGHT-FIELD fills/overflows the frame and IS the boss
+  body; the face is DARKNESS torn INTO that light, NOT a discrete object on top of it. *Carrying cues
+  (must reach the read):* (1) the frame-wide light-BANDS overflowing BOTH portrait edges (the whole
+  horizon — never a discrete object); (2) the FACE as DARK NEGATIVE relief pushed through the glow
+  (brow/nose/chin masses — dark-on-bright); (3) the two eye-hollows torn open as darkness in the
+  light. *Anti-reads (the r0 failure):* NOT a plain sky gradient/sunset (the face must cohere from
+  brow/nose/chin + eye-hollows); NOT VOIDMAW's floating mask (**NO discrete perimeter, NO rim light**
+  — it is not a sculpture on a backdrop, it IS the backdrop); NOT BRINEHOLM's SOLID head (8 = a solid
+  head that breaches; 13 = a face pushed through a wall of light as negative relief); NOT a discrete
+  object at all. *Lit-edge plan (INVERTED law):* the "body" is the BRIGHT field; the identity/focal
+  is the DARKNESS — the dark face + eye-hollows. Sanctioned value inversion; keep the §7b G1
+  dark-focal override + G2/G4 exempt. *Scale:* FRAME-WIDE, overflows both edges, never fits (the
+  spatial peak). *Home backdrop:* it REPLACES the sky — it IS the backdrop; judge in-situ as the
+  sky-replacement. *Scar (§3.6):* a horizontal band-shaped dark LEASH-NOTCH in a band the face never
+  touches, smaller than the smallest facial feature (the leash-collar mark → the Apex). **§4b CHARISMA (the focal is
   DARKNESS — the sanctioned §3-law-2 exception):** GAZE = the eye-hollows track the dragon (the
   face turns its dark regard); BLINK = a band of light fills the hollows (rare — it FIXATES);
   CHARGE-TELL = the face SURGES forward + the relief deepens + the tide CREST GATHERS/rises taller
@@ -989,18 +993,21 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   = the whole field SHUDDERS + the face recoils into the glow; NOTICE = the hollows TEAR OPEN and
   settle on you; DEATH = the tide RECEDES — the light drains, the face SINKS below the horizon, the
   hollows close, the sky SETS (mournful, §4.7). GLYPH = two dark almond hollows + a brow in a band
-  of light. **GEOMETRY:** an OPAQUE HDR light-FIELD (vermilion→coral-rose vertex gradient + baked
-  band stripes that BOW around the face + a hot crest, `toneMapped=false`, `fog=false` — it blooms
-  AND contributes ZERO additive overdraw, so the field replaces the sky dome rather than stacking
-  vs the camera); the FACE = one merged dark opaque relief (base head-shape + brow/cheek/jaw/nose)
-  with named movers `browMass`/`noseMass`/`chinMass` (surge on charge) + a mid-dark recess tier
-  (eye sockets/brow-shadow/cheek hollows/nose-side shadows) for sculpted value; two `eyeHollow0/1`
-  + a mouth (pure-black, the DARKEST); an asymmetric emissive RIM (piled at the brow, dissolving at
-  the jaw); the jaw DISSOLVES into downward streaks (no closed bottom outline); `crestPivot` (the
-  emitter / `def.muzzle`); ember-mote `orbiters`. **PALETTE:** vermilion `#ff3a1e` (7.5°) → warm
-  coral-rose `#ff7a5e` (10°), relief warm-brown `#352b22` + amber ember-glow `#d9782e`, hollows
-  pure black. The whole warm field clears danger-magenta (342°) by ~25°+ (the rose is a WARM coral,
-  NOT a cool pink-rose; verified `bulletcontrast.mjs`). **GRAZE FORM — TIDE-EDGE + FACE-SHADOW
+  of light. **GEOMETRY (r1 — the figure-ground fix):** an OPAQUE HDR light-FIELD is the BODY
+  (vermilion→coral-rose vertex gradient + BOLD structured band stripes that BOW around the face + a
+  hot crest, `toneMapped=false`, `fog=false` — it blooms AND contributes ZERO additive overdraw, so
+  it replaces the sky dome rather than stacking vs the camera; sized to overflow both edges). The
+  FACE is DARKNESS torn INTO the light, rendered with **MultiplyBlending** — it DARKENS/occludes the
+  bands behind it and fades to no-effect at its edges, so it has **NO rim and NO discrete perimeter**;
+  its crown/sides DISSOLVE into the field. Layered occlusion, darkest at the tears: a soft head-shaped
+  base shadow (`faceRelief`) → named `browMass`/`noseMass`/`chinMass` mass features (darker multiply,
+  surge on charge) → two `eyeHollow0/1` + a mouth (pure-black OPAQUE — TEARS in the glow, the DARKEST,
+  the G1-inverted focal); `crestPivot` (the emitter / `def.muzzle`); ember-mote `orbiters` (the field
+  reads ALIVE). **NO rim halo, NO downward spikes/streaks, NO opaque floating mask** (all r0 mistakes,
+  deleted). **PALETTE:** vermilion `#ff3a1e` (7.5°) → warm coral-rose `#ff7a5e` (10°); the dark face
+  is the light MULTIPLIED down (warm dusk), hollows pure black. The whole warm field clears
+  danger-magenta (342°) by ~25°+ (the rose is a WARM coral, NOT a cool pink-rose; verified
+  `bulletcontrast.mjs`). **GRAZE FORM — TIDE-EDGE + FACE-SHADOW
   POCKET:** the tide crest + the face's cast shadow are the anatomy; skim the crest edge, ride the
   moving face-shadow pocket; offered once per phase. **GATE:** `gate:{inverted:true,frameFill:true}`
   — the §7b VALUE-INVERSION override (G1 dark-focal, G2/G4 exempt). **NEEDS (§5e / CP2 engine):**
@@ -1730,6 +1737,14 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
+- **L209** — EMBERTIDE r1 (the figure-ground fix): a NEGATIVE-relief / value-inverted boss (the
+  environment IS the body) is **MULTIPLY-occlusion of the light**, NOT a dark object ON the light — the
+  face DARKENS the bands and dissolves at its edges (no rim, no perimeter). r0 passed every G1–G7 gate
+  AND both render-Fable gates but the OWNER rejected it as "a floating mask on a sunset" — because the
+  gates asked "does a face read?" (yes) not "is the LIGHT the body or is a dark OBJECT on a backdrop?".
+  Delete the rim halo (it IS the sculpture edge), delete spikes/streaks (tribal-idol → Voidmaw), make
+  the field BOLD structured bands that overflow. Add the figure-ground question to the §3b sheet for
+  every value-inverted slot.
 - **L208** — EMBERTIDE (slot 13, the SPATIAL peak): a frame-filling boss's grandeur is OPAQUE HDR LIGHT
   (blooms via `toneMapped:false` + baked >1.0 vertex colours, `fog:false`, replaces the sky dome → ZERO
   additive overdraw, the whole additive budget stays free for fever/shield); a NEGATIVE-relief face reads
