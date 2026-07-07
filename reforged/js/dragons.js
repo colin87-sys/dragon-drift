@@ -217,14 +217,14 @@ export const DRAGONS = {
       skullType: 'koiSkull',             // a NEW lofted koi/eastern-serpent head shell (slim, browed, tapered snout) — replaces softStealth's round ellipsoid blob (gate structural rework)
       bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
-      neckBlend: 3.0,                    // fuse the neck beads into a SMOOTH tapered tube (gate r6 dir 2 — no michelin-ring caterpillar neck)
+      neckBlend: 3.7,                    // fuse the neck beads into a SMOOTH tapered tube — halve the per-segment bulge so it reads as serpent musculature, not stacked balloons (gate rework r4 dir 4)
       tailArc: 0.42, tailYaw: 1.85,      // the tail coils hard LATERALLY (a big S-coil that sweeps into the rear-chase frame so the SERPENT BODY is the silhouette — gate rework r3 dir 2)
       tailGirth: 2.15,                   // FAT serpent ribbon (the body carries the rear-chase silhouette, §5d wings+fins 30-50% / body 40-60%)
       tailGlow: true,                    // a faint GREEN emissive floor on the tail so it never reads as a near-black eel detaching from the body (gate rework r3 dir 1)
       tailPlates: false,                 // smooth koi tail — no dorsal spike row (that read as sawtooth/drill-bit)
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
-      lobeNotch: 0.42, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
+      lobeNotch: 0.52, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
       finGlow: 0.6,                      // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
       finRimColor: 0xbdf5d0,             // GREENER mint-pearl rim (the 0xd6ffe9 pearl read cyan-teal at grazing angles) — still green-leaning, in the ~149° band
       spineGlow: 0.3,
@@ -264,7 +264,7 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.62,
+      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.78,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
@@ -279,7 +279,7 @@ export const DRAGONS = {
     scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
     eyeEmissiveI: 1.5,                      // calm painterly eye — not blown to a white googly blob under ACES
     bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
-    eyeSclera: 0xbfe6cf, eyeIris: 0x2f9e77, eyeIrisKeen: 0x8ff0c2, eyeBallEmissive: 0x0e3a2a,   // calm GREEN gaze (top-level def — the head reads c.def.*, NOT model.*); greener sclera so the eye never reads cool-blue
+    eyeSclera: 0xbfe6cf, eyeIris: 0x5fc699, eyeIrisKeen: 0x8ff0c2, eyeBallEmissive: 0x1f8a5c,   // calm GREEN gaze (top-level def — the head reads c.def.*, NOT model.*); brighter green iris + glow so the apex eye reads as a GREEN almond, not a dead black bead (gate rework r4 dir 5)
     body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,

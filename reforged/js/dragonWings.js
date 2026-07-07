@@ -1502,7 +1502,7 @@ function buildSilkFinWings(def, model, attach, giM) {
         // koi-ray prongs. With the lobes SPREAD apart + a moderate chord they read as 4
         // DISTINCT rays — not a merged mitten balloon (gate rework) and not shattered
         // slivers (gate r6). The notch survives in the rear black-fill.
-        const uMax = 1 - notchDepth * Math.sin(cf * Math.PI);
+        const uMax = 1 - notchDepth * Math.pow(Math.sin(cf * Math.PI), 0.72);   // DEEP wide notch (≥0.3× lobe length over the outer 40%) so 4 tips are countable at distance (gate rework r4 dir 2)
         const u = uu * uMax;
         const x = u * L;
         // a koi blade of MODERATE chord (~40% narrower than the balloon) tapering to a
@@ -1521,9 +1521,10 @@ function buildSilkFinWings(def, model, attach, giM) {
         // body → a darker trailing step, so each lobe reads DIMENSIONAL, not a flat
         // sticker (gate r3 dir 9), plus root→tip lightening.
         c.copy(cM).lerp(cT, Math.pow(u, 2.6));                 // stay SATURATED mid-jade for most of the lobe; pale-jade only on the outer ~25% tip (gate r6 dir 7 — kill the gray-sage wash)
-        const lead = Math.pow(Math.max(0, 1 - cf * 2.4), 1.3); // 1 at leading edge → 0 by ~mid-chord
-        c.lerp(cL, lead * 0.95);                               // strong deep-emerald leading RAY (welded, readable at 4×)
-        if (cf > 0.72) c.lerp(cL, (cf - 0.72) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
+        c.lerp(cL, Math.max(0, 1 - u * 2.8) * 0.72);          // ROOT deep-emerald tier — the 3rd value tier (root dark → mid → pale tip, gate rework r4 dir 6)
+        const lead = Math.pow(Math.max(0, 1 - cf * 2.0), 1.05); // strong wide leading-ray band → 0 by ~mid-chord
+        c.lerp(cL, lead * 0.98);                               // strong deep-emerald leading RAY at FULL contrast (gate rework r4 dir 3 — each lobe reads separately, not one leaf)
+        if (cf > 0.74) c.lerp(cL, (cf - 0.74) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
         if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
         cols.push(c.r, c.g, c.b);
       }
@@ -1599,7 +1600,7 @@ function buildSilkFinWings(def, model, attach, giM) {
           const sl = streamerLen * (1 - s * 0.2);
           // per-side + per-streamer PHASE breaks the dead L/R mirror (gate r1 dir 12: the
           // pair read as a perfect heart from behind) — the veils flow independently.
-          const strip = new THREE.Mesh(streamerGeo(sl, 0.42 * ws, side * 0.8 + s * 0.5), finMatRear);
+          const strip = new THREE.Mesh(streamerGeo(sl, 0.88 * ws, side * 0.8 + s * 0.5), finMatRear);   // BROAD veil ribbon → reads as mass, not hairline wire, in the rear fill (gate rework r4 dir 1)
           strip.scale.x = side;
           strip.position.set((rootX + 0.12 + s * 0.14) * side, rootY - 0.04, rootZ + 0.12);
           wingTip.add(strip);
