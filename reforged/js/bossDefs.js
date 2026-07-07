@@ -884,6 +884,12 @@ export const BOSSES = {
     // read; that rule is inviolable (§3b sheet in BOSS-DESIGN.md §5d).
     archetype: 'weftwitch',
     muzzle: 'loomHeart',      // she emits from the loom-heart at the hub (emitter = organ, §5f law 7 / L148)
+    // LANCE V1 aim anchor (the karnvow lesson, PR #258: lockCandidates() returns only
+    // lockParts + virtualLockOrgan — a def naming neither loses the whole aim/lock verb).
+    // The organ IS the anchor (ashtalon muzzle-as-anchor precedent): the loom-heart is
+    // always emitting, always under fire, never a free rest-beat paint. V2 lockParts
+    // (per-spinneret brands?) are a CP2+ decision.
+    virtualLockOrgan: 'loomHeart',
     accent: 0xe8c466,         // WARM PALE-GOLD woven-thread (Decision C — pushed OFF the WE rose-triple). Hue ≈43°,
                               // far clear of danger-magenta's 327–357° reserved band; saturated enough to HOLD its
                               // hue under bloom (bossgate G3 attribution — a paler gold washed to white). Resolves

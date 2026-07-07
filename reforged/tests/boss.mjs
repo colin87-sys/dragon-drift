@@ -707,6 +707,11 @@ for (const key of BOSS_ORDER) {
     'weftwitch exposes the two named hand pivots (the hands are the face, §4b)');
   assert(!!ww.group.getObjectByName('weftLoomHeart'), 'weftwitch exposes the named loom-heart (the emitter organ + weak point)');
   assert(!!ww.group.getObjectByName('threadPivot'), 'weftwitch exposes the named threadPivot (the arena web)');
+  // partWorldPos resolves the live loom-heart (the def.muzzle + virtualLockOrgan aim
+  // anchor — the karnvow lesson: a def naming neither lockParts nor a virtual organ
+  // loses the whole LANCE aim/lock verb on this slot).
+  const loomPos = ww.partWorldPos('loomHeart', new THREE.Vector3());
+  assert(loomPos && Number.isFinite(loomPos.z), 'weftwitch partWorldPos resolves the live loomHeart world position (the LANCE aim anchor)');
 
   // L141 — the FIELD is the body: the web must span the arena (the presence number),
   // not sit as a small bust. hullLength() returns the web span in world units.
