@@ -1314,6 +1314,14 @@ export const BOSSES = {
     accent: 0x6c4c78,            // dim ashen mauve-rose (the living-wing lit edges; grief-dim ei)
     glow: 0x8a6b7e,              // a touch paler (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,       // danger magenta — the role colour (living volley; never per-boss)
+    // §5f/§5i.C THE GHOST HALF (def.ghostHalf): the dead twin's parryable volley fires
+    // from the fused frame (the model's 'ghostMuzzle') as amber-ringed bullets with a
+    // GHOST core colour, aimed by the dodge-MIRROR (poseRing). NOT a new attack id — a
+    // per-bullet colour+origin variant of the shipped emitter (the World-Enders ≤1-id
+    // budget is untouched). ghostColor is the CORE only; the ring stays amber (parryable).
+    ghostHalf: true,
+    ghostColor: 0xcfe6ff,        // a pale spectral white-blue (the dead half) — the ring is amber (role), this is the core read
+
     // Phases — RUBATO / FEINT: held wind-ups + denied downbeats. Re-expresses
     // EITHERWING's kit (crossfire/secondWave/movingGap) + the ghost-half volley.
     // `attacks` per phase always carries an amber carrier (aimed) for the amberdiet

@@ -163,6 +163,14 @@ let crippled = false;          // the post-lie exposed final stand — chip it t
 // single late fire (idempotent whether the eruption or a skip delivers it).
 let noWarnDir = null;
 let noWarnFired = false;
+// §5f/§5i.C ONEWING (def.ghostHalf): the DEAD twin's half of the dual attack fires from
+// the fused frame as amber-ringed GHOST bullets, aimed by the dodge-MIRROR (poseRing).
+// Breaking the frame (`ghostFrameBroken`) removes the ghost volley but ENRAGES the tempo.
+// Inert for every other def.
+let ghostFrameBroken = false;
+const GHOST_FRAME_HITS = 4;   // perfect parries of the ghost half to dismantle the frame
+let ghostFrameHits = 0;
+let soakT = 0;                // the 2× spray-soak graze window (from the frame-break vent)
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
@@ -1368,7 +1376,7 @@ export function startBossEncounter(player, defOverride) {
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
-  felledLieUsed = false; felledLieT = 0; crippled = false;   // §5f the lie is fresh (and once) per encounter
+  felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0;   // §5f the lie is fresh (once) + the frame intact per encounter
 
   phase = 'warn';
   warnT = B.warnTime;
@@ -1786,6 +1794,8 @@ export function updateBoss(dt, player, time) {
   // §5f resolve the LYING FELLED card: after the fake-death window, ≤35% of the bar
   // RETURNS and the CRIPPLED, unshielded final stand opens (the truth). Resolves well
   // inside the ≤2s guarantee. Def-gated; inert for every other boss (felledLieT stays 0).
+  // §5i.B the 2× spray-soak window from the frame-break winds down → graze bonus restored.
+  if (soakT > 0) { soakT -= dt; if (soakT <= 0) setGrazeBonus(1); }
   if (felledLieT > 0 && phase === 'fight') {
     felledLieT -= dt;
     // Beat 1 — the FAKE DEATH plays out (readable, not a glitch): the model visibly DIES
@@ -2204,6 +2214,25 @@ export function updateBoss(dt, player, time) {
               ui.bossNote?.(`✦ THREAD FRAYING — ${threadCutHits}/${THREAD_CUT_HITS} ✦`, 'PARRY AGAIN TO CUT IT', 'gold', 1.1);
             }
           }
+          // §5i.C GHOST-HALF PARRY → STAGGER + FRAME-BREAK (ONEWING, registry row 12): a
+          // PERFECT parry of a ghost bullet (part 'frameGroup') STAGGERS it, and parrying
+          // the dead half apart BREAKS the fused frame — the ghost volley stops, the tempo
+          // ENRAGES, and the break vents a 2× spray-soak graze beat. Surge reflects don't
+          // count (§5i.C law 4). Def-gated; inert for every other boss.
+          if (def.ghostHalf && !surge && !ghostFrameBroken && r.snapParts.includes('frameGroup')) {
+            model?.hurt?.(0.5);   // the stagger recoil on each parried ghost bullet
+            ghostFrameHits++;
+            if (ghostFrameHits >= GHOST_FRAME_HITS) {
+              ghostFrameBroken = true;
+              model?.breakFrame?.();
+              ventSpraySoak(player);
+              ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
+              cameraCtl.shake?.(1.2); sfx.milestone?.();
+              emit('bossFrameBreak', {});
+            } else {
+              ui.bossNote?.(`✦ GHOST STAGGER — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, 'PARRY THE DEAD HALF APART', 'gold', 1.1);
+            }
+          }
         }
       }
     } else {
@@ -2380,6 +2409,7 @@ export function updateBoss(dt, player, time) {
           emit('bossToll', { k: w });
         }
         executeAttack(curAttack, player);
+        emitGhostHalf(player);   // §5f the dead twin's parryable half, from the frame (def.ghostHalf; inert otherwise)
         const ph = def.phases[phaseIdx];
         // §5i: a rhythm def uses the machine's authored rest (its signature's
         // fingerprint, stashed when the attack was picked); else the legacy roll.
@@ -2388,7 +2418,10 @@ export function updateBoss(dt, player, time) {
         // bound phases (P3+) — freeing the beast softens the strain (a mechanic, not
         // a stat). Def-gated; every other boss keeps mercy = 1.
         const mercy = (def.destructibleShackles && phaseIdx >= 2 && model.brokenCount) ? 1 + 0.16 * model.brokenCount() : 1;
-        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult * mercy;
+        // §5f ONEWING: breaking the fused frame removes the ghost half but ENRAGES the
+        // tempo — the living half fires ~30% faster (grief turned to fury). Def-gated.
+        const enrage = (def.ghostHalf && ghostFrameBroken) ? 0.7 : 1;
+        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult * mercy * enrage;
         rhythmRest = null;
       }
     } else if (pending.length === 0) {
@@ -2657,6 +2690,56 @@ function emitHeadShots(player) {
     const v = aimVel(px + i * 1.8, py, closing);
     emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
   }
+}
+
+// §5e THE DODGE-MIRROR (ONEWING, a NEW poseRing consumption — slot 7 used poseRing for a
+// formation snapshot, not aim; small, reuse base = the shipped sampler). Reads the
+// player's ACTUAL recent path (never input) and returns where their dodge is HEADING, so
+// the ghost volley lands where they just went — "it learns," not "it cheats."
+const _mirrorT = { x: 0, y: 0 };
+function mirrorAim(player) {
+  const n = poseRing.length;
+  if (n < 5) { _mirrorT.x = player.position.x; _mirrorT.y = player.position.y; return _mirrorT; }
+  const recent = poseRing[n - 1], back = poseRing[n - 5];   // ~0.4s of recent dodge
+  _mirrorT.x = recent.x + (recent.x - back.x) * 0.6;        // extrapolate the dodge forward
+  _mirrorT.y = recent.y + (recent.y - back.y) * 0.6;
+  return _mirrorT;
+}
+
+// §5f/§5i.C THE GHOST HALF — the dead twin's parryable volley, fired from the fused frame
+// (def.muzzle's twin, 'ghostMuzzle') as amber-ringed bullets with a GHOST core colour,
+// aimed by the dodge-mirror, tagged to 'frameGroup' (so a parry brands the frame + the
+// frame-break routes there). Removed once the frame is broken; the living (magenta) half
+// is untouched. Def-gated (def.ghostHalf) — inert for every other boss.
+const _ghostV = new THREE.Vector3();
+function emitGhostHalf(player) {
+  if (!def?.ghostHalf || ghostFrameBroken) return;
+  const w = model?.partWorldPos && model.partWorldPos('ghostMuzzle', _ghostV);
+  const ox = w ? w.x : pose.x, oy = w ? w.y : pose.y, orel = w ? -w.z - player.dist : pose.rel;
+  if (orel <= 0.3) return;
+  const tgt = mirrorAim(player);
+  const closing = B.bulletSpeed * 0.9;   // the dead half drifts a touch slower (spectral)
+  const t = Math.max(orel / closing, 0.05);
+  const n = quality < 0.75 ? 2 : 3;
+  for (let i = 0; i < n; i++) {
+    const off = (i - (n - 1) / 2) * 1.5;
+    emitBoss(ox, oy, (tgt.x + off - ox) / t, (tgt.y - oy) / t, -closing, true, null, 1, def.ghostColor ?? 0xcfe6ff, orel, 'frameGroup');
+  }
+}
+
+// §5i.B SPRAY-SOAK vent (ONEWING frame-break): a fan of SLOW dark-core graze-bait
+// bullets off the frame + a 2× graze window (soakT) — soak it for double meter. The
+// grazeForm='spraySoak' data label is honoured here (the vent), inert for every other def.
+function ventSpraySoak(player) {
+  const w = model?.partWorldPos && model.partWorldPos('ghostMuzzle', _ghostV);
+  const ox = w ? w.x : pose.x, oy = w ? w.y : pose.y, orel = w ? -w.z - player.dist : pose.rel;
+  const slow = B.bulletSpeed * 0.5;
+  const n = quality < 0.75 ? 8 : 12;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    emitBoss(ox, oy, Math.cos(a) * 6.5, Math.sin(a) * 6.5, -slow, false, null, 1.15, 0x2a1830, orel, null);   // dark-donut graze-bait
+  }
+  soakT = 1.6; setGrazeBonus(2);   // the 2× beat
 }
 
 // Resolve an attack id to bullets. Instant patterns fire one volley now; sustained
@@ -3464,7 +3547,7 @@ export function resetBoss() {
   phase = 'idle';
   group = null; model = null; def = null;
   pendingDeath = false;
-  felledLieUsed = false; felledLieT = 0; crippled = false;   // §5f teardown never strands the lie state
+  felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0;   // §5f teardown never strands the lie/frame state
   noWarnDir = null; noWarnFired = false;                     // §5j fresh deferred-banner state per encounter
   rollParried = false;
   shielded = false;
@@ -3655,7 +3738,7 @@ export function bossDebugState() {
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
   // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel };
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

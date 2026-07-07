@@ -683,9 +683,14 @@ export function buildOnewing(def, quality = 1) {
   // velocity-coupled bank + trailing parts + tell FAMILIES). ===
   let locoT = 0;
   let lastLX = 0, lastLY = 0;          // rig loco pos last frame → wander velocity
+  let vXs = 0, vYs = 0;                 // LOW-PASSED wander velocity — the raw Δpos/dt jitters
+                                        // under variable frame-time (vsync beat); feeding it
+                                        // straight into rotations reads stop-motion. All the
+                                        // velocity-driven secondary motion drives off THIS.
   let bankZ = 0;                        // eased velocity-coupled bank (on top of the LIST)
   let wingEase = -0.1, wingEaseX = 0;  // the vast wing TRAILS the body (overlap/follow-through)
   let frameSway = 0;                    // the fused frame's inertial lag (carried dead WEIGHT)
+  let frameBrokenT = -1;                // >=0 once the ghost-frame is parried apart — it falls away (§5i.C)
   let thAng = 0, thVel = 0;            // the snapped thread as a damped-spring pendulum
   let tellId = null, tellK = 0;        // attack-tell pose weight
   // Tell FAMILIES (L193 — "any boss whose tick ignores `tell` leaves its cheapest
@@ -724,9 +729,15 @@ export function buildOnewing(def, quality = 1) {
     const driftY = (Math.sin(locoT * 0.53 + 0.7) * 1.0 + Math.sin(locoT * 0.29) * 0.7 - sag * 0.5) * alive;
     rig.position.x = driftX;
     rig.position.y = driftY - dyingK * 4.0 - felledK * 1.6;    // sinks as it dies (fake death sags partway)
-    const vX = (rig.position.x - lastLX) / Math.max(dt, 1e-4);
-    const vY = (rig.position.y - lastLY) / Math.max(dt, 1e-4);
+    const vXraw = (rig.position.x - lastLX) / Math.max(dt, 1e-4);
+    const vYraw = (rig.position.y - lastLY) / Math.max(dt, 1e-4);
     lastLX = rig.position.x; lastLY = rig.position.y;
+    // Low-pass the finite-difference velocity (tc ~0.1s): the drift is very low frequency
+    // (~0.4 rad/s), so this barely delays the bank read but kills the per-frame Δpos/dt
+    // shimmer that made the wing root + frame read stop-motion. Everything below uses vX/vY.
+    vXs += (vXraw - vXs) * Math.min(1, dt * 10);
+    vYs += (vYraw - vYs) * Math.min(1, dt * 10);
+    const vX = vXs, vY = vYs;
 
     // === VELOCITY-COUPLED BANK (L193): the body leans INTO its drift on top of the
     // permanent ~12° LIST; a small yaw/pitch as it slews. Death collapses the list. ===
@@ -750,9 +761,13 @@ export function buildOnewing(def, quality = 1) {
     const fold = (foldK * foldK * (3 - 2 * foldK)) * 2.35;     // smoothstep → a decisive fold arc
     // A slow WHOLE-WING beat on the shoulder (the wing rises + falls, ~0.18 rad) that the
     // shoulder eases toward — this is the big lift; the blade wave rides on top.
-    const wingTargetZ = -0.1 + Math.sin(time * 0.55) * 0.18 + mantle + tp.dz * tellK - fold;
+    // The trail is folded INTO the eased target (not a per-frame velocity increment): an
+    // increment's steady-state offset scales as 1/dt, so it both jitters and changes with
+    // frame-rate — the stop-motion tell at the root chord. As a target it's smooth + stable.
+    const wingTrail = -vX * 0.10 * alive;                     // the wing lags a beat behind the drift
+    const wingTargetZ = -0.1 + Math.sin(time * 0.55) * 0.18 + mantle + tp.dz * tellK - fold + wingTrail;
     const wingTargetX = -flinchT * 0.5 + fold * 0.55 + tp.dx * tellK;
-    wingEase += (wingTargetZ - wingEase) * Math.min(1, dt * 4) - vX * 0.025 * alive;   // trails the drift
+    wingEase += (wingTargetZ - wingEase) * Math.min(1, dt * 4);
     wingEaseX += (wingTargetX - wingEaseX) * Math.min(1, dt * 5);
     vastWing.shoulder.rotation.z = wingEase;
     vastWing.shoulder.rotation.x = wingEaseX;
@@ -793,11 +808,23 @@ export function buildOnewing(def, quality = 1) {
     // cycle, so it reads as a weighty thing borne in the chest, not a static decal (the
     // stop-motion tell on a rigid attachment). Its detail + the snapped thread hang off
     // frameGroup, so this one weight moves the whole dead twin as one. ===
-    frameSway += ((-vX * 0.05 - bankZ * 0.45) - frameSway) * Math.min(1, dt * 3.5);
-    frameGroup.rotation.z = frameSway * alive + Math.sin(time * 0.5) * 0.035 - felledK * 0.2;
-    frameGroup.rotation.x = clamp(vY * 0.02, -0.12, 0.12) * alive;
-    frameGroup.position.y = 2.6 + Math.sin(time * 0.6) * 0.14 * alive - felledK * 0.4;   // a slow heavy breath; sags in the fake death
-    frameGroup.position.x = -frameSway * 0.35;                                            // swings laterally behind the body
+    if (frameBrokenT >= 0) {
+      // BROKEN — the dead twin's frame tears free and FALLS away (dismantled). The ghost
+      // half is gone with it; the living wraith fights on, enraged.
+      frameBrokenT += dt;
+      const k = Math.min(1, frameBrokenT / 1.1);
+      frameGroup.position.y = 2.6 - k * k * 7;
+      frameGroup.position.x = -frameSway * 0.35 - k * 1.5;
+      frameGroup.rotation.z += dt * (2.0 + k * 3);
+      frameGroup.scale.setScalar(Math.max(0.35, 1 - k * 0.55));
+      if (frameBrokenT > 1.3) frameGroup.visible = false;
+    } else {
+      frameSway += ((-vX * 0.05 - bankZ * 0.45) - frameSway) * Math.min(1, dt * 3.5);
+      frameGroup.rotation.z = frameSway * alive + Math.sin(time * 0.5) * 0.035 - felledK * 0.2;
+      frameGroup.rotation.x = clamp(vY * 0.02, -0.12, 0.12) * alive;
+      frameGroup.position.y = 2.6 + Math.sin(time * 0.6) * 0.14 * alive - felledK * 0.4;   // a slow heavy breath; sags in the fake death
+      frameGroup.position.x = -frameSway * 0.35;                                            // swings laterally behind the body
+    }
 
     // --- ORBITERS: grief ash drifting around the fused frame.
     for (const m of orbiters) {
@@ -895,6 +922,7 @@ export function buildOnewing(def, quality = 1) {
   //                      wing THROWS open. It came back by consuming its dead half.
   function setFelledLie(k) { felledK = clamp(k, 0, 1); }
   function felledRevive() { reviveT = 1; felledK = 0; noticeT = 1.0; flinchT = 0.4; }
+  function breakFrame() { if (frameBrokenT < 0) { frameBrokenT = 0; flinchT = 0.5; noticeT = 1.0; } }   // §5i.C the ghost-frame is parried apart
 
   // FLINCH: the wing jerks + the body lists harder + the eye flares (the §4b flinch).
   function flash(amt) { kit.flash(amt); }
@@ -917,6 +945,7 @@ export function buildOnewing(def, quality = 1) {
     setShieldVisible: setShieldVisibleEmotive,
     shatterShield: kit.shatterShield,
     setFelledLie, felledRevive,   // §5f the readable fake-death → resurrection
+    breakFrame,                   // §5i.C the ghost-frame breaks off when the ghost-volley is parried through
     flash, hurt,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     // diagnostics + pins (not part of the controller contract)
