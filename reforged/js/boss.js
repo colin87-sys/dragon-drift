@@ -2295,7 +2295,10 @@ function breakShield(player) {
     beginCard(phaseIdx);
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
-      harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
+    harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
+    // §5b the arena-mender: each phase seam TEARS a sector of her web and she
+    // visibly re-weaves it (optional model hook — only the weftwitch has one).
+    model.restitchWeb?.();
     // Def-gated setpiece: entering this phase plays a scripted station-leave beat.
     // A QUIET setpiece (default) holds the attack + rider clocks past its duration
     // for a capture-safe pass; a MOVING setpiece (§5e moving-station branch) leaves

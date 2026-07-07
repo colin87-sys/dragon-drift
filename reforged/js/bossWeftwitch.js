@@ -495,6 +495,73 @@ export function buildWeftwitch(def, quality = 1) {
   const heroAttr = webHero.geometry.attributes.position;
   const dimBase = dimAttr.array.slice();
   const heroBase = heroAttr.array.slice();
+  // CP2 GAP-RESTITCH: at each phase seam the fight TEARS a sector of her web and
+  // she visibly RE-WEAVES it — the arena-mender identity beat ("she mends what you
+  // break"). The tear MUTATES the BASE arrays (the water-clip pass rewrites the
+  // attributes from base every tick — the contract above — so the tear and the
+  // surface reaction compose for free); pristine copies restore byte-exact when
+  // the mend completes. Sector choice is deterministic per call (no Math.random —
+  // headless tests replay it).
+  const dimBase0 = dimBase.slice();
+  const heroBase0 = heroBase.slice();
+  let restitchT = -1, restitchS0 = 0, restitchCalls = 0;
+  const RESTITCH_W = 7;   // torn sector width, in spokes
+  function restitchWeb() {
+    // restore any in-flight tear first (a fresh phase re-tears cleanly)
+    dimBase.set(dimBase0); heroBase.set(heroBase0);
+    restitchS0 = (restitchCalls * 11 + 3) % N_SPOKE;
+    restitchCalls++;
+    restitchT = 0;
+  }
+  // retraction factor of spoke sIdx this frame (1 = untouched, →0.15 fully torn)
+  function restitchR(sIdx, tear) {
+    const d = ((sIdx - restitchS0) % N_SPOKE + N_SPOKE) % N_SPOKE;
+    if (d >= RESTITCH_W) return 1;
+    const fall = Math.sin(((d + 0.5) / RESTITCH_W) * Math.PI);   // centre tears fully
+    return 1 - tear * fall * 0.85;
+  }
+  function updateRestitch(dt) {
+    if (restitchT < 0) return;
+    restitchT += dt / 2.4;                     // the full tear→mend arc ~2.4s
+    const k = Math.min(1, restitchT);
+    // tear rips fast (0→0.3), the mend re-weaves slow with a settle (0.3→1).
+    const tear = k < 0.3 ? (k / 0.3) : Math.max(0, 1 - (k - 0.3) / 0.6);
+    for (let i = 0; i < RESTITCH_W; i++) {
+      const sIdx = (restitchS0 + i) % N_SPOKE;
+      const r = restitchR(sIdx, tear);
+      const slot = spokeSlots[sIdx], A = anchors[sIdx];
+      const arr = slot.hero ? heroBase : dimBase;
+      const o = slot.off * 3;
+      arr[o + 3] = A.inr.x + (A.out.x - A.inr.x) * r;
+      arr[o + 4] = A.inr.y + (A.out.y - A.inr.y) * r;
+      arr[o + 5] = A.inr.z + (A.out.z - A.inr.z) * r;
+      // the torn spoke's tail parks on its retracted end (degenerate, invisible)
+      const tSlot = tailSlots[sIdx], ta = tSlot.hero ? heroBase : dimBase, to = tSlot.off * 3;
+      ta[to] = ta[to + 3] = arr[o + 3]; ta[to + 1] = ta[to + 4] = arr[o + 4]; ta[to + 2] = ta[to + 5] = arr[o + 5];
+    }
+    // sector stitches ride their spokes' retraction (p = inr + (out−inr)·t·r).
+    for (const st of stitchMeta) {
+      const r0 = restitchR(st.i0, tear), r1 = restitchR(st.i1, tear);
+      if (r0 === 1 && r1 === 1) continue;
+      const A = anchors[st.i0], B = anchors[st.i1];
+      const arr = st.slot.hero ? heroBase : dimBase, o = st.slot.off * 3;
+      arr[o] = A.inr.x + (A.out.x - A.inr.x) * st.t0 * r0;
+      arr[o + 1] = A.inr.y + (A.out.y - A.inr.y) * st.t0 * r0;
+      arr[o + 2] = A.inr.z + (A.out.z - A.inr.z) * st.t0 * r0;
+      arr[o + 3] = B.inr.x + (B.out.x - B.inr.x) * st.t1 * r1;
+      arr[o + 4] = B.inr.y + (B.out.y - B.inr.y) * st.t1 * r1;
+      arr[o + 5] = B.inr.z + (B.out.z - B.inr.z) * st.t1 * r1;
+    }
+    if (restitchT >= 1) {
+      restitchT = -1;
+      dimBase.set(dimBase0); heroBase.set(heroBase0);   // byte-exact pristine restore
+    }
+    // no water plane (studio/tests): the surface pass won't sync — push base→attrs.
+    if (waterWorldY == null) {
+      dimAttr.array.set(dimBase); heroAttr.array.set(heroBase);
+      dimAttr.needsUpdate = true; heroAttr.needsUpdate = true;
+    }
+  }
   function setWaterPlane(y) {
     waterWorldY = (y == null) ? null : y;
     if (waterWorldY != null) {
@@ -803,9 +870,10 @@ export function buildWeftwitch(def, quality = 1) {
       threadPivot.scale.setScalar(1);
     }
 
-    // --- THE WEB MEETS THE WATER (fight-context-only; see setWaterPlane above).
-    // Runs LAST so the plane derives from this tick's final transforms (entrance
-    // scale, death sink, pain shudder all included). ---
+    // --- THE GAP-RESTITCH (phase seams) then THE WATER (fight-context-only).
+    // Restitch first (it writes the BASE), water last (it rewrites the attributes
+    // FROM base against this tick's final transforms) — the composition order. ---
+    updateRestitch(dt);
     updateWebSurface(time);
   }
 
@@ -820,7 +888,7 @@ export function buildWeftwitch(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
-    setEntrance, setEntranceSteer, setWaterPlane, fireBeam, cutThread,
+    setEntrance, setEntranceSteer, setWaterPlane, fireBeam, cutThread, restitchWeb,
     setHealth: kit.setHealth, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     flash, hurt,

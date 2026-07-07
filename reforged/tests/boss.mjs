@@ -830,6 +830,30 @@ for (const key of BOSS_ORDER) {
   ok(`weftwitch water reaction + fight verbs: pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} tails, loom-eye tracks, beam flashes/decays, cut recoils ✓`);
 }
 
+// §5b GAP-RESTITCH (weftwitch CP2): a phase seam tears a sector of the web (outer
+// endpoints visibly retract toward the hub) and the mend restores the geometry
+// BYTE-EXACT — the arena-mender identity beat, and the base-array contract proof.
+{
+  const ww = buildBoss(BOSSES.weftwitch, 1);
+  ww.tick(0.016, 0.1);
+  const dim = ww.group.getObjectByName('weftWebDim').geometry.attributes.position;
+  const hero = ww.group.getObjectByName('weftWebHero').geometry.attributes.position;
+  const snapD = dim.array.slice(), snapH = hero.array.slice();
+  ww.restitchWeb();
+  for (let i = 0; i < 30; i++) ww.tick(1 / 60, 0.2 + i / 60);   // ~0.5s in — the tear is open
+  let torn = 0;
+  for (let i = 0; i < dim.array.length; i++) if (Math.abs(dim.array[i] - snapD[i]) > 0.5) torn++;
+  for (let i = 0; i < hero.array.length; i++) if (Math.abs(hero.array[i] - snapH[i]) > 0.5) torn++;
+  assert(torn > 6, `the tear visibly retracts the sector mid-arc (${torn} coords moved > 0.5)`);
+  for (let i = 0; i < 160; i++) ww.tick(1 / 60, 0.8 + i / 60);   // ride past the mend (~2.4s total)
+  let drift = 0;
+  for (let i = 0; i < dim.array.length; i++) drift = Math.max(drift, Math.abs(dim.array[i] - snapD[i]));
+  for (let i = 0; i < hero.array.length; i++) drift = Math.max(drift, Math.abs(hero.array[i] - snapH[i]));
+  assert(drift === 0, `the mend restores the web BYTE-EXACT (max drift ${drift})`);
+  ww.dispose();
+  ok(`weftwitch gap-restitch: sector tears (${torn} coords), mend restores byte-exact ✓`);
+}
+
 // KNELLGRAVE (slot 10) — the named-pivot telegraph gate. The PENDULUM SWING is the
 // §3.5 silhouette telegraph (it WIDENS on charge — the arc winds up); the clapper
 // LIFTS ITS HEAD on notice (the §4b darkest notice, a state jump); the dread survival
