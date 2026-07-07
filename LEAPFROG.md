@@ -8339,3 +8339,108 @@ OVERDRAW, not triangles — phoenix already tops the roster at 56 transparent dr
 "premium richness," measure the CO-RESIDENT budget with ONE counter across dragons+bosses, and gate OVERDRAW
 (prefer opaque-body surface-shader emissive over stacked additive shells), because the thing the GPU actually
 renders in a boss fight is dragon+boss, and headless counts a regression gate — absolute fps is still a phone read.
+
+
+### L225 — ONEWING (boss 12) CP1+CP2 + the owner feel-rounds: stop-motion is an INTERNAL-motion problem, the moving-boss G1 flake has a one-line fix, and a health-bar lie must be a readable death→ignite→revive
+
+**What shipped (PR #272, merged).** Slot 12 ONEWING — EITHERWING's grief-stricken one-winged survivor carrying
+its dead twin's kite-frame as a HOLE in its chest. Two independent Fable gates (pre-build sheet + CP1 design)
+both PASSed; the owner green-lit CP1, then merged after two feel-rounds. Built additively (new def +
+`bossOnewing.js` + one dispatch line + def-gated engine); shipped roster byte-identical.
+
+**The big reusable lesson — stop-motion is INTERNAL motion, not just locomotion.** The KARNVOW L194 fix
+(locomotion is the fluidity primitive) got the BODY wandering, and the owner STILL read the wing + frame as
+stop-motion. Diagnosis: locomotion moves the whole rig, but a boss also reads stiff if its big sub-parts have
+no CONTINUOUS INTERNAL motion of their own. The wing was a rigid fan (blades moving ~0.05 rad relative to each
+other — imperceptible); the fused frame was never ticked at all (a static decal on a moving body — the classic
+stop-motion tell on a rigid attachment). The fixes that landed it: (1) a real **flap WAVE** travelling outboard
+down the blades — phase-offset per blade (`sin(t·s − idx·φ)`), ~0.35 rad, two layered frequencies, plus a
+feathering PITCH twist as the wave passes — the wing UNDULATES instead of holding a fan; (2) the frame got
+**INERTIA** — it lags the body's drift+bank like a heavy pendulum (`sway += (−vX·k − bankZ·k − sway)·dt`) and
+breathes on a slow cycle, so it reads as carried WEIGHT. **Law: after locomotion, audit every dominant sub-part
+for its own internal motion — a rigid attachment on a moving body reads MORE stop-motion than a static pose,
+because the eye expects inertia.** L193's "err loud, the fight frame lies" still holds: the first amplitudes
+(3°) were invisible at rel 30.
+
+**The moving-boss G1 focal flake has a one-line fix (`gate:{freeze:true}`).** Hours were wasted chasing a
+flaky G1 (maxLum 255↔182, cluster 0.00%) with eye brightness/size/depthTest tweaks — none worked because the
+cause wasn't the eye. bossgate grabs the geometry MASK and the screenshot in two round-trips; a wandering boss
+slides off its own mask between them, so the eye's 255 pixels fall OUTSIDE the measured mask (KARNVOW L194 banked
+this exact flag, learned the same wasted-hour way). **Before touching a focal material to fix a flaky G1/G3 on a
+boss that MOVES, add `gate:{freeze:true}` — it samples both at one pose; shipped defs byte-identical.** Also
+re-confirmed: a DARK boss over a cool-purple sky false-magentas (G3) — pick an accent-aligned capture biome
+(ASTRAL for the mauve accent), and near-black diffuse tints must be NEUTRAL, not secretly hued (a `0x120d10`
+"grey-rose" body was a ~324° cool-magenta that ACES pushed into the danger band).
+
+**The health-bar lie must be a readable death→ignite→revive, never a pop (owner feel-round).** The lying FELLED
+card (the roster's ONE health-bar lie, def-gated `felledLie` — no other def may ever opt in) first shipped as
+"FELLED → 35% returns" and the owner read it as a glitch ("oh it's back alive"). The fix is two OBVIOUS beats:
+(1) the model visibly DIES — `setFelledLie(k)` folds the wing over the frame, guts the eye out, sags the body;
+(2) `felledRevive()` IGNITES the fused frame — the dead twin's light pours UP into the body, the eye snaps back
+brighter, the wing throws open, a burst. It came back by CONSUMING its dead half. The crippled second stand
+takes 2.4× damage so it's a desperate fast beat, not a slog. The ≤35% / ≤2s / fires-once / inert-for-others
+invariants are machine-checked. **Law: a trust-gamble mechanic needs a legible CAUSE beat, or players read it as
+a bug — spend the animation to show WHY, not just the state change.**
+
+**Two more, banked:** (a) the arrival-grammar break (`def.noWarn` — banner fires WITH the eruption, not before)
+is only a scare if the arrival is ABRUPT + dangerous: `approachFrom:'below'` (erupts up, no behind-arc "flies
+through you") + an eruption danger beat (slam + shockwave + a ~0.7s ambush attack). A flythrough is not a
+jump-scare. (b) The pure-black ghost-frame HOLE reads only because its rim CROSSES the body outline and the
+interior is genuine negative space (sky through it) — the Fable sheet gate caught the black-on-black-invisible
+risk before geometry, and the numeric rim floor (≥0.30u) made it verifiable.
+
+**The full §5j arrival cinematic — a no-warn boss can still have a scripted entrance (`theGraveItCarries`).**
+The lean version was the eruption danger-beat alone. The full §5j is a two-shot: it surfaces SILENTLY at your
+flank (rises from below the frame), holds a mutual GAZE (~2s under a shallow dilate — the chest-frame reading
+across the two-shot), then wheels square and SURGES to station. The key structural insight: a `def.noWarn` boss
+composes cleanly with an ENTRANCE_SCRIPTS entry — the script runs in the `flythrough` phase (which is naturally
+BULLET-FREE, so the 2s of silence is free), owns the gaze + the reveal, and at `u=1` hands off to `enterFight`,
+where the DEFERRED eruption (`fireNoWarnBanner` — slam + shockwave + banner + ambush) fires as the payoff. So
+the silence and the eruption aren't in tension: the script is the held breath, enterFight is the strike. No
+`announce` (the banner is the whole no-warn point — spending it on a title kills the dread). Camera two-shot =
+bias the look-target toward the boss↔player MIDPOINT through the gaze, ease home to the chase cam as it surges.
+Verified live: warn → flythrough (0 bullets) → fight, banner fires only at the eruption.
+
+**The Fable #3 integration gate caught three real defects — run the gate on COMBAT wiring, not just geometry.**
+An independent Fable-model review of the built CP2 code (not the design sheet) returned FIX with three bugs a
+green test suite had missed: (1) **the muzzle-name-must-match-`def.muzzle` gotcha** — `def.muzzle:'livingWing'`
+but the model node was named `'muzzle'`, so `partWorldPos('livingWing')` resolved null, `getObjectByName`
+**cached that null forever** (bossModel.js), and the living volley silently fell back to body-centre — collapsing
+the entire dead-vs-living two-origin read the boss's identity rests on, with zero test failure. Law: a named
+emitter node's `.name` MUST equal the def string that looks it up; every other boss matches (`lanceTip`,
+`bellMouth`, `roseHub`), and a cheap `partWorldPos(def.muzzle) != null` assertion catches it. (2) **The ghost
+volley had no phase gate** — it fired from P1, so the no-warn ambush OPENER carried the dodge-mirror (the boss's
+hardest read) before the player had seen one plain pattern; gated to `phaseIdx>=1` per the def's own P2 "the
+dead twin's volley begins." (3) **A new mechanic can collide with a shipped one invisibly** — the frame-break
+hides `frameGroup` (`visible=false`), and the FELLED lie's whole readable beat is the frame IGNITING; break it
+first and the resurrection plays with its only visual explanation gone. The fix turned the collision into
+IDENTITY: **the frame-break FORFEITS the lie** — it resurrects by consuming its dead twin, so tear the twin off
+and there is nothing to raise ("the Half That Would Not Die — until you took its dead half away"), with a
+readable death beat so the missing second stand isn't a mystery. Law: when a new destructible sub-part can
+disable the visual anchor of a shipped mechanic, don't paper over it — make the interaction MEAN something.
+
+**CP2 combat depth (follow-up PR).** The ghost half now fights: the DEAD twin's volley fires from the fused
+frame (`emitGhostHalf` off a named `ghostMuzzle`) as amber-ringed bullets with a pale-spectral CORE
+(`def.ghostColor`) and a `'frameGroup'` part-tag, AIMED by a `poseRing` dodge-mirror (`mirrorAim` reads the
+player's own recent path — slot-1/-5 — and extrapolates the dodge FORWARD, so "it learns" off their motion, not
+their input). 4 PERFECT parries of the ghost half STAGGER then BREAK the frame (`model.breakFrame()` tears it
+free + falls it away), which STOPS the ghost volley, ENRAGES the tempo (0.7× cadence), and vents a 2× spray-soak
+graze beat (`soakT` + `setGrazeBonus(2)`). All def-gated (`def.ghostHalf`) — machine-checked inert for every
+other boss. The frame-break routes through the SAME snap-part parry path the lock system already uses (a perfect
+amber's source-part tag rides the bullet slot → `r.snapParts.includes('frameGroup')`), so no new parry plumbing.
+
+**The stop-motion tail: velocity-driven secondary motion must be LOW-PASSED + EASED, never a raw per-frame
+increment (owner feel-round #3).** After the flap-wave + frame-inertia landed, the owner STILL read the wing
+ROOT-CHORD and the frame as a "stop-motion wiggle." Root cause was NOT the animation design — it was numeric.
+Two bugs, both invisible headless (fixed test dt) but real in a browser (rAF dt jitters on the vsync beat):
+(1) the wander velocity was naive finite-difference `Δpos/dt`, which shimmers frame-to-frame when dt alternates
+(12ms/22ms), and it was fed RAW straight into rotations; (2) worse, the wing-trail was applied as a per-FRAME
+increment (`wingEase += … − vX·k`) whose steady-state trailing offset is `∝ 1/dt` — so the trail amount changed
+with frame-rate AND jittered. Fixes: low-pass the velocity once (`vXs += (vXraw−vXs)·min(1,dt·10)`, tc ~0.1s —
+the drift is ~0.4 rad/s so the bank read is untouched) and drive ALL secondary motion off `vXs/vYs`; and fold
+the trail INTO the eased target (`target += −vX·k; ease toward target`) so it's dt-independent. **Law: any
+velocity-COUPLED secondary motion (bank, trail, inertial lag) must (a) drive off a low-passed velocity, never
+raw `Δpos/dt`, and (b) enter as an eased TARGET, never a per-frame `+=` increment — a raw finite-difference fed
+straight in, or a velocity increment with a `1/dt` steady state, reads as stop-motion the moment real frame-time
+jitters, even when it looks perfect in a fixed-dt headless test.** This is the numeric companion to L194's
+"internal motion" — the motion design was right; the plumbing wasn't.
