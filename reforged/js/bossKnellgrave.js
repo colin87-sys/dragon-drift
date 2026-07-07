@@ -381,16 +381,40 @@ export function buildKnellgrave(def, quality = 1) {
   const crackStrip = new THREE.Line(new THREE.BufferGeometry().setFromPoints(crackPts), crackLineMat);
   crackStrip.name = 'knellCrack';
   bellGroup.add(crackStrip);
-  const slitParts = [], emberParts = [];
-  for (let i = 0; i < crackXY.length - 1; i++) {
-    const [x0, y0] = crackXY[i], [x1, y1] = crackXY[i + 1];
-    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, h = Math.abs(y0 - y1) + 0.5;
-    const sSeg = strip(new THREE.BoxGeometry(0.46, h, 0.34)); sSeg.translate(mx, my, bellRadiusAt(my) + 0.18); slitParts.push(sSeg);
-    const eSeg = strip(new THREE.BoxGeometry(0.98, h + 0.3, 0.22)); eSeg.translate(mx, my, bellRadiusAt(my) + 0.05); emberParts.push(eSeg);
-  }
-  const slit = new THREE.Mesh(mergeK(slitParts, 'candleSlit'), slitMat); slit.name = 'knellSlit'; slit.renderOrder = 6;
+  // THE SLIT AS A CONTINUOUS JAGGED RIBBON (CP2.4 owner note: stacked box segments
+  // read as giant disconnected flat-white RECTANGLES up close once the gape scaled
+  // them — a ribbon along the crack polyline tapers to POINTS at both ends, stays
+  // CONNECTED at every width, and widens about its own spine, so it reads as a
+  // glowing fissure at every distance). Widths vary per point (jagged), pinched at
+  // the tips. The ribbon's local origin is the crack spine's centroid, so the gape
+  // (scale.x) widens the crack IN PLACE instead of spreading the segments apart.
+  const SPINE_X = -0.62;
+  const buildCrackRibbon = (halfW, zLift) => {
+    const verts = [];
+    const P = (i, side) => {
+      const [cx, cy] = crackXY[i];
+      const z = bellRadiusAt(cy) + zLift;
+      return [cx - SPINE_X + side * halfW[i], cy, z];
+    };
+    for (let i = 0; i < crackXY.length - 1; i++) {
+      const a = P(i, -1), b = P(i, 1), c = P(i + 1, -1), d = P(i + 1, 1);
+      verts.push(...a, ...b, ...c, ...b, ...d, ...c);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.computeVertexNormals();
+    return geo;
+  };
+  const SLIT_HALFW = [0.05, 0.20, 0.15, 0.26, 0.18, 0.13, 0.04];   // jagged, tapering to points
+  const slit = new THREE.Mesh(buildCrackRibbon(SLIT_HALFW, 0.16), slitMat);
+  slit.name = 'knellSlit'; slit.renderOrder = 6;
+  slit.position.x = SPINE_X;
+  slitMat.side = THREE.DoubleSide;   // the mouth-side of the ribbon stays lit on the look-UP
   bellGroup.add(slit);
-  const ember = new THREE.Mesh(mergeK(emberParts, 'crackEmber'), emberMat); ember.name = 'knellEmber';
+  const ember = new THREE.Mesh(buildCrackRibbon(SLIT_HALFW.map((w) => w * 2.1 + 0.06), 0.05), emberMat);
+  ember.name = 'knellEmber';
+  ember.position.x = SPINE_X;
+  emberMat.side = THREE.DoubleSide;
   bellGroup.add(ember);
 
   // ---- THE CHAIN vanishing UP off-frame (heavy discrete LINKS — the anti-lamp/UFO
@@ -700,8 +724,10 @@ export function buildKnellgrave(def, quality = 1) {
     // the crack GAPES WIDER as the fight progresses (the RUIN LADDER: a thin line in
     // P1 → a flood by The Last Toll) and further on dread (the reveal is the widening
     // gap the prisoner strains against, not a floodlight). Width grows more than glow.
-    slit.scale.set(1 + ruinK * 1.1 + dreadK * 1.7 + charge * 0.2, 1 + dreadK * 0.1, 1);
-    ember.scale.set(1 + ruinK * 0.7 + dreadK * 1.1, 1, 1);
+    // gape CAP (CP2.4): the flood read comes from width ~2.5× + the lit figure —
+    // wider turned the ribbon into a wall of white up close (the owner's jank note).
+    slit.scale.set(1 + ruinK * 0.85 + dreadK * 0.6 + charge * 0.12, 1 + dreadK * 0.08, 1);
+    ember.scale.set(1 + ruinK * 0.6 + dreadK * 0.45, 1, 1);
     // the sprung wall plates LIFT off the seam as the bell comes apart.
     plateMesh.scale.setScalar(1 + ruinK * 0.05);
     // CP2 gate item 5a: during the overhead ride (the dread reveal drops the pose to
@@ -728,7 +754,7 @@ export function buildKnellgrave(def, quality = 1) {
     // the figure stays a candle-lit DARK form (a black figure with a warm catch, NOT a
     // glowing orb — Fable CP1): a MODERATE warm catch on the head (brighter when lifted /
     // on the reveal) so the shape reads by silhouette, not by blooming into a pearl.
-    headMat.emissiveIntensity = (0.14 + lift * 0.34 + dreadK * 0.42 + ruinK * 0.14) * (shieldClamp ? 0.4 : 1) * (1 - dyingK);
+    headMat.emissiveIntensity = (0.12 + lift * 0.26 + dreadK * 0.24 + ruinK * 0.1) * (shieldClamp ? 0.4 : 1) * (1 - dyingK);   // capped — a flat cream egg up close was the jank (CP2.4)
     figureMat.emissiveIntensity = (0.07 + lift * 0.18 + dreadK * 0.42 + ruinK * 0.12) * (shieldClamp ? 0.5 : 1) * (1 - dyingK);
     strapMat.emissiveIntensity = (0.04 + dreadK * 0.35) * (1 - dyingK);
     // dread: the figure DROPS further out of the mouth (fully revealed below the lip) and
@@ -834,7 +860,7 @@ export function buildKnellgrave(def, quality = 1) {
       slitMat.color.copy(SLIT_BASE).multiplyScalar(Math.max(0.05, litFront) * SLIT_HOT);
       const liftE = clamp01((u - 0.42) / 0.22);      // the clapper LIFTS ITS HEAD at the apex
       headPivot.rotation.x = -liftE * 1.05;
-      headMat.emissiveIntensity = 0.14 + liftE * 0.55;
+      headMat.emissiveIntensity = 0.12 + liftE * 0.34;
       figureMat.emissiveIntensity = 0.07 + liftE * 0.2;   // the straps catch candlelight as it lifts
     }
 
