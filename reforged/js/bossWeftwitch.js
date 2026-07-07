@@ -120,7 +120,7 @@ export function buildWeftwitch(def, quality = 1) {
   // lines on a BRIGHT/sunset sky + a PALE hero subset that reads on a DARK sky — so the
   // field survives on both (Fable CP1 gate: the pale-only web washed out on the sunset).
   const webDimMat = track(new THREE.LineBasicMaterial({ color: 0x2a2416, transparent: true, opacity: 0.55, depthWrite: false }));
-  const webHeroMat = track(new THREE.LineBasicMaterial({ color: 0xdccfa8, transparent: true, opacity: 0.62, depthWrite: false }));
+  const webHeroMat = track(new THREE.LineBasicMaterial({ color: 0xe4d7ac, transparent: true, opacity: 0.74, depthWrite: false }));
   // THE TAUT THREAD between the hands (the charge tell → the laserLance HDR flash).
   // toneMapped:false so it can flash PAST 1.0 (a hard lit line, not a volume) — the
   // brightest moment, still G3-safe (pale-gold hue, far from danger-magenta).
@@ -295,7 +295,7 @@ export function buildWeftwitch(def, quality = 1) {
       // the crown outline and the arm reads as an ARM that holds a tool).
       const tip = new THREE.Mesh(strip(new THREE.OctahedronGeometry(0.62, 0)), knotMat);
       tip.name = `spinneretTip${i}`;
-      tip.scale.set(0.7, 1.5, 0.7);   // elongated = a shuttle/spindle, not a diamond
+      tip.scale.set(0.58, 1.85, 0.58);   // a longer, finer SPINDLE/shuttle (Fable CP1 polish), not a diamond
       tip.rotation.z = dang - Math.PI / 2;
       tip.position.set(dir.x * L0 + ddir.x * L1, dir.y * L0 + ddir.y * L1, 0.1);
       pivot.add(tip);
