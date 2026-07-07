@@ -118,14 +118,16 @@ export function rollWake(pos, dir = 1, count = 4) {
 // light-ribbons in bossBullets.js, the Panzer-Dragoon silhouette; keeping both
 // over-glowed the additive budget.)
 
-// Wisp impact — jade sparks + fast white-hot pips; the small shockwave ring only
+// Wisp impact — accent sparks + fast white-hot pips; the small shockwave ring only
 // when the caller says so (the FIRST strike of an impact drum-roll window) so a
 // 6-pip Surge fork over the shield-shatter never stacks large additive volumes.
 // Legibility through the shatter comes from LUMINANCE (hot pips at speed), not area.
-export function wispImpact(pos, ring) {
-  burst(pos, 0x50ffaa, { count: 7, speed: 9, size: 0.6, life: 0.32 });
+// `tint` is the equipped dragon's wisp accent (jade by default, PR8); the white
+// pips (0xeafff6) stay white — the bullet legibility anchor, unchanged by hue.
+export function wispImpact(pos, ring, tint = 0x50ffaa) {
+  burst(pos, tint, { count: 7, speed: 9, size: 0.6, life: 0.32 });
   burst(pos, 0xeafff6, { count: 3, speed: 15, size: 0.4, life: 0.22 });
-  if (ring) shockwave(pos, 0x50ffaa, { grow: 10, life: 0.35 });
+  if (ring) shockwave(pos, tint, { grow: 10, life: 0.35 });
 }
 
 function shockwave(pos, colorHex, { rect = false, grow = 16, life = 0.5, aspect = 1 } = {}) {

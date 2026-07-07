@@ -7,7 +7,8 @@ import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
-import { initReticle, updateReticle } from './reticle.js';
+import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
+import { lockHudState } from './lockLayer.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
@@ -27,12 +28,12 @@ import { createWater, setWaterReflective, updateWater } from './water.js';
 import { burst, rollWake } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
-import { DRAGONS } from './dragons.js';
+import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
-import { debugActiveBullets, setDebugPerfectParryRel } from './bossBullets.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -126,6 +127,18 @@ const equippedDragon = () => {
   return applyFlightmark(ascendedDef(def, tier, radianceRank(key)));
 };
 const equippedRider = () => RIDERS[saveData.riders.equipped] || RIDERS.drifter;
+// PR8 Eternal wisp cosmetic: push the equipped dragon's personal wisp accent +
+// brand rune into the lock layer (jade + shared rune unless it's an Eternal-form
+// SSSR dragon). Display-only — see wispTintFor/setWispTint (damage is a separate
+// arg, so this never touches behaviour). Re-run at boot + on every equip/ascend.
+function applyWispCosmetic() {
+  const ed = equippedDragon();
+  const fl = ed?.model?.formLevel ?? 0;
+  const tint = wispTintFor(ed, fl);
+  setWispTint(tint);
+  setLanceTint(tint);
+  setMarkRune(lanceRuneFor(ed, fl));
+}
 createEnvironment(scene, runSeed);
 setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0)
 createWater(scene, true); // real reflection by default; tiers downgrade it
@@ -141,6 +154,7 @@ initEmbers(scene);
 initGoldEmbers(scene);
 initBoss(scene);
 initPbMarker(scene);
+applyWispCosmetic();   // seed the equipped dragon's wisp accent + brand rune (PR8)
 
 // Set-piece meshes must exist before the first spawnAhead() call below,
 // since the first chunk can contain set-pieces.
@@ -264,6 +278,17 @@ if (urlParams.has('debug')) {
     bossPartWorldPos: (part) => debugPartWorldPos(part),
     bossStrikeSurge: () => debugStrikeSurge(),
     bossRaiseShield: () => debugRaiseShield(),
+    // PR6 seams: liveness-filtered paintables, shimmer count, runtime def pick.
+    bossPaintables: () => debugPaintables(),
+    bossShimmerCount: () => debugShimmerCount(),
+    bossTetherCount: () => debugTetherCount(),
+    // PR8 Eternal-wisp seams: live ribbon/head material colours + the brand rune,
+    // and a re-push of the cosmetic after a test swaps the equipped dragon in save.
+    wispColors: () => debugWispColors(),
+    wispTint: () => wispTint(),
+    markRune: () => markRune(),
+    refreshWispCosmetic: () => applyWispCosmetic(),
+    bossSetDefIdx: (k) => setBossDebugDefIdx(k),
     // PR4a wisp seams: live bullet kinematics (fan-divergence asserts).
     bossBullets: () => debugActiveBullets(),
     // Capture hook: pin/release the charge (mantle) pose for still crops.
@@ -351,10 +376,11 @@ const _muzzleV = new THREE.Vector3();
 on('lockVolley', (p) => {
   if (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')) {
     sfx.brandLoose?.(p.count);
+    sfx.volleyDuck?.();   // PR7: dip the music ~200ms so the exhale owns the moment
     juiceEvent('wispVolley');
     _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
-    burst(_muzzleV, 0x50ffaa, { count: 10, speed: 12, size: 0.8, life: 0.35 });
-    burst(_muzzleV, 0xeafff6, { count: 4, speed: 18, size: 0.5, life: 0.25 });
+    burst(_muzzleV, wispTint(), { count: 10, speed: 12, size: 0.8, life: 0.35 });   // accent (jade default, PR8)
+    burst(_muzzleV, 0xeafff6, { count: 4, speed: 18, size: 0.5, life: 0.25 });      // white anchor stays white
   } else {
     sfx.brandFizzle?.();
   }
@@ -419,6 +445,7 @@ ui.init({
   onEquipDragon: () => {
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
+    applyWispCosmetic();   // PR8: re-push the new dragon's wisp accent + rune
   },
   // Shop browse: show the inspected dragon (at its form/tier) in the live menu scene.
   // ONLY rebuilds the dragon mesh — never the run's obstacles — so walls are untouched.
@@ -431,6 +458,7 @@ ui.init({
     if (ascend(key, def.cost)) {
       rebuildDragon(equippedDragon(), equippedRider(), player);
       applyDragonStats(equippedDragon());
+      applyWispCosmetic();   // PR8: ascending TO Eternal unlocks the personal wisp
       return ascensionTier(key);
     }
     return 0;
@@ -1210,6 +1238,12 @@ function tick() {
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
+    // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
+    // not reticle.js — the reticle early-returns when disabled, and this cue's
+    // whole job is the no-reticle acquire loop. Silences on lock (aimHeld → the
+    // chime), on sealed/muted, and on any non-fight/paused frame (0 stops it).
+    const lh = (game.inBoss && game.state === 'playing') ? lockHudState() : null;
+    sfx.dwellHum?.(lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted ? lh.dwell : 0);
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget());
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);

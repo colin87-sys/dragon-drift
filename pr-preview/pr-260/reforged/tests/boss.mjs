@@ -759,10 +759,71 @@ for (const key of BOSS_ORDER) {
     kn.setHealth(1.0);
     for (let s = 0; s < 10; s++) kn.tick(0.05, 400 + s * 0.05);
     const fullW = slitMesh.scale.x;
-    kn.setHealth(0.25);
-    for (let s = 0; s < 10; s++) kn.tick(0.05, 401 + s * 0.05);
-    assert(slitMesh.scale.x > fullW + 0.6, `knellgrave RUIN LADDER: the crack gapes as hp falls (slit scale ${slitMesh.scale.x.toFixed(2)} > ${fullW.toFixed(2)} + 0.6 at hp 0.25 — the bell opens across the fight)`);
+    // step the ruin ladder phase by phase — each phase must gape WIDER than the last (the
+    // owner's playtest note: the crack must visibly grow every phase, not just at the
+    // finale). Width is the ONLY size lever — the slit already spans the whole bell face,
+    // so it grows by opening, never by getting longer (see the lip-guard below).
+    const gape = (frac) => { kn.setHealth(frac); for (let s = 0; s < 10; s++) kn.tick(0.05, 401 + frac + s * 0.05); return slitMesh.scale.x; };
+    const p2 = gape(0.70), p3 = gape(0.45), p4 = gape(0.25);
+    assert(p2 > fullW && p3 > p2 && p4 > p3, `knellgrave RUIN LADDER widens every phase (slit W ${fullW.toFixed(2)}→${p2.toFixed(2)}→${p3.toFixed(2)}→${p4.toFixed(2)} — monotonic per-phase gape)`);
+    assert(p4 > fullW + 0.6, `knellgrave RUIN LADDER: the crack gapes as hp falls (slit scale ${p4.toFixed(2)} > ${fullW.toFixed(2)} + 0.6 at hp 0.25 — the bell opens across the fight)`);
+    // LIP GUARD (owner IMG_7331: "how can the crack extend past the bell?"): even at the
+    // worst frame (full ruin + the dread reveal gape) the lit slit must stay ON the bell
+    // FACE — its lowest vertex may never cross the −6.4 lip into the open air below the
+    // mouth. A crack is the bell breaking; light escaping below the metal is nonsense.
+    kn.setSetpiece(1.0, { dread: true });
+    for (let s = 0; s < 20; s++) kn.tick(0.05, 420 + s * 0.05);
+    slitMesh.geometry.computeBoundingBox();
+    const slitBottom = slitMesh.geometry.boundingBox.min.y * slitMesh.scale.y + slitMesh.position.y;
+    assert(slitBottom >= -6.4 - 1e-3, `knellgrave crack stays ON the bell face (slit bottom ${slitBottom.toFixed(2)} ≥ −6.4 lip, even at full ruin+dread — never a bolt floating below the mouth)`);
+    kn.setSetpiece(0, {});
     kn.setHealth(1.0);
+  }
+
+  // THE SHED (owner playtest: "more of the bell breaking off to reveal its inner scaffold,
+  // background visible through where the bell once was") — flank plates COVER carved wall
+  // gaps at rest (bell reads solid) and BREAK AWAY as hp falls, baring the inner scaffold.
+  {
+    const scaffold = kn.group.getObjectByName('innerScaffold');
+    assert(!!scaffold, 'knellgrave exposes the named innerScaffold (the iron skeleton bared as the bell sheds)');
+    const innerWall = kn.group.getObjectByName('innerWall');
+    assert(!!innerWall && innerWall.material.side === THREE.BackSide, 'knellgrave has a BackSide interior wall (closes the mouth so the undamaged bell shows dark metal, not sky — owner IMG_7333)');
+    const luma = (m) => m.color.r + m.color.g + m.color.b;
+    assert(innerWall && luma(innerWall.material) < luma(scaffold.material), 'knellgrave interior wall is DARKER than the scaffold (the inside parts read against it, not into it)');
+    // the plate lifecycle is a sticky RATCHET (a broken bell stays broken), so test it on a
+    // FRESH model — kn has already been ruined by the ladder block above.
+    const kp = buildBoss(BOSSES.knellgrave, 1);
+    const panels = [];
+    kp.group.traverse((o) => { if (o.name === 'knellShedPanel') panels.push(o); });
+    assert(panels.length >= 2, `knellgrave has break-away shed plates (${panels.length} ≥ 2 — the flank panels that fall away)`);
+    // at REST the plates are home + opaque (the bell reads solid — no premature holes).
+    kp.setHealth(1.0);
+    for (let s = 0; s < 10; s++) kp.tick(0.05, 500 + s * 0.05);
+    const restOut = panels.map((p) => p.parent.position.length());
+    assert(restOut.every((d, i) => d < 6.6 + 0.05 && panels[i].material.opacity > 0.95), 'knellgrave shed plates sit HOME + opaque at full hp (the bell is solid at the start — the reveal is earned)');
+    // FREEZE GUARD (Fable gate): a plate whose break has STARTED must FINISH falling even when
+    // hp (and ruinK) freezes — the P4 seal caps ruinK ~0.75, and the 2nd plate needs 0.84. Pin
+    // hp at 0.20 (ruinK 0.80, seal-frozen) and keep ticking: both plates must complete, not hang.
+    kp.setHealth(0.25);   // exactly the P4 seal floor: ruinK 0.75, so plate 2 would freeze at prog 0.625 without the self-advance
+    for (let s = 0; s < 60; s++) kp.tick(0.05, 520 + s * 0.05);   // hp never moves; the break self-completes
+    const goneOut = panels.map((p) => p.parent.position.length());
+    assert(panels.every((p, i) => p.parent.position.length() > restOut[i] + 2 && p.material.opacity < 0.1), `knellgrave EVERY shed plate finishes falling under a frozen hp seal (out ${goneOut.map((d) => d.toFixed(1)).join('/')}, faded — no plate hangs half-tumbled through the Last Toll)`);
+    // SKY POURS THROUGH at the Last Toll — the interior wall is a SOLID opaque shell every
+    // phase, and only the DREAD reveal at deep ruin tears it open (driven by dread, NOT hp:
+    // the P4 seal freezes hp so a ruin-gated tear would never fire in play). Once torn it
+    // RATCHETS open (a broken bell doesn't heal). Fresh model so the ratchet starts clean.
+    const ks = buildBoss(BOSSES.knellgrave, 1);
+    const kw = ks.group.getObjectByName('innerWall');
+    ks.setHealth(0.20);   // deep P4 by hp alone — but with NO dread, the shell must stay solid
+    for (let s = 0; s < 10; s++) ks.tick(0.05, 570 + s * 0.05);
+    assert(kw.material.opacity > 0.9 && kw.material.depthWrite, `knellgrave interior wall stays SOLID on hp alone (opacity ${kw.material.opacity.toFixed(2)} — the seal freezes hp; only the dread reveal tears it)`);
+    ks.setSetpiece(1.0, { dread: true });   // the Last Toll reveal — NOW the sky pours in
+    for (let s = 0; s < 24; s++) ks.tick(0.05, 585 + s * 0.05);
+    assert(kw.material.opacity < 0.4 && !kw.material.depthWrite, `knellgrave interior wall TEARS open at the dread reveal (opacity ${kw.material.opacity.toFixed(2)} — the sky pours through the broken bell)`);
+    ks.setSetpiece(0, {});
+    for (let s = 0; s < 20; s++) ks.tick(0.05, 610 + s * 0.05);
+    assert(kw.material.opacity < 0.4, 'knellgrave sky-tear RATCHETS — the bell stays broken open after the reveal recedes (a broken bell does not heal)');
+    ks.dispose();
   }
 
   kn.dispose();
@@ -859,6 +920,86 @@ for (const key of BOSS_ORDER) {
   boss.resetBoss();
   assert(!musicKillState().killed, 'resetBoss restores the killed music (teardown never strands silence)');
   ok('knellgrave music-death: kill→zero, restore→back, both idempotent, resetBoss restores ✓');
+}
+
+// KARNVOW (slot 9, Tier-3 PEAK) — the named-pivot telegraph gate (§7b): the LANCE
+// is the silhouette's dominant diagonal AND the charge telegraph. setCharge(1) must
+// snap the lance from couched to point (a lancePivot rotation = a silhouette
+// change); the cowl/lance-tip/chain pivots must all exist (the emotion + organ +
+// swing rig the controller drives). The lance is one part, three jobs (§5f).
+{
+  const kv = buildBoss(BOSSES.karnvow, 1);
+  // Named pivots the telegraph + charisma + organ rig depend on.
+  const lancePivot = kv.group.getObjectByName('lancePivot');
+  assert(!!lancePivot, 'karnvow exposes the named lancePivot (the couch→point telegraph)');
+  assert(!!kv.group.getObjectByName('lanceTip'), 'karnvow exposes the named lanceTip (the amber-emitting organ / def.muzzle)');
+  assert(!!kv.group.getObjectByName('cowlPivot'), 'karnvow exposes the named cowlPivot (the player-tracking hood + focal glint)');
+  assert(!!kv.group.getObjectByName('chainPivot'), 'karnvow exposes the named chainPivot (the swinging trophy chain)');
+
+  // Telegraph: setCharge(1) snaps the lance to POINT — a real silhouette change on
+  // the dominant diagonal (couched-low pitch lifts toward level).
+  for (let i = 0; i < 30; i++) kv.tick(0.05, i * 0.05);   // settle the couched rest pose
+  const preLance = lancePivot.rotation.x;
+  kv.setCharge(1);
+  for (let i = 0; i < 20; i++) kv.tick(0.05, 2 + i * 0.05);
+  assert(lancePivot.rotation.x < preLance - 0.3,
+    `karnvow lance snaps couch→point on charge (lancePivot.rot.x ${lancePivot.rotation.x.toFixed(3)} < ${preLance.toFixed(3)} − 0.3 — the dominant-diagonal silhouette change)`);
+  kv.setCharge(0);
+
+  // CP1.5 tell FAMILIES (owner fix: one pose per attack, not one animation): under
+  // charge, 'crossfire' sweeps the lance ACROSS (yaw differs from aimed's point) and
+  // 'stream' rolls it into the overhead flourish (roll differs) — machine-checked
+  // silhouette variety, keyed off the setAttackTell hook boss.js already calls.
+  kv.setAttackTell('aimed');
+  kv.setCharge(1);
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 4 + i * 0.05);
+  const yAimed = lancePivot.rotation.y, zAimed = lancePivot.rotation.z;
+  kv.setAttackTell('crossfire');
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 6 + i * 0.05);
+  const ySweep = lancePivot.rotation.y;
+  assert(Math.abs(ySweep - yAimed) > 0.4,
+    `karnvow crossfire tell SWEEPS the lance across (yaw ${ySweep.toFixed(2)} vs aimed ${yAimed.toFixed(2)} — Δ>0.4)`);
+  kv.setAttackTell('stream');
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 8 + i * 0.05);
+  const zFlourish = lancePivot.rotation.z;
+  assert(Math.abs(zFlourish - zAimed) > 0.3,
+    `karnvow stream tell rolls the overhead FLOURISH (roll ${zFlourish.toFixed(2)} vs aimed ${zAimed.toFixed(2)} — Δ>0.3)`);
+  kv.setAttackTell(null);
+  kv.setCharge(0);
+
+  // CP1.5 de-clutter (owner fix): the trophy chain hangs at the LEFT hip — the
+  // side OPPOSITE the lance grip (lancePivot x=+1.15) — so the charms jiggle clear
+  // of the weapon arm.
+  const chainP = kv.group.getObjectByName('chainPivot');
+  assert(chainP.position.x < 0, `karnvow chainPivot at the LEFT hip, opposite the lance grip (x ${chainP.position.x.toFixed(2)} < 0)`);
+  assert(!!kv.group.getObjectByName('surcoatPivot'), 'karnvow exposes the named surcoatPivot (the segmented-skirt root)');
+  assert(!!kv.group.getObjectByName('skirtSeg2'), 'karnvow skirt is a segmented cloth chain (skirtSeg2 exists)');
+  assert(!!kv.group.getObjectByName('cloakPivot0'), 'karnvow exposes the cloak pivot chain (cloakPivot0)');
+  assert(!!kv.group.getObjectByName('cloakStrip'), 'karnvow cloak strip mesh exists');
+
+  // ROUND-3 FOOTWORK: over a ~12s headless run the dart machine must visit ≥2
+  // distinct guard positions (the rig actually MOVES — the nimble-hunter contract,
+  // owner verdict "stiff, for a hunter meant to be agile"). rig = group.children[0]
+  // isn't guaranteed — find it as surcoatPivot's ancestor under group.
+  {
+    let rig = kv.group.getObjectByName('surcoatPivot');
+    while (rig.parent && rig.parent !== kv.group) rig = rig.parent;
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < 60 * 12; i++) {
+      kv.tick(1 / 60, 10 + i / 60);
+      if (rig.position.x < minX) minX = rig.position.x;
+      if (rig.position.x > maxX) maxX = rig.position.x;
+    }
+    assert(maxX - minX > 1.5,
+      `karnvow footwork: the dart machine moves the body between guard positions (x spread ${(maxX - minX).toFixed(2)} > 1.5 over 12s)`);
+  }
+
+  // partWorldPos resolves the live lance tip (the def.muzzle 'lanceTip' aim anchor).
+  const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
+  assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
+
+  kv.dispose();
+  ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to

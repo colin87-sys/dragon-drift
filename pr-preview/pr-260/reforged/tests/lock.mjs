@@ -774,5 +774,181 @@ check('T3.E the seeker anchors track real organ locations (≠ twin centre, ≠ 
   d2(eitherLint.pos.seekerScar, eitherLint.tw) > 0.05 &&
   d2(eitherLint.pos.seekerFin, eitherLint.pos.seekerScar) > 0.5);
 
+// T6.D — Calamities lock anatomy (PR6): every tier-3 lockPart + virtual anchor
+// resolves on the BUILT model (a def naming a nonexistent node silently never
+// paints — the T2.12/T3.E def-lint wall, extended to the whole tier).
+const calamityLint = await page.evaluate(async () => {
+  const { buildBoss } = await import(new URL('./js/bossModel.js', document.baseURI).href);
+  const defs = await import(new URL('./js/bossDefs.js', document.baseURI).href);
+  const out = {};
+  for (const key of ['hollowgate', 'thrumswarm', 'brineholm']) {
+    const def = defs.BOSSES[key];
+    const model = buildBoss(def, 1);
+    model.tick?.(0.016, 0.5);
+    const missing = [];
+    for (const lp of (def.lockParts || [])) if (!model.partWorldPos(lp.part)) missing.push(lp.part);
+    if (def.virtualLockOrgan && !model.partWorldPos(def.virtualLockOrgan)) missing.push(def.virtualLockOrgan);
+    out[key] = { n: (def.lockParts || []).length, tier: def.tier, missing };
+    model.dispose?.();
+  }
+  return out;
+});
+check(`T6.D hollowgate: 5 pane brands + roseHub anchor all resolve${calamityLint.hollowgate.missing.length ? ' — MISSING ' + calamityLint.hollowgate.missing : ''}`,
+  calamityLint.hollowgate.n === 5 && calamityLint.hollowgate.tier === 3 && calamityLint.hollowgate.missing.length === 0);
+check('T6.D thrumswarm: the one-organ queen lock resolves',
+  calamityLint.thrumswarm.n === 1 && calamityLint.thrumswarm.missing.length === 0);
+check('T6.D brineholm: eye + 3 shackles resolve (cap-5 spread)',
+  calamityLint.brineholm.n === 4 && calamityLint.brineholm.missing.length === 0);
+
 check('no console errors', errors.length === 0) || console.error(errors.join('\n'));
 await done();
+
+// ---------------------------------------------------------------------------
+// PR6 second boot — a LIVE HOLLOWGATE fight (?bossIdx=5): the liveness filter,
+// the organ shimmer, and the no-reticle brand-mark decoupling, end to end.
+// ---------------------------------------------------------------------------
+{
+  const b2 = await boot({ query: '?debug&boss=180&bossIdx=5' });
+  const p2 = b2.page;
+  await p2.evaluate(async () => {
+    const gt = await import(new URL('./js/gestureTutorial.js', document.baseURI).href);
+    gt.skipGestureTutorial();   // L187: the first-flight tutorial pauses headless fights
+  });
+  await p2.click('#btn-start');
+  await p2.waitForFunction(() => window.__dd && window.__dd.game.state === 'playing', { timeout: 8000 });
+  await p2.evaluate(() => window.__dd.spawnBoss());
+  await p2.waitForFunction(() => window.__dd.bossState().active, { timeout: 8000 });
+  await p2.evaluate(() => window.__dd.bossForceFight());
+  await p2.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 8000 });
+
+  // T6.1 — paintables: 5 panes + the promoted roseHub anchor = 6 organs.
+  const t61 = await p2.evaluate(() => window.__dd.bossPaintables());
+  check('T6.1 hollowgate offers 6 paintable organs (5 panes + promoted hub)',
+    Array.isArray(t61) && t61.length === 6 && t61.includes('rosePane1') && t61.includes('roseHub'));
+
+  // T6.2 — the SHIMMER breathes on every unpainted organ (waits a few live frames).
+  let t62 = false;
+  try {
+    await p2.waitForFunction(() => window.__dd.bossShimmerCount() === 6, { timeout: 8000, polling: 100 });
+    t62 = true;
+  } catch { /* count read below for the message */ }
+  check(`T6.2 shimmer count matches unpainted paintables (6)${t62 ? '' : ' — got ' + await p2.evaluate(() => window.__dd.bossShimmerCount())}`, t62);
+
+  // T6.3 — painting removes the shimmer (the brand mark owns the organ).
+  await p2.evaluate(() => window.__dd.bossBankLocks(2));   // brands rosePane1 + rosePane2
+  let t63 = false;
+  try {
+    await p2.waitForFunction(() => window.__dd.bossShimmerCount() === 4, { timeout: 8000, polling: 100 });
+    t63 = true;
+  } catch { /* fallthrough */ }
+  check('T6.3 two banked brands → shimmer drops to 4', t63);
+
+  // T7.1 (PR7) — BRAND TETHERS: one in-world line per branded organ (the 2 banked).
+  let t71 = false;
+  try {
+    await p2.waitForFunction(() => window.__dd.bossTetherCount() === 2, { timeout: 8000, polling: 100 });
+    t71 = true;
+  } catch { /* fallthrough */ }
+  check(`T7.1 a tether line draws to each branded organ (2)${t71 ? '' : ' — got ' + await p2.evaluate(() => window.__dd.bossTetherCount())}`, t71);
+
+  // T6.4 — NO-RETICLE: assist dies, STATE survives. Reticle off → the aim element
+  // hides, but the world cues (shimmer, TETHERS) and the brand MARKS all render.
+  const t64 = await p2.evaluate(async () => {
+    window.__dd.save.settings.reticle = false;
+    window.__dd.save.settings.glideAssist = false;
+    await new Promise((res) => setTimeout(res, 600));   // a few live frames
+    const ret = document.querySelector('#reticle');
+    const marks = document.querySelectorAll('.lockmark.show').length;
+    return { retOpacity: ret.style.opacity, retBoss: ret.classList.contains('boss'),
+      marks, shimmer: window.__dd.bossShimmerCount(), tethers: window.__dd.bossTetherCount() };
+  });
+  check('T6.4 reticle off: aim element hidden, brand marks + shimmer + tethers all still shown (STATE)',
+    t64.retOpacity === '0' && t64.retBoss === false && t64.marks >= 1 && t64.shimmer === 4 && t64.tethers === 2);
+
+  // T6.5 — LIVENESS: cracking a branded pane drops it from paintables AND sheds
+  // its brand (no corpse marks, no lance at an invisible pane).
+  const t65 = await p2.evaluate(async () => {
+    const lock = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+    const before = lock.lockCount();
+    window.__dd.bossCrackPane(1);
+    await new Promise((res) => setTimeout(res, 400));
+    return { before, after: lock.lockCount(), paintables: window.__dd.bossPaintables() };
+  });
+  check('T6.5 cracked pane leaves the paintable set and sheds its brand',
+    t65.before === 2 && t65.after === 1 && !t65.paintables.includes('rosePane1') &&
+    t65.paintables.length === 5);
+
+  // T7.2 — the shed brand also drops its tether (1 brand left → 1 line).
+  let t72 = false;
+  try {
+    await p2.waitForFunction(() => window.__dd.bossTetherCount() === 1, { timeout: 6000, polling: 100 });
+    t72 = true;
+  } catch { /* fallthrough */ }
+  check('T7.2 a dropped brand removes its tether (2 → 1)', t72);
+
+  // T7.3 — the audio feel functions exist and are no-throw callable (headless has
+  // no AudioContext → they guard on getCtx; the FEEL is owner-ear-judged).
+  const t73 = await p2.evaluate(async () => {
+    const sfx = (await import(new URL('./js/sfx.js', document.baseURI).href)).sfx;
+    try { sfx.dwellHum?.(0.5); sfx.dwellHum?.(0); sfx.volleyDuck?.(); return true; } catch { return false; }
+  });
+  check('T7.3 dwellHum + volleyDuck are safe to call (no-throw; feel is ear-judged on preview)', t73 === true);
+
+  check('no console errors (hollowgate boot)', b2.errors.length === 0) || console.error(b2.errors.join('\n'));
+  await b2.done();
+}
+
+// ---------------------------------------------------------------------------
+// PR8 third boot — Eternal wisp cosmetic: an Eternal-form SSSR dragon flies its
+// personal accent while the white core/head stays white (the bullet legibility
+// anchor); a non-Eternal dragon keeps the shipped jade. Colour is display-only
+// (damage is a separate arg) so nothing about behaviour is asserted here — only
+// the live ribbon/head material colours + the brand rune.
+// ---------------------------------------------------------------------------
+{
+  const b3 = await boot({ query: '?debug&boss=180' });
+  const p3 = b3.page;
+  await p3.evaluate(async () => {
+    const gt = await import(new URL('./js/gestureTutorial.js', document.baseURI).href);
+    gt.skipGestureTutorial();
+  });
+  await p3.click('#btn-start');
+  await p3.waitForFunction(() => window.__dd && window.__dd.game.state === 'playing', { timeout: 8000 });
+
+  // Equip Phoenix Ascendant at its Eternal form (ascension tier 3) and re-push the
+  // cosmetic. Phoenix's amber (0xff7a1a) is deliberately a "reserved-hue" case —
+  // it proves the white head/core keeps it legible even in a role-adjacent colour.
+  const t81 = await p3.evaluate(async () => {
+    const dg = await import(new URL('./js/dragons.js', document.baseURI).href);
+    window.__dd.save.skins.equipped = 'phoenix';
+    window.__dd.save.ascension.tiers = [['phoenix', 3]];
+    window.__dd.refreshWispCosmetic();
+    const wc = window.__dd.wispColors();
+    return { def: dg.DRAGONS.phoenix.lanceTint, rune: dg.DRAGONS.phoenix.lanceRune,
+      RUNES_ok: true, tint: window.__dd.wispTint(), wc, markRune: window.__dd.markRune() };
+  });
+  check('T8.1 Eternal Phoenix: wisp tint === its lanceTint (amber accent pushed)',
+    t81.tint === t81.def && t81.wc && t81.wc.ribbonHex === t81.def);
+  check('T8.1b Eternal Phoenix: the white head stays 0xeafff6 (legibility anchor unchanged)',
+    t81.wc && t81.wc.headHex === 0xeafff6);
+  check('T8.1c Eternal Phoenix: the brand rune swapped to a per-dragon sigil (not the shared rune)',
+    typeof t81.markRune === 'string' && t81.markRune.length > 0 &&
+    t81.markRune !== 'M12 2 L20 12 L12 22 L4 12 Z M12 6 V18 M7.5 12 H16.5');
+
+  // Equip a starter (SSR, caps at Radiant/form 2) → NOT Eternal → the jade wisp +
+  // the shared rune return. Proves the gate is form-locked, not merely dragon-keyed.
+  const t82 = await p3.evaluate(async () => {
+    window.__dd.save.skins.equipped = 'azure';
+    window.__dd.save.ascension.tiers = [['azure', 2]];
+    window.__dd.refreshWispCosmetic();
+    return { tint: window.__dd.wispTint(), ribbonHex: window.__dd.wispColors()?.ribbonHex,
+      markRune: window.__dd.markRune() };
+  });
+  check('T8.2 non-Eternal starter: wisp reverts to jade 0x50ffaa (ribbon + pushed tint)',
+    t82.tint === 0x50ffaa && t82.ribbonHex === 0x50ffaa);
+  check('T8.2b non-Eternal starter: brand rune reverts to the shared wyrm rune',
+    t82.markRune === 'M12 2 L20 12 L12 22 L4 12 Z M12 6 V18 M7.5 12 H16.5');
+
+  check('no console errors (eternal-wisp boot)', b3.errors.length === 0) || console.error(b3.errors.join('\n'));
+  await b3.done();
+}

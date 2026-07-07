@@ -10,6 +10,7 @@ import { buildHollowgate, buildHollowgateSeed } from './bossHollowgate.js';
 import { buildThrumswarm } from './bossThrumswarm.js';
 import { buildBrineholm } from './bossBrineholm.js';
 import { buildKnellgrave } from './bossKnellgrave.js';
+import { buildKarnvow } from './bossKarnvow.js';
 
 // §5e HORIZON-PRESENCE dispatcher (the Calamities foreshadow artifact): a def
 // with `horizonSeed: true` gets its fog-exempt far-silhouette here. Returns
@@ -78,6 +79,7 @@ function buildBossImpl(def, quality = 1) {
   if (def.archetype === 'thrumswarm') return buildThrumswarm(def, quality);
   if (def.archetype === 'brineholm') return buildBrineholm(def, quality);
   if (def.archetype === 'boundBell') return buildKnellgrave(def, quality);
+  if (def.archetype === 'trophyDuelist') return buildKarnvow(def, quality);
 
   const accent = def.accent ?? 0xff4488;
   const glow = def.glow ?? 0xff88cc;

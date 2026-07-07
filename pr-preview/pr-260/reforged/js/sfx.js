@@ -585,6 +585,7 @@ function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay
 // music engine's windSource loop: one long-lived source + an LFO, torn down on stop.
 let surgeReadyNodes = null;
 let surgeCrackleNodes = null;
+let dwellHumNodes = null;   // V5/PR7: the LANCE dwell "closing-in" hum (frequency tracks progress)
 
 export const sfx = {
   // Glassy ice-bell pluck: pure fundamental + bright inharmonic partial
@@ -762,6 +763,56 @@ export const sfx = {
     if (a && n.out) n.out.gain.setTargetAtTime(0.0001, a.currentTime, 0.06);
     const kill = () => { for (const o of n.oscs) { try { o.stop(); } catch {} } try { n.lfo.stop(); } catch {} };
     setTimeout(kill, 220);
+  },
+  // LANCE DWELL HUM (PR7): a soft "closing-in" whisper whose PITCH rises with the
+  // acquisition progress (0..1) — the one channel that makes the 0→1 dwell ramp
+  // HEARABLE with the reticle off (the DOM fill is reticle-gated; the shimmer is
+  // ambient). Driven per-frame from the main loop: dwellHum(d>0) lazily starts +
+  // tracks the pitch, dwellHum(0) ramps it to silence (on lock, seal, or fight
+  // end). Deliberately quiet — a pull toward the mark, never a nag.
+  dwellHum(d = 0) {
+    const a = getCtx();
+    if (!a || !sfxBus) return;
+    if (d <= 0.001) {   // stop
+      const n = dwellHumNodes; dwellHumNodes = null;
+      if (!n) return;
+      n.out.gain.setTargetAtTime(0.0001, a.currentTime, 0.05);
+      setTimeout(() => { for (const o of n.oscs) { try { o.stop(); } catch {} } }, 160);
+      return;
+    }
+    if (!dwellHumNodes) {   // lazy start
+      const out = a.createGain();
+      out.gain.setValueAtTime(0.0001, a.currentTime);
+      out.connect(sfxBus);
+      const oscs = [];
+      for (const [type, mul, vol] of [['triangle', 1, 0.6], ['sine', 2, 0.22]]) {
+        const o = a.createOscillator();
+        o.type = type; o.frequency.value = 200 * mul;
+        const g = a.createGain(); g.gain.value = vol;
+        o.connect(g).connect(out);
+        o.start();
+        oscs.push({ o, mul });
+      }
+      dwellHumNodes = { oscs, out };
+    }
+    // Track: pitch rises 200→620Hz, gain swells with progress — both eased so a
+    // draining dwell (L177) glides back down instead of stepping.
+    const n = dwellHumNodes, t = a.currentTime, f = 200 + 420 * Math.min(1, d);
+    for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(f * mul, t, 0.05);
+    n.out.gain.setTargetAtTime(0.022 * (0.35 + 0.65 * d), t, 0.05);
+  },
+  // RELEASE DUCK (PR7): a deliberate volley loose briefly dips the MUSIC bus so
+  // the exhale owns the moment (the Rez sidechain). Music only — the exhale
+  // itself routes through sfxBus, and the kick sidechain lives on its own
+  // pumpGain node, so musicBus.gain is free for this transient automation. The
+  // restore target is musicTarget() so it respects mute/volume.
+  volleyDuck() {
+    const a = getCtx();
+    if (!a || !musicBus) return;
+    const t = a.currentTime, base = musicTarget();
+    musicBus.gain.cancelScheduledValues(t);
+    musicBus.gain.setValueAtTime(base * 0.55, t);
+    musicBus.gain.setTargetAtTime(base, t + 0.18, 0.12);
   },
   // Surge UNLEASH: the beam fires. A hard downward laser sweep + a sub boom + a
   // bright noise lance — the big "FWOOM" that launches the mouth beam at the boss.
