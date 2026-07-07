@@ -7150,7 +7150,78 @@ Deferred: audio bus duck under the release (needs sfxBus gain automation), per-d
 parts; rib ambers need part tags; Calamities lockParts data; "relics/profiles" maps to nothing —
 ask, don't build).
 
-### L188 — KARNVOW CP1 (the band-peak trophy-duelist): presence from PROXIMITY + assembly not height; the lance is ONE part with THREE jobs; a COLD accent is a palette-gate minefield
+### L188 — LANCE PR4 shipped (V4 lock-snap parry): the data was waiting at the seam, not in the feature — and a 3-year-old comment was the whole spec
+
+**Did.** The perfect-parry brand: perfectly parrying an amber snaps a lock pip onto the ORGAN
+that fired it. Owner rulings: PERFECT-only (the brand joins the perfect tier — heal + score +
+snap), and verb-only scope (no Calamities lockParts this PR; "relics/profiles" from the old
+handover maps to nothing in the repo and was dropped). Wiring: `reflectBossBullets` now returns
+`snapParts` (source tags of PERFECTLY parried ambers, deduped, nulls skipped — the tag was
+always on the slot, just dropped from the return); MARROWCOIL's rib ambers carry their rib name
+(the same trailing `emitBoss` arg HOLLOWGATE panes pioneered — and the tag is INERT for damage
+routing on marrowcoil since it has no PART_SYS flag, so coexist held with zero routing changes);
+the roll-parry seam calls `paintFromParry` gated on `!surge` (the "0 during fever" LAW) +
+`!lockDeflected()` (sealed honesty — a survival-card parry can't promise a mark) + snapPerVolley;
+`paintFromParry` finally has a body — paints the venting organ (NO amberVenting check by design,
+that gate is dwell-only: C3's whole point), refreshes an existing pip's decay, EXEMPT from
+paintCooldown (perfect-only is already the price) but SETS it after. Teach: `snapTaught` bit +
+`driveSnapTeach` on the teach boss (fires only when a rib is actually VENTING and only after
+lockTaught — one concept at a time), dismissed by the first `lockPaint{snap:true}`.
+
+**The lesson.** This feature was ~40 lines because every hard part existed as dormant DATA:
+the config LAW (`snapPerVolley`, written in PR1), the C3 dwell-exemption (PR2), the part-tag
+plumbing (HOLLOWGATE's §5f), and the single intent sentence in a code comment ("parry is the
+only sanctioned way to paint a venting organ") which turned out to be the entire spec. Two
+reusable morals: (1) when a subsystem reserves seams ahead (stub exports, tagged config LAWS,
+one-line intent comments), the eventual feature is mostly UNDROPPING data at the seams — spend
+the design effort naming the seam correctly the first time; (2) an emitter TAG can ship for one
+consumer (pane cracking) and be silently load-bearing for the next verb years later — when
+adding a per-entity tag, tag EVERY emitter that has an identity, not just the one the current
+feature needs (the rib ambers going untagged in PR2 cost this PR its only real archaeology).
+
+**→ Leapfrog.** The perfect-parry now carries THREE rewards (heal, score, brand) — the §5i
+parry ladder's premium tier is getting crowded; if a fourth lands, split rewards by parry
+CONTEXT (venting-organ parry → brand; clean parry → heal) instead of stacking. Deferred:
+Calamities lockParts (own PR, each tier-3 invuln state must join lockDeflected), V5 focus +
+E1 beat-release (beatWindow/beatMult still inert), audio bus duck, per-dragon wisp tint.
+
+### L189 — LANCE PR5 shipped (V5 focus + E1 beat-release): the last dead-wired verbs, and the gesture space was already partitioned
+
+**Did.** The two remaining dormant LANCE verbs, both pure seam-filling: (1) **V5 FOCUS** — holding
+a STILL extra finger past `focusArmMs` (300ms; keyboard: hold F — Space can't carry it because the
+surge tap fires on Space KEYDOWN, the zero-latency LAW) halves the effective dwell threshold
+(`focusDwellMult` on the threshold + refresh clock, never the accrual clamps, so dropping focus
+keeps earned progress); the HUD dwell fraction uses the same effective need (display==logic);
+the focus RING gets its third job (idle circle → surge meter → jade-warming focus tint,
+render-only `focusVis` ease). (2) **V3.E1 PERFECT RELEASE** — a MANUAL loose ('tap' source only;
+auto cap/decay releases are not the player's timing and never claim it) within ±`beatWindow` of a
+`getBeatClock()` beat edge rides `beatMult` — applied INSIDE the ROI clamp (`lanceDmgEach` gained
+a mult arg; the 10%-of-phase-hp ceiling stays absolute) — plus `perfectReleaseScore` and the
+"ON THE BEAT" callout. Teach: `driveFocusTeach` on EITHERWING (the fast-orbit seeker organs are
+what focus is FOR), retired by performing the hold ≥0.8s anywhere.
+
+**The design finds.** (1) **The 2nd-finger gesture space was already fully partitioned by
+duration+motion**: <260ms still = surge tap, sustained horizontal = roll, ≥260ms hold = boost —
+and boost is SUSPENDED in fights, so the ≥300ms still-hold was a free, collision-proof slot;
+the 260→300ms dead band is load-bearing hysteresis (a late-released tap must never alias into
+focus — config had encoded this as a LAW comment for four PRs). Level-read the gesture per frame
+(`focusHeldNow()` scans finger ages), never latch it — no stale state, no event-ordering bugs.
+(2) **A rate-knob's SIGN needs its consumer**: `focusDwellMult: 0.5` reads as "slower" beside
+`quietDwellMult: 0.5` (a penalty) — only the threshold reading makes focus a buff. When reserving
+paired constants, name the operand (`focusDwellNeedMult` would have been unambiguous).
+(3) **Beat bonuses go INSIDE hard clamps**: ×1.25 after the ROI clamp would breach audit R1;
+inside, it only matters when the clamp isn't binding — the law stays absolute and the test
+asserts it at a 30hp phase.
+
+**→ Leapfrog.** The combat-verbs arc's SOP ladder (V1 aim → V2 paint → V3 tap/fork/loose →
+V4 snap-parry → V5 focus + E1) is now FULLY SHIPPED — every reserved config LAW, save bit, and
+stub export from PR1 has a live consumer. What remains for the layer is data + polish, not verbs:
+Calamities lockParts (each tier-3 invuln state joins lockDeflected), the slot-14 exam rules,
+tether LineSegments, feats/analytics, the lockdps persona sim, audio bus duck, per-dragon wisp
+tint + rune sigils (Eternal cosmetics). The old SOP pinned E1 to "slots 10+" (unbuilt); it
+shipped globally as pure upside — flagged for the owner to slot-gate if band identity wants it.
+
+### L190 — KARNVOW CP1 (the band-peak trophy-duelist): presence from PROXIMITY + assembly not height; the lance is ONE part with THREE jobs; a COLD accent is a palette-gate minefield
 
 **Did.** Built slot 9 CP1 — `archetype: 'trophyDuelist'`, new `bossKarnvow.js` + one `bossModel.js` dispatch
 line + the def + `BOSS_ORDER` append + a `boss.mjs` named-pivot telegraph test. A lean HOODED DUELIST: peaked
@@ -7162,72 +7233,64 @@ shipped bosses byte-unchanged. ~6k tris, scale 2.0.
 **The L140 presence fix, confirmed on a lean figure.** The audit flagged slot 9 as the thin-tris band-peak trap
 (~2k). The fix was NOT bulk: raise tris toward the band floor as DETAIL (chain charms, fauld/pauldron facets,
 cowl folds, lance horn-ridge) + set the on-screen scale (2.0) so the fight-frame reads a peer, and let PROXIMITY
-+ the lance+chain assembly carry presence. A lean figure legitimately sits ~6k, not brineholm's ~7.6k whale —
-tris are a detail-density proxy, not a size lever. G4 geom-coverage (bump scale) and Fable presence both cleared.
++ the lance+chain assembly carry presence. A lean figure legitimately sits ~6k — tris are a detail-density
+proxy, not a size lever.
 
 **The lance is ONE part, THREE jobs** — the silhouette's dominant diagonal, the amber-emitting `lanceTip` organ
-(the ONLY amber, §5i.C.3), and the `setCharge` telegraph (couch→point→salute). Naming the pivots (`lancePivot`/
-`chainPivot`/`cowlPivot`/`lanceTip`) is what the telegraph gate + `def.muzzle` aim + the controller charisma
-hooks all key off. Reused the bossIdol `taperTube` horn kernel and the ashtalon handle contract verbatim.
+(the ONLY amber, §5i.C.3), and the `setCharge` telegraph (couch→point→salute). Named pivots (`lancePivot`/
+`chainPivot`/`cowlPivot`/`lanceTip`) are what the telegraph gate + `def.muzzle` aim + the charisma hooks key off.
 
 **The stranger test fails at the FRONT even when ¾/profile pass — and the fight-frame IS front-on.** Fable's
-first CP1 verdict was FIX: the couched lance ran near-VERTICAL against the body in the front view → read as a
-wizard's STAFF; the glint was a big lamp-eye on a smooth cone → wizard; the charms floated as detached orbs. A
-foreshortened forward (+Z) lance vanishes from the front — the couched rest pose must angle DOWN-AND-OUT so a
-hard diagonal lives in the SCREEN PLANE, not pointed at the camera. Recess the glint into a dark socket + brow
-and shrink it (kills the lamp), attach the chain with VISIBLE link bars overlapping the body (kills the orbs).
-All four fixes landed and the re-gate PASSed. **Judge the silhouette at the canonical FIGHT angle, not just the
-angles that flatter it.**
+first CP1 verdict was FIX: the couched lance ran near-VERTICAL against the body in the front view → a wizard's
+STAFF; the glint was a big lamp-eye on a smooth cone; the charms floated as detached orbs. A foreshortened
+forward (+Z) lance vanishes from the front — the couch must angle DOWN-AND-OUT so a hard diagonal lives in the
+SCREEN PLANE. Recess the glint into a dark socket + brow (kills the lamp), attach the chain with VISIBLE links
+overlapping the body (kills the orbs). **Judge the silhouette at the canonical FIGHT angle, not the angles that
+flatter it.**
 
-**A COLD accent on a warm-lit game is a palette-gate minefield — the robust levers.** bossgate G3 flaked wildly
-(12%↔61% across identical runs) for a cold-steel boss: (1) cold edges/bloom over a WARM sky fringe false-magenta
-(danger-band fail), the symmetric twin of the warm-boss-cool-sky trap the DIST table already guards — so PAIR
-the capture with a COOL sky (`karnvow: 6600` = LUMEN MIRE; NOT a `gate.pale` override, a DARK boss); (2)
-attribution flaked because the cold identity rode THIN aliasing seam-LINES while the biome tint + saturated
-trophy charms polluted the accent tier. Fixes: carry the cold identity on SOLID emissive elements (gorget/belt
-bands, a chest sigil, the rim) not just lines (solid = stable pixel count frame-to-frame), and DIM the satellite
-charms so they drop out of the accent tier at idle. **A guttering FOCAL is a G1 flake too — make the blink a
-SIZE breath, not a brightness drop, so the core never dips below the ≥250 focal floor on a gutter-frame capture
-(the ashtalon core-stays-lit lesson).** Floor went from a flaky 12% to a reliable ~25–52%.
+**A COLD accent on a warm-lit game is a palette-gate minefield.** bossgate G3 flaked (12%↔61%) for a cold-steel
+boss: (1) cold edges/bloom over a WARM sky fringe false-magenta — PAIR the capture with a COOL sky (`karnvow:
+6600` = LUMEN MIRE in the DIST table; NOT a `gate.pale` override); (2) attribution flaked while the cold identity
+rode THIN aliasing seam-LINES — carry it on SOLID emissive elements (gorget/belt bands, a chest sigil, the rim;
+solid = stable pixel count) and DIM the satellite charms out of the accent tier at idle. A guttering FOCAL is a
+G1 flake too — make the blink a SIZE breath, not a brightness drop (the ashtalon core-stays-lit lesson).
+**Owner round:** the cowl hook read as a detached floating horn → re-embed as a continuous peak-tip; the glint
+now TRACKS the dragon (owner overrode the "looks past" indifference bias).
 
-**Owner review (CP1 crops).** Two fixes: (1) the cowl back-sweep hook read as a detached "floating horn beside
-the head" → re-embedded as a continuous curled peak-TIP (base sunk into the apex, in-line); (2) the cold glint
-now TRACKS the dragon (looks AT you as you move) — the owner overrode the earlier "looks past" indifference bias.
-**Residuals for CP2:** strengthen the recessed-socket rim; tuck two small detached hip plates; one more hood-cone
-asymmetry break. **Deferred to CP2 (Decision C1):** reflect-once riposte, the *It Kept Count* stat-taunt entrance
-+ MANDATORY top-killer charm flare, the moving-station flank setpiece (reuse ashtalon's), HOLD-UNTIL-FLINCH graze.
-Pipeline stopped at posted crops for the owner's green-light before CP2 (the anti-rebuild law).
+### L191 — KARNVOW CP1.5 (the "stiff like Lego" verdict, two rounds): velocity-diff banking is a new boss-motion primitive; tell FAMILIES end one-animation bosses; tune motion against the FIGHT FRAME and err loud
 
-### L189 — KARNVOW CP1.5 (the "stiff like Lego" owner verdict): velocity-diff banking is a new boss-motion primitive; tell FAMILIES end one-animation bosses; cold emissive must stay SATURATED, not bright
+**Round 1 (the mechanics).** The owner judged CP1 on the live preview: silhouette fine, "moves stiff like a Lego
+character", "one animation with the stick", charms cluttering the weapon-arm hip. All fixed in the builder, zero
+boss.js changes: (1) **velocity-coupled bank** — the model diffs `group.position` frame-to-frame (placeGroup runs
+AFTER model.tick, so at tick time the position is a clean one-frame-lag placement; clamp + re-baseline on >4u
+teleports), the dragon.js `damp(bank, -vx·k)` idiom transplanted to a boss for the first time; (2) multi-frequency
+idle (eitherwing layering); (3) the cowl TRAILS the bank (ashtalon covert-lag: a slower ease chasing the rig lean,
+the pivot wears the delta); (4) the trophy chain became a **damped-spring pendulum** (`vel += (−k·ang − c·vel +
+drive)·dt`, drive = body velocity + flinch/notice impulses) with graded per-charm lag; (5) the surcoat split onto
+`surcoatPivot` (lag-sway + backstream); (6) the chain moved to the LEFT hip, opposite the lance grip. **Tell
+FAMILIES:** `setAttackTell` was already fed the raw attack id by boss.js — the builder just ignored it. Mapping
+attacks to lance poses (aimed=THRUST jab / crossfire=SWEEP + torso counter-rotation / stream=overhead FLOURISH
+twirl) + a follow-through overshoot on release turned one pose into a fencing vocabulary for ~60 lines, machine-
+checked in boss.mjs so it can't silently regress. **Any boss whose tick ignores `tell` is leaving its cheapest
+expressiveness unbuilt.**
 
-**Did.** The owner judged CP1 on the live PR preview: silhouette fine, but "moves stiff like a Lego
-character" (vs EITHERWING/ASHTALON), "one animation with the stick looks basic", charms cluttering the
-weapon-arm hip. The fluidity pass, all inside `bossKarnvow.js` + test asserts: (1) **velocity-coupled
-bank** — the model diffs `group.position` frame-to-frame (placeGroup runs AFTER model.tick, so at tick
-time the position is a clean one-frame-lag placement; clamp + re-baseline on >4u teleports) and leans
-into lateral travel, the dragon.js `damp(bank, -vx*k)` idiom transplanted to a boss for the first time;
-(2) multi-frequency idle (two lean sines + weave + bob — eitherwing layering); (3) cowl TRAILS the bank
-(ashtalon covert-lag: a slower ease chasing the rig lean, the pivot wears the delta); (4) the trophy
-chain became a **damped-spring pendulum** (`vel += (-k·ang − c·vel + drive)·dt`) driven by the body's own
-velocity + flinch/notice impulses — real inertia jiggle, charms lag with graded ease; (5) the surcoat
-split out of the merged body onto `surcoatPivot` (lag-sway + backstream — cloth over motion); (6) the
-chain moved to the LEFT hip, opposite the lance grip.
+**Round 2 (the amplitudes).** The owner re-flew and only the arm + eye read — every motion layer was live but
+tuned against the studio close-up: an 11° peak bank, a ±0.08u bob, and a few tenths-of-a-radian of dark-on-dark
+surcoat swing are INAUDIBLE on a lean dark figure at rel 30. Round 2: bank ~2× (peak ~26°), bob ~3×, a slow
+lane-drift (`rig.position.x`) so he rides his lane, the surcoat hem sized to BREAK THE OUTLINE (~1u lateral at
+full bank, riding the chain pendulum), wider slower chain swings, grip-float ~2× (the lance is the longest lever
+in the silhouette = the cheapest legible idle). **Tune motion against the FIGHT FRAME, not the studio close-up —
+err loud; the close-up lies.**
 
-**Tell FAMILIES end the one-animation boss.** `setAttackTell` was already fed the raw attack id by
-boss.js — the builder just ignored it. Mapping attacks to lance poses (aimed=THRUST jab / crossfire=
-SWEEP across with torso counter-rotation / stream=overhead FLOURISH twirl) + a follow-through overshoot
-on release + a restless grip-float at rest turned one pose into a fencing vocabulary for ~60 lines.
-Machine-checked (boss.mjs asserts sweep-yaw and flourish-roll differ from thrust) so it can't silently
-regress. **Reusable: any boss whose tick ignores `tell` is leaving its cheapest expressiveness unbuilt.**
+**Two pixel-gate laws learned the hard way.** (a) A tiny HDR focal needs PURE-INTERIOR pixels at fight-capture
+scale — smaller and every pixel is an AA edge-blend and maxLum caps ~247 no matter how hot the material (the
+mysterious deterministic 247). Size the focal for the capture distance. (b) **Cold emissive must stay SATURATED,
+not bright**: over-bright cold clips G/B to 1.0 under bloom → hue shifts off-accent, saturation collapses, the
+pixels drop OUT of the G3 accent tier (in-game 15% vs studio 68%). Halving the emissive RAISED attribution to a
+robust 29–41%. Brighter ≠ identity; saturated = identity.
 
-**Two pixel-gate laws learned the hard way.** (a) A tiny HDR focal needs PURE-INTERIOR pixels at
-fight-capture scale — below that size every pixel is an AA edge-blend and maxLum caps ~247 no matter how
-hot the material (the mysterious deterministic 247). Size the focal for the capture distance, not the
-close-up. (b) **Cold emissive must stay SATURATED, not bright**: over-bright cold (emissive ×2.4, line
-color ×2.5) clips G/B to 1.0 under bloom → hue shifts off-accent and saturation collapses → the pixels
-drop OUT of the G3 accent tier entirely (in-game 15% vs studio 68%). Halving the emissive RAISED
-attribution to a robust 29–41%. Brighter ≠ more identity; saturated = identity.
-
-**Owner-loop lesson.** Stills passed two Fable gates and every pixel law — the stiffness was only
-visible on the LIVE preview. Motion verdicts belong to the preview build; budget an owner FIX round
-after first live viewing as the NORMAL pipeline, not a failure of the gates.
+**Owner-loop lesson.** Stills passed two Fable gates and every pixel law — the stiffness and the amplitude miss
+were only visible on the LIVE preview, across TWO owner rounds. Motion verdicts belong to the preview build;
+budget owner FIX rounds after first live viewing as the NORMAL pipeline. Also: the PR-preview action can silently
+skip a push (round 2 never deployed — the owner was re-judging round 1); when an owner says "nothing changed",
+CHECK THE DEPLOY before doubting the work.

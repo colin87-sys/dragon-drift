@@ -208,4 +208,123 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   bullets.resetBossBullets();
 }
 
+// --- T-V4 — lock-snap parry seam (PR4): reflectBossBullets returns the source
+// parts of PERFECTLY parried ambers only (the owner-ruled perfect-only trigger).
+{
+  const spawnAmber = (rel, part) => bullets.spawnBossBullet({
+    owner: 'boss', x: player.position.x, y: player.position.y, rel,
+    vx: 0, vy: 0, vrel: -10, reflectable: true, dmg: 4, r: 0.6, life: 4, part,
+  });
+  const perfectRel = CONFIG.BOSS.perfectParryRel;
+  spawnAmber(perfectRel * 0.5, 'ribPivotL1');            // inside the perfect window
+  spawnAmber(perfectRel * 0.5, 'ribPivotL1');            // duplicate part → deduped
+  spawnAmber(CONFIG.BOSS.reflectWindow * 0.9, 'ribPivotR1');   // parried, NOT perfect
+  spawnAmber(perfectRel * 0.5, null);                    // perfect but untagged → skipped
+  const r = bullets.reflectBossBullets(player, CONFIG.BOSS.reflectWindow, B.settleGap, 0, 13);
+  assertEq(r.total, 4, 'all four ambers parried');
+  assertEq(r.perfect, 3, 'three inside the perfect window');
+  assertEq(r.snapParts.join(','), 'ribPivotL1', 'snapParts = PERFECT + tagged + deduped only');
+  ok('T-V4 reflect seam: perfect-only, tagged-only, deduped snap parts');
+  bullets.resetBossBullets();
+}
+
+// --- T-V4b — paintFromParry state machine (headless, the runLock-equivalent) --
+{
+  lock.initLockLayer();
+  const paints = [];
+  on('lockPaint', (p) => { if (p && p.snap) paints.push(p); });
+  const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 3, y: 0, z: 0 } };
+  const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
+  const mkCtx = (over = {}) => ({
+    fightRunning: true, model, candidates: ['A', 'B'], muted: false,
+    emittersLive: true, exposureWindow: false, damageBoss() {}, flashPart() {},
+    tier: 2, cap: 2, deflected: false, phaseHp: 100, paintUnlocked: true,
+    paintables: ['A', 'B'], amberVenting: (p) => p === 'A',   // A VENTS the whole time
+    fireLance() {}, ...over,
+  });
+  const p0 = { position: { x: 50, y: 50 } };   // parked far away — no dwell interference
+  lock.updateLockLayer(0.06, p0, mkCtx());     // one frame arms S.cap/fightRunning
+  // The C3 proof: the VENTING organ (dwell-exempt) snap-paints.
+  assert(lock.paintFromParry('A') === true && lock.lockCount() === 1, 'snap paints the VENTING organ (C3)');
+  assert(paints.length === 1 && paints[0].snap === true, 'snap paint emits lockPaint{snap:true}');
+  // Snap onto an existing pip refreshes its decay instead.
+  for (let f = 0; f < 20; f++) lock.updateLockLayer(0.06, p0, mkCtx());   // age the pip 1.2s
+  assert(lock.paintFromParry('A') === true, 'snap onto an existing pip returns true (refresh)');
+  lock.updateLockLayer(0.06, p0, mkCtx());
+  const life = lock.lockHudState().locks[0].life;
+  assert(life > 0.95, `refresh reset the pip's decay (life ${life.toFixed(3)})`);
+  // Cap-full snap is refused; deflected snap is refused.
+  assert(lock.paintFromParry('B') === true && lock.lockCount() === 2, 'second organ snaps to cap');
+  assert(lock.paintFromParry('C') === false, 'cap-full snap of a NEW organ is refused');
+  lock.updateLockLayer(0.06, p0, mkCtx({ deflected: true }));
+  assert(lock.paintFromParry('B') === false, 'sealed boss refuses the snap (sealed honesty)');
+  ok('T-V4b paintFromParry: C3 venting paint, refresh, cap, sealed-refusal');
+}
+
+// --- T-F1 — V5 FOCUS halves the effective dwell (PR5) --------------------------
+{
+  const ORGANS = { A: { x: 0, y: 0, z: 0 } };
+  const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
+  // paintUnlocked false → a pure V1 aim test (a completed dwell would otherwise
+  // PAINT and paint-hop-release the aim the same frame it locks).
+  const mkCtx = (focus) => ({
+    fightRunning: true, model, candidates: ['A'], muted: false, emittersLive: true,
+    exposureWindow: false, damageBoss() {}, flashPart() {}, tier: 2, cap: 3,
+    deflected: false, phaseHp: 100, paintUnlocked: false, paintables: ['A'],
+    amberVenting: () => false, fireLance() {}, focusHeld: focus,
+  });
+  const pl = { position: { x: 0, y: 0 } };
+  const run = (focus, frames) => {
+    lock.initLockLayer();
+    for (let f = 0; f < frames; f++) lock.updateLockLayer(0.03, pl, mkCtx(focus));
+    return { held: lock.lockAimHeld(), dwell: lock.lockHudState().dwell };
+  };
+  const focused = run(true, 6);     // 0.18s ≥ dwellTime×0.5 (0.175) → held
+  const unfocused = run(false, 6);  // 0.18s < 0.35 → not held
+  assert(focused.held === true, 'FOCUS: 0.18s dwell locks (threshold halved)');
+  assert(unfocused.held === false, 'no focus: 0.18s is still short of 0.35');
+  assert(focused.dwell >= 0.999, `HUD honesty: the fill completes exactly when the focused lock does (${focused.dwell.toFixed(3)})`);
+  assert(unfocused.dwell < 0.6, 'HUD honesty: unfocused fill shows the full climb');
+  assert(L.focusArmMs > 260, `hysteresis LAW: focusArmMs ${L.focusArmMs} > the 260ms tap ceiling`);
+  ok('T-F1 focus halves the dwell threshold; HUD fill matches; arm-gap LAW holds');
+}
+
+// --- T-E1 — perfect release: a MANUAL loose on the beat (PR5) ------------------
+{
+  const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 10, y: 0, z: 0 } };
+  const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
+  const run = (beatOn, phaseHp, viaTap) => {
+    lock.initLockLayer();
+    const lances = [], volleys = [];
+    on('lockVolley', (p) => volleys.push(p));
+    const mkCtx = () => ({
+      fightRunning: true, model, candidates: ['A', 'B'], muted: false, emittersLive: true,
+      exposureWindow: false, damageBoss() {}, flashPart() {}, tier: 2, cap: 2,
+      deflected: false, phaseHp, paintUnlocked: true, paintables: ['A', 'B'],
+      amberVenting: () => false, fireLance: (part, dmg) => lances.push(dmg), beatOn,
+    });
+    const step = (px, frames) => { const p = { position: { x: px, y: 0 } };
+      for (let f = 0; f < frames; f++) lock.updateLockLayer(0.06, p, mkCtx()); };
+    step(0, 20); step(10, 20);            // paint A then B (cap 2 → fuse arms)
+    if (viaTap) { lock.requestLoose(); step(10, 4); }
+    else step(10, 25);                    // let the CAP fuse auto-release instead
+    return { lances, volley: volleys.find((v) => v && v.count === 2) };
+  };
+  const onBeatTap = run(true, 100, true);
+  assert(onBeatTap.volley && onBeatTap.volley.perfect === true && onBeatTap.volley.source === 'tap',
+    'a manual loose on the beat is a PERFECT release');
+  assert(Math.abs(onBeatTap.lances[0] - L.lanceDmg * L.beatMult) < 1e-9,
+    `beat volley dmg ${onBeatTap.lances[0]} = lanceDmg × beatMult`);
+  const offBeatTap = run(false, 100, true);
+  assert(offBeatTap.volley && !offBeatTap.volley.perfect && Math.abs(offBeatTap.lances[0] - L.lanceDmg) < 1e-9,
+    'off-beat manual loose is the plain volley');
+  const onBeatCap = run(true, 100, false);
+  assert(onBeatCap.volley && onBeatCap.volley.source === 'cap' && !onBeatCap.volley.perfect,
+    'an AUTO (cap-fuse) release never claims the beat — perfect is the PLAYER\'s timing');
+  const clamped = run(true, 30, true);
+  assert(Math.abs(clamped.lances[0] - (L.volleyRoiFrac * 30) / 2) < 1e-6,
+    `the ROI clamp is ABSOLUTE: on-beat at 30hp phase still lands ${clamped.lances[0]} (≤ 10% law)`);
+  ok('T-E1 beat release: tap-only, ×beatMult inside the ROI clamp, auto releases exempt');
+}
+
 console.log(`\n${n} wisp checks passed.`);
