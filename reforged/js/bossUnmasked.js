@@ -192,12 +192,17 @@ export function buildUnmasked(def, quality = 1) {
   // covers down over the pupil = a heavy dark lid mass; opening tucks it back (a
   // rotation about the disc centre) so the lash rises and the pupil is revealed.
   const lidSeg = lowQ ? 32 : 56;
+  // The crescent stops INBOARD of the disc rim (LR < DISC_R) so its side corners
+  // (canthi) never reach the rim — the disc edge + corona stay an UNBROKEN circle at
+  // 3 and 9 o'clock (no mechanical seam/notch, the CP1 fix). The outer rim ring the
+  // lid leaves uncovered is just more black disc, so the lidded read is seamless.
   const crescentGeo = () => {
-    const a = 0.12;
-    const yEnd = DISC_R * Math.sin(a), xEnd = DISC_R * Math.cos(a);
+    const LR = DISC_R * 0.88;
+    const a = 0.14;
+    const yEnd = LR * Math.sin(a), xEnd = LR * Math.cos(a);
     const s = new THREE.Shape();
-    s.absarc(0, 0, DISC_R, a, Math.PI - a, false);                 // top rim arc (ends L/R at the rim)
-    s.quadraticCurveTo(0, yEnd - DISC_R * 0.95, xEnd, yEnd);       // CURVED lash bowing down over the pupil
+    s.absarc(0, 0, LR, a, Math.PI - a, false);                     // inboard arc (ends L/R short of the rim)
+    s.quadraticCurveTo(0, yEnd - LR * 0.95, xEnd, yEnd);           // CURVED lash bowing down over the pupil
     s.closePath();
     return stripForMerge(new THREE.ShapeGeometry(s, lidSeg));
   };
