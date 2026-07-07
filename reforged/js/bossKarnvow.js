@@ -650,19 +650,23 @@ export function buildKarnvow(def, quality = 1) {
 
     // --- The body BANKS into lateral travel (the #1 anti-Lego lever — the station
     // bob + setpieces slide it laterally all fight; a rigid slide reads as Lego,
-    // a lean into the turn reads as RIDING). Eased like dragon.js bankZ. ---
-    bankEase += (Math.max(-0.3, Math.min(0.3, -velX * 0.04)) - bankEase) * Math.min(1, dt * 6);
+    // a lean into the turn reads as RIDING). Eased like dragon.js bankZ.
+    // AMPLITUDES TUNED FOR FIGHT DISTANCE (owner round 2: "the only obvious movement
+    // is the arm and the eye") — a dark lean figure at rel 30 needs ~2× the roll and
+    // ~3× the bob before motion is legible at all; err loud, the studio close-up lies. ---
+    bankEase += (Math.max(-0.45, Math.min(0.45, -velX * 0.09)) - bankEase) * Math.min(1, dt * 6);
 
     // --- Multi-frequency idle (the eitherwing layering): the at-rest duelist
-    // shifts his seat — lean (two incommensurate sines) + a slow weave + a bob —
-    // instead of hovering frozen. Death sag composes on x. ---
-    const idleLean = -0.06 + Math.sin(time * 0.5) * 0.014 + Math.sin(time * 0.83) * 0.009;
+    // shifts his seat — lean (two incommensurate sines) + a slow weave + a bob +
+    // a slow LANE-DRIFT (he rides his lane, never hangs pinned). Death sag on x. ---
+    const idleLean = -0.06 + Math.sin(time * 0.5) * 0.03 + Math.sin(time * 0.83) * 0.018;
     rig.rotation.z = idleLean + bankEase;
-    const pitchTarget = dyingK * 0.28 + Math.max(-0.1, Math.min(0.1, velY * 0.012)) + Math.sin(time * 0.31) * 0.008;
+    const pitchTarget = dyingK * 0.28 + Math.max(-0.14, Math.min(0.14, velY * 0.02)) + Math.sin(time * 0.31) * 0.015;
     rig.rotation.x += (pitchTarget - rig.rotation.x) * Math.min(1, dt * 3);
     // sweepYaw (the cross-sweep torso counter-rotation) is eased in the lance section.
-    rig.rotation.y = Math.sin(time * 0.23) * 0.035 + velX * 0.006 + sweepYaw;
-    rig.position.y = Math.sin(time * 0.7) * 0.05 + Math.sin(time * 1.13) * 0.03;
+    rig.rotation.y = Math.sin(time * 0.23) * 0.08 + velX * 0.012 + sweepYaw;
+    rig.position.y = Math.sin(time * 0.7) * 0.16 + Math.sin(time * 1.13) * 0.09;
+    rig.position.x = Math.sin(time * 0.37) * 0.35;   // the lane-drift (slow, reads as station-keeping)
 
     // --- Gaze: the cowl turns toward the player with LAG + look-aways (the hunter
     // sizing you up — but it looks THROUGH you, never granting the mutual gaze). ---
@@ -768,12 +772,14 @@ export function buildKarnvow(def, quality = 1) {
       target = new THREE.Euler(LANCE_REST.x + k * 0.22, LANCE_REST.y - k * 0.1, LANCE_REST.z + k * 0.06);
       poseSpeed = 10;
     } else {
-      // The restless GRIP FLOAT (a duelist's live hand, never frozen): micro-adjust
-      // sines on the couched rest — small, two frequencies, always moving.
+      // The restless GRIP FLOAT (a duelist's live hand, never frozen): adjust
+      // sines on the couched rest — two frequencies, sized to read at fight
+      // distance (the lance is the longest lever in the silhouette: small grip
+      // angles = visible tip travel, so this is the cheapest legible idle).
       target = new THREE.Euler(
-        LANCE_REST.x + Math.sin(time * 0.9) * 0.03 + Math.sin(time * 1.7) * 0.015,
-        LANCE_REST.y + Math.sin(time * 0.63) * 0.025,
-        LANCE_REST.z + Math.sin(time * 1.21) * 0.012,
+        LANCE_REST.x + Math.sin(time * 0.9) * 0.055 + Math.sin(time * 1.7) * 0.03,
+        LANCE_REST.y + Math.sin(time * 0.63) * 0.05,
+        LANCE_REST.z + Math.sin(time * 1.21) * 0.022,
       );
     }
     const le = Math.min(1, dt * poseSpeed);
@@ -801,12 +807,14 @@ export function buildKarnvow(def, quality = 1) {
     if (dt > 0) {
       // Drive: the charms want to hang opposite the lateral travel (inertia), with
       // pain/notice jolting the spring directly (impulses, decayed by the damping).
-      const drive = velX * 0.55
+      const drive = velX * 0.85
         + (painT > 0.3 ? Math.sin(time * 22) * 9 * (painT / 0.34) : 0)
         + (noticeT > 0.75 ? Math.sin(time * 16) * 5 : 0);
-      chainVel += (-9 * chainAng - 4 * chainVel + drive) * Math.min(dt, 0.05);
+      // Softer spring + lighter damping than round 1 — WIDER, slower swings that
+      // actually read at fight distance (the owner's "jiggle").
+      chainVel += (-7 * chainAng - 3.2 * chainVel + drive) * Math.min(dt, 0.05);
       chainAng += chainVel * Math.min(dt, 0.05);
-      chainAng = Math.max(-0.7, Math.min(0.7, chainAng));
+      chainAng = Math.max(-0.8, Math.min(0.8, chainAng));
     }
     chainPivot.rotation.z = chainAng + Math.sin(time * 1.6) * 0.04;   // pendulum + a faint idle sway
     chainPivot.rotation.x = rig.rotation.z * 0.5;   // hangs with gravity as the body leans
@@ -824,12 +832,15 @@ export function buildKarnvow(def, quality = 1) {
       }
     });
 
-    // --- The SURCOAT (owner pizzazz pick): the tabard lags the body bank and
-    // streams BACK with travel — cloth over motion, not a rigid block. ---
-    surcoatSway += (bankEase * 1.4 - surcoatSway) * Math.min(1, dt * 3);
-    surcoatBack += ((Math.abs(velX) * 0.02 + 0.04) - surcoatBack) * Math.min(1, dt * 2.2);
-    surcoatPivot.rotation.z = (surcoatSway - bankEase) + Math.sin(time * 1.05) * 0.03;
-    surcoatPivot.rotation.x = -surcoatBack + Math.sin(time * 0.77) * 0.025;   // hem drifts aft + breathes
+    // --- The SURCOAT (owner pizzazz pick): the tabard lags the body bank, rides
+    // the chain's pendulum, and streams BACK with travel — cloth over motion.
+    // Round-2 amplitudes: the hem must visibly BREAK THE OUTLINE at fight distance
+    // (~1u of lateral hem travel at full bank), or the sway reads as nothing on a
+    // dark-on-dark panel (owner: "the surcoat doesn't really sway"). ---
+    surcoatSway += (bankEase * 2.2 - surcoatSway) * Math.min(1, dt * 2.5);
+    surcoatBack += ((Math.abs(velX) * 0.045 + 0.08) - surcoatBack) * Math.min(1, dt * 2.2);
+    surcoatPivot.rotation.z = (surcoatSway - bankEase * 0.8) + Math.sin(time * 1.05) * 0.09 + chainAng * 0.25;
+    surcoatPivot.rotation.x = -surcoatBack - Math.abs(bankEase) * 0.12 + Math.sin(time * 0.77) * 0.06;   // hem drifts aft + breathes
 
     // Ash-motes drift near the body (dark, dim — never a false glint).
     for (const o of orbiters) {
