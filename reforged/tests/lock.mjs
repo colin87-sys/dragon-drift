@@ -843,8 +843,16 @@ await done();
   } catch { /* fallthrough */ }
   check('T6.3 two banked brands → shimmer drops to 4', t63);
 
+  // T7.1 (PR7) — BRAND TETHERS: one in-world line per branded organ (the 2 banked).
+  let t71 = false;
+  try {
+    await p2.waitForFunction(() => window.__dd.bossTetherCount() === 2, { timeout: 8000, polling: 100 });
+    t71 = true;
+  } catch { /* fallthrough */ }
+  check(`T7.1 a tether line draws to each branded organ (2)${t71 ? '' : ' — got ' + await p2.evaluate(() => window.__dd.bossTetherCount())}`, t71);
+
   // T6.4 — NO-RETICLE: assist dies, STATE survives. Reticle off → the aim element
-  // hides, the shimmer (world) is untouched, and the brand MARKS render on.
+  // hides, but the world cues (shimmer, TETHERS) and the brand MARKS all render.
   const t64 = await p2.evaluate(async () => {
     window.__dd.save.settings.reticle = false;
     window.__dd.save.settings.glideAssist = false;
@@ -852,10 +860,10 @@ await done();
     const ret = document.querySelector('#reticle');
     const marks = document.querySelectorAll('.lockmark.show').length;
     return { retOpacity: ret.style.opacity, retBoss: ret.classList.contains('boss'),
-      marks, shimmer: window.__dd.bossShimmerCount() };
+      marks, shimmer: window.__dd.bossShimmerCount(), tethers: window.__dd.bossTetherCount() };
   });
-  check('T6.4 reticle off: aim element hidden, brand marks still shown, shimmer untouched',
-    t64.retOpacity === '0' && t64.retBoss === false && t64.marks >= 1 && t64.shimmer === 4);
+  check('T6.4 reticle off: aim element hidden, brand marks + shimmer + tethers all still shown (STATE)',
+    t64.retOpacity === '0' && t64.retBoss === false && t64.marks >= 1 && t64.shimmer === 4 && t64.tethers === 2);
 
   // T6.5 — LIVENESS: cracking a branded pane drops it from paintables AND sheds
   // its brand (no corpse marks, no lance at an invisible pane).
@@ -869,6 +877,22 @@ await done();
   check('T6.5 cracked pane leaves the paintable set and sheds its brand',
     t65.before === 2 && t65.after === 1 && !t65.paintables.includes('rosePane1') &&
     t65.paintables.length === 5);
+
+  // T7.2 — the shed brand also drops its tether (1 brand left → 1 line).
+  let t72 = false;
+  try {
+    await p2.waitForFunction(() => window.__dd.bossTetherCount() === 1, { timeout: 6000, polling: 100 });
+    t72 = true;
+  } catch { /* fallthrough */ }
+  check('T7.2 a dropped brand removes its tether (2 → 1)', t72);
+
+  // T7.3 — the audio feel functions exist and are no-throw callable (headless has
+  // no AudioContext → they guard on getCtx; the FEEL is owner-ear-judged).
+  const t73 = await p2.evaluate(async () => {
+    const sfx = (await import(new URL('./js/sfx.js', document.baseURI).href)).sfx;
+    try { sfx.dwellHum?.(0.5); sfx.dwellHum?.(0); sfx.volleyDuck?.(); return true; } catch { return false; }
+  });
+  check('T7.3 dwellHum + volleyDuck are safe to call (no-throw; feel is ear-judged on preview)', t73 === true);
 
   check('no console errors (hollowgate boot)', b2.errors.length === 0) || console.error(b2.errors.join('\n'));
   await b2.done();
