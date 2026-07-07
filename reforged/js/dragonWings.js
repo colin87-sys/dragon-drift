@@ -1366,6 +1366,7 @@ function buildForgeCollar(def, model, attach, spineMats) {
       coal.position.set(s * 0.2, 0.05, 0.02);           // lifted proud of the yoke so they clear the wing roots in the rear tile
       group.add(coal);
     }
+    babyCoalMat.userData.baseEmissive = cHot; babyCoalMat.userData.baseIntensity = 0.95;
     spineMats.push(babyCoalMat);
     radius = 0.28;
   } else if (stage === 1) {
@@ -1378,6 +1379,7 @@ function buildForgeCollar(def, model, attach, spineMats) {
       bead.position.set(Math.sin(a) * 0.34, Math.cos(a) * 0.12, -Math.abs(Math.sin(a)) * 0.06);
       group.add(bead);
     }
+    arcMat.userData.baseEmissive = cHot; arcMat.userData.baseIntensity = 1.05;
     spineMats.push(arcMat);
     radius = 0.33;
   } else {
@@ -1413,6 +1415,10 @@ function buildForgeCollar(def, model, attach, spineMats) {
       spike.position.copy(dir).multiplyScalar(0.13 + len * 0.5).add(new THREE.Vector3(0, 0.06, -0.02));
       group.add(spike);
     }
+    // coal core is the designed ONE bloom (Law 12 — MAY blow to white under ACES); preserve its
+    // blaze. spikes stay moderate + warm. Without these tags the runtime forced both to white@1.0.
+    coalMat2.userData.baseEmissive = 0xffe08a; coalMat2.userData.baseIntensity = 7.5;
+    spikeMat.userData.baseEmissive = cHot; spikeMat.userData.baseIntensity = 1.0;
     spineMats.push(coalMat2, spikeMat);
     radius = 0.7;
   }
@@ -1678,6 +1684,17 @@ function buildBonfireManeWings(def, model, attach, giM) {
     bodyFrag: `totalEmissiveRadiance *= pow(vColor, vec3(1.6));`,
   };
   composeSurface(maneMat, [moltenEmitPatch, fresnelRimPatch(def.apexSeam ?? cTip.getHex(), { intensity: 0.1, power: 3.8, bias: 0.0 })]);   // tight, low rim → no broad orange wash and no extra bloom over the threshold; the diffuse + tip fringe carry the read
+  // CRITICAL: spineMats materials are DRIVEN every frame by the Surge loop in dragon.js — in the
+  // normal (non-surge) state it does `m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff)` and
+  // `m.emissiveIntensity = m.userData.baseIntensity ?? 1`. Without these userData tags the wing's
+  // warm emissive was overwritten with PURE WHITE @ 1.0 every frame → the whole mane bloomed to
+  // white in-game (never visible in the studio, which doesn't run that loop). Tag both wing mats
+  // with their real base emissive/intensity so the runtime PRESERVES the molten colour and flares
+  // warm-gold (not white) during Surge.
+  maneMat.userData.baseEmissive = (model.maneEmissive ?? 0xff7a22);
+  maneMat.userData.baseIntensity = (model.maneGlow ?? 0.5);
+  armMat.userData.baseEmissive = (model.maneArmGlow ?? 0xff6a1e);
+  armMat.userData.baseIntensity = 0.4;
   spineMats.push(maneMat, armMat);
 
   // deterministic per-tongue IRREGULARITY (no Math.random — determinism is a deliverable). A
