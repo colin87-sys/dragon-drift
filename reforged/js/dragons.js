@@ -118,7 +118,7 @@ export const DRAGONS = {
     // NOTE: this reverses the §5d near-black/emissive-only palette + the "no tail glow"
     // rule and now overlaps `fire` (Cinderwing) — flagged for the doc + roster (see PR).
     stats: { speed: 1.04, handling: 1.06, drain: 0.95, regen: 1.05 },
-    parts: { torso: 'arrow', wings: 'moltenBladeWings', head: 'draconic', tail: 'clean' },
+    parts: { torso: 'arrow', wings: 'bonfireManeWings', head: 'draconic', tail: 'clean' },
     model: {
       scale: 1.08, wingScale: 1.0, tailSegments: 6, neckSegments: 4,
       headArchetype: 'feralPredator',   // heavy brow, small deep-set hot eyes, angular jaw ('horned' is OUT — ignores headScale/snout)
@@ -130,10 +130,10 @@ export const DRAGONS = {
       shoulderWidthScale: 1.4,          // ANVIL shoulders (tier-0 key: ≥1.25× azure's hatchling)
       hornType: 'bladeRearHorns', rearGlowIntensity: 0,
       neckBlend: 1.85,                  // overlapping forge neck — fuses the segment beads into a smooth throat (gate cp2 r2 dir 4: the bead chain shingled under the chin)
-      // ember MOLTEN BLADE FIN dials (the wing redo — solid scimitar, per-form finSpan below)
-      finSweep: 0.5, finDihedral: 0.28, finChord: 0.72, finCamber: 0.26, finDetail: 1.0,
-      finHook: 1.15, finHookStart: 0.6, finGlow: 0.16, finEdgeGlow: 2.6, finMid: 0xc0461a,
-      finSparColor: 0x8a4a24, finEdgeColor: 0xffd28a,
+      // ember BONFIRE MANE dials (the wing redo — living flame tongues, per-form maneSpan below)
+      tongueCount: 5, maneSweep: 0.5, maneDihedral: 0.26, maneChord: 0.4, maneCamber: 0.22,
+      maneDetail: 1.0, maneRakeDown: 0.16, maneGlow: 1.0,
+      maneMid: 0xb83c10, maneTipColor: 0xff9a34, maneArmColor: 0x8a3a1a,
       sparColor: 0xc0763c,
       flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
     },
@@ -147,7 +147,7 @@ export const DRAGONS = {
       // Hatchling (form 0) — round pot-bellied forge pup: curled chest-down posture,
       // BIG round low-set eyes, near-flat snout, squared shoulders, two dull coals,
       // stub gapped wings. Value-LIGHTEST body.
-      { wingScale: 0.86, raySpan: 5.5, finSpan: 3.1, finDetail: 0.7, rayDetail: 0.55, collarStage: 0,
+      { wingScale: 0.86, raySpan: 5.5, maneSpan: 3.6, maneDetail: 0.7, rayDetail: 0.55, collarStage: 0,
         spineCurl: -0.7, eyeShape: 0.0, headScale: 1.35, eyeScale: 1.6, snoutScale: 0.5,
         shoulderWidthScale: 1.35, hornType: 'noHorn', browIntensity: 0.95,
         tailStyle: 'simple', tailLength: 0.5, tailPlates: false, tailSegments: 5, neckSegments: 4, backSpines: false, ridgeCount: 0, spineGlow: 0.12,
@@ -156,7 +156,7 @@ export const DRAGONS = {
           apexSeam: 0xff8a3a, eye: 0xff8b2a, coreGlow: 0xff7a30 } },
       // Adolescent (form 1) — shoulders square up further, rays lengthen, horns bud,
       // eyes narrow, snout projects, collar becomes a glowing arc. MID value.
-      { wingScale: 0.88, raySpan: 8.4, finSpan: 4.4, finDetail: 0.9, rayDetail: 0.95, collarStage: 1,
+      { wingScale: 0.88, raySpan: 8.4, maneSpan: 4.7, maneDetail: 0.9, rayDetail: 0.95, collarStage: 1,
         spineCurl: 0.62, eyeShape: 0.5, headScale: 0.9, eyeScale: 1.15, snoutScale: 0.64,   // stronger line-of-action S (gate cp2 dir 6)
         shoulderWidthScale: 1.48, hornType: 'bladeRearHorns', hornScale: 0.55, browIntensity: 1.1,
         tailStyle: 'simple', tailLength: 0.56, tailPlates: false, tailSegments: 6, neckSegments: 5, backSpines: false, ridgeCount: 0, spineGlow: 0.22, glowSeams: true,
@@ -167,7 +167,7 @@ export const DRAGONS = {
       // eyes, full broad gapped wings, backSpines, 2 horn pairs, a short thick tail
       // with a DARK IRON blade tip, and the blazing forge-collar corona (the ONE
       // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
-      { wingScale: 1.0, raySpan: 10.5, finSpan: 5.6, finDetail: 1.15, rayDetail: 1.55, collarStage: 2,
+      { wingScale: 1.0, raySpan: 10.5, maneSpan: 5.6, maneDetail: 1.15, rayDetail: 1.55, collarStage: 2,
         spineCurl: 0.6, eyeShape: 1.0, headScale: 0.6, eyeScale: 0.83, snoutScale: 0.6,   // line-of-action S; head kept level enough (like f1) for the face to READ head-on (gate cp2 dir 6)   // proud reared neck + tail counter-arc → a clear side-profile inflection (gate cp2 dir 6)
         snoutTone: 0xd54f16, browTone: 0xa23e10,   // apex head value tiers (gate cp2 dir 2): a darker muzzle + a shaded brow shelf so the head is not ONE flat sticker
         shoulderWidthScale: 1.78, hornType: 'bladeRearHorns', hornScale: 1.5, hornPairs: 2, browIntensity: 1.05,
