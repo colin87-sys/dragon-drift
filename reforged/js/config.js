@@ -244,6 +244,8 @@ export const CONFIG = {
     // deflected (sealed honesty), and once painted (the brand mark owns it).
     shimmerOpacity: 0.13,   // TUNE(0.06–0.2) — peak breath opacity (small additive sprite)
     shimmerHz: 2.4,         // TUNE(1.5–4) — breath rate
+    tetherOpacity: 0.22,    // TUNE(0.1–0.35) — PR7 in-world attribution line dragon→brand
+                            // (additive LineSegments; the line dims with the brand's life)
     paintCooldown: 0.45,    // TUNE(0.3–0.6) — cross-organ paint spacing: min gap between ANY
                             // two paints (paintHopGrace only embargoes the SAME organ) —
                             // owner playtest: back-to-back paints read spammy
