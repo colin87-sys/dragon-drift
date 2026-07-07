@@ -803,8 +803,22 @@ for (const key of BOSS_ORDER) {
     for (let s = 0; s < 30; s++) kn.tick(0.05, 520 + s * 0.05);
     const goneOut = panels.map((p) => p.parent.position.length());
     assert(goneOut.some((d, i) => d > restOut[i] + 2 || panels[i].material.opacity < 0.1), `knellgrave shed plates BREAK AWAY as hp falls (a plate travelled out ${Math.max(...goneOut).toFixed(1)} / faded — the bell opens to its scaffold)`);
-    kn.setHealth(1.0);
-    for (let s = 0; s < 10; s++) kn.tick(0.05, 560 + s * 0.05);
+    // SKY POURS THROUGH at the Last Toll — the interior wall is a SOLID opaque shell every
+    // phase, and only the DREAD reveal at deep ruin tears it open (driven by dread, NOT hp:
+    // the P4 seal freezes hp so a ruin-gated tear would never fire in play). Once torn it
+    // RATCHETS open (a broken bell doesn't heal). Fresh model so the ratchet starts clean.
+    const ks = buildBoss(BOSSES.knellgrave, 1);
+    const kw = ks.group.getObjectByName('innerWall');
+    ks.setHealth(0.20);   // deep P4 by hp alone — but with NO dread, the shell must stay solid
+    for (let s = 0; s < 10; s++) ks.tick(0.05, 570 + s * 0.05);
+    assert(kw.material.opacity > 0.9 && kw.material.depthWrite, `knellgrave interior wall stays SOLID on hp alone (opacity ${kw.material.opacity.toFixed(2)} — the seal freezes hp; only the dread reveal tears it)`);
+    ks.setSetpiece(1.0, { dread: true });   // the Last Toll reveal — NOW the sky pours in
+    for (let s = 0; s < 24; s++) ks.tick(0.05, 585 + s * 0.05);
+    assert(kw.material.opacity < 0.4 && !kw.material.depthWrite, `knellgrave interior wall TEARS open at the dread reveal (opacity ${kw.material.opacity.toFixed(2)} — the sky pours through the broken bell)`);
+    ks.setSetpiece(0, {});
+    for (let s = 0; s < 20; s++) ks.tick(0.05, 610 + s * 0.05);
+    assert(kw.material.opacity < 0.4, 'knellgrave sky-tear RATCHETS — the bell stays broken open after the reveal recedes (a broken bell does not heal)');
+    ks.dispose();
   }
 
   kn.dispose();

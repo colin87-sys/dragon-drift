@@ -7388,3 +7388,20 @@ is culled, so you see straight through to the sky. Two coupled fixes, both about
 Gotcha: the lifted scaffold is seen dimly through the mouth even at rest — verify the UNDAMAGED
 capture still reads solid (it does: the struts sit deep in a dark mouth), or a brighter cage
 would make the intact bell look pre-broken. Solid-at-rest and legible-on-reveal are one tuning.
+
+### L195 — KNELLGRAVE sky-pour: a survival-seal phase FREEZES hp, so a ruin-gated finale never fires — drive it off the reveal and RATCHET it
+Owner wanted the bell to break ALL the way through at the finale — sky pouring in, not just
+scaffold against a dark interior. The interior back-wall (L194) is the thing to tear: fade its
+opacity (drop depthWrite with it) and the shed holes + mouth punch straight through to the sky,
+scaffold black against the blaze. Two non-obvious traps:
+1. **Don't gate the finale on `ruinK` — the P4 card is a SURVIVAL SEAL.** ruinK = 1−hp, but the
+   Last Toll makes the boss damage-IMMUNE, so hp freezes at ~25% (ruinK caps ~0.75) for the whole
+   phase. A `ruinK > 0.75` trigger would look perfect in a headless setHealth(0.05) test and NEVER
+   fire in play. Drive the tear off `dreadK` (the reveal setpiece is what's actually live at the
+   climax); gate lightly on ruinK only to confirm it's the P4 beat. General law: any escalation
+   keyed to hp stalls during a seal — key climax effects to the setpiece/card that's running.
+2. **A broken bell doesn't heal — RATCHET the tear.** dreadK pulses (sin over the ride), so a raw
+   `opacity = 1 − dreadK` re-solidifies the wall as the toll recedes. Hold it with
+   `skyOpen = max(skyOpen, …)` so once torn it stays open. Test the ratchet explicitly (tear, drop
+   the setpiece, assert still-open) AND test on a FRESH model — the ratchet is sticky, so an
+   earlier dread beat in the same test instance leaves it open and masks a "stays solid" assert.

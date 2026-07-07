@@ -214,7 +214,9 @@ export function buildKnellgrave(def, quality = 1) {
   // contrasts the parts within?": a DEAD-DARK value, darker than the iron scaffold AND the
   // patina body, so the anti-lamp mouth stays black (§3.2) while the LIT scaffold struts, the
   // relit prisoner and the candle crack all read AGAINST it instead of dissolving into it.
-  const innerWallMat = track(new THREE.MeshStandardMaterial({ color: 0x090c0b, emissive: 0x05070b, emissiveIntensity: 0.05, roughness: 0.88, metalness: 0.18, flatShading: true, side: THREE.BackSide }));
+  // transparent so it can THIN OUT at the Last Toll (deep P4) — the bell breaks all the way
+  // through and the sky pours in (owner). Opaque + depth-writing until then (a solid shell).
+  const innerWallMat = track(new THREE.MeshStandardMaterial({ color: 0x090c0b, emissive: 0x05070b, emissiveIntensity: 0.05, roughness: 0.88, metalness: 0.18, flatShading: true, side: THREE.BackSide, transparent: true }));
   const innerParts = [];
   for (let i = 0; i < prof.length - 1; i++) {
     const [r0, y0] = prof[i], [r1, y1] = prof[i + 1];
@@ -737,6 +739,7 @@ export function buildKnellgrave(def, quality = 1) {
   // toll kicks the body harder. The fight builds TOWARD the reveal — transformation as
   // escalation, no second form needed.
   let ruinK = 0;
+  let skyOpen = 0;   // one-way ratchet: once the Last Toll tears the bell open, the sky stays pouring in
   function setHealthRuin(frac) { ruinK = clamp01(1 - frac); kit.setHealth(frac); }
 
   // §4b GAZE — the head orientation. Drooped/away at rest; tilts TOWARD the player as
@@ -855,6 +858,17 @@ export function buildKnellgrave(def, quality = 1) {
       p.mat.opacity = 1 - clamp01((prog - 0.5) / 0.5);      // solid until clear, then dissolves to gone
       p.pivot.visible = p.mat.opacity > 0.02;
     }
+    // THE BELL BREAKS ALL THE WAY THROUGH — at the Last Toll the interior back-wall TEARS OPEN
+    // so the SKY POURS in through the shed holes + the mouth (owner: "sky pouring would be
+    // cool"): the husk ends the fight lit from behind, the black scaffold against the blaze.
+    // Driven by the DREAD reveal, NOT ruinK — the P4 survival seal freezes hp at ~25% (ruinK
+    // caps ~0.75), so a ruin-gated tear would never fire in play. Gate lightly on high ruin so
+    // it's a P4-only beat, and RATCHET it (skyOpen only rises) so once torn, the bell stays
+    // open — a broken bell doesn't heal as the toll recedes. depthWrite drops with the fade so
+    // the thinned wall stops occluding the sky behind it.
+    skyOpen = Math.max(skyOpen, clamp01((ruinK - 0.5) / 0.2) * dreadK);
+    innerWallMat.opacity = 1 - skyOpen * 0.9;
+    innerWallMat.depthWrite = innerWallMat.opacity > 0.9;
     // CP2 gate item 5a: during the overhead ride (the dread reveal drops the pose to
     // player altitude) the bar RIDES UP toward the mouth so a magenta bar never
     // crosses the player's height and reads as a hazard beam. It stays VISIBLE —
