@@ -7,7 +7,7 @@ import {
 import { registerWings } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
 import { skinnedTube as sweepTube } from './dragonSweep.js';
-import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
+import { composeSurface, membraneSSSPatch, fresnelRimPatch } from './dragonSurfaceShader.js';
 import { applyFresnelRim } from './surface.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
@@ -1644,7 +1644,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
   const sweep = model.maneSweep ?? 0.5;                 // arm back-sweep
   const theta = model.maneDihedral ?? 0.26;             // upsweep dihedral
   const armLen = reach * 0.5;                            // tongues over-reach the arm to the tip envelope
-  const camber = model.maneCamber ?? 0.22;
+  const camber = model.maneCamber ?? 0.34;   // deeper billow → each tongue presents broad cupped area from the rear chase (not a thin sliver)
   const detail = model.maneDetail ?? 1;
   const rakeDown = model.maneRakeDown ?? 0.16;          // the whole mane rakes DOWN (streams off the body)
 
@@ -1652,13 +1652,25 @@ function buildBonfireManeWings(def, model, attach, giM) {
   const cRoot = new THREE.Color(def.wingInner ?? 0x35120a);   // DARK molten basalt core (deeper → the hot tips read as flame-substance vs a uniform bright sheet)
   const cBody = new THREE.Color(model.maneMid ?? 0x8a2a0c);
   const cTip = new THREE.Color(model.maneTipColor ?? 0xff9a34);   // HOT ORANGE tips (not white — white read as feathers, not fire)
-  const armMat = new THREE.MeshStandardMaterial({ color: model.maneArmColor ?? 0x8a3a1a, roughness: 0.6, metalness: 0.05, emissive: 0x3a1206, emissiveIntensity: 0.4 });
+  // MOLTEN leading spar — a lit ember rod, not a dead black stick: warm diffuse + a hot emissive
+  // glow so it reads as forged/glowing metal fused into the flame sheet (gate: the arm read as a
+  // detached near-black rod against the wing).
+  const armMat = new THREE.MeshStandardMaterial({ color: model.maneArmColor ?? 0x8a2a0c, roughness: 0.55, metalness: 0.1, emissive: model.maneArmGlow ?? 0xff6a1e, emissiveIntensity: 0.5 });
   // ONE material for the tongues: vColor is the molten→hot gradient (diffuse), and the emissive
   // is GRAFTED to follow vColor (WARM, not white) so only the bright thin tips glow ORANGE-HOT
   // (dark thick cores stay unlit) — fire-substance, not white feathers.
-  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 1.0 });
-  maneMat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = emissive * pow(vColor, vec3(1.7));'); };
-  applyFresnelRim(maneMat, def.apexSeam ?? cTip.getHex());
+  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 0.85 });
+  // CRITICAL: the emissive-concentration graft and the fresnel rim BOTH set onBeforeCompile —
+  // composing them in ONE composeSurface call (was: a manual graft then applyFresnelRim, which
+  // silently OVERWROTE the graft → the whole mane glowed at full uniform emissive with no dark
+  // cores, the exact "flat lit-paper sheet" the gate flagged). Order matters: concentrate FIRST
+  // (multiply emissive by vColor so only the bright hot tips glow — dark basalt cores stay unlit),
+  // THEN add the tight rim.
+  const moltenEmitPatch = {
+    key: 'moltenEmit',
+    bodyFrag: `totalEmissiveRadiance *= pow(vColor, vec3(2.1));`,
+  };
+  composeSurface(maneMat, [moltenEmitPatch, fresnelRimPatch(def.apexSeam ?? cTip.getHex(), { intensity: 0.26, power: 3.4, bias: 0.0 })]);
   spineMats.push(maneMat, armMat);
 
   // deterministic per-tongue IRREGULARITY (no Math.random — determinism is a deliverable). A
@@ -1679,7 +1691,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
       // BROAD and held-wide so adjacent tongue BASES overlap into one continuous flame sheet
       // (no gaps between them → nothing reads as webbing-between-fingers / a bat armature); it
       // stays soft-wide, then rounds to a blunt wisp (never a thin finger-spoke line).
-      const w = wRoot * (0.3 + 0.7 * Math.pow(1 - t, 0.46)) * (0.82 + 0.18 * Math.sin(Math.min(1, t * 1.25) * Math.PI));
+      const w = wRoot * (0.44 + 0.56 * Math.pow(1 - t, 0.5)) * (0.82 + 0.18 * Math.sin(Math.min(1, t * 1.25) * Math.PI));   // higher tip floor → tongues end in broad rounded flame-LOBES, not thin spikes (kills the rear-chase streamer/sliver read)
       const zc = curlZ * t * t;                          // gentle aft curl
       const yc = t * len * Math.tan(theta) + curlY * t * t - rakeDown * t * len;   // dihedral + tip curl + the whole tongue rakes DOWN
       for (let j = 0; j <= nZ; j++) {
@@ -1727,20 +1739,24 @@ function buildBonfireManeWings(def, model, attach, giM) {
     }
 
     const tonguePivots = [], elements = [];
+    // side-dependent jitter PHASE → the L and R planforms do NOT mirror (gate flagged dead
+    // top-planform symmetry). Each side reads its own irregularity pattern.
+    const ph = side < 0 ? 3 : 0;
+    const jx = (i) => (i + ph) % jLen.length;
     for (let i = 0; i < N; i++) {
       const t = N > 1 ? i / (N - 1) : 0;
       const rootX = armLen * (0.1 + 0.8 * t);
       const rootY = rootX * Math.tan(theta);
-      const rootZ = rootX * Math.tan(sweep) + 0.07 * i;          // tight root stagger → the broad bases OVERLAP into one sheet (no finger gaps)
-      const len = maxLen * (lenBase(i) + jLen[i % jLen.length]);
-      const wRoot = chordK * reach * (0.7 + 0.3 * Math.sin(t * Math.PI));
-      const curlZ = reach * 0.34 * jCurl[i % jCurl.length];      // irregular aft curl
-      const curlY = reach * 0.2 * jUp[i % jUp.length];           // tips flick different ways
+      const rootZ = rootX * Math.tan(sweep) + 0.05 * i;          // tighter root stagger → the broad bases OVERLAP into one continuous sheet (no finger gaps)
+      const len = maxLen * (lenBase(i) + jLen[jx(i)]);
+      const wRoot = chordK * reach * (0.85 + 0.3 * Math.sin(t * Math.PI));   // broader roots → adjacent tongues overlap, rounding the leading edge (no stair-step notches)
+      const curlZ = reach * 0.34 * jCurl[jx(i)];                 // irregular aft curl
+      const curlY = reach * 0.12 * jUp[jx(i)];                   // tips flick different ways, but held CLOSER (reduced splay → rear silhouette stays a broad sheet, not gapped spikes)
       const inner = rootX < wristX, parent = inner ? pivot : wingTip;
       const px = inner ? rootX * side : (rootX - wristX) * side, py = inner ? rootY : rootY - wristY, pz = inner ? rootZ : rootZ - wristZ;
       const rest = new THREE.Group();
       rest.position.set(px, py, pz);
-      rest.rotation.y = side * -(0.03 + jRake[i % jRake.length]);   // irregular fan
+      rest.rotation.y = side * -(0.03 + jRake[jx(i)]);   // irregular fan (side-phased → non-mirrored)
       rest.rotation.z = side * theta;
       const lag = new THREE.Group(); rest.add(lag);
       const mesh = new THREE.Mesh(tongueGeo(len, wRoot, curlZ, curlY), maneMat);
