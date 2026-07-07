@@ -205,6 +205,27 @@ export function buildKnellgrave(def, quality = 1) {
   bellMesh.name = 'knellBell';
   bellGroup.add(bellMesh);
 
+  // ---- THE INTERIOR BACK-WALL — closes the hollow shell so the UNDAMAGED bell never shows
+  // sky up through its mouth (owner IMG_7333: "if the bell isn't damaged, why can you see the
+  // sky instead of the back wall?"). Built as a BackSide profile shell: it renders ONLY the
+  // FAR interior wall from any angle — the near side stays culled, so it never occludes the
+  // crack, the clapper or the scaffold in FRONT of it (and the shed gaps still see past it to
+  // the scaffold). Its colour is the owner's other question — "what colour is the inside so it
+  // contrasts the parts within?": a DEAD-DARK value, darker than the iron scaffold AND the
+  // patina body, so the anti-lamp mouth stays black (§3.2) while the LIT scaffold struts, the
+  // relit prisoner and the candle crack all read AGAINST it instead of dissolving into it.
+  const innerWallMat = track(new THREE.MeshStandardMaterial({ color: 0x090c0b, emissive: 0x05070b, emissiveIntensity: 0.05, roughness: 0.88, metalness: 0.18, flatShading: true, side: THREE.BackSide }));
+  const innerParts = [];
+  for (let i = 0; i < prof.length - 1; i++) {
+    const [r0, y0] = prof[i], [r1, y1] = prof[i + 1];
+    const seg = strip(new THREE.CylinderGeometry(r0 - 0.08, r1 - 0.08, Math.abs(y0 - y1), FACETS, 1, true));
+    seg.translate(0, (y0 + y1) / 2, 0);
+    innerParts.push(seg);
+  }
+  const innerWall = new THREE.Mesh(mergeK(innerParts, 'innerWall'), innerWallMat);
+  innerWall.name = 'innerWall';
+  bellGroup.add(innerWall);
+
   // ---- THE INNER SCAFFOLD — the bell's iron skeleton, hidden behind the intact wall and
   // BARED where the flank panels shed (owner: "reveal its inner scaffold"). A sparse cage
   // of raked vertical struts + two hoops at a SUNK radius (inside the wall) so it reads as
@@ -225,7 +246,12 @@ export function buildKnellgrave(def, quality = 1) {
     hoop.rotateX(Math.PI / 2); hoop.translate(0, ry, 0);
     scafParts.push(hoop);
   }
-  const scaffoldMesh = new THREE.Mesh(mergeK(scafParts, 'innerScaffold'), ironMat);
+  // its own LIFTED metal (not the near-black ironMat): the scaffold must read as exposed
+  // structure AGAINST the dead-dark interior wall — dark iron on the dark cavity vanished
+  // (owner's contrast note). A cool mid-dark metal whose facets catch the key light so the
+  // bared cage reads as lit struts, while staying below the exterior patina at fight distance.
+  const scaffoldMat = track(new THREE.MeshStandardMaterial({ color: 0x323841, emissive: 0x12161c, emissiveIntensity: 0.12, roughness: 0.5, metalness: 0.62, flatShading: true }));
+  const scaffoldMesh = new THREE.Mesh(mergeK(scafParts, 'innerScaffold'), scaffoldMat);
   scaffoldMesh.name = 'innerScaffold';
   bellGroup.add(scaffoldMesh);
 

@@ -786,6 +786,10 @@ for (const key of BOSS_ORDER) {
   {
     const scaffold = kn.group.getObjectByName('innerScaffold');
     assert(!!scaffold, 'knellgrave exposes the named innerScaffold (the iron skeleton bared as the bell sheds)');
+    const innerWall = kn.group.getObjectByName('innerWall');
+    assert(!!innerWall && innerWall.material.side === THREE.BackSide, 'knellgrave has a BackSide interior wall (closes the mouth so the undamaged bell shows dark metal, not sky — owner IMG_7333)');
+    const luma = (m) => m.color.r + m.color.g + m.color.b;
+    assert(innerWall && luma(innerWall.material) < luma(scaffold.material), 'knellgrave interior wall is DARKER than the scaffold (the inside parts read against it, not into it)');
     const panels = [];
     kn.group.traverse((o) => { if (o.name === 'knellShedPanel') panels.push(o); });
     assert(panels.length >= 2, `knellgrave has break-away shed plates (${panels.length} ≥ 2 — the flank panels that fall away)`);

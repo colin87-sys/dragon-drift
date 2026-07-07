@@ -7368,3 +7368,23 @@ once was." The ladder becomes SUBTRACTION — the silhouette loses material over
 Gotcha: gates/capture at REST see the solid bell (ruinK 0, plates home) so G1–G7 are
 unaffected — but you MUST verify the SHED frame too (the P4 reveal capture), because the
 bared-scaffold silhouette is a different read the studio's rest-pose gates never see.
+
+### L194 — KNELLGRAVE: a hollow bell needs a BackSide interior wall (an undamaged shell must not show sky), and the reveal inside it must be LIFTED to read
+Owner IMG_7333: "if the bell isn't damaged, why can you see sky instead of its back wall?"
+The bell was a single-walled openEnded shell — looking up the mouth, the far wall's backface
+is culled, so you see straight through to the sky. Two coupled fixes, both about the INSIDE:
+1. **Close the shell with a BackSide inner shell, not DoubleSide.** A profile-matched shell at
+   r−0.08 with `side: THREE.BackSide` renders ONLY the far interior wall from any camera angle
+   — the near side stays culled, so it never occludes the crack, clapper or scaffold in FRONT
+   of it, and shed gaps still see PAST it. DoubleSide would render the near interior too and
+   occlude the reveal. BackSide = "the back wall you see through the mouth," nothing more.
+2. **The interior colour and the parts inside it are ONE decision.** The owner nailed it: pick
+   the interior value for CONTRAST with what's inside. Anti-lamp (§3.2) forces the mouth DEAD
+   dark, so the interior went near-black (0x090c0b, below patina + iron) — but that made the
+   dark-iron scaffold VANISH into it (dark on dark). Fix the pair together: keep the wall dead
+   dark AND lift the scaffold to a cool mid-metal (0x323841) whose facets catch key light, so
+   the bared cage reads as LIT struts against the black cavity. Darkening the backdrop without
+   lifting the foreground just moves the invisibility, it doesn't solve it.
+Gotcha: the lifted scaffold is seen dimly through the mouth even at rest — verify the UNDAMAGED
+capture still reads solid (it does: the struts sit deep in a dark mouth), or a brighter cage
+would make the intact bell look pre-broken. Solid-at-rest and legible-on-reveal are one tuning.
