@@ -812,6 +812,23 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   bead-strand; the seal costs its +1 only while the beat runs). Two Fable design-gate rounds:
   r1 FIX ×6 (hairline seal, matte balloons, festoon-as-clump, wizard orb, glyph scaffolding),
   r2 FIX ×1 (chalk-pink on bright skies). The FLARE beat now 3.0s at 2.6× (a HELD beat).
+  **SPEND PASS (the 90% budget directive, owner P1–P7 verdict plan):** tris 9.1k→~12.6k (90%),
+  idle draws 46→50, worst frame (Verdict) ~56 of 70. P1 relief (0 draws): carved horn shaft +
+  KILL-TALLY notches on the haft (the "glowing air tallies" idea landed here — no legal emissive
+  color exists for air-writing), backplate/spine (the entrance shows his back now), rivets, cowl
+  stitches, each charm a true miniature relic. P2 (0 draws): the EMPTY HOOK creeps toward the
+  player over ~90s of live fight (hookAim × the live gaze) — it POINTS, never answers. P3 (+3):
+  lance PENNON (a lag-chain strip off the haft — every lance tell snaps it), cloak LINING,
+  hood tail. P4 (card-only draws): the trophies LIFT and testify in a SEQUENTIAL WAVE keyed to
+  the writing (verdictTrace), the horn SPLITS into three drifting fragments mid-card and
+  reassembles, and the owner-approved VOIDMAW-ONLY GHOST (a dim ≤0.25 violet mask-glyph,
+  LineSegments) flickers beside the horn — "the horn remembers its owner". P5 (beat-only):
+  WORLD-ANCHORED cut-in afterimages (group-space trails ride along with the translating group —
+  store world points, re-project per frame) + a second lance trail (riposte + cut-in sweep).
+  P6 (0 draws): the cloak TEARS per phase via the roster-optional model.setPhase hook at the
+  breakShield seam. P7 (+2, capped): ONE THREE.Points ash cloud (never per-mote meshes) + the
+  empty-hook WISP (≤0.25 — it waits on the hook that points at you). REJECTED (owner): glowing
+  air-tallies (no legal color), all-boss ghost apparitions (palette chaos), bulk/lamps.
   **LORE (Part 3.5):** KARNVOW is the THIEF/collector — it wears TAKEN trophies (Ashtalon's
   feather-blade, relics, one EMPTY hook = the next victim = you). Slot 14 (THE UNMASKED) wears
   the roster's scars as the MAKER (transfer clause: 14 reclaims the horn + feather-blade after 9

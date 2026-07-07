@@ -2456,6 +2456,7 @@ function breakShield(player) {
     rhythm?.reset();
     rhythmRest = null;
     beginCard(phaseIdx);
+    model.setPhase?.(phaseIdx);   // optional damage-state hook (KARNVOW's cloak tears; others ignore)
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
     harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
