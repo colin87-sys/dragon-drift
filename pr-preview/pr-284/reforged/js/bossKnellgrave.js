@@ -602,6 +602,41 @@ export function buildKnellgrave(def, quality = 1) {
   emberMat.side = THREE.DoubleSide;
   bellGroup.add(ember);
 
+  // ---- SPREADING FRACTURES — the readable per-phase damage on the FRONT FACE. As the ruin
+  // climbs, NEW glowing cracks light up ONE PER PHASE, webbing out from the candle-slit across
+  // the bell's face. This is the only damage language that reads at FIGHT DISTANCE: bright-on-
+  // dark like the focal crack, front-facing, and PERSISTENT — where dark shed holes vanish
+  // against the near-black body. A moderate additive candle glow (well below the HDR slit, so
+  // the focal cluster stays the one focal — G1), dark at full hp so the studio gates are inert
+  // (they only light with the fight). Each rides the surface curve (azimuth-placed).
+  const buildFaceRibbon = (azY, hw, zLift) => {
+    const verts = [];
+    const S = (a, y) => { const R = bellRadiusAt(y) + zLift; return [Math.sin(a) * R, y, Math.cos(a) * R]; };
+    for (let i = 0; i < azY.length - 1; i++) {
+      const [a0, y0] = azY[i], [a1, y1] = azY[i + 1];
+      const A = S(a0 - hw[i], y0), B = S(a0 + hw[i], y0), C = S(a1 - hw[i + 1], y1), D = S(a1 + hw[i + 1], y1);
+      verts.push(...A, ...B, ...C, ...B, ...D, ...C);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.computeVertexNormals();
+    return geo;
+  };
+  const FRACTURES = [
+    { thr: 0.12, w: [0.02, 0.075, 0.09, 0.03], pts: [[-0.12, -1.0], [0.16, -1.5], [0.4, -1.2], [0.66, -2.0]] },     // P1 → right across the waist
+    { thr: 0.30, w: [0.03, 0.09, 0.075, 0.03], pts: [[-0.22, -2.7], [-0.52, -3.2], [-0.86, -2.6], [-1.2, -3.6]] },  // P2 → left down the waist
+    { thr: 0.48, w: [0.02, 0.075, 0.09, 0.03], pts: [[-0.08, 1.4], [0.2, 0.8], [0.44, 0.0], [0.66, -0.6]] },        // P3 → up-right to the shoulder
+    { thr: 0.66, w: [0.03, 0.09, 0.075, 0.03], pts: [[-0.1, -4.3], [0.24, -4.2], [0.46, -4.9], [0.66, -4.4]] },     // P4 → lower-right across the flare
+  ];
+  const fractures = [];
+  for (const f of FRACTURES) {
+    const mat = track(new THREE.MeshBasicMaterial({ color: candle, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    const mesh = new THREE.Mesh(buildFaceRibbon(f.pts, f.w, 0.1), mat);
+    mesh.name = 'knellFracture'; mesh.renderOrder = 5;
+    bellGroup.add(mesh);
+    fractures.push({ mesh, mat, thr: f.thr });
+  }
+
   // ---- THE CHAIN vanishing UP off-frame (heavy discrete LINKS — the anti-lamp/UFO
   // guard). Link tori alternate axis (the woven look), from the crown up past the
   // pivot; a LineSegments continues the last links off into nothing. It swings WITH
@@ -905,6 +940,12 @@ export function buildKnellgrave(def, quality = 1) {
     // up close — the CP2.4 jank); dread adds the final reveal gape the prisoner strains at.
     slit.scale.set(Math.min(1 + ruinK * 1.3 + dreadK * 0.6 + charge * 0.12, 2.3), 1, 1);   // 2.3 (not 2.5) — the shed now carries the escalation, so keep margin off the L192 white-wall threshold
     ember.scale.set(Math.min(1 + ruinK * 1.05 + dreadK * 0.45, 2.2), 1, 1);
+    // SPREADING FRACTURES: each new crack lights up as the ruin crosses its phase threshold and
+    // STAYS lit (persistent damage), flickering with the candle. Capped below the HDR slit.
+    for (const fr of fractures) {
+      const lit = clamp01((ruinK - fr.thr) / 0.08);
+      fr.mat.opacity = lit * (0.5 + gutter * 0.22) * (1 - dyingK) * (shieldClamp ? 0.4 : 1);
+    }
     // the sprung wall plates LIFT off the seam as the bell comes apart.
     plateMesh.scale.setScalar(1 + ruinK * 0.05);
     // --- THE SHED: the flank plates break off as the ruin climbs (staggered by phase), so
