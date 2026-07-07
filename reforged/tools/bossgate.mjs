@@ -64,14 +64,15 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // it dominates the accent tier over the teal ambient. NOT a `gate.pale` override —
   // KARNVOW is a DARK boss; this is the standard temperature-complement capture.
   karnvow: 6600,
-  // ONEWING (§5b slot 12): a DARK boss with a COOL ashen-mauve accent. §5h biome
-  // pairing (the same trap KARNVOW/MARROWCOIL avoid): a cool-dark boss over a cool-
-  // PURPLE sky (the default ~3000 biome, FROZEN REACH's purple mid + ASTRAL's purple
-  // horizon) false-magentas its dark lit faces under that hemisphere ambient — a G3
-  // artifact, not a real defect. LUMEN MIRE (dist 6600, biome idx 4, teal horizon) is
-  // the proven cool, accent-aligned, non-purple sky (KARNVOW clears zero danger-
-  // magenta there); the dark one-winged silhouette reads against its bright teal sky.
-  onewing: 6600 };
+  // ONEWING (§5b slot 12): a DARK boss with an ashen MAUVE-rose accent + a single
+  // grief-dim eye focal, whose home (§3b sheet) is a DARK sky. §5h biome pairing: the
+  // mauve accent needs a purple-ALIGNED ambient (a teal sky pollutes the accent tier +
+  // its fog dilutes the eye focal below G1; a warm/neutral sky drifts the mauve rims
+  // toward the danger band). ASTRAL SHALLOWS (dist 8000, biome idx 5, near-black violet
+  // sky) is the DARK, mauve-aligned, low-fog capture: the eye focal reads (little fog
+  // dilution), the mauve accent attributes against the aligned purple ambient, and its
+  // blue-purple hemisphere never false-magentas the dark faces (danger-magenta 0).
+  onewing: 8000 };
 
 // --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
 // (tools/bossstudio.html) instead of the contaminated in-game frame — a

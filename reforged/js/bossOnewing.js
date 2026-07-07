@@ -59,7 +59,7 @@ export function buildOnewing(def, quality = 1) {
   // sweeps well outside the ward. hpBar rides high above the head; scaled back to
   // roster width against the big def.scale.
   const kit = createBossCommon(def, quality, {
-    shieldRadius: 5.4, shieldY: 3.4, hpBarY: 9.6, hpBarZ: 1.2, hpBarScale: 0.62,
+    shieldRadius: 5.4, shieldY: 3.4, hpBarY: 12.4, hpBarZ: 1.2, hpBarScale: 0.62,
     shieldRimStrength: 0.16, shieldCageOpacity: 0.5,
   });
   const { group, track } = kit;
@@ -224,18 +224,22 @@ export function buildOnewing(def, quality = 1) {
     const nub = strip(new THREE.OctahedronGeometry(0.6, 1));
     nub.scale(0.9, 0.7, 0.6); nub.translate(0.4, 0.1, 0);
     shoulder.add(new THREE.Mesh(nub, rootMat));
-    // Two stunted, clipped blades — snapped SHORT with blunt stumps (not clean tips).
-    const clip = [1.9, 1.3];
+    // TWO clipped blade REMNANTS — short scythe-blades snapped off at a jagged angle
+    // (a chopped WING, not a mechanical arm — the Fable CP1 gate note): each is a real
+    // blade, truncated short, with a small angled shear-flake at the break, no wide
+    // crossbar. They read as two stunted feathers = a withered 2-blade wing.
+    const clip = [2.1, 1.5];
     for (let i = 0; i < 2; i++) {
       const pivot = new THREE.Object3D();
       pivot.name = 'stubBladePivot';
       pivot.position.set(0.7 + i * 0.5, 0.3 + i * 0.5, 0.05 + i * 0.12);
-      pivot.rotation.z = -0.7 - i * 0.5;
+      pivot.rotation.z = -0.6 - i * 0.55;
       shoulder.add(pivot);
-      // A blade truncated to a blunt STUMP (a chopped scythe) — the clipped read.
-      const bl = makeBladeGeo(clip[i], 0.6);
-      const stump = strip(new THREE.BoxGeometry(0.62, 0.22, 0.24)); stump.translate(0, clip[i], 0.02);   // a blunt cut cap
-      const mesh = new THREE.Mesh(mergeO([bl, stump], 'stubblade'), rimDimMat);
+      // A short blade sheared at a slant — a small angled flake at the break sells the
+      // SNAP without reading as a T-cap/hand.
+      const bl = makeBladeGeo(clip[i], 0.56);
+      const shear = strip(new THREE.BoxGeometry(0.36, 0.16, 0.2)); shear.rotateZ(0.5); shear.translate(0.12, clip[i] - 0.12, 0.02);
+      const mesh = new THREE.Mesh(mergeO([bl, shear], 'stubblade'), rimDimMat);
       mesh.rotation.x = 0.1;
       pivot.add(mesh);
       stubBlades.push({ pivot, base: pivot.rotation.z, idx: i });
@@ -258,20 +262,18 @@ export function buildOnewing(def, quality = 1) {
     // Two shoulder pads angled down-out toward each wing root.
     const padL = strip(new THREE.BoxGeometry(1.3, 0.9, 0.9)); padL.rotateZ(0.4); padL.translate(-1.5, 6.2, 0.05); parts.push(padL);
     const padR = strip(new THREE.BoxGeometry(1.3, 0.9, 0.9)); padR.rotateZ(-0.4); padR.translate(1.5, 6.2, 0.05); parts.push(padR);
-    // Two THIN side ribs framing the open chest (yoke → belly). Thin so the hollow
-    // reads; they curve in slightly (a ribcage that lost its sternum).
-    const ribL = strip(new THREE.BoxGeometry(0.42, 5.2, 0.5)); ribL.rotateZ(0.14); ribL.translate(-1.55, 3.2, -0.1); parts.push(ribL);
-    const ribR = strip(new THREE.BoxGeometry(0.42, 5.2, 0.5)); ribR.rotateZ(-0.14); ribR.translate(1.55, 3.2, -0.1); parts.push(ribR);
-    // A few rib-stubs jutting inward off each side rib (a broken ribcage relief) —
-    // they stop well short of the centre so the chest stays hollow.
-    for (let i = 0; i < 3; i++) {
-      const y = 4.4 - i * 1.1;
-      const rl = strip(new THREE.BoxGeometry(0.7, 0.2, 0.34)); rl.rotateZ(-0.18); rl.translate(-1.05, y, 0.05); parts.push(rl);
-      const rr = strip(new THREE.BoxGeometry(0.7, 0.2, 0.34)); rr.rotateZ(0.18); rr.translate(1.05, y, 0.05); parts.push(rr);
-    }
-    // Belly bar / pelvis — the solid lower close of the ribcage; a keeled taper down.
-    const belly = strip(new THREE.BoxGeometry(2.9, 1.0, 0.9)); belly.translate(0, 0.5, 0); parts.push(belly);
-    const keel = strip(new THREE.ConeGeometry(0.6, 1.7, 4)); keel.rotateX(Math.PI); keel.rotateY(0.78); keel.translate(0, -0.7, 0.2); parts.push(keel);
+    // Two THIN side ribs framing the OPEN chest — they run yoke → pelvis at the OUTER
+    // edge (x±1.75, just outside the kite's ±1.55 side vertices) so the whole chest
+    // cavity between them is EMPTY (sky through it). They converge slightly toward the
+    // pelvis (a ribcage that lost its sternum). NOTHING crosses the centre — the fused
+    // kite is a genuine HOLE, not a filled cage (the Fable CP1 gate fix).
+    const ribL = strip(new THREE.BoxGeometry(0.44, 8.4, 0.5)); ribL.rotateZ(0.11); ribL.translate(-1.75, 2.0, -0.15); parts.push(ribL);
+    const ribR = strip(new THREE.BoxGeometry(0.44, 8.4, 0.5)); ribR.rotateZ(-0.11); ribR.translate(1.75, 2.0, -0.15); parts.push(ribR);
+    // Pelvis / hip mass — the lower close, seated BELOW the kite's bottom vertex
+    // (y≈−0.7) so the vertex hangs into open sky before it and the interior stays
+    // hollow; a keeled taper down. Kept clear of the kite interior.
+    const belly = strip(new THREE.BoxGeometry(2.0, 0.95, 0.85)); belly.translate(0, -1.95, 0); parts.push(belly);
+    const keel = strip(new THREE.ConeGeometry(0.58, 1.7, 4)); keel.rotateX(Math.PI); keel.rotateY(0.78); keel.translate(0, -3.0, 0.15); parts.push(keel);
     // Neck — connects the yoke up to the head.
     const neck = strip(new THREE.CylinderGeometry(0.5, 0.66, 1.5, 6)); neck.translate(0, 7.1, 0.05); parts.push(neck);
     return mergeO(parts, 'torso');
@@ -326,8 +328,11 @@ export function buildOnewing(def, quality = 1) {
   const kitePts2D = [
     [0, KTOP], [KW, 0], [0, -KBOT], [-KW, 0],
   ];
-  // The pure-black ghost EDGE bars (the wireframe of the dead frame) — thin box bars
-  // along each kite edge + a broken cross-spar. Black diffuse, no emissive → the void.
+  // The pure-black ghost EDGE bars — thin box bars along each kite edge ONLY. The
+  // interior is left EMPTY (no cross-spar, no rungs) so you see sky THROUGH the kite:
+  // a hole torn in the chest, not a filled cage (the Fable CP1 gate fix). The dead
+  // twin's "spine" is told by a SHORT SNAPPED spar-stub hanging off the top vertex
+  // (broken, ~28% down, then nothing) — the break, without crossing the interior.
   function frameEdgesGeo() {
     const parts = [];
     const barW = 0.16;   // thin ghost wire
@@ -341,11 +346,11 @@ export function buildOnewing(def, quality = 1) {
       bar.translate((ax + bx) / 2, (ay + by) / 2, 0);
       parts.push(bar);
     }
-    // A broken cross-spar (the dead twin's spine, snapped — one arm missing).
-    const spar = strip(new THREE.BoxGeometry(barW, KTOP + KBOT * 0.4, barW)); spar.translate(0, (KTOP - KBOT * 0.4) / 2, -0.02);
+    // The SNAPPED spar-stub — a short broken spine dropping from the top vertex, then
+    // sheared off (it does NOT reach the interior/centre — the hole stays open).
+    const stubLen = KTOP * 0.55;
+    const spar = strip(new THREE.BoxGeometry(barW, stubLen, barW)); spar.translate(0, KTOP - stubLen / 2, -0.02);
     parts.push(spar);
-    const rung = strip(new THREE.BoxGeometry(KW * 1.1, barW, barW)); rung.translate(-KW * 0.15, 0.2, -0.02);
-    parts.push(rung);
     return mergeO(parts, 'frameEdges');
   }
   const frameEdges = new THREE.Mesh(frameEdgesGeo(), frameEdgeMat);
@@ -383,15 +388,15 @@ export function buildOnewing(def, quality = 1) {
   // so the sclera can stay dim (grief) while the eye still reads as the single focal.
   // Named `onewingEye`. Tracks the dragon; guts/re-lights (the blink-analog).
   // ==================================================================
-  const EYE_HOT = 1.9;      // grief-dim sclera (< EITHERWING's 2.1) — still clears the pupil bloom
-  const GLINT_HOT = 15.5;   // the catchlight (the G1 focal peak) — a sharp WET pinpoint that clears ≥250 even
+  const EYE_HOT = 2.2;      // grief-dim sclera (< EITHERWING's 2.1) — still clears the pupil bloom
+  const GLINT_HOT = 17.0;   // the catchlight (the G1 focal peak) — a sharp WET pinpoint that clears ≥250 even
                             // through LUMEN MIRE's fog (which dilutes the peak — the EITHERWING/Amber-Wastes lesson)
                             // while the SCLERA stays grief-dim; a mournful eye can still hold a bright catchlight
   const EYE_BASE = new THREE.Color(0xf3e6ea);   // a cold, ashen white (grief), not warm
   const eyeRig = new THREE.Group();
   eyeRig.name = 'onewingEye';
   eyeRig.position.set(0, 8.35, 0.85);
-  eyeRig.scale.setScalar(1.15);
+  eyeRig.scale.setScalar(1.2);
   const orbMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff }));
   orbMat.toneMapped = false;
   orbMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
@@ -416,23 +421,29 @@ export function buildOnewing(def, quality = 1) {
   const iris = new THREE.Mesh(mergeO(irisParts, 'iris'), irisMat);
   iris.name = 'eyeIris';
   eyeRig.add(iris);
-  // The wide dark PUPIL, seated PROUD so the orb reads as a bright ring around a dark
-  // centre (the pupil survives the bloom).
+  // The dark PUPIL, seated PROUD so the orb reads as a bright ring around a dark
+  // centre. Kept modest so the bright sclera ring stays THICK (a thin ring goes
+  // sub-pixel at fight distance and drops out of the geometry-mask the G1 gate reads).
   const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x0e0810 }));
   pupilMat.toneMapped = false;
-  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.215, 14, 12), pupilMat);
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 12), pupilMat);
   pupil.name = 'eyePupil';
   pupil.position.z = 0.17;
   pupil.renderOrder = 6;
   eyeRig.add(pupil);
-  // The catchlight GLINT — the pinpoint focal peak, proud of the pupil.
+  // The catchlight GLINT — the wet focal CORE, proud of the pupil and CENTRED so it is
+  // never eaten by the pupil. Sized a solid multi-pixel disc (0.3) so its opaque
+  // geometry — not just its bloom halo — reliably covers mask pixels even at the far
+  // reveal-hold framing (the G1 gate reads maxLum only INSIDE the per-triangle
+  // geometry mask, so a sub-pixel catchlight's 255 bloom falls OUTSIDE it and the
+  // focal drops; a solid disc keeps the peak inside the mask every frame).
   const glintMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff }));
   glintMat.toneMapped = false;
   glintMat.color.setScalar(GLINT_HOT);
-  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), glintMat);
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 12), glintMat);
   glint.name = 'eyeGlint';
-  glint.position.set(-0.08, 0.1, 0.45);
-  glint.renderOrder = 7;
+  glint.position.set(-0.05, 0.06, 0.44);
+  glint.renderOrder = 8;
   eyeRig.add(glint);
   rig.add(eyeRig);
 
@@ -538,7 +549,7 @@ export function buildOnewing(def, quality = 1) {
     // subtle list-deepening on the sag. Suppressed under charge (it draws up to
     // mantle) and death.
     const sag = (Math.sin(time * 0.9) * 0.5 + 0.5) * (1 - charge) * (1 - dyingK);
-    rig.position.y = -sag * 0.5;
+    rig.position.y = -sag * 0.22;
     // The LIST: base cant, deepened on the sag + hard on flinch, collapsing in death.
     const listExtra = sag * 0.05 + flinchT * 0.14;
     rig.rotation.z = LIST * (1 - dyingK * 1.15) - listExtra;   // death: list collapses through 0 and past
@@ -549,13 +560,18 @@ export function buildOnewing(def, quality = 1) {
     // grief beat — the wing covering its dead twin).
     const sway = Math.sin(time * 1.1) * 0.06;
     const mantle = charge * 0.55 + (noticeT > 0.4 ? 0.35 : 0);
-    const fold = dyingK * 1.35;   // folds down and inboard over the chest
+    // GRIEF DEATH FOLD — ramps in HARD and EARLY (ease-in on dyingK) so the vast wing
+    // visibly SWINGS DOWN and FORWARD over the fused frame, covering its dead twin —
+    // a POSE change, not a whiteout (the Fable CP1 gate note). By dyingK≈0.5 the wing
+    // is already most of the way folded across the chest.
+    const foldK = Math.min(1, dyingK * 1.9);
+    const fold = (foldK * foldK * (3 - 2 * foldK)) * 2.35;   // smoothstep → a big, decisive fold arc
     vastWing.shoulder.rotation.z = -0.1 + sway + mantle - fold;
-    vastWing.shoulder.rotation.x = -flinchT * 0.5 + fold * 0.4;
+    vastWing.shoulder.rotation.x = -flinchT * 0.5 + fold * 0.55;   // swings FORWARD over the chest
     for (const b of wingBlades) {
       const spread = mantle * (0.12 + b.idx * 0.03);         // blades fan wider on mantle
       const flutter = Math.sin(time * 1.4 + b.idx * 0.6) * 0.04 * (1 - dyingK);
-      b.pivot.rotation.z = b.base - spread + flutter - fold * (0.05 + b.idx * 0.015);
+      b.pivot.rotation.z = b.base - spread + flutter - fold * (0.12 + b.idx * 0.03);   // blades curl in as it folds (a closing hand)
     }
     for (const c of vastWing.coverts) c.pivot.rotation.z = c.base + Math.sin(time * 1.0 + c.pivot.position.x) * 0.12 - flinchT * 0.4;
 
@@ -616,14 +632,15 @@ export function buildOnewing(def, quality = 1) {
       gutter = 1 - clamp(dyingK * 1.4, 0, 1);   // eases shut
     } else {
       const rate = 1 + charge * 1.2 + flinchT * 2;
-      if (blinkT > 0) { blinkT -= dt * rate; gutter = 0.35 + 0.65 * Math.abs(Math.sin(blinkT * 6)); }
+      if (blinkT > 0) { blinkT -= dt * rate; gutter = 0.6 + 0.4 * Math.abs(Math.sin(blinkT * 6)); }
       else { nextBlink -= dt; if (nextBlink <= 0) { blinkT = 0.5; nextBlink = 2.2 + (time % 2.5); } }
     }
     const eyeK = gutter * (0.75 + (noticeT > 0 ? 0.6 : 0) + charge * 0.3);
     orbMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT * eyeK);
-    // The catchlight stays a steady WET pinpoint (barely gutters) so the focal never
-    // drops below the ≥250 peak; the sclera carries the grief-dim, not the glint.
-    glintMat.color.setScalar(GLINT_HOT * (0.92 + 0.08 * gutter) * (noticeT > 0 ? 1.12 : 1) * (1 - dyingK));
+    // The catchlight is a STEADY wet pinpoint — the SCLERA carries the grief-gutter,
+    // not the glint — so the G1 focal peak never dips below ≥250 in any captured idle
+    // frame (the glint only brightens on notice + fades in death).
+    glintMat.color.setScalar(GLINT_HOT * (noticeT > 0 ? 1.12 : 1) * (1 - dyingK));
     orb.scale.setScalar(Math.max(0.12, 1 - (1 - gutter) * 0.5));
     irisMat.emissiveIntensity = 0.7 * (0.6 + 0.4 * gutter);
 
