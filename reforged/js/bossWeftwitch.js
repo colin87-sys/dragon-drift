@@ -756,7 +756,7 @@ export function buildWeftwitch(def, quality = 1) {
   // fireBeam() at the 'aimed' release = the laserLance HDR hairline flash; cutThread()
   // when the 3×-parry lands = the taut thread SNAPS (hands recoil apart, the hood
   // reels, the thread dies) — the stagger read.
-  let beamT = 0, cutT = 0, cutEase = 0;
+  let beamT = 0, cutT = 0, cutEase = 0, castK = 0;
   // THREAD-STRAIN (0→1): the parry progress toward the cut, fed each frame by boss.js
   // (threadCutHits / threshold). It makes the taut thread hold visible tension BETWEEN
   // attacks — reddening + buzzing as it banks — so "that parry counted, one more snaps
@@ -795,6 +795,10 @@ export function buildWeftwitch(def, quality = 1) {
     // the cut-thread stagger: eases in hard, releases slow (the ~2.5s strike window).
     cutT = Math.max(0, cutT - dt * 0.4);
     cutEase += (clamp01(cutT * 2) - cutEase) * Math.min(1, dt * 9);
+    // THE CAST (entrance lash, u∈0.45–0.68): she PULLS HER HANDS WIDE and snaps the
+    // thread taut between them — the "charge that includes her hands" the HUD-sew bursts
+    // out of. Peaks at the lash, eases off through the settle; 0 outside the entrance.
+    castK = (entranceU != null) ? Math.sin(clamp01((entranceU - 0.42) / 0.32) * Math.PI) : 0;
 
     // --- THE MEASURED WEAVE (idle): the bust breathes slowly; the hands weave; the
     // loom-heart pulses; agitation rises with charge (fast stitching under pressure).
@@ -820,8 +824,8 @@ export function buildWeftwitch(def, quality = 1) {
     for (const side of ['L', 'R']) {
       const sx = side === 'L' ? -1 : 1;
       const hp = handPivots[side];
-      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2 + sx * cutEase * 2.6;   // track the lane; recoil on hit; thrown APART on a thread-cut
-      hp.position.y = HAND_Y + wv * sx + gazeEY * 1.8;
+      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2 + sx * cutEase * 2.6 + sx * castK * 3.4;   // track the lane; recoil on hit; thrown APART on a thread-cut; PULLED WIDE on the entrance cast
+      hp.position.y = HAND_Y + wv * sx + gazeEY * 1.8 + castK * 2.0;   // lifted as she casts the web
       hp.rotation.z = sx * (0.2 + wv * 0.5) - gazeEX * 0.2;
       hp.rotation.y = sx * (0.5 - stillness * 0.2);
       // fingers flex on the weave (dying → fall open + slack).
@@ -843,7 +847,9 @@ export function buildWeftwitch(def, quality = 1) {
     // strain FLOORS the tension: a strained thread stays partly taut + lit even between
     // attacks (so the player sees the banked parries), and buzzes harder as it nears the snap.
     const strainFloor = threadStrain * 0.72 * (1 - cutEase);
-    const tautTarget = Math.max(clamp01(charge * 1.3 - dyingK - cutEase * 2), strainFloor);
+    // the CAST snaps the thread taut + amber between the spreading hands (the sew bursts
+    // from it); floors the tension through the lash.
+    const tautTarget = Math.max(clamp01(charge * 1.3 - dyingK - cutEase * 2), strainFloor, castK * 0.95);
     tautK += (tautTarget - tautK) * Math.min(1, dt * 7);
     // endpoints = the two index fingertips (approx from the hand pivots).
     const lp = handPivots.L.position, rp = handPivots.R.position;

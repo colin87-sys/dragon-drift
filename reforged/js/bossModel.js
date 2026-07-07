@@ -10,6 +10,7 @@ import { buildHollowgate, buildHollowgateSeed } from './bossHollowgate.js';
 import { buildThrumswarm } from './bossThrumswarm.js';
 import { buildBrineholm } from './bossBrineholm.js';
 import { buildKnellgrave } from './bossKnellgrave.js';
+import { buildOnewing } from './bossOnewing.js';
 import { buildKarnvow } from './bossKarnvow.js';
 import { buildWeftwitch } from './bossWeftwitch.js';
 import { buildEmbertide } from './bossEmbertide.js';
@@ -81,6 +82,7 @@ function buildBossImpl(def, quality = 1) {
   if (def.archetype === 'thrumswarm') return buildThrumswarm(def, quality);
   if (def.archetype === 'brineholm') return buildBrineholm(def, quality);
   if (def.archetype === 'boundBell') return buildKnellgrave(def, quality);
+  if (def.archetype === 'onewing') return buildOnewing(def, quality);
   if (def.archetype === 'trophyDuelist') return buildKarnvow(def, quality);
   if (def.archetype === 'weftwitch') return buildWeftwitch(def, quality);
   if (def.archetype === 'embertide') return buildEmbertide(def, quality);

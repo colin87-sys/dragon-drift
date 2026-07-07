@@ -146,10 +146,19 @@ export const BOSSES = {
       orbiterStyle: 'ringBlade', orbiterCount: 3,
       eyeCount: 1, coreDetail: 1,
     },
+    // §5f law 1 (3–5 move core) + law 3 (develop = same reads, faster, +1 move):
+    // a Sentinel DEVELOPS one core, it does not swap the whole vocabulary each
+    // phase. STORMREND's identity is storm = wall + anti-flee + constrict, so the
+    // core is fan → +movingGap → +iris. (The 2026-07 rebalance trimmed the shipped
+    // 8-attack spread — curtain/stream/aimed/secondWave/crossfire — down to this
+    // 3-move core; the card ids + CRESCENDO signature are UNCHANGED so 13 EMBERTIDE
+    // and 14 THE UNMASKED keep quoting a live boss.)
+    // `fan` recurs in every phase: it is BOTH the wall read AND the amber carrier
+    // (AMBER_CARRIERS in bossRhythm.js — dropping it from a phase fails amberdiet).
     phases: [
-      { atFrac: 1.00, cadence: [1.8, 2.4], attacks: ['fan', 'curtain'] },              // P1: learn the wall
-      { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['movingGap', 'stream', 'aimed'] },// P2: anti-flee
-      { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['iris', 'secondWave', 'crossfire'] }, // P3: the storm
+      { atFrac: 1.00, cadence: [1.8, 2.4], attacks: ['fan'] },                       // P1: learn the wall / find the gap
+      { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['fan', 'movingGap'] },          // P2: the wall now MOVES (anti-flee)
+      { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['fan', 'movingGap', 'iris'] },  // P3: the storm CLOSES IN (constrict — the dread card)
     ],
     cards: [
       { id: 'stormrend_wall',    name: 'UNENDING — Gale Wall',            atFrac: 1.00, timer: 22 },
@@ -163,12 +172,15 @@ export const BOSSES = {
     rhythm: {
       signature: 'crescendo',
       ticket: { bpm: 100, quantize: '1/4' },
+      // Phrases DEVELOP the 3-move core (the attacks track phases[].attacks); the
+      // restLo/restHi/restDist ramp values are UNCHANGED from the shipped version,
+      // so the CRESCENDO rest fingerprint (rhythmprint) is preserved.
       phases: [
-        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.7 }, { kind: 'sustain', attack: 'curtain', beats: 1, gap: 0.7 }],
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.7 }],
           restLo: 1.3, restHi: 2.6, restDist: 'decaying' },
-        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 0.6 }, { kind: 'sustain', attack: 'stream', beats: 1, gap: 0.6 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.6 }],
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.65 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.65 }],
           restLo: 1.1, restHi: 2.3, restDist: 'decaying' },
-        { phrase: [{ kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'secondWave', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'iris', beats: 1, gap: 0.55 }],
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'iris', beats: 1, gap: 0.55 }],
           restLo: 0.9, restHi: 2.1, restDist: 'decaying' },
       ],
     },
@@ -1384,6 +1396,106 @@ export const BOSSES = {
       ],
     },
   },
+
+  // ── BOSS 12 — ONEWING, "the Half That Would Not Die" (registry slot 12) ────────
+  // EITHERWING's grief-stricken survivor, returned colossal and LOPSIDED, carrying
+  // its dead twin's kite-frame fused to its chest (§5b/§5d slot 12, the WORLD-ENDERS
+  // rival-return payoff). One vast 8-blade wing vs one atrophied 2-blade stub, a
+  // permanent ~12° list. Its band-break is the ARRIVAL GRAMMAR (no warning until it
+  // erupts, `noWarn`) plus the roster's ONE lying FELLED card (the health-bar lie —
+  // wired in CP2, def-gated so no other boss may ever opt in).
+  onewing: {
+    id: 'onewing',
+    name: 'ONEWING',
+    title: 'the Half That Would Not Die',
+    epithet: 'What Grief Would Not Bury',   // §5f lore gap: the grief points at the Apex (registered thread; slot 5 → 12 rival-return)
+    archetype: 'onewing',                    // new string; dispatched in bossModel.js → bossOnewing.js
+    tier: 4,                                 // WORLD-ENDER band — a strong mid/late slot on the §5b sawtooth (NOT the 13 peak)
+    hpMax: 540,                              // WE band 480–560; sits high but below the band peak (13)
+    // ⚠ THE ARRIVAL-GRAMMAR BAND-BREAK (§5c "the lane breaks"): the DANGER banner
+    // fires WITH the eruption, never before — the no-warn jump-scare. The late-banner
+    // path is BUILT in CP2 (Part 2.6); until then this flag is inert (a def without a
+    // consumer keeps the plain warn — coexist-safe, every other boss byte-identical).
+    noWarn: true,
+    // §5j erupts from BELOW (the fog floor) — a straight vertical eruption into station,
+    // NOT the default behind-arc that drifts up and over the player (the "flies through
+    // us" the owner flagged). Paired with the no-warn banner + the eruption danger beat
+    // (boss.js enterFight), the arrival is an abrupt threat, not a flythrough.
+    approachFrom: 'below',
+    // §5f THE LYING FELLED CARD (the roster's ONLY health-bar lie — def-gated; no other
+    // def may ever set this). On the killing blow ONEWING fakes death (the FELLED card
+    // fires, it cracks), then within ≤2s felledReturn of the bar RETURNS and it fights
+    // on CRIPPLED + exposed until a REAL second kill. Its name IS the mechanic.
+    felledLie: true,
+    felledReturn: 0.35,          // ≤35% of the bar comes back (the crippled final stand)
+    defeat: { slain: '✦  WOULD NOT DIE  ✦', felled: 'ONEWING — The Half That Would Not Die' },
+    muzzle: 'livingWing',        // the LIVING volley origin (the wing); the GHOST volley (the fused frame) is a second model node — CP2
+    // §5i.B World-Enders graze: SPRAY-SOAK — the fused frame IS the anatomy; hitting/
+    // breaking it vents a 2×-value spray for a beat (offered once per phase). Def-gated;
+    // 'spraySoak' has no consumer yet (CP2), so it is inert for every boss now.
+    grazeForm: 'spraySoak',
+    scale: 1.9,                  // TUNE in studio: size the vast wing to ≥26 on-screen units (×2.2 of the r9 6.2 body is the FLOOR, not the target — §2.1/L141)
+    // §7b MOVING boss (L194): ONEWING wanders its lane (the fluidity primitive), so it
+    // slides off its own capture mask between bossgate's two round-trips (the G1 focal
+    // flake). `freeze` samples the geometry mask + the screenshot at ONE pose — additive,
+    // thresholds unchanged, shipped defs byte-identical.
+    gate: { freeze: true },
+    // PALETTE (Decision C — the ashen grey-rose, the MOST DESATURATED of the 11/12/13
+    // rose-triple; near-black grey-rose TRACE). Identity lives in the EMISSIVE rims
+    // (diffuse near-black, §3 law 3). The fused ghost-frame stays PURE BLACK (no glow).
+    // Builder proposes hexes + verifies G3/bulletcontrast clear of danger-magenta.
+    // Ashen grey-rose pushed to the COOL edge (~305°, a mourning mauve-rose) so its
+    // bloom halo clears the danger-magenta band (327–357°) with a ~17° margin — the
+    // §5d OXBLOOD/MAGENTA collision law, but on the cool side (EITHERWING cleared it
+    // warm; ONEWING clears it cool → the two survivors read distinct). Desaturated =
+    // the MOST ashen of the 11/12/13 triple. Verified: bossgate G3 + bulletcontrast.
+    accent: 0x6c4c78,            // dim ashen mauve-rose (the living-wing lit edges; grief-dim ei)
+    glow: 0x8a6b7e,              // a touch paler (shield rim / shards / backlight)
+    bulletColor: 0xff2b6a,       // danger magenta — the role colour (living volley; never per-boss)
+    // Phases — RUBATO / FEINT: held wind-ups + denied downbeats. Re-expresses
+    // EITHERWING's kit (crossfire/secondWave/movingGap) + the ghost-half volley.
+    // `attacks` per phase always carries an amber carrier (aimed) for the amberdiet
+    // floor; the ghost half is parryable (CP2). cadence = the legacy fallback roll.
+    phases: [
+      { atFrac: 1.00, cadence: [1.3, 1.9], attacks: ['crossfire', 'aimed'] },              // P1: The Listing Volley
+      { atFrac: 0.78, cadence: [1.2, 1.8], attacks: ['movingGap', 'crossfire', 'aimed'] }, // P2: The Ghost Half (the dead twin's volley begins, as ghost-bullets — CP2)
+      { atFrac: 0.56, cadence: [1.1, 1.7], attacks: ['secondWave', 'fan', 'aimed'] },       // P3: The Mantling Wing
+      { atFrac: 0.34, cadence: [1.0, 1.6], attacks: ['crossfire', 'fan', 'aimed'] },        // P4: The Denied Downbeat (the feint)
+      { atFrac: 0.16, cadence: [0.9, 1.5], attacks: ['secondWave', 'crossfire', 'aimed'] }, // P5: The Missing Wing (dread — the old DUAL attack ALONE)
+    ],
+    // Spell cards (§5f; 5 for WE, 1:1 with phases — atFracs align; ONE dread, LAST).
+    // The dread card "WOULD NOT DIE — The Missing Wing" performs EITHERWING's old DUAL
+    // attack ALONE: the dead half's volley arriving as ghost-bullets (the finally-
+    // answerable attack; parry the ghost half — CP2). Its name IS the lying-FELLED beat.
+    cards: [
+      { id: 'onewing_listing',   name: 'WOULD NOT DIE — The Listing Volley', atFrac: 1.00, timer: 24 },
+      { id: 'onewing_ghosthalf', name: 'WOULD NOT DIE — The Ghost Half',     atFrac: 0.78, timer: 26 },
+      { id: 'onewing_mantle',    name: 'WOULD NOT DIE — The Mantling Wing',   atFrac: 0.56, timer: 26 },
+      { id: 'onewing_denied',    name: 'WOULD NOT DIE — The Denied Downbeat', atFrac: 0.34, timer: 28 },
+      { id: 'onewing_missingwing', name: 'WOULD NOT DIE — The Missing Wing',  atFrac: 0.16, timer: 30, dread: true },
+    ],
+    // §5i RUBATO / FEINT — the roster's ONE broken-meter boss. Delays are FIXED per
+    // attack, animation-held, NEVER randomized: within-phrase gaps are scalars and the
+    // rest uses 'decaying' (a deterministic long→short ramp — the held-then-tightening
+    // meter), so the broken meter is LEARNABLE, not luck. Long rubato rests give a
+    // distinct rhythmprint fingerprint (KS ≥ 0.20 vs every boss); the amber floor keeps
+    // a parry volley inside every 12s window (amberdiet).
+    rhythm: {
+      signature: 'rubato-feint',
+      phases: [
+        { phrase: [{ kind: 'burst', attack: 'crossfire', count: 1, gap: 0.0 }, { kind: 'burst', attack: 'aimed', count: 2, gap: 0.45 }],
+          restLo: 0.7, restHi: 3.4, restDist: 'decaying' },
+        { phrase: [{ kind: 'burst', attack: 'movingGap', count: 1, gap: 0.0 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.4 }, { kind: 'burst', attack: 'aimed', count: 1, gap: 0.0 }],
+          restLo: 0.65, restHi: 3.1, restDist: 'decaying' },
+        { phrase: [{ kind: 'sustain', attack: 'secondWave', beats: 1, gap: 0.0 }, { kind: 'burst', attack: 'fan', count: 2, gap: 0.4 }, { kind: 'burst', attack: 'aimed', count: 1, gap: 0.0 }],
+          restLo: 0.6, restHi: 2.9, restDist: 'decaying' },
+        { phrase: [{ kind: 'burst', attack: 'crossfire', count: 2, gap: 0.4 }, { kind: 'burst', attack: 'fan', count: 1, gap: 0.0 }, { kind: 'burst', attack: 'aimed', count: 1, gap: 0.0 }],
+          restLo: 0.55, restHi: 2.7, restDist: 'decaying' },
+        { phrase: [{ kind: 'burst', attack: 'secondWave', count: 1, gap: 0.0 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.38 }, { kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }],
+          restLo: 0.5, restHi: 2.5, restDist: 'decaying' },
+      ],
+    },
+  },
 };
 
 // Registry slot 3 is ASHTALON (Colossi opener), slot 4 is MARROWCOIL, slot 5 is
@@ -1392,7 +1504,7 @@ export const BOSSES = {
 // (a Calamity — the bound deep-sea leviathan head). CRAGHOLD is RETIRED (§5b L130)
 // — its def + builder stay for the geometry-lesson lineage + its telegraph test,
 // but it is OUT of the encounter rotation.
-export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing', 'hollowgate', 'thrumswarm', 'brineholm', 'karnvow', 'knellgrave', 'weftwitch', 'embertide'];
+export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing', 'hollowgate', 'thrumswarm', 'brineholm', 'karnvow', 'knellgrave', 'weftwitch', 'onewing', 'embertide'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
 // exhausted — more bosses just extend the list). LEGACY path: kept for the
