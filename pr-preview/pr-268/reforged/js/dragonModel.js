@@ -6,6 +6,7 @@ import './dragonWings.js'; // self-registers the 'membrane' / 'feather' / 'none'
 import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builders
 import './dragonTail.js';  // self-registers the 'clean' / 'legacy' tail builders
 import './dragonCrystalSerpent.js'; // 'crystalSerpent' torso (continuous astral serpent)
+import './dragonKoiSerpent.js';     // 'koiSerpent' torso (undulating jade river-serpent; body IS the tail)
 import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
 import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-trail)
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)

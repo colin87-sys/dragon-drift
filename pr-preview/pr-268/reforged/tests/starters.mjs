@@ -81,11 +81,13 @@ const SPECS = {
     // almond that still reads as the keen-but-serene apex, not a shrunken pinhole.
     eyeHead: [[0.30, 0.40], [0.20, 0.28], [0.14, 0.32]],
     // span:body — measured against the VISUAL nose→tail body length (the §8 top-planform
-    // read). Jade's SERPENT body makes that denominator very long, so the ratio bands are
-    // far below §3's 2.2–2.5× body-LENGTH figure (the same visual-metric reconciliation
-    // azure/ember documented, inverted: here the long tail deflates the ratio, not the
-    // droop). The fins carry the beauty; the gate judges reach in pixels.
-    spanBody: [[0.18, 0.36], [0.20, 0.40], [0.28, 0.52]],
+    // read). RECONCILED for the koiSerpent body: jade moved from a loft torso + bolted
+    // sweptTail to a continuous UNDULATING section-chain whose head:body is now pinned to
+    // the §4 growth arc (2.8→8.4×). With the body length pinned by that assert and the silk
+    // fans kept UNCHANGED (the beloved hero), the wingspan:body ratio settles at these values
+    // (the fins unfurl relative to the body across forms → monotonic up). The old bands were
+    // calibrated against the retired loft body; these track the real serpent.
+    spanBody: [[0.24, 0.42], [0.32, 0.54], [0.44, 0.68]],
     accentHue: 149,                              // mint-pearl ~149° (green-leaning, ICONIC GREEN)
     carrier: 'jade',                             // jade [ICONIC GREEN]: body diffuse reads VIVID mid-value jade (NOT near-black moss); accent green
   },

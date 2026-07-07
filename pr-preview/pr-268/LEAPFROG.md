@@ -6414,3 +6414,47 @@ ledger append (this entry) is the natural carrier; an `--allow-empty` commit als
 only needs the head SHA to move. The preview URL is correct as-is — it just needs a real run behind it. (The
 sandbox itself can't verify the page: the egress policy 403s `*.github.io` at the proxy, so trust the
 Actions "PR Preview" + "Deploy Pages" green as the build proof, and let the human load the URL.)
+
+---
+
+## L172 — The gate can't see motion: a serpent that "passed" was dead-stiff in-game
+
+**Human verdict on the CP2-passed jade (in-game, PR #268 preview):** *"the body is disjointed and
+stiff… it's meant to be a serpent but it doesn't even move… the tail is thick and disjointed from the
+body. How did fable even pass this?"*
+
+**Why it passed the gate anyway.** §8 Fable judges STILL turntable/tiershots — there is no WebGL in CI,
+so **motion is structurally invisible to the gate**. A dragon can score 4.25 on frozen beauty and be
+lifeless the instant it flies. The human is the ONLY judge of motion/feel (this is why §8 defers the merge
+call to them) — treat a gate PASS as "the stills hold," never "it moves."
+
+**Root cause (architectural, not a tuning miss).** Jade was built on the `serpent` LOFT torso — ONE rigid
+mesh that emits no spine segments, so nothing in the rig can bend it — with the fat `sweptTail` bolted on as
+a SECOND mesh (the visible seam = "disjointed tail"). The only procedural bodies that actually undulate are
+the **segmented** ones: a torso that publishes `parts.bodySegs` (overlapping section Groups) gets the
+shipped lead-first travelling wave for free (dragon.js ~L858: `position.x = sin(time·k − i·lag)·sway·ramp`,
+ramp `0.18+0.95·tt` so the tail whips widest; group roll auto-softens to 0.4 when `bodySegs` present so the
+snake-bend reads instead of a plane-bank).
+
+**The fix — `dragonKoiSerpent.js` (`koiSerpent` torso).** A continuous chain of heavily-overlapping smooth
+jade sections (koi girth profile: plump front third → fine tail), vertex-painted value ramp + mint belly,
+publishing `bodySegs`. **The tail is the tapering REAR of this same chain** (`parts.tail:'none'`) — so it
+can never detach, and "thickness" is just the taper curve, not a bolted girth knob. Wings (the human's
+loved hero) + the koiSkull head are untouched — they mount at the front and LEAD while the body trails.
+
+**Gotchas that the §7 asserts caught (all real, all fixed):**
+1. **Length is pinned by head:body, not by feel.** Jade is the LONG archetype (apex body 7.5–9.5× the head
+   vs a winged dragon's ~5×) — but the ratio climbs mostly because the HEAD shrinks across forms (2.07→0.98),
+   the absolute body length barely grows (~6→8). Calibrate the section count against the head length, per form.
+2. **Pin the frame at the SHOULDER, not the chain midpoint.** A centre pin drifts every mount (head, wing
+   root, chin-pearl) as the body lengthens → the §7 motif-invariance assert fails (drift 0.67/1.25). Pinning a
+   fixed arc-distance behind the head keeps the front anchors form-invariant; only the tail extends backward.
+3. **Bake a resting vertical S** (neck up / mid dip / tail up) into the base Y or the §6.4 line-of-action has
+   zero inflection (a straight rod). The runtime wave adds to `userData.baseY`, so the still pose keeps the S.
+4. **spanBody bands are architecture-specific.** Moving loft→chain legitimately re-based wingspan:body;
+   reconcile the band to the new (correct) body rather than shrinking the beloved wings to fit an old number.
+
+**Reusable:** the segmented-body + `bodySegs` path is the ONLY procedural route to real undulation — reach
+for it (not a loft) whenever the creature must *swim/slither*, and fold the tail into the chain so it's
+continuous by construction. Verify motion on the PR preview every time; the headless suite proves geometry,
+never life.
