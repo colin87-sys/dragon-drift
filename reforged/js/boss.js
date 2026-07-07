@@ -446,6 +446,24 @@ const SETPIECE_PATHS = {
   // under while the arena floor erupts in geyser curtains (MOVING → the P4 patterns
   // keep firing from below-frame), then SURFACES back to station. The below-frame
   // counterpart to ASHTALON's stoop-from-above; the model dread-submerges on top.
+  // BRINEHOLM — THE SWELL (P2 breather beat, quiet/non-moving): the island HEAVES
+  // up and leans in — the signature breach frame — then holds reared for a beat
+  // before settling. Because it's a non-moving setpiece the boss's fire is held
+  // (armSetpieceForPhase), and the eye-weak-point drive surfaces the eye through
+  // the fire-quiet window — so the breach IS a safe, readable window to paint the
+  // eye + the (now-nearer) shackles. Adds a memorable beat + a fair paint moment
+  // to the roster's relief boss WITHOUT adding bullets (§5b slot-8 "relief texture").
+  swell(k) {
+    const B = CONFIG.BOSS;
+    const RISE_Y = B.fightHeight + 5, NEAR_REL = B.settleGap - 3;
+    if (k < 0.35) {                        // BREACH — heave up out of the fog, lean in
+      const t = easeInOut(k / 0.35);
+      return { x: 0, y: B.fightHeight + (RISE_Y - B.fightHeight) * t, rel: B.settleGap + (NEAR_REL - B.settleGap) * t };
+    }
+    if (k < 0.72) return { x: 0, y: RISE_Y, rel: NEAR_REL };   // HOLD reared — the fire-quiet paint window
+    const t = easeInOut((k - 0.72) / 0.28);                    // SETTLE back to station
+    return { x: 0, y: RISE_Y + (B.fightHeight - RISE_Y) * t, rel: NEAR_REL + (B.settleGap - NEAR_REL) * t };
+  },
   sounding(k) {
     const B = CONFIG.BOSS;
     const SINK_Y = -7, BACK_REL = B.settleGap + 4;

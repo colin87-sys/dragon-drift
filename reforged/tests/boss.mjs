@@ -666,6 +666,22 @@ for (const key of BOSS_ORDER) {
   const reroute = bh.shackleHitTest(1.5 * sc8, -2.4 * sc8);
   assert(reroute !== hitIdx, `brineholm shackleHitTest never reroutes to a broken post (got ${reroute})`);
 
+  // SHACKLE SAFETY (owner feel-fix): the outer posts were pulled in from the ±13
+  // lane wall (they used to sit at world ±~8–10, ~3 m off the fatal wall — a
+  // crash-and-die paint) so branding them is a lateral commit, not suicide. Every
+  // post now sits well inside the wall with comfortable margin.
+  const outerX = Math.max(...bh.shacklePositions().map(Math.abs));
+  assert(outerX < 8 && CONFIG.laneHalfWidth - outerX > 4,
+    `brineholm shackles sit safely inside the lane wall (outer |x| ${outerX.toFixed(1)}, wall ±${CONFIG.laneHalfWidth}, margin ${(CONFIG.laneHalfWidth - outerX).toFixed(1)})`);
+  // THE P2 SWELL breach beat: a quiet (non-moving) setpiece → fire is held, so the
+  // breach is a SAFE, readable paint window (the eye surfaces in the fire-gap), not
+  // added pressure — texture for the roster's relief boss without more bullets.
+  const sps8 = BOSSES.brineholm.setpieces;
+  const swell = sps8.find((s) => s.id === 'swell');
+  assert(swell && swell.atPhase === 1 && !swell.moving,
+    'brineholm has a quiet P2 SWELL setpiece (a fire-held breach paint window)');
+  assert(sps8.some((s) => s.id === 'sounding' && s.moving), 'brineholm keeps the P4 moving SOUNDING dive');
+
   // NOTICE state JUMP (§4b — the notice beat must be a discrete state change, not
   // idle+ε; the CP1 gate caught the first pass reading identical to idle). A fresh
   // build so prior charge/eye/shackle state can't muddy the baseline.
