@@ -1053,6 +1053,13 @@ for (const key of BOSS_ORDER) {
     const panels = [];
     kp.group.traverse((o) => { if (o.name === 'knellShedPanel') panels.push(o); });
     assert(panels.length >= 2, `knellgrave has break-away shed plates (${panels.length} ≥ 2 — the flank panels that fall away)`);
+    // REVEAL-FLOURISH GUARD (owner: "the moment the fight starts the parts all fly off"): the
+    // controller plays a HP-bar fill-up at the fight start — setHealth(0) then a ramp 0→full
+    // (boss.js hpRevealT). The ruin must IGNORE that ramp (it only ARMS at settle) or every
+    // ratcheted plate breaks off the instant the fight begins. Drive the ramp; nothing may shed.
+    kp.setHealth(0);
+    for (let s = 0; s <= 16; s++) { kp.setHealth(s / 16); kp.tick(0.05, 400 + s * 0.05); }
+    assert(panels.every((p) => p.parent.position.length() < 6.65 && p.material.opacity > 0.95), 'knellgrave shed plates stay HOME through the HP-bar fill-up flourish (setHealth ramps 0→full at fight start — the ruin must not read that as destruction)');
     // at REST the plates are home + opaque (the bell reads solid — no premature holes).
     kp.setHealth(1.0);
     for (let s = 0; s < 10; s++) kp.tick(0.05, 500 + s * 0.05);
@@ -1071,6 +1078,7 @@ for (const key of BOSS_ORDER) {
     // RATCHETS open (a broken bell doesn't heal). Fresh model so the ratchet starts clean.
     const ks = buildBoss(BOSSES.knellgrave, 1);
     const kw = ks.group.getObjectByName('innerWall');
+    ks.setHealth(1.0);    // settle at full hp first — the ruin ARMS here (the reveal fill-up guard); real fights always start full
     ks.setHealth(0.20);   // deep P4 by hp alone — but with NO dread, the shell must stay solid
     for (let s = 0; s < 10; s++) ks.tick(0.05, 570 + s * 0.05);
     assert(kw.material.opacity > 0.9 && kw.material.depthWrite, `knellgrave interior wall stays SOLID on hp alone (opacity ${kw.material.opacity.toFixed(2)} — the seal freezes hp; only the dread reveal tears it)`);

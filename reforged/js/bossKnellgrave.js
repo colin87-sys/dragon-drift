@@ -172,16 +172,16 @@ export function buildKnellgrave(def, quality = 1) {
   // not there at the start. Ornament (frieze/buried/fins/rivets) skips the windows so nothing
   // floats when shed.
   const SHED_YTOP = -1.2, SHED_YBOT = -5.2;
-  // THE SHED — the bell loses a big chunk of wall EACH PHASE so the damage reads from the
-  // fight camera, not just up close (owner playtest: "no meaningful difference phase by
-  // phase"). Three FRONT chunks break on a one-per-phase schedule (ruinK 0.15 / 0.38 / 0.60),
-  // spread across the visible face so a DIFFERENT piece of the outline drops each phase; each
-  // is paired with the chunk diametrically behind it (θ+π), shed together, so the break punches
-  // THROUGH to the sky. By the last toll most of the lower wall is gone — a skeleton, not a
-  // bell with a bright crack. Ornament + both walls carve to these windows; plates cover them
-  // at rest (a clean, whole bell at the first toll — the degradation is EARNED).
+  // THE SHED — the bell loses a big chunk of wall at EACH PHASE TRANSITION so the damage reads
+  // from the fight camera, not just up close (owner playtest). The three FRONT chunks break at
+  // the PHASE-FLOOR ruin values — 0.30 (P1→P2), 0.55 (P2→P3), 0.72 (just before the P4 seal) —
+  // so the first armour loss lands BETWEEN phase 1 and 2, not at the fight start (owner note).
+  // Each is paired with the chunk diametrically behind it (θ+π), shed together, so the break
+  // punches THROUGH to the sky. By the last toll most of the lower wall is gone — a skeleton, not
+  // a bell with a bright crack. Ornament + both walls carve to these windows; plates cover them
+  // at rest (a clean, whole bell through phase 1 — the degradation is EARNED).
   const SHED = [];
-  for (const [aMid, at] of [[0.70, 0.15], [5.40, 0.38], [1.50, 0.60]]) {
+  for (const [aMid, at] of [[0.70, 0.30], [5.40, 0.55], [1.50, 0.72]]) {
     SHED.push({ aMid, aHalf: 0.36, at, mid: -3.2 });                         // the visible front chunk
     SHED.push({ aMid: (aMid + Math.PI) % (Math.PI * 2), aHalf: 0.36, at, mid: -3.2 });   // its diametric twin → the sky through-line
   }
@@ -837,8 +837,19 @@ export function buildKnellgrave(def, quality = 1) {
   // toll kicks the body harder. The fight builds TOWARD the reveal — transformation as
   // escalation, no second form needed.
   let ruinK = 0;
+  let ruinArmed = false;   // gate the reveal fill-up (see below)
   let skyOpen = 0;   // one-way ratchet: once the Last Toll tears the bell open, the sky stays pouring in
-  function setHealthRuin(frac) { ruinK = clamp01(1 - frac); kit.setHealth(frac); }
+  function setHealthRuin(frac) {
+    kit.setHealth(frac);
+    // The controller plays a HP-BAR FILL-UP flourish at the fight start — setHealth(0) then a
+    // ramp 0→full over ~0.8s (boss.js hpRevealT). If the RUIN tracked that, the bell would read
+    // fully DESTROYED for that instant and the ratcheted shed would fire every plate the moment
+    // the fight begins (owner: "the moment the fight starts the parts all fly off"). So the ruin
+    // only ARMS once the bell has settled at (near) full health, THEN tracks real damage.
+    // Monotonic — a broken bell doesn't heal, so ruinK never drops (survives the entrance sway).
+    if (frac > 0.97) ruinArmed = true;
+    if (ruinArmed) ruinK = Math.max(ruinK, clamp01(1 - frac));
+  }
 
   // §4b GAZE — the head orientation. Drooped/away at rest; tilts TOWARD the player as
   // gaze rises (set by the controller; free auto in the studio).
