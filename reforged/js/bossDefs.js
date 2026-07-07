@@ -1230,6 +1230,11 @@ export const BOSSES = {
     // path is BUILT in CP2 (Part 2.6); until then this flag is inert (a def without a
     // consumer keeps the plain warn — coexist-safe, every other boss byte-identical).
     noWarn: true,
+    // §5j erupts from BELOW (the fog floor) — a straight vertical eruption into station,
+    // NOT the default behind-arc that drifts up and over the player (the "flies through
+    // us" the owner flagged). Paired with the no-warn banner + the eruption danger beat
+    // (boss.js enterFight), the arrival is an abrupt threat, not a flythrough.
+    approachFrom: 'below',
     // §5f THE LYING FELLED CARD (the roster's ONLY health-bar lie — def-gated; no other
     // def may ever set this). On the killing blow ONEWING fakes death (the FELLED card
     // fires, it cracks), then within ≤2s felledReturn of the bar RETURNS and it fights

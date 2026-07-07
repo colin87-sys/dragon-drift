@@ -667,6 +667,8 @@ export function buildOnewing(def, quality = 1) {
   let charge = 0;          // 0..1 — the wing MANTLES (the silhouette tell)
   let dyingK = 0;          // 0..1 — the grief death (set by setDissolveEmotive)
   let shieldedK = 0, shieldedTarget = 0;   // 1 while the ward is up — the eye LEASHES to an ember (§5f G6)
+  let felledK = 0;         // 0..1 — the FAKE-DEATH collapse (recoverable): wing folds, eye guts out, body sags
+  let reviveT = 0;         // >0 the RESURRECTION pulse: the fused frame IGNITES its dead twin's light into the body
   let noticeT = 0;         // notice() pulse
   let flinchT = 0;         // flinch kick (from flash/hurt)
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;   // eye gaze target + eased
@@ -704,7 +706,11 @@ export function buildOnewing(def, quality = 1) {
   function setEntranceAim(x, y, z) { if (x == null) { entAimSet = false; } else { _entAim.set(x, y, z); entAimSet = true; } }
 
   function tickBody(dt, time) {
-    const alive = 1 - dyingK;
+    // `col` = the COLLAPSE pose weight (real death OR the recoverable fake-death fold);
+    // `alive` damps the wander so the fake death visibly STILLS the body, then the drift
+    // resumes on revive — the honest "it was dying, now it isn't" tell.
+    const col = Math.max(dyingK, felledK);
+    const alive = 1 - Math.max(dyingK, felledK * 0.85);
     locoT += dt;
 
     // === LOCOMOTION (L194 — THE fluidity primitive): a listing, grief-stricken WANDER
@@ -716,7 +722,7 @@ export function buildOnewing(def, quality = 1) {
     const driftX = (Math.sin(locoT * 0.41) * 2.2 + Math.sin(locoT * 0.17 + 1.3) * 1.5 + 0.6) * alive;
     const driftY = (Math.sin(locoT * 0.53 + 0.7) * 1.0 + Math.sin(locoT * 0.29) * 0.7 - sag * 0.5) * alive;
     rig.position.x = driftX;
-    rig.position.y = driftY - dyingK * 4.0;                    // sinks as it dies
+    rig.position.y = driftY - dyingK * 4.0 - felledK * 1.6;    // sinks as it dies (fake death sags partway)
     const vX = (rig.position.x - lastLX) / Math.max(dt, 1e-4);
     const vY = (rig.position.y - lastLY) / Math.max(dt, 1e-4);
     lastLX = rig.position.x; lastLY = rig.position.y;
@@ -724,9 +730,9 @@ export function buildOnewing(def, quality = 1) {
     // === VELOCITY-COUPLED BANK (L193): the body leans INTO its drift on top of the
     // permanent ~12° LIST; a small yaw/pitch as it slews. Death collapses the list. ===
     bankZ += ((-vX * 0.05) - bankZ) * Math.min(1, dt * 5);
-    const listExtra = sag * 0.06 + flinchT * 0.16;
+    const listExtra = sag * 0.06 + flinchT * 0.16 + felledK * 0.28;   // fake death lists HARD (a dying cant)
     rig.rotation.z = LIST * (1 - dyingK * 1.15) - listExtra + bankZ * alive;
-    rig.rotation.x = dyingK * 0.5 + clamp(vY * 0.012, -0.2, 0.2) * alive;
+    rig.rotation.x = (dyingK * 0.5 + felledK * 0.3) + clamp(vY * 0.012, -0.2, 0.2) * alive;
     rig.rotation.y = clamp(vX * 0.010, -0.15, 0.15) * alive;
 
     // === TELL POSE eases in on charge (the attack's own pose — tell FAMILIES). ===
@@ -738,8 +744,8 @@ export function buildOnewing(def, quality = 1) {
     // shoulder EASES toward its target and the lateral drift velocity drags it a beat
     // behind (the overlap that kills stop-motion). Mantles on charge, wears the tell
     // pose, FOLDS down over the frame in death. ===
-    const mantle = charge * 0.5 + (noticeT > 0.4 ? 0.3 : 0);
-    const foldK = Math.min(1, dyingK * 1.9);
+    const mantle = charge * 0.5 + (noticeT > 0.4 ? 0.3 : 0) + reviveT * 0.9;   // the wing THROWS open on revive
+    const foldK = Math.min(1, col * 1.9);                      // real death OR the fake-death fold
     const fold = (foldK * foldK * (3 - 2 * foldK)) * 2.35;     // smoothstep → a decisive fold arc
     const wingTargetZ = -0.1 + Math.sin(time * 0.9) * 0.10 + mantle + tp.dz * tellK - fold;
     const wingTargetX = -flinchT * 0.5 + fold * 0.55 + tp.dx * tellK;
@@ -812,25 +818,29 @@ export function buildOnewing(def, quality = 1) {
     // never a clean shut. Faster under pressure (charge/flinch). In death it eases
     // fully shut.
     let gutter = 1;
-    if (dyingK > 0) {
-      gutter = 1 - clamp(dyingK * 1.4, 0, 1);   // eases shut
+    if (col > 0) {
+      gutter = 1 - clamp(col * 1.4, 0, 1);   // eases shut (dying — real OR the fake death)
     } else {
       const rate = 1 + charge * 1.2 + flinchT * 2;
       if (blinkT > 0) { blinkT -= dt * rate; gutter = 0.6 + 0.4 * Math.abs(Math.sin(blinkT * 6)); }
       else { nextBlink -= dt; if (nextBlink <= 0) { blinkT = 0.5; nextBlink = 2.2 + (time % 2.5); } }
     }
-    const eyeK = gutter * (0.75 + (noticeT > 0 ? 0.6 : 0) + charge * 0.3) * (1 - shieldedK * 0.6);
-    orbMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT * eyeK);
+    const eyeK = gutter * (0.75 + (noticeT > 0 ? 0.6 : 0) + charge * 0.3) * (1 - shieldedK * 0.6) + reviveT * 1.6;
+    orbMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT * eyeK);   // the eye SNAPS back BRIGHT on revive
     // The catchlight is a STEADY wet pinpoint — the SCLERA carries the grief-gutter,
     // not the glint — so the G1 focal peak never dips below ≥250 in any captured idle
     // frame (the glint only brightens on notice + fades in death).
-    glintMat.color.setScalar(GLINT_HOT * (noticeT > 0 ? 1.12 : 1) * (1 - dyingK) * (1 - shieldedK * 0.6));
+    glintMat.color.setScalar(GLINT_HOT * (noticeT > 0 ? 1.12 : 1) * (1 - dyingK) * (1 - shieldedK * 0.6) * (1 + reviveT * 1.3));
     orb.scale.setScalar(Math.max(0.12, 1 - (1 - gutter) * 0.5));
     irisMat.emissiveIntensity = 0.7 * (0.6 + 0.4 * gutter);
 
     // Mourning tints the frame rim a touch brighter (the eye's light falling on the
-    // dead frame it looks at) — reads as the mutual attention.
-    frameRimMat.emissiveIntensity = 0.5 + (mournT > 0 ? 0.35 : 0) + dyingK * 0.6;
+    // dead frame it looks at). On the RESURRECTION the frame BLAZES — the dead twin's
+    // light igniting and pouring up into the body (the readable "it consumed its dead
+    // half to come back" beat) — and the black ghost-edges briefly light with it.
+    frameRimMat.emissiveIntensity = 0.5 + (mournT > 0 ? 0.35 : 0) + dyingK * 0.6 + reviveT * 4.5;
+    frameEdgeMat.emissiveIntensity = reviveT * 2.2;
+    if (reviveT > 0) frameEdgeMat.emissive.copy(EYE_BASE);
 
     // Muzzle follows the wing's outer reach AND the wander (living volley origin) so the
     // volley visibly comes from the wing wherever the body has drifted to; the ghost
@@ -840,6 +850,7 @@ export function buildOnewing(def, quality = 1) {
 
     // decay pulses
     shieldedK += (shieldedTarget - shieldedK) * Math.min(1, dt * 5);
+    if (reviveT > 0) reviveT = Math.max(0, reviveT - dt * 1.15);   // ~0.9s resurrection flare
     if (noticeT > 0) noticeT -= dt;
     if (flinchT > 0) flinchT = Math.max(0, flinchT - dt * 2.4);
   }
@@ -855,6 +866,16 @@ export function buildOnewing(def, quality = 1) {
   // The ward: raising the shield LEASHES the eye to an ember (§5f/G6 — the focal can't
   // be the brightest point while it's invulnerable). Eased in the tick.
   function setShieldVisibleEmotive(v) { shieldedTarget = v ? 1 : 0; kit.setShieldVisible(v); }
+
+  // §5f THE LYING FELLED CARD — the readable resurrection (owner ask). The lie plays in
+  // two OBVIOUS beats so the player never reads it as a glitch:
+  //   setFelledLie(k)  — the FAKE DEATH: k 0→1 folds the wing DOWN over the frame, guts
+  //                      the eye out, sags the body. It looks like it is DYING.
+  //   felledRevive()   — the RESURRECTION: the fused frame IGNITES and pours its dead
+  //                      twin's light UP INTO the body — the eye SNAPS back brighter, the
+  //                      wing THROWS open. It came back by consuming its dead half.
+  function setFelledLie(k) { felledK = clamp(k, 0, 1); }
+  function felledRevive() { reviveT = 1; felledK = 0; noticeT = 1.0; flinchT = 0.4; }
 
   // FLINCH: the wing jerks + the body lists harder + the eye flares (the §4b flinch).
   function flash(amt) { kit.flash(amt); }
@@ -876,6 +897,7 @@ export function buildOnewing(def, quality = 1) {
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: setShieldVisibleEmotive,
     shatterShield: kit.shatterShield,
+    setFelledLie, felledRevive,   // §5f the readable fake-death → resurrection
     flash, hurt,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     // diagnostics + pins (not part of the controller contract)

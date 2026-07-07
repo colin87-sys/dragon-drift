@@ -1500,6 +1500,15 @@ function fireNoWarnBanner() {
   if (!def || !def.noWarn || noWarnFired || noWarnDir == null) return;
   noWarnFired = true;
   ui.bossWarning?.(def.name, def.title, noWarnDir, Math.min(B.warnTime, 1.4));
+  // §5j THE ERUPTION DANGER BEAT — no warning, then it's suddenly HERE and on you: a hard
+  // slam (camera + body jerk), a shockwave burst, and an AMBUSH first attack that winds up
+  // almost immediately (not the usual ~1.9s settle). The telegraph still gives a fair beat
+  // to dodge the bullets — it's the ARRIVAL that's abrupt, not the damage.
+  cameraCtl.shake?.(2.6);
+  model?.hurt?.(0.9);
+  model?.flash?.(1.0);
+  sfx.bossDefeat?.();   // a heavy low IMPACT (reused SFX) — the eruption slam
+  if (group) burst(group.position, def.accent ?? 0xffffff, { count: 34, speed: 30, size: 1.3, life: 0.7 });   // the shockwave off the boss
 }
 
 function enterFight() {
@@ -1540,6 +1549,10 @@ function enterFight() {
   beginCard(0);
   attackTimer = Math.max(attackTimer, 1.9);
   riderTimer = Math.max(riderTimer, 1.9);
+  // §5j the no-warn AMBUSH (def.noWarn): NO settle grace — it strikes almost at once, so
+  // the abrupt arrival puts you in danger immediately. The attack still telegraphs, so
+  // the bullets stay fair to dodge — it's the ARRIVAL that's abrupt, not the damage.
+  if (def.noWarn) attackTimer = 0.7;
   if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
 }
 
@@ -1692,16 +1705,24 @@ export function updateBoss(dt, player, time) {
   // inside the ≤2s guarantee. Def-gated; inert for every other boss (felledLieT stays 0).
   if (felledLieT > 0 && phase === 'fight') {
     felledLieT -= dt;
+    // Beat 1 — the FAKE DEATH plays out (readable, not a glitch): the model visibly DIES
+    // (wing folds over the frame, eye guts out, body sags) over the first ~55% of the
+    // window, then holds "dead" while the FELLED card sits.
+    model.setFelledLie?.(Math.min(1, (FELLED_LIE_DUR - felledLieT) / (FELLED_LIE_DUR * 0.55)));
     if (felledLieT <= 0) {
       felledLieT = 0;
       crippled = true;
+      // Beat 2 — the RESURRECTION: the fused frame IGNITES its dead twin's light UP into
+      // the body — the eye snaps back brighter, the wing throws open — and ≤35% returns.
+      model.felledRevive?.();
       hp = Math.max(hp, Math.min(0.35, def.felledReturn ?? 0.35) * hpMax);   // ≤35% returns
       model.setHealth(hp / hpMax);
       rhythm?.reset(); rhythmRest = null;
       pending.length = 0; attackTimer = Math.max(attackTimer, 0.8);
-      // THE REVEAL — the card's own name IS the mechanic: it would not die.
-      ui.bossNote?.('❖ WOULD NOT DIE', def.name, 'dread', 3.0);
-      cameraCtl.shake?.(1.0);
+      ui.bossNote?.('❖ WOULD NOT DIE', def.name, 'dread', 3.0);   // its name IS the mechanic
+      cameraCtl.shake?.(1.4);
+      tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+      burst(tmp, def.accent ?? 0xffffff, { count: 26, speed: 20, size: 1.2, life: 0.8 });   // the twin's light bursting up
       sfx.phase?.(true, 1);
       emit('bossFelledRevive', { id: def.id, frac: hp / hpMax, dur: FELLED_LIE_DUR });
     }
