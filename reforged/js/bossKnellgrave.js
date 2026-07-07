@@ -275,11 +275,11 @@ export function buildKnellgrave(def, quality = 1) {
     const rC = bellRadiusAt(s.mid);
     const C = new THREE.Vector3(Math.sin(s.aMid) * rC, s.mid, Math.cos(s.aMid) * rC);
     const geo = mergeK(parts, 'shedPanel'); geo.translate(-C.x, -C.y, -C.z);
-    const mat = track(patinaMat.clone()); mat.transparent = true;
+    const mat = track(patinaMat.clone()); mat.transparent = true; mat.side = THREE.DoubleSide;   // both faces show as it tumbles clear (and keep the rest-pose gap sealed)
     const mesh = new THREE.Mesh(geo, mat); mesh.name = 'knellShedPanel';
     const pivot = new THREE.Group(); pivot.position.copy(C); pivot.add(mesh);
     bellGroup.add(pivot);
-    shedPanels.push({ pivot, mesh, mat, C, aMid: s.aMid, at: s.at });
+    shedPanels.push({ pivot, mesh, mat, C, aMid: s.aMid, at: s.at, prog: 0 });
   }
 
   // raised RELIEF bands (the §5g surplus: ornament, not facets) — three proud rings
@@ -840,8 +840,8 @@ export function buildKnellgrave(def, quality = 1) {
     // the −6.4 lip) and all ruin growth goes into WIDTH + GLOW, which stay on the face.
     // Width is HARD-CLAMPED to 2.5× (past that the tapered ribbon reads as a wall of white
     // up close — the CP2.4 jank); dread adds the final reveal gape the prisoner strains at.
-    slit.scale.set(Math.min(1 + ruinK * 1.3 + dreadK * 0.6 + charge * 0.12, 2.5), 1, 1);
-    ember.scale.set(Math.min(1 + ruinK * 1.05 + dreadK * 0.45, 2.4), 1, 1);
+    slit.scale.set(Math.min(1 + ruinK * 1.3 + dreadK * 0.6 + charge * 0.12, 2.3), 1, 1);   // 2.3 (not 2.5) — the shed now carries the escalation, so keep margin off the L192 white-wall threshold
+    ember.scale.set(Math.min(1 + ruinK * 1.05 + dreadK * 0.45, 2.2), 1, 1);
     // the sprung wall plates LIFT off the seam as the bell comes apart.
     plateMesh.scale.setScalar(1 + ruinK * 0.05);
     // --- THE SHED: the flank plates break off as the ruin climbs (staggered by phase), so
@@ -850,12 +850,19 @@ export function buildKnellgrave(def, quality = 1) {
     // drops under gravity, tumbles, and fades once it's well clear. Held wholly by ruinK so
     // it tracks HP (the ladder), never a timer; at rest (ruinK 0) every plate fills its gap.
     for (const p of shedPanels) {
-      const prog = clamp01((ruinK - p.at) / 0.24);
-      const e = prog * prog * (3 - 2 * prog);              // smoothstep the break
+      // ratchet on hp crossing the threshold, then COMPLETE on the break's own clock — a
+      // sheared plate must finish falling. Without this the P4 survival seal (which freezes
+      // hp → ruinK caps ~0.75) leaves the second plate hung half-tumbled, half-transparent,
+      // motionless beside the bell for the whole Last Toll (Fable gate; the L195 trap again).
+      // The self-advance also smooths mid-fight breaks (burst damage no longer teleports a
+      // plate along its arc, a damage lull no longer freezes it).
+      p.prog = Math.max(p.prog, clamp01((ruinK - p.at) / 0.24));
+      if (p.prog > 0.01 && p.prog < 1) p.prog = Math.min(1, p.prog + dt * 0.8);
+      const e = p.prog * p.prog * (3 - 2 * p.prog);        // smoothstep the break
       const outr = e * 5.5, drop = e * e * 7.5;
       p.pivot.position.set(p.C.x + Math.sin(p.aMid) * outr, p.C.y - drop, p.C.z + Math.cos(p.aMid) * outr);
       p.mesh.rotation.set(e * (1.5 + p.aMid * 0.2), e * 2.4, e * (0.8 + p.aMid * 0.1));
-      p.mat.opacity = 1 - clamp01((prog - 0.5) / 0.5);      // solid until clear, then dissolves to gone
+      p.mat.opacity = 1 - clamp01((p.prog - 0.5) / 0.5);    // solid until clear, then dissolves to gone
       p.pivot.visible = p.mat.opacity > 0.02;
     }
     // THE BELL BREAKS ALL THE WAY THROUGH — at the Last Toll the interior back-wall TEARS OPEN

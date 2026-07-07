@@ -46,6 +46,19 @@ try {
   await page.waitForFunction(() => window.__dd.bossState().charging, { timeout: 60000 }).catch(() => {});
   await shot('toll');
 
+  // (3b) MID-SHED — drop the boss to ~ half hp FAST (ruinK ~0.5 → the first flank plate has
+  // sheared, one gap open to the scaffold) and shoot IMMEDIATELY, before the pilot can die.
+  await page.evaluate(async () => {
+    for (let i = 0; i < 80; i++) {
+      const s = window.__dd.bossState();
+      if (s.hp / s.hpMax <= 0.52) break;
+      if (s.shielded) window.__dd.bossStrikeSurge();
+      else window.__dd.emit('bossDamage', { amount: 22, kind: 'debug' });
+    }
+  });
+  await page.waitForFunction(() => window.__dd.bossState().poseY > 14, { timeout: 8000 }).catch(() => {});
+  await shot('shed-mid');
+
   // (4) THE LAST TOLL — chip through the phases (bursting each floor shield with the
   // synchronous Surge seam) until P4 arms its dread setpiece, then catch the bell
   // riding DIRECTLY OVERHEAD (rel < 8) mid-reveal.

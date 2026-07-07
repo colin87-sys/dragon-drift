@@ -790,19 +790,24 @@ for (const key of BOSS_ORDER) {
     assert(!!innerWall && innerWall.material.side === THREE.BackSide, 'knellgrave has a BackSide interior wall (closes the mouth so the undamaged bell shows dark metal, not sky — owner IMG_7333)');
     const luma = (m) => m.color.r + m.color.g + m.color.b;
     assert(innerWall && luma(innerWall.material) < luma(scaffold.material), 'knellgrave interior wall is DARKER than the scaffold (the inside parts read against it, not into it)');
+    // the plate lifecycle is a sticky RATCHET (a broken bell stays broken), so test it on a
+    // FRESH model — kn has already been ruined by the ladder block above.
+    const kp = buildBoss(BOSSES.knellgrave, 1);
     const panels = [];
-    kn.group.traverse((o) => { if (o.name === 'knellShedPanel') panels.push(o); });
+    kp.group.traverse((o) => { if (o.name === 'knellShedPanel') panels.push(o); });
     assert(panels.length >= 2, `knellgrave has break-away shed plates (${panels.length} ≥ 2 — the flank panels that fall away)`);
     // at REST the plates are home + opaque (the bell reads solid — no premature holes).
-    kn.setHealth(1.0);
-    for (let s = 0; s < 10; s++) kn.tick(0.05, 500 + s * 0.05);
+    kp.setHealth(1.0);
+    for (let s = 0; s < 10; s++) kp.tick(0.05, 500 + s * 0.05);
     const restOut = panels.map((p) => p.parent.position.length());
     assert(restOut.every((d, i) => d < 6.6 + 0.05 && panels[i].material.opacity > 0.95), 'knellgrave shed plates sit HOME + opaque at full hp (the bell is solid at the start — the reveal is earned)');
-    // by the LAST phase they have travelled OUT and faded (the wall is gone → scaffold bared).
-    kn.setHealth(0.15);
-    for (let s = 0; s < 30; s++) kn.tick(0.05, 520 + s * 0.05);
+    // FREEZE GUARD (Fable gate): a plate whose break has STARTED must FINISH falling even when
+    // hp (and ruinK) freezes — the P4 seal caps ruinK ~0.75, and the 2nd plate needs 0.84. Pin
+    // hp at 0.20 (ruinK 0.80, seal-frozen) and keep ticking: both plates must complete, not hang.
+    kp.setHealth(0.25);   // exactly the P4 seal floor: ruinK 0.75, so plate 2 would freeze at prog 0.625 without the self-advance
+    for (let s = 0; s < 60; s++) kp.tick(0.05, 520 + s * 0.05);   // hp never moves; the break self-completes
     const goneOut = panels.map((p) => p.parent.position.length());
-    assert(goneOut.some((d, i) => d > restOut[i] + 2 || panels[i].material.opacity < 0.1), `knellgrave shed plates BREAK AWAY as hp falls (a plate travelled out ${Math.max(...goneOut).toFixed(1)} / faded — the bell opens to its scaffold)`);
+    assert(panels.every((p, i) => p.parent.position.length() > restOut[i] + 2 && p.material.opacity < 0.1), `knellgrave EVERY shed plate finishes falling under a frozen hp seal (out ${goneOut.map((d) => d.toFixed(1)).join('/')}, faded — no plate hangs half-tumbled through the Last Toll)`);
     // SKY POURS THROUGH at the Last Toll — the interior wall is a SOLID opaque shell every
     // phase, and only the DREAD reveal at deep ruin tears it open (driven by dread, NOT hp:
     // the P4 seal freezes hp so a ruin-gated tear would never fire in play). Once torn it

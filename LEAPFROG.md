@@ -7405,3 +7405,26 @@ scaffold black against the blaze. Two non-obvious traps:
    `skyOpen = max(skyOpen, …)` so once torn it stays open. Test the ratchet explicitly (tear, drop
    the setpiece, assert still-open) AND test on a FRESH model — the ratchet is sticky, so an
    earlier dread beat in the same test instance leaves it open and masks a "stays solid" assert.
+
+### L196 — KNELLGRAVE Fable gate: the seal-freezes-ruinK trap bites TWICE — a hp-driven shed plate hangs mid-air through the survival phase; ratchet + self-complete
+The Fable design gate on the shed/sky-pour work caught a bug the sky-pour fix (L195) had
+stepped around but the shed had NOT: the second flank plate's break was gated on `ruinK`
+(`prog = clamp01((ruinK - at)/0.24)`), so the P4 survival seal — which freezes hp at ~25%,
+capping ruinK ~0.75 — left plate 2 (needs 0.84) hung at prog 0.625: a half-transparent slab
+frozen mid-tumble beside the bell for the whole ~28s Last Toll, the beat with maximum eyes on
+it. Same class as L195, one function away, missed because the shed's headless test used
+`setHealth(0.15)` (ruinK 0.85) which completes — the seal cap never appears in a setHealth test.
+Fixes + reusable takeaways:
+1. **A break is an EVENT — ratchet it and let it self-complete.** `prog = max(prog, hpProg);
+   if (prog>0.01 && prog<1) prog += dt*0.8`. Once started it finishes on its own clock,
+   independent of hp. This ALSO kills a mid-fight jank the gate spotted: burst damage used to
+   teleport a plate along its arc and a damage lull froze it; a self-advancing break is smooth.
+2. **Test the FROZEN case explicitly, on a FRESH model.** The regression test pins
+   `setHealth(0.25)` (the exact seal floor, ruinK 0.75 → plate 2 at prog 0.625) and ticks with
+   hp never moving; both plates must complete. And it must be a fresh build — the ratchet is
+   sticky, so any earlier ruin in the same test instance leaves plates broken and hides the bug.
+3. **A design gate reads the CAPTURES, not just the code.** Fable inferred the hung slab from a
+   gray detached shape at the frame edge, then found it in the tick — the still was the tell.
+   Corollary it also flagged: an increment can be individually correct yet half-cancel a prior
+   one (the solid interior wall makes mid-fight shed holes open into a dark cavity, not the sky
+   the owner asked for) — gate the SYSTEM, not each change alone.
