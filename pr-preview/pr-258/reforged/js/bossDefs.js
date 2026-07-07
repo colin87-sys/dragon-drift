@@ -888,6 +888,12 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,   // danger stays magenta (role colour, never per-boss)
     approachFrom: 'side',    // rides in on the flank (the moving-station riding beat is a CP2 setpiece)
     muzzle: 'lanceTip',      // fire originates from the lance tip — the amber-emitting organ (§5f law 7)
+    // LANCE V1 aim anchor (Codex review, PR #258 — verified: lockCandidates() returns
+    // only lockParts + virtualLockOrgan, and karnvow had neither → the late-game
+    // aim/lock verb would vanish on slot 9). The organ IS the anchor (the ashtalon
+    // muzzle-as-anchor precedent — always emitting, always under fire, never a free
+    // rest-beat paint). V2 lockParts are a CP2+ decision.
+    virtualLockOrgan: 'lanceTip',
     // bossgate capture: the r3 dart footwork moves the body ~15u/s mid-hop, hitting
     // the tool's documented two-frame mask/screenshot race (the marrowcoil pale-slide
     // twin) — freeze the sim for the grab pair. NOT a G-law override; no thresholds change.
