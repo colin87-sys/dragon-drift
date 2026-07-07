@@ -28,7 +28,7 @@ const { BOSSES, BOSS_ORDER, bossDefForIndex } = await import('../js/bossDefs.js'
 const { buildBoss } = await import('../js/bossModel.js');
 const { CONFIG } = await import('../js/config.js');
 const { game } = await import('../js/gameState.js');
-const { on } = await import('../js/events.js');
+const { on, emit } = await import('../js/events.js');
 const { resetCollision } = await import('../js/collision.js');
 const bullets = await import('../js/bossBullets.js');
 const boss = await import('../js/boss.js');
@@ -1197,8 +1197,93 @@ for (const key of BOSS_ORDER) {
   const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
   assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
 
+  // CP2 — the V2 paint anatomy: all five trophy charms exist as named nodes (the
+  // EMPTY hook is trophyCharm5 and deliberately NOT in lockParts — the open thread).
+  for (let ci = 0; ci < 5; ci++) assert(!!kv.group.getObjectByName(`trophyCharm${ci}`), `karnvow trophyCharm${ci} exists (the paint target)`);
+  assert(BOSSES.karnvow.lockParts.length === 5 && BOSSES.karnvow.lockParts.every((lp, i) => lp.part === `trophyCharm${i}`),
+    'karnvow lockParts brand the five taken trophies (never the empty hook)');
+
+  // CP2 — the charm FLARE (§5j): flareCharm('ashtalon') burns trophyCharm0 hot in
+  // its owed palette, then the chain PRESENTS the tilted empty hook.
+  {
+    const c0 = kv.group.getObjectByName('trophyCharm0');
+    kv.flareCharm('ashtalon');
+    for (let i = 0; i < 12; i++) kv.tick(0.05, 20 + i * 0.05);
+    assert(c0.material.emissiveIntensity > 0.5,
+      `karnvow flareCharm burns the top-killer trophy hot (ei ${c0.material.emissiveIntensity.toFixed(2)} > 0.5)`);
+    const hookHang = kv.group.getObjectByName('trophyCharm5').parent;
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 21 + i * 0.05);
+    assert(hookHang.rotation.x < -0.3,
+      `karnvow the empty hook PRESENTS after the flare (hang rot.x ${hookHang.rotation.x.toFixed(2)} < -0.3 — "the next one is for you")`);
+  }
+
+  // CP2 — the FALLBACK flare (the Fable gate catch): a top killer with no dedicated
+  // trophy (e.g. brineholm) burns the WHOLE chain — the mandatory beat never vanishes.
+  {
+    kv.flareCharm('brineholm');
+    for (let i = 0; i < 12; i++) kv.tick(0.05, 25 + i * 0.05);
+    let lit = 0;
+    for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.3) lit++;
+    assert(lit >= 4, `karnvow fallback flare burns the whole chain for an un-charmed top killer (${lit}/5 lit)`);
+  }
+
+  // CP2 — the riposte cross-SWAT: riposte() whips the lance across the body.
+  {
+    kv.riposte();
+    for (let i = 0; i < 4; i++) kv.tick(0.05, 30 + i * 0.05);
+    const lp = kv.group.getObjectByName('lancePivot');
+    assert(lp.rotation.y < -0.4, `karnvow riposte() cross-swats the lance (rot.y ${lp.rotation.y.toFixed(2)} < -0.4)`);
+  }
+
+  // GRANDEUR REDO — VOIDMAW'S VERDICT is AUTHORED (§5f: no more lore-quote with
+  // nothing to see). The def pairs the dread card with a MOVING dread setpiece,
+  // the P3 pattern QUOTES boss-1's dread set verbatim, and driving the dread beat
+  // writes the violet sigil at screen scale while every trophy testifies.
+  {
+    const sp = BOSSES.karnvow.setpieces.find((s) => s.dread);
+    assert(sp && sp.moving, 'karnvow pairs the dread card with a MOVING dread setpiece (the authored beat fires the whole way)');
+    assert(JSON.stringify(BOSSES.karnvow.phases[2].attacks) === JSON.stringify(BOSSES.voidmaw.phases[2].attacks),
+      'karnvow P3 quotes boss-1\'s dread set verbatim ("it fires boss 1\'s dread card back at you")');
+    const sig = kv.group.getObjectByName('verdictSigil');
+    assert(!!sig && !sig.visible, 'karnvow verdictSigil exists and stays HIDDEN outside the dread beat (the violet-denominator law)');
+    kv.setSetpiece(1, sp);
+    for (let i = 0; i < 44; i++) kv.tick(0.05, 40 + i * 0.05);
+    assert(sig.visible && sig.geometry.drawRange.count > 40 && sig.material.opacity > 0.4,
+      `karnvow verdict: the lance writes the sigil (drawRange ${sig.geometry.drawRange.count}, opacity ${sig.material.opacity.toFixed(2)})`);
+    let lit = 0;
+    for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.4) lit++;
+    assert(lit >= 4, `karnvow verdict: every trophy testifies in its owed palette (${lit}/5 lit)`);
+    kv.setSetpiece(0);
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 43 + i * 0.05);
+    assert(!sig.visible || sig.material.opacity < 0.1, 'karnvow verdict: the sigil unwrites when the beat releases');
+  }
+
+  // GRANDEUR REDO — the festoon at arena scale: the trophy garland must READ at
+  // fight distance (the L141 field-presence trick — a lean figure reads big through
+  // what it carries). World-x spread across the hang anchors > 3u.
+  {
+    const p0 = kv.partWorldPos('trophyCharm0', new THREE.Vector3());
+    const x0 = p0.x;
+    const p5 = kv.partWorldPos('trophyCharm5', new THREE.Vector3());
+    assert(Math.abs(p5.x - x0) > 4.5,
+      `karnvow festoon at arena scale (charm spread ${Math.abs(p5.x - x0).toFixed(2)}u > 4.5 world — it must BREAK the silhouette edge)`);
+  }
+
+  // GRANDEUR REDO — the cut-in apex drama: mid-pass (no tell charging) the lance
+  // leads the near-pass in a HELD cross-body sweep.
+  {
+    kv.setCharge(0); kv.setAttackTell(null);
+    kv.setSetpiece(0.85, { id: 'flankCutIn' });
+    for (let i = 0; i < 24; i++) kv.tick(0.05, 48 + i * 0.05);
+    const lp = kv.group.getObjectByName('lancePivot');
+    assert(lp.rotation.y < -0.5,
+      `karnvow cut-in apex: the lance leads the pass in a held cross-sweep (rot.y ${lp.rotation.y.toFixed(2)} < -0.5)`);
+    kv.setSetpiece(0);
+  }
+
   kv.dispose();
   ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
+  ok('karnvow grandeur redo: the verdict WRITES (sigil + testifying trophies), the festoon reads at fight distance, the cut-in apex holds the sweep');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
@@ -1514,6 +1599,80 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// --- 5. KARNVOW CP2 — the entrance-script data law + the riposte/stare-down live drive.
+{
+  const { ENTRANCE_SCRIPTS } = await import('../js/entranceScripts.js');
+  const sc = ENTRANCE_SCRIPTS.itKeptCount;
+  assert(!!sc, 'itKeptCount entrance script registered');
+  const ctx = { AX: 0, AY: CONFIG.BOSS.fightHeight, S: 1, B: CONFIG.BOSS, sc: 2.0 };
+  // rel ROCK-STEADY through the ride (§5d: any rel change reads as slot 3's spent
+  // overtake) — only the final settle recedes to station.
+  assertEq(sc.path(0.3, ctx).rel, 16, 'itKeptCount rel steady at 16 (hold)');
+  assertEq(sc.path(0.7, ctx).rel, 16, 'itKeptCount rel steady at 16 (point)');
+  assertEq(sc.path(1, ctx).rel, CONFIG.BOSS.settleGap, 'itKeptCount settles at station');
+  // The DE-JANK laws (owner catch — "back to us, wing in frame, hop spin"):
+  // (a) three-quarter ride, never a pure back, once he's drawn level;
+  const rideYaw = sc.yaw(0.5, ctx);
+  assert(rideYaw < Math.PI * 0.75 && rideYaw > Math.PI * 0.4,
+    `itKeptCount rides three-quarter (yaw ${rideYaw.toFixed(2)} in (0.4π, 0.75π)) — the cowl/festoon read, not his back`);
+  assert(Math.abs(sc.yaw(1, ctx)) < 1e-6, 'itKeptCount wheel completes — squared to face you at station');
+  // (b) the wheel BANKS (roll live mid-wheel, level at both ends — no snap-spin);
+  assert(Math.abs(sc.roll(0.9, ctx)) > 0.1 && Math.abs(sc.roll(1, ctx)) < 1e-6 && Math.abs(sc.roll(0.5, ctx)) < 1e-6,
+    'itKeptCount wheel banks (roll live mid-wheel, level at the hold and at station)');
+  // (c) he rides ABOVE the wing line (the +2.5 ride crowded the dragon's wing).
+  assert(sc.path(0.5, ctx).y >= ctx.AY + 3.5, 'itKeptCount rides above the wing line (y ≥ AY+3.5)');
+  // (d) the dart machine sleeps through the cinematic: drive a model with the
+  // script's own onFrame beats (incl. the U2 lance-point that used to trip the
+  // strike-sidestep) and assert the rig never leaves centre.
+  {
+    const kvE = buildBoss(BOSSES.karnvow, 1);
+    const rig = kvE.group.children.find((c) => c.type === 'Group');
+    sc.onStart?.(kvE);
+    let maxOff = 0;
+    for (let i = 0; i <= 60; i++) {
+      const u = i / 60;
+      sc.onFrame?.(u, ctx, { x: 0, y: 0, rel: 16 }, { position: { x: 0, y: 0 }, dist: 0 }, kvE);
+      kvE.tick(0.05, 100 + i * 0.05);
+      maxOff = Math.max(maxOff, Math.abs(rig.position.x - Math.sin((100 + i * 0.05) * 0.37) * 0.25));
+    }
+    assert(maxOff < 0.6, `karnvow footwork SLEEPS through the entrance (guard offset ${maxOff.toFixed(2)} < 0.6 — no mid-cinematic hop)`);
+    kvE.dispose();
+  }
+  ok('karnvow itKeptCount entrance: rel rock-steady ride → station settle');
+  ok('karnvow entrance de-jank: 3/4 ride, banked full wheel, above the wing, footwork asleep');
+
+  // Live drive: after the first shield break (phase ≥ 1) an injected REFLECTED hit
+  // (kind 'player') is RIPOSTED — answered once, the second one lands; the parked
+  // immortal player also sits in the threat-line long enough to earn the FLINCH.
+  let riposteN = 0, flinchN = 0;
+  on('bossRiposte', () => riposteN++);
+  on('holdFlinch', () => flinchN++);
+  game.inBoss = false;
+  game.reset();
+  game.state = 'playing';
+  game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('karnvow'));
+  const kills0 = killsSeen;
+  let sawShield = false, injected = 0;
+  for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
+    const dt = 1 / 60;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    const st = boss.bossDebugState();
+    if (st.shielded) { sawShield = true; game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+    if (sawShield && !st.shielded && st.phase === 'fight' && injected < 2) {
+      emit('bossDamage', { amount: 4, kind: 'player', x: 0, y: 8 });
+      injected++;
+    }
+    boss.updateBoss(dt, player, i / 60);
+  }
+  assert(killsSeen > kills0, 'karnvow CP2 drive: the instrumented encounter still resolves to a kill');
+  assertEq(riposteN, 1, 'riposte answers exactly the FIRST reflected hit of the phase (the second lands)');
+  assert(flinchN >= 1, `hold-until-flinch fired for the parked-in-the-threat-line player (${flinchN}×)`);
+  ok(`karnvow CP2 live drive: riposte ×${riposteN} (once per phase), stare-down flinch ×${flinchN}`);
 }
 
 // §5i.C THREAD-CUT + §5i moteHarvest INTEGRATION (weftwitch CP2): drive a LIVE fight
