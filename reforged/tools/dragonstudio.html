@@ -23,6 +23,10 @@
   <div id="err"></div>
   <script type="module">
     import * as THREE from 'three';
+    import { EffectComposer } from '../lib/postprocessing/EffectComposer.js';
+    import { RenderPass } from '../lib/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from '../lib/postprocessing/OutputPass.js';
     import { DRAGONS } from '../js/dragons.js';
     import { ascendedDef, maxTierFor } from '../js/ascension.js';
     import { buildDragonModel } from '../js/dragonModel.js';
@@ -32,13 +36,33 @@
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // NoToneMapping on the renderer: the OutputPass applies ACES at the end of the composer, exactly
+    // like the game (js/postfx.js). Tonemapping on the renderer here would double-apply.
+    renderer.toneMapping = THREE.NoToneMapping;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 400);
     scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
     const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
     const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
     const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+    // GAME-FAITHFUL BACKLIGHT: in the rear-chase gameplay view the dragon flies AWAY from a low sun
+    // ahead of it (biomes.js SUN_DIR ≈ (-0.22,0.1,-1)), so the camera sees the SHADOWED side. Without
+    // a matching backlight the studio front-lit every wing and masked emissive blowout that whites out
+    // in-game. This warm sun from ahead-of-the-dragon reproduces that backlit condition + bloom read.
+    const sunBack = new THREE.DirectionalLight(0xff9a40, 1.5); sunBack.position.set(-0.9, 0.5, -4); scene.add(sunBack);
+
+    // ── BLOOM pipeline (mirrors js/postfx.js) so captures show what the GAME shows. The live game
+    // runs UnrealBloom (threshold 1.0) + OutputPass(ACES); the studio previously rendered raw ACES
+    // with no bloom, so hot emissive that blooms to WHITE in-game looked clean orange in captures —
+    // the aesthetics gate was judging the wrong image. HalfFloat target gives HDR headroom so the
+    // bloom threshold works in linear light, same as the game. Bloom (strength 0.24, radius 0.25,
+    // threshold 1.0) matches postfx._baseBloom / the UnrealBloomPass ctor args.
+    const _rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+    const composer = new EffectComposer(renderer, _rt);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.24, 0.25, 1.0);
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
 
     const BG = { dark: 0x14121a, pale: 0xcfd6e4, gold: 0xd9a24a };
 
@@ -139,10 +163,17 @@
       camera.lookAt(_c);
     }
     function setBg(bg) { scene.background = new THREE.Color(BG[bg] ?? BG.pale); }
-    function render() { renderer.render(scene, camera); }
+    function render() { composer.render(); }
 
-    // Size the GL canvas to a square cell (called before a sheet run).
-    function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
+    // Size the GL canvas to a square cell (called before a sheet run). Resize the composer + bloom
+    // mip chain to match so the bloom footprint is consistent with the game at the cell resolution.
+    function sizeGL(px) {
+      gl.width = px; gl.height = px;
+      renderer.setSize(px, px, false);
+      composer.setSize(px, px);
+      bloomPass.setSize(px / 2, px / 2);
+      camera.aspect = 1; camera.updateProjectionMatrix();
+    }
 
     // ── public API (dragonstudio.mjs drives these) ──────────────────────────
     // Build+pose+frame+render one (key, tier, state, bg, angle). Deterministic: the pose is

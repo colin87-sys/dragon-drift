@@ -1659,9 +1659,14 @@ function buildBonfireManeWings(def, model, attach, giM) {
   // ONE material for the tongues: vColor is the molten→hot gradient (diffuse), and the emissive
   // is GRAFTED to follow vColor (WARM, not white) so only the bright thin tips glow ORANGE-HOT
   // (dark thick cores stay unlit) — fire-substance, not white feathers.
-  // roughness ~1 / no metalness → NO specular sheen (fire never reads glossy; the gate saw a
-  // blue-grey plastic highlight on the tongues).
-  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 1.2 });
+  // roughness ~1 / no metalness → NO specular sheen (fire never reads glossy).
+  // emissiveIntensity kept LOW (≈0.5): in the rear-chase gameplay view the dragon flies AWAY from a
+  // low sun, so its camera-facing side is BACKLIT/shadowed and lit almost entirely by emissive —
+  // at 1.2 the pure emissive blew past the bloom threshold (1.0) and the whole wing bloomed to WHITE
+  // in-game (invisible in the old raw studio captures, which front-lit everything). Keeping the peak
+  // emissive under the threshold lets the tongues GLOW warm without whiting out; the bright DIFFUSE
+  // orange (color×vColor) still carries the hot read when the wing catches light.
+  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 0.5 });
   // CRITICAL: the emissive-concentration graft and the fresnel rim BOTH set onBeforeCompile —
   // composing them in ONE composeSurface call (was: a manual graft then applyFresnelRim, which
   // silently OVERWROTE the graft → the whole mane glowed at full uniform emissive with no dark
@@ -1672,7 +1677,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
     key: 'moltenEmit',
     bodyFrag: `totalEmissiveRadiance *= pow(vColor, vec3(1.6));`,
   };
-  composeSurface(maneMat, [moltenEmitPatch, fresnelRimPatch(def.apexSeam ?? cTip.getHex(), { intensity: 0.15, power: 3.8, bias: 0.0 })]);   // tight, low rim → no broad orange wash up the leading edge; the tip fringe carries the glow
+  composeSurface(maneMat, [moltenEmitPatch, fresnelRimPatch(def.apexSeam ?? cTip.getHex(), { intensity: 0.1, power: 3.8, bias: 0.0 })]);   // tight, low rim → no broad orange wash and no extra bloom over the threshold; the diffuse + tip fringe carry the read
   spineMats.push(maneMat, armMat);
 
   // deterministic per-tongue IRREGULARITY (no Math.random — determinism is a deliverable). A
