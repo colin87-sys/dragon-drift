@@ -208,9 +208,18 @@ export const DRAGONS = {
     // rear fin tips. Restrained — NO premium glow-seams/veins (law 12); the pearl
     // is the ONE bloom.
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
-    parts: { torso: 'serpent', wings: 'silkFinWings', head: 'draconic', tail: 'sweptTail' },
+    parts: { torso: 'koiSerpent', wings: 'silkFinWings', head: 'draconic', tail: 'none' },
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
+      // ── UNDULATING KOI BODY (koiSerpent) ──────────────────────────────────────
+      // The body is now a continuous overlapping-section chain that the shipped
+      // lead-first travelling wave (dragon.js bodySegs) slithers head-to-tail — the
+      // fix for "it doesn't even move." The tail is the tapering REAR of this same
+      // chain (parts.tail:'none'), so it can never detach. Wide, slow river-S.
+      bodyGirth: 0.58, bodyLength: 1.0, bodyGlow: 0.10, bodyRim: 0.3, bodyShadowColor: 0x0d5c3a,
+      segmentSway: 0.42,   // generous lateral S — the serpent read is the wave, not a pose
+      segmentBob: 0.05,    // keep it mostly lateral (a river-swim glide, barely any up/down)
+      segmentLag: 0.16,    // phase lag down the chain → a clean travelling wave
       headArchetype: 'softStealth',      // rounded wedge skull + large soft calm eyes + swept ear-fins — the river-dragon read
       headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
       cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight (gate r1 dir 9; no more blank doll orb)
@@ -242,6 +251,7 @@ export const DRAGONS = {
       // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
       { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.35, eyeShape: 0.0,
         neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
+        bodyGirth: 0.66, bodyLength: 1.7,   // chubby river-pup: still a long koi, but its BIG head makes it read short (head:body ~3)
         spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
         tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
         lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
@@ -253,6 +263,7 @@ export const DRAGONS = {
       // eyes narrow, snout projects, the pearl is HELD (glowing). MID value.
       { headScale: 0.85, snoutScale: 0.68, eyeScale: 0.98, eyeShape: 0.5,
         neckSegments: 7, tailSegments: 10, whiskerFins: true,
+        bodyGirth: 0.58, bodyLength: 1.35,   // lengthening river-serpent
         spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
         lobeCount: 3, lobeSpan: 4.2, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
@@ -266,6 +277,7 @@ export const DRAGONS = {
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
       { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.78,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
+        bodyGirth: 0.52, bodyLength: 1.2,   // LONG, slim S-ribbon apex (the koi at full length)
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
         tailStyle: 'simple', ridgeCount: 0, spineGlow: 0.3,   // NO dorsal ridge row (it read as a white sawtooth zipper — gate rework r3 dir 5); smooth koi back
