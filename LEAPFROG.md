@@ -6548,3 +6548,23 @@ to the azure-head graft — reuse-a-liked-thing cuts both ways). And gave jade a
 branch: the N silk lobes beat L_i↔R_i on the SAME phase (side only flips the spread), killing the shared
 basic-direct branch's asymmetric wingTip phase (sin(φ+0.95) vs sin(φ+1.18)) that read as "beating
 asymmetrical." Keyed on `wingLobePivotsL/R` → jade-only, roster untouched.
+
+---
+
+## L176 — Silk-fan tuning: a beat that ADDS to the rest rake closes the fan
+
+Human on the symmetric fans (good — "wings together", body "swims with a real S, looks great, simple and
+elegant"): but "the wings had 3 separate parts per side, I only see 2 now" + "the back part could be more
+flowy, reads a bit stiff."
+
+**Cause of 3→2:** the lobe beat set `rotation.y = side·beat`, but the lobes' rest RAKE already fans them
+via `side·-(rake)` — so the positive term rotated lobes BACK toward centre, merging adjacent ones. Two
+fixes: (1) bias the animation in the OPEN direction (`-side`) with a static `lSpread·fr` fan so lobes never
+close into each other, and (2) a BIG inboard→outboard phase lag (0.85) so each lobe sits at its own angle
+at any instant → they read as separate parts even mid-beat. **Flow:** a slow rear-weighted sway
+(`sin(lp·0.5)·flow·fr`, strongest at the rearmost lobe — which rides the wingTip carrier) undulates the
+trailing edge so the back of the fan flows instead of reading as a rigid paddle.
+
+Reusable: when animating fanned/raked elements, know the sign of the REST spread and bias the animation to
+ADD to it (open), never oscillate symmetrically about it — symmetric oscillation collapses the fan on the
+closing half. Stagger by phase-lag to keep parts individually legible.
