@@ -710,8 +710,14 @@ export function updateBossBullets(dt, player) {
 // (Surge hyper, increment 3) makes EVERY boss bullet reflectable, not just the
 // amber ones. A bullet swatted within `perfectParryRel` is a PERFECT parry (more
 // damage). Returns { total, perfect } counts for the FX/announcement.
+// Playtest override (?parry URL param): widens the PERFECT window so the V4
+// snap-parry is testable without frame-tight timing. null = the shipped LAW.
+let debugPerfectRel = null;
+export function setDebugPerfectParryRel(v) { debugPerfectRel = v; }
+
 export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1) {
   let total = 0, perfect = 0;
+  let snapParts = null;   // V4 (PR4): source-part tags of PERFECTLY parried ambers
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
     if (!s.active || s.owner !== 'boss') continue;
@@ -719,7 +725,7 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     if (s.rel < 0 || s.rel > windowRel) continue;
     const dx = s.x - player.position.x, dy = s.y - player.position.y;
     if (dx * dx + dy * dy > 9) continue;            // must be near the player to swat
-    const isPerfect = s.rel <= CONFIG.BOSS.perfectParryRel;
+    const isPerfect = s.rel <= (debugPerfectRel ?? CONFIG.BOSS.perfectParryRel);
     // Flip it back at the boss.
     s.owner = 'player';
     s.targetRel = settleGap;
@@ -733,9 +739,18 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     s.dmg = (s.dmg > 0 ? s.dmg : 5) * mult;
     s.life = 4;
     total++;
-    if (isPerfect) perfect++;
+    if (isPerfect) {
+      perfect++;
+      // V4 LOCK-SNAP (PR4): a PERFECT parry knows which organ fired the bullet
+      // (the §5f source-part tag rides the slot) — surface it so the caller can
+      // snap a brand onto that organ. Deduped; nulls (untagged emitters) skipped.
+      if (s.part != null) {
+        if (!snapParts) snapParts = [];
+        if (!snapParts.includes(s.part)) snapParts.push(s.part);
+      }
+    }
   }
-  return { total, perfect };
+  return { total, perfect, snapParts: snapParts || [] };
 }
 
 // Adrenaline R1 "magnet" (§5i.B meta spine): a multiplier on the crossing-graze

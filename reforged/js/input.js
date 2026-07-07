@@ -1,4 +1,5 @@
 import { clamp } from './util.js';
+import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { saveData } from './save.js';
 
@@ -14,7 +15,24 @@ export const input = {
   ty: 0,
   rollRequest: 0, // -1 / +1: barrel roll request, consumed by player.update
   surgeTap: false, // one-shot: unleash Dragon Surge (Space / 2nd-finger tap), consumed by boss.js
+  focusKey: false, // V5 (PR5): keyboard FOCUS hold (F) — the touch path reads finger age instead
 };
+
+// V5 FOCUS (PR5): true while the player is deliberately HOLDING — keyboard F, or
+// an extra (non-steer) finger held STILL past focusArmMs. The 260→300ms gap to
+// the surge-tap ceiling is load-bearing hysteresis (a tap released a hair late
+// must never alias into focus); a finger that rolled or wandered ≥16px is a
+// gesture, not a hold. Level-triggered (re-read per frame), never latched.
+let extrasRef = null;   // the live extras map from initTouch (touch builds only)
+export function focusHeldNow() {
+  if (input.focusKey) return true;
+  if (!extrasRef) return false;
+  const now = performance.now();
+  for (const rec of extrasRef.values()) {
+    if (!rec.rolled && rec.moved < 16 && now - rec.down >= CONFIG.LOCK.focusArmMs) return true;
+  }
+  return false;
+}
 
 // Combined analog steering axes used by the flight model.
 export function getAxes() {
@@ -62,11 +80,17 @@ export function initInput() {
       // Shift while already steering also rolls.
       if (input.left) input.rollRequest = -1;
       else if (input.right) input.rollRequest = 1;
+    } else if (e.code === 'KeyF') {
+      // V5 FOCUS hold (keyboard). Space can't carry it: the surge tap fires on
+      // Space KEYDOWN (the zero-latency LAW), so a Space-hold would always
+      // spend the tap first. F is a clean dedicated hold.
+      input.focusKey = true;
     }
   });
   window.addEventListener('keyup', (e) => {
     const action = KEYMAP[e.code];
     if (action) input[action] = false;
+    if (e.code === 'KeyF') input.focusKey = false;
   });
 }
 
@@ -93,6 +117,7 @@ export function initTouch(el) {
   let lastT = 0;
   // Non-steer touches tracked for swipe-to-roll: id -> {lx, ly, lt, acc, dir, rolled}
   const extras = new Map();
+  extrasRef = extras;   // V5: focusHeldNow() scans held-finger ages from this map
 
   const countBoost = () => { input.boost = extras.size > 0; };
 
