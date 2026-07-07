@@ -1309,7 +1309,12 @@ export const BOSSES = {
     glow: 0xff7a5e,                   // warm coral-rose — the LIGHT end of the tide / the face edge-light / shield rim
     bulletColor: 0xff2b6a,            // danger magenta — role colour (never per-boss); the INVERSE contrast
                                       // problem: it must read against the BRIGHT field (its white core carries it)
-    approachFrom: 'horizon',          // → 'top' banner via the shipped 'horizon'→'top' mapping (the whole horizon stands up)
+    approachFrom: 'horizon',          // INTENDED entry ("the whole horizon stands up"). ⚠ NOT yet wired in
+                                      // startBossEncounter (CP2): 'horizon' currently falls to the default
+                                      // approach + 'bottom' banner. Low-impact for THIS boss — the dome is
+                                      // camera-locked and fills the sky from `active` (warn onward), so the
+                                      // group's entry direction is nearly invisible. CP2 adds the bespoke
+                                      // skyComesLoose entry (or a minimal alias to the 'ahead' far-horizon hold).
     scale: 1.0,                       // NOT a unit scale — the field is tuned frame-wide IN the builder; it IS the backdrop
     // §5i TIDE-EDGE + FACE-SHADOW POCKET graze (reuses slot-6's continuous-graze detector): skim the crest
     // edge, ride the moving face-shadow pocket; offered once per phase. Def-gated; shipped bosses inert.
@@ -1422,6 +1427,12 @@ export const BOSSES = {
     // us" the owner flagged). Paired with the no-warn banner + the eruption danger beat
     // (boss.js enterFight), the arrival is an abrupt threat, not a flythrough.
     approachFrom: 'below',
+    // §5j THE FULL ARRIVAL CINEMATIC (entranceScripts.js 'theGraveItCarries'): it surfaces
+    // SILENTLY at your flank, holds a two-shot mutual gaze (~2s, wordless — noWarn keeps the
+    // banner deferred), then wheels square and SURGES to station, where enterFight fires the
+    // eruption (slam + shockwave + banner + ambush). The script owns the gaze + silence; the
+    // eruption stays the payoff. A def without this keeps the plain below-rise (coexist).
+    entrance: 'theGraveItCarries',
     // §5f THE LYING FELLED CARD (the roster's ONLY health-bar lie — def-gated; no other
     // def may ever set this). On the killing blow ONEWING fakes death (the FELLED card
     // fires, it cracks), then within ≤2s felledReturn of the bar RETURNS and it fights
@@ -1452,6 +1463,14 @@ export const BOSSES = {
     accent: 0x6c4c78,            // dim ashen mauve-rose (the living-wing lit edges; grief-dim ei)
     glow: 0x8a6b7e,              // a touch paler (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,       // danger magenta — the role colour (living volley; never per-boss)
+    // §5f/§5i.C THE GHOST HALF (def.ghostHalf): the dead twin's parryable volley fires
+    // from the fused frame (the model's 'ghostMuzzle') as amber-ringed bullets with a
+    // GHOST core colour, aimed by the dodge-MIRROR (poseRing). NOT a new attack id — a
+    // per-bullet colour+origin variant of the shipped emitter (the World-Enders ≤1-id
+    // budget is untouched). ghostColor is the CORE only; the ring stays amber (parryable).
+    ghostHalf: true,
+    ghostColor: 0xcfe6ff,        // a pale spectral white-blue (the dead half) — the ring is amber (role), this is the core read
+
     // Phases — RUBATO / FEINT: held wind-ups + denied downbeats. Re-expresses
     // EITHERWING's kit (crossfire/secondWave/movingGap) + the ghost-half volley.
     // `attacks` per phase always carries an amber carrier (aimed) for the amberdiet

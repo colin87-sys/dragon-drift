@@ -406,10 +406,14 @@ export function bellToll(k = 1, vol = 1) {
   if (!a || !sfxBus || sfxMuted) return;
   const t0 = a.currentTime;
   const out = a.createGain();
-  out.gain.value = (0.5 + k * 0.35) * vol;   // vol < 1 = the distant foreshadow tolls
+  out.gain.value = (0.62 + k * 0.42) * vol;   // vol < 1 = the distant foreshadow tolls. Louder than the
+                                              // original (0.5) so the toll punches through the audio-overhaul
+                                              // master compressor+limiter that flattened its deep low-end.
   out.connect(sfxBus);
-  const F0 = 72;                                   // the strike tone — low, funeral register
-  const partials = [[0.5, 0.5, 5.2], [1.0, 1.0, 3.8], [1.2, 0.55, 2.6], [1.5, 0.34, 2.0], [2.0, 0.25, 1.4], [2.66, 0.14, 0.9]];
+  const F0 = 66;                                   // the strike tone — dropped 72→66 for a deeper funeral register
+  // Weighted toward the LOW body (hum/sub/prime) with longer decays — that's the "deep + awe" the master
+  // compressor was ducking; the mid/upper partials stay lean so the tone reads bronze, not muddy.
+  const partials = [[0.5, 0.75, 6.4], [0.75, 0.5, 4.6], [1.0, 1.15, 4.8], [1.2, 0.6, 2.8], [1.5, 0.32, 2.0], [2.0, 0.22, 1.4], [2.66, 0.12, 0.9]];
   for (const [ratio, amp, dec] of partials) {
     const o = a.createOscillator();
     o.type = 'sine';
@@ -428,8 +432,8 @@ export function bellToll(k = 1, vol = 1) {
   const ch = buf.getChannelData(0);
   for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / ch.length);
   const src = a.createBufferSource(); src.buffer = buf;
-  const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 480; bp.Q.value = 1.2;
-  const ng = a.createGain(); ng.gain.value = 0.5 * k;
+  const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 300; bp.Q.value = 1.2;   // 480→300: a deeper THUNK, less bright clack — and less HF to trigger the master compressor's duck
+  const ng = a.createGain(); ng.gain.value = 0.32 * k;   // softer transient so the compressor doesn't clamp the deep ring behind it
   src.connect(bp); bp.connect(ng); ng.connect(out);
   src.start(t0);
 }

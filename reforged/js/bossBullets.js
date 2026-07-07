@@ -529,7 +529,7 @@ export function debugActiveBullets() {
   const out = [];
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
-    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable });
+    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable, part: s.part, coreColor: s.coreColor });
   }
   return out;
 }
@@ -817,6 +817,7 @@ export function cutBossAmbers() {
 // boss.js drives it from the no-hit ladder each frame.
 let grazeBonus = 1;
 export function setGrazeBonus(m) { grazeBonus = Math.max(1, m || 1); }
+export function debugGrazeBonus() { return grazeBonus; }
 
 // §5i.B CONTINUOUS-GRAZE detector (the ticking sibling of the one-per-bullet
 // crossing check — lands with slot 6, RIDE-THE-BEAM-EDGE). Reports whether the

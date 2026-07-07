@@ -395,10 +395,17 @@ export function buildEmbertide(def, quality = 1) {
     flash: flinch,                     // kit flash + the field shudder / brighten / face recoil
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     dispose() {
-      group.traverse((o) => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) o.material.dispose();
+      // Sweep BOTH `group` and `rig`: in a live fight boss.js reparents `rig` (the dome +
+      // face + motes — the big geometry) out of `group` onto the scene, so a group-only
+      // traversal would leak the sky sphere + face every encounter (repeatable in Boss
+      // Rush / solo retries). Dedup so the studio path (rig still under group) frees once.
+      const seenG = new Set(), seenM = new Set();
+      const sweep = (root) => root && root.traverse((o) => {
+        if (o.geometry && !seenG.has(o.geometry)) { seenG.add(o.geometry); o.geometry.dispose(); }
+        if (o.material && !seenM.has(o.material)) { seenM.add(o.material); o.material.dispose(); }
       });
+      sweep(group);
+      sweep(rig);
     },
   };
 }
