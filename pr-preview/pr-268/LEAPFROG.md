@@ -6522,3 +6522,29 @@ liked head over a bespoke one when the human points at it.
 **Wings:** "still beating asymmetrical" — carried the symmetric lobe ripple from L173 (jade-only, keyed on
 `wingLobePivotsL/R`); if it still reads off, the shared basic-direct branch's asymmetric wingTip phase
 (sin(φ+0.95) vs sin(φ+1.18)) is the next suspect to fold into a jade-symmetric branch.
+
+---
+
+## L175 — Motion you can't test headless will bite you: move the wave to the CPU
+
+The swept-tube body (L174) shipped STATIC in-game — "no motion on the body, it's sitting still." The
+travelling wave lived in an `onBeforeCompile` vertex shader whose uniform dragon.js ticked; the wiring read
+correct (shared-uniform pattern, parts.bodyWave non-null, onBeforeCompile not overwritten) but it never
+animated, and **CI cannot compile GLSL** so I had no way to see why before shipping it to the human twice.
+
+**Fix: do the undulation on the CPU.** koiSerpent now stores per-vertex baseX/baseY, spine-z, and a
+head→tail ramp; dragon.js rewrites `position.x = baseX + amp·ramp·sin(freq·z + phase)` each frame and sets
+`needsUpdate`. ~314 verts for one hero dragon = trivial. Crucially it is **deterministic + headless-testable**:
+a 30-line node test drove the tick and asserted the tail x swings ~0.9 units while the head barely moves —
+proof of a real travelling wave BEFORE deploying. `body.frustumCulled = false` (the swing exceeds the
+static bounds). Normals aren't recomputed (cheap, subtle shear — same tradeoff the shader made).
+
+**The rule:** if a change's whole point is MOTION and the mechanism can't be exercised in CI (a shader
+uniform, a GPU deform), prefer a CPU path you can unit-test, or you're shipping blind to the human as your
+only oracle — expensive when each round is a deploy + a human test. Verify motion headless when you can.
+
+**Also this round (human notes):** reverted the face to the original lofted `koiSkull` (they preferred it
+to the azure-head graft — reuse-a-liked-thing cuts both ways). And gave jade a DEDICATED symmetric wing
+branch: the N silk lobes beat L_i↔R_i on the SAME phase (side only flips the spread), killing the shared
+basic-direct branch's asymmetric wingTip phase (sin(φ+0.95) vs sin(φ+1.18)) that read as "beating
+asymmetrical." Keyed on `wingLobePivotsL/R` → jade-only, roster untouched.
