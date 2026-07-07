@@ -11,6 +11,38 @@ import { on } from './events.js';
 // ring/window onto the screen as two counter-rotating squares. Pure DOM
 // transform — zero render cost. Locks green when the player is lined up.
 
+// The Hunter's-Brand sigils. The SHARED rune (a diamond + cross) is what every
+// dragon burns; an ETERNAL dragon (formLevel>=3) swaps in its personal
+// `lanceRune` key (PR8 cosmetic — see setMarkRune). Each is a 24×24 stroke path.
+const SHARED_RUNE = 'M12 2 L20 12 L12 22 L4 12 Z M12 6 V18 M7.5 12 H16.5';
+const RUNES = {
+  nightEye:      'M3 12 Q12 5 21 12 Q12 19 3 12 Z M12 8 V16',            // Night Fury slit-eye
+  nightFang:     'M5 5 L12 20 L19 5 M8 5 L8 9 M16 5 L16 9',              // twin fangs
+  plasmaBolt:    'M13 3 L6 13 L11 13 L9 21 L18 9 L13 9 Z',               // plasma bolt
+  seraphWing:    'M12 4 A5 5 0 1 1 11.9 4 M4 15 L12 10 L20 15',          // halo + wing sweep
+  solarCrown:    'M12 3 V6 M4 12 H7 M17 12 H20 M6 6 L8 8 M18 6 L16 8 M8 16 A4 4 0 1 0 16 16', // sun
+  phoenixFlame:  'M12 3 C8 9 10 13 12 21 C14 13 16 9 12 3 Z M12 21 C10 17 11 15 12 12',       // flame
+  astralStar:    'M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10 Z',                    // 4-point star
+  bullHorns:     'M5 6 Q4 14 12 15 Q20 14 19 6 M12 15 V20',             // horns
+  bullHornsRing: 'M6 7 Q5 13 12 14 Q19 13 18 7 M12 14 V19 M9 19 H15',   // horns + base bar
+};
+// The rune currently painted on every mark (shared until an Eternal dragon
+// pushes its own via setMarkRune). Exposed for the __dd test seam.
+let markRunePath = SHARED_RUNE;
+// Swap the brand sigil on every pooled mark. `key` is a RUNES key (or a raw path
+// beginning with 'M'); null / unknown → the shared wyrm rune. Called from main.js
+// on dragon build/equip. Idempotent + safe before initReticle (updates markEls
+// when they exist; the stored path seeds any later re-render).
+export function setMarkRune(key) {
+  const path = (key && (key[0] === 'M' ? key : RUNES[key])) || SHARED_RUNE;
+  markRunePath = path;
+  for (const m of markEls) {
+    const p = m.querySelector('.rune path');
+    if (p) p.setAttribute('d', path);
+  }
+}
+export function markRune() { return markRunePath; }   // test seam
+
 let el = null;
 let camera = null;
 let prevLocked = false;   // edge-detect the green-snap pop in a boss
@@ -35,10 +67,10 @@ export function initReticle(cam) {
     m.className = 'lockmark';
     // The wyrm-rune sigil (Hunter's Brand): the brand your rider burns onto the
     // organ — kindles jade-white on paint, banks as the fill drains, ashes grey
-    // when the deflect rule freezes it. One shared rune for now; the per-dragon
-    // sigil is the planned Eternal-ascension cosmetic hook.
+    // when the deflect rule freezes it. The shared rune by default; an Eternal
+    // dragon swaps in its personal sigil via setMarkRune (PR8 cosmetic).
     m.innerHTML = '<div class="fill"></div>' +
-      '<svg class="rune" viewBox="0 0 24 24"><path d="M12 2 L20 12 L12 22 L4 12 Z M12 6 V18 M7.5 12 H16.5"/></svg>';
+      '<svg class="rune" viewBox="0 0 24 24"><path d="' + markRunePath + '"/></svg>';
     hud.appendChild(m);
     markEls.push(m);
   }

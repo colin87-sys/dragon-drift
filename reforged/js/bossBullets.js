@@ -198,6 +198,11 @@ function resetHoops() {
 // threshold) — the bullet discs are toneMapped by design and can never compete.
 const RIBBON_POOL = 6;   // = max concurrent wisps (cap 6 at tier 4+)
 const ribbons = [];      // { active, drain, drainT, n, pts: Float32Array, geo, mesh, mat, head, headMat }
+// The wisp's COLOURED layer — jade by default, retinted per equipped Eternal
+// dragon (PR8). The white-hot HEAD (0xeafff6) never changes: it's the bullet
+// legibility anchor (L102/L121), so wisps read in any accent hue. Display-only —
+// damage is a separate arg, so tinting can never touch behaviour.
+let wispTint = 0x50ffaa;
 const _rTan = new THREE.Vector3(), _rSide = new THREE.Vector3();
 const _rA = new THREE.Vector3(), _rB = new THREE.Vector3(), _rP = new THREE.Vector3();
 const RIBBON_VIEW = new THREE.Vector3(0, 0, -1);   // rail-shooter view dir (chase cam)
@@ -216,7 +221,7 @@ function initWispRibbons(scene, headTex) {
       depthWrite: false, depthTest: false, side: THREE.DoubleSide,
     });
     mat.toneMapped = false;
-    mat.color.setHex(0x50ffaa).multiplyScalar(L.ribbonHot);   // jade, just past the bloom threshold
+    mat.color.setHex(wispTint).multiplyScalar(L.ribbonHot);   // accent (jade by default), just past the bloom threshold
     const m = new THREE.Mesh(geo, mat);
     m.frustumCulled = false;
     m.renderOrder = TIERS.wispRibbon;
@@ -354,7 +359,7 @@ function updateWispImpacts(dt) {
     const q = impactQ[i];
     if (q.t > 0) continue;
     trailV.set(q.x, q.y, q.z);
-    wispImpact(trailV, q.k === 0);
+    wispImpact(trailV, q.k === 0, wispTint);
     emit('lockStrike', { k: q.k });
     impactQ.splice(i, 1);
   }
@@ -433,6 +438,38 @@ let fxQuality = 1;
 export function setBossBulletQuality(q) {
   visibleCap = Math.max(60, Math.round(POOL * q));
   fxQuality = q;
+}
+
+// Push the equipped dragon's wisp accent (PR8 — Eternal cosmetic). Retints every
+// ribbon MATERIAL (× ribbonHot so it stays past the bloom threshold); the white
+// heads are left untouched. Called from main.js after createDragon / on equip;
+// bossBullets never imports dragons.js (push, not pull). Idempotent + null-safe
+// (may run before initWispRibbons on the first fight boot — the init reads the
+// stored var).
+export function setWispTint(hex) {
+  wispTint = (hex == null) ? 0x50ffaa : hex;
+  const k = CONFIG.LOCK.ribbonHot;
+  for (const rb of ribbons) rb.mat.color.setHex(wispTint).multiplyScalar(k);
+}
+
+// The current wisp accent — for particle/muzzle callers that keep the white core.
+export function getWispTint() { return wispTint; }
+
+// Test seam (PR8): recover the base hex of the LIVE ribbon + head materials. Each
+// material colour = base × (ribbon|head)Hot in the linear working space; dividing
+// the scale back out and reading getHex() returns the authored sRGB hex — so the
+// test can assert the ribbon carries the pushed accent while the head stayed the
+// 0xeafff6 white anchor, without doing colour-space math itself.
+const _wc = new THREE.Color();
+export function debugWispColors() {
+  const rb = ribbons[0];
+  if (!rb) return null;
+  const L = CONFIG.LOCK;
+  return {
+    tint: wispTint,
+    ribbonHex: _wc.copy(rb.mat.color).multiplyScalar(1 / L.ribbonHot).getHex(),
+    headHex: _wc.copy(rb.headMat.color).multiplyScalar(1 / L.headHot).getHex(),
+  };
 }
 
 function activeCount() {
