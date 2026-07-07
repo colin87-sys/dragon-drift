@@ -115,7 +115,12 @@ const FIGHT_STATES = bossId === 'eitherwing'
         // idle = the scatter field at full spread (must FILL the frame, L140/L141);
         // dragon = the CONDENSED YOUR-DRAGON copy (the meme frame — the money shot).
         ? [{ name: 'idle', o: { formation: 'scatter', condense: 0, t: 3.0 } }, { name: 'dragon', o: { formation: 'yourDragon', condense: 1, sp: 1, dread: true, t: 2.4 } }]
-        : [{ name: 'idle', o: { t: 2.85 } }];
+        // KARNVOW: dread = VOIDMAW'S VERDICT mid-writing (the grandeur redo's money
+        // frame — the violet sigil at screen scale, every trophy testifying). t 2.6
+        // gives the trace time to draw most of the seal (~2.2s to full).
+        : bossId === 'karnvow'
+          ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'dread', o: { sp: 0.9, dread: true, t: 2.6 } }]
+          : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
   { name: 'front',        label: 'front' },

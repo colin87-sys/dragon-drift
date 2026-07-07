@@ -7974,3 +7974,80 @@ the PR #269 preview.
 **Lesson: "pick vs hunt" isn't a rewrite — it's an OVERRIDE.** The flight-line model already makes "point at it" = "fly the dragon into its cone"; the only thing stealing agency was a lead heuristic + a hop embargo that fired even when the player was deliberately parked on a target. Gating the override on "actionable AND in-cone" let the change be additive: it turns on exactly where the old behaviour frustrated the player (a stackable organ you're sitting on) and is invisible everywhere the old tests already pin (tier-2, done organs, the virtual anchor). When a selection system "won't let me act on what I'm pointing at," add a highest-priority "the thing under the cursor, if actionable" rule rather than re-deriving the whole preference order.
 
 **Verify.** lock.mjs green incl. new T2.20 (tier-3: holding the eye stacks it to 2 pips in place, no lead-away/lag; then hops to the rib once full) — and T2.14/T2.15/T2.17/T2.18 (the tier-2 hop/unpainted-first laws) unchanged; wisps/defs/boss/bossboot/smoke/lockdps/tricount green. Owner feel-judges on the preview: sit on the eye → it paints then stacks under you; fly to a shackle → the reticle follows you, not the auto-lead.
+
+### L213 — KARNVOW CP2 shipped (entrance + riposte + stare-down + trophy paint): the whole fight is DATA + def-gated seams; a fade-in is NOT a dissolve; `transparent:true` is a mask classifier
+
+**Did.** CP2 in one pass, zero un-gated boss.js behavior: `entrance: 'itKeptCount'` (a pure-math
+ENTRANCE_SCRIPTS entry — fades in riding at your shoulder, rel ROCK-STEADY 16 the whole hold, wheels to
+station) + a def-gated `statTaunt` seam at the announce site (quotes the REAL ledger via bossLedgerStats —
+"FELLED YOU ×N. MOST: <BOSS>." with the fresh-save fallback — and arms the mid-hold `model.flareCharm(topKiller)`
+= the §5j escalation hinge, ending on the PRESENTED empty hook); `holdBreaker` (ONE slow parryable amber fired
+1.1s INTO the reveal hold — the cinematic stays fire-free, two separate beats); `reflectRiposte {fromPhase:1}`
+(a gate at the TOP of damageBoss keyed on kind==='player' — the reflected-bullet discriminator — once per
+phase: no damage, the lance cross-SWAT + amber flash, and a slow amber RETURN the player can re-reflect);
+`grazeForm: 'holdFlinch'` (a new branch beside beamEdge/shadowRide: DISCRETE tiers 1.1/2.2/3.4s held in the
+lance's threat-line corridor, escalating graze payouts, tier 3 = the FLINCH + the offer closes for the phase —
+a stare-down, not slot 6's per-tick ramp); `setpieces: [flankCutIn]` (x=sin(2πk)·11 crosses YOUR lane exactly
+at the rel~8 apex — the L140 proximity beat, firing the whole way); `lockParts: trophyCharm0..4` (BRAND THE
+TROPHIES; the empty hook stays unpaintable — the open lore thread).
+
+**Machine-checked before claiming.** New boss.mjs asserts: the entrance rel-steady LAW as data
+(path(u).rel === 16 mid-script); a LIVE instrumented drive — after the first shield break an injected
+kind-'player' hit is riposted EXACTLY once (the second lands) and the parked player earns the FLINCH once per
+phase (×3 across the fight); flareCharm burns the owed charm hot then the hook presents; riposte() swats the
+lance. 58 checks; the ASHTALON entrance golden byte-identical; bossgate ×4 PASS.
+
+**Two graphics-pipeline laws, both caught by the gate not the eye.** (1) **A fade-in is NOT a dissolve**: the
+kit's setDissolve is a DEATH effect — every call parks emissiveIntensity at 0.5 on all tracked materials and
+stateful-lerps their emissive hue toward white, so driving it 1→0 as an entrance materialise left the body
+PERMANENTLY ghost-washed. Fade-ins need a visibility-only channel (the new setEntrance: opacity from the
+finalize baseOpacity cache, emissive untouched). (2) **`transparent: true` is a CLASSIFIER, not just a render
+flag**: bossgate's analytic mask files transparent materials under GLOW — leaving the flag set after the fade
+emptied the OPAQUE silhouette (every idle law read 0/NaN — maxLum LITERALLY 0 is "the mask found nothing",
+not "the boss is dark"). Cache + restore the original flag when the fade completes. **Reusable: any effect
+that touches material flags must restore them; the gate's NaN reads are a mask-classification symptom, not a
+color problem.**
+
+**The seam map that made this a one-pass build** (for slot 10+): entrance = ENTRANCE_SCRIPTS entry (pure math,
+announce is static; DYNAMIC text/flare belongs at boss.js's announce dispatch, which has save/ui in scope);
+reveal-hold beats = enterFight + a timer in the fight loop (player in scope there, not in enterFight);
+reflected-arrival interception = the top of damageBoss (kind==='player'); per-phase re-offers = the
+armSetpieceForPhase call site in breakShield; moving setpieces = SETPIECE_PATHS[id](k) returning {x,y,rel,roll}.
+
+### L214 — KARNVOW grandeur redo: a band-PEAK boss can't be a quiet scale-down — the dread move needs an AUTHORED screen-scale visual; presence lives in what the figure CARRIES; violet on bright skies must be saturated, not hot
+
+**Did / learned.** The boss-design audit rated shipped KARNVOW the roster's weakest fight (mid-fight 2/5:
+"a dread move that is a lore-quote with zero authored visual") — the 8→9 grandeur crater. The redo (owner
+decision: Option A, spectacle + proximity, NO size bump — judge, then maybe B) fixed it with zero engine
+seams beyond the ONE already shipped: `model.setSetpiece(k, sdef)`.
+
+1. **A dread CARD is only a name — pair it with a dread SETPIECE at the same atFrac.** Cards drive
+   UI/sfx/scoring; the model never hears them. The roster's dread moves that LAND (ribs, rose, stoop) are
+   all setpieces with `dread: true` driving `setSetpiece`. KARNVOW's *Voidmaw's Verdict* was a card alone =
+   nothing to see. The fix: `{ id: 'voidmawVerdict', atPhase: 2, dur: 7.5, moving: true, dread: true }` +
+   the model keys `sdef.dread`. The card's promise ("fires boss 1's dread card back") became REAL by
+   quoting Voidmaw's P3 attack set verbatim — a def-data one-liner (attacks: aimed/fan/tunnel).
+2. **The seal recipe (screen-scale writing for ONE draw):** LineSegments in rig space between boss and
+   player, traced stroke-by-stroke with `setDrawRange` (the lance "writes" it — order the strokes like a
+   sentence: glyph, tallies, ring last). Hardware lines have no width → ink every stroke ×6 with tight
+   offsets (weight + bloom coverage). Keep the glyph strokes CLEAR of the body silhouette (over the hood
+   they read as scaffolding, not writing — Fable r1). And the two-part sky law: a dark GLOOM pall disc
+   (plain transparent black, NOT additive → G7-exempt) darkens the sky behind the writing, while the
+   strokes stay DEEP-saturated at a moderate multiplier (0x7a3cff ×3.2) — a hot multiplier tone-maps to
+   chalk-pink on pale/sunset (the L192 saturated>bright law, third time it has bitten).
+3. **Presence = what the figure carries breaking the OUTLINE.** The trophy chain at "tight cluster hugging
+   the hip" was numerically wide but READ as a rainbow clump (Fable r1: the Christmas-tree failure). The
+   festoon only reads as a garland once it ends PAST the silhouette edge (~5.8u world, hard-staggered
+   catenary drops, a merged bead-strand chain). L141's field-presence trick, worn instead of flown.
+4. **De-wizard law for staff-adjacent silhouettes:** orb-pommel + peaked hood = "mage with staff" (Fable
+   caught it twice across CP1 and the redo). A hunting lance needs an ELONGATED bladed head (stretched
+   octahedron = the amber organ itself) + swept-back barbs merged into the shaft mesh.
+5. **Spend tris, merge draws:** the redo went 6,455→~9.1k tris while HOLDING 46 draws — the horn-ridge
+   spiral merged INTO the lance geometry paid for the new bead-strand; relief studs (rivets/tally-studs)
+   went in the body merge but OUTSIDE the trim subset so the cold seam-line drawing stayed clean (Fable
+   CP1's "dense wireframe" catch never re-fired). The seal + gloom cost their +1 draw only while the beat
+   runs (visible-draw budgets count `visible === true`).
+6. **The independent design gate caught all six perception failures the data gates can't** (hairline seal,
+   matte-balloon charms, festoon-as-clump, wizard orb, glyph scaffolding, chalk-pink violet) across two
+   FIX rounds — pixel-law gates (G1–G7 ×3 green every round) prove legality, never grandeur. Budget checks,
+   festoon spread, sigil drive/unwrite, and the P3 quote are now data laws in tests/boss.mjs (67 checks).
