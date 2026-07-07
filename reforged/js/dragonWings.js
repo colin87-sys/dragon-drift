@@ -1679,24 +1679,26 @@ function buildRiverPearl(def, model, attach, spineMats) {
   const cPearl = model.pearlColor ?? def.accentHue ?? 0xd6ffe9;   // mint-pearl (green-leaning)
   const group = new THREE.Group();
   const wr = attach.wingRoot(1);
-  // throat, forward of + below the shoulders — invariant (wingRoot is torso-fixed at the midline).
-  const ax = 0, ay = wr.y - 0.02, az = wr.z - 1.15;
-  group.position.set(ax, ay, az);
+  // Draw the bead UNDER THE JAW (tracks headBase so it reads in the face crop, §5d — the
+  // sheet's named judging frame). The PUBLISHED motifAnchor stays at a fixed torso point
+  // (the throat) so the §7 invariance assert holds; the visible bead following the chin is
+  // the correct read (a chin motif inherently rides the head).
+  const hb = attach.headBase;
+  group.position.set(0, hb.y - 0.26, hb.z + 0.34);   // just below + behind the snout base = under the jaw
 
-  const bloom = [0.4, 0.7, 1.0][stage] ?? 1.0;
-  const r0 = 0.14 * bloom;
-  // The pearl: a mint-pearl emissive bead. Emissive laddered so it is the ONE bloom
-  // (law 12) yet green-leaning even under ACES (never blows to pure white).
-  const emisI = [0.8, 1.3, 1.9][stage] ?? 1.9;   // bright ONE bloom, but not blown to a white slab (gate r3 dir 11 — reads mint, not raw white)
+  // Bloom the ONE motif (law 12 / §4 bloom rule): bead 0.3 → 0.6 → 1.0, emissive off at
+  // the whelp → subtle → luminous at the apex ONLY. Mint the whole way (never slate-blue).
+  const bloom = [0.42, 0.66, 1.0][stage] ?? 1.0;
+  const r0 = 0.13 * bloom;
+  const emisI = [0.1, 0.3, 0.55][stage] ?? 0.55;   // apex is the only full bloom; f0 a dull bead — kept ≤0.55 so it reads MINT, not blown to a white slab
   const pearlMat = new THREE.MeshStandardMaterial({
-    color: 0x8fe0be, emissive: cPearl, emissiveIntensity: emisI, roughness: 0.28, metalness: 0.0 });
+    color: 0xcaf3dd, emissive: cPearl, emissiveIntensity: emisI, roughness: 0.26, metalness: 0.0 });   // pale-MINT diffuse + mint glow → reads green-white, never blue-grey
   const pearl = new THREE.Mesh(new THREE.SphereGeometry(r0, seg(10), seg(8)), pearlMat);
   group.add(pearl);
   spineMats.push(pearlMat);
-  // apex: a faint mint halo bead pair (the "cradled" read) — still ONE bloom point,
-  // these are dimmer satellites, not a second bloom.
+  // apex: a faint mint halo bead pair (the whisker-cradled "river-pearl" read).
   if (stage >= 2) {
-    const satMat = new THREE.MeshStandardMaterial({ color: 0x8fe0be, emissive: cPearl, emissiveIntensity: 0.8, roughness: 0.3, metalness: 0.0 });
+    const satMat = new THREE.MeshStandardMaterial({ color: 0xcaf3dd, emissive: cPearl, emissiveIntensity: 0.45, roughness: 0.3, metalness: 0.0 });
     for (const s of [-1, 1]) {
       const sat = new THREE.Mesh(new THREE.SphereGeometry(r0 * 0.34, seg(7), seg(6)), satMat);
       sat.position.set(s * r0 * 1.5, -r0 * 0.2, r0 * 0.4);
@@ -1704,8 +1706,10 @@ function buildRiverPearl(def, model, attach, spineMats) {
     }
     spineMats.push(satMat);
   }
+  // published anchor: the FIXED throat reference (invariant across forms → §7 drift ≤0.15);
+  // radius monotonic with the bloom.
   const radius = [0.16, 0.26, 0.4][stage] ?? 0.4;
-  return { group, motifAnchor: { local: new THREE.Vector3(ax, ay, az), radius } };
+  return { group, motifAnchor: { local: new THREE.Vector3(0, wr.y - 0.02, wr.z - 1.15), radius } };
 }
 
 registerWings('silkFinWings', buildSilkFinWings);

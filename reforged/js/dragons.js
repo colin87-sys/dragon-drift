@@ -240,10 +240,10 @@ export const DRAGONS = {
       // Hatchling (form 0) — chubby LONG river-pup: big round low-set calm eyes,
       // near-flat snout, 3 fin-bud lobes (≥2 visible — the tier-0 key), pearl bead,
       // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
-      { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.5, eyeShape: 0.0,
+      { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.35, eyeShape: 0.0,
         neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
         spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
-        tailArc: 0.22, tailYaw: 0.16, neckBlend: 1.4,
+        tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
         lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
         tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
         colors: { body: 0x3cb883, belly: 0xdaf7e6, wingInner: 0x3aa578, wingOuter: 0x157a4e,
@@ -279,7 +279,7 @@ export const DRAGONS = {
     scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
     eyeEmissiveI: 1.5,                      // calm painterly eye — not blown to a white googly blob under ACES
     bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
-    eyeSclera: 0xbfe6cf, eyeIris: 0x8ff0c2, eyeIrisKeen: 0xbdf3dc, eyeBallEmissive: 0x2fa373,   // calm luminous GREEN almond (top-level def — the head reads c.def.*, NOT model.*); bright iris so the EYE is the brightest facial point at turntable distance (§4 charisma; CP1 gate polish note)
+    eyeSclera: 0xbfe6cf, eyeIris: 0x8ff0c2, eyeIrisKeen: 0xbdf3dc, eyeBallEmissive: 0x2fa373, eyeBallEmissiveI: 1.0,   // calm luminous GREEN almond (top-level def — the head reads c.def.*, NOT model.*); bright iris + glow so the EYE is the brightest facial point at turntable distance (§4 charisma)
     body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,

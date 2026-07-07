@@ -523,7 +523,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // any thin gap). Only the LIDS stay as caps — their 10–12% gaps exceed the sag.
   const cuteBallMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.32, metalness: 0.02,
-        emissive: c.def.eyeBallEmissive ?? 0x1a3652, emissiveIntensity: 0.5 }) : null;   // soft self-light (def-overridable: azure blue default; jade greens it so the eye never reads off-palette blue)
+        emissive: c.def.eyeBallEmissive ?? 0x1a3652, emissiveIntensity: c.def.eyeBallEmissiveI ?? 0.5 }) : null;   // soft self-light (def-overridable hue + intensity: azure blue default; jade greens + brightens it so the eye reads as a live GREEN almond, the brightest facial point)
   const cutePupilMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0x0a1622, roughness: 0.4, metalness: 0.02, side: THREE.DoubleSide }) : null;
   const cuteGlintMat = c.cfg.cuteEye
@@ -535,10 +535,15 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // front planes — eyes parked at the dome's silhouette edge read as specks); every other
     // skull keeps the zone anchor (the default eye keeps its shipped position byte-identical).
     const oneShellEye = c.cfg.cuteEye && (c.cfg.skullType === 'smoothWedgeSkull' || c.cfg.skullType === 'koiSkull');
+    const koi = c.cfg.skullType === 'koiSkull';
     const kYaw = Math.PI - s * 0.62, kN = new THREE.Vector3(Math.sin(kYaw), 0, Math.cos(kYaw));
+    // KOI: seat the ball less lateral + HIGHER + SUNK into the shell (push ~½) so the big
+    // hatchling eyes don't bulge wider than the skull (GOOGLY, gate CP2 dir 2); the head
+    // silhouette owns them. smoothWedge (ember) keeps its tuned proud seat.
     const ecA = oneShellEye
-      ? new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34)   // PROUD on the wedge cheek — the one-shell smoothWedge SWALLOWS a flush/inboard eye (L147); the head-on read is carried by the forward-converged pupil, not by moving the ball inboard
-          .addScaledVector(kN, 0.15 + rr * 0.35)
+      ? (koi
+          ? new THREE.Vector3(s * c.hx * 0.52, c.hy * 0.42, c.faceZ - c.faceR * 0.24).addScaledVector(kN, 0.02 + rr * 0.12)
+          : new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34).addScaledVector(kN, 0.15 + rr * 0.35))
       : new THREE.Vector3(s * x, yset, z);
     if (c.cfg.cuteEye) {
       // THE CUTE EYE, final architecture: ONE VERTEX-PAINTED BALL + a glint + cap lids.
