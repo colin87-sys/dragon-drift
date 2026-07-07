@@ -131,9 +131,9 @@ export const DRAGONS = {
       hornType: 'bladeRearHorns', rearGlowIntensity: 0,
       neckBlend: 1.85,                  // overlapping forge neck — fuses the segment beads into a smooth throat (gate cp2 r2 dir 4: the bead chain shingled under the chin)
       // ember BONFIRE MANE dials (the wing redo — living flame tongues, per-form maneSpan below)
-      tongueCount: 5, maneSweep: 0.5, maneDihedral: 0.26, maneChord: 0.4, maneCamber: 0.22,
+      tongueCount: 5, maneSweep: 0.5, maneDihedral: 0.26, maneChord: 0.5, maneCamber: 0.22,
       maneDetail: 1.0, maneRakeDown: 0.16, maneGlow: 1.0,
-      maneMid: 0xb83c10, maneTipColor: 0xff9a34, maneArmColor: 0x8a3a1a,
+      maneMid: 0x8a2a0c, maneTipColor: 0xff9a34, maneArmColor: 0x7a3216,
       sparColor: 0xc0763c,
       flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
     },

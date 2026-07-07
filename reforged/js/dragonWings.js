@@ -1649,8 +1649,8 @@ function buildBonfireManeWings(def, model, attach, giM) {
   const rakeDown = model.maneRakeDown ?? 0.16;          // the whole mane rakes DOWN (streams off the body)
 
   // molten diffuse: dark basalt cores → hot glowing wisp tips (fire glows at its thin edges).
-  const cRoot = new THREE.Color(def.wingInner ?? 0x4a1a0c);
-  const cBody = new THREE.Color(model.maneMid ?? 0xa8380f);
+  const cRoot = new THREE.Color(def.wingInner ?? 0x35120a);   // DARK molten basalt core (deeper → the hot tips read as flame-substance vs a uniform bright sheet)
+  const cBody = new THREE.Color(model.maneMid ?? 0x8a2a0c);
   const cTip = new THREE.Color(model.maneTipColor ?? 0xff9a34);   // HOT ORANGE tips (not white — white read as feathers, not fire)
   const armMat = new THREE.MeshStandardMaterial({ color: model.maneArmColor ?? 0x8a3a1a, roughness: 0.6, metalness: 0.05, emissive: 0x3a1206, emissiveIntensity: 0.4 });
   // ONE material for the tongues: vColor is the molten→hot gradient (diffuse), and the emissive
@@ -1676,7 +1676,10 @@ function buildBonfireManeWings(def, model, attach, giM) {
     const c = new THREE.Color();
     for (let i = 0; i <= nX; i++) {
       const t = i / nX;
-      const w = wRoot * (0.16 + 0.84 * Math.pow(1 - t, 0.68)) * (0.7 + 0.3 * Math.sin(Math.min(1, t * 1.3) * Math.PI));  // fat root → soft blunt wisp (rounded, never a sharp point)
+      // BROAD and held-wide so adjacent tongue BASES overlap into one continuous flame sheet
+      // (no gaps between them → nothing reads as webbing-between-fingers / a bat armature); it
+      // stays soft-wide, then rounds to a blunt wisp (never a thin finger-spoke line).
+      const w = wRoot * (0.3 + 0.7 * Math.pow(1 - t, 0.46)) * (0.82 + 0.18 * Math.sin(Math.min(1, t * 1.25) * Math.PI));
       const zc = curlZ * t * t;                          // gentle aft curl
       const yc = t * len * Math.tan(theta) + curlY * t * t - rakeDown * t * len;   // dihedral + tip curl + the whole tongue rakes DOWN
       for (let j = 0; j <= nZ; j++) {
@@ -1684,8 +1687,8 @@ function buildBonfireManeWings(def, model, attach, giM) {
         const z = zc + (cf - 0.5) * w;
         const camb = camber * Math.sin(cf * Math.PI) * (0.4 + 0.6 * Math.sin(t * Math.PI));
         verts.push(t * len, yc + camb, z);
-        const heat = Math.pow(t, 1.4);                   // dark thick root → bright thin tip
-        (heat < 0.5 ? c.copy(cRoot).lerp(cBody, heat * 2) : c.copy(cBody).lerp(cTip, (heat - 0.5) * 2));
+        const heat = Math.pow(t, 1.8);                   // most of the tongue stays DARK molten; only the outer/thin tip runs hot
+        (heat < 0.55 ? c.copy(cRoot).lerp(cBody, heat / 0.55) : c.copy(cBody).lerp(cTip, (heat - 0.55) / 0.45));
         cols.push(c.r, c.g, c.b);
       }
     }
@@ -1728,7 +1731,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
       const t = N > 1 ? i / (N - 1) : 0;
       const rootX = armLen * (0.1 + 0.8 * t);
       const rootY = rootX * Math.tan(theta);
-      const rootZ = rootX * Math.tan(sweep) + 0.12 * i;          // overlap-stagger the roots
+      const rootZ = rootX * Math.tan(sweep) + 0.07 * i;          // tight root stagger → the broad bases OVERLAP into one sheet (no finger gaps)
       const len = maxLen * (lenBase(i) + jLen[i % jLen.length]);
       const wRoot = chordK * reach * (0.7 + 0.3 * Math.sin(t * Math.PI));
       const curlZ = reach * 0.34 * jCurl[i % jCurl.length];      // irregular aft curl
