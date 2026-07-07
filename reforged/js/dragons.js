@@ -279,7 +279,7 @@ export const DRAGONS = {
     scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
     eyeEmissiveI: 1.5,                      // calm painterly eye — not blown to a white googly blob under ACES
     bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
-    eyeSclera: 0xbfe6cf, eyeIris: 0x8ff0c2, eyeIrisKeen: 0xbdf3dc, eyeBallEmissive: 0x2fa373, eyeBallEmissiveI: 1.0,   // calm luminous GREEN almond (top-level def — the head reads c.def.*, NOT model.*); bright iris + glow so the EYE is the brightest facial point at turntable distance (§4 charisma)
+    eyeSclera: 0xbfe6cf, eyeIris: 0x8ff0c2, eyeIrisKeen: 0xbdf3dc, eyeBallEmissive: 0x3fb87e, eyeBallEmissiveI: 1.4,   // calm luminous GREEN almond (top-level def — the head reads c.def.*, NOT model.*); bright iris + glow so the EYE is the brightest facial point at turntable distance (§4 charisma; CP2 polish)
     body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,

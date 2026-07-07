@@ -1688,11 +1688,11 @@ function buildRiverPearl(def, model, attach, spineMats) {
 
   // Bloom the ONE motif (law 12 / §4 bloom rule): bead 0.3 → 0.6 → 1.0, emissive off at
   // the whelp → subtle → luminous at the apex ONLY. Mint the whole way (never slate-blue).
-  const bloom = [0.42, 0.66, 1.0][stage] ?? 1.0;
+  const bloom = [0.56, 0.7, 1.0][stage] ?? 1.0;    // f0 bead sized up so the 0.3 stage is unambiguous in the face crop (CP2 polish)
   const r0 = 0.13 * bloom;
-  const emisI = [0.1, 0.3, 0.55][stage] ?? 0.55;   // apex is the only full bloom; f0 a dull bead — kept ≤0.55 so it reads MINT, not blown to a white slab
+  const emisI = [0.24, 0.35, 0.55][stage] ?? 0.55; // apex the fullest bloom; f0 lifted so the whelp bead reads; ≤0.55 so it stays MINT, not a white slab
   const pearlMat = new THREE.MeshStandardMaterial({
-    color: 0xcaf3dd, emissive: cPearl, emissiveIntensity: emisI, roughness: 0.26, metalness: 0.0 });   // pale-MINT diffuse + mint glow → reads green-white, never blue-grey
+    color: 0xa6ecc6, emissive: cPearl, emissiveIntensity: emisI, roughness: 0.26, metalness: 0.0 });   // GREENER mint diffuse (was reading near-white) → unmistakably green-leaning, never blue-grey (CP2 polish)
   const pearl = new THREE.Mesh(new THREE.SphereGeometry(r0, seg(10), seg(8)), pearlMat);
   group.add(pearl);
   spineMats.push(pearlMat);

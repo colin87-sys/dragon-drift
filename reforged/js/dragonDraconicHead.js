@@ -231,10 +231,10 @@ function buildKoiSkull(c) {
       rings.push([catmull(a[0], b[0], cc[0], d[0], t), catmull(a[1], b[1], cc[1], d[1], t), catmull(a[2], b[2], cc[2], d[2], t), catmull(a[3], b[3], cc[3], d[3], t)]); }
   }
   rings.push(st[st.length - 1]);
-  const crownC = c.mats.bodyMat.color.clone().multiplyScalar(1.6);   // LIFT the head dorsal out of near-black into the mid-jade family (gate rework dir 8)
+  const crownC = c.mats.bodyMat.color.clone().multiplyScalar(1.95);  // LIFT the head dorsal into mid-jade so the apex face never falls to near-black (gate rework dir 8 + CP2 polish)
   const bodyC = c.mats.bodyMat.color.clone();
-  const snoutC = bodyC.clone().multiplyScalar(0.7);            // a darker value step over the muzzle (law 11 tier)
-  const jawC = c.mats.bellyMat.color.clone();                  // pale mint jaw underside
+  const snoutC = bodyC.clone().multiplyScalar(0.72);          // a darker value step over the muzzle (law 11 tier)
+  const jawC = bodyC.clone().multiplyScalar(1.25);            // jaw a LIGHT-JADE step (was the pale belly, which read slate-blue in shadow — CP2 polish); stays in the green family
   const M = seg(14), verts = [], cols = [], idx = [], col = new THREE.Color();
   for (const [z, w, h, yc] of rings) {
     for (let k = 0; k < M; k++) {
