@@ -1090,7 +1090,7 @@ function tick() {
     spawnAhead();
 
     updateCollision(dt, player);
-    updateBoss(dt, player, clock.getElapsedTime());
+    updateBoss(dt, player, clock.getElapsedTime(), camera);
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
     updateEmbers(dt, player, clock.getElapsedTime());

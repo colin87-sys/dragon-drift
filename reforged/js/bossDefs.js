@@ -1282,6 +1282,12 @@ export const BOSSES = {
     // it legitimately fills AND overflows the frame (the spatial peak, never fits). Cited to the registry
     // VALUE-INVERSION sanction (§5b row 13 / the §7b sanctioned list).
     gate: { inverted: true, frameFill: true },
+    // ⚠ EMBERTIDE *IS* THE SKY (§5d "fog-exempt, camera-relative, REPLACE the sky dome — one
+    // sky, never two"). boss.js camera-POSITION-locks the model's visual `rig` (the dome + face)
+    // to the camera like environment.js's real sky dome, and crossfades the real dome OUT — so
+    // it fills the frame at any aspect with no edges and no second sky. Inert for every other
+    // boss (they leave `skyReplace` unset → normal world-station placement).
+    skyReplace: true,
     accent: 0xff3a1e,                 // VERMILION (Decision C) — hue ≈7.5°, clears danger-magenta's 327–357°
                                       // reserved band by ~25°. The field runs vermilion→WARM coral-rose (glow
                                       // #ff7a5e, ~10°, G≥B): the rose end is a WARM coral, NOT a cool pink-rose

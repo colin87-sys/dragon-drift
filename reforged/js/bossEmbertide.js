@@ -69,113 +69,64 @@ export function buildEmbertide(def, quality = 1) {
   // blooms) → it reads as the backdrop AND costs ZERO additive overdraw. Sized to
   // OVERFLOW both portrait edges at fight distance (it never fits — the spatial peak).
   // ---------------------------------------------------------------------
-  const FIELD_W = 96, FIELD_H = 62, FIELD_Z = -4;
-  const BAND_COUNT = lowQ ? 4 : 6;   // bold structured strata (the tide's layers)
-
-  // The band-BOW ("light pushed aside" = negative relief): near the face column the
-  // light rises UP, so bands arc up and over the head instead of running straight
-  // behind it — the light is visibly displaced (the approved r1 cue). Shared by the
-  // base field AND every layered tide-band so the WHOLE wall parts around the face.
-  const faceBow = (x, y) => Math.exp(-Math.pow(x / 14, 2)) * Math.exp(-Math.pow(y / 22, 2));
+  // ---------------------------------------------------------------------
+  // THE SKY-DOME — EMBERTIDE *IS* THE SKY. A large BackSide sphere, camera-POSITION-
+  // locked in-game (boss.js copies `camera.position` onto `rig` for `skyReplace` defs,
+  // so the dome re-centres on the camera every frame exactly like environment.js's real
+  // sky dome — no edges at ANY aspect, and the crest sits on the WORLD horizon and stays
+  // there as the chase-cam pitches). Opaque HDR (toneMapped=false → blooms), fog-exempt,
+  // depthWrite=false + frustumCulled=false so it never occludes the world props/water and
+  // never culls. The vermilion→coral-rose gradient + the bold light-BANDS are mapped by
+  // ELEVATION (latitude rings), the hot CREST sits at the horizon, and the bands BOW UP
+  // around the face's azimuth ("light pushed aside" = negative relief). It REPLACES the
+  // real dome (boss.js crossfades that out — one sky, never two). ZERO additive.
+  // ---------------------------------------------------------------------
+  const DOME_R = 600;
+  const BAND_COUNT = lowQ ? 5 : 7;
   const _bg = new THREE.Color();
-  // The base gradient vermilion→rose at a given world-y (0 bottom → 1 top of the field).
-  const baseGrad = (y) => _bg.copy(accent).lerp(rose, THREE.MathUtils.clamp((y + FIELD_H / 2) / FIELD_H, 0, 1));
-
-  // THE BASE FIELD — a smooth vermilion→rose gradient that fills the frame behind the
-  // moving tide-bands (so gaps between bands never show dark), with the hot crest baked
-  // in + the bow. The bold band STRUCTURE now lives in the separate layered tide-bands
-  // below (real, moving geometry — the spatial-peak spectacle), not just baked here.
-  const segX = lowQ ? 30 : 48, segY = lowQ ? 34 : 56;
-  const fieldGeo = new THREE.PlaneGeometry(FIELD_W, FIELD_H, segX, segY);
+  const domeSeg = lowQ ? [60, 36] : [88, 52];   // carries a big share of the ≥90% tri budget (the body)
+  const domeGeo = new THREE.SphereGeometry(DOME_R, domeSeg[0], domeSeg[1]);
   {
-    const pos = fieldGeo.attributes.position;
+    const pos = domeGeo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i), y = pos.getY(i);
-      const t = THREE.MathUtils.clamp((y + faceBow(x, y) * 11 + FIELD_H / 2) / FIELD_H, 0, 1);
-      baseGrad(y);
-      const faintBand = Math.pow(Math.max(0, Math.sin(t * Math.PI * BAND_COUNT)), 2) * 0.22;   // a soft residual band under the tide
-      const crest = Math.exp(-Math.pow((t - 0.30) / 0.07, 2)) * 0.7;   // the hot surge edge
-      const hdr = 1 + faintBand + crest;
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const e = THREE.MathUtils.clamp(y / DOME_R, -1, 1);   // sin(elevation)
+      const elev = Math.asin(e);                             // -π/2 (down) .. +π/2 (zenith)
+      const az = Math.atan2(x, -z);                          // 0 = FORWARD (-z) = the face azimuth
+      const gt = THREE.MathUtils.smoothstep(e, -0.05, 0.55); // gradient vermilion(horizon)→rose(up)
+      _bg.copy(accent).lerp(rose, gt);
+      // Bow the BANDS up around the face azimuth (the light parts around the head).
+      const bow = Math.exp(-Math.pow(az / 0.55, 2)) * Math.exp(-Math.pow((elev - 0.14) / 0.5, 2)) * 0.4;
+      const band = Math.pow(Math.max(0, Math.sin((elev + bow) * BAND_COUNT * 2.6)), 2);
+      const crest = Math.exp(-Math.pow((elev - 0.04) / 0.05, 2)) * 1.4;   // the hot horizon band (the surge edge)
+      const hdr = 1 + band * 0.7 + crest;
       colors[i * 3] = _bg.r * hdr; colors[i * 3 + 1] = _bg.g * hdr; colors[i * 3 + 2] = _bg.b * hdr;
     }
-    fieldGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    domeGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   }
-  const fieldMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false }));
-  const field = new THREE.Mesh(fieldGeo, fieldMat);
-  field.name = 'lightField';
-  field.position.z = FIELD_Z;
-  field.renderOrder = -10;   // the backdrop draws first
-  rig.add(field);
+  const domeMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, toneMapped: false, depthWrite: false }));
+  const dome = new THREE.Mesh(domeGeo, domeMat);
+  dome.name = 'lightField';        // keep the roster/test organ name (this is the "wall of light")
+  dome.frustumCulled = false;
+  dome.renderOrder = -20;          // the backdrop draws first
+  rig.add(dome);
+  const _domeCol = domeMat.color.clone();
+  // A slow spin gives the tide MOTION (the latitude bands sweep) without any extra draw
+  // or overdraw — the whole sky is alive. Driven in tick.
+  const domeSpin = dome;
 
-  // THE LAYERED TIDE — the bold structured light-bands as REAL, MOVING geometry (the
-  // World-Enders spatial-peak spend): N wide opaque band-planes at staggered z, each a
-  // bright ridge that fades seamlessly into the base gradient at its top/bottom edges
-  // (opaque, no strip seam) and BOWS up around the face. They drift at parallax speeds
-  // (see tick) so the wall of light reads as a deep, many-layered tide in motion —
-  // still ZERO additive (opaque HDR, blooms via toneMapped=false). The bands REPLACE
-  // the sky dome; they never stack a large ADDITIVE volume vs the camera.
-  const tideBands = [];
-  const tideMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false }));
-  const TIDE_N = lowQ ? 3 : 6;
-  const bandSegX = lowQ ? 22 : 36, bandSegY = lowQ ? 5 : 8;
-  for (let b = 0; b < TIDE_N; b++) {
-    const yc = -FIELD_H / 2 + (b + 0.5) / TIDE_N * FIELD_H;   // band centre height
-    const halfH = (FIELD_H / TIDE_N) * 0.9;                    // slight overlap → seamless tiling
-    const g = new THREE.PlaneGeometry(FIELD_W * 1.02, halfH, bandSegX, bandSegY);
-    const pos = g.attributes.position;
-    const col = new Float32Array(pos.count * 3);
-    for (let i = 0; i < pos.count; i++) {
-      const lx = pos.getX(i), ly = pos.getY(i);       // local (ly: -halfH/2..+halfH/2)
-      const wy = yc + ly;                              // world y of this vertex
-      // Bow the whole band up around the face (displace the geometry, so the arc is real).
-      pos.setY(i, ly + faceBow(lx, wy) * 9);
-      const ridge = Math.exp(-Math.pow(ly / (halfH * 0.34), 2));   // bright at band centre → 0 at its edges
-      baseGrad(wy);
-      const hdr = 1 + ridge * 0.95;                    // opaque: edges = base gradient (seamless), centre = a hot band
-      col[i * 3] = _bg.r * hdr; col[i * 3 + 1] = _bg.g * hdr; col[i * 3 + 2] = _bg.b * hdr;
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const m = new THREE.Mesh(g, tideMat);
-    m.position.set(0, 0, FIELD_Z + 0.4 + b * 0.35);     // staggered z toward the camera (parallax depth)
-    m.renderOrder = -9 + b;
-    m.userData = { yc, driftAmp: 1.4 + (b % 3) * 0.7, driftSpd: 0.25 + b * 0.06, bobSpd: 0.5 + b * 0.11, phase: b * 1.3 };
-    rig.add(m);
-    tideBands.push(m);
-  }
-
-  // THE CREST — the tide's surge EDGE as real geometry (was a bare node): a wide, hot,
-  // bowed band low in the frame that RISES + brightens on the charge tell (the crest
-  // gathers before a big volley). Opaque HDR. The emitter organ (crestPivot) rides it.
-  const crestMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false }));
-  const crestY0 = -FIELD_H * 0.18;
-  {
-    const cg = new THREE.PlaneGeometry(FIELD_W * 1.02, 9, lowQ ? 30 : 48, lowQ ? 5 : 8);
-    const pos = cg.attributes.position;
-    const col = new Float32Array(pos.count * 3);
-    for (let i = 0; i < pos.count; i++) {
-      const lx = pos.getX(i), ly = pos.getY(i);
-      pos.setY(i, ly + faceBow(lx, crestY0 + ly) * 7);
-      const ridge = Math.exp(-Math.pow(ly / 2.6, 2));
-      baseGrad(crestY0 + ly);
-      const hdr = 1 + ridge * 1.5;   // the hottest band (the surge edge)
-      col[i * 3] = _bg.r * hdr; col[i * 3 + 1] = _bg.g * hdr; col[i * 3 + 2] = _bg.b * hdr;
-    }
-    cg.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    var crestStrip = new THREE.Mesh(cg, crestMat);
-    crestStrip.name = 'crestStrip';
-    crestStrip.position.set(0, crestY0, FIELD_Z + 2.6);
-    crestStrip.renderOrder = -3;
-    rig.add(crestStrip);
-  }
-
-  // The SCAR (§3.6): a torn, permanently DARK leash-notch — a HORIZONTAL band-shaped
-  // dark bar riding ONE band, off to the side where the FACE never reaches, smaller
-  // than the smallest facial feature. The forward lore gap: who leashed EMBERTIDE? → the Apex.
+  // The SCAR (§3.6): the dark leash-notch — a band-shaped dark bar riding the dome OFF
+  // the face azimuth (where the face never reaches). The forward lore gap: who leashed
+  // EMBERTIDE? → the Apex.
   const scarMat = track(new THREE.MeshBasicMaterial({ color: 0x000000, fog: false, blending: THREE.MultiplyBlending, transparent: true, depthWrite: false }));
-  const scar = new THREE.Mesh(strip(new THREE.BoxGeometry(8, 0.9, 0.2)), scarMat);
+  const scar = new THREE.Mesh(strip(new THREE.BoxGeometry(70, 8, 2)), scarMat);
   scar.name = 'leashNotch';
-  scar.position.set(-30, 11, FIELD_Z + 0.5);
+  { const az = -0.95, el = 0.30, r = DOME_R * 0.9;
+    scar.position.set(Math.sin(az) * Math.cos(el) * r, Math.sin(el) * r, -Math.cos(az) * Math.cos(el) * r);
+    scar.lookAt(0, scar.position.y, 0); }
+  scar.frustumCulled = false;
+  scar.renderOrder = -12;
   rig.add(scar);
 
   // ---------------------------------------------------------------------
@@ -185,11 +136,16 @@ export function buildEmbertide(def, quality = 1) {
   // occlusion, darkest at the tears: field(bright) → base shadow → brow/nose/chin
   // masses (darker) → eye-hollows/mouth (pure black). The whole thing overflows.
   // ---------------------------------------------------------------------
-  const FACE_Z = 1.2;
+  // The face sits at the FORWARD HORIZON inside the dome (on the fight-direction azimuth
+  // -z), scaled large to read at that distance, world-oriented (facing +z toward the
+  // camera) so it anchors to the world horizon — a colossal face IN the sky, not a panel.
+  const FACE_DIST = 520, FACE_SCALE = lowQ ? 6.4 : 7.2, FACE_Y = 44;
+  const FACE_Z = -FACE_DIST;   // faceRig base z (the tick surge/death offset from here)
   const EYE_Y = 2.0, EYE_X = 4.2, EYE_Z = 2.6;   // eye-hollow placement (frontal, level, matched, symmetric)
   const faceRig = new THREE.Group();
   faceRig.name = 'faceRig';
-  faceRig.position.z = FACE_Z;
+  faceRig.position.set(0, FACE_Y, FACE_Z);
+  faceRig.scale.setScalar(FACE_SCALE);
   rig.add(faceRig);
 
   // BASE SHADOW — a large head-shaped region of darkened light (multiply), soft-edged
@@ -303,26 +259,34 @@ export function buildEmbertide(def, quality = 1) {
 
   // THE CREST — the tide's surge edge (the emitter organ, def.muzzle='crestPivot'). A
   // positional node low in the field; the visible crest is baked into the field's hot band.
+  // The emitter node lives on `group` (the STATION), NOT the camera-locked `rig`, so
+  // bullets crest from a sane gameplay position while the VISUAL crest is up in the sky.
   const crestPivot = new THREE.Object3D();
   crestPivot.name = 'crestPivot';
-  crestPivot.position.set(0, -FIELD_H * 0.20, 0.5);
-  rig.add(crestPivot);
+  crestPivot.position.set(0, 6, 0);
+  group.add(crestPivot);
 
   // EMBER MOTES — small opaque HDR points drifting UP the tide (embers; also the
   // handle's `orbiters`, ≥2 by contract). Opaque (no overdraw); they make the wall of
   // light read ALIVE, not a static skybox. They ride the field, BEHIND the face.
   const moteMat = track(new THREE.MeshBasicMaterial({ color: rose.clone().multiplyScalar(2.4), fog: false, toneMapped: false }));
-  const moteGeo = new THREE.SphereGeometry(0.5, 7, 6);
+  const moteGeo = new THREE.SphereGeometry(2.4, 7, 6);   // large enough to read across the dome-scale sky
   const orbiters = [];
+  const MOTE_SPREAD = 560, MOTE_H = 400, MOTE_Z = -360;
   const moteCount = lowQ ? 8 : 18;   // more embers → the wall reads alive (draws land naturally)
   for (let i = 0; i < moteCount; i++) {
     const m = new THREE.Mesh(moteGeo, moteMat);
-    m.userData = { baseX: (i / moteCount - 0.5) * FIELD_W * 0.85, phase: i * 1.7, speed: 2.4 + (i % 3) * 0.7, sway: 3 + (i % 4) };
-    m.position.set(m.userData.baseX, -FIELD_H / 2, FIELD_Z + 0.6);
-    m.renderOrder = -5;   // in the field, behind the face-shadow
+    m.userData = { baseX: (i / moteCount - 0.5) * MOTE_SPREAD, phase: i * 1.7, speed: 22 + (i % 3) * 7, sway: 20 + (i % 4) * 8 };
+    m.position.set(m.userData.baseX, -40, MOTE_Z);
+    m.frustumCulled = false;
+    m.renderOrder = -15;   // in the sky, behind the face-shadow
     rig.add(m);
     orbiters.push(m);
   }
+
+  // The dome + face + motes are huge / far — never let the frustum cull them (they ARE
+  // the sky). Mirrors the real dome's `sky.frustumCulled = false` (environment.js).
+  rig.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
 
   kit.finalize();
 
@@ -354,9 +318,7 @@ export function buildEmbertide(def, quality = 1) {
   let nextBlink = 6 + Math.random() * 5;
 
   const _rnd = mulberry32(0xe3be7de0);
-  const fieldBaseX = field.position.x, fieldBaseY = field.position.y;
   const faceBaseZ = FACE_Z, faceBaseY = faceRig.position.y;
-  const _fieldCol = fieldMat.color.clone();
 
   function tickBody(dt, time) {
     // GAZE — the face turns its dark regard toward the dragon (lagged; a mind).
@@ -371,7 +333,9 @@ export function buildEmbertide(def, quality = 1) {
     if (noticeT > 0) noticeT -= dt;
     if (recoil > 0) recoil = Math.max(0, recoil - dt / 0.3);
     const noticePush = noticeT > 0 ? (noticeT / 1.1) * 1.4 : 0;
-    faceRig.position.z = faceBaseZ + charge * 3.0 + noticePush - recoil * 1.8;
+    // The face SURGES toward the camera through the light (dome-scale: ×~15 the old planar
+    // amounts). Recoil (flinch) pulls it back briefly.
+    faceRig.position.z = faceBaseZ + charge * 45 + noticePush * 12 - recoil * 26;
     const deepen = 1 + charge * 0.5 + noticePush * 0.15;
     browPivot.position.z = 0.5 * deepen;
     nosePivot.position.z = 0.7 * deepen + charge * 0.6;
@@ -390,64 +354,37 @@ export function buildEmbertide(def, quality = 1) {
     }
     mouthPivot.scale.y = Math.max(0.05, (1 + charge * 0.25) * (1 - dyingK * 0.8));
 
-    // CHARGE TELL on the FIELD: the tide CREST GATHERS — the wall of light rises TALLER
-    // (aspect change; a uniform scale auto-frames away in the studio, an aspect change
-    // survives). Off the death path (charge=0 there).
-    const chargeRise = dyingK <= 0 ? charge * 4.0 : 0;
-    if (dyingK <= 0) field.scale.set(1, 1 + charge * 0.4, 1);
-
-    // FLINCH: the whole light field SHUDDERS + BRIGHTENS on a hit (the face recoiled above).
+    // CHARGE / FLINCH on the SKY: the whole DOME brightens as the crest gathers (charge)
+    // and on a hit-flash; a slow spin sweeps the latitude bands so the tide is in MOTION
+    // (zero extra draw/overdraw — the whole sky is alive). No translate — it IS the sky.
     if (flashT > 0) flashT = Math.max(0, flashT - dt * 3);
-    let fx = fieldBaseX, fy = fieldBaseY + chargeRise;
-    if (shudderT > 0) { shudderT -= dt; const s = shudderT / 0.35; fx += (_rnd() - 0.5) * 2.6 * s; fy += (_rnd() - 0.5) * 1.8 * s; }
-    field.position.x = fx; field.position.y = fy;
+    domeSpin.rotation.z += dt * (0.010 + charge * 0.02);
+    const swell = 1 + Math.sin(time * 0.6) * 0.05 + charge * 0.38 + flashT * 0.5;
+    domeMat.color.copy(_domeCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92)));
 
-    // The FIELD lives: a slow breathing swell + a charge brighten (the crest gathers) +
-    // the flinch flash. Driven on the material colour (opaque HDR, multiply-safe).
-    const swell = 1 + Math.sin(time * 0.8) * 0.05 + charge * 0.3 + flashT * 0.5;
-    fieldMat.color.copy(_fieldCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92)));
-
-    // LAYERED TIDE — parallax drift: each band slides at its own speed + bobs, so the
-    // wall of light reads as a DEEP tide in MOTION. Death recedes them with the field.
-    const tideDim = 1 - dyingK * 0.92;
-    const tideDrop = dyingK > 0 ? -dyingK * FIELD_H * 0.7 : chargeRise * 0.5;
-    for (const m of tideBands) {
-      const u = m.userData;
-      m.position.x = Math.sin(time * u.driftSpd + u.phase) * u.driftAmp;
-      m.position.y = tideDrop + Math.sin(time * u.bobSpd + u.phase) * 0.6;
-    }
-    tideMat.color.setScalar(Math.max(0.02, (1 + charge * 0.25 + flashT * 0.4) * tideDim));
-
-    // CREST — the surge edge RISES + brightens on the charge tell; recedes in death.
-    crestStrip.position.y = crestY0 + (dyingK > 0 ? -dyingK * FIELD_H * 0.7 : charge * 3.5 + Math.sin(time * 0.9) * 0.4);
-    crestMat.color.setScalar(Math.max(0.02, (1 + charge * 0.6 + flashT * 0.5) * tideDim));
-
-    // EMBER MOTES — drift UP the tide, swaying, recycling at the crest.
+    // EMBER MOTES — drift UP across the sky, swaying (embers riding the tide).
     for (const o of orbiters) {
       const u = o.userData;
-      const yy = ((time * u.speed + u.phase * 7) % (FIELD_H + 6)) - FIELD_H / 2 - 3;
-      o.position.set(u.baseX + Math.sin(time * 0.9 + u.phase) * u.sway, yy, FIELD_Z + 0.6);
-      const near = 1 - Math.min(1, Math.abs(yy) / (FIELD_H / 2));
-      o.scale.setScalar((0.7 + near * 0.9) * (1 - dyingK));
+      const yy = ((time * u.speed + u.phase * 40) % (MOTE_H + 80)) - 60;
+      o.position.set(u.baseX + Math.sin(time * 0.5 + u.phase) * u.sway, yy, MOTE_Z);
+      const near = 1 - Math.min(1, Math.abs(yy - MOTE_H * 0.35) / (MOTE_H * 0.55));
+      o.scale.setScalar((0.6 + near * 0.8) * (1 - dyingK));
     }
 
-    // DEATH — the tide RECEDES: the light drains (field dims, above) + slides down, and
-    // the face SINKS below the horizon line (the sky sets, §4b DEATH / §4.7).
-    if (dyingK > 0) {
-      field.position.y = fieldBaseY - dyingK * FIELD_H * 0.7;
-      faceRig.position.y = faceBaseY - dyingK * 26;
-    } else if (faceRig.position.y !== faceBaseY) {
-      faceRig.position.y = faceBaseY;
-    }
+    // DEATH — the sky SETS: the light drains (dome dims, above) and the FACE SINKS below
+    // the horizon line (§4b DEATH / §4.7).
+    if (dyingK > 0) faceRig.position.y = faceBaseY - dyingK * 90;
+    else if (faceRig.position.y !== faceBaseY) faceRig.position.y = faceBaseY;
   }
 
   // The handle's front node (FX origin) — at the crest.
   const muzzle = new THREE.Object3D();
-  muzzle.position.set(0, -FIELD_H * 0.20, 2.0);
+  muzzle.position.set(0, 6, 2.0);
   group.add(muzzle);
 
   return {
     group, muzzle, orbiters,
+    rig,   // the VISUAL sky-dome root — boss.js camera-POSITION-locks this for `def.skyReplace` (one sky)
     setDissolve: setDissolveEmotive,   // kit dissolve + the tide receding / the sky setting
     setCharge,
     setGaze, notice,

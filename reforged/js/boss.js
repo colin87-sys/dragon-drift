@@ -10,6 +10,7 @@ import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { bulletGraze } from './collision.js';
 import { buildBoss, buildHorizonSeed } from './bossModel.js';
+import { setSkyFade } from './environment.js';
 import { makeRhythm } from './bossRhythm.js';
 import { ENTRANCE_SCRIPTS } from './entranceScripts.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex, ladderPickDef, ladderTighten } from './bossDefs.js';
@@ -104,6 +105,8 @@ function recordBossBeaten(id) {
 
 // Live encounter state.
 let active = false;
+let _bossCam = null;           // live camera handle (threaded from main.js) — EMBERTIDE camera-locks its dome to it
+let skyFadeK = 0;              // eased 0→1 while a `def.skyReplace` boss owns the sky (crossfades the real dome out)
 let phase = 'idle';            // idle | warn | approach | fight | dying
 let def = null;
 let model = null;
@@ -1285,6 +1288,10 @@ export function startBossEncounter(player, defOverride) {
   group = model.group;
   group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
+  // EMBERTIDE-as-sky: reparent the VISUAL rig (dome + face) out of `group` to the scene so it can be
+  // camera-POSITION-locked (the sky) while `group` (HP bar / shield / crestPivot emitter) stays at the
+  // world station via placeGroup — gameplay origins unchanged. Inert for every non-skyReplace boss.
+  if (def.skyReplace && model.rig) { scene.add(model.rig); }
   // Arena environment feed (optional model hook, the setGaze?.() pattern): the water
   // surface is the world-constant plane y=0 in every biome (water.js:204). A model
   // that reacts to it (WEFTWITCH clips its arena web at the surface) opts in by
@@ -1406,6 +1413,7 @@ function endEncounter(player) {
   clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
+  if (model && model.rig && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky: pull the reparented dome
   if (group) { scene.remove(group); model.dispose?.(); }
   resetBossBullets();
   clearSoakMotes();            // §5i.B: a late-shed pink mote must not outlive the fight (review P2)
@@ -1643,8 +1651,16 @@ function updateEntrance(dt, player, time) {
 
 // ---- Per-frame update -------------------------------------------------------
 
-export function updateBoss(dt, player, time) {
+export function updateBoss(dt, player, time, camera) {
   lastPlayer = player;   // stashed for event-driven spawns (the shackle SPRAY-SOAK vent) that have no player arg
+  if (camera) _bossCam = camera;
+  // EMBERTIDE-as-sky crossfade ("one sky, never two"): ramp the real-dome fade toward 1 while a
+  // `skyReplace` boss is active, back to 0 otherwise (inert for every other boss). The dome is
+  // camera-locked in placeGroup below.
+  const skyTgt = (active && def && def.skyReplace) ? 1 : 0;
+  skyFadeK += (skyTgt - skyFadeK) * Math.min(1, dt * 3.5);
+  setSkyFade(skyFadeK);
+  game.embertideSky = skyFadeK > 0.02;   // suppress god-rays while EMBERTIDE IS the sky (no discrete sun → no shafts)
   if (!active) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
@@ -2399,6 +2415,13 @@ function placeGroup(player, time, dt) {
     const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
     const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
     model.setGaze?.(nx, ny);
+  }
+  // EMBERTIDE-as-sky: camera-POSITION-lock the visual rig every frame (the real sky-dome trick,
+  // environment.js `sky.position.copy(camera.position)`) — copy POSITION only (world-oriented, so
+  // the crest stays on the world horizon as the cam pitches). It fills the frame at any aspect with
+  // no edges. `group` still gets the world-station placement above (HP/shield/emitter stay sane).
+  if (def && def.skyReplace && model && model.rig && _bossCam) {
+    model.rig.position.copy(_bossCam.position);
   }
 }
 
@@ -3342,7 +3365,9 @@ export function resetBoss() {
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
   activeCard = null; cardTimer = 0;
   ui.bossCardClear?.();
+  if (model && model.rig && scene && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky dome
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
+  skyFadeK = 0; setSkyFade(0);   // restore the real sky dome on teardown
   resetBossBullets();
   clearSoakMotes();            // §5i.B: no stray pink mote frozen across a run teardown (review P2)
   active = false;
