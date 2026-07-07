@@ -474,9 +474,18 @@ try {
   const fullMask = idle.mask.full.silCount ? idle.mask.full : idle.mask.opaque;
   const cov = fullMask.silCount / frame;
   const comX = fullMask.comX / W, comY = fullMask.comY / H;
-  const comOk = comX > 0.2 && comX < 0.8 && comY > 0.05 && comY < 0.72;
+  // Per-def PRESENCE override (gate.presence): a boss whose registry identity places
+  // its mass OFF the centred envelope — an overhead hanging bell that "owns the space
+  // above" (§5b/§5c WORLD-ENDERS slot 10), a ground-anchored horizon band — reads
+  // outside the default comY box in the auto-framed studio (a bell's mass IS its wide
+  // flared mouth, so the silhouette is legitimately bottom-heavy; in-game it hangs
+  // overhead entirely). An override must cite its registry sanction in a def comment.
+  const pres = gate.presence || {};
+  const comYMin = pres.comYMin ?? 0.05, comYMax = pres.comYMax ?? 0.72;
+  const comXMin = pres.comXMin ?? 0.2, comXMax = pres.comXMax ?? 0.8;
+  const comOk = comX > comXMin && comX < comXMax && comY > comYMin && comY < comYMax;
   rec('G4', 'presence (§1)', cov >= 0.025 && cov <= 0.42 && comOk,
-    `visible coverage ${(100 * cov).toFixed(1)}% (geom mask; need 2.5–42%, bloom adds more); COM (${comX.toFixed(2)}, ${comY.toFixed(2)}) ${comOk ? 'centred' : 'OFF-CENTRE'}`);
+    `visible coverage ${(100 * cov).toFixed(1)}% (geom mask; need 2.5–42%, bloom adds more); COM (${comX.toFixed(2)}, ${comY.toFixed(2)}) ${comOk ? 'centred' : 'OFF-CENTRE'}${gate.presence ? ' [presence override]' : ''}`);
 
   // G5 — telegraph shape (§3.5): the MOST-charged candidate silhouette differs
   // from idle by ≥6% (shape change, not just colour).
