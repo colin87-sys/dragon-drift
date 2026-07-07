@@ -51,7 +51,13 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // EITHERWING (§5b slot 5): OXBLOOD + aged-silver over the warm AMBER WASTES sunset
   // (dist ~2250, biome index 1) — its home sky per the r9 spec + §7c sunset backdrop; the
   // warmest sky in the cycle is the hardest test for the warm-dark accents (L140/L141).
-  eitherwing: 2250 };
+  eitherwing: 2250,
+  // WEFTWITCH (§5b slot 11): a moth-grey bust + PALE-GOLD lit-edge/web over her home
+  // ASTRAL sky (~8000m, near-black violet — §7c biome pairing / BIOME-DESIGN.md). The
+  // dark body reads by its gold fresnel rim + spoke-web there, and the near-black
+  // violet keeps the warm accent OUT of a magenta sunset's blue↔orange false-magenta
+  // overlap (the same G3 trap MARROWCOIL avoids at 8000).
+  weftwitch: 8000 };
 
 // --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
 // (tools/bossstudio.html) instead of the contaminated in-game frame — a

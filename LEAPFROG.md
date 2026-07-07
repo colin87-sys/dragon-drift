@@ -7304,3 +7304,52 @@ deferred LANCE polish (all still optional, none structural): Eternal cosmetics (
 tint + rune sigils — gate on `formLevel>=3`, no new persistence), the 5 LANCE feats (the engine
 exists — ~1 line each), the `lockdps` TTK balance sim (build on `driveKill` + `lanceDmgEach`),
 and slot-14 exam rules (gated on a boss that doesn't exist).
+### L192 — WEFTWITCH CP1 (slot 11, the arena-weaver): the field IS the body, "spider" hides in the ARMS not the web, and the G3 danger-band was the SKY, not the mesh
+
+**Did.** Built slot 11 WEFTWITCH (Tier-4 World-Ender) to CP1: the def (`bossDefs.js` +
+`BOSS_ORDER`), `bossWeftwitch.js` (a hooded legless weaver-bust CROWNED by 6 spinneret-arms
+above the shoulder, 2 oversized hands = the §4b face, an arena-spanning spoke-web, a loom-heart
+muzzle), one `bossModel.js` dispatch line, and a `boss.mjs` telegraph/silhouette block. Both
+gates pass: `bossgate` G1–G7 + two independent Fable design gates (pre-build sheet + CP1 renders).
+
+**The learns (reusable).**
+1. **The field IS the body (L141), and the studio LIES about it.** A medium bust reads HUGE only
+   because the web fills the frame — the studio auto-frames the whole web so the bust is a tiny
+   dot; the *in-game fight-frame* (`bossstudio` `fight-idle`) is the only honest grandeur read.
+   Judge design on the studio bust sheet; judge SCALE on the field-frame. `hullLength()` returns
+   the WEB span (166u), not the body, so the L141 test asserts presence, not mass.
+2. **For a radial-web boss, the spider read lives in the ARMS, not the web.** The pre-build Fable
+   gate killed a spider-from-ADJECTIVES sheet ("elegant, graceful" don't survive black-fill) — the
+   fix was GEOMETRY: move all limbs into an upward crown ABOVE the shoulder, **NO limb below
+   horizontal (inviolable — never pull one down to "balance" the lower frame)**. Then the CP1 gate
+   caught the SECOND spider: thin, elbow-kinked, needle-tipped crown arms *read as legs* at the
+   fight frame (worst on the warm sky). Fix = DE-LEG: thick, one smooth UPWARD curve, tips ≥45°,
+   ending in a shuttle MASS not a needle, and SELF-LIT (emissive) so the crown exists on a dark
+   sky. Thick blades pointing skyward are a crown; thin tapered sticks arching out are legs —
+   same count, opposite noun. Silhouette-surviving geometry wins; lighting/color cues don't.
+3. **A bossgate G3 danger-magenta failure can be the SKY, not your mesh.** A pure-black
+   silhouette on a magenta SUNSET borrows the sky at its bloomed edges → those edge pixels read
+   as danger-band body pixels (1.6%). Two fixes, both real: (a) a pale-gold FRESNEL RIM so the
+   edges read HER gold not the sky's magenta (the L121 "reads on a bright sky" trick — also boosts
+   G3 accent attribution); (b) add the boss to `bossgate.mjs`'s `DIST` map at its HOME biome
+   (§7c biome pairing) — WEFTWITCH's Astral (near-black violet) sky dropped danger-band 1.6% →
+   0.003% instantly. The default gate biome is the warm sunset (the hardest test); a warm-dark
+   boss needs its complementary-sky entry or it false-fails, exactly like MARROWCOIL at 8000.
+4. **A PALE accent washes to white under bloom (G3 attribution) — carry it on SOLID surfaces.**
+   `0xe9d8a6` desaturated to white; `0xe8c466` (a touch more saturated, still hue ≈43° and firmly
+   off the rose/magenta band) holds hue. Thin gold LINES throw magenta antialiased edges and are
+   poor attribution carriers; the SOLID rosette-knots + spinneret tips + the self-lit arms carry
+   the gold read (attribution 17% → 62%). Body moth-grey must be COOL (0x1a1c22), not a
+   purple-grey — purple drifts red-channel pixels into the danger band.
+5. **Two-value web (L122) for both skies:** a DARK warp fill reads on a bright sky, a PALE hero
+   subset reads on a dark sky — the pale-only web vanished on the sunset (Fable caught it).
+6. **`laserLance` = a beam VISUAL of an existing pattern (`aimed`), NOT a new attack id** — keeps
+   the def within the `boss.mjs` known-id list AND leaves the World-Enders band's ≤1-new-id budget
+   for a sibling (confirm with owner at CP2). A visual re-expression is free; a new id is a budget.
+
+**Deferred to CP2 (owner green-light first):** the HUD-sew overlay + banner-pin engine (§5j, her
+granted rule-break, with the render-order-LAW test), the live fight wiring (phases/cards/rhythm
+fire, the entrance *The Mended Banner*), the thread-cut parry + mote-harvest graze, and the CP2
+Fable integration gate. CP1 is model + studio/gate + design gate; the engine is CP2. Optional
+polish Fable flagged (non-blocking): shuttle tips slightly more hand/spindle-like; lift the
+sunset hero-thread brightness a notch.

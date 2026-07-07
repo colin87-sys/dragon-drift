@@ -39,6 +39,7 @@ const ASSETS = [
   './js/bossModel.js',
   './js/bossRhythm.js',
   './js/bossThrumswarm.js',
+  './js/bossWeftwitch.js',
   './js/buildId.js',
   './js/cameraController.js',
   './js/collision.js',

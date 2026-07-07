@@ -688,6 +688,59 @@ for (const key of BOSS_ORDER) {
   ok(`brineholm geometry: head ${span.toFixed(1)}w, maw-gape + lid telegraph, eye surface/submerge, notice-jump, shackle-break ✓`);
 }
 
+// WEFTWITCH (slot 11) — the telegraph gate + the §5d/§3b silhouette asserts the
+// build sheet declares: the 6 named spinneretPivots exist (one is the snapped
+// scar), a spinneretPivot moves the SILHOUETTE on setCharge (the crown tenses —
+// not just a recolour), the hands are the face (named hand pivots), and the WEB
+// spans the arena (the L141 field-is-the-body presence number).
+{
+  const ww = buildBoss(BOSSES.weftwitch, 1);
+  // The 6 spinneretPivot0..5 exist (the crown of arms); the scar mesh is present.
+  const spins = [];
+  for (let i = 0; i < 6; i++) {
+    const p = ww.group.getObjectByName(`spinneretPivot${i}`);
+    assert(!!p, `weftwitch exposes the named spinneretPivot${i} (the crown of arms)`);
+    spins.push(p);
+  }
+  assert(!!ww.group.getObjectByName('weftScar'), 'weftwitch exposes the ONE asymmetric scar (the snapped 6th spinneret)');
+  assert(!!ww.group.getObjectByName('handPivotL') && !!ww.group.getObjectByName('handPivotR'),
+    'weftwitch exposes the two named hand pivots (the hands are the face, §4b)');
+  assert(!!ww.group.getObjectByName('weftLoomHeart'), 'weftwitch exposes the named loom-heart (the emitter organ + weak point)');
+  assert(!!ww.group.getObjectByName('threadPivot'), 'weftwitch exposes the named threadPivot (the arena web)');
+
+  // L141 — the FIELD is the body: the web must span the arena (the presence number),
+  // not sit as a small bust. hullLength() returns the web span in world units.
+  const webSpan = ww.hullLength();
+  assert(webSpan >= 60, `weftwitch web spans ${webSpan.toFixed(1)} world units ≥ 60 (the FIELD fills the frame — L141 presence, not a small bust)`);
+
+  // NO limb below horizontal (the inviolable anti-spider rule, §3b): every spinneret
+  // pivot's fan angle sits in [0°,180°] (above the shoulder line).
+  const angs = ww.spinneretAngles();
+  assert(angs.every((d) => d >= 0 && d <= 180), `weftwitch every spinneret arm fans ABOVE horizontal [0,180]° (anti-spider) — got [${angs.map((d) => d.toFixed(0)).join(',')}]`);
+
+  // Telegraph-silhouette gate: setCharge(1) + tick must MOVE the crown (a pivot
+  // rotation), not just recolour — the design law. The scar (index 5) barely reacts
+  // (dead), so assert the LIVE arms tense.
+  for (let i = 0; i < 40; i++) ww.tick(0.05, i * 0.05);   // settle the idle weave
+  const preRot = spins.map((p) => p.rotation.z);
+  ww.setCharge(1);
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 2 + i * 0.05);
+  const moved = spins.filter((p, i) => i !== 5 && Math.abs(p.rotation.z - preRot[i]) > 0.1).length;
+  assert(moved >= 3, `weftwitch charge TENSES the crown: ${moved} live spinneretPivots rotated >0.1 rad (need ≥3 — a silhouette change, not a recolour)`);
+
+  // NOTICE is a state jump: the hands STOP and one finger points DOWN (a pivot swing).
+  ww.setCharge(0);
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 6 + i * 0.05);
+  const pf = ww.group.getObjectByName('fingerL1');
+  const preFinger = pf.rotation.x;
+  ww.notice();
+  for (let i = 0; i < 12; i++) ww.tick(0.05, 8 + i * 0.05);
+  assert(pf.rotation.x < preFinger - 0.8, `weftwitch NOTICE points a finger DOWN (fingerL1 rot.x ${pf.rotation.x.toFixed(2)} < ${preFinger.toFixed(2)} − 0.8 — the §4b notice beat)`);
+
+  ww.dispose();
+  ok(`weftwitch geometry: web ${webSpan.toFixed(0)}w (L141 field), crown tenses on charge, finger-point notice, scar + hands + loom-heart ✓`);
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def
