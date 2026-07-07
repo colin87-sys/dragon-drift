@@ -59,5 +59,33 @@ else bad(`overtake u=1 not at station: (${end.x}, ${end.y}, ${end.rel})`);
   else bad(`mendedBanner gaze wrong: gy(0.1)=${g0.gy}, gy(1)=${g1.gy}`);
 }
 
+// ONEWING theGraveItCarries (§5j slot 12, CP2): the no-warn two-shot. Every frame finite,
+// terminates at station (the enterFight handoff every script owes), the gaze tracks the
+// player the whole arrival (the mutual grief-lock), and the reveal lifts from below the
+// flank into frame (y rises). A player offset to one side proves the gaze is real (nonzero).
+{
+  const P = { position: { x: 6, y: 8 }, dist: 0 };   // offset player → the gaze must point at them
+  let finite = true, bad0 = '';
+  for (let u = 0; u <= 1.0001; u += 0.05) {
+    const fr = entranceFrame('theGraveItCarries', Math.min(u, 1), ctx, P);
+    for (const k of ['x', 'y', 'rel', 'tuck', 'yaw', 'gx', 'gy']) {
+      if (!Number.isFinite(fr[k])) { finite = false; bad0 = `u=${u} ${k}=${fr[k]}`; }
+    }
+  }
+  if (finite) ok('theGraveItCarries: every sampled frame is finite');
+  else bad(`theGraveItCarries produced a non-finite frame: ${bad0}`);
+  const e3 = entranceFrame('theGraveItCarries', 1, ctx, P);
+  if (r6(e3.x) === 0 && r6(e3.y) === 13 && r6(e3.rel) === 30) ok('theGraveItCarries terminates at station (0, fightHeight, settleGap)');
+  else bad(`theGraveItCarries u=1 not at station: (${e3.x}, ${e3.y}, ${e3.rel})`);
+  // The reveal LIFTS from below the flank (y at u=0 is below the frame, rises to the hold).
+  const r0 = entranceFrame('theGraveItCarries', 0, ctx, P), rHold = entranceFrame('theGraveItCarries', 0.5, ctx, P);
+  if (r0.y < 0 && rHold.y > r0.y) ok('theGraveItCarries reveal: rises from below the frame into the flank hold');
+  else bad(`theGraveItCarries reveal wrong: y(0)=${r0.y}, y(0.5)=${rHold.y}`);
+  // The mutual gaze POINTS at the player through the held silence (gx nonzero toward them).
+  const gHold = entranceFrame('theGraveItCarries', 0.5, ctx, P);
+  if (Math.abs(gHold.gx) > 0.05) ok('theGraveItCarries gaze: locks onto the player through the held silence');
+  else bad(`theGraveItCarries gaze not tracking: gx(0.5)=${gHold.gx}`);
+}
+
 console.log(`\n${pass} entrance checks passed${fail ? `, ${fail} FAILED` : ''}.`);
 if (fail) process.exit(1);

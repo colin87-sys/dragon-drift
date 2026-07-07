@@ -1284,6 +1284,12 @@ export const BOSSES = {
     // us" the owner flagged). Paired with the no-warn banner + the eruption danger beat
     // (boss.js enterFight), the arrival is an abrupt threat, not a flythrough.
     approachFrom: 'below',
+    // §5j THE FULL ARRIVAL CINEMATIC (entranceScripts.js 'theGraveItCarries'): it surfaces
+    // SILENTLY at your flank, holds a two-shot mutual gaze (~2s, wordless — noWarn keeps the
+    // banner deferred), then wheels square and SURGES to station, where enterFight fires the
+    // eruption (slam + shockwave + banner + ambush). The script owns the gaze + silence; the
+    // eruption stays the payoff. A def without this keeps the plain below-rise (coexist).
+    entrance: 'theGraveItCarries',
     // §5f THE LYING FELLED CARD (the roster's ONLY health-bar lie — def-gated; no other
     // def may ever set this). On the killing blow ONEWING fakes death (the FELLED card
     // fires, it cracks), then within ≤2s felledReturn of the bar RETURNS and it fights

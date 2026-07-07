@@ -8193,8 +8193,19 @@ is only a scare if the arrival is ABRUPT + dangerous: `approachFrom:'below'` (er
 through you") + an eruption danger beat (slam + shockwave + a ~0.7s ambush attack). A flythrough is not a
 jump-scare. (b) The pure-black ghost-frame HOLE reads only because its rim CROSSES the body outline and the
 interior is genuine negative space (sky through it) — the Fable sheet gate caught the black-on-black-invisible
-risk before geometry, and the numeric rim floor (≥0.30u) made it verifiable. **Still open for ONEWING (a
-follow-up):** the full §5j two-shot entrance cinematic (currently the lean danger-beat version).
+risk before geometry, and the numeric rim floor (≥0.30u) made it verifiable.
+
+**The full §5j arrival cinematic — a no-warn boss can still have a scripted entrance (`theGraveItCarries`).**
+The lean version was the eruption danger-beat alone. The full §5j is a two-shot: it surfaces SILENTLY at your
+flank (rises from below the frame), holds a mutual GAZE (~2s under a shallow dilate — the chest-frame reading
+across the two-shot), then wheels square and SURGES to station. The key structural insight: a `def.noWarn` boss
+composes cleanly with an ENTRANCE_SCRIPTS entry — the script runs in the `flythrough` phase (which is naturally
+BULLET-FREE, so the 2s of silence is free), owns the gaze + the reveal, and at `u=1` hands off to `enterFight`,
+where the DEFERRED eruption (`fireNoWarnBanner` — slam + shockwave + banner + ambush) fires as the payoff. So
+the silence and the eruption aren't in tension: the script is the held breath, enterFight is the strike. No
+`announce` (the banner is the whole no-warn point — spending it on a title kills the dread). Camera two-shot =
+bias the look-target toward the boss↔player MIDPOINT through the gaze, ease home to the chase cam as it surges.
+Verified live: warn → flythrough (0 bullets) → fight, banner fires only at the eruption.
 
 **CP2 combat depth (follow-up PR).** The ghost half now fights: the DEAD twin's volley fires from the fused
 frame (`emitGhostHalf` off a named `ghostMuzzle`) as amber-ringed bullets with a pale-spectral CORE
