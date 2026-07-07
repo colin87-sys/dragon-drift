@@ -6,6 +6,7 @@ import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../lib/postprocessing/OutputPass.js';
 import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTexture, resizeGodRays } from './godrays.js';
 import { damp, clamp } from './util.js';
+import { game } from './gameState.js';
 
 // Post pipeline: RenderPass -> UnrealBloom -> OutputPass -> grading.
 // The scene pass renders linear HDR (r160 skips tone mapping into render
@@ -353,9 +354,14 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
 export function renderPostFX() {
   if (postfx.enabled) {
     // Build the sky/occluder mask just before compositing (cheap, tier-0, only
-    // while the pass is live).
+    // while the pass is live). SUPPRESSED while EMBERTIDE IS the sky — it replaces the
+    // dome with a bright field and has no discrete sun, so god-ray shafts read as a
+    // rectangular light-source artifact. Restore the pass state after compositing.
+    const _grWant = postfx.godRayPass ? postfx.godRayPass.enabled : false;
+    if (postfx.godRayPass && game.embertideSky) postfx.godRayPass.enabled = false;
     if (postfx.godRayPass && postfx.godRayPass.enabled) renderGodRayMask();
     postfx.composer.render();
+    if (postfx.godRayPass) postfx.godRayPass.enabled = _grWant;
     if (_flashFrames > 0) _flashFrames--; // "1 frame" = one PRESENTED frame
   } else {
     postfx._renderer.render(postfx._scene, postfx._camera);
