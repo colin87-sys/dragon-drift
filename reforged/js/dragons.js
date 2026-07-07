@@ -240,7 +240,7 @@ export const DRAGONS = {
       // Hatchling (form 0) — chubby LONG river-pup: big round low-set calm eyes,
       // near-flat snout, 3 fin-bud lobes (≥2 visible — the tier-0 key), pearl bead,
       // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
-      { headScale: 1.15, snoutScale: 0.55, eyeScale: 1.5, eyeShape: 0.0,
+      { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.5, eyeShape: 0.0,
         neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
         spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
         tailArc: 0.22, tailYaw: 0.16, neckBlend: 1.4,
@@ -251,7 +251,7 @@ export const DRAGONS = {
           apexSeam: 0xbdf3dc, eye: 0x8ff0c2, coreGlow: 0x6ad0a0 } },
       // Adolescent (form 1) — body lengthens, lobes unfurl, whiskers + ear-fins bud,
       // eyes narrow, snout projects, the pearl is HELD (glowing). MID value.
-      { headScale: 0.85, snoutScale: 0.68, eyeScale: 1.05, eyeShape: 0.5,
+      { headScale: 0.85, snoutScale: 0.68, eyeScale: 0.98, eyeShape: 0.5,
         neckSegments: 7, tailSegments: 10, whiskerFins: true,
         spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
@@ -279,7 +279,7 @@ export const DRAGONS = {
     scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
     eyeEmissiveI: 1.5,                      // calm painterly eye — not blown to a white googly blob under ACES
     bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
-    eyeSclera: 0xbfe6cf, eyeIris: 0x5fc699, eyeIrisKeen: 0x8ff0c2, eyeBallEmissive: 0x1f8a5c,   // calm GREEN gaze (top-level def — the head reads c.def.*, NOT model.*); brighter green iris + glow so the apex eye reads as a GREEN almond, not a dead black bead (gate rework r4 dir 5)
+    eyeSclera: 0xbfe6cf, eyeIris: 0x8ff0c2, eyeIrisKeen: 0xbdf3dc, eyeBallEmissive: 0x2fa373,   // calm luminous GREEN almond (top-level def — the head reads c.def.*, NOT model.*); bright iris so the EYE is the brightest facial point at turntable distance (§4 charisma; CP1 gate polish note)
     body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,
