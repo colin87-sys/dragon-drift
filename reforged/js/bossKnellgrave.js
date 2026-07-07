@@ -55,11 +55,13 @@ export function buildKnellgrave(def, quality = 1) {
   // hpBarScale counters the big def.scale; hpBarY clears the flared lip beneath the
   // body (the bar rides low, under the overhead mass, where the player is looking).
   const kit = createBossCommon(def, quality, {
-    // the shield wraps the MOUTH/CLAPPER (the toll organ) — kept SMALL + DIM so the
-    // faceted CAGE lines (not a bright fresnel sphere) carry the "sealed" read; a bright
-    // bubble read as a moon/pearl bigger than the bell (Fable CP1 — the L162 lesson: the
-    // cage reads, the rim must not out-bloom the subject).
-    shieldRadius: 3.5, shieldY: -7.0, hpBarY: -15.5, hpBarZ: 4.0, hpBarScale: 0.62,
+    // the shield wraps the MOUTH/CLAPPER (the toll organ — mouth at rig ≈+0.9, the
+    // clapper head at ≈−0.9) — kept SMALL + DIM so the faceted CAGE lines (not a
+    // bright fresnel sphere) carry the "sealed" read; a bright bubble read as a
+    // moon/pearl bigger than the bell (Fable CP1 — the L162 lesson).
+    // hpBar: at the overhead station (def.stationY 20) the bar hangs just BELOW the
+    // clapper (world ≈15) where the player is actually looking — never off-frame.
+    shieldRadius: 3.5, shieldY: -0.8, hpBarY: -4.6, hpBarZ: 4.0, hpBarScale: 0.62,
     shieldRimStrength: 0.16, shieldCageOpacity: 0.46,
   });
   const { group, track } = kit;
@@ -309,7 +311,9 @@ export function buildKnellgrave(def, quality = 1) {
     plate.translate(px, py, bellRadiusAt(py) + 0.1);
     plateParts.push(plate);
   }
-  bellGroup.add(new THREE.Mesh(mergeK(plateParts, 'crackPlates'), patinaHiMat));
+  const plateMesh = new THREE.Mesh(mergeK(plateParts, 'crackPlates'), patinaHiMat);
+  plateMesh.name = 'crackPlates';
+  bellGroup.add(plateMesh);
 
   // the flared LIP as its own lighter-value ring (the brightest patina tier, the
   // widest outline point) + a jagged BITE removed on the front-left (the scar). The
@@ -595,6 +599,14 @@ export function buildKnellgrave(def, quality = 1) {
   let charge = 0; function setCharge(k) { charge = clamp01(k); }
   let tell = null; function setAttackTell(id) { tell = id || null; }
   let setpieceK = 0, dreadK = 0; function setSetpiece(k, sdef) { setpieceK = clamp01(k); dreadK = (sdef && sdef.dread) ? setpieceK : 0; }
+  // THE RUIN LADDER (§5 escalation — "the bell OPENS across the fight"): ruinK = 1−hp,
+  // fed by the controller's setHealth every frame. Phase by phase the crack gapes wider
+  // (a thin line → a flood by the final card), the sprung plates lift, the suspended
+  // shards drift out, the embers thicken, the prisoner catches more light, and every
+  // toll kicks the body harder. The fight builds TOWARD the reveal — transformation as
+  // escalation, no second form needed.
+  let ruinK = 0;
+  function setHealthRuin(frac) { ruinK = clamp01(1 - frac); kit.setHealth(frac); }
 
   // §4b GAZE — the head orientation. Drooped/away at rest; tilts TOWARD the player as
   // gaze rises (set by the controller; free auto in the studio).
@@ -680,15 +692,18 @@ export function buildKnellgrave(def, quality = 1) {
     const gutter = 0.82 + Math.sin(time * gutterRate) * 0.1 + Math.sin(time * gutterRate * 1.7 + 2) * 0.06;
     // dread reveal is the GAPE + the lit figure, NOT brightness (Fable CP1: a brighter
     // bar just reads "lamp turned up") — so the slit brightens only modestly on dread.
-    let slitK = gutter * (1 + charge * 0.5 + noticeK * 0.4 + dreadK * 0.28);
+    let slitK = gutter * (1 + charge * 0.5 + noticeK * 0.4 + dreadK * 0.28 + ruinK * 0.18);
     if (shieldClamp) slitK *= 0.09;   // the toll organ leashes HARD while sealed — the slit core drops below the
                                        // bloom threshold so the focal cluster shrinks (G6: the bell can't ring while sealed)
     if (dyingK > 0) slitK *= Math.max(0, 1 - dyingK * 1.4);   // guttering out
     slitMat.color.copy(SLIT_BASE).multiplyScalar(Math.max(0.05, slitK) * SLIT_HOT);
-    // the crack GAPES WIDER on dread (a real geometry scale — the reveal is the widening
+    // the crack GAPES WIDER as the fight progresses (the RUIN LADDER: a thin line in
+    // P1 → a flood by The Last Toll) and further on dread (the reveal is the widening
     // gap the prisoner strains against, not a floodlight). Width grows more than glow.
-    slit.scale.set(1 + dreadK * 1.7 + charge * 0.2, 1 + dreadK * 0.1, 1);
-    ember.scale.set(1 + dreadK * 1.1, 1, 1);
+    slit.scale.set(1 + ruinK * 1.1 + dreadK * 1.7 + charge * 0.2, 1 + dreadK * 0.1, 1);
+    ember.scale.set(1 + ruinK * 0.7 + dreadK * 1.1, 1, 1);
+    // the sprung wall plates LIFT off the seam as the bell comes apart.
+    plateMesh.scale.setScalar(1 + ruinK * 0.05);
     emberMat.emissiveIntensity = 1.1 * clamp(slitK, 0, 2) * (1 - dyingK * 0.8);
 
     // --- THE CLAPPER HEAD (§4b GAZE / NOTICE / EXPRESSION). Drooped at rest; LIFTS
@@ -708,8 +723,8 @@ export function buildKnellgrave(def, quality = 1) {
     // the figure stays a candle-lit DARK form (a black figure with a warm catch, NOT a
     // glowing orb — Fable CP1): a MODERATE warm catch on the head (brighter when lifted /
     // on the reveal) so the shape reads by silhouette, not by blooming into a pearl.
-    headMat.emissiveIntensity = (0.14 + lift * 0.34 + dreadK * 0.42) * (shieldClamp ? 0.4 : 1) * (1 - dyingK);
-    figureMat.emissiveIntensity = (0.07 + lift * 0.18 + dreadK * 0.42) * (shieldClamp ? 0.5 : 1) * (1 - dyingK);
+    headMat.emissiveIntensity = (0.14 + lift * 0.34 + dreadK * 0.42 + ruinK * 0.14) * (shieldClamp ? 0.4 : 1) * (1 - dyingK);
+    figureMat.emissiveIntensity = (0.07 + lift * 0.18 + dreadK * 0.42 + ruinK * 0.12) * (shieldClamp ? 0.5 : 1) * (1 - dyingK);
     strapMat.emissiveIntensity = (0.04 + dreadK * 0.35) * (1 - dyingK);
     // dread: the figure DROPS further out of the mouth (fully revealed below the lip) and
     // STRAINS against the straps (a fast judder). notice pulls it out a touch too.
@@ -747,7 +762,9 @@ export function buildKnellgrave(def, quality = 1) {
     // IT RINGS — a felt reverberation on every toll: the bell body kicks a ~2% pulse
     // that decays over ~0.35s (the sound made visible on the body itself, §5g).
     const tollK = Math.max(0, 1 - (time - lastTollAt) / 0.35);
-    bellGroup.scale.setScalar(1 + tollK * 0.022);
+    // the kick GROWS with the ruin (past the CP1 2% — a World-Ender's toll is FELT;
+    // the CP2 world layer adds the camera/fog flex on the same beat).
+    bellGroup.scale.setScalar(1 + tollK * (0.035 + ruinK * 0.03 + dreadK * 0.015));
     const mouthWX = Math.sin(swingPivot.rotation.z) * -8.6;
     for (const m of orbiters) {
       const born = m.userData.born;
@@ -782,7 +799,7 @@ export function buildKnellgrave(def, quality = 1) {
         -0.6 + Math.sin(time * 1.2 + mo.userData.ph * 11) * (0.35 + u * 0.8) * mo.userData.sw,
         -5.2 + u * 9.5,
         bellRadiusAt(-5.2 + u * 9.5) + 0.45 + u * 0.5);
-      mo.scale.setScalar((1 - u * 0.65) * (0.8 + charge * 0.5 + dreadK * 0.7));
+      mo.scale.setScalar((1 - u * 0.65) * (0.8 + charge * 0.5 + dreadK * 0.7 + ruinK * 0.55));
     }
     moteMat.opacity = 0.45 * (1 - dyingK) * (shieldClamp ? 0.3 : 1) * (0.7 + gutter * 0.3);
 
@@ -791,12 +808,12 @@ export function buildKnellgrave(def, quality = 1) {
     // they sink with the swing's decay. ---
     for (const sh of bellShards) {
       const u = sh.userData;
-      const rr = u.rad + dreadK * 1.6 + Math.sin(time * 0.4 + u.ph) * 0.25;
+      const rr = u.rad + ruinK * 1.2 + dreadK * 1.6 + Math.sin(time * 0.4 + u.ph) * 0.25;
       sh.position.set(
         Math.sin(u.az) * rr,
         u.h + Math.sin(time * 0.55 + u.ph * 2.1) * 0.45 + tollK * Math.sin(time * 40 + u.ph) * 0.12 - dyingK * 6,
         Math.cos(u.az) * rr);
-      sh.rotation.x += dt * u.tum * 0.6;
+      sh.rotation.x += dt * u.tum * 0.6 * (1 + ruinK);
       sh.rotation.y += dt * u.tum;
     }
 
@@ -831,7 +848,7 @@ export function buildKnellgrave(def, quality = 1) {
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
     flash, hurt, tollNow,
     setEntrance, setEntranceSteer,
-    setHealth: kit.setHealth, setHealthBarVisible: kit.setHealthBarVisible,
+    setHealth: setHealthRuin, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     hullLength, tollBeat,

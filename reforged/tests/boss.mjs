@@ -751,8 +751,22 @@ for (const key of BOSS_ORDER) {
     kn.setSetpiece(0, {});
   }
 
+  // THE RUIN LADDER (§5 escalation): setHealth drives the bell OPENING across the
+  // fight — the crack/slit visibly WIDENS as hp falls (a thin line in P1 → a flood by
+  // The Last Toll). A real geometry change per phase, not a colour ramp.
+  {
+    const slitMesh = kn.group.getObjectByName('knellSlit');
+    kn.setHealth(1.0);
+    for (let s = 0; s < 10; s++) kn.tick(0.05, 400 + s * 0.05);
+    const fullW = slitMesh.scale.x;
+    kn.setHealth(0.25);
+    for (let s = 0; s < 10; s++) kn.tick(0.05, 401 + s * 0.05);
+    assert(slitMesh.scale.x > fullW + 0.6, `knellgrave RUIN LADDER: the crack gapes as hp falls (slit scale ${slitMesh.scale.x.toFixed(2)} > ${fullW.toFixed(2)} + 0.6 at hp 0.25 — the bell opens across the fight)`);
+    kn.setHealth(1.0);
+  }
+
   kn.dispose();
-  ok('knellgrave geometry: swing-widen telegraph, clapper head-lift notice, dread crack-gape reveal, named organs ✓');
+  ok('knellgrave geometry: swing-widen telegraph, clapper head-lift notice, dread crack-gape reveal, ruin ladder, named organs ✓');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to

@@ -850,6 +850,11 @@ export const BOSSES = {
     // in ABOVE the frame already mid-swing (§5d/§5j It Lifts Its Head). boss.js has
     // no 'top' branch — 'above' is the overhead arrival (start.y = fightHeight+22).
     approachFrom: 'above',
+    // THE OVERHEAD LOOM (§5c "the lane breaks" — the #1 grandeur lever): the bell holds
+    // a RAISED station. At stationY 20 the flared lip sits at y≈22 (the frame top), the
+    // bound clapper dangles into view at y≈18, and the bell BODY + chain vanish above
+    // the frame — you fight looking UP into its mouth; it is never fully in frame.
+    stationY: 20,
     entrance: 'itLiftsItsHead',   // §5j (falls back to the plain approach until the ENTRANCE_SCRIPTS entry lands, CP2)
     muzzle: 'bellMouth',          // the toll origin (emitter = organ, §5f law 7); aim solves against its world rel
     // PALETTE (§5b glow-shape claim = vertical candle-slit; Part 2.4 clearance):

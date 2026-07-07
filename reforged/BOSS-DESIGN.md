@@ -707,11 +707,25 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   true overhead dominance is judged IN-GAME.
   GRAZE FORM — SHRINKING SAFE DISC: the toll ring-walls are the anatomy; ride the
   shrinking safe disc through escalating ticks, bail on the last beat; offered once per phase.
-  NEEDS: audio-foreshadow seam + `getBossEta()` (its first consumer); `musicKill()`/
-  `musicRestore()` (the music-death break, via the bgSuspend path); off-lane sweep
-  bounds (verify the perpendicular sweep's X-origin — the +y ceiling is already 34);
-  TRICK-LINE LINKING (§5i.B meta spine, lands slot 10). Second-sun seeding is OUT OF
-  SCOPE for v1 (Decision C1 — an Apex/slot-14 dependency; a later Apex session
+  SHIPPED CP1.x: the OVERHEAD LOOM (`def.stationY` 20 — a def-gated raised station in
+  boss.js, coexist ?? B.fightHeight; the bell hangs above the frame top, you fight
+  looking UP into the mouth — the #1 grandeur lever) and the RUIN LADDER (setHealth →
+  ruinK: the crack gapes phase by phase from a thin line to a flood, the sprung plates
+  lift, the shards drift out, the embers thicken, the prisoner catches more light, the
+  toll kick grows — the bell visibly OPENS across the fight; transformation as
+  escalation, no second form needed).
+  NEEDS (CP2): audio-foreshadow seam + `getBossEta()` (its first consumer); `musicKill()`/
+  `musicRestore()` (the music-death break, via the bgSuspend path — the grandest card in
+  the deck: the silence must land as a gut-punch, the between-toll silence as held
+  breath); TOLL-AS-WORLD-EVENT (2026-07 owner/audit direction): every toll FELT beyond
+  the model — a camera-shake tick + a brief fog/grade flex on the beat + embers shaken
+  loose (the toll is the loudest thing on screen precisely because the music is dead);
+  the survival-card seal wiring that drives the model's dread reveal (setSetpiece) —
+  the prisoner's full straining reveal is the fight's second "holy shit"; the pendulum
+  sweep as a real SPATIAL threat (its shadow/darkening band crossing the lane); off-lane
+  sweep bounds (verify the perpendicular sweep's X-origin — the +y ceiling is already
+  34); TRICK-LINE LINKING (§5i.B meta spine, lands slot 10). Second-sun seeding is OUT
+  OF SCOPE for v1 (Decision C1 — an Apex/slot-14 dependency; a later Apex session
   seeds-on-load for saves with ≥1 Calamity kill).
   §3b SILHOUETTE SHEET (Fable pre-build sign-off PASS): reads as "a colossal cracked
   bell hanging from nothing, swinging above you, a bound prisoner inside as its clapper."

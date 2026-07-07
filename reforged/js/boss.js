@@ -1510,8 +1510,12 @@ export function updateBoss(dt, player, time) {
     pose.rel = start.rel + (B.settleGap - start.rel) * e;
     // Arc up and over the player ONLY on a behind-approach (so it never clips the
     // dragon); side/above/below travel straight in (the y descent/ascent IS the arc).
+    // `def.stationY` (§5c WORLD-ENDERS "the lane breaks"): an overhead boss holds a
+    // RAISED station — KNELLGRAVE hangs above the lane (body above the frame top,
+    // only the mouth/lip/clapper dip in; you fight looking UP). Every def without
+    // it keeps B.fightHeight byte-identical (coexist).
     const arc = (def.approachFrom == null || def.approachFrom === 'behind') ? Math.sin(k * Math.PI) * 6 : 0;
-    pose.y = start.y + (B.fightHeight - start.y) * e + arc;
+    pose.y = start.y + ((def.stationY ?? B.fightHeight) - start.y) * e + arc;
     if (k >= 1) enterFight();
   } else if (phase === 'fight' && debugSetpiecePin) {
     // Capture-only: freeze a SETPIECE pose at a fixed path parameter so the crop tool
@@ -1527,14 +1531,14 @@ export function updateBoss(dt, player, time) {
       cineYaw = (p.yaw !== undefined) ? p.yaw : null;
       cineRoll = p.roll ?? 0;
     }
-    else if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
+    else if (p) { pose.x = 0; pose.y = def.stationY ?? B.fightHeight; pose.rel = B.settleGap; }
     model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI), { id: debugSetpiecePin.id });
     model.setCharge(0);
   } else if (phase === 'fight' && debugChargePin >= 0) {
     // Capture-only: freeze the boss square-on and HOLD the contracted mantle pose
     // at the pinned charge level so the crop tool can shoot the wind-up silhouette
     // as a still (the live charge is too transient to catch headless). No firing.
-    pose.rel = B.settleGap; pose.x = 0; pose.y = B.fightHeight;
+    pose.rel = B.settleGap; pose.x = 0; pose.y = def.stationY ?? B.fightHeight;
     model.setAttackTell?.('aimed');
     model.setCharge(debugChargePin);
   } else if (phase === 'fight' && debugEntrancePin != null && (def.entrance || def.cinematicEntrance)) {
@@ -1615,7 +1619,7 @@ export function updateBoss(dt, player, time) {
       const sway = def.holdSway;
       pose.rel = B.settleGap;
       pose.x = Math.sin(time * (sway?.freq ?? 0.7)) * (sway?.amp ?? 5.0);
-      pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
+      pose.y = (def.stationY ?? B.fightHeight) + Math.sin(time * 1.3) * 0.8;
     }
 
     // Spell-card timer (§5f): the on-screen card countdown, now a real CAPTURE
