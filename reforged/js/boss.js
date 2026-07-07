@@ -165,6 +165,15 @@ const _shimV = new THREE.Vector3();
 const TETHER_MAX = 6;   // cap 6 pips at tier 4+
 let tether = null;
 const _tethA = new THREE.Vector3();
+// The equipped dragon's wisp accent (PR8 Eternal cosmetic) — the lance disc BODY
+// + the attribution tether. Jade by default; pushed from main.js after
+// createDragon / on equip. Display-only: the lance's white core stays 0xeafff6
+// and damage is a separate arg, so the accent never touches behaviour.
+let lanceTint = 0x50ffaa;
+export function setLanceTint(hex) {
+  lanceTint = (hex == null) ? 0x50ffaa : hex;
+  _tethCol.setHex(lanceTint);
+}
 let reticleTrack = null;       // dim full-circle base
 let reticleFill = null;        // bright arc: draw-on progress × (in Surge) time-left
 let reticleHead = null;        // glowing comet at the fill's leading edge (Surge meter)
@@ -2645,7 +2654,7 @@ function fireLanceAt(player, part, dmg, i = 0, n = 1) {
     owner: 'lance', x: ox, y: oy, rel: 1.5,
     vx: Math.cos(a) * L.lanceFanSpeed, vy: Math.sin(a) * L.lanceFanSpeed, vrel: B.bossSpeed,
     targetRel: trel, tx, ty,
-    color: 0x50ffaa, coreColor: 0xeafff6, dmg, r: 0.5, life: 4, part,
+    color: lanceTint, coreColor: 0xeafff6, dmg, r: 0.5, life: 4, part,
     homeDelay: L.lanceHomeDelay,
     curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,   // deterministic: slot parity, no RNG
   });

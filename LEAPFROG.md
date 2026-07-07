@@ -7411,3 +7411,49 @@ lights up exactly on charge frames — painted violet it flooded the G3 denomina
 effectively part of the palette-gate's charge-frame sample — choose it accordingly. Bonus: the correctly-aligned
 shielded capture exposed a real G6 miss (the glint never leashed under shield — now dims to an ember, the
 ashtalon idiom).
+
+### L195 — LANCE PR8 (Eternal cosmetics): per-dragon wisp tint + brand rune, with the white-core legibility twist — personality without power
+
+**Did.** Gave the 9 Eternal-capable (SSSR, procedural) dragons a PERSONAL wisp look, gated on the
+paid Eternal form (`formLevel>=3`) — no new save field. Two data fields per dragon: a hand-picked
+saturated `lanceTint` (Obsidian acid-lime, Toothless violet plasma, Phoenix blazing orange, Astral
+indigo, Aurum charge-red, …) and a `lanceRune` key into a small 24×24 stroke-path map in reticle.js.
+Absent / non-Eternal → the shipped jade wisp + the shared wyrm rune. Threaded PUSH-not-pull:
+`bossBullets.setWispTint(hex)` retints the ribbon MATERIAL (× ribbonHot); `boss.setLanceTint(hex)`
+recolours the lance disc BODY + the attribution tether; `particles.wispImpact(pos, ring, tint)`
+takes the accent; the muzzle burst reads it — and `reticle.setMarkRune(key)` swaps the brand sigil.
+One driver, `applyWispCosmetic()` in main.js, reads `equippedDragon().model.formLevel` and pushes at
+boot + on every equip/ascend (form toggles route through `onEquipDragon`, so they're covered too).
+
+**The load-bearing idea: tint the COLOURED layer, keep the WHITE anchor white.** Every wisp element
+was already built as a coloured layer PAIRED with a white-hot luminance layer — the ribbon body +
+the 0xeafff6 head sprite, the lance disc `color` + the white `coreColor`, the impact accent-sparks +
+the white pips (the bullet legibility law L102/L121: "a white core reads without leaning on hue
+alone"). So the cosmetic tints ONLY the coloured half of each pair and leaves every white core/head
+white. Result: a Phoenix flies amber wisps and an Astral flies cyan wisps, but both stay legible
+against the boss's magenta bullets AND distinct from a cyan/amber REFLECTED shot (same travel
+vector) — because the white head + the ribbon's LINE silhouette carry the read, not the hue. That's
+what made a "full accent" tint safe despite green/cyan/amber being reserved role colours: the reserve
+scopes to BOSS palette + HAZARD bullet contrast, and wisps are player ordnance with their own
+white-anchored shape language.
+
+**Two craft notes.** (1) **Recovering an authored hex from a bloomed material, headless.** The ribbon
+material colour is `setHex(tint)` (sRGB→linear under r160 ColorManagement) then `multiplyScalar(hot)`,
+so its raw `.r/.g/.b` are linear and >1 — `getHex()` would clamp and lose the accent. The test seam
+`debugWispColors()` divides the hot scale back out and reads `getHex()` (→ authored sRGB), so the
+integration test asserts `ribbonHex === lanceTint` and `headHex === 0xeafff6` without doing any
+colour-space math itself. Keep colour-space conversions on the engine side of a test seam. (2)
+**Gate on the FORM, key the data on the DRAGON.** The Eternal *tier* already exists as
+`formLevel>=3` (SSSR-only; SSR starters cap at Radiant/2), so a form-locked cosmetic needs zero new
+persistence — the gate is free and self-limiting. `wispTintFor(def, formLevel)` / `lanceRuneFor(...)`
+are the pure kernel (jade unless form≥3 AND the def carries a tint), unit-tested in isolation from
+the render path.
+
+**→ Leapfrog.** Colour is display-only — the lance's damage is a separate arg — so the whole PR is
+behaviour-invariant: boss.mjs kill-times byte-stable, tricount unchanged (no geometry), coexist
+clean. The per-dragon tints/runes are owner-EYE-judged on the preview (equip each Eternal dragon,
+loose a volley — personal AND legible? does the rune land?); the tests prove the gating kernel, the
+9-dragon data lint (distinct tints, none on non-Eternal dragons), and that the live ribbon carries
+the accent while the head stays white. Remaining deferred LANCE polish (all optional, none
+structural): the 5 LANCE feats (engine exists — ~1 line each), the `lockdps` TTK balance sim (build
+on `driveKill` + `lanceDmgEach`), and slot-14 exam rules (gated on a boss that doesn't exist).
