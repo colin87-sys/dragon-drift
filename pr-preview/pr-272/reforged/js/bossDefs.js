@@ -1243,6 +1243,11 @@ export const BOSSES = {
     // 'spraySoak' has no consumer yet (CP2), so it is inert for every boss now.
     grazeForm: 'spraySoak',
     scale: 1.9,                  // TUNE in studio: size the vast wing to ≥26 on-screen units (×2.2 of the r9 6.2 body is the FLOOR, not the target — §2.1/L141)
+    // §7b MOVING boss (L194): ONEWING wanders its lane (the fluidity primitive), so it
+    // slides off its own capture mask between bossgate's two round-trips (the G1 focal
+    // flake). `freeze` samples the geometry mask + the screenshot at ONE pose — additive,
+    // thresholds unchanged, shipped defs byte-identical.
+    gate: { freeze: true },
     // PALETTE (Decision C — the ashen grey-rose, the MOST DESATURATED of the 11/12/13
     // rose-triple; near-black grey-rose TRACE). Identity lives in the EMISSIVE rims
     // (diffuse near-black, §3 law 3). The fused ghost-frame stays PURE BLACK (no glow).
