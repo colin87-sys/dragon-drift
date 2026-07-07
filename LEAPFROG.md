@@ -7340,3 +7340,31 @@ Gotcha: `ruinK` is the SAME signal at the P4 station view (far, dreadK=0) and th
 (close, dreadK=1) — you cannot make the finale's length "calmer" than the per-phase growth,
 because the crack being fully-propagated at P4 IS the endpoint of that growth. That's correct,
 not a bug: the reveal is the ladder's top rung, not a separate effect.
+
+### L193 — KNELLGRAVE "the bell OPENS": shed real WALL PANELS to bare an inner scaffold — the ruin ladder is subtraction, not a bigger glow
+The crack-widening ruin ladder read as timid because a crack on a fixed bell face is
+size-locked (L192). The owner's fix was better than more glow: "have more of the bell
+BREAK OFF to reveal its inner scaffold, so the background shows through where the bell
+once was." The ladder becomes SUBTRACTION — the silhouette loses material over the fight.
+1. **Cover carved gaps with break-away plates → solid at rest, holes are EARNED.** The
+   two flank windows are genuinely carved out of the wall bands (complementary arcs via
+   `CylinderGeometry(thetaStart, thetaLength)` — and note Three's cylinder uses
+   `x=r·sinθ, z=r·cosθ`, which MATCHES the `(sinα,cosα)` ornament convention, so a gap
+   aligns to an azimuth with no fudge). A matching plate fills each gap at rest, so the
+   bell reads solid at the start; the plate hinges out + drops + tumbles + fades, driven
+   wholly by `ruinK` (staggered thresholds = phases), so the hole opens only as HP falls.
+2. **A single-walled shell is a FEATURE here, not a bug.** The owner flagged "you can see
+   sky through the bell at the start, but filling it kills contrast." Resolution: DON'T
+   fill it. Keep the culled single shell — at rest the plates cover the flanks so the body
+   reads solid, and once a plate sheds the far wall's culled backface lets you see the
+   inner scaffold AND straight through to the sky behind. The see-through you'd have fought
+   to remove is exactly the reveal you want — you just have to gate it behind the shed.
+3. **Skip the ornament at the shed windows or it FLOATS.** The buried/fins/lower-rivets
+   overlap the carved y-range; add `|| inShed(a)` to their bare-sector skips so nothing is
+   left hanging in the gap when the wall behind it is gone.
+4. **Subtraction is free on the budget.** Carving the wall + skipping ornament offset the
+   scaffold + plates: tris went 12492→12309 (DOWN), draws 64→67 (+3 opaque, not additive),
+   overdraw audit unchanged at 1 shell. Shedding costs nothing on the binding axis.
+Gotcha: gates/capture at REST see the solid bell (ruinK 0, plates home) so G1–G7 are
+unaffected — but you MUST verify the SHED frame too (the P4 reveal capture), because the
+bared-scaffold silhouette is a different read the studio's rest-pose gates never see.

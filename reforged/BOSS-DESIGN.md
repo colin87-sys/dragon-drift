@@ -1563,6 +1563,13 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
+- **L192/L193** — KNELLGRAVE ruin ladder (owner playtest): a crack that already spans the whole bell FACE
+  is size-locked — scaling its LENGTH shoves the lit slit past the lip into open air (a crack IS the metal
+  breaking; light below the lip is nonsense), so pin length + grow bounded WIDTH and add a lip-guard test.
+  The better ladder is SUBTRACTION: shed real wall PANELS (carved gaps covered by break-away plates → solid
+  at rest, holes EARNED as ruinK climbs) to bare an inner scaffold; keep the single-walled shell so a shed
+  gap sees through to the sky (the see-through is the reveal, gated behind the shed); skip ornament at the
+  shed windows or it floats; carving offsets the new meshes so tris/overdraw stay flat.
 - **L191** — KNELLGRAVE CP2 (the music dies): a survival seal must NOT be `shielded` (the shield state
   suppresses attacks + aborts setpieces — the seal is damage IMMUNITY at damageBoss; the unfillable bar is
   the tell, the tolls keep firing, outlasting RESOLVES the card); kill the music BUS not the scheduler

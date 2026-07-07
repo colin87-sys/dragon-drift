@@ -159,11 +159,43 @@ export function buildKnellgrave(def, quality = 1) {
     }
     return prof[3][0];
   };
+  // ---- THE SHED SECTORS (owner playtest: "more of the bell breaking off to reveal its
+  // inner scaffold, so the background becomes visible through where the bell once was").
+  // Two flank windows are CARVED OUT of the waist→flare bands and COVERED by matching
+  // break-away plates. At rest the plates fill the gaps → the bell reads SOLID (no sky
+  // through it). As the ruin climbs the plates hinge off + fall (staggered by phase),
+  // opening the wall to the INNER SCAFFOLD behind it — and, because the far wall is a
+  // culled single shell, straight THROUGH to the sky. The reveal is EARNED, not there at
+  // the start. Windows sit on the visible front flanks, clear of the crack sector; the
+  // ornament bands (frieze/buried/fins/rivets) skip them too so nothing floats when shed.
+  const SHED_YTOP = -1.2, SHED_YBOT = -5.2;
+  const SHED = [
+    { aMid: 0.98, aHalf: 0.52, at: 0.30, mid: -3.2 },   // front-RIGHT flank (sheds ~P2)
+    { aMid: 5.18, aHalf: 0.52, at: 0.60, mid: -3.2 },   // front-LEFT  flank (sheds ~P3)
+  ];
+  const angDelta = (a, b) => { let d = Math.abs((a - b) % (Math.PI * 2)); return Math.min(d, Math.PI * 2 - d); };
+  const inShed = (a) => SHED.some((s) => angDelta(a, s.aMid) <= s.aHalf);
   for (let i = 0; i < prof.length - 1; i++) {
     const [r0, y0] = prof[i], [r1, y1] = prof[i + 1];
-    const seg = strip(new THREE.CylinderGeometry(r0, r1, Math.abs(y0 - y1), FACETS, 1, true));
-    seg.translate(0, (y0 + y1) / 2, 0);
-    bandParts.push(seg);
+    const h = Math.abs(y0 - y1), yc = (y0 + y1) / 2;
+    // a band that lies wholly inside the shed y-range is CARVED at the flank windows (built
+    // as the complementary arcs between them); every other band is a full ring.
+    if (y0 <= SHED_YTOP + 0.01 && y1 >= SHED_YBOT - 0.01) {
+      const wins = SHED.map((s) => [s.aMid - s.aHalf, s.aMid + s.aHalf]).sort((p, q) => p[0] - q[0]);
+      const pushArc = (a, b) => {
+        if (b - a < 0.02) return;
+        const rs = Math.max(2, Math.round(FACETS * (b - a) / (Math.PI * 2)));
+        const g = strip(new THREE.CylinderGeometry(r0, r1, h, rs, 1, true, a, b - a));
+        g.translate(0, yc, 0); bandParts.push(g);
+      };
+      let cur = 0;
+      for (const [a, b] of wins) { if (a > cur) pushArc(cur, a); cur = Math.max(cur, b); }
+      if (cur < Math.PI * 2) pushArc(cur, Math.PI * 2);
+    } else {
+      const seg = strip(new THREE.CylinderGeometry(r0, r1, h, FACETS, 1, true));
+      seg.translate(0, yc, 0);
+      bandParts.push(seg);
+    }
   }
   // the crown cap (a small dome closing the top — the chain mounts here)
   const crownCap = strip(new THREE.SphereGeometry(1.15, FACETS, 6, 0, Math.PI * 2, 0, Math.PI * 0.5));
@@ -172,6 +204,55 @@ export function buildKnellgrave(def, quality = 1) {
   const bellMesh = new THREE.Mesh(mergeK(bandParts, 'bellBands'), patinaMat);
   bellMesh.name = 'knellBell';
   bellGroup.add(bellMesh);
+
+  // ---- THE INNER SCAFFOLD — the bell's iron skeleton, hidden behind the intact wall and
+  // BARED where the flank panels shed (owner: "reveal its inner scaffold"). A sparse cage
+  // of raked vertical struts + two hoops at a SUNK radius (inside the wall) so it reads as
+  // structure within a shell, never a second silhouette. Dark iron; the sky behind shows
+  // between the struts once a panel is gone.
+  const scafParts = [];
+  const NSTRUT = lowQ ? 7 : 11;
+  const scafR = Math.max(1.5, bellRadiusAt(-2.4) - 0.8);
+  for (let i = 0; i < NSTRUT; i++) {
+    const a = (i / NSTRUT) * Math.PI * 2 + 0.15;
+    const strut = strip(new THREE.BoxGeometry(0.2, 8.4, 0.4));
+    strut.rotateX(0.16); strut.rotateY(a);
+    strut.translate(Math.sin(a) * scafR, -1.6, Math.cos(a) * scafR);
+    scafParts.push(strut);
+  }
+  for (const [ry, rr] of [[-1.4, 2.5], [-4.4, 3.5]]) {
+    const hoop = strip(new THREE.TorusGeometry(rr, 0.15, 5, lowQ ? 16 : 24));
+    hoop.rotateX(Math.PI / 2); hoop.translate(0, ry, 0);
+    scafParts.push(hoop);
+  }
+  const scaffoldMesh = new THREE.Mesh(mergeK(scafParts, 'innerScaffold'), ironMat);
+  scaffoldMesh.name = 'innerScaffold';
+  bellGroup.add(scaffoldMesh);
+
+  // ---- THE BREAK-AWAY PLATES — one per shed window, each an arc of the wall matching the
+  // carved gap (so at rest it fills the hole and the bell reads solid). Recentred on its
+  // own middle so it TUMBLES about its centroid when it sheds; its own clonable material
+  // fades it out once it is well clear. Driven per-frame by the ruin in tickBody.
+  const shedPanels = [];
+  for (const s of SHED) {
+    const parts = [];
+    for (let i = 0; i < prof.length - 1; i++) {
+      const [r0, y0] = prof[i], [r1, y1] = prof[i + 1];
+      if (!(y0 <= SHED_YTOP + 0.01 && y1 >= SHED_YBOT - 0.01)) continue;
+      const h = Math.abs(y0 - y1), yc = (y0 + y1) / 2;
+      const rs = Math.max(3, Math.round(FACETS * (2 * s.aHalf) / (Math.PI * 2)));
+      const g = strip(new THREE.CylinderGeometry(r0, r1, h, rs, 1, true, s.aMid - s.aHalf, 2 * s.aHalf));
+      g.translate(0, yc, 0); parts.push(g);
+    }
+    const rC = bellRadiusAt(s.mid);
+    const C = new THREE.Vector3(Math.sin(s.aMid) * rC, s.mid, Math.cos(s.aMid) * rC);
+    const geo = mergeK(parts, 'shedPanel'); geo.translate(-C.x, -C.y, -C.z);
+    const mat = track(patinaMat.clone()); mat.transparent = true;
+    const mesh = new THREE.Mesh(geo, mat); mesh.name = 'knellShedPanel';
+    const pivot = new THREE.Group(); pivot.position.copy(C); pivot.add(mesh);
+    bellGroup.add(pivot);
+    shedPanels.push({ pivot, mesh, mat, C, aMid: s.aMid, at: s.at });
+  }
 
   // raised RELIEF bands (the §5g surplus: ornament, not facets) — three proud rings
   // (shoulder / waist / above-lip) that read as bell BANDS at fight distance. No free-
@@ -239,7 +320,7 @@ export function buildKnellgrave(def, quality = 1) {
   const NB = lowQ ? 6 : 11;
   for (let i = 0; i < NB; i++) {
     const a = (i / NB) * Math.PI * 2 + 0.3;
-    if (a < 0.45 || a > 5.75) continue;                     // the crack sector: emptied
+    if (a < 0.45 || a > 5.75 || inShed(a)) continue;        // the crack sector: emptied + the shed flanks bare
     const rr = bellRadiusAt(-2.1) + 0.02;
     const parts = [];
     const body = strip(new THREE.CapsuleGeometry(0.27, 0.85, 2, 6)); body.rotateX(0.22); body.translate(0, -0.1, 0.24); parts.push(body);
@@ -254,7 +335,7 @@ export function buildKnellgrave(def, quality = 1) {
   for (const [ry, rr0] of [[1.4, 3.05], [-3.4, 4.15]]) {
     for (let i = 0; i < NR; i++) {
       const a = (i / NR) * Math.PI * 2 + 0.1;
-      if (a < 0.35 || a > 5.85) continue;
+      if (a < 0.35 || a > 5.85 || (ry < -2 && inShed(a))) continue;
       const riv = strip(new THREE.SphereGeometry(0.14, 5, 4));
       riv.translate(Math.sin(a) * (rr0 + 0.22), ry, Math.cos(a) * (rr0 + 0.22));
       rivetParts.push(riv);
@@ -268,7 +349,7 @@ export function buildKnellgrave(def, quality = 1) {
   const NFIN = lowQ ? 6 : 8;
   for (let i = 0; i < NFIN; i++) {
     const a = (i / NFIN) * Math.PI * 2 + 0.42;
-    if (a < 0.45 || a > 5.75) continue;
+    if (a < 0.45 || a > 5.75 || inShed(a)) continue;
     const fin = strip(new THREE.BoxGeometry(0.24, 4.6, 0.55));
     fin.rotateX(0.21);                                     // follow the profile slope
     fin.rotateY(a);
@@ -734,6 +815,20 @@ export function buildKnellgrave(def, quality = 1) {
     ember.scale.set(Math.min(1 + ruinK * 1.05 + dreadK * 0.45, 2.4), 1, 1);
     // the sprung wall plates LIFT off the seam as the bell comes apart.
     plateMesh.scale.setScalar(1 + ruinK * 0.05);
+    // --- THE SHED: the flank plates break off as the ruin climbs (staggered by phase), so
+    // the bell OPENS across the fight — baring the inner scaffold + the sky behind where the
+    // wall once was (owner's playtest ask). Each plate hinges out along its facing normal,
+    // drops under gravity, tumbles, and fades once it's well clear. Held wholly by ruinK so
+    // it tracks HP (the ladder), never a timer; at rest (ruinK 0) every plate fills its gap.
+    for (const p of shedPanels) {
+      const prog = clamp01((ruinK - p.at) / 0.24);
+      const e = prog * prog * (3 - 2 * prog);              // smoothstep the break
+      const outr = e * 5.5, drop = e * e * 7.5;
+      p.pivot.position.set(p.C.x + Math.sin(p.aMid) * outr, p.C.y - drop, p.C.z + Math.cos(p.aMid) * outr);
+      p.mesh.rotation.set(e * (1.5 + p.aMid * 0.2), e * 2.4, e * (0.8 + p.aMid * 0.1));
+      p.mat.opacity = 1 - clamp01((prog - 0.5) / 0.5);      // solid until clear, then dissolves to gone
+      p.pivot.visible = p.mat.opacity > 0.02;
+    }
     // CP2 gate item 5a: during the overhead ride (the dread reveal drops the pose to
     // player altitude) the bar RIDES UP toward the mouth so a magenta bar never
     // crosses the player's height and reads as a hazard beam. It stays VISIBLE —

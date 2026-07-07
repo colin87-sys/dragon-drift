@@ -780,6 +780,29 @@ for (const key of BOSS_ORDER) {
     kn.setHealth(1.0);
   }
 
+  // THE SHED (owner playtest: "more of the bell breaking off to reveal its inner scaffold,
+  // background visible through where the bell once was") — flank plates COVER carved wall
+  // gaps at rest (bell reads solid) and BREAK AWAY as hp falls, baring the inner scaffold.
+  {
+    const scaffold = kn.group.getObjectByName('innerScaffold');
+    assert(!!scaffold, 'knellgrave exposes the named innerScaffold (the iron skeleton bared as the bell sheds)');
+    const panels = [];
+    kn.group.traverse((o) => { if (o.name === 'knellShedPanel') panels.push(o); });
+    assert(panels.length >= 2, `knellgrave has break-away shed plates (${panels.length} ≥ 2 — the flank panels that fall away)`);
+    // at REST the plates are home + opaque (the bell reads solid — no premature holes).
+    kn.setHealth(1.0);
+    for (let s = 0; s < 10; s++) kn.tick(0.05, 500 + s * 0.05);
+    const restOut = panels.map((p) => p.parent.position.length());
+    assert(restOut.every((d, i) => d < 6.6 + 0.05 && panels[i].material.opacity > 0.95), 'knellgrave shed plates sit HOME + opaque at full hp (the bell is solid at the start — the reveal is earned)');
+    // by the LAST phase they have travelled OUT and faded (the wall is gone → scaffold bared).
+    kn.setHealth(0.15);
+    for (let s = 0; s < 30; s++) kn.tick(0.05, 520 + s * 0.05);
+    const goneOut = panels.map((p) => p.parent.position.length());
+    assert(goneOut.some((d, i) => d > restOut[i] + 2 || panels[i].material.opacity < 0.1), `knellgrave shed plates BREAK AWAY as hp falls (a plate travelled out ${Math.max(...goneOut).toFixed(1)} / faded — the bell opens to its scaffold)`);
+    kn.setHealth(1.0);
+    for (let s = 0; s < 10; s++) kn.tick(0.05, 560 + s * 0.05);
+  }
+
   kn.dispose();
   ok('knellgrave geometry: swing-widen telegraph, clapper head-lift notice, dread crack-gape reveal, ruin ladder, named organs ✓');
 
