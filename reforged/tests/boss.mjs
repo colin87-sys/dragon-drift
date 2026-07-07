@@ -767,6 +767,73 @@ for (const key of BOSS_ORDER) {
 
   kn.dispose();
   ok('knellgrave geometry: swing-widen telegraph, clapper head-lift notice, dread crack-gape reveal, ruin ladder, named organs ✓');
+
+  // WORST-FRAME OVERDRAW AUDIT (2026-07 owner/audit law: FX budget is ADDITIVE-SHELL
+  // COUNT, not tris — the measured cliff is stacked additive fill, and the tri counter
+  // happily waves it through). Drive the single worst frame the fight can produce —
+  // shield UP + full charge + the dread reveal (candle-flood) + TWO toll rings live
+  // mid-expansion + notice — then measure every visible additive/fresnel mesh by its
+  // real projected FILL AREA (a thin ring-wall is ~5% of the frame; a filled disc of
+  // the same radius is ~29% — bounding spheres can't tell them apart). The §2 law:
+  // ≤2 LARGE additive volumes incl. the kit shield; toll rings must each stay THIN
+  // (ring-walls, never filled discs). Lines (LineSegments) are overdraw-exempt (L124).
+  {
+    const kd = buildBoss(BOSSES.knellgrave, 1);
+    kd.setShieldVisible(true);
+    kd.setCharge(1);
+    kd.setSetpiece(1, { dread: true });
+    kd.setHealth(0.15);            // the ruin ladder fully open (widest candle-flood)
+    kd.notice();
+    let t = 0;
+    for (let s = 0; s < 30; s++) { kd.tick(0.05, t); t += 0.05; }
+    kd.tollNow(t);                  // primary + echo ring pair 1
+    for (let s = 0; s < 6; s++) { kd.tick(0.05, t); t += 0.05; }
+    kd.tollNow(t);                  // pair 2 — two generations live at once
+    for (let s = 0; s < 6; s++) { kd.tick(0.05, t); t += 0.05; }
+    kd.group.updateWorldMatrix(true, true);
+
+    // frame area at the fight camera (G7's constants: fovV 72°, cam ~settleGap+12.3).
+    const camDist = (CONFIG.BOSS.settleGap ?? 30) + 12.3;
+    const frameH = 2 * camDist * Math.tan((72 / 2) * Math.PI / 180);
+    const frameArea = frameH * (frameH * (720 / 1280));
+    const surfArea = (geo) => {
+      const p = geo.attributes.position, ix = geo.index;
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), ab = new THREE.Vector3(), ac = new THREE.Vector3();
+      let area = 0;
+      const tri = (i0, i1, i2) => {
+        a.fromBufferAttribute(p, i0); b.fromBufferAttribute(p, i1); c.fromBufferAttribute(p, i2);
+        ab.subVectors(b, a); ac.subVectors(c, a);
+        area += ab.cross(ac).length() / 2;
+      };
+      if (ix) for (let i = 0; i < ix.count; i += 3) tri(ix.getX(i), ix.getX(i + 1), ix.getX(i + 2));
+      else for (let i = 0; i < p.count; i += 3) tri(i, i + 1, i + 2);
+      return area;
+    };
+    const bigShells = [];
+    const sc = new THREE.Vector3(), q = new THREE.Quaternion(), pv = new THREE.Vector3();
+    (function walk(o, parentVisible) {
+      const vis = parentVisible && o.visible;
+      if (!vis) return;
+      if (o.isMesh && o.material && o.geometry?.attributes?.position) {
+        const mat = o.material;
+        const additive = mat.blending === THREE.AdditiveBlending;
+        const fresnel = !!(mat.isShaderMaterial && mat.uniforms && mat.uniforms.uColor);
+        if (additive || fresnel) {
+          o.matrixWorld.decompose(pv, q, sc);
+          const s = Math.max(sc.x, sc.y, sc.z);
+          const frac = (surfArea(o.geometry) * s * s) / frameArea;
+          if (frac > 0.10) bigShells.push(`${o.name || mat.type}~${(frac * 100).toFixed(0)}%`);
+          if (o.name === 'tollRing') assert(frac <= 0.10,
+            `knellgrave toll ring stays a THIN ring-wall, never a filled disc (fill ${(frac * 100).toFixed(1)}% of frame ≤ 10%)`);
+        }
+      }
+      for (const ch of o.children) walk(ch, vis);
+    })(kd.group, true);
+    assert(bigShells.length <= 2,
+      `knellgrave WORST FRAME (shield+dread+double-toll+flood): ${bigShells.length} large additive/fresnel fills [${bigShells.join(', ')}] ≤ 2 (§2 overdraw law — the cliff the tri counter can't see)`);
+    kd.dispose();
+    ok(`knellgrave worst-frame overdraw: ${bigShells.length} large shell(s) [${bigShells.join(', ') || 'none'}] with shield+dread+double-toll live ✓`);
+  }
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to

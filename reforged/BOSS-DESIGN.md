@@ -714,6 +714,21 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   lift, the shards drift out, the embers thicken, the prisoner catches more light, the
   toll kick grows — the bell visibly OPENS across the fight; transformation as
   escalation, no second form needed).
+  FX-BUDGET LAW (2026-07 owner/audit): the tri reserve under the 22k gate is for
+  OPAQUE/LINE geometry only — fight FX are budgeted in ADDITIVE-SHELL COUNT, the axis
+  the tri counter can't see (the measured cliff is stacked additive fill). Enforced:
+  tests/boss.mjs runs a WORST-FRAME audit (shield UP + full charge + dread flood + TWO
+  toll rings live) measuring real projected FILL AREA per additive/fresnel mesh —
+  ≤2 large fills total, and each toll ring must stay a THIN ring-wall (≤10% frame
+  fill; never a filled disc — a ring-wall is ~5%, the same-radius disc ~29%). The
+  candle-flood is OPAQUE bounded geometry (bloom does the flooding). LineSegments are
+  overdraw-exempt (L124). lowQ thinning holds: every ornament count is quality-gated
+  (frieze 14→10, buried 11→6, rivets 14→8, fins 8→6, shards 8→4, motes 10→4, links
+  7→4) → q0.5 = 73% of q1 and ≤60% of the band ceiling. WATCH AXIS (Apex-era note):
+  the binding simultaneous-load axis is DRAWS not tris (~235–260 projected worst case
+  vs the 415 ceiling with boss+dragon+relic+env on screen) — and any future dragon
+  RELIC must be separate meshes, never InstancedMesh (L126: animated instance
+  matrices jank real phones).
   NEEDS (CP2): audio-foreshadow seam + `getBossEta()` (its first consumer); `musicKill()`/
   `musicRestore()` (the music-death break, via the bgSuspend path — the grandest card in
   the deck: the silence must land as a gut-punch, the between-toll silence as held
