@@ -1,9 +1,8 @@
-// tools/knellshot.mjs — KNELLGRAVE in-game OVERHEAD fight-frame captures (the two
-// shots that decide "world-ender or wind chime": the overhead loom at station, and
-// the late-fight RUIN state). Boots the REAL game (the bossgate in-game path), spawns
-// the bell, waits for the fight + the pose to reach the raised station, screenshots
-// the true portrait chase-cam frame; then drives bossDamage to the late phase and
-// shoots again. → reforged-captures/knellgrave-ingame-<tag>.png
+// tools/knellshot.mjs — KNELLGRAVE in-game captures: the decisive frames (real chase
+// cam, not studio cards). (1) the ENTRANCE APEX (It Lifts Its Head — the bell looming,
+// the clapper's head lifted), (2) the OVERHEAD LOOM at station, (3) a toll mid-charge,
+// (4) THE LAST TOLL reveal (P4 — the bell directly overhead, the prisoner straining in
+// the gaping crack, seen from beneath). → reforged-captures/knellgrave-ingame-*.png
 import { register } from 'node:module';
 register('../tools/three-resolver.mjs', import.meta.url);
 import { boot } from '../tests/browser.mjs';
@@ -18,7 +17,8 @@ const { page, done } = await boot({
   viewport: VIEW, deviceScaleFactor: 1,
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
 });
-page.setDefaultTimeout(150000);
+page.setDefaultTimeout(200000);
+const shot = (tag) => page.screenshot().then((png) => { writeFileSync(`reforged-captures/knellgrave-ingame-${tag}.png`, png); console.log(`wrote knellgrave-ingame-${tag}.png`); });
 
 try {
   await page.click('#btn-start').catch(() => {});
@@ -26,34 +26,49 @@ try {
   await page.evaluate(() => { window.__dd.player.dist = 2500; });
   await page.waitForTimeout(200);
   await page.evaluate(() => window.__dd.spawnBoss());
-  await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 90000 });
-  // settle at the RAISED station (stationY 20) — wait for the climb, then a beat.
+
+  // (1) THE ENTRANCE APEX — the flythrough's loom beat (rel eases 20→13 at the apex;
+  // grab when it closes under ~16 with the bell overhead).
+  await page.waitForFunction(() => window.__dd.bossState().phase === 'flythrough', { timeout: 90000 }).catch(() => {});
+  const gotApex = await page.waitForFunction(() => {
+    const s = window.__dd.bossState();
+    return s.phase === 'flythrough' && s.poseRel < 16;
+  }, { timeout: 90000 }).then(() => true).catch(() => false);
+  if (gotApex) await shot('entrance-apex');
+
+  // (2) THE OVERHEAD LOOM at station.
+  await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 120000 });
   await page.waitForFunction(() => window.__dd.bossState().poseY > 17, { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1500);
-  writeFileSync('reforged-captures/knellgrave-ingame-loom.png', await page.screenshot());
-  console.log('wrote knellgrave-ingame-loom.png (the overhead station frame)');
+  await shot('loom');
 
-  // catch a mid-charge frame (the widened swing + rain) for the motion read.
+  // (3) a toll mid-charge (the widened swing + the rain).
   await page.waitForFunction(() => window.__dd.bossState().charging, { timeout: 60000 }).catch(() => {});
-  writeFileSync('reforged-captures/knellgrave-ingame-toll.png', await page.screenshot());
-  console.log('wrote knellgrave-ingame-toll.png (a toll mid-charge)');
+  await shot('toll');
 
-  // drive to the LATE fight (hp ≈ 0.3 → the ruin ladder visibly open): chip with the
-  // debug damage seam, bursting each phase-floor shield with the synchronous Surge
-  // climax seam (the same path the lifecycle test uses).
-  for (let i = 0; i < 80; i++) {
+  // (4) THE LAST TOLL — chip through the phases (bursting each floor shield with the
+  // synchronous Surge seam) until P4 arms its dread setpiece, then catch the bell
+  // riding DIRECTLY OVERHEAD (rel < 8) mid-reveal.
+  for (let i = 0; i < 160; i++) {
     const st = await page.evaluate(() => {
       const s = window.__dd.bossState();
       if (s.shielded) window.__dd.bossStrikeSurge();
-      else window.__dd.emit('bossDamage', { amount: 14, kind: 'debug' });
+      else window.__dd.emit('bossDamage', { amount: 16, kind: 'debug' });
       return window.__dd.bossState();
     });
-    if (st.hp / st.hpMax <= 0.3) break;
-    await page.waitForTimeout(120);
+    if (st.phaseIdx >= 3) break;
+    await page.waitForTimeout(100);
   }
-  await page.waitForTimeout(2500);   // settle the ruined idle (post-transition)
-  writeFileSync('reforged-captures/knellgrave-ingame-ruin.png', await page.screenshot());
-  console.log('wrote knellgrave-ingame-ruin.png (the late-fight opened bell)');
+  const gotReveal = await page.waitForFunction(() => {
+    const s = window.__dd.bossState();
+    return s.setpiece && s.poseRel < 8;
+  }, { timeout: 90000 }).then(() => true).catch(() => false);
+  if (gotReveal) {
+    await page.waitForTimeout(800);   // ride into the dread peak (sin(kπ) high)
+    await shot('reveal');
+  } else {
+    console.log('reveal window not reached (setpiece/poseRel) — check card/setpiece wiring');
+  }
 
   await done();
   process.exit(0);

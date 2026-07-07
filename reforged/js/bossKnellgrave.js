@@ -822,11 +822,15 @@ export function buildKnellgrave(def, quality = 1) {
     // setEntrance u + notice()). Here we just hold the swing + fade the slit up. ---
     if (entranceU != null) {
       const u = entranceU;
-      swingPivot.rotation.z = Math.sin(u * Math.PI * 3) * 0.14 * (0.4 + u * 0.6);   // sweeping in
-      const litFront = clamp01((u - 0.3) / 0.5);
+      // matched to the itLiftsItsHead script clock: the CROSS (u<0.36) swings hard,
+      // the APEX (0.36–0.66) is the head-lift in bullet-time, the wheel-down settles.
+      swingPivot.rotation.z = Math.sin(u * Math.PI * 2.2) * 0.16 * (1 - u * 0.45);
+      const litFront = clamp01((u - 0.12) / 0.38);   // the slit snaps on ACROSS the cross, HDR by the apex
       slitMat.color.copy(SLIT_BASE).multiplyScalar(Math.max(0.05, litFront) * SLIT_HOT);
-      headPivot.rotation.x = -clamp01((u - 0.75) / 0.25) * 1.0;   // the head lifts at the apex
-      headMat.emissiveIntensity = 0.16 + clamp01((u - 0.75) / 0.25) * 0.5;
+      const liftE = clamp01((u - 0.42) / 0.22);      // the clapper LIFTS ITS HEAD at the apex
+      headPivot.rotation.x = -liftE * 1.05;
+      headMat.emissiveIntensity = 0.14 + liftE * 0.55;
+      figureMat.emissiveIntensity = 0.07 + liftE * 0.2;   // the straps catch candlelight as it lifts
     }
 
     // --- DEATH: the crack spreads, the candle GUTTERS OUT, the head drops still, the

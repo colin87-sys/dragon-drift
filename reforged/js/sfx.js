@@ -401,12 +401,12 @@ export function musicKillState() { return { killed: musicKilled, target: musicTa
 // strike transient. Routed to the SFX bus so it SURVIVES the music-death — the toll
 // is the only clock precisely because the music is dead. `k` scales weight (the
 // accelerating final tolls hit harder); decay shortens as k rises (urgent, not muddy).
-export function bellToll(k = 1) {
+export function bellToll(k = 1, vol = 1) {
   const a = getCtx();
   if (!a || !sfxBus || sfxMuted) return;
   const t0 = a.currentTime;
   const out = a.createGain();
-  out.gain.value = 0.5 + k * 0.35;
+  out.gain.value = (0.5 + k * 0.35) * vol;   // vol < 1 = the distant foreshadow tolls
   out.connect(sfxBus);
   const F0 = 72;                                   // the strike tone — low, funeral register
   const partials = [[0.5, 0.5, 5.2], [1.0, 1.0, 3.8], [1.2, 0.55, 2.6], [1.5, 0.34, 2.0], [2.0, 0.25, 1.4], [2.66, 0.14, 0.9]];

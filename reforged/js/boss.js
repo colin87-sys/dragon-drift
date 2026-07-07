@@ -293,6 +293,17 @@ function removeSeed() {
   seed.dispose();
   seed = null; seedDef = null;
 }
+// §5j foreshadow state: thresholds (metres out → toll weight k, volume) + the encounter
+// they were armed for (a new nextBossDist re-arms all three).
+const FORESHADOW_TOLLS = [[2400, 0.5, 0.16], [1500, 0.6, 0.28], [750, 0.8, 0.42]];
+let foreshadowFor = -1;
+const foreshadowFired = [];
+
+// §5e/§5j the audio-foreshadow seam (slot 10 is its first consumer): metres until the
+// next scheduled encounter (Infinity when none). `nextBossDist` is module-private —
+// callers pass the live player dist.
+export function getBossEta(playerDist) { return nextBossDist - playerDist; }
+
 function updateHorizonSeed(player, dt = 0.016) {
   // The upcoming-def peek walks the save ledger — throttle it to ~2Hz (the
   // answer only changes at encounter seams; CP2 gate finding 9 nit).
@@ -303,6 +314,19 @@ function updateHorizonSeed(player, dt = 0.016) {
       ? peekNextDef() : null;
   }
   const nd = seedPeek;
+  // §5j AUDIO FORESHADOW (def-gated — slot 10's biome-early toll, `getBossEta`'s first
+  // consumer): the NEXT encounter's boss is HEARD before it is seen — three distant
+  // tolls on the approach (quiet → closer → heavier), re-armed per encounter. Rush
+  // re-entry degrades gracefully (short breathers simply cross fewer thresholds; the
+  // peek is null in rush so the gauntlet stays clean). The §5h fairness-twin law: the
+  // banner + sky grade at warn remain the visual channel; these are the whisper before.
+  if (nd && nd.musicDies && nextBossDist < Infinity) {
+    if (foreshadowFor !== nextBossDist) { foreshadowFor = nextBossDist; foreshadowFired.length = 0; }
+    const eta = nextBossDist - player.dist;
+    for (const [th, k, vol] of FORESHADOW_TOLLS) {
+      if (eta <= th && eta > 60 && !foreshadowFired.includes(th)) { foreshadowFired.push(th); bellToll(k, vol); break; }
+    }
+  }
   const want = nd && nd.horizonSeed ? nd : null;
   const seedZ = nextBossDist + 150;                    // where the boss will hold (start.rel 150)
   const dAhead = seedZ - player.dist;
@@ -319,6 +343,26 @@ function updateHorizonSeed(player, dt = 0.016) {
   seed.setHaze((SHOW - dAhead) / 400);                 // emerges from the horizon murk over ~400m
 }
 const SETPIECE_PATHS = {
+  // §5d slot 10 — THE LAST TOLL (P4 dread/survival; the §5j law-10 free re-entrance):
+  // the bell COMES FOR YOU. It swings down + forward out of the overhead loom until
+  // it hangs DIRECTLY OVERHEAD (rel ≈3 — the mouth above your head, the bound
+  // prisoner straining in the gaping crack, seen from BENEATH), rides there swinging
+  // through the nine accelerating tolls, then hauls back up to station as the seal
+  // spends itself. model.setSetpiece(sin(kπ), {dread}) drives the reveal rig.
+  lastToll(k) {
+    const B = CONFIG.BOSS;
+    const HIGH_Y = 20, LOW_Y = 15.5, NEAR = 3;
+    if (k < 0.22) {
+      const t = easeInOut(k / 0.22);
+      return { x: 0, y: HIGH_Y - (HIGH_Y - LOW_Y) * t, rel: B.settleGap + (NEAR - B.settleGap) * t };
+    }
+    if (k < 0.82) {   // the held overhead reveal: a slow pendulum ride, never static
+      const t = (k - 0.22) / 0.6;
+      return { x: Math.sin(t * Math.PI * 3) * 2.2, y: LOW_Y + Math.sin(t * Math.PI * 5) * 0.5, rel: NEAR + Math.sin(t * Math.PI * 2) * 1.5 };
+    }
+    const t = easeInOut((k - 0.82) / 0.18);
+    return { x: 0, y: LOW_Y + (HIGH_Y - LOW_Y) * t, rel: NEAR + (B.settleGap - NEAR) * t };
+  },
   // The crossing pass: sweep out wide, rise, close in, and drift straight
   // across the lane OVER the player (hands spread via model.setSetpiece) —
   // the fly-under scale-contrast frame — then ease back to station.
@@ -1639,8 +1683,12 @@ export function updateBoss(dt, player, time) {
       cardTimer = Math.max(0, cardTimer - dt);
       ui.bossCardTimer?.(cardTimer, activeCard.timer ?? 24);
       if (cardTimer <= 0) {
-        if (activeCard.survival && shielded) breakShield(player);
-        else { cardExpired = true; ui.bossCardExpire?.(); }
+        if (activeCard.survival) {
+          // §5f: OUTLASTING a survival card is the success — the seal spends itself,
+          // the card resolves (capture if hitless), and the fight resumes chippable.
+          // (The phase's own floor shield still gates the end as normal.)
+          endCard();
+        } else { cardExpired = true; ui.bossCardExpire?.(); }
       }
     }
 
@@ -2620,6 +2668,12 @@ function ventSprayBeat() {
 
 function damageBoss(amount, kind, e = null) {
   if (phase !== 'fight') return;
+  // §5f SURVIVAL-CARD SEAL (slot 10 debut — The Last Toll): while a `survival` card
+  // runs, the boss is SEALED — all damage deflects and the UNFILLABLE BAR is the tell
+  // (§5f's exact grammar). No bubble: the tolls keep firing (a pure-dodge exam) and
+  // the dread setpiece runs. Outlasting the timer resolves the card (see the card
+  // timeout); lances already deflect via lockDeflected.
+  if (activeCard && activeCard.survival) { model?.flash?.(0.12); sfx.shieldPing?.(); return; }
   if (shielded) {
     // Chip/reflect PINGS off the armour — a clang + spark telegraph "a different
     // thing is needed now" (charge Surge), not "keep hitting it".

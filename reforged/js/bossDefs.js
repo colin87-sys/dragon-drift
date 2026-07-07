@@ -882,6 +882,15 @@ export const BOSSES = {
     // the graze anatomy; ride the shrinking safe disc through escalating ticks, bail
     // on the last beat (offered once per phase). Def-gated (slot-6 continuous detector).
     grazeForm: 'shrinkDisc',
+    // §5e THE LAST TOLL setpiece (P4, dread+survival — the mid-fight clapper reveal,
+    // the audit's named "awe fix"): the bell swings down + forward until it hangs
+    // DIRECTLY OVERHEAD (rel≈3, the mouth above your head, the prisoner straining in
+    // the gaping crack seen from beneath), rides there through the accelerating tolls,
+    // then hauls back. moving: the survival tolls keep firing (a pure-dodge exam —
+    // the card's seal deflects all damage; the unfillable bar is the tell).
+    setpieces: [
+      { id: 'lastToll', atPhase: 3, dur: 26, moving: true, dread: true },
+    ],
     // §7b PRESENCE override (sanctioned): KNELLGRAVE "owns the space ABOVE" (§5b/§5c
     // WORLD-ENDERS) — a colossal overhead hanging bell. A bell's mass IS its wide
     // flared MOUTH, so the silhouette is legitimately bottom-heavy; and in-game the
