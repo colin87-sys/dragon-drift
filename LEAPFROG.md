@@ -7784,8 +7784,104 @@ as dead-straight lines ("janky"); (2) "the white eye thing should follow us." Fi
 **Verified:** boss.mjs (pierce −67→−0.00 world, 28 surface tails, coexist-untouched, loom-eye
 tracks) · bossboot zero-error · bossrush · bossgate G1–G7 PASS with the clip LIVE in the fight
 captures. The owner judges the contact bob/tails + tracking feel on the PR preview.
+### L206 — LANCE feats (5 achievement unlocks): the feats engine is a one-file, data-driven add — and headless DOM-toast checks lie
 
-### L206 — WEFTWITCH CP2 (the fight engine): a DOM rule-break is layered by TIMING not z-index, a beam at the camera is a blob, and headless captures eat flashes
+**Did.** Added 5 boss-only LANCE achievements — Brandbearer (first paint), Full Draw (meter at
+cap), On the Beat (perfect beat-release), Wyrmstorm (5-brand volley), Lock-Snap (perfect-parry
+snap) — entirely in `js/feats.js`: 5 `FEAT_DEFS` entries (`cat:'skill'`, rewards 25–80) + 3 live
+listeners in `initFeats()` keyed off the existing lock events (`lockPaint {snap?}`, `lockCap`,
+`lockVolley {perfect?,count}`). No UI touched: the Pilot screen's SKILL column and the unlock
+toast are both data-driven off `FEAT_DEFS`, so a new def surfaces automatically. Bumped the
+`tests/defs.mjs` count gate 30→35 and added state-based coverage in `tests/feats.mjs`.
+
+**The engine already had every hook — reuse, don't rebuild.** A "live" feat is just
+`on(event, () => unlockFeat(id,{live:true}))`; `unlockFeat` is idempotent (the save's `unlocked[]`
+is the guard), so "first X" needs no counter, and the ember reward is deferred to CLAIM in the
+Pilot screen (unlock ≠ pay). Three listeners cover five feats because the payloads discriminate:
+one `lockPaint` handler does brand-always + snap-when-`e.snap`; one `lockVolley` handler does
+beat-when-`e.perfect` + storm-when-`e.count>=5`. **The one guard that matters:** the boss Surge
+FORK path emits `lockVolley` WITHOUT `perfect` (only the player's manual `tap` release carries it),
+so the beat feat must guard `e && e.perfect` or a fork volley would false-trigger it — covered by
+a test that fires `{source:'fork'}` with no perfect and asserts the beat feat stays locked.
+
+**Two testing lessons.** (1) **A headless software-GL run drifts — batch your event emits.** The
+feats suite is a real browser boot mid-run; my first draft fired 8 sequential `page.evaluate`
+emits, and the added round-trip latency let the auto-flying player crash before the downstream
+SETTLE-feat setup ran → `waitForFunction(runSummary)` hung to a 30s timeout. Collapsing all the
+emits into ONE synchronous `page.evaluate` (the event bus is sync — emit all five, read every
+`unlocked` flag in the same round-trip) removed the drift and the timeout vanished. When a test
+shares a live clock with the thing under test, minimize wall-clock round-trips. (2) **Don't assert
+on a headless DOM toast.** The pre-existing `feat toast fired` check (`$eval('#feat-toast', …)`)
+fails in this sandbox's software renderer (it presumably passes in real CI) — so I asserted every
+LANCE unlock on `save.feats.unlocked` STATE, never on the toast DOM. State is the honest signal;
+the toast is presentation and flakes under headless GL.
+
+**→ Leapfrog.** Adding a live feat is now a known ~2-line recipe (a def + a listener line, or a
+clause on an existing listener); the only footguns are the reward band `[20,150]`, the `cat`
+whitelist, the count gate in defs.mjs, and event-payload guards for multi-source emitters. Next
+deferred item (owner: two PRs, this was the first): the `lockdps` LANCE balance table — an
+analytic per-boss damage-economy tool + band-gate test on the exported `lanceDmgEach` kernel and
+the `bossHit {kind}` attribution tag (dev-only, no player-facing change).
+
+### L207 — lockdps balance table: an ANALYTIC model beats an instrumented fight when the fight can't exercise the channel
+
+**Did.** Shipped `tools/lockdps.mjs` (+ a pure `tools/lockdpsCore.mjs` + a band-gate
+`tests/lockdps.mjs`) — a dev-only LANCE damage-economy table. For every boss it prints, per
+phase, the ROI-clamped full-cap volley damage, that volley as a %-of-phase, and pure-lance
+volleys-to-clear, plus a per-boss lance-only TTK estimate; `--ci` exits 1 on a broken balance
+invariant. No game code changed — boss kill-times + tricount trivially unchanged; the SW manifest
+is unaffected (tools/ + tests/ aren't precached, so no stamp-sw needed).
+
+**Why ANALYTIC, not an instrumented fight.** The obvious approach — reuse `driveKill`
+(tests/boss.mjs) and accumulate the `bossHit {kind}` attribution tag per channel — has a hole:
+`driveKill`'s "player" only ever fires SURGE at shields; it never PAINTS lances, so a natural loop
+reports lance-damage = 0. Getting real lance numbers would need a headless lance-persona (drive the
+lock API, bank pips, loose) — real integration surface for a balance table. But the LANCE economy
+is FULLY DETERMINED by config × the boss HP/phase model: cap pips = `capByTier[tier]`, phase span =
+`(atFrac − nextAtFrac) × hpMax`, and the SHIPPED `lanceDmgEach(pips, phaseHp, mult)` kernel (reused,
+not re-derived — single source of truth). So the model is exact with zero fight loop. **When the
+only headless driver can't exercise the channel you're measuring, an analytic model on the shipped
+kernel is more honest than a fight that silently reports zero.** (As-played per-channel attribution
+via `bossHit{kind}` is still the right tool once a lance-persona exists — noted as a future add.)
+
+**The table earned its keep immediately — it makes a design LAW legible.** It shows the lance is a
+CHIP channel BY LAW: the 10% `volleyRoiFrac` clamp means a full-cap volley is ≤10% of the current
+phase HP, so tier-3 volleys ROI-clamp at ~10% (~10 volleys/phase) and tier-2 sit at ~6% raw
+(lanceDmg-bound); tier-1 Sentinels are lance-disabled (`capByTier[1]=0`). A pure-lance clear is
+~40–57 volleys — the lance supports, never solos. The band-gate test freezes that: the ROI law
+(base AND beat volley ≤ ceiling — the beat mult lives INSIDE the clamp), the cap-ladder wiring, and
+a sane per-boss clear-volley band, so a `lanceDmg`/`volleyRoiFrac`/`capByTier`/phase edit that
+shifts LANCE balance fails loudly here and in `--ci`.
+
+**The correction that made it HONEST: `capByTier[tier]` is a ceiling, not the reachable cap.** The
+first cut keyed lance-capability purely off the tier, and the owner immediately caught it — "isn't
+KARNVOW the boss you can't paint?" It is: a boss with a `virtualLockOrgan` but NO `def.lockParts` is
+V1-AIM-ONLY (`paintableParts()` returns null there → no painting at all), so KARNVOW *and* ASHTALON
+have zero paint targets and the lance verb is INERT on them — yet the tier table happily reported
+cap 3/5. And a boss with too few organs can't reach its tier cap: THRUMSWARM's ONE queen organ ×
+`stackMax` 2 = a reachable cap of 2, not the tier-3 five (so its volley is 4 dmg and a pure-lance
+clear runs ~97 volleys, the roster's weak-lance outlier). The fix — `reachableCap(def) =
+min(capByTier[tier], nPaintTargets × stackMax)`, and lance-capable *iff* it has real `lockParts` —
+turned a plausible-but-wrong table into the true one. **A tier/config ladder tells you the CEILING;
+the reachable value needs the entity's own structure (here: how many organs it actually offers).
+Model the mechanism, not the tuning constant.** (The table is data-driven, so when KARNVOW's CP2
+trophy-charm `lockParts` land it will light up as paintable automatically.) A follow-up Codex P2
+deepened the same lesson: the reachable cap is PER PHASE, not per boss — `paintableParts()` filters
+lockParts by `lp.phases.includes(phaseIdx)`, so BRINEHOLM's `phases:[0,1,2]` shackles drop out of
+its 4th phase, leaving the eye alone (2 pips, not 5). A single boss-level cap over-reported exactly
+the phase-gated case the CI band is meant to catch; the model now computes each phase's cap from its
+own phase-filtered target set. **When you mirror a live function in an analytic model, mirror ALL of
+its filters — a per-phase gate in the source is a per-phase term in the model.**
+
+**Pattern notes.** (1) **Pure-core + injected deps** — `lockdpsCore.mjs` imports NOTHING; the CLI
+and the test each do their own headless boot and pass in `CONFIG`/`BOSSES`/`lanceDmgEach`. One
+math module, two drivers, no shim duplicated into the logic. (2) The pure-node tool boot is the
+`tricount.mjs` template (three-resolver + minimal DOM/localStorage shim + dynamic imports + `--ci`
+exit); `globalThis.navigator`/`location` are getter-only in node 22 — GUARD the assignment
+(`if (!globalThis.navigator)`), a raw assign throws. run-all.mjs auto-discovers `tests/*.mjs`, so
+the band gate joins CI for free.
+
+### L208 — WEFTWITCH CP2 (the fight engine): a DOM rule-break is layered by TIMING not z-index, a beam at the camera is a blob, and headless captures eat flashes
 
 **Did.** Wired slot 11's whole fight: the LANCE anchor, the thread-cut parry + laserLance,
 the mote-harvest bloom, THE MENDED BANNER entrance (HUD-sew + banner-pin), and the
