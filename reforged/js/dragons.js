@@ -131,8 +131,8 @@ export const DRAGONS = {
       hornType: 'bladeRearHorns', rearGlowIntensity: 0,
       neckBlend: 1.85,                  // overlapping forge neck — fuses the segment beads into a smooth throat (gate cp2 r2 dir 4: the bead chain shingled under the chin)
       // ember MOLTEN BLADE FIN dials (the wing redo — solid scimitar, per-form finSpan below)
-      finSweep: 0.52, finDihedral: 0.3, finChord: 0.46, finCamber: 0.24, finDetail: 1.0,
-      finHook: 1.18, finGlow: 0.16, finEdgeGlow: 2.6, finMid: 0xc0461a,
+      finSweep: 0.5, finDihedral: 0.28, finChord: 0.72, finCamber: 0.26, finDetail: 1.0,
+      finHook: 1.15, finHookStart: 0.6, finGlow: 0.16, finEdgeGlow: 2.6, finMid: 0xc0461a,
       finSparColor: 0x8a4a24, finEdgeColor: 0xffd28a,
       sparColor: 0xc0763c,
       flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat

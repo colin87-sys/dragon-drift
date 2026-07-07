@@ -1444,7 +1444,6 @@ function buildMoltenBladeWings(def, model, attach, giM) {
   const chordRoot = (model.finChord ?? 0.46) * reach;   // root chord
   const camber = model.finCamber ?? 0.24;              // cambered billow (+Y)
   const detail = model.finDetail ?? 1;
-  const hook = model.finHook ?? 1.18;                  // >1 = the tip sabres back (scimitar)
 
   // molten diffuse tiers (vertex-painted onto the ONE blade — law 11 relief, zero seams)
   const cRoot = new THREE.Color(def.wingInner ?? 0x6a1e08);
@@ -1468,10 +1467,19 @@ function buildMoltenBladeWings(def, model, attach, giM) {
   const veinRoot = new THREE.Color(0xff9a3a), veinTip = new THREE.Color(0xffe6b0);
   spineMats.push(finMat, edgeMat);
 
-  // planform — the whole chord sweeps aft accelerating (scimitar), chord tapers to a point.
-  const zMid = (t) => sweep * reach * Math.pow(t, hook);
-  const chordAt = (t) => chordRoot * Math.pow(1 - t, 0.6) * (0.86 + 0.14 * Math.sin(t * Math.PI));
-  const yAt = (t) => t * reach * Math.tan(theta);       // dihedral rise
+  // FLAME-CURL SCYTHE planform — ember IS living fire, so the wing outline is a licking flame:
+  // a taut leading arc that RECURVES at the tip (curls back + up like a flame lick / scythe hook)
+  // over a deep concave (cupped) trailing sweep. The drama is 100% in the master curve — no
+  // serration (that's azure's). hookAt ramps a smooth tip-curl over the outer third.
+  const hookStart = model.finHookStart ?? 0.64;
+  const hookAmt = model.finHook ?? 1.0;                 // curl strength
+  const hookAt = (t) => { const h = Math.max(0, (t - hookStart) / (1 - hookStart)); return h * h * hookAmt; };
+  const xAt = (t) => reach * (t - 0.22 * hookAt(t));    // recurve: the tip curls back a touch (span stays broad)
+  const zMid = (t) => sweep * reach * Math.pow(t, 1.06) + reach * 0.72 * hookAt(t);   // aft sweep + a STRONG aft tip hook
+  const yAt = (t) => t * reach * Math.tan(theta) + reach * 0.5 * hookAt(t);           // dihedral rise + the tip curls UP hard
+  // BROAD flame-tongue chord — holds width outboard, then draws to the curling point (a fat
+  // flame body, not a thin blade). A bulge mid-span gives the licking-flame belly.
+  const chordAt = (t) => chordRoot * (Math.pow(1 - t, 0.4) * (0.55 + 0.45 * Math.sin(Math.min(1, t * 1.15) * Math.PI)) + 0.12 * (1 - t));
 
   // build the fin SURFACE for span fraction [ta,tb], verts in fin-absolute coords minus `off`
   function finGeo(ta, tb, off) {
@@ -1481,7 +1489,7 @@ function buildMoltenBladeWings(def, model, attach, giM) {
     const c = new THREE.Color();
     for (let i = 0; i <= nX; i++) {
       const t = ta + (tb - ta) * (i / nX);
-      const x = t * reach, zc = zMid(t), w = chordAt(t), y0 = yAt(t);
+      const x = xAt(t), zc = zMid(t), w = chordAt(t), y0 = yAt(t);
       for (let j = 0; j <= nZ; j++) {
         const cf = j / nZ;                                // 0 leading(−z) → 1 trailing(+z)
         const z = zc + (cf - 0.5) * w;
@@ -1511,7 +1519,7 @@ function buildMoltenBladeWings(def, model, attach, giM) {
     const verts = [], idx = [];
     for (let i = 0; i <= nX; i++) {
       const t = ta + (tb - ta) * (i / nX);
-      const x = t * reach, zc = zMid(t), w = chordAt(t), y0 = yAt(t) + camber * 0.5;
+      const x = xAt(t), zc = zMid(t), w = chordAt(t), y0 = yAt(t) + camber * 0.5;
       const zEdge = zc + 0.5 * w, zIn = zEdge - rw;
       verts.push(x - off.x, y0 - off.y, zIn - off.z, x - off.x, y0 - off.y, zEdge - off.z);
     }
@@ -1524,7 +1532,7 @@ function buildMoltenBladeWings(def, model, attach, giM) {
 
   const wristFrac = 0.32;
   const wristT = wristFrac;
-  const wristX = wristT * reach, wristY = yAt(wristT), wristZ = zMid(wristT);
+  const wristX = xAt(wristT), wristY = yAt(wristT), wristZ = zMid(wristT);
   const O0 = { x: 0, y: 0, z: 0 }, OW = { x: wristX, y: wristY, z: wristZ };
 
   function buildSide(side) {
@@ -1536,7 +1544,7 @@ function buildMoltenBladeWings(def, model, attach, giM) {
 
     // leading SPAR — a matte iron tube along the sharp leading edge, thick root → thin tip.
     const lead = [];
-    for (let k = 0; k <= 10; k++) { const t = k / 10; lead.push({ x: t * reach, y: yAt(t) + camber * 0.15, z: zMid(t) - 0.5 * chordAt(t) }); }
+    for (let k = 0; k <= 10; k++) { const t = k / 10; lead.push({ x: xAt(t), y: yAt(t) + camber * 0.15, z: zMid(t) - 0.5 * chordAt(t) }); }
     for (let s = 0; s < lead.length - 1; s++) {
       const a = lead[s], b = lead[s + 1];
       const inner = b.x < wristX; const par = inner ? pivot : wingTip;
@@ -1554,15 +1562,15 @@ function buildMoltenBladeWings(def, model, attach, giM) {
     // 2 glowing lava-crack veins raked along the blade (surface life, not clutter).
     for (const vt of [0.34, 0.62]) {
       const t0 = vt, t1 = Math.min(0.97, vt + 0.34);
-      const a = new THREE.Vector3(t0 * reach, yAt(t0) + camber * 0.6, zMid(t0));
-      const b = new THREE.Vector3(t1 * reach, yAt(t1) + camber * 0.4, zMid(t1) + chordAt(t1) * 0.18);
+      const a = new THREE.Vector3(xAt(t0), yAt(t0) + camber * 0.6, zMid(t0));
+      const b = new THREE.Vector3(xAt(t1), yAt(t1) + camber * 0.4, zMid(t1) + chordAt(t1) * 0.18);
       const inner = t0 * reach < wristX; const par = inner ? pivot : wingTip;
       const off = inner ? O0 : OW;
       par.add(rayTubeMolten(a, b, off, side, veinRoot, veinTip, ws));
     }
 
     const tipObj = new THREE.Object3D();
-    tipObj.position.set((reach - wristX) * side, yAt(1) - wristY, zMid(1) - wristZ);
+    tipObj.position.set((xAt(1) - wristX) * side, yAt(1) - wristY, zMid(1) - wristZ);
     wingTip.add(tipObj);
     const marker = new THREE.Object3D();
     marker.position.copy(tipObj.position); wingTip.add(marker);
@@ -1591,7 +1599,7 @@ function buildMoltenBladeWings(def, model, attach, giM) {
 
   const wingElements = [{
     root: new THREE.Vector3(0, 0, zMid(0)),
-    tip: new THREE.Vector3(reach, yAt(1), zMid(1)),
+    tip: new THREE.Vector3(xAt(1), yAt(1), zMid(1)),
     length: reach, tipObj: R.tipObj,
   }];
 
