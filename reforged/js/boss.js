@@ -2876,7 +2876,11 @@ function lockCandidates() {
 function lockDeflected() {
   if (shielded) return true;
   if (def.condenseInvuln && model.condenseLive && model.condenseLive() < 0.45) return true;   // swarm scattered
-  if (def.eyeWeakPoint && model.eyeIsUp && !model.eyeIsUp()) return true;                     // lid down
+  // NB the eye-weak-point lid-down is NO LONGER a whole-layer seal (owner playtest:
+  // "while the eye's down I can't tag ANYTHING, not even the shackles, for ages").
+  // The submerged eye now seals only ITSELF (paintableParts drops def.eyeOrgan while
+  // down) so the shackles stay brandable through the down windows; chip DAMAGE is
+  // still gated by eyeIsUp (see damageBoss). Shield + survival card remain full seals.
   if (activeCard && activeCard.survival) return true;                                        // survival card
   return false;
 }
@@ -2997,8 +3001,13 @@ function lockPartDead(part) {
 
 function paintableParts() {
   if (!def || !def.lockParts) return null;
+  // EYE-WEAK-POINT decouple (A): the eye organ leaves the paintable set ONLY while
+  // it's submerged — so the shackles stay brandable through the down windows and the
+  // eye itself waits for its surface. It rejoins the instant it surfaces.
+  const eyeSealed = def.eyeWeakPoint && def.eyeOrgan && model.eyeIsUp && !model.eyeIsUp();
   const out = [];
   for (const lp of def.lockParts) {
+    if (eyeSealed && lp.part === def.eyeOrgan) continue;
     if ((!lp.phases || lp.phases.includes(phaseIdx)) && !lockPartDead(lp.part)) out.push(lp.part);
   }
   if (def.virtualLockOrgan && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);

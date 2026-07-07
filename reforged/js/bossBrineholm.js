@@ -553,11 +553,15 @@ export function buildBrineholm(def, quality = 1) {
       const litFront = u * 1.3;
       gulletMat.emissiveIntensity = 1.25 * clamp01(litFront);
       gulletVMat.emissiveIntensity = 0.95 * clamp01(litFront - 0.2);
-      eyeGlow = 0.12 + clamp01((u - 0.9) / 0.1) * 0.2;
+      // Eye OPENS on the HESITATION/slow-mo crest (u 0.58→0.78) as the brow clears
+      // the fog — not at settle (owner playtest: "the slow-mo is when his eye should
+      // open"). The lid grinds open + iris locks while time is still dilated (the
+      // slowWindow runs u 0.4–0.76), so the reveal IS the moment.
+      eyeGlow = 0.12 + clamp01((u - 0.58) / 0.18) * 0.2;
       eyeMat.color.copy(EYE_BASE).multiplyScalar(eyeGlow * EYE_HOT);
       eyeCoreMat.color.setScalar(CORE_HOT * eyeGlow * 0.4);
-      eyeLidPivot.rotation.x = clamp01((u - 0.9) / 0.1) * 0.4;
-      if (u > 0.94 && !irisLock) { irisLock = true; irisAngle = iris.rotation.z; }
+      eyeLidPivot.rotation.x = clamp01((u - 0.58) / 0.2) * 0.4;
+      if (u > 0.78 && !irisLock) { irisLock = true; irisAngle = iris.rotation.z; }
     }
 
     // --- DREAD: SOUNDING — the head SUBMERGES back into the fog + pitches down. ---

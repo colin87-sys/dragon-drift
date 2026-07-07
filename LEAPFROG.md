@@ -8095,3 +8095,27 @@ fight-feel fixes; PR 2 = the entrance redesign.
 **Verified:** boss 74 (new: strain tell shows, wide restitch caves 214 coords + byte-exact, pupil
 in socket) · defs · entrance · lock · bossboot · bossrush (11-boss) · tricount 0-over · bossgate
 G1-G7 PASS · restitch/bloom/eye captures reviewed. PR 2 (entrance) follows. Owner judges feel on the preview.
+
+### L216 — BRINEHOLM entrance polish (owner playtest): a stale fightRunning flag drew the reticle over the cinematic, and the eye-open was pinned AFTER the slow-mo instead of ON it
+
+**Owner report (BRINEHOLM entrance, "BELOW — THE REEF WAS BREATHING"):** "the reticle's already on him during the slow-mo, it ruins the moment — you can't even fight yet" + "the slow-mo is when his eye should open" (it opened a few seconds later).
+
+**1. The reticle-over-cinematic bug = a STALE `S.fightRunning`.** The lock layer is correctly gated to `phase === 'fight'`, and the entrance runs in `phase === 'flythrough'`, so `updateLockLayer` never runs during the cinematic. BUT `clearLocks('transition')` (called on leaving a fight) reset everything EXCEPT `S.fightRunning`/`S.hasOrgan` — so the flag survived from the PREVIOUS fight, and since `updateLockLayer` (the only thing that refreshes it) can't run during `flythrough`, `lockHudState().active` stayed stale-true and `reticle.js` drew the boss reticle over the entrance. Fix: one line — `clearLocks` now also drops `fightRunning`/`hasOrgan`. **Lesson: a flag reset ONLY inside the per-frame updater is a landmine for any phase that skips the updater — reset it on teardown too, or a previous run's state bleeds into the next.**
+
+**2. The eye-open was choreographed to `u>0.9` — AFTER the `slowWindow` (u 0.4–0.76).** So the lid ground open at settle, in real time, well past the dramatic hesitation. Moved the glow/lid/iris-lock onto the hesitation crest (u 0.58→0.78) so the eye reveals WHILE time is still dilated — the reveal IS the moment. Entrance-scoped (the fight weak-point `setEyeUp` drive is separate, only free-runs when `entranceU == null`), so no gameplay change. **Lesson: land the payoff frame INSIDE the slow-mo window, not after it — a dramatic beat timed to real-time-after-the-hitstop reads as a delayed afterthought.**
+
+**Verify.** lock.mjs green incl. new T2.21 (clearLocks drops fightRunning → no stale reticle); boss/entrance/defs/bossboot/smoke/tricount green. Owner eye-judges the entrance on the preview.
+
+### L217 — BRINEHOLM eye-down DECOUPLE (owner playtest): a weak-point that seals the WHOLE lock layer is the "can't tag for a while" — seal only the eye, keep the neighbours brandable
+
+**Owner call (from L216's deferred pair):** "the issue isn't losing my pips, it's when I lose my pips I feel like I can't tag for a while." Picked **(a) decouple** the eye-down from the shackles; **leave** the tier-3 full-strip. The felt problem was never the strip — it was the DEAD-AIR after it, because the same eye-down window that gates chip-damage was ALSO a whole-layer paint seal, so a submerged eye killed ALL branding (eye + 3 shackles) for its full down cycle.
+
+**The bug was that ONE flag did two jobs.** `eyeWeakPoint` fed `lockDeflected()` (the global "is the whole lock layer sealed?" gate — shield / condense-scatter / survival-card), so `!model.eyeIsUp()` sealed EVERYTHING, not just the eye. Chip DAMAGE being eye-gated is correct and stays (`damageBoss` still checks `eyeIsUp`); PAINTING everything was the overreach.
+
+**Fix = move the seal from the layer to the organ.** (1) Removed the `eyeWeakPoint` case from `lockDeflected()` — the submerged eye is no longer a whole-layer seal. (2) `paintableParts()` now drops ONLY `def.eyeOrgan` while the eye is down (`eyeSealed && lp.part === def.eyeOrgan → continue`), so the shackles stay brandable through every down window and the eye itself rejoins the paintable set the instant it surfaces. (3) New `def.eyeOrgan: 'eyeRig'` names WHICH paintable organ the weak-point seals (BRINEHOLM-only; it's the sole `eyeWeakPoint` boss). Shield + survival-card remain full seals — those SHOULD stop everything.
+
+**Why a defs lint, not a live-timing test:** the eye EASES (`eyeUp += (target-eyeUp)*min(1,dt*2.4)`) and has no clean force-down debug seam, so a synchronous headless assert on the down-case is fragile. Instead a `defs.mjs` invariant guards the structural half that can silently rot: every `eyeWeakPoint` boss must name an `eyeOrgan`, and it must be a real `lockPart` — else `paintableParts()` can never drop it and the shackles would go dark with the eye again (the exact regression). The live down-case feel is owner-judged on the preview.
+
+**Lesson: a "weak-point window" and a "lock-layer seal" are different scopes that a single boolean loves to conflate — gate the DAMAGE at the layer if you must, but seal only the ONE organ for painting, and name that organ in data so a lint can prove the coupling stays honest.**
+
+**Verify.** defs.mjs green incl. the new eyeOrgan invariant; lock/boss/wisps/entrance/bossboot/smoke/gold-det/tricount all green (paint scope is render/gate logic — kill-times byte-stable, tricount unchanged). Owner feel-judges "can I keep tagging the shackles while his eye's down?" on the preview.

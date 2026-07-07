@@ -663,6 +663,9 @@ export const BOSSES = {
     eyeWeakPoint: true,       // §5f law 5 (the turn-taking tell): CHIP DAMAGE ONLY LANDS WHILE THE EYE IS UP —
                               // the surfacing/submerging is the weak-point window (controller gates it CP2;
                               // the model owns eyeIsUp()/setEyeUp() and the unmistakable lid/glow animation)
+    eyeOrgan: 'eyeRig',       // the paintable lockPart the eye-weak-point seals: while the eye is DOWN it
+                              // leaves the paintable set (the shackles stay brandable), rejoining when it surfaces
+                              // (owner playtest — "while the eye's down I can't tag the shackles either")
     // §5f DESTRUCTIBLE SUB-PARTS (the CAVE-law mercy mechanic): the 3 shackle
     // posts are individually breakable — parry a post's amber strain-volley 3×
     // (SHACKLE BREAK, the registry parry job) or land shots on it, and it SNAPS:
