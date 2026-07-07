@@ -201,12 +201,11 @@ export function buildKarnvow(def, quality = 1) {
     }
     return mergeBody(parts, `skirtSlice${si}`);
   };
-  // The skirt wears its own cloth material with a faint cold SHEEN (ei 0.3 — dim,
-  // far under the focal, but over the palette gate's v>0.22 accent floor): a large
-  // FRONT-FACING cold surface that anchors the G3 attribution from every capture
-  // pose (the thin seam-lines tilt to glancing angles mid-dart and flake the ratio).
+  // The skirt wears its own cloth material with a WHISPER of cold (ei 0.12 — dark
+  // cloth first; ei 0.3 read as a glowing blue apron in the fight frame). The G3
+  // anchor is the gate.freeze mask alignment, not material brightness.
   const clothMat = track(new THREE.MeshStandardMaterial({
-    color: 0x14161a, emissive: accent, emissiveIntensity: 0.3, roughness: 0.85, metalness: 0.1, flatShading: true,
+    color: 0x14161a, emissive: accent, emissiveIntensity: 0.12, roughness: 0.85, metalness: 0.1, flatShading: true,
   }));
   const skirtSegs = [];
   {
@@ -251,12 +250,11 @@ export function buildKarnvow(def, quality = 1) {
   // drapes straight in death.
   const CLOAK_SEGS = lowQ ? 4 : 6;
   const CLOAK_SEG_LEN = 0.78;
-  // ei 0.3: a faint cold SHEEN on the weave — dim (far under the focal) but just
-  // over the palette gate's v>0.22 accent-tier floor, so the cloak's large surface
-  // anchors the G3 cold share from EVERY capture pose (the seam-lines tilt to
-  // glancing angles mid-dart and flake the ratio; the cloak never does).
+  // ei 0.12: a WHISPER of cold on the weave — dark cloth first (the r3 render at
+  // ei 0.3 read as a glowing blue drape, fighting the near-black identity). The
+  // G3 anchor is the gate.freeze mask alignment now, not material brightness.
   const cloakMat = track(new THREE.MeshStandardMaterial({
-    color: 0x14161a, emissive: accent, emissiveIntensity: 0.3, roughness: 0.88, metalness: 0.08,
+    color: 0x14161a, emissive: accent, emissiveIntensity: 0.12, roughness: 0.88, metalness: 0.08,
     side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 1.0,
   }));
   const cloakPivots = [];
