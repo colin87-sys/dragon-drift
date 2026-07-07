@@ -42,6 +42,36 @@ await page.evaluate(() => {
 check('Unbroken at chain 15', await page.evaluate(() =>
   window.__dd.save.feats.unlocked.includes('chain_15')));
 
+// --- LANCE feats: the wyrmfire brand verb, live off the lock events. All emits
+// batch into ONE evaluate (synchronous on the bus) so the slow headless run
+// doesn't drift toward its own death before the settle setup below. The guard
+// state is read mid-batch: a boss FORK-path volley carries no `perfect` and
+// (here) count<5, so it must unlock NEITHER the beat feat nor the storm feat.
+const lance = await page.evaluate(() => {
+  const dd = window.__dd, U = () => dd.save.feats.unlocked;
+  dd.emit('lockVolley', { count: 3, source: 'fork' });            // guard
+  const guardBeat = U().includes('lance_beat'), guardStorm = U().includes('lance_storm');
+  dd.emit('lockPaint',  { part: 'eye', count: 1 });               // first brand
+  dd.emit('lockPaint',  { part: 'eye', count: 2, snap: true });   // perfect-parry snap
+  dd.emit('lockCap',    { count: 6 });                            // meter at cap
+  dd.emit('lockVolley', { count: 2, source: 'tap', perfect: true }); // beat release
+  dd.emit('lockVolley', { count: 5, source: 'cap' });             // 5-brand volley
+  return { guardBeat, guardStorm,
+    brand: U().includes('lance_brand'), snap: U().includes('lance_snap'),
+    cap: U().includes('lance_cap'), beat: U().includes('lance_beat'),
+    storm: U().includes('lance_storm') };
+});
+check('fork volley (no perfect, count<5) unlocks no LANCE volley feat', !lance.guardBeat && !lance.guardStorm);
+check('Brandbearer unlocks on first lance paint', lance.brand);
+check('Lock-Snap unlocks on a snap paint', lance.snap);
+check('Full Draw unlocks on lockCap', lance.cap);
+check('On the Beat unlocks on a perfect release', lance.beat);
+check('Wyrmstorm unlocks on a 5-brand volley', lance.storm);
+// LANCE feats pay their reward once on claim, like every other feat.
+const lancePaid1 = await page.evaluate(() => window.__dd.claimFeat('lance_snap'));
+const lancePaid2 = await page.evaluate(() => window.__dd.claimFeat('lance_snap'));
+check('claim pays Lock-Snap once (+80), never twice', lancePaid1 === 80 && lancePaid2 === 0);
+
 // Settle feat: runs_10 via stats.
 await page.evaluate(() => {
   const dd = window.__dd;

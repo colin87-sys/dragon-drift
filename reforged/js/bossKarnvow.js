@@ -856,9 +856,10 @@ export function buildKarnvow(def, quality = 1) {
   // THE GLOOM — a dark backing disc behind the writing (Fable fix 2: the verdict
   // DARKENS THE SKY behind it, so the violet holds contrast on the pale/sunset
   // skies where hairline violet died). Plain transparent black (NOT additive —
-  // G7-exempt darkening, not glow). Untracked: MeshBasic has no emissive for the
-  // kit dissolve to blow; the driver fades it with dyingK itself.
-  const gloomMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false });
+  // G7-exempt darkening, not glow). Tracked like the streak/arc mats (base
+  // opacity 0; the driver owns the live value) — the kit's untracked-material
+  // audit flags strays. The driver still fades it with dyingK belt-and-braces.
+  const gloomMat = track(new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false }));
   const gloom = new THREE.Mesh(new THREE.CircleGeometry(5.1, 30), gloomMat);
   gloom.renderOrder = 1;
 

@@ -19,7 +19,7 @@ import { BIOMES, biomeIndexAt } from './biomes.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
   setBossBulletQuality, bossBulletCount, reflectBossBullets, debugActiveBullets,
-  beamContact, setGrazeBonus,
+  beamContact, setGrazeBonus, cutBossAmbers,
   spawnBossRingHoop,
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
@@ -159,6 +159,7 @@ const _focusCol = new THREE.Color();
 const SHIMMER_POOL = 8;
 const shimmers = [];
 const _shimV = new THREE.Vector3();
+const _brandPopV = new THREE.Vector3();   // brand-pop burst position (lockPaint confirm)
 // BRAND TETHER (PR7): one additive LineSegments drawing a faint jade line from
 // the dragon's off-shoulder (the wisp launch point) to each BRANDED organ —
 // in-world attribution ("this brand is on THAT rib"), a sibling of the shimmer.
@@ -230,6 +231,7 @@ let setpieceDef = null;
 // `condenseInvuln`; every value is inert (0/false) for every other archetype.
 let staggerT = 0;             // >0 = the queen is STAGGERED (parry job): the swarm is LOCKED condensed (exposed)
 let staggerHits = 0;         // amber-volley parries banked toward the next stagger (SCATTER-STAGGER, §5i.C)
+let threadCutHits = 0;       // amber parries banked toward the next THREAD-CUT (WEFTWITCH §5i.C, CP2)
 let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
 let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
 let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
@@ -241,6 +243,7 @@ let condHold = 0;            // seconds the swarm stays CONDENSED past its last 
 // SOAK is non-lethal: touching a pink mote absorbs it (bulletGraze → surge). Inert for every
 // other archetype (no grazeForm, no shed).
 let soakMotes = null;        // the THREE.Points object (one additive draw)
+let harvestOffered = false;  // §5i moteHarvest (slot 11): the once-per-phase bloom spent-flag
 let soakPos = null;          // its position attribute buffer
 const soakList = [];         // active pink motes {x,y,rel,vx,vy,vrel,ttl}
 const SOAK_MAX = 16;         // hard cap on-screen (overdraw + fairness)
@@ -728,6 +731,54 @@ function shedSoakMote(player) {
     vrel: -(relFromPlayer + 2) / 2.4,     // close to the player over ~2.4s
     ttl: 3.2,
   });
+}
+
+// §5i CANCEL-CONVERT MOTE HARVEST (WEFTWITCH, grazeForm 'moteHarvest'): the CUT
+// thread blooms into FALLING surge-motes from the thread's midpoint (between the
+// hands) — steer through the bloom to harvest (each soak = bulletGraze → Surge).
+// Offered once per phase: the first cut of a phase blooms; later cuts still
+// stagger, they just don't re-bloom. Rides the shared soak cloud + detector
+// (surge-pink stays the reward colour — the graze grammar outranks her gold).
+const _bloomL = new THREE.Vector3(), _bloomR = new THREE.Vector3();
+function bloomHarvestMotes(player) {
+  const l = model.partWorldPos?.('handPivotL', _bloomL);
+  const r = model.partWorldPos?.('handPivotR', _bloomR);
+  let bx = pose.x, by = pose.y, brel = pose.rel;
+  if (l && r) { bx = (l.x + r.x) / 2; by = (l.y + r.y) / 2; brel = -(l.z + r.z) / 2 - player.dist; }
+  const N = Math.min(12, SOAK_MAX - soakList.length);
+  for (let i = 0; i < N; i++) {
+    const fan = (i / Math.max(1, N - 1) - 0.5) * 2;   // -1..1 across the bloom
+    soakList.push({
+      x: bx + fan * 4.2 + (Math.random() - 0.5) * 0.8,
+      y: by + Math.random() * 1.2,
+      rel: brel,
+      vx: fan * 1.6 + (Math.random() - 0.5) * 0.6,
+      vy: -(2.6 + Math.random() * 1.6),               // FALLING — the bloom sinks through the flight band
+      vrel: -(brel + 2) / 3.2,                        // close to the player plane over ~3.2s
+      ttl: 4.6,
+    });
+  }
+  return N;
+}
+
+// §5i.C THREAD-CUT payoff (weftwitch): the woven volley unravels, the loom is
+// stilled for the strike window, and the phase's once-only harvest blooms. One
+// body for the production parry path AND the ?debug capture seam.
+function triggerThreadCut(player) {
+  staggerT = 2.5;
+  const cut = cutBossAmbers();      // the volley unravels in place
+  pending.length = 0;               // queued sub-volleys drop with it
+  model.cutThread?.();              // hands thrown apart; the thread dies
+  sfx.needlePull?.();               // the thread tears free
+  let bloomed = 0;
+  if (def.grazeForm === 'moteHarvest' && !harvestOffered) {
+    harvestOffered = true;          // once per phase (reset at the phase seam)
+    bloomed = bloomHarvestMotes(player);
+    ui.bossNote?.('✦ THREAD CUT — HARVEST THE BLOOM ✦', 'STEER THROUGH THE FALLING MOTES', 'gold', 2.4);
+  } else {
+    ui.bossNote?.('✦ THREAD CUT — STRIKE NOW ✦', 'HER VOLLEY UNRAVELS', 'gold', 2.4);
+  }
+  emit('threadCut', { cleared: cut, bloomed });
 }
 
 // Move the soak motes; a mote within soak radius of the player is ABSORBED (bulletGraze →
@@ -1226,6 +1277,12 @@ export function startBossEncounter(player, defOverride) {
   group = model.group;
   group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
+  // Arena environment feed (optional model hook, the setGaze?.() pattern): the water
+  // surface is the world-constant plane y=0 in every biome (water.js:204). A model
+  // that reacts to it (WEFTWITCH clips its arena web at the surface) opts in by
+  // exposing setWaterPlane; every other boss is inert. Fed only here — never in the
+  // studio/tests — so the isolated captures stay byte-identical.
+  model.setWaterPlane?.(0);
 
   // Approach choreography (§5e): from behind (overtake up and over), the side,
   // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),
@@ -1283,6 +1340,7 @@ export function startBossEncounter(player, defOverride) {
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
+  threadCutHits = 0; harvestOffered = false;   // §5i.C slot 11 thread-cut + harvest state
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
@@ -1300,7 +1358,13 @@ export function startBossEncounter(player, defOverride) {
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
     : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
-  ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
+  // §5b WEFTWITCH rule-break (def.hudSew): the warn banner is cross-stitched and
+  // PINNED half-deployed (no auto-hide — it tears free at enterFight), and the
+  // golden HUD-SEW threads lace the chrome. RENDER-ORDER LAW: bullets are WebGL
+  // (below all DOM) and cannot exist before phase 'fight' — firing both HERE, in
+  // the warn window, and clearing at enterFight IS the never-over-bullets proof.
+  ui.bossWarning?.(def.name, def.title, dir, B.warnTime, def.hudSew ? { pin: true } : null);
+  if (def.hudSew) ui.hudSew?.(def.accent);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
   emit('bossStart', { id: def.id });
@@ -1478,6 +1542,12 @@ function enterFight() {
   cameraCtl.setOvertake?.(null);      // release the cinematic camera if it was active
   model.setEyeLock?.(false);          // hand the pupil back to the idle gaze
   ui.cinematicHold?.(false);          // restore the gameplay HUD
+  if (def.hudSew) {
+    // the pinned banner TEARS FREE as the fight starts (the sew must be gone
+    // before the first bullet exists — the render-order LAW's other half).
+    ui.bossWarnClear?.();
+    ui.hudSewClear?.();
+  }
   attackTimer = rand(0.9, 1.3);
   model.setHealthBarVisible(true);
   model.setHealth(0);
@@ -2039,6 +2109,15 @@ export function updateBoss(dt, player, time) {
               emit('bossStagger', {});
             }
           }
+          // §5i.C THREAD-CUT (WEFTWITCH's parry job, registry row 11): parry her
+          // taut-thread ambers 3× → the thread is CUT — the woven volley UNRAVELS
+          // (every in-flight amber deletes + the queued sub-volleys drop) and the
+          // loom is STILLED for a 2.5s strike window (parry ACCELERATES, §5i.C
+          // law 4). Surge reflects don't count (not the amber read).
+          if (def.threadCut && !surge) {
+            threadCutHits++;
+            if (threadCutHits >= 3) { threadCutHits = 0; triggerThreadCut(player); }
+          }
         }
       }
     } else {
@@ -2186,6 +2265,12 @@ export function updateBoss(dt, player, time) {
         if (baitLeft <= 0) { baitResting = true; baitTimer = 1.8; }   // reposition break
         else baitTimer = 0.42;                                        // within a cluster
       }
+    } else if (def.threadCut && staggerT > 0) {
+      // §5i.C THREAD-CUT window (WEFTWITCH): the loom is STILLED — any wind-up
+      // cancels, nothing new is drawn, the strike window runs. (THRUMSWARM's
+      // staggerT is consumed in driveSwarm instead — LOCKED condensed.)
+      staggerT = Math.max(0, staggerT - dt);
+      if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
     } else if (chargeT > 0) {
       // Telegraph wind-up: the boss charges (maw flares red), THEN releases.
       chargeT -= dt;
@@ -2242,6 +2327,10 @@ export function updateBoss(dt, player, time) {
         // Optional model hook: which gesture family to wind up in (the
         // colossus's hands point/sweep/spin/clench/slam per attack id).
         model.setAttackTell?.(curAttack);
+        // §5f WEFTWITCH: drawing the thread taut has a SOUND (the needle-pull) —
+        // the audio twin of the taut-thread flash tell (fairness: eyes-off players
+        // hear the aimed wind-up coming).
+        if (def.threadCut && curAttack === 'aimed') sfx.needlePull?.();
         sfx.boostStart?.();   // a short charge whoosh as the wind-up begins
       }
     }
@@ -2354,6 +2443,10 @@ function breakShield(player) {
     beginCard(phaseIdx);
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
+    harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
+    // §5b the arena-mender: each phase seam TEARS a sector of her web and she
+    // visibly re-weaves it (optional model hook — only the weftwitch has one).
+    model.restitchWeb?.();
     // Def-gated setpiece: entering this phase plays a scripted station-leave beat.
     // A QUIET setpiece (default) holds the attack + rider clocks past its duration
     // for a capture-safe pass; a MOVING setpiece (§5e moving-station branch) leaves
@@ -2504,6 +2597,22 @@ function executeAttack(id, player) {
   if (id === 'aimed') {
     // Three distinct bullets to dodge around, not one dense overlapping wall.
     // Aimed/fan are REFLECTABLE (amber) — the precision shots reward a parry.
+    // §5f WEFTWITCH (def.threadCut): the 'aimed' release IS the laserLance — the
+    // taut thread lets go as an HDR beam flash (a VISUAL riding this shipped
+    // pattern, owner-confirmed — never a new attack id) + the in-key stitch-pluck
+    // (the loom is musical). Lives HERE, at the true emit site, so the ?debug
+    // capture seam (bossFireNow) shows the same beam the production release does.
+    // The beam AIMS AT THE PLAYER in model-local coords (placeGroup keeps the
+    // facing near-identity; the flash is ~0.3s, so the small wobble never reads).
+    if (def?.threadCut && model?.fireBeam) {
+      const sc = def.scale ?? 1;
+      model.fireBeam(
+        (player.position.x - pose.x) / sc,
+        (player.position.y - pose.y) / sc,
+        (pose.rel + 8) / sc,               // a shoulder past the player plane
+      );
+      sfx.stitchPluck?.();
+    } else if (def?.threadCut) { sfx.stitchPluck?.(); }   // def/model null on the headless debugEmitAttack flush
     for (let i = -1; i <= 1; i++) {
       const v = aimVel(px + i * 1.6, py, closing);
       emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
@@ -2786,6 +2895,12 @@ function updateShimmer(time, ctx) {
   if (ctx.paintUnlocked && !ctx.deflected && ctx.paintables && model?.partWorldPos) {
     const painted = lockPaintedParts();
     const L = CONFIG.LOCK;
+    // The organ the reticle is currently on + how far the dwell has progressed —
+    // so the TARGETED organ can visibly respond (owner playtest: "I struggle to
+    // paint the right target, I don't know which I've engaged, it's not engaging").
+    const hud = lockHudState();
+    const aimPart = hud.active ? hud.aimPart : null;
+    const dwell = hud.dwell || 0;
     for (const part of ctx.paintables) {
       if (used >= SHIMMER_POOL) break;
       if (painted.includes(part)) continue;
@@ -2794,8 +2909,17 @@ function updateShimmer(time, ctx) {
       if (!w) continue;
       const sp = shimmers[used++];
       sp.position.copy(w);
-      sp.scale.setScalar(1.1 * (def.scale ?? 1));
-      sp.material.opacity = L.shimmerOpacity * (0.55 + 0.45 * Math.sin(time * L.shimmerHz * Math.PI * 2 + used * 1.7));
+      // Bigger, brighter breath so the pick-menu reads at a glance: a wider glow
+      // and a high FLOOR (never dims below ~0.7 of peak) so every paintable organ
+      // is always clearly lit — the player picks which to fly to.
+      // TARGETING FLARE: the organ the reticle is on GROWS + BRIGHTENS with the
+      // dwell — the target visibly answers you, and the fill reads AS paint
+      // progress ON the organ, not just a tiny reticle up top. So you can see
+      // exactly which one you're painting (and steer off if it's the wrong one).
+      const flare = (part === aimPart) ? (0.35 + 0.9 * Math.min(1, dwell)) : 0;
+      sp.scale.setScalar((1.5 + flare * 1.5) * (def.scale ?? 1));
+      const breath = 0.72 + 0.28 * Math.sin(time * L.shimmerHz * Math.PI * 2 + used * 1.7);
+      sp.material.opacity = L.shimmerOpacity * (breath + flare * 2.4);
       sp.visible = true;
     }
   }
@@ -2968,6 +3092,17 @@ function driveFocusTeach(dt, ctx) {
 // SNAP-paint (p.snap — the perfect-parry brand) retires the V4 teach.
 on('lockPaint', (p) => {
   if (!saveData.flags.lockTaught) { saveData.flags.lockTaught = true; persist(); }
+  // BRAND POP (owner playtest: "it's not engaging, I don't know what I've
+  // engaged"): a bright jade+white burst ON the organ the instant it takes the
+  // brand — the unmistakable "engaged!" confirmation (its shimmer also dies). A
+  // stack pops smaller (a refresh, not a fresh organ).
+  if (p && model && model.partWorldPos) {
+    const w = model.partWorldPos(p.part, _brandPopV);
+    if (w) {
+      burst(w, 0x50ffaa, { count: p.stacked ? 5 : 11, speed: p.stacked ? 6 : 9, size: 0.75, life: 0.36 });
+      burst(w, 0xeafff6, { count: p.stacked ? 2 : 4, speed: 14, size: 0.5, life: 0.22 });
+    }
+  }
   if (p && p.snap && !saveData.flags.snapTaught) {
     saveData.flags.snapTaught = true; persist();
     ui.bossNote?.('THE MARK ANSWERS THE PARRY', '', 'gold', 1.8);
@@ -3177,6 +3312,7 @@ export function resetBoss() {
   cameraCtl.setOvertake?.(null);
   model?.setEyeLock?.(false);
   ui.cinematicHold?.(false);
+  ui.bossWarnClear?.(); ui.hudSewClear?.();   // §5b hudSew: no pinned banner/threads survive a teardown
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
@@ -3287,6 +3423,19 @@ export function debugFireAttack(id, player) {
 
 // Capture hook (?debug): crack a destructible sub-part live (HOLLOWGATE pane N)
 // so the integration shots can show a broken window + its silenced radial.
+// Capture hooks (?debug): fire the WEFTWITCH thread-cut / gap-restitch beats live
+// (the debugCrackPane precedent) so the integration shots show the real payoffs.
+export function debugThreadCut(player) {
+  if (!active || !def?.threadCut) return false;
+  triggerThreadCut(player);
+  return true;
+}
+export function debugRestitch() {
+  if (!active || !model?.restitchWeb) return false;
+  model.restitchWeb();
+  return true;
+}
+
 export function debugCrackPane(i) {
   if (!active || !model?.crackPane) return false;
   const ok = model.crackPane(i);
