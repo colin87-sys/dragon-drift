@@ -446,6 +446,22 @@ const SETPIECE_PATHS = {
       roll: -Math.sin(k * Math.PI * 2) * 0.28,     // banks into the cut, counter-banks the recover
     };
   },
+
+  // KARNVOW — VOIDMAW'S VERDICT (§5f dread, the grandeur redo): the duelist RISES
+  // over your lane and looms there while the lance writes the verdict at screen
+  // scale (the model's dread rig via setSetpiece) and the P3 card fires boss-1's
+  // dread set beneath it. A slow judge's weave, crest at rel ~14 — LOOMING, not a
+  // pass (the proximity beat belongs to the cut-in; this one is held over you).
+  voidmawVerdict(k) {
+    const B = CONFIG.BOSS;
+    const s = Math.sin(k * Math.PI);
+    return {
+      x: Math.sin(k * Math.PI * 2) * 3.5,
+      y: B.fightHeight + s * 5.5,
+      rel: B.settleGap - s * (B.settleGap - 14),
+      roll: Math.sin(k * Math.PI * 2) * 0.05,
+    };
+  },
   // ASHTALON — STOOPING STRIKE (§5f dread, "from above"): CLIMB high and hold (the
   // long dread telegraph), then STOOP — accelerate straight down through the lane
   // and close in (the killing dive), then recover to station. Runs MOVING so the

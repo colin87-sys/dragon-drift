@@ -7725,3 +7725,41 @@ announce is static; DYNAMIC text/flare belongs at boss.js's announce dispatch, w
 reveal-hold beats = enterFight + a timer in the fight loop (player in scope there, not in enterFight);
 reflected-arrival interception = the top of damageBoss (kind==='player'); per-phase re-offers = the
 armSetpieceForPhase call site in breakShield; moving setpieces = SETPIECE_PATHS[id](k) returning {x,y,rel,roll}.
+
+### L205 — KARNVOW grandeur redo: a band-PEAK boss can't be a quiet scale-down — the dread move needs an AUTHORED screen-scale visual; presence lives in what the figure CARRIES; violet on bright skies must be saturated, not hot
+
+**Did / learned.** The boss-design audit rated shipped KARNVOW the roster's weakest fight (mid-fight 2/5:
+"a dread move that is a lore-quote with zero authored visual") — the 8→9 grandeur crater. The redo (owner
+decision: Option A, spectacle + proximity, NO size bump — judge, then maybe B) fixed it with zero engine
+seams beyond the ONE already shipped: `model.setSetpiece(k, sdef)`.
+
+1. **A dread CARD is only a name — pair it with a dread SETPIECE at the same atFrac.** Cards drive
+   UI/sfx/scoring; the model never hears them. The roster's dread moves that LAND (ribs, rose, stoop) are
+   all setpieces with `dread: true` driving `setSetpiece`. KARNVOW's *Voidmaw's Verdict* was a card alone =
+   nothing to see. The fix: `{ id: 'voidmawVerdict', atPhase: 2, dur: 7.5, moving: true, dread: true }` +
+   the model keys `sdef.dread`. The card's promise ("fires boss 1's dread card back") became REAL by
+   quoting Voidmaw's P3 attack set verbatim — a def-data one-liner (attacks: aimed/fan/tunnel).
+2. **The seal recipe (screen-scale writing for ONE draw):** LineSegments in rig space between boss and
+   player, traced stroke-by-stroke with `setDrawRange` (the lance "writes" it — order the strokes like a
+   sentence: glyph, tallies, ring last). Hardware lines have no width → ink every stroke ×6 with tight
+   offsets (weight + bloom coverage). Keep the glyph strokes CLEAR of the body silhouette (over the hood
+   they read as scaffolding, not writing — Fable r1). And the two-part sky law: a dark GLOOM pall disc
+   (plain transparent black, NOT additive → G7-exempt) darkens the sky behind the writing, while the
+   strokes stay DEEP-saturated at a moderate multiplier (0x7a3cff ×3.2) — a hot multiplier tone-maps to
+   chalk-pink on pale/sunset (the L192 saturated>bright law, third time it has bitten).
+3. **Presence = what the figure carries breaking the OUTLINE.** The trophy chain at "tight cluster hugging
+   the hip" was numerically wide but READ as a rainbow clump (Fable r1: the Christmas-tree failure). The
+   festoon only reads as a garland once it ends PAST the silhouette edge (~5.8u world, hard-staggered
+   catenary drops, a merged bead-strand chain). L141's field-presence trick, worn instead of flown.
+4. **De-wizard law for staff-adjacent silhouettes:** orb-pommel + peaked hood = "mage with staff" (Fable
+   caught it twice across CP1 and the redo). A hunting lance needs an ELONGATED bladed head (stretched
+   octahedron = the amber organ itself) + swept-back barbs merged into the shaft mesh.
+5. **Spend tris, merge draws:** the redo went 6,455→~9.1k tris while HOLDING 46 draws — the horn-ridge
+   spiral merged INTO the lance geometry paid for the new bead-strand; relief studs (rivets/tally-studs)
+   went in the body merge but OUTSIDE the trim subset so the cold seam-line drawing stayed clean (Fable
+   CP1's "dense wireframe" catch never re-fired). The seal + gloom cost their +1 draw only while the beat
+   runs (visible-draw budgets count `visible === true`).
+6. **The independent design gate caught all six perception failures the data gates can't** (hairline seal,
+   matte-balloon charms, festoon-as-clump, wizard orb, glyph scaffolding, chalk-pink violet) across two
+   FIX rounds — pixel-law gates (G1–G7 ×3 green every round) prove legality, never grandeur. Budget checks,
+   festoon spread, sigil drive/unwrite, and the P3 quote are now data laws in tests/boss.mjs (67 checks).

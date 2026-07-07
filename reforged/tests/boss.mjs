@@ -1036,8 +1036,55 @@ for (const key of BOSS_ORDER) {
     assert(lp.rotation.y < -0.4, `karnvow riposte() cross-swats the lance (rot.y ${lp.rotation.y.toFixed(2)} < -0.4)`);
   }
 
+  // GRANDEUR REDO — VOIDMAW'S VERDICT is AUTHORED (§5f: no more lore-quote with
+  // nothing to see). The def pairs the dread card with a MOVING dread setpiece,
+  // the P3 pattern QUOTES boss-1's dread set verbatim, and driving the dread beat
+  // writes the violet sigil at screen scale while every trophy testifies.
+  {
+    const sp = BOSSES.karnvow.setpieces.find((s) => s.dread);
+    assert(sp && sp.moving, 'karnvow pairs the dread card with a MOVING dread setpiece (the authored beat fires the whole way)');
+    assert(JSON.stringify(BOSSES.karnvow.phases[2].attacks) === JSON.stringify(BOSSES.voidmaw.phases[2].attacks),
+      'karnvow P3 quotes boss-1\'s dread set verbatim ("it fires boss 1\'s dread card back at you")');
+    const sig = kv.group.getObjectByName('verdictSigil');
+    assert(!!sig && !sig.visible, 'karnvow verdictSigil exists and stays HIDDEN outside the dread beat (the violet-denominator law)');
+    kv.setSetpiece(1, sp);
+    for (let i = 0; i < 44; i++) kv.tick(0.05, 40 + i * 0.05);
+    assert(sig.visible && sig.geometry.drawRange.count > 40 && sig.material.opacity > 0.4,
+      `karnvow verdict: the lance writes the sigil (drawRange ${sig.geometry.drawRange.count}, opacity ${sig.material.opacity.toFixed(2)})`);
+    let lit = 0;
+    for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.4) lit++;
+    assert(lit >= 4, `karnvow verdict: every trophy testifies in its owed palette (${lit}/5 lit)`);
+    kv.setSetpiece(0);
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 43 + i * 0.05);
+    assert(!sig.visible || sig.material.opacity < 0.1, 'karnvow verdict: the sigil unwrites when the beat releases');
+  }
+
+  // GRANDEUR REDO — the festoon at arena scale: the trophy garland must READ at
+  // fight distance (the L141 field-presence trick — a lean figure reads big through
+  // what it carries). World-x spread across the hang anchors > 3u.
+  {
+    const p0 = kv.partWorldPos('trophyCharm0', new THREE.Vector3());
+    const x0 = p0.x;
+    const p5 = kv.partWorldPos('trophyCharm5', new THREE.Vector3());
+    assert(Math.abs(p5.x - x0) > 4.5,
+      `karnvow festoon at arena scale (charm spread ${Math.abs(p5.x - x0).toFixed(2)}u > 4.5 world — it must BREAK the silhouette edge)`);
+  }
+
+  // GRANDEUR REDO — the cut-in apex drama: mid-pass (no tell charging) the lance
+  // leads the near-pass in a HELD cross-body sweep.
+  {
+    kv.setCharge(0); kv.setAttackTell(null);
+    kv.setSetpiece(0.85, { id: 'flankCutIn' });
+    for (let i = 0; i < 24; i++) kv.tick(0.05, 48 + i * 0.05);
+    const lp = kv.group.getObjectByName('lancePivot');
+    assert(lp.rotation.y < -0.5,
+      `karnvow cut-in apex: the lance leads the pass in a held cross-sweep (rot.y ${lp.rotation.y.toFixed(2)} < -0.5)`);
+    kv.setSetpiece(0);
+  }
+
   kv.dispose();
   ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
+  ok('karnvow grandeur redo: the verdict WRITES (sigil + testifying trophies), the festoon reads at fight distance, the cut-in apex holds the sweep');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to

@@ -1064,7 +1064,15 @@ export const BOSSES = {
     // §5e moving-station setpiece (P2 entry): the FLANK CUT-IN — draws level on the
     // flank and cuts ACROSS your lane at rel ~8 (the L140 proximity near-pass),
     // firing the whole way.
-    setpieces: [{ id: 'flankCutIn', atPhase: 1, dur: 6.0, moving: true }],
+    setpieces: [
+      { id: 'flankCutIn', atPhase: 1, dur: 6.0, moving: true },
+      // §5f the DREAD beat, AUTHORED (the grandeur redo's #1 lift — the audit's
+      // "a lore-quote with zero authored visual"): at P3 entry the duelist RISES
+      // over your lane and the lance WRITES the verdict at screen scale in
+      // Voidmaw's violet (the model keys on `dread` via setSetpiece) while the
+      // card fires boss-1's dread set beneath it. Moving: it fires the whole way.
+      { id: 'voidmawVerdict', atPhase: 2, dur: 7.5, moving: true, dread: true },
+    ],
     // bossgate capture: the r3 dart footwork moves the body ~15u/s mid-hop, hitting
     // the tool's documented two-frame mask/screenshot race (the marrowcoil pale-slide
     // twin) — freeze the sim for the grab pair. NOT a G-law override; no thresholds change.
@@ -1078,7 +1086,10 @@ export const BOSSES = {
     phases: [
       { atFrac: 1.00, cadence: [1.4, 1.8], attacks: ['aimed', 'crossfire'] },            // P1: the duel opens
       { atFrac: 0.55, cadence: [1.3, 1.6], attacks: ['aimed', 'crossfire', 'stream'] },  // P2: it presses
-      { atFrac: 0.25, cadence: [1.2, 1.5], attacks: ['stream', 'crossfire', 'aimed'] },  // P3: Voidmaw's Verdict (dread)
+      // P3 QUOTES boss-1's dread set VERBATIM (aimed/fan/tunnel — Voidmaw's P3;
+      // §5f "it fires boss 1's dread card back at you, violet-scarred") at
+      // Calamity cadence. 'aimed' keeps the amber carrier (amberdiet §5i.C.1).
+      { atFrac: 0.25, cadence: [1.2, 1.5], attacks: ['aimed', 'fan', 'tunnel'] },        // P3: Voidmaw's Verdict (dread)
     ],
     cards: [
       { id: 'karnvow_gambit',  name: 'IT KEPT COUNT — Opening Gambit',     atFrac: 1.00, timer: 24 },
@@ -1099,7 +1110,9 @@ export const BOSSES = {
           restLo: 0.55, restHi: 1.4, restDist: 'bimodal' },
         { phrase: [{ kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'stream', beats: 2, gap: 0.4 }],
           restLo: 0.5, restHi: 1.25, restDist: 'bimodal' },
-        { phrase: [{ kind: 'sustain', attack: 'stream', beats: 3, gap: 0.35 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.4 }, { kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }],
+        // P3 phrase carries the QUOTE (aimed/fan/tunnel — boss-1's dread verbs) at the
+        // exchange's own bimodal tempo: still KARNVOW's rhythm, wearing Voidmaw's horn.
+        { phrase: [{ kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }, { kind: 'burst', attack: 'fan', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'tunnel', beats: 2, gap: 0.35 }],
           restLo: 0.45, restHi: 1.15, restDist: 'bimodal' },
       ],
     },
