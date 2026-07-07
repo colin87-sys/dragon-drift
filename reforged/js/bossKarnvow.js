@@ -365,10 +365,11 @@ export function buildKarnvow(def, quality = 1) {
   // r0.21: big enough that the focal keeps PURE-INTERIOR pixels at fight-capture
   // scale (smaller and every pixel is an AA edge-blend → maxLum caps ~247, a G1
   // fail) — still far below the lamp-eye size Fable rejected (the old 0.5 ring).
-  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.21, lowQ ? 6 : 12, lowQ ? 6 : 10), glintMat);
-  glint.position.set(APX, 0.55, 0.42);   // proud of the rim plane (framed by the dark socket + brow = recessed
-                                         // read) so the focal face stays camera-visible through the CP1.5 body
-                                         // bank/bob — the G1 floor must hold on EVERY idle-motion frame
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.24, lowQ ? 6 : 12, lowQ ? 6 : 10), glintMat);
+  glint.position.set(APX, 0.55, 0.47);   // PROUD of the rim plane (still framed by the dark socket + brow =
+                                         // the recessed read) so the focal keeps pure-interior pixels through
+                                         // the CP1.5 bank/bob/weave AND the cowl's yaw extremes — the G1 floor
+                                         // must hold on EVERY idle-motion capture pose, not just face-on
   cowlPivot.add(glint);
 
   // ---------------------------------------------------------------------
