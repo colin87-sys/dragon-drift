@@ -10,6 +10,7 @@ import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { bulletGraze } from './collision.js';
 import { buildBoss, buildHorizonSeed } from './bossModel.js';
+import { setSkyFade } from './environment.js';
 import { makeRhythm } from './bossRhythm.js';
 import { ENTRANCE_SCRIPTS } from './entranceScripts.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex, ladderPickDef, ladderTighten } from './bossDefs.js';
@@ -104,6 +105,8 @@ function recordBossBeaten(id) {
 
 // Live encounter state.
 let active = false;
+let _bossCam = null;           // live camera handle (threaded from main.js) — EMBERTIDE camera-locks its dome to it
+let skyFadeK = 0;              // eased 0→1 while a `def.skyReplace` boss owns the sky (crossfades the real dome out)
 let phase = 'idle';            // idle | warn | approach | fight | dying
 let def = null;
 let model = null;
@@ -144,9 +147,36 @@ let cineSide = 1;
 let cineAnchorX = 0, cineAnchorY = 8;   // the dragon's x/y at flythrough start (pass beside it, both in frame)
 let cineSkip = false;         // a tap during the flythrough fast-forwards to the turn-around
 let cineSlow = false;         // bullet-time currently engaged by the flythrough (owns game.slowMoTimer)
+let hudSewCast = false;       // §5b WEFTWITCH: the one-shot latch for the sew-cast-from-hands at the lash
+const _handL = new THREE.Vector3(), _handR = new THREE.Vector3(), _scrL = {}, _scrR = {};
 let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
+// §5f THE LYING FELLED CARD (slot 12 ONEWING — the roster's ONLY health-bar lie,
+// def-gated on `def.felledLie`; no other def may EVER opt in). On the blow that WOULD
+// kill it, ONEWING fakes death — the FELLED card fires, it cracks — then within ≤2s
+// ≤35% of the bar RETURNS and it fights on, CRIPPLED + exposed (no shield), the moving
+// silhouette the honest tell during the lie (MGS2 live-corner). It NEVER repeats: the
+// second kill is real. Every other def: `felledLie` is undefined → the plain death
+// path (pendingDeath) runs, byte-identical.
+const FELLED_LIE_DUR = 1.3;    // the fake-death window before the bar returns (≤2s, hard)
+let felledLieUsed = false;     // the lie fires at most ONCE per encounter
+let felledLieT = 0;            // >0 while the fake death is playing (sealed; resolves the return)
+let crippled = false;          // the post-lie exposed final stand — chip it to a REAL death
+// §5j def.noWarn (slot 12): the DANGER banner is deferred to the eruption (enterFight),
+// not shown pre-fight. `noWarnDir` holds the emerge direction; `noWarnFired` guards the
+// single late fire (idempotent whether the eruption or a skip delivers it).
+let noWarnDir = null;
+let noWarnFired = false;
+// §5f/§5i.C ONEWING (def.ghostHalf): the DEAD twin's half of the dual attack fires from
+// the fused frame as amber-ringed GHOST bullets, aimed by the dodge-MIRROR (poseRing).
+// Breaking the frame (`ghostFrameBroken`) removes the ghost volley but ENRAGES the tempo.
+// Inert for every other def.
+let ghostFrameBroken = false;
+const GHOST_FRAME_HITS = 4;   // perfect parries of the ghost half to dismantle the frame
+let ghostFrameHits = 0;
+let soakT = 0;                // the 2× spray-soak graze window (from the frame-break vent)
+const SPRAY_SOAK_BONUS = 2;   // the graze-meter reward for soaking the frame-break vent (§5i.B)
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
@@ -1285,6 +1315,10 @@ export function startBossEncounter(player, defOverride) {
   group = model.group;
   group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
+  // EMBERTIDE-as-sky: reparent the VISUAL rig (dome + face) out of `group` to the scene so it can be
+  // camera-POSITION-locked (the sky) while `group` (HP bar / shield / crestPivot emitter) stays at the
+  // world station via placeGroup — gameplay origins unchanged. Inert for every non-skyReplace boss.
+  if (def.skyReplace && model.rig) { scene.add(model.rig); if (_bossCam) model.rig.position.copy(_bossCam.position); }
   // Arena environment feed (optional model hook, the setGaze?.() pattern): the water
   // surface is the world-constant plane y=0 in every biome (water.js:204). A model
   // that reacts to it (WEFTWITCH clips its arena web at the surface) opts in by
@@ -1352,6 +1386,7 @@ export function startBossEncounter(player, defOverride) {
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
+  felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0;   // §5f the lie is fresh (once) + the frame intact per encounter
 
   phase = 'warn';
   warnT = B.warnTime;
@@ -1366,13 +1401,17 @@ export function startBossEncounter(player, defOverride) {
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
     : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
-  // §5b WEFTWITCH rule-break (def.hudSew): the warn banner is cross-stitched and
-  // PINNED half-deployed (no auto-hide — it tears free at enterFight), and the
-  // golden HUD-SEW threads lace the chrome. RENDER-ORDER LAW: bullets are WebGL
-  // (below all DOM) and cannot exist before phase 'fight' — firing both HERE, in
-  // the warn window, and clearing at enterFight IS the never-over-bullets proof.
-  ui.bossWarning?.(def.name, def.title, dir, B.warnTime, def.hudSew ? { pin: true } : null);
-  if (def.hudSew) ui.hudSew?.(def.accent);
+  // §5j THE ARRIVAL-GRAMMAR BREAK (slot 12 ONEWING, def.noWarn): the DANGER banner is
+  // SUPPRESSED here and fires WITH the eruption (enterFight) instead of before it — no
+  // warning until it erupts. A skipper still gets it (fired at enterFight regardless).
+  // §5b WEFTWITCH rule-break (def.hudSew): the warn banner is cross-stitched + PINNED
+  // half-deployed (tears free at enterFight). The golden HUD-SEW threads no longer fire
+  // here — they CAST from her hands at the entrance lash (updateEntrance, u≥0.45). A boss
+  // is one OR the other; every plain def keeps the pre-fight banner.
+  noWarnDir = def.noWarn ? dir : null;
+  noWarnFired = false;
+  if (!def.noWarn) ui.bossWarning?.(def.name, def.title, dir, B.warnTime, def.hudSew ? { pin: true } : null);
+  hudSewCast = false;
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
   emit('bossStart', { id: def.id });
@@ -1406,6 +1445,12 @@ function endEncounter(player) {
   clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
+  if (model && model.rig && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky: pull the reparented dome
+  // EMBERTIDE-as-sky: HARD-restore the real dome the instant the fight ends. The
+  // updateBoss fade-back (active→0) only runs while state==='playing'; a Boss-Rush-final
+  // or solo-practice clear flips straight to 'gameover', so that ramp never runs and the
+  // real sky would stay hidden with the rig already gone (a black victory/recap sky).
+  if (def && def.skyReplace) { skyFadeK = 0; setSkyFade(0); game.embertideSky = false; }
   if (group) { scene.remove(group); model.dispose?.(); }
   resetBossBullets();
   clearSoakMotes();            // §5i.B: a late-shed pink mote must not outlive the fight (review P2)
@@ -1528,8 +1573,27 @@ function applyReticle(timeLeft, time) {
 // reveal card, and the first spell card — with the attack/rider clocks held past
 // the card's hold so the reveal is bullet-free. Shared by the plain approach and
 // the cinematic flythrough entrance.
+// §5j fire the deferred no-warn DANGER banner (the eruption IS the warning). Idempotent
+// — the eruption calls it; a skip during the entrance can call it early; whichever runs
+// first wins. Inert unless def.noWarn set noWarnDir.
+function fireNoWarnBanner() {
+  if (!def || !def.noWarn || noWarnFired || noWarnDir == null) return;
+  noWarnFired = true;
+  ui.bossWarning?.(def.name, def.title, noWarnDir, Math.min(B.warnTime, 1.4));
+  // §5j THE ERUPTION DANGER BEAT — no warning, then it's suddenly HERE and on you: a hard
+  // slam (camera + body jerk), a shockwave burst, and an AMBUSH first attack that winds up
+  // almost immediately (not the usual ~1.9s settle). The telegraph still gives a fair beat
+  // to dodge the bullets — it's the ARRIVAL that's abrupt, not the damage.
+  cameraCtl.shake?.(2.6);
+  model?.hurt?.(0.9);
+  model?.flash?.(1.0);
+  sfx.bossDefeat?.();   // a heavy low IMPACT (reused SFX) — the eruption slam
+  if (group) burst(group.position, def.accent ?? 0xffffff, { count: 34, speed: 30, size: 1.3, life: 0.7 });   // the shockwave off the boss
+}
+
 function enterFight() {
   phase = 'fight';
+  fireNoWarnBanner();   // §5j the banner fires WITH the eruption (def.noWarn), never before it
   initLockLayer();   // THE LANCE layer: fresh aim/lock state per fight
   aimHeldT = 0; aimTeachCd = 1.5;   // V1 teach: first prompt after a short settle
   lockTeachCd = 1.5; snapTeachCd = 4; amberVent.clear();   // V4 teach waits a few beats past the paint teach
@@ -1566,6 +1630,10 @@ function enterFight() {
   beginCard(0);
   attackTimer = Math.max(attackTimer, 1.9);
   riderTimer = Math.max(riderTimer, 1.9);
+  // §5j the no-warn AMBUSH (def.noWarn): NO settle grace — it strikes almost at once, so
+  // the abrupt arrival puts you in danger immediately. The attack still telegraphs, so
+  // the bullets stay fair to dodge — it's the ARRIVAL that's abrupt, not the damage.
+  if (def.noWarn) attackTimer = 0.7;
   // §5f THE HOLD-BREAKER (def-gated — the roster's ONE, KARNVOW: "the trophy-hunter
   // has no honor"): a single SLOW, survivable, PARRYABLE amber shot fired INTO the
   // reveal hold. The cinematic itself stays fire-free (the Mantis rule) — this is a
@@ -1629,6 +1697,21 @@ function updateEntrance(dt, player, time) {
   if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
   // Per-boss entrance FX hook (EITHERWING's eye-thread cross, twin brackets) — optional.
   script.onFrame?.(u, ctx, pose, player, model, time);
+  // §5b WEFTWITCH: at the LASH (u≥0.45) the golden lace CASTS from her hands — project
+  // both hand world positions to screen and burst the sew out from them, and STITCH the
+  // banner name out. One-shot (skip-safe: fires even if a tap jumps u past the lash).
+  if (def.hudSew && !hudSewCast && u >= 0.45) {
+    hudSewCast = true;
+    const hl = model.partWorldPos?.('handPivotL', _handL);
+    const hr = model.partWorldPos?.('handPivotR', _handR);
+    let origins = null;
+    if (hl && hr) {
+      const a = cameraCtl.worldToScreen(hl, _scrL), b = cameraCtl.worldToScreen(hr, _scrR);
+      if (!a.behind && !b.behind) origins = { xL: a.x, yL: a.y, xR: b.x, yR: b.y, behind: false };
+    }
+    ui.hudSew?.(def.accent, origins);
+    ui.bossWarnStitch?.();
+  }
   // §5j stat-taunt charm flare (armed by def.statTaunt at script start): fires ONCE
   // mid-hold — the top-killer trophy burns in its owed palette as the line lands.
   if (entranceFlareAt != null && u >= entranceFlareAt) {
@@ -1643,8 +1726,16 @@ function updateEntrance(dt, player, time) {
 
 // ---- Per-frame update -------------------------------------------------------
 
-export function updateBoss(dt, player, time) {
+export function updateBoss(dt, player, time, camera) {
   lastPlayer = player;   // stashed for event-driven spawns (the shackle SPRAY-SOAK vent) that have no player arg
+  if (camera) _bossCam = camera;
+  // EMBERTIDE-as-sky crossfade ("one sky, never two"): ramp the real-dome fade toward 1 while a
+  // `skyReplace` boss is active, back to 0 otherwise (inert for every other boss). The dome is
+  // camera-locked in placeGroup below.
+  const skyTgt = (active && def && def.skyReplace) ? 1 : 0;
+  skyFadeK += (skyTgt - skyFadeK) * Math.min(1, dt * 3.5);
+  setSkyFade(skyFadeK);
+  game.embertideSky = skyFadeK > 0.02;   // suppress god-rays while EMBERTIDE IS the sky (no discrete sun → no shafts)
   if (!active) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
@@ -1738,6 +1829,38 @@ export function updateBoss(dt, player, time) {
   if (game.grazeStreakTimer > 0) {
     game.grazeStreakTimer -= dt;
     if (game.grazeStreakTimer <= 0) game.grazeStreak = 0;
+  }
+
+  // §5f resolve the LYING FELLED card: after the fake-death window, ≤35% of the bar
+  // RETURNS and the CRIPPLED, unshielded final stand opens (the truth). Resolves well
+  // inside the ≤2s guarantee. Def-gated; inert for every other boss (felledLieT stays 0).
+  // §5i.B the 2× spray-soak window from the frame-break winds down; the graze bonus is
+  // republished every fight tick by the adrenaline ladder (the single authority), so this
+  // only has to run the clock down — no reset here (that would dip below the adren bonus).
+  if (soakT > 0) soakT -= dt;
+  if (felledLieT > 0 && phase === 'fight') {
+    felledLieT -= dt;
+    // Beat 1 — the FAKE DEATH plays out (readable, not a glitch): the model visibly DIES
+    // (wing folds over the frame, eye guts out, body sags) over the first ~55% of the
+    // window, then holds "dead" while the FELLED card sits.
+    model.setFelledLie?.(Math.min(1, (FELLED_LIE_DUR - felledLieT) / (FELLED_LIE_DUR * 0.55)));
+    if (felledLieT <= 0) {
+      felledLieT = 0;
+      crippled = true;
+      // Beat 2 — the RESURRECTION: the fused frame IGNITES its dead twin's light UP into
+      // the body — the eye snaps back brighter, the wing throws open — and ≤35% returns.
+      model.felledRevive?.();
+      hp = Math.max(hp, Math.min(0.35, def.felledReturn ?? 0.35) * hpMax);   // ≤35% returns
+      model.setHealth(hp / hpMax);
+      rhythm?.reset(); rhythmRest = null;
+      pending.length = 0; attackTimer = Math.max(attackTimer, 0.8);
+      ui.bossNote?.('❖ WOULD NOT DIE', def.name, 'dread', 3.0);   // its name IS the mechanic
+      cameraCtl.shake?.(1.4);
+      tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+      burst(tmp, def.accent ?? 0xffffff, { count: 26, speed: 20, size: 1.2, life: 0.8 });   // the twin's light bursting up
+      sfx.phase?.(true, 1);
+      emit('bossFelledRevive', { id: def.id, frac: hp / hpMax, dur: FELLED_LIE_DUR });
+    }
   }
 
   // hp reached 0 last frame → begin the disintegration (needs the player ref).
@@ -2133,6 +2256,25 @@ export function updateBoss(dt, player, time) {
               ui.bossNote?.(`✦ THREAD FRAYING — ${threadCutHits}/${THREAD_CUT_HITS} ✦`, 'PARRY AGAIN TO CUT IT', 'gold', 1.1);
             }
           }
+          // §5i.C GHOST-HALF PARRY → STAGGER + FRAME-BREAK (ONEWING, registry row 12): a
+          // PERFECT parry of a ghost bullet (part 'frameGroup') STAGGERS it, and parrying
+          // the dead half apart BREAKS the fused frame — the ghost volley stops, the tempo
+          // ENRAGES, and the break vents a 2× spray-soak graze beat. Surge reflects don't
+          // count (§5i.C law 4). Def-gated; inert for every other boss.
+          if (def.ghostHalf && !surge && !ghostFrameBroken && r.snapParts.includes('frameGroup')) {
+            model?.hurt?.(0.5);   // the stagger recoil on each parried ghost bullet
+            ghostFrameHits++;
+            if (ghostFrameHits >= GHOST_FRAME_HITS) {
+              ghostFrameBroken = true;
+              model?.breakFrame?.();
+              ventSpraySoak(player);
+              ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
+              cameraCtl.shake?.(1.2); sfx.milestone?.();
+              emit('bossFrameBreak', {});
+            } else {
+              ui.bossNote?.(`✦ GHOST STAGGER — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, 'PARRY THE DEAD HALF APART', 'gold', 1.1);
+            }
+          }
         }
       }
     } else {
@@ -2239,8 +2381,13 @@ export function updateBoss(dt, player, time) {
           emit('adrenalineRung', { rung: adrenRung });
         }
       }
-      // Publish the rung's effects (all 1/neutral at rung 0 — the coexist floor).
-      setGrazeBonus(adrenRung >= 1 ? 1.18 : 1);
+      // Publish the rung's effects (all 1/neutral at rung 0 — the coexist floor). This
+      // runs every fight tick, so it is the SINGLE authority for the graze bonus — the
+      // §5i.B spray-soak window (soakT, from ONEWING's frame-break) composes HERE as a
+      // MAX, or its 2× beat would be clobbered back to the adrenaline/default value one
+      // frame after it was set (Codex review). soakT>0 is def-gated by the frame-break.
+      const adrenBonus = adrenRung >= 1 ? 1.18 : 1;
+      setGrazeBonus(soakT > 0 ? Math.max(SPRAY_SOAK_BONUS, adrenBonus) : adrenBonus);
       game.adrenGainMult = adrenRung >= 2 ? 1.5 : 1;
       if (adrenRung >= 3) {                                // weak-point ping: a soft periodic sonar on the focal
         adrenPing -= dt;
@@ -2309,6 +2456,7 @@ export function updateBoss(dt, player, time) {
           emit('bossToll', { k: w });
         }
         executeAttack(curAttack, player);
+        emitGhostHalf(player);   // §5f the dead twin's parryable half, from the frame (def.ghostHalf; inert otherwise)
         const ph = def.phases[phaseIdx];
         // §5i: a rhythm def uses the machine's authored rest (its signature's
         // fingerprint, stashed when the attack was picked); else the legacy roll.
@@ -2317,7 +2465,10 @@ export function updateBoss(dt, player, time) {
         // bound phases (P3+) — freeing the beast softens the strain (a mechanic, not
         // a stat). Def-gated; every other boss keeps mercy = 1.
         const mercy = (def.destructibleShackles && phaseIdx >= 2 && model.brokenCount) ? 1 + 0.16 * model.brokenCount() : 1;
-        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult * mercy;
+        // §5f ONEWING: breaking the fused frame removes the ghost half but ENRAGES the
+        // tempo — the living half fires ~30% faster (grief turned to fury). Def-gated.
+        const enrage = (def.ghostHalf && ghostFrameBroken) ? 0.7 : 1;
+        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult * mercy * enrage;
         rhythmRest = null;
       }
     } else if (pending.length === 0) {
@@ -2400,6 +2551,22 @@ function placeGroup(player, time, dt) {
     const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
     model.setGaze?.(nx, ny);
   }
+  // EMBERTIDE-as-sky: the camera-POSITION-lock does NOT happen here — placeGroup runs inside
+  // updateBoss (main.js:1093), BEFORE cameraCtl.update (main.js:1246) moves the camera, so locking
+  // here leaves the dome a FULL FRAME stale (it lags the camera and, under forward flight, the
+  // off-centre dome recedes and the real sky bleeds in — the diagonal-seam jank). The lock lives in
+  // syncSkyRig() below, called from main.js AFTER the camera settles (exactly where environment.js
+  // does `sky.position.copy(camera.position)`), so the dome is dead-centre at render time.
+}
+
+// EMBERTIDE-as-sky: camera-POSITION-lock the visual rig, called from main.js right after
+// cameraCtl.update (the same frame slot the real sky dome re-centres in). Copy POSITION only
+// (world-oriented, so the crest stays on the world horizon as the cam pitches). Def-gated +
+// scene-parented guard → inert for every non-skyReplace boss.
+export function syncSkyRig(cam) {
+  if (!cam || !def || !def.skyReplace || !model || !model.rig) return;
+  if (model.rig.parent !== scene) return;
+  model.rig.position.copy(cam.position);
 }
 
 // ---- Surge (manual) + the per-phase shield ---------------------------------
@@ -2456,6 +2623,7 @@ function breakShield(player) {
     rhythm?.reset();
     rhythmRest = null;
     beginCard(phaseIdx);
+    model.setPhase?.(phaseIdx);   // optional damage-state hook (KARNVOW's cloak tears; others ignore)
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
     harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
@@ -2487,9 +2655,46 @@ function breakShield(player) {
       ui.bossNote?.('⛈  THE ARENA NARROWS  ⛈', def.name, 'gold', 2.6);
       cameraCtl.shake?.(0.8);
     }
+  } else if (def.felledLie && !felledLieUsed && !ghostFrameBroken) {
+    triggerFelledLie(player);   // §5f the LIE: fake death now, ≤35% returns within ≤2s (once)
   } else {
+    // §5i.C THE FRAME-BREAK FORFEITS THE LIE: it resurrects by consuming its dead twin —
+    // the fused frame IGNITES and pours that light back into the body (§5f). Tear the
+    // frame off (4 perfect ghost parries) and there is NOTHING left to raise: the lie is
+    // denied and the first kill is the real one. The Half That Would Not Die — until you
+    // took its dead half away. A readable beat so the missing second stand isn't a mystery.
+    if (def.felledLie && !felledLieUsed && ghostFrameBroken) {
+      ui.bossNote?.('✦ NOTHING LEFT TO RAISE ✦', 'YOU TORE ITS DEAD HALF AWAY', 'gold', 2.4);
+    }
     pendingDeath = true;   // final shield burst → death (resolved next frame)
   }
+}
+
+// §5f THE LYING FELLED CARD — the fake death. Fires the FELLED card + a crack, seals
+// the boss for FELLED_LIE_DUR (the moving-but-"dead" tell), then the update loop
+// resolves it: ≤35% of the bar returns and the crippled, unshielded final stand opens.
+// Def-gated (def.felledLie) + fires at most once (felledLieUsed) — the roster's ONE
+// health-bar lie; a second death is always real.
+function triggerFelledLie(player) {
+  felledLieUsed = true;
+  felledLieT = FELLED_LIE_DUR;
+  shielded = false;
+  model.setShieldVisible?.(false);
+  // The fake death beat: the FELLED kill-card fires (the lie), the body cracks.
+  ui.bossFelledCard?.(def.defeat?.felled ?? def.name);
+  model.flash?.(1.0);
+  model.hurt?.(1.0);
+  model.shatterShield?.();
+  sfx.shieldShatter?.();
+  cameraCtl.shake?.(1.4);
+  tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+  burst(tmp, 0xffffff, { count: 22, speed: 22, size: 1.3, life: 0.6 });
+  // Sealed + silent for the lie window; the model keeps ticking (the crippled
+  // silhouette stays visibly MOVING — the honest tell). No attacks land ON the player
+  // and no chip lands ON the boss until the truth reveals.
+  pending.length = 0; attackTimer = FELLED_LIE_DUR + 0.4;
+  endCard();
+  emit('bossFelledLie', { id: def.id });
 }
 
 // ---- Attacks ----------------------------------------------------------------
@@ -2556,6 +2761,60 @@ function emitHeadShots(player) {
     const v = aimVel(px + i * 1.8, py, closing);
     emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
   }
+}
+
+// §5e THE DODGE-MIRROR (ONEWING, a NEW poseRing consumption — slot 7 used poseRing for a
+// formation snapshot, not aim; small, reuse base = the shipped sampler). Reads the
+// player's ACTUAL recent path (never input) and returns where their dodge is HEADING, so
+// the ghost volley lands where they just went — "it learns," not "it cheats."
+const _mirrorT = { x: 0, y: 0 };
+function mirrorAim(player) {
+  const n = poseRing.length;
+  if (n < 5) { _mirrorT.x = player.position.x; _mirrorT.y = player.position.y; return _mirrorT; }
+  const recent = poseRing[n - 1], back = poseRing[n - 5];   // ~0.4s of recent dodge
+  _mirrorT.x = recent.x + (recent.x - back.x) * 0.6;        // extrapolate the dodge forward
+  _mirrorT.y = recent.y + (recent.y - back.y) * 0.6;
+  return _mirrorT;
+}
+
+// §5f/§5i.C THE GHOST HALF — the dead twin's parryable volley, fired from the fused frame
+// (def.muzzle's twin, 'ghostMuzzle') as amber-ringed bullets with a GHOST core colour,
+// aimed by the dodge-mirror, tagged to 'frameGroup' (so a parry brands the frame + the
+// frame-break routes there). Removed once the frame is broken; the living (magenta) half
+// is untouched. Def-gated (def.ghostHalf) — inert for every other boss.
+const _ghostV = new THREE.Vector3();
+function emitGhostHalf(player) {
+  // Gated to P2+ (phaseIdx>=1): the def's phase design is "P2 — the dead twin's volley
+  // BEGINS" (bossDefs onewing_ghosthalf card). Also keeps the no-warn ambush OPENER (P1,
+  // attackTimer 0.7) a plain read — the dodge-mirror ghost shots are the hardest pattern
+  // and must not land before the player has seen one clean volley (Fable #3 fairness gate).
+  if (!def?.ghostHalf || ghostFrameBroken || phaseIdx < 1) return;
+  const w = model?.partWorldPos && model.partWorldPos('ghostMuzzle', _ghostV);
+  const ox = w ? w.x : pose.x, oy = w ? w.y : pose.y, orel = w ? -w.z - player.dist : pose.rel;
+  if (orel <= 0.3) return;
+  const tgt = mirrorAim(player);
+  const closing = B.bulletSpeed * 0.9;   // the dead half drifts a touch slower (spectral)
+  const t = Math.max(orel / closing, 0.05);
+  const n = quality < 0.75 ? 2 : 3;
+  for (let i = 0; i < n; i++) {
+    const off = (i - (n - 1) / 2) * 1.5;
+    emitBoss(ox, oy, (tgt.x + off - ox) / t, (tgt.y - oy) / t, -closing, true, null, 1, def.ghostColor ?? 0xcfe6ff, orel, 'frameGroup');
+  }
+}
+
+// §5i.B SPRAY-SOAK vent (ONEWING frame-break): a fan of SLOW dark-core graze-bait
+// bullets off the frame + a 2× graze window (soakT) — soak it for double meter. The
+// grazeForm='spraySoak' data label is honoured here (the vent), inert for every other def.
+function ventSpraySoak(player) {
+  const w = model?.partWorldPos && model.partWorldPos('ghostMuzzle', _ghostV);
+  const ox = w ? w.x : pose.x, oy = w ? w.y : pose.y, orel = w ? -w.z - player.dist : pose.rel;
+  const slow = B.bulletSpeed * 0.5;
+  const n = quality < 0.75 ? 8 : 12;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    emitBoss(ox, oy, Math.cos(a) * 6.5, Math.sin(a) * 6.5, -slow, false, null, 1.15, 0x2a1830, orel, null);   // dark-donut graze-bait
+  }
+  soakT = 1.6; setGrazeBonus(SPRAY_SOAK_BONUS);   // the 2× beat (republished as a MAX by the adren ladder each tick)
 }
 
 // Resolve an attack id to bullets. Instant patterns fire one volley now; sustained
@@ -3245,6 +3504,9 @@ function damageBoss(amount, kind, e = null) {
   // the dread setpiece runs. Outlasting the timer resolves the card (see the card
   // timeout); lances already deflect via lockDeflected.
   if (activeCard && activeCard.survival) { model?.flash?.(0.12); sfx.shieldPing?.(); return; }
+  // §5f the LYING FELLED window: the boss is faking death — no chip lands until the
+  // truth reveals (the returning bar). Inert for every other def (felledLieT stays 0).
+  if (felledLieT > 0) { sfx.shieldPing?.(); return; }
   if (shielded) {
     // Chip/reflect PINGS off the armour — a clang + spark telegraph "a different
     // thing is needed now" (charge Surge), not "keep hitting it".
@@ -3297,12 +3559,23 @@ function damageBoss(amount, kind, e = null) {
     return;
   }
   amount += partBonus;
+  // §5f the CRIPPLED final stand takes AMPLIFIED damage — exposed, no shield, dying:
+  // the desperate last stand resolves fast, not a slog through the returned bar. Only
+  // ever set post-lie (def.felledLie); byte-identical for every other def.
+  if (crippled) amount *= 2.4;
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash
   if (hpRevealT <= 0) model.setHealth(hp / hpMax);   // don't fight the fill-up flourish
   emit('bossHit', { hp, hpMax, frac: hp / hpMax, kind });
 
+  // §5f the CRIPPLED final stand (post-lie): no more shields — chip it to a REAL death.
+  // Only reachable when def.felledLie already spent its one lie; every other def never
+  // sets `crippled`, so the shield-floor path below is byte-identical for them.
+  if (crippled) {
+    if (hp <= 0) pendingDeath = true;
+    return;
+  }
   // Reached the phase floor → raise the shield. Chip/reflect can't push past it;
   // the player must charge Surge (by grazing) and unleash it to burst through.
   const floor = def.phases[phaseIdx + 1]?.atFrac ?? 0;
@@ -3336,19 +3609,23 @@ export function resetBoss() {
   cameraCtl.setOvertake?.(null);
   model?.setEyeLock?.(false);
   ui.cinematicHold?.(false);
-  ui.bossWarnClear?.(); ui.hudSewClear?.();   // §5b hudSew: no pinned banner/threads survive a teardown
+  ui.bossWarnClear?.(true); ui.hudSewClear?.(true);   // §5b hudSew: HARD teardown — no pinned banner/threads survive (can't wait on a transition)
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
   activeCard = null; cardTimer = 0;
   ui.bossCardClear?.();
+  if (model && model.rig && scene && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky dome
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
+  skyFadeK = 0; setSkyFade(0);   // restore the real sky dome on teardown
   resetBossBullets();
   clearSoakMotes();            // §5i.B: no stray pink mote frozen across a run teardown (review P2)
   active = false;
   phase = 'idle';
   group = null; model = null; def = null;
   pendingDeath = false;
+  felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0;   // §5f teardown never strands the lie/frame state
+  noWarnDir = null; noWarnFired = false;                     // §5j fresh deferred-banner state per encounter
   rollParried = false;
   shielded = false;
   if (reticle) reticle.visible = false;
@@ -3538,7 +3815,7 @@ export function bossDebugState() {
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
   // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel };
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

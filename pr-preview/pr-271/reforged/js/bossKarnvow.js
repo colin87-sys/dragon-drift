@@ -150,6 +150,38 @@ export function buildKarnvow(def, quality = 1) {
         stud.translate(-0.52 + (i % 5) * 0.26, 1.78 - Math.floor(i / 5) * 0.24, 0.62);
         push(stud, false);
       }
+      // SPEND PASS P1 — the BACKPLATE: his back reads in the three-quarter entrance
+      // ride now (it was the emptiest geometry on him). A layered back plate + a
+      // spine ridge + forge motifs, all OUT of the trim subset (no wireframe noise).
+      const backplate = strip(new THREE.BoxGeometry(1.5, 1.7, 0.3)); backplate.translate(0, 1.05, -0.52); push(backplate, false);
+      for (let i = 0; i < 4; i++) {   // back lames (layered plate, mirrors the chest)
+        const bl = strip(new THREE.BoxGeometry(1.3 - i * 0.12, 0.3, 0.2));
+        bl.rotateX(0.1); bl.translate(0, 1.6 - i * 0.44, -0.66);
+        push(bl, false);
+      }
+      for (let i = 0; i < 5; i++) {   // the SPINE ridge — a knuckled crest down the back
+        const sp = strip(new THREE.OctahedronGeometry(0.11, 0)); sp.scale(0.8, 1.2, 0.9);
+        sp.translate(0, 2.0 - i * 0.42, -0.7);
+        push(sp, false);
+      }
+      for (let i = 0; i < 6; i++) {   // forge motifs across the backplate
+        const fm = strip(new THREE.TetrahedronGeometry(0.06, 0));
+        fm.translate(-0.45 + (i % 3) * 0.45, 1.35 - Math.floor(i / 3) * 0.55, -0.7);
+        push(fm, false);
+      }
+      // Rivet rows girdling the belt + fauld rings (armor articulation relief).
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const rv = strip(new THREE.IcosahedronGeometry(0.05, 0));
+        rv.translate(Math.sin(a) * 1.02, 0.35, Math.cos(a) * 1.02);
+        push(rv, false);
+      }
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 + 0.26;
+        const rv = strip(new THREE.IcosahedronGeometry(0.045, 0));
+        rv.translate(Math.sin(a) * 0.86, -0.62, Math.cos(a) * 0.86);
+        push(rv, false);
+      }
     }
     // A raised gorget collar bridging the pauldrons up to the cowl base (fills the
     // sky between the shoulders and the head — one connected figure, not parts).
@@ -293,11 +325,49 @@ export function buildKarnvow(def, quality = 1) {
   rig.add(cloak.mesh);
   const CLOAK_HALF_W = (i) => 1.1 - (i / CLOAK_SEGS) * 0.45;   // shoulders → hem taper (a cloak, not a ribbon)
 
+  // SPEND PASS P3 — the cloak's INNER LINING: a second, narrower strip skinned from
+  // the SAME pivot chain at a depth offset + its own small wobble phase — doubled
+  // cloth instead of one sheet. One extra draw.
+  const liningMat = track(new THREE.MeshStandardMaterial({
+    color: 0x0e1013, emissive: accent, emissiveIntensity: 0.07, roughness: 0.92, metalness: 0.05,
+    side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 1.0,
+  }));
+  const lining = makeStrip(CLOAK_SEGS, liningMat, 'cloakLining');
+  rig.add(lining.mesh);
+
+  // SPEND PASS P3 — the PENNON: a duelist-knight's torn banner streaming from the
+  // lance haft (cloth-DARK, cold edge only — the kill-tallies are carved into the
+  // haft itself, NOT glowing here; no legal emissive color exists for air-writing).
+  // A 4-point lag chain in rig space anchored to a haft node (`pennonPivot`), so
+  // every lance pose change SNAPS the cloth — the telegraphs amplify for free.
+  const pennonMat = track(new THREE.MeshStandardMaterial({
+    color: 0x121418, emissive: accent, emissiveIntensity: 0.1, roughness: 0.9, metalness: 0.05,
+    side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 1.0,
+  }));
+  const PEN_SEGS = 4;
+  const pennon = makeStrip(PEN_SEGS, pennonMat, 'pennon');
+  rig.add(pennon.mesh);
+  const penAnchor = new THREE.Object3D();
+  penAnchor.name = 'pennonPivot';
+  penAnchor.position.set(0, -0.12, 1.62);   // on the haft, behind the vamplate
+  // (added to lancePivot after the lance section builds — see below where lancePivot exists)
+  const _penPts = [];
+  for (let i = 0; i <= PEN_SEGS; i++) _penPts.push(new THREE.Vector3(0, -0.4 - i * 0.3, 0));
+
+  // SPEND PASS P3 — the HOOD TAIL: a short cloth tail off the cowl peak (a 3-point
+  // lag chain skinned by one strip) — the hood finally MOVES with the gaze turns.
+  const HOOD_SEGS = 3;
+  const hoodTail = makeStrip(HOOD_SEGS, cloakMat, 'hoodTail');
+  hoodTail.mesh.name = 'hoodTail0';   // the named-part contract
+  rig.add(hoodTail.mesh);
+  const _hoodPts = [];
+  for (let i = 0; i <= HOOD_SEGS; i++) _hoodPts.push(new THREE.Vector3(0.08, 2.4 - i * 0.3, -0.4 - i * 0.2));
+
   // Rebuild the cloak strip from the pivot chain, in RIG space (the mesh's parent).
   const _cwp = new THREE.Vector3();
   const _cpts = [];
   const _rigInv = new THREE.Matrix4();
-  function updateCloakStrip() {
+  function updateCloakStrip(dt, time) {
     rig.updateWorldMatrix(true, false);
     const rigInv = _rigInv.copy(rig.matrixWorld).invert();
     for (let i = 0; i < CLOAK_SEGS; i++) {
@@ -309,12 +379,95 @@ export function buildKarnvow(def, quality = 1) {
     const pos = cloak.geo.attributes.position.array;
     for (let i = 0; i <= CLOAK_SEGS; i++) {
       const p = _cpts[i];
-      const hw = CLOAK_HALF_W(i);
+      let hwL = CLOAK_HALF_W(i), hwR = hwL;
+      // P6 — the cloak TEARS per phase (damage-state storytelling on the strip we
+      // already have): phase 2 bites the hem's left edge, phase 3 bites deeper on
+      // the right + adds a ragged flutter. Still unmistakably the duelist's cloak.
+      if (phaseK >= 1 && i >= CLOAK_SEGS - 1) hwL *= 0.68;
+      if (phaseK >= 2 && i >= CLOAK_SEGS - 2) hwR *= 0.55 + Math.sin(time * 6 + i * 3) * 0.08;
+      const rag = phaseK > 0 && i === CLOAK_SEGS ? Math.sin(time * 7 + i) * 0.06 * phaseK : 0;
       const o = i * 6;
-      pos[o] = p.x + hw; pos[o + 1] = p.y; pos[o + 2] = p.z;
-      pos[o + 3] = p.x - hw; pos[o + 4] = p.y; pos[o + 5] = p.z;
+      pos[o] = p.x + hwR; pos[o + 1] = p.y + rag; pos[o + 2] = p.z;
+      pos[o + 3] = p.x - hwL; pos[o + 4] = p.y - rag; pos[o + 5] = p.z;
     }
     cloak.geo.attributes.position.needsUpdate = true;
+
+    // P3 — the inner LINING: same pivot chain, narrower, depth-offset, own wobble.
+    const lpos = lining.geo.attributes.position.array;
+    for (let i = 0; i <= CLOAK_SEGS; i++) {
+      const p = _cpts[i];
+      const hw = CLOAK_HALF_W(i) * 0.7;
+      const wob = Math.sin(time * 1.9 - i * 0.8) * 0.05;
+      const o = i * 6;
+      lpos[o] = p.x + hw; lpos[o + 1] = p.y + wob; lpos[o + 2] = p.z + 0.12;
+      lpos[o + 3] = p.x - hw; lpos[o + 4] = p.y - wob; lpos[o + 5] = p.z + 0.12;
+    }
+    lining.geo.attributes.position.needsUpdate = true;
+
+    // P3 — the PENNON chain: head pinned to the haft anchor (any lance pose change
+    // relocates it → the lag chain SNAPS the cloth); links ease toward hang +
+    // backstream with graded lag; skinned as a lateral-width banner.
+    penAnchor.getWorldPosition(_cwp);
+    _penPts[0].copy(_cwp.applyMatrix4(rigInv));
+    const PEN_LINK_MAX = 0.34;   // ≈1.2× rest spacing — the owner's "wire" jank guard
+    for (let i = 1; i <= PEN_SEGS; i++) {
+      const prev = _penPts[i - 1], p = _penPts[i];
+      const tx = prev.x - 0.04 - rigVelX * 0.02 - bankEase * 0.18;
+      const ty = prev.y - 0.26 + Math.sin(time * 2.2 - i * 1.1) * 0.05 * (1 - dyingK);
+      const tz = prev.z - 0.14 - Math.abs(velX) * 0.004;
+      const e = Math.min(1, dt * (7 - i * 1.1));
+      p.x += (tx - p.x) * e; p.y += (ty - p.y) * e; p.z += (tz - p.z) * e;
+      // LENGTH CLAMP (verlet constraint): a lance SNAP teleports the anchor, and an
+      // unconstrained lag chain strings the cloth into a taut multi-unit WIRE for
+      // half a second (the owner's screenshot). Cap each link's reach — the whip
+      // still lags directionally, but a snap now reads as a flag-crack, not a tether.
+      const dx = p.x - prev.x, dy = p.y - prev.y, dz = p.z - prev.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d > PEN_LINK_MAX) {
+        const k = PEN_LINK_MAX / d;
+        p.x = prev.x + dx * k; p.y = prev.y + dy * k; p.z = prev.z + dz * k;
+      }
+    }
+    const ppos = pennon.geo.attributes.position.array;
+    for (let i = 0; i <= PEN_SEGS; i++) {
+      const p = _penPts[i];
+      const hw = i === PEN_SEGS ? 0.17 : 0.24 - i * 0.03;   // a slight fork-flare at the tail
+      const fold = (i % 2 ? 0.05 : -0.05);   // corrugation: an edge-on strip must never collapse to a hairline
+      const o = i * 6;
+      ppos[o] = p.x + hw; ppos[o + 1] = p.y; ppos[o + 2] = p.z + fold;
+      ppos[o + 3] = p.x - hw; ppos[o + 4] = p.y; ppos[o + 5] = p.z - fold;
+    }
+    pennon.geo.attributes.position.needsUpdate = true;
+
+    // P3 — the HOOD TAIL: anchored to the cowl peak, streams back + sways with the
+    // gaze turns (the hood finally moves as a garment, not a helmet).
+    _cwp.set(0.08, 2.5, -0.35); cowlPivot.localToWorld(_cwp);
+    _hoodPts[0].copy(_cwp.applyMatrix4(rigInv));
+    const HOOD_LINK_MAX = 0.36;   // the same wire-jank guard as the pennon
+    for (let i = 1; i <= HOOD_SEGS; i++) {
+      const prev = _hoodPts[i - 1], p = _hoodPts[i];
+      const tx = prev.x + gazeX * 0.12 + Math.sin(time * 1.7 - i) * 0.05;
+      const ty = prev.y - 0.22;
+      const tz = prev.z - 0.2 - Math.abs(velX) * 0.003;
+      const e = Math.min(1, dt * (6 - i));
+      p.x += (tx - p.x) * e; p.y += (ty - p.y) * e; p.z += (tz - p.z) * e;
+      const dx = p.x - prev.x, dy = p.y - prev.y, dz = p.z - prev.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d > HOOD_LINK_MAX) {
+        const k = HOOD_LINK_MAX / d;
+        p.x = prev.x + dx * k; p.y = prev.y + dy * k; p.z = prev.z + dz * k;
+      }
+    }
+    const hpos = hoodTail.geo.attributes.position.array;
+    for (let i = 0; i <= HOOD_SEGS; i++) {
+      const p = _hoodPts[i];
+      const hw = 0.16 - i * 0.032;
+      const fold = (i % 2 ? 0.04 : -0.04);
+      const o = i * 6;
+      hpos[o] = p.x + hw; hpos[o + 1] = p.y; hpos[o + 2] = p.z + fold;
+      hpos[o + 3] = p.x - hw; hpos[o + 4] = p.y; hpos[o + 5] = p.z - fold;
+    }
+    hoodTail.geo.attributes.position.needsUpdate = true;
   }
 
   // DASH STREAKS (FX): 2 pooled short strips in GROUP space marking where the body
@@ -371,6 +524,65 @@ export function buildKarnvow(def, quality = 1) {
       pos[o + 3] = arc.pts[q]; pos[o + 4] = arc.pts[q + 1] - hw; pos[o + 5] = arc.pts[q + 2];
     }
     arc.geo.attributes.position.needsUpdate = true;
+  }
+
+  // SPEND PASS P5 — CUT-IN AFTERIMAGES: two strips whose sample points are stored
+  // in WORLD space and re-projected into group space every frame — during the
+  // near-pass the GROUP itself translates, so a group-space trail would ride along
+  // with him; world anchoring leaves the images hanging in the air behind the pass.
+  // Thin, opacity-fading standard material (never an additive shell — the cap).
+  const AFTER_SEGS = 5;
+  const afterimages = [];
+  for (let a = 0; a < 2; a++) {
+    const mat = track(new THREE.MeshStandardMaterial({
+      color: 0x0c1016, emissive: accent, emissiveIntensity: 0.55, roughness: 0.7, metalness: 0.1,
+      side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 0.0,
+    }));
+    const st = makeStrip(AFTER_SEGS, mat, `afterimage${a}`);
+    st.mesh.visible = false;
+    group.add(st.mesh);
+    afterimages.push({ ...st, mat, wpts: new Float32Array((AFTER_SEGS + 1) * 3), live: false, fade: 0 });
+  }
+  let afterIdx = 0, afterClock = 0;
+  const _awp = new THREE.Vector3();
+  function afterimageSample(st) {
+    st.wpts.copyWithin(3, 0);
+    st.wpts[0] = group.position.x; st.wpts[1] = group.position.y + 1.4; st.wpts[2] = group.position.z;
+  }
+  function afterimageSkin(st) {
+    const pos = st.geo.attributes.position.array;
+    for (let i = 0; i <= AFTER_SEGS; i++) {
+      const q = i * 3;
+      _awp.set(st.wpts[q], st.wpts[q + 1], st.wpts[q + 2]);
+      st.mesh.parent.worldToLocal(_awp);
+      const hw = 0.5 * (1 - i / (AFTER_SEGS + 1));
+      const o = i * 6;
+      pos[o] = _awp.x; pos[o + 1] = _awp.y + hw; pos[o + 2] = _awp.z;
+      pos[o + 3] = _awp.x; pos[o + 4] = _awp.y - hw; pos[o + 5] = _awp.z;
+    }
+    st.geo.attributes.position.needsUpdate = true;
+  }
+
+  // SPEND PASS P5 — a SECOND lance trail for the beats the first doesn't cover
+  // (the riposte swat + the cut-in cross-sweep).
+  const arc2Mat = track(new THREE.MeshStandardMaterial({
+    color: 0x0a0e14, emissive: accent, emissiveIntensity: 0.8, roughness: 0.6, metalness: 0.1,
+    side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 0.0,
+  }));
+  const arc2 = { ...makeStrip(ARC_SEGS, arc2Mat, 'lanceArc2'), pts: new Float32Array((ARC_SEGS + 1) * 3), live: false, fade: 0 };
+  arc2.mesh.visible = false;
+  group.add(arc2.mesh);
+  function arc2Sample(x, y, z) {
+    arc2.pts.copyWithin(3, 0);
+    arc2.pts[0] = x; arc2.pts[1] = y; arc2.pts[2] = z;
+    const pos = arc2.geo.attributes.position.array;
+    for (let i = 0; i <= ARC_SEGS; i++) {
+      const hw = 0.05 + 0.14 * (1 - i / (ARC_SEGS + 1));
+      const o = i * 6, q = i * 3;
+      pos[o] = arc2.pts[q]; pos[o + 1] = arc2.pts[q + 1] + hw; pos[o + 2] = arc2.pts[q + 2];
+      pos[o + 3] = arc2.pts[q]; pos[o + 4] = arc2.pts[q + 1] - hw; pos[o + 5] = arc2.pts[q + 2];
+    }
+    arc2.geo.attributes.position.needsUpdate = true;
   }
 
   // Cold character-line TRIM (§3.4 "lit edges ARE the drawing" + eitherwing's
@@ -472,6 +684,17 @@ export function buildKarnvow(def, quality = 1) {
     tip.rotateZ(0.12); tip.rotateX(-0.55);
     tip.translate(0.08, 2.05, -0.25);   // base embedded in the apex (no floating gap)
     parts.push(tip);
+    // SPEND PASS P1 — STITCH STUDS along the hood's front rim (the cloth-over-frame
+    // read up close; a row of coarse repair stitches — a hunter mends his own hood).
+    if (!lowQ) {
+      for (let i = 0; i < 9; i++) {
+        const t = i / 8;
+        const st = strip(new THREE.BoxGeometry(0.05, 0.12, 0.05));
+        st.rotateZ(t * 1.2 - 0.6);
+        st.translate(-0.62 + t * 1.3, -0.5 + Math.sin(t * Math.PI) * 2.35, 0.42);
+        parts.push(st);
+      }
+    }
     return mergeBody(parts, 'cowlShell');
   })();
   const cowlShell = new THREE.Mesh(cowlShellGeo, cowlMat);
@@ -579,7 +802,7 @@ export function buildKarnvow(def, quality = 1) {
     new THREE.Vector3(0.05, 0.02, LANCE_LEN * 0.5),   // straight forward
     new THREE.Vector3(0.1, 0.0, LANCE_LEN),           // the point
   ]);
-  const lanceTubular = lowQ ? 16 : 42, lanceRadial = lowQ ? 8 : 16;
+  const lanceTubular = lowQ ? 16 : 54, lanceRadial = lowQ ? 8 : 20;
   const lanceGeo = new THREE.TubeGeometry(lanceCurve, lanceTubular, 0.24, lanceRadial, false);
   taperTube(lanceGeo, lanceCurve, lanceTubular, lanceRadial, (u) => Math.max(0.12, 1 - u * 0.72));
 
@@ -591,15 +814,29 @@ export function buildKarnvow(def, quality = 1) {
     // HORN-RIDGE detail (§3b band-floor: "the lance's horn detail") — a DENSE spiral
     // of ridge facets wound up the shaft, so the lance reads as a taken/forged
     // horn-lance (the trophy-hunter wears the horn it took), not a plain pole.
-    const nRidge = lowQ ? 8 : 28;
+    const nRidge = lowQ ? 8 : 40;
     for (let i = 0; i < nRidge; i++) {
       const u = 0.08 + (i / nRidge) * 0.82;
       const c = lanceCurve.getPointAt(u);
       const rad = Math.max(0.12, 1 - u * 0.72) * 0.24;
       const a = u * 22;   // the winding
-      const seg = strip(new THREE.BoxGeometry(0.1, 0.1, 0.16));
+      const seg = strip(new THREE.BoxGeometry(0.09 + (i % 3) * 0.025, 0.09 + ((i + 1) % 3) * 0.025, 0.16));
       seg.translate(c.x + Math.cos(a) * rad, c.y + Math.sin(a) * rad, c.z);
       lanceParts.push(seg);
+    }
+    // TALLY NOTCHES scratched into the haft near the grip (the owner's spend plan:
+    // his kill count carved as heraldry — the "glowing air tallies" idea landed
+    // here because no legal emissive color exists for it). Groups of five: four
+    // cuts + the crossing fifth, dark relief the sun steps across.
+    if (!lowQ) {
+      for (let g = 0; g < 4; g++) {
+        for (let i = 0; i < 5; i++) {
+          const notch = strip(new THREE.BoxGeometry(0.035, 0.2, 0.05));
+          if (i === 4) notch.rotateZ(1.1);   // the crossing stroke
+          notch.translate(0.02, 0.21, 1.35 + g * 0.5 + (i === 4 ? 0.18 : i * 0.09));
+          lanceParts.push(notch);
+        }
+      }
     }
     // Forged guard RING at the vamplate throat + a point COLLAR up near the tip —
     // hard horizontal value-steps along the horn (a forged relic, not a dowel).
@@ -620,6 +857,7 @@ export function buildKarnvow(def, quality = 1) {
     }
   }
   const lance = new THREE.Mesh(mergeBody(lanceParts, 'lance'), plateMat);
+  lance.name = 'lanceShaft';   // named: the P4 split swaps it with the fragments
   lancePivot.add(lance);
 
   // The vamplate (hand-guard cone at the grip) — a hard flare that says "couched
@@ -668,6 +906,58 @@ export function buildKarnvow(def, quality = 1) {
   const LANCE_POINT = new THREE.Euler(-0.05, 0.06, 0.02);  // leveled forward at you
   const LANCE_SALUTE = new THREE.Euler(-1.35, 0.05, 0.05); // snapped near-vertical (notice salute)
   lancePivot.rotation.copy(LANCE_REST);
+  lancePivot.add(penAnchor);   // P3: the pennon's haft anchor rides every lance pose
+
+  // SPEND PASS P4 — the lance SPLITS during Voidmaw's Verdict: three horn-fragment
+  // tube sections (built once, hidden; visible ONLY during the card's mid-beat, so
+  // their draws cost nothing at idle). Mid-card the whole lance mesh hides, the
+  // fragments drift apart along the shaft, and the horn REASSEMBLES as the card
+  // resolves — "wears the horn it took", shown coming apart at the memory.
+  // Fragments wear a cold-rimmed variant of the plate iron (card-only, so the
+  // idle G3 frames never see it): without the rim they read as stray dark blobs
+  // against the night sky instead of the horn in pieces (Fable catch).
+  const fragMat = track(new THREE.MeshStandardMaterial({
+    color: 0x22252b, emissive: accent, emissiveIntensity: 0.5, roughness: 0.6, metalness: 0.5, flatShading: true,
+  }));
+  const fragMeshes = [];
+  for (let f = 0; f < 3; f++) {
+    const u0 = f / 3, u1 = (f + 1) / 3;
+    const sub = new THREE.CatmullRomCurve3([lanceCurve.getPointAt(u0), lanceCurve.getPointAt((u0 + u1) / 2), lanceCurve.getPointAt(u1)]);
+    const fg = new THREE.TubeGeometry(sub, lowQ ? 6 : 14, 0.24, lowQ ? 6 : 10, false);
+    taperTube(fg, sub, lowQ ? 6 : 14, lowQ ? 6 : 10, (u) => Math.max(0.12, 1 - (u0 + u * (u1 - u0)) * 0.72));
+    const fm = new THREE.Mesh(fg, fragMat);
+    fm.name = `lanceFrag${f}`;
+    fm.visible = false;
+    lancePivot.add(fm);
+    fragMeshes.push(fm);
+  }
+
+  // SPEND PASS P4 — THE VOIDMAW GHOST (owner-approved, Voidmaw-ONLY): a dim violet
+  // line-glyph of the idol-mask flickering beside the horn during its own card —
+  // "the horn remembers its owner." LineSegments, ≤0.25-class opacity, never a
+  // shell; one palette (the violet is already on screen from the seal).
+  const ghostMat = track(new THREE.LineBasicMaterial({ color: new THREE.Color(0x8a5cff).multiplyScalar(2.1), transparent: true, opacity: 0, depthWrite: false }));
+  ghostMat.toneMapped = false;
+  const ghostGeo = (() => {
+    const pts = [];
+    const seg = (x1, y1, x2, y2) => { pts.push(x1, y1, 0, x2, y2, 0); };
+    // the idol-mask glyph: a broken brow arch, two hollow eye slashes, the split jaw
+    seg(-0.55, 0.5, 0, 0.82); seg(0, 0.82, 0.55, 0.5);            // the brow arch
+    seg(-0.6, 0.45, -0.62, -0.1); seg(0.6, 0.45, 0.62, -0.1);     // the cheeks
+    seg(-0.38, 0.3, -0.16, 0.18); seg(0.16, 0.18, 0.38, 0.3);     // hollow eye slashes
+    seg(-0.5, -0.2, -0.12, -0.5); seg(0.12, -0.5, 0.5, -0.2);     // the split jaw
+    seg(-0.12, -0.5, -0.06, -0.78); seg(0.12, -0.5, 0.06, -0.78); // the jaw's broken point
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
+    return g;
+  })();
+  const ghost = new THREE.LineSegments(ghostGeo, ghostMat);
+  ghost.name = 'voidmawGhost';
+  ghost.position.set(0.3, 0.6, 3.4);   // hovers beside the horn's upper shaft
+  ghost.scale.setScalar(1.65);
+  ghost.visible = false;
+  ghost.frustumCulled = false;
+  lancePivot.add(ghost);
 
   // ---------------------------------------------------------------------
   // THE TROPHY CHAIN — a HEAVY baldric strap across the torso (from the RIGHT
@@ -758,24 +1048,62 @@ export function buildKarnvow(def, quality = 1) {
       // entrance charm-FLARE, §5j — that's where each trophy's colour is read loud).
       emissiveIntensity: isHook ? 0.0 : 0.06, roughness: 0.6, metalness: 0.4, flatShading: true,
     }));
+    // SPEND PASS P1 — each trophy is a real MINIATURE of the boss it was taken
+    // from, not a primitive blob (still ONE merged mesh per charm = one draw).
     let cg;
-    if (spec.kind === 'blade') { cg = new THREE.ConeGeometry(0.3, spec.len * 1.9, lowQ ? 3 : 6); }   // a snapped feather-blade
-    else if (spec.kind === 'hook') { cg = new THREE.TorusGeometry(0.4, 0.1, lowQ ? 5 : 8, lowQ ? 8 : 16, Math.PI * 1.3); }  // an OPEN hook (a C, not closed)
-    else if (spec.kind === 'ring') { cg = new THREE.TorusGeometry(0.36, 0.09, lowQ ? 5 : 8, lowQ ? 10 : 18); }                // a trophy-ring
-    else { cg = new THREE.IcosahedronGeometry(spec.len * 0.95, lowQ ? 1 : 2); }                // a faceted relic shard
+    if (spec.kind === 'blade') {
+      // Ashtalon's snapped feather-blade: the blade + two barbs + a broken quill nub.
+      const ps = [strip(new THREE.ConeGeometry(0.3, spec.len * 1.9, lowQ ? 3 : 6))];
+      if (!lowQ) {
+        for (const sx of [1, -1]) {
+          const barb = strip(new THREE.ConeGeometry(0.08, 0.3, 4));
+          barb.rotateZ(sx * 2.2); barb.translate(sx * 0.2, -0.1, 0);
+          ps.push(barb);
+        }
+        const quill = strip(new THREE.CylinderGeometry(0.05, 0.07, 0.24, 5)); quill.translate(0, spec.len * 0.95 + 0.1, 0); ps.push(quill);
+      }
+      cg = mergeBody(ps, 'charmBlade');
+    } else if (spec.kind === 'hook') { cg = new THREE.TorusGeometry(0.4, 0.1, lowQ ? 5 : 8, lowQ ? 8 : 16, Math.PI * 1.3); }  // the OPEN hook stays STARK (it's the scar)
+    else if (spec.kind === 'ring') {
+      // Hollowgate's window-ring: the torus + four rose-spokes.
+      const ps = [strip(new THREE.TorusGeometry(0.36, 0.09, lowQ ? 5 : 8, lowQ ? 10 : 18))];
+      if (!lowQ) for (let s = 0; s < 4; s++) {
+        const sp = strip(new THREE.BoxGeometry(0.05, 0.6, 0.05));
+        sp.rotateZ(s * Math.PI / 4 + Math.PI / 8);
+        ps.push(sp);
+      }
+      cg = mergeBody(ps, 'charmRing');
+    } else if (spec.of === 'voidmaw') {
+      // Voidmaw's horn-shard: the faceted shard + the scar groove ridge down it.
+      const ps = [strip(new THREE.IcosahedronGeometry(spec.len * 0.95, lowQ ? 1 : 2))];
+      if (!lowQ) { const gr = strip(new THREE.BoxGeometry(0.05, spec.len * 1.6, 0.07)); gr.rotateZ(0.3); ps.push(gr); }
+      cg = mergeBody(ps, 'charmHorn');
+    } else if (spec.of === 'marrowcoil') {
+      // Marrowcoil's rib-curl: the shard + a curled rib arc.
+      const ps = [strip(new THREE.IcosahedronGeometry(spec.len * 0.9, lowQ ? 1 : 2))];
+      if (!lowQ) { const rib = strip(new THREE.TorusGeometry(0.3, 0.05, 5, 10, Math.PI * 1.2)); rib.rotateY(0.6); rib.translate(0.1, 0, 0.1); ps.push(rib); }
+      cg = mergeBody(ps, 'charmRib');
+    } else {
+      // Stormrend's storm-shard: the faceted core + two facet spikes.
+      const ps = [strip(new THREE.IcosahedronGeometry(spec.len * 0.95, lowQ ? 1 : 2))];
+      if (!lowQ) for (const sx of [1, -1]) {
+        const sp = strip(new THREE.TetrahedronGeometry(0.14, 0)); sp.translate(sx * 0.32, sx * 0.12, 0.05); ps.push(sp);
+      }
+      cg = mergeBody(ps, 'charmStorm');
+    }
     const charm = new THREE.Mesh(cg, charmMat);
     charm.name = `trophyCharm${i}`;   // CP2: the lock/paint target (branding the hunter's trophies) + the flare node
     charm.position.set(0, -dropLen - 0.3, 0);
     hang.add(charm);
     chainPivot.add(hang);
-    charms.push({ hang, mat: charmMat, mesh: charm, isHook, of: spec.of, base: spec.color, phase: i * 1.7 });
+    charms.push({ hang, baseX: hang.position.x, baseY: hang.position.y, mat: charmMat, mesh: charm, isHook, of: spec.of, base: spec.color, phase: i * 1.7 });
   }
   // THE CHAIN ITSELF at festoon scale: a merged bead-catenary swagged between the
   // hang anchors — ONE mesh (chain presence spent as tris, not draws), swinging
   // with the garland on chainPivot.
   const beadStrand = (() => {
     const parts = [];
-    const nB = lowQ ? 10 : 24;
+    const nB = lowQ ? 10 : 46;
     for (let i = 0; i < nB; i++) {
       const t = i / (nB - 1);
       const b = strip(new THREE.IcosahedronGeometry(0.075, 0));
@@ -876,6 +1204,55 @@ export function buildKarnvow(def, quality = 1) {
   rig.add(verdictSigil);
   const SIGIL_VERTS = sigilGeo.attributes.position.count;
   sigilGeo.setDrawRange(0, 0);
+
+  // SPEND PASS P7 — AMBIENT ASH: one THREE.Points cloud (~40 specks, ONE draw —
+  // never per-mote meshes, that's where a draw budget dies). Dim ash-grey, slow
+  // orbital drift; lowQ halves the count.
+  const ashN = lowQ ? 20 : 40;
+  const ashGeo = new THREE.BufferGeometry();
+  {
+    const pts = new Float32Array(ashN * 3);
+    for (let i = 0; i < ashN; i++) {
+      const a = (i / ashN) * Math.PI * 2, r = 1.8 + (i % 5) * 0.55;
+      pts[i * 3] = Math.cos(a) * r;
+      pts[i * 3 + 1] = -2 + (i % 7);
+      pts[i * 3 + 2] = Math.sin(a) * r * 0.6;
+    }
+    ashGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  }
+  const ashMat = track(new THREE.PointsMaterial({ color: 0x3a3f47, size: 0.14, transparent: true, opacity: 0.75, depthWrite: false }));
+  const ashCloud = new THREE.Points(ashGeo, ashMat);
+  ashCloud.name = 'ashCloud';
+  ashCloud.frustumCulled = false;
+  rig.add(ashCloud);
+
+  // SPEND PASS P7 — the EMPTY HOOK's WISP: a tiny cold coil that appears on the
+  // hook-present beat + occasionally at idle — a satellite (emissive ≤0.25), never
+  // a lamp. It waits on the hook that P2 keeps pointing at you.
+  const wispMat = track(new THREE.MeshStandardMaterial({
+    color: 0x0c1016, emissive: accent, emissiveIntensity: 0.22, roughness: 0.8, metalness: 0.05,
+    side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 0.0,
+  }));
+  const WISP_SEGS = 6;
+  const wisp = makeStrip(WISP_SEGS, wispMat, 'hookWisp');
+  wisp.mesh.visible = false;
+  charms[5].hang.add(wisp.mesh);   // rides the empty hook's hang
+  function wispSkin(time, k) {
+    const pos = wisp.geo.attributes.position.array;
+    for (let i = 0; i <= WISP_SEGS; i++) {
+      const t = i / WISP_SEGS;
+      const a = t * Math.PI * 2.4 + time * 2.2;
+      const r = 0.5 - t * 0.18;
+      const cx = Math.cos(a) * r, cz = Math.sin(a) * r;
+      const cy = -0.9 - t * 0.5 + Math.sin(time * 1.6 + t * 4) * 0.06;
+      const hw = 0.05 * (1 - t * 0.5) * k;
+      const o = i * 6;
+      pos[o] = cx; pos[o + 1] = cy + hw; pos[o + 2] = cz;
+      pos[o + 3] = cx; pos[o + 4] = cy - hw; pos[o + 5] = cz;
+    }
+    wisp.geo.attributes.position.needsUpdate = true;
+  }
+  let wispT = 0, nextWisp = 5 + Math.random() * 4;
 
   // Hit flash rings the cowl RIM (the cold character line flares on a hit — "it felt
   // that" — never lighting the whole dark body).
@@ -978,11 +1355,23 @@ export function buildKarnvow(def, quality = 1) {
   let footHold = false;
   function holdFootwork(hold) { footHold = !!hold; }
 
+  // SPEND PASS P2 — the EMPTY HOOK slowly swings toward YOUR dragon as the fight
+  // runs (zero draws, pure menace): hookAim creeps 0→1 over ~90s of LIVE fight
+  // (paused while shielded / dying / entrance-held). The hook POINTS and never
+  // answers — the §3-law-6 open thread, executed as motion.
+  let hookAim = 0;
+
+  // SPEND PASS P6 — the cloak TEARS per phase: boss.js calls setPhase at each
+  // shield-break advance (optional-chained; every other boss ignores it).
+  // Monotonic — a tear never mends mid-fight.
+  let phaseK = 0;
+  function setPhase(idx) { phaseK = Math.max(phaseK, Math.min(2, idx)); }
+
   // --- GRANDEUR REDO setpiece hook: boss.js feeds sin(kπ) + the setpiece def
   // each frame (clearSetpiece + the entrance scripts call it bare/0). `dread` →
   // VOIDMAW'S VERDICT (the sigil writing); anything else (flankCutIn) → the
   // near-pass apex drama (held cross-sweep, chain kick, cloak whip). ---
-  let verdictK = 0, cutInK = 0, verdictEase = 0, cutEase = 0, verdictTrace = 0, cutKicked = false;
+  let verdictK = 0, cutInK = 0, verdictEase = 0, cutEase = 0, verdictTrace = 0, cutKicked = false, splitK = 0;
   function setSetpiece(k, sdef) {
     if (sdef && sdef.dread && k > 0) { verdictK = k; cutInK = 0; }
     else if (sdef && k > 0) { cutInK = k; verdictK = 0; }
@@ -1064,6 +1453,8 @@ export function buildKarnvow(def, quality = 1) {
       prevChargeDart = charge;
     }
     rig.scale.y = 1 - crouchEase * 0.07;   // the anticipation crouch (kit owns GROUP scale, rig is free)
+    // P2: the empty hook's aim-clock runs only while the duel is LIVE.
+    if (!(dyingK > 0.1 || shieldPlant || footHold)) hookAim = Math.min(1, hookAim + dt / 90);
 
     // --- Multi-frequency idle (the eitherwing layering) + the guard position: the
     // duelist shifts his seat AND holds his current guard. Lane-drift stays small
@@ -1286,6 +1677,39 @@ export function buildKarnvow(def, quality = 1) {
     seamMat.opacity = 0.35 + verdictEase * 0.5;
     linkMat.emissiveIntensity = verdictEase * 0.5;   // the chain itself catches the verdict light (dark-sky festoon read)
 
+    // P4 — the SPLIT beat: mid-card (while the writing crosses the seal's heart)
+    // the horn comes apart; it reassembles as the trace completes. splitK eases so
+    // the fragments never pop.
+    const splitTarget = (verdictTrace > 0.45 && verdictTrace < 0.85 && verdictK > 0.05) ? 1 : 0;
+    splitK += (splitTarget - splitK) * Math.min(1, dt * 5);
+    const splitLive = splitK > 0.04;
+    if (splitLive !== fragMeshes[0].visible) {
+      for (const fm of fragMeshes) fm.visible = splitLive;
+      lance.visible = !splitLive;
+    }
+    if (splitLive) {
+      for (let f = 0; f < 3; f++) {
+        const fm = fragMeshes[f];
+        fm.position.set(
+          Math.sin(f * 2.1 + time * 0.7) * 0.3 * splitK,
+          (f - 1) * 0.28 * splitK + Math.sin(time * 1.9 + f) * 0.06 * splitK,
+          f * 0.14 * splitK,
+        );
+        fm.rotation.z = (f - 1) * 0.16 * splitK;
+        fm.rotation.x = Math.sin(time * 1.1 + f * 2) * 0.05 * splitK;
+      }
+    }
+
+    // P4 — the Voidmaw ghost: brief dim flickers beside the horn through the card.
+    const ghostOn = verdictEase > 0.25;
+    ghost.visible = ghostOn;
+    if (ghostOn) {
+      const flick = Math.sin(time * 11) > 0.45 ? 1 : 0.45;
+      ghostMat.opacity = 0.25 * verdictEase * flick * (1 - dyingK);   // AT the approved dim cap — dark-scene compression eats anything less
+      ghost.rotation.y = Math.sin(time * 0.9) * 0.3;
+      ghost.position.y = 0.6 + Math.sin(time * 1.3) * 0.1;
+    } else ghostMat.opacity = 0;
+
     // --- The cowl RECOIL (flinch/notice) + the whole rig kicks back. ---
     const recoil = (painT > 0 ? painT / 0.34 : 0) * 0.35 + (noticeT > 0.6 ? (noticeT - 0.6) / 0.4 : 0) * 0.25;
     rig.position.z = -recoil;
@@ -1319,10 +1743,18 @@ export function buildKarnvow(def, quality = 1) {
       // eitherwing ribbon-chain trailing read) + its own phase-offset flutter. The
       // EMPTY HOOK tilts up and PRESENTS itself during the hookT beat ("the next
       // one is for you" — the §5j entrance closer) AND through the verdict.
-      const present = (c.isHook && (hookT > 0 || verdictEase > 0.3)) ? -0.85 : 0;
+      // P2: the empty hook's slow-creep aim — it tilts up + yaws toward the dragon
+      // more the longer the fight runs (hookAim), on top of the present-beat snap.
+      const present = (c.isHook && (hookT > 0 || verdictEase > 0.3)) ? -0.85 : (c.isHook ? -0.55 * hookAim : 0);
       const hangTarget = chainAng * (0.7 + i * 0.12) + Math.sin(time * (1.4 + i * 0.2) + c.phase) * 0.1;
       c.hang.rotation.z += (hangTarget - c.hang.rotation.z) * Math.min(1, dt * (4.5 - i * 0.45));
       c.hang.rotation.x += (present - c.hang.rotation.x) * Math.min(1, dt * 6);
+      if (c.isHook) c.hang.rotation.y += (gazeX * 0.8 * hookAim - c.hang.rotation.y) * Math.min(1, dt * 1.6);
+      // P4: the trophies LIFT off the chain while the verdict is written (existing
+      // draws — pure animation): each rises with its wave beat + a slow drift orbit.
+      const liftWave = Math.max(0, Math.min(1, (verdictTrace - i / 6) * 6)) * verdictEase;
+      c.hang.position.y = c.baseY + liftWave * (1.7 + (i % 2) * 0.45);   // HIGH enough that a still proves it (Fable catch)
+      c.hang.position.x = c.baseX + Math.sin(time * 1.3 + c.phase) * 0.28 * liftWave;
       if (!c.isHook) {
         // Idle: a low emissive pulse in the owed palette. FLARE (§5j): the top-killer
         // charm burns HOT in its owed palette while flareT runs — the escalation
@@ -1332,10 +1764,13 @@ export function buildKarnvow(def, quality = 1) {
         const dieThresh = (i + 1) / (charms.length + 1.5);
         const alive = dyingK < dieThresh ? 1 : Math.max(0, 1 - (dyingK - dieThresh) / 0.12);
         const flareHit = flareIdx === i || flareIdx === -2;   // -2 = the whole chain burns
+        // P4: the testify is a SEQUENTIAL WAVE, not a simultaneous wall — charm i
+        // ignites as the WRITING passes it (keyed to verdictTrace), each in turn.
+        const wave = Math.max(0, Math.min(1, (verdictTrace - i / 6) * 6));
         const flare = ((flareHit && flareT > 0) ? (flareIdx === -2 ? 1.6 : 2.6) * Math.min(1, flareT / (FLARE_DUR * 0.35)) * (0.75 + Math.sin(time * 14) * 0.25) : 0)
           // testify at 1.7 (Fable fix 3: at 1.1 they read as matte balloons, not
           // burning relics) — hot enough to rim-bloom, the size-pulse keeps shape.
-          + verdictEase * 1.7 * (0.8 + Math.sin(time * 9 + c.phase) * 0.2);
+          + wave * verdictEase * 1.7 * (0.8 + Math.sin(time * 9 + c.phase) * 0.2);
         c.mat.emissiveIntensity = (0.06 + Math.sin(time * 1.6 + c.phase) * 0.02 + flare) * alive;
         c.mesh.scale.setScalar(1 + Math.min(1, flare) * 0.15);   // the burning trophy physically strains
       }
@@ -1376,7 +1811,7 @@ export function buildKarnvow(def, quality = 1) {
       cloakPivots[i].rotation.x += (tX - cloakPivots[i].rotation.x) * ce;
       cloakPivots[i].rotation.z += (tZ - cloakPivots[i].rotation.z) * ce;
     }
-    updateCloakStrip();
+    updateCloakStrip(dt, time);
 
     // --- Motion FX lifecycle: dash streaks sample the body's path during a hop,
     // then drain; the lance arc samples the live tip through sweep/flourish. ---
@@ -1405,6 +1840,64 @@ export function buildKarnvow(def, quality = 1) {
       arcMat.opacity = Math.max(0, 0.55 * arc.fade);
       if (arc.fade <= 0) { arc.live = false; arc.mesh.visible = false; }
     }
+
+    // P5 — CUT-IN AFTERIMAGES: while the near-pass runs, one strip actively
+    // samples the body's WORLD track every ~70ms; released strips fade. All live
+    // strips re-skin every frame (world anchors re-projected into group space).
+    if (cutInK > 0.35 && dyingK <= 0) {
+      afterClock += dt;
+      if (afterClock >= 0.07) {
+        afterClock = 0;
+        const st = afterimages[afterIdx % afterimages.length];
+        if (!st.live) {
+          st.live = true; st.fade = 1; st.mesh.visible = true; st.mat.opacity = 0.5;
+          for (let q = 0; q < st.wpts.length; q += 3) { st.wpts[q] = group.position.x; st.wpts[q + 1] = group.position.y + 1.4; st.wpts[q + 2] = group.position.z; }
+        }
+        afterimageSample(st);
+      }
+    } else if (afterClock !== 0) { afterClock = 0; afterIdx++; }
+    for (const st of afterimages) {
+      if (!st.live) continue;
+      if (!(cutInK > 0.35) || dyingK > 0) {
+        st.fade -= dt * 2.2;
+        st.mat.opacity = Math.max(0, 0.5 * st.fade);
+        if (st.fade <= 0) { st.live = false; st.mesh.visible = false; continue; }
+      }
+      afterimageSkin(st);
+    }
+
+    // P5 — the second lance trail: the riposte swat + the cut-in cross-sweep.
+    const arc2Active = (riposteT > 0.05 || cutEase > 0.4) && dyingK <= 0;
+    if (arc2Active) {
+      lanceTip.getWorldPosition(_cwp);
+      group.worldToLocal(_cwp);
+      if (!arc2.live) {
+        for (let q = 0; q < arc2.pts.length; q += 3) { arc2.pts[q] = _cwp.x; arc2.pts[q + 1] = _cwp.y; arc2.pts[q + 2] = _cwp.z; }
+        arc2.live = true; arc2.mesh.visible = true;
+      }
+      arc2Sample(_cwp.x, _cwp.y, _cwp.z);
+      arc2.fade = 1; arc2Mat.opacity = 0.5;
+    } else if (arc2.live) {
+      arc2.fade -= dt * 3;
+      arc2Mat.opacity = Math.max(0, 0.5 * arc2.fade);
+      if (arc2.fade <= 0) { arc2.live = false; arc2.mesh.visible = false; }
+    }
+
+    // P7 — the ash cloud drifts (one draw of ambience) …
+    ashCloud.rotation.y = time * 0.11;
+    ashCloud.position.y = Math.sin(time * 0.4) * 0.3;
+    ashMat.opacity = 0.75 * (1 - dyingK);
+    // … and the hook WISP coils: on the present beat, through the verdict, and on
+    // its own slow clock (a satellite, never a lamp).
+    nextWisp -= dt;
+    if (wispT > 0) wispT -= dt;
+    else if (nextWisp <= 0 && dyingK <= 0) { wispT = 1.8; nextWisp = 6 + Math.random() * 5; }
+    const wispK = Math.min(1, Math.max(hookT > 0 ? 1 : 0, verdictEase, wispT > 0 ? Math.sin((wispT / 1.8) * Math.PI) * 1.4 : 0));
+    if (wispK > 0.03) {
+      wisp.mesh.visible = true;
+      wispMat.opacity = 0.5 * Math.min(1, wispK) * (1 - dyingK);
+      wispSkin(time, Math.min(1, wispK));
+    } else if (wisp.mesh.visible) { wisp.mesh.visible = false; wispMat.opacity = 0; }
 
     // Ash-motes drift near the body (dark, dim — never a false glint).
     for (const o of orbiters) {
@@ -1469,6 +1962,7 @@ export function buildKarnvow(def, quality = 1) {
     riposte,      // CP2: the parry cross-swat + amber flash (the C1 reflect-once beat)
     setSetpiece,  // REDO: dread → Voidmaw's Verdict (the sigil writing); else the cut-in apex
     holdFootwork, // entrance: plant the dart machine through the cinematic (the hop fix)
+    setPhase,     // spend pass P6: the cloak tears at each phase seam
     partWorldPos,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,

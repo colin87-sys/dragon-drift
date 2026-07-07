@@ -168,9 +168,19 @@ body.app-loaded > canvas { opacity: 1; }
 /* §5b WEFTWITCH banner-pin: the warn banner CROSS-STITCHED in place, half-deployed —
    ridden up out of its slot with a stitch-tilt + a dashed gold seam where the thread
    lashed it. Cleared (torn free) by ui.bossWarnClear at enterFight/skip/reset. */
-.boss-warn.pinned { opacity: 1; transform: translateY(-46%) rotate(-1.6deg); transition: transform 0.5s cubic-bezier(.6,0,.3,1); }
+.boss-warn.pinned { opacity: 1; transform: translateY(-46%) rotate(-1.6deg); transition: transform 0.5s cubic-bezier(.6,0,.3,1), opacity 0.5s ease; }
 .boss-warn.pinned .boss-warn-alert { animation: none; opacity: 0.55; }
-.boss-warn.pinned .boss-warn-name { border-bottom: 2px dashed rgba(232,196,102,0.85); display: inline-block; padding-bottom: 6px; }
+.boss-warn.pinned .boss-warn-name { display: inline-block; padding-bottom: 6px; position: relative; }
+/* §5b the NAME STITCH-OUT: at the lash a golden thread LASHES across the name (legible
+   first — the binding ruling — then cross-stitched out). A bar draws L→R over the text. */
+.boss-warn.pinned .boss-warn-name::after {
+  content: ''; position: absolute; left: -4%; right: -4%; top: 52%; height: 3px;
+  background: linear-gradient(90deg, transparent, #e8c466 12%, #fff2c8 50%, #e8c466 88%, transparent);
+  box-shadow: 0 0 6px rgba(232,196,102,0.9); transform: scaleX(0); transform-origin: left; }
+.boss-warn.stitched .boss-warn-name::after { animation: stitch-out 0.42s cubic-bezier(.5,0,.4,1) forwards; }
+@keyframes stitch-out { to { transform: scaleX(1); } }
+/* §5b the TEAR-FREE: at fight start the pinned banner FLINGS up + fades off. */
+.boss-warn.tearing { transform: translateY(-140%) rotate(-4deg); opacity: 0; }
 /* §5b WEFTWITCH HUD-SEW — golden threads stitch across the chrome ONCE at her
    entrance. z 46 sits above every in-run HUD layer; that is SAFE only because the
    controller fires it exclusively in the bullet-free warn/approach window (bullets
@@ -181,10 +191,14 @@ body.app-loaded > canvas { opacity: 1; }
 .hud-sew path { stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linecap: round;
   stroke-dasharray: 100; stroke-dashoffset: 100; animation: sew-draw 1.05s cubic-bezier(.55,0,.3,1) forwards; }
 @keyframes sew-draw { to { stroke-dashoffset: 0; } }
+/* the UNRAVEL: at fight start the threads retract (reverse the draw-on) then clear. */
+.hud-sew.unravel path { animation: sew-undraw 0.5s cubic-bezier(.5,0,.5,1) forwards; }
+@keyframes sew-undraw { to { stroke-dashoffset: 100; } }
 body[data-qtier="2"] .hud-sew { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .hud-sew path { animation: none; stroke-dashoffset: 0; }
-  .boss-warn.pinned { transition: none; }
+  .hud-sew path, .hud-sew.unravel path { animation: none; stroke-dashoffset: 0; }
+  .boss-warn.pinned, .boss-warn.tearing { transition: none; }
+  .boss-warn.stitched .boss-warn-name::after { animation: none; transform: scaleX(1); }
 }
 /* Foreboding DANGER anchored WHERE the boss emerges, on a bed of animated hazard
    stripes. data-pos places it at the entry edge/corner; the stripes scroll inward. */

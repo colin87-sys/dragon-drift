@@ -172,12 +172,23 @@ export function buildKnellgrave(def, quality = 1) {
   // not there at the start. Ornament (frieze/buried/fins/rivets) skips the windows so nothing
   // floats when shed.
   const SHED_YTOP = -1.2, SHED_YBOT = -5.2;
-  const SHED = [
-    { aMid: 0.98, aHalf: 0.44, at: 0.30, mid: -3.2 },   // front-RIGHT (visible, sheds ~P2)
-    { aMid: 0.98 + Math.PI, aHalf: 0.44, at: 0.30, mid: -3.2 },   // back-LEFT, opposite FR — its hole aligns for the through-line
-    { aMid: 5.18, aHalf: 0.44, at: 0.60, mid: -3.2 },   // front-LEFT (visible, sheds ~P3)
-    { aMid: 5.18 - Math.PI, aHalf: 0.44, at: 0.60, mid: -3.2 },   // back-RIGHT, opposite FL
-  ];
+  // THE SHED — the bell loses a big chunk of wall at EACH PHASE TRANSITION so the damage reads
+  // from the fight camera, not just up close (owner playtest). The three FRONT chunks break at
+  // the PHASE-FLOOR ruin values — 0.30 (P1→P2), 0.55 (P2→P3), 0.72 (just before the P4 seal) —
+  // so the first armour loss lands BETWEEN phase 1 and 2, not at the fight start (owner note).
+  // Each is paired with the chunk diametrically behind it (θ+π), shed together, so the break
+  // punches THROUGH to the sky. By the last toll most of the lower wall is gone — a skeleton, not
+  // a bell with a bright crack. Ornament + both walls carve to these windows; plates cover them
+  // at rest (a clean, whole bell through phase 1 — the degradation is EARNED).
+  // All three front chunks sit in the FRONT-VISIBLE arc (az within ~±55° of front, clear of the
+  // crack) so each phase's loss reads EQUALLY from the fight camera (owner: "the shedding should
+  // be visually even between phases"). Same size; spread L/R across the face so the damage doesn't
+  // clump. aHalf 0.28 lets all three fit in the front without overlapping the crack or each other.
+  const SHED = [];
+  for (const [aMid, at] of [[0.92, 0.30], [5.58, 0.55], [0.32, 0.72]]) {   // P1→2 front-right · P2→3 front-left · P3→4 front-centre
+    SHED.push({ aMid, aHalf: 0.28, at, mid: -3.2 });                         // the visible front chunk
+    SHED.push({ aMid: (aMid + Math.PI) % (Math.PI * 2), aHalf: 0.28, at, mid: -3.2 });   // its diametric twin → the sky through-line
+  }
   const angDelta = (a, b) => { let d = Math.abs((a - b) % (Math.PI * 2)); return Math.min(d, Math.PI * 2 - d); };
   const inShed = (a) => SHED.some((s) => angDelta(a, s.aMid) <= s.aHalf);
   for (let i = 0; i < prof.length - 1; i++) {
@@ -300,7 +311,55 @@ export function buildKnellgrave(def, quality = 1) {
     const mesh = new THREE.Mesh(geo, mat); mesh.name = 'knellShedPanel';
     const pivot = new THREE.Group(); pivot.position.copy(C); pivot.add(mesh);
     bellGroup.add(pivot);
-    shedPanels.push({ pivot, mesh, mat, C, aMid: s.aMid, at: s.at, prog: 0 });
+    shedPanels.push({ pivot, mesh, mat, C, aMid: s.aMid, at: s.at, prog: 0, falling: false, spent: false });
+  }
+
+  // ---- FALLING DEBRIS + SPLASH (world-space) — owner: "have the chunks fly off and fall into
+  // the water." Once a shed plate tears free it is reparented to the SCENE (out of the bell's
+  // swinging rig) and plummets under gravity to the surface, where it throws a splash ring and
+  // vanishes. The surface is fed in-game via setWaterPlane(0) (world.js y=0); in the studio/tests
+  // it stays null so plates just shear + fade locally (isolated captures byte-identical).
+  let waterY = null;
+  function setWaterPlane(y) { waterY = y; }
+  const GRAV = 30;
+  const worldDebris = [];   // scene-parented objects to clean up on dispose (fallen plates + splash rings)
+  const splashMat = track(new THREE.MeshBasicMaterial({ color: glow, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const splashes = [];
+  function spawnSplash(x, z) {
+    const scene = group.parent; if (!scene) return;
+    let s = splashes.find((q) => q.t <= 0);
+    if (!s) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.6, lowQ ? 12 : 18), splashMat);
+      ring.rotation.x = -Math.PI / 2;   // flat on the surface
+      scene.add(ring); worldDebris.push(ring);
+      s = { mesh: ring, t: 0 }; splashes.push(s);
+    }
+    s.mesh.position.set(x, waterY + 0.05, z);
+    s.t = 0.55;
+  }
+  function tickDebris(dt) {
+    for (const p of shedPanels) {
+      if (!p.falling) continue;
+      p.vy -= GRAV * dt;
+      p.pivot.position.x += p.vx * dt;
+      p.pivot.position.y += p.vy * dt;
+      p.pivot.position.z += p.vz * dt;
+      p.mesh.rotation.x += p.spin * dt;
+      p.mesh.rotation.z += p.spin * 0.6 * dt;
+      if (p.pivot.position.y <= waterY) {
+        spawnSplash(p.pivot.position.x, p.pivot.position.z);
+        p.falling = false; p.spent = true; p.pivot.visible = false;
+      }
+    }
+    let sy = 0;
+    for (const s of splashes) {
+      if (s.t <= 0) { s.mesh.visible = false; continue; }
+      s.t -= dt;
+      s.mesh.visible = true;
+      s.mesh.scale.setScalar(1 + (1 - s.t / 0.55) * 6);
+      sy = Math.max(sy, s.t / 0.55);
+    }
+    splashMat.opacity = sy * 0.5;
   }
 
   // raised RELIEF bands (the §5g surplus: ornament, not facets) — three proud rings
@@ -359,7 +418,7 @@ export function buildKnellgrave(def, quality = 1) {
     blk.translate(Math.sin(a) * rr, 1.6, Math.cos(a) * rr);
     friezeParts.push(blk);
   }
-  bellGroup.add(new THREE.Mesh(mergeK(friezeParts, 'knellFrieze'), patinaHiMat));
+  if (friezeParts.length) bellGroup.add(new THREE.Mesh(mergeK(friezeParts, 'knellFrieze'), patinaHiMat));
   // THE BURIED — the waist band is a PROCESSION of hunched figure reliefs cast into
   // the bell wall ("It Rings for What It Buried" — the buried are ON the bell; the
   // §4.7 fan-art hook + the lore made ornament). Each: a bowed body, a drooped head,
@@ -377,7 +436,7 @@ export function buildKnellgrave(def, quality = 1) {
     const fold = strip(new THREE.BoxGeometry(0.5, 0.16, 0.18)); fold.translate(0, 0.12, 0.42); parts.push(fold);
     for (const p of parts) { p.rotateY(a); p.translate(Math.sin(a) * rr, -2.1, Math.cos(a) * rr); buriedParts.push(p); }
   }
-  bellGroup.add(new THREE.Mesh(mergeK(buriedParts, 'theBuried'), patinaHiMat));
+  if (buriedParts.length) bellGroup.add(new THREE.Mesh(mergeK(buriedParts, 'theBuried'), patinaHiMat));
   // RIVET STUDS around the relief rings (cast hardware — carved, not scattered).
   const rivetParts = [];
   const NR = lowQ ? 8 : 14;
@@ -390,7 +449,7 @@ export function buildKnellgrave(def, quality = 1) {
       rivetParts.push(riv);
     }
   }
-  bellGroup.add(new THREE.Mesh(mergeK(rivetParts, 'knellRivets'), ironMat));
+  if (rivetParts.length) bellGroup.add(new THREE.Mesh(mergeK(rivetParts, 'knellRivets'), ironMat));
   // BUTTRESS FINS — eight thin cast ribs running the shoulder→waist slope (cathedral
   // verticality; their edges catch rim light as the bell heels on the swing). The
   // crack sector stays bare.
@@ -406,7 +465,7 @@ export function buildKnellgrave(def, quality = 1) {
     fin.translate(Math.sin(a) * rr, -0.9, Math.cos(a) * rr);
     finParts.push(fin);
   }
-  bellGroup.add(new THREE.Mesh(mergeK(finParts, 'buttressFins'), patinaMat));
+  if (finParts.length) bellGroup.add(new THREE.Mesh(mergeK(finParts, 'buttressFins'), patinaMat));
 
   // ---- DRAPED BROKEN CHAINS off the lip rim (chunky — chain-language in the resting
   // outline, away from the crack sector).
@@ -546,6 +605,41 @@ export function buildKnellgrave(def, quality = 1) {
   ember.position.x = SPINE_X;
   emberMat.side = THREE.DoubleSide;
   bellGroup.add(ember);
+
+  // ---- SPREADING FRACTURES — the readable per-phase damage on the FRONT FACE. As the ruin
+  // climbs, NEW glowing cracks light up ONE PER PHASE, webbing out from the candle-slit across
+  // the bell's face. This is the only damage language that reads at FIGHT DISTANCE: bright-on-
+  // dark like the focal crack, front-facing, and PERSISTENT — where dark shed holes vanish
+  // against the near-black body. A moderate additive candle glow (well below the HDR slit, so
+  // the focal cluster stays the one focal — G1), dark at full hp so the studio gates are inert
+  // (they only light with the fight). Each rides the surface curve (azimuth-placed).
+  const buildFaceRibbon = (azY, hw, zLift) => {
+    const verts = [];
+    const S = (a, y) => { const R = bellRadiusAt(y) + zLift; return [Math.sin(a) * R, y, Math.cos(a) * R]; };
+    for (let i = 0; i < azY.length - 1; i++) {
+      const [a0, y0] = azY[i], [a1, y1] = azY[i + 1];
+      const A = S(a0 - hw[i], y0), B = S(a0 + hw[i], y0), C = S(a1 - hw[i + 1], y1), D = S(a1 + hw[i + 1], y1);
+      verts.push(...A, ...B, ...C, ...B, ...D, ...C);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.computeVertexNormals();
+    return geo;
+  };
+  const FRACTURES = [
+    { thr: 0.12, w: [0.02, 0.075, 0.09, 0.03], pts: [[-0.12, -1.0], [0.16, -1.5], [0.4, -1.2], [0.66, -2.0]] },     // P1 → right across the waist
+    { thr: 0.30, w: [0.03, 0.09, 0.075, 0.03], pts: [[-0.22, -2.7], [-0.52, -3.2], [-0.86, -2.6], [-1.2, -3.6]] },  // P2 → left down the waist
+    { thr: 0.48, w: [0.02, 0.075, 0.09, 0.03], pts: [[-0.08, 1.4], [0.2, 0.8], [0.44, 0.0], [0.66, -0.6]] },        // P3 → up-right to the shoulder
+    { thr: 0.66, w: [0.03, 0.09, 0.075, 0.03], pts: [[-0.1, -4.3], [0.24, -4.2], [0.46, -4.9], [0.66, -4.4]] },     // P4 → lower-right across the flare
+  ];
+  const fractures = [];
+  for (const f of FRACTURES) {
+    const mat = track(new THREE.MeshBasicMaterial({ color: candle, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    const mesh = new THREE.Mesh(buildFaceRibbon(f.pts, f.w, 0.1), mat);
+    mesh.name = 'knellFracture'; mesh.renderOrder = 5;
+    bellGroup.add(mesh);
+    fractures.push({ mesh, mat, thr: f.thr });
+  }
 
   // ---- THE CHAIN vanishing UP off-frame (heavy discrete LINKS — the anti-lamp/UFO
   // guard). Link tori alternate axis (the woven look), from the crown up past the
@@ -723,21 +817,8 @@ export function buildKnellgrave(def, quality = 1) {
   // off the crack side (authored cluster near the wound, §3 law 6 — never a uniform
   // ring). The World-Enders tell: the bell's own debris stopped obeying gravity. Dark
   // patina chips (≤0.25 emissive per §3 law 8), each slowly tumbling in the tick.
-  const bellShards = [];
-  const SHARD_SPOTS = [   // authored (azimuth from front-left crack, radius, height) — a shedding arc
-    [-0.5, 7.0, -3.0], [-0.9, 7.6, -0.8], [-0.2, 6.8, -5.0], [-1.4, 7.3, -2.0],
-    [0.15, 7.1, -4.2], [-1.05, 8.0, -4.6], [-0.65, 6.6, 0.6], [-1.8, 7.5, -0.2],
-  ];
-  const N_SHARD = lowQ ? 4 : 8;
-  for (let i = 0; i < N_SHARD; i++) {
-    const [saz, srad, sh] = SHARD_SPOTS[i];
-    const geo = strip(new THREE.BoxGeometry(0.55 + (i % 3) * 0.22, 0.8 + (i % 2) * 0.35, 0.14));
-    const m = new THREE.Mesh(geo, patinaHiMat);
-    m.name = 'bellShard';
-    m.userData = { az: saz - 0.19, rad: srad, h: sh, ph: i * 1.31, tum: 0.25 + (i % 3) * 0.12 };
-    bellGroup.add(m);
-    bellShards.push(m);
-  }
+  // (the old free-floating "suspended shards" are gone — the shed plates themselves now break
+  // off and FALL to the water, so the debris is real, attached-then-torn, not a hovering cloud.)
 
   // edge cage over the bell (a dark outline pass — carves the facets on a bright sky).
   bellGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(bellMesh.geometry, 24), cageMat));
@@ -760,8 +841,19 @@ export function buildKnellgrave(def, quality = 1) {
   // toll kicks the body harder. The fight builds TOWARD the reveal — transformation as
   // escalation, no second form needed.
   let ruinK = 0;
+  let ruinArmed = false;   // gate the reveal fill-up (see below)
   let skyOpen = 0;   // one-way ratchet: once the Last Toll tears the bell open, the sky stays pouring in
-  function setHealthRuin(frac) { ruinK = clamp01(1 - frac); kit.setHealth(frac); }
+  function setHealthRuin(frac) {
+    kit.setHealth(frac);
+    // The controller plays a HP-BAR FILL-UP flourish at the fight start — setHealth(0) then a
+    // ramp 0→full over ~0.8s (boss.js hpRevealT). If the RUIN tracked that, the bell would read
+    // fully DESTROYED for that instant and the ratcheted shed would fire every plate the moment
+    // the fight begins (owner: "the moment the fight starts the parts all fly off"). So the ruin
+    // only ARMS once the bell has settled at (near) full health, THEN tracks real damage.
+    // Monotonic — a broken bell doesn't heal, so ruinK never drops (survives the entrance sway).
+    if (frac > 0.97) ruinArmed = true;
+    if (ruinArmed) ruinK = Math.max(ruinK, clamp01(1 - frac));
+  }
 
   // §4b GAZE — the head orientation. Drooped/away at rest; tilts TOWARD the player as
   // gaze rises (set by the controller; free auto in the studio).
@@ -863,6 +955,12 @@ export function buildKnellgrave(def, quality = 1) {
     // up close — the CP2.4 jank); dread adds the final reveal gape the prisoner strains at.
     slit.scale.set(Math.min(1 + ruinK * 1.3 + dreadK * 0.6 + charge * 0.12, 2.3), 1, 1);   // 2.3 (not 2.5) — the shed now carries the escalation, so keep margin off the L192 white-wall threshold
     ember.scale.set(Math.min(1 + ruinK * 1.05 + dreadK * 0.45, 2.2), 1, 1);
+    // SPREADING FRACTURES: each new crack lights up as the ruin crosses its phase threshold and
+    // STAYS lit (persistent damage), flickering with the candle. Capped below the HDR slit.
+    for (const fr of fractures) {
+      const lit = clamp01((ruinK - fr.thr) / 0.08);
+      fr.mat.opacity = lit * (0.5 + gutter * 0.22) * (1 - dyingK) * (shieldClamp ? 0.4 : 1);
+    }
     // the sprung wall plates LIFT off the seam as the bell comes apart.
     plateMesh.scale.setScalar(1 + ruinK * 0.05);
     // --- THE SHED: the flank plates break off as the ruin climbs (staggered by phase), so
@@ -871,20 +969,31 @@ export function buildKnellgrave(def, quality = 1) {
     // drops under gravity, tumbles, and fades once it's well clear. Held wholly by ruinK so
     // it tracks HP (the ladder), never a timer; at rest (ruinK 0) every plate fills its gap.
     for (const p of shedPanels) {
+      if (p.falling || p.spent) continue;   // torn free → handed to the world-space fall (tickDebris)
       // ratchet on hp crossing the threshold, then COMPLETE on the break's own clock — a
-      // sheared plate must finish falling. Without this the P4 survival seal (which freezes
-      // hp → ruinK caps ~0.75) leaves the second plate hung half-tumbled, half-transparent,
-      // motionless beside the bell for the whole Last Toll (Fable gate; the L195 trap again).
-      // The self-advance also smooths mid-fight breaks (burst damage no longer teleports a
-      // plate along its arc, a damage lull no longer freezes it).
+      // sheared plate must finish tearing. Without this the P4 survival seal (which freezes
+      // hp → ruinK caps ~0.75) leaves the plate hung half-tumbled (Fable gate; the L195 trap).
       p.prog = Math.max(p.prog, clamp01((ruinK - p.at) / 0.24));
       if (p.prog > 0.01 && p.prog < 1) p.prog = Math.min(1, p.prog + dt * 0.8);
-      const e = p.prog * p.prog * (3 - 2 * p.prog);        // smoothstep the break
-      const outr = e * 5.5, drop = e * e * 7.5;
+      const e = p.prog * p.prog * (3 - 2 * p.prog);        // smoothstep the shear
+      const outr = e * 3.5, drop = e * e * 3.0;
       p.pivot.position.set(p.C.x + Math.sin(p.aMid) * outr, p.C.y - drop, p.C.z + Math.cos(p.aMid) * outr);
-      p.mesh.rotation.set(e * (1.5 + p.aMid * 0.2), e * 2.4, e * (0.8 + p.aMid * 0.1));
-      p.mat.opacity = 1 - clamp01((p.prog - 0.5) / 0.5);    // solid until clear, then dissolves to gone
-      p.pivot.visible = p.mat.opacity > 0.02;
+      p.mesh.rotation.set(e * (1.3 + p.aMid * 0.2), e * 1.8, e * (0.7 + p.aMid * 0.1));
+      // once it's torn clear of the wall, HAND IT to the world so it falls to the water. In the
+      // studio/tests (no water plane) it stays local and fades, exactly as before.
+      if (p.prog > 0.35 && waterY != null && group.parent) {
+        group.parent.attach(p.pivot);   // reparent to the scene, preserving world transform
+        worldDebris.push(p.pivot);
+        p.mat.opacity = 1;              // a solid chunk plummeting — the splash ends it, not a fade
+        p.falling = true;
+        p.vx = Math.sin(p.aMid) * 3.2 + (p.aMid - Math.PI) * 0.4;
+        p.vz = Math.cos(p.aMid) * 3.2;
+        p.vy = -2;
+        p.spin = 1.6 + (p.aMid % 1.4);
+      } else {
+        p.mat.opacity = 1 - clamp01((p.prog - 0.5) / 0.5);
+        p.pivot.visible = p.mat.opacity > 0.02;
+      }
     }
     // THE BELL BREAKS ALL THE WAY THROUGH — at the Last Toll the interior back-wall TEARS OPEN
     // so the SKY POURS in through the shed holes + the mouth (owner: "sky pouring would be
@@ -1001,19 +1110,12 @@ export function buildKnellgrave(def, quality = 1) {
     }
     moteMat.opacity = 0.45 * (1 - dyingK) * (shieldClamp ? 0.3 : 1) * (0.7 + gutter * 0.3);
 
-    // --- SUSPENDED SHARDS hover + slowly tumble by the crack; on the toll's reverb
-    // they shiver, and in the dread they drift OUTWARD (the wound widening). On death
-    // they sink with the swing's decay. ---
-    for (const sh of bellShards) {
-      const u = sh.userData;
-      const rr = u.rad + ruinK * 1.2 + dreadK * 1.6 + Math.sin(time * 0.4 + u.ph) * 0.25;
-      sh.position.set(
-        Math.sin(u.az) * rr,
-        u.h + Math.sin(time * 0.55 + u.ph * 2.1) * 0.45 + tollK * Math.sin(time * 40 + u.ph) * 0.12 - dyingK * 6,
-        Math.cos(u.az) * rr);
-      sh.rotation.x += dt * u.tum * 0.6 * (1 + ruinK);
-      sh.rotation.y += dt * u.tum;
-    }
+    // --- FALLING DEBRIS: shed plates that have torn free PLUMMET to the water (owner: "have
+    // the chunks fly off and fall into the water"). Reparented to the scene so they fall in
+    // WORLD space (straight down, unaffected by the bell's swing), tumbling, until they hit the
+    // surface — then a splash ring and they're gone. Only live in-game (setWaterPlane fed): in
+    // the studio/tests waterY stays null, so plates just fade locally as before. ---
+    tickDebris(dt);
 
     // --- ENTRANCE: the bell fades in ABOVE the frame already mid-swing; the slit
     // snaps on; the clapper LIFTS ITS HEAD at the apex (driven by the controller via
@@ -1049,11 +1151,16 @@ export function buildKnellgrave(def, quality = 1) {
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
     flash, hurt, tollNow,
-    setEntrance, setEntranceSteer,
+    setEntrance, setEntranceSteer, setWaterPlane,
     setHealth: setHealthRuin, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     hullLength, tollBeat,
-    dispose() { group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); },
+    dispose() {
+      // fallen plates + splash rings live under the SCENE (not group) — remove + dispose them
+      // explicitly so a defeated boss leaves no orphaned debris behind.
+      for (const o of worldDebris) { o.parent?.remove(o); o.traverse?.((c) => { c.geometry?.dispose(); }); }
+      group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    },
   };
 }
