@@ -7428,3 +7428,25 @@ Fixes + reusable takeaways:
    Corollary it also flagged: an increment can be individually correct yet half-cancel a prior
    one (the solid interior wall makes mid-fight shed holes open into a dark cavity, not the sky
    the owner asked for) — gate the SYSTEM, not each change alone.
+
+### L197 — KNELLGRAVE: to see sky THROUGH a breaking shell, shed holes must be DIAMETRICALLY PAIRED (front hole + back hole), not just front-facing
+Owner, on the mid-fight shed showing a dark cavity instead of daylight: "mid fight and it's
+falling apart, you should be able to see sky because the back of the bell has broken off." Dead
+right, and it exposed my geometry error. A hole in only the FRONT wall doesn't show sky: the
+sightline through it crosses the cavity and hits the intact FAR wall (outer + the interior
+back-wall), so you see dark metal, not sky. Filling the interior (L194) made this worse — the
+hole opened into a sealed box. The fix is to break the bell the way it would actually break:
+1. **Pair the windows across the diameter.** For each visible front window at azimuth θ, add a
+   twin at θ+π and shed them TOGETHER (same hp threshold). Carve BOTH the outer wall and the
+   interior back-wall at all of them. Now a shed pair is a clean tube: front hole → cavity
+   (scaffold silhouetted) → far interior gap → far outer gap → sky. The back plate is barely
+   seen directly; its job is to REMOVE the occluder behind the front hole.
+2. **The through-hole needs no opacity trick — it's geometry.** Unlike the P4 mouth-pour (which
+   fades the remaining interior shell on the dread beat), the paired holes show sky the instant
+   their plates shed, at any ruin, for free. Keep both: paired holes = "the breaks let light
+   through" mid-fight; the interior-shell fade = "the whole mouth tears open" at the finale.
+3. **Solid-at-rest survives it.** Every window (front and back) is still plate-covered at rest,
+   so the undamaged bell reads solid (verified on camera) — the daylight is strictly earned by
+   the break. Cost is flat: the extra carving offsets the extra plates (tris even went DOWN).
+Meta-lesson: when a "reveal through the object" doesn't read, check the FAR side of the sightline
+before reaching for shaders — the occluder is usually geometry you forgot to remove.

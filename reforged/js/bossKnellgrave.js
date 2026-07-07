@@ -161,17 +161,22 @@ export function buildKnellgrave(def, quality = 1) {
   };
   // ---- THE SHED SECTORS (owner playtest: "more of the bell breaking off to reveal its
   // inner scaffold, so the background becomes visible through where the bell once was").
-  // Two flank windows are CARVED OUT of the waist→flare bands and COVERED by matching
-  // break-away plates. At rest the plates fill the gaps → the bell reads SOLID (no sky
-  // through it). As the ruin climbs the plates hinge off + fall (staggered by phase),
-  // opening the wall to the INNER SCAFFOLD behind it — and, because the far wall is a
-  // culled single shell, straight THROUGH to the sky. The reveal is EARNED, not there at
-  // the start. Windows sit on the visible front flanks, clear of the crack sector; the
-  // ornament bands (frieze/buried/fins/rivets) skip them too so nothing floats when shed.
+  // Windows are CARVED OUT of the waist→flare bands (of BOTH the outer wall and the interior
+  // back-wall) and COVERED by matching break-away plates. At rest the plates fill the gaps →
+  // the bell reads SOLID (no sky through it). As the ruin climbs the plates hinge off + fall
+  // (staggered by phase), opening the wall to the INNER SCAFFOLD — and the windows come in
+  // OPPOSITE PAIRS (a front hole + the back hole diametrically behind it, shed together), so
+  // once a pair goes the sightline runs clean THROUGH the bell to the sky: mid-fight, the
+  // bell is genuinely falling apart, front AND back, so you see daylight through the breaks
+  // (owner: "the back of the bell has broken off, so that makes sense"). The reveal is EARNED,
+  // not there at the start. Ornament (frieze/buried/fins/rivets) skips the windows so nothing
+  // floats when shed.
   const SHED_YTOP = -1.2, SHED_YBOT = -5.2;
   const SHED = [
-    { aMid: 0.98, aHalf: 0.52, at: 0.30, mid: -3.2 },   // front-RIGHT flank (sheds ~P2)
-    { aMid: 5.18, aHalf: 0.52, at: 0.60, mid: -3.2 },   // front-LEFT  flank (sheds ~P3)
+    { aMid: 0.98, aHalf: 0.44, at: 0.30, mid: -3.2 },   // front-RIGHT (visible, sheds ~P2)
+    { aMid: 0.98 + Math.PI, aHalf: 0.44, at: 0.30, mid: -3.2 },   // back-LEFT, opposite FR — its hole aligns for the through-line
+    { aMid: 5.18, aHalf: 0.44, at: 0.60, mid: -3.2 },   // front-LEFT (visible, sheds ~P3)
+    { aMid: 5.18 - Math.PI, aHalf: 0.44, at: 0.60, mid: -3.2 },   // back-RIGHT, opposite FL
   ];
   const angDelta = (a, b) => { let d = Math.abs((a - b) % (Math.PI * 2)); return Math.min(d, Math.PI * 2 - d); };
   const inShed = (a) => SHED.some((s) => angDelta(a, s.aMid) <= s.aHalf);
@@ -220,9 +225,25 @@ export function buildKnellgrave(def, quality = 1) {
   const innerParts = [];
   for (let i = 0; i < prof.length - 1; i++) {
     const [r0, y0] = prof[i], [r1, y1] = prof[i + 1];
-    const seg = strip(new THREE.CylinderGeometry(r0 - 0.08, r1 - 0.08, Math.abs(y0 - y1), FACETS, 1, true));
-    seg.translate(0, (y0 + y1) / 2, 0);
-    innerParts.push(seg);
+    const h = Math.abs(y0 - y1), yc = (y0 + y1) / 2, R0 = r0 - 0.08, R1 = r1 - 0.08;
+    // carve the SAME windows as the outer wall — the back-wall breaks WITH the front, so a
+    // shed hole punches clean through to the sky instead of into a dead cavity.
+    if (y0 <= SHED_YTOP + 0.01 && y1 >= SHED_YBOT - 0.01) {
+      const wins = SHED.map((s) => [s.aMid - s.aHalf, s.aMid + s.aHalf]).sort((p, q) => p[0] - q[0]);
+      const pushArc = (a, b) => {
+        if (b - a < 0.02) return;
+        const rs = Math.max(2, Math.round(FACETS * (b - a) / (Math.PI * 2)));
+        const g = strip(new THREE.CylinderGeometry(R0, R1, h, rs, 1, true, a, b - a));
+        g.translate(0, yc, 0); innerParts.push(g);
+      };
+      let cur = 0;
+      for (const [a, b] of wins) { if (a > cur) pushArc(cur, a); cur = Math.max(cur, b); }
+      if (cur < Math.PI * 2) pushArc(cur, Math.PI * 2);
+    } else {
+      const seg = strip(new THREE.CylinderGeometry(R0, R1, h, FACETS, 1, true));
+      seg.translate(0, yc, 0);
+      innerParts.push(seg);
+    }
   }
   const innerWall = new THREE.Mesh(mergeK(innerParts, 'innerWall'), innerWallMat);
   innerWall.name = 'innerWall';
