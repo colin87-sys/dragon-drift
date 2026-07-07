@@ -1420,3 +1420,196 @@ function buildForgeCollar(def, model, attach, spineMats) {
 }
 
 registerWings('emberMembraneWings', buildEmberMembraneWings);
+
+// ── MOLTEN BLADE FIN (EMBER — the redo, §3 new col: solid molten scimitar) ───
+// A SOLID swept scimitar fin: ONE continuous cambered blade per side — NOT a comb,
+// NOT feathers (azure/phoenix own those), NOT a membrane on finger-spokes (bat), NOT
+// silk (jade). A matte warm-IRON leading SPAR gives the sharp edge its structure; the
+// blade body is MOLTEN (deep-ember root → bright orange out); the thin TRAILING edge
+// glows WHITE-HOT like cooling molten metal — the fire signature AND the law-9 accent
+// carrier. Upswept + aft-swept = an elegant scimitar planform, the antithesis of the
+// clawed bat wing. Direct wingPivot drive + a wrist split so a fold barrel-tucks and
+// contracts the span (§3 fold clause / §7 assert). Forge-collar motif at the nape (law 12).
+//
+// Publishes the direct-drive contract: wingPivotL/R (shoulder), wingTipL/R (wrist),
+// wingRig* null, wingBladePivots* null (solid fin, no per-blade lag), wingElements +
+// tipObjs (canonical right side) so a fold re-measures the span, and the collar motifAnchor.
+function buildMoltenBladeWings(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale || 1;
+  const reach = (model.finSpan ?? 4.8) * ws;            // half-span (outer tip x)
+  const sweep = model.finSweep ?? 0.52;                 // planform aft-sweep (scimitar)
+  const theta = model.finDihedral ?? 0.3;              // upsweep dihedral (~17°)
+  const chordRoot = (model.finChord ?? 0.46) * reach;   // root chord
+  const camber = model.finCamber ?? 0.24;              // cambered billow (+Y)
+  const detail = model.finDetail ?? 1;
+  const hook = model.finHook ?? 1.18;                  // >1 = the tip sabres back (scimitar)
+
+  // molten diffuse tiers (vertex-painted onto the ONE blade — law 11 relief, zero seams)
+  const cRoot = new THREE.Color(def.wingInner ?? 0x6a1e08);
+  const cMid = new THREE.Color(model.finMid ?? 0xc0461a);
+  const cOut = new THREE.Color(def.wingOuter ?? 0xff7a1e);
+  const cLead = new THREE.Color(0x7a2810);              // leading edge shaded a step
+  const cHot = new THREE.Color(model.finEdgeColor ?? 0xffd28a);   // trailing white-hot lip
+
+  const finMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.03,
+    side: THREE.DoubleSide,
+    emissive: def.wingEmissive ?? 0xff6a1a, emissiveIntensity: model.finGlow ?? 0.16,
+  });
+  applyFresnelRim(finMat, def.apexSeam ?? cOut.getHex());
+  const sparMat = new THREE.MeshStandardMaterial({
+    color: model.finSparColor ?? 0x8a4a24, roughness: 0.62, metalness: 0.06,
+    emissive: 0x2a1206, emissiveIntensity: 0.28 });
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: cHot.getHex(), emissive: cHot.getHex(), emissiveIntensity: model.finEdgeGlow ?? 2.4,
+    roughness: 0.4, side: THREE.DoubleSide });
+  const veinRoot = new THREE.Color(0xff9a3a), veinTip = new THREE.Color(0xffe6b0);
+  spineMats.push(finMat, edgeMat);
+
+  // planform — the whole chord sweeps aft accelerating (scimitar), chord tapers to a point.
+  const zMid = (t) => sweep * reach * Math.pow(t, hook);
+  const chordAt = (t) => chordRoot * Math.pow(1 - t, 0.6) * (0.86 + 0.14 * Math.sin(t * Math.PI));
+  const yAt = (t) => t * reach * Math.tan(theta);       // dihedral rise
+
+  // build the fin SURFACE for span fraction [ta,tb], verts in fin-absolute coords minus `off`
+  function finGeo(ta, tb, off) {
+    const nX = seg(Math.max(4, Math.round(11 * detail * (tb - ta))));
+    const nZ = seg(Math.max(2, Math.round(4 * detail)));
+    const verts = [], cols = [], idx = [];
+    const c = new THREE.Color();
+    for (let i = 0; i <= nX; i++) {
+      const t = ta + (tb - ta) * (i / nX);
+      const x = t * reach, zc = zMid(t), w = chordAt(t), y0 = yAt(t);
+      for (let j = 0; j <= nZ; j++) {
+        const cf = j / nZ;                                // 0 leading(−z) → 1 trailing(+z)
+        const z = zc + (cf - 0.5) * w;
+        const camb = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(t * Math.PI));
+        verts.push(x - off.x, y0 + camb - off.y, z - off.z);
+        if (t < 0.42) c.copy(cRoot).lerp(cMid, t / 0.42); else c.copy(cMid).lerp(cOut, (t - 0.42) / 0.58);
+        c.lerp(cLead, Math.max(0, 0.5 - cf) * 0.55);      // leading half shaded
+        c.lerp(cHot, Math.max(0, (cf - 0.74) / 0.26) * 0.85);   // trailing lip runs hot
+        cols.push(c.r, c.g, c.b);
+      }
+    }
+    const W = nZ + 1;
+    for (let i = 0; i < nX; i++) for (let j = 0; j < nZ; j++) {
+      const a = i * W + j, b = a + 1, d = a + W, e = d + 1; idx.push(a, d, b, b, d, e);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+
+  // a HOT trailing-edge ribbon (the glowing molten lip) for [ta,tb], verts minus `off`
+  function edgeGeo(ta, tb, off) {
+    const nX = seg(Math.max(4, Math.round(11 * detail * (tb - ta))));
+    const rw = 0.05 * reach;                              // ribbon width, in from the trailing edge
+    const verts = [], idx = [];
+    for (let i = 0; i <= nX; i++) {
+      const t = ta + (tb - ta) * (i / nX);
+      const x = t * reach, zc = zMid(t), w = chordAt(t), y0 = yAt(t) + camber * 0.5;
+      const zEdge = zc + 0.5 * w, zIn = zEdge - rw;
+      verts.push(x - off.x, y0 - off.y, zIn - off.z, x - off.x, y0 - off.y, zEdge - off.z);
+    }
+    for (let i = 0; i < nX; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+
+  const wristFrac = 0.32;
+  const wristT = wristFrac;
+  const wristX = wristT * reach, wristY = yAt(wristT), wristZ = zMid(wristT);
+  const O0 = { x: 0, y: 0, z: 0 }, OW = { x: wristX, y: wristY, z: wristZ };
+
+  function buildSide(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+    const wingTip = new THREE.Group();
+    wingTip.position.set(wristX * side, wristY, wristZ);
+
+    // leading SPAR — a matte iron tube along the sharp leading edge, thick root → thin tip.
+    const lead = [];
+    for (let k = 0; k <= 10; k++) { const t = k / 10; lead.push({ x: t * reach, y: yAt(t) + camber * 0.15, z: zMid(t) - 0.5 * chordAt(t) }); }
+    for (let s = 0; s < lead.length - 1; s++) {
+      const a = lead[s], b = lead[s + 1];
+      const inner = b.x < wristX; const par = inner ? pivot : wingTip;
+      const ox = inner ? 0 : wristX, oy = inner ? 0 : wristY, oz = inner ? 0 : wristZ;
+      const r0 = 0.11 * ws * (1 - 0.8 * s / 10) + 0.012, r1 = 0.11 * ws * (1 - 0.8 * (s + 1) / 10) + 0.01;
+      par.add(bone((a.x - ox) * side, a.y - oy, a.z - oz, (b.x - ox) * side, b.y - oy, b.z - oz, r0, r1, sparMat));
+    }
+
+    // the two fin panels (inner on pivot, outer on wrist) + their hot trailing ribbons.
+    const inFin = new THREE.Mesh(finGeo(0, wristT, O0), finMat); inFin.scale.x = side; pivot.add(inFin);
+    const outFin = new THREE.Mesh(finGeo(wristT, 1, OW), finMat); outFin.scale.x = side; wingTip.add(outFin);
+    const inEdge = new THREE.Mesh(edgeGeo(0, wristT, O0), edgeMat); inEdge.scale.x = side; pivot.add(inEdge);
+    const outEdge = new THREE.Mesh(edgeGeo(wristT, 1, OW), edgeMat); outEdge.scale.x = side; wingTip.add(outEdge);
+
+    // 2 glowing lava-crack veins raked along the blade (surface life, not clutter).
+    for (const vt of [0.34, 0.62]) {
+      const t0 = vt, t1 = Math.min(0.97, vt + 0.34);
+      const a = new THREE.Vector3(t0 * reach, yAt(t0) + camber * 0.6, zMid(t0));
+      const b = new THREE.Vector3(t1 * reach, yAt(t1) + camber * 0.4, zMid(t1) + chordAt(t1) * 0.18);
+      const inner = t0 * reach < wristX; const par = inner ? pivot : wingTip;
+      const off = inner ? O0 : OW;
+      par.add(rayTubeMolten(a, b, off, side, veinRoot, veinTip, ws));
+    }
+
+    const tipObj = new THREE.Object3D();
+    tipObj.position.set((reach - wristX) * side, yAt(1) - wristY, zMid(1) - wristZ);
+    wingTip.add(tipObj);
+    const marker = new THREE.Object3D();
+    marker.position.copy(tipObj.position); wingTip.add(marker);
+    pivot.add(wingTip); group.add(pivot);
+    return { pivot, wingTip, marker, tipObj };
+  }
+
+  // a small glowing vein tube (baked root→tip brightness), parented under `off`.
+  function rayTubeMolten(a, b, off, side, c0, c1, ws) {
+    const A = new THREE.Vector3((a.x - off.x) * side, a.y - off.y, a.z - off.z);
+    const B = new THREE.Vector3((b.x - off.x) * side, b.y - off.y, b.z - off.z);
+    const path = new THREE.LineCurve3(A, B);
+    const g = new THREE.TubeGeometry(path, seg(4), 0.02 * ws, seg(4), false);
+    const cols = [], pos = g.attributes.position, c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) { const t = i / pos.count; c.copy(c0).lerp(c1, t); cols.push(c.r, c.g, c.b); }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    const m = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, emissive: 0xffffff, emissiveIntensity: 1.0, roughness: 0.4 });
+    m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = emissive * vColor;'); };
+    spineMats.push(m);
+    return new THREE.Mesh(g, m);
+  }
+
+  const R = buildSide(1), L = buildSide(-1);
+  const collar = model.collarStage != null ? buildForgeCollar(def, model, attach, spineMats) : null;
+  if (collar) group.add(collar.group);
+
+  const wingElements = [{
+    root: new THREE.Vector3(0, 0, zMid(0)),
+    tip: new THREE.Vector3(reach, yAt(1), zMid(1)),
+    length: reach, tipObj: R.tipObj,
+  }];
+
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null,
+      wingRigL: null, wingRigR: null,
+      wingBladePivotsL: null, wingBladePivotsR: null,
+      wingElements,
+      motifAnchor: collar ? collar.motifAnchor : null,
+    },
+    wingMat: finMat,
+    spineMats,
+  };
+}
+
+registerWings('moltenBladeWings', buildMoltenBladeWings);

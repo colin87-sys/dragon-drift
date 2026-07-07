@@ -53,21 +53,19 @@ const SPECS = {
     carrier: 'diffuse',                         // azure: NO accent-hued emissive on the wing
   },
   ember: {
-    architecture: 'gapped-finger membrane',
-    wingElements: 4,                            // §3 col 2: 4 finger rays every form
-    triTargets: [2600, 4000, 5600],             // §5d ~targets (draconic-head floor lifts the hatchling; see PR)
-    headBody: [[2.0, 2.6], [3.0, 4.2], [4.5, 5.5]],   // §4 head:body (ember apex 1:4.5–5.5)
-    // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled up like
-    // azure (L147: the honest gate needs the keen eye readable head-on, so the eyeScale
-    // that keeps it the ladder's smallest still measures a touch above the raw 0.18).
+    // WING REDO (human art-direction): the gapped-finger membrane is retired for a SOLID
+    // MOLTEN BLADE FIN — one continuous swept scimitar per side (matte-iron spar → molten
+    // body → white-hot glowing trailing edge). Bands below are PROVISIONAL (preview pending
+    // direction confirmation); retune once the three-form ladder is dialled in.
+    architecture: 'molten blade fin',
+    wingElements: 1,                            // one solid fin per side (no comb of blades)
+    foldMax: 0.92,                             // a rigid fin furls by swinging back, not by raking free blades
+    triTargets: [2600, 4000, 5600],
+    headBody: [[2.0, 2.6], [3.0, 4.2], [4.5, 5.5]],
     eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.13, 0.30]],
-    // span:body — measured against the VISUAL nose→tail body length (top-planform read,
-    // what the §8 gate measures), reconciled from the sheet's 1.4–1.7 / 2.0–2.3 / 2.5–2.9
-    // body-LENGTH ratios (same reconciliation azure documented — the visual body under-
-    // reads the spine-z, so the ratio bands are retuned to the built geometry).
-    spanBody: [[0.65, 1.1], [1.1, 1.7], [1.7, 2.6]],
+    spanBody: [[0.45, 1.0], [0.6, 1.3], [0.9, 1.7]],   // provisional — fin span retunes when the ladder lands
     accentHue: 27,                              // lava ~27°
-    carrier: 'emissive',                        // ember: warm ONLY as emissive; NO warm accent diffuse on the membrane
+    carrier: 'moltenEdge',                      // the WHITE-HOT trailing edge is the emissive accent; the body is warm-bright molten (no dark-membrane clause)
   },
 };
 
@@ -150,23 +148,25 @@ for (const [key, spec] of Object.entries(SPECS)) {
     ok(!!M.parts.motifAnchor, `${key} f${f}: motifAnchor published`);
     ok(M.tris < 6000, `${key} f${f}: under 6000 ceiling (${M.tris})`);
 
-    // wing element progression (swell-then-taper): lengths NOT all equal + a mid peak.
     const lens = M.parts.wingElements.map((e) => e.length);
-    const maxLen = Math.max(...lens), minLen = Math.min(...lens);
-    ok(maxLen - minLen > 0.05 * maxLen, `${key} f${f}: blade lengths vary (progression, not sawtooth)`);
-    const peakIdx = lens.indexOf(maxLen);
-    ok(peakIdx > 0 && peakIdx < lens.length - 1, `${key} f${f}: longest blade is mid-fan (swell-then-taper)`);
-    // separation: planform gaps > 0 (roots march + z-stagger).
-    const roots = M.parts.wingElements.map((e) => e.root);
-    let minGap = Infinity;
-    for (let i = 1; i < roots.length; i++) minGap = Math.min(minGap, Math.hypot(roots[i].x - roots[i - 1].x, roots[i].z - roots[i - 1].z));
-    ok(minGap > 0.05, `${key} f${f}: comb has planform separation (minGap ${minGap.toFixed(2)})`);
-    // taper: each blade tapers to a point (length>0) — the geometry is a point at the tip.
-    ok(lens.every((l) => l > 0.1), `${key} f${f}: blades have real length`);
+    // COMB architectures (≥2 elements) must show a swell-then-taper progression + planform
+    // separation. A SOLID single-blade fin has neither — it's judged as one continuous surface.
+    if (spec.wingElements > 1) {
+      const maxLen = Math.max(...lens), minLen = Math.min(...lens);
+      ok(maxLen - minLen > 0.05 * maxLen, `${key} f${f}: blade lengths vary (progression, not sawtooth)`);
+      const peakIdx = lens.indexOf(maxLen);
+      ok(peakIdx > 0 && peakIdx < lens.length - 1, `${key} f${f}: longest blade is mid-fan (swell-then-taper)`);
+      const roots = M.parts.wingElements.map((e) => e.root);
+      let minGap = Infinity;
+      for (let i = 1; i < roots.length; i++) minGap = Math.min(minGap, Math.hypot(roots[i].x - roots[i - 1].x, roots[i].z - roots[i - 1].z));
+      ok(minGap > 0.05, `${key} f${f}: comb has planform separation (minGap ${minGap.toFixed(2)})`);
+    }
+    ok(lens.every((l) => l > 0.1), `${key} f${f}: wing elements have real length`);
 
-    // rig parts + fold contraction ≤ 0.7 of glide.
+    // rig parts + fold contraction.
     ok(!!M.parts.wingPivotL && !!M.parts.wingPivotR, `${key} f${f}: wingPivotL/R exist`);
-    ok(M.foldSpan <= 0.72 * M.span, `${key} f${f}: fold contracts span (${(M.foldSpan / M.span).toFixed(2)} ≤ 0.72)`);
+    const foldMax = spec.foldMax ?? 0.72;
+    ok(M.foldSpan <= foldMax * M.span, `${key} f${f}: fold contracts span (${(M.foldSpan / M.span).toFixed(2)} ≤ ${foldMax})`);
 
     // line of action: ≥1 inflection.
     ok(M.infl >= 1, `${key} f${f}: spine line-of-action has ≥1 inflection (${M.infl})`);
@@ -227,6 +227,16 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const wm = apex.parts && buildDragonModel(apex.def, {}).materials.wingMat;
     const hsl = {}; wm.color.getHSL(hsl);
     ok(hsl.l <= 0.30, `${key}: wing membrane diffuse held dark-warm so the rays carry the fire, not a toy-bright sheet (L ${hsl.l.toFixed(2)} ≤ 0.30)`);
+  }
+  if (spec.carrier === 'moltenEdge') {
+    // the molten blade fin carries its accent as the WHITE-HOT emissive trailing edge + molten
+    // glow; the body is warm-bright (vertex-painted), so no dark-membrane clause. Assert the
+    // wing material carries a WARM emissive accent near the lava hue.
+    const apex = per[2];
+    const wm = apex.parts && buildDragonModel(apex.def, {}).materials.wingMat;
+    const emisHue = hueOf(wm.emissive.getHex());
+    ok(wm.emissiveIntensity > 0 && hueDist(emisHue, spec.accentHue) <= 45,
+      `${key}: molten fin carries a warm emissive accent (hueΔ ${hueDist(emisHue, spec.accentHue).toFixed(0)}°)`);
   }
 }
 
