@@ -212,29 +212,27 @@ export const DRAGONS = {
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
       // ── UNDULATING KOI BODY (koiSerpent) ──────────────────────────────────────
-      // The body is now a continuous overlapping-section chain that the shipped
-      // lead-first travelling wave (dragon.js bodySegs) slithers head-to-tail — the
-      // fix for "it doesn't even move." The tail is the tapering REAR of this same
-      // chain (parts.tail:'none'), so it can never detach. Wide, slow river-S.
-      bodyGirth: 0.58, bodyLength: 1.0, bodyGlow: 0.10, bodyRim: 0.3, bodyShadowColor: 0x0d5c3a,
-      segDensity: 1.7,     // MANY small, heavily-overlapped sections → a smooth flowing eel (NOT the astral-worm bead-chain), and a finer travelling ripple
-      segmentSway: 0.42,   // generous lateral S — the serpent read is the wave, not a pose
-      segmentBob: 0.05,    // keep it mostly lateral (a river-swim glide, barely any up/down)
-      segmentLag: 0.30,    // MORE lag down the chain → a longer, more fluid travelling wave (the tail trails further behind the head)
+      // The body is ONE smooth swept tube bent every frame by a travelling-wave vertex
+      // shader (dragon.js parts.bodyWave) — a real swimming S, NOT the bead-chain of
+      // stacked spheres that read as an "astral worm." The tail is the tapering rear of
+      // this same tube (parts.tail:'none'), continuous by construction.
+      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 13, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,
+      bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
+      bodyWaveAmp: 0.72,                  // lateral swim amplitude (0 at the head → full at the tail)
+      bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
+      bodyWaveSpeed: 3.2,                 // cruise wave rate (dragon.js eases it up with speed)
+      bodyArcY: 0.14,                     // resting vertical S (line-of-action)
       // silk-fin fans RIPPLE symmetrically in flight (dragon.js) so both fans beat TOGETHER,
       // each koi lobe breathing open→closed with a per-lobe lag (a lazy koi-fin undulation).
       lobeRippleAmp: 0.2, lobeRippleLag: 0.7, lobeRippleSpeed: 0.5,
-      headArchetype: 'softStealth',      // rounded wedge skull + large soft calm eyes + swept ear-fins — the river-dragon read
-      headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
-      cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight (gate r1 dir 9; no more blank doll orb)
-      skullType: 'koiSkull',             // a NEW lofted koi/eastern-serpent head shell (slim, browed, tapered snout) — replaces softStealth's round ellipsoid blob (gate structural rework)
-      bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
+      // FACE — azure's head fitted to jade (human note): the softStealth draconic skull
+      // with azure's cute round eye + tapered predator snout + brow, in jade green.
+      headArchetype: 'softStealth',
+      headScale: 0.6, snoutScale: 0.86, eyeScale: 0.9, eyeShape: 1.0,
+      snoutType: 'taperedPredatorSnout', browIntensity: 1.1, crestBase: 0x7fbfa0,
+      cuteEye: true,                     // living round eye — jade-green iris + dark forward pupil + catchlight (azure's treatment)
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
-      neckBlend: 3.7,                    // fuse the neck beads into a SMOOTH tapered tube — halve the per-segment bulge so it reads as serpent musculature, not stacked balloons (gate rework r4 dir 4)
-      tailArc: 0.42, tailYaw: 1.85,      // the tail coils hard LATERALLY (a big S-coil that sweeps into the rear-chase frame so the SERPENT BODY is the silhouette — gate rework r3 dir 2)
-      tailGirth: 2.15,                   // FAT serpent ribbon (the body carries the rear-chase silhouette, §5d wings+fins 30-50% / body 40-60%)
-      tailGlow: true,                    // a faint GREEN emissive floor on the tail so it never reads as a near-black eel detaching from the body (gate rework r3 dir 1)
-      tailPlates: false,                 // smooth koi tail — no dorsal spike row (that read as sawtooth/drill-bit)
+      neckBlend: 1.3,                    // slim river-serpent neck so the head sits proud (azure-style, not a fat balloon neck)
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
       lobeNotch: 0.52, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,

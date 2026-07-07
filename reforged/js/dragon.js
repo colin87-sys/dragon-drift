@@ -58,6 +58,7 @@ let vySmooth = 0;         // lagged vertical velocity → vertJerk drives the sp
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
+let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniforms,baseSpeed})
 let tailOrbiters = null;  // orbiting tail shards / ring fragments
 
 // Materials animated at runtime (boost glow / fever tint)
@@ -173,6 +174,7 @@ export function createDragon(scene, def, riderDef) {
   tailFins = result.parts.tailFins || [];
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
+  bodyWave = result.parts.bodyWave || null;   // koiSerpent travelling-wave uniform (jade)
   tailOrbiters = result.parts.tailOrbiters || null;
   glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
@@ -386,6 +388,7 @@ export function disposeDragon() {
   wingMidL = null;
   wingMidR = null;
   bodySegs = null;
+  bodyWave = null;
   tailOrbiters = null;
   ponyMeshes = [];
   trailSprites = [];
@@ -877,6 +880,15 @@ export function updateDragon(dt, player, time) {
     }
   }
 
+  // koiSerpent (jade): advance the body's travelling-wave phase — the vertex shader bends
+  // the ONE tube mesh into a swimming S (transformed.x += amp·ramp·sin(freq·z + uTime)).
+  // Accumulate (never phase = speed·clock) so a speed change can't jolt the wave; ease the
+  // speed factor so cruise→boost the swim quickens smoothly. Additive + nullable (jade-only).
+  if (bodyWave) {
+    const sp = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
+    bodyWave.uTime = damp(bodyWave.uTime ?? sp, sp, 3, dt);
+    bodyWave.uniforms.uTime.value += dt * bodyWave.baseSpeed * (0.6 + bodyWave.uTime * 0.7);
+  }
   // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each
   // plate behind trails with a phase lag, so the chain slithers in zero-g; turning
   // bends it (lead first, rear dragging), speed adds a faint whip.
