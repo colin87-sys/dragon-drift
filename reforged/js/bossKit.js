@@ -296,6 +296,10 @@ export function createBossCommon(def, quality = 1, {
 
   return {
     group, mats, track,
+    // the HP-bar node (additive return field — no shipped consumer): an archetype whose
+    // POSE dives near the player (KNELLGRAVE's overhead ride) may re-seat the bar so a
+    // magenta bar never crosses player altitude and reads as a hazard beam.
+    hpBar,
     setHealth, setHealthBarVisible,
     setShieldVisible, shatterShield, onShieldChange,
     finalize, setDissolve,

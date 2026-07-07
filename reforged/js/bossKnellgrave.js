@@ -704,6 +704,11 @@ export function buildKnellgrave(def, quality = 1) {
     ember.scale.set(1 + ruinK * 0.7 + dreadK * 1.1, 1, 1);
     // the sprung wall plates LIFT off the seam as the bell comes apart.
     plateMesh.scale.setScalar(1 + ruinK * 0.05);
+    // CP2 gate item 5a: during the overhead ride (the dread reveal drops the pose to
+    // player altitude) the bar RIDES UP toward the mouth so a magenta bar never
+    // crosses the player's height and reads as a hazard beam. It stays VISIBLE —
+    // the unfillable bar is the seal's tell.
+    kit.hpBar.position.y = -4.6 + dreadK * 5.8;
     emberMat.emissiveIntensity = 1.1 * clamp(slitK, 0, 2) * (1 - dyingK * 0.8);
 
     // --- THE CLAPPER HEAD (§4b GAZE / NOTICE / EXPRESSION). Drooped at rest; LIFTS
