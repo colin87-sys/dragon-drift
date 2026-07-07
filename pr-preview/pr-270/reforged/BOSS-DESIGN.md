@@ -278,7 +278,11 @@ all 13 others. When a boss ships, flip its row to `shipped`.
 10. **Hue runs out around slot 6–8**: palette identity is allocated on FOUR axes — hue,
     VALUE (a near-white boss vs near-black), temperature, and GLOW-SHAPE (points / lines /
     slit / field / corona-ring). Role colours (danger magenta, parry amber, reflected cyan,
-    surge pink) stay reserved forever.
+    surge pink) stay reserved forever. **The rose-family ruling (slots 11/12/13, decided at
+    slot 11)**: three adjacent sheets all reached for rose — the family stays legal ONLY
+    split across the other axes: 11 = gold/white LINES on grey (pushed OFF rose entirely,
+    accent 0xe8c466), 12 = a near-black rose TRACE, 13 = a bright rose FIELD. A fourth
+    rose ask in the band fails the axis test and must re-hue.
 
 ### Band structure (difficulty and spectacle both ramp; ≤1 new attack id per band)
 
@@ -874,15 +878,22 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   + the weak point). A pale-gold FRESNEL RIM lights the mantle edge (the §3b lit-edge; L121
   "reads cleanly on a bright sky", and it clears bossgate G3 danger-magenta on the Astral sky).
   laserLance = one thread pulled tight → HDR flash — **a beam VISUAL of an existing pattern
-  (aimed), NOT a new attack id** (the WE band's ≤1-new-id budget is left for a sibling; confirm
-  with owner at CP2). Parry cuts a taut amber thread → STAGGER + deletes that laserLance volley.
+  (aimed), NOT a new attack id** (the WE band's ≤1-new-id budget is left for a sibling —
+  **owner-confirmed at CP2**; the beam is a tapered additive lance AIMED AT THE PLAYER — a
+  down-+z beam foreshortens to a blob head-on, the CP2 integration gate caught it). Parry cuts
+  a taut amber thread → STAGGER + deletes that laserLance volley (SHIPPED, `threadCut`).
+  GRAZE FORM (§5i.B, WE band): **MOTE-HARVEST** — the cut thread blooms into falling
+  surge-motes steered through for Surge, offered once per phase (SHIPPED, rides the
+  slot-7 soak machinery).
   Descends from ABOVE on one thread. Moth-grey 0x1a1c22 (cool near-black — a purple-grey drifts
   into the danger band) / pale-gold accent 0xe8c466 (hue ≈43°, off the WE rose-triple) / glow
   0xf2e2b0. ~8.4k tris @q1 (tier-4 gate 22k; q0.5 ~3.8k). Home biome: **Astral (tenant)**;
   VOICE: **needle-pull + plucked-string** — a taut-thread pluck per stitch, mid register, the
   loom's syncopated ticking as signature noise. Rhythm: **SYNCOPATED LOOM** (`syncopated-loom`;
   off-beat accents + a bimodal breath; REST = her hands keep time silently, a visible measured
-  weave that fires nothing). NEEDS: the HUD-sew overlay + banner-pin (§5j; lands CP2).
+  weave that fires nothing). NEEDS: nothing structural — the HUD-sew overlay + banner-pin,
+  the *Mended Banner* entrance, the thread-cut parry, the mote-harvest graze, and the
+  between-waves gap-restitch all SHIPPED at CP2 (PR #269).
   **[above-approach + the `top` warning banner are ALREADY SHIPPED — audit #35; do NOT rebuild.]**
   ENTRANCE (§5j *The Mended Banner*, hijack 2.2s @0.35): ambient ~2s, fully playable —
   thin pale-gold threads lace across the HUD chrome (DOM/SVG above chrome, below bullets — her

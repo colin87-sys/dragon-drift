@@ -7881,7 +7881,52 @@ exit); `globalThis.navigator`/`location` are getter-only in node 22 — GUARD th
 (`if (!globalThis.navigator)`), a raw assign throws. run-all.mjs auto-discovers `tests/*.mjs`, so
 the band gate joins CI for free.
 
-### L208 — BRINEHOLM feel-fix (owner playtest): a lance target you must fly into the wall to reach is a dead verb — pull it in; and the pick-menu is INVISIBILITY, not the picker logic
+### L208 — WEFTWITCH CP2 (the fight engine): a DOM rule-break is layered by TIMING not z-index, a beam at the camera is a blob, and headless captures eat flashes
+
+**Did.** Wired slot 11's whole fight: the LANCE anchor, the thread-cut parry + laserLance,
+the mote-harvest bloom, THE MENDED BANNER entrance (HUD-sew + banner-pin), and the
+between-waves gap-restitch (PR #269, six increments, each landed green).
+
+**The learns (reusable).**
+1. **"Above the chrome, below the bullets" is IMPOSSIBLE as z-layering** — bullets are WebGL
+   and the canvas composites below ALL DOM. The render-order LAW resolves by TIMING: every
+   fire path is hard-gated to `phase === 'fight'`, so the warn/entrance window is provably
+   bullet-free — fire the DOM effect there, clear it at `enterFight()`, and test BOTH edges
+   (fired-before-fight + cleared-at-fight + cleared-on-reset). The timing IS the proof.
+2. **Drive per-boss HUD beats from boss.js against GENERIC ui seams** (the KNELLGRAVE
+   precedent): `ui.hudSew()`/`ui.bossWarnClear()`/`bossWarning(..., {pin})` know nothing
+   about her; the def flag (`hudSew`) lives with the boss. The banner-pin is just "never arm
+   the auto-hide timeout" + an explicit idempotent clear every teardown path may call.
+3. **A beam pointed at the camera is a BLOB.** The laserLance along local +z (toward the
+   player) foreshortened to nothing at the fight camera — beams must AIM at the player
+   (local target fed at the fire instant) and carry WIDTH (a tapered additive cylinder,
+   ~12 tris; a 1px HDR hairline vanished among the web's own hairlines). Flash-only
+   lifetime keeps it out of the G7 overdraw frames.
+4. **Headless captures eat sub-second flashes** — long frames decay a 0.3s effect before
+   the screenshot paints. Capture tools re-FIRE across the shot window (interval + one
+   screenshot) instead of slowing production decay for the camera's sake.
+5. **The parry-job template generalizes**: THRUMSWARM's `staggerHits/staggerT` counting is
+   the shape, but the stagger CONSUMPTION is per-boss (swarm: locked condensed; weftwitch: a
+   stilled loom that cancels its own wind-up). The payoff body lives in ONE function used by
+   both the production parry path and the ?debug capture seam (the debugCrackPane idiom).
+6. **A graze form can be a REWARD for a parry**: moteHarvest blooms from the cut thread —
+   cancel-convert (cut her volley → harvest its motes) — riding the shipped soak-mote
+   machinery with only the spawn differing (fanned, gravity-fall, once per phase, reset at
+   the phase seam). Surge-pink stays the mote colour: reward grammar outranks boss accent.
+7. **Restitch through the BASE arrays** (the L205 contract held): the tear mutates base,
+   the water pass composes on top, pristine copies restore byte-exact (max drift 0 in the
+   test). Deterministic sector choice (no Math.random) keeps it replayable headless.
+8. **Seed randomness in threshold-y motion tests**: KARNVOW's footwork assert consumed the
+   ambient Math.random stream and flaked on unlucky seeds (x-spread 1.02 vs the 1.5 bar) —
+   any test asserting a random walk's EXTENT must pin its stream (a local LCG, restored
+   after). Latent on master; surfaced the moment upstream consumption changed.
+
+**Verified:** boss 74 · defs · entrance (mendedBanner finite/station/gaze contracts) · lock ·
+bossboot · bossrush (11-boss) · tricount 0-over · bossgate G1–G7 PASS · six-frame CP2
+integration gate (sew-warn / descend / clean-chrome LAW / beam / cut+bloom / restitch)
+captured and judged; the beam re-aimed + re-bodied off gate round 2. Owner judges feel on
+the PR #269 preview.
+### L209 — BRINEHOLM feel-fix (owner playtest): a lance target you must fly into the wall to reach is a dead verb — pull it in; and the pick-menu is INVISIBILITY, not the picker logic
 
 **Owner report on the shipped slot-8 breather:** "boring, he doesn't do much" + "his side organs are hard to paint, I crash into the side wall trying and die" + "I unlocked more missiles but there's only ~3 paintable targets" + (on the preview) "it doesn't feel good to lock onto these — the targets should shimmer whether the reticle's on or not, and painting over one should activate it as a pip: pick your prey, don't hunt it." The `lockdps` tool had already quantified the third (BRINEHOLM `5/5/5/2` — cap-5 only reachable by committing to the side shackles + stacking the eye).
 
@@ -7893,7 +7938,7 @@ the band gate joins CI for free.
 
 **Verify.** boss.mjs 70 green (outer shackle |x|<8 with >4 m wall margin); lock.mjs shimmer-count seams unchanged (opacity/scale don't touch count); lockdps/defs/bossboot/smoke/gold-det/bossrush/tricount green; lockdps BRINEHOLM row unchanged. bossgate G3 fails IDENTICALLY on clean master (~2% danger-band pixels in this headless software-GL — a pre-existing environmental flake), so no visual regression — the owner eye-judges the shimmer legibility + the safer shackle reach on the preview.
 
-### L209 — LANCE paint FEEL (owner playtest): building a set across SPREAD organs was racing a 4s decay clock + a per-pip cooldown — freshen-on-paint + cut the cooldown
+### L210 — LANCE paint FEEL (owner playtest): building a set across SPREAD organs was racing a 4s decay clock + a per-pip cooldown — freshen-on-paint + cut the cooldown
 
 **Owner report (BRINEHOLM, spread organs):** "the targets unpaint after a few seconds while I fly around — bug?" + "I feel like I'm hovering for ages, it's just slow" + "is there a lag between each pip?" All real, all traced to shared `CONFIG.LOCK`:
 - **Unpainting** = the DECAY auto-release: the whole banked set fires as a weak `'decay'` volley `decay` (4s) after the OLDEST pip, and on a spread boss the flight eye→shackle→shackle burns that 4s before the set is complete. The pips didn't vanish — the partial set auto-loosed.
@@ -7906,7 +7951,7 @@ the band gate joins CI for free.
 
 **Verify.** lock.mjs green (T2.19 rewritten: a normal second paint flows at the dwell cadence, no cooldown lag; T2.2b single-pip decay + T2.3 deflect-freeze unaffected); wisps paintCooldown lint range widened to [0.15,0.6]; boss/defs/bossboot/smoke/gold-det/bossrush/lockdps(--ci)/tricount green. Owner feel-judges the snappier build + the forgiving decay on the preview.
 
-### L210 — LANCE paint ENGAGEMENT (owner playtest): the organ must ANSWER the dwell — a target that doesn't respond isn't a target, it's a coordinate
+### L211 — LANCE paint ENGAGEMENT (owner playtest): the organ must ANSWER the dwell — a target that doesn't respond isn't a target, it's a coordinate
 
 **Owner report (build a721ed, BRINEHOLM):** "I struggle to paint the RIGHT target — I know it's close to me but it's not engaging, and I don't even know whether I've engaged the top and the left." The paint had no per-organ feedback: all the signal was one small reticle square + a pip-COUNT row up top, so the player couldn't tell (a) which organ they were about to paint, (b) their progress on it, or (c) which organs were already done.
 
@@ -7917,3 +7962,15 @@ the band gate joins CI for free.
 **Lesson: a paint/lock target needs a per-target RESPONSE curve (idle → targeted → committing → done), rendered ON the target — not a single shared cursor + a number.** The state was all published; the miss was that the WORLD didn't reflect it, so the interaction read as "moving a number" instead of "branding a creature." When a player says an interaction "isn't engaging," check whether the OBJECT of the interaction visibly changes as they act on it. Cheap win: the shimmer pool + one event burst turned a coordinate into a target.
 
 **Verify.** Render-only (opacity/scale on existing shimmer sprites + a pooled particle burst) → shimmer COUNT unchanged, so lock.mjs T6.2/T6.3 + all lock/boss/bossboot/smoke/defs/lockdps/tricount green. Owner feel-judges the flare + pop on the preview; if "which have I engaged" still isn't clear at a glance, the next step is a bolder PERSISTENT engaged-mark on painted organs (today it's the DOM brand sigil + shimmer-death).
+
+### L212 — LANCE "pick your prey" (owner playtest): let the reticle target what you're OVER, and let a stackable organ stack in place — the surgical fix is tier-3-only
+
+**Owner report (BRINEHOLM, sitting on the eye):** "there's a target right here but it won't let me paint — it tells me to fly to the top one" + "is there a lag between getting the 1st eye pip and the 2nd?" Both are the HUNT model biting: (a) `refreshHud` always LEADS to the nearest UNPAINTED organ (+ a sticky hysteresis), so being over the eye didn't target the eye; (b) `paintHop` embargoes a just-painted organ for `paintHopGrace` (0.8s), so stacking the eye ×2 (the cap-5 anatomy) fought a re-acquire lag.
+
+**Fix — two changes in `lockLayer.js`, both surgical because they only alter TIER-3 stackable behaviour (every prior hop/unpainted-first test is a tier-2 boss where organs can't stack, so they pass byte-unchanged):**
+- **In-cone override:** if the dragon is inside the acquire cone of an organ it can still ACT on — paint if unpainted, or STACK if painted with room at tier ≥3 — that organ wins outright over the lead. You point, you get. A DONE organ (painted, no stack room) is still skipped, so it leads you onward (preserves the "never strand on a dead organ" law from L2.15/L2.18).
+- **Stack in place:** after a paint, only `paintHop` (release + embargo) when the organ is DONE (`!stackRoom`). A still-stackable organ keeps the aim, so the held line stacks it via the refresh clock with no embargo lag; it hops on the moment it fills.
+
+**Lesson: "pick vs hunt" isn't a rewrite — it's an OVERRIDE.** The flight-line model already makes "point at it" = "fly the dragon into its cone"; the only thing stealing agency was a lead heuristic + a hop embargo that fired even when the player was deliberately parked on a target. Gating the override on "actionable AND in-cone" let the change be additive: it turns on exactly where the old behaviour frustrated the player (a stackable organ you're sitting on) and is invisible everywhere the old tests already pin (tier-2, done organs, the virtual anchor). When a selection system "won't let me act on what I'm pointing at," add a highest-priority "the thing under the cursor, if actionable" rule rather than re-deriving the whole preference order.
+
+**Verify.** lock.mjs green incl. new T2.20 (tier-3: holding the eye stacks it to 2 pips in place, no lead-away/lag; then hops to the rib once full) — and T2.14/T2.15/T2.17/T2.18 (the tier-2 hop/unpainted-first laws) unchanged; wisps/defs/boss/bossboot/smoke/lockdps/tricount green. Owner feel-judges on the preview: sit on the eye → it paints then stacks under you; fly to a shackle → the reticle follows you, not the auto-lead.
