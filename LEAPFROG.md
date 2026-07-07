@@ -7353,3 +7353,51 @@ fire, the entrance *The Mended Banner*), the thread-cut parry + mote-harvest gra
 Fable integration gate. CP1 is model + studio/gate + design gate; the engine is CP2. Optional
 polish Fable flagged (non-blocking): shuttle tips slightly more hand/spindle-like; lift the
 sunset hero-thread brightness a notch.
+
+### L193 — WEFTWITCH web↔water + loom-eye gaze: an arena-reactive model needs a CONTROLLER-FED environment hook, and the water is a compile-time constant
+
+**Did.** Two owner notes on the PR-263 preview: (1) the arena web's spokes pierced the water
+as dead-straight lines ("janky"); (2) "the white eye thing should follow us." Fixed both in
+`bossWeftwitch.js` + ONE optional-chained line in `boss.js`.
+
+**The learns (reusable).**
+1. **The water surface is a compile-time constant, not a query.** `water.js` pins the plane at
+   world y=0 in EVERY biome; waves are a GPU-shader illusion (the mesh is geometrically flat);
+   there is NO CPU height-sample anywhere — Reflector, contactShadow, and BRINEHOLM's fog-rise
+   all just hard-code y=0. Don't build a height-field API to "react to the water"; clip against
+   the constant plane.
+2. **A fight-context environment feed keeps the model studio-pure.** The studio + headless
+   tests build models at the ORIGIN with no water — an always-on clip would have silently
+   changed the CP1 captures and gate numbers. Pattern: an optional handle hook
+   (`model.setWaterPlane?.(0)` at fight spawn, the `setGaze?.()` idiom) — never fed in the
+   studio, so the isolated path stays byte-identical, and a coexist TEST asserts the buffers
+   are untouched without the hook. This is now the house pattern for any arena-reactive model.
+3. **Clip against the LIVE matrix, per tick, never cached.** `bossKit` animates `group.scale`
+   (dissolve spread ×1.6) and the entrance animates `threadPivot.scale` — transform the world
+   plane into pivot-local space fresh each tick (`Plane.applyMatrix4(inverse(matrixWorld))`,
+   which renormalizes → signed distances stay in local units) and the death-sink/entrance
+   compose for free (the web visibly settles into the sea as she dies).
+4. **Three clip cases, all mandatory:** crossing → parametric clip `t=d0/(d0−d1)` + a STRICTLY
+   upward bob (0.12–0.34, never coplanar — the flat water mesh z-fights anything at y=0) + a
+   drag-TAIL along the surface; fully-submerged → collapse degenerate ONTO the plane (deep
+   stitches have both endpoints underwater at fight height — leaving them at base coords fails
+   the no-pierce assert); fully-above → restore pristine base (stitches clip INDEPENDENTLY —
+   re-lerping them against clipped spokes bunches the lower lattice into a halo above the
+   waterline, a look the gates never approved). Straight-down spokes: the tail direction
+   (spoke projected onto the plane) degenerates near-antiparallel to the normal — fall back to
+   local-X-projected, deterministically signed.
+5. **Rewrite-from-base defines the mutation contract:** the clip pass restores the position
+   attributes from pristine base arrays every tick — any future writer (the CP2 gap-restitch)
+   must mutate the BASE arrays, never the attributes, or its writes get stomped. Documented at
+   the base-copy site.
+6. **"Does it track us" is a fight-distance question.** The §4b gaze carriers (hands + hood)
+   DID track but at amplitudes tuned on the studio sheet — invisible at rel-30. And the ONE
+   thing the eye locks onto (the white loom-core focal) was static. Fix: pupil-offset the core
+   toward the eased gaze (the BRINEHOLM iris idiom) + lean the organ + ~2× the hand/hood
+   amplitudes, keeping the LAG (snap = turret, lag = a mind). Honest telegraphy: the core is
+   the muzzle, so where it looks is where shots come from. Tune tracking amplitudes at the
+   FIGHT frame, not the studio sheet.
+
+**Verified:** boss.mjs (pierce −67→−0.00 world, 28 surface tails, coexist-untouched, loom-eye
+tracks) · bossboot zero-error · bossrush · bossgate G1–G7 PASS with the clip LIVE in the fight
+captures. The owner judges the contact bob/tails + tracking feel on the PR preview.

@@ -1126,6 +1126,12 @@ export function startBossEncounter(player, defOverride) {
   group = model.group;
   group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
+  // Arena environment feed (optional model hook, the setGaze?.() pattern): the water
+  // surface is the world-constant plane y=0 in every biome (water.js:204). A model
+  // that reacts to it (WEFTWITCH clips its arena web at the surface) opts in by
+  // exposing setWaterPlane; every other boss is inert. Fed only here — never in the
+  // studio/tests — so the isolated captures stay byte-identical.
+  model.setWaterPlane?.(0);
 
   // Approach choreography (§5e): from behind (overtake up and over), the side,
   // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),

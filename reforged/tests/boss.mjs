@@ -741,6 +741,69 @@ for (const key of BOSS_ORDER) {
   ok(`weftwitch geometry: web ${webSpan.toFixed(0)}w (L141 field), crown tenses on charge, finger-point notice, scar + hands + loom-heart ✓`);
 }
 
+// WEFTWITCH web ↔ water reaction (owner note on PR #263) + loom-eye gaze tracking.
+// The water surface is the world-constant plane y=0 (water.js); boss.js feeds it via
+// the optional setWaterPlane hook AT FIGHT SPAWN ONLY — so the studio/tests default
+// path must stay byte-identical (the CP1 captures + gate numbers hold), and the fight
+// path must terminate every thread at the surface with living contact tails.
+{
+  const webVerts = (m, fn) => {
+    for (const name of ['weftWebDim', 'weftWebHero']) {
+      const obj = m.group.getObjectByName(name);
+      const attr = obj.geometry.attributes.position;
+      for (let i = 0; i < attr.count; i++) fn(attr, i, obj);
+    }
+  };
+  const v = new THREE.Vector3();
+
+  // 1. COEXIST: without setWaterPlane, ticking never touches the web buffers.
+  const ww = buildBoss(BOSSES.weftwitch, 1);
+  const snaps = {};
+  for (const name of ['weftWebDim', 'weftWebHero']) snaps[name] = ww.group.getObjectByName(name).geometry.attributes.position.array.slice();
+  for (let i = 0; i < 20; i++) ww.tick(0.05, i * 0.05);
+  let untouched = true;
+  webVerts(ww, (attr, i, obj) => { if (attr.array[i * 3] !== snaps[obj.name][i * 3] || attr.array[i * 3 + 1] !== snaps[obj.name][i * 3 + 1]) untouched = false; });
+  assert(untouched, 'weftwitch web buffers untouched without setWaterPlane (studio/gate captures byte-identical)');
+
+  // 2. The raw pierce exists at fight height (guards assert 3 from vacuity).
+  ww.group.position.set(0, 13, -30);
+  ww.group.updateMatrixWorld(true);
+  let rawMin = Infinity;
+  webVerts(ww, (attr, i, obj) => { v.fromBufferAttribute(attr, i).applyMatrix4(obj.matrixWorld); if (v.y < rawMin) rawMin = v.y; });
+  assert(rawMin < -5, `weftwitch raw web pierces the surface at fight height (min world y ${rawMin.toFixed(1)} < -5)`);
+
+  // 3. With the water plane fed: every thread terminates at/above the surface, and at
+  // least one TAIL drags along it (a near-surface segment with real length).
+  ww.setWaterPlane(0);
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 1 + i * 0.05);
+  ww.group.updateMatrixWorld(true);
+  let clipMin = Infinity, tails = 0;
+  const p0 = new THREE.Vector3(), p1 = new THREE.Vector3();
+  for (const name of ['weftWebDim', 'weftWebHero']) {
+    const obj = ww.group.getObjectByName(name);
+    const attr = obj.geometry.attributes.position;
+    for (let i = 0; i < attr.count; i += 2) {
+      p0.fromBufferAttribute(attr, i).applyMatrix4(obj.matrixWorld);
+      p1.fromBufferAttribute(attr, i + 1).applyMatrix4(obj.matrixWorld);
+      clipMin = Math.min(clipMin, p0.y, p1.y);
+      if (Math.abs(p0.y) <= 1.5 && Math.abs(p1.y) <= 1.5 && p0.distanceTo(p1) >= 1.5) tails++;
+    }
+  }
+  assert(clipMin >= -0.75, `weftwitch web terminates at the water surface (min world y ${clipMin.toFixed(2)} ≥ -0.75 — no thread pierces)`);
+  assert(tails >= 3, `weftwitch drags ${tails} surface tails at the contacts (need ≥3 — the threads REACT, not just clip)`);
+
+  // 4. THE LOOM-EYE TRACKS (owner: "the white eye should follow us"): the white core
+  // slides toward the gazed side like a pupil.
+  const core = ww.group.getObjectByName('loomCore');
+  const preX = core.position.x;
+  ww.setGaze(1, 0);
+  for (let i = 0; i < 30; i++) ww.tick(0.05, 3 + i * 0.05);
+  assert(core.position.x > preX + 0.3, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.3)`);
+
+  ww.dispose();
+  ok(`weftwitch water reaction: coexist-untouched, pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} surface tails, loom-eye tracks ✓`);
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def
