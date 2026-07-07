@@ -158,6 +158,7 @@ const _focusCol = new THREE.Color();
 const SHIMMER_POOL = 8;
 const shimmers = [];
 const _shimV = new THREE.Vector3();
+const _brandPopV = new THREE.Vector3();   // brand-pop burst position (lockPaint confirm)
 // BRAND TETHER (PR7): one additive LineSegments drawing a faint jade line from
 // the dragon's off-shoulder (the wisp launch point) to each BRANDED organ —
 // in-world attribution ("this brand is on THAT rib"), a sibling of the shimmer.
@@ -2734,6 +2735,12 @@ function updateShimmer(time, ctx) {
   if (ctx.paintUnlocked && !ctx.deflected && ctx.paintables && model?.partWorldPos) {
     const painted = lockPaintedParts();
     const L = CONFIG.LOCK;
+    // The organ the reticle is currently on + how far the dwell has progressed —
+    // so the TARGETED organ can visibly respond (owner playtest: "I struggle to
+    // paint the right target, I don't know which I've engaged, it's not engaging").
+    const hud = lockHudState();
+    const aimPart = hud.active ? hud.aimPart : null;
+    const dwell = hud.dwell || 0;
     for (const part of ctx.paintables) {
       if (used >= SHIMMER_POOL) break;
       if (painted.includes(part)) continue;
@@ -2742,8 +2749,17 @@ function updateShimmer(time, ctx) {
       if (!w) continue;
       const sp = shimmers[used++];
       sp.position.copy(w);
-      sp.scale.setScalar(1.1 * (def.scale ?? 1));
-      sp.material.opacity = L.shimmerOpacity * (0.55 + 0.45 * Math.sin(time * L.shimmerHz * Math.PI * 2 + used * 1.7));
+      // Bigger, brighter breath so the pick-menu reads at a glance: a wider glow
+      // and a high FLOOR (never dims below ~0.7 of peak) so every paintable organ
+      // is always clearly lit — the player picks which to fly to.
+      // TARGETING FLARE: the organ the reticle is on GROWS + BRIGHTENS with the
+      // dwell — the target visibly answers you, and the fill reads AS paint
+      // progress ON the organ, not just a tiny reticle up top. So you can see
+      // exactly which one you're painting (and steer off if it's the wrong one).
+      const flare = (part === aimPart) ? (0.35 + 0.9 * Math.min(1, dwell)) : 0;
+      sp.scale.setScalar((1.5 + flare * 1.5) * (def.scale ?? 1));
+      const breath = 0.72 + 0.28 * Math.sin(time * L.shimmerHz * Math.PI * 2 + used * 1.7);
+      sp.material.opacity = L.shimmerOpacity * (breath + flare * 2.4);
       sp.visible = true;
     }
   }
@@ -2916,6 +2932,17 @@ function driveFocusTeach(dt, ctx) {
 // SNAP-paint (p.snap — the perfect-parry brand) retires the V4 teach.
 on('lockPaint', (p) => {
   if (!saveData.flags.lockTaught) { saveData.flags.lockTaught = true; persist(); }
+  // BRAND POP (owner playtest: "it's not engaging, I don't know what I've
+  // engaged"): a bright jade+white burst ON the organ the instant it takes the
+  // brand — the unmistakable "engaged!" confirmation (its shimmer also dies). A
+  // stack pops smaller (a refresh, not a fresh organ).
+  if (p && model && model.partWorldPos) {
+    const w = model.partWorldPos(p.part, _brandPopV);
+    if (w) {
+      burst(w, 0x50ffaa, { count: p.stacked ? 5 : 11, speed: p.stacked ? 6 : 9, size: 0.75, life: 0.36 });
+      burst(w, 0xeafff6, { count: p.stacked ? 2 : 4, speed: 14, size: 0.5, life: 0.22 });
+    }
+  }
   if (p && p.snap && !saveData.flags.snapTaught) {
     saveData.flags.snapTaught = true; persist();
     ui.bossNote?.('THE MARK ANSWERS THE PARRY', '', 'gold', 1.8);

@@ -651,8 +651,9 @@ export const BOSSES = {
     // UP (eyeWeakPoint already feeds lockDeflected — sealed honesty for free);
     // shackles gate OUT of P4 (the sounding — the head submerges and freed
     // posts should not re-offer). A freed shackle leaves the paintable set via
-    // the PR6 liveness filter and its brand is dropped. Outer posts sit at the
-    // arena edges (x ±8–10) — branding them is a deliberate lateral commit.
+    // the PR6 liveness filter and its brand is dropped. Outer posts sit LATERAL
+    // (world x ±~6.75) — a real side reach, but pulled in from the ±13 lane wall
+    // so branding them is a commit, not a crash-and-die.
     lockParts: [
       { part: 'eyeRig' },
       { part: 'shacklePost0', phases: [0, 1, 2] },
