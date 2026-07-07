@@ -255,50 +255,69 @@ export function buildWeftwitch(def, quality = 1) {
     const upBend = ((90 - deg) * Math.PI / 180) * 0.5;
     const dang = ang + upBend;
     const ddir = new THREE.Vector3(Math.cos(dang), Math.sin(dang), 0);
+    // The crown elements are WEAVER'S SPINDLES (owner call): a slender shaft with a
+    // WHORL disc near the base + THREAD WINDINGS mid-shaft, tapering to a fine needle
+    // point — a drop-spindle wound with thread, NOT a smooth quill or a leg. Built
+    // along the arm direction; the distal half curves UP (upBend) so the crown reaches
+    // skyward, tips ≥45° above horizontal, nothing below the shoulder (anti-spider).
+    const L0 = 5.2, L1 = 4.4;
+    const px = (t) => dir.x * L0 * t, py = (t) => dir.y * L0 * t;               // point along the proximal shaft
+    const dx = (t) => dir.x * L0 + ddir.x * L1 * t, dy = (t) => dir.y * L0 + ddir.y * L1 * t;  // along the distal shaft
     if (i === SCAR_IDX) {
-      // THE SCAR — a snapped dead arm: a THICK proximal stump frayed off mid-length
-      // (matching the live arms' girth so it reads as a WOUND, not a thin leg),
-      // threadless, no tip glow, kinked limp among the crown.
-      const L0 = 3.0;
-      const prox = strip(new THREE.CylinderGeometry(0.44, 0.78, L0, armSeg));
-      prox.rotateZ(ang - Math.PI / 2);
-      prox.translate(dir.x * L0 * 0.5, dir.y * L0 * 0.5, 0);
-      // a frayed snapped end — a short splintered cone bent limp off the arm line.
-      const kink = strip(new THREE.ConeGeometry(0.4, 1.0, 5));
-      const kang = ang - 0.6;
-      kink.rotateZ(kang - Math.PI / 2);
-      kink.translate(dir.x * L0 + Math.cos(kang) * 0.4, dir.y * L0 + Math.sin(kang) * 0.4, 0.1);
-      const stub = new THREE.Mesh(mergeWw([prox, kink], 'scarArm'), shroudDeepMat);
+      // THE SCAR — a SNAPPED spindle (owner: "make it read as a wound"): the same
+      // spindle grammar (shaft + whorl) but broken off mid-shaft with a frayed
+      // splintered stub — one broken member among the crown, dead (dark, threadless).
+      const shaft = strip(new THREE.CylinderGeometry(0.24, 0.4, L0 * 0.72, armSeg));
+      shaft.rotateZ(ang - Math.PI / 2); shaft.translate(px(0.36), py(0.36), 0);
+      // the WHORL disc (so it's legible as a broken SPINDLE, not a random stub).
+      const whorl = strip(new THREE.CylinderGeometry(0.62, 0.62, 0.24, lowQ ? 8 : 12));
+      whorl.rotateZ(ang - Math.PI / 2); whorl.translate(px(0.34), py(0.34), 0);
+      // the FRAYED BREAK — 3 short splinters flaring off the snapped end (a wound).
+      const splinters = [];
+      for (let s = 0; s < 3; s++) {
+        const sp = strip(new THREE.ConeGeometry(0.12, 0.9 + s * 0.2, 4));
+        const sang = ang + (s - 1) * 0.5;
+        sp.rotateZ(sang - Math.PI / 2); sp.translate(px(0.72) + Math.cos(sang) * 0.4, py(0.72) + Math.sin(sang) * 0.4, (s - 1) * 0.15);
+        splinters.push(sp);
+      }
+      const stub = new THREE.Mesh(mergeWw([shaft, whorl, ...splinters], 'scarArm'), shroudDeepMat);
       stub.name = 'weftScar';
       pivot.add(stub);
-      // a single cold glint at the break (a snapped-off spinneret — the memory hook),
-      // dimmer than the live gold tips so it reads dead, not live.
-      const brk = new THREE.Mesh(strip(new THREE.OctahedronGeometry(0.28, 0)), shroudHiMat);
+      // a cold glint on the raw break (the §3.6 memory hook), dimmer than the live tips.
+      const brk = new THREE.Mesh(strip(new THREE.OctahedronGeometry(0.3, 0)), shroudHiMat);
       brk.name = 'weftScarBreak';
-      brk.position.set(dir.x * L0 + Math.cos(kang) * 0.9, dir.y * L0 + Math.sin(kang) * 0.9, 0.1);
+      brk.position.set(px(0.72), py(0.72), 0.1);
       pivot.add(brk);
     } else {
-      // a LONG, THICK 2-segment arm (a smooth upward curve — NOT a thin kinked leg).
-      // The distal stays THICK to its end (a club/spindle), never needling to a point.
-      const L0 = 5.4, L1 = 4.8;
-      const prox = strip(new THREE.CylinderGeometry(0.52, 0.82, L0, armSeg));
-      prox.rotateZ(ang - Math.PI / 2);
-      prox.translate(dir.x * L0 * 0.5, dir.y * L0 * 0.5, 0);
-      const dist = strip(new THREE.CylinderGeometry(0.44, 0.58, L1, armSeg));
-      dist.rotateZ(dang - Math.PI / 2);
-      dist.translate(dir.x * L0 + ddir.x * L1 * 0.5, dir.y * L0 + ddir.y * L1 * 0.5, 0);
-      const arm = new THREE.Mesh(mergeWw([prox, dist], `arm${i}`), armMat);
+      // a LIVE SPINDLE: proximal shaft → a whorl disc → distal shaft tapering to a
+      // needle point, wound with thread rings mid-shaft. Self-lit gold (reads on a
+      // dark sky); slender but disambiguated from a leg by the whorl + windings + tip.
+      const prox = strip(new THREE.CylinderGeometry(0.3, 0.42, L0, armSeg));
+      prox.rotateZ(ang - Math.PI / 2); prox.translate(px(0.5), py(0.5), 0);
+      const dist = strip(new THREE.CylinderGeometry(0.11, 0.3, L1, armSeg));
+      dist.rotateZ(dang - Math.PI / 2); dist.translate(dx(0.5), dy(0.5), 0);
+      const point = strip(new THREE.ConeGeometry(0.11, 1.2, armSeg));   // the fine needle point
+      point.rotateZ(dang - Math.PI / 2); point.translate(dx(1) + ddir.x * 0.6, dy(1) + ddir.y * 0.6, 0);
+      // the WHORL disc near the base (the spindle's weighted whorl — the key tell).
+      const whorl = strip(new THREE.CylinderGeometry(0.66, 0.66, 0.26, lowQ ? 8 : 14));
+      whorl.rotateZ(ang - Math.PI / 2); whorl.translate(px(0.32), py(0.32), 0);
+      const arm = new THREE.Mesh(mergeWw([prox, dist, point, whorl], `arm${i}`), armMat);
       arm.name = `weftArm${i}`;
       pivot.add(arm);
-      // the spinneret SHUTTLE — an elongated pale-gold spindle at the arm's end (a
-      // weaver's shuttle feeding a thread; a MASS, not a needle — the accent reaches
-      // the crown outline and the arm reads as an ARM that holds a tool).
-      const tip = new THREE.Mesh(strip(new THREE.OctahedronGeometry(0.62, 0)), knotMat);
-      tip.name = `spinneretTip${i}`;
-      tip.scale.set(0.58, 1.85, 0.58);   // a longer, finer SPINDLE/shuttle (Fable CP1 polish), not a diamond
-      tip.rotation.z = dang - Math.PI / 2;
-      tip.position.set(dir.x * L0 + ddir.x * L1, dir.y * L0 + ddir.y * L1, 0.1);
-      pivot.add(tip);
+      // THREAD WINDINGS — 2–3 pale-gold rings wound around the shaft ("wound with
+      // thread"; the accent reaches the crown). Slightly brighter than the shaft.
+      const windN = lowQ ? 2 : 3;
+      const winds = [];
+      for (let w = 0; w < windN; w++) {
+        const t = 0.5 + w * 0.12;
+        const ring = strip(new THREE.TorusGeometry(0.24 - w * 0.02, 0.07, 5, lowQ ? 8 : 12));
+        ring.rotateY(Math.PI / 2); ring.rotateZ(ang - Math.PI / 2);
+        ring.translate(px(t), py(t), 0);
+        winds.push(ring);
+      }
+      const wound = new THREE.Mesh(mergeWw(winds, `wind${i}`), knotMat);
+      wound.name = `spinneretTip${i}`;   // the accent-bearing wound thread (named for parity)
+      pivot.add(wound);
     }
     rig.add(pivot);
     spinneretPivots.push(pivot);
