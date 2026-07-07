@@ -1092,6 +1092,13 @@ export const BOSSES = {
     // path is BUILT in CP2 (Part 2.6); until then this flag is inert (a def without a
     // consumer keeps the plain warn — coexist-safe, every other boss byte-identical).
     noWarn: true,
+    // §5f THE LYING FELLED CARD (the roster's ONLY health-bar lie — def-gated; no other
+    // def may ever set this). On the killing blow ONEWING fakes death (the FELLED card
+    // fires, it cracks), then within ≤2s felledReturn of the bar RETURNS and it fights
+    // on CRIPPLED + exposed until a REAL second kill. Its name IS the mechanic.
+    felledLie: true,
+    felledReturn: 0.35,          // ≤35% of the bar comes back (the crippled final stand)
+    defeat: { slain: '✦  WOULD NOT DIE  ✦', felled: 'ONEWING — The Half That Would Not Die' },
     muzzle: 'livingWing',        // the LIVING volley origin (the wing); the GHOST volley (the fused frame) is a second model node — CP2
     // §5i.B World-Enders graze: SPRAY-SOAK — the fused frame IS the anatomy; hitting/
     // breaking it vents a 2×-value spray for a beat (offered once per phase). Def-gated;

@@ -1329,6 +1329,43 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
 }
 
+// --- 4b. THE LYING FELLED CARD (§5f slot 12 ONEWING — the roster's ONLY health-bar
+// lie): on the killing blow it fakes death, then ≤35% of the bar RETURNS within ≤2s
+// and it fights on CRIPPLED to a REAL second kill. The lie fires at most ONCE, and is
+// completely INERT for every other def (no other boss may ever opt in). ---------------
+{
+  const lies = [], revives = [];
+  on('bossFelledLie', (e) => lies.push(e));
+  on('bossFelledRevive', (e) => revives.push(e));
+
+  // Assert the flag is ONEWING-exclusive at the data layer (the roster's one lie).
+  const optedIn = BOSS_ORDER.filter((k) => BOSSES[k].felledLie);
+  assertEq(optedIn.length, 1, `exactly ONE def opts into the health-bar lie (${optedIn.join(',') || 'none'})`);
+  assertEq(optedIn[0], 'onewing', 'the lone health-bar lie belongs to ONEWING (slot 12)');
+
+  // Drive a full ONEWING kill: the lie must fire exactly once, return ≤35% within ≤2s,
+  // and the boss must still reach a REAL death (the second kill).
+  lies.length = 0; revives.length = 0;
+  const rOne = driveKill(BOSS_ORDER.indexOf('onewing'));
+  assert(rOne.killed, 'ONEWING still reaches a REAL death after the lie (the second kill lands)');
+  assertEq(lies.length, 1, `the lie fires exactly ONCE per encounter (fired ${lies.length}×)`);
+  assertEq(revives.length, 1, `the lie resolves exactly once (revives ${revives.length}×)`);
+  assert(revives[0].frac > 0 && revives[0].frac <= 0.35 + 1e-6,
+    `≤35% of the bar returns (returned ${(revives[0].frac * 100).toFixed(0)}%)`);
+  assert(revives[0].dur <= 2.0,
+    `the lie resolves within ≤2s (${revives[0].dur.toFixed(2)}s — the crippled silhouette stays MOVING, trust restored fast)`);
+
+  // Drive a NON-opted boss (voidmaw): the lie path is completely inert — a byte-identical
+  // plain death, zero lie/revive events.
+  lies.length = 0; revives.length = 0;
+  const rV = driveKill(BOSS_ORDER.indexOf('voidmaw'));
+  assert(rV.killed, 'voidmaw dies on the plain death path');
+  assertEq(lies.length, 0, `the lie is INERT for a non-opted def (voidmaw fired ${lies.length} lies)`);
+  assertEq(revives.length, 0, `no revive for a non-opted def (voidmaw ${revives.length})`);
+
+  ok('lying FELLED card: ONEWING-only, ≤35% returns within ≤2s, fires once, real second kill; inert for others');
+}
+
 // §5f MUSIC-DEATH defeat path: knellgrave (last in BOSS_ORDER) killed the music at
 // its warn-end toll during the lifecycle sim above — the defeat fanfare must have
 // brought it back. A run can never end a boss kill still stranded in silence.

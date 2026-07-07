@@ -146,6 +146,17 @@ let cineSlow = false;         // bullet-time currently engaged by the flythrough
 let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
+// §5f THE LYING FELLED CARD (slot 12 ONEWING — the roster's ONLY health-bar lie,
+// def-gated on `def.felledLie`; no other def may EVER opt in). On the blow that WOULD
+// kill it, ONEWING fakes death — the FELLED card fires, it cracks — then within ≤2s
+// ≤35% of the bar RETURNS and it fights on, CRIPPLED + exposed (no shield), the moving
+// silhouette the honest tell during the lie (MGS2 live-corner). It NEVER repeats: the
+// second kill is real. Every other def: `felledLie` is undefined → the plain death
+// path (pendingDeath) runs, byte-identical.
+const FELLED_LIE_DUR = 1.3;    // the fake-death window before the bar returns (≤2s, hard)
+let felledLieUsed = false;     // the lie fires at most ONCE per encounter
+let felledLieT = 0;            // >0 while the fake death is playing (sealed; resolves the return)
+let crippled = false;          // the post-lie exposed final stand — chip it to a REAL death
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
@@ -1239,6 +1250,7 @@ export function startBossEncounter(player, defOverride) {
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
+  felledLieUsed = false; felledLieT = 0; crippled = false;   // §5f the lie is fresh (and once) per encounter
 
   phase = 'warn';
   warnT = B.warnTime;
@@ -1585,6 +1597,26 @@ export function updateBoss(dt, player, time) {
   if (game.grazeStreakTimer > 0) {
     game.grazeStreakTimer -= dt;
     if (game.grazeStreakTimer <= 0) game.grazeStreak = 0;
+  }
+
+  // §5f resolve the LYING FELLED card: after the fake-death window, ≤35% of the bar
+  // RETURNS and the CRIPPLED, unshielded final stand opens (the truth). Resolves well
+  // inside the ≤2s guarantee. Def-gated; inert for every other boss (felledLieT stays 0).
+  if (felledLieT > 0 && phase === 'fight') {
+    felledLieT -= dt;
+    if (felledLieT <= 0) {
+      felledLieT = 0;
+      crippled = true;
+      hp = Math.max(hp, Math.min(0.35, def.felledReturn ?? 0.35) * hpMax);   // ≤35% returns
+      model.setHealth(hp / hpMax);
+      rhythm?.reset(); rhythmRest = null;
+      pending.length = 0; attackTimer = Math.max(attackTimer, 0.8);
+      // THE REVEAL — the card's own name IS the mechanic: it would not die.
+      ui.bossNote?.('❖ WOULD NOT DIE', def.name, 'dread', 3.0);
+      cameraCtl.shake?.(1.0);
+      sfx.phase?.(true, 1);
+      emit('bossFelledRevive', { id: def.id, frac: hp / hpMax, dur: FELLED_LIE_DUR });
+    }
   }
 
   // hp reached 0 last frame → begin the disintegration (needs the player ref).
@@ -2219,9 +2251,38 @@ function breakShield(player) {
       ui.bossNote?.('⛈  THE ARENA NARROWS  ⛈', def.name, 'gold', 2.6);
       cameraCtl.shake?.(0.8);
     }
+  } else if (def.felledLie && !felledLieUsed) {
+    triggerFelledLie(player);   // §5f the LIE: fake death now, ≤35% returns within ≤2s (once)
   } else {
     pendingDeath = true;   // final shield burst → death (resolved next frame)
   }
+}
+
+// §5f THE LYING FELLED CARD — the fake death. Fires the FELLED card + a crack, seals
+// the boss for FELLED_LIE_DUR (the moving-but-"dead" tell), then the update loop
+// resolves it: ≤35% of the bar returns and the crippled, unshielded final stand opens.
+// Def-gated (def.felledLie) + fires at most once (felledLieUsed) — the roster's ONE
+// health-bar lie; a second death is always real.
+function triggerFelledLie(player) {
+  felledLieUsed = true;
+  felledLieT = FELLED_LIE_DUR;
+  shielded = false;
+  model.setShieldVisible?.(false);
+  // The fake death beat: the FELLED kill-card fires (the lie), the body cracks.
+  ui.bossFelledCard?.(def.defeat?.felled ?? def.name);
+  model.flash?.(1.0);
+  model.hurt?.(1.0);
+  model.shatterShield?.();
+  sfx.shieldShatter?.();
+  cameraCtl.shake?.(1.4);
+  tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+  burst(tmp, 0xffffff, { count: 22, speed: 22, size: 1.3, life: 0.6 });
+  // Sealed + silent for the lie window; the model keeps ticking (the crippled
+  // silhouette stays visibly MOVING — the honest tell). No attacks land ON the player
+  // and no chip lands ON the boss until the truth reveals.
+  pending.length = 0; attackTimer = FELLED_LIE_DUR + 0.4;
+  endCard();
+  emit('bossFelledLie', { id: def.id });
 }
 
 // ---- Attacks ----------------------------------------------------------------
@@ -2926,6 +2987,9 @@ function damageBoss(amount, kind, e = null) {
   // the dread setpiece runs. Outlasting the timer resolves the card (see the card
   // timeout); lances already deflect via lockDeflected.
   if (activeCard && activeCard.survival) { model?.flash?.(0.12); sfx.shieldPing?.(); return; }
+  // §5f the LYING FELLED window: the boss is faking death — no chip lands until the
+  // truth reveals (the returning bar). Inert for every other def (felledLieT stays 0).
+  if (felledLieT > 0) { sfx.shieldPing?.(); return; }
   if (shielded) {
     // Chip/reflect PINGS off the armour — a clang + spark telegraph "a different
     // thing is needed now" (charge Surge), not "keep hitting it".
@@ -2960,12 +3024,23 @@ function damageBoss(amount, kind, e = null) {
     return;
   }
   amount += partBonus;
+  // §5f the CRIPPLED final stand takes AMPLIFIED damage — exposed, no shield, dying:
+  // the desperate last stand resolves fast, not a slog through the returned bar. Only
+  // ever set post-lie (def.felledLie); byte-identical for every other def.
+  if (crippled) amount *= 2.4;
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash
   if (hpRevealT <= 0) model.setHealth(hp / hpMax);   // don't fight the fill-up flourish
   emit('bossHit', { hp, hpMax, frac: hp / hpMax, kind });
 
+  // §5f the CRIPPLED final stand (post-lie): no more shields — chip it to a REAL death.
+  // Only reachable when def.felledLie already spent its one lie; every other def never
+  // sets `crippled`, so the shield-floor path below is byte-identical for them.
+  if (crippled) {
+    if (hp <= 0) pendingDeath = true;
+    return;
+  }
   // Reached the phase floor → raise the shield. Chip/reflect can't push past it;
   // the player must charge Surge (by grazing) and unleash it to burst through.
   const floor = def.phases[phaseIdx + 1]?.atFrac ?? 0;
@@ -3011,6 +3086,7 @@ export function resetBoss() {
   phase = 'idle';
   group = null; model = null; def = null;
   pendingDeath = false;
+  felledLieUsed = false; felledLieT = 0; crippled = false;   // §5f teardown never strands the lie state
   rollParried = false;
   shielded = false;
   if (reticle) reticle.visible = false;

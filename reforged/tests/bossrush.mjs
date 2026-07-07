@@ -78,7 +78,7 @@ let t = 0;
 // moving-station runs ~120s solo, so the 5-boss gauntlet clears well past the old cap.
 // Raised 640→800s when THRUMSWARM (boss 7) joined; 800→980s when BRINEHOLM (boss 8,
 // a Calamity — hp 410, the slowest TIDAL-DRONE cadence) joined the tail (8 bosses now).
-for (let i = 0; i < 60 * 1150 && !rushClear; i++) {   // budget: 9 bosses incl. slot 10's ~30s sealed survival card (§5h contract: gauntlet ≤ 20min)
+for (let i = 0; i < 60 * 1350 && !rushClear; i++) {   // budget: 11 bosses incl. slot 10's ~30s sealed survival card + slot 12's lie/crippled stand (§5h contract: gauntlet — the 11-boss sim clears ~1285s worst-case (immortal-player rider-only chip; a skilled run is faster))
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks
