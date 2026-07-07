@@ -7457,3 +7457,42 @@ loose a volley — personal AND legible? does the rune land?); the tests prove t
 the accent while the head stays white. Remaining deferred LANCE polish (all optional, none
 structural): the 5 LANCE feats (engine exists — ~1 line each), the `lockdps` TTK balance sim (build
 on `driveKill` + `lanceDmgEach`), and slot-14 exam rules (gated on a boss that doesn't exist).
+
+### L196 — LANCE feats (5 achievement unlocks): the feats engine is a one-file, data-driven add — and headless DOM-toast checks lie
+
+**Did.** Added 5 boss-only LANCE achievements — Brandbearer (first paint), Full Draw (meter at
+cap), On the Beat (perfect beat-release), Wyrmstorm (5-brand volley), Lock-Snap (perfect-parry
+snap) — entirely in `js/feats.js`: 5 `FEAT_DEFS` entries (`cat:'skill'`, rewards 25–80) + 3 live
+listeners in `initFeats()` keyed off the existing lock events (`lockPaint {snap?}`, `lockCap`,
+`lockVolley {perfect?,count}`). No UI touched: the Pilot screen's SKILL column and the unlock
+toast are both data-driven off `FEAT_DEFS`, so a new def surfaces automatically. Bumped the
+`tests/defs.mjs` count gate 30→35 and added state-based coverage in `tests/feats.mjs`.
+
+**The engine already had every hook — reuse, don't rebuild.** A "live" feat is just
+`on(event, () => unlockFeat(id,{live:true}))`; `unlockFeat` is idempotent (the save's `unlocked[]`
+is the guard), so "first X" needs no counter, and the ember reward is deferred to CLAIM in the
+Pilot screen (unlock ≠ pay). Three listeners cover five feats because the payloads discriminate:
+one `lockPaint` handler does brand-always + snap-when-`e.snap`; one `lockVolley` handler does
+beat-when-`e.perfect` + storm-when-`e.count>=5`. **The one guard that matters:** the boss Surge
+FORK path emits `lockVolley` WITHOUT `perfect` (only the player's manual `tap` release carries it),
+so the beat feat must guard `e && e.perfect` or a fork volley would false-trigger it — covered by
+a test that fires `{source:'fork'}` with no perfect and asserts the beat feat stays locked.
+
+**Two testing lessons.** (1) **A headless software-GL run drifts — batch your event emits.** The
+feats suite is a real browser boot mid-run; my first draft fired 8 sequential `page.evaluate`
+emits, and the added round-trip latency let the auto-flying player crash before the downstream
+SETTLE-feat setup ran → `waitForFunction(runSummary)` hung to a 30s timeout. Collapsing all the
+emits into ONE synchronous `page.evaluate` (the event bus is sync — emit all five, read every
+`unlocked` flag in the same round-trip) removed the drift and the timeout vanished. When a test
+shares a live clock with the thing under test, minimize wall-clock round-trips. (2) **Don't assert
+on a headless DOM toast.** The pre-existing `feat toast fired` check (`$eval('#feat-toast', …)`)
+fails in this sandbox's software renderer (it presumably passes in real CI) — so I asserted every
+LANCE unlock on `save.feats.unlocked` STATE, never on the toast DOM. State is the honest signal;
+the toast is presentation and flakes under headless GL.
+
+**→ Leapfrog.** Adding a live feat is now a known ~2-line recipe (a def + a listener line, or a
+clause on an existing listener); the only footguns are the reward band `[20,150]`, the `cat`
+whitelist, the count gate in defs.mjs, and event-payload guards for multi-source emitters. Next
+deferred item (owner: two PRs, this was the first): the `lockdps` LANCE balance table — an
+analytic per-boss damage-economy tool + band-gate test on the exported `lanceDmgEach` kernel and
+the `bossHit {kind}` attribution tag (dev-only, no player-facing change).
