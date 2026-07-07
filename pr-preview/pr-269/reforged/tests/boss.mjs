@@ -805,8 +805,28 @@ for (const key of BOSS_ORDER) {
   for (let i = 0; i < 30; i++) ww.tick(0.05, 3 + i * 0.05);
   assert(core.position.x > preX + 0.3, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.3)`);
 
+  // 5. CP2 FIGHT VERBS — the laserLance beam flash + the thread-cut stagger read.
+  // fireBeam(): the HDR hairline shows at the release instant and decays back out.
+  const beam = ww.group.getObjectByName('weftBeam');
+  assert(!!beam && !beam.visible, 'weftwitch beam exists and is hidden at rest');
+  ww.fireBeam();
+  ww.tick(0.016, 5);
+  assert(beam.visible && beam.material.opacity > 0.5, `weftwitch fireBeam flashes the laserLance hairline (opacity ${beam.material.opacity.toFixed(2)})`);
+  for (let i = 0; i < 60; i++) ww.tick(0.05, 5.1 + i * 0.05);
+  assert(!beam.visible, 'weftwitch beam decays back to hidden (a flash, not a sustained laser)');
+  // cutThread(): the hands are thrown APART (the stagger read) and the beam dies.
+  ww.setGaze(0, 0);
+  for (let i = 0; i < 40; i++) ww.tick(0.05, 8 + i * 0.05);
+  const hl = ww.group.getObjectByName('handPivotL');
+  const preHandX = hl.position.x;
+  ww.fireBeam();
+  ww.cutThread();
+  for (let i = 0; i < 12; i++) ww.tick(0.05, 10 + i * 0.05);
+  assert(hl.position.x < preHandX - 1.2, `weftwitch cutThread throws the hands apart (L hand ${preHandX.toFixed(2)}→${hl.position.x.toFixed(2)})`);
+  assert(!beam.visible, 'cutThread kills the beam (a cut thread cannot lance)');
+
   ww.dispose();
-  ok(`weftwitch water reaction: coexist-untouched, pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} surface tails, loom-eye tracks ✓`);
+  ok(`weftwitch water reaction + fight verbs: pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} tails, loom-eye tracks, beam flashes/decays, cut recoils ✓`);
 }
 
 // KNELLGRAVE (slot 10) — the named-pivot telegraph gate. The PENDULUM SWING is the
@@ -1163,6 +1183,21 @@ game.health = 100;
 assert(runBoss({}) === 18, 'a dead-on boss bullet hits the player for its damage');
 game.health = 100;
 assert(runBoss({ x: 9, vx: 0 }) === 0, 'a bullet offset across the lane is dodged (misses)');
+
+// §5i.C THREAD-CUT unravel (weftwitch CP2): cutBossAmbers deletes ONLY the live
+// amber (reflectable) boss bullets — a plain boss bullet and a player shot survive
+// (the cut answers the amber read, nothing else).
+{
+  bullets.resetBossBullets();
+  for (let i = 0; i < 3; i++) bullets.spawnBossBullet({ owner: 'boss', x: i, y: 8, rel: 20, vx: 0, vy: 0, vrel: -10, dmg: 5, r: 1, life: 6, reflectable: true });
+  bullets.spawnBossBullet({ owner: 'boss', x: 5, y: 8, rel: 20, vx: 0, vy: 0, vrel: -10, dmg: 5, r: 1, life: 6 });
+  bullets.spawnBossBullet({ owner: 'player', x: 0, y: 8, rel: 5, vx: 0, vy: 0, vrel: 10, dmg: 5, r: 1, life: 6, reflectable: true });
+  const cut = bullets.cutBossAmbers();
+  assertEq(cut, 3, 'cutBossAmbers deletes exactly the 3 live boss ambers');
+  assertEq(bullets.bossBulletCount(), 2, 'the plain boss bullet + the player shot survive the cut');
+  bullets.resetBossBullets();
+  ok('thread-cut unravel: 3 ambers cut in place, plain/player bullets untouched');
+}
 game.health = 100;
 assert(runBoss({ rollInvuln: 0.5 }) === 0, 'barrel-roll i-frames negate a dead-on bullet (the dodge)');
 ok('boss bullets: hit on contact, miss when offset, negated during a roll');

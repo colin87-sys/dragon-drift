@@ -19,7 +19,7 @@ import { BIOMES, biomeIndexAt } from './biomes.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
   setBossBulletQuality, bossBulletCount, reflectBossBullets, debugActiveBullets,
-  beamContact, setGrazeBonus,
+  beamContact, setGrazeBonus, cutBossAmbers,
   spawnBossRingHoop,
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
@@ -229,6 +229,7 @@ let setpieceDef = null;
 // `condenseInvuln`; every value is inert (0/false) for every other archetype.
 let staggerT = 0;             // >0 = the queen is STAGGERED (parry job): the swarm is LOCKED condensed (exposed)
 let staggerHits = 0;         // amber-volley parries banked toward the next stagger (SCATTER-STAGGER, §5i.C)
+let threadCutHits = 0;       // amber parries banked toward the next THREAD-CUT (WEFTWITCH §5i.C, CP2)
 let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
 let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
 let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
@@ -1242,6 +1243,7 @@ export function startBossEncounter(player, defOverride) {
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
+  threadCutHits = 0;   // §5i.C slot 11 thread-cut state
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
@@ -1930,6 +1932,23 @@ export function updateBoss(dt, player, time) {
               emit('bossStagger', {});
             }
           }
+          // §5i.C THREAD-CUT (WEFTWITCH's parry job, registry row 11): parry her
+          // taut-thread ambers 3× → the thread is CUT — the woven volley UNRAVELS
+          // (every in-flight amber deletes + the queued sub-volleys drop) and the
+          // loom is STILLED for a 2.5s strike window (parry ACCELERATES, §5i.C
+          // law 4). Surge reflects don't count (not the amber read).
+          if (def.threadCut && !surge) {
+            threadCutHits++;
+            if (threadCutHits >= 3) {
+              threadCutHits = 0; staggerT = 2.5;
+              const cut = cutBossAmbers();      // the volley unravels in place
+              pending.length = 0;               // queued sub-volleys drop with it
+              model.cutThread?.();              // hands thrown apart; the thread dies
+              sfx.needlePull?.();               // the thread tears free
+              ui.bossNote?.('✦ THREAD CUT — STRIKE NOW ✦', 'HER VOLLEY UNRAVELS', 'gold', 2.4);
+              emit('threadCut', { cleared: cut });
+            }
+          }
         }
       }
     } else {
@@ -2042,6 +2061,12 @@ export function updateBoss(dt, player, time) {
         if (baitLeft <= 0) { baitResting = true; baitTimer = 1.8; }   // reposition break
         else baitTimer = 0.42;                                        // within a cluster
       }
+    } else if (def.threadCut && staggerT > 0) {
+      // §5i.C THREAD-CUT window (WEFTWITCH): the loom is STILLED — any wind-up
+      // cancels, nothing new is drawn, the strike window runs. (THRUMSWARM's
+      // staggerT is consumed in driveSwarm instead — LOCKED condensed.)
+      staggerT = Math.max(0, staggerT - dt);
+      if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
     } else if (chargeT > 0) {
       // Telegraph wind-up: the boss charges (maw flares red), THEN releases.
       chargeT -= dt;
@@ -2063,6 +2088,14 @@ export function updateBoss(dt, player, time) {
           model.tollNow?.(time);
           cameraCtl.shake?.(0.16 + w * 0.2);
           emit('bossToll', { k: w });
+        }
+        // §5f WEFTWITCH (def.threadCut): the 'aimed' release IS the laserLance —
+        // the taut thread lets go as an HDR beam flash (a VISUAL of the shipped
+        // pattern, owner-confirmed — never a new attack id) + the stitch-pluck
+        // (a plucked in-key string per stitch — the loom is musical).
+        if (def.threadCut && curAttack === 'aimed') {
+          model.fireBeam?.();
+          sfx.stitchPluck?.();
         }
         executeAttack(curAttack, player);
         const ph = def.phases[phaseIdx];
@@ -2098,6 +2131,10 @@ export function updateBoss(dt, player, time) {
         // Optional model hook: which gesture family to wind up in (the
         // colossus's hands point/sweep/spin/clench/slam per attack id).
         model.setAttackTell?.(curAttack);
+        // §5f WEFTWITCH: drawing the thread taut has a SOUND (the needle-pull) —
+        // the audio twin of the taut-thread flash tell (fairness: eyes-off players
+        // hear the aimed wind-up coming).
+        if (def.threadCut && curAttack === 'aimed') sfx.needlePull?.();
         sfx.boostStart?.();   // a short charge whoosh as the wind-up begins
       }
     }
