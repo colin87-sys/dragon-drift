@@ -718,6 +718,26 @@ function bloomHarvestMotes(player) {
   return N;
 }
 
+// §5i.C THREAD-CUT payoff (weftwitch): the woven volley unravels, the loom is
+// stilled for the strike window, and the phase's once-only harvest blooms. One
+// body for the production parry path AND the ?debug capture seam.
+function triggerThreadCut(player) {
+  staggerT = 2.5;
+  const cut = cutBossAmbers();      // the volley unravels in place
+  pending.length = 0;               // queued sub-volleys drop with it
+  model.cutThread?.();              // hands thrown apart; the thread dies
+  sfx.needlePull?.();               // the thread tears free
+  let bloomed = 0;
+  if (def.grazeForm === 'moteHarvest' && !harvestOffered) {
+    harvestOffered = true;          // once per phase (reset at the phase seam)
+    bloomed = bloomHarvestMotes(player);
+    ui.bossNote?.('✦ THREAD CUT — HARVEST THE BLOOM ✦', 'STEER THROUGH THE FALLING MOTES', 'gold', 2.4);
+  } else {
+    ui.bossNote?.('✦ THREAD CUT — STRIKE NOW ✦', 'HER VOLLEY UNRAVELS', 'gold', 2.4);
+  }
+  emit('threadCut', { cleared: cut, bloomed });
+}
+
 // Move the soak motes; a mote within soak radius of the player is ABSORBED (bulletGraze →
 // Surge). Expire on ttl or once well past the player. Writes the Points buffer + visibility.
 function updateSoakMotes(dt, player) {
@@ -1980,22 +2000,7 @@ export function updateBoss(dt, player, time) {
           // law 4). Surge reflects don't count (not the amber read).
           if (def.threadCut && !surge) {
             threadCutHits++;
-            if (threadCutHits >= 3) {
-              threadCutHits = 0; staggerT = 2.5;
-              const cut = cutBossAmbers();      // the volley unravels in place
-              pending.length = 0;               // queued sub-volleys drop with it
-              model.cutThread?.();              // hands thrown apart; the thread dies
-              sfx.needlePull?.();               // the thread tears free
-              let bloomed = 0;
-              if (def.grazeForm === 'moteHarvest' && !harvestOffered) {
-                harvestOffered = true;          // once per phase (reset at the phase seam)
-                bloomed = bloomHarvestMotes(player);
-                ui.bossNote?.('✦ THREAD CUT — HARVEST THE BLOOM ✦', 'STEER THROUGH THE FALLING MOTES', 'gold', 2.4);
-              } else {
-                ui.bossNote?.('✦ THREAD CUT — STRIKE NOW ✦', 'HER VOLLEY UNRAVELS', 'gold', 2.4);
-              }
-              emit('threadCut', { cleared: cut, bloomed });
-            }
+            if (threadCutHits >= 3) { threadCutHits = 0; triggerThreadCut(player); }
           }
         }
       }
@@ -2136,14 +2141,6 @@ export function updateBoss(dt, player, time) {
           model.tollNow?.(time);
           cameraCtl.shake?.(0.16 + w * 0.2);
           emit('bossToll', { k: w });
-        }
-        // §5f WEFTWITCH (def.threadCut): the 'aimed' release IS the laserLance —
-        // the taut thread lets go as an HDR beam flash (a VISUAL of the shipped
-        // pattern, owner-confirmed — never a new attack id) + the stitch-pluck
-        // (a plucked in-key string per stitch — the loom is musical).
-        if (def.threadCut && curAttack === 'aimed') {
-          model.fireBeam?.();
-          sfx.stitchPluck?.();
         }
         executeAttack(curAttack, player);
         const ph = def.phases[phaseIdx];
@@ -2439,6 +2436,22 @@ function executeAttack(id, player) {
   if (id === 'aimed') {
     // Three distinct bullets to dodge around, not one dense overlapping wall.
     // Aimed/fan are REFLECTABLE (amber) — the precision shots reward a parry.
+    // §5f WEFTWITCH (def.threadCut): the 'aimed' release IS the laserLance — the
+    // taut thread lets go as an HDR beam flash (a VISUAL riding this shipped
+    // pattern, owner-confirmed — never a new attack id) + the in-key stitch-pluck
+    // (the loom is musical). Lives HERE, at the true emit site, so the ?debug
+    // capture seam (bossFireNow) shows the same beam the production release does.
+    // The beam AIMS AT THE PLAYER in model-local coords (placeGroup keeps the
+    // facing near-identity; the flash is ~0.3s, so the small wobble never reads).
+    if (def?.threadCut && model?.fireBeam) {
+      const sc = def.scale ?? 1;
+      model.fireBeam(
+        (player.position.x - pose.x) / sc,
+        (player.position.y - pose.y) / sc,
+        (pose.rel + 8) / sc,               // a shoulder past the player plane
+      );
+      sfx.stitchPluck?.();
+    } else if (def?.threadCut) { sfx.stitchPluck?.(); }   // def/model null on the headless debugEmitAttack flush
     for (let i = -1; i <= 1; i++) {
       const v = aimVel(px + i * 1.6, py, closing);
       emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
@@ -3197,6 +3210,19 @@ export function debugFireAttack(id, player) {
 
 // Capture hook (?debug): crack a destructible sub-part live (HOLLOWGATE pane N)
 // so the integration shots can show a broken window + its silenced radial.
+// Capture hooks (?debug): fire the WEFTWITCH thread-cut / gap-restitch beats live
+// (the debugCrackPane precedent) so the integration shots show the real payoffs.
+export function debugThreadCut(player) {
+  if (!active || !def?.threadCut) return false;
+  triggerThreadCut(player);
+  return true;
+}
+export function debugRestitch() {
+  if (!active || !model?.restitchWeb) return false;
+  model.restitchWeb();
+  return true;
+}
+
 export function debugCrackPane(i) {
   if (!active || !model?.crackPane) return false;
   const ok = model.crackPane(i);

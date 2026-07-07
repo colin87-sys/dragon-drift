@@ -7784,3 +7784,49 @@ as dead-straight lines ("janky"); (2) "the white eye thing should follow us." Fi
 **Verified:** boss.mjs (pierce −67→−0.00 world, 28 surface tails, coexist-untouched, loom-eye
 tracks) · bossboot zero-error · bossrush · bossgate G1–G7 PASS with the clip LIVE in the fight
 captures. The owner judges the contact bob/tails + tracking feel on the PR preview.
+
+### L206 — WEFTWITCH CP2 (the fight engine): a DOM rule-break is layered by TIMING not z-index, a beam at the camera is a blob, and headless captures eat flashes
+
+**Did.** Wired slot 11's whole fight: the LANCE anchor, the thread-cut parry + laserLance,
+the mote-harvest bloom, THE MENDED BANNER entrance (HUD-sew + banner-pin), and the
+between-waves gap-restitch (PR #269, six increments, each landed green).
+
+**The learns (reusable).**
+1. **"Above the chrome, below the bullets" is IMPOSSIBLE as z-layering** — bullets are WebGL
+   and the canvas composites below ALL DOM. The render-order LAW resolves by TIMING: every
+   fire path is hard-gated to `phase === 'fight'`, so the warn/entrance window is provably
+   bullet-free — fire the DOM effect there, clear it at `enterFight()`, and test BOTH edges
+   (fired-before-fight + cleared-at-fight + cleared-on-reset). The timing IS the proof.
+2. **Drive per-boss HUD beats from boss.js against GENERIC ui seams** (the KNELLGRAVE
+   precedent): `ui.hudSew()`/`ui.bossWarnClear()`/`bossWarning(..., {pin})` know nothing
+   about her; the def flag (`hudSew`) lives with the boss. The banner-pin is just "never arm
+   the auto-hide timeout" + an explicit idempotent clear every teardown path may call.
+3. **A beam pointed at the camera is a BLOB.** The laserLance along local +z (toward the
+   player) foreshortened to nothing at the fight camera — beams must AIM at the player
+   (local target fed at the fire instant) and carry WIDTH (a tapered additive cylinder,
+   ~12 tris; a 1px HDR hairline vanished among the web's own hairlines). Flash-only
+   lifetime keeps it out of the G7 overdraw frames.
+4. **Headless captures eat sub-second flashes** — long frames decay a 0.3s effect before
+   the screenshot paints. Capture tools re-FIRE across the shot window (interval + one
+   screenshot) instead of slowing production decay for the camera's sake.
+5. **The parry-job template generalizes**: THRUMSWARM's `staggerHits/staggerT` counting is
+   the shape, but the stagger CONSUMPTION is per-boss (swarm: locked condensed; weftwitch: a
+   stilled loom that cancels its own wind-up). The payoff body lives in ONE function used by
+   both the production parry path and the ?debug capture seam (the debugCrackPane idiom).
+6. **A graze form can be a REWARD for a parry**: moteHarvest blooms from the cut thread —
+   cancel-convert (cut her volley → harvest its motes) — riding the shipped soak-mote
+   machinery with only the spawn differing (fanned, gravity-fall, once per phase, reset at
+   the phase seam). Surge-pink stays the mote colour: reward grammar outranks boss accent.
+7. **Restitch through the BASE arrays** (the L205 contract held): the tear mutates base,
+   the water pass composes on top, pristine copies restore byte-exact (max drift 0 in the
+   test). Deterministic sector choice (no Math.random) keeps it replayable headless.
+8. **Seed randomness in threshold-y motion tests**: KARNVOW's footwork assert consumed the
+   ambient Math.random stream and flaked on unlucky seeds (x-spread 1.02 vs the 1.5 bar) —
+   any test asserting a random walk's EXTENT must pin its stream (a local LCG, restored
+   after). Latent on master; surfaced the moment upstream consumption changed.
+
+**Verified:** boss 74 · defs · entrance (mendedBanner finite/station/gaze contracts) · lock ·
+bossboot · bossrush (11-boss) · tricount 0-over · bossgate G1–G7 PASS · six-frame CP2
+integration gate (sew-warn / descend / clean-chrome LAW / beam / cut+bloom / restitch)
+captured and judged; the beam re-aimed + re-bodied off gate round 2. Owner judges feel on
+the PR #269 preview.

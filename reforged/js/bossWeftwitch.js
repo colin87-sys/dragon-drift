@@ -385,11 +385,18 @@ export function buildWeftwitch(def, quality = 1) {
   // down-lane (+z local = toward the player under placeGroup's facing): hairline
   // grammar matches the web (her lines are threads), and toneMapped:false +
   // color>1 punches it past bloom — the §3b "brightest moment". Hidden at rest.
-  const beamMat = track(new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }));
-  const beamGeo = new THREE.BufferGeometry();
-  beamGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 3.4, 4.6, 0, 3.4, 44]), 3));
-  const beamLine = new THREE.LineSegments(beamGeo, beamMat); beamLine.name = 'weftBeam'; beamLine.frustumCulled = false; beamLine.visible = false;
+  // A 1px hairline vanished among the web's own threads (integration-gate r2) —
+  // the lance is a thin TAPERED additive cylinder instead: real width, reads from
+  // every angle, ~12 tris, alive only ~0.3s (hidden at rest → G7 never sees it).
+  const beamMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  const beamGeo = new THREE.CylinderGeometry(0.16, 0.42, 1, 6, 1, true);   // tapers toward the target (a lance, not a pipe)
+  beamGeo.rotateX(Math.PI / 2);        // axis → +z (fire direction)
+  beamGeo.translate(0, 0, 0.5);        // origin at the base — position sits AT the muzzle
+  const beamLine = new THREE.Mesh(beamGeo, beamMat); beamLine.name = 'weftBeam'; beamLine.frustumCulled = false; beamLine.visible = false;
+  const BEAM_ORIGIN = new THREE.Vector3(0, 3.4, 4.6);
+  beamLine.position.copy(BEAM_ORIGIN);
   group.add(beamLine);
+  const _beamDir = new THREE.Vector3(), _beamFwd = new THREE.Vector3(0, 0, 1);
 
   // ---- THE ROSETTE-KNOTS — woven pale-gold knots on the mantle front (LORE motifs
   // of what she's mended). The accent lives HERE, not on the body.
@@ -724,7 +731,17 @@ export function buildWeftwitch(def, quality = 1) {
   // when the 3×-parry lands = the taut thread SNAPS (hands recoil apart, the hood
   // reels, the thread dies) — the stagger read.
   let beamT = 0, cutT = 0, cutEase = 0;
-  function fireBeam() { if (cutT <= 0) beamT = 1; }
+  // fireBeam aims at the PLAYER (local coords fed by boss.js — the beam rides the
+  // aimed volley, so it lances toward you, not down the +z axis where a head-on
+  // camera foreshortens it to a blob; the CP2 integration gate caught that).
+  function fireBeam(tx, ty, tz) {
+    if (cutT > 0) return;
+    beamT = 1;
+    _beamDir.set(tx ?? 0, ty ?? 3.4, tz ?? 44).sub(BEAM_ORIGIN);
+    const len = Math.max(_beamDir.length(), 1);
+    beamLine.quaternion.setFromUnitVectors(_beamFwd, _beamDir.multiplyScalar(1 / len));
+    beamLine.scale.set(1, 1, len);
+  }
   function cutThread() { cutT = 1; beamT = 0; }
 
   function tickBody(dt, time) {
@@ -738,8 +755,10 @@ export function buildWeftwitch(def, quality = 1) {
     beamLine.visible = beamT > 0 && dyingK < 0.5;
     if (beamLine.visible) {
       beamMat.opacity = Math.min(1, beamT * 1.6);
-      // white-hot core → pale-gold tail as it dies (HDR: >1 with toneMapped:false).
+      // white-hot core → pale-gold tail as it dies (HDR: >1 with toneMapped:false);
+      // the shaft thins as the flash decays (scale x/y ride beamT, z holds the aim).
       beamMat.color.copy(loomBase).lerp(new THREE.Color(0xffffff), beamT * 0.8).multiplyScalar(1 + beamT * 3.2);
+      beamLine.scale.x = beamLine.scale.y = 0.35 + beamT * 0.65;
     }
     // the cut-thread stagger: eases in hard, releases slow (the ~2.5s strike window).
     cutT = Math.max(0, cutT - dt * 0.4);
