@@ -172,6 +172,23 @@ Per dragon, the following are **not yet determined** and are the human's calls (
 
 ---
 
+## 6b. GPU-load census — tris · draw calls · overdraw (dragons + bosses)
+
+A dedicated creature GPU census was built and run (`tools/creaturestress.mjs`, headless, additive). It measures **both families with one counting convention** (the visibility-aware counter from `tests/boss.mjs` — Points/Lines/InstancedMesh each = 1 draw; hidden subtrees excluded), because the redesign will add meshes + transparent layers to the premiums, and **the real GPU worst case in a boss fight is the dragon and boss rendered TOGETHER**.
+
+### Findings (FACT — `node tools/creaturestress.mjs`)
+- **Draw calls peak on a DRAGON, not a boss.** Pearl apex = **253 draws** — >3× the heaviest boss (knellgrave 68). Bosses are deliberately draw-frugal unified constructs; dragons are mesh-piles. Premium draws: pearl 253 · solar 112 · obsidian 51 (Obsidian low by one-skin-hull architecture).
+- **Triangles peak on a BOSS.** onewing 16029, karnvow 12597, knellgrave 11723 — ~3× the heaviest dragon (5952). Bosses carry a per-tier band up to 30000 tris / 120 draws; dragons cap at 6000 tris with **no draw/overdraw gate at all** (tricount = tris only). Karnvow sits at 12597/14000 tris, 50/70 draws — comfortably inside its tier-3 band.
+- **Worst-case co-resident frame:** peak draws **pearl(253)+knellgrave(68)=321** (on-device-proven-safe ≤415, L124); peak tris **~21,981** (heaviest dragon + onewing); peak **overdraw phoenix(56)+knellgrave(31)=87** transparent/additive drawables.
+- **Overdraw is the cliff, not draws** — banked on-device (L124/L125 + `tests/boss.mjs` §2b): a real phone held ~58fps at 415 draws, instancing *janked*, and additive-shell overdraw hit the **32fps cliff**. So headless counts are a regression/design gate; **absolute fps comes from a human opening `tools/stress.html` on a phone via the PR preview** (headless rAF throttled ~8x, L105).
+
+### Implication for the premium redesign
+The law-12 premium fx the sheets will add — glow-seams, wing-veins, halos, idle auras, sparkle — are **transparent/additive layers**, i.e. they spend the exact axis (overdraw) that caused the on-device cliff. Phoenix already carries **56** transparent drawables (layered feather wings) — the roster's overdraw ceiling, and it's a dragon. So the premium sheets must budget **overdraw**, not just triangles: prefer surface-shader glow (opaque body, emissive in the fragment) over stacked additive shells (§1 / L124), and keep the co-resident sum (premium dragon + heaviest boss) inside the proven marks. `tools/creaturestress.mjs --ci` is now the standing gate for that (tris per dragon ≤6000; bosses per `TIER_BUDGETS`; co-resident draws ≤415).
+
+**Open (needs the human + a phone):** wiring the REAL dragon+boss geometry into `tools/stress.html` for on-device fps (the L124 instrument is synthetic today). The headless census answers "how many tris/draws/overdraw"; only a real device answers "does it hold 60fps."
+
+---
+
 ## 7. Charter-vs-code conflicts flagged (§9 conflict rule)
 
 1. **Lesson numbering.** Charter §1/§6 cite "JADE rebuild lessons **L166–L176**" as the state of the art. In the actual ledger, L166–L176 are **biome/audio/lance** work; the real starter-rebuild lessons are **L160–L165** (azure gate L161, ember CP1/CP2 L164/L165) and the Pearl/Seraph lessons are **L80–L88 + several unnumbered "Lesson —" entries**. The ledger also has duplicate numbers (two L164s, two L165s, two L215s). Use the content, not the numbers.
@@ -189,4 +206,4 @@ None of these block the research; they refine what "current state" means before 
 2. **Give (or approve a proposed) one-line art direction per dragon**, especially resolving the Solar "Solar vs Eclipse" name/palette question.
 3. On the chosen key: author the §5d build sheet + registry §5 row + 4-form `tests/starters.mjs` SPEC (this doc is the input), then run the calibration gate on the shipped version (expected FAIL) before building the apex.
 
-This document is data-gathering only — no builder, sheet, registry row, or test has been authored or changed yet. The roster is byte-identical (only this markdown file was added).
+This document is data-gathering only — no builder, sheet, registry row, or roster geometry has been authored or changed. The roster is byte-identical. Added alongside it: `tools/creaturestress.mjs` (the read-only dragon+boss GPU census of §6b), which touches no game code.

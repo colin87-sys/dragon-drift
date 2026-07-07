@@ -8318,3 +8318,24 @@ so judge premium drama not restraint — but palette discipline + the overdraw c
 before authoring any premium sheet, read the def out of the code and diff it against the brief — three of
 the charter's five "current state" facts were stale, and the biggest design decision (Solar's body plan +
 the Solar-vs-Eclipse name/palette split) only surfaced by resolving `parts` through `resolveRecipe`.
+
+### L224 — Creature GPU census (dragons + bosses): draws peak on a DRAGON, tris peak on a BOSS, and the worst case is the CO-RESIDENT frame
+Owner asked to confirm the premium dragons carry higher tri/draw call, and to factor the bosses (esp. Karnvow +
+the high-tri bosses) into a dedicated dragon GPU stress. Two facts framed everything: (1) the "recent stress
+test" (`tools/stress.mjs`, L124/L125) is SYNTHETIC — it sweeps placeholder meshes, never loading a creature —
+and `tricount.mjs` counts dragon TRIANGLES ONLY (naive, visibility-blind, no draws/overdraw). (2) `tests/boss.mjs`
+§2b ALREADY gates bosses on tris + VISIBLE draws per tier band (`TIER_BUDGETS`) with the CORRECT counter
+(visibility-aware; Points/Lines/InstancedMesh each = 1 draw). So the fix was a UNIFIED census reusing the boss
+counter for both families: `tools/creaturestress.mjs` (read-only, additive, `--ci`, `--forms`). Findings that
+invert the intuition: **draw calls peak on a DRAGON** — pearl apex 253 draws > every boss (knellgrave 68), because
+bosses are frugal unified constructs and dragons are mesh-piles; **triangles peak on a BOSS** — onewing 16029,
+karnvow 12597 vs the heaviest dragon 5952 (~3x). Rarity does NOT correlate with tri OR draw count (azure R has
+more tris than all three premiums; obsidian SSR is draw-LOW by its one-skin hull). The real worst case is the
+CO-RESIDENT frame (dragon + boss render together in a fight): peak draws pearl(253)+knellgrave(68)=321, peak tris
+~22k, peak OVERDRAW phoenix(56)+knellgrave(31)=87 transparent drawables. And overdraw is the axis that matters:
+the banked on-device verdict (L124 + the boss.mjs comment) is ~58fps @ 415 draws, instancing JANKED, additive-shell
+overdraw = the 32fps cliff. So the premium law-12 fx the sheets will add (glow-seams/veins/halos/auras) spend
+OVERDRAW, not triangles — phoenix already tops the roster at 56 transparent drawables. Lesson: before adding
+"premium richness," measure the CO-RESIDENT budget with ONE counter across dragons+bosses, and gate OVERDRAW
+(prefer opaque-body surface-shader emissive over stacked additive shells), because the thing the GPU actually
+renders in a boss fight is dragon+boss, and headless counts a regression gate — absolute fps is still a phone read.
