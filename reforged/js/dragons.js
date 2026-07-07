@@ -218,21 +218,21 @@ export const DRAGONS = {
       // this same tube (parts.tail:'none'), continuous by construction.
       bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 13, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,
       bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
-      bodyWaveAmp: 0.72,                  // lateral swim amplitude (0 at the head → full at the tail)
+      bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
       bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
       bodyWaveSpeed: 3.2,                 // cruise wave rate (dragon.js eases it up with speed)
       bodyArcY: 0.14,                     // resting vertical S (line-of-action)
-      // silk-fin fans RIPPLE symmetrically in flight (dragon.js) so both fans beat TOGETHER,
-      // each koi lobe breathing open→closed with a per-lobe lag (a lazy koi-fin undulation).
-      lobeRippleAmp: 0.2, lobeRippleLag: 0.7, lobeRippleSpeed: 0.5,
-      // FACE — azure's head fitted to jade (human note): the softStealth draconic skull
-      // with azure's cute round eye + tapered predator snout + brow, in jade green.
+      // silk-fin fans beat SYMMETRICALLY in flight (dragon.js): the N lobes fire L_i↔R_i
+      // together with a small inboard→outboard lag (a living koi-fin beat, both fans in sync).
+      lobeBeatAmp: 0.3, lobeBeatLag: 0.5,
+      // FACE — the original lofted KOI head (human note: "show me the original koi face
+      // again"): a slim, browed, tapered-snout eastern-serpent shell with the living cuteEye.
       headArchetype: 'softStealth',
-      headScale: 0.6, snoutScale: 0.86, eyeScale: 0.9, eyeShape: 1.0,
-      snoutType: 'taperedPredatorSnout', browIntensity: 1.1, crestBase: 0x7fbfa0,
-      cuteEye: true,                     // living round eye — jade-green iris + dark forward pupil + catchlight (azure's treatment)
+      headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
+      skullType: 'koiSkull',             // the lofted koi/eastern-serpent head shell (slim, browed, tapered snout)
+      cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
-      neckBlend: 1.3,                    // slim river-serpent neck so the head sits proud (azure-style, not a fat balloon neck)
+      neckBlend: 1.4,                    // slim river-serpent neck so the head sits proud on the smooth tube
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
       lobeNotch: 0.52, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,

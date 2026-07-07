@@ -718,6 +718,31 @@ export function updateDragon(dt, player, time) {
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
+  } else if (wingLobePivotsL || wingLobePivotsR) {
+    // ── JADE silk-fin fans — a fully SYMMETRIC koi beat ──────────────────────────────
+    // The user's ask: the N lobes per side beat so L1↔R1, L2↔R2, L3↔R3 fire TOGETHER.
+    // The whole fan tilts with the wingbeat as a clean MIRROR (both fans up/down together),
+    // and each lobe beats on the SAME phase for its L and R twin (side only flips the spread
+    // direction so both fans open outward together), with a small inboard→outboard lag for a
+    // living fin. NO asymmetric wingTip phase (that was the "beating asymmetrical" read).
+    wingPivotR.rotation.set(0.12 + climbBias, -0.12 + turnBias * 0.8, -rootFlap + turnBias + rollFold);
+    wingPivotL.rotation.set(0.12 + climbBias,  0.12 + turnBias * 0.8,  rootFlap + turnBias - rollFold);
+    if (wingTipR) wingTipR.rotation.set(0, 0, 0);   // rear-lobe carrier rides the fan (no independent asymmetric wobble)
+    if (wingTipL) wingTipL.rotation.set(0, 0, 0);
+    const lAmp = activeDef.model.lobeBeatAmp ?? 0.28;
+    const lLag = activeDef.model.lobeBeatLag ?? 0.45;
+    for (const arr of [wingLobePivotsR, wingLobePivotsL]) {
+      if (!arr) continue;
+      const n = Math.max(1, arr.length - 1);
+      for (const b of arr) {
+        const t = b.pivot; if (!t) continue;
+        const fr = b.idx / n;                                   // 0 inner → 1 outer
+        const lp = phase - fr * lLag;                           // SAME lp for L_i and R_i → they beat together
+        const beat = Math.sin(lp) * lAmp * (0.6 + 0.4 * fr);    // outer lobes swing widest
+        t.rotation.y = damp(t.rotation.y, b.side * beat, 10, dt);            // spread/close (both fans open together)
+        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * lAmp * 0.3, 10, dt); // gentle silk cup-roll
+      }
+    }
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
@@ -740,27 +765,6 @@ export function updateDragon(dt, player, time) {
       const fr = arr.length > 1 ? b.idx / (arr.length - 1) : 0;
       const sw = Math.sin(phase - 0.5 - fr * 0.9) * (0.05 + 0.09 * fr);
       b.pivot.rotation.z = damp(b.pivot.rotation.z, b.side * (0.02 + 0.10 * fr) + sw, 12, dt);
-    }
-  }
-  // JADE silk-fin fans: the whole pivot flaps the fan (above); here each koi LOBE ripples so
-  // the fan "breathes" open→closed like a real koi fin — SYMMETRIC L=R (both fans beat
-  // together, the user's ask) with a per-lobe lag down the fan so the ripple TRAVELS outboard.
-  // Additive + nullable: only jade publishes lobe pivots, so every other dragon is untouched.
-  if (wingLobePivotsL || wingLobePivotsR) {
-    const amp = activeDef.model.lobeRippleAmp ?? 0.18;
-    const lag = activeDef.model.lobeRippleLag ?? 0.6;
-    const spd = activeDef.model.lobeRippleSpeed ?? 0.55;   // lazy fin — slower than the wingbeat
-    for (const arr of [wingLobePivotsR, wingLobePivotsL]) {
-      if (!arr) continue;
-      const n = Math.max(1, arr.length - 1);
-      for (const b of arr) {
-        const t = b.pivot; if (!t) continue;
-        const fr = b.idx / n;                                 // 0 inner → 1 outer lobe
-        const lp = phase * spd - fr * lag;                    // outer lobes lag → travelling ripple
-        const open = Math.sin(lp) * amp * (0.5 + 0.5 * fr);   // outer lobes swing widest
-        t.rotation.y = damp(t.rotation.y, b.side * open, 8, dt);          // spread/close (side → both open together)
-        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * amp * 0.35, 8, dt); // gentle silk cup-roll
-      }
     }
   }
   // Per-form head wobble (Mk II): the baby's head bobbles with the frantic flap; the
@@ -880,14 +884,22 @@ export function updateDragon(dt, player, time) {
     }
   }
 
-  // koiSerpent (jade): advance the body's travelling-wave phase — the vertex shader bends
-  // the ONE tube mesh into a swimming S (transformed.x += amp·ramp·sin(freq·z + uTime)).
-  // Accumulate (never phase = speed·clock) so a speed change can't jolt the wave; ease the
-  // speed factor so cruise→boost the swim quickens smoothly. Additive + nullable (jade-only).
+  // koiSerpent (jade): flex the ONE tube mesh into a swimming S on the CPU — each vertex
+  // x = baseX + amp·ramp·sin(freq·z + phase), ramp 0 at the head → 1 at the tail (head leads,
+  // tail whips). Phase ACCUMULATES (never phase = speed·clock, or a boost jolts the wave) and
+  // the speed factor eases so cruise→boost quickens smoothly. ~N·K verts (one hero) = trivial.
   if (bodyWave) {
     const sp = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
-    bodyWave.uTime = damp(bodyWave.uTime ?? sp, sp, 3, dt);
-    bodyWave.uniforms.uTime.value += dt * bodyWave.baseSpeed * (0.6 + bodyWave.uTime * 0.7);
+    bodyWave.spd = damp(bodyWave.spd ?? sp, sp, 3, dt);
+    bodyWave.phase += dt * bodyWave.baseSpeed * (0.6 + bodyWave.spd * 0.7);
+    const arr = bodyWave.geo.attributes.position.array;
+    const { baseX, baseY, spineZ, ramp, amp, ampY, freq, phase, count } = bodyWave;
+    for (let v = 0; v < count; v++) {
+      const ph = freq * spineZ[v] + phase;
+      arr[v * 3] = baseX[v] + amp * ramp[v] * Math.sin(ph);
+      arr[v * 3 + 1] = baseY[v] + ampY * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+    }
+    bodyWave.geo.attributes.position.needsUpdate = true;
   }
   // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each
   // plate behind trails with a phase lag, so the chain slithers in zero-g; turning

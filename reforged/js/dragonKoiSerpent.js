@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { registerTorso } from './dragonRecipe.js';
+import { applyFresnelRim } from './surface.js';
 
 // KOI SERPENT — ONE smooth continuous river-serpent tube that UNDULATES via a
 // travelling-wave vertex shader (no segments, no beads).
@@ -120,57 +121,43 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.setIndex(indices);
 
-  // Jade hide material + the TRAVELLING-WAVE deform (vertex) and a green fresnel rim
-  // (fragment), composed in ONE onBeforeCompile that SHARES the uTime uniform so dragon.js
-  // can advance the wave each frame (the attachBodyDeform pattern; composeSurface wraps its
-  // uniforms fresh per compile and so can't be ticked externally).
+  // Jade hide material — vivid mid-value body, mint belly, a green emissive floor + fresnel
+  // rim so it HOLDS jade when the cool studio fill backlights it (never near-black/teal).
   const bodyMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true,
     roughness: def.bodyRoughness ?? 0.5, metalness: def.bodyMetalness ?? 0.02,
     envMapIntensity: def.bodyEnvIntensity ?? 0.55,
     emissive: cBody, emissiveIntensity: model.bodyGlow ?? 0.10,
   });
+  applyFresnelRim(bodyMat, cRim, { intensity: model.bodyRim ?? 0.3, power: 3.0 });
   bodyMat.userData.baseEmissive = cBody;
   bodyMat.userData.baseIntensity = model.bodyGlow ?? 0.10;
 
-  const leadZ = zzOf(0), lastZ = zzOf(N - 1);
-  const waveU = {
-    uTime: { value: 0 },
-    uAmp: { value: (model.bodyWaveAmp ?? 0.7) * scale },
-    uFreq: { value: model.bodyWaveFreq ?? 1.0 },
-    uSpineMin: { value: leadZ },
-    uSpineMax: { value: lastZ },
-  };
-  const rimCol = new THREE.Color(cRim);
-  const rimInt = model.bodyRim ?? 0.3;
-  bodyMat.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = waveU.uTime;
-    shader.uniforms.uAmp = waveU.uAmp;
-    shader.uniforms.uFreq = waveU.uFreq;
-    shader.uniforms.uSpineMin = waveU.uSpineMin;
-    shader.uniforms.uSpineMax = waveU.uSpineMax;
-    shader.uniforms.uRimColor = { value: rimCol };
-    shader.uniforms.uRimInt = { value: rimInt };
-    shader.uniforms.uRimPow = { value: 3.0 };
-    shader.vertexShader =
-      'uniform float uTime;uniform float uAmp;uniform float uFreq;uniform float uSpineMin;uniform float uSpineMax;\n' +
-      shader.vertexShader.replace('#include <begin_vertex>',
-        '#include <begin_vertex>\n' +
-        'float _ramp = 0.12 + 0.88 * clamp((position.z - uSpineMin) / max(0.0001, uSpineMax - uSpineMin), 0.0, 1.0);\n' +
-        'float _ph = uFreq * position.z + uTime;\n' +
-        'transformed.x += uAmp * _ramp * sin(_ph);\n' +
-        'transformed.y += uAmp * 0.16 * _ramp * sin(_ph * 0.9 + 0.4);\n');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform vec3 uRimColor;uniform float uRimInt;uniform float uRimPow;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n' +
-        '{ float _vdn = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);\n' +
-        '  totalEmissiveRadiance += uRimColor * (pow(1.0 - _vdn, uRimPow) * uRimInt); }\n');
-  };
-  bodyMat.customProgramCacheKey = () => 'koiWave';
-  bodyMat.needsUpdate = true;
-
   const body = new THREE.Mesh(geo, bodyMat);
+  body.frustumCulled = false;   // the CPU wave swings verts past the static bounds
   group.add(body);
+
+  // ── CPU travelling-wave data (dragon.js flexes the tube each frame) ──────────────────
+  // The undulation is done on the CPU (deterministic + headless-testable, unlike an
+  // onBeforeCompile uniform which never compiles in CI): each vertex's x is rewritten to
+  // baseX + amp·ramp·sin(freq·z + phase), ramp 0 at the head → 1 at the tail so the head
+  // leads and the tail whips. ~N·K verts (one hero dragon) → trivial per frame.
+  const leadZ = zzOf(0), lastZ = zzOf(N - 1);
+  const vcount = positions.length / 3;
+  const baseX = new Float32Array(vcount), baseY = new Float32Array(vcount), spineZ = new Float32Array(vcount), rampA = new Float32Array(vcount);
+  const denom = Math.max(0.0001, lastZ - leadZ);
+  for (let v = 0; v < vcount; v++) {
+    baseX[v] = positions[v * 3]; baseY[v] = positions[v * 3 + 1]; spineZ[v] = positions[v * 3 + 2];
+    rampA[v] = 0.12 + 0.88 * Math.min(1, Math.max(0, (spineZ[v] - leadZ) / denom));
+  }
+  const bodyWave = {
+    geo, count: vcount, baseX, baseY, spineZ, ramp: rampA,
+    amp: (model.bodyWaveAmp ?? 0.7) * scale,
+    ampY: (model.bodyWaveAmpY ?? 0.16) * (model.bodyWaveAmp ?? 0.7) * scale,
+    freq: model.bodyWaveFreq ?? 1.0,
+    baseSpeed: model.bodyWaveSpeed ?? 3.4,
+    phase: 0, spd: 0,
+  };
 
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x203a30, emissive: cEye, emissiveIntensity: 2.2 });
 
@@ -202,10 +189,6 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
 
   // Spine polyline (§6.4 / head:body) — the ring centres, head→tail, in group space.
   const spinePoints = segmentAnchors.map((a) => new THREE.Vector3(a.x, a.y, a.z));
-
-  // bodyWave — dragon.js advances uTime each frame (speed-scaled); the shared uniform
-  // object means mutating it ticks the live shader.
-  const bodyWave = { uniforms: waveU, baseSpeed: model.bodyWaveSpeed ?? 3.4 };
 
   return { group, attach, mats: { bodyMat, eyeMat }, spineMats, spinePoints, bodyWave };
 }
