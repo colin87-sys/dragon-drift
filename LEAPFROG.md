@@ -7159,3 +7159,44 @@ suites green (bossrush now 9 bosses).
 8. **amberdiet reads `def.phases[].attacks`, not the card's runtime seal** (as the audit flagged):
    keep an amber carrier (`aimed`) in the survival phase's attack list so CI passes; the ~28s
    pure-dodge seal is the sanctioned §5i.C exemption (added to the doc).
+
+
+### L188 — KNELLGRAVE CP2 (the music dies): a survival seal must NOT be the shield, kill the BUS not the scheduler, and audit overdraw by FILL AREA at the worst frame
+
+**Did.** Wired slot 10's whole fight: `musicKill()/musicRestore()` (the §5f rule-break),
+`bellToll()` (the procedural bronze voice), toll-as-world-event (camera tick + `bossToll`
+postfx flinch + the model's ring-wall fairness twin on every volley), the roster's FIRST
+survival-card seal (The Last Toll), the `lastToll` overhead-ride reveal setpiece, the
+`itLiftsItsHead` entrance (the perpendicular overhead cross), `getBossEta()` + the
+biome-early foreshadow tolls, `def.stationY` (the overhead loom), and the in-game capture
+tool (`tools/knellshot.mjs` — entrance-apex / loom / toll / reveal frames).
+
+**The load-bearing lessons.**
+1. **A survival seal must NOT be `shielded`.** The shield state suppresses attacks (graze-bait
+   takes over) AND aborts setpieces (`setpieceT >= 0 && !shielded`) — a "sealed" survival card
+   built on it would go silent and reveal-less. The seal is DAMAGE IMMUNITY at the top of
+   `damageBoss` (+ `lockDeflected` already covered lances): the unfillable bar is the tell
+   (§5f's exact grammar), the tolls keep firing (pure dodge), and the dread setpiece runs.
+   Outlasting the timer RESOLVES the card (capture if hitless) — never `cardExpired`.
+2. **Kill the BUS, not the scheduler.** `musicKill` zeroes `musicBus` while the layers + beat
+   grid keep running — so `getBeatClock` stays live and the toll still quantizes to an
+   inaudible grid. Fold the kill into `musicTarget()` so every other gain path (mute toggles,
+   volume sliders, the bg-suspend restore) PRESERVES it; restore under the fanfare + resetBoss
+   (a teardown must never strand the run in silence); skip must NOT restore.
+3. **The boss's voice lives on the SFX bus.** The toll must survive the music-death — routing
+   it anywhere near `musicBus` silences the fight's only clock.
+4. **The lifecycle test's excursion axes are a design menu.** "Left station" accepts |x|>9,
+   y high/low, or `minRel < 4` — the last one turned The Last Toll from "descend a bit" into
+   the RIDE-DIRECTLY-OVERHEAD reveal (the bell at rel≈3 above your head, seen from beneath),
+   which is both the stronger beat and the passing test.
+5. **Audit overdraw by projected FILL AREA at the worst frame, not bounding spheres.** A thin
+   toll ring-wall at radius 8 is ~5% of the frame; a filled disc of the same radius is ~29% —
+   a bounding-sphere heuristic (G7's) flags both as "large" and would have forced a false
+   choice. The new worst-frame audit (shield UP + dread flood + TWO rings live) sums triangle
+   areas per additive/fresnel mesh; the FX budget is ADDITIVE-SHELL COUNT, never tris.
+6. **Foreshadow rides the horizon-seed peek.** `updateHorizonSeed` already computes the
+   upcoming def at 2Hz — the biome-early tolls are three thresholds against `nextBossDist`
+   re-armed per encounter, null in rush (graceful degrade for free).
+7. **A sealed survival card adds its timer to every timing budget**: the lifecycle kill time
+   grew 135.7→172.9s and the bossrush gauntlet sim cap needed 980→1150s (still under the §5h
+   ≤20min contract). Budget sims BEFORE adding a seal, or CI cries wolf.
