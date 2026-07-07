@@ -768,8 +768,8 @@ function whiskerFins(c) {                          // Jade — calm mystical: 2 
       const t = i / 6;
       pts.push(new THREE.Vector3(
         sx * spread * (0.28 + 0.72 * t),          // sweep smoothly OUT (no sin bow → no fish-hook loop)
-        -0.14 * L * Math.pow(t, 1.35),            // ONE gentle downward droop (single inflection)
-        t * L));                                  // trail back past the jaw
+        -0.12 * L - 0.42 * L * Math.pow(t, 1.15), // start BELOW the jaw + droop DOWN hard so it hangs under the head, never skewers through the hull (gate rework r3 dir 6)
+        t * L * 0.82));                           // trail back past the jaw
     }
     const curve = new THREE.CatmullRomCurve3(pts);
     const RINGS = seg(10), RAD = seg(4), verts = [], idx = [];
@@ -792,7 +792,7 @@ function whiskerFins(c) {                          // Jade — calm mystical: 2 
     g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     g.setIndex(idx); g.computeVertexNormals();
     const w = new THREE.Mesh(g, c.mats.scalesMat);
-    w.position.set(sx * c.hx * 0.6, -c.hy * 0.14, c.snoutTipZ + 0.04);
+    w.position.set(sx * c.hx * 0.55, -c.hy * 0.3, c.snoutTipZ + 0.12);   // root LOW on the jaw so the barbel hangs under the head
     c.head.add(w);
   };
   for (const sx of [-1, 1]) { mkWhisker(sx, 1.0, 0.022, 0.55); mkWhisker(sx, 0.8, 0.017, 0.34); }

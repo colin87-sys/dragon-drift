@@ -571,6 +571,10 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     // Dark MATTE stem material so the tail integrates with the black body instead of
     // reading as a lit grey cylinder (no metallic sheen, high roughness).
     const stemMat = new THREE.MeshStandardMaterial({ color: def.body, roughness: 0.85, metalness: 0.04 });
+    // tailGlow (additive, default off): a faint body-hued emissive floor so a matte tail
+    // never reads near-black / detached from the body under cool studio light (jade, gate
+    // rework r3 dir 1). Keeps the tail inside the body's value family.
+    if (model.tailGlow) { stemMat.emissive.set(def.wingInner ?? def.body); stemMat.emissiveIntensity = 0.16; stemMat.roughness = def.bodyRoughness ?? 0.6; stemMat.envMapIntensity = 0.2; }
     // WHOLE-CREATURE SHADER SCALE (L31, obsidian2-only, gated): the swept tail's stem
     // is a SEPARATE matte material with NO surface shader, so the body's pebbly relief
     // stopped at the hips. When the creature opts in (model.scaleTail) AND declares a
