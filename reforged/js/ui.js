@@ -48,6 +48,10 @@ const isTouch = () =>
   (globalThis.matchMedia && matchMedia('(pointer: coarse)').matches) ||
   'ontouchstart' in globalThis;
 
+// Reduced-motion: skip the animated tear-free/unravel (strip instantly) to match the
+// CSS @media guard. Read once at load (matches how the rest of the HUD gates motion).
+const reduceMotion = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
 const ICONS = {
   ig:   '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.3" fill="currentColor"/></svg>',
   x:    '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M18.9 2H22l-7.6 8.7L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8.1-9.3L1 2h7l4.8 6.3L18.9 2z"/></svg>',
@@ -937,42 +941,74 @@ export const ui = {
     sfx.milestone?.();
   },
 
-  // Explicit warn-banner clear (the pinned banner's tear-free). Idempotent; safe
-  // when nothing is showing — every teardown path may call it unconditionally.
-  bossWarnClear() {
+  // §5b WEFTWITCH: at the entrance LASH a thread cross-stitches the banner name OUT
+  // (legible first — the binding ruling — then defaced). A golden bar draws across the
+  // name (CSS `.stitched`). Idempotent; no-op for a non-pinned banner.
+  bossWarnStitch() {
+    els.bossWarn && els.bossWarn.classList.add('stitched');
+  },
+
+  // Explicit warn-banner clear (the pinned banner's TEAR-FREE). At the fight start the
+  // pinned banner FLINGS up+off (`.tearing`) with deferred DOM removal; a hard teardown
+  // (resetBoss) passes instant=true to strip synchronously (can't wait on a transition).
+  bossWarnClear(instant = false) {
     clearTimeout(this._bossWarnTO);
-    this._bossWarnTO = null;
-    for (const el of [els.bossWarn, els.bossDanger, els.dangerGlow]) el && el.classList.remove('show');
-    els.bossWarn && els.bossWarn.classList.remove('pinned');
+    const strip = () => {
+      for (const el of [els.bossWarn, els.bossDanger, els.dangerGlow]) el && el.classList.remove('show', 'tearing');
+      els.bossWarn && els.bossWarn.classList.remove('pinned', 'stitched');
+    };
+    const pinned = els.bossWarn && els.bossWarn.classList.contains('pinned');
+    if (instant || !pinned || reduceMotion) { strip(); return; }
+    els.bossWarn.classList.add('tearing');                 // fling up + fade (CSS transition)
+    this._bossWarnTO = setTimeout(strip, 560);             // after the tear plays
   },
 
   // §5b WEFTWITCH HUD-SEW: build + play the golden stitch threads across the chrome
   // (SVG stroke-dasharray draw-on — the stamina-arc technique). One shot; the
   // controller owns WHEN (bullet-free entrance window only) and the teardown.
-  hudSew(accentHex = 0xe8c466) {
+  // Cast the golden lace across the HUD chrome. When `origins` (her two projected hand
+  // screen-points, viewBox %) is given, the threads EMANATE FROM HER HANDS and radiate
+  // out to the frame edges (the taut thread she pulls between her hands bursting into the
+  // web) — the `sew-draw` keyframe animates each path from its start, so radiating needs
+  // only the new M-origins. Falls back to the fixed corner lace when unprojectable.
+  hudSew(accentHex = 0xe8c466, origins = null) {
     const svg = els.hudSew;
     if (!svg) return;
     const col = '#' + (accentHex >>> 0).toString(16).padStart(6, '0');
-    // Deterministic lace: corner + top-seam stitches in 0..100 viewBox percent
-    // coords (resolution-independent; strokes stay px via non-scaling-stroke).
-    const THREADS = [
-      'M -2,8 L 18,4 L 34,9 L 52,3',
-      'M 102,7 L 84,3 L 66,8 L 52,3',
-      'M -2,26 L 10,18 L 26,22',
-      'M 102,24 L 90,17 L 74,21',
-      'M 30,-2 L 42,12 L 58,6 L 70,-2',
-      'M -2,88 L 14,94 L 30,90',
-      'M 102,90 L 86,95 L 70,91',
-    ];
-    svg.innerHTML = THREADS.map((d, i) => `<path d="${d}" pathLength="100" style="animation-delay:${(i * 0.13).toFixed(2)}s"/>`).join('');
+    let THREADS;
+    if (origins && !origins.behind && Number.isFinite(origins.xL) && Number.isFinite(origins.xR)) {
+      const L = [origins.xL, origins.yL], R = [origins.xR, origins.yR];
+      // eight edge/corner targets; alternate which hand each thread springs from.
+      const TARGETS = [[-4, -4], [50, -7], [104, -4], [-5, 42], [105, 40], [-4, 104], [50, 107], [104, 104]];
+      THREADS = TARGETS.map((t, i) => {
+        const o = (i % 2 === 0) ? L : R;
+        const mx = (o[0] + (t[0] - o[0]) * 0.55 + (i % 2 ? 6 : -6)).toFixed(1);   // a woven kink
+        const my = (o[1] + (t[1] - o[1]) * 0.55 + ((i % 3) - 1) * 4).toFixed(1);
+        return `M ${o[0].toFixed(1)},${o[1].toFixed(1)} L ${mx},${my} L ${t[0]},${t[1]}`;
+      });
+    } else {
+      // fallback: the fixed corner + top-seam lace (resolution-independent viewBox %).
+      THREADS = [
+        'M -2,8 L 18,4 L 34,9 L 52,3', 'M 102,7 L 84,3 L 66,8 L 52,3',
+        'M -2,26 L 10,18 L 26,22', 'M 102,24 L 90,17 L 74,21',
+        'M 30,-2 L 42,12 L 58,6 L 70,-2', 'M -2,88 L 14,94 L 30,90', 'M 102,90 L 86,95 L 70,91',
+      ];
+    }
+    svg.innerHTML = THREADS.map((d, i) => `<path d="${d}" pathLength="100" style="animation-delay:${(i * 0.09).toFixed(2)}s"/>`).join('');
     svg.style.stroke = col;
+    svg.classList.remove('unravel');
     svg.classList.add('on');
   },
-  hudSewClear() {
+  // The threads UNRAVEL at fight start (reverse the draw-on) then clear; a hard teardown
+  // (resetBoss) passes instant=true to strip synchronously.
+  hudSewClear(instant = false) {
     const svg = els.hudSew;
     if (!svg) return;
-    svg.classList.remove('on');
-    svg.innerHTML = '';
+    const strip = () => { svg.classList.remove('on', 'unravel'); svg.innerHTML = ''; };
+    if (instant || reduceMotion || !svg.classList.contains('on')) { strip(); return; }
+    svg.classList.add('unravel');                 // reverse sew-draw (dashoffset 0→100)
+    clearTimeout(this._hudSewTO);
+    this._hudSewTO = setTimeout(strip, 620);
   },
 
   // FromSoft-style reveal card: fires once as the fight actually starts (settle

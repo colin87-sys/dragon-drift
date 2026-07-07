@@ -8192,3 +8192,41 @@ dispose() won't reach it — a defeated boss would leave orphaned debris + splas
 scene. Track every world-parented object in a `worldDebris[]` and remove+dispose them explicitly
 on teardown. (Same trap any effect that escapes the boss group hits.)
 
+### L220 — WEFTWITCH entrance redesign (owner "cooler if the threads charge out from her hands"): project world→screen and the DOM overlay can emanate from a 3D point
+
+**Did.** PR 2 of the post-playtest work: the HUD-sew now CASTS from her hands (not fixed
+corners), the banner name gets cross-stitched out (legible first — the binding ruling — then
+defaced), and the pinned banner/threads get a real animated tear-free. All def-gated on
+`def.hudSew`.
+
+**The learns (reusable).**
+1. **A DOM/SVG overlay CAN emanate from a 3D point — project it.** The threads-from-her-hands
+   ask sounded like it needed fragile plumbing; it didn't. `vector.project(camera)` (the
+   reticle.js idiom, used 4× already) → NDC → viewBox % is ~5 lines. Put the helper where the
+   camera already lives (`cameraController.worldToScreen`), resolve the hand world positions
+   via the existing `partWorldPos('handPivotL/R')`, and the SVG `M`-origins anchor on her
+   hands. A `behind`-guard + a fixed-origin fallback keeps it robust. Don't approximate a world
+   anchor when the projection is this cheap.
+2. **One-frame-stale projection is fine for a one-shot during bullet-time.** `updateBoss` runs
+   before `cameraCtl.update` in the frame, so a projection in the entrance drive uses last
+   frame's camera. During the slow-mo lash dwell the camera is nearly static — imperceptible.
+   Fire the cast as a latched one-shot at the lash beat (`u≥0.45`), not per-frame.
+3. **The draw-on keyframe already radiates from the path start** — to make corner-anchored
+   threads emanate from an interior origin, only the `M` start points change; the
+   `stroke-dashoffset:100→0` animation draws outward for free. And the same keyframe reversed
+   (`0→100`) IS the unravel. Reuse the animation, change the geometry.
+4. **Animated teardown needs deferred DOM removal + a hard-instant escape.** The tear-free
+   (`.tearing` fling-off) and sew-unravel defer the class/innerHTML strip behind a timeout
+   (the bossTitleCard `_btcTO` pattern); but `resetBoss` (a real teardown) must pass
+   `instant=true` to strip synchronously — it can't wait on a transition. Same method, a
+   flag picks the path. Plus a `prefers-reduced-motion` guard that forces the instant path.
+5. **Honor a binding design ruling by ADDING a beat, not removing one.** "Hide the name for
+   suspense" would have broken the slot-12 silence payoff. Keeping it legible then STITCHING
+   IT OUT satisfies the same intent (watching her deface her own warning) and preserves the
+   ruling — the more dramatic answer was the compatible one.
+
+**Verified:** boss 81 (entrance cast spreads the hands + snaps taut + releases; worldToScreen
+centre/off-axis/behind) · entrance · defs · lock · bossboot (DOM path) · bossrush (11-boss) ·
+tricount 0-over · bossgate G1-G7 PASS · entrance captures (cast-from-hands, name stitch-out,
+clean tear-free) reviewed. The threads read a touch thin against the sunset — a tunable
+(brightness/width/count) the owner judges on the preview.
