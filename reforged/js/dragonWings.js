@@ -1659,7 +1659,9 @@ function buildBonfireManeWings(def, model, attach, giM) {
   // ONE material for the tongues: vColor is the molten→hot gradient (diffuse), and the emissive
   // is GRAFTED to follow vColor (WARM, not white) so only the bright thin tips glow ORANGE-HOT
   // (dark thick cores stay unlit) — fire-substance, not white feathers.
-  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 1.05 });
+  // roughness ~1 / no metalness → NO specular sheen (fire never reads glossy; the gate saw a
+  // blue-grey plastic highlight on the tongues).
+  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 1.2 });
   // CRITICAL: the emissive-concentration graft and the fresnel rim BOTH set onBeforeCompile —
   // composing them in ONE composeSurface call (was: a manual graft then applyFresnelRim, which
   // silently OVERWROTE the graft → the whole mane glowed at full uniform emissive with no dark
@@ -1668,7 +1670,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
   // THEN add the tight rim.
   const moltenEmitPatch = {
     key: 'moltenEmit',
-    bodyFrag: `totalEmissiveRadiance *= pow(vColor, vec3(2.1));`,
+    bodyFrag: `totalEmissiveRadiance *= pow(vColor, vec3(1.6));`,
   };
   composeSurface(maneMat, [moltenEmitPatch, fresnelRimPatch(def.apexSeam ?? cTip.getHex(), { intensity: 0.15, power: 3.8, bias: 0.0 })]);   // tight, low rim → no broad orange wash up the leading edge; the tip fringe carries the glow
   spineMats.push(maneMat, armMat);
@@ -1717,16 +1719,19 @@ function buildBonfireManeWings(def, model, attach, giM) {
         const z = zL + cf * (zR - zL);
         const camb = camber * Math.sin(cf * Math.PI) * (0.4 + 0.6 * Math.sin(t * Math.PI));
         verts.push(t * len, yc + camb, z);
-        // THREE readable value tiers (gate: "one dark slab + bright hem" → must show 3):
-        //   root ≤0.26  dark basalt core (0x35120a) → molten red
-        //   mid 0.26–0.8  MOLTEN RED band (0x8a2a0c) — the readable middle tier, darker than body
-        //   tip ≥0.8   hot orange fringe (0xff9a34), plus the notched trailing edge glows
-        if (t < 0.26) c.copy(cRoot).lerp(cBody, t / 0.26);
-        else if (t < 0.8) c.copy(cBody).lerp(cTip, 0.08 * Math.sin(((t - 0.26) / 0.54) * Math.PI));   // molten-red mid, a faint warm bloom mid-band so it isn't a flat slab
-        else c.copy(cBody).lerp(cTip, (t - 0.8) / 0.2);
-        // the very edges (flame licks) run hotter → the glow traces the notched contour, not a broad wash
-        const edgeHeat = Math.pow(Math.abs(cf - 0.5) * 2, 3) * 0.35 * Math.min(1, t / 0.3);
-        c.lerp(cTip, edgeHeat);
+        // THREE readable value tiers, dark→hot toward the TIP (gate: tips must be the HOTTEST
+        // pixels, not the darkest):
+        //   root ≤0.30  dark basalt core (0x35120a) → molten red
+        //   mid 0.30–0.66  MOLTEN RED band (0x8a2a0c), darker than body
+        //   tip ≥0.66  ramps to FULL hot orange (0xff9a34) by the very tip — the brightest zone
+        if (t < 0.30) c.copy(cRoot).lerp(cBody, t / 0.30);
+        else if (t < 0.66) c.copy(cBody);
+        else c.copy(cBody).lerp(cTip, Math.pow((t - 0.66) / 0.34, 0.75));
+        // HOT FRINGE tracing both notched edges (the licks BURN): the outer ~18% of chord on each
+        // side blends hard toward hot orange along the whole outer length → the flame contour glows,
+        // the interior core stays dark. This is the incandescent-edge read fire needs.
+        const edge = Math.pow(Math.max(0, Math.abs(cf - 0.5) * 2 - 0.62) / 0.38, 1.4);
+        c.lerp(cTip, edge * 0.8 * Math.min(1, t / 0.22));
         cols.push(c.r, c.g, c.b);
       }
     }
