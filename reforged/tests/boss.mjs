@@ -784,6 +784,16 @@ for (const key of BOSS_ORDER) {
       `karnvow the empty hook PRESENTS after the flare (hang rot.x ${hookHang.rotation.x.toFixed(2)} < -0.3 — "the next one is for you")`);
   }
 
+  // CP2 — the FALLBACK flare (the Fable gate catch): a top killer with no dedicated
+  // trophy (e.g. brineholm) burns the WHOLE chain — the mandatory beat never vanishes.
+  {
+    kv.flareCharm('brineholm');
+    for (let i = 0; i < 12; i++) kv.tick(0.05, 25 + i * 0.05);
+    let lit = 0;
+    for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.3) lit++;
+    assert(lit >= 4, `karnvow fallback flare burns the whole chain for an un-charmed top killer (${lit}/5 lit)`);
+  }
+
   // CP2 — the riposte cross-SWAT: riposte() whips the lance across the body.
   {
     kv.riposte();

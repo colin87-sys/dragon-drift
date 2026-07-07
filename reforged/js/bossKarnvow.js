@@ -807,10 +807,16 @@ export function buildKarnvow(def, quality = 1) {
   let flareIdx = -1, flareT = 0, hookT = 0;
   const FLARE_DUR = 2.0, HOOK_DUR = 1.4;
   function flareCharm(bossId) {
-    flareIdx = charms.findIndex((c) => c.of === bossId);
-    flareT = flareIdx >= 0 ? FLARE_DUR : 0;
-    hookT = HOOK_DUR + (flareIdx >= 0 ? FLARE_DUR * 0.6 : 0);   // the hook beat follows the flare
-    chainVel += 3;                                              // the chain jolts awake
+    flareIdx = bossId == null ? -1 : charms.findIndex((c) => c.of === bossId);
+    // A top killer with no dedicated trophy (eitherwing/thrumswarm/brineholm — or
+    // KARNVOW himself on a re-encounter) still gets the MANDATORY flare beat: the
+    // WHOLE chain burns ("it kept count of ALL of it") — the spoken line carries
+    // the personalization, the flare carries the escalation (the Fable CP2 catch).
+    // A fresh save (bossId null) stays hook-only: there is nothing to count yet.
+    if (flareIdx < 0 && bossId != null) flareIdx = -2;   // -2 = flare ALL trophies
+    flareT = flareIdx !== -1 ? FLARE_DUR : 0;
+    hookT = HOOK_DUR + (flareIdx !== -1 ? FLARE_DUR * 0.6 : 0);   // the hook beat follows the flare
+    chainVel += 3;                                                // the chain jolts awake
   }
   // RIPOSTE (the C1 parry beat): a fast cross-SWAT of the lance + a hot amber
   // flash — the controller calls this the instant it parries a reflected bullet.
@@ -1103,7 +1109,8 @@ export function buildKarnvow(def, quality = 1) {
         // hinge. Death: gutter out staggered — the trophies freed one by one.
         const dieThresh = (i + 1) / (charms.length + 1.5);
         const alive = dyingK < dieThresh ? 1 : Math.max(0, 1 - (dyingK - dieThresh) / 0.12);
-        const flare = (i === flareIdx && flareT > 0) ? 1.8 * Math.min(1, flareT / (FLARE_DUR * 0.35)) * (0.75 + Math.sin(time * 14) * 0.25) : 0;
+        const flareHit = flareIdx === i || flareIdx === -2;   // -2 = the whole chain burns
+        const flare = (flareHit && flareT > 0) ? (flareIdx === -2 ? 1.1 : 1.8) * Math.min(1, flareT / (FLARE_DUR * 0.35)) * (0.75 + Math.sin(time * 14) * 0.25) : 0;
         c.mat.emissiveIntensity = (0.06 + Math.sin(time * 1.6 + c.phase) * 0.02 + flare) * alive;
       }
     });
