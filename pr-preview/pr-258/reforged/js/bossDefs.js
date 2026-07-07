@@ -501,6 +501,18 @@ export const BOSSES = {
     // or twin darts (5).
     archetype: 'hollowgate',
     muzzle: 'roseHub',        // aimed/head-origin patterns emit from the window hub (emitter = organ, L148)
+    // LANCE tier-3 anatomy (PR6 — cap 5, stacking unlocks): the rose window IS
+    // the lock anatomy. The hub is the V1 anchor (L183-promotes into paintables)
+    // and five LOWER/SIDE panes are brands — the top wedge sits at world y≈24,
+    // past the flight ceiling (22), so the ceiling-adjacent picks keep every
+    // acquire reachable. The LANCE play here: rise OUT of the fly-through gap
+    // to the top of the frame. Destroyed panes leave the paintable set (the
+    // PR6 liveness filter) and any brand on them is dropped — no corpse marks.
+    virtualLockOrgan: 'roseHub',
+    lockParts: [
+      { part: 'rosePane1' }, { part: 'rosePane2' }, { part: 'rosePane3' },
+      { part: 'rosePane5' }, { part: 'rosePane7' },
+    ],
     accent: 0xe09a3e,         // warm STAINED-GOLD — the window's dominant hue (multi-hue is legal
                               // ONLY inside the rose window, §5d; the warm family owns the thumbnail
                               // and sits ~35°, far clear of danger-magenta's 327–357° reserved band)
@@ -634,6 +646,19 @@ export const BOSSES = {
                               // HESITATION hold; the eye stays submerged (a pale glow) until the iris LOCKS at settle
     scale: 1.5,               // CALAMITY "never fits the frame": hull ~36 world units — EXCEEDS the ~34-wide
                               // portrait envelope at rel 30 (its scale IS being partly off-screen, L140/L141)
+    // LANCE tier-3 anatomy (PR6): the eye + the three shackle posts — the clean
+    // cap-5 spread (eye ×2 stack + 3 shackles = 5). The eye only paints while
+    // UP (eyeWeakPoint already feeds lockDeflected — sealed honesty for free);
+    // shackles gate OUT of P4 (the sounding — the head submerges and freed
+    // posts should not re-offer). A freed shackle leaves the paintable set via
+    // the PR6 liveness filter and its brand is dropped. Outer posts sit at the
+    // arena edges (x ±8–10) — branding them is a deliberate lateral commit.
+    lockParts: [
+      { part: 'eyeRig' },
+      { part: 'shacklePost0', phases: [0, 1, 2] },
+      { part: 'shacklePost1', phases: [0, 1, 2] },
+      { part: 'shacklePost2', phases: [0, 1, 2] },
+    ],
     eyeWeakPoint: true,       // §5f law 5 (the turn-taking tell): CHIP DAMAGE ONLY LANDS WHILE THE EYE IS UP —
                               // the surfacing/submerging is the weak-point window (controller gates it CP2;
                               // the model owns eyeIsUp()/setEyeUp() and the unmistakable lid/glow animation)
@@ -739,6 +764,14 @@ export const BOSSES = {
     // (2), raptor (3), skeleton (4), twin darts (5), or an arch (6).
     archetype: 'thrumswarm',
     muzzle: 'queenGroup',     // aimed/amber patterns emit from the queen (emitter = organ, L148); the amber eye is the carrier
+    // LANCE tier-3 anatomy (PR6): deliberately a ONE-ORGAN lock fight — the
+    // queen is the only solid body in a cloud of shared-name motes, so cap 5
+    // never fills here (queen ×2 stack ≈ 2 pips); THRUMSWARM's verb is the
+    // scatter-stagger PARRY, and painting stays a side-dish. The scatter state
+    // already pauses painting via lockDeflected (condenseInvuln). During the
+    // SPEAR formation the queen parks off-arena (x≈15.6 > lane 13) — the lock
+    // drops and re-acquires on settle; transient by design, cones untouched.
+    lockParts: [{ part: 'queenGroup' }],
     accent: 0xffa838,         // AMBER — the queen's ONE eye (the focal AND the amber-carrier organ, §5i.C). The
                               // registry palette claim is value (void-black·star-white); amber is the small focal
                               // accent (≈37°, far clear of danger-magenta's 327–357° reserved band). Row updated.
@@ -855,6 +888,10 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,   // danger stays magenta (role colour, never per-boss)
     approachFrom: 'side',    // rides in on the flank (the moving-station riding beat is a CP2 setpiece)
     muzzle: 'lanceTip',      // fire originates from the lance tip — the amber-emitting organ (§5f law 7)
+    // bossgate capture: the r3 dart footwork moves the body ~15u/s mid-hop, hitting
+    // the tool's documented two-frame mask/screenshot race (the marrowcoil pale-slide
+    // twin) — freeze the sim for the grab pair. NOT a G-law override; no thresholds change.
+    gate: { freeze: true },
     scale: 2.0,              // a lean dragon-PEER, NOT a colossus — tuned up from 1.5 so the studio
                              // fight-frame reads at band presence (G4) without bulking the mesh (L140)
     hpMax: 440,              // Tier-3 band 360–450; the slot-9 PEAK sits high (the sawtooth crest)

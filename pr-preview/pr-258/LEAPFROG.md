@@ -7221,7 +7221,91 @@ tether LineSegments, feats/analytics, the lockdps persona sim, audio bus duck, p
 tint + rune sigils (Eternal cosmetics). The old SOP pinned E1 to "slots 10+" (unbuilt); it
 shipped globally as pure upside — flagged for the owner to slot-gate if band identity wants it.
 
-### L190 — KARNVOW CP1 (the band-peak trophy-duelist): presence from PROXIMITY + assembly not height; the lance is ONE part with THREE jobs; a COLD accent is a palette-gate minefield
+### L190 — LANCE PR6 (Calamities data + shimmer + no-reticle): destructible organs need a LIVENESS seam, and assist-vs-state is the settings law
+
+**Did.** (1) **Tier-3 lock data** — the roster's last unpainted third: HOLLOWGATE (roseHub anchor +
+5 LOWER/side panes — the top wedge sits at world y≈24, past the flight ceiling 22, so the picks
+keep every acquire reachable; the LANCE play is "rise out of the fly-through gap"), THRUMSWARM
+(deliberately ONE organ, the queen — its verb stays the stagger-parry; scatter already pauses
+painting via lockDeflected), BRINEHOLM (eye + 3 shackles = the clean cap-5 spread; shackles
+phase-gate out of the P4 sounding). Cap 5 + stacking are now reachable in play. (2) **The organ
+SHIMMER** (owner design, chosen over ghost-squares/audio-only): every UNPAINTED paintable organ
+carries a faint in-world jade breath — 8 pooled additive sprites pinned at partWorldPos,
+breathing at shimmerOpacity 0.13. Diegetic and reticle-independent; it goes DARK while venting
+(C3 — wordless "can't paint now"), while deflected (sealed honesty), and once painted. (3) **The
+no-reticle fix** (owner catch): disabling the reticle killed the ENTIRE visual lock layer while
+the machine kept running (and a mid-fight toggle froze stale marks). LAW: the reticle-off score
+bonus prices away the AIM ASSIST (lead squares, dwell fill, pip row) — never the game STATE
+(brand marks). renderMarks now runs whenever a fight is live, gated or not.
+
+**The two seams the data forced.** (1) **Destructible organs need LIVENESS**: crackPane/
+crackShackle HIDE their nodes — partWorldPos still resolves a corpse, so without a filter the
+reticle leads to, and lances fly at, invisible wreckage. `paintableParts()` now consults the
+PART_SYS alive hooks via a name↔index convention map (rosePaneN/shacklePostN), and the crack
+branch calls `dropLockPart()` so no brand outlives its organ (silent — the shatter IS the
+feedback). (2) **The numeric-tag bridge**: pane ambers tag their source by INDEX (the crack
+router's `typeof part === 'number'` doubles as the reflected-full weight, so the bullet's tag
+must stay numeric) — but lock organs are STRING node names. The V4 snap seam now bridges
+`idx → 'rosePane'+idx`, and `paintFromParry` type-guards non-strings (a numeric pip would be a
+phantom: marker at origin, lance to boss centre, no dedupe). LAW: when one tag serves two
+systems with different key types, bridge at the CONSUMER seam and type-guard the store.
+
+**Coexist note.** The tier-3 defs OPTING IN means their sim kill-times may legitimately move —
+and the run showed the honest picture: hollowgate/thrumswarm matched exactly (the fixed sim bot
+never enters their cones), brineholm stayed inside its historical variance (the bot idles within
+shacklePost1's acquire cone and now paints it — an intended, data-authored divergence, the
+opposite of the un-opted-byte-identical rule, which still holds for slots 1–3).
+
+**→ Leapfrog.** The shimmer pool is the roster-wide "this anatomy is interactive" channel — slot
+9+ defs get it free with their lockParts, and its dark-states already teach C3/sealed wordlessly.
+Remaining LANCE polish (nothing structural): dwell-progress audio for the full no-reticle
+acquire loop, tether LineSegments, feats/analytics, lockdps, audio duck, Eternal cosmetics
+(per-dragon wisp tint + rune sigils), slot-14 exam rules.
+
+
+### L191 — LANCE PR7 (feel bundle): the dwell whisper, the release duck, and the brand tether — completing the sensory loop, especially reticle-off
+
+**Did.** Three small player-facing polish items from the deferred list, chosen as one coherent PR:
+(1) **Dwell hum** — a soft looping oscillator whose PITCH rises 200→620Hz with acquisition
+progress (`osc.frequency.setTargetAtTime` per frame, the one new WebAudio idiom over the
+`surgeReadyStart` loop template), driven from the MAIN frame loop reading `lockHudState().dwell`
+directly (NOT reticle.js — it early-returns when the reticle is off, the exact case this cue
+serves). It silences on lock (aimHeld → the chime), on seal/mute, and on any non-fight frame
+(passing 0 stops the loop). (2) **Release duck** — `sfx.volleyDuck()` dips the MUSIC bus ~200ms
+on a deliberate loose (the `pumpDuck` sidechain idiom; music-only because the exhale routes
+through sfxBus and the kick sidechain lives on its own pumpGain node — no collision), restore via
+`musicTarget()` so it respects mute/volume. (3) **Brand tether** — one additive `LineSegments`
+(overdraw-exempt) drawing a jade line from the dragon's off-shoulder (the wisp launch point) to
+each branded organ's live `lockHudState().locks[].xyz`, the colour fading toward black (additive
+→ invisible) as the brand's life drains. It lives beside the organ-shimmer pool in boss.js — its
+sibling: both are in-world STATE cues, so both render with the reticle off.
+
+**The load-bearing idea: STATE renders regardless of the reticle; only ASSIST is priced.** PR6
+established the law (marks are state, the lead reticle is assist); PR7 extends it — the tether
+and the dwell hum are the last two acquire/attribution channels, and both deliberately bypass the
+reticle gate. With them, a no-reticle hardcore run finally has a COMPLETE loop: shimmer says
+"brandable", the hum rises as you hold ("closing in"), the chime confirms the lock, the mark +
+tether show "branded, and it's THAT organ". The reticle now only sells the lead squares + dwell
+FILL — exactly what the +10% score bonus is buying.
+
+**Two craft notes.** (1) **A per-frame audio consumer needs a per-frame DRIVER at the right
+altitude.** The lock layer publishes `dwell` every frame but had no audio consumer; the temptation
+was to drive the hum from reticle.js (which already reads `lockHudState()`), but that's the one
+place gated off in the exact scenario the hum exists for. Drive continuous cues from the frame
+loop, not from a subsystem that may early-return. (2) **Additive-line fade without per-vertex
+alpha**: `LineBasicMaterial` has no per-vertex alpha, but under `AdditiveBlending` a vertex COLOUR
+scaled toward black IS a fade — so `vertexColors` + colour×life gives a decaying tether (and a
+shoulder-dim→organ-bright gradient) for free, one buffer, one draw.
+
+**→ Leapfrog.** Audio feel can't be asserted honestly headless (no AudioContext) — the tests
+prove the functions are no-throw callable and the tether COUNT tracks brands (a debug seam), and
+the PR body says plainly that the two audio items are owner-ear-judged on the preview. Remaining
+deferred LANCE polish (all still optional, none structural): Eternal cosmetics (per-dragon wisp
+tint + rune sigils — gate on `formLevel>=3`, no new persistence), the 5 LANCE feats (the engine
+exists — ~1 line each), the `lockdps` TTK balance sim (build on `driveKill` + `lanceDmgEach`),
+and slot-14 exam rules (gated on a boss that doesn't exist).
+
+### L192 — KARNVOW CP1 (the band-peak trophy-duelist): presence from PROXIMITY + assembly not height; the lance is ONE part with THREE jobs; a COLD accent is a palette-gate minefield
 
 **Did.** Built slot 9 CP1 — `archetype: 'trophyDuelist'`, new `bossKarnvow.js` + one `bossModel.js` dispatch
 line + the def + `BOSS_ORDER` append + a `boss.mjs` named-pivot telegraph test. A lean HOODED DUELIST: peaked
@@ -7257,7 +7341,7 @@ G1 flake too — make the blink a SIZE breath, not a brightness drop (the ashtal
 **Owner round:** the cowl hook read as a detached floating horn → re-embed as a continuous peak-tip; the glint
 now TRACKS the dragon (owner overrode the "looks past" indifference bias).
 
-### L191 — KARNVOW CP1.5 (the "stiff like Lego" verdict, two rounds): velocity-diff banking is a new boss-motion primitive; tell FAMILIES end one-animation bosses; tune motion against the FIGHT FRAME and err loud
+### L193 — KARNVOW CP1.5 (the "stiff like Lego" verdict, two rounds): velocity-diff banking is a new boss-motion primitive; tell FAMILIES end one-animation bosses; tune motion against the FIGHT FRAME and err loud
 
 **Round 1 (the mechanics).** The owner judged CP1 on the live preview: silhouette fine, "moves stiff like a Lego
 character", "one animation with the stick", charms cluttering the weapon-arm hip. All fixed in the builder, zero
@@ -7294,3 +7378,36 @@ were only visible on the LIVE preview, across TWO owner rounds. Motion verdicts 
 budget owner FIX rounds after first live viewing as the NORMAL pipeline. Also: the PR-preview action can silently
 skip a push (round 2 never deployed — the owner was re-judging round 1); when an owner says "nothing changed",
 CHECK THE DEPLOY before doubting the work.
+
+### L194 — KARNVOW round 3 (the nimble hunter): a boss is only as fluid as its LOCOMOTION; model-space darts are hitbox-safe; a fast mover needs gate.freeze
+
+**The diagnosis that mattered.** Two amplitude rounds of secondary motion (bank/bob/jiggle/sway) still read
+"stiff" to the owner — because the figure was PARKED. EITHERWING is fluid because the twins fly a ±5.2u
+lemniscate; ASHTALON flies passes. **Secondary motion cannot rescue a stationary body; locomotion is the
+fluidity primitive.** Round 3 gave KARNVOW a DART machine: hops between guard positions in rig space
+(anticipation crouch → ease-out-back hop with ~8% overshoot → settle), a sidestep on the charge rising edge
+(footwork before the strike), an evasive hop on flinch, PLANTS while shielded (bubble stays aligned) and in
+death. The dart's own rig-velocity feeds the bank/chain-pendulum/cloth drives, so one hop whips the whole body.
+
+**Model-space locomotion is hitbox-safe by construction** (verified before building): every player-damage path
+(lock exposure, homing lances, the Surge beam) resolves live `partWorldPos`, which walks the full transform
+chain — offset the PARENT of the named parts (the rig) and hits follow the visual body for free. EITHERWING's
+±5.2u twins are the shipped proof. Keep amplitude at/below that precedent (KARNVOW: ±2.2 local ≈ ±4.4 world).
+
+**Cloth = a pivot chain + ONE deforming strip, never per-segment meshes.** The cloak (owner pick) is 6 lagged
+pivots skinned by a single quad-strip (eitherwing's makeTailStrip recipe — 1 draw, MeshStandard so the G7
+overdraw gate ignores it entirely); the skirt became a 3-slice chained cloth. Graded lag per depth = the whip
+travels down the fabric on every dart. Dash streaks = 2 pooled strips in GROUP space (they mark where the body
+WAS — rig space would ride along with him and never read as speed).
+
+**Two gate laws banked.** (1) **A fast mover needs `gate: { freeze: true }`**: bossgate grabs the geometry mask
+and the screenshot in separate round-trips; a body darting ~15u/s slides off its own mask between them (G1
+flaked 255↔239 with a 0% cluster — the glint simply wasn't where the mask said; G3 swung 14↔67%). The freeze
+flag (additive, the pale-slide mechanism reused) samples both at ONE pose — no thresholds change, shipped defs
+byte-identical, and G3 jumped to a stable 90%+. Chasing "flaky palette attribution" with material tweaks before
+checking MASK ALIGNMENT was the wasted hour. (2) **Attack FX should wear the ACCENT**: the lance arc-trail
+lights up exactly on charge frames — painted violet it flooded the G3 denominator on charge captures (a bimodal
+53↔14%); painted cold-steel it became an attribution ANCHOR. An FX hue that only appears under charge is
+effectively part of the palette-gate's charge-frame sample — choose it accordingly. Bonus: the correctly-aligned
+shielded capture exposed a real G6 miss (the glint never leashed under shield — now dims to an ember, the
+ashtalon idiom).

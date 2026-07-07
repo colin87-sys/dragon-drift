@@ -184,25 +184,175 @@ export function buildKarnvow(def, quality = 1) {
   rig.add(body);
 
   // SURCOAT — a short hard-hemmed tabard hanging over the chest+fauld (a duelist's
-  // surcoat, NOT a bell robe): a straight panel with a CUT hem (the Fable fauld
-  // discipline — hem never bell-flares) + fold ridges. On its OWN `surcoatPivot`
-  // hinged at the waist (owner pizzazz pick, CP1.5): it lag-sways with the body
-  // bank + streams back with travel, so the lower body reads as cloth over motion
-  // instead of a rigid block. Kept OUT of the cold-trim geo (Fable #2 wireframe fix).
-  const surcoatPivot = new THREE.Object3D();
-  surcoatPivot.name = 'surcoatPivot';
-  surcoatPivot.position.set(0, 0.95, 0.66);   // hinge at the belt line, panel hangs below
-  rig.add(surcoatPivot);
-  const surcoatGeo = (() => {
+  // surcoat, NOT a bell robe) with a CUT hem (the Fable fauld discipline — the hem
+  // never bell-flares). Round 3 (owner: "the skirt is inadequate"): a SEGMENTED
+  // cloth CHAIN — three panel slices, each hinged at its top edge and CHILD of the
+  // one above, with graded lag per segment — so the skirt FLOWS and WHIPS on darts
+  // instead of swinging as one rigid plate. `surcoatPivot` (the root, the test/name
+  // contract) → skirtSeg1 → skirtSeg2. Kept OUT of the cold-trim geo (Fable #2).
+  const SKIRT_SEG_H = 0.9;
+  const makeSkirtSlice = (si) => {
     const parts = [];
-    const panel = strip(new THREE.BoxGeometry(1.15, 2.6, 0.16)); panel.rotateX(-0.05); panel.translate(0, -1.3, 0); parts.push(panel);
-    const hem = strip(new THREE.BoxGeometry(1.2, 0.2, 0.24)); hem.translate(0, -2.57, 0.02); parts.push(hem);   // the hard cut hem
+    const isLast = si === 2;
+    const panel = strip(new THREE.BoxGeometry(1.15, SKIRT_SEG_H, 0.16)); panel.translate(0, -SKIRT_SEG_H / 2, 0); parts.push(panel);
+    if (isLast) { const hem = strip(new THREE.BoxGeometry(1.2, 0.2, 0.24)); hem.translate(0, -SKIRT_SEG_H + 0.03, 0.02); parts.push(hem); }   // the hard cut hem
     for (let i = 0; i < (lowQ ? 2 : 4); i++) {
-      const f = strip(new THREE.BoxGeometry(0.08, 2.4, 0.1)); f.translate(-0.4 + i * 0.26, -1.3, 0.09); parts.push(f);   // fold ridges
+      const f = strip(new THREE.BoxGeometry(0.08, SKIRT_SEG_H - 0.1, 0.1)); f.translate(-0.4 + i * 0.26, -SKIRT_SEG_H / 2, 0.09); parts.push(f);   // fold ridges
     }
-    return mergeBody(parts, 'surcoat');
-  })();
-  surcoatPivot.add(new THREE.Mesh(surcoatGeo, ironMat));
+    return mergeBody(parts, `skirtSlice${si}`);
+  };
+  // The skirt wears its own cloth material with a WHISPER of cold (ei 0.12 — dark
+  // cloth first; ei 0.3 read as a glowing blue apron in the fight frame). The G3
+  // anchor is the gate.freeze mask alignment, not material brightness.
+  const clothMat = track(new THREE.MeshStandardMaterial({
+    color: 0x14161a, emissive: accent, emissiveIntensity: 0.12, roughness: 0.85, metalness: 0.1, flatShading: true,
+  }));
+  const skirtSegs = [];
+  {
+    let parent = rig;
+    for (let si = 0; si < 3; si++) {
+      const piv = new THREE.Object3D();
+      piv.name = si === 0 ? 'surcoatPivot' : `skirtSeg${si}`;
+      piv.position.set(0, si === 0 ? 0.95 : -SKIRT_SEG_H, si === 0 ? 0.66 : 0);
+      piv.add(new THREE.Mesh(makeSkirtSlice(si), clothMat));
+      parent.add(piv);
+      parent = piv;
+      skirtSegs.push(piv);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // THE CLOAK (round 3, owner pick — the spectacle centerpiece) + the motion-FX
+  // strips (dash streaks, lance arc), all on EITHERWING's deforming quad-strip
+  // recipe (bossEitherwing.js makeTailStrip): ONE mesh per strip, vertices rebuilt
+  // each tick from a lagged pivot chain / a position history. MeshStandard (NOT
+  // additive) so the G7 overdraw gate ignores them, DoubleSide, frustumCulled off.
+  // ---------------------------------------------------------------------
+  const makeStrip = (segN, mat, name) => {
+    const rings = segN + 1;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rings * 2 * 3), 3));
+    const nrm = new Float32Array(rings * 2 * 3);
+    for (let i = 0; i < rings * 2; i++) nrm[i * 3 + 2] = 1;   // flat forward-normal (DoubleSide; emissive carries it)
+    geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    const idx = [];
+    for (let i = 0; i < segN; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, c, b, b, c, d); }
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.frustumCulled = false;
+    if (name) mesh.name = name;
+    return { geo, mesh, segN };
+  };
+
+  // The CLOAK: a chain of lagged pivots hanging from the gorget's BACK (never in
+  // front of the chest sigil / glint), the strip skinned over them. Streams back in
+  // travel, SNAPS on darts (the velocity spike whips down the graded-lag chain),
+  // drapes straight in death.
+  const CLOAK_SEGS = lowQ ? 4 : 6;
+  const CLOAK_SEG_LEN = 0.78;
+  // ei 0.12: a WHISPER of cold on the weave — dark cloth first (the r3 render at
+  // ei 0.3 read as a glowing blue drape, fighting the near-black identity). The
+  // G3 anchor is the gate.freeze mask alignment now, not material brightness.
+  const cloakMat = track(new THREE.MeshStandardMaterial({
+    color: 0x14161a, emissive: accent, emissiveIntensity: 0.12, roughness: 0.88, metalness: 0.08,
+    side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 1.0,
+  }));
+  const cloakPivots = [];
+  {
+    let parent = rig;
+    for (let i = 0; i < CLOAK_SEGS; i++) {
+      const piv = new THREE.Object3D();
+      piv.name = `cloakPivot${i}`;
+      piv.position.set(0, i === 0 ? 2.05 : -CLOAK_SEG_LEN, i === 0 ? -0.62 : 0);
+      piv.rotation.x = i === 0 ? 0.22 : 0.04;   // resting drape: falls back and away
+      parent.add(piv);
+      parent = piv;
+      cloakPivots.push(piv);
+    }
+  }
+  const cloak = makeStrip(CLOAK_SEGS, cloakMat, 'cloakStrip');
+  rig.add(cloak.mesh);
+  const CLOAK_HALF_W = (i) => 1.1 - (i / CLOAK_SEGS) * 0.45;   // shoulders → hem taper (a cloak, not a ribbon)
+
+  // Rebuild the cloak strip from the pivot chain, in RIG space (the mesh's parent).
+  const _cwp = new THREE.Vector3();
+  const _cpts = [];
+  const _rigInv = new THREE.Matrix4();
+  function updateCloakStrip() {
+    rig.updateWorldMatrix(true, false);
+    const rigInv = _rigInv.copy(rig.matrixWorld).invert();
+    for (let i = 0; i < CLOAK_SEGS; i++) {
+      cloakPivots[i].getWorldPosition(_cwp);
+      (_cpts[i] || (_cpts[i] = new THREE.Vector3())).copy(_cwp).applyMatrix4(rigInv);
+    }
+    _cwp.set(0, -CLOAK_SEG_LEN, 0); cloakPivots[CLOAK_SEGS - 1].localToWorld(_cwp);
+    (_cpts[CLOAK_SEGS] || (_cpts[CLOAK_SEGS] = new THREE.Vector3())).copy(_cwp).applyMatrix4(rigInv);
+    const pos = cloak.geo.attributes.position.array;
+    for (let i = 0; i <= CLOAK_SEGS; i++) {
+      const p = _cpts[i];
+      const hw = CLOAK_HALF_W(i);
+      const o = i * 6;
+      pos[o] = p.x + hw; pos[o + 1] = p.y; pos[o + 2] = p.z;
+      pos[o + 3] = p.x - hw; pos[o + 4] = p.y; pos[o + 5] = p.z;
+    }
+    cloak.geo.attributes.position.needsUpdate = true;
+  }
+
+  // DASH STREAKS (FX): 2 pooled short strips in GROUP space marking where the body
+  // just WAS during a dart — a cold speed-line that fades right after. Standard
+  // material (G7-ignored), tracked (dissolve).
+  const STREAK_SEGS = 6;
+  const streaks = [];
+  for (let s = 0; s < 2; s++) {
+    const mat = track(new THREE.MeshStandardMaterial({
+      color: 0x0c1016, emissive: accent, emissiveIntensity: 0.9, roughness: 0.6, metalness: 0.1,
+      side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 0.0,
+    }));
+    const st = makeStrip(STREAK_SEGS, mat, `dashStreak${s}`);
+    st.mesh.visible = false;
+    group.add(st.mesh);   // group space: the streak holds still while the rig darts away from it
+    streaks.push({ ...st, mat, pts: new Float32Array((STREAK_SEGS + 1) * 3), live: false, fade: 0 });
+  }
+  let streakIdx = 0;
+  function streakSample(st, x, y, z) {
+    st.pts.copyWithin(3, 0);   // slide the window (newest at 0)
+    st.pts[0] = x; st.pts[1] = y; st.pts[2] = z;
+    const pos = st.geo.attributes.position.array;
+    for (let i = 0; i <= STREAK_SEGS; i++) {
+      const hw = 0.34 * (1 - i / (STREAK_SEGS + 1));   // taper toward the tail
+      const o = i * 6, q = i * 3;
+      pos[o] = st.pts[q]; pos[o + 1] = st.pts[q + 1] + hw; pos[o + 2] = st.pts[q + 2];
+      pos[o + 3] = st.pts[q]; pos[o + 4] = st.pts[q + 1] - hw; pos[o + 5] = st.pts[q + 2];
+    }
+    st.geo.attributes.position.needsUpdate = true;
+  }
+
+  // LANCE ARC-TRAIL (FX): one strip sampling the live lance TIP during the sweep /
+  // flourish tells — the lance paints a fading arc. COLD-STEEL (the accent), never
+  // amber (amber = "parryable", confined to the organ) and deliberately NOT violet:
+  // the arc lights up exactly on charge frames, so wearing the accent makes it a G3
+  // attribution ANCHOR under charge captures instead of a denominator flood (the
+  // 53%↔14% bimodal flake this hue choice fixed). The cold gleam of the blade.
+  const arcMat = track(new THREE.MeshStandardMaterial({
+    color: 0x0a0e14, emissive: accent, emissiveIntensity: 0.8, roughness: 0.6, metalness: 0.1,
+    side: THREE.DoubleSide, flatShading: true, transparent: true, opacity: 0.0,
+  }));
+  const ARC_SEGS = 8;
+  const arc = { ...makeStrip(ARC_SEGS, arcMat, 'lanceArc'), pts: new Float32Array((ARC_SEGS + 1) * 3), live: false, fade: 0 };
+  arc.mesh.visible = false;
+  group.add(arc.mesh);
+  function arcSample(x, y, z) {
+    arc.pts.copyWithin(3, 0);
+    arc.pts[0] = x; arc.pts[1] = y; arc.pts[2] = z;
+    const pos = arc.geo.attributes.position.array;
+    for (let i = 0; i <= ARC_SEGS; i++) {
+      const hw = 0.05 + 0.14 * (1 - i / (ARC_SEGS + 1));
+      const o = i * 6, q = i * 3;
+      pos[o] = arc.pts[q]; pos[o + 1] = arc.pts[q + 1] + hw; pos[o + 2] = arc.pts[q + 2];
+      pos[o + 3] = arc.pts[q]; pos[o + 4] = arc.pts[q + 1] - hw; pos[o + 5] = arc.pts[q + 2];
+    }
+    arc.geo.attributes.position.needsUpdate = true;
+  }
 
   // Cold character-line TRIM (§3.4 "lit edges ARE the drawing" + eitherwing's
   // full-perimeter-rim lesson): a cold-accent edge overlay tracing EVERY armor seam
@@ -610,6 +760,25 @@ export function buildKarnvow(def, quality = 1) {
   let followT = 0, prevCharge = 0;        // follow-through overshoot after a released attack
   let sweepYaw = 0;                       // torso counter-rotation during the cross-sweep
 
+  // --- ROUND-3 FOOTWORK (the nimble-hunter fix): the dart state machine. The
+  // duelist HOPS between guard positions in rig space (±2.2 local ≈ ±4.4 world —
+  // inside EITHERWING's shipped ±5.2; every hit/aim path resolves live partWorldPos
+  // through `rig`, so the hitbox follows the body for free). Anticipation crouch →
+  // ease-out-back hop (overshoot + settle) → landing. Sidesteps on the charge
+  // rising edge (footwork before the strike), an evasive hop on flinch, PLANTS
+  // while shielded (stands his ground; the bubble stays aligned) and in death. ---
+  let guardX = 0, guardY = 0;             // the current guard anchor (rig-local)
+  let dartPhase = 'idle';                 // 'antic' | 'hop'
+  let dartT = 0;
+  const ANTIC_DUR = 0.12, DART_DUR = 0.3;
+  let dartFromX = 0, dartFromY = 0, dartToX = 0, dartToY = 0;
+  let nextDart = 1.6 + Math.random() * 2;
+  let crouchEase = 0;                     // anticipation crouch (rig.scale.y dip)
+  let prevRigX = null, rigVelX = 0;       // the dart's own velocity (feeds bank/chain/cloth)
+  let prevChargeDart = 0;                 // rising-edge detect for the strike sidestep
+  let shieldPlant = false;
+  kit.onShieldChange((v) => { shieldPlant = v; });
+
   // --- Charisma: the cowl tracks the player; the glint looks past ---
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
   let lookAwayT = 0, lookAwayX = 0, lookAwayY = 0;
@@ -649,25 +818,85 @@ export function buildKarnvow(def, quality = 1) {
       prevGX = gx2; prevGY = gy2;
     }
 
-    // --- The body BANKS into lateral travel (the #1 anti-Lego lever — the station
-    // bob + setpieces slide it laterally all fight; a rigid slide reads as Lego,
-    // a lean into the turn reads as RIDING). Eased like dragon.js bankZ.
-    // AMPLITUDES TUNED FOR FIGHT DISTANCE (owner round 2: "the only obvious movement
-    // is the arm and the eye") — a dark lean figure at rel 30 needs ~2× the roll and
-    // ~3× the bob before motion is legible at all; err loud, the studio close-up lies. ---
-    bankEase += (Math.max(-0.45, Math.min(0.45, -velX * 0.09)) - bankEase) * Math.min(1, dt * 6);
+    // --- ROUND-3 FOOTWORK: the dart state machine (the nimble-hunter core fix —
+    // rounds 1–2 were secondary motion on a PARKED figure; a hunter MOVES). ---
+    if (dyingK > 0.1 || shieldPlant) {
+      // Plant: ease the guard back to center, no darts (shielded = stands his
+      // ground + the bubble stays aligned; death = grounded).
+      guardX += (0 - guardX) * Math.min(1, dt * 4);
+      guardY += (0 - guardY) * Math.min(1, dt * 4);
+      dartPhase = 'idle';
+      crouchEase += (0 - crouchEase) * Math.min(1, dt * 8);
+    } else {
+      const strikeStep = prevChargeDart < 0.08 && charge > 0.08;   // footwork before the strike
+      const flinchStep = painT > 0.32;                              // an evasive hop on a fresh flinch
+      if (dartPhase === 'idle') {
+        nextDart -= dt;
+        if (nextDart <= 0 || strikeStep || flinchStep) {
+          dartFromX = guardX; dartFromY = guardY;
+          if (strikeStep || flinchStep) {
+            const dir = guardX > 0 ? -1 : 1;   // step back through center (never past the rail edge)
+            dartToX = Math.max(-2.2, Math.min(2.2, guardX + dir * (1.1 + Math.random() * 0.6)));
+            dartToY = Math.max(-0.7, Math.min(0.7, guardY + (Math.random() - 0.5) * 0.5));
+          } else {
+            dartToX = (Math.random() * 2 - 1) * 2.2;
+            dartToY = (Math.random() * 2 - 1) * 0.7;
+          }
+          dartPhase = 'antic'; dartT = 0;
+          nextDart = 2.4 + Math.random() * 2.2;
+        }
+      } else if (dartPhase === 'antic') {
+        dartT += dt;
+        crouchEase += (1 - crouchEase) * Math.min(1, dt * 18);   // the coil before the spring
+        if (dartT >= ANTIC_DUR) {
+          dartPhase = 'hop'; dartT = 0;
+          // Claim a dash streak for this hop (round-robin; group-space so it marks
+          // where he WAS while the body darts away from it).
+          const st = streaks[streakIdx++ % streaks.length];
+          st.live = true; st.fade = 1; st.mesh.visible = true; st.mat.opacity = 0.7;
+          for (let q = 0; q < st.pts.length; q += 3) { st.pts[q] = rig.position.x; st.pts[q + 1] = rig.position.y + 1.2; st.pts[q + 2] = rig.position.z; }
+        }
+      } else {
+        dartT += dt;
+        const k = Math.min(1, dartT / DART_DUR);
+        const c = 1.5;   // ease-out-back: overshoots ~8% past the guard, then settles
+        const e = 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2);
+        guardX = dartFromX + (dartToX - dartFromX) * e;
+        guardY = dartFromY + (dartToY - dartFromY) * e;
+        crouchEase += (0 - crouchEase) * Math.min(1, dt * 10);   // uncoil through the hop
+        if (k >= 1) { dartPhase = 'idle'; guardX = dartToX; guardY = dartToY; }
+      }
+      prevChargeDart = charge;
+    }
+    rig.scale.y = 1 - crouchEase * 0.07;   // the anticipation crouch (kit owns GROUP scale, rig is free)
 
-    // --- Multi-frequency idle (the eitherwing layering): the at-rest duelist
-    // shifts his seat — lean (two incommensurate sines) + a slow weave + a bob +
-    // a slow LANE-DRIFT (he rides his lane, never hangs pinned). Death sag on x. ---
+    // --- Multi-frequency idle (the eitherwing layering) + the guard position: the
+    // duelist shifts his seat AND holds his current guard. Lane-drift stays small
+    // (the darts are the real travel now). ---
+    rig.position.x = Math.sin(time * 0.37) * 0.25 + guardX;
+    rig.position.y = Math.sin(time * 0.7) * 0.16 + Math.sin(time * 1.13) * 0.09 + guardY;
+
+    // The dart's OWN velocity (rig-local — invisible to the group diff) feeds the
+    // bank, the chain pendulum, and the cloth stream, so a hop whips everything.
+    if (dt > 0) {
+      if (prevRigX !== null) {
+        const rv = Math.max(-30, Math.min(30, (rig.position.x - prevRigX) / dt));
+        rigVelX += (rv - rigVelX) * Math.min(1, dt * 10);
+      }
+      prevRigX = rig.position.x;
+    }
+    const totVX = velX + rigVelX;   // station travel + footwork
+
+    // --- The body BANKS into lateral travel (dragon.js bankZ idiom) — and the
+    // dart velocity banks it HARDER (footwork sells the lean). ---
+    bankEase += (Math.max(-0.5, Math.min(0.5, -totVX * 0.07)) - bankEase) * Math.min(1, dt * 7);
+
     const idleLean = -0.06 + Math.sin(time * 0.5) * 0.03 + Math.sin(time * 0.83) * 0.018;
     rig.rotation.z = idleLean + bankEase;
     const pitchTarget = dyingK * 0.28 + Math.max(-0.14, Math.min(0.14, velY * 0.02)) + Math.sin(time * 0.31) * 0.015;
     rig.rotation.x += (pitchTarget - rig.rotation.x) * Math.min(1, dt * 3);
     // sweepYaw (the cross-sweep torso counter-rotation) is eased in the lance section.
-    rig.rotation.y = Math.sin(time * 0.23) * 0.08 + velX * 0.012 + sweepYaw;
-    rig.position.y = Math.sin(time * 0.7) * 0.16 + Math.sin(time * 1.13) * 0.09;
-    rig.position.x = Math.sin(time * 0.37) * 0.35;   // the lane-drift (slow, reads as station-keeping)
+    rig.rotation.y = Math.sin(time * 0.23) * 0.08 + totVX * 0.01 + sweepYaw;
 
     // --- Gaze: the cowl turns toward the player with LAG + look-aways (the hunter
     // sizing you up — but it looks THROUGH you, never granting the mutual gaze). ---
@@ -713,6 +942,9 @@ export function buildKarnvow(def, quality = 1) {
     if (noticeT > 0) noticeT -= dt;
     let glintK = 1 + charge * 0.3;
     if (noticeT > 0.6) glintK *= 1.5;
+    // SHIELD LEASH (G6, the ashtalon idiom): the eye dims to an ember while the
+    // bubble is up — "can't be hurt" reads as the mind banking, not blazing.
+    if (shieldPlant) glintK *= 0.22;
     // Death: the glint eases shut LAST (holds until dyingK is nearly full).
     glintK *= Math.max(0, 1 - Math.max(0, dyingK - 0.6) / 0.4);
     glintMat.color.copy(GLINT_BASE).multiplyScalar(Math.max(0.06, glintK) * GLINT_HOT);
@@ -794,6 +1026,7 @@ export function buildKarnvow(def, quality = 1) {
     // at rest; a hot flash on notice; guttering out in death.
     let tipK = 0.22 + charge * 2.0;
     if (noticeT > 0.6) tipK = Math.max(tipK, 1.6);
+    if (shieldPlant) tipK = 0.08;   // the organ leashes with the shield (G6)
     tipK *= 1 - dyingK * 0.85;
     tipMat.color.copy(TIP_BASE).multiplyScalar(Math.max(0.1, tipK));
 
@@ -808,7 +1041,7 @@ export function buildKarnvow(def, quality = 1) {
     if (dt > 0) {
       // Drive: the charms want to hang opposite the lateral travel (inertia), with
       // pain/notice jolting the spring directly (impulses, decayed by the damping).
-      const drive = velX * 0.85
+      const drive = totVX * 0.85
         + (painT > 0.3 ? Math.sin(time * 22) * 9 * (painT / 0.34) : 0)
         + (noticeT > 0.75 ? Math.sin(time * 16) * 5 : 0);
       // Softer spring + lighter damping than round 1 — WIDER, slower swings that
@@ -833,15 +1066,68 @@ export function buildKarnvow(def, quality = 1) {
       }
     });
 
-    // --- The SURCOAT (owner pizzazz pick): the tabard lags the body bank, rides
-    // the chain's pendulum, and streams BACK with travel — cloth over motion.
-    // Round-2 amplitudes: the hem must visibly BREAK THE OUTLINE at fight distance
-    // (~1u of lateral hem travel at full bank), or the sway reads as nothing on a
-    // dark-on-dark panel (owner: "the surcoat doesn't really sway"). ---
+    // --- The SEGMENTED SKIRT (round 3): a 3-slice cloth chain — the root slice
+    // lags the bank + streams back with travel, and each deeper slice CHASES its
+    // parent with a slower ease + a travelling wave, so the skirt FLOWS and whips
+    // on darts instead of swinging as one rigid plate. ---
     surcoatSway += (bankEase * 2.2 - surcoatSway) * Math.min(1, dt * 2.5);
-    surcoatBack += ((Math.abs(velX) * 0.045 + 0.08) - surcoatBack) * Math.min(1, dt * 2.2);
-    surcoatPivot.rotation.z = (surcoatSway - bankEase * 0.8) + Math.sin(time * 1.05) * 0.09 + chainAng * 0.25;
-    surcoatPivot.rotation.x = -surcoatBack - Math.abs(bankEase) * 0.12 + Math.sin(time * 0.77) * 0.06;   // hem drifts aft + breathes
+    surcoatBack += ((Math.abs(totVX) * 0.05 + 0.08) - surcoatBack) * Math.min(1, dt * 2.2);
+    const skirtRootZ = (surcoatSway - bankEase * 0.8) + Math.sin(time * 1.05) * 0.09 + chainAng * 0.25;
+    const skirtRootX = -surcoatBack - Math.abs(bankEase) * 0.12 + Math.sin(time * 0.77) * 0.06;
+    for (let si = 0; si < skirtSegs.length; si++) {
+      // Each slice chases a fraction of the root pose with a graded (slower) ease +
+      // its own wave phase — the whip travels DOWN the cloth.
+      const tz = si === 0 ? skirtRootZ : Math.sin(time * 1.35 - si * 0.9) * 0.1 + rigVelX * 0.02;
+      const tx = si === 0 ? skirtRootX : -surcoatBack * 0.5 + Math.sin(time * 0.95 - si * 0.7) * 0.06;
+      const se = Math.min(1, dt * (5.5 - si * 1.4));
+      skirtSegs[si].rotation.z += (tz - skirtSegs[si].rotation.z) * se;
+      skirtSegs[si].rotation.x += (tx - skirtSegs[si].rotation.x) * se;
+    }
+
+    // --- THE CLOAK: the root pivot streams back with travel + gravity; deeper
+    // pivots chase with graded lag (the eitherwing law) so a dart SNAPS a whip
+    // down the cloth. Drapes straight in death (all drives fade with the body). ---
+    const cloakStream = 0.22 + surcoatBack * 1.6 + Math.abs(bankEase) * 0.3;
+    for (let i = 0; i < CLOAK_SEGS; i++) {
+      const tX = i === 0
+        ? 0.18 + cloakStream * (1 - dyingK)
+        : Math.sin(time * 1.5 - i * 0.75) * 0.09 * (1 - dyingK) + 0.03;
+      const tZ = i === 0
+        ? -bankEase * 0.9 - rigVelX * 0.03
+        : Math.sin(time * 1.2 - i * 0.85) * 0.07 - rigVelX * 0.012;
+      const ce = Math.min(1, dt * (5 - i * 0.6));
+      cloakPivots[i].rotation.x += (tX - cloakPivots[i].rotation.x) * ce;
+      cloakPivots[i].rotation.z += (tZ - cloakPivots[i].rotation.z) * ce;
+    }
+    updateCloakStrip();
+
+    // --- Motion FX lifecycle: dash streaks sample the body's path during a hop,
+    // then drain; the lance arc samples the live tip through sweep/flourish. ---
+    for (const st of streaks) {
+      if (!st.live) continue;
+      if (dartPhase === 'hop') {
+        streakSample(st, rig.position.x, rig.position.y + 1.2, rig.position.z);
+      } else {
+        st.fade -= dt * 3.6;
+        st.mat.opacity = Math.max(0, 0.7 * st.fade);
+        if (st.fade <= 0) { st.live = false; st.mesh.visible = false; }
+      }
+    }
+    const arcActive = charge > 0.3 && (tell === 'sweep' || tell === 'flourish') && dyingK <= 0;
+    if (arcActive) {
+      lanceTip.getWorldPosition(_cwp);
+      group.worldToLocal(_cwp);
+      if (!arc.live) {   // (re)prime the window at the tip so the arc grows from it
+        for (let q = 0; q < arc.pts.length; q += 3) { arc.pts[q] = _cwp.x; arc.pts[q + 1] = _cwp.y; arc.pts[q + 2] = _cwp.z; }
+        arc.live = true; arc.mesh.visible = true;
+      }
+      arcSample(_cwp.x, _cwp.y, _cwp.z);
+      arc.fade = 1; arcMat.opacity = 0.55;
+    } else if (arc.live) {
+      arc.fade -= dt * 3;
+      arcMat.opacity = Math.max(0, 0.55 * arc.fade);
+      if (arc.fade <= 0) { arc.live = false; arc.mesh.visible = false; }
+    }
 
     // Ash-motes drift near the body (dark, dim — never a false glint).
     for (const o of orbiters) {

@@ -485,6 +485,9 @@ export function notifyHit(tier = 1) {
 }
 
 export function lockCount() { return totalPips(); }
+// PR6 (organ shimmer): the currently-branded organ names — the shimmer goes
+// dark on painted organs (the brand mark owns them).
+export function lockPaintedParts() { return S.locks.map((lk) => lk.part); }
 // V4 LOCK-SNAP (PR4): a PERFECT parry snaps a brand onto the organ that fired
 // the parried amber — the C3 answer (venting organs are dwell-exempt; the parry
 // is their sanctioned paint path, so NO amberVenting check here by design).
@@ -493,7 +496,11 @@ export function lockCount() { return totalPips(); }
 // already-painted organ refreshes its decay instead (the generous read). The
 // caller gates fever + deflect (sealed honesty) at the parry seam.
 export function paintFromParry(part) {
-  if (!part || !S.fightRunning || S.cap <= 0 || S.deflected) return false;
+  // Type-guard (PR6): a lock organ is a STRING node name — partWorldPos can
+  // never resolve a numeric tag, and a numeric pip would be a phantom (marker
+  // at origin, lance to boss centre, no dedupe). Callers bridge indices first.
+  if (typeof part !== 'string' || !part) return false;
+  if (!S.fightRunning || S.cap <= 0 || S.deflected) return false;
   const existing = S.locks.find((lk) => lk.part === part);
   if (existing) {
     existing.age = 0;
@@ -514,6 +521,18 @@ export function consumeAllLocks() {
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0;
   return out;
 }
+// PR6: a DESTROYED destructible sub-part (cracked pane / snapped shackle) can't
+// keep its brand — drop the pip silently (the shatter is the feedback; no
+// lockLost spam) and reset the fuse clock if the set left the cap. The caller
+// (routePartDamage's crack branch) owns knowing which organ died.
+export function dropLockPart(part) {
+  const i = S.locks.findIndex((lk) => lk.part === part);
+  if (i < 0) return false;
+  S.locks.splice(i, 1);
+  S.capFuseT = 0;
+  return true;
+}
+
 // PR3 MANUAL LOOSE: a not-ready tap (boss.js tap seam) requests the deliberate volley.
 // A flag, not an immediate release, so updateLockLayer processes it with the live ctx
 // (phaseHp for the ROI clamp, deflected for the sealed-keep rule). Zero-latency by
