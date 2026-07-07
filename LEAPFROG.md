@@ -6342,3 +6342,55 @@ round frog-ball skull, blank pale eyes (need iris+pupil), the chin pearl barely 
 still drifts blue; the beaded neck needs a smooth loft; streamers still mirror into a "heart" (need the
 rig's phase/lag to break L/R); the tail-whip is straight (the tail MODULE needs its own arc — the torso
 `spineCurl` doesn't reach it). CP1 body+wings are close; the face + neck + tail are the next climb.
+
+---
+
+## L169 — JADE "Jade Serpent" CP1 PASS (apex, avg 4.125) — the structural-rework turning point
+
+Slot C (jade) cleared the CP1 apex gate at **avg 4.125, no axis ≤2** (line-of-action 5.0, silk-fin
+4.5, greenness 4.5, silhouette/wing/taper 4.0) after a long climb: **2.0 → 2.75 → 3.2 → 3.81 → 4.125**.
+The gate called the side black-fill "the best starter silhouette this rebuild has produced — poster-grade."
+
+**The turning point was a STRUCTURAL rework, not more parameter tuning.** The build plateaued at ~2.1–2.25
+for four gate rounds while I tweaked dials (fin spread, notch depth, emissive floors). Every round the gate
+found the same read-level failures — "moth on a stick," "caterpillar head," a stubborn L/R teal. The score
+only started climbing when I stopped tuning and rebuilt the two things that were wrong at the ARCHITECTURE
+level:
+- **`buildKoiSkull` — a NEW lofted Catmull head shell** (the ember `buildSmoothForgeSkull` pattern, L165)
+  shaped slim + elongated (rounded braincase → brow ridge → tapered snout). This replaced softStealth's
+  round ellipsoid, which no amount of `headStretch`/`headNarrow` dialing could de-blob. Registered in
+  `SKULLS` + `ONE_SHELL_SKULLS` + the proud-eye set; routed via `model.skullType`. **Instantly** moved
+  color→4 and earned "a real hull, not the old ellipsoid blob."
+- **Reshaping the `silkFinWings` petal** from a pointed leaf/moth blade to a broad koi ray, then — after
+  the gate flagged the over-broad version as a "MITTEN balloon" — to a MODERATE chord (4 distinct lobes,
+  ~40% narrower, spread so tips separate). The sweet spot between "spiky slivers" and "merged mitten" is
+  narrow and only findable against the gate, one step at a time.
+
+**The lesson (compounding L164/L165):** when a harsh gate's score is FLAT across 3–4 rounds and it keeps
+re-citing the same read ("wrong noun," "blob," "moth"), the defect is ARCHITECTURAL, not parametric — stop
+turning dials and rebuild the offending part. The ellipsoid-stack skull and the pointed-petal fin were both
+dead ends that tuning could not save; a lofted shell and a reshaped blade broke the plateau in two rounds.
+
+**Reusable engine dials landed this slot (all additive, default-off → roster byte-identical):**
+`model.spineYaw` (torso lateral-S), `model.tailArc`/`tailYaw` (clean-tail idle curve, also curves the
+sweptTail centreline + welds the tip onto the curve), `model.tailGirth` (fat serpent ribbon),
+`model.tailGlow` (green tail emissive floor), `model.headStretch`/`headNarrow` (skull elongation),
+`model.skullType: 'koiSkull'`, `model.neckBlend` (already existed; pushed to 3.7 to de-caterpillar),
+`def.scaleEmissive`/`eyeEmissiveI`/`bellyEmissive`/`eyeSclera`/`eyeIris`/`eyeIrisKeen`/`eyeBallEmissive`
+(kill off-palette cyan/blue on a green dragon — the L164 gotcha generalized), `model.finGlow`/`finRimColor`
+(green emissive floor + greener rim so the shadowed wing holds jade under the cool studio key light).
+
+**Gotchas.** (1) A negative `mesh.scale.x` mirror flips the normals → one koi fin lit sage, its mirror
+teal; bake the mirror into geometry (negate x + REVERSE winding) instead. (2) The persistent L/R "teal"
+was ultimately DIRECTIONAL STUDIO LIGHT (the fin facing the cool fill reads teal) + the pale-cyan mint rim
+at grazing angles + transparency depth-sort — layered causes; the fix was a green emissive FLOOR + a greener
+rim + opaque rear lobe, and accepting it may read differently on warm game skies (the human is the merge
+judge, §8). (3) When you offset tail SEGMENTS by an arc, every later-added element (the tip cone, fins) must
+be placed on the SAME arced centreline + tangent or it detaches (a hard §2.1 one-component fail). (4) The
+head reads `c.def.*`, not `c.def.model.*` — eye/scale colour overrides must be TOP-LEVEL def fields.
+
+**Open (gate's non-blocking polish notes → fold into CP2):** brighten the iris toward `0x8ff0c2` + widen
+the almond so the eye (not the pearl spill) is the brightest facial point at turntable distance; soften the
+front/¾ neck-segment beading (side is smooth); +5–8° fan camber so the dead-astern chase presents more silk;
+lift the tail-veil's darkest field toward `0x116b45`. Next: **CP2** — tune forms 0–1 to their §4 bands +
+the growth arc, then the ladder + face-per-form + silhouette triptych + trio frame + a fresh CP2 gate.
