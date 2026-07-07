@@ -741,6 +741,67 @@ for (const key of BOSS_ORDER) {
   ok(`weftwitch geometry: web ${webSpan.toFixed(0)}w (L141 field), crown tenses on charge, finger-point notice, scar + hands + loom-heart ✓`);
 }
 
+// EMBERTIDE (slot 13) — the SPATIAL peak: a frame-wide light FIELD with a colossal
+// dark FACE deforming through it (the sanctioned VALUE INVERSION — the focal is
+// DARKNESS). Assert the named organs, the charge tell (the face SURGES forward — a
+// silhouette change, not a recolour), the §4b NOTICE (the eye-hollows TEAR OPEN),
+// and the OVERDRAW DISCIPLINE (the "wall of light" is OPAQUE — ZERO additive volumes
+// from the model, so the whole additive budget is free for the in-game fever/shield).
+{
+  const em = buildBoss(BOSSES.embertide, 1);
+  // Named organs (the §5d anatomy + the emitter/def.muzzle + the scar).
+  for (const [name, why] of [
+    ['lightField', 'the frame-wide wall of light (the bright "body")'],
+    ['faceRelief', 'the ONE connected dark face form (negative relief)'],
+    ['eyeHollow0', 'the §4b GAZE/NOTICE carrier (left eye-hollow)'],
+    ['eyeHollow1', 'the §4b GAZE/NOTICE carrier (right eye-hollow)'],
+    ['mouthNotch', 'the pareidolia-triangle mouth (the 2-second face read)'],
+    ['crestPivot', 'the tide-crest emitter (def.muzzle — the full-frame origin)'],
+    ['leashNotch', 'the §3.6 asymmetric scar (the leash-collar mark → the Apex)'],
+    ['noseMass', 'the expressive relief that surges on the charge tell'],
+  ]) {
+    assert(!!em.group.getObjectByName(name), `embertide exposes the named ${name} (${why})`);
+  }
+  assert(!!em.group.getObjectByName(BOSSES.embertide.muzzle), `embertide def.muzzle '${BOSSES.embertide.muzzle}' resolves to a named part`);
+
+  // OVERDRAW DISCIPLINE (L124/L126): the model adds NO large additive/fresnel volume
+  // — the field replaces the sky dome (opaque HDR), not an additive stack. Only the
+  // kit shield (hidden by default) is additive; the model itself must be 0.
+  const effVisible = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; };
+  let modelAdditive = 0;
+  em.group.traverse((o) => { if (o.isMesh && effVisible(o) && o.material && o.material.blending === THREE.AdditiveBlending) modelAdditive++; });
+  assert(modelAdditive === 0, `embertide model contributes ZERO additive volumes with the shield down (opaque wall of light; got ${modelAdditive}) — the overdraw budget stays free for the fever/shield`);
+
+  // Telegraph: setCharge(1) SURGES the face forward + widens the eye-hollows (a
+  // silhouette change). Settle idle first, then charge.
+  for (let i = 0; i < 30; i++) em.tick(0.05, i * 0.05);
+  const nose = em.group.getObjectByName('noseMass');
+  const preNoseZ = nose.position.z;
+  em.setCharge(1);
+  for (let i = 0; i < 20; i++) em.tick(0.05, 2 + i * 0.05);
+  assert(nose.position.z > preNoseZ + 0.3, `embertide charge SURGES the face forward (noseMass z ${nose.position.z.toFixed(2)} > ${preNoseZ.toFixed(2)} + 0.3 — the relief deepening tell, §3.5)`);
+
+  // NOTICE: the eye-hollows TEAR OPEN (scale.y jumps) + settle on the dragon (§4b).
+  em.setCharge(0);
+  for (let i = 0; i < 20; i++) em.tick(0.05, 6 + i * 0.05);
+  const eh = em.group.getObjectByName('eyeHollow0');
+  const preOpen = eh.scale.y;
+  em.notice();
+  for (let i = 0; i < 6; i++) em.tick(0.05, 8 + i * 0.05);
+  assert(eh.scale.y > preOpen + 0.4, `embertide NOTICE tears the eye-hollows open (eyeHollow0 scale.y ${eh.scale.y.toFixed(2)} > ${preOpen.toFixed(2)} + 0.4 — the §4b notice beat)`);
+
+  // DEATH: the tide recedes — the face SINKS below the horizon (faceRig y drops).
+  const faceRig = em.group.getObjectByName('faceRig');
+  const preFaceY = faceRig.position.y;
+  em.setDissolve(1);
+  em.tick(0.05, 12);
+  assert(faceRig.position.y < preFaceY - 5, `embertide DEATH sinks the face below the horizon (faceRig y ${faceRig.position.y.toFixed(1)} < ${preFaceY.toFixed(1)} − 5 — the sky sets, §4b DEATH)`);
+  em.setDissolve(0);
+
+  em.dispose();
+  ok('embertide geometry: face SURGES on charge, eye-hollows TEAR on notice, face sinks in death, ZERO additive (opaque wall of light), named organs ✓');
+}
+
 // WEFTWITCH web ↔ water reaction (owner note on PR #263) + loom-eye gaze tracking.
 // The water surface is the world-constant plane y=0 (water.js); boss.js feeds it via
 // the optional setWaterPlane hook AT FIGHT SPAWN ONLY — so the studio/tests default

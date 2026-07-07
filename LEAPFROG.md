@@ -7880,3 +7880,61 @@ math module, two drivers, no shim duplicated into the logic. (2) The pure-node t
 exit); `globalThis.navigator`/`location` are getter-only in node 22 — GUARD the assignment
 (`if (!globalThis.navigator)`), a raw assign throws. run-all.mjs auto-discovers `tests/*.mjs`, so
 the band gate joins CI for free.
+
+### L208 — EMBERTIDE (slot 13, the SPATIAL peak): a NEGATIVE-relief face only reads if the light is DEFORMED around it + the face is RICH; and its grandeur is LIGHT/opaque, not tris
+
+**Did / learned.** Built the World-Enders spatial peak (`bossEmbertide.js`, CP1): the horizon standing up
+as a frame-wide wall of living light with a colossal FRONTAL face deforming through it as dark NEGATIVE
+relief (the sanctioned §3-law-2 VALUE-INVERSION — the focal is DARKNESS in brightness). Two Fable gates +
+G1–G7 taught the hard parts:
+
+- **The overdraw answer for a frame-FILLING boss is OPAQUE, not additive.** G7 (and the real phone cliff,
+  L124/L126) counts only `AdditiveBlending`/fresnel volumes. So the "wall of light" is an OPAQUE
+  `MeshBasic` field with an HDR vertex gradient (colours baked past 1.0, `toneMapped:false`, `fog:false`) —
+  it blooms exactly like the mandala eye AND costs ZERO overdraw, because it REPLACES the sky dome rather
+  than stacking a plane vs the camera. The model ships with ZERO large additive volumes, so the whole
+  additive budget (≤2) stays free for the in-game fever + kit shield. Grandeur here is LIGHT + the FACE +
+  the squeeze, NOT tris (it's only ~8k).
+- **Negative relief is a LIE unless you tell it three ways at once** (Fable's FIX round, the BRINEHOLM
+  collision): (1) BEND the field bands so they bow UP and arc around the head (baked into the field vertex
+  colours by a face-proximity gaussian on the band phase) — light visibly DISPLACED, not an object in
+  front; (2) BREAK the boundary — the jaw dissolves DOWNWARD into the tide as tapering streaks so there is
+  no closed outline to parse as a floating mask; (3) an ASYMMETRIC rim (vertex-coloured: piled at the brow,
+  vanishing at the jaw), never a uniform sticker-stroke. Without all three it reads as "a dark theatre mask
+  in front of a sunset" (= BRINEHOLM's solid head — the exact anti-read the sheet named).
+- **A sparse face is "a nice gradient."** Brow/nose/chin alone is not enough at rel 30 — the face needs a
+  full internal VALUE TIER (field bright > face dark > recess DARKER > hollows DARKEST): eye sockets,
+  brow-ridge shadow, cheek hollows, nose-side shadows as a merged mid-dark mesh, sized to survive rel 30
+  (big soft masses, not hairline strokes). Plus the pareidolia TRIANGLE (two eyes + a MOUTH) is the
+  2-second face guarantee — the mouth is not optional.
+- **Palette gotcha — the reserved danger-magenta band (342°, ±15) is adjacent to deep RED.** Two separate
+  things drifted into it and failed G3: a "rose" that goes cool (B>G, ~350°), AND a *saturated dark-red
+  face emissive* (a 7° red accent on a dark body renders lit pixels at s>0.5 in the 342±15 band). Fix: keep
+  EVERY warm part G≥B (the light end is a WARM coral-rose #ff7a5e, not a pink-rose), DESATURATE the dark
+  face base, and light it with an AMBER ember-glow (#d9782e, ~22°), not the red accent. Pre-verify hues
+  against `DANGER_HUE` before building — the math caught it before geometry (a warm coral clears by ~25°).
+- **G5 (telegraph shape) gotcha for a frame-filling boss:** the studio auto-frames per STATE to the boss
+  bounding box, so a UNIFORM size change on charge normalizes away (it got WORSE). The telegraph must
+  change the field's ASPECT — the tide crest rises TALLER (`field.scale.y`), which survives the
+  normalization — plus the face surges forward. (In-game with a fixed camera the surge alone already
+  passes; only the studio's per-state auto-fit needs the aspect trick.)
+- **The value-inversion gate override** (`gate:{inverted:true,frameFill:true}`, new beyond `gate.pale`):
+  G1 flips to a DARK-focal check (the darkest cluster ≤12/255 exists AND stays small = the hollows), G2/G4
+  exempt (the bright field is the body; it overflows the frame by design). Cited to the §5b row-13 sanction.
+
+**→ Systematize.** The OPAQUE-HDR-field pattern is the template for any future frame-filling / backdrop
+boss (a sky, a sea, a void that IS the arena): bloom via `toneMapped:false` + baked >1.0 vertex colours,
+`fog:false`, replace the dome, ZERO additive → the overdraw cliff never bites. The three-cue negative-relief
+recipe (bend the field + break the boundary + asymmetric rim) is the reusable "how do I make a HOLE read as
+the subject" kit. Studio G5 for a frame-filler = change ASPECT, not size.
+
+**→ Leapfrog (innovate).** The two-Fable-gate loop earned its keep: gate #1 (pre-build, on the prose sheet)
+caught the "storm-clouds / solid-head" anti-reads before a single vertex existed (7 sheet fixes); gate #2
+(on the renders) caught "floating mask in front of a sunset" and drove the bend/break/rim/value round that
+turned a pretty gradient into a face deforming light. Neither is something G1–G7 pixels can see — they
+measure the measurable (dark-focal, palette, overdraw), the Fable eye measures the READ. Verified: `boss.mjs`
+75 checks (embertide model 8195 tris tier-4, named-pivot surge/tear/sink telegraph, ZERO-additive assert),
+`bossboot` clean, `bossgate --studio` G1–G7 PASS, `amberdiet`+`rhythmprint` (crescendo-sets, min KS 0.27)
+pass. CP2 (the live wiring: Y-constrict, full-frame emitters, sky-dome crossfade, letterbox, BEAM DUEL) is a
+SEPARATE commit after the owner green-lights CP1. Two polish notes deferred to CP2: vary the jaw-streak
+lengths (they read a touch matched); keep the recesses clearly darkest at full charge (protect the inversion).
