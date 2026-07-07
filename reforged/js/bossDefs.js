@@ -146,10 +146,19 @@ export const BOSSES = {
       orbiterStyle: 'ringBlade', orbiterCount: 3,
       eyeCount: 1, coreDetail: 1,
     },
+    // §5f law 1 (3–5 move core) + law 3 (develop = same reads, faster, +1 move):
+    // a Sentinel DEVELOPS one core, it does not swap the whole vocabulary each
+    // phase. STORMREND's identity is storm = wall + anti-flee + constrict, so the
+    // core is fan → +movingGap → +iris. (The 2026-07 rebalance trimmed the shipped
+    // 8-attack spread — curtain/stream/aimed/secondWave/crossfire — down to this
+    // 3-move core; the card ids + CRESCENDO signature are UNCHANGED so 13 EMBERTIDE
+    // and 14 THE UNMASKED keep quoting a live boss.)
+    // `fan` recurs in every phase: it is BOTH the wall read AND the amber carrier
+    // (AMBER_CARRIERS in bossRhythm.js — dropping it from a phase fails amberdiet).
     phases: [
-      { atFrac: 1.00, cadence: [1.8, 2.4], attacks: ['fan', 'curtain'] },              // P1: learn the wall
-      { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['movingGap', 'stream', 'aimed'] },// P2: anti-flee
-      { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['iris', 'secondWave', 'crossfire'] }, // P3: the storm
+      { atFrac: 1.00, cadence: [1.8, 2.4], attacks: ['fan'] },                       // P1: learn the wall / find the gap
+      { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['fan', 'movingGap'] },          // P2: the wall now MOVES (anti-flee)
+      { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['fan', 'movingGap', 'iris'] },  // P3: the storm CLOSES IN (constrict — the dread card)
     ],
     cards: [
       { id: 'stormrend_wall',    name: 'UNENDING — Gale Wall',            atFrac: 1.00, timer: 22 },
@@ -163,12 +172,15 @@ export const BOSSES = {
     rhythm: {
       signature: 'crescendo',
       ticket: { bpm: 100, quantize: '1/4' },
+      // Phrases DEVELOP the 3-move core (the attacks track phases[].attacks); the
+      // restLo/restHi/restDist ramp values are UNCHANGED from the shipped version,
+      // so the CRESCENDO rest fingerprint (rhythmprint) is preserved.
       phases: [
-        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.7 }, { kind: 'sustain', attack: 'curtain', beats: 1, gap: 0.7 }],
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.7 }],
           restLo: 1.3, restHi: 2.6, restDist: 'decaying' },
-        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 0.6 }, { kind: 'sustain', attack: 'stream', beats: 1, gap: 0.6 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.6 }],
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.65 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.65 }],
           restLo: 1.1, restHi: 2.3, restDist: 'decaying' },
-        { phrase: [{ kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'secondWave', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'iris', beats: 1, gap: 0.55 }],
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'iris', beats: 1, gap: 0.55 }],
           restLo: 0.9, restHi: 2.1, restDist: 'decaying' },
       ],
     },
