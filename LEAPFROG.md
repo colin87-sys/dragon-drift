@@ -8051,3 +8051,47 @@ seams beyond the ONE already shipped: `model.setSetpiece(k, sdef)`.
    matte-balloon charms, festoon-as-clump, wizard orb, glyph scaffolding, chalk-pink violet) across two
    FIX rounds — pixel-law gates (G1–G7 ×3 green every round) prove legality, never grandeur. Budget checks,
    festoon spread, sigil drive/unwrite, and the P3 quote are now data laws in tests/boss.mjs (67 checks).
+
+### L215 — WEFTWITCH post-playtest (owner "walk me through it"): most "it's broken" was "I can't see it" — feedback + magnitude, not logic
+
+**Did.** The owner played the merged WEFTWITCH and reported the thread-cut parry, the gap-restitch,
+and the mote-harvest as broken/invisible, plus web-jiggle, a loom-eye artifact, and entrance notes.
+Traced every one before touching code (three parallel Explore agents). PR 1 (this) = the five
+fight-feel fixes; PR 2 = the entrance redesign.
+
+**The learns (reusable).**
+1. **"It doesn't work" from a playtester usually means "I got no feedback."** The thread-cut parry
+   was functional and its counter *persisted correctly all fight* — but there was ZERO partial-
+   progress signal, only `aimed` shots were parryable (walls counted for nothing), and Surge parries
+   silently didn't count. The player lands <3 real amber reflects and concludes it's broken. Fix was
+   a FRAYING taut-thread tell (reddens + buzzes + holds tension between attacks, floored by a
+   `setThreadStrain(n)` hook) + a rising per-bank pluck. Verify a mechanic's *legibility*, not just
+   its logic — a passing integration test that force-feeds the inputs hides the feel gap.
+2. **A gesture that's correct but small is invisible at fight distance.** The restitch tore ~2-3
+   effective spokes for <1s, retracting behind the bust. It "worked" (byte-exact, tests green) and
+   read as nothing. Fix = MAGNITUDE: a quarter of the web (16 spokes, flat-top falloff), a HELD
+   fully-torn beat, a slower arc, biased to open sky, + a whole-web gold re-weave flash. When a
+   playtester can't see an effect, first suspect scale, not correctness.
+3. **Decouple a massive element from a small one's high-frequency motion via an intermediate pivot.**
+   The web inherited the bust's hit-shudder from THREE stacked parents. A `bustPivot` holding only
+   the bust (shudder writes moved there) lets the web — kept on the calmer parent — read as a slow
+   massive field. Reparenting is parent-agnostic for world-space consumers (partWorldPos,
+   matrixWorld water-clip) so it's safe; just keep the SHARED motion (entrance descent) on the shared
+   parent and the PRIVATE motion (shudder) on the split pivot.
+4. **A sliding highlight needs a backing that travels with it — or a well it slides within.** The
+   loom pupil slid exactly its own radius and uncovered the gold knot ("something under her eye").
+   Fix = a static dark SOCKET the pupil moves inside (an eye-well), + reduced throw so it never
+   clears the socket. The knot shows only as a thin iris-rim. Give a moving bright element a dark
+   frame it can't slide off of.
+5. **Announce a reward event with a distinct shape, not more of the same particles.** 12 additive
+   pink dots = the generic graze cloud. A gold RING-HOOP + spawn burst + the banner make the harvest
+   read as an event even while the motes themselves stay subtle — the frame sells it, not the dots.
+6. **A playtester conflates persistent body with transient FX.** The "threads across the whole fight"
+   were the WEB SPOKES (her body, intended), not the entrance HUD-sew (which clears correctly). When
+   feedback sounds like a bug, check whether two visually-similar things are being merged in the eye.
+   And "hide the name for suspense" collided with a BINDING ruling (banner legible so slot 12's
+   silence shocks) — surface the doc, offer the intended beat (stitch-across) instead of the override.
+
+**Verified:** boss 74 (new: strain tell shows, wide restitch caves 214 coords + byte-exact, pupil
+in socket) · defs · entrance · lock · bossboot · bossrush (11-boss) · tricount 0-over · bossgate
+G1-G7 PASS · restitch/bloom/eye captures reviewed. PR 2 (entrance) follows. Owner judges feel on the preview.

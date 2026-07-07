@@ -812,7 +812,23 @@ for (const key of BOSS_ORDER) {
   const preX = core.position.x;
   ww.setGaze(1, 0);
   for (let i = 0; i < 30; i++) ww.tick(0.05, 3 + i * 0.05);
-  assert(core.position.x > preX + 0.3, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.3)`);
+  // reduced pupil throw (0.30) so it stays inside the dark socket; the socket + organ
+  // lean now carry the rest of the "looking" read (the "something under her eye" fix).
+  assert(core.position.x > preX + 0.18, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.18)`);
+  const socket = ww.group.getObjectByName('loomSocket');
+  assert(!!socket && Math.hypot(core.position.x, core.position.y) < 0.8,
+    'weftwitch pupil stays within the dark socket radius (never exposes the gold knot)');
+
+  // 4b. THREAD-STRAIN feedback (the parry-progress tell — CP2 playtest: it was invisible).
+  // setThreadStrain floors the taut-thread tension so a banked parry SHOWS between attacks.
+  const taut = ww.group.getObjectByName('weftTaut');
+  ww.setThreadStrain(0);
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 20 + i * 0.05);
+  const slackOp = taut.material.opacity;
+  ww.setThreadStrain(0.67);   // 2/3 parries banked
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 21 + i * 0.05);
+  assert(taut.material.opacity > slackOp + 0.2, `weftwitch thread-strain shows the banked parries (taut opacity ${slackOp.toFixed(2)}→${taut.material.opacity.toFixed(2)})`);
+  ww.setThreadStrain(0);
 
   // 5. CP2 FIGHT VERBS — the laserLance beam flash + the thread-cut stagger read.
   // fireBeam(): the HDR hairline shows at the release instant and decays back out.
@@ -848,12 +864,13 @@ for (const key of BOSS_ORDER) {
   const hero = ww.group.getObjectByName('weftWebHero').geometry.attributes.position;
   const snapD = dim.array.slice(), snapH = hero.array.slice();
   ww.restitchWeb();
-  for (let i = 0; i < 30; i++) ww.tick(1 / 60, 0.2 + i / 60);   // ~0.5s in — the tear is open
+  for (let i = 0; i < 40; i++) ww.tick(1 / 60, 0.2 + i / 60);   // ~0.7s in — inside the HELD fully-torn window
   let torn = 0;
   for (let i = 0; i < dim.array.length; i++) if (Math.abs(dim.array[i] - snapD[i]) > 0.5) torn++;
   for (let i = 0; i < hero.array.length; i++) if (Math.abs(hero.array[i] - snapH[i]) > 0.5) torn++;
-  assert(torn > 6, `the tear visibly retracts the sector mid-arc (${torn} coords moved > 0.5)`);
-  for (let i = 0; i < 160; i++) ww.tick(1 / 60, 0.8 + i / 60);   // ride past the mend (~2.4s total)
+  // the wide sector (16 spokes) now moves far more than the old 7 — a readable collapse.
+  assert(torn > 40, `the tear visibly caves in the sector mid-arc (${torn} coords moved > 0.5)`);
+  for (let i = 0; i < 260; i++) ww.tick(1 / 60, 0.9 + i / 60);   // ride past the full ~3.4s tear→mend arc
   let drift = 0;
   for (let i = 0; i < dim.array.length; i++) drift = Math.max(drift, Math.abs(dim.array[i] - snapD[i]));
   for (let i = 0; i < hero.array.length; i++) drift = Math.max(drift, Math.abs(hero.array[i] - snapH[i]));
