@@ -32,7 +32,7 @@ import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
 import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
-import { debugActiveBullets } from './bossBullets.js';
+import { debugActiveBullets, setDebugPerfectParryRel } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -223,6 +223,14 @@ if (urlParams.has('bossIdx')) {
   const k = parseInt(urlParams.get('bossIdx'), 10);
   if (Number.isFinite(k) && k >= 0) setBossDebugDefIdx(k);
 }
+// Playtest: ?parry widens the PERFECT-parry window so the V4 snap-brand is
+// testable without frame-tight timing. Bare ?parry = the whole reflect window
+// (EVERY parry is perfect); ?parry=<rel> sets the perfect rel in world-units
+// (shipped LAW is 1.8 ≈ 64ms at bullet speed 28). URL-only, never persisted.
+if (urlParams.has('parry')) {
+  const v = parseFloat(urlParams.get('parry'));
+  setDebugPerfectParryRel(Number.isFinite(v) && v > 0 ? v : CONFIG.BOSS.reflectWindow);
+}
 
 // Debug: force Dragon Surge for visual verification
 const debugFever = urlParams.get('debug') === 'fever';
@@ -335,9 +343,25 @@ on('lockPaint', (p) => sfx.brandSet?.((p && p.count) || 1));
 on('lockCap', () => sfx.brandCap?.());
 // A DELIBERATE loose sounds the full exhale — the cap auto-volley, the PR3 manual
 // tap-loose, and the Surge fork are all the player's earned release (brandLoose); only
-// a lone brand ashing off on decay is the lesser fizzle.
-on('lockVolley', (p) => (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')
-  ? sfx.brandLoose?.(p.count) : sfx.brandFizzle?.()));
+// a lone brand ashing off on decay is the lesser fizzle. PR4b RELEASE PUNCTUATION:
+// the deliberate loose also lands a 45ms hitstop + postfx kick (the authored beat —
+// release ONLY, never the impacts amid dense bullets) and a jade muzzle flash off
+// the dragon's launch shoulder, so the moment reads even in peripheral vision.
+const _muzzleV = new THREE.Vector3();
+on('lockVolley', (p) => {
+  if (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')) {
+    sfx.brandLoose?.(p.count);
+    juiceEvent('wispVolley');
+    _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
+    burst(_muzzleV, 0x50ffaa, { count: 10, speed: 12, size: 0.8, life: 0.35 });
+    burst(_muzzleV, 0xeafff6, { count: 4, speed: 18, size: 0.5, life: 0.25 });
+  } else {
+    sfx.brandFizzle?.();
+  }
+});
+// PR4b: each wisp landing plays a note of the impact ARPEGGIO (k = position in
+// the drum-roll window) — N locks land as an ascending riff, not one boom.
+on('lockStrike', (p) => sfx.brandStrike?.((p && p.k) || 0));
 // PR3: loosing onto a SEALED boss can't take — a soft muffled thunk names the miss;
 // the pips are kept (the lock layer never wastes them), the reticle row shakes once.
 on('lockSealed', () => sfx.brandSeal?.());

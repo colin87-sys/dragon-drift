@@ -1563,7 +1563,7 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
-- **L188** — KNELLGRAVE CP2 (the music dies): a survival seal must NOT be `shielded` (the shield state
+- **L191** — KNELLGRAVE CP2 (the music dies): a survival seal must NOT be `shielded` (the shield state
   suppresses attacks + aborts setpieces — the seal is damage IMMUNITY at damageBoss; the unfillable bar is
   the tell, the tolls keep firing, outlasting RESOLVES the card); kill the music BUS not the scheduler
   (getBeatClock stays live for quantize; fold the kill into musicTarget so every gain path preserves it;
@@ -1572,7 +1572,7 @@ LEAPFROG.md lessons relevant to boss work, in priority order:
   by projected FILL AREA at the worst frame (thin ring ~5% vs same-radius disc ~29% — bounding spheres
   can't tell); foreshadow rides the horizon-seed peek (null in rush = free graceful degrade); a sealed
   card adds its timer to every sim budget (lifecycle +37s, rush cap 980→1150).
-- **L187** — KNELLGRAVE CP1 (the bound bell): a hollow-cone body OCCLUDES its own soul — a "creature inside a
+- **L190** — KNELLGRAVE CP1 (the bound bell): a hollow-cone body OCCLUDES its own soul — a "creature inside a
   shell" only reads BELOW the shell's lip, so build the readable part OUT of the shell; a flat torus TILTED by
   rotateZ reads as a slanted hook (rotate a rim gap about Y, keep the ring flat); the dread REVEAL is geometry
   (gape + drop + head-wrench) + lighting the DARK figure, never focal brightness ("the lamp turned up"); a

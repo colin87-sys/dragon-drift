@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
 import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll } from './sfx.js';
-import { input } from './input.js';
+import { input, focusHeldNow } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
 import { emit, on } from './events.js';
@@ -24,7 +24,7 @@ import {
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
-  lanceDmgEach, __testBank } from './lockLayer.js';
+  lanceDmgEach, paintFromParry, __testBank } from './lockLayer.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
 // game.inBoss, mirroring game.inCanyon): forward motion continues, the boss holds
@@ -148,6 +148,8 @@ let pendingDeath = false;      // set when hp hits 0; resolved in the update loo
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
+let focusVis = 0;              // V5: eased 0..1 heat — the ring tints jade while the FOCUS hold is live
+const _focusCol = new THREE.Color();
 let reticleTrack = null;       // dim full-circle base
 let reticleFill = null;        // bright arc: draw-on progress × (in Surge) time-left
 let reticleHead = null;        // glowing comet at the fill's leading edge (Surge meter)
@@ -1321,9 +1323,19 @@ function applyReticle(timeLeft, time) {
   reticleTrack.geometry.setDrawRange(0, trackSeg * 6);
   reticleFill.geometry.setDrawRange(0, fillSeg * 6);
   const surging = timeLeft < 0.999;
+  // Third job (V5): while the FOCUS hold is live (and not surging) the idle
+  // circle warms toward the lock layer's jade and breathes brighter — the hold
+  // is visibly ON. Surge's pink meter always wins (it's the bigger state).
   reticleFill.material.color.setHex(surging ? 0xff6ae0 : 0x9dffea);
   reticleTrack.material.color.setHex(surging ? 0x8f6ad8 : 0x9dffea);
-  reticleFill.material.opacity = surging ? 0.55 + Math.abs(Math.sin(time * 8)) * 0.18 : 0.32;
+  if (!surging && focusVis > 0.01) {
+    _focusCol.setHex(0x50ffaa);
+    reticleFill.material.color.lerp(_focusCol, focusVis * 0.85);
+    reticleTrack.material.color.lerp(_focusCol, focusVis * 0.5);
+  }
+  reticleFill.material.opacity = surging
+    ? 0.55 + Math.abs(Math.sin(time * 8)) * 0.18
+    : 0.32 + focusVis * (0.2 + Math.abs(Math.sin(time * 6)) * 0.1);
   // Comet at the draining edge — only while it's a live meter (fully drawn + surging).
   if (surging && reticleOn > 0.99 && fillFrac > 0.004) {
     const a = Math.PI / 2 + fillFrac * Math.PI * 2;
@@ -1345,7 +1357,8 @@ function enterFight() {
   phase = 'fight';
   initLockLayer();   // THE LANCE layer: fresh aim/lock state per fight
   aimHeldT = 0; aimTeachCd = 1.5;   // V1 teach: first prompt after a short settle
-  lockTeachCd = 1.5; amberVent.clear();
+  lockTeachCd = 1.5; snapTeachCd = 4; amberVent.clear();   // V4 teach waits a few beats past the paint teach
+  focusTeachCd = 3; focusHeldT = 0; focusVis = 0;          // V5 teach: after the fight settles
   lockSealHinted = false; sealHoldT = 0;
   // V2 access unlocks permanently on first ENTERING a lock-anatomy fight (slot 4 is
   // the first def with lockParts) — a player stuck on the boss keeps the tool (§I.e).
@@ -1751,11 +1764,28 @@ export function updateBoss(dt, player, time) {
       paintables: paintableParts(),
       amberVenting: (part) => (amberVent.get(part) ?? -1) > fightNow,
       fireLance: (part, dmg, i, n) => fireLanceAt(player, part, dmg, i, n),
+      // V5 FOCUS (PR5): the deliberate hold (2nd finger past focusArmMs / F) —
+      // halves the effective dwell in the lock layer. Level-read every frame.
+      focusHeld: focusHeldNow(),
+      // V3.E1 (PR5): true when NOW is within ±beatWindow of a music-beat edge —
+      // a manual loose on the beat is a PERFECT RELEASE (volleys only, the LAW).
+      // getBeatClock() is null when music is off/headless → simply never perfect.
+      beatOn: (() => {
+        const bc = getBeatClock();
+        if (!bc) return false;
+        const toEdge = Math.min(bc.phase * bc.beatLen, bc.toNextBeat);
+        return toEdge <= CONFIG.LOCK.beatWindow;
+      })(),
     };
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);
     driveLockTeach(dt, lockCtx);
+    driveSnapTeach(dt, lockCtx);
+    driveFocusTeach(dt, lockCtx);
     driveSealHint(dt, lockCtx);
+    // The focus ring's THIRD job (idle circle → surge meter → FOCUS): ease a
+    // 0..1 heat the reticle tints jade while the hold is live (render-only).
+    focusVis = Math.max(0, Math.min(1, focusVis + (lockCtx.focusHeld ? dt * 6 : -dt * 4)));
 
     riderTimer -= dt;
     if (riderTimer <= 0) {
@@ -1798,6 +1828,19 @@ export function updateBoss(dt, player, time) {
           ui.parryPopup?.(pts, perfect, streak);
           sfx.parry?.(perfect, streak);
           emit('bossReflect', { perfect, streak });
+          // V4 LOCK-SNAP (PR4, owner-ruled PERFECT-ONLY): a perfect parry of a
+          // part-tagged amber snaps a brand onto the organ that FIRED it — the
+          // C3 answer (a venting organ can't be dwell-painted; the parry is its
+          // sanctioned paint path). LAWS: ≤ snapPerVolley (1) per parry burst;
+          // 0 during fever (Surge reflects are free-for-all, not the amber
+          // read); never onto a deflected boss (a survival-card parry can't
+          // promise a mark that won't take — sealed honesty).
+          if (r.snapParts.length && !surge && !lockDeflected() &&
+              saveData.flags.lockUnlocked && def.lockParts) {
+            for (let sp = 0; sp < Math.min(r.snapParts.length, CONFIG.LOCK.snapPerVolley); sp++) {
+              paintFromParry(r.snapParts[sp]);
+            }
+          }
           // §5i.C SCATTER-STAGGER (THRUMSWARM's parry job): parry the queen's amber-eye
           // volley 3× → the queen recoils and the swarm can't re-scatter for 2.5s (LOCKED
           // condensed = a guaranteed chip window — parry ACCELERATES, never gates, §5i.C
@@ -2155,9 +2198,11 @@ function emitRibBullets(player) {
     if (rrel <= 0.5) continue;   // rib already at/behind the player → skip (would fly away)
     // Constant-velocity aim so all bullets reach the spine centre together (converge),
     // then keep flying through it and cross the player plane (the dodge/parry check).
-    emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel);
+    // V4 (PR4): the amber carries its SOURCE RIB's name — a perfect parry snaps a
+    // brand onto the organ that fired it (the C3 answer, wired at the roll-parry seam).
+    emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel, name);
     // C3: an amber-CARRYING organ is dwell-exempt while its volley is in flight —
-    // parry (V4, PR4) is the only sanctioned way to paint a venting organ.
+    // parry (V4) is the only sanctioned way to paint a venting organ.
     amberVent.set(name, fightNow + 2.2);
   }
 }
@@ -2569,15 +2614,67 @@ function driveLockTeach(dt, ctx) {
   }
 }
 
+// V4 SNAP teach (PR4): the first time a rib VENTS while the player could still
+// use a brand, name the parry-paint rule once per prompt — re-armed until
+// performed (the driveLockTeach shape). Gated to the teach boss so the concept
+// lands where the C3 exemption is FELT (a venting rib refuses the dwell).
+let snapTeachCd = 0;
+function driveSnapTeach(dt, ctx) {
+  if (!def || !def.lockParts || saveData.flags.snapTaught || !ctx.paintUnlocked) return;
+  if (!saveData.flags.lockTaught) return;   // one concept at a time: paint first, then the snap
+  if (def.id !== 'marrowcoil' || phaseIdx < 1) return;
+  snapTeachCd -= dt;
+  if (snapTeachCd > 0 || lockCount() >= (ctx.cap || 0)) return;
+  const venting = (def.lockParts || []).some((lp) => ctx.amberVenting && ctx.amberVenting(lp.part));
+  if (venting) {
+    ui.bossNote?.('ITS AMBER GUARDS IT', 'PERFECT-PARRY TO BRAND THE SOURCE', 'gold', 2.6);
+    snapTeachCd = 10;   // re-arm later if still unperformed
+  }
+}
+
+// V5 FOCUS teach (PR5): on the slot-5 fight (EITHERWING — the fast-orbit seeker
+// organs are exactly what focus is FOR), prompt the hold once per lull until
+// performed; performing it (holding focus ≥0.8s with the layer live) retires it.
+let focusTeachCd = 0;
+let focusHeldT = 0;
+function driveFocusTeach(dt, ctx) {
+  if (!def || saveData.flags.focusTaught || !ctx.paintUnlocked) return;
+  if (ctx.focusHeld) {
+    focusHeldT += dt;
+    if (focusHeldT >= 0.8) { saveData.flags.focusTaught = true; persist();
+      ui.bossNote?.('FOCUSED — THE MARK TAKES FASTER', '', 'gold', 1.8); return; }
+  } else {
+    focusHeldT = 0;
+  }
+  if (def.id !== 'eitherwing') return;   // teach where the fast targets make it matter
+  focusTeachCd -= dt;
+  if (ctx.exposureWindow && focusTeachCd <= 0) {
+    ui.bossNote?.('STEADY YOUR TALONS', 'HOLD A SECOND FINGER (OR F) TO FOCUS', 'gold', 2.6);
+    focusTeachCd = 9;   // re-arm later if still unperformed
+  }
+}
+
 // Dismiss-on-perform (the hints.js BIT.roll pattern): the first paint retires the
-// teach forever; the first CAP volley names the release rule once.
-on('lockPaint', () => {
+// teach forever; the first CAP volley names the release rule once; the first
+// SNAP-paint (p.snap — the perfect-parry brand) retires the V4 teach.
+on('lockPaint', (p) => {
   if (!saveData.flags.lockTaught) { saveData.flags.lockTaught = true; persist(); }
+  if (p && p.snap && !saveData.flags.snapTaught) {
+    saveData.flags.snapTaught = true; persist();
+    ui.bossNote?.('THE MARK ANSWERS THE PARRY', '', 'gold', 1.8);
+  }
 });
 on('lockVolley', (p) => {
   if (p && p.source === 'cap' && !saveData.flags.lockCapSeen) {
     saveData.flags.lockCapSeen = true; persist();
     ui.bossNote?.('LOCKS FULL', 'LANCES FLY THEMSELVES', 'gold', 2.6);
+  }
+  // V3.E1 PERFECT RELEASE (PR5): a manual loose on the music beat — the score
+  // reward (parry stays score-premier: 150 < parryScore×1.7 tier) + the callout.
+  if (p && p.perfect) {
+    const pts = Math.round(CONFIG.LOCK.perfectReleaseScore * game.scoreMult);
+    game.score += pts;
+    ui.bossNote?.('♪ ON THE BEAT ♪', `+${pts}`, 'gold', 1.6);
   }
 });
 

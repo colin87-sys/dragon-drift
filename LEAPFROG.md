@@ -7105,8 +7105,124 @@ per-slot choreography (E1 beat-release can ride it). Deferred list unchanged (L1
 per-dragon wisp tint (Eternal cosmetic hook), wisp-trail LineSegments ribbon if sprites ever
 read muddy on device.
 
+### L187 — wisp readability round 2: silhouette CLASS beats everything — the volley became the only LINE in a sea of dots
 
-### L187 — KNELLGRAVE CP1 (slot 10, the bound bell): a hollow-cone body occludes its own soul, a tilted flat torus reads as a hook, and the dread reveal is GEOMETRY not brightness
+**Did / learned.** The merged PR4a wisps (fan arcs + sprite-mote trails + pulsing discs) still
+underwhelmed the owner live: "I see the arc but amongst the sea of bullets it seems underwhelming."
+Games research (Panzer Dragoon/Orta, Rez, Ikaruga, the Itano Circus lineage) converged on one
+diagnosis and three laws: (1) **canonical homing volleys are read by their TRAILS, not their
+heads — PD's homing lasers are persistent curved light-RIBBONS that stay lit as full paths and
+fade TAIL-first** (the afterimage bouquet IS the signature image); (2) **silhouette-CLASS contrast
+is the strongest legibility lever in a bullet hell** — pre-attentive shape recognition beats hue:
+if the player's ordnance is the only line-class object among dot-class bullets, it parses under
+any load (our failure was discs among discs — no amount of arc/pulse/mote fixes silhouette
+sameness); (3) **impacts should land as a plural staggered drum-roll** (Rez: N locks = N staggered
+musical hits; the payoff is a riff, not a boom). Shipped accordingly: a 6-slot RIBBON POOL in
+bossBullets.js — each wisp tows a tapered additive quad-strip rebuilt per frame from a sliding
+window of its own world positions (the EITHERWING makeTailStrip vertex recipe in world space),
+with `side = tangent × VIEW(0,0,−1)` (camera-facing — a strip built with the ×up cross collapses
+when a wisp flies down the view ray, which on a rail shooter is MOST of the flight); an EYE_HOT
+hot-head sprite (toneMapped=false, jade-white ×3.5 — the toneMapped bullet discs can never
+out-bloom it); tail-first drain over ribbonFade on arrival (head frozen AT the impact point —
+never the frozen-line trail bug); a homing snake-wobble (decays to zero before landing);
+`juiceEvent('wispVolley')` 45ms hitstop + kick + muzzle burst on the release ONLY (never impacts
+amid dense bullets); an impact PRESENTATION queue at 40ms stagger emitting `lockStrike{k}` →
+`brandStrike(k)` pentatonic plucks (the impact arpeggio); and the release audio reworked to
+thump + UP-sweeping noise + detuned plural chirps. The PR4a sprite-mote trail was RETIRED
+(ribbon supersedes; keeping both over-glows the additive budget).
+
+**The engine patterns that made it cheap.** The perf docs' own measurement decided the
+architecture: per-frame `instanceMatrix` uploads jank real phones, but SEPARATE meshes with
+per-frame BufferAttribute uploads are the shipped, blessed path (EITHERWING rebuilds 4 tails
+every tick) — so 6 individual ribbon meshes (~40 verts each) are endorsed, not risky. THIN is
+the overdraw law: a narrow strip is near-line (the §2 LineSegments exemption's spirit); bloom
+carries the apparent width, so `ribbonHalfWMax` is a config LINT (≤0.34), not a vibe. And the
+arrival-frame law (vrel untouched) again let a whole FX rework ship with kill-time coexist
+proven by ONE unchanged test assert (T-W2's exact-frame landing, now also proving the wobble
+harmless).
+
+**→ Leapfrog.** The ribbon pool is a general "projectile tows a light-path" primitive: reflected
+ambers (cyan — the role color already reserves it) are the obvious next tenant, and BOSS-DESIGN
+§1052's "reflected cyan gets a directional trail" ask becomes a 3-line adoption. The lockStrike
+event is the seam for E1 perfect-release scoring (beat-window bonus can ride k=0's timing).
+Deferred: audio bus duck under the release (needs sfxBus gain automation), per-dragon wisp tint
+(Eternal cosmetic), the shelved PR4 lock-snap parry brief (reflectBossBullets must return parried
+parts; rib ambers need part tags; Calamities lockParts data; "relics/profiles" maps to nothing —
+ask, don't build).
+
+### L188 — LANCE PR4 shipped (V4 lock-snap parry): the data was waiting at the seam, not in the feature — and a 3-year-old comment was the whole spec
+
+**Did.** The perfect-parry brand: perfectly parrying an amber snaps a lock pip onto the ORGAN
+that fired it. Owner rulings: PERFECT-only (the brand joins the perfect tier — heal + score +
+snap), and verb-only scope (no Calamities lockParts this PR; "relics/profiles" from the old
+handover maps to nothing in the repo and was dropped). Wiring: `reflectBossBullets` now returns
+`snapParts` (source tags of PERFECTLY parried ambers, deduped, nulls skipped — the tag was
+always on the slot, just dropped from the return); MARROWCOIL's rib ambers carry their rib name
+(the same trailing `emitBoss` arg HOLLOWGATE panes pioneered — and the tag is INERT for damage
+routing on marrowcoil since it has no PART_SYS flag, so coexist held with zero routing changes);
+the roll-parry seam calls `paintFromParry` gated on `!surge` (the "0 during fever" LAW) +
+`!lockDeflected()` (sealed honesty — a survival-card parry can't promise a mark) + snapPerVolley;
+`paintFromParry` finally has a body — paints the venting organ (NO amberVenting check by design,
+that gate is dwell-only: C3's whole point), refreshes an existing pip's decay, EXEMPT from
+paintCooldown (perfect-only is already the price) but SETS it after. Teach: `snapTaught` bit +
+`driveSnapTeach` on the teach boss (fires only when a rib is actually VENTING and only after
+lockTaught — one concept at a time), dismissed by the first `lockPaint{snap:true}`.
+
+**The lesson.** This feature was ~40 lines because every hard part existed as dormant DATA:
+the config LAW (`snapPerVolley`, written in PR1), the C3 dwell-exemption (PR2), the part-tag
+plumbing (HOLLOWGATE's §5f), and the single intent sentence in a code comment ("parry is the
+only sanctioned way to paint a venting organ") which turned out to be the entire spec. Two
+reusable morals: (1) when a subsystem reserves seams ahead (stub exports, tagged config LAWS,
+one-line intent comments), the eventual feature is mostly UNDROPPING data at the seams — spend
+the design effort naming the seam correctly the first time; (2) an emitter TAG can ship for one
+consumer (pane cracking) and be silently load-bearing for the next verb years later — when
+adding a per-entity tag, tag EVERY emitter that has an identity, not just the one the current
+feature needs (the rib ambers going untagged in PR2 cost this PR its only real archaeology).
+
+**→ Leapfrog.** The perfect-parry now carries THREE rewards (heal, score, brand) — the §5i
+parry ladder's premium tier is getting crowded; if a fourth lands, split rewards by parry
+CONTEXT (venting-organ parry → brand; clean parry → heal) instead of stacking. Deferred:
+Calamities lockParts (own PR, each tier-3 invuln state must join lockDeflected), V5 focus +
+E1 beat-release (beatWindow/beatMult still inert), audio bus duck, per-dragon wisp tint.
+
+### L189 — LANCE PR5 shipped (V5 focus + E1 beat-release): the last dead-wired verbs, and the gesture space was already partitioned
+
+**Did.** The two remaining dormant LANCE verbs, both pure seam-filling: (1) **V5 FOCUS** — holding
+a STILL extra finger past `focusArmMs` (300ms; keyboard: hold F — Space can't carry it because the
+surge tap fires on Space KEYDOWN, the zero-latency LAW) halves the effective dwell threshold
+(`focusDwellMult` on the threshold + refresh clock, never the accrual clamps, so dropping focus
+keeps earned progress); the HUD dwell fraction uses the same effective need (display==logic);
+the focus RING gets its third job (idle circle → surge meter → jade-warming focus tint,
+render-only `focusVis` ease). (2) **V3.E1 PERFECT RELEASE** — a MANUAL loose ('tap' source only;
+auto cap/decay releases are not the player's timing and never claim it) within ±`beatWindow` of a
+`getBeatClock()` beat edge rides `beatMult` — applied INSIDE the ROI clamp (`lanceDmgEach` gained
+a mult arg; the 10%-of-phase-hp ceiling stays absolute) — plus `perfectReleaseScore` and the
+"ON THE BEAT" callout. Teach: `driveFocusTeach` on EITHERWING (the fast-orbit seeker organs are
+what focus is FOR), retired by performing the hold ≥0.8s anywhere.
+
+**The design finds.** (1) **The 2nd-finger gesture space was already fully partitioned by
+duration+motion**: <260ms still = surge tap, sustained horizontal = roll, ≥260ms hold = boost —
+and boost is SUSPENDED in fights, so the ≥300ms still-hold was a free, collision-proof slot;
+the 260→300ms dead band is load-bearing hysteresis (a late-released tap must never alias into
+focus — config had encoded this as a LAW comment for four PRs). Level-read the gesture per frame
+(`focusHeldNow()` scans finger ages), never latch it — no stale state, no event-ordering bugs.
+(2) **A rate-knob's SIGN needs its consumer**: `focusDwellMult: 0.5` reads as "slower" beside
+`quietDwellMult: 0.5` (a penalty) — only the threshold reading makes focus a buff. When reserving
+paired constants, name the operand (`focusDwellNeedMult` would have been unambiguous).
+(3) **Beat bonuses go INSIDE hard clamps**: ×1.25 after the ROI clamp would breach audit R1;
+inside, it only matters when the clamp isn't binding — the law stays absolute and the test
+asserts it at a 30hp phase.
+
+**→ Leapfrog.** The combat-verbs arc's SOP ladder (V1 aim → V2 paint → V3 tap/fork/loose →
+V4 snap-parry → V5 focus + E1) is now FULLY SHIPPED — every reserved config LAW, save bit, and
+stub export from PR1 has a live consumer. What remains for the layer is data + polish, not verbs:
+Calamities lockParts (each tier-3 invuln state joins lockDeflected), the slot-14 exam rules,
+tether LineSegments, feats/analytics, the lockdps persona sim, audio bus duck, per-dragon wisp
+tint + rune sigils (Eternal cosmetics). The old SOP pinned E1 to "slots 10+" (unbuilt); it
+shipped globally as pure upside — flagged for the owner to slot-gate if band identity wants it.
+
+
+### L190 — KNELLGRAVE CP1 (slot 10, the bound bell): a hollow-cone body occludes its own soul, a tilted flat torus reads as a hook, and the dread reveal is GEOMETRY not brightness
 
 **Did.** Built the Tier-4 WORLD-ENDERS opener: a colossal cracked BELL swinging above the lane
 with a living BOUND PRISONER as its clapper (new `boundBell` archetype, `bossKnellgrave.js`).
@@ -7161,7 +7277,7 @@ suites green (bossrush now 9 bosses).
    pure-dodge seal is the sanctioned §5i.C exemption (added to the doc).
 
 
-### L188 — KNELLGRAVE CP2 (the music dies): a survival seal must NOT be the shield, kill the BUS not the scheduler, and audit overdraw by FILL AREA at the worst frame
+### L191 — KNELLGRAVE CP2 (the music dies): a survival seal must NOT be the shield, kill the BUS not the scheduler, and audit overdraw by FILL AREA at the worst frame
 
 **Did.** Wired slot 10's whole fight: `musicKill()/musicRestore()` (the §5f rule-break),
 `bellToll()` (the procedural bronze voice), toll-as-world-event (camera tick + `bossToll`

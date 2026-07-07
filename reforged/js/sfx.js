@@ -1050,17 +1050,31 @@ export const sfx = {
     tone({ freq: 1175, dur: 0.1, type: 'triangle', vol: 0.065, delay: 0.14 });
     tone({ freq: 280, end: 860, dur: 0.8, type: 'sine', vol: 0.05, delay: 0.2 });
   },
-  // The exhale (PR4a): a real BREATH — bandpassed noise falling under the saw
-  // sweep — then a brighter crackle per wisp, staggered to ride the visible fan
-  // (delay ≈ the launch stagger), each topped with a tiny white-hot ping.
+  // The exhale (PR4b — the release with WEIGHT; owner: "sound is underwhelming").
+  // The research-backed gesture: a bass THUMP anchors the moment, the whoosh
+  // sweeps UP (missiles LEAVING — the old down-sweep read as deflation), and n
+  // faint detuned chirps smear the release so the volley audibly sounds PLURAL.
+  // The per-hit reward moved to brandStrike (the impact arpeggio) — the release
+  // is the exhale, the landings are the drum-roll.
   brandLoose(n = 3) {
-    noiseWhoosh({ from: 900, to: 180, dur: 0.42, vol: 0.09, q: 0.9 });        // the breath
-    tone({ freq: 900, end: 220, dur: 0.38, type: 'sawtooth', vol: 0.06 });    // the body sweep
+    tone({ freq: 100, end: 40, dur: 0.09, type: 'sine', vol: 0.14 });          // the thump (weight)
+    noiseWhoosh({ from: 400, to: 4000, dur: 0.36, vol: 0.11, q: 1.4 });        // breath sweeping UP + out
+    tone({ freq: 900, end: 220, dur: 0.34, type: 'sawtooth', vol: 0.045 });    // the body sweep, under it
     for (let i = 0; i < Math.min(n, 6); i++) {
-      const d = 0.22 + i * 0.06;
-      tone({ freq: 1500 + i * 170, end: 1100, dur: 0.07, type: 'square', vol: 0.04, delay: d });
-      tone({ freq: 2100 + i * 130, dur: 0.04, type: 'sine', vol: 0.03, delay: d + 0.02 }); // white-hot ping
+      tone({ freq: 620 + i * 47, end: 1500 + i * 180, dur: 0.12, type: 'sawtooth',
+        vol: 0.028, delay: 0.02 + i * 0.018 });   // detuned launch chirps (plurality)
     }
+  },
+  // A wisp finds its brand — one note of the impact ARPEGGIO (k = position in the
+  // drum-roll): a short pluck stepping UP a pentatonic, so N landings play an
+  // ascending riff and a bigger volley is intrinsically more rewarding (the Rez
+  // lesson). Deterministic micro-detune from k — organic, zero RNG.
+  brandStrike(k = 0) {
+    const PENTA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2];   // major pentatonic ratios
+    const f = 660 * PENTA[k % PENTA.length] * (k >= PENTA.length ? 2 : 1) * (1 + ((k * 7) % 5 - 2) * 0.002);
+    tone({ freq: f, end: f * 0.985, dur: 0.09, type: 'triangle', vol: 0.075 });
+    tone({ freq: f * 2, dur: 0.05, type: 'sine', vol: 0.035, delay: 0.005 });  // sparkle octave
+    noiseWhoosh({ from: 2600, to: 900, dur: 0.07, vol: 0.03, q: 2.2 });        // the ember burst
   },
   // A lone brand ashing off (decay release) — deliberately lesser than the exhale.
   brandFizzle() {
