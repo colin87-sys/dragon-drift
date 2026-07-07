@@ -66,7 +66,20 @@ export function updateReticle(player, playing) {
   // Reticle assist can be disabled in settings for a score bonus, but Glide
   // Assist forces it on — it's the directional cue beginners aim their swipe at.
   const wantReticle = saveData.settings.reticle || saveData.settings.glideAssist;
-  if (!playing || !wantReticle) { el.style.opacity = 0; el.classList.remove('boss'); return; }
+  // PR6 — ASSIST vs STATE: the reticle-off score bonus prices away the AIM
+  // ASSIST (the lead squares + dwell fill + pip row), never the game STATE:
+  // painted-organ brand MARKS render whenever a fight is live, reticle or not
+  // (before this, reticle-off went completely dark while the lock layer kept
+  // running — and a mid-fight toggle froze stale marks on screen).
+  if (!playing || !wantReticle) {
+    el.style.opacity = 0;
+    el.classList.remove('boss');
+    if (playing && game.inBoss) renderMarks(lockHudState());
+    else if (markEls.length && markEls[0].classList.contains('show')) {
+      for (const m of markEls) m.classList.remove('show');
+    }
+    return;
+  }
 
   // THE LANCE layer — the reticle's SECOND job. In a boss there are no rings/gates;
   // instead it wakes on the aim-line organ: it snaps to the focal (so you see WHERE
@@ -74,7 +87,11 @@ export function updateReticle(player, playing) {
   // "sealed" skin when the target is muted (slot 13) or no organ is up. Pure DOM.
   if (game.inBoss) {
     const L = lockHudState();
-    if (!L.active) { el.style.opacity = 0; el.classList.remove('boss', 'locked', 'aiming', 'snap'); prevLocked = false; return; }
+    if (!L.active) {
+      el.style.opacity = 0; el.classList.remove('boss', 'locked', 'aiming', 'snap'); prevLocked = false;
+      renderMarks(L);   // brand marks are STATE — they track even when no organ leads
+      return;
+    }
     el.classList.add('boss');
     el.classList.remove('gate');
     tmpV.set(L.x, L.y, L.z).project(camera);

@@ -7220,3 +7220,44 @@ Calamities lockParts (each tier-3 invuln state joins lockDeflected), the slot-14
 tether LineSegments, feats/analytics, the lockdps persona sim, audio bus duck, per-dragon wisp
 tint + rune sigils (Eternal cosmetics). The old SOP pinned E1 to "slots 10+" (unbuilt); it
 shipped globally as pure upside — flagged for the owner to slot-gate if band identity wants it.
+
+### L190 — LANCE PR6 (Calamities data + shimmer + no-reticle): destructible organs need a LIVENESS seam, and assist-vs-state is the settings law
+
+**Did.** (1) **Tier-3 lock data** — the roster's last unpainted third: HOLLOWGATE (roseHub anchor +
+5 LOWER/side panes — the top wedge sits at world y≈24, past the flight ceiling 22, so the picks
+keep every acquire reachable; the LANCE play is "rise out of the fly-through gap"), THRUMSWARM
+(deliberately ONE organ, the queen — its verb stays the stagger-parry; scatter already pauses
+painting via lockDeflected), BRINEHOLM (eye + 3 shackles = the clean cap-5 spread; shackles
+phase-gate out of the P4 sounding). Cap 5 + stacking are now reachable in play. (2) **The organ
+SHIMMER** (owner design, chosen over ghost-squares/audio-only): every UNPAINTED paintable organ
+carries a faint in-world jade breath — 8 pooled additive sprites pinned at partWorldPos,
+breathing at shimmerOpacity 0.13. Diegetic and reticle-independent; it goes DARK while venting
+(C3 — wordless "can't paint now"), while deflected (sealed honesty), and once painted. (3) **The
+no-reticle fix** (owner catch): disabling the reticle killed the ENTIRE visual lock layer while
+the machine kept running (and a mid-fight toggle froze stale marks). LAW: the reticle-off score
+bonus prices away the AIM ASSIST (lead squares, dwell fill, pip row) — never the game STATE
+(brand marks). renderMarks now runs whenever a fight is live, gated or not.
+
+**The two seams the data forced.** (1) **Destructible organs need LIVENESS**: crackPane/
+crackShackle HIDE their nodes — partWorldPos still resolves a corpse, so without a filter the
+reticle leads to, and lances fly at, invisible wreckage. `paintableParts()` now consults the
+PART_SYS alive hooks via a name↔index convention map (rosePaneN/shacklePostN), and the crack
+branch calls `dropLockPart()` so no brand outlives its organ (silent — the shatter IS the
+feedback). (2) **The numeric-tag bridge**: pane ambers tag their source by INDEX (the crack
+router's `typeof part === 'number'` doubles as the reflected-full weight, so the bullet's tag
+must stay numeric) — but lock organs are STRING node names. The V4 snap seam now bridges
+`idx → 'rosePane'+idx`, and `paintFromParry` type-guards non-strings (a numeric pip would be a
+phantom: marker at origin, lance to boss centre, no dedupe). LAW: when one tag serves two
+systems with different key types, bridge at the CONSUMER seam and type-guard the store.
+
+**Coexist note.** The tier-3 defs OPTING IN means their sim kill-times may legitimately move —
+and the run showed the honest picture: hollowgate/thrumswarm matched exactly (the fixed sim bot
+never enters their cones), brineholm stayed inside its historical variance (the bot idles within
+shacklePost1's acquire cone and now paints it — an intended, data-authored divergence, the
+opposite of the un-opted-byte-identical rule, which still holds for slots 1–3).
+
+**→ Leapfrog.** The shimmer pool is the roster-wide "this anatomy is interactive" channel — slot
+9+ defs get it free with their lockParts, and its dark-states already teach C3/sealed wordlessly.
+Remaining LANCE polish (nothing structural): dwell-progress audio for the full no-reticle
+acquire loop, tether LineSegments, feats/analytics, lockdps, audio duck, Eternal cosmetics
+(per-dragon wisp tint + rune sigils), slot-14 exam rules.
