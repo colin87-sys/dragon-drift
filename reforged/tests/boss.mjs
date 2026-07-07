@@ -854,6 +854,45 @@ for (const key of BOSS_ORDER) {
   ok(`weftwitch water reaction + fight verbs: pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} tails, loom-eye tracks, beam flashes/decays, cut recoils ✓`);
 }
 
+// PR2 — THE ENTRANCE CAST (the "charge that includes her hands"): during the entrance
+// lash (u≈0.45–0.68, driven by setEntrance) she PULLS her hands wide + snaps the thread
+// taut, so the HUD-sew bursts from her hands. The cast releases outside the entrance.
+{
+  const ww = buildBoss(BOSSES.weftwitch, 1);
+  const hlx = () => ww.group.getObjectByName('handPivotL').position.x;
+  const taut = ww.group.getObjectByName('weftTaut');
+  ww.setGaze(0, 0);
+  for (let i = 0; i < 10; i++) ww.tick(0.05, i * 0.05);   // settle at rest (no entrance)
+  const restX = hlx();
+  ww.setEntrance(0.55);                                     // mid-lash
+  for (let i = 0; i < 10; i++) ww.tick(0.05, 5 + i * 0.05);
+  assert(hlx() < restX - 2, `weftwitch entrance cast pulls the L hand WIDE (${restX.toFixed(2)}→${hlx().toFixed(2)})`);
+  assert(taut.material.opacity > 0.5, `the cast snaps the thread taut between the hands (opacity ${taut.material.opacity.toFixed(2)})`);
+  ww.setEntrance(null);                                     // fight begins — cast releases
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 10 + i * 0.05);
+  assert(Math.abs(hlx() - restX) < 1.0, 'the cast releases outside the entrance (hands return to station)');
+  ww.dispose();
+  ok('weftwitch entrance cast: hands pull wide + thread snaps taut at the lash, releases after ✓');
+}
+
+// PR2 — cameraCtl.worldToScreen (the sew projects her hands to screen %). A point dead
+// ahead of a forward-looking camera projects to screen-centre; off-axis points move the
+// expected way; a point BEHIND flags `behind`.
+{
+  const cam = new THREE.PerspectiveCamera(72, 1, 0.1, 1600);
+  cam.position.set(0, 0, 10); cam.lookAt(0, 0, 0); cam.updateMatrixWorld(true);
+  const { cameraCtl } = await import('../js/cameraController.js');
+  cameraCtl.init(cam, { position: { x: 0, y: 0, z: 0 } });
+  cam.position.set(0, 0, 10); cam.lookAt(0, 0, 0); cam.updateMatrixWorld(true);
+  const c = cameraCtl.worldToScreen(new THREE.Vector3(0, 0, 0));
+  assert(Math.abs(c.x - 50) < 1 && Math.abs(c.y - 50) < 1 && !c.behind, `worldToScreen: dead-ahead → centre (${c.x.toFixed(1)},${c.y.toFixed(1)})`);
+  const r = cameraCtl.worldToScreen(new THREE.Vector3(2, 0, 0));
+  assert(r.x > 55 && !r.behind, `worldToScreen: a point to the +x projects right of centre (${r.x.toFixed(1)})`);
+  const bh = cameraCtl.worldToScreen(new THREE.Vector3(0, 0, 20));   // behind the camera (cam at z=10 looking −z)
+  assert(bh.behind, 'worldToScreen: a point behind the camera flags behind (→ fallback)');
+  ok('worldToScreen projects world→screen% (centre, off-axis, behind-guard) ✓');
+}
+
 // §5b GAP-RESTITCH (weftwitch CP2): a phase seam tears a sector of the web (outer
 // endpoints visibly retract toward the hub) and the mend restores the geometry
 // BYTE-EXACT — the arena-mender identity beat, and the base-array contract proof.
