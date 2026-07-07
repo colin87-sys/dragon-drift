@@ -42,7 +42,7 @@ Read, in order: this primer → `audit/BOSS-AUDIT-REPORT.md` (the findings) → 
 | 11 | WEFTWITCH | World-Ender | briefed, unbuilt | `briefs/BUILD-BOSS-11-WEFTWITCH.md` |
 | 12 | ONEWING | World-Ender | briefed, unbuilt | `briefs/BUILD-BOSS-12-ONEWING.md` |
 | 13 | EMBERTIDE | World-Ender (band PEAK, 2nd-last boss) | briefed, unbuilt | `briefs/BUILD-BOSS-13-EMBERTIDE.md` |
-| 14 | THE UNMASKED | APEX (3 stages) | **open — NO brief yet** | *(to write)* |
+| 14 | THE UNMASKED | APEX (3 stages, the finale) | briefed, unbuilt (build LAST) | `briefs/BUILD-BOSS-14-THE-UNMASKED.md` |
 
 ---
 
@@ -103,12 +103,12 @@ per-slot readiness + fixes are in the report; the executable task list is `audit
   roster-wide issues, the awe-beat readout).
 - `audit/BOSS-AUDIT-SOP.md` — the execution SOP (40 atomic tasks, 4 human gates, ALREADY-FIXED +
   CHANGED-SHAPE appendices).
-- `briefs/BUILD-BOSS-{10,11,12,13}-*.md` — self-contained build briefs (World-Enders).
+- `briefs/BUILD-BOSS-{10,11,12,13}-*.md` + `BUILD-BOSS-14-THE-UNMASKED.md` — self-contained build briefs (World-Enders + the Apex finale).
 - `briefs/REDO-BOSS-9-KARNVOW.md` + `briefs/KARNVOW-9-SPEND-PLAN.md` — the shipped-boss grandeur
   redo + its budget-spend directive.
 - `briefs/_archive/` — superseded/historical (the pre-ship KARNVOW brief).
 
 ## Open follow-ups
-- **14 THE UNMASKED** (the Apex, 3 stages) has no brief yet — the one remaining brief to write.
+- **14 THE UNMASKED** (the Apex, 3 stages) is now briefed (`briefs/BUILD-BOSS-14-THE-UNMASKED.md`) but unbuilt — build it LAST, after slots 1-13 ship and any upstream rebalances (e.g. Stormrend) land.
 - The audit's doc-hygiene + gate-truth tasks (SOP Phases 1–4) are unactioned; they don't block
   building the open slots but they keep BOSS-DESIGN.md honest.
