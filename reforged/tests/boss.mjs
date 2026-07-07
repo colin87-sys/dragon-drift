@@ -355,6 +355,33 @@ for (const key of BOSS_ORDER) {
   ok('ashtalon telegraph: setCharge(1) mantles the scythe-wings (silhouette change)');
 }
 
+// ONEWING (slot 12) — the telegraph gate + the §5d/§3b named anatomy. The vast
+// LIVING wing MANTLES on charge (the silhouette tell); the anti-read/carrier parts
+// (the atrophied stub, the fused frame, the one eye) each exist by name.
+{
+  const one = buildBoss(BOSSES.onewing, 1);
+  // Named anatomy the telegraph/design/studio gates locate by name.
+  for (const n of ['wingPivot', 'stubPivot', 'frameGroup', 'onewingEye', 'frameRim']) {
+    assert(findAllByName(one.group, n).length === 1, `onewing exposes exactly one ${n}`);
+  }
+  const wing = findAllByName(one.group, 'wingPivot')[0];
+  const blades = findAllByName(one.group, 'bladePivot');
+  assert(blades.length >= 6, `onewing exposes ≥6 named bladePivots on the vast wing (${blades.length})`);
+  // Settle the idle sag/sway, snapshot, then charge: the wind-up is the MANTLE —
+  // the vast wing draws up (shoulder rotates) AND the fan spreads. Assert the SHAPE
+  // moved, not colour.
+  for (let i = 0; i < 40; i++) one.tick(0.05, i * 0.05);
+  const preShoulder = wing.rotation.z;
+  const preFan = blades.map((b) => b.rotation.z);
+  one.setCharge(1);
+  for (let i = 0; i < 30; i++) one.tick(0.05, 2 + i * 0.05);
+  assert(Math.abs(wing.rotation.z - preShoulder) > 0.1, `onewing mantle: the vast wing shoulder rotated on charge (Δ ${(wing.rotation.z - preShoulder).toFixed(2)})`);
+  const fanMoved = blades.filter((b, i) => Math.abs(b.rotation.z - preFan[i]) > 0.05).length;
+  assert(fanMoved >= 4, `onewing mantle: ${fanMoved} blade pivots re-fanned on charge (need ≥4 — silhouette change)`);
+  one.dispose();
+  ok('onewing telegraph: setCharge(1) mantles the vast wing (silhouette change); stub/frame/eye named');
+}
+
 // MARROWCOIL (slot 4) — the telegraph gate + the §5d/§7b per-sheet geometry
 // asserts the build sheet declares: ribcage thread clearance, vertebra pitch >
 // width (separate bones, not a sausage), and the coil-sweep lateral amplitude.

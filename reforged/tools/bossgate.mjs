@@ -63,7 +63,15 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // carried by bright emissive seam-lines + a lit gorget band + the aperture rim, so
   // it dominates the accent tier over the teal ambient. NOT a `gate.pale` override —
   // KARNVOW is a DARK boss; this is the standard temperature-complement capture.
-  karnvow: 6600 };
+  karnvow: 6600,
+  // ONEWING (§5b slot 12): a DARK boss with a COOL ashen-mauve accent. §5h biome
+  // pairing (the same trap KARNVOW/MARROWCOIL avoid): a cool-dark boss over a cool-
+  // PURPLE sky (the default ~3000 biome, FROZEN REACH's purple mid + ASTRAL's purple
+  // horizon) false-magentas its dark lit faces under that hemisphere ambient — a G3
+  // artifact, not a real defect. LUMEN MIRE (dist 6600, biome idx 4, teal horizon) is
+  // the proven cool, accent-aligned, non-purple sky (KARNVOW clears zero danger-
+  // magenta there); the dark one-winged silhouette reads against its bright teal sky.
+  onewing: 6600 };
 
 // --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
 // (tools/bossstudio.html) instead of the contaminated in-game frame — a
