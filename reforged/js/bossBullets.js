@@ -529,7 +529,7 @@ export function debugActiveBullets() {
   const out = [];
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
-    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age });
+    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable });
   }
   return out;
 }
@@ -788,6 +788,28 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     }
   }
   return { total, perfect, snapParts: snapParts || [] };
+}
+
+// §5i.C THREAD-CUT (WEFTWITCH's parry job, CP2): cutting the taut thread UNRAVELS
+// the woven volley — every live amber (reflectable) boss bullet is deleted in
+// place. Plain/surge bullets are untouched: the cut answers the amber read and
+// nothing else (parry ACCELERATES, never gates). Returns the count for FX/score.
+export function cutBossAmbers() {
+  if (!mesh) return 0;
+  let cut = 0;
+  for (let i = 0; i < POOL; i++) {
+    const s = slots[i];
+    if (!s.active || s.owner !== 'boss' || !s.reflectable) continue;
+    deactivate(i);
+    cut++;
+  }
+  if (cut) {
+    mesh.instanceMatrix.needsUpdate = true;
+    if (coreMesh) coreMesh.instanceMatrix.needsUpdate = true;
+    if (outlineMesh) outlineMesh.instanceMatrix.needsUpdate = true;
+    if (shadowMesh) shadowMesh.instanceMatrix.needsUpdate = true;
+  }
+  return cut;
 }
 
 // Adrenaline R1 "magnet" (§5i.B meta spine): a multiplier on the crossing-graze

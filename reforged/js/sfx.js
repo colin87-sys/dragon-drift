@@ -643,6 +643,24 @@ export const sfx = {
     noiseWhoosh({ from: 700, to: 3200, dur: 0.22, vol: 0.16, q: 1.6 });
     tone({ freq: 880, end: 1320, dur: 0.12, type: 'triangle', vol: 0.07, delay: 0.04 });
   },
+  // §5f WEFTWITCH (slot 11) signature voices — the loom is MUSICAL.
+  // The stitch-pluck: a taut-string pluck per fired stitch (the 'aimed' release).
+  // Bright short fundamental + one inharmonic partial (the sfx.ring recipe family),
+  // snapped in-key so a volley of stitches lands in the station chord.
+  stitchPluck(rise = 0) {
+    // rise > 0 (a banked thread-cut parry) climbs the pitch a whole step per bank —
+    // the "it's building toward the snap" ladder the player HEARS.
+    const f = inKey(520 * (1 + rise * 0.14));
+    tone({ freq: f, end: f * (rise ? 1.08 : 0.94), dur: 0.15, type: 'triangle', vol: 0.09 + rise * 0.02 });
+    tone({ freq: f * 2.51, dur: 0.2, type: 'sine', vol: 0.045 });
+  },
+  // The needle-pull: thread drawn taut (the 'aimed' wind-up twin of the visual
+  // tell) — a rising bandpassed drag + a thin tension glide. Also fired when the
+  // thread is CUT (a violent pull is the same gesture, torn).
+  needlePull() {
+    noiseWhoosh({ from: 900, to: 2600, dur: 0.18, vol: 0.1, q: 1.8 });
+    tone({ freq: 340, end: 700, dur: 0.16, type: 'sawtooth', vol: 0.035, delay: 0.02 });
+  },
   // Graze a boss bullet: a soft, SHORT high shimmer, kept quiet so a rapid stream
   // of grazes blends into a pleasant sparkle instead of a machine-gun rattle. The
   // pitch climbs gently with the graze streak (a subtle dopamine ladder).

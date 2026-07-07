@@ -28,7 +28,7 @@ const { BOSSES, BOSS_ORDER, bossDefForIndex } = await import('../js/bossDefs.js'
 const { buildBoss } = await import('../js/bossModel.js');
 const { CONFIG } = await import('../js/config.js');
 const { game } = await import('../js/gameState.js');
-const { on } = await import('../js/events.js');
+const { on, emit } = await import('../js/events.js');
 const { resetCollision } = await import('../js/collision.js');
 const bullets = await import('../js/bossBullets.js');
 const boss = await import('../js/boss.js');
@@ -41,6 +41,7 @@ initParticles({ add() {} });   // the disintegration spawns burst particles
 ui.bossBanner = () => {};
 ui.damageFlash = () => {};
 ui.feverStart = () => {};   // surge can now auto-trigger from grazing
+ui.parryPopup = () => {};   // the thread-cut integration sim lands real parries
 
 // Per-band geometry budgets (BOSS-DESIGN.md §5g/§5h): the flat 6,000/34 gate is
 // now keyed off def.tier — tier-1 (Sentinels) keeps the hard 6,000/34; higher
@@ -666,6 +667,14 @@ for (const key of BOSS_ORDER) {
   const reroute = bh.shackleHitTest(1.5 * sc8, -2.4 * sc8);
   assert(reroute !== hitIdx, `brineholm shackleHitTest never reroutes to a broken post (got ${reroute})`);
 
+  // SHACKLE SAFETY (owner feel-fix): the outer posts were pulled in from the ±13
+  // lane wall (they used to sit at world ±~8–10, ~3 m off the fatal wall — a
+  // crash-and-die paint) so branding them is a lateral commit, not suicide. Every
+  // post now sits well inside the wall with comfortable margin.
+  const outerX = Math.max(...bh.shacklePositions().map(Math.abs));
+  assert(outerX < 8 && CONFIG.laneHalfWidth - outerX > 4,
+    `brineholm shackles sit safely inside the lane wall (outer |x| ${outerX.toFixed(1)}, wall ±${CONFIG.laneHalfWidth}, margin ${(CONFIG.laneHalfWidth - outerX).toFixed(1)})`);
+
   // NOTICE state JUMP (§4b — the notice beat must be a discrete state change, not
   // idle+ε; the CP1 gate caught the first pass reading identical to idle). A fresh
   // build so prior charge/eye/shackle state can't muddy the baseline.
@@ -707,6 +716,11 @@ for (const key of BOSS_ORDER) {
     'weftwitch exposes the two named hand pivots (the hands are the face, §4b)');
   assert(!!ww.group.getObjectByName('weftLoomHeart'), 'weftwitch exposes the named loom-heart (the emitter organ + weak point)');
   assert(!!ww.group.getObjectByName('threadPivot'), 'weftwitch exposes the named threadPivot (the arena web)');
+  // partWorldPos resolves the live loom-heart (the def.muzzle + virtualLockOrgan aim
+  // anchor — the karnvow lesson: a def naming neither lockParts nor a virtual organ
+  // loses the whole LANCE aim/lock verb on this slot).
+  const loomPos = ww.partWorldPos('loomHeart', new THREE.Vector3());
+  assert(loomPos && Number.isFinite(loomPos.z), 'weftwitch partWorldPos resolves the live loomHeart world position (the LANCE aim anchor)');
 
   // L141 — the FIELD is the body: the web must span the arena (the presence number),
   // not sit as a small bust. hullLength() returns the web span in world units.
@@ -859,10 +873,71 @@ for (const key of BOSS_ORDER) {
   const preX = core.position.x;
   ww.setGaze(1, 0);
   for (let i = 0; i < 30; i++) ww.tick(0.05, 3 + i * 0.05);
-  assert(core.position.x > preX + 0.3, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.3)`);
+  // reduced pupil throw (0.30) so it stays inside the dark socket; the socket + organ
+  // lean now carry the rest of the "looking" read (the "something under her eye" fix).
+  assert(core.position.x > preX + 0.18, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.18)`);
+  const socket = ww.group.getObjectByName('loomSocket');
+  assert(!!socket && Math.hypot(core.position.x, core.position.y) < 0.8,
+    'weftwitch pupil stays within the dark socket radius (never exposes the gold knot)');
+
+  // 4b. THREAD-STRAIN feedback (the parry-progress tell — CP2 playtest: it was invisible).
+  // setThreadStrain floors the taut-thread tension so a banked parry SHOWS between attacks.
+  const taut = ww.group.getObjectByName('weftTaut');
+  ww.setThreadStrain(0);
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 20 + i * 0.05);
+  const slackOp = taut.material.opacity;
+  ww.setThreadStrain(0.67);   // 2/3 parries banked
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 21 + i * 0.05);
+  assert(taut.material.opacity > slackOp + 0.2, `weftwitch thread-strain shows the banked parries (taut opacity ${slackOp.toFixed(2)}→${taut.material.opacity.toFixed(2)})`);
+  ww.setThreadStrain(0);
+
+  // 5. CP2 FIGHT VERBS — the laserLance beam flash + the thread-cut stagger read.
+  // fireBeam(): the HDR hairline shows at the release instant and decays back out.
+  const beam = ww.group.getObjectByName('weftBeam');
+  assert(!!beam && !beam.visible, 'weftwitch beam exists and is hidden at rest');
+  ww.fireBeam();
+  ww.tick(0.016, 5);
+  assert(beam.visible && beam.material.opacity > 0.5, `weftwitch fireBeam flashes the laserLance hairline (opacity ${beam.material.opacity.toFixed(2)})`);
+  for (let i = 0; i < 60; i++) ww.tick(0.05, 5.1 + i * 0.05);
+  assert(!beam.visible, 'weftwitch beam decays back to hidden (a flash, not a sustained laser)');
+  // cutThread(): the hands are thrown APART (the stagger read) and the beam dies.
+  ww.setGaze(0, 0);
+  for (let i = 0; i < 40; i++) ww.tick(0.05, 8 + i * 0.05);
+  const hl = ww.group.getObjectByName('handPivotL');
+  const preHandX = hl.position.x;
+  ww.fireBeam();
+  ww.cutThread();
+  for (let i = 0; i < 12; i++) ww.tick(0.05, 10 + i * 0.05);
+  assert(hl.position.x < preHandX - 1.2, `weftwitch cutThread throws the hands apart (L hand ${preHandX.toFixed(2)}→${hl.position.x.toFixed(2)})`);
+  assert(!beam.visible, 'cutThread kills the beam (a cut thread cannot lance)');
 
   ww.dispose();
-  ok(`weftwitch water reaction: coexist-untouched, pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} surface tails, loom-eye tracks ✓`);
+  ok(`weftwitch water reaction + fight verbs: pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} tails, loom-eye tracks, beam flashes/decays, cut recoils ✓`);
+}
+
+// §5b GAP-RESTITCH (weftwitch CP2): a phase seam tears a sector of the web (outer
+// endpoints visibly retract toward the hub) and the mend restores the geometry
+// BYTE-EXACT — the arena-mender identity beat, and the base-array contract proof.
+{
+  const ww = buildBoss(BOSSES.weftwitch, 1);
+  ww.tick(0.016, 0.1);
+  const dim = ww.group.getObjectByName('weftWebDim').geometry.attributes.position;
+  const hero = ww.group.getObjectByName('weftWebHero').geometry.attributes.position;
+  const snapD = dim.array.slice(), snapH = hero.array.slice();
+  ww.restitchWeb();
+  for (let i = 0; i < 40; i++) ww.tick(1 / 60, 0.2 + i / 60);   // ~0.7s in — inside the HELD fully-torn window
+  let torn = 0;
+  for (let i = 0; i < dim.array.length; i++) if (Math.abs(dim.array[i] - snapD[i]) > 0.5) torn++;
+  for (let i = 0; i < hero.array.length; i++) if (Math.abs(hero.array[i] - snapH[i]) > 0.5) torn++;
+  // the wide sector (16 spokes) now moves far more than the old 7 — a readable collapse.
+  assert(torn > 40, `the tear visibly caves in the sector mid-arc (${torn} coords moved > 0.5)`);
+  for (let i = 0; i < 260; i++) ww.tick(1 / 60, 0.9 + i / 60);   // ride past the full ~3.4s tear→mend arc
+  let drift = 0;
+  for (let i = 0; i < dim.array.length; i++) drift = Math.max(drift, Math.abs(dim.array[i] - snapD[i]));
+  for (let i = 0; i < hero.array.length; i++) drift = Math.max(drift, Math.abs(hero.array[i] - snapH[i]));
+  assert(drift === 0, `the mend restores the web BYTE-EXACT (max drift ${drift})`);
+  ww.dispose();
+  ok(`weftwitch gap-restitch: sector tears (${torn} coords), mend restores byte-exact ✓`);
 }
 
 // KNELLGRAVE (slot 10) — the named-pivot telegraph gate. The PENDULUM SWING is the
@@ -1161,22 +1236,115 @@ for (const key of BOSS_ORDER) {
   {
     let rig = kv.group.getObjectByName('surcoatPivot');
     while (rig.parent && rig.parent !== kv.group) rig = rig.parent;
+    // SEEDED stream: the dart machine rolls Math.random per guard pick, so this
+    // block's outcome depended on every random consumed before it — a latent
+    // flake (observed x-spread 1.02–1.17 on unlucky streams vs the 1.5 bar).
+    // A deterministic LCG pins the darts; the real random restores after.
+    const realRandom = Math.random;
+    let seed = 0x2F6E2B1;
+    Math.random = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000; };
     let minX = Infinity, maxX = -Infinity;
     for (let i = 0; i < 60 * 12; i++) {
       kv.tick(1 / 60, 10 + i / 60);
       if (rig.position.x < minX) minX = rig.position.x;
       if (rig.position.x > maxX) maxX = rig.position.x;
     }
+    Math.random = realRandom;
     assert(maxX - minX > 1.5,
-      `karnvow footwork: the dart machine moves the body between guard positions (x spread ${(maxX - minX).toFixed(2)} > 1.5 over 12s)`);
+      `karnvow footwork: the dart machine moves the body between guard positions (x spread ${(maxX - minX).toFixed(2)} > 1.5 over 12s, seeded)`);
   }
 
   // partWorldPos resolves the live lance tip (the def.muzzle 'lanceTip' aim anchor).
   const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
   assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
 
+  // CP2 — the V2 paint anatomy: all five trophy charms exist as named nodes (the
+  // EMPTY hook is trophyCharm5 and deliberately NOT in lockParts — the open thread).
+  for (let ci = 0; ci < 5; ci++) assert(!!kv.group.getObjectByName(`trophyCharm${ci}`), `karnvow trophyCharm${ci} exists (the paint target)`);
+  assert(BOSSES.karnvow.lockParts.length === 5 && BOSSES.karnvow.lockParts.every((lp, i) => lp.part === `trophyCharm${i}`),
+    'karnvow lockParts brand the five taken trophies (never the empty hook)');
+
+  // CP2 — the charm FLARE (§5j): flareCharm('ashtalon') burns trophyCharm0 hot in
+  // its owed palette, then the chain PRESENTS the tilted empty hook.
+  {
+    const c0 = kv.group.getObjectByName('trophyCharm0');
+    kv.flareCharm('ashtalon');
+    for (let i = 0; i < 12; i++) kv.tick(0.05, 20 + i * 0.05);
+    assert(c0.material.emissiveIntensity > 0.5,
+      `karnvow flareCharm burns the top-killer trophy hot (ei ${c0.material.emissiveIntensity.toFixed(2)} > 0.5)`);
+    const hookHang = kv.group.getObjectByName('trophyCharm5').parent;
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 21 + i * 0.05);
+    assert(hookHang.rotation.x < -0.3,
+      `karnvow the empty hook PRESENTS after the flare (hang rot.x ${hookHang.rotation.x.toFixed(2)} < -0.3 — "the next one is for you")`);
+  }
+
+  // CP2 — the FALLBACK flare (the Fable gate catch): a top killer with no dedicated
+  // trophy (e.g. brineholm) burns the WHOLE chain — the mandatory beat never vanishes.
+  {
+    kv.flareCharm('brineholm');
+    for (let i = 0; i < 12; i++) kv.tick(0.05, 25 + i * 0.05);
+    let lit = 0;
+    for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.3) lit++;
+    assert(lit >= 4, `karnvow fallback flare burns the whole chain for an un-charmed top killer (${lit}/5 lit)`);
+  }
+
+  // CP2 — the riposte cross-SWAT: riposte() whips the lance across the body.
+  {
+    kv.riposte();
+    for (let i = 0; i < 4; i++) kv.tick(0.05, 30 + i * 0.05);
+    const lp = kv.group.getObjectByName('lancePivot');
+    assert(lp.rotation.y < -0.4, `karnvow riposte() cross-swats the lance (rot.y ${lp.rotation.y.toFixed(2)} < -0.4)`);
+  }
+
+  // GRANDEUR REDO — VOIDMAW'S VERDICT is AUTHORED (§5f: no more lore-quote with
+  // nothing to see). The def pairs the dread card with a MOVING dread setpiece,
+  // the P3 pattern QUOTES boss-1's dread set verbatim, and driving the dread beat
+  // writes the violet sigil at screen scale while every trophy testifies.
+  {
+    const sp = BOSSES.karnvow.setpieces.find((s) => s.dread);
+    assert(sp && sp.moving, 'karnvow pairs the dread card with a MOVING dread setpiece (the authored beat fires the whole way)');
+    assert(JSON.stringify(BOSSES.karnvow.phases[2].attacks) === JSON.stringify(BOSSES.voidmaw.phases[2].attacks),
+      'karnvow P3 quotes boss-1\'s dread set verbatim ("it fires boss 1\'s dread card back at you")');
+    const sig = kv.group.getObjectByName('verdictSigil');
+    assert(!!sig && !sig.visible, 'karnvow verdictSigil exists and stays HIDDEN outside the dread beat (the violet-denominator law)');
+    kv.setSetpiece(1, sp);
+    for (let i = 0; i < 44; i++) kv.tick(0.05, 40 + i * 0.05);
+    assert(sig.visible && sig.geometry.drawRange.count > 40 && sig.material.opacity > 0.4,
+      `karnvow verdict: the lance writes the sigil (drawRange ${sig.geometry.drawRange.count}, opacity ${sig.material.opacity.toFixed(2)})`);
+    let lit = 0;
+    for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.4) lit++;
+    assert(lit >= 4, `karnvow verdict: every trophy testifies in its owed palette (${lit}/5 lit)`);
+    kv.setSetpiece(0);
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 43 + i * 0.05);
+    assert(!sig.visible || sig.material.opacity < 0.1, 'karnvow verdict: the sigil unwrites when the beat releases');
+  }
+
+  // GRANDEUR REDO — the festoon at arena scale: the trophy garland must READ at
+  // fight distance (the L141 field-presence trick — a lean figure reads big through
+  // what it carries). World-x spread across the hang anchors > 3u.
+  {
+    const p0 = kv.partWorldPos('trophyCharm0', new THREE.Vector3());
+    const x0 = p0.x;
+    const p5 = kv.partWorldPos('trophyCharm5', new THREE.Vector3());
+    assert(Math.abs(p5.x - x0) > 4.5,
+      `karnvow festoon at arena scale (charm spread ${Math.abs(p5.x - x0).toFixed(2)}u > 4.5 world — it must BREAK the silhouette edge)`);
+  }
+
+  // GRANDEUR REDO — the cut-in apex drama: mid-pass (no tell charging) the lance
+  // leads the near-pass in a HELD cross-body sweep.
+  {
+    kv.setCharge(0); kv.setAttackTell(null);
+    kv.setSetpiece(0.85, { id: 'flankCutIn' });
+    for (let i = 0; i < 24; i++) kv.tick(0.05, 48 + i * 0.05);
+    const lp = kv.group.getObjectByName('lancePivot');
+    assert(lp.rotation.y < -0.5,
+      `karnvow cut-in apex: the lance leads the pass in a held cross-sweep (rot.y ${lp.rotation.y.toFixed(2)} < -0.5)`);
+    kv.setSetpiece(0);
+  }
+
   kv.dispose();
   ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
+  ok('karnvow grandeur redo: the verdict WRITES (sigil + testifying trophies), the festoon reads at fight distance, the cut-in apex holds the sweep');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
@@ -1219,6 +1387,21 @@ game.health = 100;
 assert(runBoss({}) === 18, 'a dead-on boss bullet hits the player for its damage');
 game.health = 100;
 assert(runBoss({ x: 9, vx: 0 }) === 0, 'a bullet offset across the lane is dodged (misses)');
+
+// §5i.C THREAD-CUT unravel (weftwitch CP2): cutBossAmbers deletes ONLY the live
+// amber (reflectable) boss bullets — a plain boss bullet and a player shot survive
+// (the cut answers the amber read, nothing else).
+{
+  bullets.resetBossBullets();
+  for (let i = 0; i < 3; i++) bullets.spawnBossBullet({ owner: 'boss', x: i, y: 8, rel: 20, vx: 0, vy: 0, vrel: -10, dmg: 5, r: 1, life: 6, reflectable: true });
+  bullets.spawnBossBullet({ owner: 'boss', x: 5, y: 8, rel: 20, vx: 0, vy: 0, vrel: -10, dmg: 5, r: 1, life: 6 });
+  bullets.spawnBossBullet({ owner: 'player', x: 0, y: 8, rel: 5, vx: 0, vy: 0, vrel: 10, dmg: 5, r: 1, life: 6, reflectable: true });
+  const cut = bullets.cutBossAmbers();
+  assertEq(cut, 3, 'cutBossAmbers deletes exactly the 3 live boss ambers');
+  assertEq(bullets.bossBulletCount(), 2, 'the plain boss bullet + the player shot survive the cut');
+  bullets.resetBossBullets();
+  ok('thread-cut unravel: 3 ambers cut in place, plain/player bullets untouched');
+}
 game.health = 100;
 assert(runBoss({ rollInvuln: 0.5 }) === 0, 'barrel-roll i-frames negate a dead-on bullet (the dodge)');
 ok('boss bullets: hit on contact, miss when offset, negated during a roll');
@@ -1477,6 +1660,176 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// --- 5. KARNVOW CP2 — the entrance-script data law + the riposte/stare-down live drive.
+{
+  const { ENTRANCE_SCRIPTS } = await import('../js/entranceScripts.js');
+  const sc = ENTRANCE_SCRIPTS.itKeptCount;
+  assert(!!sc, 'itKeptCount entrance script registered');
+  const ctx = { AX: 0, AY: CONFIG.BOSS.fightHeight, S: 1, B: CONFIG.BOSS, sc: 2.0 };
+  // rel ROCK-STEADY through the ride (§5d: any rel change reads as slot 3's spent
+  // overtake) — only the final settle recedes to station.
+  assertEq(sc.path(0.3, ctx).rel, 16, 'itKeptCount rel steady at 16 (hold)');
+  assertEq(sc.path(0.7, ctx).rel, 16, 'itKeptCount rel steady at 16 (point)');
+  assertEq(sc.path(1, ctx).rel, CONFIG.BOSS.settleGap, 'itKeptCount settles at station');
+  // The DE-JANK laws (owner catch — "back to us, wing in frame, hop spin"):
+  // (a) three-quarter ride, never a pure back, once he's drawn level;
+  const rideYaw = sc.yaw(0.5, ctx);
+  assert(rideYaw < Math.PI * 0.75 && rideYaw > Math.PI * 0.4,
+    `itKeptCount rides three-quarter (yaw ${rideYaw.toFixed(2)} in (0.4π, 0.75π)) — the cowl/festoon read, not his back`);
+  assert(Math.abs(sc.yaw(1, ctx)) < 1e-6, 'itKeptCount wheel completes — squared to face you at station');
+  // (b) the wheel BANKS (roll live mid-wheel, level at both ends — no snap-spin);
+  assert(Math.abs(sc.roll(0.9, ctx)) > 0.1 && Math.abs(sc.roll(1, ctx)) < 1e-6 && Math.abs(sc.roll(0.5, ctx)) < 1e-6,
+    'itKeptCount wheel banks (roll live mid-wheel, level at the hold and at station)');
+  // (c) he rides ABOVE the wing line (the +2.5 ride crowded the dragon's wing).
+  assert(sc.path(0.5, ctx).y >= ctx.AY + 3.5, 'itKeptCount rides above the wing line (y ≥ AY+3.5)');
+  // (d) the dart machine sleeps through the cinematic: drive a model with the
+  // script's own onFrame beats (incl. the U2 lance-point that used to trip the
+  // strike-sidestep) and assert the rig never leaves centre.
+  {
+    const kvE = buildBoss(BOSSES.karnvow, 1);
+    const rig = kvE.group.children.find((c) => c.type === 'Group');
+    sc.onStart?.(kvE);
+    let maxOff = 0;
+    for (let i = 0; i <= 60; i++) {
+      const u = i / 60;
+      sc.onFrame?.(u, ctx, { x: 0, y: 0, rel: 16 }, { position: { x: 0, y: 0 }, dist: 0 }, kvE);
+      kvE.tick(0.05, 100 + i * 0.05);
+      maxOff = Math.max(maxOff, Math.abs(rig.position.x - Math.sin((100 + i * 0.05) * 0.37) * 0.25));
+    }
+    assert(maxOff < 0.6, `karnvow footwork SLEEPS through the entrance (guard offset ${maxOff.toFixed(2)} < 0.6 — no mid-cinematic hop)`);
+    kvE.dispose();
+  }
+  ok('karnvow itKeptCount entrance: rel rock-steady ride → station settle');
+  ok('karnvow entrance de-jank: 3/4 ride, banked full wheel, above the wing, footwork asleep');
+
+  // Live drive: after the first shield break (phase ≥ 1) an injected REFLECTED hit
+  // (kind 'player') is RIPOSTED — answered once, the second one lands; the parked
+  // immortal player also sits in the threat-line long enough to earn the FLINCH.
+  let riposteN = 0, flinchN = 0;
+  on('bossRiposte', () => riposteN++);
+  on('holdFlinch', () => flinchN++);
+  game.inBoss = false;
+  game.reset();
+  game.state = 'playing';
+  game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('karnvow'));
+  const kills0 = killsSeen;
+  let sawShield = false, injected = 0;
+  for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
+    const dt = 1 / 60;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    const st = boss.bossDebugState();
+    if (st.shielded) { sawShield = true; game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+    if (sawShield && !st.shielded && st.phase === 'fight' && injected < 2) {
+      emit('bossDamage', { amount: 4, kind: 'player', x: 0, y: 8 });
+      injected++;
+    }
+    boss.updateBoss(dt, player, i / 60);
+  }
+  assert(killsSeen > kills0, 'karnvow CP2 drive: the instrumented encounter still resolves to a kill');
+  assertEq(riposteN, 1, 'riposte answers exactly the FIRST reflected hit of the phase (the second lands)');
+  assert(flinchN >= 1, `hold-until-flinch fired for the parked-in-the-threat-line player (${flinchN}×)`);
+  ok(`karnvow CP2 live drive: riposte ×${riposteN} (once per phase), stare-down flinch ×${flinchN}`);
+}
+
+// §5i.C THREAD-CUT + §5i moteHarvest INTEGRATION (weftwitch CP2): drive a LIVE fight
+// and parry her ambers like a skilled player (roll onto an amber in the reflect
+// window, once per volley) — the third parried volley must CUT the thread: the
+// stagger stills the loom, the woven volley unravels, and the once-per-phase
+// harvest BLOOMS falling motes.
+{
+  game.inBoss = false;
+  game.reset();
+  game.state = 'playing';
+  game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  let cutEvt = null, rolls = 0;
+  on('threadCut', (e) => { if (!cutEvt) cutEvt = e; });
+  let t = 0;
+  for (let i = 0; i < 60 * 150 && !cutEvt; i++) {
+    const dt = 1 / 60;
+    t += dt;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    const st = boss.bossDebugState();
+    if (st.shielded) { game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+    // The skilled parry: an amber in the reflect window → roll on top of it.
+    if (player.rollInvuln <= 0 && !game.feverActive) {
+      const amber = bullets.debugActiveBullets().find((b) => b.owner === 'boss' && b.reflectable && b.rel > 0.5 && b.rel < CONFIG.BOSS.reflectWindow);
+      if (amber) {
+        player.position.x = amber.x; player.position.y = amber.y;
+        player.rollInvuln = 0.1; rolls++;
+      }
+    }
+    if (player.rollInvuln > 0) player.rollInvuln -= dt;
+    boss.updateBoss(dt, player, t);
+  }
+  assert(cutEvt, `weftwitch thread-cut fires after 3 parried volleys (rolls staged: ${rolls}, t ${t.toFixed(1)}s)`);
+  assert(cutEvt.bloomed > 0, `the first cut of the phase blooms the falling harvest (${cutEvt?.bloomed} motes)`);
+  const stCut = boss.bossDebugState();
+  assert(!stCut.charging, 'the loom is STILLED during the cut window (no wind-up runs)');
+  boss.resetBoss();   // tear the live sim down (the next block arms its own encounter)
+  ok(`weftwitch thread-cut integration: 3 parried volleys → cut (${cutEvt.cleared} ambers unravel, ${cutEvt.bloomed} harvest motes bloom, loom stilled) ✓`);
+}
+
+// §5b HUD-SEW render-order LAW + banner-pin lifecycle (weftwitch CP2): the sew and
+// the pinned banner fire ONLY in the bullet-free warn/entrance window and are BOTH
+// cleared by fight start (bullets are WebGL — below all DOM — and cannot exist
+// before phase 'fight', so timing IS the layering proof); a mid-entrance reset also
+// clears; a non-hudSew def gets neither. Recorder stubs on the generic ui seams.
+{
+  const calls = { warn: [], warnClear: 0, sew: 0, sewClear: 0 };
+  const uw = ui.bossWarning, uc = ui.bossWarnClear, us = ui.hudSew, ux = ui.hudSewClear;
+  ui.bossWarning = (...a) => { calls.warn.push(a[4] || null); };
+  ui.bossWarnClear = () => { calls.warnClear++; };
+  ui.hudSew = () => { calls.sew++; };
+  ui.hudSewClear = () => { calls.sewClear++; };
+
+  boss.resetBoss();   // clean slate (belt + braces: the prior sim tears down too)
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  let t = 0, sewnBeforeFight = false, clearedAtFight = false;
+  for (let i = 0; i < 60 * 40; i++) {
+    const dt = 1 / 60; t += dt;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    const st = boss.bossDebugState();
+    if (st.phase !== 'fight' && calls.sew > 0) sewnBeforeFight = true;
+    if (st.phase === 'fight') { clearedAtFight = calls.sewClear > 0 && calls.warnClear > 0; break; }
+    boss.updateBoss(dt, player, t);
+  }
+  assert(calls.warn.length > 0 && calls.warn[0] && calls.warn[0].pin === true, 'weftwitch warn banner is offered PINNED (suppressAutoHide)');
+  assert(sewnBeforeFight, 'the HUD-sew fired during the bullet-free warn/entrance window');
+  assert(clearedAtFight, 'the sew + pinned banner are CLEARED by fight start (both render-order LAW edges)');
+
+  // clears-on-reset: re-arm mid-warn, then tear the encounter down.
+  const clears0 = calls.warnClear + calls.sewClear;
+  game.inBoss = false; game.reset(); game.state = 'playing';
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  boss.updateBoss(1 / 60, player, t + 1);
+  boss.resetBoss();
+  assert(calls.warnClear + calls.sewClear > clears0, 'resetBoss clears the pinned banner + sew (no pin survives a teardown)');
+
+  // coexist: a non-hudSew def (karnvow) never pins, never sews.
+  calls.warn.length = 0;
+  const sews0 = calls.sew;
+  game.inBoss = false; game.reset(); game.state = 'playing';
+  boss.forceBoss(player, BOSS_ORDER.indexOf('karnvow'));
+  for (let i = 0; i < 60 * 20; i++) {
+    player.dist += CONFIG.BOSS.cruiseSpeed / 60;
+    boss.updateBoss(1 / 60, player, t + 2 + i / 60);
+    if (boss.bossDebugState().phase === 'fight') break;
+  }
+  assert(calls.warn.length > 0 && !calls.warn[0], 'a non-hudSew def gets a plain warn banner (no pin option)');
+  assert(calls.sew === sews0, 'a non-hudSew def never fires the HUD-sew (coexist)');
+  boss.resetBoss();
+  ui.bossWarning = uw; ui.bossWarnClear = uc; ui.hudSew = us; ui.hudSewClear = ux;
+  ok('hud-sew LAW: pinned + sewn in the warn window, cleared at fight start AND on reset; karnvow untouched ✓');
 }
 
 // §5f MUSIC-DEATH defeat path: knellgrave (last in BOSS_ORDER) killed the music at

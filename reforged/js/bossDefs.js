@@ -651,8 +651,9 @@ export const BOSSES = {
     // UP (eyeWeakPoint already feeds lockDeflected — sealed honesty for free);
     // shackles gate OUT of P4 (the sounding — the head submerges and freed
     // posts should not re-offer). A freed shackle leaves the paintable set via
-    // the PR6 liveness filter and its brand is dropped. Outer posts sit at the
-    // arena edges (x ±8–10) — branding them is a deliberate lateral commit.
+    // the PR6 liveness filter and its brand is dropped. Outer posts sit LATERAL
+    // (world x ±~6.75) — a real side reach, but pulled in from the ±13 lane wall
+    // so branding them is a commit, not a crash-and-die.
     lockParts: [
       { part: 'eyeRig' },
       { part: 'shacklePost0', phases: [0, 1, 2] },
@@ -662,6 +663,9 @@ export const BOSSES = {
     eyeWeakPoint: true,       // §5f law 5 (the turn-taking tell): CHIP DAMAGE ONLY LANDS WHILE THE EYE IS UP —
                               // the surfacing/submerging is the weak-point window (controller gates it CP2;
                               // the model owns eyeIsUp()/setEyeUp() and the unmistakable lid/glow animation)
+    eyeOrgan: 'eyeRig',       // the paintable lockPart the eye-weak-point seals: while the eye is DOWN it
+                              // leaves the paintable set (the shackles stay brandable), rejoining when it surfaces
+                              // (owner playtest — "while the eye's down I can't tag the shackles either")
     // §5f DESTRUCTIBLE SUB-PARTS (the CAVE-law mercy mechanic): the 3 shackle
     // posts are individually breakable — parry a post's amber strain-volley 3×
     // (SHACKLE BREAK, the registry parry job) or land shots on it, and it SNAPS:
@@ -884,6 +888,12 @@ export const BOSSES = {
     // read; that rule is inviolable (§3b sheet in BOSS-DESIGN.md §5d).
     archetype: 'weftwitch',
     muzzle: 'loomHeart',      // she emits from the loom-heart at the hub (emitter = organ, §5f law 7 / L148)
+    // LANCE V1 aim anchor (the karnvow lesson, PR #258: lockCandidates() returns only
+    // lockParts + virtualLockOrgan — a def naming neither loses the whole aim/lock verb).
+    // The organ IS the anchor (ashtalon muzzle-as-anchor precedent): the loom-heart is
+    // always emitting, always under fire, never a free rest-beat paint. V2 lockParts
+    // (per-spinneret brands?) are a CP2+ decision.
+    virtualLockOrgan: 'loomHeart',
     accent: 0xe8c466,         // WARM PALE-GOLD woven-thread (Decision C — pushed OFF the WE rose-triple). Hue ≈43°,
                               // far clear of danger-magenta's 327–357° reserved band; saturated enough to HOLD its
                               // hue under bloom (bossgate G3 attribution — a paler gold washed to white). Resolves
@@ -893,16 +903,29 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'above',    // SHIPPED branch (audit #35 — do NOT re-implement): she descends on a single thread
     startDepth: 26,           // §5d: the descent starts high (y≈+26) — she lowers to station on one thread
+    entrance: 'mendedBanner', // §5j scripted arrival (CP2): the thread-descent + the banner lash (entranceScripts.js)
+    // §5b GRANTED RULE-BREAK (registry row 11: "re-weaves the arena — even the HUD
+    // chrome"): golden threads stitch across the HUD ONCE at her entrance and the
+    // warn banner is cross-stitched + PINNED half-deployed until enterFight tears
+    // it free. RENDER-ORDER LAW: fired only in the bullet-free warn window,
+    // cleared before the first bullet can exist (boss.js owns both edges).
+    hudSew: true,
     scale: 1.3,               // medium bust — presence is the WEB, not the body mass (L141); TUNE in studio
     // §5i CANCEL-CONVERT MOTE HARVEST: a cut thread blooms into falling surge-motes;
     // steer the bloom to harvest (offered once per phase). Def-gated (reuses slot 6's
     // continuous-graze detector); shipped bosses inert.
     grazeForm: 'moteHarvest',
+    // §5i.C THREAD-CUT (registry row 11 parry cell, CP2): her 'aimed' volleys ride the
+    // taut hand-thread (needle-pull wind-up + laserLance HDR beam at release + an
+    // in-key stitch-pluck); parry the ambers 3× → the thread is CUT — the woven
+    // volley UNRAVELS (in-flight ambers delete, queued sub-volleys drop) and the
+    // loom is STILLED for a 2.5s strike window. Inert for every other def.
+    threadCut: true,
     // Tier-4 difficulty: precision + lattice patterns re-expressed as thread-visualised
     // gaps (curtain/movingGap/aimed/crossfire = the loom's warp/weft). The `aimed`
     // carrier is the taut pre-fire thread (the amber organ) — the laserLance is a beam
-    // VISUAL of an existing pattern (CP2), NOT a new attack id (the WE band's ≤1-new-id
-    // budget is left for a sibling slot; confirm with owner). Escalation by pattern
+    // VISUAL of an existing pattern (owner-confirmed at CP2), NOT a new attack id (the
+    // WE band's ≤1-new-id budget is left for a sibling slot). Escalation by pattern
     // unlock + cadence, never raw count.
     phases: [
       { atFrac: 1.00, cadence: [1.3, 1.7], attacks: ['aimed', 'curtain'] },                          // P1: the loom wakes (a measured weave)
@@ -1148,8 +1171,49 @@ export const BOSSES = {
     // only lockParts + virtualLockOrgan, and karnvow had neither → the late-game
     // aim/lock verb would vanish on slot 9). The organ IS the anchor (the ashtalon
     // muzzle-as-anchor precedent — always emitting, always under fire, never a free
-    // rest-beat paint). V2 lockParts are a CP2+ decision.
+    // rest-beat paint).
     virtualLockOrgan: 'lanceTip',
+    // V2 LANCE-PAINT anatomy (CP2): BRAND THE TROPHIES — the five taken charms on
+    // the hip chain are the paint targets (claiming his collection back, one mark
+    // at a time; they swing on the pendulum chain of a DARTING boss = the Tier-3
+    // peak paint hunt). The EMPTY hook is deliberately NOT paintable — that thread
+    // stays open (§3 law 6; it awaits YOU). The lanceTip anchor is the easy first
+    // mark (L183 promotion: on a V2 boss the anchor is paintable too).
+    lockParts: [
+      { part: 'trophyCharm0' }, { part: 'trophyCharm1' }, { part: 'trophyCharm2' },
+      { part: 'trophyCharm3' }, { part: 'trophyCharm4' },
+    ],
+    // §5j the scripted entrance (entranceScripts.js): fades in riding at your
+    // shoulder, rel rock-steady, while the stat-taunt lands. Zero shots (Mantis).
+    entrance: 'itKeptCount',
+    // §5j the diegetic Psycho Mantis: boss.js quotes the player's REAL ledger
+    // (deaths per boss) in the announce and flares the TOP KILLER's charm mid-hold
+    // (the MANDATORY escalation hinge; fresh-save fallback wired).
+    statTaunt: true,
+    // §5f the roster's ONE hold-breaker: a single slow, survivable, PARRYABLE amber
+    // fired INTO the reveal hold — the trophy-hunter has no honor.
+    holdBreaker: true,
+    // §5i.C Decision C1: the reflect-once RIPOSTE — from P2 (the WEARS THE HORN —
+    // Riposte card) on, once per phase, it PARRIES your reflected bullet (cross-swat
+    // + amber flash) and returns it slow + amber (re-reflect it). The full TENNIS
+    // RALLY + REFLECT-ONLY SEAL stays deferred C2 scope (its own PR).
+    reflectRiposte: { fromPhase: 1 },
+    // §5i.B the Calamities graze debut for slot 9 — HOLD-UNTIL-FLINCH: a discrete
+    // stare-down in the lance's threat-line (escalating tiers → the amber flinch),
+    // once per phase. NOT slot 6's continuous beam-ride (the graze-ladder law).
+    grazeForm: 'holdFlinch',
+    // §5e moving-station setpiece (P2 entry): the FLANK CUT-IN — draws level on the
+    // flank and cuts ACROSS your lane at rel ~8 (the L140 proximity near-pass),
+    // firing the whole way.
+    setpieces: [
+      { id: 'flankCutIn', atPhase: 1, dur: 6.0, moving: true },
+      // §5f the DREAD beat, AUTHORED (the grandeur redo's #1 lift — the audit's
+      // "a lore-quote with zero authored visual"): at P3 entry the duelist RISES
+      // over your lane and the lance WRITES the verdict at screen scale in
+      // Voidmaw's violet (the model keys on `dread` via setSetpiece) while the
+      // card fires boss-1's dread set beneath it. Moving: it fires the whole way.
+      { id: 'voidmawVerdict', atPhase: 2, dur: 7.5, moving: true, dread: true },
+    ],
     // bossgate capture: the r3 dart footwork moves the body ~15u/s mid-hop, hitting
     // the tool's documented two-frame mask/screenshot race (the marrowcoil pale-slide
     // twin) — freeze the sim for the grab pair. NOT a G-law override; no thresholds change.
@@ -1163,7 +1227,10 @@ export const BOSSES = {
     phases: [
       { atFrac: 1.00, cadence: [1.4, 1.8], attacks: ['aimed', 'crossfire'] },            // P1: the duel opens
       { atFrac: 0.55, cadence: [1.3, 1.6], attacks: ['aimed', 'crossfire', 'stream'] },  // P2: it presses
-      { atFrac: 0.25, cadence: [1.2, 1.5], attacks: ['stream', 'crossfire', 'aimed'] },  // P3: Voidmaw's Verdict (dread)
+      // P3 QUOTES boss-1's dread set VERBATIM (aimed/fan/tunnel — Voidmaw's P3;
+      // §5f "it fires boss 1's dread card back at you, violet-scarred") at
+      // Calamity cadence. 'aimed' keeps the amber carrier (amberdiet §5i.C.1).
+      { atFrac: 0.25, cadence: [1.2, 1.5], attacks: ['aimed', 'fan', 'tunnel'] },        // P3: Voidmaw's Verdict (dread)
     ],
     cards: [
       { id: 'karnvow_gambit',  name: 'IT KEPT COUNT — Opening Gambit',     atFrac: 1.00, timer: 24 },
@@ -1184,7 +1251,9 @@ export const BOSSES = {
           restLo: 0.55, restHi: 1.4, restDist: 'bimodal' },
         { phrase: [{ kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'stream', beats: 2, gap: 0.4 }],
           restLo: 0.5, restHi: 1.25, restDist: 'bimodal' },
-        { phrase: [{ kind: 'sustain', attack: 'stream', beats: 3, gap: 0.35 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.4 }, { kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }],
+        // P3 phrase carries the QUOTE (aimed/fan/tunnel — boss-1's dread verbs) at the
+        // exchange's own bimodal tempo: still KARNVOW's rhythm, wearing Voidmaw's horn.
+        { phrase: [{ kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }, { kind: 'burst', attack: 'fan', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'tunnel', beats: 2, gap: 0.35 }],
           restLo: 0.45, restHi: 1.15, restDist: 'bimodal' },
       ],
     },

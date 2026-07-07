@@ -32,7 +32,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -237,6 +237,12 @@ if (urlParams.has('bossIdx')) {
   const k = parseInt(urlParams.get('bossIdx'), 10);
   if (Number.isFinite(k) && k >= 0) setBossDebugDefIdx(k);
 }
+// ?bossPhase=N (1-based) opens every encounter fast-forwarded to phase N so a
+// late-phase beat is judgeable in seconds (e.g. ?boss&bossIdx=8&bossPhase=3 =
+// KARNVOW's fight opening INTO Voidmaw's Verdict).
+if (urlParams.has('bossPhase')) {
+  setBossDebugPhase(parseInt(urlParams.get('bossPhase'), 10));
+}
 // Playtest: ?parry widens the PERFECT-parry window so the V4 snap-brand is
 // testable without frame-tight timing. Bare ?parry = the whole reflect window
 // (EVERY parry is perfect); ?parry=<rel> sets the perfect rel in world-units
@@ -298,6 +304,8 @@ if (urlParams.has('debug')) {
     bossPinEntrance: (u) => setBossDebugEntrance(u),
     // Capture hook: crack a destructible sub-part live (HOLLOWGATE pane N).
     bossCrackPane: (i) => debugCrackPane(i),
+    bossThreadCut: () => debugThreadCut(player),
+    bossRestitch: () => debugRestitch(),
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;

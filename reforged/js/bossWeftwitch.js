@@ -66,6 +66,12 @@ export function buildWeftwitch(def, quality = 1) {
   group.userData.archetype = 'weftwitch';
   const rig = new THREE.Group();
   group.add(rig);
+  // BUST-ONLY pivot: the hood/crown/hands/loom + their idle breath and HIT-SHUDDER live
+  // here so the arena WEB (threadPivot, kept on `rig`) doesn't twitch 1:1 with her body
+  // (CP2 playtest: "every time she jiggles, the threads do the same"). rig now carries
+  // only the shared entrance descent; the web reads as a slow, massive field.
+  const bustPivot = new THREE.Group(); bustPivot.name = 'bustPivot';
+  rig.add(bustPivot);
 
   const mergeWw = (parts, label) => {
     const geo = mergeGeometries(parts, false);
@@ -104,6 +110,7 @@ export function buildWeftwitch(def, quality = 1) {
   // THE LOOM-HEART — the restrained accent glow at the hub (the emitter organ + the
   // weak point + the flash-bound "core" read). ONE bounded additive volume.
   const loomBase = new THREE.Color(accent);
+  const _strainRed = new THREE.Color(0xff5a2a);   // the thread reddens toward danger as parries bank
   const loomMat = track(new THREE.MeshStandardMaterial({ color: 0x3a3018, emissive: accent, emissiveIntensity: 1.3, roughness: 0.45, metalness: 0.0, flatShading: true }));
   // the loom-heart's white-hot core (the single G1 focal — the hottest point on
   // screen). toneMapped:false so it punches past 1.0; it must sit IN FRONT of the
@@ -121,6 +128,8 @@ export function buildWeftwitch(def, quality = 1) {
   // field survives on both (Fable CP1 gate: the pale-only web washed out on the sunset).
   const webDimMat = track(new THREE.LineBasicMaterial({ color: 0x2a2416, transparent: true, opacity: 0.55, depthWrite: false }));
   const webHeroMat = track(new THREE.LineBasicMaterial({ color: 0xe4d7ac, transparent: true, opacity: 0.74, depthWrite: false }));
+  const webHeroBase = new THREE.Color(0xe4d7ac);   // restored each frame; hot-whitened during a re-weave
+  const _restitchHot = new THREE.Color(0xfff2c8);
   // THE TAUT THREAD between the hands (the charge tell → the laserLance HDR flash).
   // toneMapped:false so it can flash PAST 1.0 (a hard lit line, not a volume) — the
   // brightest moment, still G3-safe (pale-gold hue, far from danger-magenta).
@@ -185,10 +194,10 @@ export function buildWeftwitch(def, quality = 1) {
     return { deep: sub(buckets.deep), mid: sub(buckets.mid), hi: sub(buckets.hi) };
   };
   const shroudT = tierSplit(shroudFull, -3.0, 4.5);
-  rig.add(new THREE.Mesh(shroudT.deep, shroudDeepMat));
+  bustPivot.add(new THREE.Mesh(shroudT.deep, shroudDeepMat));
   const shroudMidMesh = new THREE.Mesh(shroudT.mid, shroudMat); shroudMidMesh.name = 'weftBust';
-  rig.add(shroudMidMesh);
-  rig.add(new THREE.Mesh(shroudT.hi, shroudHiMat));
+  bustPivot.add(shroudMidMesh);
+  bustPivot.add(new THREE.Mesh(shroudT.hi, shroudHiMat));
   // THE LIT-EDGE (§3b lit-edge plan + the L121 "reads cleanly against a bright sky"
   // trick): a restrained pale-gold FRESNEL RIM on the bust — glows at the silhouette
   // edge, near-transparent face-on (so the moth-grey body stays dark, §3.3). Without
@@ -196,7 +205,7 @@ export function buildWeftwitch(def, quality = 1) {
   // as danger-band pixels (bossgate G3). The rim makes the edges HER gold instead.
   const bodyRimMat = track(makeEnergyShell(accent, { power: 4.6, strength: 0.72 }));
   const bodyRim = new THREE.Mesh(shroudFull, bodyRimMat); bodyRim.name = 'weftBodyRim';
-  rig.add(bodyRim);
+  bustPivot.add(bodyRim);
 
   // ---- THE HOOD — a triangular cowl over the top of the bust with a dark aperture
   // (no face). On a hoodPivot so it tilts toward the worked lane WITH LAG (§4b gaze).
@@ -225,7 +234,7 @@ export function buildWeftwitch(def, quality = 1) {
   // forward so it reads as a dark pit under the cowl at fight distance.
   const aperture = new THREE.Mesh(strip(new THREE.SphereGeometry(2.3, lowQ ? 12 : 16, lowQ ? 8 : 12)), voidMat);
   aperture.name = 'weftAperture'; aperture.scale.set(0.95, 1.35, 0.7); aperture.position.set(0, 0.2, 2.7); hoodPivot.add(aperture);
-  rig.add(hoodPivot);
+  bustPivot.add(hoodPivot);
 
   // ---- THE CROWN OF ARMS — 6 spinneret-arms fanning UPWARD above the shoulder line
   // in a ≤180° arc; NONE below horizontal (the inviolable anti-spider rule). Each on a
@@ -319,7 +328,7 @@ export function buildWeftwitch(def, quality = 1) {
       wound.name = `spinneretTip${i}`;   // the accent-bearing wound thread (named for parity)
       pivot.add(wound);
     }
-    rig.add(pivot);
+    bustPivot.add(pivot);
     spinneretPivots.push(pivot);
   }
 
@@ -366,7 +375,7 @@ export function buildWeftwitch(def, quality = 1) {
     const t0 = strip(new THREE.CylinderGeometry(0.19, 0.23, 1.15, 6)); t0.translate(0, 0.55, 0);
     thumb.add(new THREE.Mesh(t0, handMat)); thumb.rotation.z = sx * 1.0; thumb.rotation.x = -0.3; pivot.add(thumb);
     pivot.rotation.y = sx * 0.5;          // face the palms inward toward each other
-    rig.add(pivot);
+    bustPivot.add(pivot);
     handPivots[side] = pivot;
     return pivot;
   }
@@ -378,7 +387,25 @@ export function buildWeftwitch(def, quality = 1) {
   const tautGeo = new THREE.BufferGeometry();
   tautGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
   const tautLine = new THREE.LineSegments(tautGeo, tautMat); tautLine.name = 'weftTaut'; tautLine.frustumCulled = false;
-  rig.add(tautLine);
+  bustPivot.add(tautLine);
+
+  // THE LASERLANCE BEAM (CP2 — owner-confirmed: a beam VISUAL riding the 'aimed'
+  // fire instant, never a new attack id). A single HDR hairline from the loom-heart
+  // down-lane (+z local = toward the player under placeGroup's facing): hairline
+  // grammar matches the web (her lines are threads), and toneMapped:false +
+  // color>1 punches it past bloom — the §3b "brightest moment". Hidden at rest.
+  // A 1px hairline vanished among the web's own threads (integration-gate r2) —
+  // the lance is a thin TAPERED additive cylinder instead: real width, reads from
+  // every angle, ~12 tris, alive only ~0.3s (hidden at rest → G7 never sees it).
+  const beamMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  const beamGeo = new THREE.CylinderGeometry(0.16, 0.42, 1, 6, 1, true);   // tapers toward the target (a lance, not a pipe)
+  beamGeo.rotateX(Math.PI / 2);        // axis → +z (fire direction)
+  beamGeo.translate(0, 0, 0.5);        // origin at the base — position sits AT the muzzle
+  const beamLine = new THREE.Mesh(beamGeo, beamMat); beamLine.name = 'weftBeam'; beamLine.frustumCulled = false; beamLine.visible = false;
+  const BEAM_ORIGIN = new THREE.Vector3(0, 3.4, 4.6);
+  beamLine.position.copy(BEAM_ORIGIN);
+  group.add(beamLine);
+  const _beamDir = new THREE.Vector3(), _beamFwd = new THREE.Vector3(0, 0, 1);
 
   // ---- THE ROSETTE-KNOTS — woven pale-gold knots on the mantle front (LORE motifs
   // of what she's mended). The accent lives HERE, not on the body.
@@ -391,7 +418,7 @@ export function buildWeftwitch(def, quality = 1) {
     // woven up the mantle front (the accent-bearing motifs + the G3 gold attribution).
     knot.position.set(Math.cos(a) * 2.9, 1.0 + Math.sin(a) * 2.9, 3.5);
     knot.scale.setScalar(0.85 + (i % 3) * 0.14);
-    rig.add(knot); rosettes.push(knot);
+    bustPivot.add(knot); rosettes.push(knot);
   }
 
   // ---- THE LOOM-HEART — the restrained accent glow at the hub (the muzzle organ +
@@ -400,9 +427,15 @@ export function buildWeftwitch(def, quality = 1) {
   const loomHeart = new THREE.Group(); loomHeart.name = 'loomHeartRig'; loomHeart.position.set(0, 3.4, 3.2);
   const loomKnot = new THREE.Mesh(strip(new THREE.IcosahedronGeometry(0.9, 0)), loomMat); loomKnot.name = 'weftLoomHeart';
   loomHeart.add(loomKnot);
+  // A dark SOCKET the white pupil slides WITHIN (an eye-well) so gaze-tracking never
+  // uncovers the gold knot behind it (CP2 playtest: "something under her eye" when she
+  // looks up). Static + centred; the pupil moves inside it, the knot shows only as a
+  // thin gold iris-rim beyond r=0.8.
+  const loomSocket = new THREE.Mesh(strip(new THREE.SphereGeometry(0.8, 12, 10)), voidMat); loomSocket.name = 'loomSocket'; loomSocket.position.z = 0.86; loomSocket.scale.z = 0.5; loomSocket.renderOrder = 5;
+  loomHeart.add(loomSocket);
   const loomCore = new THREE.Mesh(strip(new THREE.SphereGeometry(0.4, 12, 10)), loomCoreMat); loomCore.name = 'loomCore'; loomCore.position.z = 1.0; loomCore.renderOrder = 6;
   loomHeart.add(loomCore);
-  rig.add(loomHeart);
+  bustPivot.add(loomHeart);
 
   // ---- THE WEB — taut spokes radiating from the hub to off-screen anchors, filling
   // the frame (the FIELD = the body, L141), PLUS a scattered warp lattice (short
@@ -484,6 +517,84 @@ export function buildWeftwitch(def, quality = 1) {
   const heroAttr = webHero.geometry.attributes.position;
   const dimBase = dimAttr.array.slice();
   const heroBase = heroAttr.array.slice();
+  // CP2 GAP-RESTITCH: at each phase seam the fight TEARS a sector of her web and
+  // she visibly RE-WEAVES it — the arena-mender identity beat ("she mends what you
+  // break"). The tear MUTATES the BASE arrays (the water-clip pass rewrites the
+  // attributes from base every tick — the contract above — so the tear and the
+  // surface reaction compose for free); pristine copies restore byte-exact when
+  // the mend completes. Sector choice is deterministic per call (no Math.random —
+  // headless tests replay it).
+  const dimBase0 = dimBase.slice();
+  const heroBase0 = heroBase.slice();
+  let restitchT = -1, restitchS0 = 0, restitchCalls = 0, restitchGlow = 0;
+  // WIDE + DEEP + HELD so the tear READS at fight distance (CP2 playtest: 7 spokes
+  // retracting a hair behind the bust was invisible). A QUARTER of the web now caves
+  // in on the upper front, holds torn, then re-spins with a gold re-weave flash.
+  const RESTITCH_W = 16;   // torn sector width, in spokes (~¼ of the 64-spoke web)
+  function restitchWeb() {
+    // restore any in-flight tear first (a fresh phase re-tears cleanly)
+    dimBase.set(dimBase0); heroBase.set(heroBase0);
+    // bias to the UPPER-FRONT arc (spokes ≈ top half) so the caving ends are on open
+    // sky, not converging behind her cowl; rotate the sector each phase.
+    restitchS0 = (12 + restitchCalls * 9) % N_SPOKE;
+    restitchCalls++;
+    restitchT = 0;
+  }
+  // retraction factor of spoke sIdx this frame (1 = untouched, →0.08 fully torn). A
+  // FLAT-TOP falloff tears the middle ~60% of the sector fully (not just the centre).
+  function restitchR(sIdx, tear) {
+    const d = ((sIdx - restitchS0) % N_SPOKE + N_SPOKE) % N_SPOKE;
+    if (d >= RESTITCH_W) return 1;
+    const e = d / (RESTITCH_W - 1);              // 0..1 across the sector
+    const fall = clamp01(Math.min(e, 1 - e) * 5);   // ramp edges, plateau at 1 in the middle
+    return 1 - tear * fall * 0.92;
+  }
+  function updateRestitch(dt, time) {
+    if (restitchT < 0) { restitchGlow = 0; return; }
+    restitchT += dt / 3.4;                      // the full tear→mend arc ~3.4s (slower = readable)
+    const k = Math.min(1, restitchT);
+    // rip FAST (0→0.12), HOLD fully torn (0.12→0.4 — the dramatic pause), then RE-WEAVE
+    // (0.4→1). The held tear is what the eye catches.
+    const tear = k < 0.12 ? (k / 0.12) : (k < 0.4 ? 1 : Math.max(0, 1 - (k - 0.4) / 0.6));
+    // the re-weave GLOW: the web energizes gold-white as she re-stitches (peaks through
+    // the mend, buzzing), fading out as it completes — a whole-web pulse announcing the event.
+    restitchGlow = k < 0.4 ? tear * 0.5 : (0.55 + 0.45 * Math.abs(Math.sin(time * 24))) * Math.max(0, 1 - (k - 0.4) / 0.6);
+    for (let i = 0; i < RESTITCH_W; i++) {
+      const sIdx = (restitchS0 + i) % N_SPOKE;
+      const r = restitchR(sIdx, tear);
+      const slot = spokeSlots[sIdx], A = anchors[sIdx];
+      const arr = slot.hero ? heroBase : dimBase;
+      const o = slot.off * 3;
+      arr[o + 3] = A.inr.x + (A.out.x - A.inr.x) * r;
+      arr[o + 4] = A.inr.y + (A.out.y - A.inr.y) * r;
+      arr[o + 5] = A.inr.z + (A.out.z - A.inr.z) * r;
+      // the torn spoke's tail parks on its retracted end (degenerate, invisible)
+      const tSlot = tailSlots[sIdx], ta = tSlot.hero ? heroBase : dimBase, to = tSlot.off * 3;
+      ta[to] = ta[to + 3] = arr[o + 3]; ta[to + 1] = ta[to + 4] = arr[o + 4]; ta[to + 2] = ta[to + 5] = arr[o + 5];
+    }
+    // sector stitches ride their spokes' retraction (p = inr + (out−inr)·t·r).
+    for (const st of stitchMeta) {
+      const r0 = restitchR(st.i0, tear), r1 = restitchR(st.i1, tear);
+      if (r0 === 1 && r1 === 1) continue;
+      const A = anchors[st.i0], B = anchors[st.i1];
+      const arr = st.slot.hero ? heroBase : dimBase, o = st.slot.off * 3;
+      arr[o] = A.inr.x + (A.out.x - A.inr.x) * st.t0 * r0;
+      arr[o + 1] = A.inr.y + (A.out.y - A.inr.y) * st.t0 * r0;
+      arr[o + 2] = A.inr.z + (A.out.z - A.inr.z) * st.t0 * r0;
+      arr[o + 3] = B.inr.x + (B.out.x - B.inr.x) * st.t1 * r1;
+      arr[o + 4] = B.inr.y + (B.out.y - B.inr.y) * st.t1 * r1;
+      arr[o + 5] = B.inr.z + (B.out.z - B.inr.z) * st.t1 * r1;
+    }
+    if (restitchT >= 1) {
+      restitchT = -1;
+      dimBase.set(dimBase0); heroBase.set(heroBase0);   // byte-exact pristine restore
+    }
+    // no water plane (studio/tests): the surface pass won't sync — push base→attrs.
+    if (waterWorldY == null) {
+      dimAttr.array.set(dimBase); heroAttr.array.set(heroBase);
+      dimAttr.needsUpdate = true; heroAttr.needsUpdate = true;
+    }
+  }
   function setWaterPlane(y) {
     waterWorldY = (y == null) ? null : y;
     if (waterWorldY != null) {
@@ -587,7 +698,7 @@ export function buildWeftwitch(def, quality = 1) {
 
   // ---- EDGE CAGE over the shroud crest + hood (a thin dark line that reads the
   // mantle outline on a bright sky).
-  rig.add(new THREE.LineSegments(new THREE.EdgesGeometry(shroudT.hi, 30), cageMat));
+  bustPivot.add(new THREE.LineSegments(new THREE.EdgesGeometry(shroudT.hi, 30), cageMat));
 
   // ---- DRIFT ORBITERS (≥2) — pale surge-MOTES drifting around the loom (the idle
   // form of the mote-harvest bloom; tick-animated).
@@ -598,7 +709,7 @@ export function buildWeftwitch(def, quality = 1) {
   for (let i = 0; i < N_MOTE; i++) {
     const m = new THREE.Mesh(moteGeo, moteMat); m.name = 'weftMote';
     m.userData = { r: 4 + (i % 3) * 2.4, y0: 1 + (i % 4) * 2.5, speed: 0.5 + (i % 3) * 0.24, ph: i * 1.4, drift: (i % 2 ? 1 : -1) };
-    rig.add(m); orbiters.push(m);
+    bustPivot.add(m); orbiters.push(m);
   }
 
   kit.flashBind(loomMat, 1.4);
@@ -641,18 +752,56 @@ export function buildWeftwitch(def, quality = 1) {
   let tautK = 0;   // eased taut-thread tension (0 slack → 1 taut+flashed)
   const _tv = tautGeo.attributes.position;
 
+  // CP2 fight verbs (controller-driven, def-gated in boss.js — inert in studio/tests):
+  // fireBeam() at the 'aimed' release = the laserLance HDR hairline flash; cutThread()
+  // when the 3×-parry lands = the taut thread SNAPS (hands recoil apart, the hood
+  // reels, the thread dies) — the stagger read.
+  let beamT = 0, cutT = 0, cutEase = 0;
+  // THREAD-STRAIN (0→1): the parry progress toward the cut, fed each frame by boss.js
+  // (threadCutHits / threshold). It makes the taut thread hold visible tension BETWEEN
+  // attacks — reddening + buzzing as it banks — so "that parry counted, one more snaps
+  // it" is a read, not a mystery (the CP2 playtest: the counter was invisible).
+  let threadStrain = 0;
+  function setThreadStrain(n) { threadStrain = clamp01(n); }
+  // fireBeam aims at the PLAYER (local coords fed by boss.js — the beam rides the
+  // aimed volley, so it lances toward you, not down the +z axis where a head-on
+  // camera foreshortens it to a blob; the CP2 integration gate caught that).
+  function fireBeam(tx, ty, tz) {
+    if (cutT > 0) return;
+    beamT = 1;
+    _beamDir.set(tx ?? 0, ty ?? 3.4, tz ?? 44).sub(BEAM_ORIGIN);
+    const len = Math.max(_beamDir.length(), 1);
+    beamLine.quaternion.setFromUnitVectors(_beamFwd, _beamDir.multiplyScalar(1 / len));
+    beamLine.scale.set(1, 1, len);
+  }
+  function cutThread() { cutT = 1; beamT = 0; }
+
   function tickBody(dt, time) {
     if (painT > 0) painT -= dt;
     painEase += (Math.max(0, painT) - painEase) * Math.min(1, dt * 8);
     const noticeK = noticeT > 0 ? clamp01(noticeT / 1.0) : 0;
     if (noticeT > 0) noticeT -= dt;
+    // the laserLance beam decays fast (a flash, not a sustained laser: the DODGE read
+    // stays with the bullets — the beam is pure spectacle at the release instant).
+    beamT = Math.max(0, beamT - dt * 3.2);
+    beamLine.visible = beamT > 0 && dyingK < 0.5;
+    if (beamLine.visible) {
+      beamMat.opacity = Math.min(1, beamT * 1.6);
+      // white-hot core → pale-gold tail as it dies (HDR: >1 with toneMapped:false);
+      // the shaft thins as the flash decays (scale x/y ride beamT, z holds the aim).
+      beamMat.color.copy(loomBase).lerp(new THREE.Color(0xffffff), beamT * 0.8).multiplyScalar(1 + beamT * 3.2);
+      beamLine.scale.x = beamLine.scale.y = 0.35 + beamT * 0.65;
+    }
+    // the cut-thread stagger: eases in hard, releases slow (the ~2.5s strike window).
+    cutT = Math.max(0, cutT - dt * 0.4);
+    cutEase += (clamp01(cutT * 2) - cutEase) * Math.min(1, dt * 9);
 
     // --- THE MEASURED WEAVE (idle): the bust breathes slowly; the hands weave; the
     // loom-heart pulses; agitation rises with charge (fast stitching under pressure).
     const tempo = 1 + charge * 1.8 + noticeK * 0.6;
     const weave = Math.sin(time * 1.4 * tempo);
-    rig.position.y = Math.sin(time * 0.5) * 0.25 + painEase * Math.sin(time * 30) * 0.35;
-    rig.rotation.z = Math.sin(time * 0.32) * 0.01 + painEase * Math.sin(time * 26) * 0.02;
+    bustPivot.position.y = Math.sin(time * 0.5) * 0.25 + painEase * Math.sin(time * 30) * 0.35;
+    bustPivot.rotation.z = Math.sin(time * 0.32) * 0.01 + painEase * Math.sin(time * 26) * 0.02;
 
     // --- GAZE (§4b): the hands + hood orient toward the worked lane WITH LAG. The
     // hood LAGS the hands (snap-orient reads as a turret; lagged reads as a mind). ---
@@ -662,16 +811,16 @@ export function buildWeftwitch(def, quality = 1) {
     // values were too subtle at fight distance; the LAG stays: snap = turret, lag = a
     // mind at a loom.)
     hoodPivot.rotation.y += (gazeEX * 0.85 - hoodPivot.rotation.y) * Math.min(1, dt * 1.4);   // hood lags
-    hoodPivot.rotation.x = -gazeEY * 0.5 + noticeK * 0.35;   // tilts down on notice/aim
+    hoodPivot.rotation.x = -gazeEY * 0.5 + noticeK * 0.35 - cutEase * 0.4;   // tilts down on notice/aim; REELS back on a thread-cut
 
     // --- THE HANDS: weave in idle; STILL on dread/notice (the §4b "hands still =
     // dread"); recoil on a hit. One long finger POINTS DOWN on notice. ---
-    const stillness = clamp01(noticeK + dreadK);   // 1 = hands frozen
+    const stillness = clamp01(noticeK + dreadK + cutEase);   // 1 = hands frozen (notice/dread/staggered)
     const wv = weave * (1 - stillness) * (0.18 + charge * 0.12);
     for (const side of ['L', 'R']) {
       const sx = side === 'L' ? -1 : 1;
       const hp = handPivots[side];
-      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2;   // track the lane; recoil on hit
+      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2 + sx * cutEase * 2.6;   // track the lane; recoil on hit; thrown APART on a thread-cut
       hp.position.y = HAND_Y + wv * sx + gazeEY * 1.8;
       hp.rotation.z = sx * (0.2 + wv * 0.5) - gazeEX * 0.2;
       hp.rotation.y = sx * (0.5 - stillness * 0.2);
@@ -691,21 +840,29 @@ export function buildWeftwitch(def, quality = 1) {
     // --- THE CHARGE TELL: the hands PULL a thread taut between them; it flashes AMBER
     // (the amber organ + the laserLance HDR flash). Slack in idle, straight on charge.
     // The taut thread pulling straight is a NEW hard line = a silhouette change. ---
-    const tautTarget = clamp01(charge * 1.3 - dyingK);
+    // strain FLOORS the tension: a strained thread stays partly taut + lit even between
+    // attacks (so the player sees the banked parries), and buzzes harder as it nears the snap.
+    const strainFloor = threadStrain * 0.72 * (1 - cutEase);
+    const tautTarget = Math.max(clamp01(charge * 1.3 - dyingK - cutEase * 2), strainFloor);
     tautK += (tautTarget - tautK) * Math.min(1, dt * 7);
     // endpoints = the two index fingertips (approx from the hand pivots).
     const lp = handPivots.L.position, rp = handPivots.R.position;
     const sag = (1 - tautK) * 2.2;   // slack sags DOWN in idle; taut pulls it straight
-    _tv.setXYZ(0, lp.x + 1.2, lp.y + 2.2, lp.z + 0.5);
-    _tv.setXYZ(1, rp.x - 1.2, rp.y + 2.2 - 0, rp.z + 0.5);
+    // the buzz: a fraying thread vibrates — high-freq jitter scaled by strain, so the
+    // near-snap thread visibly shakes on the verge of cutting.
+    const buzz = threadStrain * 0.18 * Math.sin(time * 47);
+    _tv.setXYZ(0, lp.x + 1.2, lp.y + 2.2 + buzz, lp.z + 0.5);
+    _tv.setXYZ(1, rp.x - 1.2, rp.y + 2.2 - buzz, rp.z + 0.5);
     // pull the midpoint down when slack (a hanging catenary read) — encode via a 3rd
     // implicit point by lowering both ends' y a touch when slack; keep it a 2-vert line.
-    _tv.setY(0, lp.y + 2.2 - sag * 0.5); _tv.setY(1, rp.y + 2.2 - sag * 0.5);
+    _tv.setY(0, lp.y + 2.2 - sag * 0.5 + buzz); _tv.setY(1, rp.y + 2.2 - sag * 0.5 - buzz);
     _tv.needsUpdate = true;
-    // the flash: pale-gold, punching PAST 1.0 on the taut peak (toneMapped:false).
-    const flashK = tautK * (0.9 + Math.sin(time * 40) * 0.1);
-    tautMat.opacity = clamp(0.05 + flashK * 1.6, 0, 1.7);
-    tautMat.color.copy(loomBase).multiplyScalar(0.8 + flashK * 2.6);
+    // the flash: pale-gold, punching PAST 1.0 on the taut peak (toneMapped:false). As
+    // strain banks, the thread REDDENS toward danger (gold → hot amber-red) so a fully
+    // strained thread reads "about to snap" without a HUD counter.
+    const flashK = Math.max(tautK, strainFloor) * (0.9 + Math.sin(time * 40) * 0.1);
+    tautMat.opacity = clamp(0.05 + flashK * 1.6 + threadStrain * 0.4, 0, 1.7);
+    tautMat.color.copy(loomBase).lerp(_strainRed, threadStrain * 0.8).multiplyScalar(0.8 + flashK * 2.6);
 
     // --- THE SPINNERET CROWN: the arms sway in idle; on charge they TENSE (draw
     // inward toward the taut thread) — the telegraph SHAPE change. NEVER below
@@ -731,7 +888,7 @@ export function buildWeftwitch(def, quality = 1) {
     // the core stays white-hot whenever shown (floored) so the focal always punches
     // ≥250 for G1; it leashes by HIDING under shield/death, not by dimming.
     loomCoreMat.color.setScalar(CORE_HOT * Math.max(0.8, loomK) * (1 - clamp01((dyingK - 0.55) / 0.45)));
-    loomCore.visible = dyingK < 0.9 && !shieldClamp;   // leashes when invulnerable (G6)
+    loomCore.visible = loomSocket.visible = dyingK < 0.9 && !shieldClamp;   // leashes when invulnerable (G6)
     knotMat.emissiveIntensity = 0.7 * (0.85 + Math.sin(time * 1.1) * 0.12) * (1 + charge * 0.4) * (1 - dyingK * 0.7);
     // THE LOOM-EYE TRACKS (owner: "the white eye thing should follow us"). The white
     // core slides within the knot toward the player — a pupil in the chest-eye — and
@@ -739,16 +896,22 @@ export function buildWeftwitch(def, quality = 1) {
     // where it looks is where shots come from. Rides the same eased gaze as the hood/
     // hands (the lag is the charisma); stilled by death (the light stops looking).
     const eyeTrack = 1 - dyingK;
-    loomCore.position.set(gazeEX * 0.55 * eyeTrack, gazeEY * 0.4 * eyeTrack, 1.0);
-    loomHeart.rotation.y = gazeEX * 0.3 * eyeTrack;
-    loomHeart.rotation.x = -gazeEY * 0.22 * eyeTrack;
+    // reduced throw so the pupil stays inside the r=0.8 socket (never clears it onto the
+    // gold knot); the organ lean + the socket carry the rest of the "looking" read.
+    loomCore.position.set(gazeEX * 0.30 * eyeTrack, gazeEY * 0.22 * eyeTrack, 1.0);
+    loomHeart.rotation.y = gazeEX * 0.34 * eyeTrack;
+    loomHeart.rotation.x = -gazeEY * 0.26 * eyeTrack;
 
     // --- THE WEB: shudders on a hit (a ripple runs the threads); goes LIMP + drifts
     // DOWN on death (un-weaving — her mended arena comes undone). ---
-    threadPivot.rotation.z = Math.sin(time * 0.2) * 0.01 + painEase * Math.sin(time * 22) * 0.05;
-    threadPivot.position.y = 4.0 - dyingK * 8 + painEase * 0.4;   // the web sinks as it un-weaves
+    threadPivot.rotation.z = Math.sin(time * 0.2) * 0.01;   // gentle slow sway only — no hit-twitch (decoupled from the bust)
+    threadPivot.position.y = 4.0 - dyingK * 8;   // the web sinks as it un-weaves
     const webA = (1 - dyingK) * (shieldClamp ? 0.8 : 1);
-    webDimMat.opacity = 0.4 * webA; webHeroMat.opacity = 0.72 * webA;
+    // the gap-restitch glow brightens + hot-whitens the web as she re-weaves (rg=0 in idle
+    // → base look unchanged; peaks during the mend so the re-weave reads as an event).
+    const rg = restitchGlow;
+    webDimMat.opacity = (0.4 + rg * 0.45) * webA; webHeroMat.opacity = (0.72 + rg * 0.28) * webA;
+    webHeroMat.color.copy(webHeroBase).lerp(_restitchHot, rg * 0.75);
 
     // --- THE ORBITER MOTES drift around the loom (harvest bloom idle). ---
     for (const o of orbiters) {
@@ -770,11 +933,13 @@ export function buildWeftwitch(def, quality = 1) {
       threadPivot.scale.setScalar(0.2 + unfurl * 0.8);
     } else {
       threadPivot.scale.setScalar(1);
+      rig.position.y = 0;   // station: rig carries only the descent now (the bob lives on bustPivot) — pin to base
     }
 
-    // --- THE WEB MEETS THE WATER (fight-context-only; see setWaterPlane above).
-    // Runs LAST so the plane derives from this tick's final transforms (entrance
-    // scale, death sink, pain shudder all included). ---
+    // --- THE GAP-RESTITCH (phase seams) then THE WATER (fight-context-only).
+    // Restitch first (it writes the BASE), water last (it rewrites the attributes
+    // FROM base against this tick's final transforms) — the composition order. ---
+    updateRestitch(dt, time);
     updateWebSurface(time);
   }
 
@@ -789,7 +954,7 @@ export function buildWeftwitch(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
-    setEntrance, setEntranceSteer, setWaterPlane,
+    setEntrance, setEntranceSteer, setWaterPlane, fireBeam, cutThread, restitchWeb, setThreadStrain,
     setHealth: kit.setHealth, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     flash, hurt,

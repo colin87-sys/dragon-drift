@@ -382,29 +382,59 @@ const t214 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 8, y: 0 }, C: 
 check('T2.14 after a paint the reticle hops to the nearest unpainted organ',
   t214.count === 1 && t214.hud.aimPart === 'B');
 
-// T2.19 — PAINT COOLDOWN (PR4a, owner: "a bit spammy"): a dwell completed on organ B
-// within paintCooldown of painting A does NOT convert immediately — the reticle still
-// hops/aims instantly (only pip creation waits), and the held line converts via the
-// refresh clock the moment the cooldown clears. Organs 3m apart: B enters the acquire
-// cone the frame the paint-hop releases A, so the dwell on B completes at ~0.35s —
-// inside the 0.45s window (fixture geometry proves the gate, not the timings).
+// T2.19 — PAINT COOLDOWN, cut to 0.22 (< dwellTime 0.35) so NORMAL painting is
+// SNAPPY (owner playtest: "lag between each pip, hovering for ages"). A second
+// organ's full dwell (0.35s) completes AFTER the 0.22 cooldown from the first
+// paint has already cleared, so consecutive pips flow at the dwell cadence — no
+// extra wait. (The cooldown now only survives as a light spam floor for a
+// FOCUS-fast paint, where the halved dwell can finish inside it.)
 const t219 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 3, y: 0 } },
   candidates: ['A', 'B'],
   frames: [
-    { dt: 0.06, n: 6, px: 0 },   // paint A lands ON frame 6 (0.36s) — cooldown starts FRESH
-    { dt: 0.06, n: 6, px: 3 },   // 0.36s on B: dwell completes with 0.09s cooldown left → blocked
+    { dt: 0.06, n: 6, px: 0 },   // paint A on frame 6 (0.36s) — cooldown (0.22) starts
+    { dt: 0.06, n: 8, px: 3 },   // ~0.48s on B: dwell (0.35) completes after the cooldown cleared → paints
   ] });
-check('T2.19 a second paint cannot land inside paintCooldown (aim still hops)',
-  t219.count === 1 && t219.hud.aimPart === 'B');
-const t219b = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 3, y: 0 } },
-  candidates: ['A', 'B'],
-  frames: [
-    { dt: 0.06, n: 6, px: 0 },   // paint A (cooldown starts fresh)
-    { dt: 0.06, n: 14, px: 3 },  // 0.84s on B: cooldown (0.45) clears mid-hold → refresh clock converts
-  ] });
-check('T2.19 the held line converts right after the cooldown clears',
-  t219b.count === 2 &&
-  t219b.events.filter((e) => e.name === 'lockPaint').length === 2);
+check('T2.19 a normal second paint flows at the dwell cadence (no cooldown lag)',
+  t219.count === 2 && t219.events.filter((e) => e.name === 'lockPaint').length === 2);
+
+// T2.20 — STACK IN PLACE (owner playtest: "there's a target right here but it
+// won't let me paint / a lag between the 1st and 2nd eye pip"). On a tier-3 boss a
+// painted organ with stack room stays ACTIONABLE, so the in-cone override keeps the
+// reticle on it and the held line stacks it to stackMax with NO hop/embargo between
+// the pips — then it hops onward once full. (Tier-2 organs never stack, so T2.14/
+// T2.15/T2.18's hop-after-paint is unchanged — the override is tier-3 only.)
+const t220 = await runLock({ organs: { eye: { x: 0, y: 0 }, rib: { x: 12, y: 0 } },
+  candidates: ['eye', 'rib'], paintables: ['eye', 'rib'], tier: 3, cap: 5,
+  frames: [{ dt: 0.06, n: 20, px: 0 }] });   // sit on the eye ~1.2s
+check('T2.20 tier-3: holding the eye stacks it to 2 pips IN PLACE (no lead-away, no lag)',
+  t220.count === 2 &&
+  t220.events.filter((e) => e.name === 'lockPaint' && e.part === 'eye').length === 2 &&
+  t220.events.some((e) => e.name === 'lockPaint' && e.stacked));
+const t220b = await runLock({ organs: { eye: { x: 0, y: 0 }, rib: { x: 12, y: 0 } },
+  candidates: ['eye', 'rib'], paintables: ['eye', 'rib'], tier: 3, cap: 5,
+  frames: [{ dt: 0.06, n: 24, px: 0 }] });   // eye fills → the reticle advances to the rib
+check('T2.20 once the eye is stacked full, the reticle hops onward to the unpainted rib',
+  t220b.hud.aimPart === 'rib');
+
+// T2.21 — LEAVING A FIGHT DROPS fightRunning (owner playtest: the reticle was
+// drawn "locked" over the NEXT boss's slow-mo entrance). updateLockLayer only runs
+// in phase 'fight', so a stale fightRunning=true couldn't be refreshed during the
+// entrance — clearLocks must reset it (and hasOrgan) so lockHudState().active is
+// false through the cinematic.
+const t221 = await page.evaluate(async () => {
+  const mod = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+  mod.initLockLayer();
+  const model = { partWorldPos: (n, o) => { o.x = 0; o.y = 0; o.z = 0; return o; }, flash() {} };
+  const ctx = { fightRunning: true, model, candidates: ['A'], paintables: ['A'], tier: 2, cap: 3,
+    phaseHp: 100, paintUnlocked: true, amberVenting: () => false, fireLance() {} };
+  mod.updateLockLayer(0.1, { position: { x: 0, y: 0 } }, ctx);
+  const inFight = mod.lockHudState().active;
+  mod.clearLocks('transition');   // leave the fight (boss.js does this on teardown)
+  const afterClear = mod.lockHudState().active;
+  return { inFight, afterClear };
+});
+check('T2.21 clearLocks drops fightRunning → no stale reticle into the next entrance',
+  t221.inFight === true && t221.afterClear === false);
 
 // ---------------------------------------------------------------------------
 // PR3 — V3 SURGE FORK / AIMED UNLEASH (T3.x). The manual-loose state-machine path

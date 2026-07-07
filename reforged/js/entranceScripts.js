@@ -259,6 +259,83 @@ export const ENTRANCE_SCRIPTS = {
     // NO camera fn: the camera STAYS FORWARD (§5j uniqueness ruling — the glance-back is
     // the copy quoting you, never a rear-view hijack). Bullet-time carries the hijack.
   },
+
+  // KARNVOW — IT KEPT COUNT (§5j slot 9). The duelist FADES IN already riding at
+  // your shoulder (rel ROCK-STEADY through the whole hold — any rel change would
+  // read as slot 3's spent overtake), the cowl turned to you while the stat-taunt
+  // lands (boss.js's def.statTaunt seam quotes your REAL ledger and flares the
+  // top-killer charm mid-hold — the §5j escalation hinge), then WITHOUT breaking
+  // pace the lance snaps low→POINT, it cuts in for a shoulder-brush, wheels, and
+  // settles. Zero shots here (Mantis rule); the ONE hold-breaker shot is a
+  // SEPARATE beat inside the reveal hold (def.holdBreaker, boss.js).
+  itKeptCount: {
+    dur: 2.4,                  // ~3.3s wall under the shallow dilate — room for the taunt AND a real wheel
+    skipTo: 0.76,              // a tap fast-forwards to the point + cut-in
+    anchorToDragon: true,      // it rides at YOUR shoulder (snapshot the dragon's x/y)
+    initYaw: Math.PI,          // flies your heading on the fade-in (a rider, not a face-off)
+    eyeLock: false,            // the cowl-track is model-side (setGaze) — no pupil hijack
+    announce: { title: '⟢  AT YOUR SIDE  ⟢', sub: 'IT KEPT COUNT', tone: 'gold', dur: 2.0 },
+    slowWindow: { uIn: 0.22, uOut: 0.72, depth: 0.5 },   // SHALLOW dilate — a held breath, not a dive
+    U: { U1: 0.25, U2: 0.68, U3: 0.80 },
+    _seg(u, u0, u1) { return easeInOut(clamp01((u - u0) / (u1 - u0))); },
+    path(u, ctx) {
+      const { AX, AY, S, B } = ctx, { U1, U2, U3 } = this.U, seg = (a, b) => this._seg(u, a, b);
+      // rel holds DEAD STEADY at 16 through the fade-in + hold + point; only the
+      // final settle recedes to station (receding = taking post, never a pull-ahead).
+      // Ride height AY+4: ABOVE the wing line (the owner's screenshot: at +2.5 the
+      // dragon's wing crowded the frame and cropped him at the edge).
+      let x, y, rel = 16;
+      if (u < U1) { const t = seg(0, U1); x = AX + S * L(14, 11.5, t); y = AY + L(4.6, 4.0, t); }         // fade in, drawing level
+      else if (u < U2) { const t = seg(U1, U2); x = AX + S * (11.5 + Math.sin(t * Math.PI) * 0.8); y = AY + 4.0; }   // the HOLD (a shallow flank slew)
+      else if (u < U3) { const t = seg(U2, U3); x = AX + S * L(11.5, 6, t); y = AY + L(4.0, 3.0, t); }    // the CUT-IN (the shoulder-brush)
+      else { const t = seg(U3, 1); x = L(AX + S * 6, 0, t); y = L(AY + 3.0, B.fightHeight, t); rel = L(16, B.settleGap, t); }   // wheel + settle
+      return { x, y, rel };
+    },
+    tuck() { return 0; },
+    // THE FACING ARC (owner catch: "materialises with his back to us, then a hop
+    // spin"): he fades in on your heading (π), angles IN to a THREE-QUARTER ride
+    // (0.62π — cowl, glint and festoon all read through the hold), then wheels the
+    // remaining ~112° to face you across the WHOLE settle leg (U3 0.80 → 1.0,
+    // ~0.65s wall — a carving turn, not a snap).
+    yaw(u) {
+      const { U1, U3 } = this.U, seg = (a, b) => this._seg(u, a, b);
+      const ride = Math.PI * (1 - 0.38 * seg(0, U1));
+      return u < U3 ? ride : ride * (1 - seg(U3, 1));
+    },
+    // The wheel BANKS — a rider carves its turn (routed to cineRoll by the driver;
+    // sin envelope = level at both ends, so the station handoff stays square).
+    roll(u) {
+      const { U3 } = this.U, seg = (a, b) => this._seg(u, a, b);
+      return -Math.sin(seg(U3, 1) * Math.PI) * 0.35;
+    },
+    // The COWL tracks the dragon the whole ride (the model's setGaze turns the hood
+    // + the eye — the hunter sizing you up while it quotes your deaths).
+    gaze(u, ctx, pose, player) {
+      const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+      return { gx: clamp(-dx / 5, -1, 1), gy: clamp(dy / 5, -1, 1) };
+    },
+    onStart(model) { model.setEntrance?.(0); model.holdFootwork?.(true); },   // born from nothing; the dart machine sleeps
+    onFrame(u, ctx, pose, player, model) {
+      const { U2, U3 } = this.U;
+      // FADE-IN materialise over the first quarter — setEntrance is VISIBILITY-ONLY
+      // (the kit dissolve is a death effect and ghost-washes the paint; gate catch).
+      model.setEntrance?.(this._seg(u, 0, 0.22));
+      // FOOTWORK SLEEPS through the cinematic (the hop fix): the lance-point beat
+      // below trips the dart machine's strike-sidestep rising edge otherwise —
+      // the owner's "hop spin". Released on the final frame (fight handoff).
+      model.holdFootwork?.(u < 0.995);
+      // The lance SNAP low→POINT on the U2 beat (the §4b charge-tell — the amber tip
+      // ignites), held through the cut-in, released as it wheels to station. Runs
+      // AFTER the driver's setCharge(0), so this write wins the frame.
+      const point = u < U2 ? 0 : u < U3 ? this._seg(u, U2, U2 + 0.06) : 1 - this._seg(u, 0.94, 1);
+      model.setCharge?.(point);
+    },
+    // Camera look-target biased toward the lane centre (×0.78): he sits at the frame
+    // THIRD, whole figure in frame — dead-centred on pose.x pinned him (and the
+    // dragon's wing) at the screen edge (the owner's screenshot).
+    camera(u, pose, player) { return { k: u, bx: pose.x * 0.78, by: pose.y, bz: -(player.dist + pose.rel) }; },
+  },
+
   // KNELLGRAVE — IT LIFTS ITS HEAD (§5j slot 10, hijack ~2.6s @0.30 dilate). The music
   // is ALREADY DEAD (killed on the warn-end toll, before this script starts) — the
   // whole entrance plays in the new silence, sold by the toll alone. The bell sweeps
@@ -302,6 +379,49 @@ export const ENTRANCE_SCRIPTS = {
       return {
         k: u, bx: pose.x, by: pose.y - 3 + home * 3, bz: -(player.dist + pose.rel),
         pivot: 0.26 * (1 - home), blend: 0.30, fov: L(78, 72, home),
+      };
+    },
+  },
+  // WEFTWITCH — THE MENDED BANNER (§5j slot 11, hijack ~2.4s @0.35 dilate). Her
+  // granted rule-break plays OUTSIDE the scene graph: golden threads lace the HUD
+  // chrome and the warn banner is cross-stitched + PINNED half-deployed (both
+  // driven by boss.js on def.hudSew — the sew runs ONLY in this bullet-free
+  // window; the banner tears free at enterFight). In-world she descends on a
+  // single thread: the script HOLDS the group at station and the model's own
+  // setEntrance clock poses the drop (rig y = (1−u)·22) + unfurls the web from
+  // u≈0.4 — so the descent, the web bloom, and the HUD stitching all land as one
+  // gesture. THE DROP (u<0.45): she lowers, watching you. THE LASH (0.45–0.68):
+  // bullet-time dwell — the banner is stitched, the web blooms. THE SETTLE:
+  // the sway damps and she takes her station at the hub.
+  mendedBanner: {
+    dur: 1.7,                  // ~2.4s wall under the @0.35 lash dilate
+    skipTo: 0.8,               // a tap fast-forwards to the settle (web stays bloomed)
+    anchorToDragon: false,     // the loom owns the lane centre; the drop is station-fixed
+    initYaw: null,             // placeGroup's face-player default (a descent has no dive line)
+    eyeLock: false,
+    announce: { title: '◯  ABOVE  ◯', sub: 'THE MENDED BANNER', tone: 'gold', dur: 2.2 },
+    slowWindow: { uIn: 0.45, uOut: 0.68, depth: 0.35 },   // the lash dwells here
+    path(u, ctx) {
+      const { B } = ctx;
+      // Station-holding: x sways like a plumb line on a thread (damping with u);
+      // rel eases in from deep so she resolves out of the sky, not a pop-in.
+      const sway = Math.sin(u * 7.0) * 2.2 * (1 - u);
+      return { x: sway, y: B.fightHeight, rel: L(B.settleGap + 14, B.settleGap, easeInOut(clamp01(u * 1.6))) };
+    },
+    tuck() { return 0; },      // the descent choreography is model-side (setEntrance)
+    yaw() { return 0; },       // she faces the lane square — the loom is the frame
+    // She watches you through the whole drop (the loom-eye + hood + hands track
+    // DOWN at the player rising to meet her, easing level as she settles).
+    gaze(u) { return { gx: 0, gy: -0.7 * (1 - u) }; },
+    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
+    onStart(model) { model.setEntrance?.(0); },
+    // Camera: pitch gently UP at the descending weaver (she rides in high on the
+    // rig offset), easing home through the settle — no rear view.
+    camera(u, pose, player) {
+      const home = clamp01((u - 0.66) / 0.34);
+      return {
+        k: u, bx: pose.x, by: pose.y - 2.5 + home * 2.5, bz: -(player.dist + pose.rel),
+        pivot: 0.22 * (1 - home), blend: 0.28, fov: L(77, 72, home),
       };
     },
   },
