@@ -897,3 +897,58 @@ await done();
   check('no console errors (hollowgate boot)', b2.errors.length === 0) || console.error(b2.errors.join('\n'));
   await b2.done();
 }
+
+// ---------------------------------------------------------------------------
+// PR8 third boot — Eternal wisp cosmetic: an Eternal-form SSSR dragon flies its
+// personal accent while the white core/head stays white (the bullet legibility
+// anchor); a non-Eternal dragon keeps the shipped jade. Colour is display-only
+// (damage is a separate arg) so nothing about behaviour is asserted here — only
+// the live ribbon/head material colours + the brand rune.
+// ---------------------------------------------------------------------------
+{
+  const b3 = await boot({ query: '?debug&boss=180' });
+  const p3 = b3.page;
+  await p3.evaluate(async () => {
+    const gt = await import(new URL('./js/gestureTutorial.js', document.baseURI).href);
+    gt.skipGestureTutorial();
+  });
+  await p3.click('#btn-start');
+  await p3.waitForFunction(() => window.__dd && window.__dd.game.state === 'playing', { timeout: 8000 });
+
+  // Equip Phoenix Ascendant at its Eternal form (ascension tier 3) and re-push the
+  // cosmetic. Phoenix's amber (0xff7a1a) is deliberately a "reserved-hue" case —
+  // it proves the white head/core keeps it legible even in a role-adjacent colour.
+  const t81 = await p3.evaluate(async () => {
+    const dg = await import(new URL('./js/dragons.js', document.baseURI).href);
+    window.__dd.save.skins.equipped = 'phoenix';
+    window.__dd.save.ascension.tiers = [['phoenix', 3]];
+    window.__dd.refreshWispCosmetic();
+    const wc = window.__dd.wispColors();
+    return { def: dg.DRAGONS.phoenix.lanceTint, rune: dg.DRAGONS.phoenix.lanceRune,
+      RUNES_ok: true, tint: window.__dd.wispTint(), wc, markRune: window.__dd.markRune() };
+  });
+  check('T8.1 Eternal Phoenix: wisp tint === its lanceTint (amber accent pushed)',
+    t81.tint === t81.def && t81.wc && t81.wc.ribbonHex === t81.def);
+  check('T8.1b Eternal Phoenix: the white head stays 0xeafff6 (legibility anchor unchanged)',
+    t81.wc && t81.wc.headHex === 0xeafff6);
+  check('T8.1c Eternal Phoenix: the brand rune swapped to a per-dragon sigil (not the shared rune)',
+    typeof t81.markRune === 'string' && t81.markRune.length > 0 &&
+    t81.markRune !== 'M12 2 L20 12 L12 22 L4 12 Z M12 6 V18 M7.5 12 H16.5');
+
+  // Equip a starter (SSR, caps at Radiant/form 2) → NOT Eternal → the jade wisp +
+  // the shared rune return. Proves the gate is form-locked, not merely dragon-keyed.
+  const t82 = await p3.evaluate(async () => {
+    window.__dd.save.skins.equipped = 'azure';
+    window.__dd.save.ascension.tiers = [['azure', 2]];
+    window.__dd.refreshWispCosmetic();
+    return { tint: window.__dd.wispTint(), ribbonHex: window.__dd.wispColors()?.ribbonHex,
+      markRune: window.__dd.markRune() };
+  });
+  check('T8.2 non-Eternal starter: wisp reverts to jade 0x50ffaa (ribbon + pushed tint)',
+    t82.tint === 0x50ffaa && t82.ribbonHex === 0x50ffaa);
+  check('T8.2b non-Eternal starter: brand rune reverts to the shared wyrm rune',
+    t82.markRune === 'M12 2 L20 12 L12 22 L4 12 Z M12 6 V18 M7.5 12 H16.5');
+
+  check('no console errors (eternal-wisp boot)', b3.errors.length === 0) || console.error(b3.errors.join('\n'));
+  await b3.done();
+}
