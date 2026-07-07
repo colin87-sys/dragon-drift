@@ -7184,3 +7184,39 @@ parry ladder's premium tier is getting crowded; if a fourth lands, split rewards
 CONTEXT (venting-organ parry → brand; clean parry → heal) instead of stacking. Deferred:
 Calamities lockParts (own PR, each tier-3 invuln state must join lockDeflected), V5 focus +
 E1 beat-release (beatWindow/beatMult still inert), audio bus duck, per-dragon wisp tint.
+
+### L189 — LANCE PR5 shipped (V5 focus + E1 beat-release): the last dead-wired verbs, and the gesture space was already partitioned
+
+**Did.** The two remaining dormant LANCE verbs, both pure seam-filling: (1) **V5 FOCUS** — holding
+a STILL extra finger past `focusArmMs` (300ms; keyboard: hold F — Space can't carry it because the
+surge tap fires on Space KEYDOWN, the zero-latency LAW) halves the effective dwell threshold
+(`focusDwellMult` on the threshold + refresh clock, never the accrual clamps, so dropping focus
+keeps earned progress); the HUD dwell fraction uses the same effective need (display==logic);
+the focus RING gets its third job (idle circle → surge meter → jade-warming focus tint,
+render-only `focusVis` ease). (2) **V3.E1 PERFECT RELEASE** — a MANUAL loose ('tap' source only;
+auto cap/decay releases are not the player's timing and never claim it) within ±`beatWindow` of a
+`getBeatClock()` beat edge rides `beatMult` — applied INSIDE the ROI clamp (`lanceDmgEach` gained
+a mult arg; the 10%-of-phase-hp ceiling stays absolute) — plus `perfectReleaseScore` and the
+"ON THE BEAT" callout. Teach: `driveFocusTeach` on EITHERWING (the fast-orbit seeker organs are
+what focus is FOR), retired by performing the hold ≥0.8s anywhere.
+
+**The design finds.** (1) **The 2nd-finger gesture space was already fully partitioned by
+duration+motion**: <260ms still = surge tap, sustained horizontal = roll, ≥260ms hold = boost —
+and boost is SUSPENDED in fights, so the ≥300ms still-hold was a free, collision-proof slot;
+the 260→300ms dead band is load-bearing hysteresis (a late-released tap must never alias into
+focus — config had encoded this as a LAW comment for four PRs). Level-read the gesture per frame
+(`focusHeldNow()` scans finger ages), never latch it — no stale state, no event-ordering bugs.
+(2) **A rate-knob's SIGN needs its consumer**: `focusDwellMult: 0.5` reads as "slower" beside
+`quietDwellMult: 0.5` (a penalty) — only the threshold reading makes focus a buff. When reserving
+paired constants, name the operand (`focusDwellNeedMult` would have been unambiguous).
+(3) **Beat bonuses go INSIDE hard clamps**: ×1.25 after the ROI clamp would breach audit R1;
+inside, it only matters when the clamp isn't binding — the law stays absolute and the test
+asserts it at a 30hp phase.
+
+**→ Leapfrog.** The combat-verbs arc's SOP ladder (V1 aim → V2 paint → V3 tap/fork/loose →
+V4 snap-parry → V5 focus + E1) is now FULLY SHIPPED — every reserved config LAW, save bit, and
+stub export from PR1 has a live consumer. What remains for the layer is data + polish, not verbs:
+Calamities lockParts (each tier-3 invuln state joins lockDeflected), the slot-14 exam rules,
+tether LineSegments, feats/analytics, the lockdps persona sim, audio bus duck, per-dragon wisp
+tint + rune sigils (Eternal cosmetics). The old SOP pinned E1 to "slots 10+" (unbuilt); it
+shipped globally as pure upside — flagged for the owner to slot-gate if band identity wants it.
