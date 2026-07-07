@@ -758,10 +758,15 @@ for (const key of BOSS_ORDER) {
     const slitMesh = kn.group.getObjectByName('knellSlit');
     kn.setHealth(1.0);
     for (let s = 0; s < 10; s++) kn.tick(0.05, 400 + s * 0.05);
-    const fullW = slitMesh.scale.x;
-    kn.setHealth(0.25);
-    for (let s = 0; s < 10; s++) kn.tick(0.05, 401 + s * 0.05);
-    assert(slitMesh.scale.x > fullW + 0.6, `knellgrave RUIN LADDER: the crack gapes as hp falls (slit scale ${slitMesh.scale.x.toFixed(2)} > ${fullW.toFixed(2)} + 0.6 at hp 0.25 — the bell opens across the fight)`);
+    const fullW = slitMesh.scale.x, fullH = slitMesh.scale.y;
+    // step the ruin ladder phase by phase — each phase must gape WIDER AND LONGER than
+    // the last (the owner's playtest note: the crack must visibly grow every phase, not
+    // just at the finale). Length is the felt lever — the fissure PROPAGATES up/down the bell.
+    const gape = (frac) => { kn.setHealth(frac); for (let s = 0; s < 10; s++) kn.tick(0.05, 401 + frac + s * 0.05); return { w: slitMesh.scale.x, h: slitMesh.scale.y }; };
+    const p2 = gape(0.70), p3 = gape(0.45), p4 = gape(0.25);
+    assert(p2.w > fullW && p3.w > p2.w && p4.w > p3.w, `knellgrave RUIN LADDER widens every phase (slit W ${fullW.toFixed(2)}→${p2.w.toFixed(2)}→${p3.w.toFixed(2)}→${p4.w.toFixed(2)} — monotonic per-phase gape)`);
+    assert(p2.h > fullH && p3.h > p2.h && p4.h > p3.h, `knellgrave RUIN LADDER PROPAGATES every phase (slit LENGTH ${fullH.toFixed(2)}→${p2.h.toFixed(2)}→${p3.h.toFixed(2)}→${p4.h.toFixed(2)} — the fissure runs further up/down the bell each phase)`);
+    assert(p4.w > fullW + 0.6, `knellgrave RUIN LADDER: the crack gapes as hp falls (slit scale ${p4.w.toFixed(2)} > ${fullW.toFixed(2)} + 0.6 at hp 0.25 — the bell opens across the fight)`);
     kn.setHealth(1.0);
   }
 

@@ -7316,3 +7316,27 @@ tool (`tools/knellshot.mjs` — entrance-apex / loom / toll / reveal frames).
 7. **A sealed survival card adds its timer to every timing budget**: the lifecycle kill time
    grew 135.7→172.9s and the bossrush gauntlet sim cap needed 980→1150s (still under the §5h
    ≤20min contract). Budget sims BEFORE adding a seal, or CI cries wolf.
+
+### L192 — KNELLGRAVE ruin ladder: grow the crack by LENGTH, not WIDTH (width is the jank axis; clamp it, propagate the fissure)
+The owner playtested the shipped ladder and said the crack "doesn't get bigger phase by phase."
+Diagnosis: the growth was all in `slit.scale.x` at `ruinK*0.85` — 1.26/1.47/1.64/1.85 across the
+four phases, a spread too small to feel, and one I couldn't just crank because the CP2.4 jank
+(the ribbon reading as a wall of white up close) is WIDTH-driven — past ~2.5× the fissure stops
+looking like a crack. The fix separates the two axes:
+1. **Length is the felt, jank-free growth lever.** `slit.scale.y` was flat (`1 + dreadK*0.08`);
+   driving it with `ruinK*0.95` makes the fissure PROPAGATE up/down the bell each phase
+   (1.29→1.52→1.71→1.95). Because the ribbon tapers to POINTS at both ends, stretching it
+   lengthens the taper — it stays a connected glowing crack at every scale, never a rectangle.
+   Length has no white-wall failure mode, so ruin can drive it freely.
+2. **Width is the jank axis — clamp it, don't ramp it.** Keep `dreadK*0.6` (so the dread reveal
+   still gapes hard, which the geometry test asserts as `> restW + 0.5`) but wrap the whole
+   width term in `Math.min(…, 2.5)`. The P4 reveal (ruinK≈dreadK≈1) wants 2.75× and gets clamped
+   to 2.5× — it can never re-cross the jank threshold, while length keeps climbing underneath.
+3. **Assert MONOTONIC-per-phase, not just endpoint.** The old ruin test only checked hp 1.0 vs
+   0.25. That passes even if all the growth is a single late jump — exactly the "doesn't grow
+   phase by phase" complaint. The new test steps 0.70→0.45→0.25 and asserts each gape (both W
+   AND the new LENGTH) strictly exceeds the last. An endpoint delta is not a ladder.
+Gotcha: `ruinK` is the SAME signal at the P4 station view (far, dreadK=0) and the P4 dread reveal
+(close, dreadK=1) — you cannot make the finale's length "calmer" than the per-phase growth,
+because the crack being fully-propagated at P4 IS the endpoint of that growth. That's correct,
+not a bug: the reveal is the ladder's top rung, not a separate effect.

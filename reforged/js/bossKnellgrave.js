@@ -716,18 +716,21 @@ export function buildKnellgrave(def, quality = 1) {
     const gutter = 0.82 + Math.sin(time * gutterRate) * 0.1 + Math.sin(time * gutterRate * 1.7 + 2) * 0.06;
     // dread reveal is the GAPE + the lit figure, NOT brightness (Fable CP1: a brighter
     // bar just reads "lamp turned up") — so the slit brightens only modestly on dread.
-    let slitK = gutter * (1 + charge * 0.5 + noticeK * 0.4 + dreadK * 0.28 + ruinK * 0.18);
+    let slitK = gutter * (1 + charge * 0.5 + noticeK * 0.4 + dreadK * 0.28 + ruinK * 0.35);
     if (shieldClamp) slitK *= 0.09;   // the toll organ leashes HARD while sealed — the slit core drops below the
                                        // bloom threshold so the focal cluster shrinks (G6: the bell can't ring while sealed)
     if (dyingK > 0) slitK *= Math.max(0, 1 - dyingK * 1.4);   // guttering out
     slitMat.color.copy(SLIT_BASE).multiplyScalar(Math.max(0.05, slitK) * SLIT_HOT);
-    // the crack GAPES WIDER as the fight progresses (the RUIN LADDER: a thin line in
-    // P1 → a flood by The Last Toll) and further on dread (the reveal is the widening
-    // gap the prisoner strains against, not a floodlight). Width grows more than glow.
-    // gape CAP (CP2.4): the flood read comes from width ~2.5× + the lit figure —
-    // wider turned the ribbon into a wall of white up close (the owner's jank note).
-    slit.scale.set(1 + ruinK * 0.85 + dreadK * 0.6 + charge * 0.12, 1 + dreadK * 0.08, 1);
-    ember.scale.set(1 + ruinK * 0.6 + dreadK * 0.45, 1, 1);
+    // the crack PROPAGATES as the fight progresses (the RUIN LADDER: a hairline in P1 →
+    // a splitting fissure by The Last Toll). The felt per-phase growth is LENGTH — the
+    // crack runs further up/down the bell each phase (scale.y) — because WIDTH past ~2.5×
+    // turns the ribbon into a wall of white up close (the owner's CP2.4 jank note, which
+    // was width-driven). So ruin drives LENGTH freely (no jank) and width moderately;
+    // dread adds the final reveal gape the prisoner strains against. The combined WIDTH is
+    // HARD-CLAMPED to 2.5× so the P4 reveal (ruinK≈dreadK≈1) can never re-cross the jank
+    // threshold, while length is free to keep propagating.
+    slit.scale.set(Math.min(1 + ruinK * 1.15 + dreadK * 0.6 + charge * 0.12, 2.5), 1 + ruinK * 0.95 + dreadK * 0.08, 1);
+    ember.scale.set(Math.min(1 + ruinK * 0.9 + dreadK * 0.45, 2.3), 1 + ruinK * 0.7, 1);
     // the sprung wall plates LIFT off the seam as the bell comes apart.
     plateMesh.scale.setScalar(1 + ruinK * 0.05);
     // CP2 gate item 5a: during the overhead ride (the dread reveal drops the pose to
