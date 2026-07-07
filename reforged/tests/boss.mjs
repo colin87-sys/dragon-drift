@@ -356,6 +356,33 @@ for (const key of BOSS_ORDER) {
   ok('ashtalon telegraph: setCharge(1) mantles the scythe-wings (silhouette change)');
 }
 
+// ONEWING (slot 12) — the telegraph gate + the §5d/§3b named anatomy. The vast
+// LIVING wing MANTLES on charge (the silhouette tell); the anti-read/carrier parts
+// (the atrophied stub, the fused frame, the one eye) each exist by name.
+{
+  const one = buildBoss(BOSSES.onewing, 1);
+  // Named anatomy the telegraph/design/studio gates locate by name.
+  for (const n of ['wingPivot', 'stubPivot', 'frameGroup', 'onewingEye', 'frameRim']) {
+    assert(findAllByName(one.group, n).length === 1, `onewing exposes exactly one ${n}`);
+  }
+  const wing = findAllByName(one.group, 'wingPivot')[0];
+  const blades = findAllByName(one.group, 'bladePivot');
+  assert(blades.length >= 6, `onewing exposes ≥6 named bladePivots on the vast wing (${blades.length})`);
+  // Settle the idle sag/sway, snapshot, then charge: the wind-up is the MANTLE —
+  // the vast wing draws up (shoulder rotates) AND the fan spreads. Assert the SHAPE
+  // moved, not colour.
+  for (let i = 0; i < 40; i++) one.tick(0.05, i * 0.05);
+  const preShoulder = wing.rotation.z;
+  const preFan = blades.map((b) => b.rotation.z);
+  one.setCharge(1);
+  for (let i = 0; i < 30; i++) one.tick(0.05, 2 + i * 0.05);
+  assert(Math.abs(wing.rotation.z - preShoulder) > 0.1, `onewing mantle: the vast wing shoulder rotated on charge (Δ ${(wing.rotation.z - preShoulder).toFixed(2)})`);
+  const fanMoved = blades.filter((b, i) => Math.abs(b.rotation.z - preFan[i]) > 0.05).length;
+  assert(fanMoved >= 4, `onewing mantle: ${fanMoved} blade pivots re-fanned on charge (need ≥4 — silhouette change)`);
+  one.dispose();
+  ok('onewing telegraph: setCharge(1) mantles the vast wing (silhouette change); stub/frame/eye named');
+}
+
 // MARROWCOIL (slot 4) — the telegraph gate + the §5d/§7b per-sheet geometry
 // asserts the build sheet declares: ribcage thread clearance, vertebra pitch >
 // width (separate bones, not a sausage), and the coil-sweep lateral amplitude.
@@ -1660,6 +1687,85 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// --- 4b. THE LYING FELLED CARD (§5f slot 12 ONEWING — the roster's ONLY health-bar
+// lie): on the killing blow it fakes death, then ≤35% of the bar RETURNS within ≤2s
+// and it fights on CRIPPLED to a REAL second kill. The lie fires at most ONCE, and is
+// completely INERT for every other def (no other boss may ever opt in). ---------------
+{
+  const lies = [], revives = [];
+  on('bossFelledLie', (e) => lies.push(e));
+  on('bossFelledRevive', (e) => revives.push(e));
+
+  // Assert the flag is ONEWING-exclusive at the data layer (the roster's one lie).
+  const optedIn = BOSS_ORDER.filter((k) => BOSSES[k].felledLie);
+  assertEq(optedIn.length, 1, `exactly ONE def opts into the health-bar lie (${optedIn.join(',') || 'none'})`);
+  assertEq(optedIn[0], 'onewing', 'the lone health-bar lie belongs to ONEWING (slot 12)');
+
+  // Drive a full ONEWING kill: the lie must fire exactly once, return ≤35% within ≤2s,
+  // and the boss must still reach a REAL death (the second kill).
+  lies.length = 0; revives.length = 0;
+  const rOne = driveKill(BOSS_ORDER.indexOf('onewing'));
+  assert(rOne.killed, 'ONEWING still reaches a REAL death after the lie (the second kill lands)');
+  assertEq(lies.length, 1, `the lie fires exactly ONCE per encounter (fired ${lies.length}×)`);
+  assertEq(revives.length, 1, `the lie resolves exactly once (revives ${revives.length}×)`);
+  assert(revives[0].frac > 0 && revives[0].frac <= 0.35 + 1e-6,
+    `≤35% of the bar returns (returned ${(revives[0].frac * 100).toFixed(0)}%)`);
+  assert(revives[0].dur <= 2.0,
+    `the lie resolves within ≤2s (${revives[0].dur.toFixed(2)}s — the crippled silhouette stays MOVING, trust restored fast)`);
+
+  // Drive a NON-opted boss (voidmaw): the lie path is completely inert — a byte-identical
+  // plain death, zero lie/revive events.
+  lies.length = 0; revives.length = 0;
+  const rV = driveKill(BOSS_ORDER.indexOf('voidmaw'));
+  assert(rV.killed, 'voidmaw dies on the plain death path');
+  assertEq(lies.length, 0, `the lie is INERT for a non-opted def (voidmaw fired ${lies.length} lies)`);
+  assertEq(revives.length, 0, `no revive for a non-opted def (voidmaw ${revives.length})`);
+
+  ok('lying FELLED card: ONEWING-only, ≤35% returns within ≤2s, fires once, real second kill; inert for others');
+}
+
+// --- 4c. THE NO-WARN ARRIVAL BREAK (§5j slot 12 ONEWING, def.noWarn): the DANGER
+// banner is SUPPRESSED pre-fight and fires WITH the eruption (fight start) — no warning
+// until it erupts. Every other def keeps the pre-fight warning banner. -----------------
+{
+  const origWarn = ui.bossWarning;
+  const warnAt = [];
+  ui.bossWarning = () => { warnAt.push(boss.bossDebugState().phase); };
+  const driveToFight = (idx) => {
+    warnAt.length = 0;
+    game.reset(); game.state = 'playing'; game.health = 1e9;
+    const player = makePlayer();
+    boss.forceBoss(player, idx);
+    let t = 0, sawWarn = false, sawFight = false;
+    for (let i = 0; i < 60 * 30 && !sawFight; i++) {
+      const dt = 1 / 60; t += dt; player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+      const ph = boss.bossDebugState().phase;
+      if (ph === 'warn') sawWarn = true;
+      if (ph === 'fight') sawFight = true;
+      boss.updateBoss(dt, player, t);
+    }
+    return { sawWarn, sawFight };
+  };
+
+  // ONEWING (noWarn): the banner must NOT fire during 'warn'; it fires at/after the
+  // eruption (fight). Assert exactly one banner and it lands on the fight, not the warn.
+  const rn = driveToFight(BOSS_ORDER.indexOf('onewing'));
+  assert(rn.sawWarn && rn.sawFight, 'onewing passed warn → fight in the sim');
+  assert(warnAt.length >= 1, 'onewing fires its DANGER banner (deferred, not suppressed entirely)');
+  assert(!warnAt.includes('warn'), `onewing's no-warn banner never fires during 'warn' (fired at: ${warnAt.join(',')})`);
+  assert(warnAt.includes('fight'), `onewing's banner fires WITH the eruption (fight) — got ${warnAt.join(',')}`);
+
+  // A normal boss (voidmaw) keeps the PRE-FIGHT warning banner (fires during 'warn').
+  boss.resetBoss();
+  const rv = driveToFight(BOSS_ORDER.indexOf('voidmaw'));
+  assert(rv.sawWarn, 'voidmaw passed through warn');
+  assert(warnAt.includes('warn'), `voidmaw keeps the pre-fight warning banner (fired at: ${warnAt.join(',')})`);
+
+  ui.bossWarning = origWarn;
+  boss.resetBoss();
+  ok('no-warn arrival break: ONEWING banner fires WITH the eruption (never during warn); other bosses warn early');
 }
 
 // --- 5. KARNVOW CP2 — the entrance-script data law + the riposte/stare-down live drive.
