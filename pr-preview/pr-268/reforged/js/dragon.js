@@ -729,18 +729,23 @@ export function updateDragon(dt, player, time) {
     wingPivotL.rotation.set(0.12 + climbBias,  0.12 + turnBias * 0.8,  rootFlap + turnBias - rollFold);
     if (wingTipR) wingTipR.rotation.set(0, 0, 0);   // rear-lobe carrier rides the fan (no independent asymmetric wobble)
     if (wingTipL) wingTipL.rotation.set(0, 0, 0);
-    const lAmp = activeDef.model.lobeBeatAmp ?? 0.28;
-    const lLag = activeDef.model.lobeBeatLag ?? 0.45;
+    const lAmp = activeDef.model.lobeBeatAmp ?? 0.26;
+    const lLag = activeDef.model.lobeBeatLag ?? 0.85;      // BIG inboard→outboard lag so each lobe sits at its OWN angle → the 3 read as SEPARATE parts (not a merged 2)
+    const lSpread = activeDef.model.lobeBeatSpread ?? 0.22; // static extra fan so the lobes never close INTO each other
+    const lFlow = activeDef.model.lobeBeatFlow ?? 0.2;    // slow trailing sway, strongest on the REAR lobe → the back of the fan FLOWS (less stiff)
     for (const arr of [wingLobePivotsR, wingLobePivotsL]) {
       if (!arr) continue;
       const n = Math.max(1, arr.length - 1);
       for (const b of arr) {
         const t = b.pivot; if (!t) continue;
-        const fr = b.idx / n;                                   // 0 inner → 1 outer
+        const fr = b.idx / n;                                   // 0 inner → 1 outer/rear
         const lp = phase - fr * lLag;                           // SAME lp for L_i and R_i → they beat together
-        const beat = Math.sin(lp) * lAmp * (0.6 + 0.4 * fr);    // outer lobes swing widest
-        t.rotation.y = damp(t.rotation.y, b.side * beat, 10, dt);            // spread/close (both fans open together)
-        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * lAmp * 0.3, 10, dt); // gentle silk cup-roll
+        // OPEN direction = -side (matches the rest rake); bias the fan OPEN (static spread) so
+        // the lobes stay separated, then the beat + a slow rear-weighted flow ride on top.
+        const beat = Math.sin(lp) * lAmp * (0.5 + 0.7 * fr);    // outer lobes swing widest
+        const flow = Math.sin(lp * 0.5 + 1.2) * lFlow * fr;     // lazy trailing sway → flowy rear
+        t.rotation.y = damp(t.rotation.y, -b.side * (lSpread * fr + beat + flow), 9, dt);
+        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * lAmp * 0.3 + Math.sin(lp * 0.5) * lFlow * fr, 9, dt);
       }
     }
   } else {
