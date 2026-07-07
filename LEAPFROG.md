@@ -8231,7 +8231,28 @@ tricount 0-over · bossgate G1-G7 PASS · entrance captures (cast-from-hands, na
 clean tear-free) reviewed. The threads read a touch thin against the sunset — a tunable
 (brightness/width/count) the owner judges on the preview.
 
-### L221 — STORMREND rebalance + retroactive QA: a Sentinel DEVELOPS a 3-move core (not 8 swapped each phase); the paperwork must be authored against the LIVE model, not the def prose
+### L221 — KNELLGRAVE damage that READS: dark holes vanish on a dark body — spread GLOWING fractures (the bell's one legible language)
+Even after the per-phase shed rework (L218), the owner "didn't really see the bell change." The
+shed holes are the problem: a hole in a near-black body opens onto a near-black interior (or a
+scaffold barely lighter) — dark-on-dark, invisible at fight distance, no matter how big. The bell
+has exactly ONE thing that reads from range: the candle-slit, because it's BRIGHT on DARK. So the
+per-phase damage has to speak that language. Added SPREADING FRACTURES — 4 glowing cracks that
+web out from the slit across the front face, one lighting per phase (ruinK 0.12/0.30/0.48/0.66)
+and staying lit (persistent). They read like the focal crack because they ARE the focal crack's
+language: additive candle, moderate (capped well below the HDR slit so the focal cluster stays
+the one focal — G1), surface-following (azimuth-placed, not the slit's flat front-projection so
+they hug the curve out to the flanks), dark at full hp so the studio gates are inert. Result on a
+fight-distance render: P1 one crack → P4 a shattered web. Takeaways:
+1. **Match the boss's legible channel.** Each boss reads by ONE thing at range (KNELLGRAVE's
+   glow, a swarm's formation, a colossus's outline). Progression FX must ride that channel; a
+   mechanically-correct effect on the wrong channel is invisible even when it's technically there.
+2. **A gate that only fires at full hp can't see fight-time FX.** G1 passed the whole time because
+   fractures are dark at ruinK 0 — the studio never sees the lit state. Verify escalation on a
+   ruin-swept, fight-distance render (bossview hp dial), not the rest-pose gate.
+3. **Additive ribbons are cheap and safe.** Thin, dark-at-rest, no G7/overdraw cost; the readable-
+   damage win for near-zero tris.
+
+### L222 — STORMREND rebalance + retroactive QA: a Sentinel DEVELOPS a 3-move core (not 8 swapped each phase); the paperwork must be authored against the LIVE model, not the def prose
 
 **What we did.** Brought slot-2 STORMREND (a shipped Tier-1 Sentinel, built before §3b/§4b/the
 Fable gates/TIER_BUDGETS) up to the current bar in one pass. **(A) Trimmed the move-set** from 8
