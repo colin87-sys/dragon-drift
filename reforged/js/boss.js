@@ -157,6 +157,11 @@ const FELLED_LIE_DUR = 1.3;    // the fake-death window before the bar returns (
 let felledLieUsed = false;     // the lie fires at most ONCE per encounter
 let felledLieT = 0;            // >0 while the fake death is playing (sealed; resolves the return)
 let crippled = false;          // the post-lie exposed final stand — chip it to a REAL death
+// §5j def.noWarn (slot 12): the DANGER banner is deferred to the eruption (enterFight),
+// not shown pre-fight. `noWarnDir` holds the emerge direction; `noWarnFired` guards the
+// single late fire (idempotent whether the eruption or a skip delivers it).
+let noWarnDir = null;
+let noWarnFired = false;
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
@@ -1265,7 +1270,13 @@ export function startBossEncounter(player, defOverride) {
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
     : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
-  ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
+  // §5j THE ARRIVAL-GRAMMAR BREAK (slot 12 ONEWING, def.noWarn): the DANGER banner is
+  // SUPPRESSED here and fires WITH the eruption (enterFight) instead of before it — no
+  // warning until it erupts. A skipper still gets it (fired at enterFight regardless).
+  // Every other def keeps the pre-fight warning banner (byte-identical).
+  noWarnDir = def.noWarn ? dir : null;
+  noWarnFired = false;
+  if (!def.noWarn) ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
   emit('bossStart', { id: def.id });
@@ -1421,8 +1432,18 @@ function applyReticle(timeLeft, time) {
 // reveal card, and the first spell card — with the attack/rider clocks held past
 // the card's hold so the reveal is bullet-free. Shared by the plain approach and
 // the cinematic flythrough entrance.
+// §5j fire the deferred no-warn DANGER banner (the eruption IS the warning). Idempotent
+// — the eruption calls it; a skip during the entrance can call it early; whichever runs
+// first wins. Inert unless def.noWarn set noWarnDir.
+function fireNoWarnBanner() {
+  if (!def || !def.noWarn || noWarnFired || noWarnDir == null) return;
+  noWarnFired = true;
+  ui.bossWarning?.(def.name, def.title, noWarnDir, Math.min(B.warnTime, 1.4));
+}
+
 function enterFight() {
   phase = 'fight';
+  fireNoWarnBanner();   // §5j the banner fires WITH the eruption (def.noWarn), never before it
   initLockLayer();   // THE LANCE layer: fresh aim/lock state per fight
   aimHeldT = 0; aimTeachCd = 1.5;   // V1 teach: first prompt after a short settle
   lockTeachCd = 1.5; snapTeachCd = 4; amberVent.clear();   // V4 teach waits a few beats past the paint teach
@@ -3087,6 +3108,7 @@ export function resetBoss() {
   group = null; model = null; def = null;
   pendingDeath = false;
   felledLieUsed = false; felledLieT = 0; crippled = false;   // §5f teardown never strands the lie state
+  noWarnDir = null; noWarnFired = false;                     // §5j fresh deferred-banner state per encounter
   rollParried = false;
   shielded = false;
   if (reticle) reticle.visible = false;

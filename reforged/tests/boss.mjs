@@ -1366,6 +1366,48 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('lying FELLED card: ONEWING-only, ≤35% returns within ≤2s, fires once, real second kill; inert for others');
 }
 
+// --- 4c. THE NO-WARN ARRIVAL BREAK (§5j slot 12 ONEWING, def.noWarn): the DANGER
+// banner is SUPPRESSED pre-fight and fires WITH the eruption (fight start) — no warning
+// until it erupts. Every other def keeps the pre-fight warning banner. -----------------
+{
+  const origWarn = ui.bossWarning;
+  const warnAt = [];
+  ui.bossWarning = () => { warnAt.push(boss.bossDebugState().phase); };
+  const driveToFight = (idx) => {
+    warnAt.length = 0;
+    game.reset(); game.state = 'playing'; game.health = 1e9;
+    const player = makePlayer();
+    boss.forceBoss(player, idx);
+    let t = 0, sawWarn = false, sawFight = false;
+    for (let i = 0; i < 60 * 30 && !sawFight; i++) {
+      const dt = 1 / 60; t += dt; player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+      const ph = boss.bossDebugState().phase;
+      if (ph === 'warn') sawWarn = true;
+      if (ph === 'fight') sawFight = true;
+      boss.updateBoss(dt, player, t);
+    }
+    return { sawWarn, sawFight };
+  };
+
+  // ONEWING (noWarn): the banner must NOT fire during 'warn'; it fires at/after the
+  // eruption (fight). Assert exactly one banner and it lands on the fight, not the warn.
+  const rn = driveToFight(BOSS_ORDER.indexOf('onewing'));
+  assert(rn.sawWarn && rn.sawFight, 'onewing passed warn → fight in the sim');
+  assert(warnAt.length >= 1, 'onewing fires its DANGER banner (deferred, not suppressed entirely)');
+  assert(!warnAt.includes('warn'), `onewing's no-warn banner never fires during 'warn' (fired at: ${warnAt.join(',')})`);
+  assert(warnAt.includes('fight'), `onewing's banner fires WITH the eruption (fight) — got ${warnAt.join(',')}`);
+
+  // A normal boss (voidmaw) keeps the PRE-FIGHT warning banner (fires during 'warn').
+  boss.resetBoss();
+  const rv = driveToFight(BOSS_ORDER.indexOf('voidmaw'));
+  assert(rv.sawWarn, 'voidmaw passed through warn');
+  assert(warnAt.includes('warn'), `voidmaw keeps the pre-fight warning banner (fired at: ${warnAt.join(',')})`);
+
+  ui.bossWarning = origWarn;
+  boss.resetBoss();
+  ok('no-warn arrival break: ONEWING banner fires WITH the eruption (never during warn); other bosses warn early');
+}
+
 // §5f MUSIC-DEATH defeat path: knellgrave (last in BOSS_ORDER) killed the music at
 // its warn-end toll during the lifecycle sim above — the defeat fanfare must have
 // brought it back. A run can never end a boss kill still stranded in silence.
