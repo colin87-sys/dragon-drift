@@ -6394,3 +6394,23 @@ the almond so the eye (not the pearl spill) is the brightest facial point at tur
 front/¾ neck-segment beading (side is smooth); +5–8° fan camber so the dead-astern chase presents more silk;
 lift the tail-veil's darkest field toward `0x116b45`. Next: **CP2** — tune forms 0–1 to their §4 bands +
 the growth arc, then the ladder + face-per-form + silhouette triptych + trio frame + a fresh CP2 gate.
+
+---
+
+## L171 — Gotcha: a PR opened via the API/MCP token does NOT fire the `pull_request` preview build
+
+**Symptom.** Created PR #268 for the jade slot via `mcp__github__create_pull_request`, handed the human the
+canonical preview URL (`…/pr-preview/pr-268/`) — it 404'd. The `gh-pages` branch had `pr-134`…`pr-267` but
+no `pr-268` folder, and **zero** workflow runs existed for the branch.
+
+**Cause.** GitHub suppresses `on: pull_request` workflow triggers for PRs whose `opened` event was produced
+by a bot/app/`GITHUB_TOKEN` (anti-recursion). Our `pr-preview.yml` triggers only on `pull_request`
+(opened/synchronize/reopened/closed) with no `workflow_dispatch`, so an API-opened PR never builds a preview
+and never comments the link.
+
+**Fix / reusable pattern.** Push a commit to the head branch — that emits a `synchronize` event attributed
+to the pusher (not the token), which DOES fire the build and lands `pr-<N>/` on `gh-pages`. A one-line
+ledger append (this entry) is the natural carrier; an `--allow-empty` commit also works since `synchronize`
+only needs the head SHA to move. The preview URL is correct as-is — it just needs a real run behind it. (The
+sandbox itself can't verify the page: the egress policy 403s `*.github.io` at the proxy, so trust the
+Actions "PR Preview" + "Deploy Pages" green as the build proof, and let the human load the URL.)
