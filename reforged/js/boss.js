@@ -2249,9 +2249,14 @@ function breakShield(player) {
     armSetpieceForPhase(phaseIdx);
     // CP2 per-phase re-offers (def-gated; plain var resets, inert otherwise): the
     // duelist's riposte answers ONE reflected shot per phase, and the stare-down
-    // (hold-until-flinch) is offered once per phase.
+    // (hold-until-flinch) is offered once per phase — with a FRESH hold timer
+    // (Codex review, PR #266: the shielded gate stops the branch without decaying
+    // beamHeld, so banked hold time would cash instant tiers after the break).
+    // Gated on the grazeForm so beamEdge/shadowRide bosses keep their ramp
+    // semantics byte-identical.
     riposteUsed = false;
     holdFlinchDone = false; holdTier = 0;
+    if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; }
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
     if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) {
