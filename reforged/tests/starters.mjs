@@ -53,19 +53,20 @@ const SPECS = {
     carrier: 'diffuse',                         // azure: NO accent-hued emissive on the wing
   },
   ember: {
-    // WING REDO (human art-direction): the gapped-finger membrane is retired for a SOLID
-    // MOLTEN BLADE FIN — one continuous swept scimitar per side (matte-iron spar → molten
-    // body → white-hot glowing trailing edge). Bands below are PROVISIONAL (preview pending
-    // direction confirmation); retune once the three-form ladder is dialled in.
-    architecture: 'molten blade fin',
-    wingElements: 1,                            // one solid fin per side (no comb of blades)
-    foldMax: 0.92,                             // a rigid fin furls by swinging back, not by raking free blades
+    // WING REDO (human art-direction): ember is a creature of LIVING FIRE, so its wing is a
+    // BONFIRE MANE — 4–5 broad, SOFT, IRREGULAR flame tongues that overlap off a molten arm and
+    // taper to hot glowing wisps. Deliberately organic + irregular (the anti-mechanical read),
+    // so it is NOT judged as an orderly comb (no swell-then-taper / separation asserts — those
+    // are azure's). Bands PROVISIONAL until the three-form ladder + gate land.
+    architecture: 'living-flame mane',
+    wingElements: 5,                            // 5 flame tongues per side
+    foldMax: 0.9,                              // the tongues furl/nest inward on the fold
     triTargets: [2600, 4000, 5600],
     headBody: [[2.0, 2.6], [3.0, 4.2], [4.5, 5.5]],
     eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.13, 0.30]],
-    spanBody: [[0.45, 1.0], [0.6, 1.3], [0.9, 1.7]],   // provisional — fin span retunes when the ladder lands
+    spanBody: [[0.55, 1.2], [0.9, 1.7], [1.2, 2.4]],   // provisional — retune when the ladder lands
     accentHue: 27,                              // lava ~27°
-    carrier: 'moltenEdge',                      // the WHITE-HOT trailing edge is the emissive accent; the body is warm-bright molten (no dark-membrane clause)
+    carrier: 'moltenEdge',                      // the HOT wisp tips are the emissive accent; the molten cores are dark-warm
   },
 };
 
@@ -149,9 +150,10 @@ for (const [key, spec] of Object.entries(SPECS)) {
     ok(M.tris < 6000, `${key} f${f}: under 6000 ceiling (${M.tris})`);
 
     const lens = M.parts.wingElements.map((e) => e.length);
-    // COMB architectures (≥2 elements) must show a swell-then-taper progression + planform
-    // separation. A SOLID single-blade fin has neither — it's judged as one continuous surface.
-    if (spec.wingElements > 1) {
+    // COMB architectures must show a swell-then-taper progression + planform separation. A solid
+    // fin (1 element) and the deliberately-IRREGULAR flame mane (organic, overlapping tongues)
+    // are judged differently — the mane's whole point is that it is NOT an orderly comb.
+    if (spec.architecture === 'blade-feather comb') {
       const maxLen = Math.max(...lens), minLen = Math.min(...lens);
       ok(maxLen - minLen > 0.05 * maxLen, `${key} f${f}: blade lengths vary (progression, not sawtooth)`);
       const peakIdx = lens.indexOf(maxLen);
