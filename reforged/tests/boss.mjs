@@ -1496,7 +1496,63 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assert(cutEvt.bloomed > 0, `the first cut of the phase blooms the falling harvest (${cutEvt?.bloomed} motes)`);
   const stCut = boss.bossDebugState();
   assert(!stCut.charging, 'the loom is STILLED during the cut window (no wind-up runs)');
+  boss.resetBoss();   // tear the live sim down (the next block arms its own encounter)
   ok(`weftwitch thread-cut integration: 3 parried volleys → cut (${cutEvt.cleared} ambers unravel, ${cutEvt.bloomed} harvest motes bloom, loom stilled) ✓`);
+}
+
+// §5b HUD-SEW render-order LAW + banner-pin lifecycle (weftwitch CP2): the sew and
+// the pinned banner fire ONLY in the bullet-free warn/entrance window and are BOTH
+// cleared by fight start (bullets are WebGL — below all DOM — and cannot exist
+// before phase 'fight', so timing IS the layering proof); a mid-entrance reset also
+// clears; a non-hudSew def gets neither. Recorder stubs on the generic ui seams.
+{
+  const calls = { warn: [], warnClear: 0, sew: 0, sewClear: 0 };
+  const uw = ui.bossWarning, uc = ui.bossWarnClear, us = ui.hudSew, ux = ui.hudSewClear;
+  ui.bossWarning = (...a) => { calls.warn.push(a[4] || null); };
+  ui.bossWarnClear = () => { calls.warnClear++; };
+  ui.hudSew = () => { calls.sew++; };
+  ui.hudSewClear = () => { calls.sewClear++; };
+
+  boss.resetBoss();   // clean slate (belt + braces: the prior sim tears down too)
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  let t = 0, sewnBeforeFight = false, clearedAtFight = false;
+  for (let i = 0; i < 60 * 40; i++) {
+    const dt = 1 / 60; t += dt;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    const st = boss.bossDebugState();
+    if (st.phase !== 'fight' && calls.sew > 0) sewnBeforeFight = true;
+    if (st.phase === 'fight') { clearedAtFight = calls.sewClear > 0 && calls.warnClear > 0; break; }
+    boss.updateBoss(dt, player, t);
+  }
+  assert(calls.warn.length > 0 && calls.warn[0] && calls.warn[0].pin === true, 'weftwitch warn banner is offered PINNED (suppressAutoHide)');
+  assert(sewnBeforeFight, 'the HUD-sew fired during the bullet-free warn/entrance window');
+  assert(clearedAtFight, 'the sew + pinned banner are CLEARED by fight start (both render-order LAW edges)');
+
+  // clears-on-reset: re-arm mid-warn, then tear the encounter down.
+  const clears0 = calls.warnClear + calls.sewClear;
+  game.inBoss = false; game.reset(); game.state = 'playing';
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  boss.updateBoss(1 / 60, player, t + 1);
+  boss.resetBoss();
+  assert(calls.warnClear + calls.sewClear > clears0, 'resetBoss clears the pinned banner + sew (no pin survives a teardown)');
+
+  // coexist: a non-hudSew def (karnvow) never pins, never sews.
+  calls.warn.length = 0;
+  const sews0 = calls.sew;
+  game.inBoss = false; game.reset(); game.state = 'playing';
+  boss.forceBoss(player, BOSS_ORDER.indexOf('karnvow'));
+  for (let i = 0; i < 60 * 20; i++) {
+    player.dist += CONFIG.BOSS.cruiseSpeed / 60;
+    boss.updateBoss(1 / 60, player, t + 2 + i / 60);
+    if (boss.bossDebugState().phase === 'fight') break;
+  }
+  assert(calls.warn.length > 0 && !calls.warn[0], 'a non-hudSew def gets a plain warn banner (no pin option)');
+  assert(calls.sew === sews0, 'a non-hudSew def never fires the HUD-sew (coexist)');
+  boss.resetBoss();
+  ui.bossWarning = uw; ui.bossWarnClear = uc; ui.hudSew = us; ui.hudSewClear = ux;
+  ok('hud-sew LAW: pinned + sewn in the warn window, cleared at fight start AND on reset; karnvow untouched ✓');
 }
 
 // §5f MUSIC-DEATH defeat path: knellgrave (last in BOSS_ORDER) killed the music at
