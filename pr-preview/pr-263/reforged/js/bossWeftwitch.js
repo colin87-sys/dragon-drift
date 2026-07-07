@@ -415,8 +415,20 @@ export function buildWeftwitch(def, quality = 1) {
   const R_IN = 6.0, R_OUT = lowQ ? 46 : 64;
   // deterministic jitter so the web is irregular (woven), not a clean sunburst.
   const jit = (n) => { const s = Math.sin(n * 12.9898) * 43758.5453; return s - Math.floor(s); };
+  // FIXED-SLOT buffers so the tick can rewrite positions (the water-surface reaction):
+  // per spoke a SPOKE slot (hub→outer) + a TAIL slot (the drag-tail along the water,
+  // written DEGENERATE when that spoke doesn't touch water — invisible and free), plus
+  // per stitch a slot recomputed from the clipped spokes. A slot = 2 verts in the dim or
+  // hero bucket (a tail inherits its spoke's weight).
   const dimSegs = [], heroSegs = [];
+  const pushSeg = (hero, p0, p1) => {
+    const arr = hero ? heroSegs : dimSegs;
+    const off = arr.length / 3;
+    arr.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
+    return { hero, off };
+  };
   const anchors = [];
+  const spokeSlots = [], tailSlots = [], stitchMeta = [];
   for (let s = 0; s < N_SPOKE; s++) {
     const a = (s / N_SPOKE) * Math.PI * 2 + (jit(s) - 0.5) * 0.06;
     const rout = R_OUT * (0.82 + jit(s + 11) * 0.3);
@@ -424,8 +436,9 @@ export function buildWeftwitch(def, quality = 1) {
     const inr = new THREE.Vector3(Math.cos(a) * R_IN, Math.sin(a) * R_IN, HUB.z);
     const out = new THREE.Vector3(Math.cos(a) * rout, Math.sin(a) * rout, z);
     anchors.push({ a, inr, out });
-    const seg = (s % 2 === 0) ? heroSegs : dimSegs;         // ~1/2 hero spokes (the two-value read + accent presence)
-    seg.push(inr.x, inr.y, inr.z, out.x, out.y, out.z);
+    const hero = (s % 2 === 0);                              // ~1/2 hero spokes (the two-value read + accent presence)
+    spokeSlots.push(pushSeg(hero, inr, out));
+    tailSlots.push(pushSeg(hero, out, out));                 // degenerate until water contact
   }
   // the scattered warp LATTICE: connect adjacent spokes with a short cross-stitch at a
   // STAGGERED radius per gap (never the same radius across the ring → not concentric).
@@ -437,8 +450,7 @@ export function buildWeftwitch(def, quality = 1) {
     const t1 = clamp01(t0 + (jit(s * 3 + 2) - 0.5) * 0.16);
     const p0 = A.inr.clone().lerp(A.out, t0);
     const p1 = B.inr.clone().lerp(B.out, t1);
-    const seg = (s % 4 === 0) ? heroSegs : dimSegs;
-    seg.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
+    stitchMeta.push({ i0, i1, t0, t1, slot: pushSeg(s % 4 === 0, p0, p1) });
   }
   const mkLines = (arr, mat, name) => {
     const g = new THREE.BufferGeometry();
@@ -450,6 +462,128 @@ export function buildWeftwitch(def, quality = 1) {
   const webHero = mkLines(heroSegs, webHeroMat, 'weftWebHero');
   threadPivot.add(webDim, webHero);
   rig.add(threadPivot);
+
+  // ---- THE WATER-SURFACE REACTION (owner note on PR #263: the spokes pierced the
+  // water as dead-straight lines). Fight-context-only: boss.js feeds the arena's water
+  // plane via setWaterPlane?.(0) (the world-constant surface, water.js:204) — never fed
+  // in the studio/tests, so those stay byte-identical (the CP1 captures hold). When fed,
+  // each tick restores the web's PRISTINE base geometry, then clips every segment
+  // against the LIVE world plane (derived from the current matrixWorld, so entrance
+  // scale / death sink / dissolve spread all keep working): crossing SPOKES end at a
+  // contact point that rides an artificial swell (bob strictly ABOVE the surface — the
+  // flat water mesh z-fights anything coplanar) and drag a short TAIL along the water;
+  // crossing STITCHES clip independently (re-lerping them against clipped spokes would
+  // bunch the lower lattice into a halo above the waterline); fully-submerged segments
+  // collapse degenerate onto the plane (renders nothing; the death-sink settles the web
+  // into the sea).
+  // ⚠ CP2 RESTITCH CONTRACT: this pass rewrites the position attributes from dimBase/
+  // heroBase every tick while active — a restitch animation must mutate the BASE arrays
+  // (or the slot records), never the attributes directly, or its writes get stomped.
+  let waterWorldY = null;
+  const dimAttr = webDim.geometry.attributes.position;
+  const heroAttr = webHero.geometry.attributes.position;
+  const dimBase = dimAttr.array.slice();
+  const heroBase = heroAttr.array.slice();
+  function setWaterPlane(y) {
+    waterWorldY = (y == null) ? null : y;
+    if (waterWorldY != null) {
+      // GL usage hint only — set here (the fight path, before the first render) so the
+      // studio path keeps its static buffers untouched.
+      dimAttr.setUsage(THREE.DynamicDrawUsage);
+      heroAttr.setUsage(THREE.DynamicDrawUsage);
+    } else {
+      dimAttr.array.set(dimBase); heroAttr.array.set(heroBase);
+      dimAttr.needsUpdate = true; heroAttr.needsUpdate = true;
+    }
+  }
+  const _wInv = new THREE.Matrix4();
+  const _wPlane = new THREE.Plane();
+  const TAU = Math.PI * 2;
+  function updateWebSurface(time) {
+    if (waterWorldY == null) return;
+    threadPivot.updateWorldMatrix(true, false);
+    _wInv.copy(threadPivot.matrixWorld).invert();
+    // world plane (normal +Y through y=waterY; Plane convention n·p + c = 0 → the world
+    // constant is −waterY) → threadPivot-LOCAL space. applyMatrix4 renormalizes the
+    // normal, so signed distances below are in LOCAL units. Never cached across ticks
+    // (dissolve/entrance animate the scale every frame).
+    _wPlane.normal.set(0, 1, 0); _wPlane.constant = -waterWorldY;
+    _wPlane.applyMatrix4(_wInv);
+    const nx = _wPlane.normal.x, ny = _wPlane.normal.y, nz = _wPlane.normal.z, c = _wPlane.constant;
+    // restore pristine geometry, then patch only what the plane touches.
+    dimAttr.array.set(dimBase); heroAttr.array.set(heroBase);
+    const arrOf = (slot) => slot.hero ? heroAttr.array : dimAttr.array;
+    // clip one segment IN PLACE against the local plane. Returns nothing; fully-above
+    // segments keep their restored base verts. `lift` biases the clipped point strictly
+    // above the surface. Returns the contact info for the caller via _cx/_cy/_cz.
+    let _cx = 0, _cy = 0, _cz = 0, _crossed = false;
+    const clipSeg = (slot, lift) => {
+      const a = arrOf(slot), o = slot.off * 3;
+      const Ax = a[o], Ay = a[o + 1], Az = a[o + 2], Bx = a[o + 3], By = a[o + 4], Bz = a[o + 5];
+      const d0 = nx * Ax + ny * Ay + nz * Az + c;
+      const d1 = nx * Bx + ny * By + nz * Bz + c;
+      _crossed = false;
+      if (d0 >= 0 && d1 >= 0) return;                        // fully above — base stands
+      if (d0 < 0 && d1 < 0) {
+        // fully submerged — collapse degenerate onto the plane (renders nothing).
+        const px = Ax - d0 * nx, py = Ay - d0 * ny, pz = Az - d0 * nz;
+        a[o] = px; a[o + 1] = py; a[o + 2] = pz; a[o + 3] = px; a[o + 4] = py; a[o + 5] = pz;
+        return;
+      }
+      const t = d0 / (d0 - d1);                              // sign-order agnostic, t∈(0,1)
+      _cx = Ax + (Bx - Ax) * t + nx * lift;
+      _cy = Ay + (By - Ay) * t + ny * lift;
+      _cz = Az + (Bz - Az) * t + nz * lift;
+      if (d0 >= 0) { a[o + 3] = _cx; a[o + 4] = _cy; a[o + 5] = _cz; }   // keep A, clip B
+      else { a[o] = _cx; a[o + 1] = _cy; a[o + 2] = _cz; }               // keep B, clip A
+      _crossed = true;
+    };
+    for (let s = 0; s < N_SPOKE; s++) {
+      const ph = jit(s) * TAU;
+      // the swell bob: STRICTLY positive (skims/hovers, never dips through the mesh).
+      const bob = 0.12 + 0.22 * (0.5 + 0.5 * Math.sin(time * 1.6 + ph));
+      clipSeg(spokeSlots[s], bob);
+      const tSlot = tailSlots[s];
+      if (_crossed) {
+        // TAIL: the thread's end caught on the water — from the contact point, along
+        // the surface, radially outward with a slow length breath + a lateral sway.
+        const A = anchors[s];
+        let dx = A.out.x - A.inr.x, dy = A.out.y - A.inr.y, dz = A.out.z - A.inr.z;
+        const dn = dx * nx + dy * ny + dz * nz;
+        let rx = dx - dn * nx, ry = dy - dn * ny, rz = dz - dn * nz;   // project onto the plane
+        let rl = rx * rx + ry * ry + rz * rz;
+        if (rl < 0.01) {
+          // the straight-down spoke: its direction is near-antiparallel to the normal
+          // and the projection degenerates — fall back to local X projected onto the
+          // plane (n is never near ±X here), signed deterministically per spoke.
+          const sgn = jit(s) < 0.5 ? -1 : 1;
+          rx = (1 - nx * nx) * sgn; ry = (-nx * ny) * sgn; rz = (-nx * nz) * sgn;
+          rl = rx * rx + ry * ry + rz * rz;
+        }
+        const inv = 1 / Math.sqrt(rl);
+        rx *= inv; ry *= inv; rz *= inv;
+        // lateral sway dir = n × r (unit, since n ⊥ r).
+        const lx = ny * rz - nz * ry, ly = nz * rx - nx * rz, lz = nx * ry - ny * rx;
+        const L = (2.2 + jit(s + 23) * 1.8) * (1 + 0.12 * Math.sin(time * 2.1 + ph * 1.7));
+        const sway = 0.35 * Math.sin(time * 1.3 + ph);
+        const a = arrOf(tSlot), o = tSlot.off * 3;
+        a[o] = _cx; a[o + 1] = _cy; a[o + 2] = _cz;
+        a[o + 3] = _cx + rx * L + lx * sway;
+        a[o + 4] = _cy + ry * L + ly * sway;
+        a[o + 5] = _cz + rz * L + lz * sway;
+      } else {
+        // no contact this tick: the tail must never linger — collapse it wherever its
+        // base verts are relative to the plane (above → degenerate base already; a
+        // submerged base gets collapsed onto the plane by clipSeg's both-below branch).
+        clipSeg(tSlot, 0);
+      }
+    }
+    // STITCHES clip independently (R1): above-water lattice pixels stay exactly where
+    // the approved captures put them; only waterline-crossers end at the surface.
+    for (const st of stitchMeta) clipSeg(st.slot, 0.12);
+    dimAttr.needsUpdate = true;
+    heroAttr.needsUpdate = true;
+  }
 
   // ---- EDGE CAGE over the shroud crest + hood (a thin dark line that reads the
   // mantle outline on a bright sky).
@@ -524,8 +658,11 @@ export function buildWeftwitch(def, quality = 1) {
     // hood LAGS the hands (snap-orient reads as a turret; lagged reads as a mind). ---
     gazeEX += (gazeTX - gazeEX) * Math.min(1, dt * 2.2);
     gazeEY += (gazeTY - gazeEY) * Math.min(1, dt * 2.2);
-    hoodPivot.rotation.y += (gazeEX * 0.5 - hoodPivot.rotation.y) * Math.min(1, dt * 1.4);   // hood lags
-    hoodPivot.rotation.x = -gazeEY * 0.3 + noticeK * 0.35;   // tilts down on notice/aim
+    // (amplitudes raised on the owner note "I feel like it should track us" — the old
+    // values were too subtle at fight distance; the LAG stays: snap = turret, lag = a
+    // mind at a loom.)
+    hoodPivot.rotation.y += (gazeEX * 0.85 - hoodPivot.rotation.y) * Math.min(1, dt * 1.4);   // hood lags
+    hoodPivot.rotation.x = -gazeEY * 0.5 + noticeK * 0.35;   // tilts down on notice/aim
 
     // --- THE HANDS: weave in idle; STILL on dread/notice (the §4b "hands still =
     // dread"); recoil on a hit. One long finger POINTS DOWN on notice. ---
@@ -534,8 +671,8 @@ export function buildWeftwitch(def, quality = 1) {
     for (const side of ['L', 'R']) {
       const sx = side === 'L' ? -1 : 1;
       const hp = handPivots[side];
-      hp.position.x = sx * HAND_X + gazeEX * 1.6 - painEase * sx * 1.2;   // track the lane; recoil on hit
-      hp.position.y = HAND_Y + wv * sx + gazeEY * 1.0;
+      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2;   // track the lane; recoil on hit
+      hp.position.y = HAND_Y + wv * sx + gazeEY * 1.8;
       hp.rotation.z = sx * (0.2 + wv * 0.5) - gazeEX * 0.2;
       hp.rotation.y = sx * (0.5 - stillness * 0.2);
       // fingers flex on the weave (dying → fall open + slack).
@@ -596,6 +733,15 @@ export function buildWeftwitch(def, quality = 1) {
     loomCoreMat.color.setScalar(CORE_HOT * Math.max(0.8, loomK) * (1 - clamp01((dyingK - 0.55) / 0.45)));
     loomCore.visible = dyingK < 0.9 && !shieldClamp;   // leashes when invulnerable (G6)
     knotMat.emissiveIntensity = 0.7 * (0.85 + Math.sin(time * 1.1) * 0.12) * (1 + charge * 0.4) * (1 - dyingK * 0.7);
+    // THE LOOM-EYE TRACKS (owner: "the white eye thing should follow us"). The white
+    // core slides within the knot toward the player — a pupil in the chest-eye — and
+    // the whole organ leans the same way. Honest telegraphy: this is the MUZZLE, so
+    // where it looks is where shots come from. Rides the same eased gaze as the hood/
+    // hands (the lag is the charisma); stilled by death (the light stops looking).
+    const eyeTrack = 1 - dyingK;
+    loomCore.position.set(gazeEX * 0.55 * eyeTrack, gazeEY * 0.4 * eyeTrack, 1.0);
+    loomHeart.rotation.y = gazeEX * 0.3 * eyeTrack;
+    loomHeart.rotation.x = -gazeEY * 0.22 * eyeTrack;
 
     // --- THE WEB: shudders on a hit (a ripple runs the threads); goes LIMP + drifts
     // DOWN on death (un-weaving — her mended arena comes undone). ---
@@ -625,6 +771,11 @@ export function buildWeftwitch(def, quality = 1) {
     } else {
       threadPivot.scale.setScalar(1);
     }
+
+    // --- THE WEB MEETS THE WATER (fight-context-only; see setWaterPlane above).
+    // Runs LAST so the plane derives from this tick's final transforms (entrance
+    // scale, death sink, pain shudder all included). ---
+    updateWebSurface(time);
   }
 
   // Muzzle: she emits from the LOOM-HEART at the hub (emitter = organ).
@@ -638,7 +789,7 @@ export function buildWeftwitch(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
-    setEntrance, setEntranceSteer,
+    setEntrance, setEntranceSteer, setWaterPlane,
     setHealth: kit.setHealth, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     flash, hurt,

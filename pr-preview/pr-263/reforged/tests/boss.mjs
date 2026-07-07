@@ -741,6 +741,383 @@ for (const key of BOSS_ORDER) {
   ok(`weftwitch geometry: web ${webSpan.toFixed(0)}w (L141 field), crown tenses on charge, finger-point notice, scar + hands + loom-heart ✓`);
 }
 
+// WEFTWITCH web ↔ water reaction (owner note on PR #263) + loom-eye gaze tracking.
+// The water surface is the world-constant plane y=0 (water.js); boss.js feeds it via
+// the optional setWaterPlane hook AT FIGHT SPAWN ONLY — so the studio/tests default
+// path must stay byte-identical (the CP1 captures + gate numbers hold), and the fight
+// path must terminate every thread at the surface with living contact tails.
+{
+  const webVerts = (m, fn) => {
+    for (const name of ['weftWebDim', 'weftWebHero']) {
+      const obj = m.group.getObjectByName(name);
+      const attr = obj.geometry.attributes.position;
+      for (let i = 0; i < attr.count; i++) fn(attr, i, obj);
+    }
+  };
+  const v = new THREE.Vector3();
+
+  // 1. COEXIST: without setWaterPlane, ticking never touches the web buffers.
+  const ww = buildBoss(BOSSES.weftwitch, 1);
+  const snaps = {};
+  for (const name of ['weftWebDim', 'weftWebHero']) snaps[name] = ww.group.getObjectByName(name).geometry.attributes.position.array.slice();
+  for (let i = 0; i < 20; i++) ww.tick(0.05, i * 0.05);
+  let untouched = true;
+  webVerts(ww, (attr, i, obj) => { if (attr.array[i * 3] !== snaps[obj.name][i * 3] || attr.array[i * 3 + 1] !== snaps[obj.name][i * 3 + 1]) untouched = false; });
+  assert(untouched, 'weftwitch web buffers untouched without setWaterPlane (studio/gate captures byte-identical)');
+
+  // 2. The raw pierce exists at fight height (guards assert 3 from vacuity).
+  ww.group.position.set(0, 13, -30);
+  ww.group.updateMatrixWorld(true);
+  let rawMin = Infinity;
+  webVerts(ww, (attr, i, obj) => { v.fromBufferAttribute(attr, i).applyMatrix4(obj.matrixWorld); if (v.y < rawMin) rawMin = v.y; });
+  assert(rawMin < -5, `weftwitch raw web pierces the surface at fight height (min world y ${rawMin.toFixed(1)} < -5)`);
+
+  // 3. With the water plane fed: every thread terminates at/above the surface, and at
+  // least one TAIL drags along it (a near-surface segment with real length).
+  ww.setWaterPlane(0);
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 1 + i * 0.05);
+  ww.group.updateMatrixWorld(true);
+  let clipMin = Infinity, tails = 0;
+  const p0 = new THREE.Vector3(), p1 = new THREE.Vector3();
+  for (const name of ['weftWebDim', 'weftWebHero']) {
+    const obj = ww.group.getObjectByName(name);
+    const attr = obj.geometry.attributes.position;
+    for (let i = 0; i < attr.count; i += 2) {
+      p0.fromBufferAttribute(attr, i).applyMatrix4(obj.matrixWorld);
+      p1.fromBufferAttribute(attr, i + 1).applyMatrix4(obj.matrixWorld);
+      clipMin = Math.min(clipMin, p0.y, p1.y);
+      if (Math.abs(p0.y) <= 1.5 && Math.abs(p1.y) <= 1.5 && p0.distanceTo(p1) >= 1.5) tails++;
+    }
+  }
+  assert(clipMin >= -0.75, `weftwitch web terminates at the water surface (min world y ${clipMin.toFixed(2)} ≥ -0.75 — no thread pierces)`);
+  assert(tails >= 3, `weftwitch drags ${tails} surface tails at the contacts (need ≥3 — the threads REACT, not just clip)`);
+
+  // 4. THE LOOM-EYE TRACKS (owner: "the white eye should follow us"): the white core
+  // slides toward the gazed side like a pupil.
+  const core = ww.group.getObjectByName('loomCore');
+  const preX = core.position.x;
+  ww.setGaze(1, 0);
+  for (let i = 0; i < 30; i++) ww.tick(0.05, 3 + i * 0.05);
+  assert(core.position.x > preX + 0.3, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.3)`);
+
+  ww.dispose();
+  ok(`weftwitch water reaction: coexist-untouched, pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} surface tails, loom-eye tracks ✓`);
+}
+
+// KNELLGRAVE (slot 10) — the named-pivot telegraph gate. The PENDULUM SWING is the
+// §3.5 silhouette telegraph (it WIDENS on charge — the arc winds up); the clapper
+// LIFTS ITS HEAD on notice (the §4b darkest notice, a state jump); the dread survival
+// card GAPES the candle-slit (the AWE FIX — the clapper's mid-fight reveal). All the
+// named organs the controller/aim/gates locate by name must exist.
+{
+  const kn = buildBoss(BOSSES.knellgrave, 1);
+  // Named organs (§6.4 handle + aim): the swing pivot, the clapper, the toll emitter,
+  // the focal slit + crack scar, the chain, the head.
+  const swing = kn.group.getObjectByName('swingPivot');
+  const clapper = kn.group.getObjectByName('clapperPivot');
+  assert(!!swing, 'knellgrave exposes the named swingPivot (the pendulum — the silhouette telegraph)');
+  assert(!!clapper, 'knellgrave exposes the named clapperPivot (the bound figure)');
+  assert(!!kn.group.getObjectByName('bellMouth'), 'knellgrave exposes the named bellMouth (def.muzzle — the toll origin; aim solves against it)');
+  assert(!!kn.group.getObjectByName('knellSlit'), 'knellgrave exposes the named knellSlit (the ONE HDR focal — the vertical candle-slit)');
+  assert(!!kn.group.getObjectByName('knellCrack'), 'knellgrave exposes the named knellCrack (the §3.6 asymmetric scar)');
+  assert(!!kn.group.getObjectByName('knellChain'), 'knellgrave exposes the named knellChain (the off-frame links — hangs from nothing)');
+  assert(!!kn.group.getObjectByName('clapperHead'), 'knellgrave exposes the named clapperHead (the §4b GAZE/NOTICE carrier)');
+
+  // The vertical span exceeds the fight-frame envelope ("never fits the frame" — the
+  // overhead colossus; L140/L141 presence is a silhouette property).
+  assert(kn.hullLength() >= 30, `knellgrave vertical span ${kn.hullLength().toFixed(1)} ≥ 30 world units (colossal — never fully in frame)`);
+
+  // TELEGRAPH (§3.5): the swing ARC WIDENS on charge — a real silhouette change (the
+  // bell winds up before a toll-volley). Measure the peak-to-peak swing amplitude at
+  // idle vs charge over a full pendulum period.
+  const swingAmp = (charge) => {
+    kn.setCharge(charge);
+    for (let s = 0; s < 60; s++) kn.tick(0.05, 20 + s * 0.05);   // settle the amplitude ease
+    let lo = Infinity, hi = -Infinity;
+    for (let s = 0; s < 170; s++) { kn.tick(0.05, 40 + charge * 100 + s * 0.05); lo = Math.min(lo, swing.rotation.z); hi = Math.max(hi, swing.rotation.z); }
+    return hi - lo;
+  };
+  const idleArc = swingAmp(0);
+  const chargeArc = swingAmp(1);
+  assert(idleArc > 0.02, `knellgrave idles with a live pendulum swing (arc ${idleArc.toFixed(3)} rad — never static, §3 law 7)`);
+  assert(chargeArc > idleArc * 1.3, `knellgrave charge WIDENS the swing arc (${chargeArc.toFixed(3)} > ${idleArc.toFixed(3)} × 1.3 — the §3.5 silhouette telegraph)`);
+  kn.setCharge(0);
+
+  // NOTICE (§4b — the roster's darkest notice): the clapper LIFTS ITS HEAD. A state
+  // JUMP (the head tilts UP — clapperHead.rotation.x goes negative), not idle+ε.
+  {
+    const kh = kn.group.getObjectByName('clapperHead');
+    for (let s = 0; s < 30; s++) kn.tick(0.05, 200 + s * 0.05);   // settle a drooped idle
+    const droopX = kh.rotation.x;
+    kn.notice();
+    for (let s = 0; s < 8; s++) kn.tick(0.05, 210 + s * 0.05);    // sample mid-notice
+    const liftedX = kh.rotation.x;
+    assert(liftedX < droopX - 0.3, `knellgrave NOTICE lifts the clapper's head (rot.x ${liftedX.toFixed(2)} < ${droopX.toFixed(2)} − 0.3 — the head tilts UP toward you, a state jump)`);
+  }
+
+  // THE AWE FIX (§5j re-entrance): the dread SURVIVAL card GAPES the candle-slit (the
+  // crack widens, the clapper is fully revealed). setSetpiece(dread) scales the slit.
+  {
+    const slitMesh = kn.group.getObjectByName('knellSlit');
+    for (let s = 0; s < 10; s++) kn.tick(0.05, 300 + s * 0.05);
+    const restW = slitMesh.scale.x;
+    kn.setSetpiece(1.0, { dread: true });
+    for (let s = 0; s < 20; s++) kn.tick(0.05, 310 + s * 0.05);
+    assert(slitMesh.scale.x > restW + 0.5, `knellgrave The Last Toll GAPES the crack (slit scale ${slitMesh.scale.x.toFixed(2)} > ${restW.toFixed(2)} + 0.5 — the mid-fight clapper reveal, not just a rhythm exam)`);
+    kn.setSetpiece(0, {});
+  }
+
+  // THE RUIN LADDER (§5 escalation): setHealth drives the bell OPENING across the
+  // fight — the crack/slit visibly WIDENS as hp falls (a thin line in P1 → a flood by
+  // The Last Toll). A real geometry change per phase, not a colour ramp.
+  {
+    const slitMesh = kn.group.getObjectByName('knellSlit');
+    kn.setHealth(1.0);
+    for (let s = 0; s < 10; s++) kn.tick(0.05, 400 + s * 0.05);
+    const fullW = slitMesh.scale.x;
+    // step the ruin ladder phase by phase — each phase must gape WIDER than the last (the
+    // owner's playtest note: the crack must visibly grow every phase, not just at the
+    // finale). Width is the ONLY size lever — the slit already spans the whole bell face,
+    // so it grows by opening, never by getting longer (see the lip-guard below).
+    const gape = (frac) => { kn.setHealth(frac); for (let s = 0; s < 10; s++) kn.tick(0.05, 401 + frac + s * 0.05); return slitMesh.scale.x; };
+    const p2 = gape(0.70), p3 = gape(0.45), p4 = gape(0.25);
+    assert(p2 > fullW && p3 > p2 && p4 > p3, `knellgrave RUIN LADDER widens every phase (slit W ${fullW.toFixed(2)}→${p2.toFixed(2)}→${p3.toFixed(2)}→${p4.toFixed(2)} — monotonic per-phase gape)`);
+    assert(p4 > fullW + 0.6, `knellgrave RUIN LADDER: the crack gapes as hp falls (slit scale ${p4.toFixed(2)} > ${fullW.toFixed(2)} + 0.6 at hp 0.25 — the bell opens across the fight)`);
+    // LIP GUARD (owner IMG_7331: "how can the crack extend past the bell?"): even at the
+    // worst frame (full ruin + the dread reveal gape) the lit slit must stay ON the bell
+    // FACE — its lowest vertex may never cross the −6.4 lip into the open air below the
+    // mouth. A crack is the bell breaking; light escaping below the metal is nonsense.
+    kn.setSetpiece(1.0, { dread: true });
+    for (let s = 0; s < 20; s++) kn.tick(0.05, 420 + s * 0.05);
+    slitMesh.geometry.computeBoundingBox();
+    const slitBottom = slitMesh.geometry.boundingBox.min.y * slitMesh.scale.y + slitMesh.position.y;
+    assert(slitBottom >= -6.4 - 1e-3, `knellgrave crack stays ON the bell face (slit bottom ${slitBottom.toFixed(2)} ≥ −6.4 lip, even at full ruin+dread — never a bolt floating below the mouth)`);
+    kn.setSetpiece(0, {});
+    kn.setHealth(1.0);
+  }
+
+  // THE SHED (owner playtest: "more of the bell breaking off to reveal its inner scaffold,
+  // background visible through where the bell once was") — flank plates COVER carved wall
+  // gaps at rest (bell reads solid) and BREAK AWAY as hp falls, baring the inner scaffold.
+  {
+    const scaffold = kn.group.getObjectByName('innerScaffold');
+    assert(!!scaffold, 'knellgrave exposes the named innerScaffold (the iron skeleton bared as the bell sheds)');
+    const innerWall = kn.group.getObjectByName('innerWall');
+    assert(!!innerWall && innerWall.material.side === THREE.BackSide, 'knellgrave has a BackSide interior wall (closes the mouth so the undamaged bell shows dark metal, not sky — owner IMG_7333)');
+    const luma = (m) => m.color.r + m.color.g + m.color.b;
+    assert(innerWall && luma(innerWall.material) < luma(scaffold.material), 'knellgrave interior wall is DARKER than the scaffold (the inside parts read against it, not into it)');
+    // the plate lifecycle is a sticky RATCHET (a broken bell stays broken), so test it on a
+    // FRESH model — kn has already been ruined by the ladder block above.
+    const kp = buildBoss(BOSSES.knellgrave, 1);
+    const panels = [];
+    kp.group.traverse((o) => { if (o.name === 'knellShedPanel') panels.push(o); });
+    assert(panels.length >= 2, `knellgrave has break-away shed plates (${panels.length} ≥ 2 — the flank panels that fall away)`);
+    // at REST the plates are home + opaque (the bell reads solid — no premature holes).
+    kp.setHealth(1.0);
+    for (let s = 0; s < 10; s++) kp.tick(0.05, 500 + s * 0.05);
+    const restOut = panels.map((p) => p.parent.position.length());
+    assert(restOut.every((d, i) => d < 6.6 + 0.05 && panels[i].material.opacity > 0.95), 'knellgrave shed plates sit HOME + opaque at full hp (the bell is solid at the start — the reveal is earned)');
+    // FREEZE GUARD (Fable gate): a plate whose break has STARTED must FINISH falling even when
+    // hp (and ruinK) freezes — the P4 seal caps ruinK ~0.75, and the 2nd plate needs 0.84. Pin
+    // hp at 0.20 (ruinK 0.80, seal-frozen) and keep ticking: both plates must complete, not hang.
+    kp.setHealth(0.25);   // exactly the P4 seal floor: ruinK 0.75, so plate 2 would freeze at prog 0.625 without the self-advance
+    for (let s = 0; s < 60; s++) kp.tick(0.05, 520 + s * 0.05);   // hp never moves; the break self-completes
+    const goneOut = panels.map((p) => p.parent.position.length());
+    assert(panels.every((p, i) => p.parent.position.length() > restOut[i] + 2 && p.material.opacity < 0.1), `knellgrave EVERY shed plate finishes falling under a frozen hp seal (out ${goneOut.map((d) => d.toFixed(1)).join('/')}, faded — no plate hangs half-tumbled through the Last Toll)`);
+    // SKY POURS THROUGH at the Last Toll — the interior wall is a SOLID opaque shell every
+    // phase, and only the DREAD reveal at deep ruin tears it open (driven by dread, NOT hp:
+    // the P4 seal freezes hp so a ruin-gated tear would never fire in play). Once torn it
+    // RATCHETS open (a broken bell doesn't heal). Fresh model so the ratchet starts clean.
+    const ks = buildBoss(BOSSES.knellgrave, 1);
+    const kw = ks.group.getObjectByName('innerWall');
+    ks.setHealth(0.20);   // deep P4 by hp alone — but with NO dread, the shell must stay solid
+    for (let s = 0; s < 10; s++) ks.tick(0.05, 570 + s * 0.05);
+    assert(kw.material.opacity > 0.9 && kw.material.depthWrite, `knellgrave interior wall stays SOLID on hp alone (opacity ${kw.material.opacity.toFixed(2)} — the seal freezes hp; only the dread reveal tears it)`);
+    ks.setSetpiece(1.0, { dread: true });   // the Last Toll reveal — NOW the sky pours in
+    for (let s = 0; s < 24; s++) ks.tick(0.05, 585 + s * 0.05);
+    assert(kw.material.opacity < 0.4 && !kw.material.depthWrite, `knellgrave interior wall TEARS open at the dread reveal (opacity ${kw.material.opacity.toFixed(2)} — the sky pours through the broken bell)`);
+    ks.setSetpiece(0, {});
+    for (let s = 0; s < 20; s++) ks.tick(0.05, 610 + s * 0.05);
+    assert(kw.material.opacity < 0.4, 'knellgrave sky-tear RATCHETS — the bell stays broken open after the reveal recedes (a broken bell does not heal)');
+    ks.dispose();
+  }
+
+  kn.dispose();
+  ok('knellgrave geometry: swing-widen telegraph, clapper head-lift notice, dread crack-gape reveal, ruin ladder, named organs ✓');
+
+  // WORST-FRAME OVERDRAW AUDIT (2026-07 owner/audit law: FX budget is ADDITIVE-SHELL
+  // COUNT, not tris — the measured cliff is stacked additive fill, and the tri counter
+  // happily waves it through). Drive the single worst frame the fight can produce —
+  // shield UP + full charge + the dread reveal (candle-flood) + TWO toll rings live
+  // mid-expansion + notice — then measure every visible additive/fresnel mesh by its
+  // real projected FILL AREA (a thin ring-wall is ~5% of the frame; a filled disc of
+  // the same radius is ~29% — bounding spheres can't tell them apart). The §2 law:
+  // ≤2 LARGE additive volumes incl. the kit shield; toll rings must each stay THIN
+  // (ring-walls, never filled discs). Lines (LineSegments) are overdraw-exempt (L124).
+  {
+    const kd = buildBoss(BOSSES.knellgrave, 1);
+    kd.setShieldVisible(true);
+    kd.setCharge(1);
+    kd.setSetpiece(1, { dread: true });
+    kd.setHealth(0.15);            // the ruin ladder fully open (widest candle-flood)
+    kd.notice();
+    let t = 0;
+    for (let s = 0; s < 30; s++) { kd.tick(0.05, t); t += 0.05; }
+    kd.tollNow(t);                  // primary + echo ring pair 1
+    for (let s = 0; s < 6; s++) { kd.tick(0.05, t); t += 0.05; }
+    kd.tollNow(t);                  // pair 2 — two generations live at once
+    for (let s = 0; s < 6; s++) { kd.tick(0.05, t); t += 0.05; }
+    kd.group.updateWorldMatrix(true, true);
+
+    // frame area at the fight camera (G7's constants: fovV 72°, cam ~settleGap+12.3).
+    const camDist = (CONFIG.BOSS.settleGap ?? 30) + 12.3;
+    const frameH = 2 * camDist * Math.tan((72 / 2) * Math.PI / 180);
+    const frameArea = frameH * (frameH * (720 / 1280));
+    const surfArea = (geo) => {
+      const p = geo.attributes.position, ix = geo.index;
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), ab = new THREE.Vector3(), ac = new THREE.Vector3();
+      let area = 0;
+      const tri = (i0, i1, i2) => {
+        a.fromBufferAttribute(p, i0); b.fromBufferAttribute(p, i1); c.fromBufferAttribute(p, i2);
+        ab.subVectors(b, a); ac.subVectors(c, a);
+        area += ab.cross(ac).length() / 2;
+      };
+      if (ix) for (let i = 0; i < ix.count; i += 3) tri(ix.getX(i), ix.getX(i + 1), ix.getX(i + 2));
+      else for (let i = 0; i < p.count; i += 3) tri(i, i + 1, i + 2);
+      return area;
+    };
+    const bigShells = [];
+    const sc = new THREE.Vector3(), q = new THREE.Quaternion(), pv = new THREE.Vector3();
+    (function walk(o, parentVisible) {
+      const vis = parentVisible && o.visible;
+      if (!vis) return;
+      if (o.isMesh && o.material && o.geometry?.attributes?.position) {
+        const mat = o.material;
+        const additive = mat.blending === THREE.AdditiveBlending;
+        const fresnel = !!(mat.isShaderMaterial && mat.uniforms && mat.uniforms.uColor);
+        if (additive || fresnel) {
+          o.matrixWorld.decompose(pv, q, sc);
+          const s = Math.max(sc.x, sc.y, sc.z);
+          const frac = (surfArea(o.geometry) * s * s) / frameArea;
+          if (frac > 0.10) bigShells.push(`${o.name || mat.type}~${(frac * 100).toFixed(0)}%`);
+          if (o.name === 'tollRing') assert(frac <= 0.10,
+            `knellgrave toll ring stays a THIN ring-wall, never a filled disc (fill ${(frac * 100).toFixed(1)}% of frame ≤ 10%)`);
+        }
+      }
+      for (const ch of o.children) walk(ch, vis);
+    })(kd.group, true);
+    assert(bigShells.length <= 2,
+      `knellgrave WORST FRAME (shield+dread+double-toll+flood): ${bigShells.length} large additive/fresnel fills [${bigShells.join(', ')}] ≤ 2 (§2 overdraw law — the cliff the tri counter can't see)`);
+    kd.dispose();
+    ok(`knellgrave worst-frame overdraw: ${bigShells.length} large shell(s) [${bigShells.join(', ') || 'none'}] with shield+dread+double-toll live ✓`);
+  }
+}
+
+// --- KNELLGRAVE §5f MUSIC-DEATH (the provably-reversible rule-break) -----------
+// musicKill() hard-zeros the music target; the kill survives being re-applied and
+// is folded into musicTarget() (so mute/volume/bg-restore paths preserve it);
+// musicRestore() brings the target back. The DEFEAT path is asserted after the
+// full-roster lifecycle below (knellgrave is last in BOSS_ORDER: its sim kills the
+// music at warn-end and the defeat fanfare must have restored it), and the
+// resetBoss teardown path is asserted here directly.
+{
+  const { musicKill, musicRestore, musicKillState } = await import('../js/sfx.js');
+  assert(!musicKillState().killed, 'music starts un-killed');
+  musicKill();
+  assert(musicKillState().killed && musicKillState().target === 0, 'musicKill hard-zeros the music target');
+  musicKill();   // idempotent
+  assert(musicKillState().killed, 'musicKill is idempotent');
+  musicRestore();
+  assert(!musicKillState().killed && musicKillState().target > 0, `musicRestore brings the target back (${musicKillState().target})`);
+  musicRestore();   // idempotent
+  assert(!musicKillState().killed, 'musicRestore is idempotent');
+  // the resetBoss teardown path: a hard teardown never strands the run in silence.
+  musicKill();
+  boss.resetBoss();
+  assert(!musicKillState().killed, 'resetBoss restores the killed music (teardown never strands silence)');
+  ok('knellgrave music-death: kill→zero, restore→back, both idempotent, resetBoss restores ✓');
+}
+
+// KARNVOW (slot 9, Tier-3 PEAK) — the named-pivot telegraph gate (§7b): the LANCE
+// is the silhouette's dominant diagonal AND the charge telegraph. setCharge(1) must
+// snap the lance from couched to point (a lancePivot rotation = a silhouette
+// change); the cowl/lance-tip/chain pivots must all exist (the emotion + organ +
+// swing rig the controller drives). The lance is one part, three jobs (§5f).
+{
+  const kv = buildBoss(BOSSES.karnvow, 1);
+  // Named pivots the telegraph + charisma + organ rig depend on.
+  const lancePivot = kv.group.getObjectByName('lancePivot');
+  assert(!!lancePivot, 'karnvow exposes the named lancePivot (the couch→point telegraph)');
+  assert(!!kv.group.getObjectByName('lanceTip'), 'karnvow exposes the named lanceTip (the amber-emitting organ / def.muzzle)');
+  assert(!!kv.group.getObjectByName('cowlPivot'), 'karnvow exposes the named cowlPivot (the player-tracking hood + focal glint)');
+  assert(!!kv.group.getObjectByName('chainPivot'), 'karnvow exposes the named chainPivot (the swinging trophy chain)');
+
+  // Telegraph: setCharge(1) snaps the lance to POINT — a real silhouette change on
+  // the dominant diagonal (couched-low pitch lifts toward level).
+  for (let i = 0; i < 30; i++) kv.tick(0.05, i * 0.05);   // settle the couched rest pose
+  const preLance = lancePivot.rotation.x;
+  kv.setCharge(1);
+  for (let i = 0; i < 20; i++) kv.tick(0.05, 2 + i * 0.05);
+  assert(lancePivot.rotation.x < preLance - 0.3,
+    `karnvow lance snaps couch→point on charge (lancePivot.rot.x ${lancePivot.rotation.x.toFixed(3)} < ${preLance.toFixed(3)} − 0.3 — the dominant-diagonal silhouette change)`);
+  kv.setCharge(0);
+
+  // CP1.5 tell FAMILIES (owner fix: one pose per attack, not one animation): under
+  // charge, 'crossfire' sweeps the lance ACROSS (yaw differs from aimed's point) and
+  // 'stream' rolls it into the overhead flourish (roll differs) — machine-checked
+  // silhouette variety, keyed off the setAttackTell hook boss.js already calls.
+  kv.setAttackTell('aimed');
+  kv.setCharge(1);
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 4 + i * 0.05);
+  const yAimed = lancePivot.rotation.y, zAimed = lancePivot.rotation.z;
+  kv.setAttackTell('crossfire');
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 6 + i * 0.05);
+  const ySweep = lancePivot.rotation.y;
+  assert(Math.abs(ySweep - yAimed) > 0.4,
+    `karnvow crossfire tell SWEEPS the lance across (yaw ${ySweep.toFixed(2)} vs aimed ${yAimed.toFixed(2)} — Δ>0.4)`);
+  kv.setAttackTell('stream');
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 8 + i * 0.05);
+  const zFlourish = lancePivot.rotation.z;
+  assert(Math.abs(zFlourish - zAimed) > 0.3,
+    `karnvow stream tell rolls the overhead FLOURISH (roll ${zFlourish.toFixed(2)} vs aimed ${zAimed.toFixed(2)} — Δ>0.3)`);
+  kv.setAttackTell(null);
+  kv.setCharge(0);
+
+  // CP1.5 de-clutter (owner fix): the trophy chain hangs at the LEFT hip — the
+  // side OPPOSITE the lance grip (lancePivot x=+1.15) — so the charms jiggle clear
+  // of the weapon arm.
+  const chainP = kv.group.getObjectByName('chainPivot');
+  assert(chainP.position.x < 0, `karnvow chainPivot at the LEFT hip, opposite the lance grip (x ${chainP.position.x.toFixed(2)} < 0)`);
+  assert(!!kv.group.getObjectByName('surcoatPivot'), 'karnvow exposes the named surcoatPivot (the segmented-skirt root)');
+  assert(!!kv.group.getObjectByName('skirtSeg2'), 'karnvow skirt is a segmented cloth chain (skirtSeg2 exists)');
+  assert(!!kv.group.getObjectByName('cloakPivot0'), 'karnvow exposes the cloak pivot chain (cloakPivot0)');
+  assert(!!kv.group.getObjectByName('cloakStrip'), 'karnvow cloak strip mesh exists');
+
+  // ROUND-3 FOOTWORK: over a ~12s headless run the dart machine must visit ≥2
+  // distinct guard positions (the rig actually MOVES — the nimble-hunter contract,
+  // owner verdict "stiff, for a hunter meant to be agile"). rig = group.children[0]
+  // isn't guaranteed — find it as surcoatPivot's ancestor under group.
+  {
+    let rig = kv.group.getObjectByName('surcoatPivot');
+    while (rig.parent && rig.parent !== kv.group) rig = rig.parent;
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < 60 * 12; i++) {
+      kv.tick(1 / 60, 10 + i / 60);
+      if (rig.position.x < minX) minX = rig.position.x;
+      if (rig.position.x > maxX) maxX = rig.position.x;
+    }
+    assert(maxX - minX > 1.5,
+      `karnvow footwork: the dart machine moves the body between guard positions (x spread ${(maxX - minX).toFixed(2)} > 1.5 over 12s)`);
+  }
+
+  // partWorldPos resolves the live lance tip (the def.muzzle 'lanceTip' aim anchor).
+  const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
+  assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
+
+  kv.dispose();
+  ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def
@@ -1039,6 +1416,15 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// §5f MUSIC-DEATH defeat path: knellgrave (last in BOSS_ORDER) killed the music at
+// its warn-end toll during the lifecycle sim above — the defeat fanfare must have
+// brought it back. A run can never end a boss kill still stranded in silence.
+{
+  const { musicKillState } = await import('../js/sfx.js');
+  assert(!musicKillState().killed, 'knellgrave lifecycle: the defeat fanfare restored the killed music');
+  ok('knellgrave music-death: the defeat path restores (lifecycle-proven) ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);

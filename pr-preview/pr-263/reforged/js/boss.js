@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
-import { sfx, setSlowMo, getBeatClock } from './sfx.js';
+import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll } from './sfx.js';
 import { input, focusHeldNow } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
@@ -165,6 +165,15 @@ const _shimV = new THREE.Vector3();
 const TETHER_MAX = 6;   // cap 6 pips at tier 4+
 let tether = null;
 const _tethA = new THREE.Vector3();
+// The equipped dragon's wisp accent (PR8 Eternal cosmetic) — the lance disc BODY
+// + the attribution tether. Jade by default; pushed from main.js after
+// createDragon / on equip. Display-only: the lance's white core stays 0xeafff6
+// and damage is a separate arg, so the accent never touches behaviour.
+let lanceTint = 0x50ffaa;
+export function setLanceTint(hex) {
+  lanceTint = (hex == null) ? 0x50ffaa : hex;
+  _tethCol.setHex(lanceTint);
+}
 let reticleTrack = null;       // dim full-circle base
 let reticleFill = null;        // bright arc: draw-on progress × (in Surge) time-left
 let reticleHead = null;        // glowing comet at the fill's leading edge (Surge meter)
@@ -310,6 +319,17 @@ function removeSeed() {
   seed.dispose();
   seed = null; seedDef = null;
 }
+// §5j foreshadow state: thresholds (metres out → toll weight k, volume) + the encounter
+// they were armed for (a new nextBossDist re-arms all three).
+const FORESHADOW_TOLLS = [[2400, 0.5, 0.16], [1500, 0.6, 0.28], [750, 0.8, 0.42]];
+let foreshadowFor = -1;
+const foreshadowFired = [];
+
+// §5e/§5j the audio-foreshadow seam (slot 10 is its first consumer): metres until the
+// next scheduled encounter (Infinity when none). `nextBossDist` is module-private —
+// callers pass the live player dist.
+export function getBossEta(playerDist) { return nextBossDist - playerDist; }
+
 function updateHorizonSeed(player, dt = 0.016) {
   // The upcoming-def peek walks the save ledger — throttle it to ~2Hz (the
   // answer only changes at encounter seams; CP2 gate finding 9 nit).
@@ -320,6 +340,19 @@ function updateHorizonSeed(player, dt = 0.016) {
       ? peekNextDef() : null;
   }
   const nd = seedPeek;
+  // §5j AUDIO FORESHADOW (def-gated — slot 10's biome-early toll, `getBossEta`'s first
+  // consumer): the NEXT encounter's boss is HEARD before it is seen — three distant
+  // tolls on the approach (quiet → closer → heavier), re-armed per encounter. Rush
+  // re-entry degrades gracefully (short breathers simply cross fewer thresholds; the
+  // peek is null in rush so the gauntlet stays clean). The §5h fairness-twin law: the
+  // banner + sky grade at warn remain the visual channel; these are the whisper before.
+  if (nd && nd.musicDies && nextBossDist < Infinity) {
+    if (foreshadowFor !== nextBossDist) { foreshadowFor = nextBossDist; foreshadowFired.length = 0; }
+    const eta = nextBossDist - player.dist;
+    for (const [th, k, vol] of FORESHADOW_TOLLS) {
+      if (eta <= th && eta > 60 && !foreshadowFired.includes(th)) { foreshadowFired.push(th); bellToll(k, vol); break; }
+    }
+  }
   const want = nd && nd.horizonSeed ? nd : null;
   const seedZ = nextBossDist + 150;                    // where the boss will hold (start.rel 150)
   const dAhead = seedZ - player.dist;
@@ -336,6 +369,26 @@ function updateHorizonSeed(player, dt = 0.016) {
   seed.setHaze((SHOW - dAhead) / 400);                 // emerges from the horizon murk over ~400m
 }
 const SETPIECE_PATHS = {
+  // §5d slot 10 — THE LAST TOLL (P4 dread/survival; the §5j law-10 free re-entrance):
+  // the bell COMES FOR YOU. It swings down + forward out of the overhead loom until
+  // it hangs DIRECTLY OVERHEAD (rel ≈3 — the mouth above your head, the bound
+  // prisoner straining in the gaping crack, seen from BENEATH), rides there swinging
+  // through the nine accelerating tolls, then hauls back up to station as the seal
+  // spends itself. model.setSetpiece(sin(kπ), {dread}) drives the reveal rig.
+  lastToll(k) {
+    const B = CONFIG.BOSS;
+    const HIGH_Y = 20, LOW_Y = 15.5, NEAR = 3;
+    if (k < 0.22) {
+      const t = easeInOut(k / 0.22);
+      return { x: 0, y: HIGH_Y - (HIGH_Y - LOW_Y) * t, rel: B.settleGap + (NEAR - B.settleGap) * t };
+    }
+    if (k < 0.82) {   // the held overhead reveal: a slow pendulum ride, never static
+      const t = (k - 0.22) / 0.6;
+      return { x: Math.sin(t * Math.PI * 3) * 2.2, y: LOW_Y + Math.sin(t * Math.PI * 5) * 0.5, rel: NEAR + Math.sin(t * Math.PI * 2) * 1.5 };
+    }
+    const t = easeInOut((k - 0.82) / 0.18);
+    return { x: 0, y: LOW_Y + (HIGH_Y - LOW_Y) * t, rel: NEAR + (B.settleGap - NEAR) * t };
+  },
   // The crossing pass: sweep out wide, rise, close in, and drift straight
   // across the lane OVER the player (hands spread via model.setSetpiece) —
   // the fly-under scale-contrast frame — then ease back to station.
@@ -1126,6 +1179,12 @@ export function startBossEncounter(player, defOverride) {
   group = model.group;
   group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
+  // Arena environment feed (optional model hook, the setGaze?.() pattern): the water
+  // surface is the world-constant plane y=0 in every biome (water.js:204). A model
+  // that reacts to it (WEFTWITCH clips its arena web at the surface) opts in by
+  // exposing setWaterPlane; every other boss is inert. Fed only here — never in the
+  // studio/tests — so the isolated captures stay byte-identical.
+  model.setWaterPlane?.(0);
 
   // Approach choreography (§5e): from behind (overtake up and over), the side,
   // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),
@@ -1308,6 +1367,9 @@ function startDeath(player) {
   // exactly the ~0.25x asked for.
   game.slowMoTimer = Math.max(game.slowMoTimer, 1.2);
   setSlowMo(true);
+  // §5f MUSIC-DEATH: the world's voice returns UNDER the defeat beat — the bell is
+  // silenced, the run's music breathes back in (~0.6s). Idempotent for every other def.
+  musicRestore();
   emit('bossDefeated', { id: def.id, bonus, embers, noHit: game.bossHitsTakenRun === 0 });
 }
 
@@ -1543,6 +1605,11 @@ export function updateBoss(dt, player, time) {
   if (phase === 'warn') {
     warnT -= dt;
     if (warnT <= 0) {
+      // §5f MUSIC-DEATH (def.musicDies — slot 10's granted rule-break): the run's
+      // music DIES ON the warn-end toll and stays dead for the whole fight (skip
+      // must NOT restore it; the defeat fanfare / resetBoss bring it back). From
+      // here the accelerating toll is the only clock — silence as dread.
+      if (def.musicDies) { musicKill(); bellToll(1); model?.tollNow?.(time); }
       // §5j: a def opts into a scripted pre-fight cinematic via `def.entrance` (an
       // ENTRANCE_SCRIPTS id); the legacy `cinematicEntrance` flag maps to ASHTALON's
       // 'overtake'. Defs with neither keep the plain approach (coexist).
@@ -1576,8 +1643,12 @@ export function updateBoss(dt, player, time) {
     pose.rel = start.rel + (B.settleGap - start.rel) * e;
     // Arc up and over the player ONLY on a behind-approach (so it never clips the
     // dragon); side/above/below travel straight in (the y descent/ascent IS the arc).
+    // `def.stationY` (§5c WORLD-ENDERS "the lane breaks"): an overhead boss holds a
+    // RAISED station — KNELLGRAVE hangs above the lane (body above the frame top,
+    // only the mouth/lip/clapper dip in; you fight looking UP). Every def without
+    // it keeps B.fightHeight byte-identical (coexist).
     const arc = (def.approachFrom == null || def.approachFrom === 'behind') ? Math.sin(k * Math.PI) * 6 : 0;
-    pose.y = start.y + (B.fightHeight - start.y) * e + arc;
+    pose.y = start.y + ((def.stationY ?? B.fightHeight) - start.y) * e + arc;
     if (k >= 1) enterFight();
   } else if (phase === 'fight' && debugSetpiecePin) {
     // Capture-only: freeze a SETPIECE pose at a fixed path parameter so the crop tool
@@ -1593,14 +1664,14 @@ export function updateBoss(dt, player, time) {
       cineYaw = (p.yaw !== undefined) ? p.yaw : null;
       cineRoll = p.roll ?? 0;
     }
-    else if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
+    else if (p) { pose.x = 0; pose.y = def.stationY ?? B.fightHeight; pose.rel = B.settleGap; }
     model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI), { id: debugSetpiecePin.id });
     model.setCharge(0);
   } else if (phase === 'fight' && debugChargePin >= 0) {
     // Capture-only: freeze the boss square-on and HOLD the contracted mantle pose
     // at the pinned charge level so the crop tool can shoot the wind-up silhouette
     // as a still (the live charge is too transient to catch headless). No firing.
-    pose.rel = B.settleGap; pose.x = 0; pose.y = B.fightHeight;
+    pose.rel = B.settleGap; pose.x = 0; pose.y = def.stationY ?? B.fightHeight;
     model.setAttackTell?.('aimed');
     model.setCharge(debugChargePin);
   } else if (phase === 'fight' && debugEntrancePin != null && (def.entrance || def.cinematicEntrance)) {
@@ -1681,7 +1752,7 @@ export function updateBoss(dt, player, time) {
       const sway = def.holdSway;
       pose.rel = B.settleGap;
       pose.x = Math.sin(time * (sway?.freq ?? 0.7)) * (sway?.amp ?? 5.0);
-      pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
+      pose.y = (def.stationY ?? B.fightHeight) + Math.sin(time * 1.3) * 0.8;
     }
 
     // Spell-card timer (§5f): the on-screen card countdown, now a real CAPTURE
@@ -1693,8 +1764,12 @@ export function updateBoss(dt, player, time) {
       cardTimer = Math.max(0, cardTimer - dt);
       ui.bossCardTimer?.(cardTimer, activeCard.timer ?? 24);
       if (cardTimer <= 0) {
-        if (activeCard.survival && shielded) breakShield(player);
-        else { cardExpired = true; ui.bossCardExpire?.(); }
+        if (activeCard.survival) {
+          // §5f: OUTLASTING a survival card is the success — the seal spends itself,
+          // the card resolves (capture if hitless), and the fight resumes chippable.
+          // (The phase's own floor shield still gates the end as normal.)
+          endCard();
+        } else { cardExpired = true; ui.bossCardExpire?.(); }
       }
     }
 
@@ -1977,6 +2052,18 @@ export function updateBoss(dt, player, time) {
         model.flash(0.9);
         tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
         burst(tmp, bulletColor, { count: 10, speed: 14, size: 0.9, life: 0.4 });   // "shots away" muzzle flash
+        // §5f KNELLGRAVE (def.musicDies): every volley release IS a toll. The audio
+        // strike (bellToll), the model's reverberation + expanding ring-wall (tollNow —
+        // the FAIRNESS TWIN: a muted/deaf player loses zero information), and the
+        // world-event layer (a camera tick + the 'bossToll' postfx flinch) all land on
+        // the same beat; the weight GROWS as the fight ruins (the final tolls are FELT).
+        if (def.musicDies) {
+          const w = 0.55 + (hpMax > 0 ? (1 - hp / hpMax) : 0) * 0.45;
+          bellToll(w);
+          model.tollNow?.(time);
+          cameraCtl.shake?.(0.16 + w * 0.2);
+          emit('bossToll', { k: w });
+        }
         executeAttack(curAttack, player);
         const ph = def.phases[phaseIdx];
         // §5i: a rhythm def uses the machine's authored rest (its signature's
@@ -2645,7 +2732,7 @@ function fireLanceAt(player, part, dmg, i = 0, n = 1) {
     owner: 'lance', x: ox, y: oy, rel: 1.5,
     vx: Math.cos(a) * L.lanceFanSpeed, vy: Math.sin(a) * L.lanceFanSpeed, vrel: B.bossSpeed,
     targetRel: trel, tx, ty,
-    color: 0x50ffaa, coreColor: 0xeafff6, dmg, r: 0.5, life: 4, part,
+    color: lanceTint, coreColor: 0xeafff6, dmg, r: 0.5, life: 4, part,
     homeDelay: L.lanceHomeDelay,
     curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,   // deterministic: slot parity, no RNG
   });
@@ -2839,6 +2926,12 @@ function ventSprayBeat() {
 
 function damageBoss(amount, kind, e = null) {
   if (phase !== 'fight') return;
+  // §5f SURVIVAL-CARD SEAL (slot 10 debut — The Last Toll): while a `survival` card
+  // runs, the boss is SEALED — all damage deflects and the UNFILLABLE BAR is the tell
+  // (§5f's exact grammar). No bubble: the tolls keep firing (a pure-dodge exam) and
+  // the dread setpiece runs. Outlasting the timer resolves the card (see the card
+  // timeout); lances already deflect via lockDeflected.
+  if (activeCard && activeCard.survival) { model?.flash?.(0.12); sfx.shieldPing?.(); return; }
   if (shielded) {
     // Chip/reflect PINGS off the armour — a clang + spark telegraph "a different
     // thing is needed now" (charge Surge), not "keep hitting it".
@@ -2903,6 +2996,7 @@ function damageBoss(amount, kind, e = null) {
 export function resetBoss() {
   clearSetpiece();
   clearLocks('death');   // THE LANCE layer: drop aim/lock state on a hard teardown
+  musicRestore();        // §5f: a hard teardown never strands the run in silence (idempotent)
   removeSeed();   // §5e: no stale horizon silhouette across a run teardown
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.

@@ -256,6 +256,10 @@ export const DRAGONS = {
   obsidian: {
     name: 'Obsidian Shade',
     title: 'Night given wings',
+    // Eternal wisp cosmetic (PR8): acid-lime, honouring the Night Fury eyes. The
+    // white wisp core/head stays white (bullet legibility, L102/L121) — tint only
+    // recolours the coloured layer; damage is unaffected. Gated on formLevel>=3.
+    lanceTint: 0x9bff3a, lanceRune: 'nightEye',
     rarity: 'SSR',
     maxRarity: 'SSSR',
     cost: 2200,
@@ -409,6 +413,7 @@ export const DRAGONS = {
   // (Increment 2b/2c will grow them from the hull).
   obsidian2: {
     name: 'Obsidian Shade II',
+    lanceTint: 0x5cc8ff, lanceRune: 'nightFang',   // Eternal wisp: cold plasma-blue (PR8)
     title: 'one skin, nose to tail',
     // Body FINISH (obsidian2-only): matte organic hide. Kill the polished-metal read:
     // metalness 0, very rough, and LOW envMapIntensity (the smooth dark body was
@@ -540,6 +545,7 @@ export const DRAGONS = {
   // the Toothless reference imagery, to be verified on the chase-cam preview.
   toothless: {
     name: 'Toothless',
+    lanceTint: 0x9b6bff, lanceRune: 'plasmaBolt',   // Eternal wisp: violet plasma bolt (PR8)
     title: 'Night Fury',
     // Matte organic hide (the L29/L30 finish kit): metalness 0, very rough, LOW
     // envMapIntensity (a smooth dark body mirrors the bright sky → reads metal).
@@ -646,6 +652,7 @@ export const DRAGONS = {
 
   pearl: {
     name: 'Pearl Seraph',
+    lanceTint: 0x7ec8ff, lanceRune: 'seraphWing',   // Eternal wisp: seraphic sky-blue (PR8)
     title: 'Dawn incarnate',
     rarity: 'SSR',
     maxRarity: 'SSSR',
@@ -732,6 +739,7 @@ export const DRAGONS = {
 
   solar: {
     name: 'Solar Sovereign',
+    lanceTint: 0xc27bff, lanceRune: 'solarCrown',   // Eternal wisp: royal violet (PR8)
     title: 'Apex of the skies',
     rarity: 'SSSR',
     maxRarity: 'SSSR',
@@ -800,6 +808,7 @@ export const DRAGONS = {
 
   phoenix: {
     name: 'Phoenix Ascendant',
+    lanceTint: 0xff7a1a, lanceRune: 'phoenixFlame',   // Eternal wisp: blazing orange (PR8)
     title: 'Reborn in fire',
     rarity: 'SSSR',
     maxRarity: 'SSSR',
@@ -870,6 +879,7 @@ export const DRAGONS = {
   // parts (crystalSerpent / sideFins / cometWake / celestialMask).
   astralWyrm: {
     name: 'Astral Wyrm',
+    lanceTint: 0x5a6cff, lanceRune: 'astralStar',   // Eternal wisp: astral indigo (PR8)
     title: 'Emperor of the Star Current',
     rarity: 'SSR', maxRarity: 'SSSR', cost: 4200,
     parts: { torso: 'crystalSerpent', wings: 'sideFins', tail: 'cometWake', head: 'celestialMask' },
@@ -1190,6 +1200,7 @@ export const DRAGONS = {
   // gloss + light (carbon "primer" → full giallo clearcoat, exhaust ablaze).
   aurumToro: {
     name: 'Aurum Toro',
+    lanceTint: 0xff3b2f, lanceRune: 'bullHorns',   // Eternal wisp: molten charge-red (PR8)
     title: 'The raging bull',
     rarity: 'SSSR',
     maxRarity: 'SSSR',
@@ -1250,6 +1261,7 @@ export const DRAGONS = {
   // player's hard-surface spec. Distinct wings + tail vs the current 'aurumToro'.
   aurumToroMk2: {
     name: 'Aurum Toro Mk II',
+    lanceTint: 0xffa11a, lanceRune: 'bullHornsRing',   // Eternal wisp: molten gold-orange (PR8)
     title: 'The raging bull',
     rarity: 'SSSR',
     maxRarity: 'SSSR',
@@ -1471,6 +1483,19 @@ export const DRAGONS = {
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).
 export const DRAGON_STAT_CAP = { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 };
+
+// The default (jade) wisp accent — the shipped lock-layer role colour. A dragon's
+// personal `lanceTint`/`lanceRune` only apply at the ETERNAL form (formLevel>=3,
+// the paid ascension tier); every other form and every dragon without one flies
+// the shared jade wisp. Display-only — see setWispTint/setLanceTint (damage is a
+// separate arg, so a tint can never change behaviour).
+export const WISP_JADE = 0x50ffaa;
+export function wispTintFor(def, formLevel) {
+  return (formLevel >= 3 && def && def.lanceTint != null) ? def.lanceTint : WISP_JADE;
+}
+export function lanceRuneFor(def, formLevel) {
+  return (formLevel >= 3 && def && def.lanceRune) ? def.lanceRune : null;
+}
 
 // Rarity grade → display color (card frame, tier pips, reveal flash)
 export const RARITY_COLORS = {
