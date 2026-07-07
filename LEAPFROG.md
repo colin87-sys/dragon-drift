@@ -7305,7 +7305,114 @@ tint + rune sigils — gate on `formLevel>=3`, no new persistence), the 5 LANCE 
 exists — ~1 line each), the `lockdps` TTK balance sim (build on `driveKill` + `lanceDmgEach`),
 and slot-14 exam rules (gated on a boss that doesn't exist).
 
-### L192 — LANCE PR8 (Eternal cosmetics): per-dragon wisp tint + brand rune, with the white-core legibility twist — personality without power
+### L192 — KARNVOW CP1 (the band-peak trophy-duelist): presence from PROXIMITY + assembly not height; the lance is ONE part with THREE jobs; a COLD accent is a palette-gate minefield
+
+**Did.** Built slot 9 CP1 — `archetype: 'trophyDuelist'`, new `bossKarnvow.js` + one `bossModel.js` dispatch
+line + the def + `BOSS_ORDER` append + a `boss.mjs` named-pivot telegraph test. A lean HOODED DUELIST: peaked
+back-swept cowl framing a recessed cold-glint socket, hard pauldrons + a faceted armored fauld, a couched
+horn-lance (Voidmaw's tube-taper kernel), a trophy chain on a baldric. Both Fable gates passed (pre-build sheet
+sign-off, then the CP1 design gate after a FIX round); `boss.mjs`/`bossboot` green, `bossgate` G1–G7 PASS, 8
+shipped bosses byte-unchanged. ~6k tris, scale 2.0.
+
+**The L140 presence fix, confirmed on a lean figure.** The audit flagged slot 9 as the thin-tris band-peak trap
+(~2k). The fix was NOT bulk: raise tris toward the band floor as DETAIL (chain charms, fauld/pauldron facets,
+cowl folds, lance horn-ridge) + set the on-screen scale (2.0) so the fight-frame reads a peer, and let PROXIMITY
++ the lance+chain assembly carry presence. A lean figure legitimately sits ~6k — tris are a detail-density
+proxy, not a size lever.
+
+**The lance is ONE part, THREE jobs** — the silhouette's dominant diagonal, the amber-emitting `lanceTip` organ
+(the ONLY amber, §5i.C.3), and the `setCharge` telegraph (couch→point→salute). Named pivots (`lancePivot`/
+`chainPivot`/`cowlPivot`/`lanceTip`) are what the telegraph gate + `def.muzzle` aim + the charisma hooks key off.
+
+**The stranger test fails at the FRONT even when ¾/profile pass — and the fight-frame IS front-on.** Fable's
+first CP1 verdict was FIX: the couched lance ran near-VERTICAL against the body in the front view → a wizard's
+STAFF; the glint was a big lamp-eye on a smooth cone; the charms floated as detached orbs. A foreshortened
+forward (+Z) lance vanishes from the front — the couch must angle DOWN-AND-OUT so a hard diagonal lives in the
+SCREEN PLANE. Recess the glint into a dark socket + brow (kills the lamp), attach the chain with VISIBLE links
+overlapping the body (kills the orbs). **Judge the silhouette at the canonical FIGHT angle, not the angles that
+flatter it.**
+
+**A COLD accent on a warm-lit game is a palette-gate minefield.** bossgate G3 flaked (12%↔61%) for a cold-steel
+boss: (1) cold edges/bloom over a WARM sky fringe false-magenta — PAIR the capture with a COOL sky (`karnvow:
+6600` = LUMEN MIRE in the DIST table; NOT a `gate.pale` override); (2) attribution flaked while the cold identity
+rode THIN aliasing seam-LINES — carry it on SOLID emissive elements (gorget/belt bands, a chest sigil, the rim;
+solid = stable pixel count) and DIM the satellite charms out of the accent tier at idle. A guttering FOCAL is a
+G1 flake too — make the blink a SIZE breath, not a brightness drop (the ashtalon core-stays-lit lesson).
+**Owner round:** the cowl hook read as a detached floating horn → re-embed as a continuous peak-tip; the glint
+now TRACKS the dragon (owner overrode the "looks past" indifference bias).
+
+### L193 — KARNVOW CP1.5 (the "stiff like Lego" verdict, two rounds): velocity-diff banking is a new boss-motion primitive; tell FAMILIES end one-animation bosses; tune motion against the FIGHT FRAME and err loud
+
+**Round 1 (the mechanics).** The owner judged CP1 on the live preview: silhouette fine, "moves stiff like a Lego
+character", "one animation with the stick", charms cluttering the weapon-arm hip. All fixed in the builder, zero
+boss.js changes: (1) **velocity-coupled bank** — the model diffs `group.position` frame-to-frame (placeGroup runs
+AFTER model.tick, so at tick time the position is a clean one-frame-lag placement; clamp + re-baseline on >4u
+teleports), the dragon.js `damp(bank, -vx·k)` idiom transplanted to a boss for the first time; (2) multi-frequency
+idle (eitherwing layering); (3) the cowl TRAILS the bank (ashtalon covert-lag: a slower ease chasing the rig lean,
+the pivot wears the delta); (4) the trophy chain became a **damped-spring pendulum** (`vel += (−k·ang − c·vel +
+drive)·dt`, drive = body velocity + flinch/notice impulses) with graded per-charm lag; (5) the surcoat split onto
+`surcoatPivot` (lag-sway + backstream); (6) the chain moved to the LEFT hip, opposite the lance grip. **Tell
+FAMILIES:** `setAttackTell` was already fed the raw attack id by boss.js — the builder just ignored it. Mapping
+attacks to lance poses (aimed=THRUST jab / crossfire=SWEEP + torso counter-rotation / stream=overhead FLOURISH
+twirl) + a follow-through overshoot on release turned one pose into a fencing vocabulary for ~60 lines, machine-
+checked in boss.mjs so it can't silently regress. **Any boss whose tick ignores `tell` is leaving its cheapest
+expressiveness unbuilt.**
+
+**Round 2 (the amplitudes).** The owner re-flew and only the arm + eye read — every motion layer was live but
+tuned against the studio close-up: an 11° peak bank, a ±0.08u bob, and a few tenths-of-a-radian of dark-on-dark
+surcoat swing are INAUDIBLE on a lean dark figure at rel 30. Round 2: bank ~2× (peak ~26°), bob ~3×, a slow
+lane-drift (`rig.position.x`) so he rides his lane, the surcoat hem sized to BREAK THE OUTLINE (~1u lateral at
+full bank, riding the chain pendulum), wider slower chain swings, grip-float ~2× (the lance is the longest lever
+in the silhouette = the cheapest legible idle). **Tune motion against the FIGHT FRAME, not the studio close-up —
+err loud; the close-up lies.**
+
+**Two pixel-gate laws learned the hard way.** (a) A tiny HDR focal needs PURE-INTERIOR pixels at fight-capture
+scale — smaller and every pixel is an AA edge-blend and maxLum caps ~247 no matter how hot the material (the
+mysterious deterministic 247). Size the focal for the capture distance. (b) **Cold emissive must stay SATURATED,
+not bright**: over-bright cold clips G/B to 1.0 under bloom → hue shifts off-accent, saturation collapses, the
+pixels drop OUT of the G3 accent tier (in-game 15% vs studio 68%). Halving the emissive RAISED attribution to a
+robust 29–41%. Brighter ≠ identity; saturated = identity.
+
+**Owner-loop lesson.** Stills passed two Fable gates and every pixel law — the stiffness and the amplitude miss
+were only visible on the LIVE preview, across TWO owner rounds. Motion verdicts belong to the preview build;
+budget owner FIX rounds after first live viewing as the NORMAL pipeline. Also: the PR-preview action can silently
+skip a push (round 2 never deployed — the owner was re-judging round 1); when an owner says "nothing changed",
+CHECK THE DEPLOY before doubting the work.
+
+### L194 — KARNVOW round 3 (the nimble hunter): a boss is only as fluid as its LOCOMOTION; model-space darts are hitbox-safe; a fast mover needs gate.freeze
+
+**The diagnosis that mattered.** Two amplitude rounds of secondary motion (bank/bob/jiggle/sway) still read
+"stiff" to the owner — because the figure was PARKED. EITHERWING is fluid because the twins fly a ±5.2u
+lemniscate; ASHTALON flies passes. **Secondary motion cannot rescue a stationary body; locomotion is the
+fluidity primitive.** Round 3 gave KARNVOW a DART machine: hops between guard positions in rig space
+(anticipation crouch → ease-out-back hop with ~8% overshoot → settle), a sidestep on the charge rising edge
+(footwork before the strike), an evasive hop on flinch, PLANTS while shielded (bubble stays aligned) and in
+death. The dart's own rig-velocity feeds the bank/chain-pendulum/cloth drives, so one hop whips the whole body.
+
+**Model-space locomotion is hitbox-safe by construction** (verified before building): every player-damage path
+(lock exposure, homing lances, the Surge beam) resolves live `partWorldPos`, which walks the full transform
+chain — offset the PARENT of the named parts (the rig) and hits follow the visual body for free. EITHERWING's
+±5.2u twins are the shipped proof. Keep amplitude at/below that precedent (KARNVOW: ±2.2 local ≈ ±4.4 world).
+
+**Cloth = a pivot chain + ONE deforming strip, never per-segment meshes.** The cloak (owner pick) is 6 lagged
+pivots skinned by a single quad-strip (eitherwing's makeTailStrip recipe — 1 draw, MeshStandard so the G7
+overdraw gate ignores it entirely); the skirt became a 3-slice chained cloth. Graded lag per depth = the whip
+travels down the fabric on every dart. Dash streaks = 2 pooled strips in GROUP space (they mark where the body
+WAS — rig space would ride along with him and never read as speed).
+
+**Two gate laws banked.** (1) **A fast mover needs `gate: { freeze: true }`**: bossgate grabs the geometry mask
+and the screenshot in separate round-trips; a body darting ~15u/s slides off its own mask between them (G1
+flaked 255↔239 with a 0% cluster — the glint simply wasn't where the mask said; G3 swung 14↔67%). The freeze
+flag (additive, the pale-slide mechanism reused) samples both at ONE pose — no thresholds change, shipped defs
+byte-identical, and G3 jumped to a stable 90%+. Chasing "flaky palette attribution" with material tweaks before
+checking MASK ALIGNMENT was the wasted hour. (2) **Attack FX should wear the ACCENT**: the lance arc-trail
+lights up exactly on charge frames — painted violet it flooded the G3 denominator on charge captures (a bimodal
+53↔14%); painted cold-steel it became an attribution ANCHOR. An FX hue that only appears under charge is
+effectively part of the palette-gate's charge-frame sample — choose it accordingly. Bonus: the correctly-aligned
+shielded capture exposed a real G6 miss (the glint never leashed under shield — now dims to an ember, the
+ashtalon idiom).
+
+### L195 — LANCE PR8 (Eternal cosmetics): per-dragon wisp tint + brand rune, with the white-core legibility twist — personality without power
 
 **Did.** Gave the 9 Eternal-capable (SSSR, procedural) dragons a PERSONAL wisp look, gated on the
 paid Eternal form (`formLevel>=3`) — no new save field. Two data fields per dragon: a hand-picked
