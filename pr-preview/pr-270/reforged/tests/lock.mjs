@@ -382,29 +382,20 @@ const t214 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 8, y: 0 }, C: 
 check('T2.14 after a paint the reticle hops to the nearest unpainted organ',
   t214.count === 1 && t214.hud.aimPart === 'B');
 
-// T2.19 — PAINT COOLDOWN (PR4a, owner: "a bit spammy"): a dwell completed on organ B
-// within paintCooldown of painting A does NOT convert immediately — the reticle still
-// hops/aims instantly (only pip creation waits), and the held line converts via the
-// refresh clock the moment the cooldown clears. Organs 3m apart: B enters the acquire
-// cone the frame the paint-hop releases A, so the dwell on B completes at ~0.35s —
-// inside the 0.45s window (fixture geometry proves the gate, not the timings).
+// T2.19 — PAINT COOLDOWN, cut to 0.22 (< dwellTime 0.35) so NORMAL painting is
+// SNAPPY (owner playtest: "lag between each pip, hovering for ages"). A second
+// organ's full dwell (0.35s) completes AFTER the 0.22 cooldown from the first
+// paint has already cleared, so consecutive pips flow at the dwell cadence — no
+// extra wait. (The cooldown now only survives as a light spam floor for a
+// FOCUS-fast paint, where the halved dwell can finish inside it.)
 const t219 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 3, y: 0 } },
   candidates: ['A', 'B'],
   frames: [
-    { dt: 0.06, n: 6, px: 0 },   // paint A lands ON frame 6 (0.36s) — cooldown starts FRESH
-    { dt: 0.06, n: 6, px: 3 },   // 0.36s on B: dwell completes with 0.09s cooldown left → blocked
+    { dt: 0.06, n: 6, px: 0 },   // paint A on frame 6 (0.36s) — cooldown (0.22) starts
+    { dt: 0.06, n: 8, px: 3 },   // ~0.48s on B: dwell (0.35) completes after the cooldown cleared → paints
   ] });
-check('T2.19 a second paint cannot land inside paintCooldown (aim still hops)',
-  t219.count === 1 && t219.hud.aimPart === 'B');
-const t219b = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 3, y: 0 } },
-  candidates: ['A', 'B'],
-  frames: [
-    { dt: 0.06, n: 6, px: 0 },   // paint A (cooldown starts fresh)
-    { dt: 0.06, n: 14, px: 3 },  // 0.84s on B: cooldown (0.45) clears mid-hold → refresh clock converts
-  ] });
-check('T2.19 the held line converts right after the cooldown clears',
-  t219b.count === 2 &&
-  t219b.events.filter((e) => e.name === 'lockPaint').length === 2);
+check('T2.19 a normal second paint flows at the dwell cadence (no cooldown lag)',
+  t219.count === 2 && t219.events.filter((e) => e.name === 'lockPaint').length === 2);
 
 // ---------------------------------------------------------------------------
 // PR3 — V3 SURGE FORK / AIMED UNLEASH (T3.x). The manual-loose state-machine path

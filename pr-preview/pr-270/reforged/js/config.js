@@ -195,9 +195,11 @@ export const CONFIG = {
     quietDwellMult: 0.5,    // LAW — danger-binding: dwell rate while no boss fire is live
     // V2 paint & volley (wired from PR2 — data present now, inert in PR1)
     capByTier: { 1: 0, 2: 3, 3: 5, 4: 6, 5: 6 },  // LAW ladder
-    decay: 4.0,             // TUNE(3.0–4.0) — per-lock lifetime; at the range top so a
-                            // dodge mid-sweep doesn't cost the first brand (owner playtest:
-                            // 'doesn't always lock 3 again' — the sweep must survive a dodge)
+    decay: 4.0,             // TUNE(3.0–4.0) — per-lock lifetime WITHOUT a fresh brand; a new
+                            // paint/stack now refreshes the whole set (freshenLocks), so this
+                            // is the "you stopped branding for 4s → it fizzles" clock, not a
+                            // race against building a set (owner playtest: brands unpainted
+                            // while flying between BRINEHOLM's spread eye + shackles)
     refreshDwell: 0.15,     // TUNE(0.1–0.2)
     stackMax: 2,            // LAW — per part, tiers ≥3 only
     stripNewestMaxTier: 2,  // LAW — ≤ this tier a hit strips newest only; above strips all
@@ -248,9 +250,10 @@ export const CONFIG = {
     shimmerHz: 2.2,         // TUNE(1.5–4) — breath rate
     tetherOpacity: 0.22,    // TUNE(0.1–0.35) — PR7 in-world attribution line dragon→brand
                             // (additive LineSegments; the line dims with the brand's life)
-    paintCooldown: 0.45,    // TUNE(0.3–0.6) — cross-organ paint spacing: min gap between ANY
-                            // two paints (paintHopGrace only embargoes the SAME organ) —
-                            // owner playtest: back-to-back paints read spammy
+    paintCooldown: 0.22,    // TUNE(0.15–0.6) — cross-organ paint spacing: min gap between ANY
+                            // two paints. Cut from 0.45 (owner playtest: "lag between each pip,
+                            // hovering for ages") — still enough to keep back-to-back paints from
+                            // reading spammy, but the pip cadence is now snappy on a spread boss
     // V3
     beamAimDisc: 4.0,       // LAW — m; nearest partWorldPos within this of the player line
     beamPartWeight: 1.5,    // TUNE(1.0–2.0)

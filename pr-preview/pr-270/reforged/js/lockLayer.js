@@ -107,6 +107,13 @@ function releaseAim() {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
 }
 
+// A fresh brand (a new pip OR a stack) refreshes the WHOLE banked set's decay
+// clock — actively branding keeps your brands alive, so building a set across
+// SPREAD organs never races the timer (owner playtest: brands "unpainted" while
+// flying between BRINEHOLM's eye + shackles; decay fired the partial set). The set
+// only decay-fires after `decay` seconds with NO new brand at all.
+function freshenLocks() { for (const lk of S.locks) lk.age = 0; }
+
 // PAINT-HOP (owner playtest): a completed paint RELEASES the aim line and embargoes
 // the painted organ from re-acquisition for paintHopGrace, so the display's
 // unpainted-first preference takes over next frame — the reticle visibly hops to
@@ -231,6 +238,7 @@ export function updateLockLayer(dt, player, ctx) {
     if (justLocked && !existing && totalPips() < S.cap && S.paintCd <= 0) {
       // The dwell that completed IS the first paint (one clock to learn).
       const part = S.aimPart;
+      freshenLocks();
       S.locks.push({ part, stacks: 1, age: 0 });
       emit('lockPaint', { part, count: totalPips() });
       S.refreshT = 0;
@@ -245,13 +253,14 @@ export function updateLockLayer(dt, player, ctx) {
       if (S.refreshT >= L.refreshDwell * (ctx.focusHeld ? L.focusDwellMult : 1)) {
         S.refreshT = 0;
         if (existing) {
-          existing.age = 0;
+          freshenLocks();
           if ((ctx.tier ?? 1) >= 3 && existing.stacks < L.stackMax && totalPips() < S.cap) {
             existing.stacks++;
             emit('lockPaint', { part: S.aimPart, count: totalPips(), stacked: true });
           }
         } else if (totalPips() < S.cap && S.paintCd <= 0) {
           const part = S.aimPart;
+          freshenLocks();
           S.locks.push({ part, stacks: 1, age: 0 });
           emit('lockPaint', { part, count: totalPips() });
           S.paintCd = L.paintCooldown;
