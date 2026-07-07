@@ -114,6 +114,15 @@ function releaseAim() {
 // only decay-fires after `decay` seconds with NO new brand at all.
 function freshenLocks() { for (const lk of S.locks) lk.age = 0; }
 
+// Can `part` still take another STACK right now (tier ≥3, below stackMax, cap
+// room)? If so the aim stays on it so the held line stacks it with no hop; if not
+// the organ is done → the aim hops onward to the next target.
+function stackRoom(ctx, part) {
+  if ((ctx.tier ?? 1) < 3 || (L.stackMax || 1) <= 1 || totalPips() >= S.cap) return false;
+  const lk = S.locks.find((l) => l.part === part);
+  return !!lk && lk.stacks < L.stackMax;
+}
+
 // PAINT-HOP (owner playtest): a completed paint RELEASES the aim line and embargoes
 // the painted organ from re-acquisition for paintHopGrace, so the display's
 // unpainted-first preference takes over next frame — the reticle visibly hops to
@@ -243,7 +252,10 @@ export function updateLockLayer(dt, player, ctx) {
       emit('lockPaint', { part, count: totalPips() });
       S.refreshT = 0;
       S.paintCd = L.paintCooldown;
-      paintHop(part);
+      // Keep the aim on a STILL-STACKABLE organ (tier ≥3, room left) so the held
+      // line stacks it via the refresh clock with NO hop/embargo lag (owner
+      // playtest: "a lag between the 1st and 2nd eye pip"). A done organ hops on.
+      if (!stackRoom(ctx, part)) paintHop(part);
     } else {
       // Held re-dwell (refreshDwell): refresh an existing pip's decay (and STACK at
       // tier ≥3, ≤ stackMax, stacks count toward the cap) — or paint a held organ
@@ -257,6 +269,8 @@ export function updateLockLayer(dt, player, ctx) {
           if ((ctx.tier ?? 1) >= 3 && existing.stacks < L.stackMax && totalPips() < S.cap) {
             existing.stacks++;
             emit('lockPaint', { part: S.aimPart, count: totalPips(), stacked: true });
+            // Filled this organ (or hit the cap) → NOW hop onward to the next target.
+            if (!stackRoom(ctx, S.aimPart)) paintHop(S.aimPart);
           }
         } else if (totalPips() < S.cap && S.paintCd <= 0) {
           const part = S.aimPart;
@@ -264,7 +278,7 @@ export function updateLockLayer(dt, player, ctx) {
           S.locks.push({ part, stacks: 1, age: 0 });
           emit('lockPaint', { part, count: totalPips() });
           S.paintCd = L.paintCooldown;
-          paintHop(part);
+          if (!stackRoom(ctx, part)) paintHop(part);
         }
       }
     }
@@ -358,6 +372,29 @@ function refreshHud(ctx, dt, player) {
       // A boss without paintables (VOIDMAW/STORMREND/ASHTALON) has only class C —
       // byte-identical to before.
       const capRoom = totalPips() < (ctx.cap || 0);
+      // PICK WHAT YOU'RE OVER (owner playtest: "there's a target right here but it
+      // won't let me paint — it tells me to fly to the top one"): if the dragon is
+      // INSIDE the acquire cone of an organ it can still ACT on — paint if
+      // unpainted, or STACK if painted with room at tier ≥3 — that organ wins
+      // outright, so the reticle stays on what you're pointing at instead of leading
+      // to a different unpainted organ (or a sticky hysteresis pinning the last
+      // lead). A DONE organ (painted, no stack room) is skipped so it still leads
+      // you onward. Only when you're over nothing actionable does the class lead run.
+      const stackTier = (ctx.tier ?? 1) >= 3;
+      let overPart = null, overD = Infinity;
+      for (const c of ctx.candidates) {
+        if (!ctx.paintables || !ctx.paintables.includes(c)) continue;
+        if (ctx.amberVenting && ctx.amberVenting(c)) continue;   // venting → can't paint now
+        const lk = S.locks.find((l) => l.part === c);
+        const actionable = lk ? (stackTier && lk.stacks < L.stackMax && capRoom) : capRoom;
+        if (!actionable) continue;
+        const w = ctx.model.partWorldPos(c, _w);
+        if (!w) continue;
+        const dx = Math.abs(w.x - player.position.x), dy = Math.abs(w.y - player.position.y);
+        if (dx >= L.coneXY || dy >= L.coneXY) continue;   // not inside its acquire cone
+        const d = dx * dx + dy * dy;
+        if (d < overD) { overD = d; overPart = c; }
+      }
       const classOf = (c) => {
         const paintable = ctx.paintables && ctx.paintables.includes(c);
         if (!paintable) return 2;
@@ -379,6 +416,8 @@ function refreshHud(ctx, dt, player) {
       // every frame — a flickering lead marker is unchaseable).
       if (S.hudPart && part !== S.hudPart && curClass === bestClass &&
           curD < Infinity && bestD > curD * 0.6) part = S.hudPart;
+      // The in-cone actionable organ overrides the lead outright — you point, you get.
+      if (overPart) part = overPart;
     } else part = ctx.candidates[0] || null;
   }
   S.hudPart = part;

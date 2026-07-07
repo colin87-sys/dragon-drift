@@ -397,6 +397,25 @@ const t219 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 3, y: 0 } },
 check('T2.19 a normal second paint flows at the dwell cadence (no cooldown lag)',
   t219.count === 2 && t219.events.filter((e) => e.name === 'lockPaint').length === 2);
 
+// T2.20 — STACK IN PLACE (owner playtest: "there's a target right here but it
+// won't let me paint / a lag between the 1st and 2nd eye pip"). On a tier-3 boss a
+// painted organ with stack room stays ACTIONABLE, so the in-cone override keeps the
+// reticle on it and the held line stacks it to stackMax with NO hop/embargo between
+// the pips — then it hops onward once full. (Tier-2 organs never stack, so T2.14/
+// T2.15/T2.18's hop-after-paint is unchanged — the override is tier-3 only.)
+const t220 = await runLock({ organs: { eye: { x: 0, y: 0 }, rib: { x: 12, y: 0 } },
+  candidates: ['eye', 'rib'], paintables: ['eye', 'rib'], tier: 3, cap: 5,
+  frames: [{ dt: 0.06, n: 20, px: 0 }] });   // sit on the eye ~1.2s
+check('T2.20 tier-3: holding the eye stacks it to 2 pips IN PLACE (no lead-away, no lag)',
+  t220.count === 2 &&
+  t220.events.filter((e) => e.name === 'lockPaint' && e.part === 'eye').length === 2 &&
+  t220.events.some((e) => e.name === 'lockPaint' && e.stacked));
+const t220b = await runLock({ organs: { eye: { x: 0, y: 0 }, rib: { x: 12, y: 0 } },
+  candidates: ['eye', 'rib'], paintables: ['eye', 'rib'], tier: 3, cap: 5,
+  frames: [{ dt: 0.06, n: 24, px: 0 }] });   // eye fills → the reticle advances to the rib
+check('T2.20 once the eye is stacked full, the reticle hops onward to the unpainted rib',
+  t220b.hud.aimPart === 'rib');
+
 // ---------------------------------------------------------------------------
 // PR3 — V3 SURGE FORK / AIMED UNLEASH (T3.x). The manual-loose state-machine path
 // is unit-tested here (fabricated ctx); the boss-seam fork/aimed-beam are exercised
