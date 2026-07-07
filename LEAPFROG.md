@@ -7496,3 +7496,41 @@ whitelist, the count gate in defs.mjs, and event-payload guards for multi-source
 deferred item (owner: two PRs, this was the first): the `lockdps` LANCE balance table — an
 analytic per-boss damage-economy tool + band-gate test on the exported `lanceDmgEach` kernel and
 the `bossHit {kind}` attribution tag (dev-only, no player-facing change).
+
+### L197 — lockdps balance table: an ANALYTIC model beats an instrumented fight when the fight can't exercise the channel
+
+**Did.** Shipped `tools/lockdps.mjs` (+ a pure `tools/lockdpsCore.mjs` + a band-gate
+`tests/lockdps.mjs`) — a dev-only LANCE damage-economy table. For every boss it prints, per
+phase, the ROI-clamped full-cap volley damage, that volley as a %-of-phase, and pure-lance
+volleys-to-clear, plus a per-boss lance-only TTK estimate; `--ci` exits 1 on a broken balance
+invariant. No game code changed — boss kill-times + tricount trivially unchanged; the SW manifest
+is unaffected (tools/ + tests/ aren't precached, so no stamp-sw needed).
+
+**Why ANALYTIC, not an instrumented fight.** The obvious approach — reuse `driveKill`
+(tests/boss.mjs) and accumulate the `bossHit {kind}` attribution tag per channel — has a hole:
+`driveKill`'s "player" only ever fires SURGE at shields; it never PAINTS lances, so a natural loop
+reports lance-damage = 0. Getting real lance numbers would need a headless lance-persona (drive the
+lock API, bank pips, loose) — real integration surface for a balance table. But the LANCE economy
+is FULLY DETERMINED by config × the boss HP/phase model: cap pips = `capByTier[tier]`, phase span =
+`(atFrac − nextAtFrac) × hpMax`, and the SHIPPED `lanceDmgEach(pips, phaseHp, mult)` kernel (reused,
+not re-derived — single source of truth). So the model is exact with zero fight loop. **When the
+only headless driver can't exercise the channel you're measuring, an analytic model on the shipped
+kernel is more honest than a fight that silently reports zero.** (As-played per-channel attribution
+via `bossHit{kind}` is still the right tool once a lance-persona exists — noted as a future add.)
+
+**The table earned its keep immediately — it makes a design LAW legible.** It shows the lance is a
+CHIP channel BY LAW: the 10% `volleyRoiFrac` clamp means a full-cap volley is ≤10% of the current
+phase HP, so tier-3 volleys ROI-clamp at ~10% (~10 volleys/phase) and tier-2 sit at ~6% raw
+(lanceDmg-bound); tier-1 Sentinels are lance-disabled (`capByTier[1]=0`). A pure-lance clear is
+~40–57 volleys — the lance supports, never solos. The band-gate test freezes that: the ROI law
+(base AND beat volley ≤ ceiling — the beat mult lives INSIDE the clamp), the cap-ladder wiring, and
+a sane per-boss clear-volley band, so a `lanceDmg`/`volleyRoiFrac`/`capByTier`/phase edit that
+shifts LANCE balance fails loudly here and in `--ci`.
+
+**Pattern notes.** (1) **Pure-core + injected deps** — `lockdpsCore.mjs` imports NOTHING; the CLI
+and the test each do their own headless boot and pass in `CONFIG`/`BOSSES`/`lanceDmgEach`. One
+math module, two drivers, no shim duplicated into the logic. (2) The pure-node tool boot is the
+`tricount.mjs` template (three-resolver + minimal DOM/localStorage shim + dynamic imports + `--ci`
+exit); `globalThis.navigator`/`location` are getter-only in node 22 — GUARD the assignment
+(`if (!globalThis.navigator)`), a raw assign throws. run-all.mjs auto-discovers `tests/*.mjs`, so
+the band gate joins CI for free.
