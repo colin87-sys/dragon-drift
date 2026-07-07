@@ -8,6 +8,7 @@ import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } fr
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle } from './reticle.js';
+import { lockHudState } from './lockLayer.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
@@ -31,7 +32,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -267,6 +268,7 @@ if (urlParams.has('debug')) {
     // PR6 seams: liveness-filtered paintables, shimmer count, runtime def pick.
     bossPaintables: () => debugPaintables(),
     bossShimmerCount: () => debugShimmerCount(),
+    bossTetherCount: () => debugTetherCount(),
     bossSetDefIdx: (k) => setBossDebugDefIdx(k),
     // PR4a wisp seams: live bullet kinematics (fan-divergence asserts).
     bossBullets: () => debugActiveBullets(),
@@ -351,6 +353,7 @@ const _muzzleV = new THREE.Vector3();
 on('lockVolley', (p) => {
   if (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')) {
     sfx.brandLoose?.(p.count);
+    sfx.volleyDuck?.();   // PR7: dip the music ~200ms so the exhale owns the moment
     juiceEvent('wispVolley');
     _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
     burst(_muzzleV, 0x50ffaa, { count: 10, speed: 12, size: 0.8, life: 0.35 });
@@ -1210,6 +1213,12 @@ function tick() {
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
+    // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
+    // not reticle.js — the reticle early-returns when disabled, and this cue's
+    // whole job is the no-reticle acquire loop. Silences on lock (aimHeld → the
+    // chime), on sealed/muted, and on any non-fight/paused frame (0 stops it).
+    const lh = (game.inBoss && game.state === 'playing') ? lockHudState() : null;
+    sfx.dwellHum?.(lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted ? lh.dwell : 0);
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget());
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);

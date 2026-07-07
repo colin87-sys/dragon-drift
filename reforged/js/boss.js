@@ -24,7 +24,7 @@ import {
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
-  lanceDmgEach, paintFromParry, dropLockPart, lockPaintedParts, __testBank } from './lockLayer.js';
+  lanceDmgEach, paintFromParry, dropLockPart, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
 import { makeGlowTexture } from './util.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
@@ -158,6 +158,13 @@ const _focusCol = new THREE.Color();
 const SHIMMER_POOL = 8;
 const shimmers = [];
 const _shimV = new THREE.Vector3();
+// BRAND TETHER (PR7): one additive LineSegments drawing a faint jade line from
+// the dragon's off-shoulder (the wisp launch point) to each BRANDED organ —
+// in-world attribution ("this brand is on THAT rib"), a sibling of the shimmer.
+// STATE, so it renders with the reticle off. Line class → overdraw-exempt.
+const TETHER_MAX = 6;   // cap 6 pips at tier 4+
+let tether = null;
+const _tethA = new THREE.Vector3();
 let reticleTrack = null;       // dim full-circle base
 let reticleFill = null;        // bright arc: draw-on progress × (in Surge) time-left
 let reticleHead = null;        // glowing comet at the fill's leading edge (Surge meter)
@@ -766,6 +773,22 @@ export function initBoss(sc) {
     scene.add(sp);
     shimmers.push(sp);
   }
+  // Brand-tether line pool (PR7): a single LineSegments, 2 verts per possible
+  // brand, rewritten each frame; per-segment color fades with the brand's life
+  // (LineBasicMaterial has no per-vertex alpha → fade the additive COLOR).
+  const tgeo = new THREE.BufferGeometry();
+  tgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TETHER_MAX * 2 * 3), 3));
+  tgeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TETHER_MAX * 2 * 3), 3));
+  tgeo.setDrawRange(0, 0);
+  const tmat = new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, blending: THREE.AdditiveBlending,
+    depthWrite: false, depthTest: false,
+  });
+  tether = new THREE.LineSegments(tgeo, tmat);
+  tether.frustumCulled = false;
+  tether.renderOrder = CONFIG.BOSS.renderTiers.wispRibbon;
+  tether.visible = false;
+  scene.add(tether);
   on('bossDamage', (e) => damageBoss(e.amount, e.kind, e));
   on('bossDefeated', (e) => recordBossBeaten(e && e.id));   // unlock it in the rush roster
 
@@ -1426,9 +1449,11 @@ export function updateBoss(dt, player, time) {
     if (surgeAura) surgeAura.visible = false;
     if (surgeBeam) surgeBeam.visible = false;
     hideShimmers();
+    hideTether();
     surgeSeq = null;
     // Silence any lingering Surge loops when the fight isn't running (edge-only).
     if (wasSurge) { sfx.surgeCrackleStop?.(); wasSurge = false; }
+    sfx.dwellHum?.(0);   // PR7: no dwell whisper outside a live fight
     if (wasReady) { sfx.surgeReadyStop?.(); wasReady = false; }
     input.surgeTap = false;   // drop any stale tap between fights
     ui.surgeReady?.(false);
@@ -1511,9 +1536,9 @@ export function updateBoss(dt, player, time) {
     pendingDeath = false;
     startDeath(player);
   }
-  // Organ shimmers exist only while the FIGHT branch drives them — any other
-  // live phase (entrance/dying/warn) must not leave stale breaths pinned.
-  if (phase !== 'fight') hideShimmers();
+  // Organ shimmers + brand tethers exist only while the FIGHT branch drives
+  // them — any other live phase (entrance/dying/warn) must not leave them pinned.
+  if (phase !== 'fight') { hideShimmers(); hideTether(); }
 
   if (phase === 'warn') {
     warnT -= dt;
@@ -1755,6 +1780,7 @@ export function updateBoss(dt, player, time) {
     // 0..1 heat the reticle tints jade while the hold is live (render-only).
     focusVis = Math.max(0, Math.min(1, focusVis + (lockCtx.focusHeld ? dt * 6 : -dt * 4)));
     updateShimmer(time, lockCtx);
+    updateTether(player);
 
     riderTimer -= dt;
     if (riderTimer <= 0) {
@@ -2539,6 +2565,40 @@ function hideShimmers() {
   for (const sp of shimmers) sp.visible = false;
 }
 
+// BRAND TETHER drive (PR7): a line from the dragon's off-shoulder to each
+// branded organ's live world pos (lockHudState().locks — the same anchors the
+// marks/wisps use). Colour fades to black (additive → invisible) as the brand's
+// life drains, so a dying tether visibly thins out. Pure render.
+const _tethCol = new THREE.Color(0x50ffaa);
+function updateTether(player) {
+  if (!tether) return;
+  const locks = lockHudState().locks || [];
+  const pos = tether.geometry.attributes.position.array;
+  const col = tether.geometry.attributes.color.array;
+  const sx = player.position.x - 0.6, sy = player.position.y + 0.4, sz = -player.dist;
+  const base = CONFIG.LOCK.tetherOpacity;
+  let n = 0;
+  for (const lk of locks) {
+    if (n >= TETHER_MAX) break;
+    const o = n * 6;
+    pos[o] = sx; pos[o + 1] = sy; pos[o + 2] = sz;
+    pos[o + 3] = lk.x; pos[o + 4] = lk.y; pos[o + 5] = lk.z;
+    const k = base * Math.max(0, Math.min(1, lk.life ?? 1));
+    // Shoulder end dimmer, organ end brighter (the line "arrives" at the mark).
+    for (const [vi, m] of [[o, 0.4], [o + 3, 1]]) {
+      col[vi] = _tethCol.r * k * m; col[vi + 1] = _tethCol.g * k * m; col[vi + 2] = _tethCol.b * k * m;
+    }
+    n++;
+  }
+  tether.geometry.setDrawRange(0, n * 2);
+  if (n) { tether.geometry.attributes.position.needsUpdate = true; tether.geometry.attributes.color.needsUpdate = true; }
+  tether.visible = n > 0;
+}
+
+function hideTether() {
+  if (tether) { tether.visible = false; tether.geometry.setDrawRange(0, 0); }
+}
+
 // PR6 LIVENESS: a lockPart backed by a DESTRUCTIBLE sub-part must leave the
 // paintable set when that sub-part dies — crackPane/crackShackle HIDE their
 // nodes (partWorldPos still resolves), so without this filter the reticle
@@ -2872,6 +2932,8 @@ export function resetBoss() {
   if (surgeAura) surgeAura.visible = false;
   if (surgeBeam) surgeBeam.visible = false;
   hideShimmers();
+  hideTether();
+  sfx.dwellHum?.(0);
   surgeSeq = null;
   sfx.surgeCrackleStop?.();
   sfx.surgeReadyStop?.();
@@ -3022,6 +3084,7 @@ export function debugRaiseShield() {
 // PR6 test seams: the live paintable set (liveness-filtered) + shimmer state.
 export function debugPaintables() { return paintableParts(); }
 export function debugShimmerCount() { return shimmers.filter((s) => s.visible).length; }
+export function debugTetherCount() { return tether && tether.visible ? tether.geometry.drawRange.count / 2 : 0; }
 
 export function bossDebugState() {
   // chargeLevel: 0 at the start of a wind-up → 1 at full contraction (mirrors the

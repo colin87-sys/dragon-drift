@@ -7261,3 +7261,46 @@ opposite of the un-opted-byte-identical rule, which still holds for slots 1–3)
 Remaining LANCE polish (nothing structural): dwell-progress audio for the full no-reticle
 acquire loop, tether LineSegments, feats/analytics, lockdps, audio duck, Eternal cosmetics
 (per-dragon wisp tint + rune sigils), slot-14 exam rules.
+
+
+### L191 — LANCE PR7 (feel bundle): the dwell whisper, the release duck, and the brand tether — completing the sensory loop, especially reticle-off
+
+**Did.** Three small player-facing polish items from the deferred list, chosen as one coherent PR:
+(1) **Dwell hum** — a soft looping oscillator whose PITCH rises 200→620Hz with acquisition
+progress (`osc.frequency.setTargetAtTime` per frame, the one new WebAudio idiom over the
+`surgeReadyStart` loop template), driven from the MAIN frame loop reading `lockHudState().dwell`
+directly (NOT reticle.js — it early-returns when the reticle is off, the exact case this cue
+serves). It silences on lock (aimHeld → the chime), on seal/mute, and on any non-fight frame
+(passing 0 stops the loop). (2) **Release duck** — `sfx.volleyDuck()` dips the MUSIC bus ~200ms
+on a deliberate loose (the `pumpDuck` sidechain idiom; music-only because the exhale routes
+through sfxBus and the kick sidechain lives on its own pumpGain node — no collision), restore via
+`musicTarget()` so it respects mute/volume. (3) **Brand tether** — one additive `LineSegments`
+(overdraw-exempt) drawing a jade line from the dragon's off-shoulder (the wisp launch point) to
+each branded organ's live `lockHudState().locks[].xyz`, the colour fading toward black (additive
+→ invisible) as the brand's life drains. It lives beside the organ-shimmer pool in boss.js — its
+sibling: both are in-world STATE cues, so both render with the reticle off.
+
+**The load-bearing idea: STATE renders regardless of the reticle; only ASSIST is priced.** PR6
+established the law (marks are state, the lead reticle is assist); PR7 extends it — the tether
+and the dwell hum are the last two acquire/attribution channels, and both deliberately bypass the
+reticle gate. With them, a no-reticle hardcore run finally has a COMPLETE loop: shimmer says
+"brandable", the hum rises as you hold ("closing in"), the chime confirms the lock, the mark +
+tether show "branded, and it's THAT organ". The reticle now only sells the lead squares + dwell
+FILL — exactly what the +10% score bonus is buying.
+
+**Two craft notes.** (1) **A per-frame audio consumer needs a per-frame DRIVER at the right
+altitude.** The lock layer publishes `dwell` every frame but had no audio consumer; the temptation
+was to drive the hum from reticle.js (which already reads `lockHudState()`), but that's the one
+place gated off in the exact scenario the hum exists for. Drive continuous cues from the frame
+loop, not from a subsystem that may early-return. (2) **Additive-line fade without per-vertex
+alpha**: `LineBasicMaterial` has no per-vertex alpha, but under `AdditiveBlending` a vertex COLOUR
+scaled toward black IS a fade — so `vertexColors` + colour×life gives a decaying tether (and a
+shoulder-dim→organ-bright gradient) for free, one buffer, one draw.
+
+**→ Leapfrog.** Audio feel can't be asserted honestly headless (no AudioContext) — the tests
+prove the functions are no-throw callable and the tether COUNT tracks brands (a debug seam), and
+the PR body says plainly that the two audio items are owner-ear-judged on the preview. Remaining
+deferred LANCE polish (all still optional, none structural): Eternal cosmetics (per-dragon wisp
+tint + rune sigils — gate on `formLevel>=3`, no new persistence), the 5 LANCE feats (the engine
+exists — ~1 line each), the `lockdps` TTK balance sim (build on `driveKill` + `lanceDmgEach`),
+and slot-14 exam rules (gated on a boss that doesn't exist).
