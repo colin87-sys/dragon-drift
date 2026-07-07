@@ -7687,3 +7687,100 @@ hole opened into a sealed box. The fix is to break the bell the way it would act
 Meta-lesson: when a "reveal through the object" doesn't read, check the FAR side of the sightline
 before reaching for shaders — the occluder is usually geometry you forgot to remove.
 
+### L204 — WEFTWITCH CP1 (slot 11, the arena-weaver): the field IS the body, "spider" hides in the ARMS not the web, and the G3 danger-band was the SKY, not the mesh
+
+**Did.** Built slot 11 WEFTWITCH (Tier-4 World-Ender) to CP1: the def (`bossDefs.js` +
+`BOSS_ORDER`), `bossWeftwitch.js` (a hooded legless weaver-bust CROWNED by 6 spinneret-arms
+above the shoulder, 2 oversized hands = the §4b face, an arena-spanning spoke-web, a loom-heart
+muzzle), one `bossModel.js` dispatch line, and a `boss.mjs` telegraph/silhouette block. Both
+gates pass: `bossgate` G1–G7 + two independent Fable design gates (pre-build sheet + CP1 renders).
+
+**The learns (reusable).**
+1. **The field IS the body (L141), and the studio LIES about it.** A medium bust reads HUGE only
+   because the web fills the frame — the studio auto-frames the whole web so the bust is a tiny
+   dot; the *in-game fight-frame* (`bossstudio` `fight-idle`) is the only honest grandeur read.
+   Judge design on the studio bust sheet; judge SCALE on the field-frame. `hullLength()` returns
+   the WEB span (166u), not the body, so the L141 test asserts presence, not mass.
+2. **For a radial-web boss, the spider read lives in the ARMS, not the web.** The pre-build Fable
+   gate killed a spider-from-ADJECTIVES sheet ("elegant, graceful" don't survive black-fill) — the
+   fix was GEOMETRY: move all limbs into an upward crown ABOVE the shoulder, **NO limb below
+   horizontal (inviolable — never pull one down to "balance" the lower frame)**. Then the CP1 gate
+   caught the SECOND spider: thin, elbow-kinked, needle-tipped crown arms *read as legs* at the
+   fight frame (worst on the warm sky). Fix = DE-LEG: thick, one smooth UPWARD curve, tips ≥45°,
+   ending in a shuttle MASS not a needle, and SELF-LIT (emissive) so the crown exists on a dark
+   sky. Thick blades pointing skyward are a crown; thin tapered sticks arching out are legs —
+   same count, opposite noun. Silhouette-surviving geometry wins; lighting/color cues don't.
+3. **A bossgate G3 danger-magenta failure can be the SKY, not your mesh.** A pure-black
+   silhouette on a magenta SUNSET borrows the sky at its bloomed edges → those edge pixels read
+   as danger-band body pixels (1.6%). Two fixes, both real: (a) a pale-gold FRESNEL RIM so the
+   edges read HER gold not the sky's magenta (the L121 "reads on a bright sky" trick — also boosts
+   G3 accent attribution); (b) add the boss to `bossgate.mjs`'s `DIST` map at its HOME biome
+   (§7c biome pairing) — WEFTWITCH's Astral (near-black violet) sky dropped danger-band 1.6% →
+   0.003% instantly. The default gate biome is the warm sunset (the hardest test); a warm-dark
+   boss needs its complementary-sky entry or it false-fails, exactly like MARROWCOIL at 8000.
+4. **A PALE accent washes to white under bloom (G3 attribution) — carry it on SOLID surfaces.**
+   `0xe9d8a6` desaturated to white; `0xe8c466` (a touch more saturated, still hue ≈43° and firmly
+   off the rose/magenta band) holds hue. Thin gold LINES throw magenta antialiased edges and are
+   poor attribution carriers; the SOLID rosette-knots + spinneret tips + the self-lit arms carry
+   the gold read (attribution 17% → 62%). Body moth-grey must be COOL (0x1a1c22), not a
+   purple-grey — purple drifts red-channel pixels into the danger band.
+5. **Two-value web (L122) for both skies:** a DARK warp fill reads on a bright sky, a PALE hero
+   subset reads on a dark sky — the pale-only web vanished on the sunset (Fable caught it).
+6. **`laserLance` = a beam VISUAL of an existing pattern (`aimed`), NOT a new attack id** — keeps
+   the def within the `boss.mjs` known-id list AND leaves the World-Enders band's ≤1-new-id budget
+   for a sibling (confirm with owner at CP2). A visual re-expression is free; a new id is a budget.
+
+**Deferred to CP2 (owner green-light first):** the HUD-sew overlay + banner-pin engine (§5j, her
+granted rule-break, with the render-order-LAW test), the live fight wiring (phases/cards/rhythm
+fire, the entrance *The Mended Banner*), the thread-cut parry + mote-harvest graze, and the CP2
+Fable integration gate. CP1 is model + studio/gate + design gate; the engine is CP2. Optional
+polish Fable flagged (non-blocking): shuttle tips slightly more hand/spindle-like; lift the
+sunset hero-thread brightness a notch.
+
+### L205 — WEFTWITCH web↔water + loom-eye gaze: an arena-reactive model needs a CONTROLLER-FED environment hook, and the water is a compile-time constant
+
+**Did.** Two owner notes on the PR-263 preview: (1) the arena web's spokes pierced the water
+as dead-straight lines ("janky"); (2) "the white eye thing should follow us." Fixed both in
+`bossWeftwitch.js` + ONE optional-chained line in `boss.js`.
+
+**The learns (reusable).**
+1. **The water surface is a compile-time constant, not a query.** `water.js` pins the plane at
+   world y=0 in EVERY biome; waves are a GPU-shader illusion (the mesh is geometrically flat);
+   there is NO CPU height-sample anywhere — Reflector, contactShadow, and BRINEHOLM's fog-rise
+   all just hard-code y=0. Don't build a height-field API to "react to the water"; clip against
+   the constant plane.
+2. **A fight-context environment feed keeps the model studio-pure.** The studio + headless
+   tests build models at the ORIGIN with no water — an always-on clip would have silently
+   changed the CP1 captures and gate numbers. Pattern: an optional handle hook
+   (`model.setWaterPlane?.(0)` at fight spawn, the `setGaze?.()` idiom) — never fed in the
+   studio, so the isolated path stays byte-identical, and a coexist TEST asserts the buffers
+   are untouched without the hook. This is now the house pattern for any arena-reactive model.
+3. **Clip against the LIVE matrix, per tick, never cached.** `bossKit` animates `group.scale`
+   (dissolve spread ×1.6) and the entrance animates `threadPivot.scale` — transform the world
+   plane into pivot-local space fresh each tick (`Plane.applyMatrix4(inverse(matrixWorld))`,
+   which renormalizes → signed distances stay in local units) and the death-sink/entrance
+   compose for free (the web visibly settles into the sea as she dies).
+4. **Three clip cases, all mandatory:** crossing → parametric clip `t=d0/(d0−d1)` + a STRICTLY
+   upward bob (0.12–0.34, never coplanar — the flat water mesh z-fights anything at y=0) + a
+   drag-TAIL along the surface; fully-submerged → collapse degenerate ONTO the plane (deep
+   stitches have both endpoints underwater at fight height — leaving them at base coords fails
+   the no-pierce assert); fully-above → restore pristine base (stitches clip INDEPENDENTLY —
+   re-lerping them against clipped spokes bunches the lower lattice into a halo above the
+   waterline, a look the gates never approved). Straight-down spokes: the tail direction
+   (spoke projected onto the plane) degenerates near-antiparallel to the normal — fall back to
+   local-X-projected, deterministically signed.
+5. **Rewrite-from-base defines the mutation contract:** the clip pass restores the position
+   attributes from pristine base arrays every tick — any future writer (the CP2 gap-restitch)
+   must mutate the BASE arrays, never the attributes, or its writes get stomped. Documented at
+   the base-copy site.
+6. **"Does it track us" is a fight-distance question.** The §4b gaze carriers (hands + hood)
+   DID track but at amplitudes tuned on the studio sheet — invisible at rel-30. And the ONE
+   thing the eye locks onto (the white loom-core focal) was static. Fix: pupil-offset the core
+   toward the eased gaze (the BRINEHOLM iris idiom) + lean the organ + ~2× the hand/hood
+   amplitudes, keeping the LAG (snap = turret, lag = a mind). Honest telegraphy: the core is
+   the muzzle, so where it looks is where shots come from. Tune tracking amplitudes at the
+   FIGHT frame, not the studio sheet.
+
+**Verified:** boss.mjs (pierce −67→−0.00 world, 28 surface tails, coexist-untouched, loom-eye
+tracks) · bossboot zero-error · bossrush · bossgate G1–G7 PASS with the clip LIVE in the fight
+captures. The owner judges the contact bob/tails + tracking feel on the PR preview.
