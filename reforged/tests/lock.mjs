@@ -604,6 +604,31 @@ if (!fired) {
 }
 check('T0.2 the armed tap spent the ready Surge (surge event observed)', fired === true);
 
+// --- T5.1 (PR5) — the FOCUS hold detector: a STILL extra finger arms focus at
+// ≥focusArmMs; lifting disarms; a quick tap (the surge gesture) never trips it
+// (the 260→300ms hysteresis LAW keeps the gestures alias-free).
+const t51 = await page.evaluate(async () => {
+  const inp = await import(new URL('./js/input.js', document.baseURI).href);
+  const canvas = window.__dd.renderer.domElement;
+  const rect = canvas.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  const mk = (id, x, y) => new Touch({ identifier: id, target: canvas, clientX: x, clientY: y });
+  const ev = (type, changed, touches) => new TouchEvent(type, {
+    bubbles: true, cancelable: true, changedTouches: changed, touches, targetTouches: touches });
+  const steer = mk(300, cx - 40, cy), extra = mk(301, cx + 40, cy);
+  canvas.dispatchEvent(ev('touchstart', [steer], [steer]));
+  canvas.dispatchEvent(ev('touchstart', [extra], [steer, extra]));
+  const early = inp.focusHeldNow();                         // < focusArmMs → not yet
+  await new Promise((res) => setTimeout(res, 380));
+  const armed = inp.focusHeldNow();                         // ≥ 300ms still hold → armed
+  canvas.dispatchEvent(ev('touchend', [extra], [steer]));
+  const released = inp.focusHeldNow();
+  canvas.dispatchEvent(ev('touchend', [steer], []));
+  return { early, armed, released };
+});
+check('T5.1 focus arms only past focusArmMs and disarms on lift',
+  t51.early === false && t51.armed === true && t51.released === false);
+
 // ---------------------------------------------------------------------------
 // PR3 integration — the tap table, the aimed beam, and the Surge fork on a LIVE
 // VOIDMAW fight (slot 1: lockCandidates() = ['focalEye']). Deterministic seams

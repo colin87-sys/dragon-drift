@@ -50,6 +50,7 @@ const S = {
   _atCap: false,     // edge-detect: the fuse starting = the dragon DRAWS BREATH (lockCap event)
   looseReq: false,   // V3 MANUAL LOOSE (PR3): a not-ready tap requested a volley; the
                      // state machine consumes it next step (releaseVolley needs ctx.phaseHp)
+  dwellNeed: 0,      // V5 (PR5): this frame's effective dwell threshold (halved while FOCUS held)
 };
 
 const _w = new THREE.Vector3();       // scratch for partWorldPos
@@ -188,7 +189,14 @@ export function updateLockLayer(dt, player, ctx) {
       }
     }
   }
-  if (S.aimPart && S.aimDwell >= L.dwellTime) S.aimHeld = true;
+  // V5 FOCUS (PR5): a deliberate HOLD (2nd finger past focusArmMs / keyboard F)
+  // HALVES the effective dwell — the hunter steadies and the mark takes faster.
+  // Only the THRESHOLD scales (accrual clamps stay at the full dwellTime), so
+  // dropping focus mid-dwell keeps the earned progress. The HUD fraction uses
+  // the same effective need (display == logic — the fill must complete exactly
+  // when the lock does, L177/L180.1).
+  S.dwellNeed = L.dwellTime * (ctx.focusHeld ? L.focusDwellMult : 1);
+  if (S.aimPart && S.aimDwell >= S.dwellNeed) S.aimHeld = true;
 
   // Lock-acquired edge (green snap): fire ONCE when a usable lock is achieved, so
   // ui/sfx can pop + chime. `held` = aimHeld, not muted, and not DEFLECTED — a
@@ -234,7 +242,7 @@ export function updateLockLayer(dt, player, ctx) {
       // that couldn't take a pip at the lock instant (amber window just closed, or
       // a cap slot just freed): the held line converts as soon as it's allowed to.
       S.refreshT += dt;
-      if (S.refreshT >= L.refreshDwell) {
+      if (S.refreshT >= L.refreshDwell * (ctx.focusHeld ? L.focusDwellMult : 1)) {
         S.refreshT = 0;
         if (existing) {
           existing.age = 0;
@@ -390,7 +398,7 @@ export function lockHudState() {
     active: S.fightRunning && S.hasOrgan,
     muted: S.muted,
     aimHeld: S.aimHeld && !S.muted && !S.deflected,   // sealed → never shown green
-    dwell: Math.max(0, Math.min(1, S.aimDwell / L.dwellTime)),  // 0..1 acquisition progress
+    dwell: Math.max(0, Math.min(1, S.aimDwell / (S.dwellNeed || L.dwellTime))),  // 0..1 acquisition progress (focus-aware)
     hasOrgan: S.hasOrgan,
     aimPart: S.hudPart,
     x: _hud.x, y: _hud.y, z: _hud.z,
@@ -429,23 +437,32 @@ function totalPips() {
 // current phase's hp (audit R1 — the clamp is enforced at release, not asserted in
 // prose). Shared by the auto/manual volleys (releaseVolley) AND the PR3 Surge fork
 // (boss.js), so every lance path clamps against the same law with one arithmetic.
-export function lanceDmgEach(pips, phaseHp) {
+// `mult` (E1 beat bonus) scales the BASE damage INSIDE the clamp — the ROI ceiling
+// is absolute; a perfect release can never breach the phase-hp law.
+export function lanceDmgEach(pips, phaseHp, mult = 1) {
   if (!pips) return 0;
-  return Math.min(L.lanceDmg, (L.volleyRoiFrac * (phaseHp || Infinity)) / pips);
+  return Math.min(L.lanceDmg * mult, (L.volleyRoiFrac * (phaseHp || Infinity)) / pips);
 }
 
 // Release every painted pip as a staggered homing-lance volley.
+// V3.E1 PERFECT RELEASE (PR5): a MANUAL loose ('tap' — the player's own timing)
+// that lands within ±beatWindow of a music-beat edge (ctx.beatOn, computed by
+// boss.js from getBeatClock; null-safe when music is off) rides the beat —
+// dmg × beatMult INSIDE the ROI clamp + `perfect: true` on the event (score/UI
+// at the boss seam). LAW: volleys ONLY — the Surge beam/break and the fork
+// never see this (they don't route through here).
 function releaseVolley(ctx, source) {
   const pips = totalPips();
   if (!pips) return;
-  const dmgEach = lanceDmgEach(pips, ctx.phaseHp);
+  const onBeat = source === 'tap' && !!ctx.beatOn;
+  const dmgEach = lanceDmgEach(pips, ctx.phaseHp, onBeat ? L.beatMult : 1);
   let i = 0;
   for (const lk of S.locks) {
     for (let s = 0; s < lk.stacks; s++) {
       S.lanceQ.push({ part: lk.part, dmg: dmgEach, t: i * (L.lanceStaggerMs / 1000), i: i++, n: pips });
     }
   }
-  emit('lockVolley', { count: pips, source, dmgEach });
+  emit('lockVolley', { count: pips, source, dmgEach, perfect: onBeat });
   S.locks.length = 0;
   S.capFuseT = 0;
   S.refreshT = 0;
