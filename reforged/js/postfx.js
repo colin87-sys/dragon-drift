@@ -142,6 +142,10 @@ const KICK_PRESETS = {
   // The RED of a combo break comes from the existing #vignette DOM flash —
   // the shader's vignette is colorless darkening.
   comboBreak:       { sat: -0.25, vig: 0.18 },
+  // KNELLGRAVE's toll-as-world-event (§5d slot 10): the frame FLINCHES on the beat —
+  // a bloom breath + a vignette squeeze that decays with the ring. The toll is the
+  // loudest thing on screen precisely because the music is dead.
+  bossToll:         { bloom: 0.16, vig: 0.12 },
 };
 
 export function kick(name) {

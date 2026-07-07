@@ -7458,7 +7458,333 @@ the accent while the head stays white. Remaining deferred LANCE polish (all opti
 structural): the 5 LANCE feats (engine exists — ~1 line each), the `lockdps` TTK balance sim (build
 on `driveKill` + `lanceDmgEach`), and slot-14 exam rules (gated on a boss that doesn't exist).
 
-### L196 — LANCE feats (5 achievement unlocks): the feats engine is a one-file, data-driven add — and headless DOM-toast checks lie
+### L196 — KNELLGRAVE CP1 (slot 10, the bound bell): a hollow-cone body occludes its own soul, a tilted flat torus reads as a hook, and the dread reveal is GEOMETRY not brightness
+
+**Did.** Built the Tier-4 WORLD-ENDERS opener: a colossal cracked BELL swinging above the lane
+with a living BOUND PRISONER as its clapper (new `boundBell` archetype, `bossKnellgrave.js`).
+Named pivots `swingPivot` (the pendulum — the §3.5 telegraph WIDENS the arc on charge),
+`clapperPivot`/`clapperHead` (the §4b face — head-lift NOTICE, straining dread reveal),
+`bellMouth` (def.muzzle). Candle-slit through the crack = the ONE HDR focal; toll ring-walls =
+the fairness VISUAL TWIN of the dead music. Def is MUSIC-LOCKED (accelerating toll,
+rhythmprint min-KS 0.27), 4 phases 1:1 with 4 cards (the dread = the survival card). ~5-6k tris
+@q1. Landed the §5b/§5d/§5i/§5j doc fixes + registry row 10 → claimed. G1–G7 + all headless
+suites green (bossrush now 9 bosses).
+
+**The load-bearing lessons (all cost a Fable CP1 gate round).**
+1. **A hollow-cone body OCCLUDES its own interior — the soul only reads below the lip.** The
+   clapper/prisoner (the whole reason this boss exists) was built INSIDE the bell and was
+   invisible from the front: the bell's front wall hides everything above the lip line. Fix: build
+   the prisoner BIG + LOW so its drooped HEAD + shoulders protrude ~2u BELOW the mouth (it breaks
+   the bottom outline in the pale test). Any "creature inside a shell" boss must push the readable
+   part OUT of the shell — modeled-inside detail is black-on-black nothing.
+2. **A flat ring TILTED by rotateZ reads as a slanted arc / fish-hook.** The flared lip was a
+   partial torus laid flat (rotateX π/2) then `rotateZ`'d to move the bite to the front — but
+   rotateZ tips the whole ring out of horizontal, so it projects as a big slanted crescent
+   sweeping under the bell (three Fable rounds blamed it on the toll-ring). To move a gap AROUND a
+   horizontal ring's rim, rotate about **Y**, never Z. A tilted torus is a hook.
+3. **The dread "reveal" is GEOMETRY + LIGHT-THE-FIGURE, not focal brightness.** Cranking the slit
+   emissive on the dread card just read as "the lamp got turned up." The reveal has to be: the
+   crack GAPES wider (geometry scale), the figure DROPS clear of the lip + the head WRENCHES up +
+   the arms strain against the cuffs, and the FIGURE lights (dark prisoner → candle-lit). Cap the
+   focal's brightness on the dread beat; spend the drama on shape + on lighting the character.
+4. **Transient FX must leave the RESTING idle silhouette clean — but the orbiter handle contract
+   still needs them tick-animated.** The toll rings are a TOLL beat; auto-firing them at idle put a
+   ring mid-expansion in the stranger-test frame. Gate the auto-toll to active states (charge/dread)
+   AND make the rings ADDITIVE (pure light — an additive ring can never read as a dark crescent on
+   pale, and at base scale it doesn't count toward the G7 overdraw cap). But `boss.mjs` asserts
+   `orbiters[0]` moves on one tick, so PARK the idle rings (invisible, tiny) with a hair of drift
+   each tick — satisfy the §6.4 "tick-animated" contract without cluttering the silhouette.
+5. **A toneMapped=false HDR focal does NOT dim by scaling its multiplier — it must drop below the
+   bloom threshold.** G6 (shield leash) failed at slit×0.32 because the core still clamped to white
+   (candle × 0.32 × 9 > 1 → 255). The ≥240 cluster only shrinks when the leashed value falls under
+   ~1.0 pre-tonemap (×0.09). An HDR focal leashes by going nearly dark or by HIDING, not by a gentle
+   dim.
+6. **A bell is legitimately bottom-heavy — sanctioned G4 presence override for the overhead boss.**
+   A bell's mass IS its wide flared MOUTH, so the silhouette COM sits low; and in-game the body is
+   above y≈22 (only lip + chains dip in). Added `gate:{presence:{comYMax}}` to `bossgate.mjs`
+   (opt-in, coexist-safe) citing the §5b "owns the space above" sanction. True overhead dominance
+   is an IN-GAME (CP2) judgment — the studio auto-frames and centers, hiding it.
+7. **The studio always looks at the boss's bbox CENTER**, even in the "fight-distance" frame — so
+   "looms from above / never fits" cannot be judged there for an overhead boss. Build centered for
+   the studio; bake/place the overhead offset for the game; judge overhead-ness at the CP2 in-game
+   gate.
+8. **amberdiet reads `def.phases[].attacks`, not the card's runtime seal** (as the audit flagged):
+   keep an amber carrier (`aimed`) in the survival phase's attack list so CI passes; the ~28s
+   pure-dodge seal is the sanctioned §5i.C exemption (added to the doc).
+
+
+### L197 — KNELLGRAVE CP2 (the music dies): a survival seal must NOT be the shield, kill the BUS not the scheduler, and audit overdraw by FILL AREA at the worst frame
+
+**Did.** Wired slot 10's whole fight: `musicKill()/musicRestore()` (the §5f rule-break),
+`bellToll()` (the procedural bronze voice), toll-as-world-event (camera tick + `bossToll`
+postfx flinch + the model's ring-wall fairness twin on every volley), the roster's FIRST
+survival-card seal (The Last Toll), the `lastToll` overhead-ride reveal setpiece, the
+`itLiftsItsHead` entrance (the perpendicular overhead cross), `getBossEta()` + the
+biome-early foreshadow tolls, `def.stationY` (the overhead loom), and the in-game capture
+tool (`tools/knellshot.mjs` — entrance-apex / loom / toll / reveal frames).
+
+**The load-bearing lessons.**
+1. **A survival seal must NOT be `shielded`.** The shield state suppresses attacks (graze-bait
+   takes over) AND aborts setpieces (`setpieceT >= 0 && !shielded`) — a "sealed" survival card
+   built on it would go silent and reveal-less. The seal is DAMAGE IMMUNITY at the top of
+   `damageBoss` (+ `lockDeflected` already covered lances): the unfillable bar is the tell
+   (§5f's exact grammar), the tolls keep firing (pure dodge), and the dread setpiece runs.
+   Outlasting the timer RESOLVES the card (capture if hitless) — never `cardExpired`.
+2. **Kill the BUS, not the scheduler.** `musicKill` zeroes `musicBus` while the layers + beat
+   grid keep running — so `getBeatClock` stays live and the toll still quantizes to an
+   inaudible grid. Fold the kill into `musicTarget()` so every other gain path (mute toggles,
+   volume sliders, the bg-suspend restore) PRESERVES it; restore under the fanfare + resetBoss
+   (a teardown must never strand the run in silence); skip must NOT restore.
+3. **The boss's voice lives on the SFX bus.** The toll must survive the music-death — routing
+   it anywhere near `musicBus` silences the fight's only clock.
+4. **The lifecycle test's excursion axes are a design menu.** "Left station" accepts |x|>9,
+   y high/low, or `minRel < 4` — the last one turned The Last Toll from "descend a bit" into
+   the RIDE-DIRECTLY-OVERHEAD reveal (the bell at rel≈3 above your head, seen from beneath),
+   which is both the stronger beat and the passing test.
+5. **Audit overdraw by projected FILL AREA at the worst frame, not bounding spheres.** A thin
+   toll ring-wall at radius 8 is ~5% of the frame; a filled disc of the same radius is ~29% —
+   a bounding-sphere heuristic (G7's) flags both as "large" and would have forced a false
+   choice. The new worst-frame audit (shield UP + dread flood + TWO rings live) sums triangle
+   areas per additive/fresnel mesh; the FX budget is ADDITIVE-SHELL COUNT, never tris.
+6. **Foreshadow rides the horizon-seed peek.** `updateHorizonSeed` already computes the
+   upcoming def at 2Hz — the biome-early tolls are three thresholds against `nextBossDist`
+   re-armed per encounter, null in rush (graceful degrade for free).
+7. **A sealed survival card adds its timer to every timing budget**: the lifecycle kill time
+   grew 135.7→172.9s and the bossrush gauntlet sim cap needed 980→1150s (still under the §5h
+   ≤20min contract). Budget sims BEFORE adding a seal, or CI cries wolf.
+
+### L198 — KNELLGRAVE ruin ladder: grow the crack by LENGTH, not WIDTH (width is the jank axis; clamp it, propagate the fissure)
+The owner playtested the shipped ladder and said the crack "doesn't get bigger phase by phase."
+Diagnosis: the growth was all in `slit.scale.x` at `ruinK*0.85` — 1.26/1.47/1.64/1.85 across the
+four phases, a spread too small to feel, and one I couldn't just crank because the CP2.4 jank
+(the ribbon reading as a wall of white up close) is WIDTH-driven — past ~2.5× the fissure stops
+looking like a crack. The fix separates the two axes:
+1. **Length is the felt, jank-free growth lever.** `slit.scale.y` was flat (`1 + dreadK*0.08`);
+   driving it with `ruinK*0.95` makes the fissure PROPAGATE up/down the bell each phase
+   (1.29→1.52→1.71→1.95). Because the ribbon tapers to POINTS at both ends, stretching it
+   lengthens the taper — it stays a connected glowing crack at every scale, never a rectangle.
+   Length has no white-wall failure mode, so ruin can drive it freely.
+2. **Width is the jank axis — clamp it, don't ramp it.** Keep `dreadK*0.6` (so the dread reveal
+   still gapes hard, which the geometry test asserts as `> restW + 0.5`) but wrap the whole
+   width term in `Math.min(…, 2.5)`. The P4 reveal (ruinK≈dreadK≈1) wants 2.75× and gets clamped
+   to 2.5× — it can never re-cross the jank threshold, while length keeps climbing underneath.
+3. **Assert MONOTONIC-per-phase, not just endpoint.** The old ruin test only checked hp 1.0 vs
+   0.25. That passes even if all the growth is a single late jump — exactly the "doesn't grow
+   phase by phase" complaint. The new test steps 0.70→0.45→0.25 and asserts each gape (both W
+   AND the new LENGTH) strictly exceeds the last. An endpoint delta is not a ladder.
+Gotcha: `ruinK` is the SAME signal at the P4 station view (far, dreadK=0) and the P4 dread reveal
+(close, dreadK=1) — you cannot make the finale's length "calmer" than the per-phase growth,
+because the crack being fully-propagated at P4 IS the endpoint of that growth. That's correct,
+not a bug: the reveal is the ladder's top rung, not a separate effect.
+
+### L199 — KNELLGRAVE "the bell OPENS": shed real WALL PANELS to bare an inner scaffold — the ruin ladder is subtraction, not a bigger glow
+The crack-widening ruin ladder read as timid because a crack on a fixed bell face is
+size-locked (L198). The owner's fix was better than more glow: "have more of the bell
+BREAK OFF to reveal its inner scaffold, so the background shows through where the bell
+once was." The ladder becomes SUBTRACTION — the silhouette loses material over the fight.
+1. **Cover carved gaps with break-away plates → solid at rest, holes are EARNED.** The
+   two flank windows are genuinely carved out of the wall bands (complementary arcs via
+   `CylinderGeometry(thetaStart, thetaLength)` — and note Three's cylinder uses
+   `x=r·sinθ, z=r·cosθ`, which MATCHES the `(sinα,cosα)` ornament convention, so a gap
+   aligns to an azimuth with no fudge). A matching plate fills each gap at rest, so the
+   bell reads solid at the start; the plate hinges out + drops + tumbles + fades, driven
+   wholly by `ruinK` (staggered thresholds = phases), so the hole opens only as HP falls.
+2. **A single-walled shell is a FEATURE here, not a bug.** The owner flagged "you can see
+   sky through the bell at the start, but filling it kills contrast." Resolution: DON'T
+   fill it. Keep the culled single shell — at rest the plates cover the flanks so the body
+   reads solid, and once a plate sheds the far wall's culled backface lets you see the
+   inner scaffold AND straight through to the sky behind. The see-through you'd have fought
+   to remove is exactly the reveal you want — you just have to gate it behind the shed.
+3. **Skip the ornament at the shed windows or it FLOATS.** The buried/fins/lower-rivets
+   overlap the carved y-range; add `|| inShed(a)` to their bare-sector skips so nothing is
+   left hanging in the gap when the wall behind it is gone.
+4. **Subtraction is free on the budget.** Carving the wall + skipping ornament offset the
+   scaffold + plates: tris went 12492→12309 (DOWN), draws 64→67 (+3 opaque, not additive),
+   overdraw audit unchanged at 1 shell. Shedding costs nothing on the binding axis.
+Gotcha: gates/capture at REST see the solid bell (ruinK 0, plates home) so G1–G7 are
+unaffected — but you MUST verify the SHED frame too (the P4 reveal capture), because the
+bared-scaffold silhouette is a different read the studio's rest-pose gates never see.
+
+### L200 — KNELLGRAVE: a hollow bell needs a BackSide interior wall (an undamaged shell must not show sky), and the reveal inside it must be LIFTED to read
+Owner IMG_7333: "if the bell isn't damaged, why can you see sky instead of its back wall?"
+The bell was a single-walled openEnded shell — looking up the mouth, the far wall's backface
+is culled, so you see straight through to the sky. Two coupled fixes, both about the INSIDE:
+1. **Close the shell with a BackSide inner shell, not DoubleSide.** A profile-matched shell at
+   r−0.08 with `side: THREE.BackSide` renders ONLY the far interior wall from any camera angle
+   — the near side stays culled, so it never occludes the crack, clapper or scaffold in FRONT
+   of it, and shed gaps still see PAST it. DoubleSide would render the near interior too and
+   occlude the reveal. BackSide = "the back wall you see through the mouth," nothing more.
+2. **The interior colour and the parts inside it are ONE decision.** The owner nailed it: pick
+   the interior value for CONTRAST with what's inside. Anti-lamp (§3.2) forces the mouth DEAD
+   dark, so the interior went near-black (0x090c0b, below patina + iron) — but that made the
+   dark-iron scaffold VANISH into it (dark on dark). Fix the pair together: keep the wall dead
+   dark AND lift the scaffold to a cool mid-metal (0x323841) whose facets catch key light, so
+   the bared cage reads as LIT struts against the black cavity. Darkening the backdrop without
+   lifting the foreground just moves the invisibility, it doesn't solve it.
+Gotcha: the lifted scaffold is seen dimly through the mouth even at rest — verify the UNDAMAGED
+capture still reads solid (it does: the struts sit deep in a dark mouth), or a brighter cage
+would make the intact bell look pre-broken. Solid-at-rest and legible-on-reveal are one tuning.
+
+### L201 — KNELLGRAVE sky-pour: a survival-seal phase FREEZES hp, so a ruin-gated finale never fires — drive it off the reveal and RATCHET it
+Owner wanted the bell to break ALL the way through at the finale — sky pouring in, not just
+scaffold against a dark interior. The interior back-wall (L200) is the thing to tear: fade its
+opacity (drop depthWrite with it) and the shed holes + mouth punch straight through to the sky,
+scaffold black against the blaze. Two non-obvious traps:
+1. **Don't gate the finale on `ruinK` — the P4 card is a SURVIVAL SEAL.** ruinK = 1−hp, but the
+   Last Toll makes the boss damage-IMMUNE, so hp freezes at ~25% (ruinK caps ~0.75) for the whole
+   phase. A `ruinK > 0.75` trigger would look perfect in a headless setHealth(0.05) test and NEVER
+   fire in play. Drive the tear off `dreadK` (the reveal setpiece is what's actually live at the
+   climax); gate lightly on ruinK only to confirm it's the P4 beat. General law: any escalation
+   keyed to hp stalls during a seal — key climax effects to the setpiece/card that's running.
+2. **A broken bell doesn't heal — RATCHET the tear.** dreadK pulses (sin over the ride), so a raw
+   `opacity = 1 − dreadK` re-solidifies the wall as the toll recedes. Hold it with
+   `skyOpen = max(skyOpen, …)` so once torn it stays open. Test the ratchet explicitly (tear, drop
+   the setpiece, assert still-open) AND test on a FRESH model — the ratchet is sticky, so an
+   earlier dread beat in the same test instance leaves it open and masks a "stays solid" assert.
+
+### L202 — KNELLGRAVE Fable gate: the seal-freezes-ruinK trap bites TWICE — a hp-driven shed plate hangs mid-air through the survival phase; ratchet + self-complete
+The Fable design gate on the shed/sky-pour work caught a bug the sky-pour fix (L201) had
+stepped around but the shed had NOT: the second flank plate's break was gated on `ruinK`
+(`prog = clamp01((ruinK - at)/0.24)`), so the P4 survival seal — which freezes hp at ~25%,
+capping ruinK ~0.75 — left plate 2 (needs 0.84) hung at prog 0.625: a half-transparent slab
+frozen mid-tumble beside the bell for the whole ~28s Last Toll, the beat with maximum eyes on
+it. Same class as L201, one function away, missed because the shed's headless test used
+`setHealth(0.15)` (ruinK 0.85) which completes — the seal cap never appears in a setHealth test.
+Fixes + reusable takeaways:
+1. **A break is an EVENT — ratchet it and let it self-complete.** `prog = max(prog, hpProg);
+   if (prog>0.01 && prog<1) prog += dt*0.8`. Once started it finishes on its own clock,
+   independent of hp. This ALSO kills a mid-fight jank the gate spotted: burst damage used to
+   teleport a plate along its arc and a damage lull froze it; a self-advancing break is smooth.
+2. **Test the FROZEN case explicitly, on a FRESH model.** The regression test pins
+   `setHealth(0.25)` (the exact seal floor, ruinK 0.75 → plate 2 at prog 0.625) and ticks with
+   hp never moving; both plates must complete. And it must be a fresh build — the ratchet is
+   sticky, so any earlier ruin in the same test instance leaves plates broken and hides the bug.
+3. **A design gate reads the CAPTURES, not just the code.** Fable inferred the hung slab from a
+   gray detached shape at the frame edge, then found it in the tick — the still was the tell.
+   Corollary it also flagged: an increment can be individually correct yet half-cancel a prior
+   one (the solid interior wall makes mid-fight shed holes open into a dark cavity, not the sky
+   the owner asked for) — gate the SYSTEM, not each change alone.
+
+### L203 — KNELLGRAVE: to see sky THROUGH a breaking shell, shed holes must be DIAMETRICALLY PAIRED (front hole + back hole), not just front-facing
+Owner, on the mid-fight shed showing a dark cavity instead of daylight: "mid fight and it's
+falling apart, you should be able to see sky because the back of the bell has broken off." Dead
+right, and it exposed my geometry error. A hole in only the FRONT wall doesn't show sky: the
+sightline through it crosses the cavity and hits the intact FAR wall (outer + the interior
+back-wall), so you see dark metal, not sky. Filling the interior (L200) made this worse — the
+hole opened into a sealed box. The fix is to break the bell the way it would actually break:
+1. **Pair the windows across the diameter.** For each visible front window at azimuth θ, add a
+   twin at θ+π and shed them TOGETHER (same hp threshold). Carve BOTH the outer wall and the
+   interior back-wall at all of them. Now a shed pair is a clean tube: front hole → cavity
+   (scaffold silhouetted) → far interior gap → far outer gap → sky. The back plate is barely
+   seen directly; its job is to REMOVE the occluder behind the front hole.
+2. **The through-hole needs no opacity trick — it's geometry.** Unlike the P4 mouth-pour (which
+   fades the remaining interior shell on the dread beat), the paired holes show sky the instant
+   their plates shed, at any ruin, for free. Keep both: paired holes = "the breaks let light
+   through" mid-fight; the interior-shell fade = "the whole mouth tears open" at the finale.
+3. **Solid-at-rest survives it.** Every window (front and back) is still plate-covered at rest,
+   so the undamaged bell reads solid (verified on camera) — the daylight is strictly earned by
+   the break. Cost is flat: the extra carving offsets the extra plates (tris even went DOWN).
+Meta-lesson: when a "reveal through the object" doesn't read, check the FAR side of the sightline
+before reaching for shaders — the occluder is usually geometry you forgot to remove.
+
+### L204 — WEFTWITCH CP1 (slot 11, the arena-weaver): the field IS the body, "spider" hides in the ARMS not the web, and the G3 danger-band was the SKY, not the mesh
+
+**Did.** Built slot 11 WEFTWITCH (Tier-4 World-Ender) to CP1: the def (`bossDefs.js` +
+`BOSS_ORDER`), `bossWeftwitch.js` (a hooded legless weaver-bust CROWNED by 6 spinneret-arms
+above the shoulder, 2 oversized hands = the §4b face, an arena-spanning spoke-web, a loom-heart
+muzzle), one `bossModel.js` dispatch line, and a `boss.mjs` telegraph/silhouette block. Both
+gates pass: `bossgate` G1–G7 + two independent Fable design gates (pre-build sheet + CP1 renders).
+
+**The learns (reusable).**
+1. **The field IS the body (L141), and the studio LIES about it.** A medium bust reads HUGE only
+   because the web fills the frame — the studio auto-frames the whole web so the bust is a tiny
+   dot; the *in-game fight-frame* (`bossstudio` `fight-idle`) is the only honest grandeur read.
+   Judge design on the studio bust sheet; judge SCALE on the field-frame. `hullLength()` returns
+   the WEB span (166u), not the body, so the L141 test asserts presence, not mass.
+2. **For a radial-web boss, the spider read lives in the ARMS, not the web.** The pre-build Fable
+   gate killed a spider-from-ADJECTIVES sheet ("elegant, graceful" don't survive black-fill) — the
+   fix was GEOMETRY: move all limbs into an upward crown ABOVE the shoulder, **NO limb below
+   horizontal (inviolable — never pull one down to "balance" the lower frame)**. Then the CP1 gate
+   caught the SECOND spider: thin, elbow-kinked, needle-tipped crown arms *read as legs* at the
+   fight frame (worst on the warm sky). Fix = DE-LEG: thick, one smooth UPWARD curve, tips ≥45°,
+   ending in a shuttle MASS not a needle, and SELF-LIT (emissive) so the crown exists on a dark
+   sky. Thick blades pointing skyward are a crown; thin tapered sticks arching out are legs —
+   same count, opposite noun. Silhouette-surviving geometry wins; lighting/color cues don't.
+3. **A bossgate G3 danger-magenta failure can be the SKY, not your mesh.** A pure-black
+   silhouette on a magenta SUNSET borrows the sky at its bloomed edges → those edge pixels read
+   as danger-band body pixels (1.6%). Two fixes, both real: (a) a pale-gold FRESNEL RIM so the
+   edges read HER gold not the sky's magenta (the L121 "reads on a bright sky" trick — also boosts
+   G3 accent attribution); (b) add the boss to `bossgate.mjs`'s `DIST` map at its HOME biome
+   (§7c biome pairing) — WEFTWITCH's Astral (near-black violet) sky dropped danger-band 1.6% →
+   0.003% instantly. The default gate biome is the warm sunset (the hardest test); a warm-dark
+   boss needs its complementary-sky entry or it false-fails, exactly like MARROWCOIL at 8000.
+4. **A PALE accent washes to white under bloom (G3 attribution) — carry it on SOLID surfaces.**
+   `0xe9d8a6` desaturated to white; `0xe8c466` (a touch more saturated, still hue ≈43° and firmly
+   off the rose/magenta band) holds hue. Thin gold LINES throw magenta antialiased edges and are
+   poor attribution carriers; the SOLID rosette-knots + spinneret tips + the self-lit arms carry
+   the gold read (attribution 17% → 62%). Body moth-grey must be COOL (0x1a1c22), not a
+   purple-grey — purple drifts red-channel pixels into the danger band.
+5. **Two-value web (L122) for both skies:** a DARK warp fill reads on a bright sky, a PALE hero
+   subset reads on a dark sky — the pale-only web vanished on the sunset (Fable caught it).
+6. **`laserLance` = a beam VISUAL of an existing pattern (`aimed`), NOT a new attack id** — keeps
+   the def within the `boss.mjs` known-id list AND leaves the World-Enders band's ≤1-new-id budget
+   for a sibling (confirm with owner at CP2). A visual re-expression is free; a new id is a budget.
+
+**Deferred to CP2 (owner green-light first):** the HUD-sew overlay + banner-pin engine (§5j, her
+granted rule-break, with the render-order-LAW test), the live fight wiring (phases/cards/rhythm
+fire, the entrance *The Mended Banner*), the thread-cut parry + mote-harvest graze, and the CP2
+Fable integration gate. CP1 is model + studio/gate + design gate; the engine is CP2. Optional
+polish Fable flagged (non-blocking): shuttle tips slightly more hand/spindle-like; lift the
+sunset hero-thread brightness a notch.
+
+### L205 — WEFTWITCH web↔water + loom-eye gaze: an arena-reactive model needs a CONTROLLER-FED environment hook, and the water is a compile-time constant
+
+**Did.** Two owner notes on the PR-263 preview: (1) the arena web's spokes pierced the water
+as dead-straight lines ("janky"); (2) "the white eye thing should follow us." Fixed both in
+`bossWeftwitch.js` + ONE optional-chained line in `boss.js`.
+
+**The learns (reusable).**
+1. **The water surface is a compile-time constant, not a query.** `water.js` pins the plane at
+   world y=0 in EVERY biome; waves are a GPU-shader illusion (the mesh is geometrically flat);
+   there is NO CPU height-sample anywhere — Reflector, contactShadow, and BRINEHOLM's fog-rise
+   all just hard-code y=0. Don't build a height-field API to "react to the water"; clip against
+   the constant plane.
+2. **A fight-context environment feed keeps the model studio-pure.** The studio + headless
+   tests build models at the ORIGIN with no water — an always-on clip would have silently
+   changed the CP1 captures and gate numbers. Pattern: an optional handle hook
+   (`model.setWaterPlane?.(0)` at fight spawn, the `setGaze?.()` idiom) — never fed in the
+   studio, so the isolated path stays byte-identical, and a coexist TEST asserts the buffers
+   are untouched without the hook. This is now the house pattern for any arena-reactive model.
+3. **Clip against the LIVE matrix, per tick, never cached.** `bossKit` animates `group.scale`
+   (dissolve spread ×1.6) and the entrance animates `threadPivot.scale` — transform the world
+   plane into pivot-local space fresh each tick (`Plane.applyMatrix4(inverse(matrixWorld))`,
+   which renormalizes → signed distances stay in local units) and the death-sink/entrance
+   compose for free (the web visibly settles into the sea as she dies).
+4. **Three clip cases, all mandatory:** crossing → parametric clip `t=d0/(d0−d1)` + a STRICTLY
+   upward bob (0.12–0.34, never coplanar — the flat water mesh z-fights anything at y=0) + a
+   drag-TAIL along the surface; fully-submerged → collapse degenerate ONTO the plane (deep
+   stitches have both endpoints underwater at fight height — leaving them at base coords fails
+   the no-pierce assert); fully-above → restore pristine base (stitches clip INDEPENDENTLY —
+   re-lerping them against clipped spokes bunches the lower lattice into a halo above the
+   waterline, a look the gates never approved). Straight-down spokes: the tail direction
+   (spoke projected onto the plane) degenerates near-antiparallel to the normal — fall back to
+   local-X-projected, deterministically signed.
+5. **Rewrite-from-base defines the mutation contract:** the clip pass restores the position
+   attributes from pristine base arrays every tick — any future writer (the CP2 gap-restitch)
+   must mutate the BASE arrays, never the attributes, or its writes get stomped. Documented at
+   the base-copy site.
+6. **"Does it track us" is a fight-distance question.** The §4b gaze carriers (hands + hood)
+   DID track but at amplitudes tuned on the studio sheet — invisible at rel-30. And the ONE
+   thing the eye locks onto (the white loom-core focal) was static. Fix: pupil-offset the core
+   toward the eased gaze (the BRINEHOLM iris idiom) + lean the organ + ~2× the hand/hood
+   amplitudes, keeping the LAG (snap = turret, lag = a mind). Honest telegraphy: the core is
+   the muzzle, so where it looks is where shots come from. Tune tracking amplitudes at the
+   FIGHT frame, not the studio sheet.
+
+**Verified:** boss.mjs (pierce −67→−0.00 world, 28 surface tails, coexist-untouched, loom-eye
+tracks) · bossboot zero-error · bossrush · bossgate G1–G7 PASS with the clip LIVE in the fight
+captures. The owner judges the contact bob/tails + tracking feel on the PR preview.
+### L206 — LANCE feats (5 achievement unlocks): the feats engine is a one-file, data-driven add — and headless DOM-toast checks lie
 
 **Did.** Added 5 boss-only LANCE achievements — Brandbearer (first paint), Full Draw (meter at
 cap), On the Beat (perfect beat-release), Wyrmstorm (5-brand volley), Lock-Snap (perfect-parry
@@ -7497,7 +7823,7 @@ deferred item (owner: two PRs, this was the first): the `lockdps` LANCE balance 
 analytic per-boss damage-economy tool + band-gate test on the exported `lanceDmgEach` kernel and
 the `bossHit {kind}` attribution tag (dev-only, no player-facing change).
 
-### L197 — lockdps balance table: an ANALYTIC model beats an instrumented fight when the fight can't exercise the channel
+### L207 — lockdps balance table: an ANALYTIC model beats an instrumented fight when the fight can't exercise the channel
 
 **Did.** Shipped `tools/lockdps.mjs` (+ a pure `tools/lockdpsCore.mjs` + a band-gate
 `tests/lockdps.mjs`) — a dev-only LANCE damage-economy table. For every boss it prints, per

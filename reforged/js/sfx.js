@@ -60,7 +60,14 @@ let slowMoOn = false;
 export let musicMuted = saveData.audio.musicMuted;
 export let sfxMuted = saveData.audio.sfxMuted;
 
-const musicTarget = () => (musicMuted ? 0 : saveData.audio.musicVol);
+// §5f MUSIC-DEATH (slot 10 KNELLGRAVE's granted rule-break): while `musicKilled`,
+// the music BUS is hard-zeroed but the layers + beat scheduler KEEP RUNNING — the
+// world goes silent yet getBeatClock stays live, so the boss's toll still quantizes
+// to the (inaudible) grid. Folded into musicTarget() so every other gain path (mute
+// toggles, volume sliders, the bg-suspend restore) PRESERVES the kill — the silence
+// cannot be accidentally un-killed by a settings tweak or a tab switch.
+let musicKilled = false;
+const musicTarget = () => ((musicMuted || musicKilled) ? 0 : saveData.audio.musicVol);
 const sfxTarget = () => (sfxMuted ? 0 : saveData.audio.sfxVol);
 
 // iOS routes Web Audio through the "ambient" session by default, which the
@@ -364,6 +371,67 @@ function restoreBuses(a, immediate = false) {
     musicBus.gain.setTargetAtTime(musicTarget(), a.currentTime, 0.08);
     sfxBus.gain.setTargetAtTime(sfxTarget(), a.currentTime, 0.08);
   }
+}
+
+// musicKill(): the run's music DIES (KNELLGRAVE's fight-long silence — §5f). A fast
+// ~0.15s fade to zero (a cut reads as a bug; a fast fade reads as the world losing
+// its voice). musicRestore(): the slow breath back in under the defeat fanfare /
+// resetBoss (~0.6s). Both idempotent; skip must NOT call restore (the silence holds
+// for the whole fight).
+export function musicKill() {
+  if (musicKilled) return;
+  musicKilled = true;
+  const a = getCtx();
+  if (a && musicBus) musicBus.gain.setTargetAtTime(0, a.currentTime, 0.15);
+}
+
+export function musicRestore() {
+  if (!musicKilled) return;
+  musicKilled = false;
+  const a = getCtx();
+  if (a && musicBus) musicBus.gain.setTargetAtTime(musicTarget(), a.currentTime, 0.6);
+}
+
+// test/debug seam: is the music currently killed (and what is the bus's target)?
+export function musicKillState() { return { killed: musicKilled, target: musicTarget() }; }
+
+// THE TOLL — KNELLGRAVE's voice (§5b VOICE: a struck-bell partial, low register).
+// A procedural bell strike: inharmonic partials (hum/prime/tierce/quint/nominal at
+// ~0.5/1/1.2/1.5/2 of the strike tone) with long exponential decays + a short noise
+// strike transient. Routed to the SFX bus so it SURVIVES the music-death — the toll
+// is the only clock precisely because the music is dead. `k` scales weight (the
+// accelerating final tolls hit harder); decay shortens as k rises (urgent, not muddy).
+export function bellToll(k = 1, vol = 1) {
+  const a = getCtx();
+  if (!a || !sfxBus || sfxMuted) return;
+  const t0 = a.currentTime;
+  const out = a.createGain();
+  out.gain.value = (0.5 + k * 0.35) * vol;   // vol < 1 = the distant foreshadow tolls
+  out.connect(sfxBus);
+  const F0 = 72;                                   // the strike tone — low, funeral register
+  const partials = [[0.5, 0.5, 5.2], [1.0, 1.0, 3.8], [1.2, 0.55, 2.6], [1.5, 0.34, 2.0], [2.0, 0.25, 1.4], [2.66, 0.14, 0.9]];
+  for (const [ratio, amp, dec] of partials) {
+    const o = a.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = F0 * ratio * (1 + (Math.random() - 0.5) * 0.004);   // hair of detune = cast metal
+    const g = a.createGain();
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(amp, t0 + 0.008);
+    const d = dec * (1.1 - k * 0.25);              // heavier tolls ring slightly shorter (urgency)
+    g.gain.exponentialRampToValueAtTime(0.0004, t0 + d);
+    o.connect(g); g.connect(out);
+    o.start(t0); o.stop(t0 + d + 0.05);
+  }
+  // the strike transient: a short band-passed noise burst (the clapper hitting bronze).
+  const nLen = 0.06;
+  const buf = a.createBuffer(1, Math.ceil(a.sampleRate * nLen), a.sampleRate);
+  const ch = buf.getChannelData(0);
+  for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / ch.length);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 480; bp.Q.value = 1.2;
+  const ng = a.createGain(); ng.gain.value = 0.5 * k;
+  src.connect(bp); bp.connect(ng); ng.connect(out);
+  src.start(t0);
 }
 
 export function toggleMusicMute() {
