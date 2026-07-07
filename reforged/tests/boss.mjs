@@ -758,15 +758,25 @@ for (const key of BOSS_ORDER) {
     const slitMesh = kn.group.getObjectByName('knellSlit');
     kn.setHealth(1.0);
     for (let s = 0; s < 10; s++) kn.tick(0.05, 400 + s * 0.05);
-    const fullW = slitMesh.scale.x, fullH = slitMesh.scale.y;
-    // step the ruin ladder phase by phase — each phase must gape WIDER AND LONGER than
-    // the last (the owner's playtest note: the crack must visibly grow every phase, not
-    // just at the finale). Length is the felt lever — the fissure PROPAGATES up/down the bell.
-    const gape = (frac) => { kn.setHealth(frac); for (let s = 0; s < 10; s++) kn.tick(0.05, 401 + frac + s * 0.05); return { w: slitMesh.scale.x, h: slitMesh.scale.y }; };
+    const fullW = slitMesh.scale.x;
+    // step the ruin ladder phase by phase — each phase must gape WIDER than the last (the
+    // owner's playtest note: the crack must visibly grow every phase, not just at the
+    // finale). Width is the ONLY size lever — the slit already spans the whole bell face,
+    // so it grows by opening, never by getting longer (see the lip-guard below).
+    const gape = (frac) => { kn.setHealth(frac); for (let s = 0; s < 10; s++) kn.tick(0.05, 401 + frac + s * 0.05); return slitMesh.scale.x; };
     const p2 = gape(0.70), p3 = gape(0.45), p4 = gape(0.25);
-    assert(p2.w > fullW && p3.w > p2.w && p4.w > p3.w, `knellgrave RUIN LADDER widens every phase (slit W ${fullW.toFixed(2)}→${p2.w.toFixed(2)}→${p3.w.toFixed(2)}→${p4.w.toFixed(2)} — monotonic per-phase gape)`);
-    assert(p2.h > fullH && p3.h > p2.h && p4.h > p3.h, `knellgrave RUIN LADDER PROPAGATES every phase (slit LENGTH ${fullH.toFixed(2)}→${p2.h.toFixed(2)}→${p3.h.toFixed(2)}→${p4.h.toFixed(2)} — the fissure runs further up/down the bell each phase)`);
-    assert(p4.w > fullW + 0.6, `knellgrave RUIN LADDER: the crack gapes as hp falls (slit scale ${p4.w.toFixed(2)} > ${fullW.toFixed(2)} + 0.6 at hp 0.25 — the bell opens across the fight)`);
+    assert(p2 > fullW && p3 > p2 && p4 > p3, `knellgrave RUIN LADDER widens every phase (slit W ${fullW.toFixed(2)}→${p2.toFixed(2)}→${p3.toFixed(2)}→${p4.toFixed(2)} — monotonic per-phase gape)`);
+    assert(p4 > fullW + 0.6, `knellgrave RUIN LADDER: the crack gapes as hp falls (slit scale ${p4.toFixed(2)} > ${fullW.toFixed(2)} + 0.6 at hp 0.25 — the bell opens across the fight)`);
+    // LIP GUARD (owner IMG_7331: "how can the crack extend past the bell?"): even at the
+    // worst frame (full ruin + the dread reveal gape) the lit slit must stay ON the bell
+    // FACE — its lowest vertex may never cross the −6.4 lip into the open air below the
+    // mouth. A crack is the bell breaking; light escaping below the metal is nonsense.
+    kn.setSetpiece(1.0, { dread: true });
+    for (let s = 0; s < 20; s++) kn.tick(0.05, 420 + s * 0.05);
+    slitMesh.geometry.computeBoundingBox();
+    const slitBottom = slitMesh.geometry.boundingBox.min.y * slitMesh.scale.y + slitMesh.position.y;
+    assert(slitBottom >= -6.4 - 1e-3, `knellgrave crack stays ON the bell face (slit bottom ${slitBottom.toFixed(2)} ≥ −6.4 lip, even at full ruin+dread — never a bolt floating below the mouth)`);
+    kn.setSetpiece(0, {});
     kn.setHealth(1.0);
   }
 

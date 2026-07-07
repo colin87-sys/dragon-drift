@@ -721,16 +721,17 @@ export function buildKnellgrave(def, quality = 1) {
                                        // bloom threshold so the focal cluster shrinks (G6: the bell can't ring while sealed)
     if (dyingK > 0) slitK *= Math.max(0, 1 - dyingK * 1.4);   // guttering out
     slitMat.color.copy(SLIT_BASE).multiplyScalar(Math.max(0.05, slitK) * SLIT_HOT);
-    // the crack PROPAGATES as the fight progresses (the RUIN LADDER: a hairline in P1 →
-    // a splitting fissure by The Last Toll). The felt per-phase growth is LENGTH — the
-    // crack runs further up/down the bell each phase (scale.y) — because WIDTH past ~2.5×
-    // turns the ribbon into a wall of white up close (the owner's CP2.4 jank note, which
-    // was width-driven). So ruin drives LENGTH freely (no jank) and width moderately;
-    // dread adds the final reveal gape the prisoner strains against. The combined WIDTH is
-    // HARD-CLAMPED to 2.5× so the P4 reveal (ruinK≈dreadK≈1) can never re-cross the jank
-    // threshold, while length is free to keep propagating.
-    slit.scale.set(Math.min(1 + ruinK * 1.15 + dreadK * 0.6 + charge * 0.12, 2.5), 1 + ruinK * 0.95 + dreadK * 0.08, 1);
-    ember.scale.set(Math.min(1 + ruinK * 0.9 + dreadK * 0.45, 2.3), 1 + ruinK * 0.7, 1);
+    // the crack GAPES WIDER as the fight progresses (the RUIN LADDER: a hairline in P1 →
+    // a splitting fissure by The Last Toll). CRITICAL: a crack IS the bell breaking, so it
+    // can only ever live ON the bell FACE — the slit geometry already spans +2.6→−6.2, ~92%
+    // of the crown-to-lip face, so it CANNOT grow longer without escaping the silhouette
+    // into open air below the lip (the owner's IMG_7331 "how can the crack extend past the
+    // bell" note — a length-scale bug). So scale.y is PINNED to 1 (the slit never crosses
+    // the −6.4 lip) and all ruin growth goes into WIDTH + GLOW, which stay on the face.
+    // Width is HARD-CLAMPED to 2.5× (past that the tapered ribbon reads as a wall of white
+    // up close — the CP2.4 jank); dread adds the final reveal gape the prisoner strains at.
+    slit.scale.set(Math.min(1 + ruinK * 1.3 + dreadK * 0.6 + charge * 0.12, 2.5), 1, 1);
+    ember.scale.set(Math.min(1 + ruinK * 1.05 + dreadK * 0.45, 2.4), 1, 1);
     // the sprung wall plates LIFT off the seam as the bell comes apart.
     plateMesh.scale.setScalar(1 + ruinK * 0.05);
     // CP2 gate item 5a: during the overhead ride (the dread reveal drops the pose to
