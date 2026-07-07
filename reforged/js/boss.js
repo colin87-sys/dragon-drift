@@ -24,7 +24,8 @@ import {
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
-  lanceDmgEach, paintFromParry, __testBank } from './lockLayer.js';
+  lanceDmgEach, paintFromParry, dropLockPart, lockPaintedParts, __testBank } from './lockLayer.js';
+import { makeGlowTexture } from './util.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
 // game.inBoss, mirroring game.inCanyon): forward motion continues, the boss holds
@@ -150,6 +151,13 @@ let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (c
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
 let focusVis = 0;              // V5: eased 0..1 heat — the ring tints jade while the FOCUS hold is live
 const _focusCol = new THREE.Color();
+// ORGAN SHIMMER (PR6): a small pool of additive jade breaths pinned on the
+// UNPAINTED paintable organs — the diegetic "this is brandable" cue (owner
+// design), independent of the reticle setting. Dark while painted / venting /
+// deflected. ≤8 tiny sprites, breathing opacity — inside the overdraw law.
+const SHIMMER_POOL = 8;
+const shimmers = [];
+const _shimV = new THREE.Vector3();
 let reticleTrack = null;       // dim full-circle base
 let reticleFill = null;        // bright arc: draw-on progress × (in Surge) time-left
 let reticleHead = null;        // glowing comet at the fill's leading edge (Surge meter)
@@ -742,6 +750,22 @@ const rand = (lo, hi) => lo + Math.random() * (hi - lo);
 export function initBoss(sc) {
   scene = sc;
   initBossBullets(scene);
+  // Organ-shimmer pool (PR6): jade breaths on brandable organs. toneMapped off
+  // + a mild HDR push so the breath reads through bloom without a hot core.
+  const shimTex = makeGlowTexture('180,255,215');
+  for (let i = 0; i < SHIMMER_POOL; i++) {
+    const mat = new THREE.SpriteMaterial({
+      map: shimTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
+    });
+    mat.toneMapped = false;
+    mat.color.setHex(0x50ffaa).multiplyScalar(1.3);
+    const sp = new THREE.Sprite(mat);
+    sp.renderOrder = CONFIG.BOSS.renderTiers.wispRibbon - 1;   // under ribbons + bullets
+    sp.visible = false;
+    scene.add(sp);
+    shimmers.push(sp);
+  }
   on('bossDamage', (e) => damageBoss(e.amount, e.kind, e));
   on('bossDefeated', (e) => recordBossBeaten(e && e.id));   // unlock it in the rush roster
 
@@ -1401,6 +1425,7 @@ export function updateBoss(dt, player, time) {
     }
     if (surgeAura) surgeAura.visible = false;
     if (surgeBeam) surgeBeam.visible = false;
+    hideShimmers();
     surgeSeq = null;
     // Silence any lingering Surge loops when the fight isn't running (edge-only).
     if (wasSurge) { sfx.surgeCrackleStop?.(); wasSurge = false; }
@@ -1486,6 +1511,9 @@ export function updateBoss(dt, player, time) {
     pendingDeath = false;
     startDeath(player);
   }
+  // Organ shimmers exist only while the FIGHT branch drives them — any other
+  // live phase (entrance/dying/warn) must not leave stale breaths pinned.
+  if (phase !== 'fight') hideShimmers();
 
   if (phase === 'warn') {
     warnT -= dt;
@@ -1726,6 +1754,7 @@ export function updateBoss(dt, player, time) {
     // The focus ring's THIRD job (idle circle → surge meter → FOCUS): ease a
     // 0..1 heat the reticle tints jade while the hold is live (render-only).
     focusVis = Math.max(0, Math.min(1, focusVis + (lockCtx.focusHeld ? dt * 6 : -dt * 4)));
+    updateShimmer(time, lockCtx);
 
     riderTimer -= dt;
     if (riderTimer <= 0) {
@@ -1778,7 +1807,13 @@ export function updateBoss(dt, player, time) {
           if (r.snapParts.length && !surge && !lockDeflected() &&
               saveData.flags.lockUnlocked && def.lockParts) {
             for (let sp = 0; sp < Math.min(r.snapParts.length, CONFIG.LOCK.snapPerVolley); sp++) {
-              paintFromParry(r.snapParts[sp]);
+              // PR6 BRIDGE: pane ambers tag their source NUMERICALLY (the crack
+              // router weights `typeof part === 'number'` as reflected-full, so
+              // the bullet's tag must stay a number) — translate to the LANCE's
+              // string organ name here; paintFromParry type-guards the rest.
+              let tag = r.snapParts[sp];
+              if (typeof tag === 'number' && def.destructiblePanes) tag = 'rosePane' + tag;
+              if (typeof tag === 'string' && !lockPartDead(tag)) paintFromParry(tag);
             }
           }
           // §5i.C SCATTER-STAGGER (THRUMSWARM's parry job): parry the queen's amber-eye
@@ -2475,11 +2510,56 @@ function currentPhaseHp() {
 // free rest-beat paint) — and UNPAINTED-FIRST still drives the sweep to the ribs
 // for the rest of the cap. Slots 1–3 (virtualLockOrgan, NO lockParts) stay V1-only
 // (this returns null there → no painting at all).
+// ORGAN SHIMMER drive (PR6): pin a breathing jade glow on each UNPAINTED
+// paintable organ. Dark while: the boss deflects (sealed honesty), the organ
+// vents amber (C3 — "can't paint this right now", wordless), or it's painted
+// (the brand mark owns it). Pure render — never consulted by any cone test.
+function updateShimmer(time, ctx) {
+  let used = 0;
+  if (ctx.paintUnlocked && !ctx.deflected && ctx.paintables && model?.partWorldPos) {
+    const painted = lockPaintedParts();
+    const L = CONFIG.LOCK;
+    for (const part of ctx.paintables) {
+      if (used >= SHIMMER_POOL) break;
+      if (painted.includes(part)) continue;
+      if (ctx.amberVenting && ctx.amberVenting(part)) continue;
+      const w = model.partWorldPos(part, _shimV);
+      if (!w) continue;
+      const sp = shimmers[used++];
+      sp.position.copy(w);
+      sp.scale.setScalar(1.1 * (def.scale ?? 1));
+      sp.material.opacity = L.shimmerOpacity * (0.55 + 0.45 * Math.sin(time * L.shimmerHz * Math.PI * 2 + used * 1.7));
+      sp.visible = true;
+    }
+  }
+  for (let i = used; i < SHIMMER_POOL; i++) shimmers[i].visible = false;
+}
+
+function hideShimmers() {
+  for (const sp of shimmers) sp.visible = false;
+}
+
+// PR6 LIVENESS: a lockPart backed by a DESTRUCTIBLE sub-part must leave the
+// paintable set when that sub-part dies — crackPane/crackShackle HIDE their
+// nodes (partWorldPos still resolves), so without this filter the reticle
+// would lead to, and lances would fly at, an invisible corpse. Convention map
+// mirrors PART_SYS's name↔index seam (rosePaneN / shacklePostN).
+function lockPartDead(part) {
+  if (!def || !model) return false;
+  if (def.destructiblePanes && part.startsWith('rosePane')) {
+    return !(model.paneAlive?.(+part.slice(8)) ?? true);
+  }
+  if (def.destructibleShackles && part.startsWith('shacklePost')) {
+    return !!model.shackleBroken?.(+part.slice(11));
+  }
+  return false;
+}
+
 function paintableParts() {
   if (!def || !def.lockParts) return null;
   const out = [];
   for (const lp of def.lockParts) {
-    if (!lp.phases || lp.phases.includes(phaseIdx)) out.push(lp.part);
+    if ((!lp.phases || lp.phases.includes(phaseIdx)) && !lockPartDead(lp.part)) out.push(lp.part);
   }
   if (def.virtualLockOrgan && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
   return out;
@@ -2636,11 +2716,13 @@ function driveAimTeach(dt, ctx) {
 const PART_CRACK_HITS = 3;
 const PART_SYS = [
   { flag: 'destructiblePanes', crack: 'crackPane', hit: 'paneHitTest', alive: 'paneAlive', live: 'livePanes',
-    key: 'pane', note: ['✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED'], event: 'bossPaneBreak' },
+    key: 'pane', note: ['✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED'], event: 'bossPaneBreak',
+    lockName: (i) => 'rosePane' + i },   // PR6: the sub-part's LANCE organ name (index↔name seam)
   // BRINEHOLM: `shackleBroken(i)` is the alive-inverse; freeing a post vents a pink
   // SPRAY-SOAK graze beat and softens phase 3 (the mercy payoff — handled below).
   { flag: 'destructibleShackles', crack: 'crackShackle', hit: 'shackleHitTest', broken: 'shackleBroken', live: 'liveShackles',
-    key: 'shackle', note: ['✦ SHACKLE SNAPPED ✦', 'FREED EARLY — IT EASES'], event: 'bossShackleBreak', spray: true },
+    key: 'shackle', note: ['✦ SHACKLE SNAPPED ✦', 'FREED EARLY — IT EASES'], event: 'bossShackleBreak', spray: true,
+    lockName: (i) => 'shacklePost' + i },
 ];
 const partHits = new Map();          // "key:idx" → accumulated counted hits (reset per encounter)
 function routePartDamage(e) {
@@ -2667,6 +2749,10 @@ function routePartDamage(e) {
       cameraCtl.shake?.(0.6);
       ui.bossNote?.(sys.note[0], sys.note[1], 'gold', 2.2);
       emit(sys.event, { [sys.key]: idx, left: model[sys.live]?.().length ?? 0 });
+      // PR6: a destroyed sub-part can't keep a brand — drop any pip on it
+      // (silent; the shatter IS the feedback) so no mark sits on a corpse and
+      // no lance flies at one. The liveness filter keeps it out of re-acquire.
+      if (sys.lockName) dropLockPart(sys.lockName(idx));
       if (sys.spray) ventSprayBeat();   // §5i.B the freed post vents a 2× pink SPRAY-SOAK graze beat
       return 6;                        // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
     }
@@ -2785,6 +2871,7 @@ export function resetBoss() {
   if (reticleHead) reticleHead.visible = false;
   if (surgeAura) surgeAura.visible = false;
   if (surgeBeam) surgeBeam.visible = false;
+  hideShimmers();
   surgeSeq = null;
   sfx.surgeCrackleStop?.();
   sfx.surgeReadyStop?.();
@@ -2866,7 +2953,11 @@ export function debugFireAttack(id, player) {
 // so the integration shots can show a broken window + its silenced radial.
 export function debugCrackPane(i) {
   if (!active || !model?.crackPane) return false;
-  return model.crackPane(i);
+  const ok = model.crackPane(i);
+  // Mirror the production crack branch (routePartDamage): a destroyed pane
+  // drops its brand too, so the debug seam observes the same behaviour.
+  if (ok) dropLockPart('rosePane' + i);
+  return ok;
 }
 
 // Capture hook (?debug): arm a named setpiece LIVE from the current fight so a tool can
@@ -2928,6 +3019,9 @@ export function debugRaiseShield() {
   model?.setShieldVisible?.(true);
   return true;
 }
+// PR6 test seams: the live paintable set (liveness-filtered) + shimmer state.
+export function debugPaintables() { return paintableParts(); }
+export function debugShimmerCount() { return shimmers.filter((s) => s.visible).length; }
 
 export function bossDebugState() {
   // chargeLevel: 0 at the start of a wind-up → 1 at full contraction (mirrors the

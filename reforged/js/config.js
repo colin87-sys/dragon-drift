@@ -237,6 +237,13 @@ export const CONFIG = {
     wobbleHz: 2.6,          // TUNE(1.5–4) — snake frequency; phase = volley slot
     impactStaggerMs: 40,    // LAW — plural-impact PRESENTATION spacing (damage stays same-frame;
                             // the drum-roll is FX + the lockStrike arpeggio only)
+    // ORGAN SHIMMER (PR6, owner design): every UNPAINTED paintable organ carries
+    // a faint in-world jade breath — diegetic ("this part is brandable"), works
+    // with or without the reticle, perspective-true. It goes DARK while the
+    // organ vents amber (C3 — wordlessly "can't paint now"), while the boss is
+    // deflected (sealed honesty), and once painted (the brand mark owns it).
+    shimmerOpacity: 0.13,   // TUNE(0.06–0.2) — peak breath opacity (small additive sprite)
+    shimmerHz: 2.4,         // TUNE(1.5–4) — breath rate
     paintCooldown: 0.45,    // TUNE(0.3–0.6) — cross-organ paint spacing: min gap between ANY
                             // two paints (paintHopGrace only embargoes the SAME organ) —
                             // owner playtest: back-to-back paints read spammy
