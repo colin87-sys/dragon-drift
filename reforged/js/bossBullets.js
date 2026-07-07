@@ -529,7 +529,7 @@ export function debugActiveBullets() {
   const out = [];
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
-    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age });
+    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable });
   }
   return out;
 }
