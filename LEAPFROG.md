@@ -8297,3 +8297,278 @@ carry the focal + the read on any backdrop (both Fable gates confirmed the struc
 Gotcha: bossshot's fixed-frame captures reset each scene, so a card timer reading the same 17s
 across shots at different distances is benign (separate captures), not a frozen clock — don't chase
 capture-methodology artifacts as bugs.
+
+### L223 — Premium build-sheet RESEARCH pass (pearl/obsidian/solar): the code is the snapshot, and "Solar" isn't on the body the charter thinks
+Gathered the data foundation for the three premium (SSR→SSSR / SSSR) §5d build sheets before authoring
+any sheet or builder — a research-only pass (`reforged/PREMIUM-BUILDSHEET-RESEARCH.md`, additive doc,
+roster byte-identical). The reusable wins, all from verifying the charter's snapshot table against the
+live `dragons.js`: (1) all three cap at **tier 3** (`maxTierFor` → 3 for SSSR) so every "per form" loop
+runs 0–3 and a 5th montage tile is a PHANTOM FORM. (2) Real per-form tri baselines (apex: pearl 4506,
+obsidian 3662, solar 3499 — all well under 6000) → there is 1.5–2.5k of headroom to spend on premium
+richness; the apex must read visibly richer. (3) **`solar` has NO bespoke parts** — it declares only
+`surface.shader` and `resolveRecipe()` falls it back to the DEFAULT `arrow`/`membrane`/`horned`/`clean`,
+contradicting the charter's "faceted" claim; it's the least-elevated SSSR and the biggest lift. (4) The
+charter's lesson pointers are stale: "JADE rebuild L166–L176" are actually biome/audio/lance in the
+ledger; the real starter lessons are L160–L165 and the Pearl/Seraph prior art is **L80–L88 + the
+unnumbered seraph sculpting/apex lessons** (segment-counts-are-the-budget; real-metallic-gild L82;
+subtract-don't-decorate L86; verify flap at the APEX phase not the rest frame). (5) `dragonKoiSerpent.js`
+doesn't exist — nearest smooth serpent is `crystalSerpent`. The premium law-12 inversion is the
+load-bearing difference from the starter sheets: glowSeams/wingVeins/halos/auraIdle/sparkle are EARNED,
+so judge premium drama not restraint — but palette discipline + the overdraw cliff still bind. Lesson:
+before authoring any premium sheet, read the def out of the code and diff it against the brief — three of
+the charter's five "current state" facts were stale, and the biggest design decision (Solar's body plan +
+the Solar-vs-Eclipse name/palette split) only surfaced by resolving `parts` through `resolveRecipe`.
+
+### L224 — Creature GPU census (dragons + bosses): draws peak on a DRAGON, tris peak on a BOSS, and the worst case is the CO-RESIDENT frame
+Owner asked to confirm the premium dragons carry higher tri/draw call, and to factor the bosses (esp. Karnvow +
+the high-tri bosses) into a dedicated dragon GPU stress. Two facts framed everything: (1) the "recent stress
+test" (`tools/stress.mjs`, L124/L125) is SYNTHETIC — it sweeps placeholder meshes, never loading a creature —
+and `tricount.mjs` counts dragon TRIANGLES ONLY (naive, visibility-blind, no draws/overdraw). (2) `tests/boss.mjs`
+§2b ALREADY gates bosses on tris + VISIBLE draws per tier band (`TIER_BUDGETS`) with the CORRECT counter
+(visibility-aware; Points/Lines/InstancedMesh each = 1 draw). So the fix was a UNIFIED census reusing the boss
+counter for both families: `tools/creaturestress.mjs` (read-only, additive, `--ci`, `--forms`). Findings that
+invert the intuition: **draw calls peak on a DRAGON** — pearl apex 253 draws > every boss (knellgrave 68), because
+bosses are frugal unified constructs and dragons are mesh-piles; **triangles peak on a BOSS** — onewing 16029,
+karnvow 12597 vs the heaviest dragon 5952 (~3x). Rarity does NOT correlate with tri OR draw count (azure R has
+more tris than all three premiums; obsidian SSR is draw-LOW by its one-skin hull). The real worst case is the
+CO-RESIDENT frame (dragon + boss render together in a fight): peak draws pearl(253)+knellgrave(68)=321, peak tris
+~22k, peak OVERDRAW phoenix(56)+knellgrave(31)=87 transparent drawables. And overdraw is the axis that matters:
+the banked on-device verdict (L124 + the boss.mjs comment) is ~58fps @ 415 draws, instancing JANKED, additive-shell
+overdraw = the 32fps cliff. So the premium law-12 fx the sheets will add (glow-seams/veins/halos/auras) spend
+OVERDRAW, not triangles — phoenix already tops the roster at 56 transparent drawables. Lesson: before adding
+"premium richness," measure the CO-RESIDENT budget with ONE counter across dragons+bosses, and gate OVERDRAW
+(prefer opaque-body surface-shader emissive over stacked additive shells), because the thing the GPU actually
+renders in a boss fight is dragon+boss, and headless counts a regression gate — absolute fps is still a phone read.
+
+
+### L225 — ONEWING (boss 12) CP1+CP2 + the owner feel-rounds: stop-motion is an INTERNAL-motion problem, the moving-boss G1 flake has a one-line fix, and a health-bar lie must be a readable death→ignite→revive
+
+**What shipped (PR #272, merged).** Slot 12 ONEWING — EITHERWING's grief-stricken one-winged survivor carrying
+its dead twin's kite-frame as a HOLE in its chest. Two independent Fable gates (pre-build sheet + CP1 design)
+both PASSed; the owner green-lit CP1, then merged after two feel-rounds. Built additively (new def +
+`bossOnewing.js` + one dispatch line + def-gated engine); shipped roster byte-identical.
+
+**The big reusable lesson — stop-motion is INTERNAL motion, not just locomotion.** The KARNVOW L194 fix
+(locomotion is the fluidity primitive) got the BODY wandering, and the owner STILL read the wing + frame as
+stop-motion. Diagnosis: locomotion moves the whole rig, but a boss also reads stiff if its big sub-parts have
+no CONTINUOUS INTERNAL motion of their own. The wing was a rigid fan (blades moving ~0.05 rad relative to each
+other — imperceptible); the fused frame was never ticked at all (a static decal on a moving body — the classic
+stop-motion tell on a rigid attachment). The fixes that landed it: (1) a real **flap WAVE** travelling outboard
+down the blades — phase-offset per blade (`sin(t·s − idx·φ)`), ~0.35 rad, two layered frequencies, plus a
+feathering PITCH twist as the wave passes — the wing UNDULATES instead of holding a fan; (2) the frame got
+**INERTIA** — it lags the body's drift+bank like a heavy pendulum (`sway += (−vX·k − bankZ·k − sway)·dt`) and
+breathes on a slow cycle, so it reads as carried WEIGHT. **Law: after locomotion, audit every dominant sub-part
+for its own internal motion — a rigid attachment on a moving body reads MORE stop-motion than a static pose,
+because the eye expects inertia.** L193's "err loud, the fight frame lies" still holds: the first amplitudes
+(3°) were invisible at rel 30.
+
+**The moving-boss G1 focal flake has a one-line fix (`gate:{freeze:true}`).** Hours were wasted chasing a
+flaky G1 (maxLum 255↔182, cluster 0.00%) with eye brightness/size/depthTest tweaks — none worked because the
+cause wasn't the eye. bossgate grabs the geometry MASK and the screenshot in two round-trips; a wandering boss
+slides off its own mask between them, so the eye's 255 pixels fall OUTSIDE the measured mask (KARNVOW L194 banked
+this exact flag, learned the same wasted-hour way). **Before touching a focal material to fix a flaky G1/G3 on a
+boss that MOVES, add `gate:{freeze:true}` — it samples both at one pose; shipped defs byte-identical.** Also
+re-confirmed: a DARK boss over a cool-purple sky false-magentas (G3) — pick an accent-aligned capture biome
+(ASTRAL for the mauve accent), and near-black diffuse tints must be NEUTRAL, not secretly hued (a `0x120d10`
+"grey-rose" body was a ~324° cool-magenta that ACES pushed into the danger band).
+
+**The health-bar lie must be a readable death→ignite→revive, never a pop (owner feel-round).** The lying FELLED
+card (the roster's ONE health-bar lie, def-gated `felledLie` — no other def may ever opt in) first shipped as
+"FELLED → 35% returns" and the owner read it as a glitch ("oh it's back alive"). The fix is two OBVIOUS beats:
+(1) the model visibly DIES — `setFelledLie(k)` folds the wing over the frame, guts the eye out, sags the body;
+(2) `felledRevive()` IGNITES the fused frame — the dead twin's light pours UP into the body, the eye snaps back
+brighter, the wing throws open, a burst. It came back by CONSUMING its dead half. The crippled second stand
+takes 2.4× damage so it's a desperate fast beat, not a slog. The ≤35% / ≤2s / fires-once / inert-for-others
+invariants are machine-checked. **Law: a trust-gamble mechanic needs a legible CAUSE beat, or players read it as
+a bug — spend the animation to show WHY, not just the state change.**
+
+**Two more, banked:** (a) the arrival-grammar break (`def.noWarn` — banner fires WITH the eruption, not before)
+is only a scare if the arrival is ABRUPT + dangerous: `approachFrom:'below'` (erupts up, no behind-arc "flies
+through you") + an eruption danger beat (slam + shockwave + a ~0.7s ambush attack). A flythrough is not a
+jump-scare. (b) The pure-black ghost-frame HOLE reads only because its rim CROSSES the body outline and the
+interior is genuine negative space (sky through it) — the Fable sheet gate caught the black-on-black-invisible
+risk before geometry, and the numeric rim floor (≥0.30u) made it verifiable.
+
+**The full §5j arrival cinematic — a no-warn boss can still have a scripted entrance (`theGraveItCarries`).**
+The lean version was the eruption danger-beat alone. The full §5j is a two-shot: it surfaces SILENTLY at your
+flank (rises from below the frame), holds a mutual GAZE (~2s under a shallow dilate — the chest-frame reading
+across the two-shot), then wheels square and SURGES to station. The key structural insight: a `def.noWarn` boss
+composes cleanly with an ENTRANCE_SCRIPTS entry — the script runs in the `flythrough` phase (which is naturally
+BULLET-FREE, so the 2s of silence is free), owns the gaze + the reveal, and at `u=1` hands off to `enterFight`,
+where the DEFERRED eruption (`fireNoWarnBanner` — slam + shockwave + banner + ambush) fires as the payoff. So
+the silence and the eruption aren't in tension: the script is the held breath, enterFight is the strike. No
+`announce` (the banner is the whole no-warn point — spending it on a title kills the dread). Camera two-shot =
+bias the look-target toward the boss↔player MIDPOINT through the gaze, ease home to the chase cam as it surges.
+Verified live: warn → flythrough (0 bullets) → fight, banner fires only at the eruption.
+
+**The Fable #3 integration gate caught three real defects — run the gate on COMBAT wiring, not just geometry.**
+An independent Fable-model review of the built CP2 code (not the design sheet) returned FIX with three bugs a
+green test suite had missed: (1) **the muzzle-name-must-match-`def.muzzle` gotcha** — `def.muzzle:'livingWing'`
+but the model node was named `'muzzle'`, so `partWorldPos('livingWing')` resolved null, `getObjectByName`
+**cached that null forever** (bossModel.js), and the living volley silently fell back to body-centre — collapsing
+the entire dead-vs-living two-origin read the boss's identity rests on, with zero test failure. Law: a named
+emitter node's `.name` MUST equal the def string that looks it up; every other boss matches (`lanceTip`,
+`bellMouth`, `roseHub`), and a cheap `partWorldPos(def.muzzle) != null` assertion catches it. (2) **The ghost
+volley had no phase gate** — it fired from P1, so the no-warn ambush OPENER carried the dodge-mirror (the boss's
+hardest read) before the player had seen one plain pattern; gated to `phaseIdx>=1` per the def's own P2 "the
+dead twin's volley begins." (3) **A new mechanic can collide with a shipped one invisibly** — the frame-break
+hides `frameGroup` (`visible=false`), and the FELLED lie's whole readable beat is the frame IGNITING; break it
+first and the resurrection plays with its only visual explanation gone. The fix turned the collision into
+IDENTITY: **the frame-break FORFEITS the lie** — it resurrects by consuming its dead twin, so tear the twin off
+and there is nothing to raise ("the Half That Would Not Die — until you took its dead half away"), with a
+readable death beat so the missing second stand isn't a mystery. Law: when a new destructible sub-part can
+disable the visual anchor of a shipped mechanic, don't paper over it — make the interaction MEAN something.
+
+**CP2 combat depth (follow-up PR).** The ghost half now fights: the DEAD twin's volley fires from the fused
+frame (`emitGhostHalf` off a named `ghostMuzzle`) as amber-ringed bullets with a pale-spectral CORE
+(`def.ghostColor`) and a `'frameGroup'` part-tag, AIMED by a `poseRing` dodge-mirror (`mirrorAim` reads the
+player's own recent path — slot-1/-5 — and extrapolates the dodge FORWARD, so "it learns" off their motion, not
+their input). 4 PERFECT parries of the ghost half STAGGER then BREAK the frame (`model.breakFrame()` tears it
+free + falls it away), which STOPS the ghost volley, ENRAGES the tempo (0.7× cadence), and vents a 2× spray-soak
+graze beat (`soakT` + `setGrazeBonus(2)`). All def-gated (`def.ghostHalf`) — machine-checked inert for every
+other boss. The frame-break routes through the SAME snap-part parry path the lock system already uses (a perfect
+amber's source-part tag rides the bullet slot → `r.snapParts.includes('frameGroup')`), so no new parry plumbing.
+
+**The stop-motion tail: velocity-driven secondary motion must be LOW-PASSED + EASED, never a raw per-frame
+increment (owner feel-round #3).** After the flap-wave + frame-inertia landed, the owner STILL read the wing
+ROOT-CHORD and the frame as a "stop-motion wiggle." Root cause was NOT the animation design — it was numeric.
+Two bugs, both invisible headless (fixed test dt) but real in a browser (rAF dt jitters on the vsync beat):
+(1) the wander velocity was naive finite-difference `Δpos/dt`, which shimmers frame-to-frame when dt alternates
+(12ms/22ms), and it was fed RAW straight into rotations; (2) worse, the wing-trail was applied as a per-FRAME
+increment (`wingEase += … − vX·k`) whose steady-state trailing offset is `∝ 1/dt` — so the trail amount changed
+with frame-rate AND jittered. Fixes: low-pass the velocity once (`vXs += (vXraw−vXs)·min(1,dt·10)`, tc ~0.1s —
+the drift is ~0.4 rad/s so the bank read is untouched) and drive ALL secondary motion off `vXs/vYs`; and fold
+the trail INTO the eased target (`target += −vX·k; ease toward target`) so it's dt-independent. **Law: any
+velocity-COUPLED secondary motion (bank, trail, inertial lag) must (a) drive off a low-passed velocity, never
+raw `Δpos/dt`, and (b) enter as an eased TARGET, never a per-frame `+=` increment — a raw finite-difference fed
+straight in, or a velocity increment with a `1/dt` steady state, reads as stop-motion the moment real frame-time
+jitters, even when it looks perfect in a fixed-dt headless test.** This is the numeric companion to L194's
+"internal motion" — the motion design was right; the plumbing wasn't.
+### L218 — EMBERTIDE (slot 13, the SPATIAL peak): a NEGATIVE-relief face only reads if the light is DEFORMED around it + the face is RICH; and its grandeur is LIGHT/opaque, not tris
+
+**Did / learned.** Built the World-Enders spatial peak (`bossEmbertide.js`, CP1): the horizon standing up
+as a frame-wide wall of living light with a colossal FRONTAL face deforming through it as dark NEGATIVE
+relief (the sanctioned §3-law-2 VALUE-INVERSION — the focal is DARKNESS in brightness). Two Fable gates +
+G1–G7 taught the hard parts:
+
+- **The overdraw answer for a frame-FILLING boss is OPAQUE, not additive.** G7 (and the real phone cliff,
+  L124/L126) counts only `AdditiveBlending`/fresnel volumes. So the "wall of light" is an OPAQUE
+  `MeshBasic` field with an HDR vertex gradient (colours baked past 1.0, `toneMapped:false`, `fog:false`) —
+  it blooms exactly like the mandala eye AND costs ZERO overdraw, because it REPLACES the sky dome rather
+  than stacking a plane vs the camera. The model ships with ZERO large additive volumes, so the whole
+  additive budget (≤2) stays free for the in-game fever + kit shield. Grandeur here is LIGHT + the FACE +
+  the squeeze, NOT tris (it's only ~8k).
+- **Negative relief is a LIE unless you tell it three ways at once** (Fable's FIX round, the BRINEHOLM
+  collision): (1) BEND the field bands so they bow UP and arc around the head (baked into the field vertex
+  colours by a face-proximity gaussian on the band phase) — light visibly DISPLACED, not an object in
+  front; (2) BREAK the boundary — the jaw dissolves DOWNWARD into the tide as tapering streaks so there is
+  no closed outline to parse as a floating mask; (3) an ASYMMETRIC rim (vertex-coloured: piled at the brow,
+  vanishing at the jaw), never a uniform sticker-stroke. Without all three it reads as "a dark theatre mask
+  in front of a sunset" (= BRINEHOLM's solid head — the exact anti-read the sheet named).
+- **A sparse face is "a nice gradient."** Brow/nose/chin alone is not enough at rel 30 — the face needs a
+  full internal VALUE TIER (field bright > face dark > recess DARKER > hollows DARKEST): eye sockets,
+  brow-ridge shadow, cheek hollows, nose-side shadows as a merged mid-dark mesh, sized to survive rel 30
+  (big soft masses, not hairline strokes). Plus the pareidolia TRIANGLE (two eyes + a MOUTH) is the
+  2-second face guarantee — the mouth is not optional.
+- **Palette gotcha — the reserved danger-magenta band (342°, ±15) is adjacent to deep RED.** Two separate
+  things drifted into it and failed G3: a "rose" that goes cool (B>G, ~350°), AND a *saturated dark-red
+  face emissive* (a 7° red accent on a dark body renders lit pixels at s>0.5 in the 342±15 band). Fix: keep
+  EVERY warm part G≥B (the light end is a WARM coral-rose #ff7a5e, not a pink-rose), DESATURATE the dark
+  face base, and light it with an AMBER ember-glow (#d9782e, ~22°), not the red accent. Pre-verify hues
+  against `DANGER_HUE` before building — the math caught it before geometry (a warm coral clears by ~25°).
+- **G5 (telegraph shape) gotcha for a frame-filling boss:** the studio auto-frames per STATE to the boss
+  bounding box, so a UNIFORM size change on charge normalizes away (it got WORSE). The telegraph must
+  change the field's ASPECT — the tide crest rises TALLER (`field.scale.y`), which survives the
+  normalization — plus the face surges forward. (In-game with a fixed camera the surge alone already
+  passes; only the studio's per-state auto-fit needs the aspect trick.)
+- **The value-inversion gate override** (`gate:{inverted:true,frameFill:true}`, new beyond `gate.pale`):
+  G1 flips to a DARK-focal check (the darkest cluster ≤12/255 exists AND stays small = the hollows), G2/G4
+  exempt (the bright field is the body; it overflows the frame by design). Cited to the §5b row-13 sanction.
+
+**→ Systematize.** The OPAQUE-HDR-field pattern is the template for any future frame-filling / backdrop
+boss (a sky, a sea, a void that IS the arena): bloom via `toneMapped:false` + baked >1.0 vertex colours,
+`fog:false`, replace the dome, ZERO additive → the overdraw cliff never bites. The three-cue negative-relief
+recipe (bend the field + break the boundary + asymmetric rim) is the reusable "how do I make a HOLE read as
+the subject" kit. Studio G5 for a frame-filler = change ASPECT, not size.
+
+**→ Leapfrog (innovate).** The two-Fable-gate loop earned its keep: gate #1 (pre-build, on the prose sheet)
+caught the "storm-clouds / solid-head" anti-reads before a single vertex existed (7 sheet fixes); gate #2
+(on the renders) caught "floating mask in front of a sunset" and drove the bend/break/rim/value round that
+turned a pretty gradient into a face deforming light. Neither is something G1–G7 pixels can see — they
+measure the measurable (dark-focal, palette, overdraw), the Fable eye measures the READ. Verified: `boss.mjs`
+75 checks (embertide model 8195 tris tier-4, named-pivot surge/tear/sink telegraph, ZERO-additive assert),
+`bossboot` clean, `bossgate --studio` G1–G7 PASS, `amberdiet`+`rhythmprint` (crescendo-sets, min KS 0.27)
+pass. CP2 (the live wiring: Y-constrict, full-frame emitters, sky-dome crossfade, letterbox, BEAM DUEL) is a
+SEPARATE commit after the owner green-lights CP1. Two polish notes deferred to CP2: vary the jaw-streak
+lengths (they read a touch matched); keep the recesses clearly darkest at full charge (protect the inversion).
+
+### L219 — EMBERTIDE r1: a negative-relief boss is MULTIPLY-OCCLUSION of the light, not a dark object ON the light — the figure-ground is the whole build
+
+**Did / learned.** The owner REJECTED r0 (L218) on sight: at fight distance it read as "a discrete solid brown face floating on a sunset with air all around it" — a floating idol-mask that collided with VOIDMAW (the shattered mask) and BRINEHOLM (the solid head). Every G1–G7 gate PASSED and BOTH r0 Fable gates PASSED, and it STILL failed the owner — because the gates + the render-judging Fable were both asked "does a face read?" (yes) but not the load-bearing question "is the LIGHT the body and the darkness the face, or is a dark OBJECT sitting on a light backdrop?" r0 had the figure-ground backwards: bright sky = ground, opaque lit dark mask (with a bright RIM halo, a clean closed perimeter, and downward "dissolve" streaks that read as a tribal beard) = a discrete figure floating with margin.
+
+**The fix is a rendering-model inversion, not more detail.** r1 makes the face literal DARKNESS IN the light:
+- **The face is MultiplyBlending** — it DARKENS/occludes the light-bands behind it and fades to no-effect (multiply factor → 1.0) at its edges. So it has NO rim and NO discrete perimeter; its crown and sides DISSOLVE into the field. Nothing is a lit/opaque/rimmed sculpture. This is the single change that flips "dark object on light" → "darkness torn into the light." (Multiply is NOT AdditiveBlending, so G7/overdraw still counts it as zero — the field stays opaque-HDR, the face multiply, motes opaque: zero additive volumes, the whole budget free.)
+- **Delete, don't soften:** the bright RIM HALO was THE thing making it read as a discrete lit object — delete it entirely (a rim = a sculpture edge = a mask). Delete the downward streaks/spikes (tribal-idol → Voidmaw). Delete the sculpted opaque recess tier (it made a 3D mask object). The eye-hollows/mouth are the ONLY hard edges — pure-black OPAQUE tears, the darkest focal.
+- **The light-field IS the body and must FILL/overflow with structure:** a soft plain gradient reads as a plain sky (r0's other miss) — make it BOLD structured light-BANDS that overflow both edges, and keep the band-BOW around the face (the light visibly parts around the darkness = negative relief, the cue that separates it from a cutout-on-a-gradient).
+
+**Gotcha — the gate that would have caught r0 is a DIFFERENT stranger-test question.** "Does a face read?" is necessary but not sufficient; the slot's real test is "is this the HORIZON with a face in it, or a MASK on a backdrop?" Ask the figure-ground question explicitly, at fight distance, on the home backdrop. A boss whose identity is a value-inversion needs the inversion itself gated, not just the pareidolia.
+
+**→ Systematize.** For any "the environment/void IS the boss" identity (a sky, a sea, a wall of light): render the BODY as opaque-HDR filling the frame, and render the "figure" as MULTIPLY occlusion that dissolves at its edges — never an opaque rimmed object. Bake structure (bands) into the body so it doesn't read as a plain gradient. And add the figure-ground question to the §3b pre-build sheet for every value-inverted slot.
+
+**→ Leapfrog.** Verified: `boss.mjs` 75 (embertide 11792 tris, ZERO-additive assert holds — multiply ≠ additive), `bossgate --studio` G1–G7 PASS (dark-focal 0.99%, 0.000% danger, telegraph 28%), independent Fable r1 gate PASS ("the horizon standing up … not a floating mask, not a breaching head"). Def/mechanics unchanged (presentation re-pass only). One non-blocking Fable note: the nose-to-jaw core is the most object-like zone — let a band graze through it if it ever drifts solid in motion.
+
+### L220 — Spending a frame-filling boss's tri budget: turn the BAKED structure into REAL moving geometry, don't subdivide a smooth plane
+
+**Did / learned.** Owner mandate: EMBERTIDE (slot 13, the World-Enders band PEAK) must spend its tier-4 geometry budget to **≥90% or it's a failure** — it sat at 11,792 tris / 54%. The naïve spend (subdivide the one smooth field plane) is WRONG per §5g: "grandeur must be VISIBLE in the geometry, not static filler" — a denser smooth plane reads identically. The right spend turns the boss's cheapest cheat into real geometry: the r1 field baked its light-BANDS into ONE plane's vertex colours; the spectacle pass promotes them to **N separate opaque band-planes at staggered z that DRIFT at parallax speeds** (a deep, many-layered tide in MOTION) + a **real CREST strip** that rises on the charge tell (was a bare `Object3D` node + baked colour) + more embers + more soft multiply relief tiers on the face. Landed **21,158 tris @q1 (96%)**, q0.5 7,730 (< the 13,200 lowQ gate), 46 draws — all opaque/multiply, so **ZERO additive** and G7 still trivially passes. Independent Fable gate: PASS ("the layered tide + relief made it distinctly grander without reintroducing the mask").
+
+**The technique for real layered depth WITHOUT overdraw:** opaque planes fully occlude each other, so naïvely stacking them gives no parallax — the fix is to make each band-plane a bright RIDGE that fades to the EXACT base-gradient colour at its top/bottom edges (`hdr = 1 + ridge*k`, `ridge = exp(-(ly/σ)²)`), so it's opaque AND seamless with the base and its neighbours; then stagger z and drift each at its own speed. Real geometry depth + motion + zero blending cost. And bake the SAME face-proximity bow (`faceBow(x,y)`) into every band-plane's vertex POSITIONS (displace, not just colour) so the whole multi-layer wall parts around the face in real geometry — the negative-relief cue gets STRONGER, not diluted, as you add layers.
+
+**Gotchas.** (1) Overshot 22,000 on the first pass (24,764) — the field seg count + per-band seg count + 9 face-relief planes at 18×18 compound fast; tune the seg dials (`bandSegX/Y`, `darkMass` seg) down to land in the 20–21k band with margin, re-measuring via `node tests/boss.mjs | grep embertide` (bosses are NOT in `tricount`, which is dragons-only). (2) Only the **tri** half of the lowQ contract is enforced (`boss.mjs:273`, q0.5 ≤ 60% of the ceiling); the "≤70% draws" half is documented but unimplemented — draws are bounded only by the q1 ≤90 hard gate. (3) The added relief can re-flirt with the rejected mask read at its hardest tier — Fable flagged the temple columns as the one "helmet side-edge" risk; keep those particular masses LIGHT.
+
+**→ Systematize.** For any frame-filling / value-inverted boss under the "spend the hardware" directive: don't subdivide the backdrop — promote its baked structure (bands, gradients, crest) into real, moving, bowing geometry (opaque, seamless-ridge fade, staggered z, parallax drift). Visible motion-grandeur, zero additive. The tri traverse + `countVisibleDraws` in `boss.mjs` is the measurement loop; there is no boss `tricount`.
+
+**→ Leapfrog.** Verified: `boss.mjs` 75 (embertide 21,158 tris / 46 draws / tier-4, ZERO-additive + named-pivot telegraph hold), `bossgate --studio` G1–G7 PASS (danger 0.004%), Fable spectacle re-gate PASS. This is COMMIT 1 (the spectacle/budget pass); CP2 (the live-fight wiring: `skyComesLoose` entrance, the Y-axis vertical-squeeze arena, full-frame emitter rows, the sky-dome crossfade, BEAM-DUEL / TIDE-EDGE / Horizon-Break survival seal, + an in-fight overdraw tool) is the next commit after the owner's motion/feel sign-off.
+
+### L221 — "The environment IS the boss" means REBUILD the environment's dome, not float a world-space quad at the boss station — camera-lock the VISUAL, keep GAMEPLAY at the station
+
+**Did / learned.** The owner viewed the L219/L220 EMBERTIDE in the live preview and caught a real bug the studio/aspect stills had hidden: the frame-filling field was ONE world-space PLANE pinned at the boss world-station (`boss.js placeGroup` → `group.position.set(x, y, -(player.dist + rel))`, rel≈30). A world-space plane there RECEDES and PARALLAXES like an object — you saw its hard top/left/right edges AND a SECOND sky (the real blue dome behind the orange panel). §5d had already MANDATED the fix in words ("fog-exempt, camera-relative, REPLACE the dome — one sky, never two") but the builder made a quad instead of becoming the dome. The stills hid it because they framed the panel dead-centre; the JANK only appears with camera motion + the real dome co-visible.
+
+**The fix is the environment's OWN dome pattern, applied to the boss — a clean split of VISUAL vs GAMEPLAY frames.**
+- **The visual is a BackSide sphere (radius 600), camera-POSITION-locked every frame** — copy `camera.position` onto the visual root `rig` (NOT orientation — the dome is world-oriented, exactly `environment.js:484 sky.position.copy(camera.position)`), so it re-centres on the camera like the real dome: no edges at ANY aspect (a sphere has none), the crest sits on the WORLD horizon and stays there as the chase-cam pitches, and the water reflects it naturally. Gradient + bands mapped by ELEVATION (latitude rings), the face at the forward horizon INSIDE the dome.
+- **Camera-lock ONLY the visual `rig`; leave `group` (HP bar, shield, `crestPivot` emitter) at the station via the UNCHANGED `placeGroup`.** So `resolveEmitOrigin` / the HP bar / the shield all stay at rel≈30 and gameplay needs zero special-casing. The camera-lock lives in `boss.js` (def-gated `skyReplace` flag), NOT in `model.tick` — thread `camera` into `updateBoss(dt, player, time, camera)` + its `main.js` call site, mirroring `updateEnvironment`.
+- **Crossfade the real dome OUT so it's "one sky, never two":** a `setSkyFade(k)` / `dimMix` uniform on `skyMat` (mirrors the `feverMix` damp) dims the real dome toward black as `k→1`, and `sky.visible=false` once EMBERTIDE fully covers — the dome draw is REPLACED, not stacked, so overdraw stays FLAT (the model is still ZERO additive; the opaque sky sphere costs one draw either way). Ramp `k` off the fight lifecycle in `boss.js` (`skyReplace && active`), damped, back to 0 on teardown.
+- **God-rays: suppress them while EMBERTIDE owns the sky** (`game.embertideSky` flag → `renderPostFX` disables the god-ray pass + its mask render). The god-ray pass paints radial shafts from a discrete on-screen sun; EMBERTIDE has no sun (the whole sky is the light source), so the shafts read as a rectangular light-source artifact. Suppressed = flat overdraw + no artifact.
+
+**Gotchas.** (1) The dome is opaque + `frustumCulled=false` + `depthWrite=false` + `renderOrder=-20` (draws first, behind the world props/water — never occludes them), mirroring the real dome material EXACTLY. (2) A fast headless diagnostic can catch the crossfade MID-RAMP (distance meter 24–34m vs the settled 111m) and show the real night sky still bleeding through — that's `skyFadeK` not yet at 1, NOT a dome bug; wait for MANY frames (the aspect tool's 30s fight-phase timeout gives them for free). (3) `game.embertideSky` goes true at `skyFadeK>0.02` (ramp STARTED), which is NOT "crossfade complete" — don't use it as a settled-state signal. (4) The backlit biome city SILHOUETTES into a dark blocky mass at the vanishing point — that's the intended value-inversion (dark forms against bright light), not an artifact; it vanishes with the boss rig hidden because the towers then light normally.
+
+**Gotcha — the pixel-silhouette `bossgate` is STRUCTURALLY incompatible with a camera-relative opaque sky-dome boss.** The gate projects the boss geometry to a screen SILHOUETTE and reads G1/G3/G5 over it — that assumes a BOUNDED boss against a sky. The dome rebuild makes the "silhouette" the whole camera-sphere (opaque, frame-filling), so `minLum`/`accentFrac`/`shapeDiff` become meaningless (the earlier `gate.inverted` override was calibrated for the BOUNDED-PLANE field). `bossgate` even self-documents "it is NOT the merge gate" — the applicable gate for a value-inverted SKY boss is the in-game portrait+landscape aspect captures + an independent Fable perceptual gate ("one continuous sky, face IN it, no floating panel, no second sky?"). G7 (overdraw, model-graph, ZERO-additive) still applies and still passes. A `skyReplace` gate-SUBJECT adaptation (mask the face sub-tree as the focal, exempt the dome as the sky) is the systemic fix — deferred with CP2.
+
+**→ Systematize.** For any "environment IS the boss" identity (a sky, a sea, a wall of light): don't build a world-space quad at the boss station — REBUILD the environment's own primitive (its camera-relative dome/plane), camera-POSITION-lock the VISUAL root in `boss.js` behind a def flag, keep the GAMEPLAY frame (`group`, emitters, HP, shield) at the station, and CROSSFADE the real one out (`dimMix` + `visible=false`) so overdraw is replaced-not-stacked. Gate it perceptually (Fable on in-game aspect stills), not with the bounded-silhouette pixel gate.
+
+**→ Leapfrog.** Verified: `boss.mjs` 83 (embertide 20,534 tris / 39 draws / tier-4, ZERO-additive assert holds through the dome rebuild), `bossboot` + `defs` green, `tricount` 0 over budget (bosses excluded), independent Fable gate on the in-game portrait+landscape captures **OVERALL PASS** ("single continuous sky edge-to-edge, two black eye-hollows + brow + mouth as darkness torn into the light with no rim, sea carries the warm reflection, vermilion→coral-rose, zero wrong-hue"). The sky-replacement is COMMIT (between CP1 and CP2); the remaining CP2 live-fight wiring (`approachFrom:'horizon'` so it leaves 'warn', `skyComesLoose` entrance, Y-squeeze arena, full-frame emitters, BEAM-DUEL, + the `skyReplace` gate-subject adaptation) is the next commit after the owner's motion/feel sign-off.
+
+### L222 — A camera-locked "sky" must be re-centred AFTER the camera moves, not during the boss update — and a "still broken" report is a STALE-BUILD check first
+
+**Did / learned.** The owner sent a phone screenshot of EMBERTIDE mid-fight with the ORIGINAL jank back: a hard diagonal seam, dark night sky in the top third, orange field below — "still janky, doesn't blend." Two distinct findings:
+
+**(1) It was a STALE BUILD — verify the live `build <id>` against HEAD before diagnosing.** The screenshot's build stamp (`c99cf65c3cd5`) mapped to the pre-dome FLAT-PLANE commit (`git show <commit>:reforged/js/buildId.js` is the decoder); the dome fix was a later commit the deployed site hadn't picked up (production deploys from `master`; an unmerged PR only reaches the PR-preview URL, and the service worker caches the old build until all tabs close). Lesson: when a fix "isn't working," FIRST confirm the build under test is actually your fix — a build-id → commit lookup takes seconds and can save a wild goose chase. Don't re-debug shipped-correct code against a cached old bundle.
+
+**(2) But the dome ALSO had a real MOTION bug the stationary gate never caught — the camera-lock ran a FULL FRAME STALE.** The rig-lock lived in `placeGroup`, called inside `updateBoss` (`main.js:1093`), which runs BEFORE `cameraCtl.update` (`main.js:1246`) moves the camera. So `rig.position = camera.position` used LAST frame's camera; the render (`main.js:1289`) then drew the dome one frame behind. Stationary that's ~2 units (invisible); under forward flight (or big-dt frame drops on weak mobile) the offset balloons — a probe caught **rigCamOffset 219** at 1300 m, and an off-centre opaque dome RECEDES to a horizon patch (its baked bright-band skews off the camera horizon) and the real night sky bleeds in above it — the exact diagonal seam. Fix: a dedicated `syncSkyRig(camera)` exported from `boss.js` and called from `main.js` RIGHT AFTER `cameraCtl.update` — the same frame slot `environment.js` re-centres the real sky dome (`sky.position.copy(camera.position)`). After the fix: `rigCamOffset 0` at every distance, dome fills the frame under 1300 m of forward flight (Fable flight-gate PASS).
+
+**Gotcha — the stationary aspect-gate hid it, and the crossfade completion is a HEADLESS-THROTTLE trap.** (a) My original verification sat the boss in `warn`/stationary, where the 1-frame lag is ~2 units — invisible. ANY camera-relative sky MUST be verified under MOTION (fly `player.dist` forward, probe rig↔camera offset), not just a still. (b) The dome's crossfade (`dimMix→1`) ramps in ~1.3 s at 60 fps, but headless rAF is throttled ~15× (L105), so a fixed `waitForTimeout(1500)` catches `dimMix≈0.4` (real sky still 60% visible → a false "dome not covering" read). POLL the uniform to saturation (`waitForFunction … dimMix ≥ 0.95`) before capturing — the completeness is real, the slowness is the harness.
+
+**→ Systematize.** Anything locked to the camera each frame (sky domes, screen-space backdrops, follow rigs) belongs in the post-`cameraCtl.update` slot, next to `environment.js`'s sky re-centre — NEVER in an update that runs before the camera settles. And bake a MOTION probe (forward-flight rig↔camera offset + polled crossfade uniform) into the verification, because the stationary studio/aspect shot structurally cannot see a follow-lag.
+
+**→ Leapfrog.** Verified: `boss.mjs` 94 (both onewing + embertide lifecycles green after the `origin/master` merge — the stormrend rebalance didn't touch embertide's attack-calling), `bossboot` green (real-engine `syncSkyRig` path, no console errors), forward-flight probe `rigCamOffset 0` + `dimMix 0.982` at 1319 m, independent Fable FLIGHT gate **OVERALL PASS** ("vermilion→coral fills every sky pixel, no diagonal seam, no navy band; two eye-hollows + brow + mouth as darkness eaten into the light; sea carries the warm specular; world-space not billboard"). Merged `origin/master` (ONEWING #279 slot 12 + STORMREND rebalance) into the branch; EMBERTIDE is now BOSS_ORDER index 12. Still between CP1 and CP2; the CP2 wiring (`approachFrom:'horizon'`, entrance, arena, emitters, BEAM-DUEL) stays the next commit after the owner's motion/feel sign-off.
+
+### L223 — Reparenting a model subtree out of `group` silently breaks BOTH the group-only dispose AND the group-scoped teardown state — sweep and reset what you reparented
+
+**Did / learned.** Codex review caught two real defects in the EMBERTIDE sky-replacement, both from the SAME root cause: `boss.js` reparents the visual `rig` (dome + face + motes) OUT of `group` onto the scene so it can be camera-locked as the sky. That reparent quietly invalidated two things that assume "the whole boss lives under `group`":
+- **`model.dispose()` leaked.** It traversed only `group`, so the reparented `rig` (the LARGE geometry — a radius-600 sphere + the face relief) was freed on NO encounter — a per-fight GPU leak, worst in Boss Rush / solo retries. Fix: `dispose()` sweeps BOTH `group` and `rig` (dedup via a `Set` so the studio path, where `rig` is still under `group`, frees once).
+- **The crossfade state froze on the rush-final path.** `endEncounter` removed the rig but never reset `skyFadeK`/`setSkyFade`; the fade-back (`active→0`) only runs inside `updateBoss` while `state==='playing'`, but a Boss-Rush-final / solo clear flips straight to `gameover`, so the ramp never ran → the real sky stayed hidden with the rig gone = a black victory/recap sky. Fix: HARD-reset `skyFadeK=0; setSkyFade(0)` in `endEncounter` when `def.skyReplace` (don't rely on a per-frame ramp that a terminal state stops calling).
+
+**Gotcha — a stationary/normal-play test passes both bugs.** The leak is invisible without a repeat-encounter GPU census; the black-sky needs the Boss-Rush-FINAL or solo-practice transition specifically (normal play's `updateBoss` fade-back hides it). Both are exactly the paths a single happy-path playtest skips — which is why an adversarial code review caught them and the aspect/flight captures didn't.
+
+**→ Systematize.** Any time you reparent part of a model out of its owning `group` (camera-locked backdrops, world-attached props, detached debris): audit EVERY place that assumes `group` contains the whole model — `dispose()` traversal, teardown state resets, bbox/framing, gate silhouette projection — and make them cover the reparented subtree too. And drive teardown state to its resting value IMPERATIVELY at the teardown site, never via a per-frame ramp that a terminal game state (`gameover`/`recap`) stops ticking.
+
+**→ Leapfrog.** Codex P2 ×2 addressed (dispose sweeps `group`+`rig` deduped; `endEncounter` hard-restores the sky for `skyReplace`). A 3rd Codex flag (the `approachFrom:'horizon'` def claiming a "shipped mapping" it doesn't have) was de-lied in the comment and kept as the owner-deferred CP2 item (the dome fills the sky from `active` regardless, so the entry direction is nearly invisible for this boss). Verified after the `origin/master` merge (ef8d7df — ONEWING CP2 + KNELLGRAVE): `boss.mjs` + `defs` + `bossboot` green, forward-flight `rigCamOffset 0`.
