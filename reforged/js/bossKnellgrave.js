@@ -180,10 +180,14 @@ export function buildKnellgrave(def, quality = 1) {
   // punches THROUGH to the sky. By the last toll most of the lower wall is gone — a skeleton, not
   // a bell with a bright crack. Ornament + both walls carve to these windows; plates cover them
   // at rest (a clean, whole bell through phase 1 — the degradation is EARNED).
+  // All three front chunks sit in the FRONT-VISIBLE arc (az within ~±55° of front, clear of the
+  // crack) so each phase's loss reads EQUALLY from the fight camera (owner: "the shedding should
+  // be visually even between phases"). Same size; spread L/R across the face so the damage doesn't
+  // clump. aHalf 0.28 lets all three fit in the front without overlapping the crack or each other.
   const SHED = [];
-  for (const [aMid, at] of [[0.70, 0.30], [5.40, 0.55], [1.50, 0.72]]) {
-    SHED.push({ aMid, aHalf: 0.36, at, mid: -3.2 });                         // the visible front chunk
-    SHED.push({ aMid: (aMid + Math.PI) % (Math.PI * 2), aHalf: 0.36, at, mid: -3.2 });   // its diametric twin → the sky through-line
+  for (const [aMid, at] of [[0.92, 0.30], [5.58, 0.55], [0.32, 0.72]]) {   // P1→2 front-right · P2→3 front-left · P3→4 front-centre
+    SHED.push({ aMid, aHalf: 0.28, at, mid: -3.2 });                         // the visible front chunk
+    SHED.push({ aMid: (aMid + Math.PI) % (Math.PI * 2), aHalf: 0.28, at, mid: -3.2 });   // its diametric twin → the sky through-line
   }
   const angDelta = (a, b) => { let d = Math.abs((a - b) % (Math.PI * 2)); return Math.min(d, Math.PI * 2 - d); };
   const inShed = (a) => SHED.some((s) => angDelta(a, s.aMid) <= s.aHalf);
