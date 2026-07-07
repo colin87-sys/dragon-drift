@@ -241,6 +241,7 @@ let condHold = 0;            // seconds the swarm stays CONDENSED past its last 
 // SOAK is non-lethal: touching a pink mote absorbs it (bulletGraze → surge). Inert for every
 // other archetype (no grazeForm, no shed).
 let soakMotes = null;        // the THREE.Points object (one additive draw)
+let harvestOffered = false;  // §5i moteHarvest (slot 11): the once-per-phase bloom spent-flag
 let soakPos = null;          // its position attribute buffer
 const soakList = [];         // active pink motes {x,y,rel,vx,vy,vrel,ttl}
 const SOAK_MAX = 16;         // hard cap on-screen (overdraw + fairness)
@@ -687,6 +688,34 @@ function shedSoakMote(player) {
     vrel: -(relFromPlayer + 2) / 2.4,     // close to the player over ~2.4s
     ttl: 3.2,
   });
+}
+
+// §5i CANCEL-CONVERT MOTE HARVEST (WEFTWITCH, grazeForm 'moteHarvest'): the CUT
+// thread blooms into FALLING surge-motes from the thread's midpoint (between the
+// hands) — steer through the bloom to harvest (each soak = bulletGraze → Surge).
+// Offered once per phase: the first cut of a phase blooms; later cuts still
+// stagger, they just don't re-bloom. Rides the shared soak cloud + detector
+// (surge-pink stays the reward colour — the graze grammar outranks her gold).
+const _bloomL = new THREE.Vector3(), _bloomR = new THREE.Vector3();
+function bloomHarvestMotes(player) {
+  const l = model.partWorldPos?.('handPivotL', _bloomL);
+  const r = model.partWorldPos?.('handPivotR', _bloomR);
+  let bx = pose.x, by = pose.y, brel = pose.rel;
+  if (l && r) { bx = (l.x + r.x) / 2; by = (l.y + r.y) / 2; brel = -(l.z + r.z) / 2 - player.dist; }
+  const N = Math.min(12, SOAK_MAX - soakList.length);
+  for (let i = 0; i < N; i++) {
+    const fan = (i / Math.max(1, N - 1) - 0.5) * 2;   // -1..1 across the bloom
+    soakList.push({
+      x: bx + fan * 4.2 + (Math.random() - 0.5) * 0.8,
+      y: by + Math.random() * 1.2,
+      rel: brel,
+      vx: fan * 1.6 + (Math.random() - 0.5) * 0.6,
+      vy: -(2.6 + Math.random() * 1.6),               // FALLING — the bloom sinks through the flight band
+      vrel: -(brel + 2) / 3.2,                        // close to the player plane over ~3.2s
+      ttl: 4.6,
+    });
+  }
+  return N;
 }
 
 // Move the soak motes; a mote within soak radius of the player is ABSORBED (bulletGraze →
@@ -1243,7 +1272,7 @@ export function startBossEncounter(player, defOverride) {
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
-  threadCutHits = 0;   // §5i.C slot 11 thread-cut state
+  threadCutHits = 0; harvestOffered = false;   // §5i.C slot 11 thread-cut + harvest state
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
@@ -1945,8 +1974,15 @@ export function updateBoss(dt, player, time) {
               pending.length = 0;               // queued sub-volleys drop with it
               model.cutThread?.();              // hands thrown apart; the thread dies
               sfx.needlePull?.();               // the thread tears free
-              ui.bossNote?.('✦ THREAD CUT — STRIKE NOW ✦', 'HER VOLLEY UNRAVELS', 'gold', 2.4);
-              emit('threadCut', { cleared: cut });
+              let bloomed = 0;
+              if (def.grazeForm === 'moteHarvest' && !harvestOffered) {
+                harvestOffered = true;          // once per phase (reset at the phase seam)
+                bloomed = bloomHarvestMotes(player);
+                ui.bossNote?.('✦ THREAD CUT — HARVEST THE BLOOM ✦', 'STEER THROUGH THE FALLING MOTES', 'gold', 2.4);
+              } else {
+                ui.bossNote?.('✦ THREAD CUT — STRIKE NOW ✦', 'HER VOLLEY UNRAVELS', 'gold', 2.4);
+              }
+              emit('threadCut', { cleared: cut, bloomed });
             }
           }
         }
@@ -2247,6 +2283,7 @@ function breakShield(player) {
     beginCard(phaseIdx);
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
+      harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
     // Def-gated setpiece: entering this phase plays a scripted station-leave beat.
     // A QUIET setpiece (default) holds the attack + rider clocks past its duration
     // for a capture-safe pass; a MOVING setpiece (§5e moving-station branch) leaves

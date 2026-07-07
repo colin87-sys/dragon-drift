@@ -41,6 +41,7 @@ initParticles({ add() {} });   // the disintegration spawns burst particles
 ui.bossBanner = () => {};
 ui.damageFlash = () => {};
 ui.feverStart = () => {};   // surge can now auto-trigger from grazing
+ui.parryPopup = () => {};   // the thread-cut integration sim lands real parries
 
 // Per-band geometry budgets (BOSS-DESIGN.md §5g/§5h): the flat 6,000/34 gate is
 // now keyed off def.tier — tier-1 (Sentinels) keeps the hard 6,000/34; higher
@@ -1456,6 +1457,46 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// §5i.C THREAD-CUT + §5i moteHarvest INTEGRATION (weftwitch CP2): drive a LIVE fight
+// and parry her ambers like a skilled player (roll onto an amber in the reflect
+// window, once per volley) — the third parried volley must CUT the thread: the
+// stagger stills the loom, the woven volley unravels, and the once-per-phase
+// harvest BLOOMS falling motes.
+{
+  game.inBoss = false;
+  game.reset();
+  game.state = 'playing';
+  game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  let cutEvt = null, rolls = 0;
+  on('threadCut', (e) => { if (!cutEvt) cutEvt = e; });
+  let t = 0;
+  for (let i = 0; i < 60 * 150 && !cutEvt; i++) {
+    const dt = 1 / 60;
+    t += dt;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    const st = boss.bossDebugState();
+    if (st.shielded) { game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+    // The skilled parry: an amber in the reflect window → roll on top of it.
+    if (player.rollInvuln <= 0 && !game.feverActive) {
+      const amber = bullets.debugActiveBullets().find((b) => b.owner === 'boss' && b.reflectable && b.rel > 0.5 && b.rel < CONFIG.BOSS.reflectWindow);
+      if (amber) {
+        player.position.x = amber.x; player.position.y = amber.y;
+        player.rollInvuln = 0.1; rolls++;
+      }
+    }
+    if (player.rollInvuln > 0) player.rollInvuln -= dt;
+    boss.updateBoss(dt, player, t);
+  }
+  assert(cutEvt, `weftwitch thread-cut fires after 3 parried volleys (rolls staged: ${rolls}, t ${t.toFixed(1)}s)`);
+  assert(cutEvt.bloomed > 0, `the first cut of the phase blooms the falling harvest (${cutEvt?.bloomed} motes)`);
+  const stCut = boss.bossDebugState();
+  assert(!stCut.charging, 'the loom is STILLED during the cut window (no wind-up runs)');
+  ok(`weftwitch thread-cut integration: 3 parried volleys → cut (${cutEvt.cleared} ambers unravel, ${cutEvt.bloomed} harvest motes bloom, loom stilled) ✓`);
 }
 
 // §5f MUSIC-DEATH defeat path: knellgrave (last in BOSS_ORDER) killed the music at
