@@ -8120,6 +8120,33 @@ G1-G7 PASS · restitch/bloom/eye captures reviewed. PR 2 (entrance) follows. Own
 
 **Verify.** defs.mjs green incl. the new eyeOrgan invariant; lock/boss/wisps/entrance/bossboot/smoke/gold-det/tricount all green (paint scope is render/gate logic — kill-times byte-stable, tricount unchanged). Owner feel-judges "can I keep tagging the shackles while his eye's down?" on the preview.
 
+### L215 — KARNVOW spend pass (the 90% budget directive): draws are a CREATIVITY budget — the wins were things he WEARS, LEAVES, and SUMMONS IN BEATS; tallies became heraldry because no legal color existed for glowing air
+
+**Did / learned.** The owner ordered the band-peak's unspent hardware used (65%/66% → 90% tris, 50 idle
+draws + beat props), then curated the brainstorm into a P1–P7 verdict plan. What generalizes:
+
+1. **"Spend draws" is a design problem wearing an engineering costume.** A draw only earns its life by
+   moving INDEPENDENTLY; everything else merges for free. The productive buckets: WORN cloth/dangles
+   (pennon, lining, hood tail), AMBIENT followers (one Points cloud, a wisp), TRAILS (afterimages), and
+   BEAT-ONLY props (fragments, a ghost) whose draws cost nothing at idle because visible-draw budgets
+   count `visible === true`. The rejected bucket: N separate mote meshes — one THREE.Points cloud is one
+   draw for forty specks (and the test counter must count `isPoints`, which it didn't).
+2. **When no legal color exists, change the MEDIUM, not the palette.** Glowing air-tallies died on the
+   role-color laws (amber=parry, magenta=danger, violet=Voidmaw's, bright=focal); the same idea shipped
+   as DARK RELIEF — kill-notches carved into the lance haft, heraldry instead of light.
+3. **A setpiece that owns the frame can animate EXISTING draws for free.** The verdict's biggest new
+   spectacle — trophies lifting off the chain and igniting in a WAVE keyed to the writing clock
+   (verdictTrace), the horn splitting — cost 3 card-only fragment draws; the lift/wave were pure motion.
+4. **World-anchor trails when the GROUP travels.** Group-space trail strips ride along with a moving
+   setpiece (they only work at station); store WORLD sample points and re-project into group space per
+   frame and the afterimages hang in the air behind the pass.
+5. **Zero-draw menace beats any prop:** the empty hook CREEPING toward the player over ~90s (hookAim ×
+   the live gaze) and the cloak TEARING at phase seams (an optional model.setPhase hook at breakShield,
+   every other boss ignores it) are pure state → rotation, and they carry more dread than geometry.
+6. **The lore ghost law:** apparitions of other bosses are palette chaos EXCEPT the one whose relic is
+   already on-body and whose color is already on-screen — the Voidmaw-only ghost (dim ≤0.25 mask-glyph
+   beside the horn, during its own card) is the template for slot-14's roster-exam quotes.
+
 ### L218 — KNELLGRAVE damage-readability: escalation the FIGHT CAMERA can't see doesn't exist — start clean, break the SILHOUETTE, one chunk per phase
 Owner playtested the shipped ruin ladder with a screenshot per phase: "the bell's full in the
 intro but already damaged by the fight, and I see no meaningful difference phase to phase." The
@@ -8164,3 +8191,4 @@ Gotcha: a scene-reparented object is NO LONGER under the boss group, so `group.t
 dispose() won't reach it — a defeated boss would leave orphaned debris + splash rings in the
 scene. Track every world-parented object in a `worldDebris[]` and remove+dispose them explicitly
 on teardown. (Same trap any effect that escapes the boss group hits.)
+

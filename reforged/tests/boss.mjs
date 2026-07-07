@@ -231,7 +231,7 @@ function countVisibleDraws(root) {
   (function walk(o, parentVisible) {
     const vis = parentVisible && o.visible;
     if (!vis) return;
-    if (o.isMesh || o.isLineSegments || o.isInstancedMesh) draws++;
+    if (o.isMesh || o.isLineSegments || o.isInstancedMesh || o.isPoints) draws++;   // Points = one real GPU draw (KARNVOW's ash cloud)
     for (const c of o.children) walk(c, vis);
   })(root, true);
   return draws;
@@ -354,6 +354,33 @@ for (const key of BOSS_ORDER) {
   assert(fanMoved >= 8, `ashtalon mantle: ${fanMoved} blade pivots re-fanned on charge (need ≥8 — silhouette change)`);
   hunter.dispose();
   ok('ashtalon telegraph: setCharge(1) mantles the scythe-wings (silhouette change)');
+}
+
+// ONEWING (slot 12) — the telegraph gate + the §5d/§3b named anatomy. The vast
+// LIVING wing MANTLES on charge (the silhouette tell); the anti-read/carrier parts
+// (the atrophied stub, the fused frame, the one eye) each exist by name.
+{
+  const one = buildBoss(BOSSES.onewing, 1);
+  // Named anatomy the telegraph/design/studio gates locate by name.
+  for (const n of ['wingPivot', 'stubPivot', 'frameGroup', 'onewingEye', 'frameRim']) {
+    assert(findAllByName(one.group, n).length === 1, `onewing exposes exactly one ${n}`);
+  }
+  const wing = findAllByName(one.group, 'wingPivot')[0];
+  const blades = findAllByName(one.group, 'bladePivot');
+  assert(blades.length >= 6, `onewing exposes ≥6 named bladePivots on the vast wing (${blades.length})`);
+  // Settle the idle sag/sway, snapshot, then charge: the wind-up is the MANTLE —
+  // the vast wing draws up (shoulder rotates) AND the fan spreads. Assert the SHAPE
+  // moved, not colour.
+  for (let i = 0; i < 40; i++) one.tick(0.05, i * 0.05);
+  const preShoulder = wing.rotation.z;
+  const preFan = blades.map((b) => b.rotation.z);
+  one.setCharge(1);
+  for (let i = 0; i < 30; i++) one.tick(0.05, 2 + i * 0.05);
+  assert(Math.abs(wing.rotation.z - preShoulder) > 0.1, `onewing mantle: the vast wing shoulder rotated on charge (Δ ${(wing.rotation.z - preShoulder).toFixed(2)})`);
+  const fanMoved = blades.filter((b, i) => Math.abs(b.rotation.z - preFan[i]) > 0.05).length;
+  assert(fanMoved >= 4, `onewing mantle: ${fanMoved} blade pivots re-fanned on charge (need ≥4 — silhouette change)`);
+  one.dispose();
+  ok('onewing telegraph: setCharge(1) mantles the vast wing (silhouette change); stub/frame/eye named');
 }
 
 // MARROWCOIL (slot 4) — the telegraph gate + the §5d/§7b per-sheet geometry
@@ -1281,9 +1308,70 @@ for (const key of BOSS_ORDER) {
     kv.setSetpiece(0);
   }
 
+  // SPEND PASS data laws (the owner's P1–P7 verdict plan):
+  {
+    // P3 — the worn heraldry exists as named parts.
+    assert(!!kv.group.getObjectByName('pennonPivot'), 'karnvow pennon anchored to the lance haft (pennonPivot)');
+    assert(!!kv.group.getObjectByName('pennon') && !!kv.group.getObjectByName('cloakLining') && !!kv.group.getObjectByName('hoodTail0'),
+      'karnvow wears the heraldry: pennon + cloak lining + hood tail strips');
+    assert(!!kv.group.getObjectByName('ashCloud'), 'karnvow ambient ash is ONE Points cloud (one draw, never per-mote meshes)');
+
+    // P2 — the empty hook aims at YOU over fight time: simulate ~95s of live gaze.
+    const hookHang2 = kv.group.getObjectByName('trophyCharm5').parent;
+    kv.setGaze(1, 0);
+    const y0 = hookHang2.rotation.y;
+    for (let i = 0; i < 400; i++) kv.tick(0.25, 200 + i * 0.25);   // 100s of fight clock
+    // Hold a charge for the final beats: the idle look-away machinery randomly
+    // wanders gazeX (it only triggers below charge 0.2), so sample the creep at a
+    // deterministic locked-on gaze, not a random glance moment.
+    kv.setCharge(0.6);
+    for (let i = 0; i < 30; i++) kv.tick(0.25, 300 + i * 0.25);
+    kv.setCharge(0);
+    assert(hookHang2.rotation.y > y0 + 0.3,
+      `karnvow the empty hook CREEPS toward the dragon over the fight (hang rot.y ${hookHang2.rotation.y.toFixed(2)} > ${(y0 + 0.3).toFixed(2)})`);
+
+    // P4 — the verdict testify is a WAVE + the horn SPLITS mid-card + the ghost is card-only.
+    const sp = BOSSES.karnvow.setpieces.find((x) => x.dread);
+    const ghost = kv.group.getObjectByName('voidmawGhost');
+    const frag0 = kv.group.getObjectByName('lanceFrag0');
+    assert(!!ghost && !ghost.visible && !!frag0 && !frag0.visible, 'karnvow ghost + horn fragments HIDDEN outside the card (idle draws stay lean)');
+    kv.setSetpiece(1, sp);
+    let firstLit = -1, lastLit = -1, sawSplit = false;
+    for (let i = 0; i < 70; i++) {
+      kv.tick(0.05, 320 + i * 0.05);
+      const litNow = [];
+      for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.5) litNow.push(ci);
+      if (litNow.length > 0 && firstLit < 0) firstLit = i;
+      if (litNow.length >= 5 && lastLit < 0) lastLit = i;
+      if (kv.group.getObjectByName('lanceFrag0').visible) sawSplit = true;
+    }
+    assert(firstLit >= 0 && lastLit > firstLit + 4,
+      `karnvow verdict testify is a WAVE, not a wall (first charm lit at tick ${firstLit}, all five by ${lastLit})`);
+    assert(sawSplit, 'karnvow the horn SPLITS into fragments mid-card ("wears the horn it took", coming apart at the memory)');
+    assert(ghost.visible && ghost.material.opacity <= 0.3,
+      `karnvow the Voidmaw ghost haunts the horn DIMLY during its card (opacity ${ghost.material.opacity.toFixed(2)} ≤ 0.3 — a satellite, never a lamp)`);
+    kv.setSetpiece(0);
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 330 + i * 0.05);
+    assert(!ghost.visible && !kv.group.getObjectByName('lanceFrag0').visible && kv.group.getObjectByName('lanceShaft').visible,
+      'karnvow ghost + fragments release with the card; the horn reassembles');
+
+    // P6 — the cloak tears at the phase seams (hem width shrinks at its last ring).
+    const cloakGeo = kv.group.getObjectByName('cloakStrip').geometry;
+    const hemW = () => {
+      const a = cloakGeo.attributes.position.array, n = a.length;
+      return Math.abs(a[n - 6] - a[n - 3]);   // hem ring: left-x minus right-x
+    };
+    for (let i = 0; i < 10; i++) kv.tick(0.05, 400 + i * 0.05);
+    const w0 = hemW();
+    kv.setPhase(2);
+    for (let i = 0; i < 10; i++) kv.tick(0.05, 401 + i * 0.05);
+    assert(hemW() < w0 - 0.2, `karnvow the cloak TEARS by phase (hem width ${hemW().toFixed(2)} < ${(w0 - 0.2).toFixed(2)})`);
+  }
+
   kv.dispose();
   ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
   ok('karnvow grandeur redo: the verdict WRITES (sigil + testifying trophies), the festoon reads at fight distance, the cut-in apex holds the sweep');
+  ok('karnvow spend pass: heraldry worn, the hook creeps toward you, the testify WAVES, the horn splits + the ghost haunts card-only, the cloak tears by phase');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
@@ -1599,6 +1687,85 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// --- 4b. THE LYING FELLED CARD (§5f slot 12 ONEWING — the roster's ONLY health-bar
+// lie): on the killing blow it fakes death, then ≤35% of the bar RETURNS within ≤2s
+// and it fights on CRIPPLED to a REAL second kill. The lie fires at most ONCE, and is
+// completely INERT for every other def (no other boss may ever opt in). ---------------
+{
+  const lies = [], revives = [];
+  on('bossFelledLie', (e) => lies.push(e));
+  on('bossFelledRevive', (e) => revives.push(e));
+
+  // Assert the flag is ONEWING-exclusive at the data layer (the roster's one lie).
+  const optedIn = BOSS_ORDER.filter((k) => BOSSES[k].felledLie);
+  assertEq(optedIn.length, 1, `exactly ONE def opts into the health-bar lie (${optedIn.join(',') || 'none'})`);
+  assertEq(optedIn[0], 'onewing', 'the lone health-bar lie belongs to ONEWING (slot 12)');
+
+  // Drive a full ONEWING kill: the lie must fire exactly once, return ≤35% within ≤2s,
+  // and the boss must still reach a REAL death (the second kill).
+  lies.length = 0; revives.length = 0;
+  const rOne = driveKill(BOSS_ORDER.indexOf('onewing'));
+  assert(rOne.killed, 'ONEWING still reaches a REAL death after the lie (the second kill lands)');
+  assertEq(lies.length, 1, `the lie fires exactly ONCE per encounter (fired ${lies.length}×)`);
+  assertEq(revives.length, 1, `the lie resolves exactly once (revives ${revives.length}×)`);
+  assert(revives[0].frac > 0 && revives[0].frac <= 0.35 + 1e-6,
+    `≤35% of the bar returns (returned ${(revives[0].frac * 100).toFixed(0)}%)`);
+  assert(revives[0].dur <= 2.0,
+    `the lie resolves within ≤2s (${revives[0].dur.toFixed(2)}s — the crippled silhouette stays MOVING, trust restored fast)`);
+
+  // Drive a NON-opted boss (voidmaw): the lie path is completely inert — a byte-identical
+  // plain death, zero lie/revive events.
+  lies.length = 0; revives.length = 0;
+  const rV = driveKill(BOSS_ORDER.indexOf('voidmaw'));
+  assert(rV.killed, 'voidmaw dies on the plain death path');
+  assertEq(lies.length, 0, `the lie is INERT for a non-opted def (voidmaw fired ${lies.length} lies)`);
+  assertEq(revives.length, 0, `no revive for a non-opted def (voidmaw ${revives.length})`);
+
+  ok('lying FELLED card: ONEWING-only, ≤35% returns within ≤2s, fires once, real second kill; inert for others');
+}
+
+// --- 4c. THE NO-WARN ARRIVAL BREAK (§5j slot 12 ONEWING, def.noWarn): the DANGER
+// banner is SUPPRESSED pre-fight and fires WITH the eruption (fight start) — no warning
+// until it erupts. Every other def keeps the pre-fight warning banner. -----------------
+{
+  const origWarn = ui.bossWarning;
+  const warnAt = [];
+  ui.bossWarning = () => { warnAt.push(boss.bossDebugState().phase); };
+  const driveToFight = (idx) => {
+    warnAt.length = 0;
+    game.reset(); game.state = 'playing'; game.health = 1e9;
+    const player = makePlayer();
+    boss.forceBoss(player, idx);
+    let t = 0, sawWarn = false, sawFight = false;
+    for (let i = 0; i < 60 * 30 && !sawFight; i++) {
+      const dt = 1 / 60; t += dt; player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+      const ph = boss.bossDebugState().phase;
+      if (ph === 'warn') sawWarn = true;
+      if (ph === 'fight') sawFight = true;
+      boss.updateBoss(dt, player, t);
+    }
+    return { sawWarn, sawFight };
+  };
+
+  // ONEWING (noWarn): the banner must NOT fire during 'warn'; it fires at/after the
+  // eruption (fight). Assert exactly one banner and it lands on the fight, not the warn.
+  const rn = driveToFight(BOSS_ORDER.indexOf('onewing'));
+  assert(rn.sawWarn && rn.sawFight, 'onewing passed warn → fight in the sim');
+  assert(warnAt.length >= 1, 'onewing fires its DANGER banner (deferred, not suppressed entirely)');
+  assert(!warnAt.includes('warn'), `onewing's no-warn banner never fires during 'warn' (fired at: ${warnAt.join(',')})`);
+  assert(warnAt.includes('fight'), `onewing's banner fires WITH the eruption (fight) — got ${warnAt.join(',')}`);
+
+  // A normal boss (voidmaw) keeps the PRE-FIGHT warning banner (fires during 'warn').
+  boss.resetBoss();
+  const rv = driveToFight(BOSS_ORDER.indexOf('voidmaw'));
+  assert(rv.sawWarn, 'voidmaw passed through warn');
+  assert(warnAt.includes('warn'), `voidmaw keeps the pre-fight warning banner (fired at: ${warnAt.join(',')})`);
+
+  ui.bossWarning = origWarn;
+  boss.resetBoss();
+  ok('no-warn arrival break: ONEWING banner fires WITH the eruption (never during warn); other bosses warn early');
 }
 
 // --- 5. KARNVOW CP2 — the entrance-script data law + the riposte/stare-down live drive.
