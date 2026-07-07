@@ -409,6 +409,7 @@ export function buildKarnvow(def, quality = 1) {
     // backstream with graded lag; skinned as a lateral-width banner.
     penAnchor.getWorldPosition(_cwp);
     _penPts[0].copy(_cwp.applyMatrix4(rigInv));
+    const PEN_LINK_MAX = 0.34;   // ≈1.2× rest spacing — the owner's "wire" jank guard
     for (let i = 1; i <= PEN_SEGS; i++) {
       const prev = _penPts[i - 1], p = _penPts[i];
       const tx = prev.x - 0.04 - rigVelX * 0.02 - bankEase * 0.18;
@@ -416,14 +417,25 @@ export function buildKarnvow(def, quality = 1) {
       const tz = prev.z - 0.14 - Math.abs(velX) * 0.004;
       const e = Math.min(1, dt * (7 - i * 1.1));
       p.x += (tx - p.x) * e; p.y += (ty - p.y) * e; p.z += (tz - p.z) * e;
+      // LENGTH CLAMP (verlet constraint): a lance SNAP teleports the anchor, and an
+      // unconstrained lag chain strings the cloth into a taut multi-unit WIRE for
+      // half a second (the owner's screenshot). Cap each link's reach — the whip
+      // still lags directionally, but a snap now reads as a flag-crack, not a tether.
+      const dx = p.x - prev.x, dy = p.y - prev.y, dz = p.z - prev.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d > PEN_LINK_MAX) {
+        const k = PEN_LINK_MAX / d;
+        p.x = prev.x + dx * k; p.y = prev.y + dy * k; p.z = prev.z + dz * k;
+      }
     }
     const ppos = pennon.geo.attributes.position.array;
     for (let i = 0; i <= PEN_SEGS; i++) {
       const p = _penPts[i];
       const hw = i === PEN_SEGS ? 0.17 : 0.24 - i * 0.03;   // a slight fork-flare at the tail
+      const fold = (i % 2 ? 0.05 : -0.05);   // corrugation: an edge-on strip must never collapse to a hairline
       const o = i * 6;
-      ppos[o] = p.x + hw; ppos[o + 1] = p.y; ppos[o + 2] = p.z;
-      ppos[o + 3] = p.x - hw; ppos[o + 4] = p.y; ppos[o + 5] = p.z;
+      ppos[o] = p.x + hw; ppos[o + 1] = p.y; ppos[o + 2] = p.z + fold;
+      ppos[o + 3] = p.x - hw; ppos[o + 4] = p.y; ppos[o + 5] = p.z - fold;
     }
     pennon.geo.attributes.position.needsUpdate = true;
 
@@ -431,6 +443,7 @@ export function buildKarnvow(def, quality = 1) {
     // gaze turns (the hood finally moves as a garment, not a helmet).
     _cwp.set(0.08, 2.5, -0.35); cowlPivot.localToWorld(_cwp);
     _hoodPts[0].copy(_cwp.applyMatrix4(rigInv));
+    const HOOD_LINK_MAX = 0.36;   // the same wire-jank guard as the pennon
     for (let i = 1; i <= HOOD_SEGS; i++) {
       const prev = _hoodPts[i - 1], p = _hoodPts[i];
       const tx = prev.x + gazeX * 0.12 + Math.sin(time * 1.7 - i) * 0.05;
@@ -438,14 +451,21 @@ export function buildKarnvow(def, quality = 1) {
       const tz = prev.z - 0.2 - Math.abs(velX) * 0.003;
       const e = Math.min(1, dt * (6 - i));
       p.x += (tx - p.x) * e; p.y += (ty - p.y) * e; p.z += (tz - p.z) * e;
+      const dx = p.x - prev.x, dy = p.y - prev.y, dz = p.z - prev.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d > HOOD_LINK_MAX) {
+        const k = HOOD_LINK_MAX / d;
+        p.x = prev.x + dx * k; p.y = prev.y + dy * k; p.z = prev.z + dz * k;
+      }
     }
     const hpos = hoodTail.geo.attributes.position.array;
     for (let i = 0; i <= HOOD_SEGS; i++) {
       const p = _hoodPts[i];
       const hw = 0.16 - i * 0.032;
+      const fold = (i % 2 ? 0.04 : -0.04);
       const o = i * 6;
-      hpos[o] = p.x + hw; hpos[o + 1] = p.y; hpos[o + 2] = p.z;
-      hpos[o + 3] = p.x - hw; hpos[o + 4] = p.y; hpos[o + 5] = p.z;
+      hpos[o] = p.x + hw; hpos[o + 1] = p.y; hpos[o + 2] = p.z + fold;
+      hpos[o + 3] = p.x - hw; hpos[o + 4] = p.y; hpos[o + 5] = p.z - fold;
     }
     hoodTail.geo.attributes.position.needsUpdate = true;
   }
