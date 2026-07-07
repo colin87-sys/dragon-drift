@@ -8147,7 +8147,159 @@ draws + beat props), then curated the brainstorm into a P1–P7 verdict plan. Wh
    already on-body and whose color is already on-screen — the Voidmaw-only ghost (dim ≤0.25 mask-glyph
    beside the horn, during its own card) is the template for slot-14's roster-exam quotes.
 
-### L218 — ONEWING (boss 12) CP1+CP2 + the owner feel-rounds: stop-motion is an INTERNAL-motion problem, the moving-boss G1 flake has a one-line fix, and a health-bar lie must be a readable death→ignite→revive
+### L218 — KNELLGRAVE damage-readability: escalation the FIGHT CAMERA can't see doesn't exist — start clean, break the SILHOUETTE, one chunk per phase
+Owner playtested the shipped ruin ladder with a screenshot per phase: "the bell's full in the
+intro but already damaged by the fight, and I see no meaningful difference phase to phase." The
+ladder was mechanically fine (crack width, shed panels, sky-pour all driven by `ruinK=1−hp`) and
+verified in close-up captures — but it FAILED at the actual fight distance. Two reasons, both
+about where the eye is:
+1. **It never started clean.** The candle-crack AND the floating bell-shards were on the model
+   at full hp (an "ancient cracked bell"). From the fight camera the shards read as battle
+   damage that was there before a shot landed. Fix: the debris is EARNED — each shard gets a
+   `born` ruin threshold and scale-pops in as the bell breaks, so full-hp = a whole bell (the
+   intro read the owner wanted), and the debris cloud THICKENS phase by phase (the clearest
+   per-phase signal — 0 → few → many).
+2. **The breaks were mid-body, so the SILHOUETTE never changed.** The shed holes sat on the
+   waist flanks — behind the bell's bulk from below, invisible at distance; only the recognizable
+   bell OUTLINE reads that far out, and it stayed a whole bell all fight. Fix: bigger chunks on a
+   ONE-PER-PHASE schedule (ruinK 0.15/0.38/0.60, spread across the visible face so a different
+   piece drops each phase), baring the scaffold cage — the outline visibly hollows out.
+Verification lesson: judge this from a FIGHT-DISTANCE, looking-UP camera, not a studio close-up.
+`tools/bossview.html` has an `hp` dial → drive `renderState({hp, pitch})` at 4 levels and compare
+the silhouettes; the close-up captures that passed the CP gates completely hid this failure.
+Gotcha: carving MORE shed windows (2 pairs → 3) meant that at lowQ, where ornament counts are
+small, EVERY buttress fin fell inside a shed/crack sector → `finParts` empty → `mergeGeometries([])`
+throws on `geometries[0].index`. Any sector-skipping ornament loop needs an `if (parts.length)`
+guard once shed windows can cover most of the circle.
+
+### L219 — KNELLGRAVE debris: don't HOVER torn pieces — reparent them to the SCENE and let them fall to the water
+Owner, on the floating "suspended shards": "those read as random floating shapes — can't you have
+the chunks fly off and fall into the water?" Dead right; the hovering-debris cloud (a CP1 tell)
+competed with the shed plates and never linked to the bell. Replaced it with real falling debris:
+1. **Cut the hover cloud.** The shed plates already ARE the torn pieces; a second, worse debris
+   system was noise. Deleted the `bellShards` entirely (−~8 boxes, tris down).
+2. **Fall in WORLD space, not local.** A plate tumbling in the bell's local rig swings with the
+   pendulum and never reaches the ground. The fix: when a plate tears clear (prog>0.35),
+   `group.parent.attach(pivot)` reparents it to the SCENE (preserving world transform), then
+   integrate gravity on it directly (vy -= GRAV·dt) until `position.y <= waterY` → splash ring,
+   done. Straight down, unaffected by the swing — it plummets like real debris.
+3. **The water plane is already on tap.** boss.js feeds every model `setWaterPlane?.(0)` (world.js
+   surface y=0); expose the hook and the plate knows where the water is. In the studio/tests the
+   plane is never fed (isolated captures stay byte-identical), so `waterY` stays null and plates
+   just shear + fade locally — the fall is a pure in-game enrichment, zero test churn.
+Gotcha: a scene-reparented object is NO LONGER under the boss group, so `group.traverse` in
+dispose() won't reach it — a defeated boss would leave orphaned debris + splash rings in the
+scene. Track every world-parented object in a `worldDebris[]` and remove+dispose them explicitly
+on teardown. (Same trap any effect that escapes the boss group hits.)
+
+### L220 — WEFTWITCH entrance redesign (owner "cooler if the threads charge out from her hands"): project world→screen and the DOM overlay can emanate from a 3D point
+
+**Did.** PR 2 of the post-playtest work: the HUD-sew now CASTS from her hands (not fixed
+corners), the banner name gets cross-stitched out (legible first — the binding ruling — then
+defaced), and the pinned banner/threads get a real animated tear-free. All def-gated on
+`def.hudSew`.
+
+**The learns (reusable).**
+1. **A DOM/SVG overlay CAN emanate from a 3D point — project it.** The threads-from-her-hands
+   ask sounded like it needed fragile plumbing; it didn't. `vector.project(camera)` (the
+   reticle.js idiom, used 4× already) → NDC → viewBox % is ~5 lines. Put the helper where the
+   camera already lives (`cameraController.worldToScreen`), resolve the hand world positions
+   via the existing `partWorldPos('handPivotL/R')`, and the SVG `M`-origins anchor on her
+   hands. A `behind`-guard + a fixed-origin fallback keeps it robust. Don't approximate a world
+   anchor when the projection is this cheap.
+2. **One-frame-stale projection is fine for a one-shot during bullet-time.** `updateBoss` runs
+   before `cameraCtl.update` in the frame, so a projection in the entrance drive uses last
+   frame's camera. During the slow-mo lash dwell the camera is nearly static — imperceptible.
+   Fire the cast as a latched one-shot at the lash beat (`u≥0.45`), not per-frame.
+3. **The draw-on keyframe already radiates from the path start** — to make corner-anchored
+   threads emanate from an interior origin, only the `M` start points change; the
+   `stroke-dashoffset:100→0` animation draws outward for free. And the same keyframe reversed
+   (`0→100`) IS the unravel. Reuse the animation, change the geometry.
+4. **Animated teardown needs deferred DOM removal + a hard-instant escape.** The tear-free
+   (`.tearing` fling-off) and sew-unravel defer the class/innerHTML strip behind a timeout
+   (the bossTitleCard `_btcTO` pattern); but `resetBoss` (a real teardown) must pass
+   `instant=true` to strip synchronously — it can't wait on a transition. Same method, a
+   flag picks the path. Plus a `prefers-reduced-motion` guard that forces the instant path.
+5. **Honor a binding design ruling by ADDING a beat, not removing one.** "Hide the name for
+   suspense" would have broken the slot-12 silence payoff. Keeping it legible then STITCHING
+   IT OUT satisfies the same intent (watching her deface her own warning) and preserves the
+   ruling — the more dramatic answer was the compatible one.
+
+**Verified:** boss 81 (entrance cast spreads the hands + snaps taut + releases; worldToScreen
+centre/off-axis/behind) · entrance · defs · lock · bossboot (DOM path) · bossrush (11-boss) ·
+tricount 0-over · bossgate G1-G7 PASS · entrance captures (cast-from-hands, name stitch-out,
+clean tear-free) reviewed. The threads read a touch thin against the sunset — a tunable
+(brightness/width/count) the owner judges on the preview.
+
+### L221 — KNELLGRAVE damage that READS: dark holes vanish on a dark body — spread GLOWING fractures (the bell's one legible language)
+Even after the per-phase shed rework (L218), the owner "didn't really see the bell change." The
+shed holes are the problem: a hole in a near-black body opens onto a near-black interior (or a
+scaffold barely lighter) — dark-on-dark, invisible at fight distance, no matter how big. The bell
+has exactly ONE thing that reads from range: the candle-slit, because it's BRIGHT on DARK. So the
+per-phase damage has to speak that language. Added SPREADING FRACTURES — 4 glowing cracks that
+web out from the slit across the front face, one lighting per phase (ruinK 0.12/0.30/0.48/0.66)
+and staying lit (persistent). They read like the focal crack because they ARE the focal crack's
+language: additive candle, moderate (capped well below the HDR slit so the focal cluster stays
+the one focal — G1), surface-following (azimuth-placed, not the slit's flat front-projection so
+they hug the curve out to the flanks), dark at full hp so the studio gates are inert. Result on a
+fight-distance render: P1 one crack → P4 a shattered web. Takeaways:
+1. **Match the boss's legible channel.** Each boss reads by ONE thing at range (KNELLGRAVE's
+   glow, a swarm's formation, a colossus's outline). Progression FX must ride that channel; a
+   mechanically-correct effect on the wrong channel is invisible even when it's technically there.
+2. **A gate that only fires at full hp can't see fight-time FX.** G1 passed the whole time because
+   fractures are dark at ruinK 0 — the studio never sees the lit state. Verify escalation on a
+   ruin-swept, fight-distance render (bossview hp dial), not the rest-pose gate.
+3. **Additive ribbons are cheap and safe.** Thin, dark-at-rest, no G7/overdraw cost; the readable-
+   damage win for near-zero tris.
+
+### L222 — STORMREND rebalance + retroactive QA: a Sentinel DEVELOPS a 3-move core (not 8 swapped each phase); the paperwork must be authored against the LIVE model, not the def prose
+
+**What we did.** Brought slot-2 STORMREND (a shipped Tier-1 Sentinel, built before §3b/§4b/the
+Fable gates/TIER_BUDGETS) up to the current bar in one pass. **(A) Trimmed the move-set** from 8
+attacks (P1 fan/curtain · P2 movingGap/stream/aimed · P3 iris/secondWave/crossfire — a whole new
+vocabulary each phase) to a 3-move DEVELOPING core: P1 `[fan]` (the wall) → P2 `[fan, movingGap]`
+(the wall MOVES — anti-flee) → P3 `[fan, movingGap, iris]` (the storm CLOSES IN — the dread card).
+Def-only, zero new attack ids. **(B) Budget relief** 3636→3984 tris @q1 (top of the ~3.8–4k
+Sentinel band, under the ≤4000 ceiling) — quality-gated segment bumps on the vane-blade edges
+(4→6-sided cross-section, the one place tris pay at 30m), the focal eye sphere (14×10→16×10), and
+the ring-blade orbiters; q0.5 untouched at 2543 so `tris(q0.5) < tris(q1)` holds; no new meshes,
+no new additive volume (G7 stays 1). **(C) Retroactive QA:** authored the missing §3b silhouette
+sheet + §4b seven-channel charisma map into §5d; ran bossstudio + bossgate (G1–G7 all pass) +
+Fable CP1/CP2.
+
+**Lessons.**
+(a) **Law §5f-3 in one line: a Sentinel DEVELOPS a core, it doesn't SWAP its vocabulary.** The
+smell of "too many moves" wasn't the count alone — it was that STORMREND replaced all three
+attacks every phase (8 patterns, zero reuse). The fix is to pick the 3 that ARE the identity
+(storm = wall + anti-flee + constrict) and let each phase ADD one while keeping the earlier reads
+valid. Fewer patterns read as MORE intent.
+(b) **When authoring retroactive paperwork, trust the MODEL over the def prose — they drift.**
+`stormrend.body` still declares `silhouette:'shard', spikeCount:7`, and an earlier §3b draft
+described a "swept shard, NOT a mandala." But `archetype:'stormMandala'` routes to
+`buildStormMandala`, which **ignores `def.body` entirely** — the live silhouette is a radial
+EYE-OF-THE-STORM MANDALA (concentric counter-rotating blade-rings + one central eye). The §5b row
+was right ("concentric rings"); the `body` block is dead pre-archetype metadata. Retroactive QA's
+whole value is catching exactly this — always re-read the builder, not just the def.
+(c) **A fresh-eyes gate will flag your deliberate SCAR as a broken mesh — that's a documentation
+job, not a code fix.** Fable CP1 returned FIX on "a dark knot with gold scribble-lines at ~2
+o'clock." `git diff` proved my edits never touched `buildScarStub`/`buildScarSeam`/`SCAR_IDX`: it
+was the pre-existing §3-law-6 asymmetric scar (jagged snapped vane + jagged gold seam) reading
+exactly as designed. A "state-persistent anomaly" is NOT proof of a broken mesh — a deliberate
+scar is state-persistent too; the diff is the arbiter. Recorded as a sanctioned old choice.
+(d) **Keep the card ids + the rhythm signature STABLE and the downstream quotes survive for free.**
+13 EMBERTIDE quotes STORMREND's CRESCENDO ("the gale was its leash"); 14 THE UNMASKED quotes its
+cards by stable id. Trimming the attacks INSIDE the cards while keeping `stormrend_wall/squall/eye`
++ `crescendo` (and the unchanged restLo/restHi/restDist ramp) meant rhythmprint/amberdiet stayed
+green and both briefed-unbuilt bosses now quote the rebalanced version natively — nothing stale.
+(e) **The teal-on-teal home-sky risk is answered by VALUE, not hue.** A teal boss on a storm-teal
+sky loses its teal, but the near-white-gold EYE + gold vane-tips/scar-seam are hue-independent and
+carry the focal + the read on any backdrop (both Fable gates confirmed the structural mitigation).
+Gotcha: bossshot's fixed-frame captures reset each scene, so a card timer reading the same 17s
+across shots at different distances is benign (separate captures), not a frozen clock — don't chase
+capture-methodology artifacts as bugs.
+
+
+### L223 — ONEWING (boss 12) CP1+CP2 + the owner feel-rounds: stop-motion is an INTERNAL-motion problem, the moving-boss G1 flake has a one-line fix, and a health-bar lie must be a readable death→ignite→revive
 
 **What shipped (PR #272, merged).** Slot 12 ONEWING — EITHERWING's grief-stricken one-winged survivor carrying
 its dead twin's kite-frame as a HOLE in its chest. Two independent Fable gates (pre-build sheet + CP1 design)

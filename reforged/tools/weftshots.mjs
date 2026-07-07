@@ -33,14 +33,19 @@ try {
   await page.waitForTimeout(200);
   await page.evaluate(() => window.__dd.spawnBoss());
 
-  // 1. THE WARN: the HUD-sew laces the chrome + the banner is pinned half-deployed.
+  // 1. THE WARN: the banner is pinned half-deployed (the sew now CASTS later, at the lash).
   await page.waitForFunction(() => window.__dd.bossState().phase === 'warn', { timeout: 30000 });
-  await page.waitForTimeout(900);   // let the stitch threads draw on
+  await page.waitForTimeout(700);
   await shot('sew-warn');
 
-  // 2. THE DESCENT: mid-entrance — banner still pinned, the web unfurling.
-  await page.waitForFunction(() => ['approach', 'flythrough'].includes(window.__dd.bossState().phase), { timeout: 60000 });
-  await page.waitForTimeout(600);
+  // 2. THE LASH: wait for the sew to CAST from her hands (the #hud-sew fills with threads
+  // + the banner name gets .stitched) — that's the u≈0.45 lash beat mid-descent.
+  await page.waitForFunction(() => {
+    const svg = document.querySelector('#hud-sew');
+    const warn = document.querySelector('#boss-warn');
+    return svg && svg.classList.contains('on') && svg.children.length > 0;
+  }, { timeout: 90000 }).catch(() => {});
+  await page.waitForTimeout(350);   // let the threads draw outward + the name stitch land
   await shot('sew-descend');
 
   // 3. FIGHT START: the banner tore free, the sew is gone — the chrome is CLEAN

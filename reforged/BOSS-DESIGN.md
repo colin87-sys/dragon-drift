@@ -482,6 +482,63 @@ translations — a builder session starts from its sheet, not from the brief's p
 feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on portrait — push
 `rel` to 50–60 for wide lateral action instead of parking wide at 30.)
 
+### RETROACTIVE SHEETS (shipped Sentinels, authored 2026-07 in the STORMREND rebalance pass)
+
+Slots 1–2 shipped BEFORE §3b/§4b existed, so they carry no build sheet. The STORMREND
+rebalance authored its missing paperwork against the **live model** (`bossMandala.js`), not
+the def prose — and that back-check surfaced a discrepancy worth recording:
+
+> ⚠ **`stormrend.body` is VESTIGIAL.** The def still carries `body: { silhouette: 'shard',
+> spikeCount: 7, … }`, but `def.archetype: 'stormMandala'` routes to `buildStormMandala`,
+> which **ignores `def.body` entirely** (it only reads `accent`/`glow`). The shipped
+> silhouette is the radial **EYE-OF-THE-STORM MANDALA** (concentric counter-rotating blade
+> rings around one central eye), NOT an elongated swept shard. The §5b row is right
+> ("concentric rings"); the `body` block is dead legacy metadata from the pre-archetype
+> construct. Left in place (harmless, byte-neutral) but flagged here so the sheet below —
+> and any future reader — trusts the model over the prose.
+
+**2 STORMREND — §3b SILHOUETTE TRANSLATION SHEET (retroactive):**
+- *Reads as:* the **EYE OF A STORM** — concentric counter-rotating rings of storm-blades
+  wheeling around one huge, calm, unblinking eye at the dead centre.
+- *Carrying cues (2–3):* (1) the **three nested blade-rings** (swept turbine vanes on visible
+  rail-hoops, counter-rotating — the "storm" read); (2) the single white-hot **calm EYE** at
+  the exact centre (the one focal); (3) the **iris petals** that shingle over/retract off the
+  eye (the aperture — and the P3 constrict telegraph).
+- *Anti-reads:* NOT **Voidmaw** (slot 1 — round SHATTERED mask + socket-PAIR + broken horn;
+  STORMREND is intact concentric rings, ONE centred eye, teal not violet); NOT a generic
+  **crystal/gem** (the eye + wheeling blade-rings = weather, not a rock); NOT a **flat
+  gear/sawblade** (three rings at different Z counter-rotate — depth + motion, not one disc).
+  *(Correction vs an earlier draft that read it as a "swept shard, not a mandala" — that
+  described the vestigial `body` recipe, not the live model. The live model IS a mandala; the
+  radial-symmetry read is CORRECT and is the identity.)*
+- *Lit-edge plan:* the calm **EYE** (near-white-gold, HDR ×2.4) = the one focal; **gold
+  vane-tips** ring ring C's rim + the **gold scar-seam** on the one snapped vane; teal blade
+  edges catch dim storm-light; **storm-arc** LineSegments crackle between the rails. Organic/
+  mechanical anatomy only — no level rule-line. Dark near-black body (§3 law 3).
+- *Scale target:* small-medium, station-keeping (Sentinel; `def.scale` default). Reads as a
+  frontal emblem on the rail camera — the profile view is a thin disc by design.
+- *Home backdrop:* the **Tempest Reach storm-teal sky** (BIOME-DESIGN). ⚠ **THE RISK — a
+  teal-accent boss on a teal sky** (§3b.7 home-value test): the teal blade-rings could vanish
+  against a teal sky. MITIGATED in the live model by (a) the near-white-gold EYE + gold vane-
+  tips/scar carry the read even if teal flattens, and (b) the body is near-black diffuse (teal
+  lives in emissive), so the silhouette survives as dark rings on light OR light eye on dark.
+  Verified via `bulletcontrast` against the storm-teal sky + the in-game fight capture.
+
+**2 STORMREND — §4b SEVEN-CHANNEL CHARISMA MAP (retroactive):** all seven channels are built
+(the `focalEye` living-eye rig, `bossMandala.js`):
+- **GAZE** = the pupil tracks the player with lag + rare deliberate look-aways (it FIXATES —
+  `setGaze`). **BLINK** = "the unblinking" blinks ~once/10s, so each blink is an EVENT
+  (storm-lids). **CHARGE-TELL** = pupil constricts to a pinpoint + rings spin up outer-first +
+  per-ring emissive brightens (`setCharge`). **EXPRESSION (≥3)** = calm (slow fixated stare) /
+  gathering (charge pinpoint, rings winding) / wrath (eye desaturates toward danger-red, storm
+  crackles) — via ring speed + eye size/hue + vein reveal. **FLINCH** = a lid squint + hit
+  flash (`flash`/`flinchFlash`). **NOTICE** = at fight start the eye snaps + flares, every ring
+  gets a spin surge (`notice`). **DEATH** = the gale ENDS — rings slow and wind down, iris
+  petals furl shut over the eye like a flower at dusk, lids close forever, pupil blows wide
+  (`setDissolve` emotive path — the "unending gale" finally stops, the lore beat).
+- **GLYPH (doodle-test):** a ringed spiral around one dot — a single eye at the heart of a
+  swept wheel.
+
 - **3 ASHTALON** — prow: flattened stretched octahedron (~3 long); cowl band: dark box arc
   wrapping the prow face; VISOR SLIT: thin recessed box, HDR white-orange ×2.4,
   toneMapped=false; wings: 2 shoulder pivots × 6 tapered flat scythe-blades each (extruded

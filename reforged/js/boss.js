@@ -144,6 +144,8 @@ let cineSide = 1;
 let cineAnchorX = 0, cineAnchorY = 8;   // the dragon's x/y at flythrough start (pass beside it, both in frame)
 let cineSkip = false;         // a tap during the flythrough fast-forwards to the turn-around
 let cineSlow = false;         // bullet-time currently engaged by the flythrough (owns game.slowMoTimer)
+let hudSewCast = false;       // §5b WEFTWITCH: the one-shot latch for the sew-cast-from-hands at the lash
+const _handL = new THREE.Vector3(), _handR = new THREE.Vector3(), _scrL = {}, _scrR = {};
 let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
@@ -1396,12 +1398,13 @@ export function startBossEncounter(player, defOverride) {
   // SUPPRESSED here and fires WITH the eruption (enterFight) instead of before it — no
   // warning until it erupts. A skipper still gets it (fired at enterFight regardless).
   // §5b WEFTWITCH rule-break (def.hudSew): the warn banner is cross-stitched + PINNED
-  // half-deployed (tears free at enterFight) and the golden HUD-SEW threads lace the
-  // chrome. A boss is one OR the other; every plain def keeps the pre-fight banner.
+  // half-deployed (tears free at enterFight). The golden HUD-SEW threads no longer fire
+  // here — they CAST from her hands at the entrance lash (updateEntrance, u≥0.45). A boss
+  // is one OR the other; every plain def keeps the pre-fight banner.
   noWarnDir = def.noWarn ? dir : null;
   noWarnFired = false;
   if (!def.noWarn) ui.bossWarning?.(def.name, def.title, dir, B.warnTime, def.hudSew ? { pin: true } : null);
-  if (def.hudSew) ui.hudSew?.(def.accent);
+  hudSewCast = false;
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
   emit('bossStart', { id: def.id });
@@ -1681,6 +1684,21 @@ function updateEntrance(dt, player, time) {
   if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
   // Per-boss entrance FX hook (EITHERWING's eye-thread cross, twin brackets) — optional.
   script.onFrame?.(u, ctx, pose, player, model, time);
+  // §5b WEFTWITCH: at the LASH (u≥0.45) the golden lace CASTS from her hands — project
+  // both hand world positions to screen and burst the sew out from them, and STITCH the
+  // banner name out. One-shot (skip-safe: fires even if a tap jumps u past the lash).
+  if (def.hudSew && !hudSewCast && u >= 0.45) {
+    hudSewCast = true;
+    const hl = model.partWorldPos?.('handPivotL', _handL);
+    const hr = model.partWorldPos?.('handPivotR', _handR);
+    let origins = null;
+    if (hl && hr) {
+      const a = cameraCtl.worldToScreen(hl, _scrL), b = cameraCtl.worldToScreen(hr, _scrR);
+      if (!a.behind && !b.behind) origins = { xL: a.x, yL: a.y, xR: b.x, yR: b.y, behind: false };
+    }
+    ui.hudSew?.(def.accent, origins);
+    ui.bossWarnStitch?.();
+  }
   // §5j stat-taunt charm flare (armed by def.statTaunt at script start): fires ONCE
   // mid-hold — the top-killer trophy burns in its owed palette as the line lands.
   if (entranceFlareAt != null && u >= entranceFlareAt) {
@@ -3554,7 +3572,7 @@ export function resetBoss() {
   cameraCtl.setOvertake?.(null);
   model?.setEyeLock?.(false);
   ui.cinematicHold?.(false);
-  ui.bossWarnClear?.(); ui.hudSewClear?.();   // §5b hudSew: no pinned banner/threads survive a teardown
+  ui.bossWarnClear?.(true); ui.hudSewClear?.(true);   // §5b hudSew: HARD teardown — no pinned banner/threads survive (can't wait on a transition)
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
