@@ -7975,7 +7975,128 @@ the PR #269 preview.
 
 **Verify.** lock.mjs green incl. new T2.20 (tier-3: holding the eye stacks it to 2 pips in place, no lead-away/lag; then hops to the rib once full) — and T2.14/T2.15/T2.17/T2.18 (the tier-2 hop/unpainted-first laws) unchanged; wisps/defs/boss/bossboot/smoke/lockdps/tricount green. Owner feel-judges on the preview: sit on the eye → it paints then stacks under you; fly to a shackle → the reticle follows you, not the auto-lead.
 
-### L213 — BRINEHOLM entrance polish (owner playtest): a stale fightRunning flag drew the reticle over the cinematic, and the eye-open was pinned AFTER the slow-mo instead of ON it
+### L213 — KARNVOW CP2 shipped (entrance + riposte + stare-down + trophy paint): the whole fight is DATA + def-gated seams; a fade-in is NOT a dissolve; `transparent:true` is a mask classifier
+
+**Did.** CP2 in one pass, zero un-gated boss.js behavior: `entrance: 'itKeptCount'` (a pure-math
+ENTRANCE_SCRIPTS entry — fades in riding at your shoulder, rel ROCK-STEADY 16 the whole hold, wheels to
+station) + a def-gated `statTaunt` seam at the announce site (quotes the REAL ledger via bossLedgerStats —
+"FELLED YOU ×N. MOST: <BOSS>." with the fresh-save fallback — and arms the mid-hold `model.flareCharm(topKiller)`
+= the §5j escalation hinge, ending on the PRESENTED empty hook); `holdBreaker` (ONE slow parryable amber fired
+1.1s INTO the reveal hold — the cinematic stays fire-free, two separate beats); `reflectRiposte {fromPhase:1}`
+(a gate at the TOP of damageBoss keyed on kind==='player' — the reflected-bullet discriminator — once per
+phase: no damage, the lance cross-SWAT + amber flash, and a slow amber RETURN the player can re-reflect);
+`grazeForm: 'holdFlinch'` (a new branch beside beamEdge/shadowRide: DISCRETE tiers 1.1/2.2/3.4s held in the
+lance's threat-line corridor, escalating graze payouts, tier 3 = the FLINCH + the offer closes for the phase —
+a stare-down, not slot 6's per-tick ramp); `setpieces: [flankCutIn]` (x=sin(2πk)·11 crosses YOUR lane exactly
+at the rel~8 apex — the L140 proximity beat, firing the whole way); `lockParts: trophyCharm0..4` (BRAND THE
+TROPHIES; the empty hook stays unpaintable — the open lore thread).
+
+**Machine-checked before claiming.** New boss.mjs asserts: the entrance rel-steady LAW as data
+(path(u).rel === 16 mid-script); a LIVE instrumented drive — after the first shield break an injected
+kind-'player' hit is riposted EXACTLY once (the second lands) and the parked player earns the FLINCH once per
+phase (×3 across the fight); flareCharm burns the owed charm hot then the hook presents; riposte() swats the
+lance. 58 checks; the ASHTALON entrance golden byte-identical; bossgate ×4 PASS.
+
+**Two graphics-pipeline laws, both caught by the gate not the eye.** (1) **A fade-in is NOT a dissolve**: the
+kit's setDissolve is a DEATH effect — every call parks emissiveIntensity at 0.5 on all tracked materials and
+stateful-lerps their emissive hue toward white, so driving it 1→0 as an entrance materialise left the body
+PERMANENTLY ghost-washed. Fade-ins need a visibility-only channel (the new setEntrance: opacity from the
+finalize baseOpacity cache, emissive untouched). (2) **`transparent: true` is a CLASSIFIER, not just a render
+flag**: bossgate's analytic mask files transparent materials under GLOW — leaving the flag set after the fade
+emptied the OPAQUE silhouette (every idle law read 0/NaN — maxLum LITERALLY 0 is "the mask found nothing",
+not "the boss is dark"). Cache + restore the original flag when the fade completes. **Reusable: any effect
+that touches material flags must restore them; the gate's NaN reads are a mask-classification symptom, not a
+color problem.**
+
+**The seam map that made this a one-pass build** (for slot 10+): entrance = ENTRANCE_SCRIPTS entry (pure math,
+announce is static; DYNAMIC text/flare belongs at boss.js's announce dispatch, which has save/ui in scope);
+reveal-hold beats = enterFight + a timer in the fight loop (player in scope there, not in enterFight);
+reflected-arrival interception = the top of damageBoss (kind==='player'); per-phase re-offers = the
+armSetpieceForPhase call site in breakShield; moving setpieces = SETPIECE_PATHS[id](k) returning {x,y,rel,roll}.
+
+### L214 — KARNVOW grandeur redo: a band-PEAK boss can't be a quiet scale-down — the dread move needs an AUTHORED screen-scale visual; presence lives in what the figure CARRIES; violet on bright skies must be saturated, not hot
+
+**Did / learned.** The boss-design audit rated shipped KARNVOW the roster's weakest fight (mid-fight 2/5:
+"a dread move that is a lore-quote with zero authored visual") — the 8→9 grandeur crater. The redo (owner
+decision: Option A, spectacle + proximity, NO size bump — judge, then maybe B) fixed it with zero engine
+seams beyond the ONE already shipped: `model.setSetpiece(k, sdef)`.
+
+1. **A dread CARD is only a name — pair it with a dread SETPIECE at the same atFrac.** Cards drive
+   UI/sfx/scoring; the model never hears them. The roster's dread moves that LAND (ribs, rose, stoop) are
+   all setpieces with `dread: true` driving `setSetpiece`. KARNVOW's *Voidmaw's Verdict* was a card alone =
+   nothing to see. The fix: `{ id: 'voidmawVerdict', atPhase: 2, dur: 7.5, moving: true, dread: true }` +
+   the model keys `sdef.dread`. The card's promise ("fires boss 1's dread card back") became REAL by
+   quoting Voidmaw's P3 attack set verbatim — a def-data one-liner (attacks: aimed/fan/tunnel).
+2. **The seal recipe (screen-scale writing for ONE draw):** LineSegments in rig space between boss and
+   player, traced stroke-by-stroke with `setDrawRange` (the lance "writes" it — order the strokes like a
+   sentence: glyph, tallies, ring last). Hardware lines have no width → ink every stroke ×6 with tight
+   offsets (weight + bloom coverage). Keep the glyph strokes CLEAR of the body silhouette (over the hood
+   they read as scaffolding, not writing — Fable r1). And the two-part sky law: a dark GLOOM pall disc
+   (plain transparent black, NOT additive → G7-exempt) darkens the sky behind the writing, while the
+   strokes stay DEEP-saturated at a moderate multiplier (0x7a3cff ×3.2) — a hot multiplier tone-maps to
+   chalk-pink on pale/sunset (the L192 saturated>bright law, third time it has bitten).
+3. **Presence = what the figure carries breaking the OUTLINE.** The trophy chain at "tight cluster hugging
+   the hip" was numerically wide but READ as a rainbow clump (Fable r1: the Christmas-tree failure). The
+   festoon only reads as a garland once it ends PAST the silhouette edge (~5.8u world, hard-staggered
+   catenary drops, a merged bead-strand chain). L141's field-presence trick, worn instead of flown.
+4. **De-wizard law for staff-adjacent silhouettes:** orb-pommel + peaked hood = "mage with staff" (Fable
+   caught it twice across CP1 and the redo). A hunting lance needs an ELONGATED bladed head (stretched
+   octahedron = the amber organ itself) + swept-back barbs merged into the shaft mesh.
+5. **Spend tris, merge draws:** the redo went 6,455→~9.1k tris while HOLDING 46 draws — the horn-ridge
+   spiral merged INTO the lance geometry paid for the new bead-strand; relief studs (rivets/tally-studs)
+   went in the body merge but OUTSIDE the trim subset so the cold seam-line drawing stayed clean (Fable
+   CP1's "dense wireframe" catch never re-fired). The seal + gloom cost their +1 draw only while the beat
+   runs (visible-draw budgets count `visible === true`).
+6. **The independent design gate caught all six perception failures the data gates can't** (hairline seal,
+   matte-balloon charms, festoon-as-clump, wizard orb, glyph scaffolding, chalk-pink violet) across two
+   FIX rounds — pixel-law gates (G1–G7 ×3 green every round) prove legality, never grandeur. Budget checks,
+   festoon spread, sigil drive/unwrite, and the P3 quote are now data laws in tests/boss.mjs (67 checks).
+
+### L215 — WEFTWITCH post-playtest (owner "walk me through it"): most "it's broken" was "I can't see it" — feedback + magnitude, not logic
+
+**Did.** The owner played the merged WEFTWITCH and reported the thread-cut parry, the gap-restitch,
+and the mote-harvest as broken/invisible, plus web-jiggle, a loom-eye artifact, and entrance notes.
+Traced every one before touching code (three parallel Explore agents). PR 1 (this) = the five
+fight-feel fixes; PR 2 = the entrance redesign.
+
+**The learns (reusable).**
+1. **"It doesn't work" from a playtester usually means "I got no feedback."** The thread-cut parry
+   was functional and its counter *persisted correctly all fight* — but there was ZERO partial-
+   progress signal, only `aimed` shots were parryable (walls counted for nothing), and Surge parries
+   silently didn't count. The player lands <3 real amber reflects and concludes it's broken. Fix was
+   a FRAYING taut-thread tell (reddens + buzzes + holds tension between attacks, floored by a
+   `setThreadStrain(n)` hook) + a rising per-bank pluck. Verify a mechanic's *legibility*, not just
+   its logic — a passing integration test that force-feeds the inputs hides the feel gap.
+2. **A gesture that's correct but small is invisible at fight distance.** The restitch tore ~2-3
+   effective spokes for <1s, retracting behind the bust. It "worked" (byte-exact, tests green) and
+   read as nothing. Fix = MAGNITUDE: a quarter of the web (16 spokes, flat-top falloff), a HELD
+   fully-torn beat, a slower arc, biased to open sky, + a whole-web gold re-weave flash. When a
+   playtester can't see an effect, first suspect scale, not correctness.
+3. **Decouple a massive element from a small one's high-frequency motion via an intermediate pivot.**
+   The web inherited the bust's hit-shudder from THREE stacked parents. A `bustPivot` holding only
+   the bust (shudder writes moved there) lets the web — kept on the calmer parent — read as a slow
+   massive field. Reparenting is parent-agnostic for world-space consumers (partWorldPos,
+   matrixWorld water-clip) so it's safe; just keep the SHARED motion (entrance descent) on the shared
+   parent and the PRIVATE motion (shudder) on the split pivot.
+4. **A sliding highlight needs a backing that travels with it — or a well it slides within.** The
+   loom pupil slid exactly its own radius and uncovered the gold knot ("something under her eye").
+   Fix = a static dark SOCKET the pupil moves inside (an eye-well), + reduced throw so it never
+   clears the socket. The knot shows only as a thin iris-rim. Give a moving bright element a dark
+   frame it can't slide off of.
+5. **Announce a reward event with a distinct shape, not more of the same particles.** 12 additive
+   pink dots = the generic graze cloud. A gold RING-HOOP + spawn burst + the banner make the harvest
+   read as an event even while the motes themselves stay subtle — the frame sells it, not the dots.
+6. **A playtester conflates persistent body with transient FX.** The "threads across the whole fight"
+   were the WEB SPOKES (her body, intended), not the entrance HUD-sew (which clears correctly). When
+   feedback sounds like a bug, check whether two visually-similar things are being merged in the eye.
+   And "hide the name for suspense" collided with a BINDING ruling (banner legible so slot 12's
+   silence shocks) — surface the doc, offer the intended beat (stitch-across) instead of the override.
+
+**Verified:** boss 74 (new: strain tell shows, wide restitch caves 214 coords + byte-exact, pupil
+in socket) · defs · entrance · lock · bossboot · bossrush (11-boss) · tricount 0-over · bossgate
+G1-G7 PASS · restitch/bloom/eye captures reviewed. PR 2 (entrance) follows. Owner judges feel on the preview.
+
+### L216 — BRINEHOLM entrance polish (owner playtest): a stale fightRunning flag drew the reticle over the cinematic, and the eye-open was pinned AFTER the slow-mo instead of ON it
 
 **Owner report (BRINEHOLM entrance, "BELOW — THE REEF WAS BREATHING"):** "the reticle's already on him during the slow-mo, it ruins the moment — you can't even fight yet" + "the slow-mo is when his eye should open" (it opened a few seconds later).
 
@@ -7983,4 +8104,18 @@ the PR #269 preview.
 
 **2. The eye-open was choreographed to `u>0.9` — AFTER the `slowWindow` (u 0.4–0.76).** So the lid ground open at settle, in real time, well past the dramatic hesitation. Moved the glow/lid/iris-lock onto the hesitation crest (u 0.58→0.78) so the eye reveals WHILE time is still dilated — the reveal IS the moment. Entrance-scoped (the fight weak-point `setEyeUp` drive is separate, only free-runs when `entranceU == null`), so no gameplay change. **Lesson: land the payoff frame INSIDE the slow-mo window, not after it — a dramatic beat timed to real-time-after-the-hitstop reads as a delayed afterthought.**
 
-**Verify.** lock.mjs green incl. new T2.21 (clearLocks drops fightRunning → no stale reticle); boss/entrance/defs/bossboot/smoke/tricount green. Owner eye-judges the entrance on the preview. (Deferred to an owner call, not in this commit: the eye-submerge SEALS the whole lock layer so you can't paint the shackles either while the eye is down — the "can't tag for a while" — and a tier-3 hit strips the WHOLE banked set. Both are design/difficulty changes to weigh.)
+**Verify.** lock.mjs green incl. new T2.21 (clearLocks drops fightRunning → no stale reticle); boss/entrance/defs/bossboot/smoke/tricount green. Owner eye-judges the entrance on the preview.
+
+### L217 — BRINEHOLM eye-down DECOUPLE (owner playtest): a weak-point that seals the WHOLE lock layer is the "can't tag for a while" — seal only the eye, keep the neighbours brandable
+
+**Owner call (from L216's deferred pair):** "the issue isn't losing my pips, it's when I lose my pips I feel like I can't tag for a while." Picked **(a) decouple** the eye-down from the shackles; **leave** the tier-3 full-strip. The felt problem was never the strip — it was the DEAD-AIR after it, because the same eye-down window that gates chip-damage was ALSO a whole-layer paint seal, so a submerged eye killed ALL branding (eye + 3 shackles) for its full down cycle.
+
+**The bug was that ONE flag did two jobs.** `eyeWeakPoint` fed `lockDeflected()` (the global "is the whole lock layer sealed?" gate — shield / condense-scatter / survival-card), so `!model.eyeIsUp()` sealed EVERYTHING, not just the eye. Chip DAMAGE being eye-gated is correct and stays (`damageBoss` still checks `eyeIsUp`); PAINTING everything was the overreach.
+
+**Fix = move the seal from the layer to the organ.** (1) Removed the `eyeWeakPoint` case from `lockDeflected()` — the submerged eye is no longer a whole-layer seal. (2) `paintableParts()` now drops ONLY `def.eyeOrgan` while the eye is down (`eyeSealed && lp.part === def.eyeOrgan → continue`), so the shackles stay brandable through every down window and the eye itself rejoins the paintable set the instant it surfaces. (3) New `def.eyeOrgan: 'eyeRig'` names WHICH paintable organ the weak-point seals (BRINEHOLM-only; it's the sole `eyeWeakPoint` boss). Shield + survival-card remain full seals — those SHOULD stop everything.
+
+**Why a defs lint, not a live-timing test:** the eye EASES (`eyeUp += (target-eyeUp)*min(1,dt*2.4)`) and has no clean force-down debug seam, so a synchronous headless assert on the down-case is fragile. Instead a `defs.mjs` invariant guards the structural half that can silently rot: every `eyeWeakPoint` boss must name an `eyeOrgan`, and it must be a real `lockPart` — else `paintableParts()` can never drop it and the shackles would go dark with the eye again (the exact regression). The live down-case feel is owner-judged on the preview.
+
+**Lesson: a "weak-point window" and a "lock-layer seal" are different scopes that a single boolean loves to conflate — gate the DAMAGE at the layer if you must, but seal only the ONE organ for painting, and name that organ in data so a lint can prove the coupling stays honest.**
+
+**Verify.** defs.mjs green incl. the new eyeOrgan invariant; lock/boss/wisps/entrance/bossboot/smoke/gold-det/tricount all green (paint scope is render/gate logic — kill-times byte-stable, tricount unchanged). Owner feel-judges "can I keep tagging the shackles while his eye's down?" on the preview.
