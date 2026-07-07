@@ -195,9 +195,11 @@ export const CONFIG = {
     quietDwellMult: 0.5,    // LAW — danger-binding: dwell rate while no boss fire is live
     // V2 paint & volley (wired from PR2 — data present now, inert in PR1)
     capByTier: { 1: 0, 2: 3, 3: 5, 4: 6, 5: 6 },  // LAW ladder
-    decay: 4.0,             // TUNE(3.0–4.0) — per-lock lifetime; at the range top so a
-                            // dodge mid-sweep doesn't cost the first brand (owner playtest:
-                            // 'doesn't always lock 3 again' — the sweep must survive a dodge)
+    decay: 4.0,             // TUNE(3.0–4.0) — per-lock lifetime WITHOUT a fresh brand; a new
+                            // paint/stack now refreshes the whole set (freshenLocks), so this
+                            // is the "you stopped branding for 4s → it fizzles" clock, not a
+                            // race against building a set (owner playtest: brands unpainted
+                            // while flying between BRINEHOLM's spread eye + shackles)
     refreshDwell: 0.15,     // TUNE(0.1–0.2)
     stackMax: 2,            // LAW — per part, tiers ≥3 only
     stripNewestMaxTier: 2,  // LAW — ≤ this tier a hit strips newest only; above strips all
@@ -237,18 +239,21 @@ export const CONFIG = {
     wobbleHz: 2.6,          // TUNE(1.5–4) — snake frequency; phase = volley slot
     impactStaggerMs: 40,    // LAW — plural-impact PRESENTATION spacing (damage stays same-frame;
                             // the drum-roll is FX + the lockStrike arpeggio only)
-    // ORGAN SHIMMER (PR6, owner design): every UNPAINTED paintable organ carries
-    // a faint in-world jade breath — diegetic ("this part is brandable"), works
-    // with or without the reticle, perspective-true. It goes DARK while the
-    // organ vents amber (C3 — wordlessly "can't paint now"), while the boss is
-    // deflected (sealed honesty), and once painted (the brand mark owns it).
-    shimmerOpacity: 0.13,   // TUNE(0.06–0.2) — peak breath opacity (small additive sprite)
-    shimmerHz: 2.4,         // TUNE(1.5–4) — breath rate
+    // ORGAN SHIMMER (PR6, owner design; boosted — owner playtest "let me PICK my
+    // prey"): every UNPAINTED paintable organ carries an in-world jade breath —
+    // diegetic ("this part is brandable, fly here"), works with or without the
+    // reticle, perspective-true. It is the pick-menu: you SEE every target and
+    // choose which to fly to (it darkens the instant a target is painted, so the
+    // remaining shimmers are what's left to grab). Goes DARK while the organ vents
+    // amber (C3 — "can't paint now"), while the boss is deflected (sealed), painted.
+    shimmerOpacity: 0.34,   // TUNE(0.06–0.4) — peak breath opacity (boosted from 0.13 to read as a clear "paint here")
+    shimmerHz: 2.2,         // TUNE(1.5–4) — breath rate
     tetherOpacity: 0.22,    // TUNE(0.1–0.35) — PR7 in-world attribution line dragon→brand
                             // (additive LineSegments; the line dims with the brand's life)
-    paintCooldown: 0.45,    // TUNE(0.3–0.6) — cross-organ paint spacing: min gap between ANY
-                            // two paints (paintHopGrace only embargoes the SAME organ) —
-                            // owner playtest: back-to-back paints read spammy
+    paintCooldown: 0.22,    // TUNE(0.15–0.6) — cross-organ paint spacing: min gap between ANY
+                            // two paints. Cut from 0.45 (owner playtest: "lag between each pip,
+                            // hovering for ages") — still enough to keep back-to-back paints from
+                            // reading spammy, but the pip cadence is now snappy on a spread boss
     // V3
     beamAimDisc: 4.0,       // LAW — m; nearest partWorldPos within this of the player line
     beamPartWeight: 1.5,    // TUNE(1.0–2.0)

@@ -7687,7 +7687,295 @@ hole opened into a sealed box. The fix is to break the bell the way it would act
 Meta-lesson: when a "reveal through the object" doesn't read, check the FAR side of the sightline
 before reaching for shaders — the occluder is usually geometry you forgot to remove.
 
-### L204 — KARNVOW CP2 shipped (entrance + riposte + stare-down + trophy paint): the whole fight is DATA + def-gated seams; a fade-in is NOT a dissolve; `transparent:true` is a mask classifier
+### L204 — WEFTWITCH CP1 (slot 11, the arena-weaver): the field IS the body, "spider" hides in the ARMS not the web, and the G3 danger-band was the SKY, not the mesh
+
+**Did.** Built slot 11 WEFTWITCH (Tier-4 World-Ender) to CP1: the def (`bossDefs.js` +
+`BOSS_ORDER`), `bossWeftwitch.js` (a hooded legless weaver-bust CROWNED by 6 spinneret-arms
+above the shoulder, 2 oversized hands = the §4b face, an arena-spanning spoke-web, a loom-heart
+muzzle), one `bossModel.js` dispatch line, and a `boss.mjs` telegraph/silhouette block. Both
+gates pass: `bossgate` G1–G7 + two independent Fable design gates (pre-build sheet + CP1 renders).
+
+**The learns (reusable).**
+1. **The field IS the body (L141), and the studio LIES about it.** A medium bust reads HUGE only
+   because the web fills the frame — the studio auto-frames the whole web so the bust is a tiny
+   dot; the *in-game fight-frame* (`bossstudio` `fight-idle`) is the only honest grandeur read.
+   Judge design on the studio bust sheet; judge SCALE on the field-frame. `hullLength()` returns
+   the WEB span (166u), not the body, so the L141 test asserts presence, not mass.
+2. **For a radial-web boss, the spider read lives in the ARMS, not the web.** The pre-build Fable
+   gate killed a spider-from-ADJECTIVES sheet ("elegant, graceful" don't survive black-fill) — the
+   fix was GEOMETRY: move all limbs into an upward crown ABOVE the shoulder, **NO limb below
+   horizontal (inviolable — never pull one down to "balance" the lower frame)**. Then the CP1 gate
+   caught the SECOND spider: thin, elbow-kinked, needle-tipped crown arms *read as legs* at the
+   fight frame (worst on the warm sky). Fix = DE-LEG: thick, one smooth UPWARD curve, tips ≥45°,
+   ending in a shuttle MASS not a needle, and SELF-LIT (emissive) so the crown exists on a dark
+   sky. Thick blades pointing skyward are a crown; thin tapered sticks arching out are legs —
+   same count, opposite noun. Silhouette-surviving geometry wins; lighting/color cues don't.
+3. **A bossgate G3 danger-magenta failure can be the SKY, not your mesh.** A pure-black
+   silhouette on a magenta SUNSET borrows the sky at its bloomed edges → those edge pixels read
+   as danger-band body pixels (1.6%). Two fixes, both real: (a) a pale-gold FRESNEL RIM so the
+   edges read HER gold not the sky's magenta (the L121 "reads on a bright sky" trick — also boosts
+   G3 accent attribution); (b) add the boss to `bossgate.mjs`'s `DIST` map at its HOME biome
+   (§7c biome pairing) — WEFTWITCH's Astral (near-black violet) sky dropped danger-band 1.6% →
+   0.003% instantly. The default gate biome is the warm sunset (the hardest test); a warm-dark
+   boss needs its complementary-sky entry or it false-fails, exactly like MARROWCOIL at 8000.
+4. **A PALE accent washes to white under bloom (G3 attribution) — carry it on SOLID surfaces.**
+   `0xe9d8a6` desaturated to white; `0xe8c466` (a touch more saturated, still hue ≈43° and firmly
+   off the rose/magenta band) holds hue. Thin gold LINES throw magenta antialiased edges and are
+   poor attribution carriers; the SOLID rosette-knots + spinneret tips + the self-lit arms carry
+   the gold read (attribution 17% → 62%). Body moth-grey must be COOL (0x1a1c22), not a
+   purple-grey — purple drifts red-channel pixels into the danger band.
+5. **Two-value web (L122) for both skies:** a DARK warp fill reads on a bright sky, a PALE hero
+   subset reads on a dark sky — the pale-only web vanished on the sunset (Fable caught it).
+6. **`laserLance` = a beam VISUAL of an existing pattern (`aimed`), NOT a new attack id** — keeps
+   the def within the `boss.mjs` known-id list AND leaves the World-Enders band's ≤1-new-id budget
+   for a sibling (confirm with owner at CP2). A visual re-expression is free; a new id is a budget.
+
+**Deferred to CP2 (owner green-light first):** the HUD-sew overlay + banner-pin engine (§5j, her
+granted rule-break, with the render-order-LAW test), the live fight wiring (phases/cards/rhythm
+fire, the entrance *The Mended Banner*), the thread-cut parry + mote-harvest graze, and the CP2
+Fable integration gate. CP1 is model + studio/gate + design gate; the engine is CP2. Optional
+polish Fable flagged (non-blocking): shuttle tips slightly more hand/spindle-like; lift the
+sunset hero-thread brightness a notch.
+
+### L205 — WEFTWITCH web↔water + loom-eye gaze: an arena-reactive model needs a CONTROLLER-FED environment hook, and the water is a compile-time constant
+
+**Did.** Two owner notes on the PR-263 preview: (1) the arena web's spokes pierced the water
+as dead-straight lines ("janky"); (2) "the white eye thing should follow us." Fixed both in
+`bossWeftwitch.js` + ONE optional-chained line in `boss.js`.
+
+**The learns (reusable).**
+1. **The water surface is a compile-time constant, not a query.** `water.js` pins the plane at
+   world y=0 in EVERY biome; waves are a GPU-shader illusion (the mesh is geometrically flat);
+   there is NO CPU height-sample anywhere — Reflector, contactShadow, and BRINEHOLM's fog-rise
+   all just hard-code y=0. Don't build a height-field API to "react to the water"; clip against
+   the constant plane.
+2. **A fight-context environment feed keeps the model studio-pure.** The studio + headless
+   tests build models at the ORIGIN with no water — an always-on clip would have silently
+   changed the CP1 captures and gate numbers. Pattern: an optional handle hook
+   (`model.setWaterPlane?.(0)` at fight spawn, the `setGaze?.()` idiom) — never fed in the
+   studio, so the isolated path stays byte-identical, and a coexist TEST asserts the buffers
+   are untouched without the hook. This is now the house pattern for any arena-reactive model.
+3. **Clip against the LIVE matrix, per tick, never cached.** `bossKit` animates `group.scale`
+   (dissolve spread ×1.6) and the entrance animates `threadPivot.scale` — transform the world
+   plane into pivot-local space fresh each tick (`Plane.applyMatrix4(inverse(matrixWorld))`,
+   which renormalizes → signed distances stay in local units) and the death-sink/entrance
+   compose for free (the web visibly settles into the sea as she dies).
+4. **Three clip cases, all mandatory:** crossing → parametric clip `t=d0/(d0−d1)` + a STRICTLY
+   upward bob (0.12–0.34, never coplanar — the flat water mesh z-fights anything at y=0) + a
+   drag-TAIL along the surface; fully-submerged → collapse degenerate ONTO the plane (deep
+   stitches have both endpoints underwater at fight height — leaving them at base coords fails
+   the no-pierce assert); fully-above → restore pristine base (stitches clip INDEPENDENTLY —
+   re-lerping them against clipped spokes bunches the lower lattice into a halo above the
+   waterline, a look the gates never approved). Straight-down spokes: the tail direction
+   (spoke projected onto the plane) degenerates near-antiparallel to the normal — fall back to
+   local-X-projected, deterministically signed.
+5. **Rewrite-from-base defines the mutation contract:** the clip pass restores the position
+   attributes from pristine base arrays every tick — any future writer (the CP2 gap-restitch)
+   must mutate the BASE arrays, never the attributes, or its writes get stomped. Documented at
+   the base-copy site.
+6. **"Does it track us" is a fight-distance question.** The §4b gaze carriers (hands + hood)
+   DID track but at amplitudes tuned on the studio sheet — invisible at rel-30. And the ONE
+   thing the eye locks onto (the white loom-core focal) was static. Fix: pupil-offset the core
+   toward the eased gaze (the BRINEHOLM iris idiom) + lean the organ + ~2× the hand/hood
+   amplitudes, keeping the LAG (snap = turret, lag = a mind). Honest telegraphy: the core is
+   the muzzle, so where it looks is where shots come from. Tune tracking amplitudes at the
+   FIGHT frame, not the studio sheet.
+
+**Verified:** boss.mjs (pierce −67→−0.00 world, 28 surface tails, coexist-untouched, loom-eye
+tracks) · bossboot zero-error · bossrush · bossgate G1–G7 PASS with the clip LIVE in the fight
+captures. The owner judges the contact bob/tails + tracking feel on the PR preview.
+### L206 — LANCE feats (5 achievement unlocks): the feats engine is a one-file, data-driven add — and headless DOM-toast checks lie
+
+**Did.** Added 5 boss-only LANCE achievements — Brandbearer (first paint), Full Draw (meter at
+cap), On the Beat (perfect beat-release), Wyrmstorm (5-brand volley), Lock-Snap (perfect-parry
+snap) — entirely in `js/feats.js`: 5 `FEAT_DEFS` entries (`cat:'skill'`, rewards 25–80) + 3 live
+listeners in `initFeats()` keyed off the existing lock events (`lockPaint {snap?}`, `lockCap`,
+`lockVolley {perfect?,count}`). No UI touched: the Pilot screen's SKILL column and the unlock
+toast are both data-driven off `FEAT_DEFS`, so a new def surfaces automatically. Bumped the
+`tests/defs.mjs` count gate 30→35 and added state-based coverage in `tests/feats.mjs`.
+
+**The engine already had every hook — reuse, don't rebuild.** A "live" feat is just
+`on(event, () => unlockFeat(id,{live:true}))`; `unlockFeat` is idempotent (the save's `unlocked[]`
+is the guard), so "first X" needs no counter, and the ember reward is deferred to CLAIM in the
+Pilot screen (unlock ≠ pay). Three listeners cover five feats because the payloads discriminate:
+one `lockPaint` handler does brand-always + snap-when-`e.snap`; one `lockVolley` handler does
+beat-when-`e.perfect` + storm-when-`e.count>=5`. **The one guard that matters:** the boss Surge
+FORK path emits `lockVolley` WITHOUT `perfect` (only the player's manual `tap` release carries it),
+so the beat feat must guard `e && e.perfect` or a fork volley would false-trigger it — covered by
+a test that fires `{source:'fork'}` with no perfect and asserts the beat feat stays locked.
+
+**Two testing lessons.** (1) **A headless software-GL run drifts — batch your event emits.** The
+feats suite is a real browser boot mid-run; my first draft fired 8 sequential `page.evaluate`
+emits, and the added round-trip latency let the auto-flying player crash before the downstream
+SETTLE-feat setup ran → `waitForFunction(runSummary)` hung to a 30s timeout. Collapsing all the
+emits into ONE synchronous `page.evaluate` (the event bus is sync — emit all five, read every
+`unlocked` flag in the same round-trip) removed the drift and the timeout vanished. When a test
+shares a live clock with the thing under test, minimize wall-clock round-trips. (2) **Don't assert
+on a headless DOM toast.** The pre-existing `feat toast fired` check (`$eval('#feat-toast', …)`)
+fails in this sandbox's software renderer (it presumably passes in real CI) — so I asserted every
+LANCE unlock on `save.feats.unlocked` STATE, never on the toast DOM. State is the honest signal;
+the toast is presentation and flakes under headless GL.
+
+**→ Leapfrog.** Adding a live feat is now a known ~2-line recipe (a def + a listener line, or a
+clause on an existing listener); the only footguns are the reward band `[20,150]`, the `cat`
+whitelist, the count gate in defs.mjs, and event-payload guards for multi-source emitters. Next
+deferred item (owner: two PRs, this was the first): the `lockdps` LANCE balance table — an
+analytic per-boss damage-economy tool + band-gate test on the exported `lanceDmgEach` kernel and
+the `bossHit {kind}` attribution tag (dev-only, no player-facing change).
+
+### L207 — lockdps balance table: an ANALYTIC model beats an instrumented fight when the fight can't exercise the channel
+
+**Did.** Shipped `tools/lockdps.mjs` (+ a pure `tools/lockdpsCore.mjs` + a band-gate
+`tests/lockdps.mjs`) — a dev-only LANCE damage-economy table. For every boss it prints, per
+phase, the ROI-clamped full-cap volley damage, that volley as a %-of-phase, and pure-lance
+volleys-to-clear, plus a per-boss lance-only TTK estimate; `--ci` exits 1 on a broken balance
+invariant. No game code changed — boss kill-times + tricount trivially unchanged; the SW manifest
+is unaffected (tools/ + tests/ aren't precached, so no stamp-sw needed).
+
+**Why ANALYTIC, not an instrumented fight.** The obvious approach — reuse `driveKill`
+(tests/boss.mjs) and accumulate the `bossHit {kind}` attribution tag per channel — has a hole:
+`driveKill`'s "player" only ever fires SURGE at shields; it never PAINTS lances, so a natural loop
+reports lance-damage = 0. Getting real lance numbers would need a headless lance-persona (drive the
+lock API, bank pips, loose) — real integration surface for a balance table. But the LANCE economy
+is FULLY DETERMINED by config × the boss HP/phase model: cap pips = `capByTier[tier]`, phase span =
+`(atFrac − nextAtFrac) × hpMax`, and the SHIPPED `lanceDmgEach(pips, phaseHp, mult)` kernel (reused,
+not re-derived — single source of truth). So the model is exact with zero fight loop. **When the
+only headless driver can't exercise the channel you're measuring, an analytic model on the shipped
+kernel is more honest than a fight that silently reports zero.** (As-played per-channel attribution
+via `bossHit{kind}` is still the right tool once a lance-persona exists — noted as a future add.)
+
+**The table earned its keep immediately — it makes a design LAW legible.** It shows the lance is a
+CHIP channel BY LAW: the 10% `volleyRoiFrac` clamp means a full-cap volley is ≤10% of the current
+phase HP, so tier-3 volleys ROI-clamp at ~10% (~10 volleys/phase) and tier-2 sit at ~6% raw
+(lanceDmg-bound); tier-1 Sentinels are lance-disabled (`capByTier[1]=0`). A pure-lance clear is
+~40–57 volleys — the lance supports, never solos. The band-gate test freezes that: the ROI law
+(base AND beat volley ≤ ceiling — the beat mult lives INSIDE the clamp), the cap-ladder wiring, and
+a sane per-boss clear-volley band, so a `lanceDmg`/`volleyRoiFrac`/`capByTier`/phase edit that
+shifts LANCE balance fails loudly here and in `--ci`.
+
+**The correction that made it HONEST: `capByTier[tier]` is a ceiling, not the reachable cap.** The
+first cut keyed lance-capability purely off the tier, and the owner immediately caught it — "isn't
+KARNVOW the boss you can't paint?" It is: a boss with a `virtualLockOrgan` but NO `def.lockParts` is
+V1-AIM-ONLY (`paintableParts()` returns null there → no painting at all), so KARNVOW *and* ASHTALON
+have zero paint targets and the lance verb is INERT on them — yet the tier table happily reported
+cap 3/5. And a boss with too few organs can't reach its tier cap: THRUMSWARM's ONE queen organ ×
+`stackMax` 2 = a reachable cap of 2, not the tier-3 five (so its volley is 4 dmg and a pure-lance
+clear runs ~97 volleys, the roster's weak-lance outlier). The fix — `reachableCap(def) =
+min(capByTier[tier], nPaintTargets × stackMax)`, and lance-capable *iff* it has real `lockParts` —
+turned a plausible-but-wrong table into the true one. **A tier/config ladder tells you the CEILING;
+the reachable value needs the entity's own structure (here: how many organs it actually offers).
+Model the mechanism, not the tuning constant.** (The table is data-driven, so when KARNVOW's CP2
+trophy-charm `lockParts` land it will light up as paintable automatically.) A follow-up Codex P2
+deepened the same lesson: the reachable cap is PER PHASE, not per boss — `paintableParts()` filters
+lockParts by `lp.phases.includes(phaseIdx)`, so BRINEHOLM's `phases:[0,1,2]` shackles drop out of
+its 4th phase, leaving the eye alone (2 pips, not 5). A single boss-level cap over-reported exactly
+the phase-gated case the CI band is meant to catch; the model now computes each phase's cap from its
+own phase-filtered target set. **When you mirror a live function in an analytic model, mirror ALL of
+its filters — a per-phase gate in the source is a per-phase term in the model.**
+
+**Pattern notes.** (1) **Pure-core + injected deps** — `lockdpsCore.mjs` imports NOTHING; the CLI
+and the test each do their own headless boot and pass in `CONFIG`/`BOSSES`/`lanceDmgEach`. One
+math module, two drivers, no shim duplicated into the logic. (2) The pure-node tool boot is the
+`tricount.mjs` template (three-resolver + minimal DOM/localStorage shim + dynamic imports + `--ci`
+exit); `globalThis.navigator`/`location` are getter-only in node 22 — GUARD the assignment
+(`if (!globalThis.navigator)`), a raw assign throws. run-all.mjs auto-discovers `tests/*.mjs`, so
+the band gate joins CI for free.
+
+### L208 — WEFTWITCH CP2 (the fight engine): a DOM rule-break is layered by TIMING not z-index, a beam at the camera is a blob, and headless captures eat flashes
+
+**Did.** Wired slot 11's whole fight: the LANCE anchor, the thread-cut parry + laserLance,
+the mote-harvest bloom, THE MENDED BANNER entrance (HUD-sew + banner-pin), and the
+between-waves gap-restitch (PR #269, six increments, each landed green).
+
+**The learns (reusable).**
+1. **"Above the chrome, below the bullets" is IMPOSSIBLE as z-layering** — bullets are WebGL
+   and the canvas composites below ALL DOM. The render-order LAW resolves by TIMING: every
+   fire path is hard-gated to `phase === 'fight'`, so the warn/entrance window is provably
+   bullet-free — fire the DOM effect there, clear it at `enterFight()`, and test BOTH edges
+   (fired-before-fight + cleared-at-fight + cleared-on-reset). The timing IS the proof.
+2. **Drive per-boss HUD beats from boss.js against GENERIC ui seams** (the KNELLGRAVE
+   precedent): `ui.hudSew()`/`ui.bossWarnClear()`/`bossWarning(..., {pin})` know nothing
+   about her; the def flag (`hudSew`) lives with the boss. The banner-pin is just "never arm
+   the auto-hide timeout" + an explicit idempotent clear every teardown path may call.
+3. **A beam pointed at the camera is a BLOB.** The laserLance along local +z (toward the
+   player) foreshortened to nothing at the fight camera — beams must AIM at the player
+   (local target fed at the fire instant) and carry WIDTH (a tapered additive cylinder,
+   ~12 tris; a 1px HDR hairline vanished among the web's own hairlines). Flash-only
+   lifetime keeps it out of the G7 overdraw frames.
+4. **Headless captures eat sub-second flashes** — long frames decay a 0.3s effect before
+   the screenshot paints. Capture tools re-FIRE across the shot window (interval + one
+   screenshot) instead of slowing production decay for the camera's sake.
+5. **The parry-job template generalizes**: THRUMSWARM's `staggerHits/staggerT` counting is
+   the shape, but the stagger CONSUMPTION is per-boss (swarm: locked condensed; weftwitch: a
+   stilled loom that cancels its own wind-up). The payoff body lives in ONE function used by
+   both the production parry path and the ?debug capture seam (the debugCrackPane idiom).
+6. **A graze form can be a REWARD for a parry**: moteHarvest blooms from the cut thread —
+   cancel-convert (cut her volley → harvest its motes) — riding the shipped soak-mote
+   machinery with only the spawn differing (fanned, gravity-fall, once per phase, reset at
+   the phase seam). Surge-pink stays the mote colour: reward grammar outranks boss accent.
+7. **Restitch through the BASE arrays** (the L205 contract held): the tear mutates base,
+   the water pass composes on top, pristine copies restore byte-exact (max drift 0 in the
+   test). Deterministic sector choice (no Math.random) keeps it replayable headless.
+8. **Seed randomness in threshold-y motion tests**: KARNVOW's footwork assert consumed the
+   ambient Math.random stream and flaked on unlucky seeds (x-spread 1.02 vs the 1.5 bar) —
+   any test asserting a random walk's EXTENT must pin its stream (a local LCG, restored
+   after). Latent on master; surfaced the moment upstream consumption changed.
+
+**Verified:** boss 74 · defs · entrance (mendedBanner finite/station/gaze contracts) · lock ·
+bossboot · bossrush (11-boss) · tricount 0-over · bossgate G1–G7 PASS · six-frame CP2
+integration gate (sew-warn / descend / clean-chrome LAW / beam / cut+bloom / restitch)
+captured and judged; the beam re-aimed + re-bodied off gate round 2. Owner judges feel on
+the PR #269 preview.
+### L209 — BRINEHOLM feel-fix (owner playtest): a lance target you must fly into the wall to reach is a dead verb — pull it in; and the pick-menu is INVISIBILITY, not the picker logic
+
+**Owner report on the shipped slot-8 breather:** "boring, he doesn't do much" + "his side organs are hard to paint, I crash into the side wall trying and die" + "I unlocked more missiles but there's only ~3 paintable targets" + (on the preview) "it doesn't feel good to lock onto these — the targets should shimmer whether the reticle's on or not, and painting over one should activate it as a pip: pick your prey, don't hunt it." The `lockdps` tool had already quantified the third (BRINEHOLM `5/5/5/2` — cap-5 only reachable by committing to the side shackles + stacking the eye).
+
+**1. Pulled the shackles in (the dead-verb fix).** The 3 posts sat at world x ±8–10 via a single `SHACKLE_X = [-5.5, 1.5, 6.5]` array (× `def.scale` 1.5) in bossBrineholm.js — and the killer is the FATAL ±13 lane wall (`collision.js`; BRINEHOLM never narrows the arena, so no clamp softens it). The outer post at +9.75 is ~3 m off the +13 wall, and the aim disc (4 m) drags you to the edge to lock it → you overshoot into the wall and die. Fix: `SHACKLE_X = [-4.5, 1.5, 4.5]` (world ±6.75, ~6 m of margin). **The one array was the whole knob** — the paint/lance target is the post NODE itself (`partWorldPos` resolves the live node), so the reticle green-lock, the lance flight, the shimmer, and the gunfire hit-test all followed for free; no anchor plumbing. Kept the centre post (index 1) at its exact test coords so the shackle-break hit-test needed no change. **Lesson: an organ the player can only reach by flying into a lethal boundary is a verb that punishes its own use — position paint targets inside the survivable envelope, or the "commit" is just a death.**
+
+**2. The "pick your prey" fix was LEGIBILITY, not new logic.** Mapped the acquisition model expecting to rewrite it — and found "pick your prey" was ~90% already wired: the aim is the DRAGON's flight line (steer the dragon so an organ is in the cone → dwell → paint), the selector already prefers the nearest UNPAINTED paintable (i.e. the one you're flying toward), and the PR6 organ SHIMMER already renders the exact pick-me set REGARDLESS of the reticle setting AND already darkens the instant a target is painted. The only reason it felt like "hunting" is the shimmer's peak opacity was **0.13** — a breath so faint the player couldn't SEE the menu, so the reticle's auto-lead felt like the game choosing for them. Fix: boosted `shimmerOpacity 0.13 → 0.34`, raised the breath FLOOR (never below ~0.7 of peak, so every organ is always clearly lit, not pulsing to near-nothing) and the sprite scale (1.1→1.5). Now you SEE all targets, fly to the one you want, paint it, its shimmer dies, you pick the next. **Lesson: before redrawing a selection system a player says feels wrong, check whether the player can SEE the state it's exposing — an invisible affordance reads as "the game decides"; the same logic with a legible cue reads as "I decide." Fixed the render, not the state machine (which guards real re-grab bugs).** The deeper acquisition change (kill the auto-lead so the reticle strictly follows flight) stays available as a fast-follow if the legible menu isn't enough — but it's judged with preview feedback, not pre-emptively.
+
+**3. Dropped the quiet breach "swell" beat I'd added — it read as nothing.** A non-moving setpiece that heaves the head up +5 with NO model animation (no rear/gape/spray) and PAUSES fire is, on a boring boss, *more* nothing — the owner "didn't see him doing anything." **Lesson: "less boring" ≠ "add a calm pause"; a beat needs MOTION the eye catches (a dramatic pose change), and a fire-pause subtracts activity from the exact stretch that already felt empty.** Reverted cleanly; the real engagement lift is making the paint verb feel good (change 2), not a boss animation.
+
+**Verify.** boss.mjs 70 green (outer shackle |x|<8 with >4 m wall margin); lock.mjs shimmer-count seams unchanged (opacity/scale don't touch count); lockdps/defs/bossboot/smoke/gold-det/bossrush/tricount green; lockdps BRINEHOLM row unchanged. bossgate G3 fails IDENTICALLY on clean master (~2% danger-band pixels in this headless software-GL — a pre-existing environmental flake), so no visual regression — the owner eye-judges the shimmer legibility + the safer shackle reach on the preview.
+
+### L210 — LANCE paint FEEL (owner playtest): building a set across SPREAD organs was racing a 4s decay clock + a per-pip cooldown — freshen-on-paint + cut the cooldown
+
+**Owner report (BRINEHOLM, spread organs):** "the targets unpaint after a few seconds while I fly around — bug?" + "I feel like I'm hovering for ages, it's just slow" + "is there a lag between each pip?" All real, all traced to shared `CONFIG.LOCK`:
+- **Unpainting** = the DECAY auto-release: the whole banked set fires as a weak `'decay'` volley `decay` (4s) after the OLDEST pip, and on a spread boss the flight eye→shackle→shackle burns that 4s before the set is complete. The pips didn't vanish — the partial set auto-loosed.
+- **Lag between pips** = `paintCooldown` (0.45s) — a hard min gap between ANY two paints; you can be locked-on and it won't drop the pip until the gap clears.
+- **"Slow / hovering"** = NOT the dwell (0.35s is fast) — the "quiet-dwell penalty" (`quietDwellMult`) turned out to be DEAD config (only in a comment + the config literal, never applied). The slow feel was the cooldown + flight time racing the decay.
+
+**Fixes (shared verb, all lock bosses):** (1) `freshenLocks()` — a fresh brand (new pip OR a stack) resets the WHOLE set's decay ages, so `decay` becomes "you stopped branding for 4s → it fizzles," not "finish the set within 4s of the first pip." Actively branding keeps your brands, so a spread boss no longer races the clock. (2) `paintCooldown 0.45 → 0.22` — now BELOW `dwellTime` (0.35), so a normal second paint completes its own dwell after the cooldown has already cleared: consecutive pips flow at the dwell cadence, no extra lag. The cooldown survives only as a light spam floor for a FOCUS-fast (halved-dwell) paint.
+
+**Lessons.** (a) **A "use it or lose it" decay must key off INACTIVITY, not wall-clock from the first token — or spreading the targets turns the mechanic into a punishment for playing the boss as designed.** (b) **A cooldown longer than the action it gates is pure lag**: `paintCooldown > dwellTime` meant every pip waited `cooldown − dwell` after locking for no reason; drop it under the dwell and the gate stops being felt while the anti-spam floor still exists. (c) **Grep the config value's NAME before theorizing about its effect** — `quietDwellMult` looked like the "slow" culprit but was never wired; the real cause was two other knobs.
+
+**Verify.** lock.mjs green (T2.19 rewritten: a normal second paint flows at the dwell cadence, no cooldown lag; T2.2b single-pip decay + T2.3 deflect-freeze unaffected); wisps paintCooldown lint range widened to [0.15,0.6]; boss/defs/bossboot/smoke/gold-det/bossrush/lockdps(--ci)/tricount green. Owner feel-judges the snappier build + the forgiving decay on the preview.
+
+### L211 — LANCE paint ENGAGEMENT (owner playtest): the organ must ANSWER the dwell — a target that doesn't respond isn't a target, it's a coordinate
+
+**Owner report (build a721ed, BRINEHOLM):** "I struggle to paint the RIGHT target — I know it's close to me but it's not engaging, and I don't even know whether I've engaged the top and the left." The paint had no per-organ feedback: all the signal was one small reticle square + a pip-COUNT row up top, so the player couldn't tell (a) which organ they were about to paint, (b) their progress on it, or (c) which organs were already done.
+
+**Fix — make each organ carry its own state, in-world (boss.js render only; zero behaviour change).** `lockHudState()` already publishes `aimPart` (the organ the reticle is on) + `dwell` (0..1) + the painted `locks[]`, so the shimmer pool can speak per-organ:
+- **Targeting flare:** in `updateShimmer`, the organ that == `aimPart` GROWS (scale ×~2.3) and BRIGHTENS with the dwell — the target visibly answers you, and the fill reads AS paint progress ON the organ, not as an abstract reticle. Now you SEE which one you're painting (and steer off if it's the wrong one — the "paint the right target" fix).
+- **Brand pop:** on `lockPaint`, a bright jade+white burst fires ON the organ (via `model.partWorldPos(p.part)`) — the unmistakable "engaged!" beat; its shimmer dies the same frame. A stack pops smaller (refresh, not a fresh organ). The moment of engagement is now a punch, not a silent count-up.
+
+**Lesson: a paint/lock target needs a per-target RESPONSE curve (idle → targeted → committing → done), rendered ON the target — not a single shared cursor + a number.** The state was all published; the miss was that the WORLD didn't reflect it, so the interaction read as "moving a number" instead of "branding a creature." When a player says an interaction "isn't engaging," check whether the OBJECT of the interaction visibly changes as they act on it. Cheap win: the shimmer pool + one event burst turned a coordinate into a target.
+
+**Verify.** Render-only (opacity/scale on existing shimmer sprites + a pooled particle burst) → shimmer COUNT unchanged, so lock.mjs T6.2/T6.3 + all lock/boss/bossboot/smoke/defs/lockdps/tricount green. Owner feel-judges the flare + pop on the preview; if "which have I engaged" still isn't clear at a glance, the next step is a bolder PERSISTENT engaged-mark on painted organs (today it's the DOM brand sigil + shimmer-death).
+
+### L212 — LANCE "pick your prey" (owner playtest): let the reticle target what you're OVER, and let a stackable organ stack in place — the surgical fix is tier-3-only
+
+**Owner report (BRINEHOLM, sitting on the eye):** "there's a target right here but it won't let me paint — it tells me to fly to the top one" + "is there a lag between getting the 1st eye pip and the 2nd?" Both are the HUNT model biting: (a) `refreshHud` always LEADS to the nearest UNPAINTED organ (+ a sticky hysteresis), so being over the eye didn't target the eye; (b) `paintHop` embargoes a just-painted organ for `paintHopGrace` (0.8s), so stacking the eye ×2 (the cap-5 anatomy) fought a re-acquire lag.
+
+**Fix — two changes in `lockLayer.js`, both surgical because they only alter TIER-3 stackable behaviour (every prior hop/unpainted-first test is a tier-2 boss where organs can't stack, so they pass byte-unchanged):**
+- **In-cone override:** if the dragon is inside the acquire cone of an organ it can still ACT on — paint if unpainted, or STACK if painted with room at tier ≥3 — that organ wins outright over the lead. You point, you get. A DONE organ (painted, no stack room) is still skipped, so it leads you onward (preserves the "never strand on a dead organ" law from L2.15/L2.18).
+- **Stack in place:** after a paint, only `paintHop` (release + embargo) when the organ is DONE (`!stackRoom`). A still-stackable organ keeps the aim, so the held line stacks it via the refresh clock with no embargo lag; it hops on the moment it fills.
+
+**Lesson: "pick vs hunt" isn't a rewrite — it's an OVERRIDE.** The flight-line model already makes "point at it" = "fly the dragon into its cone"; the only thing stealing agency was a lead heuristic + a hop embargo that fired even when the player was deliberately parked on a target. Gating the override on "actionable AND in-cone" let the change be additive: it turns on exactly where the old behaviour frustrated the player (a stackable organ you're sitting on) and is invisible everywhere the old tests already pin (tier-2, done organs, the virtual anchor). When a selection system "won't let me act on what I'm pointing at," add a highest-priority "the thing under the cursor, if actionable" rule rather than re-deriving the whole preference order.
+
+**Verify.** lock.mjs green incl. new T2.20 (tier-3: holding the eye stacks it to 2 pips in place, no lead-away/lag; then hops to the rib once full) — and T2.14/T2.15/T2.17/T2.18 (the tier-2 hop/unpainted-first laws) unchanged; wisps/defs/boss/bossboot/smoke/lockdps/tricount green. Owner feel-judges on the preview: sit on the eye → it paints then stacks under you; fly to a shackle → the reticle follows you, not the auto-lead.
+
+### L213 — KARNVOW CP2 shipped (entrance + riposte + stare-down + trophy paint): the whole fight is DATA + def-gated seams; a fade-in is NOT a dissolve; `transparent:true` is a mask classifier
 
 **Did.** CP2 in one pass, zero un-gated boss.js behavior: `entrance: 'itKeptCount'` (a pure-math
 ENTRANCE_SCRIPTS entry — fades in riding at your shoulder, rel ROCK-STEADY 16 the whole hold, wheels to
@@ -7725,3 +8013,41 @@ announce is static; DYNAMIC text/flare belongs at boss.js's announce dispatch, w
 reveal-hold beats = enterFight + a timer in the fight loop (player in scope there, not in enterFight);
 reflected-arrival interception = the top of damageBoss (kind==='player'); per-phase re-offers = the
 armSetpieceForPhase call site in breakShield; moving setpieces = SETPIECE_PATHS[id](k) returning {x,y,rel,roll}.
+
+### L214 — KARNVOW grandeur redo: a band-PEAK boss can't be a quiet scale-down — the dread move needs an AUTHORED screen-scale visual; presence lives in what the figure CARRIES; violet on bright skies must be saturated, not hot
+
+**Did / learned.** The boss-design audit rated shipped KARNVOW the roster's weakest fight (mid-fight 2/5:
+"a dread move that is a lore-quote with zero authored visual") — the 8→9 grandeur crater. The redo (owner
+decision: Option A, spectacle + proximity, NO size bump — judge, then maybe B) fixed it with zero engine
+seams beyond the ONE already shipped: `model.setSetpiece(k, sdef)`.
+
+1. **A dread CARD is only a name — pair it with a dread SETPIECE at the same atFrac.** Cards drive
+   UI/sfx/scoring; the model never hears them. The roster's dread moves that LAND (ribs, rose, stoop) are
+   all setpieces with `dread: true` driving `setSetpiece`. KARNVOW's *Voidmaw's Verdict* was a card alone =
+   nothing to see. The fix: `{ id: 'voidmawVerdict', atPhase: 2, dur: 7.5, moving: true, dread: true }` +
+   the model keys `sdef.dread`. The card's promise ("fires boss 1's dread card back") became REAL by
+   quoting Voidmaw's P3 attack set verbatim — a def-data one-liner (attacks: aimed/fan/tunnel).
+2. **The seal recipe (screen-scale writing for ONE draw):** LineSegments in rig space between boss and
+   player, traced stroke-by-stroke with `setDrawRange` (the lance "writes" it — order the strokes like a
+   sentence: glyph, tallies, ring last). Hardware lines have no width → ink every stroke ×6 with tight
+   offsets (weight + bloom coverage). Keep the glyph strokes CLEAR of the body silhouette (over the hood
+   they read as scaffolding, not writing — Fable r1). And the two-part sky law: a dark GLOOM pall disc
+   (plain transparent black, NOT additive → G7-exempt) darkens the sky behind the writing, while the
+   strokes stay DEEP-saturated at a moderate multiplier (0x7a3cff ×3.2) — a hot multiplier tone-maps to
+   chalk-pink on pale/sunset (the L192 saturated>bright law, third time it has bitten).
+3. **Presence = what the figure carries breaking the OUTLINE.** The trophy chain at "tight cluster hugging
+   the hip" was numerically wide but READ as a rainbow clump (Fable r1: the Christmas-tree failure). The
+   festoon only reads as a garland once it ends PAST the silhouette edge (~5.8u world, hard-staggered
+   catenary drops, a merged bead-strand chain). L141's field-presence trick, worn instead of flown.
+4. **De-wizard law for staff-adjacent silhouettes:** orb-pommel + peaked hood = "mage with staff" (Fable
+   caught it twice across CP1 and the redo). A hunting lance needs an ELONGATED bladed head (stretched
+   octahedron = the amber organ itself) + swept-back barbs merged into the shaft mesh.
+5. **Spend tris, merge draws:** the redo went 6,455→~9.1k tris while HOLDING 46 draws — the horn-ridge
+   spiral merged INTO the lance geometry paid for the new bead-strand; relief studs (rivets/tally-studs)
+   went in the body merge but OUTSIDE the trim subset so the cold seam-line drawing stayed clean (Fable
+   CP1's "dense wireframe" catch never re-fired). The seal + gloom cost their +1 draw only while the beat
+   runs (visible-draw budgets count `visible === true`).
+6. **The independent design gate caught all six perception failures the data gates can't** (hairline seal,
+   matte-balloon charms, festoon-as-clump, wizard orb, glyph scaffolding, chalk-pink violet) across two
+   FIX rounds — pixel-law gates (G1–G7 ×3 green every round) prove legality, never grandeur. Budget checks,
+   festoon spread, sigil drive/unwrite, and the P3 quote are now data laws in tests/boss.mjs (67 checks).

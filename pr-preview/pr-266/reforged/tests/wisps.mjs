@@ -62,7 +62,7 @@ assert(L.ribbonHalfWMax <= 0.34, `ribbon half-width ${L.ribbonHalfWMax} ≤ 0.34
 assert(L.ribbonRings <= 24, `ribbonRings ${L.ribbonRings} ≤ 24 (buffer-upload budget)`);
 assert(L.wobbleAmp < B.bossHitRadius / 4, `wobbleAmp ${L.wobbleAmp} < bossHitRadius/4 (landing margin)`);
 assertEq(L.lanceFanDeg.length, 6, 'fan table covers the max volley (cap 6 at tier 4+)');
-assert(L.paintCooldown >= 0.3 && L.paintCooldown <= 0.6, `paintCooldown ${L.paintCooldown} within TUNE range [0.3, 0.6]`);
+assert(L.paintCooldown >= 0.15 && L.paintCooldown <= 0.6, `paintCooldown ${L.paintCooldown} within TUNE range [0.15, 0.6]`);
 ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan table, paint cooldown');
 
 // --- T-W2 — convergence + arrival-frame invariance (the coexist proof) --------

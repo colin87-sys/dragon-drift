@@ -317,7 +317,11 @@ export function buildBrineholm(def, quality = 1) {
   // ---- THE BINDING CHAINS + DESTRUCTIBLE SHACKLE POSTS across the SNOUT (§5f
   // mercy mechanic): the beast strains against them. Break one (parry ×3 or
   // gunfire) → it SNAPS + vents; freed early softens phase 3. Named shacklePivots.
-  const SHACKLE_X = [-5.5, 1.5, 6.5];
+  // Outer-post x pulled in from ±5.5/6.5 (world ±8.25/9.75, ~3 m off the ±13 lane
+  // wall — the crash-and-die commit) to ±4.5 (world ±6.75, ~6 m of margin): still
+  // a meaningful LATERAL reach, no longer a suicide run. The paint/lance anchor is
+  // the post node itself, so it follows this array for free (partWorldPos).
+  const SHACKLE_X = [-4.5, 1.5, 4.5];
   const SHACKLE_Y = [-1.5, -2.4, -0.8];
   const shackleRigs = [];
   function buildShacklePost(i, x, y) {

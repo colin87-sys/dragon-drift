@@ -63,7 +63,13 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // carried by bright emissive seam-lines + a lit gorget band + the aperture rim, so
   // it dominates the accent tier over the teal ambient. NOT a `gate.pale` override —
   // KARNVOW is a DARK boss; this is the standard temperature-complement capture.
-  karnvow: 6600 };
+  karnvow: 6600,
+  // WEFTWITCH (§5b slot 11): a moth-grey bust + PALE-GOLD lit-edge/web over her home
+  // ASTRAL sky (~8000m, near-black violet — §7c biome pairing / BIOME-DESIGN.md). The
+  // dark body reads by its gold fresnel rim + spoke-web there, and the near-black
+  // violet keeps the warm accent OUT of a magenta sunset's blue↔orange false-magenta
+  // overlap (the same G3 trap MARROWCOIL avoids at 8000).
+  weftwitch: 8000 };
 
 // --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
 // (tools/bossstudio.html) instead of the contaminated in-game frame — a

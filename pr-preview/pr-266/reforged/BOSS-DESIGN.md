@@ -278,7 +278,11 @@ all 13 others. When a boss ships, flip its row to `shipped`.
 10. **Hue runs out around slot 6–8**: palette identity is allocated on FOUR axes — hue,
     VALUE (a near-white boss vs near-black), temperature, and GLOW-SHAPE (points / lines /
     slit / field / corona-ring). Role colours (danger magenta, parry amber, reflected cyan,
-    surge pink) stay reserved forever.
+    surge pink) stay reserved forever. **The rose-family ruling (slots 11/12/13, decided at
+    slot 11)**: three adjacent sheets all reached for rose — the family stays legal ONLY
+    split across the other axes: 11 = gold/white LINES on grey (pushed OFF rose entirely,
+    accent 0xe8c466), 12 = a near-black rose TRACE, 13 = a bright rose FIELD. A fourth
+    rose ask in the band fails the axis test and must re-hue.
 
 ### Band structure (difficulty and spectacle both ramp; ≤1 new attack id per band)
 
@@ -306,9 +310,9 @@ safe-lane gates exactly once.
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | shipped | **pane-radial ambers → PANE BREAK** (Calamities ORGAN-BREAK reuse): parry a lit pane's amber volley 3× → that pane CRACKS and its radial component is deleted from the composite (rides the §5f destructible-pane plumbing — parry and gunfire sculpt the same window) |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon (side-profile copy) | void-black·star-white + amber focal-eye / scattered points | condenses | shipped | **queen's amber-eye volley → SCATTER STAGGER** (Calamities): parry the eye's amber volley 3× → the queen recoils, the swarm can't re-condense for a 2.5s bonus-damage window (the condensed weak-point stays exposed — parry answers the same condense/scatter puzzle read the fight is built on) |
 | 8 | BRINEHOLM | colossal leviathan head + maw (living/wet — NOT Voidmaw's dead mask) | the one surfacing eye — you fight the FACE, never the body | kelp-black·abalone / bioluminescent gullet + one white eye-point | below-horizon (the head lunges up through the fog) | claimed | **shackle-strain ambers → SHACKLE BREAK** (Calamities ORGAN-BREAK reuse + mercy mechanic): parry a snout shackle post's amber strain-volley 3× → that post SNAPS, vents a 2× pink SPRAY-SOAK graze beat, and frees it EARLY — softening phase 3 (rides the §5f destructible per-part plumbing — parry and gunfire unbind the same post) |
-| 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars + one EMPTY hook | tarnished-iron·cold-glint / multi-hue trophy glints + amber organ | alongside (`side` + flankCutIn moving setpiece) | **shipped** (CP1 merged; CP2 wired: entrance + riposte + holdFlinch + charm paint) | TENNIS RALLY + REFLECT-ONLY SEAL (Calamities showcase, §5i.C) — v1 SHIPPED as reflect-once riposte (once/phase, amber return); full rally + seal deferred (own PR) |
+| 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars + one EMPTY hook | tarnished-iron·cold-glint / multi-hue trophy glints + amber organ | alongside (`side` + flankCutIn moving setpiece) | **shipped** (CP1 merged; CP2 wired; GRANDEUR REDO: authored Voidmaw's-Verdict seal + arena-scale festoon + de-wizarded lance-head) | TENNIS RALLY + REFLECT-ONLY SEAL (Calamities showcase, §5i.C) — v1 SHIPPED as reflect-once riposte (once/phase, amber return); full rally + seal deferred (own PR) |
 | 10 | KNELLGRAVE | hanging pendulum | bound figure as the clapper | patina-copper·candle / vertical slit | pre-heard, fades in | claimed | **RHYTHM PARRY CARD** (WE debut, §5i.C): *The Second Toll* announces a 4–6 amber chain on the TOLL's beat — parry the whole chain on-beat (the toll-chain ambers are the carrier) |
-| 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open | — |
+| 11 | WEFTWITCH | hooded weaver-bust + arena-web (the FIELD is the body, L141) | visibly re-weaves the arena — even the HUD chrome | moth-grey·pale-gold / taut lit lines | above | claimed | **THREAD-CUT → STAGGER** (§5i.C): a taut thread flashes amber pre-fire — cut/parry it staggers her + deletes that laserLance volley |
 | 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused in its chest | ashen-rose·blackened silver | behind, NO warning banner | open | — |
 | 13 | EMBERTIDE | frame-wide band/wave | face surfacing from light | vermilion→rose / full-frame field | the whole horizon | open | — |
 | 14 | THE UNMASKED | eclipse disc → wheels-within-wheels angel | the second sun cracks into an Ophanim: rings of tracking eyes, six scythe-wings, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open | — |
@@ -783,6 +787,31 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   cut in laterally, wheel, settle — zero shots (the ONE granted hold-breaker shot fires in the
   reveal HOLD after enterFight, NOT in the cinematic — two separate beats). Dedicated taunt-card
   UI + shortened rush-repeat variant land with the §5f cost item; v1 ships on bossNote.
+  **GRANDEUR REDO (the audit's 8→9 crater fix, Option A — spectacle, not size):** the dread
+  card *Voidmaw's Verdict* got its AUTHORED visual — a `voidmawVerdict` dread SETPIECE
+  (atPhase 2, moving, paired with the card at the same atFrac): the duelist rises over the
+  lane and the lance WRITES a screen-scale violet SEAL (rune-ring + horn-glyph + three tally
+  slashes; the glyph sits in the ring's upper-right quadrant CLEAR of the silhouette —
+  strokes over the body read as scaffolding, not writing). Seal = LineSegments (G7-exempt,
+  one draw), each stroke inked ×6 for weight, DEEP-saturated violet 0x7a3cff ×3.2 (a hotter
+  multiplier tone-maps to chalk-pink on pale/sunset skies — saturated>bright), traced
+  stroke-by-stroke via drawRange, over a dark GLOOM pall disc (plain transparent black, NOT
+  additive — "the verdict darkens the sky" is what keeps violet legible on hot skies). Every
+  trophy TESTIFIES (ei ~1.7 pulse in its owed palette + a size-pulse so bloom never eats the
+  relic shapes) and the chain links catch a cold rim (the garland's dark half must read on
+  dark skies). P3 QUOTES boss-1's dread set VERBATIM (attacks aimed/fan/tunnel — "fires boss
+  1's dread card back at you"). Plus: the trophy chain rebuilt as an ARENA-SCALE FESTOON
+  (~5.8u world, catenary drops staggered hard, ending PAST the right silhouette edge — a
+  garland must BREAK the outline to read; inside the body mass it collapses to "a hip
+  clump"), the cut-in apex authored (held cross-sweep lance + a chain whip-kick + cloak
+  snap via the same setSetpiece hook), the lance de-wizarded (elongated bladed amber head +
+  two swept-back barbs — the orb-pommel + peaked hood read "mage staff"), and the forged
+  relief spend (dense horn-ridge spiral merged INTO the lance mesh, cowl folds ×8, pauldron
+  rivets, breastplate tally-studs — pushed OUTSIDE the trim subset so the seam-line drawing
+  stays clean). ~9.1k tris @q1 (was 6,455), still 46 draws (the ridge merge paid for the
+  bead-strand; the seal costs its +1 only while the beat runs). Two Fable design-gate rounds:
+  r1 FIX ×6 (hairline seal, matte balloons, festoon-as-clump, wizard orb, glyph scaffolding),
+  r2 FIX ×1 (chalk-pink on bright skies). The FLARE beat now 3.0s at 2.6× (a HELD beat).
   **LORE (Part 3.5):** KARNVOW is the THIEF/collector — it wears TAKEN trophies (Ashtalon's
   feather-blade, relics, one EMPTY hook = the next victim = you). Slot 14 (THE UNMASKED) wears
   the roster's scars as the MAKER (transfer clause: 14 reclaims the horn + feather-blade after 9
@@ -867,15 +896,43 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   strains at the clamp anyway. Snap; the bell wheels down to station, still swinging.
   Keep the body above y≈22 (near-plane clipping); mid-fight the chain-thins-into-empty-sky
   look-up is a free camera-less re-reveal.
-- **11 WEFTWITCH** — mantle bust: hooded triangular shroud (extrude, no legs) with 2 pale
-  hands only; 6 radial spinneret limbs (2-segment tapered tubes on pivots); WEB: taut
-  LineSegments spanning arena to off-screen anchors (overdraw-exempt); gaps visibly stitch
-  shut between waves (thread redraw); laserLance = one thread pulled tight → HDR flash;
-  rose = woven rosette knots. Parry cuts a glowing thread → stagger. Descends from ABOVE
-  on one thread. Moth-grey 0x1e1c22 / rose 0xd88098. ~1.8k tris. NEEDS: above-approach +
-  `top` warning direction (§5e).
+- **11 WEFTWITCH** — hooded, LEGLESS weaver-BUST (a triangular mantle shroud with a pointed
+  hood + a dark face-void aperture, a smooth tapering train below — NO legs), CROWNED by 6
+  spinneret-ARMS fanning UPWARD above the shoulder line in a ≤180° arc (thick, self-lit gold,
+  one smooth up-curve ending in a shuttle/spindle tip — NOT thin radial legs; **the pre-build
+  Fable gate moved them ABOVE the shoulder — NO limb below horizontal is the inviolable
+  anti-spider rule**, re-confirmed by the CP1 gate as the structural fix). 2 OVERSIZED pale
+  HANDS held WIDE (the §4b FACE — articulated fingers, a taut thread strung between them; one
+  long finger points DOWN on notice; the hands orient to the worked lane, the hood follows
+  with LAG). SCAR (§3.6): the snapped 6th spinneret — a thick dead stump frayed mid-length
+  with a cold break-glint (the limb that would have mended the one tear she can't fix → slot
+  14's entry wound). WEB: taut LineSegments spokes to off-screen anchors + a scattered warp
+  lattice (NO concentric orb rings — an orb web is the spider icon), overdraw-exempt, TWO-VALUE
+  (a dark warp fill + a pale hero subset — reads on both dark and bright skies, L122); the
+  FIELD is the body (L141 — judge grandeur on the in-game field-frame, NOT the studio bust).
+  loomHeart = a bounded pale-gold accent glow + a white-hot core at the hub (the emitter organ
+  + the weak point). A pale-gold FRESNEL RIM lights the mantle edge (the §3b lit-edge; L121
+  "reads cleanly on a bright sky", and it clears bossgate G3 danger-magenta on the Astral sky).
+  laserLance = one thread pulled tight → HDR flash — **a beam VISUAL of an existing pattern
+  (aimed), NOT a new attack id** (the WE band's ≤1-new-id budget is left for a sibling —
+  **owner-confirmed at CP2**; the beam is a tapered additive lance AIMED AT THE PLAYER — a
+  down-+z beam foreshortens to a blob head-on, the CP2 integration gate caught it). Parry cuts
+  a taut amber thread → STAGGER + deletes that laserLance volley (SHIPPED, `threadCut`).
+  GRAZE FORM (§5i.B, WE band): **MOTE-HARVEST** — the cut thread blooms into falling
+  surge-motes steered through for Surge, offered once per phase (SHIPPED, rides the
+  slot-7 soak machinery).
+  Descends from ABOVE on one thread. Moth-grey 0x1a1c22 (cool near-black — a purple-grey drifts
+  into the danger band) / pale-gold accent 0xe8c466 (hue ≈43°, off the WE rose-triple) / glow
+  0xf2e2b0. ~8.4k tris @q1 (tier-4 gate 22k; q0.5 ~3.8k). Home biome: **Astral (tenant)**;
+  VOICE: **needle-pull + plucked-string** — a taut-thread pluck per stitch, mid register, the
+  loom's syncopated ticking as signature noise. Rhythm: **SYNCOPATED LOOM** (`syncopated-loom`;
+  off-beat accents + a bimodal breath; REST = her hands keep time silently, a visible measured
+  weave that fires nothing). NEEDS: nothing structural — the HUD-sew overlay + banner-pin,
+  the *Mended Banner* entrance, the thread-cut parry, the mote-harvest graze, and the
+  between-waves gap-restitch all SHIPPED at CP2 (PR #269).
+  **[above-approach + the `top` warning banner are ALREADY SHIPPED — audit #35; do NOT rebuild.]**
   ENTRANCE (§5j *The Mended Banner*, hijack 2.2s @0.35): ambient ~2s, fully playable —
-  thin rose threads lace across the HUD chrome (DOM/SVG above chrome, below bullets — her
+  thin pale-gold threads lace across the HUD chrome (DOM/SVG above chrome, below bullets — her
   granted §5f break), needle-pull sfx. The banner slides in on time, dir top, and is
   LEGIBLE first (so 12's silence still shocks) — then a thread LASHES across it,
   cross-stitching the epithet mid-word; the banner pins half-deployed, quivering
@@ -1314,7 +1371,7 @@ geometry, not an abstract zone) and its card set offers it at least once per pha
 | Sentinels | base roll-reflect + perfect tier (shipped) |
 | Colossi | **ORGAN BREAK** (4: parry a rib-slam's ambers N times → that rib CRACKS, its pattern component deleted — parry as sculptor; reused at 5 on the eye-holder) |
 | Calamities | **TENNIS RALLY + REFLECT-ONLY SEAL** (9, the showcase: it bats your cyan back as one big returnable orb, faster each return; its seal phase makes parry temporarily the only gun with a guaranteed amber diet — the ≤2 seal budget lives here and at 14) |
-| World-Enders | **RHYTHM PARRY CARD** (10: a named card announces a 4–6 amber chain on the TOLL's rhythm — parry the whole chain on its beat) · **BEAM DUEL** (13: Surge ≥50% lets you fire INTO the tide's crest — hold lane-center against drift while beams lock) |
+| World-Enders | **RHYTHM PARRY CARD** (10: a named card announces a 4–6 amber chain on the TOLL's rhythm — parry the whole chain on its beat) · **THREAD-CUT → STAGGER** (11, reuse: a taut thread flashes amber pre-fire — cut/parry it staggers her + deletes that laserLance volley) · **BEAM DUEL** (13: Surge ≥50% lets you fire INTO the tide's crest — hold lane-center against drift while beams lock) |
 | Apex | **STAR PIPS** (perfect parries bank ≤3 stars that multiply the final stage's Surge damage; all lost on a hit) + the medley demands every prior read |
 
 Reserves (designed, unallocated): poise bar, amber bank, zandatsu lane, overload reload,
