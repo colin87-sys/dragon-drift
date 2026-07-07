@@ -380,6 +380,24 @@ export function buildWeftwitch(def, quality = 1) {
   const tautLine = new THREE.LineSegments(tautGeo, tautMat); tautLine.name = 'weftTaut'; tautLine.frustumCulled = false;
   rig.add(tautLine);
 
+  // THE LASERLANCE BEAM (CP2 — owner-confirmed: a beam VISUAL riding the 'aimed'
+  // fire instant, never a new attack id). A single HDR hairline from the loom-heart
+  // down-lane (+z local = toward the player under placeGroup's facing): hairline
+  // grammar matches the web (her lines are threads), and toneMapped:false +
+  // color>1 punches it past bloom — the §3b "brightest moment". Hidden at rest.
+  // A 1px hairline vanished among the web's own threads (integration-gate r2) —
+  // the lance is a thin TAPERED additive cylinder instead: real width, reads from
+  // every angle, ~12 tris, alive only ~0.3s (hidden at rest → G7 never sees it).
+  const beamMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  const beamGeo = new THREE.CylinderGeometry(0.16, 0.42, 1, 6, 1, true);   // tapers toward the target (a lance, not a pipe)
+  beamGeo.rotateX(Math.PI / 2);        // axis → +z (fire direction)
+  beamGeo.translate(0, 0, 0.5);        // origin at the base — position sits AT the muzzle
+  const beamLine = new THREE.Mesh(beamGeo, beamMat); beamLine.name = 'weftBeam'; beamLine.frustumCulled = false; beamLine.visible = false;
+  const BEAM_ORIGIN = new THREE.Vector3(0, 3.4, 4.6);
+  beamLine.position.copy(BEAM_ORIGIN);
+  group.add(beamLine);
+  const _beamDir = new THREE.Vector3(), _beamFwd = new THREE.Vector3(0, 0, 1);
+
   // ---- THE ROSETTE-KNOTS — woven pale-gold knots on the mantle front (LORE motifs
   // of what she's mended). The accent lives HERE, not on the body.
   const rosetteN = lowQ ? 4 : 8;
@@ -484,6 +502,73 @@ export function buildWeftwitch(def, quality = 1) {
   const heroAttr = webHero.geometry.attributes.position;
   const dimBase = dimAttr.array.slice();
   const heroBase = heroAttr.array.slice();
+  // CP2 GAP-RESTITCH: at each phase seam the fight TEARS a sector of her web and
+  // she visibly RE-WEAVES it — the arena-mender identity beat ("she mends what you
+  // break"). The tear MUTATES the BASE arrays (the water-clip pass rewrites the
+  // attributes from base every tick — the contract above — so the tear and the
+  // surface reaction compose for free); pristine copies restore byte-exact when
+  // the mend completes. Sector choice is deterministic per call (no Math.random —
+  // headless tests replay it).
+  const dimBase0 = dimBase.slice();
+  const heroBase0 = heroBase.slice();
+  let restitchT = -1, restitchS0 = 0, restitchCalls = 0;
+  const RESTITCH_W = 7;   // torn sector width, in spokes
+  function restitchWeb() {
+    // restore any in-flight tear first (a fresh phase re-tears cleanly)
+    dimBase.set(dimBase0); heroBase.set(heroBase0);
+    restitchS0 = (restitchCalls * 11 + 3) % N_SPOKE;
+    restitchCalls++;
+    restitchT = 0;
+  }
+  // retraction factor of spoke sIdx this frame (1 = untouched, →0.15 fully torn)
+  function restitchR(sIdx, tear) {
+    const d = ((sIdx - restitchS0) % N_SPOKE + N_SPOKE) % N_SPOKE;
+    if (d >= RESTITCH_W) return 1;
+    const fall = Math.sin(((d + 0.5) / RESTITCH_W) * Math.PI);   // centre tears fully
+    return 1 - tear * fall * 0.85;
+  }
+  function updateRestitch(dt) {
+    if (restitchT < 0) return;
+    restitchT += dt / 2.4;                     // the full tear→mend arc ~2.4s
+    const k = Math.min(1, restitchT);
+    // tear rips fast (0→0.3), the mend re-weaves slow with a settle (0.3→1).
+    const tear = k < 0.3 ? (k / 0.3) : Math.max(0, 1 - (k - 0.3) / 0.6);
+    for (let i = 0; i < RESTITCH_W; i++) {
+      const sIdx = (restitchS0 + i) % N_SPOKE;
+      const r = restitchR(sIdx, tear);
+      const slot = spokeSlots[sIdx], A = anchors[sIdx];
+      const arr = slot.hero ? heroBase : dimBase;
+      const o = slot.off * 3;
+      arr[o + 3] = A.inr.x + (A.out.x - A.inr.x) * r;
+      arr[o + 4] = A.inr.y + (A.out.y - A.inr.y) * r;
+      arr[o + 5] = A.inr.z + (A.out.z - A.inr.z) * r;
+      // the torn spoke's tail parks on its retracted end (degenerate, invisible)
+      const tSlot = tailSlots[sIdx], ta = tSlot.hero ? heroBase : dimBase, to = tSlot.off * 3;
+      ta[to] = ta[to + 3] = arr[o + 3]; ta[to + 1] = ta[to + 4] = arr[o + 4]; ta[to + 2] = ta[to + 5] = arr[o + 5];
+    }
+    // sector stitches ride their spokes' retraction (p = inr + (out−inr)·t·r).
+    for (const st of stitchMeta) {
+      const r0 = restitchR(st.i0, tear), r1 = restitchR(st.i1, tear);
+      if (r0 === 1 && r1 === 1) continue;
+      const A = anchors[st.i0], B = anchors[st.i1];
+      const arr = st.slot.hero ? heroBase : dimBase, o = st.slot.off * 3;
+      arr[o] = A.inr.x + (A.out.x - A.inr.x) * st.t0 * r0;
+      arr[o + 1] = A.inr.y + (A.out.y - A.inr.y) * st.t0 * r0;
+      arr[o + 2] = A.inr.z + (A.out.z - A.inr.z) * st.t0 * r0;
+      arr[o + 3] = B.inr.x + (B.out.x - B.inr.x) * st.t1 * r1;
+      arr[o + 4] = B.inr.y + (B.out.y - B.inr.y) * st.t1 * r1;
+      arr[o + 5] = B.inr.z + (B.out.z - B.inr.z) * st.t1 * r1;
+    }
+    if (restitchT >= 1) {
+      restitchT = -1;
+      dimBase.set(dimBase0); heroBase.set(heroBase0);   // byte-exact pristine restore
+    }
+    // no water plane (studio/tests): the surface pass won't sync — push base→attrs.
+    if (waterWorldY == null) {
+      dimAttr.array.set(dimBase); heroAttr.array.set(heroBase);
+      dimAttr.needsUpdate = true; heroAttr.needsUpdate = true;
+    }
+  }
   function setWaterPlane(y) {
     waterWorldY = (y == null) ? null : y;
     if (waterWorldY != null) {
@@ -641,11 +726,43 @@ export function buildWeftwitch(def, quality = 1) {
   let tautK = 0;   // eased taut-thread tension (0 slack → 1 taut+flashed)
   const _tv = tautGeo.attributes.position;
 
+  // CP2 fight verbs (controller-driven, def-gated in boss.js — inert in studio/tests):
+  // fireBeam() at the 'aimed' release = the laserLance HDR hairline flash; cutThread()
+  // when the 3×-parry lands = the taut thread SNAPS (hands recoil apart, the hood
+  // reels, the thread dies) — the stagger read.
+  let beamT = 0, cutT = 0, cutEase = 0;
+  // fireBeam aims at the PLAYER (local coords fed by boss.js — the beam rides the
+  // aimed volley, so it lances toward you, not down the +z axis where a head-on
+  // camera foreshortens it to a blob; the CP2 integration gate caught that).
+  function fireBeam(tx, ty, tz) {
+    if (cutT > 0) return;
+    beamT = 1;
+    _beamDir.set(tx ?? 0, ty ?? 3.4, tz ?? 44).sub(BEAM_ORIGIN);
+    const len = Math.max(_beamDir.length(), 1);
+    beamLine.quaternion.setFromUnitVectors(_beamFwd, _beamDir.multiplyScalar(1 / len));
+    beamLine.scale.set(1, 1, len);
+  }
+  function cutThread() { cutT = 1; beamT = 0; }
+
   function tickBody(dt, time) {
     if (painT > 0) painT -= dt;
     painEase += (Math.max(0, painT) - painEase) * Math.min(1, dt * 8);
     const noticeK = noticeT > 0 ? clamp01(noticeT / 1.0) : 0;
     if (noticeT > 0) noticeT -= dt;
+    // the laserLance beam decays fast (a flash, not a sustained laser: the DODGE read
+    // stays with the bullets — the beam is pure spectacle at the release instant).
+    beamT = Math.max(0, beamT - dt * 3.2);
+    beamLine.visible = beamT > 0 && dyingK < 0.5;
+    if (beamLine.visible) {
+      beamMat.opacity = Math.min(1, beamT * 1.6);
+      // white-hot core → pale-gold tail as it dies (HDR: >1 with toneMapped:false);
+      // the shaft thins as the flash decays (scale x/y ride beamT, z holds the aim).
+      beamMat.color.copy(loomBase).lerp(new THREE.Color(0xffffff), beamT * 0.8).multiplyScalar(1 + beamT * 3.2);
+      beamLine.scale.x = beamLine.scale.y = 0.35 + beamT * 0.65;
+    }
+    // the cut-thread stagger: eases in hard, releases slow (the ~2.5s strike window).
+    cutT = Math.max(0, cutT - dt * 0.4);
+    cutEase += (clamp01(cutT * 2) - cutEase) * Math.min(1, dt * 9);
 
     // --- THE MEASURED WEAVE (idle): the bust breathes slowly; the hands weave; the
     // loom-heart pulses; agitation rises with charge (fast stitching under pressure).
@@ -662,16 +779,16 @@ export function buildWeftwitch(def, quality = 1) {
     // values were too subtle at fight distance; the LAG stays: snap = turret, lag = a
     // mind at a loom.)
     hoodPivot.rotation.y += (gazeEX * 0.85 - hoodPivot.rotation.y) * Math.min(1, dt * 1.4);   // hood lags
-    hoodPivot.rotation.x = -gazeEY * 0.5 + noticeK * 0.35;   // tilts down on notice/aim
+    hoodPivot.rotation.x = -gazeEY * 0.5 + noticeK * 0.35 - cutEase * 0.4;   // tilts down on notice/aim; REELS back on a thread-cut
 
     // --- THE HANDS: weave in idle; STILL on dread/notice (the §4b "hands still =
     // dread"); recoil on a hit. One long finger POINTS DOWN on notice. ---
-    const stillness = clamp01(noticeK + dreadK);   // 1 = hands frozen
+    const stillness = clamp01(noticeK + dreadK + cutEase);   // 1 = hands frozen (notice/dread/staggered)
     const wv = weave * (1 - stillness) * (0.18 + charge * 0.12);
     for (const side of ['L', 'R']) {
       const sx = side === 'L' ? -1 : 1;
       const hp = handPivots[side];
-      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2;   // track the lane; recoil on hit
+      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2 + sx * cutEase * 2.6;   // track the lane; recoil on hit; thrown APART on a thread-cut
       hp.position.y = HAND_Y + wv * sx + gazeEY * 1.8;
       hp.rotation.z = sx * (0.2 + wv * 0.5) - gazeEX * 0.2;
       hp.rotation.y = sx * (0.5 - stillness * 0.2);
@@ -691,7 +808,7 @@ export function buildWeftwitch(def, quality = 1) {
     // --- THE CHARGE TELL: the hands PULL a thread taut between them; it flashes AMBER
     // (the amber organ + the laserLance HDR flash). Slack in idle, straight on charge.
     // The taut thread pulling straight is a NEW hard line = a silhouette change. ---
-    const tautTarget = clamp01(charge * 1.3 - dyingK);
+    const tautTarget = clamp01(charge * 1.3 - dyingK - cutEase * 2);   // a cut thread cannot be drawn taut
     tautK += (tautTarget - tautK) * Math.min(1, dt * 7);
     // endpoints = the two index fingertips (approx from the hand pivots).
     const lp = handPivots.L.position, rp = handPivots.R.position;
@@ -772,9 +889,10 @@ export function buildWeftwitch(def, quality = 1) {
       threadPivot.scale.setScalar(1);
     }
 
-    // --- THE WEB MEETS THE WATER (fight-context-only; see setWaterPlane above).
-    // Runs LAST so the plane derives from this tick's final transforms (entrance
-    // scale, death sink, pain shudder all included). ---
+    // --- THE GAP-RESTITCH (phase seams) then THE WATER (fight-context-only).
+    // Restitch first (it writes the BASE), water last (it rewrites the attributes
+    // FROM base against this tick's final transforms) — the composition order. ---
+    updateRestitch(dt);
     updateWebSurface(time);
   }
 
@@ -789,7 +907,7 @@ export function buildWeftwitch(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
-    setEntrance, setEntranceSteer, setWaterPlane,
+    setEntrance, setEntranceSteer, setWaterPlane, fireBeam, cutThread, restitchWeb,
     setHealth: kit.setHealth, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     flash, hurt,

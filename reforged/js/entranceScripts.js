@@ -305,6 +305,49 @@ export const ENTRANCE_SCRIPTS = {
       };
     },
   },
+  // WEFTWITCH — THE MENDED BANNER (§5j slot 11, hijack ~2.4s @0.35 dilate). Her
+  // granted rule-break plays OUTSIDE the scene graph: golden threads lace the HUD
+  // chrome and the warn banner is cross-stitched + PINNED half-deployed (both
+  // driven by boss.js on def.hudSew — the sew runs ONLY in this bullet-free
+  // window; the banner tears free at enterFight). In-world she descends on a
+  // single thread: the script HOLDS the group at station and the model's own
+  // setEntrance clock poses the drop (rig y = (1−u)·22) + unfurls the web from
+  // u≈0.4 — so the descent, the web bloom, and the HUD stitching all land as one
+  // gesture. THE DROP (u<0.45): she lowers, watching you. THE LASH (0.45–0.68):
+  // bullet-time dwell — the banner is stitched, the web blooms. THE SETTLE:
+  // the sway damps and she takes her station at the hub.
+  mendedBanner: {
+    dur: 1.7,                  // ~2.4s wall under the @0.35 lash dilate
+    skipTo: 0.8,               // a tap fast-forwards to the settle (web stays bloomed)
+    anchorToDragon: false,     // the loom owns the lane centre; the drop is station-fixed
+    initYaw: null,             // placeGroup's face-player default (a descent has no dive line)
+    eyeLock: false,
+    announce: { title: '◯  ABOVE  ◯', sub: 'THE MENDED BANNER', tone: 'gold', dur: 2.2 },
+    slowWindow: { uIn: 0.45, uOut: 0.68, depth: 0.35 },   // the lash dwells here
+    path(u, ctx) {
+      const { B } = ctx;
+      // Station-holding: x sways like a plumb line on a thread (damping with u);
+      // rel eases in from deep so she resolves out of the sky, not a pop-in.
+      const sway = Math.sin(u * 7.0) * 2.2 * (1 - u);
+      return { x: sway, y: B.fightHeight, rel: L(B.settleGap + 14, B.settleGap, easeInOut(clamp01(u * 1.6))) };
+    },
+    tuck() { return 0; },      // the descent choreography is model-side (setEntrance)
+    yaw() { return 0; },       // she faces the lane square — the loom is the frame
+    // She watches you through the whole drop (the loom-eye + hood + hands track
+    // DOWN at the player rising to meet her, easing level as she settles).
+    gaze(u) { return { gx: 0, gy: -0.7 * (1 - u) }; },
+    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
+    onStart(model) { model.setEntrance?.(0); },
+    // Camera: pitch gently UP at the descending weaver (she rides in high on the
+    // rig offset), easing home through the settle — no rear view.
+    camera(u, pose, player) {
+      const home = clamp01((u - 0.66) / 0.34);
+      return {
+        k: u, bx: pose.x, by: pose.y - 2.5 + home * 2.5, bz: -(player.dist + pose.rel),
+        pivot: 0.22 * (1 - home), blend: 0.28, fov: L(77, 72, home),
+      };
+    },
+  },
 };
 
 // Pure per-frame sampler (for tests + any tooling): returns the full frame a script

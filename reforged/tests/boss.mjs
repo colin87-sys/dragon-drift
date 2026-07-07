@@ -41,6 +41,7 @@ initParticles({ add() {} });   // the disintegration spawns burst particles
 ui.bossBanner = () => {};
 ui.damageFlash = () => {};
 ui.feverStart = () => {};   // surge can now auto-trigger from grazing
+ui.parryPopup = () => {};   // the thread-cut integration sim lands real parries
 
 // Per-band geometry budgets (BOSS-DESIGN.md §5g/§5h): the flat 6,000/34 gate is
 // now keyed off def.tier — tier-1 (Sentinels) keeps the hard 6,000/34; higher
@@ -707,6 +708,11 @@ for (const key of BOSS_ORDER) {
     'weftwitch exposes the two named hand pivots (the hands are the face, §4b)');
   assert(!!ww.group.getObjectByName('weftLoomHeart'), 'weftwitch exposes the named loom-heart (the emitter organ + weak point)');
   assert(!!ww.group.getObjectByName('threadPivot'), 'weftwitch exposes the named threadPivot (the arena web)');
+  // partWorldPos resolves the live loom-heart (the def.muzzle + virtualLockOrgan aim
+  // anchor — the karnvow lesson: a def naming neither lockParts nor a virtual organ
+  // loses the whole LANCE aim/lock verb on this slot).
+  const loomPos = ww.partWorldPos('loomHeart', new THREE.Vector3());
+  assert(loomPos && Number.isFinite(loomPos.z), 'weftwitch partWorldPos resolves the live loomHeart world position (the LANCE aim anchor)');
 
   // L141 — the FIELD is the body: the web must span the arena (the presence number),
   // not sit as a small bust. hullLength() returns the web span in world units.
@@ -800,8 +806,52 @@ for (const key of BOSS_ORDER) {
   for (let i = 0; i < 30; i++) ww.tick(0.05, 3 + i * 0.05);
   assert(core.position.x > preX + 0.3, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.3)`);
 
+  // 5. CP2 FIGHT VERBS — the laserLance beam flash + the thread-cut stagger read.
+  // fireBeam(): the HDR hairline shows at the release instant and decays back out.
+  const beam = ww.group.getObjectByName('weftBeam');
+  assert(!!beam && !beam.visible, 'weftwitch beam exists and is hidden at rest');
+  ww.fireBeam();
+  ww.tick(0.016, 5);
+  assert(beam.visible && beam.material.opacity > 0.5, `weftwitch fireBeam flashes the laserLance hairline (opacity ${beam.material.opacity.toFixed(2)})`);
+  for (let i = 0; i < 60; i++) ww.tick(0.05, 5.1 + i * 0.05);
+  assert(!beam.visible, 'weftwitch beam decays back to hidden (a flash, not a sustained laser)');
+  // cutThread(): the hands are thrown APART (the stagger read) and the beam dies.
+  ww.setGaze(0, 0);
+  for (let i = 0; i < 40; i++) ww.tick(0.05, 8 + i * 0.05);
+  const hl = ww.group.getObjectByName('handPivotL');
+  const preHandX = hl.position.x;
+  ww.fireBeam();
+  ww.cutThread();
+  for (let i = 0; i < 12; i++) ww.tick(0.05, 10 + i * 0.05);
+  assert(hl.position.x < preHandX - 1.2, `weftwitch cutThread throws the hands apart (L hand ${preHandX.toFixed(2)}→${hl.position.x.toFixed(2)})`);
+  assert(!beam.visible, 'cutThread kills the beam (a cut thread cannot lance)');
+
   ww.dispose();
-  ok(`weftwitch water reaction: coexist-untouched, pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} surface tails, loom-eye tracks ✓`);
+  ok(`weftwitch water reaction + fight verbs: pierce ${rawMin.toFixed(0)}→${clipMin.toFixed(2)} clipped, ${tails} tails, loom-eye tracks, beam flashes/decays, cut recoils ✓`);
+}
+
+// §5b GAP-RESTITCH (weftwitch CP2): a phase seam tears a sector of the web (outer
+// endpoints visibly retract toward the hub) and the mend restores the geometry
+// BYTE-EXACT — the arena-mender identity beat, and the base-array contract proof.
+{
+  const ww = buildBoss(BOSSES.weftwitch, 1);
+  ww.tick(0.016, 0.1);
+  const dim = ww.group.getObjectByName('weftWebDim').geometry.attributes.position;
+  const hero = ww.group.getObjectByName('weftWebHero').geometry.attributes.position;
+  const snapD = dim.array.slice(), snapH = hero.array.slice();
+  ww.restitchWeb();
+  for (let i = 0; i < 30; i++) ww.tick(1 / 60, 0.2 + i / 60);   // ~0.5s in — the tear is open
+  let torn = 0;
+  for (let i = 0; i < dim.array.length; i++) if (Math.abs(dim.array[i] - snapD[i]) > 0.5) torn++;
+  for (let i = 0; i < hero.array.length; i++) if (Math.abs(hero.array[i] - snapH[i]) > 0.5) torn++;
+  assert(torn > 6, `the tear visibly retracts the sector mid-arc (${torn} coords moved > 0.5)`);
+  for (let i = 0; i < 160; i++) ww.tick(1 / 60, 0.8 + i / 60);   // ride past the mend (~2.4s total)
+  let drift = 0;
+  for (let i = 0; i < dim.array.length; i++) drift = Math.max(drift, Math.abs(dim.array[i] - snapD[i]));
+  for (let i = 0; i < hero.array.length; i++) drift = Math.max(drift, Math.abs(hero.array[i] - snapH[i]));
+  assert(drift === 0, `the mend restores the web BYTE-EXACT (max drift ${drift})`);
+  ww.dispose();
+  ok(`weftwitch gap-restitch: sector tears (${torn} coords), mend restores byte-exact ✓`);
 }
 
 // KNELLGRAVE (slot 10) — the named-pivot telegraph gate. The PENDULUM SWING is the
@@ -1100,14 +1150,22 @@ for (const key of BOSS_ORDER) {
   {
     let rig = kv.group.getObjectByName('surcoatPivot');
     while (rig.parent && rig.parent !== kv.group) rig = rig.parent;
+    // SEEDED stream: the dart machine rolls Math.random per guard pick, so this
+    // block's outcome depended on every random consumed before it — a latent
+    // flake (observed x-spread 1.02–1.17 on unlucky streams vs the 1.5 bar).
+    // A deterministic LCG pins the darts; the real random restores after.
+    const realRandom = Math.random;
+    let seed = 0x2F6E2B1;
+    Math.random = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000; };
     let minX = Infinity, maxX = -Infinity;
     for (let i = 0; i < 60 * 12; i++) {
       kv.tick(1 / 60, 10 + i / 60);
       if (rig.position.x < minX) minX = rig.position.x;
       if (rig.position.x > maxX) maxX = rig.position.x;
     }
+    Math.random = realRandom;
     assert(maxX - minX > 1.5,
-      `karnvow footwork: the dart machine moves the body between guard positions (x spread ${(maxX - minX).toFixed(2)} > 1.5 over 12s)`);
+      `karnvow footwork: the dart machine moves the body between guard positions (x spread ${(maxX - minX).toFixed(2)} > 1.5 over 12s, seeded)`);
   }
 
   // partWorldPos resolves the live lance tip (the def.muzzle 'lanceTip' aim anchor).
@@ -1158,6 +1216,21 @@ game.health = 100;
 assert(runBoss({}) === 18, 'a dead-on boss bullet hits the player for its damage');
 game.health = 100;
 assert(runBoss({ x: 9, vx: 0 }) === 0, 'a bullet offset across the lane is dodged (misses)');
+
+// §5i.C THREAD-CUT unravel (weftwitch CP2): cutBossAmbers deletes ONLY the live
+// amber (reflectable) boss bullets — a plain boss bullet and a player shot survive
+// (the cut answers the amber read, nothing else).
+{
+  bullets.resetBossBullets();
+  for (let i = 0; i < 3; i++) bullets.spawnBossBullet({ owner: 'boss', x: i, y: 8, rel: 20, vx: 0, vy: 0, vrel: -10, dmg: 5, r: 1, life: 6, reflectable: true });
+  bullets.spawnBossBullet({ owner: 'boss', x: 5, y: 8, rel: 20, vx: 0, vy: 0, vrel: -10, dmg: 5, r: 1, life: 6 });
+  bullets.spawnBossBullet({ owner: 'player', x: 0, y: 8, rel: 5, vx: 0, vy: 0, vrel: 10, dmg: 5, r: 1, life: 6, reflectable: true });
+  const cut = bullets.cutBossAmbers();
+  assertEq(cut, 3, 'cutBossAmbers deletes exactly the 3 live boss ambers');
+  assertEq(bullets.bossBulletCount(), 2, 'the plain boss bullet + the player shot survive the cut');
+  bullets.resetBossBullets();
+  ok('thread-cut unravel: 3 ambers cut in place, plain/player bullets untouched');
+}
 game.health = 100;
 assert(runBoss({ rollInvuln: 0.5 }) === 0, 'barrel-roll i-frames negate a dead-on bullet (the dodge)');
 ok('boss bullets: hit on contact, miss when offset, negated during a roll');
@@ -1416,6 +1489,102 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// §5i.C THREAD-CUT + §5i moteHarvest INTEGRATION (weftwitch CP2): drive a LIVE fight
+// and parry her ambers like a skilled player (roll onto an amber in the reflect
+// window, once per volley) — the third parried volley must CUT the thread: the
+// stagger stills the loom, the woven volley unravels, and the once-per-phase
+// harvest BLOOMS falling motes.
+{
+  game.inBoss = false;
+  game.reset();
+  game.state = 'playing';
+  game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  let cutEvt = null, rolls = 0;
+  on('threadCut', (e) => { if (!cutEvt) cutEvt = e; });
+  let t = 0;
+  for (let i = 0; i < 60 * 150 && !cutEvt; i++) {
+    const dt = 1 / 60;
+    t += dt;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    const st = boss.bossDebugState();
+    if (st.shielded) { game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+    // The skilled parry: an amber in the reflect window → roll on top of it.
+    if (player.rollInvuln <= 0 && !game.feverActive) {
+      const amber = bullets.debugActiveBullets().find((b) => b.owner === 'boss' && b.reflectable && b.rel > 0.5 && b.rel < CONFIG.BOSS.reflectWindow);
+      if (amber) {
+        player.position.x = amber.x; player.position.y = amber.y;
+        player.rollInvuln = 0.1; rolls++;
+      }
+    }
+    if (player.rollInvuln > 0) player.rollInvuln -= dt;
+    boss.updateBoss(dt, player, t);
+  }
+  assert(cutEvt, `weftwitch thread-cut fires after 3 parried volleys (rolls staged: ${rolls}, t ${t.toFixed(1)}s)`);
+  assert(cutEvt.bloomed > 0, `the first cut of the phase blooms the falling harvest (${cutEvt?.bloomed} motes)`);
+  const stCut = boss.bossDebugState();
+  assert(!stCut.charging, 'the loom is STILLED during the cut window (no wind-up runs)');
+  boss.resetBoss();   // tear the live sim down (the next block arms its own encounter)
+  ok(`weftwitch thread-cut integration: 3 parried volleys → cut (${cutEvt.cleared} ambers unravel, ${cutEvt.bloomed} harvest motes bloom, loom stilled) ✓`);
+}
+
+// §5b HUD-SEW render-order LAW + banner-pin lifecycle (weftwitch CP2): the sew and
+// the pinned banner fire ONLY in the bullet-free warn/entrance window and are BOTH
+// cleared by fight start (bullets are WebGL — below all DOM — and cannot exist
+// before phase 'fight', so timing IS the layering proof); a mid-entrance reset also
+// clears; a non-hudSew def gets neither. Recorder stubs on the generic ui seams.
+{
+  const calls = { warn: [], warnClear: 0, sew: 0, sewClear: 0 };
+  const uw = ui.bossWarning, uc = ui.bossWarnClear, us = ui.hudSew, ux = ui.hudSewClear;
+  ui.bossWarning = (...a) => { calls.warn.push(a[4] || null); };
+  ui.bossWarnClear = () => { calls.warnClear++; };
+  ui.hudSew = () => { calls.sew++; };
+  ui.hudSewClear = () => { calls.sewClear++; };
+
+  boss.resetBoss();   // clean slate (belt + braces: the prior sim tears down too)
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  let t = 0, sewnBeforeFight = false, clearedAtFight = false;
+  for (let i = 0; i < 60 * 40; i++) {
+    const dt = 1 / 60; t += dt;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    const st = boss.bossDebugState();
+    if (st.phase !== 'fight' && calls.sew > 0) sewnBeforeFight = true;
+    if (st.phase === 'fight') { clearedAtFight = calls.sewClear > 0 && calls.warnClear > 0; break; }
+    boss.updateBoss(dt, player, t);
+  }
+  assert(calls.warn.length > 0 && calls.warn[0] && calls.warn[0].pin === true, 'weftwitch warn banner is offered PINNED (suppressAutoHide)');
+  assert(sewnBeforeFight, 'the HUD-sew fired during the bullet-free warn/entrance window');
+  assert(clearedAtFight, 'the sew + pinned banner are CLEARED by fight start (both render-order LAW edges)');
+
+  // clears-on-reset: re-arm mid-warn, then tear the encounter down.
+  const clears0 = calls.warnClear + calls.sewClear;
+  game.inBoss = false; game.reset(); game.state = 'playing';
+  boss.forceBoss(player, BOSS_ORDER.indexOf('weftwitch'));
+  boss.updateBoss(1 / 60, player, t + 1);
+  boss.resetBoss();
+  assert(calls.warnClear + calls.sewClear > clears0, 'resetBoss clears the pinned banner + sew (no pin survives a teardown)');
+
+  // coexist: a non-hudSew def (karnvow) never pins, never sews.
+  calls.warn.length = 0;
+  const sews0 = calls.sew;
+  game.inBoss = false; game.reset(); game.state = 'playing';
+  boss.forceBoss(player, BOSS_ORDER.indexOf('karnvow'));
+  for (let i = 0; i < 60 * 20; i++) {
+    player.dist += CONFIG.BOSS.cruiseSpeed / 60;
+    boss.updateBoss(1 / 60, player, t + 2 + i / 60);
+    if (boss.bossDebugState().phase === 'fight') break;
+  }
+  assert(calls.warn.length > 0 && !calls.warn[0], 'a non-hudSew def gets a plain warn banner (no pin option)');
+  assert(calls.sew === sews0, 'a non-hudSew def never fires the HUD-sew (coexist)');
+  boss.resetBoss();
+  ui.bossWarning = uw; ui.bossWarnClear = uc; ui.hudSew = us; ui.hudSewClear = ux;
+  ok('hud-sew LAW: pinned + sewn in the warn window, cleared at fight start AND on reset; karnvow untouched ✓');
 }
 
 // §5f MUSIC-DEATH defeat path: knellgrave (last in BOSS_ORDER) killed the music at
