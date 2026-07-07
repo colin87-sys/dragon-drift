@@ -172,12 +172,19 @@ export function buildKnellgrave(def, quality = 1) {
   // not there at the start. Ornament (frieze/buried/fins/rivets) skips the windows so nothing
   // floats when shed.
   const SHED_YTOP = -1.2, SHED_YBOT = -5.2;
-  const SHED = [
-    { aMid: 0.98, aHalf: 0.44, at: 0.30, mid: -3.2 },   // front-RIGHT (visible, sheds ~P2)
-    { aMid: 0.98 + Math.PI, aHalf: 0.44, at: 0.30, mid: -3.2 },   // back-LEFT, opposite FR — its hole aligns for the through-line
-    { aMid: 5.18, aHalf: 0.44, at: 0.60, mid: -3.2 },   // front-LEFT (visible, sheds ~P3)
-    { aMid: 5.18 - Math.PI, aHalf: 0.44, at: 0.60, mid: -3.2 },   // back-RIGHT, opposite FL
-  ];
+  // THE SHED — the bell loses a big chunk of wall EACH PHASE so the damage reads from the
+  // fight camera, not just up close (owner playtest: "no meaningful difference phase by
+  // phase"). Three FRONT chunks break on a one-per-phase schedule (ruinK 0.15 / 0.38 / 0.60),
+  // spread across the visible face so a DIFFERENT piece of the outline drops each phase; each
+  // is paired with the chunk diametrically behind it (θ+π), shed together, so the break punches
+  // THROUGH to the sky. By the last toll most of the lower wall is gone — a skeleton, not a
+  // bell with a bright crack. Ornament + both walls carve to these windows; plates cover them
+  // at rest (a clean, whole bell at the first toll — the degradation is EARNED).
+  const SHED = [];
+  for (const [aMid, at] of [[0.70, 0.15], [5.40, 0.38], [1.50, 0.60]]) {
+    SHED.push({ aMid, aHalf: 0.36, at, mid: -3.2 });                         // the visible front chunk
+    SHED.push({ aMid: (aMid + Math.PI) % (Math.PI * 2), aHalf: 0.36, at, mid: -3.2 });   // its diametric twin → the sky through-line
+  }
   const angDelta = (a, b) => { let d = Math.abs((a - b) % (Math.PI * 2)); return Math.min(d, Math.PI * 2 - d); };
   const inShed = (a) => SHED.some((s) => angDelta(a, s.aMid) <= s.aHalf);
   for (let i = 0; i < prof.length - 1; i++) {
@@ -359,7 +366,7 @@ export function buildKnellgrave(def, quality = 1) {
     blk.translate(Math.sin(a) * rr, 1.6, Math.cos(a) * rr);
     friezeParts.push(blk);
   }
-  bellGroup.add(new THREE.Mesh(mergeK(friezeParts, 'knellFrieze'), patinaHiMat));
+  if (friezeParts.length) bellGroup.add(new THREE.Mesh(mergeK(friezeParts, 'knellFrieze'), patinaHiMat));
   // THE BURIED — the waist band is a PROCESSION of hunched figure reliefs cast into
   // the bell wall ("It Rings for What It Buried" — the buried are ON the bell; the
   // §4.7 fan-art hook + the lore made ornament). Each: a bowed body, a drooped head,
@@ -377,7 +384,7 @@ export function buildKnellgrave(def, quality = 1) {
     const fold = strip(new THREE.BoxGeometry(0.5, 0.16, 0.18)); fold.translate(0, 0.12, 0.42); parts.push(fold);
     for (const p of parts) { p.rotateY(a); p.translate(Math.sin(a) * rr, -2.1, Math.cos(a) * rr); buriedParts.push(p); }
   }
-  bellGroup.add(new THREE.Mesh(mergeK(buriedParts, 'theBuried'), patinaHiMat));
+  if (buriedParts.length) bellGroup.add(new THREE.Mesh(mergeK(buriedParts, 'theBuried'), patinaHiMat));
   // RIVET STUDS around the relief rings (cast hardware — carved, not scattered).
   const rivetParts = [];
   const NR = lowQ ? 8 : 14;
@@ -390,7 +397,7 @@ export function buildKnellgrave(def, quality = 1) {
       rivetParts.push(riv);
     }
   }
-  bellGroup.add(new THREE.Mesh(mergeK(rivetParts, 'knellRivets'), ironMat));
+  if (rivetParts.length) bellGroup.add(new THREE.Mesh(mergeK(rivetParts, 'knellRivets'), ironMat));
   // BUTTRESS FINS — eight thin cast ribs running the shoulder→waist slope (cathedral
   // verticality; their edges catch rim light as the bell heels on the swing). The
   // crack sector stays bare.
@@ -406,7 +413,7 @@ export function buildKnellgrave(def, quality = 1) {
     fin.translate(Math.sin(a) * rr, -0.9, Math.cos(a) * rr);
     finParts.push(fin);
   }
-  bellGroup.add(new THREE.Mesh(mergeK(finParts, 'buttressFins'), patinaMat));
+  if (finParts.length) bellGroup.add(new THREE.Mesh(mergeK(finParts, 'buttressFins'), patinaMat));
 
   // ---- DRAPED BROKEN CHAINS off the lip rim (chunky — chain-language in the resting
   // outline, away from the crack sector).
@@ -729,12 +736,16 @@ export function buildKnellgrave(def, quality = 1) {
     [0.15, 7.1, -4.2], [-1.05, 8.0, -4.6], [-0.65, 6.6, 0.6], [-1.8, 7.5, -0.2],
   ];
   const N_SHARD = lowQ ? 4 : 8;
+  // the debris is EARNED: the bell starts WHOLE (owner: "in the intro the bell is full without
+  // damage") — no floating shards at full hp. Each shard has a `born` ruin threshold and pops
+  // in (scale) as the bell breaks, so the cloud of torn wall THICKENS phase by phase.
+  const shardMat = track(patinaHiMat.clone()); shardMat.transparent = true;
   for (let i = 0; i < N_SHARD; i++) {
     const [saz, srad, sh] = SHARD_SPOTS[i];
     const geo = strip(new THREE.BoxGeometry(0.55 + (i % 3) * 0.22, 0.8 + (i % 2) * 0.35, 0.14));
-    const m = new THREE.Mesh(geo, patinaHiMat);
-    m.name = 'bellShard';
-    m.userData = { az: saz - 0.19, rad: srad, h: sh, ph: i * 1.31, tum: 0.25 + (i % 3) * 0.12 };
+    const m = new THREE.Mesh(geo, shardMat);
+    m.name = 'bellShard'; m.visible = false;   // hidden until the ruin births it
+    m.userData = { az: saz - 0.19, rad: srad, h: sh, ph: i * 1.31, tum: 0.25 + (i % 3) * 0.12, born: 0.06 + (i / N_SHARD) * 0.6 };
     bellGroup.add(m);
     bellShards.push(m);
   }
@@ -1006,6 +1017,12 @@ export function buildKnellgrave(def, quality = 1) {
     // they sink with the swing's decay. ---
     for (const sh of bellShards) {
       const u = sh.userData;
+      // born by the ruin: hidden until its threshold, then a quick scale-in (a torn piece
+      // joining the weightless cloud). Full hp → no shards → a whole bell.
+      const sv = clamp01((ruinK - u.born) / 0.08);
+      sh.visible = sv > 0.01;
+      if (!sh.visible) continue;
+      sh.scale.setScalar(sv);
       const rr = u.rad + ruinK * 1.2 + dreadK * 1.6 + Math.sin(time * 0.4 + u.ph) * 0.25;
       sh.position.set(
         Math.sin(u.az) * rr,

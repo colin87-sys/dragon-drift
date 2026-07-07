@@ -8119,3 +8119,28 @@ G1-G7 PASS · restitch/bloom/eye captures reviewed. PR 2 (entrance) follows. Own
 **Lesson: a "weak-point window" and a "lock-layer seal" are different scopes that a single boolean loves to conflate — gate the DAMAGE at the layer if you must, but seal only the ONE organ for painting, and name that organ in data so a lint can prove the coupling stays honest.**
 
 **Verify.** defs.mjs green incl. the new eyeOrgan invariant; lock/boss/wisps/entrance/bossboot/smoke/gold-det/tricount all green (paint scope is render/gate logic — kill-times byte-stable, tricount unchanged). Owner feel-judges "can I keep tagging the shackles while his eye's down?" on the preview.
+
+### L218 — KNELLGRAVE damage-readability: escalation the FIGHT CAMERA can't see doesn't exist — start clean, break the SILHOUETTE, one chunk per phase
+Owner playtested the shipped ruin ladder with a screenshot per phase: "the bell's full in the
+intro but already damaged by the fight, and I see no meaningful difference phase to phase." The
+ladder was mechanically fine (crack width, shed panels, sky-pour all driven by `ruinK=1−hp`) and
+verified in close-up captures — but it FAILED at the actual fight distance. Two reasons, both
+about where the eye is:
+1. **It never started clean.** The candle-crack AND the floating bell-shards were on the model
+   at full hp (an "ancient cracked bell"). From the fight camera the shards read as battle
+   damage that was there before a shot landed. Fix: the debris is EARNED — each shard gets a
+   `born` ruin threshold and scale-pops in as the bell breaks, so full-hp = a whole bell (the
+   intro read the owner wanted), and the debris cloud THICKENS phase by phase (the clearest
+   per-phase signal — 0 → few → many).
+2. **The breaks were mid-body, so the SILHOUETTE never changed.** The shed holes sat on the
+   waist flanks — behind the bell's bulk from below, invisible at distance; only the recognizable
+   bell OUTLINE reads that far out, and it stayed a whole bell all fight. Fix: bigger chunks on a
+   ONE-PER-PHASE schedule (ruinK 0.15/0.38/0.60, spread across the visible face so a different
+   piece drops each phase), baring the scaffold cage — the outline visibly hollows out.
+Verification lesson: judge this from a FIGHT-DISTANCE, looking-UP camera, not a studio close-up.
+`tools/bossview.html` has an `hp` dial → drive `renderState({hp, pitch})` at 4 levels and compare
+the silhouettes; the close-up captures that passed the CP gates completely hid this failure.
+Gotcha: carving MORE shed windows (2 pairs → 3) meant that at lowQ, where ornament counts are
+small, EVERY buttress fin fell inside a shed/crack sector → `finParts` empty → `mergeGeometries([])`
+throws on `geometries[0].index`. Any sector-skipping ornament loop needs an `if (parts.length)`
+guard once shed windows can cover most of the circle.
