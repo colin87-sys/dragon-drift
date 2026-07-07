@@ -1290,7 +1290,13 @@ export function startBossEncounter(player, defOverride) {
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
     : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
-  ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
+  // §5b WEFTWITCH rule-break (def.hudSew): the warn banner is cross-stitched and
+  // PINNED half-deployed (no auto-hide — it tears free at enterFight), and the
+  // golden HUD-SEW threads lace the chrome. RENDER-ORDER LAW: bullets are WebGL
+  // (below all DOM) and cannot exist before phase 'fight' — firing both HERE, in
+  // the warn window, and clearing at enterFight IS the never-over-bullets proof.
+  ui.bossWarning?.(def.name, def.title, dir, B.warnTime, def.hudSew ? { pin: true } : null);
+  if (def.hudSew) ui.hudSew?.(def.accent);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
   emit('bossStart', { id: def.id });
@@ -1467,6 +1473,12 @@ function enterFight() {
   cameraCtl.setOvertake?.(null);      // release the cinematic camera if it was active
   model.setEyeLock?.(false);          // hand the pupil back to the idle gaze
   ui.cinematicHold?.(false);          // restore the gameplay HUD
+  if (def.hudSew) {
+    // the pinned banner TEARS FREE as the fight starts (the sew must be gone
+    // before the first bullet exists — the render-order LAW's other half).
+    ui.bossWarnClear?.();
+    ui.hudSewClear?.();
+  }
   attackTimer = rand(0.9, 1.3);
   model.setHealthBarVisible(true);
   model.setHealth(0);
@@ -3079,6 +3091,7 @@ export function resetBoss() {
   cameraCtl.setOvertake?.(null);
   model?.setEyeLock?.(false);
   ui.cinematicHold?.(false);
+  ui.bossWarnClear?.(); ui.hudSewClear?.();   // §5b hudSew: no pinned banner/threads survive a teardown
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });

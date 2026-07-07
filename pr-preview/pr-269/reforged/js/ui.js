@@ -492,6 +492,12 @@ export const ui = {
       </div>
       <div class="milestone-banner" id="milestone-banner"></div>
       <div class="danger-glow" id="danger-glow"></div>
+      <!-- §5b WEFTWITCH HUD-SEW: golden threads stitch across the chrome ONCE at her
+           entrance. RENDER-ORDER LAW: bullets live in the WebGL canvas BELOW all DOM,
+           so this overlay must never run during 'fight' — the controller fires it
+           only in the bullet-free warn/approach window and tears it down at
+           enterFight; the TIMING is the layering guarantee. -->
+      <svg class="hud-sew" id="hud-sew" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="boss-warn" id="boss-warn">
         <div class="boss-warn-alert">⚠ WARNING ⚠</div>
         <div class="boss-warn-name" id="boss-warn-name"></div>
@@ -555,6 +561,7 @@ export const ui = {
       grazeHud:     root.querySelector('#graze-hud'),
       grazeN:       root.querySelector('#graze-n'),
       bossWarn:     root.querySelector('#boss-warn'),
+      hudSew:       root.querySelector('#hud-sew'),
       bossWarnName: root.querySelector('#boss-warn-name'),
       bossDanger:   root.querySelector('#boss-danger'),
       dangerGlow:   root.querySelector('#danger-glow'),
@@ -907,19 +914,65 @@ export const ui = {
   // Dramatic incoming-boss warning shown across the warn + approach beats: a
   // flashing WARNING, the boss name, and the direction it's coming from, plus a
   // red danger glow on that edge so the player can clear the space.
-  bossWarning(name, title, dir, duration = 3) {
+  bossWarning(name, title, dir, duration = 3, opts = null) {
     if (els.bossWarnName) els.bossWarnName.textContent = name;
     const hide = (el) => el && el.classList.remove('show');
-    if (els.bossWarn) els.bossWarn.classList.add('show');
+    if (els.bossWarn) { els.bossWarn.classList.add('show'); els.bossWarn.classList.remove('pinned'); }
     // Big foreboding DANGER + hazard stripes anchored WHERE the boss emerges, plus
     // a matching directional glow, so the player clears exactly that space.
     if (els.bossDanger) { els.bossDanger.dataset.pos = dir; els.bossDanger.classList.add('show'); }
     if (els.dangerGlow) { els.dangerGlow.dataset.dir = dir; els.dangerGlow.classList.add('show'); }
     clearTimeout(this._bossWarnTO);
-    this._bossWarnTO = setTimeout(() => {
-      hide(els.bossWarn); hide(els.bossDanger); hide(els.dangerGlow);
-    }, duration * 1000);
+    if (opts && opts.pin) {
+      // §5b WEFTWITCH banner-pin (her granted rule-break): the banner is CROSS-
+      // STITCHED in place, half-deployed — no auto-hide. It stays pinned until
+      // bossWarnClear() tears it free (enterFight / skip / resetBoss all clear).
+      this._bossWarnTO = null;
+      els.bossWarn?.classList.add('pinned');
+    } else {
+      this._bossWarnTO = setTimeout(() => {
+        hide(els.bossWarn); hide(els.bossDanger); hide(els.dangerGlow);
+      }, duration * 1000);
+    }
     sfx.milestone?.();
+  },
+
+  // Explicit warn-banner clear (the pinned banner's tear-free). Idempotent; safe
+  // when nothing is showing — every teardown path may call it unconditionally.
+  bossWarnClear() {
+    clearTimeout(this._bossWarnTO);
+    this._bossWarnTO = null;
+    for (const el of [els.bossWarn, els.bossDanger, els.dangerGlow]) el && el.classList.remove('show');
+    els.bossWarn && els.bossWarn.classList.remove('pinned');
+  },
+
+  // §5b WEFTWITCH HUD-SEW: build + play the golden stitch threads across the chrome
+  // (SVG stroke-dasharray draw-on — the stamina-arc technique). One shot; the
+  // controller owns WHEN (bullet-free entrance window only) and the teardown.
+  hudSew(accentHex = 0xe8c466) {
+    const svg = els.hudSew;
+    if (!svg) return;
+    const col = '#' + (accentHex >>> 0).toString(16).padStart(6, '0');
+    // Deterministic lace: corner + top-seam stitches in 0..100 viewBox percent
+    // coords (resolution-independent; strokes stay px via non-scaling-stroke).
+    const THREADS = [
+      'M -2,8 L 18,4 L 34,9 L 52,3',
+      'M 102,7 L 84,3 L 66,8 L 52,3',
+      'M -2,26 L 10,18 L 26,22',
+      'M 102,24 L 90,17 L 74,21',
+      'M 30,-2 L 42,12 L 58,6 L 70,-2',
+      'M -2,88 L 14,94 L 30,90',
+      'M 102,90 L 86,95 L 70,91',
+    ];
+    svg.innerHTML = THREADS.map((d, i) => `<path d="${d}" pathLength="100" style="animation-delay:${(i * 0.13).toFixed(2)}s"/>`).join('');
+    svg.style.stroke = col;
+    svg.classList.add('on');
+  },
+  hudSewClear() {
+    const svg = els.hudSew;
+    if (!svg) return;
+    svg.classList.remove('on');
+    svg.innerHTML = '';
   },
 
   // FromSoft-style reveal card: fires once as the fight actually starts (settle

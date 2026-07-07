@@ -899,6 +899,13 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'above',    // SHIPPED branch (audit #35 — do NOT re-implement): she descends on a single thread
     startDepth: 26,           // §5d: the descent starts high (y≈+26) — she lowers to station on one thread
+    entrance: 'mendedBanner', // §5j scripted arrival (CP2): the thread-descent + the banner lash (entranceScripts.js)
+    // §5b GRANTED RULE-BREAK (registry row 11: "re-weaves the arena — even the HUD
+    // chrome"): golden threads stitch across the HUD ONCE at her entrance and the
+    // warn banner is cross-stitched + PINNED half-deployed until enterFight tears
+    // it free. RENDER-ORDER LAW: fired only in the bullet-free warn window,
+    // cleared before the first bullet can exist (boss.js owns both edges).
+    hudSew: true,
     scale: 1.3,               // medium bust — presence is the WEB, not the body mass (L141); TUNE in studio
     // §5i CANCEL-CONVERT MOTE HARVEST: a cut thread blooms into falling surge-motes;
     // steer the bloom to harvest (offered once per phase). Def-gated (reuses slot 6's
