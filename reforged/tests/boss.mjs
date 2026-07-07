@@ -922,6 +922,86 @@ for (const key of BOSS_ORDER) {
   ok('knellgrave music-death: kill→zero, restore→back, both idempotent, resetBoss restores ✓');
 }
 
+// KARNVOW (slot 9, Tier-3 PEAK) — the named-pivot telegraph gate (§7b): the LANCE
+// is the silhouette's dominant diagonal AND the charge telegraph. setCharge(1) must
+// snap the lance from couched to point (a lancePivot rotation = a silhouette
+// change); the cowl/lance-tip/chain pivots must all exist (the emotion + organ +
+// swing rig the controller drives). The lance is one part, three jobs (§5f).
+{
+  const kv = buildBoss(BOSSES.karnvow, 1);
+  // Named pivots the telegraph + charisma + organ rig depend on.
+  const lancePivot = kv.group.getObjectByName('lancePivot');
+  assert(!!lancePivot, 'karnvow exposes the named lancePivot (the couch→point telegraph)');
+  assert(!!kv.group.getObjectByName('lanceTip'), 'karnvow exposes the named lanceTip (the amber-emitting organ / def.muzzle)');
+  assert(!!kv.group.getObjectByName('cowlPivot'), 'karnvow exposes the named cowlPivot (the player-tracking hood + focal glint)');
+  assert(!!kv.group.getObjectByName('chainPivot'), 'karnvow exposes the named chainPivot (the swinging trophy chain)');
+
+  // Telegraph: setCharge(1) snaps the lance to POINT — a real silhouette change on
+  // the dominant diagonal (couched-low pitch lifts toward level).
+  for (let i = 0; i < 30; i++) kv.tick(0.05, i * 0.05);   // settle the couched rest pose
+  const preLance = lancePivot.rotation.x;
+  kv.setCharge(1);
+  for (let i = 0; i < 20; i++) kv.tick(0.05, 2 + i * 0.05);
+  assert(lancePivot.rotation.x < preLance - 0.3,
+    `karnvow lance snaps couch→point on charge (lancePivot.rot.x ${lancePivot.rotation.x.toFixed(3)} < ${preLance.toFixed(3)} − 0.3 — the dominant-diagonal silhouette change)`);
+  kv.setCharge(0);
+
+  // CP1.5 tell FAMILIES (owner fix: one pose per attack, not one animation): under
+  // charge, 'crossfire' sweeps the lance ACROSS (yaw differs from aimed's point) and
+  // 'stream' rolls it into the overhead flourish (roll differs) — machine-checked
+  // silhouette variety, keyed off the setAttackTell hook boss.js already calls.
+  kv.setAttackTell('aimed');
+  kv.setCharge(1);
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 4 + i * 0.05);
+  const yAimed = lancePivot.rotation.y, zAimed = lancePivot.rotation.z;
+  kv.setAttackTell('crossfire');
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 6 + i * 0.05);
+  const ySweep = lancePivot.rotation.y;
+  assert(Math.abs(ySweep - yAimed) > 0.4,
+    `karnvow crossfire tell SWEEPS the lance across (yaw ${ySweep.toFixed(2)} vs aimed ${yAimed.toFixed(2)} — Δ>0.4)`);
+  kv.setAttackTell('stream');
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 8 + i * 0.05);
+  const zFlourish = lancePivot.rotation.z;
+  assert(Math.abs(zFlourish - zAimed) > 0.3,
+    `karnvow stream tell rolls the overhead FLOURISH (roll ${zFlourish.toFixed(2)} vs aimed ${zAimed.toFixed(2)} — Δ>0.3)`);
+  kv.setAttackTell(null);
+  kv.setCharge(0);
+
+  // CP1.5 de-clutter (owner fix): the trophy chain hangs at the LEFT hip — the
+  // side OPPOSITE the lance grip (lancePivot x=+1.15) — so the charms jiggle clear
+  // of the weapon arm.
+  const chainP = kv.group.getObjectByName('chainPivot');
+  assert(chainP.position.x < 0, `karnvow chainPivot at the LEFT hip, opposite the lance grip (x ${chainP.position.x.toFixed(2)} < 0)`);
+  assert(!!kv.group.getObjectByName('surcoatPivot'), 'karnvow exposes the named surcoatPivot (the segmented-skirt root)');
+  assert(!!kv.group.getObjectByName('skirtSeg2'), 'karnvow skirt is a segmented cloth chain (skirtSeg2 exists)');
+  assert(!!kv.group.getObjectByName('cloakPivot0'), 'karnvow exposes the cloak pivot chain (cloakPivot0)');
+  assert(!!kv.group.getObjectByName('cloakStrip'), 'karnvow cloak strip mesh exists');
+
+  // ROUND-3 FOOTWORK: over a ~12s headless run the dart machine must visit ≥2
+  // distinct guard positions (the rig actually MOVES — the nimble-hunter contract,
+  // owner verdict "stiff, for a hunter meant to be agile"). rig = group.children[0]
+  // isn't guaranteed — find it as surcoatPivot's ancestor under group.
+  {
+    let rig = kv.group.getObjectByName('surcoatPivot');
+    while (rig.parent && rig.parent !== kv.group) rig = rig.parent;
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < 60 * 12; i++) {
+      kv.tick(1 / 60, 10 + i / 60);
+      if (rig.position.x < minX) minX = rig.position.x;
+      if (rig.position.x > maxX) maxX = rig.position.x;
+    }
+    assert(maxX - minX > 1.5,
+      `karnvow footwork: the dart machine moves the body between guard positions (x spread ${(maxX - minX).toFixed(2)} > 1.5 over 12s)`);
+  }
+
+  // partWorldPos resolves the live lance tip (the def.muzzle 'lanceTip' aim anchor).
+  const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
+  assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
+
+  kv.dispose();
+  ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def

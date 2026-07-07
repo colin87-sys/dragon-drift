@@ -258,7 +258,15 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   assert(lock.paintFromParry('C') === false, 'cap-full snap of a NEW organ is refused');
   lock.updateLockLayer(0.06, p0, mkCtx({ deflected: true }));
   assert(lock.paintFromParry('B') === false, 'sealed boss refuses the snap (sealed honesty)');
-  ok('T-V4b paintFromParry: C3 venting paint, refresh, cap, sealed-refusal');
+  // PR6 type-guard: a NUMERIC tag (hollowgate pane amber) can never become a
+  // phantom pip — callers bridge indices to node names first.
+  lock.updateLockLayer(0.06, p0, mkCtx());
+  assert(lock.paintFromParry(3) === false && lock.lockCount() === 2,
+    'numeric snap tag is refused (no phantom pip)');
+  // PR6 dropLockPart: a destroyed destructible organ sheds its brand silently.
+  assert(lock.dropLockPart('A') === true && lock.lockCount() === 1, 'dropLockPart removes the dead organ\'s pip');
+  assert(lock.dropLockPart('Z') === false, 'dropLockPart on an unbranded organ is a no-op');
+  ok('T-V4b paintFromParry: C3 venting paint, refresh, cap, sealed-refusal, numeric guard, corpse-drop');
 }
 
 // --- T-F1 — V5 FOCUS halves the effective dwell (PR5) --------------------------

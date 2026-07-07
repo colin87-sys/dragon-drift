@@ -51,7 +51,19 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // EITHERWING (§5b slot 5): OXBLOOD + aged-silver over the warm AMBER WASTES sunset
   // (dist ~2250, biome index 1) — its home sky per the r9 spec + §7c sunset backdrop; the
   // warmest sky in the cycle is the hardest test for the warm-dark accents (L140/L141).
-  eitherwing: 2250 };
+  eitherwing: 2250,
+  // KARNVOW (§5b slot 9): the COLD-STEEL·dark Trophy-Duelist. §5h biome pairing =
+  // a COLD accent needs a COOL, ACCENT-ALIGNED sky, or (a) its cold edges/bloom fringe
+  // false-magenta on a warm horizon (the symmetric twin of the ashtalon/marrowcoil
+  // warm-boss-cool-sky trap, line 40-49), and (b) a non-blue ambient (e.g. teal)
+  // pollutes the accent tier with off-hue pixels and flakes the G3 attribution.
+  // LUMEN MIRE (dist ~6600, biome index 4, teal horizon 0x3fd8b0) is BRIGHT (the dark
+  // silhouette reads — §3b.7 wants a dark boss on a bright complementary sky) and COOL
+  // (the cold-glint bloom never fringes danger-magenta — zero). The cold identity is
+  // carried by bright emissive seam-lines + a lit gorget band + the aperture rim, so
+  // it dominates the accent tier over the teal ambient. NOT a `gate.pale` override —
+  // KARNVOW is a DARK boss; this is the standard temperature-complement capture.
+  karnvow: 6600 };
 
 // --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
 // (tools/bossstudio.html) instead of the contaminated in-game frame — a
@@ -221,7 +233,13 @@ const DUMP = process.env.GATE_DUMP;   // set to a dir to dump the captured frame
 // and the mask lines up exactly (proven: 4/4 frames identical). Restricted to
 // pale defs so the shipped DARK bosses (whose sky-blend is already dark, and one
 // of whose G1 clusters sits right on its ceiling) capture byte-identically.
-const CAPTURE_FREEZE = !!gate.pale;
+// `gate.freeze` (additive, KARNVOW r3): fast MOVERS hit the SAME two-frame race —
+// the trophy-duelist DARTS ±4.4u in ~0.3s (~15u/s), sliding its small focal glint
+// off the projected mask between the grabs (G1 flaked 255↔239 with a 0% cluster —
+// the glint simply wasn't where the mask said the body was). Freezing samples the
+// mask + screenshot at ONE pose; no threshold changes. Shipped defs carry neither
+// flag → byte-identical captures.
+const CAPTURE_FREEZE = !!gate.pale || !!gate.freeze;
 async function grab(tag) {
   if (CAPTURE_FREEZE && !STUDIO) await page.evaluate(() => { const g = window.__dd.game; if (g.state === 'playing') { g.__gateFrozen = true; g.state = 'paused'; } });
   const mask = await page.evaluate(extractMask);
