@@ -73,7 +73,7 @@ const SPECS = {
     architecture: 'silk fin lobes',
     wingElements: [3, 3, 4],                     // §3 col 3: 3 lobes (forms 0–1) → 4 lobes (apex) — per-form count
     separation: 'notch',                         // §3 jade metric: overlap permitted; tip NOTCHES separate (depth ≥0.3× lobe len), NOT planform root gaps
-    triTargets: [2300, 4150, 5400],              // §5d ~targets (serpent torso + the lofted koi-head shell lifts the mid form; see PR)
+    triTargets: [3400, 4750, 5350],              // §5d ~targets (the koiSerpent segment-chain body: many small overlapped sections for a smooth flowing eel; still well under the tricount budget)
     // head:body — §4 jade bands (long serpent: 1:2.8–3.2 / 1:4.5–5.5 / 1:7.5–9.5).
     headBody: [[2.8, 3.2], [4.5, 5.5], [7.5, 9.5]],
     // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled UP to 0.32

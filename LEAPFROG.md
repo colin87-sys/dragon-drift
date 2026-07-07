@@ -6458,3 +6458,29 @@ loved hero) + the koiSkull head are untouched — they mount at the front and LE
 for it (not a loft) whenever the creature must *swim/slither*, and fold the tail into the chain so it's
 continuous by construction. Verify motion on the PR preview every time; the headless suite proves geometry,
 never life.
+
+---
+
+## L173 — Human motion notes on the koiSerpent (iterating what the gate can't see)
+
+Second in-game pass (PR #268 preview), three notes — all motion/read issues invisible to §8:
+
+1. **"Looks like the astral-worm body, which I hated — creepy."** The overlapping-SPHERE chain I
+   borrowed from crystalSerpent reads as a string of beads / a caterpillar. **Fix without losing the
+   working `bodySegs` undulation:** a `segDensity` dial that packs MANY more, smaller, heavily-overlapped
+   sections at the SAME total length (N×SPACE held constant, so the §4 head:body bands are untouched) +
+   near-round cross-sections (drop the elongated/bulbous per-segment scale). Dense heavy overlap = the
+   silhouette is a smooth continuous tube, not distinct beads. The bead-chain "worm" pop comes from
+   VISIBLE segment waisting — kill it with overlap + roundness, not fewer segments.
+2. **"Shouldn't the wings flap together?"** dragon.js never animated jade's silk-fin LOBES at all (only
+   the whole-fan pivot tilted, and the tip used an asymmetric L/R phase). Added a SYMMETRIC per-lobe
+   ripple (both fans open together, per-lobe lag down the fan → a travelling koi-fin breath), keyed on
+   `parts.wingLobePivotsL/R` so it's jade-only (every other dragon byte-identical). The furl group is the
+   animation child; the static rake lives on its parent `rest` group, so the ripple composes cleanly.
+3. **"Needs more fluidity / more lag."** Bumped `segmentLag` 0.16→0.30 (the tail trails the head further
+   → a longer, more fluid travelling wave) and the density gives the wave finer samples.
+
+**Reusable:** when the human says "creepy worm," the lever is smoothness of the SKIN silhouette (overlap +
+round sections), not the motion mechanism — keep the `bodySegs` wave, change what it's wrapped in. And a
+per-part symmetric ripple keyed on a nullable parts handle is the clean way to add creature-specific
+in-flight motion without forking the shared wing code.

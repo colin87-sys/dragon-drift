@@ -217,9 +217,13 @@ export const DRAGONS = {
       // fix for "it doesn't even move." The tail is the tapering REAR of this same
       // chain (parts.tail:'none'), so it can never detach. Wide, slow river-S.
       bodyGirth: 0.58, bodyLength: 1.0, bodyGlow: 0.10, bodyRim: 0.3, bodyShadowColor: 0x0d5c3a,
+      segDensity: 1.7,     // MANY small, heavily-overlapped sections → a smooth flowing eel (NOT the astral-worm bead-chain), and a finer travelling ripple
       segmentSway: 0.42,   // generous lateral S — the serpent read is the wave, not a pose
       segmentBob: 0.05,    // keep it mostly lateral (a river-swim glide, barely any up/down)
-      segmentLag: 0.16,    // phase lag down the chain → a clean travelling wave
+      segmentLag: 0.30,    // MORE lag down the chain → a longer, more fluid travelling wave (the tail trails further behind the head)
+      // silk-fin fans RIPPLE symmetrically in flight (dragon.js) so both fans beat TOGETHER,
+      // each koi lobe breathing open→closed with a per-lobe lag (a lazy koi-fin undulation).
+      lobeRippleAmp: 0.2, lobeRippleLag: 0.7, lobeRippleSpeed: 0.5,
       headArchetype: 'softStealth',      // rounded wedge skull + large soft calm eyes + swept ear-fins — the river-dragon read
       headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
       cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight (gate r1 dir 9; no more blank doll orb)

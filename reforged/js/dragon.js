@@ -40,6 +40,8 @@ let wingPivot2L = null;
 let wingPivot2R = null;
 let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
 let wingRigR = null;
+let wingLobePivotsL = null;  // jade silk-fin per-lobe furl pivots ({pivot,idx,side}), null otherwise
+let wingLobePivotsR = null;
 let wingBladePivotsL = null;  // blade-feather comb per-blade lag pivots, null otherwise
 let wingBladePivotsR = null;
 let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
@@ -166,6 +168,8 @@ export function createDragon(scene, def, riderDef) {
   wingRigR = result.parts.wingRigR || null;
   wingBladePivotsL = result.parts.wingBladePivotsL || null;
   wingBladePivotsR = result.parts.wingBladePivotsR || null;
+  wingLobePivotsL = result.parts.wingLobePivotsL || null;
+  wingLobePivotsR = result.parts.wingLobePivotsR || null;
   tailFins = result.parts.tailFins || [];
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
@@ -733,6 +737,27 @@ export function updateDragon(dt, player, time) {
       const fr = arr.length > 1 ? b.idx / (arr.length - 1) : 0;
       const sw = Math.sin(phase - 0.5 - fr * 0.9) * (0.05 + 0.09 * fr);
       b.pivot.rotation.z = damp(b.pivot.rotation.z, b.side * (0.02 + 0.10 * fr) + sw, 12, dt);
+    }
+  }
+  // JADE silk-fin fans: the whole pivot flaps the fan (above); here each koi LOBE ripples so
+  // the fan "breathes" open→closed like a real koi fin — SYMMETRIC L=R (both fans beat
+  // together, the user's ask) with a per-lobe lag down the fan so the ripple TRAVELS outboard.
+  // Additive + nullable: only jade publishes lobe pivots, so every other dragon is untouched.
+  if (wingLobePivotsL || wingLobePivotsR) {
+    const amp = activeDef.model.lobeRippleAmp ?? 0.18;
+    const lag = activeDef.model.lobeRippleLag ?? 0.6;
+    const spd = activeDef.model.lobeRippleSpeed ?? 0.55;   // lazy fin — slower than the wingbeat
+    for (const arr of [wingLobePivotsR, wingLobePivotsL]) {
+      if (!arr) continue;
+      const n = Math.max(1, arr.length - 1);
+      for (const b of arr) {
+        const t = b.pivot; if (!t) continue;
+        const fr = b.idx / n;                                 // 0 inner → 1 outer lobe
+        const lp = phase * spd - fr * lag;                    // outer lobes lag → travelling ripple
+        const open = Math.sin(lp) * amp * (0.5 + 0.5 * fr);   // outer lobes swing widest
+        t.rotation.y = damp(t.rotation.y, b.side * open, 8, dt);          // spread/close (side → both open together)
+        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * amp * 0.35, 8, dt); // gentle silk cup-roll
+      }
     }
   }
   // Per-form head wobble (Mk II): the baby's head bobbles with the frantic flap; the
