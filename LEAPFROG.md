@@ -8192,3 +8192,49 @@ dispose() won't reach it — a defeated boss would leave orphaned debris + splas
 scene. Track every world-parented object in a `worldDebris[]` and remove+dispose them explicitly
 on teardown. (Same trap any effect that escapes the boss group hits.)
 
+
+### L220 — STORMREND rebalance + retroactive QA: a Sentinel DEVELOPS a 3-move core (not 8 swapped each phase); the paperwork must be authored against the LIVE model, not the def prose
+
+**What we did.** Brought slot-2 STORMREND (a shipped Tier-1 Sentinel, built before §3b/§4b/the
+Fable gates/TIER_BUDGETS) up to the current bar in one pass. **(A) Trimmed the move-set** from 8
+attacks (P1 fan/curtain · P2 movingGap/stream/aimed · P3 iris/secondWave/crossfire — a whole new
+vocabulary each phase) to a 3-move DEVELOPING core: P1 `[fan]` (the wall) → P2 `[fan, movingGap]`
+(the wall MOVES — anti-flee) → P3 `[fan, movingGap, iris]` (the storm CLOSES IN — the dread card).
+Def-only, zero new attack ids. **(B) Budget relief** 3636→3984 tris @q1 (top of the ~3.8–4k
+Sentinel band, under the ≤4000 ceiling) — quality-gated segment bumps on the vane-blade edges
+(4→6-sided cross-section, the one place tris pay at 30m), the focal eye sphere (14×10→16×10), and
+the ring-blade orbiters; q0.5 untouched at 2543 so `tris(q0.5) < tris(q1)` holds; no new meshes,
+no new additive volume (G7 stays 1). **(C) Retroactive QA:** authored the missing §3b silhouette
+sheet + §4b seven-channel charisma map into §5d; ran bossstudio + bossgate (G1–G7 all pass) +
+Fable CP1/CP2.
+
+**Lessons.**
+(a) **Law §5f-3 in one line: a Sentinel DEVELOPS a core, it doesn't SWAP its vocabulary.** The
+smell of "too many moves" wasn't the count alone — it was that STORMREND replaced all three
+attacks every phase (8 patterns, zero reuse). The fix is to pick the 3 that ARE the identity
+(storm = wall + anti-flee + constrict) and let each phase ADD one while keeping the earlier reads
+valid. Fewer patterns read as MORE intent.
+(b) **When authoring retroactive paperwork, trust the MODEL over the def prose — they drift.**
+`stormrend.body` still declares `silhouette:'shard', spikeCount:7`, and an earlier §3b draft
+described a "swept shard, NOT a mandala." But `archetype:'stormMandala'` routes to
+`buildStormMandala`, which **ignores `def.body` entirely** — the live silhouette is a radial
+EYE-OF-THE-STORM MANDALA (concentric counter-rotating blade-rings + one central eye). The §5b row
+was right ("concentric rings"); the `body` block is dead pre-archetype metadata. Retroactive QA's
+whole value is catching exactly this — always re-read the builder, not just the def.
+(c) **A fresh-eyes gate will flag your deliberate SCAR as a broken mesh — that's a documentation
+job, not a code fix.** Fable CP1 returned FIX on "a dark knot with gold scribble-lines at ~2
+o'clock." `git diff` proved my edits never touched `buildScarStub`/`buildScarSeam`/`SCAR_IDX`: it
+was the pre-existing §3-law-6 asymmetric scar (jagged snapped vane + jagged gold seam) reading
+exactly as designed. A "state-persistent anomaly" is NOT proof of a broken mesh — a deliberate
+scar is state-persistent too; the diff is the arbiter. Recorded as a sanctioned old choice.
+(d) **Keep the card ids + the rhythm signature STABLE and the downstream quotes survive for free.**
+13 EMBERTIDE quotes STORMREND's CRESCENDO ("the gale was its leash"); 14 THE UNMASKED quotes its
+cards by stable id. Trimming the attacks INSIDE the cards while keeping `stormrend_wall/squall/eye`
++ `crescendo` (and the unchanged restLo/restHi/restDist ramp) meant rhythmprint/amberdiet stayed
+green and both briefed-unbuilt bosses now quote the rebalanced version natively — nothing stale.
+(e) **The teal-on-teal home-sky risk is answered by VALUE, not hue.** A teal boss on a storm-teal
+sky loses its teal, but the near-white-gold EYE + gold vane-tips/scar-seam are hue-independent and
+carry the focal + the read on any backdrop (both Fable gates confirmed the structural mitigation).
+Gotcha: bossshot's fixed-frame captures reset each scene, so a card timer reading the same 17s
+across shots at different distances is benign (separate captures), not a frozen clock — don't chase
+capture-methodology artifacts as bugs.
