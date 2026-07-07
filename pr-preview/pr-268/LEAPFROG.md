@@ -6484,3 +6484,41 @@ Second in-game pass (PR #268 preview), three notes — all motion/read issues in
 round sections), not the motion mechanism — keep the `bodySegs` wave, change what it's wrapped in. And a
 per-part symmetric ripple keyed on a nullable parts handle is the clean way to add creature-specific
 in-flight motion without forking the shared wing code.
+
+---
+
+## L174 — "3 worms next to each other": stacked spheres NEVER read as a smooth serpent
+
+Third in-game pass: the dense sphere-chain (L173) read as parallel lumpy columns — *"wtf did you
+create? it's now 3 worms next to each other. the body needs a rework bro."* Low-poly sphere
+cross-sections + stacked overlap = visible longitudinal ridges + bead waisting, from the one view that
+matters (rear-chase, looking down the body). **Density tuning cannot fix a bead-chain — the topology is
+the problem.**
+
+**The real fix (v3): ONE swept TUBE bent by a travelling-wave VERTEX SHADER.** `dragonKoiSerpent.js`
+now lofts N rings × K radial verts into a single continuous mesh (head→fine-tail, capped), and bends it
+every frame in the vertex stage: `transformed.x += amp · ramp · sin(freq·z + uTime)`, ramp 0 at the head →
+1 at the tail (head leads, tail whips). No segments, no beads, physically cannot read as separate worms.
+The tail is the tapering rear of the same tube (continuous by construction). dragon.js ticks
+`parts.bodyWave.uniforms.uTime` (accumulated, speed-eased — never `phase = speed·clock`, or a boost jolts
+the wave). ~4.2k tris at apex (the undulation is free in the shader), well under budget.
+
+**Shader-plumbing gotchas:**
+- `composeSurface` (the surface-shader patch system) wraps each patch uniform FRESH per compile
+  (`shader.uniforms[name] = { value }`), so an externally-ticked uniform can't reach it. For a live-ticked
+  uniform you must own the `onBeforeCompile` and assign the SHARED uniform object
+  (`shader.uniforms.uTime = myU.uTime`) — the `attachBodyDeform` pattern. So the wave + the fresnel rim had
+  to live in ONE hand-rolled `onBeforeCompile` (vertex wave + fragment rim at the `<begin_vertex>` /
+  `<emissivemap_fragment>` seams), not `applyFresnelRim`.
+- Forward the uniform through BOTH parts blocks in dragonModel (the early winged-return AND the main
+  return) or it's silently null and the body sits dead-stiff again.
+- The shader only compiles under real WebGL — CI can't catch a GLSL typo. Mirror an already-shipping patch's
+  exact seams/vars (`position`, `transformed`, `normal`, `vViewPosition`) and the human's the compile oracle.
+
+**Face:** per the human, dropped the bespoke `koiSkull` for azure's head fitted to jade — `softStealth`
+draconic + `cuteEye` + `taperedPredatorSnout` + brow + slim `neckBlend`, in jade green. Reuse a proven,
+liked head over a bespoke one when the human points at it.
+
+**Wings:** "still beating asymmetrical" — carried the symmetric lobe ripple from L173 (jade-only, keyed on
+`wingLobePivotsL/R`); if it still reads off, the shared basic-direct branch's asymmetric wingTip phase
+(sin(φ+0.95) vs sin(φ+1.18)) is the next suspect to fold into a jade-symmetric branch.

@@ -1,21 +1,19 @@
 import * as THREE from 'three';
 import { registerTorso } from './dragonRecipe.js';
-import { applyFresnelRim } from './surface.js';
 
-// KOI SERPENT — a continuous, UNDULATING eastern river-serpent body for jade.
+// KOI SERPENT — ONE smooth continuous river-serpent tube that UNDULATES via a
+// travelling-wave vertex shader (no segments, no beads).
 //
-// WHY THIS EXISTS: jade was built on the `serpent` LOFT torso — one rigid mesh that
-// emits no spine segments, so nothing in the rig can bend it (it read dead-stiff in
-// motion), with the fat `sweptTail` bolted on as a SECOND mesh (the visible seam /
-// "disjointed tail"). This body is instead a chain of heavily-overlapping smooth
-// sections that merge into ONE continuous jade tube tapering to a fine tail — and it
-// publishes `bodySegs`, so the shipped lead-first travelling wave (dragon.js) slithers
-// it head-to-tail. The TAIL is just the tapering rear of this same chain, so it can
-// never detach from the body. No crystal rings/finlets/core sprites — jade is a clean,
-// restrained koi (law 12: the chin-pearl is the ONE bloom).
+// HISTORY: v1 was a rigid loft (dead-stiff). v2 was an overlapping-SPHERE chain driven
+// by parts.bodySegs — but stacked spheres read as a bead-chain / "astral worm" (the human
+// hated it: "3 worms next to each other"). v3 (this) is a single swept TUBE: rings of
+// vertices lofted head→fine-tail into one mesh, bent every frame by a 1-D spine wave in
+// the vertex shader (transformed.x += amp·ramp·sin(freq·z + time), ramp 0 at the head →
+// 1 at the tail so the head leads and the tail whips). The tail is the tapering rear of
+// THIS mesh, so it is continuous by construction. dragon.js ticks parts.bodyWave.uTime.
 //
-// Reuses the standard attach contract so the silk-fin wings + chin-pearl mount exactly
-// as before: attach.wingRoot(side), attach.headBase, attach.tailAnchor, attach.halfWidthAt(z).
+// Reuses the standard attach contract so the silk-fin wings + chin-pearl mount unchanged:
+// attach.wingRoot(side), attach.headBase, attach.tailAnchor, attach.halfWidthAt(z).
 
 function buildKoiSerpentTorso(def, model, _bodyMat) {
   const group = new THREE.Group();
@@ -28,34 +26,28 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   const cEye = def.eye ?? 0x8ff0c2;
 
   const scale = model.scale ?? 1;
-  // Length tracks the growth arc: forms set neck/tail segment counts; a longer chain =
-  // a longer serpent (jade is the LONG one — apex body ~8× the head, vs a winged
-  // dragon's ~5×). bodyLength scales the section count; bodySpacing spreads them.
+  // Length tracks the growth arc (jade is the LONG archetype — apex body ~8× the head).
   const lenHint = (model.neckSegments ?? 6) + (model.tailSegments ?? 10);
-  // segDensity packs MORE, smaller, heavily-overlapped sections at the SAME total length
-  // (N × SPACE held constant) → a smoother continuous tube (kills the astral-worm bead read)
-  // and more travelling-wave samples (a finer, more fluid ripple). Human ask: "more segments
-  // to break it up + more lag."
-  const density = model.segDensity ?? 1.0;
-  const N = Math.max(10, Math.min(48, Math.round(lenHint * (model.bodyLength ?? 1.0) * density)));
-  const leadR = (model.bodyGirth ?? 0.58) * scale;      // lead cross-section radius
-  const SPACE = (model.bodySpacing ?? 1.45) / density;  // spread ÷ density → length invariant to density
+  const N = Math.max(10, Math.min(40, Math.round(lenHint * (model.bodyLength ?? 1.0))));  // ring count along the body
+  const K = Math.max(8, Math.round(model.bodyRadial ?? 12));                              // radial resolution (roundness)
+  const leadR = (model.bodyGirth ?? 0.58) * scale;
+  const SPACE = model.bodySpacing ?? 1.45;
   const bodyY = 0.5;
+  const OVAL_W = model.bodyOvalW ?? 1.14, OVAL_H = model.bodyOvalH ?? 0.9;   // koi cross-section: wider than tall
 
-  // KOI girth profile: plump behind the head (front third), tapering smoothly to a fine
-  // tail tip — the thickness the old fixed `tailGirth` was faking, now a real taper.
-  const PEAK = 0.18;                                     // girth peaks ~18% back
+  // KOI girth profile: plump behind the head, tapering smoothly to a fine tail tip.
+  const PEAK = 0.18;
   const girth = (t) => {
     const up = Math.min(t / PEAK, 1);
     const down = Math.max(0, (t - PEAK) / (1 - PEAK));
-    return (0.70 + 0.30 * Math.sin(up * Math.PI * 0.5)) * Math.pow(1 - down, 1.3) + 0.06;
+    return (0.70 + 0.30 * Math.sin(up * Math.PI * 0.5)) * Math.pow(1 - down, 1.3) + 0.05;
   };
 
   const radii = [];
   for (let i = 0; i < N; i++) radii.push(leadR * girth(N > 1 ? i / (N - 1) : 0));
 
-  // Overlapping z positions — each step spreads by the local radius × SPACE. SPACE<2
-  // keeps consecutive sections overlapping into a CONTINUOUS tube; higher = longer.
+  // Ring z positions (girth-spaced → the same body length the §4 head:body bands were
+  // calibrated against). SPACE spreads the rings; the tube stays continuous regardless.
   const zs = [];
   let z = 0;
   for (let i = 0; i < N; i++) {
@@ -63,101 +55,136 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     const rNext = radii[i + 1] ?? radii[i] * 0.8;
     z += (radii[i] + rNext) * 0.5 * SPACE;
   }
-  // FRAME PIN — anchor the coordinate frame at the SHOULDER (a fixed arc-distance behind
-  // the head), NOT the chain midpoint. The head + wing-root + chin-pearl then sit at a
-  // form-INVARIANT z while only the tail grows backward — so the §7 motif-drift assert
-  // holds across the growth arc (a centre pin drifts every anchor as the body lengthens).
+  // Pin the frame at the SHOULDER (fixed arc behind the head) so head/wing-root/pearl are
+  // form-invariant (the §7 motif-drift assert); only the tail grows backward.
   const SHOULDER_ARC = (model.shoulderArc ?? 0.9) * scale;
   let shoulderI = 1;
   while (shoulderI < N - 1 && (zs[shoulderI] - zs[0]) < SHOULDER_ARC) shoulderI++;
   const zAnchor = zs[shoulderI];
-  // Resting vertical S (line-of-action): neck lifts, mid dips, tail lifts — a gentle
-  // koi S baked into the base Y so the spine polyline has the §6.4 inflection AND the
-  // still pose reads as a serpent, not a straight rod. Kept low (never into the sightline).
+  // Resting vertical S (line-of-action §6.4 inflection): neck lifts, mid dips, tail lifts.
   const arcY = (model.bodyArcY ?? 0.14) * leadR * 6;
   const yAt = (t) => bodyY - 0.02 - t * t * (leadR * 0.35) + arcY * Math.sin(t * Math.PI * 2.0);
 
-  // Jade hide: vivid mid-value body, pale-mint belly, deep-jade lower-flank shadow tier.
-  // A faint GREEN emissive floor + green fresnel rim so the body HOLDS jade when the cool
-  // studio fill backlights it (the same fix the fins needed — never drift near-black/teal).
+  const zzOf = (i) => zs[i] - zAnchor;
+
+  // ── Build ONE swept tube: N rings × K radial verts, lofted + capped ──────────────────
+  const colBody = new THREE.Color(cBody), colBelly = new THREE.Color(cBelly), colShadow = new THREE.Color(cShadow);
+  const positions = [], normals = [], colors = [], indices = [];
+  const tmp = new THREE.Color();
+  const ringBase = [];   // first vertex index of each ring
+  for (let i = 0; i < N; i++) {
+    ringBase.push(positions.length / 3);
+    const r = radii[i];
+    const cy = yAt(N > 1 ? i / (N - 1) : 0);
+    const cz = zzOf(i);
+    for (let j = 0; j < K; j++) {
+      const a = (j / K) * Math.PI * 2;
+      const cs = Math.cos(a), sn = Math.sin(a);
+      const x = cs * r * OVAL_W, y = sn * r * OVAL_H;
+      positions.push(x, cy + y, cz);
+      // radial normal (approx; the wave shears it but the rim uses the view-space normal)
+      const nx = cs / OVAL_W, ny = sn / OVAL_H; const nl = Math.hypot(nx, ny) || 1;
+      normals.push(nx / nl, ny / nl, 0);
+      // value ramp keyed on the vertical component (belly at the bottom of the ring)
+      if (sn >= 0.05) tmp.copy(colBody);
+      else if (sn >= -0.32) tmp.copy(colBody).lerp(colShadow, ((0.05 - sn) / 0.37) * 0.85);
+      else tmp.copy(colShadow).lerp(colBelly, Math.min(1, (-0.32 - sn) / 0.5));
+      colors.push(tmp.r, tmp.g, tmp.b);
+    }
+  }
+  // ring-to-ring quads
+  for (let i = 0; i < N - 1; i++) {
+    const a0 = ringBase[i], b0 = ringBase[i + 1];
+    for (let j = 0; j < K; j++) {
+      const j2 = (j + 1) % K;
+      const a = a0 + j, an = a0 + j2, b = b0 + j, bn = b0 + j2;
+      indices.push(a, b, bn, a, bn, an);
+    }
+  }
+  // nose cap (fan to a point ahead of ring 0) + tail cap (fan to the tail tip)
+  const noseIdx = positions.length / 3;
+  positions.push(0, yAt(0), zzOf(0) - radii[0] * 0.9); normals.push(0, 0, -1);
+  colors.push(colBody.r, colBody.g, colBody.b);
+  const tailIdx = positions.length / 3;
+  positions.push(0, yAt(1), zzOf(N - 1) + radii[N - 1] * 1.4); normals.push(0, 0, 1);
+  colors.push(colBody.r, colBody.g, colBody.b);
+  for (let j = 0; j < K; j++) {
+    const j2 = (j + 1) % K;
+    indices.push(noseIdx, ringBase[0] + j2, ringBase[0] + j);              // nose fan
+    indices.push(tailIdx, ringBase[N - 1] + j, ringBase[N - 1] + j2);      // tail fan
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+
+  // Jade hide material + the TRAVELLING-WAVE deform (vertex) and a green fresnel rim
+  // (fragment), composed in ONE onBeforeCompile that SHARES the uTime uniform so dragon.js
+  // can advance the wave each frame (the attachBodyDeform pattern; composeSurface wraps its
+  // uniforms fresh per compile and so can't be ticked externally).
   const bodyMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true,
     roughness: def.bodyRoughness ?? 0.5, metalness: def.bodyMetalness ?? 0.02,
     envMapIntensity: def.bodyEnvIntensity ?? 0.55,
     emissive: cBody, emissiveIntensity: model.bodyGlow ?? 0.10,
   });
-  applyFresnelRim(bodyMat, cRim, { intensity: model.bodyRim ?? 0.30, power: 3.0 });
   bodyMat.userData.baseEmissive = cBody;
   bodyMat.userData.baseIntensity = model.bodyGlow ?? 0.10;
+
+  const leadZ = zzOf(0), lastZ = zzOf(N - 1);
+  const waveU = {
+    uTime: { value: 0 },
+    uAmp: { value: (model.bodyWaveAmp ?? 0.7) * scale },
+    uFreq: { value: model.bodyWaveFreq ?? 1.0 },
+    uSpineMin: { value: leadZ },
+    uSpineMax: { value: lastZ },
+  };
+  const rimCol = new THREE.Color(cRim);
+  const rimInt = model.bodyRim ?? 0.3;
+  bodyMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = waveU.uTime;
+    shader.uniforms.uAmp = waveU.uAmp;
+    shader.uniforms.uFreq = waveU.uFreq;
+    shader.uniforms.uSpineMin = waveU.uSpineMin;
+    shader.uniforms.uSpineMax = waveU.uSpineMax;
+    shader.uniforms.uRimColor = { value: rimCol };
+    shader.uniforms.uRimInt = { value: rimInt };
+    shader.uniforms.uRimPow = { value: 3.0 };
+    shader.vertexShader =
+      'uniform float uTime;uniform float uAmp;uniform float uFreq;uniform float uSpineMin;uniform float uSpineMax;\n' +
+      shader.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n' +
+        'float _ramp = 0.12 + 0.88 * clamp((position.z - uSpineMin) / max(0.0001, uSpineMax - uSpineMin), 0.0, 1.0);\n' +
+        'float _ph = uFreq * position.z + uTime;\n' +
+        'transformed.x += uAmp * _ramp * sin(_ph);\n' +
+        'transformed.y += uAmp * 0.16 * _ramp * sin(_ph * 0.9 + 0.4);\n');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uRimColor;uniform float uRimInt;uniform float uRimPow;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n' +
+        '{ float _vdn = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);\n' +
+        '  totalEmissiveRadiance += uRimColor * (pow(1.0 - _vdn, uRimPow) * uRimInt); }\n');
+  };
+  bodyMat.customProgramCacheKey = () => 'koiWave';
+  bodyMat.needsUpdate = true;
+
+  const body = new THREE.Mesh(geo, bodyMat);
+  group.add(body);
+
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x203a30, emissive: cEye, emissiveIntensity: 2.2 });
 
-  // Per-vertex jade value ramp on a unit-ish sphere, keyed on the vertical normal:
-  // dorsal → body, lower flank → deep-jade shadow, ventral → mint belly (smooth blends).
-  const colBody = new THREE.Color(cBody), colBelly = new THREE.Color(cBelly), colShadow = new THREE.Color(cShadow);
-  function paint(geo, r) {
-    const pos = geo.attributes.position;
-    const cols = new Float32Array(pos.count * 3);
-    const tmp = new THREE.Color();
-    for (let v = 0; v < pos.count; v++) {
-      const ny = pos.getY(v) / Math.max(0.0001, r);      // -1 (belly) .. +1 (dorsal)
-      if (ny >= 0.05) {
-        tmp.copy(colBody);
-      } else if (ny >= -0.32) {
-        const k = (0.05 - ny) / 0.37;                    // body → deep-jade down the flank
-        tmp.copy(colBody).lerp(colShadow, k * 0.85);
-      } else {
-        const k = Math.min(1, (-0.32 - ny) / 0.5);       // deep-jade → mint belly
-        tmp.copy(colShadow).lerp(colBelly, k);
-      }
-      cols[v * 3] = tmp.r; cols[v * 3 + 1] = tmp.g; cols[v * 3 + 2] = tmp.b;
-    }
-    geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-  }
-
-  const bodySegs = [];
-  const segmentAnchors = [];
-  for (let i = 0; i < N; i++) {
-    const t = N > 1 ? i / (N - 1) : 0;
-    const r = radii[i];
-    const zz = zs[i] - zAnchor;
-    const segY = yAt(t);
-    const seg = new THREE.Group();
-    seg.position.set(0, segY, zz);
-    seg.userData.baseY = segY;
-
-    // Smooth koi cross-section: a touch wider than tall + elongated along the body so
-    // neighbours overlap into a flowing tube (not a bead necklace).
-    const sphere = new THREE.SphereGeometry(r, 6, 5);
-    paint(sphere, r);
-    const body = new THREE.Mesh(sphere, bodyMat);
-    // Round cross-section, only slightly elongated: heavy overlap + near-round sections read
-    // as ONE smooth tube (the elongated/bulbous scale is what made the bead-chain "worm" pop).
-    body.scale.set(1.04, 0.96, 1.12);
-    seg.add(body);
-
-    group.add(seg);
-    bodySegs.push(seg);
-    segmentAnchors.push({ x: 0, y: segY, z: zz, scale: r / leadR, r });
-  }
-
-  const leadZ = zs[0] - zAnchor;
-  const lastZ = zs[N - 1] - zAnchor;
-  const leadR2 = radii[0];
-
   // Attach contract -----------------------------------------------------------------
-  // Head sits just ahead of the lead section; the koiSkull's own neck-blend bridges the
-  // small overlap. Wings mount on the upper flank of the shoulder section (z≈0, the pinned
-  // frame origin) so the fans hold a form-invariant position. Rider low on the front third.
+  const segmentAnchors = [];
+  for (let i = 0; i < N; i++) segmentAnchors.push({ x: 0, y: yAt(N > 1 ? i / (N - 1) : 0), z: zzOf(i), scale: radii[i] / leadR, r: radii[i] });
+  const leadR2 = radii[0];
   const sa = segmentAnchors[shoulderI];
   const riderSocket = { x: 0, y: yAt(0.06) + leadR2 * 0.8, z: leadZ + leadR2 * 0.6 };
-
   const halfWidthAt = (zq) => {
-    // nearest-section radius (accounting for the x-scale of the ellipsoid) for flank layers.
     let best = radii[0], bd = Infinity;
-    for (let i = 0; i < N; i++) { const d = Math.abs((zs[i] - zMid) - zq); if (d < bd) { bd = d; best = radii[i]; } }
-    return best * 1.05;
+    for (let i = 0; i < N; i++) { const d = Math.abs(zzOf(i) - zq); if (d < bd) { bd = d; best = radii[i]; } }
+    return best * OVAL_W;
   };
-
   const attach = {
     headBase: { x: 0, y: bodyY + 0.04, z: leadZ - leadR2 * 0.7 },
     tailAnchor: { y: yAt(1), z: lastZ + radii[N - 1] * 1.0 },
@@ -173,11 +200,14 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     tailShift: 0,
   };
 
-  // Published spine polyline (§6.4 line-of-action / head:body asserts) — the segment
-  // centres from head to tail, in group space.
+  // Spine polyline (§6.4 / head:body) — the ring centres, head→tail, in group space.
   const spinePoints = segmentAnchors.map((a) => new THREE.Vector3(a.x, a.y, a.z));
 
-  return { group, attach, mats: { bodyMat, eyeMat }, spineMats, bodySegs, spinePoints };
+  // bodyWave — dragon.js advances uTime each frame (speed-scaled); the shared uniform
+  // object means mutating it ticks the live shader.
+  const bodyWave = { uniforms: waveU, baseSpeed: model.bodyWaveSpeed ?? 3.4 };
+
+  return { group, attach, mats: { bodyMat, eyeMat }, spineMats, spinePoints, bodyWave };
 }
 
 registerTorso('koiSerpent', buildKoiSerpentTorso);

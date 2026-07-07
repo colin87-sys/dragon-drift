@@ -188,6 +188,9 @@ export function buildDragonModel(def, opts = {}) {
   // A segmented torso (the centipede-wyrm) returns its plate Groups so the rig
   // sways them as a lead-first travelling wave (see dragon.js / makePreviewTick).
   const bodySegs = torsoResult.bodySegs ?? null;
+  // A shader-undulated torso (koiSerpent) publishes a travelling-wave uniform the rig
+  // advances each frame. Additive + nullable (other torsos omit it).
+  const bodyWave = torsoResult.bodyWave ?? null;
   // Where the rider sits — the torso publishes it (a believable seat near the
   // front third); default = the back-of-shoulders spot the dragons have always
   // used. The rig (dragon.js) places the rider here.
@@ -394,7 +397,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -403,7 +406,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket,
+      head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket,
       wingYokeL, wingYokeR,
       wingPivotL, wingPivotR,
       wingMidL, wingMidR,
