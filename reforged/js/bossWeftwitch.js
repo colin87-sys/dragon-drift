@@ -380,6 +380,17 @@ export function buildWeftwitch(def, quality = 1) {
   const tautLine = new THREE.LineSegments(tautGeo, tautMat); tautLine.name = 'weftTaut'; tautLine.frustumCulled = false;
   rig.add(tautLine);
 
+  // THE LASERLANCE BEAM (CP2 — owner-confirmed: a beam VISUAL riding the 'aimed'
+  // fire instant, never a new attack id). A single HDR hairline from the loom-heart
+  // down-lane (+z local = toward the player under placeGroup's facing): hairline
+  // grammar matches the web (her lines are threads), and toneMapped:false +
+  // color>1 punches it past bloom — the §3b "brightest moment". Hidden at rest.
+  const beamMat = track(new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }));
+  const beamGeo = new THREE.BufferGeometry();
+  beamGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 3.4, 4.6, 0, 3.4, 44]), 3));
+  const beamLine = new THREE.LineSegments(beamGeo, beamMat); beamLine.name = 'weftBeam'; beamLine.frustumCulled = false; beamLine.visible = false;
+  group.add(beamLine);
+
   // ---- THE ROSETTE-KNOTS — woven pale-gold knots on the mantle front (LORE motifs
   // of what she's mended). The accent lives HERE, not on the body.
   const rosetteN = lowQ ? 4 : 8;
@@ -641,11 +652,31 @@ export function buildWeftwitch(def, quality = 1) {
   let tautK = 0;   // eased taut-thread tension (0 slack → 1 taut+flashed)
   const _tv = tautGeo.attributes.position;
 
+  // CP2 fight verbs (controller-driven, def-gated in boss.js — inert in studio/tests):
+  // fireBeam() at the 'aimed' release = the laserLance HDR hairline flash; cutThread()
+  // when the 3×-parry lands = the taut thread SNAPS (hands recoil apart, the hood
+  // reels, the thread dies) — the stagger read.
+  let beamT = 0, cutT = 0, cutEase = 0;
+  function fireBeam() { if (cutT <= 0) beamT = 1; }
+  function cutThread() { cutT = 1; beamT = 0; }
+
   function tickBody(dt, time) {
     if (painT > 0) painT -= dt;
     painEase += (Math.max(0, painT) - painEase) * Math.min(1, dt * 8);
     const noticeK = noticeT > 0 ? clamp01(noticeT / 1.0) : 0;
     if (noticeT > 0) noticeT -= dt;
+    // the laserLance beam decays fast (a flash, not a sustained laser: the DODGE read
+    // stays with the bullets — the beam is pure spectacle at the release instant).
+    beamT = Math.max(0, beamT - dt * 3.2);
+    beamLine.visible = beamT > 0 && dyingK < 0.5;
+    if (beamLine.visible) {
+      beamMat.opacity = Math.min(1, beamT * 1.6);
+      // white-hot core → pale-gold tail as it dies (HDR: >1 with toneMapped:false).
+      beamMat.color.copy(loomBase).lerp(new THREE.Color(0xffffff), beamT * 0.8).multiplyScalar(1 + beamT * 3.2);
+    }
+    // the cut-thread stagger: eases in hard, releases slow (the ~2.5s strike window).
+    cutT = Math.max(0, cutT - dt * 0.4);
+    cutEase += (clamp01(cutT * 2) - cutEase) * Math.min(1, dt * 9);
 
     // --- THE MEASURED WEAVE (idle): the bust breathes slowly; the hands weave; the
     // loom-heart pulses; agitation rises with charge (fast stitching under pressure).
@@ -662,16 +693,16 @@ export function buildWeftwitch(def, quality = 1) {
     // values were too subtle at fight distance; the LAG stays: snap = turret, lag = a
     // mind at a loom.)
     hoodPivot.rotation.y += (gazeEX * 0.85 - hoodPivot.rotation.y) * Math.min(1, dt * 1.4);   // hood lags
-    hoodPivot.rotation.x = -gazeEY * 0.5 + noticeK * 0.35;   // tilts down on notice/aim
+    hoodPivot.rotation.x = -gazeEY * 0.5 + noticeK * 0.35 - cutEase * 0.4;   // tilts down on notice/aim; REELS back on a thread-cut
 
     // --- THE HANDS: weave in idle; STILL on dread/notice (the §4b "hands still =
     // dread"); recoil on a hit. One long finger POINTS DOWN on notice. ---
-    const stillness = clamp01(noticeK + dreadK);   // 1 = hands frozen
+    const stillness = clamp01(noticeK + dreadK + cutEase);   // 1 = hands frozen (notice/dread/staggered)
     const wv = weave * (1 - stillness) * (0.18 + charge * 0.12);
     for (const side of ['L', 'R']) {
       const sx = side === 'L' ? -1 : 1;
       const hp = handPivots[side];
-      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2;   // track the lane; recoil on hit
+      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2 + sx * cutEase * 2.6;   // track the lane; recoil on hit; thrown APART on a thread-cut
       hp.position.y = HAND_Y + wv * sx + gazeEY * 1.8;
       hp.rotation.z = sx * (0.2 + wv * 0.5) - gazeEX * 0.2;
       hp.rotation.y = sx * (0.5 - stillness * 0.2);
@@ -691,7 +722,7 @@ export function buildWeftwitch(def, quality = 1) {
     // --- THE CHARGE TELL: the hands PULL a thread taut between them; it flashes AMBER
     // (the amber organ + the laserLance HDR flash). Slack in idle, straight on charge.
     // The taut thread pulling straight is a NEW hard line = a silhouette change. ---
-    const tautTarget = clamp01(charge * 1.3 - dyingK);
+    const tautTarget = clamp01(charge * 1.3 - dyingK - cutEase * 2);   // a cut thread cannot be drawn taut
     tautK += (tautTarget - tautK) * Math.min(1, dt * 7);
     // endpoints = the two index fingertips (approx from the hand pivots).
     const lp = handPivots.L.position, rp = handPivots.R.position;
@@ -789,7 +820,7 @@ export function buildWeftwitch(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
-    setEntrance, setEntranceSteer, setWaterPlane,
+    setEntrance, setEntranceSteer, setWaterPlane, fireBeam, cutThread,
     setHealth: kit.setHealth, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     flash, hurt,

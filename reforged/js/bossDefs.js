@@ -904,11 +904,17 @@ export const BOSSES = {
     // steer the bloom to harvest (offered once per phase). Def-gated (reuses slot 6's
     // continuous-graze detector); shipped bosses inert.
     grazeForm: 'moteHarvest',
+    // §5i.C THREAD-CUT (registry row 11 parry cell, CP2): her 'aimed' volleys ride the
+    // taut hand-thread (needle-pull wind-up + laserLance HDR beam at release + an
+    // in-key stitch-pluck); parry the ambers 3× → the thread is CUT — the woven
+    // volley UNRAVELS (in-flight ambers delete, queued sub-volleys drop) and the
+    // loom is STILLED for a 2.5s strike window. Inert for every other def.
+    threadCut: true,
     // Tier-4 difficulty: precision + lattice patterns re-expressed as thread-visualised
     // gaps (curtain/movingGap/aimed/crossfire = the loom's warp/weft). The `aimed`
     // carrier is the taut pre-fire thread (the amber organ) — the laserLance is a beam
-    // VISUAL of an existing pattern (CP2), NOT a new attack id (the WE band's ≤1-new-id
-    // budget is left for a sibling slot; confirm with owner). Escalation by pattern
+    // VISUAL of an existing pattern (owner-confirmed at CP2), NOT a new attack id (the
+    // WE band's ≤1-new-id budget is left for a sibling slot). Escalation by pattern
     // unlock + cadence, never raw count.
     phases: [
       { atFrac: 1.00, cadence: [1.3, 1.7], attacks: ['aimed', 'curtain'] },                          // P1: the loom wakes (a measured weave)
