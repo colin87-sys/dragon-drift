@@ -1659,7 +1659,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
   // ONE material for the tongues: vColor is the molten→hot gradient (diffuse), and the emissive
   // is GRAFTED to follow vColor (WARM, not white) so only the bright thin tips glow ORANGE-HOT
   // (dark thick cores stay unlit) — fire-substance, not white feathers.
-  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 0.85 });
+  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 1.05 });
   // CRITICAL: the emissive-concentration graft and the fresnel rim BOTH set onBeforeCompile —
   // composing them in ONE composeSurface call (was: a manual graft then applyFresnelRim, which
   // silently OVERWROTE the graft → the whole mane glowed at full uniform emissive with no dark
@@ -1670,7 +1670,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
     key: 'moltenEmit',
     bodyFrag: `totalEmissiveRadiance *= pow(vColor, vec3(2.1));`,
   };
-  composeSurface(maneMat, [moltenEmitPatch, fresnelRimPatch(def.apexSeam ?? cTip.getHex(), { intensity: 0.26, power: 3.4, bias: 0.0 })]);
+  composeSurface(maneMat, [moltenEmitPatch, fresnelRimPatch(def.apexSeam ?? cTip.getHex(), { intensity: 0.15, power: 3.8, bias: 0.0 })]);   // tight, low rim → no broad orange wash up the leading edge; the tip fringe carries the glow
   spineMats.push(maneMat, armMat);
 
   // deterministic per-tongue IRREGULARITY (no Math.random — determinism is a deliverable). A
@@ -1682,33 +1682,51 @@ function buildBonfireManeWings(def, model, attach, giM) {
   const jLick = [0.9, -1.2, 0.6, -0.85, 1.1, -0.7, 0.5];   // tip LICK direction/strength — alternating signs → S-curves, no two alike
   const jWid = [0.12, -0.14, 0.08, -0.1, 0.15, -0.09, 0.06];   // per-tongue chord width variation
   const jPitch = [0.5, -0.35, 0.7, -0.2, 0.4, -0.5, 0.6];   // per-tongue HEIGHT stagger → rear view shows undulating height bands, not one flat plank
+  const jRoll = [0.22, -0.3, 0.15, -0.26, 0.34, -0.18, 0.28];   // per-tongue ROLL (twist about length) → edge-on rear view shows a sliver of each tongue's FACE, not a dead-straight rod
 
-  // a LICKING flame tongue: broad root → swelling belly → rounding to a soft convex point that
-  // LICKS to one side. NEVER a flat perpendicular tip cut (that's what stacked into staircase
-  // steps) and never a straight slab (that read as sheet-metal). The centreline is an S-curve.
-  function tongueGeo(len, wRoot, curlZ, curlY, lick) {
-    const nX = seg(Math.max(6, Math.round(11 * detail)));
+  // a LICKING flame tongue: broad root → swelling belly → a soft flickering point, with its TWO
+  // edges independently notched (asymmetric concave flame-licks) so the outline reads as fire, not
+  // a smooth leaf/feather petal. Centreline is an S-curve; the two edges never mirror each other.
+  function tongueGeo(len, wRoot, curlZ, curlY, lick, seed) {
+    const nX = seg(Math.max(8, Math.round(15 * detail)));
     const nZ = seg(3);
     const verts = [], cols = [], idx = [];
     const c = new THREE.Color();
+    // per-edge notch phases/frequencies (deterministic, seed-driven) → left and right edges lick
+    // at different rates so no tongue is a smooth petal and the two edges are never symmetric.
+    const phL = seed * 1.7, phR = seed * 2.3 + 1.1;
+    const fL = 4 + (seed % 3), fR = 5 + ((seed + 1) % 3);
+    const nd = 0.4;   // notch depth (fraction of half-width bitten out at a lick trough)
     for (let i = 0; i <= nX; i++) {
       const t = i / nX;
       // FLAME-LEAF profile: broad root (bases overlap into one sheet, no finger-gaps), a swelling
-      // belly, then a CONVEX round-off to a soft point — so overlapping tongues read as scalloped
-      // flame licks, not right-angle staircase steps, and never a thin finger-spoke.
+      // belly, then a CONVEX round-off to a soft point.
       const belly = 0.55 + 0.45 * Math.sin(Math.min(1, t * 1.08) * Math.PI);   // broad belly swell
-      const tipCap = Math.pow(1 - Math.pow(t, 2.6), 0.5);                       // convex cap: ~full width until late, then rounds to a soft point (no flat cut)
+      const tipCap = Math.pow(1 - Math.pow(t, 2.6), 0.5);                       // convex cap: full width until late, then rounds to a soft point (no flat cut)
       const w = wRoot * belly * tipCap;
+      // independent per-edge lick factors (1 = full extent, dips to 1-nd at a notch trough); the
+      // notches fade in past the root so the bases stay solid/overlapping.
+      const grow = Math.min(1, t / 0.22);
+      const licL = 1 - nd * grow * (0.5 + 0.5 * Math.sin((t * fL + phL) * Math.PI));
+      const licR = 1 - nd * grow * (0.5 + 0.5 * Math.sin((t * fR + phR) * Math.PI));
       const zc = curlZ * t * t + lick * Math.pow(t, 3);  // parabolic aft-curl + cubic tip LICK → an S-curve centreline (tips deflect, per-tongue sign varies)
       const yc = t * len * Math.tan(theta) + curlY * t * t - rakeDown * t * len;   // dihedral + tip curl + the whole tongue rakes DOWN
+      const zL = zc - 0.5 * w * licL, zR = zc + 0.5 * w * licR;   // asymmetric flame-lick edges
       for (let j = 0; j <= nZ; j++) {
         const cf = j / nZ;
-        const z = zc + (cf - 0.5) * w;
+        const z = zL + cf * (zR - zL);
         const camb = camber * Math.sin(cf * Math.PI) * (0.4 + 0.6 * Math.sin(t * Math.PI));
         verts.push(t * len, yc + camb, z);
-        // DARK molten basalt over the whole sheet; the hot orange runs ONLY in the last ~18%
-        // (a thin glowing fringe/wisp tip) — fire glows at its thin edge, not as a lit slab.
-        (t < 0.82 ? c.copy(cRoot).lerp(cBody, Math.pow(t / 0.82, 1.25)) : c.copy(cBody).lerp(cTip, (t - 0.82) / 0.18));
+        // THREE readable value tiers (gate: "one dark slab + bright hem" → must show 3):
+        //   root ≤0.26  dark basalt core (0x35120a) → molten red
+        //   mid 0.26–0.8  MOLTEN RED band (0x8a2a0c) — the readable middle tier, darker than body
+        //   tip ≥0.8   hot orange fringe (0xff9a34), plus the notched trailing edge glows
+        if (t < 0.26) c.copy(cRoot).lerp(cBody, t / 0.26);
+        else if (t < 0.8) c.copy(cBody).lerp(cTip, 0.08 * Math.sin(((t - 0.26) / 0.54) * Math.PI));   // molten-red mid, a faint warm bloom mid-band so it isn't a flat slab
+        else c.copy(cBody).lerp(cTip, (t - 0.8) / 0.2);
+        // the very edges (flame licks) run hotter → the glow traces the notched contour, not a broad wash
+        const edgeHeat = Math.pow(Math.abs(cf - 0.5) * 2, 3) * 0.35 * Math.min(1, t / 0.3);
+        c.lerp(cTip, edgeHeat);
         cols.push(c.r, c.g, c.b);
       }
     }
@@ -1749,7 +1767,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
     const tonguePivots = [], elements = [];
     // side-dependent jitter PHASE → the L and R planforms do NOT mirror (gate flagged dead
     // top-planform symmetry). Each side reads its own irregularity pattern.
-    const ph = side < 0 ? 3 : 0;
+    const ph = side < 0 ? 2 : 0;   // subtler side offset → non-mirrored but not a glitchy count/spread mismatch
     const jx = (i) => (i + ph) % jLen.length;
     for (let i = 0; i < N; i++) {
       const t = N > 1 ? i / (N - 1) : 0;
@@ -1768,8 +1786,9 @@ function buildBonfireManeWings(def, model, attach, giM) {
       rest.position.set(px, py, pz);
       rest.rotation.y = side * -(0.03 + jRake[jx(i)]);   // irregular fan (side-phased → non-mirrored)
       rest.rotation.z = side * (theta + 0.12 * jPitch[jx(i)]);   // per-tongue pitch → varied height bands in the rear read
+      rest.rotation.x = jRoll[jx(i)];   // per-tongue twist → edge-on rear shows a sliver of face, not a dead rod
       const lag = new THREE.Group(); rest.add(lag);
-      const mesh = new THREE.Mesh(tongueGeo(len, wRoot, curlZ, curlY, lick), maneMat);
+      const mesh = new THREE.Mesh(tongueGeo(len, wRoot, curlZ, curlY, lick, i + ph), maneMat);
       mesh.scale.x = side; lag.add(mesh);
       const tipObj = new THREE.Object3D(); tipObj.position.set(len * side, 0, curlZ + lick); lag.add(tipObj);
       parent.add(rest);
