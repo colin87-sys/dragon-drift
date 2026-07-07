@@ -468,7 +468,29 @@ export function notifyHit(tier = 1) {
 }
 
 export function lockCount() { return totalPips(); }
-export function paintFromParry(_part) { /* PR4 */ }
+// V4 LOCK-SNAP (PR4): a PERFECT parry snaps a brand onto the organ that fired
+// the parried amber — the C3 answer (venting organs are dwell-exempt; the parry
+// is their sanctioned paint path, so NO amberVenting check here by design).
+// EXEMPT from paintCooldown (perfect-only + snapPerVolley already price it) but
+// SETS the cooldown after, so a snap still spaces the next dwell-paint. An
+// already-painted organ refreshes its decay instead (the generous read). The
+// caller gates fever + deflect (sealed honesty) at the parry seam.
+export function paintFromParry(part) {
+  if (!part || !S.fightRunning || S.cap <= 0 || S.deflected) return false;
+  const existing = S.locks.find((lk) => lk.part === part);
+  if (existing) {
+    existing.age = 0;
+    emit('lockPaint', { part, count: totalPips(), snap: true, refreshed: true });
+    S.paintCd = L.paintCooldown;
+    return true;
+  }
+  if (totalPips() >= S.cap) return false;
+  S.locks.push({ part, stacks: 1, age: 0 });
+  emit('lockPaint', { part, count: totalPips(), snap: true });
+  S.paintCd = L.paintCooldown;
+  paintHop(part);
+  return true;
+}
 // PR3 (Surge fork): hand every painted pip to the unleash and clear — no volley here.
 export function consumeAllLocks() {
   const out = S.locks.map((lk) => ({ part: lk.part, stacks: lk.stacks }));

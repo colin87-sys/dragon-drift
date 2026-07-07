@@ -32,7 +32,7 @@ import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
 import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
-import { debugActiveBullets } from './bossBullets.js';
+import { debugActiveBullets, setDebugPerfectParryRel } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -222,6 +222,14 @@ if (urlParams.has('boss')) {
 if (urlParams.has('bossIdx')) {
   const k = parseInt(urlParams.get('bossIdx'), 10);
   if (Number.isFinite(k) && k >= 0) setBossDebugDefIdx(k);
+}
+// Playtest: ?parry widens the PERFECT-parry window so the V4 snap-brand is
+// testable without frame-tight timing. Bare ?parry = the whole reflect window
+// (EVERY parry is perfect); ?parry=<rel> sets the perfect rel in world-units
+// (shipped LAW is 1.8 ≈ 64ms at bullet speed 28). URL-only, never persisted.
+if (urlParams.has('parry')) {
+  const v = parseFloat(urlParams.get('parry'));
+  setDebugPerfectParryRel(Number.isFinite(v) && v > 0 ? v : CONFIG.BOSS.reflectWindow);
 }
 
 // Debug: force Dragon Surge for visual verification

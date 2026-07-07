@@ -24,7 +24,7 @@ import {
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
-  lanceDmgEach, __testBank } from './lockLayer.js';
+  lanceDmgEach, paintFromParry, __testBank } from './lockLayer.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
 // game.inBoss, mirroring game.inCanyon): forward motion continues, the boss holds
@@ -1298,7 +1298,7 @@ function enterFight() {
   phase = 'fight';
   initLockLayer();   // THE LANCE layer: fresh aim/lock state per fight
   aimHeldT = 0; aimTeachCd = 1.5;   // V1 teach: first prompt after a short settle
-  lockTeachCd = 1.5; amberVent.clear();
+  lockTeachCd = 1.5; snapTeachCd = 4; amberVent.clear();   // V4 teach waits a few beats past the paint teach
   lockSealHinted = false; sealHoldT = 0;
   // V2 access unlocks permanently on first ENTERING a lock-anatomy fight (slot 4 is
   // the first def with lockParts) — a player stuck on the boss keeps the tool (§I.e).
@@ -1695,6 +1695,7 @@ export function updateBoss(dt, player, time) {
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);
     driveLockTeach(dt, lockCtx);
+    driveSnapTeach(dt, lockCtx);
     driveSealHint(dt, lockCtx);
 
     riderTimer -= dt;
@@ -1738,6 +1739,19 @@ export function updateBoss(dt, player, time) {
           ui.parryPopup?.(pts, perfect, streak);
           sfx.parry?.(perfect, streak);
           emit('bossReflect', { perfect, streak });
+          // V4 LOCK-SNAP (PR4, owner-ruled PERFECT-ONLY): a perfect parry of a
+          // part-tagged amber snaps a brand onto the organ that FIRED it — the
+          // C3 answer (a venting organ can't be dwell-painted; the parry is its
+          // sanctioned paint path). LAWS: ≤ snapPerVolley (1) per parry burst;
+          // 0 during fever (Surge reflects are free-for-all, not the amber
+          // read); never onto a deflected boss (a survival-card parry can't
+          // promise a mark that won't take — sealed honesty).
+          if (r.snapParts.length && !surge && !lockDeflected() &&
+              saveData.flags.lockUnlocked && def.lockParts) {
+            for (let sp = 0; sp < Math.min(r.snapParts.length, CONFIG.LOCK.snapPerVolley); sp++) {
+              paintFromParry(r.snapParts[sp]);
+            }
+          }
           // §5i.C SCATTER-STAGGER (THRUMSWARM's parry job): parry the queen's amber-eye
           // volley 3× → the queen recoils and the swarm can't re-scatter for 2.5s (LOCKED
           // condensed = a guaranteed chip window — parry ACCELERATES, never gates, §5i.C
@@ -2083,9 +2097,11 @@ function emitRibBullets(player) {
     if (rrel <= 0.5) continue;   // rib already at/behind the player → skip (would fly away)
     // Constant-velocity aim so all bullets reach the spine centre together (converge),
     // then keep flying through it and cross the player plane (the dodge/parry check).
-    emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel);
+    // V4 (PR4): the amber carries its SOURCE RIB's name — a perfect parry snaps a
+    // brand onto the organ that fired it (the C3 answer, wired at the roll-parry seam).
+    emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel, name);
     // C3: an amber-CARRYING organ is dwell-exempt while its volley is in flight —
-    // parry (V4, PR4) is the only sanctioned way to paint a venting organ.
+    // parry (V4) is the only sanctioned way to paint a venting organ.
     amberVent.set(name, fightNow + 2.2);
   }
 }
@@ -2497,10 +2513,33 @@ function driveLockTeach(dt, ctx) {
   }
 }
 
+// V4 SNAP teach (PR4): the first time a rib VENTS while the player could still
+// use a brand, name the parry-paint rule once per prompt — re-armed until
+// performed (the driveLockTeach shape). Gated to the teach boss so the concept
+// lands where the C3 exemption is FELT (a venting rib refuses the dwell).
+let snapTeachCd = 0;
+function driveSnapTeach(dt, ctx) {
+  if (!def || !def.lockParts || saveData.flags.snapTaught || !ctx.paintUnlocked) return;
+  if (!saveData.flags.lockTaught) return;   // one concept at a time: paint first, then the snap
+  if (def.id !== 'marrowcoil' || phaseIdx < 1) return;
+  snapTeachCd -= dt;
+  if (snapTeachCd > 0 || lockCount() >= (ctx.cap || 0)) return;
+  const venting = (def.lockParts || []).some((lp) => ctx.amberVenting && ctx.amberVenting(lp.part));
+  if (venting) {
+    ui.bossNote?.('ITS AMBER GUARDS IT', 'PERFECT-PARRY TO BRAND THE SOURCE', 'gold', 2.6);
+    snapTeachCd = 10;   // re-arm later if still unperformed
+  }
+}
+
 // Dismiss-on-perform (the hints.js BIT.roll pattern): the first paint retires the
-// teach forever; the first CAP volley names the release rule once.
-on('lockPaint', () => {
+// teach forever; the first CAP volley names the release rule once; the first
+// SNAP-paint (p.snap — the perfect-parry brand) retires the V4 teach.
+on('lockPaint', (p) => {
   if (!saveData.flags.lockTaught) { saveData.flags.lockTaught = true; persist(); }
+  if (p && p.snap && !saveData.flags.snapTaught) {
+    saveData.flags.snapTaught = true; persist();
+    ui.bossNote?.('THE MARK ANSWERS THE PARRY', '', 'gold', 1.8);
+  }
 });
 on('lockVolley', (p) => {
   if (p && p.source === 'cap' && !saveData.flags.lockCapSeen) {
