@@ -7294,3 +7294,36 @@ were only visible on the LIVE preview, across TWO owner rounds. Motion verdicts 
 budget owner FIX rounds after first live viewing as the NORMAL pipeline. Also: the PR-preview action can silently
 skip a push (round 2 never deployed — the owner was re-judging round 1); when an owner says "nothing changed",
 CHECK THE DEPLOY before doubting the work.
+
+### L192 — KARNVOW round 3 (the nimble hunter): a boss is only as fluid as its LOCOMOTION; model-space darts are hitbox-safe; a fast mover needs gate.freeze
+
+**The diagnosis that mattered.** Two amplitude rounds of secondary motion (bank/bob/jiggle/sway) still read
+"stiff" to the owner — because the figure was PARKED. EITHERWING is fluid because the twins fly a ±5.2u
+lemniscate; ASHTALON flies passes. **Secondary motion cannot rescue a stationary body; locomotion is the
+fluidity primitive.** Round 3 gave KARNVOW a DART machine: hops between guard positions in rig space
+(anticipation crouch → ease-out-back hop with ~8% overshoot → settle), a sidestep on the charge rising edge
+(footwork before the strike), an evasive hop on flinch, PLANTS while shielded (bubble stays aligned) and in
+death. The dart's own rig-velocity feeds the bank/chain-pendulum/cloth drives, so one hop whips the whole body.
+
+**Model-space locomotion is hitbox-safe by construction** (verified before building): every player-damage path
+(lock exposure, homing lances, the Surge beam) resolves live `partWorldPos`, which walks the full transform
+chain — offset the PARENT of the named parts (the rig) and hits follow the visual body for free. EITHERWING's
+±5.2u twins are the shipped proof. Keep amplitude at/below that precedent (KARNVOW: ±2.2 local ≈ ±4.4 world).
+
+**Cloth = a pivot chain + ONE deforming strip, never per-segment meshes.** The cloak (owner pick) is 6 lagged
+pivots skinned by a single quad-strip (eitherwing's makeTailStrip recipe — 1 draw, MeshStandard so the G7
+overdraw gate ignores it entirely); the skirt became a 3-slice chained cloth. Graded lag per depth = the whip
+travels down the fabric on every dart. Dash streaks = 2 pooled strips in GROUP space (they mark where the body
+WAS — rig space would ride along with him and never read as speed).
+
+**Two gate laws banked.** (1) **A fast mover needs `gate: { freeze: true }`**: bossgate grabs the geometry mask
+and the screenshot in separate round-trips; a body darting ~15u/s slides off its own mask between them (G1
+flaked 255↔239 with a 0% cluster — the glint simply wasn't where the mask said; G3 swung 14↔67%). The freeze
+flag (additive, the pale-slide mechanism reused) samples both at ONE pose — no thresholds change, shipped defs
+byte-identical, and G3 jumped to a stable 90%+. Chasing "flaky palette attribution" with material tweaks before
+checking MASK ALIGNMENT was the wasted hour. (2) **Attack FX should wear the ACCENT**: the lance arc-trail
+lights up exactly on charge frames — painted violet it flooded the G3 denominator on charge captures (a bimodal
+53↔14%); painted cold-steel it became an attribution ANCHOR. An FX hue that only appears under charge is
+effectively part of the palette-gate's charge-frame sample — choose it accordingly. Bonus: the correctly-aligned
+shielded capture exposed a real G6 miss (the glint never leashed under shield — now dims to an ember, the
+ashtalon idiom).

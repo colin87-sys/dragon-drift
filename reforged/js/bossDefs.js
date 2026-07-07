@@ -855,6 +855,10 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,   // danger stays magenta (role colour, never per-boss)
     approachFrom: 'side',    // rides in on the flank (the moving-station riding beat is a CP2 setpiece)
     muzzle: 'lanceTip',      // fire originates from the lance tip — the amber-emitting organ (§5f law 7)
+    // bossgate capture: the r3 dart footwork moves the body ~15u/s mid-hop, hitting
+    // the tool's documented two-frame mask/screenshot race (the marrowcoil pale-slide
+    // twin) — freeze the sim for the grab pair. NOT a G-law override; no thresholds change.
+    gate: { freeze: true },
     scale: 2.0,              // a lean dragon-PEER, NOT a colossus — tuned up from 1.5 so the studio
                              // fight-frame reads at band presence (G4) without bulking the mesh (L140)
     hpMax: 440,              // Tier-3 band 360–450; the slot-9 PEAK sits high (the sawtooth crest)

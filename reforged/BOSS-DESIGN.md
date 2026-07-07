@@ -728,6 +728,26 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   flourish roll differ from thrust. Palette-gate law learned here: cold emissive must stay
   SATURATED, not bright — over-bright cold clips white under bloom and drops out of the G3
   accent tier.
+  **FOOTWORK + SPECTACLE (r3, owner verdict "stiff — a hunter should be agile and nimble"):**
+  rounds 1–2 were secondary motion on a PARKED figure; r3 makes him MOVE. (1) the DART machine —
+  he hops between guard positions in rig space (±2.2 local ≈ ±4.4 world, inside EITHERWING's
+  shipped ±5.2; all hit/aim paths resolve live partWorldPos through `rig`, so the hitbox follows
+  for free): anticipation crouch → ease-out-back hop with overshoot → settle; a sidestep on the
+  charge rising edge (footwork before the strike); an evasive hop on flinch; PLANTS while
+  shielded + in death. The dart's own rig-velocity drives the bank/chain/cloth, so a hop whips
+  everything. (2) the CLOAK (owner pick) — a 6-pivot graded-lag chain skinned by ONE deforming
+  quad-strip (the eitherwing makeTailStrip recipe; MeshStandard so G7 ignores it), hanging from
+  the gorget's BACK; streams with travel, snaps on darts, drapes in death; faint cold sheen.
+  (3) the SKIRT rebuilt as a 3-slice segmented cloth chain (graded lag, hard-cut hem kept) in a
+  cold-sheened cloth material. (4) DASH STREAKS — 2 pooled strips in GROUP space marking where
+  the body just was during a hop, fading after. (5) LANCE ARC-TRAIL during sweep/flourish —
+  COLD-STEEL deliberately (it lights on charge frames: wearing the accent makes it a G3 anchor
+  under charge captures instead of a denominator flood; amber stays confined to the organ).
+  Machine-checked: the dart machine must move the body >1.5u over a headless 12s run.
+  **Capture law (r3):** a fast MOVER hits bossgate's two-frame mask/screenshot race (the
+  marrowcoil pale-slide twin) — `gate: { freeze: true }` samples both at one pose (additive
+  tool flag, no thresholds change, shipped defs byte-identical). The G6 shield-leash also
+  landed here (the glint dims to an ember + the organ banks while the bubble is up).
   **ENGINE (Part 3.4 verified):** `approachFrom: 'alongside'` is NOT a shipped branch — reuses
   `side` + the moving-station SETPIECE machinery (ASHTALON's circling-pass idiom; CP2).
   `grazeForm: 'holdFlinch'` — GRAZE FORM (HOLD-UNTIL-FLINCH): the lance's threat-line is the

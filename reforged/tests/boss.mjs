@@ -738,7 +738,27 @@ for (const key of BOSS_ORDER) {
   // of the weapon arm.
   const chainP = kv.group.getObjectByName('chainPivot');
   assert(chainP.position.x < 0, `karnvow chainPivot at the LEFT hip, opposite the lance grip (x ${chainP.position.x.toFixed(2)} < 0)`);
-  assert(!!kv.group.getObjectByName('surcoatPivot'), 'karnvow exposes the named surcoatPivot (the swaying tabard)');
+  assert(!!kv.group.getObjectByName('surcoatPivot'), 'karnvow exposes the named surcoatPivot (the segmented-skirt root)');
+  assert(!!kv.group.getObjectByName('skirtSeg2'), 'karnvow skirt is a segmented cloth chain (skirtSeg2 exists)');
+  assert(!!kv.group.getObjectByName('cloakPivot0'), 'karnvow exposes the cloak pivot chain (cloakPivot0)');
+  assert(!!kv.group.getObjectByName('cloakStrip'), 'karnvow cloak strip mesh exists');
+
+  // ROUND-3 FOOTWORK: over a ~12s headless run the dart machine must visit ≥2
+  // distinct guard positions (the rig actually MOVES — the nimble-hunter contract,
+  // owner verdict "stiff, for a hunter meant to be agile"). rig = group.children[0]
+  // isn't guaranteed — find it as surcoatPivot's ancestor under group.
+  {
+    let rig = kv.group.getObjectByName('surcoatPivot');
+    while (rig.parent && rig.parent !== kv.group) rig = rig.parent;
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < 60 * 12; i++) {
+      kv.tick(1 / 60, 10 + i / 60);
+      if (rig.position.x < minX) minX = rig.position.x;
+      if (rig.position.x > maxX) maxX = rig.position.x;
+    }
+    assert(maxX - minX > 1.5,
+      `karnvow footwork: the dart machine moves the body between guard positions (x spread ${(maxX - minX).toFixed(2)} > 1.5 over 12s)`);
+  }
 
   // partWorldPos resolves the live lance tip (the def.muzzle 'lanceTip' aim anchor).
   const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
