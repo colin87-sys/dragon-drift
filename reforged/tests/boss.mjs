@@ -836,6 +836,31 @@ for (const key of BOSS_ORDER) {
   }
 }
 
+// --- KNELLGRAVE §5f MUSIC-DEATH (the provably-reversible rule-break) -----------
+// musicKill() hard-zeros the music target; the kill survives being re-applied and
+// is folded into musicTarget() (so mute/volume/bg-restore paths preserve it);
+// musicRestore() brings the target back. The DEFEAT path is asserted after the
+// full-roster lifecycle below (knellgrave is last in BOSS_ORDER: its sim kills the
+// music at warn-end and the defeat fanfare must have restored it), and the
+// resetBoss teardown path is asserted here directly.
+{
+  const { musicKill, musicRestore, musicKillState } = await import('../js/sfx.js');
+  assert(!musicKillState().killed, 'music starts un-killed');
+  musicKill();
+  assert(musicKillState().killed && musicKillState().target === 0, 'musicKill hard-zeros the music target');
+  musicKill();   // idempotent
+  assert(musicKillState().killed, 'musicKill is idempotent');
+  musicRestore();
+  assert(!musicKillState().killed && musicKillState().target > 0, `musicRestore brings the target back (${musicKillState().target})`);
+  musicRestore();   // idempotent
+  assert(!musicKillState().killed, 'musicRestore is idempotent');
+  // the resetBoss teardown path: a hard teardown never strands the run in silence.
+  musicKill();
+  boss.resetBoss();
+  assert(!musicKillState().killed, 'resetBoss restores the killed music (teardown never strands silence)');
+  ok('knellgrave music-death: kill→zero, restore→back, both idempotent, resetBoss restores ✓');
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def
@@ -1134,6 +1159,15 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
+
+// §5f MUSIC-DEATH defeat path: knellgrave (last in BOSS_ORDER) killed the music at
+// its warn-end toll during the lifecycle sim above — the defeat fanfare must have
+// brought it back. A run can never end a boss kill still stranded in silence.
+{
+  const { musicKillState } = await import('../js/sfx.js');
+  assert(!musicKillState().killed, 'knellgrave lifecycle: the defeat fanfare restored the killed music');
+  ok('knellgrave music-death: the defeat path restores (lifecycle-proven) ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);

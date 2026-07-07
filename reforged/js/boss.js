@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
-import { sfx, setSlowMo, getBeatClock } from './sfx.js';
+import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll } from './sfx.js';
 import { input } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
@@ -1259,6 +1259,9 @@ function startDeath(player) {
   // exactly the ~0.25x asked for.
   game.slowMoTimer = Math.max(game.slowMoTimer, 1.2);
   setSlowMo(true);
+  // §5f MUSIC-DEATH: the world's voice returns UNDER the defeat beat — the bell is
+  // silenced, the run's music breathes back in (~0.6s). Idempotent for every other def.
+  musicRestore();
   emit('bossDefeated', { id: def.id, bonus, embers, noHit: game.bossHitsTakenRun === 0 });
 }
 
@@ -1477,6 +1480,11 @@ export function updateBoss(dt, player, time) {
   if (phase === 'warn') {
     warnT -= dt;
     if (warnT <= 0) {
+      // §5f MUSIC-DEATH (def.musicDies — slot 10's granted rule-break): the run's
+      // music DIES ON the warn-end toll and stays dead for the whole fight (skip
+      // must NOT restore it; the defeat fanfare / resetBoss bring it back). From
+      // here the accelerating toll is the only clock — silence as dread.
+      if (def.musicDies) { musicKill(); bellToll(1); model?.tollNow?.(time); }
       // §5j: a def opts into a scripted pre-fight cinematic via `def.entrance` (an
       // ENTRANCE_SCRIPTS id); the legacy `cinematicEntrance` flag maps to ASHTALON's
       // 'overtake'. Defs with neither keep the plain approach (coexist).
@@ -1877,6 +1885,18 @@ export function updateBoss(dt, player, time) {
         model.flash(0.9);
         tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
         burst(tmp, bulletColor, { count: 10, speed: 14, size: 0.9, life: 0.4 });   // "shots away" muzzle flash
+        // §5f KNELLGRAVE (def.musicDies): every volley release IS a toll. The audio
+        // strike (bellToll), the model's reverberation + expanding ring-wall (tollNow —
+        // the FAIRNESS TWIN: a muted/deaf player loses zero information), and the
+        // world-event layer (a camera tick + the 'bossToll' postfx flinch) all land on
+        // the same beat; the weight GROWS as the fight ruins (the final tolls are FELT).
+        if (def.musicDies) {
+          const w = 0.55 + (hpMax > 0 ? (1 - hp / hpMax) : 0) * 0.45;
+          bellToll(w);
+          model.tollNow?.(time);
+          cameraCtl.shake?.(0.16 + w * 0.2);
+          emit('bossToll', { k: w });
+        }
         executeAttack(curAttack, player);
         const ph = def.phases[phaseIdx];
         // §5i: a rhythm def uses the machine's authored rest (its signature's
@@ -2664,6 +2684,7 @@ function damageBoss(amount, kind, e = null) {
 export function resetBoss() {
   clearSetpiece();
   clearLocks('death');   // THE LANCE layer: drop aim/lock state on a hard teardown
+  musicRestore();        // §5f: a hard teardown never strands the run in silence (idempotent)
   removeSeed();   // §5e: no stale horizon silhouette across a run teardown
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.

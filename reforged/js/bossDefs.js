@@ -866,6 +866,14 @@ export const BOSSES = {
     glow: 0xffe0a8,              // candle-pale (shield rim / shards) — a touch paler than the accent
     bulletColor: 0xff2b6a,        // danger magenta — the role colour (never per-boss)
     bpm: 60,                      // the toll's base pulse (§5h optional def.bpm for rhythm slots; accelerates live)
+    // §5f THE MUSIC-DEATH RULE-BREAK (slot 10's granted break — spent ONCE in the
+    // roster): the run's music DIES on the warn-end toll and stays dead for the whole
+    // fight (skip does NOT restore it); it breathes back under the defeat fanfare /
+    // resetBoss. Every volley release IS a toll: the bellToll strike + the model's
+    // ring-wall fairness twin + the world-event flinch (camera tick + postfx pulse)
+    // land on one beat, growing heavier as the fight ruins. Coexist: no other def
+    // carries this flag; the music path is byte-identical for them.
+    musicDies: true,
     scale: 1.75,                 // COLOSSAL (owner pazzazz pass): lip ≈21 world units across, ~42u chain→clapper —
                                   // bigger than BRINEHOLM's head (the Tier-3 peak, ~37.5u). Baked overhead: the body
                                   // sits above y≈22 at station, only the flared lip + chains dip into the y∈[2,22]
