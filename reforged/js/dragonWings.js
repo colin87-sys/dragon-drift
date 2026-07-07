@@ -1675,32 +1675,40 @@ function buildBonfireManeWings(def, model, attach, giM) {
 
   // deterministic per-tongue IRREGULARITY (no Math.random — determinism is a deliverable). A
   // fixed jitter pattern so no two tongues match; the mane reads grown, not stamped-out.
-  const jLen = [0.06, -0.09, 0.12, -0.05, 0.08, -0.11, 0.04];
+  const jLen = [0.14, -0.16, 0.20, -0.11, 0.17, -0.19, 0.09];   // wider length spread (±≥11%) → visibly non-mirrored L/R
   const jCurl = [0.9, 1.25, 0.7, 1.4, 1.0, 1.2, 0.8];
-  const jRake = [0.02, 0.09, 0.04, 0.13, 0.06, 0.11, 0.03];
+  const jRake = [0.02, 0.11, 0.04, 0.15, 0.06, 0.13, 0.03];
   const jUp = [0.4, -0.15, 0.55, 0.05, 0.3, -0.1, 0.45];   // tips flick different ways (some up, some trail)
+  const jLick = [0.9, -1.2, 0.6, -0.85, 1.1, -0.7, 0.5];   // tip LICK direction/strength — alternating signs → S-curves, no two alike
+  const jWid = [0.12, -0.14, 0.08, -0.1, 0.15, -0.09, 0.06];   // per-tongue chord width variation
+  const jPitch = [0.5, -0.35, 0.7, -0.2, 0.4, -0.5, 0.6];   // per-tongue HEIGHT stagger → rear view shows undulating height bands, not one flat plank
 
-  // a SOFT flame tongue: broad-ish root → tapering to a rounded glowing WISP, curling gently.
-  function tongueGeo(len, wRoot, curlZ, curlY) {
-    const nX = seg(Math.max(5, Math.round(9 * detail)));
+  // a LICKING flame tongue: broad root → swelling belly → rounding to a soft convex point that
+  // LICKS to one side. NEVER a flat perpendicular tip cut (that's what stacked into staircase
+  // steps) and never a straight slab (that read as sheet-metal). The centreline is an S-curve.
+  function tongueGeo(len, wRoot, curlZ, curlY, lick) {
+    const nX = seg(Math.max(6, Math.round(11 * detail)));
     const nZ = seg(3);
     const verts = [], cols = [], idx = [];
     const c = new THREE.Color();
     for (let i = 0; i <= nX; i++) {
       const t = i / nX;
-      // BROAD and held-wide so adjacent tongue BASES overlap into one continuous flame sheet
-      // (no gaps between them → nothing reads as webbing-between-fingers / a bat armature); it
-      // stays soft-wide, then rounds to a blunt wisp (never a thin finger-spoke line).
-      const w = wRoot * (0.44 + 0.56 * Math.pow(1 - t, 0.5)) * (0.82 + 0.18 * Math.sin(Math.min(1, t * 1.25) * Math.PI));   // higher tip floor → tongues end in broad rounded flame-LOBES, not thin spikes (kills the rear-chase streamer/sliver read)
-      const zc = curlZ * t * t;                          // gentle aft curl
+      // FLAME-LEAF profile: broad root (bases overlap into one sheet, no finger-gaps), a swelling
+      // belly, then a CONVEX round-off to a soft point — so overlapping tongues read as scalloped
+      // flame licks, not right-angle staircase steps, and never a thin finger-spoke.
+      const belly = 0.55 + 0.45 * Math.sin(Math.min(1, t * 1.08) * Math.PI);   // broad belly swell
+      const tipCap = Math.pow(1 - Math.pow(t, 2.6), 0.5);                       // convex cap: ~full width until late, then rounds to a soft point (no flat cut)
+      const w = wRoot * belly * tipCap;
+      const zc = curlZ * t * t + lick * Math.pow(t, 3);  // parabolic aft-curl + cubic tip LICK → an S-curve centreline (tips deflect, per-tongue sign varies)
       const yc = t * len * Math.tan(theta) + curlY * t * t - rakeDown * t * len;   // dihedral + tip curl + the whole tongue rakes DOWN
       for (let j = 0; j <= nZ; j++) {
         const cf = j / nZ;
         const z = zc + (cf - 0.5) * w;
         const camb = camber * Math.sin(cf * Math.PI) * (0.4 + 0.6 * Math.sin(t * Math.PI));
         verts.push(t * len, yc + camb, z);
-        const heat = Math.pow(t, 1.8);                   // most of the tongue stays DARK molten; only the outer/thin tip runs hot
-        (heat < 0.55 ? c.copy(cRoot).lerp(cBody, heat / 0.55) : c.copy(cBody).lerp(cTip, (heat - 0.55) / 0.45));
+        // DARK molten basalt over the whole sheet; the hot orange runs ONLY in the last ~18%
+        // (a thin glowing fringe/wisp tip) — fire glows at its thin edge, not as a lit slab.
+        (t < 0.82 ? c.copy(cRoot).lerp(cBody, Math.pow(t / 0.82, 1.25)) : c.copy(cBody).lerp(cTip, (t - 0.82) / 0.18));
         cols.push(c.r, c.g, c.b);
       }
     }
@@ -1749,19 +1757,21 @@ function buildBonfireManeWings(def, model, attach, giM) {
       const rootY = rootX * Math.tan(theta);
       const rootZ = rootX * Math.tan(sweep) + 0.05 * i;          // tighter root stagger → the broad bases OVERLAP into one continuous sheet (no finger gaps)
       const len = maxLen * (lenBase(i) + jLen[jx(i)]);
-      const wRoot = chordK * reach * (0.85 + 0.3 * Math.sin(t * Math.PI));   // broader roots → adjacent tongues overlap, rounding the leading edge (no stair-step notches)
+      const wRoot = chordK * reach * (0.85 + 0.3 * Math.sin(t * Math.PI)) * (1 + jWid[jx(i)]);   // broader roots + per-tongue width variation → overlapping, non-uniform leading edge
       const curlZ = reach * 0.34 * jCurl[jx(i)];                 // irregular aft curl
       const curlY = reach * 0.12 * jUp[jx(i)];                   // tips flick different ways, but held CLOSER (reduced splay → rear silhouette stays a broad sheet, not gapped spikes)
+      const lick = reach * 0.16 * jLick[jx(i)];                  // tip S-curve lick (alternating sign per tongue → no two alike, none straight)
       const inner = rootX < wristX, parent = inner ? pivot : wingTip;
-      const px = inner ? rootX * side : (rootX - wristX) * side, py = inner ? rootY : rootY - wristY, pz = inner ? rootZ : rootZ - wristZ;
+      const pitchY = reach * 0.06 * jPitch[jx(i)];               // per-tongue HEIGHT stagger → rear view undulates (distinct height bands, not one flat plank)
+      const px = inner ? rootX * side : (rootX - wristX) * side, py = (inner ? rootY : rootY - wristY) + pitchY, pz = inner ? rootZ : rootZ - wristZ;
       const rest = new THREE.Group();
       rest.position.set(px, py, pz);
       rest.rotation.y = side * -(0.03 + jRake[jx(i)]);   // irregular fan (side-phased → non-mirrored)
-      rest.rotation.z = side * theta;
+      rest.rotation.z = side * (theta + 0.12 * jPitch[jx(i)]);   // per-tongue pitch → varied height bands in the rear read
       const lag = new THREE.Group(); rest.add(lag);
-      const mesh = new THREE.Mesh(tongueGeo(len, wRoot, curlZ, curlY), maneMat);
+      const mesh = new THREE.Mesh(tongueGeo(len, wRoot, curlZ, curlY, lick), maneMat);
       mesh.scale.x = side; lag.add(mesh);
-      const tipObj = new THREE.Object3D(); tipObj.position.set(len * side, 0, curlZ); lag.add(tipObj);
+      const tipObj = new THREE.Object3D(); tipObj.position.set(len * side, 0, curlZ + lick); lag.add(tipObj);
       parent.add(rest);
       tonguePivots.push({ pivot: lag, idx: i, side, restY: rest.rotation.y, restZ: rest.rotation.z });
       elements.push({ root: new THREE.Vector3(rootX, rootY, rootZ), len, tipObj });
