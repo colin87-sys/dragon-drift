@@ -20,13 +20,40 @@ export function phaseSpans(def) {
   });
 }
 
-// Per-boss LANCE economy. capPips = the tier's pip cap (0 ⇒ lance disabled, the
-// tier-1 Sentinels). For each phase: the ROI-clamped per-lance and full-volley
-// damage (base + beat), whether the ROI clamp bites, the volley as a fraction of
-// the phase, and pure-lance volleys-to-clear.
+// The REACHABLE pip cap for a boss — the number the volley economy actually
+// uses. It is NOT just capByTier[tier]: the lance-volley verb needs real PAINT
+// targets, and there are two gates the tier cap ignores:
+//   1. A boss with a virtualLockOrgan but NO `def.lockParts` is V1-AIM-ONLY — it
+//      cannot be painted at all (boss.js paintableParts returns null there:
+//      "Slots 1–3 stay V1-only → no painting"). So no lockParts ⇒ lance inert.
+//   2. Each paint target holds at most `stackMax` stacks (tiers ≥3; 1 otherwise),
+//      so a boss with few organs can't reach a high tier cap — e.g. a 1-organ
+//      tier-3 boss tops out at 1×stackMax(2)=2 pips, not the tier's 5.
+// Returns { tierCap, paintable, nTargets, capPips, reason }.
+export function reachableCap(def, LOCK) {
+  const tier = def.tier || 1;
+  const tierCap = (LOCK.capByTier || {})[tier] ?? 0;
+  const nLockParts = def.lockParts ? def.lockParts.length : 0;
+  const paintable = tierCap > 0 && nLockParts > 0;
+  // The virtualLockOrgan only becomes a paint target alongside real lockParts.
+  const nTargets = paintable ? nLockParts + (def.virtualLockOrgan ? 1 : 0) : 0;
+  const perTarget = tier >= 3 ? (LOCK.stackMax || 1) : 1;
+  const capPips = paintable ? Math.min(tierCap, nTargets * perTarget) : 0;
+  const reason = capPips > 0 ? null
+    : (tierCap === 0 ? 'tier cap 0 (Sentinel)'
+      : nLockParts === 0 ? 'no paint targets (V1 aim only)'
+      : 'no reachable pips');
+  return { tierCap, paintable, nTargets, capPips, reason };
+}
+
+// Per-boss LANCE economy. capPips = the REACHABLE pip cap (0 ⇒ lance inert —
+// either a tier-1 Sentinel or a boss with no paint targets). For each phase: the
+// ROI-clamped per-lance and full-volley damage (base + beat), whether the ROI
+// clamp bites, the volley as a fraction of the phase, and pure-lance volleys-to-clear.
 export function bossEconomy(def, LOCK, lanceDmgEach) {
   const tier = def.tier || 1;
-  const capPips = (LOCK.capByTier || {})[tier] ?? 0;
+  const cap = reachableCap(def, LOCK);
+  const capPips = cap.capPips;
   const roiFrac = LOCK.volleyRoiFrac;
   const beatMult = LOCK.beatMult;
   const spans = phaseSpans(def);
@@ -48,7 +75,9 @@ export function bossEconomy(def, LOCK, lanceDmgEach) {
   const totalVolleys = phases.reduce((a, p) => a + (isFinite(p.toClear) ? p.toClear : 0), 0);
   return {
     id: def.id, name: def.name, tier, hpMax: def.hpMax || 0,
-    capPips, lanceCapable: capPips > 0, phases, totalHp, totalVolleys,
+    tierCap: cap.tierCap, capPips, nTargets: cap.nTargets,
+    lanceCapable: capPips > 0, reason: cap.reason,
+    phases, totalHp, totalVolleys,
   };
 }
 
@@ -81,13 +110,14 @@ export function allEconomies(CONFIG, BOSSES, BOSS_ORDER, lanceDmgEach) {
 //   2. BEAT LAW: the ×beatMult volley ALSO stays ≤ the ROI ceiling (beatMult is
 //      applied INSIDE the clamp — a perfect release never breaches the phase-HP
 //      law). This is the one that would catch a regression moving beatMult out.
-//   3. CAP LADDER: capPips === capByTier[tier] for every boss.
+//   3. CAP LADDER: the reachable capPips never EXCEEDS the tier cap (it may be
+//      lower when the boss has too few paint targets to reach it).
 export function invariantBreaches(economies, LOCK) {
   const out = [];
   const eps = 1e-9;
   for (const e of economies) {
-    const wantCap = (LOCK.capByTier || {})[e.tier] ?? 0;
-    if (e.capPips !== wantCap) out.push(`${e.id}: capPips ${e.capPips} ≠ capByTier[${e.tier}] ${wantCap}`);
+    const tierCap = (LOCK.capByTier || {})[e.tier] ?? 0;
+    if (e.capPips > tierCap) out.push(`${e.id}: capPips ${e.capPips} > capByTier[${e.tier}] ${tierCap}`);
     e.phases.forEach((p, i) => {
       if (e.capPips > 0 && p.volley > p.roiCeil + eps) {
         out.push(`${e.id} phase ${i + 1}: volley ${p.volley.toFixed(2)} > ROI ceil ${p.roiCeil.toFixed(2)}`);

@@ -49,22 +49,40 @@ for (const e of economies) {
 }
 ok('every full-cap volley (base and beat) stays ≤ volleyRoiFrac × phaseHp');
 
-// --- Cap ladder wiring ------------------------------------------------------
+// --- Reachable cap: paint-target aware, never above the tier cap ------------
+// The reachable pip cap comes from the ACTUAL paint targets, not just the tier:
+// a boss with no def.lockParts is V1-aim-only (lance inert), and a boss with too
+// few organs caps below its tier (organs × stackMax). It can never EXCEED the
+// tier cap.
 for (const e of economies) {
-  assertEq(e.capPips, (L.capByTier || {})[e.tier] ?? 0, `${e.id}: capPips matches capByTier[tier]`);
+  const tierCap = (L.capByTier || {})[e.tier] ?? 0;
+  assert(e.capPips <= tierCap, `${e.id}: reachable cap ${e.capPips} ≤ tier cap ${tierCap}`);
+  assert(e.lanceCapable === (e.capPips > 0), `${e.id}: lanceCapable iff reachable cap > 0`);
 }
-const disabled = economies.filter((e) => !e.lanceCapable);
-assert(disabled.every((e) => e.tier === 1 && e.capPips === 0), 'lance-disabled bosses are exactly the tier-1 Sentinels');
-ok(`cap ladder wired; ${disabled.length} tier-1 bosses are lance-disabled (cap 0)`);
+// A boss with a virtualLockOrgan but NO lockParts is V1-aim-only → lance inert
+// (boss.js paintableParts returns null there). KARNVOW + ASHTALON are exactly
+// this on master; the tier-1 Sentinels are inert via a 0 tier cap.
+const inert = economies.filter((e) => !e.lanceCapable);
+assert(inert.every((e) => e.capPips === 0 && e.reason), 'every lance-inert boss carries a 0 cap + a reason');
+const noTargets = inert.filter((e) => e.reason.includes('no paint targets')).map((e) => e.id);
+assert(noTargets.includes('karnvow') && noTargets.includes('ashtalon'),
+  'KARNVOW + ASHTALON are lance-inert for want of paint targets (virtualLockOrgan is V1-aim-only)');
+// A boss capped BELOW its tier by too few organs is modelled (THRUMSWARM: 1
+// organ × stackMax ⇒ 2, not the tier-3 five).
+const thrum = economies.find((e) => e.id === 'thrumswarm');
+assert(thrum && thrum.lanceCapable && thrum.capPips < thrum.tierCap,
+  'THRUMSWARM is lance-capable but capped below its tier by its single organ');
+ok(`reachable cap is paint-target aware (${inert.length} inert; THRUMSWARM ${thrum.capPips}/${thrum.tierCap})`);
 
 // --- Per-boss economy sits in a sane band -----------------------------------
 // Pure-lance volleys-to-clear: not trivializing (a boss can't fall to a handful
-// of volleys) and not absurd (the ROI clamp keeps it bounded). Guards a tuning
-// change that would make the lance a primary nuke or make it pointless.
+// of volleys) and not absurd. The low-cap outlier (THRUMSWARM) legitimately runs
+// long, so the ceiling is generous; the point is to catch a tuning change that
+// makes the lance a primary nuke or utterly pointless.
 for (const e of economies) {
   if (!e.lanceCapable) continue;
-  assert(e.totalVolleys >= 20 && e.totalVolleys <= 90,
-    `${e.id}: pure-lance clear takes ${e.totalVolleys} volleys (sane band 20–90)`);
+  assert(e.totalVolleys >= 20 && e.totalVolleys <= 130,
+    `${e.id}: pure-lance clear takes ${e.totalVolleys} volleys (sane band 20–130)`);
   assert(e.lanceTtk > 30 && e.lanceTtk < 600,
     `${e.id}: pure-lance TTK estimate ${e.lanceTtk.toFixed(0)}s in band (30–600)`);
 }
@@ -72,7 +90,7 @@ ok('per-boss pure-lance clear volleys + TTK estimate sit in the sane band');
 
 // --- Roster coverage --------------------------------------------------------
 assertEq(economies.length, BOSS_ORDER.length, 'one economy row per boss in BOSS_ORDER');
-assert(economies.filter((e) => e.lanceCapable).length >= 6, 'at least 6 lance-capable bosses (tiers ≥2)');
+assert(economies.filter((e) => e.lanceCapable).length >= 4, 'at least 4 truly lance-capable bosses (have paint targets)');
 ok(`${economies.length} bosses modelled, ${economies.filter((e) => e.lanceCapable).length} lance-capable`);
 
 console.log(`\n${n} lockdps checks passed.`);

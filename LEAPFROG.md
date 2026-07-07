@@ -7527,6 +7527,20 @@ phase HP, so tier-3 volleys ROI-clamp at ~10% (~10 volleys/phase) and tier-2 sit
 a sane per-boss clear-volley band, so a `lanceDmg`/`volleyRoiFrac`/`capByTier`/phase edit that
 shifts LANCE balance fails loudly here and in `--ci`.
 
+**The correction that made it HONEST: `capByTier[tier]` is a ceiling, not the reachable cap.** The
+first cut keyed lance-capability purely off the tier, and the owner immediately caught it — "isn't
+KARNVOW the boss you can't paint?" It is: a boss with a `virtualLockOrgan` but NO `def.lockParts` is
+V1-AIM-ONLY (`paintableParts()` returns null there → no painting at all), so KARNVOW *and* ASHTALON
+have zero paint targets and the lance verb is INERT on them — yet the tier table happily reported
+cap 3/5. And a boss with too few organs can't reach its tier cap: THRUMSWARM's ONE queen organ ×
+`stackMax` 2 = a reachable cap of 2, not the tier-3 five (so its volley is 4 dmg and a pure-lance
+clear runs ~97 volleys, the roster's weak-lance outlier). The fix — `reachableCap(def) =
+min(capByTier[tier], nPaintTargets × stackMax)`, and lance-capable *iff* it has real `lockParts` —
+turned a plausible-but-wrong table into the true one. **A tier/config ladder tells you the CEILING;
+the reachable value needs the entity's own structure (here: how many organs it actually offers).
+Model the mechanism, not the tuning constant.** (The table is data-driven, so when KARNVOW's CP2
+trophy-charm `lockParts` land it will light up as paintable automatically.)
+
 **Pattern notes.** (1) **Pure-core + injected deps** — `lockdpsCore.mjs` imports NOTHING; the CLI
 and the test each do their own headless boot and pass in `CONFIG`/`BOSSES`/`lanceDmgEach`. One
 math module, two drivers, no shim duplicated into the logic. (2) The pure-node tool boot is the
