@@ -307,7 +307,55 @@ export function buildKnellgrave(def, quality = 1) {
     const mesh = new THREE.Mesh(geo, mat); mesh.name = 'knellShedPanel';
     const pivot = new THREE.Group(); pivot.position.copy(C); pivot.add(mesh);
     bellGroup.add(pivot);
-    shedPanels.push({ pivot, mesh, mat, C, aMid: s.aMid, at: s.at, prog: 0 });
+    shedPanels.push({ pivot, mesh, mat, C, aMid: s.aMid, at: s.at, prog: 0, falling: false, spent: false });
+  }
+
+  // ---- FALLING DEBRIS + SPLASH (world-space) — owner: "have the chunks fly off and fall into
+  // the water." Once a shed plate tears free it is reparented to the SCENE (out of the bell's
+  // swinging rig) and plummets under gravity to the surface, where it throws a splash ring and
+  // vanishes. The surface is fed in-game via setWaterPlane(0) (world.js y=0); in the studio/tests
+  // it stays null so plates just shear + fade locally (isolated captures byte-identical).
+  let waterY = null;
+  function setWaterPlane(y) { waterY = y; }
+  const GRAV = 30;
+  const worldDebris = [];   // scene-parented objects to clean up on dispose (fallen plates + splash rings)
+  const splashMat = track(new THREE.MeshBasicMaterial({ color: glow, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const splashes = [];
+  function spawnSplash(x, z) {
+    const scene = group.parent; if (!scene) return;
+    let s = splashes.find((q) => q.t <= 0);
+    if (!s) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.6, lowQ ? 12 : 18), splashMat);
+      ring.rotation.x = -Math.PI / 2;   // flat on the surface
+      scene.add(ring); worldDebris.push(ring);
+      s = { mesh: ring, t: 0 }; splashes.push(s);
+    }
+    s.mesh.position.set(x, waterY + 0.05, z);
+    s.t = 0.55;
+  }
+  function tickDebris(dt) {
+    for (const p of shedPanels) {
+      if (!p.falling) continue;
+      p.vy -= GRAV * dt;
+      p.pivot.position.x += p.vx * dt;
+      p.pivot.position.y += p.vy * dt;
+      p.pivot.position.z += p.vz * dt;
+      p.mesh.rotation.x += p.spin * dt;
+      p.mesh.rotation.z += p.spin * 0.6 * dt;
+      if (p.pivot.position.y <= waterY) {
+        spawnSplash(p.pivot.position.x, p.pivot.position.z);
+        p.falling = false; p.spent = true; p.pivot.visible = false;
+      }
+    }
+    let sy = 0;
+    for (const s of splashes) {
+      if (s.t <= 0) { s.mesh.visible = false; continue; }
+      s.t -= dt;
+      s.mesh.visible = true;
+      s.mesh.scale.setScalar(1 + (1 - s.t / 0.55) * 6);
+      sy = Math.max(sy, s.t / 0.55);
+    }
+    splashMat.opacity = sy * 0.5;
   }
 
   // raised RELIEF bands (the §5g surplus: ornament, not facets) — three proud rings
@@ -730,25 +778,8 @@ export function buildKnellgrave(def, quality = 1) {
   // off the crack side (authored cluster near the wound, §3 law 6 — never a uniform
   // ring). The World-Enders tell: the bell's own debris stopped obeying gravity. Dark
   // patina chips (≤0.25 emissive per §3 law 8), each slowly tumbling in the tick.
-  const bellShards = [];
-  const SHARD_SPOTS = [   // authored (azimuth from front-left crack, radius, height) — a shedding arc
-    [-0.5, 7.0, -3.0], [-0.9, 7.6, -0.8], [-0.2, 6.8, -5.0], [-1.4, 7.3, -2.0],
-    [0.15, 7.1, -4.2], [-1.05, 8.0, -4.6], [-0.65, 6.6, 0.6], [-1.8, 7.5, -0.2],
-  ];
-  const N_SHARD = lowQ ? 4 : 8;
-  // the debris is EARNED: the bell starts WHOLE (owner: "in the intro the bell is full without
-  // damage") — no floating shards at full hp. Each shard has a `born` ruin threshold and pops
-  // in (scale) as the bell breaks, so the cloud of torn wall THICKENS phase by phase.
-  const shardMat = track(patinaHiMat.clone()); shardMat.transparent = true;
-  for (let i = 0; i < N_SHARD; i++) {
-    const [saz, srad, sh] = SHARD_SPOTS[i];
-    const geo = strip(new THREE.BoxGeometry(0.55 + (i % 3) * 0.22, 0.8 + (i % 2) * 0.35, 0.14));
-    const m = new THREE.Mesh(geo, shardMat);
-    m.name = 'bellShard'; m.visible = false;   // hidden until the ruin births it
-    m.userData = { az: saz - 0.19, rad: srad, h: sh, ph: i * 1.31, tum: 0.25 + (i % 3) * 0.12, born: 0.06 + (i / N_SHARD) * 0.6 };
-    bellGroup.add(m);
-    bellShards.push(m);
-  }
+  // (the old free-floating "suspended shards" are gone — the shed plates themselves now break
+  // off and FALL to the water, so the debris is real, attached-then-torn, not a hovering cloud.)
 
   // edge cage over the bell (a dark outline pass — carves the facets on a bright sky).
   bellGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(bellMesh.geometry, 24), cageMat));
@@ -882,20 +913,31 @@ export function buildKnellgrave(def, quality = 1) {
     // drops under gravity, tumbles, and fades once it's well clear. Held wholly by ruinK so
     // it tracks HP (the ladder), never a timer; at rest (ruinK 0) every plate fills its gap.
     for (const p of shedPanels) {
+      if (p.falling || p.spent) continue;   // torn free → handed to the world-space fall (tickDebris)
       // ratchet on hp crossing the threshold, then COMPLETE on the break's own clock — a
-      // sheared plate must finish falling. Without this the P4 survival seal (which freezes
-      // hp → ruinK caps ~0.75) leaves the second plate hung half-tumbled, half-transparent,
-      // motionless beside the bell for the whole Last Toll (Fable gate; the L195 trap again).
-      // The self-advance also smooths mid-fight breaks (burst damage no longer teleports a
-      // plate along its arc, a damage lull no longer freezes it).
+      // sheared plate must finish tearing. Without this the P4 survival seal (which freezes
+      // hp → ruinK caps ~0.75) leaves the plate hung half-tumbled (Fable gate; the L195 trap).
       p.prog = Math.max(p.prog, clamp01((ruinK - p.at) / 0.24));
       if (p.prog > 0.01 && p.prog < 1) p.prog = Math.min(1, p.prog + dt * 0.8);
-      const e = p.prog * p.prog * (3 - 2 * p.prog);        // smoothstep the break
-      const outr = e * 5.5, drop = e * e * 7.5;
+      const e = p.prog * p.prog * (3 - 2 * p.prog);        // smoothstep the shear
+      const outr = e * 3.5, drop = e * e * 3.0;
       p.pivot.position.set(p.C.x + Math.sin(p.aMid) * outr, p.C.y - drop, p.C.z + Math.cos(p.aMid) * outr);
-      p.mesh.rotation.set(e * (1.5 + p.aMid * 0.2), e * 2.4, e * (0.8 + p.aMid * 0.1));
-      p.mat.opacity = 1 - clamp01((p.prog - 0.5) / 0.5);    // solid until clear, then dissolves to gone
-      p.pivot.visible = p.mat.opacity > 0.02;
+      p.mesh.rotation.set(e * (1.3 + p.aMid * 0.2), e * 1.8, e * (0.7 + p.aMid * 0.1));
+      // once it's torn clear of the wall, HAND IT to the world so it falls to the water. In the
+      // studio/tests (no water plane) it stays local and fades, exactly as before.
+      if (p.prog > 0.35 && waterY != null && group.parent) {
+        group.parent.attach(p.pivot);   // reparent to the scene, preserving world transform
+        worldDebris.push(p.pivot);
+        p.mat.opacity = 1;              // a solid chunk plummeting — the splash ends it, not a fade
+        p.falling = true;
+        p.vx = Math.sin(p.aMid) * 3.2 + (p.aMid - Math.PI) * 0.4;
+        p.vz = Math.cos(p.aMid) * 3.2;
+        p.vy = -2;
+        p.spin = 1.6 + (p.aMid % 1.4);
+      } else {
+        p.mat.opacity = 1 - clamp01((p.prog - 0.5) / 0.5);
+        p.pivot.visible = p.mat.opacity > 0.02;
+      }
     }
     // THE BELL BREAKS ALL THE WAY THROUGH — at the Last Toll the interior back-wall TEARS OPEN
     // so the SKY POURS in through the shed holes + the mouth (owner: "sky pouring would be
@@ -1012,25 +1054,12 @@ export function buildKnellgrave(def, quality = 1) {
     }
     moteMat.opacity = 0.45 * (1 - dyingK) * (shieldClamp ? 0.3 : 1) * (0.7 + gutter * 0.3);
 
-    // --- SUSPENDED SHARDS hover + slowly tumble by the crack; on the toll's reverb
-    // they shiver, and in the dread they drift OUTWARD (the wound widening). On death
-    // they sink with the swing's decay. ---
-    for (const sh of bellShards) {
-      const u = sh.userData;
-      // born by the ruin: hidden until its threshold, then a quick scale-in (a torn piece
-      // joining the weightless cloud). Full hp → no shards → a whole bell.
-      const sv = clamp01((ruinK - u.born) / 0.08);
-      sh.visible = sv > 0.01;
-      if (!sh.visible) continue;
-      sh.scale.setScalar(sv);
-      const rr = u.rad + ruinK * 1.2 + dreadK * 1.6 + Math.sin(time * 0.4 + u.ph) * 0.25;
-      sh.position.set(
-        Math.sin(u.az) * rr,
-        u.h + Math.sin(time * 0.55 + u.ph * 2.1) * 0.45 + tollK * Math.sin(time * 40 + u.ph) * 0.12 - dyingK * 6,
-        Math.cos(u.az) * rr);
-      sh.rotation.x += dt * u.tum * 0.6 * (1 + ruinK);
-      sh.rotation.y += dt * u.tum;
-    }
+    // --- FALLING DEBRIS: shed plates that have torn free PLUMMET to the water (owner: "have
+    // the chunks fly off and fall into the water"). Reparented to the scene so they fall in
+    // WORLD space (straight down, unaffected by the bell's swing), tumbling, until they hit the
+    // surface — then a splash ring and they're gone. Only live in-game (setWaterPlane fed): in
+    // the studio/tests waterY stays null, so plates just fade locally as before. ---
+    tickDebris(dt);
 
     // --- ENTRANCE: the bell fades in ABOVE the frame already mid-swing; the slit
     // snaps on; the clapper LIFTS ITS HEAD at the apex (driven by the controller via
@@ -1066,11 +1095,16 @@ export function buildKnellgrave(def, quality = 1) {
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
     flash, hurt, tollNow,
-    setEntrance, setEntranceSteer,
+    setEntrance, setEntranceSteer, setWaterPlane,
     setHealth: setHealthRuin, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     hullLength, tollBeat,
-    dispose() { group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); },
+    dispose() {
+      // fallen plates + splash rings live under the SCENE (not group) — remove + dispose them
+      // explicitly so a defeated boss leaves no orphaned debris behind.
+      for (const o of worldDebris) { o.parent?.remove(o); o.traverse?.((c) => { c.geometry?.dispose(); }); }
+      group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    },
   };
 }

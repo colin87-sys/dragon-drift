@@ -8144,3 +8144,23 @@ Gotcha: carving MORE shed windows (2 pairs → 3) meant that at lowQ, where orna
 small, EVERY buttress fin fell inside a shed/crack sector → `finParts` empty → `mergeGeometries([])`
 throws on `geometries[0].index`. Any sector-skipping ornament loop needs an `if (parts.length)`
 guard once shed windows can cover most of the circle.
+
+### L219 — KNELLGRAVE debris: don't HOVER torn pieces — reparent them to the SCENE and let them fall to the water
+Owner, on the floating "suspended shards": "those read as random floating shapes — can't you have
+the chunks fly off and fall into the water?" Dead right; the hovering-debris cloud (a CP1 tell)
+competed with the shed plates and never linked to the bell. Replaced it with real falling debris:
+1. **Cut the hover cloud.** The shed plates already ARE the torn pieces; a second, worse debris
+   system was noise. Deleted the `bellShards` entirely (−~8 boxes, tris down).
+2. **Fall in WORLD space, not local.** A plate tumbling in the bell's local rig swings with the
+   pendulum and never reaches the ground. The fix: when a plate tears clear (prog>0.35),
+   `group.parent.attach(pivot)` reparents it to the SCENE (preserving world transform), then
+   integrate gravity on it directly (vy -= GRAV·dt) until `position.y <= waterY` → splash ring,
+   done. Straight down, unaffected by the swing — it plummets like real debris.
+3. **The water plane is already on tap.** boss.js feeds every model `setWaterPlane?.(0)` (world.js
+   surface y=0); expose the hook and the plate knows where the water is. In the studio/tests the
+   plane is never fed (isolated captures stay byte-identical), so `waterY` stays null and plates
+   just shear + fade locally — the fall is a pure in-game enrichment, zero test churn.
+Gotcha: a scene-reparented object is NO LONGER under the boss group, so `group.traverse` in
+dispose() won't reach it — a defeated boss would leave orphaned debris + splash rings in the
+scene. Track every world-parented object in a `worldDebris[]` and remove+dispose them explicitly
+on teardown. (Same trap any effect that escapes the boss group hits.)
