@@ -970,6 +970,13 @@ export function buildKarnvow(def, quality = 1) {
   let riposteT = 0;
   function riposte() { riposteT = 0.42; chainVel -= 4; kit.flash(0.5); }
 
+  // ENTRANCE FOOTWORK HOLD: the dart machine must sleep through the cinematic —
+  // the entrance script's lance-point beat (setCharge at U2) trips the machine's
+  // strike-sidestep rising edge, which read as a mid-cinematic HOP (owner catch).
+  // The itKeptCount script holds this true until the fight handoff.
+  let footHold = false;
+  function holdFootwork(hold) { footHold = !!hold; }
+
   // --- GRANDEUR REDO setpiece hook: boss.js feeds sin(kπ) + the setpiece def
   // each frame (clearSetpiece + the entrance scripts call it bare/0). `dread` →
   // VOIDMAW'S VERDICT (the sigil writing); anything else (flankCutIn) → the
@@ -1006,9 +1013,10 @@ export function buildKarnvow(def, quality = 1) {
 
     // --- ROUND-3 FOOTWORK: the dart state machine (the nimble-hunter core fix —
     // rounds 1–2 were secondary motion on a PARKED figure; a hunter MOVES). ---
-    if (dyingK > 0.1 || shieldPlant) {
+    if (dyingK > 0.1 || shieldPlant || footHold) {
       // Plant: ease the guard back to center, no darts (shielded = stands his
-      // ground + the bubble stays aligned; death = grounded).
+      // ground + the bubble stays aligned; death = grounded; entrance = the
+      // cinematic owns the body).
       guardX += (0 - guardX) * Math.min(1, dt * 4);
       guardY += (0 - guardY) * Math.min(1, dt * 4);
       dartPhase = 'idle';
@@ -1459,6 +1467,7 @@ export function buildKarnvow(def, quality = 1) {
     flareCharm,   // CP2: the entrance top-killer trophy flare (§5j, the escalation hinge)
     riposte,      // CP2: the parry cross-swat + amber flash (the C1 reflect-once beat)
     setSetpiece,  // REDO: dread → Voidmaw's Verdict (the sigil writing); else the cut-in apex
+    holdFootwork, // entrance: plant the dart machine through the cinematic (the hop fix)
     partWorldPos,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,

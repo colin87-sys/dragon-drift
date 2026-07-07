@@ -46,6 +46,7 @@ let debugFirstAt = null;       // ?boss override: bring the first encounter in e
 let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
 let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
 let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
+let debugPhaseJump = null;     // ?bossPhase=N (1-based): open the fight fast-forwarded to phase N
 let debugEntrancePin = null;   // capture hook: 0..1 holds an ENTRANCE_SCRIPTS pose (the Baton Cross) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
@@ -1473,6 +1474,7 @@ function enterFight() {
   entranceId = null;                  // the scripted entrance is done
   model?.setEntrance?.(null);         // release any per-boss entrance choreography (EITHERWING's Baton Cross)
   cineYaw = null;                     // hand facing back to placeGroup (face the player)
+  cineRoll = 0;                       // an entrance script's bank (script.roll) releases with it
   cameraCtl.setOvertake?.(null);      // release the cinematic camera if it was active
   model.setEyeLock?.(false);          // hand the pupil back to the idle gaze
   ui.cinematicHold?.(false);          // restore the gameplay HUD
@@ -1492,6 +1494,19 @@ function enterFight() {
   // deliberately separate beat, breaking a truce every other boss honors.
   holdBreakerT = def.holdBreaker ? 1.1 : 0;
   if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
+  // ?bossPhase=N fast-forward (preview judging): walk the SAME per-phase path a
+  // live shield break takes (card + setpiece arming), with hp parked just above
+  // the target phase's own floor so the phase plays out normally from there.
+  if (debugPhaseJump != null && debugPhaseJump > 0) {
+    const target = Math.min(debugPhaseJump, def.phases.length - 1);
+    phaseIdx = target;
+    hp = Math.min(hpMax, ((def.phases[target + 1]?.atFrac ?? 0) + 0.05) * hpMax + 1);
+    rhythm?.reset();
+    rhythmRest = null;
+    beginCard(phaseIdx);
+    armSetpieceForPhase(phaseIdx);
+    if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdFlinchDone = false; }
+  }
 }
 
 // The §5j ENTRANCE DRIVER (generalized from ASHTALON's shipped overtake). A scripted
@@ -1530,6 +1545,9 @@ function updateEntrance(dt, player, time) {
   model.setSetpiece?.(script.tuck ? script.tuck(u, ctx) : 0);
   model.setCharge?.(0);
   if (script.yaw) cineYaw = script.yaw(u, ctx, pose, player);
+  // Optional scripted BANK through the entrance (KARNVOW's carving wheel) — scripts
+  // without `roll` never touch cineRoll (byte-identical to the pre-roll driver).
+  if (script.roll) cineRoll = script.roll(u, ctx, pose, player);
   if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
   // Per-boss entrance FX hook (EITHERWING's eye-thread cross, twin brackets) — optional.
   script.onFrame?.(u, ctx, pose, player, model, time);
@@ -3223,6 +3241,14 @@ export function setBossDebugFirstAt(dist) {
 
 // Debug/playtest: every encounter uses BOSS_ORDER[k] (?bossIdx=k) so the preview
 // can summon a specific boss without fighting through the cycle first.
+// ?bossPhase=N (1-based, preview judging): fast-forward the encounter to open at
+// phase N — hp dropped to just above the NEXT floor and the phase's card/setpiece
+// armed through the same beginCard/armSetpieceForPhase path a live shield break
+// takes. ?bossPhase=3 on KARNVOW opens the fight INTO Voidmaw's Verdict.
+export function setBossDebugPhase(n) {
+  debugPhaseJump = Number.isFinite(n) && n > 1 ? n - 1 : null;
+}
+
 export function setBossDebugDefIdx(k) {
   debugDefIdx = k;
 }

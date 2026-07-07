@@ -1398,7 +1398,36 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assertEq(sc.path(0.3, ctx).rel, 16, 'itKeptCount rel steady at 16 (hold)');
   assertEq(sc.path(0.7, ctx).rel, 16, 'itKeptCount rel steady at 16 (point)');
   assertEq(sc.path(1, ctx).rel, CONFIG.BOSS.settleGap, 'itKeptCount settles at station');
+  // The DE-JANK laws (owner catch — "back to us, wing in frame, hop spin"):
+  // (a) three-quarter ride, never a pure back, once he's drawn level;
+  const rideYaw = sc.yaw(0.5, ctx);
+  assert(rideYaw < Math.PI * 0.75 && rideYaw > Math.PI * 0.4,
+    `itKeptCount rides three-quarter (yaw ${rideYaw.toFixed(2)} in (0.4π, 0.75π)) — the cowl/festoon read, not his back`);
+  assert(Math.abs(sc.yaw(1, ctx)) < 1e-6, 'itKeptCount wheel completes — squared to face you at station');
+  // (b) the wheel BANKS (roll live mid-wheel, level at both ends — no snap-spin);
+  assert(Math.abs(sc.roll(0.9, ctx)) > 0.1 && Math.abs(sc.roll(1, ctx)) < 1e-6 && Math.abs(sc.roll(0.5, ctx)) < 1e-6,
+    'itKeptCount wheel banks (roll live mid-wheel, level at the hold and at station)');
+  // (c) he rides ABOVE the wing line (the +2.5 ride crowded the dragon's wing).
+  assert(sc.path(0.5, ctx).y >= ctx.AY + 3.5, 'itKeptCount rides above the wing line (y ≥ AY+3.5)');
+  // (d) the dart machine sleeps through the cinematic: drive a model with the
+  // script's own onFrame beats (incl. the U2 lance-point that used to trip the
+  // strike-sidestep) and assert the rig never leaves centre.
+  {
+    const kvE = buildBoss(BOSSES.karnvow, 1);
+    const rig = kvE.group.children.find((c) => c.type === 'Group');
+    sc.onStart?.(kvE);
+    let maxOff = 0;
+    for (let i = 0; i <= 60; i++) {
+      const u = i / 60;
+      sc.onFrame?.(u, ctx, { x: 0, y: 0, rel: 16 }, { position: { x: 0, y: 0 }, dist: 0 }, kvE);
+      kvE.tick(0.05, 100 + i * 0.05);
+      maxOff = Math.max(maxOff, Math.abs(rig.position.x - Math.sin((100 + i * 0.05) * 0.37) * 0.25));
+    }
+    assert(maxOff < 0.6, `karnvow footwork SLEEPS through the entrance (guard offset ${maxOff.toFixed(2)} < 0.6 — no mid-cinematic hop)`);
+    kvE.dispose();
+  }
   ok('karnvow itKeptCount entrance: rel rock-steady ride → station settle');
+  ok('karnvow entrance de-jank: 3/4 ride, banked full wheel, above the wing, footwork asleep');
 
   // Live drive: after the first shield break (phase ≥ 1) an injected REFLECTED hit
   // (kind 'player') is RIPOSTED — answered once, the second one lands; the parked
