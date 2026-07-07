@@ -7539,7 +7539,13 @@ min(capByTier[tier], nPaintTargets × stackMax)`, and lance-capable *iff* it has
 turned a plausible-but-wrong table into the true one. **A tier/config ladder tells you the CEILING;
 the reachable value needs the entity's own structure (here: how many organs it actually offers).
 Model the mechanism, not the tuning constant.** (The table is data-driven, so when KARNVOW's CP2
-trophy-charm `lockParts` land it will light up as paintable automatically.)
+trophy-charm `lockParts` land it will light up as paintable automatically.) A follow-up Codex P2
+deepened the same lesson: the reachable cap is PER PHASE, not per boss — `paintableParts()` filters
+lockParts by `lp.phases.includes(phaseIdx)`, so BRINEHOLM's `phases:[0,1,2]` shackles drop out of
+its 4th phase, leaving the eye alone (2 pips, not 5). A single boss-level cap over-reported exactly
+the phase-gated case the CI band is meant to catch; the model now computes each phase's cap from its
+own phase-filtered target set. **When you mirror a live function in an analytic model, mirror ALL of
+its filters — a per-phase gate in the source is a per-phase term in the model.**
 
 **Pattern notes.** (1) **Pure-core + injected deps** — `lockdpsCore.mjs` imports NOTHING; the CLI
 and the test each do their own headless boot and pass in `CONFIG`/`BOSSES`/`lanceDmgEach`. One

@@ -71,27 +71,28 @@ const f1 = (x) => x.toFixed(1);
 
 console.log(`LANCE damage economy — lanceDmg ${L.lanceDmg}, volleyRoiFrac ${L.volleyRoiFrac}, beatMult ${L.beatMult}, cap ${JSON.stringify(L.capByTier)}`);
 console.log('');
-// `cap` = the REACHABLE pip cap (paint targets × stackMax, clamped to the tier
-// cap) — shown as reach/tier so a boss capped below its tier by too few organs
-// (e.g. THRUMSWARM 2/5) is obvious.
-console.log(padR('Boss', 12) + padL('T', 2) + padL('HP', 6) + padL('cap', 6) + '  ' +
-  padR('Ph', 3) + padL('phHP', 7) + padL('volley', 8) + padL('%ph', 6) + padL('n/clr', 7) + '  clamp');
+// `cap` is PER PHASE (reach/tier): the reachable pip cap = phase paint targets ×
+// stackMax, clamped to the tier cap. It varies within a boss when a phase gates
+// out organs (e.g. BRINEHOLM phase 4 drops its shackles → 2/5).
+console.log(padR('Boss', 12) + padL('T', 2) + padL('HP', 6) + '  ' +
+  padR('Ph', 3) + padL('cap', 5) + padL('phHP', 7) + padL('volley', 8) + padL('%ph', 6) + padL('n/clr', 7) + '  clamp');
 console.log('-'.repeat(72));
 for (const e of economies) {
   if (!e.lanceCapable) {
-    console.log(padR(e.name, 12) + padL(e.tier, 2) + padL(e.hpMax, 6) + padL('—', 6) + '   lance inert — ' + e.reason);
+    console.log(padR(e.name, 12) + padL(e.tier, 2) + padL(e.hpMax, 6) + '   lance inert — ' + e.reason);
     continue;
   }
-  const capCol = `${e.capPips}/${e.tierCap}`;
   e.phases.forEach((p, i) => {
     const head = i === 0
-      ? padR(e.name, 12) + padL(e.tier, 2) + padL(e.hpMax, 6) + padL(capCol, 6)
-      : padR('', 12) + padL('', 2) + padL('', 6) + padL('', 6);
-    console.log(head + '  ' + padR(i + 1, 3) + padL(f1(p.phaseHp), 7) + padL(f1(p.volley), 8) +
+      ? padR(e.name, 12) + padL(e.tier, 2) + padL(e.hpMax, 6)
+      : padR('', 12) + padL('', 2) + padL('', 6);
+    console.log(head + '  ' + padR(i + 1, 3) + padL(`${p.capPips}/${e.tierCap}`, 5) +
+      padL(f1(p.phaseHp), 7) + padL(f1(p.volley), 8) +
       padL((p.pct * 100).toFixed(0) + '%', 6) + padL(isFinite(p.toClear) ? p.toClear : '∞', 7) +
       '  ' + (p.clamped ? 'ROI' : 'raw'));
   });
-  console.log(padR('', 30) + `→ pure-lance: ${e.totalVolleys} volleys · ~${f1(e.lanceTtk)}s @ ${f1(e.cadence)}s/volley (est.)`);
+  console.log(padR('', 30) + `→ pure-lance: ${e.totalVolleys} volleys · ~${f1(e.lanceTtk)}s (est.)` +
+    (e.capVaries ? ' · cap varies by phase' : ''));
 }
 
 // --- invariant gate --------------------------------------------------------

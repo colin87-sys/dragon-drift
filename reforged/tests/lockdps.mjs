@@ -49,30 +49,41 @@ for (const e of economies) {
 }
 ok('every full-cap volley (base and beat) stays ≤ volleyRoiFrac × phaseHp');
 
-// --- Reachable cap: paint-target aware, never above the tier cap ------------
-// The reachable pip cap comes from the ACTUAL paint targets, not just the tier:
-// a boss with no def.lockParts is V1-aim-only (lance inert), and a boss with too
-// few organs caps below its tier (organs × stackMax). It can never EXCEED the
+// --- Reachable cap: paint-target aware, PER PHASE, never above the tier cap --
+// The reachable pip cap comes from the ACTUAL paint targets in each phase, not
+// just the tier: a boss with no def.lockParts is V1-aim-only (lance inert); a
+// boss with too few organs caps below its tier (organs × stackMax); and a phase
+// that gates out organs caps lower than its siblings. No phase cap exceeds the
 // tier cap.
 for (const e of economies) {
   const tierCap = (L.capByTier || {})[e.tier] ?? 0;
-  assert(e.capPips <= tierCap, `${e.id}: reachable cap ${e.capPips} ≤ tier cap ${tierCap}`);
-  assert(e.lanceCapable === (e.capPips > 0), `${e.id}: lanceCapable iff reachable cap > 0`);
+  for (const p of e.phases) {
+    assert(p.capPips <= tierCap, `${e.id}: phase cap ${p.capPips} ≤ tier cap ${tierCap}`);
+  }
+  assert(e.lanceCapable === (e.peakCap > 0), `${e.id}: lanceCapable iff any phase is paintable`);
 }
 // A boss with a virtualLockOrgan but NO lockParts is V1-aim-only → lance inert
 // (boss.js paintableParts returns null there). KARNVOW + ASHTALON are exactly
 // this on master; the tier-1 Sentinels are inert via a 0 tier cap.
 const inert = economies.filter((e) => !e.lanceCapable);
-assert(inert.every((e) => e.capPips === 0 && e.reason), 'every lance-inert boss carries a 0 cap + a reason');
+assert(inert.every((e) => e.peakCap === 0 && e.reason), 'every lance-inert boss carries a 0 cap + a reason');
 const noTargets = inert.filter((e) => e.reason.includes('no paint targets')).map((e) => e.id);
 assert(noTargets.includes('karnvow') && noTargets.includes('ashtalon'),
   'KARNVOW + ASHTALON are lance-inert for want of paint targets (virtualLockOrgan is V1-aim-only)');
 // A boss capped BELOW its tier by too few organs is modelled (THRUMSWARM: 1
 // organ × stackMax ⇒ 2, not the tier-3 five).
 const thrum = economies.find((e) => e.id === 'thrumswarm');
-assert(thrum && thrum.lanceCapable && thrum.capPips < thrum.tierCap,
+assert(thrum && thrum.lanceCapable && thrum.peakCap < thrum.tierCap,
   'THRUMSWARM is lance-capable but capped below its tier by its single organ');
-ok(`reachable cap is paint-target aware (${inert.length} inert; THRUMSWARM ${thrum.capPips}/${thrum.tierCap})`);
+// A PHASE-GATED lockPart lowers the reachable cap for that phase (Codex P2):
+// BRINEHOLM gates its 3 shackles to phases [0,1,2], so its final phase drops to
+// the eye alone (2 pips) while earlier phases reach 5. The per-phase model must
+// reflect this — a boss-level cap would over-report the last phase.
+const brine = economies.find((e) => e.id === 'brineholm');
+assert(brine && brine.capVaries, 'BRINEHOLM cap varies by phase (phase-gated shackles)');
+assert(brine.phases[0].capPips === 5 && brine.phases[brine.phases.length - 1].capPips === 2,
+  `BRINEHOLM final phase caps at the eye alone (2), not the tier 5 (got ${brine.phases.map((p) => p.capPips).join('/')})`);
+ok(`reachable cap is per-phase paint-target aware (${inert.length} inert; THRUMSWARM ${thrum.peakCap}/${thrum.tierCap}; BRINEHOLM ${brine.phases.map((p) => p.capPips).join('/')})`);
 
 // --- Per-boss economy sits in a sane band -----------------------------------
 // Pure-lance volleys-to-clear: not trivializing (a boss can't fall to a handful
