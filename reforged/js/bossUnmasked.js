@@ -139,6 +139,18 @@ export function buildUnmasked(def, quality = 1) {
   coronaRing.name = 'coronaRing';
   stage1.add(coronaRing);
 
+  // A thin DARK separation halo just outside the rim, BEHIND the streamers — so the
+  // white corona reads as shape on a PALE biome sky (the persistence worst case),
+  // not just as additive glow that washes out. Invisible on the dark fight sky.
+  const haloMat = track(new THREE.MeshBasicMaterial({
+    color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  const haloGeo = new THREE.RingGeometry(DISC_R * 0.995, DISC_R * 1.16, lowQ ? 40 : 72);
+  haloGeo.translate(0, 0, DISC_Z - 0.03);
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  halo.name = 'coronaHalo';
+  stage1.add(halo);
+
   // ── THE PUPIL — the ONE focal: a BIG HDR white almond that LIVE-TRACKS the player
   // (14's exclusive claim). Named `focalEye`. Sized to read at sky-scale against the
   // black disc. White-hot, toneMapped=false + ×HOT so it genuinely blooms. ──
@@ -172,25 +184,39 @@ export function buildUnmasked(def, quality = 1) {
   // Closed = a heavy-lidded slit (dormant); NOTICE peels wide; CHARGE = WRATH. A hair
   // warmer-black than the disc so the lid reads as its own tier. ──
   const lidMat = track(new THREE.MeshStandardMaterial({
-    color: 0x070609, emissive: 0x000000, roughness: 0.9, metalness: 0.0, flatShading: true,
+    color: 0x040306, emissive: 0x000000, roughness: 1.0, metalness: 0.0, flatShading: true,
   }));
-  const lidSeg = lowQ ? 28 : 48;
-  const lidUpperGeo = stripForMerge(new THREE.CircleGeometry(DISC_R * 1.05, lidSeg, 0, Math.PI));        // upper half (y≥0)
-  const lidLowerGeo = stripForMerge(new THREE.CircleGeometry(DISC_R * 1.05, lidSeg, Math.PI, Math.PI));  // lower half (y≤0)
+  // Each lid is a CRESCENT (a disc-rim arc closed by a CURVED lash) — the lash is a
+  // quadratic bow, NEVER a level chord (§3b.3), and the crescent stays inside the
+  // disc rim so the silhouette holds a clean circle (no cusps). At rest the crescent
+  // covers down over the pupil = a heavy dark lid mass; opening tucks it back (a
+  // rotation about the disc centre) so the lash rises and the pupil is revealed.
+  const lidSeg = lowQ ? 32 : 56;
+  const crescentGeo = () => {
+    const a = 0.12;
+    const yEnd = DISC_R * Math.sin(a), xEnd = DISC_R * Math.cos(a);
+    const s = new THREE.Shape();
+    s.absarc(0, 0, DISC_R, a, Math.PI - a, false);                 // top rim arc (ends L/R at the rim)
+    s.quadraticCurveTo(0, yEnd - DISC_R * 0.95, xEnd, yEnd);       // CURVED lash bowing down over the pupil
+    s.closePath();
+    return stripForMerge(new THREE.ShapeGeometry(s, lidSeg));
+  };
+  const lidGeo = crescentGeo();
   const lids = [];
   for (const side of [1, -1]) {
     const lidPivot = new THREE.Object3D();
     lidPivot.position.set(0, 0, LID_Z);
-    const lid = new THREE.Mesh(side > 0 ? lidUpperGeo : lidLowerGeo, lidMat);
+    const lid = new THREE.Mesh(lidGeo, lidMat);
+    if (side < 0) lid.rotation.z = Math.PI;   // lower lid: the same crescent flipped to cover the bottom
     lidPivot.add(lid);
     lidPivot.userData.side = side;
     lidPivot.name = side > 0 ? 'lidPivot' : 'lidPivotLower';
     stage1.add(lidPivot);
     lids.push(lidPivot);
   }
-  // aperture 0 = shut (lids flat over the disc, a black circle), 1 = fully peeled
-  // back off the disc. The upper lid tucks to −rot, the lower to +rot.
-  const lidMag = (aperture) => aperture * 1.55;
+  // aperture 0 = shut (crescents cover the disc → a black lidded circle), 1 = peeled
+  // fully back. The upper lid tucks to −mag, the lower to +mag.
+  const lidMag = (aperture) => 0.04 + aperture * 1.5;
 
   // ── ATTENDANT MOTES — small DARK satellites (§3 law 8: dim accent emissive ≤0.25,
   // never bright debris) drifting around the disc: the cinders of the thing that
@@ -198,12 +224,12 @@ export function buildUnmasked(def, quality = 1) {
   const orbiters = [];
   const moteN = lowQ ? 2 : 3;
   const moteMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0a0906, emissive: accent, emissiveIntensity: 0.12, roughness: 0.95, metalness: 0.0, flatShading: true,
+    color: 0x080705, emissive: accent, emissiveIntensity: 0.05, roughness: 1.0, metalness: 0.0, flatShading: true,
   }));
-  const moteGeo = stripForMerge(new THREE.IcosahedronGeometry(0.16, 0));
+  const moteGeo = stripForMerge(new THREE.IcosahedronGeometry(0.12, 0));
   for (let i = 0; i < moteN; i++) {
     const m = new THREE.Mesh(moteGeo, moteMat);
-    m.userData = { ang: (i / moteN) * TAU, radius: DISC_R * (1.22 + rnd() * 0.3), speed: 0.16 + rnd() * 0.12, baseY: (rnd() - 0.5) * 1.6, tilt: rnd() * TAU };
+    m.userData = { ang: (i / moteN) * TAU, radius: DISC_R * (1.1 + rnd() * 0.18), speed: 0.14 + rnd() * 0.1, baseY: (rnd() - 0.5) * 2.4, tilt: rnd() * TAU };
     stage1.add(m);
     orbiters.push(m);
   }
@@ -247,9 +273,9 @@ export function buildUnmasked(def, quality = 1) {
     // ── Aperture (EXPRESSION): heavy-lidded rest → watching (gaze active/noticed) →
     // wrath (charge wides it). Death lowers the lids (the light going out). ──
     const watching = noticeT > 0 || Math.abs(gazeTX) + Math.abs(gazeTY) > 0.05;
-    let apTarget = 0.25;                                 // dormant heavy-lidded
-    if (watching) apTarget = 0.62;                       // watching, open, tracking
-    apTarget = Math.max(apTarget, charge * 0.98);        // WRATH: charge wides toward fully-peeled
+    let apTarget = 0.14;                                 // dormant HEAVY-lidded (a watching slit)
+    if (watching) apTarget = 0.55;                       // watching, open, tracking
+    apTarget = Math.max(apTarget, charge * 0.92);        // WRATH: charge wides toward fully-peeled
     apTarget = Math.min(1, apTarget + (painT > 0 ? 0.1 : 0));
     apTarget *= 1 - dyingK * 0.85;                       // the light dims behind lowering lids in death
     aperture += (apTarget - aperture) * Math.min(1, dt * 6);
@@ -286,11 +312,11 @@ export function buildUnmasked(def, quality = 1) {
 
     // ── Corona: aggregate flicker; a charge swell; the UPPER streamers dim as the
     // lid closes over them (so "lidded" reads pre-open, no crescent remnant). ──
-    const upperCover = Math.max(0, 1 - aperture) * 0.8;
+    const upperCover = Math.max(0, 1 - aperture) * 0.85;
     let flick = 0;
     for (const s of streamers) flick += Math.pow(Math.max(0, Math.sin(time * s.f + s.ph)), 4);
     flick = 0.55 + (flick / streamers.length) * 0.9;
-    coronaMat.opacity = flick * (0.72 + charge * 0.5) * (1 - dyingK) * (1 - upperCover * 0.3);
+    coronaMat.opacity = flick * (0.72 + charge * 0.5) * (1 - dyingK) * (1 - upperCover * 0.5);
     ringMat.opacity = (0.14 + Math.sin(time * 1.3 * TAU) * 0.05 + charge * 0.16) * (1 - dyingK);
 
     // Attendant motes: slow drift around the disc (idle motion at a 2nd frequency).
