@@ -2600,9 +2600,17 @@ function breakShield(player) {
       ui.bossNote?.('⛈  THE ARENA NARROWS  ⛈', def.name, 'gold', 2.6);
       cameraCtl.shake?.(0.8);
     }
-  } else if (def.felledLie && !felledLieUsed) {
+  } else if (def.felledLie && !felledLieUsed && !ghostFrameBroken) {
     triggerFelledLie(player);   // §5f the LIE: fake death now, ≤35% returns within ≤2s (once)
   } else {
+    // §5i.C THE FRAME-BREAK FORFEITS THE LIE: it resurrects by consuming its dead twin —
+    // the fused frame IGNITES and pours that light back into the body (§5f). Tear the
+    // frame off (4 perfect ghost parries) and there is NOTHING left to raise: the lie is
+    // denied and the first kill is the real one. The Half That Would Not Die — until you
+    // took its dead half away. A readable beat so the missing second stand isn't a mystery.
+    if (def.felledLie && !felledLieUsed && ghostFrameBroken) {
+      ui.bossNote?.('✦ NOTHING LEFT TO RAISE ✦', 'YOU TORE ITS DEAD HALF AWAY', 'gold', 2.4);
+    }
     pendingDeath = true;   // final shield burst → death (resolved next frame)
   }
 }
@@ -2721,7 +2729,11 @@ function mirrorAim(player) {
 // is untouched. Def-gated (def.ghostHalf) — inert for every other boss.
 const _ghostV = new THREE.Vector3();
 function emitGhostHalf(player) {
-  if (!def?.ghostHalf || ghostFrameBroken) return;
+  // Gated to P2+ (phaseIdx>=1): the def's phase design is "P2 — the dead twin's volley
+  // BEGINS" (bossDefs onewing_ghosthalf card). Also keeps the no-warn ambush OPENER (P1,
+  // attackTimer 0.7) a plain read — the dodge-mirror ghost shots are the hardest pattern
+  // and must not land before the player has seen one clean volley (Fable #3 fairness gate).
+  if (!def?.ghostHalf || ghostFrameBroken || phaseIdx < 1) return;
   const w = model?.partWorldPos && model.partWorldPos('ghostMuzzle', _ghostV);
   const ox = w ? w.x : pose.x, oy = w ? w.y : pose.y, orel = w ? -w.z - player.dist : pose.rel;
   if (orel <= 0.3) return;

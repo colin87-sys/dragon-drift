@@ -8207,6 +8207,24 @@ the silence and the eruption aren't in tension: the script is the held breath, e
 bias the look-target toward the boss↔player MIDPOINT through the gaze, ease home to the chase cam as it surges.
 Verified live: warn → flythrough (0 bullets) → fight, banner fires only at the eruption.
 
+**The Fable #3 integration gate caught three real defects — run the gate on COMBAT wiring, not just geometry.**
+An independent Fable-model review of the built CP2 code (not the design sheet) returned FIX with three bugs a
+green test suite had missed: (1) **the muzzle-name-must-match-`def.muzzle` gotcha** — `def.muzzle:'livingWing'`
+but the model node was named `'muzzle'`, so `partWorldPos('livingWing')` resolved null, `getObjectByName`
+**cached that null forever** (bossModel.js), and the living volley silently fell back to body-centre — collapsing
+the entire dead-vs-living two-origin read the boss's identity rests on, with zero test failure. Law: a named
+emitter node's `.name` MUST equal the def string that looks it up; every other boss matches (`lanceTip`,
+`bellMouth`, `roseHub`), and a cheap `partWorldPos(def.muzzle) != null` assertion catches it. (2) **The ghost
+volley had no phase gate** — it fired from P1, so the no-warn ambush OPENER carried the dodge-mirror (the boss's
+hardest read) before the player had seen one plain pattern; gated to `phaseIdx>=1` per the def's own P2 "the
+dead twin's volley begins." (3) **A new mechanic can collide with a shipped one invisibly** — the frame-break
+hides `frameGroup` (`visible=false`), and the FELLED lie's whole readable beat is the frame IGNITING; break it
+first and the resurrection plays with its only visual explanation gone. The fix turned the collision into
+IDENTITY: **the frame-break FORFEITS the lie** — it resurrects by consuming its dead twin, so tear the twin off
+and there is nothing to raise ("the Half That Would Not Die — until you took its dead half away"), with a
+readable death beat so the missing second stand isn't a mystery. Law: when a new destructible sub-part can
+disable the visual anchor of a shipped mechanic, don't paper over it — make the interaction MEAN something.
+
 **CP2 combat depth (follow-up PR).** The ghost half now fights: the DEAD twin's volley fires from the fused
 frame (`emitGhostHalf` off a named `ghostMuzzle`) as amber-ringed bullets with a pale-spectral CORE
 (`def.ghostColor`) and a `'frameGroup'` part-tag, AIMED by a `poseRing` dodge-mirror (`mirrorAim` reads the

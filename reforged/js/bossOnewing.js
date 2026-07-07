@@ -648,7 +648,9 @@ export function buildOnewing(def, quality = 1) {
   // reach each tick); the GHOST volley fires from the fused frame (CP2 reads it). On
   // `group` (stable controller ref), not `rig`.
   const muzzle = new THREE.Object3D();
-  muzzle.name = 'muzzle';
+  muzzle.name = 'livingWing';   // MUST match def.muzzle — resolveEmitOrigin looks the node up by
+                                // that name (else it caches null once and the living volley falls
+                                // back to body-centre, collapsing the living-vs-ghost origin read).
   muzzle.position.set(1.6, 4.0, 2.4);
   group.add(muzzle);
   const ghostMuzzle = new THREE.Object3D();

@@ -365,6 +365,15 @@ for (const key of BOSS_ORDER) {
   for (const n of ['wingPivot', 'stubPivot', 'frameGroup', 'onewingEye', 'frameRim']) {
     assert(findAllByName(one.group, n).length === 1, `onewing exposes exactly one ${n}`);
   }
+  // TWO emitter origins — the living volley from the WING (def.muzzle), the ghost volley
+  // from the FRAME. def.muzzle MUST name a real node or resolveEmitOrigin caches null and
+  // the living volley silently falls back to body-centre, collapsing the dead-vs-living
+  // origin read (Fable #3). Both must resolve via partWorldPos.
+  assert(BOSSES.onewing.muzzle === 'livingWing', `onewing def.muzzle names the living wing (${BOSSES.onewing.muzzle})`);
+  for (const n of ['livingWing', 'ghostMuzzle']) {
+    assert(findAllByName(one.group, n).length === 1, `onewing exposes exactly one ${n} emitter node`);
+    assert(one.partWorldPos && one.partWorldPos(n) != null, `onewing partWorldPos resolves '${n}' (never a body-centre fallback)`);
+  }
   const wing = findAllByName(one.group, 'wingPivot')[0];
   const blades = findAllByName(one.group, 'bladePivot');
   assert(blades.length >= 6, `onewing exposes ≥6 named bladePivots on the vast wing (${blades.length})`);
@@ -1898,19 +1907,28 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   const player = makePlayer();
   boss.forceBoss(player, BOSS_ORDER.indexOf('onewing'));
   const GHOST_CORE = BOSSES.onewing.ghostColor;
-  let breakEvt = null, sawGhost = false, rolls = 0;
+  let breakEvt = null, sawGhost = false, rolls = 0, felledAfterBreak = 0;
   on('bossFrameBreak', () => { if (!breakEvt) breakEvt = boss.bossDebugState(); });
+  on('bossFelledLie', () => { felledAfterBreak++; });   // §5i.C the break must FORFEIT the lie
   let t = 0;
   for (let i = 0; i < 60 * 200 && !breakEvt && game.inBoss; i++) {
     const dt = 1 / 60;
     t += dt;
     player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    // Surge on shield to advance phases — the ghost half is gated to P2+ (phaseIdx>=1),
+    // so the fight must progress past the no-warn P1 opener before any ghost fires.
+    const stp = boss.bossDebugState();
+    if (stp.shielded) { game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
     // The dead half is amber-ringed BUT wears the pale spectral core + the 'frameGroup'
     // tag — proof the ghost fires from the frame, not the living wing.
     const ghosts = bullets.debugActiveBullets().filter((b) => b.owner === 'boss' && b.reflectable && b.part === 'frameGroup');
+    // No ghost half may fire during the P1 no-warn ambush opener (fairness gate).
+    if (stp.phase === 'fight' && stp.phaseIdx < 1) assert(ghosts.length === 0, 'the ghost half stays silent through P1 — the no-warn opener is a plain read');
     if (ghosts.length) { sawGhost = true; assert(ghosts.every((b) => b.coreColor === GHOST_CORE), 'the ghost half wears the pale spectral core (the dead twin read), never the living magenta'); }
-    // The skilled parry: snap onto the nearest in-window ghost amber and roll.
-    if (player.rollInvuln <= 0) {
+    // The skilled parry: snap onto the nearest in-window ghost amber and roll. Only when
+    // NOT surged — a surge reflect doesn't count toward the frame-break (§5i.C law 4).
+    if (player.rollInvuln <= 0 && !game.feverActive) {
       const a = ghosts.filter((b) => b.rel > 0.1 && b.rel <= CONFIG.BOSS.reflectWindow).sort((x, y) => x.rel - y.rel)[0];
       if (a) { player.position.x = a.x; player.position.y = a.y; player.rollInvuln = 0.05; rolls++; }
     }
@@ -1940,6 +1958,20 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   }
   assert(!reEmitted && finalGhost === 0, `the ghost half STOPS once the frame is broken (in-flight shots drain to 0, none re-emitted; final ${finalGhost}, reEmit ${reEmitted})`);
   assert(sampledSoak && soakBonusHeld, `the 2× spray-soak graze reward HOLDS through the soak window (not clobbered by the adrenaline republish; sampled ${sampledSoak})`);
+
+  // §5i.C THE FRAME-BREAK FORFEITS THE LIE: it resurrects by consuming its dead twin (the
+  // frame). With the frame torn off, there is nothing to raise — so from here the fight
+  // must drive to a REAL death on the FIRST kill: the FELLED lie NEVER fires. Surge the
+  // rest of the fight down (the frame is already broken, so no more ghost parries needed).
+  const kills0 = killsSeen;
+  for (let i = 0; i < 60 * 200 && game.inBoss; i++) {
+    const dt = 1 / 60; t += dt; player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    if (boss.bossDebugState().shielded) { game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+    boss.updateBoss(dt, player, t);
+  }
+  assert(killsSeen > kills0, 'ONEWING still reaches a real death after the frame-break');
+  assertEq(felledAfterBreak, 0, `the frame-break FORFEITS the lie — the FELLED card never fires once the frame is torn off (fired ${felledAfterBreak}×)`);
   boss.resetBoss();
 
   // Inert for every other boss: a non-ghostHalf def never emits a frame-tagged
