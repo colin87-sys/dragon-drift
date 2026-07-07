@@ -78,7 +78,13 @@ let t = 0;
 // moving-station runs ~120s solo, so the 5-boss gauntlet clears well past the old cap.
 // Raised 640→800s when THRUMSWARM (boss 7) joined; 800→980s when BRINEHOLM (boss 8,
 // a Calamity — hp 410, the slowest TIDAL-DRONE cadence) joined the tail (8 bosses now).
-for (let i = 0; i < 60 * 980 && !rushClear; i++) {
+// Raised 1150→1500s when WEFTWITCH (boss 11, hp 520, ~141s syncopated-loom kill) joined —
+// the clear lands ~1265s but boss randomness (approach sides, rest rolls) spreads it, so the
+// cap keeps ~15% headroom (a 1320 cap flaked on slow-roll runs).
+// NOTE: the raw sim now clears >20min. §5h's "gauntlet ≤20min" contract leans on its "rush
+// at 0.75× hp" knob, which is NOT implemented yet (hpMax = def.hpMax unconditionally) — the
+// band balance pass owns pulling that lever; this cap is only the test harness.
+for (let i = 0; i < 60 * 1500 && !rushClear; i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks

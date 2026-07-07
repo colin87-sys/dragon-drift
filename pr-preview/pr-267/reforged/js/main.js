@@ -354,6 +354,10 @@ on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
+// KNELLGRAVE's toll-as-world-event (§5d slot 10): the frame FLINCHES on every toll —
+// a bloom breath + vignette squeeze (postfx kick preset). Def-gated at the emitter
+// (only a def.musicDies boss emits 'bossToll'), so every other fight is untouched.
+on('bossToll', () => kick('bossToll'));
 // THE LANCE V1 juice: a crisp chime the instant the aim-line locks onto a boss
 // organ (paired with the reticle's green snap), and a soft tick on each crack-tick
 // the held line chips in a lull — so "you're doing the right thing" is audible.

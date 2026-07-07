@@ -259,6 +259,52 @@ export const ENTRANCE_SCRIPTS = {
     // NO camera fn: the camera STAYS FORWARD (§5j uniqueness ruling — the glance-back is
     // the copy quoting you, never a rear-view hijack). Bullet-time carries the hijack.
   },
+  // KNELLGRAVE — IT LIFTS ITS HEAD (§5j slot 10, hijack ~2.6s @0.30 dilate). The music
+  // is ALREADY DEAD (killed on the warn-end toll, before this script starts) — the
+  // whole entrance plays in the new silence, sold by the toll alone. The bell sweeps
+  // PERPENDICULAR across the lane ABOVE the dragon (a cross, never an overtake — only
+  // the flared lip + chain dip into frame; the body stays above y≈22, near-plane law).
+  // At the apex, bullet-time: the mouth looms at the top of the screen, the candle-slit
+  // snaps on HDR, and the bound clapper swings out of the mouth and LIFTS ITS HEAD at
+  // you (model-side, driven by setEntrance's clock — the roster's darkest notice beat).
+  // Then the bell wheels back + up to the overhead loom (stationY 20), still swinging.
+  itLiftsItsHead: {
+    dur: 1.6,                  // ~2.6s wall under the @0.30 apex dilate (§5d spec)
+    skipTo: 0.72,              // a tap fast-forwards to the wheel-down (the head stays lifted)
+    anchorToDragon: false,     // the bell owns the lane's sky; the cross is lane-centred
+    initYaw: null,             // placeGroup's face-player default (a bell has no dive line)
+    eyeLock: false,
+    announce: { title: '◯  ABOVE  ◯', sub: 'IT LIFTS ITS HEAD', tone: 'gold', dur: 2.2 },
+    slowWindow: { uIn: 0.36, uOut: 0.66, depth: 0.30 },   // the apex head-lift dwells here
+    U: { CROSS: 0.36, APEX: 0.66 },
+    _seg(u, u0, u1) { return easeInOut(clamp01((u - u0) / (u1 - u0))); },
+    // THE CROSS (u<0.36): the bell sweeps laterally across the lane high overhead
+    // (x −26→+8 at y≈24, rel 20 — a pendulum crossing, nothing else in the roster
+    // moves PERPENDICULAR over you). THE APEX (0.36–0.66): it swings back to centre
+    // and LOOMS (rel 20→13, the mouth filling the frame top) while the clapper lifts
+    // its head. THE WHEEL-DOWN (>0.66): back + up to the overhead loom station.
+    path(u, ctx) {
+      const { B } = ctx, { CROSS, APEX } = this.U, seg = (a, b) => this._seg(u, a, b);
+      if (u < CROSS) { const t = seg(0, CROSS); return { x: L(-26, 8, t), y: 24, rel: 20 }; }
+      if (u < APEX) { const t = seg(CROSS, APEX); return { x: L(8, 0, t), y: L(24, 22, t), rel: L(20, 13, t) }; }
+      const t = seg(APEX, 1); return { x: 0, y: L(22, 20, t), rel: L(13, B.settleGap, t) };
+    },
+    tuck() { return 0; },      // the swing/head-lift choreography is model-side (setEntrance)
+    yaw() { return 0; },       // the bell faces the lane; the pendulum IS the motion
+    gaze() { return { gx: 0, gy: 0 }; },   // the head-lift is driven by setEntrance's clock
+    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
+    onStart(model) { model.setEntrance?.(0); },
+    // Camera: a LIFTED look target (by above the pose's base) pitches the chase cam UP
+    // at the crossing bell without a rear view — the §5d "stock overtake framing already
+    // pitches up at a y≈24 boss" note. Eases home through the wheel-down.
+    camera(u, pose, player) {
+      const home = clamp01((u - 0.7) / 0.3);
+      return {
+        k: u, bx: pose.x, by: pose.y - 3 + home * 3, bz: -(player.dist + pose.rel),
+        pivot: 0.26 * (1 - home), blend: 0.30, fov: L(78, 72, home),
+      };
+    },
+  },
 };
 
 // Pure per-frame sampler (for tests + any tooling): returns the full frame a script
