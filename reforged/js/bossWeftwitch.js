@@ -320,26 +320,32 @@ export function buildWeftwitch(def, quality = 1) {
     // the PALM — an oversized flattened box, tilted to face inward/forward.
     const palm = new THREE.Mesh(strip(new THREE.BoxGeometry(1.7, 2.2, 0.7)), handMat);
     palm.name = `palm${side}`; pivot.add(palm);
-    // the THUMB (2 segments) + 4 FINGERS (2 segments each), splayed off the palm top.
-    const fingerN = 4;
-    for (let f = 0; f < fingerN; f++) {
-      const fx = (f / (fingerN - 1) - 0.5) * 1.4;
-      const fp = new THREE.Group(); fp.name = `finger${side}${f}`; fp.position.set(fx, 1.1, 0.15);
-      const long = f === 1;    // the index finger is the long "pointer"
-      const l0 = long ? 1.5 : 1.1, l1 = long ? 1.2 : 0.85;
-      const prox = strip(new THREE.CylinderGeometry(0.17, 0.2, l0, 6)); prox.translate(0, l0 * 0.5, 0);
+    // the THUMB + 4 FINGERS (2 segments each) with a NATURAL length arc — the MIDDLE
+    // finger is longest, index/ring shorter, pinky shortest — and the two hands are
+    // MIRRORED (the fan sign flips with `sx`), so the pair reads as a real left+right
+    // pair. f: 0=pinky 1=ring 2=middle(longest) 3=index(the pointer, points DOWN on
+    // notice). Layout inner→outer via `sx` so index+thumb sit toward the body centre.
+    const FLEN = [0.95, 1.2, 1.42, 1.12];   // proximal: pinky · ring · middle · index
+    const FRAD = [0.155, 0.175, 0.19, 0.175];
+    for (let f = 0; f < 4; f++) {
+      const t = f / 3 - 0.5;               // -0.5..0.5 (pinky → index)
+      const fx = sx * t * 1.6;             // MIRROR: the fan sign flips per hand
+      const l0 = FLEN[f], l1 = l0 * 0.82, rad = FRAD[f];
+      const fp = new THREE.Group(); fp.name = `finger${side}${f}`; fp.position.set(fx, 1.05, 0.12);
+      const prox = strip(new THREE.CylinderGeometry(rad * 0.86, rad, l0, 6)); prox.translate(0, l0 * 0.5, 0);
       const dp = new THREE.Group(); dp.name = `fingerTip${side}${f}`; dp.position.set(0, l0, 0);
-      const distal = strip(new THREE.CylinderGeometry(0.12, 0.17, l1, 6)); distal.translate(0, l1 * 0.5, 0);
+      const distal = strip(new THREE.CylinderGeometry(rad * 0.62, rad * 0.86, l1, 6)); distal.translate(0, l1 * 0.5, 0);
       dp.add(new THREE.Mesh(distal, handMat));
       fp.add(new THREE.Mesh(prox, handMat)); fp.add(dp);
-      fp.rotation.x = -0.15 - f * 0.04;   // a gentle resting splay
+      fp.rotation.x = -0.12 - Math.abs(t) * 0.12;   // a gentle fan (outer fingers splay more)
+      fp.rotation.z = -sx * t * 0.16;               // mirror the lateral splay
       pivot.add(fp);
-      if (long) pointFingers[side] = fp;
+      if (f === 3) pointFingers[side] = fp;          // the INDEX finger is the pointer
     }
-    // the thumb (off the inner side).
-    const thumb = new THREE.Group(); thumb.name = `thumb${side}`; thumb.position.set(-sx * 0.9, 0.2, 0.2);
-    const t0 = strip(new THREE.CylinderGeometry(0.19, 0.22, 1.0, 6)); t0.translate(0, 0.5, 0);
-    thumb.add(new THREE.Mesh(t0, handMat)); thumb.rotation.z = sx * 0.9; pivot.add(thumb);
+    // the thumb — set LOW on the inner side, beside the index (mirrored per hand).
+    const thumb = new THREE.Group(); thumb.name = `thumb${side}`; thumb.position.set(sx * 1.0, -0.1, 0.25);
+    const t0 = strip(new THREE.CylinderGeometry(0.19, 0.23, 1.15, 6)); t0.translate(0, 0.55, 0);
+    thumb.add(new THREE.Mesh(t0, handMat)); thumb.rotation.z = sx * 1.0; thumb.rotation.x = -0.3; pivot.add(thumb);
     pivot.rotation.y = sx * 0.5;          // face the palms inward toward each other
     rig.add(pivot);
     handPivots[side] = pivot;

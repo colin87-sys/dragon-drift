@@ -731,11 +731,11 @@ for (const key of BOSS_ORDER) {
   // NOTICE is a state jump: the hands STOP and one finger points DOWN (a pivot swing).
   ww.setCharge(0);
   for (let i = 0; i < 20; i++) ww.tick(0.05, 6 + i * 0.05);
-  const pf = ww.group.getObjectByName('fingerL1');
+  const pf = ww.group.getObjectByName('fingerL3');   // the INDEX finger — the pointer
   const preFinger = pf.rotation.x;
   ww.notice();
   for (let i = 0; i < 12; i++) ww.tick(0.05, 8 + i * 0.05);
-  assert(pf.rotation.x < preFinger - 0.8, `weftwitch NOTICE points a finger DOWN (fingerL1 rot.x ${pf.rotation.x.toFixed(2)} < ${preFinger.toFixed(2)} − 0.8 — the §4b notice beat)`);
+  assert(pf.rotation.x < preFinger - 0.8, `weftwitch NOTICE points the index finger DOWN (fingerL3 rot.x ${pf.rotation.x.toFixed(2)} < ${preFinger.toFixed(2)} − 0.8 — the §4b notice beat)`);
 
   ww.dispose();
   ok(`weftwitch geometry: web ${webSpan.toFixed(0)}w (L141 field), crown tenses on charge, finger-point notice, scar + hands + loom-heart ✓`);
