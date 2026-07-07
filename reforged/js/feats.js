@@ -31,6 +31,12 @@ export const FEAT_DEFS = [
   { id: 'boss_deflector', cat: 'skill', name: 'Storm Deflector',      desc: 'Reach an 8-parry streak on a boss',      reward: 80 },
   { id: 'boss_slay_10',   cat: 'journey', name: 'Tempest Tamer',      desc: 'Slay 10 sky bosses',                     reward: 150, title: 'tempestbane', settle: () => (saveData.stats.totalBossKills || 0) >= 10 },
   { id: 'rush_clear',     cat: 'skill', name: 'Gauntlet Runner',      desc: 'Clear a Boss Rush',                      reward: 120 },
+  // --- LANCE (the wyrmfire brand verb — boss-only, live) ---
+  { id: 'lance_brand',    cat: 'skill', name: 'Brandbearer',          desc: 'Brand your first organ with a wyrmfire lance', reward: 25 },
+  { id: 'lance_cap',      cat: 'skill', name: 'Full Draw',            desc: 'Fill the brand meter to its cap',        reward: 30 },
+  { id: 'lance_beat',     cat: 'skill', name: 'On the Beat',          desc: 'Loose a lance volley on the music beat', reward: 40 },
+  { id: 'lance_storm',    cat: 'skill', name: 'Wyrmstorm',            desc: 'Loose 5 branded lances in one volley',   reward: 60 },
+  { id: 'lance_snap',     cat: 'skill', name: 'Lock-Snap',            desc: 'Brand an organ with a perfect parry',    reward: 80 },
   // --- Journey ---
   { id: 'dist_5k_run',    cat: 'journey', name: 'Marathon Wing',       desc: 'Fly 5,000 m in one run',                 reward: 80,  settle: () => game.distance >= 5000 },
   { id: 'runs_10',        cat: 'journey', name: 'Regular',             desc: 'Finish 10 flights',                      reward: 30,  settle: () => saveData.stats.runs >= 10 },
@@ -155,6 +161,19 @@ export function initFeats() {
   on('rushCleared', () => unlockFeat('rush_clear', { live: true }));
   on('distance', (p) => {
     if (p.m - lastDamageDist >= 2000) unlockFeat('clean_2k', { live: true });
+  });
+  // LANCE feats: the wyrmfire brand verb (boss-only). A paint brands an organ
+  // (snap:true = the perfect-parry snap); a loose is a volley (perfect = beat
+  // release; count = branded lances). The boss FORK-path lockVolley omits
+  // `perfect`, so guard it; unlockFeat is idempotent so "first" needs no counter.
+  on('lockPaint', (e) => {
+    unlockFeat('lance_brand', { live: true });
+    if (e && e.snap) unlockFeat('lance_snap', { live: true });
+  });
+  on('lockCap', () => unlockFeat('lance_cap', { live: true }));
+  on('lockVolley', (e) => {
+    if (e && e.perfect) unlockFeat('lance_beat', { live: true });
+    if (e && e.count >= 5) unlockFeat('lance_storm', { live: true });
   });
 }
 
