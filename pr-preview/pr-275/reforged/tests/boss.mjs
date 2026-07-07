@@ -231,7 +231,7 @@ function countVisibleDraws(root) {
   (function walk(o, parentVisible) {
     const vis = parentVisible && o.visible;
     if (!vis) return;
-    if (o.isMesh || o.isLineSegments || o.isInstancedMesh) draws++;
+    if (o.isMesh || o.isLineSegments || o.isInstancedMesh || o.isPoints) draws++;   // Points = one real GPU draw (KARNVOW's ash cloud)
     for (const c of o.children) walk(c, vis);
   })(root, true);
   return draws;
@@ -1281,9 +1281,70 @@ for (const key of BOSS_ORDER) {
     kv.setSetpiece(0);
   }
 
+  // SPEND PASS data laws (the owner's P1–P7 verdict plan):
+  {
+    // P3 — the worn heraldry exists as named parts.
+    assert(!!kv.group.getObjectByName('pennonPivot'), 'karnvow pennon anchored to the lance haft (pennonPivot)');
+    assert(!!kv.group.getObjectByName('pennon') && !!kv.group.getObjectByName('cloakLining') && !!kv.group.getObjectByName('hoodTail0'),
+      'karnvow wears the heraldry: pennon + cloak lining + hood tail strips');
+    assert(!!kv.group.getObjectByName('ashCloud'), 'karnvow ambient ash is ONE Points cloud (one draw, never per-mote meshes)');
+
+    // P2 — the empty hook aims at YOU over fight time: simulate ~95s of live gaze.
+    const hookHang2 = kv.group.getObjectByName('trophyCharm5').parent;
+    kv.setGaze(1, 0);
+    const y0 = hookHang2.rotation.y;
+    for (let i = 0; i < 400; i++) kv.tick(0.25, 200 + i * 0.25);   // 100s of fight clock
+    // Hold a charge for the final beats: the idle look-away machinery randomly
+    // wanders gazeX (it only triggers below charge 0.2), so sample the creep at a
+    // deterministic locked-on gaze, not a random glance moment.
+    kv.setCharge(0.6);
+    for (let i = 0; i < 30; i++) kv.tick(0.25, 300 + i * 0.25);
+    kv.setCharge(0);
+    assert(hookHang2.rotation.y > y0 + 0.3,
+      `karnvow the empty hook CREEPS toward the dragon over the fight (hang rot.y ${hookHang2.rotation.y.toFixed(2)} > ${(y0 + 0.3).toFixed(2)})`);
+
+    // P4 — the verdict testify is a WAVE + the horn SPLITS mid-card + the ghost is card-only.
+    const sp = BOSSES.karnvow.setpieces.find((x) => x.dread);
+    const ghost = kv.group.getObjectByName('voidmawGhost');
+    const frag0 = kv.group.getObjectByName('lanceFrag0');
+    assert(!!ghost && !ghost.visible && !!frag0 && !frag0.visible, 'karnvow ghost + horn fragments HIDDEN outside the card (idle draws stay lean)');
+    kv.setSetpiece(1, sp);
+    let firstLit = -1, lastLit = -1, sawSplit = false;
+    for (let i = 0; i < 70; i++) {
+      kv.tick(0.05, 320 + i * 0.05);
+      const litNow = [];
+      for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.5) litNow.push(ci);
+      if (litNow.length > 0 && firstLit < 0) firstLit = i;
+      if (litNow.length >= 5 && lastLit < 0) lastLit = i;
+      if (kv.group.getObjectByName('lanceFrag0').visible) sawSplit = true;
+    }
+    assert(firstLit >= 0 && lastLit > firstLit + 4,
+      `karnvow verdict testify is a WAVE, not a wall (first charm lit at tick ${firstLit}, all five by ${lastLit})`);
+    assert(sawSplit, 'karnvow the horn SPLITS into fragments mid-card ("wears the horn it took", coming apart at the memory)');
+    assert(ghost.visible && ghost.material.opacity <= 0.3,
+      `karnvow the Voidmaw ghost haunts the horn DIMLY during its card (opacity ${ghost.material.opacity.toFixed(2)} ≤ 0.3 — a satellite, never a lamp)`);
+    kv.setSetpiece(0);
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 330 + i * 0.05);
+    assert(!ghost.visible && !kv.group.getObjectByName('lanceFrag0').visible && kv.group.getObjectByName('lanceShaft').visible,
+      'karnvow ghost + fragments release with the card; the horn reassembles');
+
+    // P6 — the cloak tears at the phase seams (hem width shrinks at its last ring).
+    const cloakGeo = kv.group.getObjectByName('cloakStrip').geometry;
+    const hemW = () => {
+      const a = cloakGeo.attributes.position.array, n = a.length;
+      return Math.abs(a[n - 6] - a[n - 3]);   // hem ring: left-x minus right-x
+    };
+    for (let i = 0; i < 10; i++) kv.tick(0.05, 400 + i * 0.05);
+    const w0 = hemW();
+    kv.setPhase(2);
+    for (let i = 0; i < 10; i++) kv.tick(0.05, 401 + i * 0.05);
+    assert(hemW() < w0 - 0.2, `karnvow the cloak TEARS by phase (hem width ${hemW().toFixed(2)} < ${(w0 - 0.2).toFixed(2)})`);
+  }
+
   kv.dispose();
   ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
   ok('karnvow grandeur redo: the verdict WRITES (sigil + testifying trophies), the festoon reads at fight distance, the cut-in apex holds the sweep');
+  ok('karnvow spend pass: heraldry worn, the hook creeps toward you, the testify WAVES, the horn splits + the ghost haunts card-only, the cloak tears by phase');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to

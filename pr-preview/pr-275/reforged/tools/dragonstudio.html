@@ -109,6 +109,17 @@
       const def = ascendedDef(DRAGONS[key], tier, 0);
       built = buildDragonModel(def, { preview: true });   // preview: hide the gameplay aim marker
       built.def = def;
+      // FAITHFUL RUNTIME DRIVE: in-game, dragon.js drives every spineMats material each frame — in
+      // the normal (non-surge) state `m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff)` and
+      // `m.emissiveIntensity = m.userData.baseIntensity ?? 1`. Reproduce that here so captures show
+      // what the player sees (a material pushed into spineMats WITHOUT a baseEmissive tag renders
+      // pure WHITE in-game — the studio must expose that, not hide it behind the as-built emissive).
+      const sm = (built.materials && built.materials.spineMats) || [];
+      for (const m of sm) {
+        if (!m || !m.emissive) continue;
+        m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff);
+        m.emissiveIntensity = m.userData.baseIntensity ?? 1;
+      }
       scene.add(built.group);
       curKey = key; curTier = tier;
       return built;
