@@ -8297,3 +8297,24 @@ carry the focal + the read on any backdrop (both Fable gates confirmed the struc
 Gotcha: bossshot's fixed-frame captures reset each scene, so a card timer reading the same 17s
 across shots at different distances is benign (separate captures), not a frozen clock — don't chase
 capture-methodology artifacts as bugs.
+
+### L223 — Premium build-sheet RESEARCH pass (pearl/obsidian/solar): the code is the snapshot, and "Solar" isn't on the body the charter thinks
+Gathered the data foundation for the three premium (SSR→SSSR / SSSR) §5d build sheets before authoring
+any sheet or builder — a research-only pass (`reforged/PREMIUM-BUILDSHEET-RESEARCH.md`, additive doc,
+roster byte-identical). The reusable wins, all from verifying the charter's snapshot table against the
+live `dragons.js`: (1) all three cap at **tier 3** (`maxTierFor` → 3 for SSSR) so every "per form" loop
+runs 0–3 and a 5th montage tile is a PHANTOM FORM. (2) Real per-form tri baselines (apex: pearl 4506,
+obsidian 3662, solar 3499 — all well under 6000) → there is 1.5–2.5k of headroom to spend on premium
+richness; the apex must read visibly richer. (3) **`solar` has NO bespoke parts** — it declares only
+`surface.shader` and `resolveRecipe()` falls it back to the DEFAULT `arrow`/`membrane`/`horned`/`clean`,
+contradicting the charter's "faceted" claim; it's the least-elevated SSSR and the biggest lift. (4) The
+charter's lesson pointers are stale: "JADE rebuild L166–L176" are actually biome/audio/lance in the
+ledger; the real starter lessons are L160–L165 and the Pearl/Seraph prior art is **L80–L88 + the
+unnumbered seraph sculpting/apex lessons** (segment-counts-are-the-budget; real-metallic-gild L82;
+subtract-don't-decorate L86; verify flap at the APEX phase not the rest frame). (5) `dragonKoiSerpent.js`
+doesn't exist — nearest smooth serpent is `crystalSerpent`. The premium law-12 inversion is the
+load-bearing difference from the starter sheets: glowSeams/wingVeins/halos/auraIdle/sparkle are EARNED,
+so judge premium drama not restraint — but palette discipline + the overdraw cliff still bind. Lesson:
+before authoring any premium sheet, read the def out of the code and diff it against the brief — three of
+the charter's five "current state" facts were stale, and the biggest design decision (Solar's body plan +
+the Solar-vs-Eclipse name/palette split) only surfaced by resolving `parts` through `resolveRecipe`.
