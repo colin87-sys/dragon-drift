@@ -1654,10 +1654,13 @@ function buildBonfireManeWings(def, model, attach, giM) {
   const detail = model.maneDetail ?? 1;
   const rakeDown = model.maneRakeDown ?? 0.16;          // the whole mane rakes DOWN (streams off the body)
 
-  // molten diffuse: dark basalt cores → hot glowing wisp tips (fire glows at its thin edges).
-  const cRoot = new THREE.Color(def.wingInner ?? 0x35120a);   // DARK molten basalt core (deeper → the hot tips read as flame-substance vs a uniform bright sheet)
-  const cBody = new THREE.Color(model.maneMid ?? 0x8a2a0c);
-  const cTip = new THREE.Color(model.maneTipColor ?? 0xff9a34);   // HOT ORANGE tips (not white — white read as feathers, not fire)
+  // molten diffuse: deep crimson-black ROOTS → molten body → hot orange → a white-GOLD hot core up
+  // the spine and at the tips. A strong dark→hot gradient (not a flat pale sheet) is what reads as
+  // intense FIRE instead of a fried wafer/prawn-cracker.
+  const cRoot = new THREE.Color(def.wingInner ?? 0x2a0a04);   // near-black crimson base
+  const cBody = new THREE.Color(model.maneMid ?? 0x9e2408);   // richer molten crimson mid
+  const cTip = new THREE.Color(model.maneTipColor ?? 0xff9a34);   // HOT ORANGE
+  const cHotCore = new THREE.Color(model.maneCore ?? 0xffe0a0);   // white-gold incandescent core/tip streak (the hottest fire)
   // MOLTEN leading spar — a lit ember rod, not a dead black stick: warm diffuse + a hot emissive
   // glow so it reads as forged/glowing metal fused into the flame sheet (gate: the arm read as a
   // detached near-black rod against the wing).
@@ -1702,7 +1705,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
   const jLen = [0.14, -0.16, 0.20, -0.11, 0.17, -0.19, 0.09];   // wider length spread (±≥11%) → visibly non-mirrored L/R
   const jCurl = [0.9, 1.25, 0.7, 1.4, 1.0, 1.2, 0.8];
   const jRake = [0.02, 0.11, 0.04, 0.15, 0.06, 0.13, 0.03];
-  const jUp = [0.4, -0.15, 0.55, 0.05, 0.3, -0.1, 0.45];   // tips flick different ways (some up, some trail)
+  const jUp = [0.7, 0.35, 0.9, 0.5, 0.65, 0.3, 0.8];   // tips flick UP (mostly positive → the mane licks upward with energy, not a limp back-droop)
   const jLick = [0.9, -1.2, 0.6, -0.85, 1.1, -0.7, 0.5];   // tip LICK direction/strength — alternating signs → S-curves, no two alike
   const jWid = [0.12, -0.14, 0.08, -0.1, 0.15, -0.09, 0.06];   // per-tongue chord width variation
   const jPitch = [0.5, -0.35, 0.7, -0.2, 0.4, -0.5, 0.6];   // per-tongue HEIGHT stagger → rear view shows undulating height bands, not one flat plank
@@ -1739,21 +1742,21 @@ function buildBonfireManeWings(def, model, attach, giM) {
       for (let j = 0; j <= nZ; j++) {
         const cf = j / nZ;
         const z = zL + cf * (zR - zL);
-        const camb = camber * Math.sin(cf * Math.PI) * (0.4 + 0.6 * Math.sin(t * Math.PI));
+        const mid = 1 - Math.abs(cf - 0.5) * 2;   // 1 at the centre-line → 0 at the edges
+        // VOLUME: a strong raised central RIDGE (deep camber, sharper dome) tapering to thin edges
+        // → each tongue reads as a rounded 3D flame, NOT a flat wafer/prawn-cracker. Ridge deepens
+        // toward the belly and eases at root/tip.
+        const camb = camber * Math.pow(mid, 0.8) * (0.45 + 0.55 * Math.sin(t * Math.PI));
         verts.push(t * len, yc + camb, z);
-        // THREE readable value tiers, dark→hot toward the TIP (gate: tips must be the HOTTEST
-        // pixels, not the darkest):
-        //   root ≤0.30  dark basalt core (0x35120a) → molten red
-        //   mid 0.30–0.66  MOLTEN RED band (0x8a2a0c), darker than body
-        //   tip ≥0.66  ramps to FULL hot orange (0xff9a34) by the very tip — the brightest zone
+        // Vertical gradient: deep crimson-black ROOT → molten crimson → hot orange TIP.
         if (t < 0.30) c.copy(cRoot).lerp(cBody, t / 0.30);
-        else if (t < 0.66) c.copy(cBody);
-        else c.copy(cBody).lerp(cTip, Math.pow((t - 0.66) / 0.34, 0.75));
-        // HOT FRINGE tracing both notched edges (the licks BURN): the outer ~18% of chord on each
-        // side blends hard toward hot orange along the whole outer length → the flame contour glows,
-        // the interior core stays dark. This is the incandescent-edge read fire needs.
-        const edge = Math.pow(Math.max(0, Math.abs(cf - 0.5) * 2 - 0.62) / 0.38, 1.4);
-        c.lerp(cTip, edge * 0.8 * Math.min(1, t / 0.22));
+        else if (t < 0.62) c.copy(cBody);
+        else c.copy(cBody).lerp(cTip, Math.pow((t - 0.62) / 0.38, 0.8));
+        // HOT CORE SPINE: the centre-line runs incandescent white-gold (hotter toward the tip), the
+        // EDGES fall dark — this is form-shading that reads as a rounded voluminous flame with a
+        // glowing core, the opposite of the flat bright-edged wafer that read as a fried chip.
+        c.lerp(cHotCore, Math.pow(mid, 2.4) * (0.12 + 0.5 * Math.pow(t, 1.5)));
+        c.multiplyScalar(0.5 + 0.5 * Math.pow(mid, 0.55));   // darken the outer edges → rounded volume, not a flat sheet
         cols.push(c.r, c.g, c.b);
       }
     }
@@ -1804,7 +1807,7 @@ function buildBonfireManeWings(def, model, attach, giM) {
       const len = maxLen * (lenBase(i) + jLen[jx(i)]);
       const wRoot = chordK * reach * (0.85 + 0.3 * Math.sin(t * Math.PI)) * (1 + jWid[jx(i)]);   // broader roots + per-tongue width variation → overlapping, non-uniform leading edge
       const curlZ = reach * 0.34 * jCurl[jx(i)];                 // irregular aft curl
-      const curlY = reach * 0.12 * jUp[jx(i)];                   // tips flick different ways, but held CLOSER (reduced splay → rear silhouette stays a broad sheet, not gapped spikes)
+      const curlY = reach * 0.2 * jUp[jx(i)];                    // stronger UPWARD tip flick → the mane licks up with energy (fire rises), not a limp droop
       const lick = reach * 0.16 * jLick[jx(i)];                  // tip S-curve lick (alternating sign per tongue → no two alike, none straight)
       const inner = rootX < wristX, parent = inner ? pivot : wingTip;
       const pitchY = reach * 0.06 * jPitch[jx(i)];               // per-tongue HEIGHT stagger → rear view undulates (distinct height bands, not one flat plank)

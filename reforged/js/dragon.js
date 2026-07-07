@@ -721,7 +721,7 @@ export function updateDragon(dt, player, time) {
     // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke, with a
     // small delay between wings so the silhouette feels less mechanical.
     wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
-    wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
+    wingTipL.rotation.z = damp(wingTipL.rotation.z, -tipLag * 0.28 + turnBias * 0.45, 12, dt);   // mirror the RIGHT tip's phase exactly (was phase+1.18 vs the right's phase+0.95 → the wings beat out of sync)
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
     wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
   }
