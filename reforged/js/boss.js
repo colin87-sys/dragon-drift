@@ -231,6 +231,7 @@ let setpieceDef = null;
 let staggerT = 0;             // >0 = the queen is STAGGERED (parry job): the swarm is LOCKED condensed (exposed)
 let staggerHits = 0;         // amber-volley parries banked toward the next stagger (SCATTER-STAGGER, §5i.C)
 let threadCutHits = 0;       // amber parries banked toward the next THREAD-CUT (WEFTWITCH §5i.C, CP2)
+const THREAD_CUT_HITS = 3;   // parries to cut the thread (tunable — drop to 2 if it plays grindy)
 let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
 let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
 let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
@@ -245,7 +246,7 @@ let soakMotes = null;        // the THREE.Points object (one additive draw)
 let harvestOffered = false;  // §5i moteHarvest (slot 11): the once-per-phase bloom spent-flag
 let soakPos = null;          // its position attribute buffer
 const soakList = [];         // active pink motes {x,y,rel,vx,vy,vrel,ttl}
-const SOAK_MAX = 16;         // hard cap on-screen (overdraw + fairness)
+const SOAK_MAX = 20;         // hard cap on-screen (one Points draw regardless of count); the harvest bloom wants density
 let soakShed = 0;            // countdown between sheds
 // §5e INPUT/POSE RING BUFFER (the roster's ring buffer — ONEWING reuses it at slot 12).
 // Records the player's recent flight path; THRUMSWARM's *Your Own Wings* replays it as the
@@ -703,11 +704,17 @@ function bloomHarvestMotes(player) {
   const r = model.partWorldPos?.('handPivotR', _bloomR);
   let bx = pose.x, by = pose.y, brel = pose.rel;
   if (l && r) { bx = (l.x + r.x) / 2; by = (l.y + r.y) / 2; brel = -(l.z + r.z) / 2 - player.dist; }
-  const N = Math.min(12, SOAK_MAX - soakList.length);
+  // ANNOUNCE the bloom so it reads as a distinct harvest event, not graze noise (CP2
+  // playtest: "not sure what the motes look like"). A gold RING-HOOP guide sweeps down
+  // from the cut point marking the harvest lane, plus a bright gold spawn burst.
+  spawnBossRingHoop(bx, by - 1, 5.2, brel, (brel + 2) / 3.2, 0xffcf7a);
+  tmp.set(bx, by, -(player.dist + brel));
+  burst(tmp, 0xffd88a, { count: 14, speed: 13, size: 1.1, life: 0.5 });
+  const N = Math.min(18, SOAK_MAX - soakList.length);
   for (let i = 0; i < N; i++) {
     const fan = (i / Math.max(1, N - 1) - 0.5) * 2;   // -1..1 across the bloom
     soakList.push({
-      x: bx + fan * 4.2 + (Math.random() - 0.5) * 0.8,
+      x: bx + fan * 4.6 + (Math.random() - 0.5) * 0.8,
       y: by + Math.random() * 1.2,
       rel: brel,
       vx: fan * 1.6 + (Math.random() - 0.5) * 0.6,
@@ -727,6 +734,7 @@ function triggerThreadCut(player) {
   const cut = cutBossAmbers();      // the volley unravels in place
   pending.length = 0;               // queued sub-volleys drop with it
   model.cutThread?.();              // hands thrown apart; the thread dies
+  model.setThreadStrain?.(0);       // the banked strain releases with the snap
   sfx.needlePull?.();               // the thread tears free
   let bloomed = 0;
   if (def.grazeForm === 'moteHarvest' && !harvestOffered) {
@@ -2001,7 +2009,14 @@ export function updateBoss(dt, player, time) {
           // law 4). Surge reflects don't count (not the amber read).
           if (def.threadCut && !surge) {
             threadCutHits++;
-            if (threadCutHits >= 3) { threadCutHits = 0; triggerThreadCut(player); }
+            if (threadCutHits >= THREAD_CUT_HITS) { threadCutHits = 0; triggerThreadCut(player); }
+            else {
+              // a banked parry is SEEN (the thread frays/reddens toward the snap) and
+              // HEARD (a rising pluck) — the CP2 playtest gap: the counter was invisible.
+              model.setThreadStrain?.(threadCutHits / THREAD_CUT_HITS);
+              sfx.stitchPluck?.(threadCutHits);
+              ui.bossNote?.(`✦ THREAD FRAYING — ${threadCutHits}/${THREAD_CUT_HITS} ✦`, 'PARRY AGAIN TO CUT IT', 'gold', 1.1);
+            }
           }
         }
       }
