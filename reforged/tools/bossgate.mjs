@@ -72,7 +72,13 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // sky) is the DARK, mauve-aligned, low-fog capture: the eye focal reads (little fog
   // dilution), the mauve accent attributes against the aligned purple ambient, and its
   // blue-purple hemisphere never false-magentas the dark faces (danger-magenta 0).
-  onewing: 8000 };
+  onewing: 8000,
+  // WEFTWITCH (§5b slot 11): a moth-grey bust + PALE-GOLD lit-edge/web over her home
+  // ASTRAL sky (~8000m, near-black violet — §7c biome pairing / BIOME-DESIGN.md). The
+  // dark body reads by its gold fresnel rim + spoke-web there, and the near-black
+  // violet keeps the warm accent OUT of a magenta sunset's blue↔orange false-magenta
+  // overlap (the same G3 trap MARROWCOIL avoids at 8000).
+  weftwitch: 8000 };
 
 // --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
 // (tools/bossstudio.html) instead of the contaminated in-game frame — a
