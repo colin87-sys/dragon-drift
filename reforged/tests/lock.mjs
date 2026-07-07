@@ -416,6 +416,26 @@ const t220b = await runLock({ organs: { eye: { x: 0, y: 0 }, rib: { x: 12, y: 0 
 check('T2.20 once the eye is stacked full, the reticle hops onward to the unpainted rib',
   t220b.hud.aimPart === 'rib');
 
+// T2.21 — LEAVING A FIGHT DROPS fightRunning (owner playtest: the reticle was
+// drawn "locked" over the NEXT boss's slow-mo entrance). updateLockLayer only runs
+// in phase 'fight', so a stale fightRunning=true couldn't be refreshed during the
+// entrance — clearLocks must reset it (and hasOrgan) so lockHudState().active is
+// false through the cinematic.
+const t221 = await page.evaluate(async () => {
+  const mod = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+  mod.initLockLayer();
+  const model = { partWorldPos: (n, o) => { o.x = 0; o.y = 0; o.z = 0; return o; }, flash() {} };
+  const ctx = { fightRunning: true, model, candidates: ['A'], paintables: ['A'], tier: 2, cap: 3,
+    phaseHp: 100, paintUnlocked: true, amberVenting: () => false, fireLance() {} };
+  mod.updateLockLayer(0.1, { position: { x: 0, y: 0 } }, ctx);
+  const inFight = mod.lockHudState().active;
+  mod.clearLocks('transition');   // leave the fight (boss.js does this on teardown)
+  const afterClear = mod.lockHudState().active;
+  return { inFight, afterClear };
+});
+check('T2.21 clearLocks drops fightRunning → no stale reticle into the next entrance',
+  t221.inFight === true && t221.afterClear === false);
+
 // ---------------------------------------------------------------------------
 // PR3 — V3 SURGE FORK / AIMED UNLEASH (T3.x). The manual-loose state-machine path
 // is unit-tested here (fabricated ctx); the boss-seam fork/aimed-beam are exercised

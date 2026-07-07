@@ -28,7 +28,7 @@ const { BOSSES, BOSS_ORDER, bossDefForIndex } = await import('../js/bossDefs.js'
 const { buildBoss } = await import('../js/bossModel.js');
 const { CONFIG } = await import('../js/config.js');
 const { game } = await import('../js/gameState.js');
-const { on } = await import('../js/events.js');
+const { on, emit } = await import('../js/events.js');
 const { resetCollision } = await import('../js/collision.js');
 const bullets = await import('../js/bossBullets.js');
 const boss = await import('../js/boss.js');
@@ -231,7 +231,7 @@ function countVisibleDraws(root) {
   (function walk(o, parentVisible) {
     const vis = parentVisible && o.visible;
     if (!vis) return;
-    if (o.isMesh || o.isLineSegments || o.isInstancedMesh) draws++;
+    if (o.isMesh || o.isLineSegments || o.isInstancedMesh || o.isPoints) draws++;   // Points = one real GPU draw (KARNVOW's ash cloud)
     for (const c of o.children) walk(c, vis);
   })(root, true);
   return draws;
@@ -839,7 +839,23 @@ for (const key of BOSS_ORDER) {
   const preX = core.position.x;
   ww.setGaze(1, 0);
   for (let i = 0; i < 30; i++) ww.tick(0.05, 3 + i * 0.05);
-  assert(core.position.x > preX + 0.3, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.3)`);
+  // reduced pupil throw (0.30) so it stays inside the dark socket; the socket + organ
+  // lean now carry the rest of the "looking" read (the "something under her eye" fix).
+  assert(core.position.x > preX + 0.18, `weftwitch loom-eye pupil tracks the player (core x ${core.position.x.toFixed(2)} > ${preX.toFixed(2)} + 0.18)`);
+  const socket = ww.group.getObjectByName('loomSocket');
+  assert(!!socket && Math.hypot(core.position.x, core.position.y) < 0.8,
+    'weftwitch pupil stays within the dark socket radius (never exposes the gold knot)');
+
+  // 4b. THREAD-STRAIN feedback (the parry-progress tell — CP2 playtest: it was invisible).
+  // setThreadStrain floors the taut-thread tension so a banked parry SHOWS between attacks.
+  const taut = ww.group.getObjectByName('weftTaut');
+  ww.setThreadStrain(0);
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 20 + i * 0.05);
+  const slackOp = taut.material.opacity;
+  ww.setThreadStrain(0.67);   // 2/3 parries banked
+  for (let i = 0; i < 20; i++) ww.tick(0.05, 21 + i * 0.05);
+  assert(taut.material.opacity > slackOp + 0.2, `weftwitch thread-strain shows the banked parries (taut opacity ${slackOp.toFixed(2)}→${taut.material.opacity.toFixed(2)})`);
+  ww.setThreadStrain(0);
 
   // 5. CP2 FIGHT VERBS — the laserLance beam flash + the thread-cut stagger read.
   // fireBeam(): the HDR hairline shows at the release instant and decays back out.
@@ -875,12 +891,13 @@ for (const key of BOSS_ORDER) {
   const hero = ww.group.getObjectByName('weftWebHero').geometry.attributes.position;
   const snapD = dim.array.slice(), snapH = hero.array.slice();
   ww.restitchWeb();
-  for (let i = 0; i < 30; i++) ww.tick(1 / 60, 0.2 + i / 60);   // ~0.5s in — the tear is open
+  for (let i = 0; i < 40; i++) ww.tick(1 / 60, 0.2 + i / 60);   // ~0.7s in — inside the HELD fully-torn window
   let torn = 0;
   for (let i = 0; i < dim.array.length; i++) if (Math.abs(dim.array[i] - snapD[i]) > 0.5) torn++;
   for (let i = 0; i < hero.array.length; i++) if (Math.abs(hero.array[i] - snapH[i]) > 0.5) torn++;
-  assert(torn > 6, `the tear visibly retracts the sector mid-arc (${torn} coords moved > 0.5)`);
-  for (let i = 0; i < 160; i++) ww.tick(1 / 60, 0.8 + i / 60);   // ride past the mend (~2.4s total)
+  // the wide sector (16 spokes) now moves far more than the old 7 — a readable collapse.
+  assert(torn > 40, `the tear visibly caves in the sector mid-arc (${torn} coords moved > 0.5)`);
+  for (let i = 0; i < 260; i++) ww.tick(1 / 60, 0.9 + i / 60);   // ride past the full ~3.4s tear→mend arc
   let drift = 0;
   for (let i = 0; i < dim.array.length; i++) drift = Math.max(drift, Math.abs(dim.array[i] - snapD[i]));
   for (let i = 0; i < hero.array.length; i++) drift = Math.max(drift, Math.abs(hero.array[i] - snapH[i]));
@@ -1207,8 +1224,154 @@ for (const key of BOSS_ORDER) {
   const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
   assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
 
+  // CP2 — the V2 paint anatomy: all five trophy charms exist as named nodes (the
+  // EMPTY hook is trophyCharm5 and deliberately NOT in lockParts — the open thread).
+  for (let ci = 0; ci < 5; ci++) assert(!!kv.group.getObjectByName(`trophyCharm${ci}`), `karnvow trophyCharm${ci} exists (the paint target)`);
+  assert(BOSSES.karnvow.lockParts.length === 5 && BOSSES.karnvow.lockParts.every((lp, i) => lp.part === `trophyCharm${i}`),
+    'karnvow lockParts brand the five taken trophies (never the empty hook)');
+
+  // CP2 — the charm FLARE (§5j): flareCharm('ashtalon') burns trophyCharm0 hot in
+  // its owed palette, then the chain PRESENTS the tilted empty hook.
+  {
+    const c0 = kv.group.getObjectByName('trophyCharm0');
+    kv.flareCharm('ashtalon');
+    for (let i = 0; i < 12; i++) kv.tick(0.05, 20 + i * 0.05);
+    assert(c0.material.emissiveIntensity > 0.5,
+      `karnvow flareCharm burns the top-killer trophy hot (ei ${c0.material.emissiveIntensity.toFixed(2)} > 0.5)`);
+    const hookHang = kv.group.getObjectByName('trophyCharm5').parent;
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 21 + i * 0.05);
+    assert(hookHang.rotation.x < -0.3,
+      `karnvow the empty hook PRESENTS after the flare (hang rot.x ${hookHang.rotation.x.toFixed(2)} < -0.3 — "the next one is for you")`);
+  }
+
+  // CP2 — the FALLBACK flare (the Fable gate catch): a top killer with no dedicated
+  // trophy (e.g. brineholm) burns the WHOLE chain — the mandatory beat never vanishes.
+  {
+    kv.flareCharm('brineholm');
+    for (let i = 0; i < 12; i++) kv.tick(0.05, 25 + i * 0.05);
+    let lit = 0;
+    for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.3) lit++;
+    assert(lit >= 4, `karnvow fallback flare burns the whole chain for an un-charmed top killer (${lit}/5 lit)`);
+  }
+
+  // CP2 — the riposte cross-SWAT: riposte() whips the lance across the body.
+  {
+    kv.riposte();
+    for (let i = 0; i < 4; i++) kv.tick(0.05, 30 + i * 0.05);
+    const lp = kv.group.getObjectByName('lancePivot');
+    assert(lp.rotation.y < -0.4, `karnvow riposte() cross-swats the lance (rot.y ${lp.rotation.y.toFixed(2)} < -0.4)`);
+  }
+
+  // GRANDEUR REDO — VOIDMAW'S VERDICT is AUTHORED (§5f: no more lore-quote with
+  // nothing to see). The def pairs the dread card with a MOVING dread setpiece,
+  // the P3 pattern QUOTES boss-1's dread set verbatim, and driving the dread beat
+  // writes the violet sigil at screen scale while every trophy testifies.
+  {
+    const sp = BOSSES.karnvow.setpieces.find((s) => s.dread);
+    assert(sp && sp.moving, 'karnvow pairs the dread card with a MOVING dread setpiece (the authored beat fires the whole way)');
+    assert(JSON.stringify(BOSSES.karnvow.phases[2].attacks) === JSON.stringify(BOSSES.voidmaw.phases[2].attacks),
+      'karnvow P3 quotes boss-1\'s dread set verbatim ("it fires boss 1\'s dread card back at you")');
+    const sig = kv.group.getObjectByName('verdictSigil');
+    assert(!!sig && !sig.visible, 'karnvow verdictSigil exists and stays HIDDEN outside the dread beat (the violet-denominator law)');
+    kv.setSetpiece(1, sp);
+    for (let i = 0; i < 44; i++) kv.tick(0.05, 40 + i * 0.05);
+    assert(sig.visible && sig.geometry.drawRange.count > 40 && sig.material.opacity > 0.4,
+      `karnvow verdict: the lance writes the sigil (drawRange ${sig.geometry.drawRange.count}, opacity ${sig.material.opacity.toFixed(2)})`);
+    let lit = 0;
+    for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.4) lit++;
+    assert(lit >= 4, `karnvow verdict: every trophy testifies in its owed palette (${lit}/5 lit)`);
+    kv.setSetpiece(0);
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 43 + i * 0.05);
+    assert(!sig.visible || sig.material.opacity < 0.1, 'karnvow verdict: the sigil unwrites when the beat releases');
+  }
+
+  // GRANDEUR REDO — the festoon at arena scale: the trophy garland must READ at
+  // fight distance (the L141 field-presence trick — a lean figure reads big through
+  // what it carries). World-x spread across the hang anchors > 3u.
+  {
+    const p0 = kv.partWorldPos('trophyCharm0', new THREE.Vector3());
+    const x0 = p0.x;
+    const p5 = kv.partWorldPos('trophyCharm5', new THREE.Vector3());
+    assert(Math.abs(p5.x - x0) > 4.5,
+      `karnvow festoon at arena scale (charm spread ${Math.abs(p5.x - x0).toFixed(2)}u > 4.5 world — it must BREAK the silhouette edge)`);
+  }
+
+  // GRANDEUR REDO — the cut-in apex drama: mid-pass (no tell charging) the lance
+  // leads the near-pass in a HELD cross-body sweep.
+  {
+    kv.setCharge(0); kv.setAttackTell(null);
+    kv.setSetpiece(0.85, { id: 'flankCutIn' });
+    for (let i = 0; i < 24; i++) kv.tick(0.05, 48 + i * 0.05);
+    const lp = kv.group.getObjectByName('lancePivot');
+    assert(lp.rotation.y < -0.5,
+      `karnvow cut-in apex: the lance leads the pass in a held cross-sweep (rot.y ${lp.rotation.y.toFixed(2)} < -0.5)`);
+    kv.setSetpiece(0);
+  }
+
+  // SPEND PASS data laws (the owner's P1–P7 verdict plan):
+  {
+    // P3 — the worn heraldry exists as named parts.
+    assert(!!kv.group.getObjectByName('pennonPivot'), 'karnvow pennon anchored to the lance haft (pennonPivot)');
+    assert(!!kv.group.getObjectByName('pennon') && !!kv.group.getObjectByName('cloakLining') && !!kv.group.getObjectByName('hoodTail0'),
+      'karnvow wears the heraldry: pennon + cloak lining + hood tail strips');
+    assert(!!kv.group.getObjectByName('ashCloud'), 'karnvow ambient ash is ONE Points cloud (one draw, never per-mote meshes)');
+
+    // P2 — the empty hook aims at YOU over fight time: simulate ~95s of live gaze.
+    const hookHang2 = kv.group.getObjectByName('trophyCharm5').parent;
+    kv.setGaze(1, 0);
+    const y0 = hookHang2.rotation.y;
+    for (let i = 0; i < 400; i++) kv.tick(0.25, 200 + i * 0.25);   // 100s of fight clock
+    // Hold a charge for the final beats: the idle look-away machinery randomly
+    // wanders gazeX (it only triggers below charge 0.2), so sample the creep at a
+    // deterministic locked-on gaze, not a random glance moment.
+    kv.setCharge(0.6);
+    for (let i = 0; i < 30; i++) kv.tick(0.25, 300 + i * 0.25);
+    kv.setCharge(0);
+    assert(hookHang2.rotation.y > y0 + 0.3,
+      `karnvow the empty hook CREEPS toward the dragon over the fight (hang rot.y ${hookHang2.rotation.y.toFixed(2)} > ${(y0 + 0.3).toFixed(2)})`);
+
+    // P4 — the verdict testify is a WAVE + the horn SPLITS mid-card + the ghost is card-only.
+    const sp = BOSSES.karnvow.setpieces.find((x) => x.dread);
+    const ghost = kv.group.getObjectByName('voidmawGhost');
+    const frag0 = kv.group.getObjectByName('lanceFrag0');
+    assert(!!ghost && !ghost.visible && !!frag0 && !frag0.visible, 'karnvow ghost + horn fragments HIDDEN outside the card (idle draws stay lean)');
+    kv.setSetpiece(1, sp);
+    let firstLit = -1, lastLit = -1, sawSplit = false;
+    for (let i = 0; i < 70; i++) {
+      kv.tick(0.05, 320 + i * 0.05);
+      const litNow = [];
+      for (let ci = 0; ci < 5; ci++) if (kv.group.getObjectByName(`trophyCharm${ci}`).material.emissiveIntensity > 0.5) litNow.push(ci);
+      if (litNow.length > 0 && firstLit < 0) firstLit = i;
+      if (litNow.length >= 5 && lastLit < 0) lastLit = i;
+      if (kv.group.getObjectByName('lanceFrag0').visible) sawSplit = true;
+    }
+    assert(firstLit >= 0 && lastLit > firstLit + 4,
+      `karnvow verdict testify is a WAVE, not a wall (first charm lit at tick ${firstLit}, all five by ${lastLit})`);
+    assert(sawSplit, 'karnvow the horn SPLITS into fragments mid-card ("wears the horn it took", coming apart at the memory)');
+    assert(ghost.visible && ghost.material.opacity <= 0.3,
+      `karnvow the Voidmaw ghost haunts the horn DIMLY during its card (opacity ${ghost.material.opacity.toFixed(2)} ≤ 0.3 — a satellite, never a lamp)`);
+    kv.setSetpiece(0);
+    for (let i = 0; i < 40; i++) kv.tick(0.05, 330 + i * 0.05);
+    assert(!ghost.visible && !kv.group.getObjectByName('lanceFrag0').visible && kv.group.getObjectByName('lanceShaft').visible,
+      'karnvow ghost + fragments release with the card; the horn reassembles');
+
+    // P6 — the cloak tears at the phase seams (hem width shrinks at its last ring).
+    const cloakGeo = kv.group.getObjectByName('cloakStrip').geometry;
+    const hemW = () => {
+      const a = cloakGeo.attributes.position.array, n = a.length;
+      return Math.abs(a[n - 6] - a[n - 3]);   // hem ring: left-x minus right-x
+    };
+    for (let i = 0; i < 10; i++) kv.tick(0.05, 400 + i * 0.05);
+    const w0 = hemW();
+    kv.setPhase(2);
+    for (let i = 0; i < 10; i++) kv.tick(0.05, 401 + i * 0.05);
+    assert(hemW() < w0 - 0.2, `karnvow the cloak TEARS by phase (hem width ${hemW().toFixed(2)} < ${(w0 - 0.2).toFixed(2)})`);
+  }
+
   kv.dispose();
   ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
+  ok('karnvow grandeur redo: the verdict WRITES (sigil + testifying trophies), the festoon reads at fight distance, the cut-in apex holds the sweep');
+  ok('karnvow spend pass: heraldry worn, the hook creeps toward you, the testify WAVES, the horn splits + the ghost haunts card-only, the cloak tears by phase');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
@@ -1603,6 +1766,80 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ui.bossWarning = origWarn;
   boss.resetBoss();
   ok('no-warn arrival break: ONEWING banner fires WITH the eruption (never during warn); other bosses warn early');
+}
+
+// --- 5. KARNVOW CP2 — the entrance-script data law + the riposte/stare-down live drive.
+{
+  const { ENTRANCE_SCRIPTS } = await import('../js/entranceScripts.js');
+  const sc = ENTRANCE_SCRIPTS.itKeptCount;
+  assert(!!sc, 'itKeptCount entrance script registered');
+  const ctx = { AX: 0, AY: CONFIG.BOSS.fightHeight, S: 1, B: CONFIG.BOSS, sc: 2.0 };
+  // rel ROCK-STEADY through the ride (§5d: any rel change reads as slot 3's spent
+  // overtake) — only the final settle recedes to station.
+  assertEq(sc.path(0.3, ctx).rel, 16, 'itKeptCount rel steady at 16 (hold)');
+  assertEq(sc.path(0.7, ctx).rel, 16, 'itKeptCount rel steady at 16 (point)');
+  assertEq(sc.path(1, ctx).rel, CONFIG.BOSS.settleGap, 'itKeptCount settles at station');
+  // The DE-JANK laws (owner catch — "back to us, wing in frame, hop spin"):
+  // (a) three-quarter ride, never a pure back, once he's drawn level;
+  const rideYaw = sc.yaw(0.5, ctx);
+  assert(rideYaw < Math.PI * 0.75 && rideYaw > Math.PI * 0.4,
+    `itKeptCount rides three-quarter (yaw ${rideYaw.toFixed(2)} in (0.4π, 0.75π)) — the cowl/festoon read, not his back`);
+  assert(Math.abs(sc.yaw(1, ctx)) < 1e-6, 'itKeptCount wheel completes — squared to face you at station');
+  // (b) the wheel BANKS (roll live mid-wheel, level at both ends — no snap-spin);
+  assert(Math.abs(sc.roll(0.9, ctx)) > 0.1 && Math.abs(sc.roll(1, ctx)) < 1e-6 && Math.abs(sc.roll(0.5, ctx)) < 1e-6,
+    'itKeptCount wheel banks (roll live mid-wheel, level at the hold and at station)');
+  // (c) he rides ABOVE the wing line (the +2.5 ride crowded the dragon's wing).
+  assert(sc.path(0.5, ctx).y >= ctx.AY + 3.5, 'itKeptCount rides above the wing line (y ≥ AY+3.5)');
+  // (d) the dart machine sleeps through the cinematic: drive a model with the
+  // script's own onFrame beats (incl. the U2 lance-point that used to trip the
+  // strike-sidestep) and assert the rig never leaves centre.
+  {
+    const kvE = buildBoss(BOSSES.karnvow, 1);
+    const rig = kvE.group.children.find((c) => c.type === 'Group');
+    sc.onStart?.(kvE);
+    let maxOff = 0;
+    for (let i = 0; i <= 60; i++) {
+      const u = i / 60;
+      sc.onFrame?.(u, ctx, { x: 0, y: 0, rel: 16 }, { position: { x: 0, y: 0 }, dist: 0 }, kvE);
+      kvE.tick(0.05, 100 + i * 0.05);
+      maxOff = Math.max(maxOff, Math.abs(rig.position.x - Math.sin((100 + i * 0.05) * 0.37) * 0.25));
+    }
+    assert(maxOff < 0.6, `karnvow footwork SLEEPS through the entrance (guard offset ${maxOff.toFixed(2)} < 0.6 — no mid-cinematic hop)`);
+    kvE.dispose();
+  }
+  ok('karnvow itKeptCount entrance: rel rock-steady ride → station settle');
+  ok('karnvow entrance de-jank: 3/4 ride, banked full wheel, above the wing, footwork asleep');
+
+  // Live drive: after the first shield break (phase ≥ 1) an injected REFLECTED hit
+  // (kind 'player') is RIPOSTED — answered once, the second one lands; the parked
+  // immortal player also sits in the threat-line long enough to earn the FLINCH.
+  let riposteN = 0, flinchN = 0;
+  on('bossRiposte', () => riposteN++);
+  on('holdFlinch', () => flinchN++);
+  game.inBoss = false;
+  game.reset();
+  game.state = 'playing';
+  game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('karnvow'));
+  const kills0 = killsSeen;
+  let sawShield = false, injected = 0;
+  for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
+    const dt = 1 / 60;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    const st = boss.bossDebugState();
+    if (st.shielded) { sawShield = true; game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+    if (sawShield && !st.shielded && st.phase === 'fight' && injected < 2) {
+      emit('bossDamage', { amount: 4, kind: 'player', x: 0, y: 8 });
+      injected++;
+    }
+    boss.updateBoss(dt, player, i / 60);
+  }
+  assert(killsSeen > kills0, 'karnvow CP2 drive: the instrumented encounter still resolves to a kill');
+  assertEq(riposteN, 1, 'riposte answers exactly the FIRST reflected hit of the phase (the second lands)');
+  assert(flinchN >= 1, `hold-until-flinch fired for the parked-in-the-threat-line player (${flinchN}×)`);
+  ok(`karnvow CP2 live drive: riposte ×${riposteN} (once per phase), stare-down flinch ×${flinchN}`);
 }
 
 // §5i.C THREAD-CUT + §5i moteHarvest INTEGRATION (weftwitch CP2): drive a LIVE fight
