@@ -71,28 +71,33 @@ export function buildEmbertide(def, quality = 1) {
   // ---------------------------------------------------------------------
   const FIELD_W = 96, FIELD_H = 62, FIELD_Z = -4;
   const BAND_COUNT = lowQ ? 4 : 6;   // bold structured strata (the tide's layers)
-  const segX = lowQ ? 24 : 40, segY = lowQ ? 26 : 48;
+
+  // The band-BOW ("light pushed aside" = negative relief): near the face column the
+  // light rises UP, so bands arc up and over the head instead of running straight
+  // behind it — the light is visibly displaced (the approved r1 cue). Shared by the
+  // base field AND every layered tide-band so the WHOLE wall parts around the face.
+  const faceBow = (x, y) => Math.exp(-Math.pow(x / 14, 2)) * Math.exp(-Math.pow(y / 22, 2));
+  const _bg = new THREE.Color();
+  // The base gradient vermilion→rose at a given world-y (0 bottom → 1 top of the field).
+  const baseGrad = (y) => _bg.copy(accent).lerp(rose, THREE.MathUtils.clamp((y + FIELD_H / 2) / FIELD_H, 0, 1));
+
+  // THE BASE FIELD — a smooth vermilion→rose gradient that fills the frame behind the
+  // moving tide-bands (so gaps between bands never show dark), with the hot crest baked
+  // in + the bow. The bold band STRUCTURE now lives in the separate layered tide-bands
+  // below (real, moving geometry — the spatial-peak spectacle), not just baked here.
+  const segX = lowQ ? 30 : 48, segY = lowQ ? 34 : 56;
   const fieldGeo = new THREE.PlaneGeometry(FIELD_W, FIELD_H, segX, segY);
   {
     const pos = fieldGeo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
-    const cTmp = new THREE.Color();
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i);
-      const t = THREE.MathUtils.clamp((y + FIELD_H / 2) / FIELD_H, 0, 1);   // 0 bottom → 1 top
-      cTmp.copy(accent).lerp(rose, t);   // base gradient vermilion → coral-rose
-      // BEND THE BANDS AROUND THE FACE ("light pushed aside" = negative relief): near
-      // the face column the band PHASE bows UPWARD, so the bright bands arc up and over
-      // the head instead of running straight behind it — the light is visibly displaced.
-      const faceProx = Math.exp(-Math.pow(x / 14, 2)) * Math.exp(-Math.pow(y / 22, 2));
-      const tBow = THREE.MathUtils.clamp((y + faceProx * 11 + FIELD_H / 2) / FIELD_H, 0, 1);
-      // BOLD bands: a wide, strong periodic brightening (structured strata, not a wash).
-      const band = Math.pow(Math.max(0, Math.sin(tBow * Math.PI * BAND_COUNT)), 2);
+      const t = THREE.MathUtils.clamp((y + faceBow(x, y) * 11 + FIELD_H / 2) / FIELD_H, 0, 1);
+      baseGrad(y);
+      const faintBand = Math.pow(Math.max(0, Math.sin(t * Math.PI * BAND_COUNT)), 2) * 0.22;   // a soft residual band under the tide
       const crest = Math.exp(-Math.pow((t - 0.30) / 0.07, 2)) * 0.7;   // the hot surge edge
-      const hdr = 1 + band * 0.7 + crest;   // >1 on bands/crest → blooms; kept warm-saturated (G3)
-      colors[i * 3] = cTmp.r * hdr;
-      colors[i * 3 + 1] = cTmp.g * hdr;
-      colors[i * 3 + 2] = cTmp.b * hdr;
+      const hdr = 1 + faintBand + crest;
+      colors[i * 3] = _bg.r * hdr; colors[i * 3 + 1] = _bg.g * hdr; colors[i * 3 + 2] = _bg.b * hdr;
     }
     fieldGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   }
@@ -102,6 +107,67 @@ export function buildEmbertide(def, quality = 1) {
   field.position.z = FIELD_Z;
   field.renderOrder = -10;   // the backdrop draws first
   rig.add(field);
+
+  // THE LAYERED TIDE — the bold structured light-bands as REAL, MOVING geometry (the
+  // World-Enders spatial-peak spend): N wide opaque band-planes at staggered z, each a
+  // bright ridge that fades seamlessly into the base gradient at its top/bottom edges
+  // (opaque, no strip seam) and BOWS up around the face. They drift at parallax speeds
+  // (see tick) so the wall of light reads as a deep, many-layered tide in motion —
+  // still ZERO additive (opaque HDR, blooms via toneMapped=false). The bands REPLACE
+  // the sky dome; they never stack a large ADDITIVE volume vs the camera.
+  const tideBands = [];
+  const tideMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false }));
+  const TIDE_N = lowQ ? 3 : 6;
+  const bandSegX = lowQ ? 22 : 36, bandSegY = lowQ ? 5 : 8;
+  for (let b = 0; b < TIDE_N; b++) {
+    const yc = -FIELD_H / 2 + (b + 0.5) / TIDE_N * FIELD_H;   // band centre height
+    const halfH = (FIELD_H / TIDE_N) * 0.9;                    // slight overlap → seamless tiling
+    const g = new THREE.PlaneGeometry(FIELD_W * 1.02, halfH, bandSegX, bandSegY);
+    const pos = g.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const lx = pos.getX(i), ly = pos.getY(i);       // local (ly: -halfH/2..+halfH/2)
+      const wy = yc + ly;                              // world y of this vertex
+      // Bow the whole band up around the face (displace the geometry, so the arc is real).
+      pos.setY(i, ly + faceBow(lx, wy) * 9);
+      const ridge = Math.exp(-Math.pow(ly / (halfH * 0.34), 2));   // bright at band centre → 0 at its edges
+      baseGrad(wy);
+      const hdr = 1 + ridge * 0.95;                    // opaque: edges = base gradient (seamless), centre = a hot band
+      col[i * 3] = _bg.r * hdr; col[i * 3 + 1] = _bg.g * hdr; col[i * 3 + 2] = _bg.b * hdr;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const m = new THREE.Mesh(g, tideMat);
+    m.position.set(0, 0, FIELD_Z + 0.4 + b * 0.35);     // staggered z toward the camera (parallax depth)
+    m.renderOrder = -9 + b;
+    m.userData = { yc, driftAmp: 1.4 + (b % 3) * 0.7, driftSpd: 0.25 + b * 0.06, bobSpd: 0.5 + b * 0.11, phase: b * 1.3 };
+    rig.add(m);
+    tideBands.push(m);
+  }
+
+  // THE CREST — the tide's surge EDGE as real geometry (was a bare node): a wide, hot,
+  // bowed band low in the frame that RISES + brightens on the charge tell (the crest
+  // gathers before a big volley). Opaque HDR. The emitter organ (crestPivot) rides it.
+  const crestMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false }));
+  const crestY0 = -FIELD_H * 0.18;
+  {
+    const cg = new THREE.PlaneGeometry(FIELD_W * 1.02, 9, lowQ ? 30 : 48, lowQ ? 5 : 8);
+    const pos = cg.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const lx = pos.getX(i), ly = pos.getY(i);
+      pos.setY(i, ly + faceBow(lx, crestY0 + ly) * 7);
+      const ridge = Math.exp(-Math.pow(ly / 2.6, 2));
+      baseGrad(crestY0 + ly);
+      const hdr = 1 + ridge * 1.5;   // the hottest band (the surge edge)
+      col[i * 3] = _bg.r * hdr; col[i * 3 + 1] = _bg.g * hdr; col[i * 3 + 2] = _bg.b * hdr;
+    }
+    cg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    var crestStrip = new THREE.Mesh(cg, crestMat);
+    crestStrip.name = 'crestStrip';
+    crestStrip.position.set(0, crestY0, FIELD_Z + 2.6);
+    crestStrip.renderOrder = -3;
+    rig.add(crestStrip);
+  }
 
   // The SCAR (§3.6): a torn, permanently DARK leash-notch — a HORIZONTAL band-shaped
   // dark bar riding ONE band, off to the side where the FACE never reaches, smaller
@@ -169,7 +235,7 @@ export function buildEmbertide(def, quality = 1) {
   // A feathered dark mass: a plane whose multiply factor is dark in the middle → 1.0 at
   // the edge (so it darkens the light where the mass is, with no hard outline).
   function darkMass(w, h, dark, ry = 1) {
-    const g = new THREE.PlaneGeometry(w, h, 12, 12);
+    const g = new THREE.PlaneGeometry(w, h, lowQ ? 9 : 15, lowQ ? 9 : 15);
     const p = g.attributes.position;
     const c = new Float32Array(p.count * 3);
     for (let i = 0; i < p.count; i++) {
@@ -190,6 +256,25 @@ export function buildEmbertide(def, quality = 1) {
   const browPivot = massPivot('browMass', 0, 5.2, 0.5, darkMass(19, 5.0, 0.10, 0.8));   // heavy brow bar (wide, low arc)
   const nosePivot = massPivot('noseMass', 0, -1.0, 0.7, darkMass(4.6, 11, 0.06, 1.0));   // central nose ridge (tall, narrow — the deepest)
   const chinPivot = massPivot('chinMass', 0, -10.5, 0.5, darkMass(13, 7, 0.12, 0.9));    // chin/jaw mass low, fading into the tide below
+
+  // RICHER soft relief (owner note: the face must survive motion + a phone screen, not
+  // soften into "a smudge with two dots") — extra feathered multiply occlusion tiers
+  // that DEEPEN the brow/cheek/temple structure. ALL feathered (radial multiply
+  // gradient), NO hard edge, NO rim — they only darken the light a touch more where the
+  // bone structure is, so the face reads sculpted in MOTION without becoming an object.
+  const reliefTiers = [
+    [10, 3.0, 0.30, -0.5, 6.6, 0.45, 1.0],   // brow-ridge undershadow (deepens the brow line)
+    [7.5, 5.5, 0.28, -6.2, -3.0, 0.4, 0.9],  // left cheekbone hollow
+    [7.5, 5.5, 0.28, 6.2, -3.0, 0.4, 0.9],   // right cheekbone hollow
+    [4.2, 8.0, 0.46, -8.4, 4.0, 0.3, 1.3],   // left temple shadow (kept LIGHT — a hard temple column flirts with a mask side-edge)
+    [4.2, 8.0, 0.46, 8.4, 4.0, 0.3, 1.3],    // right temple shadow
+    [5.5, 3.0, 0.34, 0, -3.6, 0.5, 0.9],     // philtrum / upper-lip shadow (nose→mouth)
+  ];
+  for (const [w, h, dk, x, y, z, ry] of reliefTiers) {
+    const m = new THREE.Mesh(darkMass(w, h, dk, ry), massMat);
+    m.position.set(x, y, z); m.renderOrder = 1;
+    faceRig.add(m);
+  }
 
   // THE TEARS — the two EYE-HOLLOWS + the MOUTH: pure black, OPAQUE (holes torn in the
   // glow, not sockets on a mask), the absolute DARKEST value (the G1-inverted focal),
@@ -229,7 +314,7 @@ export function buildEmbertide(def, quality = 1) {
   const moteMat = track(new THREE.MeshBasicMaterial({ color: rose.clone().multiplyScalar(2.4), fog: false, toneMapped: false }));
   const moteGeo = new THREE.SphereGeometry(0.5, 7, 6);
   const orbiters = [];
-  const moteCount = lowQ ? 5 : 12;
+  const moteCount = lowQ ? 8 : 18;   // more embers → the wall reads alive (draws land naturally)
   for (let i = 0; i < moteCount; i++) {
     const m = new THREE.Mesh(moteGeo, moteMat);
     m.userData = { baseX: (i / moteCount - 0.5) * FIELD_W * 0.85, phase: i * 1.7, speed: 2.4 + (i % 3) * 0.7, sway: 3 + (i % 4) };
@@ -321,6 +406,21 @@ export function buildEmbertide(def, quality = 1) {
     // the flinch flash. Driven on the material colour (opaque HDR, multiply-safe).
     const swell = 1 + Math.sin(time * 0.8) * 0.05 + charge * 0.3 + flashT * 0.5;
     fieldMat.color.copy(_fieldCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92)));
+
+    // LAYERED TIDE — parallax drift: each band slides at its own speed + bobs, so the
+    // wall of light reads as a DEEP tide in MOTION. Death recedes them with the field.
+    const tideDim = 1 - dyingK * 0.92;
+    const tideDrop = dyingK > 0 ? -dyingK * FIELD_H * 0.7 : chargeRise * 0.5;
+    for (const m of tideBands) {
+      const u = m.userData;
+      m.position.x = Math.sin(time * u.driftSpd + u.phase) * u.driftAmp;
+      m.position.y = tideDrop + Math.sin(time * u.bobSpd + u.phase) * 0.6;
+    }
+    tideMat.color.setScalar(Math.max(0.02, (1 + charge * 0.25 + flashT * 0.4) * tideDim));
+
+    // CREST — the surge edge RISES + brightens on the charge tell; recedes in death.
+    crestStrip.position.y = crestY0 + (dyingK > 0 ? -dyingK * FIELD_H * 0.7 : charge * 3.5 + Math.sin(time * 0.9) * 0.4);
+    crestMat.color.setScalar(Math.max(0.02, (1 + charge * 0.6 + flashT * 0.5) * tideDim));
 
     // EMBER MOTES — drift UP the tide, swaying, recycling at the crest.
     for (const o of orbiters) {
