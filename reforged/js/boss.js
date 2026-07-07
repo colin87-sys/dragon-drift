@@ -171,6 +171,7 @@ let ghostFrameBroken = false;
 const GHOST_FRAME_HITS = 4;   // perfect parries of the ghost half to dismantle the frame
 let ghostFrameHits = 0;
 let soakT = 0;                // the 2× spray-soak graze window (from the frame-break vent)
+const SPRAY_SOAK_BONUS = 2;   // the graze-meter reward for soaking the frame-break vent (§5i.B)
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
@@ -1794,8 +1795,10 @@ export function updateBoss(dt, player, time) {
   // §5f resolve the LYING FELLED card: after the fake-death window, ≤35% of the bar
   // RETURNS and the CRIPPLED, unshielded final stand opens (the truth). Resolves well
   // inside the ≤2s guarantee. Def-gated; inert for every other boss (felledLieT stays 0).
-  // §5i.B the 2× spray-soak window from the frame-break winds down → graze bonus restored.
-  if (soakT > 0) { soakT -= dt; if (soakT <= 0) setGrazeBonus(1); }
+  // §5i.B the 2× spray-soak window from the frame-break winds down; the graze bonus is
+  // republished every fight tick by the adrenaline ladder (the single authority), so this
+  // only has to run the clock down — no reset here (that would dip below the adren bonus).
+  if (soakT > 0) soakT -= dt;
   if (felledLieT > 0 && phase === 'fight') {
     felledLieT -= dt;
     // Beat 1 — the FAKE DEATH plays out (readable, not a glitch): the model visibly DIES
@@ -2339,8 +2342,13 @@ export function updateBoss(dt, player, time) {
           emit('adrenalineRung', { rung: adrenRung });
         }
       }
-      // Publish the rung's effects (all 1/neutral at rung 0 — the coexist floor).
-      setGrazeBonus(adrenRung >= 1 ? 1.18 : 1);
+      // Publish the rung's effects (all 1/neutral at rung 0 — the coexist floor). This
+      // runs every fight tick, so it is the SINGLE authority for the graze bonus — the
+      // §5i.B spray-soak window (soakT, from ONEWING's frame-break) composes HERE as a
+      // MAX, or its 2× beat would be clobbered back to the adrenaline/default value one
+      // frame after it was set (Codex review). soakT>0 is def-gated by the frame-break.
+      const adrenBonus = adrenRung >= 1 ? 1.18 : 1;
+      setGrazeBonus(soakT > 0 ? Math.max(SPRAY_SOAK_BONUS, adrenBonus) : adrenBonus);
       game.adrenGainMult = adrenRung >= 2 ? 1.5 : 1;
       if (adrenRung >= 3) {                                // weak-point ping: a soft periodic sonar on the focal
         adrenPing -= dt;
@@ -2739,7 +2747,7 @@ function ventSpraySoak(player) {
     const a = (i / n) * Math.PI * 2;
     emitBoss(ox, oy, Math.cos(a) * 6.5, Math.sin(a) * 6.5, -slow, false, null, 1.15, 0x2a1830, orel, null);   // dark-donut graze-bait
   }
-  soakT = 1.6; setGrazeBonus(2);   // the 2× beat
+  soakT = 1.6; setGrazeBonus(SPRAY_SOAK_BONUS);   // the 2× beat (republished as a MAX by the adren ladder each tick)
 }
 
 // Resolve an attack id to bullets. Instant patterns fire one volley now; sustained

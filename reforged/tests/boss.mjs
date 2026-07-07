@@ -1927,13 +1927,19 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   // count would mean a fresh emit. It must reach 0 as the last shots clear.
   const ghostCount = () => bullets.debugActiveBullets().filter((b) => b.owner === 'boss' && b.reflectable && b.part === 'frameGroup').length;
   let prev = ghostCount(), reEmitted = false, finalGhost = prev;
+  // The 2× spray-soak reward must actually HOLD through the soak window — the no-hit
+  // adrenaline ladder republishes the graze bonus every fight tick, so an un-composed
+  // set would be clobbered back to 1/1.18 within a frame (Codex review, boss.js:2343).
+  let soakBonusHeld = true, sampledSoak = false;
   for (let i = 0; i < 60 * 8 && game.inBoss; i++) {
     boss.updateBoss(1 / 60, player, (t += 1 / 60));
+    if (boss.bossDebugState().soakT > 0) { sampledSoak = true; if (bullets.debugGrazeBonus() < 2) soakBonusHeld = false; }
     const c = ghostCount();
     if (c > prev) reEmitted = true;   // a rise ⇒ a new volley fired ⇒ the break didn't stop it
     prev = c; finalGhost = c;
   }
   assert(!reEmitted && finalGhost === 0, `the ghost half STOPS once the frame is broken (in-flight shots drain to 0, none re-emitted; final ${finalGhost}, reEmit ${reEmitted})`);
+  assert(sampledSoak && soakBonusHeld, `the 2× spray-soak graze reward HOLDS through the soak window (not clobbered by the adrenaline republish; sampled ${sampledSoak})`);
   boss.resetBoss();
 
   // Inert for every other boss: a non-ghostHalf def never emits a frame-tagged

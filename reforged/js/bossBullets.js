@@ -817,6 +817,7 @@ export function cutBossAmbers() {
 // boss.js drives it from the no-hit ladder each frame.
 let grazeBonus = 1;
 export function setGrazeBonus(m) { grazeBonus = Math.max(1, m || 1); }
+export function debugGrazeBonus() { return grazeBonus; }
 
 // §5i.B CONTINUOUS-GRAZE detector (the ticking sibling of the one-per-bullet
 // crossing check — lands with slot 6, RIDE-THE-BEAM-EDGE). Reports whether the
