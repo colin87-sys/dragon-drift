@@ -77,6 +77,12 @@ export function clearLocks(_reason) {
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
+  // Leaving a fight must drop fightRunning too — else the flag survives into the
+  // NEXT boss's entrance cinematic (updateLockLayer only runs in phase 'fight', so
+  // it can't refresh a stale true), and lockHudState().active stays true → the
+  // reticle draws "locked" over the entrance before you can fight (owner playtest:
+  // "the reticle's already on him during the slow-mo, it ruins the moment").
+  S.fightRunning = false; S.hasOrgan = false;
 }
 
 // NB — the danger-binding quiet-rate penalty (`quietDwellMult`, kills rest-beat

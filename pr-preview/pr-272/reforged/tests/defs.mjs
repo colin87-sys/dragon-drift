@@ -10,6 +10,7 @@ const { TITLES, titleById, levelTitleId } = await import('../js/titles.js');
 const { ASCENSION_TIERS } = await import('../js/ascension.js');
 const { FLIGHTMARKS } = await import('../js/flightmarks.js');
 const { DRAGONS, wispTintFor, lanceRuneFor, WISP_JADE } = await import('../js/dragons.js');
+const { BOSSES } = await import('../js/bossDefs.js');
 
 let n = 0;
 const ok = (msg) => { n++; console.log(`  ✓ ${msg}`); };
@@ -164,5 +165,19 @@ assertEq(lanceRuneFor(sample, 3), sample.lanceRune, 'lanceRuneFor → rune at Et
 assertEq(wispTintFor(DRAGONS.azure, 3), WISP_JADE, 'wispTintFor → jade for a dragon with no lanceTint');
 assertEq(wispTintFor(null, 3), WISP_JADE, 'wispTintFor → jade for a null def');
 ok('wispTintFor/lanceRuneFor gate the accent on formLevel>=3 + a present lanceTint');
+
+// --- Eye-weak-point decouple (A): a boss whose submerged eye seals only ITSELF ---
+// (not the whole lock layer) MUST name the paintable organ it seals via `eyeOrgan`,
+// and that organ MUST be a real lockPart — else paintableParts() can never drop it
+// and the shackles would go dark with the eye again (the exact regression this fixes).
+for (const [key, def] of Object.entries(BOSSES)) {
+  if (!def.eyeWeakPoint) continue;
+  assert(typeof def.eyeOrgan === 'string' && def.eyeOrgan.length > 0,
+    `eyeWeakPoint boss ${key} names an eyeOrgan`);
+  const parts = (def.lockParts || []).map((lp) => lp.part);
+  assert(parts.includes(def.eyeOrgan),
+    `${key}.eyeOrgan ('${def.eyeOrgan}') is one of its lockParts`);
+}
+ok('eyeWeakPoint bosses name an eyeOrgan that is a real lockPart (decouple invariant)');
 
 console.log(`\n${n} def checks passed.`);

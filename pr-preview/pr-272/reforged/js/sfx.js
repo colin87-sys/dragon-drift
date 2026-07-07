@@ -647,9 +647,11 @@ export const sfx = {
   // The stitch-pluck: a taut-string pluck per fired stitch (the 'aimed' release).
   // Bright short fundamental + one inharmonic partial (the sfx.ring recipe family),
   // snapped in-key so a volley of stitches lands in the station chord.
-  stitchPluck() {
-    const f = inKey(520);
-    tone({ freq: f, end: f * 0.94, dur: 0.15, type: 'triangle', vol: 0.09 });
+  stitchPluck(rise = 0) {
+    // rise > 0 (a banked thread-cut parry) climbs the pitch a whole step per bank —
+    // the "it's building toward the snap" ladder the player HEARS.
+    const f = inKey(520 * (1 + rise * 0.14));
+    tone({ freq: f, end: f * (rise ? 1.08 : 0.94), dur: 0.15, type: 'triangle', vol: 0.09 + rise * 0.02 });
     tone({ freq: f * 2.51, dur: 0.2, type: 'sine', vol: 0.045 });
   },
   // The needle-pull: thread drawn taut (the 'aimed' wind-up twin of the visual
