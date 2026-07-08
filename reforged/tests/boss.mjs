@@ -335,10 +335,11 @@ for (const key of BOSS_ORDER) {
   // pair gaps must be UNEVEN (anti-gear); the great eye must DOMINATE the peripheral eyes.
   const um = buildBoss(BOSSES.unmasked, 1);
   assert(findAllByName(um.group, 'wheelGimbal0').length === 0, 'unmasked stage-2 wheels are RETIRED (no wheelGimbal)');
-  // SIX wings as THREE MIRROR PAIRS (upper/middle/lower), built from the merged angel wing.
-  const wingNames = ['wing_upper_R', 'wing_upper_L', 'wing_middle_R', 'wing_middle_L', 'wing_lower_R', 'wing_lower_L'];
+  // EIGHT wings as a BILATERAL 4-per-side card-fan (upper/upmid/middle/lower ×2), from the merged
+  // angel wing. upper/middle/lower carry the mirror check below.
+  const wingNames = ['wing_upper_R', 'wing_upper_L', 'wing_upmid_R', 'wing_upmid_L', 'wing_middle_R', 'wing_middle_L', 'wing_lower_R', 'wing_lower_L'];
   const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
-  assert(wings.every(Boolean), 'unmasked exposes six wings (three mirror pairs)');
+  assert(wings.every(Boolean), 'unmasked exposes eight wings (bilateral 4-per-side card-fan)');
   um.group.updateMatrixWorld(true);
   // BILATERAL, NEVER RADIAL (radial read as a wheel — the original failure): each pair's L
   // wing mirrors its R via a scale.x flip, and the two roots sit on opposite sides of centre.
@@ -359,7 +360,7 @@ for (const key of BOSS_ORDER) {
   assert(findAllByName(um.group, 'eyeScleras')[0] && findAllByName(um.group, 'eyeSockets')[0], 'unmasked stage-2 eye field present (sockets + scleras merged)');
   assert(findAllByName(um.group, 'halo')[0], 'unmasked stage-2 has the sole gold halo (the only corona nod)');
   um.dispose();
-  ok('unmasked stage-2 SERAPH: six eyed wings + a dominant great eye, uneven pair gaps, wheels retired');
+  ok('unmasked stage-2 SERAPH: eight eyed wings (bilateral card-fan) + a small central star-eye, wheels retired');
 }
 {
   const colossus = buildBoss(BOSSES.craghold, 1);
