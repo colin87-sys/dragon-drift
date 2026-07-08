@@ -347,13 +347,14 @@ for (const key of BOSS_ORDER) {
     assert(Math.sign(R.scale.x) !== Math.sign(L.scale.x), `unmasked ${key} pair is bilaterally MIRRORED (scale.x flip, not radial)`);
     assert(Math.sign(R.position.x) !== Math.sign(L.position.x), `unmasked ${key} pair roots on opposite sides of the centreline`);
   }
-  // THE GREAT CENTRAL EYE dominates (§ ≥~4× the largest peripheral, whose sclera ≈1.9u wide).
+  // THE FOCAL EYE is a SMALL deep focal nestled in the feathers — NOT a big "body" eye (a
+  // large pale central eye made the wings read as spider legs on a body). It exists + is modest.
   const great = findAllByName(um.group, 'greatEye')[0];
-  assert(great, 'unmasked exposes the great central eye');
+  assert(great, 'unmasked exposes the central focal eye');
   um.group.updateMatrixWorld(true);
   const gbox = new THREE.Box3().setFromObject(great);
   const gw = gbox.max.x - gbox.min.x;
-  assert(gw >= 4.0, `unmasked great eye dominates (bbox width ${gw.toFixed(1)}u ≥ ~4× the largest peripheral ≈1.2u)`);
+  assert(gw < 8.0, `unmasked focal eye is a modest focal, not a body (world bbox width ${gw.toFixed(1)}u < 8u; ~⅓ the old body-eye)`);
   // THE EYE FIELD (the identity) + the SOLE closed ring is the faint gold halo.
   assert(findAllByName(um.group, 'eyeScleras')[0] && findAllByName(um.group, 'eyeSockets')[0], 'unmasked stage-2 eye field present (sockets + scleras merged)');
   assert(findAllByName(um.group, 'halo')[0], 'unmasked stage-2 has the sole gold halo (the only corona nod)');

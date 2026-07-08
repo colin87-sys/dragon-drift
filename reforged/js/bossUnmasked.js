@@ -266,7 +266,7 @@ export function buildUnmasked(def, quality = 1) {
   // reads — pure black vanished on black and the six wings read as spider-legs (Fable gate).
   // Still the darkest thing but the eyes; a value step, NOT emissive.
   const featherMat = track(new THREE.MeshStandardMaterial({
-    color: 0x24242c, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
+    color: 0x3c3c46, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
   }));
 
   // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
@@ -327,10 +327,14 @@ export function buildUnmasked(def, quality = 1) {
   // NEVER radial (a radial ring read as a wheel — the original failure). The wing is built in
   // its own XY plane sweeping up-and-out; each pair's shoulder pivot rotates it to its sweep
   // and roots it beside the eye. ──
+  // A RISING FAN / MANDORLA, NOT a radial starburst (radial-around-a-hub = spider legs). All
+  // three pairs sweep UP-AND-OUT of the upper hemisphere; NO downward pair. BIG + tight roots
+  // so the wings OVERLAP into a dense wall of feathers (minimal background air between them —
+  // background gaps are what made six wings read as six separate legs). Bilateral mirror.
   const WING_PAIRS = [
-    { key: 'upper',  rotZ: 0.46, scale: 0.98, root: { x: 0.5, y: 1.4 }, z: -1.6, phase: 0.0, amp: 0.030 },   // swept UP
-    { key: 'middle', rotZ: -0.52, scale: 1.20, root: { x: 0.9, y: 0.3 }, z: -1.0, phase: 1.1, amp: 0.038 },  // swept OUT — the largest
-    { key: 'lower',  rotZ: -1.30, scale: 0.86, root: { x: 0.6, y: -0.7 }, z: -0.4, phase: 2.2, amp: 0.032 }, // swept DOWN
+    { key: 'upper',  rotZ: 0.62, scale: 1.15, root: { x: 0.25, y: 0.3 }, z: -1.9, phase: 0.0, amp: 0.028 },   // steep UP (the crest peak)
+    { key: 'middle', rotZ: 0.16, scale: 1.42, root: { x: 0.5, y: -0.1 }, z: -1.1, phase: 1.1, amp: 0.036 },   // UP-and-out — the largest, the body of the mass
+    { key: 'lower',  rotZ: -0.34, scale: 1.15, root: { x: 0.8, y: -0.5 }, z: -0.4, phase: 2.2, amp: 0.030 },   // widest OUT-and-up (still well above horizontal — NOT down)
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
@@ -388,34 +392,31 @@ export function buildUnmasked(def, quality = 1) {
       }
     }
   }
-  // 2 eyes set WELL OUT from the great eye (not on its rim — rim eyes read as spider ocelli). → 20.
-  for (const sx of [-1, 1]) { const p = new THREE.Vector3(sx * 5.0, 1.2, 0.6); declump(p, 0.55); eyePlace(p, 0.42); }
+  // 2 more eyes nestled in the feather mass near the focal (small, among the plumage). → 20.
+  for (const sx of [-1, 1]) { const p = new THREE.Vector3(sx * 1.7, 0.6, 0.6); declump(p, 0.5); eyePlace(p, 0.4); }
 
-  // ── THE ONE GREAT CENTRAL EYE — at the six-root convergence, the survivor (S1 focalEye
-  // continuity in CP2). A big dim almond, ≥4× the largest peripheral eye. Same L142 recipe
-  // (contrast, not brightness) — bigger pupil, prouder catchlight; it is the focal, so it
-  // gets its own named meshes (not merged). ──
-  // Explicit half-dimensions (base sphere r=1 → scale IS the half-extent). A 4.8u almond
-  // (half-width 2.4) ≥ 4× the largest peripheral (half-width ~0.6). Stacked strictly PROUD:
-  // socket (back) → sclera → iris → pupil → catchlight (front-most).
-  const GW = 3.4, GH = 2.0, GD = 1.1;     // sclera half-width / -height / -depth — grown ~30%: the ANCHOR
+  // ── THE FOCAL EYE — SMALL, deep, and DARK, nestled among the feathers at the base of the
+  // rising mass. NOT the "body" of the creature (a big pale eye made the wings read as legs on
+  // a spider) — it's a focal a third the old size: a mostly-DARK pupil in a thin dim sclera,
+  // deeper-set, more ominous. Just above the peripheral eyes in size, not a fried egg. ──
+  const GW = 1.2, GH = 0.82, GD = 0.62;   // sclera half-width / -height / -depth — ~⅓ the old size
   const GF = GD;                          // sclera front-face z (center at 0)
-  const GEY = -0.6;                       // seated LOW (bottom-centre), below the wing roots → never crossed
-  const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 14 : 20, lowQ ? 9 : 12), socketMat);
-  greatSocket.scale.set(GW * 1.1, GH * 1.14, 0.55); greatSocket.position.set(0, GEY, -0.35);
+  const GEY = -0.35;                      // nestled among the wing roots (not slung low as an anchor-body)
+  const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 12 : 18, lowQ ? 8 : 11), socketMat);
+  greatSocket.scale.set(GW * 1.18, GH * 1.22, 0.6); greatSocket.position.set(0, GEY, -0.3);
   greatSocket.name = 'greatSocket'; stage2.add(greatSocket);
-  const greatScleraMat = track(new THREE.MeshBasicMaterial({ color: 0x82785e }));   // eyeball value (tone-mapped, won't bloom) — the great staring eye
-  const greatEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 16 : 24, lowQ ? 10 : 14), greatScleraMat);
+  const greatScleraMat = track(new THREE.MeshBasicMaterial({ color: 0x6e6552 }));   // dimmer than before — a deep eye, not a bright fried egg
+  const greatEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 14 : 20, lowQ ? 9 : 12), greatScleraMat);
   greatEye.scale.set(GW, GH, GD); greatEye.position.set(0, GEY, 0);
   greatEye.name = 'greatEye'; stage2.add(greatEye);
-  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 16 : 24), irisMat);
-  greatIris.scale.set(GW * 0.5, GH * 0.62, 1); greatIris.position.set(0, GEY, GF + 0.05);   // gold iris ring
+  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 14 : 20), irisMat);
+  greatIris.scale.set(GW * 0.46, GH * 0.6, 1); greatIris.position.set(0, GEY, GF + 0.04);   // gold iris ring
   greatIris.name = 'greatIris'; stage2.add(greatIris);
-  const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 14 : 20, lowQ ? 9 : 12), s2pupilMat);
-  greatPupil.scale.set(GW * 0.42, GH * 0.5, 0.45); greatPupil.position.set(0, GEY, GF + 0.15);   // ~45% — the pale eyeball reads clearly around it
+  const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 12 : 18, lowQ ? 8 : 11), s2pupilMat);
+  greatPupil.scale.set(GW * 0.62, GH * 0.66, 0.5); greatPupil.position.set(0, GEY, GF + 0.12);   // BIG dark pupil (~⅔) — deep + ominous, sclera a thin rim
   greatPupil.name = 'greatPupil'; stage2.add(greatPupil);
-  const greatCatch = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), catchMat);
-  greatCatch.position.set(-GW * 0.24, GEY + GH * 0.34, GF + 0.6);
+  const greatCatch = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), catchMat);
+  greatCatch.position.set(-GW * 0.22, GEY + GH * 0.3, GF + 0.5);
   greatCatch.name = 'greatCatch'; stage2.add(greatCatch);
 
   const socketMesh = new THREE.Mesh(mergeParts(sockets, 'eyeSockets'), socketMat);
@@ -584,8 +585,8 @@ export function buildUnmasked(def, quality = 1) {
       }
       // The great central eye's pupil tracks the player (the focal); constricts on charge.
       const gk = 1 - charge * 0.3;
-      greatPupil.position.set(gazeX * GW * 0.32, GEY + gazeY * GH * 0.28, GF + 0.15);
-      greatPupil.scale.set(GW * 0.42 * gk, GH * 0.5 * gk, 0.45);
+      greatPupil.position.set(gazeX * GW * 0.28, GEY + gazeY * GH * 0.24, GF + 0.12);
+      greatPupil.scale.set(GW * 0.62 * gk, GH * 0.66 * gk, 0.5);
       // Each peripheral pupil tracks the player within its own sclera, sitting proud of the
       // front. Independent per-eye LAG + a small resting BIAS make the field read as living
       // eyes that look every which way; the shared gazeX/gazeY drags them toward the player.
