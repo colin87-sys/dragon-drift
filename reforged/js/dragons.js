@@ -744,54 +744,55 @@ export const DRAGONS = {
     rarity: 'SSSR',
     maxRarity: 'SSSR',
     cost: 5000,
-    parts: { surface: { shader: ['cellularScales', 'iridescence'] } },
-    // A regal ECLIPSE dragon — the dark, cool-toned counterpoint to the Phoenix's
-    // white-gold solar fire: a midnight-indigo body, antique-gold crown + spine,
-    // dark burnt-crimson wings and blue-violet/cyan eclipse energy. Predatory and
-    // royal, NOT a bright flame-wyvern. Each form is a distinct rear-view
-    // silhouette (see the per-form wingForm / tailStyle / spineGlow ramp below).
+    accentHue: 0xb784ff,   // §9 law-9 carrier: eclipse-violet, emissive-only on the 10%
+    // ECLIPSE DRAGON-KING (Bahamut) redesign — a FRESH, low-poly, HORIZONTAL king-dragon
+    // (see SOLAR-ECLIPSE-BUILDSHEET.md): lance-vault wings + eclipse-sigil motif (brow
+    // star-gem + rear corona mantle) + cuirass keel-ridge + scepter tail. All geometry
+    // authored fresh (no shipped builder look reused). iridescence dropped (matte "arcane
+    // light in darkness"); cellularScales kept. Palette held (already Bahamut-aligned).
+    parts: { torso: 'regnalKeelTorso', wings: 'lanceVaultWings', head: 'eclipseCrownHead', tail: 'scepterWhipTail', surface: { shader: ['cellularScales'] } },
     stats: { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 },
-    // Base model holds the APEX reference proportions; each form dials the
-    // per-stage silhouette. Cumulative: later forms override earlier keys.
+    // Base model holds APEX reference dials; each form dials the per-stage silhouette
+    // (cumulative — later forms override earlier keys). Sovereign dials: vaultFingers,
+    // pikeCount, dihedral, spanScale, keelShields, coronaValleys, crownHorns, starGemBloom,
+    // crescentBloom, tailFins, glowLevel, tuskScale, eyeScale, headScale.
     model: {
-      scale: 1.22, wingScale: 1.3, tailSegments: 9, neckSegments: 6,
-      hornLen: 1.7, hornPairs: 2, ridgeCount: 16,
-      flapBias: 0.85, flapAmp: 0.72, // gliding majesty, a fuller stroke toward the Phoenix feel
+      scale: 1.2, tailSegments: 9, neckSegments: 6, flapBias: 0.85, flapAmp: 0.72,
+      vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.0, keelShields: 5,
+      coronaValleys: 5, crownHorns: 4, starGemBloom: 1.0, crescentBloom: 1.0, tailFins: 4,
+      glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 1.7,
     },
     forms: [
-      // FORM 1 — Duskling: small, clean, dark-navy body + muted bronze, subdued
-      // dark-crimson wings, a faint blue-violet core. Cleanest readability.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
-        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.0, neckSegments: 5,
+      // HATCHLING (0) — round princeling, level flight, big head, dim gem-scute, one horn pair.
+      { vaultFingers: 3, pikeCount: 1, dihedral: 10, spanScale: 0.68, keelShields: 2,
+        coronaValleys: 2, crownHorns: 2, starGemBloom: 0.25, crescentBloom: 0.1, tailFins: 1,
+        glowLevel: 0.25, tuskScale: 0, eyeScale: 1.4, headScale: 1.3, hornLen: 0.9, tailSegments: 5,
         colors: { body: 0x0d1018, wingInner: 0x6e2418, wingOuter: 0x4a160e,
           wingEmissive: 0x5a1c10, scales: 0x7a6038, horn: 0x9a7c4a,
-          apexSeam: 0x5a5c8a, eye: 0xc8a868, coreGlow: 0xb784ff } },
-      // FORM 2 — Eclipse Drake: deep-indigo body, dark copper→crimson wings,
-      // antique-gold spine, a stronger blue-violet core.
-      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 12,
-        spineGlow: 0.34, crest: 1, dorsal: true, hornLen: 1.25,
+          apexSeam: 0x8a6fb0, eye: 0xc8a868, coreGlow: 0xb784ff } },
+      // KINDLED (1) — squire-drake: neck lengthens, horns sweep, first pikes, corona arc.
+      { vaultFingers: 4, pikeCount: 2, dihedral: 14, spanScale: 0.82, keelShields: 3,
+        coronaValleys: 3, crownHorns: 2, starGemBloom: 0.5, crescentBloom: 0.4, tailFins: 2,
+        glowLevel: 0.5, tuskScale: 0, eyeScale: 1.1, headScale: 1.15, hornLen: 1.25, tailSegments: 7,
         colors: { body: 0x0c1322, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a2414, scales: 0xa88a48, horn: 0xc09a54,
           apexSeam: 0xb784ff, eye: 0xe0bc78, coreGlow: 0xb784ff } },
-      // FORM 3 — Royal Eclipse Dragon: obsidian-indigo body, antique-gold spine
-      // plates, dark-crimson wings with blue-violet veins, electric core.
-      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
-        spineGlow: 0.7, wingVeins: true, glowSeams: true,
-        crest: 2, hornPairs: 2, hornLen: 1.5, tusks: true, neckSegments: 6,
+      // RADIANT (2) — crowned king-apparent: tusks, coronet-into-crown, corona seams light.
+      { vaultFingers: 4, pikeCount: 2, dihedral: 18, spanScale: 0.92, keelShields: 4,
+        coronaValleys: 4, crownHorns: 3, starGemBloom: 0.75, crescentBloom: 0.6, tailFins: 3,
+        glowLevel: 0.75, tuskScale: 0.7, eyeScale: 0.85, headScale: 1.05, hornLen: 1.5, tailSegments: 8,
         colors: { body: 0x0a1020, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xd8b25a,
           apexSeam: 0xb784ff, eye: 0xecd090, coreGlow: 0xb784ff } },
-      // FORM 4 — SOVEREIGN (Royal Eclipse): midnight body, antique-gold crown +
-      // spine, dark burnt-crimson wings, blue-violet core/halo, pale electric-blue
-      // eyes. Dark, regal, legendary — the cool counterpoint to the Phoenix.
-      { wingForm: 3, tailStyle: 'comet', tailSegments: 9, ridgeCount: 16,
-        spineGlow: 1.0, wingVeins: true, glowSeams: true,
-        backCrest: true, auraHalo: true, crest: 3, hornLen: 1.7,
+      // ETERNAL (3) — the Eclipse Dragon-King: full wing-arch, blazing star-gem, scepter tail.
+      { vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.0, keelShields: 5,
+        coronaValleys: 5, crownHorns: 4, starGemBloom: 1.0, crescentBloom: 1.0, tailFins: 4,
+        glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 1.7, tailSegments: 9,
         colors: { body: 0x080b14, wingInner: 0x9c2233, wingOuter: 0x5a160e,
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xddc070,
           apexSeam: 0xb784ff, eye: 0xf4e2a8, coreGlow: 0xb784ff } },
     ],
-    fx: { auraColor: '122,92,255', auraIdle: 0.0, sparkle: false },
+    fx: { auraColor: '122,92,255', auraIdle: 0.06, sparkle: false },
     // Eclipse Surge: a premium COOL ARCANE transformation — the obsidian shell
     // stays dark while spine, seams, wing veins and core blaze blue-violet /
     // cyan / indigo (surgeHi lavender, never white-hot or magenta). hasStyle keeps
