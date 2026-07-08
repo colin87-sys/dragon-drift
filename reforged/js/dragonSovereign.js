@@ -171,11 +171,15 @@ registerTorso('regnalKeelTorso', buildRegnalKeelTorso);
 // ── WINGS: 'lanceVaultWings' ──────────────────────────────────────────────────
 // One canonical +X wing (arm + pike rank over a SOLID cambered crimson vault), mirrored
 // for the left; dihedral raises the tips into the rear cathedral arch.
-function buildOneWing(M, dials) {
+function buildOneWing(M, dials, side, dih) {
   const wg = new THREE.Group();
   const { fingers, pikes, halfSpan } = dials;
   const rootChord = 2.7, tipChord = 0.5, sweepZ = halfSpan * 0.28;
-  const L = (t) => [t * halfSpan, t * 0.30, -0.10 + t * sweepZ];   // leading edge (arm); dihedral raises tips
+  // Geometry is built per-side (x·side) with the DIHEDRAL BAKED INTO the vertices (y rises with
+  // |x|) — so the rear cathedral arch survives even though the flap rig overwrites the pivot's
+  // rotation every frame in-game. Everything derives from L(), so baking it here propagates.
+  const rise = (x) => Math.abs(x) * Math.tan(dih);
+  const L = (t) => { const x = side * t * halfSpan; return [x, t * 0.30 + rise(x), -0.10 + t * sweepZ]; };
   const chordAt = (t) => rootChord * (1 - t) + tipChord * t;
 
   // FINGER STATIONS marching along the arm; each finger a rib from leading edge back to a tip.
@@ -264,15 +268,19 @@ function buildLanceVaultWings(def, model, attach, _giM) {
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
+    // pivot → mid → tip: the flap rig (dragon.js poseWing) drives all three; publishing them is
+    // MANDATORY or the direct-flap path null-derefs wingTip* and the dragon fails to select.
     const pivot = new THREE.Group();
     pivot.position.set(root.x, root.y, root.z);
     pivot.userData.wingRole = 'pivot';
-    pivot.rotation.z = side * dih;         // raise BOTH tips → the cathedral arch (side-signed w/ the mirror)
-    if (side === -1) pivot.scale.x = -1;   // mirror (membrane is DoubleSide; winding-safe)
-    pivot.add(buildOneWing(M, dials));
+    const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
+    const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
+    pivot.add(mid); mid.add(tip);
+    mid.add(buildOneWing(M, dials, side, dih));   // dihedral is baked into the geometry
     group.add(pivot);
-    pivots[side === 1 ? 'wingPivotL' : 'wingPivotR'] = pivot;
-    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + 0.55, root.z + halfSpan * 0.34], length: halfSpan });
+    const s = side === 1 ? 'L' : 'R';
+    pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
+    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + halfSpan * Math.tan(dih), root.z + halfSpan * 0.34], length: halfSpan });
   }
   return { group, spineMats: [M.violet], wingMat: M.membrane, parts: { ...pivots, wingElements } };
 }
