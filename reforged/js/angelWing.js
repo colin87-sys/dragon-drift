@@ -32,7 +32,7 @@ const hash = (i) => (Math.sin(i * 12.9898) * 43758.5453) % 1;   // deterministic
 // the control point pulled toward the wing body so the distal third bows out.
 // Width profile: slim quill at the root, full belly near mid, closing into a
 // ROUNDED tip (quadratic cap through a small apex overshoot — owner directive).
-function curvedFeatherShape(len, w, bow) {
+function curvedFeatherShape(len, w, bow, N = 16) {
   const P0 = { x: 0, y: 0 }, P1 = { x: -bow, y: len * 0.55 }, P2 = { x: bow * 0.95, y: len };
   const q = (t) => ({
     x: (1 - t) * (1 - t) * P0.x + 2 * (1 - t) * t * P1.x + t * t * P2.x,
@@ -48,7 +48,7 @@ function curvedFeatherShape(len, w, bow) {
     const a = Math.PI * Math.min(1, 0.08 + t * 0.92);
     return w * (0.30 + 0.40 * Math.pow(Math.max(0, Math.sin(a)), 0.9)) * (1 - t * 0.58) + 0.008;
   };
-  const N = 16, right = [], left = [];
+  const right = [], left = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N;
     const p = q(t), d = dq(t), L = Math.hypot(d.x, d.y) || 1;
@@ -100,6 +100,11 @@ export function buildAngelWing({ quality = 1, material = null } = {}) {
   // lower quality — e.g. the six-wing seraph packing 6 wings into one boss budget — steps
   // down smoothly instead of snapping to a single low tier).
   const csF = Math.max(4, Math.round(quality * 18)), csP = Math.max(4, Math.round(quality * 14));
+  // Flight-feather outline sample count scales with quality too. The feather's tris are
+  // dominated by its N line-segments per side (FIXED regardless of curveSegments), so at the
+  // reduced quality the six-wing seraph packs into one boss budget this is the real lever:
+  // q1 = 16 (winglab hero, unchanged); a boss instance halves it. 8 is still smooth at fight range.
+  const nSamp = Math.max(8, Math.round(quality * 16));
   const FEX = { depth: 0.05, bevelEnabled: !lowQ, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2, steps: 1, curveSegments: csF };
   const PEX = { depth: 0.03, bevelEnabled: false, steps: 1, curveSegments: csP };
 
@@ -122,7 +127,7 @@ export function buildAngelWing({ quality = 1, material = null } = {}) {
     pivot.position.set(root.x, root.y, z);
     pivot.rotation.z = angle;          // 0 = straight up; negative leans right/outward
     group.add(pivot);
-    pivot.add(new THREE.Mesh(new THREE.ExtrudeGeometry(curvedFeatherShape(len, w, bow), FEX), matRef));
+    pivot.add(new THREE.Mesh(new THREE.ExtrudeGeometry(curvedFeatherShape(len, w, bow, nSamp), FEX), matRef));
     return pivot;
   };
   // ---- THE SPINE (owner r-fix 2) lives in the FEATHER LAYOUT, not a bone

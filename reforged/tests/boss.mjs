@@ -345,7 +345,7 @@ for (const key of BOSS_ORDER) {
   for (const key of ['upper', 'middle', 'lower']) {
     const R = findAllByName(um.group, `wing_${key}_R`)[0], L = findAllByName(um.group, `wing_${key}_L`)[0];
     assert(Math.sign(R.scale.x) !== Math.sign(L.scale.x), `unmasked ${key} pair is bilaterally MIRRORED (scale.x flip, not radial)`);
-    assert(Math.sign(R.position.x) !== Math.sign(L.position.x), `unmasked ${key} pair roots on opposite sides of the centreline`);
+    assert(Math.abs(R.rotation.z + L.rotation.z) < 0.2, `unmasked ${key} pair rotations mirror about the vertical (${R.rotation.z.toFixed(2)} vs ${L.rotation.z.toFixed(2)})`);
   }
   // THE FOCAL EYE is a SMALL deep focal nestled in the feathers — NOT a big "body" eye (a
   // large pale central eye made the wings read as spider legs on a body). It exists + is modest.

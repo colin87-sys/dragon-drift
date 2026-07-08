@@ -269,6 +269,33 @@ export function buildUnmasked(def, quality = 1) {
     color: 0x3c3c46, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
   }));
 
+  // ── THE CENTRAL STARBURST — the reference emblem's (IMG_7411) signature: a fine radiant star
+  // BEHIND the central eye, its thin rays poking out through the gaps between the wing roots.
+  // This — NOT a solid backing — is what unifies a radial six-wing emblem: the airy gaps between
+  // the elegant wings are INTENTIONAL (the reference has them); the star at the convergence reads
+  // the whole thing as a deliberate SIGIL, not a spider. A thin-spiked star polygon (alternating
+  // long/short rays), pale gold, tone-mapped so it holds value on both skies, faint. Flat, ~free. ──
+  const burstMat = track(new THREE.MeshBasicMaterial({
+    color: 0xd8b978, transparent: true, opacity: 0.82, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  burstMat.toneMapped = false;   // holds its bright gold on both skies — Fable gate: the reference's starburst is the LOUDEST thing
+  const starburst = (() => {
+    const s = new THREE.Shape();
+    const SPIKES = 8, Rlong = 3.5, Rshort = 3.0, rIn = 0.42;   // 8 EVEN rays (symmetric — Fable nit), thick base, long
+    for (let i = 0; i < SPIKES * 2; i++) {
+      const a = (i / (SPIKES * 2)) * Math.PI * 2 + Math.PI / 2;   // start pointing up
+      const outer = i % 2 === 0 ? (i % 4 === 0 ? Rlong : Rshort) : rIn;  // long/short alternation between the deep notches
+      const x = Math.cos(a) * outer, y = Math.sin(a) * outer;
+      if (i === 0) s.moveTo(x, y); else s.lineTo(x, y);
+    }
+    s.closePath();
+    return s;
+  })();
+  const backing = new THREE.Mesh(new THREE.ShapeGeometry(starburst, 1), burstMat);
+  backing.position.set(0, 0.0, 0.28);               // DEAD CENTRE, behind the central eye / in front of the wing roots
+  backing.name = 'centralStarburst';
+  stage2.add(backing);
+
   // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
   // THE L142 REAL-EYE RECIPE (the bulb killer): CONTRAST, not brightness. Every prior
   // pass made these emissive white orbs that bloomed into fairy-lights with no pupil.
@@ -327,14 +354,36 @@ export function buildUnmasked(def, quality = 1) {
   // NEVER radial (a radial ring read as a wheel — the original failure). The wing is built in
   // its own XY plane sweeping up-and-out; each pair's shoulder pivot rotates it to its sweep
   // and roots it beside the eye. ──
-  // A RISING FAN / MANDORLA, NOT a radial starburst (radial-around-a-hub = spider legs). All
-  // three pairs sweep UP-AND-OUT of the upper hemisphere; NO downward pair. BIG + tight roots
-  // so the wings OVERLAP into a dense wall of feathers (minimal background air between them —
-  // background gaps are what made six wings read as six separate legs). Bilateral mirror.
+  // EMBLEM ARRANGEMENT (A/B variant, owner ref IMG_7411): all six wings EMANATE FROM ONE small
+  // central HUB (0,0) — three mirror pairs fanning out: UPPER up (tallest), MIDDLE out (widest),
+  // LOWER down-and-out. Big + overlapping → a dense heart/mandorla filling the frame. Bilateral
+  // mirror (scale.x flip). The old spider read is avoided by a TINY central jewel-eye (not a
+  // body) + dense overlap, not by banning the hub. Each pair carries its root-eye ring position.
+  // FIVE pairs (10 wings) for a DENSE mandorla — the first palm-tree read came from FOUR
+  // sickles fanned as spokes with a wide (~0.9 rad) angular gap between the middle and the
+  // drooping lower pair. TWO fill pairs (uppermid + lowermid) close those gaps so the wings
+  // OVERLAP into ONE cohesive heart, not a radial star. Angular spacing tightened to ~0.5 rad
+  // and the lower pair un-drooped (−0.95, not −1.55) so the bottom of the mandorla is FULL,
+  // not a thin droop. Scale bumped so adjacent wings overlap; z compressed for a flat shingled
+  // emblem. Root eyes only on the three canonical pairs (upper/middle/lower) → 6 root + 1
+  // central = 7 eyes clustered tight at the core (the two fill pairs carry no eye).
   const WING_PAIRS = [
-    { key: 'upper',  rotZ: 0.55, scale: 1.28, root: { x: 0.25, y: 0.5 }, z: -1.9, phase: 0.0, amp: 0.028 },   // steep UP (the crest peak)
-    { key: 'middle', rotZ: 0.24, scale: 1.55, root: { x: 0.42, y: 0.0 }, z: -1.1, phase: 1.1, amp: 0.036 },   // UP-and-out — the LARGEST, bridges the tiers into one mass
-    { key: 'lower',  rotZ: -0.06, scale: 1.32, root: { x: 0.58, y: -0.35 }, z: -0.4, phase: 2.2, amp: 0.030 },  // swept UP (tips up ~15° — no longer flat/limb-like), fills the lower mass
+    // A TRUE RADIAL ROSETTE (Fable gate): five pairs spaced EVENLY from ~+75° (up) to ~−65°
+    // (down-out), roughly symmetric about the horizontal so there is as much wing mass BELOW the
+    // eye as above it — the eye sits at the geometric centroid, NOT the bottom edge (the palm/
+    // spider killer). `off` seats each shoulder on a central ring along its OWN direction (opens
+    // the core for the eye+starburst). `rootEye` rides far out (~radius 2.5) at each eyed wing's
+    // root so the 6 eyes form a WIDE ring, not a tight spider knot. Bottom pair is the LONGEST.
+    // ROUNDED BLOOM, not a weeping palm (Fable gate r2): the TOP pair is splayed UP-and-OUT into
+    // an open V (shoulders pushed out, angle backed off +75°→+61°) so there is NO vertical spar /
+    // trunk-clump at top-centre — the crown opens into a notch like the reference. The BOTTOM pair
+    // is UN-drooped (−65°→−48°) so its sabre tips LIFT instead of sagging like banana leaves — the
+    // outline reads as a circle/mandala, not a fountain. Still top-bottom balanced, eye dead-centre.
+    { key: 'upper',    rotZ: 0.55,  scale: 1.50, z: -1.15, phase: 0.0, amp: 0.026, off: { x: 1.10, y: 1.15 }, rootEye: { x: 1.5, y: 2.0 } },   // UP-OUT — wide-open V, empty notch at top-centre
+    { key: 'uppermid', rotZ: 0.10,  scale: 1.60, z: -0.90, phase: 0.7, amp: 0.030, off: { x: 1.35, y: 0.50 } },                                 // fill
+    { key: 'middle',   rotZ: -0.35, scale: 1.68, z: -0.65, phase: 1.4, amp: 0.036, off: { x: 1.40, y: -0.15 }, rootEye: { x: 2.6, y: 0.0 } },  // OUT — widest
+    { key: 'lowermid', rotZ: -0.80, scale: 1.68, z: -0.90, phase: 1.9, amp: 0.032, off: { x: 1.25, y: -0.70 } },                                // fill
+    { key: 'lower',    rotZ: -1.20, scale: 1.72, z: -1.15, phase: 2.4, amp: 0.030, off: { x: 0.85, y: -1.15 }, rootEye: { x: 1.4, y: -2.1 } },  // DOWN-OUT — LONGEST, lifted tips
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
@@ -359,7 +408,6 @@ export function buildUnmasked(def, quality = 1) {
     placedEyes.push({ x: pos.x, y: pos.y, z: pos.z, r });
     return pos;
   };
-  const _pv = new THREE.Vector3();
   for (const P of WING_PAIRS) {
     for (const side of [1, -1]) {
       const pivot = new THREE.Object3D();
@@ -369,54 +417,47 @@ export function buildUnmasked(def, quality = 1) {
       const baseRotZ = (side > 0 ? P.rotZ : -P.rotZ) + (side < 0 ? scar : 0);
       pivot.rotation.z = baseRotZ;
       pivot.scale.set(side > 0 ? P.scale : -P.scale, P.scale, P.scale);   // bilateral mirror (scale.x flip)
-      pivot.position.set(side > 0 ? P.root.x : -P.root.x, P.root.y, P.z);
-      // Wings built at REDUCED quality (×6 full-detail wings blow the tier-5 tri budget;
-      // near-black silhouettes at 30m don't need the 18-seg bevelled feather curves). The
-      // ×0.45 scales the feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.45, material: featherMat }).group);
+      pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
+      // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
+      // feather curve segments down (and with boss quality → q0.5 halves again).
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: featherMat }).group);
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp });
-      // EYES nestled at the wing ROOTS / JOINTS (up the arm toward the wrist), 3 per wing, in
-      // wing-local space → transformed to stage2 by the pivot matrix (so they ride the wing).
-      // z-staggered + de-clumped so no two scleras fuse at front-on.
-      const joints = [{ x: 1.1, y: 1.7 }, { x: 1.9, y: 2.9 }, { x: 2.7, y: 4.0 }];   // ON the wing body (arm→wrist→hand) → eyes trace the wing, spread, off the great eye
-      const eyeSizes = [0.5, 0.42, 0.36];
-      for (let e = 0; e < 3; e++) {
-        const j = joints[e];
-        _pv.set(j.x + (rnd() - 0.5) * 0.4, j.y + (rnd() - 0.5) * 0.4, 0.6).applyMatrix4(pivot.matrix);
-        _pv.z = Math.max(_pv.z, 0.4) + (side < 0 ? 0.4 : 0) + e * 0.26;
-        const esize = eyeSizes[e] * (0.9 + rnd() * 0.2);
-        declump(_pv, esize * 1.25);
-        eyePlace(_pv.clone(), esize);
+      // ONE small eye at THIS wing's ROOT (a ring of 6 small eyes tight around the hub — the
+      // emblem look; NONE scattered on the outer feathers). The fill pair carries no eye.
+      if (P.rootEye) {
+        const p = new THREE.Vector3(side > 0 ? P.rootEye.x : -P.rootEye.x, P.rootEye.y, 0.7);
+        declump(p, 0.42);
+        eyePlace(p, 0.34);
       }
     }
   }
-  // 2 more eyes nestled in the feather mass near the focal (small, among the plumage). → 20.
-  for (const sx of [-1, 1]) { const p = new THREE.Vector3(sx * 1.7, 0.6, 0.6); declump(p, 0.5); eyePlace(p, 0.4); }
 
   // ── THE FOCAL EYE — SMALL, deep, and DARK, nestled among the feathers at the base of the
   // rising mass. NOT the "body" of the creature (a big pale eye made the wings read as legs on
   // a spider) — it's a focal a third the old size: a mostly-DARK pupil in a thin dim sclera,
   // deeper-set, more ominous. Just above the peripheral eyes in size, not a fried egg. ──
-  const GW = 1.2, GH = 0.82, GD = 0.62;   // sclera half-width / -height / -depth — ~⅓ the old size
+  // A TINY almond JEWEL at the hub (~1/10 the wingspan) — the convergence point of all six
+  // wings, roughly the size of the root eyes (a jewel, NOT a body/head). Was ~5× too big.
+  const GW = 0.82, GH = 0.48, GD = 0.4;   // sclera half-width / -height / -depth — a readable ALMOND (Fable gate: was a featureless black bead)
   const GF = GD;                          // sclera front-face z (center at 0)
-  const GEY = -0.35;                      // nestled among the wing roots (not slung low as an anchor-body)
-  const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 12 : 18, lowQ ? 8 : 11), socketMat);
-  greatSocket.scale.set(GW * 1.18, GH * 1.22, 0.6); greatSocket.position.set(0, GEY, -0.3);
+  const GEY = 0.0;                        // DEAD CENTRE of the radial rosette (the 6 root eyes ring it wide)
+  const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 10 : 14, lowQ ? 7 : 9), socketMat);
+  greatSocket.scale.set(GW * 1.24, GH * 1.3, 0.5); greatSocket.position.set(0, GEY, -0.18);
   greatSocket.name = 'greatSocket'; stage2.add(greatSocket);
-  const greatScleraMat = track(new THREE.MeshBasicMaterial({ color: 0x6e6552 }));   // dimmer than before — a deep eye, not a bright fried egg
-  const greatEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 14 : 20, lowQ ? 9 : 12), greatScleraMat);
+  const greatScleraMat = track(new THREE.MeshBasicMaterial({ color: 0x8f8365 }));   // PALE eyeball value (matches the root eyes) so the almond reads as an EYE, not a black bead
+  const greatEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 12 : 16, lowQ ? 8 : 10), greatScleraMat);
   greatEye.scale.set(GW, GH, GD); greatEye.position.set(0, GEY, 0);
   greatEye.name = 'greatEye'; stage2.add(greatEye);
-  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 14 : 20), irisMat);
-  greatIris.scale.set(GW * 0.46, GH * 0.6, 1); greatIris.position.set(0, GEY, GF + 0.04);   // gold iris ring
+  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 12 : 16), irisMat);
+  greatIris.scale.set(GW * 0.5, GH * 0.62, 1); greatIris.position.set(0, GEY, GF + 0.03);   // gold iris ring
   greatIris.name = 'greatIris'; stage2.add(greatIris);
-  const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 12 : 18, lowQ ? 8 : 11), s2pupilMat);
-  greatPupil.scale.set(GW * 0.62, GH * 0.66, 0.5); greatPupil.position.set(0, GEY, GF + 0.12);   // BIG dark pupil (~⅔) — deep + ominous, sclera a thin rim
+  const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 10 : 14, lowQ ? 7 : 9), s2pupilMat);
+  greatPupil.scale.set(GW * 0.44, GH * 0.5, 0.5); greatPupil.position.set(0, GEY, GF + 0.08);   // dark pupil — smaller so the PALE sclera rings it (an almond eye, not a black hole)
   greatPupil.name = 'greatPupil'; stage2.add(greatPupil);
-  const greatCatch = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), catchMat);
-  greatCatch.position.set(-GW * 0.22, GEY + GH * 0.3, GF + 0.5);
+  const greatCatch = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), catchMat);
+  greatCatch.position.set(-GW * 0.2, GEY + GH * 0.28, GF + 0.35);
   greatCatch.name = 'greatCatch'; stage2.add(greatCatch);
 
   const socketMesh = new THREE.Mesh(mergeParts(sockets, 'eyeSockets'), socketMat);
@@ -482,7 +523,7 @@ export function buildUnmasked(def, quality = 1) {
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
   // designed on its own (the owner's directive — get the wing right first, then re-add eyes).
-  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, haloS2, relics];
+  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, haloS2, relics, backing];
   function setDebugWing(on) {
     stage1.visible = on ? false : (stageN == null || stageN === 1);
     stage2.visible = on ? true : (stageN === 2);
@@ -586,8 +627,8 @@ export function buildUnmasked(def, quality = 1) {
       }
       // The great central eye's pupil tracks the player (the focal); constricts on charge.
       const gk = 1 - charge * 0.3;
-      greatPupil.position.set(gazeX * GW * 0.28, GEY + gazeY * GH * 0.24, GF + 0.12);
-      greatPupil.scale.set(GW * 0.62 * gk, GH * 0.66 * gk, 0.5);
+      greatPupil.position.set(gazeX * GW * 0.24, GEY + gazeY * GH * 0.2, GF + 0.08);
+      greatPupil.scale.set(GW * 0.44 * gk, GH * 0.5 * gk, 0.5);
       // Each peripheral pupil tracks the player within its own sclera, sitting proud of the
       // front. Independent per-eye LAG + a small resting BIAS make the field read as living
       // eyes that look every which way; the shared gazeX/gazeY drags them toward the player.
