@@ -137,7 +137,7 @@
     const DT = 1 / 60, T_MAX = 20;
     let model = null, current = null;
     let simT = 0, playing = false;
-    const dials = { charge: 0, sp: 0, spmode: 'figureEight', death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null, entrance: null, steer: 0, eye: null, crack: null, condense: null, formation: null };
+    const dials = { charge: 0, sp: 0, spmode: 'figureEight', death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null, entrance: null, steer: 0, eye: null, crack: null, condense: null, formation: null, stage: null };
 
     const center = new THREE.Vector3(0, 0, 0);
     let baseDist = 30;
@@ -174,6 +174,7 @@
       // setFormation names the target, setCondense blends scatter→target.
       if (dials.formation != null) m.setFormation?.(dials.formation);
       if (dials.condense != null) m.setCondense?.(dials.condense);
+      if (dials.stage != null) m.setDebugStage?.(dials.stage);   // unmasked: pin a stage sub-rig (1/2/3) for per-stage gating
       if (dials.noticeAt >= 0 && t >= dials.noticeAt && t - DT < dials.noticeAt) m.notice?.();
     }
 
@@ -334,8 +335,8 @@
       if (opts.seed != null) seed = opts.seed;
       if (opts.bg != null) setBackdrop(opts.bg);
       // RESET to base state each call — dials must never leak between canonical frames.
-      Object.assign(dials, { charge: 0, sp: 0, spmode: 'figureEight', dread: false, death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null, entrance: null, steer: 0, eye: null, crack: null, condense: null, formation: null });
-      for (const k of ['charge', 'sp', 'spmode', 'dread', 'death', 'hp', 'shield', 'gx', 'gy', 'noticeAt', 'handoff', 'entrance', 'steer', 'eye', 'crack', 'condense', 'formation']) if (opts[k] != null) dials[k] = opts[k];
+      Object.assign(dials, { charge: 0, sp: 0, spmode: 'figureEight', dread: false, death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null, entrance: null, steer: 0, eye: null, crack: null, condense: null, formation: null, stage: null });
+      for (const k of ['charge', 'sp', 'spmode', 'dread', 'death', 'hp', 'shield', 'gx', 'gy', 'noticeAt', 'handoff', 'entrance', 'steer', 'eye', 'crack', 'condense', 'formation', 'stage']) if (opts[k] != null) dials[k] = opts[k];
       simulate(opts.t ?? 1.0);
       camera.fov = opts.fov ?? FOV; camera.updateProjectionMatrix();
       freeCam = false;

@@ -329,6 +329,29 @@ for (const key of BOSS_ORDER) {
   ok('unmasked telegraph: setCharge(1) slides the hood open to wrath (silhouette change)');
 }
 {
+  // THE UNMASKED (stage 2): the three Ophanim wheels must be gimbal-tilted on NON-
+  // coplanar axes — no two planes (nor any vs the view axis +Z) within 25° — so they
+  // read as an angel of wheels, NOT Stormrend's flat frontal concentric rings.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  const gimbals = [0, 1, 2].map((i) => findAllByName(um.group, `wheelGimbal${i}`)[0]);
+  assert(gimbals.every(Boolean), 'unmasked exposes wheelGimbal0/1/2 (stage 2)');
+  um.group.updateMatrixWorld(true);
+  const normals = gimbals.map((g) => new THREE.Vector3(0, 0, 1).applyQuaternion(g.getWorldQuaternion(new THREE.Quaternion())).normalize());
+  const viewAxis = new THREE.Vector3(0, 0, 1);
+  const MIN_DEG = 25;
+  const ang = (a, b) => THREE.MathUtils.radToDeg(Math.acos(Math.max(-1, Math.min(1, Math.abs(a.dot(b))))));   // abs → compare PLANES
+  for (let i = 0; i < 3; i++) {
+    const va = ang(normals[i], viewAxis);
+    assert(va >= MIN_DEG, `unmasked wheel ${i} plane is ≥${MIN_DEG}° off the view axis (got ${va.toFixed(1)}°) — not a frontal ring`);
+    for (let j = i + 1; j < 3; j++) {
+      const ab = ang(normals[i], normals[j]);
+      assert(ab >= MIN_DEG, `unmasked wheels ${i}/${j} are ≥${MIN_DEG}° non-coplanar (got ${ab.toFixed(1)}°)`);
+    }
+  }
+  um.dispose();
+  ok('unmasked stage-2 wheels: non-coplanar gimbal tilts (≥25° apart + off the view axis) — not Stormrend rings');
+}
+{
   const colossus = buildBoss(BOSSES.craghold, 1);
   const fingers = findAllByName(colossus.group, 'fingerPivot');
   assert(fingers.length >= 6, `craghold exposes ≥6 named fingerPivots for the telegraph gate (${fingers.length})`);

@@ -100,6 +100,9 @@ const UM_EXTRAS = [
   { name: 'gazeU',  o: { gx: 0, gy: 1, t: 4.0 } },
   { name: 'gazeD',  o: { gx: 0, gy: -1, t: 4.0 } },
   { name: 'gazeUR', o: { gx: 1, gy: 1, t: 4.0 } },
+  // STAGE 2 — the Ophanim (the hero stage). Pin the stage-2 sub-rig.
+  { name: 's2idle',   o: { stage: 2, t: 3.0 } },
+  { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
   : bossId === 'hollowgate' ? [...STATES, ...HG_EXTRAS]
@@ -131,7 +134,9 @@ const FIGHT_STATES = bossId === 'eitherwing'
         // gives the trace time to draw most of the seal (~2.2s to full).
         : bossId === 'karnvow'
           ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'dread', o: { sp: 0.9, dread: true, t: 2.6 } }]
-          : [{ name: 'idle', o: { t: 2.85 } }];
+          : bossId === 'unmasked'
+            ? [{ name: 'idle', o: { t: 2.85 } }, { name: 's2idle', o: { stage: 2, t: 3.0 } }]
+            : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
   { name: 'front',        label: 'front' },
