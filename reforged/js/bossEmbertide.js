@@ -163,16 +163,18 @@ export function buildEmbertide(def, quality = 1) {
       // Head-shaped elliptical distance, jaw narrower below centre.
       const below = y < CY ? (CY - y) / 15 : 0;
       const rx = 11 * (1 - 0.35 * Math.min(1, below));
-      // CROWN feather is TIGHTER than the jaw's: above the centre the shadow must
-      // dissolve FAST into open sky — a wide 2–15% multiply halo hanging in the sky
-      // reads as a translucent PANE once the HDR bloom amplifies it (glaring during
-      // the entrance, where the crown pokes above the horizon into empty sky). The
-      // jaw keeps the luxurious dissolve into the tide below.
-      const ry = y > CY ? 12.5 : 16;
+      // Full ORIGINAL shadow depth (the owner-approved r1/CP1 face presence): the
+      // pane artifact is solved GEOMETRICALLY by the ellipse collapse below, so the
+      // multiply values keep their deep, luxurious falloff — the only constraint is
+      // the feather reaching EXACTLY 1.0 at the collapsed rim (d=1.0), else the
+      // ellipse boundary itself would show as a soft edge against the HDR sky.
+      const ry = 16;
       const d = Math.sqrt((x / rx) ** 2 + ((y - CY) / ry) ** 2);
-      // Feather ENDS inside the quad (d=1.0) and rises toward no-effect FAST (the
-      // gamma) so the halo hugs the head instead of washing a frame-wide rectangle.
-      const f = Math.pow(THREE.MathUtils.smoothstep(d, 0.42, 1.0), 0.7);   // 0 core → 1 rim
+      // The feather must reach EXACTLY 1.0 at the collapsed rim (d=1.0, the pane
+      // constraint), but ending the CP1 ramp (0.42→1.12) early would thin the face's
+      // looming mid-mass — the ^1.6 gamma restores CP1's shadow depth through the
+      // mid-feather while still landing on 1.0 at the rim (gamma keeps f(1)=1).
+      const f = Math.pow(THREE.MathUtils.smoothstep(d, 0.42, 1.0), 1.6);   // 0 core → 1 rim
       // COLLAPSE the quad outside the feather: verts beyond d=1 are projected ONTO
       // the ellipse, so the mesh has NO rectangular extent at all. Even a sub-% GPU
       // blend residual (measured: a MultiplyBlending quad dims HDR sky slightly at
@@ -391,7 +393,10 @@ export function buildEmbertide(def, quality = 1) {
   let entranceU = 1, _entPrev = 1;
   function setEntrance(u) {
     _entPrev = entranceU;
-    entranceU = Math.max(0, Math.min(1, u));
+    // null = RELEASE (enterFight's convention, boss.js `model.setEntrance(null)`):
+    // the arrival is DONE — snap to fully-arrived. Clamping null to 0 was the
+    // "where did his face go" bug: the fight opened and the face re-submerged.
+    entranceU = u == null ? 1 : Math.max(0, Math.min(1, u));
     if (entranceU >= 0.70 && _entPrev < 0.70) notice();   // the hollows settle ON you
   }
 
