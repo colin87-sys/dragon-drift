@@ -109,30 +109,32 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // CORONA MANTLE (rear motif carrier): ONE solid faceted gold crescent shield on the dorsal
   // yoke between the wing roots — convex to the rear cam, violet emissive seam-valleys. NEVER a ring.
   const valleys = Math.round(model.coronaValleys ?? 5);
-  const cw = 0.42 + 0.05 * valleys, ch = 0.34 + 0.04 * valleys;
+  // WIDE SOLID gold crescent MANTLE spanning the shoulder yoke and lying nearly flat on the
+  // back — a broad armored collar between the wing roots (covers the inter-wing gap), NOT a
+  // standing fan and NOT a ring. Convex arc forward, a straight chord at the rear, filled solid.
+  const cw = 0.55 + 0.07 * valleys;   // spans shoulder width
+  const ch = 0.42 + 0.03 * valleys;   // fore-aft depth of the mantle
   const corona = new THREE.Group();
-  // SOLID convex crescent shield: a filled fan from a rear base line up to a forward arc — NO
-  // inner hole (so it can never read as a ring), convex to the rear cam, sitting ON the back.
   const ctris = [];
-  const base = [0, -ch * 0.35, -0.05];
   const arcN = Math.max(6, valleys * 2);
-  const pts = [];
+  const front = [], rear = [];
   for (let j = 0; j <= arcN; j++) {
-    const a = Math.PI * (0.06 + 0.88 * (j / arcN));
-    pts.push([Math.cos(a) * cw, Math.sin(a) * ch, 0.14 * Math.sin(Math.PI * j / arcN)]);   // domed forward
+    const u = j / arcN, x = (u - 0.5) * 2 * cw;
+    const arch = Math.sqrt(Math.max(0, 1 - (x / cw) * (x / cw)));   // crescent arc
+    front.push([x, 0.10 * arch, -ch * arch]);        // convex forward edge (−z)
+    rear.push([x, 0.02, ch * 0.35]);                 // straight rear chord
   }
-  for (let j = 0; j < arcN; j++) ctris.push([base, pts[j], pts[j + 1]]);
+  for (let j = 0; j < arcN; j++) ctris.push([rear[j], front[j], front[j + 1]], [rear[j], front[j + 1], rear[j + 1]]);
   corona.add(flatTriMesh(ctris, M.gold));
-  // violet emissive seam-valley ribs on the shield face
+  // violet emissive seam-valley ribs radiating across the mantle face
   for (let j = 1; j < valleys; j++) {
-    const a = Math.PI * (0.12 + 0.76 * (j / valleys));
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.028, ch * 0.55, 0.03), M.violet);
-    rib.position.set(Math.cos(a) * cw * 0.6, Math.sin(a) * ch * 0.6 - ch * 0.1, 0.12);
-    rib.rotation.z = a - Math.PI / 2;
+    const x = ((j / valleys) - 0.5) * 1.4 * cw;
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, ch * 0.7), M.violet);
+    rib.position.set(x, 0.09, -ch * 0.25);
     corona.add(rib);
   }
-  corona.position.set(0, TORSO_Y + 0.52, -0.5);
-  corona.rotation.x = -1.0;   // lie back on the dorsal yoke
+  corona.position.set(0, TORSO_Y + 0.46, -0.78);   // seat on the shoulder yoke, between the wing roots
+  corona.rotation.x = 0.25;
   group.add(corona);
   const motifAnchor = new THREE.Object3D();
   motifAnchor.position.copy(corona.position);
@@ -303,16 +305,18 @@ function buildEclipseCrownHead(def, model, mats) {
 
   // STAR-GEM motif (brow center): big faceted violet octahedron in a gold setting. A GEM — never opens.
   const bloom = model.starGemBloom ?? 1;
-  const gemR = (0.11 + 0.06 * bloom) * hs;
-  const gy = 0.24 * hs, gz = -0.18 * hs;   // proud on the brow, forward + up so it reads face-on
-  const setting = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.4, 0), M.goldHi);
-  setting.position.set(0, gy, gz); setting.scale.set(1.2, 1.2, 0.6);
-  group.add(setting);
-  const gemMat = M.gem.clone(); gemMat.emissiveIntensity = M.gem.userData.baseIntensity * (0.5 + 0.9 * bloom);
+  const gemR = (0.13 + 0.07 * bloom) * hs;
+  const gy = 0.24 * hs, gz = -0.16 * hs;   // proud on the brow, forward + up so it reads face-on
+  // Thin flat gold bezel RING behind the gem (frames it — does not out-shine it).
+  const bezel = new THREE.Mesh(new THREE.TorusGeometry(gemR * 1.25, gemR * 0.16, seg(3), 8), M.goldHi);
+  bezel.position.set(0, gy, gz - 0.02 * hs); bezel.rotation.x = 0.15;
+  group.add(bezel);
+  // The blazing violet star-gem — the dominant facial point (emissive turned up hard).
+  const gemMat = M.gem.clone(); gemMat.emissiveIntensity = 2.6 * (0.5 + 0.9 * bloom);
   gemMat.userData.baseEmissive = M.gem.userData.baseEmissive; gemMat.userData.baseIntensity = gemMat.emissiveIntensity;
   spineMats.push(gemMat);
   const gem = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), gemMat);
-  gem.position.set(0, gy, gz - 0.06 * hs);
+  gem.position.set(0, gy, gz); gem.scale.set(1, 1.25, 1);
   group.add(gem);
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.copy(gem.position); group.add(motifAnchor);
 
