@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './util.js';
 import { createBossCommon, stripForMerge } from './bossKit.js';
 
@@ -235,8 +236,139 @@ export function buildUnmasked(def, quality = 1) {
     orbiters.push(m);
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // STAGE 2 — THE OPHANIM (the hero stage). Built as a sibling sub-rig, hidden by
+  // default; the CP2 stage system dissolve-swaps to it. FOUNDATION (this pass): the
+  // three gimbal-tilted wheels + the dark veiled centre. The ~20 eyes, six wings, and
+  // relics land next. Sheet (Fable-signed-off): wheels-within-wheels COVERED IN EYES —
+  // NOT Stormrend (the wheels are gimbal-tilted on NON-coplanar axes ≥25-30° apart AND
+  // off the view plane, thick carved tori not flat vanes, and the CENTRE HOLDS NO EYE).
+  // ══════════════════════════════════════════════════════════════════════════
+  const stage2 = new THREE.Group();
+  stage2.name = 'stage2Rig';
+  stage2.visible = false;
+  rig.add(stage2);
+
+  const mergeParts = (parts, label) => {
+    const g = mergeGeometries(parts, false);
+    if (!g) throw new Error(`buildUnmasked: ${label} mergeGeometries returned null (attribute mismatch)`);
+    return g;
+  };
+  const railMat = track(new THREE.MeshStandardMaterial({
+    color: 0x2a2008, emissive: accent, emissiveIntensity: 0.4, roughness: 0.5, metalness: 0.3, flatShading: true,
+  }));
+
+  // Three NON-COPLANAR gimbal tilts (Euler) — authored so no two wheel planes (nor any
+  // vs the view axis +Z) sit within ~25-30° (the anti-Stormrend numeric assert, tests).
+  const WHEEL_TILTS = [
+    { rx: 0.55, ry: 0.32, rz: 0.0 },
+    { rx: -0.42, ry: -0.66, rz: 0.30 },
+    { rx: 0.30, ry: 0.70, rz: -0.20 },
+  ];
+  const WHEEL_R = [2.7, 3.7, 4.7];
+  const wheels = [];
+  for (let w = 0; w < 3; w++) {
+    const gimbal = new THREE.Object3D();
+    gimbal.rotation.set(WHEEL_TILTS[w].rx, WHEEL_TILTS[w].ry, WHEEL_TILTS[w].rz);
+    gimbal.name = `wheelGimbal${w}`;
+    const spin = new THREE.Object3D();     // the wheel COUNTER-ROTATES here (its own pivot, not the group)
+    gimbal.add(spin);
+    const rr = WHEEL_R[w];
+    const parts = [];
+    // Thick carved RAIL (a torus) + an inner relief torus (carved, not a flat vane).
+    parts.push(stripForMerge(new THREE.TorusGeometry(rr, 0.26 + w * 0.02, 8, lowQ ? 28 : 46)));
+    parts.push(stripForMerge(new THREE.TorusGeometry(rr, 0.13, 6, lowQ ? 20 : 34)));   // relief ridge on the rail
+    // Hub ring + spokes (rigid with the rail — they rotate together).
+    parts.push(stripForMerge(new THREE.TorusGeometry(rr * 0.3, 0.16, 6, lowQ ? 16 : 26)));
+    const spokeN = lowQ ? 6 : 8;
+    for (let s = 0; s < spokeN; s++) {
+      const a = (s / spokeN) * TAU;
+      let box = new THREE.BoxGeometry(0.18, rr * 0.7, 0.18);
+      box.translate(0, rr * 0.65, 0);
+      box.rotateZ(a);
+      parts.push(stripForMerge(box));
+    }
+    const wheelMesh = new THREE.Mesh(mergeParts(parts, `wheel${w}`), railMat);
+    wheelMesh.name = `wheel${w}`;
+    spin.add(wheelMesh);
+    stage2.add(gimbal);
+    wheels.push({ gimbal, spin, dir: w % 2 === 0 ? 1 : -1, speed: 0.16 - w * 0.03 });
+  }
+
+  // THE DARK VEILED CENTRE — no eye (the anti-Stormrend inversion); the stage-3 core's
+  // hiding place. A darkness-in-brightness focal: an inner CORONA-quote rims it (reuse
+  // slot-14's reserved corona glow-shape — the stage-1 rhyme), so the dark centre reads
+  // as darkness WITHIN a bright ring.
+  const centerMat = track(new THREE.MeshBasicMaterial({ color: 0x050403 }));
+  centerMat.toneMapped = false;
+  const veiledCenter = new THREE.Mesh(new THREE.SphereGeometry(1.25, lowQ ? 14 : 20, 12), centerMat);
+  veiledCenter.name = 'veiledCenter';
+  stage2.add(veiledCenter);
+  const innerCoronaMat = track(new THREE.MeshBasicMaterial({
+    color: glow, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  innerCoronaMat.toneMapped = false;
+  const innerCoronaGeo = new THREE.RingGeometry(1.28, 1.7, lowQ ? 28 : 44);
+  const innerCorona = new THREE.Mesh(innerCoronaGeo, innerCoronaMat);
+  innerCorona.name = 'innerCorona';
+  innerCorona.position.z = -0.1;
+  stage2.add(innerCorona);
+
+  // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
+  // Studded around the three wheels (rims + spokes) at 2-3 sizes with uneven spacing;
+  // ≥10 on the rims PROTRUDE past the rail so almond BUMPS break the silhouette. Each
+  // faces the camera and its dark pupil tracks the player (independent lag). Scleras are
+  // merged into ONE mesh (1 draw); pupils are separate (they track). This is what turns
+  // the wheels from a machine into an ANGEL OF EYES. ──
+  const s2scleraMat = track(new THREE.MeshBasicMaterial({ color: 0xfff4e6 }));
+  s2scleraMat.toneMapped = false;
+  s2scleraMat.color.multiplyScalar(1.9);
+  const s2pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0806 }));
+  s2pupilMat.toneMapped = false;
+  const eyeSclerae = [], pupils = [];
+  const eyePlace = (w, a, rMul, size, protrude) => {
+    const tilt = WHEEL_TILTS[w];
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt.rx, tilt.ry, tilt.rz));
+    const rr = WHEEL_R[w] * rMul + (protrude ? WHEEL_R[w] * 0.05 : 0);
+    const local = new THREE.Vector3(Math.cos(a) * rr, Math.sin(a) * rr, 0.05).applyQuaternion(q);
+    const sg = new THREE.SphereGeometry(size, lowQ ? 8 : 12, lowQ ? 6 : 9);
+    sg.scale(1.2, 0.92, 0.6);
+    sg.translate(local.x, local.y, local.z);
+    eyeSclerae.push(stripForMerge(sg));
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(size * 0.42, lowQ ? 6 : 8, 6), s2pupilMat);
+    pupil.userData = { base: local.clone(), size };
+    stage2.add(pupil);
+    pupils.push(pupil);
+  };
+  // Distribution: outer rim densest (protruding bumps), mid + inner rims, a few on spokes.
+  // Uneven angular spacing (jittered ≥10° off even) + 3 size tiers (§3b anti-machine).
+  const eyePlan = [
+    { w: 2, n: lowQ ? 6 : 9, rMul: 1.0, protrude: true,  sizes: [0.5, 0.62, 0.42] },
+    { w: 1, n: lowQ ? 4 : 6, rMul: 1.0, protrude: true,  sizes: [0.44, 0.56] },
+    { w: 0, n: lowQ ? 3 : 5, rMul: 1.0, protrude: false, sizes: [0.4, 0.5] },
+    { w: 1, n: lowQ ? 2 : 3, rMul: 0.62, protrude: false, sizes: [0.34] },   // a few on the spokes
+  ];
+  for (const grp of eyePlan) {
+    for (let i = 0; i < grp.n; i++) {
+      const a = (i / grp.n) * TAU + (rnd() - 0.5) * 0.5;         // uneven spacing
+      const size = grp.sizes[i % grp.sizes.length] * (0.9 + rnd() * 0.25);
+      eyePlace(grp.w, a, grp.rMul, size, grp.protrude);
+    }
+  }
+  const scleraMesh = new THREE.Mesh(mergeParts(eyeSclerae, 'eyeScleras'), s2scleraMat);
+  scleraMesh.name = 'eyeScleras';
+  stage2.add(scleraMesh);
+
   kit.flashBind(lidMat, 0.0);
   kit.finalize();
+
+  // Stage select (CP2 wires this to the phase machine; for now a debug/gate hook).
+  let stageN = 1;
+  function setDebugStage(n) {
+    stageN = n;
+    stage1.visible = (n == null || n === 1);
+    stage2.visible = (n === 2);
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   // ANIMATION / STATE
@@ -317,6 +449,21 @@ export function buildUnmasked(def, quality = 1) {
       o.rotation.x += dt * 1.3;
       o.rotation.y += dt * 1.0;
     }
+
+    // ── STAGE 2 — the wheels COUNTER-ROTATE on their own pivots (never the group),
+    // slow + stately (charge spins them up). Phase offsets keep the tilted planes from
+    // ever drifting into near-coplanar alignment. ──
+    if (stage2.visible) {
+      for (const wl of wheels) wl.spin.rotation.z += dt * wl.speed * wl.dir * (1 + charge * 1.6);
+      innerCoronaMat.opacity = 0.5 + Math.sin(time * 0.7 * TAU) * 0.12 + charge * 0.3;
+      // Each pupil tracks the player: it offsets toward the gaze within its sclera and
+      // sits proud of the sclera front (facing the camera). The signature "all eyes snap
+      // to you at once" beat is the shared gazeX/gazeY (CP2 adds the one-frame snap).
+      for (const p of pupils) {
+        const u = p.userData;
+        p.position.set(u.base.x + gazeX * u.size * 0.45, u.base.y + gazeY * u.size * 0.45, u.base.z + u.size * 0.55);
+      }
+    }
   }
 
   const muzzle = new THREE.Object3D();
@@ -330,6 +477,7 @@ export function buildUnmasked(def, quality = 1) {
     setCharge,
     setGaze,
     notice,
+    setDebugStage,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
