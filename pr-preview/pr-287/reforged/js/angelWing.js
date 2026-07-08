@@ -32,7 +32,11 @@ const hash = (i) => (Math.sin(i * 12.9898) * 43758.5453) % 1;   // deterministic
 // the control point pulled toward the wing body so the distal third bows out.
 // Width profile: slim quill at the root, full belly near mid, closing into a
 // ROUNDED tip (quadratic cap through a small apex overshoot — owner directive).
-function curvedFeatherShape(len, w, bow, N = 16) {
+// `sharpen` (0..1) morphs the rounded frond toward a straight blade tapering to a SHARP point:
+// it drives the width harder to zero over the distal fifth and collapses the rounded dome cap
+// toward the spine tip. 0 = the winglab hero's rounded frond (unchanged); high = a seraph
+// feather-blade (boss design B — Fable gate: "long straight lifted blades to sharp points").
+function curvedFeatherShape(len, w, bow, N = 16, sharpen = 0) {
   const P0 = { x: 0, y: 0 }, P1 = { x: -bow, y: len * 0.55 }, P2 = { x: bow * 0.95, y: len };
   const q = (t) => ({
     x: (1 - t) * (1 - t) * P0.x + 2 * (1 - t) * t * P1.x + t * t * P2.x,
@@ -55,13 +59,16 @@ function curvedFeatherShape(len, w, bow, N = 16) {
     const nx = d.y / L, ny = -d.x / L;
     // Ease the width down toward the tip but HOLD a small cap width (a hard
     // zero made a needle; the dome cap below rounds it off).
-    const ww = t > 0.86 ? wt(0.86) * (1 - ((t - 0.86) / 0.14) * 0.48) : wt(t);
+    // sharpen extends the tip taper earlier (0.86→down to ~0.72) and drives it harder to zero.
+    const tStart = 0.86 - 0.14 * sharpen, tSpan = 1 - tStart;
+    const ww = t > tStart ? wt(tStart) * (1 - ((t - tStart) / tSpan) * (0.48 + 0.50 * sharpen)) : wt(t) * (1 - 0.16 * sharpen);
     right.push({ x: p.x + nx * ww * 0.8, y: p.y + ny * ww * 0.8 });   // leading side, tighter
     left.push({ x: p.x - nx * ww * 1.2, y: p.y - ny * ww * 1.2 });    // trailing side, fuller
   }
   // ROUNDED tip: a quadratic dome through an apex slightly past the spine end.
   const tip = q(1), dt1 = dq(1), L1 = Math.hypot(dt1.x, dt1.y) || 1;
-  const apex = { x: tip.x + (dt1.x / L1) * w * 0.18, y: tip.y + (dt1.y / L1) * w * 0.18 };
+  const apexOv = w * 0.18 * (1 - 0.85 * sharpen);   // sharpen collapses the rounded dome toward a point
+  const apex = { x: tip.x + (dt1.x / L1) * apexOv, y: tip.y + (dt1.y / L1) * apexOv };
   const s = new THREE.Shape();
   s.moveTo(right[0].x, right[0].y);
   for (let i = 1; i <= N; i++) s.lineTo(right[i].x, right[i].y);
@@ -93,8 +100,14 @@ function scallopStrip(L, h, lobes, d0, d1, seed = 0) {
   return s;
 }
 
-export function buildAngelWing({ quality = 1, material = null } = {}) {
+export function buildAngelWing({ quality = 1, material = null, blade = 0 } = {}) {
   const lowQ = quality < 0.75;
+  // `blade` (0..1) re-voices the FROND into a straight, lifted seraph feather-BLADE: straighter
+  // spines (less bow), sharper points, slimmer. 0 = the owner's signed-off winglab hero, byte-
+  // for-byte unchanged; the boss's design-B emblem passes a high value (Fable gate fix 3). The
+  // wing GEOMETRY/skeleton is otherwise the merged wing — this only re-shapes the flight feathers.
+  const bld = Math.max(0, Math.min(1, blade));
+  const bowMul = 1 - 0.6 * bld;
   const group = new THREE.Group();
   // curveSegments scale CONTINUOUSLY with quality (q1 = 18/14, unchanged for the winglab;
   // lower quality — e.g. the six-wing seraph packing 6 wings into one boss budget — steps
@@ -127,7 +140,7 @@ export function buildAngelWing({ quality = 1, material = null } = {}) {
     pivot.position.set(root.x, root.y, z);
     pivot.rotation.z = angle;          // 0 = straight up; negative leans right/outward
     group.add(pivot);
-    pivot.add(new THREE.Mesh(new THREE.ExtrudeGeometry(curvedFeatherShape(len, w, bow, nSamp), FEX), matRef));
+    pivot.add(new THREE.Mesh(new THREE.ExtrudeGeometry(curvedFeatherShape(len, w, bow * bowMul, nSamp, bld), FEX), matRef));
     return pivot;
   };
   // ---- THE SPINE (owner r-fix 2) lives in the FEATHER LAYOUT, not a bone
