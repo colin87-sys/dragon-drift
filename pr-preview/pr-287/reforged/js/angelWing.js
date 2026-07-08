@@ -100,7 +100,7 @@ function scallopStrip(L, h, lobes, d0, d1, seed = 0) {
   return s;
 }
 
-export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, blade = 0, shape = {} } = {}) {
+export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, blade = 0, shape = {} } = {}) {
   const lowQ = quality < 0.75;
   // `blade` (0..1) re-voices the FROND into a straight, lifted seraph feather-BLADE: straighter
   // spines (less bow), sharper points, slimmer. 0 = the owner's signed-off winglab hero, byte-
@@ -140,9 +140,14 @@ export function buildAngelWing({ quality = 1, material = null, rimMaterial = nul
   // silhouette + feather separation on a dark sky (a real back-light can't rim a flat card facing
   // the camera). Falls back to `material` → the wing is unchanged when no rim is supplied.
   const rmat = (hex, rough = 0.66) => rimMaterial || mat(hex, rough);
+  // `rimMaterialB` (optional) is a DARKER interior rim tier for the ALTERNATE primary + the
+  // secondary rank — so the outer fan reads as SEPARATE overlapping fingers (interior feather-rank
+  // shading, Fable polish P5), not one flat lit sheet. Falls back to `rimMaterial` → the wing is
+  // unchanged (byte-for-byte) when no second rim is supplied.
+  const rmatB = (hex, rough = 0.66) => rimMaterialB || rmat(hex, rough);
   const priMat = rmat(0xf9f6ee);       // primaries — brightest (the rim, when supplied)
-  const priMatB = rmat(0xede7d8);      // alternate finger tone (edge definition)
-  const secMat = rmat(0xf1ecdf);       // secondaries
+  const priMatB = rmatB(0xede7d8);     // alternate finger tone (edge definition — a step darker → the fingers separate)
+  const secMat = rmatB(0xf1ecdf);      // secondaries — the interior rank, a step darker than the leading primaries
   const gcMat = mat(0xf4efe4, 0.68);   // greater coverts
   const lcMat = mat(0xf0eadd, 0.68);   // lesser coverts
   const mgMat = mat(0xebe4d5, 0.7);    // marginal coverts (innermost, warmest)
