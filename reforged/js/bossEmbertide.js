@@ -332,26 +332,36 @@ export function buildEmbertide(def, quality = 1) {
   // ⚠ ALPHA-FADED, NOT OPAQUE (owner catch: "weird rectangular horizontal lines in the
   // sky"): an opaque slab can never exactly match the dome's elevation-mapped gradient
   // behind it, so its edges read as horizontal seam-lines the whole time it moves.
-  // Instead the strip carries per-vertex ALPHA (itemSize-4 colours → USE_COLOR_ALPHA):
-  // a hot HDR crest at the crushing edge, a soft haze behind it, alpha 0 long before the
-  // far edge — the only visible line is the blazing crest itself; everywhere else the
-  // dome shows through untouched, so there is NO seam by construction. NormalBlending +
-  // toneMapped:false (the L228 law) → still ZERO additive overdraw.
+  // Instead the strip carries per-vertex ALPHA (itemSize-4 colours → USE_COLOR_ALPHA)
+  // shaped as ONE monotonic ramp (see the loop): a hot HDR crest at the crushing edge
+  // fading smoothly to alpha 0 by the far edge, a pure gradient with no plateau — so
+  // there is no onset line anywhere in frame. NormalBlending + toneMapped:false (the
+  // L228 law) → still ZERO additive overdraw.
   const stripMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false, depthWrite: false, transparent: true }));
   const CRUSH_Z = -560, CRUSH_W = 2400, CRUSH_H = 700;
   function crushStrip(name, inner) {   // inner: -1 = hot edge at the strip's BOTTOM (ceiling), +1 = at its TOP (floor swell)
-    const g = new THREE.PlaneGeometry(CRUSH_W, CRUSH_H, lowQ ? 12 : 20, lowQ ? 4 : 6);
+    // The gradient is purely VERTICAL, so width needs ONE segment — but the vertical
+    // axis needs MANY. Coarse vertical tessellation (6 rows) left the analytically-
+    // smooth alpha/colour sampled at 7 rows and Gouraud-interpolated between them, and
+    // the piecewise-linear result Mach-bands into a faint but ruler-straight crease at
+    // a vertex row (owner catch: the "rectangular horizontal line"). Dense vertical
+    // rows shrink each step below Mach-band perception; width 1 keeps the tri cost tiny.
+    const g = new THREE.PlaneGeometry(CRUSH_W, CRUSH_H, 1, lowQ ? 48 : 96);
     const p = g.attributes.position;
     const c = new Float32Array(p.count * 4);
     for (let i = 0; i < p.count; i++) {
       const ny = (p.getY(i) / (CRUSH_H / 2)) * inner;          // +1 at the hot (inner) edge
-      const hot = THREE.MathUtils.smoothstep(ny, 0.55, 0.95);  // the blaze concentrates at the crushing edge
+      const hot = THREE.MathUtils.smoothstep(ny, 0.6, 1.0);    // the blaze concentrates at the crushing edge
       _bg.copy(rose).lerp(accent, 0.2 + hot * 0.7);
       const hdr = 1.1 + hot * 2.1;                             // the crest BLOOMS; the haze sits near the dome's register
-      // Crest (opaque at the edge) + haze (a faint wash above it) — both smoothstep to
-      // EXACTLY 0 mid-strip, so the strip has no far edge at all, only a crest.
-      const a = 0.75 * THREE.MathUtils.smoothstep(ny, 0.35, 0.9)
-              + 0.25 * THREE.MathUtils.smoothstep(ny, -0.55, 0.35);
+      // ⚠ ONE monotonic alpha ramp — NOT a sum of smoothsteps (owner catch, round 2:
+      // "the weird rectangular horizontal lines in the sky"). Summing two smoothsteps
+      // left a constant-alpha PLATEAU (~0.25) mid-strip — a uniform-tint band whose
+      // onset read as a faint full-width horizontal line (~4 luma, but the eye locks
+      // onto a coherent edge). A single power-shaped smoothstep from 0 at the far edge
+      // to the crest is a PURE gradient: alpha never flattens in frame, so there is no
+      // curvature discontinuity anywhere for the eye to catch. Peak kept modest.
+      const a = 0.8 * Math.pow(THREE.MathUtils.smoothstep(ny, -0.35, 1.0), 1.5);
       c[i * 4] = _bg.r * hdr; c[i * 4 + 1] = _bg.g * hdr; c[i * 4 + 2] = _bg.b * hdr; c[i * 4 + 3] = a;
     }
     g.setAttribute('color', new THREE.BufferAttribute(c, 4));
@@ -569,22 +579,24 @@ export function buildEmbertide(def, quality = 1) {
     if (flashT > 0) flashT = Math.max(0, flashT - dt * 3);
     domeSpin.rotation.z += dt * (0.010 + charge * 0.02);
     const domeLift = 0.30 + 0.70 * sstep(entranceU, 0.05, 0.55);
-    const swell = (1 + Math.sin(time * 0.6) * 0.05 + charge * 0.38 + flashT * 0.5) * domeLift;
-    domeMat.color.copy(_domeCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92)));
 
-    // THE CRUSH — the ceiling band descends + the tide-line swells up (slow, dramatic),
-    // pinching the open sky to a band with the face inside it. Retreats through death.
+    // THE CRUSH — the open sky pinches to a band with the face inside it (slow,
+    // dramatic; retreats through death). The SPACE physically closing is carried by
+    // the CSS letterbox bars (ui.js) descending + the lane Y-clamp (player.js) — both
+    // hard-edge-free. The SKY's own contribution is a uniform DIM of the whole dome:
+    // the light RECEDES as it crushes in. A global colour multiply has no geometry and
+    // no elevation edge, so it can never draw a horizontal line — unlike the descending
+    // light-band PLANE this replaced, whose blazing crest edge read as a "rectangular
+    // horizontal line in the sky" wherever it entered frame (owner catch ×3: a flat
+    // plane's alpha/colour edge over the curved dome is a seam by construction, and no
+    // amount of feathering or tessellation removes a geometry edge that carries alpha).
+    // The strip meshes stay in the graph as named organs but are never shown.
     crushK += (crushTgt - crushK) * Math.min(1, dt * 0.9);
     const crushE = crushK * (1 - dyingK);
-    const crushOn = crushE > 0.01;
-    crushCeil.visible = crushFloor.visible = crushOn;
-    if (crushOn) {
-      // Positions are strip CENTRES (H=700): the ceiling's blazing INNER edge descends
-      // from out-of-frame (+380 world) to ~+185 (a visible pinch above the face), the
-      // tide-line's from below the sea (−80) to ~+25 (a swollen line over the horizon).
-      crushCeil.position.y = 730 + (535 - 730) * crushE + Math.sin(time * 1.7) * 6 * crushE;
-      crushFloor.position.y = -430 + (-325 + 430) * crushE + Math.sin(time * 1.4 + 2) * 4 * crushE;
-    }
+    crushCeil.visible = crushFloor.visible = false;
+
+    const swell = (1 + Math.sin(time * 0.6) * 0.05 + charge * 0.38 + flashT * 0.5) * domeLift;
+    domeMat.color.copy(_domeCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92) * (1 - crushE * 0.16)));
 
     // EMBER MOTES — drift UP across the sky, swaying (embers riding the tide). They
     // IGNITE with the entrance lift (dim embers while the sky is still seeding).
