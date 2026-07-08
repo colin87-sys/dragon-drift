@@ -173,6 +173,12 @@ export function buildEmbertide(def, quality = 1) {
       // Feather ENDS inside the quad (d=1.0) and rises toward no-effect FAST (the
       // gamma) so the halo hugs the head instead of washing a frame-wide rectangle.
       const f = Math.pow(THREE.MathUtils.smoothstep(d, 0.42, 1.0), 0.7);   // 0 core → 1 rim
+      // COLLAPSE the quad outside the feather: verts beyond d=1 are projected ONTO
+      // the ellipse, so the mesh has NO rectangular extent at all. Even a sub-% GPU
+      // blend residual (measured: a MultiplyBlending quad dims HDR sky slightly at
+      // src=1.0 — the CP2-A pane hunt) then traces a soft head-shaped aura, never a
+      // hard-edged floating pane in the open sky.
+      if (d > 1) { const k = 1 / d; pos.setX(i, x * k); pos.setY(i, CY + (y - CY) * k); }
       const m = 0.16 + (1 - 0.16) * f;                        // 0.16 core (dark) → 1.0 rim (no effect)
       // Faintly warm shadow (a touch more red kept in the CORE) so the occluded light
       // reads as warm dusk, never a cool/magenta veil. The tint DECAYS WITH the
@@ -216,6 +222,10 @@ export function buildEmbertide(def, quality = 1) {
       c[i * 3] = m;
       c[i * 3 + 1] = m * (1 - 0.015 * (1 - f));
       c[i * 3 + 2] = m * (1 - 0.04 * (1 - f));
+      // Collapse the quad outside the feather ellipse (see the base-shadow note) —
+      // this also fixes the ry>1 masses (temples) whose top/bottom EDGES never
+      // reached no-effect (a real hard-edge bug at the quad boundary).
+      if (d > 1) { const k = 1 / d; p.setX(i, p.getX(i) * k); p.setY(i, p.getY(i) * k); }
     }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     return g;
@@ -497,8 +507,11 @@ export function buildEmbertide(def, quality = 1) {
     const crushOn = crushE > 0.01;
     crushCeil.visible = crushFloor.visible = crushOn;
     if (crushOn) {
-      crushCeil.position.y = 520 + (200 - 520) * crushE + Math.sin(time * 1.7) * 6 * crushE;
-      crushFloor.position.y = -80 + (30 + 80) * crushE + Math.sin(time * 1.4 + 2) * 4 * crushE;
+      // Positions are strip CENTRES (H=700): the ceiling's blazing INNER edge descends
+      // from out-of-frame (+380 world) to ~+185 (a visible pinch above the face), the
+      // tide-line's from below the sea (−80) to ~+25 (a swollen line over the horizon).
+      crushCeil.position.y = 730 + (535 - 730) * crushE + Math.sin(time * 1.7) * 6 * crushE;
+      crushFloor.position.y = -430 + (-325 + 430) * crushE + Math.sin(time * 1.4 + 2) * 4 * crushE;
     }
 
     // EMBER MOTES — drift UP across the sky, swaying (embers riding the tide). They
