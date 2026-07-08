@@ -390,8 +390,8 @@ export function buildUnmasked(def, quality = 1) {
     { key: 'upper',    rotZ: 0.35,  scale: 1.45, z: -1.15, phase: 0.0, amp: 0.026, off: { x: 0.24, y: 1.38 }, rootEye: { x: 0.4, y: 2.15 } },  // φ+80° UP
     { key: 'uppermid', rotZ: -0.26, scale: 1.55, z: -0.90, phase: 0.7, amp: 0.030, off: { x: 0.99, y: 0.99 } },                                 // φ+45°
     { key: 'middle',   rotZ: -0.96, scale: 1.62, z: -0.65, phase: 1.4, amp: 0.036, off: { x: 1.39, y: 0.12 }, rootEye: { x: 2.2, y: 0.2 } },   // φ+5° OUT — widest
-    { key: 'lowermid', rotZ: -1.75, scale: 1.74, z: -0.90, phase: 1.9, amp: 0.032, off: { x: 1.07, y: -0.90 } },                                // φ−40° DOWN-OUT
-    { key: 'lower',    rotZ: -2.36, scale: 1.92, z: -1.15, phase: 2.4, amp: 0.030, off: { x: 0.36, y: -1.35 }, rootEye: { x: 0.6, y: -2.15 } }, // φ−75° HANGING — LONGEST
+    { key: 'lowermid', rotZ: -1.66, scale: 1.74, z: -0.90, phase: 1.9, amp: 0.032, off: { x: 1.15, y: -0.80 } },                                // φ−35° DOWN-OUT
+    { key: 'lower',    rotZ: -2.09, scale: 1.92, z: -1.15, phase: 2.4, amp: 0.030, off: { x: 0.70, y: -1.21 }, rootEye: { x: 1.0, y: -1.95 } }, // φ−60° HANGING — LONGEST; fanned OFF the midline (no moth-abdomen clump)
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
