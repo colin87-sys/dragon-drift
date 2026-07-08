@@ -25,6 +25,20 @@
   button.sec{background:#39465a}
   #out{width:100%;height:96px;background:#0e141d;border:1px solid #2c3646;color:#b9e6c8;border-radius:6px;padding:6px;font:11px/1.35 monospace;box-sizing:border-box;margin-top:8px;white-space:pre-wrap;resize:vertical}
   .hint{color:#66707f;font-size:10px;margin:2px 0 0}
+  /* ── MOBILE: stack the wing view on top, controls scroll below with big touch targets ── */
+  @media (max-width: 860px) {
+    #wrap{flex-direction:column}
+    #view{flex:none;height:42vh;min-height:220px}
+    #panel{width:100%;flex:1;min-height:0;border-left:none;border-top:1px solid #232c3a}
+    .row{gap:8px;margin:7px 0}
+    .row label{width:82px;font-size:13px}
+    .row input[type=range]{height:30px}
+    .row input[type=number]{width:74px;padding:8px 6px;font-size:16px}
+    #globals label{display:inline-block;margin:5px 14px 5px 0;font-size:14px}
+    button{padding:12px 18px;font-size:15px}
+    #out{height:110px;font-size:12px}
+    h1{font-size:16px}.sub{font-size:12px}.grp h2{font-size:13px}
+  }
 </style>
 <script type="importmap">
   { "imports": { "three": "./lib/three.module.js" } }
