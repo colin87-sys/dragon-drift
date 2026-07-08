@@ -223,6 +223,7 @@ let shielded = false;          // at a phase floor the boss shields — only Sur
 // leave activeCard null and the whole system is inert (coexist rule).
 let activeCard = null;
 let cardTimer = 0;             // seconds remaining in the current card's window (display / survival seal)
+let horizonPocketX = null;     // EMBERTIDE Horizon-Break: the moving face-shadow safe pocket's lane X (null = card inactive)
 let cardHits0 = 0;            // game.bossHitsTakenRun at card start (capture = no new hits by card end)
 let cardExpired = false;      // the display timer ran out before the phase was cleared → capture downgrades to SURVIVED (never blocks progress)
 let baitTimer = 0;             // cadence for the shielded graze-bait flood
@@ -1310,7 +1311,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
-  activeCard = null; cardTimer = 0;   // spell-card state resets per encounter
+  activeCard = null; cardTimer = 0; horizonPocketX = null;   // spell-card state resets per encounter
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   activeBand = resolveBand(biomeIndexAt(player.dist));
@@ -1525,7 +1526,7 @@ function endEncounter(player) {
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
-  activeCard = null; cardTimer = 0;
+  activeCard = null; cardTimer = 0; horizonPocketX = null;
   ui.bossCardClear?.();         // clear the spell-card readout past the fight
   // Carry Dragon Surge OUT of the fight so the player keeps the hyper into the
   // grace band (the kill earns it) — the normal fever visuals take over there.
@@ -1847,6 +1848,11 @@ export function updateBoss(dt, player, time, camera) {
     reticle.position.set(player.position.x, player.position.y, -player.dist);
   }
 
+  // HORIZON-BREAK opens the WHOLE frame: the X-constriction RELEASES during the card so
+  // the tide crests full-width and the face-shadow pocket (which sweeps to ±8) is
+  // reachable — the survival gauntlet is the whole frame, not the pinched lane. The
+  // constrictPhase target is restored automatically once the card ends.
+  if (activeCard && activeCard.id === 'embertide_horizonbreak') arenaTargetHW = CONFIG.laneHalfWidth;
   // Arena constriction: ease the live half-width toward its target, publish it
   // for the player clamp (null = full lane, nothing to clamp), and slide the
   // translucent storm walls with it. Restored unconditionally by endEncounter.
@@ -2607,6 +2613,11 @@ export function updateBoss(dt, player, time, camera) {
         } else {
           curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
         }
+        // HORIZON-BREAK: the survival card is a pure crest gauntlet — override whatever
+        // the phrase picked to the frame-wide CRESTFALL (its gap locks to the moving
+        // face-shadow pocket, below). Gated on the card id; the design amber floor is
+        // still satisfied by P5 declaring crossfire (survival exemption, §5i.C).
+        if (activeCard && activeCard.id === 'embertide_horizonbreak') curAttack = 'crestfall';
         chargeDur = curAttack === 'curtain' ? B.telegraphWall
           : (SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant);
         chargeT = chargeDur;
@@ -2666,10 +2677,21 @@ function placeGroup(player, time, dt) {
   // during the flythrough (updateFlythrough drives the tracking gaze itself), and
   // whenever cineYaw owns facing (L155): at a scripted yaw — the back-turned pass
   // especially — world≈local inverts, so a naive feed would track backwards.
-  if (phase !== 'warn' && phase !== 'flythrough' && cineYaw == null) {
-    const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
-    const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
-    model.setGaze?.(nx, ny);
+  // EMBERTIDE HORIZON-BREAK (CP2-B, the survival dread): the tide crests the WHOLE
+  // frame and the only safe pocket is the FACE's cast shadow. During the card the face
+  // LOOKS AROUND on a slow autonomous sweep (it stops tracking you), and its shadow —
+  // the moving safe pocket — is where the crest leaves a gap. You must RIDE the shadow.
+  if (activeCard && activeCard.id === 'embertide_horizonbreak' && phase === 'fight') {
+    const sweep = Math.sin(time * 0.32);                 // the slow gaze drift (chase it)
+    horizonPocketX = sweep * 8;                          // the face-shadow's lane X
+    model.setGaze?.(sweep, -0.15);                       // the face looks along its shadow
+  } else {
+    horizonPocketX = null;
+    if (phase !== 'warn' && phase !== 'flythrough' && cineYaw == null) {
+      const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
+      const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
+      model.setGaze?.(nx, ny);
+    }
   }
   // EMBERTIDE-as-sky: the camera-POSITION-lock does NOT happen here — placeGroup runs inside
   // updateBoss (main.js:1093), BEFORE cameraCtl.update (main.js:1246) moves the camera, so locking
@@ -3128,10 +3150,14 @@ function executeAttack(id, player) {
       const b = activeBand[k % activeBand.length];
       pending.push({ t: k * 0.32, fire: () => {
         const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
-        const gap = Math.max(-hw + 3.4, Math.min(hw - 3.4, g0 + dir * 2.5 * k));
+        // Normal crest: the safe gap SLIDES between rows (track it in time). During
+        // HORIZON-BREAK it instead LOCKS to the live face-shadow pocket (horizonPocketX,
+        // which sweeps as the face looks around) — so you ride the shadow, not a rhythm.
+        const gapC = horizonPocketX != null ? horizonPocketX : (g0 + dir * 2.5 * k);
+        const gap = Math.max(-hw + 3.4, Math.min(hw - 3.4, gapC));
         const topY = CONFIG.laneMaxY + 3;          // spawn AT the crest, above the frame top
         for (let x = -hw; x <= hw; x += stepX) {
-          if (Math.abs(x - gap) < 3.4) continue;   // the sliding safe gap (generous — a full frame)
+          if (Math.abs(x - gap) < 3.4) continue;   // the safe pocket (generous — a full frame)
           emitBoss(x, topY, 0, -5.5, -slow, false, b.c, b.s);   // breaks DOWNWARD (vy) + closes (vrel)
         }
       } });
@@ -3767,7 +3793,7 @@ export function resetBoss() {
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
-  activeCard = null; cardTimer = 0;
+  activeCard = null; cardTimer = 0; horizonPocketX = null;
   ui.bossCardClear?.();
   if (model && model.rig && scene && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky dome
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
