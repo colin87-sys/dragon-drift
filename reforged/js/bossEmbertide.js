@@ -43,10 +43,14 @@ export function buildEmbertide(def, quality = 1) {
   const lowQ = quality < 0.75;
 
   // Shared plumbing. The field is frame-wide, so the HP bar + shield are counter-
-  // scaled small: the shield wards the FACE (the focal), not the whole sky.
+  // scaled small. The shield wards the STATION (where the bullets crest), kept SMALL
+  // and subtle — at radius 12 / cage 0.34 the phase-floor bubble drew a giant
+  // wireframe ball over the distant sky-face and read as "weird rectangular lines"
+  // (owner catch); a sky-boss's ward must be a discrete glint at the emitter, never
+  // a frame-filling cage disconnected from the face.
   const kit = createBossCommon(def, quality, {
-    shieldRadius: 12, shieldY: 0.5, hpBarY: 15, hpBarZ: 6, hpBarScale: 2.0,
-    shieldRimStrength: 0.5, shieldCageOpacity: 0.34,
+    shieldRadius: 6.5, shieldY: 0.5, hpBarY: 15, hpBarZ: 6, hpBarScale: 2.0,
+    shieldRimStrength: 0.35, shieldCageOpacity: 0.12,
   });
   const { group, track } = kit;
   group.userData.archetype = 'embertide';   // guards the legacy-fallback coexist path (tests/boss.mjs)
@@ -193,6 +197,12 @@ export function buildEmbertide(def, quality = 1) {
       let m = 0.16 + (1 - 0.16) * THREE.MathUtils.smoothstep(d, 0.42, 1.12);
       // × every relief mass (the agreed feathered layers, composited analytically).
       for (const [mx, my, w, h, dk, ry] of SHADOW_MASSES) m *= massAt(x, y, mx, my, w, h, dk, ry);
+      // THE SEA-FADE (owner catch: "his mouth has a weird rectangle outline"): the
+      // mouth sits AT the horizon line, and below it the jaw shadow was painting a
+      // dark column on the flat sub-horizon dome band — bottom edge cut straight by
+      // the water line → a rectangle hanging off the mouth. The chin DISSOLVES INTO
+      // THE SEA instead: the shadow releases to no-effect through the waterline zone.
+      m = 1 + (m - 1) * THREE.MathUtils.smoothstep(y, -12, -4.5);
       // Warm dusk tint scaled by DARKNESS (a touch more red kept where the shadow is
       // deep) — every channel is EXACTLY 1.0 where m is 1.0, so the field's quad can
       // never tint the open sky (the tile/pane law).

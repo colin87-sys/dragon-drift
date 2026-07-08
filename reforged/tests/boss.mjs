@@ -1820,7 +1820,7 @@ function driveKill(idx) {
   boss.forceBoss(player, idx);
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
-  let t = 0, sawFight = false, sawShield = false, sawNarrow = false, sawCrush = false;
+  let t = 0, sawFight = false, sawShield = false, sawNarrow = false, sawCrush = false, sawEbb = false;
   let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinY = 99, setpieceMinRel = 99, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
@@ -1846,9 +1846,10 @@ function driveKill(idx) {
     }
     if (game.bossArenaHW != null) sawNarrow = true;
     if (game.bossArenaHY != null) sawCrush = true;
+    else if (sawCrush && st.phase === 'fight') sawEbb = true;   // the crush RELEASED mid-fight (a wave, not a mode)
     boss.updateBoss(dt, player, t);
   }
-  return { t, sawFight, sawShield, sawNarrow, sawCrush,
+  return { t, sawFight, sawShield, sawNarrow, sawCrush, sawEbb,
     sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
@@ -1883,6 +1884,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   // during the fight and is ALWAYS restored on teardown; every other def is inert.
   if (BOSSES[key].skyCrush) {
     assert(r.sawCrush, `${key}: the sky crushed the lane (bossArenaHY published mid-fight)`);
+    assert(r.sawEbb, `${key}: the crush EBBED mid-fight (a wave that releases, never a permanent ceiling — the owner's height-feel catch)`);
   } else {
     assert(!r.sawCrush, `${key}: no skyCrush → the sky ceiling never clamped (coexist)`);
   }

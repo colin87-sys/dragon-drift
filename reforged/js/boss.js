@@ -899,7 +899,7 @@ let wallL = null, wallR = null, wallMat = null;   // translucent storm walls (th
 // own crush strips carry the floor VISUAL. Inert (Infinity) for every other boss.
 let arenaHY = CONFIG.laneMaxY;
 let arenaTargetHY = CONFIG.laneMaxY;
-let crushFired = false, crushT = 0, crushBoxT = 0;   // once-per-fight trigger + the letterbox pulse timer
+let crushFired = false, crushT = 0, crushBoxT = 0, crushHoldT = 0;   // per-phase wave trigger + hold + the letterbox pulse timer
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
 // so overlapping/concentric waves read apart even for colour-blind players — and
@@ -1320,7 +1320,7 @@ export function startBossEncounter(player, defOverride) {
   // Fresh fight = full-height sky; the crush (def.skyCrush) re-arms per encounter.
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -1492,7 +1492,7 @@ function endEncounter(player) {
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
   ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
@@ -1837,15 +1837,18 @@ export function updateBoss(dt, player, time, camera) {
       wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
     } else { wallMat.opacity = 0; }
   }
-  // THE SKY CRUSHES THE LANE (CP2-A, def.skyCrush — EMBERTIDE's vertical squeeze, the
-  // brief's "first crescendo set re-entrance beat"): a few seconds into the fight the
-  // ceiling clamp descends (player.js Y-clamp mirrors the X walls), the model's crush
-  // strips close in (setCrush), and a letterbox PULSES in and back out (the re-entrance
-  // read) while the clamp itself persists. Inert for every def without skyCrush.
+  // THE SKY CRUSHES THE LANE (CP2-A, def.skyCrush — EMBERTIDE's vertical squeeze):
+  // a WAVE, not a mode (owner catch: a persistent clamp read as "I can't go as high
+  // as usual" — a permanent nerf, not a beat). The ceiling clamp descends (player.js
+  // Y-clamp mirrors the X walls), the strips + letterbox pinch, the clamp HOLDS for
+  // ~10s, then the sky EBBS — full height returns. It re-crashes once per PHASE
+  // (armed at each seam), so every crescendo set gets its crush-and-release breath.
+  // Inert for every def without skyCrush.
   if (def.skyCrush && phase === 'fight' && !crushFired) {
     crushT += dt;
     if (crushT >= (def.skyCrush.delay ?? 5)) {
       crushFired = true;
+      crushHoldT = def.skyCrush.hold ?? 10;
       arenaTargetHY = def.skyCrush.hy ?? 14;
       model.setCrush?.(1);
       ui.letterbox?.(true);
@@ -1856,6 +1859,14 @@ export function updateBoss(dt, player, time, camera) {
     }
   }
   if (crushBoxT > 0) { crushBoxT -= dt; if (crushBoxT <= 0) ui.letterbox?.(false); }
+  if (crushHoldT > 0 && phase === 'fight') {
+    crushHoldT -= dt;
+    if (crushHoldT <= 0) {   // THE EBB — the sky lifts, the strips retreat
+      arenaTargetHY = CONFIG.laneMaxY;
+      model.setCrush?.(0);
+      ui.bossNote?.('～  THE TIDE EBBS  ～', def.name, 'gold', 1.8);
+    }
+  }
   arenaHY += (arenaTargetHY - arenaHY) * Math.min(dt * 1.6, 1);
   game.bossArenaHY = arenaHY < CONFIG.laneMaxY - 0.3 ? arenaHY : null;
 
@@ -2713,6 +2724,13 @@ function breakShield(player) {
     // THE LOOM (CP2-A, optional model hook — only EMBERTIDE implements): each phase
     // the face surfaces closer/larger (0→1 across the fight; the model eases + caps it).
     model.setLoom?.(phaseIdx / Math.max(1, (def.phases?.length ?? 1) - 1));
+    // THE CRUSH re-arms at every phase seam (a wave per crescendo set — crush, hold,
+    // ebb; never a permanent ceiling). ~1.5s into the new phase. Inert without skyCrush.
+    if (def.skyCrush) {
+      crushFired = false;
+      crushT = (def.skyCrush.delay ?? 5) - 1.5;
+      crushHoldT = 0;
+    }
   } else if (def.felledLie && !felledLieUsed && !ghostFrameBroken) {
     triggerFelledLie(player);   // §5f the LIE: fake death now, ≤35% returns within ≤2s (once)
   } else {
@@ -3714,7 +3732,7 @@ export function resetBoss() {
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
   ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
