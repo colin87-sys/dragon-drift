@@ -46,7 +46,7 @@ function curvedFeatherShape(len, w, bow) {
   // pow() is NaN — the r3 chisel-tip bug).
   const wt = (t) => {
     const a = Math.PI * Math.min(1, 0.08 + t * 0.92);
-    return w * (0.30 + 0.40 * Math.pow(Math.max(0, Math.sin(a)), 0.9)) * (1 - t * 0.45) + 0.008;
+    return w * (0.30 + 0.40 * Math.pow(Math.max(0, Math.sin(a)), 0.9)) * (1 - t * 0.58) + 0.008;
   };
   const N = 16, right = [], left = [];
   for (let i = 0; i <= N; i++) {
@@ -55,7 +55,7 @@ function curvedFeatherShape(len, w, bow) {
     const nx = d.y / L, ny = -d.x / L;
     // Ease the width down toward the tip but HOLD a small cap width (a hard
     // zero made a needle; the dome cap below rounds it off).
-    const ww = t > 0.86 ? wt(0.86) * (1 - ((t - 0.86) / 0.14) * 0.25) : wt(t);
+    const ww = t > 0.86 ? wt(0.86) * (1 - ((t - 0.86) / 0.14) * 0.48) : wt(t);
     right.push({ x: p.x + nx * ww * 0.8, y: p.y + ny * ww * 0.8 });   // leading side, tighter
     left.push({ x: p.x - nx * ww * 1.2, y: p.y - ny * ww * 1.2 });    // trailing side, fuller
   }
@@ -127,28 +127,29 @@ export function buildAngelWing({ quality = 1 } = {}) {
   // ---- PRIMARIES — the graduated fan, UNCHANGED in character, roots marching
   // along SEGMENT 2 (the hand): hero at the tip, stepping back to the wrist.
   const PRIM = [
-    { root: { x: 2.78, y: 4.24 }, angle: -1.02, len: 4.5, w: 0.95, bow: 0.52 },   // outermost finger
-    { root: { x: 2.28, y: 4.06 }, angle: -1.16, len: 5.2, w: 1.00, bow: 0.50 },   // THE PEAK — slightly inboard
-    { root: { x: 1.78, y: 3.88 }, angle: -1.30, len: 4.7, w: 0.95, bow: 0.45 },
-    { root: { x: 1.30, y: 3.70 }, angle: -1.42, len: 4.0, w: 0.90, bow: 0.40 },
-    { root: { x: 0.90, y: 3.52 }, angle: -1.52, len: 3.3, w: 0.85, bow: 0.35 },
+    { root: { x: 2.78, y: 4.24 }, angle: -1.06, len: 4.5, w: 0.95, bow: 0.52 },   // outermost finger
+    { root: { x: 2.28, y: 4.06 }, angle: -1.17, len: 5.2, w: 1.00, bow: 0.50 },   // THE PEAK — slightly inboard
+    { root: { x: 1.78, y: 3.88 }, angle: -1.28, len: 4.7, w: 0.95, bow: 0.45 },
+    { root: { x: 1.30, y: 3.70 }, angle: -1.38, len: 4.0, w: 0.90, bow: 0.40 },
+    { root: { x: 0.90, y: 3.52 }, angle: -1.47, len: 3.3, w: 0.85, bow: 0.35 },
   ];
   PRIM.forEach((p, i) => {
     const f = addFeather(i % 2 ? priMatB : priMat, p.len, p.w, p.bow, p.root, p.angle, 0.02 + i * 0.07);
-    f.children[0].rotation.x = (i % 2 ? -1 : 1) * 0.05;   // alternate rake: lighting separates the overlaps
+    // CUP: rake grades across the fan (+ a tiny alternation for edge light).
+    f.children[0].rotation.x = 0.06 - i * 0.025 + (i % 2 ? 0.015 : -0.015);
   });
 
   // ---- SECONDARIES — the medium broad-blade pair PACKED AT THE WRIST/CROOK.
   const SEC = [
     { root: { x: 0.82, y: 3.02 }, angle: -1.55, len: 2.35, w: 1.15, bow: 0.30 },
-    { root: { x: 0.62, y: 2.66 }, angle: -1.57, len: 2.05, w: 1.20, bow: 0.24 },
+    { root: { x: 0.62, y: 2.66 }, angle: -1.52, len: 1.9, w: 1.20, bow: 0.24 },
   ];
-  SEC.forEach((p, i) => addFeather(secMat, p.len, p.w, p.bow, p.root, p.angle, 0.22 + i * 0.06));
+  SEC.forEach((p, i) => { const f = addFeather(secMat, p.len, p.w, p.bow, p.root, p.angle, 0.22 + i * 0.06); f.children[0].rotation.x = -0.07 - i * 0.03; });
 
   // ---- COVERT REGION — scallop-edged strips along SEGMENT 1 (the near-vertical
   // arm): small at the shoulder, growing toward the crook, band faces toward the
   // camera so the rows read from the front.
-  const S0 = { x: 0.08, y: 0.02 }, C0 = { x: 0.48, y: 3.42 };
+  const S0 = { x: 0.12, y: 0.22 }, C0 = { x: 0.48, y: 3.42 };
   const bx = C0.x - S0.x, by = C0.y - S0.y, bl = Math.hypot(bx, by);
   const dirA = Math.atan2(by, bx);                      // segment-1 direction (from +X)
   const px = by / bl, py = -bx / bl;                    // perp, pointing out (right)

@@ -39,12 +39,25 @@ const rim = new THREE.DirectionalLight(0xffd9a0, 0.9); rim.position.set(-5, 3, -
 const { group } = buildAngelWing({ quality: 1 });
 scene.add(group);
 
-// Frame the wing: compute its bounds and centre the camera on it with padding.
+// ?dark=1 — the near-black seraph read: darken every unique material to a
+// charcoal tier and warm the backdrop so the SILHOUETTE carries the wing.
+if (q.get('dark') === '1') {
+  const mats = new Set();
+  group.traverse((o) => { if (o.material) mats.add(o.material); });
+  for (const m of mats) m.color.multiplyScalar(0.09);
+  scene.background = new THREE.Color(0xc08a54);   // amber dusk — dark wing pops
+  rim.intensity = 1.4;                             // stronger gold rim for the dark body
+}
+
+// Apply the view rotation FIRST, then frame: the bbox must fit the ROTATED
+// model (the group pivots about its origin, not its centre).
+if (q.get('view') === 'threequarter') group.rotation.y = -0.5;
+if (q.get('view') === 'profile') group.rotation.y = -1.35;
+group.updateMatrixWorld(true);
 const box = new THREE.Box3().setFromObject(group);
 const c = box.getCenter(new THREE.Vector3());
 const size = box.getSize(new THREE.Vector3());
-const dist = Math.max(size.y, size.x / camera.aspect) * 1.28;
-if (q.get('view') === 'threequarter') group.rotation.y = -0.5;
+const dist = Math.max(size.y, size.x / camera.aspect, size.z) * 1.28;
 camera.position.set(c.x, c.y, c.z + dist);
 camera.lookAt(c.x, c.y, c.z);
 
