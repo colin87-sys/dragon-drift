@@ -42,12 +42,13 @@ export function buildEmbertide(def, quality = 1) {
   const rose = new THREE.Color(def.glow ?? 0xff7a5e);       // WARM coral-rose — the tide's light (top) end
   const lowQ = quality < 0.75;
 
-  // Shared plumbing. The field is frame-wide, so the HP bar + shield are counter-
-  // scaled small. The shield wards the STATION (where the bullets crest), kept SMALL
-  // and subtle — at radius 12 / cage 0.34 the phase-floor bubble drew a giant
-  // wireframe ball over the distant sky-face and read as "weird rectangular lines"
-  // (owner catch); a sky-boss's ward must be a discrete glint at the emitter, never
-  // a frame-filling cage disconnected from the face.
+  // Shared plumbing. The field is frame-wide, so the HP bar is counter-scaled small.
+  // The kit builds the phase-floor shield at the group origin (the station) — but
+  // EMBERTIDE's body is the FACE at the horizon, so a bubble floating over the water
+  // reads as debris disconnected from the boss (owner catch: "the shield should be
+  // over him, not floating around"). After finalize() the shield + its shatter shards
+  // are reparented onto the faceRig (the ward rig below) so the ward wraps the HEAD
+  // and the burst plays on the face. Cage kept faint — dark lines over a bright sky.
   const kit = createBossCommon(def, quality, {
     shieldRadius: 6.5, shieldY: 0.5, hpBarY: 15, hpBarZ: 6, hpBarScale: 2.0,
     shieldRimStrength: 0.35, shieldCageOpacity: 0.12,
@@ -325,31 +326,35 @@ export function buildEmbertide(def, quality = 1) {
     orbiters.push(m);
   }
 
-  // THE CRUSH STRIPS (CP2-A "the sky crushes the lane") — a ceiling band of light that
-  // DESCENDS and a swollen tide-line that RISES when the vertical squeeze fires, pinching
-  // the open sky to a band with the face inside it. Opaque HDR gradient (hot at the inner
-  // edge, fading to the dome's own gradient outward) → ZERO additive, trivial tris. They
-  // ride the camera-locked rig just behind the face plane, ahead of the dome. Parked out
-  // of frame (and invisible) until boss.js fires setCrush(1) at the first crescendo set.
-  const stripMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false, depthWrite: false }));
-  // TALL strips: only the blazing INNER edge is ever in frame — the strip's far edge
-  // lives past the frame top / below the sea, so there is never a hard slab line
-  // against the dome (the L219 law: the only hard edges are the tears). The whole
-  // sky above the pinch reads as the descending wall of light.
+  // THE CRUSH STRIPS (CP2-A "the sky crushes the lane") — a blazing crest line that
+  // DESCENDS from the frame top and a swollen tide-line that RISES when the vertical
+  // squeeze fires, pinching the open sky to a band with the face inside it.
+  // ⚠ ALPHA-FADED, NOT OPAQUE (owner catch: "weird rectangular horizontal lines in the
+  // sky"): an opaque slab can never exactly match the dome's elevation-mapped gradient
+  // behind it, so its edges read as horizontal seam-lines the whole time it moves.
+  // Instead the strip carries per-vertex ALPHA (itemSize-4 colours → USE_COLOR_ALPHA):
+  // a hot HDR crest at the crushing edge, a soft haze behind it, alpha 0 long before the
+  // far edge — the only visible line is the blazing crest itself; everywhere else the
+  // dome shows through untouched, so there is NO seam by construction. NormalBlending +
+  // toneMapped:false (the L228 law) → still ZERO additive overdraw.
+  const stripMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false, depthWrite: false, transparent: true }));
   const CRUSH_Z = -560, CRUSH_W = 2400, CRUSH_H = 700;
   function crushStrip(name, inner) {   // inner: -1 = hot edge at the strip's BOTTOM (ceiling), +1 = at its TOP (floor swell)
     const g = new THREE.PlaneGeometry(CRUSH_W, CRUSH_H, lowQ ? 12 : 20, lowQ ? 4 : 6);
     const p = g.attributes.position;
-    const c = new Float32Array(p.count * 3);
+    const c = new Float32Array(p.count * 4);
     for (let i = 0; i < p.count; i++) {
       const ny = (p.getY(i) / (CRUSH_H / 2)) * inner;          // +1 at the hot (inner) edge
-      const hot = THREE.MathUtils.smoothstep(ny, 0.62, 1.0);   // the blaze concentrates at the crushing edge
-      const body = THREE.MathUtils.smoothstep(ny, -1.0, 1.0);  // a broad lift toward the edge (the mass of light)
-      _bg.copy(rose).lerp(accent, 0.15 + hot * 0.75);
-      const hdr = 1.02 + body * 0.35 + hot * 1.8;              // far edge ≈ the dome's own register; the edge BLOOMS
-      c[i * 3] = _bg.r * hdr; c[i * 3 + 1] = _bg.g * hdr; c[i * 3 + 2] = _bg.b * hdr;
+      const hot = THREE.MathUtils.smoothstep(ny, 0.55, 0.95);  // the blaze concentrates at the crushing edge
+      _bg.copy(rose).lerp(accent, 0.2 + hot * 0.7);
+      const hdr = 1.1 + hot * 2.1;                             // the crest BLOOMS; the haze sits near the dome's register
+      // Crest (opaque at the edge) + haze (a faint wash above it) — both smoothstep to
+      // EXACTLY 0 mid-strip, so the strip has no far edge at all, only a crest.
+      const a = 0.75 * THREE.MathUtils.smoothstep(ny, 0.35, 0.9)
+              + 0.25 * THREE.MathUtils.smoothstep(ny, -0.55, 0.35);
+      c[i * 4] = _bg.r * hdr; c[i * 4 + 1] = _bg.g * hdr; c[i * 4 + 2] = _bg.b * hdr; c[i * 4 + 3] = a;
     }
-    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(c, 4));
     const m = new THREE.Mesh(g, stripMat);
     m.name = name;
     m.position.set(0, (CRUSH_H / 2 + 380) * -inner, CRUSH_Z);   // parked: inner edge out of frame
@@ -366,6 +371,35 @@ export function buildEmbertide(def, quality = 1) {
   rig.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
 
   kit.finalize();
+
+  // THE WARD — reparent the kit's phase-floor shield ONTO THE FACE. The kit builds
+  // the bubble + its shatter shards at the group origin (the station, where bullets
+  // crest) — right for a body-boss, wrong here: the body IS the face at the horizon,
+  // and a bubble over the water reads as unrelated debris (owner catch). Both the
+  // shield Group and the shards move into ONE scaled ward rig on the faceRig, so the
+  // raise, the slow spin (tickCommon), the flash and the shatter all play wrapped
+  // around the HEAD — in the same local units they were authored in (shards start on
+  // the bubble surface at shieldRadius; the rig scale carries everything together).
+  // The kit's closures keep working untouched: they hold the same object references.
+  {
+    let ward = null; const wardShards = [];
+    for (const o of [...group.children]) {
+      if (o.isGroup && o !== rig && o.children.some((ch) => ch.material?.isShaderMaterial && ch.material.uniforms?.uColor)) ward = o;
+      else if (o.isMesh && o.geometry?.type === 'TetrahedronGeometry') wardShards.push(o);
+    }
+    if (ward) {
+      const wardRig = new THREE.Group();
+      wardRig.name = 'faceWard';
+      // Head centre in faceRig space (features span x ±~8, y −7..+6, tears at z 2.6);
+      // ×2.2 lifts the r6.5 bubble to r ~14.3 local ≈ a ward just proud of the head.
+      wardRig.position.set(0, -0.5, 2.0);
+      wardRig.scale.setScalar(2.2);
+      faceRig.add(wardRig);
+      ward.position.set(0, 0, 0);   // shieldY offset was station framing — the ward centres on the head
+      wardRig.add(ward);
+      for (const s of wardShards) wardRig.add(s);
+    }
+  }
 
   // ---------------------------------------------------------------------
   // ANIMATION + THE §4b CHARISMA CHANNELS (the focal is DARKNESS — the sanctioned
