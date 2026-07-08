@@ -244,7 +244,7 @@ let curAttack = null;          // the attack being telegraphed
 let rhythm = null;
 let rhythmRest = null;
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
-const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave']);
+const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave', 'crestfall']);
 // Def-gated SETPIECE (the ONE deliberate exception to "a new boss needs zero
 // controller changes" — BOSS-DESIGN.md §5's Tier 2 "the fight moves" clause
 // requires a station-leave beat, and station-keeping lives here). A def opts in
@@ -3109,6 +3109,30 @@ function executeAttack(id, player) {
           for (const y of [cy - 2.4, cy + 2.4]) {
             emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
           }
+        }
+      } });
+    }
+  } else if (id === 'crestfall') {
+    // CRESTFALL (CP2-B, EMBERTIDE's full-frame emitter) — THE TIDE CRESTS THE WHOLE
+    // FRAME: full-width rows pour from the crest line high above the lane and BREAK
+    // downward into it in sequence, a generous safe gap sliding sideways between rows
+    // (you track it in time, like movingGap, but the sheet also falls — the crest is
+    // the emitter, §5f law 7). EMBERTIDE-only (listed in its phases); every other boss
+    // never selects it. The amber floor is held by the phase's crossfire/stream carrier
+    // (bossRhythm amberSwap forces one when the 12s window is about to lapse).
+    const rows = quality < 0.75 ? 4 : 5;
+    const slow = closing * 0.6;
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const g0 = Math.max(-6, Math.min(6, player.position.x));
+    for (let k = 0; k < rows; k++) {
+      const b = activeBand[k % activeBand.length];
+      pending.push({ t: k * 0.32, fire: () => {
+        const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
+        const gap = Math.max(-hw + 3.4, Math.min(hw - 3.4, g0 + dir * 2.5 * k));
+        const topY = CONFIG.laneMaxY + 3;          // spawn AT the crest, above the frame top
+        for (let x = -hw; x <= hw; x += stepX) {
+          if (Math.abs(x - gap) < 3.4) continue;   // the sliding safe gap (generous — a full frame)
+          emitBoss(x, topY, 0, -5.5, -slow, false, b.c, b.s);   // breaks DOWNWARD (vy) + closes (vrel)
         }
       } });
     }

@@ -82,7 +82,7 @@ for (const key of BOSS_ORDER) {
     prev = ph.atFrac;
     assert(Array.isArray(ph.attacks) && ph.attacks.length > 0, `${key} phase has attacks`);
     for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
-      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'].includes(a), `${key} attack '${a}' is known`);
+      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'crestfall'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
   }
   // Spell cards (§5f/§5h): optional (coexist rule), but if present they must
