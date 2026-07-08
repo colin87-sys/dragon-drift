@@ -43,7 +43,7 @@ scene.add(group);
 const box = new THREE.Box3().setFromObject(group);
 const c = box.getCenter(new THREE.Vector3());
 const size = box.getSize(new THREE.Vector3());
-const dist = Math.max(size.x, size.y) * 1.28;
+const dist = Math.max(size.y, size.x / camera.aspect) * 1.28;
 if (q.get('view') === 'threequarter') group.rotation.y = -0.5;
 camera.position.set(c.x, c.y, c.z + dist);
 camera.lookAt(c.x, c.y, c.z);
