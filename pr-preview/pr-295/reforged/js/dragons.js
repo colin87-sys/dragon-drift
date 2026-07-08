@@ -758,6 +758,8 @@ export const DRAGONS = {
     // crescentBloom, tailFins, glowLevel, tuskScale, eyeScale, headScale.
     model: {
       scale: 1.2, tailSegments: 9, neckSegments: 6, flapBias: 0.85, flapAmp: 0.72,
+      tailLagScale: 0.055,   // GENTLE idle tail coil (azure-style, subtle) — a soft trailing drift, not a snake
+
       vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.0, keelShields: 5,
       coronaValleys: 5, crownHorns: 4, starGemBloom: 1.0, crescentBloom: 1.0, tailFins: 4,
       glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 1.7,

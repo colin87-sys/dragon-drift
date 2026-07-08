@@ -17,9 +17,14 @@ const GOLD = 0xd4a84f, GOLD_HI = 0xddc070, VIOLET = 0xb784ff, CRIMSON_OUT = 0x5a
 
 function sovereignMats(def, glow) {
   const g = Math.min(glow ?? 1, 1.3);
-  const bodyFlat = new THREE.MeshStandardMaterial({ color: def.body ?? 0x080b14, flatShading: true, roughness: 0.66, metalness: 0.12 });
-  const gold = new THREE.MeshStandardMaterial({ color: def.scales ?? GOLD, flatShading: true, roughness: 0.3, metalness: 0.78, emissive: def.scales ?? GOLD, emissiveIntensity: 0.05 });
-  const goldHi = new THREE.MeshStandardMaterial({ color: def.horn ?? GOLD_HI, flatShading: true, roughness: 0.26, metalness: 0.82 });
+  // Body carries a faint indigo emissive floor so the king's body doesn't vanish to pure black
+  // on dark skies (polish note 4) — still opaque, degrades with glowLevel-independent lighting.
+  const bodyFlat = new THREE.MeshStandardMaterial({ color: def.body ?? 0x080b14, emissive: 0x0c1322, emissiveIntensity: 0.07, flatShading: true, roughness: 0.66, metalness: 0.12 });
+  // Golds: LOWER metalness + a warm emissive floor so shadowed/away-facing facets stay warm gold
+  // instead of going olive-drab (metallic gold with no environment to reflect reads green — polish note 1).
+  const gCol = def.scales ?? GOLD, ghCol = def.horn ?? GOLD_HI;
+  const gold = new THREE.MeshStandardMaterial({ color: gCol, flatShading: true, roughness: 0.42, metalness: 0.5, emissive: gCol, emissiveIntensity: 0.14 });
+  const goldHi = new THREE.MeshStandardMaterial({ color: ghCol, flatShading: true, roughness: 0.36, metalness: 0.52, emissive: ghCol, emissiveIntensity: 0.13 });
   const vCol = def.apexSeam ?? VIOLET;              // diffuse accent (light blue-violet)
   const vEmis = 0x5a2ce0;                            // cooler blue-violet emissive — survives bloom without drifting magenta
   // (bright + light emissive clips to white under ACES; a saturated hue holds the arcane read)
@@ -33,7 +38,7 @@ function sovereignMats(def, glow) {
   // BRIGHT starlight-vein emissive — must read violet at capture distance.
   const veinMat = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x6a34ea, emissiveIntensity: 2.6 * g, flatShading: true, roughness: 0.35 });
   veinMat.userData.baseEmissive = 0x8a44ff; veinMat.userData.baseIntensity = 2.6 * g;
-  const gem = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x6a34ea, emissiveIntensity: 1.5 * g, flatShading: true, roughness: 0.18 });
+  const gem = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x6a34ea, emissiveIntensity: 1.1 * g, flatShading: true, roughness: 0.18 });
   gem.userData.baseEmissive = 0x8a44ff; gem.userData.baseIntensity = 1.5 * g;
   return { bodyFlat, gold, goldHi, violet, membrane, memTiers, veinMat, gem };
 }
@@ -174,15 +179,15 @@ registerTorso('regnalKeelTorso', buildRegnalKeelTorso);
 // ── WINGS: 'lanceVaultWings' ──────────────────────────────────────────────────
 // One canonical +X wing (arm + pike rank over a SOLID cambered crimson vault), mirrored
 // for the left; dihedral raises the tips into the rear cathedral arch.
-function buildOneWing(M, dials, side, dih) {
+function buildOneWing(M, dials, dih) {
   const wg = new THREE.Group();
   const { fingers, pikes, halfSpan } = dials;
   const rootChord = 2.7, tipChord = 0.5, sweepZ = halfSpan * 0.28;
-  // Geometry is built per-side (x·side) with the DIHEDRAL BAKED INTO the vertices (y rises with
-  // |x|) — so the rear cathedral arch survives even though the flap rig overwrites the pivot's
-  // rotation every frame in-game. Everything derives from L(), so baking it here propagates.
-  const rise = (x) => Math.abs(x) * Math.tan(dih);
-  const L = (t) => { const x = side * t * halfSpan; return [x, t * 0.30 + rise(x), -0.10 + t * sweepZ]; };
+  // Built CANONICAL (+X); the left wing is a scale.x=-1 mirror of this (in buildLanceVaultWings)
+  // so the shared flap animator's MIRRORED poses land symmetric (it feeds L/R opposite rotations,
+  // expecting mirror-image geometry). DIHEDRAL is baked into the vertices (y rises with x) so the
+  // rear arch survives the animator overwriting the pivot rotation each frame.
+  const L = (t) => { const x = t * halfSpan; return [x, t * 0.30 + x * Math.tan(dih), -0.10 + t * sweepZ]; };
   const chordAt = (t) => rootChord * (1 - t) + tipChord * t;
 
   // FINGER STATIONS marching along the arm; each finger a rib from leading edge back to a tip.
@@ -229,11 +234,13 @@ function buildOneWing(M, dials, side, dih) {
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     rib.quaternion.copy(q);
     wg.add(rib);
-    const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.036, len * 0.8, seg(3)), M.veinMat);
-    vein.geometry.translate(0, len * 0.4, 0);
-    vein.position.set(A.l[0], A.l[1] - 0.02, A.l[2]);
-    vein.quaternion.copy(q);
-    wg.add(vein);
+    if (f >= 2) {   // skip the innermost vein so it never draws a line across the body (top-down)
+      const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.036, len * 0.8, seg(3)), M.veinMat);
+      vein.geometry.translate(0, len * 0.4, 0);
+      vein.position.set(A.l[0], A.l[1] - 0.02, A.l[2]);
+      vein.quaternion.copy(q);
+      wg.add(vein);
+    }
   }
 
   // Pike rank — 3 bold swell-then-taper blades socketed into the arm, rake up-forward.
@@ -279,7 +286,8 @@ function buildLanceVaultWings(def, model, attach, _giM) {
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
-    mid.add(buildOneWing(M, dials, side, dih));   // dihedral is baked into the geometry
+    mid.add(buildOneWing(M, dials, dih));   // canonical +X geometry; dihedral baked in
+    if (side === -1) pivot.scale.x = -1;    // left = mirror image → the animator's mirrored poses read SYMMETRIC
     group.add(pivot);
     const s = side === 1 ? 'L' : 'R';
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
@@ -379,45 +387,60 @@ function buildScepterWhipTail(def, model, mats, anchor) {
   const nSeg = Math.round(model.tailSegments ?? 9);
   const T = (model.tailLength ?? 1) * 3.0;
   const rootR = 0.20;
-  // Line-of-action S: the tail dips below the root line, then RISES so the tip lifts (counter-arcs
-  // the neck) — never a straight lance or a limp droop. + a subtle lateral gesture (anti dead-symmetry).
+  // Line-of-action S (UNCHANGED shape): the tail dips below the root line then RISES so the tip
+  // lifts, with a subtle lateral gesture. curveY/curveX/rAt define the exact rest path.
   const curveY = (t) => -0.11 * T * Math.sin(Math.PI * t * 0.9) + 0.09 * T * t;
   const curveX = (t) => 0.05 * T * Math.max(0, t - 0.45) * Math.max(0, t - 0.45);
-  const yAt = (t) => a.y + curveY(t);
-  const ringsAt = [];
-  for (let i = 0; i <= nSeg; i++) {
-    const t = i / nSeg;
-    const rr = rootR * Math.pow(1 - t * 0.93, 0.7) + 0.012;   // swell-then-taper (concave, fuller mid, thin tip)
-    ringsAt.push({ z: a.z + t * T, rx: rr, ry: rr, cy: yAt(t), cx: curveX(t) });
-  }
-  group.add(loftRings(ringsAt, M.bodyFlat, seg(6), false));
+  const rAt = (t) => rootR * Math.pow(1 - t * 0.93, 0.7) + 0.012;
+  const P = (t) => ({ x: curveX(t), y: a.y + curveY(t), z: a.z + t * T, r: rAt(t) });
 
-  // 3–4 BOLD dorsal fins (≈2× local radius, swell-then-taper) beating out the curve's rhythm.
+  // NESTED segment chain along the path → the gentle idle coil (dragon.js isBone/rotation branch,
+  // azure-style, NOT astralWyrm's body undulation) BENDS the whole tail smoothly. Rotation-only
+  // (no position writes) so a connected loft never tears; the S-curve REST shape is fully preserved
+  // (encoded in the joint offsets). This ADDS motion; it does not change the tail's look.
+  const nChain = 4;
+  const segs = [];
+  let parent = group, prev = { x: 0, y: 0, z: 0 };
+  const jointT = (s) => Math.round(s * nSeg / nChain) / nSeg;
+  for (let s = 0; s < nChain; s++) {
+    const i0 = Math.round(s * nSeg / nChain), i1 = Math.round((s + 1) * nSeg / nChain);
+    const j = P(jointT(s));
+    const sg = new THREE.Group();
+    sg.position.set(j.x - prev.x, j.y - prev.y, j.z - prev.z);
+    parent.add(sg);
+    const local = [];
+    for (let i = i0; i <= i1; i++) { const p = P(i / nSeg); local.push({ z: p.z - j.z, rx: p.r, ry: p.r, cy: p.y - j.y, cx: p.x - j.x }); }
+    sg.add(loftRings(local, M.bodyFlat, seg(6), false));
+    segs.push(sg); parent = sg; prev = j;
+  }
+  segs[0].isBone = true;   // drive by ROTATION → a gentle idle coil bends the tail (never tears it)
+
+  // Dorsal fins (unchanged shape), each parented to its segment so it sways with the tail.
   const fins = Math.round(model.tailFins ?? 4);
-  for (let i = 0; i < fins; i++) {
-    const t = 0.15 + 0.6 * (i / Math.max(1, fins - 1));
-    const rr = rootR * Math.pow(1 - t * 0.93, 0.7) + 0.012;
-    const fh = (2.0 * rr + 0.05) * Math.pow(0.82, i);
-    const z = a.z + t * T, y = yAt(t), x = curveX(t);
-    const fin = flatTriMesh([[[x, y + rr, z - rr * 1.2], [x, y + rr, z + rr * 1.2], [x, y + rr + fh, z]]], M.gold);
-    group.add(fin);
+  for (let k = 0; k < fins; k++) {
+    const t = 0.15 + 0.6 * (k / Math.max(1, fins - 1));
+    const p = P(t), rr = p.r, fh = (2.0 * rr + 0.05) * Math.pow(0.82, k);
+    const si = Math.min(nChain - 1, Math.floor(t * nChain)), sj = P(jointT(si));
+    const fin = flatTriMesh([[[p.x - sj.x, p.y - sj.y + rr, p.z - sj.z - rr * 1.2], [p.x - sj.x, p.y - sj.y + rr, p.z - sj.z + rr * 1.2], [p.x - sj.x, p.y - sj.y + rr + fh, p.z - sj.z]]], M.gold);
+    segs[si].add(fin);
   }
 
-  // Scepter crescent finial at the RISEN tip (open ~35°, inner gap ≥40%) + violet captive star seated in the gap.
-  const tt = 1, tz = a.z + T, ty = yAt(tt), tx = curveX(tt);
+  // Scepter crescent + captive star at the risen tip, in the LAST segment's local frame.
+  const tip = P(1), lj = P(jointT(nChain - 1)), tipG = segs[nChain - 1];
+  const lx = tip.x - lj.x, ly = tip.y - lj.y, lz = tip.z - lj.z;
   const bloom = model.crescentBloom ?? 1;
   const spread = 0.4 + 0.3 * bloom, plen = 0.6 * (0.4 + 0.6 * bloom);
   for (const side of [1, -1]) {
     const prong = spike(plen, 0.05, 0.008, M.goldHi, 4);
-    prong.position.set(tx, ty, tz);
-    prong.rotation.x = -1.2; prong.rotation.z = side * spread; prong.rotation.y = 0.35;   // roll the plane toward the cam
-    group.add(prong);
+    prong.position.set(lx, ly, lz);
+    prong.rotation.x = -1.2; prong.rotation.z = side * spread; prong.rotation.y = 0.35;
+    tipG.add(prong);
   }
   if (bloom > 0.4) {
     const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.075 * bloom, 0), M.gem);
-    star.position.set(tx, ty + plen * 0.5, tz + plen * 0.3);   // inside the prong gap
-    group.add(star);
+    star.position.set(lx, ly + plen * 0.5, lz + plen * 0.3);
+    tipG.add(star);
   }
-  return { group, segs: [], accentMats: [M.violet, M.gem] };
+  return { group, segs, accentMats: [M.violet, M.gem] };
 }
 registerTail('scepterWhipTail', buildScepterWhipTail);
