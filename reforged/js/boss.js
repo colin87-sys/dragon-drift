@@ -2397,6 +2397,28 @@ export function updateBoss(dt, player, time, camera) {
       }
     }
 
+    // ---- §5i TIDE-EDGE (EMBERTIDE's World-Enders graze, def-gated) — skim the CREST
+    // EDGE: the tide crests the whole frame, and riding the graze annulus of its
+    // falling bullets banks Surge (the §5d "skim the crest edge" anatomy). Reuses the
+    // slot-6 continuous-graze detector + the beamHeld/beamTick/beamGrace ramp verbatim
+    // (one grazeForm per boss); shipped bosses without grazeForm==='tideEdge' are inert. ----
+    if (def.grazeForm === 'tideEdge') {
+      if (beamContact(player, 7)) {
+        beamGrace = 0.3;                                   // bridge the gaps between crest bullets
+        beamHeld += dt;
+        beamTick -= dt;
+        if (beamTick <= 0) {
+          bulletGraze(player);                             // the payout rides the normal graze economy
+          emit('tideGraze', { held: beamHeld });
+          beamTick = Math.max(0.18, 0.5 - beamHeld * 0.07);   // longer skim → faster ticks (the ramp)
+        }
+      } else if (beamGrace > 0) {
+        beamGrace -= dt;                                   // grace: crest edge briefly lost, ramp holds
+      } else {
+        beamHeld = 0; beamTick = 0;                        // skim broken → the ramp resets
+      }
+    }
+
     // ---- §5i.B SHADOW-RIDE (BRINEHOLM's Calamities graze, def-gated) — ride the
     // leviathan's LEE (the shadow under its bulk) to bank Surge; the risk is the
     // geysers that erupt there. Same tick economy as beamEdge (one grazeForm/boss). ----
