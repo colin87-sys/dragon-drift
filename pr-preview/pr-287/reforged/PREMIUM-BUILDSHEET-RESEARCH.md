@@ -187,6 +187,18 @@ The law-12 premium fx the sheets will add — glow-seams, wing-veins, halos, idl
 
 **Open (needs the human + a phone):** wiring the REAL dragon+boss geometry into `tools/stress.html` for on-device fps (the L124 instrument is synthetic today). The headless census answers "how many tris/draws/overdraw"; only a real device answers "does it hold 60fps."
 
+### 6c. On-device reality check — the FULL combat frame (not just two static meshes)
+The §6b census + the synthetic `stress.html` cover dragon+boss **geometry** + the post-FX fill. The live combat frame adds more, all measured from code: boss **bullets** (cap 320, but ONE InstancedMesh = **+1 draw**, additive → overdraw), **particles/sparks** (`VISIBLE_CAP 150` additive sprites = up to +150 draws + fill, quality-scaled), wisp ribbons (+6 additive), lance hoops/shockwaves (+8/+8), and the **biome environment** (instanced terrain bands + 1 sky sphere — draw-frugal, mostly opaque). On `bossStart` the game clears the field (rings/embers/hazards) for a cleaner arena.
+
+Owner ran the in-game `?debug=perf` overlay through actual Karnvow fights (full frame: biome + bullets + spell-card spectacle + dragon + boss + post-FX):
+- **Steady-state ≈ 60fps** (matches the synthetic result — real average headroom is genuine).
+- **Split-second dips to ~39–46fps** at the densest spell-card / bullet moments (hand-picked worst frames off a screen recording, which itself costs ~10–20% fps — so the true dips are shallower). `calls 379–440`, `tris 23–44k` (**the biome is ~half the triangles** — the isolated creature peak was only ~21k).
+- **Fill/overdraw-bound, confirming L124:** the tier-2 frame gave the *lowest* fps despite *fewer* triangles than a 44k tier-1 frame — screen-space fill (post-FX + additive bullets/spectacle/glows) is the bottleneck, not triangle count. The adaptive quality system already drops tier to protect the average.
+
+**Load-bearing implication for the sheets:** the combat frame's *average* is fine, but its **p95 dips are fill-bound and already the axis the premium law-12 fx spend** (glow-seams, veined membranes, halos, idle auras are all additive overdraw). So premium richness must **protect the p95 dip, not just fit the average**: prefer **opaque body + surface-shader emissive** (glow in the fragment) over stacked additive shells; keep halos/auras/sparkle few and cheap (Pearl already tops the roster at 56 transparent drawables); budget against the **tier-1 degraded frame**, since that's where a mid-fight phone lives. This *reframes* §4c: the premium inversion lifts the *aesthetic* ceiling, but the *overdraw* ceiling is real and now evidence-backed.
+
+**Instrument added (this PR):** `js/main.js`'s `?debug=perf` overlay now tracks, per run, the **worst frame** (`min <fps> @<draws>c/<tris>k`) and **p95 frame time** — so a dip is a measured number ("the worst frame of that Karnvow run was 41fps @ 430 draws"), not a guess off a paused recording. Gated behind the flag; the game is byte-identical with it off. This is the gauge to re-read after each premium fx addition — if a new halo costs the worst-case frame, it shows here before it ships.
+
 ---
 
 ## 7. Charter-vs-code conflicts flagged (§9 conflict rule)
