@@ -21,7 +21,7 @@ function sovereignMats(def, glow) {
   const gold = new THREE.MeshStandardMaterial({ color: def.scales ?? GOLD, flatShading: true, roughness: 0.3, metalness: 0.78, emissive: def.scales ?? GOLD, emissiveIntensity: 0.05 });
   const goldHi = new THREE.MeshStandardMaterial({ color: def.horn ?? GOLD_HI, flatShading: true, roughness: 0.26, metalness: 0.82 });
   const vCol = def.apexSeam ?? VIOLET;              // diffuse accent (light blue-violet)
-  const vEmis = 0x7a34f0;                            // SATURATED emissive violet — stays violet when bright
+  const vEmis = 0x5a2ce0;                            // cooler blue-violet emissive — survives bloom without drifting magenta
   // (bright + light emissive clips to white under ACES; a saturated hue holds the arcane read)
   const violet = new THREE.MeshStandardMaterial({ color: vCol, emissive: vEmis, emissiveIntensity: 1.5 * g, flatShading: true, roughness: 0.4 });
   violet.userData.baseEmissive = vEmis; violet.userData.baseIntensity = 1.5 * g;
@@ -31,9 +31,9 @@ function sovereignMats(def, glow) {
   const memTiers = [mem(0x45120e), mem(0x5a160e), mem(0x7a1622), mem(0x9c2233)];   // root→outer
   const membrane = memTiers[2];
   // BRIGHT starlight-vein emissive — must read violet at capture distance.
-  const veinMat = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x8a44ff, emissiveIntensity: 2.6 * g, flatShading: true, roughness: 0.35 });
+  const veinMat = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x6a34ea, emissiveIntensity: 2.6 * g, flatShading: true, roughness: 0.35 });
   veinMat.userData.baseEmissive = 0x8a44ff; veinMat.userData.baseIntensity = 2.6 * g;
-  const gem = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x8a44ff, emissiveIntensity: 1.5 * g, flatShading: true, roughness: 0.18 });
+  const gem = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x6a34ea, emissiveIntensity: 1.5 * g, flatShading: true, roughness: 0.18 });
   gem.userData.baseEmissive = 0x8a44ff; gem.userData.baseIntensity = 1.5 * g;
   return { bodyFlat, gold, goldHi, violet, membrane, memTiers, veinMat, gem };
 }
