@@ -312,8 +312,8 @@ export function buildUnmasked(def, quality = 1) {
       const t = (i + 0.5) / nCov;
       const px = Bx * (0.2 + t * 0.75), py = By * (0.2 + t * 0.75);
       const rot = aA * (1 - t) + hA * t - 0.08;                     // turns from the arm dir toward the hand
-      const len = (1.4 + t * 1.0) * lenScale;
-      addFeather(cov, len, 0.95, rot, px, py, 0.42);
+      const len = (1.9 + t * 1.4) * lenScale;
+      addFeather(cov, len, 1.1, rot, px, py, 0.42);
     }
     const nPrim = lowQ ? 6 : 8;
     for (let i = 0; i < nPrim; i++) {
@@ -322,16 +322,16 @@ export function buildUnmasked(def, quality = 1) {
       const fan = (t - 0.5) * 0.5;
       const rot = hA + fan - 0.1;
       const swell = 0.55 + Math.sin((0.14 + t * 0.8) * Math.PI) * 0.72;   // swell then taper to the tip
-      const len = 3.6 * lenScale * swell * (0.94 + rnd() * 0.12);
-      addFeather(prim, len, 1.5, rot, px, py, -0.55 + i * 0.05);
+      const len = 4.8 * lenScale * swell * (0.94 + rnd() * 0.12);         // longer primaries → taller, dominant wings
+      addFeather(prim, len, 1.75, rot, px, py, -0.55 + i * 0.05);
     }
     const nSec = lowQ ? 4 : 6;
     for (let i = 0; i < nSec; i++) {
       const t = (i + 0.5) / nSec;
       const px = Bx + hdx * t * handLen * 0.62, py = By + hdy * t * handLen * 0.72;
       const rot = hA + (t - 0.5) * 0.5 - 0.04;
-      const len = 2.4 * lenScale * (0.6 + Math.sin((0.2 + t * 0.75) * Math.PI) * 0.62);
-      addFeather(sec, len, 1.15, rot, px, py, -0.05 + i * 0.05);
+      const len = 3.1 * lenScale * (0.6 + Math.sin((0.2 + t * 0.75) * Math.PI) * 0.62);
+      addFeather(sec, len, 1.4, rot, px, py, -0.05 + i * 0.05);
     }
     return { Bx, By, hdx, hdy, handLen };   // for eye placement on the hand
   };
@@ -393,15 +393,15 @@ export function buildUnmasked(def, quality = 1) {
   // to the side then bending up (the big outstretched wing). All feathers ultimately RISE, so
   // the silhouette is a bilateral upward crest; the bent arms give the eye room + let the
   // wings LAYER behind each other. Roots seated ABOVE the great eye; z + tiltX give depth. ──
-  const WING_ROOT_Y = 0.9;
+  const WING_ROOT_Y = 1.5;    // roots at the great-eye crown → wings + eyes rise ABOVE it (not a skirt)
   // SHORT arm reach (just enough offset to give the eye room — a horizontal arm read as a
   // spider leg), then the hand sweeps UP-AND-OUT at a DIAGONAL (28°/46°/56° from vertical =
   // a fan, not vertical headdress spikes). The wing RISES far more than it reaches; every
   // feather tip clears the great-eye midline.
   const WINGS = [
-    { key: 'inner', armDeg: 32, armLen: 1.1, handDeg: 28, handLen: 5.3, lenScale: 1.00, z: -1.7, tiltX: 0.22 },   // the crest peak (diagonal, opens a broad valley)
-    { key: 'mid',   armDeg: 56, armLen: 1.6, handDeg: 46, handLen: 4.9, lenScale: 1.00, z: -1.1, tiltX: 0.02 },   // the diagonal fan
-    { key: 'outer', armDeg: 76, armLen: 2.3, handDeg: 56, handLen: 4.3, lenScale: 0.90, z: -0.5, tiltX: -0.22 },  // the widest wing (up-out, still well above horizontal)
+    { key: 'inner', armDeg: 32, armLen: 1.1, handDeg: 28, handLen: 7.4, lenScale: 1.00, z: -1.7, tiltX: 0.22 },   // the crest peak — grown TALLER so the wings dominate the upper half
+    { key: 'mid',   armDeg: 56, armLen: 1.6, handDeg: 46, handLen: 6.8, lenScale: 1.00, z: -1.1, tiltX: 0.02 },   // the diagonal fan
+    { key: 'outer', armDeg: 76, armLen: 2.3, handDeg: 56, handLen: 6.0, lenScale: 0.92, z: -0.5, tiltX: -0.22 },  // the widest wing (up-out, still well above horizontal)
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (the figure-8 / double-pupil blobs
@@ -455,10 +455,11 @@ export function buildUnmasked(def, quality = 1) {
       // so any overlap reads as stacked eyes, never a fused blob. local→world, face camera.
       const eyeSizes = [0.56, 0.44, 0.34];
       for (let e = 0; e < 3; e++) {
-        const t = 0.15 + e * 0.3;
+        const t = 0.22 + e * 0.3;
         const lx = hand.Bx + hand.hdx * t * hand.handLen * 0.8 + (rnd() - 0.5) * 1.1;
         const ly = hand.By + hand.hdy * t * hand.handLen * 0.8 + (rnd() - 0.5) * 0.6;
         const eworld = new THREE.Vector3(lx, ly, 0.5).applyMatrix4(shoulder.matrix);
+        eworld.y = Math.max(eworld.y, 1.55);   // crown the great eye (its top ≈ 1.4) — never puddle beside/below it
         eworld.z = Math.max(eworld.z, 0.4) + (side < 0 ? 0.45 : 0) + e * 0.28 + wi * 0.2;   // z-stagger → overlaps read as stacked, not fused
         const esize = eyeSizes[e] * (0.9 + rnd() * 0.2);
         declump(eworld, esize * 1.25);   // hard nudge so no two scleras overlap in the same z-band
@@ -517,9 +518,11 @@ export function buildUnmasked(def, quality = 1) {
     color: 0xd8b46a, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide,
   }));
   haloS2Mat.toneMapped = false;
-  const HALO_R = 5.2;
-  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.92, HALO_R, lowQ ? 44 : 80), haloS2Mat);
-  haloS2.position.set(0, 4.6, -2.4);   // rides high behind the crest → a clean top arc clears the notch even front-on
+  const HALO_R = 5.9;
+  // A FAT soft gold band (not a hairline ring — a hairline flirts with 'wheel rim'; a fat
+  // glowing band says 'holy'), riding high behind the taller crest so its top arc is clean.
+  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.82, HALO_R, lowQ ? 44 : 80), haloS2Mat);
+  haloS2.position.set(0, 5.4, -2.6);
   haloS2.name = 'halo';
   stage2.add(haloS2);
 
