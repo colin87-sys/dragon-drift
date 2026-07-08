@@ -152,47 +152,48 @@ export function buildEmbertide(def, quality = 1) {
   // so its CROWN and SIDES dissolve into the field (no discrete mask perimeter). Its
   // vertex colour is the multiply factor: dark in the core → 1.0 (no effect) at the
   // rim. Taller than wide (a head), the jaw tapering narrower.
+  //
+  // ⚠ THE OWNER-AGREED GEOMETRY + VALUES, BYTE-FOR-BYTE (the CP1/dome-merge build the
+  // owner checkpointed as "his face" — verified by rendering that commit in-harness):
+  // the FULL quad including its broad outer wash is part of the agreed softness. Every
+  // attempt to re-bound/re-curve it (ellipse collapse, tighter feather, gamma) read as
+  // "his face changed". The ENTRANCE-pane problem (the quad glaring in open sky while
+  // the face is submerged mid-rise) is solved by the SHADOW-CONDENSE fade instead: the
+  // entrance lerps these vertex colours from 1.0 (no effect) to the agreed values as
+  // the face rises (see _shadeFade in tickBody) — the darkness CONDENSES out of the
+  // light, and the arrival face is the agreed rendering exactly.
   const BASE_W = 34, BASE_H = 46;
+  const CY = -1.5;                       // centre slightly low (the face rises from below)
   const baseGeo = new THREE.PlaneGeometry(BASE_W, BASE_H, lowQ ? 28 : 44, lowQ ? 36 : 56);
   {
     const pos = baseGeo.attributes.position;
     const col = new Float32Array(pos.count * 3);
-    const CY = -1.5;                       // centre slightly low (the face rises from below)
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i);
       // Head-shaped elliptical distance, jaw narrower below centre.
       const below = y < CY ? (CY - y) / 15 : 0;
       const rx = 11 * (1 - 0.35 * Math.min(1, below));
-      // Full ORIGINAL shadow depth (the owner-approved r1/CP1 face presence): the
-      // pane artifact is solved GEOMETRICALLY by the ellipse collapse below, so the
-      // multiply values keep their deep, luxurious falloff — the only constraint is
-      // the feather reaching EXACTLY 1.0 at the collapsed rim (d=1.0), else the
-      // ellipse boundary itself would show as a soft edge against the HDR sky.
       const ry = 16;
       const d = Math.sqrt((x / rx) ** 2 + ((y - CY) / ry) ** 2);
-      // The feather must reach EXACTLY 1.0 at the collapsed rim (d=1.0, the pane
-      // constraint), but ending the CP1 ramp (0.42→1.12) early would thin the face's
-      // looming mid-mass — the ^1.6 gamma restores CP1's shadow depth through the
-      // mid-feather while still landing on 1.0 at the rim (gamma keeps f(1)=1).
-      const f = Math.pow(THREE.MathUtils.smoothstep(d, 0.42, 1.0), 1.6);   // 0 core → 1 rim
-      // COLLAPSE the quad outside the feather: verts beyond d=1 are projected ONTO
-      // the ellipse, so the mesh has NO rectangular extent at all. Even a sub-% GPU
-      // blend residual (measured: a MultiplyBlending quad dims HDR sky slightly at
-      // src=1.0 — the CP2-A pane hunt) then traces a soft head-shaped aura, never a
-      // hard-edged floating pane in the open sky.
-      if (d > 1) { const k = 1 / d; pos.setX(i, x * k); pos.setY(i, CY + (y - CY) * k); }
+      const f = THREE.MathUtils.smoothstep(d, 0.42, 1.12);   // 0 core → 1 rim
       const m = 0.16 + (1 - 0.16) * f;                        // 0.16 core (dark) → 1.0 rim (no effect)
-      // Faintly warm shadow (a touch more red kept in the CORE) so the occluded light
-      // reads as warm dusk, never a cool/magenta veil. The tint DECAYS WITH the
-      // feather: at the rim every channel is EXACTLY 1.0, or the plane tints its
-      // whole rectangle a few % and the quad boundary reads as a floating pane
-      // (the CP2-A entrance made this glaring — the boundary straddles the open sky).
-      col[i * 3] = m;
-      col[i * 3 + 1] = m * (1 - 0.015 * (1 - f));
-      col[i * 3 + 2] = m * (1 - 0.035 * (1 - f));
+      // Faintly warm shadow (a touch more red kept in the core) so the occluded light
+      // reads as warm dusk, never a cool/magenta veil.
+      col[i * 3] = m; col[i * 3 + 1] = m * 0.985; col[i * 3 + 2] = m * 0.965;
     }
     baseGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   }
+  // SHADOW-CONDENSE registry: every multiply shadow geometry whose colours fade from
+  // 1.0 (no effect) to the agreed values as the face rises through the entrance. The
+  // agreed array is cached; outside the entrance nothing is ever rewritten.
+  const shadeGeos = [];
+  const shadeMeshes = [];   // the shadow MESHES are visible-gated on the condense: a
+                            // MultiplyBlending quad leaves a faint pane against HDR sky
+                            // even at factor-1.0 colours (measured — the residual defies
+                            // the blend equation; likely a downstream postfx interaction),
+                            // so until the condense begins they are simply NOT RENDERED.
+  const registerShade = (g) => { g.userData.agreedCol = g.attributes.color.array.slice(); shadeGeos.push(g); return g; };
+  registerShade(baseGeo);
   const baseMat = track(new THREE.MeshBasicMaterial({
     vertexColors: true, fog: false, blending: THREE.MultiplyBlending, transparent: true, depthWrite: false,
   }));
@@ -201,6 +202,7 @@ export function buildEmbertide(def, quality = 1) {
   faceBase.position.z = 0.2;
   faceBase.renderOrder = 0;
   faceRig.add(faceBase);
+  shadeMeshes.push(faceBase);
 
   // The MASS features — brow / nose / chin as DARKER multiply occlusion (shadow-shapes
   // in the glow, the hard read), each on a NAMED pivot that surges forward on the charge
@@ -214,28 +216,25 @@ export function buildEmbertide(def, quality = 1) {
     const g = new THREE.PlaneGeometry(w, h, lowQ ? 9 : 15, lowQ ? 9 : 15);
     const p = g.attributes.position;
     const c = new Float32Array(p.count * 3);
+    // BYTE-FOR-BYTE the owner-agreed mass values (the CP1/dome-merge face): no
+    // collapse, no tint-decay — collapsing these small planes reshaped the relief
+    // into visible banded structure ("a visor") that read as "his face changed".
+    // The masses sit INSIDE the base shadow, never against open sky, so the pane
+    // law doesn't bind them; only the base plane carries the collapse.
     for (let i = 0; i < p.count; i++) {
       const nx = p.getX(i) / (w / 2), ny = p.getY(i) / (h / 2) / ry;
       const d = Math.sqrt(nx * nx + ny * ny);
       const f = THREE.MathUtils.smoothstep(d, 0.15, 1.0);
       const m = dark + (1 - dark) * f;
-      // Warm tint decays WITH the feather (rim = exactly 1.0 in every channel —
-      // see the base-shadow note: a constant rim tint pane-outlines the quad).
-      c[i * 3] = m;
-      c[i * 3 + 1] = m * (1 - 0.015 * (1 - f));
-      c[i * 3 + 2] = m * (1 - 0.04 * (1 - f));
-      // Collapse the quad outside the feather ellipse (see the base-shadow note) —
-      // this also fixes the ry>1 masses (temples) whose top/bottom EDGES never
-      // reached no-effect (a real hard-edge bug at the quad boundary).
-      if (d > 1) { const k = 1 / d; p.setX(i, p.getX(i) * k); p.setY(i, p.getY(i) * k); }
+      c[i * 3] = m; c[i * 3 + 1] = m * 0.985; c[i * 3 + 2] = m * 0.96;
     }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
-    return g;
+    return registerShade(g);   // condenses in with the base during the entrance
   }
   function massPivot(name, x, y, z, geo) {
     const pv = new THREE.Object3D(); pv.name = name; pv.position.set(x, y, z);
     const m = new THREE.Mesh(geo, massMat); m.renderOrder = 1;
-    pv.add(m); faceRig.add(pv); return pv;
+    pv.add(m); faceRig.add(pv); shadeMeshes.push(m); return pv;
   }
   const browPivot = massPivot('browMass', 0, 5.2, 0.5, darkMass(19, 5.0, 0.10, 0.8));   // heavy brow bar (wide, low arc)
   const nosePivot = massPivot('noseMass', 0, -1.0, 0.7, darkMass(4.6, 11, 0.06, 1.0));   // central nose ridge (tall, narrow — the deepest)
@@ -258,6 +257,7 @@ export function buildEmbertide(def, quality = 1) {
     const m = new THREE.Mesh(darkMass(w, h, dk, ry), massMat);
     m.position.set(x, y, z); m.renderOrder = 1;
     faceRig.add(m);
+    shadeMeshes.push(m);
   }
 
   // THE TEARS — the two EYE-HOLLOWS + the MOUTH: pure black, OPAQUE (holes torn in the
@@ -390,7 +390,7 @@ export function buildEmbertide(def, quality = 1) {
   // then settle on the dragon (the notice pulse fires on the tear edge). Defaults to 1
   // (fully arrived) so the STUDIO / bossgate frames are untouched; boss.js stages 0 at
   // spawn for skyReplace defs and the entrance script drives the clock.
-  let entranceU = 1, _entPrev = 1;
+  let entranceU = 1, _entPrev = 1, _lastShade = 1, _shadeVis = true;
   function setEntrance(u) {
     _entPrev = entranceU;
     // null = RELEASE (enterFight's convention, boss.js `model.setEntrance(null)`):
@@ -471,6 +471,26 @@ export function buildEmbertide(def, quality = 1) {
     const entTearL = sstep(entranceU, 0.56, 0.64);
     const entTearR = sstep(entranceU, 0.68, 0.76);
     const entMouth = sstep(entranceU, 0.82, 0.96);           // the mouth tears LAST, as the fight opens
+
+    // SHADOW-CONDENSE: the multiply shadows fade from no-effect to the AGREED values
+    // AFTER the rise completes (rise ends 0.78) — mid-rise the quad paints nothing
+    // (no pane in the open sky); the eye-hollows tear open first as pure black rips
+    // in the light (0.56–0.76), THEN the darkness gathers around them (0.78→0.95) as
+    // the face settles. Arrival = the agreed full-quad wash (the owner's face).
+    // Colour writes happen ONLY while the fade is actually moving (entrance-only).
+    const shadeK = sstep(entranceU, 0.78, 0.95);
+    if (Math.abs(shadeK - _lastShade) > 0.012 || (shadeK === 1 && _lastShade !== 1)) {
+      _lastShade = shadeK;
+      for (const g of shadeGeos) {
+        const dst = g.attributes.color.array, src = g.userData.agreedCol;
+        for (let i = 0; i < dst.length; i++) dst[i] = 1 + (src[i] - 1) * shadeK;
+        g.attributes.color.needsUpdate = true;
+      }
+    }
+    // Until the condense begins the shadow meshes are NOT RENDERED at all — even a
+    // factor-1.0 multiply quad leaves a measurable pane against the HDR sky.
+    const shadeOn = shadeK > 0.001;
+    if (shadeOn !== _shadeVis) { _shadeVis = shadeOn; for (const ms of shadeMeshes) ms.visible = shadeOn; }
 
     // THE LOOM — slow-eased growth toward the phase target (an approach, not a pop).
     loomK += (loomTgt - loomK) * Math.min(1, dt * 0.8);
