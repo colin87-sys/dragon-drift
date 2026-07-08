@@ -237,12 +237,14 @@ export function buildUnmasked(def, quality = 1) {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // STAGE 2 — THE OPHANIM (the hero stage). Built as a sibling sub-rig, hidden by
-  // default; the CP2 stage system dissolve-swaps to it. FOUNDATION (this pass): the
-  // three gimbal-tilted wheels + the dark veiled centre. The ~20 eyes, six wings, and
-  // relics land next. Sheet (Fable-signed-off): wheels-within-wheels COVERED IN EYES —
-  // NOT Stormrend (the wheels are gimbal-tilted on NON-coplanar axes ≥25-30° apart AND
-  // off the view plane, thick carved tori not flat vanes, and the CENTRE HOLDS NO EYE).
+  // STAGE 2 — THE SERAPH (the hero stage). SIX dark feathered wings in a VERTICAL
+  // BILATERAL FAN (a pointed mandorla), COVERED IN EYES, roots converging on ONE great
+  // central eye. NOT the retired Ophanim wheels (no rings/spokes/rotation): feathers,
+  // bilateral pairs, breathing not spinning. Built as a sibling sub-rig, hidden by
+  // default; the CP2 stage system dissolve-swaps to it. Anti-reads: NOT gear/chandelier
+  // (no closed ring but the faint gold HALO behind), NOT bird (open top+bottom notch, no
+  // beak/tail), NOT Ashtalon×3 (NO ember — gold only; feathers not scythes; 6 still wings
+  // vs 2 hunting). The eyes are the ONLY emissive family; feathers paint VALUE, not light.
   // ══════════════════════════════════════════════════════════════════════════
   const stage2 = new THREE.Group();
   stage2.name = 'stage2Rig';
@@ -254,68 +256,52 @@ export function buildUnmasked(def, quality = 1) {
     if (!g) throw new Error(`buildUnmasked: ${label} mergeGeometries returned null (attribute mismatch)`);
     return g;
   };
-  // A3 DARKEN: all non-eye material is near-black now (the eyes are the ONLY emissive
-  // family). These rails are transitional scaffolding for the eye-fix render; the six-wing
-  // fan replaces them next. Value, not light — matte and low.
-  const railMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0b0a06, emissive: accent, emissiveIntensity: 0.03, roughness: 1.0, metalness: 0.0, flatShading: true,
-  }));
 
-  // Three NON-COPLANAR gimbal tilts (Euler) — authored so no two wheel planes (nor any
-  // vs the view axis +Z) sit within ~25-30° (the anti-Stormrend numeric assert, tests).
-  const WHEEL_TILTS = [
-    { rx: 0.55, ry: 0.32, rz: 0.0 },
-    { rx: -0.42, ry: -0.66, rz: 0.30 },
-    { rx: 0.30, ry: 0.70, rz: -0.20 },
-  ];
-  const WHEEL_R = [2.7, 3.7, 4.7];
-  const wheels = [];
-  for (let w = 0; w < 3; w++) {
-    const gimbal = new THREE.Object3D();
-    gimbal.rotation.set(WHEEL_TILTS[w].rx, WHEEL_TILTS[w].ry, WHEEL_TILTS[w].rz);
-    gimbal.name = `wheelGimbal${w}`;
-    const spin = new THREE.Object3D();     // the wheel COUNTER-ROTATES here (its own pivot, not the group)
-    gimbal.add(spin);
-    const rr = WHEEL_R[w];
-    const parts = [];
-    // Thick carved RAIL (a torus) + an inner relief torus (carved, not a flat vane).
-    parts.push(stripForMerge(new THREE.TorusGeometry(rr, 0.26 + w * 0.02, 8, lowQ ? 28 : 46)));
-    parts.push(stripForMerge(new THREE.TorusGeometry(rr, 0.13, 6, lowQ ? 20 : 34)));   // relief ridge on the rail
-    // Hub ring + spokes (rigid with the rail — they rotate together).
-    parts.push(stripForMerge(new THREE.TorusGeometry(rr * 0.3, 0.16, 6, lowQ ? 16 : 26)));
-    const spokeN = lowQ ? 6 : 8;
-    for (let s = 0; s < spokeN; s++) {
-      const a = (s / spokeN) * TAU;
-      let box = new THREE.BoxGeometry(0.18, rr * 0.7, 0.18);
-      box.translate(0, rr * 0.65, 0);
-      box.rotateZ(a);
-      parts.push(stripForMerge(box));
+  // ── FEATHER MATERIALS — near-black, matte; ±value steps by TIER (depth via value, not
+  // light — the sun is ahead so front faces get no directional shading). A3 darken. ──
+  const primFeatherMat = track(new THREE.MeshStandardMaterial({ color: 0x060606, roughness: 1.0, metalness: 0.0, flatShading: true }));
+  const secFeatherMat = track(new THREE.MeshStandardMaterial({ color: 0x0b0a08, roughness: 1.0, metalness: 0.0, flatShading: true }));
+  const covFeatherMat = track(new THREE.MeshStandardMaterial({ color: 0x120f0a, roughness: 1.0, metalness: 0.0, flatShading: true }));
+  const wingRootMat = track(new THREE.MeshStandardMaterial({ color: 0x0c0a06, roughness: 1.0, metalness: 0.0, flatShading: true }));
+
+  // ── FEATHER KERNEL — the Ashtalon blade-extrude TECHNIQUE only, softened from a scythe
+  // hook toward a straighter S taper (a quill, not a sickle). Blade + a raised central rib
+  // (the rachis) merged on one material. ──
+  // No bevel: the feathers are near-black + front-lit (the sun is ahead) so a bevel would
+  // add tris for zero visible shading. The raised rib (rachis) carries the relief instead.
+  const bladeExtrude = { depth: 0.09, bevelEnabled: false, steps: 1, curveSegments: lowQ ? 3 : 4 };
+  const featherShape = (len, w) => {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0);
+    s.quadraticCurveTo(w * 0.64, len * 0.42, w * 0.34, len * 0.80);   // leading edge with a broad belly (a plume, not a needle)
+    s.quadraticCurveTo(w * 0.16, len * 0.95, 0, len);                // softened barb tip (not a sharp spike)
+    s.quadraticCurveTo(-w * 0.52, len * 0.60, -w * 0.46, len * 0.18); // trailing edge, broad
+    s.lineTo(0, 0);
+    return s;
+  };
+  const addFeather = (parts, len, w, rot, px, py, pz) => {
+    const blade = stripForMerge(new THREE.ExtrudeGeometry(featherShape(len, w), bladeExtrude));
+    const rib = stripForMerge(new THREE.BoxGeometry(Math.max(0.05, w * 0.13), len * 0.6, 0.09));
+    rib.translate(0, len * 0.34, 0.055);
+    const m = new THREE.Matrix4().makeRotationZ(rot);
+    m.setPosition(px, py, pz);
+    blade.applyMatrix4(m); rib.applyMatrix4(m);
+    parts.push(blade, rib);
+  };
+  // A TIER = a fan of feathers off the shoulder along +Y; lengths swell toward the outer
+  // half; a half-pitch phase offsets secondaries into the primaries' gaps (≥4 visible gaps).
+  const addWingTier = (parts, n, baseLen, w0, spread, z, lenScale, phaseFrac) => {
+    const pitch = spread / n, off = (phaseFrac || 0) * pitch;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      const ang = (t - 0.5) * spread + off;
+      const swell = 0.62 + Math.sin((0.12 + t * 0.82) * Math.PI) * 0.55;   // peak just past the middle
+      const len = baseLen * lenScale * swell * (0.94 + rnd() * 0.12);
+      const w = w0 * (0.85 + t * 0.32);
+      const rootR = 0.5 + t * 0.55;
+      addFeather(parts, len, w, ang, Math.sin(ang) * rootR, Math.cos(ang) * rootR, z);
     }
-    const wheelMesh = new THREE.Mesh(mergeParts(parts, `wheel${w}`), railMat);
-    wheelMesh.name = `wheel${w}`;
-    spin.add(wheelMesh);
-    stage2.add(gimbal);
-    wheels.push({ gimbal, spin, dir: w % 2 === 0 ? 1 : -1, speed: 0.16 - w * 0.03 });
-  }
-
-  // THE DARK VEILED CENTRE — no eye (the anti-Stormrend inversion); the stage-3 core's
-  // hiding place. A darkness-in-brightness focal: an inner CORONA-quote rims it (reuse
-  // slot-14's reserved corona glow-shape — the stage-1 rhyme), so the dark centre reads
-  // as darkness WITHIN a bright ring.
-  const centerMat = track(new THREE.MeshBasicMaterial({ color: 0x050403 }));
-  centerMat.toneMapped = false;
-  const veiledCenter = new THREE.Mesh(new THREE.SphereGeometry(1.25, lowQ ? 14 : 20, 12), centerMat);
-  veiledCenter.name = 'veiledCenter';
-  stage2.add(veiledCenter);
-  const innerCoronaMat = track(new THREE.MeshBasicMaterial({
-    color: glow, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-  }));
-  innerCoronaMat.toneMapped = false;
-  const innerCoronaGeo = new THREE.RingGeometry(1.28, 1.7, lowQ ? 28 : 44);
-  const innerCorona = new THREE.Mesh(innerCoronaGeo, innerCoronaMat);
-  innerCorona.name = 'innerCorona';
-  innerCorona.position.z = -0.1;
-  stage2.add(innerCorona);
+  };
 
   // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
   // THE L142 REAL-EYE RECIPE (the bulb killer): CONTRAST, not brightness. Every prior
@@ -364,27 +350,90 @@ export function buildUnmasked(def, quality = 1) {
     stage2.add(pupil);
     pupils.push(pupil);
   };
-  // Distribution: outer rim densest, mid + inner rims, a few inboard. Uneven angular
-  // spacing (jittered ≥10° off even) + 3 size tiers (§3b anti-machine). Eyes face the
-  // camera (built in the XY plane, translated — not rotated into the wheel tilt).
-  const eyePlan = [
-    { w: 2, n: lowQ ? 6 : 9, rMul: 1.0, protrude: true,  sizes: [0.5, 0.62, 0.42] },
-    { w: 1, n: lowQ ? 4 : 6, rMul: 1.0, protrude: true,  sizes: [0.44, 0.56] },
-    { w: 0, n: lowQ ? 3 : 5, rMul: 1.0, protrude: false, sizes: [0.4, 0.5] },
-    { w: 1, n: lowQ ? 2 : 3, rMul: 0.62, protrude: false, sizes: [0.34] },
+  // ── THE SIX WINGS — 3 mirrored pairs on shoulder pivots converging at the heart. Angle
+  // measured from +Y (up), rotating the wing outward; uneven pair gaps (68°/55°) = anti-
+  // gear. Open notch at TOP (upper pair) + BOTTOM (lower pair) → a mandorla, never a wreath
+  // or a bird. Length hierarchy: middle longest, upper 0.8×, lower 0.62×. ──
+  const PAIRS = [
+    { key: 'upper',  deg: 24,  lenScale: 0.80, z: -0.45 },   // gaps 72°/50° — both ≠60°, differ ≥10° (anti-gear)
+    { key: 'middle', deg: 96,  lenScale: 1.00, z: 0.0 },     // per-pair z offset gives depth parallax (no rotation.y — keeps handedness clean)
+    { key: 'lower',  deg: 146, lenScale: 0.62, z: 0.35 },
   ];
-  for (const grp of eyePlan) {
-    const tilt = WHEEL_TILTS[grp.w];
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt.rx, tilt.ry, tilt.rz));
-    for (let i = 0; i < grp.n; i++) {
-      const a = (i / grp.n) * TAU + (rnd() - 0.5) * 0.5;         // uneven spacing
-      const size = grp.sizes[i % grp.sizes.length] * (0.9 + rnd() * 0.25);
-      const rr = WHEEL_R[grp.w] * grp.rMul + (grp.protrude ? WHEEL_R[grp.w] * 0.05 : 0);
-      const local = new THREE.Vector3(Math.cos(a) * rr, Math.sin(a) * rr, 0.05).applyQuaternion(q);
-      local.z = Math.max(local.z, 0.05);   // keep the eye on the camera-facing side
-      eyePlace(local, size);
+  const PRIM_LEN = 5.8;
+  const TIERS = [
+    { name: 'prim', n: lowQ ? 5 : 7, w: 1.5, spread: 0.72, z: -0.55, lenMul: 1.00, phase: 0.0, mat: primFeatherMat },
+    { name: 'sec',  n: lowQ ? 4 : 6, w: 1.2, spread: 0.86, z: -0.05, lenMul: 0.70, phase: 0.5, mat: secFeatherMat },
+    { name: 'cov',  n: lowQ ? 3 : 5, w: 0.95, spread: 1.05, z: 0.40, lenMul: 0.46, phase: 0.5, mat: covFeatherMat },
+  ];
+  const shoulders = [];
+  for (let pi = 0; pi < PAIRS.length; pi++) {
+    const pair = PAIRS[pi];
+    for (const side of [1, -1]) {
+      const shoulder = new THREE.Object3D();
+      // Mirror by NEGATING the angle (the fan is symmetric about its own axis) — NOT by
+      // scale.x=-1, which would flip handedness and collapse the fan. THE ONE SCAR WING
+      // (§3.6): the lower-LEFT hangs ~7° further off its mirror.
+      const scar = (pair.key === 'lower' && side < 0) ? 0.12 : 0;
+      const baseRotZ = side > 0 ? -(pair.deg * Math.PI / 180) : (pair.deg * Math.PI / 180) + scar;
+      shoulder.rotation.z = baseRotZ;
+      shoulder.position.z = pair.z;
+      shoulder.name = `wing_${pair.key}_${side > 0 ? 'R' : 'L'}`;
+      // ROOT PLATE — the solid inner wing (the "arm"), a small dark crescent bridging the gap.
+      const rootGeo = stripForMerge(new THREE.ExtrudeGeometry(featherShape(1.9 * pair.lenScale, 1.1), { ...bladeExtrude, depth: 0.16 }));
+      shoulder.add(new THREE.Mesh(rootGeo, wingRootMat));
+      for (const tier of TIERS) {
+        const parts = [];
+        addWingTier(parts, tier.n, PRIM_LEN * tier.lenMul, tier.w, tier.spread, tier.z, pair.lenScale, tier.phase);
+        const mesh = new THREE.Mesh(mergeParts(parts, `${shoulder.name}_${tier.name}`), tier.mat);
+        mesh.name = `${shoulder.name}_${tier.name}`;
+        shoulder.add(mesh);
+      }
+      stage2.add(shoulder);
+      shoulder.updateMatrix();
+      shoulders.push({ obj: shoulder, baseRotZ, phase: pi * 1.3 + (side < 0 ? 0.7 : 0), amp: 0.045 + pi * 0.012 });
+      // 3 EYES per wing in the covert/root BED, transformed local→world (they face camera).
+      const eyeSizes = [0.5, 0.38, 0.28];
+      for (let e = 0; e < 3; e++) {
+        const ea = (e / 3 - 0.33) * 0.7 + (rnd() - 0.5) * 0.2;
+        const er = 1.4 + e * 0.9 + rnd() * 0.4;
+        const elocal = new THREE.Vector3(Math.sin(ea) * er * 0.55, Math.cos(ea) * er, 0.55);
+        const eworld = elocal.applyMatrix4(shoulder.matrix);
+        eworld.z = Math.max(eworld.z, 0.4);
+        eyePlace(eworld, eyeSizes[e] * (0.9 + rnd() * 0.2));
+      }
     }
   }
+
+  // ── THE ONE GREAT CENTRAL EYE — at the six-root convergence, the survivor (S1 focalEye
+  // continuity in CP2). A big dim almond, ≥4× the largest peripheral eye. Same L142 recipe
+  // (contrast, not brightness) — bigger pupil, prouder catchlight; it is the focal, so it
+  // gets its own named meshes (not merged). ──
+  // Explicit half-dimensions (base sphere r=1 → scale IS the half-extent). A 4.8u almond
+  // (half-width 2.4) ≥ 4× the largest peripheral (half-width ~0.6). Stacked strictly PROUD:
+  // socket (back) → sclera → iris → pupil → catchlight (front-most).
+  const GW = 2.7, GH = 1.55, GD = 0.9;   // sclera half-width / -height / -depth
+  const GF = GD;                          // sclera front-face z (center at 0)
+  const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 16 : 24, lowQ ? 10 : 14), socketMat);
+  greatSocket.scale.set(GW * 1.14, GH * 1.16, 0.5); greatSocket.position.set(0, 0, -0.35);
+  greatSocket.name = 'greatSocket'; stage2.add(greatSocket);
+  const greatScleraMat = track(new THREE.MeshBasicMaterial({ color: 0x4e463a }));   // dim, TONE-MAPPED (never a bulb) — a hair above the peripherals
+  const greatEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 18 : 30, lowQ ? 12 : 18), greatScleraMat);
+  greatEye.scale.set(GW, GH, GD); greatEye.position.set(0, 0, 0);
+  greatEye.name = 'greatEye'; stage2.add(greatEye);
+  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 20 : 32), irisMat);
+  greatIris.scale.set(GW * 0.62, GH * 0.72, 1); greatIris.position.set(0, 0, GF + 0.05);
+  greatIris.name = 'greatIris'; stage2.add(greatIris);
+  const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 16 : 24, lowQ ? 10 : 14), s2pupilMat);
+  greatPupil.scale.set(GW * 0.6, GH * 0.6, 0.45); greatPupil.position.set(0, 0, GF + 0.15);   // 60% of sclera width, PROUD of the front face
+  greatPupil.name = 'greatPupil'; stage2.add(greatPupil);
+  const greatCatch = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), catchMat);
+  greatCatch.position.set(-GW * 0.28, GH * 0.34, GF + 0.5);
+  greatCatch.name = 'greatCatch'; stage2.add(greatCatch);
+
+  // 2 eyes flanking the great eye (→ 18 wing + 2 = 20 total).
+  eyePlace(new THREE.Vector3(-GW - 0.55, -0.4, 0.5), 0.46);
+  eyePlace(new THREE.Vector3(GW + 0.55, -0.4, 0.5), 0.46);
+
   const socketMesh = new THREE.Mesh(mergeParts(sockets, 'eyeSockets'), socketMat);
   socketMesh.name = 'eyeSockets';
   stage2.add(socketMesh);
@@ -397,6 +446,35 @@ export function buildUnmasked(def, quality = 1) {
   const catchMesh = new THREE.Mesh(mergeParts(catchlights, 'eyeCatchlights'), catchMat);
   catchMesh.name = 'eyeCatchlights';
   stage2.add(catchMesh);
+
+  // ── THE HALO — ONE thin gold annulus BEHIND the fan (the sole corona nod), NON-additive,
+  // faint, partially occluded by the middle wings crossing it. NO cogs/spokes/second ring. ──
+  const haloS2Mat = track(new THREE.MeshBasicMaterial({
+    color: 0xc9a45a, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  const HALO_R = 5.2;
+  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.93, HALO_R, lowQ ? 40 : 72), haloS2Mat);
+  haloS2.position.z = -1.4;
+  haloS2.name = 'halo';
+  stage2.add(haloS2);
+
+  // ── RELICS (§8) — short gold wire glints at the wing roots (5 trophies + 1 EMPTY wire =
+  // the post-game gap worn on the body). LineSegments = overdraw-exempt. CP2 wires the
+  // per-relic palette + the destroy→sag behaviour; this seeds the roots. ──
+  const relicPts = [];
+  for (let r = 0; r < 6; r++) {
+    const a = -Math.PI / 2 + (r / 6) * TAU;
+    const rr = 1.4;
+    const cx = Math.cos(a) * rr, cy = Math.sin(a) * rr;
+    relicPts.push(cx, cy, 0.6, cx + Math.cos(a) * 0.5, cy + Math.sin(a) * 0.5, 0.6);
+  }
+  const relicGeo = new THREE.BufferGeometry();
+  relicGeo.setAttribute('position', new THREE.Float32BufferAttribute(relicPts, 3));
+  const relicMat = track(new THREE.LineBasicMaterial({ color: accent, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
+  relicMat.toneMapped = false;
+  const relics = new THREE.LineSegments(relicGeo, relicMat);
+  relics.name = 'relicRoots';
+  stage2.add(relics);
 
   kit.flashBind(lidMat, 0.0);
   kit.finalize();
@@ -489,15 +567,22 @@ export function buildUnmasked(def, quality = 1) {
       o.rotation.y += dt * 1.0;
     }
 
-    // ── STAGE 2 — the wheels COUNTER-ROTATE on their own pivots (never the group),
-    // slow + stately (charge spins them up). Phase offsets keep the tilted planes from
-    // ever drifting into near-coplanar alignment. ──
+    // ── STAGE 2 — the wings BREATHE, never spin (respiration = alive, rotation = machine;
+    // the §3 stillness thesis: nothing translates, ever). A slow mantle oscillation of a few
+    // degrees about each shoulder's base angle, tiers lagging via per-wing phase; charge
+    // deepens the breath. ──
     if (stage2.visible) {
-      for (const wl of wheels) wl.spin.rotation.z += dt * wl.speed * wl.dir * (1 + charge * 1.6);
-      innerCoronaMat.opacity = 0.12 + Math.sin(time * 0.7 * TAU) * 0.05;
-      // Each pupil tracks the player within its own sclera, sitting proud of the front.
-      // Independent per-eye LAG + a small resting BIAS make the field read as living eyes
-      // that look every which way; the shared gazeX/gazeY drags them toward the player.
+      const breath = 1 + charge * 0.8;
+      for (const s of shoulders) {
+        s.obj.rotation.z = s.baseRotZ + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath;
+      }
+      // The great central eye's pupil tracks the player (the focal); constricts on charge.
+      const gk = 1 - charge * 0.3;
+      greatPupil.position.set(gazeX * GW * 0.32, gazeY * GH * 0.28, GF + 0.15);
+      greatPupil.scale.set(GW * 0.6 * gk, GH * 0.6 * gk, 0.45);
+      // Each peripheral pupil tracks the player within its own sclera, sitting proud of the
+      // front. Independent per-eye LAG + a small resting BIAS make the field read as living
+      // eyes that look every which way; the shared gazeX/gazeY drags them toward the player.
       // (CP2 adds the ALL-SNAP: bias→0 + lag→0 for one frame + a catchlight flare.)
       for (const p of pupils) {
         const u = p.userData;

@@ -329,27 +329,33 @@ for (const key of BOSS_ORDER) {
   ok('unmasked telegraph: setCharge(1) slides the hood open to wrath (silhouette change)');
 }
 {
-  // THE UNMASKED (stage 2): the three Ophanim wheels must be gimbal-tilted on NON-
-  // coplanar axes — no two planes (nor any vs the view axis +Z) within 25° — so they
-  // read as an angel of wheels, NOT Stormrend's flat frontal concentric rings.
+  // THE UNMASKED (stage 2): the SERAPH — six feathered wings in a vertical bilateral
+  // mandorla, COVERED IN EYES, converging on ONE great central eye. The retired Ophanim
+  // wheels must be GONE (no wheelGimbal / no closed ring but the faint gold 'halo'); the
+  // pair gaps must be UNEVEN (anti-gear); the great eye must DOMINATE the peripheral eyes.
   const um = buildBoss(BOSSES.unmasked, 1);
-  const gimbals = [0, 1, 2].map((i) => findAllByName(um.group, `wheelGimbal${i}`)[0]);
-  assert(gimbals.every(Boolean), 'unmasked exposes wheelGimbal0/1/2 (stage 2)');
+  assert(findAllByName(um.group, 'wheelGimbal0').length === 0, 'unmasked stage-2 wheels are RETIRED (no wheelGimbal)');
+  const wingNames = ['wing_upper_R', 'wing_upper_L', 'wing_middle_R', 'wing_middle_L', 'wing_lower_R', 'wing_lower_L'];
+  const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
+  assert(wings.every(Boolean), 'unmasked exposes six wing shoulders (3 mirrored pairs)');
+  // UNEVEN pair gaps (anti-gear): adjacent gaps differ from 60° AND from each other by ≥10°.
+  const wdeg = (r) => Math.abs(THREE.MathUtils.radToDeg(r));
+  const rDegs = [wings[0], wings[2], wings[4]].map((w) => wdeg(w.rotation.z)).sort((a, b) => a - b);
+  const g1 = rDegs[1] - rDegs[0], g2 = rDegs[2] - rDegs[1];
+  assert(Math.abs(g1 - 60) >= 10 && Math.abs(g2 - 60) >= 10 && Math.abs(g1 - g2) >= 10,
+    `unmasked pair gaps are uneven/anti-gear (gaps ${g1.toFixed(0)}°/${g2.toFixed(0)}°, both ≠60°, differ ≥10°)`);
+  // THE GREAT CENTRAL EYE dominates (§ ≥~4× the largest peripheral, whose sclera ≈1.9u wide).
+  const great = findAllByName(um.group, 'greatEye')[0];
+  assert(great, 'unmasked exposes the great central eye');
   um.group.updateMatrixWorld(true);
-  const normals = gimbals.map((g) => new THREE.Vector3(0, 0, 1).applyQuaternion(g.getWorldQuaternion(new THREE.Quaternion())).normalize());
-  const viewAxis = new THREE.Vector3(0, 0, 1);
-  const MIN_DEG = 25;
-  const ang = (a, b) => THREE.MathUtils.radToDeg(Math.acos(Math.max(-1, Math.min(1, Math.abs(a.dot(b))))));   // abs → compare PLANES
-  for (let i = 0; i < 3; i++) {
-    const va = ang(normals[i], viewAxis);
-    assert(va >= MIN_DEG, `unmasked wheel ${i} plane is ≥${MIN_DEG}° off the view axis (got ${va.toFixed(1)}°) — not a frontal ring`);
-    for (let j = i + 1; j < 3; j++) {
-      const ab = ang(normals[i], normals[j]);
-      assert(ab >= MIN_DEG, `unmasked wheels ${i}/${j} are ≥${MIN_DEG}° non-coplanar (got ${ab.toFixed(1)}°)`);
-    }
-  }
+  const gbox = new THREE.Box3().setFromObject(great);
+  const gw = gbox.max.x - gbox.min.x;
+  assert(gw >= 4.0, `unmasked great eye dominates (bbox width ${gw.toFixed(1)}u ≥ ~4× the largest peripheral ≈1.2u)`);
+  // THE EYE FIELD (the identity) + the SOLE closed ring is the faint gold halo.
+  assert(findAllByName(um.group, 'eyeScleras')[0] && findAllByName(um.group, 'eyeSockets')[0], 'unmasked stage-2 eye field present (sockets + scleras merged)');
+  assert(findAllByName(um.group, 'halo')[0], 'unmasked stage-2 has the sole gold halo (the only corona nod)');
   um.dispose();
-  ok('unmasked stage-2 wheels: non-coplanar gimbal tilts (≥25° apart + off the view axis) — not Stormrend rings');
+  ok('unmasked stage-2 SERAPH: six eyed wings + a dominant great eye, uneven pair gaps, wheels retired');
 }
 {
   const colossus = buildBoss(BOSSES.craghold, 1);
