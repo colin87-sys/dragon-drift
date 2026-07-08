@@ -164,7 +164,10 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
     riderSocket: { x: 0, y: 0.85, z: -0.3 },
     motifAnchor,
   };
-  return { group, attach, spinePoints, spineMats, mats: { bodyMat: M.bodyFlat }, coreGlow: def.coreGlow ?? null };
+  // coreGlow MUST be a mesh/null — the orchestrator builds the real back-glow sprite (with the
+  // userData.base the flight tick reads) only when this is falsy. Returning def.coreGlow (a color
+  // NUMBER) makes it skip that and then crash on coreGlow.userData.base every frame.
+  return { group, attach, spinePoints, spineMats, mats: { bodyMat: M.bodyFlat }, coreGlow: null };
 }
 registerTorso('regnalKeelTorso', buildRegnalKeelTorso);
 
