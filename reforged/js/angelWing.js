@@ -114,8 +114,8 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
   // degrees to swing the hand+fan about the wrist; primLen/primWidth/primBow/primSpread reshape
   // the primary fan; heroLen = extra length on the peak feather; secLen/secWidth = secondaries;
   // covert = covert-row puffiness.
-  const S = { armLen: 1, armWidth: 1, armBow: 0, elbow: 0.5, handLen: 1, bend: 0, primLen: 1,
-    primWidth: 1, primBow: 1, primSpread: 1, heroLen: 1, secLen: 1, secWidth: 1, covert: 1, ...shape };
+  const S = { armLen: 1, armWidth: 1, armBow: 0, elbow: 0.5, rootWidth: 1, handLen: 1, bend: 0,
+    primLen: 1, primWidth: 1, primBow: 1, primSpread: 1, heroLen: 1, secLen: 1, secWidth: 1, covert: 1, ...shape };
   const group = new THREE.Group();
   // curveSegments scale CONTINUOUSLY with quality (q1 = 18/14, unchanged for the winglab;
   // lower quality — e.g. the six-wing seraph packing 6 wings into one boss budget — steps
@@ -220,12 +220,23 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
   // Under-plumage lens: ivory backing so chinks show ivory, never slate. Its perpendicular
   // spread carries the arm's WIDTH (scaled by `armWidth`).
   const aw = S.armWidth;
+  // `rootWidth` broadens the wing's BASE (where it meets the body) from a pinch-point into a
+  // flat, wide connection — the lens gets a straight bottom edge spanning ±rw instead of a spike.
+  const rw = (S.rootWidth - 1) * 0.6;
   const underShape = (() => {
     const u = new THREE.Shape();
     const lm = boneAt(0.5); const mx = lm.x, my = lm.y;   // lens mid rides the (possibly bowed) arm
-    u.moveTo(S0.x, S0.y);
-    u.quadraticCurveTo(mx - px * 0.25 * aw, my - py * 0.25 * aw, C0.x, C0.y);
-    u.quadraticCurveTo(mx + px * 1.05 * aw, my + py * 1.05 * aw, S0.x, S0.y);
+    if (rw > 1e-4) {
+      const b0x = S0.x - px * rw, b0y = S0.y - py * rw, b1x = S0.x + px * rw, b1y = S0.y + py * rw;
+      u.moveTo(b0x, b0y);
+      u.quadraticCurveTo(mx - px * 0.25 * aw, my - py * 0.25 * aw, C0.x, C0.y);
+      u.quadraticCurveTo(mx + px * 1.05 * aw, my + py * 1.05 * aw, b1x, b1y);
+      u.lineTo(b0x, b0y);
+    } else {
+      u.moveTo(S0.x, S0.y);
+      u.quadraticCurveTo(mx - px * 0.25 * aw, my - py * 0.25 * aw, C0.x, C0.y);
+      u.quadraticCurveTo(mx + px * 1.05 * aw, my + py * 1.05 * aw, S0.x, S0.y);
+    }
     u.closePath();
     return u;
   })();
@@ -239,6 +250,10 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
     // CONVERGED roots: each strip starts ON the (possibly bowed) bone and fans outward so its
     // crook end reaches `off` — shoulder ends meet in one tuft, never a fray.
     const b0 = boneAt(u0);
+    // `rootWidth` spreads each covert row's BASE out along the perp (∝ its fan `off`) so the
+    // shoulder ends splay into a broad base instead of converging to one tuft/point.
+    const rs = (S.rootWidth - 1) * 0.5;
+    if (rs) { b0.x += px * rs * off; b0.y += py * rs * off; }
     m.rotation.z = b0.dir - Math.atan2(off, L);   // local +v = MINUS perp
     m.position.set(b0.x, b0.y, z);
     group.add(m);
