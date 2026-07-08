@@ -28,9 +28,10 @@
   .hint{color:#66707f;font-size:10px;margin:2px 0 0}
   /* ── MOBILE: stack the wing view on top, controls scroll below with big touch targets ── */
   @media (max-width: 860px) {
-    #wrap{flex-direction:column}
-    #view{flex:none;height:40vh;min-height:220px}
-    #panel{width:100%;flex:1;min-height:0;border-left:none;border-top:1px solid #232c3a}
+    html,body{overflow:auto;height:auto}                 /* let the PAGE scroll (not a nested panel) */
+    #wrap{display:block;height:auto}
+    #view{position:fixed;top:0;left:0;right:0;height:40vh;z-index:5;background:#0d1117}  /* emblem PINNED to the top of the screen */
+    #panel{width:100%;margin-top:40vh;border-left:none;border-top:1px solid #232c3a;overflow:visible}  /* controls flow below + scroll under the pinned emblem */
     .row{gap:8px;margin:7px 0}
     .row label{width:60px;font-size:13px}
     .row input[type=range]{height:30px}
