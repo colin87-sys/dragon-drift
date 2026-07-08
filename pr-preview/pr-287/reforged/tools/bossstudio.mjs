@@ -100,9 +100,11 @@ const UM_EXTRAS = [
   { name: 'gazeU',  o: { gx: 0, gy: 1, t: 4.0 } },
   { name: 'gazeD',  o: { gx: 0, gy: -1, t: 4.0 } },
   { name: 'gazeUR', o: { gx: 1, gy: 1, t: 4.0 } },
-  // STAGE 2 — the Ophanim (the hero stage). Pin the stage-2 sub-rig.
+  // STAGE 2 — the seraph (the hero stage). Pin the stage-2 sub-rig.
   { name: 's2idle',   o: { stage: 2, t: 3.0 } },
   { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
+  // WING-DESIGN: a single isolated wing (eyes/great-eye/halo stripped) for silhouette work.
+  { name: 'wingsolo', o: { wingsolo: 1, t: 3.0 } },
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
   : bossId === 'hollowgate' ? [...STATES, ...HG_EXTRAS]
