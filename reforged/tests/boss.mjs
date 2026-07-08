@@ -360,7 +360,7 @@ for (const key of BOSS_ORDER) {
   assert(findAllByName(um.group, 'eyeScleras')[0] && findAllByName(um.group, 'eyeSockets')[0], 'unmasked stage-2 eye field present (sockets + scleras merged)');
   assert(findAllByName(um.group, 'halo')[0], 'unmasked stage-2 has the sole gold halo (the only corona nod)');
   um.dispose();
-  ok('unmasked stage-2 SERAPH: eight eyed wings (bilateral card-fan) + a small central star-eye, wheels retired');
+  ok('unmasked stage-2 SERAPH: eight eyed wings (bilateral card-fan) + the original focal almond eye, wheels retired');
 }
 {
   const colossus = buildBoss(BOSSES.craghold, 1);
