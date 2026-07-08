@@ -109,29 +109,30 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // CORONA MANTLE (rear motif carrier): ONE solid faceted gold crescent shield on the dorsal
   // yoke between the wing roots — convex to the rear cam, violet emissive seam-valleys. NEVER a ring.
   const valleys = Math.round(model.coronaValleys ?? 5);
-  const cw = 0.34 + 0.05 * valleys, ch = 0.26 + 0.04 * valleys;
+  const cw = 0.42 + 0.05 * valleys, ch = 0.34 + 0.04 * valleys;
   const corona = new THREE.Group();
+  // SOLID convex crescent shield: a filled fan from a rear base line up to a forward arc — NO
+  // inner hole (so it can never read as a ring), convex to the rear cam, sitting ON the back.
   const ctris = [];
-  const outer = [], inner = [];
-  for (let j = 0; j <= valleys; j++) {
-    const a = Math.PI * (0.12 + 0.76 * (j / valleys));
-    outer.push([Math.cos(a) * cw, Math.sin(a) * ch, 0.10]);
-    inner.push([Math.cos(a) * cw * 0.5, Math.sin(a) * ch * 0.5, 0.0]);
+  const base = [0, -ch * 0.35, -0.05];
+  const arcN = Math.max(6, valleys * 2);
+  const pts = [];
+  for (let j = 0; j <= arcN; j++) {
+    const a = Math.PI * (0.06 + 0.88 * (j / arcN));
+    pts.push([Math.cos(a) * cw, Math.sin(a) * ch, 0.14 * Math.sin(Math.PI * j / arcN)]);   // domed forward
   }
-  for (let j = 0; j < valleys; j++) {
-    ctris.push([inner[j], outer[j], outer[j + 1]], [inner[j], outer[j + 1], inner[j + 1]]);
-  }
+  for (let j = 0; j < arcN; j++) ctris.push([base, pts[j], pts[j + 1]]);
   corona.add(flatTriMesh(ctris, M.gold));
-  // violet emissive seam ribs radiating in the valleys
-  for (let j = 0; j <= valleys; j++) {
+  // violet emissive seam-valley ribs on the shield face
+  for (let j = 1; j < valleys; j++) {
     const a = Math.PI * (0.12 + 0.76 * (j / valleys));
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.03, ch * 0.5, 0.04), M.violet);
-    rib.position.set(Math.cos(a) * cw * 0.72, Math.sin(a) * ch * 0.72, 0.08);
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.028, ch * 0.55, 0.03), M.violet);
+    rib.position.set(Math.cos(a) * cw * 0.6, Math.sin(a) * ch * 0.6 - ch * 0.1, 0.12);
     rib.rotation.z = a - Math.PI / 2;
     corona.add(rib);
   }
-  corona.position.set(0, TORSO_Y + 0.48, -0.55);
-  corona.rotation.x = -0.7;
+  corona.position.set(0, TORSO_Y + 0.52, -0.5);
+  corona.rotation.x = -1.0;   // lie back on the dorsal yoke
   group.add(corona);
   const motifAnchor = new THREE.Object3D();
   motifAnchor.position.copy(corona.position);
@@ -163,88 +164,72 @@ registerTorso('regnalKeelTorso', buildRegnalKeelTorso);
 function buildOneWing(M, dials) {
   const wg = new THREE.Group();
   const { fingers, pikes, halfSpan } = dials;
-  const rootChord = 2.5, tipChord = 0.7, sweepZ = halfSpan * 0.34;
-  const Ns = Math.max(5, fingers + 1);
+  const rootChord = 2.7, tipChord = 0.5, sweepZ = halfSpan * 0.28;
+  const L = (t) => [t * halfSpan, t * 0.30, -0.10 + t * sweepZ];   // leading edge (arm); dihedral raises tips
+  const chordAt = (t) => rootChord * (1 - t) + tipChord * t;
 
-  // Leading-edge + cambered membrane grid (3 chord rows: leading / cambered mid / trailing).
-  const L = (t) => [t * halfSpan, t * 0.55, -0.15 + t * sweepZ * 0.25];
-  const chordAt = (t) => rootChord + (tipChord - rootChord) * t;
-  const rows = [];
-  for (let ri = 0; ri < 3; ri++) {
-    const row = [];
-    for (let i = 0; i < Ns; i++) {
-      const t = i / (Ns - 1);
-      const l = L(t), c = chordAt(t);
-      const back = (ri / 2) * c;                          // 0 → 0.5c → c behind the leading edge
-      const camber = 0.30 * (1 - 0.5 * t) * Math.sin(Math.PI * (ri / 2));  // cup lift at mid row
-      // scallop: pull the trailing row IN between finger stations
-      const scallop = ri === 2 ? -0.12 * c * Math.abs(Math.sin(i * Math.PI)) : 0;
-      row.push([l[0], l[1] + camber, l[2] + back + scallop]);
-    }
-    rows.push(row);
+  // FINGER STATIONS marching along the arm; each finger a rib from leading edge back to a tip.
+  const st = [];
+  for (let f = 0; f <= fingers; f++) {
+    const t = f / fingers, l = L(t), c = chordAt(t);
+    st.push({ l, t, c, tip: [l[0], l[1] - 0.06 * c, l[2] + c] });
   }
+  // VAULT BAYS between consecutive fingers — cambered (cupped), scalloped trailing edge,
+  // deeper V-gaps on the outer two bays. Each bay = a fan around a lifted camber center.
   const mtris = [];
-  for (let ri = 0; ri < 2; ri++) for (let i = 0; i < Ns - 1; i++) {
-    const A = rows[ri][i], B = rows[ri][i + 1], C = rows[ri + 1][i + 1], D = rows[ri + 1][i];
-    mtris.push([A, B, C], [A, C, D]);
+  for (let f = 0; f < fingers; f++) {
+    const A = st[f], B = st[f + 1];
+    const scallop = (0.26 + (f >= fingers - 2 ? 0.26 : 0)) * ((A.c + B.c) / 2);
+    const mid = [(A.tip[0] + B.tip[0]) / 2, (A.tip[1] + B.tip[1]) / 2 - 0.04, (A.tip[2] + B.tip[2]) / 2 - scallop];
+    const ctr = [(A.l[0] + B.l[0] + A.tip[0] + B.tip[0]) / 4, (A.l[1] + B.l[1]) / 2 + 0.28 * (1 - A.t * 0.5), (A.l[2] + B.l[2] + A.tip[2] + B.tip[2]) / 4];
+    mtris.push([A.l, B.l, ctr], [B.l, B.tip, ctr], [B.tip, mid, ctr], [mid, A.tip, ctr], [A.tip, A.l, ctr]);
   }
   wg.add(flatTriMesh(mtris, M.membrane));
 
-  // Gold armored leading spar (thick root → thin tip) along the leading edge.
-  const armPts = [];
-  for (let i = 0; i < Ns; i++) armPts.push(L(i / (Ns - 1)));
-  for (let i = 0; i < Ns - 1; i++) {
-    const a = armPts[i], b = armPts[i + 1];
+  // Gold armored leading spar (thick root → thin tip).
+  for (let f = 0; f < fingers; f++) {
+    const a = st[f].l, b = st[f + 1].l;
     const dir = new THREE.Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
     const len = dir.length();
-    const r0 = 0.11 * (1 - i / Ns), r1 = 0.11 * (1 - (i + 1) / Ns);
-    const spar = new THREE.Mesh(new THREE.CylinderGeometry(r1 + 0.01, r0 + 0.01, len, seg(5)), M.gold);
+    const spar = new THREE.Mesh(new THREE.CylinderGeometry(0.11 * (1 - (f + 1) / fingers) + 0.02, 0.11 * (1 - f / fingers) + 0.02, len, seg(5)), M.gold);
     spar.geometry.translate(0, len / 2, 0);
     spar.position.set(a[0], a[1], a[2]);
     spar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     wg.add(spar);
   }
-
-  // Finger ribs (gold) fanning back across the membrane at each finger station.
-  for (let f = 0; f < fingers; f++) {
-    const t = 0.08 + 0.9 * (f / Math.max(1, fingers - 1));
-    const l = L(t), c = chordAt(t);
-    const tip = [l[0], l[1] - 0.02, l[2] + c];
-    const dir = new THREE.Vector3(tip[0] - l[0], tip[1] - l[1], tip[2] - l[2]);
+  // Finger ribs (gold) + violet vein tips.
+  for (let f = 1; f <= fingers; f++) {
+    const A = st[f];
+    const dir = new THREE.Vector3(A.tip[0] - A.l[0], A.tip[1] - A.l[1], A.tip[2] - A.l[2]);
     const len = dir.length();
-    const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.035, len, seg(4)), M.gold);
+    const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.03, len, seg(4)), M.gold);
     rib.geometry.translate(0, len / 2, 0);
-    rib.position.set(l[0], l[1], l[2]);
+    rib.position.set(A.l[0], A.l[1], A.l[2]);
     rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     wg.add(rib);
-    // violet vein emissive along the rib tip
-    if (f > 0) {
-      const vein = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), M.violet);
-      vein.position.set(tip[0], tip[1], tip[2]);
-      wg.add(vein);
-    }
+    const vein = new THREE.Mesh(new THREE.OctahedronGeometry(0.04, 0), M.violet);
+    vein.position.set(A.tip[0], A.tip[1], A.tip[2]);
+    wg.add(vein);
   }
 
-  // Pike rank — gold spears SOCKETED into the arm (visible base), swell-then-taper, rake up-forward.
+  // Pike rank — 3 bold swell-then-taper blades socketed into the arm, rake up-forward.
   for (let i = 0; i < pikes; i++) {
-    const t = 0.30 + 0.42 * (i / Math.max(1, pikes));
+    const t = 0.28 + 0.36 * (i / Math.max(1, pikes - 1 || 1));
     const l = L(t);
     const plen = halfSpan * 0.32 * Math.pow(0.82, i);
-    const pk = spike(plen, 0.07, 0.01, M.goldHi, 4);
+    const pk = spike(plen, 0.09, 0.012, M.goldHi, 4);
     pk.position.set(l[0], l[1], l[2]);
-    pk.rotation.x = -0.5;          // rake forward (−z) and up
-    pk.rotation.z = -0.5;
+    pk.rotation.x = -0.6; pk.rotation.z = -0.35;
     wg.add(pk);
-    const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.04, 0), M.violet);
-    cap.position.set(l[0] - plen * 0.35, l[1] + plen * 0.55, l[2] - plen * 0.3);
+    const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), M.violet);
+    cap.position.set(l[0] - plen * 0.28, l[1] + plen * 0.6, l[2] - plen * 0.35);
     wg.add(cap);
   }
-
-  // Terminal wingtip spike (the one hard point past the membrane).
+  // Terminal wingtip spike.
   const tp = L(1);
-  const ts = spike(halfSpan * 0.22, 0.05, 0.005, M.goldHi, 4);
+  const ts = spike(halfSpan * 0.24, 0.06, 0.005, M.goldHi, 4);
   ts.position.set(tp[0], tp[1], tp[2]);
-  ts.rotation.z = -Math.PI / 2 - 0.1;
+  ts.rotation.z = -Math.PI / 2 - 0.05;
   wg.add(ts);
   return wg;
 }
@@ -265,7 +250,7 @@ function buildLanceVaultWings(def, model, attach, _giM) {
     const pivot = new THREE.Group();
     pivot.position.set(root.x, root.y, root.z);
     pivot.userData.wingRole = 'pivot';
-    pivot.rotation.z = -dih;               // raise the tip → the cathedral arch
+    pivot.rotation.z = side * dih;         // raise BOTH tips → the cathedral arch (side-signed w/ the mirror)
     if (side === -1) pivot.scale.x = -1;   // mirror (membrane is DoubleSide; winding-safe)
     pivot.add(buildOneWing(M, dials));
     group.add(pivot);
@@ -285,16 +270,17 @@ function buildEclipseCrownHead(def, model, mats) {
   const hs = model.headScale ?? 1;
   const eyeMat = mats.eyeMat;
 
-  // Long regal wedge skull (flat brow → tapered muzzle), pointing −Z. Elongated (not a sphere).
+  // Royal wedge skull — a strong flat brow (where the crown + gem live) breaking to a SHORT
+  // tapered muzzle (not a pterosaur beak), pointing −Z.
   const skull = [
-    { z: 0.45, rx: 0.26 * hs, ry: 0.30 * hs, cy: 0.02 },   // occiput
-    { z: 0.05, rx: 0.32 * hs, ry: 0.30 * hs, cy: 0.03 },   // brow (widest)
-    { z: -0.55, rx: 0.24 * hs, ry: 0.22 * hs, cy: -0.02 },
-    { z: -1.15, rx: 0.15 * hs, ry: 0.14 * hs, cy: -0.06 },
-    { z: -1.55, rx: 0.07 * hs, ry: 0.07 * hs, cy: -0.08 },  // muzzle tip
+    { z: 0.42, rx: 0.30 * hs, ry: 0.34 * hs, cy: 0.04 },   // occiput
+    { z: 0.00, rx: 0.36 * hs, ry: 0.34 * hs, cy: 0.05 },   // brow (widest, flat top)
+    { z: -0.45, rx: 0.28 * hs, ry: 0.26 * hs, cy: 0.00 },  // cheek
+    { z: -0.85, rx: 0.16 * hs, ry: 0.15 * hs, cy: -0.06 }, // short muzzle
+    { z: -1.10, rx: 0.08 * hs, ry: 0.08 * hs, cy: -0.09 }, // muzzle tip
   ];
   group.add(loftRings(skull, M.bodyFlat, seg(7)));
-  const headLength = 2.0 * hs;
+  const headLength = 1.5 * hs;
 
   // Horns: 2 long lance-horns (base mass) + back-swept crown-horns.
   const crown = Math.round(model.crownHorns ?? 4);
@@ -317,15 +303,16 @@ function buildEclipseCrownHead(def, model, mats) {
 
   // STAR-GEM motif (brow center): big faceted violet octahedron in a gold setting. A GEM — never opens.
   const bloom = model.starGemBloom ?? 1;
-  const gemR = (0.08 + 0.05 * bloom) * hs;
-  const setting = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.35, 0), M.gold);
-  setting.position.set(0, 0.16 * hs, -0.16 * hs); setting.scale.set(1, 1, 0.5);
+  const gemR = (0.11 + 0.06 * bloom) * hs;
+  const gy = 0.24 * hs, gz = -0.18 * hs;   // proud on the brow, forward + up so it reads face-on
+  const setting = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.4, 0), M.goldHi);
+  setting.position.set(0, gy, gz); setting.scale.set(1.2, 1.2, 0.6);
   group.add(setting);
-  const gemMat = M.gem.clone(); gemMat.emissiveIntensity = M.gem.userData.baseIntensity * (0.35 + 0.65 * bloom);
+  const gemMat = M.gem.clone(); gemMat.emissiveIntensity = M.gem.userData.baseIntensity * (0.5 + 0.9 * bloom);
   gemMat.userData.baseEmissive = M.gem.userData.baseEmissive; gemMat.userData.baseIntensity = gemMat.emissiveIntensity;
   spineMats.push(gemMat);
   const gem = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), gemMat);
-  gem.position.set(0, 0.16 * hs, -0.20 * hs);
+  gem.position.set(0, gy, gz - 0.06 * hs);
   group.add(gem);
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.copy(gem.position); group.add(motifAnchor);
 
@@ -361,7 +348,7 @@ function buildScepterWhipTail(def, model, mats, anchor) {
   const ringsAt = [];
   for (let i = 0; i <= nSeg; i++) {
     const t = i / nSeg;
-    ringsAt.push({ z: a.z + t * len, rx: r * (1 - t) + 0.015, ry: r * (1 - t) + 0.015, cy: a.y - t * 0.22 });
+    ringsAt.push({ z: a.z + t * len, rx: r * (1 - t) + 0.015, ry: r * (1 - t) + 0.015, cy: a.y - t * t * 0.14 });
   }
   group.add(loftRings(ringsAt, M.bodyFlat, seg(6), false));
 
