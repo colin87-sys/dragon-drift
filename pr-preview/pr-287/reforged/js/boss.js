@@ -892,7 +892,14 @@ function endCard() {
 const CONSTRICT_HW = 6.5;      // showpiece arena half-width (lab-proven value)
 let arenaHW = CONFIG.laneHalfWidth;
 let arenaTargetHW = CONFIG.laneHalfWidth;
-let wallL = null, wallR = null, wallMat = null;   // translucent storm walls
+let wallL = null, wallR = null, wallMat = null;   // translucent storm walls (they take def.accent per fight)
+// VERTICAL squeeze (CP2-A, EMBERTIDE "the sky crushes the lane" — def.skyCrush): the
+// same target+ease+publish+clamp grammar as arenaHW, on the Y ceiling. The FLOOR is
+// never raised (skimming is a core verb — a floor clamp would kill skims); the model's
+// own crush strips carry the floor VISUAL. Inert (Infinity) for every other boss.
+let arenaHY = CONFIG.laneMaxY;
+let arenaTargetHY = CONFIG.laneMaxY;
+let crushFired = false, crushT = 0, crushBoxT = 0, crushHoldT = 0;   // per-phase wave trigger + hold + the letterbox pulse timer
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
 // so overlapping/concentric waves read apart even for colour-blind players — and
@@ -1310,6 +1317,10 @@ export function startBossEncounter(player, defOverride) {
   game.bossArenaHW = null;
   if (wallMat) wallMat.color.setHex(def.accent ?? 0x35e0ff);
   if (def.constrictPhase === 0) arenaTargetHW = CONSTRICT_HW;   // constrict from the opener
+  // Fresh fight = full-height sky; the crush (def.skyCrush) re-arms per encounter.
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -1318,7 +1329,15 @@ export function startBossEncounter(player, defOverride) {
   // EMBERTIDE-as-sky: reparent the VISUAL rig (dome + face) out of `group` to the scene so it can be
   // camera-POSITION-locked (the sky) while `group` (HP bar / shield / crestPivot emitter) stays at the
   // world station via placeGroup — gameplay origins unchanged. Inert for every non-skyReplace boss.
-  if (def.skyReplace && model.rig) { scene.add(model.rig); if (_bossCam) model.rig.position.copy(_bossCam.position); }
+  if (def.skyReplace && model.rig) {
+    scene.add(model.rig);
+    if (_bossCam) model.rig.position.copy(_bossCam.position);
+    // §5j stage *The Sky Comes Loose* from the SPAWN (not the script start): the rig
+    // bypasses the group's warn-hide (it IS the sky), so without this the fully-arrived
+    // face would pop visible through warn and then snap submerged when the script began.
+    // Staged 0 = ember-seed dome + submerged face; the entrance clock drives 0→1.
+    if (def.entrance) model.setEntrance?.(0);
+  }
   // Arena environment feed (optional model hook, the setGaze?.() pattern): the water
   // surface is the world-constant plane y=0 in every biome (water.js:204). A model
   // that reacts to it (WEFTWITCH clips its arena web at the surface) opts in by
@@ -1367,6 +1386,14 @@ export function startBossEncounter(player, defOverride) {
     start.rel = B.settleGap + 10;
     start.x = 0;
     start.y = B.fightHeight;
+  } else if (def.approachFrom === 'horizon') {
+    // THE WHOLE HORIZON (§5b/§5d slot 13, EMBERTIDE): the boss IS the sky — the visual
+    // is the camera-locked dome (skyReplace), so the "approach" only walks the gameplay
+    // STATION in from far up the lane (the HOLLOWGATE far-ahead close; the §5j script
+    // *The Sky Comes Loose* owns the pacing). Banner dir maps to 'top' below.
+    start.rel = 150;
+    start.x = 0;
+    start.y = B.fightHeight;
   } else {
     start.rel = -12;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
@@ -1400,7 +1427,7 @@ export function startBossEncounter(player, defOverride) {
   // clears as the boss flies in — anchored WHERE it emerges. 'side' → left/right;
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
-    : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
+    : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense' || def.approachFrom === 'horizon') ? 'top' : 'bottom';
   // §5j THE ARRIVAL-GRAMMAR BREAK (slot 12 ONEWING, def.noWarn): the DANGER banner is
   // SUPPRESSED here and fires WITH the eruption (enterFight) instead of before it — no
   // warning until it erupts. A skipper still gets it (fired at enterFight regardless).
@@ -1459,9 +1486,14 @@ function endEncounter(player) {
   phase = 'idle';
   game.inBoss = false;
   activeBand = BAND;
-  // The arena is NEVER left narrowed past a fight (unconditional restore).
+  // The arena is NEVER left narrowed past a fight (unconditional restore) — the sky
+  // ceiling included (the crush clamp + letterbox must not outlive the encounter).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
@@ -1503,6 +1535,8 @@ function startDeath(player) {
   clearSetpiece();
   reticleTarget = 0;            // focus circle draws off as the boss disintegrates
   arenaTargetHW = CONFIG.laneHalfWidth;   // storm walls glide out with the dissolve
+  arenaTargetHY = CONFIG.laneMaxY;        // the sky ceiling lifts with it (the crush releases in death)
+  if (crushBoxT > 0) { crushBoxT = 0; ui.letterbox?.(false); }
   resetBossBullets();
   game.bossesDefeatedRun++;
   const bonus = Math.round(B.defeatScore * game.scoreMult);
@@ -1803,6 +1837,38 @@ export function updateBoss(dt, player, time, camera) {
       wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
     } else { wallMat.opacity = 0; }
   }
+  // THE SKY CRUSHES THE LANE (CP2-A, def.skyCrush — EMBERTIDE's vertical squeeze):
+  // a WAVE, not a mode (owner catch: a persistent clamp read as "I can't go as high
+  // as usual" — a permanent nerf, not a beat). The ceiling clamp descends (player.js
+  // Y-clamp mirrors the X walls), the strips + letterbox pinch, the clamp HOLDS for
+  // ~10s, then the sky EBBS — full height returns. It re-crashes once per PHASE
+  // (armed at each seam), so every crescendo set gets its crush-and-release breath.
+  // Inert for every def without skyCrush.
+  if (def.skyCrush && phase === 'fight' && !crushFired) {
+    crushT += dt;
+    if (crushT >= (def.skyCrush.delay ?? 5)) {
+      crushFired = true;
+      crushHoldT = def.skyCrush.hold ?? 10;
+      arenaTargetHY = def.skyCrush.hy ?? 14;
+      model.setCrush?.(1);
+      ui.letterbox?.(true);
+      crushBoxT = 3.5;
+      ui.bossNote?.('☀  THE SKY CRUSHES THE LANE  ☀', def.name, 'gold', 2.6);
+      cameraCtl.shake?.(1.0);
+      sfx.phase?.(true, 1);
+    }
+  }
+  if (crushBoxT > 0) { crushBoxT -= dt; if (crushBoxT <= 0) ui.letterbox?.(false); }
+  if (crushHoldT > 0 && phase === 'fight') {
+    crushHoldT -= dt;
+    if (crushHoldT <= 0) {   // THE EBB — the sky lifts, the strips retreat
+      arenaTargetHY = CONFIG.laneMaxY;
+      model.setCrush?.(0);
+      ui.bossNote?.('～  THE TIDE EBBS  ～', def.name, 'gold', 1.8);
+    }
+  }
+  arenaHY += (arenaTargetHY - arenaHY) * Math.min(dt * 1.6, 1);
+  game.bossArenaHY = arenaHY < CONFIG.laneMaxY - 0.3 ? arenaHY : null;
 
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
   driveSwarm(dt, player);          // §5d slot 7: the condense/scatter cycle + formation (inert for other bosses)
@@ -2654,6 +2720,16 @@ function breakShield(player) {
       arenaTargetHW = CONSTRICT_HW;
       ui.bossNote?.('⛈  THE ARENA NARROWS  ⛈', def.name, 'gold', 2.6);
       cameraCtl.shake?.(0.8);
+    }
+    // THE LOOM (CP2-A, optional model hook — only EMBERTIDE implements): each phase
+    // the face surfaces closer/larger (0→1 across the fight; the model eases + caps it).
+    model.setLoom?.(phaseIdx / Math.max(1, (def.phases?.length ?? 1) - 1));
+    // THE CRUSH re-arms at every phase seam (a wave per crescendo set — crush, hold,
+    // ebb; never a permanent ceiling). ~1.5s into the new phase. Inert without skyCrush.
+    if (def.skyCrush) {
+      crushFired = false;
+      crushT = (def.skyCrush.delay ?? 5) - 1.5;
+      crushHoldT = 0;
     }
   } else if (def.felledLie && !felledLieUsed && !ghostFrameBroken) {
     triggerFelledLie(player);   // §5f the LIE: fake death now, ≤35% returns within ≤2s (once)
@@ -3654,6 +3730,10 @@ export function resetBoss() {
   activeBand = BAND;
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
   // encounter snaps to the fixed biome offset (§5h — nearest rung to firstAt).

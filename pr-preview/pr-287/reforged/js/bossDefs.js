@@ -1309,12 +1309,24 @@ export const BOSSES = {
     glow: 0xff7a5e,                   // warm coral-rose — the LIGHT end of the tide / the face edge-light / shield rim
     bulletColor: 0xff2b6a,            // danger magenta — role colour (never per-boss); the INVERSE contrast
                                       // problem: it must read against the BRIGHT field (its white core carries it)
-    approachFrom: 'horizon',          // INTENDED entry ("the whole horizon stands up"). ⚠ NOT yet wired in
-                                      // startBossEncounter (CP2): 'horizon' currently falls to the default
-                                      // approach + 'bottom' banner. Low-impact for THIS boss — the dome is
-                                      // camera-locked and fills the sky from `active` (warn onward), so the
-                                      // group's entry direction is nearly invisible. CP2 adds the bespoke
-                                      // skyComesLoose entry (or a minimal alias to the 'ahead' far-horizon hold).
+    approachFrom: 'horizon',          // WIRED (CP2-A): the gameplay STATION walks in from far up the lane
+                                      // (the HOLLOWGATE far-ahead close) + a 'top' warn banner; the VISUAL
+                                      // arrival is the camera-locked dome via the §5j entrance below.
+    // §5j THE SKY COMES LOOSE (CP2-A): the dome LIFTS from an ember seed, the face
+    // RISES through the horizon line, the eye-hollows TEAR OPEN one at a time and
+    // settle on the dragon (entranceScripts.js `skyComesLoose`; the model's
+    // setEntrance owns the sky-side choreography — boss.js stages 0 at spawn).
+    entrance: 'skyComesLoose',
+    // CP2-A THE TIDE CRUSH — the brief's "vertical squeeze + letterbox at the FIRST
+    // crescendo set (a re-entrance beat)": ~6s into P1 the sky's ceiling of light
+    // descends (player.js Y-clamps at hy, damage-free), the model's crush strips
+    // pinch the frame, and a letterbox pulses in and back out. Def-gated; every
+    // other boss is inert (no skyCrush → the Y engine never arms).
+    skyCrush: { delay: 6, hy: 14 },
+    // The X counterpart lands LATER (P3, "the crest crosses the whole frame"): the
+    // shipped storm-wall constrict, re-read as the tide pressing in from the flanks
+    // (the walls take def.accent → vermilion light, not storm-teal).
+    constrictPhase: 2,
     scale: 1.0,                       // NOT a unit scale — the field is tuned frame-wide IN the builder; it IS the backdrop
     // §5i TIDE-EDGE + FACE-SHADOW POCKET graze (reuses slot-6's continuous-graze detector): skim the crest
     // edge, ride the moving face-shadow pocket; offered once per phase. Def-gated; shipped bosses inert.
