@@ -254,8 +254,11 @@ export function buildUnmasked(def, quality = 1) {
     if (!g) throw new Error(`buildUnmasked: ${label} mergeGeometries returned null (attribute mismatch)`);
     return g;
   };
+  // A3 DARKEN: all non-eye material is near-black now (the eyes are the ONLY emissive
+  // family). These rails are transitional scaffolding for the eye-fix render; the six-wing
+  // fan replaces them next. Value, not light — matte and low.
   const railMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2a2008, emissive: accent, emissiveIntensity: 0.4, roughness: 0.5, metalness: 0.3, flatShading: true,
+    color: 0x0b0a06, emissive: accent, emissiveIntensity: 0.03, roughness: 1.0, metalness: 0.0, flatShading: true,
   }));
 
   // Three NON-COPLANAR gimbal tilts (Euler) — authored so no two wheel planes (nor any
@@ -305,7 +308,7 @@ export function buildUnmasked(def, quality = 1) {
   veiledCenter.name = 'veiledCenter';
   stage2.add(veiledCenter);
   const innerCoronaMat = track(new THREE.MeshBasicMaterial({
-    color: glow, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    color: glow, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
   }));
   innerCoronaMat.toneMapped = false;
   const innerCoronaGeo = new THREE.RingGeometry(1.28, 1.7, lowQ ? 28 : 44);
@@ -315,49 +318,85 @@ export function buildUnmasked(def, quality = 1) {
   stage2.add(innerCorona);
 
   // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
-  // Studded around the three wheels (rims + spokes) at 2-3 sizes with uneven spacing;
-  // ≥10 on the rims PROTRUDE past the rail so almond BUMPS break the silhouette. Each
-  // faces the camera and its dark pupil tracks the player (independent lag). Scleras are
-  // merged into ONE mesh (1 draw); pupils are separate (they track). This is what turns
-  // the wheels from a machine into an ANGEL OF EYES. ──
-  const s2scleraMat = track(new THREE.MeshBasicMaterial({ color: 0xfff4e6 }));
-  s2scleraMat.toneMapped = false;
-  s2scleraMat.color.multiplyScalar(1.9);
-  const s2pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0806 }));
+  // THE L142 REAL-EYE RECIPE (the bulb killer): CONTRAST, not brightness. Every prior
+  // pass made these emissive white orbs that bloomed into fairy-lights with no pupil.
+  // The fix, seated strictly PROUD front-to-back per eye:
+  //   recessed dark SOCKET (0x030302) → flattened DIM SCLERA (0x4a4436, ×1.0 TONE-MAPPED,
+  //   never blooms) → thin dim dark-gold IRIS → BIG DARK PUPIL (0x040302, ~0.7×size radius,
+  //   ~60% of sclera width) → a TINY white CATCHLIGHT (×7, toneMapped=false — the ONLY hot
+  //   pixel in the whole eye), offset up-left, proudest.
+  // Statics merge per material (4 draws total); pupils stay separate (they track, with
+  // independent per-eye lag + a small resting bias so the field reads as living eyes that
+  // look every which way — until the all-snap zeroes them to the player, CP2). ──
+  const socketMat = track(new THREE.MeshBasicMaterial({ color: 0x030302 }));   // recessed dark rim
+  const s2scleraMat = track(new THREE.MeshBasicMaterial({ color: 0x4a4436 }));  // DIM, tone-mapped: never blooms
+  const irisMat = track(new THREE.MeshBasicMaterial({ color: 0x241d10 }));      // thin dim dark-gold iris bed
+  const s2pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x040302 }));   // big DARK pupil
   s2pupilMat.toneMapped = false;
-  const eyeSclerae = [], pupils = [];
-  const eyePlace = (w, a, rMul, size, protrude) => {
-    const tilt = WHEEL_TILTS[w];
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt.rx, tilt.ry, tilt.rz));
-    const rr = WHEEL_R[w] * rMul + (protrude ? WHEEL_R[w] * 0.05 : 0);
-    const local = new THREE.Vector3(Math.cos(a) * rr, Math.sin(a) * rr, 0.05).applyQuaternion(q);
-    const sg = new THREE.SphereGeometry(size, lowQ ? 8 : 12, lowQ ? 6 : 9);
-    sg.scale(1.2, 0.92, 0.6);
-    sg.translate(local.x, local.y, local.z);
-    eyeSclerae.push(stripForMerge(sg));
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(size * 0.42, lowQ ? 6 : 8, 6), s2pupilMat);
-    pupil.userData = { base: local.clone(), size };
+  const catchMat = track(new THREE.MeshBasicMaterial({ color: 0xfff6e6 }));     // the ONLY hot pixel
+  catchMat.toneMapped = false;
+  catchMat.color.multiplyScalar(7.0);
+  const sockets = [], sclerae = [], irises = [], catchlights = [], pupils = [];
+  const eyePlace = (local, size) => {
+    // socket (recessed dark rim, pushed back)
+    const sk = new THREE.SphereGeometry(size * 1.26, lowQ ? 8 : 12, lowQ ? 6 : 8);
+    sk.scale(1.2, 0.96, 0.34); sk.translate(local.x, local.y, local.z - size * 0.28);
+    sockets.push(stripForMerge(sk));
+    // sclera (flattened, dim, tone-mapped)
+    const sc = new THREE.SphereGeometry(size, lowQ ? 8 : 12, lowQ ? 6 : 9);
+    sc.scale(1.2, 0.92, 0.5); sc.translate(local.x, local.y, local.z);
+    sclerae.push(stripForMerge(sc));
+    // iris bed (thin dim disc behind the pupil)
+    const ir = new THREE.CircleGeometry(size * 0.82, lowQ ? 12 : 18);
+    ir.translate(local.x, local.y, local.z + size * 0.34);
+    irises.push(stripForMerge(ir));
+    // catchlight (static, up-left, proudest) — the only hot pixel; sits where the pupil
+    // rests at the snap (a real specular glint stays put as the pupil roams beneath it)
+    const cl = new THREE.SphereGeometry(size * 0.13, 6, 6);
+    cl.translate(local.x - size * 0.26, local.y + size * 0.30, local.z + size * 0.66);
+    catchlights.push(stripForMerge(cl));
+    // pupil (tracks, big + dark)
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(size * 0.7, lowQ ? 8 : 10, 8), s2pupilMat);
+    pupil.scale.set(1, 1, 0.55);
+    const bx = (rnd() - 0.5) * 0.55, by = (rnd() - 0.5) * 0.45;
+    pupil.userData = { base: local.clone(), size, biasX: bx, biasY: by, lag: 0.2 + rnd() * 0.6, gx: bx, gy: by };
+    pupil.position.set(local.x + bx * size * 0.4, local.y + by * size * 0.4, local.z + size * 0.62);
     stage2.add(pupil);
     pupils.push(pupil);
   };
-  // Distribution: outer rim densest (protruding bumps), mid + inner rims, a few on spokes.
-  // Uneven angular spacing (jittered ≥10° off even) + 3 size tiers (§3b anti-machine).
+  // Distribution: outer rim densest, mid + inner rims, a few inboard. Uneven angular
+  // spacing (jittered ≥10° off even) + 3 size tiers (§3b anti-machine). Eyes face the
+  // camera (built in the XY plane, translated — not rotated into the wheel tilt).
   const eyePlan = [
     { w: 2, n: lowQ ? 6 : 9, rMul: 1.0, protrude: true,  sizes: [0.5, 0.62, 0.42] },
     { w: 1, n: lowQ ? 4 : 6, rMul: 1.0, protrude: true,  sizes: [0.44, 0.56] },
     { w: 0, n: lowQ ? 3 : 5, rMul: 1.0, protrude: false, sizes: [0.4, 0.5] },
-    { w: 1, n: lowQ ? 2 : 3, rMul: 0.62, protrude: false, sizes: [0.34] },   // a few on the spokes
+    { w: 1, n: lowQ ? 2 : 3, rMul: 0.62, protrude: false, sizes: [0.34] },
   ];
   for (const grp of eyePlan) {
+    const tilt = WHEEL_TILTS[grp.w];
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt.rx, tilt.ry, tilt.rz));
     for (let i = 0; i < grp.n; i++) {
       const a = (i / grp.n) * TAU + (rnd() - 0.5) * 0.5;         // uneven spacing
       const size = grp.sizes[i % grp.sizes.length] * (0.9 + rnd() * 0.25);
-      eyePlace(grp.w, a, grp.rMul, size, grp.protrude);
+      const rr = WHEEL_R[grp.w] * grp.rMul + (grp.protrude ? WHEEL_R[grp.w] * 0.05 : 0);
+      const local = new THREE.Vector3(Math.cos(a) * rr, Math.sin(a) * rr, 0.05).applyQuaternion(q);
+      local.z = Math.max(local.z, 0.05);   // keep the eye on the camera-facing side
+      eyePlace(local, size);
     }
   }
-  const scleraMesh = new THREE.Mesh(mergeParts(eyeSclerae, 'eyeScleras'), s2scleraMat);
+  const socketMesh = new THREE.Mesh(mergeParts(sockets, 'eyeSockets'), socketMat);
+  socketMesh.name = 'eyeSockets';
+  stage2.add(socketMesh);
+  const scleraMesh = new THREE.Mesh(mergeParts(sclerae, 'eyeScleras'), s2scleraMat);
   scleraMesh.name = 'eyeScleras';
   stage2.add(scleraMesh);
+  const irisMesh = new THREE.Mesh(mergeParts(irises, 'eyeIrises'), irisMat);
+  irisMesh.name = 'eyeIrises';
+  stage2.add(irisMesh);
+  const catchMesh = new THREE.Mesh(mergeParts(catchlights, 'eyeCatchlights'), catchMat);
+  catchMesh.name = 'eyeCatchlights';
+  stage2.add(catchMesh);
 
   kit.flashBind(lidMat, 0.0);
   kit.finalize();
@@ -455,13 +494,18 @@ export function buildUnmasked(def, quality = 1) {
     // ever drifting into near-coplanar alignment. ──
     if (stage2.visible) {
       for (const wl of wheels) wl.spin.rotation.z += dt * wl.speed * wl.dir * (1 + charge * 1.6);
-      innerCoronaMat.opacity = 0.5 + Math.sin(time * 0.7 * TAU) * 0.12 + charge * 0.3;
-      // Each pupil tracks the player: it offsets toward the gaze within its sclera and
-      // sits proud of the sclera front (facing the camera). The signature "all eyes snap
-      // to you at once" beat is the shared gazeX/gazeY (CP2 adds the one-frame snap).
+      innerCoronaMat.opacity = 0.12 + Math.sin(time * 0.7 * TAU) * 0.05;
+      // Each pupil tracks the player within its own sclera, sitting proud of the front.
+      // Independent per-eye LAG + a small resting BIAS make the field read as living eyes
+      // that look every which way; the shared gazeX/gazeY drags them toward the player.
+      // (CP2 adds the ALL-SNAP: bias→0 + lag→0 for one frame + a catchlight flare.)
       for (const p of pupils) {
         const u = p.userData;
-        p.position.set(u.base.x + gazeX * u.size * 0.45, u.base.y + gazeY * u.size * 0.45, u.base.z + u.size * 0.55);
+        const tgx = gazeX + u.biasX, tgy = gazeY + u.biasY;
+        const k = Math.min(1, dt * (2 + u.lag * 7));
+        u.gx += (tgx - u.gx) * k;
+        u.gy += (tgy - u.gy) * k;
+        p.position.set(u.base.x + u.gx * u.size * 0.4, u.base.y + u.gy * u.size * 0.4, u.base.z + u.size * 0.62);
       }
     }
   }
