@@ -163,13 +163,25 @@ export function buildEmbertide(def, quality = 1) {
       // Head-shaped elliptical distance, jaw narrower below centre.
       const below = y < CY ? (CY - y) / 15 : 0;
       const rx = 11 * (1 - 0.35 * Math.min(1, below));
-      const ry = 16;
+      // CROWN feather is TIGHTER than the jaw's: above the centre the shadow must
+      // dissolve FAST into open sky — a wide 2–15% multiply halo hanging in the sky
+      // reads as a translucent PANE once the HDR bloom amplifies it (glaring during
+      // the entrance, where the crown pokes above the horizon into empty sky). The
+      // jaw keeps the luxurious dissolve into the tide below.
+      const ry = y > CY ? 12.5 : 16;
       const d = Math.sqrt((x / rx) ** 2 + ((y - CY) / ry) ** 2);
-      const f = THREE.MathUtils.smoothstep(d, 0.42, 1.12);   // 0 core → 1 rim
+      // Feather ENDS inside the quad (d=1.0) and rises toward no-effect FAST (the
+      // gamma) so the halo hugs the head instead of washing a frame-wide rectangle.
+      const f = Math.pow(THREE.MathUtils.smoothstep(d, 0.42, 1.0), 0.7);   // 0 core → 1 rim
       const m = 0.16 + (1 - 0.16) * f;                        // 0.16 core (dark) → 1.0 rim (no effect)
-      // Faintly warm shadow (a touch more red kept in the core) so the occluded light
-      // reads as warm dusk, never a cool/magenta veil.
-      col[i * 3] = m; col[i * 3 + 1] = m * 0.985; col[i * 3 + 2] = m * 0.965;
+      // Faintly warm shadow (a touch more red kept in the CORE) so the occluded light
+      // reads as warm dusk, never a cool/magenta veil. The tint DECAYS WITH the
+      // feather: at the rim every channel is EXACTLY 1.0, or the plane tints its
+      // whole rectangle a few % and the quad boundary reads as a floating pane
+      // (the CP2-A entrance made this glaring — the boundary straddles the open sky).
+      col[i * 3] = m;
+      col[i * 3 + 1] = m * (1 - 0.015 * (1 - f));
+      col[i * 3 + 2] = m * (1 - 0.035 * (1 - f));
     }
     baseGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   }
@@ -199,7 +211,11 @@ export function buildEmbertide(def, quality = 1) {
       const d = Math.sqrt(nx * nx + ny * ny);
       const f = THREE.MathUtils.smoothstep(d, 0.15, 1.0);
       const m = dark + (1 - dark) * f;
-      c[i * 3] = m; c[i * 3 + 1] = m * 0.985; c[i * 3 + 2] = m * 0.96;
+      // Warm tint decays WITH the feather (rim = exactly 1.0 in every channel —
+      // see the base-shadow note: a constant rim tint pane-outlines the quad).
+      c[i * 3] = m;
+      c[i * 3 + 1] = m * (1 - 0.015 * (1 - f));
+      c[i * 3 + 2] = m * (1 - 0.04 * (1 - f));
     }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     return g;
@@ -291,22 +307,27 @@ export function buildEmbertide(def, quality = 1) {
   // ride the camera-locked rig just behind the face plane, ahead of the dome. Parked out
   // of frame (and invisible) until boss.js fires setCrush(1) at the first crescendo set.
   const stripMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false, depthWrite: false }));
-  const CRUSH_Z = -560, CRUSH_W = 2400, CRUSH_H = 160;
+  // TALL strips: only the blazing INNER edge is ever in frame — the strip's far edge
+  // lives past the frame top / below the sea, so there is never a hard slab line
+  // against the dome (the L219 law: the only hard edges are the tears). The whole
+  // sky above the pinch reads as the descending wall of light.
+  const CRUSH_Z = -560, CRUSH_W = 2400, CRUSH_H = 700;
   function crushStrip(name, inner) {   // inner: -1 = hot edge at the strip's BOTTOM (ceiling), +1 = at its TOP (floor swell)
     const g = new THREE.PlaneGeometry(CRUSH_W, CRUSH_H, lowQ ? 12 : 20, lowQ ? 4 : 6);
     const p = g.attributes.position;
     const c = new Float32Array(p.count * 3);
     for (let i = 0; i < p.count; i++) {
       const ny = (p.getY(i) / (CRUSH_H / 2)) * inner;          // +1 at the hot (inner) edge
-      const hot = THREE.MathUtils.smoothstep(ny, -0.2, 1.0);   // hot toward the lane
-      _bg.copy(rose).lerp(accent, 0.5 + hot * 0.5);
-      const hdr = 1 + hot * 1.6;                               // the crushing edge BLOOMS
+      const hot = THREE.MathUtils.smoothstep(ny, 0.62, 1.0);   // the blaze concentrates at the crushing edge
+      const body = THREE.MathUtils.smoothstep(ny, -1.0, 1.0);  // a broad lift toward the edge (the mass of light)
+      _bg.copy(rose).lerp(accent, 0.15 + hot * 0.75);
+      const hdr = 1.02 + body * 0.35 + hot * 1.8;              // far edge ≈ the dome's own register; the edge BLOOMS
       c[i * 3] = _bg.r * hdr; c[i * 3 + 1] = _bg.g * hdr; c[i * 3 + 2] = _bg.b * hdr;
     }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     const m = new THREE.Mesh(g, stripMat);
     m.name = name;
-    m.position.set(0, 520 * -inner, CRUSH_Z);   // parked out of frame (ceiling high, floor deep)
+    m.position.set(0, (CRUSH_H / 2 + 380) * -inner, CRUSH_Z);   // parked: inner edge out of frame
     m.renderOrder = -16;                        // behind the face + motes, in front of the dome
     m.visible = false;
     rig.add(m);
