@@ -484,23 +484,9 @@ export function buildUnmasked(def, quality = 1) {
   catchMesh.name = 'eyeCatchlights';
   stage2.add(catchMesh);
 
-  // ── THE HALO — ONE thin gold annulus BEHIND the fan (the sole corona nod), NON-additive,
-  // faint, partially occluded by the middle wings crossing it. NO cogs/spokes/second ring. ──
-  // A VISIBLE saint's halo behind the crest: a real gold ring, tone-mapped OFF so it holds
-  // its value on BOTH the pale and dark skies, riding UP so its top arcs above the crest notch
-  // while the wings occlude its lower two-thirds (a halo over the head, never a full rim = a
-  // wheel). The upward bilateral crest means it can't read as a ship's wheel anymore.
-  // A SINGLE FAINT thin gold ring BEHIND the crest — a saint's nimbus, NOT a bright hoop (a
-  // big/bright ring reads as a ship's wheel — the original failure). Dim, thin, sized to sit
-  // behind the wings (which occlude its lower arc), not to frame the whole boss.
-  const haloS2Mat = track(new THREE.MeshBasicMaterial({
-    color: 0xc9a45a, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide,
-  }));
-  const HALO_R = 4.7;
-  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.95, HALO_R, lowQ ? 44 : 72), haloS2Mat);
-  haloS2.position.set(0, 5.4, -3.2);   // rides HIGH behind the wing mass → a clean gold arc over the top silhouette
-  haloS2.name = 'halo';
-  stage2.add(haloS2);
+  // ── THE HALO is RESERVED FOR THE THIRD FORM (owner). Stage 2 carries NO gold ring — the
+  // eyed wings + the focal eye stand on their own here; the saint's nimbus lands at the
+  // unveiling (S3), alongside the star-eye. ──
 
   // ── RELICS (§8) — short gold wire glints at the wing roots (5 trophies + 1 EMPTY wire =
   // the post-game gap worn on the body). LineSegments = overdraw-exempt. CP2 wires the
@@ -534,7 +520,7 @@ export function buildUnmasked(def, quality = 1) {
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
   // designed on its own (the owner's directive — get the wing right first, then re-add eyes).
-  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, haloS2, relics, knot];
+  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, relics, knot];
   function setDebugWing(on) {
     stage1.visible = on ? false : (stageN == null || stageN === 1);
     stage2.visible = on ? true : (stageN === 2);
