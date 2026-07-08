@@ -110,7 +110,12 @@ const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
   : bossId === 'thrumswarm' ? [...TS_STATES, ...TS_EXTRAS]
   : bossId === 'unmasked' ? [...STATES, ...UM_EXTRAS] : STATES;
 
-const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
+const ALL_BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
+// Fast-iteration filters: ONLY_STATE=s2idle ONLY_BG=pale,dark renders just those (skips the
+// full 27-sheet sweep during a tight design loop). Unset → the full canonical sweep.
+const ONLY_STATE = (process.env.ONLY_STATE || '').split(',').filter(Boolean);
+const ONLY_BG = (process.env.ONLY_BG || '').split(',').filter(Boolean);
+const BGS = ONLY_BG.length ? ALL_BGS.filter((b) => ONLY_BG.includes(b)) : ALL_BGS;
 // The fight-distance frames (§7c L140): ONE front-on shot per key state at the REAL
 // encounter geometry (FOV 72, boss at rel 30, NO auto-framing) — judged for PRESENCE.
 // idle = the formation at full spread; handoff = the interlocked-crossing "money frame".
@@ -163,6 +168,7 @@ await page.evaluate(() => window.studioPauseLoop());
 const SHEET_CLIP = { x: 0, y: 0, width: 1000, height: 1000 };   // sheet = 2 cols × 500px cells
 const written = [];
 for (const st of states) {
+  if (ONLY_STATE.length && !ONLY_STATE.includes(st.name)) continue;
   for (const bgName of BGS) {
     await page.evaluate(() => window.studioSheetInit(2, 2, 500));
     for (let i = 0; i < ANGLES.length; i++) {
@@ -181,6 +187,7 @@ for (const st of states) {
 // FIGHT-DISTANCE FRAMES — single front-on shots at the real encounter geometry. Composited
 // through the same GL→2D sheet path as the contact sheets (a 1×1 tile) for capture parity.
 for (const st of FIGHT_STATES) {
+  if (ONLY_STATE.length && !ONLY_STATE.includes(st.name)) continue;
   for (const bgName of BGS) {
     await page.evaluate(() => window.studioSheetInit(1, 1, 1000));
     await page.evaluate((o) => window.renderState(o), { boss: bossId, seed: SEED, bg: bgName, fight: true, ...st.o });

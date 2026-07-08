@@ -338,12 +338,13 @@ for (const key of BOSS_ORDER) {
   const wingNames = ['wing_inner_R', 'wing_inner_L', 'wing_mid_R', 'wing_mid_L', 'wing_outer_R', 'wing_outer_L'];
   const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
   assert(wings.every(Boolean), 'unmasked exposes six wing shoulders (3 mirrored pairs)');
-  // UNEVEN pair gaps (anti-gear): adjacent gaps differ from 60° AND from each other by ≥10°.
+  // UPWARD CREST (not a radial asterisk): all three pairs rise into the UPPER hemisphere —
+  // distinct angles-from-vertical, none drooping past ~80° (i.e. every wing above horizontal),
+  // so the silhouette is a bilateral fan rising from the eye, never a star/wheel/moth spread.
   const wdeg = (r) => Math.abs(THREE.MathUtils.radToDeg(r));
   const rDegs = [wings[0], wings[2], wings[4]].map((w) => wdeg(w.rotation.z)).sort((a, b) => a - b);
-  const g1 = rDegs[1] - rDegs[0], g2 = rDegs[2] - rDegs[1];
-  assert(Math.abs(g1 - 60) >= 10 && Math.abs(g2 - 60) >= 10 && Math.abs(g1 - g2) >= 10,
-    `unmasked pair gaps are uneven/anti-gear (gaps ${g1.toFixed(0)}°/${g2.toFixed(0)}°, both ≠60°, differ ≥10°)`);
+  assert(rDegs[2] <= 80, `unmasked wings all rise into the upper hemisphere (max ${rDegs[2].toFixed(0)}° from vertical ≤ 80° — nothing droops to a moth-spread)`);
+  assert(rDegs[0] < rDegs[1] - 6 && rDegs[1] < rDegs[2] - 6, `unmasked three distinct wing tiers (${rDegs.map((d) => d.toFixed(0)).join('/')}°) — a fan, not overlapping spokes`);
   // THE GREAT CENTRAL EYE dominates (§ ≥~4× the largest peripheral, whose sclera ≈1.9u wide).
   const great = findAllByName(um.group, 'greatEye')[0];
   assert(great, 'unmasked exposes the great central eye');
