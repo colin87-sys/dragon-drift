@@ -29,7 +29,8 @@ page.on('console', (m) => { if (m.type() === 'error') { console.error('console:'
 
 try {
   for (const view of views) {
-    await page.goto(`${srv.url}/winglab.html?view=${view}`);
+    const vq = view === 'dark' ? 'front&dark=1' : view === 'darkprofile' ? 'profile&dark=1' : view;
+    await page.goto(`${srv.url}/winglab.html?view=${vq}`);
     await page.waitForFunction(() => window.__wing && window.__wing.ready, { timeout: 15000 });
     await page.waitForTimeout(300);
     const path = `${OUT}angelwing-${roundTag}-${view}.png`;
