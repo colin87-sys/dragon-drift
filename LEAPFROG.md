@@ -8690,3 +8690,318 @@ intensity; `boss.mjs` 96 green (storm-wall bosses untouched); tear change is net
 **→ Systematize.** (1) Adding a boss attack: whitelist + SUSTAINED + trust `amberSwap` for the floor. (2) Build a survival/Surge set-piece as an override GATED on the card/archetype/def id over the shared scheduler + arena + gaze — never a fork. (3) A "Surge ≥ N%" mechanic reads the ring/fever meter; a control-altering mechanic nudges `player.position.x` with amplitude < `lateralSpeed` and resets all its state on fight-start AND teardown.
 
 **→ Leapfrog.** Verified in-game per increment (tide-edge skim; full-frame crest row; the P5 whole-frame crest with a sweeping safe pocket; the beam locking ship→crest with the HOLD-CENTER banner). PR #299, four commits. Owner feel-check on the preview is the exit gate; balance (crest density, drift strength, duel cadence) is deliberately conservative and tunable on their note.
+
+---
+
+## L232 — JADE "ICONIC GREEN" direction formalized (pre-slot-C art-direction, mirrors ember PR #237)
+
+**What we did.** Human locked an ICONIC GREEN art-direction for jade — same authority as ember's
+iconic-flame pivot (PR #237): jade is THE green starter of the new trio (old/cinderwing/alt starters
+retiring), and a stranger's one-word read of every frame must be GREEN. The §5d starting hexes were
+too dark (near-black moss `0x123026` body). Formalized it in `DRAGON-DESIGN.md` ONLY (no code recolor
+yet — the actual paint is the gated slot-C build, exactly as ember's direction commit `1770f9d` touched
+only the doc + a test comment and the recolor came in the later gated `flame r1/r2` rounds):
+- **§2 law-9 accent table + §5 registry**: jade accent `0xeafff4` cool pearl → `0xd6ffe9` **mint-pearl**
+  (green-leaning, still inside the §7 ~149° cool band so the accentHue ±20° assert stays valid); carrier
+  text rewritten to a VIVID mid-value jade body + pale mint belly + green-family fin gradients.
+- **§5d jade sheet**: added a `PALETTE DIRECTION: ICONIC GREEN` block (the ember-block pattern) with
+  approved hexes — body ramp `0x3cb883`→`0x28a06b`→`0x178a54` (light→rich; value DOWN + saturation UP
+  per §4), deep-jade shadow tier `0x0d5c3a`, pale mint belly `0xdaf7e6`, mint-pearl bloom/rim `0xd6ffe9`,
+  fin gradient `0x116b45`→`0x2f9e77`→`0x9ff0c8`, scales `0x8fe0be`/horn `0xc7ebcf`/eye `0x8ff0c2`.
+- **§7 palette carrier**: jade clause now asserts the body diffuse reads VIVID mid-value jade (green at a
+  glance, NOT near-black) with saturation carried in accents/fins; gate judges greenness-at-distance.
+
+**Learned / reusable.** (1) **Design the palette in HSL before writing hexes.** A quick `hsl()` script
+showed the current body ramp is H160–166 **L13–14** (near-black — that IS the "too dark" bug in numbers);
+the new ramp holds H152–154 at **L32–48** (unmistakably green midtones) with saturation ramping 51→60→71
+and value 48→39→32 — i.e. §4's "value down, saturation up" satisfied WITHOUT going dark, because the whole
+band sits at mid-lightness. Verify hue AND lightness, not vibes. (2) **Keep the accent inside the registered
+band when re-tinting.** Mint-pearl `0xd6ffe9` computes to H148 — still within `accentHue 149°±20°`, so no
+test/`def.accentHue` change is needed; had I pushed the pearl toward pure white or cyan it would have broken
+the §7 assert the moment jade joins SPECS. (3) **The direction-vs-build split is the process.** Ember's
+`1770f9d` proved the pattern: formalize the human art-direction in the doc (approved hexes recorded) as a
+clean doc-only commit, THEN paint it through the gated slot rounds where the fable gate — not the builder —
+judges greenness. Jade is not yet in `tests/starters.mjs` SPECS ("joins in its slot"), so this commit is
+doc-only; roster gates stay green untouched (blueprint 4/4, starters 120/0, tricount 0 over budget).
+(4) **When in doubt, choose GREEN** — the sheet now instructs the gate to treat greenness-at-gameplay-
+distance as part of color/rim beauty, so "tasteful dark jade" is a FAIL, not a safe hedge.
+
+---
+
+## L233 — JADE slot C CP1: silkFinWings + serpent + the ICONIC GREEN build (gate r1 FAIL → r2 in progress)
+
+**What we did.** Built the jade "Jade Serpent" starter to the §5d sheet on the merged ember base — new
+self-registered wing builder `silkFinWings` (§3 col 3: 3→4 tall koi fin-lobes, forked/notched tips = the
+jade separation metric, green gradients, mint-pearl rim carrier + trailing streamers), `buildRiverPearl`
+motif socket (the ONE bloom), the serpent torso + softStealth draconic head, and the full ICONIC GREEN
+palette across 3 forms. All headless gates green (starters --cp1 163/0, blueprint 4/4, tricount 0 over
+budget; jade 2986/4028/5084 tris). Then a fresh `fable` gate FAILed CP1 at avg 2.25 with 14 directives;
+applied the structural ones as r2.
+
+**Reusable engine dials landed (all additive, default-off → roster byte-identical):**
+- **`model.spineYaw`** (torso): a LATERAL top-view S (offsets loft x + neck x + headBase x by a sine along
+  z). The serpent read needs BOTH the existing vertical `spineCurl` AND this lateral S — jade set neither
+  at first and the gate's #1 FAIL was STRAIGHT SPINE. **Jade never setting `spineCurl` was the bug** — the
+  dial existed (ember used it) but a straight body is the default; a serpent MUST dial both.
+- **`def.scaleEmissive`/`scaleEmissiveI`, `def.eyeEmissiveI`, `def.bellyEmissive`/`bellyEmissiveI`**
+  (dragonModel materials): the shared `scalesMat` has a HARDCODED cyan emissive (L164) that lit jade's
+  scutes/**whiskers**/ridges steel-blue, `eyeMat` emissive 2.2 blew the eye to a white googly blob, and the
+  pale `bellyMat` desaturated to slate-blue in shadow under ACES. All three are now def-overridable; jade
+  tints them green/calm. **On a saturated-identity dragon, audit EVERY shared material for an off-hue
+  hardcode — cyan on green is as jarring as the L164 cyan on ember's warm.**
+
+**The wing lessons (gate-driven):**
+- **Bake the L/R mirror into the geometry (negate x + REVERSE winding), never `mesh.scale.x = -1`.** A
+  negative scale flips the normals, so one koi fin lit sage-green and its mirror lit blue-teal (gate r1
+  dir 7). Reversing the index winding makes `computeVertexNormals` point outward on both sides → identical
+  green. This will recur for any mirrored vertex-coloured wing.
+- **A "darker leading ray" is a WELDED vertex-colour stripe + a raised leading rib, not a separate bone.**
+  The first pass added a matte spar bone per lobe; from behind they read as floating black rods overshooting
+  the silk (gate r1 dir 6). Deleting the bones and lifting the leading edge into a camber rib + darkening the
+  leading vertices reads as integrated relief with zero overshoot.
+- **Notch profile `sin^0.85` (wide mouth) survives the rear black-fill; the earlier spiky read was the
+  floating rods, not the notch.** Depth ≥0.3× lobe length is the §3 jade metric (published as
+  `wingElements[].notchDepth`); the test branches on `spec.separation==='notch'` (jade overlaps, so the
+  azure/ember planform-gap assert is wrong for it).
+- **Fan-fold furl:** jade rides direct `wingPivotL/R` + per-lobe `wingLobePivotsL/R`; a new `poseLobePivots`
+  (wingDebugPose) swings the fan back + yaws each lobe inboard so a fold contracts span past 0.72×. GOTCHA:
+  the model orchestrator WHITELISTS which `parts.*` keys it forwards — `wingLobePivotsL/R` were silently
+  dropped (the fold looked broken, contraction stuck at 0.74) until threaded through both forward blocks.
+
+**Test-metric reconciliation.** §3's jade "span:body 2.2–2.5×" is against the CORE body, but the §7 test
+measures against the full nose-to-tail serpent length (huge denominator) → the reconciled band is ~0.28–0.46.
+The r1 gate still called the fans BACKPACK at that band, so the fans were grown ~1.5× (lobeSpan 4→6). When a
+sheet ratio and the built-geometry metric diverge, the GATE's pixel read wins — grow until it reads as the
+hero, and document the band divergence (as azure/ember did).
+
+**Open (gate r1 residual → next rounds, CP2-class):** the HEAD is the battleground (ember's CP2 pattern) —
+round frog-ball skull, blank pale eyes (need iris+pupil), the chin pearl barely reads in the face crop, jaw
+still drifts blue; the beaded neck needs a smooth loft; streamers still mirror into a "heart" (need the
+rig's phase/lag to break L/R); the tail-whip is straight (the tail MODULE needs its own arc — the torso
+`spineCurl` doesn't reach it). CP1 body+wings are close; the face + neck + tail are the next climb.
+
+---
+
+## L234 — JADE "Jade Serpent" CP1 PASS (apex, avg 4.125) — the structural-rework turning point
+
+Slot C (jade) cleared the CP1 apex gate at **avg 4.125, no axis ≤2** (line-of-action 5.0, silk-fin
+4.5, greenness 4.5, silhouette/wing/taper 4.0) after a long climb: **2.0 → 2.75 → 3.2 → 3.81 → 4.125**.
+The gate called the side black-fill "the best starter silhouette this rebuild has produced — poster-grade."
+
+**The turning point was a STRUCTURAL rework, not more parameter tuning.** The build plateaued at ~2.1–2.25
+for four gate rounds while I tweaked dials (fin spread, notch depth, emissive floors). Every round the gate
+found the same read-level failures — "moth on a stick," "caterpillar head," a stubborn L/R teal. The score
+only started climbing when I stopped tuning and rebuilt the two things that were wrong at the ARCHITECTURE
+level:
+- **`buildKoiSkull` — a NEW lofted Catmull head shell** (the ember `buildSmoothForgeSkull` pattern, L165)
+  shaped slim + elongated (rounded braincase → brow ridge → tapered snout). This replaced softStealth's
+  round ellipsoid, which no amount of `headStretch`/`headNarrow` dialing could de-blob. Registered in
+  `SKULLS` + `ONE_SHELL_SKULLS` + the proud-eye set; routed via `model.skullType`. **Instantly** moved
+  color→4 and earned "a real hull, not the old ellipsoid blob."
+- **Reshaping the `silkFinWings` petal** from a pointed leaf/moth blade to a broad koi ray, then — after
+  the gate flagged the over-broad version as a "MITTEN balloon" — to a MODERATE chord (4 distinct lobes,
+  ~40% narrower, spread so tips separate). The sweet spot between "spiky slivers" and "merged mitten" is
+  narrow and only findable against the gate, one step at a time.
+
+**The lesson (compounding L164/L165):** when a harsh gate's score is FLAT across 3–4 rounds and it keeps
+re-citing the same read ("wrong noun," "blob," "moth"), the defect is ARCHITECTURAL, not parametric — stop
+turning dials and rebuild the offending part. The ellipsoid-stack skull and the pointed-petal fin were both
+dead ends that tuning could not save; a lofted shell and a reshaped blade broke the plateau in two rounds.
+
+**Reusable engine dials landed this slot (all additive, default-off → roster byte-identical):**
+`model.spineYaw` (torso lateral-S), `model.tailArc`/`tailYaw` (clean-tail idle curve, also curves the
+sweptTail centreline + welds the tip onto the curve), `model.tailGirth` (fat serpent ribbon),
+`model.tailGlow` (green tail emissive floor), `model.headStretch`/`headNarrow` (skull elongation),
+`model.skullType: 'koiSkull'`, `model.neckBlend` (already existed; pushed to 3.7 to de-caterpillar),
+`def.scaleEmissive`/`eyeEmissiveI`/`bellyEmissive`/`eyeSclera`/`eyeIris`/`eyeIrisKeen`/`eyeBallEmissive`
+(kill off-palette cyan/blue on a green dragon — the L164 gotcha generalized), `model.finGlow`/`finRimColor`
+(green emissive floor + greener rim so the shadowed wing holds jade under the cool studio key light).
+
+**Gotchas.** (1) A negative `mesh.scale.x` mirror flips the normals → one koi fin lit sage, its mirror
+teal; bake the mirror into geometry (negate x + REVERSE winding) instead. (2) The persistent L/R "teal"
+was ultimately DIRECTIONAL STUDIO LIGHT (the fin facing the cool fill reads teal) + the pale-cyan mint rim
+at grazing angles + transparency depth-sort — layered causes; the fix was a green emissive FLOOR + a greener
+rim + opaque rear lobe, and accepting it may read differently on warm game skies (the human is the merge
+judge, §8). (3) When you offset tail SEGMENTS by an arc, every later-added element (the tip cone, fins) must
+be placed on the SAME arced centreline + tangent or it detaches (a hard §2.1 one-component fail). (4) The
+head reads `c.def.*`, not `c.def.model.*` — eye/scale colour overrides must be TOP-LEVEL def fields.
+
+**Open (gate's non-blocking polish notes → fold into CP2):** brighten the iris toward `0x8ff0c2` + widen
+the almond so the eye (not the pearl spill) is the brightest facial point at turntable distance; soften the
+front/¾ neck-segment beading (side is smooth); +5–8° fan camber so the dead-astern chase presents more silk;
+lift the tail-veil's darkest field toward `0x116b45`. Next: **CP2** — tune forms 0–1 to their §4 bands +
+the growth arc, then the ladder + face-per-form + silhouette triptych + trio frame + a fresh CP2 gate.
+
+---
+
+## L235 — Gotcha: a PR opened via the API/MCP token does NOT fire the `pull_request` preview build
+
+**Symptom.** Created PR #268 for the jade slot via `mcp__github__create_pull_request`, handed the human the
+canonical preview URL (`…/pr-preview/pr-268/`) — it 404'd. The `gh-pages` branch had `pr-134`…`pr-267` but
+no `pr-268` folder, and **zero** workflow runs existed for the branch.
+
+**Cause.** GitHub suppresses `on: pull_request` workflow triggers for PRs whose `opened` event was produced
+by a bot/app/`GITHUB_TOKEN` (anti-recursion). Our `pr-preview.yml` triggers only on `pull_request`
+(opened/synchronize/reopened/closed) with no `workflow_dispatch`, so an API-opened PR never builds a preview
+and never comments the link.
+
+**Fix / reusable pattern.** Push a commit to the head branch — that emits a `synchronize` event attributed
+to the pusher (not the token), which DOES fire the build and lands `pr-<N>/` on `gh-pages`. A one-line
+ledger append (this entry) is the natural carrier; an `--allow-empty` commit also works since `synchronize`
+only needs the head SHA to move. The preview URL is correct as-is — it just needs a real run behind it. (The
+sandbox itself can't verify the page: the egress policy 403s `*.github.io` at the proxy, so trust the
+Actions "PR Preview" + "Deploy Pages" green as the build proof, and let the human load the URL.)
+
+---
+
+## L236 — The gate can't see motion: a serpent that "passed" was dead-stiff in-game
+
+**Human verdict on the CP2-passed jade (in-game, PR #268 preview):** *"the body is disjointed and
+stiff… it's meant to be a serpent but it doesn't even move… the tail is thick and disjointed from the
+body. How did fable even pass this?"*
+
+**Why it passed the gate anyway.** §8 Fable judges STILL turntable/tiershots — there is no WebGL in CI,
+so **motion is structurally invisible to the gate**. A dragon can score 4.25 on frozen beauty and be
+lifeless the instant it flies. The human is the ONLY judge of motion/feel (this is why §8 defers the merge
+call to them) — treat a gate PASS as "the stills hold," never "it moves."
+
+**Root cause (architectural, not a tuning miss).** Jade was built on the `serpent` LOFT torso — ONE rigid
+mesh that emits no spine segments, so nothing in the rig can bend it — with the fat `sweptTail` bolted on as
+a SECOND mesh (the visible seam = "disjointed tail"). The only procedural bodies that actually undulate are
+the **segmented** ones: a torso that publishes `parts.bodySegs` (overlapping section Groups) gets the
+shipped lead-first travelling wave for free (dragon.js ~L858: `position.x = sin(time·k − i·lag)·sway·ramp`,
+ramp `0.18+0.95·tt` so the tail whips widest; group roll auto-softens to 0.4 when `bodySegs` present so the
+snake-bend reads instead of a plane-bank).
+
+**The fix — `dragonKoiSerpent.js` (`koiSerpent` torso).** A continuous chain of heavily-overlapping smooth
+jade sections (koi girth profile: plump front third → fine tail), vertex-painted value ramp + mint belly,
+publishing `bodySegs`. **The tail is the tapering REAR of this same chain** (`parts.tail:'none'`) — so it
+can never detach, and "thickness" is just the taper curve, not a bolted girth knob. Wings (the human's
+loved hero) + the koiSkull head are untouched — they mount at the front and LEAD while the body trails.
+
+**Gotchas that the §7 asserts caught (all real, all fixed):**
+1. **Length is pinned by head:body, not by feel.** Jade is the LONG archetype (apex body 7.5–9.5× the head
+   vs a winged dragon's ~5×) — but the ratio climbs mostly because the HEAD shrinks across forms (2.07→0.98),
+   the absolute body length barely grows (~6→8). Calibrate the section count against the head length, per form.
+2. **Pin the frame at the SHOULDER, not the chain midpoint.** A centre pin drifts every mount (head, wing
+   root, chin-pearl) as the body lengthens → the §7 motif-invariance assert fails (drift 0.67/1.25). Pinning a
+   fixed arc-distance behind the head keeps the front anchors form-invariant; only the tail extends backward.
+3. **Bake a resting vertical S** (neck up / mid dip / tail up) into the base Y or the §6.4 line-of-action has
+   zero inflection (a straight rod). The runtime wave adds to `userData.baseY`, so the still pose keeps the S.
+4. **spanBody bands are architecture-specific.** Moving loft→chain legitimately re-based wingspan:body;
+   reconcile the band to the new (correct) body rather than shrinking the beloved wings to fit an old number.
+
+**Reusable:** the segmented-body + `bodySegs` path is the ONLY procedural route to real undulation — reach
+for it (not a loft) whenever the creature must *swim/slither*, and fold the tail into the chain so it's
+continuous by construction. Verify motion on the PR preview every time; the headless suite proves geometry,
+never life.
+
+---
+
+## L237 — Human motion notes on the koiSerpent (iterating what the gate can't see)
+
+Second in-game pass (PR #268 preview), three notes — all motion/read issues invisible to §8:
+
+1. **"Looks like the astral-worm body, which I hated — creepy."** The overlapping-SPHERE chain I
+   borrowed from crystalSerpent reads as a string of beads / a caterpillar. **Fix without losing the
+   working `bodySegs` undulation:** a `segDensity` dial that packs MANY more, smaller, heavily-overlapped
+   sections at the SAME total length (N×SPACE held constant, so the §4 head:body bands are untouched) +
+   near-round cross-sections (drop the elongated/bulbous per-segment scale). Dense heavy overlap = the
+   silhouette is a smooth continuous tube, not distinct beads. The bead-chain "worm" pop comes from
+   VISIBLE segment waisting — kill it with overlap + roundness, not fewer segments.
+2. **"Shouldn't the wings flap together?"** dragon.js never animated jade's silk-fin LOBES at all (only
+   the whole-fan pivot tilted, and the tip used an asymmetric L/R phase). Added a SYMMETRIC per-lobe
+   ripple (both fans open together, per-lobe lag down the fan → a travelling koi-fin breath), keyed on
+   `parts.wingLobePivotsL/R` so it's jade-only (every other dragon byte-identical). The furl group is the
+   animation child; the static rake lives on its parent `rest` group, so the ripple composes cleanly.
+3. **"Needs more fluidity / more lag."** Bumped `segmentLag` 0.16→0.30 (the tail trails the head further
+   → a longer, more fluid travelling wave) and the density gives the wave finer samples.
+
+**Reusable:** when the human says "creepy worm," the lever is smoothness of the SKIN silhouette (overlap +
+round sections), not the motion mechanism — keep the `bodySegs` wave, change what it's wrapped in. And a
+per-part symmetric ripple keyed on a nullable parts handle is the clean way to add creature-specific
+in-flight motion without forking the shared wing code.
+
+---
+
+## L238 — "3 worms next to each other": stacked spheres NEVER read as a smooth serpent
+
+Third in-game pass: the dense sphere-chain (L237) read as parallel lumpy columns — *"wtf did you
+create? it's now 3 worms next to each other. the body needs a rework bro."* Low-poly sphere
+cross-sections + stacked overlap = visible longitudinal ridges + bead waisting, from the one view that
+matters (rear-chase, looking down the body). **Density tuning cannot fix a bead-chain — the topology is
+the problem.**
+
+**The real fix (v3): ONE swept TUBE bent by a travelling-wave VERTEX SHADER.** `dragonKoiSerpent.js`
+now lofts N rings × K radial verts into a single continuous mesh (head→fine-tail, capped), and bends it
+every frame in the vertex stage: `transformed.x += amp · ramp · sin(freq·z + uTime)`, ramp 0 at the head →
+1 at the tail (head leads, tail whips). No segments, no beads, physically cannot read as separate worms.
+The tail is the tapering rear of the same tube (continuous by construction). dragon.js ticks
+`parts.bodyWave.uniforms.uTime` (accumulated, speed-eased — never `phase = speed·clock`, or a boost jolts
+the wave). ~4.2k tris at apex (the undulation is free in the shader), well under budget.
+
+**Shader-plumbing gotchas:**
+- `composeSurface` (the surface-shader patch system) wraps each patch uniform FRESH per compile
+  (`shader.uniforms[name] = { value }`), so an externally-ticked uniform can't reach it. For a live-ticked
+  uniform you must own the `onBeforeCompile` and assign the SHARED uniform object
+  (`shader.uniforms.uTime = myU.uTime`) — the `attachBodyDeform` pattern. So the wave + the fresnel rim had
+  to live in ONE hand-rolled `onBeforeCompile` (vertex wave + fragment rim at the `<begin_vertex>` /
+  `<emissivemap_fragment>` seams), not `applyFresnelRim`.
+- Forward the uniform through BOTH parts blocks in dragonModel (the early winged-return AND the main
+  return) or it's silently null and the body sits dead-stiff again.
+- The shader only compiles under real WebGL — CI can't catch a GLSL typo. Mirror an already-shipping patch's
+  exact seams/vars (`position`, `transformed`, `normal`, `vViewPosition`) and the human's the compile oracle.
+
+**Face:** per the human, dropped the bespoke `koiSkull` for azure's head fitted to jade — `softStealth`
+draconic + `cuteEye` + `taperedPredatorSnout` + brow + slim `neckBlend`, in jade green. Reuse a proven,
+liked head over a bespoke one when the human points at it.
+
+**Wings:** "still beating asymmetrical" — carried the symmetric lobe ripple from L237 (jade-only, keyed on
+`wingLobePivotsL/R`); if it still reads off, the shared basic-direct branch's asymmetric wingTip phase
+(sin(φ+0.95) vs sin(φ+1.18)) is the next suspect to fold into a jade-symmetric branch.
+
+---
+
+## L239 — Motion you can't test headless will bite you: move the wave to the CPU
+
+The swept-tube body (L238) shipped STATIC in-game — "no motion on the body, it's sitting still." The
+travelling wave lived in an `onBeforeCompile` vertex shader whose uniform dragon.js ticked; the wiring read
+correct (shared-uniform pattern, parts.bodyWave non-null, onBeforeCompile not overwritten) but it never
+animated, and **CI cannot compile GLSL** so I had no way to see why before shipping it to the human twice.
+
+**Fix: do the undulation on the CPU.** koiSerpent now stores per-vertex baseX/baseY, spine-z, and a
+head→tail ramp; dragon.js rewrites `position.x = baseX + amp·ramp·sin(freq·z + phase)` each frame and sets
+`needsUpdate`. ~314 verts for one hero dragon = trivial. Crucially it is **deterministic + headless-testable**:
+a 30-line node test drove the tick and asserted the tail x swings ~0.9 units while the head barely moves —
+proof of a real travelling wave BEFORE deploying. `body.frustumCulled = false` (the swing exceeds the
+static bounds). Normals aren't recomputed (cheap, subtle shear — same tradeoff the shader made).
+
+**The rule:** if a change's whole point is MOTION and the mechanism can't be exercised in CI (a shader
+uniform, a GPU deform), prefer a CPU path you can unit-test, or you're shipping blind to the human as your
+only oracle — expensive when each round is a deploy + a human test. Verify motion headless when you can.
+
+**Also this round (human notes):** reverted the face to the original lofted `koiSkull` (they preferred it
+to the azure-head graft — reuse-a-liked-thing cuts both ways). And gave jade a DEDICATED symmetric wing
+branch: the N silk lobes beat L_i↔R_i on the SAME phase (side only flips the spread), killing the shared
+basic-direct branch's asymmetric wingTip phase (sin(φ+0.95) vs sin(φ+1.18)) that read as "beating
+asymmetrical." Keyed on `wingLobePivotsL/R` → jade-only, roster untouched.
+
+---
+
+## L240 — Silk-fan tuning: a beat that ADDS to the rest rake closes the fan
+
+Human on the symmetric fans (good — "wings together", body "swims with a real S, looks great, simple and
+elegant"): but "the wings had 3 separate parts per side, I only see 2 now" + "the back part could be more
+flowy, reads a bit stiff."
+
+**Cause of 3→2:** the lobe beat set `rotation.y = side·beat`, but the lobes' rest RAKE already fans them
+via `side·-(rake)` — so the positive term rotated lobes BACK toward centre, merging adjacent ones. Two
+fixes: (1) bias the animation in the OPEN direction (`-side`) with a static `lSpread·fr` fan so lobes never
+close into each other, and (2) a BIG inboard→outboard phase lag (0.85) so each lobe sits at its own angle
+at any instant → they read as separate parts even mid-beat. **Flow:** a slow rear-weighted sway
+(`sin(lp·0.5)·flow·fr`, strongest at the rearmost lobe — which rides the wingTip carrier) undulates the
+trailing edge so the back of the fan flows instead of reading as a rigid paddle.
+
+Reusable: when animating fanned/raked elements, know the sign of the REST spread and bias the animation to
+ADD to it (open), never oscillate symmetrically about it — symmetric oscillation collapses the fan on the
+closing half. Stagger by phase-lag to keep parts individually legible.
