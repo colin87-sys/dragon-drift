@@ -288,14 +288,16 @@ export function buildUnmasked(def, quality = 1) {
     s.quadraticCurveTo(-w * 0.5, len * 0.16, 0, 0);                              // trailing to the root
     return s;
   };
-  const addFeather = (parts, len, w, rot, px, py, pz) => {
-    const blade = stripForMerge(new THREE.ExtrudeGeometry(featherShape(len, w), bladeExtrude));
-    const rib = stripForMerge(new THREE.BoxGeometry(Math.max(0.05, w * 0.13), len * 0.6, 0.09));
-    rib.translate(0, len * 0.34, 0.055);
+  const addFeather = (parts, len, w, rot, px, py, pz, curl = 0.28, withRib = true) => {
     const m = new THREE.Matrix4().makeRotationZ(rot);
     m.setPosition(px, py, pz);
-    blade.applyMatrix4(m); rib.applyMatrix4(m);
-    parts.push(blade, rib);
+    const blade = stripForMerge(new THREE.ExtrudeGeometry(featherShape(len, w, curl), bladeExtrude));
+    blade.applyMatrix4(m); parts.push(blade);
+    if (withRib) {   // the raised rachis — only the big primaries need it (tri budget)
+      const rib = stripForMerge(new THREE.BoxGeometry(Math.max(0.05, w * 0.13), len * 0.6, 0.09));
+      rib.translate(0, len * 0.34, 0.055);
+      rib.applyMatrix4(m); parts.push(rib);
+    }
   };
   // A BENT ("L" / obtuse) WING — the reference structure. An ARM extends OUT from the eye at
   // armDeg (from vertical), then the hand BENDS UP at the shallower handDeg: the feathers rise
@@ -307,31 +309,42 @@ export function buildUnmasked(def, quality = 1) {
     const aA = armDeg * Math.PI / 180, hA = handDeg * Math.PI / 180;
     const Bx = Math.sin(aA) * armLen, By = Math.cos(aA) * armLen;   // the bend (wrist)
     const hdx = Math.sin(hA), hdy = Math.cos(hA);                   // hand direction (up-ish)
-    const nCov = lowQ ? 3 : 4;
-    for (let i = 0; i < nCov; i++) {
-      const t = (i + 0.5) / nCov;
-      const px = Bx * (0.2 + t * 0.75), py = By * (0.2 + t * 0.75);
-      const rot = aA * (1 - t) + hA * t - 0.08;                     // turns from the arm dir toward the hand
-      const len = (1.9 + t * 1.4) * lenScale;
-      addFeather(cov, len, 1.1, rot, px, py, 0.42);
+    const ARM_FRAC = 0.3;
+    // A point on the LEADING EDGE (arm root→wrist, then wrist→tip up the hand) at u∈[0,1].
+    const edgePt = (u) => {
+      if (u < ARM_FRAC) { const s = u / ARM_FRAC; return [Bx * s, By * s, aA]; }
+      const s = (u - ARM_FRAC) / (1 - ARM_FRAC); return [Bx + hdx * s * handLen, By + hdy * s * handLen, hA];
+    };
+    // PRIMARIES — long, SLENDER flight feathers marching along the leading edge, FANNED from
+    // near-vertical at the root to swept-out at the tip; length peaks in the outer third then
+    // tapers at the very tip. Slender + a clear length gradient = distinct feathers, not a slab.
+    const nP = lowQ ? 10 : 14;
+    for (let i = 0; i < nP; i++) {
+      const u = i / (nP - 1);
+      const [px, py] = edgePt(u);
+      const rot = 0.28 + u * 0.62;                                  // TIGHT coherent sweep (root up → tip out), not a wide ragged fan
+      const len = lenScale * (2.6 + u * 6.4) * (1 - 0.18 * u);      // longest toward the wingtip, slight taper at the very end (a sickle, not a leaf)
+      const w = 0.78 * (0.85 + u * 0.35);
+      addFeather(prim, len, w, rot, px, py, -0.5 + i * 0.05, 0.44); // strong curl → curved plumage
     }
-    const nPrim = lowQ ? 6 : 8;
-    for (let i = 0; i < nPrim; i++) {
-      const t = i / (nPrim - 1);
-      const px = Bx + hdx * t * handLen * 0.85, py = By + hdy * t * handLen;
-      const fan = (t - 0.5) * 0.5;
-      const rot = hA + fan - 0.1;
-      const swell = 0.55 + Math.sin((0.14 + t * 0.8) * Math.PI) * 0.72;   // swell then taper to the tip
-      const len = 4.8 * lenScale * swell * (0.94 + rnd() * 0.12);         // longer primaries → taller, dominant wings
-      addFeather(prim, len, 1.75, rot, px, py, -0.55 + i * 0.05);
+    // SECONDARIES — a half-pitch layer filling the gaps, ~65% length, just behind the primaries.
+    const nS = lowQ ? 8 : 12;
+    for (let i = 0; i < nS; i++) {
+      const u = (i + 0.5) / nS;
+      const [px, py] = edgePt(u * 0.92);
+      const rot = 0.24 + u * 0.6;
+      const len = lenScale * (1.8 + u * 4.0) * (1 - 0.15 * u);
+      addFeather(sec, len, 0.62, rot, px, py, -0.12 + i * 0.04, 0.42, false);
     }
-    const nSec = lowQ ? 4 : 6;
-    for (let i = 0; i < nSec; i++) {
-      const t = (i + 0.5) / nSec;
-      const px = Bx + hdx * t * handLen * 0.62, py = By + hdy * t * handLen * 0.72;
-      const rot = hA + (t - 0.5) * 0.5 - 0.04;
-      const len = 3.1 * lenScale * (0.6 + Math.sin((0.2 + t * 0.75) * Math.PI) * 0.62);
-      addFeather(sec, len, 1.4, rot, px, py, -0.05 + i * 0.05);
+    // COVERTS — a short SMOOTH top layer hugging the leading edge over the inner ~65% (the
+    // shoulder) → gives the wing a clean leading edge instead of an all-jagged outline.
+    const nC = lowQ ? 5 : 8;
+    for (let i = 0; i < nC; i++) {
+      const u = i / (nC - 1);
+      const [px, py] = edgePt(u * 0.65);
+      const rot = 0.2 + u * 0.5;
+      const len = lenScale * (1.2 + u * 2.3);
+      addFeather(cov, len, 0.62, rot, px, py, 0.36 + i * 0.04, 0.36, false);
     }
     return { Bx, By, hdx, hdy, handLen };   // for eye placement on the hand
   };
@@ -555,6 +568,21 @@ export function buildUnmasked(def, quality = 1) {
     stage2.visible = (n === 2);
   }
 
+  // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
+  // designed on its own (the owner's directive — get the wing right first, then re-add eyes).
+  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, haloS2, relics];
+  function setDebugWing(on) {
+    stage1.visible = on ? false : (stageN == null || stageN === 1);
+    stage2.visible = on ? true : (stageN === 2);
+    for (const m of nonWing) if (m) m.visible = !on;
+    for (const p of pupils) p.visible = !on;
+    for (const s of shoulders) {
+      const keep = s.obj.name === 'wing_mid_R';
+      s.obj.visible = on ? keep : true;
+      if (on && keep) { s.obj.position.set(0, -3.5, 0); s.obj.rotation.set(0, 0, 0); }   // centre the lone wing for design
+    }
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // ANIMATION / STATE
   // ──────────────────────────────────────────────────────────────────────────
@@ -675,6 +703,7 @@ export function buildUnmasked(def, quality = 1) {
     setGaze,
     notice,
     setDebugStage,
+    setDebugWing,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
