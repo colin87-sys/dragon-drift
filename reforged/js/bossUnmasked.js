@@ -270,6 +270,7 @@ export function buildUnmasked(def, quality = 1) {
   const baseMats = {};
   for (const k of Object.keys(LADDER)) baseMats[k] = track(new THREE.MeshStandardMaterial({ color: LADDER[k], roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }));
   const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x5b6472, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide }));   // cool moonlit steel — the leading-edge rim
+  const rimMatB = track(new THREE.MeshStandardMaterial({ color: 0x474e5a, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide }));  // a step DARKER — the alternate primary + secondary rank, so the outer fan reads as separate fingers (Fable P5, interior feather-rank shading)
 
   // ── THE CENTRAL STARBURST is RESERVED FOR STAGE 3 (owner: "use this type of eye for the third
   // form"). Stage 2 goes back to the ORIGINAL focal almond eye (below) — no radiant star here.
@@ -414,7 +415,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, blade: 0.78 }).group);   // per-wing value ladder + painted moon-rim
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78 }).group);   // per-wing value ladder + painted moon-rim (two tiers → the fan fingers separate)
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp });
@@ -488,24 +489,9 @@ export function buildUnmasked(def, quality = 1) {
   // eyed wings + the focal eye stand on their own here; the saint's nimbus lands at the
   // unveiling (S3), alongside the star-eye. ──
 
-  // ── RELICS (§8) — short gold wire glints at the wing roots (5 trophies + 1 EMPTY wire =
-  // the post-game gap worn on the body). LineSegments = overdraw-exempt. CP2 wires the
-  // per-relic palette + the destroy→sag behaviour; this seeds the roots. ──
-  // Scattered UP among the wing roots (NOT radiating from the focal eye — that read as
-  // cat-whiskers), short + faint gold quill-glints nestled in the feather mass.
-  const relicPts = [];
-  for (let r = 0; r < 6; r++) {
-    const side = r % 2 ? 1 : -1;
-    const cx = side * (0.6 + (r % 3) * 0.5), cy = 0.6 + Math.floor(r / 2) * 0.9;
-    relicPts.push(cx, cy, 0.5, cx + side * 0.16, cy + 0.4, 0.5);   // short, angled up along the plumage
-  }
-  const relicGeo = new THREE.BufferGeometry();
-  relicGeo.setAttribute('position', new THREE.Float32BufferAttribute(relicPts, 3));
-  const relicMat = track(new THREE.LineBasicMaterial({ color: accent, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
-  relicMat.toneMapped = false;
-  const relics = new THREE.LineSegments(relicGeo, relicMat);
-  relics.name = 'relicRoots';
-  stage2.add(relics);
+  // ── RELICS (§8) are RESERVED FOR CP2 — the placeholder gold quill-glints read as stray
+  // hairline slivers near the centre (Fable polish). CP2 builds the real 5-trophies-+-1-empty
+  // destructible relics with their per-relic palette + destroy→sag behaviour; no seed here. ──
 
   kit.flashBind(lidMat, 0.0);
   kit.finalize();
@@ -520,7 +506,7 @@ export function buildUnmasked(def, quality = 1) {
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
   // designed on its own (the owner's directive — get the wing right first, then re-add eyes).
-  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, relics, knot];
+  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, knot];
   function setDebugWing(on) {
     stage1.visible = on ? false : (stageN == null || stageN === 1);
     stage2.visible = on ? true : (stageN === 2);
