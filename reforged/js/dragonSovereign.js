@@ -20,15 +20,18 @@ function sovereignMats(def, glow) {
   const bodyFlat = new THREE.MeshStandardMaterial({ color: def.body ?? 0x080b14, flatShading: true, roughness: 0.66, metalness: 0.12 });
   const gold = new THREE.MeshStandardMaterial({ color: def.scales ?? GOLD, flatShading: true, roughness: 0.3, metalness: 0.78, emissive: def.scales ?? GOLD, emissiveIntensity: 0.05 });
   const goldHi = new THREE.MeshStandardMaterial({ color: def.horn ?? GOLD_HI, flatShading: true, roughness: 0.26, metalness: 0.82 });
-  const vCol = def.apexSeam ?? VIOLET;
-  const violet = new THREE.MeshStandardMaterial({ color: vCol, emissive: vCol, emissiveIntensity: 1.2 * g, flatShading: true, roughness: 0.4 });
-  violet.userData.baseEmissive = vCol; violet.userData.baseIntensity = 1.2 * g;
+  const vCol = def.apexSeam ?? VIOLET;              // diffuse accent (light blue-violet)
+  const vEmis = 0x7a34f0;                            // SATURATED emissive violet — stays violet when bright
+  // (bright + light emissive clips to white under ACES; a saturated hue holds the arcane read)
+  const violet = new THREE.MeshStandardMaterial({ color: vCol, emissive: vEmis, emissiveIntensity: 1.5 * g, flatShading: true, roughness: 0.4 });
+  violet.userData.baseEmissive = vEmis; violet.userData.baseIntensity = 1.5 * g;
   const memCol = def.wingOuter ?? CRIMSON_OUT;
   const membrane = new THREE.MeshStandardMaterial({ color: memCol, emissive: def.wingEmissive ?? 0x7a1622, emissiveIntensity: 0.28 * g, flatShading: true, roughness: 0.74, side: THREE.DoubleSide });
   membrane.userData.baseEmissive = def.wingEmissive ?? 0x7a1622; membrane.userData.baseIntensity = 0.28 * g;
-  const gem = new THREE.MeshStandardMaterial({ color: vCol, emissive: vCol, emissiveIntensity: 2.0 * g, flatShading: true, roughness: 0.2 });
-  gem.userData.baseEmissive = vCol; gem.userData.baseIntensity = 2.0 * g;
-  return { bodyFlat, gold, goldHi, violet, membrane, gem };
+  const memVentral = new THREE.MeshStandardMaterial({ color: 0x3a0e12, emissive: 0x4a0d14, emissiveIntensity: 0.18 * g, flatShading: true, roughness: 0.78, side: THREE.DoubleSide });
+  const gem = new THREE.MeshStandardMaterial({ color: 0xd9c2ff, emissive: vEmis, emissiveIntensity: 1.7 * g, flatShading: true, roughness: 0.18 });
+  gem.userData.baseEmissive = vEmis; gem.userData.baseIntensity = 1.7 * g;
+  return { bodyFlat, gold, goldHi, violet, membrane, memVentral, gem };
 }
 
 // Faceted loft: rings [{z, rx, ry, cy}] → one flat-shaded tube.
@@ -109,33 +112,30 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // CORONA MANTLE (rear motif carrier): ONE solid faceted gold crescent shield on the dorsal
   // yoke between the wing roots — convex to the rear cam, violet emissive seam-valleys. NEVER a ring.
   const valleys = Math.round(model.coronaValleys ?? 5);
-  // WIDE SOLID gold crescent MANTLE spanning the shoulder yoke and lying nearly flat on the
-  // back — a broad armored collar between the wing roots (covers the inter-wing gap), NOT a
-  // standing fan and NOT a ring. Convex arc forward, a straight chord at the rear, filled solid.
-  const cw = 0.55 + 0.07 * valleys;   // spans shoulder width
-  const ch = 0.42 + 0.03 * valleys;   // fore-aft depth of the mantle
+  // CORONA MANTLE — a WIDE solid gold dome over the shoulder yoke, spanning PAST the wing roots
+  // so from the rear chase the back reads as one solid armored collar (no background gap = no
+  // ring/loop). Horizontal violet emissive seam-bands. The wings + neck emerge from it.
+  const cw = 0.55 + 0.08 * valleys, dome = 0.30 + 0.02 * valleys, depth = 0.55;
   const corona = new THREE.Group();
-  const ctris = [];
-  const arcN = Math.max(6, valleys * 2);
-  const front = [], rear = [];
-  for (let j = 0; j <= arcN; j++) {
-    const u = j / arcN, x = (u - 0.5) * 2 * cw;
-    const arch = Math.sqrt(Math.max(0, 1 - (x / cw) * (x / cw)));   // crescent arc
-    front.push([x, 0.10 * arch, -ch * arch]);        // convex forward edge (−z)
-    rear.push([x, 0.02, ch * 0.35]);                 // straight rear chord
+  const domeGeo = new THREE.SphereGeometry(1, seg(12), seg(5), 0, Math.PI * 2, 0, Math.PI * 0.52);
+  const domeMesh = new THREE.Mesh(domeGeo, M.gold);
+  domeMesh.scale.set(cw, dome, depth);
+  corona.add(domeMesh);
+  for (let j = 1; j < valleys; j++) {                 // horizontal violet seam bands across the dome front
+    const yy = (j / valleys) * dome * 0.9;
+    const rr = cw * Math.sqrt(Math.max(0.05, 1 - (yy / dome) * (yy / dome)));
+    const band = new THREE.Mesh(new THREE.BoxGeometry(rr * 1.7, 0.03, 0.05), M.violet);
+    band.position.set(0, yy, -depth * 0.75);
+    corona.add(band);
   }
-  for (let j = 0; j < arcN; j++) ctris.push([rear[j], front[j], front[j + 1]], [rear[j], front[j + 1], rear[j + 1]]);
-  corona.add(flatTriMesh(ctris, M.gold));
-  // violet emissive seam-valley ribs radiating across the mantle face
-  for (let j = 1; j < valleys; j++) {
-    const x = ((j / valleys) - 0.5) * 1.4 * cw;
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, ch * 0.7), M.violet);
-    rib.position.set(x, 0.09, -ch * 0.25);
-    corona.add(rib);
-  }
-  corona.position.set(0, TORSO_Y + 0.46, -0.78);   // seat on the shoulder yoke, between the wing roots
-  corona.rotation.x = 0.25;
+  corona.position.set(0, TORSO_Y + 0.24, -0.80);
   group.add(corona);
+  // Shoulder fairings — body-flat fillets from each wing root inboard to the neck base, so no
+  // background survives between neck, mantle and wing roots in the rear-chase read.
+  for (const s of [1, -1]) {
+    const fair = flatTriMesh([[[s * 0.55, TORSO_Y + 0.4, -0.8], [s * 0.12, TORSO_Y + 0.32, -1.5], [s * 0.5, TORSO_Y + 0.2, -0.5]]], M.bodyFlat);
+    group.add(fair);
+  }
   const motifAnchor = new THREE.Object3D();
   motifAnchor.position.copy(corona.position);
   group.add(motifAnchor);
@@ -183,7 +183,8 @@ function buildOneWing(M, dials) {
     const A = st[f], B = st[f + 1];
     const scallop = (0.26 + (f >= fingers - 2 ? 0.26 : 0)) * ((A.c + B.c) / 2);
     const mid = [(A.tip[0] + B.tip[0]) / 2, (A.tip[1] + B.tip[1]) / 2 - 0.04, (A.tip[2] + B.tip[2]) / 2 - scallop];
-    const ctr = [(A.l[0] + B.l[0] + A.tip[0] + B.tip[0]) / 4, (A.l[1] + B.l[1]) / 2 + 0.28 * (1 - A.t * 0.5), (A.l[2] + B.l[2] + A.tip[2] + B.tip[2]) / 4];
+    // CUP the bay: drop the center below the rim so rim light pools (a vault, not a flat pleat).
+    const ctr = [(A.l[0] + B.l[0] + A.tip[0] + B.tip[0]) / 4, (A.l[1] + B.l[1]) / 2 - 0.16 * ((A.c + B.c) / 2), (A.l[2] + B.l[2] + A.tip[2] + B.tip[2]) / 4];
     mtris.push([A.l, B.l, ctr], [B.l, B.tip, ctr], [B.tip, mid, ctr], [mid, A.tip, ctr], [A.tip, A.l, ctr]);
   }
   wg.add(flatTriMesh(mtris, M.membrane));
@@ -199,7 +200,8 @@ function buildOneWing(M, dials) {
     spar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     wg.add(spar);
   }
-  // Finger ribs (gold) + violet vein tips.
+  // Finger ribs (gold) + a BOLD violet starlight vein running the length of each finger line
+  // (bright near the leading root, fading to the tip) — the Eclipse identity, emissive-on-opaque.
   for (let f = 1; f <= fingers; f++) {
     const A = st[f];
     const dir = new THREE.Vector3(A.tip[0] - A.l[0], A.tip[1] - A.l[1], A.tip[2] - A.l[2]);
@@ -207,10 +209,13 @@ function buildOneWing(M, dials) {
     const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.03, len, seg(4)), M.gold);
     rib.geometry.translate(0, len / 2, 0);
     rib.position.set(A.l[0], A.l[1], A.l[2]);
-    rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    rib.quaternion.copy(q);
     wg.add(rib);
-    const vein = new THREE.Mesh(new THREE.OctahedronGeometry(0.04, 0), M.violet);
-    vein.position.set(A.tip[0], A.tip[1], A.tip[2]);
+    const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.028, len * 0.7, seg(3)), M.violet);
+    vein.geometry.translate(0, len * 0.35, 0);
+    vein.position.set(A.l[0], A.l[1] - 0.03, A.l[2]);
+    vein.quaternion.copy(q);
     wg.add(vein);
   }
 
@@ -218,13 +223,13 @@ function buildOneWing(M, dials) {
   for (let i = 0; i < pikes; i++) {
     const t = 0.28 + 0.36 * (i / Math.max(1, pikes - 1 || 1));
     const l = L(t);
-    const plen = halfSpan * 0.32 * Math.pow(0.82, i);
-    const pk = spike(plen, 0.09, 0.012, M.goldHi, 4);
+    const plen = halfSpan * 0.30 * Math.pow(0.82, i);
+    const pk = spike(plen, 0.15, 0.012, M.goldHi, 4);   // bold base (swell-then-taper blade)
     pk.position.set(l[0], l[1], l[2]);
-    pk.rotation.x = -0.6; pk.rotation.z = -0.35;
+    pk.rotation.x = -0.65; pk.rotation.z = -0.3;         // rake up-and-forward off the arm
     wg.add(pk);
-    const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), M.violet);
-    cap.position.set(l[0] - plen * 0.28, l[1] + plen * 0.6, l[2] - plen * 0.35);
+    const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), M.violet);
+    cap.position.set(l[0] - plen * 0.3, l[1] + plen * 0.62, l[2] - plen * 0.38);
     wg.add(cap);
   }
   // Terminal wingtip spike.
