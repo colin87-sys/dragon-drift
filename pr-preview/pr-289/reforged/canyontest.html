@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Sky Canyon — Obstacle Test</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color: #f4ead8; background:
+      radial-gradient(120% 90% at 50% -10%, #3a2a52 0%, #1a1430 45%, #0b0a1a 100%);
+    display: flex; flex-direction: column; align-items: center; padding: 28px 18px 56px;
+  }
+  h1 { font-size: clamp(26px, 5vw, 40px); letter-spacing: .04em; margin: 8px 0 2px; }
+  .sub { opacity: .72; max-width: 640px; text-align: center; line-height: 1.5; margin: 0 0 22px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+          gap: 14px; width: 100%; max-width: 760px; }
+  a.card {
+    display: block; text-decoration: none; color: inherit; padding: 16px 18px; border-radius: 14px;
+    background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    border: 1px solid rgba(255,255,255,.12); transition: transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  a.card:hover { transform: translateY(-3px); border-color: rgba(255,210,140,.6);
+                 background: linear-gradient(160deg, rgba(255,210,140,.16), rgba(255,255,255,.03)); }
+  .card h2 { margin: 0 0 6px; font-size: 18px; letter-spacing: .02em; }
+  .card p { margin: 0; font-size: 13px; line-height: 1.45; opacity: .8; }
+  .tag { display: inline-block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+         opacity: .6; margin-bottom: 8px; }
+  .all { grid-column: 1 / -1; text-align: center;
+         background: linear-gradient(160deg, rgba(120,200,255,.16), rgba(255,255,255,.03));
+         border-color: rgba(120,200,255,.35); }
+  .foot { margin-top: 26px; max-width: 640px; text-align: center; font-size: 13px; opacity: .7; line-height: 1.6; }
+  .foot b { color: #ffd28c; font-weight: 600; }
+  code { background: rgba(255,255,255,.1); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  .normal { margin-top: 20px; font-size: 13px; opacity: .75; }
+  .normal a { color: #9fd8ff; }
+</style>
+</head>
+<body>
+  <span class="tag">Dragon Drift · Debug</span>
+  <h1>Sky Canyon — Obstacle Test</h1>
+  <p class="sub">
+    Pick a set-piece to fly straight into it — no need to play up to it. Each link forces that run to
+    begin right after takeoff and repeat, with a stretch of normal rings <b>before and after</b> each run
+    so you can judge how it integrates into real gameplay. There's a <b>height limit inside a run</b> —
+    you can't just climb over the rock to skip it.
+  </p>
+
+  <div class="grid">
+    <a class="card all" href="./index.html?canyon=all">
+      <h2>▶ Both (alternating)</h2>
+      <p>One session that alternates a Rock Run and a Dragon Spine Canyon, back to back.</p>
+    </a>
+
+    <a class="card" href="./index.html?canyon=spine">
+      <h2>🐉 Dragon Spine Canyon</h2>
+      <p>Fly through a colossal leviathan skeleton: skull mouth → throat → ribcage → vertebrae →
+         open-sky exit. Ribs alternate left/right to fake a coiling body — weave the openings.</p>
+    </a>
+
+    <a class="card" href="./index.html?canyon=rock">
+      <h2>Rock Run (mix)</h2>
+      <p>A mini obstacle course mixing tall split-rock gates with over-under shelves.</p>
+    </a>
+
+    <a class="card" href="./index.html?canyon=split">
+      <h2>Split Rock — solo</h2>
+      <p>Just the tall twin slabs with a clear gap. Lateral threading, big vertical scale.</p>
+    </a>
+
+    <a class="card" href="./index.html?canyon=overunder">
+      <h2>Over-Under — solo</h2>
+      <p>Just the shelves: a ceiling forces you down, then a floor forces you back up.</p>
+    </a>
+  </div>
+
+  <p class="normal">Plain game (canyons appear naturally, rarely): <a href="./index.html">index.html</a></p>
+
+  <p class="foot">
+    Steer with <b>WASD / arrows</b> or drag; <b>double-tap a direction</b> to barrel-roll (i-frames clear a
+    rock). Watch for: the glowing aperture frames the safe route, the next gate stays visible past the
+    current one, and a cleared rock <b>dissolves</b> as it nears the camera instead of blocking the view.<br>
+    Add <code>&amp;debug=reach</code> to log any gap that pushes the reach limit, or <code>&amp;debug=perf</code> for FPS / draw calls.
+  </p>
+</body>
+</html>
