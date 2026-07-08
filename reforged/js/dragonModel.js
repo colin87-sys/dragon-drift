@@ -6,6 +6,7 @@ import './dragonWings.js'; // self-registers the 'membrane' / 'feather' / 'none'
 import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builders
 import './dragonTail.js';  // self-registers the 'clean' / 'legacy' tail builders
 import './dragonCrystalSerpent.js'; // 'crystalSerpent' torso (continuous astral serpent)
+import './dragonKoiSerpent.js';     // 'koiSerpent' torso (undulating jade river-serpent; body IS the tail)
 import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
 import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-trail)
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
@@ -149,12 +150,19 @@ export function buildDragonModel(def, opts = {}) {
   // wingMat (the runtime-animated membrane material) is created by the wings
   // module and returned below, so it stays paired with the wing geometry.
   const scalesMat = new THREE.MeshStandardMaterial({
-    color: def.scales, emissive: 0x0b79aa, emissiveIntensity: 0.42,
+    // scale emissive is def-overridable (default = the shared cyan, byte-identical): a
+    // warm/cool dragon (ember, jade) tints it to its OWN accent so shared users of this
+    // material (scutes, whiskers, ridges) never glow off-palette steel-blue (L164).
+    color: def.scales, emissive: def.scaleEmissive ?? 0x0b79aa, emissiveIntensity: def.scaleEmissiveI ?? 0.42,
     roughness: 0.28, metalness: 0.22,
   });
-  const bellyMat = new THREE.MeshStandardMaterial({ color: def.belly, roughness: 0.5 });
+  const bellyMat = new THREE.MeshStandardMaterial({
+    // a faint def emissive keeps a PALE belly/jaw from desaturating to slate-blue-grey
+    // in shadow under ACES (jade's mint jaw, gate r1 dir 8); default 0 → byte-identical.
+    color: def.belly, roughness: 0.5, emissive: def.bellyEmissive ?? 0x000000, emissiveIntensity: def.bellyEmissiveI ?? 0,
+  });
   let eyeMat = new THREE.MeshStandardMaterial({
-    color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
+    color: 0x223344, emissive: def.eye, emissiveIntensity: def.eyeEmissiveI ?? 2.2,
   });
 
   // --- Body foundation: composable torso ---------------------------------
@@ -180,6 +188,9 @@ export function buildDragonModel(def, opts = {}) {
   // A segmented torso (the centipede-wyrm) returns its plate Groups so the rig
   // sways them as a lead-first travelling wave (see dragon.js / makePreviewTick).
   const bodySegs = torsoResult.bodySegs ?? null;
+  // A shader-undulated torso (koiSerpent) publishes a travelling-wave uniform the rig
+  // advances each frame. Additive + nullable (other torsos omit it).
+  const bodyWave = torsoResult.bodyWave ?? null;
   // Where the rider sits — the torso publishes it (a believable seat near the
   // front third); default = the back-of-shoulders spot the dragons have always
   // used. The rig (dragon.js) places the rider here.
@@ -302,7 +313,7 @@ export function buildDragonModel(def, opts = {}) {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR,
-    wingBladePivotsL, wingBladePivotsR, wingElements,
+    wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements,
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -386,7 +397,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor, headLength },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -395,7 +406,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket,
+      head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket,
       wingYokeL, wingYokeR,
       wingPivotL, wingPivotR,
       wingMidL, wingMidR,
@@ -404,7 +415,7 @@ export function buildDragonModel(def, opts = {}) {
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
       coreGlow,
-      wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor, headLength,
+      wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,

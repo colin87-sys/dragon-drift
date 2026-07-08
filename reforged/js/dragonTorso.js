@@ -156,14 +156,21 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   // tail→shoulder z-run) onto the loft verts so the chest drops and the after-body/tail
   // counter-arcs, giving a clear inflection. Additive: spineCurl 0 → geometry byte-identical.
   const sc = model.spineCurl ?? 0;
-  if (torsoGeo && sc) {
+  // spineYaw (additive, default 0): a LATERAL S in the top-view plane — the serpent
+  // read (§5d jade). Offsets the loft x by a full sine along the z-run so the body
+  // recurves side-to-side (head one way, mid the other, tail back), giving the
+  // top-planform black-fill a clear inflection instead of a straight dart.
+  const sy = model.spineYaw ?? 0;
+  if (torsoGeo && (sc || sy)) {
     torsoGeo.computeBoundingBox();
     const bb = torsoGeo.boundingBox, z0 = bb.min.z, z1 = bb.max.z, dz = (z1 - z0) || 1;
     const amp = sc * 0.24;                       // proud upright S at apex (sc 0.95), curled whelp when <0
+    const ampX = sy * 0.55;                      // lateral S amplitude (fraction of body — a bold serpent recurve)
     const pos = torsoGeo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const f = (pos.getZ(i) - z0) / dz;         // 0 tail(+later) → 1 shoulder; matches spinePoints' f
-      pos.setY(i, pos.getY(i) + amp * Math.sin(f * Math.PI * 2));
+      if (sc) pos.setY(i, pos.getY(i) + amp * Math.sin(f * Math.PI * 2));
+      if (sy) pos.setX(i, pos.getX(i) + ampX * Math.sin(f * Math.PI * 2 - 0.6));
     }
     pos.needsUpdate = true;
     torsoGeo.computeVertexNormals();
@@ -179,7 +186,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
     const cols = [];
     for (let i = 0; i < pos.count; i++) {
       const ny = (pos.getY(i) - y0) / dyB;         // 0 belly → 1 back
-      let t = Math.min(1, Math.max(0, (ny - 0.34) / 0.22)); t = t * t * (3 - 2 * t);   // ventral ~35% = belly, smooth blend up the flank
+      let t = Math.min(1, Math.max(0, (ny - 0.30) / 0.16)); t = t * t * (3 - 2 * t);   // ventral ~30% = belly, blend up ONLY to the lateral midline (never wraps onto the dorsal/back — gate rework r2 dir 6)
       cM.copy(cBelly).lerp(cBack, t);
       cols.push(cM.r, cM.g, cM.b);
     }
@@ -263,7 +270,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
       new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin) * nb, seg(9), seg(7)), bodyMat);
     neck.scale.set(n.scale[0], n.scale[1], n.scale[2] * (1 + (nb - 1) * 0.6));
     neck.position.set(
-      Math.sin(i * n.wobbleFreq) * n.wobbleAmp,
+      Math.sin(i * n.wobbleFreq) * n.wobbleAmp + sy * 0.9 * ((i + 1) / Math.max(1, neckSegs)),
       n.y0 + i * n.yStep + neckArc(i),
       n.z0 + i * n.zStep);
     group.add(neck);
@@ -271,7 +278,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
 
   const wr = profile.wingRoot;
   const hb0 = profile.headBase(neckSegs);
-  const hb = { x: hb0.x, y: hb0.y + spineCurl * postureAmp, z: hb0.z };  // posture lifts/drops the head
+  const hb = { x: hb0.x + sy * 0.9, y: hb0.y + spineCurl * postureAmp, z: hb0.z };  // posture lifts/drops the head; spineYaw swings it laterally (serpent S)
   const tailShift = (profile.tailShiftRefZ - profile.zHold) * (stretch - 1);
 
   // parts.spinePoints — the DESIGNED line-of-action polyline (group space, tail→head),
