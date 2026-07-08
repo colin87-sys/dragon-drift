@@ -238,17 +238,43 @@ export function buildEmbertide(def, quality = 1) {
   const nosePivot = massPivot('noseMass', 0, -1.0, 0.7);
   const chinPivot = massPivot('chinMass', 0, -10.5, 0.5);
 
-  // THE TEARS — the two EYE-HOLLOWS + the MOUTH: pure black, OPAQUE (holes torn in the
-  // glow, not sockets on a mask), the absolute DARKEST value (the G1-inverted focal),
-  // level / matched / symmetric. The hollows TEAR OPEN on notice + WIDEN on charge; a
-  // rare band of light FILLS them (scale.y→~0) = the blink-analog.
-  const tearMat = track(new THREE.MeshBasicMaterial({ color: 0x000000, fog: false }));
-  const hollowSeg = lowQ ? [12, 8] : [18, 12];
+  // THE TEARS — the two EYE-HOLLOWS + the MOUTH: the absolute DARKEST values (the
+  // G1-inverted focal), level / matched / symmetric. The hollows TEAR OPEN on notice
+  // + WIDEN on charge; a rare band of light FILLS them (scale.y→~0) = the blink-analog.
+  //
+  // FEATHERED like the face (owner note: "his eyes and mouth are too solid — same
+  // principle, keep the darkness"): each tear is a MULTIPLY disc whose factor is 0.0
+  // (pure black — multiply-by-zero is as dark as opaque black, whatever is behind)
+  // across its CORE, feathering to exactly 1.0 at the quad rim. The core keeps the
+  // agreed almond footprint; the feather extends beyond it, so the tears deepen OUT
+  // of the surrounding shadow instead of sitting on it as hard-edged stickers.
+  // toneMapped:false is MANDATORY (L228 — the multiply factor must reach the blender
+  // raw, or the quad tiles the sky).
+  const tearMat = track(new THREE.MeshBasicMaterial({
+    vertexColors: true, fog: false, blending: THREE.MultiplyBlending, transparent: true,
+    depthWrite: false, toneMapped: false,
+  }));
+  // A feathered tear quad: pure-black core ellipse (coreK of the extent), dissolving
+  // to no-effect at the rim. Sized so the CORE matches the old opaque almond and the
+  // feather breathes outward from it.
+  function tearDisc(w, h, coreK) {
+    const g = new THREE.PlaneGeometry(w, h, lowQ ? 10 : 16, lowQ ? 8 : 12);
+    const p = g.attributes.position;
+    const c = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) {
+      const nx = p.getX(i) / (w / 2), ny = p.getY(i) / (h / 2);
+      const d = Math.sqrt(nx * nx + ny * ny);
+      const m = THREE.MathUtils.smoothstep(d, coreK, 1.0);   // 0 (pure black) core → 1 rim
+      c[i * 3] = m; c[i * 3 + 1] = m; c[i * 3 + 2] = m;      // neutral — the tears are absolute darkness
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    return g;
+  }
   function makeHollow(sx, name) {
     const pv = new THREE.Object3D(); pv.name = name; pv.position.set(sx * EYE_X, EYE_Y, EYE_Z);
-    const g = new THREE.SphereGeometry(1.0, hollowSeg[0], hollowSeg[1]);
-    g.scale(2.4, 1.6, 0.5);   // an almond torn open (wide, shorter, flat)
-    const m = new THREE.Mesh(g, tearMat); m.renderOrder = 5;
+    // Old opaque almond was 4.8×3.2 — the 0-core keeps that footprint (7.6·0.62≈4.7,
+    // 5.0·0.62≈3.1) and the feather breathes ~1.4 units beyond it on every side.
+    const m = new THREE.Mesh(tearDisc(7.6, 5.0, 0.62), tearMat); m.renderOrder = 5;
     pv.add(m); faceRig.add(pv); return pv;
   }
   const eyeHollow0 = makeHollow(-1, 'eyeHollow0');
@@ -256,9 +282,8 @@ export function buildEmbertide(def, quality = 1) {
 
   const mouthPivot = new THREE.Object3D(); mouthPivot.name = 'mouthNotch'; mouthPivot.position.set(0, -6.4, 2.6);
   {
-    const mg = new THREE.SphereGeometry(1.0, lowQ ? 12 : 16, lowQ ? 7 : 10);
-    mg.scale(3.6, 1.0, 0.5);
-    const m = new THREE.Mesh(mg, tearMat); m.renderOrder = 5;
+    // Old opaque mouth was 7.2×2.0 — core 10.4·0.7≈7.3, 3.0·0.7≈2.1 ✓ same darkness.
+    const m = new THREE.Mesh(tearDisc(10.4, 3.0, 0.70), tearMat); m.renderOrder = 5;
     mouthPivot.add(m);
   }
   faceRig.add(mouthPivot);
