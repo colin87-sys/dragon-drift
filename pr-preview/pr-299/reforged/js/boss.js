@@ -224,6 +224,7 @@ let shielded = false;          // at a phase floor the boss shields — only Sur
 let activeCard = null;
 let cardTimer = 0;             // seconds remaining in the current card's window (display / survival seal)
 let horizonPocketX = null;     // EMBERTIDE Horizon-Break: the moving face-shadow safe pocket's lane X (null = card inactive)
+let hbReleased = false;        // Horizon-Break released the X-constrict → restore it (edge-triggered) when the card ends
 let cardHits0 = 0;            // game.bossHitsTakenRun at card start (capture = no new hits by card end)
 let cardExpired = false;      // the display timer ran out before the phase was cleared → capture downgrades to SURVIVED (never blocks progress)
 let baitTimer = 0;             // cadence for the shielded graze-bait flood
@@ -1337,7 +1338,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
-  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }   // spell-card state resets per encounter
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }   // spell-card state resets per encounter
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   activeBand = resolveBand(biomeIndexAt(player.dist));
@@ -1552,7 +1553,7 @@ function endEncounter(player) {
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
-  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
   ui.bossCardClear?.();         // clear the spell-card readout past the fight
   // Carry Dragon Surge OUT of the fight so the player keeps the hyper into the
   // grace band (the kill earns it) — the normal fever visuals take over there.
@@ -1876,9 +1877,15 @@ export function updateBoss(dt, player, time, camera) {
 
   // HORIZON-BREAK opens the WHOLE frame: the X-constriction RELEASES during the card so
   // the tide crests full-width and the face-shadow pocket (which sweeps to ±8) is
-  // reachable — the survival gauntlet is the whole frame, not the pinched lane. The
-  // constrictPhase target is restored automatically once the card ends.
-  if (activeCard && activeCard.id === 'embertide_horizonbreak') arenaTargetHW = CONFIG.laneHalfWidth;
+  // reachable — the survival gauntlet is the whole frame, not the pinched lane. When the
+  // card ends we RE-APPLY the constrictPhase target (P5 ≥ constrictPhase), so the rest of
+  // the final phase returns to the pinched arena the def describes (edge-triggered so it
+  // doesn't fight the normal constrict flow every frame).
+  if (activeCard && activeCard.id === 'embertide_horizonbreak') { arenaTargetHW = CONFIG.laneHalfWidth; hbReleased = true; }
+  else if (hbReleased) {
+    hbReleased = false;
+    if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) arenaTargetHW = CONSTRICT_HW;
+  }
   // Arena constriction: ease the live half-width toward its target, publish it
   // for the player clamp (null = full lane, nothing to clamp), and slide the
   // translucent storm walls with it. Restored unconditionally by endEncounter.
@@ -3874,7 +3881,7 @@ export function resetBoss() {
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
-  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
   ui.bossCardClear?.();
   if (model && model.rig && scene && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky dome
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }

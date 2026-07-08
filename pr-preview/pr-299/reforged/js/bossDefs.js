@@ -1342,7 +1342,7 @@ export const BOSSES = {
       { atFrac: 1.00, cadence: [1.35, 1.8],  attacks: ['curtain', 'crossfire'] },                       // P1: the tide rises (first crescendo set) — the vertical squeeze + letterbox fires HERE as a NORMAL re-entrance beat (CP2), not a survival card
       { atFrac: 0.80, cadence: [1.25, 1.65], attacks: ['curtain', 'movingGap', 'crossfire'] },          // P2: the sets stack (a second crest, cut harder)
       { atFrac: 0.58, cadence: [1.15, 1.5],  attacks: ['crestfall', 'iris', 'stream'] },                // P3: the crest crosses the whole frame — CRESTFALL debuts (CP2-B full-frame emitter); `stream` is the amber crest-lock carrier
-      { atFrac: 0.36, cadence: [1.1, 1.4],   attacks: ['iris', 'crestfall', 'crossfire', 'movingGap'] },  // P4: full flood (every set at once) — the crest breaks alongside the walls; `crossfire` amber
+      { atFrac: 0.36, cadence: [1.1, 1.4],   attacks: ['curtain', 'iris', 'crestfall', 'crossfire'] },  // P4: full flood (every set at once) — the crest breaks alongside the walls; `crossfire` amber
       { atFrac: 0.16, cadence: [1.05, 1.35], attacks: ['curtain', 'movingGap', 'crossfire'] },          // P5: SKY SET LOOSE — Horizon Break (dread/survival) — pure-dodge at runtime; `crossfire` kept for the amberdiet floor (§5i.C survival exemption)
     ],
     // Spell cards (5 for WE; "<EPITHET FRAGMENT> — <plain pattern>"; the dread/survival card LAST). 13's ONE
@@ -1386,7 +1386,7 @@ export const BOSSES = {
         { // P3 — the crest crosses: the crest-lock volley (stream) is the amber carrier
           ratioBurst: 0.55,
           phrase: [
-            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'crestfall', count: 1, gap: 0.5 },   // CRESTFALL debuts here (the crest crosses the whole frame)
             { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.5 },
             { kind: 'sustain', attack: 'stream',    beats: 2, gap: 0.75 },
           ],
@@ -1397,7 +1397,7 @@ export const BOSSES = {
           phrase: [
             { kind: 'burst',   attack: 'curtain',   count: 2, gap: 0.5 },
             { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.5 },
-            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'crestfall', count: 1, gap: 0.5 },   // the crest breaks alongside the walls (full flood)
             { kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.7 },
           ],
           restLo: 0.55, restHi: 2.8, restDist: 'bimodal',
