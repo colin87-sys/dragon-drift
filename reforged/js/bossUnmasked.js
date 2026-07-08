@@ -258,16 +258,18 @@ export function buildUnmasked(def, quality = 1) {
     return g;
   };
 
-  // ── FEATHER MATERIAL — ONE tracked NEAR-BLACK material, passed into every buildAngelWing
-  // call so ALL SIX wings share it: the eyes are the ONLY emissive family, the feathers match
-  // the dark body, and dissolve is shared/safe (kit.track). The wing geometry itself is the
-  // owner's merged, signed-off js/angelWing.js — NOT rebuilt here. ──
-  // Near-black, but lifted JUST above the dark fight sky (~0x0d1117) so each wing's silhouette
-  // reads — pure black vanished on black and the six wings read as spider-legs (Fable gate).
-  // Still the darkest thing but the eyes; a value step, NOT emissive.
-  const featherMat = track(new THREE.MeshStandardMaterial({
-    color: 0x3c3c46, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
-  }));
+  // ── FEATHER MATERIALS — a near-black VALUE LADDER + a painted moon-rim (Fable polish pass). ──
+  // The eight wings share one flat near-black material read as ONE blob on the night sky (the
+  // z-stagger was invisible). Fix: a per-wing base VALUE LADDER — the nearest/upper wing a step
+  // lighter, the deepest a step darker (atmospheric depth faked in value) — so the shingled fan
+  // reads. And a PAINTED MOON-RIM: the flight feathers (outer fan / leading edge) get a lighter
+  // cool-steel value so the near-black silhouette + feather separation read on a dark sky, WITHOUT
+  // a real back-light (which can't rim a flat card facing the camera). Interiors stay near-black →
+  // no ominousness lost; the eyes are still the only emissive family. All tracked for dissolve.
+  const LADDER = { upper: 0x484852, uppermid: 0x424250, upmid: 0x424250, middle: 0x3a3a44, lowermid: 0x343440, lower: 0x30303a };
+  const baseMats = {};
+  for (const k of Object.keys(LADDER)) baseMats[k] = track(new THREE.MeshStandardMaterial({ color: LADDER[k], roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }));
+  const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x5b6472, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide }));   // cool moonlit steel — the leading-edge rim
 
   // ── THE CENTRAL STARBURST is RESERVED FOR STAGE 3 (owner: "use this type of eye for the third
   // form"). Stage 2 goes back to the ORIGINAL focal almond eye (below) — no radiant star here.
@@ -291,7 +293,7 @@ export function buildUnmasked(def, quality = 1) {
   // hole; a pale eyeball with a gold iris and a smaller pupil reads unmistakably as an eye.
   const socketMat = track(new THREE.MeshBasicMaterial({ color: 0x050403 }));   // thin recessed rim (eyelid shadow)
   const s2scleraMat = track(new THREE.MeshBasicMaterial({ color: 0x8f8365 })); // eyeball value: light enough to frame the pupil, dim enough NOT to bloom (tone-mapped)
-  const irisMat = track(new THREE.MeshBasicMaterial({ color: 0x463619 }));      // dim gold iris (toned down — less beady at distance)
+  const irisMat = track(new THREE.MeshBasicMaterial({ color: 0x7a5c26 }));      // GOLD iris (lifted so it survives fight distance + rhymes with the focal eye → sets up S3)
   const s2pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x040302 }));   // DARK pupil (smaller — the eyeball shows around it)
   s2pupilMat.toneMapped = false;
   const catchMat = track(new THREE.MeshBasicMaterial({ color: 0xfff6e6 }));     // a small proud glint (NOT a headlight — a hair over white so it reads wet without blooming)
@@ -299,39 +301,37 @@ export function buildUnmasked(def, quality = 1) {
   catchMat.color.multiplyScalar(2.4);
   const sockets = [], sclerae = [], irises = [], catchlights = [], pupils = [];
   const eyePlace = (local, size, lid = 0) => {
+    // HALF-LID = a SQUINT, not a cap. A dark lid-cap on a dark feather just read as a floating
+    // blob (no "skin" behind it to be the lid). Instead a lidded eye is a FLATTER eyeball — the
+    // whole eye (sclera/iris/pupil) squashes vertically by `openF` — which reads as heavy-lidded
+    // without any added geometry. lid 0 → openF 1 → the full round eye, unchanged.
+    const openF = 1 - lid * 0.85;
     // socket (thin recessed rim, pushed back — just enough to seat the eye). Lean segment
     // counts: the eyes are small at fight distance + there are ~20 of them (tri budget).
     const sk = new THREE.SphereGeometry(size * 1.1, lowQ ? 6 : 9, lowQ ? 4 : 6);
-    sk.scale(1.2, 0.96, 0.34); sk.translate(local.x, local.y, local.z - size * 0.22);
+    sk.scale(1.2, 0.96 * openF, 0.34); sk.translate(local.x, local.y, local.z - size * 0.22);
     sockets.push(stripForMerge(sk));
     // sclera (flattened PALE eyeball)
     const sc = new THREE.SphereGeometry(size, lowQ ? 7 : 10, lowQ ? 5 : 7);
-    sc.scale(1.4, 0.72, 0.42); sc.translate(local.x, local.y, local.z);   // wider + flatter → an ALMOND/lens (owner r-spec), not a round bead
+    sc.scale(1.4, 0.72 * openF, 0.42); sc.translate(local.x, local.y, local.z);   // wider + flatter → an ALMOND/lens; openF squints a lidded eye
     sclerae.push(stripForMerge(sc));
-    // iris (a dim gold ring showing around the pupil, on the pale sclera)
-    const ir = new THREE.CircleGeometry(size * 0.58, lowQ ? 9 : 13);
-    ir.translate(local.x, local.y, local.z + size * 0.3);
+    // iris (a gold ring showing around the pupil, on the pale sclera) — widened so the gold
+    // survives fight distance (Fable: the wing eyes read as bone-almonds with a black dot).
+    const ir = new THREE.CircleGeometry(size * 0.66, lowQ ? 9 : 13);
+    ir.scale(1, openF, 1); ir.translate(local.x, local.y, local.z + size * 0.3);
     irises.push(stripForMerge(ir));
     // catchlight (small proud glint, up-left) — sits where the pupil rests at the snap
     const cl = new THREE.SphereGeometry(size * 0.1, 5, 4);
-    cl.translate(local.x - size * 0.28, local.y + size * 0.32, local.z + size * 0.6);
+    cl.translate(local.x - size * 0.28, local.y + size * 0.32 * openF, local.z + size * 0.6);
     catchlights.push(stripForMerge(cl));
     // pupil (tracks; smaller so the eyeball reads around it — not a hole)
     const pupil = new THREE.Mesh(new THREE.SphereGeometry(size * 0.5, lowQ ? 6 : 8, lowQ ? 5 : 6), s2pupilMat);
-    pupil.scale.set(1, 1, 0.55);
+    pupil.scale.set(1, openF, 0.55);
     const bx = (rnd() - 0.5) * 0.55, by = (rnd() - 0.5) * 0.45;
-    pupil.userData = { base: local.clone(), size, biasX: bx, biasY: by, lag: 0.2 + rnd() * 0.6, gx: bx, gy: by };
-    pupil.position.set(local.x + bx * size * 0.4, local.y + by * size * 0.4, local.z + size * 0.62);
+    pupil.userData = { base: local.clone(), size, biasX: bx, biasY: by, lag: 0.2 + rnd() * 0.6, gx: bx, gy: by, openF };
+    pupil.position.set(local.x + bx * size * 0.4, local.y + by * size * 0.4 * openF, local.z + size * 0.62);
     stage2.add(pupil);
     pupils.push(pupil);
-    // HALF-LID: a dark eyelid (socket value) capping the top `lid` fraction of the eye, seated
-    // PROUD of the pupil so it reads as a drooping lid (owner r-spec: a couple half-lidded).
-    if (lid > 0) {
-      const ld = new THREE.SphereGeometry(size, lowQ ? 6 : 9, lowQ ? 4 : 6);
-      ld.scale(1.42, 0.72, 0.5);
-      ld.translate(local.x, local.y + size * 0.72 * (2 - 2 * lid), local.z + size * 0.66);
-      sockets.push(stripForMerge(ld));
-    }
   };
   // ── THE SIX WINGS — three MIRROR PAIRS of the owner's merged angel wing (buildAngelWing),
   // rooted near the central eye: UPPER pair swept UP, MIDDLE pair swept OUT (largest), LOWER
@@ -414,7 +414,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: featherMat, blade: 0.78 }).group);   // straight lifted feather-BLADES (de-frond — Fable gate)
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, blade: 0.78 }).group);   // per-wing value ladder + painted moon-rim
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp });
@@ -462,10 +462,10 @@ export function buildUnmasked(def, quality = 1) {
   greatEye.scale.set(GW, GH, GD); greatEye.position.set(0, GEY, 0);
   greatEye.name = 'greatEye'; stage2.add(greatEye);
   const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 12 : 16), irisMat);
-  greatIris.scale.set(GW * 0.5, GH * 0.62, 1); greatIris.position.set(0, GEY, GF + 0.03);   // gold iris ring
+  greatIris.scale.set(GW * 0.44, GH * 0.54, 1); greatIris.position.set(0, GEY, GF + 0.03);   // gold iris ring — shaved so more PALE sclera shows (Fable: was leaning grommet)
   greatIris.name = 'greatIris'; stage2.add(greatIris);
   const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 10 : 14, lowQ ? 7 : 9), s2pupilMat);
-  greatPupil.scale.set(GW * 0.44, GH * 0.5, 0.5); greatPupil.position.set(0, GEY, GF + 0.08);   // dark pupil — smaller so the PALE sclera rings it (an almond eye, not a black hole)
+  greatPupil.scale.set(GW * 0.38, GH * 0.44, 0.5); greatPupil.position.set(0, GEY, GF + 0.08);   // dark pupil — smaller so the PALE sclera rings it (an almond eye, not a black hole)
   greatPupil.name = 'greatPupil'; stage2.add(greatPupil);
   const greatCatch = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), catchMat);
   greatCatch.position.set(-GW * 0.2, GEY + GH * 0.28, GF + 0.35);
@@ -625,7 +625,7 @@ export function buildUnmasked(def, quality = 1) {
       // The great central eye's pupil tracks the player (the focal); constricts on charge.
       const gk = 1 - charge * 0.3;
       greatPupil.position.set(gazeX * GW * 0.24, GEY + gazeY * GH * 0.2, GF + 0.08);
-      greatPupil.scale.set(GW * 0.44 * gk, GH * 0.5 * gk, 0.5);
+      greatPupil.scale.set(GW * 0.38 * gk, GH * 0.44 * gk, 0.5);
       // Each peripheral pupil tracks the player within its own sclera, sitting proud of the
       // front. Independent per-eye LAG + a small resting BIAS make the field read as living
       // eyes that look every which way; the shared gazeX/gazeY drags them toward the player.
@@ -636,7 +636,7 @@ export function buildUnmasked(def, quality = 1) {
         const k = Math.min(1, dt * (2 + u.lag * 7));
         u.gx += (tgx - u.gx) * k;
         u.gy += (tgy - u.gy) * k;
-        p.position.set(u.base.x + u.gx * u.size * 0.4, u.base.y + u.gy * u.size * 0.4, u.base.z + u.size * 0.62);
+        p.position.set(u.base.x + u.gx * u.size * 0.4, u.base.y + u.gy * u.size * 0.4 * (u.openF || 1), u.base.z + u.size * 0.62);
       }
     }
   }
