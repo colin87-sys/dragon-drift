@@ -374,10 +374,10 @@ export function buildUnmasked(def, quality = 1) {
   // straight down across the centreline). Every wing stays in its own side's hemisphere (shoulder
   // x>0), biased up-and-out; the shoulder-stack is pushed outboard (x≈0.45) to widen the channel.
   const WING_PAIRS = [
-    { key: 'upper',  rotZ: -0.12, scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.45, y: 0.35 }, rootEye: { x: 0.95, y: 1.05 } },  // slid DOWN a touch — the top pair sat a bit high vs the others (owner)
-    { key: 'upmid',  rotZ: -0.57, scale: 1.52, z: -0.35, phase: 0.7, amp: 0.030, off: { x: 0.45, y: 0.26 }, rootEye: { x: 1.43, y: 0.73 } },  // φ≈27°
-    { key: 'middle', rotZ: -0.88, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.45, y: 0.02 }, rootEye: { x: 1.60, y: 0.28 } }, // out, ~horizontal — lifted so it stays DISTINCT from the lowest wing
-    { key: 'lower',  rotZ: -1.20, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.42 }, rootEye: { x: 1.48, y: -0.50 } },// out-and-slightly-down (~−25°) — the distinct lowest wing (was overlapping 'middle' → read as 7 wings)
+    { key: 'upper',  rotZ: -0.12, scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.45, y: 0.35 } },  // slid DOWN a touch — the top pair sat a bit high vs the others (owner)
+    { key: 'upmid',  rotZ: -0.57, scale: 1.52, z: -0.35, phase: 0.7, amp: 0.030, off: { x: 0.45, y: 0.26 } },  // φ≈27°
+    { key: 'middle', rotZ: -0.88, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.45, y: 0.02 } }, // out, ~horizontal — lifted so it stays DISTINCT from the lowest wing
+    { key: 'lower',  rotZ: -1.20, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.42 } },// out-and-slightly-down (~−25°) — the distinct lowest wing
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
@@ -418,11 +418,20 @@ export function buildUnmasked(def, quality = 1) {
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp });
-      // ONE small almond eye at THIS wing's ROOT — 4 per side, 8 total (+ central = 9). Placed
-      // just OUTBOARD of the knot on the wing membrane, marching UP the fan (never pooled at the
-      // bottom). A couple are half-lidded (the upmid pair + the lower-left) so the field varies.
-      if (P.rootEye) {
-        const p = new THREE.Vector3(side > 0 ? P.rootEye.x : -P.rootEye.x, P.rootEye.y, 0.7);
+      // ONE small almond eye per wing — 4 per side, 8 total (+ central = 9). Seated OUT at the
+      // wing's ELBOW / where the primary fan starts (on the leading edge) — NOT pooled at the
+      // central root cord (owner r-fix). The wing-local elbow point is pushed through THIS wing's
+      // own transform (scale → rotate → offset) so each eye rides its own wing out to the elbow.
+      // A couple are half-lidded (the upmid pair + the lower-left) so the field varies.
+      {
+        const ELx = 0.7, ELy = 3.5;                                   // wing-local: the wrist/elbow, base of the primary fan
+        const sx = (side > 0 ? P.scale : -P.scale) * ELx, sy = P.scale * ELy;
+        const c = Math.cos(baseRotZ), s = Math.sin(baseRotZ);
+        const p = new THREE.Vector3(
+          (side > 0 ? P.off.x : -P.off.x) + c * sx - s * sy,
+          P.off.y + s * sx + c * sy,
+          0.7,
+        );
         declump(p, 0.40);
         const lid = (P.key === 'upmid') ? 0.42 : (P.key === 'lower' && side < 0) ? 0.32 : 0;
         eyePlace(p, 0.28, lid);
