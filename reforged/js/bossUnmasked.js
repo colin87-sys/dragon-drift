@@ -297,26 +297,43 @@ export function buildUnmasked(def, quality = 1) {
     blade.applyMatrix4(m); rib.applyMatrix4(m);
     parts.push(blade, rib);
   };
-  // A WING TIER: feather roots MARCH along a curved leading-edge arm (climb +Y, drift +X),
-  // each feather swept to a common up-and-out direction and curling progressively toward the
-  // tip — a coherent CURVED wing-comb (the reference silhouette), NOT a radial spray. Lengths
-  // swell toward the outer third then taper at the very tip; a half-pitch phase staggers tiers.
-  const CURL = 0.6;
-  const addWingTier = (parts, n, baseLen, w0, z, lenScale, phaseFrac) => {
-    const base = (phaseFrac || 0) / Math.max(1, n);
-    for (let i = 0; i < n; i++) {
-      const t = n > 1 ? i / (n - 1) : 0.5;
-      const s = Math.min(1, t + base);
-      // roots march along the arm — the leading edge curls outward (+X) as it climbs (+Y)
-      const rx = CURL * Math.pow(s, 1.4) * 2.0 * lenScale;
-      const ry = (0.25 + s * 2.7) * lenScale;
-      // feathers sweep up-and-out, curling progressively toward the tip (the "fingers"); roots trail
-      const rot = -0.12 + s * CURL * 1.15;
-      const swell = 0.5 + Math.sin((0.24 + t * 0.72) * Math.PI) * 0.78;   // swell to the outer third, taper at the tip
-      const len = baseLen * lenScale * swell * (0.94 + rnd() * 0.12);
-      const w = w0 * (0.78 + t * 0.42);
-      addFeather(parts, len, w, rot, rx, ry, z + i * 0.05);
+  // A BENT ("L" / obtuse) WING — the reference structure. An ARM extends OUT from the eye at
+  // armDeg (from vertical), then the hand BENDS UP at the shallower handDeg: the feathers rise
+  // from a wrist held AWAY from the eye, which (a) gives the eye breathing room and (b) leaves
+  // space to LAYER wings behind each other. COVERTS hug the arm root→wrist; PRIMARIES are the
+  // long flight feathers fanning off the hand, rising; SECONDARIES layer under them. Built in
+  // wing-local space (+X = out, +Y = up); the shoulder mirrors the L via scale.x = -1.
+  const addBentWing = (prim, sec, cov, armDeg, armLen, handDeg, handLen, lenScale) => {
+    const aA = armDeg * Math.PI / 180, hA = handDeg * Math.PI / 180;
+    const Bx = Math.sin(aA) * armLen, By = Math.cos(aA) * armLen;   // the bend (wrist)
+    const hdx = Math.sin(hA), hdy = Math.cos(hA);                   // hand direction (up-ish)
+    const nCov = lowQ ? 3 : 4;
+    for (let i = 0; i < nCov; i++) {
+      const t = (i + 0.5) / nCov;
+      const px = Bx * (0.2 + t * 0.75), py = By * (0.2 + t * 0.75);
+      const rot = aA * (1 - t) + hA * t - 0.08;                     // turns from the arm dir toward the hand
+      const len = (1.4 + t * 1.0) * lenScale;
+      addFeather(cov, len, 0.95, rot, px, py, 0.42);
     }
+    const nPrim = lowQ ? 6 : 8;
+    for (let i = 0; i < nPrim; i++) {
+      const t = i / (nPrim - 1);
+      const px = Bx + hdx * t * handLen * 0.85, py = By + hdy * t * handLen;
+      const fan = (t - 0.5) * 0.5;
+      const rot = hA + fan - 0.1;
+      const swell = 0.55 + Math.sin((0.14 + t * 0.8) * Math.PI) * 0.72;   // swell then taper to the tip
+      const len = 3.6 * lenScale * swell * (0.94 + rnd() * 0.12);
+      addFeather(prim, len, 1.5, rot, px, py, -0.55 + i * 0.05);
+    }
+    const nSec = lowQ ? 4 : 6;
+    for (let i = 0; i < nSec; i++) {
+      const t = (i + 0.5) / nSec;
+      const px = Bx + hdx * t * handLen * 0.62, py = By + hdy * t * handLen * 0.72;
+      const rot = hA + (t - 0.5) * 0.5 - 0.04;
+      const len = 2.4 * lenScale * (0.6 + Math.sin((0.2 + t * 0.75) * Math.PI) * 0.62);
+      addFeather(sec, len, 1.15, rot, px, py, -0.05 + i * 0.05);
+    }
+    return { Bx, By, hdx, hdy, handLen };   // for eye placement on the hand
   };
 
   // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
@@ -370,70 +387,53 @@ export function buildUnmasked(def, quality = 1) {
     stage2.add(pupil);
     pupils.push(pupil);
   };
-  // ── THE SIX WINGS — 3 mirrored pairs on shoulder pivots converging at the heart. Angle
-  // measured from +Y (up), rotating the wing outward; uneven pair gaps (68°/55°) = anti-
-  // gear. Open notch at TOP (upper pair) + BOTTOM (lower pair) → a mandorla, never a wreath
-  // or a bird. Length hierarchy: middle longest, upper 0.8×, lower 0.62×. ──
-  // A BILATERAL UPWARD CREST (the reference silhouette): mirror-symmetric left/right pairs
-  // about the vertical centerline, EVERY wing rising up-and-out ABOVE the great eye at the
-  // base — nothing points down or splays low (that radial splay read as star/wheel/spider).
-  // Angles from +Y (up) all in the UPPER hemisphere (max 74° = still 16° above horizontal):
-  // inner near-vertical, outer to the raised "arms". Gaps 24°/36° (≠60°, differ ≥10° = anti-
-  // gear). Per-pair z + depth tilt (tiltX) give front-to-back layering (not a paper cutout).
-  // All three pairs rise into the UPPER hemisphere (outer at 66° = 24° above horizontal —
-  // NOTHING droops to the moth-spread), roots seated ABOVE + BEHIND the great eye so no
-  // wing ever crosses it. z layers the pairs front-to-back (inner furthest back) + tiltX
-  // fans them in depth so the profile has body (not a paper cutout).
-  const WING_ROOT_Y = 0.9;    // shoulders sit above the great-eye centre → wings rise from behind its crown
-  const PAIRS = [
-    { key: 'inner', deg: 12, lenScale: 1.00, z: -1.7, tiltX: 0.24 },   // near-vertical crest, tilted back
-    { key: 'mid',   deg: 36, lenScale: 1.00, z: -1.1, tiltX: 0.02 },   // up-and-out
-    { key: 'outer', deg: 66, lenScale: 0.90, z: -0.5, tiltX: -0.24 },  // raised arms (still well above horizontal)
-  ];
-  const PRIM_LEN = 6.8;
-  const TIERS = [
-    { name: 'prim', n: lowQ ? 6 : 8, w: 1.9, z: -0.55, lenMul: 1.00, phase: 0.0, mat: primFeatherMat },
-    { name: 'sec',  n: lowQ ? 5 : 7, w: 1.5, z: -0.05, lenMul: 0.72, phase: 0.5, mat: secFeatherMat },
-    { name: 'cov',  n: lowQ ? 4 : 5, w: 1.15, z: 0.40, lenMul: 0.48, phase: 0.5, mat: covFeatherMat },
+  // ── THE SIX WINGS — 3 mirrored BENT pairs (the reference structure). Each wing's ARM
+  // reaches OUT from the eye crown, then the hand BENDS UP so the feathers rise from a wrist
+  // held away from the eye: inner = a short near-vertical crest, outer = a long arm reaching
+  // to the side then bending up (the big outstretched wing). All feathers ultimately RISE, so
+  // the silhouette is a bilateral upward crest; the bent arms give the eye room + let the
+  // wings LAYER behind each other. Roots seated ABOVE the great eye; z + tiltX give depth. ──
+  const WING_ROOT_Y = 0.9;
+  const WINGS = [
+    { key: 'inner', armDeg: 28, armLen: 2.1, handDeg: 12, handLen: 5.4, lenScale: 1.00, z: -1.7, tiltX: 0.22 },   // reaches up-out → the V, not a central tuft
+    { key: 'mid',   armDeg: 56, armLen: 3.3, handDeg: 28, handLen: 4.8, lenScale: 1.00, z: -1.1, tiltX: 0.02 },   // out-and-up
+    { key: 'outer', armDeg: 90, armLen: 4.7, handDeg: 48, handLen: 4.2, lenScale: 0.92, z: -0.5, tiltX: -0.22 },  // arm reaches straight out, hand bends up (the big outstretched wing)
   ];
   const shoulders = [];
-  for (let pi = 0; pi < PAIRS.length; pi++) {
-    const pair = PAIRS[pi];
+  for (let wi = 0; wi < WINGS.length; wi++) {
+    const W = WINGS[wi];
     for (const side of [1, -1]) {
       const shoulder = new THREE.Object3D();
-      // Canonical RIGHT wing points to -deg; the LEFT mirrors via scale.x=-1 (clean bilateral
-      // mirror incl. the feather curl) at +deg. (rotation.y splay is gone — that was what
-      // broke handedness before; per-pair z-offset gives depth instead.) THE ONE SCAR WING
-      // (§3.6): the lower-LEFT hangs ~7° further off its mirror.
-      const scar = (pair.key === 'outer' && side < 0) ? 0.12 : 0;
-      const baseRotZ = side > 0 ? -(pair.deg * Math.PI / 180) : (pair.deg * Math.PI / 180) + scar;
+      // The arm angle is baked into the geometry; the LEFT wing mirrors via scale.x=-1. THE
+      // ONE SCAR WING (§3.6): the outer-LEFT hangs a touch off its mirror. Breathing sways rot.z.
+      const scar = (W.key === 'outer' && side < 0) ? 0.1 : 0;
+      const baseRotZ = scar;
       shoulder.rotation.z = baseRotZ;
-      shoulder.rotation.x = pair.tiltX;   // depth tilt (Y-Z plane — unaffected by the scale.x mirror) → 3D layering in profile
+      shoulder.rotation.x = W.tiltX;      // depth tilt (Y-Z plane — unaffected by the scale.x mirror)
       if (side < 0) shoulder.scale.x = -1;
-      shoulder.position.set(0, WING_ROOT_Y, pair.z);   // above + behind the great eye
-      shoulder.name = `wing_${pair.key}_${side > 0 ? 'R' : 'L'}`;
-      // ROOT PLATE — the solid inner wing (the "arm"), a small dark crescent bridging the gap.
-      const rootGeo = stripForMerge(new THREE.ExtrudeGeometry(featherShape(1.9 * pair.lenScale, 1.1), { ...bladeExtrude, depth: 0.16 }));
-      shoulder.add(new THREE.Mesh(rootGeo, wingRootMat));
-      for (const tier of TIERS) {
-        const parts = [];
-        addWingTier(parts, tier.n, PRIM_LEN * tier.lenMul, tier.w, tier.z, pair.lenScale, tier.phase);
-        const mesh = new THREE.Mesh(mergeParts(parts, `${shoulder.name}_${tier.name}`), tier.mat);
-        mesh.name = `${shoulder.name}_${tier.name}`;
-        shoulder.add(mesh);
-      }
+      shoulder.position.set(0, WING_ROOT_Y, W.z);
+      shoulder.name = `wing_${W.key}_${side > 0 ? 'R' : 'L'}`;
+      const prim = [], sec = [], cov = [];
+      const hand = addBentWing(prim, sec, cov, W.armDeg, W.armLen, W.handDeg, W.handLen, W.lenScale);
+      // small arm root plate (the solid inner wing) at the shoulder, along the arm
+      const rootGeo = stripForMerge(new THREE.ExtrudeGeometry(featherShape(W.armLen * 0.9, 1.0), { ...bladeExtrude, depth: 0.16 }));
+      rootGeo.rotateZ(W.armDeg * Math.PI / 180 * 0.6);
+      cov.push(rootGeo);
+      const primMesh = new THREE.Mesh(mergeParts(prim, `${shoulder.name}_prim`), primFeatherMat); primMesh.name = `${shoulder.name}_prim`; shoulder.add(primMesh);
+      const secMesh = new THREE.Mesh(mergeParts(sec, `${shoulder.name}_sec`), secFeatherMat); secMesh.name = `${shoulder.name}_sec`; shoulder.add(secMesh);
+      const covMesh = new THREE.Mesh(mergeParts(cov, `${shoulder.name}_cov`), covFeatherMat); covMesh.name = `${shoulder.name}_cov`; shoulder.add(covMesh);
       stage2.add(shoulder);
       shoulder.updateMatrix();
-      shoulders.push({ obj: shoulder, baseRotZ, phase: pi * 1.3 + (side < 0 ? 0.7 : 0), amp: 0.045 + pi * 0.012 });
-      // 3 EYES per wing spread WIDELY along the plumage (covered in eyes), pushed out so no
-      // two scleras touch (the old clump-at-the-root read as frogspawn). local→world, face cam.
+      shoulders.push({ obj: shoulder, baseRotZ, phase: wi * 1.3 + (side < 0 ? 0.7 : 0), amp: 0.045 + wi * 0.012 });
+      // 3 EYES per wing ON THE HAND (the rising primaries) — away from the great eye, z-staggered
+      // so any overlap reads as stacked eyes, never a fused blob. local→world, face camera.
       const eyeSizes = [0.56, 0.44, 0.34];
       for (let e = 0; e < 3; e++) {
-        const ea = (e / 3 - 0.33) * 0.9 + (rnd() - 0.5) * 0.25;
-        const er = 3.4 + e * 1.7 + rnd() * 0.5;
-        const elocal = new THREE.Vector3(Math.sin(ea) * er * 0.55, Math.cos(ea) * er, 0.55);
-        const eworld = elocal.applyMatrix4(shoulder.matrix);
-        eworld.z = Math.max(eworld.z, 0.4);
+        const t = 0.15 + e * 0.3;
+        const lx = hand.Bx + hand.hdx * t * hand.handLen * 0.8 + (rnd() - 0.5) * 0.7;
+        const ly = hand.By + hand.hdy * t * hand.handLen * 0.8;
+        const eworld = new THREE.Vector3(lx, ly, 0.5).applyMatrix4(shoulder.matrix);
+        eworld.z = Math.max(eworld.z, 0.4) + (side < 0 ? 0.45 : 0) + e * 0.28 + wi * 0.2;   // stronger z-stagger → overlaps read as stacked eyes, never a fused blob
         eyePlace(eworld, eyeSizes[e] * (0.9 + rnd() * 0.2));
       }
     }
@@ -481,14 +481,17 @@ export function buildUnmasked(def, quality = 1) {
 
   // ── THE HALO — ONE thin gold annulus BEHIND the fan (the sole corona nod), NON-additive,
   // faint, partially occluded by the middle wings crossing it. NO cogs/spokes/second ring. ──
-  // Faint + smaller so the upward wings OVERSHOOT and cross it (a broken, occluded arc — a
-  // saint's halo behind the crest), never a clean gold rim (which read as a ship's wheel).
+  // A VISIBLE saint's halo behind the crest: a real gold ring, tone-mapped OFF so it holds
+  // its value on BOTH the pale and dark skies, riding UP so its top arcs above the crest notch
+  // while the wings occlude its lower two-thirds (a halo over the head, never a full rim = a
+  // wheel). The upward bilateral crest means it can't read as a ship's wheel anymore.
   const haloS2Mat = track(new THREE.MeshBasicMaterial({
-    color: 0xc9a45a, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide,
+    color: 0xd8b46a, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide,
   }));
-  const HALO_R = 4.2;
-  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.94, HALO_R, lowQ ? 40 : 72), haloS2Mat);
-  haloS2.position.set(0, HALO_R * 0.45, -1.4);   // ride UP behind the crest (a halo over the head, not a rim around the body)
+  haloS2Mat.toneMapped = false;
+  const HALO_R = 4.3;
+  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.9, HALO_R, lowQ ? 44 : 80), haloS2Mat);
+  haloS2.position.set(0, 3.4, -2.2);   // rides above the eye, behind the crest; top arc clears the notch
   haloS2.name = 'halo';
   stage2.add(haloS2);
 
