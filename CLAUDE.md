@@ -22,3 +22,9 @@ vanilla Three.js r160, no build step, and must hold 60fps on weak mobile.
 first — it distills the boss research, design laws, the tier ladder, the archetype
 architecture, and the SHORT list of ledger lessons that matter for boss work (so you don't
 read the whole ledger for it).
+
+**Designing or touching a BIOME / the environment?** Read
+[`reforged/BIOME-DESIGN.md`](./reforged/BIOME-DESIGN.md) first — the biome playbook: the
+8-biome lineup, the identity system (hazard + verb + anchor boss per biome), the
+boss↔biome coupling, the determinism-safe hazard-injection pattern, and the
+increment-by-increment rollout.

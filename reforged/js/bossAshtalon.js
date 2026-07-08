@@ -210,6 +210,7 @@ export function buildEmberHunter(def, quality = 1) {
   // brightness law) inside a wider ORANGE glow (so it reads MOLTEN, not a pure-
   // white sticker). Both horizontal + concentric → ONE bar, never segmented.
   const slit = new THREE.Group();
+  slit.name = 'visorSlit';   // LANCE seam: V1 aim-line target (partWorldPos), byte-neutral metadata
   slit.position.set(0, 0.3, 1.34);   // recessed behind the brow/jaw fronts (z1.72)
   // ORANGE molten FRAME — a wide, tall, saturated ember quad that extends well
   // beyond the white core on all sides, so the ring just outside the core reads

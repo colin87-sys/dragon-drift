@@ -26,6 +26,12 @@ const sharedUniforms = {
   horizonColor: { value: new THREE.Color(0xff9a55) },
   zenithColor: { value: new THREE.Color(0x1c2e5e) },
   fogColor: { value: new THREE.Color(0xd99a7a) },
+  // Dual-fog far COLOR (BIOME-DESIGN.md §5.2) — distinct from fogFar (a
+  // DISTANCE, below). Initialised equal to fogColor = today's single-color fog;
+  // biomes without a fogFarColor keep them equal, which makes the far-mix in
+  // the fragment shader an exact no-op. MUST live in sharedUniforms or it
+  // vanishes on the reflective↔cheap tier rebuild.
+  fogFarColor: { value: new THREE.Color(0xd99a7a) },
   fogNear: { value: 70 },
   fogFar: { value: 380 },
 };
@@ -48,7 +54,7 @@ const vertexShader = /* glsl */`
 const fragmentShader = /* glsl */`
   varying vec3 vWorldPos;
   uniform float time, waveAmp;
-  uniform vec3 deepColor, shallowColor, sunDir, sunColor, horizonColor, zenithColor, fogColor;
+  uniform vec3 deepColor, shallowColor, sunDir, sunColor, horizonColor, zenithColor, fogColor, fogFarColor;
   uniform float fogNear, fogFar;
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
@@ -122,9 +128,13 @@ const fragmentShader = /* glsl */`
     float glit = hash(floor(p * 4.0) + floor(time * 3.0));
     col += sunColor * step(0.9965, glit) * pow(1.0 - NdotV, 1.6) * 1.5;
 
-    // Manual fog (matches scene linear fog).
+    // Manual fog (matches scene linear fog) — dual-color (§5.2): the fog
+    // itself grades from the NEAR color into the FAR color with the same
+    // factor. Where fogFarColor == fogColor (every biome without one) this is
+    // exactly the old single-color fog.
     float dist = length(vWorldPos - cameraPosition);
-    col = mix(col, fogColor, smoothstep(fogNear, fogFar, dist));
+    float fogF = smoothstep(fogNear, fogFar, dist);
+    col = mix(col, mix(fogColor, fogFarColor, fogF), fogF);
 
     gl_FragColor = vec4(col, 1.0);
     // These chunks are render-target aware in r160: the renderer forces
@@ -228,7 +238,7 @@ export function updateWater(dt, playerDist, time, fog) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor }) {
   if (!water) return;
   const u = water.material.uniforms;
   if (deep) u.deepColor.value.copy(deep);
@@ -237,4 +247,5 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp }) {
   if (horizon) u.horizonColor.value.copy(horizon);
   if (zenith) u.zenithColor.value.copy(zenith);
   if (waveAmp !== undefined) u.waveAmp.value = waveAmp;
+  if (fogFarColor) u.fogFarColor.value.copy(fogFarColor);
 }

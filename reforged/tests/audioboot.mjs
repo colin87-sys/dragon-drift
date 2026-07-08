@@ -46,6 +46,17 @@ check('worklet limiter engaged', h.limiterActive === true);
 check('drum kit baked for active station', h.kitBaked === true);
 check('beat clock answering', h.beatClock === true);
 check('harmony oracle answering', h.harmony === true);
+
+// Boss music state: a fight darkens the same station (transpose down + hold the
+// climax), cleared on defeat. Driven via the event bus directly.
+await page.evaluate(() => { window.__dd.emit('bossStart', { id: 'test' }); window.__dd.emit('bossPhase', { phase: 3 }); });
+const hb = await page.evaluate(() => window.__dd.audioHealth());
+check('boss fight engages boss music', hb.bossActive === true);
+check(`boss phase 3 transposes down (${hb.bossSemitones})`, hb.bossSemitones < 0);
+await page.evaluate(() => { window.__dd.emit('bossDefeated', { id: 'test' }); });
+const hd = await page.evaluate(() => window.__dd.audioHealth());
+check('boss defeat clears boss music', hd.bossActive === false && hd.bossSemitones === 0);
+
 // Underruns are informational only here: headless chromium renders audio to a
 // null sink on a throttled fake clock, so stalls are environmental — the
 // beacon is for the on-device debug HUD, not CI.

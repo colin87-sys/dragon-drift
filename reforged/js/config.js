@@ -48,6 +48,16 @@ export const CONFIG = {
   groundDamage: 15,
   invulnTime: 1.0,
 
+  // Biome hazards (dodge-only; BIOME-DESIGN.md §5.3). Each placed vent runs a
+  // burst loop on GAME TIME: warn (magenta telegraph, per-biome hazard.warn) →
+  // hazardBurstDur (the column is up + lethal) → hazardIdle (dormant), phase-
+  // offset per vent so they never fire in lockstep. Damage routes through
+  // collision.hitPlayer — zero knockback, a barrel-roll clears it (owner
+  // decision #2: hazards never apply force).
+  hazardBurstDur: 0.8,   // seconds the erupted column stays lethal
+  hazardIdle: 2.6,       // seconds of dormancy between cycles
+  hazardDamage: 25,      // same sting as an obstacle; i-frames / a roll dodge it
+
   // Scoring
   ringScore: 100,
   ringCenterBonus: 50,
@@ -150,6 +160,116 @@ export const CONFIG = {
   // fixed player-relative distance while forward motion continues. Bullets close
   // toward the player in the player-relative frame and are dodged in the X/Y lane.
   // Gated by game.inBoss so a normal run is untouched when no boss is active.
+  // THE LANCE (lock) layer — the player combat-verb system (combat-verbs SOP §II.3).
+  // Legend: LAW = locked (owner sign-off to change); TUNE(range) = adjustable within
+  // range without re-approval, provided the sim gates stay green. Neutral at rung 0:
+  // a def WITHOUT lock data behaves byte-identically to before this block existed.
+  LOCK: {
+    // V1 aim-line. Position-match and target-MOTION are different failure axes (L175/L177):
+    // the ACQUIRE cone stays tight (it prices exposure — corner 3.68m < grazeR 4.15m) while
+    // retention + drain + anchor smoothing make a moving organ holdable, so boss motion never
+    // has to be nerfed to fit the aim model.
+    coneXY: 2.6,            // LAW — ACQUIRE cone, m/axis at the boss plane; NEVER per-dragon or per-boss
+    retentionConeXY: 4.0,   // TUNE(3.5–4.5) — HOLD cone once a dwell is accruing/held: tight to
+                            // catch, forgiving to keep (classic aim-assist shape; exposure was
+                            // priced at acquisition and drain bounds how long retention coasts)
+    dwellTime: 0.35,        // LAW (shared clock: V1 acquire + V2 paint)
+    coyote: 0.20,           // TUNE(0.10–0.20) — dwell FREEZES through a cone flicker up to this
+    dwellDrainMult: 2.0,    // TUNE(1.5–3.0) — past coyote, dwell DRAINS at this × dt instead of
+                            // hard-resetting: progress visibly melts, a swing-through carries
+                            // partial credit, and the progress fill teaches "catch it at the
+                            // turn" wordlessly
+    anchorSmoothT: 0.25,    // LAW — EMA time-constant low-passing the tracked organ's world pos.
+                            // §3 law 7 guarantees every boss idles at ≥2 frequencies, so the aim
+                            // anchor must chase the organ's centre of motion, not its animation
+                            // frame — a raw anchor jitter-breaks locks by construction
+    linger: 0.6,            // TUNE(0.4–0.8) — aim-line persistence after leaving the cone
+    paintHopGrace: 0.8,     // TUNE(0.5–1.2) — after a paint the aim RELEASES and the painted
+                            // organ can't re-acquire for this long, so the reticle decisively
+                            // HOPS to the next unpainted organ (owner playtest: hovering the
+                            // painted rib pinned the whole flow — you waited for a second
+                            // reticle that could never come). Deliberate refresh = hover past it.
+    chipRateMult: 1.15,     // LAW — rider interval ÷ this while the line holds an organ
+    exposureTickInterval: 0.8, // TUNE(0.6–1.0)
+    exposureTickDmg: 1.0,   // TUNE(0.5–1.5); max 3 ticks per exposure window (LAW)
+    quietDwellMult: 0.5,    // LAW — danger-binding: dwell rate while no boss fire is live
+    // V2 paint & volley (wired from PR2 — data present now, inert in PR1)
+    capByTier: { 1: 0, 2: 3, 3: 5, 4: 6, 5: 6 },  // LAW ladder
+    decay: 4.0,             // TUNE(3.0–4.0) — per-lock lifetime WITHOUT a fresh brand; a new
+                            // paint/stack now refreshes the whole set (freshenLocks), so this
+                            // is the "you stopped branding for 4s → it fizzles" clock, not a
+                            // race against building a set (owner playtest: brands unpainted
+                            // while flying between BRINEHOLM's spread eye + shackles)
+    refreshDwell: 0.15,     // TUNE(0.1–0.2)
+    stackMax: 2,            // LAW — per part, tiers ≥3 only
+    stripNewestMaxTier: 2,  // LAW — ≤ this tier a hit strips newest only; above strips all
+    capFuse: 1.0,           // LAW — delay between reaching cap and auto-release
+    lanceDmg: 2.0,          // TUNE(1.2–2.4) — screw #1
+    lanceWeight: 0.5,       // LAW — counts HALF toward PART_CRACK_HITS (rider-chip parity)
+    lanceStaggerMs: 60,     // LAW
+    volleyRoiFrac: 0.10,    // LAW — hard clamp at release: volley total ≤ this × current phase hp
+    // WYRMFIRE WISPS (PR4a) — lance-volley flight FX. READS ONLY: vrel and the
+    // arrival/damage laws are untouched, so a wisp lands on the same frame the
+    // plain lance did (boss.mjs kill-time invariance by construction).
+    lanceFanDeg: [65, 115, 15, 165, -35, 215],
+                            // LAW — authored launch bearings (degrees, screen plane, 0=+x):
+                            // mirrored PAIRS widening around 90° (§3.6 symmetry: authored
+                            // placements, never random); index = volley slot i % 6
+    lanceFanSpeed: 26,      // TUNE(18–32) — m/s along the fan bearing at release
+    lanceHomeDelay: 0.16,   // TUNE(0.10–0.22) — pure-arc seconds before homing engages.
+                            // CEILING LAW: flight ≈ (settleGap−1.5)/bossSpeed ≈ 0.55s and
+                            // the arrive controller needs ≥0.3s to close fanSpeed×delay
+    lanceHomeBlend: 0.15,   // TUNE(0.10–0.25) — steer-gain ramp-in after engage (no elbow)
+    lanceSteerGain: 9,      // TUNE(6–12) — arrive gain once engaged (pre-wisp inline was 5)
+    lanceCurlRate: 3.2,     // TUNE(2.0–5.0) — rad/s velocity rotation during the arc; sign = i parity
+    // WISP LIGHT-RIBBONS (PR4b — owner: the volley was lost in the bullet sea).
+    // The silhouette law: the volley must be the ONLY LINE-class shape among the
+    // enemy's dot-class bullets (Panzer Dragoon's homing lasers are persistent
+    // curved light-ribbons fading tail-first — the afterimage IS the spectacle).
+    // Ribbons replace the PR4a sprite-mote trails (retired).
+    ribbonRings: 22,        // LAW — position-history samples per wisp ribbon (~0.37s of path)
+    ribbonHalfWMax: 0.26,   // TUNE(0.18–0.34) — head half-width; THIN is the overdraw law
+                            // (a thin strip is near-line/exempt; bloom carries the glow)
+    ribbonHot: 1.6,         // TUNE(1.2–2.4) — ribbon HDR colour scale (mild bloom, toneMapped off)
+    headHot: 3.5,           // TUNE(2.5–6) — hot-head HDR scale (the EYE_HOT idiom: the head is
+                            // the brightest pixel in its neighbourhood; toneMapped bullets can't compete)
+    ribbonFade: 0.35,       // TUNE(0.25–0.6) — tail-first afterimage drain after arrival
+    wobbleAmp: 0.55,        // TUNE(0–0.9) — homing snake-wobble (m); DECAYS to 0 before arrival
+                            // so the landing law is untouched (T-W2 is the wall)
+    wobbleHz: 2.6,          // TUNE(1.5–4) — snake frequency; phase = volley slot
+    impactStaggerMs: 40,    // LAW — plural-impact PRESENTATION spacing (damage stays same-frame;
+                            // the drum-roll is FX + the lockStrike arpeggio only)
+    // ORGAN SHIMMER (PR6, owner design; boosted — owner playtest "let me PICK my
+    // prey"): every UNPAINTED paintable organ carries an in-world jade breath —
+    // diegetic ("this part is brandable, fly here"), works with or without the
+    // reticle, perspective-true. It is the pick-menu: you SEE every target and
+    // choose which to fly to (it darkens the instant a target is painted, so the
+    // remaining shimmers are what's left to grab). Goes DARK while the organ vents
+    // amber (C3 — "can't paint now"), while the boss is deflected (sealed), painted.
+    shimmerOpacity: 0.34,   // TUNE(0.06–0.4) — peak breath opacity (boosted from 0.13 to read as a clear "paint here")
+    shimmerHz: 2.2,         // TUNE(1.5–4) — breath rate
+    tetherOpacity: 0.22,    // TUNE(0.1–0.35) — PR7 in-world attribution line dragon→brand
+                            // (additive LineSegments; the line dims with the brand's life)
+    paintCooldown: 0.22,    // TUNE(0.15–0.6) — cross-organ paint spacing: min gap between ANY
+                            // two paints. Cut from 0.45 (owner playtest: "lag between each pip,
+                            // hovering for ages") — still enough to keep back-to-back paints from
+                            // reading spammy, but the pip cadence is now snappy on a spread boss
+    // V3
+    beamAimDisc: 4.0,       // LAW — m; nearest partWorldPos within this of the player line
+    beamPartWeight: 1.5,    // TUNE(1.0–2.0)
+    tapVolleyMinLocks: 2,   // LAW — case-3 floor
+    // V3.E1
+    beatWindow: 0.12,       // LAW — ± seconds on getBeatClock()
+    beatMult: 1.25,         // LAW — volleys ONLY, never the Surge beam/break
+    // V4
+    snapPerVolley: 1,       // LAW — max V4 paints per amber volley; 0 during fever (LAW)
+    // V5
+    focusArmMs: 300,        // LAW — must stay > tap ceiling 260
+    focusDwellMult: 0.5,    // LAW
+    // score (embers NEVER)
+    paintScore: 10, lanceHitScore: 15, perfectReleaseScore: 150,  // LAW: parry stays score-premier
+  },
+
   BOSS: {
     firstAt: 2500,          // metres: earliest a boss can appear
     interval: 3200,         // metres between encounters
@@ -186,6 +306,7 @@ export const CONFIG = {
     renderTiers: {
       bulletShadow: -1, arenaWall: 2, shield: 3, surgeFx: 4,
       focusTrack: 5, focusFill: 6, focusHead: 7,
+      wispRibbon: 12,   // wisp light-ribbons: over boss/shield/surge FX, under every bullet
       bulletOutline: 20, bulletBody: 21, bulletCore: 22,
     },
     // Graze: skimming a bullet (inside the graze band but outside the hit radius)
@@ -256,6 +377,8 @@ export const CONFIG = {
       phasePerfect:     { hitstop: 95, kick: 'surgeStart' },  // perfect phase: big magenta kick
       comboBreak:       { hitstop: 0,  kick: 'comboBreak' },
       death:            { hitstop: 0,  kick: 'death' }, // sustained grade over the freeze
+      wispVolley:       { hitstop: 45, kick: 'surgeStart' }, // brand loose: the release beat
+                        // (RELEASE only — never hitstop the impacts amid dense bullets)
     },
   },
 };

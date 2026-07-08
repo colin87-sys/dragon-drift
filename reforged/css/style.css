@@ -89,6 +89,17 @@ body.app-loaded > canvas { opacity: 1; }
 #hud.cine-hold .milestone-banner,
 #hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
 
+/* LETTERBOX (CP2-A, EMBERTIDE's sky-crush re-entrance beat): two bars that ease in
+   from the frame edges and back out. Height 0 at rest so they cost nothing idle. */
+.cinebar {
+  position: fixed; left: 0; right: 0; height: 0; background: #000;
+  pointer-events: none; z-index: 40;
+  transition: height 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cinebar-top { top: 0; }
+.cinebar-bot { bottom: 0; }
+.cinebar.on { height: 9vh; }
+
 /* ============ ORNATE BOTTOM BAR (Panzer Dragoon style) ============ */
 /* ============ HUD CORNER LAYOUT (WS6) ============ */
 .hud-top-left {
@@ -165,6 +176,41 @@ body.app-loaded > canvas { opacity: 1; }
 .boss-warn-name { font: 800 clamp(18px,5.5vw,38px)/1.15 'Russo One', system-ui, sans-serif;
   color: #fff; margin-top: 10px; text-shadow: 0 2px 14px #000, 0 0 22px rgba(255,90,90,0.5); }
 @keyframes warn-flash { 0%{opacity:1} 50%{opacity:0.3} }
+/* §5b WEFTWITCH banner-pin: the warn banner CROSS-STITCHED in place, half-deployed —
+   ridden up out of its slot with a stitch-tilt + a dashed gold seam where the thread
+   lashed it. Cleared (torn free) by ui.bossWarnClear at enterFight/skip/reset. */
+.boss-warn.pinned { opacity: 1; transform: translateY(-46%) rotate(-1.6deg); transition: transform 0.5s cubic-bezier(.6,0,.3,1), opacity 0.5s ease; }
+.boss-warn.pinned .boss-warn-alert { animation: none; opacity: 0.55; }
+.boss-warn.pinned .boss-warn-name { display: inline-block; padding-bottom: 6px; position: relative; }
+/* §5b the NAME STITCH-OUT: at the lash a golden thread LASHES across the name (legible
+   first — the binding ruling — then cross-stitched out). A bar draws L→R over the text. */
+.boss-warn.pinned .boss-warn-name::after {
+  content: ''; position: absolute; left: -4%; right: -4%; top: 52%; height: 3px;
+  background: linear-gradient(90deg, transparent, #e8c466 12%, #fff2c8 50%, #e8c466 88%, transparent);
+  box-shadow: 0 0 6px rgba(232,196,102,0.9); transform: scaleX(0); transform-origin: left; }
+.boss-warn.stitched .boss-warn-name::after { animation: stitch-out 0.42s cubic-bezier(.5,0,.4,1) forwards; }
+@keyframes stitch-out { to { transform: scaleX(1); } }
+/* §5b the TEAR-FREE: at fight start the pinned banner FLINGS up + fades off. */
+.boss-warn.tearing { transform: translateY(-140%) rotate(-4deg); opacity: 0; }
+/* §5b WEFTWITCH HUD-SEW — golden threads stitch across the chrome ONCE at her
+   entrance. z 46 sits above every in-run HUD layer; that is SAFE only because the
+   controller fires it exclusively in the bullet-free warn/approach window (bullets
+   are WebGL, always below DOM — the timing IS the render-order LAW). */
+.hud-sew { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 46;
+  display: none; fill: none; opacity: 0.9; filter: drop-shadow(0 0 4px rgba(232,196,102,0.65)); }
+.hud-sew.on { display: block; }
+.hud-sew path { stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linecap: round;
+  stroke-dasharray: 100; stroke-dashoffset: 100; animation: sew-draw 1.05s cubic-bezier(.55,0,.3,1) forwards; }
+@keyframes sew-draw { to { stroke-dashoffset: 0; } }
+/* the UNRAVEL: at fight start the threads retract (reverse the draw-on) then clear. */
+.hud-sew.unravel path { animation: sew-undraw 0.5s cubic-bezier(.5,0,.5,1) forwards; }
+@keyframes sew-undraw { to { stroke-dashoffset: 100; } }
+body[data-qtier="2"] .hud-sew { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .hud-sew path, .hud-sew.unravel path { animation: none; stroke-dashoffset: 0; }
+  .boss-warn.pinned, .boss-warn.tearing { transition: none; }
+  .boss-warn.stitched .boss-warn-name::after { animation: none; transform: scaleX(1); }
+}
 /* Foreboding DANGER anchored WHERE the boss emerges, on a bed of animated hazard
    stripes. data-pos places it at the entry edge/corner; the stripes scroll inward. */
 .boss-danger { position: fixed; pointer-events: none; opacity: 0; z-index: 40;
@@ -317,9 +363,28 @@ body.app-loaded > canvas { opacity: 1; }
 .stamina-arc { position: absolute; left: 50%; top: 64%; transform: translate(-50%,-50%);
   width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none; opacity: 0.9;
   transition: opacity 0.6s ease, transform 0.6s ease; }
-/* During a boss the bar is meaningless (speed locked / unlimited) — fade it out
-   gracefully; the focus ring draws on in its place. Fades back in on boss exit. */
+/* During a boss, boost is SEALED (speed locked / unlimited). Rather than vanish —
+   which let the second verb die unnoticed — the bar CHAINS + dims so the seal is
+   legible, then restores on boss exit. (Kept the fade+shrink easing for grace.) */
 .stamina-arc.boss-hidden { opacity: 0; transform: translate(-50%,-50%) scale(0.82); }
+.stamina-arc.sealed { opacity: 0.32; transform: translate(-50%,-50%) scale(0.9); filter: saturate(0.5); }
+/* The chain overlay: three interlinked rings, centred over the arc. Visible only
+   while sealed; monochrome (no additive/emoji), whispers like the rest of the bar. */
+.stamina-seal { position: absolute; left: 50%; top: 44%; transform: translate(-50%,-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  color: rgba(200,225,230,0.7); pointer-events: none; opacity: 0; transition: opacity 0.4s ease; }
+.stamina-arc.sealed .stamina-seal { opacity: 1; }
+.seal-chain { width: 30px; height: 12px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7)); }
+/* One-time "BOOST SEALED" label: a single fade-in-hold-out on the first sealing. */
+.seal-label { font-size: 9px; letter-spacing: 2px; font-weight: 700;
+  color: rgba(215,235,240,0.9); text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  opacity: 0; text-transform: uppercase; }
+.seal-label.show { animation: seal-flash 2.8s ease forwards; }
+@keyframes seal-flash {
+  0% { opacity: 0; transform: translateY(2px); }
+  18%, 62% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-1px); } }
+.stamina-arc svg.seal-chain { width: 30px; height: 12px; overflow: visible; }
 .stamina-arc svg { width: 100%; height: 100%; overflow: visible; }
 /* Each of the 3 cells is its OWN arc with a real gap to its neighbour, so the bar
    always reads as 3 notches (no dash-skip math to merge or drop a segment). The dim
@@ -417,6 +482,39 @@ body.app-loaded > canvas { opacity: 1; }
 #reticle.gate .rsq { border-color: rgba(170, 230, 255, 0.92); box-shadow: 0 0 12px rgba(120, 210, 255, 0.55); animation: ret-spin 4s linear infinite; }
 #reticle.gate .rsq.inner { border-color: rgba(220, 245, 255, 0.85); animation: ret-spin-rev 2.5s linear infinite; }
 #reticle.gate.locked .rsq { border-color: rgba(235, 250, 255, 0.97); box-shadow: 0 0 16px rgba(150, 225, 255, 0.8); }
+/* THE LANCE reticle — the in-boss SECOND job (aim-line on a boss organ). Made BOLD
+   and legible (the first pass was too faint next to the dragon's cyan focus ring):
+   a bright steel target that BREATHES, tints toward green as your dwell builds
+   (--dwell 0..1, set per-frame), then SNAPS green with a ring-flash on lock — so
+   "you're doing it right" reads instantly, visually and (via sfx) audibly. Still
+   NOT the amber ring skin (parry-amber role collision §II.1.6); ashen when muted. */
+#reticle.boss .rsq {
+  border-width: 3.5px;
+  border-color: color-mix(in srgb, rgba(222,234,246,0.94), rgba(80,255,170,0.98) calc(var(--dwell,0) * 100%));
+  box-shadow: 0 0 12px rgba(150,210,240,0.45), 0 0 3px rgba(255,255,255,0.55);
+  animation: ret-spin 6s linear infinite, ret-boss-breathe 1.5s ease-in-out infinite;
+}
+#reticle.boss .rsq.inner {
+  border-color: color-mix(in srgb, rgba(232,242,251,0.88), rgba(120,255,190,0.98) calc(var(--dwell,0) * 100%));
+}
+/* Building toward a lock: the glow swells with dwell progress. */
+#reticle.boss.aiming .rsq { box-shadow: 0 0 16px rgba(90,255,180,calc(0.3 + var(--dwell,0)*0.5)), 0 0 4px rgba(255,255,255,0.6); }
+/* Locked: full green, energised (spins faster), strong bloom. */
+#reticle.boss.locked .rsq {
+  border-color: rgba(90,255,175,1); border-width: 4px;
+  box-shadow: 0 0 20px rgba(60,255,160,0.9), 0 0 6px rgba(200,255,230,0.9);
+  animation: ret-spin 3s linear infinite, ret-boss-breathe 1.5s ease-in-out infinite;
+}
+#reticle.boss.locked .rsq.inner { border-color: rgba(190,255,225,1); }
+/* Muted (slot 13): ashen, no green, no breathe. */
+#reticle.boss.sealed .rsq { border-color: rgba(150,160,175,0.42); box-shadow: none; animation: ret-spin 6s linear infinite; }
+#reticle.boss.sealed .rsq.inner { border-color: rgba(160,170,185,0.38); }
+/* The one-shot green ring flash fired on the lock snap. */
+.rsnap { position: absolute; inset: -6%; border: 3px solid rgba(120,255,190,0.95); border-radius: 8px;
+  opacity: 0; pointer-events: none; }
+#reticle.snap .rsnap { animation: ret-snap 0.42s ease-out 1; }
+@keyframes ret-snap { 0% { opacity: 0.95; transform: scale(0.55); } 100% { opacity: 0; transform: scale(1.9); } }
+@keyframes ret-boss-breathe { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.42); } }
 @keyframes ret-spin { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
 @keyframes ret-spin-rev { from { transform: rotate(45deg); } to { transform: rotate(-45deg); } }
 
@@ -2138,3 +2236,66 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
   box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 0 22px rgba(255,160,80,0.3); }
 .gx-skip:active { transform: scale(0.96); }
 @media (prefers-reduced-motion: reduce){ .gesture-overlay.on{animation:none;} .gx-card{animation:none;} }
+
+/* V2 LANCE pips (combat-verbs PR2): painted locks under the reticle squares.
+   Squares, never dots — role is never hue-alone (colourblind law). Ashen = the
+   deflect rule froze the layer; the oldest pip blinks its final second (decay
+   legibility is FREE at rung 0 — never ascension-gated). */
+#reticle .lockpips { position: absolute; left: 50%; top: 114%; transform: translateX(-50%);
+  display: none; gap: 5px; }
+#reticle.boss .lockpips { display: flex; }
+#reticle .lockpip { width: 10px; height: 10px; border: 2px solid rgba(80, 255, 170, 0.35);
+  box-sizing: border-box; }
+#reticle .lockpip.filled { border-color: rgba(80, 255, 170, 0.95);
+  box-shadow: 0 0 8px rgba(60, 255, 160, 0.6);
+  background: linear-gradient(to top, rgba(80, 255, 170, 0.9) calc(var(--life, 1) * 100%), rgba(80, 255, 170, 0.12) 0); }
+#reticle .lockpip.ashen { background: rgba(150, 160, 175, 0.45); border-color: rgba(150, 160, 175, 0.6);
+  box-shadow: none; }
+#reticle .lockpip.blink { animation: lockpip-blink 0.4s steps(2, start) infinite; }
+@keyframes lockpip-blink { 50% { opacity: 0.2; } }
+
+/* Painted-organ markers: each painted lock pins its own square ON the organ, the
+   inner fill draining with the lock's remaining life — what is locked, where it is,
+   how long it holds. Ashen = deflect-frozen; blink = final second; double border =
+   stacked (tier 3+). The reticle paints; these persist. */
+.lockmark { position: absolute; left: 0; top: 0; width: 24px; height: 24px;
+  transform: translate(var(--mx, 0), var(--my, 0));
+  margin: -12px 0 0 -12px; border: 2px solid rgba(80, 255, 170, 0.85);
+  box-shadow: 0 0 10px rgba(60, 255, 160, 0.45); box-sizing: border-box;
+  pointer-events: none; display: none; z-index: 4; }
+.lockmark.show { display: block; }
+.lockmark .fill { position: absolute; left: 2px; right: 2px; bottom: 2px;
+  height: calc(var(--life, 1) * 100% - 4px); background: rgba(80, 255, 170, 0.35); }
+.lockmark.stacked { outline: 2px solid rgba(80, 255, 170, 0.45); outline-offset: 2px; }
+.lockmark.ashen { border-color: rgba(150, 160, 175, 0.7); box-shadow: none; }
+.lockmark.ashen .fill { background: rgba(150, 160, 175, 0.3); }
+.lockmark.blink { animation: lockpip-blink 0.4s steps(2, start) infinite; }
+
+/* HUNTER'S BRAND skin: the wyrm-rune sigil on each painted organ; a jade-white
+   kindle flash on paint; the pip row INHALES (swells) through the cap fuse and
+   flares on the exhale volley. Kindle stays in the green family — amber/orange
+   is the parry role colour and never appears here. */
+.lockmark .rune { position: absolute; inset: 1px; }
+.lockmark .rune path { stroke: rgba(140, 255, 190, 0.95); stroke-width: 1.6; fill: none; }
+.lockmark.ashen .rune path { stroke: rgba(150, 160, 175, 0.7); }
+.lockmark.kindle { animation: brand-kindle 0.35s ease-out; }
+@keyframes brand-kindle {
+  0% { transform: translate(var(--mx, 0), var(--my, 0)) scale(1.7); filter: brightness(2.2); }
+  100% { transform: translate(var(--mx, 0), var(--my, 0)) scale(1); filter: brightness(1); }
+}
+#reticle .lockpips.inhale { transform: translateX(-50%) scale(calc(1 + var(--fuse, 0) * 0.35));
+  filter: brightness(calc(1 + var(--fuse, 0) * 0.8)); }
+#reticle .lockpips.volley .lockpip { animation: pip-loose 0.45s ease-out; }
+@keyframes pip-loose {
+  0% { transform: scale(1.6); filter: brightness(2.4); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+/* PR3 SEALED loose: the kept pips shudder ashen once — no green flare (the mark won't
+   take), the brands stay banked for the break. Horizontal shake on the row itself. */
+#reticle .lockpips.sealshake { animation: pip-sealshake 0.32s ease-out; }
+@keyframes pip-sealshake {
+  0%, 100% { transform: translateX(-50%); }
+  20% { transform: translateX(calc(-50% - 3px)); }
+  50% { transform: translateX(calc(-50% + 3px)); }
+  80% { transform: translateX(calc(-50% - 2px)); }
+}

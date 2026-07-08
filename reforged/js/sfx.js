@@ -8,6 +8,9 @@ import { TRACKS } from './tracks.js';
 import { mulberry32 } from './util.js';
 import { upgradeMasterChain } from './sfxLimiter.js';
 import { snapToChord, chordLadder, nextGridDelay } from './harmony.js';
+import { INSTS } from './insts.js';
+import { sectionAt, chooseSection, melodyVariant } from './composer.js';
+import { on } from './events.js';
 
 export { TRACKS };
 
@@ -30,6 +33,7 @@ export function getAudioHealth() {
     kitBaked: !!(bakedKit && bakedKit.trackId === TRACKS[trackIndex].id),
     beatClock: !!getBeatClock(),
     harmony: !!getHarmony(),
+    bossActive, bossSemitones,
   };
 }
 
@@ -56,7 +60,14 @@ let slowMoOn = false;
 export let musicMuted = saveData.audio.musicMuted;
 export let sfxMuted = saveData.audio.sfxMuted;
 
-const musicTarget = () => (musicMuted ? 0 : saveData.audio.musicVol);
+// §5f MUSIC-DEATH (slot 10 KNELLGRAVE's granted rule-break): while `musicKilled`,
+// the music BUS is hard-zeroed but the layers + beat scheduler KEEP RUNNING — the
+// world goes silent yet getBeatClock stays live, so the boss's toll still quantizes
+// to the (inaudible) grid. Folded into musicTarget() so every other gain path (mute
+// toggles, volume sliders, the bg-suspend restore) PRESERVES the kill — the silence
+// cannot be accidentally un-killed by a settings tweak or a tab switch.
+let musicKilled = false;
+const musicTarget = () => ((musicMuted || musicKilled) ? 0 : saveData.audio.musicVol);
 const sfxTarget = () => (sfxMuted ? 0 : saveData.audio.sfxVol);
 
 // iOS routes Web Audio through the "ambient" session by default, which the
@@ -84,18 +95,47 @@ function makeTanhCurve() {
 // convolution tail gives the score the sense of air/space a soaring sea-flight
 // wants — no audio files, just synthesized noise shaped by an exp decay. The
 // two channels decorrelate (independent noise) for a wide, natural stereo tail.
-function makeImpulse(a, seconds = 2.6, decay = 2.8) {
-  const len = Math.max(1, Math.floor(a.sampleRate * seconds));
-  const buf = a.createBuffer(2, len, a.sampleRate);
+// Per-genre reverb "spaces". Each is a set of impulse-response params: `seconds`
+// (tail length), `decay` (exp falloff), `predelayMs` (gap before the tail — a
+// bigger gap reads as a bigger room and keeps the dry signal clear), `damping`
+// (0..1 — how hard the tail darkens over time, the frequency-dependent decay
+// that separates a real room from white-noise-with-an-envelope). Stations pick
+// one via `mix.irPreset`; the default matches the roster's baseline space.
+const IR_PRESETS = {
+  default: { seconds: 2.4, decay: 2.8, predelayMs: 18, damping: 0.5 },
+  hall:    { seconds: 3.4, decay: 2.2, predelayMs: 40, damping: 0.42 }, // epic/orchestral — vast, slow
+  plate:   { seconds: 2.2, decay: 2.6, predelayMs: 12, damping: 0.32 }, // bright dense sheen (synthwave/trance)
+  room:    { seconds: 1.4, decay: 3.4, predelayMs: 9,  damping: 0.6 },  // tight + dry (dnb/hardstyle/house)
+  dark:    { seconds: 1.8, decay: 3.0, predelayMs: 14, damping: 0.78 }, // warm, muffled (lofi/tropical)
+};
+function irParams(preset) {
+  return IR_PRESETS[preset] || IR_PRESETS.default;
+}
+
+// Generated reverb impulse: exponentially-decaying decorrelated stereo noise,
+// now with a PRE-DELAY (silent gap → room size + dry clarity) and a
+// FREQUENCY-DEPENDENT decay (a one-pole lowpass whose smoothing tightens along
+// the tail, so highs die before lows exactly like a real space absorbs them).
+function makeImpulse(a, preset) {
+  const { seconds, decay, predelayMs, damping } = irParams(preset);
+  const sr = a.sampleRate;
+  const len = Math.max(1, Math.floor(sr * seconds));
+  const pre = Math.max(0, Math.floor(sr * predelayMs / 1000));
+  const buf = a.createBuffer(2, len, sr);
+  const tail = Math.max(1, len - pre);
   for (let ch = 0; ch < 2; ch++) {
-    // Seeded noise (not Math.random) so offline renders of the engine are
-    // reproducible — the loudness-calibration CI depends on it. Different seed
-    // per channel keeps the stereo tail decorrelated (wide), same as before.
+    // Seeded noise (not Math.random) so offline renders are reproducible — the
+    // loudness CI depends on it. Different seed per channel = a wide, decorrelated tail.
     const rng = mulberry32(0x51F0AD ^ (ch * 0x9e3779b1));
     const d = buf.getChannelData(ch);
+    let lp = 0;
     for (let i = 0; i < len; i++) {
-      const t = i / len;
-      d[i] = (rng() * 2 - 1) * Math.pow(1 - t, decay);
+      if (i < pre) { d[i] = 0; continue; }   // pre-delay: dry-to-wet gap
+      const t = (i - pre) / tail;
+      // One-pole lowpass, smoothing increases with t → the tail goes dark.
+      const coef = 1 - damping * t;          // 1 (bright, early) → 1-damping (dark, late)
+      lp += coef * ((rng() * 2 - 1) - lp);
+      d[i] = lp * Math.pow(1 - t, decay);
     }
   }
   return buf;
@@ -138,7 +178,7 @@ function makeTapeCurve() {
   return _tapeCurve;
 }
 
-function buildBusGraph(a, musicGain = 1, sfxGain = 1, { v2 = AUDIO_V2 } = {}) {
+function buildBusGraph(a, musicGain = 1, sfxGain = 1, { v2 = AUDIO_V2, irPreset = null } = {}) {
   const masterGain = a.createGain();
   masterGain.gain.value = 1;
   // Soft master compressor: lets the stacked layers run hot without clipping
@@ -194,10 +234,21 @@ function buildBusGraph(a, musicGain = 1, sfxGain = 1, { v2 = AUDIO_V2 } = {}) {
   // music mute/volume and gets muffled by the slow-mo lowpass like the rest
   // of the score. Per-layer send levels are set up in music.start().
   const reverbConvolver = a.createConvolver();
-  reverbConvolver.buffer = makeImpulse(a);
+  reverbConvolver.buffer = makeImpulse(a, v2 ? irPreset : null);
   const reverbReturn = a.createGain();
   reverbReturn.gain.value = 0.9;
-  reverbConvolver.connect(reverbReturn);
+  if (v2) {
+    // High-pass the reverb return (v2): keep the low end dry and defined —
+    // reverb energy below ~200 Hz is just mud on a phone speaker.
+    const rHp = a.createBiquadFilter();
+    rHp.type = 'highpass';
+    rHp.frequency.value = 200;
+    rHp.Q.value = 0.5;
+    reverbConvolver.connect(rHp);
+    rHp.connect(reverbReturn);
+  } else {
+    reverbConvolver.connect(reverbReturn);
+  }
   reverbReturn.connect(musicBus);
   // comp + clipper handles are exposed for the async worklet-limiter upgrade
   // (sfxLimiter.js) — which rewires the tail or, on any failure, leaves this
@@ -218,7 +269,8 @@ function getCtx() {
   try {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const g = buildBusGraph(ctx, musicTarget(), sfxTarget());
+      const g = buildBusGraph(ctx, musicTarget(), sfxTarget(),
+        { irPreset: TRACKS[trackIndex]?.mix?.irPreset });
       masterGain = g.masterGain;
       musicBus = g.musicBus;
       sfxBus = g.sfxBus;
@@ -321,6 +373,71 @@ function restoreBuses(a, immediate = false) {
   }
 }
 
+// musicKill(): the run's music DIES (KNELLGRAVE's fight-long silence — §5f). A fast
+// ~0.15s fade to zero (a cut reads as a bug; a fast fade reads as the world losing
+// its voice). musicRestore(): the slow breath back in under the defeat fanfare /
+// resetBoss (~0.6s). Both idempotent; skip must NOT call restore (the silence holds
+// for the whole fight).
+export function musicKill() {
+  if (musicKilled) return;
+  musicKilled = true;
+  const a = getCtx();
+  if (a && musicBus) musicBus.gain.setTargetAtTime(0, a.currentTime, 0.15);
+}
+
+export function musicRestore() {
+  if (!musicKilled) return;
+  musicKilled = false;
+  const a = getCtx();
+  if (a && musicBus) musicBus.gain.setTargetAtTime(musicTarget(), a.currentTime, 0.6);
+}
+
+// test/debug seam: is the music currently killed (and what is the bus's target)?
+export function musicKillState() { return { killed: musicKilled, target: musicTarget() }; }
+
+// THE TOLL — KNELLGRAVE's voice (§5b VOICE: a struck-bell partial, low register).
+// A procedural bell strike: inharmonic partials (hum/prime/tierce/quint/nominal at
+// ~0.5/1/1.2/1.5/2 of the strike tone) with long exponential decays + a short noise
+// strike transient. Routed to the SFX bus so it SURVIVES the music-death — the toll
+// is the only clock precisely because the music is dead. `k` scales weight (the
+// accelerating final tolls hit harder); decay shortens as k rises (urgent, not muddy).
+export function bellToll(k = 1, vol = 1) {
+  const a = getCtx();
+  if (!a || !sfxBus || sfxMuted) return;
+  const t0 = a.currentTime;
+  const out = a.createGain();
+  out.gain.value = (0.62 + k * 0.42) * vol;   // vol < 1 = the distant foreshadow tolls. Louder than the
+                                              // original (0.5) so the toll punches through the audio-overhaul
+                                              // master compressor+limiter that flattened its deep low-end.
+  out.connect(sfxBus);
+  const F0 = 66;                                   // the strike tone — dropped 72→66 for a deeper funeral register
+  // Weighted toward the LOW body (hum/sub/prime) with longer decays — that's the "deep + awe" the master
+  // compressor was ducking; the mid/upper partials stay lean so the tone reads bronze, not muddy.
+  const partials = [[0.5, 0.75, 6.4], [0.75, 0.5, 4.6], [1.0, 1.15, 4.8], [1.2, 0.6, 2.8], [1.5, 0.32, 2.0], [2.0, 0.22, 1.4], [2.66, 0.12, 0.9]];
+  for (const [ratio, amp, dec] of partials) {
+    const o = a.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = F0 * ratio * (1 + (Math.random() - 0.5) * 0.004);   // hair of detune = cast metal
+    const g = a.createGain();
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(amp, t0 + 0.008);
+    const d = dec * (1.1 - k * 0.25);              // heavier tolls ring slightly shorter (urgency)
+    g.gain.exponentialRampToValueAtTime(0.0004, t0 + d);
+    o.connect(g); g.connect(out);
+    o.start(t0); o.stop(t0 + d + 0.05);
+  }
+  // the strike transient: a short band-passed noise burst (the clapper hitting bronze).
+  const nLen = 0.06;
+  const buf = a.createBuffer(1, Math.ceil(a.sampleRate * nLen), a.sampleRate);
+  const ch = buf.getChannelData(0);
+  for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / ch.length);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 300; bp.Q.value = 1.2;   // 480→300: a deeper THUNK, less bright clack — and less HF to trigger the master compressor's duck
+  const ng = a.createGain(); ng.gain.value = 0.32 * k;   // softer transient so the compressor doesn't clamp the deep ring behind it
+  src.connect(bp); bp.connect(ng); ng.connect(out);
+  src.start(t0);
+}
+
 export function toggleMusicMute() {
   musicMuted = !musicMuted;
   saveData.audio.musicMuted = musicMuted;
@@ -400,7 +517,7 @@ export function getHarmony() {
   if (!(barLen > 0) || !Number.isFinite(sinceLoop) || sinceLoop < 0) return null;
   const bar = Math.floor(sinceLoop / barLen) % 8;
   const tr = TRACKS[trackIndex];
-  const km = Math.pow(2, biomeSemitones / 12);
+  const km = Math.pow(2, (biomeSemitones + bossSemitones) / 12);
   return { chord: tr.arps[bar % 4].map((f) => f * km), bar };
 }
 
@@ -472,6 +589,7 @@ function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay
 // music engine's windSource loop: one long-lived source + an LFO, torn down on stop.
 let surgeReadyNodes = null;
 let surgeCrackleNodes = null;
+let dwellHumNodes = null;   // V5/PR7: the LANCE dwell "closing-in" hum (frequency tracks progress)
 
 export const sfx = {
   // Glassy ice-bell pluck: pure fundamental + bright inharmonic partial
@@ -529,6 +647,24 @@ export const sfx = {
     noiseWhoosh({ from: 700, to: 3200, dur: 0.22, vol: 0.16, q: 1.6 });
     tone({ freq: 880, end: 1320, dur: 0.12, type: 'triangle', vol: 0.07, delay: 0.04 });
   },
+  // §5f WEFTWITCH (slot 11) signature voices — the loom is MUSICAL.
+  // The stitch-pluck: a taut-string pluck per fired stitch (the 'aimed' release).
+  // Bright short fundamental + one inharmonic partial (the sfx.ring recipe family),
+  // snapped in-key so a volley of stitches lands in the station chord.
+  stitchPluck(rise = 0) {
+    // rise > 0 (a banked thread-cut parry) climbs the pitch a whole step per bank —
+    // the "it's building toward the snap" ladder the player HEARS.
+    const f = inKey(520 * (1 + rise * 0.14));
+    tone({ freq: f, end: f * (rise ? 1.08 : 0.94), dur: 0.15, type: 'triangle', vol: 0.09 + rise * 0.02 });
+    tone({ freq: f * 2.51, dur: 0.2, type: 'sine', vol: 0.045 });
+  },
+  // The needle-pull: thread drawn taut (the 'aimed' wind-up twin of the visual
+  // tell) — a rising bandpassed drag + a thin tension glide. Also fired when the
+  // thread is CUT (a violent pull is the same gesture, torn).
+  needlePull() {
+    noiseWhoosh({ from: 900, to: 2600, dur: 0.18, vol: 0.1, q: 1.8 });
+    tone({ freq: 340, end: 700, dur: 0.16, type: 'sawtooth', vol: 0.035, delay: 0.02 });
+  },
   // Graze a boss bullet: a soft, SHORT high shimmer, kept quiet so a rapid stream
   // of grazes blends into a pleasant sparkle instead of a machine-gun rattle. The
   // pitch climbs gently with the graze streak (a subtle dopamine ladder).
@@ -558,6 +694,24 @@ export const sfx = {
       tone({ freq: 440, end: 680, dur: 0.12, type: 'triangle', vol: 0.09 });
       tone({ freq: 900, dur: 0.14, type: 'sine', vol: 0.04, delay: 0.02 });
     }
+  },
+  // Boss stinger: a low, dark brass-ish swell — the "menace arrives" accent
+  // when a boss appears or advances a phase. Key-aware (roots on the station's
+  // current chord, so it lands IN the music) and drops onto the next beat via
+  // the beat grid. `depth` (phase) makes later phases lower + grittier.
+  bossStinger(depth = 0) {
+    const a = getCtx();
+    if (!a) return;
+    const d0 = toGrid16();
+    const base = inKey(98) * Math.pow(2, -Math.min(depth, 3) / 12);   // sink a semitone per phase
+    // Low fifth-stacked swell (power-chord menace) + a noise swell under it.
+    [1, 1.5, 2].forEach((mult, i) => {
+      const f = base * mult;
+      tone({ freq: f, end: f * 0.98, dur: 0.9 - i * 0.1, type: i === 0 ? 'sawtooth' : 'triangle',
+        vol: (i === 0 ? 0.14 : 0.07) + depth * 0.01, delay: d0 + i * 0.015 });
+    });
+    tone({ freq: base * 0.5, dur: 1.0, type: 'sine', vol: 0.12, delay: d0 });   // sub
+    noiseWhoosh({ from: 300, to: 90, dur: 0.8, vol: 0.1, q: 0.7, delay: d0 });   // dark riser-down
   },
   // Chip/reflect pinging off boss armour: a short, quiet metallic clang so the
   // player reads "that's bouncing off — charge Surge instead" (fires ~2/s, kept low).
@@ -631,6 +785,56 @@ export const sfx = {
     if (a && n.out) n.out.gain.setTargetAtTime(0.0001, a.currentTime, 0.06);
     const kill = () => { for (const o of n.oscs) { try { o.stop(); } catch {} } try { n.lfo.stop(); } catch {} };
     setTimeout(kill, 220);
+  },
+  // LANCE DWELL HUM (PR7): a soft "closing-in" whisper whose PITCH rises with the
+  // acquisition progress (0..1) — the one channel that makes the 0→1 dwell ramp
+  // HEARABLE with the reticle off (the DOM fill is reticle-gated; the shimmer is
+  // ambient). Driven per-frame from the main loop: dwellHum(d>0) lazily starts +
+  // tracks the pitch, dwellHum(0) ramps it to silence (on lock, seal, or fight
+  // end). Deliberately quiet — a pull toward the mark, never a nag.
+  dwellHum(d = 0) {
+    const a = getCtx();
+    if (!a || !sfxBus) return;
+    if (d <= 0.001) {   // stop
+      const n = dwellHumNodes; dwellHumNodes = null;
+      if (!n) return;
+      n.out.gain.setTargetAtTime(0.0001, a.currentTime, 0.05);
+      setTimeout(() => { for (const o of n.oscs) { try { o.stop(); } catch {} } }, 160);
+      return;
+    }
+    if (!dwellHumNodes) {   // lazy start
+      const out = a.createGain();
+      out.gain.setValueAtTime(0.0001, a.currentTime);
+      out.connect(sfxBus);
+      const oscs = [];
+      for (const [type, mul, vol] of [['triangle', 1, 0.6], ['sine', 2, 0.22]]) {
+        const o = a.createOscillator();
+        o.type = type; o.frequency.value = 200 * mul;
+        const g = a.createGain(); g.gain.value = vol;
+        o.connect(g).connect(out);
+        o.start();
+        oscs.push({ o, mul });
+      }
+      dwellHumNodes = { oscs, out };
+    }
+    // Track: pitch rises 200→620Hz, gain swells with progress — both eased so a
+    // draining dwell (L177) glides back down instead of stepping.
+    const n = dwellHumNodes, t = a.currentTime, f = 200 + 420 * Math.min(1, d);
+    for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(f * mul, t, 0.05);
+    n.out.gain.setTargetAtTime(0.022 * (0.35 + 0.65 * d), t, 0.05);
+  },
+  // RELEASE DUCK (PR7): a deliberate volley loose briefly dips the MUSIC bus so
+  // the exhale owns the moment (the Rez sidechain). Music only — the exhale
+  // itself routes through sfxBus, and the kick sidechain lives on its own
+  // pumpGain node, so musicBus.gain is free for this transient automation. The
+  // restore target is musicTarget() so it respects mute/volume.
+  volleyDuck() {
+    const a = getCtx();
+    if (!a || !musicBus) return;
+    const t = a.currentTime, base = musicTarget();
+    musicBus.gain.cancelScheduledValues(t);
+    musicBus.gain.setValueAtTime(base * 0.55, t);
+    musicBus.gain.setTargetAtTime(base, t + 0.18, 0.12);
   },
   // Surge UNLEASH: the beam fires. A hard downward laser sweep + a sub boom + a
   // bright noise lance — the big "FWOOM" that launches the mouth beam at the boss.
@@ -884,6 +1088,77 @@ export const sfx = {
     tone({ freq: 520, dur: 0.12, type: 'triangle', vol: 0.1 });
     tone({ freq: 1040, end: 1240, dur: 0.3, type: 'sine', vol: 0.08, delay: 0.06 });
   },
+  // Aim-line LOCK acquired (V1): a crisp two-note "got it" blip + a tiny sparkle,
+  // so a green snap is AUDIBLE, not just visual. Short + light — it can fire often
+  // (every time a held line locks), so it stays out of the way of the music.
+  lockOn() {
+    tone({ freq: 740, dur: 0.06, type: 'triangle', vol: 0.07 });
+    tone({ freq: 1110, end: 1480, dur: 0.12, type: 'square', vol: 0.055, delay: 0.05 });
+    tone({ freq: 2220, dur: 0.05, type: 'sine', vol: 0.03, delay: 0.1 });
+  },
+  // Crack-tick: a tiny bright metallic tick when a held line chips the organ in a
+  // boss lull — the "you're doing the right thing" pulse (quieter than lockOn).
+  lockTick() {
+    tone({ freq: 1650, dur: 0.035, type: 'triangle', vol: 0.045 });
+  },
+  // --- HUNTER'S BRAND (the lock layer's sound phrase: set → inhale → exhale) ---
+  // A brand kindles (PR4a body upgrade — owner: "more engaging and rewarding"):
+  // a soft noise-kindle SIZZLE under two detuned rune-hums that rise a step per
+  // brand already set (1st low, 3rd bright), a shimmer octave answering, and a
+  // tiny sub tick so the paint lands with WEIGHT, not just brightness.
+  brandSet(count = 1) {
+    const f = 560 * (1 + 0.18 * (count - 1));
+    noiseWhoosh({ from: 800, to: 2400, dur: 0.12, vol: 0.05, q: 1.8 });      // the kindle sizzle
+    tone({ freq: f, end: f * 1.4, dur: 0.14, type: 'triangle', vol: 0.06 }); // rune-hum
+    tone({ freq: f * 1.007, end: f * 1.41, dur: 0.14, type: 'triangle', vol: 0.045 }); // detune body
+    tone({ freq: f * 2, end: f * 2.6, dur: 0.09, type: 'sine', vol: 0.04, delay: 0.06 }); // shimmer octave
+    tone({ freq: f * 3, dur: 0.05, type: 'sine', vol: 0.025, delay: 0.09 }); // the old sparkle, kept
+    tone({ freq: 140, end: 90, dur: 0.06, type: 'sine', vol: 0.05 });        // sub tick (weight)
+  },
+  // The set completes: a quick low→high arpeggio (each brand answers), then the
+  // dragon DRAWS BREATH — the rising inhale IS the cap fuse made audible.
+  brandCap() {
+    tone({ freq: 660, dur: 0.08, type: 'triangle', vol: 0.06 });
+    tone({ freq: 880, dur: 0.08, type: 'triangle', vol: 0.06, delay: 0.07 });
+    tone({ freq: 1175, dur: 0.1, type: 'triangle', vol: 0.065, delay: 0.14 });
+    tone({ freq: 280, end: 860, dur: 0.8, type: 'sine', vol: 0.05, delay: 0.2 });
+  },
+  // The exhale (PR4b — the release with WEIGHT; owner: "sound is underwhelming").
+  // The research-backed gesture: a bass THUMP anchors the moment, the whoosh
+  // sweeps UP (missiles LEAVING — the old down-sweep read as deflation), and n
+  // faint detuned chirps smear the release so the volley audibly sounds PLURAL.
+  // The per-hit reward moved to brandStrike (the impact arpeggio) — the release
+  // is the exhale, the landings are the drum-roll.
+  brandLoose(n = 3) {
+    tone({ freq: 100, end: 40, dur: 0.09, type: 'sine', vol: 0.14 });          // the thump (weight)
+    noiseWhoosh({ from: 400, to: 4000, dur: 0.36, vol: 0.11, q: 1.4 });        // breath sweeping UP + out
+    tone({ freq: 900, end: 220, dur: 0.34, type: 'sawtooth', vol: 0.045 });    // the body sweep, under it
+    for (let i = 0; i < Math.min(n, 6); i++) {
+      tone({ freq: 620 + i * 47, end: 1500 + i * 180, dur: 0.12, type: 'sawtooth',
+        vol: 0.028, delay: 0.02 + i * 0.018 });   // detuned launch chirps (plurality)
+    }
+  },
+  // A wisp finds its brand — one note of the impact ARPEGGIO (k = position in the
+  // drum-roll): a short pluck stepping UP a pentatonic, so N landings play an
+  // ascending riff and a bigger volley is intrinsically more rewarding (the Rez
+  // lesson). Deterministic micro-detune from k — organic, zero RNG.
+  brandStrike(k = 0) {
+    const PENTA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2];   // major pentatonic ratios
+    const f = 660 * PENTA[k % PENTA.length] * (k >= PENTA.length ? 2 : 1) * (1 + ((k * 7) % 5 - 2) * 0.002);
+    tone({ freq: f, end: f * 0.985, dur: 0.09, type: 'triangle', vol: 0.075 });
+    tone({ freq: f * 2, dur: 0.05, type: 'sine', vol: 0.035, delay: 0.005 });  // sparkle octave
+    noiseWhoosh({ from: 2600, to: 900, dur: 0.07, vol: 0.03, q: 2.2 });        // the ember burst
+  },
+  // A lone brand ashing off (decay release) — deliberately lesser than the exhale.
+  brandFizzle() {
+    tone({ freq: 760, end: 500, dur: 0.16, type: 'triangle', vol: 0.04 });
+  },
+  // Loosing onto a SEALED boss (the mark won't take): a soft, muffled DOWNWARD thunk —
+  // no bright exhale, no metallic clang; a dull "not yet" that keeps the brands banked.
+  brandSeal() {
+    tone({ freq: 300, end: 150, dur: 0.14, type: 'sine', vol: 0.05 });
+    tone({ freq: 190, end: 120, dur: 0.10, type: 'triangle', vol: 0.03, delay: 0.04 });
+  },
 };
 
 // --- Music engine ---
@@ -926,9 +1201,20 @@ const SCHED_INTERVAL = 100; // ms between scheduler runs
 
 let LOOP_LEN = 64 * E8; // total loop duration in seconds (per track)
 let biomeSemitones = 0; // biome key shift, applied at loop boundaries
+// Boss music state (§ boss fights): the fight darkens the SAME station rather
+// than swapping tracks — transpose DOWN per phase (heavier register) + darker
+// filters + hold the arrangement at its climax. All applied at the next loop
+// boundary (no mid-bar lurch) and cleared on defeat/run-end.
+let bossActive = false;
+let bossSemitones = 0;  // downward transpose (−2 per phase, floor −6)
+let bossBright = 1;     // filter-brightness scale (<1 = darker/more menacing)
 let drumEnergy = 0;     // 0..1 BPM-driven kit punch / bass thickness
 let pumpAmt = 0;        // sidechain depth: 0 (no pump) .. ~0.42 (hard four-on-floor)
 let loopCount = 0;      // which 8-bar loop we're on — drives fills/crash/humanize variation
+let formPass = 0;       // which section of the song form is playing (advances per loop-wrap)
+let gameVote = null;    // 0..1 gameplay intensity (music.update) — lets Dragon Surge
+                        // HOLD the drop / idle coasting ease to the breakdown at
+                        // the next section boundary. null = no vote (menu/headless).
 // Per-station "remaster" mix scalars (from each track's optional `mix` object).
 // All default to 1.0 → byte-for-byte the current global sound when `mix` is absent.
 let mixReverb = 1, mixWidth = 1, mixDrive = 1, mixBright = 1, mixTrimDb = 0;
@@ -940,7 +1226,7 @@ function seqToEvents(seq, layerKey, voice, freqMult, durMult = 0.85, E8 = 0.25) 
     if (freq > 0) {
       out.push({
         t, freq: freq * freqMult, durS: dur * E8 * durMult,
-        layer: layerKey, osc: voice.osc, vol: voice.vol, stack: voice.stack,
+        layer: layerKey, osc: voice.osc, vol: voice.vol, stack: voice.stack, inst: voice.inst,
       });
     }
     t += dur * E8;
@@ -953,9 +1239,15 @@ function seqToEvents(seq, layerKey, voice, freqMult, durMult = 0.85, E8 = 0.25) 
 // offline renderer (sfxRender.js: loudness calibration + WAV bounce) runs the
 // EXACT code the live engine plays. The live path is the thin buildEvents()
 // wrapper below, which folds the results into the scheduler's module state.
-function compileTrack(tr, loopN = 0, semis = 0) {
+function compileTrack(tr, loopN = 0, semis = 0, section = null) {
   const E8 = 60 / tr.bpm / 2;
-  const LOOP_LEN = 64 * E8;
+  // Song structure: a station with a `form` plays a different SECTION each
+  // loop-wrap (intro/build/drop/breakdown) instead of the same 8 bars forever.
+  // `sec` is the section for this pass; legacy stations get the implicit
+  // full 8-bar base section, so LOOP_LEN + everything below is unchanged.
+  const sec = section || sectionAt(tr, loopN);
+  const bars = sec.bars;                 // 1..8 (a 4-bar breakdown = first 4 bars)
+  const LOOP_LEN = bars * 8 * E8;
   // Punchier kit + thicker bass on the high-energy stations; chill low-BPM
   // tracks stay soft. 100bpm→0 … 174bpm→1, with an optional per-track nudge.
   const drumEnergy = Math.max(0, Math.min(1, (tr.bpm - 100) / 74)) * (tr.drums.punch ?? 1);
@@ -982,16 +1274,21 @@ function compileTrack(tr, loopN = 0, semis = 0) {
   const swing = (tr.swing ?? 0) * E8;
   const swing16 = swing * 0.5;
 
+  // Melodic development: the section may restate the melody transformed
+  // (octave lift for a climax, motif fragment for an intro/build) — the
+  // WRITING evolves across the form, not just the arrangement. Variant 0 →
+  // the authored line, untouched.
+  const mel = sec.melVariant ? melodyVariant(tr.melody, sec.melVariant) : tr.melody;
   const all = [
-    ...seqToEvents(tr.melody, 'melody', v.melody, km, 0.85, E8),
-    ...seqToEvents(tr.bass,   'bass',   v.bass,   km, 0.88, E8),
-    ...seqToEvents(tr.high,   'high',   v.high,   km, 0.85, E8),
+    ...seqToEvents(mel,     'melody', v.melody, km, 0.85, E8),
+    ...seqToEvents(tr.bass, 'bass',   v.bass,   km, 0.88, E8),
+    ...seqToEvents(tr.high, 'high',   v.high,   km, 0.85, E8),
     // Dragon Surge lead: the hook an octave up, hot voice
-    ...seqToEvents(tr.melody, 'feverlead', { ...v.lead, vol: v.lead.vol }, km * 2, 0.8, E8),
+    ...seqToEvents(mel, 'feverlead', { ...v.lead, vol: v.lead.vol }, km * 2, 0.8, E8),
   ];
 
   const e16 = E8 / 2;
-  for (let bar = 0; bar < 8; bar++) {
+  for (let bar = 0; bar < bars; bar++) {
     const barStart = bar * 8 * E8;
     const arp = tr.arps[bar % 4];                       // follow the chord
     for (let cycle = 0; cycle < 2; cycle++) {           // 2 × 8-note cycles per bar
@@ -1075,13 +1372,14 @@ function compileTrack(tr, loopN = 0, semis = 0) {
   // kits get only a light, sparse fill so they stay calm.
   const d = tr.drums;
   const BEAT = 2 * E8;
-  if (d.heavy) {
-    // Crash cymbal on the downbeat of bar 0 — the phrase "1".
+  if (d.heavy || sec.crash) {
+    // Crash cymbal on the downbeat of bar 0 — the phrase "1" (and forced on a
+    // section that requests it, e.g. a drop landing).
     all.push({ t: 0, special: 'crash', layer: 'perc2', dvol: 0.45 + drumEnergy * 0.35 });
   }
-  // Snare fill on the last bar, building into the loop-top crash. Four shapes
-  // rotate by loopCount so consecutive loops differ.
-  const lastBar = 7 * 8 * E8;
+  // Snare fill on the last bar of the SECTION, building into the next section's
+  // downbeat. Four shapes rotate by loopCount so consecutive loops differ.
+  const lastBar = (bars - 1) * 8 * E8;
   const variant = loopN % 4;
   const fillBase = d.heavy ? d.snare : d.snare * 0.6;
   const fill = [];
@@ -1113,16 +1411,47 @@ function compileTrack(tr, loopN = 0, semis = 0) {
     if (ev.dvol != null) ev.dvol *= 1 + (rng() * 2 - 1) * 0.1;
   }
 
-  all.sort((a, b) => a.t - b.t);
-  return { events: all, E8, LOOP_LEN, drumEnergy, pumpAmt, mixReverb, mixWidth, mixDrive, mixBright, mixTrimDb };
+  // --- Section shaping (arrangement dynamics) ----------------------------
+  // A form's sections mute layers + scale intensity so the track breathes. A
+  // legacy station's base section mutes nothing at energy 1 → `out` === `all`.
+  let out = all;
+  // Trim melodic events (melody/bass/high/feverlead run the full 8 bars) to the
+  // section length; the per-bar loop above already bounded the arp/pad/drums.
+  if (bars < 8) out = out.filter((ev) => ev.t < LOOP_LEN - 1e-6);
+  if (sec.mute.size) out = out.filter((ev) => !sec.mute.has(ev.layer));
+  if (sec.energy < 1) {
+    // Quieter, sparser sections: pull percussion velocity hard and tonal
+    // velocity gently, so a breakdown recedes without going lifeless.
+    for (const ev of out) {
+      if (ev.special) { if (ev.dvol != null) ev.dvol *= 0.35 + 0.65 * sec.energy; }
+      else if (ev.vol != null) ev.vol *= 0.55 + 0.45 * sec.energy;
+    }
+  }
+  // Riser: a rising filtered-noise sweep across the section's last bar, tension
+  // into the next section's downbeat (builds).
+  if (sec.riser) out.push({ t: lastBar, durS: 8 * E8, special: 'riser', layer: 'perc2', dvol: 0.8 });
+
+  out.sort((a, b) => a.t - b.t);
+  return { events: out, E8, LOOP_LEN, drumEnergy, pumpAmt, mixReverb, mixWidth, mixDrive, mixBright, mixTrimDb, sectionKey: sec.key };
 }
 
 // Live wrapper: compile the ACTIVE station and fold the derived scalars into
 // the scheduler's module state (E8/LOOP_LEN/drumEnergy/pump/mix knobs).
 function buildEvents() {
-  const c = compileTrack(TRACKS[trackIndex], loopCount, biomeSemitones);
+  const tr = TRACKS[trackIndex];
+  // Resolve the current song section: the authored form, with the live
+  // gameplay vote able to override AT this boundary (Surge holds the drop;
+  // idle coasting eases to the breakdown). Legacy stations → the implicit
+  // base section, so this is the same 8-bar loop as before. The vote is read
+  // once per wrap — the decision governs a whole section, never mid-phrase.
+  const section = chooseSection(tr, formPass, gameVote);
+  // Boss mode transposes the whole track down + darkens the filters. Applied
+  // here in the LIVE wrapper (not compileTrack) so the offline calibration —
+  // which never has a boss — stays pure and the trims are unaffected.
+  const c = compileTrack(tr, loopCount, biomeSemitones + bossSemitones, section);
   E8 = c.E8; LOOP_LEN = c.LOOP_LEN; drumEnergy = c.drumEnergy; pumpAmt = c.pumpAmt;
-  mixReverb = c.mixReverb; mixWidth = c.mixWidth; mixDrive = c.mixDrive; mixBright = c.mixBright;
+  mixReverb = c.mixReverb; mixWidth = c.mixWidth; mixDrive = c.mixDrive;
+  mixBright = c.mixBright * bossBright;
   mixTrimDb = c.mixTrimDb;
   return c.events;
 }
@@ -1139,7 +1468,44 @@ function buildMusicGraph(a, tr, env, buses, { v2 = AUDIO_V2 } = {}) {
   // integrated loudness. Neutral (0 dB) when the station has no baked trim.
   const stationOut = a.createGain();
   stationOut.gain.value = v2 ? Math.pow(10, (env.mixTrimDb ?? 0) / 20) : 1;
-  stationOut.connect(musicBus);
+
+  // Lofi character pack (v2, `mix.lofiPack`): route the whole station through a
+  // tape wow/flutter (a short delay whose time wobbles under a slow + a fast
+  // LFO) and lay a vinyl-crackle bed under it — the hallmarks that make a lofi
+  // station read as INTENTIONALLY warm/aged instead of "the same engine, quieter".
+  if (v2 && tr.mix && tr.mix.lofiPack) {
+    const warble = a.createDelay(0.05);
+    warble.delayTime.value = 0.012;                 // ~12 ms base tape delay
+    const wow = a.createOscillator();  wow.type = 'sine';    wow.frequency.value = 0.7;
+    const flut = a.createOscillator(); flut.type = 'sine';   flut.frequency.value = 7.3;
+    const wowD = a.createGain();  wowD.gain.value = 0.0016;  // ±1.6 ms wow
+    const flutD = a.createGain(); flutD.gain.value = 0.0004; // ±0.4 ms flutter
+    wow.connect(wowD).connect(warble.delayTime);
+    flut.connect(flutD).connect(warble.delayTime);
+    wow.start(); flut.start();
+    // The whole station runs THROUGH the tape (the delay is ~unity gain, so
+    // this wobbles pitch without adding level) — not a parallel dry+wet blend,
+    // which would double the signal.
+    stationOut.connect(warble);
+    warble.connect(musicBus);
+
+    // Vinyl crackle: a looping buffer of seeded Poisson clicks, dust + the odd pop.
+    const secs = 4;
+    const cbuf = a.createBuffer(1, Math.floor(a.sampleRate * secs), a.sampleRate);
+    const cd = cbuf.getChannelData(0);
+    const crng = mulberry32(0x0FF1CE);
+    for (let i = 0; i < cd.length; i++) {
+      if (crng() < 0.0006) cd[i] = (crng() * 2 - 1) * (crng() < 0.06 ? 0.9 : 0.3); // rare pop vs dust
+    }
+    const csrc = a.createBufferSource();
+    csrc.buffer = cbuf; csrc.loop = true;
+    const chp = a.createBiquadFilter(); chp.type = 'highpass'; chp.frequency.value = 1500;
+    const cg = a.createGain(); cg.gain.value = 0.5;
+    csrc.connect(chp).connect(cg).connect(stationOut);
+    csrc.start();
+  } else {
+    stationOut.connect(musicBus);
+  }
 
   function makeLayer(dest, pan = 0) {
     const g = a.createGain();
@@ -1518,6 +1884,25 @@ function playNoteEventIn(a, layers, pumpGain, pumpAmt, drumEnergy, mixBright, ev
       click.stop(absTime + 0.03);
       return;
     }
+    if (ev.special === 'riser') {
+      // Build riser: band-passed noise sweeping UP in pitch with a swelling
+      // gain across the section's last bar — the tension lift into a drop.
+      const dur = ev.durS || 1;
+      const src = a.createBufferSource();
+      src.buffer = getNoiseBuffer(a);
+      const bp = a.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.4;
+      bp.frequency.setValueAtTime(400, absTime);
+      bp.frequency.exponentialRampToValueAtTime(7000, absTime + dur);
+      g.gain.setValueAtTime(0.0001, absTime);
+      g.gain.exponentialRampToValueAtTime(0.12 * dv, absTime + dur * 0.92);
+      g.gain.exponentialRampToValueAtTime(0.0001, absTime + dur);
+      src.connect(bp).connect(g).connect(layerGain);
+      src.start(absTime);
+      src.stop(absTime + dur + 0.05);
+      return;
+    }
     // hat: metallic highpassed noise tick
     const src = a.createBufferSource();
     src.buffer = getNoiseBuffer(a);
@@ -1594,6 +1979,16 @@ function playNoteEventIn(a, layers, pumpGain, pumpAmt, drumEnergy, mixBright, ev
     osc.start(absTime);
     osc.stop(absTime + ev.durS + 0.02);
   };
+  // Instrument archetype (opt-in via voices.X.inst): richer FM / supersaw /
+  // physical-model voices. Absent → the legacy osc paths below run unchanged.
+  // The bass sub-octave reinforcement still applies so basslines keep their
+  // weight regardless of the archetype.
+  if (ev.inst && INSTS[ev.inst]) {
+    INSTS[ev.inst](a, layerGain, ev.freq, ev.vol, ev.durS, absTime,
+      { bright: mixBright, lfoGain, att, rel });
+    if (ev.layer === 'bass') spawn(ev.freq * 0.5, ev.vol * (0.12 + drumEnergy * 0.55), 0, 'sine');
+    return;
+  }
   if (ev.stack === 'detune') {
     // Proper supersaw: a detuned pair panned hard L/R for width + a quieter
     // centre voice for body (was just two ±6¢ voices dead-centre before).
@@ -1639,11 +2034,13 @@ function runScheduler() {
     nextEvtIdx++;
     if (nextEvtIdx >= events.length) {
       nextEvtIdx = 0;
-      loopOffset += LOOP_LEN;
+      loopOffset += LOOP_LEN;   // advance by the section that just finished
       loopCount++;
-      // Rebuild every loop so fills / crash / humanization vary (cheap: a few
-      // hundred events, once every several seconds). Key shifts (biome changes)
-      // also fold in here, landing cleanly on the downbeat of the new loop.
+      formPass++;               // advance the song-form cursor to the next section
+      // Rebuild every loop so fills / crash / humanization vary AND the next
+      // song section is resolved (cheap: a few hundred events, once every
+      // several seconds). Key shifts (biome changes) also fold in here,
+      // landing cleanly on the downbeat of the new loop/section.
       const keyShift = pendingRebuild;
       pendingRebuild = false;
       events = buildEvents();
@@ -1669,6 +2066,8 @@ function retuneTo(idx) {
   setTimeout(() => {
     if (!musicActive) return;
     loopCount = 0;
+    formPass = 0;                      // restart the song form from the top on retune
+    gameVote = null;                   // fresh station starts on its authored form
     events = buildEvents();            // recomputes E8/LOOP_LEN for the new track
     // Ramped, not jumped — instantaneous delayTime changes click (see scheduler).
     if (echoDelay) echoDelay.delayTime.setTargetAtTime(E8 * 1.5, ctx.currentTime, 0.05);
@@ -1677,6 +2076,11 @@ function retuneTo(idx) {
     // persists across retunes; only the trim + events change).
     if (stationTrim && AUDIO_V2) {
       stationTrim.gain.setTargetAtTime(Math.pow(10, mixTrimDb / 20), ctx.currentTime, 0.05);
+    }
+    // Swap the shared reverb to the new station's genre space (the one
+    // convolver is reused; only its IR buffer changes, hidden in the fade).
+    if (reverbConvolver && AUDIO_V2) {
+      try { reverbConvolver.buffer = makeImpulse(ctx, TRACKS[trackIndex].mix?.irPreset); } catch { /* keep prior IR */ }
     }
     loopOffset = ctx.currentTime + 0.06;
     nextEvtIdx = 0;
@@ -1693,6 +2097,7 @@ export const music = {
     restoreBuses(a, true);
     musicActive = true;
     loopCount = 0;
+    formPass = 0;
     events = buildEvents();
 
     // Per-run music graph (pump bus, bass drive, layers, sends, echo, wind) —
@@ -1719,6 +2124,8 @@ export const music = {
 
   stop() {
     musicActive = false;
+    gameVote = null;   // stale run intensity must not steer the next session's form
+    bossActive = false; bossSemitones = 0; bossBright = 1;  // clear any boss darkening
     stopScheduler();
     stopWindSource();
   },
@@ -1835,6 +2242,12 @@ export const music = {
       Math.min(combo / 3, 1) * 0.85 +
       (player.boosting ? 0.05 : 0) +
       (game.feverActive ? 0.15 : 0));
+    // Publish the intensity vote for the section chooser: Dragon Surge is an
+    // outright "hold the drop" (1.0); otherwise the smoothed energy scalar.
+    // A boss fight FLOORS the vote high so the arrangement stays at its climax
+    // for the whole encounter. Read once per loop-wrap in buildEvents — a
+    // boundary decision, not per-frame, so the form never lurches mid-phrase.
+    gameVote = game.feverActive ? 1 : (bossActive ? Math.max(energy, 0.85) : energy);
     const band = (lo, hi) => {
       const x = Math.max(0, Math.min(1, (energy - lo) / (hi - lo)));
       return x * x * (3 - 2 * x); // smoothstep
@@ -1859,6 +2272,30 @@ export const music = {
     }
   },
 };
+
+// --- Boss music state -------------------------------------------------------
+// The music darkens the SAME station through a fight (never a track swap): a
+// stinger on arrival + each phase, a downward transpose and darker filters that
+// deepen per phase, and the arrangement held at its climax (the vote floor in
+// music.update). Tonal changes land at the next loop boundary (buildEvents runs
+// every wrap), so they arrive on a downbeat, not mid-bar. Cleared on
+// defeat/flee/run-end. Reads only game events — no boss ever depends on audio.
+function setBossPhase(depth) {
+  bossActive = true;
+  bossSemitones = -2 * Math.min(depth, 3);   // sink up to −6 semitones
+  bossBright = 1 - 0.06 * Math.min(depth, 3); // filters close ~18% by the last phase
+  sfx.bossStinger?.(depth);
+}
+function clearBossMusic() {
+  if (!bossActive) return;
+  bossActive = false;
+  bossSemitones = 0;
+  bossBright = 1;
+}
+on('bossStart', () => setBossPhase(0));
+on('bossPhase', (e) => setBossPhase(((e && e.phase) || 1) - 1));  // event phase is 1-based
+on('bossDefeated', clearBossMusic);
+on('bossEnd', clearBossMusic);
 
 // ---------------------------------------------------------------------------
 // Render seam — dev tooling only (tools/loudshots.mjs, tools/bounce.mjs drive
