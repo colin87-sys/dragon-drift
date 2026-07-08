@@ -792,7 +792,7 @@ export const DRAGONS = {
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xddc070,
           apexSeam: 0xb784ff, eye: 0xf4e2a8, coreGlow: 0xb784ff } },
     ],
-    fx: { auraColor: '122,92,255', auraIdle: 0.06, sparkle: false },
+    fx: { auraColor: '122,92,255', auraIdle: 0.03, sparkle: false },
     // Eclipse Surge: a premium COOL ARCANE transformation — the obsidian shell
     // stays dark while spine, seams, wing veins and core blaze blue-violet /
     // cyan / indigo (surgeHi lavender, never white-hot or magenta). hasStyle keeps

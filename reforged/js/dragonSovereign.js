@@ -25,13 +25,17 @@ function sovereignMats(def, glow) {
   // (bright + light emissive clips to white under ACES; a saturated hue holds the arcane read)
   const violet = new THREE.MeshStandardMaterial({ color: vCol, emissive: vEmis, emissiveIntensity: 1.5 * g, flatShading: true, roughness: 0.4 });
   violet.userData.baseEmissive = vEmis; violet.userData.baseIntensity = 1.5 * g;
-  const memCol = def.wingOuter ?? CRIMSON_OUT;
-  const membrane = new THREE.MeshStandardMaterial({ color: memCol, emissive: def.wingEmissive ?? 0x7a1622, emissiveIntensity: 0.28 * g, flatShading: true, roughness: 0.74, side: THREE.DoubleSide });
-  membrane.userData.baseEmissive = def.wingEmissive ?? 0x7a1622; membrane.userData.baseIntensity = 0.28 * g;
-  const memVentral = new THREE.MeshStandardMaterial({ color: 0x3a0e12, emissive: 0x4a0d14, emissiveIntensity: 0.18 * g, flatShading: true, roughness: 0.78, side: THREE.DoubleSide });
-  const gem = new THREE.MeshStandardMaterial({ color: 0xd9c2ff, emissive: vEmis, emissiveIntensity: 1.7 * g, flatShading: true, roughness: 0.18 });
-  gem.userData.baseEmissive = vEmis; gem.userData.baseIntensity = 1.7 * g;
-  return { bodyFlat, gold, goldHi, violet, membrane, memVentral, gem };
+  // Membrane VALUE TIERS (root dark → outer lighter crimson) — law 11, so the vault isn't a
+  // flat sticker. Each bay picks its tier by finger index.
+  const mem = (col) => { const m = new THREE.MeshStandardMaterial({ color: col, emissive: def.wingEmissive ?? 0x7a1622, emissiveIntensity: 0.22 * g, flatShading: true, roughness: 0.76, side: THREE.DoubleSide }); m.userData.baseEmissive = def.wingEmissive ?? 0x7a1622; m.userData.baseIntensity = 0.22 * g; return m; };
+  const memTiers = [mem(0x45120e), mem(0x5a160e), mem(0x7a1622), mem(0x9c2233)];   // root→outer
+  const membrane = memTiers[2];
+  // BRIGHT starlight-vein emissive — must read violet at capture distance.
+  const veinMat = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x8a44ff, emissiveIntensity: 2.6 * g, flatShading: true, roughness: 0.35 });
+  veinMat.userData.baseEmissive = 0x8a44ff; veinMat.userData.baseIntensity = 2.6 * g;
+  const gem = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x8a44ff, emissiveIntensity: 1.5 * g, flatShading: true, roughness: 0.18 });
+  gem.userData.baseEmissive = 0x8a44ff; gem.userData.baseIntensity = 1.5 * g;
+  return { bodyFlat, gold, goldHi, violet, membrane, memTiers, veinMat, gem };
 }
 
 // Faceted loft: rings [{z, rx, ry, cy, cx?}] → one flat-shaded tube. cx = lateral centerline
@@ -182,16 +186,18 @@ function buildOneWing(M, dials) {
   }
   // VAULT BAYS between consecutive fingers — cambered (cupped), scalloped trailing edge,
   // deeper V-gaps on the outer two bays. Each bay = a fan around a lifted camber center.
-  const mtris = [];
   for (let f = 0; f < fingers; f++) {
     const A = st[f], B = st[f + 1];
-    const scallop = (0.26 + (f >= fingers - 2 ? 0.26 : 0)) * ((A.c + B.c) / 2);
+    const chord = (A.c + B.c) / 2;
+    // scallop swell-then-taper (×0.9/step), deeper true V-gap on the outer two bays.
+    const scallop = (0.24 * Math.pow(0.9, f) + (f >= fingers - 2 ? 0.34 : 0)) * chord;
     const mid = [(A.tip[0] + B.tip[0]) / 2, (A.tip[1] + B.tip[1]) / 2 - 0.04, (A.tip[2] + B.tip[2]) / 2 - scallop];
-    // CUP the bay: drop the center below the rim so rim light pools (a vault, not a flat pleat).
-    const ctr = [(A.l[0] + B.l[0] + A.tip[0] + B.tip[0]) / 4, (A.l[1] + B.l[1]) / 2 - 0.16 * ((A.c + B.c) / 2), (A.l[2] + B.l[2] + A.tip[2] + B.tip[2]) / 4];
-    mtris.push([A.l, B.l, ctr], [B.l, B.tip, ctr], [B.tip, mid, ctr], [mid, A.tip, ctr], [A.tip, A.l, ctr]);
+    // DEEP cup: drop the bay center well below the rim so rim light pools (a vault, not a flat pleat).
+    const ctr = [(A.l[0] + B.l[0] + A.tip[0] + B.tip[0]) / 4, (A.l[1] + B.l[1]) / 2 - 0.26 * chord, (A.l[2] + B.l[2] + A.tip[2] + B.tip[2]) / 4];
+    // value tier: root bay darkest → outer bay lightest crimson (law 11).
+    const bayMat = M.memTiers[Math.min(M.memTiers.length - 1, f)];
+    wg.add(flatTriMesh([[A.l, B.l, ctr], [B.l, B.tip, ctr], [B.tip, mid, ctr], [mid, A.tip, ctr], [A.tip, A.l, ctr]], bayMat));
   }
-  wg.add(flatTriMesh(mtris, M.membrane));
 
   // Gold armored leading spar (thick root → thin tip).
   for (let f = 0; f < fingers; f++) {
@@ -216,9 +222,9 @@ function buildOneWing(M, dials) {
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     rib.quaternion.copy(q);
     wg.add(rib);
-    const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.028, len * 0.7, seg(3)), M.violet);
-    vein.geometry.translate(0, len * 0.35, 0);
-    vein.position.set(A.l[0], A.l[1] - 0.03, A.l[2]);
+    const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.036, len * 0.8, seg(3)), M.veinMat);
+    vein.geometry.translate(0, len * 0.4, 0);
+    vein.position.set(A.l[0], A.l[1] - 0.02, A.l[2]);
     vein.quaternion.copy(q);
     wg.add(vein);
   }
@@ -332,11 +338,12 @@ function buildEclipseCrownHead(def, model, mats) {
   // Eyes — warm gold almond, emissive, the second-brightest facial points after the gem.
   const es = model.eyeScale ?? 1;
   const eCol = def.eye ?? 0xe0bc78;
-  const goldEye = new THREE.MeshStandardMaterial({ color: eCol, emissive: eCol, emissiveIntensity: 1.3, flatShading: true, roughness: 0.3 });
-  goldEye.userData.baseEmissive = eCol; goldEye.userData.baseIntensity = 1.3; spineMats.push(goldEye);
+  // deeper gold EMISSIVE so it reads gold (a light-gold emissive clips to white); high-set almond.
+  const goldEye = new THREE.MeshStandardMaterial({ color: eCol, emissive: 0xc07a1e, emissiveIntensity: 1.6, flatShading: true, roughness: 0.32, metalness: 0.2 });
+  goldEye.userData.baseEmissive = 0xc07a1e; goldEye.userData.baseIntensity = 1.6; spineMats.push(goldEye);
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.095 * hs * es, 0), goldEye);
-    eye.position.set(side * 0.24 * hs, 0.05 * hs, -0.30 * hs); eye.scale.set(1.5, 0.75, 1);
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.11 * hs * es, 0), goldEye);
+    eye.position.set(side * 0.25 * hs, 0.09 * hs, -0.28 * hs); eye.scale.set(1.6, 0.7, 1);
     group.add(eye);
   }
 
