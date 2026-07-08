@@ -314,19 +314,19 @@ for (const key of BOSS_ORDER) {
   ok('stormrend telegraph: setCharge(1) flares the iris petals open (silhouette change)');
 }
 {
-  // THE UNMASKED (stage 1): the CHARGE-TELL wides the lid aperture to WRATH — the
-  // lidPivot rotation changes (a silhouette change), not just the corona recolour.
+  // THE UNMASKED (stage 1): the CHARGE-TELL slides the hood open to WRATH — the
+  // lidPivot position changes (a silhouette change), not just the corona recolour.
   const unmasked = buildBoss(BOSSES.unmasked, 1);
   const lid = findAllByName(unmasked.group, 'lidPivot')[0];
   assert(lid, 'unmasked exposes a named lidPivot (stage 1) for the telegraph gate');
   unmasked.tick(0.05, 0.5);   // settle the heavy-lidded rest pose before snapshotting
-  const preLidX = lid.rotation.x;
+  const preLidY = lid.position.y;
   unmasked.setCharge(1);
   for (let i = 0; i < 8; i++) unmasked.tick(0.1, 1.0 + i * 0.1);   // let the aperture ease toward wrath
-  assert(Math.abs(lid.rotation.x - preLidX) > 0.2,
-    `unmasked lid aperture wides on charge (lidPivot.x ${lid.rotation.x.toFixed(3)}, was ${preLidX.toFixed(3)})`);
+  assert(Math.abs(lid.position.y - preLidY) > 0.2,
+    `unmasked hood slides open on charge — silhouette change (lidPivot.y ${lid.position.y.toFixed(3)}, was ${preLidY.toFixed(3)})`);
   unmasked.dispose();
-  ok('unmasked telegraph: setCharge(1) wides the lid aperture to wrath (silhouette change)');
+  ok('unmasked telegraph: setCharge(1) slides the hood open to wrath (silhouette change)');
 }
 {
   const colossus = buildBoss(BOSSES.craghold, 1);
