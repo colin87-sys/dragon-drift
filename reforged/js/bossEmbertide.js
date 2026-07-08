@@ -340,7 +340,13 @@ export function buildEmbertide(def, quality = 1) {
   const stripMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false, depthWrite: false, transparent: true }));
   const CRUSH_Z = -560, CRUSH_W = 2400, CRUSH_H = 700;
   function crushStrip(name, inner) {   // inner: -1 = hot edge at the strip's BOTTOM (ceiling), +1 = at its TOP (floor swell)
-    const g = new THREE.PlaneGeometry(CRUSH_W, CRUSH_H, lowQ ? 12 : 20, lowQ ? 4 : 6);
+    // The gradient is purely VERTICAL, so width needs ONE segment — but the vertical
+    // axis needs MANY. Coarse vertical tessellation (6 rows) left the analytically-
+    // smooth alpha/colour sampled at 7 rows and Gouraud-interpolated between them, and
+    // the piecewise-linear result Mach-bands into a faint but ruler-straight crease at
+    // a vertex row (owner catch: the "rectangular horizontal line"). Dense vertical
+    // rows shrink each step below Mach-band perception; width 1 keeps the tri cost tiny.
+    const g = new THREE.PlaneGeometry(CRUSH_W, CRUSH_H, 1, lowQ ? 48 : 96);
     const p = g.attributes.position;
     const c = new Float32Array(p.count * 4);
     for (let i = 0; i < p.count; i++) {
