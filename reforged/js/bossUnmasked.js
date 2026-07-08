@@ -262,8 +262,11 @@ export function buildUnmasked(def, quality = 1) {
   // call so ALL SIX wings share it: the eyes are the ONLY emissive family, the feathers match
   // the dark body, and dissolve is shared/safe (kit.track). The wing geometry itself is the
   // owner's merged, signed-off js/angelWing.js — NOT rebuilt here. ──
+  // Near-black, but lifted JUST above the dark fight sky (~0x0d1117) so each wing's silhouette
+  // reads — pure black vanished on black and the six wings read as spider-legs (Fable gate).
+  // Still the darkest thing but the eyes; a value step, NOT emissive.
   const featherMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0b0b0e, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
+    color: 0x24242c, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
   }));
 
   // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
@@ -373,7 +376,7 @@ export function buildUnmasked(def, quality = 1) {
       // EYES nestled at the wing ROOTS / JOINTS (up the arm toward the wrist), 3 per wing, in
       // wing-local space → transformed to stage2 by the pivot matrix (so they ride the wing).
       // z-staggered + de-clumped so no two scleras fuse at front-on.
-      const joints = [{ x: 0.4, y: 0.8 }, { x: 0.95, y: 2.1 }, { x: 1.5, y: 3.3 }];   // drift OUT along the arm toward the wrist → spread, not a central clump
+      const joints = [{ x: 1.1, y: 1.7 }, { x: 1.9, y: 2.9 }, { x: 2.7, y: 4.0 }];   // ON the wing body (arm→wrist→hand) → eyes trace the wing, spread, off the great eye
       const eyeSizes = [0.5, 0.42, 0.36];
       for (let e = 0; e < 3; e++) {
         const j = joints[e];
@@ -385,8 +388,8 @@ export function buildUnmasked(def, quality = 1) {
       }
     }
   }
-  // 2 eyes flanking the great eye → 18 wing + 2 = 20.
-  for (const sx of [-1, 1]) { const p = new THREE.Vector3(sx * 3.6, -0.3, 0.6); declump(p, 0.55); eyePlace(p, 0.44); }
+  // 2 eyes set WELL OUT from the great eye (not on its rim — rim eyes read as spider ocelli). → 20.
+  for (const sx of [-1, 1]) { const p = new THREE.Vector3(sx * 5.0, 1.2, 0.6); declump(p, 0.55); eyePlace(p, 0.42); }
 
   // ── THE ONE GREAT CENTRAL EYE — at the six-root convergence, the survivor (S1 focalEye
   // continuity in CP2). A big dim almond, ≥4× the largest peripheral eye. Same L142 recipe
