@@ -332,11 +332,11 @@ export function buildEmbertide(def, quality = 1) {
   // ⚠ ALPHA-FADED, NOT OPAQUE (owner catch: "weird rectangular horizontal lines in the
   // sky"): an opaque slab can never exactly match the dome's elevation-mapped gradient
   // behind it, so its edges read as horizontal seam-lines the whole time it moves.
-  // Instead the strip carries per-vertex ALPHA (itemSize-4 colours → USE_COLOR_ALPHA):
-  // a hot HDR crest at the crushing edge, a soft haze behind it, alpha 0 long before the
-  // far edge — the only visible line is the blazing crest itself; everywhere else the
-  // dome shows through untouched, so there is NO seam by construction. NormalBlending +
-  // toneMapped:false (the L228 law) → still ZERO additive overdraw.
+  // Instead the strip carries per-vertex ALPHA (itemSize-4 colours → USE_COLOR_ALPHA)
+  // shaped as ONE monotonic ramp (see the loop): a hot HDR crest at the crushing edge
+  // fading smoothly to alpha 0 by the far edge, a pure gradient with no plateau — so
+  // there is no onset line anywhere in frame. NormalBlending + toneMapped:false (the
+  // L228 law) → still ZERO additive overdraw.
   const stripMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false, depthWrite: false, transparent: true }));
   const CRUSH_Z = -560, CRUSH_W = 2400, CRUSH_H = 700;
   function crushStrip(name, inner) {   // inner: -1 = hot edge at the strip's BOTTOM (ceiling), +1 = at its TOP (floor swell)
@@ -345,13 +345,17 @@ export function buildEmbertide(def, quality = 1) {
     const c = new Float32Array(p.count * 4);
     for (let i = 0; i < p.count; i++) {
       const ny = (p.getY(i) / (CRUSH_H / 2)) * inner;          // +1 at the hot (inner) edge
-      const hot = THREE.MathUtils.smoothstep(ny, 0.55, 0.95);  // the blaze concentrates at the crushing edge
+      const hot = THREE.MathUtils.smoothstep(ny, 0.6, 1.0);    // the blaze concentrates at the crushing edge
       _bg.copy(rose).lerp(accent, 0.2 + hot * 0.7);
       const hdr = 1.1 + hot * 2.1;                             // the crest BLOOMS; the haze sits near the dome's register
-      // Crest (opaque at the edge) + haze (a faint wash above it) — both smoothstep to
-      // EXACTLY 0 mid-strip, so the strip has no far edge at all, only a crest.
-      const a = 0.75 * THREE.MathUtils.smoothstep(ny, 0.35, 0.9)
-              + 0.25 * THREE.MathUtils.smoothstep(ny, -0.55, 0.35);
+      // ⚠ ONE monotonic alpha ramp — NOT a sum of smoothsteps (owner catch, round 2:
+      // "the weird rectangular horizontal lines in the sky"). Summing two smoothsteps
+      // left a constant-alpha PLATEAU (~0.25) mid-strip — a uniform-tint band whose
+      // onset read as a faint full-width horizontal line (~4 luma, but the eye locks
+      // onto a coherent edge). A single power-shaped smoothstep from 0 at the far edge
+      // to the crest is a PURE gradient: alpha never flattens in frame, so there is no
+      // curvature discontinuity anywhere for the eye to catch. Peak kept modest.
+      const a = 0.8 * Math.pow(THREE.MathUtils.smoothstep(ny, -0.35, 1.0), 1.5);
       c[i * 4] = _bg.r * hdr; c[i * 4 + 1] = _bg.g * hdr; c[i * 4 + 2] = _bg.b * hdr; c[i * 4 + 3] = a;
     }
     g.setAttribute('color', new THREE.BufferAttribute(c, 4));
