@@ -83,6 +83,9 @@ export function buildUnmasked(def, quality = 1) {
   const BRIGHT_DIR = 1.15;                 // the dominant bright quadrant (radians)
   const coronaPos = [], coronaCol = [], coronaIdx = [];
   const HOT = 1.5;
+  // THREE radial loops (inner bright → mid → black) for a SMOOTH, wide falloff — so the
+  // outer edge stays soft even on a PALE biome sky (additive white on pale washes a
+  // 2-loop gradient into a hard rim; the mid loop keeps it gradual). Owner-review polish #1.
   for (let i = 0; i <= CN; i++) {
     const a = (i / CN) * TAU;
     // Low-frequency, broad lobes — outer falloff extent varies ±~35% (soft plumes, not spikes).
@@ -91,12 +94,17 @@ export function buildUnmasked(def, quality = 1) {
     const bq = 0.5 + 0.5 * Math.max(0, Math.cos(a - BRIGHT_DIR));
     const cx = Math.cos(a), cy = Math.sin(a);
     const rIn = DISC_R * 0.985;
-    const rOut = DISC_R + DISC_R * 0.14 * lobe;       // falloff extent ~0.14× disc R (a soft RIM ring, not a blob)
-    coronaPos.push(cx * rIn, cy * rIn, DISC_Z - 0.02, cx * rOut, cy * rOut, DISC_Z - 0.02);
+    const rMid = DISC_R + DISC_R * 0.07 * lobe;
+    const rOut = DISC_R + DISC_R * 0.22 * lobe;       // wider band → a gentler outer edge
+    coronaPos.push(cx * rIn, cy * rIn, DISC_Z - 0.02, cx * rMid, cy * rMid, DISC_Z - 0.02, cx * rOut, cy * rOut, DISC_Z - 0.02);
     const hot = HOT * bq;
-    coronaCol.push(hot, hot, hot, 0, 0, 0);           // inner bright, outer BLACK (additive fade)
+    coronaCol.push(hot, hot, hot, hot * 0.42, hot * 0.42, hot * 0.42, 0, 0, 0);   // bright → mid → BLACK
   }
-  for (let i = 0; i < CN; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; coronaIdx.push(a, b, d, a, d, c); }
+  for (let i = 0; i < CN; i++) {
+    const a = i * 3, b = a + 3;
+    coronaIdx.push(a, a + 1, b + 1, a, b + 1, b);           // inner → mid strip
+    coronaIdx.push(a + 1, a + 2, b + 2, a + 1, b + 2, b + 1); // mid → outer strip
+  }
   const coronaGeo = new THREE.BufferGeometry();
   coronaGeo.setAttribute('position', new THREE.Float32BufferAttribute(coronaPos, 3));
   coronaGeo.setAttribute('color', new THREE.Float32BufferAttribute(coronaCol, 3));
@@ -142,7 +150,7 @@ export function buildUnmasked(def, quality = 1) {
   // The dark IRIS/pupil — a prominent dark disc on the white sclera that TRACKS within
   // the almond, so the player's stick visibly drags the gaze (the §5j "Don't Move" beat).
   // The dark-in-brightness focal: the eye reads as a real eye (white sclera, dark pupil).
-  const seedMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0806 }));
+  const seedMat = track(new THREE.MeshBasicMaterial({ color: 0x040302 }));   // near-black: reads unambiguously on the bright sclera (owner-review polish #3)
   seedMat.toneMapped = false;
   const SEED_R = 0.95;
   const seed = new THREE.Mesh(new THREE.SphereGeometry(SEED_R, lowQ ? 14 : 20, 14), seedMat);
@@ -165,7 +173,7 @@ export function buildUnmasked(def, quality = 1) {
   // covers the eye (heavy-lidded), UP peels it open — far more predictable than a hinge,
   // and it never sweeps like a frame edge. Corners sit at the almond canthi (eye corners).
   const HOOD_HW = A_W * 1.0;
-  const HOOD_LASH_CTRL = A_H * 0.1;          // lash ⌒ peak just above centre (covers the top ~half at slide 0)
+  const HOOD_LASH_CTRL = A_H * 0.35;         // lash ⌒ (deeper curve — a clear almond, never a level line). Owner-review polish #2.
   const hoodShape = () => {
     const s = new THREE.Shape();
     s.moveTo(-HOOD_HW, 0);
@@ -263,6 +271,7 @@ export function buildUnmasked(def, quality = 1) {
     const watching = noticeT > 0 || Math.abs(gazeTX) + Math.abs(gazeTY) > 0.05;
     let apTarget = 0.42;                 // dormant: a heavy-lidded but clearly-open eye
     if (watching) apTarget = 0.72;       // watching: a wide open eye (the fight look)
+    if (gazeTY > 0) apTarget += gazeTY * 0.22;   // looking UP lifts the hood (a real eye widens) so the pupil stays visible
     apTarget = Math.max(apTarget, charge * 0.95);
     apTarget = Math.min(1, apTarget + (painT > 0 ? 0.1 : 0));
     apTarget *= 1 - dyingK * 0.85;
@@ -276,7 +285,7 @@ export function buildUnmasked(def, quality = 1) {
     const ty = saccadeT > 0 ? 0 : gazeTY + (painT > 0 ? skitterY : 0);
     gazeX += (tx - gazeX) * Math.min(1, dt * gLag);
     gazeY += (ty - gazeY) * Math.min(1, dt * gLag);
-    seed.position.set(gazeX * A_W * 0.5, gazeY * A_H * 0.5, EYE_Z + 0.55);
+    seed.position.set(gazeX * A_W * 0.5, gazeY * A_H * 0.32, EYE_Z + 0.55);   // reduced vertical travel — the pupil stays in the sclera at both extremes
 
     // ── Seed size (BLINK-analog + CHARGE-TELL): breathes; CONSTRICTS on charge; pinned
     // on the notice saccade; blows WIDE in death. ──
