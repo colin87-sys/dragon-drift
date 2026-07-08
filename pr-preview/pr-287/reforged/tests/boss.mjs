@@ -338,12 +338,13 @@ for (const key of BOSS_ORDER) {
   const wingNames = ['wing_inner_R', 'wing_inner_L', 'wing_mid_R', 'wing_mid_L', 'wing_outer_R', 'wing_outer_L'];
   const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
   assert(wings.every(Boolean), 'unmasked exposes six wing shoulders (3 mirrored pairs)');
-  // UNEVEN pair gaps (anti-gear): adjacent gaps differ from 60° AND from each other by ≥10°.
+  // UPWARD CREST (not a radial asterisk): all three pairs rise into the UPPER hemisphere —
+  // distinct angles-from-vertical, none drooping past ~80° (i.e. every wing above horizontal),
+  // so the silhouette is a bilateral fan rising from the eye, never a star/wheel/moth spread.
   const wdeg = (r) => Math.abs(THREE.MathUtils.radToDeg(r));
   const rDegs = [wings[0], wings[2], wings[4]].map((w) => wdeg(w.rotation.z)).sort((a, b) => a - b);
-  const g1 = rDegs[1] - rDegs[0], g2 = rDegs[2] - rDegs[1];
-  assert(Math.abs(g1 - 60) >= 10 && Math.abs(g2 - 60) >= 10 && Math.abs(g1 - g2) >= 10,
-    `unmasked pair gaps are uneven/anti-gear (gaps ${g1.toFixed(0)}°/${g2.toFixed(0)}°, both ≠60°, differ ≥10°)`);
+  assert(rDegs[2] <= 80, `unmasked wings all rise into the upper hemisphere (max ${rDegs[2].toFixed(0)}° from vertical ≤ 80° — nothing droops to a moth-spread)`);
+  assert(rDegs[0] < rDegs[1] - 6 && rDegs[1] < rDegs[2] - 6, `unmasked three distinct wing tiers (${rDegs.map((d) => d.toFixed(0)).join('/')}°) — a fan, not overlapping spokes`);
   // THE GREAT CENTRAL EYE dominates (§ ≥~4× the largest peripheral, whose sclera ≈1.9u wide).
   const great = findAllByName(um.group, 'greatEye')[0];
   assert(great, 'unmasked exposes the great central eye');
@@ -939,16 +940,26 @@ for (const key of BOSS_ORDER) {
   assert(faceRig.scale.x <= preScale * 1.55, `THE LOOM is CAPPED (+50% legibility guard; got ×${(faceRig.scale.x / preScale).toFixed(2)})`);
   em.setLoom(0);
 
-  // THE TIDE CRUSH: setCrush(1) reveals the ceiling/floor strips and closes them in.
+  // THE TIDE CRUSH: setCrush(1) DIMS the whole dome (the light recedes as it crushes
+  // in). The space closing is carried by the letterbox (ui.js) + lane clamp (player.js);
+  // the sky's contribution is a UNIFORM colour multiply — never a descending band plane,
+  // whose hot crest edge read as a "rectangular horizontal line" (owner catch ×3). The
+  // strip organs stay named in the graph but are NEVER shown, so the seam cannot return.
   const ceil = em.group.getObjectByName('crushCeil');
   const floor = em.group.getObjectByName('crushFloor');
-  assert(!!ceil && !!floor, 'embertide exposes the named crushCeil/crushFloor strips (the vertical-squeeze visual)');
-  assert(!ceil.visible, 'crush strips are HIDDEN until the squeeze fires (studio frames untouched)');
-  const preCeilY = ceil.position.y;
+  const dome = em.group.getObjectByName('lightField');
+  assert(!!ceil && !!floor, 'embertide exposes the named crushCeil/crushFloor strips (retained organs)');
+  assert(!ceil.visible && !floor.visible, 'crush strips are HIDDEN (the seam-prone band plane is retired)');
+  em.setCrush(0);
+  for (let i = 0; i < 40; i++) em.tick(0.05, 16 + i * 0.05);   // settle crush OFF
+  em.tick(0.0, 20.0);                                          // sample the dome at a fixed phase
+  const domeBrightUncrushed = dome.material.color.r + dome.material.color.g + dome.material.color.b;
   em.setCrush(1);
-  for (let i = 0; i < 80; i++) em.tick(0.05, 16 + i * 0.05);
-  assert(ceil.visible && floor.visible, 'setCrush(1) reveals both strips');
-  assert(ceil.position.y < preCeilY - 150, `the ceiling strip DESCENDS (y ${ceil.position.y.toFixed(0)} < ${preCeilY.toFixed(0)} − 150 — the sky crushes the lane)`);
+  for (let i = 0; i < 80; i++) em.tick(0.05, 22 + i * 0.05);   // ease crush ON
+  em.tick(0.0, 20.0);                                          // SAME phase — isolate the crush dim
+  const domeBrightCrushed = dome.material.color.r + dome.material.color.g + dome.material.color.b;
+  assert(!ceil.visible && !floor.visible, 'the crush NEVER shows the strips (no band plane, no seam)');
+  assert(domeBrightCrushed < domeBrightUncrushed * 0.95, `setCrush(1) DIMS the dome (${domeBrightCrushed.toFixed(2)} < ${(domeBrightUncrushed * 0.95).toFixed(2)} — the light recedes, seamlessly)`);
   em.setCrush(0);
 
   // EXPRESSIONS: distinct families reshape the face ON the charge envelope.
