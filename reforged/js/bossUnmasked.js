@@ -332,9 +332,9 @@ export function buildUnmasked(def, quality = 1) {
   // so the wings OVERLAP into a dense wall of feathers (minimal background air between them —
   // background gaps are what made six wings read as six separate legs). Bilateral mirror.
   const WING_PAIRS = [
-    { key: 'upper',  rotZ: 0.62, scale: 1.15, root: { x: 0.25, y: 0.3 }, z: -1.9, phase: 0.0, amp: 0.028 },   // steep UP (the crest peak)
-    { key: 'middle', rotZ: 0.16, scale: 1.42, root: { x: 0.5, y: -0.1 }, z: -1.1, phase: 1.1, amp: 0.036 },   // UP-and-out — the largest, the body of the mass
-    { key: 'lower',  rotZ: -0.34, scale: 1.15, root: { x: 0.8, y: -0.5 }, z: -0.4, phase: 2.2, amp: 0.030 },   // widest OUT-and-up (still well above horizontal — NOT down)
+    { key: 'upper',  rotZ: 0.55, scale: 1.28, root: { x: 0.25, y: 0.5 }, z: -1.9, phase: 0.0, amp: 0.028 },   // steep UP (the crest peak)
+    { key: 'middle', rotZ: 0.24, scale: 1.55, root: { x: 0.42, y: 0.0 }, z: -1.1, phase: 1.1, amp: 0.036 },   // UP-and-out — the LARGEST, bridges the tiers into one mass
+    { key: 'lower',  rotZ: -0.06, scale: 1.32, root: { x: 0.58, y: -0.35 }, z: -0.4, phase: 2.2, amp: 0.030 },  // swept UP (tips up ~15° — no longer flat/limb-like), fills the lower mass
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
@@ -444,25 +444,26 @@ export function buildUnmasked(def, quality = 1) {
   const haloS2Mat = track(new THREE.MeshBasicMaterial({
     color: 0xc9a45a, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide,
   }));
-  const HALO_R = 3.4;
-  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.93, HALO_R, lowQ ? 40 : 64), haloS2Mat);
-  haloS2.position.set(0, 2.4, -2.8);
+  const HALO_R = 4.7;
+  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.95, HALO_R, lowQ ? 44 : 72), haloS2Mat);
+  haloS2.position.set(0, 5.4, -3.2);   // rides HIGH behind the wing mass → a clean gold arc over the top silhouette
   haloS2.name = 'halo';
   stage2.add(haloS2);
 
   // ── RELICS (§8) — short gold wire glints at the wing roots (5 trophies + 1 EMPTY wire =
   // the post-game gap worn on the body). LineSegments = overdraw-exempt. CP2 wires the
   // per-relic palette + the destroy→sag behaviour; this seeds the roots. ──
+  // Scattered UP among the wing roots (NOT radiating from the focal eye — that read as
+  // cat-whiskers), short + faint gold quill-glints nestled in the feather mass.
   const relicPts = [];
   for (let r = 0; r < 6; r++) {
-    const a = -Math.PI / 2 + (r / 6) * TAU;
-    const rr = 1.4;
-    const cx = Math.cos(a) * rr, cy = Math.sin(a) * rr;
-    relicPts.push(cx, cy, 0.6, cx + Math.cos(a) * 0.5, cy + Math.sin(a) * 0.5, 0.6);
+    const side = r % 2 ? 1 : -1;
+    const cx = side * (0.6 + (r % 3) * 0.5), cy = 0.6 + Math.floor(r / 2) * 0.9;
+    relicPts.push(cx, cy, 0.5, cx + side * 0.16, cy + 0.4, 0.5);   // short, angled up along the plumage
   }
   const relicGeo = new THREE.BufferGeometry();
   relicGeo.setAttribute('position', new THREE.Float32BufferAttribute(relicPts, 3));
-  const relicMat = track(new THREE.LineBasicMaterial({ color: accent, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const relicMat = track(new THREE.LineBasicMaterial({ color: accent, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
   relicMat.toneMapped = false;
   const relics = new THREE.LineSegments(relicGeo, relicMat);
   relics.name = 'relicRoots';
