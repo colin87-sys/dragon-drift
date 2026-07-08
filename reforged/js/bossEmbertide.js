@@ -149,7 +149,12 @@ export function buildEmbertide(def, quality = 1) {
   // (his body) still surrounds it on all sides (past ~3.5× the darkness starts winning
   // the figure-ground, so 3× is the legibility ceiling for the RESTING size). Everything
   // rides faceRig, so the tears + the shield ward scale with it automatically.
-  const FACE_DIST = 520, FACE_SCALE = lowQ ? 19.2 : 21.6, FACE_Y = 44;
+  // FACE_Y is RE-ANCHORED for the 3× size (44→110, owner picked "looms harder"): tripling
+  // the scale about the old anchor dropped the mouth to world ~−94 (low against the
+  // skyline); lifting the base raises the whole face so the mouth clears the spires and it
+  // looms DOWN at the player, crown cropping off the frame top. The sea-fade is a smoothstep
+  // on LOCAL geometry y, so the jaw still dissolves into the tide smoothly at the new height.
+  const FACE_DIST = 520, FACE_SCALE = lowQ ? 19.2 : 21.6, FACE_Y = 110;
   const FACE_Z = -FACE_DIST;   // faceRig base z (the tick surge/death offset from here)
   const EYE_Y = 2.0, EYE_X = 4.2, EYE_Z = 2.6;   // eye-hollow placement (frontal, level, matched, symmetric)
   const faceRig = new THREE.Group();
