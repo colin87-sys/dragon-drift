@@ -6,6 +6,22 @@ This note audits the current Reforged boss roster, the live Lance/lock implement
 and the boss creation sheet. It proposes a fair progression so Lance play becomes a
 learned boss verb rather than a late, uneven add-on.
 
+## Layman's summary
+
+The Lance system is the game's lock-on missile layer: you hold the square reticle over a boss part, brand that part, then release or let the system fire homing Wyrmfire wisps into the marked parts. The technology is already mostly there; the problem is the teaching order.
+
+Right now the first bosses teach a simple lock-on, but the game waits too long before it teaches the more interesting “mark several body parts and fire a volley” version. When that finally appears, it appears on a busy rib-coil boss, which asks the player to learn a new weapon while also dodging complicated patterns. Later bosses then jump between “lots of lock targets” and “no lock targets” without always explaining why.
+
+The fix is to turn Lance into a clear ladder:
+
+1. Boss 1: learn that the square reticle can lock onto one big obvious target.
+2. Boss 2: learn to keep/reacquire that lock while dodging walls.
+3. Boss 3 or a pre-boss-4 teach beat: learn the first simple two-part paint-and-volley.
+4. Boss 4: graduate to several body parts on a moving body.
+5. Later bosses: each add one new rule — moving targets, destructible targets, one-target timing puzzles, sealed/muted targets, or a final beam-duel inversion.
+
+In practical terms, I would correct this by adding an easier first paint lesson before Marrowcoil, making the boss creation sheet require a Lance section, and making every lockable body part justify itself as a visible weak point, weapon, wound, restraint, trophy, or exposed organ — not just a random chunk of boss geometry.
+
 ## Current implementation snapshot
 
 The Lance system is already a layered, data-driven boss mechanic:
