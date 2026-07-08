@@ -394,12 +394,38 @@ export function buildUnmasked(def, quality = 1) {
   // the silhouette is a bilateral upward crest; the bent arms give the eye room + let the
   // wings LAYER behind each other. Roots seated ABOVE the great eye; z + tiltX give depth. ──
   const WING_ROOT_Y = 0.9;
+  // SHORT arm reach (just enough offset to give the eye room — a horizontal arm read as a
+  // spider leg), then the hand sweeps UP-AND-OUT at a DIAGONAL (28°/46°/56° from vertical =
+  // a fan, not vertical headdress spikes). The wing RISES far more than it reaches; every
+  // feather tip clears the great-eye midline.
   const WINGS = [
-    { key: 'inner', armDeg: 28, armLen: 2.1, handDeg: 12, handLen: 5.4, lenScale: 1.00, z: -1.7, tiltX: 0.22 },   // reaches up-out → the V, not a central tuft
-    { key: 'mid',   armDeg: 56, armLen: 3.3, handDeg: 28, handLen: 4.8, lenScale: 1.00, z: -1.1, tiltX: 0.02 },   // out-and-up
-    { key: 'outer', armDeg: 90, armLen: 4.7, handDeg: 48, handLen: 4.2, lenScale: 0.92, z: -0.5, tiltX: -0.22 },  // arm reaches straight out, hand bends up (the big outstretched wing)
+    { key: 'inner', armDeg: 32, armLen: 1.1, handDeg: 28, handLen: 5.3, lenScale: 1.00, z: -1.7, tiltX: 0.22 },   // the crest peak (diagonal, opens a broad valley)
+    { key: 'mid',   armDeg: 56, armLen: 1.6, handDeg: 46, handLen: 4.9, lenScale: 1.00, z: -1.1, tiltX: 0.02 },   // the diagonal fan
+    { key: 'outer', armDeg: 76, armLen: 2.3, handDeg: 56, handLen: 4.3, lenScale: 0.90, z: -0.5, tiltX: -0.22 },  // the widest wing (up-out, still well above horizontal)
   ];
   const shoulders = [];
+  // DE-CLUMP: no two eye SCLERAS may overlap at front-on (the figure-8 / double-pupil blobs
+  // read as rendering bugs). Nudge each new eye out of any earlier eye it overlaps IN THE SAME
+  // Z-BAND (eyes at clearly different depths may overlap — they read as stacked, not fused).
+  const placedEyes = [];
+  const declump = (pos, r) => {
+    for (let it = 0; it < 8; it++) {
+      let moved = false;
+      for (const p of placedEyes) {
+        if (Math.abs(pos.z - p.z) > 0.55) continue;
+        const dx = pos.x - p.x, dy = pos.y - p.y;
+        const d = Math.hypot(dx, dy), min = (r + p.r) * 1.08;
+        if (d < min) {
+          const push = (min - d) + 0.04;
+          const nx = d > 1e-3 ? dx / d : 1, ny = d > 1e-3 ? dy / d : 0.3;
+          pos.x += nx * push; pos.y += ny * push; moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    placedEyes.push({ x: pos.x, y: pos.y, z: pos.z, r });
+    return pos;
+  };
   for (let wi = 0; wi < WINGS.length; wi++) {
     const W = WINGS[wi];
     for (const side of [1, -1]) {
@@ -430,11 +456,13 @@ export function buildUnmasked(def, quality = 1) {
       const eyeSizes = [0.56, 0.44, 0.34];
       for (let e = 0; e < 3; e++) {
         const t = 0.15 + e * 0.3;
-        const lx = hand.Bx + hand.hdx * t * hand.handLen * 0.8 + (rnd() - 0.5) * 0.7;
-        const ly = hand.By + hand.hdy * t * hand.handLen * 0.8;
+        const lx = hand.Bx + hand.hdx * t * hand.handLen * 0.8 + (rnd() - 0.5) * 1.1;
+        const ly = hand.By + hand.hdy * t * hand.handLen * 0.8 + (rnd() - 0.5) * 0.6;
         const eworld = new THREE.Vector3(lx, ly, 0.5).applyMatrix4(shoulder.matrix);
-        eworld.z = Math.max(eworld.z, 0.4) + (side < 0 ? 0.45 : 0) + e * 0.28 + wi * 0.2;   // stronger z-stagger → overlaps read as stacked eyes, never a fused blob
-        eyePlace(eworld, eyeSizes[e] * (0.9 + rnd() * 0.2));
+        eworld.z = Math.max(eworld.z, 0.4) + (side < 0 ? 0.45 : 0) + e * 0.28 + wi * 0.2;   // z-stagger → overlaps read as stacked, not fused
+        const esize = eyeSizes[e] * (0.9 + rnd() * 0.2);
+        declump(eworld, esize * 1.25);   // hard nudge so no two scleras overlap in the same z-band
+        eyePlace(eworld, esize);
       }
     }
   }
@@ -489,9 +517,9 @@ export function buildUnmasked(def, quality = 1) {
     color: 0xd8b46a, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide,
   }));
   haloS2Mat.toneMapped = false;
-  const HALO_R = 4.3;
-  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.9, HALO_R, lowQ ? 44 : 80), haloS2Mat);
-  haloS2.position.set(0, 3.4, -2.2);   // rides above the eye, behind the crest; top arc clears the notch
+  const HALO_R = 5.2;
+  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.92, HALO_R, lowQ ? 44 : 80), haloS2Mat);
+  haloS2.position.set(0, 4.6, -2.4);   // rides high behind the crest → a clean top arc clears the notch even front-on
   haloS2.name = 'halo';
   stage2.add(haloS2);
 
