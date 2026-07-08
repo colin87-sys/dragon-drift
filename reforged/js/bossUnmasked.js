@@ -281,7 +281,7 @@ export function buildUnmasked(def, quality = 1) {
   burstMat.toneMapped = false;   // holds its bright gold on both skies — Fable gate: the reference's starburst is the LOUDEST thing
   const starburst = (() => {
     const s = new THREE.Shape();
-    const SPIKES = 8, Rlong = 3.5, Rshort = 3.0, rIn = 0.42;   // 8 EVEN rays (symmetric — Fable nit), thick base, long
+    const SPIKES = 8, Rlong = 2.2, Rshort = 1.9, rIn = 0.42;   // 8 EVEN rays; arms shortened ~40% (Fable: a radiance, not dominant spikes)
     for (let i = 0; i < SPIKES * 2; i++) {
       const a = (i / (SPIKES * 2)) * Math.PI * 2 + Math.PI / 2;   // start pointing up
       const outer = i % 2 === 0 ? (i % 4 === 0 ? Rlong : Rshort) : rIn;  // long/short alternation between the deep notches
@@ -379,11 +379,19 @@ export function buildUnmasked(def, quality = 1) {
     // trunk-clump at top-centre — the crown opens into a notch like the reference. The BOTTOM pair
     // is UN-drooped (−65°→−48°) so its sabre tips LIFT instead of sagging like banana leaves — the
     // outline reads as a circle/mandala, not a fountain. Still top-bottom balanced, eye dead-centre.
-    { key: 'upper',    rotZ: 0.55,  scale: 1.50, z: -1.15, phase: 0.0, amp: 0.026, off: { x: 1.10, y: 1.15 }, rootEye: { x: 1.5, y: 2.0 } },   // UP-OUT — wide-open V, empty notch at top-centre
-    { key: 'uppermid', rotZ: 0.10,  scale: 1.60, z: -0.90, phase: 0.7, amp: 0.030, off: { x: 1.35, y: 0.50 } },                                 // fill
-    { key: 'middle',   rotZ: -0.35, scale: 1.68, z: -0.65, phase: 1.4, amp: 0.036, off: { x: 1.40, y: -0.15 }, rootEye: { x: 2.6, y: 0.0 } },  // OUT — widest
-    { key: 'lowermid', rotZ: -0.80, scale: 1.68, z: -0.90, phase: 1.9, amp: 0.032, off: { x: 1.25, y: -0.70 } },                                // fill
-    { key: 'lower',    rotZ: -1.20, scale: 1.72, z: -1.15, phase: 2.4, amp: 0.030, off: { x: 0.85, y: -1.15 }, rootEye: { x: 1.4, y: -2.1 } },  // DOWN-OUT — LONGEST, lifted tips
+    // A FULL 360° RADIAL ROSETTE (Fable gate r3 — the ballgame): the wing BODY sweeps ~60° off
+    // its shoulder rotation, so a wing only points its feathers DOWN when rotZ is deeply negative
+    // (feather dir φ ≈ 60° + rotZ·57°). Earlier "down" wings at rotZ −1.2 still pointed near-
+    // horizontal → everything sat in the UPPER hemisphere (the palm/fern read). Here φ spans +80°
+    // (up) down to −75° (HANGING below the eye), so mass fills the lower hemisphere too and the
+    // eye sits at the true CENTRE. The BOTTOM pair is the LONGEST (tips reach further below the
+    // eye than the top reaches above) — the reference's hanging primaries. `off` seats each
+    // shoulder on a ring along its φ; `rootEye` rings the 6 eyes around the centred eye.
+    { key: 'upper',    rotZ: 0.35,  scale: 1.45, z: -1.15, phase: 0.0, amp: 0.026, off: { x: 0.24, y: 1.38 }, rootEye: { x: 0.4, y: 2.15 } },  // φ+80° UP
+    { key: 'uppermid', rotZ: -0.26, scale: 1.55, z: -0.90, phase: 0.7, amp: 0.030, off: { x: 0.99, y: 0.99 } },                                 // φ+45°
+    { key: 'middle',   rotZ: -0.96, scale: 1.62, z: -0.65, phase: 1.4, amp: 0.036, off: { x: 1.39, y: 0.12 }, rootEye: { x: 2.2, y: 0.2 } },   // φ+5° OUT — widest
+    { key: 'lowermid', rotZ: -1.75, scale: 1.74, z: -0.90, phase: 1.9, amp: 0.032, off: { x: 1.07, y: -0.90 } },                                // φ−40° DOWN-OUT
+    { key: 'lower',    rotZ: -2.36, scale: 1.92, z: -1.15, phase: 2.4, amp: 0.030, off: { x: 0.36, y: -1.35 }, rootEye: { x: 0.6, y: -2.15 } }, // φ−75° HANGING — LONGEST
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
@@ -420,7 +428,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: featherMat }).group);
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: featherMat, blade: 0.78 }).group);   // straight lifted feather-BLADES (de-frond — Fable gate)
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp });
