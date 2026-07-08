@@ -579,22 +579,24 @@ export function buildEmbertide(def, quality = 1) {
     if (flashT > 0) flashT = Math.max(0, flashT - dt * 3);
     domeSpin.rotation.z += dt * (0.010 + charge * 0.02);
     const domeLift = 0.30 + 0.70 * sstep(entranceU, 0.05, 0.55);
-    const swell = (1 + Math.sin(time * 0.6) * 0.05 + charge * 0.38 + flashT * 0.5) * domeLift;
-    domeMat.color.copy(_domeCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92)));
 
-    // THE CRUSH — the ceiling band descends + the tide-line swells up (slow, dramatic),
-    // pinching the open sky to a band with the face inside it. Retreats through death.
+    // THE CRUSH — the open sky pinches to a band with the face inside it (slow,
+    // dramatic; retreats through death). The SPACE physically closing is carried by
+    // the CSS letterbox bars (ui.js) descending + the lane Y-clamp (player.js) — both
+    // hard-edge-free. The SKY's own contribution is a uniform DIM of the whole dome:
+    // the light RECEDES as it crushes in. A global colour multiply has no geometry and
+    // no elevation edge, so it can never draw a horizontal line — unlike the descending
+    // light-band PLANE this replaced, whose blazing crest edge read as a "rectangular
+    // horizontal line in the sky" wherever it entered frame (owner catch ×3: a flat
+    // plane's alpha/colour edge over the curved dome is a seam by construction, and no
+    // amount of feathering or tessellation removes a geometry edge that carries alpha).
+    // The strip meshes stay in the graph as named organs but are never shown.
     crushK += (crushTgt - crushK) * Math.min(1, dt * 0.9);
     const crushE = crushK * (1 - dyingK);
-    const crushOn = crushE > 0.01;
-    crushCeil.visible = crushFloor.visible = crushOn;
-    if (crushOn) {
-      // Positions are strip CENTRES (H=700): the ceiling's blazing INNER edge descends
-      // from out-of-frame (+380 world) to ~+185 (a visible pinch above the face), the
-      // tide-line's from below the sea (−80) to ~+25 (a swollen line over the horizon).
-      crushCeil.position.y = 730 + (535 - 730) * crushE + Math.sin(time * 1.7) * 6 * crushE;
-      crushFloor.position.y = -430 + (-325 + 430) * crushE + Math.sin(time * 1.4 + 2) * 4 * crushE;
-    }
+    crushCeil.visible = crushFloor.visible = false;
+
+    const swell = (1 + Math.sin(time * 0.6) * 0.05 + charge * 0.38 + flashT * 0.5) * domeLift;
+    domeMat.color.copy(_domeCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92) * (1 - crushE * 0.16)));
 
     // EMBER MOTES — drift UP across the sky, swaying (embers riding the tide). They
     // IGNITE with the entrance lift (dim embers while the sky is still seeding).
