@@ -45,6 +45,8 @@ if (gotFly) {
 await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 300000 })
   .catch(() => console.warn('  ! fight not confirmed'));
 console.log(`fight reached (faceY ${await faceY()})`);
+await page.screenshot({ path: '/tmp/emb-cp2a-fight.png' });
+console.log('wrote /tmp/emb-cp2a-fight.png (fight open, pre-crush)');
 const gotCrush = await page.waitForFunction(() => window.__dd.game.bossArenaHY != null, { timeout: 240000 })
   .then(() => true).catch(() => false);
 console.log(`crush fired: ${gotCrush}`);

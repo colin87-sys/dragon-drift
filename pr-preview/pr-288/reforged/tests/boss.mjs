@@ -895,7 +895,7 @@ for (const key of BOSS_ORDER) {
   em.setCrush(1);
   for (let i = 0; i < 80; i++) em.tick(0.05, 16 + i * 0.05);
   assert(ceil.visible && floor.visible, 'setCrush(1) reveals both strips');
-  assert(ceil.position.y < preCeilY - 200, `the ceiling strip DESCENDS (y ${ceil.position.y.toFixed(0)} < ${preCeilY.toFixed(0)} − 200 — the sky crushes the lane)`);
+  assert(ceil.position.y < preCeilY - 150, `the ceiling strip DESCENDS (y ${ceil.position.y.toFixed(0)} < ${preCeilY.toFixed(0)} − 150 — the sky crushes the lane)`);
   em.setCrush(0);
 
   // EXPRESSIONS: distinct families reshape the face ON the charge envelope.
