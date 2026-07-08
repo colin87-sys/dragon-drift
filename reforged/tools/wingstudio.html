@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Seraph Wing Studio</title>
+  <style>
+    html,body{margin:0;height:100%;background:#eae6dc;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{position:fixed;left:0;top:0}
+    #err{position:fixed;left:12px;right:12px;top:12px;color:#a00;font-size:13px;white-space:pre-wrap;
+      background:rgba(255,220,220,.9);padding:10px;border-radius:8px;display:none;max-height:70vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__wserr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display = 'block'; e.textContent = 'Wing studio error:\n' + m; } };
+    window.addEventListener('error', (ev) => window.__wserr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__wserr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="900" height="900"></canvas>
+  <div id="err"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { buildSeraphWing } from '../js/seraphWingShape.js';
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setSize(900, 900, true);   // updateStyle=true → canvas CSS stays 900px (screenshot clip matches)
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xeae6dc);   // pale frame: near-black wing reads as shape
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.01, 200);
+
+    // Neutral three-point-ish lighting so the flat-shaded facets read the cup/layering.
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x9a8f7a, 1.05));
+    const keyL = new THREE.DirectionalLight(0xffffff, 1.9); keyL.position.set(3, 4, 5); scene.add(keyL);
+    const fillL = new THREE.DirectionalLight(0xbcd0ff, 0.7); fillL.position.set(-4, 1.5, 3); scene.add(fillL);
+    const rimL = new THREE.DirectionalLight(0xffffff, 0.9); rimL.position.set(-2, 3, -5); scene.add(rimL);
+
+    const root = new THREE.Group();
+    scene.add(root);
+    let wing = null;
+
+    function rebuild() {
+      if (wing) { root.remove(wing.group); }
+      wing = buildSeraphWing({});
+      root.add(wing.group);
+    }
+    rebuild();
+
+    // Bounding box of the built wing (in root/world space).
+    function wingBox() {
+      const box = new THREE.Box3().setFromObject(wing.group);
+      return box;
+    }
+
+    // Frame the wing for a named view. Views:
+    //   front   — camera on +Z looking -Z: the wing-plane SILHOUETTE (shape/bend/rows).
+    //   profile — camera on +X looking -X (down the span): the DEPTH/cup/row-stagger read.
+    //   threeq  — a raised 3/4 that shows bend AND layering together.
+    window.wsView = function (view) {
+      const box = wingBox();
+      const c = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      // Fit distance from the extents PERPENDICULAR to the view axis (+ margin) so the
+      // full wing sits inside the frame with air on every edge — no clipping.
+      const vFov = camera.fov * Math.PI / 180;
+      const fit = (w, h) => {
+        const halfH = Math.max(h, w) / 2;                 // square viewport → use max extent
+        return (halfH / Math.tan(vFov / 2)) * 1.35 + 0.5; // margin
+      };
+      let dist;
+      if (view === 'front') {
+        dist = fit(size.x, size.y);
+        camera.position.set(c.x, c.y, c.z + dist);
+        camera.up.set(0, 1, 0);
+      } else if (view === 'profile') {
+        // Side view rotated ~26° toward the front so the LAYERED DEPTH reads as overlapping
+        // shingles (a pure span-on edge view turns flat feather cards into slivers). This is
+        // the honest "does it have a cupped shell" read.
+        dist = fit(size.y, size.y);
+        const az = 32 * Math.PI / 180;
+        camera.position.set(c.x + dist * Math.cos(az), c.y + dist * 0.10, c.z + dist * Math.sin(az));
+        camera.up.set(0, 1, 0);
+      } else { // threeq — raised, from the front-right
+        dist = fit(size.x, size.y);
+        camera.position.set(c.x + dist * 0.55, c.y + dist * 0.30, c.z + dist * 0.78);
+        camera.up.set(0, 1, 0);
+      }
+      camera.lookAt(c);
+      camera.updateProjectionMatrix();
+      renderer.render(scene, camera);
+      return true;
+    };
+
+    window.__cam = function () {
+      return { pos: camera.position.toArray(), fov: camera.fov, aspect: camera.aspect,
+        near: camera.near, far: camera.far, canvas: [gl.width, gl.height, gl.clientWidth, gl.clientHeight] };
+    };
+    window.__dbgBox = function () {
+      const box = wingBox();
+      return { min: box.min.toArray(), max: box.max.toArray(),
+        center: box.getCenter(new THREE.Vector3()).toArray(),
+        size: box.getSize(new THREE.Vector3()).toArray() };
+    };
+    window.__ready = true;
+  </script>
+</body>
+</html>
