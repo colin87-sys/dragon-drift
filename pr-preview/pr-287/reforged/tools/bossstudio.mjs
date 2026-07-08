@@ -91,10 +91,21 @@ const TS_EXTRAS = [
   { name: 'ring', o: { formation: 'ring', condense: 1, t: 2.4 } },
   { name: 'wall', o: { formation: 'wall', condense: 1, t: 2.4 } },
 ];
+// THE UNMASKED (slot 14): the eye TRACKS the player's stick, so capture the GAZE
+// EXTREMES (full stick each way + a corner) to verify the pupil stays in the sclera
+// with no glitch/clip at the limits.
+const UM_EXTRAS = [
+  { name: 'gazeR',  o: { gx: 1, gy: 0, t: 4.0 } },
+  { name: 'gazeL',  o: { gx: -1, gy: 0, t: 4.0 } },
+  { name: 'gazeU',  o: { gx: 0, gy: 1, t: 4.0 } },
+  { name: 'gazeD',  o: { gx: 0, gy: -1, t: 4.0 } },
+  { name: 'gazeUR', o: { gx: 1, gy: 1, t: 4.0 } },
+];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
   : bossId === 'hollowgate' ? [...STATES, ...HG_EXTRAS]
   : bossId === 'brineholm' ? [...STATES, ...BH_EXTRAS]
-  : bossId === 'thrumswarm' ? [...TS_STATES, ...TS_EXTRAS] : STATES;
+  : bossId === 'thrumswarm' ? [...TS_STATES, ...TS_EXTRAS]
+  : bossId === 'unmasked' ? [...STATES, ...UM_EXTRAS] : STATES;
 
 const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
 // The fight-distance frames (§7c L140): ONE front-on shot per key state at the REAL
