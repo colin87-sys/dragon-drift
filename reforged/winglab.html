@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wing Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html,body{margin:0;height:100%;background:#10141d;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">
+  { "imports": { "three": "./lib/three.module.js" } }
+</script>
+</head>
+<body>
+<script type="module">
+// WING LAB — a standalone studio scene for the procedural angel wing. Zero game
+// imports; used by tools/wingcrop.mjs for design-gate captures and hand-judging.
+// ?view=front (default) | threequarter · ?spin=1 for a slow turntable.
+import * as THREE from 'three';
+import { buildAngelWing } from './js/angelWing.js';
+
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(1);
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x131824);   // deep slate — the ivory wing pops
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+
+// Studio lighting: warm key, cool fill, gold rim from behind for the halo edge.
+scene.add(new THREE.HemisphereLight(0x92aed4, 0x554634, 0.55));
+const key = new THREE.DirectionalLight(0xfff1dc, 1.15); key.position.set(4, 6, 8); scene.add(key);
+const fill = new THREE.DirectionalLight(0x9db8e0, 0.35); fill.position.set(-5, -2, 6); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffd9a0, 0.9); rim.position.set(-5, 3, -7); scene.add(rim);
+
+const { group } = buildAngelWing({ quality: 1 });
+scene.add(group);
+
+// Frame the wing: compute its bounds and centre the camera on it with padding.
+const box = new THREE.Box3().setFromObject(group);
+const c = box.getCenter(new THREE.Vector3());
+const size = box.getSize(new THREE.Vector3());
+const dist = Math.max(size.x, size.y) * 1.28;
+if (q.get('view') === 'threequarter') group.rotation.y = -0.5;
+camera.position.set(c.x, c.y, c.z + dist);
+camera.lookAt(c.x, c.y, c.z);
+
+let t = 0;
+function tick() {
+  requestAnimationFrame(tick);
+  if (q.get('spin') === '1') { group.rotation.y += 0.004; }
+  renderer.render(scene, camera);
+  if (!window.__wing) window.__wing = { ready: true };
+}
+tick();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
