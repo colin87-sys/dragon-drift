@@ -114,7 +114,7 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
   // degrees to swing the hand+fan about the wrist; primLen/primWidth/primBow/primSpread reshape
   // the primary fan; heroLen = extra length on the peak feather; secLen/secWidth = secondaries;
   // covert = covert-row puffiness.
-  const S = { armLen: 1, handLen: 1, bend: 0, primLen: 1, primWidth: 1, primBow: 1,
+  const S = { armLen: 1, armWidth: 1, handLen: 1, bend: 0, primLen: 1, primWidth: 1, primBow: 1,
     primSpread: 1, heroLen: 1, secLen: 1, secWidth: 1, covert: 1, ...shape };
   const group = new THREE.Group();
   // curveSegments scale CONTINUOUSLY with quality (q1 = 18/14, unchanged for the winglab;
@@ -204,13 +204,15 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
   const dirA = Math.atan2(by, bx);                      // segment-1 direction (from +X)
   const px = by / bl, py = -bx / bl;                    // perp, pointing out (right)
 
-  // Under-plumage lens: ivory backing so chinks show ivory, never slate.
+  // Under-plumage lens: ivory backing so chinks show ivory, never slate. Its perpendicular
+  // spread carries the arm's WIDTH (scaled by `armWidth`).
+  const aw = S.armWidth;
   const underShape = (() => {
     const u = new THREE.Shape();
     const mx = S0.x + bx * 0.5, my = S0.y + by * 0.5;
     u.moveTo(S0.x, S0.y);
-    u.quadraticCurveTo(mx - px * 0.25, my - py * 0.25, C0.x, C0.y);
-    u.quadraticCurveTo(mx + px * 1.05, my + py * 1.05, S0.x, S0.y);
+    u.quadraticCurveTo(mx - px * 0.25 * aw, my - py * 0.25 * aw, C0.x, C0.y);
+    u.quadraticCurveTo(mx + px * 1.05 * aw, my + py * 1.05 * aw, S0.x, S0.y);
     u.closePath();
     return u;
   })();
@@ -228,11 +230,13 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
     group.add(m);
     return m;
   };
+  // `armWidth` (aw) fans the covert rows out + arches them (the arm's WIDTH); `covert` (cv) is
+  // just the scallop-lobe depth (the row puffiness).
   const cv = S.covert;
-  addStrip(gcMat, 0.95, 0.14, 1.08, 0.44 * cv, 8, 0.22 * cv, 0.14 * cv, 0.455, 3);   // greater — widest, over the quills
-  addStrip(lcMat, 0.62, 0.10, 1.05, 0.40 * cv, 9, 0.18 * cv, 0.11 * cv, 0.48, 11);
-  addStrip(mgMat, 0.34, 0.07, 1.02, 0.36 * cv, 9, 0.14 * cv, 0.09 * cv, 0.505, 23);
-  addStrip(lcMat, 0.08, 0.05, 0.99, 0.30 * cv, 10, 0.11 * cv, 0.07 * cv, 0.53, 31);  // hugging the leading edge (never past it)
+  addStrip(gcMat, 0.95 * aw, 0.14, 1.08, 0.44 * aw, 8, 0.22 * cv, 0.14 * cv, 0.455, 3);   // greater — widest, over the quills
+  addStrip(lcMat, 0.62 * aw, 0.10, 1.05, 0.40 * aw, 9, 0.18 * cv, 0.11 * cv, 0.48, 11);
+  addStrip(mgMat, 0.34 * aw, 0.07, 1.02, 0.36 * aw, 9, 0.14 * cv, 0.09 * cv, 0.505, 23);
+  addStrip(lcMat, 0.08 * aw, 0.05, 0.99, 0.30 * aw, 10, 0.11 * cv, 0.07 * cv, 0.53, 31);  // hugging the leading edge (never past it)
 
   // Hand coverts: a scalloped row along the primary root line (segment 2),
   // burying the quill bases — a feather, not a bone.
