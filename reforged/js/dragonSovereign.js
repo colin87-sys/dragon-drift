@@ -34,9 +34,10 @@ function sovereignMats(def, glow) {
   return { bodyFlat, gold, goldHi, violet, membrane, memVentral, gem };
 }
 
-// Faceted loft: rings [{z, rx, ry, cy}] → one flat-shaded tube.
+// Faceted loft: rings [{z, rx, ry, cy, cx?}] → one flat-shaded tube. cx = lateral centerline
+// offset (for a curved/gesturing spine or tail).
 function loftRings(rings, mat, N = 8, cap = true) {
-  const P = (r, t) => [Math.cos(t) * r.rx, r.cy + Math.sin(t) * r.ry, r.z];
+  const P = (r, t) => [(r.cx ?? 0) + Math.cos(t) * r.rx, r.cy + Math.sin(t) * r.ry, r.z];
   const tris = [];
   for (let i = 0; i < rings.length - 1; i++) {
     const a = rings[i], b = rings[i + 1];
@@ -49,7 +50,7 @@ function loftRings(rings, mat, N = 8, cap = true) {
     const f = rings[0], l = rings[rings.length - 1];
     for (let j = 0; j < N; j++) {
       const t0 = (j / N) * Math.PI * 2, t1 = ((j + 1) / N) * Math.PI * 2;
-      tris.push([[0, f.cy, f.z], P(f, t1), P(f, t0)], [[0, l.cy, l.z], P(l, t0), P(l, t1)]);
+      tris.push([[(f.cx ?? 0), f.cy, f.z], P(f, t1), P(f, t0)], [[(l.cx ?? 0), l.cy, l.z], P(l, t0), P(l, t1)]);
     }
   }
   return flatTriMesh(tris, mat);
@@ -70,15 +71,17 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   const spineMats = [M.violet, M.gem];
   const shoulderW = model.shoulderWidthScale ?? 1;
 
-  // Horizontal keel body: deep royal chest (mass forward), widest shoulder yoke, taper to tail.
+  // Horizontal keel body with a chest→waist→haunch→vent FLOW (convex-concave-convex belly +
+  // a dorsal that dips at the waist and re-swells at the haunch) — not a constant-thickness dart.
   const body = [
-    { z: -1.85, rx: 0.40 * shoulderW, ry: 0.52, cy: 0.10 },   // chest prow
-    { z: -1.35, rx: 0.62 * shoulderW, ry: 0.70, cy: 0.14 },   // deep keel chest
-    { z: -0.80, rx: 0.70 * shoulderW, ry: 0.64, cy: 0.20 },   // shoulder yoke (widest)
-    { z: -0.10, rx: 0.60, ry: 0.54, cy: 0.20 },
-    { z: 0.65, rx: 0.44, ry: 0.42, cy: 0.19 },
-    { z: 1.35, rx: 0.30, ry: 0.29, cy: 0.17 },
-    { z: 1.95, rx: 0.15, ry: 0.15, cy: 0.15 },                // tail root
+    { z: -1.92, rx: 0.32 * shoulderW, ry: 0.42, cy: 0.16 },   // chest prow
+    { z: -1.32, rx: 0.60 * shoulderW, ry: 0.74, cy: 0.08 },   // deep royal keel chest (belly drops low)
+    { z: -0.74, rx: 0.72 * shoulderW, ry: 0.62, cy: 0.16 },   // shoulder yoke (widest)
+    { z: -0.10, rx: 0.54, ry: 0.48, cy: 0.21 },
+    { z: 0.42, rx: 0.42, ry: 0.39, cy: 0.24 },                // WAIST tuck (thinnest, belly tucks up)
+    { z: 0.92, rx: 0.50, ry: 0.46, cy: 0.20 },                // HAUNCH re-swell (hip muscle)
+    { z: 1.50, rx: 0.30, ry: 0.29, cy: 0.16 },
+    { z: 1.98, rx: 0.16, ry: 0.16, cy: 0.14 },                // tail root
   ];
   group.add(loftRings(body, M.bodyFlat, seg(9)));
 
@@ -89,7 +92,7 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
     { z: -2.55, rx: 0.27, ry: 0.29, cy: 0.58 },
     { z: -2.85, rx: 0.21, ry: 0.22, cy: 0.72 },
   ];
-  group.add(loftRings(neck, M.bodyFlat, seg(8)));
+  group.add(loftRings(neck, M.bodyFlat, seg(8), false));
 
   // Dorsal keel-ridge: one bold rank of faceted gold cuirass studs (swell-then-taper),
   // violet seam grooves between — reads as forged armor, never a flat white sticker.
@@ -140,10 +143,11 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   motifAnchor.position.copy(corona.position);
   group.add(motifAnchor);
 
+  // Line-of-action S: head high → neck down → level body → tail DIPS below the line → tip RISES.
   const spinePoints = [
     new THREE.Vector3(0, 0.72, -2.85), new THREE.Vector3(0, 0.40, -1.6),
-    new THREE.Vector3(0, 0.24, -0.5), new THREE.Vector3(0, 0.19, 0.7),
-    new THREE.Vector3(0, 0.15, 1.95),
+    new THREE.Vector3(0, 0.24, -0.5), new THREE.Vector3(0, 0.22, 0.6),
+    new THREE.Vector3(0, 0.02, 2.9), new THREE.Vector3(0, 0.32, 4.9),
   ];
   const wro = model.wingRootOffset ?? {};
   const attach = {
@@ -325,11 +329,14 @@ function buildEclipseCrownHead(def, model, mats) {
   group.add(gem);
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.copy(gem.position); group.add(motifAnchor);
 
-  // Eyes — warm gold almond, the second-brightest facial points.
+  // Eyes — warm gold almond, emissive, the second-brightest facial points after the gem.
   const es = model.eyeScale ?? 1;
+  const eCol = def.eye ?? 0xe0bc78;
+  const goldEye = new THREE.MeshStandardMaterial({ color: eCol, emissive: eCol, emissiveIntensity: 1.3, flatShading: true, roughness: 0.3 });
+  goldEye.userData.baseEmissive = eCol; goldEye.userData.baseIntensity = 1.3; spineMats.push(goldEye);
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.075 * hs * es, 0), eyeMat);
-    eye.position.set(side * 0.22 * hs, 0.04 * hs, -0.34 * hs); eye.scale.set(1.3, 0.7, 1);
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.095 * hs * es, 0), goldEye);
+    eye.position.set(side * 0.24 * hs, 0.05 * hs, -0.30 * hs); eye.scale.set(1.5, 0.75, 1);
     group.add(eye);
   }
 
@@ -352,38 +359,45 @@ function buildScepterWhipTail(def, model, mats, anchor) {
   const M = sovereignMats(def, glow);
   const a = anchor ?? { y: 0.15, z: 1.95 };
   const nSeg = Math.round(model.tailSegments ?? 9);
-  const len = (model.tailLength ?? 1) * 3.0;
-  let r = 0.15;
+  const T = (model.tailLength ?? 1) * 3.0;
+  const rootR = 0.20;
+  // Line-of-action S: the tail dips below the root line, then RISES so the tip lifts (counter-arcs
+  // the neck) — never a straight lance or a limp droop. + a subtle lateral gesture (anti dead-symmetry).
+  const curveY = (t) => -0.11 * T * Math.sin(Math.PI * t * 0.9) + 0.09 * T * t;
+  const curveX = (t) => 0.05 * T * Math.max(0, t - 0.45) * Math.max(0, t - 0.45);
+  const yAt = (t) => a.y + curveY(t);
   const ringsAt = [];
   for (let i = 0; i <= nSeg; i++) {
     const t = i / nSeg;
-    ringsAt.push({ z: a.z + t * len, rx: r * (1 - t) + 0.015, ry: r * (1 - t) + 0.015, cy: a.y - t * t * 0.14 });
+    const rr = rootR * Math.pow(1 - t * 0.93, 0.7) + 0.012;   // swell-then-taper (concave, fuller mid, thin tip)
+    ringsAt.push({ z: a.z + t * T, rx: rr, ry: rr, cy: yAt(t), cx: curveX(t) });
   }
   group.add(loftRings(ringsAt, M.bodyFlat, seg(6), false));
 
-  // 3–4 bold dorsal fins (swell-then-taper) — not a fine chevron march.
+  // 3–4 BOLD dorsal fins (≈2× local radius, swell-then-taper) beating out the curve's rhythm.
   const fins = Math.round(model.tailFins ?? 4);
   for (let i = 0; i < fins; i++) {
-    const t = (i + 0.5) / fins;
-    const fh = 0.3 * Math.sin(Math.PI * t) + 0.06;
-    const z = a.z + t * len * 0.8, y = a.y - t * 0.22;
-    const fin = flatTriMesh([[[0, y + 0.04, z - 0.14], [0, y + 0.04, z + 0.14], [0, y + 0.04 + fh, z]]], M.gold);
+    const t = 0.15 + 0.6 * (i / Math.max(1, fins - 1));
+    const rr = rootR * Math.pow(1 - t * 0.93, 0.7) + 0.012;
+    const fh = (2.0 * rr + 0.05) * Math.pow(0.82, i);
+    const z = a.z + t * T, y = yAt(t), x = curveX(t);
+    const fin = flatTriMesh([[[x, y + rr, z - rr * 1.2], [x, y + rr, z + rr * 1.2], [x, y + rr + fh, z]]], M.gold);
     group.add(fin);
   }
 
-  // Scepter crescent finial (open ~35°, gap ≥40%) + violet captive star.
-  const tz = a.z + len, ty = a.y - 0.22;
+  // Scepter crescent finial at the RISEN tip (open ~35°, inner gap ≥40%) + violet captive star seated in the gap.
+  const tt = 1, tz = a.z + T, ty = yAt(tt), tx = curveX(tt);
   const bloom = model.crescentBloom ?? 1;
-  const spread = 0.4 + 0.3 * bloom, plen = 0.55 * (0.4 + 0.6 * bloom);
+  const spread = 0.4 + 0.3 * bloom, plen = 0.6 * (0.4 + 0.6 * bloom);
   for (const side of [1, -1]) {
-    const prong = spike(plen, 0.045, 0.008, M.goldHi, 4);
-    prong.position.set(0, ty, tz);
-    prong.rotation.x = -Math.PI / 2 + 0.25; prong.rotation.z = side * spread;
+    const prong = spike(plen, 0.05, 0.008, M.goldHi, 4);
+    prong.position.set(tx, ty, tz);
+    prong.rotation.x = -1.2; prong.rotation.z = side * spread; prong.rotation.y = 0.35;   // roll the plane toward the cam
     group.add(prong);
   }
   if (bloom > 0.4) {
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.07 * bloom, 0), M.gem);
-    star.position.set(0, ty + 0.16, tz + 0.24);
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.075 * bloom, 0), M.gem);
+    star.position.set(tx, ty + plen * 0.5, tz + plen * 0.3);   // inside the prong gap
     group.add(star);
   }
   return { group, segs: [], accentMats: [M.violet, M.gem] };
