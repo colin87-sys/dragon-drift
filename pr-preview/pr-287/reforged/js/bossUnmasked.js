@@ -269,32 +269,9 @@ export function buildUnmasked(def, quality = 1) {
     color: 0x3c3c46, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
   }));
 
-  // ── THE CENTRAL STARBURST — the reference emblem's (IMG_7411) signature: a fine radiant star
-  // BEHIND the central eye, its thin rays poking out through the gaps between the wing roots.
-  // This — NOT a solid backing — is what unifies a radial six-wing emblem: the airy gaps between
-  // the elegant wings are INTENTIONAL (the reference has them); the star at the convergence reads
-  // the whole thing as a deliberate SIGIL, not a spider. A thin-spiked star polygon (alternating
-  // long/short rays), pale gold, tone-mapped so it holds value on both skies, faint. Flat, ~free. ──
-  const burstMat = track(new THREE.MeshBasicMaterial({
-    color: 0xd8b978, transparent: true, opacity: 0.82, depthWrite: false, side: THREE.DoubleSide,
-  }));
-  burstMat.toneMapped = false;   // holds its bright gold on both skies — Fable gate: the reference's starburst is the LOUDEST thing
-  const starburst = (() => {
-    const s = new THREE.Shape();
-    const SPIKES = 10, Rlong = 1.8, Rshort = 1.45, rIn = 0.3;   // ~10 SHORT tapered spikes wrapping the small star-eye (owner r-spec)
-    for (let i = 0; i < SPIKES * 2; i++) {
-      const a = (i / (SPIKES * 2)) * Math.PI * 2 + Math.PI / 2;   // start pointing up
-      const outer = i % 2 === 0 ? (i % 4 === 0 ? Rlong : Rshort) : rIn;  // long/short alternation between the deep notches
-      const x = Math.cos(a) * outer, y = Math.sin(a) * outer;
-      if (i === 0) s.moveTo(x, y); else s.lineTo(x, y);
-    }
-    s.closePath();
-    return s;
-  })();
-  const backing = new THREE.Mesh(new THREE.ShapeGeometry(starburst, 1), burstMat);
-  backing.position.set(0, 0.0, 0.28);               // DEAD CENTRE, behind the central eye / in front of the wing roots
-  backing.name = 'centralStarburst';
-  stage2.add(backing);
+  // ── THE CENTRAL STARBURST is RESERVED FOR STAGE 3 (owner: "use this type of eye for the third
+  // form"). Stage 2 goes back to the ORIGINAL focal almond eye (below) — no radiant star here.
+  // The small-almond + gold-starburst "star-eye" belongs to the unveiling (S3), not this form. ──
 
   // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
   // THE L142 REAL-EYE RECIPE (the bulb killer): CONTRAST, not brightness. Every prior
@@ -397,7 +374,7 @@ export function buildUnmasked(def, quality = 1) {
   // straight down across the centreline). Every wing stays in its own side's hemisphere (shoulder
   // x>0), biased up-and-out; the shoulder-stack is pushed outboard (x≈0.45) to widen the channel.
   const WING_PAIRS = [
-    { key: 'upper',  rotZ: 0.00,  scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.45, y: 0.70 }, rootEye: { x: 0.80, y: 1.39 } },  // φ≈60° — longest, leans out
+    { key: 'upper',  rotZ: -0.12, scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.45, y: 0.35 }, rootEye: { x: 0.95, y: 1.05 } },  // slid DOWN a touch — the top pair sat a bit high vs the others (owner)
     { key: 'upmid',  rotZ: -0.57, scale: 1.52, z: -0.35, phase: 0.7, amp: 0.030, off: { x: 0.45, y: 0.26 }, rootEye: { x: 1.43, y: 0.73 } },  // φ≈27°
     { key: 'middle', rotZ: -0.88, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.45, y: 0.02 }, rootEye: { x: 1.60, y: 0.28 } }, // out, ~horizontal — lifted so it stays DISTINCT from the lowest wing
     { key: 'lower',  rotZ: -1.20, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.42 }, rootEye: { x: 1.48, y: -0.50 } },// out-and-slightly-down (~−25°) — the distinct lowest wing (was overlapping 'middle' → read as 7 wings)
@@ -461,13 +438,11 @@ export function buildUnmasked(def, quality = 1) {
   knot.scale.set(1.05, 1.18, 0.5); knot.position.set(0, 0, -0.28);   // flattened, seated among the wing roots
   knot.name = 'knotBody'; stage2.add(knot);
 
-  // ── THE FOCAL EYE — SMALL, deep, and DARK, nestled among the feathers at the base of the
-  // rising mass. NOT the "body" of the creature (a big pale eye made the wings read as legs on
-  // a spider) — it's a focal a third the old size: a mostly-DARK pupil in a thin dim sclera,
-  // deeper-set, more ominous. Just above the peripheral eyes in size, not a fried egg. ──
-  // A TINY almond JEWEL at the hub (~1/10 the wingspan) — the convergence point of all six
-  // wings, roughly the size of the root eyes (a jewel, NOT a body/head). Was ~5× too big.
-  const GW = 0.44, GH = 0.30, GD = 0.26;  // SMALL almond — eye diameter ≈1/12 of the wingspan (owner r-spec: a star-eye, NOT a big orb)
+  // ── THE FOCAL EYE — the ORIGINAL great almond (owner: "go back to the original eye for this
+  // form"): the L142 real-eye rig at focal scale — pale sclera, gold iris, dark pupil, proud
+  // catchlight. Sized to COVER the wing-root convergence so the central pinch is hidden behind
+  // it (owner: all wings sit behind the eye). It renders in front (z≥0); every wing is at z<0. ──
+  const GW = 0.9, GH = 0.62, GD = 0.36;   // focal almond — big enough to cap the convergence, not a tiny jewel
   const GF = GD;                          // sclera front-face z (center at 0)
   const GEY = 0.0;                        // ON the centreline AT the knot — the single focal, wrapped in the starburst
   const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 10 : 14, lowQ ? 7 : 9), socketMat);
@@ -550,7 +525,7 @@ export function buildUnmasked(def, quality = 1) {
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
   // designed on its own (the owner's directive — get the wing right first, then re-add eyes).
-  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, haloS2, relics, backing, knot];
+  const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, haloS2, relics, knot];
   function setDebugWing(on) {
     stage1.visible = on ? false : (stageN == null || stageN === 1);
     stage2.visible = on ? true : (stageN === 2);
