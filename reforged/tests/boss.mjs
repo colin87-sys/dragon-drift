@@ -335,7 +335,7 @@ for (const key of BOSS_ORDER) {
   // pair gaps must be UNEVEN (anti-gear); the great eye must DOMINATE the peripheral eyes.
   const um = buildBoss(BOSSES.unmasked, 1);
   assert(findAllByName(um.group, 'wheelGimbal0').length === 0, 'unmasked stage-2 wheels are RETIRED (no wheelGimbal)');
-  const wingNames = ['wing_upper_R', 'wing_upper_L', 'wing_middle_R', 'wing_middle_L', 'wing_lower_R', 'wing_lower_L'];
+  const wingNames = ['wing_inner_R', 'wing_inner_L', 'wing_mid_R', 'wing_mid_L', 'wing_outer_R', 'wing_outer_L'];
   const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
   assert(wings.every(Boolean), 'unmasked exposes six wing shoulders (3 mirrored pairs)');
   // UNEVEN pair gaps (anti-gear): adjacent gaps differ from 60° AND from each other by ≥10°.

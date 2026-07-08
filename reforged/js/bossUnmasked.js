@@ -370,10 +370,15 @@ export function buildUnmasked(def, quality = 1) {
   // measured from +Y (up), rotating the wing outward; uneven pair gaps (68°/55°) = anti-
   // gear. Open notch at TOP (upper pair) + BOTTOM (lower pair) → a mandorla, never a wreath
   // or a bird. Length hierarchy: middle longest, upper 0.8×, lower 0.62×. ──
+  // An UPWARD FAN / CREST (the reference silhouette), NOT an even radial asterisk — a radial
+  // ring reads as a star / medallion / ship's-wheel, never an angel. All six wings sweep UP
+  // and OUT of the upper hemisphere from the great eye at the base; the mass is at the top.
+  // Angles from +Y (up): inner pair near-vertical, outer pair to the horizontal "arms".
+  // Gaps 46°/30° (both ≠60°, differ ≥10° — anti-gear).
   const PAIRS = [
-    { key: 'upper',  deg: 24,  lenScale: 0.80, z: -0.45 },   // gaps 72°/50° — both ≠60°, differ ≥10° (anti-gear)
-    { key: 'middle', deg: 96,  lenScale: 1.00, z: 0.0 },     // per-pair z offset gives depth parallax (no rotation.y — keeps handedness clean)
-    { key: 'lower',  deg: 140, lenScale: 0.62, z: 0.35 },   // splayed more down-and-OUT (less of a convergent bird-tail wedge)
+    { key: 'inner', deg: 20, lenScale: 1.00, z: -0.5 },   // near-vertical, longest (the crest)
+    { key: 'mid',   deg: 66, lenScale: 0.92, z: 0.0 },    // up-and-out
+    { key: 'outer', deg: 96, lenScale: 0.76, z: 0.35 },   // the horizontal "arms"
   ];
   const PRIM_LEN = 6.8;
   const TIERS = [
@@ -390,7 +395,7 @@ export function buildUnmasked(def, quality = 1) {
       // mirror incl. the feather curl) at +deg. (rotation.y splay is gone — that was what
       // broke handedness before; per-pair z-offset gives depth instead.) THE ONE SCAR WING
       // (§3.6): the lower-LEFT hangs ~7° further off its mirror.
-      const scar = (pair.key === 'lower' && side < 0) ? 0.12 : 0;
+      const scar = (pair.key === 'outer' && side < 0) ? 0.12 : 0;
       const baseRotZ = side > 0 ? -(pair.deg * Math.PI / 180) : (pair.deg * Math.PI / 180) + scar;
       shoulder.rotation.z = baseRotZ;
       if (side < 0) shoulder.scale.x = -1;
@@ -468,12 +473,14 @@ export function buildUnmasked(def, quality = 1) {
 
   // ── THE HALO — ONE thin gold annulus BEHIND the fan (the sole corona nod), NON-additive,
   // faint, partially occluded by the middle wings crossing it. NO cogs/spokes/second ring. ──
+  // Faint + smaller so the upward wings OVERSHOOT and cross it (a broken, occluded arc — a
+  // saint's halo behind the crest), never a clean gold rim (which read as a ship's wheel).
   const haloS2Mat = track(new THREE.MeshBasicMaterial({
-    color: 0xc9a45a, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide,
+    color: 0xc9a45a, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide,
   }));
-  const HALO_R = 5.2;
-  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.93, HALO_R, lowQ ? 40 : 72), haloS2Mat);
-  haloS2.position.z = -1.4;
+  const HALO_R = 4.2;
+  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.94, HALO_R, lowQ ? 40 : 72), haloS2Mat);
+  haloS2.position.set(0, HALO_R * 0.45, -1.4);   // ride UP behind the crest (a halo over the head, not a rim around the body)
   haloS2.name = 'halo';
   stage2.add(haloS2);
 
