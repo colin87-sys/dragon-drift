@@ -877,6 +877,15 @@ for (const key of BOSS_ORDER) {
   for (let i = 0; i < 30; i++) em.tick(0.05, 4 + i * 0.05);
   assert(Math.abs(faceRig.position.y - arriveY) < 2, `entrance u=1 restores the arrival pose (faceRig y ${faceRig.position.y.toFixed(1)} ≈ ${arriveY.toFixed(1)})`);
   assert(eh.scale.y > arriveOpen - 0.15, `entrance u=1 restores the open hollows (scale.y ${eh.scale.y.toFixed(2)})`);
+  // THE RELEASE CONTRACT: enterFight calls setEntrance(null) (the boss.js release
+  // convention) — null must mean FULLY ARRIVED, never re-submerge. Clamping null
+  // to 0 was the "where did his face go" bug: the fight opened faceless.
+  em.setEntrance(0);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 6 + i * 0.05);
+  em.setEntrance(null);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 8 + i * 0.05);
+  assert(Math.abs(faceRig.position.y - arriveY) < 2, `setEntrance(null) = RELEASED/ARRIVED (faceRig y ${faceRig.position.y.toFixed(1)} ≈ ${arriveY.toFixed(1)} — the fight must open WITH the face)`);
+  assert(eh.scale.y > arriveOpen - 0.15, `setEntrance(null) leaves the hollows open (scale.y ${eh.scale.y.toFixed(2)})`);
 
   // THE LOOM: setLoom(1) grows the face (scale up, capped ≤ +50%) and lifts it a touch.
   const preScale = faceRig.scale.x;
