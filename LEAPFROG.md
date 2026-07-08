@@ -8573,6 +8573,28 @@ lengths (they read a touch matched); keep the recesses clearly darkest at full c
 
 **→ Leapfrog.** Codex P2 ×2 addressed (dispose sweeps `group`+`rig` deduped; `endEncounter` hard-restores the sky for `skyReplace`). A 3rd Codex flag (the `approachFrom:'horizon'` def claiming a "shipped mapping" it doesn't have) was de-lied in the comment and kept as the owner-deferred CP2 item (the dome fills the sky from `active` regardless, so the entry direction is nearly invisible for this boss). Verified after the `origin/master` merge (ef8d7df — ONEWING CP2 + KNELLGRAVE): `boss.mjs` + `defs` + `bossboot` green, forward-flight `rigCamOffset 0`.
 
+### L225 — On-device combat frame is fill-bound (not the synthetic 60fps): a per-run WORST-FRAME tracker + the premium overdraw ceiling
+Continuing L223/L224 (premium build-sheet research). Two instruments disagreed and the disagreement was the lesson.
+The SYNTHETIC `stress.html` (co-resident dragon+boss load, 321 draws / ~26k tris / tier 2 + 8 overdraw shells) held a
+LOCKED 60.0fps p50=p95=17ms on the owner's phone → read as "tons of headroom." The REAL game (`?debug=perf` through
+actual Karnvow spell-card fights, FULL frame = biome + bullets + spectacle + dragon + boss + postfx) told a different
+story: steady ~60 but split-second DIPS to ~39–46fps, `calls 379–440`, `tris 23–44k`. Three facts reconcile them:
+(1) the census/synthetic covered dragon+boss GEOMETRY + postfx fill but NOT the runtime frame — bullets are ONE
+InstancedMesh (+1 draw, additive), sparks cap at VISIBLE_CAP 150 additive sprites, the BIOME is ~half the frame's
+triangles (44k total vs ~21k creatures); (2) it's FILL/overdraw-bound, not tri-bound — the tier-2 frame gave the
+LOWEST fps despite FEWER tris than a 44k tier-1 frame (L124 confirmed on the live game, not just the boss stress);
+(3) the dips were hand-picked worst frames off a SCREEN RECORDING (itself ~10–20% fps cost), so the average is
+genuinely fine — the dips are the p95 spikes. The load-bearing implication for the premium sheets: the law-12 fx
+they add (glow-seams, veined membranes, halos, idle auras) are ALL additive overdraw — the exact axis that's already
+the bottleneck at the dips — so premium richness must PROTECT THE p95 DIP, not just fit the 60fps average: opaque body
++ surface-shader emissive over stacked additive shells, halos/auras few + cheap (pearl already tops the roster at 56
+transparent drawables), budget against the TIER-1 degraded frame where a mid-fight phone actually lives. Built the
+gauge for it: `js/main.js` `?debug=perf` now tracks per-RUN worst frame (`min <fps> @<draws>c/<tris>k`, reset on
+runStart) + p95 frame time, so a dip becomes a measured number, not a guess off a paused recording. All gated behind
+the flag (rawDt is already clamped to 0.05 = a 20fps floor so a backgrounded frame can't poison the min) → game
+byte-identical with the flag off (appshell + smoke green, no console errors; blueprint + tricount green). Lesson: a
+synthetic stress proves the DEVICE'S headroom at a load LEVEL; only the live frame proves the GAME holds — and for an
+overdraw-bound frame, average fps lies, the p95 dip is the budget, so instrument the WORST frame before spending more fill.
 ### L226 — CP2-A "the fight goes bland": an owner's spectacle brainstorm usually maps onto the brief's own unbuilt spec — inventory BOTH before designing anything new, and re-express off-language ideas in the boss's own language
 
 **Did / learned.** Post-ship the owner called EMBERTIDE "a cool concept that gets bland quick" and brainstormed: a better intro, the boss growing, HANDS pressing in from the arena sides (à la Stormrend), per-attack facial expressions, "use the space." Before designing, we inventoried (a) the brief's CP2 spec and (b) the engine's reusable spectacle machinery — and the owner's list mapped ~1:1 onto specced-but-unbuilt items: the intro = the §5j *The Sky Comes Loose* entrance (specced, never built — the def had silently fallen to the default behind-approach); "push the space in" = the specced vertical squeeze + letterbox; "expressions" = the `setAttackTell` hook four bosses already implement. Only "hands" was OFF-language (palm-hands are CRAGHOLD's retired signature; WEFTWITCH wears hands too) — re-expressed in EMBERTIDE's language as THE TIDE CRUSH: the sky's ceiling of light descends (new Y-clamp), the tide-line swells, the letterbox pinches, and the P3 X storm-walls (shipped engine, walls already wear `def.accent` → vermilion) press in from the flanks. The intent (space crushing in) survives; the borrowed limb doesn't.
