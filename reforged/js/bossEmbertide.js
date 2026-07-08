@@ -144,7 +144,17 @@ export function buildEmbertide(def, quality = 1) {
   // The face sits at the FORWARD HORIZON inside the dome (on the fight-direction azimuth
   // -z), scaled large to read at that distance, world-oriented (facing +z toward the
   // camera) so it anchors to the world horizon — a colossal face IN the sky, not a panel.
-  const FACE_DIST = 520, FACE_SCALE = lowQ ? 6.4 : 7.2, FACE_Y = 44;
+  // FACE_SCALE is 3× the r1 size (owner sign-off on the 3× size study): the face now
+  // LOOMS colossal over the skyline — the sky staring you down — while the sunset light
+  // (his body) still surrounds it on all sides (past ~3.5× the darkness starts winning
+  // the figure-ground, so 3× is the legibility ceiling for the RESTING size). Everything
+  // rides faceRig, so the tears + the shield ward scale with it automatically.
+  // FACE_Y is RE-ANCHORED for the 3× size (44→110, owner picked "looms harder"): tripling
+  // the scale about the old anchor dropped the mouth to world ~−94 (low against the
+  // skyline); lifting the base raises the whole face so the mouth clears the spires and it
+  // looms DOWN at the player, crown cropping off the frame top. The sea-fade is a smoothstep
+  // on LOCAL geometry y, so the jaw still dissolves into the tide smoothly at the new height.
+  const FACE_DIST = 520, FACE_SCALE = lowQ ? 19.2 : 21.6, FACE_Y = 110;
   const FACE_Z = -FACE_DIST;   // faceRig base z (the tick surge/death offset from here)
   const EYE_Y = 2.0, EYE_X = 4.2, EYE_Z = 2.6;   // eye-hollow placement (frontal, level, matched, symmetric)
   const faceRig = new THREE.Group();
@@ -552,8 +562,11 @@ export function buildEmbertide(def, quality = 1) {
     // THE LOOM — slow-eased growth toward the phase target (an approach, not a pop).
     loomK += (loomTgt - loomK) * Math.min(1, dt * 0.8);
     const loomE = easeLoom(loomK);
-    faceRig.scale.setScalar(FACE_SCALE * (1 + loomE * 0.5));
-    const loomRise = loomE * 26;                             // keep the bigger chin clear of the sea
+    // THE LOOM — a MODERATE per-phase grow (owner: "loom a moderate amount so it doesn't
+    // get too big"): +20% at the final phase, so from the 3× resting size it crescendos to
+    // ~3.6×, staying clear of the ~5× "wall of darkness" that loses the face gestalt.
+    faceRig.scale.setScalar(FACE_SCALE * (1 + loomE * 0.2));
+    const loomRise = loomE * 40;                             // keep the bigger chin clear of the sea
 
     // Eye-hollows: TEAR OPEN on notice + WIDEN with charge, track the gaze, rare BLINK.
     // The tell families reshape them: FLARE widens further, NARROW squints to slits.
