@@ -267,6 +267,14 @@ const THREAD_CUT_HITS = 3;   // parries to cut the thread (tunable — drop to 2
 let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
 let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
 let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
+// EMBERTIDE BEAM DUEL (§5i.C, def.beamDuel) — the Surge≥50% mechanic: a beam locks and a
+// sideways drift shoves you off the crest line; hold lane-center to win. Inert otherwise.
+let beamDuelT = 0;               // >0 = a duel is live (seconds remaining)
+let beamDuelSide = 1;            // which way the drift shoves this duel
+let beamDuelHeld = 0;            // accrued seconds held at lane-center (win threshold)
+let beamDuelTick = 0;            // graze-payout tick while centered
+let beamDuelCd = 8;              // cooldown between duels
+let beamDuelMesh = null, beamDuelMat = null;   // the locked beam (crest → ship)
 let condHold = 0;            // seconds the swarm stays CONDENSED past its last shot (bridges the ostinato)
 // §5i.B ABSORB-A-COLOR (THRUMSWARM's Calamities graze, def-gated `grazeForm:'absorbColor'`):
 // the swarm SHEDS surge-pink motes braided into the magenta stream; weaving in and SOAKing
@@ -1020,6 +1028,24 @@ export function initBoss(sc) {
   wallL.visible = wallR.visible = false;
   scene.add(wallL); scene.add(wallR);
 
+  // EMBERTIDE BEAM DUEL beam: a bright additive shaft locked from the crest to the ship
+  // during a duel (built once, hidden; only ever shown for def.beamDuel). Unit cylinder
+  // aligned to +Z so it can be stretched between the two live points each frame.
+  {
+    const bg = new THREE.CylinderGeometry(0.34, 0.34, 1, 8, 1, true);
+    bg.rotateX(Math.PI / 2);   // length now runs along local +Z
+    beamDuelMat = new THREE.MeshBasicMaterial({
+      color: 0xff9a6e, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
+    });
+    beamDuelMesh = new THREE.Mesh(bg, beamDuelMat);
+    beamDuelMesh.name = 'beamDuel';
+    beamDuelMesh.renderOrder = TIERS.arenaWall;
+    beamDuelMesh.frustumCulled = false;
+    beamDuelMesh.visible = false;
+    scene.add(beamDuelMesh);
+  }
+
   // §5i.B ABSORB-A-COLOR soak motes: ONE additive Points cloud (surge-pink), parked
   // off-screen until a swarm boss sheds into it. One draw, one additive volume.
   {
@@ -1311,7 +1337,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
-  activeCard = null; cardTimer = 0; horizonPocketX = null;   // spell-card state resets per encounter
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }   // spell-card state resets per encounter
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   activeBand = resolveBand(biomeIndexAt(player.dist));
@@ -1526,7 +1552,7 @@ function endEncounter(player) {
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
-  activeCard = null; cardTimer = 0; horizonPocketX = null;
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
   ui.bossCardClear?.();         // clear the spell-card readout past the fight
   // Carry Dragon Surge OUT of the fight so the player keeps the hyper into the
   // grace band (the kill earns it) — the normal fever visuals take over there.
@@ -2473,6 +2499,61 @@ export function updateBoss(dt, player, time, camera) {
         }
       } else if (beamGrace > 0) { beamGrace -= dt; }
       else { beamHeld = 0; holdTier = 0; }
+    }
+
+    // ---- §5i.C BEAM DUEL (EMBERTIDE's SURGE mechanic, def-gated) — at Surge ≥50% the
+    // tide LOCKS a beam on you: a sideways DRIFT tries to shove you off the crest line
+    // while you HOLD lane-center (fire INTO the crest). Hold long enough and the duel is
+    // WON — a Surge payout + the crest recoils. NOT a parry (audit ED-8: it lives in the
+    // Surge ladder; the amber floor is served by the crossfire/stream carriers). ----
+    if (def.beamDuel) {
+      beamDuelCd -= dt;
+      const surgeFrac = game.feverThreshold > 0 ? game.consecutiveRings / game.feverThreshold : 0;
+      if (beamDuelT <= 0) {
+        // idle → arm when the meter is ≥50% (Surge not already unleashed) + off cooldown
+        if (!game.feverActive && surgeFrac >= 0.5 && beamDuelCd <= 0) {
+          beamDuelT = 3.6; beamDuelHeld = 0; beamDuelTick = 0;
+          beamDuelSide = Math.random() < 0.5 ? 1 : -1;
+          ui.bossNote?.('BEAM DUEL', 'HOLD CENTER — FIRE INTO THE CREST', 'gold', 1.8);
+          model.flash?.(0.5); sfx.phase?.(true, 1);
+        }
+      } else {
+        beamDuelT -= dt;
+        // THE DRIFT — an oscillating sideways shove (amplitude < lateralSpeed 24 so it is
+        // fightable); the player counters with steering to hold the crest line.
+        player.position.x += beamDuelSide * (9 + Math.sin(time * 2.2) * 5) * dt;
+        const centered = Math.abs(player.position.x) < 3.2;
+        if (centered) {
+          beamDuelHeld += dt;
+          beamDuelTick -= dt;
+          if (beamDuelTick <= 0) { bulletGraze(player); emit('beamDuelHold', { held: beamDuelHeld }); beamDuelTick = 0.3; }
+        }
+        if (beamDuelT <= 0) {
+          if (beamDuelHeld >= 1.8) {   // held the crest line long enough → the duel is won
+            for (let i = 0; i < 6; i++) bulletGraze(player);
+            model.flash(0.85); sfx.graze?.(40);
+            ui.bossNote?.('DUEL WON', 'THE CREST RECOILS', 'gold', 1.8);
+            emit('beamDuelWon', { held: beamDuelHeld });
+          } else {
+            ui.bossNote?.('THE DRIFT TOOK YOU', '', 'red', 1.1);
+            emit('beamDuelLost', {});
+          }
+          beamDuelCd = 10;   // a breather before the tide can lock again
+        }
+      }
+      // Drive the locked beam: brighter while you hold center, stretched crest → ship.
+      if (beamDuelMesh) {
+        const tgt = beamDuelT > 0 ? (Math.abs(player.position.x) < 3.2 ? 0.85 : 0.4) : 0;
+        beamDuelMat.opacity += (tgt - beamDuelMat.opacity) * Math.min(1, dt * 6);
+        beamDuelMesh.visible = beamDuelMat.opacity > 0.02;
+        if (beamDuelMesh.visible) {
+          const cx = 0, cy = B.fightHeight + 7, cz = -(player.dist + pose.rel);   // the crest
+          const sx = player.position.x, sy = player.position.y, sz = -player.dist; // the ship
+          beamDuelMesh.position.set((cx + sx) / 2, (cy + sy) / 2, (cz + sz) / 2);
+          beamDuelMesh.lookAt(sx, sy, sz);
+          beamDuelMesh.scale.set(1, 1, Math.hypot(sx - cx, sy - cy, sz - cz));
+        }
+      }
     }
 
     // ---- NO-HIT ADRENALINE LADDER (global §5i.B meta spine) ----
@@ -3793,7 +3874,7 @@ export function resetBoss() {
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
-  activeCard = null; cardTimer = 0; horizonPocketX = null;
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
   ui.bossCardClear?.();
   if (model && model.rig && scene && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky dome
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
