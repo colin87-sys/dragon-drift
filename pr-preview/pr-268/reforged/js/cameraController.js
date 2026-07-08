@@ -304,4 +304,18 @@ export const cameraCtl = {
       camera.updateProjectionMatrix();
     }
   },
+
+  // Project a WORLD position to screen coords in viewBox PERCENT (0..100), for DOM/SVG
+  // overlays that want to anchor on a 3D point (WEFTWITCH's HUD-sew casts from her hands).
+  // The reticle.js `.project(camera)` idiom. `behind` = point is behind the camera (hide
+  // → caller falls back). Reuses the camera reference this controller already holds.
+  worldToScreen(v3, out = {}) {
+    if (!camera) { out.behind = true; return out; }
+    _proj.copy(v3).project(camera);
+    out.x = (_proj.x * 0.5 + 0.5) * 100;
+    out.y = (-_proj.y * 0.5 + 0.5) * 100;
+    out.behind = _proj.z > 1;
+    return out;
+  },
 };
+const _proj = new THREE.Vector3();

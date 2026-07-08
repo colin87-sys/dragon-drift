@@ -1,6 +1,7 @@
 // Validates every track in TRACKS against structural rules.
 // Run with: node tests/tracks.mjs
 import { TRACKS, N } from '../js/tracks.js';
+import { validateForm } from '../js/composer.js';
 
 let pass = 0;
 let fail = 0;
@@ -92,6 +93,11 @@ for (const t of TRACKS) {
   if (t.mix?.trimDb != null) {
     check(`${pfx} trimDb sane (${t.mix.trimDb})`, t.mix.trimDb > -14 && t.mix.trimDb < 6);
   }
+
+  // Song form/sections (optional): structural validity + dynamic range.
+  const formProblems = validateForm(t);
+  for (const p of formProblems) check(p, false);
+  check(`${pfx} form/sections valid`, formProblems.length === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

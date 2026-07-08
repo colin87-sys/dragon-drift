@@ -48,6 +48,10 @@ const isTouch = () =>
   (globalThis.matchMedia && matchMedia('(pointer: coarse)').matches) ||
   'ontouchstart' in globalThis;
 
+// Reduced-motion: skip the animated tear-free/unravel (strip instantly) to match the
+// CSS @media guard. Read once at load (matches how the rest of the HUD gates motion).
+const reduceMotion = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
 const ICONS = {
   ig:   '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.3" fill="currentColor"/></svg>',
   x:    '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M18.9 2H22l-7.6 8.7L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8.1-9.3L1 2h7l4.8 6.3L18.9 2z"/></svg>',
@@ -470,6 +474,19 @@ export const ui = {
           <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 100" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
           <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 100" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
         </svg>
+        <!-- Boost is SEALED in a boss (speed locked). The bar chains + dims rather
+             than vanishing, so the second verb doesn't die silently; a one-time
+             "BOOST SEALED" label fades in on the first boss entry. -->
+        <div class="stamina-seal" id="stamina-seal" aria-hidden="true">
+          <svg class="seal-chain" viewBox="0 0 30 12" preserveAspectRatio="xMidYMid meet">
+            <g fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="1" y="3" width="9.5" height="6" rx="3"/>
+              <rect x="9.75" y="3" width="9.5" height="6" rx="3"/>
+              <rect x="18.5" y="3" width="9.5" height="6" rx="3"/>
+            </g>
+          </svg>
+          <span class="seal-label">BOOST SEALED</span>
+        </div>
       </div>
       <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
       <div class="surge-min" id="surge-widget" data-tier="0">
@@ -479,6 +496,12 @@ export const ui = {
       </div>
       <div class="milestone-banner" id="milestone-banner"></div>
       <div class="danger-glow" id="danger-glow"></div>
+      <!-- §5b WEFTWITCH HUD-SEW: golden threads stitch across the chrome ONCE at her
+           entrance. RENDER-ORDER LAW: bullets live in the WebGL canvas BELOW all DOM,
+           so this overlay must never run during 'fight' — the controller fires it
+           only in the bullet-free warn/approach window and tears it down at
+           enterFight; the TIMING is the layering guarantee. -->
+      <svg class="hud-sew" id="hud-sew" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="boss-warn" id="boss-warn">
         <div class="boss-warn-alert">⚠ WARNING ⚠</div>
         <div class="boss-warn-name" id="boss-warn-name"></div>
@@ -534,6 +557,7 @@ export const ui = {
     document.body.appendChild(root);
     els = {
       staminaArc:   root.querySelector('#stamina-arc'),
+      staminaSeal:  root.querySelector('#stamina-seal'),
       stamSegs:     [root.querySelector('#stam-seg-0'), root.querySelector('#stam-seg-1'), root.querySelector('#stam-seg-2')],
       score:        root.querySelector('#score'),
       chain:        root.querySelector('#chain'),
@@ -541,6 +565,7 @@ export const ui = {
       grazeHud:     root.querySelector('#graze-hud'),
       grazeN:       root.querySelector('#graze-n'),
       bossWarn:     root.querySelector('#boss-warn'),
+      hudSew:       root.querySelector('#hud-sew'),
       bossWarnName: root.querySelector('#boss-warn-name'),
       bossDanger:   root.querySelector('#boss-danger'),
       dangerGlow:   root.querySelector('#danger-glow'),
@@ -893,19 +918,97 @@ export const ui = {
   // Dramatic incoming-boss warning shown across the warn + approach beats: a
   // flashing WARNING, the boss name, and the direction it's coming from, plus a
   // red danger glow on that edge so the player can clear the space.
-  bossWarning(name, title, dir, duration = 3) {
+  bossWarning(name, title, dir, duration = 3, opts = null) {
     if (els.bossWarnName) els.bossWarnName.textContent = name;
     const hide = (el) => el && el.classList.remove('show');
-    if (els.bossWarn) els.bossWarn.classList.add('show');
+    if (els.bossWarn) { els.bossWarn.classList.add('show'); els.bossWarn.classList.remove('pinned'); }
     // Big foreboding DANGER + hazard stripes anchored WHERE the boss emerges, plus
     // a matching directional glow, so the player clears exactly that space.
     if (els.bossDanger) { els.bossDanger.dataset.pos = dir; els.bossDanger.classList.add('show'); }
     if (els.dangerGlow) { els.dangerGlow.dataset.dir = dir; els.dangerGlow.classList.add('show'); }
     clearTimeout(this._bossWarnTO);
-    this._bossWarnTO = setTimeout(() => {
-      hide(els.bossWarn); hide(els.bossDanger); hide(els.dangerGlow);
-    }, duration * 1000);
+    if (opts && opts.pin) {
+      // §5b WEFTWITCH banner-pin (her granted rule-break): the banner is CROSS-
+      // STITCHED in place, half-deployed — no auto-hide. It stays pinned until
+      // bossWarnClear() tears it free (enterFight / skip / resetBoss all clear).
+      this._bossWarnTO = null;
+      els.bossWarn?.classList.add('pinned');
+    } else {
+      this._bossWarnTO = setTimeout(() => {
+        hide(els.bossWarn); hide(els.bossDanger); hide(els.dangerGlow);
+      }, duration * 1000);
+    }
     sfx.milestone?.();
+  },
+
+  // §5b WEFTWITCH: at the entrance LASH a thread cross-stitches the banner name OUT
+  // (legible first — the binding ruling — then defaced). A golden bar draws across the
+  // name (CSS `.stitched`). Idempotent; no-op for a non-pinned banner.
+  bossWarnStitch() {
+    els.bossWarn && els.bossWarn.classList.add('stitched');
+  },
+
+  // Explicit warn-banner clear (the pinned banner's TEAR-FREE). At the fight start the
+  // pinned banner FLINGS up+off (`.tearing`) with deferred DOM removal; a hard teardown
+  // (resetBoss) passes instant=true to strip synchronously (can't wait on a transition).
+  bossWarnClear(instant = false) {
+    clearTimeout(this._bossWarnTO);
+    const strip = () => {
+      for (const el of [els.bossWarn, els.bossDanger, els.dangerGlow]) el && el.classList.remove('show', 'tearing');
+      els.bossWarn && els.bossWarn.classList.remove('pinned', 'stitched');
+    };
+    const pinned = els.bossWarn && els.bossWarn.classList.contains('pinned');
+    if (instant || !pinned || reduceMotion) { strip(); return; }
+    els.bossWarn.classList.add('tearing');                 // fling up + fade (CSS transition)
+    this._bossWarnTO = setTimeout(strip, 560);             // after the tear plays
+  },
+
+  // §5b WEFTWITCH HUD-SEW: build + play the golden stitch threads across the chrome
+  // (SVG stroke-dasharray draw-on — the stamina-arc technique). One shot; the
+  // controller owns WHEN (bullet-free entrance window only) and the teardown.
+  // Cast the golden lace across the HUD chrome. When `origins` (her two projected hand
+  // screen-points, viewBox %) is given, the threads EMANATE FROM HER HANDS and radiate
+  // out to the frame edges (the taut thread she pulls between her hands bursting into the
+  // web) — the `sew-draw` keyframe animates each path from its start, so radiating needs
+  // only the new M-origins. Falls back to the fixed corner lace when unprojectable.
+  hudSew(accentHex = 0xe8c466, origins = null) {
+    const svg = els.hudSew;
+    if (!svg) return;
+    const col = '#' + (accentHex >>> 0).toString(16).padStart(6, '0');
+    let THREADS;
+    if (origins && !origins.behind && Number.isFinite(origins.xL) && Number.isFinite(origins.xR)) {
+      const L = [origins.xL, origins.yL], R = [origins.xR, origins.yR];
+      // eight edge/corner targets; alternate which hand each thread springs from.
+      const TARGETS = [[-4, -4], [50, -7], [104, -4], [-5, 42], [105, 40], [-4, 104], [50, 107], [104, 104]];
+      THREADS = TARGETS.map((t, i) => {
+        const o = (i % 2 === 0) ? L : R;
+        const mx = (o[0] + (t[0] - o[0]) * 0.55 + (i % 2 ? 6 : -6)).toFixed(1);   // a woven kink
+        const my = (o[1] + (t[1] - o[1]) * 0.55 + ((i % 3) - 1) * 4).toFixed(1);
+        return `M ${o[0].toFixed(1)},${o[1].toFixed(1)} L ${mx},${my} L ${t[0]},${t[1]}`;
+      });
+    } else {
+      // fallback: the fixed corner + top-seam lace (resolution-independent viewBox %).
+      THREADS = [
+        'M -2,8 L 18,4 L 34,9 L 52,3', 'M 102,7 L 84,3 L 66,8 L 52,3',
+        'M -2,26 L 10,18 L 26,22', 'M 102,24 L 90,17 L 74,21',
+        'M 30,-2 L 42,12 L 58,6 L 70,-2', 'M -2,88 L 14,94 L 30,90', 'M 102,90 L 86,95 L 70,91',
+      ];
+    }
+    svg.innerHTML = THREADS.map((d, i) => `<path d="${d}" pathLength="100" style="animation-delay:${(i * 0.09).toFixed(2)}s"/>`).join('');
+    svg.style.stroke = col;
+    svg.classList.remove('unravel');
+    svg.classList.add('on');
+  },
+  // The threads UNRAVEL at fight start (reverse the draw-on) then clear; a hard teardown
+  // (resetBoss) passes instant=true to strip synchronously.
+  hudSewClear(instant = false) {
+    const svg = els.hudSew;
+    if (!svg) return;
+    const strip = () => { svg.classList.remove('on', 'unravel'); svg.innerHTML = ''; };
+    if (instant || reduceMotion || !svg.classList.contains('on')) { strip(); return; }
+    svg.classList.add('unravel');                 // reverse sew-draw (dashoffset 0→100)
+    clearTimeout(this._hudSewTO);
+    this._hudSewTO = setTimeout(strip, 620);
   },
 
   // FromSoft-style reveal card: fires once as the fight actually starts (settle
@@ -965,6 +1068,24 @@ export const ui = {
   cinematicHold(on) {
     const hud = els.hud || (typeof document !== 'undefined' && document.getElementById('hud'));
     if (hud) hud.classList.toggle('cine-hold', !!on);
+  },
+  // LETTERBOX (CP2-A, EMBERTIDE's vertical-squeeze re-entrance beat): two bars ease
+  // in from the frame edges and back out — a PULSE, not a mode (boss.js times it).
+  // Elements are created on first use so the shell HTML stays untouched.
+  letterbox(on) {
+    if (typeof document === 'undefined' || !document.body) return;
+    let top = document.getElementById('cinebar-top');
+    if (!top && !on) return;   // never build the bars just to hide them
+    if (!top) {
+      top = document.createElement('div'); top.id = 'cinebar-top'; top.className = 'cinebar cinebar-top';
+      const bot = document.createElement('div'); bot.id = 'cinebar-bot'; bot.className = 'cinebar cinebar-bot';
+      document.body.appendChild(top); document.body.appendChild(bot);
+    }
+    const bot = document.getElementById('cinebar-bot');
+    // Headless shim DOM: stub elements may lack a real classList — skip quietly.
+    if (!top.classList || typeof top.classList.toggle !== 'function') return;
+    top.classList.toggle('on', !!on);
+    if (bot && bot.classList && typeof bot.classList.toggle === 'function') bot.classList.toggle('on', !!on);
   },
   // Capture DEADLINE passed (timer hit 0 before the phase was cleared): mark the
   // timer so the player reads why the card will resolve SURVIVED, not CAPTURE —
@@ -1055,10 +1176,19 @@ export const ui = {
     if (els.bossNote) els.bossNote.classList.remove('show', 'ready');
   },
 
-  // Fade the stamina arc away for a boss (unlimited/locked speed → the bar is
-  // meaningless) and back in after; the boss focus ring draws on in its place.
+  // Boost is SEALED for a boss (speed locked / unlimited → the bar is meaningless).
+  // Instead of silently vanishing — which let the casual's second verb die unnoticed
+  // in every fight — the bar CHAINS and dims so the seal is legible, then restores on
+  // boss exit. A one-time "BOOST SEALED" label fades in on the first sealing.
   staminaBoss(hidden) {
-    if (els.staminaArc) els.staminaArc.classList.toggle('boss-hidden', hidden);
+    if (els.staminaArc) els.staminaArc.classList.toggle('sealed', hidden);
+    if (hidden && els.staminaSeal && !this._sealLabelSeen) {
+      this._sealLabelSeen = true;
+      // Re-flow to (re)start the one-shot fade-in/out CSS animation.
+      els.staminaSeal.classList.remove('show');
+      void els.staminaSeal.offsetWidth;
+      els.staminaSeal.classList.add('show');
+    }
   },
 
   radioPopup(name) {

@@ -18,6 +18,14 @@ const DEFAULTS = {
     // FTUE onboarding one-shots (deepMerge fills these for existing saves).
     seenFirstRoll: false, celebratedFirstSurge: false,
     seenShopIntro: false, seenQuestsIntro: false, seenDailyIntro: false, seenPilotIntro: false,
+    // THE LANCE (lock) layer teach bits (combat-verbs SOP §II.4). aimTaught = V1 (its
+    // own bit — the V1 hint fires independent of V2's unlock); lockTaught/lockCapSeen =
+    // V2 (PR2); snapTaught = V4 (PR4, the perfect-parry brand); focusTaught = V5
+    // (PR5, dead-wires the detector until the drill fires).
+    aimTaught: false, lockTaught: false, lockCapSeen: false, snapTaught: false, focusTaught: false,
+    // V2 access: set permanently on first ENTERING a fight whose def carries lockParts
+    // (slot 4 is the first) — a player stuck on that boss keeps the tool (SOP §I.e).
+    lockUnlocked: false,
   },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
   settings: { qualityOverride: null, modelDetail: null, reticle: true, slowMo: true, glideAssist: false, mouseSteer: true, dev: false },
