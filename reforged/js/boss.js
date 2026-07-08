@@ -893,6 +893,7 @@ const CONSTRICT_HW = 6.5;      // showpiece arena half-width (lab-proven value)
 let arenaHW = CONFIG.laneHalfWidth;
 let arenaTargetHW = CONFIG.laneHalfWidth;
 let wallL = null, wallR = null, wallMat = null;   // translucent storm walls (they take def.accent per fight)
+let wallMatEmber = null;   // EMBERTIDE-only: dark, soft-edged multiply shadow walls (assigned per-fight)
 // VERTICAL squeeze (CP2-A, EMBERTIDE "the sky crushes the lane" — def.skyCrush): the
 // same target+ease+publish+clamp grammar as arenaHW, on the Y ceiling. The FLOOR is
 // never raised (skimming is a core verb — a floor clamp would kill skims); the model's
@@ -990,6 +991,26 @@ export function initBoss(sc) {
     blending: THREE.AdditiveBlending, depthWrite: false,
   });
   const wallGeo = new THREE.PlaneGeometry(90, CONFIG.laneMaxY + 8);
+  // EMBERTIDE re-skin: instead of a glowing additive panel (off-language for a
+  // darkness-in-light boss, and the hard rectangle read as janky — owner catch), his
+  // walls are the sky's DARKNESS pressing in — a MULTIPLY shadow feathered to no-effect
+  // at every edge (uv-based, so no hard rectangle) that deepens with uCloseK as the lane
+  // closes. Multiply + raw ShaderMaterial (not ACES-mapped → the factor reaches the
+  // blender raw, the L228 law). Assigned to wallL/wallR only on EMBERTIDE fights; every
+  // other boss keeps the additive storm wallMat byte-identical (coexist).
+  wallMatEmber = new THREE.ShaderMaterial({
+    uniforms: { uCloseK: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `precision mediump float; varying vec2 vUv; uniform float uCloseK;
+      void main(){
+        vec2 p = vUv * 2.0 - 1.0;
+        float fx = 1.0 - smoothstep(0.45, 1.0, abs(p.x));   // soft depth ends
+        float fy = 1.0 - smoothstep(0.35, 1.0, abs(p.y));   // soft top/bottom (no hard line)
+        float dark = fx * fy * clamp(uCloseK, 0.0, 1.0) * 0.85;
+        gl_FragColor = vec4(vec3(1.0 - dark), 1.0);          // 1 = no effect, →0.15 = deep shadow
+      }`,
+    blending: THREE.MultiplyBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false,
+  });
   wallL = new THREE.Mesh(wallGeo, wallMat);
   wallR = new THREE.Mesh(wallGeo, wallMat);
   wallL.rotation.y = Math.PI / 2;
@@ -1312,10 +1333,17 @@ export function startBossEncounter(player, defOverride) {
   holdTier = 0; holdFlinchDone = false;
   adrenT = 0; adrenRung = 0; adrenHits0 = game.bossHitsTakenRun; adrenPing = 0;
   setGrazeBonus(1); game.adrenGainMult = 1;
-  // Fresh fight = full-width arena; the walls take the boss's accent colour.
+  // Fresh fight = full-width arena; the walls take the boss's accent colour (or, for
+  // EMBERTIDE, the dark shadow re-skin — swap the material and reset it, so a fight
+  // AFTER an EMBERTIDE fight restores the additive storm wall).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
-  if (wallMat) wallMat.color.setHex(def.accent ?? 0x35e0ff);
+  if (wallL) {
+    const ember = def.id === 'embertide' && wallMatEmber;
+    wallL.material = wallR.material = ember ? wallMatEmber : wallMat;
+    if (ember) wallMatEmber.uniforms.uCloseK.value = 0;
+    else wallMat.color.setHex(def.accent ?? 0x35e0ff);
+  }
   if (def.constrictPhase === 0) arenaTargetHW = CONSTRICT_HW;   // constrict from the opener
   // Fresh fight = full-height sky; the crush (def.skyCrush) re-arms per encounter.
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
@@ -1494,7 +1522,7 @@ function endEncounter(player) {
   game.bossArenaHY = null;
   crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
   ui.letterbox?.(false);
-  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
+  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
   activeCard = null; cardTimer = 0;
@@ -1827,15 +1855,19 @@ export function updateBoss(dt, player, time, camera) {
   game.bossArenaHW = narrowed ? arenaHW : null;
   if (wallL) {
     wallL.visible = wallR.visible = narrowed;
+    const emberWalls = wallL.material === wallMatEmber;
     if (narrowed) {
       const wy = (CONFIG.laneMinY + CONFIG.laneMaxY) / 2;
       const wz = -(player.dist + 22);
       wallL.position.set(-arenaHW, wy, wz);
       wallR.position.set(arenaHW, wy, wz);
-      // Fade with how far the walls have come in; a soft pulse keeps them alive.
       const closeK = (CONFIG.laneHalfWidth - arenaHW) / (CONFIG.laneHalfWidth - CONSTRICT_HW);
-      wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
-    } else { wallMat.opacity = 0; }
+      // EMBERTIDE: the darkness deepens as it presses in (no glow, no pulse). Others:
+      // fade the additive storm wall with how far it has come in, a soft pulse alive.
+      if (emberWalls) wallMatEmber.uniforms.uCloseK.value = Math.min(1, closeK);
+      else wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
+    } else if (emberWalls) { wallMatEmber.uniforms.uCloseK.value = 0; }
+    else { wallMat.opacity = 0; }
   }
   // THE SKY CRUSHES THE LANE (CP2-A, def.skyCrush — EMBERTIDE's vertical squeeze):
   // a WAVE, not a mode (owner catch: a persistent clamp read as "I can't go as high
@@ -3734,7 +3766,7 @@ export function resetBoss() {
   game.bossArenaHY = null;
   crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
   ui.letterbox?.(false);
-  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
+  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
   // encounter snaps to the fixed biome offset (§5h — nearest rung to firstAt).
   nextBossDist = debugFirstAt ?? snapBossDist(B.firstAt - CONFIG.biomeLength * 0.35);

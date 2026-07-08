@@ -8644,3 +8644,37 @@ overdraw-bound frame, average fps lies, the p95 dip is the budget, so instrument
 **→ Systematize.** LAW: do not draw a flat, alpha-carrying plane in front of the camera-locked sky dome to make a sky effect — put the effect on the dome's own vertex colours / a uniform material multiply (no edge is possible). For seam hunts: (1) controlled ON/OFF capture of the suspected object with the frame frozen; (2) per-CHANNEL row-average across clear regions, not luma; (3) an independent Fable checkpoint is the arbiter of "does a human see a line," not the luma delta.
 
 **→ Leapfrog.** Verified: controlled ON/OFF blue-scan (step present ↔ gone), the final Fable checkpoint CLEAN at high confidence (face still soft rimless negative-relief; the last candidate step decomposed to a single bullet orb), `boss.mjs` 96 green (the TIDE CRUSH check now asserts the strips stay hidden and the dome dims at a fixed sample phase). The shield-over-face reparent (kit shield Group + shatter shards onto a scaled `faceWard` on `faceRig`) shipped alongside in #288 and passed its own checkpoint (the ward wraps the head, not the station).
+
+### L230 — When a boss feature will be SCALED UP, feather in the FRAGMENT shader, not vertex colours; and re-skin a shared showpiece via an archetype-gated material swap (never a fork of the shared geometry/logic)
+
+**Did / learned.** After EMBERTIDE tripled in size, two things the owner flagged on-phone:
+1. **The eye/mouth tears read as PIXELATED.** They feathered a radial `smoothstep` baked into a coarse
+   `PlaneGeometry(w,h,16,12)` **vertex-colour** grid — Gouraud-interpolated between verts. Smooth at 1×,
+   but 3× magnified the between-vertex facets into visible stair-steps. Bumping tessellation enough to
+   hide it would have cost thousands of tris (over the face budget). Fix: move the exact same
+   `smoothstep(uCoreK, 1.0, length(vUv*2-1))` into a **fragment shader** (a tiny `ShaderMaterial`), so the
+   feather is **resolution-independent** at any scale AND the quad drops to `1×1` (2 tris) — a NET tri
+   SAVING. A raw ShaderMaterial isn't ACES tone-mapped, so the multiply factor reaches the blender raw
+   (the L228 law is satisfied for free; set `toneMapped:false` for intent). Animated by scaling the
+   pivots still works because the shader keys off `vUv` (scale-invariant).
+2. **The lane-constriction side-walls read as janky** — EMBERTIDE reused the SHARED additive "storm walls"
+   (glowing, `def.accent`-tinted, hard rectangular). Fix WITHOUT forking the shared system: build a second
+   material (`wallMatEmber` — a MULTIPLY `ShaderMaterial` that feathers by `vUv` so there's NO hard edge,
+   darkening via a `uCloseK` uniform), and at fight-start ASSIGN it to the shared `wallL/wallR` meshes only
+   when `def.id === 'embertide'`; every other boss gets the additive `wallMat` byte-identical. The shared
+   `wallGeo`, positions, slide/visible logic all stay one implementation — only the *material* is swapped,
+   gated, and restored each fight. Coexist with zero duplicated logic.
+
+**Gotcha.** An edge-on vertical plane at the lane edge projects to little screen area, so a MULTIPLY wall
+darkens less than an ADDITIVE one glows at the same geometry — but it was still plainly visible (the owner
+saw the additive version at the SAME geometry), and the Fable arbiter rated the dark version's intensity
+"strong," so no boost was needed. Confirm read with the checkpoint, don't pre-boost on a hunch.
+
+**→ Systematize.** (1) If a feathered/gradient mesh will EVER be scaled up, compute the gradient per-FRAGMENT
+(UV-space smoothstep in a ShaderMaterial), never per-vertex — vertex-colour feathers are a resolution trap.
+(2) To re-skin a SHARED showpiece for one boss, swap the MATERIAL on the shared meshes behind an archetype/
+id gate and restore it each fight — never fork the shared geometry or update logic (that's how coexist rots).
+
+**→ Leapfrog.** Verified: independent Fable checkpoint MATCH on both — eyes/mouth smooth rimless negative-
+relief with zero blockiness; side-walls dark soft-edged shadow pressing in, no glowing panels/seams, "strong"
+intensity; `boss.mjs` 96 green (storm-wall bosses untouched); tear change is net-negative tris.
