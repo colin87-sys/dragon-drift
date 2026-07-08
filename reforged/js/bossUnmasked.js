@@ -389,11 +389,18 @@ export function buildUnmasked(def, quality = 1) {
   // occludes the one below → reads LAYERED, not flat-splayed. Mirror the whole side via scale.x
   // flip (left tips up-left, right tips up-right). ONE root eye per wing (`rootEye`), placed just
   // OUTBOARD of the knot on the wing membrane (marching up the fan, NOT pooled at the bottom).
+  // FAN ROTATED ~18° OUTWARD about the hub (owner r-spec): the right side clockwise, the left
+  // mirrors it — so a clear VERTICAL CHANNEL of empty space runs up the top-centre AND down the
+  // bottom-centre, with the star-hub sitting ALONE in that channel. Acceptance rule enforced by
+  // the outbound directions φ (≈ 60° + rotZ·57°): topmost φ≈60° (leans AWAY from vertical, ≥15°
+  // clear of straight-up), lowest φ≈−38° (out-and-down, ≥40° clear of straight-down — never
+  // straight down across the centreline). Every wing stays in its own side's hemisphere (shoulder
+  // x>0), biased up-and-out; the shoulder-stack is pushed outboard (x≈0.45) to widen the channel.
   const WING_PAIRS = [
-    { key: 'upper',  rotZ: 0.31,  scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.36, y: 0.72 }, rootEye: { x: 0.42, y: 1.55 } },  // φ≈78° — longest
-    { key: 'upmid',  rotZ: -0.26, scale: 1.52, z: -0.35, phase: 0.7, amp: 0.030, off: { x: 0.31, y: 0.26 }, rootEye: { x: 1.16, y: 1.12 } },  // φ≈45°
-    { key: 'middle', rotZ: -0.84, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.26, y: -0.18 }, rootEye: { x: 1.66, y: 0.34 } }, // φ≈12°
-    { key: 'lower',  rotZ: -1.40, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.21, y: -0.60 }, rootEye: { x: 1.58, y: -0.55 } },// φ≈−20° — droops, shortest
+    { key: 'upper',  rotZ: 0.00,  scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.45, y: 0.70 }, rootEye: { x: 0.80, y: 1.39 } },  // φ≈60° — longest, leans out
+    { key: 'upmid',  rotZ: -0.57, scale: 1.52, z: -0.35, phase: 0.7, amp: 0.030, off: { x: 0.45, y: 0.26 }, rootEye: { x: 1.43, y: 0.73 } },  // φ≈27°
+    { key: 'middle', rotZ: -1.15, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.45, y: -0.16 }, rootEye: { x: 1.59, y: -0.17 } },// φ≈−6° — out
+    { key: 'lower',  rotZ: -1.71, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.56 }, rootEye: { x: 1.26, y: -0.98 } },// φ≈−38° — out-and-down, shortest
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
