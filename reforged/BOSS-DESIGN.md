@@ -315,7 +315,7 @@ safe-lane gates exactly once.
 | 11 | WEFTWITCH | hooded weaver-bust + arena-web (the FIELD is the body, L141) | visibly re-weaves the arena — even the HUD chrome | moth-grey·pale-gold / taut lit lines | above | claimed | **THREAD-CUT → STAGGER** (§5i.C): a taut thread flashes amber pre-fire — cut/parry it staggers her + deletes that laserLance volley |
 | 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused as a HOLE in its chest | ashen grey-rose (cool ~284°, most desaturated of the 11/12/13 triple) · blackened silver · glow-shape = a SEVERED/BROKEN LINE (the snapped bead-thread; designed echo of slot 5's single point, flagged) | behind, NO warning banner (VOICE = the arrhythmic double wing-THUMP heard behind, low register, grief-dimmed — the RUBATO's broken meter as signature noise); Home-biome = PLACELESS (the jump-scare is home-agnostic — BIOME-DESIGN.md) | claimed | GHOST-HALF VOLLEY → PARRY/STAGGER (§5i.C) — the living half is unparryable; the dead twin's ghost volley carries amber, parry reflects + staggers; breaking the fused frame removes the ghost volley but ENRAGES tempo |
 | 13 | EMBERTIDE | frame-wide band/wave (VALUE-INVERTED — the focal is DARKNESS) | face surfacing from a wall of light | vermilion→coral-rose · BRIGHT (sanctioned VALUE-INVERSION, §7b override) / full-frame field | the whole horizon | claimed | **BEAM DUEL (§5i.C) — at Surge ≥50% fire INTO the crest**; BEAM DUEL is 13's SURGE mechanic, NOT a parry (audit ED-8); the amber floor is served by a separate PARRYABLE CREST-LOCK volley (the crossfire/stream carrier) |
-| 14 | THE UNMASKED | eclipse disc → wheels-within-wheels angel | the second sun cracks into an Ophanim: rings of tracking eyes, six scythe-wings, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open | — |
+| 14 | THE UNMASKED | eclipse disc → seraph of eyed wings | the second sun cracks open and unfurls into a six-winged seraph — dark feathered wings studded with tracking eyes around one great eye, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open | — |
 
 ¹ CRAGHOLD (broad bust → palm-eyed hands, moss·bronze) shipped at slot 3 and was RETIRED by
 user verdict after two rebuilds — the concept never escaped "Voidmaw with hands" (LEAPFROG
@@ -412,15 +412,16 @@ ASHTALON P3's amber-tip is the one flagged immediate hotfix). Open slots fill th
   biblically accurate angel). Persistent presence from mid-game once seeded: a SECOND SUN
   with a lidded eye on the horizon of ordinary runs. Stage 1 silhouette: the eclipse disc
   (black disc + white corona — the corona-ring glow-shape is reserved for it from slot 1
-  onward). Stage 2: the disc CRACKS (it made the masks — the Voidmaw rhyme) and unfolds
-  into an OPHANIM — three concentric counter-rotating wheels, gimbal-tilted on different
-  axes (wheels within wheels), every wheel studded with independent white eyes that ALL
-  track you on their own lag; six scythe-wings (slot 3's blade-fan anatomy at doubled
-  scale) unfolding pair by pair; every earlier scar worn as a relic wired to its rails —
+  onward). Stage 2: the disc CRACKS (it made the masks — the Voidmaw rhyme) and unfurls
+  into a SERAPH — **six large dark feathered scythe-wings** (slot 3's blade-fan anatomy at
+  doubled scale) in a radial fan around one GREAT central eye, the wings studded with the
+  proven eye rig ×~20 nestled among the feathers, every eye tracking you on its own lag; a
+  single faint gold halo ring behind (the reserved corona) — NOT wheels/cogs, which read as
+  a machine (owner direction). Every earlier scar worn as a relic wired to the wing-roots —
   horn, snapped feather-blade, chain link, thread spool, bell shard. Stage 3: the wings
-  mantle open and the veiled core unveils. Fights by QUOTING one pattern-era per stage
+  mantle fully open and the veiled core unveils. Fights by QUOTING one pattern-era per stage
   (zero new attack ids — the finale is the tested vocabulary at full power). The reveal
-  hold where every eye on every wheel snaps to the player at once is the screenshot of the
+  hold where every eye across the wings snaps to the player at once is the screenshot of the
   game. Post-defeat: the companion-shard mascot conversion (§8). Leaves exactly one new
   gap for post-game.
 
@@ -1062,14 +1063,22 @@ the def prose — and that back-check surfaced a discrepancy worth recording:
   lift (one sky, never two) + overdraw audit with all three bands + any fever volume.
 - **14 THE UNMASKED** — Stage 1 (seeded mid-game on ordinary runs): fog-exempt black disc
   + white corona ring + one heavy lid, camera-relative like the sky dome (its reserved
-  glow-shape). Stage 2: 3 concentric wheels (torus rails + box spokes) gimbal-tilted on
-  different axes, counter-rotating; 6–8 independent HDR almond eyes PER WHEEL (the proven
-  eye rig ×~20, each with own gaze lag — draws are free, L126); six scythe-wings
-  (Ashtalon kernel ×2 scale) unfolding pair by pair; relics wired to the rails (horn,
-  feather-blade, chain link, thread spool, bell shard). Stage 3: wings mantle open, the
-  veiled core (HDR sphere behind petal shroud — mandala petal kernel) unveils. Dark gold
-  0x181206 / gold rails / white eyes+corona. ~5k tris across stages, staged builds swap
-  via dissolve. NEEDS: horizon-presence system + stage system (§5e).
+  glow-shape). **Stage 2 (SERAPH, not Ophanim — owner direction 2026-07: the "biblically
+  accurate angel" reads as WINGS covered in eyes, never wheels/cogs, which read as a
+  machine):** the disc cracks and **unfurls into a six-winged seraph** — six large DARK
+  feathered scythe-wings (Ashtalon kernel ×2, layered, in a radial vertical fan) around one
+  GREAT central eye (the focal). The proven **eye rig ×~20** (real eyes — dim sclera, big
+  DARK pupil, catchlight, per the L142 eye recipe) nestled among the feathers at the
+  wing-roots/joints, each with own gaze lag (draws are free, L126). The wings stay near-black
+  (§3 dark body — the eyes are the ONLY emissive); a single faint gold HALO ring behind the
+  wings is the sole nod to the corona/reserved glow-shape (NO cogs, NO spokes). Relics wired
+  to the wing-roots (horn, feather-blade, chain link, thread spool, bell shard). Stage 3:
+  wings mantle fully open, the veiled core (HDR sphere behind petal shroud — mandala petal
+  kernel) unveils. **§3b anti-reads for stage 2: NOT a gear/wheel/machine (feathers, never
+  rings+spokes); NOT a bird (the many eyes + radial symmetry + six wings read uncanny-divine,
+  not an eagle); NOT Stormrend's rings.** Dark gold 0x181206 / gold halo+rims / white eyes +
+  corona. ~5k tris across stages, staged builds swap via dissolve. NEEDS: horizon-presence
+  system + stage system (§5e).
   ENTRANCE (§5j *Don't Move*, ZERO camera hijack — 1.2s dilate @0.28 only): one biome early
   a single held choir partial joins the station mix (`getBossEta()`, or cut). Fight start:
   landmark handoff (`secondSun.handoff()`) — the disc hangs huge above the lane; the lane
