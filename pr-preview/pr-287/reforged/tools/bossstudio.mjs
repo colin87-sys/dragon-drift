@@ -112,7 +112,7 @@ const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
   : bossId === 'thrumswarm' ? [...TS_STATES, ...TS_EXTRAS]
   : bossId === 'unmasked' ? [...STATES, ...UM_EXTRAS] : STATES;
 
-const ALL_BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
+const ALL_BGS = ['dark', 'pale', 'sunset', 'white'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies); white = pure-silhouette check
 // Fast-iteration filters: ONLY_STATE=s2idle ONLY_BG=pale,dark renders just those (skips the
 // full 27-sheet sweep during a tight design loop). Unset → the full canonical sweep.
 const ONLY_STATE = (process.env.ONLY_STATE || '').split(',').filter(Boolean);

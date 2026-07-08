@@ -144,7 +144,17 @@ export function buildEmbertide(def, quality = 1) {
   // The face sits at the FORWARD HORIZON inside the dome (on the fight-direction azimuth
   // -z), scaled large to read at that distance, world-oriented (facing +z toward the
   // camera) so it anchors to the world horizon — a colossal face IN the sky, not a panel.
-  const FACE_DIST = 520, FACE_SCALE = lowQ ? 6.4 : 7.2, FACE_Y = 44;
+  // FACE_SCALE is 3× the r1 size (owner sign-off on the 3× size study): the face now
+  // LOOMS colossal over the skyline — the sky staring you down — while the sunset light
+  // (his body) still surrounds it on all sides (past ~3.5× the darkness starts winning
+  // the figure-ground, so 3× is the legibility ceiling for the RESTING size). Everything
+  // rides faceRig, so the tears + the shield ward scale with it automatically.
+  // FACE_Y is RE-ANCHORED for the 3× size (44→110, owner picked "looms harder"): tripling
+  // the scale about the old anchor dropped the mouth to world ~−94 (low against the
+  // skyline); lifting the base raises the whole face so the mouth clears the spires and it
+  // looms DOWN at the player, crown cropping off the frame top. The sea-fade is a smoothstep
+  // on LOCAL geometry y, so the jaw still dissolves into the tide smoothly at the new height.
+  const FACE_DIST = 520, FACE_SCALE = lowQ ? 19.2 : 21.6, FACE_Y = 110;
   const FACE_Z = -FACE_DIST;   // faceRig base z (the tick surge/death offset from here)
   const EYE_Y = 2.0, EYE_X = 4.2, EYE_Z = 2.6;   // eye-hollow placement (frontal, level, matched, symmetric)
   const faceRig = new THREE.Group();
@@ -261,31 +271,33 @@ export function buildEmbertide(def, quality = 1) {
   // of the surrounding shadow instead of sitting on it as hard-edged stickers.
   // toneMapped:false is MANDATORY (L228 — the multiply factor must reach the blender
   // raw, or the quad tiles the sky).
-  const tearMat = track(new THREE.MeshBasicMaterial({
-    vertexColors: true, fog: false, blending: THREE.MultiplyBlending, transparent: true,
-    depthWrite: false, toneMapped: false,
-  }));
-  // A feathered tear quad: pure-black core ellipse (coreK of the extent), dissolving
-  // to no-effect at the rim. Sized so the CORE matches the old opaque almond and the
-  // feather breathes outward from it.
-  function tearDisc(w, h, coreK) {
-    const g = new THREE.PlaneGeometry(w, h, lowQ ? 10 : 16, lowQ ? 8 : 12);
-    const p = g.attributes.position;
-    const c = new Float32Array(p.count * 3);
-    for (let i = 0; i < p.count; i++) {
-      const nx = p.getX(i) / (w / 2), ny = p.getY(i) / (h / 2);
-      const d = Math.sqrt(nx * nx + ny * ny);
-      const m = THREE.MathUtils.smoothstep(d, coreK, 1.0);   // 0 (pure black) core → 1 rim
-      c[i * 3] = m; c[i * 3 + 1] = m; c[i * 3 + 2] = m;      // neutral — the tears are absolute darkness
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
-    return g;
+  // ⚠ PER-FRAGMENT feather (owner catch: "eyes and mouth read as pixelated" at 3×). The
+  // radial smoothstep used to be baked into a coarse 16×12 vertex grid and Gouraud-
+  // interpolated — smooth at 1×, but once the face tripled the grid magnified into
+  // faceted stair-steps. Computing it in the FRAGMENT shader makes the feather
+  // resolution-INDEPENDENT (crisp at 3× and the LOOM peak) AND drops each tear to 2 tris.
+  // Same math: pure-black core of normalized radius uCoreK → 1.0 (no effect) at the rim.
+  // A raw ShaderMaterial is not ACES tone-mapped, so the multiply factor reaches the
+  // blender raw (the L228 law); toneMapped:false is set for intent.
+  const TEAR_VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+  const TEAR_FRAG = `precision mediump float; varying vec2 vUv; uniform float uCoreK;
+    void main(){ vec2 p = vUv * 2.0 - 1.0; float m = smoothstep(uCoreK, 1.0, length(p)); gl_FragColor = vec4(vec3(m), 1.0); }`;
+  function makeTearMat(coreK) {
+    return track(new THREE.ShaderMaterial({
+      uniforms: { uCoreK: { value: coreK } },
+      vertexShader: TEAR_VERT, fragmentShader: TEAR_FRAG,
+      blending: THREE.MultiplyBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false,
+    }));
   }
+  const eyeTearMat = makeTearMat(0.62);    // eyes: core almond footprint 7.6·0.62≈4.7 × 5.0·0.62≈3.1
+  const mouthTearMat = makeTearMat(0.70);  // mouth: core 10.4·0.7≈7.3 × 3.0·0.7≈2.1
+  // A feathered tear quad — just a plane; the feather is per-fragment (see makeTearMat),
+  // so 1 segment is enough and the darkness is smooth at any scale. The core keeps the
+  // agreed almond footprint; the feather breathes ~1.4 units beyond it into the shadow.
+  function tearDisc(w, h) { return new THREE.PlaneGeometry(w, h, 1, 1); }
   function makeHollow(sx, name) {
     const pv = new THREE.Object3D(); pv.name = name; pv.position.set(sx * EYE_X, EYE_Y, EYE_Z);
-    // Old opaque almond was 4.8×3.2 — the 0-core keeps that footprint (7.6·0.62≈4.7,
-    // 5.0·0.62≈3.1) and the feather breathes ~1.4 units beyond it on every side.
-    const m = new THREE.Mesh(tearDisc(7.6, 5.0, 0.62), tearMat); m.renderOrder = 5;
+    const m = new THREE.Mesh(tearDisc(7.6, 5.0), eyeTearMat); m.renderOrder = 5;
     pv.add(m); faceRig.add(pv); return pv;
   }
   const eyeHollow0 = makeHollow(-1, 'eyeHollow0');
@@ -293,8 +305,7 @@ export function buildEmbertide(def, quality = 1) {
 
   const mouthPivot = new THREE.Object3D(); mouthPivot.name = 'mouthNotch'; mouthPivot.position.set(0, -6.4, 2.6);
   {
-    // Old opaque mouth was 7.2×2.0 — core 10.4·0.7≈7.3, 3.0·0.7≈2.1 ✓ same darkness.
-    const m = new THREE.Mesh(tearDisc(10.4, 3.0, 0.70), tearMat); m.renderOrder = 5;
+    const m = new THREE.Mesh(tearDisc(10.4, 3.0), mouthTearMat); m.renderOrder = 5;
     mouthPivot.add(m);
   }
   faceRig.add(mouthPivot);
@@ -552,8 +563,11 @@ export function buildEmbertide(def, quality = 1) {
     // THE LOOM — slow-eased growth toward the phase target (an approach, not a pop).
     loomK += (loomTgt - loomK) * Math.min(1, dt * 0.8);
     const loomE = easeLoom(loomK);
-    faceRig.scale.setScalar(FACE_SCALE * (1 + loomE * 0.5));
-    const loomRise = loomE * 26;                             // keep the bigger chin clear of the sea
+    // THE LOOM — a MODERATE per-phase grow (owner: "loom a moderate amount so it doesn't
+    // get too big"): +20% at the final phase, so from the 3× resting size it crescendos to
+    // ~3.6×, staying clear of the ~5× "wall of darkness" that loses the face gestalt.
+    faceRig.scale.setScalar(FACE_SCALE * (1 + loomE * 0.2));
+    const loomRise = loomE * 40;                             // keep the bigger chin clear of the sea
 
     // Eye-hollows: TEAR OPEN on notice + WIDEN with charge, track the gaze, rare BLINK.
     // The tell families reshape them: FLARE widens further, NARROW squints to slits.

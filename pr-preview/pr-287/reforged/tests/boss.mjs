@@ -82,7 +82,7 @@ for (const key of BOSS_ORDER) {
     prev = ph.atFrac;
     assert(Array.isArray(ph.attacks) && ph.attacks.length > 0, `${key} phase has attacks`);
     for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
-      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'].includes(a), `${key} attack '${a}' is known`);
+      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'crestfall'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
   }
   // Spell cards (§5f/§5h): optional (coexist rule), but if present they must
@@ -335,19 +335,18 @@ for (const key of BOSS_ORDER) {
   // pair gaps must be UNEVEN (anti-gear); the great eye must DOMINATE the peripheral eyes.
   const um = buildBoss(BOSSES.unmasked, 1);
   assert(findAllByName(um.group, 'wheelGimbal0').length === 0, 'unmasked stage-2 wheels are RETIRED (no wheelGimbal)');
-  const wingNames = ['wing_inner_R', 'wing_inner_L', 'wing_mid_R', 'wing_mid_L', 'wing_outer_R', 'wing_outer_L'];
+  // SIX wings as THREE MIRROR PAIRS (upper/middle/lower), built from the merged angel wing.
+  const wingNames = ['wing_upper_R', 'wing_upper_L', 'wing_middle_R', 'wing_middle_L', 'wing_lower_R', 'wing_lower_L'];
   const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
-  assert(wings.every(Boolean), 'unmasked exposes six wing shoulders (3 mirrored bent pairs)');
+  assert(wings.every(Boolean), 'unmasked exposes six wings (three mirror pairs)');
   um.group.updateMatrixWorld(true);
-  // UPWARD CREST (not a radial asterisk / moth-spread): the wing mass rises well ABOVE the
-  // great eye. Every wing's bounding box must top out clearly higher than the eye's top, and
-  // the eye must sit at the BOTTOM of the whole crest (the anchor, never crossed).
-  const gEye = findAllByName(um.group, 'greatEye')[0];
-  const eyeBox = new THREE.Box3().setFromObject(gEye);
-  const wingsBox = new THREE.Box3();
-  for (const w of wings) wingsBox.expandByObject(w);
-  assert(wingsBox.max.y > eyeBox.max.y + 1.5, `unmasked wings rise above the great eye (wings top ${wingsBox.max.y.toFixed(1)} > eye top ${eyeBox.max.y.toFixed(1)}) — an upward crest`);
-  assert(eyeBox.min.y <= wingsBox.min.y + 0.5, `unmasked great eye anchors the BASE of the crest (eye bottom ${eyeBox.min.y.toFixed(1)} ≤ wings bottom)`);
+  // BILATERAL, NEVER RADIAL (radial read as a wheel — the original failure): each pair's L
+  // wing mirrors its R via a scale.x flip, and the two roots sit on opposite sides of centre.
+  for (const key of ['upper', 'middle', 'lower']) {
+    const R = findAllByName(um.group, `wing_${key}_R`)[0], L = findAllByName(um.group, `wing_${key}_L`)[0];
+    assert(Math.sign(R.scale.x) !== Math.sign(L.scale.x), `unmasked ${key} pair is bilaterally MIRRORED (scale.x flip, not radial)`);
+    assert(Math.sign(R.position.x) !== Math.sign(L.position.x), `unmasked ${key} pair roots on opposite sides of the centreline`);
+  }
   // THE GREAT CENTRAL EYE dominates (§ ≥~4× the largest peripheral, whose sclera ≈1.9u wide).
   const great = findAllByName(um.group, 'greatEye')[0];
   assert(great, 'unmasked exposes the great central eye');
@@ -935,12 +934,13 @@ for (const key of BOSS_ORDER) {
   assert(Math.abs(faceRig.position.y - arriveY) < 2, `setEntrance(null) = RELEASED/ARRIVED (faceRig y ${faceRig.position.y.toFixed(1)} ≈ ${arriveY.toFixed(1)} — the fight must open WITH the face)`);
   assert(eh.scale.y > arriveOpen - 0.15, `setEntrance(null) leaves the hollows open (scale.y ${eh.scale.y.toFixed(2)})`);
 
-  // THE LOOM: setLoom(1) grows the face (scale up, capped ≤ +50%) and lifts it a touch.
+  // THE LOOM: setLoom(1) grows the face a MODERATE amount (owner tune: from the 3× resting
+  // size, crescendo to ~3.6× — never the ~5× wall-of-dark that loses the face gestalt).
   const preScale = faceRig.scale.x;
   em.setLoom(1);
   for (let i = 0; i < 90; i++) em.tick(0.05, 8 + i * 0.05);   // slow ease — give it room
-  assert(faceRig.scale.x > preScale * 1.25, `THE LOOM grows the face (scale ${faceRig.scale.x.toFixed(2)} > ${(preScale * 1.25).toFixed(2)} — the per-phase surfacing)`);
-  assert(faceRig.scale.x <= preScale * 1.55, `THE LOOM is CAPPED (+50% legibility guard; got ×${(faceRig.scale.x / preScale).toFixed(2)})`);
+  assert(faceRig.scale.x > preScale * 1.1, `THE LOOM grows the face (scale ${faceRig.scale.x.toFixed(2)} > ${(preScale * 1.1).toFixed(2)} — the per-phase surfacing)`);
+  assert(faceRig.scale.x <= preScale * 1.3, `THE LOOM stays MODERATE (≤ +30% legibility guard; got ×${(faceRig.scale.x / preScale).toFixed(2)})`);
   em.setLoom(0);
 
   // THE TIDE CRUSH: setCrush(1) DIMS the whole dome (the light recedes as it crushes

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './util.js';
 import { createBossCommon, stripForMerge } from './bossKit.js';
+import { buildAngelWing } from './angelWing.js';   // the owner's merged, signed-off angel wing (do NOT rebuild)
 
 // THE UNMASKED — slot 14, the APEX / FINALE (BOSS-DESIGN.md §5b row 14, §5c APEX).
 // "The second sun that cracks open into a biblically-accurate angel." Three STAGES
@@ -257,97 +258,16 @@ export function buildUnmasked(def, quality = 1) {
     return g;
   };
 
-  // ── FEATHER MATERIALS — near-black, matte; ±value steps by TIER (depth via value, not
-  // light — the sun is ahead so front faces get no directional shading). A3 darken. ──
-  // DoubleSide: left wings mirror via scale.x=-1 (which inverts normals) — DoubleSide
-  // avoids the inverted-normal blackout (the Ashtalon precedent).
-  // Separated dark VALUES per tier (depth by value, since the sun is ahead → no directional
-  // shading): primaries darkest at the back, coverts lightest at the front — layered feathers
-  // read even at fight distance instead of one flat black slab.
-  const primFeatherMat = track(new THREE.MeshStandardMaterial({ color: 0x070707, roughness: 1.0, metalness: 0.0, flatShading: true, side: THREE.DoubleSide }));
-  const secFeatherMat = track(new THREE.MeshStandardMaterial({ color: 0x16130d, roughness: 1.0, metalness: 0.0, flatShading: true, side: THREE.DoubleSide }));
-  const covFeatherMat = track(new THREE.MeshStandardMaterial({ color: 0x272013, roughness: 1.0, metalness: 0.0, flatShading: true, side: THREE.DoubleSide }));
-  const wingRootMat = track(new THREE.MeshStandardMaterial({ color: 0x0c0a06, roughness: 1.0, metalness: 0.0, flatShading: true, side: THREE.DoubleSide }));
-
-  // ── FEATHER KERNEL — the Ashtalon blade-extrude TECHNIQUE only, softened from a scythe
-  // hook toward a straighter S taper (a quill, not a sickle). Blade + a raised central rib
-  // (the rachis) merged on one material. ──
-  // No bevel: the feathers are near-black + front-lit (the sun is ahead) so a bevel would
-  // add tris for zero visible shading. The raised rib (rachis) carries the relief instead.
-  const bladeExtrude = { depth: 0.09, bevelEnabled: false, steps: 1, curveSegments: lowQ ? 3 : 4 };
-  // A CURVED feather (a scythe-soft plume) with a ROUNDED barb tip (not a sharp serrated
-  // spike — the reference has soft feather ends). The tip curls to +X so, laid in a comb,
-  // the wing reads as curved plumage, not straight rays.
-  const featherShape = (len, w, curl = 0.28) => {
-    const cx = len * curl;   // tip drift (the curl)
-    const s = new THREE.Shape();
-    s.moveTo(0, 0);
-    s.quadraticCurveTo(w * 0.66, len * 0.44, w * 0.30 + cx * 0.7, len * 0.82);   // leading edge, broad belly, curling
-    s.quadraticCurveTo(w * 0.12 + cx, len * 0.995, cx - w * 0.05, len);          // ROUNDED crown (a soft arc, not a point)
-    s.quadraticCurveTo(-w * 0.30 + cx * 0.5, len * 0.80, -w * 0.5, len * 0.4);    // trailing edge, broad
-    s.quadraticCurveTo(-w * 0.5, len * 0.16, 0, 0);                              // trailing to the root
-    return s;
-  };
-  const addFeather = (parts, len, w, rot, px, py, pz, curl = 0.28, withRib = true) => {
-    const m = new THREE.Matrix4().makeRotationZ(rot);
-    m.setPosition(px, py, pz);
-    const blade = stripForMerge(new THREE.ExtrudeGeometry(featherShape(len, w, curl), bladeExtrude));
-    blade.applyMatrix4(m); parts.push(blade);
-    if (withRib) {   // the raised rachis — only the big primaries need it (tri budget)
-      const rib = stripForMerge(new THREE.BoxGeometry(Math.max(0.05, w * 0.13), len * 0.6, 0.09));
-      rib.translate(0, len * 0.34, 0.055);
-      rib.applyMatrix4(m); parts.push(rib);
-    }
-  };
-  // A BENT ("L" / obtuse) WING — the reference structure. An ARM extends OUT from the eye at
-  // armDeg (from vertical), then the hand BENDS UP at the shallower handDeg: the feathers rise
-  // from a wrist held AWAY from the eye, which (a) gives the eye breathing room and (b) leaves
-  // space to LAYER wings behind each other. COVERTS hug the arm root→wrist; PRIMARIES are the
-  // long flight feathers fanning off the hand, rising; SECONDARIES layer under them. Built in
-  // wing-local space (+X = out, +Y = up); the shoulder mirrors the L via scale.x = -1.
-  const addBentWing = (prim, sec, cov, armDeg, armLen, handDeg, handLen, lenScale) => {
-    const aA = armDeg * Math.PI / 180, hA = handDeg * Math.PI / 180;
-    const Bx = Math.sin(aA) * armLen, By = Math.cos(aA) * armLen;   // the bend (wrist)
-    const hdx = Math.sin(hA), hdy = Math.cos(hA);                   // hand direction (up-ish)
-    const ARM_FRAC = 0.3;
-    // A point on the LEADING EDGE (arm root→wrist, then wrist→tip up the hand) at u∈[0,1].
-    const edgePt = (u) => {
-      if (u < ARM_FRAC) { const s = u / ARM_FRAC; return [Bx * s, By * s, aA]; }
-      const s = (u - ARM_FRAC) / (1 - ARM_FRAC); return [Bx + hdx * s * handLen, By + hdy * s * handLen, hA];
-    };
-    // PRIMARIES — long, SLENDER flight feathers marching along the leading edge, FANNED from
-    // near-vertical at the root to swept-out at the tip; length peaks in the outer third then
-    // tapers at the very tip. Slender + a clear length gradient = distinct feathers, not a slab.
-    const nP = lowQ ? 10 : 14;
-    for (let i = 0; i < nP; i++) {
-      const u = i / (nP - 1);
-      const [px, py] = edgePt(u);
-      const rot = 0.28 + u * 0.62;                                  // TIGHT coherent sweep (root up → tip out), not a wide ragged fan
-      const len = lenScale * (2.6 + u * 6.4) * (1 - 0.18 * u);      // longest toward the wingtip, slight taper at the very end (a sickle, not a leaf)
-      const w = 0.78 * (0.85 + u * 0.35);
-      addFeather(prim, len, w, rot, px, py, -0.5 + i * 0.05, 0.44); // strong curl → curved plumage
-    }
-    // SECONDARIES — a half-pitch layer filling the gaps, ~65% length, just behind the primaries.
-    const nS = lowQ ? 8 : 12;
-    for (let i = 0; i < nS; i++) {
-      const u = (i + 0.5) / nS;
-      const [px, py] = edgePt(u * 0.92);
-      const rot = 0.24 + u * 0.6;
-      const len = lenScale * (1.8 + u * 4.0) * (1 - 0.15 * u);
-      addFeather(sec, len, 0.62, rot, px, py, -0.12 + i * 0.04, 0.42, false);
-    }
-    // COVERTS — a short SMOOTH top layer hugging the leading edge over the inner ~65% (the
-    // shoulder) → gives the wing a clean leading edge instead of an all-jagged outline.
-    const nC = lowQ ? 5 : 8;
-    for (let i = 0; i < nC; i++) {
-      const u = i / (nC - 1);
-      const [px, py] = edgePt(u * 0.65);
-      const rot = 0.2 + u * 0.5;
-      const len = lenScale * (1.2 + u * 2.3);
-      addFeather(cov, len, 0.62, rot, px, py, 0.36 + i * 0.04, 0.36, false);
-    }
-    return { Bx, By, hdx, hdy, handLen };   // for eye placement on the hand
-  };
+  // ── FEATHER MATERIAL — ONE tracked NEAR-BLACK material, passed into every buildAngelWing
+  // call so ALL SIX wings share it: the eyes are the ONLY emissive family, the feathers match
+  // the dark body, and dissolve is shared/safe (kit.track). The wing geometry itself is the
+  // owner's merged, signed-off js/angelWing.js — NOT rebuilt here. ──
+  // Near-black, but lifted JUST above the dark fight sky (~0x0d1117) so each wing's silhouette
+  // reads — pure black vanished on black and the six wings read as spider-legs (Fable gate).
+  // Still the darkest thing but the eyes; a value step, NOT emissive.
+  const featherMat = track(new THREE.MeshStandardMaterial({
+    color: 0x24242c, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
+  }));
 
   // ── ~20 TRACKING EYES — THE IDENTITY ("a thing covered in eyes") + the screenshot.
   // THE L142 REAL-EYE RECIPE (the bulb killer): CONTRAST, not brightness. Every prior
@@ -375,24 +295,25 @@ export function buildUnmasked(def, quality = 1) {
   catchMat.color.multiplyScalar(2.4);
   const sockets = [], sclerae = [], irises = [], catchlights = [], pupils = [];
   const eyePlace = (local, size) => {
-    // socket (thin recessed rim, pushed back — just enough to seat the eye)
-    const sk = new THREE.SphereGeometry(size * 1.1, lowQ ? 8 : 12, lowQ ? 6 : 8);
+    // socket (thin recessed rim, pushed back — just enough to seat the eye). Lean segment
+    // counts: the eyes are small at fight distance + there are ~20 of them (tri budget).
+    const sk = new THREE.SphereGeometry(size * 1.1, lowQ ? 6 : 9, lowQ ? 4 : 6);
     sk.scale(1.2, 0.96, 0.34); sk.translate(local.x, local.y, local.z - size * 0.22);
     sockets.push(stripForMerge(sk));
     // sclera (flattened PALE eyeball)
-    const sc = new THREE.SphereGeometry(size, lowQ ? 8 : 12, lowQ ? 6 : 9);
+    const sc = new THREE.SphereGeometry(size, lowQ ? 7 : 10, lowQ ? 5 : 7);
     sc.scale(1.22, 0.9, 0.45); sc.translate(local.x, local.y, local.z);
     sclerae.push(stripForMerge(sc));
     // iris (a dim gold ring showing around the pupil, on the pale sclera)
-    const ir = new THREE.CircleGeometry(size * 0.58, lowQ ? 12 : 18);
+    const ir = new THREE.CircleGeometry(size * 0.58, lowQ ? 9 : 13);
     ir.translate(local.x, local.y, local.z + size * 0.3);
     irises.push(stripForMerge(ir));
     // catchlight (small proud glint, up-left) — sits where the pupil rests at the snap
-    const cl = new THREE.SphereGeometry(size * 0.1, 6, 6);
+    const cl = new THREE.SphereGeometry(size * 0.1, 5, 4);
     cl.translate(local.x - size * 0.28, local.y + size * 0.32, local.z + size * 0.6);
     catchlights.push(stripForMerge(cl));
     // pupil (tracks; smaller so the eyeball reads around it — not a hole)
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(size * 0.5, lowQ ? 8 : 10, 8), s2pupilMat);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(size * 0.5, lowQ ? 6 : 8, lowQ ? 5 : 6), s2pupilMat);
     pupil.scale.set(1, 1, 0.55);
     const bx = (rnd() - 0.5) * 0.55, by = (rnd() - 0.5) * 0.45;
     pupil.userData = { base: local.clone(), size, biasX: bx, biasY: by, lag: 0.2 + rnd() * 0.6, gx: bx, gy: by };
@@ -400,25 +321,20 @@ export function buildUnmasked(def, quality = 1) {
     stage2.add(pupil);
     pupils.push(pupil);
   };
-  // ── THE SIX WINGS — 3 mirrored BENT pairs (the reference structure). Each wing's ARM
-  // reaches OUT from the eye crown, then the hand BENDS UP so the feathers rise from a wrist
-  // held away from the eye: inner = a short near-vertical crest, outer = a long arm reaching
-  // to the side then bending up (the big outstretched wing). All feathers ultimately RISE, so
-  // the silhouette is a bilateral upward crest; the bent arms give the eye room + let the
-  // wings LAYER behind each other. Roots seated ABOVE the great eye; z + tiltX give depth. ──
-  const WING_ROOT_Y = 1.5;    // roots at the great-eye crown → wings + eyes rise ABOVE it (not a skirt)
-  // SHORT arm reach (just enough offset to give the eye room — a horizontal arm read as a
-  // spider leg), then the hand sweeps UP-AND-OUT at a DIAGONAL (28°/46°/56° from vertical =
-  // a fan, not vertical headdress spikes). The wing RISES far more than it reaches; every
-  // feather tip clears the great-eye midline.
-  const WINGS = [
-    { key: 'inner', armDeg: 32, armLen: 1.1, handDeg: 28, handLen: 7.4, lenScale: 1.00, z: -1.7, tiltX: 0.22 },   // the crest peak — grown TALLER so the wings dominate the upper half
-    { key: 'mid',   armDeg: 56, armLen: 1.6, handDeg: 46, handLen: 6.8, lenScale: 1.00, z: -1.1, tiltX: 0.02 },   // the diagonal fan
-    { key: 'outer', armDeg: 76, armLen: 2.3, handDeg: 56, handLen: 6.0, lenScale: 0.92, z: -0.5, tiltX: -0.22 },  // the widest wing (up-out, still well above horizontal)
+  // ── THE SIX WINGS — three MIRROR PAIRS of the owner's merged angel wing (buildAngelWing),
+  // rooted near the central eye: UPPER pair swept UP, MIDDLE pair swept OUT (largest), LOWER
+  // pair swept DOWN — the canonical seraph six (§5b/§5d). BILATERAL mirror via scale.x=-1,
+  // NEVER radial (a radial ring read as a wheel — the original failure). The wing is built in
+  // its own XY plane sweeping up-and-out; each pair's shoulder pivot rotates it to its sweep
+  // and roots it beside the eye. ──
+  const WING_PAIRS = [
+    { key: 'upper',  rotZ: 0.46, scale: 0.98, root: { x: 0.5, y: 1.4 }, z: -1.6, phase: 0.0, amp: 0.030 },   // swept UP
+    { key: 'middle', rotZ: -0.52, scale: 1.20, root: { x: 0.9, y: 0.3 }, z: -1.0, phase: 1.1, amp: 0.038 },  // swept OUT — the largest
+    { key: 'lower',  rotZ: -1.30, scale: 0.86, root: { x: 0.6, y: -0.7 }, z: -0.4, phase: 2.2, amp: 0.032 }, // swept DOWN
   ];
   const shoulders = [];
-  // DE-CLUMP: no two eye SCLERAS may overlap at front-on (the figure-8 / double-pupil blobs
-  // read as rendering bugs). Nudge each new eye out of any earlier eye it overlaps IN THE SAME
+  // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
+  // as a rendering bug). Nudge each new eye out of any earlier eye it overlaps IN THE SAME
   // Z-BAND (eyes at clearly different depths may overlap — they read as stacked, not fused).
   const placedEyes = [];
   const declump = (pos, r) => {
@@ -439,47 +355,41 @@ export function buildUnmasked(def, quality = 1) {
     placedEyes.push({ x: pos.x, y: pos.y, z: pos.z, r });
     return pos;
   };
-  for (let wi = 0; wi < WINGS.length; wi++) {
-    const W = WINGS[wi];
+  const _pv = new THREE.Vector3();
+  for (const P of WING_PAIRS) {
     for (const side of [1, -1]) {
-      const shoulder = new THREE.Object3D();
-      // The arm angle is baked into the geometry; the LEFT wing mirrors via scale.x=-1. THE
-      // ONE SCAR WING (§3.6): the outer-LEFT hangs a touch off its mirror. Breathing sways rot.z.
-      const scar = (W.key === 'outer' && side < 0) ? 0.1 : 0;
-      const baseRotZ = scar;
-      shoulder.rotation.z = baseRotZ;
-      shoulder.rotation.x = W.tiltX;      // depth tilt (Y-Z plane — unaffected by the scale.x mirror)
-      if (side < 0) shoulder.scale.x = -1;
-      shoulder.position.set(0, WING_ROOT_Y, W.z);
-      shoulder.name = `wing_${W.key}_${side > 0 ? 'R' : 'L'}`;
-      const prim = [], sec = [], cov = [];
-      const hand = addBentWing(prim, sec, cov, W.armDeg, W.armLen, W.handDeg, W.handLen, W.lenScale);
-      // small arm root plate (the solid inner wing) at the shoulder, along the arm
-      const rootGeo = stripForMerge(new THREE.ExtrudeGeometry(featherShape(W.armLen * 0.9, 1.0), { ...bladeExtrude, depth: 0.16 }));
-      rootGeo.rotateZ(W.armDeg * Math.PI / 180 * 0.6);
-      cov.push(rootGeo);
-      const primMesh = new THREE.Mesh(mergeParts(prim, `${shoulder.name}_prim`), primFeatherMat); primMesh.name = `${shoulder.name}_prim`; shoulder.add(primMesh);
-      const secMesh = new THREE.Mesh(mergeParts(sec, `${shoulder.name}_sec`), secFeatherMat); secMesh.name = `${shoulder.name}_sec`; shoulder.add(secMesh);
-      const covMesh = new THREE.Mesh(mergeParts(cov, `${shoulder.name}_cov`), covFeatherMat); covMesh.name = `${shoulder.name}_cov`; shoulder.add(covMesh);
-      stage2.add(shoulder);
-      shoulder.updateMatrix();
-      shoulders.push({ obj: shoulder, baseRotZ, phase: wi * 1.3 + (side < 0 ? 0.7 : 0), amp: 0.045 + wi * 0.012 });
-      // 3 EYES per wing ON THE HAND (the rising primaries) — away from the great eye, z-staggered
-      // so any overlap reads as stacked eyes, never a fused blob. local→world, face camera.
-      const eyeSizes = [0.56, 0.44, 0.34];
+      const pivot = new THREE.Object3D();
+      pivot.name = `wing_${P.key}_${side > 0 ? 'R' : 'L'}`;
+      // THE ONE SCAR WING (§3.6): the lower-LEFT hangs a touch off its mirror.
+      const scar = (P.key === 'lower' && side < 0) ? 0.09 : 0;
+      const baseRotZ = (side > 0 ? P.rotZ : -P.rotZ) + (side < 0 ? scar : 0);
+      pivot.rotation.z = baseRotZ;
+      pivot.scale.set(side > 0 ? P.scale : -P.scale, P.scale, P.scale);   // bilateral mirror (scale.x flip)
+      pivot.position.set(side > 0 ? P.root.x : -P.root.x, P.root.y, P.z);
+      // Wings built at REDUCED quality (×6 full-detail wings blow the tier-5 tri budget;
+      // near-black silhouettes at 30m don't need the 18-seg bevelled feather curves). The
+      // ×0.45 scales the feather curve segments down (and with boss quality → q0.5 halves again).
+      pivot.add(buildAngelWing({ quality: quality * 0.45, material: featherMat }).group);
+      stage2.add(pivot);
+      pivot.updateMatrix();
+      shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp });
+      // EYES nestled at the wing ROOTS / JOINTS (up the arm toward the wrist), 3 per wing, in
+      // wing-local space → transformed to stage2 by the pivot matrix (so they ride the wing).
+      // z-staggered + de-clumped so no two scleras fuse at front-on.
+      const joints = [{ x: 1.1, y: 1.7 }, { x: 1.9, y: 2.9 }, { x: 2.7, y: 4.0 }];   // ON the wing body (arm→wrist→hand) → eyes trace the wing, spread, off the great eye
+      const eyeSizes = [0.5, 0.42, 0.36];
       for (let e = 0; e < 3; e++) {
-        const t = 0.22 + e * 0.3;
-        const lx = hand.Bx + hand.hdx * t * hand.handLen * 0.8 + (rnd() - 0.5) * 1.1;
-        const ly = hand.By + hand.hdy * t * hand.handLen * 0.8 + (rnd() - 0.5) * 0.6;
-        const eworld = new THREE.Vector3(lx, ly, 0.5).applyMatrix4(shoulder.matrix);
-        eworld.y = Math.max(eworld.y, 1.55);   // crown the great eye (its top ≈ 1.4) — never puddle beside/below it
-        eworld.z = Math.max(eworld.z, 0.4) + (side < 0 ? 0.45 : 0) + e * 0.28 + wi * 0.2;   // z-stagger → overlaps read as stacked, not fused
+        const j = joints[e];
+        _pv.set(j.x + (rnd() - 0.5) * 0.4, j.y + (rnd() - 0.5) * 0.4, 0.6).applyMatrix4(pivot.matrix);
+        _pv.z = Math.max(_pv.z, 0.4) + (side < 0 ? 0.4 : 0) + e * 0.26;
         const esize = eyeSizes[e] * (0.9 + rnd() * 0.2);
-        declump(eworld, esize * 1.25);   // hard nudge so no two scleras overlap in the same z-band
-        eyePlace(eworld, esize);
+        declump(_pv, esize * 1.25);
+        eyePlace(_pv.clone(), esize);
       }
     }
   }
+  // 2 eyes set WELL OUT from the great eye (not on its rim — rim eyes read as spider ocelli). → 20.
+  for (const sx of [-1, 1]) { const p = new THREE.Vector3(sx * 5.0, 1.2, 0.6); declump(p, 0.55); eyePlace(p, 0.42); }
 
   // ── THE ONE GREAT CENTRAL EYE — at the six-root convergence, the survivor (S1 focalEye
   // continuity in CP2). A big dim almond, ≥4× the largest peripheral eye. Same L142 recipe
@@ -491,17 +401,17 @@ export function buildUnmasked(def, quality = 1) {
   const GW = 3.4, GH = 2.0, GD = 1.1;     // sclera half-width / -height / -depth — grown ~30%: the ANCHOR
   const GF = GD;                          // sclera front-face z (center at 0)
   const GEY = -0.6;                       // seated LOW (bottom-centre), below the wing roots → never crossed
-  const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 16 : 24, lowQ ? 10 : 14), socketMat);
+  const greatSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 14 : 20, lowQ ? 9 : 12), socketMat);
   greatSocket.scale.set(GW * 1.1, GH * 1.14, 0.55); greatSocket.position.set(0, GEY, -0.35);
   greatSocket.name = 'greatSocket'; stage2.add(greatSocket);
   const greatScleraMat = track(new THREE.MeshBasicMaterial({ color: 0x82785e }));   // eyeball value (tone-mapped, won't bloom) — the great staring eye
-  const greatEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 18 : 30, lowQ ? 12 : 18), greatScleraMat);
+  const greatEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 16 : 24, lowQ ? 10 : 14), greatScleraMat);
   greatEye.scale.set(GW, GH, GD); greatEye.position.set(0, GEY, 0);
   greatEye.name = 'greatEye'; stage2.add(greatEye);
-  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 20 : 32), irisMat);
+  const greatIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 16 : 24), irisMat);
   greatIris.scale.set(GW * 0.5, GH * 0.62, 1); greatIris.position.set(0, GEY, GF + 0.05);   // gold iris ring
   greatIris.name = 'greatIris'; stage2.add(greatIris);
-  const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 16 : 24, lowQ ? 10 : 14), s2pupilMat);
+  const greatPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 14 : 20, lowQ ? 9 : 12), s2pupilMat);
   greatPupil.scale.set(GW * 0.42, GH * 0.5, 0.45); greatPupil.position.set(0, GEY, GF + 0.15);   // ~45% — the pale eyeball reads clearly around it
   greatPupil.name = 'greatPupil'; stage2.add(greatPupil);
   const greatCatch = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), catchMat);
@@ -527,15 +437,15 @@ export function buildUnmasked(def, quality = 1) {
   // its value on BOTH the pale and dark skies, riding UP so its top arcs above the crest notch
   // while the wings occlude its lower two-thirds (a halo over the head, never a full rim = a
   // wheel). The upward bilateral crest means it can't read as a ship's wheel anymore.
+  // A SINGLE FAINT thin gold ring BEHIND the crest — a saint's nimbus, NOT a bright hoop (a
+  // big/bright ring reads as a ship's wheel — the original failure). Dim, thin, sized to sit
+  // behind the wings (which occlude its lower arc), not to frame the whole boss.
   const haloS2Mat = track(new THREE.MeshBasicMaterial({
-    color: 0xd8b46a, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide,
+    color: 0xc9a45a, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide,
   }));
-  haloS2Mat.toneMapped = false;
-  const HALO_R = 5.9;
-  // A FAT soft gold band (not a hairline ring — a hairline flirts with 'wheel rim'; a fat
-  // glowing band says 'holy'), riding high behind the taller crest so its top arc is clean.
-  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.82, HALO_R, lowQ ? 44 : 80), haloS2Mat);
-  haloS2.position.set(0, 5.4, -2.6);
+  const HALO_R = 3.4;
+  const haloS2 = new THREE.Mesh(new THREE.RingGeometry(HALO_R * 0.93, HALO_R, lowQ ? 40 : 64), haloS2Mat);
+  haloS2.position.set(0, 2.4, -2.8);
   haloS2.name = 'halo';
   stage2.add(haloS2);
 
@@ -577,7 +487,7 @@ export function buildUnmasked(def, quality = 1) {
     for (const m of nonWing) if (m) m.visible = !on;
     for (const p of pupils) p.visible = !on;
     for (const s of shoulders) {
-      const keep = s.obj.name === 'wing_mid_R';
+      const keep = s.obj.name === 'wing_middle_R';
       s.obj.visible = on ? keep : true;
       if (on && keep) { s.obj.position.set(0, -3.5, 0); s.obj.rotation.set(0, 0, 0); }   // centre the lone wing for design
     }
