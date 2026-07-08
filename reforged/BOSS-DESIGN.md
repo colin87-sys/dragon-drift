@@ -1131,11 +1131,19 @@ the def prose — and that back-check surfaced a discrepancy worth recording:
   `bulletcontrast.mjs`). **GRAZE FORM — TIDE-EDGE + FACE-SHADOW
   POCKET:** the tide crest + the face's cast shadow are the anatomy; skim the crest edge, ride the
   moving face-shadow pocket; offered once per phase. **GATE:** `gate:{inverted:true,frameFill:true}`
-  — the §7b VALUE-INVERSION override (G1 dark-focal, G2/G4 exempt). **NEEDS (§5e / CP2 engine):**
-  a vertical-constrict Y-axis (`arenaHY`/`arenaTargetHY`, default-OFF/x-only for every other arena);
-  full-frame emitter rows (off-lane/full-width origins); the fog-exempt bands with a sky-dome
-  CROSSFADE during the lift (one sky, never two); the first-crescendo-set letterbox squeeze (a
-  re-entrance NORMAL beat, inert for all other bosses). Home-biome: **NONE** — a world-state EVENT
+  — the §7b VALUE-INVERSION override (G1 dark-focal, G2/G4 exempt). **BUILT (CP2-A, the spectacle
+  pass):** the §5j entrance *The Sky Comes Loose* (`entranceScripts.js skyComesLoose` + the model's
+  `setEntrance` — ember-seed dome → the face RISES through the horizon → the hollows tear open one
+  at a time and settle on the dragon); the vertical-constrict Y-axis (`arenaHY`/`arenaTargetHY` +
+  `game.bossArenaHY` ceiling clamp, def-gated `skyCrush`, default-OFF for every other arena) with
+  the model's crushCeil/crushFloor strips + the letterbox PULSE at the first crescendo set (a
+  re-entrance NORMAL beat); THE LOOM (per-phase face growth, `setLoom`, capped +50% legibility
+  guard); the §4b EXPRESSION tell families (`setAttackTell` → NARROW/FLARE/TEAR/SKEW face poses on
+  the charge envelope); the X storm-wall constrict at P3 (the walls wear the vermilion accent — the
+  tide pressing in from the flanks); the sky-dome CROSSFADE (one sky, never two — shipped with the
+  dome rebuild). **NEEDS (CP2-B, the mechanics pass):** full-frame emitter rows (off-lane/full-width
+  origins); BEAM DUEL (Surge ≥50% fire INTO the crest); Horizon-Break survival dread (the
+  face-shadow pocket); TIDE-EDGE graze wiring. Home-biome: **NONE** — a world-state EVENT
   that grades ANY biome (the sky-shift is its foreshadow; BIOME-DESIGN.md). VOICE: a rising
   tide-ROAR / crescendo swell (low-to-full sweep, the sky's breath — quotes Stormrend's gale).
 

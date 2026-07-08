@@ -493,6 +493,54 @@ export const ENTRANCE_SCRIPTS = {
       };
     },
   },
+
+  // EMBERTIDE — THE SKY COMES LOOSE (§5j slot 13, CP2-A). The only entrance where the
+  // BOSS IS THE SKY: the whole visual plays on the camera-locked dome (model-side, via
+  // setEntrance) while this script only walks the gameplay STATION in from the horizon
+  // and pitches the camera up at the surfacing face. Warn seeds the grade (the sky
+  // already embering — boss.js stages setEntrance(0) at spawn for skyReplace defs);
+  // then the HORIZON LIFTS (the dome brightens from the ember seed, the crest ignites),
+  // the FACE RISES through the horizon line (the BRINEHOLM rise grammar at sky scale),
+  // and the eye-hollows TEAR OPEN one at a time — settling on the dragon under the
+  // dilate. No path drama: the sky coming loose IS the drama.
+  skyComesLoose: {
+    dur: 2.7,                  // ~3.6s wall under the surfacing dilate — the sky needs room to stand up
+    skipTo: 0.78,              // a tap fast-forwards to the tear-open (you still get the settle)
+    anchorToDragon: false,     // the sky owns everything; the station walks in from the horizon
+    initYaw: 0,                // the sky does not turn
+    eyeLock: false,            // the hollows settle via the model's own notice (setEntrance edge)
+    announce: { title: '☀  EVERYWHERE  ☀', sub: 'THE SKY COMES LOOSE', tone: 'gold', dur: 2.2 },
+    slowWindow: { uIn: 0.46, uOut: 0.80, depth: 0.35 },   // the face-surfacing + first tear dwell here
+    // The gameplay station (HP bar / shield / crest emitter) eases in from far up the
+    // lane — the HOLLOWGATE far-horizon close (the rail eats the distance) — so the
+    // fight opens at the normal settleGap with zero pop.
+    path(u, ctx) {
+      const { B } = ctx;
+      const t = 1 - Math.pow(1 - clamp01(u / 0.92), 2.2);
+      return { x: 0, y: B.fightHeight, rel: L(150, B.settleGap, t) };
+    },
+    tuck() { return 0; },
+    yaw() { return 0; },       // the dome is world-oriented; the face's own gaze does the turning
+    // Once the hollows have torn open (u≥0.62) the dark regard SETTLES on the dragon —
+    // ramped in so the first look lands as its own beat under the dilate.
+    gaze(u, ctx, pose, player) {
+      const open = clamp01((u - 0.62) / 0.20);
+      const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+      return { gx: clamp(-dx / 8, -1, 1) * open, gy: clamp(dy / 8, -1, 1) * open };
+    },
+    onStart(model) { model.setEntrance?.(0); },   // re-stage (idempotent — boss.js staged at spawn)
+    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
+    // Camera: pitch UP at the surfacing face (a lifted look target + a wide fov — the
+    // sky is the subject), easing home to the chase framing as the fight opens.
+    camera(u, pose, player) {
+      const home = clamp01((u - 0.78) / 0.22);
+      const lift = Math.sin(clamp01(u / 0.78) * Math.PI) * 7;   // rises with the face, eases before home
+      return {
+        k: u, bx: pose.x, by: pose.y + lift * (1 - home), bz: -(player.dist + pose.rel),
+        pivot: 0.20 * (1 - home), blend: 0.28, fov: L(80, 72, home),
+      };
+    },
+  },
 };
 
 // Pure per-frame sampler (for tests + any tooling): returns the full frame a script

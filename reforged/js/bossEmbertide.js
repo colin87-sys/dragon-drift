@@ -284,6 +284,37 @@ export function buildEmbertide(def, quality = 1) {
     orbiters.push(m);
   }
 
+  // THE CRUSH STRIPS (CP2-A "the sky crushes the lane") — a ceiling band of light that
+  // DESCENDS and a swollen tide-line that RISES when the vertical squeeze fires, pinching
+  // the open sky to a band with the face inside it. Opaque HDR gradient (hot at the inner
+  // edge, fading to the dome's own gradient outward) → ZERO additive, trivial tris. They
+  // ride the camera-locked rig just behind the face plane, ahead of the dome. Parked out
+  // of frame (and invisible) until boss.js fires setCrush(1) at the first crescendo set.
+  const stripMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, toneMapped: false, depthWrite: false }));
+  const CRUSH_Z = -560, CRUSH_W = 2400, CRUSH_H = 160;
+  function crushStrip(name, inner) {   // inner: -1 = hot edge at the strip's BOTTOM (ceiling), +1 = at its TOP (floor swell)
+    const g = new THREE.PlaneGeometry(CRUSH_W, CRUSH_H, lowQ ? 12 : 20, lowQ ? 4 : 6);
+    const p = g.attributes.position;
+    const c = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) {
+      const ny = (p.getY(i) / (CRUSH_H / 2)) * inner;          // +1 at the hot (inner) edge
+      const hot = THREE.MathUtils.smoothstep(ny, -0.2, 1.0);   // hot toward the lane
+      _bg.copy(rose).lerp(accent, 0.5 + hot * 0.5);
+      const hdr = 1 + hot * 1.6;                               // the crushing edge BLOOMS
+      c[i * 3] = _bg.r * hdr; c[i * 3 + 1] = _bg.g * hdr; c[i * 3 + 2] = _bg.b * hdr;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    const m = new THREE.Mesh(g, stripMat);
+    m.name = name;
+    m.position.set(0, 520 * -inner, CRUSH_Z);   // parked out of frame (ceiling high, floor deep)
+    m.renderOrder = -16;                        // behind the face + motes, in front of the dome
+    m.visible = false;
+    rig.add(m);
+    return m;
+  }
+  const crushCeil = crushStrip('crushCeil', -1);
+  const crushFloor = crushStrip('crushFloor', 1);
+
   // The dome + face + motes are huge / far — never let the frustum cull them (they ARE
   // the sky). Mirrors the real dome's `sky.frustumCulled = false` (environment.js).
   rig.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
@@ -320,6 +351,49 @@ export function buildEmbertide(def, quality = 1) {
   const _rnd = mulberry32(0xe3be7de0);
   const faceBaseZ = FACE_Z, faceBaseY = faceRig.position.y;
 
+  // §5j ENTRANCE — *The Sky Comes Loose* (CP2-A). u∈[0,1]: the dome LIFTS bright from
+  // an ember seed, the face RISES through the horizon line (submerged → surfaced, the
+  // BRINEHOLM rise grammar in sky-scale), and the eye-hollows TEAR OPEN one at a time,
+  // then settle on the dragon (the notice pulse fires on the tear edge). Defaults to 1
+  // (fully arrived) so the STUDIO / bossgate frames are untouched; boss.js stages 0 at
+  // spawn for skyReplace defs and the entrance script drives the clock.
+  let entranceU = 1, _entPrev = 1;
+  function setEntrance(u) {
+    _entPrev = entranceU;
+    entranceU = Math.max(0, Math.min(1, u));
+    if (entranceU >= 0.70 && _entPrev < 0.70) notice();   // the hollows settle ON you
+  }
+
+  // THE LOOM (CP2-A, the owner's "he grows") — each phase the face surfaces CLOSER/
+  // LARGER (scale ramp + a slight rise so the chin clears the sea), eased slowly so the
+  // growth reads as an approach, not a pop. The "never fits" law binds the FIELD, not
+  // the face — capped at +50% so the face stays IN the sky (legibility guard).
+  let loomTgt = 0, loomK = 0;
+  function setLoom(k) { loomTgt = Math.max(0, Math.min(1, k)); }
+
+  // THE TIDE CRUSH (CP2-A vertical squeeze visual): the ceiling band descends + the
+  // tide-line swells up. boss.js fires setCrush(1) with the arena Y-clamp.
+  let crushTgt = 0, crushK = 0;
+  function setCrush(k) { crushTgt = Math.max(0, Math.min(1, k)); }
+
+  // EXPRESSIONS (CP2-A, the owner's "mix up the face per attack") — §4b attack-tell
+  // families, the CRAGHOLD TELL_FAMILY pattern re-expressed as FACE poses. The pose
+  // strength rides the CHARGE envelope boss.js already drives (wind-up in, fire out),
+  // so every telegraph gets a distinct face and it releases itself on the fire.
+  const TELL_FAMILY = {
+    aimed: 'narrow', stream: 'narrow',                                        // a glare — it has picked you
+    fan: 'flare', spiral: 'flare', spiralStream: 'flare',                     // the tide fans wide
+    curtain: 'tear', movingGap: 'tear', tunnel: 'tear', iris: 'tear', secondWave: 'tear',   // the wall arrives — the mouth tears
+    crossfire: 'skew',                                                        // reading both flanks at once
+  };
+  let tellFamily = null, skewSide = 1;
+  function setAttackTell(id) {
+    tellFamily = id == null ? null : (TELL_FAMILY[id] ?? 'flare');
+    if (tellFamily === 'skew') skewSide = _rnd() < 0.5 ? -1 : 1;
+  }
+
+  const sstep = THREE.MathUtils.smoothstep;
+
   function tickBody(dt, time) {
     // GAZE — the face turns its dark regard toward the dragon (lagged; a mind).
     const gLag = (noticeT > 0 || charge > 0.5) ? 10 : 3.5;
@@ -327,6 +401,15 @@ export function buildEmbertide(def, quality = 1) {
     gazeY += (gazeTY - gazeY) * Math.min(1, dt * gLag);
     faceRig.rotation.y = gazeX * 0.16 * (1 - dyingK);
     faceRig.rotation.x = -gazeY * 0.09 * (1 - dyingK);
+
+    // EXPRESSION FAMILIES — the tell pose rides the CHARGE envelope (in on the wind-up,
+    // out on the fire). One family at a time; everything lerp-free because charge itself
+    // is eased by the driver.
+    const fNarrow = tellFamily === 'narrow' ? charge : 0;
+    const fFlare = tellFamily === 'flare' ? charge : 0;
+    const fTear = tellFamily === 'tear' ? charge : 0;
+    const fSkew = tellFamily === 'skew' ? charge : 0;
+    faceRig.rotation.z = fSkew * 0.09 * skewSide * (1 - dyingK);   // the SKEW tilt (crossfire — reading both flanks)
 
     // CHARGE / NOTICE — the face pushes FURTHER through the light (surges +z, the masses
     // deepen); notice tears the hollows wide. Recoil (flinch) pulls it back briefly.
@@ -338,44 +421,82 @@ export function buildEmbertide(def, quality = 1) {
     faceRig.position.z = faceBaseZ + charge * 45 + noticePush * 12 - recoil * 26;
     const deepen = 1 + charge * 0.5 + noticePush * 0.15;
     browPivot.position.z = 0.5 * deepen;
-    nosePivot.position.z = 0.7 * deepen + charge * 0.6;
+    nosePivot.position.z = 0.7 * deepen + charge * 0.6 + fNarrow * 0.4;   // the glare focuses down the nose ridge
     chinPivot.position.z = 0.5 * deepen;
+    // The BROW carries the expression: FLARE lifts it, NARROW drops it into a glare,
+    // TEAR sags it as the mouth takes over, SKEW cocks it asymmetric.
+    browPivot.position.y = 5.2 + fFlare * 1.0 - fNarrow * 1.3 - fTear * 0.5;
+    browPivot.rotation.z = fSkew * 0.14 * skewSide;
+
+    // §5j ENTRANCE — the face rises THROUGH the horizon (submerged → surfaced) and the
+    // hollows tear open ONE AT A TIME (left, then right) as it clears the line.
+    const entRise = sstep(entranceU, 0.30, 0.78);
+    const entSubY = (1 - entRise) * 320;                     // 320 ≈ fully below the horizon at build scale
+    const entTearL = sstep(entranceU, 0.56, 0.64);
+    const entTearR = sstep(entranceU, 0.68, 0.76);
+    const entMouth = sstep(entranceU, 0.82, 0.96);           // the mouth tears LAST, as the fight opens
+
+    // THE LOOM — slow-eased growth toward the phase target (an approach, not a pop).
+    loomK += (loomTgt - loomK) * Math.min(1, dt * 0.8);
+    const loomE = easeLoom(loomK);
+    faceRig.scale.setScalar(FACE_SCALE * (1 + loomE * 0.5));
+    const loomRise = loomE * 26;                             // keep the bigger chin clear of the sea
 
     // Eye-hollows: TEAR OPEN on notice + WIDEN with charge, track the gaze, rare BLINK.
+    // The tell families reshape them: FLARE widens further, NARROW squints to slits.
     if (blinkT > 0) blinkT -= dt;
     else { nextBlink -= dt; if (nextBlink <= 0 && charge < 0.4 && dyingK <= 0) { blinkT = BLINK_DUR; nextBlink = 6 + Math.random() * 5; } }
     const blinkK = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
-    const tear = 1 + (noticeT > 0 ? (noticeT / 1.1) * 0.9 : 0) + charge * 0.5;
+    const tear = 1 + (noticeT > 0 ? (noticeT / 1.1) * 0.9 : 0) + charge * 0.5 + fFlare * 0.8 - fNarrow * 1.05;
     const openY = tear * (1 - blinkK * 0.92) * (1 - dyingK);
-    for (const [pv, sgn] of [[eyeHollow0, -1], [eyeHollow1, 1]]) {
-      pv.scale.set(1 + charge * 0.15, Math.max(0.02, openY), 1);
+    for (const [pv, sgn, entT] of [[eyeHollow0, -1, entTearL], [eyeHollow1, 1, entTearR]]) {
+      pv.scale.set(1 + charge * 0.15 + fFlare * 0.3 - fNarrow * 0.35, Math.max(0.02, openY * entT), 1);
       pv.position.x = sgn * EYE_X + gazeX * 0.5;
       pv.position.y = EYE_Y + gazeY * 0.35;
     }
-    mouthPivot.scale.y = Math.max(0.05, (1 + charge * 0.25) * (1 - dyingK * 0.8));
+    // The mouth: TEAR rips it wide (the wall-attack tell), NARROW presses it thin.
+    mouthPivot.scale.y = Math.max(0.05, (1 + charge * 0.25 + fTear * 1.5) * (1 - dyingK * 0.8) * entMouth);
+    mouthPivot.scale.x = 1 + fTear * 0.4 - fNarrow * 0.2;
 
     // CHARGE / FLINCH on the SKY: the whole DOME brightens as the crest gathers (charge)
     // and on a hit-flash; a slow spin sweeps the latitude bands so the tide is in MOTION
     // (zero extra draw/overdraw — the whole sky is alive). No translate — it IS the sky.
+    // During the ENTRANCE the dome LIFTS from an ember seed to full brightness (the
+    // horizon coming loose) — the same multiply, zero extra cost.
     if (flashT > 0) flashT = Math.max(0, flashT - dt * 3);
     domeSpin.rotation.z += dt * (0.010 + charge * 0.02);
-    const swell = 1 + Math.sin(time * 0.6) * 0.05 + charge * 0.38 + flashT * 0.5;
+    const domeLift = 0.30 + 0.70 * sstep(entranceU, 0.05, 0.55);
+    const swell = (1 + Math.sin(time * 0.6) * 0.05 + charge * 0.38 + flashT * 0.5) * domeLift;
     domeMat.color.copy(_domeCol).multiplyScalar(Math.max(0.02, swell * (1 - dyingK * 0.92)));
 
-    // EMBER MOTES — drift UP across the sky, swaying (embers riding the tide).
+    // THE CRUSH — the ceiling band descends + the tide-line swells up (slow, dramatic),
+    // pinching the open sky to a band with the face inside it. Retreats through death.
+    crushK += (crushTgt - crushK) * Math.min(1, dt * 0.9);
+    const crushE = crushK * (1 - dyingK);
+    const crushOn = crushE > 0.01;
+    crushCeil.visible = crushFloor.visible = crushOn;
+    if (crushOn) {
+      crushCeil.position.y = 520 + (200 - 520) * crushE + Math.sin(time * 1.7) * 6 * crushE;
+      crushFloor.position.y = -80 + (30 + 80) * crushE + Math.sin(time * 1.4 + 2) * 4 * crushE;
+    }
+
+    // EMBER MOTES — drift UP across the sky, swaying (embers riding the tide). They
+    // IGNITE with the entrance lift (dim embers while the sky is still seeding).
+    const moteLift = 0.2 + 0.8 * sstep(entranceU, 0.4, 0.8);
     for (const o of orbiters) {
       const u = o.userData;
       const yy = ((time * u.speed + u.phase * 40) % (MOTE_H + 80)) - 60;
       o.position.set(u.baseX + Math.sin(time * 0.5 + u.phase) * u.sway, yy, MOTE_Z);
       const near = 1 - Math.min(1, Math.abs(yy - MOTE_H * 0.35) / (MOTE_H * 0.55));
-      o.scale.setScalar((0.6 + near * 0.8) * (1 - dyingK));
+      o.scale.setScalar((0.6 + near * 0.8) * (1 - dyingK) * moteLift);
     }
 
-    // DEATH — the sky SETS: the light drains (dome dims, above) and the FACE SINKS below
-    // the horizon line (§4b DEATH / §4.7).
-    if (dyingK > 0) faceRig.position.y = faceBaseY - dyingK * 90;
-    else if (faceRig.position.y !== faceBaseY) faceRig.position.y = faceBaseY;
+    // DEATH sinks the face below the horizon; the ENTRANCE raises it through it; the
+    // LOOM lifts it as it grows. One write (the three never fight over the property).
+    faceRig.position.y = faceBaseY + loomRise - entSubY - dyingK * 90;
   }
+  // Loom easing: gentle start, decisive arrival (the face "surfaces closer").
+  function easeLoom(k) { return k * k * (3 - 2 * k); }
 
   // The handle's front node (FX origin) — at the crest.
   const muzzle = new THREE.Object3D();
@@ -388,6 +509,10 @@ export function buildEmbertide(def, quality = 1) {
     setDissolve: setDissolveEmotive,   // kit dissolve + the tide receding / the sky setting
     setCharge,
     setGaze, notice,
+    setEntrance,        // §5j The Sky Comes Loose — dome lift + face rise + hollow tears (0→1)
+    setLoom,            // CP2-A: per-phase face growth (0→1 across the fight)
+    setCrush,           // CP2-A: the vertical-squeeze visual (ceiling descends, tide swells)
+    setAttackTell,      // CP2-A: §4b tell families — the face poses per attack family
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,

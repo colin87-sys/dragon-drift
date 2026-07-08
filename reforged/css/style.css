@@ -89,6 +89,17 @@ body.app-loaded > canvas { opacity: 1; }
 #hud.cine-hold .milestone-banner,
 #hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
 
+/* LETTERBOX (CP2-A, EMBERTIDE's sky-crush re-entrance beat): two bars that ease in
+   from the frame edges and back out. Height 0 at rest so they cost nothing idle. */
+.cinebar {
+  position: fixed; left: 0; right: 0; height: 0; background: #000;
+  pointer-events: none; z-index: 40;
+  transition: height 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cinebar-top { top: 0; }
+.cinebar-bot { bottom: 0; }
+.cinebar.on { height: 9vh; }
+
 /* ============ ORNATE BOTTOM BAR (Panzer Dragoon style) ============ */
 /* ============ HUD CORNER LAYOUT (WS6) ============ */
 .hud-top-left {
