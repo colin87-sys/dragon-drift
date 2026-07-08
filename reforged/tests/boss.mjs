@@ -887,12 +887,13 @@ for (const key of BOSS_ORDER) {
   assert(Math.abs(faceRig.position.y - arriveY) < 2, `setEntrance(null) = RELEASED/ARRIVED (faceRig y ${faceRig.position.y.toFixed(1)} ≈ ${arriveY.toFixed(1)} — the fight must open WITH the face)`);
   assert(eh.scale.y > arriveOpen - 0.15, `setEntrance(null) leaves the hollows open (scale.y ${eh.scale.y.toFixed(2)})`);
 
-  // THE LOOM: setLoom(1) grows the face (scale up, capped ≤ +50%) and lifts it a touch.
+  // THE LOOM: setLoom(1) grows the face a MODERATE amount (owner tune: from the 3× resting
+  // size, crescendo to ~3.6× — never the ~5× wall-of-dark that loses the face gestalt).
   const preScale = faceRig.scale.x;
   em.setLoom(1);
   for (let i = 0; i < 90; i++) em.tick(0.05, 8 + i * 0.05);   // slow ease — give it room
-  assert(faceRig.scale.x > preScale * 1.25, `THE LOOM grows the face (scale ${faceRig.scale.x.toFixed(2)} > ${(preScale * 1.25).toFixed(2)} — the per-phase surfacing)`);
-  assert(faceRig.scale.x <= preScale * 1.55, `THE LOOM is CAPPED (+50% legibility guard; got ×${(faceRig.scale.x / preScale).toFixed(2)})`);
+  assert(faceRig.scale.x > preScale * 1.1, `THE LOOM grows the face (scale ${faceRig.scale.x.toFixed(2)} > ${(preScale * 1.1).toFixed(2)} — the per-phase surfacing)`);
+  assert(faceRig.scale.x <= preScale * 1.3, `THE LOOM stays MODERATE (≤ +30% legibility guard; got ×${(faceRig.scale.x / preScale).toFixed(2)})`);
   em.setLoom(0);
 
   // THE TIDE CRUSH: setCrush(1) DIMS the whole dome (the light recedes as it crushes
