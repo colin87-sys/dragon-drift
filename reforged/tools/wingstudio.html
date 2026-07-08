@@ -45,15 +45,15 @@
     let wing = null;
 
     function rebuild() {
-      if (wing) { root.remove(wing.group); }
+      if (wing) { root.remove(wing.pivot); wing.dispose && wing.dispose(); }
       wing = buildSeraphWing({});
-      root.add(wing.group);
+      root.add(wing.pivot);
     }
     rebuild();
 
     // Bounding box of the built wing (in root/world space).
     function wingBox() {
-      const box = new THREE.Box3().setFromObject(wing.group);
+      const box = new THREE.Box3().setFromObject(wing.pivot);
       return box;
     }
 
