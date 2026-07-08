@@ -223,6 +223,8 @@ let shielded = false;          // at a phase floor the boss shields — only Sur
 // leave activeCard null and the whole system is inert (coexist rule).
 let activeCard = null;
 let cardTimer = 0;             // seconds remaining in the current card's window (display / survival seal)
+let horizonPocketX = null;     // EMBERTIDE Horizon-Break: the moving face-shadow safe pocket's lane X (null = card inactive)
+let hbReleased = false;        // Horizon-Break released the X-constrict → restore it (edge-triggered) when the card ends
 let cardHits0 = 0;            // game.bossHitsTakenRun at card start (capture = no new hits by card end)
 let cardExpired = false;      // the display timer ran out before the phase was cleared → capture downgrades to SURVIVED (never blocks progress)
 let baitTimer = 0;             // cadence for the shielded graze-bait flood
@@ -244,7 +246,7 @@ let curAttack = null;          // the attack being telegraphed
 let rhythm = null;
 let rhythmRest = null;
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
-const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave']);
+const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave', 'crestfall']);
 // Def-gated SETPIECE (the ONE deliberate exception to "a new boss needs zero
 // controller changes" — BOSS-DESIGN.md §5's Tier 2 "the fight moves" clause
 // requires a station-leave beat, and station-keeping lives here). A def opts in
@@ -266,6 +268,14 @@ const THREAD_CUT_HITS = 3;   // parries to cut the thread (tunable — drop to 2
 let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
 let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
 let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
+// EMBERTIDE BEAM DUEL (§5i.C, def.beamDuel) — the Surge≥50% mechanic: a beam locks and a
+// sideways drift shoves you off the crest line; hold lane-center to win. Inert otherwise.
+let beamDuelT = 0;               // >0 = a duel is live (seconds remaining)
+let beamDuelSide = 1;            // which way the drift shoves this duel
+let beamDuelHeld = 0;            // accrued seconds held at lane-center (win threshold)
+let beamDuelTick = 0;            // graze-payout tick while centered
+let beamDuelCd = 8;              // cooldown between duels
+let beamDuelMesh = null, beamDuelMat = null;   // the locked beam (crest → ship)
 let condHold = 0;            // seconds the swarm stays CONDENSED past its last shot (bridges the ostinato)
 // §5i.B ABSORB-A-COLOR (THRUMSWARM's Calamities graze, def-gated `grazeForm:'absorbColor'`):
 // the swarm SHEDS surge-pink motes braided into the magenta stream; weaving in and SOAKing
@@ -892,7 +902,15 @@ function endCard() {
 const CONSTRICT_HW = 6.5;      // showpiece arena half-width (lab-proven value)
 let arenaHW = CONFIG.laneHalfWidth;
 let arenaTargetHW = CONFIG.laneHalfWidth;
-let wallL = null, wallR = null, wallMat = null;   // translucent storm walls
+let wallL = null, wallR = null, wallMat = null;   // translucent storm walls (they take def.accent per fight)
+let wallMatEmber = null;   // EMBERTIDE-only: dark, soft-edged multiply shadow walls (assigned per-fight)
+// VERTICAL squeeze (CP2-A, EMBERTIDE "the sky crushes the lane" — def.skyCrush): the
+// same target+ease+publish+clamp grammar as arenaHW, on the Y ceiling. The FLOOR is
+// never raised (skimming is a core verb — a floor clamp would kill skims); the model's
+// own crush strips carry the floor VISUAL. Inert (Infinity) for every other boss.
+let arenaHY = CONFIG.laneMaxY;
+let arenaTargetHY = CONFIG.laneMaxY;
+let crushFired = false, crushT = 0, crushBoxT = 0, crushHoldT = 0;   // per-phase wave trigger + hold + the letterbox pulse timer
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
 // so overlapping/concentric waves read apart even for colour-blind players — and
@@ -983,6 +1001,26 @@ export function initBoss(sc) {
     blending: THREE.AdditiveBlending, depthWrite: false,
   });
   const wallGeo = new THREE.PlaneGeometry(90, CONFIG.laneMaxY + 8);
+  // EMBERTIDE re-skin: instead of a glowing additive panel (off-language for a
+  // darkness-in-light boss, and the hard rectangle read as janky — owner catch), his
+  // walls are the sky's DARKNESS pressing in — a MULTIPLY shadow feathered to no-effect
+  // at every edge (uv-based, so no hard rectangle) that deepens with uCloseK as the lane
+  // closes. Multiply + raw ShaderMaterial (not ACES-mapped → the factor reaches the
+  // blender raw, the L228 law). Assigned to wallL/wallR only on EMBERTIDE fights; every
+  // other boss keeps the additive storm wallMat byte-identical (coexist).
+  wallMatEmber = new THREE.ShaderMaterial({
+    uniforms: { uCloseK: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `precision mediump float; varying vec2 vUv; uniform float uCloseK;
+      void main(){
+        vec2 p = vUv * 2.0 - 1.0;
+        float fx = 1.0 - smoothstep(0.45, 1.0, abs(p.x));   // soft depth ends
+        float fy = 1.0 - smoothstep(0.35, 1.0, abs(p.y));   // soft top/bottom (no hard line)
+        float dark = fx * fy * clamp(uCloseK, 0.0, 1.0) * 0.85;
+        gl_FragColor = vec4(vec3(1.0 - dark), 1.0);          // 1 = no effect, →0.15 = deep shadow
+      }`,
+    blending: THREE.MultiplyBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false,
+  });
   wallL = new THREE.Mesh(wallGeo, wallMat);
   wallR = new THREE.Mesh(wallGeo, wallMat);
   wallL.rotation.y = Math.PI / 2;
@@ -990,6 +1028,24 @@ export function initBoss(sc) {
   wallL.renderOrder = wallR.renderOrder = TIERS.arenaWall;
   wallL.visible = wallR.visible = false;
   scene.add(wallL); scene.add(wallR);
+
+  // EMBERTIDE BEAM DUEL beam: a bright additive shaft locked from the crest to the ship
+  // during a duel (built once, hidden; only ever shown for def.beamDuel). Unit cylinder
+  // aligned to +Z so it can be stretched between the two live points each frame.
+  {
+    const bg = new THREE.CylinderGeometry(0.34, 0.34, 1, 8, 1, true);
+    bg.rotateX(Math.PI / 2);   // length now runs along local +Z
+    beamDuelMat = new THREE.MeshBasicMaterial({
+      color: 0xff9a6e, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
+    });
+    beamDuelMesh = new THREE.Mesh(bg, beamDuelMat);
+    beamDuelMesh.name = 'beamDuel';
+    beamDuelMesh.renderOrder = TIERS.arenaWall;
+    beamDuelMesh.frustumCulled = false;
+    beamDuelMesh.visible = false;
+    scene.add(beamDuelMesh);
+  }
 
   // §5i.B ABSORB-A-COLOR soak motes: ONE additive Points cloud (surge-pink), parked
   // off-screen until a swarm boss sheds into it. One draw, one additive volume.
@@ -1282,7 +1338,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
-  activeCard = null; cardTimer = 0;   // spell-card state resets per encounter
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }   // spell-card state resets per encounter
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   activeBand = resolveBand(biomeIndexAt(player.dist));
@@ -1305,11 +1361,22 @@ export function startBossEncounter(player, defOverride) {
   holdTier = 0; holdFlinchDone = false;
   adrenT = 0; adrenRung = 0; adrenHits0 = game.bossHitsTakenRun; adrenPing = 0;
   setGrazeBonus(1); game.adrenGainMult = 1;
-  // Fresh fight = full-width arena; the walls take the boss's accent colour.
+  // Fresh fight = full-width arena; the walls take the boss's accent colour (or, for
+  // EMBERTIDE, the dark shadow re-skin — swap the material and reset it, so a fight
+  // AFTER an EMBERTIDE fight restores the additive storm wall).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
-  if (wallMat) wallMat.color.setHex(def.accent ?? 0x35e0ff);
+  if (wallL) {
+    const ember = def.id === 'embertide' && wallMatEmber;
+    wallL.material = wallR.material = ember ? wallMatEmber : wallMat;
+    if (ember) wallMatEmber.uniforms.uCloseK.value = 0;
+    else wallMat.color.setHex(def.accent ?? 0x35e0ff);
+  }
   if (def.constrictPhase === 0) arenaTargetHW = CONSTRICT_HW;   // constrict from the opener
+  // Fresh fight = full-height sky; the crush (def.skyCrush) re-arms per encounter.
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -1318,7 +1385,15 @@ export function startBossEncounter(player, defOverride) {
   // EMBERTIDE-as-sky: reparent the VISUAL rig (dome + face) out of `group` to the scene so it can be
   // camera-POSITION-locked (the sky) while `group` (HP bar / shield / crestPivot emitter) stays at the
   // world station via placeGroup — gameplay origins unchanged. Inert for every non-skyReplace boss.
-  if (def.skyReplace && model.rig) { scene.add(model.rig); if (_bossCam) model.rig.position.copy(_bossCam.position); }
+  if (def.skyReplace && model.rig) {
+    scene.add(model.rig);
+    if (_bossCam) model.rig.position.copy(_bossCam.position);
+    // §5j stage *The Sky Comes Loose* from the SPAWN (not the script start): the rig
+    // bypasses the group's warn-hide (it IS the sky), so without this the fully-arrived
+    // face would pop visible through warn and then snap submerged when the script began.
+    // Staged 0 = ember-seed dome + submerged face; the entrance clock drives 0→1.
+    if (def.entrance) model.setEntrance?.(0);
+  }
   // Arena environment feed (optional model hook, the setGaze?.() pattern): the water
   // surface is the world-constant plane y=0 in every biome (water.js:204). A model
   // that reacts to it (WEFTWITCH clips its arena web at the surface) opts in by
@@ -1367,6 +1442,14 @@ export function startBossEncounter(player, defOverride) {
     start.rel = B.settleGap + 10;
     start.x = 0;
     start.y = B.fightHeight;
+  } else if (def.approachFrom === 'horizon') {
+    // THE WHOLE HORIZON (§5b/§5d slot 13, EMBERTIDE): the boss IS the sky — the visual
+    // is the camera-locked dome (skyReplace), so the "approach" only walks the gameplay
+    // STATION in from far up the lane (the HOLLOWGATE far-ahead close; the §5j script
+    // *The Sky Comes Loose* owns the pacing). Banner dir maps to 'top' below.
+    start.rel = 150;
+    start.x = 0;
+    start.y = B.fightHeight;
   } else {
     start.rel = -12;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
@@ -1400,7 +1483,7 @@ export function startBossEncounter(player, defOverride) {
   // clears as the boss flies in — anchored WHERE it emerges. 'side' → left/right;
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
-    : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
+    : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense' || def.approachFrom === 'horizon') ? 'top' : 'bottom';
   // §5j THE ARRIVAL-GRAMMAR BREAK (slot 12 ONEWING, def.noWarn): the DANGER banner is
   // SUPPRESSED here and fires WITH the eruption (enterFight) instead of before it — no
   // warning until it erupts. A skipper still gets it (fired at enterFight regardless).
@@ -1459,13 +1542,18 @@ function endEncounter(player) {
   phase = 'idle';
   game.inBoss = false;
   activeBand = BAND;
-  // The arena is NEVER left narrowed past a fight (unconditional restore).
+  // The arena is NEVER left narrowed past a fight (unconditional restore) — the sky
+  // ceiling included (the crush clamp + letterbox must not outlive the encounter).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
-  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  ui.letterbox?.(false);
+  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
-  activeCard = null; cardTimer = 0;
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
   ui.bossCardClear?.();         // clear the spell-card readout past the fight
   // Carry Dragon Surge OUT of the fight so the player keeps the hyper into the
   // grace band (the kill earns it) — the normal fever visuals take over there.
@@ -1503,6 +1591,8 @@ function startDeath(player) {
   clearSetpiece();
   reticleTarget = 0;            // focus circle draws off as the boss disintegrates
   arenaTargetHW = CONFIG.laneHalfWidth;   // storm walls glide out with the dissolve
+  arenaTargetHY = CONFIG.laneMaxY;        // the sky ceiling lifts with it (the crush releases in death)
+  if (crushBoxT > 0) { crushBoxT = 0; ui.letterbox?.(false); }
   resetBossBullets();
   game.bossesDefeatedRun++;
   const bonus = Math.round(B.defeatScore * game.scoreMult);
@@ -1785,6 +1875,17 @@ export function updateBoss(dt, player, time, camera) {
     reticle.position.set(player.position.x, player.position.y, -player.dist);
   }
 
+  // HORIZON-BREAK opens the WHOLE frame: the X-constriction RELEASES during the card so
+  // the tide crests full-width and the face-shadow pocket (which sweeps to ±8) is
+  // reachable — the survival gauntlet is the whole frame, not the pinched lane. When the
+  // card ends we RE-APPLY the constrictPhase target (P5 ≥ constrictPhase), so the rest of
+  // the final phase returns to the pinched arena the def describes (edge-triggered so it
+  // doesn't fight the normal constrict flow every frame).
+  if (activeCard && activeCard.id === 'embertide_horizonbreak') { arenaTargetHW = CONFIG.laneHalfWidth; hbReleased = true; }
+  else if (hbReleased) {
+    hbReleased = false;
+    if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) arenaTargetHW = CONSTRICT_HW;
+  }
   // Arena constriction: ease the live half-width toward its target, publish it
   // for the player clamp (null = full lane, nothing to clamp), and slide the
   // translucent storm walls with it. Restored unconditionally by endEncounter.
@@ -1793,16 +1894,52 @@ export function updateBoss(dt, player, time, camera) {
   game.bossArenaHW = narrowed ? arenaHW : null;
   if (wallL) {
     wallL.visible = wallR.visible = narrowed;
+    const emberWalls = wallL.material === wallMatEmber;
     if (narrowed) {
       const wy = (CONFIG.laneMinY + CONFIG.laneMaxY) / 2;
       const wz = -(player.dist + 22);
       wallL.position.set(-arenaHW, wy, wz);
       wallR.position.set(arenaHW, wy, wz);
-      // Fade with how far the walls have come in; a soft pulse keeps them alive.
       const closeK = (CONFIG.laneHalfWidth - arenaHW) / (CONFIG.laneHalfWidth - CONSTRICT_HW);
-      wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
-    } else { wallMat.opacity = 0; }
+      // EMBERTIDE: the darkness deepens as it presses in (no glow, no pulse). Others:
+      // fade the additive storm wall with how far it has come in, a soft pulse alive.
+      if (emberWalls) wallMatEmber.uniforms.uCloseK.value = Math.min(1, closeK);
+      else wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
+    } else if (emberWalls) { wallMatEmber.uniforms.uCloseK.value = 0; }
+    else { wallMat.opacity = 0; }
   }
+  // THE SKY CRUSHES THE LANE (CP2-A, def.skyCrush — EMBERTIDE's vertical squeeze):
+  // a WAVE, not a mode (owner catch: a persistent clamp read as "I can't go as high
+  // as usual" — a permanent nerf, not a beat). The ceiling clamp descends (player.js
+  // Y-clamp mirrors the X walls), the strips + letterbox pinch, the clamp HOLDS for
+  // ~10s, then the sky EBBS — full height returns. It re-crashes once per PHASE
+  // (armed at each seam), so every crescendo set gets its crush-and-release breath.
+  // Inert for every def without skyCrush.
+  if (def.skyCrush && phase === 'fight' && !crushFired) {
+    crushT += dt;
+    if (crushT >= (def.skyCrush.delay ?? 5)) {
+      crushFired = true;
+      crushHoldT = def.skyCrush.hold ?? 10;
+      arenaTargetHY = def.skyCrush.hy ?? 14;
+      model.setCrush?.(1);
+      ui.letterbox?.(true);
+      crushBoxT = 3.5;
+      ui.bossNote?.('☀  THE SKY CRUSHES THE LANE  ☀', def.name, 'gold', 2.6);
+      cameraCtl.shake?.(1.0);
+      sfx.phase?.(true, 1);
+    }
+  }
+  if (crushBoxT > 0) { crushBoxT -= dt; if (crushBoxT <= 0) ui.letterbox?.(false); }
+  if (crushHoldT > 0 && phase === 'fight') {
+    crushHoldT -= dt;
+    if (crushHoldT <= 0) {   // THE EBB — the sky lifts, the strips retreat
+      arenaTargetHY = CONFIG.laneMaxY;
+      model.setCrush?.(0);
+      ui.bossNote?.('～  THE TIDE EBBS  ～', def.name, 'gold', 1.8);
+    }
+  }
+  arenaHY += (arenaTargetHY - arenaHY) * Math.min(dt * 1.6, 1);
+  game.bossArenaHY = arenaHY < CONFIG.laneMaxY - 0.3 ? arenaHY : null;
 
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
   driveSwarm(dt, player);          // §5d slot 7: the condense/scatter cycle + formation (inert for other bosses)
@@ -2299,6 +2436,28 @@ export function updateBoss(dt, player, time, camera) {
       }
     }
 
+    // ---- §5i TIDE-EDGE (EMBERTIDE's World-Enders graze, def-gated) — skim the CREST
+    // EDGE: the tide crests the whole frame, and riding the graze annulus of its
+    // falling bullets banks Surge (the §5d "skim the crest edge" anatomy). Reuses the
+    // slot-6 continuous-graze detector + the beamHeld/beamTick/beamGrace ramp verbatim
+    // (one grazeForm per boss); shipped bosses without grazeForm==='tideEdge' are inert. ----
+    if (def.grazeForm === 'tideEdge') {
+      if (beamContact(player, 7)) {
+        beamGrace = 0.3;                                   // bridge the gaps between crest bullets
+        beamHeld += dt;
+        beamTick -= dt;
+        if (beamTick <= 0) {
+          bulletGraze(player);                             // the payout rides the normal graze economy
+          emit('tideGraze', { held: beamHeld });
+          beamTick = Math.max(0.18, 0.5 - beamHeld * 0.07);   // longer skim → faster ticks (the ramp)
+        }
+      } else if (beamGrace > 0) {
+        beamGrace -= dt;                                   // grace: crest edge briefly lost, ramp holds
+      } else {
+        beamHeld = 0; beamTick = 0;                        // skim broken → the ramp resets
+      }
+    }
+
     // ---- §5i.B SHADOW-RIDE (BRINEHOLM's Calamities graze, def-gated) — ride the
     // leviathan's LEE (the shadow under its bulk) to bank Surge; the risk is the
     // geysers that erupt there. Same tick economy as beamEdge (one grazeForm/boss). ----
@@ -2347,6 +2506,61 @@ export function updateBoss(dt, player, time, camera) {
         }
       } else if (beamGrace > 0) { beamGrace -= dt; }
       else { beamHeld = 0; holdTier = 0; }
+    }
+
+    // ---- §5i.C BEAM DUEL (EMBERTIDE's SURGE mechanic, def-gated) — at Surge ≥50% the
+    // tide LOCKS a beam on you: a sideways DRIFT tries to shove you off the crest line
+    // while you HOLD lane-center (fire INTO the crest). Hold long enough and the duel is
+    // WON — a Surge payout + the crest recoils. NOT a parry (audit ED-8: it lives in the
+    // Surge ladder; the amber floor is served by the crossfire/stream carriers). ----
+    if (def.beamDuel) {
+      beamDuelCd -= dt;
+      const surgeFrac = game.feverThreshold > 0 ? game.consecutiveRings / game.feverThreshold : 0;
+      if (beamDuelT <= 0) {
+        // idle → arm when the meter is ≥50% (Surge not already unleashed) + off cooldown
+        if (!game.feverActive && surgeFrac >= 0.5 && beamDuelCd <= 0) {
+          beamDuelT = 3.6; beamDuelHeld = 0; beamDuelTick = 0;
+          beamDuelSide = Math.random() < 0.5 ? 1 : -1;
+          ui.bossNote?.('BEAM DUEL', 'HOLD CENTER — FIRE INTO THE CREST', 'gold', 1.8);
+          model.flash?.(0.5); sfx.phase?.(true, 1);
+        }
+      } else {
+        beamDuelT -= dt;
+        // THE DRIFT — an oscillating sideways shove (amplitude < lateralSpeed 24 so it is
+        // fightable); the player counters with steering to hold the crest line.
+        player.position.x += beamDuelSide * (9 + Math.sin(time * 2.2) * 5) * dt;
+        const centered = Math.abs(player.position.x) < 3.2;
+        if (centered) {
+          beamDuelHeld += dt;
+          beamDuelTick -= dt;
+          if (beamDuelTick <= 0) { bulletGraze(player); emit('beamDuelHold', { held: beamDuelHeld }); beamDuelTick = 0.3; }
+        }
+        if (beamDuelT <= 0) {
+          if (beamDuelHeld >= 1.8) {   // held the crest line long enough → the duel is won
+            for (let i = 0; i < 6; i++) bulletGraze(player);
+            model.flash(0.85); sfx.graze?.(40);
+            ui.bossNote?.('DUEL WON', 'THE CREST RECOILS', 'gold', 1.8);
+            emit('beamDuelWon', { held: beamDuelHeld });
+          } else {
+            ui.bossNote?.('THE DRIFT TOOK YOU', '', 'red', 1.1);
+            emit('beamDuelLost', {});
+          }
+          beamDuelCd = 10;   // a breather before the tide can lock again
+        }
+      }
+      // Drive the locked beam: brighter while you hold center, stretched crest → ship.
+      if (beamDuelMesh) {
+        const tgt = beamDuelT > 0 ? (Math.abs(player.position.x) < 3.2 ? 0.85 : 0.4) : 0;
+        beamDuelMat.opacity += (tgt - beamDuelMat.opacity) * Math.min(1, dt * 6);
+        beamDuelMesh.visible = beamDuelMat.opacity > 0.02;
+        if (beamDuelMesh.visible) {
+          const cx = 0, cy = B.fightHeight + 7, cz = -(player.dist + pose.rel);   // the crest
+          const sx = player.position.x, sy = player.position.y, sz = -player.dist; // the ship
+          beamDuelMesh.position.set((cx + sx) / 2, (cy + sy) / 2, (cz + sz) / 2);
+          beamDuelMesh.lookAt(sx, sy, sz);
+          beamDuelMesh.scale.set(1, 1, Math.hypot(sx - cx, sy - cy, sz - cz));
+        }
+      }
     }
 
     // ---- NO-HIT ADRENALINE LADDER (global §5i.B meta spine) ----
@@ -2487,6 +2701,11 @@ export function updateBoss(dt, player, time, camera) {
         } else {
           curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
         }
+        // HORIZON-BREAK: the survival card is a pure crest gauntlet — override whatever
+        // the phrase picked to the frame-wide CRESTFALL (its gap locks to the moving
+        // face-shadow pocket, below). Gated on the card id; the design amber floor is
+        // still satisfied by P5 declaring crossfire (survival exemption, §5i.C).
+        if (activeCard && activeCard.id === 'embertide_horizonbreak') curAttack = 'crestfall';
         chargeDur = curAttack === 'curtain' ? B.telegraphWall
           : (SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant);
         chargeT = chargeDur;
@@ -2546,10 +2765,21 @@ function placeGroup(player, time, dt) {
   // during the flythrough (updateFlythrough drives the tracking gaze itself), and
   // whenever cineYaw owns facing (L155): at a scripted yaw — the back-turned pass
   // especially — world≈local inverts, so a naive feed would track backwards.
-  if (phase !== 'warn' && phase !== 'flythrough' && cineYaw == null) {
-    const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
-    const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
-    model.setGaze?.(nx, ny);
+  // EMBERTIDE HORIZON-BREAK (CP2-B, the survival dread): the tide crests the WHOLE
+  // frame and the only safe pocket is the FACE's cast shadow. During the card the face
+  // LOOKS AROUND on a slow autonomous sweep (it stops tracking you), and its shadow —
+  // the moving safe pocket — is where the crest leaves a gap. You must RIDE the shadow.
+  if (activeCard && activeCard.id === 'embertide_horizonbreak' && phase === 'fight') {
+    const sweep = Math.sin(time * 0.32);                 // the slow gaze drift (chase it)
+    horizonPocketX = sweep * 8;                          // the face-shadow's lane X
+    model.setGaze?.(sweep, -0.15);                       // the face looks along its shadow
+  } else {
+    horizonPocketX = null;
+    if (phase !== 'warn' && phase !== 'flythrough' && cineYaw == null) {
+      const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
+      const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
+      model.setGaze?.(nx, ny);
+    }
   }
   // EMBERTIDE-as-sky: the camera-POSITION-lock does NOT happen here — placeGroup runs inside
   // updateBoss (main.js:1093), BEFORE cameraCtl.update (main.js:1246) moves the camera, so locking
@@ -2654,6 +2884,16 @@ function breakShield(player) {
       arenaTargetHW = CONSTRICT_HW;
       ui.bossNote?.('⛈  THE ARENA NARROWS  ⛈', def.name, 'gold', 2.6);
       cameraCtl.shake?.(0.8);
+    }
+    // THE LOOM (CP2-A, optional model hook — only EMBERTIDE implements): each phase
+    // the face surfaces closer/larger (0→1 across the fight; the model eases + caps it).
+    model.setLoom?.(phaseIdx / Math.max(1, (def.phases?.length ?? 1) - 1));
+    // THE CRUSH re-arms at every phase seam (a wave per crescendo set — crush, hold,
+    // ebb; never a permanent ceiling). ~1.5s into the new phase. Inert without skyCrush.
+    if (def.skyCrush) {
+      crushFired = false;
+      crushT = (def.skyCrush.delay ?? 5) - 1.5;
+      crushHoldT = 0;
     }
   } else if (def.felledLie && !felledLieUsed && !ghostFrameBroken) {
     triggerFelledLie(player);   // §5f the LIE: fake death now, ≤35% returns within ≤2s (once)
@@ -2979,6 +3219,34 @@ function executeAttack(id, player) {
           for (const y of [cy - 2.4, cy + 2.4]) {
             emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
           }
+        }
+      } });
+    }
+  } else if (id === 'crestfall') {
+    // CRESTFALL (CP2-B, EMBERTIDE's full-frame emitter) — THE TIDE CRESTS THE WHOLE
+    // FRAME: full-width rows pour from the crest line high above the lane and BREAK
+    // downward into it in sequence, a generous safe gap sliding sideways between rows
+    // (you track it in time, like movingGap, but the sheet also falls — the crest is
+    // the emitter, §5f law 7). EMBERTIDE-only (listed in its phases); every other boss
+    // never selects it. The amber floor is held by the phase's crossfire/stream carrier
+    // (bossRhythm amberSwap forces one when the 12s window is about to lapse).
+    const rows = quality < 0.75 ? 4 : 5;
+    const slow = closing * 0.6;
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const g0 = Math.max(-6, Math.min(6, player.position.x));
+    for (let k = 0; k < rows; k++) {
+      const b = activeBand[k % activeBand.length];
+      pending.push({ t: k * 0.32, fire: () => {
+        const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
+        // Normal crest: the safe gap SLIDES between rows (track it in time). During
+        // HORIZON-BREAK it instead LOCKS to the live face-shadow pocket (horizonPocketX,
+        // which sweeps as the face looks around) — so you ride the shadow, not a rhythm.
+        const gapC = horizonPocketX != null ? horizonPocketX : (g0 + dir * 2.5 * k);
+        const gap = Math.max(-hw + 3.4, Math.min(hw - 3.4, gapC));
+        const topY = CONFIG.laneMaxY + 3;          // spawn AT the crest, above the frame top
+        for (let x = -hw; x <= hw; x += stepX) {
+          if (Math.abs(x - gap) < 3.4) continue;   // the safe pocket (generous — a full frame)
+          emitBoss(x, topY, 0, -5.5, -slow, false, b.c, b.s);   // breaks DOWNWARD (vy) + closes (vrel)
         }
       } });
     }
@@ -3613,7 +3881,7 @@ export function resetBoss() {
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
-  activeCard = null; cardTimer = 0;
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
   ui.bossCardClear?.();
   if (model && model.rig && scene && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky dome
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
@@ -3654,7 +3922,11 @@ export function resetBoss() {
   activeBand = BAND;
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
-  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  ui.letterbox?.(false);
+  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
   // encounter snaps to the fixed biome offset (§5h — nearest rung to firstAt).
   nextBossDist = debugFirstAt ?? snapBossDist(B.firstAt - CONFIG.biomeLength * 0.35);

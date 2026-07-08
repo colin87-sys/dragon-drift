@@ -82,7 +82,7 @@ for (const key of BOSS_ORDER) {
     prev = ph.atFrac;
     assert(Array.isArray(ph.attacks) && ph.attacks.length > 0, `${key} phase has attacks`);
     for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
-      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'].includes(a), `${key} attack '${a}' is known`);
+      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'crestfall'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
   }
   // Spell cards (§5f/§5h): optional (coexist rule), but if present they must
@@ -898,6 +898,92 @@ for (const key of BOSS_ORDER) {
 
   em.dispose();
   ok('embertide geometry: face SURGES on charge, eye-hollows TEAR on notice, face sinks in death, ZERO additive (opaque wall of light), named organs ✓');
+}
+
+// EMBERTIDE CP2-A — the spectacle pass: the §5j entrance (setEntrance stages the sky:
+// dim dome + submerged face + sealed hollows → the full arrival), THE LOOM (per-phase
+// face growth, capped), THE TIDE CRUSH (setCrush closes the ceiling/floor strips),
+// and the EXPRESSION tell families (setAttackTell reshapes the face per attack family
+// on the charge envelope). All model-side (the studio default — entrance 1, loom 0,
+// crush 0, no tell — stays byte-identical to the CP1 frames).
+{
+  const em = buildBoss(BOSSES.embertide, 1);
+  const faceRig = em.group.getObjectByName('faceRig');
+  const eh = em.group.getObjectByName('eyeHollow0');
+  const mouth = em.group.getObjectByName('mouthNotch');
+
+  // ENTRANCE staging: u=0 submerges the face far below its arrival height and SEALS
+  // the hollows; u=1 restores the exact arrival pose (the studio default).
+  for (let i = 0; i < 30; i++) em.tick(0.05, i * 0.05);
+  const arriveY = faceRig.position.y, arriveOpen = eh.scale.y;
+  em.setEntrance(0);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 2 + i * 0.05);
+  assert(faceRig.position.y < arriveY - 150, `entrance u=0 SUBMERGES the face below the horizon (faceRig y ${faceRig.position.y.toFixed(0)} < ${arriveY.toFixed(0)} − 150)`);
+  assert(eh.scale.y < 0.1, `entrance u=0 SEALS the eye-hollows (scale.y ${eh.scale.y.toFixed(3)} < 0.1 — they tear open during the arrival)`);
+  assert(mouth.scale.y <= 0.06, `entrance u=0 SEALS the mouth (scale.y ${mouth.scale.y.toFixed(3)} — it tears last)`);
+  em.setEntrance(1);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 4 + i * 0.05);
+  assert(Math.abs(faceRig.position.y - arriveY) < 2, `entrance u=1 restores the arrival pose (faceRig y ${faceRig.position.y.toFixed(1)} ≈ ${arriveY.toFixed(1)})`);
+  assert(eh.scale.y > arriveOpen - 0.15, `entrance u=1 restores the open hollows (scale.y ${eh.scale.y.toFixed(2)})`);
+  // THE RELEASE CONTRACT: enterFight calls setEntrance(null) (the boss.js release
+  // convention) — null must mean FULLY ARRIVED, never re-submerge. Clamping null
+  // to 0 was the "where did his face go" bug: the fight opened faceless.
+  em.setEntrance(0);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 6 + i * 0.05);
+  em.setEntrance(null);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 8 + i * 0.05);
+  assert(Math.abs(faceRig.position.y - arriveY) < 2, `setEntrance(null) = RELEASED/ARRIVED (faceRig y ${faceRig.position.y.toFixed(1)} ≈ ${arriveY.toFixed(1)} — the fight must open WITH the face)`);
+  assert(eh.scale.y > arriveOpen - 0.15, `setEntrance(null) leaves the hollows open (scale.y ${eh.scale.y.toFixed(2)})`);
+
+  // THE LOOM: setLoom(1) grows the face a MODERATE amount (owner tune: from the 3× resting
+  // size, crescendo to ~3.6× — never the ~5× wall-of-dark that loses the face gestalt).
+  const preScale = faceRig.scale.x;
+  em.setLoom(1);
+  for (let i = 0; i < 90; i++) em.tick(0.05, 8 + i * 0.05);   // slow ease — give it room
+  assert(faceRig.scale.x > preScale * 1.1, `THE LOOM grows the face (scale ${faceRig.scale.x.toFixed(2)} > ${(preScale * 1.1).toFixed(2)} — the per-phase surfacing)`);
+  assert(faceRig.scale.x <= preScale * 1.3, `THE LOOM stays MODERATE (≤ +30% legibility guard; got ×${(faceRig.scale.x / preScale).toFixed(2)})`);
+  em.setLoom(0);
+
+  // THE TIDE CRUSH: setCrush(1) DIMS the whole dome (the light recedes as it crushes
+  // in). The space closing is carried by the letterbox (ui.js) + lane clamp (player.js);
+  // the sky's contribution is a UNIFORM colour multiply — never a descending band plane,
+  // whose hot crest edge read as a "rectangular horizontal line" (owner catch ×3). The
+  // strip organs stay named in the graph but are NEVER shown, so the seam cannot return.
+  const ceil = em.group.getObjectByName('crushCeil');
+  const floor = em.group.getObjectByName('crushFloor');
+  const dome = em.group.getObjectByName('lightField');
+  assert(!!ceil && !!floor, 'embertide exposes the named crushCeil/crushFloor strips (retained organs)');
+  assert(!ceil.visible && !floor.visible, 'crush strips are HIDDEN (the seam-prone band plane is retired)');
+  em.setCrush(0);
+  for (let i = 0; i < 40; i++) em.tick(0.05, 16 + i * 0.05);   // settle crush OFF
+  em.tick(0.0, 20.0);                                          // sample the dome at a fixed phase
+  const domeBrightUncrushed = dome.material.color.r + dome.material.color.g + dome.material.color.b;
+  em.setCrush(1);
+  for (let i = 0; i < 80; i++) em.tick(0.05, 22 + i * 0.05);   // ease crush ON
+  em.tick(0.0, 20.0);                                          // SAME phase — isolate the crush dim
+  const domeBrightCrushed = dome.material.color.r + dome.material.color.g + dome.material.color.b;
+  assert(!ceil.visible && !floor.visible, 'the crush NEVER shows the strips (no band plane, no seam)');
+  assert(domeBrightCrushed < domeBrightUncrushed * 0.95, `setCrush(1) DIMS the dome (${domeBrightCrushed.toFixed(2)} < ${(domeBrightUncrushed * 0.95).toFixed(2)} — the light recedes, seamlessly)`);
+  em.setCrush(0);
+
+  // EXPRESSIONS: distinct families reshape the face ON the charge envelope.
+  for (let i = 0; i < 40; i++) em.tick(0.05, 24 + i * 0.05);   // settle neutral
+  const neutralMouth = mouth.scale.y, neutralOpen = eh.scale.y;
+  em.setAttackTell('curtain'); em.setCharge(1);                 // TEAR — the mouth rips wide
+  for (let i = 0; i < 10; i++) em.tick(0.05, 28 + i * 0.05);
+  assert(mouth.scale.y > neutralMouth + 0.8, `TEAR family rips the mouth wide (scale.y ${mouth.scale.y.toFixed(2)} > ${neutralMouth.toFixed(2)} + 0.8 — the wall-attack tell)`);
+  em.setAttackTell('aimed');                                    // NARROW — the glare squints
+  for (let i = 0; i < 10; i++) em.tick(0.05, 30 + i * 0.05);
+  assert(eh.scale.y < neutralOpen + 0.1, `NARROW family squints the hollows (scale.y ${eh.scale.y.toFixed(2)} — the aimed glare, distinct from the flare)`);
+  em.setAttackTell('crossfire');                                // SKEW — the face tilts
+  for (let i = 0; i < 10; i++) em.tick(0.05, 32 + i * 0.05);
+  assert(Math.abs(faceRig.rotation.z) > 0.04, `SKEW family tilts the face (rot.z ${faceRig.rotation.z.toFixed(3)} — reading both flanks)`);
+  em.setCharge(0); em.setAttackTell(null);
+  for (let i = 0; i < 20; i++) em.tick(0.05, 34 + i * 0.05);
+  assert(Math.abs(faceRig.rotation.z) < 0.01, 'the tell pose RELEASES with the charge (no stuck expression)');
+
+  em.dispose();
+  ok('embertide CP2-A: entrance stages/arrives, LOOM grows capped, crush strips close, tell families TEAR/NARROW/SKEW pose + release ✓');
 }
 
 // WEFTWITCH web ↔ water reaction (owner note on PR #263) + loom-eye gaze tracking.
@@ -1793,7 +1879,7 @@ function driveKill(idx) {
   boss.forceBoss(player, idx);
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
-  let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
+  let t = 0, sawFight = false, sawShield = false, sawNarrow = false, sawCrush = false, sawEbb = false;
   let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinY = 99, setpieceMinRel = 99, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
@@ -1818,9 +1904,11 @@ function driveKill(idx) {
       if (st.charging) chargedDuringSetpiece = true;
     }
     if (game.bossArenaHW != null) sawNarrow = true;
+    if (game.bossArenaHY != null) sawCrush = true;
+    else if (sawCrush && st.phase === 'fight') sawEbb = true;   // the crush RELEASED mid-fight (a wave, not a mode)
     boss.updateBoss(dt, player, t);
   }
-  return { t, sawFight, sawShield, sawNarrow,
+  return { t, sawFight, sawShield, sawNarrow, sawCrush, sawEbb,
     sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
@@ -1851,6 +1939,15 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawNarrow, `${key}: no constriction → the arena never narrowed`);
   }
   assertEq(game.bossArenaHW, null, `${key}: arena width restored after the fight`);
+  // Vertical squeeze contract (CP2-A, def.skyCrush): the ceiling clamp published
+  // during the fight and is ALWAYS restored on teardown; every other def is inert.
+  if (BOSSES[key].skyCrush) {
+    assert(r.sawCrush, `${key}: the sky crushed the lane (bossArenaHY published mid-fight)`);
+    assert(r.sawEbb, `${key}: the crush EBBED mid-fight (a wave that releases, never a permanent ceiling — the owner's height-feel catch)`);
+  } else {
+    assert(!r.sawCrush, `${key}: no skyCrush → the sky ceiling never clamped (coexist)`);
+  }
+  assertEq(game.bossArenaHY, null, `${key}: sky ceiling restored after the fight`);
   // Setpiece contract (the fenced controller seam): a def WITH a setpiece plays it
   // at its phase — a real station-leave excursion — and a def WITHOUT one NEVER
   // sees it (the byte-unchanged fence for the shipped bosses). Supports the legacy

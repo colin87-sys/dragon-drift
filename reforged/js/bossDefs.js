@@ -1309,16 +1309,29 @@ export const BOSSES = {
     glow: 0xff7a5e,                   // warm coral-rose — the LIGHT end of the tide / the face edge-light / shield rim
     bulletColor: 0xff2b6a,            // danger magenta — role colour (never per-boss); the INVERSE contrast
                                       // problem: it must read against the BRIGHT field (its white core carries it)
-    approachFrom: 'horizon',          // INTENDED entry ("the whole horizon stands up"). ⚠ NOT yet wired in
-                                      // startBossEncounter (CP2): 'horizon' currently falls to the default
-                                      // approach + 'bottom' banner. Low-impact for THIS boss — the dome is
-                                      // camera-locked and fills the sky from `active` (warn onward), so the
-                                      // group's entry direction is nearly invisible. CP2 adds the bespoke
-                                      // skyComesLoose entry (or a minimal alias to the 'ahead' far-horizon hold).
+    approachFrom: 'horizon',          // WIRED (CP2-A): the gameplay STATION walks in from far up the lane
+                                      // (the HOLLOWGATE far-ahead close) + a 'top' warn banner; the VISUAL
+                                      // arrival is the camera-locked dome via the §5j entrance below.
+    // §5j THE SKY COMES LOOSE (CP2-A): the dome LIFTS from an ember seed, the face
+    // RISES through the horizon line, the eye-hollows TEAR OPEN one at a time and
+    // settle on the dragon (entranceScripts.js `skyComesLoose`; the model's
+    // setEntrance owns the sky-side choreography — boss.js stages 0 at spawn).
+    entrance: 'skyComesLoose',
+    // CP2-A THE TIDE CRUSH — the brief's "vertical squeeze + letterbox at the FIRST
+    // crescendo set (a re-entrance beat)": ~6s into P1 the sky's ceiling of light
+    // descends (player.js Y-clamps at hy, damage-free), the model's crush strips
+    // pinch the frame, and a letterbox pulses in and back out. Def-gated; every
+    // other boss is inert (no skyCrush → the Y engine never arms).
+    skyCrush: { delay: 6, hy: 14 },
+    // The X counterpart lands LATER (P3, "the crest crosses the whole frame"): the
+    // shipped storm-wall constrict, re-read as the tide pressing in from the flanks
+    // (the walls take def.accent → vermilion light, not storm-teal).
+    constrictPhase: 2,
     scale: 1.0,                       // NOT a unit scale — the field is tuned frame-wide IN the builder; it IS the backdrop
     // §5i TIDE-EDGE + FACE-SHADOW POCKET graze (reuses slot-6's continuous-graze detector): skim the crest
     // edge, ride the moving face-shadow pocket; offered once per phase. Def-gated; shipped bosses inert.
     grazeForm: 'tideEdge',
+    beamDuel: true,                  // §5i.C the Surge≥50% mechanic (fire INTO the crest; hold lane-center against the drift). Def-gated; shipped bosses inert.
     // CRESCENDO SETS (Stormrend's 'crescendo' ramp QUOTED in repeating wave-SETS, each cut harder — the
     // designed echo). Fill apex: curtain/iris/movingGap at the fairness-floored cadence. BEAM DUEL is 13's
     // SURGE mechanic (fire INTO the crest at Surge ≥50%) — NOT a parry read (audit ED-8: it sits in the Surge
@@ -1328,8 +1341,8 @@ export const BOSSES = {
     phases: [
       { atFrac: 1.00, cadence: [1.35, 1.8],  attacks: ['curtain', 'crossfire'] },                       // P1: the tide rises (first crescendo set) — the vertical squeeze + letterbox fires HERE as a NORMAL re-entrance beat (CP2), not a survival card
       { atFrac: 0.80, cadence: [1.25, 1.65], attacks: ['curtain', 'movingGap', 'crossfire'] },          // P2: the sets stack (a second crest, cut harder)
-      { atFrac: 0.58, cadence: [1.15, 1.5],  attacks: ['movingGap', 'iris', 'stream'] },                // P3: the crest crosses the whole frame (the crest-lock volley — `stream` amber)
-      { atFrac: 0.36, cadence: [1.1, 1.4],   attacks: ['iris', 'curtain', 'crossfire', 'movingGap'] },  // P4: full flood (every set at once)
+      { atFrac: 0.58, cadence: [1.15, 1.5],  attacks: ['crestfall', 'iris', 'stream'] },                // P3: the crest crosses the whole frame — CRESTFALL debuts (CP2-B full-frame emitter); `stream` is the amber crest-lock carrier
+      { atFrac: 0.36, cadence: [1.1, 1.4],   attacks: ['curtain', 'iris', 'crestfall', 'crossfire'] },  // P4: full flood (every set at once) — the crest breaks alongside the walls; `crossfire` amber
       { atFrac: 0.16, cadence: [1.05, 1.35], attacks: ['curtain', 'movingGap', 'crossfire'] },          // P5: SKY SET LOOSE — Horizon Break (dread/survival) — pure-dodge at runtime; `crossfire` kept for the amberdiet floor (§5i.C survival exemption)
     ],
     // Spell cards (5 for WE; "<EPITHET FRAGMENT> — <plain pattern>"; the dread/survival card LAST). 13's ONE
@@ -1373,7 +1386,7 @@ export const BOSSES = {
         { // P3 — the crest crosses: the crest-lock volley (stream) is the amber carrier
           ratioBurst: 0.55,
           phrase: [
-            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'crestfall', count: 1, gap: 0.5 },   // CRESTFALL debuts here (the crest crosses the whole frame)
             { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.5 },
             { kind: 'sustain', attack: 'stream',    beats: 2, gap: 0.75 },
           ],
@@ -1384,7 +1397,7 @@ export const BOSSES = {
           phrase: [
             { kind: 'burst',   attack: 'curtain',   count: 2, gap: 0.5 },
             { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.5 },
-            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'crestfall', count: 1, gap: 0.5 },   // the crest breaks alongside the walls (full flood)
             { kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.7 },
           ],
           restLo: 0.55, restHi: 2.8, restDist: 'bimodal',
