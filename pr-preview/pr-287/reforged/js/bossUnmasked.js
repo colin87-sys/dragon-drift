@@ -400,7 +400,7 @@ export function buildUnmasked(def, quality = 1) {
     { key: 'upper',  rotZ: 0.00,  scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.45, y: 0.70 }, rootEye: { x: 0.80, y: 1.39 } },  // φ≈60° — longest, leans out
     { key: 'upmid',  rotZ: -0.57, scale: 1.52, z: -0.35, phase: 0.7, amp: 0.030, off: { x: 0.45, y: 0.26 }, rootEye: { x: 1.43, y: 0.73 } },  // φ≈27°
     { key: 'middle', rotZ: -1.15, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.45, y: -0.16 }, rootEye: { x: 1.59, y: -0.17 } },// φ≈−6° — out
-    { key: 'lower',  rotZ: -1.71, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.56 }, rootEye: { x: 1.26, y: -0.98 } },// φ≈−38° — out-and-down, shortest
+    { key: 'lower',  rotZ: -1.20, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.42 }, rootEye: { x: 1.48, y: -0.50 } },// RAISED to out-and-slightly-down (~−25°) — no longer drooping near-vertical (owner r-fix: it read as legs)
   ];
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
