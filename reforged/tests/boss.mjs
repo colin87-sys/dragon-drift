@@ -356,9 +356,9 @@ for (const key of BOSS_ORDER) {
   const gbox = new THREE.Box3().setFromObject(great);
   const gw = gbox.max.x - gbox.min.x;
   assert(gw < 8.0, `unmasked focal eye is a modest focal, not a body (world bbox width ${gw.toFixed(1)}u < 8u; ~⅓ the old body-eye)`);
-  // THE EYE FIELD (the identity) + the SOLE closed ring is the faint gold halo.
+  // THE EYE FIELD (the identity). The halo is RESERVED for the third form — stage 2 has NO ring.
   assert(findAllByName(um.group, 'eyeScleras')[0] && findAllByName(um.group, 'eyeSockets')[0], 'unmasked stage-2 eye field present (sockets + scleras merged)');
-  assert(findAllByName(um.group, 'halo')[0], 'unmasked stage-2 has the sole gold halo (the only corona nod)');
+  assert(!findAllByName(um.group, 'halo')[0], 'unmasked stage-2 has NO halo (reserved for the third form)');
   um.dispose();
   ok('unmasked stage-2 SERAPH: eight eyed wings (bilateral card-fan) + the original focal almond eye, wheels retired');
 }
