@@ -114,8 +114,8 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
   // degrees to swing the hand+fan about the wrist; primLen/primWidth/primBow/primSpread reshape
   // the primary fan; heroLen = extra length on the peak feather; secLen/secWidth = secondaries;
   // covert = covert-row puffiness.
-  const S = { armLen: 1, armWidth: 1, handLen: 1, bend: 0, primLen: 1, primWidth: 1, primBow: 1,
-    primSpread: 1, heroLen: 1, secLen: 1, secWidth: 1, covert: 1, ...shape };
+  const S = { armLen: 1, armWidth: 1, armBow: 0, elbow: 0.5, handLen: 1, bend: 0, primLen: 1,
+    primWidth: 1, primBow: 1, primSpread: 1, heroLen: 1, secLen: 1, secWidth: 1, covert: 1, ...shape };
   const group = new THREE.Group();
   // curveSegments scale CONTINUOUSLY with quality (q1 = 18/14, unchanged for the winglab;
   // lower quality — e.g. the six-wing seraph packing 6 wings into one boss budget — steps
@@ -204,12 +204,25 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
   const dirA = Math.atan2(by, bx);                      // segment-1 direction (from +X)
   const px = by / bl, py = -bx / bl;                    // perp, pointing out (right)
 
+  // ARM CENTERLINE — a quadratic S0→C0 that the coverts + under-lens ride. `armBow` bulges the
+  // control point perpendicular (a CONVEX arm); `elbow` slides it along the arm (where the bulge
+  // peaks). armBow 0 → the control sits on the chord → a straight line → the shipped wing exactly.
+  const ctrlx = S0.x + bx * S.elbow + px * S.armBow, ctrly = S0.y + by * S.elbow + py * S.armBow;
+  const boneAt = (t) => {
+    const mt = 1 - t;
+    const x = mt * mt * S0.x + 2 * mt * t * ctrlx + t * t * C0.x;
+    const y = mt * mt * S0.y + 2 * mt * t * ctrly + t * t * C0.y;
+    const dx = 2 * mt * (ctrlx - S0.x) + 2 * t * (C0.x - ctrlx);
+    const dy = 2 * mt * (ctrly - S0.y) + 2 * t * (C0.y - ctrly);
+    return { x, y, dir: Math.atan2(dy, dx) };
+  };
+
   // Under-plumage lens: ivory backing so chinks show ivory, never slate. Its perpendicular
   // spread carries the arm's WIDTH (scaled by `armWidth`).
   const aw = S.armWidth;
   const underShape = (() => {
     const u = new THREE.Shape();
-    const mx = S0.x + bx * 0.5, my = S0.y + by * 0.5;
+    const lm = boneAt(0.5); const mx = lm.x, my = lm.y;   // lens mid rides the (possibly bowed) arm
     u.moveTo(S0.x, S0.y);
     u.quadraticCurveTo(mx - px * 0.25 * aw, my - py * 0.25 * aw, C0.x, C0.y);
     u.quadraticCurveTo(mx + px * 1.05 * aw, my + py * 1.05 * aw, S0.x, S0.y);
@@ -223,10 +236,11 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0, shape 
   const addStrip = (matRef, off, u0, u1, h, lobes, d0, d1, z, seed) => {
     const L = bl * (u1 - u0);
     const m = new THREE.Mesh(new THREE.ExtrudeGeometry(scallopStrip(L, h, lobes, d0, d1, seed), PEX), matRef);
-    // CONVERGED roots: each strip starts ON the bone and fans outward so its
+    // CONVERGED roots: each strip starts ON the (possibly bowed) bone and fans outward so its
     // crook end reaches `off` — shoulder ends meet in one tuft, never a fray.
-    m.rotation.z = dirA - Math.atan2(off, L);   // local +v = MINUS perp
-    m.position.set(S0.x + bx * u0, S0.y + by * u0, z);
+    const b0 = boneAt(u0);
+    m.rotation.z = b0.dir - Math.atan2(off, L);   // local +v = MINUS perp
+    m.position.set(b0.x, b0.y, z);
     group.add(m);
     return m;
   };
