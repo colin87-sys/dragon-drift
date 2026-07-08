@@ -750,7 +750,7 @@ export const DRAGONS = {
     // star-gem + rear corona mantle) + cuirass keel-ridge + scepter tail. All geometry
     // authored fresh (no shipped builder look reused). iridescence dropped (matte "arcane
     // light in darkness"); cellularScales kept. Palette held (already Bahamut-aligned).
-    parts: { torso: 'regnalKeelTorso', wings: 'lanceVaultWings', head: 'eclipseCrownHead', tail: 'scepterWhipTail', surface: { shader: ['cellularScales'] } },
+    parts: { torso: 'regnalKeelTorso', wings: 'lanceVaultWings', head: 'eclipseCrownHead', tail: 'scepterWhipTail', surface: { shader: [] } },
     stats: { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 },
     // Base model holds APEX reference dials; each form dials the per-stage silhouette
     // (cumulative — later forms override earlier keys). Sovereign dials: vaultFingers,
