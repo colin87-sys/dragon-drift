@@ -1069,6 +1069,24 @@ export const ui = {
     const hud = els.hud || (typeof document !== 'undefined' && document.getElementById('hud'));
     if (hud) hud.classList.toggle('cine-hold', !!on);
   },
+  // LETTERBOX (CP2-A, EMBERTIDE's vertical-squeeze re-entrance beat): two bars ease
+  // in from the frame edges and back out — a PULSE, not a mode (boss.js times it).
+  // Elements are created on first use so the shell HTML stays untouched.
+  letterbox(on) {
+    if (typeof document === 'undefined' || !document.body) return;
+    let top = document.getElementById('cinebar-top');
+    if (!top && !on) return;   // never build the bars just to hide them
+    if (!top) {
+      top = document.createElement('div'); top.id = 'cinebar-top'; top.className = 'cinebar cinebar-top';
+      const bot = document.createElement('div'); bot.id = 'cinebar-bot'; bot.className = 'cinebar cinebar-bot';
+      document.body.appendChild(top); document.body.appendChild(bot);
+    }
+    const bot = document.getElementById('cinebar-bot');
+    // Headless shim DOM: stub elements may lack a real classList — skip quietly.
+    if (!top.classList || typeof top.classList.toggle !== 'function') return;
+    top.classList.toggle('on', !!on);
+    if (bot && bot.classList && typeof bot.classList.toggle === 'function') bot.classList.toggle('on', !!on);
+  },
   // Capture DEADLINE passed (timer hit 0 before the phase was cleared): mark the
   // timer so the player reads why the card will resolve SURVIVED, not CAPTURE —
   // without blocking the fight (progress is never walled).
