@@ -148,54 +148,77 @@ export function buildEmbertide(def, quality = 1) {
   faceRig.scale.setScalar(FACE_SCALE);
   rig.add(faceRig);
 
-  // BASE SHADOW — a large head-shaped region of darkened light (multiply), soft-edged
-  // so its CROWN and SIDES dissolve into the field (no discrete mask perimeter). Its
-  // vertex colour is the multiply factor: dark in the core → 1.0 (no effect) at the
-  // rim. Taller than wide (a head), the jaw tapering narrower.
+  // THE SHADOW FIELD — the ENTIRE face shadow (the head-wash + brow/nose/chin masses +
+  // the cheek/temple/philtrum relief tiers) baked into ONE mesh's vertex colours as
+  // the PRODUCT of every layer's multiply factor.
   //
-  // ⚠ THE OWNER-AGREED GEOMETRY + VALUES, BYTE-FOR-BYTE (the CP1/dome-merge build the
-  // owner checkpointed as "his face" — verified by rendering that commit in-harness):
-  // the FULL quad including its broad outer wash is part of the agreed softness. Every
-  // attempt to re-bound/re-curve it (ellipse collapse, tighter feather, gamma) read as
-  // "his face changed". The ENTRANCE-pane problem (the quad glaring in open sky while
-  // the face is submerged mid-rise) is solved by the SHADOW-CONDENSE fade instead: the
-  // entrance lerps these vertex colours from 1.0 (no effect) to the agreed values as
-  // the face rises (see _shadeFade in tickBody) — the darkness CONDENSES out of the
-  // light, and the arrival face is the agreed rendering exactly.
+  // ⚠ WHY ONE MESH (owner catch: "why does his face have so many squares?"): as
+  // separate stacked quads, EVERY layer tinted its own full rectangle a few percent
+  // (the warm tint never reached exactly 1.0 at quad edges), so the face read as a
+  // collage of translucent TILES — a big square for the head-wash and small squares
+  // for every cheek/temple/brow patch, jarring at any zoom. One merged field has NO
+  // inter-layer boundaries by construction, and every channel is EXACTLY 1.0 (zero
+  // effect, invisible) wherever the combined shadow ends. The VALUES are the agreed
+  // per-layer maths multiplied together — the same ideal composite the stacked quads
+  // were trying to paint, minus the tile seams.
   const BASE_W = 34, BASE_H = 46;
   const CY = -1.5;                       // centre slightly low (the face rises from below)
-  const baseGeo = new THREE.PlaneGeometry(BASE_W, BASE_H, lowQ ? 28 : 44, lowQ ? 36 : 56);
+  // The agreed layers (x, y, w, h, dark, ry — the darkMass feather params, verbatim):
+  const SHADOW_MASSES = [
+    [0, 5.2, 19, 5.0, 0.10, 0.8],    // heavy brow bar (wide, low arc)
+    [0, -1.0, 4.6, 11, 0.06, 1.0],   // central nose ridge (tall, narrow — the deepest)
+    [0, -10.5, 13, 7, 0.12, 0.9],    // chin/jaw mass low, fading into the tide below
+    [-0.5, 6.6, 10, 3.0, 0.30, 1.0], // brow-ridge undershadow (deepens the brow line)
+    [-6.2, -3.0, 7.5, 5.5, 0.28, 0.9],  // left cheekbone hollow
+    [6.2, -3.0, 7.5, 5.5, 0.28, 0.9],   // right cheekbone hollow
+    [-8.4, 4.0, 4.2, 8.0, 0.46, 1.3],   // left temple shadow (kept LIGHT — no mask side-edge)
+    [8.4, 4.0, 4.2, 8.0, 0.46, 1.3],    // right temple shadow
+    [0, -3.6, 5.5, 3.0, 0.34, 0.9],     // philtrum / upper-lip shadow (nose→mouth)
+  ];
+  const massAt = (x, y, mx, my, w, h, dark, ry) => {
+    const nx = (x - mx) / (w / 2), ny = (y - my) / (h / 2) / ry;
+    const d = Math.sqrt(nx * nx + ny * ny);
+    return dark + (1 - dark) * THREE.MathUtils.smoothstep(d, 0.15, 1.0);
+  };
+  const baseGeo = new THREE.PlaneGeometry(BASE_W, BASE_H, lowQ ? 34 : 56, lowQ ? 44 : 72);
   {
     const pos = baseGeo.attributes.position;
     const col = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i);
-      // Head-shaped elliptical distance, jaw narrower below centre.
+      // The head-wash (agreed): elliptical, jaw narrower below centre, long soft rim.
       const below = y < CY ? (CY - y) / 15 : 0;
       const rx = 11 * (1 - 0.35 * Math.min(1, below));
-      const ry = 16;
-      const d = Math.sqrt((x / rx) ** 2 + ((y - CY) / ry) ** 2);
-      const f = THREE.MathUtils.smoothstep(d, 0.42, 1.12);   // 0 core → 1 rim
-      const m = 0.16 + (1 - 0.16) * f;                        // 0.16 core (dark) → 1.0 rim (no effect)
-      // Faintly warm shadow (a touch more red kept in the core) so the occluded light
-      // reads as warm dusk, never a cool/magenta veil.
-      col[i * 3] = m; col[i * 3 + 1] = m * 0.985; col[i * 3 + 2] = m * 0.965;
+      const d = Math.sqrt((x / rx) ** 2 + ((y - CY) / 16) ** 2);
+      let m = 0.16 + (1 - 0.16) * THREE.MathUtils.smoothstep(d, 0.42, 1.12);
+      // × every relief mass (the agreed feathered layers, composited analytically).
+      for (const [mx, my, w, h, dk, ry] of SHADOW_MASSES) m *= massAt(x, y, mx, my, w, h, dk, ry);
+      // Warm dusk tint scaled by DARKNESS (a touch more red kept where the shadow is
+      // deep) — every channel is EXACTLY 1.0 where m is 1.0, so the field's quad can
+      // never tint the open sky (the tile/pane law).
+      col[i * 3] = m;
+      col[i * 3 + 1] = m * (1 - 0.015 * (1 - m));
+      col[i * 3 + 2] = m * (1 - 0.035 * (1 - m));
     }
     baseGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   }
-  // SHADOW-CONDENSE registry: every multiply shadow geometry whose colours fade from
-  // 1.0 (no effect) to the agreed values as the face rises through the entrance. The
-  // agreed array is cached; outside the entrance nothing is ever rewritten.
+  // SHADOW-CONDENSE registry: the field's colours fade from 1.0 (no effect) to the
+  // agreed values as the face rises through the entrance; the mesh is visible-gated
+  // until the condense begins (no shadow quad ever renders against the open sky
+  // mid-rise). The agreed array is cached; outside the entrance nothing is rewritten.
   const shadeGeos = [];
-  const shadeMeshes = [];   // the shadow MESHES are visible-gated on the condense: a
-                            // MultiplyBlending quad leaves a faint pane against HDR sky
-                            // even at factor-1.0 colours (measured — the residual defies
-                            // the blend equation; likely a downstream postfx interaction),
-                            // so until the condense begins they are simply NOT RENDERED.
+  const shadeMeshes = [];
   const registerShade = (g) => { g.userData.agreedCol = g.attributes.color.array.slice(); shadeGeos.push(g); return g; };
   registerShade(baseGeo);
+  // ⚠ toneMapped:false is THE PANE FIX (root cause of the whole "squares" saga): a
+  // multiply material's fragment output is the FACTOR, but with toneMapped:true
+  // three.js runs ACES on it before blending — and ACES(1.0) saturates at ~0.76, so
+  // every "no-effect" fragment actually dimmed the sky ~15% and each quad painted
+  // its full rectangle as a visible tile. toneMapped:false passes the factor RAW:
+  // 1.0 multiplies to exact identity — invisible, mathematically, forever.
   const baseMat = track(new THREE.MeshBasicMaterial({
     vertexColors: true, fog: false, blending: THREE.MultiplyBlending, transparent: true, depthWrite: false,
+    toneMapped: false,
   }));
   const faceBase = new THREE.Mesh(baseGeo, baseMat);
   faceBase.name = 'faceRelief';   // the connected dark form (test seam)
@@ -204,61 +227,16 @@ export function buildEmbertide(def, quality = 1) {
   faceRig.add(faceBase);
   shadeMeshes.push(faceBase);
 
-  // The MASS features — brow / nose / chin as DARKER multiply occlusion (shadow-shapes
-  // in the glow, the hard read), each on a NAMED pivot that surges forward on the charge
-  // tell. Soft, feathered shapes (radial multiply gradient), never a hard-edged block.
-  const massMat = track(new THREE.MeshBasicMaterial({
-    vertexColors: true, fog: false, blending: THREE.MultiplyBlending, transparent: true, depthWrite: false,
-  }));
-  // A feathered dark mass: a plane whose multiply factor is dark in the middle → 1.0 at
-  // the edge (so it darkens the light where the mass is, with no hard outline).
-  function darkMass(w, h, dark, ry = 1) {
-    const g = new THREE.PlaneGeometry(w, h, lowQ ? 9 : 15, lowQ ? 9 : 15);
-    const p = g.attributes.position;
-    const c = new Float32Array(p.count * 3);
-    // BYTE-FOR-BYTE the owner-agreed mass values (the CP1/dome-merge face): no
-    // collapse, no tint-decay — collapsing these small planes reshaped the relief
-    // into visible banded structure ("a visor") that read as "his face changed".
-    // The masses sit INSIDE the base shadow, never against open sky, so the pane
-    // law doesn't bind them; only the base plane carries the collapse.
-    for (let i = 0; i < p.count; i++) {
-      const nx = p.getX(i) / (w / 2), ny = p.getY(i) / (h / 2) / ry;
-      const d = Math.sqrt(nx * nx + ny * ny);
-      const f = THREE.MathUtils.smoothstep(d, 0.15, 1.0);
-      const m = dark + (1 - dark) * f;
-      c[i * 3] = m; c[i * 3 + 1] = m * 0.985; c[i * 3 + 2] = m * 0.96;
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
-    return registerShade(g);   // condenses in with the base during the entrance
-  }
-  function massPivot(name, x, y, z, geo) {
+  // The NAMED mass pivots stay as animation/organ nodes (the charge tell surges them,
+  // tests assert them) — their SHADOW is baked into the field above, so they carry no
+  // meshes (no more per-mass tiles).
+  function massPivot(name, x, y, z) {
     const pv = new THREE.Object3D(); pv.name = name; pv.position.set(x, y, z);
-    const m = new THREE.Mesh(geo, massMat); m.renderOrder = 1;
-    pv.add(m); faceRig.add(pv); shadeMeshes.push(m); return pv;
+    faceRig.add(pv); return pv;
   }
-  const browPivot = massPivot('browMass', 0, 5.2, 0.5, darkMass(19, 5.0, 0.10, 0.8));   // heavy brow bar (wide, low arc)
-  const nosePivot = massPivot('noseMass', 0, -1.0, 0.7, darkMass(4.6, 11, 0.06, 1.0));   // central nose ridge (tall, narrow — the deepest)
-  const chinPivot = massPivot('chinMass', 0, -10.5, 0.5, darkMass(13, 7, 0.12, 0.9));    // chin/jaw mass low, fading into the tide below
-
-  // RICHER soft relief (owner note: the face must survive motion + a phone screen, not
-  // soften into "a smudge with two dots") — extra feathered multiply occlusion tiers
-  // that DEEPEN the brow/cheek/temple structure. ALL feathered (radial multiply
-  // gradient), NO hard edge, NO rim — they only darken the light a touch more where the
-  // bone structure is, so the face reads sculpted in MOTION without becoming an object.
-  const reliefTiers = [
-    [10, 3.0, 0.30, -0.5, 6.6, 0.45, 1.0],   // brow-ridge undershadow (deepens the brow line)
-    [7.5, 5.5, 0.28, -6.2, -3.0, 0.4, 0.9],  // left cheekbone hollow
-    [7.5, 5.5, 0.28, 6.2, -3.0, 0.4, 0.9],   // right cheekbone hollow
-    [4.2, 8.0, 0.46, -8.4, 4.0, 0.3, 1.3],   // left temple shadow (kept LIGHT — a hard temple column flirts with a mask side-edge)
-    [4.2, 8.0, 0.46, 8.4, 4.0, 0.3, 1.3],    // right temple shadow
-    [5.5, 3.0, 0.34, 0, -3.6, 0.5, 0.9],     // philtrum / upper-lip shadow (nose→mouth)
-  ];
-  for (const [w, h, dk, x, y, z, ry] of reliefTiers) {
-    const m = new THREE.Mesh(darkMass(w, h, dk, ry), massMat);
-    m.position.set(x, y, z); m.renderOrder = 1;
-    faceRig.add(m);
-    shadeMeshes.push(m);
-  }
+  const browPivot = massPivot('browMass', 0, 5.2, 0.5);
+  const nosePivot = massPivot('noseMass', 0, -1.0, 0.7);
+  const chinPivot = massPivot('chinMass', 0, -10.5, 0.5);
 
   // THE TEARS — the two EYE-HOLLOWS + the MOUTH: pure black, OPAQUE (holes torn in the
   // glow, not sockets on a mask), the absolute DARKEST value (the G1-inverted focal),
