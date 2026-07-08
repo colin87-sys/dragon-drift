@@ -100,7 +100,7 @@ function scallopStrip(L, h, lobes, d0, d1, seed = 0) {
   return s;
 }
 
-export function buildAngelWing({ quality = 1, material = null, blade = 0 } = {}) {
+export function buildAngelWing({ quality = 1, material = null, blade = 0, shape = {} } = {}) {
   const lowQ = quality < 0.75;
   // `blade` (0..1) re-voices the FROND into a straight, lifted seraph feather-BLADE: straighter
   // spines (less bow), sharper points, slimmer. 0 = the owner's signed-off winglab hero, byte-
@@ -108,6 +108,14 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0 } = {})
   // wing GEOMETRY/skeleton is otherwise the merged wing — this only re-shapes the flight feathers.
   const bld = Math.max(0, Math.min(1, blade));
   const bowMul = 1 - 0.6 * bld;
+  // `shape` (all knobs default to 1 / 0 → the wing UNCHANGED, byte-for-byte) lets the wing-shaper
+  // tool re-proportion the wing: lengthen/widen/shorten parts, curve the feathers, and swing the
+  // WRIST BEND. armLen = arm (shoulder→wrist) length; handLen = fan spread along the hand; bend =
+  // degrees to swing the hand+fan about the wrist; primLen/primWidth/primBow/primSpread reshape
+  // the primary fan; heroLen = extra length on the peak feather; secLen/secWidth = secondaries;
+  // covert = covert-row puffiness.
+  const S = { armLen: 1, handLen: 1, bend: 0, primLen: 1, primWidth: 1, primBow: 1,
+    primSpread: 1, heroLen: 1, secLen: 1, secWidth: 1, covert: 1, ...shape };
   const group = new THREE.Group();
   // curveSegments scale CONTINUOUSLY with quality (q1 = 18/14, unchanged for the winglab;
   // lower quality — e.g. the six-wing seraph packing 6 wings into one boss budget — steps
@@ -148,8 +156,23 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0 } = {})
   // column; segment 2 (wrist→hand tip ~(2.8,4.3)) is the primary root line.
   // The old bone mesh kept reading as a naked rod and was deleted (round-15).
 
-  // ---- PRIMARIES — the graduated fan, UNCHANGED in character, roots marching
-  // along SEGMENT 2 (the hand): hero at the tip, stepping back to the wrist.
+  // ---- SKELETON (shape-aware) — shoulder S0, wrist/crook C0. `armLen` lengthens the arm
+  // (shifts the wrist + everything rooted on the hand up along the arm); `bend` swings the hand
+  // (and its fan) about the wrist; `handLen` scales how far the fan spreads along the hand.
+  const S0 = { x: 0.12, y: 0.22 }, C0base = { x: 0.48, y: 3.42 };
+  const armDx = (C0base.x - S0.x) * (S.armLen - 1), armDy = (C0base.y - S0.y) * (S.armLen - 1);
+  const C0 = { x: C0base.x + armDx, y: C0base.y + armDy };
+  const wrist = { x: 0.50 + armDx, y: 3.42 + armDy };
+  const bendR = S.bend * Math.PI / 180, cB = Math.cos(bendR), sB = Math.sin(bendR);
+  // shift a root up the arm, then (rel. to the wrist) scale its reach by `dscale` and rotate by bend
+  const place = (root, dscale) => {
+    const rx = root.x + armDx, ry = root.y + armDy;
+    const dx = (rx - wrist.x) * dscale, dy = (ry - wrist.y) * dscale;
+    return { x: wrist.x + (dx * cB - dy * sB), y: wrist.y + (dx * sB + dy * cB) };
+  };
+
+  // ---- PRIMARIES — the graduated fan, roots marching along SEGMENT 2 (the hand): hero at the
+  // tip, stepping back to the wrist. Base values UNCHANGED; the shape knobs transform them.
   const PRIM = [
     { root: { x: 2.78, y: 4.24 }, angle: -1.06, len: 4.5, w: 0.95, bow: 0.52 },   // outermost finger
     { root: { x: 2.28, y: 4.06 }, angle: -1.17, len: 5.2, w: 1.00, bow: 0.50 },   // THE PEAK — slightly inboard
@@ -157,8 +180,12 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0 } = {})
     { root: { x: 1.30, y: 3.70 }, angle: -1.38, len: 4.0, w: 0.90, bow: 0.40 },
     { root: { x: 0.90, y: 3.52 }, angle: -1.47, len: 3.3, w: 0.85, bow: 0.35 },
   ];
+  const pMean = PRIM.reduce((s, p) => s + p.angle, 0) / PRIM.length;
   PRIM.forEach((p, i) => {
-    const f = addFeather(i % 2 ? priMatB : priMat, p.len, p.w, p.bow, p.root, p.angle, 0.02 + i * 0.07);
+    const root = place(p.root, S.handLen);
+    const angle = pMean + (p.angle - pMean) * S.primSpread + bendR;      // spread about the fan mean, then swing with the bend
+    const len = p.len * S.primLen * (i === 1 ? S.heroLen : 1);           // i===1 is THE PEAK/hero
+    const f = addFeather(i % 2 ? priMatB : priMat, len, p.w * S.primWidth, p.bow * S.primBow, root, angle, 0.02 + i * 0.07);
     // CUP: rake grades across the fan (+ a tiny alternation for edge light).
     f.children[0].rotation.x = 0.06 - i * 0.025 + (i % 2 ? 0.015 : -0.015);
   });
@@ -168,12 +195,11 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0 } = {})
     { root: { x: 0.82, y: 3.02 }, angle: -1.55, len: 2.35, w: 1.15, bow: 0.30 },
     { root: { x: 0.62, y: 2.66 }, angle: -1.52, len: 1.9, w: 1.20, bow: 0.24 },
   ];
-  SEC.forEach((p, i) => { const f = addFeather(secMat, p.len, p.w, p.bow, p.root, p.angle, 0.22 + i * 0.06); f.children[0].rotation.x = -0.07 - i * 0.03; });
+  SEC.forEach((p, i) => { const f = addFeather(secMat, p.len * S.secLen, p.w * S.secWidth, p.bow, place(p.root, S.handLen), p.angle + bendR, 0.22 + i * 0.06); f.children[0].rotation.x = -0.07 - i * 0.03; });
 
   // ---- COVERT REGION — scallop-edged strips along SEGMENT 1 (the near-vertical
   // arm): small at the shoulder, growing toward the crook, band faces toward the
-  // camera so the rows read from the front.
-  const S0 = { x: 0.12, y: 0.22 }, C0 = { x: 0.48, y: 3.42 };
+  // camera so the rows read from the front. (C0 already carries the armLen shift.)
   const bx = C0.x - S0.x, by = C0.y - S0.y, bl = Math.hypot(bx, by);
   const dirA = Math.atan2(by, bx);                      // segment-1 direction (from +X)
   const px = by / bl, py = -bx / bl;                    // perp, pointing out (right)
@@ -202,15 +228,16 @@ export function buildAngelWing({ quality = 1, material = null, blade = 0 } = {})
     group.add(m);
     return m;
   };
-  addStrip(gcMat, 0.95, 0.14, 1.08, 0.44, 8, 0.22, 0.14, 0.455, 3);   // greater — widest, over the quills
-  addStrip(lcMat, 0.62, 0.10, 1.05, 0.40, 9, 0.18, 0.11, 0.48, 11);
-  addStrip(mgMat, 0.34, 0.07, 1.02, 0.36, 9, 0.14, 0.09, 0.505, 23);
-  addStrip(lcMat, 0.08, 0.05, 0.99, 0.30, 10, 0.11, 0.07, 0.53, 31);  // hugging the leading edge (never past it)
+  const cv = S.covert;
+  addStrip(gcMat, 0.95, 0.14, 1.08, 0.44 * cv, 8, 0.22 * cv, 0.14 * cv, 0.455, 3);   // greater — widest, over the quills
+  addStrip(lcMat, 0.62, 0.10, 1.05, 0.40 * cv, 9, 0.18 * cv, 0.11 * cv, 0.48, 11);
+  addStrip(mgMat, 0.34, 0.07, 1.02, 0.36 * cv, 9, 0.14 * cv, 0.09 * cv, 0.505, 23);
+  addStrip(lcMat, 0.08, 0.05, 0.99, 0.30 * cv, 10, 0.11 * cv, 0.07 * cv, 0.53, 31);  // hugging the leading edge (never past it)
 
   // Hand coverts: a scalloped row along the primary root line (segment 2),
   // burying the quill bases — a feather, not a bone.
   {
-    const a = { x: 0.52, y: 3.42 }, b = { x: 2.86, y: 4.34 };
+    const a = place({ x: 0.52, y: 3.42 }, S.handLen), b = place({ x: 2.86, y: 4.34 }, S.handLen);
     const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy);
     const m = new THREE.Mesh(new THREE.ExtrudeGeometry(scallopStrip(l, 0.24, 6, 0.15, 0.11, 47), PEX), gcMat);
     m.rotation.z = Math.atan2(dy, dx);
