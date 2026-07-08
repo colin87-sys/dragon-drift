@@ -135,7 +135,8 @@ export const DRAGONS = {
       maneDetail: 1.0, maneRakeDown: 0.0, maneGlow: 0.5,   // no droop (was 0.16 → limp); base emissive under the bloom threshold so it never blooms to white in-game
       maneMid: 0x9e2408, maneTipColor: 0xff9a34, maneArmColor: 0x7a3216,
       sparColor: 0xc0763c,
-      flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
+      flapBias: 0.8, flapAmp: 2.6,      // BIG ~180° arc (12 o'clock recovery → 6 o'clock downstroke), slower & powerful
+      pair2Phase: 0.7,                  // lower wing pair beats offbeat from the upper (Cloudjumper); L/R stay synced
     },
     // Three visible forms (starter caps at SSR / tier 2): a round pot-bellied forge
     // pup (coal pair, stub gapped wings) → shoulders square up, rays lengthen, horns

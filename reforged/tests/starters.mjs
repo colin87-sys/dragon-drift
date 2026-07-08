@@ -59,12 +59,15 @@ const SPECS = {
     // so it is NOT judged as an orderly comb (no swell-then-taper / separation asserts — those
     // are azure's). Bands PROVISIONAL until the three-form ladder + gate land.
     architecture: 'living-flame mane',
-    wingElements: 5,                            // 5 flame tongues per side
-    foldMax: 0.9,                              // the tongues furl/nest inward on the fold
-    triTargets: [2600, 4000, 5600],
+    // Cloudjumper / Stormcutter TWIN-WING layout: TWO flame-wings per side (an upper that lifts and
+    // a smaller lower that spreads), 3 tongues each → 6 elements per side. The upswept wings trade
+    // horizontal span for vertical reach, so span:body reads lower than a flat wing.
+    wingElements: 6,                            // 3 upper + 3 lower flame tongues per side
+    foldMax: 1.02,                             // twin upswept wings don't furl as tightly (provisional)
+    triTargets: [2600, 4200, 5800],
     headBody: [[2.0, 2.6], [3.0, 4.2], [4.5, 5.5]],
     eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.13, 0.30]],
-    spanBody: [[0.55, 1.2], [0.9, 1.7], [1.2, 2.4]],   // provisional — retune when the ladder lands
+    spanBody: [[0.35, 1.1], [0.5, 1.4], [0.65, 1.8]],   // provisional — upswept twin-wing metric; retune when the look lands
     accentHue: 27,                              // lava ~27°
     carrier: 'moltenEdge',                      // the HOT wisp tips are the emissive accent; the molten cores are dark-warm
   },

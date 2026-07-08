@@ -749,6 +749,16 @@ export function updateDragon(dt, player, time) {
       const luff = Math.sin(time * 2.0) * 0.05;
       wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z, (wingPivot2L.userData.rz ?? 0) + turnBias * 0.5 + luff, 6, dt);
       wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, (wingPivot2R.userData.rz ?? 0) + turnBias * 0.5 - luff, 6, dt);
+    } else if (activeDef.model.pair2Phase != null) {
+      // OFFBEAT twin pair (Cloudjumper/Stormcutter): the lower wing beats the SAME big arc as the
+      // upper but shifted in phase, so the two pairs on a side flap just off each other — while the
+      // LEFT and RIGHT stay perfectly synchronised (mirror sign, same phase).
+      const rootFlap2 = Math.sin(phase + activeDef.model.pair2Phase) * flapAmp + 0.1;
+      const feather2 = Math.sin(phase + activeDef.model.pair2Phase + Math.PI * 0.55);
+      wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z,  rootFlap2 + turnBias - rollFold, 14, dt);
+      wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, -rootFlap2 + turnBias + rollFold, 14, dt);
+      wingPivot2L.rotation.x = damp(wingPivot2L.rotation.x, 0.14 - feather2 * 0.18 + climbBias, 10, dt);
+      wingPivot2R.rotation.x = damp(wingPivot2R.rotation.x, 0.14 + feather2 * 0.18 + climbBias, 10, dt);
     } else {
       wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z,  rootFlap * 0.6 + turnBias, 14, dt);
       wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, -rootFlap * 0.6 + turnBias, 14, dt);

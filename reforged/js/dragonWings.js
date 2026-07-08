@@ -1769,54 +1769,66 @@ function buildBonfireManeWings(def, model, attach, giM) {
     return g;
   }
 
-  // swell-then-taper base lengths (longest mid-mane) + irregular jitter.
-  const lenBase = (i) => { const t = i / (N - 1); return 0.62 + 0.38 * Math.sin((0.16 + t * 0.72) * Math.PI); };
-  const maxLen = reach * 0.86;
+  // swell-then-taper base lengths (longest mid-wing) + irregular jitter.
+  const lenBase = (i, n) => { const t = n > 1 ? i / (n - 1) : 0.5; return 0.62 + 0.38 * Math.sin((0.16 + t * 0.72) * Math.PI); };
   const chordK = model.maneChord ?? 0.4;
+  const wristFrac = 0.3;
 
-  const wristFrac = 0.3, wristX = armLen * wristFrac, wristY = wristX * Math.tan(theta), wristZ = wristX * Math.tan(sweep);
+  // TWO flame-wings PER SIDE (the Cloudjumper / Stormcutter layout): an UPPER wing that tilts up
+  // with the fire's energy, and a smaller LOWER wing seated below and swept back a touch flatter.
+  // Each wing's tongues stay BROAD + overlapping so the wing reads as one bold flame plane (not a
+  // spiky fan). The per-wing rest TILT lives on an `orient` group nested INSIDE the flap pivot, so
+  // the runtime flap (which sets pivot.rotation.z) can't overwrite the baseline splay.
+  const WING_CFG = [
+    { id: 0, reachK: 1.0,  Nt: model.maneUpperN ?? 3, lenK: 1.0,  rx: 0.0,  ry: -0.04, rz: 0.16 },   // UPPER — lifts up
+    { id: 1, reachK: 0.7,  Nt: model.maneLowerN ?? 3, lenK: 0.82, rx: 0.05, ry: -0.2,  rz: -0.42 },  // LOWER — drops below, swept back
+  ];
 
-  function buildSide(side) {
+  function buildWing(side, cfg) {
     const pivot = new THREE.Group();
     const wr = attach.wingRoot(side);
     pivot.position.set(wr.x, wr.y, wr.z);
-    const wingTip = new THREE.Group();
-    wingTip.position.set(wristX * side, wristY, wristZ);
+    const orient = new THREE.Group();
+    orient.rotation.set(cfg.rx, side * cfg.ry, side * cfg.rz);   // per-wing rest splay (flap rotates `pivot`; this holds the baseline)
+    pivot.add(orient);
 
-    // molten leading ARM — a taut tapered tube (the one firm line; everything trailing is soft).
+    const reachW = reach * cfg.reachK, armLenW = reachW * 0.5, maxLenW = reachW * 0.86, Nt = Math.max(2, cfg.Nt);
+    const wristXW = armLenW * wristFrac, wristYW = wristXW * Math.tan(theta), wristZW = wristXW * Math.tan(sweep);
+    const wingTip = new THREE.Group();
+    wingTip.position.set(wristXW * side, wristYW, wristZW);
+
+    // molten leading ARM
     const arm = [{ x: 0.05, y: 0, z: -0.02 }];
-    for (let i = 0; i < N; i++) { const t = i / (N - 1); const rx = armLen * (0.1 + 0.82 * t); arm.push({ x: rx, y: rx * Math.tan(theta), z: rx * Math.tan(sweep) }); }
-    const baseR = 0.15 * ws;
+    for (let i = 0; i < Nt; i++) { const t = Nt > 1 ? i / (Nt - 1) : 0; const rx = armLenW * (0.1 + 0.82 * t); arm.push({ x: rx, y: rx * Math.tan(theta), z: rx * Math.tan(sweep) }); }
+    const baseR = 0.15 * ws * (0.7 + 0.3 * cfg.reachK);
     for (let s = 0; s < arm.length - 1; s++) {
-      const a = arm[s], b = arm[s + 1], inner = b.x < wristX, par = inner ? pivot : wingTip;
-      const ox = inner ? 0 : wristX, oy = inner ? 0 : wristY, oz = inner ? 0 : wristZ;
+      const a = arm[s], b = arm[s + 1], inner = b.x < wristXW, par = inner ? orient : wingTip;
+      const ox = inner ? 0 : wristXW, oy = inner ? 0 : wristYW, oz = inner ? 0 : wristZW;
       const r0 = baseR * (1 - 0.8 * s / (arm.length - 1)) + 0.02, r1 = baseR * (1 - 0.8 * (s + 1) / (arm.length - 1)) + 0.018;
       par.add(bone((a.x - ox) * side, a.y - oy, a.z - oz, (b.x - ox) * side, b.y - oy, b.z - oz, r0, r1, armMat));
     }
 
     const tonguePivots = [], elements = [];
-    // side-dependent jitter PHASE → the L and R planforms do NOT mirror (gate flagged dead
-    // top-planform symmetry). Each side reads its own irregularity pattern.
-    const ph = side < 0 ? 2 : 0;   // subtler side offset → non-mirrored but not a glitchy count/spread mismatch
+    const ph = (side < 0 ? 2 : 0) + cfg.id * 3;   // per-side AND per-wing jitter phase → upper/lower + L/R all differ (no mirror, no twins)
     const jx = (i) => (i + ph) % jLen.length;
-    for (let i = 0; i < N; i++) {
-      const t = N > 1 ? i / (N - 1) : 0;
-      const rootX = armLen * (0.1 + 0.8 * t);
+    for (let i = 0; i < Nt; i++) {
+      const t = Nt > 1 ? i / (Nt - 1) : 0;
+      const rootX = armLenW * (0.1 + 0.8 * t);
       const rootY = rootX * Math.tan(theta);
-      const rootZ = rootX * Math.tan(sweep) + 0.05 * i;          // tighter root stagger → the broad bases OVERLAP into one continuous sheet (no finger gaps)
-      const len = maxLen * (lenBase(i) + jLen[jx(i)]);
-      const wRoot = chordK * reach * (0.85 + 0.3 * Math.sin(t * Math.PI)) * (1 + jWid[jx(i)]);   // broader roots + per-tongue width variation → overlapping, non-uniform leading edge
-      const curlZ = reach * 0.34 * jCurl[jx(i)];                 // irregular aft curl
-      const curlY = reach * 0.2 * jUp[jx(i)];                    // stronger UPWARD tip flick → the mane licks up with energy (fire rises), not a limp droop
-      const lick = reach * 0.16 * jLick[jx(i)];                  // tip S-curve lick (alternating sign per tongue → no two alike, none straight)
-      const inner = rootX < wristX, parent = inner ? pivot : wingTip;
-      const pitchY = reach * 0.06 * jPitch[jx(i)];               // per-tongue HEIGHT stagger → rear view undulates (distinct height bands, not one flat plank)
-      const px = inner ? rootX * side : (rootX - wristX) * side, py = (inner ? rootY : rootY - wristY) + pitchY, pz = inner ? rootZ : rootZ - wristZ;
+      const rootZ = rootX * Math.tan(sweep) + 0.05 * i;
+      const len = maxLenW * (lenBase(i, Nt) + jLen[jx(i)]) * cfg.lenK;
+      const wRoot = chordK * reachW * (0.98 + 0.28 * Math.sin(t * Math.PI)) * (1 + jWid[jx(i)]);   // BROADER roots → tongues overlap into one bold flame plane per wing (de-spiked)
+      const curlZ = reachW * 0.32 * jCurl[jx(i)];
+      const curlY = reachW * 0.1 * jUp[jx(i)];                   // MILD per-tongue up-flick (was 0.2 → over-splayed into separate spikes); the upward energy now comes from the wing tilt
+      const lick = reachW * 0.16 * jLick[jx(i)];
+      const inner = rootX < wristXW, parent = inner ? orient : wingTip;
+      const pitchY = reachW * 0.05 * jPitch[jx(i)];
+      const px = inner ? rootX * side : (rootX - wristXW) * side, py = (inner ? rootY : rootY - wristYW) + pitchY, pz = inner ? rootZ : rootZ - wristZW;
       const rest = new THREE.Group();
       rest.position.set(px, py, pz);
-      rest.rotation.y = side * -(0.03 + jRake[jx(i)]);   // irregular fan (side-phased → non-mirrored)
-      rest.rotation.z = side * (theta + 0.12 * jPitch[jx(i)]);   // per-tongue pitch → varied height bands in the rear read
-      rest.rotation.x = jRoll[jx(i)];   // per-tongue twist → edge-on rear shows a sliver of face, not a dead rod
+      rest.rotation.y = side * -(0.02 + jRake[jx(i)] * 0.7);     // tighter fan (less splay → tongues overlap within the wing)
+      rest.rotation.z = side * (theta + 0.10 * jPitch[jx(i)]);
+      rest.rotation.x = jRoll[jx(i)] * 0.7;
       const lag = new THREE.Group(); rest.add(lag);
       const mesh = new THREE.Mesh(tongueGeo(len, wRoot, curlZ, curlY, lick, i + ph), maneMat);
       mesh.scale.x = side; lag.add(mesh);
@@ -1826,25 +1838,28 @@ function buildBonfireManeWings(def, model, attach, giM) {
       elements.push({ root: new THREE.Vector3(rootX, rootY, rootZ), len, tipObj });
     }
     const marker = new THREE.Object3D();
-    marker.position.set((reach - wristX) * side, reach * Math.tan(theta) - wristY, wristZ);
-    wingTip.add(marker); pivot.add(wingTip); group.add(pivot);
+    marker.position.set((reachW - wristXW) * side, reachW * Math.tan(theta) - wristYW, wristZW);
+    wingTip.add(marker); orient.add(wingTip); group.add(pivot);
     return { pivot, wingTip, marker, tonguePivots, elements };
   }
 
-  const R = buildSide(1), L = buildSide(-1);
+  // upper (primary) + lower (secondary) per side
+  const Rup = buildWing(1, WING_CFG[0]), Lup = buildWing(-1, WING_CFG[0]);
+  const Rlo = buildWing(1, WING_CFG[1]), Llo = buildWing(-1, WING_CFG[1]);
   const collar = model.collarStage != null ? buildForgeCollar(def, model, attach, spineMats) : null;
   if (collar) group.add(collar.group);
-  const wingElements = R.elements.map((e) => ({ root: e.root, tip: new THREE.Vector3(e.root.x + e.len, e.root.y, e.root.z), length: e.len, tipObj: e.tipObj }));
+  const bladeR = Rup.tonguePivots.concat(Rlo.tonguePivots), bladeL = Lup.tonguePivots.concat(Llo.tonguePivots);
+  const wingElements = Rup.elements.concat(Rlo.elements).map((e) => ({ root: e.root, tip: new THREE.Vector3(e.root.x + e.len, e.root.y, e.root.z), length: e.len, tipObj: e.tipObj }));
 
   return {
     group,
     parts: {
-      wingPivotL: L.pivot, wingPivotR: R.pivot,
-      wingTipL: L.wingTip, wingTipR: R.wingTip,
-      tipMarkerL: L.marker, tipMarkerR: R.marker,
-      wingPivot2L: null, wingPivot2R: null,
+      wingPivotL: Lup.pivot, wingPivotR: Rup.pivot,
+      wingTipL: Lup.wingTip, wingTipR: Rup.wingTip,
+      tipMarkerL: Lup.marker, tipMarkerR: Rup.marker,
+      wingPivot2L: Llo.pivot, wingPivot2R: Rlo.pivot,   // LOWER flame-wing pair (Cloudjumper layout) — flapped offbeat by the rig
       wingRigL: null, wingRigR: null,
-      wingBladePivotsL: L.tonguePivots, wingBladePivotsR: R.tonguePivots,
+      wingBladePivotsL: bladeL, wingBladePivotsR: bladeR,
       wingElements,
       motifAnchor: collar ? collar.motifAnchor : null,
     },
