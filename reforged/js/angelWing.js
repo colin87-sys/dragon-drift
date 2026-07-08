@@ -93,14 +93,20 @@ function scallopStrip(L, h, lobes, d0, d1, seed = 0) {
   return s;
 }
 
-export function buildAngelWing({ quality = 1 } = {}) {
+export function buildAngelWing({ quality = 1, material = null } = {}) {
   const lowQ = quality < 0.75;
   const group = new THREE.Group();
-  const FEX = { depth: 0.05, bevelEnabled: !lowQ, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2, steps: 1, curveSegments: lowQ ? 8 : 18 };
-  const PEX = { depth: 0.03, bevelEnabled: false, steps: 1, curveSegments: lowQ ? 8 : 14 };
+  // curveSegments scale CONTINUOUSLY with quality (q1 = 18/14, unchanged for the winglab;
+  // lower quality — e.g. the six-wing seraph packing 6 wings into one boss budget — steps
+  // down smoothly instead of snapping to a single low tier).
+  const csF = Math.max(4, Math.round(quality * 18)), csP = Math.max(4, Math.round(quality * 14));
+  const FEX = { depth: 0.05, bevelEnabled: !lowQ, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2, steps: 1, curveSegments: csF };
+  const PEX = { depth: 0.03, bevelEnabled: false, steps: 1, curveSegments: csP };
 
-  // Ivory value tiers — one family; tips brightest, base a near-ivory step.
-  const mat = (hex, rough = 0.66) => new THREE.MeshStandardMaterial({
+  // Ivory value tiers — one family; tips brightest, base a near-ivory step. When a
+  // `material` is supplied (the seraph passes a tracked NEAR-BLACK feather material so the
+  // eyes are the only emissive + dissolve is shared), it overrides every tier.
+  const mat = (hex, rough = 0.66) => material || new THREE.MeshStandardMaterial({
     color: hex, roughness: rough, metalness: 0.0, flatShading: false, side: THREE.DoubleSide,
   });
   const priMat = mat(0xf9f6ee);        // primaries — brightest

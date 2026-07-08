@@ -335,19 +335,18 @@ for (const key of BOSS_ORDER) {
   // pair gaps must be UNEVEN (anti-gear); the great eye must DOMINATE the peripheral eyes.
   const um = buildBoss(BOSSES.unmasked, 1);
   assert(findAllByName(um.group, 'wheelGimbal0').length === 0, 'unmasked stage-2 wheels are RETIRED (no wheelGimbal)');
-  const wingNames = ['wing_inner_R', 'wing_inner_L', 'wing_mid_R', 'wing_mid_L', 'wing_outer_R', 'wing_outer_L'];
+  // SIX wings as THREE MIRROR PAIRS (upper/middle/lower), built from the merged angel wing.
+  const wingNames = ['wing_upper_R', 'wing_upper_L', 'wing_middle_R', 'wing_middle_L', 'wing_lower_R', 'wing_lower_L'];
   const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
-  assert(wings.every(Boolean), 'unmasked exposes six wing shoulders (3 mirrored bent pairs)');
+  assert(wings.every(Boolean), 'unmasked exposes six wings (three mirror pairs)');
   um.group.updateMatrixWorld(true);
-  // UPWARD CREST (not a radial asterisk / moth-spread): the wing mass rises well ABOVE the
-  // great eye. Every wing's bounding box must top out clearly higher than the eye's top, and
-  // the eye must sit at the BOTTOM of the whole crest (the anchor, never crossed).
-  const gEye = findAllByName(um.group, 'greatEye')[0];
-  const eyeBox = new THREE.Box3().setFromObject(gEye);
-  const wingsBox = new THREE.Box3();
-  for (const w of wings) wingsBox.expandByObject(w);
-  assert(wingsBox.max.y > eyeBox.max.y + 1.5, `unmasked wings rise above the great eye (wings top ${wingsBox.max.y.toFixed(1)} > eye top ${eyeBox.max.y.toFixed(1)}) — an upward crest`);
-  assert(eyeBox.min.y <= wingsBox.min.y + 0.5, `unmasked great eye anchors the BASE of the crest (eye bottom ${eyeBox.min.y.toFixed(1)} ≤ wings bottom)`);
+  // BILATERAL, NEVER RADIAL (radial read as a wheel — the original failure): each pair's L
+  // wing mirrors its R via a scale.x flip, and the two roots sit on opposite sides of centre.
+  for (const key of ['upper', 'middle', 'lower']) {
+    const R = findAllByName(um.group, `wing_${key}_R`)[0], L = findAllByName(um.group, `wing_${key}_L`)[0];
+    assert(Math.sign(R.scale.x) !== Math.sign(L.scale.x), `unmasked ${key} pair is bilaterally MIRRORED (scale.x flip, not radial)`);
+    assert(Math.sign(R.position.x) !== Math.sign(L.position.x), `unmasked ${key} pair roots on opposite sides of the centreline`);
+  }
   // THE GREAT CENTRAL EYE dominates (§ ≥~4× the largest peripheral, whose sclera ≈1.9u wide).
   const great = findAllByName(um.group, 'greatEye')[0];
   assert(great, 'unmasked exposes the great central eye');
