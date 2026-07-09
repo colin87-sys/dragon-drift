@@ -263,7 +263,7 @@ export const BOSSES = {
     phases: [
       { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'stream'] },                 // P1: the hunter's tracking hose debuts
       { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['fan', 'stream', 'crossfire'] },       // P2: circling passes converge
-      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['stream', 'spiralStream', 'secondWave'] }, // P3: the stoop (dread)
+      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['stream', 'fan', 'secondWave'] },      // P3: the stoop (dread) — `fan` replaces the off-brand `spiralStream` turret fill (§C.2a: the hunter's kit stays "fast but sparse", pursuit-shaped, never a station-keeping spinner); `fan` is also a second amber carrier alongside `stream`
     ],
     cards: [
       { id: 'ashtalon_stoop',   name: 'EMBER — First Stoop',        atFrac: 1.00, timer: 22 },
@@ -282,7 +282,7 @@ export const BOSSES = {
           restLo: 2.6, restHi: 3.2, restDist: 'uniform' },
         { phrase: [{ kind: 'burst', attack: 'crossfire', count: 2, gap: 0.45 }, { kind: 'burst', attack: 'fan', count: 2, gap: 0.35 }],
           restLo: 2.4, restHi: 3.0, restDist: 'uniform' },
-        { phrase: [{ kind: 'burst', attack: 'spiralStream', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'stream', beats: 3, gap: 0.35 }, { kind: 'burst', attack: 'secondWave', count: 2, gap: 0.4 }],
+        { phrase: [{ kind: 'burst', attack: 'fan', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'stream', beats: 3, gap: 0.35 }, { kind: 'burst', attack: 'secondWave', count: 2, gap: 0.4 }],  // §C.2a: `fan` replaces `spiralStream` (count/gap unchanged → rhythmprint byte-identical)
           restLo: 2.2, restHi: 2.8, restDist: 'uniform' },
       ],
     },
