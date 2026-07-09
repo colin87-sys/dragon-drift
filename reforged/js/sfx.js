@@ -838,7 +838,7 @@ export const sfx = {
       const oscs = [];
       for (const [type, mul, vol] of [['triangle', 1, 0.6], ['sine', 2, 0.22]]) {
         const o = a.createOscillator();
-        o.type = type; o.frequency.value = 200 * mul;
+        o.type = type; o.frequency.value = 300 * mul;
         const g = a.createGain(); g.gain.value = vol;
         o.connect(g).connect(out);
         o.start();
@@ -846,11 +846,14 @@ export const sfx = {
       }
       dwellHumNodes = { oscs, out };
     }
-    // Track: pitch rises 200→620Hz, gain swells with progress — both eased so a
-    // draining dwell (L177) glides back down instead of stepping.
-    const n = dwellHumNodes, t = a.currentTime, f = 200 + 420 * Math.min(1, d);
+    // Track: a SMALL pitch rise + gain swell with progress. The old 200→620Hz
+    // glissando swooped up-and-down in the vocal range every re-acquire and read
+    // as "monkey breathing" (owner) — a big swoop is a voice. Shrunk to a quiet
+    // 300→430Hz nudge (a faint "closing-in" presence, not a swoop) at ~40% the
+    // volume; the reticle fill + lockOn chime carry the real feedback.
+    const n = dwellHumNodes, t = a.currentTime, f = 300 + 130 * Math.min(1, d);
     for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(f * mul, t, 0.05);
-    n.out.gain.setTargetAtTime(0.022 * (0.35 + 0.65 * d), t, 0.05);
+    n.out.gain.setTargetAtTime(0.009 * (0.4 + 0.6 * d), t, 0.05);
   },
   // RELEASE DUCK (PR7): a deliberate volley loose briefly dips the MUSIC bus so
   // the exhale owns the moment (the Rez sidechain). Music only — the exhale

@@ -227,7 +227,7 @@ export const CONFIG = {
     // LAW: (p0+p1)/2 === 1 (∫p = 1) so the wisp lands on the IDENTICAL arrival
     // frame as constant speed (L186; enforced by a position-tracking controller
     // in bossBullets — exact under any dt; T-W2/T-W8 are the wall). null = off.
-    lungeProfile: [0.55, 1.45],
+    lungeProfile: [0.4, 1.6],
     // WISP LIGHT-RIBBONS (PR4b — owner: the volley was lost in the bullet sea).
     // The silhouette law: the volley must be the ONLY LINE-class shape among the
     // enemy's dot-class bullets (Panzer Dragoon's homing lasers are persistent
@@ -236,13 +236,20 @@ export const CONFIG = {
     ribbonRings: 22,        // LAW — position-history samples per wisp ribbon (~0.37s of path)
     ribbonHalfWMax: 0.26,   // TUNE(0.18–0.34) — head half-width; THIN is the overdraw law
                             // (a thin strip is near-line/exempt; bloom carries the glow)
-    ribbonHot: 1.6,         // TUNE(1.2–2.4) — ribbon HDR colour scale (mild bloom, toneMapped off)
+    ribbonHot: 2.0,         // TUNE(1.2–2.4) — ribbon HDR colour scale (mild bloom, toneMapped off).
+                            // Bumped 1.6→2.0: with the head white-wash cut (bossBullets), the
+                            // JADE ribbon now carries the wisp's colour identity (owner: "bland
+                            // white comets, needs pazzazz") — a hotter jade tail, thin strip so
+                            // no extra draw AREA (the overdraw law is area, not intensity)
     headHot: 3.5,           // TUNE(2.5–6) — hot-head HDR scale (the EYE_HOT idiom: the head is
                             // the brightest pixel in its neighbourhood; toneMapped bullets can't compete)
     ribbonFade: 0.35,       // TUNE(0.25–0.6) — tail-first afterimage drain after arrival
-    wobbleAmp: 0.55,        // TUNE(0–0.9) — homing snake-wobble (m); DECAYS to 0 before arrival
-                            // so the landing law is untouched (T-W2 is the wall)
-    wobbleHz: 2.6,          // TUNE(1.5–4) — snake frequency; phase = volley slot
+    wobbleAmp: 0.85,        // TUNE(0–0.9) — homing snake-wobble (m); DECAYS to 0 before arrival
+                            // so the landing law is untouched (T-W2 is the wall). Bumped
+                            // 0.55→0.85 (owner: "increase weave" — read the wisps as a
+                            // predator snaking onto its prey); LAW: < bossHitRadius/4 (1.05)
+    wobbleHz: 3.0,          // TUNE(1.5–4) — snake frequency; phase = volley slot (bumped for
+                            // a tighter, more urgent weave to pair with the wider amplitude)
     impactStaggerMs: 40,    // LAW — plural-impact PRESENTATION spacing (damage stays same-frame;
                             // the drum-roll is FX + the lockStrike arpeggio only)
     // ORGAN SHIMMER (PR6, owner design; boosted — owner playtest "let me PICK my
@@ -285,8 +292,10 @@ export const CONFIG = {
     // and byte-inert at 0 (the L245 endpoint law).
     inhaleArch: 0.38,       // TUNE(0.2–0.6) — whole-body rear-up at full breath (rad)
     inhaleFlapCalm: 0.6,    // TUNE(0.3–0.8) — flap-rate cut at full breath (wings hold)
-    gatherRateHz: 8,        // TUNE(4–12) — gather spark pulses per second
-    gatherCountBase: 2,     // TUNE(1–4) — sparks per pulse ≈ base·pips/2 (6 pips = a storm)
+    gatherRateHz: 10,       // TUNE(4–12) — gather spark pulses per second (bumped 8→10 so
+                            // the convergence reads as a continuous stream, not a stutter)
+    gatherCountBase: 4,     // TUNE(1–4) — sparks per pulse ≈ base·pips/2 (6 pips = a storm).
+                            // Bumped 2→4 (owner: "can't see much noticeable jade sparks gather")
     // The INHALE riser (C3 — riser→gap→drop, replacing the plain swell): an
     // uplifter bed + sub + an accelerating tick-ratchet whose speed scales
     // SUPER-linearly with the pip count (C4 — a 6-set must not sound like 2×3).
