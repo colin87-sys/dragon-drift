@@ -214,13 +214,19 @@ save compat for the detail setting (`modelDetail` deep-merge default, no migrati
 
 ## THE RULE (do this every time)
 
-1. **Read this file first.** It is the accumulated state of the art for this repo.
-2. **After every meaningful change, append a ledger entry — and don't stop at the
-   lesson. Interrogate it.** A recorded lesson is dead weight; the leapfrog only
-   happens when you *brainstorm what it means for the future*. Every entry MUST answer:
-   what did we learn → **how do we systematize the problem and the solution** → **what
-   does this unlock / what's the next innovation it points to.** No forward-looking
-   reflection = no leapfrog. (See the entry template below.)
+1. **Read this file first** (the frozen L1–L256 archive), **then skim
+   `leapfrog/lessons/`** for the newest lessons. It is the accumulated state of the art
+   for this repo. (`node tools/build-ledger.mjs` assembles both into one scroll if you
+   want it.)
+2. **After every meaningful change, add a lesson — as a NEW FILE, not an append here.**
+   Create `leapfrog/lessons/<YYYY-MM-DD>-<slug>.md` (see that folder's README). ⚠ Do NOT
+   append to THIS file and do NOT hand-pick a sequential `L###` number — that shared
+   write is what made every parallel chat collide on the ledger. One file per lesson =
+   two sessions never conflict. And don't stop at the lesson — **interrogate it.** A
+   recorded lesson is dead weight; the leapfrog only happens when you *brainstorm what it
+   means for the future*: what did we learn → **how do we systematize the problem and the
+   solution** → **what does this unlock / what's the next innovation it points to.** No
+   forward-looking reflection = no leapfrog. (See the template below.)
 3. **Build systems, not one-offs.** If a fix can become a reusable, tested,
    documented system, make it one. The next creature/feature should be *cheaper and
    better* than the last. If it can't be expressed as a system, it isn't done.
@@ -230,17 +236,21 @@ save compat for the detail setting (`modelDetail` deep-merge default, no migrati
    `tiershots` (real-WebGL compile check); the *human* judges motion/feel on the PR
    preview — our headless tools can't see animation or folded-pose seams.
 
-### Ledger entry template (copy this for every entry)
+### Ledger entry template (copy into a NEW file `leapfrog/lessons/<YYYY-MM-DD>-<slug>.md`)
 
 ```
-### L# — <short title>
-**Did / learned:** what we changed and the concrete lesson/gotcha.
-**→ Systematize:** how the PROBLEM generalises (where else does it lurk?) and how the
+# <YYYY-MM-DD> — <short title>
+**Did / learned.** what we changed and the concrete lesson/gotcha.
+**→ Systematize.** how the PROBLEM generalises (where else does it lurk?) and how the
   SOLUTION becomes a reusable system/pattern/test — so this class of bug/feature is
   solved once, forever.
-**→ Leapfrog (innovate):** what this unlocks. The next idea it points to, the bigger
-  capability it makes cheap, the thing we should now attempt *because* of this lesson.
+**→ Leapfrog.** what this unlocks. The next idea it points to, the bigger capability it
+  makes cheap, the thing we should now attempt *because* of this lesson.
 ```
+
+No sequential number — the date+slug filename is the id, and it's unique per chat, so
+parallel sessions never collide. Cross-references to the frozen archive still use its old
+`L###` labels.
 
 The `→ Leapfrog` line is the whole point: it is where one session hands the next a
 *running start* instead of a transcript.
