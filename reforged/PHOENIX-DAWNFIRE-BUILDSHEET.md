@@ -52,6 +52,10 @@ hers is **ash-then-reborn** — a charcoal ash-chick that re-kindles rung by run
 with three colours of fire on a body that stays dark as a coal.
 
 One word: **REBIRTH** — worn as a train, not a crown. She is a SHE; the bearing is regal, not martial.
+(Her royalty is the REFERENT's, not Solar-gravity: the phoenix/fenghuang is itself the empress icon —
+the imperial firebird — so an empress persona is native to the source, and her growth VERB, re-kindling
+from ash, is nothing like Solar's forged coronation. "King + empress" is a coincidence of two royal
+referents, not a repeated monarch beat.)
 
 ## 2. THE SIGNATURE SILHOUETTE — "THE PYRE-TRAIN" (comet-of-quills)
 
@@ -98,7 +102,7 @@ line between crest and train so the body stays anchored between light structures
 
 ## 3. THE FOUR APEX BUILDERS
 
-New file `js/dragonPhoenixEmpress.js`, self-registering, DEFAULT-OFF; only `phoenix.parts` opts in (the
+New file `js/dragonPhoenixEmpress.js`, self-registering, DEFAULT-OFF; only `phoenixEmpress.parts` opts in (the
 roster stays byte-identical until then). New material factory `empressMats(def, glow, stage)` copies only
 the `sovereignMats` *structure* (per-stage emissive ladders, `userData.baseEmissive/baseIntensity`) — its
 materials, hues, counts and slots are authored fresh.
@@ -107,14 +111,16 @@ materials, hues, counts and slots are authored fresh.
 The anti-wyrm: a **compact avian fuselage**, not a long draconic keel. Deep bird-breast keel (mass
 forward and LOW, a falcon's chest), short proud swan-curve neck (2–3 segments, head carried slightly
 high — the empress bearing). Body long axis stays LEVEL in flight (verticality comes from wing rake +
-train lift, NEVER a reared body — the §0.5 horizontal-readability rule). Torso ≈ 35% of the silhouette
+train lift, NEVER a reared body — the §0 level-body law). Torso ≈ 35% of the silhouette
 so the train can be ~40%. Regalia: the **heart-fire gorget** — a 3-facet gold emissive seam-chevron
 molded into the breast keel (the dark-opaque-body + thin-saturated-rim TECHNIQUE spent on a GORGET, not
 a ring), withheld until form 2. Dorsal molten keel-seam (thin ember emissive groove, stage-gated). Flank
-= few large ash-charcoal facets; belly one tier warmer (deep umber, NOT cream). Publishes the full
+= few large ash-charcoal facets; belly one tier warmer (deep umber, NOT cream). **Short digitigrade
+raptor LEGS + faceted talons** tucked under the breast (copper accent) — the grip that reads on a
+firebird and the owner of the "talons" the §4 palette references (~250–350 tris). Publishes the full
 attach contract (`wingRootL/R`, `headBase`, `tailAnchor`, `halfWidthAt`, `bodyMidY`, `riderSocket`),
 `parts.spinePoints`, the gorget `motifAnchor`, and **`coreGlow` as a mesh or `null` — never a colour
-number** (the known crash class). ~350–450 tris at apex.
+number** (the known crash class). ~600–800 tris at apex (incl. legs/talons).
 
 ### 3b. WINGS — `scythePinionWings` (feathered, NEW construction)
 **The falcata crescent:** high-aspect wings — long span, narrow chord (the opposite of Solar's broad
@@ -122,8 +128,10 @@ vault-bays). Per wing:
 - **One dark covert sheet** (inner third): a single `flatTriMesh` fan of 6–8 large facets, ash-maroon
   diffuse, ZERO emissive — the dark root that makes the fire read.
 - **5–7 large blade PRIMARIES** (outer two-thirds at apex): each a discrete 4–6-tri quad-blade,
-  z-staggered/shingled, separating toward the tip with true negative-space **pinion slots** (gap ≥
-  0.15× span between the outer three). Each carries the vertex-baked dark-root → crimson-tip gradient
+  z-staggered/shingled, separating toward the tip with true negative-space **`primaryGaps`** (gap ≥
+  0.15× span between the outer three). These are raptor anatomy straight from the owner's fire-feather
+  references — the splayed spread-primaries of a real bird wing, NATIVE here (Solar's membrane vault had
+  no feathers; this is not that graft). Each carries the vertex-baked dark-root → crimson-tip gradient
   (emissive only in the outer 40% of each blade, zero at the root — the fire lives on the tips).
 - **Vertical profile = a single continuous RISING RAKE** (`sweepRake` + `tipRise` dials, vertex-baked so
   it survives the flap animator): sweep back 40–45°, tips ending HIGH and AFT, a slight inward curl at
@@ -148,24 +156,36 @@ Publishes the crest `motifAnchor`, `headLength`. ~150–200 tris at apex.
 - Short structural tail root (2–3 segments) → the **TRAIN**: 2/4/6/**9** quills per form, fanned in a
   downward-aft sector (apex spread ~140–150°, hard < 180°). Each quill = a thin copper shaft (~4 tris) +
   a teardrop vane (`flatTriMesh`, 4–6 tris, dark ash-maroon diffuse with a crimson→amber emissive edge
-  gradient) + a faceted octahedral **coal-eye** at the tip (~8 tris, amber-gold emissive on a dark bezel
-  — the dark-body-bright-rim technique spent on a GEM-CLUSTER ARC, not a ring).
+  gradient) + a **coal-eye** at the tip: a TEARDROP/coal-facet cut (~6–8 tris, amber-gold emissive on a
+  dark bezel — NOT Solar's octahedron gem; a different cut so even the gem construction reads distinct)
+  — the dark-body-bright-rim technique spent on a GEM-CLUSTER ARC, not a ring.
 - Quill lengths swell-then-taper across the fan (center longest ≈ 1.1× body, ×0.85/step outward) so the
   fan has a shaped outline, not a flat broom.
 - **Camera-facing law:** vanes pitch 20–30° up toward the chase lens, alternating ±8° L/R cant down the
   fan (balanced, per the Solar CP2 fix — must still PASS `wingsymprobe` as a mirrored pair).
 - **`trainLift` dial:** the whole fan's rest pitch rises per form (drooping ember-tail at f0 → proud
-  lifted display at f3) — the "banner rise" that gives the ASCENDING read without tilting the body.
+  lifted display at f3) — a tail-lift appendage dial (method §0 sanctions "tail lift" for vertical drama
+  on a level body), giving the ASCENDING read of a lyrebird/peacock raising its display. It is seasoning,
+  not the ladder's currency — the quill COUNT (2/4/6/9) + SECTOR (90/120/150°) carry the conferral.
 - Center quill carries the near-white **Dawn Coal** at f3 only. Coal-eye mats + the Dawn Coal stay OUT
   of `spineMats`/`accentMats` (surge-tick discipline — they hold their hue); the vane edge-gradient mats
   go IN (they flare on Rebirth Surge). ~110 tris (f0 stub) → ~450 tris (apex fan).
 
-**Tri targets (±20%, monotonic, hard 6000 ceiling):** f0 ~1.0k · f1 ~1.4k · f2 ~1.8k · f3 ~2.3k.
+**Tri targets (±20%, monotonic, hard 6000/FORM ceiling; part-sum reconciles: torso 0.6–0.8k + wings
+0.5–0.6k + head 0.15–0.2k + tail 0.45k ≈ 1.7–2.05k at apex):** f0 ~1.0k · f1 ~1.4k · f2 ~1.7k · f3 ~2.0k.
 
 ## 4. THE PREMIUM-FIRE LIGHTING SOLUTION (the anti-orange-blob doctrine — "a coal, not a torch")
 
 The trap for a fire dragon is "everything orange, everything bright." The solve: the body is the dark
 COAL; the fire lives only on edges, tips and gems — and it is THREE separated warm hues, not one.
+
+**Tone note (deliberate, not inherited):** Phoenix is the SECOND dark-bodied premium after Solar — that
+adjacency is chosen on the merits, not defaulted. A fire dragon on a light body IS the orange-blob trap;
+the coal must be dark for the fire to read, and the owner's own reference is molten-gold-ON-BLACK
+(IMG_6529). This correctly applies the method §3b VALUE-CONTRAST law (matte L ≤ 0.22 body + saturated
+sat ≥ 0.75 accents), and the method assigns the LIGHT-bodied lane to the NEXT dragon (§7). Her warm
+three-hue palette + everything-else must carry the difference from Solar's cold violet — enforced by the
+tone check in the QA veto (QA-1.4).
 
 - **Base diffuse (large surfaces, always dark, L ≤ 0.22):** warm ash-charcoal → deep GARNET ramp per
   form: `0x1a0f0d → 0x241012 → 0x2c1014 → 0x331016` (the ramp goes charcoal → garnet, REDDER never
@@ -183,32 +203,39 @@ COAL; the fire lives only on edges, tips and gems — and it is THREE separated 
   fire), ember-orange `0xd9541a` (keel-seam + vane mid), amber-gold `0xd98a12` (coal-eyes, gorget), rose
   `0xe83a6a` (crest + feather-edge kiss at f2+). All dark-root → bright-tip GRADIENTS — no flat emissive
   sheets anywhere.
-- **Exactly ONE near-white:** the Dawn Coal `0xffe9c4`, tiny, f3 only, out of all surge arrays.
+- **ONE near-white — a deliberate beat, not a quota** (method §3b: the cap is a ceiling, zero is fine;
+  zero WAS considered): the nine-coal arc wants a single BRIGHTEST point, and "the first light of dawn
+  appears only at the apex" IS the rebirth stated in light — so the Dawn Coal `0xffe9c4` earns its place.
+  Tiny, f3 only, out of all surge arrays.
 - **No additive shells / no gem sprites.** Surge (`Rebirth`) flares the vane-edge + pinion mats toward
   `feverWing 0xffe6a8` (kept warm-gold, sat/value-safe) — never white-hot, never magenta.
 - Per-form `glowLevel` 0.25/0.5/0.75/1.0 multiplies all emissive (adaptive-tier friendly). She must read
-  as an empress UNLIT — the silhouette (train fan + scythe wings) does that job.
+  UNLIT — the silhouette (train fan + scythe wings) does that job.
 
-## 5. THE CORONATION LADDER — the REBIRTH ARC (each rung confers a withheld MESH category)
+## 5. THE REBIRTH LADDER (each rung confers a withheld MESH category)
+
+("Coronation ladder" is the method's generic term; hers is a REBIRTH — the verb is re-kindling, not
+crowning, per method §3a's persona note.)
 
 | dial | f0 **Ash Hatchling** | f1 **Kindled Fledgling** | f2 **Pyre Dancer** | f3 **Dawnfire Empress** |
 |---|---|---|---|---|
 | read | charcoal ash-chick: round, dim, a promise | first quills catch — the fire takes | the display ignites — she performs | the full pyre-train empress, reborn |
 | `igniteStage` | 0 | 1 | 2 | 3 |
-| `trainQuills` / `trainFan` / `trainLift` | 2 nubs, unlit, drooped | 4, ~90°, low | 6, ~120°, mid | 9, ~150°, proud |
+| `trainQuills` / `trainFan` / `trainLift` | 2-nub STUB (hints the train, unlit, drooped) | 4, ~90°, low | 6, ~120°, mid | 9, ~150°, proud |
 | `coalBloom` (coal-eyes) | none (mesh withheld) | first coals, dim amber | brighter, all tips | blazing arc + Dawn Coal (f3-only mesh) |
-| `pinionSlots` / primaries | 4 rounded, NO slots, low rake | 5, first 2 slots, rake grows | 6, 3 slots | 7, full slots, full rake + tip curl |
+| `primaryGaps` / primaries | 4 rounded, NO gaps, low rake | 5, first 2 gaps, rake grows | 6, 3 gaps | 7, full gaps, full rake + tip curl |
 | pinion fire | none | crimson tips only (outer 15%) | outer 40% gradient | full gradient + rose edge kiss |
 | `crestQuills` | 0 (bare crown) | 1 | 3 | 5, coal-tipped |
 | `gorget` (heart-fire) | — | — | conferred (mesh appears, gold) | blazing |
 | `keelSeam` | faint ember stitch | lit low | lit | molten |
 | body diffuse / `glowLevel` | `0x1a0f0d` / 0.25 | `0x241012` / 0.5 | `0x2c1014` / 0.75 | `0x331016` / 1.0 |
 | `eyeShape` | 34% round | 26% | 20% | 16% almond |
-| tri target | ~1.0k | ~1.4k | ~1.8k | ~2.3k |
+| tri target | ~1.0k | ~1.4k | ~1.7k | ~2.0k |
 
 Every rung adds a CATEGORY, never just scale: f1 = hardware (quills, slots, crest) + first light; f2 = a
 new regalia MESH (gorget) + a new HUE (rose); f3 = the full fan + the one near-white + max rake/lift. The
-hatchling is a genuine ash-chick (no train, no coals, no crest, no gorget), so Eternal actually CONFERS
+hatchling is a genuine ash-chick (no FAN — only a 2-nub stub that hints it — no coals, no crest, no
+gorget; the `starters.mjs` assert checks the stub, not zero), so Eternal actually CONFERS
 the empress's train. All dials monotonic.
 
 ## 6. OPPOSITE-OF-SOLAR + ROSTER DISTINCTIVENESS (the §0.5 gate)
@@ -222,7 +249,7 @@ flat/stepped/cupped/multi-lobed function families, and — notably — a **LIGHT
 | Axis | SOLAR (off-limits) | PHOENIX (this sheet) | vs warm roster |
 |---|---|---|---|
 | Silhouette family | M / cathedral arch, TOP-heavy crown-above | Shuttlecock-comet: thin rising crescents over a LOWER-rear quill fan (train-behind) | Ember: generic wyvern V; Cinderwing: solid flame-cone tail; Pearl: halo-knight — none own the lower frame |
-| Wing architecture | Broad membrane vault-bays + carpal lances | Slender high-aspect feathered scythe blades, terminal-peak rake, pinion slots | Ember/Cinderwing: membrane/hull; Pearl: smooth white angel wings (hers are dark, slotted, raked) |
+| Wing architecture | Broad membrane vault-bays + carpal lances | Slender high-aspect feathered scythe blades, terminal-peak rake, splayed `primaryGaps` | Ember/Cinderwing: membrane/hull; Pearl: smooth white angel wings (hers are dark, gapped, raked) |
 | Regalia motif | Eclipse ring + brow star-gem (violet) | Coal-eye gem ARC on the train + comet crest + heart-fire gorget — a constellation, never an annulus | Pearl's halo is a head-anchored soft disk; the coal arc is tail-anchored discrete gems |
 | Palette + glow | Eclipse-black + cold violet emissive | Ash-garnet DARK body + three warm emissives (crimson / ember / amber-gold), one tiny near-white | Ember Wyrm is bright-orange-BODIED; Phoenix is dark-bodied, fire on edges only |
 | Growth beat | Withheld dark king → ignited crown | Rebirth: ash-chick → the train is conferred quill-by-quill, coals kindle | Unique verb: "re-kindling," not forging (ember) or burning (fire) |
@@ -230,9 +257,11 @@ flat/stepped/cupped/multi-lobed function families, and — notably — a **LIGHT
 
 ## 7. RISKS / OPEN OWNER-CALLS
 
-1. **Slender wings vs the "wings ~70% of frame" doctrine.** The train deliberately steals frame-share
-   from the wings. If chase-cam majesty feels thin, the fallback is +30% chord on the covert sheet
-   (keeping the rake family) — decide AFTER the first rear-chase capture, not before.
+1. **Does the hero mass FILL the rear frame? (firewall §3.5 #4 — NOT the retired "wings ~70%" idea.)**
+   The train is the hero and OWNS the lower-rear frame by design; the wings are deliberately slender.
+   If a capture reads empty, FIRST grow the train's frame-share (count/sector/lift); a +30% covert-sheet
+   chord (keeping the rake family) is only the second-line fallback. Decide AFTER the first rear-chase
+   capture, not before. Do not walk the design back toward a wing-hero layout.
 2. **`trainSpread` animated fan — APPROVED (owner yes), a planned feature.** The train FOLDS in
    (quills draw together, sector narrows) on a dive/boost and FANS OUT (full sector, lift up) in a
    glide and on Rebirth Surge — a living display, her signature motion beat. Implement as a rig
@@ -281,18 +310,25 @@ Per-axis round-0 TARGETS (aim to hand Fable a ~3.5+ build): rear-chase dark-sky 
    comparison is direct — render both through `dragonstudio` (and view both in-game). Run the Fable gate
    on the shipped `phoenix` first as the baseline (expected FAIL — the lightly-composed firebird), then
    grade `phoenixEmpress` against the same rubric. The delta IS the owner's compare-before-migrate evidence.
-2. **Verify by failure-class:** `tools/tricount.mjs phoenix` (monotonic, < 6000) · `tests/blueprint.mjs`
-   · `tests/smoke.mjs` (the coreGlow-mesh-or-null + wing-pivot crash classes) · `tools/wingsymprobe.mjs
-   phoenix` (the ±8° alternating quill cant + mirrored wings must PASS as a pair) · `tools/dragonstudio.mjs
-   phoenix r1` (sil-rear + glide-dark + rear-chase + 4-tile ladder).
-3. **`tests/starters.mjs` phoenix-own block** (premiums reach Eternal — can't ride the form-2-capped
-   loop): tris monotonic; `trainQuills`/`coalBloom`/`crestQuills`/`igniteStage` monotonic; **fan sector <
-   180°** and **quill gap ≥ 1 quill-width** (the not-a-ring asserts); vane diffuse L ≤ 0.22; accent hue
-   in the warm band; Dawn Coal absent below f3; gorget absent below f2.
+2. **Verify by failure-class (on the NEW key `phoenixEmpress`, not shipped `phoenix`):**
+   `node tools/tricount.mjs --ci` (whole roster, per-form ceiling — also proves the rest stayed
+   byte-identical under coexistence) · `tests/blueprint.mjs` · `tests/smoke.mjs` (the coreGlow-mesh-or-null
+   + wing-pivot crash classes) · `node tools/wingsymprobe.mjs phoenixEmpress` (the MIRRORED WINGS must
+   PASS — note: wingsymprobe only inspects the wing rig, NOT the tail, so the tail-quill cant balance is
+   asserted separately in `starters.mjs`, see below) · `node tools/dragonstudio.mjs phoenixEmpress r0`
+   (renders the full sheet set: sil-rear + glide-dark + rear-chase + 4-tile ladder).
+3. **`tests/starters.mjs` phoenixEmpress-own block** (premiums reach Eternal — can't ride the
+   form-2-capped loop): tris monotonic; `trainQuills`/`coalBloom`/`crestQuills`/`igniteStage` monotonic
+   (`trainQuills` starts at the 2-nub STUB, not 0); **fan sector < 180°** and **quill gap ≥ 1
+   quill-width** (the not-a-ring asserts); **tail-quill cant balance: Σ signed cant ≈ 0 across the fan
+   per form** (wingsymprobe can't see the tail, so balance is enforced here); vane diffuse L ≤ 0.22;
+   accent hue in the warm band; Dawn Coal absent below f3; gorget absent below f2.
 4. **ONE combined Fable brief** (sculpt + spectacle + rear-chase) with the standing DISTINCTIVENESS veto
-   — hand the grader Solar + Pearl + Ember + Cinderwing tiles: *"does any part read like a shipped
-   dragon? → FAIL."* Weight the rubric to the rear-chase tile; PASS = avg ≥ 4.0, no axis ≤ 2, vetoes
-   clear (washout; any part reading like another dragon). Iterate round by round.
+   — hand the grader Solar + Pearl + Ember + Cinderwing tiles: *"does any part — or the overall dark-sky
+   TONE-read — feel like Solar in warm? does any part read like another shipped dragon? → FAIL."* (The
+   tone check is explicit because Phoenix is the 2nd dark-bodied premium; her warmth + everything-else
+   must carry the difference — judge on the glide-dark tiles side-by-side.) Weight the rubric to the
+   rear-chase tile; PASS = avg ≥ 4.0, no axis ≤ 2, vetoes clear. Iterate round by round.
 5. **Human judges MOTION/feel on the live PR preview** (train sway, wingbeat, Rebirth Surge, ember-mote
    wake) and any net-new element — the gate is blind to it.
 
@@ -301,7 +337,7 @@ Per-axis round-0 TARGETS (aim to hand Fable a ~3.5+ build): rear-chase dark-sky 
 New file `js/dragonPhoenixEmpress.js` registering `pyreHeartTorso` · `scythePinionWings` ·
 `cometCrestHead` · `pyreTrainTail` (all default-off). New `empressMats(def, glow, stage)` copying only
 the `sovereignMats` STRUCTURE. New dials via `forms[]` accretion only: `trainQuills`, `trainFan`,
-`trainLift`, `coalBloom`, `dawnCoal`, `crestQuills`, `gorget`, `pinionSlots`, `sweepRake`, `tipRise`,
+`trainLift`, `coalBloom`, `dawnCoal`, `crestQuills`, `gorget`, `primaryGaps`, `sweepRake`, `tipRise`,
 `keelSeam`, `eyeShape`, `glowLevel`, `igniteStage`. **Do NOT touch the `archetype:'phoenix'` legacy
 inference in `js/dragonRecipe.js` (~line 67)** — the shipped `phoenix` still relies on it during
 coexistence. The new `phoenixEmpress` block sets explicit `parts` (which win over any inference) AND
@@ -321,6 +357,14 @@ parts are not shadowed by the inference for the new key. Roster stays byte-ident
   pale-gold f3 belly nod; (4) the animated `trainSpread` fold/fan motion beat = APPROVED.
 - **2026-07-09 — pre-scored to save iteration:** added QA-0 (the method §3.5 FIREWALL pre-score +
   round-0 self-audit, with Phoenix pass-conditions + per-axis round-0 targets + the reusable-kit
-  inventory) so the apex build clears the known failure modes BEFORE the first high-effort Fable round —
-  Fable verifies in 2–3 rounds instead of discovering over 7–10. Not yet implemented — this is the build
-  contract for the Phoenix session.
+  inventory) so the apex build clears the known failure modes BEFORE the first high-effort Fable round.
+- **2026-07-09 — Fable compliance audit fixes (vs the updated method):** fixed the opt-in key
+  (`phoenix.parts` → `phoenixEmpress.parts`) and all QA commands to target the NEW key not the shipped
+  one; `tricount phoenix` → `tricount --ci`; reconciled the apex tri budget (added legs/talons to the
+  torso, f3 ~2.3k → ~2.0k so part-sum matches); fixed the f0 "no train" vs "2 nubs" contradiction (a
+  2-nub STUB, asserted as stub-not-zero); renamed `pinionSlots` → `primaryGaps` and grounded it in
+  raptor anatomy; scrubbed the "banner rise" phrase; reframed the near-white as a deliberate beat (not a
+  quota); retitled §5 "REBIRTH LADDER"; grounded the empress persona in the fenghuang referent;
+  acknowledged the dark-tone adjacency + added a TONE check to the veto; moved the tail-quill balance to
+  a `starters.mjs` assert (wingsymprobe can't see the tail); teardrop-cut coal-eyes (not Solar's
+  octahedron). Design core unchanged — all fixes surgical. Still the build contract; not implemented.
