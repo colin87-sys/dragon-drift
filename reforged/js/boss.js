@@ -48,6 +48,7 @@ let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER
 let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
 let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
 let debugPhaseJump = null;     // ?bossPhase=N (1-based): open the fight fast-forwarded to phase N
+let debugStagePin = null;      // dev stage-jump: pin a multi-stage boss's visible STAGE sub-rig (THE UNMASKED 1/2/3)
 let debugEntrancePin = null;   // capture hook: 0..1 holds an ENTRANCE_SCRIPTS pose (the Baton Cross) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
@@ -89,10 +90,15 @@ export function rushRosterInfo() {
       id: k, name: BOSSES[k].name, title: BOSSES[k].title,
       accent: BOSSES[k].accent, glow: BOSSES[k].glow,
       unlocked: devAll || beaten.includes(k),
+      // How many STAGE sub-rigs this boss has built (>1 = multi-stage, drives the dev
+      // stage-jump selector). Single-stage bosses report 1 and never offer a stage pick.
+      stagesBuilt: BOSSES[k].stagesBuilt || (BOSSES[k].stages && BOSSES[k].stages > 1 ? BOSSES[k].stages : 1),
     })),
     unlockedCount: rushRoster().length,
     bestClearMs: saveData.bossRush?.bestClearMs || 0,
     cleared: saveData.bossRush?.cleared || 0,
+    // Dev seam (?dev / ?rush=all): expose the stage-jump selector for quick playtesting.
+    devAll,
   };
 }
 
@@ -1400,6 +1406,12 @@ export function startBossEncounter(player, defOverride) {
   // exposing setWaterPlane; every other boss is inert. Fed only here — never in the
   // studio/tests — so the isolated captures stay byte-identical.
   model.setWaterPlane?.(0);
+
+  // Dev stage-jump (rush picker / ?bossStage): pin which STAGE sub-rig a multi-stage boss
+  // shows, so THE UNMASKED's stage 2 (the seraph) / stage 3 (the unveiling) can be playtested
+  // in a live fight without waiting on the CP2 dissolve-swap. Inert on single-stage bosses
+  // (they expose no setDebugStage). Left null → the boss's own default (stage 1).
+  if (debugStagePin != null) model.setDebugStage?.(debugStagePin);
 
   // Approach choreography (§5e): from behind (overtake up and over), the side,
   // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),
@@ -3958,6 +3970,15 @@ export function setBossDebugPhase(n) {
   debugPhaseJump = Number.isFinite(n) && n > 1 ? n - 1 : null;
 }
 
+// Dev stage-jump: pin the visible STAGE sub-rig of a multi-stage boss (THE UNMASKED). Set
+// FRESH on every launch (the rush picker passes 1 for a normal start) so a stale pick doesn't
+// leak into the next run. Applied at spawn (after the model is built) and live if a boss is
+// already active. Stage 1 (or unset) → the boss's default; 2/3 → the seraph / the unveiling.
+export function setBossDebugStage(n) {
+  debugStagePin = Number.isFinite(n) && n > 1 ? n : null;
+  if (active && model?.setDebugStage) model.setDebugStage(debugStagePin || 1);
+}
+
 export function setBossDebugDefIdx(k) {
   debugDefIdx = k;
 }
@@ -4087,7 +4108,7 @@ export function bossDebugState() {
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
   // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT };
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
