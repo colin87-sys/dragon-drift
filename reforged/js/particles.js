@@ -118,6 +118,35 @@ export function rollWake(pos, dir = 1, count = 4) {
 // light-ribbons in bossBullets.js, the Panzer-Dragoon silhouette; keeping both
 // over-glowed the additive budget.)
 
+// PR-C THE GATHER: charge sparks racing INWARD to the lance launch shoulder —
+// the exhale muzzle burst fires from this exact point, so the inhale visibly
+// FEEDS the release. Sparks spawn on a shell around `center` with an inward
+// velBias (the one motion the public burst() can't do), zero gravity, stretched
+// along their velocity so they read as streaks converging; short life ≈ the
+// travel time, so they arrive and wink out AT the point. Called per-frame-ish
+// (throttled by the caller) while the fuse burns; count scales with pip count
+// (a 6-set gathers a storm, a 3-set a trickle). Pool/quality-gated like all
+// sprites; callers skip entirely below quality 0.5 (garnish law).
+const gatherV = new THREE.Vector3();
+export function gatherPulse(center, tint, count = 2, k01 = 1) {
+  if (quality < 0.5) return;
+  const n = Math.round(count * quality) || 1;
+  for (let i = 0; i < n; i++) {
+    // random point on a ~2m shell (biased to the camera-visible upper half)
+    const a = Math.random() * Math.PI * 2;
+    const r = 1.6 + Math.random() * 0.9;
+    gatherV.set(Math.cos(a) * r, Math.abs(Math.sin(a)) * r * 0.8 - 0.2, (Math.random() - 0.5) * 1.2);
+    const p = gatherV.clone().add(center);
+    // inward bias: fly from the shell INTO the center, faster as the fuse peaks
+    gatherV.multiplyScalar(-(2.6 + 3.2 * k01));
+    spawn(p, tint, { speed: 0.5, size: 0.42, life: 0.3, velBias: gatherV.clone(),
+      drag: 0.4, gravityScale: 0, stretch: 2.2 });
+  }
+  // one white anchor pip per pulse (L195: the coloured layer is tinted, the
+  // luminance anchor stays white)
+  spawn(center, 0xeafff6, { speed: 0.8, size: 0.3, life: 0.14, gravityScale: 0 });
+}
+
 // Wisp impact — accent sparks + fast white-hot pips; the small shockwave ring only
 // when the caller says so (the FIRST strike of an impact drum-roll window) so a
 // 6-pip Surge fork over the shield-shatter never stacks large additive volumes.

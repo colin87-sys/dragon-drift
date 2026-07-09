@@ -20,6 +20,11 @@ const BOOST_KICK_DUR = 0.35;
 let punchKickT = 0;
 const PUNCH_KICK_DUR = 0.28;
 
+// Inhale pinch (PR-C): a LEVEL channel (not an impulse) — the frame leans in
+// with the drawn breath (FOV −2, slight dolly), released the instant the volley
+// fires. Fed per-frame from main.js (0 outside a lance fuse / reduced-motion).
+let inhaleLevel = 0;
+
 // Roll kick: short camera lean in the roll direction + FOV bump
 let rollKickT = 0;
 let rollKickDir = 0;
@@ -95,6 +100,10 @@ export const cameraCtl = {
 
   punchKick() {
     punchKickT = PUNCH_KICK_DUR;
+  },
+
+  setInhale(x) {
+    inhaleLevel = Math.max(0, Math.min(1, x || 0));
   },
 
   rollKick(dir) {
@@ -310,6 +319,10 @@ export const cameraCtl = {
       camera.rotateZ(rollKickDir * 0.16 * Math.sin(k * Math.PI));
     }
 
+    // Inhale pinch (PR-C): lean in with the drawn breath — a small dolly here
+    // (after the chase solve, like the kicks) + the FOV squeeze below.
+    if (inhaleLevel > 0.001) camera.position.z -= inhaleLevel * 0.3;
+
     // FOV: base 72, boost → 90, fever → 94 (wider = more intense)
     let targetFov = 72;
     if (player.speedActive) targetFov = 82;
@@ -317,6 +330,7 @@ export const cameraCtl = {
     if (player.feverActive) targetFov = 90;
     if (rollKickT > 0) targetFov += 4;
     targetFov += canyonW * 6; // wider peripheral read while threading rock
+    targetFov -= inhaleLevel * 2; // PR-C: the inhale pinch (narrow = held breath)
     if (Math.abs(camera.fov - targetFov) > 0.1) {
       camera.fov = damp(camera.fov, targetFov, player.boosting ? 5 : 3, dt);
       camera.updateProjectionMatrix();
