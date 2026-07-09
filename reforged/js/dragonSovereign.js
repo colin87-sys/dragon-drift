@@ -585,8 +585,12 @@ function buildScepterWhipTail(def, model, mats, anchor) {
   // rear chase frame instead of trailing flat. Motion note: the raised tip must not whip across the
   // camera on the idle coil (owner verifies live). curveX/rAt unchanged.
   const tailRise = model.tailRise ?? 0;
-  const curveY = (t) => -0.11 * T * Math.sin(Math.PI * t * 0.9) + (0.09 + 0.11 * tailRise) * T * t;
-  const curveX = (t) => 0.05 * T * Math.max(0, t - 0.45) * Math.max(0, t - 0.45);
+  // CP2b: steepen the final climb (→0.26 coeff at tailRise 1) AND swing the tip laterally (curveX
+  // ×6) so the raised scepter-crown clears the torso/corona silhouette up-and-to-one-side in the
+  // rear-chase frame (it used to rise almost on the camera-body axis, occluded). The lateral bias
+  // also moves the tip AWAY from the camera axis — the correct direction for the idle-coil safety.
+  const curveY = (t) => -0.11 * T * Math.sin(Math.PI * t * 0.9) + (0.09 + 0.17 * tailRise) * T * t;
+  const curveX = (t) => 0.30 * T * Math.max(0, t - 0.45) * Math.max(0, t - 0.45);
   const rAt = (t) => rootR * Math.pow(1 - t * 0.93, 0.7) + 0.012;
   const P = (t) => ({ x: curveX(t), y: a.y + curveY(t), z: a.z + t * T, r: rAt(t) });
 
@@ -611,34 +615,90 @@ function buildScepterWhipTail(def, model, mats, anchor) {
   }
   segs[0].isBone = true;   // drive by ROTATION → a gentle idle coil bends the tail (never tears it)
 
-  // Dorsal fins (unchanged shape), each parented to its segment so it sways with the tail.
+  // Dorsal EMBER fins — a swept crescent-sail per station, ~2.2× taller than the old gold flecks, in
+  // two ember tiers (root memTiers[2] → tip memTiers[3]) so the tail speaks the WINGS' trailing-edge
+  // fire; the emberF ladder makes them dark at f0 and blazing at f3 for free. Held to t≤0.68 so the
+  // terminal scepter owns the tip. Each parented to its segment so it sways with the idle coil.
   const fins = Math.round(model.tailFins ?? 4);
+  const sail = (si, sj, p, rr, fh) => {
+    const bx = p.x - sj.x, by = p.y - sj.y + rr, bz = p.z - sj.z;
+    const fL = [bx, by, bz - rr * 0.8], fT = [bx, by, bz + rr * 1.4];
+    const mid = [bx, by + fh * 0.55, bz + rr * 0.5 + fh * 0.15];   // swept back
+    const apex = [bx, by + fh, bz + fh * 0.3];                     // leading edge rakes back as it rises
+    segs[si].add(flatTriMesh([[fL, fT, mid]], M.memTiers[2]));     // lower ember tier
+    segs[si].add(flatTriMesh([[fL, mid, apex]], M.memTiers[3]));   // upper (bright) ember tier
+  };
   for (let k = 0; k < fins; k++) {
-    const t = 0.15 + 0.6 * (k / Math.max(1, fins - 1));
-    const p = P(t), rr = p.r, fh = (2.0 * rr + 0.05) * Math.pow(0.82, k);
+    const t = 0.15 + 0.53 * (k / Math.max(1, fins - 1));
+    const p = P(t), rr = p.r, fh = (2.0 * rr + 0.05) * 2.2 * Math.pow(0.88, k);
     const si = Math.min(nChain - 1, Math.floor(t * nChain)), sj = P(jointT(si));
-    const fin = flatTriMesh([[[p.x - sj.x, p.y - sj.y + rr, p.z - sj.z - rr * 1.2], [p.x - sj.x, p.y - sj.y + rr, p.z - sj.z + rr * 1.2], [p.x - sj.x, p.y - sj.y + rr + fh, p.z - sj.z]]], M.gold);
-    segs[si].add(fin);
+    sail(si, sj, p, rr, fh);
+  }
+  // BANNER fin (f2+ / tailFins≥3): a double-height ember sail at t≈0.80 — the mid-tail silhouette
+  // event the side/rear-¾ read lacked.
+  if (fins >= 3) {
+    const t = 0.80, p = P(t), rr = p.r;
+    const si = Math.min(nChain - 1, Math.floor(t * nChain)), sj = P(jointT(si));
+    sail(si, sj, p, rr, (2.0 * rr + 0.05) * 5.0);
   }
 
-  // Scepter crescent + captive star at the risen tip, in the LAST segment's local frame.
+  // SPINE-OF-LIGHT continuation — violet keel gems down the tail dorsal ridge, converging toward the
+  // rear-chase cam (echoes the torso keel studs + wing tip-gems). Count laddered by stage (f1→2 /
+  // f2→3 / f3→5); M.gem is the stage-gated violet jewel (surge-registered via accentMats).
+  const nGems = [0, 2, 3, 5][M.stage];
+  const gemTs = [0.12, 0.30, 0.48, 0.66, 0.82];
+  for (let i = 0; i < nGems; i++) {
+    const t = gemTs[i], p = P(t), r = 0.07 - 0.025 * (i / 4);
+    const si = Math.min(nChain - 1, Math.floor(t * nChain)), sj = P(jointT(si));
+    const g = new THREE.Mesh(new THREE.OctahedronGeometry(r, 0), M.gem);
+    g.position.set(p.x - sj.x, p.y - sj.y + p.r, p.z - sj.z);
+    g.scale.set(1, 1.3, 1);
+    segs[si].add(g);
+  }
+
+  // SCEPTER-CROWN terminal (the tip silhouette event) — a bold gold trident that opens as a face-on
+  // V/crown from the rear, prong-tip violet jewels, a MINIATURE eclipse-sigil disk (dark disk + gold
+  // rim, an echo of the dorsal corona capped small so it never rivals it), and a bright captive star.
   const tip = P(1), lj = P(jointT(nChain - 1)), tipG = segs[nChain - 1];
   const lx = tip.x - lj.x, ly = tip.y - lj.y, lz = tip.z - lj.z;
   const bloom = model.crescentBloom ?? 1;
-  const spread = 0.4 + 0.3 * bloom, plen = 0.6 * (0.4 + 0.6 * bloom);
-  for (const side of [1, -1]) {
-    const prong = spike(plen, 0.05, 0.008, M.goldHi, 4);
+  const spread = 0.5 + 0.35 * bloom, plen = 1.0 * (0.4 + 0.6 * bloom);
+  const prongRots = [new THREE.Euler(-1.2, 0.35, spread), new THREE.Euler(-1.2, 0.35, -spread)];
+  if (bloom >= 0.6) prongRots.push(new THREE.Euler(-1.35, 0, 0));   // central near-vertical prong → crown/trident read
+  for (let pi = 0; pi < prongRots.length; pi++) {
+    const center = pi === 2, rot = prongRots[pi], pl = center ? plen * 0.55 : plen;
+    const prong = spike(pl, center ? 0.06 : 0.08, 0.008, M.goldHi, 4);
     prong.position.set(lx, ly, lz);
-    prong.rotation.x = -1.2; prong.rotation.z = side * spread; prong.rotation.y = 0.35;
+    prong.rotation.copy(rot);
     tipG.add(prong);
+    if (bloom >= 0.4) {   // prong-tip jewel (veinMat — NOT sparTip; the white-hot budget is reserved for wing spars)
+      const gp = new THREE.Vector3(0, pl, 0).applyEuler(rot);
+      const j = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), M.veinMat);
+      j.position.set(lx + gp.x, ly + gp.y, lz + gp.z);
+      tipG.add(j);
+    }
   }
+  // Miniature eclipse-sigil disk (f2+): a small face-on dark disk + gold rim in the crescent crotch —
+  // the corona's regalia echo. Capped r≤0.18 so it never competes with the real dorsal corona ring.
+  if (bloom >= 0.6) {
+    const cx = lx, cy = ly + plen * 0.28, cz = lz + plen * 0.10, Rd = 0.16, N = 8;
+    const diskT = [], rimT = [];
+    const dp = (r, ang) => [cx + Math.cos(ang) * r, cy + Math.sin(ang) * r, cz];
+    for (let i = 0; i < N; i++) {
+      const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+      diskT.push([[cx, cy, cz], dp(Rd, a0), dp(Rd, a1)]);
+      rimT.push([dp(Rd, a0), dp(Rd * 1.14, a0), dp(Rd * 1.14, a1)], [dp(Rd, a0), dp(Rd * 1.14, a1), dp(Rd, a1)]);
+    }
+    tipG.add(flatTriMesh(diskT, M.coronaDark));
+    tipG.add(flatTriMesh(rimT, M.gold));
+  }
+  // Captive star — now large enough to register at chase distance, centered in front of the sigil disk.
   if (bloom > 0.4) {
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.085 * bloom, 0), M.gem);
-    // Seat the captive star DOWN in the crescent crotch so it overlaps the prong bases (welded), not
-    // floating free above the barb (the isolated speck Fable flagged in side/rear-¾/top views).
-    star.position.set(lx, ly + plen * 0.24, lz + plen * 0.12);
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.16 * bloom, 0), M.gem);
+    star.position.set(lx, ly + plen * 0.28, lz + plen * 0.18);
+    star.scale.set(1, 1.2, 1);
     tipG.add(star);
   }
-  return { group, segs, accentMats: [M.violet, M.gem] };
+  return { group, segs, accentMats: [M.violet, M.gem, M.veinMat] };
 }
 registerTail('scepterWhipTail', buildScepterWhipTail);
