@@ -322,6 +322,12 @@ export const CONFIG = {
                             // the spark/sound drift reads as desync)
     impactDuckAmt: 0.18,    // TUNE(0–0.3; 0 = off) — per-strike music duck via
                             // the pumpGain sidechain node (the L191-safe lane)
+    // v3 wisp-impact "destructiveness" (owner: the per-hit landing sounded like a
+    // tuned drum roll, not ordnance breaking a target). Added a waveshaped broadband
+    // crunch + in-key saw grit + a debris/scorch tail to brandStrike; these tune it.
+    strikeCrunchVol: 0.07,  // TUNE(0–0.12) — saturated broadband CRUNCH front level (the main "bite")
+    strikeGritDrive: 0.65,  // TUNE(0.4–0.9) — soft-sat drive on the impact grit (>0.8 reads as artifact, not violence)
+    strikeDebrisVol: 0.028, // TUNE(0–0.05) — per-hit falling-shard / ember-sizzle debris-tail level
     // V4
     snapPerVolley: 1,       // LAW — max V4 paints per amber volley; 0 during fever (LAW)
     // V5

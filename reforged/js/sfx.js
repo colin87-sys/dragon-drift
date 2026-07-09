@@ -600,6 +600,36 @@ function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, d
   src.stop(t0 + dur + 0.05);
 }
 
+// Saturated noise burst = noiseWhoosh with a WaveShaper (soft-sat drive) inserted
+// before the gain. The shaper generates intermodulation products from the noise,
+// turning a smooth "swish" into a broadband CRUNCH — the nonlinear, spectrally
+// jagged energy the ear reads as "material failing" (a filtered whoosh has none of
+// it, which is why the shipped per-hit impact read as a drum tick, not destruction).
+// `drive` MUST be one of a small set of literals (makeDriveCurve caches by
+// amount.toFixed(2)); per-voice shaper (never a shared one on sfxBus — simultaneous
+// hits would intermodulate the whole mix to fuzz). Deterministic: seeded noise only.
+function gritBurst({ from = 3000, to = 800, dur = 0.05, vol = 0.08, q = 0.8, drive = 0.65, delay = 0 }) {
+  const a = getCtx();
+  if (!a) return;
+  const t0 = a.currentTime + delay;
+  const src = a.createBufferSource();
+  src.buffer = getNoiseBuffer(a);
+  const bp = a.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.Q.value = q;
+  bp.frequency.setValueAtTime(from, t0);
+  bp.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  const shaper = a.createWaveShaper();
+  shaper.curve = makeDriveCurve(drive);
+  shaper.oversample = '2x';
+  const g = a.createGain();
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(bp).connect(shaper).connect(g).connect(sfxBus);
+  src.start(t0);
+  src.stop(t0 + dur + 0.05);
+}
+
 // --- SFX helpers ---
 function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay = 0 }) {
   const a = getCtx();
@@ -1373,22 +1403,61 @@ export const sfx = {
       if (h) f = chordLadder(660, h.chord, k) * det;
     }
     if (LANCE_V3) {
-      // v3 IMPACT-FORWARD: keep the chord-ladder ascent (N landings = an arpeggio),
-      // but weight it with the LOW register so the roll reads as ordnance first,
-      // melody second — pluck quieter/shorter, the sub knock louder and rising with
-      // k, the sparkle octave only every other hit (halves the tinsel on a 6-roll).
-      // The volley pitch walk (vw, seeded in brandLoose) makes successive volleys
-      // non-identical without RNG.
-      const vw = 1 + ((detSeq * 7) % 5 - 2) * 0.003;
+      // v3 DESTRUCTIVE IMPACT (owner: the per-hit landing "sounds like drums — no
+      // impact, no destructiveness"). Diagnosis: the shipped v3 per-hit was a clean
+      // harmonic pluck + a smooth band-limited tick — periodic + filtered + no
+      // nonlinear energy + no aftermath ⇒ the ear's only category is "tuned drum."
+      // Fix (additive): the pitched pluck drops to a background TINT under a
+      // broadband waveshaped CRUNCH + an in-key saw GRIT + a THUD (mass) + a
+      // debris/scorch TAIL — the broadband/nonlinear/aftermath signature that reads
+      // as ordnance breaking a target. The chord-ladder ascent survives on SPECTRAL
+      // spacing (nothing else harmonic in 600–1600 Hz), not loudness. The roll
+      // CRESCENDOS (heavier + crunchier as k rises) so it builds, not machine-guns,
+      // and hands off UP into brandFinale. All variety is k/detSeq — zero RNG.
+      const L = CONFIG.LOCK;
+      const vw = 1 + ((detSeq * 7) % 5 - 2) * 0.003;   // per-volley pitch walk (seeded in brandLoose)
       const fk = f * vw;
-      tone({ freq: fk, end: fk * 0.985, dur: 0.07, type: 'triangle', vol: 0.05 });   // pluck (quieter)
-      if (k % 2 === 0) tone({ freq: fk * 2, dur: 0.05, type: 'sine', vol: 0.03, delay: 0.005 }); // sparkle, every other hit
-      noiseWhoosh({ from: 2600, to: 900, dur: 0.07, vol: 0.03, q: (detSeq % 2) ? 1.6 : 2.2 });    // ember burst
+      const kk = Math.min(k, 5);                        // crescendo ramp, clamped at the 6-hit cap
       const a = getCtx();
       if (!a) return;
-      noiseWhoosh({ from: 3200, to: 900, dur: 0.012, vol: 0.06, q: 0.5 });           // contact crack
-      tone({ freq: (120 + k * 8) * det, end: 45, dur: 0.07, type: 'sine', vol: 0.07 }); // sub KNOCK — the weight, rising with k
-      pumpDuck(pumpGain, CONFIG.LOCK.impactDuckAmt, a.currentTime);   // the roll pumps the music
+      // (1) CRUNCH — the saturated broadband front (the "material failing" bite);
+      //     center falls + level rises as the roll lands.
+      gritBurst({ from: 4200 - kk * 180, to: 1100, dur: 0.045,
+        vol: Math.min(0.12, L.strikeCrunchVol + kk * 0.008), q: 0.8, drive: [0.5, 0.65, 0.8][k % 3] });
+      // (2) GRIT body — a short saw through the same soft-sat, pitched by octave-
+      //     folding the chord note (destructive AND in key). Inlined, not tone(), so
+      //     the shared tone() path stays byte-identical for the ?lance=v2 arm.
+      const gf = foldToBand(fk, 80, 160);
+      const ts = a.currentTime;   // snapshot once (currentTime advances per render quantum — one anchor for the whole voice)
+      const saw = a.createOscillator(); saw.type = 'sawtooth';
+      saw.frequency.setValueAtTime(gf, ts);
+      saw.frequency.exponentialRampToValueAtTime(Math.max(1, gf * 0.45), ts + 0.08);
+      const sh = a.createWaveShaper(); sh.curve = makeDriveCurve(L.strikeGritDrive); sh.oversample = '2x';
+      const sg = a.createGain();
+      sg.gain.setValueAtTime(0.045, ts);
+      sg.gain.exponentialRampToValueAtTime(0.0001, ts + 0.08);
+      saw.connect(sh).connect(sg).connect(sfxBus);
+      saw.start(ts); saw.stop(ts + 0.13);
+      // (3) THUD — mass. Longer + deeper than the old kick-ish sub knock, rising with k.
+      tone({ freq: (110 + k * 7) * det, end: 40, dur: 0.1, type: 'sine', vol: 0.07 + kk * 0.007 });
+      // (4) DEBRIS / SCORCH tail — ONE micro-event per hit, alternating by parity so
+      //     6 hits build a stochastic debris cloud, not white mush. Delay jitter is
+      //     detSeq+k arithmetic (zero RNG).
+      const dj = ((detSeq * 13 + k * 7) % 3) * 0.007;
+      if (k % 2 === 0) {
+        const fs = (2400 + k * 160) * vw;
+        tone({ freq: fs, end: fs * 0.6, dur: 0.06, type: 'triangle', vol: L.strikeDebrisVol, delay: 0.022 + dj }); // falling shard
+      } else {
+        noiseWhoosh({ from: 3600, to: 1600, dur: 0.055, vol: L.strikeDebrisVol * 0.9, q: 2.4, delay: 0.02 + dj });  // ember sizzle (scorch)
+      }
+      // (5) CONTACT crack — the 12ms sharp leading EDGE glued onto the crunch.
+      noiseWhoosh({ from: 3200, to: 900, dur: 0.012, vol: 0.045, q: 0.5 });
+      // (6) PLUCK — the chord climb, now a background TINT (survives on spectral
+      //     spacing at lower level); ember burst = mid-glue between crunch + sizzle.
+      tone({ freq: fk, end: fk * 0.985, dur: 0.07, type: 'triangle', vol: 0.035 });
+      if (k % 2 === 0) tone({ freq: fk * 2, dur: 0.05, type: 'sine', vol: 0.02, delay: 0.005 }); // sparkle, every other hit
+      noiseWhoosh({ from: 2600, to: 900, dur: 0.07, vol: 0.03, q: (detSeq % 2) ? 1.6 : 2.2 });    // ember burst (mid glue)
+      pumpDuck(pumpGain, CONFIG.LOCK.impactDuckAmt, a.currentTime);   // one sustained duck carves the spectral hole
       return;
     }
     tone({ freq: f, end: f * 0.985, dur: 0.09, type: 'triangle', vol: 0.075 });
@@ -1426,6 +1495,11 @@ export const sfx = {
     // Fixed 90 Hz (shipped) when music is off / v2.
     let boom = 90 * v;
     if (LANCE_V3) { const h = getHarmony(); if (h) boom = foldToBand(h.chord[0], 55, 110) * v; }
+    // v3: one saturated CRUNCH at the front so the finale speaks the same nonlinear
+    // language the buffed per-hits now do — else the (all-clean-layer) climax could
+    // read as LESS violent than the crunchy strikes despite being louder (timbre
+    // inversion). Strictly bigger than a per-hit crunch (vol/band/drive all up).
+    if (LANCE_V3) gritBurst({ from: 3600, to: 700, dur: 0.07, vol: 0.13 * (full ? 1.15 : 1), q: 0.7, drive: 0.8 });
     // IMPACT FRONT (kept verbatim — the emberwyrm-eject thwack family):
     noiseWhoosh({ from: 8000, to: 2600, dur: 0.018, vol: 0.17, q: 0.4 });            // the CONTACT crack
     tone({ freq: 190 * v, end: 46, dur: 0.16, type: 'sine', vol: full ? 0.2 : 0.14 }); // SUB-THUD — falling pitch IS the punch
