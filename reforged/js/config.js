@@ -261,13 +261,15 @@ export const CONFIG = {
     // V3.E1
     beatWindow: 0.12,       // LAW — ± seconds on getBeatClock()
     beatMult: 1.25,         // LAW — volleys ONLY, never the Surge beam/break
-    // UNLEASH PHRASE (PR9 — the reward rebuild). BEAT-LOCKED RELEASE (C1): a
-    // committed volley's LAUNCH is quantized onto the song's grid — the cap
-    // auto-release lands ON a beat (the inhale stretches to meet it), a manual
-    // tap rides the next 16th (reads as feel, never lag). The ONE behavior-
-    // adjacent change of the phrase rebuild: D only DELAYS the staggered launch
-    // (damage laws untouched); headless ctx carries no grid fields → D=0 →
-    // byte-identical launch frames (T-E2 is the proof). decay/fork: never held.
+    // UNLEASH PHRASE (PR9 — the reward rebuild). BEAT-LOCKED RELEASE (C1): the
+    // CAP AUTO-RELEASE's launch is quantized onto the song's next beat (the
+    // inhale stretches to meet it). LAW (PR9.1, owner ruling): a MANUAL tap is
+    // NEVER held — the tap is the player's timing and the E1 on-beat bonus is
+    // the skill expression; a manual volley's impact roll only snaps to the
+    // grid when the tap was PERFECT ("on the beat" is earned, not given). The
+    // ONE behavior-adjacent change of the phrase rebuild: D only DELAYS the
+    // cap launch (damage laws untouched); headless ctx carries no grid fields
+    // → D=0 → byte-identical launch frames (T-E2). tap/decay/fork: never held.
     releaseQuant: true,     // LAW gate — false = verbatim v1 launch timing
     releaseQuantMaxS: 0.8,  // LAW — never hold a committed volley longer; slow
                             // stations fall back to the next 8th instead

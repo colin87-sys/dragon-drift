@@ -347,25 +347,28 @@ function resetWispRibbons() {
 const impactQ = [];          // { x, y, z, t, k, n, full, finale }
 let impactWindowAt = -1;     // clock of the window's first arrival
 let impactWindowK = 0;
-// PR9/C5 — the BEAT-DERIVED ACCELERANDO roll: with a live beat clock the window
-// opens on the song's next 16th and the strike gaps SHRINK (× rollAccel each),
-// so the run audibly converges on the finale; total span clamped to rollMaxS
-// (damage fired on the true arrival frame — past ~0.6s the spark/sound drift
-// from the organ flash reads as desync). No clock (headless / music off / v1)
-// → the shipped fixed 40ms stagger, verbatim (T-W7 is byte-identical).
+// PR9/C5 — the BEAT-DERIVED ACCELERANDO roll: with a live beat clock the strike
+// gaps SHRINK (× rollAccel each) so the run audibly converges on the finale;
+// total span clamped to rollMaxS (damage fired on the true arrival frame — past
+// ~0.6s the spark/sound drift from the organ flash reads as desync). PR9.1
+// (owner LAW — skill expression): the window only SNAPS onto the song's next
+// 16th when the volley EARNED it (`snap` = a cap/fork auto-release, or a
+// PERFECT on-beat manual tap); an off-beat manual volley keeps the player's
+// raw timing, tempo-flavored gaps only — "on the beat" is the reward. No clock
+// (headless / music off / v1) → the shipped fixed 40ms stagger, verbatim (T-W7).
 let impactWindowMusical = false;
-let impactWindowBase = 0;    // window-relative time of slot 0 (the 16th snap)
+let impactWindowBase = 0;    // window-relative time of slot 0 (the earned 16th snap, else 0)
 let impactWindowCum = 0;     // accumulated accelerando gaps
 let impactWindowG0 = 0;      // first gap = one 16th of the live grid
 let lanceArrivals = 0;       // arrivals of the volley in flight (finale detect)
 
-function queueWispImpact(x, y, z, n = 0, full = false, finale = false) {
+function queueWispImpact(x, y, z, n = 0, full = false, finale = false, snap = false) {
   if (clock - impactWindowAt > 0.15) {
     impactWindowAt = clock;
     impactWindowK = 0;
     const bc = UNLEASH_V2 ? getBeatClock() : null;
     impactWindowMusical = !!bc;
-    impactWindowBase = bc ? nextGridDelay(bc, 4) : 0;
+    impactWindowBase = bc && snap ? nextGridDelay(bc, 4) : 0;
     impactWindowG0 = bc ? bc.beatLen / 4 : 0;
     impactWindowCum = 0;
   }
@@ -546,6 +549,7 @@ export function spawnBossBullet(opts) {
   // in flight (fuse/decay spacing), so a plain counter is the honest truth.
   s.volleyN = opts.volleyN ?? 0;
   s.volleyFull = !!opts.volleyFull;
+  s.volleySnap = !!opts.volleySnap;
   if (opts.volleyFirst) lanceArrivals = 0;
   // A fresh wisp tows a light-ribbon (silently none when the pool is busy —
   // presentation only, never gameplay). fxQuality ≤ 0.3 skips ribbons entirely
@@ -766,7 +770,7 @@ export function updateBossBullets(dt, player) {
           // wisp leaves the count short and the cadence simply never fires; the
           // held voices self-release on their watchdog).
           queueWispImpact(s.x, s.y, -(player.dist + s.rel), s.volleyN, s.volleyFull,
-            s.volleyFull && lanceArrivals >= (s.volleyN || Infinity));
+            s.volleyFull && lanceArrivals >= (s.volleyN || Infinity), s.volleySnap);
           ribbonRelease(s.ribbonIdx);
           s.ribbonIdx = -1;
         }

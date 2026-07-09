@@ -1271,7 +1271,7 @@ function surgeForkLances(player) {
   const full = cap > 0 && pips >= cap;
   emit('lockLaunch', { count: pips, full, source: 'fork' });
   let i = 0;
-  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips, full);
+  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips, full, true);
   emit('lockVolley', { count: pips, source: 'fork', dmgEach, delay: 0, full });
 }
 
@@ -1724,6 +1724,8 @@ function enterFight() {
     saveData.flags.lockUnlocked = true;
     persist();
   }
+  // LANCE LAB: name the range once per fight so the preview reads as intended.
+  if (labPacifist) ui.bossNote?.('✦ LANCE LAB ✦', 'PAINT AND UNLEASH — IT WON\'T FIGHT BACK', 'gold', 3.2);
   poseSX = pose.x; poseSY = pose.y; poseSmooth = true;   // seed the group x/y smoother from the entrance-end pose (no handoff jump)
   if (cineYaw != null) fightWobbleT = 0;   // released from a scripted entrance → ease the yaw/roll wobble in from its settled facing (no snap)
   entranceId = null;                  // the scripted entrance is done
@@ -2265,7 +2267,8 @@ export function updateBoss(dt, player, time, camera) {
 
     // §5f the HOLD-BREAKER shot (armed by enterFight on a def.holdBreaker boss):
     // one slow, survivable, PARRYABLE amber lobbed into the reveal hold.
-    if (holdBreakerT > 0) {
+    // (The ONE fire not behind attackTimer — the LANCE LAB gates it too.)
+    if (holdBreakerT > 0 && !labPacifist) {
       holdBreakerT -= dt;
       if (holdBreakerT <= 0) {
         const slow = B.bulletSpeed * 0.5;
@@ -2301,13 +2304,16 @@ export function updateBoss(dt, player, time, camera) {
       flashPart: () => model.flash?.(0.15),
       // V2 LANCE-PAINT (SOP §II.5): the paint machine's per-frame world view.
       tier: def.tier ?? 1,
-      cap: CONFIG.LOCK.capByTier[def.tier ?? 1] ?? 0,
+      // LANCE LAB: force the max cap so the FULL-6 cadence/finale is testable
+      // (5 organs + one tier-3 stack reaches 6; damage is frozen in the lab, so
+      // no balance surface). Live game: the shipped tier ladder, untouched.
+      cap: labPacifist ? 6 : (CONFIG.LOCK.capByTier[def.tier ?? 1] ?? 0),
       deflected: lockDeflected(),
       phaseHp: currentPhaseHp(),
       paintUnlocked: !!saveData.flags.lockUnlocked,
       paintables: paintableParts(),
       amberVenting: (part) => (amberVent.get(part) ?? -1) > fightNow,
-      fireLance: (part, dmg, i, n, full) => fireLanceAt(player, part, dmg, i, n, full),
+      fireLance: (part, dmg, i, n, full, snap) => fireLanceAt(player, part, dmg, i, n, full, snap),
       // V5 FOCUS (PR5): the deliberate hold (2nd finger past focusArmMs / F) —
       // halves the effective dwell in the lock layer. Level-read every frame.
       focusHeld: focusHeldNow(),
@@ -2321,11 +2327,10 @@ export function updateBoss(dt, player, time, camera) {
         return toEdge <= CONFIG.LOCK.beatWindow;
       })(),
       // PR9 BEAT-LOCKED RELEASE (C1): seconds to hold a committed volley so the
-      // LAUNCH lands on the song's grid — the next BEAT for the cap auto-release,
-      // the next 16th for a manual tap. 0 when music is off (headless/muted) or
-      // the gate is off — byte-identical launch frames (T-E2).
+      // LAUNCH lands on the song's grid — CAP AUTO-RELEASE ONLY (a manual tap is
+      // never held: the tap is the player's timing, LAW). 0 when music is off
+      // (headless/muted) or the gate is off — byte-identical launch frames (T-E2).
       gridDelayBeat: releaseQuantDelay(1),
-      gridDelay16: releaseQuantDelay(4),
     };
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);
@@ -2722,6 +2727,11 @@ export function updateBoss(dt, player, time, camera) {
       }
     } else if (pending.length === 0) {
       // Idle between attacks → count down, then begin telegraphing the next one.
+      // LANCE LAB: the range target never attacks — pin the idle clock high so
+      // the telegraph never arms (chargeT is only ever armed inside this branch,
+      // and pending[] only fills from executeAttack, so ALL fire stops here).
+      // Keeping attackTimer > 0 also holds the exposure window open.
+      if (labPacifist) attackTimer = Math.max(attackTimer, 5);
       attackTimer -= dt;
       if (attackTimer <= 0) {
         const ph = def.phases[phaseIdx];
@@ -3585,7 +3595,7 @@ function paintableParts() {
 // off-shoulder (the rider fires from +0.6; wisps leave from −0.6). `vrel` is the
 // plain bossSpeed — the arrival FRAME is identical to the pre-wisp straight lance.
 const _lanceV = new THREE.Vector3();
-function fireLanceAt(player, part, dmg, i = 0, n = 1, full = false) {
+function fireLanceAt(player, part, dmg, i = 0, n = 1, full = false, snap = false) {
   const w = model && model.partWorldPos ? model.partWorldPos(part, _lanceV) : null;
   const tx = w ? w.x : pose.x, ty = w ? w.y : pose.y;
   const trel = w ? Math.max(-w.z - player.dist, 4) : pose.rel;
@@ -3600,6 +3610,7 @@ function fireLanceAt(player, part, dmg, i = 0, n = 1, full = false) {
     homeDelay: L.lanceHomeDelay,
     curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,   // deterministic: slot parity, no RNG
     volleyN: n, volleyFull: full, volleyFirst: i === 0,   // PR9 presentation tags (finale detect)
+    volleySnap: snap,   // PR9.1: impact-roll grid eligibility (cap/fork auto, or an EARNED perfect tap)
   });
 }
 
@@ -3802,6 +3813,12 @@ function ventSprayBeat() {
 
 function damageBoss(amount, kind, e = null) {
   if (phase !== 'fight') return;
+  // LANCE LAB: the range target is an anvil — flash so a landed strike still
+  // visibly answers, but NO state ever changes: hp frozen (never reaches a
+  // shield floor → lockDeflected stays false → painting always live), no organ
+  // cracks (routePartDamage skipped → brands never drop), no riposte return,
+  // no death. This one early-return IS the repeat-volley mechanism.
+  if (labPacifist) { model?.flash?.(0.3); return; }
   // §5f SURVIVAL-CARD SEAL (slot 10 debut — The Last Toll): while a `survival` card
   // runs, the boss is SEALED — all damage deflects and the UNFILLABLE BAR is the tell
   // (§5f's exact grammar). No bubble: the tolls keep firing (a pure-dodge exam) and
@@ -3998,6 +4015,23 @@ export function setBossDebugDefIdx(k) {
   debugDefIdx = k;
 }
 
+// LANCE LAB (?lab[=bossKey], owner playtest range for the unleash phrase): the
+// chosen boss spawns shortly after takeoff with its organs fully brandable but
+// it NEVER attacks and NEVER takes damage — hp frozen means no shield floors,
+// no organ cracks, no riposte, no death: paint → unleash → repaint forever.
+// Default target HOLLOWGATE (5 spread rose panes on a static ahead-holding
+// window — the calmest range); the lab also forces the pip cap to 6 so the
+// FULL-cap cadence/finale is testable (no stock boss is tier ≥4 + paintable).
+// Every labPacifist gate below is inert without the param (coexist law).
+let labPacifist = false;
+export function setBossLab(key) {
+  const k = String(key || 'hollowgate').toLowerCase();
+  const idx = BOSS_ORDER.indexOf(k);
+  setBossDebugDefIdx(idx >= 0 ? idx : BOSS_ORDER.indexOf('hollowgate'));
+  setBossDebugFirstAt(180);
+  labPacifist = true;
+}
+
 // Capture hook (bosscrop): pin the charge/mantle pose at `level` (0..1) so a still
 // can be shot of the contracted wind-up silhouette. Pass a negative value to release
 // and hand the fight state machine back over.
@@ -4123,7 +4157,7 @@ export function bossDebugState() {
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
   // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

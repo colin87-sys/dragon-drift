@@ -338,10 +338,11 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   ok('T-E1 beat release: tap-only, ×beatMult inside the ROI clamp, auto releases exempt');
 }
 
-// --- T-E2 — BEAT-LOCKED RELEASE (PR9/C1): the quantize-hold D ------------------
-// A ctx-supplied gridDelayBeat/gridDelay16 HOLDS the whole staggered launch by D
-// (cap → beat, tap → 16th); the commit (lockVolley, locks cleared) is immediate
-// and carries {delay, full}. A ctx WITHOUT the fields (every headless harness,
+// --- T-E2 — BEAT-LOCKED RELEASE (PR9/C1 + the PR9.1 skill-expression LAW) ------
+// A ctx-supplied gridDelayBeat HOLDS the CAP auto-release by D; a MANUAL tap is
+// NEVER held (the tap is the player's timing — the on-beat perfect bonus is the
+// skill expression). The commit (lockVolley, locks cleared) is immediate and
+// carries {delay, full}. A ctx WITHOUT the field (every headless harness,
 // music-off, v1) launches on the exact shipped frames — the coexist proof.
 {
   const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 10, y: 0, z: 0 } };
@@ -358,7 +359,7 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
       exposureWindow: false, damageBoss() {}, flashPart() {}, tier: 2, cap: 2,
       deflected: false, phaseHp: 100, paintUnlocked: true, paintables: ['A', 'B'],
       amberVenting: () => false,
-      fireLance: (part, dmg, i, nn, full) => launches.push({ frame, i, full }),
+      fireLance: (part, dmg, i, nn, full, snap) => launches.push({ frame, i, full, snap }),
       ...grid,
     });
     const step = (px, frames) => { const p = { position: { x: px, y: 0 } };
@@ -370,7 +371,7 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
       volley: volleys.find((v) => v && v.count === 2) };
   };
   const base = run({}, false);                        // no grid fields = shipped timing
-  const held = run({ gridDelayBeat: 0.3, gridDelay16: 0.09 }, false);
+  const held = run({ gridDelayBeat: 0.3 }, false);
   assertEq(held.volley.delay, 0.3, 'cap release: lockVolley carries delay = gridDelayBeat');
   assertEq(base.volley.delay, 0, 'no grid fields → delay 0 (the headless truth)');
   assert(base.volley.full === true && held.volley.full === true, 'cap-2 with 2 pips is a FULL volley');
@@ -389,10 +390,18 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   assert(held.launchEvt && held.launchEvt.frame === held.launches[0].frame &&
     held.launchEvt.full === true && held.launchEvt.count === 2,
     'lockLaunch fires ON the launch frame with {count, full}');
-  const tapHeld = run({ gridDelayBeat: 0.3, gridDelay16: 0.09 }, true);
-  assertEq(tapHeld.volley.delay, 0.09, 'manual tap quantizes to gridDelay16, not the beat');
-  assert(tapHeld.launches[0].full === true, 'fireLance threads full through the queue');
-  ok('T-E2 beat-locked release: D holds the launch, commit immediate, headless = shipped frames');
+  assert(held.launches[0].snap === true, 'a cap auto-release is snap-eligible (the game timed it)');
+  // PR9.1 skill-expression LAW: a MANUAL tap is NEVER held, even with a live grid.
+  const tap = run({ gridDelayBeat: 0.3 }, true);
+  assertEq(tap.volley.delay, 0, 'manual tap: delay 0 ALWAYS — the tap is the player\'s timing');
+  assert(tap.launches[0].snap === false, 'an off-beat manual volley never snaps the impact roll');
+  assert(tap.launches[0].full === true, 'fireLance threads full through the queue');
+  // ...and a PERFECT (on-beat) tap EARNS the snap.
+  const perfectTap = run({ gridDelayBeat: 0.3, beatOn: true }, true);
+  assertEq(perfectTap.volley.delay, 0, 'a perfect tap is still never held');
+  assert(perfectTap.volley.perfect === true && perfectTap.launches[0].snap === true,
+    'a PERFECT tap earns the on-grid impact roll (the reward, not a freebie)');
+  ok('T-E2 beat-lock: cap held to the beat, taps never held, snap earned by perfect only');
 }
 
 // --- T-W7b — impact-roll FALLBACK: no beat clock → the shipped 40ms stagger ----

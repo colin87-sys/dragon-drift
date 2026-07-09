@@ -32,7 +32,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -250,6 +250,18 @@ if (urlParams.has('bossPhase')) {
 if (urlParams.has('parry')) {
   const v = parseFloat(urlParams.get('parry'));
   setDebugPerfectParryRel(Number.isFinite(v) && v > 0 ? v : CONFIG.BOSS.reflectWindow);
+}
+
+// Playtest: ?lab[=bossKey] — THE LANCE LAB, a pacifist practice range for the
+// unleash phrase. The boss (default hollowgate: 5 static spread panes) spawns
+// shortly after takeoff, never attacks, never takes damage (paint → unleash →
+// repaint forever), and the pip cap is forced to 6 so the FULL-cap cadence is
+// testable. Painting is pre-unlocked so a cold save can brand from fight one.
+// URL-only, never persisted beyond the lockUnlocked flag any lockParts fight
+// would set anyway.
+if (urlParams.has('lab')) {
+  setBossLab(urlParams.get('lab') || '');
+  saveData.flags.lockUnlocked = true;
 }
 
 // Debug: force Dragon Surge for visual verification
