@@ -1792,7 +1792,9 @@ function enterFight() {
   if (debugPhaseJump != null && debugPhaseJump > 0) {
     const target = Math.min(debugPhaseJump, def.phases.length - 1);
     phaseIdx = target;
-    hp = Math.min(hpMax, ((def.phases[target + 1]?.atFrac ?? 0) + 0.05) * hpMax + 1);
+    // A multi-form boss starts the picked form at FULL health (its own bar); else park just
+    // above the target phase's floor so that phase plays out normally from there.
+    hp = def.formLifebars ? hpMax : Math.min(hpMax, ((def.phases[target + 1]?.atFrac ?? 0) + 0.05) * hpMax + 1);
     rhythm?.reset();
     rhythmRest = null;
     beginCard(phaseIdx);
@@ -2960,6 +2962,10 @@ function breakShield(player) {
   const next = def.phases[phaseIdx + 1];
   if (next) {
     phaseIdx++;
+    // MULTI-FORM boss (def.formLifebars): the defeated form's bar REFILLS to full for the next
+    // form — you fought that form to 0, now the next one arrives at full health. The transition
+    // beat (below) covers the refill. (Non-form bosses keep hp parked at the phase floor.)
+    if (def.formLifebars) { hp = hpMax; model.setHealth(hp / hpMax); hpRevealT = HP_REVEAL; }
     // §5i: restart the phrase state at the phase seam (crescendo re-ramps per
     // card; the ambush/wall cluster restarts clean) — the amber-floor clock is
     // kept continuous across the transition inside the machine.
@@ -3530,6 +3536,7 @@ function lockDeflected() {
 // The current phase's hp span (hpMax × its atFrac slice) — the base of the per-volley
 // ROI clamp (volley total ≤ volleyRoiFrac × this, enforced in lockLayer at release).
 function currentPhaseHp() {
+  if (def.formLifebars) return hpMax;   // each form is its own full bar
   const cur = def.phases[phaseIdx]?.atFrac ?? 1;
   const next = def.phases[phaseIdx + 1]?.atFrac ?? 0;
   return Math.max(1, (cur - next) * hpMax);
@@ -3969,7 +3976,9 @@ function damageBoss(amount, kind, e = null) {
   }
   // Reached the phase floor → raise the shield. Chip/reflect can't push past it;
   // the player must charge Surge (by grazing) and unleash it to burst through.
-  const floor = def.phases[phaseIdx + 1]?.atFrac ?? 0;
+  // MULTI-FORM boss (def.formLifebars): every form is fought to 0 (its own full bar), so the
+  // floor is 0 for all forms — the shield raises when the FORM is depleted, not at an atFrac.
+  const floor = def.formLifebars ? 0 : (def.phases[phaseIdx + 1]?.atFrac ?? 0);
   if (hp / hpMax <= floor + 1e-4) {
     shielded = true;
     hp = Math.max(hp, floor * hpMax);
