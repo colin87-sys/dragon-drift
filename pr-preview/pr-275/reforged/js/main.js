@@ -32,7 +32,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -242,6 +242,12 @@ if (urlParams.has('bossIdx')) {
 // KARNVOW's fight opening INTO Voidmaw's Verdict).
 if (urlParams.has('bossPhase')) {
   setBossDebugPhase(parseInt(urlParams.get('bossPhase'), 10));
+}
+// ?bossStage=N (1-based) pins the visible STAGE sub-rig of a multi-stage boss (THE UNMASKED:
+// 1 eclipse-eye / 2 seraph / 3 unveiling) so a stage is playtestable in a live fight without
+// the CP2 dissolve-swap (e.g. ?boss&bossIdx=13&bossStage=2 = fight into the seraph).
+if (urlParams.has('bossStage')) {
+  setBossDebugStage(parseInt(urlParams.get('bossStage'), 10));
 }
 // Playtest: ?parry widens the PERFECT-parry window so the V4 snap-brand is
 // testable without frame-tight timing. Bare ?parry = the whole reflect window
@@ -460,7 +466,14 @@ ui.init({
   onStart: (mode) => startGame(mode),
   rushUnlocked: () => rushUnlocked(),   // gate the BOSS RUSH rail entry (beaten a boss / dev)
   rushInfo: () => rushRosterInfo(),     // roster + best time for the pre-launch panel
-  onStartRush: (only) => { rushOnlyBoss = only || null; startGame('rush'); },  // pick one boss (or all)
+  onStartRush: (only, stage) => {
+    rushOnlyBoss = only || null;
+    // Dev stage-jump (rush picker, ?dev): pin which STAGE sub-rig a multi-stage boss shows,
+    // so THE UNMASKED's stage 2 (seraph) / 3 (unveiling) are playtestable in a live fight.
+    // stage 1 (or unset) → the boss's default. Set fresh per launch so no stale pin leaks.
+    setBossDebugStage(stage || 1);
+    startGame('rush');
+  },  // pick one boss (or all), optionally pinned to a stage
   onEquipDragon: () => {
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
