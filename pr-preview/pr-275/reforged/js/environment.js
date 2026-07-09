@@ -20,6 +20,11 @@ let rnd = null;
 let bands = [];
 let feverMix = 0;
 let bossMix = 0; // eased boss-grade signal (see updateEnvironment), local copy — same pattern as feverMix
+let skyDim = 0;  // EMBERTIDE sky-replacement: 0 = the real dome; 1 = fully faded out (EMBERTIDE IS the sky)
+// setSkyFade(k): the sky-replacement crossfade hook ("one sky, never two"). boss.js ramps this to 1 while
+// a `def.skyReplace` boss (EMBERTIDE) owns the sky, back to 0 otherwise. Dims the dome shader toward black
+// and hides the mesh entirely at k≈1 (draw replaced, not stacked → overdraw flat). Inert (0) otherwise.
+export function setSkyFade(k) { skyDim = Math.max(0, Math.min(1, k)); }
 
 const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 
@@ -284,6 +289,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       sunGlow: { value: new THREE.Color(0xfff0c8) },
       sunDir: { value: new THREE.Vector3(-0.22, 0.1, -1).normalize() },
       feverMix: { value: 0 },
+      dimMix: { value: 0 },
       starMix: { value: 0 },
       // Dual-fog (BIOME-DESIGN.md §5.2): the far-field fog COLOR + its 0→1
       // gate. fogFarMix is 0 wherever no biome declares fogFarColor, so the
@@ -301,7 +307,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
     fragmentShader: `
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
-      uniform float feverMix, starMix, fogFarMix, time;
+      uniform float feverMix, starMix, fogFarMix, time, dimMix;
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
@@ -336,7 +342,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         col += vec3(0.85, 0.9, 1.0) * star * starMix;
         // Night biomes also get a faint, slow aurora veil of their own.
         col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12;
-        gl_FragColor = vec4(col, 1.0);
+        // EMBERTIDE sky-replacement crossfade ("one sky, never two"): as EMBERTIDE's dome
+        // fades IN, dim the real dome toward black (and it's hidden entirely at dimMix≈1,
+        // so its draw is replaced, not stacked — overdraw stays flat).
+        gl_FragColor = vec4(col * (1.0 - dimMix), 1.0);
       }`,
   });
   sky = new THREE.Mesh(new THREE.SphereGeometry(800, 24, 16), skyMat);
@@ -515,6 +524,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // Dragon Surge sky tint (damped so it sweeps in/out smoothly)
   feverMix = damp(feverMix, feverActive ? 1 : 0, 2.5, dt);
   su.feverMix.value = feverMix;
+  su.dimMix.value = skyDim;          // EMBERTIDE sky-replacement crossfade
+  sky.visible = skyDim < 0.985;      // hide the real dome once EMBERTIDE fully covers (draw replaced, not added)
   su.starMix.value = env.starMix;
   su.time.value = time;
 

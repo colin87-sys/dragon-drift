@@ -59,14 +59,39 @@ const SPECS = {
     // so it is NOT judged as an orderly comb (no swell-then-taper / separation asserts — those
     // are azure's). Bands PROVISIONAL until the three-form ladder + gate land.
     architecture: 'living-flame mane',
-    wingElements: 5,                            // 5 flame tongues per side
-    foldMax: 0.9,                              // the tongues furl/nest inward on the fold
-    triTargets: [2600, 4000, 5600],
+    // Cloudjumper / Stormcutter TWIN-WING layout: TWO flame-wings per side (an upper that lifts and
+    // a smaller lower that spreads), 3 tongues each → 6 elements per side. The upswept wings trade
+    // horizontal span for vertical reach, so span:body reads lower than a flat wing.
+    wingElements: 6,                            // 3 upper + 3 lower flame tongues per side
+    foldMax: 1.02,                             // twin upswept wings don't furl as tightly (provisional)
+    triTargets: [2600, 4200, 5800],
     headBody: [[2.0, 2.6], [3.0, 4.2], [4.5, 5.5]],
     eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.13, 0.30]],
-    spanBody: [[0.55, 1.2], [0.9, 1.7], [1.2, 2.4]],   // provisional — retune when the ladder lands
+    spanBody: [[0.35, 1.1], [0.5, 1.4], [0.65, 1.8]],   // provisional — upswept twin-wing metric; retune when the look lands
     accentHue: 27,                              // lava ~27°
     carrier: 'moltenEdge',                      // the HOT wisp tips are the emissive accent; the molten cores are dark-warm
+  },
+  jade: {
+    architecture: 'silk fin lobes',
+    wingElements: [3, 3, 4],                     // §3 col 3: 3 lobes (forms 0–1) → 4 lobes (apex) — per-form count
+    separation: 'notch',                         // §3 jade metric: overlap permitted; tip NOTCHES separate (depth ≥0.3× lobe len), NOT planform root gaps
+    triTargets: [2550, 3680, 4200],              // §5d ~targets (the koiSerpent is ONE swept tube bent by a vertex-shader wave — very cheap; the undulation is free in the shader, so the body geometry is lean)
+    // head:body — §4 jade bands (long serpent: 1:2.8–3.2 / 1:4.5–5.5 / 1:7.5–9.5).
+    headBody: [[2.8, 3.2], [4.5, 5.5], [7.5, 9.5]],
+    // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled UP to 0.32
+    // like azure/ember (L147): jade's apex eye is "calm, long, painterly" — a larger
+    // almond that still reads as the keen-but-serene apex, not a shrunken pinhole.
+    eyeHead: [[0.30, 0.40], [0.20, 0.28], [0.14, 0.32]],
+    // span:body — measured against the VISUAL nose→tail body length (the §8 top-planform
+    // read). RECONCILED for the koiSerpent body: jade moved from a loft torso + bolted
+    // sweptTail to a continuous UNDULATING section-chain whose head:body is now pinned to
+    // the §4 growth arc (2.8→8.4×). With the body length pinned by that assert and the silk
+    // fans kept UNCHANGED (the beloved hero), the wingspan:body ratio settles at these values
+    // (the fins unfurl relative to the body across forms → monotonic up). The old bands were
+    // calibrated against the retired loft body; these track the real serpent.
+    spanBody: [[0.24, 0.42], [0.32, 0.54], [0.44, 0.68]],
+    accentHue: 149,                              // mint-pearl ~149° (green-leaning, ICONIC GREEN)
+    carrier: 'jade',                             // jade [ICONIC GREEN]: body diffuse reads VIVID mid-value jade (NOT near-black moss); accent green
   },
 };
 
@@ -143,16 +168,19 @@ for (const [key, spec] of Object.entries(SPECS)) {
   for (let f = 0; f <= maxT; f++) {
     const M = per[f];
     // build-clean: every form must produce geometry + the metadata handles.
-    ok(M.parts.wingElements && M.parts.wingElements.length === spec.wingElements,
-      `${key} f${f}: wing element count ${M.parts.wingElements?.length} == ${spec.wingElements}`);
+    // wingElements count: a constant (azure 5 / ember 4) OR a per-form array (jade 3/3/4).
+    const wantEls = Array.isArray(spec.wingElements) ? spec.wingElements[f] : spec.wingElements;
+    ok(M.parts.wingElements && M.parts.wingElements.length === wantEls,
+      `${key} f${f}: wing element count ${M.parts.wingElements?.length} == ${wantEls}`);
     ok(!!M.parts.spinePoints && M.parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
     ok(!!M.parts.motifAnchor, `${key} f${f}: motifAnchor published`);
     ok(M.tris < 6000, `${key} f${f}: under 6000 ceiling (${M.tris})`);
 
     const lens = M.parts.wingElements.map((e) => e.length);
-    // COMB architectures must show a swell-then-taper progression + planform separation. A solid
-    // fin (1 element) and the deliberately-IRREGULAR flame mane (organic, overlapping tongues)
-    // are judged differently — the mane's whole point is that it is NOT an orderly comb.
+    // Each architecture is judged by its own metric. COMB (azure) = swell-then-taper progression
+    // + planform root separation. NOTCH (jade) = tip-notch depth ≥0.3×. The deliberately-IRREGULAR
+    // flame mane (ember, organic overlapping tongues) is judged in pixels by the §8 gate — NOT as
+    // an orderly comb — so it skips both.
     if (spec.architecture === 'blade-feather comb') {
       const maxLen = Math.max(...lens), minLen = Math.min(...lens);
       ok(maxLen - minLen > 0.05 * maxLen, `${key} f${f}: blade lengths vary (progression, not sawtooth)`);
@@ -162,6 +190,9 @@ for (const [key, spec] of Object.entries(SPECS)) {
       let minGap = Infinity;
       for (let i = 1; i < roots.length; i++) minGap = Math.min(minGap, Math.hypot(roots[i].x - roots[i - 1].x, roots[i].z - roots[i - 1].z));
       ok(minGap > 0.05, `${key} f${f}: comb has planform separation (minGap ${minGap.toFixed(2)})`);
+    } else if (spec.separation === 'notch') {
+      const notches = M.parts.wingElements.map((e) => e.notchDepth ?? 0);
+      ok(notches.every((n) => n >= 0.3), `${key} f${f}: lobe tip-notch depth ≥0.3× (min ${Math.min(...notches).toFixed(2)})`);
     }
     ok(lens.every((l) => l > 0.1), `${key} f${f}: wing elements have real length`);
 
@@ -239,6 +270,20 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const emisHue = hueOf(wm.emissive.getHex());
     ok(wm.emissiveIntensity > 0 && hueDist(emisHue, spec.accentHue) <= 45,
       `${key}: molten fin carries a warm emissive accent (hueΔ ${hueDist(emisHue, spec.accentHue).toFixed(0)}°)`);
+  }
+  if (spec.carrier === 'jade') {
+    // jade [ICONIC GREEN]: the BODY diffuse must read as a VIVID mid-value jade —
+    // unmistakably GREEN at a glance, NOT the near-black moss the §5d starting hexes
+    // were (0x123026, sRGB L≈0.13). Judge in sRGB (what renders), computed from the raw
+    // hex bytes — three's colour management stores linear internally, which would read
+    // even a vivid mid-green as "dark". Body hue in the jade/emerald band + L ≥ 0.24.
+    const hex = per[2].def.body;
+    const r = ((hex >> 16) & 255) / 255, g = ((hex >> 8) & 255) / 255, b = (hex & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    const sL = (mx + mn) / 2;
+    let sH = 0; if (d) { sH = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; sH = ((sH * 60) + 360) % 360; }
+    ok(sL >= 0.24 && sL <= 0.55, `${key}: apex body is VIVID mid-value jade, not near-black moss (sRGB L ${sL.toFixed(2)} in [0.24,0.55])`);
+    ok(hueDist(sH, 150) <= 25, `${key}: apex body hue is GREEN (${sH.toFixed(0)}° within ±25° of 150°)`);
   }
 }
 

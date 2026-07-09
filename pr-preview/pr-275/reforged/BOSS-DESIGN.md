@@ -314,8 +314,8 @@ safe-lane gates exactly once.
 | 10 | KNELLGRAVE | hanging pendulum | bound figure as the clapper | patina-copper·candle / vertical slit | pre-heard, fades in | claimed | **RHYTHM PARRY CARD** (WE debut, §5i.C): *The Second Toll* announces a 4–6 amber chain on the TOLL's beat — parry the whole chain on-beat (the toll-chain ambers are the carrier) |
 | 11 | WEFTWITCH | hooded weaver-bust + arena-web (the FIELD is the body, L141) | visibly re-weaves the arena — even the HUD chrome | moth-grey·pale-gold / taut lit lines | above | claimed | **THREAD-CUT → STAGGER** (§5i.C): a taut thread flashes amber pre-fire — cut/parry it staggers her + deletes that laserLance volley |
 | 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused as a HOLE in its chest | ashen grey-rose (cool ~284°, most desaturated of the 11/12/13 triple) · blackened silver · glow-shape = a SEVERED/BROKEN LINE (the snapped bead-thread; designed echo of slot 5's single point, flagged) | behind, NO warning banner (VOICE = the arrhythmic double wing-THUMP heard behind, low register, grief-dimmed — the RUBATO's broken meter as signature noise); Home-biome = PLACELESS (the jump-scare is home-agnostic — BIOME-DESIGN.md) | claimed | GHOST-HALF VOLLEY → PARRY/STAGGER (§5i.C) — the living half is unparryable; the dead twin's ghost volley carries amber, parry reflects + staggers; breaking the fused frame removes the ghost volley but ENRAGES tempo |
-| 13 | EMBERTIDE | frame-wide band/wave | face surfacing from light | vermilion→rose / full-frame field | the whole horizon | open | — |
-| 14 | THE UNMASKED | eclipse disc → wheels-within-wheels angel | the second sun cracks into an Ophanim: rings of tracking eyes, six scythe-wings, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open | — |
+| 13 | EMBERTIDE | frame-wide band/wave (VALUE-INVERTED — the focal is DARKNESS) | face surfacing from a wall of light | vermilion→coral-rose · BRIGHT (sanctioned VALUE-INVERSION, §7b override) / full-frame field | the whole horizon | claimed | **BEAM DUEL (§5i.C) — at Surge ≥50% fire INTO the crest**; BEAM DUEL is 13's SURGE mechanic, NOT a parry (audit ED-8); the amber floor is served by a separate PARRYABLE CREST-LOCK volley (the crossfire/stream carrier) |
+| 14 | THE UNMASKED | eclipse disc → seraph of eyed wings | the second sun cracks open and unfurls into a six-winged seraph — dark feathered wings studded with tracking eyes around one great eye, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open | — |
 
 ¹ CRAGHOLD (broad bust → palm-eyed hands, moss·bronze) shipped at slot 3 and was RETIRED by
 user verdict after two rebuilds — the concept never escaped "Voidmaw with hands" (LEAPFROG
@@ -412,25 +412,30 @@ ASHTALON P3's amber-tip is the one flagged immediate hotfix). Open slots fill th
   biblically accurate angel). Persistent presence from mid-game once seeded: a SECOND SUN
   with a lidded eye on the horizon of ordinary runs. Stage 1 silhouette: the eclipse disc
   (black disc + white corona — the corona-ring glow-shape is reserved for it from slot 1
-  onward). Stage 2: the disc CRACKS (it made the masks — the Voidmaw rhyme) and unfolds
-  into an OPHANIM — three concentric counter-rotating wheels, gimbal-tilted on different
-  axes (wheels within wheels), every wheel studded with independent white eyes that ALL
-  track you on their own lag; six scythe-wings (slot 3's blade-fan anatomy at doubled
-  scale) unfolding pair by pair; every earlier scar worn as a relic wired to its rails —
+  onward). Stage 2: the disc CRACKS (it made the masks — the Voidmaw rhyme) and unfurls
+  into a SERAPH — **six large dark feathered scythe-wings** (slot 3's blade-fan anatomy at
+  doubled scale) in a radial fan around one GREAT central eye, the wings studded with the
+  proven eye rig ×~20 nestled among the feathers, every eye tracking you on its own lag; a
+  single faint gold halo ring behind (the reserved corona) — NOT wheels/cogs, which read as
+  a machine (owner direction). Every earlier scar worn as a relic wired to the wing-roots —
   horn, snapped feather-blade, chain link, thread spool, bell shard. Stage 3: the wings
-  mantle open and the veiled core unveils. Fights by QUOTING one pattern-era per stage
+  mantle fully open and the veiled core unveils. Fights by QUOTING one pattern-era per stage
   (zero new attack ids — the finale is the tested vocabulary at full power). The reveal
-  hold where every eye on every wheel snaps to the player at once is the screenshot of the
+  hold where every eye across the wings snaps to the player at once is the screenshot of the
   game. Post-defeat: the companion-shard mascot conversion (§8). Leaves exactly one new
   gap for post-game.
 
 ### The lore web (gaps and their claimants — point, never answer early)
 
 Voidmaw's broken horn → 9's lance. Ashtalon's snapped wingtip feather-blade → 9's trophy
-chain. Stormrend's "unending gale" → 13's leash. 8's broken shackles → the unseen
-chain-maker (open thread). 5's fled twin → becomes 12. 11's mended tear → 14's entry wound.
-4's skeleton (whose?), 4's borrowed lure-light, 10's bound clapper, 9's sender → open
-threads for 14 and post-game.
+chain. Stormrend's "unending gale" → 13's leash (13 quotes Stormrend — the CRESCENDO-SETS
+rhythm is a DESIGNED echo, "the gale was its leash"). **13's dark LEASH-NOTCH scar → who/what
+leashed EMBERTIDE? → 14 (the leash chain: Stormrend ← EMBERTIDE ← THE UNMASKED — even the sky
+that stood loose obeyed something greater).** 8's broken shackles → the unseen chain-maker
+(open thread). 5's fled twin → becomes 12. 11's mended tear → 14's entry wound. 4's skeleton
+(whose?), 4's borrowed lure-light, 10's bound clapper, 9's sender → open threads for 14 and
+post-game. (13's face is NEGATIVE relief — dark in bright light — the clean split from 8
+BRINEHOLM's SOLID breaching head; hold it.)
 
 **Progression note (deferred)**: `bossDefForIndex`'s modulo-cycling is fine through Tier 2;
 this band structure is what eventually replaces it (encounter N → band-appropriate slot,
@@ -1058,14 +1063,22 @@ the def prose — and that back-check surfaced a discrepancy worth recording:
   lift (one sky, never two) + overdraw audit with all three bands + any fever volume.
 - **14 THE UNMASKED** — Stage 1 (seeded mid-game on ordinary runs): fog-exempt black disc
   + white corona ring + one heavy lid, camera-relative like the sky dome (its reserved
-  glow-shape). Stage 2: 3 concentric wheels (torus rails + box spokes) gimbal-tilted on
-  different axes, counter-rotating; 6–8 independent HDR almond eyes PER WHEEL (the proven
-  eye rig ×~20, each with own gaze lag — draws are free, L126); six scythe-wings
-  (Ashtalon kernel ×2 scale) unfolding pair by pair; relics wired to the rails (horn,
-  feather-blade, chain link, thread spool, bell shard). Stage 3: wings mantle open, the
-  veiled core (HDR sphere behind petal shroud — mandala petal kernel) unveils. Dark gold
-  0x181206 / gold rails / white eyes+corona. ~5k tris across stages, staged builds swap
-  via dissolve. NEEDS: horizon-presence system + stage system (§5e).
+  glow-shape). **Stage 2 (SERAPH, not Ophanim — owner direction 2026-07: the "biblically
+  accurate angel" reads as WINGS covered in eyes, never wheels/cogs, which read as a
+  machine):** the disc cracks and **unfurls into a six-winged seraph** — six large DARK
+  feathered scythe-wings (Ashtalon kernel ×2, layered, in a radial vertical fan) around one
+  GREAT central eye (the focal). The proven **eye rig ×~20** (real eyes — dim sclera, big
+  DARK pupil, catchlight, per the L142 eye recipe) nestled among the feathers at the
+  wing-roots/joints, each with own gaze lag (draws are free, L126). The wings stay near-black
+  (§3 dark body — the eyes are the ONLY emissive); a single faint gold HALO ring behind the
+  wings is the sole nod to the corona/reserved glow-shape (NO cogs, NO spokes). Relics wired
+  to the wing-roots (horn, feather-blade, chain link, thread spool, bell shard). Stage 3:
+  wings mantle fully open, the veiled core (HDR sphere behind petal shroud — mandala petal
+  kernel) unveils. **§3b anti-reads for stage 2: NOT a gear/wheel/machine (feathers, never
+  rings+spokes); NOT a bird (the many eyes + radial symmetry + six wings read uncanny-divine,
+  not an eagle); NOT Stormrend's rings.** Dark gold 0x181206 / gold halo+rims / white eyes +
+  corona. ~5k tris across stages, staged builds swap via dissolve. NEEDS: horizon-presence
+  system + stage system (§5e).
   ENTRANCE (§5j *Don't Move*, ZERO camera hijack — 1.2s dilate @0.28 only): one biome early
   a single held choir partial joins the station mix (`getBossEta()`, or cut). Fight start:
   landmark handoff (`secondSun.handoff()`) — the disc hangs huge above the lane; the lane
@@ -1083,6 +1096,65 @@ the def prose — and that back-check surfaced a discrepancy worth recording:
   motion, nothing moves but its attention: the stillness is the point. Run under the
   existing `flythrough` phase name (gaze exclusion for free); self-feed `setGaze` with
   lag + saccade; rider yaw is pitch-less — never fake a look-up.
+
+- **13 — EMBERTIDE, "the Sky Set Loose"** (Tier 4 peak, the World-Enders SPATIAL peak, the
+  2nd-to-last boss; `bossEmbertide.js`). **§3b SILHOUETTE TRANSLATION (r1 — owner-directed redesign
+  after r0 read as a floating idol-mask; Fable-gated PASS "the horizon standing up"):** *Reads as*
+  THE HORIZON STANDING UP — a frame-wide wall of light with a colossal face pushing through it. The
+  figure-ground is the whole point: the BRIGHT LIGHT-FIELD fills/overflows the frame and IS the boss
+  body; the face is DARKNESS torn INTO that light, NOT a discrete object on top of it. *Carrying cues
+  (must reach the read):* (1) the frame-wide light-BANDS overflowing BOTH portrait edges (the whole
+  horizon — never a discrete object); (2) the FACE as DARK NEGATIVE relief pushed through the glow
+  (brow/nose/chin masses — dark-on-bright); (3) the two eye-hollows torn open as darkness in the
+  light. *Anti-reads (the r0 failure):* NOT a plain sky gradient/sunset (the face must cohere from
+  brow/nose/chin + eye-hollows); NOT VOIDMAW's floating mask (**NO discrete perimeter, NO rim light**
+  — it is not a sculpture on a backdrop, it IS the backdrop); NOT BRINEHOLM's SOLID head (8 = a solid
+  head that breaches; 13 = a face pushed through a wall of light as negative relief); NOT a discrete
+  object at all. *Lit-edge plan (INVERTED law):* the "body" is the BRIGHT field; the identity/focal
+  is the DARKNESS — the dark face + eye-hollows. Sanctioned value inversion; keep the §7b G1
+  dark-focal override + G2/G4 exempt. *Scale:* FRAME-WIDE, overflows both edges, never fits (the
+  spatial peak). *Home backdrop:* it REPLACES the sky — it IS the backdrop; judge in-situ as the
+  sky-replacement. *Scar (§3.6):* a horizontal band-shaped dark LEASH-NOTCH in a band the face never
+  touches, smaller than the smallest facial feature (the leash-collar mark → the Apex). **§4b CHARISMA (the focal is
+  DARKNESS — the sanctioned §3-law-2 exception):** GAZE = the eye-hollows track the dragon (the
+  face turns its dark regard); BLINK = a band of light fills the hollows (rare — it FIXATES);
+  CHARGE-TELL = the face SURGES forward + the relief deepens + the tide CREST GATHERS/rises taller
+  (a silhouette change); EXPRESSION = submerged / surfacing-looming / eye-hollows WIDENING; FLINCH
+  = the whole field SHUDDERS + the face recoils into the glow; NOTICE = the hollows TEAR OPEN and
+  settle on you; DEATH = the tide RECEDES — the light drains, the face SINKS below the horizon, the
+  hollows close, the sky SETS (mournful, §4.7). GLYPH = two dark almond hollows + a brow in a band
+  of light. **GEOMETRY (r1 — the figure-ground fix):** an OPAQUE HDR light-FIELD is the BODY
+  (vermilion→coral-rose vertex gradient + BOLD structured band stripes that BOW around the face + a
+  hot crest, `toneMapped=false`, `fog=false` — it blooms AND contributes ZERO additive overdraw, so
+  it replaces the sky dome rather than stacking vs the camera; sized to overflow both edges). The
+  FACE is DARKNESS torn INTO the light, rendered with **MultiplyBlending** — it DARKENS/occludes the
+  bands behind it and fades to no-effect at its edges, so it has **NO rim and NO discrete perimeter**;
+  its crown/sides DISSOLVE into the field. Layered occlusion, darkest at the tears: a soft head-shaped
+  base shadow (`faceRelief`) → named `browMass`/`noseMass`/`chinMass` mass features (darker multiply,
+  surge on charge) → two `eyeHollow0/1` + a mouth (pure-black OPAQUE — TEARS in the glow, the DARKEST,
+  the G1-inverted focal); `crestPivot` (the emitter / `def.muzzle`); ember-mote `orbiters` (the field
+  reads ALIVE). **NO rim halo, NO downward spikes/streaks, NO opaque floating mask** (all r0 mistakes,
+  deleted). **PALETTE:** vermilion `#ff3a1e` (7.5°) → warm coral-rose `#ff7a5e` (10°); the dark face
+  is the light MULTIPLIED down (warm dusk), hollows pure black. The whole warm field clears
+  danger-magenta (342°) by ~25°+ (the rose is a WARM coral, NOT a cool pink-rose; verified
+  `bulletcontrast.mjs`). **GRAZE FORM — TIDE-EDGE + FACE-SHADOW
+  POCKET:** the tide crest + the face's cast shadow are the anatomy; skim the crest edge, ride the
+  moving face-shadow pocket; offered once per phase. **GATE:** `gate:{inverted:true,frameFill:true}`
+  — the §7b VALUE-INVERSION override (G1 dark-focal, G2/G4 exempt). **BUILT (CP2-A, the spectacle
+  pass):** the §5j entrance *The Sky Comes Loose* (`entranceScripts.js skyComesLoose` + the model's
+  `setEntrance` — ember-seed dome → the face RISES through the horizon → the hollows tear open one
+  at a time and settle on the dragon); the vertical-constrict Y-axis (`arenaHY`/`arenaTargetHY` +
+  `game.bossArenaHY` ceiling clamp, def-gated `skyCrush`, default-OFF for every other arena) with
+  the model's crushCeil/crushFloor strips + the letterbox PULSE at the first crescendo set (a
+  re-entrance NORMAL beat); THE LOOM (per-phase face growth, `setLoom`, capped +50% legibility
+  guard); the §4b EXPRESSION tell families (`setAttackTell` → NARROW/FLARE/TEAR/SKEW face poses on
+  the charge envelope); the X storm-wall constrict at P3 (the walls wear the vermilion accent — the
+  tide pressing in from the flanks); the sky-dome CROSSFADE (one sky, never two — shipped with the
+  dome rebuild). **NEEDS (CP2-B, the mechanics pass):** full-frame emitter rows (off-lane/full-width
+  origins); BEAM DUEL (Surge ≥50% fire INTO the crest); Horizon-Break survival dread (the
+  face-shadow pocket); TIDE-EDGE graze wiring. Home-biome: **NONE** — a world-state EVENT
+  that grades ANY biome (the sky-shift is its foreshadow; BIOME-DESIGN.md). VOICE: a rising
+  tide-ROAR / crescendo swell (low-to-full sweep, the sky's breath — quotes Stormrend's gale).
 
 **Reserves (parked, fully-designed concepts for variants/post-game — not claimable slots):**
 MAWSIREN (spiral shell siren), THUNDERGRAVE (storm gate), THE SILVERED WOUND (mirror that
@@ -1700,6 +1772,18 @@ exclude the top HP-bar band). All thresholds are per-def overridable via a `gate
 the def (e.g. `gate: { pale: true }` for the sanctioned VALUE-INVERTED slots 4/6/7-queen)
 — overrides must cite their registry sanction in a comment.
 
+**Sanctioned VALUE-INVERSION overrides (the focal is not the brightest point):**
+- `gate: { pale: true }` — slots 4/6/7-queen: a near-WHITE body; G2 asserts the inverse
+  (median ≥150 + a dark edge-cage) instead of a dark body.
+- `gate: { inverted: true, frameFill: true }` — **slot 13 EMBERTIDE** (the SPATIAL peak,
+  the full-frame light field whose focal is DARKNESS — the dark face + eye-hollows). This is
+  a NEW override beyond `gate.pale`: **`inverted`** flips **G1** to a DARK-focal check (the
+  DARKEST cluster ≤12/255 must exist AND stay small — the eye-hollows, not a dark wash) and
+  **EXEMPTS G2** (the bright field is the body, the dark relief the focal — a median dark-body
+  read is meaningless); **`frameFill`** **EXEMPTS G4** (presence) — the boss legitimately fills
+  AND overflows the frame ("it never fits" — the spatial peak). G3 (palette), G5 (telegraph),
+  G6 (shield), G7 (overdraw) still run. Cited to the §5b row-13 VALUE-INVERSION sanction.
+
 | # | Law (source) | Assertion on the capture |
 |---|---|---|
 | G1 | Focal law (§3.2) | max luminance in region ≥ 250/255, AND the ≥240 cluster covers ≤2.5% of the boss silhouette (bright + SMALL = eyes, not a wash) |
@@ -1791,6 +1875,24 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
+- **L219** — EMBERTIDE r1 (the figure-ground fix): a NEGATIVE-relief / value-inverted boss (the
+  environment IS the body) is **MULTIPLY-occlusion of the light**, NOT a dark object ON the light — the
+  face DARKENS the bands and dissolves at its edges (no rim, no perimeter). r0 passed every G1–G7 gate
+  AND both render-Fable gates but the OWNER rejected it as "a floating mask on a sunset" — because the
+  gates asked "does a face read?" (yes) not "is the LIGHT the body or is a dark OBJECT on a backdrop?".
+  Delete the rim halo (it IS the sculpture edge), delete spikes/streaks (tribal-idol → Voidmaw), make
+  the field BOLD structured bands that overflow. Add the figure-ground question to the §3b sheet for
+  every value-inverted slot.
+- **L218** — EMBERTIDE (slot 13, the SPATIAL peak): a frame-filling boss's grandeur is OPAQUE HDR LIGHT
+  (blooms via `toneMapped:false` + baked >1.0 vertex colours, `fog:false`, replaces the sky dome → ZERO
+  additive overdraw, the whole additive budget stays free for fever/shield); a NEGATIVE-relief face reads
+  only if you tell it three ways at once — BEND the field bands around the head + BREAK the boundary (jaw
+  dissolves into the tide) + an ASYMMETRIC rim — else it's a floating mask / BRINEHOLM's solid head; a
+  sparse face is "a nice gradient" (needs a full internal value tier + the eyes+MOUTH triangle); the
+  danger-magenta band (342°) is adjacent to deep red, so a saturated dark-RED face emissive fails G3 — use
+  a desaturated warm-brown face + AMBER (not red) ember-glow; studio G5 for a frame-filler = change the
+  field ASPECT (the tide rises taller), a uniform size change auto-frames away; `gate:{inverted,frameFill}`
+  is the value-inversion override (G1 dark-focal, G2/G4 exempt).
 - **L198/L199** — KNELLGRAVE ruin ladder (owner playtest): a crack that already spans the whole bell FACE
   is size-locked — scaling its LENGTH shoves the lit slit past the lip into open air (a crack IS the metal
   breaking; light below the lip is nonsense), so pin length + grow bounded WIDTH and add a lip-guard test.

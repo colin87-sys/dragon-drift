@@ -83,10 +83,12 @@ let t = 0;
 // cap keeps ~15% headroom (a 1320 cap flaked on slow-roll runs). Raised 1500→1700s when
 // ONEWING (boss 12) joined — its lying-FELLED card + crippled second stand adds ~165s
 // worst-case (immortal-player rider-only chip; a skilled run is faster).
+// Raised 1700→2200s when EMBERTIDE (boss 13, tier-4 full-frame) + THE UNMASKED (boss 14,
+// the APEX, hp 600) joined the tail — two heavy bosses add ~350s worst-case to the raw sim.
 // NOTE: the raw sim now clears >20min. §5h's "gauntlet ≤20min" contract leans on its "rush
 // at 0.75× hp" knob, which is NOT implemented yet (hpMax = def.hpMax unconditionally) — the
 // band balance pass owns pulling that lever; this cap is only the test harness.
-for (let i = 0; i < 60 * 1700 && !rushClear; i++) {
+for (let i = 0; i < 60 * 2200 && !rushClear; i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks

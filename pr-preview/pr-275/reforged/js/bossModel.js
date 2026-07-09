@@ -13,6 +13,8 @@ import { buildKnellgrave } from './bossKnellgrave.js';
 import { buildOnewing } from './bossOnewing.js';
 import { buildKarnvow } from './bossKarnvow.js';
 import { buildWeftwitch } from './bossWeftwitch.js';
+import { buildEmbertide } from './bossEmbertide.js';
+import { buildUnmasked } from './bossUnmasked.js';
 
 // §5e HORIZON-PRESENCE dispatcher (the Calamities foreshadow artifact): a def
 // with `horizonSeed: true` gets its fog-exempt far-silhouette here. Returns
@@ -84,6 +86,8 @@ function buildBossImpl(def, quality = 1) {
   if (def.archetype === 'onewing') return buildOnewing(def, quality);
   if (def.archetype === 'trophyDuelist') return buildKarnvow(def, quality);
   if (def.archetype === 'weftwitch') return buildWeftwitch(def, quality);
+  if (def.archetype === 'embertide') return buildEmbertide(def, quality);
+  if (def.archetype === 'unmasked') return buildUnmasked(def, quality);
 
   const accent = def.accent ?? 0xff4488;
   const glow = def.glow ?? 0xff88cc;

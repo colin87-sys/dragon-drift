@@ -135,7 +135,8 @@ export const DRAGONS = {
       maneDetail: 1.0, maneRakeDown: 0.0, maneGlow: 0.5,   // no droop (was 0.16 → limp); base emissive under the bloom threshold so it never blooms to white in-game
       maneMid: 0x9e2408, maneTipColor: 0xff9a34, maneArmColor: 0x7a3216,
       sparColor: 0xc0763c,
-      flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
+      flapBias: 0.8, flapAmp: 2.6,      // BIG ~180° arc (12 o'clock recovery → 6 o'clock downstroke), slower & powerful
+      pair2Phase: 0.7,                  // lower wing pair beats offbeat from the upper (Cloudjumper); L/R stay synced
     },
     // Three visible forms (starter caps at SSR / tier 2): a round pot-bellied forge
     // pup (coal pair, stub gapped wings) → shoulders square up, rays lengthen, horns
@@ -198,59 +199,106 @@ export const DRAGONS = {
     rarity: 'SR',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 1200,
-    // A serpentine EASTERN river-dragon: the SMALLEST wings of the roster on a
-    // long sinuous body — long neck, long flowing tail, trailing whiskers. Its
-    // silhouette is read by the body, not the wings. Jade → bright emerald.
+    accentHue: 0xd6ffe9,   // mint-pearl accent (~148°) — the ICONIC GREEN rim/pearl carrier (human art-direction, DRAGON-DESIGN §5d)
+    // JADE Serpent — an ICONIC GREEN river-dragon (human art-direction). A long
+    // sinuous EASTERN koi/serpent: the BODY is the hero silhouette (S line of
+    // action), the SILK-FIN sails carry the beauty. A stranger's one-word read of
+    // every frame is GREEN — a VIVID mid-value jade body (NOT near-black moss), a
+    // pale mint belly, green-family fin gradients (deep-emerald ray → pale jade
+    // tip), and a MINT-pearl chin-pearl bloom whose lockstep rim carrier lights the
+    // rear fin tips. Restrained — NO premium glow-seams/veins (law 12); the pearl
+    // is the ONE bloom.
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
+    parts: { torso: 'koiSerpent', wings: 'silkFinWings', head: 'draconic', tail: 'none' },
     model: {
-      scale: 1.0, wingScale: 0.82, tailSegments: 11, neckSegments: 7,
-      hornLen: 0.9, hornPairs: 1, ridgeCount: 14,
-      flapBias: 1.05, flapAmp: 0.82, // serpent wings, smoothed/fuller toward the Phoenix feel
+      scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
+      // ── UNDULATING KOI BODY (koiSerpent) ──────────────────────────────────────
+      // The body is ONE smooth swept tube bent every frame by a travelling-wave vertex
+      // shader (dragon.js parts.bodyWave) — a real swimming S, NOT the bead-chain of
+      // stacked spheres that read as an "astral worm." The tail is the tapering rear of
+      // this same tube (parts.tail:'none'), continuous by construction.
+      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 13, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,
+      bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
+      bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
+      bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
+      bodyWaveSpeed: 3.2,                 // cruise wave rate (dragon.js eases it up with speed)
+      bodyArcY: 0.14,                     // resting vertical S (line-of-action)
+      // silk-fin fans beat SYMMETRICALLY in flight (dragon.js): the N lobes fire L_i↔R_i
+      // together with a small inboard→outboard lag (a living koi-fin beat, both fans in sync).
+      lobeBeatAmp: 0.3, lobeBeatLag: 0.5,
+      // FACE — the original lofted KOI head (human note: "show me the original koi face
+      // again"): a slim, browed, tapered-snout eastern-serpent shell with the living cuteEye.
+      headArchetype: 'softStealth',
+      headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
+      skullType: 'koiSkull',             // the lofted koi/eastern-serpent head shell (slim, browed, tapered snout)
+      cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight
+      whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
+      neckBlend: 1.4,                    // slim river-serpent neck so the head sits proud on the smooth tube
+      // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
+      lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
+      lobeNotch: 0.52, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
+      finGlow: 0.6,                      // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
+      finRimColor: 0xbdf5d0,             // GREENER mint-pearl rim (the 0xd6ffe9 pearl read cyan-teal at grazing angles) — still green-leaning, in the ~149° band
+      spineGlow: 0.3,
+      flapBias: 1.05, flapAmp: 0.7,      // slow, sinuous river-wind beat
     },
-    // Small, narrow wings — secondary to the long serpentine body.
-    wingForms: [
-      { tips: [[3.40, 0.24], [2.60, -0.36], [1.60, -0.58]],
-        lead: [2.10, 0.36], scallop: 0.16, flame: false,
-        arc: { bow: 0.45, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
-      { tips: [[3.80, 0.28], [3.00, -0.40], [1.95, -0.70], [1.10, -0.74]],
-        lead: [2.50, 0.44], scallop: 0.26, flame: false,
-        arc: { bow: 0.50, hump: 0.35, humpAt: 0.55, hook: 0.16 } },
-      { tips: [[4.10, 0.30], [3.30, -0.44], [2.20, -0.82], [1.25, -0.88]],
-        lead: [2.75, 0.50], scallop: 0.36, flame: false,
-        arc: { bow: 0.55, hump: 0.60, humpAt: 0.57, hook: 0.26 } },
-      { tips: [[4.35, 0.34], [3.55, -0.46], [2.45, -0.88], [1.40, -0.92], [0.80, -0.78]],
-        lead: [2.95, 0.56], scallop: 0.38, flame: false,
-        arc: { bow: 0.60, hump: 0.85, humpAt: 0.58, hook: 0.40 } },
-    ],
-    // Three forms (starter caps at SSR / tier 2): a bare river-whelp → horns +
-    // back ridges sprout, body lengthens → the SSR apex (longer body + neck,
-    // finned tail, whiskers, crest + soft spine-glow). Restrained — no premium seams.
+    // Three visible forms (starter caps at SSR / tier 2): a chubby LONG river-pup
+    // (3 fin-bud lobes, pearl bead, big calm round eyes) → body lengthens, lobes
+    // unfurl, whiskers + ear-fins bud, pearl held → the S-ribbon apex (4 lobes +
+    // trailing streamers, veil tail, radiant mint-pearl). Forms differ in
+    // PROPORTION + FEATURES, never same-dragon-bigger. Value ramps DOWN + saturation
+    // UP across forms on a held jade hue (law 9); the mint-pearl is the ONE bloom.
     forms: [
-      // Hatchling — bare river-whelp: no horns, no back ridges, no whiskers.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 0,
-        spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0,
-        colors: { body: 0x16302a, wingInner: 0x2a7a5e, wingOuter: 0x1d4c43,
-          wingEmissive: 0x2f8a66, scales: 0x5e9080, horn: 0x88a890,
-          apexSeam: 0x3a6a56, eye: 0x6aa88c, coreGlow: 0x3aa078 } },
-      // Kindled — horns + back ridges sprout, wings broaden, clearer jade-green.
-      { wingForm: 1, tailStyle: 'simple', tailSegments: 8, ridgeCount: 12,
-        spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0.9,
-        colors: { body: 0x143028, wingInner: 0x3bcb8e, wingOuter: 0x255d50,
-          wingEmissive: 0x3bcb8e, scales: 0x8fd9bc, horn: 0xa8c4a0,
-          apexSeam: 0x3bcb8e, eye: 0x79e2b7, coreGlow: 0x3bcb8e } },
-      // Radiant = the SSR apex: longer body + neck, finned tail, whiskers, crest
-      // + soft spine-glow — bright emerald, NO premium glow-seams/veins.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 10, ridgeCount: 14,
-        spineGlow: 0.3, whiskers: true, neckSegments: 7, crest: 1,
-        colors: { body: 0x123026, wingInner: 0x79e2b7, wingOuter: 0x1f9e77,
-          wingEmissive: 0x79e2b7, scales: 0xbdf3dc, horn: 0xcfe8c0,
-          apexSeam: 0x79e2b7, eye: 0xbdf3dc, coreGlow: 0x79e2b7 } },
+      // Hatchling (form 0) — chubby LONG river-pup: big round low-set calm eyes,
+      // near-flat snout, 3 fin-bud lobes (≥2 visible — the tier-0 key), pearl bead,
+      // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
+      { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.35, eyeShape: 0.0,
+        neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
+        bodyGirth: 0.66, bodyLength: 1.7,   // chubby river-pup: still a long koi, but its BIG head makes it read short (head:body ~3)
+        spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
+        tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
+        lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
+        tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
+        colors: { body: 0x3cb883, belly: 0xdaf7e6, wingInner: 0x3aa578, wingOuter: 0x157a4e,
+          wingEmissive: 0x9ff0c8, scales: 0x9fe6c4, horn: 0xcfe8c0,
+          apexSeam: 0xbdf3dc, eye: 0x8ff0c2, coreGlow: 0x6ad0a0 } },
+      // Adolescent (form 1) — body lengthens, lobes unfurl, whiskers + ear-fins bud,
+      // eyes narrow, snout projects, the pearl is HELD (glowing). MID value.
+      { headScale: 0.85, snoutScale: 0.68, eyeScale: 0.98, eyeShape: 0.5,
+        neckSegments: 7, tailSegments: 10, whiskerFins: true,
+        bodyGirth: 0.58, bodyLength: 1.35,   // lengthening river-serpent
+        spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
+        tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
+        lobeCount: 3, lobeSpan: 4.2, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
+        colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
+          wingEmissive: 0x8ff0c2, scales: 0x8fe0be, horn: 0xc7ebcf,
+          apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x4fc191 } },
+      // Radiant apex (form 2) — the S-ribbon: proud upright S posture, keen long
+      // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
+      // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
+      // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
+      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.78,
+        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
+        bodyGirth: 0.52, bodyLength: 1.2,   // LONG, slim S-ribbon apex (the koi at full length)
+        spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
+        lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
+        tailStyle: 'simple', ridgeCount: 0, spineGlow: 0.3,   // NO dorsal ridge row (it read as a white sawtooth zipper — gate rework r3 dir 5); smooth koi back
+        colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,
+          wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,
+          apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x3aa078 } },
     ],
     fx: { auraColor: '121,226,183', auraIdle: 0.0, sparkle: false },
-    body: 0x102a22, belly: 0xe8ffd0, scales: 0xbdf3dc, horn: 0xcfe8c0,
-    wingInner: 0x79e2b7, wingOuter: 0x1f9e77, wingEmissive: 0x3bcb8e,
-    apexEye: 0xbdf3dc, apexSeam: 0x79e2b7, coreGlow: 0x79e2b7, surgeHi: 0xeafff4,
-    eye: 0x79e2b7, trail: 0x79e2b7, boostTrail: 0x3bcb8e,
+    // ICONIC GREEN hide — a VIVID mid-value jade body (was near-black moss), pale mint belly.
+    bodyRoughness: 0.5, bodyMetalness: 0.02, bodyEnvIntensity: 0.55,
+    scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
+    eyeEmissiveI: 1.5,                      // calm painterly eye — not blown to a white googly blob under ACES
+    bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
+    eyeSclera: 0xbfe6cf, eyeIris: 0x8ff0c2, eyeIrisKeen: 0xbdf3dc, eyeBallEmissive: 0x3fb87e, eyeBallEmissiveI: 1.4,   // calm luminous GREEN almond (top-level def — the head reads c.def.*, NOT model.*); bright iris + glow so the EYE is the brightest facial point at turntable distance (§4 charisma; CP2 polish)
+    body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,
+    wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
+    apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,
+    eye: 0x8ff0c2, trail: 0x3fc48f, boostTrail: 0x9ff0c8,
   },
 
   obsidian: {

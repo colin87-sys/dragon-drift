@@ -32,7 +32,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -336,9 +336,19 @@ if (cleanShot) {
   document.head.appendChild(s);
 }
 
-// Perf overlay (?debug=perf): fps / draw calls / quality tier
+// Perf overlay (?debug=perf): fps / draw calls / quality tier, plus a per-RUN
+// WORST-FRAME tracker (min fps + the draws/tris at that frame + p95 frame time).
+// The live average hides the split-second dips that make a fight FEEL janky and
+// that added overdraw deepens (L124) — the worst-frame line is the budget the
+// premium fx must respect. All state + work is gated behind perfEl (this flag),
+// so with the flag off the game is byte-identical.
 let perfEl = null;
 let perfTimer = 0;
+let perfMinFps = Infinity, perfWorstCalls = 0, perfWorstTris = 0;
+const PERF_RING = 600;               // ~10s of frames @60 for the p95 window
+const perfFrames = [];               // recent frame times (ms), ring buffer
+let perfRingCursor = 0;
+const resetPerfPeaks = () => { perfMinFps = Infinity; perfWorstCalls = 0; perfWorstTris = 0; perfFrames.length = 0; perfRingCursor = 0; };
 if (urlParams.get('debug') === 'perf') {
   renderer.info.autoReset = false; // accumulate across all composer passes
   perfEl = document.createElement('div');
@@ -346,6 +356,7 @@ if (urlParams.get('debug') === 'perf') {
     'position:fixed;left:8px;top:8px;z-index:99;font:12px monospace;color:#8aff9a;' +
     'background:rgba(0,0,0,0.55);padding:6px 9px;border-radius:6px;pointer-events:none;white-space:pre';
   document.body.appendChild(perfEl);
+  on('runStart', resetPerfPeaks);   // worst-frame is per-RUN, so each fight reads clean
 }
 
 initInput();
@@ -1090,7 +1101,7 @@ function tick() {
     spawnAhead();
 
     updateCollision(dt, player);
-    updateBoss(dt, player, clock.getElapsedTime());
+    updateBoss(dt, player, clock.getElapsedTime(), camera);
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
     updateEmbers(dt, player, clock.getElapsedTime());
@@ -1244,6 +1255,7 @@ function tick() {
     updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
+    syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
     // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
@@ -1289,14 +1301,34 @@ function tick() {
   renderPostFX();
 
   if (perfEl) {
+    // Per-frame worst-case capture (rawDt is clamped to 0.05 = a 20fps floor, so a
+    // backgrounded/stalled frame can't poison the min). rawDt==0 while paused.
+    if (rawDt > 0) {
+      const instFps = 1 / rawDt;
+      const ms = rawDt * 1000;
+      if (perfFrames.length < PERF_RING) perfFrames.push(ms);
+      else { perfFrames[perfRingCursor] = ms; perfRingCursor = (perfRingCursor + 1) % PERF_RING; }
+      if (instFps < perfMinFps) {   // new worst frame → snapshot its draws/tris
+        perfMinFps = instFps;
+        perfWorstCalls = renderer.info.render.calls;
+        perfWorstTris = renderer.info.render.triangles;
+      }
+    }
     perfTimer -= rawDt;
     if (perfTimer <= 0) {
       perfTimer = 0.5;
+      let p95 = 0;
+      if (perfFrames.length) {
+        const sorted = perfFrames.slice().sort((a, b) => a - b);
+        p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+      }
       perfEl.textContent =
         `fps   ${fpsAvg.toFixed(0)}\n` +
         `calls ${renderer.info.render.calls}\n` +
         `tris  ${(renderer.info.render.triangles / 1000).toFixed(0)}k\n` +
-        `tier  ${qualityTier}`;
+        `tier  ${qualityTier}\n` +
+        `min   ${perfMinFps === Infinity ? '—' : perfMinFps.toFixed(0)}fps @${perfWorstCalls}c/${(perfWorstTris / 1000).toFixed(0)}k\n` +
+        `p95   ${p95.toFixed(1)}ms`;
     }
     renderer.info.reset();
   }

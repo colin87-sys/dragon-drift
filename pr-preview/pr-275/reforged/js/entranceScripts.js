@@ -425,6 +425,122 @@ export const ENTRANCE_SCRIPTS = {
       };
     },
   },
+
+  // ONEWING — THE GRAVE IT CARRIES (§5j slot 12, CP2). The FULL arrival for the roster's
+  // no-warn boss: it surfaces SILENTLY at your flank (no banner, no title — the dread is
+  // wordless), holds a two-shot MUTUAL GAZE across the frame (~2s under the shallow dilate
+  // — the frame-hole in its chest reading the whole time), then wheels square and SURGES to
+  // station, where enterFight fires the deferred eruption (slam + shockwave + banner +
+  // ambush — boss.js fireNoWarnBanner). So the script owns the gaze + the silence; the
+  // eruption stays the payoff. The rise from below the flank is the reveal (no dissolve —
+  // it literally lifts into frame). eyeLock OFF (the grief-lock is model-side via setGaze).
+  theGraveItCarries: {
+    dur: 2.8,                  // ~3.5s wall under the shallow gaze dilate — reveal, the held silence, then the surge
+    skipTo: 0.72,              // a tap fast-forwards to the turn-in (you still get the surge + eruption)
+    anchorToDragon: true,      // it surfaces at YOUR flank (the two-shot) — snapshot the dragon's x/y
+    initYaw: 0.42,             // rises in a three-quarter PROFILE (the chest-frame reads across the two-shot), squares at the turn-in
+    eyeLock: false,            // the mournful lock is model-side (setGaze turns the skull + eye)
+    // NO announce: the arrival-grammar break (def.noWarn) — the banner is deferred to the
+    // eruption (enterFight). The silence IS the tell; a title here would spend it.
+    slowWindow: { uIn: 0.30, uOut: 0.70, depth: 0.45 },   // the held mutual gaze dwells here (a breath, not a dive)
+    U: { REVEAL: 0.28, GAZE: 0.70 },
+    _seg(u, u0, u1) { return easeInOut(clamp01((u - u0) / (u1 - u0))); },
+    // THE REVEAL (u<0.28): it lifts from below the flank into frame (y −6 → AY+1) at your
+    // side, rel steady at 11. THE GAZE (0.28–0.70): it HOLDS at the flank with a shallow
+    // list (a lopsided thing can't hang still), watching you — dead silent. THE SURGE
+    // (>0.70): it wheels square and drives to station (x→0, y→fightHeight, rel→settleGap),
+    // and enterFight erupts as it arrives.
+    path(u, ctx) {
+      const { AX, AY, S, B } = ctx, { REVEAL, GAZE } = this.U, seg = (a, b) => this._seg(u, a, b);
+      let x, y, rel;
+      if (u < REVEAL) { const t = seg(0, REVEAL); x = AX + S * 9; y = L(-6, AY + 1, t); rel = 11; }
+      else if (u < GAZE) { const t = seg(REVEAL, GAZE); x = AX + S * (9 + Math.sin(t * Math.PI) * 0.7); y = AY + 1; rel = 11; }   // the held gaze — a shallow flank list
+      else { const t = seg(GAZE, 1); x = L(AX + S * 9, 0, t); y = L(AY + 1, B.fightHeight, t); rel = L(11, B.settleGap, t); }     // the surge to station
+      return { x, y, rel };
+    },
+    tuck() { return 0; },      // the wing-fold / frame choreography is model-side (tickBody's own life)
+    // Holds a three-quarter PROFILE through the reveal + the gaze (so the chest-frame reads
+    // across the two-shot), then wheels the ~24° square to face you across the surge leg.
+    yaw(u) {
+      const { REVEAL, GAZE } = this.U, seg = (a, b) => this._seg(u, a, b);
+      const prof = 0.42 * (1 - 0.15 * seg(0, REVEAL));   // eases slightly IN as it clears the frame
+      return u < GAZE ? prof : prof * (1 - seg(GAZE, 1));
+    },
+    // THE MUTUAL GAZE — it watches you the whole arrival (the grief-lock: the skull + the
+    // hot eye track the dragon through the reveal, the held silence, and the turn).
+    gaze(u, ctx, pose, player) {
+      const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+      return { gx: clamp(-dx / 6, -1, 1), gy: clamp(dy / 6, -1, 1) };
+    },
+    onStart(model) { model.notice?.(); model.setAttackTell?.(null); },   // the eye ignites onto you; no wind-up tell (silence)
+    onFrame(u, ctx, pose, player, model) {
+      const { REVEAL } = this.U;
+      // Re-arm the notice pulse as it clears the frame (the eye stays hot on you through
+      // the hold), and keep the attack-tell CLEARED — the gaze beat carries no wind-up.
+      if (u < REVEAL) model.notice?.();
+      model.setAttackTell?.(null);
+    },
+    // Camera: a two-SHOT. Bias the look target toward the MIDPOINT of the boss + the dragon
+    // through the gaze so BOTH sit in frame across the lane; ease home to the normal chase
+    // framing as it squares up and surges to station (the eruption lands on the standard cam).
+    camera(u, pose, player) {
+      const { GAZE } = this.U;
+      const home = clamp01((u - GAZE) / (1 - GAZE));
+      const midx = (pose.x + player.position.x) / 2;
+      return {
+        k: u, bx: L(midx, pose.x, home), by: pose.y, bz: -(player.dist + pose.rel),
+        pivot: 0.16 * (1 - home), blend: 0.30, fov: L(76, 72, home),
+      };
+    },
+  },
+
+  // EMBERTIDE — THE SKY COMES LOOSE (§5j slot 13, CP2-A). The only entrance where the
+  // BOSS IS THE SKY: the whole visual plays on the camera-locked dome (model-side, via
+  // setEntrance) while this script only walks the gameplay STATION in from the horizon
+  // and pitches the camera up at the surfacing face. Warn seeds the grade (the sky
+  // already embering — boss.js stages setEntrance(0) at spawn for skyReplace defs);
+  // then the HORIZON LIFTS (the dome brightens from the ember seed, the crest ignites),
+  // the FACE RISES through the horizon line (the BRINEHOLM rise grammar at sky scale),
+  // and the eye-hollows TEAR OPEN one at a time — settling on the dragon under the
+  // dilate. No path drama: the sky coming loose IS the drama.
+  skyComesLoose: {
+    dur: 2.7,                  // ~3.6s wall under the surfacing dilate — the sky needs room to stand up
+    skipTo: 0.78,              // a tap fast-forwards to the tear-open (you still get the settle)
+    anchorToDragon: false,     // the sky owns everything; the station walks in from the horizon
+    initYaw: 0,                // the sky does not turn
+    eyeLock: false,            // the hollows settle via the model's own notice (setEntrance edge)
+    announce: { title: '☀  EVERYWHERE  ☀', sub: 'THE SKY COMES LOOSE', tone: 'gold', dur: 2.2 },
+    slowWindow: { uIn: 0.46, uOut: 0.80, depth: 0.35 },   // the face-surfacing + first tear dwell here
+    // The gameplay station (HP bar / shield / crest emitter) eases in from far up the
+    // lane — the HOLLOWGATE far-horizon close (the rail eats the distance) — so the
+    // fight opens at the normal settleGap with zero pop.
+    path(u, ctx) {
+      const { B } = ctx;
+      const t = 1 - Math.pow(1 - clamp01(u / 0.92), 2.2);
+      return { x: 0, y: B.fightHeight, rel: L(150, B.settleGap, t) };
+    },
+    tuck() { return 0; },
+    yaw() { return 0; },       // the dome is world-oriented; the face's own gaze does the turning
+    // Once the hollows have torn open (u≥0.62) the dark regard SETTLES on the dragon —
+    // ramped in so the first look lands as its own beat under the dilate.
+    gaze(u, ctx, pose, player) {
+      const open = clamp01((u - 0.62) / 0.20);
+      const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+      return { gx: clamp(-dx / 8, -1, 1) * open, gy: clamp(dy / 8, -1, 1) * open };
+    },
+    onStart(model) { model.setEntrance?.(0); },   // re-stage (idempotent — boss.js staged at spawn)
+    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
+    // Camera: pitch UP at the surfacing face (a lifted look target + a wide fov — the
+    // sky is the subject), easing home to the chase framing as the fight opens.
+    camera(u, pose, player) {
+      const home = clamp01((u - 0.78) / 0.22);
+      const lift = Math.sin(clamp01(u / 0.78) * Math.PI) * 7;   // rises with the face, eases before home
+      return {
+        k: u, bx: pose.x, by: pose.y + lift * (1 - home), bz: -(player.dist + pose.rel),
+        pivot: 0.20 * (1 - home), blend: 0.28, fov: L(80, 72, home),
+      };
+    },
+  },
 };
 
 // Pure per-frame sampler (for tests + any tooling): returns the full frame a script

@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = 'df7e840d59fb';                          // STAMP:VERSION
+const VERSION = 'de1e441fc01d';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './assets/models/thundercoil.glb',
@@ -21,6 +21,7 @@ const ASSETS = [
   './index.html',
   './js/ambient.js',
   './js/analytics.js',
+  './js/angelWing.js',
   './js/ascension.js',
   './js/biomeBoss.js',
   './js/biomes.js',
@@ -31,6 +32,7 @@ const ASSETS = [
   './js/bossColossus.js',
   './js/bossDefs.js',
   './js/bossEitherwing.js',
+  './js/bossEmbertide.js',
   './js/bossHollowgate.js',
   './js/bossIdol.js',
   './js/bossKarnvow.js',
@@ -42,6 +44,7 @@ const ASSETS = [
   './js/bossOnewing.js',
   './js/bossRhythm.js',
   './js/bossThrumswarm.js',
+  './js/bossUnmasked.js',
   './js/bossWeftwitch.js',
   './js/buildId.js',
   './js/cameraController.js',
@@ -62,6 +65,7 @@ const ASSETS = [
   './js/dragonHead.js',
   './js/dragonHull.js',
   './js/dragonHullProfiles.js',
+  './js/dragonKoiSerpent.js',
   './js/dragonModel.js',
   './js/dragonNightFury.js',
   './js/dragonOrganism.js',
