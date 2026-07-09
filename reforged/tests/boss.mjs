@@ -467,6 +467,30 @@ for (const key of BOSS_ORDER) {
   ok('unmasked STAGE 3 UNVEILING: star-eye + starburst + halo unveil, the focal eye retires, and the SAME seraph wings mantle fully open');
 }
 {
+  // THE UNMASKED LIVE STAGE MACHINE: boss.js calls model.setPhase(n) at each phase advance;
+  // the model ANIMATES the transition INTO that stage (phase 1 = the S1→S2 crack, phase 2 =
+  // the S2→S3 unveiling) instead of snapping — so the fight progresses through the forms and
+  // the transitions play live (owner: "start at S1, kill the first form, continue to see it").
+  const um = buildBoss(BOSSES.unmasked, 1);
+  const s1 = findAllByName(um.group, 'stage1Rig')[0];
+  const s2 = findAllByName(um.group, 'stage2Rig')[0];
+  const s3 = findAllByName(um.group, 'stage3Rig')[0];
+  um.setDebugStage(1);
+  assert(s1.visible && !s2.visible && !s3.visible, 'the stage machine starts at the eclipse (stage 1)');
+  // Phase advance → 1: the CRACK animates (mid-way BOTH rigs live; then it settles on the seraph).
+  um.setPhase(1);
+  um.tick(0.1, 0.1);
+  assert(s1.visible && s2.visible, 'phase→1 mid-crack: both the eclipse and the seraph are live (animating, not a snap)');
+  for (let i = 0; i < 30; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past TRANS_DUR
+  assert(!s1.visible && s2.visible && !s3.visible, 'phase→1 settles on the seraph (stage 2)');
+  // Phase advance → 2: the UNVEILING animates the third-form core in (the wings are kept).
+  um.setPhase(2);
+  for (let i = 0; i < 30; i++) um.tick(0.1, 4 + i * 0.1);
+  assert(s3.visible && s2.visible, 'phase→2 settles on the unveiling (stage 3 core up, the seraph wings kept)');
+  um.dispose();
+  ok('unmasked LIVE STAGE MACHINE: setPhase animates the crack (P1) then the unveiling (P2) — the fight progresses through the forms');
+}
+{
   const colossus = buildBoss(BOSSES.craghold, 1);
   const fingers = findAllByName(colossus.group, 'fingerPivot');
   assert(fingers.length >= 6, `craghold exposes ≥6 named fingerPivots for the telegraph gate (${fingers.length})`);

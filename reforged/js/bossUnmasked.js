@@ -678,6 +678,18 @@ export function buildUnmasked(def, quality = 1) {
     setStage3(n >= 3 ? 1 : 0);
   }
 
+  // ── THE LIVE STAGE MACHINE (boss.js calls model.setPhase on every phase advance): the fight
+  // ANIMATES the transition INTO the new phase's stage — phase 1 plays the S1→S2 CRACK, phase 2
+  // plays the S2→S3 UNVEILING. `transKind` names the running transition, `transT` eases 0→1 over
+  // TRANS_DUR (advanced in tickBody). A phase we're already at (spawn-start via setDebugStage)
+  // never re-animates — setPhase only fires on a genuine advance (breakShield), never at spawn. ──
+  const TRANS_DUR = 2.0;
+  let transKind = null, transT = 0;
+  function setPhase(n) {
+    if (n === 1) { transKind = 'crack'; transT = 0; }        // S1 → S2: the mask cracks, the seraph blooms
+    else if (n === 2) { transKind = 'unveil'; transT = 0; }  // S2 → S3: the core unveils, the wings mantle full
+  }
+
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
   // designed on its own (the owner's directive — get the wing right first, then re-add eyes).
   const nonWing = [socketMesh, scleraMesh, irisMesh, catchMesh, greatSocket, greatEye, greatIris, greatPupil, greatCatch, knot];
@@ -733,6 +745,16 @@ export function buildUnmasked(def, quality = 1) {
     if (noticeT > 0) noticeT -= dt;
     if (saccadeT > 0) saccadeT -= dt;
     if (painT > 0) painT -= dt;
+
+    // ── Advance any running STAGE TRANSITION (the live phase machine): ease transT 0→1 and
+    // drive the matching morph. The all-snap punctuates each arrival (every eye locks as the
+    // new form settles — the reveal). Cleared when the transition completes. ──
+    if (transKind) {
+      transT = Math.min(1, transT + dt / TRANS_DUR);
+      if (transKind === 'crack') setStageMorph(transT);
+      else if (transKind === 'unveil') setStage3(transT);
+      if (transT >= 1) { const done = transKind; transKind = null; if (done) allSnap(); }
+    }
 
     // ── Aperture (EXPRESSION): heavy-lidded rest → watching → wrath (charge lifts the
     // hood). Death lowers it (the light going out). ──
@@ -863,6 +885,7 @@ export function buildUnmasked(def, quality = 1) {
     setDebugStage,
     setStageMorph,
     setStage3,
+    setPhase,
     setDebugWing,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
