@@ -1281,27 +1281,26 @@ function surgeForkLances(player) {
   emit('lockVolley', { count: pips, source: 'fork', dmgEach, delay: 0, full });
 }
 
-// PR9 (C1): the quantize-to-grid hold for a committed volley — seconds until the
-// song's next 1/subdiv grid point (subdiv 1 = the beat, 4 = a 16th). Null clock
-// (music off / headless / backgrounded) or gate off → 0 = launch now, verbatim
-// v1 timing (the getBeatClock contract — no volley ever depends on audio state).
-// Nearer than releaseMinLeadMs the riser has no stop+void runway → roll to the
-// FOLLOWING grid point; past releaseQuantMaxS (slow stations) fall back to the
-// next 8th rather than hold a committed volley beyond the ceiling.
-function releaseQuantDelay(subdiv) {
+// PR-B (C1, revised): the beat-aligned INHALE length. PR9 held the committed
+// volley AFTER the fuse to land it on the beat — but that post-fuse wait read as
+// LAG (owner playtest: "auto fire feels like there's a delay before it fires").
+// The fix folds the beat-lock INTO the fuse: the inhale STRETCHES so it ends one
+// `releaseGapMs` void before the music beat NEAREST the nominal capFuse, then the
+// drop fires the instant the breath completes (D = the void only). No dead hold —
+// the whole wait is the rising riser, and the drop still lands ON the beat. Null
+// clock / gate off → the plain capFuse (headless byte-identical, T-E2).
+function beatAlignedFuse() {
   const L = CONFIG.LOCK;
-  if (!L.releaseQuant || !UNLEASH_V2) return 0;
+  if (!L.releaseQuant || !UNLEASH_V2) return 0;   // 0 = "no alignment" → lock layer uses plain capFuse, D=0
   const bc = getBeatClock();
-  if (!bc) return 0;
-  const lead = L.releaseMinLeadMs / 1000;
-  let d = nextGridDelay(bc, subdiv);
-  if (d < lead) d += bc.beatLen / subdiv;
-  if (d > L.releaseQuantMaxS) {
-    d = nextGridDelay(bc, subdiv * 2);
-    if (d < lead) d += bc.beatLen / (subdiv * 2);
-    if (d > L.releaseQuantMaxS) d = 0;
-  }
-  return d;
+  if (!bc || !(bc.beatLen > 0)) return 0;
+  const gap = L.releaseGapMs / 1000;
+  const target = L.capFuse + gap;   // want (inhale + void) to land on a beat near capFuse
+  let k = Math.round((target - bc.toNextBeat) / bc.beatLen);
+  if (k < 0) k = 0;
+  let beatAt = bc.toNextBeat + k * bc.beatLen;
+  while (beatAt - gap < 0.6) beatAt += bc.beatLen;   // keep the inhale ≥0.6s of runway
+  return beatAt - gap;
 }
 
 // Pink aura + crackling lightning on the dragon while Surge is active.
@@ -2338,11 +2337,10 @@ export function updateBoss(dt, player, time, camera) {
         const toEdge = Math.min(bc.phase * bc.beatLen, bc.toNextBeat);
         return toEdge <= CONFIG.LOCK.beatWindow;
       })(),
-      // PR9 BEAT-LOCKED RELEASE (C1): seconds to hold a committed volley so the
-      // LAUNCH lands on the song's grid — CAP AUTO-RELEASE ONLY (a manual tap is
-      // never held: the tap is the player's timing, LAW). 0 when music is off
-      // (headless/muted) or the gate is off — byte-identical launch frames (T-E2).
-      gridDelayBeat: releaseQuantDelay(1),
+      // PR-B BEAT-ALIGNED INHALE (C1, revised): the cap fuse STRETCHES to end a
+      // void before the beat, then fires immediately — no post-fuse lag. Captured
+      // by the lock layer at the cap edge; null clock / gate off → plain capFuse.
+      beatFuseDur: beatAlignedFuse(),
     };
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);

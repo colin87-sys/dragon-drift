@@ -649,7 +649,9 @@ function lanceVoiceStart(a, freq, t0) {
   const until = t0 + L.voiceMaxHoldS;
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.setTargetAtTime(L.strikeSustainVol, t0 + 0.001, 0.06);
-  g.gain.setTargetAtTime(0.0001, until, 0.3);   // the self-release watchdog (LAW)
+  g.gain.setTargetAtTime(0.0001, until, 0.12);   // self-release watchdog — FAST fade (the
+  // finale normally resolves first; this is just the safety net for a whiffed
+  // finale, and must not linger as a drone). voiceMaxHoldS shortened too.
   for (const [type, mul, vol] of [['triangle', 1, 1], ['sine', 2, 0.35]]) {
     const o = a.createOscillator();
     o.type = type; o.frequency.value = freq * mul;
@@ -1212,7 +1214,7 @@ export const sfx = {
   // bed + sub + an accelerating tick-ratchet that STOPS at the release and
   // leaves a silence void before the drop (brandRiserRelease). v1: the shipped
   // plain 0.8s swell.
-  brandCap(n = 0) {
+  brandCap(n = 0, fuseDur = 0) {
     tone({ freq: 660, dur: 0.08, type: 'triangle', vol: 0.06 });
     tone({ freq: 880, dur: 0.08, type: 'triangle', vol: 0.06, delay: 0.07 });
     tone({ freq: 1175, dur: 0.1, type: 'triangle', vol: 0.065, delay: 0.14 });
@@ -1220,7 +1222,9 @@ export const sfx = {
       tone({ freq: 280, end: 860, dur: 0.8, type: 'sine', vol: 0.05, delay: 0.2 });
       return;
     }
-    sfx.brandRiserStart(n || 3);
+    // PR-B: the riser rises across the BEAT-ALIGNED fuse (the inhale that ends on
+    // the beat), so it peaks exactly at the drop — no plateau, no dead wait.
+    sfx.brandRiserStart(n || 3, fuseDur);
   },
   // PR9/C3 — the INHALE riser. Three voices on one output gain, every parameter
   // step-scheduled on the AudioContext clock (stepRamp — cancellable without
@@ -1230,13 +1234,13 @@ export const sfx = {
   // and ceiling scale SUPER-linearly with n (C4: a 6-set is a different class of
   // sound, not 2× the notes). Past riserMaxHoldS the whole thing self-fades
   // (deflect can stall a release forever; a riser must never become a drone).
-  brandRiserStart(n = 3) {
+  brandRiserStart(n = 3, fuseDur = 0) {
     const a = getCtx();
     if (!a || !sfxBus || !UNLEASH_V2) return;
     sfx.brandRiserCancel();
     const L = CONFIG.LOCK;
     const t0 = a.currentTime;
-    const T = L.capFuse;                                   // the audible fuse = the ramp
+    const T = fuseDur > 0 ? fuseDur : L.capFuse;           // the audible fuse = the ramp (beat-aligned)
     const nn = Math.max(1, n);
     const big = Math.pow(nn / 3, L.riserTickPowN);         // the super-linear n factor
     const out = a.createGain();
@@ -1363,7 +1367,13 @@ export const sfx = {
     if (!UNLEASH_V2) return;
     const a = getCtx();
     if (!a) return;
-    lanceVoiceStart(a, f, a.currentTime);
+    // PR-B bugfix: hold a sustaining voice ONLY on a FULL volley — the finale
+    // (full-only) is what releases the stack as a chord. A partial volley has no
+    // finale, so a held voice there just RANG OUT to the watchdog (owner: "the
+    // chord rings extended / glitchy, esp. around a shield/phase transition").
+    // Partial = dry plucks; full = the resolving chord. The short watchdog +
+    // brandChordCancel bound any stragglers (a whiffed finale / mid-volley seal).
+    if (full) lanceVoiceStart(a, f, a.currentTime);
     pumpDuck(pumpGain, CONFIG.LOCK.impactDuckAmt, a.currentTime);   // the roll pumps the music
   },
   // PR9/C2 — THE RESERVED FINALE: the last wisp of a volley lands the accented
@@ -1375,20 +1385,40 @@ export const sfx = {
     if (!UNLEASH_V2) return;
     const a = getCtx();
     if (!a) return;
+    const t0 = a.currentTime;
+    // PR-B — IMPACT FRONT (owner: "the chord is nice but airy, it feels like music
+    // not impact"). The finale now LANDS a hit, and the chord is what it decays
+    // INTO. Three physical layers, front-loaded and loud:
+    noiseWhoosh({ from: 8000, to: 2600, dur: 0.018, vol: 0.17, q: 0.4 });            // the CONTACT crack (the snap we lacked)
+    tone({ freq: 190, end: 46, dur: 0.16, type: 'sine', vol: full ? 0.2 : 0.14 });   // SUB-THUD — the falling pitch IS the punch
+    tone({ freq: 150, end: 52, dur: 0.11, type: 'sawtooth', vol: full ? 0.07 : 0.045 }); // grit under the thud (harmonic body)
+    noiseWhoosh({ from: 1100, to: 240, dur: 0.08, vol: 0.09, q: 1.1 });              // body THWACK
+    // RING-OUT — the tonic + chord resonate AFTER the hit (delayed a hair so the
+    // crack lands first, and quieter than before so it reads as resonance, not
+    // the whole event). The tonic is lifted above the run (the V→I cadence home).
     const h = getHarmony();
     let f = h ? tonicOf(h.chord) : 660;
     if (!(f > 0)) f = 660;
-    while (f < 1150) f *= 2;   // lift the tonic ABOVE the run — the finale tops the phrase
-    tone({ freq: f, end: f * 0.99, dur: 0.22, type: 'triangle', vol: full ? 0.11 : 0.085 });
-    tone({ freq: f * 2, dur: 0.12, type: 'sine', vol: 0.05, delay: 0.004 });
-    tone({ freq: 130, end: 55, dur: 0.18, type: 'sine', vol: full ? 0.12 : 0.07 });  // landing weight
-    noiseWhoosh({ from: 3200, to: 700, dur: 0.12, vol: 0.045, q: 1.8 });
-    const t0 = a.currentTime;
+    while (f < 1150) f *= 2;
+    tone({ freq: f, end: f * 0.99, dur: 0.26, type: 'triangle', vol: full ? 0.08 : 0.06, delay: 0.02 });
+    tone({ freq: f * 2, dur: 0.12, type: 'sine', vol: 0.035, delay: 0.025 });
     if (full) {
-      noiseWhoosh({ from: 5800, to: 9200, dur: 0.9, vol: 0.05, q: 0.5 });  // the crash tail seals it
-      pumpDuck(pumpGain, Math.min(0.32, CONFIG.LOCK.impactDuckAmt * 1.6), t0);
+      tone({ freq: f * 1.5, dur: 0.5, type: 'triangle', vol: 0.03, delay: 0.03 });  // a held fifth (chord glue in the ring-out)
+      pumpDuck(pumpGain, Math.min(0.34, CONFIG.LOCK.impactDuckAmt * 1.7), t0);
     }
     lanceChordRelease(t0, full);
+  },
+  // PR-B: hard-flush the held chord voices (a whiffed finale, a shield rising
+  // mid-volley, a new phrase starting). Fast fade, no cadence. Wired to the same
+  // interruption seams as the riser (lockSealed / lockLost / bossEnd).
+  brandChordCancel() {
+    const a = getCtx();
+    if (!a || !lanceVoices.length) return;
+    const t = a.currentTime;
+    for (const v of lanceVoices) {
+      try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0.0001, t, 0.05); } catch {}
+    }
+    lanceVoices = [];
   },
   // A lone brand ashing off (decay release) — deliberately lesser than the exhale.
   brandFizzle() {

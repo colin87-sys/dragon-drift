@@ -338,22 +338,25 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   ok('T-E1 beat release: tap-only, ×beatMult inside the ROI clamp, auto releases exempt');
 }
 
-// --- T-E2 — BEAT-LOCKED RELEASE (PR9/C1 + the PR9.1 skill-expression LAW) ------
-// A ctx-supplied gridDelayBeat HOLDS the CAP auto-release by D; a MANUAL tap is
-// NEVER held (the tap is the player's timing — the on-beat perfect bonus is the
-// skill expression). The commit (lockVolley, locks cleared) is immediate and
-// carries {delay, full}. A ctx WITHOUT the field (every headless harness,
-// music-off, v1) launches on the exact shipped frames — the coexist proof.
+// --- T-E2 — BEAT-ALIGNED INHALE (PR-B/C1 revised + the PR9.1 skill LAW) --------
+// The beat-lock now lives in the FUSE: a ctx `beatFuseDur` sets the inhale length
+// (it ends on the beat), then the cap auto-release fires IMMEDIATELY + a small
+// void (D = releaseGapMs) — no dead post-fuse hold (which read as lag). So a
+// SHORTER aligned fuse fires SOONER than the plain capFuse, and the drop delay is
+// just the void. A ctx WITHOUT the field (headless / music off / v1) → plain
+// capFuse, delay 0, byte-verbatim. A MANUAL tap is NEVER delayed (the tap is the
+// player's timing); an on-beat PERFECT tap earns the impact-roll grid-snap.
 {
   const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 10, y: 0, z: 0 } };
   const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
   const DTL = 0.06;
+  const gap = CONFIG.LOCK.releaseGapMs / 1000;
   const run = (grid, viaTap) => {
     lock.initLockLayer();
     const launches = [], volleys = [], launchEvts = [];
-    on('lockVolley', (p) => volleys.push(p));
+    let frame = 0, fireFrame = -1;
+    on('lockVolley', (p) => { if (p && p.count === 2 && fireFrame < 0) fireFrame = frame; volleys.push(p); });
     on('lockLaunch', (p) => launchEvts.push({ ...p, frame }));
-    let frame = 0;
     const mkCtx = () => ({
       fightRunning: true, model, candidates: ['A', 'B'], muted: false, emittersLive: true,
       exposureWindow: false, damageBoss() {}, flashPart() {}, tier: 2, cap: 2,
@@ -366,42 +369,33 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
       for (let f = 0; f < frames; f++) { frame++; lock.updateLockLayer(DTL, p, mkCtx()); } };
     step(0, 20); step(10, 20);                    // paint A then B (cap 2)
     if (viaTap) { lock.requestLoose(); step(10, 20); }
-    else step(10, 40);                            // the cap fuse auto-releases
+    else step(10, 50);                            // the cap fuse auto-releases
     return { launches: launches.slice(0, 2), launchEvt: launchEvts[0],
-      volley: volleys.find((v) => v && v.count === 2) };
+      volley: volleys.find((v) => v && v.count === 2), fireFrame };
   };
-  const base = run({}, false);                        // no grid fields = shipped timing
-  const held = run({ gridDelayBeat: 0.3 }, false);
-  assertEq(held.volley.delay, 0.3, 'cap release: lockVolley carries delay = gridDelayBeat');
-  assertEq(base.volley.delay, 0, 'no grid fields → delay 0 (the headless truth)');
-  assert(base.volley.full === true && held.volley.full === true, 'cap-2 with 2 pips is a FULL volley');
-  // The queue takes its FIRST decrement on the commit frame itself, so the
-  // shift is ceil(D/dt) − 1 frames after the un-held launch.
-  const shift = Math.ceil(0.3 / DTL - 1e-9) - 1;
-  assertEq(held.launches[0].frame - base.launches[0].frame, shift,
-    `the launch shifted exactly D (${shift} frames) while the commit frame stayed put`);
-  // Queue t-values are D + i×60ms by construction; frame quantization can wobble
-  // the observed gap ±1 frame at exact boundaries (float dust) — that's the dt
-  // grid, not the schedule.
-  const gapBase = base.launches[1].frame - base.launches[0].frame;
-  const gapHeld = held.launches[1].frame - held.launches[0].frame;
-  assert(Math.abs(gapHeld - gapBase) <= 1,
-    `the 60ms stagger is preserved under the hold (gap ${gapHeld} vs ${gapBase} frames)`);
-  assert(held.launchEvt && held.launchEvt.frame === held.launches[0].frame &&
-    held.launchEvt.full === true && held.launchEvt.count === 2,
-    'lockLaunch fires ON the launch frame with {count, full}');
-  assert(held.launches[0].snap === true, 'a cap auto-release is snap-eligible (the game timed it)');
-  // PR9.1 skill-expression LAW: a MANUAL tap is NEVER held, even with a live grid.
-  const tap = run({ gridDelayBeat: 0.3 }, true);
+  // A short aligned fuse (0.5s) fires SOONER than the plain 1.0s capFuse — the
+  // beat-lock stretched the inhale, not a dead wait after it (the lag fix).
+  const aligned = run({ beatFuseDur: 0.5 }, false);
+  const plain = run({}, false);                       // no field = plain capFuse, verbatim
+  assert(Math.abs(aligned.volley.delay - gap) < 1e-9, 'aligned cap: delay = the VOID (releaseGapMs), not a long hold');
+  assertEq(plain.volley.delay, 0, 'no beatFuseDur (headless) → delay 0, byte-verbatim');
+  assert(aligned.fireFrame < plain.fireFrame,
+    `the 0.5s aligned fuse fires SOONER than the plain 1.0s fuse (${aligned.fireFrame} < ${plain.fireFrame}) — no dead post-fuse hold`);
+  assert(aligned.volley.full === true && plain.volley.full === true, 'cap-2 with 2 pips is a FULL volley');
+  assert(aligned.launchEvt && aligned.launchEvt.full === true && aligned.launchEvt.count === 2,
+    'lockLaunch fires with {count, full}');
+  assert(aligned.launches[0].snap === true, 'a cap auto-release is snap-eligible (the game timed it)');
+  // PR9.1 skill LAW: a MANUAL tap is NEVER delayed. Use a long fuse so the cap
+  // can't auto-fire before the tap is injected.
+  const tap = run({ beatFuseDur: 2.0 }, true);
   assertEq(tap.volley.delay, 0, 'manual tap: delay 0 ALWAYS — the tap is the player\'s timing');
   assert(tap.launches[0].snap === false, 'an off-beat manual volley never snaps the impact roll');
   assert(tap.launches[0].full === true, 'fireLance threads full through the queue');
-  // ...and a PERFECT (on-beat) tap EARNS the snap.
-  const perfectTap = run({ gridDelayBeat: 0.3, beatOn: true }, true);
-  assertEq(perfectTap.volley.delay, 0, 'a perfect tap is still never held');
+  const perfectTap = run({ beatFuseDur: 2.0, beatOn: true }, true);
+  assertEq(perfectTap.volley.delay, 0, 'a perfect tap is still never delayed');
   assert(perfectTap.volley.perfect === true && perfectTap.launches[0].snap === true,
     'a PERFECT tap earns the on-grid impact roll (the reward, not a freebie)');
-  ok('T-E2 beat-lock: cap held to the beat, taps never held, snap earned by perfect only');
+  ok('T-E2 beat-aligned inhale: aligned fuse fires sooner (no lag), taps instant, snap earned by perfect');
 }
 
 // --- T-W7b — impact-roll FALLBACK: no beat clock → the shipped 40ms stagger ----

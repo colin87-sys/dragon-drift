@@ -57,6 +57,20 @@ const kicked = await page.evaluate(() => {
 });
 check('tier-0 kick raises bloom+lift impulses', kicked.bloom > 0.2 && kicked.lift > 0.2);
 
+// PR-B: the reserved lance-FINALE beat — a 90ms hitstop + the jade postfx kick
+// (the physical "impact" on a full volley's climax). Fired via the juice event.
+await page.evaluate(() => {
+  const dd = window.__dd;
+  dd.game.hitstopTimer = 0; dd.game.slowMoTimer = 0; dd.game.state = 'playing';
+  dd.postfx.setPostTier(0);
+  dd.juice.juiceEvent('wispFinale');
+});
+const finale = await page.evaluate(() => ({
+  hs: window.__dd.game.hitstopTimer, bloom: window.__dd.postfx.kickState().bloom }));
+check(`wispFinale hitstops ~90ms (got ${Math.round(finale.hs * 1000)}ms)`, finale.hs > 0.08 && finale.hs <= 0.0905);
+check('wispFinale raises the jade postfx kick', finale.bloom > 0.2);
+await page.waitForFunction(() => window.__dd.game.hitstopTimer <= 0, { timeout: 10000 });
+
 // Death grade: engages across the freeze, releases for the recap.
 await page.evaluate(() => {
   window.__dd.save.revives = 0;

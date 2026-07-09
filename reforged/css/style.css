@@ -550,7 +550,11 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .vignette.lethal { background: radial-gradient(ellipse at center, rgba(255,30,30,0.25) 20%, rgba(255,20,20,0.8) 100%); }
 .blue-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(110,200,255,0.22) 0%, transparent 70%); }
 .gold-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,216,106,0.17) 0%, transparent 65%); }
+/* PR-B: the reserved lance-CLIMAX flash — jade (lance colour), brighter and
+   SNAPPIER than the gold radial so the finale reads as a hit, not a glow. */
+.jade-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(90,255,180,0.26) 0%, rgba(90,255,180,0.05) 40%, transparent 68%); }
 .flash-anim{ animation: flash 0.45s ease-out forwards; }
+.flash-fast{ animation: flash 0.16s ease-out forwards; }
 @keyframes flash { 0%{opacity:1} 100%{opacity:0} }
 
 /* Surge edge-wash — kept faint so it frames the action without fogging the screen. */
