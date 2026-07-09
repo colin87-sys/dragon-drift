@@ -328,6 +328,9 @@ export const CONFIG = {
     strikeCrunchVol: 0.07,  // TUNE(0–0.12) — saturated broadband CRUNCH front level (the main "bite")
     strikeGritDrive: 0.65,  // TUNE(0.4–0.9) — soft-sat drive on the impact grit (>0.8 reads as artifact, not violence)
     strikeDebrisVol: 0.028, // TUNE(0–0.05) — per-hit falling-shard / ember-sizzle debris-tail level
+    lanceHoldAmt: 0.32,     // TUNE(0.2–0.45) — Wyrm profile's ONE-per-volley sustained sidechain
+                            // hold (deeper than impactDuckAmt: a held hole earns more depth than the
+                            // per-hit flutter, and must out-dip the groove's own kick pump)
     // V4
     snapPerVolley: 1,       // LAW — max V4 paints per amber volley; 0 during fever (LAW)
     // V5
