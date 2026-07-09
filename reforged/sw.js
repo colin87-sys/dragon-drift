@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = '3a3e926ac9ad';                          // STAMP:VERSION
+const VERSION = 'b8fd1d6bb9bc';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './assets/models/thundercoil.glb',
@@ -21,6 +21,7 @@ const ASSETS = [
   './index.html',
   './js/ambient.js',
   './js/analytics.js',
+  './js/angelWing.js',
   './js/ascension.js',
   './js/biomeBoss.js',
   './js/biomes.js',
@@ -30,6 +31,21 @@ const ASSETS = [
   './js/bossBullets.js',
   './js/bossColossus.js',
   './js/bossDefs.js',
+  './js/bossDefs/ashtalon.js',
+  './js/bossDefs/brineholm.js',
+  './js/bossDefs/craghold.js',
+  './js/bossDefs/eitherwing.js',
+  './js/bossDefs/embertide.js',
+  './js/bossDefs/hollowgate.js',
+  './js/bossDefs/karnvow.js',
+  './js/bossDefs/knellgrave.js',
+  './js/bossDefs/marrowcoil.js',
+  './js/bossDefs/onewing.js',
+  './js/bossDefs/stormrend.js',
+  './js/bossDefs/thrumswarm.js',
+  './js/bossDefs/unmasked.js',
+  './js/bossDefs/voidmaw.js',
+  './js/bossDefs/weftwitch.js',
   './js/bossEitherwing.js',
   './js/bossEmbertide.js',
   './js/bossHollowgate.js',
@@ -43,6 +59,7 @@ const ASSETS = [
   './js/bossOnewing.js',
   './js/bossRhythm.js',
   './js/bossThrumswarm.js',
+  './js/bossUnmasked.js',
   './js/bossWeftwitch.js',
   './js/buildId.js',
   './js/cameraController.js',
@@ -63,6 +80,7 @@ const ASSETS = [
   './js/dragonHead.js',
   './js/dragonHull.js',
   './js/dragonHullProfiles.js',
+  './js/dragonKoiSerpent.js',
   './js/dragonModel.js',
   './js/dragonNightFury.js',
   './js/dragonOrganism.js',
@@ -72,6 +90,7 @@ const ASSETS = [
   './js/dragonSeraphBody.js',
   './js/dragonShingle.js',
   './js/dragonSideFins.js',
+  './js/dragonSovereign.js',
   './js/dragonSurfaceLayers.js',
   './js/dragonSurfaceShader.js',
   './js/dragonSweep.js',
