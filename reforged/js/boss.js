@@ -1400,6 +1400,7 @@ export function startBossEncounter(player, defOverride) {
   rhythmRest = null;
   perfectHealsUsed = 0;   // §5i C: the perfect-parry heal cap resets each fight
   partHits.clear();       // §5f: per-part crack counters reset per encounter (panes + shackles)
+  partParries.clear();    // §ENG-E: rib parry-ledger resets per encounter (model cracked state resets via the per-fight rebuild)
   // §5i.B: beam-edge ramp + adrenaline ladder reset per encounter (rung-0 = neutral).
   beamHeld = 0; beamTick = 0; beamGrace = 0;
   // CP2 (KARNVOW, all def-gated — inert for every other def): the stat-taunt charm
@@ -2265,6 +2266,15 @@ export function updateBoss(dt, player, time, camera) {
           model.setHeadLook?.(0);
         }
       }
+      // §ENG-E §4a: during the CLOSING RIBS dread hold, each live rib STRAINS one slow
+      // amber (the parry read that makes ORGAN BREAK pay into the dread). Own cadence via
+      // ribEmitT (ribThread and closingRibs never overlap). Def-gated; marrowcoil-only.
+      if (setpieceDef.id === 'closingRibs' && def.destructibleRibs) {
+        if (k >= 0.22 && k <= 0.8) {
+          ribEmitT += dt;
+          if (ribEmitT >= 0.55) { ribEmitT = 0; emitRibStrain(player); }
+        }
+      }
       if (k >= 1) clearSetpiece();
     } else {
       if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly
@@ -2451,6 +2461,25 @@ export function updateBoss(dt, player, time, camera) {
           ui.parryPopup?.(pts, perfect, streak);
           sfx.parry?.(perfect, streak);
           emit('bossReflect', { perfect, streak });
+          // §5i.C ORGAN BREAK (MARROWCOIL — the Colossi parry DEBUT, §5b slot 4): a
+          // PERFECT parry of a rib's amber banks toward THAT rib's crack; at
+          // RIB_BREAK_PARRIES the rib CRACKS and its volley + constrict arc are deleted
+          // for the fight (parry as sculptor). Surge reflects don't count (§5i.C law 4 —
+          // free-for-all, not the amber read). Above the snap-paint loop so a crack lands
+          // before paintFromParry's liveness guard. Def-gated; inert for every other boss.
+          if (def.destructibleRibs && !surge && r.snapParts.length) {
+            for (const tag of r.snapParts) {
+              const ridx = ribTagToIdx(tag);
+              if (ridx < 0 || !(model.ribAlive?.(ridx) ?? false)) continue;   // over-crack guard
+              const nn = (partParries.get(tag) ?? 0) + 1;
+              partParries.set(tag, nn);
+              if (nn >= RIB_BREAK_PARRIES) breakRib(ridx);
+              else {
+                model.hurt?.(0.4);   // a visible recoil per banked parry (safe no-op if absent)
+                ui.bossNote?.(`✦ RIB CRACKING — ${nn}/${RIB_BREAK_PARRIES} ✦`, 'PARRY ITS AMBER AGAIN', 'gold', 1.1);
+              }
+            }
+          }
           // V4 LOCK-SNAP (PR4, owner-ruled PERFECT-ONLY): a perfect parry of a
           // part-tagged amber snaps a brand onto the organ that FIRED it — the
           // C3 answer (a venting organ can't be dwell-painted; the parry is its
@@ -3140,6 +3169,7 @@ function emitRibBullets(player) {
   const T = 0.9;   // convergence time — slow (a rib ~4u out closes at ~4u/0.9s ≈ fair)
   const cx = pose.x, cy = pose.y, crel = pose.rel;   // spine centre in the bullet frame
   for (const name of RIB_EMITTERS) {
+    if (def.destructibleRibs && !(model.ribAlive?.(ribTagToIdx(name)) ?? true)) continue;   // §ENG-E: a cracked rib fires nothing (its volley is deleted)
     const w = model.partWorldPos(name, _ribV);
     if (!w) continue;
     const rx = w.x, ry = w.y, rrel = -w.z - player.dist;
@@ -3151,6 +3181,26 @@ function emitRibBullets(player) {
     emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel, name);
     // C3: an amber-CARRYING organ is dwell-exempt while its volley is in flight —
     // parry (V4) is the only sanctioned way to paint a venting organ.
+    amberVent.set(name, fightNow + 2.2);
+  }
+}
+
+// §ENG-E ORGAN-BREAK reachability (§4a): during the closingRibs DREAD hold, each LIVE
+// emitter rib strains and fires ONE slow amber aimed at the player — the parry read that
+// makes breaking a rib pay INTO the dread (the plan's "rib-slam ambers", which don't exist
+// at station). Unlike emitRibBullets' spine-convergence (vrel≈0 when the boss holds at
+// rel 13 → bullets hover), this closes NORMALLY toward the player. Def-gated; deterministic.
+function emitRibStrain(player) {
+  if (!(model && model.partWorldPos)) return;
+  const px = player.position.x, py = player.position.y, closing = B.bulletSpeed * 0.8;
+  for (const name of RIB_EMITTERS) {
+    if (!(model.ribAlive?.(ribTagToIdx(name)) ?? true)) continue;   // dead ribs don't strain
+    const w = model.partWorldPos(name, _ribV);
+    if (!w) continue;
+    const rx = w.x, ry = w.y, rrel = -w.z - player.dist;
+    if (rrel <= 0.5) continue;
+    const v = aimVelFrom({ x: rx, y: ry, rel: rrel }, px, py, closing);
+    emitBoss(rx, ry, v.vx, v.vy, -closing, true, null, 1, null, rrel, name);
     amberVent.set(name, fightNow + 2.2);
   }
 }
@@ -3725,6 +3775,9 @@ function lockPartDead(part) {
   if (def.destructibleShackles && part.startsWith('shacklePost')) {
     return !!model.shackleBroken?.(+part.slice(11));
   }
+  if (def.destructibleRibs && part.startsWith('ribPivot')) {   // §ENG-E: a cracked rib leaves the paintable set
+    return !(model.ribAlive?.(ribTagToIdx(part)) ?? true);
+  }
   return false;
 }
 
@@ -3905,6 +3958,15 @@ function driveAimTeach(dt, ctx) {
 // Each entry names the def flag + the model's own hit-test/crack/alive/live hooks
 // so the routing is part-agnostic; a boss without the flag/hooks never enters it.
 const PART_CRACK_HITS = 3;
+// §ENG-E ORGAN BREAK (MARROWCOIL): the ribs are the ONLY parry-fed PART_SYS row — its
+// counter is the `partParries` ledger (perfect parries at the roll), NEVER routePartDamage's
+// shot ledger. `counter:'parry'` makes routePartDamage skip it (belt); it declares no `hit`
+// hook, so the landing-point fallback can never route to it (suspenders) — the single-ledger
+// law (a parry can't double-book across two counters). This is the diff from HOLLOWGATE's
+// panes: panes are edited by gunfire+parry; ribs are parry-only.
+const RIB_SYS = { flag: 'destructibleRibs', crack: 'crackRib', alive: 'ribAlive', live: 'liveRibs',
+  key: 'rib', note: ['✦ RIB CRACKED ✦', 'ITS VOLLEY IS SILENCED'], event: 'bossRibBreak',
+  counter: 'parry', lockName: (i) => 'ribPivot' + (i % 2 ? 'R' : 'L') + (i >> 1) };
 const PART_SYS = [
   { flag: 'destructiblePanes', crack: 'crackPane', hit: 'paneHitTest', alive: 'paneAlive', live: 'livePanes',
     key: 'pane', note: ['✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED'], event: 'bossPaneBreak',
@@ -3914,11 +3976,45 @@ const PART_SYS = [
   { flag: 'destructibleShackles', crack: 'crackShackle', hit: 'shackleHitTest', broken: 'shackleBroken', live: 'liveShackles',
     key: 'shackle', note: ['✦ SHACKLE SNAPPED ✦', 'FREED EARLY — IT EASES'], event: 'bossShackleBreak', spray: true,
     lockName: (i) => 'shacklePost' + i },
+  RIB_SYS,
 ];
 const partHits = new Map();          // "key:idx" → accumulated counted hits (reset per encounter)
+// §ENG-E: the PARRY-side per-part ledger (distinct from partHits = shot damage). Keyed by
+// the amber's source-part TAG STRING ('ribPivotL1'), fed from reflectBossBullets' snapParts
+// (perfect-only, deduped per roll). Generic for later reuses (C.4 holder, C.6 gems).
+const RIB_BREAK_PARRIES = 3;         // N (§5b "N×") — the roster's canonical 3 (panes/stagger/holder)
+const partParries = new Map();       // part-tag → banked PERFECT parries
+// Rib tag ('ribPivotL3') → canonical index (L0=0,R0=1,L1=2,…); -1 for non-rib/unknown tags.
+function ribTagToIdx(tag) {
+  const m = /^ribPivot([LR])([0-4])$/.exec(tag || '');
+  return m ? (+m[2]) * 2 + (m[1] === 'L' ? 0 : 1) : -1;
+}
+// Crack a rib from the parry path: unconditional crack (parry jobs never gate on hp state),
+// then the shared ceremony + a +6 bonus chip routed through damageBoss (a shield may eat it).
+function breakRib(idx) {
+  if (!model.crackRib?.(idx)) return;   // idempotent (crackPane precedent)
+  const bonus = applyPartBreak(RIB_SYS, idx);
+  damageBoss(bonus, 'rider');
+}
+// The crack ceremony, shared by the shot path (routePartDamage) and the parry path
+// (breakRib) so both fire an identical break. Returns the +6 bonus chip. The CRACK
+// itself is done by the caller (in the threshold `if`) — this is the after-effects only.
+function applyPartBreak(sys, idx) {
+  sfx.shieldShatter?.();
+  if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
+  cameraCtl.shake?.(0.6);
+  ui.bossNote?.(sys.note[0], sys.note[1], 'gold', 2.2);
+  emit(sys.event, { [sys.key]: idx, left: model[sys.live]?.().length ?? 0 });
+  // PR6: a destroyed sub-part can't keep a brand — drop any pip on it (silent; the
+  // shatter IS the feedback) so no mark sits on a corpse and no lance flies at one.
+  if (sys.lockName) dropLockPart(sys.lockName(idx));
+  if (sys.spray) ventSprayBeat();   // §5i.B the freed post vents a 2× pink SPRAY-SOAK graze beat
+  return 6;                         // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
+}
 function routePartDamage(e) {
   for (const sys of PART_SYS) {
     if (!def?.[sys.flag] || !model?.[sys.crack]) continue;
+    if (sys.counter === 'parry') continue;   // §ENG-E: parry-fed rows (ribs) never route on shot/arrival — the partParries ledger owns them
     let idx = (typeof e.part === 'number') ? e.part : -1;
     // Fallback routing by landing point (boss-local frame: world x/y minus the
     // group origin at pose) — rider chips aimed at the centre miss the part by
@@ -3934,19 +4030,7 @@ function routePartDamage(e) {
     const mk = `${sys.key}:${idx}`;
     const n = (partHits.get(mk) ?? 0) + w;
     partHits.set(mk, n);
-    if (n >= PART_CRACK_HITS && model[sys.crack](idx)) {
-      sfx.shieldShatter?.();
-      if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
-      cameraCtl.shake?.(0.6);
-      ui.bossNote?.(sys.note[0], sys.note[1], 'gold', 2.2);
-      emit(sys.event, { [sys.key]: idx, left: model[sys.live]?.().length ?? 0 });
-      // PR6: a destroyed sub-part can't keep a brand — drop any pip on it
-      // (silent; the shatter IS the feedback) so no mark sits on a corpse and
-      // no lance flies at one. The liveness filter keeps it out of re-acquire.
-      if (sys.lockName) dropLockPart(sys.lockName(idx));
-      if (sys.spray) ventSprayBeat();   // §5i.B the freed post vents a 2× pink SPRAY-SOAK graze beat
-      return 6;                        // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
-    }
+    if (n >= PART_CRACK_HITS && model[sys.crack](idx)) return applyPartBreak(sys, idx);
     return 0;
   }
   return 0;
@@ -4262,6 +4346,15 @@ export function debugCrackPane(i) {
   // drops its brand too, so the debug seam observes the same behaviour.
   if (ok) dropLockPart('rosePane' + i);
   return ok;
+}
+
+// §ENG-E capture hook: crack a rib live (mirrors debugCrackPane) so preview/tiershots
+// can show a broken cage without driving parries. Fires the same ceremony as a real break.
+export function debugCrackRib(i) {
+  if (!active || !model?.crackRib) return false;
+  if (!model.ribAlive?.(i)) return false;
+  breakRib(i);
+  return !model.ribAlive?.(i);
 }
 
 // Capture hook (?debug): arm a named setpiece LIVE from the current fight so a tool can

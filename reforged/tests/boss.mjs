@@ -598,6 +598,21 @@ for (const key of BOSS_ORDER) {
   coil.group.traverse((o) => { if (/^ribPivot[LR][0-4]$/.test(o.name)) ribs.push(o); });
   assert(ribs.length === 10, `marrowcoil exposes 10 named ribPivotL/R0-4 for the ribcage (${ribs.length})`);
 
+  // §ENG-E ORGAN BREAK model API (fresh handle — cracking must not perturb the clearance asserts below).
+  {
+    const rc = buildBoss(BOSSES.marrowcoil, 1);
+    assert(rc.liveRibs().length === 10 && rc.ribCount() === 10, 'ENG-E: marrowcoil starts with all 10 ribs live');
+    assert(rc.crackRib(2) === true && rc.crackRib(2) === false, 'ENG-E: crackRib(2) cracks a live rib, then is idempotent');
+    assert(!rc.ribAlive(2) && rc.liveRibs().length === 9, 'ENG-E: a cracked rib leaves 9 live');
+    assert(rc.group.getObjectByName('ribPivotL1').visible === false, 'ENG-E: the cracked rib pivot (canonical index 2 = ribPivotL1) is hidden');
+    const dead = rc.group.getObjectByName('ribPivotL1'), live = rc.group.getObjectByName('ribPivotR1');
+    const dz0 = dead.rotation.z, lz0 = live.rotation.z;
+    rc.setSetpiece(1, { id: 'closingRibs', dread: true });
+    for (let i = 0; i < 40; i++) rc.tick(0.05, 3 + i * 0.05);
+    assert(Math.abs(dead.rotation.z - dz0) < 1e-6, 'ENG-E: a cracked rib is frozen under the closing-ribs constrict (its arc is gone)');
+    assert(Math.abs(live.rotation.z - lz0) > 0.03, 'ENG-E: a live rib still constricts');
+  }
+
   // §7b assert 1 — RIBCAGE THREAD CLEARANCE ≥ 4.5 units at the tightest hoop, at
   // closed REST (setSetpiece 0). Measure the aperture from the actual arc
   // geometry: the inner clearance = 2× the min in-plane radius of the rib arcs
@@ -2604,6 +2619,38 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assert(boss.debugReflectTargets(vp) === null, 'ENG-A-R coexist: a non-opted boss (voidmaw) has no reflect targets → centre aim');
   boss.resetBoss();
   ok('ENG-A-R live: marrowcoil ribs+skull resolve as reflect anchors; un-opted bosses keep centre aim ✓');
+}
+
+// §ENG-E ORGAN BREAK live loop: 3 PERFECT parries of a rib's amber crack it — the volley
+// and constrict arc are deleted, and a 4th parry is a no-op (the over-crack guard).
+{
+  bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);   // any in-window parry = perfect (never frame-tight timing in CI)
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const p = makePlayer();
+  boss.forceBoss(p, BOSS_ORDER.indexOf('marrowcoil'));
+  boss.debugForceFight(p);
+  let breakEvt = null;
+  on('bossRibBreak', (e) => { if (!breakEvt) breakEvt = e; });
+  const parryBurst = (t) => {
+    bullets.resetBossBullets();
+    bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6, part: 'ribPivotL1' });
+    p.rollInvuln = 0.2; p.lastRollDir = -1;
+    boss.updateBoss(1 / 60, p, t);          // the reflect consumer banks +1 on ribPivotL1
+    p.rollInvuln = 0;
+    boss.updateBoss(1 / 60, p, t + 0.02);   // drop i-frames → re-latch rollParried for the next burst
+  };
+  parryBurst(2); parryBurst(2.1);
+  assert(!breakEvt, 'ENG-E: 2 rib parries do NOT yet crack (banking, not breaking)');
+  parryBurst(2.2);
+  assert(breakEvt && breakEvt.rib === 2, `ENG-E: the 3rd perfect rib parry CRACKS the rib (bossRibBreak rib=${breakEvt?.rib}, left=${breakEvt?.left})`);
+  assert(breakEvt.left === 9, `ENG-E: cracking leaves 9 ribs live (got ${breakEvt.left})`);
+  // Over-crack guard: a 4th parry on the dead rib fires no further break.
+  let evt2 = false; on('bossRibBreak', () => { evt2 = true; });
+  breakEvt = null; parryBurst(2.3);
+  assert(!breakEvt, 'ENG-E: a 4th parry on a cracked rib is a no-op (over-crack guard)');
+  boss.resetBoss();
+  bullets.setDebugPerfectParryRel(null);
+  ok('ENG-E ORGAN BREAK: 3 perfect rib parries crack the rib (its volley + arc deleted); over-crack is inert ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);
