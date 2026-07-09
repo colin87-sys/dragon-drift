@@ -28,6 +28,15 @@ const AUDIO_V2 = (() => {
 export const UNLEASH_V2 = (() => {
   try { return !/[?&]unleash=v1(&|$)/.test(window.location.search); } catch { return true; }
 })();
+// Lance core-loop audio rollout flag (v3): ON by default; `?lance=v2` restores the
+// shipped lance sounds — the full lockOn chime on every re-lock, the un-deadzoned
+// dwell hum, and the shipped brandLoose/brandStrike/brandSet/brandFinale bodies.
+// The A/B escape hatch for judging the acquire→paint→release→impact overhaul on the
+// PR preview. (The lockLayer re-lock-memory state ships un-gated — it's inert data
+// until a consumer reads it; this flag gates only the SOUND behaviour.)
+export const LANCE_V3 = (() => {
+  try { return !/[?&]lance=v2(&|$)/.test(window.location.search); } catch { return true; }
+})();
 let limiterActive = false;   // worklet limiter engaged (false = shipped chain)
 let audioUnderruns = 0;      // audio-thread stall beacons from the limiter worklet
 // Debug readout (audio-thread health is invisible to fps meters).
@@ -535,6 +544,19 @@ function inKey(freq) {
   return h ? snapToChord(freq, h.chord) : freq;
 }
 
+// Octave-fold a frequency into [lo, hi] — for pitching a LOW body (a sub boom, a
+// bass launch note) to a chord tone without it snapping octaves away into the
+// wrong register. `snapToChord`/`chordLadder` pick the nearest chord pitch class;
+// this then walks it by octaves back into the band the sound wants to live in.
+// Returns `f` unchanged if it already sits in-band (or the band is degenerate).
+function foldToBand(f, lo, hi) {
+  if (!(f > 0) || !(lo > 0) || !(hi > lo)) return f;
+  let x = f;
+  while (x > hi) x *= 0.5;
+  while (x < lo) x *= 2;
+  return x > hi ? hi : x;   // clamp the pathological case (band < 1 octave wide)
+}
+
 // Delay (seconds) to the next 16th of the live beat grid — for the *musical*
 // tail of reward sounds only, never input acknowledgment. 0 when music is off.
 function toGrid16() {
@@ -824,7 +846,12 @@ export const sfx = {
   dwellHum(d = 0) {
     const a = getCtx();
     if (!a || !sfxBus) return;
-    if (d <= 0.001) {   // stop
+    // v3 deadzone gain (silent below d≈0.12, full by d≈0.37). Computed up front so a
+    // glancing brush that never clears the deadzone is treated as a STOP — it tears
+    // down any live nodes but never BUILDS oscillators just to run them at zero gain
+    // (node churn on the weak-mobile target). v2: floor01 = 1 (unchanged behaviour).
+    const floor01 = LANCE_V3 ? Math.max(0, Math.min(1, (d - 0.12) / 0.25)) : 1;
+    if (d <= 0.001 || floor01 <= 0) {   // stop (below the audible deadzone)
       const n = dwellHumNodes; dwellHumNodes = null;
       if (!n) return;
       n.out.gain.setTargetAtTime(0.0001, a.currentTime, 0.05);
@@ -851,9 +878,14 @@ export const sfx = {
     // as "monkey breathing" (owner) — a big swoop is a voice. Shrunk to a quiet
     // 300→430Hz nudge (a faint "closing-in" presence, not a swoop) at ~40% the
     // volume; the reticle fill + lockOn chime carry the real feedback.
+    // v3: a DEADZONE at the bottom (silent below d≈0.12, full by d≈0.37) so merely
+    // BRUSHING an organ no longer instantly drones, and a longer gain time-constant
+    // (0.12) turns the onset into a fade instead of a swell-attack — the two things
+    // that made the acquire hum feel naggy on every glancing pass.
     const n = dwellHumNodes, t = a.currentTime, f = 300 + 130 * Math.min(1, d);
-    for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(f * mul, t, 0.05);
-    n.out.gain.setTargetAtTime(0.009 * (0.4 + 0.6 * d), t, 0.05);
+    const tc = LANCE_V3 ? 0.12 : 0.05;
+    for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(f * mul, t, tc);
+    n.out.gain.setTargetAtTime(0.009 * (0.4 + 0.6 * d) * floor01, t, tc);
   },
   // RELEASE DUCK (PR7): a deliberate volley loose briefly dips the MUSIC bus so
   // the exhale owns the moment (the Rez sidechain). Music only — the exhale
@@ -1125,7 +1157,15 @@ export const sfx = {
   // Aim-line LOCK acquired (V1): a crisp two-note "got it" blip + a tiny sparkle,
   // so a green snap is AUDIBLE, not just visual. Short + light — it can fire often
   // (every time a held line locks), so it stays out of the way of the music.
-  lockOn() {
+  // v3 (owner: the weave-away-and-back re-chime was grating): a RE-LOCK — re-grabbing
+  // the organ a held line just let go of — plays only a single quiet re-latch TICK;
+  // the reticle's green snap carries the "you're back on it". A genuine FIRST lock
+  // still gets the full 3-tone chime.
+  lockOn(relock = false) {
+    if (LANCE_V3 && relock) {
+      tone({ freq: 1110, dur: 0.045, type: 'triangle', vol: 0.035 });   // the re-latch tick
+      return;
+    }
     tone({ freq: 740, dur: 0.06, type: 'triangle', vol: 0.07 });
     tone({ freq: 1110, end: 1480, dur: 0.12, type: 'square', vol: 0.055, delay: 0.05 });
     tone({ freq: 2220, dur: 0.05, type: 'sine', vol: 0.03, delay: 0.1 });
@@ -1141,7 +1181,12 @@ export const sfx = {
   // brand already set (1st low, 3rd bright), a shimmer octave answering, and a
   // tiny sub tick so the paint lands with WEIGHT, not just brightness.
   brandSet(count = 1) {
-    const f = 560 * (1 + 0.18 * (count - 1));
+    // v3: each successive paint climbs the LIVE CHORD (the same key-aware ladder the
+    // strikes + finale now ride), so acquire→paint→release→impact is one harmonic
+    // sentence — not a fixed-ratio rise that fights the station's chord. Fixed
+    // 560·(1+0.18·k) fallback preserves the shipped pitch when music is off (headless).
+    let f = 560 * (1 + 0.18 * (count - 1));
+    if (LANCE_V3) { const h = getHarmony(); if (h) f = chordLadder(560, h.chord, count - 1); }
     noiseWhoosh({ from: 800, to: 2400, dur: 0.12, vol: 0.05, q: 1.8 });      // the kindle sizzle
     tone({ freq: f, end: f * 1.4, dur: 0.14, type: 'triangle', vol: 0.06 }); // rune-hum
     tone({ freq: f * 1.007, end: f * 1.41, dur: 0.14, type: 'triangle', vol: 0.045 }); // detune body
@@ -1270,17 +1315,42 @@ export const sfx = {
   // layer on top. A FULL set drops heavier (C4).
   brandLoose(n = 3, delay = 0, full = false) {
     const d = UNLEASH_V2 ? Math.max(0, delay) : 0;
-    tone({ freq: 100, end: 40, dur: 0.09, type: 'sine', vol: 0.14, delay: d }); // the thump (weight)
-    noiseWhoosh({ from: 400, to: 4000, dur: 0.36, vol: 0.11, q: 1.4, delay: d }); // breath sweeping UP + out
-    tone({ freq: 900, end: 220, dur: 0.34, type: 'sawtooth', vol: 0.045, delay: d }); // the body sweep, under it
-    for (let i = 0; i < Math.min(n, 6); i++) {
-      tone({ freq: 620 + i * 47, end: 1500 + i * 180, dur: 0.12, type: 'sawtooth',
-        vol: 0.028, delay: d + 0.02 + i * 0.018 });   // detuned launch chirps (plurality)
+    if (!LANCE_V3) {
+      // Shipped body (verbatim — the ?lance=v2 arm reproduces this exactly).
+      tone({ freq: 100, end: 40, dur: 0.09, type: 'sine', vol: 0.14, delay: d }); // the thump (weight)
+      noiseWhoosh({ from: 400, to: 4000, dur: 0.36, vol: 0.11, q: 1.4, delay: d }); // breath sweeping UP + out
+      tone({ freq: 900, end: 220, dur: 0.34, type: 'sawtooth', vol: 0.045, delay: d }); // the body sweep, under it
+      for (let i = 0; i < Math.min(n, 6); i++) {
+        tone({ freq: 620 + i * 47, end: 1500 + i * 180, dur: 0.12, type: 'sawtooth',
+          vol: 0.028, delay: d + 0.02 + i * 0.018 });   // detuned launch chirps (plurality)
+      }
+      if (!UNLEASH_V2) return;
+      noiseWhoosh({ from: 5200, to: 5000, dur: 0.014, vol: 0.1, q: 0.4, delay: d });  // the 5ms contact CLICK
+      tone({ freq: 120, end: 45, dur: 0.3, type: 'sine', vol: full ? 0.16 : 0.11, delay: d }); // the SUB-DROP
+      noiseWhoosh({ from: 5500, to: 9000, dur: 0.22, vol: full ? 0.05 : 0.03, q: 0.5, delay: d + 0.01 }); // air
+      return;
     }
-    if (!UNLEASH_V2) return;
-    noiseWhoosh({ from: 5200, to: 5000, dur: 0.014, vol: 0.1, q: 0.4, delay: d });  // the 5ms contact CLICK
-    tone({ freq: 120, end: 45, dur: 0.3, type: 'sine', vol: full ? 0.16 : 0.11, delay: d }); // the SUB-DROP
-    noiseWhoosh({ from: 5500, to: 9000, dur: 0.22, vol: full ? 0.05 : 0.03, q: 0.5, delay: d + 0.01 }); // air
+    // v3 THE DROP — rebuilt around the emberwyrm-thwack family the owner liked and
+    // stripped of the "cheap synth" layers (the two phasey subs merged into one
+    // falling-pitch punch; the sawtooth laser body-sweep DELETED; the sawtooth
+    // chirps replaced by physical "thwp-thwp" ejection puffs). Owns the per-volley
+    // variety seed (detSeq) so the strikes + finale after it share one instance.
+    detSeq = (detSeq + 1) % 1000;
+    const vw = 1 + ((detSeq * 7) % 5 - 2) * 0.003;   // ±0.6% per-volley pitch walk (shared by strikes)
+    noiseWhoosh({ from: 6000, to: 2000, dur: 0.016, vol: 0.13, q: 0.4, delay: d });        // contact CRACK (thwack front)
+    tone({ freq: 145 * vw, end: 38, dur: 0.22, type: 'sine', vol: full ? 0.2 : 0.16, delay: d }); // ONE sub — falling pitch IS the punch
+    noiseWhoosh({ from: 1100, to: 240, dur: 0.09, vol: 0.1, q: 1.1, delay: d });            // body THWACK (emberwyrm-eject DNA)
+    for (let i = 0; i < Math.min(n, 6); i++) {
+      noiseWhoosh({ from: 1200 + i * 180, to: 500, dur: 0.045, vol: 0.035, q: 1.6,
+        delay: d + 0.015 + i * 0.022 });   // "thwp-thwp-thwp" — the wisps physically leaving (plurality)
+    }
+    noiseWhoosh({ from: 400, to: 2600, dur: 0.18, vol: 0.06, q: 1.4, delay: d });           // breath sweeping up + out
+    noiseWhoosh({ from: 5500, to: 8500, dur: 0.12, vol: full ? 0.05 : 0.035, q: 0.5, delay: d + 0.01 }); // air whip
+    // One IN-KEY launch note (tonal identity, not a jingle) — the low body resolves
+    // into the station chord. Fixed 196 Hz fallback keeps headless renders determinate.
+    const h = getHarmony();
+    const root = h ? foldToBand(h.chord[0], 165, 330) : 196;
+    tone({ freq: root * vw, end: root * 0.99, dur: 0.12, type: 'triangle', vol: 0.05, delay: d + 0.01 });
   },
   // A wisp finds its brand — one note of the impact ARPEGGIO (k = position in the
   // drum-roll): a short pluck stepping UP a pentatonic, so N landings play an
@@ -1298,6 +1368,25 @@ export const sfx = {
     if (UNLEASH_V2) {
       const h = getHarmony();
       if (h) f = chordLadder(660, h.chord, k) * det;
+    }
+    if (LANCE_V3) {
+      // v3 IMPACT-FORWARD: keep the chord-ladder ascent (N landings = an arpeggio),
+      // but weight it with the LOW register so the roll reads as ordnance first,
+      // melody second — pluck quieter/shorter, the sub knock louder and rising with
+      // k, the sparkle octave only every other hit (halves the tinsel on a 6-roll).
+      // The volley pitch walk (vw, seeded in brandLoose) makes successive volleys
+      // non-identical without RNG.
+      const vw = 1 + ((detSeq * 7) % 5 - 2) * 0.003;
+      const fk = f * vw;
+      tone({ freq: fk, end: fk * 0.985, dur: 0.07, type: 'triangle', vol: 0.05 });   // pluck (quieter)
+      if (k % 2 === 0) tone({ freq: fk * 2, dur: 0.05, type: 'sine', vol: 0.03, delay: 0.005 }); // sparkle, every other hit
+      noiseWhoosh({ from: 2600, to: 900, dur: 0.07, vol: 0.03, q: (detSeq % 2) ? 1.6 : 2.2 });    // ember burst
+      const a = getCtx();
+      if (!a) return;
+      noiseWhoosh({ from: 3200, to: 900, dur: 0.012, vol: 0.06, q: 0.5 });           // contact crack
+      tone({ freq: (120 + k * 8) * det, end: 45, dur: 0.07, type: 'sine', vol: 0.07 }); // sub KNOCK — the weight, rising with k
+      pumpDuck(pumpGain, CONFIG.LOCK.impactDuckAmt, a.currentTime);   // the roll pumps the music
+      return;
     }
     tone({ freq: f, end: f * 0.985, dur: 0.09, type: 'triangle', vol: 0.075 });
     tone({ freq: f * 2, dur: 0.05, type: 'sine', vol: 0.035, delay: 0.005 });  // sparkle octave
@@ -1325,21 +1414,27 @@ export const sfx = {
     const t0 = a.currentTime;
     const L = CONFIG.LOCK;
     const big = Math.pow(Math.max(1, n) / 3, L.riserTickPowN);   // 3→1.0, 6→~3.0
-    detSeq = (detSeq + 1) % 1000;
+    if (!LANCE_V3) detSeq = (detSeq + 1) % 1000;                 // v3: brandLoose owns the counter (one seed per volley)
     const v = 1 + ((detSeq * 7) % 5 - 2) * 0.004;                // ±0.8% pitch walk per volley
     const tj = ((detSeq * 13) % 4) * 0.008;                      // 0-24ms debris timing walk
+    // v3: pitch the BOOM into the live key so the detonation RESOLVES into the track
+    // (the Rez payoff-resolution move — without any sustained ring-out, which was
+    // rejected). Octave-folded into the sub band so it never snaps up an octave.
+    // Fixed 90 Hz (shipped) when music is off / v2.
+    let boom = 90 * v;
+    if (LANCE_V3) { const h = getHarmony(); if (h) boom = foldToBand(h.chord[0], 55, 110) * v; }
     // IMPACT FRONT (kept verbatim — the emberwyrm-eject thwack family):
     noiseWhoosh({ from: 8000, to: 2600, dur: 0.018, vol: 0.17, q: 0.4 });            // the CONTACT crack
     tone({ freq: 190 * v, end: 46, dur: 0.16, type: 'sine', vol: full ? 0.2 : 0.14 }); // SUB-THUD — falling pitch IS the punch
     tone({ freq: 150 * v, end: 52, dur: 0.11, type: 'sawtooth', vol: full ? 0.07 : 0.045 }); // grit
     noiseWhoosh({ from: 1100, to: 240, dur: 0.08, vol: 0.09, q: 1.1 });              // body THWACK
     // THE DETONATION (replaces the chord ring-out) — sized by big:
-    tone({ freq: 90 * v, end: Math.max(28, 60 - 12 * big), dur: 0.5 + 0.15 * big,
+    tone({ freq: boom, end: Math.max(28, 60 - 12 * big), dur: 0.5 + 0.15 * big,
       type: 'sine', vol: Math.min(0.2, 0.1 + 0.05 * big) });                          // the BOOM body
     if (n >= 5) {
       // the heavy low pair (bossDefeat's loudest boom) — the "different class" at max
       noiseWhoosh({ from: 220, to: 40, dur: 0.55, vol: 0.16, q: 0.8, delay: 0.015 });
-      tone({ freq: 88 * v, end: 58, dur: 0.7, type: 'sine', vol: 0.11, delay: 0.02 });
+      tone({ freq: boom * (88 / 90), end: 58, dur: 0.7, type: 'sine', vol: 0.11, delay: 0.02 }); // tracks the boom (in-key under v3)
     }
     // DEBRIS — parity-detuned falling shards (shieldShatter idiom), count = min(n,6):
     for (let i = 0; i < Math.min(n, 6); i++) {
