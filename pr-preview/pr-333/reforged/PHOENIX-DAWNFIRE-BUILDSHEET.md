@@ -213,6 +213,12 @@ the empress's train. All dials monotonic.
 
 ## 6. OPPOSITE-OF-SOLAR + ROSTER DISTINCTIVENESS (the §0.5 gate)
 
+**RETIRED by this sheet (the next dragon must avoid — per method §0.5 housekeeping):** silhouette region
+= **BOTTOM-heavy** (mass in the lower-rear); profile-function family = **terminal-peak monotonic rake**;
+tone = **dark-bodied** (garnet). Solar already retired TOP-heavy + interior-peak arch + dark-bodied
+(eclipse). So the next premium's un-taken lanes include lateral/enveloping/forward mass regions,
+flat/stepped/cupped/multi-lobed function families, and — notably — a **LIGHT-bodied tone** (§3b).
+
 | Axis | SOLAR (off-limits) | PHOENIX (this sheet) | vs warm roster |
 |---|---|---|---|
 | Silhouette family | M / cathedral arch, TOP-heavy crown-above | Shuttlecock-comet: thin rising crescents over a LOWER-rear quill fan (train-behind) | Ember: generic wyvern V; Cinderwing: solid flame-cone tail; Pearl: halo-knight — none own the lower frame |
