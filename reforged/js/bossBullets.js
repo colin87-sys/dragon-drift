@@ -655,8 +655,14 @@ export function updateBossBullets(dt, player) {
       // per pool slot so a volley shimmers, never strobes in unison. Render-side only
       // (s.r and every gameplay field untouched — the arrival law can't drift).
       const pulse = Math.sin(clock * 16 + i * 2.4);
-      flare = 0.2 + 0.18 * pulse;
-      breathe = 1 + 0.1 * pulse;
+      // PR-D: LESS constant white-wash (0.2→0.08) so the JADE body reads instead
+      // of a bland white comet (owner) — the white core + hot head still anchor it.
+      // ACQUIRE FLASH: a bright lock-on SPIKE + size pop the instant homing engages
+      // (age crosses homeDelay) — the wisp's "eyes catch the target", decays ~0.3s.
+      const acq = s.homeDelay > 0 && s.age >= s.homeDelay
+        ? Math.max(0, 1 - (s.age - s.homeDelay) / 0.3) : 0;
+      flare = 0.08 + 0.14 * pulse + 0.7 * acq * acq;
+      breathe = 1 + 0.1 * pulse + 0.55 * acq;
     }
 
     // Successive-ring depth ordering: a far-out bullet fogs dim, a boss bullet
