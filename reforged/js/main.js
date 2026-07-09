@@ -422,8 +422,11 @@ const REDUCE_MOTION = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-m
 on('lockVolley', (p) => {
   if (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')) {
     const d = p.delay || 0;
-    sfx.brandRiserRelease?.(d, CONFIG.LOCK.releaseGapMs / 1000);   // rise STOPS → the void
-    sfx.brandLoose?.(p.count, d, !!p.full);                        // → THE DROP, on the grid
+    const wyrm = getLanceProfile() === 'wyrm';
+    sfx.brandRiserRelease?.(d, CONFIG.LOCK.releaseGapMs / 1000);   // rise STOPS → the void (inhale is classic under both)
+    // The LOOSE sound forks by profile: wyrm plays a lean dry snap ("quiet hands"),
+    // classic plays the full launch. The music-bus volleyDuck fires under both.
+    (wyrm ? lanceWyrm : sfx).brandLoose?.(p.count, d, !!p.full);
     sfx.volleyDuck?.(d);   // PR7: dip the music ~200ms so the exhale owns the moment
   } else {
     sfx.brandRiserCancel?.();   // decay fizzle: no drop, no void — just let the riser go
