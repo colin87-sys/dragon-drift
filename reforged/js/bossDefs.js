@@ -1340,10 +1340,10 @@ export const BOSSES = {
     // (incl. the survival phase, per the §5i.C exemption — see Horizon Break below).
     phases: [
       { atFrac: 1.00, cadence: [1.35, 1.8],  attacks: ['curtain', 'crossfire'] },                       // P1: the tide rises (first crescendo set) — the vertical squeeze + letterbox fires HERE as a NORMAL re-entrance beat (CP2), not a survival card
-      { atFrac: 0.80, cadence: [1.25, 1.65], attacks: ['curtain', 'movingGap', 'crossfire'] },          // P2: the sets stack (a second crest, cut harder)
+      { atFrac: 0.80, cadence: [1.25, 1.65], attacks: ['curtain', 'secondWave', 'crossfire'] },         // P2: the sets stack (a second crest, cut harder) — `secondWave` (returning gust) replaces `movingGap` so P2 is no longer a subset of WEFTWITCH's P5 dread set (§B-4 collision)
       { atFrac: 0.58, cadence: [1.15, 1.5],  attacks: ['crestfall', 'iris', 'stream'] },                // P3: the crest crosses the whole frame — CRESTFALL debuts (CP2-B full-frame emitter); `stream` is the amber crest-lock carrier
       { atFrac: 0.36, cadence: [1.1, 1.4],   attacks: ['curtain', 'iris', 'crestfall', 'crossfire'] },  // P4: full flood (every set at once) — the crest breaks alongside the walls; `crossfire` amber
-      { atFrac: 0.16, cadence: [1.05, 1.35], attacks: ['curtain', 'movingGap', 'crossfire'] },          // P5: SKY SET LOOSE — Horizon Break (dread/survival) — pure-dodge at runtime; `crossfire` kept for the amberdiet floor (§5i.C survival exemption)
+      { atFrac: 0.16, cadence: [1.05, 1.35], attacks: ['crestfall', 'crossfire'] },                     // P5: SKY SET LOOSE — Horizon Break (dread/survival). boss.js force-selects `crestfall` for the whole card (the `embertide_horizonbreak` gate: its gap LOCKS to the moving face-shadow pocket `horizonPocketX`), so the array now honestly reflects what fires; `crossfire` kept for the amberdiet floor (§5i.C survival exemption)
     ],
     // Spell cards (5 for WE; "<EPITHET FRAGMENT> — <plain pattern>"; the dread/survival card LAST). 13's ONE
     // survival card is the final Horizon Break crest; the FIRST-set vertical squeeze is a NORMAL beat (P1), not
@@ -1377,9 +1377,9 @@ export const BOSSES = {
         { // P2 — the sets stack: two crests, cut harder
           ratioBurst: 0.5,
           phrase: [
-            { kind: 'burst',   attack: 'curtain',   count: 2, gap: 0.55 },
-            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.55 },
-            { kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.8 },
+            { kind: 'burst',   attack: 'curtain',    count: 2, gap: 0.55 },
+            { kind: 'burst',   attack: 'secondWave', count: 2, gap: 0.55 },  // returning gust (was movingGap — §B-4 collision fix; count/gap unchanged so rhythmprint is byte-identical)
+            { kind: 'sustain', attack: 'crossfire',  beats: 1, gap: 0.8 },
           ],
           restLo: 0.65, restHi: 3.0, restDist: 'bimodal',
         },
@@ -1402,12 +1402,15 @@ export const BOSSES = {
           ],
           restLo: 0.55, restHi: 2.8, restDist: 'bimodal',
         },
-        { // P5 — Horizon Break (dread/survival): the whole frame crests; the ebb is the escape hatch
+        { // P5 — Horizon Break (dread/survival): the whole frame crests; the ebb is the escape hatch.
+          // Emission is force-set to `crestfall` at runtime (boss.js embertide_horizonbreak gate), so the
+          // burst ids are renamed to crestfall to match — rename-only (count/gap/rest untouched → rhythmprint
+          // byte-identical); `crossfire` sustain kept so the amber-floor accounting still registers a carrier.
           ratioBurst: 0.7,
           phrase: [
-            { kind: 'burst',   attack: 'curtain',   count: 3, gap: 0.45 },
-            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.45 },
-            { kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.65 },
+            { kind: 'burst',   attack: 'crestfall',  count: 3, gap: 0.45 },
+            { kind: 'burst',   attack: 'crestfall',  count: 2, gap: 0.45 },
+            { kind: 'sustain', attack: 'crossfire',  beats: 1, gap: 0.65 },
           ],
           restLo: 0.5, restHi: 2.7, restDist: 'bimodal',
         },
