@@ -51,6 +51,14 @@ deleted — no longer a collision constraint.)
   behind the head (no pearl-halo collision).
 - Both share the violet hue + anchor invariance (drift ≤0.15 pre-scale units); only scale/count/
   emissive grow. Assert: monotonic bloom volume.
+- **CP2 SUPERSEDES the "never a ring" note (Eternal only):** the apex now ALSO wears an
+  **ECLIPSE CORONA RING** — an OPAQUE 12-facet flat-shaded annulus (outer R≈1.05, inner R≈0.80,
+  prism depth ≈0.06, tilted ~12° forward) standing vertical behind the shoulders at the dorsal
+  motif anchor. A dark matte moon-disk body (`coronaDark 0x0d0a18`) wearing a THIN saturated
+  bicolour rim (alternating `coronaRimV 0x6a2cf6` / `coronaRimA 0xd4680f`, gold inner bevels) —
+  eclipse-BY-CONSTRUCTION, not a smoky additive halo, so it does NOT collide with pearl's soft
+  halo sprite. FRAMED by the twin carpal spires with the crowned head enthroned in the valley.
+  Withheld until f3 (`coronaRing` dial 0/0/0/1); rim mats stay OUT of `spineMats`.
 
 ## 4. Torso — `regnalKeelTorso` (NEW, self-registering, default-off)
 Horizontal king-body: deep royal keel chest (mass forward, long axis LEVEL), lofted ellipse
@@ -179,3 +187,32 @@ transparent-drawable ≤ target, star-gem = gem/no-lid at every form, maxTier cl
    ladder + face crops + roster black-fill frame → fresh gate PASS → STOP for human. In-game pass
    (chase idle / mid-bank / tier-up) = integration only; motion/feel judged live by the human on the
    PR preview. Merge verdict is human.
+
+## CHANGELOG
+
+- **CP1 (merged, PR #323):** apex rebuilt fresh in `dragonSovereign.js` — `regnalKeelTorso` ·
+  `lanceVaultWings` · `eclipseCrownHead` · `scepterWhipTail`. Passed the static sculpt gate.
+- **CP2 — SPECTACLE PASS (rear-chase-first).** Owner: apex "lacks the spectacle of an end-game
+  dragon." Two Fable critiques → this pass.
+  - **THE WOW MOVE — "Cathedral Arch + Twin Carpal Lances."** The wing top-line was a LINEAR ramp
+    (rear read = spiked delta-KITE / V). Replaced with a two-segment GULL arch (`archRise` dial,
+    `wingArchY()`, vertex-baked so it survives the flap animator) climbing to a CARPAL APEX at
+    t≈0.35, plus one dominant **carpal lance** per wing (`carpalLance` dial, ~2.6× the rank pikes,
+    white-hot spar tip at f3) — twin spires that break the skyline ABOVE the crown and FRAME the
+    eclipse-corona ring, the head enthroned in the valley → the silhouette reads **M, not V**. Pike
+    rank DEMOTED outboard (0.62^i decay = a scale hierarchy). Longer raked tip finger, **pinion
+    slots** (`pinionSlots` — drop the outer bays' trailing tris = see-through spread-primaries),
+    banner tail (`tailRise` steepens the tip lift), crown verticality (steeper lance rake + a
+    central occipital spike = 3-peak skyline). FX marker + `wingElements` tip moved to `wingArchY`.
+  - **THE IGNITION RAMP + withheld regalia (the ladder currency).** `sovereignMats(def,glow,stage)`
+    — stage-indexed emissive ladders in saturated bloom-safe hues (sat≥0.75, value≤0.9) baked into
+    OPAQUE facets: keel/mantle violet seams, wing vein circuit, brow gem, nape-star, membrane
+    trailing-ember gradient, f3 white-hot spar tips. Regalia WITHHELD at the whelp and conferred
+    rung by rung (`igniteStage` 0/1/2/3; gem `starGemBloom` 0→1; mantle `coronaValleys` gated;
+    `napeStar` from Radiant; `coronaRing`/`sparTipHeat` Eternal-only). The Hatchling is a bare
+    princeling (linear glide, no gem/mantle/corona) so Eternal actually CONFERS something.
+  - **The rearward NAPE-STAR** (net-new, Fable's call): the brow gem faces away from the chase cam,
+    so the king wears a second violet jewel on the mantle crest that the rear view reads.
+  - Verified: tricount 967/1302/1611/2010 (all 4 forms, <6000) · wingsymprobe PASS · starters +20
+    solar coronation-ladder asserts + blueprint + smoke green · dragonstudio r-cp2 rear silhouette
+    reads M · Fable spectacle re-grade.
