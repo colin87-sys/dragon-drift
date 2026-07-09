@@ -163,6 +163,61 @@ owns-the-dark-sky), but the idea being checked must be yours, not Solar's.
 
 ---
 
+## 3.5 THE FAILURE-MODE FIREWALL — turn gate-discoveries into PRE-conditions (why this saves ~5 rounds)
+
+Solar's Fable gate climbed 1.10 → 4.19 over ~7 rounds, then needed a whole second campaign (CP2). The
+low first score was NOT because the design was hard — it was because the sheet let the builder start
+from a near-blank brief and *negotiate the actual design at the gate*. Rounds 1–5 were spent
+REDISCOVERING nameable failure modes one at a time. The fix is structural: **every failure the gate is
+known to catch becomes a PRE-CONDITION the first build must satisfy before it is allowed near a
+(high-effort, expensive) Fable round.** Do this and the first submission scores ~3.5 instead of ~1.1,
+so the gate becomes VERIFICATION (2–3 rounds) instead of DISCOVERY (7–10), and you never ship an inert
+dragon that needs a second spectacle campaign.
+
+**These are QUALITY invariants, not a look.** ⚠ Read them as "don't be thin / muddy / generic / washed
+out / inert" — NOT as "build Solar." None of them dictates a silhouette shape, a palette, or a motif;
+those stay unique per §0.5. Where an invariant touches silhouette it forbids GENERICNESS and THINNESS,
+never a particular outline.
+
+**The firewall — hard invariants the FIRST build must pass (each is a real Solar-"before" failure or a
+ledger lesson):**
+1. **Confident faceted MASS, never spider-thin spars.** The retired Solar read as an insect/kite of thin
+   equal-weight sticks with no surface. Wings/tail/crest must be built from FEWER, LARGER filled facets
+   with real width — a reader must see mass, not a wireframe of spikes. (Your mass can live anywhere —
+   Solar's in a wing wall, Phoenix's in a train fan + covert sheet — but it must EXIST.)
+2. **A DOMINANT element + a real scale hierarchy.** Not a picket fence of equal spikes. One clear hero
+   form, then graded supporting ranks (Solar: carpal lance ≫ pikes ≫ tips). "Everything the same size"
+   is an automatic P0.
+3. **A specific, mass-bearing SILHOUETTE that reads at rear-chase distance — not a thin kite/delta.**
+   Run the §2 shape-AGNOSTIC test in round 0 (specific-not-generic + owns-the-dark-sky). The SHAPE is
+   yours (§0.5); the firewall only forbids the generic thin-spike outline.
+4. **Something rises into / fills the frame from the rear-chase cam.** The retired Solar's rear view was
+   nearly empty. There must be a deliberate dorsal/crest/tail read + a wing mass — no empty rear frame,
+   no dead-black center void (§3c).
+5. **Clean, deliberate EDGES — no ragged/torn trailing edges.** The retired membrane edges looked
+   shredded. Scallops/serrations are fine if DESIGNED; accidental jaggedness is a P0.
+6. **Opaque emissive in SATURATED bloom-safe hues — no additive washout, no olive/khaki "gold".** The
+   §3b doctrine, enforced up front: dark diffuse carries the fire on lit edges/tips; ≤1 tiny near-white.
+7. **No muddy/noisy surface texture.** The retired leopard-spot skin read as noise. Large confident
+   colour fields; detail comes from FACETS and emissive lines, not busy texture.
+8. **The spectacle triad is PRESENT in the sheet (§3), not deferred.** Withheld regalia + ignition ramp,
+   earned light, a signature silhouette — so you never ship, playtest, feel "inert," and reopen a CP2.
+
+**ROUND-0 SELF-AUDIT (the cheap gate before the expensive one).** Before spending a high-effort Fable
+round, the implementing agent renders ONE `dragonstudio` capture (apex, rear-chase + sil-rear +
+glide-dark) and audits it HARSHLY against the 8 invariants above + the §0.5 distinctiveness axes, then
+fixes every obvious violation. Cheap self-gate first, expensive Fable gate second — so **Fable never
+sees a build below ~3.5.** This does NOT replace the Fable gate (see §5 — the high-effort Fable
+checkpoints remain essential and non-negotiable); it raises the floor Fable starts from so the gate
+verifies in 2–3 rounds instead of discovering over 7–10.
+
+**PRE-SCORE THE SHEET.** The build sheet carries, before a line of code: this firewall checklist, the
+per-rubric-axis TARGET scores (aim every §5 axis ≥ 3.5 at round-0, no axis a known P0), the
+rear-chase/spectacle/silhouette requirements, and the reusable-kit inventory (§6). A pre-scored sheet
+is the actual time-saver — the design is decided on the sheet, not litigated at the gate.
+
+---
+
 ## 4. Verify by FAILURE-CLASS (four tools, four failure modes)
 
 A green budget check says nothing about whether the dragon renders in flight. Run all of these; each
@@ -188,7 +243,15 @@ Runtime gotchas that produced the "invisible dragon" crashes (guard against them
 
 ---
 
-## 5. The Fable gate — one combined brief, run as a ratchet
+## 5. The Fable gate — one combined brief, run as a ratchet (HIGH-EFFORT, non-negotiable)
+
+**The high-effort Fable checkpoints are the most important quality mechanism in this method — do not
+skip, downgrade, or replace them.** The firewall + round-0 self-audit (§3.5) do NOT remove the gate;
+they make each gate round CHEAP by ensuring Fable only ever sees a ~3.5+ build, so the gate VERIFIES
+in 2–3 rounds instead of DISCOVERING over 7–10. Always spawn Fable at high effort, and run it as a
+standing checkpoint at every critical step (design synthesis, apex-first PASS, each spectacle change,
+and any owner-facing checkpoint). The cheap self-gate raises the floor; the expensive Fable gate is
+still what certifies the ceiling.
 
 - **An independent, harsh Fable critic** (`Agent` tool, `model: "fable"`, `subagent_type: "Plan"`,
   high effort) is the quality ratchet. Give it a **numeric PASS bar**: weighted average ≥ 4.0, no axis
@@ -216,6 +279,10 @@ Everything in this section is code infrastructure — factory structures, dials,
 Copying it does NOT make your dragon look like Solar (see §0.5). What must be authored FRESH per dragon:
 the part builders (wings/torso/head/tail geometry), the palette, the regalia motif, and the signature
 silhouette. "Copy the structure" below always means the *data/code shape*, never the *visual result*.
+**You never start from the stick again:** Solar was told "build fresh, don't reuse the failed parts"
+because the old parts were below standard — but that quality floor is now PROVEN. Pearl/Obsidian/Phoenix
+start from this kit's quality floor (adapt the patterns) while their identity stays 100% unique. Reusing
+the KIT is the opposite of reusing the LOOK.
 
 - **`sovereignMats(def, glow, stage)`** in `js/dragonSovereign.js` — the stage-aware material factory:
   per-stage emissive-intensity ladders, saturated bloom-safe hues, `userData.baseEmissive/baseIntensity`
@@ -241,18 +308,22 @@ silhouette. "Copy the structure" below always means the *data/code shape*, never
 
 ## 7. The leapfrog for Pearl & Obsidian (the checklist)
 
-Do these in round 1 so you skip Solar's second pass entirely:
+Do these in round 1 so you skip Solar's 7-round climb AND its second pass entirely:
 
 1. Anchor to the referent; have Fable synthesize the plan (one combined sculpt+spectacle+rear-chase
-   brief).
-2. Author builders default-off; only the hero opts in.
-3. Build the apex (Eternal) FIRST. In the SAME pass, design for rear-chase primacy and the spectacle
-   triad — a signature silhouette that passes M-not-kite + owns-the-dark-sky, an ignition ramp, and
-   the opaque-emissive lighting doctrine.
+   brief). **PRE-SCORE the sheet** (§3.5): bake in the firewall checklist, the reusable-kit inventory,
+   and per-axis target scores before any code.
+2. Author builders default-off; only the hero opts in. Start from the KIT's quality floor (§6) — never
+   the stick.
+3. Build the apex (Eternal) FIRST. In the SAME pass, satisfy the FIREWALL (§3.5) + rear-chase primacy +
+   the spectacle triad — a signature silhouette that passes specific-not-generic + owns-the-dark-sky
+   (its shape is YOURS, not Solar's), an ignition ramp, and the opaque-emissive lighting doctrine.
 4. Then subtract down the ladder: gate each regalia MESH to a rung so every form adds hardware + light.
-5. Verify by failure-class (tricount, blueprint, smoke/flight, wingsymprobe, dragonstudio) → then the
-   combined Fable gate to PASS.
-6. Checkpoint the human on the live preview for motion/feel + any net-new element, before finalizing.
+5. **ROUND-0 self-audit** (§3.5): render one capture, audit HARD against the firewall + distinctiveness
+   axes, fix obvious violations — so the build is ~3.5+ BEFORE Fable sees it.
+6. Verify by failure-class (tricount, blueprint, smoke/flight, wingsymprobe, dragonstudio) → then the
+   HIGH-EFFORT combined Fable gate (§5), run as a standing checkpoint, to PASS (now 2–3 rounds).
+7. Checkpoint the human on the live preview for motion/feel + any net-new element, before finalizing.
 
 **Pearl and Obsidian each need their OWN signature idea and palette** — reuse the METHOD and the CODE
 PATTERNS, never Solar's arch/corona/hue (the roster's anti-collision rule; see `BOSS-DESIGN.md` §5b

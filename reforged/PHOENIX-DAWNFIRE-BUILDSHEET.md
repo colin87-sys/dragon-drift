@@ -247,7 +247,29 @@ the empress's train. All dials monotonic.
 7. **Coexistence key name.** `phoenixEmpress` is a working key — owner may rename before/at build. It
    ships as its own roster/shop entry (the comparison surface) until the migration call.
 
-## QA — the gate (per PREMIUM-DRAGON-METHOD §4–5)
+## QA — the gate (per PREMIUM-DRAGON-METHOD §3.5–5)
+
+### QA-0. FIREWALL PRE-SCORE + ROUND-0 SELF-AUDIT (do this BEFORE the first high-effort Fable round)
+
+The point of this sheet is to skip Solar's 7-round climb: the apex build must clear the
+[method §3.5 firewall](./PREMIUM-DRAGON-METHOD.md) at round 0 so Fable VERIFIES (2–3 rounds) instead of
+DISCOVERING. Before spending a Fable round, render one apex capture (rear-chase + sil-rear + glide-dark)
+and self-audit HARD against these — fix every violation first:
+
+| Firewall invariant | Phoenix pass-condition (target: no P0, every §5 axis ≥ 3.5 at round-0) |
+|---|---|
+| Confident MASS, not spider-thin spars | Mass lives in the **train fan + the dark covert sheet + broad teardrop quill-vanes + the primary blades** — NOT thin sticks. The quills are filled teardrops with real width; the covert is a solid dark fan. (Slender WINGS are intentional — but they are filled scythe blades, never wireframe spars.) |
+| Dominant element + scale hierarchy | The **train is the clear hero**; quills swell-then-taper (center ≈1.1× body, ×0.85/step); wings + crest read as supporting ranks. No picket fence of equal quills. |
+| Specific silhouette, reads at rear-chase, not a thin kite | The **shuttlecock/comet** read (thin rising crescents over a broad lower-rear quill fan) — verify in sil-rear at 250px; it must be nameable, not a spindly delta. |
+| Something fills the rear frame | The train fan owns the lower frame + the comet crest reads above + the keel-seam anchors the dorsal line — no empty rear, no dead-black center. |
+| Clean deliberate edges | Quill vanes + feather blades have DESIGNED teardrop/scythe outlines — no ragged/torn trailing edges. |
+| Opaque emissive, saturated bloom-safe, ≤1 near-white | The §4 "coal not a torch" palette (dark garnet body, fire on edges/tips/gems in 3 separated warm hues, Dawn Coal the only near-white). No additive shells, no toy-orange sheets. |
+| No muddy/noisy surface | Large confident ash-garnet fields; detail from FACETS + emissive edge-gradients, not busy texture (explicitly NOT the retired leopard-spot skin). |
+| Spectacle triad present | Withheld-regalia rebirth ladder (§5) + earned light (§4) + the pyre-train signature (§2) are all in THIS sheet, not deferred to a CP2. |
+
+Per-axis round-0 TARGETS (aim to hand Fable a ~3.5+ build): rear-chase dark-sky read ≥3.5 · ladder-rankability ≥3.5 · silhouette-strength ≥3.5 · premium-not-tacky glow ≥3.5 · apex signature ≥3.5 · distinctiveness veto CLEAR (not Solar/Pearl/Ember/Cinderwing). Reusable KIT to adapt (not re-derive, §6): `empressMats` from the `sovereignMats` structure · the `igniteStage` gating pattern · the opaque dark-body+rim technique (spent on the gorget/coal-eyes, never a ring) · `flatTriMesh` · the `wingsymprobe`/`smoke` probes · the premium's-own `starters.mjs` block.
+
+### QA-1. The gate
 
 1. **Side-by-side baseline:** because the new `phoenixEmpress` COEXISTS with the shipped `phoenix`, the
    comparison is direct — render both through `dragonstudio` (and view both in-game). Run the Fable gate
@@ -290,5 +312,9 @@ parts are not shadowed by the inference for the new key. Roster stays byte-ident
 - **2026-07-09 — owner decisions folded in:** (1) build as a NEW coexisting roster block
   `phoenixEmpress` — do NOT replace the shipped `phoenix`; compare in-game, migrate/retire later
   (owner directive); (2) `title: 'The Dawnfire Empress'`; (3) apex-body = dark-garnet dorsal + a small
-  pale-gold f3 belly nod; (4) the animated `trainSpread` fold/fan motion beat = APPROVED. Not yet
-  implemented — this is the build contract for the Phoenix session.
+  pale-gold f3 belly nod; (4) the animated `trainSpread` fold/fan motion beat = APPROVED.
+- **2026-07-09 — pre-scored to save iteration:** added QA-0 (the method §3.5 FIREWALL pre-score +
+  round-0 self-audit, with Phoenix pass-conditions + per-axis round-0 targets + the reusable-kit
+  inventory) so the apex build clears the known failure modes BEFORE the first high-effort Fable round —
+  Fable verifies in 2–3 rounds instead of discovering over 7–10. Not yet implemented — this is the build
+  contract for the Phoenix session.
