@@ -103,6 +103,9 @@ const UM_EXTRAS = [
   // STAGE 2 — the seraph (the hero stage). Pin the stage-2 sub-rig.
   { name: 's2idle',   o: { stage: 2, t: 3.0 } },
   { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
+  // THE ALL-SNAP reveal — fire the snap at 2.7, render at 3.0 so the lock has eased in; the
+  // player is off-centre (gx/gy) so every eye visibly converges to the SAME off-axis point.
+  { name: 's2snap',   o: { stage: 2, snap: 2.7, gx: 0.55, gy: -0.25, t: 3.0 } },
   // WING-DESIGN: a single isolated wing (eyes/great-eye/halo stripped) for silhouette work.
   { name: 'wingsolo', o: { wingsolo: 1, t: 3.0 } },
 ];
@@ -142,7 +145,9 @@ const FIGHT_STATES = bossId === 'eitherwing'
         : bossId === 'karnvow'
           ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'dread', o: { sp: 0.9, dread: true, t: 2.6 } }]
           : bossId === 'unmasked'
-            ? [{ name: 'idle', o: { t: 2.85 } }, { name: 's2idle', o: { stage: 2, t: 3.0 } }]
+            ? [{ name: 'idle', o: { t: 2.85 } }, { name: 's2idle', o: { stage: 2, t: 3.0 } },
+               { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
+               { name: 's2snap', o: { stage: 2, snap: 2.7, gx: 0.55, gy: -0.25, t: 3.0 } }]
             : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
