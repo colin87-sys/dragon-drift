@@ -292,3 +292,17 @@ parts are not shadowed by the inference for the new key. Roster stays byte-ident
   (owner directive); (2) `title: 'The Dawnfire Empress'`; (3) apex-body = dark-garnet dorsal + a small
   pale-gold f3 belly nod; (4) the animated `trainSpread` fold/fan motion beat = APPROVED. Not yet
   implemented — this is the build contract for the Phoenix session.
+- **2026-07-09 — IMPLEMENTED (this session).** New `js/dragonPhoenixEmpress.js` registers the four
+  default-off builders (`pyreHeartTorso` · `scythePinionWings` · `cometCrestHead` · `pyreTrainTail`)
+  + `empressMats` (copies only the `sovereignMats` STRUCTURE; warm hues authored fresh). New roster
+  key `phoenixEmpress` in `js/dragons.js` (shipped `phoenix` byte-identical — pure insertion). Apex
+  built first, then subtracted down the REBIRTH ladder (igniteStage 0→3; train 2/4/6/9 quills; coals /
+  crest / gorget / Dawn Coal / pinion-slots gated per rung). Lighting = "a coal, not a torch":
+  dark-garnet body, fire on wing pinion trailing edges (crimson) + train-tip coal-eye constellation
+  (amber-gold) + comet crest (rose), one near-white Dawn Coal (center train gem, f3). Failure-class
+  gauntlet GREEN: `tricount` monotonic 558/691/914/1075 <6000; `blueprint`; `smoke`; `wingsymprobe`
+  PASS (0.000); headless preview+flight ticks clean; new `phoenixEmpress` block in `tests/starters.mjs`
+  (cant-balance Σ=0, fan sector <180°, quill gap ≥1 quill-width, all ladder dials monotonic).
+  Round-0 self-audit reseated the gorget (breast chevron, was an oversized neck lozenge) + broadened
+  the train into a full "empress robe" fan. TODO (owner-gated, motion): wire the approved `trainSpread`
+  fold/fan animation beat; owner motion/feel review on the live preview.
