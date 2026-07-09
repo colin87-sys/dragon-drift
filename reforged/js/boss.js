@@ -918,6 +918,12 @@ let wallMatEmber = null;   // EMBERTIDE-only: dark, soft-edged multiply shadow w
 let arenaHY = CONFIG.laneMaxY;
 let arenaTargetHY = CONFIG.laneMaxY;
 let crushFired = false, crushT = 0, crushBoxT = 0, crushHoldT = 0;   // per-phase wave trigger + hold + the letterbox pulse timer
+// THE STAGE-TRANSITION BEAT (multi-stage bosses w/ model.stageTransitionDur — THE UNMASKED):
+// the crack/unveiling plays FIRE-FREE, then the all-eyes REVEAL snaps as a punctuated beat
+// (camera punch + a beat of slow-mo + the form's name) before the new stage's attacks open.
+// stageBeatT counts up while the beat runs (-1 = inactive); revealed = the reveal has landed.
+let stageBeatT = -1, stageBeatDur = 0, stageBeatRevealed = true;
+const STAGE_REVEAL_HOLD = 0.7;   // the "screenshot" beat held after the eyes lock, before fire resumes
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
 // so overlapping/concentric waves read apart even for colour-blind players — and
@@ -1411,7 +1417,7 @@ export function startBossEncounter(player, defOverride) {
   // Fresh fight = full-height sky; the crush (def.skyCrush) re-arms per encounter.
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true;
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -1589,7 +1595,7 @@ function endEncounter(player) {
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true;
   ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
@@ -1983,6 +1989,24 @@ export function updateBoss(dt, player, time, camera) {
   }
   arenaHY += (arenaTargetHY - arenaHY) * Math.min(dt * 1.6, 1);
   game.bossArenaHY = arenaHY < CONFIG.laneMaxY - 0.3 ? arenaHY : null;
+
+  // ── THE STAGE-TRANSITION BEAT (THE UNMASKED): advance the fire-free crack/unveiling, then
+  // land the all-eyes REVEAL as a punctuation the instant the new form settles — a camera punch,
+  // a beat of slow-mo (the "screenshot" hold), and the form's name (deferred here from the
+  // shield-break so it reads ON the eye-snap). Fire stays held (attackTimer, set in breakShield)
+  // through the reveal hold; the model owns the visual morph + the eye-snap itself. ──
+  if (stageBeatT >= 0 && phase === 'fight') {
+    stageBeatT += dt;
+    if (!stageBeatRevealed && stageBeatT >= stageBeatDur) {
+      stageBeatRevealed = true;
+      cameraCtl.shake?.(1.5);
+      game.slowMoTimer = Math.max(game.slowMoTimer, 0.9); setSlowMo(true);   // reuse the near-death dilation channel (main.js reads it)
+      const stageName = def.phases[phaseIdx]?.name || def.name;
+      ui.bossNote?.(stageName, def.epithet || def.name, 'phase', 2.8);
+      sfx.milestone?.();
+    }
+    if (stageBeatT >= stageBeatDur + STAGE_REVEAL_HOLD) stageBeatT = -1;   // beat done — the new stage's attacks may open
+  }
 
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
   driveSwarm(dt, player);          // §5d slot 7: the condense/scatter cycle + formation (inert for other bosses)
@@ -2898,6 +2922,14 @@ function breakShield(player) {
   // new phase's first attack can telegraph.
   pending.length = 0;
   attackTimer = Math.max(attackTimer, 1.6);
+  // A MULTI-STAGE boss (THE UNMASKED) plays its form-change as a CINEMATIC BEAT: hold fire
+  // for the whole crack/unveiling (model.stageTransitionDur) PLUS a reveal hold, so the eyes
+  // snap to you before the new stage opens up. The reveal emphasis fires at the arrival below.
+  const _stageDur = model.stageTransitionDur;
+  if (_stageDur && def.phases[phaseIdx + 1]) {
+    stageBeatT = 0; stageBeatDur = _stageDur; stageBeatRevealed = false;
+    attackTimer = Math.max(attackTimer, _stageDur + STAGE_REVEAL_HOLD);
+  }
   // The surviving-the-phase card resolves the instant its shield bursts: capture
   // if the whole card was hitless. The next phase's card arms right after.
   endCard();
@@ -2910,8 +2942,10 @@ function breakShield(player) {
     rhythm?.reset();
     rhythmRest = null;
     beginCard(phaseIdx);
-    model.setPhase?.(phaseIdx);   // optional damage-state hook (KARNVOW's cloak tears; others ignore)
-    ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
+    model.setPhase?.(phaseIdx);   // optional damage-state hook (KARNVOW's cloak tears; THE UNMASKED animates its stage transition; others ignore)
+    // The PHASE announcement: for a stage-transition boss it's DEFERRED to the reveal (it lands
+    // ON the eye-snap, not at the shield-burst 2s earlier); every other boss announces now.
+    if (!model.stageTransitionDur) ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
     harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
     // §5b the arena-mender: each phase seam TEARS a sector of her web and she
@@ -3989,7 +4023,7 @@ export function resetBoss() {
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true;
   ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
