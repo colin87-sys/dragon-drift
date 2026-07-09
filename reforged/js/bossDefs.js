@@ -1545,7 +1545,8 @@ export const BOSSES = {
     title: 'the Second Sun',
     epithet: 'What Wore the Sky as a Mask',
     tier: 5,                              // APEX (§5b band 5) — TIER_BUDGETS[5] = 30,000 tris / 120 draws
-    hpMax: 600,                           // §5b Apex
+    hpMax: 240,                           // §5b Apex — PER-FORM health (multi-form boss, formLifebars): each of the 3 forms is fought from a FULL bar to 0, so the effective total is ~3×240=720 (a ~3.5-min apex fight). TUNE for length.
+    formLifebars: true,                   // MULTI-FORM boss: each phase is its OWN full health bar. A form is "defeated" at 0 hp → shield → Surge through → the bar REFILLS full + the next form's transition plays. Only the LAST form's defeat is death. (THE UNMASKED: eclipse → seraph → unveiling, three full fights.)
     archetype: 'unmasked',                // dispatch → bossUnmasked.js (bossModel.js)
     // The pupil (STAGE 1) / the veiled core (STAGE 3) is the aim anchor; the ~20 eyes
     // (STAGE 2) become per-eye lock parts at CP2. V1: the always-watching focal eye.
