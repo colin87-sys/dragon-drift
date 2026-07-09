@@ -146,7 +146,9 @@ export function setFlapDebugPose(parts, model, state) {
   }
   if (pl) {
     pl.rotation.z = rootFlap + turnBias - rollFold;
-    pl.rotation.x = 0.14 - feather * 0.18 + climbBias;
+    // feather = fore-aft PITCH (rotation.x): SAME sign both wings under scale.x=-1 (the mirror
+    // doesn't flip rotation.x's sense). Matches the live-flight fix in dragon.js.
+    pl.rotation.x = 0.14 + feather * 0.18 + climbBias;
     pl.rotation.y = 0.18 + turnBias * 0.8;
   }
   if (tr) {
@@ -154,8 +156,10 @@ export function setFlapDebugPose(parts, model, state) {
     tr.rotation.x = -0.12 + feather * 0.16;
   }
   if (tl) {
-    tl.rotation.z = -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45;
-    tl.rotation.x = -0.12 - feather * 0.16;
+    // BOTH tips on the ONE tipLag clock (mirror sign) — not a separate sin(phase+1.18) that
+    // folded the L tip a beat off the R (the off-beat asymmetry). Matches dragon.js.
+    tl.rotation.z = -tipLag * 0.28 + turnBias * 0.45;
+    tl.rotation.x = -0.12 + feather * 0.16;
   }
   poseBladePivots(parts, state);
   poseLobePivots(parts, state);
