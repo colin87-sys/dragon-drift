@@ -43,7 +43,7 @@ function empressMats(def, glow, stage) {
   const vaneI  = [0, 0.55, 1.05, 1.65][st] * g;     // train-quill vane edge gradient
   const coalI  = [0, 0.70, 1.25, 2.05][st] * g;     // coal-eye gems (mesh withheld at f0)
   const gorgetI = [0, 0, 1.35, 2.10][st] * g;       // heart-fire gorget (conferred at f2)
-  const crestI = [0, 0.55, 1.00, 1.60][st] * g;     // comet-crest coal tips
+  const crestI = [0, 0.75, 1.30, 2.05][st] * g;     // comet-crest rose (bumped so the 3rd hue survives chase distance)
 
   // BODY — dark garnet matte, always present (stage-independent). A lifted garnet
   // emissive floor keeps her faceted-garnet, not void-black, on a dark sky. DoubleSide
@@ -68,17 +68,20 @@ function empressMats(def, glow, stage) {
   // distinct from the rose crest and the amber coals. Dark-root → crimson-tip, emissive only
   // toward the tips. IN spineMats (flare on Surge). Rose is reserved for the CREST alone.
   const PINION_CRIMSON = 0xcc1024;
-  const pinionRoot = surgeMat(0x30111a, 0x50101c, pinI * 0.22, 0.72);
-  const pinionTip  = surgeMat(0x5e1420, PINION_CRIMSON, pinI, 0.5);
-  const pinionEdge = surgeMat(0x6a1626, PINION_CRIMSON, pinI * 0.55, 0.46);
+  // The ash-chick (st 0) wears NO wing fire: the primary DIFFUSE goes dark ash so f0 reads a
+  // rounded charcoal whelp; the crimson diffuse + emissive kindle together from f1.
+  const pinDiff = st === 0 ? 0x241012 : 0x5e1420, pinDiffE = st === 0 ? 0x2a1013 : 0x6a1626;
+  const pinionRoot = surgeMat(0x241012, 0x50101c, pinI * 0.22, 0.72);
+  const pinionTip  = surgeMat(pinDiff, PINION_CRIMSON, pinI, 0.5);
+  const pinionEdge = surgeMat(pinDiffE, PINION_CRIMSON, pinI * 0.55, 0.46);
 
-  // TRAIN-QUILL vane — "a COAL, not a torch": the blade DIFFUSE is near-dark ash-maroon; the
-  // fire lives on a thin crimson→amber EDGE gradient tracing the rim (lower ember-crimson →
-  // upper amber toward the coal-eye), NOT the whole face. Edge mats IN accentMats (flare on
-  // Surge); the dark blade holds. The bright element is the coal-eye gem at the tip.
+  // TRAIN-QUILL vane — "a COAL, not a torch", and the light lives in the GEMS not the wires:
+  // near-dark ash-maroon blade + a THIN, dim crimson→amber edge tracing the rim (so the fan
+  // reads as dark blades, not gold filigree). Edge mats IN accentMats (flare on Surge); the
+  // coal-eye gem at the tip is the bright element — the ember constellation.
   const vaneDark   = surgeMat(0x241012, 0x260c08, vaneI * 0.10 + 0.05, 0.74);   // near-dark blade
-  const vaneEdgeLo = surgeMat(0x3a1218, EMBER, vaneI * 1.05, 0.5);              // lower rim ember-crimson
-  const vaneEdgeHi = surgeMat(0x4a2810, AMBER, vaneI * 1.15, 0.46);            // upper rim amber (toward the coal)
+  const vaneEdgeLo = surgeMat(0x3a1218, EMBER, vaneI * 0.6, 0.5);               // lower rim ember-crimson (dimmed)
+  const vaneEdgeHi = surgeMat(0x4a2810, AMBER, vaneI * 0.65, 0.46);            // upper rim amber (dimmed)
 
   // DORSAL keel-seam (thin ember groove) + heart-fire GORGET (amber breast chevron,
   // withheld until f2). Both IN spineMats (torso) → flare on Surge.
@@ -91,7 +94,7 @@ function empressMats(def, glow, stage) {
   // COAL-EYE gem — amber-gold emissive, the BRIGHTEST point of the train (the constellation
   // that owns the lower frame). Stays OUT of every surge array (holds its own hue — the
   // constellation must not blow to gold-white on Rebirth). A thin dark bezel frames it.
-  const coalEye = new THREE.MeshStandardMaterial({ color: 0xffd27a, emissive: 0xffa81e, emissiveIntensity: coalI * 1.5, flatShading: true, roughness: 0.26, metalness: 0.15 });
+  const coalEye = new THREE.MeshStandardMaterial({ color: 0xffd888, emissive: 0xffb028, emissiveIntensity: coalI * 2.7, flatShading: true, roughness: 0.22, metalness: 0.15 });
   const coalBezel = new THREE.MeshStandardMaterial({ color: def.covert ?? 0x2a1013, emissive: 0x2a0e06, emissiveIntensity: 0.2, flatShading: true, roughness: 0.7, metalness: 0.2 });
   // The Dawn Coal — the ONE near-white, f3-only, tiny. OUT of all surge arrays.
   const dawnCoal = new THREE.MeshStandardMaterial({ color: DAWNCOAL, emissive: 0xffdca0, emissiveIntensity: st >= 3 ? 2.4 * g : 0, flatShading: true, roughness: 0.24 });
@@ -445,7 +448,7 @@ function buildCometCrestHead(def, model, mats) {
     q.add(flatTriMesh(vt, M.crestGlow));
     // small coal-eye tip (amber-gold on dark bezel; OUT of surge arrays)
     if ((model.coalBloom ?? 1) > 0) {
-      const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.045 * hs, 0), M.coalEye);
+      const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.056 * hs, 0), M.coalEye);
       coal.position.set(0, clen, 0);
       q.add(coal);
     }
@@ -561,19 +564,22 @@ function buildPyreTrainTail(def, model, mats, anchor) {
     const tipP = [0, 0, zTip];
     // DARK blade interior (the coal body)
     vane.add(flatTriMesh([[b0, b1, s1], [b0, s1, s0], [s0, s1, tipP]], M.vaneDark));
-    // thin GLOWING edge rods tracing the rim — lower half ember-crimson, upper half amber
-    const er = 0.017 + 0.006 * q.lenScale;
+    // THIN, dim glowing edge rods tracing the rim — lower ember-crimson, upper amber. Kept
+    // subtle so the GEMS, not the wires, carry the train's light (the ember-constellation read).
+    const er = 0.011 + 0.004 * q.lenScale;
     vane.add(bar(b0, s0, er, M.vaneEdgeLo)); vane.add(bar(b1, s1, er, M.vaneEdgeLo));
     vane.add(bar(s0, tipP, er, M.vaneEdgeHi)); vane.add(bar(s1, tipP, er, M.vaneEdgeHi));
-    // faceted COAL-EYE at the tip — the constellation point, the brightest thing in the fan.
+    // faceted COAL-EYE at the tip — the BRIGHTEST thing in the fan (a hanging ember over the
+    // dark blade). Bigger + hotter than the rim so the constellation owns the lower frame.
     if (coalOn) {
       const isCenter = q.phi === 0;
       const isDawn = isCenter && dawnOn;
-      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(0.058, 0), M.coalBezel);
-      bezel.position.set(0, 0, zTip); bezel.scale.set(1, 1.25, 1);
+      const gemR = isDawn ? 0.088 : 0.074;
+      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.12, 0), M.coalBezel);
+      bezel.position.set(0, 0, zTip); bezel.scale.set(1, 1.28, 1);
       vane.add(bezel);
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(isDawn ? 0.072 : 0.056, 0), isDawn ? M.dawnCoal : M.coalEye);
-      gem.position.set(0, 0, zTip + (isDawn ? 0.02 : 0)); gem.scale.set(1, 1.25, 1);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), isDawn ? M.dawnCoal : M.coalEye);
+      gem.position.set(0, 0, zTip + (isDawn ? 0.02 : 0)); gem.scale.set(1, 1.28, 1);
       vane.add(gem);
     }
   }
