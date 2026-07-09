@@ -320,6 +320,87 @@ if (!cp1) {
   ok(ns[0] === 0 && ns[1] === 0 && ns[2] > 0 && ns[2] < ns[3], `${key}: nape-star arrives at Radiant (${ns.join('→')})`);
 }
 
+// ── PHOENIX DAWNFIRE EMPRESS (SSSR premium, 4 forms) — the REBIRTH coronation ladder ─────────────
+// The empress reaches Eternal (not a form-2-capped starter), so her own block. Asserts the ladder
+// CONFERS regalia rung by rung (igniteStage 0→3, the train quills / coals / crest / gorget arriving
+// on schedule) AND the PYRE-TRAIN's not-a-ring guarantees: the fan sector stays < 180°, adjacent
+// quills keep ≥ 1 quill-width of negative space, the ±8° cant balances to Σ≈0 (a mirrored pair), and
+// the vane diffuse stays dark (the emissive carries the fire) — the §2/§3d/§4 contract, in numbers.
+if (!cp1) {
+  const { trainFanLayout } = await import('../js/dragonPhoenixEmpress.js');
+  const key = 'phoenixEmpress';
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  const per = [];
+  for (let f = 0; f <= maxT; f++) {
+    const def = ascendedDef(DRAGONS[key], f, 0);
+    const { group, parts } = buildDragonModel(def, {});
+    let tris = 0; group.traverse((o) => { if (o.isMesh && o.geometry) { const g = o.geometry; tris += g.index ? g.index.count / 3 : (g.attributes?.position?.count / 3 || 0); } });
+    per.push({ def, m: def.model, parts, tris: Math.round(tris) });
+  }
+  for (let f = 0; f <= maxT; f++) {
+    ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
+    ok(!!per[f].parts.spinePoints && per[f].parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
+    ok(!!per[f].parts.motifAnchor, `${key} f${f}: motifAnchor published`);   // crest anchor exists every form
+    ok(per[f].parts.coreGlow === null || (per[f].parts.coreGlow && per[f].parts.coreGlow.isSprite),
+      `${key} f${f}: coreGlow is a sprite/null (never a colour number — the invisible-dragon crash class)`);
+    // wing rig contract — the flap path null-derefs without these.
+    for (const h of ['wingPivotL', 'wingPivotR', 'wingTipL', 'wingTipR', 'tipMarkerL', 'tipMarkerR']) {
+      ok(!!per[f].parts[h], `${key} f${f}: wing rig handle ${h} published`);
+    }
+    ok(per[f].parts.wingElements && per[f].parts.wingElements.length === 2, `${key} f${f}: wingElements published (pair)`);
+  }
+  // tris monotonic — every rung bolts on hardware (quills / slots / crest / gorget), not just glow.
+  ok(per[0].tris < per[1].tris && per[1].tris < per[2].tris && per[2].tris < per[3].tris,
+    `${key}: tris monotonic across the 4 forms (${per.map((p) => p.tris).join(' < ')})`);
+  // ignition ramp: dark whelp → full ignition. igniteStage 0→3 monotonic.
+  const ig = per.map((p) => p.m.igniteStage ?? 3);
+  ok(ig[0] === 0 && ig[0] < ig[1] && ig[1] < ig[2] && ig[2] < ig[3], `${key}: igniteStage monotonic 0→3 (${ig.join('→')})`);
+  // the TRAIN is conferred quill-by-quill; coals / crest kindle; every dial monotonic up.
+  const tq = per.map((p) => p.m.trainQuills), cb = per.map((p) => p.m.coalBloom), cq = per.map((p) => p.m.crestQuills);
+  ok(tq[0] < tq[1] && tq[1] < tq[2] && tq[2] < tq[3], `${key}: trainQuills monotonic (${tq.join('→')})`);
+  ok(cb[0] === 0 && cb[0] < cb[1] && cb[1] < cb[2] && cb[2] <= cb[3], `${key}: coalBloom withheld at f0, grows (${cb.join('→')})`);
+  ok(cq[0] === 0 && cq[0] < cq[1] && cq[1] < cq[2] && cq[2] < cq[3], `${key}: crestQuills 0→1→3→5 (${cq.join('→')})`);
+  // the GORGET is a f2 mesh reveal (a new regalia CATEGORY, not scale); withheld below f2.
+  const gr = per.map((p) => p.m.gorget ?? 0);
+  ok(gr[0] === 0 && gr[1] === 0 && gr[2] > 0 && gr[2] < gr[3], `${key}: heart-fire gorget conferred at f2 (${gr.join('→')})`);
+  // the Dawn Coal (the ONE near-white) is Eternal-only.
+  const dc = per.map((p) => p.m.dawnCoal ?? 0);
+  ok(dc[0] === 0 && dc[1] === 0 && dc[2] === 0 && dc[3] > 0, `${key}: Dawn Coal near-white is f3-only (${dc.join(',')})`);
+  // rake + span earn the rising scythe skyline each rung.
+  const rk = per.map((p) => p.m.sweepRake), sp = per.map((p) => p.m.spanScale);
+  ok(rk[0] < rk[1] && rk[1] < rk[2] && rk[2] < rk[3], `${key}: sweepRake monotonic (${rk.join('→')})`);
+  ok(sp[0] < sp[1] && sp[1] < sp[2] && sp[2] < sp[3], `${key}: spanScale monotonic (${sp.join('→')})`);
+  // eyeShape round→almond (34%→16%) monotonic DECREASING.
+  const es = per.map((p) => p.m.eyeShape);
+  ok(es[0] > es[1] && es[1] > es[2] && es[2] > es[3], `${key}: eyeShape round→almond monotonic (${es.join('→')})`);
+  // headScale monotonic DECREASING (ash-chick big head → keen empress).
+  const hs = per.map((p) => p.m.headScale);
+  ok(hs[0] > hs[1] && hs[1] > hs[2] && hs[2] >= hs[3], `${key}: headScale monotonic (chick→empress)`);
+
+  // ── the PYRE-TRAIN not-a-ring guarantees (per form) ──
+  for (let f = 1; f <= maxT; f++) {   // f0 has 2 stub nubs — the fan asserts start where the fan does
+    const lay = trainFanLayout(per[f].m);
+    ok(lay.fanDeg < 180, `${key} f${f}: fan sector ${lay.fanDeg}° < 180° (not a ring)`);
+    // quill angular WIDTH (a representative vane): full base width / length, at the outer quill.
+    const quillWidthRad = (2 * 0.15) / (1.1 * 2.36 * Math.pow(0.85, Math.floor(lay.nQuills / 2)));
+    ok(lay.minGapRad >= quillWidthRad, `${key} f${f}: quill gap ${lay.minGapRad.toFixed(3)}rad ≥ 1 quill-width ${quillWidthRad.toFixed(3)}rad (mandatory negative space)`);
+    // ±8° cant balances to Σ≈0 (a mirrored L/R pair — must still read balanced like a wing pair).
+    const cantSum = lay.quills.reduce((a, q) => a + q.cant, 0);
+    ok(Math.abs(cantSum) < 1e-9, `${key} f${f}: tail-quill cant balances Σ≈0 (${cantSum.toExponential(1)})`);
+    // swell-then-taper: the center quill is the longest (lenScale peaks at the middle).
+    const lens = lay.quills.map((q) => q.lenScale);
+    ok(Math.max(...lens) === lens[0] || lay.quills.find((q) => q.phi === 0), `${key} f${f}: center quill longest (swell-then-taper)`);
+  }
+  // vane diffuse held dark (L ≤ 0.22 — the emissive carries the fire, not a toy-bright sheet).
+  const { materials } = buildDragonModel(per[3].def, {});
+  const wm = materials.wingMat; const hsl = {}; wm.color.getHSL(hsl);
+  ok(hsl.l <= 0.30, `${key}: pinion diffuse held dark (L ${hsl.l.toFixed(2)})`);
+  // accent hue sits in the warm band (roster anti-collision — not Solar's violet).
+  ok(DRAGONS[key].accentHue != null, `${key}: def.accentHue set`);
+  ok(hueDist(hueOf(DRAGONS[key].accentHue), 40) <= 25, `${key}: accentHue warm (${hueOf(DRAGONS[key].accentHue).toFixed(0)}° near amber-gold 40°)`);
+}
+
 console.log(`\nStarter geometry asserts (§7)${cp1 ? ' — CP1 (apex bands)' : ''}: ${pass} passed, ${fail} failed.`);
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
 process.exit(0);

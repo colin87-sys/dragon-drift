@@ -939,6 +939,85 @@ export const DRAGONS = {
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 
+  // PHOENIX — "The Dawnfire Empress" (SSSR premium rebuild, coexisting with the shipped
+  // `phoenix` for the compare-before-migrate call). The deliberate OPPOSITE of Solar: her
+  // glory streams BEHIND + BELOW as a fanned PYRE-TRAIN of ember-eyed quills (an empress's
+  // robe, not a king's crown) under thin rising scythe wings. Lighting = "a coal, not a
+  // torch": dark-garnet matte body, fire only on edges/tips/gems in three warm hues, one
+  // tiny near-white (the Dawn Coal, f3). Four FRESH builders (default-off; only this def
+  // opts in). `archetype:'phoenix'` kept ONLY as the RIG flag (ember-motes / Rebirth Surge);
+  // the explicit `parts` win over the legacy inference. See PHOENIX-DAWNFIRE-BUILDSHEET.md.
+  phoenixEmpress: {
+    name: 'Phoenix — Dawnfire',
+    lanceTint: 0xff5a2a, lanceRune: 'phoenixFlame',
+    title: 'The Dawnfire Empress',
+    rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
+    accentHue: 0xd98a12,   // amber-gold coal-eyes carry the §9 accent
+    archetype: 'phoenix',  // RIG flag only (ember-motes / Rebirth Surge) — NOT a model path
+    parts: { torso: 'pyreHeartTorso', wings: 'scythePinionWings', head: 'cometCrestHead', tail: 'pyreTrainTail', surface: { shader: [] } },
+    // Mirror the shipped phoenix's stats so the in-game comparison is fair.
+    stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
+    hasStyle: true,        // keep her own warm trail colour even in Surge
+    feverWing: 0xffe6a8,   // Rebirth ignition = warm gold (never white-hot, never magenta)
+    feverEye: 0xfff2c8,
+    feverWash: [0.055, 0.040, 0.014],   // Rebirth screen wash: warm gold, kept low
+    // APEX reference dials; each form dials the per-stage silhouette (cumulative). Empress
+    // dials: igniteStage, trainQuills, trainFan, trainLift, coalBloom, dawnCoal, primaries,
+    // pinionSlots, sweepRake, tipRise, crestQuills, gorget, eyeShape, glowLevel, spanScale.
+    model: {
+      scale: 1.18, flapBias: 0.82, flapAmp: 0.74,   // lighter, quicker bird wingbeat than Solar's bow
+      tailLagScale: 0.05,
+      spanScale: 1.06, primaries: 7, pinionSlots: 4, sweepRake: 1.0, tipRise: 1.0,
+      trainQuills: 9, trainFan: 150, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1,
+      crestQuills: 5, gorget: 1.0, eyeShape: 0.16, glowLevel: 1.0, headScale: 1.0,
+      igniteStage: 3,
+    },
+    forms: [
+      // f0 — ASH HATCHLING: charcoal ash-chick, round, dim, a promise. No train (2 nubs,
+      // unlit), no coals, no crest, no gorget. igniteStage 0 (all emissives dark).
+      { igniteStage: 0, trainQuills: 2, trainFan: 90, trainLift: 0.1, coalBloom: 0, dawnCoal: 0,
+        primaries: 4, pinionSlots: 0, sweepRake: 0.35, tipRise: 0.35, crestQuills: 0, gorget: 0,
+        eyeShape: 1.0, glowLevel: 0.25, headScale: 1.3, spanScale: 0.70,
+        colors: { body: 0x1a0f0d, belly: 0x2a1810, covert: 0x241012, eye: 0xd8a860,
+          wingEmissive: 0x5a1220, coreGlow: 0x8a3010, apexSeam: 0xd9541a,
+          trail: 0xc65a2a, boostTrail: 0xd97a3a } },
+      // f1 — KINDLED FLEDGLING: first quills catch, the fire takes. 4 quills ~90°, first
+      // coals (dim amber), crest 1, first 2 pinion slots + crimson tips. igniteStage 1.
+      { igniteStage: 1, trainQuills: 4, trainFan: 90, trainLift: 0.4, coalBloom: 0.5, dawnCoal: 0,
+        primaries: 5, pinionSlots: 2, sweepRake: 0.55, tipRise: 0.55, crestQuills: 1, gorget: 0,
+        eyeShape: 0.7, glowLevel: 0.5, headScale: 1.15, spanScale: 0.82,
+        colors: { body: 0x241012, belly: 0x321c12, covert: 0x2a1013, eye: 0xe0b866,
+          wingEmissive: 0xc0142e, coreGlow: 0xc0401a, apexSeam: 0xd9541a,
+          trail: 0xd65e28, boostTrail: 0xe08038 } },
+      // f2 — PYRE DANCER: the display ignites, she performs. 6 quills ~120°, brighter coals
+      // on all tips, crest 3, 3 slots + outer-40% gradient, the GORGET is conferred (gold
+      // mesh appears), rose feather-edge kiss arrives. igniteStage 2.
+      { igniteStage: 2, trainQuills: 6, trainFan: 120, trainLift: 0.7, coalBloom: 0.8, dawnCoal: 0,
+        primaries: 6, pinionSlots: 3, sweepRake: 0.78, tipRise: 0.78, crestQuills: 3, gorget: 0.6,
+        eyeShape: 0.4, glowLevel: 0.75, headScale: 1.05, spanScale: 0.92,
+        colors: { body: 0x2c1014, belly: 0x3a2114, covert: 0x2c1013, eye: 0xe8c072,
+          wingEmissive: 0xe0173a, coreGlow: 0xd9541a, apexSeam: 0xe83a6a,
+          trail: 0xe06a2c, boostTrail: 0xe89040 } },
+      // f3 — DAWNFIRE EMPRESS: the full pyre-train, reborn. 9 quills ~150° proud, blazing
+      // coal arc + the near-white Dawn Coal (center, f3-only), crest 5 coal-tipped, full
+      // pinion slots + rake + tip curl + rose edge, gorget blazing, pale-gold belly nod.
+      { igniteStage: 3, trainQuills: 9, trainFan: 150, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1,
+        primaries: 7, pinionSlots: 4, sweepRake: 1.0, tipRise: 1.0, crestQuills: 5, gorget: 1.0,
+        eyeShape: 0.16, glowLevel: 1.0, headScale: 1.0, spanScale: 1.06,
+        colors: { body: 0x331016, belly: 0x3a2114, bellyGold: 0xe8c58a, covert: 0x2e1015, eye: 0xffcf6a,
+          wingEmissive: 0xe0173a, coreGlow: 0xd9541a, apexSeam: 0xe83a6a,
+          trail: 0xe8742e, boostTrail: 0xf0a050 } },
+    ],
+    fx: { auraColor: '230,120,40', auraIdle: 0.0, sparkle: false },
+    surgeMotes: true,
+    // Top-level fallbacks (≈ the apex form, for any raw render).
+    body: 0x331016, belly: 0x3a2114, bellyGold: 0xe8c58a, covert: 0x2e1015, copper: 0x8a4a22,
+    scales: 0x8a4a22, horn: 0x8a4a22,
+    wingInner: 0x7a1428, wingOuter: 0x5a1220, wingEmissive: 0xe0173a,
+    apexEye: 0xffcf6a, apexSeam: 0xe83a6a, coreGlow: 0xd9541a, surgeHi: 0xffe6a8,
+    eye: 0xffcf6a, trail: 0xe8742e, boostTrail: 0xf0a050,
+  },
+
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
   // energy bands, lateral astral fin-vanes, a regal mask head + a celestial saddle,
   // that slithers HORIZONTALLY (low + readable, §0.5) and tapers into a streaming
