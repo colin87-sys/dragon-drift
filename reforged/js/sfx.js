@@ -37,6 +37,38 @@ export const UNLEASH_V2 = (() => {
 export const LANCE_V3 = (() => {
   try { return !/[?&]lance=v2(&|$)/.test(window.location.search); } catch { return true; }
 })();
+// LANCE SOUND PROFILE (the ground-up A/B overhaul). 'classic' = the current lance
+// bodies in the `sfx` object below (unchanged); 'wyrm' = the parallel "quiet hands,
+// loud world" engine in sfxLance2.js (the boss-body resonator impacts). This pass
+// only diverts brandStrike/brandFinale; every other event still plays the classic
+// body under both profiles. Initialised from `?lancesfx=wyrm` (the deterministic
+// selector, e.g. for an offline render) else the saved choice; flipped at runtime
+// by setLanceProfile (settings / the Shift+L A/B hotkey) so the two can be compared
+// mid-fight without a reload. Nothing classic is deleted or changed.
+let lanceProfile = (() => {
+  try { const m = /[?&]lancesfx=(wyrm|classic)/.exec(window.location.search); if (m) return m[1]; } catch { /* no window */ }
+  return saveData.audio.lanceProfile === 'wyrm' ? 'wyrm' : 'classic';
+})();
+export function getLanceProfile() { return lanceProfile; }
+export function setLanceProfile(name) {
+  lanceProfile = name === 'wyrm' ? 'wyrm' : 'classic';
+  saveData.audio.lanceProfile = lanceProfile;
+  persist();
+  // Switch hygiene: silence the OUTGOING profile's classic looping voices so a
+  // mid-fight flip never strands a hum/riser. (The wyrm resonator is torn down by
+  // its own bossVoiceEnd, wired at the main.js toggle + bossEnd.)
+  try { sfx.dwellHum(0); sfx.brandRiserCancel?.(); } catch { /* pre-init */ }
+  return lanceProfile;
+}
+export function toggleLanceProfile() { return setLanceProfile(lanceProfile === 'wyrm' ? 'classic' : 'wyrm'); }
+// Internals kit for the parallel wyrm engine (sfxLance2.js) — a one-directional
+// export (sfxLance2 imports this; sfx.js never imports sfxLance2, so no cycle: the
+// call-site dispatch lives in main.js). Live bindings (sfxBus, the ctx) are exposed
+// as accessors because they're (re)assigned when the graph is built.
+export const _sfxKit = {
+  getCtx, sfxBus: () => sfxBus, tone, noiseWhoosh, gritBurst,
+  getNoiseBuffer, makeDriveCurve, foldToBand, duckHold, getHarmony,
+};
 let limiterActive = false;   // worklet limiter engaged (false = shipped chain)
 let audioUnderruns = 0;      // audio-thread stall beacons from the limiter worklet
 // Debug readout (audio-thread health is invisible to fps meters).
@@ -2029,6 +2061,19 @@ function pumpDuck(pumpGain, pumpAmt, absTime) {
   pumpGain.gain.cancelScheduledValues(absTime);
   pumpGain.gain.setValueAtTime(1 - pumpAmt, absTime);
   pumpGain.gain.setTargetAtTime(1, absTime + 0.001, 0.07);
+}
+
+// SUSTAINED duck (the Wyrm profile's "one hole for the whole roll" — replaces the
+// per-hit pump flutter): dip the sidechain to 1-amt NOW and HOLD it flat for
+// holdSec, then breathe back. One carved hole the strike train sits inside.
+function duckHold(amt, holdSec = 0.35) {
+  const a = getCtx();
+  if (!a || !pumpGain || !(amt > 0.001)) return;
+  const t = a.currentTime;
+  pumpGain.gain.cancelScheduledValues(t);
+  pumpGain.gain.setValueAtTime(1 - amt, t);
+  pumpGain.gain.setValueAtTime(1 - amt, t + Math.max(0, holdSec));   // hold flat across the roll
+  pumpGain.gain.setTargetAtTime(1, t + Math.max(0, holdSec) + 0.001, 0.12);
 }
 
 // --- Baked drum kits --------------------------------------------------------
