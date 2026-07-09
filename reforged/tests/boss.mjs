@@ -2517,6 +2517,14 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     'ENG-A: BOTH twins fire the converging spread');
   assertEq(bs.length, 10, 'ENG-A: 2 twins × 5 (q1) == the shipped 2-post count (density unchanged)');
   assert(bs.every((b) => b.reflectable), 'ENG-A: opted crossfire stays amber (the parry-carrier contract holds)');
+  // Holder volley: eitherwing `aimed` also opts into emitOrigins (the holder-following eitherMuzzle).
+  const mz = twinOf('eitherMuzzle');
+  assert(mz, 'ENG-A: eitherwing exposes the named holder muzzle (eitherMuzzle)');
+  bullets.resetBossBullets();
+  boss.debugEmitAttack('aimed', player, 1);
+  const ba = bossBullets();
+  assert(ba.length > 0 && ba.every((b) => near(b, mz) < EPS),
+    'ENG-A: eitherwing aimed fires from the holder muzzle (not the pose centre)');
 
   // 3. ORIGINS RESOLVE PER-VOLLEY (not cached): tick, re-read twins, re-emit → matches the fresh positions.
   for (let i = 0; i < 90; i++) { boss.updateBoss(1 / 60, player, t); t += 1 / 60; }

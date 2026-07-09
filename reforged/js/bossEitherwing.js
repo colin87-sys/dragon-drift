@@ -1123,6 +1123,7 @@ export function buildTwinWraith(def, quality = 1) {
   // (not `rig`) so it ignores idle motion — the stable controller ref.
   const muzzle = new THREE.Object3D();
   muzzle.position.set(0, 0, 2.2);
+  muzzle.name = 'eitherMuzzle';   // §ENG-A: aimed/stream resolve here (the holder twin) via def.emitOrigins
   group.add(muzzle);
 
   // ---- §7b per-sheet diagnostics (the builder DECLARES them; tests/boss.mjs
