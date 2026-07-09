@@ -44,7 +44,12 @@ boom an octave into the wrong register; fold it back into the sub band. (4) **By
 A/B is a discipline**: the new `?lance=v2` arm reproduces every shipped body verbatim under
 `if (!LANCE_V3)`, and the one stateful gotcha — `detSeq` — is incremented in the SAME place
 for the v2 arm (brandFinale) and a NEW place for v3 (brandLoose, once per volley), so neither
-arm's deterministic walk drifts.
+arm's deterministic walk drifts. **The subtle trap an extraction harness caught: re-pitching
+a tone by a RATIO breaks byte-identity at 1 ULP** — the v2 arm must reproduce the shipped
+`88*v` literally, not `boom*(88/90)` where `boom = 90*v`, because `(90*v)*(88/90) !== 88*v`
+in IEEE-754 for some residues. When an A/B arm has to be *byte*-exact (an offline render CI
+compares samples), diff the actual call-stream against the base commit — eyeballing "same
+value" misses the last bit.
 
 **→ Leapfrog.** Behind `?lance=v2` (restores shipped lance sounds) alongside the existing
 `?audio=v1`/`?unleash=v1` hatches; the `lockLayer` re-lock state ships un-gated (inert data
