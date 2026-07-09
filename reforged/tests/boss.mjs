@@ -404,6 +404,36 @@ for (const key of BOSS_ORDER) {
   ok('unmasked stage-2 BEHAVIOUR: charge mantle-flares the fan; the ALL-SNAP collapses the wandering eye field onto the player');
 }
 {
+  // THE UNMASKED S1→S2 CRACK TRANSITION: setStageMorph(k) blends the eclipse mask → the
+  // seraph. Endpoints are the discrete stages (byte-identical to the shipped poses); mid-morph
+  // BOTH rigs live (the mask COLLAPSING as the seraph BLOOMS) and the crack seams are lit.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  const s1 = findAllByName(um.group, 'stage1Rig')[0];
+  const s2 = findAllByName(um.group, 'stage2Rig')[0];
+  const cracks = findAllByName(um.group, 'crackSeams')[0];
+  assert(s1 && s2 && cracks, 'unmasked exposes stage1Rig + stage2Rig + crackSeams');
+  // k=0 → the eclipse only, no cracks.
+  um.setStageMorph(0);
+  assert(s1.visible && !s2.visible, 'morph 0 = the eclipse (stage 1 only)');
+  assert(cracks.material.opacity < 0.001, 'morph 0 = no crack seams');
+  // k=1 → the seraph only, at FULL scale (byte-identical to the shipped stage 2), no cracks.
+  um.setStageMorph(1);
+  assert(!s1.visible && s2.visible, 'morph 1 = the seraph (stage 2 only)');
+  assert(Math.abs(s2.scale.x - 1) < 1e-6, `morph 1 = the seraph at full scale (${s2.scale.x})`);
+  assert(cracks.material.opacity < 0.001, 'morph 1 = no crack seams');
+  // mid-morph → BOTH rigs live, cracks lit, the mask collapsing while the seraph blooms.
+  um.setStageMorph(0.5);
+  assert(s1.visible && s2.visible, 'mid-morph both rigs live (the mask collapses as the seraph blooms)');
+  assert(cracks.material.opacity > 0.1, `mid-morph the crack seams are lit (${cracks.material.opacity.toFixed(2)})`);
+  assert(s1.scale.x < 1, `mid-morph the eclipse mask is collapsing (scale ${s1.scale.x.toFixed(2)} < 1)`);
+  assert(s2.scale.x > 0.15 && s2.scale.x < 1, `mid-morph the seraph is blooming (scale ${s2.scale.x.toFixed(2)} between)`);
+  // The stage selector still works: setDebugStage maps to the morph endpoints.
+  um.setDebugStage(1); assert(s1.visible && !s2.visible, 'setDebugStage(1) → the eclipse (morph 0)');
+  um.setDebugStage(2); assert(!s1.visible && s2.visible && Math.abs(s2.scale.x - 1) < 1e-6, 'setDebugStage(2) → the seraph at full scale (morph 1)');
+  um.dispose();
+  ok('unmasked S1→S2 CRACK: setStageMorph blends eclipse→seraph (mask collapses + cracks glow + seraph blooms); endpoints are the shipped stages');
+}
+{
   const colossus = buildBoss(BOSSES.craghold, 1);
   const fingers = findAllByName(colossus.group, 'fingerPivot');
   assert(fingers.length >= 6, `craghold exposes ≥6 named fingerPivots for the telegraph gate (${fingers.length})`);

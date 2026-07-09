@@ -100,6 +100,11 @@ const UM_EXTRAS = [
   { name: 'gazeU',  o: { gx: 0, gy: 1, t: 4.0 } },
   { name: 'gazeD',  o: { gx: 0, gy: -1, t: 4.0 } },
   { name: 'gazeUR', o: { gx: 1, gy: 1, t: 4.0 } },
+  // S1→S2 CRACK TRANSITION — the eclipse mask cracks + collapses as the seraph blooms out.
+  // A filmstrip of the morph k (0=eclipse … 1=seraph) — judge the crack read + the reveal.
+  { name: 's12crackA', o: { morph: 0.30, t: 3.0 } },
+  { name: 's12crackB', o: { morph: 0.52, t: 3.0 } },
+  { name: 's12crackC', o: { morph: 0.74, t: 3.0 } },
   // STAGE 2 — the seraph (the hero stage). Pin the stage-2 sub-rig.
   { name: 's2idle',   o: { stage: 2, t: 3.0 } },
   { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
@@ -147,7 +152,10 @@ const FIGHT_STATES = bossId === 'eitherwing'
           : bossId === 'unmasked'
             ? [{ name: 'idle', o: { t: 2.85 } }, { name: 's2idle', o: { stage: 2, t: 3.0 } },
                { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
-               { name: 's2snap', o: { stage: 2, snap: 2.7, gx: 0.55, gy: -0.25, t: 3.0 } }]
+               { name: 's2snap', o: { stage: 2, snap: 2.7, gx: 0.55, gy: -0.25, t: 3.0 } },
+               { name: 's12crackA', o: { morph: 0.30, t: 3.0 } },
+               { name: 's12crackB', o: { morph: 0.52, t: 3.0 } },
+               { name: 's12crackC', o: { morph: 0.74, t: 3.0 } }]
             : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
