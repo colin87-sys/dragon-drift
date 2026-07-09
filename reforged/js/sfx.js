@@ -1428,15 +1428,16 @@ export const sfx = {
       //     folding the chord note (destructive AND in key). Inlined, not tone(), so
       //     the shared tone() path stays byte-identical for the ?lance=v2 arm.
       const gf = foldToBand(fk, 80, 160);
+      const ts = a.currentTime;   // snapshot once (currentTime advances per render quantum — one anchor for the whole voice)
       const saw = a.createOscillator(); saw.type = 'sawtooth';
-      saw.frequency.setValueAtTime(gf, a.currentTime);
-      saw.frequency.exponentialRampToValueAtTime(Math.max(1, gf * 0.45), a.currentTime + 0.08);
+      saw.frequency.setValueAtTime(gf, ts);
+      saw.frequency.exponentialRampToValueAtTime(Math.max(1, gf * 0.45), ts + 0.08);
       const sh = a.createWaveShaper(); sh.curve = makeDriveCurve(L.strikeGritDrive); sh.oversample = '2x';
       const sg = a.createGain();
-      sg.gain.setValueAtTime(0.045, a.currentTime);
-      sg.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.08);
+      sg.gain.setValueAtTime(0.045, ts);
+      sg.gain.exponentialRampToValueAtTime(0.0001, ts + 0.08);
       saw.connect(sh).connect(sg).connect(sfxBus);
-      saw.start(a.currentTime); saw.stop(a.currentTime + 0.13);
+      saw.start(ts); saw.stop(ts + 0.13);
       // (3) THUD — mass. Longer + deeper than the old kick-ish sub knock, rising with k.
       tone({ freq: (110 + k * 7) * det, end: 40, dur: 0.1, type: 'sine', vol: 0.07 + kk * 0.007 });
       // (4) DEBRIS / SCORCH tail — ONE micro-event per hit, alternating by parity so
