@@ -31,6 +31,46 @@ SPECTACLE. Bake the spectacle requirements in from round 1 and you gate once, no
 
 ---
 
+## 0.5 DISTINCTIVENESS IS A HARD GATE — reuse the METHOD, never the LOOK (read this first)
+
+**This playbook must NOT make the dragons look alike. If any resemblance to Solar — or between
+Pearl and Obsidian — creeps in, that is an automatic FAIL, no matter how well it scores otherwise.**
+Draw a hard line between two kinds of "reuse":
+
+- **REUSE the METHOD + the PLUMBING (look-neutral, encouraged).** The process order (§1), the
+  verify-by-failure-class tools (§4), the Fable gate (§5), and the *code infrastructure* — a
+  stage-aware material-factory *structure*, an `igniteStage`-style dial, the `flatTriMesh` helper, the
+  `wingsymprobe`/`smoke` probes, `ascendedDef`'s form-merge. These are containers and harnesses; they
+  produce no shapes and dictate no palette. Two dragons built with the same material factory look no
+  more alike than two songs cut in the same studio.
+- **NEVER reuse the LOOK (a hard veto).** Every premium dragon MUST differ from Solar and from each
+  other on **all five** of these axes — treat them as a checklist:
+  1. **Silhouette family** — Solar owns the M / cathedral-arch + twin-carpal-spires. Pearl and Obsidian
+     each need a *different* signature shape (a plume, a mantle, a coil, a halo-crown, a fan — whatever;
+     just not the arch). "A strong, specific, readable silhouette" is the requirement; the *answer*
+     must be unique.
+  2. **Wing architecture** — Solar has membrane vault-bays with carpal lances. Author a *new* wing
+     builder with a genuinely different construction (feather, sail, crystalline vane, ribbon, none…);
+     do not re-skin `lanceVaultWings`.
+  3. **Regalia motif** — Solar owns the eclipse *ring/corona* + brow star-gem. A ring is Solar's; pick
+     a different jewel/crest/aura *form*.
+  4. **Palette + glow hue** — distinct base + accent + emissive hues per dragon (roster anti-collision).
+  5. **Signature growth beat** — what the ladder *reveals* should feel unique (Solar: wings learning to
+     arch into a cathedral). Pearl/Obsidian each get their own reveal.
+
+The method GUARANTEES fresh geometry as long as you follow §1 step 2 (new builders, authored fresh,
+default-off) — you are never editing Solar's builders, you are writing new ones next to them. The risk
+is only in the *design choices*, so make distinctiveness an explicit **Fable veto** in the brief:
+*"does any part read like Solar or another shipped dragon? — if yes, FAIL."* (This is the same roster
+anti-collision rule bosses use — `BOSS-DESIGN.md` §5b: no two may share silhouette family, hook, or
+palette swatch/glow-shape.)
+
+Everywhere below that a Solar specific is named (the arch, the corona ring, a violet hue), it is an
+**illustration of a technique**, not a thing to copy. The reusable part is always the *how* (opaque
+emissive, camera-facing rim, withheld-then-revealed regalia), never the *what* (a ring, an M, violet).
+
+---
+
 ## 1. The method — the thought process, in order
 
 1. **Referent → Fable-synthesized plan.** Anchor to a real referent (Solar→Bahamut→Eclipse), research
@@ -57,12 +97,15 @@ SPECTACLE. Bake the spectacle requirements in from round 1 and you gate once, no
 
 Design the SILHOUETTE and the DORSAL/WING surfaces for the behind-and-above view. Concretely:
 
-- **Silhouette test, run in round 1:** render the pure rear silhouette (`dragonstudio … sil-rear`) and
-  ask **"does the rear read as an M, not a kite (a V)?"** Solar's wow move was one geometric idea: a
-  V-delta reads as a spiked kite; monarchs (Bahamut, Bewilderbeast) have the **M** — twin carpal
-  spires rising ABOVE a crowned head enthroned in the valley between them. If the rear top-line is two
-  flat ramps, you have a kite. Make the wing's vertical profile a **function** (an arch), not a mesh
-  you hope reads.
+- **Silhouette test, run in round 1 (shape-AGNOSTIC):** render the pure rear silhouette
+  (`dragonstudio … sil-rear`) and ask **"is this a SPECIFIC, memorable, instantly-nameable shape unique
+  to this dragon — or a generic spiked delta-kite (a V)?"** The failure mode is genericness, not "not
+  being an M." Solar's *answer* happened to be an **M** (twin carpal spires above a crowned head
+  enthroned in the valley) because its referent is a monarch — but **the M belongs to Solar; do NOT
+  reuse it.** Pearl and Obsidian each need a different specific shape. The transferable lesson is only
+  the mechanism: a strong rear read comes from making the silhouette a deliberate **function/curve**
+  (Solar baked an arch into the wing's vertical profile), not a flat mesh you hope reads — the *curve
+  you choose* is yours to invent.
 - **"Own the dark sky" test, round 1:** render the apex on a DARK backdrop
   (`dragonstudio … glide-dark`). It must own the frame with **≥3 distinct COLOURED light structures**
   and **no dead-black center void.** Solar failed this first pass (dim corona + black body center);
@@ -102,15 +145,21 @@ Pearl/Obsidian they are **inputs to the build sheet.**
 - **At most ONE near-white element**, tiny footprint (Solar: the f3 spar tips, a few dozen px at chase
   distance). It MUST stay out of every `spineMats`/`accentMats` array, or the Surge tick lerps it to
   white and detonates the clip budget.
-- **Eclipse-by-construction** (the reusable "dark + rim" motif): a DARK opaque body wearing a THIN
-  saturated rim reads as jeweled, not smoky — and can't be mistaken for a soft additive halo. Solar's
-  corona = a 12-facet flat annulus (`flatTriMesh`, NO torus): dark moon-disk + a bright camera-facing
-  violet/amber rim. Reuse the shape for any "halo/orb/gem-ring" motif.
+- **The reusable TECHNIQUE is "dark opaque body + thin saturated rim" — NOT a ring.** A dark opaque
+  volume wearing a thin saturated emissive rim reads as jeweled, not smoky, and can't be mistaken for a
+  soft additive halo. That *technique* transfers to whatever regalia form YOUR dragon has (a crest, a
+  gorget, a plume-heart, a gem cluster, a mantle edge). **Solar spent this technique on a ring (the
+  12-facet `flatTriMesh` eclipse corona) — the RING is Solar's signature and is OFF-LIMITS to the
+  others.** Do not build another annulus/halo; apply the dark-body-bright-rim *construction* to a
+  different shape. (`flatTriMesh`, never a `TorusGeometry`, is the build primitive to reuse — that's
+  code plumbing, not a look.)
 
-**(c) A signature silhouette.** One memorable, unmistakable geometric idea that reads in pure
-silhouette AND owns the dark sky. Solar: the cathedral arch + twin carpal spires framing the eclipse
-ring. Pearl and Obsidian each need their OWN one-idea signature (do not reuse the arch) — but run the
-same two round-1 checks against it (M-not-kite, owns-the-dark-sky).
+**(c) A signature silhouette — a DIFFERENT one per dragon.** One memorable, unmistakable geometric
+idea that reads in pure silhouette AND owns the dark sky. Solar's was the cathedral arch + twin carpal
+spires framing the eclipse ring — **that specific idea is spent; Pearl and Obsidian must each invent a
+genuinely different one** (a different wing plan, a different crown/regalia form, a different dark-sky
+light signature). Run the same two round-1 CHECKS against your new idea (is-it-specific-not-generic,
+owns-the-dark-sky), but the idea being checked must be yours, not Solar's.
 
 ---
 
@@ -143,28 +192,42 @@ Runtime gotchas that produced the "invisible dragon" crashes (guard against them
 
 - **An independent, harsh Fable critic** (`Agent` tool, `model: "fable"`, `subagent_type: "Plan"`,
   high effort) is the quality ratchet. Give it a **numeric PASS bar**: weighted average ≥ 4.0, no axis
-  ≤ 2, plus binary VETOES (Solar used: washout = any large emissive blooming to white; collision = the
-  corona mistakable for pearl's halo). Iterate round by round — Solar went 1.10 → 4.19 (CP1) and
-  3.77 → 4.13 → 4.27 → 4.33 (CP2). **The rendered captures are the evidence each round, not vibes.**
+  ≤ 2, plus binary VETOES. **Make DISTINCTIVENESS a standing veto (§0.5): "does any part read like
+  Solar or another shipped dragon — silhouette family, wing construction, regalia motif, palette, or
+  glow-shape? If yes, FAIL regardless of scores."** (Solar's own vetoes were washout = a large emissive
+  blooming to white, and collision = its corona mistakable for Pearl's halo.) Iterate round by round —
+  Solar went 1.10 → 4.19 (CP1) and 3.77 → 4.13 → 4.27 → 4.33 (CP2). **The rendered captures are the
+  evidence each round, not vibes.**
 - **ONE combined brief that grades sculpt + spectacle + rear-chase together**, so you gate once. Weight
   the rubric toward the rear-chase tile: rear-chase dark-sky read, ladder-rankability-from-behind,
-  silhouette-majesty (M-not-kite, scale hierarchy), premium-not-tacky glow, apex signature. Feed it
-  the rear-chase + dark-sky + sil-rear + ladder sheets and tell it to **judge the rear-chase tile
-  first.**
+  silhouette-strength (**is it a specific memorable shape, not a generic kite** — NOT "is it an M";
+  that was Solar's answer), premium-not-tacky glow, apex signature, and the distinctiveness veto above.
+  Feed it the rear-chase + dark-sky + sil-rear + ladder sheets and tell it to **judge the rear-chase
+  tile first** — and, for the distinctiveness veto, hand it a Solar tile to compare against.
 - **The gate is BLIND to motion.** After it PASSes, hand the human the live PR preview for the
   motion/feel call (idle coil not whipping the tail across the cam, the flap cycle, surge pulse,
   wake) and flag any net-new silhouette element for approval.
 
 ---
 
-## 6. Reuse, don't re-derive (copy these from Solar)
+## 6. Reuse, don't re-derive — but only the PLUMBING (copy the CODE, not the look)
+
+Everything in this section is code infrastructure — factory structures, dials, helpers, test harnesses.
+Copying it does NOT make your dragon look like Solar (see §0.5). What must be authored FRESH per dragon:
+the part builders (wings/torso/head/tail geometry), the palette, the regalia motif, and the signature
+silhouette. "Copy the structure" below always means the *data/code shape*, never the *visual result*.
 
 - **`sovereignMats(def, glow, stage)`** in `js/dragonSovereign.js` — the stage-aware material factory:
   per-stage emissive-intensity ladders, saturated bloom-safe hues, `userData.baseEmissive/baseIntensity`
-  for the surge tick. Copy the STRUCTURE; re-hue per dragon.
+  for the surge tick. Copy the FACTORY STRUCTURE (a per-stage dictionary of materials); author your own
+  materials inside it with your own hues, counts, and slots. "Re-hue" is the floor, not the ceiling —
+  same wings in a new colour is the exact sameness we are avoiding; the geometry that consumes these
+  materials is a new builder.
 - **The ignition-ramp dial** (`igniteStage` 0/1/2/3) + the withheld-regalia gating pattern (§3a).
-- **The eclipse-by-construction opaque annulus** (§3b) — `flatTriMesh` dark body + camera-facing
-  saturated rim, for any halo/ring/orb motif.
+- **The dark-body + camera-facing-rim TECHNIQUE** (§3b) — build it with `flatTriMesh` (never
+  `TorusGeometry`) and apply it to YOUR regalia shape. Do NOT reuse Solar's annulus/ring — that shape
+  is Solar's signature; the reusable part is the opaque-dark + saturated-rim *construction*, not the
+  ring.
 - **The probes:** `tools/wingsymprobe.mjs` and the headless-flight `tests/smoke.mjs` — the two tools
   that catch the failure classes tricount/blueprint miss.
 - **The ladder assert pattern** — a premium's own block in `tests/starters.mjs` (it reaches Eternal, so
