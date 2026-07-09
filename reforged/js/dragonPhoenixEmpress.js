@@ -206,24 +206,26 @@ function buildPyreHeartTorso(def, model, _bodyMat) {
   // emissive seam-chevron molded into the breast keel (the dark-body + thin-saturated-rim
   // TECHNIQUE spent on a GORGET, not a ring). Copper bezel behind, gold seam in front.
   const gorgetOn = (model.gorget ?? 0) > 0;
-  const gPos = new THREE.Vector3(0, TORSO_Y - 0.30, -0.86);   // low on the breast keel
+  const gPos = new THREE.Vector3(0, TORSO_Y - 0.40, -0.94);   // deep on the breast keel, forward
   const motifAnchor = new THREE.Object3D();
   motifAnchor.position.copy(gPos);
   group.add(motifAnchor);
   if (gorgetOn) {
     const gg = new THREE.Group();
     const bloom = model.gorget ?? 1;   // 0.6 (conferred) → 1 (blazing)
-    const w = 0.22 + 0.06 * bloom, h = 0.14 + 0.05 * bloom;
-    for (let k = 0; k < 3; k++) {                       // 3 stacked chevrons (keel seam-chevron)
-      const yy = -k * h * 0.62, ww = w * (1 - k * 0.22);
-      // copper bezel (frames it, does not out-shine)
-      const bz = [[[-ww * 1.12, yy - 0.02, 0], [0, yy - h * 0.72 - 0.02, 0.02], [ww * 1.12, yy - 0.02, 0]]];
-      gg.add(flatTriMesh(bz, M.copper));
-      // gold emissive chevron
-      const cv = [[[-ww, yy, 0.01], [0, yy - h * 0.72, 0.05], [ww, yy, 0.01]]];
-      gg.add(flatTriMesh(cv, M.gorget));
+    // 3 nested downward CHEVRON seams (thin V strokes, not a filled plate) molded into the
+    // breast keel — the dark-body + thin-saturated-rim technique spent on a GORGET, not a ring.
+    const w = 0.15 + 0.04 * bloom, drop = 0.09 + 0.03 * bloom;
+    // copper bezel backing (one small facet behind the seams — frames, never out-shines)
+    gg.add(flatTriMesh([[[-w * 1.2, 0.03, -0.01], [0, -drop * 2.3, -0.01], [w * 1.2, 0.03, -0.01]]], M.copper));
+    for (let k = 0; k < 3; k++) {
+      const yy = -k * drop * 0.72, ww = w * (1 - k * 0.24);
+      // a thin V = two slim gold bars meeting at the point (a seam-chevron, reads as a stroke)
+      gg.add(bar([-ww, yy, 0.02], [0, yy - drop, 0.05], 0.018, M.gorget));
+      gg.add(bar([ww, yy, 0.02], [0, yy - drop, 0.05], 0.018, M.gorget));
     }
     gg.position.copy(gPos);
+    gg.rotation.x = -0.55;   // face DOWN-and-forward (the underside a believer catches on a bank)
     group.add(gg);
     spineMats.push(M.gorget);
   }
@@ -424,7 +426,7 @@ function buildCometCrestHead(def, model, mats) {
   for (let k = 0; k < nCrest; k++) {
     const cen = (nCrest - 1) / 2;
     const off = nCrest > 1 ? (k - cen) / (cen || 1) : 0;   // −1..1 across the crest
-    const clen = (0.34 + 0.10 * (1 - Math.abs(off))) * hs;  // center quill longest
+    const clen = (0.46 + 0.16 * (1 - Math.abs(off))) * hs;  // center quill longest (streams rearward)
     const q = new THREE.Group();
     q.position.set(crestPos.x + off * 0.14 * hs, crestPos.y, crestPos.z);
     q.rotation.x = 1.15;                     // rake back over the nape (streams rearward)
@@ -540,24 +542,26 @@ function buildPyreTrainTail(def, model, mats, anchor) {
     vane.rotation.x = 0.42;       // pitch the vane face up toward the elevated chase cam (~24°)
     vane.rotation.z = q.cant;     // ±8° alternating cant (balanced across the mirrored pair)
     quill.add(vane);
-    const halfW = 0.10 + 0.05 * q.lenScale;
-    const rootTierEnd = len * 0.5;
-    // root tier (dark/ember) — base pair to the mid point
-    const b0 = [-halfW, 0, len * 0.12], b1 = [halfW, 0, len * 0.12];
-    const midP = [0, 0.02 * len, rootTierEnd];
-    vane.add(flatTriMesh([[b0, b1, midP]], M.vaneRoot));
-    // tip tier (amber) — mid to the teardrop point
-    const tipP = [0, 0, len * 0.95];
-    vane.add(flatTriMesh([[b0, midP, tipP], [midP, b1, tipP]], M.vaneTip));
+    // Broad TEARDROP vane (widest ~40% out, tapering to a point) so the 9 overlap into a
+    // full fanned robe, not a spray of sticks. Two tiers: dark ember root → amber tip (the
+    // fire lives on the edge toward the coal-eye). DoubleSide so it reads canted to the cam.
+    const wMax = 0.19 + 0.12 * q.lenScale;
+    const zBase = len * 0.06, zSh = len * 0.40, zTip = len * 0.97;
+    const wBase = wMax * 0.5;
+    const b0 = [-wBase, 0, zBase], b1 = [wBase, 0, zBase];
+    const s0 = [-wMax, 0.02 * len, zSh], s1 = [wMax, 0.02 * len, zSh];
+    const tipP = [0, 0, zTip];
+    vane.add(flatTriMesh([[b0, b1, s1], [b0, s1, s0]], M.vaneRoot));   // root tier (dark ember)
+    vane.add(flatTriMesh([[s0, s1, tipP]], M.vaneTip));                // tip tier (amber edge)
     // faceted COAL-EYE at the tip (amber-gold on a dark bezel) — the constellation point.
     if (coalOn) {
       const isCenter = q.phi === 0;
-      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(0.062, 0), M.coalBezel);
-      bezel.position.set(0, 0, len * 0.98); bezel.scale.set(1, 1.2, 1);
+      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(0.07, 0), M.coalBezel);
+      bezel.position.set(0, 0, zTip); bezel.scale.set(1, 1.2, 1);
       vane.add(bezel);
       const gemMat = (isCenter && dawnOn) ? M.dawnCoal : M.coalEye;   // center = the Dawn Coal at f3
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.046, 0), gemMat);
-      gem.position.set(0, 0, len * 0.98); gem.scale.set(1, 1.2, 1);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), gemMat);
+      gem.position.set(0, 0, zTip); gem.scale.set(1, 1.2, 1);
       vane.add(gem);
     }
   }
