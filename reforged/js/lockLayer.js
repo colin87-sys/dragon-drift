@@ -38,7 +38,8 @@ const S = {
   _wasHeld: false,   // edge-detect for the aimLock (green snap) event
   // V2 LANCE-PAINT (PR2)
   locks: [],         // painted pips, oldest first: [{ part, stacks, age }]
-  capFuseT: 0,       // time at/above cap — auto-release after L.capFuse (a beat is catchable)
+  capFuseT: 0,       // time at/above cap — auto-release after capFuseDur (a beat is catchable)
+  capFuseDur: 0,     // PR-B: beat-aligned inhale length captured at the cap edge (0 = unaligned)
   refreshT: 0,       // held re-dwell clock toward L.refreshDwell (refresh / stack)
   lanceQ: [],        // staggered launches: [{ part, dmg, t }] — held while deflected
   cap: 0,            // last ctx.cap (published to the HUD)
@@ -61,7 +62,7 @@ export function initLockLayer() {
   S.muted = false; S.hudPart = null; S.hasOrgan = false; S.fightRunning = false;
   S.anchorPart = null; S.ax = 0; S.ay = 0; S.az = 0;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
-  S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
+  S.locks.length = 0; S.capFuseT = 0; S.capFuseDur = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.cap = 0; S.deflected = false;
   S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
@@ -74,7 +75,7 @@ export function clearLocks(_reason) {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
   S.anchorPart = null;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
-  S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
+  S.locks.length = 0; S.capFuseT = 0; S.capFuseDur = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
   // Leaving a fight must drop fightRunning too — else the flag survives into the
@@ -305,14 +306,21 @@ export function updateLockLayer(dt, player, ctx) {
   // one-shot 'lockCap' — the DRAWN BREATH: the fuse is diegetic (the dragon
   // inhales), so the sound/visual tell IS the timer the player reads.
   const atCap = S.cap > 0 && totalPips() >= S.cap;
-  if (atCap && !S._atCap && !ctx.deflected) emit('lockCap', { count: totalPips() });
+  if (atCap && !S._atCap && !ctx.deflected) {
+    // PR-B: capture the BEAT-ALIGNED inhale length at the cap edge (boss.js folds
+    // the beat-lock into the fuse so the auto-release fires the instant the breath
+    // completes — no dead post-fuse hold). 0 = unaligned (headless / music off) →
+    // plain capFuse + no void, so the launch frame stays byte-verbatim.
+    S.capFuseDur = ctx.beatFuseDur > 0 ? ctx.beatFuseDur : 0;
+    emit('lockCap', { count: totalPips(), fuseDur: S.capFuseDur || L.capFuse });
+  }
   S._atCap = atCap;
   if (S.locks.length && !ctx.deflected) {
     for (const lk of S.locks) lk.age += dt;
     if (S.locks[0].age >= L.decay) releaseVolley(ctx, 'decay');   // oldest first (push order)
     else if (atCap) {
       S.capFuseT += dt;
-      if (S.capFuseT >= L.capFuse) releaseVolley(ctx, 'cap');
+      if (S.capFuseT >= (S.capFuseDur || L.capFuse)) releaseVolley(ctx, 'cap');
     } else S.capFuseT = 0;
   }
   // V3 MANUAL LOOSE (PR3): the player's DELIBERATE volley. A not-ready tap with pips
@@ -335,7 +343,7 @@ export function updateLockLayer(dt, player, ctx) {
       const q = S.lanceQ.shift();
       // THE LAUNCH FRAME (PR9): the first wisp leaving IS the release the eye
       // sees — muzzle flash / juice / haptics anchor here. lockVolley marks the
-      // COMMIT, which the beat-hold (D) can separate from this by ≤releaseQuantMaxS.
+      // COMMIT, which the void delay (D) separates from this by ~releaseGapMs.
       if (q.i === 0) emit('lockLaunch', { count: q.n, full: !!q.full, source: q.source || 'cap' });
       ctx.fireLance?.(q.part, q.dmg, q.i, q.n, q.full, q.snap);   // (i, n) = the wisp's authored fan bearing
     }
@@ -464,8 +472,13 @@ export function lockHudState() {
     pips: totalPips(),
     ashen: S.deflected,
     blink: S.locks.length > 0 && !S.deflected && S.locks[0].age > L.decay - 1.0,
+    // The inhale: pips swell as the breath draws. Denominator is the ACTUAL
+    // (beat-aligned) fuse length so the visual completes EXACTLY when the volley
+    // fires (display == logic — L177/L180.1); headless (capFuseDur 0) → capFuse,
+    // unchanged. Codex review: a short aligned inhale otherwise fired before the
+    // swell reached full, a long one sat maxed early.
     fuse01: (S.cap > 0 && totalPips() >= S.cap && !S.deflected)
-      ? Math.min(1, S.capFuseT / L.capFuse) : 0,   // the inhale: pips swell as the breath draws
+      ? Math.min(1, S.capFuseT / (S.capFuseDur || L.capFuse)) : 0,
     // Per-lock marker anchors: live world pos + remaining life (1 → fresh, 0 → gone).
     locks: S.locks.map((lk) => ({
       x: lk.x ?? 0, y: lk.y ?? 0, z: lk.z ?? 0,
@@ -514,16 +527,14 @@ function releaseVolley(ctx, source) {
   if (!pips) return;
   const onBeat = source === 'tap' && !!ctx.beatOn;
   const dmgEach = lanceDmgEach(pips, ctx.phaseHp, onBeat ? L.beatMult : 1);
-  // BEAT-LOCKED RELEASE (PR9/C1): D holds the whole staggered launch until the
-  // song's next beat — CAP AUTO-RELEASE ONLY. A manual tap is NEVER held (LAW —
-  // owner ruling: the tap IS the player's timing; the E1 on-beat bonus is the
-  // skill expression, and auto-snapping a manual volley would erase it). D is
-  // computed by boss.js (releaseQuantDelay) from getBeatClock; absent in a
-  // headless/fabricated ctx → 0 → byte-identical launch frames. The volley
-  // COMMITS here regardless (locks cleared, lockVolley fired) — a held volley
-  // can never be stripped or re-clamped during the wait, and the deflect rule
-  // still pauses the queue itself. tap/decay/fork are never held.
-  const D = (source === 'cap' ? ctx.gridDelayBeat : 0) || 0;
+  // BEAT-ALIGNED RELEASE (PR-B/C1, revised): the beat-lock now lives in the FUSE
+  // (the inhale ends a void before the beat), so D is just that VOID — the cap
+  // auto-release fires the instant the breath completes, silence for the gap,
+  // then the drop lands ON the beat. No dead hold (the PR9 post-fuse wait that
+  // read as lag is gone). A manual tap is NEVER delayed (LAW — the tap IS the
+  // player's timing; the E1 on-beat bonus is the skill expression). Headless /
+  // gate off → releaseGapMs is a harmless ~60ms; tap/decay/fork fire immediately.
+  const D = source === 'cap' && S.capFuseDur > 0 ? L.releaseGapMs / 1000 : 0;
   const full = S.cap > 0 && pips >= S.cap;
   // SNAP eligibility for the impact-roll grid (PR9.1): the game's own releases
   // (cap) land their strikes ON the grid automatically; a MANUAL volley earns

@@ -543,6 +543,7 @@ export const ui = {
       <div class="vignette" id="vignette"></div>
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
+      <div class="jade-flash" id="jade-flash"></div>
       <div class="fever-overlay" id="fever-overlay"></div>
       <div class="speedlines" id="speedlines"></div>
       <div class="revive-offer" id="revive-offer">
@@ -584,6 +585,7 @@ export const ui = {
       bcName:       root.querySelector('#bc-name'),
       bcTimer:      root.querySelector('#bc-timer'),
       goldFlash:    root.querySelector('#gold-flash'),
+      jadeFlash:    root.querySelector('#jade-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
       surgeGems:    root.querySelector('#surge-gems'),
@@ -846,6 +848,15 @@ export const ui = {
   // Gold radial flash on a perfect-center ring.
   perfectFlash() {
     restartAnim(els.goldFlash, 'flash-anim');
+  },
+
+  // PR-B: the reserved lance-CLIMAX flash — a snappy jade screen-fill so the
+  // finale reads as a hit even in peripheral vision. Tier-independent (DOM, works
+  // when postfx is off). Skipped under reduced-motion (the flashing preference
+  // proxy); the hitstop still lands so the impact survives the accessibility gate.
+  lanceFlash() {
+    if (reduceMotion) return;
+    restartAnim(els.jadeFlash, 'flash-fast');
   },
 
   // Crystal-flash for a perfect phase (reuses the radial flash overlay).

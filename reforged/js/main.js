@@ -402,7 +402,7 @@ on('aimLock', () => sfx.lockOn?.());
 // HUNTER'S BRAND sound phrase: set (per paint, rising) → inhale (cap fuse) →
 // exhale (cap volley) / fizzle (a lone brand ashing off on decay).
 on('lockPaint', (p) => sfx.brandSet?.((p && p.count) || 1));
-on('lockCap', (p) => sfx.brandCap?.((p && p.count) || 0));
+on('lockCap', (p) => sfx.brandCap?.((p && p.count) || 0, (p && p.fuseDur) || 0));
 // A DELIBERATE loose sounds the full exhale — the cap auto-volley, the PR3 manual
 // tap-loose, and the Surge fork are all the player's earned release (brandLoose); only
 // a lone brand ashing off on decay is the lesser fizzle. PR4b RELEASE PUNCTUATION:
@@ -435,17 +435,31 @@ on('lockLaunch', (p) => {
 // PR4b: each wisp landing plays a note of the impact ARPEGGIO (k = position in
 // the drum-roll window) — N locks land as an ascending riff, not one boom.
 // PR9: the tagged FINALE lands the reserved close (tonic + cadence) instead.
+// PR-B: the reserved CLIMAX (a FULL volley's last hit) gets the PHYSICAL punch so
+// it reads as impact, not just sound — a 90ms hitstop (the game freezes on the
+// hit), a jade DOM screen-flash, and a camera lurch. The camera punch is motion,
+// so it's gated on reduced-motion; the hitstop + flash-gate live in juice/ui.
 on('lockStrike', (p) => {
-  if (p && p.finale) sfx.brandFinale?.(p.n || 0, !!p.full);
-  else sfx.brandStrike?.((p && p.k) || 0, (p && p.n) || 1, !!(p && p.full));
+  if (p && p.finale) {
+    sfx.brandFinale?.(p.n || 0, !!p.full);
+    if (p.full) {
+      juiceEvent('wispFinale');   // 90ms hitstop + the jade postfx kick
+      ui.lanceFlash?.();          // jade screen-flash (reduced-motion gated inside)
+      if (!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+        cameraCtl.punchKick?.();  // the camera lurch — motion, so reduce-motion skips it
+      }
+    }
+  } else sfx.brandStrike?.((p && p.k) || 0, (p && p.n) || 1, !!(p && p.full));
 });
 // PR3: loosing onto a SEALED boss can't take — a soft muffled thunk names the miss;
 // the pips are kept (the lock layer never wastes them), the reticle row shakes once.
 // PR9: a live riser stands down on any non-release exit (the watchdog self-fade
 // covers the event-less exits — death/transition mid-fuse).
-on('lockSealed', () => { sfx.brandRiserCancel?.(); sfx.brandSeal?.(); });
-on('lockLost', () => sfx.brandRiserCancel?.());
-on('bossEnd', () => sfx.brandRiserCancel?.());
+// PR-B: also flush any hanging chord VOICES on these seams (a shield rising or a
+// phase change mid-volley left the finale un-fired → the chord rang out glitchy).
+on('lockSealed', () => { sfx.brandRiserCancel?.(); sfx.brandChordCancel?.(); sfx.brandSeal?.(); });
+on('lockLost', () => { sfx.brandRiserCancel?.(); sfx.brandChordCancel?.(); });
+on('bossEnd', () => { sfx.brandRiserCancel?.(); sfx.brandChordCancel?.(); });
 on('lockTick', () => sfx.lockTick?.());
 // Boss over → resume the course FRESH from here (the arena stretch was suppressed;
 // without this the world is blank until the player catches up to the old cursor).

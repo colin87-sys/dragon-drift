@@ -15,6 +15,11 @@ let shakeMag = 0;
 let boostKickT = 0;
 const BOOST_KICK_DUR = 0.35;
 
+// Finale punch (PR-B): a sharp forward lurch on the reserved lance-climax hit —
+// the camera physically reacts so the finale reads as IMPACT, not just sound.
+let punchKickT = 0;
+const PUNCH_KICK_DUR = 0.28;
+
 // Roll kick: short camera lean in the roll direction + FOV bump
 let rollKickT = 0;
 let rollKickDir = 0;
@@ -86,6 +91,10 @@ export const cameraCtl = {
 
   boostKick() {
     boostKickT = BOOST_KICK_DUR;
+  },
+
+  punchKick() {
+    punchKickT = PUNCH_KICK_DUR;
   },
 
   rollKick(dir) {
@@ -240,6 +249,15 @@ export const cameraCtl = {
       // Push back on start, then settle — gives "punch" feel
       camera.position.z -= Math.sin(k * Math.PI) * 1.4;
       camera.position.y -= Math.sin(k * Math.PI) * 0.25;
+    }
+
+    // Finale punch (PR-B): a snappy forward lurch + slight rise on the lance
+    // climax — modelled on boostKick's sin envelope, applied after the chase solve.
+    if (punchKickT > 0) {
+      punchKickT -= dt;
+      const e = Math.sin((punchKickT / PUNCH_KICK_DUR) * Math.PI);
+      camera.position.z -= e * 1.1;
+      camera.position.y += e * 0.12;
     }
 
     // Gate kick: boost kick's little sibling — threading should *tug*

@@ -261,23 +261,19 @@ export const CONFIG = {
     // V3.E1
     beatWindow: 0.12,       // LAW — ± seconds on getBeatClock()
     beatMult: 1.25,         // LAW — volleys ONLY, never the Surge beam/break
-    // UNLEASH PHRASE (PR9 — the reward rebuild). BEAT-LOCKED RELEASE (C1): the
-    // CAP AUTO-RELEASE's launch is quantized onto the song's next beat (the
-    // inhale stretches to meet it). LAW (PR9.1, owner ruling): a MANUAL tap is
-    // NEVER held — the tap is the player's timing and the E1 on-beat bonus is
-    // the skill expression; a manual volley's impact roll only snaps to the
-    // grid when the tap was PERFECT ("on the beat" is earned, not given). The
-    // ONE behavior-adjacent change of the phrase rebuild: D only DELAYS the
-    // cap launch (damage laws untouched); headless ctx carries no grid fields
-    // → D=0 → byte-identical launch frames (T-E2). tap/decay/fork: never held.
-    releaseQuant: true,     // LAW gate — false = verbatim v1 launch timing
-    releaseQuantMaxS: 0.8,  // LAW — never hold a committed volley longer; slow
-                            // stations fall back to the next 8th instead
-    releaseMinLeadMs: 90,   // TUNE(60–140) — closer than this to the grid point
-                            // gives the riser no stop+void runway → roll onward
+    // UNLEASH PHRASE — BEAT-ALIGNED INHALE (C1, revised in PR-B). The CAP
+    // auto-release lands its drop on the song's beat by STRETCHING the inhale to
+    // end a void before the beat, then firing immediately (no dead post-fuse hold
+    // — the PR9 version of that read as lag; owner playtest). LAW (PR9.1): a
+    // MANUAL tap is NEVER delayed — the tap is the player's timing and the E1
+    // on-beat bonus is the skill expression; a manual volley's impact roll only
+    // snaps to the grid when the tap was PERFECT ("on the beat" is earned). The
+    // only behavior-adjacent change: the cap fuse LENGTH flexes ±½ beat and the
+    // launch carries the void delay; headless (no clock) → plain capFuse, D=0,
+    // byte-identical (T-E2). tap/decay/fork: never delayed.
+    releaseQuant: true,     // LAW gate — false = verbatim v1 (plain capFuse, no align)
     releaseGapMs: 60,       // TUNE(40–80) — the riser's silence VOID before the
-                            // drop (audio-only: 3-5 frames; pips/gather carry
-                            // the motion through it — L209)
+                            // drop, and the cap launch delay that lands it on the beat
     // The INHALE riser (C3 — riser→gap→drop, replacing the plain swell): an
     // uplifter bed + sub + an accelerating tick-ratchet whose speed scales
     // SUPER-linearly with the pip count (C4 — a 6-set must not sound like 2×3).
@@ -291,8 +287,11 @@ export const CONFIG = {
     // stagger. Presentation only — damage stays on the arrival frame (L186).
     strikeSustainVol: 0.045,// TUNE(0.02–0.07) — per held strike-voice level
     strikeVoiceMax: 6,      // LAW — held-voice cap (== max pip cap)
-    voiceMaxHoldS: 2.5,     // LAW — every voice self-releases by this age; a
-                            // dropped finale (boss died mid-roll) never drones
+    voiceMaxHoldS: 1.1,     // LAW — every voice self-releases by this age; a
+                            // dropped finale never drones. Held voices exist ONLY
+                            // on FULL volleys (the finale resolves them ~0.6s in),
+                            // so this is a tight safety net, not the normal path
+                            // (shortened from 2.5 — owner: chords rang out glitchy)
     rollAccel: 0.8,         // TUNE(0.65–0.95) — impact-gap shrink factor per k
     rollMaxS: 0.6,          // LAW — total presentation-roll span ceiling (organ
                             // flash fires on the true arrival frame; past this
@@ -417,6 +416,9 @@ export const CONFIG = {
       death:            { hitstop: 0,  kick: 'death' }, // sustained grade over the freeze
       wispVolley:       { hitstop: 45, kick: 'surgeStart' }, // brand loose: the release beat
                         // (RELEASE only — never hitstop the impacts amid dense bullets)
+      wispFinale:       { hitstop: 90, kick: 'wispFinale' }, // PR-B: the reserved lance CLIMAX —
+                        // the SECOND authorized lance hitstop (full volleys only); it lands ~0.6s
+                        // after the release beat, well past the 180ms cooldown. Sells the "impact".
     },
   },
 };

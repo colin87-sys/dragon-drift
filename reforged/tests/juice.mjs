@@ -1,6 +1,7 @@
 // In-run juice: hitstop precedence contract, instant restore, postfx kick
 // tier behavior, death grade engage/release.
 import { boot, check } from './browser.mjs';
+import { CONFIG } from '../js/config.js';
 
 const { page, errors, done } = await boot();
 // Pin quality tier 0: headless software-GL runs slow enough that the
@@ -56,6 +57,26 @@ const kicked = await page.evaluate(() => {
   return window.__dd.postfx.kickState();
 });
 check('tier-0 kick raises bloom+lift impulses', kicked.bloom > 0.2 && kicked.lift > 0.2);
+
+// PR-B: the reserved lance-FINALE beat — a 90ms hitstop + the jade postfx kick
+// (the physical "impact" on a full volley's climax). Fired via the juice event.
+// Wait out the 180ms hitstop cooldown from the earlier machine-gun test first:
+// zeroing game.hitstopTimer does NOT reset juice.js's private lastHitstopAt, so
+// without this the finale hitstop can be refused and the assertion flake (Codex).
+await new Promise((r) => setTimeout(r, CONFIG.JUICE.hitstopCooldownMs + 60));
+// Arm AND read in ONE evaluate: the game loop decrements hitstopTimer every
+// frame, so reading it in a later round-trip would show a decayed value (the
+// 90ms freeze had already ticked down). One synchronous eval = no frame between.
+const finale = await page.evaluate(() => {
+  const dd = window.__dd;
+  dd.game.hitstopTimer = 0; dd.game.slowMoTimer = 0; dd.game.state = 'playing';
+  dd.postfx.setPostTier(0);
+  dd.juice.juiceEvent('wispFinale');
+  return { hs: dd.game.hitstopTimer, bloom: dd.postfx.kickState().bloom };
+});
+check(`wispFinale hitstops ~90ms (got ${Math.round(finale.hs * 1000)}ms)`, finale.hs > 0.085 && finale.hs <= 0.0905);
+check('wispFinale raises the jade postfx kick', finale.bloom > 0.2);
+await page.waitForFunction(() => window.__dd.game.hitstopTimer <= 0, { timeout: 10000 });
 
 // Death grade: engages across the freeze, releases for the recap.
 await page.evaluate(() => {
