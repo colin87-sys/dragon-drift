@@ -613,7 +613,7 @@ function getNoiseBuffer(a) {
 }
 
 // Filtered noise burst (whooshes, impacts).
-function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, delay = 0 }) {
+function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, delay = 0, dest = null }) {
   const a = getCtx();
   if (!a) return;
   const t0 = a.currentTime + delay;
@@ -627,7 +627,7 @@ function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, d
   const g = a.createGain();
   g.gain.setValueAtTime(vol, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  src.connect(bp).connect(g).connect(sfxBus);
+  src.connect(bp).connect(g).connect(dest || sfxBus);
   src.start(t0);
   src.stop(t0 + dur + 0.05);
 }
@@ -640,7 +640,7 @@ function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, d
 // `drive` MUST be one of a small set of literals (makeDriveCurve caches by
 // amount.toFixed(2)); per-voice shaper (never a shared one on sfxBus — simultaneous
 // hits would intermodulate the whole mix to fuzz). Deterministic: seeded noise only.
-function gritBurst({ from = 3000, to = 800, dur = 0.05, vol = 0.08, q = 0.8, drive = 0.65, delay = 0 }) {
+function gritBurst({ from = 3000, to = 800, dur = 0.05, vol = 0.08, q = 0.8, drive = 0.65, delay = 0, dest = null }) {
   const a = getCtx();
   if (!a) return;
   const t0 = a.currentTime + delay;
@@ -657,13 +657,13 @@ function gritBurst({ from = 3000, to = 800, dur = 0.05, vol = 0.08, q = 0.8, dri
   const g = a.createGain();
   g.gain.setValueAtTime(vol, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  src.connect(bp).connect(shaper).connect(g).connect(sfxBus);
+  src.connect(bp).connect(shaper).connect(g).connect(dest || sfxBus);
   src.start(t0);
   src.stop(t0 + dur + 0.05);
 }
 
 // --- SFX helpers ---
-function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay = 0 }) {
+function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay = 0, dest = null }) {
   const a = getCtx();
   if (!a) return;
   const t0 = a.currentTime + delay;
@@ -674,7 +674,7 @@ function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay
   if (end) osc.frequency.exponentialRampToValueAtTime(Math.max(end, 1), t0 + dur);
   g.gain.setValueAtTime(vol, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  osc.connect(g).connect(sfxBus);
+  osc.connect(g).connect(dest || sfxBus);   // dest lets a profile route through its own submix (byte-identical when omitted)
   osc.start(t0);
   osc.stop(t0 + dur + 0.05);
 }
