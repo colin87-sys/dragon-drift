@@ -15,35 +15,66 @@ import { flatTriMesh } from './mechaKit.js';
 const TORSO_Y = 0.2;
 const GOLD = 0xd4a84f, GOLD_HI = 0xddc070, VIOLET = 0xb784ff, CRIMSON_OUT = 0x5a160e;
 
-function sovereignMats(def, glow) {
-  const g = Math.min(glow ?? 1, 1.3);
-  // Body carries a faint indigo emissive floor so the king's body doesn't vanish to pure black
-  // on dark skies (polish note 4) — still opaque, degrades with glowLevel-independent lighting.
-  // DoubleSide: the body/neck/skull/tail lofts are open-ended tubes in places, and one stray
-  // fairing tri can wind either way — rendering both faces guarantees the king never reads hollow
-  // from any chase angle (the see-through bug). Cheap on these low-poly meshes.
-  const bodyFlat = new THREE.MeshStandardMaterial({ color: def.body ?? 0x080b14, emissive: 0x0c1322, emissiveIntensity: 0.07, flatShading: true, roughness: 0.66, metalness: 0.12, side: THREE.DoubleSide });
-  // Golds: LOWER metalness + a warm emissive floor so shadowed/away-facing facets stay warm gold
-  // instead of going olive-drab (metallic gold with no environment to reflect reads green — polish note 1).
+// The IGNITION RAMP is the growth currency (CP2): self-illumination stages 0→3 across the forms.
+// `stage` gates WHICH emissives are lit; each is a saturated, bloom-safe hue (sat≥0.75, value≤0.9)
+// so it blooms IN ITS OWN COLOUR under ACES + UnrealBloom instead of clipping to washed-out white
+// (the "cheap/tacky glow" the old dragons had). All glow = emissive baked into OPAQUE facets — no
+// additive shells. Only the f3 spar tips are allowed to approach white (a few dozen px at chase
+// distance = under the clip budget).
+function sovereignMats(def, glow, stage) {
+  const st = Math.max(0, Math.min(3, Math.round(stage ?? 3)));
+  // Per-stage intensity ladders (final target values per form; the surge tick multiplies baseIntensity).
+  const seamI = [0, 0.8, 1.2, 1.5][st];       // dorsal keel seams
+  const mantI = [0, 0, 1.6, 2.2][st];         // shoulder-mantle seam bands (stage≥2)
+  const veinI = [0, 0, 2.0, 3.2][st];         // wing vein circuit
+  const gemI = [0, 0.9, 1.8, 2.9][st];        // brow star-gem
+  const napeI = [0, 0, 1.6, 2.6][st];         // dorsal nape-star (the chase-cam sigil)
+  const emberF = [0, 0, 0.56, 1.0][st];       // membrane trailing-ember factor
+  const coronaI = [0, 0, 0, 2.2][st];         // eclipse-corona rim (Eternal only)
+  const sparI = st >= 3 ? 3.5 : 0;            // white-hot spar tips (Eternal only)
+
+  // Body: SATURATED indigo (not gray) + a lifted indigo emissive floor so the king reads
+  // faceted-indigo, not void-black, on a dark sky. Stage-independent (always present).
+  // DoubleSide guards the open-ended neck/tail loft tubes + stray fairing tris (no hollow read).
+  const bodyFlat = new THREE.MeshStandardMaterial({ color: def.body ?? 0x0a0e1c, emissive: 0x16204a, emissiveIntensity: 0.12, flatShading: true, roughness: 0.66, metalness: 0.12, side: THREE.DoubleSide });
+  // Golds: a DEEP-AMBER emissive floor (not self-colour gold) keeps shadowed/away-facing plate warm
+  // gold instead of olive/khaki — the chase cam sees the dorsal mantle side-lit, so this matters.
   const gCol = def.scales ?? GOLD, ghCol = def.horn ?? GOLD_HI;
-  const gold = new THREE.MeshStandardMaterial({ color: gCol, flatShading: true, roughness: 0.42, metalness: 0.5, emissive: gCol, emissiveIntensity: 0.14 });
-  const goldHi = new THREE.MeshStandardMaterial({ color: ghCol, flatShading: true, roughness: 0.36, metalness: 0.52, emissive: ghCol, emissiveIntensity: 0.13 });
+  const gold = new THREE.MeshStandardMaterial({ color: gCol, flatShading: true, roughness: 0.42, metalness: 0.5, emissive: 0xb06a14, emissiveIntensity: 0.20 });
+  const goldHi = new THREE.MeshStandardMaterial({ color: ghCol, flatShading: true, roughness: 0.36, metalness: 0.52, emissive: 0xc07a18, emissiveIntensity: 0.20 });
   const vCol = def.apexSeam ?? VIOLET;              // diffuse accent (light blue-violet)
-  const vEmis = 0x5a2ce0;                            // cooler blue-violet emissive — survives bloom without drifting magenta
-  // (bright + light emissive clips to white under ACES; a saturated hue holds the arcane read)
-  const violet = new THREE.MeshStandardMaterial({ color: vCol, emissive: vEmis, emissiveIntensity: 1.5 * g, flatShading: true, roughness: 0.4 });
-  violet.userData.baseEmissive = vEmis; violet.userData.baseIntensity = 1.5 * g;
-  // Membrane VALUE TIERS (root dark → outer lighter crimson) — law 11, so the vault isn't a
-  // flat sticker. Each bay picks its tier by finger index.
-  const mem = (col) => { const m = new THREE.MeshStandardMaterial({ color: col, emissive: def.wingEmissive ?? 0x7a1622, emissiveIntensity: 0.22 * g, flatShading: true, roughness: 0.76, side: THREE.DoubleSide }); m.userData.baseEmissive = def.wingEmissive ?? 0x7a1622; m.userData.baseIntensity = 0.22 * g; return m; };
-  const memTiers = [mem(0x45120e), mem(0x5a160e), mem(0x7a1622), mem(0x9c2233)];   // root→outer
+  const vEmis = 0x5a2ce0;                            // saturated blue-violet — bloom-safe (holds hue, no magenta drift)
+  const violet = new THREE.MeshStandardMaterial({ color: vCol, emissive: vEmis, emissiveIntensity: seamI, flatShading: true, roughness: 0.4 });
+  violet.userData.baseEmissive = vEmis; violet.userData.baseIntensity = seamI;
+  const violetMantle = new THREE.MeshStandardMaterial({ color: vCol, emissive: vEmis, emissiveIntensity: mantI, flatShading: true, roughness: 0.4 });
+  violetMantle.userData.baseEmissive = vEmis; violetMantle.userData.baseIntensity = mantI;
+  // Membrane VALUE TIERS (root dark → outer ember): diffuse tiers kept; the EMISSIVE gradient
+  // (root≈dark → trailing-edge ember) is what the chase cam catches on the scallops. Saturated
+  // ember orange-red at the outer tier stays mid-value → holds colour through bloom.
+  const memEmis = [0x200504, 0x6e1410, 0xb42414, 0xe8401c];
+  const memBaseI = [0.05, 0.2, 0.45, 0.8];
+  const mem = (col, i) => { const inten = memBaseI[i] * emberF; const m = new THREE.MeshStandardMaterial({ color: col, emissive: memEmis[i], emissiveIntensity: inten, flatShading: true, roughness: 0.76, side: THREE.DoubleSide }); m.userData.baseEmissive = memEmis[i]; m.userData.baseIntensity = inten; return m; };
+  const memTiers = [mem(0x45120e, 0), mem(0x5a160e, 1), mem(0x7a1622, 2), mem(0x9c2233, 3)];   // root→outer
   const membrane = memTiers[2];
-  // BRIGHT starlight-vein emissive — must read violet at capture distance.
-  const veinMat = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x6a34ea, emissiveIntensity: 2.6 * g, flatShading: true, roughness: 0.35 });
-  veinMat.userData.baseEmissive = 0x8a44ff; veinMat.userData.baseIntensity = 2.6 * g;
-  const gem = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: 0x6a34ea, emissiveIntensity: 1.1 * g, flatShading: true, roughness: 0.18 });
-  gem.userData.baseEmissive = 0x8a44ff; gem.userData.baseIntensity = 1.5 * g;
-  return { bodyFlat, gold, goldHi, violet, membrane, memTiers, veinMat, gem };
+  // Starlight-vein circuit — saturated violet, upper-surface placement (see buildOneWing).
+  const veinEmis = 0x6a2cf6;
+  const veinMat = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: veinEmis, emissiveIntensity: veinI, flatShading: true, roughness: 0.35 });
+  veinMat.userData.baseEmissive = veinEmis; veinMat.userData.baseIntensity = veinI;
+  // Gem (brow) + nape-star share the jewel look; baseEmissive now MATCHES emissive so the surge
+  // tick pulses the correct hue (was 0x8a44ff vs 0x6a34ea — a real mismatch).
+  const gem = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: veinEmis, emissiveIntensity: gemI, flatShading: true, roughness: 0.18 });
+  gem.userData.baseEmissive = veinEmis; gem.userData.baseIntensity = gemI;
+  const napeStar = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: veinEmis, emissiveIntensity: napeI, flatShading: true, roughness: 0.18 });
+  napeStar.userData.baseEmissive = veinEmis; napeStar.userData.baseIntensity = napeI;
+  // f3 white-hot spar tips — the ONE clip-budget element (tiny footprint at chase distance).
+  // NOT added to any spineMats array (must not join the surge tick, or Surge detonates to white).
+  const sparTip = new THREE.MeshStandardMaterial({ color: 0xffe2b0, emissive: 0xffa028, emissiveIntensity: sparI, flatShading: true, roughness: 0.3 });
+  // Eclipse corona: a DARK opaque moon-disk body wearing a thin saturated bicolour rim (violet +
+  // ember) with gold bevels — jeweled, not a smoky additive halo. Rim mats also stay out of spineMats.
+  const coronaDark = new THREE.MeshStandardMaterial({ color: 0x0d0a18, emissive: 0x0d0a18, emissiveIntensity: 0.05, flatShading: true, roughness: 0.7, metalness: 0.1 });
+  const coronaRimV = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: veinEmis, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });
+  const coronaRimA = new THREE.MeshStandardMaterial({ color: 0xffb46a, emissive: 0xd4680f, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });
+  return { bodyFlat, gold, goldHi, violet, violetMantle, membrane, memTiers, veinMat, gem, napeStar, sparTip, coronaDark, coronaRimV, coronaRimA, stage: st };
 }
 
 // Faceted loft: rings [{z, rx, ry, cy, cx?}] → one flat-shaded tube. cx = lateral centerline
@@ -81,7 +112,7 @@ function spike(len, rBase, rTip, mat, facets = 5) {
 function buildRegnalKeelTorso(def, model, _bodyMat) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
-  const M = sovereignMats(def, glow);
+  const M = sovereignMats(def, glow, model.igniteStage);
   const spineMats = [M.violet, M.gem];
   const shoulderW = model.shoulderWidthScale ?? 1;
 
@@ -201,6 +232,10 @@ function buildOneWing(M, dials, dih) {
     const t = f / fingers, l = L(t), c = chordAt(t);
     st.push({ l, t, c, tip: [l[0], l[1] - 0.06 * c, l[2] + c] });
   }
+  // thin tube between two points (branch veinlets) laid PROUD of the membrane.
+  const tube = (a, b, r, mat) => { const dir = new THREE.Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]); const len = dir.length(); const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg(3)), mat); m.geometry.translate(0, len / 2, 0); m.position.set(a[0], a[1], a[2]); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()); return m; };
+  const lift = (p, dy) => [p[0], p[1] + dy, p[2]];
+
   // VAULT BAYS between consecutive fingers — cambered (cupped), scalloped trailing edge,
   // deeper V-gaps on the outer two bays. Each bay = a fan around a lifted camber center.
   for (let f = 0; f < fingers; f++) {
@@ -211,24 +246,33 @@ function buildOneWing(M, dials, dih) {
     const mid = [(A.tip[0] + B.tip[0]) / 2, (A.tip[1] + B.tip[1]) / 2 - 0.04, (A.tip[2] + B.tip[2]) / 2 - scallop];
     // DEEP cup: drop the bay center well below the rim so rim light pools (a vault, not a flat pleat).
     const ctr = [(A.l[0] + B.l[0] + A.tip[0] + B.tip[0]) / 4, (A.l[1] + B.l[1]) / 2 - 0.26 * chord, (A.l[2] + B.l[2] + A.tip[2] + B.tip[2]) / 4];
-    // value tier: root bay darkest → outer bay lightest crimson (law 11).
+    // value tier: root bay darkest → outer bay ember (law 11 + the ignition ember gradient).
     const bayMat = M.memTiers[Math.min(M.memTiers.length - 1, f)];
     wg.add(flatTriMesh([[A.l, B.l, ctr], [B.l, B.tip, ctr], [B.tip, mid, ctr], [mid, A.tip, ctr], [A.tip, A.l, ctr]], bayMat));
+    // BRANCH VEINLETS across the bay's UPPER face toward the trailing scallop — the "stained-glass
+    // circuit" the chase cam (behind+above) reads. Fork from the outer finger line at 40%/70% chord.
+    // Skip the innermost bay so no vein crosses the body from the top-down/planform read.
+    if (f >= 1) for (const u of [0.4, 0.7]) {
+      const p = [B.l[0] + (B.tip[0] - B.l[0]) * u, B.l[1] + (B.tip[1] - B.l[1]) * u, B.l[2] + (B.tip[2] - B.l[2]) * u];
+      wg.add(tube(lift(p, 0.035), lift(mid, 0.03), 0.013, M.veinMat));
+    }
   }
 
-  // Gold armored leading spar (thick root → thin tip).
+  // Gold armored leading spar (thick root → thin tip). The OUTERMOST segment goes white-hot at f3.
   for (let f = 0; f < fingers; f++) {
     const a = st[f].l, b = st[f + 1].l;
     const dir = new THREE.Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
     const len = dir.length();
-    const spar = new THREE.Mesh(new THREE.CylinderGeometry(0.11 * (1 - (f + 1) / fingers) + 0.02, 0.11 * (1 - f / fingers) + 0.02, len, seg(5)), M.gold);
+    const sparMat = (M.stage >= 3 && f === fingers - 1) ? M.sparTip : M.gold;
+    const spar = new THREE.Mesh(new THREE.CylinderGeometry(0.11 * (1 - (f + 1) / fingers) + 0.02, 0.11 * (1 - f / fingers) + 0.02, len, seg(5)), sparMat);
     spar.geometry.translate(0, len / 2, 0);
     spar.position.set(a[0], a[1], a[2]);
     spar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     wg.add(spar);
   }
-  // Finger ribs (gold) + a BOLD violet starlight vein running the length of each finger line
-  // (bright near the leading root, fading to the tip) — the Eclipse identity, emissive-on-opaque.
+  // Finger ribs (gold) + a BOLD violet starlight vein running each finger line — now seated ABOVE
+  // the rib (proud of the upper surface) so the rear-chase cam actually catches it (it used to sit
+  // 0.02 BELOW the rib, occluded from above). The Eclipse identity, emissive-on-opaque.
   for (let f = 1; f <= fingers; f++) {
     const A = st[f];
     const dir = new THREE.Vector3(A.tip[0] - A.l[0], A.tip[1] - A.l[1], A.tip[2] - A.l[2]);
@@ -242,13 +286,13 @@ function buildOneWing(M, dials, dih) {
     if (f >= 2) {   // skip the innermost vein so it never draws a line across the body (top-down)
       const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.036, len * 0.8, seg(3)), M.veinMat);
       vein.geometry.translate(0, len * 0.4, 0);
-      vein.position.set(A.l[0], A.l[1] - 0.02, A.l[2]);
+      vein.position.set(A.l[0], A.l[1] + 0.025, A.l[2]);   // PROUD of the rib (was −0.02)
       vein.quaternion.copy(q);
       wg.add(vein);
     }
   }
 
-  // Pike rank — 3 bold swell-then-taper blades socketed into the arm, rake up-forward.
+  // Pike rank — bold swell-then-taper blades socketed into the arm, rake up-forward.
   for (let i = 0; i < pikes; i++) {
     const t = 0.28 + 0.36 * (i / Math.max(1, pikes - 1 || 1));
     const l = L(t);
@@ -257,13 +301,19 @@ function buildOneWing(M, dials, dih) {
     pk.position.set(l[0], l[1], l[2]);
     pk.rotation.x = -0.65; pk.rotation.z = -0.3;         // rake up-and-forward off the arm
     wg.add(pk);
-    const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), M.violet);
-    cap.position.set(l[0] - plen * 0.3, l[1] + plen * 0.62, l[2] - plen * 0.38);
-    wg.add(cap);
+    // Pike-tip JEWEL (stage≥2) — socketed at the pike's TRUE rotated tip (was offset by hand to a
+    // wrong spot, so the caps floated free as the disconnected "purple motes" bug). Part of the
+    // vein-circuit story (veinMat → stage-gated, dark until anointed).
+    if (M.stage >= 2) {
+      const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.055, 0), M.veinMat);
+      const tipLocal = new THREE.Vector3(0, plen, 0).applyEuler(pk.rotation);
+      cap.position.set(l[0] + tipLocal.x, l[1] + tipLocal.y, l[2] + tipLocal.z);
+      wg.add(cap);
+    }
   }
-  // Terminal wingtip spike.
+  // Terminal wingtip spike — white-hot at f3 (the silhouette's outer extreme).
   const tp = L(1);
-  const ts = spike(halfSpan * 0.24, 0.06, 0.005, M.goldHi, 4);
+  const ts = spike(halfSpan * 0.24, 0.06, 0.005, M.stage >= 3 ? M.sparTip : M.goldHi, 4);
   ts.position.set(tp[0], tp[1], tp[2]);
   ts.rotation.z = -Math.PI / 2 - 0.05;
   wg.add(ts);
@@ -273,7 +323,7 @@ function buildOneWing(M, dials, dih) {
 function buildLanceVaultWings(def, model, attach, _giM) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
-  const M = sovereignMats(def, glow);
+  const M = sovereignMats(def, glow, model.igniteStage);
   const fingers = Math.round(model.vaultFingers ?? 5);
   const pikes = Math.round(model.pikeCount ?? 3);
   const halfSpan = (model.spanScale ?? 1) * 4.3;
@@ -316,7 +366,7 @@ registerWings('lanceVaultWings', buildLanceVaultWings);
 function buildEclipseCrownHead(def, model, mats) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
-  const M = sovereignMats(def, glow);
+  const M = sovereignMats(def, glow, model.igniteStage);
   const spineMats = [M.violet, M.gem];
   const hs = model.headScale ?? 1;
   const eyeMat = mats.eyeMat;
@@ -397,7 +447,7 @@ registerHead('eclipseCrownHead', buildEclipseCrownHead);
 function buildScepterWhipTail(def, model, mats, anchor) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
-  const M = sovereignMats(def, glow);
+  const M = sovereignMats(def, glow, model.igniteStage);
   const a = anchor ?? { y: 0.15, z: 1.95 };
   const nSeg = Math.round(model.tailSegments ?? 9);
   const T = (model.tailLength ?? 1) * 3.0;
