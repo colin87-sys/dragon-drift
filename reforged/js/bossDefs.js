@@ -157,7 +157,7 @@ export const BOSSES = {
     // (AMBER_CARRIERS in bossRhythm.js — dropping it from a phase fails amberdiet).
     phases: [
       { atFrac: 1.00, cadence: [1.8, 2.4], attacks: ['fan'] },                       // P1: learn the wall / find the gap
-      { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['fan', 'movingGap'] },          // P2: the wall now MOVES (anti-flee)
+      { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['fan', 'movingGap', 'iris', 'secondWave'] }, // P2: the wall now MOVES (anti-flee) — `iris` debuts HERE as a slow teach form (§C.1a teach-before-test: it must not first appear in the P3 dread) + `secondWave` (returning gust) keeps P2 distinct from P3. Interim: P3's dread stays the shipped iris until C.1b (ENG-B) upgrades it to the eye-corridor chain
       { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['fan', 'movingGap', 'iris'] },  // P3: the storm CLOSES IN (constrict — the dread card)
     ],
     cards: [
@@ -178,7 +178,7 @@ export const BOSSES = {
       phases: [
         { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.7 }],
           restLo: 1.3, restHi: 2.6, restDist: 'decaying' },
-        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.65 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.65 }],
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.65 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.65 }, { kind: 'sustain', attack: 'iris', beats: 1, gap: 0.65 }, { kind: 'sustain', attack: 'secondWave', beats: 1, gap: 0.65 }],  // §C.1a: iris (slow teach) + secondWave added; gap 0.65 keeps P2 looser than P3's 0.55 (the crescendo still tightens P2→P3)
           restLo: 1.1, restHi: 2.3, restDist: 'decaying' },
         { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'iris', beats: 1, gap: 0.55 }],
           restLo: 0.9, restHi: 2.1, restDist: 'decaying' },
