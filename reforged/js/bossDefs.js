@@ -445,6 +445,12 @@ export const BOSSES = {
       { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true },                // P2: the pair leaves station, laces the eight
       { id: 'figureEight', atPhase: 2, dur: 7.0, moving: true, dread: true },   // P3: desperation keeps moving (Both Halves at Once)
     ],
+    // §ENG-A: crossfire fires from the two twins' LIVE lemniscate positions (not the
+    // hardcoded ±10 lane posts) — the twins ARE the ±10 flank emitters (§5b slot brief),
+    // so "simultaneous mirrored crossfire" finally converges from the moving bodies.
+    // Resolved per-volley via partWorldPos('eitherTwinA'|'eitherTwinB'); a volley whose
+    // twins are both behind the player plane (near lobe of the eight) goes silent.
+    emitOrigins: { crossfire: ['eitherTwinA', 'eitherTwinB'], aimed: ['eitherMuzzle'], stream: ['eitherMuzzle'] },
     // Tier 2 difficulty: crossfire is the twins' signature (both flanks at once);
     // movingGap/secondWave = the lane-denial half; iris debuts in the dread phase.
     // Escalation by pattern unlock + cadence, never raw bullet count.
