@@ -556,6 +556,17 @@ export function spawnBossBullet(opts) {
   s.volleyFull = !!opts.volleyFull;
   s.volleySnap = !!opts.volleySnap;
   if (opts.volleyFirst) lanceArrivals = 0;
+  // PR-C THE LUNGE: snapshot the constant-speed flight so the profile controller
+  // (update loop) can track the exact analytic position — arrival-frame invariant.
+  if (s.owner === 'lance') {
+    s.vrelBase = s.vrel;
+    s.lungeRel0 = s.rel;
+    s.lungeT = (s.targetRel - s.rel) / Math.max(s.vrel, 1e-6);
+    // Start the first integration step AT the profile's launch speed (p0) so
+    // there's no one-frame full-speed pop before the controller engages.
+    const lp = CONFIG.LOCK.lungeProfile;
+    if (lp && s.lungeT > 0) s.vrel = s.vrelBase * lp[0];
+  }
   // A fresh wisp tows a light-ribbon (silently none when the pool is busy —
   // presentation only, never gameplay). fxQuality ≤ 0.3 skips ribbons entirely
   // (the hot instanced head + impact bursts still carry the read on potatoes).
@@ -750,6 +761,24 @@ export function updateBossBullets(dt, player) {
           const k = Math.min(1, dt * L.lanceSteerGain * ramp);
           s.vx += ((s.tx + wob - s.x) / tLeft - s.vx) * k;
           s.vy += ((s.ty - wob * 0.6 - s.y) / tLeft - s.vy) * k;
+        }
+        // PR-C THE LUNGE (owner's idea): the wisp EMERGES lazily then ACCELERATES
+        // onto its brand — vrel follows the linear profile p(u)=p0→p1 over the
+        // flight. ARRIVAL-FRAME LAW (L186) held by a position-tracking controller:
+        // each frame vrel is set to close the gap to the profile's EXACT analytic
+        // position relExact(t) = rel0 + base·T·(p0·u + (p1−p0)·u²/2), u = t/T
+        // (constant-speed continuation past T). relExact < the constant-speed
+        // line strictly before T and equals it at/after T, so the first frame
+        // where rel ≥ targetRel is IDENTICAL — never early, never late, exact
+        // under any dt (T-W2/T-W8 are the wall). null profile → skip (verbatim).
+        const prof = L.lungeProfile;
+        if (prof && s.lungeT > 0) {
+          const T = s.lungeT, base = s.vrelBase;
+          const tN = s.age + dt;              // the coming step's end time
+          const u = Math.min(1, tN / T);
+          const relExact = s.lungeRel0 + base * T * (prof[0] * u + (prof[1] - prof[0]) * u * u * 0.5)
+            + base * Math.max(0, tN - T);     // past T: constant-speed continuation
+          s.vrel = (relExact - s.rel) / dt;
         }
         // Tow the light-ribbon: push this frame's world position into the
         // ribbon's sliding window (the strip rebuild happens once per frame in

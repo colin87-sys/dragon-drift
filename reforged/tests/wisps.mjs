@@ -447,4 +447,48 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   ok('T-W7c finale tag: full-6 → one finale (last); partial → none');
 }
 
+// --- T-W8 — THE LUNGE invariance sweep (PR-C) ----------------------------------
+// The lunge profile (emerge slow → accelerate) must land every wisp on the
+// IDENTICAL frame constant speed would (the L186 arrival-frame law), for any
+// profile that averages 1, any target depth, any frame rate — and rel must
+// climb monotonically (the controller never reverses).
+{
+  const saved = L.lungeProfile;
+  assert(Array.isArray(saved) && Math.abs((saved[0] + saved[1]) / 2 - 1) < 1e-9,
+    `lungeProfile LAW: (p0+p1)/2 === 1 (got [${saved}])`);
+  let hits = 0, collecting = false;
+  on('bossDamage', (e) => { if (collecting && e.kind === 'lance') hits++; });
+  const arrivalFrame = (prof, targetRel, dt) => {
+    L.lungeProfile = prof;
+    bullets.resetBossBullets();
+    spawnWisp(2, 0, 13, targetRel);   // slot 2 = a mild bearing
+    collecting = true; hits = 0;
+    let frame = 0, prevRel = -Infinity;
+    while (frame < 400 && hits < 1) {
+      frame++;
+      bullets.updateBossBullets(dt, player);
+      const w = bullets.debugActiveBullets().find((b) => b.owner === 'lance');
+      if (w) {
+        assert(w.rel >= prevRel - 1e-9, `rel climbs monotonically (${w.rel} after ${prevRel})`);
+        prevRel = w.rel;
+      }
+    }
+    collecting = false;
+    bullets.resetBossBullets();
+    return frame;
+  };
+  for (const targetRel of [20, 28.5, 34]) {
+    for (const dt of [1 / 60, 1 / 50, 1 / 144]) {
+      const ref = arrivalFrame(null, targetRel, dt);            // constant speed
+      for (const prof of [saved, [0.7, 1.3]]) {
+        const got = arrivalFrame(prof, targetRel, dt);
+        assertEq(got, ref,
+          `lunge [${prof}] @ rel ${targetRel}, dt 1/${Math.round(1 / dt)} lands on the constant-speed frame (${ref})`);
+      }
+    }
+  }
+  L.lungeProfile = saved;
+  ok('T-W8 lunge invariance: 3 depths × 3 dts × 2 profiles == constant-speed arrival, rel monotone');
+}
+
 console.log(`\n${n} wisp checks passed.`);

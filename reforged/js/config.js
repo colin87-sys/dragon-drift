@@ -222,6 +222,12 @@ export const CONFIG = {
     lanceHomeBlend: 0.15,   // TUNE(0.10–0.25) — steer-gain ramp-in after engage (no elbow)
     lanceSteerGain: 9,      // TUNE(6–12) — arrive gain once engaged (pre-wisp inline was 5)
     lanceCurlRate: 3.2,     // TUNE(2.0–5.0) — rad/s velocity rotation during the arc; sign = i parity
+    // THE LUNGE (PR-C, owner's idea): wisps EMERGE lazily then ACCELERATE onto
+    // their brand — vrel follows a linear profile p(u) = p0→p1 over the flight.
+    // LAW: (p0+p1)/2 === 1 (∫p = 1) so the wisp lands on the IDENTICAL arrival
+    // frame as constant speed (L186; enforced by a position-tracking controller
+    // in bossBullets — exact under any dt; T-W2/T-W8 are the wall). null = off.
+    lungeProfile: [0.55, 1.45],
     // WISP LIGHT-RIBBONS (PR4b — owner: the volley was lost in the bullet sea).
     // The silhouette law: the volley must be the ONLY LINE-class shape among the
     // enemy's dot-class bullets (Panzer Dragoon's homing lasers are persistent
@@ -274,6 +280,13 @@ export const CONFIG = {
     releaseQuant: true,     // LAW gate — false = verbatim v1 (plain capFuse, no align)
     releaseGapMs: 60,       // TUNE(40–80) — the riser's silence VOID before the
                             // drop, and the cap launch delay that lands it on the beat
+    // THE VISIBLE INHALE (PR-C): the rear-cam charge telegraph while the cap
+    // fuse burns — torso arch + wing mantle + jade gather, all driven by fuse01
+    // and byte-inert at 0 (the L245 endpoint law).
+    inhaleArch: 0.38,       // TUNE(0.2–0.6) — whole-body rear-up at full breath (rad)
+    inhaleFlapCalm: 0.6,    // TUNE(0.3–0.8) — flap-rate cut at full breath (wings hold)
+    gatherRateHz: 8,        // TUNE(4–12) — gather spark pulses per second
+    gatherCountBase: 2,     // TUNE(1–4) — sparks per pulse ≈ base·pips/2 (6 pips = a storm)
     // The INHALE riser (C3 — riser→gap→drop, replacing the plain swell): an
     // uplifter bed + sub + an accelerating tick-ratchet whose speed scales
     // SUPER-linearly with the pip count (C4 — a 6-set must not sound like 2×3).
@@ -282,16 +295,11 @@ export const CONFIG = {
     riserMaxHoldS: 1.6,     // LAW — plateau ceiling past the fuse (deflect mid-
                             // fuse etc.); the riser self-fades after this so a
                             // stalled release can never strand a drone
-    // The IMPACT RUN (C2/C5): strikes climb the LIVE chord, each leaves a held
-    // voice, and the run lands as an accelerando roll instead of an even 40ms
-    // stagger. Presentation only — damage stays on the arrival frame (L186).
-    strikeSustainVol: 0.045,// TUNE(0.02–0.07) — per held strike-voice level
-    strikeVoiceMax: 6,      // LAW — held-voice cap (== max pip cap)
-    voiceMaxHoldS: 1.1,     // LAW — every voice self-releases by this age; a
-                            // dropped finale never drones. Held voices exist ONLY
-                            // on FULL volleys (the finale resolves them ~0.6s in),
-                            // so this is a tight safety net, not the normal path
-                            // (shortened from 2.5 — owner: chords rang out glitchy)
+    // The IMPACT RUN (C5): strikes climb the LIVE chord (plucks + detonation
+    // pops — PR-C), and the run lands as an accelerando roll instead of an even
+    // 40ms stagger. The finale is an N-scaled DETONATION (sized by the riser's
+    // pow(n/3, riserTickPowN) class knob — no chord, no held voices).
+    // Presentation only — damage stays on the arrival frame (L186).
     rollAccel: 0.8,         // TUNE(0.65–0.95) — impact-gap shrink factor per k
     rollMaxS: 0.6,          // LAW — total presentation-roll span ceiling (organ
                             // flash fires on the true arrival frame; past this

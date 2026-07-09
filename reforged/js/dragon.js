@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
 import { damp, makeGlowTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
@@ -82,6 +83,17 @@ let quality = 1;
 // the boss during the flythrough. null = normal (velocity-based) yaw.
 let lookYaw = null;
 export function setDragonLook(yaw) { lookYaw = yaw; }
+
+// PR-C THE VISIBLE INHALE: 0..1 charge amount fed per-frame from main.js
+// (lockHudState().fuse01 while the lance cap fuse burns — the setDragonLook
+// pattern). Drives the rear-cam telegraph: torso ARCH + wing MANTLE + jade glow.
+// LAW: at 0 every injected term below is exactly 0 → pose/glow byte-identical
+// (the L245 endpoint law; the wingflap/flapcheck suites never set it, so they
+// prove the endpoint).
+let inhaleTarget = 0;
+let inhale01 = 0;
+const _jadeGlow = new THREE.Color(0x50ffaa);
+export function setDragonInhale(x) { inhaleTarget = Math.max(0, Math.min(1, x || 0)); }
 
 export function setDragonQuality(q) {
   quality = q;
@@ -521,6 +533,10 @@ export function updateDragon(dt, player, time) {
   const vertJerk = Math.max(-16, Math.min(16, vy - vySmooth));
   surge01 = damp(surge01, player.feverActive ? 1 : 0, 3.5, dt);
   boost01 = damp(boost01, player.speedActive ? 1 : 0, 5, dt);
+  // PR-C: the inhale eases in with the fuse and SNAPS down at release (damp 8 ≈
+  // 0.12s) — the wings drop out of the mantle into the launch frame.
+  inhale01 = damp(inhale01, inhaleTarget, 8, dt);
+  if (inhaleTarget <= 0 && inhale01 < 0.001) inhale01 = 0;
   if (prevSpeedActive && !player.speedActive) decel01 = 1;      // RELEASE → air-brake spike
   prevSpeedActive = !!player.speedActive;
   decel01 = damp(decel01, 0, 2.2, dt);                          // …eased out smoothly
@@ -529,7 +545,10 @@ export function updateDragon(dt, player, time) {
   // POSTURE pitch: nose-DOWN in dive, nose-UP in climb, relax on decel. Surge no longer
   // pitches the nose down — it was flashing the ventral (belly) of the body+wings from the
   // chase cam during Dragon Surge (user note). The big deliberate poses stay on DIVE/CLIMB.
-  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.02 + decel01 * 0.05;
+  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.02 + decel01 * 0.05
+    // PR-C INHALE ARCH: the torso visibly rears up as the breath draws (the
+    // owner's rear-cam telegraph — nose-up reads down the dragon's back).
+    + inhale01 * (CONFIG.LOCK.inhaleArch ?? 0.38);
 
   // Surge/boost bank DEEPER + SNAPPIER (carves like a fighter jet).
   const bankFactor = 0.035 + speedNorm * 0.015;   // RESET to the original body-roll (was over-banking)
@@ -582,12 +601,18 @@ export function updateDragon(dt, player, time) {
   // Wing flap: articulated cascade with speed/turn asymmetry + the blend layers (above).
   const feverBoost = player.feverActive ? 1.3 : 1;
   // FREQUENCY: boost/surge faster, a DIVE glides (slower/paused), decel eases back to normal.
+  // PR-C WING MANTLE: as the inhale draws, the beat slows and the stroke
+  // shrinks while the baseline rides HIGH (rootFlap below) — the wings sweep up,
+  // hold open, and near-freeze: "drawing breath," the strongest rear silhouette.
+  // inhale01=0 → all identity (byte-identical, the coexist endpoint).
+  const inhaleCalm = 1 - (CONFIG.LOCK.inhaleFlapCalm ?? 0.6) * inhale01;
   const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias
     * formSpeed(activeDef.model) * (activeDef.model.flapFreqScale ?? 1)
-    * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01);
+    * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01) * inhaleCalm;
   // AMPLITUDE: dive tucks to a glide (small), climb + decel open broad to catch air.
   const flapAmp = (player.speedActive ? 0.7 : 0.52) * (activeDef.model.flapAmp ?? 1)
-    * (1 - 0.7 * diveAmount) * (1 + 0.3 * climbAmount) * (1 + 0.25 * decel01);
+    * (1 - 0.7 * diveAmount) * (1 + 0.3 * climbAmount) * (1 + 0.25 * decel01)
+    * (1 - 0.45 * inhale01);
   const turnBias = Math.max(-0.28, Math.min(0.28, player.velocity.x * 0.018));
   const climbBias = Math.max(-0.18, Math.min(0.18, player.velocity.y * 0.015));
   // INTEGRATE the beat clock — `flapSpeed` varies every frame (dive/decel/boost blends), so
@@ -599,7 +624,9 @@ export function updateDragon(dt, player, time) {
   // phase-coupled head wobble / secondary wings below — hold ONE reproducible pose.
   if (WING_DEBUG) flapPhase = resolveWingDebug(WING_DEBUG, activeDef.model.flap).phase;
   const phase = flapPhase;
-  const rootFlap = Math.sin(phase) * flapAmp + 0.1;
+  // Mantle bias: NEGATIVE rootFlap = wings up (the apex convention), so the
+  // inhale rides the whole stroke high — a held high-V.
+  const rootFlap = Math.sin(phase) * flapAmp + 0.1 - inhale01 * 0.55;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
   if (WING_DEBUG) {
@@ -822,14 +849,16 @@ export function updateDragon(dt, player, time) {
         // body LIFT wave (a beat AFTER the downstroke) + the vertical WHIP (the rear trails the
         // chest when the body changes vertical direction). CLIMB drops the hips (counterweight).
         const wave = 0.15 * sp * calm * flapSurge(phase - 0.6);
-        b.rotation.x = damp(b.rotation.x, wave + climbAmount * 0.16 + vWhip, 9 + 4 * aero01, dt);
+        // PR-C: hips drop slightly under the inhale — the counterweight that makes the chest RISE.
+        b.rotation.x = damp(b.rotation.x, wave + climbAmount * 0.16 + vWhip - inhale01 * 0.1, 9 + 4 * aero01, dt);
         b.rotation.y = damp(b.rotation.y, turnBias * 0.35 * bankHard, 6, dt);   // hips drift into a HARD turn (eased)
       } else if (role === 'neck') {
         // FIRM neck: faint bob/breathe, near-STILL under streamline/fever (calmHN). Leads the
         // turn only on a hard bank (eased); shares a little of the vertical body-whip.
+        // PR-C: the inhale CRANES the neck back (chest rises) — the spine-rig arch.
         const bob = 0.022 * sp * calmHN * flapSurge(phase - 0.3) * (activeDef.model.bodyBobScale ?? 1);
         const breathe = Math.sin(time * 1.1) * 0.006 * calmHN;
-        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42 + vWhip * 0.45, 9, dt);
+        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42 + vWhip * 0.45 + inhale01 * 0.22, 9, dt);
         b.rotation.y = damp(b.rotation.y, -turnBias * 0.18 * bankHard * (1 + 0.4 * aero01), 7, dt);
       } else if (role === 'head') {
         // FIRM, composed gaze: a tiny counter to the neck, near-STILL under fever (calmHN).
@@ -1003,11 +1032,15 @@ export function updateDragon(dt, player, time) {
 
   // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
   // old emitting ring), spiking on the ignition flourish.
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (surgeMix * 0.55 + ignite * 0.8) * sgm;
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (surgeMix * 0.55 + ignite * 0.8) * sgm
+    + inhale01 * 0.9;   // PR-C: the mantled wings GLOW as the charge draws
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
   // white-gold (def.feverWing) so its Rebirth reads celestial, not pink.
   wingMat.emissive.setHex(player.feverActive ? (activeDef.feverWing ?? 0xff44cc) : (activeDef.wingMembraneEmissive ?? activeDef.wingEmissive));
+  // PR-C: lean the glow toward lance-jade with the inhale (fever pink wins —
+  // Surge is the reserved role colour; the lerp only runs while charging).
+  if (inhale01 > 0.01 && !player.feverActive) wingMat.emissive.lerp(_jadeGlow, inhale01 * 0.6);
   // Membrane translucency by state (bones/struts keep their own opaque mats):
   // see upcoming rings through the wing — more so while boosting / surging. The
   // rest opacity is per-form (model.wingOpacity); boost/Surge drop below it so the
@@ -1019,7 +1052,7 @@ export function updateDragon(dt, player, time) {
   if (coreGlow) {
     const cb = coreGlow.userData.base || 0.3;
     const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
-      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm;
+      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4;   // PR-C: interior ember charges
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
@@ -1054,9 +1087,10 @@ export function updateDragon(dt, player, time) {
   eyeMat.emissive.setHex(player.feverActive ? (activeDef.feverEye ?? 0xff66ee) : activeDef.eye);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
-  const auraTarget = player.feverActive
+  const auraTarget = (player.feverActive
     ? 0.30 + Math.sin(time * 5) * 0.10   // trimmed ~40%: the big additive halo was the main "lens-flare" blob
-    : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0;
+    : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
+    + inhale01 * 0.22;   // PR-C: the halo swells with the drawn breath
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
 
   group.updateMatrixWorld(true);

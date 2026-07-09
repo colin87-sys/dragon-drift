@@ -8,7 +8,7 @@ import { saveData, persist } from './save.js';
 import { TRACKS } from './tracks.js';
 import { mulberry32 } from './util.js';
 import { upgradeMasterChain } from './sfxLimiter.js';
-import { snapToChord, chordLadder, nextGridDelay, tonicOf } from './harmony.js';
+import { snapToChord, chordLadder, nextGridDelay } from './harmony.js';
 import { INSTS } from './insts.js';
 import { sectionAt, chooseSection, melodyVariant } from './composer.js';
 import { on } from './events.js';
@@ -598,11 +598,14 @@ function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay
 let surgeReadyNodes = null;
 let surgeCrackleNodes = null;
 let dwellHumNodes = null;   // V5/PR7: the LANCE dwell "closing-in" hum (frequency tracks progress)
-// PR9 UNLEASH PHRASE state — the INHALE riser handle + the held strike voices
-// awaiting the finale cadence (C2/C3). All AudioContext-time scheduled, zero RNG.
+// PR9 UNLEASH PHRASE state — the INHALE riser handle. All AudioContext-time
+// scheduled, zero RNG. (PR-C: the held-voice chord machinery that used to live
+// here was DELETED with the chord ring-out — owner: "the chord will be annoying
+// to hear consistently"; the finale is now an N-scaled DETONATION, and the whole
+// hanging-drone bug family died with the voices.)
 let brandRiserNodes = null; // { out, sources } — one live riser at a time
-let lanceVoices = [];       // held strike voices: [{ g, until }]
-let lanceChordGain = null;  // shared bus for the voices (+ the echo glue), lazy
+let detSeq = 0;             // PR-C: per-finale counter — deterministic instance
+                            // variation (successive volleys aren't clones), no RNG
 
 // Stepped param ramp: many small setValueAtTime points instead of one long
 // exponentialRamp, so brandRiserRelease can cancelScheduledValues(tStop) and the
@@ -615,72 +618,6 @@ function stepRamp(param, t0, dur, from, to, exp = true, steps = 24) {
     const v = exp ? from * Math.pow(to / from, u) : from + (to - from) * u;
     param.setValueAtTime(v, t0 + dur * u);
   }
-}
-
-// The held-voice bus (PR9/C2): strike voices sum here → sfxBus, with one small
-// feedback-delay echo send for chord glue/space. Returns to sfxBus by design —
-// NEVER the music convolver (its return re-enters musicBus and would inherit
-// music mute; the getBeatClock/getHarmony null contract must hold for FX too).
-function getLanceChordBus(a) {
-  if (lanceChordGain) return lanceChordGain;
-  lanceChordGain = a.createGain();
-  lanceChordGain.gain.value = 1;
-  lanceChordGain.connect(sfxBus);
-  const send = a.createGain(); send.gain.value = 0.3;
-  const dly = a.createDelay(0.5); dly.delayTime.value = 0.16;
-  const fb = a.createGain(); fb.gain.value = 0.28;
-  const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
-  lanceChordGain.connect(send).connect(dly).connect(lp);
-  lp.connect(fb).connect(dly);   // the feedback loop (legal: contains a DelayNode)
-  lp.connect(sfxBus);
-  return lanceChordGain;
-}
-
-// One sustaining strike voice (PR9/C2): slow-attack (~60ms) triangle+octave pair
-// — the sustain envelope tone() can't make. LAW: capped at strikeVoiceMax, and
-// every voice schedules its OWN release at voiceMaxHoldS on creation, so a
-// dropped finale (boss died mid-roll, queue cleared) can never strand a drone.
-function lanceVoiceStart(a, freq, t0) {
-  const L = CONFIG.LOCK;
-  lanceVoices = lanceVoices.filter((v) => v.until > t0);
-  if (lanceVoices.length >= L.strikeVoiceMax || !(freq > 0)) return;
-  const bus = getLanceChordBus(a);
-  const g = a.createGain();
-  const until = t0 + L.voiceMaxHoldS;
-  g.gain.setValueAtTime(0.0001, t0);
-  g.gain.setTargetAtTime(L.strikeSustainVol, t0 + 0.001, 0.06);
-  g.gain.setTargetAtTime(0.0001, until, 0.12);   // self-release watchdog — FAST fade (the
-  // finale normally resolves first; this is just the safety net for a whiffed
-  // finale, and must not linger as a drone). voiceMaxHoldS shortened too.
-  for (const [type, mul, vol] of [['triangle', 1, 1], ['sine', 2, 0.35]]) {
-    const o = a.createOscillator();
-    o.type = type; o.frequency.value = freq * mul;
-    const og = a.createGain(); og.gain.value = vol;
-    o.connect(og).connect(g);
-    o.start(t0);
-    o.stop(until + 1.4);
-  }
-  g.connect(bus);
-  lanceVoices.push({ g, until });
-}
-
-// The cadence (PR9/C2): a FULL set's held voices swell briefly and release
-// together under the finale — the run coming home as a stacked chord. A partial
-// volley just lets go (notes, no cadence — the class separation is the point).
-function lanceChordRelease(t, full) {
-  const L = CONFIG.LOCK;
-  for (const v of lanceVoices) {
-    const g = v.g.gain;
-    g.cancelScheduledValues(t);
-    g.setValueAtTime(L.strikeSustainVol, t);
-    if (full) {
-      g.linearRampToValueAtTime(L.strikeSustainVol * 1.2, t + 0.12);
-      g.setTargetAtTime(0.0001, t + 0.12, 0.35);
-    } else {
-      g.setTargetAtTime(0.0001, t, 0.12);
-    }
-  }
-  lanceVoices = [];
 }
 
 export const sfx = {
@@ -1346,13 +1283,11 @@ export const sfx = {
   // drum-roll): a short pluck stepping UP a pentatonic, so N landings play an
   // ascending riff and a bigger volley is intrinsically more rewarding (the Rez
   // lesson). Deterministic micro-detune from k — organic, zero RNG.
-  // v2 (PR9/C2): the run climbs the LIVE CHORD (getHarmony + chordLadder — the
-  // key-aware ladder ember/perfect already ride) so N landings are an arpeggio
-  // IN the song, not beside it; each strike leaves a HELD VOICE on the chord bus
-  // so the finale can resolve the stack (lanceChordRelease), and pumps the music
-  // a notch (pumpDuck — the L191-safe sidechain node, never musicBus.gain).
-  // Null oracle (music off) → the exact shipped pentatonic pitches; the voices
-  // are sfx-bus and start regardless (music-independent by design).
+  // v2: the run climbs the LIVE CHORD (getHarmony + chordLadder — the key-aware
+  // ladder ember/perfect already ride) so N landings are an arpeggio IN the song.
+  // PR-C (owner: plucks + pops): each strike also lands a small DETONATION POP —
+  // a 12ms crack + a tiny sub knock under the pluck — so the roll reads as
+  // ordnance AND melody; no held voices (the chord machinery is gone).
   brandStrike(k = 0, n = 1, full = false) {
     const PENTA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2];   // major pentatonic ratios
     const det = 1 + ((k * 7) % 5 - 2) * 0.002;          // deterministic micro-detune (kept)
@@ -1367,58 +1302,56 @@ export const sfx = {
     if (!UNLEASH_V2) return;
     const a = getCtx();
     if (!a) return;
-    // PR-B bugfix: hold a sustaining voice ONLY on a FULL volley — the finale
-    // (full-only) is what releases the stack as a chord. A partial volley has no
-    // finale, so a held voice there just RANG OUT to the watchdog (owner: "the
-    // chord rings extended / glitchy, esp. around a shield/phase transition").
-    // Partial = dry plucks; full = the resolving chord. The short watchdog +
-    // brandChordCancel bound any stragglers (a whiffed finale / mid-volley seal).
-    if (full) lanceVoiceStart(a, f, a.currentTime);
+    // The pop: contact crack + sub knock, pitch/level walked by k (det idiom).
+    noiseWhoosh({ from: 3200, to: 900, dur: 0.012, vol: 0.05, q: 0.5 });
+    tone({ freq: (150 + k * 6) * det, end: 50, dur: 0.07, type: 'sine', vol: 0.05 });
     pumpDuck(pumpGain, CONFIG.LOCK.impactDuckAmt, a.currentTime);   // the roll pumps the music
   },
-  // PR9/C2 — THE RESERVED FINALE: the last wisp of a volley lands the accented
-  // close. The note is the TONIC lifted above the run (the V→I cadence home) +
-  // landing weight; a FULL set also gets the crash-style air tail and the held
-  // voices swelling home as a stacked chord — the "different class of event"
-  // (C4). A partial volley gets the plain accented note, no cadence.
+  // PR-C — THE RESERVED FINALE is a DETONATION (owner: the chord ring-out was
+  // "annoying to hear consistently"; keep the thwack — "sounds like ejecting
+  // emberwyrms"). The impact FRONT stays verbatim; behind it a detonation sized
+  // super-linearly by pip count via the riser's own class knob
+  // big = pow(n/3, riserTickPowN): 3-pip = a firm boom, 6-pip = the big one —
+  // deep double-boom + parity-detuned falling DEBRIS + a crackle tail, so a max
+  // volley audibly SHATTERS, not just booms. Instance variation is a module
+  // counter (detSeq) walked through the det idiom — deterministic, never cloned.
   brandFinale(n = 3, full = false) {
     if (!UNLEASH_V2) return;
     const a = getCtx();
     if (!a) return;
     const t0 = a.currentTime;
-    // PR-B — IMPACT FRONT (owner: "the chord is nice but airy, it feels like music
-    // not impact"). The finale now LANDS a hit, and the chord is what it decays
-    // INTO. Three physical layers, front-loaded and loud:
-    noiseWhoosh({ from: 8000, to: 2600, dur: 0.018, vol: 0.17, q: 0.4 });            // the CONTACT crack (the snap we lacked)
-    tone({ freq: 190, end: 46, dur: 0.16, type: 'sine', vol: full ? 0.2 : 0.14 });   // SUB-THUD — the falling pitch IS the punch
-    tone({ freq: 150, end: 52, dur: 0.11, type: 'sawtooth', vol: full ? 0.07 : 0.045 }); // grit under the thud (harmonic body)
+    const L = CONFIG.LOCK;
+    const big = Math.pow(Math.max(1, n) / 3, L.riserTickPowN);   // 3→1.0, 6→~3.0
+    detSeq = (detSeq + 1) % 1000;
+    const v = 1 + ((detSeq * 7) % 5 - 2) * 0.004;                // ±0.8% pitch walk per volley
+    const tj = ((detSeq * 13) % 4) * 0.008;                      // 0-24ms debris timing walk
+    // IMPACT FRONT (kept verbatim — the emberwyrm-eject thwack family):
+    noiseWhoosh({ from: 8000, to: 2600, dur: 0.018, vol: 0.17, q: 0.4 });            // the CONTACT crack
+    tone({ freq: 190 * v, end: 46, dur: 0.16, type: 'sine', vol: full ? 0.2 : 0.14 }); // SUB-THUD — falling pitch IS the punch
+    tone({ freq: 150 * v, end: 52, dur: 0.11, type: 'sawtooth', vol: full ? 0.07 : 0.045 }); // grit
     noiseWhoosh({ from: 1100, to: 240, dur: 0.08, vol: 0.09, q: 1.1 });              // body THWACK
-    // RING-OUT — the tonic + chord resonate AFTER the hit (delayed a hair so the
-    // crack lands first, and quieter than before so it reads as resonance, not
-    // the whole event). The tonic is lifted above the run (the V→I cadence home).
-    const h = getHarmony();
-    let f = h ? tonicOf(h.chord) : 660;
-    if (!(f > 0)) f = 660;
-    while (f < 1150) f *= 2;
-    tone({ freq: f, end: f * 0.99, dur: 0.26, type: 'triangle', vol: full ? 0.08 : 0.06, delay: 0.02 });
-    tone({ freq: f * 2, dur: 0.12, type: 'sine', vol: 0.035, delay: 0.025 });
+    // THE DETONATION (replaces the chord ring-out) — sized by big:
+    tone({ freq: 90 * v, end: Math.max(28, 60 - 12 * big), dur: 0.5 + 0.15 * big,
+      type: 'sine', vol: Math.min(0.2, 0.1 + 0.05 * big) });                          // the BOOM body
+    if (n >= 5) {
+      // the heavy low pair (bossDefeat's loudest boom) — the "different class" at max
+      noiseWhoosh({ from: 220, to: 40, dur: 0.55, vol: 0.16, q: 0.8, delay: 0.015 });
+      tone({ freq: 88 * v, end: 58, dur: 0.7, type: 'sine', vol: 0.11, delay: 0.02 });
+    }
+    // DEBRIS — parity-detuned falling shards (shieldShatter idiom), count = min(n,6):
+    for (let i = 0; i < Math.min(n, 6); i++) {
+      const fs = (1900 + i * 137 * ((i % 2) ? 1 : 1.5)) * v;
+      tone({ freq: fs, end: fs * 0.55, dur: 0.14, type: 'triangle', vol: 0.05,
+        delay: 0.03 + i * 0.028 + tj });
+    }
     if (full) {
-      tone({ freq: f * 1.5, dur: 0.5, type: 'triangle', vol: 0.03, delay: 0.03 });  // a held fifth (chord glue in the ring-out)
-      pumpDuck(pumpGain, Math.min(0.34, CONFIG.LOCK.impactDuckAmt * 1.7), t0);
+      // crackle tail — fireworks rubble, k-indexed offsets:
+      for (let i = 0; i < 4; i++) {
+        noiseWhoosh({ from: 2600 - i * 300, to: 900, dur: 0.03 + (i % 2) * 0.02,
+          vol: 0.045, q: 1.6, delay: 0.06 + i * 0.05 + tj });
+      }
+      pumpDuck(pumpGain, Math.min(0.34, L.impactDuckAmt * 1.7), t0);
     }
-    lanceChordRelease(t0, full);
-  },
-  // PR-B: hard-flush the held chord voices (a whiffed finale, a shield rising
-  // mid-volley, a new phrase starting). Fast fade, no cadence. Wired to the same
-  // interruption seams as the riser (lockSealed / lockLost / bossEnd).
-  brandChordCancel() {
-    const a = getCtx();
-    if (!a || !lanceVoices.length) return;
-    const t = a.currentTime;
-    for (const v of lanceVoices) {
-      try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0.0001, t, 0.05); } catch {}
-    }
-    lanceVoices = [];
   },
   // A lone brand ashing off (decay release) — deliberately lesser than the exhale.
   brandFizzle() {

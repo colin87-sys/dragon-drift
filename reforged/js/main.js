@@ -17,15 +17,15 @@ import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObs
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
-import { setDragonQuality, setDragonLook } from './dragon.js';
+import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
-import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth } from './sfx.js';
+import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2 } from './sfx.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
-import { burst, rollWake } from './particles.js';
+import { burst, rollWake, gatherPulse } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
@@ -410,6 +410,10 @@ on('lockCap', (p) => sfx.brandCap?.((p && p.count) || 0, (p && p.fuseDur) || 0))
 // release ONLY, never the impacts amid dense bullets) and a jade muzzle flash off
 // the dragon's launch shoulder, so the moment reads even in peripheral vision.
 const _muzzleV = new THREE.Vector3();
+// PR-C: gather-pulse throttle + a cached reduced-motion read (the camera pinch
+// is motion; the pose/glow/sparks still carry the inhale for those users).
+let gatherT = 0;
+const REDUCE_MOTION = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 // PR9: lockVolley = the COMMIT (audio schedules against the beat-hold `delay`);
 // lockLaunch = the frame the first wisp actually leaves (the eye's release —
 // the muzzle flash + juice anchor THERE, after any beat-hold, so sight and
@@ -455,11 +459,11 @@ on('lockStrike', (p) => {
 // the pips are kept (the lock layer never wastes them), the reticle row shakes once.
 // PR9: a live riser stands down on any non-release exit (the watchdog self-fade
 // covers the event-less exits — death/transition mid-fuse).
-// PR-B: also flush any hanging chord VOICES on these seams (a shield rising or a
-// phase change mid-volley left the finale un-fired → the chord rang out glitchy).
-on('lockSealed', () => { sfx.brandRiserCancel?.(); sfx.brandChordCancel?.(); sfx.brandSeal?.(); });
-on('lockLost', () => { sfx.brandRiserCancel?.(); sfx.brandChordCancel?.(); });
-on('bossEnd', () => { sfx.brandRiserCancel?.(); sfx.brandChordCancel?.(); });
+// (PR-C: the chord-voice flush that lived here died with the chord machinery —
+// the finale is a one-shot detonation now, nothing sustains to strand.)
+on('lockSealed', () => { sfx.brandRiserCancel?.(); sfx.brandSeal?.(); });
+on('lockLost', () => sfx.brandRiserCancel?.());
+on('bossEnd', () => sfx.brandRiserCancel?.());
 on('lockTick', () => sfx.lockTick?.());
 // Boss over → resume the course FRESH from here (the arena stretch was suppressed;
 // without this the world is blank until the player catches up to the old cursor).
@@ -1305,6 +1309,24 @@ function tick() {
       const yaw = Math.max(-0.7, Math.min(0.7, Math.atan2(-dx, -dz)));                     // face the boss, clamped
       setDragonLook(win > 0 ? yaw * win : null);
     } else setDragonLook(null);
+    // PR-C THE VISIBLE INHALE: feed the lance cap-fuse progress into the dragon
+    // rig BEFORE updateDragon (torso arch + wing mantle + jade glow), pulse the
+    // gather sparks into the launch shoulder (the exact point the exhale muzzle
+    // burst fires from), and pinch the camera. lockHudState is read here and
+    // reused below for the dwell hum. Off (0) outside a fight / when sealed /
+    // in v1 — the rig's inhale channel is byte-inert at 0.
+    const lh = (game.inBoss && game.state === 'playing') ? lockHudState() : null;
+    const fuse01 = UNLEASH_V2 && lh && lh.active && !lh.ashen ? (lh.fuse01 || 0) : 0;
+    setDragonInhale(fuse01);
+    cameraCtl.setInhale?.(REDUCE_MOTION ? 0 : fuse01);
+    if (fuse01 > 0) {
+      gatherT -= dt;
+      if (gatherT <= 0) {
+        gatherT = 1 / (CONFIG.LOCK.gatherRateHz ?? 8);
+        _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
+        gatherPulse(_muzzleV, wispTint(), (CONFIG.LOCK.gatherCountBase ?? 2) * Math.max(1, lh.pips || 0) / 2, fuse01);
+      }
+    }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
@@ -1319,8 +1341,7 @@ function tick() {
     // not reticle.js — the reticle early-returns when disabled, and this cue's
     // whole job is the no-reticle acquire loop. Silences on lock (aimHeld → the
     // chime), on sealed/muted, and on any non-fight/paused frame (0 stops it).
-    const lh = (game.inBoss && game.state === 'playing') ? lockHudState() : null;
-    sfx.dwellHum?.(lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted ? lh.dwell : 0);
+    sfx.dwellHum?.(lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted ? lh.dwell : 0);   // (lh read above, pre-updateDragon)
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget());
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
