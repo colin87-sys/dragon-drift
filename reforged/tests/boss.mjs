@@ -2482,4 +2482,65 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('knellgrave music-death: the defeat path restores (lifecycle-proven) ✓');
 }
 
+// §ENG-A PER-ORGAN EMIT: crossfire fires from a def's declared body parts (eitherwing:
+// the two twins) via `emitOrigins`, resolved per-volley through partWorldPos; un-opted
+// defs keep the hardcoded ±10 lane posts byte-identical. Freshly-emitted crossfire bullets
+// carry their origin as (x, y, rel), so we compare them to the live twin positions.
+{
+  const EPS = 0.1;
+  const bossBullets = () => bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+  const near = (b, tw) => Math.hypot(b.x - tw.x, b.y - tw.y, b.rel - tw.rel);
+
+  // 1. COEXIST FENCE (headless, def/model null): the shipped ±10 posts.
+  bullets.resetBossBullets();
+  boss.debugEmitAttack('crossfire', makePlayer(), 1);
+  let bs = bossBullets();
+  assert(bs.length > 0 && bs.every((b) => Math.abs(Math.abs(b.x) - 10) < 1e-6),
+    `ENG-A coexist: un-opted crossfire fires from the ±10 posts (${bs.length} bullets)`);
+
+  // 2. OPTED PATH: eitherwing crossfire resolves to the two live twins.
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const player = makePlayer();
+  boss.forceBoss(player, BOSS_ORDER.indexOf('eitherwing'));
+  boss.debugForceFight(player);
+  let t = 2;
+  for (let i = 0; i < 30; i++) { boss.updateBoss(1 / 60, player, t); t += 1 / 60; }   // settle the twins
+  const twinOf = (nm) => { const w = boss.debugPartWorldPos(nm); return w && { x: w.x, y: w.y, rel: -w.z - player.dist }; };
+  const tA = twinOf('eitherTwinA'), tB = twinOf('eitherTwinB');
+  assert(tA && tB, 'ENG-A: both twins resolve via debugPartWorldPos');
+  bullets.resetBossBullets();
+  boss.debugEmitAttack('crossfire', player, 1);
+  bs = bossBullets();
+  assert(bs.length > 0 && bs.every((b) => near(b, tA) < EPS || near(b, tB) < EPS),
+    'ENG-A: every opted crossfire bullet originates at a twin (never the ±10 posts)');
+  assert(bs.some((b) => near(b, tA) < EPS) && bs.some((b) => near(b, tB) < EPS),
+    'ENG-A: BOTH twins fire the converging spread');
+  assertEq(bs.length, 10, 'ENG-A: 2 twins × 5 (q1) == the shipped 2-post count (density unchanged)');
+  assert(bs.every((b) => b.reflectable), 'ENG-A: opted crossfire stays amber (the parry-carrier contract holds)');
+
+  // 3. ORIGINS RESOLVE PER-VOLLEY (not cached): tick, re-read twins, re-emit → matches the fresh positions.
+  for (let i = 0; i < 90; i++) { boss.updateBoss(1 / 60, player, t); t += 1 / 60; }
+  const tA2 = twinOf('eitherTwinA'), tB2 = twinOf('eitherTwinB');
+  bullets.resetBossBullets();
+  boss.debugEmitAttack('crossfire', player, 1);
+  const bs2 = bossBullets();
+  assert(bs2.length > 0 && bs2.every((b) => near(b, tA2) < EPS || near(b, tB2) < EPS),
+    'ENG-A: origins are resolved per-volley (a later volley matches the twins’ current positions)');
+  boss.resetBoss();
+
+  // 4. COEXIST (live): a non-opted boss in a real fight still uses the ±10 posts.
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const p2 = makePlayer();
+  boss.forceBoss(p2, BOSS_ORDER.indexOf('voidmaw'));
+  boss.debugForceFight(p2);
+  for (let i = 0; i < 10; i++) boss.updateBoss(1 / 60, p2, 2 + i / 60);
+  bullets.resetBossBullets();
+  boss.debugEmitAttack('crossfire', p2, 1);
+  const bv = bossBullets();
+  assert(bv.length > 0 && bv.every((b) => Math.abs(Math.abs(b.x) - 10) < 1e-6),
+    'ENG-A coexist (live): a non-opted boss (voidmaw) still fires crossfire from ±10');
+  boss.resetBoss();
+  ok('ENG-A per-organ emit: eitherwing crossfire fires from & tracks both twins; un-opted bosses keep the ±10 posts ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);

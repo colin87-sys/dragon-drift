@@ -3076,12 +3076,35 @@ function resolveEmitOrigin(player) {
   else { emitOrigin.x = pose.x; emitOrigin.y = pose.y; emitOrigin.rel = pose.rel; }
 }
 
-// Solve the lateral velocity that puts a bullet on a target point as it closes,
-// FROM the current emitter origin (head, or pose centre when un-opted).
-function aimVel(targetX, targetY, closing) {
-  const t = Math.max(emitOrigin.rel / closing, 0.05);
-  return { vx: (targetX - emitOrigin.x) / t, vy: (targetY - emitOrigin.y) / t };
+// ENG-A per-organ emit: resolve an attack id's def-declared emitter parts to live
+// origins in the bullet frame. Returns null when the def doesn't opt this id in
+// (→ caller takes the shipped path, byte-identical) or when NO declared part is
+// resolvable/ahead (→ caller SKIPS the volley — never fall back to posts nobody
+// occupies; that is the defect this seam removes). World→bullet frame exactly as
+// resolveEmitOrigin: (wx,wy,wz) → { x, y, rel: -wz - player.dist }.
+const _emoV = new THREE.Vector3();
+function resolveEmitOrigins(id, player) {
+  const names = def?.emitOrigins?.[id];
+  if (!names || !model?.partWorldPos) return null;   // un-opted → shipped path
+  const out = [];
+  for (const name of names) {
+    const w = model.partWorldPos(name, _emoV);
+    if (!w) continue;
+    const rel = -w.z - player.dist;
+    if (rel <= 0.5) continue;   // behind/at the plane → would fly away (emitRibBullets guard)
+    out.push({ x: w.x, y: w.y, rel });
+  }
+  return out;   // possibly [] — opted-in but nothing ahead → SKIP, don't post-fire
 }
+
+// Solve the lateral velocity that puts a bullet on a target point as it closes,
+// FROM an arbitrary origin o = {x, y, rel} (per-emitter time-to-impact, §5e).
+function aimVelFrom(o, targetX, targetY, closing) {
+  const t = Math.max(o.rel / closing, 0.05);
+  return { vx: (targetX - o.x) / t, vy: (targetY - o.y) / t };
+}
+// FROM the current emitter origin (head, or pose centre when un-opted).
+function aimVel(targetX, targetY, closing) { return aimVelFrom(emitOrigin, targetX, targetY, closing); }
 
 // THREAD-THE-GAP rib emit (L155): during the fly-through pass, a few SLOW, reflectable
 // AMBER bullets spawn from INSIDE the ribcage (rib-pivot parts) and CONVERGE toward the
@@ -3248,9 +3271,19 @@ function executeAttack(id, player) {
       );
       sfx.stitchPluck?.();
     } else if (def?.threadCut) { sfx.stitchPluck?.(); }   // def/model null on the headless debugEmitAttack flush
-    for (let i = -1; i <= 1; i++) {
-      const v = aimVel(px + i * 1.6, py, closing);
-      emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
+    // ENG-A: def-gated per-organ origins (dormant until a def opts `aimed` in — the
+    // C.4 holder volley from both twins). Un-opted → the shipped 3-bullet loop below.
+    const origins = resolveEmitOrigins('aimed', player);
+    if (origins) {
+      for (const o of origins) for (let i = -1; i <= 1; i++) {
+        const v = aimVelFrom(o, px + i * 1.6, py, closing);
+        emitBoss(o.x, o.y, v.vx, v.vy, -closing, true, null, 1, null, o.rel);
+      }
+    } else {
+      for (let i = -1; i <= 1; i++) {
+        const v = aimVel(px + i * 1.6, py, closing);
+        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
+      }
     }
   } else if (id === 'fan') {
     const n = quality < 0.75 ? 5 : 7;
@@ -3401,8 +3434,19 @@ function executeAttack(id, player) {
     for (let k = 0; k < ticks; k++) {
       const amber = (k % 4) === 3;   // amber tip every 4th tick (the parry beat)
       pending.push({ t: k * 0.14, fire: () => {
-        const v = aimVel(player.position.x, player.position.y, slow);
-        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, amber, null, 1, null, emitOrigin.rel);
+        // ENG-A: re-resolve per tick (the twins move between ticks). Un-opted →
+        // the shipped single-origin hose. An opted 2-origin stream fires 2 bullets
+        // per tick (2 ambers on the amber tick — a richer parry beat for that def).
+        const origins = resolveEmitOrigins('stream', player);
+        if (origins) {
+          for (const o of origins) {
+            const v = aimVelFrom(o, player.position.x, player.position.y, slow);
+            emitBoss(o.x, o.y, v.vx, v.vy, -slow, amber, null, 1, null, o.rel);
+          }
+        } else {
+          const v = aimVel(player.position.x, player.position.y, slow);
+          emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, amber, null, 1, null, emitOrigin.rel);
+        }
       } });
     }
   } else if (id === 'secondWave') {
@@ -3429,11 +3473,26 @@ function executeAttack(id, player) {
     // flee direction is clean. Precision shots → REFLECTABLE (amber): parry fuel.
     const each = quality < 0.75 ? 4 : 5;
     const slow = closing * 0.95;
-    for (const ex of [-10, 10]) {
-      for (let i = 0; i < each; i++) {
-        const off = (i / (each - 1) - 0.5) * 5;
-        const t = Math.max(pose.rel / slow, 0.05);
-        emitBoss(ex, pose.y, (px + off - ex) / t, (py - pose.y) / t, -slow, true);
+    // ENG-A: def-gated per-organ origins (eitherwing: the two twins fire the
+    // converging spreads from their live lemniscate positions). Un-opted defs take
+    // the shipped ±10 posts below, byte-identical. [] (all twins behind the plane)
+    // → the volley goes SILENT rather than resurrect posts nobody occupies.
+    const origins = resolveEmitOrigins('crossfire', player);
+    if (origins) {
+      for (const o of origins) {
+        for (let i = 0; i < each; i++) {
+          const off = (i / (each - 1) - 0.5) * 5;
+          const t = Math.max(o.rel / slow, 0.05);   // per-emitter time-to-impact (§5e)
+          emitBoss(o.x, o.y, (px + off - o.x) / t, (py - o.y) / t, -slow, true, null, 1, null, o.rel);
+        }
+      }
+    } else {
+      for (const ex of [-10, 10]) {
+        for (let i = 0; i < each; i++) {
+          const off = (i / (each - 1) - 0.5) * 5;
+          const t = Math.max(pose.rel / slow, 0.05);
+          emitBoss(ex, pose.y, (px + off - ex) / t, (py - pose.y) / t, -slow, true);
+        }
       }
     }
   }
