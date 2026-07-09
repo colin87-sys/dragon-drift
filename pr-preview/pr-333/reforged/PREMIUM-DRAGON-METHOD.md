@@ -65,6 +65,18 @@ is only in the *design choices*, so make distinctiveness an explicit **Fable vet
 anti-collision rule bosses use — `BOSS-DESIGN.md` §5b: no two may share silhouette family, hook, or
 palette swatch/glow-shape.)
 
+**Two shape-AGNOSTIC levers that GUARANTEE difference (relational, so they never prescribe a shape):**
+- **Compositional inversion** — put your silhouette MASS in a different region of the frame than the
+  dragon you're differentiating from. Two dragons whose mass lives in opposite halves of the frame
+  cannot be confused, whatever their details (Phoenix answered Solar's TOP-heavy crown with a
+  BOTTOM-heavy train; the lever is "different region," not "a train"). This is a stronger guarantee
+  than a hue swap.
+- **A different profile-FUNCTION family** — if silhouette comes from a curve/function keyed by a dial
+  (§2), pick a mathematically different family than the neighbours (Solar's wing rises to INTERIOR
+  peaks via a two-segment arch; a TERMINAL-peak monotonic rake is a different family). "Different
+  function," not "a specific outline."
+Reach for these FIRST, before palette — they're the cheapest way to clear the veto.
+
 Everywhere below that a Solar specific is named (the arch, the corona ring, a violet hue), it is an
 **illustration of a technique**, not a thing to copy. The reusable part is always the *how* (opaque
 emissive, camera-facing rim, withheld-then-revealed regalia), never the *what* (a ring, an M, violet).
@@ -80,7 +92,11 @@ emissive, camera-facing rim, withheld-then-revealed regalia), never the *what* (
 2. **New builders, default-off, prove on the hero.** Author fresh part builders that self-register in
    the recipe registry (`registerTorso/registerWings/registerHead/registerTail` in
    `js/dragonRecipe.js`); only the hero `def.parts` opts in. **The shipped roster never breaks.**
-   Coexist → prove on a hero → migrate.
+   Coexist → prove on a hero → migrate. **Rebuilding an EXISTING dragon? Coexist at the ROSTER level
+   too:** author the rebuild as a NEW `DRAGONS` key (e.g. `phoenixEmpress`) that mirrors the original's
+   rarity/cost/stats, leaving the shipped def byte-identical, so the owner can compare old-vs-new
+   in-game before a later, owner-gated migrate/retire. Don't mutate the shipped dragon in place until
+   that call.
 3. **Build the APEX (Eternal / form 3) FIRST, gate it to PASS.** It is the hardest and most
    constrained form. Do not tune four forms before you know the top one works — the ladder is
    subtraction from the apex, not addition toward it.
@@ -268,8 +284,29 @@ still what certifies the ceiling.
   Feed it the rear-chase + dark-sky + sil-rear + ladder sheets and tell it to **judge the rear-chase
   tile first** — and, for the distinctiveness veto, hand it a Solar tile to compare against.
 - **The gate is BLIND to motion.** After it PASSes, hand the human the live PR preview for the
-  motion/feel call (idle coil not whipping the tail across the cam, the flap cycle, surge pulse,
-  wake) and flag any net-new silhouette element for approval.
+  motion/feel call (idle coil not whipping the tail across the cam, the flap cycle, surge pulse, wake,
+  any fold/fan display) and flag any net-new silhouette element for approval.
+
+**Fable works in THREE modes — use the right one (all high-effort):**
+1. **SYNTHESIZE** (design) — at the start, hand Fable the REFERENT and the constraints and have it
+   author the plan (the "referent → Fable-synthesized plan" step). **Feed it the referent IMAGES
+   directly** (it has the Read tool) — a plan anchored to the owner's actual references beats a generic
+   one. If the owner named a specific look, pass those image paths.
+2. **DIAGNOSE** (targeted) — when ONE part underdelivers, brief Fable to diagnose just that part and
+   return a concrete fix plan (Solar's tail went from "afterthought" to a passing hero this way). Scope
+   it narrowly; tell it NOT to re-litigate the parts that already passed.
+3. **GRADE** (the gate) — the PASS/FAIL ratchet above.
+For the DISTINCTIVENESS veto in any mode, **hand Fable comparison tiles** (a Solar tile, plus the
+nearest roster neighbours) so "does it read like a shipped dragon?" is judged against pixels, not memory.
+
+**Checkpoint discipline (this is important):** run a high-effort Fable checkpoint at EVERY critical step
+— design synthesis, apex-first PASS, each spectacle change, and before every owner-facing checkpoint —
+and gate on PASS before proceeding to the next step. Do not batch changes past a failing gate.
+
+**Surface the ONE load-bearing decision to the human BEFORE banking a frozen sheet.** Every design has a
+single choice everything else hangs on (Phoenix: "hero = the streaming train vs the front wing-spread").
+Present that one choice and get it blessed before writing the full build sheet — don't freeze a sheet on
+an unconfirmed core, and don't bury the human in small choices that have obvious defaults.
 
 ---
 
