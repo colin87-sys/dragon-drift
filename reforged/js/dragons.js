@@ -807,36 +807,53 @@ export const DRAGONS = {
       scale: 1.2, tailSegments: 9, neckSegments: 6, flapBias: 0.85, flapAmp: 0.72,
       tailLagScale: 0.055,   // GENTLE idle tail coil (azure-style, subtle) — a soft trailing drift, not a snake
 
-      vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.0, keelShields: 5,
+      vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.06, keelShields: 5,
       coronaValleys: 5, crownHorns: 4, starGemBloom: 1.0, crescentBloom: 1.0, tailFins: 4,
-      glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 1.7,
+      glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 2.1, tailLength: 1.3,
+      // CP2 spectacle ladder (apex reference; forms dial each rung — see forms[] below):
+      igniteStage: 3, archRise: 1.0, carpalLance: 2.6, pinionSlots: 2, tailRise: 1.0,
+      napeStar: 1, coronaRing: 1, sparTipHeat: 1,
     },
     forms: [
-      // HATCHLING (0) — round princeling, level flight, big head, dim gem-scute, one horn pair.
+      // HATCHLING (0) — round princeling, LINEAR glide (no arch), no mantle/gem/corona: a bare
+      // whelp so the coronation ladder has somewhere to climb FROM. igniteStage 0 (all emissives dark).
       { vaultFingers: 3, pikeCount: 1, dihedral: 10, spanScale: 0.68, keelShields: 2,
-        coronaValleys: 2, crownHorns: 2, starGemBloom: 0.25, crescentBloom: 0.1, tailFins: 1,
+        coronaValleys: 0, crownHorns: 0, starGemBloom: 0, crescentBloom: 0.1, tailFins: 1,
         glowLevel: 0.25, tuskScale: 0, eyeScale: 1.4, headScale: 1.3, hornLen: 0.9, tailSegments: 5,
+        igniteStage: 0, archRise: 0, carpalLance: 0, pinionSlots: 0, tailRise: 0, napeStar: 0,
+        coronaRing: 0, sparTipHeat: 0,
         colors: { body: 0x0d1018, wingInner: 0x6e2418, wingOuter: 0x4a160e,
           wingEmissive: 0x5a1c10, scales: 0x7a6038, horn: 0x9a7c4a,
           apexSeam: 0x8a6fb0, eye: 0xc8a868, coreGlow: 0xb784ff } },
-      // KINDLED (1) — squire-drake: neck lengthens, horns sweep, first pikes, corona arc.
+      // KINDLED (1) — squire-drake: neck lengthens, horns sweep, first pikes, the wing begins to ARCH
+      // (archRise 0.35), the brow gem KINDLES (bloom 0.5, igniteStage 1). No mantle/corona/nape yet.
       { vaultFingers: 4, pikeCount: 2, dihedral: 14, spanScale: 0.82, keelShields: 3,
-        coronaValleys: 3, crownHorns: 2, starGemBloom: 0.5, crescentBloom: 0.4, tailFins: 2,
+        coronaValleys: 0, crownHorns: 2, starGemBloom: 0.5, crescentBloom: 0.4, tailFins: 2,
         glowLevel: 0.5, tuskScale: 0, eyeScale: 1.1, headScale: 1.15, hornLen: 1.25, tailSegments: 7,
+        igniteStage: 1, archRise: 0.35, carpalLance: 0.8, pinionSlots: 0, tailRise: 0.4, napeStar: 0,
+        coronaRing: 0, sparTipHeat: 0,
         colors: { body: 0x0c1322, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a2414, scales: 0xa88a48, horn: 0xc09a54,
           apexSeam: 0xb784ff, eye: 0xe0bc78, coreGlow: 0xb784ff } },
-      // RADIANT (2) — crowned king-apparent: tusks, coronet-into-crown, corona seams light.
+      // RADIANT (2) — crowned king-apparent: tusks, coronet-into-crown, the MANTLE collar arrives
+      // (valleys 4) with its nape-star, wing veins + membrane embers light (igniteStage 2), the arch
+      // deepens (0.7) with a fuller carpal lance + first pinion slot. No corona ring / spar heat yet.
       { vaultFingers: 4, pikeCount: 2, dihedral: 18, spanScale: 0.92, keelShields: 4,
         coronaValleys: 4, crownHorns: 3, starGemBloom: 0.75, crescentBloom: 0.6, tailFins: 3,
         glowLevel: 0.75, tuskScale: 0.7, eyeScale: 0.85, headScale: 1.05, hornLen: 1.5, tailSegments: 8,
+        igniteStage: 2, archRise: 0.7, carpalLance: 1.8, pinionSlots: 1, tailRise: 0.7, napeStar: 0.6,
+        coronaRing: 0, sparTipHeat: 0,
         colors: { body: 0x0a1020, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xd8b25a,
           apexSeam: 0xb784ff, eye: 0xecd090, coreGlow: 0xb784ff } },
-      // ETERNAL (3) — the Eclipse Dragon-King: full wing-arch, blazing star-gem, scepter tail.
-      { vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.0, keelShields: 5,
+      // ETERNAL (3) — the Eclipse Dragon-King: full CATHEDRAL ARCH (twin blazing carpal spires over
+      // the crowned head), fingered pinion tips, rising banner tail, eclipse-corona ring, white-hot
+      // spar tips. Every emissive at full ignition (stage 3). The headline apex — worth the grind.
+      { vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.06, keelShields: 5,
         coronaValleys: 5, crownHorns: 4, starGemBloom: 1.0, crescentBloom: 1.0, tailFins: 4,
-        glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 1.7, tailSegments: 9,
+        glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 2.1, tailSegments: 9,
+        tailLength: 1.3, igniteStage: 3, archRise: 1.0, carpalLance: 2.6, pinionSlots: 2, tailRise: 1.0,
+        napeStar: 1, coronaRing: 1, sparTipHeat: 1,
         colors: { body: 0x080b14, wingInner: 0x9c2233, wingOuter: 0x5a160e,
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xddc070,
           apexSeam: 0xb784ff, eye: 0xf4e2a8, coreGlow: 0xb784ff } },

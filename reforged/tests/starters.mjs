@@ -275,6 +275,51 @@ for (const [key, spec] of Object.entries(SPECS)) {
   }
 }
 
+// ── SOLAR SOVEREIGN (SSSR premium, 4 forms) — the CP2 "withheld-regalia" coronation ladder ───────
+// Solar reaches Eternal (not a form-2-capped starter), so it gets its own block rather than the
+// shared 3-form SPECS loop. Asserts the ladder WITHHOLDS regalia at the whelp and confers it rung by
+// rung: igniteStage 0→3, the star-gem/corona-ring/nape-star arriving on schedule, the cathedral arch
+// + carpal spires growing — so each form is rank-able (adds light AND hardware), the point of CP2.
+if (!cp1) {
+  const key = 'solar';
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  const per = [];
+  for (let f = 0; f <= maxT; f++) {
+    const def = ascendedDef(DRAGONS[key], f, 0);
+    const { group, parts } = buildDragonModel(def, {});
+    let tris = 0; group.traverse((o) => { if (o.isMesh && o.geometry) { const g = o.geometry; tris += g.index ? g.index.count / 3 : (g.attributes?.position?.count / 3 || 0); } });
+    per.push({ m: def.model, parts, tris: Math.round(tris) });
+  }
+  for (let f = 0; f <= maxT; f++) {
+    ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
+    ok(!!per[f].parts.spinePoints && per[f].parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
+    // motif-anchor assert WAIVED at f0 — the star-gem (motif carrier) is withheld from the whelp.
+    if (f >= 1) ok(!!per[f].parts.motifAnchor, `${key} f${f}: motifAnchor published`);
+  }
+  // tris monotonic — every rung bolts on more hardware (arch/spires/corona), not just brightness.
+  ok(per[0].tris < per[1].tris && per[1].tris < per[2].tris && per[2].tris < per[3].tris,
+    `${key}: tris monotonic across the 4 forms (${per.map((p) => p.tris).join(' < ')})`);
+  // ignition ramp: the growth currency — every emissive is dark at the whelp, full at Eternal.
+  const ig = per.map((p) => p.m.igniteStage ?? 3);
+  ok(ig[0] === 0 && ig[0] < ig[1] && ig[1] < ig[2] && ig[2] < ig[3], `${key}: igniteStage monotonic 0→3 (${ig.join('→')})`);
+  // star-gem WITHHELD at f0 (radius 0), then the rendered gem radius strictly grows 0→r1→r2→r3.
+  const gemR = per.map((p) => { const b = p.m.starGemBloom ?? 1; return b > 0 ? (0.13 + 0.07 * b) * (p.m.headScale ?? 1) : 0; });
+  ok(gemR[0] === 0, `${key} f0: star-gem withheld (radius 0)`);
+  ok(gemR[0] < gemR[1] && gemR[1] < gemR[2] && gemR[2] < gemR[3],
+    `${key}: gem-bloom radius monotonic 0→r1→r2→r3 (${gemR.map((r) => r.toFixed(2)).join(' < ')})`);
+  // eclipse-corona ring is an ETERNAL-ONLY rung — never at a lower form (no early pearl-halo collision).
+  const cr = per.map((p) => p.m.coronaRing ?? 0);
+  ok(cr[0] === 0 && cr[1] === 0 && cr[2] === 0 && cr[3] > 0, `${key}: eclipse-corona ring is f3-only (${cr.join(',')})`);
+  // the cathedral-arch wow move ramps: arch + carpal spires grow each rung (the silhouette earns its M).
+  const ar = per.map((p) => p.m.archRise ?? 1), cl = per.map((p) => p.m.carpalLance ?? 2.6);
+  ok(ar[0] === 0 && ar[0] < ar[1] && ar[1] < ar[2] && ar[2] < ar[3], `${key}: archRise monotonic 0→1 (${ar.join('→')})`);
+  ok(cl[0] === 0 && cl[1] < cl[2] && cl[2] < cl[3], `${key}: carpal-lance length monotonic (${cl.join('→')})`);
+  // nape-star (the rearward sigil) is withheld until Radiant, then grows into Eternal.
+  const ns = per.map((p) => p.m.napeStar ?? 0);
+  ok(ns[0] === 0 && ns[1] === 0 && ns[2] > 0 && ns[2] < ns[3], `${key}: nape-star arrives at Radiant (${ns.join('→')})`);
+}
+
 console.log(`\nStarter geometry asserts (§7)${cp1 ? ' — CP1 (apex bands)' : ''}: ${pass} passed, ${fail} failed.`);
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
 process.exit(0);
