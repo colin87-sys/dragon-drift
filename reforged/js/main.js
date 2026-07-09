@@ -32,7 +32,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -243,6 +243,12 @@ if (urlParams.has('bossIdx')) {
 if (urlParams.has('bossPhase')) {
   setBossDebugPhase(parseInt(urlParams.get('bossPhase'), 10));
 }
+// ?bossStage=N (1-based) pins the visible STAGE sub-rig of a multi-stage boss (THE UNMASKED:
+// 1 eclipse-eye / 2 seraph / 3 unveiling) so a stage is playtestable in a live fight without
+// the CP2 dissolve-swap (e.g. ?boss&bossIdx=13&bossStage=2 = fight into the seraph).
+if (urlParams.has('bossStage')) {
+  setBossDebugStage(parseInt(urlParams.get('bossStage'), 10));
+}
 // Playtest: ?parry widens the PERFECT-parry window so the V4 snap-brand is
 // testable without frame-tight timing. Bare ?parry = the whole reflect window
 // (EVERY parry is perfect); ?parry=<rel> sets the perfect rel in world-units
@@ -250,6 +256,18 @@ if (urlParams.has('bossPhase')) {
 if (urlParams.has('parry')) {
   const v = parseFloat(urlParams.get('parry'));
   setDebugPerfectParryRel(Number.isFinite(v) && v > 0 ? v : CONFIG.BOSS.reflectWindow);
+}
+
+// Playtest: ?lab[=bossKey] — THE LANCE LAB, a pacifist practice range for the
+// unleash phrase. The boss (default hollowgate: 5 static spread panes) spawns
+// shortly after takeoff, never attacks, never takes damage (paint → unleash →
+// repaint forever), and the pip cap is forced to 6 so the FULL-cap cadence is
+// testable. Painting is pre-unlocked so a cold save can brand from fight one.
+// URL-only, never persisted beyond the lockUnlocked flag any lockParts fight
+// would set anyway.
+if (urlParams.has('lab')) {
+  setBossLab(urlParams.get('lab') || '');
+  saveData.flags.lockUnlocked = true;
 }
 
 // Debug: force Dragon Surge for visual verification
@@ -384,7 +402,7 @@ on('aimLock', () => sfx.lockOn?.());
 // HUNTER'S BRAND sound phrase: set (per paint, rising) → inhale (cap fuse) →
 // exhale (cap volley) / fizzle (a lone brand ashing off on decay).
 on('lockPaint', (p) => sfx.brandSet?.((p && p.count) || 1));
-on('lockCap', () => sfx.brandCap?.());
+on('lockCap', (p) => sfx.brandCap?.((p && p.count) || 0));
 // A DELIBERATE loose sounds the full exhale — the cap auto-volley, the PR3 manual
 // tap-loose, and the Surge fork are all the player's earned release (brandLoose); only
 // a lone brand ashing off on decay is the lesser fizzle. PR4b RELEASE PUNCTUATION:
@@ -392,24 +410,42 @@ on('lockCap', () => sfx.brandCap?.());
 // release ONLY, never the impacts amid dense bullets) and a jade muzzle flash off
 // the dragon's launch shoulder, so the moment reads even in peripheral vision.
 const _muzzleV = new THREE.Vector3();
+// PR9: lockVolley = the COMMIT (audio schedules against the beat-hold `delay`);
+// lockLaunch = the frame the first wisp actually leaves (the eye's release —
+// the muzzle flash + juice anchor THERE, after any beat-hold, so sight and
+// sound land together on the song's grid).
 on('lockVolley', (p) => {
   if (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')) {
-    sfx.brandLoose?.(p.count);
-    sfx.volleyDuck?.();   // PR7: dip the music ~200ms so the exhale owns the moment
-    juiceEvent('wispVolley');
-    _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
-    burst(_muzzleV, wispTint(), { count: 10, speed: 12, size: 0.8, life: 0.35 });   // accent (jade default, PR8)
-    burst(_muzzleV, 0xeafff6, { count: 4, speed: 18, size: 0.5, life: 0.25 });      // white anchor stays white
+    const d = p.delay || 0;
+    sfx.brandRiserRelease?.(d, CONFIG.LOCK.releaseGapMs / 1000);   // rise STOPS → the void
+    sfx.brandLoose?.(p.count, d, !!p.full);                        // → THE DROP, on the grid
+    sfx.volleyDuck?.(d);   // PR7: dip the music ~200ms so the exhale owns the moment
   } else {
+    sfx.brandRiserCancel?.();   // decay fizzle: no drop, no void — just let the riser go
     sfx.brandFizzle?.();
   }
 });
+on('lockLaunch', (p) => {
+  if (!p || p.source === 'decay') return;
+  juiceEvent('wispVolley');
+  _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
+  burst(_muzzleV, wispTint(), { count: 10, speed: 12, size: 0.8, life: 0.35 });   // accent (jade default, PR8)
+  burst(_muzzleV, 0xeafff6, { count: 4, speed: 18, size: 0.5, life: 0.25 });      // white anchor stays white
+});
 // PR4b: each wisp landing plays a note of the impact ARPEGGIO (k = position in
 // the drum-roll window) — N locks land as an ascending riff, not one boom.
-on('lockStrike', (p) => sfx.brandStrike?.((p && p.k) || 0));
+// PR9: the tagged FINALE lands the reserved close (tonic + cadence) instead.
+on('lockStrike', (p) => {
+  if (p && p.finale) sfx.brandFinale?.(p.n || 0, !!p.full);
+  else sfx.brandStrike?.((p && p.k) || 0, (p && p.n) || 1, !!(p && p.full));
+});
 // PR3: loosing onto a SEALED boss can't take — a soft muffled thunk names the miss;
 // the pips are kept (the lock layer never wastes them), the reticle row shakes once.
-on('lockSealed', () => sfx.brandSeal?.());
+// PR9: a live riser stands down on any non-release exit (the watchdog self-fade
+// covers the event-less exits — death/transition mid-fuse).
+on('lockSealed', () => { sfx.brandRiserCancel?.(); sfx.brandSeal?.(); });
+on('lockLost', () => sfx.brandRiserCancel?.());
+on('bossEnd', () => sfx.brandRiserCancel?.());
 on('lockTick', () => sfx.lockTick?.());
 // Boss over → resume the course FRESH from here (the arena stretch was suppressed;
 // without this the world is blank until the player catches up to the old cursor).
@@ -460,7 +496,14 @@ ui.init({
   onStart: (mode) => startGame(mode),
   rushUnlocked: () => rushUnlocked(),   // gate the BOSS RUSH rail entry (beaten a boss / dev)
   rushInfo: () => rushRosterInfo(),     // roster + best time for the pre-launch panel
-  onStartRush: (only) => { rushOnlyBoss = only || null; startGame('rush'); },  // pick one boss (or all)
+  onStartRush: (only, stage) => {
+    rushOnlyBoss = only || null;
+    // Dev stage-jump (rush picker, ?dev): pin which STAGE sub-rig a multi-stage boss shows,
+    // so THE UNMASKED's stage 2 (seraph) / 3 (unveiling) are playtestable in a live fight.
+    // stage 1 (or unset) → the boss's default. Set fresh per launch so no stale pin leaks.
+    setBossDebugStage(stage || 1);
+    startGame('rush');
+  },  // pick one boss (or all), optionally pinned to a stage
   onEquipDragon: () => {
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());

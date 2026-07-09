@@ -82,7 +82,7 @@ for (const key of BOSS_ORDER) {
     prev = ph.atFrac;
     assert(Array.isArray(ph.attacks) && ph.attacks.length > 0, `${key} phase has attacks`);
     for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
-      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'].includes(a), `${key} attack '${a}' is known`);
+      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'crestfall'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
   }
   // Spell cards (§5f/§5h): optional (coexist rule), but if present they must
@@ -312,6 +312,186 @@ for (const key of BOSS_ORDER) {
   assert(changed, 'stormrend iris petal angles change on charge (silhouette change)');
   mandala.dispose();
   ok('stormrend telegraph: setCharge(1) flares the iris petals open (silhouette change)');
+}
+{
+  // THE UNMASKED (stage 1): the CHARGE-TELL slides the hood open to WRATH — the
+  // lidPivot position changes (a silhouette change), not just the corona recolour.
+  const unmasked = buildBoss(BOSSES.unmasked, 1);
+  const lid = findAllByName(unmasked.group, 'lidPivot')[0];
+  assert(lid, 'unmasked exposes a named lidPivot (stage 1) for the telegraph gate');
+  unmasked.tick(0.05, 0.5);   // settle the heavy-lidded rest pose before snapshotting
+  const preLidY = lid.position.y;
+  unmasked.setCharge(1);
+  for (let i = 0; i < 8; i++) unmasked.tick(0.1, 1.0 + i * 0.1);   // let the aperture ease toward wrath
+  assert(Math.abs(lid.position.y - preLidY) > 0.2,
+    `unmasked hood slides open on charge — silhouette change (lidPivot.y ${lid.position.y.toFixed(3)}, was ${preLidY.toFixed(3)})`);
+  unmasked.dispose();
+  ok('unmasked telegraph: setCharge(1) slides the hood open to wrath (silhouette change)');
+}
+{
+  // THE UNMASKED (stage 2): the SERAPH — six feathered wings in a vertical bilateral
+  // mandorla, COVERED IN EYES, converging on ONE great central eye. The retired Ophanim
+  // wheels must be GONE (no wheelGimbal / no closed ring but the faint gold 'halo'); the
+  // pair gaps must be UNEVEN (anti-gear); the great eye must DOMINATE the peripheral eyes.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  assert(findAllByName(um.group, 'wheelGimbal0').length === 0, 'unmasked stage-2 wheels are RETIRED (no wheelGimbal)');
+  // EIGHT wings as a BILATERAL 4-per-side card-fan (upper/upmid/middle/lower ×2), from the merged
+  // angel wing. upper/middle/lower carry the mirror check below.
+  const wingNames = ['wing_upper_R', 'wing_upper_L', 'wing_upmid_R', 'wing_upmid_L', 'wing_middle_R', 'wing_middle_L', 'wing_lower_R', 'wing_lower_L'];
+  const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
+  assert(wings.every(Boolean), 'unmasked exposes eight wings (bilateral 4-per-side card-fan)');
+  um.group.updateMatrixWorld(true);
+  // BILATERAL, NEVER RADIAL (radial read as a wheel — the original failure): each pair's L
+  // wing mirrors its R via a scale.x flip, and the two roots sit on opposite sides of centre.
+  for (const key of ['upper', 'middle', 'lower']) {
+    const R = findAllByName(um.group, `wing_${key}_R`)[0], L = findAllByName(um.group, `wing_${key}_L`)[0];
+    assert(Math.sign(R.scale.x) !== Math.sign(L.scale.x), `unmasked ${key} pair is bilaterally MIRRORED (scale.x flip, not radial)`);
+    assert(Math.abs(R.rotation.z + L.rotation.z) < 0.2, `unmasked ${key} pair rotations mirror about the vertical (${R.rotation.z.toFixed(2)} vs ${L.rotation.z.toFixed(2)})`);
+  }
+  // THE FOCAL EYE is a SMALL deep focal nestled in the feathers — NOT a big "body" eye (a
+  // large pale central eye made the wings read as spider legs on a body). It exists + is modest.
+  const great = findAllByName(um.group, 'greatEye')[0];
+  assert(great, 'unmasked exposes the central focal eye');
+  um.group.updateMatrixWorld(true);
+  const gbox = new THREE.Box3().setFromObject(great);
+  const gw = gbox.max.x - gbox.min.x;
+  assert(gw < 8.0, `unmasked focal eye is a modest focal, not a body (world bbox width ${gw.toFixed(1)}u < 8u; ~⅓ the old body-eye)`);
+  // THE EYE FIELD (the identity). The halo belongs to the THIRD form — it lives in stage3Rig
+  // (hidden here), so at stage 2 no halo is VISIBLE (the eyed wings + focal eye stand alone).
+  assert(findAllByName(um.group, 'eyeScleras')[0] && findAllByName(um.group, 'eyeSockets')[0], 'unmasked stage-2 eye field present (sockets + scleras merged)');
+  um.setDebugStage(2);
+  const s2halo = findAllByName(um.group, 'halo')[0];
+  assert(s2halo && !s2halo.parent.visible, 'unmasked stage-2 shows NO halo (it rides stage3Rig, hidden until the unveiling)');
+  um.dispose();
+  ok('unmasked stage-2 SERAPH: eight eyed wings (bilateral card-fan) + the original focal almond eye, wheels retired');
+}
+{
+  // THE UNMASKED (stage 2 BEHAVIOUR): the CHARGE mantle-flare + the ALL-SNAP reveal.
+  // At rest the ~9 eyes wander on independent lag+bias (the field looks every which way);
+  // the all-snap collapses them onto the player at once — the screenshot of the game.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  um.setDebugStage(2);   // pin the stage-2 sub-rig so tickBody drives the wings + eye field
+
+  // CHARGE MANTLE-FLARE: the fan OPENS on charge — the upper wing lifts toward vertical
+  // (rotation.z rises). Compared at the SAME time so the shared breath-sine term cancels and
+  // the delta isolates the flare (charge 0 → zero flare → the signed-off idle is unchanged).
+  const upR = findAllByName(um.group, 'wing_upper_R')[0];
+  um.setGaze(0, 0); um.setCharge(0); um.tick(0.05, 5.0); const relaxZ = upR.rotation.z;
+  um.setCharge(1); um.tick(0.0, 5.0); const flaredZ = upR.rotation.z;
+  assert(flaredZ > relaxZ + 0.1, `unmasked charge MANTLE-FLARES the fan open (upper wing lifts ${relaxZ.toFixed(3)} → ${flaredZ.toFixed(3)})`);
+  um.setCharge(0);
+
+  // Collect the peripheral eye-pupils (each carries its own tracking userData).
+  const pupils = [];
+  um.group.traverse((o) => { if (o.userData && o.userData.biasX !== undefined && o.userData.base) pupils.push(o); });
+  assert(pupils.length >= 8, `unmasked stage-2 fields a ring of tracking eye-pupils (${pupils.length})`);
+  const spread = (arr) => { const m = arr.reduce((a, b) => a + b, 0) / arr.length; return Math.sqrt(arr.reduce((a, b) => a + (b - m) ** 2, 0) / arr.length); };
+
+  // IDLE WANDER: with the player off-centre, each eye eases toward the gaze at its OWN rate
+  // plus its resting bias → the field's gaze directions SCATTER (they don't all point one way).
+  um.setGaze(0.6, -0.3);
+  for (let i = 0; i < 40; i++) um.tick(0.05, 6 + i * 0.05);
+  const scatter = spread(pupils.map((p) => p.userData.gx));
+  assert(scatter > 0.05, `unmasked eyes idle-wander on independent bias — the field SCATTERS (σ ${scatter.toFixed(3)})`);
+
+  // THE ALL-SNAP: every eye drops its bias and locks near-instantly → the field CONVERGES
+  // onto the player (σ collapses; the mean gaze rides toward the player's gazeX ≈ 0.6).
+  um.allSnap();
+  for (let i = 0; i < 12; i++) um.tick(0.05, 8 + i * 0.05);
+  const snapped = spread(pupils.map((p) => p.userData.gx));
+  const meanX = pupils.reduce((a, p) => a + p.userData.gx, 0) / pupils.length;
+  assert(snapped < scatter * 0.5, `unmasked ALL-SNAP converges the eye field to one gaze (σ ${scatter.toFixed(3)} → ${snapped.toFixed(3)})`);
+  assert(meanX > 0.35, `unmasked ALL-SNAP locks the field ONTO the player (mean gx ${meanX.toFixed(2)} → toward 0.6)`);
+
+  um.dispose();
+  ok('unmasked stage-2 BEHAVIOUR: charge mantle-flares the fan; the ALL-SNAP collapses the wandering eye field onto the player');
+}
+{
+  // THE UNMASKED S1→S2 CRACK TRANSITION: setStageMorph(k) blends the eclipse mask → the
+  // seraph. Endpoints are the discrete stages (byte-identical to the shipped poses); mid-morph
+  // BOTH rigs live (the mask COLLAPSING as the seraph BLOOMS) and the crack seams are lit.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  const s1 = findAllByName(um.group, 'stage1Rig')[0];
+  const s2 = findAllByName(um.group, 'stage2Rig')[0];
+  const cracks = findAllByName(um.group, 'crackSeams')[0];
+  assert(s1 && s2 && cracks, 'unmasked exposes stage1Rig + stage2Rig + crackSeams');
+  // k=0 → the eclipse only, no cracks.
+  um.setStageMorph(0);
+  assert(s1.visible && !s2.visible, 'morph 0 = the eclipse (stage 1 only)');
+  assert(cracks.material.opacity < 0.001, 'morph 0 = no crack seams');
+  // k=1 → the seraph only, at FULL scale (byte-identical to the shipped stage 2), no cracks.
+  um.setStageMorph(1);
+  assert(!s1.visible && s2.visible, 'morph 1 = the seraph (stage 2 only)');
+  assert(Math.abs(s2.scale.x - 1) < 1e-6, `morph 1 = the seraph at full scale (${s2.scale.x})`);
+  assert(cracks.material.opacity < 0.001, 'morph 1 = no crack seams');
+  // mid-morph → BOTH rigs live, cracks lit, the mask collapsing while the seraph blooms.
+  um.setStageMorph(0.5);
+  assert(s1.visible && s2.visible, 'mid-morph both rigs live (the mask collapses as the seraph blooms)');
+  assert(cracks.material.opacity > 0.1, `mid-morph the crack seams are lit (${cracks.material.opacity.toFixed(2)})`);
+  assert(s1.scale.x < 1, `mid-morph the eclipse mask is collapsing (scale ${s1.scale.x.toFixed(2)} < 1)`);
+  assert(s2.scale.x > 0.15 && s2.scale.x < 1, `mid-morph the seraph is blooming (scale ${s2.scale.x.toFixed(2)} between)`);
+  // The stage selector still works: setDebugStage maps to the morph endpoints.
+  um.setDebugStage(1); assert(s1.visible && !s2.visible, 'setDebugStage(1) → the eclipse (morph 0)');
+  um.setDebugStage(2); assert(!s1.visible && s2.visible && Math.abs(s2.scale.x - 1) < 1e-6, 'setDebugStage(2) → the seraph at full scale (morph 1)');
+  um.dispose();
+  ok('unmasked S1→S2 CRACK: setStageMorph blends eclipse→seraph (mask collapses + cracks glow + seraph blooms); endpoints are the shipped stages');
+}
+{
+  // THE UNMASKED STAGE 3 — THE UNVEILING: the seraph's core opens (star-eye + starburst + halo)
+  // and the wings MANTLE FULLY OPEN. It REUSES stage 2's wings (the SAME seraph, mantled — no
+  // duplicate wing set, tri-lean), swapping only the centre: at stage 2 the third-form motifs
+  // are hidden and the plain focal eye shows; at stage 3 they unveil and the focal eye retires.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  const s3 = findAllByName(um.group, 'stage3Rig')[0];
+  const starEye = findAllByName(um.group, 'starEye')[0];
+  const burst = findAllByName(um.group, 'starburst')[0];
+  const halo = findAllByName(um.group, 'halo')[0];
+  const focal = findAllByName(um.group, 'greatEye')[0];
+  const wings = findAllByName(um.group, 'stage2Rig')[0];
+  assert(s3 && starEye && burst && halo, 'unmasked exposes stage3Rig + starEye + starburst + halo');
+  // Stage 2: the third-form core is hidden; the plain focal eye shows.
+  um.setDebugStage(2);
+  assert(!s3.visible && focal.visible, 'stage 2 hides the third-form core (stage3Rig) and shows the plain focal eye');
+  // Stage 3: the core unveils; the focal eye retires; the SAME seraph wings stay up (reused).
+  um.setDebugStage(3);
+  assert(s3.visible, 'stage 3 unveils the core (stage3Rig visible)');
+  assert(!focal.visible, 'stage 3 retires the plain focal eye (the star-eye takes the centre)');
+  assert(wings.visible, 'stage 3 REUSES the stage-2 seraph wings (not a duplicate set)');
+  // The wings MANTLE fully open — a wider spread than stage 2 (compared at the same time so the
+  // shared breath-sine cancels and the delta isolates the stage-3 mantle).
+  const upR = findAllByName(um.group, 'wing_upper_R')[0];
+  um.setDebugStage(2); um.tick(0, 5.0); const z2 = upR.rotation.z;
+  um.setDebugStage(3); um.tick(0, 5.0); const z3 = upR.rotation.z;
+  assert(z3 > z2 + 0.1, `stage 3 MANTLES the wings fully open (upper wing ${z2.toFixed(2)} → ${z3.toFixed(2)})`);
+  um.dispose();
+  ok('unmasked STAGE 3 UNVEILING: star-eye + starburst + halo unveil, the focal eye retires, and the SAME seraph wings mantle fully open');
+}
+{
+  // THE UNMASKED LIVE STAGE MACHINE: boss.js calls model.setPhase(n) at each phase advance;
+  // the model ANIMATES the transition INTO that stage (phase 1 = the S1→S2 crack, phase 2 =
+  // the S2→S3 unveiling) instead of snapping — so the fight progresses through the forms and
+  // the transitions play live (owner: "start at S1, kill the first form, continue to see it").
+  const um = buildBoss(BOSSES.unmasked, 1);
+  const s1 = findAllByName(um.group, 'stage1Rig')[0];
+  const s2 = findAllByName(um.group, 'stage2Rig')[0];
+  const s3 = findAllByName(um.group, 'stage3Rig')[0];
+  um.setDebugStage(1);
+  assert(s1.visible && !s2.visible && !s3.visible, 'the stage machine starts at the eclipse (stage 1)');
+  // Phase advance → 1: the CRACK animates (mid-way BOTH rigs live; then it settles on the seraph).
+  um.setPhase(1);
+  um.tick(0.1, 0.1);
+  assert(s1.visible && s2.visible, 'phase→1 mid-crack: both the eclipse and the seraph are live (animating, not a snap)');
+  for (let i = 0; i < 30; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past TRANS_DUR
+  assert(!s1.visible && s2.visible && !s3.visible, 'phase→1 settles on the seraph (stage 2)');
+  // Phase advance → 2: the UNVEILING animates the third-form core in (the wings are kept).
+  um.setPhase(2);
+  for (let i = 0; i < 30; i++) um.tick(0.1, 4 + i * 0.1);
+  assert(s3.visible && s2.visible, 'phase→2 settles on the unveiling (stage 3 core up, the seraph wings kept)');
+  // The transition BEAT contract: the model exposes its transition duration so boss.js can hold
+  // fire through the crack/unveiling and land the all-eyes reveal (camera + slow-mo) on the eye-snap.
+  assert(um.stageTransitionDur > 0, `unmasked exposes stageTransitionDur for the fire-hold + reveal beat (${um.stageTransitionDur})`);
+  um.dispose();
+  ok('unmasked LIVE STAGE MACHINE: setPhase animates the crack (P1) then the unveiling (P2) — the fight progresses through the forms');
 }
 {
   const colossus = buildBoss(BOSSES.craghold, 1);
@@ -850,6 +1030,92 @@ for (const key of BOSS_ORDER) {
 
   em.dispose();
   ok('embertide geometry: face SURGES on charge, eye-hollows TEAR on notice, face sinks in death, ZERO additive (opaque wall of light), named organs ✓');
+}
+
+// EMBERTIDE CP2-A — the spectacle pass: the §5j entrance (setEntrance stages the sky:
+// dim dome + submerged face + sealed hollows → the full arrival), THE LOOM (per-phase
+// face growth, capped), THE TIDE CRUSH (setCrush closes the ceiling/floor strips),
+// and the EXPRESSION tell families (setAttackTell reshapes the face per attack family
+// on the charge envelope). All model-side (the studio default — entrance 1, loom 0,
+// crush 0, no tell — stays byte-identical to the CP1 frames).
+{
+  const em = buildBoss(BOSSES.embertide, 1);
+  const faceRig = em.group.getObjectByName('faceRig');
+  const eh = em.group.getObjectByName('eyeHollow0');
+  const mouth = em.group.getObjectByName('mouthNotch');
+
+  // ENTRANCE staging: u=0 submerges the face far below its arrival height and SEALS
+  // the hollows; u=1 restores the exact arrival pose (the studio default).
+  for (let i = 0; i < 30; i++) em.tick(0.05, i * 0.05);
+  const arriveY = faceRig.position.y, arriveOpen = eh.scale.y;
+  em.setEntrance(0);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 2 + i * 0.05);
+  assert(faceRig.position.y < arriveY - 150, `entrance u=0 SUBMERGES the face below the horizon (faceRig y ${faceRig.position.y.toFixed(0)} < ${arriveY.toFixed(0)} − 150)`);
+  assert(eh.scale.y < 0.1, `entrance u=0 SEALS the eye-hollows (scale.y ${eh.scale.y.toFixed(3)} < 0.1 — they tear open during the arrival)`);
+  assert(mouth.scale.y <= 0.06, `entrance u=0 SEALS the mouth (scale.y ${mouth.scale.y.toFixed(3)} — it tears last)`);
+  em.setEntrance(1);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 4 + i * 0.05);
+  assert(Math.abs(faceRig.position.y - arriveY) < 2, `entrance u=1 restores the arrival pose (faceRig y ${faceRig.position.y.toFixed(1)} ≈ ${arriveY.toFixed(1)})`);
+  assert(eh.scale.y > arriveOpen - 0.15, `entrance u=1 restores the open hollows (scale.y ${eh.scale.y.toFixed(2)})`);
+  // THE RELEASE CONTRACT: enterFight calls setEntrance(null) (the boss.js release
+  // convention) — null must mean FULLY ARRIVED, never re-submerge. Clamping null
+  // to 0 was the "where did his face go" bug: the fight opened faceless.
+  em.setEntrance(0);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 6 + i * 0.05);
+  em.setEntrance(null);
+  for (let i = 0; i < 30; i++) em.tick(0.05, 8 + i * 0.05);
+  assert(Math.abs(faceRig.position.y - arriveY) < 2, `setEntrance(null) = RELEASED/ARRIVED (faceRig y ${faceRig.position.y.toFixed(1)} ≈ ${arriveY.toFixed(1)} — the fight must open WITH the face)`);
+  assert(eh.scale.y > arriveOpen - 0.15, `setEntrance(null) leaves the hollows open (scale.y ${eh.scale.y.toFixed(2)})`);
+
+  // THE LOOM: setLoom(1) grows the face a MODERATE amount (owner tune: from the 3× resting
+  // size, crescendo to ~3.6× — never the ~5× wall-of-dark that loses the face gestalt).
+  const preScale = faceRig.scale.x;
+  em.setLoom(1);
+  for (let i = 0; i < 90; i++) em.tick(0.05, 8 + i * 0.05);   // slow ease — give it room
+  assert(faceRig.scale.x > preScale * 1.1, `THE LOOM grows the face (scale ${faceRig.scale.x.toFixed(2)} > ${(preScale * 1.1).toFixed(2)} — the per-phase surfacing)`);
+  assert(faceRig.scale.x <= preScale * 1.3, `THE LOOM stays MODERATE (≤ +30% legibility guard; got ×${(faceRig.scale.x / preScale).toFixed(2)})`);
+  em.setLoom(0);
+
+  // THE TIDE CRUSH: setCrush(1) DIMS the whole dome (the light recedes as it crushes
+  // in). The space closing is carried by the letterbox (ui.js) + lane clamp (player.js);
+  // the sky's contribution is a UNIFORM colour multiply — never a descending band plane,
+  // whose hot crest edge read as a "rectangular horizontal line" (owner catch ×3). The
+  // strip organs stay named in the graph but are NEVER shown, so the seam cannot return.
+  const ceil = em.group.getObjectByName('crushCeil');
+  const floor = em.group.getObjectByName('crushFloor');
+  const dome = em.group.getObjectByName('lightField');
+  assert(!!ceil && !!floor, 'embertide exposes the named crushCeil/crushFloor strips (retained organs)');
+  assert(!ceil.visible && !floor.visible, 'crush strips are HIDDEN (the seam-prone band plane is retired)');
+  em.setCrush(0);
+  for (let i = 0; i < 40; i++) em.tick(0.05, 16 + i * 0.05);   // settle crush OFF
+  em.tick(0.0, 20.0);                                          // sample the dome at a fixed phase
+  const domeBrightUncrushed = dome.material.color.r + dome.material.color.g + dome.material.color.b;
+  em.setCrush(1);
+  for (let i = 0; i < 80; i++) em.tick(0.05, 22 + i * 0.05);   // ease crush ON
+  em.tick(0.0, 20.0);                                          // SAME phase — isolate the crush dim
+  const domeBrightCrushed = dome.material.color.r + dome.material.color.g + dome.material.color.b;
+  assert(!ceil.visible && !floor.visible, 'the crush NEVER shows the strips (no band plane, no seam)');
+  assert(domeBrightCrushed < domeBrightUncrushed * 0.95, `setCrush(1) DIMS the dome (${domeBrightCrushed.toFixed(2)} < ${(domeBrightUncrushed * 0.95).toFixed(2)} — the light recedes, seamlessly)`);
+  em.setCrush(0);
+
+  // EXPRESSIONS: distinct families reshape the face ON the charge envelope.
+  for (let i = 0; i < 40; i++) em.tick(0.05, 24 + i * 0.05);   // settle neutral
+  const neutralMouth = mouth.scale.y, neutralOpen = eh.scale.y;
+  em.setAttackTell('curtain'); em.setCharge(1);                 // TEAR — the mouth rips wide
+  for (let i = 0; i < 10; i++) em.tick(0.05, 28 + i * 0.05);
+  assert(mouth.scale.y > neutralMouth + 0.8, `TEAR family rips the mouth wide (scale.y ${mouth.scale.y.toFixed(2)} > ${neutralMouth.toFixed(2)} + 0.8 — the wall-attack tell)`);
+  em.setAttackTell('aimed');                                    // NARROW — the glare squints
+  for (let i = 0; i < 10; i++) em.tick(0.05, 30 + i * 0.05);
+  assert(eh.scale.y < neutralOpen + 0.1, `NARROW family squints the hollows (scale.y ${eh.scale.y.toFixed(2)} — the aimed glare, distinct from the flare)`);
+  em.setAttackTell('crossfire');                                // SKEW — the face tilts
+  for (let i = 0; i < 10; i++) em.tick(0.05, 32 + i * 0.05);
+  assert(Math.abs(faceRig.rotation.z) > 0.04, `SKEW family tilts the face (rot.z ${faceRig.rotation.z.toFixed(3)} — reading both flanks)`);
+  em.setCharge(0); em.setAttackTell(null);
+  for (let i = 0; i < 20; i++) em.tick(0.05, 34 + i * 0.05);
+  assert(Math.abs(faceRig.rotation.z) < 0.01, 'the tell pose RELEASES with the charge (no stuck expression)');
+
+  em.dispose();
+  ok('embertide CP2-A: entrance stages/arrives, LOOM grows capped, crush strips close, tell families TEAR/NARROW/SKEW pose + release ✓');
 }
 
 // WEFTWITCH web ↔ water reaction (owner note on PR #263) + loom-eye gaze tracking.
@@ -1745,7 +2011,7 @@ function driveKill(idx) {
   boss.forceBoss(player, idx);
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
-  let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
+  let t = 0, sawFight = false, sawShield = false, sawNarrow = false, sawCrush = false, sawEbb = false;
   let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinY = 99, setpieceMinRel = 99, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
@@ -1770,9 +2036,11 @@ function driveKill(idx) {
       if (st.charging) chargedDuringSetpiece = true;
     }
     if (game.bossArenaHW != null) sawNarrow = true;
+    if (game.bossArenaHY != null) sawCrush = true;
+    else if (sawCrush && st.phase === 'fight') sawEbb = true;   // the crush RELEASED mid-fight (a wave, not a mode)
     boss.updateBoss(dt, player, t);
   }
-  return { t, sawFight, sawShield, sawNarrow,
+  return { t, sawFight, sawShield, sawNarrow, sawCrush, sawEbb,
     sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
@@ -1803,6 +2071,15 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawNarrow, `${key}: no constriction → the arena never narrowed`);
   }
   assertEq(game.bossArenaHW, null, `${key}: arena width restored after the fight`);
+  // Vertical squeeze contract (CP2-A, def.skyCrush): the ceiling clamp published
+  // during the fight and is ALWAYS restored on teardown; every other def is inert.
+  if (BOSSES[key].skyCrush) {
+    assert(r.sawCrush, `${key}: the sky crushed the lane (bossArenaHY published mid-fight)`);
+    assert(r.sawEbb, `${key}: the crush EBBED mid-fight (a wave that releases, never a permanent ceiling — the owner's height-feel catch)`);
+  } else {
+    assert(!r.sawCrush, `${key}: no skyCrush → the sky ceiling never clamped (coexist)`);
+  }
+  assertEq(game.bossArenaHY, null, `${key}: sky ceiling restored after the fight`);
   // Setpiece contract (the fenced controller seam): a def WITH a setpiece plays it
   // at its phase — a real station-leave excursion — and a def WITHOUT one NEVER
   // sees it (the byte-unchanged fence for the shipped bosses). Supports the legacy

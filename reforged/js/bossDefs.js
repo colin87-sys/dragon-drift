@@ -1309,16 +1309,29 @@ export const BOSSES = {
     glow: 0xff7a5e,                   // warm coral-rose — the LIGHT end of the tide / the face edge-light / shield rim
     bulletColor: 0xff2b6a,            // danger magenta — role colour (never per-boss); the INVERSE contrast
                                       // problem: it must read against the BRIGHT field (its white core carries it)
-    approachFrom: 'horizon',          // INTENDED entry ("the whole horizon stands up"). ⚠ NOT yet wired in
-                                      // startBossEncounter (CP2): 'horizon' currently falls to the default
-                                      // approach + 'bottom' banner. Low-impact for THIS boss — the dome is
-                                      // camera-locked and fills the sky from `active` (warn onward), so the
-                                      // group's entry direction is nearly invisible. CP2 adds the bespoke
-                                      // skyComesLoose entry (or a minimal alias to the 'ahead' far-horizon hold).
+    approachFrom: 'horizon',          // WIRED (CP2-A): the gameplay STATION walks in from far up the lane
+                                      // (the HOLLOWGATE far-ahead close) + a 'top' warn banner; the VISUAL
+                                      // arrival is the camera-locked dome via the §5j entrance below.
+    // §5j THE SKY COMES LOOSE (CP2-A): the dome LIFTS from an ember seed, the face
+    // RISES through the horizon line, the eye-hollows TEAR OPEN one at a time and
+    // settle on the dragon (entranceScripts.js `skyComesLoose`; the model's
+    // setEntrance owns the sky-side choreography — boss.js stages 0 at spawn).
+    entrance: 'skyComesLoose',
+    // CP2-A THE TIDE CRUSH — the brief's "vertical squeeze + letterbox at the FIRST
+    // crescendo set (a re-entrance beat)": ~6s into P1 the sky's ceiling of light
+    // descends (player.js Y-clamps at hy, damage-free), the model's crush strips
+    // pinch the frame, and a letterbox pulses in and back out. Def-gated; every
+    // other boss is inert (no skyCrush → the Y engine never arms).
+    skyCrush: { delay: 6, hy: 14 },
+    // The X counterpart lands LATER (P3, "the crest crosses the whole frame"): the
+    // shipped storm-wall constrict, re-read as the tide pressing in from the flanks
+    // (the walls take def.accent → vermilion light, not storm-teal).
+    constrictPhase: 2,
     scale: 1.0,                       // NOT a unit scale — the field is tuned frame-wide IN the builder; it IS the backdrop
     // §5i TIDE-EDGE + FACE-SHADOW POCKET graze (reuses slot-6's continuous-graze detector): skim the crest
     // edge, ride the moving face-shadow pocket; offered once per phase. Def-gated; shipped bosses inert.
     grazeForm: 'tideEdge',
+    beamDuel: true,                  // §5i.C the Surge≥50% mechanic (fire INTO the crest; hold lane-center against the drift). Def-gated; shipped bosses inert.
     // CRESCENDO SETS (Stormrend's 'crescendo' ramp QUOTED in repeating wave-SETS, each cut harder — the
     // designed echo). Fill apex: curtain/iris/movingGap at the fairness-floored cadence. BEAM DUEL is 13's
     // SURGE mechanic (fire INTO the crest at Surge ≥50%) — NOT a parry read (audit ED-8: it sits in the Surge
@@ -1328,8 +1341,8 @@ export const BOSSES = {
     phases: [
       { atFrac: 1.00, cadence: [1.35, 1.8],  attacks: ['curtain', 'crossfire'] },                       // P1: the tide rises (first crescendo set) — the vertical squeeze + letterbox fires HERE as a NORMAL re-entrance beat (CP2), not a survival card
       { atFrac: 0.80, cadence: [1.25, 1.65], attacks: ['curtain', 'movingGap', 'crossfire'] },          // P2: the sets stack (a second crest, cut harder)
-      { atFrac: 0.58, cadence: [1.15, 1.5],  attacks: ['movingGap', 'iris', 'stream'] },                // P3: the crest crosses the whole frame (the crest-lock volley — `stream` amber)
-      { atFrac: 0.36, cadence: [1.1, 1.4],   attacks: ['iris', 'curtain', 'crossfire', 'movingGap'] },  // P4: full flood (every set at once)
+      { atFrac: 0.58, cadence: [1.15, 1.5],  attacks: ['crestfall', 'iris', 'stream'] },                // P3: the crest crosses the whole frame — CRESTFALL debuts (CP2-B full-frame emitter); `stream` is the amber crest-lock carrier
+      { atFrac: 0.36, cadence: [1.1, 1.4],   attacks: ['curtain', 'iris', 'crestfall', 'crossfire'] },  // P4: full flood (every set at once) — the crest breaks alongside the walls; `crossfire` amber
       { atFrac: 0.16, cadence: [1.05, 1.35], attacks: ['curtain', 'movingGap', 'crossfire'] },          // P5: SKY SET LOOSE — Horizon Break (dread/survival) — pure-dodge at runtime; `crossfire` kept for the amberdiet floor (§5i.C survival exemption)
     ],
     // Spell cards (5 for WE; "<EPITHET FRAGMENT> — <plain pattern>"; the dread/survival card LAST). 13's ONE
@@ -1373,7 +1386,7 @@ export const BOSSES = {
         { // P3 — the crest crosses: the crest-lock volley (stream) is the amber carrier
           ratioBurst: 0.55,
           phrase: [
-            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'crestfall', count: 1, gap: 0.5 },   // CRESTFALL debuts here (the crest crosses the whole frame)
             { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.5 },
             { kind: 'sustain', attack: 'stream',    beats: 2, gap: 0.75 },
           ],
@@ -1384,7 +1397,7 @@ export const BOSSES = {
           phrase: [
             { kind: 'burst',   attack: 'curtain',   count: 2, gap: 0.5 },
             { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.5 },
-            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'crestfall', count: 1, gap: 0.5 },   // the crest breaks alongside the walls (full flood)
             { kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.7 },
           ],
           restLo: 0.55, restHi: 2.8, restDist: 'bimodal',
@@ -1515,6 +1528,93 @@ export const BOSSES = {
       ],
     },
   },
+
+  // ── slot 14 — THE UNMASKED — the APEX / FINALE (BOSS-DESIGN.md §5b row 14, §5c
+  // APEX contract). The second sun that cracks into a biblically-accurate angel:
+  // 3 STAGES that dissolve-swap between sub-rigs (STAGE 1 second-sun/eclipse-eye →
+  // STAGE 2 Ophanim wheels-of-eyes → STAGE 3 the unveiling). Builder: bossUnmasked.js
+  // (archetype 'unmasked'). STAGED BUILD: the builder renders STAGE 1 first; stages
+  // 2/3, THE MEDLEY (real card-quoting by stable id), STAR PIPS, the destructible
+  // relics, the verb-shift surge-chase, and the second-sun landmark + handoff() are
+  // CP2 integration (after every stage is owner-signed-off). This def is valid + inert
+  // now: phases/cards/rhythm below are a schema-valid PLACEHOLDER medley (existing
+  // attack ids only, zero new) that CP2 replaces with the real roster quote.
+  unmasked: {
+    id: 'unmasked',
+    name: 'THE UNMASKED',                 // 12 chars (title-card budget ≤12)
+    title: 'the Second Sun',
+    epithet: 'What Wore the Sky as a Mask',
+    tier: 5,                              // APEX (§5b band 5) — TIER_BUDGETS[5] = 30,000 tris / 120 draws
+    hpMax: 600,                           // §5b Apex
+    archetype: 'unmasked',                // dispatch → bossUnmasked.js (bossModel.js)
+    // The pupil (STAGE 1) / the veiled core (STAGE 3) is the aim anchor; the ~20 eyes
+    // (STAGE 2) become per-eye lock parts at CP2. V1: the always-watching focal eye.
+    virtualLockOrgan: 'focalEye',
+    muzzle: 'focalEye',                   // stage-1 bullets originate at the eye that watches
+    accent: 0xf0e0a0,                     // gold rails/relics (identity accent, emissive only)
+    glow: 0xffffff,                       // white corona — the reserved glow-shape (from slot 1)
+    bulletColor: 0xff2b6a,                // danger magenta (role colour, never per-boss)
+    approachFrom: 'ahead',                // CP2 upgrades to the secondSun.handoff() landmark approach
+    scale: 2.4,                           // sky-scale — the disc hangs huge above the lane (TUNE in studio)
+    stages: 3,                            // the stage system (CP2 dissolve-swaps the sub-rigs)
+    stagesBuilt: 3,                       // how many stage sub-rigs exist: 1 eclipse-eye · 2 seraph · 3 the unveiling (star-eye + starburst + halo, wings mantled). Drives the dev stage-jump selector.
+    grazeForm: 'medley',                  // §5i.B APEX graze — quotes the roster's graze forms (CP2)
+    // Decision-C gate overrides (§7b sanctioned): ~20 eyes are many small bright points
+    // (G1 assumes ONE focal); the wheels frame-fill (G4). Cited to the registry sanction.
+    gate: { eyeCluster: true, frameFill: true },
+    // PHASES = the 3 stages. PLACEHOLDER medley (zero new attack ids); CP2 wires the
+    // real per-stage roster quote. amberdiet: every phase carries an amber carrier.
+    phases: [
+      { atFrac: 1.00, cadence: [1.6, 2.4], attacks: ['aimed', 'fan'] },                        // STAGE 1 — the second sun watches
+      { atFrac: 0.60, cadence: [1.2, 1.8], attacks: ['fan', 'crossfire', 'movingGap', 'iris'] }, // STAGE 2 — the Ophanim medley
+      { atFrac: 0.30, cadence: [1.1, 1.6], attacks: ['crossfire', 'stream', 'fan', 'iris'] },     // STAGE 3 — the unveiling (dread)
+    ],
+    // Spell cards (1:1 with phases; dread LAST). Names are placeholders in the honest
+    // re-struck STAGE grammar; CP2 restrikes them per §5f (+ the one-frame VOIDMAW glitch).
+    cards: [
+      { id: 'unmasked_secondsun', name: 'I — The Second Sun',                     atFrac: 1.00, timer: 26 },
+      { id: 'unmasked_ophanim',   name: 'II — Wheels Within Wheels',              atFrac: 0.60, timer: 30 },
+      { id: 'unmasked_verdict',   name: 'WHAT WORE THE SKY — Every Verdict at Once', atFrac: 0.30, timer: 34, dread: true },
+    ],
+    // §5i THE MEDLEY — the finale quotes a different rest-ENVELOPE per stage (a literal
+    // rhythmic medley: a sparse watching sun → a mixed Ophanim cadence → a tightening
+    // dread), so the aggregate gap distribution is a fingerprint no single-envelope boss
+    // owns (rhythmprint KS ≥ 0.20). CP2 replaces the phrases with the real roster quote.
+    rhythm: {
+      signature: 'medley',
+      phases: [
+        { // STAGE 1 — the second sun: very sparse, SPACIOUS, unhurried (it just watches).
+          // Wide intra-phrase gaps + long uniform breaths — the finale's grandeur is in
+          // the STILLNESS; no other roster boss's gap mass sits this high (rhythmprint).
+          phrase: [
+            { kind: 'sustain', attack: 'aimed', beats: 2, gap: 1.4 },
+            { kind: 'burst',   attack: 'fan',   count: 2, gap: 1.1 },
+          ],
+          restLo: 2.7, restHi: 4.3, restDist: 'uniform',
+        },
+        { // STAGE 2 — the Ophanim medley: a stately mixed cadence (spaced wheel-turns),
+          // still spacious — the grand quote, not a machine-gun.
+          phrase: [
+            { kind: 'burst',   attack: 'crossfire', count: 2, gap: 1.0 },
+            { kind: 'sustain', attack: 'fan',       beats: 2, gap: 1.2 },
+            { kind: 'burst',   attack: 'movingGap', count: 2, gap: 0.95 },
+            { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.95 },
+          ],
+          restLo: 1.5, restHi: 2.4, restDist: 'uniform',
+        },
+        { // STAGE 3 — the unveiling: the dread tightens toward the core (decaying crescendo);
+          // gaps still wide but closing — the surge-chase pressure builds.
+          phrase: [
+            { kind: 'burst',   attack: 'crossfire', count: 2, gap: 0.95 },
+            { kind: 'sustain', attack: 'stream',    beats: 2, gap: 1.05 },
+            { kind: 'burst',   attack: 'fan',       count: 2, gap: 0.9 },
+            { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.9 },
+          ],
+          restLo: 1.2, restHi: 2.5, restDist: 'decaying',
+        },
+      ],
+    },
+  },
 };
 
 // Registry slot 3 is ASHTALON (Colossi opener), slot 4 is MARROWCOIL, slot 5 is
@@ -1523,7 +1623,7 @@ export const BOSSES = {
 // (a Calamity — the bound deep-sea leviathan head). CRAGHOLD is RETIRED (§5b L130)
 // — its def + builder stay for the geometry-lesson lineage + its telegraph test,
 // but it is OUT of the encounter rotation.
-export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing', 'hollowgate', 'thrumswarm', 'brineholm', 'karnvow', 'knellgrave', 'weftwitch', 'onewing', 'embertide'];
+export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing', 'hollowgate', 'thrumswarm', 'brineholm', 'karnvow', 'knellgrave', 'weftwitch', 'onewing', 'embertide', 'unmasked'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
 // exhausted — more bosses just extend the list). LEGACY path: kept for the

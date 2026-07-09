@@ -152,6 +152,13 @@ export const player = {
       if (this.position.x > hw) { this.position.x = hw; this.velocity.x = Math.min(this.velocity.x, 0); }
       else if (this.position.x < -hw) { this.position.x = -hw; this.velocity.x = Math.max(this.velocity.x, 0); }
     }
+    // Boss VERTICAL squeeze (CP2-A, def.skyCrush — EMBERTIDE "the sky crushes the
+    // lane"): the descending ceiling of light clamps the sky the same firm, damage-
+    // free way. Only the CEILING — the floor is never raised (skimming stays open).
+    if (game.inBoss && game.bossArenaHY != null && this.position.y > game.bossArenaHY - 0.6) {
+      this.position.y = game.bossArenaHY - 0.6;
+      this.velocity.y = Math.min(this.velocity.y, 0);
+    }
 
     if (this.boosting) {
       // Boost is a resource: it drains while held. An orb surge is free boost;

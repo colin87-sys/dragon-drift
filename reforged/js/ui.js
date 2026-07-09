@@ -44,6 +44,10 @@ document.addEventListener('click', (e) => {
   else sfx.select();
 }, true);
 
+// Dev-only rush STAGE-jump pick (persists across re-renders of the rush panel while the menu
+// is open). 1 = the boss's default stage; 2+ pins a multi-stage boss to that stage's sub-rig.
+let rushDebugStage = 1;
+
 const isTouch = () =>
   (globalThis.matchMedia && matchMedia('(pointer: coarse)').matches) ||
   'ontouchstart' in globalThis;
@@ -1069,6 +1073,24 @@ export const ui = {
     const hud = els.hud || (typeof document !== 'undefined' && document.getElementById('hud'));
     if (hud) hud.classList.toggle('cine-hold', !!on);
   },
+  // LETTERBOX (CP2-A, EMBERTIDE's vertical-squeeze re-entrance beat): two bars ease
+  // in from the frame edges and back out — a PULSE, not a mode (boss.js times it).
+  // Elements are created on first use so the shell HTML stays untouched.
+  letterbox(on) {
+    if (typeof document === 'undefined' || !document.body) return;
+    let top = document.getElementById('cinebar-top');
+    if (!top && !on) return;   // never build the bars just to hide them
+    if (!top) {
+      top = document.createElement('div'); top.id = 'cinebar-top'; top.className = 'cinebar cinebar-top';
+      const bot = document.createElement('div'); bot.id = 'cinebar-bot'; bot.className = 'cinebar cinebar-bot';
+      document.body.appendChild(top); document.body.appendChild(bot);
+    }
+    const bot = document.getElementById('cinebar-bot');
+    // Headless shim DOM: stub elements may lack a real classList — skip quietly.
+    if (!top.classList || typeof top.classList.toggle !== 'function') return;
+    top.classList.toggle('on', !!on);
+    if (bot && bot.classList && typeof bot.classList.toggle === 'function') bot.classList.toggle('on', !!on);
+  },
   // Capture DEADLINE passed (timer hit 0 before the phase was cleared): mark the
   // timer so the player reads why the card will resolve SURVIVED, not CAPTURE —
   // without blocking the fight (progress is never walled).
@@ -1532,6 +1554,19 @@ export const ui = {
         ? `<button type="button" class="rush-chip pick" data-boss="${b.id}" style="--a:${hex(b.accent)}" title="Fight ${b.name} solo"><span class="rush-dot"></span>${b.name}</button>`
         : `<div class="rush-chip locked"><span class="rush-dot"></span>??? <span class="rush-lock">🔒</span></div>`).join('');
       const multi = info.unlockedCount > 1;
+      // DEV STAGE-JUMP (?dev / ?rush=all): a multi-STAGE boss (THE UNMASKED: eclipse-eye →
+      // seraph → the unveiling) can be pinned to a chosen stage so each is playtestable in a
+      // live fight without the CP2 dissolve-swap. Only shows in dev AND only when a multi-stage
+      // boss is unlocked; buttons run S1..max built stages (setDebugStage is inert on the rest).
+      const staged = info.bosses.filter((b) => b.unlocked && (b.stagesBuilt || 1) > 1);
+      const maxStages = staged.length ? Math.max(...staged.map((b) => b.stagesBuilt)) : 0;
+      if (rushDebugStage > Math.max(1, maxStages)) rushDebugStage = 1;
+      const stageLbl = staged.length === 1 ? `${staged[0].name} stage` : 'stage';
+      const stageSel = (info.devAll && maxStages > 1) ? `
+            <div class="rush-stage" role="group" aria-label="Fight from stage">
+              <span class="rush-stage-lbl">DEV · ${stageLbl}</span>
+              ${Array.from({ length: maxStages }, (_, i) => `<button type="button" class="rush-stage-btn${rushDebugStage === i + 1 ? ' active' : ''}" data-stage="${i + 1}" title="Fight starting in stage ${i + 1}">S${i + 1}</button>`).join('')}
+            </div>` : '';
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">BOSS RUSH</span>
@@ -1541,6 +1576,7 @@ export const ui = {
           <div class="daily-info">
             <div class="daily-title">${ICONS.rush} THE GAUNTLET</div>
             <div class="daily-sub">Tap a boss to fight it solo${multi ? ', or FLY THE GAUNTLET for all of them back-to-back' : ''}.</div>
+            ${stageSel}
             <div class="rush-roster">${chips}</div>
             ${info.bestClearMs > 0 ? `<div class="rush-best">Best clear <b>${fmtT(info.bestClearMs)}</b>${info.cleared > 1 ? ` · cleared ${info.cleared}×` : ''}</div>` : ''}
           </div>
@@ -2192,11 +2228,18 @@ function wireScreenButtons(type) {
     returnScreen = 'start';
     const fly = q('#btn-fly-daily');
     if (fly) fly.onclick = stop(() => handlers.onStart && handlers.onStart('daily'));
+    // Dev stage-jump selector: a button arms the stage the next launch pins the boss to.
+    for (const sb of els.screen.querySelectorAll('.rush-stage-btn[data-stage]')) {
+      sb.onclick = stop(() => {
+        rushDebugStage = parseInt(sb.dataset.stage, 10) || 1;
+        for (const o of els.screen.querySelectorAll('.rush-stage-btn')) o.classList.toggle('active', o === sb);
+      });
+    }
     const flyRush = q('#btn-fly-rush');
-    if (flyRush) flyRush.onclick = stop(() => handlers.onStartRush && handlers.onStartRush(null));   // whole gauntlet
-    // Tap a roster chip → fight just that ONE boss.
+    if (flyRush) flyRush.onclick = stop(() => handlers.onStartRush && handlers.onStartRush(null, rushDebugStage));   // whole gauntlet (a multi-stage boss opens in the armed stage in dev)
+    // Tap a roster chip → fight just that ONE boss (pinned to the armed stage in dev).
     for (const chip of els.screen.querySelectorAll('.rush-chip.pick[data-boss]')) {
-      chip.onclick = stop(() => handlers.onStartRush && handlers.onStartRush(chip.dataset.boss));
+      chip.onclick = stop(() => handlers.onStartRush && handlers.onStartRush(chip.dataset.boss, rushDebugStage));
     }
   }
   if (type === 'gameover') returnScreen = 'gameover';

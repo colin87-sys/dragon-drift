@@ -294,8 +294,18 @@ function buildLanceVaultWings(def, model, attach, _giM) {
     mid.add(buildOneWing(M, dials, dih));   // canonical +X geometry; dihedral baked in
     if (side === -1) pivot.scale.x = -1;    // left = mirror image → the animator's mirrored poses read SYMMETRIC
     group.add(pivot);
-    const s = side === 1 ? 'L' : 'R';
+    // side +1 = +X = RIGHT (axis convention right=+X, matching attach.wingRoot and every other
+    // wing builder: R=buildWingSide(1)). The animator drives turn-banking + rollFold through the
+    // R/L handles, so mislabelling would tuck/open the physical wings backwards on a hard bank.
+    const s = side === 1 ? 'R' : 'L';
+    // wingtip FX marker at the real outer tip (canonical +X frame; the scale.x=-1 mirrors it for
+    // the left) — parented to `mid` so it rides the flap. Without it dragon.js sees hasWingFx=false
+    // and skips the universal wingtip trails + hard-bank aero-shear.
+    const marker = new THREE.Object3D();
+    marker.position.set(halfSpan, 0.30 + halfSpan * Math.tan(dih), -0.10 + halfSpan * 0.28);
+    mid.add(marker);
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
+    pivots['tipMarker' + s] = marker;
     wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + halfSpan * Math.tan(dih), root.z + halfSpan * 0.34], length: halfSpan });
   }
   return { group, spineMats: [M.violet], wingMat: M.membrane, parts: { ...pivots, wingElements } };
