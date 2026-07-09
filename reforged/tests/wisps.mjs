@@ -40,7 +40,7 @@ const player = { position: new THREE.Vector3(0, 8, 0), dist: 0, rollInvuln: 0 };
 // Spawn one wisp with fireLanceAt's EXACT recipe (boss.js) — slot i of an n-volley
 // at target (tx, ty, targetRel). Kept in lockstep with the live spawner by T-W1's
 // integration half (tests/lock.mjs reads the REAL strikeSurge spawns).
-function spawnWisp(i, tx, ty, targetRel) {
+function spawnWisp(i, tx, ty, targetRel, volley = null) {
   const a = L.lanceFanDeg[i % L.lanceFanDeg.length] * (Math.PI / 180);
   return bullets.spawnBossBullet({
     owner: 'lance', x: player.position.x - 0.6, y: player.position.y + 0.4, rel: 1.5,
@@ -49,6 +49,9 @@ function spawnWisp(i, tx, ty, targetRel) {
     color: 0x50ffaa, coreColor: 0xeafff6, dmg: 2, r: 0.5, life: 4, part: 'organ' + i,
     homeDelay: L.lanceHomeDelay,
     curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,
+    // PR9 presentation tags (finale detect) — null = the legacy untagged spawn,
+    // which the older tests use on purpose (partial/untagged = shipped behavior).
+    ...(volley ? { volleyN: volley.n, volleyFull: volley.full, volleyFirst: i === 0 } : {}),
   });
 }
 
@@ -333,6 +336,112 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   assert(Math.abs(clamped.lances[0] - (L.volleyRoiFrac * 30) / 2) < 1e-6,
     `the ROI clamp is ABSOLUTE: on-beat at 30hp phase still lands ${clamped.lances[0]} (≤ 10% law)`);
   ok('T-E1 beat release: tap-only, ×beatMult inside the ROI clamp, auto releases exempt');
+}
+
+// --- T-E2 — BEAT-LOCKED RELEASE (PR9/C1): the quantize-hold D ------------------
+// A ctx-supplied gridDelayBeat/gridDelay16 HOLDS the whole staggered launch by D
+// (cap → beat, tap → 16th); the commit (lockVolley, locks cleared) is immediate
+// and carries {delay, full}. A ctx WITHOUT the fields (every headless harness,
+// music-off, v1) launches on the exact shipped frames — the coexist proof.
+{
+  const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 10, y: 0, z: 0 } };
+  const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
+  const DTL = 0.06;
+  const run = (grid, viaTap) => {
+    lock.initLockLayer();
+    const launches = [], volleys = [], launchEvts = [];
+    on('lockVolley', (p) => volleys.push(p));
+    on('lockLaunch', (p) => launchEvts.push({ ...p, frame }));
+    let frame = 0;
+    const mkCtx = () => ({
+      fightRunning: true, model, candidates: ['A', 'B'], muted: false, emittersLive: true,
+      exposureWindow: false, damageBoss() {}, flashPart() {}, tier: 2, cap: 2,
+      deflected: false, phaseHp: 100, paintUnlocked: true, paintables: ['A', 'B'],
+      amberVenting: () => false,
+      fireLance: (part, dmg, i, nn, full) => launches.push({ frame, i, full }),
+      ...grid,
+    });
+    const step = (px, frames) => { const p = { position: { x: px, y: 0 } };
+      for (let f = 0; f < frames; f++) { frame++; lock.updateLockLayer(DTL, p, mkCtx()); } };
+    step(0, 20); step(10, 20);                    // paint A then B (cap 2)
+    if (viaTap) { lock.requestLoose(); step(10, 20); }
+    else step(10, 40);                            // the cap fuse auto-releases
+    return { launches: launches.slice(0, 2), launchEvt: launchEvts[0],
+      volley: volleys.find((v) => v && v.count === 2) };
+  };
+  const base = run({}, false);                        // no grid fields = shipped timing
+  const held = run({ gridDelayBeat: 0.3, gridDelay16: 0.09 }, false);
+  assertEq(held.volley.delay, 0.3, 'cap release: lockVolley carries delay = gridDelayBeat');
+  assertEq(base.volley.delay, 0, 'no grid fields → delay 0 (the headless truth)');
+  assert(base.volley.full === true && held.volley.full === true, 'cap-2 with 2 pips is a FULL volley');
+  // The queue takes its FIRST decrement on the commit frame itself, so the
+  // shift is ceil(D/dt) − 1 frames after the un-held launch.
+  const shift = Math.ceil(0.3 / DTL - 1e-9) - 1;
+  assertEq(held.launches[0].frame - base.launches[0].frame, shift,
+    `the launch shifted exactly D (${shift} frames) while the commit frame stayed put`);
+  // Queue t-values are D + i×60ms by construction; frame quantization can wobble
+  // the observed gap ±1 frame at exact boundaries (float dust) — that's the dt
+  // grid, not the schedule.
+  const gapBase = base.launches[1].frame - base.launches[0].frame;
+  const gapHeld = held.launches[1].frame - held.launches[0].frame;
+  assert(Math.abs(gapHeld - gapBase) <= 1,
+    `the 60ms stagger is preserved under the hold (gap ${gapHeld} vs ${gapBase} frames)`);
+  assert(held.launchEvt && held.launchEvt.frame === held.launches[0].frame &&
+    held.launchEvt.full === true && held.launchEvt.count === 2,
+    'lockLaunch fires ON the launch frame with {count, full}');
+  const tapHeld = run({ gridDelayBeat: 0.3, gridDelay16: 0.09 }, true);
+  assertEq(tapHeld.volley.delay, 0.09, 'manual tap quantizes to gridDelay16, not the beat');
+  assert(tapHeld.launches[0].full === true, 'fireLance threads full through the queue');
+  ok('T-E2 beat-locked release: D holds the launch, commit immediate, headless = shipped frames');
+}
+
+// --- T-W7b — impact-roll FALLBACK: no beat clock → the shipped 40ms stagger ----
+// Headless has no music, so the accelerando path must be dormant: the queue's
+// scheduled offsets are EXACTLY k × impactStaggerMs (T-W7 proved order/spread;
+// this pins the arithmetic so the musical path can never leak into CI).
+{
+  for (let i = 0; i < 3; i++) spawnWisp(i, 0, 13, 28.5, { n: 3, full: false });
+  // Slot 0 (t=0) fires inside the SAME update that queues it — snapshot the
+  // survivors (k1, k2) on the arrival frame and pin their scheduled offsets.
+  let queued = null;
+  for (let f = 0; f < 90 && !queued; f++) {
+    bullets.updateBossBullets(DT, player);
+    const q = bullets.debugWispRibbons().impactQueue;
+    if (q.length) queued = q;
+  }
+  assert(queued && queued.length === 2 && queued[0].k === 1 && queued[1].k === 2,
+    'arrival frame: k0 fired immediately, k1/k2 queued');
+  for (const q of queued) {
+    const want = q.k * (L.impactStaggerMs / 1000) - DT;   // one decrement on the arrival frame
+    assert(Math.abs(q.t - want) < 1e-9,
+      `no-clock slot ${q.k} scheduled at k×impactStaggerMs (${q.t.toFixed(4)} vs ${want.toFixed(4)})`);
+  }
+  ok('T-W7b no beat clock → impact roll is the shipped 40ms stagger, verbatim');
+  bullets.resetBossBullets();
+}
+
+// --- T-W7c — the RESERVED FINALE tag (PR9/C2): full volleys only, last only ----
+// A FULL volley's last arrival carries finale:true on its lockStrike (and owns
+// the one ring INSTEAD of k0 — asserted via the queue tags); a partial volley
+// never tags a finale, and untagged legacy spawns (T-W2/W7) never did.
+{
+  const strikes = [];
+  on('lockStrike', (e) => strikes.push(e));
+  const runVolley = (count, full) => {
+    strikes.length = 0;
+    for (let i = 0; i < count; i++) spawnWisp(i, (i % 3 - 1) * 6, 13, 28.5, { n: count, full });
+    for (let f = 0; f < 120 && strikes.length < count; f++) bullets.updateBossBullets(DT, player);
+    bullets.resetBossBullets();
+    return strikes.slice();
+  };
+  const fullRun = runVolley(6, true);
+  assertEq(fullRun.length, 6, 'full-6: six strikes landed');
+  assertEq(fullRun.filter((s) => s.finale).length, 1, 'full-6: exactly ONE finale');
+  assert(fullRun[fullRun.length - 1].finale === true, 'the finale is the LAST strike');
+  assert(fullRun.every((s) => s.n === 6 && s.full === true), 'strikes carry {n, full} for the sfx phrase');
+  const partial = runVolley(3, false);
+  assertEq(partial.filter((s) => s.finale).length, 0, 'partial-3: no finale, no cadence');
+  ok('T-W7c finale tag: full-6 → one finale (last); partial → none');
 }
 
 console.log(`\n${n} wisp checks passed.`);

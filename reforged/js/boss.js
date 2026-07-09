@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
-import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll } from './sfx.js';
+import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll, UNLEASH_V2 } from './sfx.js';
+import { nextGridDelay } from './harmony.js';
 import { input, focusHeldNow } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
@@ -1264,9 +1265,37 @@ function surgeForkLances(player) {
   let pips = 0;
   for (const lk of locks) pips += lk.stacks;
   const dmgEach = lanceDmgEach(pips, currentPhaseHp());
+  // The fork is never beat-held (it rides the Surge-break's own beat), so its
+  // launch IS its commit — lockLaunch fires here, in step with the lances (PR9).
+  const cap = CONFIG.LOCK.capByTier[def?.tier ?? 1] ?? 0;
+  const full = cap > 0 && pips >= cap;
+  emit('lockLaunch', { count: pips, full, source: 'fork' });
   let i = 0;
-  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips);
-  emit('lockVolley', { count: pips, source: 'fork', dmgEach });
+  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips, full);
+  emit('lockVolley', { count: pips, source: 'fork', dmgEach, delay: 0, full });
+}
+
+// PR9 (C1): the quantize-to-grid hold for a committed volley — seconds until the
+// song's next 1/subdiv grid point (subdiv 1 = the beat, 4 = a 16th). Null clock
+// (music off / headless / backgrounded) or gate off → 0 = launch now, verbatim
+// v1 timing (the getBeatClock contract — no volley ever depends on audio state).
+// Nearer than releaseMinLeadMs the riser has no stop+void runway → roll to the
+// FOLLOWING grid point; past releaseQuantMaxS (slow stations) fall back to the
+// next 8th rather than hold a committed volley beyond the ceiling.
+function releaseQuantDelay(subdiv) {
+  const L = CONFIG.LOCK;
+  if (!L.releaseQuant || !UNLEASH_V2) return 0;
+  const bc = getBeatClock();
+  if (!bc) return 0;
+  const lead = L.releaseMinLeadMs / 1000;
+  let d = nextGridDelay(bc, subdiv);
+  if (d < lead) d += bc.beatLen / subdiv;
+  if (d > L.releaseQuantMaxS) {
+    d = nextGridDelay(bc, subdiv * 2);
+    if (d < lead) d += bc.beatLen / (subdiv * 2);
+    if (d > L.releaseQuantMaxS) d = 0;
+  }
+  return d;
 }
 
 // Pink aura + crackling lightning on the dragon while Surge is active.
@@ -2278,7 +2307,7 @@ export function updateBoss(dt, player, time, camera) {
       paintUnlocked: !!saveData.flags.lockUnlocked,
       paintables: paintableParts(),
       amberVenting: (part) => (amberVent.get(part) ?? -1) > fightNow,
-      fireLance: (part, dmg, i, n) => fireLanceAt(player, part, dmg, i, n),
+      fireLance: (part, dmg, i, n, full) => fireLanceAt(player, part, dmg, i, n, full),
       // V5 FOCUS (PR5): the deliberate hold (2nd finger past focusArmMs / F) —
       // halves the effective dwell in the lock layer. Level-read every frame.
       focusHeld: focusHeldNow(),
@@ -2291,6 +2320,12 @@ export function updateBoss(dt, player, time, camera) {
         const toEdge = Math.min(bc.phase * bc.beatLen, bc.toNextBeat);
         return toEdge <= CONFIG.LOCK.beatWindow;
       })(),
+      // PR9 BEAT-LOCKED RELEASE (C1): seconds to hold a committed volley so the
+      // LAUNCH lands on the song's grid — the next BEAT for the cap auto-release,
+      // the next 16th for a manual tap. 0 when music is off (headless/muted) or
+      // the gate is off — byte-identical launch frames (T-E2).
+      gridDelayBeat: releaseQuantDelay(1),
+      gridDelay16: releaseQuantDelay(4),
     };
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);
@@ -3550,7 +3585,7 @@ function paintableParts() {
 // off-shoulder (the rider fires from +0.6; wisps leave from −0.6). `vrel` is the
 // plain bossSpeed — the arrival FRAME is identical to the pre-wisp straight lance.
 const _lanceV = new THREE.Vector3();
-function fireLanceAt(player, part, dmg, i = 0, n = 1) {
+function fireLanceAt(player, part, dmg, i = 0, n = 1, full = false) {
   const w = model && model.partWorldPos ? model.partWorldPos(part, _lanceV) : null;
   const tx = w ? w.x : pose.x, ty = w ? w.y : pose.y;
   const trel = w ? Math.max(-w.z - player.dist, 4) : pose.rel;
@@ -3564,6 +3599,7 @@ function fireLanceAt(player, part, dmg, i = 0, n = 1) {
     color: lanceTint, coreColor: 0xeafff6, dmg, r: 0.5, life: 4, part,
     homeDelay: L.lanceHomeDelay,
     curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,   // deterministic: slot parity, no RNG
+    volleyN: n, volleyFull: full, volleyFirst: i === 0,   // PR9 presentation tags (finale detect)
   });
 }
 

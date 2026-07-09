@@ -4,6 +4,8 @@ import { game } from './gameState.js';
 import { hitPlayer, bulletGraze } from './collision.js';
 import { burst, wispImpact } from './particles.js';
 import { emit } from './events.js';
+import { getBeatClock, UNLEASH_V2 } from './sfx.js';
+import { nextGridDelay } from './harmony.js';
 
 // Boss bullet pool — one InstancedMesh, recycled by the same windowed-cursor
 // pattern as embers.js (one draw call regardless of count; cheap on mobile).
@@ -342,14 +344,41 @@ function resetWispRibbons() {
 // arpeggio note, k = position in the roll). Plural payoff reads as a drum-roll,
 // not one boom (the Rez lesson). Only the FIRST strike of a window carries the
 // small shockwave ring (the §2 additive-volume cap).
-const impactQ = [];          // { x, y, z, t, k }
+const impactQ = [];          // { x, y, z, t, k, n, full, finale }
 let impactWindowAt = -1;     // clock of the window's first arrival
 let impactWindowK = 0;
+// PR9/C5 — the BEAT-DERIVED ACCELERANDO roll: with a live beat clock the window
+// opens on the song's next 16th and the strike gaps SHRINK (× rollAccel each),
+// so the run audibly converges on the finale; total span clamped to rollMaxS
+// (damage fired on the true arrival frame — past ~0.6s the spark/sound drift
+// from the organ flash reads as desync). No clock (headless / music off / v1)
+// → the shipped fixed 40ms stagger, verbatim (T-W7 is byte-identical).
+let impactWindowMusical = false;
+let impactWindowBase = 0;    // window-relative time of slot 0 (the 16th snap)
+let impactWindowCum = 0;     // accumulated accelerando gaps
+let impactWindowG0 = 0;      // first gap = one 16th of the live grid
+let lanceArrivals = 0;       // arrivals of the volley in flight (finale detect)
 
-function queueWispImpact(x, y, z) {
-  if (clock - impactWindowAt > 0.15) { impactWindowAt = clock; impactWindowK = 0; }
+function queueWispImpact(x, y, z, n = 0, full = false, finale = false) {
+  if (clock - impactWindowAt > 0.15) {
+    impactWindowAt = clock;
+    impactWindowK = 0;
+    const bc = UNLEASH_V2 ? getBeatClock() : null;
+    impactWindowMusical = !!bc;
+    impactWindowBase = bc ? nextGridDelay(bc, 4) : 0;
+    impactWindowG0 = bc ? bc.beatLen / 4 : 0;
+    impactWindowCum = 0;
+  }
   const k = impactWindowK++;
-  impactQ.push({ x, y, z, t: k * (CONFIG.LOCK.impactStaggerMs / 1000), k });
+  let t;
+  if (impactWindowMusical) {
+    const rel = clock - impactWindowAt;   // how long since the window opened
+    t = Math.max(0, Math.min(impactWindowBase + impactWindowCum, CONFIG.LOCK.rollMaxS) - rel);
+    impactWindowCum += impactWindowG0 * Math.pow(CONFIG.LOCK.rollAccel, k);
+  } else {
+    t = k * (CONFIG.LOCK.impactStaggerMs / 1000);
+  }
+  impactQ.push({ x, y, z, t, k, n, full, finale });
 }
 
 function updateWispImpacts(dt) {
@@ -359,8 +388,11 @@ function updateWispImpacts(dt) {
     const q = impactQ[i];
     if (q.t > 0) continue;
     trailV.set(q.x, q.y, q.z);
-    wispImpact(trailV, q.k === 0, wispTint);
-    emit('lockStrike', { k: q.k });
+    // The ONE ring (§2 additive budget): a FULL volley's ring belongs to the
+    // FINALE (the reserved climax) INSTEAD of slot 0; partial volleys keep the
+    // shipped first-strike ring. Never both.
+    wispImpact(trailV, q.full ? !!q.finale : q.k === 0, wispTint);
+    emit('lockStrike', { k: q.k, n: q.n, full: q.full, finale: q.finale });
     impactQ.splice(i, 1);
   }
 }
@@ -509,6 +541,12 @@ export function spawnBossBullet(opts) {
   s.age = 0;   // reset the spawn-in ramp for this fresh bullet
   s.homeDelay = opts.homeDelay ?? 0;
   s.curl = opts.curl ?? 0;
+  // PR9: presentation-only volley tags (the finale detect + cadence flavor).
+  // A new volley's FIRST wisp resets the arrival counter — one volley is ever
+  // in flight (fuse/decay spacing), so a plain counter is the honest truth.
+  s.volleyN = opts.volleyN ?? 0;
+  s.volleyFull = !!opts.volleyFull;
+  if (opts.volleyFirst) lanceArrivals = 0;
   // A fresh wisp tows a light-ribbon (silently none when the pool is busy —
   // presentation only, never gameplay). fxQuality ≤ 0.3 skips ribbons entirely
   // (the hot instanced head + impact bursts still carry the read on potatoes).
@@ -545,6 +583,9 @@ export function debugWispRibbons() {
       hx: r.n ? r.pts[(r.n - 1) * 3] : 0, hy: r.n ? r.pts[(r.n - 1) * 3 + 1] : 0,
     })),
     impactQ: impactQ.length,
+    // PR9 (additive): the queue's live schedule — T-W7b/c assert the fallback
+    // spacing and the finale tag without frame-counting fragility.
+    impactQueue: impactQ.map((q) => ({ t: q.t, k: q.k, n: q.n, full: !!q.full, finale: !!q.finale })),
   };
 }
 
@@ -720,7 +761,12 @@ export function updateBossBullets(dt, player) {
         // + lockStrike arpeggio; damage above stayed same-frame — the LAW), and
         // the ribbon freezes its head at the impact point and drains tail-first.
         if (s.owner === 'lance') {
-          queueWispImpact(s.x, s.y, -(player.dist + s.rel));
+          lanceArrivals++;
+          // The volley's LAST arrival is the FINALE (full sets only — a whiffed
+          // wisp leaves the count short and the cadence simply never fires; the
+          // held voices self-release on their watchdog).
+          queueWispImpact(s.x, s.y, -(player.dist + s.rel), s.volleyN, s.volleyFull,
+            s.volleyFull && lanceArrivals >= (s.volleyN || Infinity));
           ribbonRelease(s.ribbonIdx);
           s.ribbonIdx = -1;
         }

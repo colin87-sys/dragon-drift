@@ -261,6 +261,42 @@ export const CONFIG = {
     // V3.E1
     beatWindow: 0.12,       // LAW — ± seconds on getBeatClock()
     beatMult: 1.25,         // LAW — volleys ONLY, never the Surge beam/break
+    // UNLEASH PHRASE (PR9 — the reward rebuild). BEAT-LOCKED RELEASE (C1): a
+    // committed volley's LAUNCH is quantized onto the song's grid — the cap
+    // auto-release lands ON a beat (the inhale stretches to meet it), a manual
+    // tap rides the next 16th (reads as feel, never lag). The ONE behavior-
+    // adjacent change of the phrase rebuild: D only DELAYS the staggered launch
+    // (damage laws untouched); headless ctx carries no grid fields → D=0 →
+    // byte-identical launch frames (T-E2 is the proof). decay/fork: never held.
+    releaseQuant: true,     // LAW gate — false = verbatim v1 launch timing
+    releaseQuantMaxS: 0.8,  // LAW — never hold a committed volley longer; slow
+                            // stations fall back to the next 8th instead
+    releaseMinLeadMs: 90,   // TUNE(60–140) — closer than this to the grid point
+                            // gives the riser no stop+void runway → roll onward
+    releaseGapMs: 60,       // TUNE(40–80) — the riser's silence VOID before the
+                            // drop (audio-only: 3-5 frames; pips/gather carry
+                            // the motion through it — L209)
+    // The INHALE riser (C3 — riser→gap→drop, replacing the plain swell): an
+    // uplifter bed + sub + an accelerating tick-ratchet whose speed scales
+    // SUPER-linearly with the pip count (C4 — a 6-set must not sound like 2×3).
+    riserTickBase: 7,       // TUNE(5–10) — ratchet ticks/s at n=3, ramp start
+    riserTickPowN: 1.6,     // TUNE(1.2–2.2) — super-linear n exponent on the rate
+    riserMaxHoldS: 1.6,     // LAW — plateau ceiling past the fuse (deflect mid-
+                            // fuse etc.); the riser self-fades after this so a
+                            // stalled release can never strand a drone
+    // The IMPACT RUN (C2/C5): strikes climb the LIVE chord, each leaves a held
+    // voice, and the run lands as an accelerando roll instead of an even 40ms
+    // stagger. Presentation only — damage stays on the arrival frame (L186).
+    strikeSustainVol: 0.045,// TUNE(0.02–0.07) — per held strike-voice level
+    strikeVoiceMax: 6,      // LAW — held-voice cap (== max pip cap)
+    voiceMaxHoldS: 2.5,     // LAW — every voice self-releases by this age; a
+                            // dropped finale (boss died mid-roll) never drones
+    rollAccel: 0.8,         // TUNE(0.65–0.95) — impact-gap shrink factor per k
+    rollMaxS: 0.6,          // LAW — total presentation-roll span ceiling (organ
+                            // flash fires on the true arrival frame; past this
+                            // the spark/sound drift reads as desync)
+    impactDuckAmt: 0.18,    // TUNE(0–0.3; 0 = off) — per-strike music duck via
+                            // the pumpGain sidechain node (the L191-safe lane)
     // V4
     snapPerVolley: 1,       // LAW — max V4 paints per amber volley; 0 during fever (LAW)
     // V5

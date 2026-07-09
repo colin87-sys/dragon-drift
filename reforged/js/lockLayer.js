@@ -333,7 +333,11 @@ export function updateLockLayer(dt, player, ctx) {
     for (const q of S.lanceQ) q.t -= dt;
     while (S.lanceQ.length && S.lanceQ[0].t <= 0) {
       const q = S.lanceQ.shift();
-      ctx.fireLance?.(q.part, q.dmg, q.i, q.n);   // (i, n) = the wisp's authored fan bearing
+      // THE LAUNCH FRAME (PR9): the first wisp leaving IS the release the eye
+      // sees — muzzle flash / juice / haptics anchor here. lockVolley marks the
+      // COMMIT, which the beat-hold (D) can separate from this by ≤releaseQuantMaxS.
+      if (q.i === 0) emit('lockLaunch', { count: q.n, full: !!q.full, source: q.source || 'cap' });
+      ctx.fireLance?.(q.part, q.dmg, q.i, q.n, q.full);   // (i, n) = the wisp's authored fan bearing
     }
   }
 
@@ -510,13 +514,23 @@ function releaseVolley(ctx, source) {
   if (!pips) return;
   const onBeat = source === 'tap' && !!ctx.beatOn;
   const dmgEach = lanceDmgEach(pips, ctx.phaseHp, onBeat ? L.beatMult : 1);
+  // BEAT-LOCKED RELEASE (PR9/C1): D holds the whole staggered launch until the
+  // song's next grid point — cap auto-release lands ON a beat, a manual tap on
+  // the next 16th. Computed by boss.js (releaseQuantDelay) from getBeatClock;
+  // absent in a headless/fabricated ctx → 0 → byte-identical launch frames.
+  // The volley COMMITS here regardless (locks cleared, lockVolley fired) — a
+  // held volley can never be stripped or re-clamped during the wait, and the
+  // deflect rule still pauses the queue itself. decay/fork are never held.
+  const D = (source === 'cap' ? ctx.gridDelayBeat : source === 'tap' ? ctx.gridDelay16 : 0) || 0;
+  const full = S.cap > 0 && pips >= S.cap;
   let i = 0;
   for (const lk of S.locks) {
     for (let s = 0; s < lk.stacks; s++) {
-      S.lanceQ.push({ part: lk.part, dmg: dmgEach, t: i * (L.lanceStaggerMs / 1000), i: i++, n: pips });
+      S.lanceQ.push({ part: lk.part, dmg: dmgEach, t: D + i * (L.lanceStaggerMs / 1000),
+        i: i++, n: pips, full, source });
     }
   }
-  emit('lockVolley', { count: pips, source, dmgEach, perfect: onBeat });
+  emit('lockVolley', { count: pips, source, dmgEach, perfect: onBeat, delay: D, full });
   S.locks.length = 0;
   S.capFuseT = 0;
   S.refreshT = 0;
