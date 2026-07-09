@@ -550,7 +550,10 @@ function inKey(freq) {
 // this then walks it by octaves back into the band the sound wants to live in.
 // Returns `f` unchanged if it already sits in-band (or the band is degenerate).
 function foldToBand(f, lo, hi) {
-  if (!(f > 0) || !(lo > 0) || !(hi > lo)) return f;
+  // Number.isFinite guards the +Infinity hang (Infinity * 0.5 === Infinity loops
+  // forever) — unreachable with current static track data, but one bad chord entry
+  // away from a main-thread freeze, so it's a cheap belt.
+  if (!Number.isFinite(f) || !(f > 0) || !(lo > 0) || !(hi > lo)) return f;
   let x = f;
   while (x > hi) x *= 0.5;
   while (x < lo) x *= 2;
@@ -1434,7 +1437,7 @@ export const sfx = {
     if (n >= 5) {
       // the heavy low pair (bossDefeat's loudest boom) — the "different class" at max
       noiseWhoosh({ from: 220, to: 40, dur: 0.55, vol: 0.16, q: 0.8, delay: 0.015 });
-      tone({ freq: boom * (88 / 90), end: 58, dur: 0.7, type: 'sine', vol: 0.11, delay: 0.02 }); // tracks the boom (in-key under v3)
+      tone({ freq: LANCE_V3 ? boom * (88 / 90) : 88 * v, end: 58, dur: 0.7, type: 'sine', vol: 0.11, delay: 0.02 }); // v3: tracks the folded boom; v2: shipped 88·v EXACTLY (boom·88/90 drifts 1 ULP)
     }
     // DEBRIS — parity-detuned falling shards (shieldShatter idiom), count = min(n,6):
     for (let i = 0; i < Math.min(n, 6); i++) {
