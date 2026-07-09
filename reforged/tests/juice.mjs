@@ -64,15 +64,17 @@ check('tier-0 kick raises bloom+lift impulses', kicked.bloom > 0.2 && kicked.lif
 // zeroing game.hitstopTimer does NOT reset juice.js's private lastHitstopAt, so
 // without this the finale hitstop can be refused and the assertion flake (Codex).
 await new Promise((r) => setTimeout(r, CONFIG.JUICE.hitstopCooldownMs + 60));
-await page.evaluate(() => {
+// Arm AND read in ONE evaluate: the game loop decrements hitstopTimer every
+// frame, so reading it in a later round-trip would show a decayed value (the
+// 90ms freeze had already ticked down). One synchronous eval = no frame between.
+const finale = await page.evaluate(() => {
   const dd = window.__dd;
   dd.game.hitstopTimer = 0; dd.game.slowMoTimer = 0; dd.game.state = 'playing';
   dd.postfx.setPostTier(0);
   dd.juice.juiceEvent('wispFinale');
+  return { hs: dd.game.hitstopTimer, bloom: dd.postfx.kickState().bloom };
 });
-const finale = await page.evaluate(() => ({
-  hs: window.__dd.game.hitstopTimer, bloom: window.__dd.postfx.kickState().bloom }));
-check(`wispFinale hitstops ~90ms (got ${Math.round(finale.hs * 1000)}ms)`, finale.hs > 0.08 && finale.hs <= 0.0905);
+check(`wispFinale hitstops ~90ms (got ${Math.round(finale.hs * 1000)}ms)`, finale.hs > 0.085 && finale.hs <= 0.0905);
 check('wispFinale raises the jade postfx kick', finale.bloom > 0.2);
 await page.waitForFunction(() => window.__dd.game.hitstopTimer <= 0, { timeout: 10000 });
 
