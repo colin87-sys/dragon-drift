@@ -538,9 +538,83 @@ export function buildUnmasked(def, quality = 1) {
   catchMesh.name = 'eyeCatchlights';
   stage2.add(catchMesh);
 
-  // ── THE HALO is RESERVED FOR THE THIRD FORM (owner). Stage 2 carries NO gold ring — the
-  // eyed wings + the focal eye stand on their own here; the saint's nimbus lands at the
-  // unveiling (S3), alongside the star-eye. ──
+  // ══════════════════════════════════════════════════════════════════════════
+  // STAGE 3 — THE UNVEILING (the third form). The seraph's wings MANTLE FULLY OPEN and the
+  // veiled core UNVEILS: the plain focal almond gives way to the reserved STAR-EYE (a small
+  // almond wrapped in a radiant GOLD STARBURST) with a saint's HALO behind. Tri-lean: it REUSES
+  // stage 2's wings + eye-field (they don't duplicate — stage 3 shows the SAME seraph, mantled)
+  // and only adds these cheap central motifs, swapping the focal eye for the star-eye. Hidden
+  // until setStage3 drives it; the whole group rides `stage3`. ──
+  const stage3 = new THREE.Group();
+  stage3.name = 'stage3Rig';
+  stage3.visible = false;
+  rig.add(stage3);
+
+  // THE HALO — a saint's gold nimbus RING behind the core (the reserved corona glow-shape,
+  // now a halo). Additive so it reads as light, not a solid band; breathes in the tick.
+  const halo3Mat = track(new THREE.MeshBasicMaterial({
+    color: accent, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  halo3Mat.toneMapped = false;
+  const halo3Geo = new THREE.RingGeometry(2.5, 3.3, lowQ ? 36 : 64);
+  halo3Geo.translate(0, 0, -0.9);
+  const halo3 = new THREE.Mesh(halo3Geo, halo3Mat);
+  halo3.name = 'halo'; stage3.add(halo3);
+
+  // THE STARBURST — a radiant GOLD sunburst of alternating long/short spikes around the star-
+  // eye (the reserved emblem). Additive tapered triangles, HOT at the core → dark at the tip so
+  // they bloom into rays, not solid blades. `starPivot` spins slowly + pulses in the tick.
+  const starPivot = new THREE.Object3D();
+  starPivot.name = 'starburst';
+  stage3.add(starPivot);
+  const burstMat = track(new THREE.MeshBasicMaterial({
+    color: accent, vertexColors: true, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  burstMat.toneMapped = false;
+  const NSPIKE = lowQ ? 10 : 14;
+  const burstPos = [], burstCol = [], burstIdx = [];
+  const burstHot = new THREE.Color(accent).lerp(new THREE.Color(0xffffff), 0.35);
+  let bv = 0;
+  for (let i = 0; i < NSPIKE; i++) {
+    const a = (i / NSPIKE) * TAU;
+    // Long rays BURST OUTWARD past the halo (r~3.3) so it reads as RADIANCE, not spokes inside a
+    // rim (the wheel read the design forbids); alternating short rays keep the star silhouette.
+    const len = (i % 2 === 0 ? 5.6 : 2.7);
+    const w = 0.11;                                     // slim rays (a sunburst, not fat blades)
+    const r0 = 0.5;                                     // spikes start just outside the star-eye
+    const tx = Math.cos(a) * (r0 + len), ty = Math.sin(a) * (r0 + len);
+    const bax = Math.cos(a - w) * r0, bay = Math.sin(a - w) * r0;
+    const bbx = Math.cos(a + w) * r0, bby = Math.sin(a + w) * r0;
+    burstPos.push(bax, bay, -0.35, bbx, bby, -0.35, tx, ty, -0.35);
+    burstCol.push(burstHot.r, burstHot.g, burstHot.b, burstHot.r, burstHot.g, burstHot.b, 0, 0, 0);   // hot base → black tip
+    burstIdx.push(bv, bv + 1, bv + 2); bv += 3;
+  }
+  const burstGeo = new THREE.BufferGeometry();
+  burstGeo.setAttribute('position', new THREE.Float32BufferAttribute(burstPos, 3));
+  burstGeo.setAttribute('color', new THREE.Float32BufferAttribute(burstCol, 3));
+  burstGeo.setIndex(burstIdx);
+  starPivot.add(new THREE.Mesh(burstGeo, burstMat));
+
+  // THE STAR-EYE — a SMALL almond at the very centre (the L142 real-eye rig, reusing the eye-
+  // field materials so it adds no draws): pale sclera, gold iris, dark pupil (tracks), catchlight.
+  const SW = 0.5, SH = 0.34, SD = 0.22;
+  const starSocket = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 8 : 12, lowQ ? 6 : 8), socketMat);
+  starSocket.scale.set(SW * 1.3, SH * 1.35, 0.4); starSocket.position.set(0, 0, -0.12);
+  stage3.add(starSocket);
+  const starEye = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 10 : 14, lowQ ? 7 : 9), greatScleraMat);
+  starEye.scale.set(SW, SH, SD); starEye.position.set(0, 0, 0.05);
+  starEye.name = 'starEye'; stage3.add(starEye);
+  const starIris = new THREE.Mesh(new THREE.CircleGeometry(1, lowQ ? 12 : 16), irisMat);
+  starIris.scale.set(SW * 0.5, SH * 0.6, 1); starIris.position.set(0, 0, SD + 0.06);
+  stage3.add(starIris);
+  const starPupil = new THREE.Mesh(new THREE.SphereGeometry(1, lowQ ? 8 : 12, lowQ ? 6 : 8), s2pupilMat);
+  starPupil.scale.set(SW * 0.42, SH * 0.5, 0.4); starPupil.position.set(0, 0, SD + 0.1);
+  stage3.add(starPupil);
+  const starCatch = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), catchMat);
+  starCatch.position.set(-SW * 0.22, SH * 0.3, SD + 0.24);
+  stage3.add(starCatch);
+  // The stage-2 focal-eye parts that the star-eye REPLACES at the unveiling (hidden by setStage3).
+  const focalParts = [greatSocket, greatEye, greatIris, greatPupil, greatCatch];
 
   // ── RELICS (§8) are RESERVED FOR CP2 — the placeholder gold quill-glints read as stray
   // hairline slivers near the centre (Fable polish). CP2 builds the real 5-trophies-+-1-empty
@@ -575,13 +649,33 @@ export function buildUnmasked(def, quality = 1) {
     stage2.scale.setScalar(0.2 + 0.8 * smooth(0.4, 1.0, m));
   }
 
+  // ── THE S2→S3 UNVEILING ── the seraph's core opens: the plain focal eye gives way to the
+  // STAR-EYE + STARBURST, the HALO kindles behind, and the wings MANTLE FULLY OPEN. One eased
+  // driver `setStage3(k3)`: k3 0 = the plain seraph (stage 2) → k3 1 = the unveiled third form.
+  // stage 2's wings + eye-field stay (the SAME seraph, mantled — read in tickBody); only the
+  // centre swaps. k3 0 hides stage 3 + shows the focal eye → stage 2 is byte-identical. ──
+  let stage3K = 0;
+  function setStage3(k) {
+    stage3K = Math.max(0, Math.min(1, k));
+    const k3 = stage3K;
+    stage3.visible = k3 > 0.005;
+    stage3.scale.setScalar(0.55 + 0.45 * smooth(0, 1, k3));   // the star-eye + burst + halo bloom open
+    burstMat.opacity = smooth(0.15, 1.0, k3) * 0.95;
+    halo3Mat.opacity = smooth(0.25, 1.0, k3) * 0.7;
+    // The focal almond RECEDES as the star-eye takes the centre (crossfade by visibility at the
+    // half — the star-eye is fully bloomed by then so there is no empty-centre frame).
+    for (const e of focalParts) e.visible = k3 < 0.5;
+  }
+
   // Stage select (CP2 wires this to the phase machine; for now a debug/gate hook). A discrete
-  // stage pick maps to the morph endpoints — stage 1 → k 0, stage 2+ → k 1 (a hard cut). The
-  // stage selector uses this; the transition itself is setStageMorph.
+  // stage pick maps to the driver endpoints — 1 → the eclipse (morph 0), 2 → the seraph
+  // (morph 1, unveiling 0), 3 → the unveiled third form (morph 1, unveiling 1). The stage
+  // selector uses this; the transitions themselves are setStageMorph / setStage3.
   let stageN = 1;
   function setDebugStage(n) {
     stageN = n;
     setStageMorph(n == null || n <= 1 ? 0 : 1);
+    setStage3(n >= 3 ? 1 : 0);
   }
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
@@ -710,7 +804,8 @@ export function buildUnmasked(def, quality = 1) {
       for (const s of shoulders) {
         s.obj.rotation.z = s.baseRotZ
           + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath
-          + s.flareZ * charge * 0.16;
+          + s.flareZ * charge * 0.16
+          + s.flareZ * stage3K * 0.24;   // STAGE 3: the wings MANTLE FULLY OPEN (a bigger, held flare than the charge tell)
       }
 
       // ── WRATH TELL: the whole eye field bleeds from gold toward danger-red as the charge
@@ -738,6 +833,19 @@ export function buildUnmasked(def, quality = 1) {
         p.position.set(u.base.x + u.gx * u.size * 0.4, u.base.y + u.gy * u.size * 0.4 * (u.openF || 1), u.base.z + u.size * 0.62);
       }
     }
+
+    // ── STAGE 3 — THE UNVEILING: the STARBURST slowly turns + pulses (radiance, never a spin-
+    // machine — a gentle drift), the HALO breathes, and the STAR-EYE's pupil tracks the player.
+    // Gated on stage3.visible so it costs nothing until the third form is up. ──
+    if (stage3.visible) {
+      starPivot.rotation.z = time * 0.06;                                  // a slow, holy drift (not a wheel)
+      const pulse = 0.85 + Math.sin(time * 0.8 * TAU) * 0.15 + charge * 0.3;
+      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse);       // the rays breathe hotter on charge (wrath)
+      halo3Mat.color.copy(_c.set(def.accent)).multiplyScalar(0.8 + Math.sin(time * 0.5 * TAU) * 0.12);
+      starPupil.position.set(gazeX * SW * 0.3, gazeY * SH * 0.28, SD + 0.1);
+      const sk = 1 - charge * 0.3;                                          // constrict on charge (the star-eye shares the wrath tell)
+      starPupil.scale.set(SW * 0.42 * sk, SH * 0.5 * sk, 0.4);
+    }
   }
 
   const muzzle = new THREE.Object3D();
@@ -754,6 +862,7 @@ export function buildUnmasked(def, quality = 1) {
     allSnap,
     setDebugStage,
     setStageMorph,
+    setStage3,
     setDebugWing,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
