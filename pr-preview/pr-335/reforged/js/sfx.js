@@ -54,10 +54,10 @@ export function setLanceProfile(name) {
   lanceProfile = name === 'wyrm' ? 'wyrm' : 'classic';
   saveData.audio.lanceProfile = lanceProfile;
   persist();
-  // Switch hygiene: silence the OUTGOING profile's classic looping voices so a
-  // mid-fight flip never strands a hum/riser. (The wyrm resonator is torn down by
-  // its own bossVoiceEnd, wired at the main.js toggle + bossEnd.)
-  try { sfx.dwellHum(0); sfx.brandRiserCancel?.(); } catch { /* pre-init */ }
+  // Switch hygiene: silence the OUTGOING profile's classic looping voices AND
+  // release any in-flight wyrm roll-duck, so a mid-fight flip never strands a hum,
+  // a riser, or a sidechain hole with no roll to cover.
+  try { sfx.dwellHum(0); sfx.brandRiserCancel?.(); releaseLanceDuck(); } catch { /* pre-init */ }
   return lanceProfile;
 }
 export function toggleLanceProfile() { return setLanceProfile(lanceProfile === 'wyrm' ? 'classic' : 'wyrm'); }
@@ -2056,8 +2056,15 @@ function buildMusicGraph(a, tr, env, buses, { v2 = AUDIO_V2 } = {}) {
 // Sidechain pump: duck the musical bus on the main kick, then let it breathe
 // back up — the pumping "sssh-WAH" the dance stations live on. Shared by the
 // synthesized kick and the baked-buffer fast path.
+// While the Wyrm roll-duck OWNS pumpGain (a flat hold across the whole volley),
+// the music scheduler's per-kick pumpDuck must NOT cancel/overwrite it — otherwise
+// the first kick collapses the sustained hole back to per-beat flutter. Time-
+// multiplex the single writer: kicks scheduled inside the hold window are skipped
+// (the lance owns the sidechain for those ~0.3–0.9s), then resume automatically.
+let lanceDuckUntil = 0;
 function pumpDuck(pumpGain, pumpAmt, absTime) {
   if (!pumpGain || !(pumpAmt > 0.001)) return;
+  if (absTime < lanceDuckUntil) return;   // the lance roll-duck holds the node — don't clobber it
   pumpGain.gain.cancelScheduledValues(absTime);
   pumpGain.gain.setValueAtTime(1 - pumpAmt, absTime);
   pumpGain.gain.setTargetAtTime(1, absTime + 0.001, 0.07);
@@ -2065,15 +2072,26 @@ function pumpDuck(pumpGain, pumpAmt, absTime) {
 
 // SUSTAINED duck (the Wyrm profile's "one hole for the whole roll" — replaces the
 // per-hit pump flutter): dip the sidechain to 1-amt NOW and HOLD it flat for
-// holdSec, then breathe back. One carved hole the strike train sits inside.
+// holdSec, then breathe back. `lanceDuckUntil` fences the kick sidechain out of the
+// hold window so the hole actually survives (see pumpDuck).
 function duckHold(amt, holdSec = 0.35) {
   const a = getCtx();
   if (!a || !pumpGain || !(amt > 0.001)) return;
-  const t = a.currentTime;
+  const t = a.currentTime, hold = Math.max(0, holdSec);
+  lanceDuckUntil = t + hold;
   pumpGain.gain.cancelScheduledValues(t);
   pumpGain.gain.setValueAtTime(1 - amt, t);
-  pumpGain.gain.setValueAtTime(1 - amt, t + Math.max(0, holdSec));   // hold flat across the roll
-  pumpGain.gain.setTargetAtTime(1, t + Math.max(0, holdSec) + 0.001, 0.12);
+  pumpGain.gain.setValueAtTime(1 - amt, t + hold);   // hold flat across the roll
+  pumpGain.gain.setTargetAtTime(1, t + hold + 0.001, 0.12);
+}
+// Release the lance hold early (profile switch mid-roll) so kicks resume + the node
+// breathes back instead of sitting ducked with no roll to cover.
+function releaseLanceDuck() {
+  const a = getCtx();
+  if (!a || !pumpGain) return;
+  lanceDuckUntil = 0;
+  pumpGain.gain.cancelScheduledValues(a.currentTime);
+  pumpGain.gain.setTargetAtTime(1, a.currentTime, 0.08);
 }
 
 // --- Baked drum kits --------------------------------------------------------
