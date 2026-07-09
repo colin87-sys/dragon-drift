@@ -336,8 +336,8 @@ export const BOSSES = {
     // circles (emitter = organ, §5f law 7); cadences one notch tighter toward the
     // Closing Ribs. Escalation by pattern unlock + cadence, never raw count.
     phases: [
-      { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'fan'] },                    // P1: read the bone rings
-      { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['iris', 'stream', 'crossfire'] },     // P2: the coil rings expand (fly-through)
+      { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'iris'] },                   // P1: read the bone rings — `iris` (contracting rings) replaces `fan` so the opener IS rings and is no longer byte-identical to HOLLOWGATE/THRUMSWARM P1 (§B-2 triple-opener collision)
+      { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['iris', 'stream', 'crossfire', 'fan'] }, // P2: the coil rings expand (fly-through) — `fan` relocated here from P1 (§B-2), keeping it in the kit
       { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['iris', 'movingGap', 'spiralStream', 'stream'] },// P3: the closing ribs (dread) — `stream` added as the AMBER carrier (§5i C.1 data-tune: the closing coil keeps tracking, so its amber-tipped hose meets the AMBER FLOOR)
     ],
     cards: [
@@ -360,7 +360,7 @@ export const BOSSES = {
           ratioBurst: 0.2,
           phrase: [
             { kind: 'sustain', attack: 'aimed', beats: 4, gap: [0.50, 0.62] },
-            { kind: 'burst',   attack: 'fan',   count: 2, gap: 0.18 },
+            { kind: 'burst',   attack: 'iris',  count: 2, gap: 0.18 },   // §B-2: iris (rings) replaces fan — the opener finally reads as bone rings
           ],
           restLo: 1.4, restHi: 2.0, restDist: 'uniform',
         },
@@ -369,6 +369,7 @@ export const BOSSES = {
           phrase: [
             { kind: 'sustain', attack: 'stream',    beats: 5, gap: [0.42, 0.50] },
             { kind: 'burst',   attack: 'crossfire', count: 3, gap: 0.16 },
+            { kind: 'burst',   attack: 'fan',       count: 2, gap: 0.18 },   // §B-2: fan relocated from P1 (kept in the kit)
             { kind: 'sustain', attack: 'iris',      beats: 2, gap: 0.60 },
           ],
           restLo: 1.1, restHi: 1.7, restDist: 'bimodal',   // quick inter-burst gaps + one long breath
