@@ -49,6 +49,10 @@ Bosses needing rework in Part C: **2, 3, 4, 5, 8, 9, 10, 11, 13.** Solid and unt
 Format per boss: current kit (quoted from the def) → dread (def + card + code geometry) →
 judgment against §5f laws 1/2/3/4/5/7 + the §5c band contract → verdict.
 
+> **Building any of this?** Start at **PART E** (end of file): the build queue, the honest
+> spec-gap ledger, the per-rework gate list, and the checkpoint-agent protocol. Parts A–D are
+> the design; Part E is how a fresh session ships it without breaking the roster.
+
 ### A.1 — VOIDMAW (slot 1, Sentinel) — SOLID
 
 **Kit** (`id: 'voidmaw'`): P1 `['aimed']` → P2 `['aimed','fan']` → P3 `['aimed','fan','tunnel']`,
@@ -874,3 +878,247 @@ Quota met with margin; no two adjacent slots share a dread verb.
 9 (tighten to band ceiling, C.6) — both move TOWARD their §5b band tables, so the DPS-sim gate
 (when it lands, AUDIT §3.C.1) sees less variance, not more. Amberdiet: every reworked phase names
 its carrier in its move table; survival cards (10, 13) keep the shipped list-exemption verbatim.
+
+---
+
+## PART E — BUILD ORDER, SPEC-COMPLETENESS & THE CHECKPOINT PROTOCOL
+
+Appended by the implementability audit (2026-07). Parts A–D are the design; this part is the
+build + verification layer on top of it. Every claim below was **re-verified against the live
+code** at write time (symbols and quotes, never line numbers). Nothing in A–D is re-litigated;
+where the code has moved past the plan's claims, E.0 records the correction and the C-entry
+stands otherwise.
+
+### E.0 — GROUND TRUTH FOR BUILDERS (paths, real gate names, code-vs-plan corrections)
+
+**Where things actually live** (a fresh session's first trap): the boss gates are
+`reforged/tests/boss.mjs` and `reforged/tools/bossgate.mjs` — NOT the repo-root `tests/`/`tools/`
+directories, which hold an older suite. Everything runs from `reforged/`:
+`node tests/boss.mjs` · `node tests/bossboot.mjs` · `node tools/bossgate.mjs <bossId> [--studio]`
+· `node tools/bossstudio.mjs` · `node tools/tiershots.mjs` · `node tools/tricount.mjs`
+· `node tests/bulletcontrast.mjs` · `node tools/stamp-sw.mjs` (same commit as any shipped change).
+
+**The real gate names** (cite these, not paraphrases):
+- `tests/boss.mjs`: tri ceiling per `TIER_BUDGETS`; named-pivot **telegraph** gates ("setCharge
+  must MOVE geometry" — per-boss, e.g. "knellgrave charge WIDENS the swing arc"); **amberdiet**
+  (`hasAmberCarrier` on every phase list + a simulated fire-to-fire "amber volley every ≤12s";
+  `AMBER_CARRIERS = new Set(['aimed', 'fan', 'crossfire', 'stream'])` — nothing else counts);
+  **rhythmprint** (pairwise gap-distribution distinctness, `KS_FLOOR = 0.20`, every boss vs every
+  other); §3e **emission budget** (`ALL_ATTACKS` whitelist; worst concurrent load ≤55 @ q0.7,
+  ≤160 @ q1, via `debugEmitAttack`) + **laneSafe** ("2D fills must leave their designed safe lane
+  (≥2.2 half-width somewhere)" — asserted on `curtain` and `movingGap`); full-roster
+  **lifecycle**-to-a-kill sim; per-sheet geometry asserts (rib clearance, twin ΔL, pane wedges…);
+  a headless **beamEdge detector** assert ("annulus + depth-window law holds") — the precedent any
+  new grazeForm branch must copy; a live **THREAD-CUT + moteHarvest integration** sim.
+- `tools/bossgate.mjs`: G1–G7 as specced in §7b, implemented, with the sanctioned value-inversion
+  overrides (`gate.pale`, and EMBERTIDE's `inverted`/`frameFill`); `--studio` runs the same
+  pixel gate on isolated studio frames (§7c).
+- `tests/bulletcontrast.mjs`: pure-data check of every biome × role colour (danger magenta, the
+  3-band ladder, `REFLECT_AMBER`, `REFLECTED_CYAN`) against fog AND horizon. **There is no
+  "role-pair distance" gate** — do not cite one. What it DOES enforce that matters here:
+  role colours are FIXED ("the player learns 'amber = parryable'… once, globally — L93").
+
+**Code-truth corrections to Parts A–D and the APPENDIX** (verified against `bossDefs.js` +
+`boss.js`; these UPDATE the "allocated-but-unshipped" ledger above):
+1. **CANCEL-CONVERT MOTE HARVEST is SHIPPED**, not unshipped (A.11.4 and the APPENDIX list are
+   stale): weftwitch's def carries `grazeForm: 'moteHarvest'`, `boss.js` implements it ("§5i
+   CANCEL-CONVERT MOTE HARVEST (WEFTWITCH, grazeForm 'moteHarvest'): the CUT…"), and
+   `tests/boss.mjs` drives it live. **C.8's "Mote Harvest" row is already in the game — do not
+   rebuild it**; C.8 shrinks to the hand-telegraph wiring + the per-organ crossfire.
+2. **SHADOW-RIDE's detector is SHIPPED** (brineholm def `grazeForm: 'shadowRide'` + the boss.js
+   branch "SHADOW-RIDE (BRINEHOLM's Calamities graze, def-gated)"). What A.8.3 correctly says is
+   missing is the *geysers it rides against* — C.5 pays the fiction, not the detector.
+3. **SHRINKING SAFE DISC is half-wired**: knellgrave's def ALREADY carries
+   `grazeForm: 'shrinkDisc'` — but `boss.js` has **no `shrinkDisc` branch**. A def label with no
+   engine consumer. Same story for the Apex: unmasked's def already carries `grazeForm: 'medley'`
+   with no branch. C.7 and Part D inherit pre-reserved labels; only the detectors are owed.
+4. **The bullet cull floor is already widened** — `bossBullets.js`: "The lower y-bound is WIDENED
+   to -16 (§5e, the MARROWCOIL/BRINEHOLM below-approach need)… the wider floor only lets
+   legitimately-low-born bullets travel into frame." `geyser` births at `CONFIG.laneMinY - 3`
+   (≈ −0.5) survive today; the §5e "widen the cull bounds" roadmap item is PAID. No cull PR.
+5. **C.9 item 2 is a no-op as written**: crestfall's rows are quality-gated in code
+   (`rows = quality < 0.75 ? 4 : 5`) and the pocket `±3.4` is hardcoded — there is no per-def
+   density dial to set. C.9 is items 1 + 3 only (two attack-list lines). Still FULLY SPEC'D —
+   just smaller than advertised.
+6. **C.7's "spiral rerouted to emit from `bellMouth`" is engine work, not a free reroute**: the
+   base `spiral` branch emits from `anchorX, B.fightHeight` (the player-side lane anchor), NOT
+   from `emitOrigin`/`def.muzzle`; only the hollowgate pane-radial override redirects it. The
+   reroute needs the E.1 ENG-A seam like everyone else.
+7. **Verified TRUE where the plan leaned on it**: the continuous-graze detector family shipped
+   exactly as C.2 claims — `beamEdge` (hollowgate), reused verbatim by `tideEdge` (embertide),
+   `shadowRide` (brineholm), `holdFlinch` (karnvow), with the `beamHeld/beamTick/beamGrace` ramp
+   and "one grazeForm per boss" as the standing convention. Bullets already carry per-part tags
+   (`emitBoss`'s `tag` param → `tag = 'rosePane' + tag` under `destructiblePanes`), and
+   `routePartDamage`'s `PART_SYS` table is deliberately extensible ("Each entry names the def
+   flag + the model's own hit-test/crack/alive/live hooks"). `resolveEmitOrigin` resolves ONE
+   origin from `def.muzzle` via `model.partWorldPos`; `partWorldPos` itself already resolves
+   arbitrary named parts (hand pivots, `ghostMuzzle`) — the primitive exists, the per-attack
+   multi-origin consumer does not. `crossfire` is hardcoded `for (const ex of [-10, 10])`.
+
+### E.1 — BUILD QUEUE (coexist → prove on a hero → migrate; every row its own PR)
+
+**Ordering rationale:** the defect fix first (C.9 is a bug, not a rework); then every def-data
+rework (cheap, independent, each restores a Part-B finding); then the engine seams, each proven
+on ONE hero boss before its other consumers land; Tier-1 boss PRs in slot order so the sawtooth
+teeth (5, 9, 13) come back in play order; Part D dead last — "the exam tests the reworked
+curriculum" (Part D intro), so it cannot start before C.1–C.9 merge.
+
+**TIER-0 — def-data / telegraph-only (a fresh chat builds these from the C-table + E.3):**
+
+| Q | PR | Edits (all in `bossDefs.js` unless noted) | Prereq | Coexists with (shipped code it leans on) | "Prove on a hero" means |
+|---|---|---|---|---|---|
+| 1 | **C.9a EMBERTIDE** (the defect fix — FIRST) | P5 attacks → `['crestfall','crossfire']`; P2 → `['curtain','secondWave','crossfire']` (drop C.9 item 2 — E.0.5) | none | `horizonPocketX` + its crestfall consumer, both shipped | drive `embertide_horizonbreak` and watch `gapC = horizonPocketX` govern the live rows — the shadow finally kills/saves |
+| 2 | **C.2a ASHTALON id swap** | P3 `spiralStream` → `fan` (P3 = `['stream','fan','secondWave']`) | none | all four ids shipped | P3 plays sparse-pursuit, no turret fill |
+| 3 | **C.3a MARROWCOIL opener** | P1 → `['aimed','iris']`, `fan` moves to P2 (kills B-2) | none | `iris` shipped (still lane-anchored until ENG-B — an honest intermediate state, noted in the PR) | first 20s no longer identical to slots 6/7 |
+| 4 | **B-3 THRUMSWARM dials** | P3/P4 cadence → `[1.2, 1.55]` / `[1.2, 1.5]` | none | PRESSURE OSTINATO signature carries the density feel | rhythmprint still clears vs all 13; the fight still feels relentless (human judges on preview) |
+| 5 | **C.1a STORMREND teach fix** | `iris` (slow form) moves to P2; `secondWave` added to P2 | none | both ids shipped | iris no longer debuts inside the dread (law 4 fixed even before the new dread lands) |
+
+**ENGINE SEAMS — small, def-gated, roster-byte-inert PRs (Tier-1 prerequisites):**
+
+| ENG | Seam (what gets built) | Grounding | Unblocks | Hero (prove here first) |
+|---|---|---|---|---|
+| A | **Per-organ / multi-origin emit**: def/card-gated origin override per attack id — resolve named parts via `model.partWorldPos` per emitter (crossfire's `[-10,10]` → a resolved pair; per-emitter time-to-impact per §5e: "`aimVel` assumes `pose.rel` — crossfire's inline t is the template") | `resolveEmitOrigin` + `firePaneRadial` precedents | C.4 (twins), C.6 (lance+chain crossfire), C.7 (bellMouth spiral — E.0.6), C.8 (hands), D (Parallax Regard) | **EITHERWING (C.4)** |
+| B | **Authored-gap/anchor provider**: def/card-gated override of player-sign gap placement (`curtain`'s `-Math.sign(player.position.x \|\| 1) * 5.5`, movingGap's seed, iris's `anchorX`) — generalize the `horizonPocketX` precedent (an authored pocket a pattern reads) into a per-def hook instead of a boss-13 global | `horizonPocketX` → crestfall | C.1b (eye-axis corridor), C.3 (rib aperture), C.7 (bob-locked gap), C.8 (hand-skipped lane) | **WEFTWITCH (C.8) or STORMREND (C.1b)** |
+| C | **`geyser` id**: new executeAttack branch — crestfall's mirror (births at `CONFIG.laneMinY - 3`, `vy > 0`, rows/step/gap dials copied); plume telegraph one beat early; append to `ALL_ATTACKS` + add its laneSafe/concurrent asserts | crestfall branch quoted in C.5; cull floor already −16 (E.0.4) | C.5, D stage 2 | **BRINEHOLM (C.5)** — it IS the hero |
+| D | **New grazeForm branches** on the shipped tick economy (`beamHeld/beamTick/beamGrace`): `slipstream` (C.2b), `orbitAnnulus` (C.4), `shrinkDisc` (C.7 — def label already live, E.0.3). Each ships with a headless assert copying "beamEdge detector: annulus + depth-window law holds" | beamEdge/tideEdge/shadowRide branches | C.2b, C.4, C.7 | **ASHTALON slipstream (C.2b)** — the simplest of the three |
+| E | **Parry-per-part attribution + PART_SYS third entry**: parried amber bullets already carry part tags (E.0.7) — add a parry-side counter per tag (today the only parry counter is Onewing's `GHOST_FRAME_HITS`; `partHits` counts SHOT damage) + a `destructibleRibs`-style `PART_SYS` row with model `crack/hit/alive/live` hooks | `PART_SYS` ("prove on HOLLOWGATE's panes… extend… with zero new plumbing") | C.3 (ORGAN BREAK), C.4 (holder stagger), C.6 (gem shatter variant) | **MARROWCOIL (C.3)** |
+| F | **Rally loop + card-scoped gun seal**: `riposteReturnT` is a one-shot timer — build the looping orb state (accel per return, cap 4, completion/miss resolution) + a card-scoped reflect-only seal (none exists; `lockMuted` is lance-only) | `reflectRiposte` v1 seam | C.6, D stage-2 seal | **KARNVOW (C.6)** |
+| G | **THREAD-THE-GAP scorer**: clearance+lateness measured at the crossing frame + a chain window (math authored at PRE-BUILD — see E.2 C.3 row) | crossing-graze check in `bossBullets.js` (`prevRel > 0 && s.rel <= 0`) | C.3 | **MARROWCOIL (C.3)** |
+| H | **`pendulumSweep` setpiece**: new `SETPIECE_PATHS` entry (setpieces are outside the id budget by precedent — APPENDIX). Fires-while-moving has precedent ("Runs MOVING so crossfire keeps raining from wherever the pass carries" — circlingPass); suppression is per-setpiece (`ribThread` holds `attackTimer` explicitly) | `SETPIECE_PATHS` registry + `lastToll` path grammar | C.7 | **KNELLGRAVE (C.7)** |
+
+**TIER-1 boss PRs (after their ENG rows; slot order):**
+
+| Q | PR | Needs | Coexists with | "Prove on a hero" means |
+|---|---|---|---|---|
+| 6 | **C.1b STORMREND dread** | ENG-B (eye-axis iris center) + one card-gated iris×3 chain + the coplanar-ring model rig (named pivot for the telegraph gate) | shipped `stormrend_eye` card | corridor-parry is geometrically forced: fleeing outward dies to contraction, the corridor holds amber `aimed` on the beat |
+| 7 | **C.2b ASHTALON slipstream** | ENG-D (`slipstream`) | shipped `stoopingStrike` setpiece | riding the pocket ≥0.8s + Surge release = the exposure window; the §5f answer "surge INTO the dive gap" exists in geometry |
+| 8 | **C.3b MARROWCOIL interior** | ENG-B (rib aperture + coil-iris) + ENG-E + ENG-G | shipped `closingRibs`, rib pivots ("Named per-rib root pivots (5 pairs, L/R)"), stream amber | parry a rib's strain volley ×N → that rib's rows verifiably vanish for the rest of the fight |
+| 9 | **C.4 EITHERWING** | ENG-A (hero) + ENG-D (`orbitAnnulus`) + ENG-E (holder stagger) | shipped `figureEight`, twin anatomy asserts in boss.mjs | crossfire origins visibly track the lemniscate; the annulus lap pays; the ±10 posts are gone |
+| 10 | **C.5 BRINEHOLM geyser** | ENG-C (hero) | shipped `sounding`, `shadowRide` detector (E.0.2), SHACKLE mercy | rows erupt from below-frame tracking the submerged body; 6≡8 dread collision dead (`curtain`/`spiralStream` leave the def) |
+| 11 | **C.6 KARNVOW** | ENG-A (asymmetric crossfire) + ENG-E (gem shatter) + ENG-F (hero) + def restructure 3→4 cards + cadence `[1.05,1.35]` | shipped riposte v1, `voidmawVerdict` loom, `lockMuted` | a completed rally exists start-to-finish; the seal resolves on it; the verdict quote's gems parry-shatter rings |
+| 12 | **C.7 KNELLGRAVE** | ENG-A (bellMouth spiral) + ENG-B (bob-lock) + ENG-D (`shrinkDisc` branch — label pre-wired) + ENG-H (hero) + def 4→5 phases | shipped toll infra (`bellToll`/`tollNow`), `swingPivot` + its charge-widen assert, MUSIC-LOCKED `rhythm.ticket` | the toll's bullets expand FROM the bell; the pendulum crosses the lane with the muzzle |
+| 13 | **C.8 WEFTWITCH** | ENG-A (hands) + ENG-B (hero: hand-skipped lane) + model hand-choreo (E.2) | shipped `threadCut`, `moteHarvest` (E.0.1 — already live) | the unsewn lane is decided a beat early and the hands SHOW it; player-sign placement provably off for this def |
+| 14+ | **PART D** (split: stage plumbing → stage-1/2/3 quote PRs → finale + relics) | ALL of C.1–C.9 merged + the quote-by-card-id player + stage-swap rig (§5e Apex row) + relic system (see E.2 row D) | `grazeForm: 'medley'` label (already on the def, E.0.3) | each stage's quotes are the POST-C forms, verified per quote |
+
+### E.2 — SPEC-COMPLETENESS LEDGER (the honest answer to "can any chat build this?")
+
+**Verdicts:** FULLY = a fresh session ships it from the C-table + E.3 alone. SPLIT = the def-data
+half ships alone; the rest waits on a named seam. NEEDS SEAM = the C-entry's intent is clear but
+the load-bearing engineering is unwritten — the named gap below is what a PRE-BUILD checkpoint
+must design before code.
+
+| Rework | Verdict | Buildable today, as written | The missing seam — named, specific |
+|---|---|---|---|
+| C.1 | **SPLIT** | C.1a (iris→P2, secondWave→P2) | **C.1b:** (i) card-gated iris center on the eye axis — iris anchors at `anchorX` (player-side); needs ENG-B; (ii) the ×3 no-rest chain — a card-scoped cadence override, no precedent besides the card-gated `horizonPocketX`; (iii) the coplanar ring-alignment rig is MODEL work (new named pivot for the telegraph gate) that the C-table calls "one telegraph rig" without a sheet. |
+| C.2 | **SPLIT** | C.2a (id swap) | **C.2b SLIPSTREAM:** the C-entry says "a drawn moving safe pocket… collision walls at its edges" — *what edge contact does is unspecified* (damage? push-out? both differ wildly in feel); the ≥0.8s ride timer and the Surge-release exposure hook have no defined state carrier. Detector economy itself is genuinely a beamEdge copy (E.0.7) — the gap is the pocket's rules, not the ticks. |
+| C.3 | **NEEDS SEAM — the deepest gap in the plan** | C.3a (opener) only | ORGAN BREAK is quoted from §5b as if self-executing; it is not: (i) **parry→rib attribution** — bullets carry part tags but *nothing counts parries per tag* (`partHits` counts shots; `GHOST_FRAME_HITS` counts parries but is Onewing-global, not per-part); (ii) **rib→gap mapping** — "the gap = the surviving rib aperture": 5 rib pairs to a movingGap x-position is an unwritten function, and the authored gap must still clear the laneSafe ≥2.2 gate; (iii) "its movingGap rows are deleted" — deletion semantics (future volleys? in-flight rows?) unspecified; (iv) coil-iris needs the model to expose coil-circle world positions by name for `partWorldPos`; (v) **THREAD-THE-GAP math** — "clearance+lateness, chains" has no formula, no window, no HUD surface. |
+| C.4 | **NEEDS SEAM** | nothing ships def-only | (i) twin-origin crossfire = ENG-A (hardcoded `[-10,10]` today); (ii) **ORBIT ANNULUS lap detection** — "a full unbroken lap" around a *moving lemniscate midpoint* is real math (angle accumulation about a moving center, break conditions) the plan never writes; (iii) the drawn band visual; (iv) holder-stagger = ENG-E family (parry-count per twin) + the 2.5s eye-drop window state. |
+| C.5 | **MOSTLY SPEC'D** — the best Tier-1 spec in the plan | def swaps; the `geyser` branch is genuinely derivable from the quoted crestfall shape; cull already safe (E.0.4); shadowRide detector already live (E.0.2) | (i) plume telegraph: "plumes reuse the existing burst particle path" — *which* function is unnamed (PRE-BUILD names it); (ii) geyser-tracks-the-submerged-body: the mapping from the `sounding` path's x to the plume line is one line of code that nobody wrote; (iii) the `ALL_ATTACKS` + laneSafe/≤55 asserts (mechanical, but they ARE the §5b "whitelist + emission-budget + safe-lane gates" the APPENDIX charges — they live in `tests/boss.mjs` §3e, nowhere else). |
+| C.6 | **NEEDS SEAM — second deepest** | cadence + 3→4 card ladder (def-data) | (i) **the rally orb state machine** — "existing bullet plumbing, not an attack id" *understates it*: `riposteReturnT` is a one-shot timer; loop, +15%/return, cap 4, completion detection, and the miss-consequence are all unbuilt state; (ii) **the REFLECT-ONLY SEAL** — no card-scoped gun-seal primitive exists (`lockMuted` mutes the LANCE only); the "resolves on first completed rally + timeout hatch" needs the card schema's hatch wired to a new seal state; (iii) **"violet-AMBER" collides with the fixed-role-colour law** — `REFLECT_AMBER` is pinned globally and `bulletcontrast` has no violet-amber row; resolve as *amber gems on violet rings* (zero new role colour) or pay a new bulletcontrast row and accept the taught-grammar risk — a PRE-BUILD decision, currently unmade; (iv) gem-at-clock-position + parry→*that ring* shatters = per-ring bullet grouping + a group-delete op that doesn't exist. |
+| C.7 | **NEEDS SEAM** | 5-phase/5-card def structure; `swingPivot` + charge-widen assert already shipped; `shrinkDisc` label pre-wired (E.0.3) | (i) spiral-from-bellMouth = ENG-A, not a free reroute (E.0.6); (ii) the `shrinkDisc` detector branch (toll-ring pockets + escalating ticks + last-beat bail — the pocket geometry is unwritten); (iii) **hemiola scheduling** — "two `spiral` tolls a half-beat apart" needs a subdivision hook on the `rhythm.ticket` quantizer that doesn't exist; (iv) bob-locked movingGap = ENG-B (gap phase-locked opposite the pendulum — the phase source is the setpiece's k, a new coupling); (v) `pendulumSweep` path constants (±14 sweep, rel ~12 nadir) are given — the ENG-H entry itself is low-risk. |
+| C.8 | **NEEDS SEAM — third deepest** | almost nothing def-only; **Mote Harvest row already SHIPPED (E.0.1) — strike it from the build** | **The hand-telegraph is a new information channel, not a wiring tweak:** (i) the gap must be *decided one beat EARLY* — `executeAttack` decides gap placement at fire time; telegraph-then-fire needs the decision hoisted into a pre-telegraph step that also drives the model; (ii) "the one lane column her hands never touched" needs a **lane-column quantization** (curtain today is continuous x with a slot-width gap — "columns" don't exist as a concept); (iii) the model needs a hand-sew choreography API (per-column lit-thread animation, one beat ahead — no current telegraph is per-position; `setCharge` is a scalar); (iv) the dread's 5-row constant-gap chain + selvage-thread amber (parry deletes the next row) is a card-gated composite on top of (i)–(iii). Cross-Stitch = ENG-A (cheap once A lands). |
+| C.9 | **FULLY SPEC'D** | all of it — two def lines (item 2 is a no-op, E.0.5) | — |
+| B-3 | **FULLY SPEC'D** | two cadence dials | — (must re-clear rhythmprint, E.3) |
+| D stages 1–3 quotes | **FRAME SPEC'D, SYSTEM UNBUILT** | nothing | **The quote-by-stable-card-id player is the plan's largest unbuilt system** — no mechanism exists for one boss to fire another boss's card (patterns key off the LIVE def; "quotes by stable card id" implies a cross-def pattern invoker + per-quote thinning). Also: stage-swap rig machinery (§5e Apex row, "builder-internal dissolve between sub-rigs"), the seraph organ→quote assignment (each quote re-anchored to a wing organ = ENG-A at scale), Parallax Regard's N-origin cycling. |
+| D finale + relics | **FRAME SPEC'D, SYSTEM UNBUILT** | nothing | The "rotating roster of 4–5 components per 4s verse" fairness scheduler is a new system (not a pattern); the authored safe line ("components inherit their signatures' REST beats staggered") needs a rest-beat composer; the 5-relic shoot-to-delete map needs a relic part system (PART_SYS-adjacent but with cross-stage persistence); `grazeForm: 'medley'` has a def label and no branch (E.0.3). |
+
+**The three most under-specified seams, ranked** (the direct answer to the owner's question):
+**1) C.3 ORGAN BREAK + THREAD-THE-GAP** (parry-per-part attribution, rib→gap mapping, deletion
+semantics, scoring math — four unknowns stacked); **2) C.6 rally + seal + violet-amber** (a
+state machine sold as "existing plumbing", a primitive that doesn't exist, and an unresolved
+collision with the fixed-role-colour law); **3) C.8 hand-telegraph** (a new pre-telegraph
+information channel + lane quantization + a model choreography API, sold as "telegraph-wiring").
+A fresh chat can build C.9, B-3, C.2a, C.3a, C.1a, and (with care) C.5 today; everything else
+needs its PRE-BUILD checkpoint to author the seam first.
+
+### E.3 — PER-REWORK VERIFICATION CHECKLIST (real gates only)
+
+**Universal, every PR, no exceptions** (from `reforged/`): `node tests/boss.mjs` +
+`node tests/bossboot.mjs` fully green (the suite runs EVERY boss — the lifecycle sim is the
+roster-regression net); **the shipped-roster byte-invariant**: the PR diff touches ONLY the named
+def block and/or the new def-gated engine branches — every other boss's def byte-identical, and
+every new engine path gated so a def without the flag never enters it (the coexist rule, §6);
+`node tools/stamp-sw.mjs` in the same commit; §7c ORDER: studio verdict BEFORE in-game captures,
+post both, STOP for the human. **No automated gate exists for dread-set collisions (B-4), opener
+collisions (B-2), or counter-verb geometry — those are POST-BUILD checkpoint duties (E.4), by
+construction.**
+
+| Rework | Must re-pass (beyond universal) | Dial/collision movers flagged |
+|---|---|---|
+| C.9a | amberdiet (P5 keeps `crossfire` — a listed carrier ✓; P2 keeps `crossfire` ✓); `bossgate embertide --studio` with its `inverted`/`frameFill` overrides still green | NO rhythmprint mover (cadence untouched). The one check that matters is the geometry trace: during `embertide_horizonbreak`, live rows obey `gapC = horizonPocketX` |
+| B-3 | **rhythmprint** (dials move — KS ≥ 0.20 vs all others must re-clear); amberdiet re-sim | cadence mover by definition; nothing else |
+| C.1a | amberdiet (P2 gains `secondWave`, keeps `fan` ✓); rhythmprint unchanged (dials kept) | teach-ladder only |
+| C.1b | telegraph gate — the coplanar rig needs a NAMED pivot and `setCharge` must move it; `tricount`/`TIER_BUDGETS` (rig adds tris); bossgate G5 + studio black-fill/lit-edge renders (§7c L150); amberdiet (dread `aimed` ✓ carrier) | possible G5/G7 mover (new aligned-ring visual — watch the additive-volume count) |
+| C.2a | amberdiet (P3 keeps `stream`+`fan` ✓); emission §3e untouched | none |
+| C.2b | the new ENG-D headless detector assert (copy "beamEdge detector: annulus + depth-window law holds"); no pixel gate sees graze forms — the POST-BUILD agent traces the pocket by hand | none (no cadence/phase change) |
+| C.3b | amberdiet (P1 `aimed` ✓, P3 `stream` ✓); **laneSafe on movingGap with AUTHORED rib-aperture gaps** (the authored gap must still clear ≥2.2 — this is where ENG-B can silently fail the fill gate); rib-pivot telegraph asserts (already shipped — keep green); `tricount` (crack states); lifecycle | rhythmprint NO (signature/cadence kept); dread-set unchanged |
+| C.4 | emission §3e (crossfire from moving origins — same bullet counts, assert stays green); eitherwing per-sheet asserts in boss.mjs (twin ΔL, handoff travel, ribbon telegraph) must survive the emitter change; ENG-D annulus assert; bossgate G5; studio | rhythmprint NO; **B-4 scan: P3 set changes — POST-BUILD re-runs the multiset scan** |
+| C.5 | **`ALL_ATTACKS` gains `geyser`** + its ≤55 @ q0.7 concurrent assert + a laneSafe-style designed-gap assert (the §5b gate cost, paid once — APPENDIX); amberdiet (P4 keeps `stream` ✓ — note `geyser` and `iris` are NOT carriers); bulletcontrast unchanged (geyser uses the existing `activeBand` colours — zero new role colour); lifecycle | rhythmprint NO (cadence untouched); **kills the 6≡8 collision — POST-BUILD confirms the multiset scan now passes** |
+| C.6 | **rhythmprint** (cadence → `[1.05,1.35]` + a 4th phase/card — the print moves, must re-clear vs all); amberdiet (dread phase: `aimed` is the carrier — `tunnel` is NOT in `AMBER_CARRIERS`); **bulletcontrast IF any new colour ships** (E.2 C.6.iii — prefer the zero-new-colour resolution); lifecycle (new card in the kill path); ENG-F rally sim assert (add one: seal resolves ≤ card window — the "never hard-wall" claim made executable) | cadence + card-count mover; dread verb flips to parry (census row already says so ✓) |
+| C.7 | **rhythmprint** (4→5 phases + hemiola — the biggest print move in the plan); amberdiet (every phase carries `aimed` or `stream` per the C-table ✓); telegraph (the shipped "knellgrave charge WIDENS the swing arc" assert must survive the pendulumSweep model work); emission (`spiral` already in `ALL_ATTACKS` ✓); ENG-D shrinkDisc assert; `tools/knellshot.mjs` exists — reuse for the per-boss captures; studio | print + phase-count mover; `iris` leaves the def — amberdiet re-sim mandatory |
+| C.8 | amberdiet (unchanged carriers); the shipped "THREAD-CUT + §5i moteHarvest INTEGRATION… drive a LIVE fight" sim must stay green (the rework touches her live fight loop); studio hand-choreo shots as per-sheet extra states; bossgate G5 if the hand rig changes charge silhouette | rhythmprint NO; **dissolves the 11⊇13 subset from her side — POST-BUILD multiset scan** |
+| D (each stage PR) | everything above for whatever it quotes + `tricount` per stage rig + bossgate G1–G7 per stage (stage 2/3 likely need their own `gate:` block decisions) + `tiershots` (the roster sheet gains the Apex) + bulletcontrast if the finale adds any colour | the medley print is definitionally distinct, but the KS gate runs on defs — PRE-BUILD must decide how a 3-stage def encodes `rhythm` without breaking the print sim |
+
+### E.4 — THE CHECKPOINT-AGENT PROTOCOL (two Fable high-effort passes per build)
+
+The studio law "verify before claiming" made a gate. Two checkpoint agents bracket every
+non-trivial build. Both are **Fable, high effort**, spawned fresh (no builder context bleed —
+the POST agent especially must not inherit the builder's optimism). Reusable: the same two
+prompts run for every rework; only the C-entry/E-rows swapped in.
+
+**PRE-BUILD CHECKPOINT (spec-writer, adversarial about drift).**
+- **Inputs:** the rework's Part-C entry + its E.1 queue row + its E.2 ledger row; the CURRENT
+  `bossDefs.js` def block and every `boss.js` symbol the entry cites (re-read live — the code
+  moves between plan and build; that is this agent's reason to exist); the boss's §5d sheet;
+  §7b/§7c.
+- **Output — a concrete implementation spec:** (1) exact def edits as before/after blocks;
+  (2) for Tier-1: the engine wiring — which function, which def/card gate, and the coexist
+  argument ("every def without the flag is byte-unchanged" must be provable from the diff shape);
+  where the E.2 row says NEEDS SEAM, this agent AUTHORS the seam (the rib→gap function, the lap
+  math, the seal state) — that design is the deliverable; (3) the E.3 gate list instantiated:
+  which asserts to ADD (new grazeForm assert, geyser laneSafe, rally-resolves sim), not merely
+  re-run; (4) the studio shot list — states × backdrops per §7c, incl. per-sheet extra states
+  (crack states, hand-choreo poses); (5) a **drift report**: every plan citation re-verified,
+  corrections listed E.0-style. **If drift contradicts the rework's premise, STOP and escalate —
+  never improvise a new design inside the checkpoint.**
+- **Skip test:** skipped only when Part C/E already IS the edit list (see the tier rule below).
+
+**POST-BUILD CHECKPOINT (adversarial verifier — the gate for "done").**
+- **Inputs:** the full diff; the gate transcripts (`tests/boss.mjs`, `tests/bossboot.mjs`,
+  `tools/bossgate.mjs` incl. `--studio`); the studio/tiershot captures; the rework's C-entry.
+- **Checks, in order:**
+  - **(a) THE GEOMETRY FORCES THE VERB** — the plan's core test. Trace emit origin, gap
+    placement, and velocity IN THE DIFF and confirm the named counter-verb is the geometry's
+    best answer — never trust the card name (the A.5 failure: "the emit x is the constant
+    `[-10, 10]` whatever the `figureEight` lemniscate is doing"; the A.13 failure: "the player
+    who ignores the face entirely survives fine"). Distrust names; trust coordinates.
+  - **(b) DISTINCTNESS** — rhythmprint KS quoted from the gate output for both slot NEIGHBORS
+    (not just the global min); the **dread-set multiset scan by hand from the defs** (no
+    automated gate exists — B-4 regression is this agent's job); the C-table's uniqueness diff
+    confirmed against the roster.
+  - **(c) DIET + INVARIANT** — amberdiet output quoted per phase; the `git diff` audited line
+    by line for the byte-invariant: only the named def block + the new def-gated branches.
+  - **(d) NO NEW COLLISION** — B-2 opener scan, B-4 dread scan, and the APPENDIX counter-verb
+    census still true ("no two adjacent slots share a dread verb").
+- **Output:** `PASS`, or `REWORK-AGAIN:` findings — each naming a symbol and the geometric or
+  gate evidence, never a vibe. A PASS is required before the PR posts its crops and stops for
+  the human (§7c order; the human verdict is still the merge condition — this gate replaces the
+  builder's self-verdict, not the owner's).
+
+**Which reworks get which:**
+- **BOTH checkpoints, mandatory:** every ENG-x PR (PRE is where seams get designed — this is
+  where plans rot), and C.2b, C.3b, C.4, C.5, C.6, C.7, C.8, every Part D stage. C.4 and C.6
+  restore two of the three sawtooth peaks (B-1) — for them, both checkpoints are non-negotiable
+  regardless of apparent scope.
+- **POST-only (light — gates + ONE geometry trace):** C.9a (peak 13's restoration, but the edit
+  list is already exact; its single trace: `gapC = horizonPocketX` live during the card),
+  C.2a, C.3a, C.1a, B-3 (its trace: the rhythmprint transcript).
+- **C.1b:** PRE optional (it consumes ENG-B rather than designing it), POST at full depth (it
+  claims a new counter-verb on a shipped boss).
+- **Rule of thumb, for reworks this plan didn't foresee:** PRE-BUILD whenever the E.2 verdict
+  says NEEDS SEAM (or the model gains a rig); POST-BUILD always — full depth when the change
+  claims a counter-verb, moves a rhythm/cadence dial, or edits any dread set; light otherwise.
+
+**Ledger law (unchanged, restated because checkpoints don't exempt it):** every merged PR
+appends its lesson to `LEAPFROG.md` — what the seam turned out to be, what the gate caught,
+the reusable pattern. The checkpoint outputs are the raw material; the builder writes the entry.
