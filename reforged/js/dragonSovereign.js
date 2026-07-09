@@ -29,8 +29,8 @@ function sovereignMats(def, glow, stage) {
   const veinI = [0, 0, 2.0, 3.2][st];         // wing vein circuit
   const gemI = [0, 0.9, 1.8, 2.9][st];        // brow star-gem
   const napeI = [0, 0, 1.6, 2.6][st];         // dorsal nape-star (the chase-cam sigil)
-  const emberF = [0, 0, 0.56, 1.0][st];       // membrane trailing-ember factor
-  const coronaI = [0, 0, 0, 2.2][st];         // eclipse-corona rim (Eternal only)
+  const emberF = [0, 0.3, 0.62, 1.0][st];     // membrane trailing-ember factor (stage-1 KINDLE = f1's first wing-light)
+  const coronaI = [0, 0, 0, 3.4][st];         // eclipse-corona rim (Eternal only) — bright enough to read at chase scale
   const sparI = st >= 3 ? 3.5 : 0;            // white-hot spar tips (Eternal only)
 
   // Body: SATURATED indigo (not gray) + a lifted indigo emissive floor so the king reads
@@ -73,7 +73,7 @@ function sovereignMats(def, glow, stage) {
   // ember) with gold bevels — jeweled, not a smoky additive halo. Rim mats also stay out of spineMats.
   const coronaDark = new THREE.MeshStandardMaterial({ color: 0x0d0a18, emissive: 0x0d0a18, emissiveIntensity: 0.05, flatShading: true, roughness: 0.7, metalness: 0.1 });
   const coronaRimV = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: veinEmis, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });
-  const coronaRimA = new THREE.MeshStandardMaterial({ color: 0xffb46a, emissive: 0xd4680f, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });
+  const coronaRimA = new THREE.MeshStandardMaterial({ color: 0xffb46a, emissive: 0xff8c1a, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });   // saturated amber (was deep-amber 0xd4680f — too dark to read)
   return { bodyFlat, gold, goldHi, violet, violetMantle, membrane, memTiers, veinMat, gem, napeStar, sparTip, coronaDark, coronaRimV, coronaRimA, stage: st };
 }
 
@@ -170,6 +170,15 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
       seam.position.set(0, topY - 0.02, z - 0.28);
       group.add(seam);
     }
+    // SPINE OF LIGHT (stage≥2): a saturated violet gem crowning each dorsal stud so the valley
+    // between the wings is a lit ridge, not a black void from the chase cam (the eclipse-black body
+    // keeps its dark mass; only the dorsal line lights). Part of the ignition ladder — dark until Radiant.
+    if (M.stage >= 2) {
+      const gemCap = new THREE.Mesh(new THREE.OctahedronGeometry(0.055 + 0.03 * (1 - t), 0), M.napeStar);
+      gemCap.position.set(0, topY + h * 0.9, z);
+      gemCap.scale.set(1, 1.3, 1);
+      group.add(gemCap);
+    }
   }
 
   // CORONA MANTLE — a WIDE solid gold dome over the shoulder yoke, spanning PAST the wing roots so
@@ -215,17 +224,25 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // additive halo. Rim mats stay OUT of spineMats (Surge would blow them to white).
   if ((model.coronaRing ?? 0) > 0) {
     const ring = new THREE.Group();
-    const Ro = 1.05, Ri = 0.80, d = 0.06, N = 12;
+    // Radii: inner DARK moon-disk band [Ri..Rm] + a WIDE saturated RIM band [Rm..Ro] on the
+    // CAMERA-FACING front face (the old build put the bright colour on the thin depth-edge, which is
+    // edge-on to the rear-chase cam → near-invisible). Now the glowing rose-window rim faces the cam.
+    const Ro = 1.10, Rm = 0.90, Ri = 0.78, d = 0.10, N = 12;
     const pt = (r, ang, z) => [Math.cos(ang) * r, Math.sin(ang) * r, z];
     const darkT = [], vT = [], aT = [], goldT = [];
     for (let i = 0; i < N; i++) {
       const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
-      const iF0 = pt(Ri, a0, d / 2), oF0 = pt(Ro, a0, d / 2), oF1 = pt(Ro, a1, d / 2), iF1 = pt(Ri, a1, d / 2);
+      // front face, inner dark annulus [Ri..Rm]
+      const iF0 = pt(Ri, a0, d / 2), mF0 = pt(Rm, a0, d / 2), mF1 = pt(Rm, a1, d / 2), iF1 = pt(Ri, a1, d / 2);
+      darkT.push([iF0, mF0, mF1], [iF0, mF1, iF1]);
+      // front face, OUTER saturated rim annulus [Rm..Ro] — alternating violet/amber, faces the cam
+      const oF0 = pt(Ro, a0, d / 2), oF1 = pt(Ro, a1, d / 2);
+      const rim = (i % 2 === 0) ? vT : aT;
+      rim.push([mF0, oF0, oF1], [mF0, oF1, mF1]);
+      // back face (all dark) + outer depth band (dark, so only the front rim glows)
       const iB0 = pt(Ri, a0, -d / 2), oB0 = pt(Ro, a0, -d / 2), oB1 = pt(Ro, a1, -d / 2), iB1 = pt(Ri, a1, -d / 2);
-      darkT.push([iF0, oF0, oF1], [iF0, oF1, iF1]);       // front ring face (matte dark moon-disk)
-      darkT.push([iB0, oB1, oB0], [iB0, iB1, oB1]);       // back ring face
-      const rim = (i % 2 === 0) ? vT : aT;               // outer rim band — alternating violet/ember facets
-      rim.push([oF0, oB0, oB1], [oF0, oB1, oF1]);
+      darkT.push([iB0, oB1, oB0], [iB0, iB1, oB1]);
+      darkT.push([oF0, oB0, oB1], [oF0, oB1, oF1]);
       goldT.push([iF0, iB1, iB0], [iF0, iF1, iB1]);       // inner bevel (gold)
     }
     ring.add(flatTriMesh(darkT, M.coronaDark));
@@ -363,7 +380,10 @@ function buildOneWing(M, dials, dih) {
   const tipJewel = (l, len, rot, r) => {
     if (M.stage < 2) return;
     const cap = new THREE.Mesh(new THREE.OctahedronGeometry(r, 0), M.veinMat);
-    const tipLocal = new THREE.Vector3(0, len, 0).applyEuler(rot);
+    // Seat the jewel at 0.9× the blade length (not the exact 1.0 tip) so it OVERLAPS the spike and
+    // reads welded — at the exact tip a point-narrow spike + a centred octahedron left a visible gap
+    // (the "floating gem" Fable flagged), worst in the pure-white silhouette.
+    const tipLocal = new THREE.Vector3(0, len * 0.9, 0).applyEuler(rot);
     cap.position.set(l[0] + tipLocal.x, l[1] + tipLocal.y, l[2] + tipLocal.z);
     wg.add(cap);
   };
