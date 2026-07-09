@@ -37,7 +37,7 @@ never line number** (anchors drift — AUDIT §3.A already caught that failure m
 | 10 | KNELLGRAVE | **DULL** | Survival card real; the rest is a name-shaped void | kit = `aimed/fan/iris/crossfire` (Sentinel vocabulary) at a World-Ender slot; "Pendulum Sweep" contains no pendulum; the toll's bullets CONTRACT while sound expands |
 | 11 | WEFTWITCH | **NEEDS-WORK** | Half — the stated counter-read is not wired | dread's answer is "read which lane her hands never touched," but `curtain`'s gap is placed by `-Math.sign(player.position.x)` — the hands tell you nothing |
 | 12 | ONEWING | **SOLID** | Yes | dodge-mirror ghost volley (`emitGhostHalf` + `poseRing` extrapolation), frame-break parry ladder, RUBATO feints, the lying FELLED card — the WE band's best fight |
-| 13 | EMBERTIDE | **NEEDS-WORK** | **Broken by one def line** | Horizon Break sets `horizonPocketX` (the face-shadow pocket) but only `crestfall` reads it — and `crestfall` is **not in P5's attack list** |
+| 13 | EMBERTIDE | **NEEDS-WORK** | Yes — works via a runtime override (see A.13 correction) | Original "broken dread" charge was a FALSE POSITIVE: `boss.js` force-selects `crestfall` during Horizon Break so `horizonPocketX` governs live rows. Residue: P5 `attacks[]` was misleading + a P2⊇WEFTWITCH collision — both fixed in C.9a |
 
 Bosses needing rework in Part C: **2, 3, 4, 5, 8, 9, 10, 11, 13.** Solid and untouched: 1, 6, 7, 12
 (each gets only a note). New attack id spent: **`geyser`** at slot 8 (Calamities band budget).
@@ -429,24 +429,31 @@ duel with the hold-the-line graze payout), hpMax 552 = the WE sawtooth peak.
 **Dread** — *"SKY SET LOOSE — Horizon Break"* (`embertide_horizonbreak`, survival): "the tide
 crests the whole frame; the safe pocket is where the face is — hide in its shadow."
 
-**The charge — one def line kills the dread:**
-- The card wiring is real: while `activeCard.id === 'embertide_horizonbreak'`, the face "LOOKS
-  AROUND on a slow autonomous sweep (it stops tracking you)" and `horizonPocketX = sweep * 8` —
-  the moving shadow pocket exists.
-- The ONLY consumer of `horizonPocketX` is `crestfall`: "During HORIZON-BREAK it instead LOCKS to
-  the live face-shadow pocket… so you ride the shadow, not a rhythm."
-- **P5's attack list is `['curtain','movingGap','crossfire']` — `crestfall` is not in it.** So
-  during the roster's second survival card, the shadow sweeps, the face performs, and the walls
-  that actually fire (`curtain`, `movingGap`) place their gaps by `player.position.x` exactly as
-  they do for Stormrend. The player who obeys the card's fiction — ride the shadow — flies into
-  curtain segments; the player who ignores the face entirely survives fine. The dread's
-  counterintuitive answer is not merely missing, it is *punished*.
+**CORRECTION (build-time PRE-BUILD checkpoint, 2026-07 — the original charge was a FALSE POSITIVE):**
+The first draft of this section claimed "one def line kills the dread" — that `crestfall` (the only
+consumer of the moving shadow-pocket `horizonPocketX`) is absent from P5's attack list, so the
+survival card's fiction is unwired and obeying it flies you into `curtain` segments. **That is
+wrong.** `boss.js` force-selects crestfall for the WHOLE card at the attack-pick seam:
+`if (activeCard && activeCard.id === 'embertide_horizonbreak') curAttack = 'crestfall';` (added by
+commit `81cabf2`, present in the exact code this audit read). So whatever P5's `attacks[]`/phrase
+picks, the live volley is `crestfall`, its gap LOCKS to `horizonPocketX`, and **the shadow-ride
+dread works in the shipped game today.** The design agent read past the override. This is the
+checkpoint protocol (Part E.4) catching the plan's own flagship "bug" before any code changed —
+and direct evidence for why every build gets a PRE-BUILD drift-check.
 
-Also: P5 is the Weftwitch-subset collision (A.11.3), and the P5 comment's own justification
-("`crossfire` kept for the amberdiet floor, §5i.C survival exemption") shows the set was chosen
-for CI, not for the card. Everything else — crestfall itself, the sky-replace, the beam duel
-(correctly reclassified as the Surge mechanic per AUDIT G-1†, with the parryable crest-lock
-volley as the amber floor) — is the true band peak. **Rework C.9 is a three-line def fix.**
+**What's actually left (the honest residue):**
+- **The P5 `attacks[]` array was misleading** — it listed `['curtain','movingGap','crossfire']`,
+  none of which fire (the override forces crestfall). Cosmetic honesty: align it to
+  `['crestfall','crossfire']` (keeping `crossfire` for the amberdiet carrier / survival exemption)
+  and rename the P5 phrase ids to match (rename-only → rhythmprint byte-identical).
+- **The P2⊇ collision is real** (A.11.3 / B-4): WEFTWITCH P5 dread ⊇ EMBERTIDE P2. Genuine fix:
+  swap P2's `movingGap → secondWave` (the "returning gust" read) in BOTH the `attacks[]` array AND
+  the P2 phrase measure (the phrase machine emits `measure.attack`, not `attacks[]`).
+
+Everything else — crestfall, the sky-replace, the beam duel (correctly reclassified as the Surge
+mechanic per AUDIT G-1†, with the parryable crest-lock volley as the amber floor) — is the true
+band peak and works as shipped. **Rework C.9 is the P2 collision swap + the P5 honesty alignment
+(shipped as build C.9a) — NOT a dread fix; the dread was never broken.**
 
 ---
 
@@ -732,26 +739,31 @@ watching hands. P3/P4 sets pruned so no phase repeats another verbatim (P5 keeps
 thread-knot suggestion is compatible (knots = paintable organs exposed during the stagger window);
 V1 `loomHeart` kept.
 
-### C.9 — EMBERTIDE (slot 13) — three def lines
+### C.9 — EMBERTIDE (slot 13) — P2 collision swap + P5 honesty (SHIPPED as C.9a)
 
-The band peak needs no redesign — it needs its dread connected. Rework = data:
+**Corrected scope (see the A.13 correction):** the dread is NOT broken — `boss.js` force-selects
+`crestfall` during Horizon Break so `horizonPocketX` already governs live rows. The original "put
+crestfall in P5" step is therefore a *no-op for gameplay* (the override already does it); it survives
+only as an honesty alignment of the def. The genuine change is the P2 collision swap. Rework = data:
 
-1. **P5 attacks: `['curtain','movingGap','crossfire']` → `['crestfall','crossfire']`.**
-   `crestfall` is the only consumer of `horizonPocketX`; putting it in the Horizon Break phase
-   makes the face-shadow pocket govern the actual bullets — "you ride the shadow, not a rhythm"
-   (crestfall's own comment) becomes true during the one card built on it. `crossfire` stays as
-   the amberdiet phase-lister (survival exemption, per the shipped def comment — unchanged).
-2. **P5 crestfall density: rows 5, gap slot kept generous (the shipped `±3.4` pocket)** — the
-   survival exam is chase-the-shadow, not thread-the-needle; the timer stays the escape hatch.
-3. **P2 diff for the 11⊇13 collision (B-4):** P2 `['curtain','movingGap','crossfire']` →
-   `['curtain','secondWave','crossfire']` — the sets-stack phase gains the returning-gust read
-   (a wave that comes back is more tide than a sliding gap anyway), and no Weftwitch phase is a
-   superset of any Embertide phase afterward.
+1. **P2 collision swap (the real change, B-4):** `movingGap → secondWave` in P2 — in BOTH the
+   `attacks[]` array (`['curtain','movingGap','crossfire']` → `['curtain','secondWave','crossfire']`)
+   AND the P2 phrase measure, because the phrase machine (`bossRhythm.js` `nextStep`) emits
+   `measure.attack`, not `attacks[]` — an attacks-only edit would leave `movingGap` still firing.
+   The sets-stack phase gains the returning-gust read (a wave that comes back is more tide than a
+   sliding gap), and no WEFTWITCH phase is a superset of any EMBERTIDE phase afterward. Count/gap
+   unchanged → rhythmprint byte-identical; `crossfire` retained → amberdiet unchanged.
+2. **P5 honesty alignment (cosmetic):** `attacks[]` `['curtain','movingGap','crossfire']` →
+   `['crestfall','crossfire']`, and rename the P5 phrase bursts to `crestfall` (rename-only,
+   count/gap/rest untouched → rhythmprint byte-identical) so the def reflects what the override
+   fires. `crossfire` kept as the amberdiet carrier (survival exemption). This changes no gameplay.
+   (The original "step 2: crestfall density rows 5 / ±3.4 pocket" was struck — E.0.5: crestfall's
+   rows are quality-gated with no per-def dial, so there was nothing to set.)
 
 Dread name, survival flag, beam duel, sky-replace, crescendo-sets rhythm, TTK: all untouched.
-Counter-verb: ride-the-shadow is a positioning-by-boss-gaze verb — non-default, §5f ✓ — and
-TIDE-EDGE + FACE-SHADOW POCKET (its allocated §5i.B form) finally has its pocket. Lance ✓: the
-lance plan's Rung-9 inversion (beam/crest-lock, normal Lance off) is untouched.
+Counter-verb: ride-the-shadow is a positioning-by-boss-gaze verb — non-default, §5f ✓ — and works
+as shipped; TIDE-EDGE + FACE-SHADOW POCKET (its allocated §5i.B form) already has its pocket. Lance
+✓: the lance plan's Rung-9 inversion (beam/crest-lock, normal Lance off) is untouched.
 
 ### C.10 — the SOLID four (1, 6, 7, 12): explicitly no rework
 
@@ -954,6 +966,14 @@ directories, which hold an older suite. Everything runs from `reforged/`:
    origin from `def.muzzle` via `model.partWorldPos`; `partWorldPos` itself already resolves
    arbitrary named parts (hand pivots, `ghostMuzzle`) — the primitive exists, the per-attack
    multi-origin consumer does not. `crossfire` is hardcoded `for (const ex of [-10, 10])`.
+8. **C.9 / A.13's "broken dread" was a FALSE POSITIVE** (found by the C.9a PRE-BUILD checkpoint —
+   the protocol's first live run): `boss.js` force-selects crestfall for the whole Horizon Break
+   card — `if (activeCard && activeCard.id === 'embertide_horizonbreak') curAttack = 'crestfall';`
+   (commit `81cabf2`, present in the audited code). So `horizonPocketX` DOES govern the live rows;
+   the dread works as shipped. The design agent read past the override. C.9's real scope shrank to
+   the P2 collision swap + a P5 `attacks[]`/phrase honesty alignment (build C.9a). The lesson: an
+   audit "defect" from def arrays + a pattern fn MUST be re-checked against the runtime `curAttack`
+   selection/override path — a card-gated override can make the attacks array irrelevant to what fires.
 
 ### E.1 — BUILD QUEUE (coexist → prove on a hero → migrate; every row its own PR)
 
@@ -967,7 +987,7 @@ curriculum" (Part D intro), so it cannot start before C.1–C.9 merge.
 
 | Q | PR | Edits (all in `bossDefs.js` unless noted) | Prereq | Coexists with (shipped code it leans on) | "Prove on a hero" means |
 |---|---|---|---|---|---|
-| 1 | **C.9a EMBERTIDE** (the defect fix — FIRST) | P5 attacks → `['crestfall','crossfire']`; P2 → `['curtain','secondWave','crossfire']` (drop C.9 item 2 — E.0.5) | none | `horizonPocketX` + its crestfall consumer, both shipped | drive `embertide_horizonbreak` and watch `gapC = horizonPocketX` govern the live rows — the shadow finally kills/saves |
+| 1 | **C.9a EMBERTIDE** (collision swap + honesty — SHIPPED) | P2 `movingGap → secondWave` in BOTH `attacks[]` AND the P2 phrase (dissolves the B-4 collision — the phrase, not `attacks[]`, drives emission); P5 `attacks → ['crestfall','crossfire']` + rename P5 phrase bursts to crestfall (honesty; the override already fires crestfall) | none | `horizonPocketX` + the boss.js `embertide_horizonbreak` crestfall override, both shipped | NOT a defect fix — PRE-BUILD checkpoint found the dread already works (override force-selects crestfall). Verify: P2 now fires `secondWave`; `gapC = horizonPocketX` still governs P5 |
 | 2 | **C.2a ASHTALON id swap** | P3 `spiralStream` → `fan` (P3 = `['stream','fan','secondWave']`) | none | all four ids shipped | P3 plays sparse-pursuit, no turret fill |
 | 3 | **C.3a MARROWCOIL opener** | P1 → `['aimed','iris']`, `fan` moves to P2 (kills B-2) | none | `iris` shipped (still lane-anchored until ENG-B — an honest intermediate state, noted in the PR) | first 20s no longer identical to slots 6/7 |
 | 4 | **B-3 THRUMSWARM dials** | P3/P4 cadence → `[1.2, 1.55]` / `[1.2, 1.5]` | none | PRESSURE OSTINATO signature carries the density feel | rhythmprint still clears vs all 13; the fight still feels relentless (human judges on preview) |
@@ -1017,7 +1037,7 @@ must design before code.
 | C.6 | **NEEDS SEAM — second deepest** | cadence + 3→4 card ladder (def-data) | (i) **the rally orb state machine** — "existing bullet plumbing, not an attack id" *understates it*: `riposteReturnT` is a one-shot timer; loop, +15%/return, cap 4, completion detection, and the miss-consequence are all unbuilt state; (ii) **the REFLECT-ONLY SEAL** — no card-scoped gun-seal primitive exists (`lockMuted` mutes the LANCE only); the "resolves on first completed rally + timeout hatch" needs the card schema's hatch wired to a new seal state; (iii) **"violet-AMBER" collides with the fixed-role-colour law** — `REFLECT_AMBER` is pinned globally and `bulletcontrast` has no violet-amber row; resolve as *amber gems on violet rings* (zero new role colour) or pay a new bulletcontrast row and accept the taught-grammar risk — a PRE-BUILD decision, currently unmade; (iv) gem-at-clock-position + parry→*that ring* shatters = per-ring bullet grouping + a group-delete op that doesn't exist. |
 | C.7 | **NEEDS SEAM** | 5-phase/5-card def structure; `swingPivot` + charge-widen assert already shipped; `shrinkDisc` label pre-wired (E.0.3) | (i) spiral-from-bellMouth = ENG-A, not a free reroute (E.0.6); (ii) the `shrinkDisc` detector branch (toll-ring pockets + escalating ticks + last-beat bail — the pocket geometry is unwritten); (iii) **hemiola scheduling** — "two `spiral` tolls a half-beat apart" needs a subdivision hook on the `rhythm.ticket` quantizer that doesn't exist; (iv) bob-locked movingGap = ENG-B (gap phase-locked opposite the pendulum — the phase source is the setpiece's k, a new coupling); (v) `pendulumSweep` path constants (±14 sweep, rel ~12 nadir) are given — the ENG-H entry itself is low-risk. |
 | C.8 | **NEEDS SEAM — third deepest** | almost nothing def-only; **Mote Harvest row already SHIPPED (E.0.1) — strike it from the build** | **The hand-telegraph is a new information channel, not a wiring tweak:** (i) the gap must be *decided one beat EARLY* — `executeAttack` decides gap placement at fire time; telegraph-then-fire needs the decision hoisted into a pre-telegraph step that also drives the model; (ii) "the one lane column her hands never touched" needs a **lane-column quantization** (curtain today is continuous x with a slot-width gap — "columns" don't exist as a concept); (iii) the model needs a hand-sew choreography API (per-column lit-thread animation, one beat ahead — no current telegraph is per-position; `setCharge` is a scalar); (iv) the dread's 5-row constant-gap chain + selvage-thread amber (parry deletes the next row) is a card-gated composite on top of (i)–(iii). Cross-Stitch = ENG-A (cheap once A lands). |
-| C.9 | **FULLY SPEC'D** | all of it — two def lines (item 2 is a no-op, E.0.5) | — |
+| C.9 | **FULLY SPEC'D** (scope corrected) | the P2 collision swap (`attacks[]` + phrase) + the P5 honesty alignment. NOT a dread fix — PRE-BUILD checkpoint found the dread already works via the boss.js `embertide_horizonbreak` crestfall override (the "crestfall missing from P5" charge was a FALSE POSITIVE, E.0.8) | — |
 | B-3 | **FULLY SPEC'D** | two cadence dials | — (must re-clear rhythmprint, E.3) |
 | D stages 1–3 quotes | **FRAME SPEC'D, SYSTEM UNBUILT** | nothing | **The quote-by-stable-card-id player is the plan's largest unbuilt system** — no mechanism exists for one boss to fire another boss's card (patterns key off the LIVE def; "quotes by stable card id" implies a cross-def pattern invoker + per-quote thinning). Also: stage-swap rig machinery (§5e Apex row, "builder-internal dissolve between sub-rigs"), the seraph organ→quote assignment (each quote re-anchored to a wing organ = ENG-A at scale), Parallax Regard's N-origin cycling. |
 | D finale + relics | **FRAME SPEC'D, SYSTEM UNBUILT** | nothing | The "rotating roster of 4–5 components per 4s verse" fairness scheduler is a new system (not a pattern); the authored safe line ("components inherit their signatures' REST beats staggered") needs a rest-beat composer; the 5-relic shoot-to-delete map needs a relic part system (PART_SYS-adjacent but with cross-stage persistence); `grazeForm: 'medley'` has a def label and no branch (E.0.3). |
@@ -1110,9 +1130,11 @@ prompts run for every rework; only the C-entry/E-rows swapped in.
   where plans rot), and C.2b, C.3b, C.4, C.5, C.6, C.7, C.8, every Part D stage. C.4 and C.6
   restore two of the three sawtooth peaks (B-1) — for them, both checkpoints are non-negotiable
   regardless of apparent scope.
-- **POST-only (light — gates + ONE geometry trace):** C.9a (peak 13's restoration, but the edit
-  list is already exact; its single trace: `gapC = horizonPocketX` live during the card),
-  C.2a, C.3a, C.1a, B-3 (its trace: the rhythmprint transcript).
+- **POST-only (light — gates + ONE geometry trace):** C.9a (SHIPPED — its PRE-BUILD drift-check
+  disproved the "broken dread" charge, E.0.8; the edit list was exact; its traces: P2 now fires
+  `secondWave` not `movingGap`, and `gapC = horizonPocketX` still governs P5 via the override),
+  C.2a, C.3a, C.1a, B-3 (its trace: the rhythmprint transcript). Note: even a "light POST-only"
+  rework earned its PRE-BUILD pass here — C.9a is the case study for why.
 - **C.1b:** PRE optional (it consumes ENG-B rather than designing it), POST at full depth (it
   claims a new counter-verb on a shipped boss).
 - **Rule of thumb, for reworks this plan didn't foresee:** PRE-BUILD whenever the E.2 verdict
