@@ -72,6 +72,7 @@ export const player = {
   roll: null,          // { t, dur, dir } while a barrel roll is active
   rollCooldown: 0,
   rollInvuln: 0,
+  lastRollDir: 0,      // §ENG-A-R: the ±1 dir of the roll that granted the current i-frames (outlives `roll`, which nulls at rollDuration < rollInvuln) — read at the reflect seam to bias the swat's target side
   rollJustStarted: false, // one-frame flag for SFX/camera in main.js
 
   get speedActive() {
@@ -92,6 +93,7 @@ export const player = {
     this.roll = null;
     this.rollCooldown = 0;
     this.rollInvuln = 0;
+    this.lastRollDir = 0;
     this.rollJustStarted = false;
   },
 
@@ -102,6 +104,7 @@ export const player = {
     this.roll = { t: 0, dur: CONFIG.rollDuration, dir };
     this.rollCooldown = CONFIG.rollCooldown;
     this.rollInvuln = CONFIG.rollInvuln;
+    this.lastRollDir = dir;   // §ENG-A-R: persists past `roll` being nulled, for the reflect-target side bias
     this.velocity.x = Math.max(-CONFIG.rollImpulse, Math.min(CONFIG.rollImpulse,
       this.velocity.x + dir * CONFIG.rollImpulse));
     this.rollJustStarted = true;

@@ -313,6 +313,11 @@ export const BOSSES = {
       { part: 'ribPivotL1' }, { part: 'ribPivotR1' },
       { part: 'ribPivotL3' }, { part: 'ribPivotR3' },
     ],
+    // §ENG-A-R: swatted/reflected bullets snap to one of these organs (roll-directed),
+    // so a parry always lands on a rib or the skull instead of the hollow gap the rail
+    // flies through. Two rib anchors per flank + the skull as the centre-line/fallback
+    // anchor (the same bones the player already reads as lance/amber anatomy, §5i.C).
+    reflectTargets: ['ribPivotL1', 'ribPivotR1', 'ribPivotL3', 'ribPivotR3', 'skullGroup'],
     accent: 0x8fd0ff,         // ice-blue — the cold lights on dead bone (identity in emissive)
     glow: 0xbfe6ff,           // paler ice (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)

@@ -2424,7 +2424,7 @@ export function updateBoss(dt, player, time, camera) {
     // (more damage). Announce + ring the parry chime once per roll (streak climbs).
     if (player.rollInvuln > 0) {
       // In Surge, EVERY bullet is reflectable (not just the amber ones).
-      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge, adrenRung >= 4 ? 1.3 : 1);   // R4 parry burst
+      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge, adrenRung >= 4 ? 1.3 : 1, resolveReflectTargets(player));   // R4 parry burst; §ENG-A-R targets = per-def reflect anchors (null = shipped centre aim)
       if (r.total > 0) {
         tmp.set(player.position.x, player.position.y, -player.dist);
         burst(tmp, r.perfect > 0 ? 0xaef0ff : 0x66ddff, { count: 7, speed: 16, size: 0.85, life: 0.4 });
@@ -3095,6 +3095,27 @@ function resolveEmitOrigins(id, player) {
     out.push({ x: w.x, y: w.y, rel });
   }
   return out;   // possibly [] — opted-in but nothing ahead → SKIP, don't post-fire
+}
+
+// §ENG-A-R: resolve the def's reflect-target parts to live bullet-frame anchors, so a
+// swatted bullet lands ON a hittable organ (roll-directed) instead of the hollow centre.
+// Mirrors resolveEmitOrigins' world→frame conversion + rel<=0.5 (behind-plane) skip. The
+// ONE semantic flip: an empty result returns null → the caller falls back to the boss
+// CENTRE (a reflect must always go somewhere — never SKIP like emit). Un-opted defs
+// (no def.reflectTargets) return null → shipped centre aim, byte-identical.
+const _rtV = new THREE.Vector3();
+function resolveReflectTargets(player) {
+  const names = def?.reflectTargets;
+  if (!names || !model?.partWorldPos) return null;
+  const out = [];
+  for (const name of names) {
+    const w = model.partWorldPos(name, _rtV);
+    if (!w) continue;
+    const rel = -w.z - player.dist;
+    if (rel <= 0.5) continue;   // behind/at the plane → would fly away
+    out.push({ x: w.x, y: w.y, rel, part: name });
+  }
+  return out.length ? out : null;   // empty → null → centre (never-whiff, unlike emit's SKIP)
 }
 
 // Solve the lateral velocity that puts a bullet on a target point as it closes,
@@ -4304,6 +4325,7 @@ export function debugRaiseShield() {
 }
 // PR6 test seams: the live paintable set (liveness-filtered) + shimmer state.
 export function debugPaintables() { return paintableParts(); }
+export function debugReflectTargets(player) { return resolveReflectTargets(player); }
 export function debugShimmerCount() { return shimmers.filter((s) => s.visible).length; }
 export function debugTetherCount() { return tether && tether.visible ? tether.geometry.drawRange.count / 2 : 0; }
 
