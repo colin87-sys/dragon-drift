@@ -134,16 +134,16 @@ measurable ones, the gate (§8) judges the rest in pixels.
 - **Painted value tiers.** 2–3 tiers across the wing per law 11.
 
 ### Per-architecture clauses (the sheet's numbers govern — §7 reads these)
-| | AZURE — blade-feather comb | EMBER — rays + membrane | JADE — silk fin lobes |
+| | AZURE — blade-feather comb | EMBER — bonfire mane (flame tongues) | JADE — silk fin lobes |
 |---|---|---|---|
-| Elements | 5 separated feather-blades + leading arm | 4 finger rays + membrane panels | 3 lobes (forms 0–1) → 4 lobes (apex) |
-| Separation metric | true gaps ≥0.15× blade width, z-stagger ≥0.12 | deep scallops 0.22–0.30 + true V-gaps ≥0.15× span at the outer two rays | overlap permitted; tip NOTCHES separate the outer 40% of each lobe, notch depth ≥0.3× lobe length |
-| Spar/membrane | n/a (blades ARE the structure); blade-tip rake 15–25° back | beveled spar + propatagium fillet; spar:membrane thickness ≥10:1 | darker leading ray per lobe; lobes tilted ≥40° above horizontal (tall koi fans, NOT flat vanes) |
-| Scallop | n/a | 0.22–0.30 (sheet-sanctioned above the 0.15–0.25 default) | n/a |
-| Apex span : body | 2.8–3.2× | 2.5–2.9× (broad chord ≥1.3× toothless's carries the area) | 2.2–2.5× — sanctioned: the SERPENT reads as reach; the fins carry the beauty |
-| Apex single-wing area : body side-area | 0.8–1.1× | 0.9–1.2× | 0.35–0.55× |
+| Elements | 5 separated feather-blades + leading arm | 5 broad flame tongues + molten leading arm | 3 lobes (forms 0–1) → 4 lobes (apex) |
+| Separation metric | true gaps ≥0.15× blade width, z-stagger ≥0.12 | OPPOSITE of separation: the broad tongue BASES OVERLAP into one continuous flame sheet (no gaps → not a finger armature); tongues part only at the soft trailing WISP tips | overlap permitted; tip NOTCHES separate the outer 40% of each lobe, notch depth ≥0.3× lobe length |
+| Signature | n/a (blades ARE the structure); blade-tip rake 15–25° back | IRREGULARITY (organic, not manufactured): no two tongues share length/curl/rake, tips flick different ways; rounded soft edges (never a sharp point or a serration — that's azure); the mane rakes back+down, streaming off the nape with the body line | darker leading ray per lobe; lobes tilted ≥40° above horizontal (tall koi fans, NOT flat vanes) |
+| Fire carrier | n/a | dark molten basalt cores → emissive concentrated in the THIN hot wisp tips (fire glows at its thin edges = fire-substance, not lit metal) | n/a |
+| Apex span : body | 2.8–3.2× | 2.2–2.9× (broad billowing mane) | 2.2–2.5× — sanctioned: the SERPENT reads as reach; the fins carry the beauty |
+| Apex single-wing area : body side-area | 0.8–1.1× | 0.9–1.3× (a broad flame mass) | 0.35–0.55× |
 | Sweep / dihedral (glide) | 25–30° back / 12–20° up | 15–25° back / 10–18° up | lobes raked 30–45° back / fan tilt ≥40° |
-| Motion path (declared — §7 asserts the rig parts exist) | direct `wingPivotL/R` drive + per-blade lag pivots (ASHTALON covert pattern) | skinned `wingRigL/R` shoulder→elbow→wrist + `flapWing` (nightFury pattern) | direct `wingPivotL/R` + per-lobe furl pivots (fan-fold) |
+| Motion path (declared — §7 asserts the rig parts exist) | direct `wingPivotL/R` drive + per-blade lag pivots (ASHTALON covert pattern) | direct `wingPivotL/R` drive + per-tongue lag flicker; fold nests the tongues inward (fire guttering) | direct `wingPivotL/R` + per-lobe furl pivots (fan-fold) |
 
 Default bands for anything a sheet doesn't override: 4–5 elements, scallop
 0.15–0.25 (>0.35 = tattered), apex span 2.5–3.5×, sweep 15–35°, dihedral
@@ -216,7 +216,7 @@ change them.
 | Fantasy | swift sky courier — falcon energy | forge-born bruiser — anvil-and-coal energy | river-wind dancer — koi/eastern energy |
 | Body plan | compact avian glider: short body, deep keel chest, long swept wings | stocky broad wyrm: heavy squared shoulders, thick neck, short powerful tail | long sinuous serpent: body IS the silhouette, tall elegant fin fans |
 | Silhouette primitive | △ swept arrow/dart | □ anvil/block masses | ○ flowing S-ribbon |
-| Wing architecture (HERO) | **swept blade-feather comb** (§3 col 1): stiff falcon PRIMARIES, straight taut leading edges (`feather` lineage + ASHTALON comb lessons — CONSTRUCTION only: separation/z-stagger/value-tiers/taper. Do NOT copy its scythe SHAPE language: no hooked crescents, no villain silhouette — azure's blades are straight-edged falcon feathers, a hero read) | **broad-chord ember membrane** (§3 col 2): gapped finger rays through dark membrane (`skinnedMembrane`/`nightFuryWings` lineage) | **silk fin sails** (§3 col 3): tall overlapping koi-fin lobes + trailing streamers (`seraphWing` chord logic + `sideFins`; `plume` TAIL builder is streamer INSPIRATION only) |
+| Wing architecture (HERO) | **swept blade-feather comb** (§3 col 1): stiff falcon PRIMARIES, straight taut leading edges (`feather` lineage + ASHTALON comb lessons — CONSTRUCTION only: separation/z-stagger/value-tiers/taper. Do NOT copy its scythe SHAPE language: no hooked crescents, no villain silhouette — azure's blades are straight-edged falcon feathers, a hero read) | **BONFIRE MANE** (`bonfireManeWings`): ember IS a creature of living fire, so its wing is a mane of FLAME — a Cloudjumper/Stormcutter TWIN-WING pair per side (an upper flame-wing that lifts + a lower that spreads), broad soft IRREGULAR flame tongues that overlap off a molten arm and taper to hot glowing wisps with a white-gold incandescent core. ORGANIC not manufactured; volumetric (rounded ridge, not a flat wafer); dark molten cores, emissive tagged for the runtime spineMats drive so it never blooms to white. Big ~180° flap; lower pair beats offbeat, L/R synced. Human-directed redo — replaces the retired gapped-finger membrane (ugly clawed bat wing). Distinct from azure (soft/rounded/overlapping vs hard/sharp/gapped), phoenix (liquid & quill-less vs feathers), jade (opaque warm vs cool silk veil). | **silk fin sails** (§3 col 3): tall overlapping koi-fin lobes + trailing streamers (`seraphWing` chord logic + `sideFins`; `plume` TAIL builder is streamer INSPIRATION only) |
 | Motif (fixed anchor, blooms 0.3→0.6→1.0) | **brow crest** (head, gold-tipped): single feather-nub → 3-blade swept crest fan | **forge collar** (nape/wing-root yoke — rear-visible): two dull coals between the wing roots → glowing collar arc → blazing yoke with 6-spike corona | **chin pearl** (jaw) + lockstep rear carrier: pearl bead → held pearl → luminous river-pearl cradled by whiskers, with a mint-pearl rim gradient on the rear lobe tips + tail-veil edge blooming in step |
 | Accent (law 9 table) | gold `0xd9b36a`, diffuse tips only | lava `0xff8b2a` on a BOLD warm FLAME body + cream belly (iconic-flame, §5d) | mint-pearl `0xd6ffe9` (green-leaning) on a VIVID jade body + green-gradient fins (iconic-green, §5d) |
 | Eye character | bright, alert, round→keen | small, hot, deep-set | calm, long, painterly |
@@ -232,10 +232,11 @@ instantly tellable from its nearest ROSTER neighbors — azure vs `phoenix` +
   on feathers — gold stays diffuse tip-paint.
 - ember vs `fire`: MOOT — `fire` (Cinderwing, a failed test starter) is being
   retired, so ember freely owns the flame identity. Ember still reads distinct by
-  BODY PLAN (anvil bruiser) + the gapped-finger membrane wing silhouette + the
-  forge-collar bloom, not by avoiding warm color. (If `fire` is not removed, the
-  two overlap on palette only — differentiate on silhouette.)
-- ember vs toothless: true V-gaps ≥0.15× span at the outer two rays
+  BODY PLAN (anvil bruiser) + the BONFIRE-MANE wing silhouette (billowing flame
+  tongues) + the forge-collar bloom, not by avoiding warm color. (If `fire` is not
+  removed, the two overlap on palette only — differentiate on silhouette.)
+- ember vs toothless: the flame-mane's broad overlapping tongues + hot wisp tips read
+  as billowing fire, nothing like toothless's smooth bat paddles
   (toothless is a continuous scalloped web, no through-gaps); chord ≥1.3×
   toothless's.
 - jade vs astralWyrm: fin lobes tilted ≥40° above horizontal (tall koi fans
@@ -316,8 +317,10 @@ land with the first slot that hits them.
 **PALETTE DIRECTION: ICONIC FLAME (human art-direction, "think Charizard").** This
 supersedes the original near-black coal / emissive-only / no-tail-glow spec below.
 Ember is a BOLD warm-orange flame dragon with a light cream belly, a lit spine/tail,
-and glowing lava-crack seams. The GEOMETRY (anvil body, gapped-finger membrane wings,
-feralPredator head, forge collar) is unchanged — only the palette + flame signatures.
+and glowing lava-crack seams. WING REDO (human art-direction): the gapped-finger membrane
+read as an ugly clawed BAT wing and is RETIRED for a **BONFIRE MANE** — the wing is a mane
+of living flame (see the §3 col-2 clauses + the Wings bullet below). Body/head/collar/tail
+signatures below still hold.
 Colours that landed (approved): body ramp `0xf2a24e`→`0xe8792e`→`0xdd5a1c` (light→rich,
 warm orange), belly cream `0xf7dca6`→`0xf2ce92`→`0xf0c888`, warm dark-red membrane
 (`membraneBase 0x4a1a0c`) so the glowing rays read AS fire, cream scutes/horns.
@@ -326,19 +329,22 @@ warm orange), belly cream `0xf7dca6`→`0xf2ce92`→`0xf0c888`, warm dark-red me
   hatchling), thick short neck. Body VALUE ramps per form (light hatchling →
   rich apex) on the held warm-orange hue (law 9); cream belly two-tone. Top tier:
   warm cream-ash scutes on the spine ridge + a lit ember leading spar.
-- **Wings (hero)**: new/extended `emberMembraneWings` per §3 col 2. Thick
-  beveled leading spar + propatagium fillet; 4 finger rays as REAL tapering
-  tube geometry (~0.82 per-digit scale) with raised ribs; membrane panels
-  with scallops 0.22–0.30 and true V-gaps ≥0.15× span at the outer two rays;
-  warm dark-red membrane (`membraneBase 0x4a1a0c`, held dark so it never reads
-  toy-bright — §7 asserts this) with a per-vertex EMISSIVE gradient on the ray
-  tubes (leading ray brightest → trailing dim, ≤1.2) so the glowing rays read AS
-  FIRE through the membrane. glowSeams (lava-crack seams) is SANCTIONED for
-  ember's iconic-flame identity (a human-directed exception to the law-12 starter
-  ceiling). Broad chord: span 2.5–2.9× with area at the top of the band. Motion:
-  the whole membrane rides ONE static hand group under the shoulder (never split
-  across an articulated joint — L162); `wingRigL/R` + `flapWing`, fold via the
-  shoulder-yaw furl.
+- **Wings (hero) — BONFIRE MANE** (`bonfireManeWings`): ember IS a creature of
+  living fire, so the wing is a MANE OF FLAME, not a membrane/fin/comb. 5 broad,
+  soft, IRREGULAR flame tongues grow off one taut molten leading arm, OVERLAP into
+  one continuous flame sheet at the base (no gaps — nothing reads as webbing between
+  fingers / a bat armature), and taper to soft rounded glowing WISPS at the trailing
+  edge. Deterministic irregularity (no two tongues share length/curl/rake; tips flick
+  different ways) so it reads GROWN, not manufactured — the anti-mechanical fix (a
+  rigid symmetric shape read as an X-wing; a thin radiating one as bat fingers). Dark
+  molten basalt cores (`0x35120a`→`0x8a2a0c`) with the emissive GRAFTED to the thin
+  hot wisp tips (`0xff9a34`, warm — never white) so the fire glows at its thin edges
+  = fire-SUBSTANCE, not lit metal. The whole mane rakes back+down, streaming off the
+  forge-collar nape with the body's line of action (jade's lesson: the wing grows off
+  the creature). Motion: direct `wingPivotL/R` drive + per-tongue lag flicker; fold
+  nests the tongues inward (fire guttering). Distinct from azure (soft/rounded/
+  overlapping vs hard/sharp/gapped), phoenix (liquid & quill-less vs feathers), jade
+  (opaque warm vs cool silk veil), bat (no armature).
 - **Head** `draconic` with `headArchetype: 'feralPredator'` (heavy brow via
   `browIntensity`, small deep-set hot eyes; `horned` is OUT — it ignores
   `headScale` and has no snout dial); 2 horn pairs at apex.
@@ -354,11 +360,11 @@ warm orange), belly cream `0xf7dca6`→`0xf2ce92`→`0xf0c888`, warm dark-red me
   yoke with a 6-spike corona — the single brightest point on the dragon
   (law 12: its ONE bloom).
 - **Forms**: 0 = round pot-bellied forge pup (value-lightest body, squared
-  shoulders, coal pair, stub gapped wings); 1 = shoulders square up further,
-  rays lengthen, horns bud, collar arc; 2 = anvil apex, `backSpines`, full
-  broad wings, blazing collar.
-- Tri targets: ~2.6k / ~4.0k / ~5.6k. Engine needs hit here: gapped-finger
-  membrane builder; motif socket (per-form geometry+emissive swap at a named
+  shoulders, coal pair, a small stub flame-mane); 1 = shoulders square up further,
+  the mane lengthens/broadens, horns bud, collar arc; 2 = anvil apex, `backSpines`,
+  full broad flame mane, blazing collar.
+- Tri targets: ~2.6k / ~4.0k / ~5.6k. Engine needs hit here: `bonfireManeWings`
+  flame-tongue builder; motif socket (per-form geometry+emissive swap at a named
   anchor).
 
 ### JADE — "Jade Serpent" (slot C) — branch `claude/jade-rebuild`

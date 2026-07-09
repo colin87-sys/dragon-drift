@@ -498,7 +498,7 @@ export function makePreviewTick(def, result) {
         // the wrist (matches the in-game rig; needs the split outer panel to be felt).
         const tipLag = Math.sin(phase + 0.95) * 0.34;
         wingTipR.rotation.z = tipLag;
-        wingTipL.rotation.z = -Math.sin(phase + 1.18) * 0.34;
+        wingTipL.rotation.z = -tipLag;   // mirror the RIGHT tip's phase exactly (was out of sync: phase+1.18 vs the right's phase+0.95)
         wingTipR.rotation.x = -0.06 + feather;
         wingTipL.rotation.x = -0.06 - feather;
       }

@@ -758,7 +758,7 @@ export function updateDragon(dt, player, time) {
     // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke, with a
     // small delay between wings so the silhouette feels less mechanical.
     wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
-    wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
+    wingTipL.rotation.z = damp(wingTipL.rotation.z, -tipLag * 0.28 + turnBias * 0.45, 12, dt);   // mirror the RIGHT tip's phase exactly (was phase+1.18 vs the right's phase+0.95 → the wings beat out of sync)
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
     wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
   }
@@ -786,6 +786,16 @@ export function updateDragon(dt, player, time) {
       const luff = Math.sin(time * 2.0) * 0.05;
       wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z, (wingPivot2L.userData.rz ?? 0) + turnBias * 0.5 + luff, 6, dt);
       wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, (wingPivot2R.userData.rz ?? 0) + turnBias * 0.5 - luff, 6, dt);
+    } else if (activeDef.model.pair2Phase != null) {
+      // OFFBEAT twin pair (Cloudjumper/Stormcutter): the lower wing beats the SAME big arc as the
+      // upper but shifted in phase, so the two pairs on a side flap just off each other — while the
+      // LEFT and RIGHT stay perfectly synchronised (mirror sign, same phase).
+      const rootFlap2 = Math.sin(phase + activeDef.model.pair2Phase) * flapAmp + 0.1;
+      const feather2 = Math.sin(phase + activeDef.model.pair2Phase + Math.PI * 0.55);
+      wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z,  rootFlap2 + turnBias - rollFold, 14, dt);
+      wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, -rootFlap2 + turnBias + rollFold, 14, dt);
+      wingPivot2L.rotation.x = damp(wingPivot2L.rotation.x, 0.14 - feather2 * 0.18 + climbBias, 10, dt);
+      wingPivot2R.rotation.x = damp(wingPivot2R.rotation.x, 0.14 + feather2 * 0.18 + climbBias, 10, dt);
     } else {
       wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z,  rootFlap * 0.6 + turnBias, 14, dt);
       wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, -rootFlap * 0.6 + turnBias, 14, dt);

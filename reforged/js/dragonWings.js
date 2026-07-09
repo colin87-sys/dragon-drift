@@ -7,7 +7,7 @@ import {
 import { registerWings } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
 import { skinnedTube as sweepTube } from './dragonSweep.js';
-import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
+import { composeSurface, membraneSSSPatch, fresnelRimPatch } from './dragonSurfaceShader.js';
 import { applyFresnelRim } from './surface.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
@@ -1366,6 +1366,7 @@ function buildForgeCollar(def, model, attach, spineMats) {
       coal.position.set(s * 0.2, 0.05, 0.02);           // lifted proud of the yoke so they clear the wing roots in the rear tile
       group.add(coal);
     }
+    babyCoalMat.userData.baseEmissive = cHot; babyCoalMat.userData.baseIntensity = 0.95;
     spineMats.push(babyCoalMat);
     radius = 0.28;
   } else if (stage === 1) {
@@ -1378,6 +1379,7 @@ function buildForgeCollar(def, model, attach, spineMats) {
       bead.position.set(Math.sin(a) * 0.34, Math.cos(a) * 0.12, -Math.abs(Math.sin(a)) * 0.06);
       group.add(bead);
     }
+    arcMat.userData.baseEmissive = cHot; arcMat.userData.baseIntensity = 1.05;
     spineMats.push(arcMat);
     radius = 0.33;
   } else {
@@ -1413,6 +1415,10 @@ function buildForgeCollar(def, model, attach, spineMats) {
       spike.position.copy(dir).multiplyScalar(0.13 + len * 0.5).add(new THREE.Vector3(0, 0.06, -0.02));
       group.add(spike);
     }
+    // coal core is the designed ONE bloom (Law 12 — MAY blow to white under ACES); preserve its
+    // blaze. spikes stay moderate + warm. Without these tags the runtime forced both to white@1.0.
+    coalMat2.userData.baseEmissive = 0xffe08a; coalMat2.userData.baseIntensity = 7.5;
+    spikeMat.userData.baseEmissive = cHot; spikeMat.userData.baseIntensity = 1.0;
     spineMats.push(coalMat2, spikeMat);
     radius = 0.7;
   }
@@ -1420,6 +1426,452 @@ function buildForgeCollar(def, model, attach, spineMats) {
 }
 
 registerWings('emberMembraneWings', buildEmberMembraneWings);
+
+// ── MOLTEN BLADE FIN (EMBER — the redo, §3 new col: solid molten scimitar) ───
+// A SOLID swept scimitar fin: ONE continuous cambered blade per side — NOT a comb,
+// NOT feathers (azure/phoenix own those), NOT a membrane on finger-spokes (bat), NOT
+// silk (jade). A matte warm-IRON leading SPAR gives the sharp edge its structure; the
+// blade body is MOLTEN (deep-ember root → bright orange out); the thin TRAILING edge
+// glows WHITE-HOT like cooling molten metal — the fire signature AND the law-9 accent
+// carrier. Upswept + aft-swept = an elegant scimitar planform, the antithesis of the
+// clawed bat wing. Direct wingPivot drive + a wrist split so a fold barrel-tucks and
+// contracts the span (§3 fold clause / §7 assert). Forge-collar motif at the nape (law 12).
+//
+// Publishes the direct-drive contract: wingPivotL/R (shoulder), wingTipL/R (wrist),
+// wingRig* null, wingBladePivots* null (solid fin, no per-blade lag), wingElements +
+// tipObjs (canonical right side) so a fold re-measures the span, and the collar motifAnchor.
+function buildMoltenBladeWings(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale || 1;
+  const reach = (model.finSpan ?? 4.8) * ws;            // half-span (outer tip x)
+  const sweep = model.finSweep ?? 0.52;                 // planform aft-sweep (scimitar)
+  const theta = model.finDihedral ?? 0.3;              // upsweep dihedral (~17°)
+  const chordRoot = (model.finChord ?? 0.46) * reach;   // root chord
+  const camber = model.finCamber ?? 0.24;              // cambered billow (+Y)
+  const detail = model.finDetail ?? 1;
+
+  // molten diffuse tiers (vertex-painted onto the ONE blade — law 11 relief, zero seams)
+  const cRoot = new THREE.Color(def.wingInner ?? 0x6a1e08);
+  const cMid = new THREE.Color(model.finMid ?? 0xc0461a);
+  const cOut = new THREE.Color(def.wingOuter ?? 0xff7a1e);
+  const cLead = new THREE.Color(0x7a2810);              // leading edge shaded a step
+  const cHot = new THREE.Color(model.finEdgeColor ?? 0xffd28a);   // trailing white-hot lip
+
+  const finMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.03,
+    side: THREE.DoubleSide,
+    emissive: def.wingEmissive ?? 0xff6a1a, emissiveIntensity: model.finGlow ?? 0.16,
+  });
+  applyFresnelRim(finMat, def.apexSeam ?? cOut.getHex());
+  const sparMat = new THREE.MeshStandardMaterial({
+    color: model.finSparColor ?? 0x8a4a24, roughness: 0.62, metalness: 0.06,
+    emissive: 0x2a1206, emissiveIntensity: 0.28 });
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: cHot.getHex(), emissive: cHot.getHex(), emissiveIntensity: model.finEdgeGlow ?? 2.4,
+    roughness: 0.4, side: THREE.DoubleSide });
+  const veinRoot = new THREE.Color(0xff9a3a), veinTip = new THREE.Color(0xffe6b0);
+  spineMats.push(finMat, edgeMat);
+
+  // FLAME-CURL SCYTHE planform — ember IS living fire, so the wing outline is a licking flame:
+  // a taut leading arc that RECURVES at the tip (curls back + up like a flame lick / scythe hook)
+  // over a deep concave (cupped) trailing sweep. The drama is 100% in the master curve — no
+  // serration (that's azure's). hookAt ramps a smooth tip-curl over the outer third.
+  const hookStart = model.finHookStart ?? 0.64;
+  const hookAmt = model.finHook ?? 1.0;                 // curl strength
+  const hookAt = (t) => { const h = Math.max(0, (t - hookStart) / (1 - hookStart)); return h * h * hookAmt; };
+  const xAt = (t) => reach * (t - 0.22 * hookAt(t));    // recurve: the tip curls back a touch (span stays broad)
+  const zMid = (t) => sweep * reach * Math.pow(t, 1.06) + reach * 0.72 * hookAt(t);   // aft sweep + a STRONG aft tip hook
+  const yAt = (t) => t * reach * Math.tan(theta) + reach * 0.5 * hookAt(t);           // dihedral rise + the tip curls UP hard
+  // BROAD flame-tongue chord — holds width outboard, then draws to the curling point (a fat
+  // flame body, not a thin blade). A bulge mid-span gives the licking-flame belly.
+  const chordAt = (t) => chordRoot * (Math.pow(1 - t, 0.4) * (0.55 + 0.45 * Math.sin(Math.min(1, t * 1.15) * Math.PI)) + 0.12 * (1 - t));
+
+  // build the fin SURFACE for span fraction [ta,tb], verts in fin-absolute coords minus `off`
+  function finGeo(ta, tb, off) {
+    const nX = seg(Math.max(4, Math.round(11 * detail * (tb - ta))));
+    const nZ = seg(Math.max(2, Math.round(4 * detail)));
+    const verts = [], cols = [], idx = [];
+    const c = new THREE.Color();
+    for (let i = 0; i <= nX; i++) {
+      const t = ta + (tb - ta) * (i / nX);
+      const x = xAt(t), zc = zMid(t), w = chordAt(t), y0 = yAt(t);
+      for (let j = 0; j <= nZ; j++) {
+        const cf = j / nZ;                                // 0 leading(−z) → 1 trailing(+z)
+        const z = zc + (cf - 0.5) * w;
+        const camb = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(t * Math.PI));
+        verts.push(x - off.x, y0 + camb - off.y, z - off.z);
+        if (t < 0.42) c.copy(cRoot).lerp(cMid, t / 0.42); else c.copy(cMid).lerp(cOut, (t - 0.42) / 0.58);
+        c.lerp(cLead, Math.max(0, 0.5 - cf) * 0.55);      // leading half shaded
+        c.lerp(cHot, Math.max(0, (cf - 0.74) / 0.26) * 0.85);   // trailing lip runs hot
+        cols.push(c.r, c.g, c.b);
+      }
+    }
+    const W = nZ + 1;
+    for (let i = 0; i < nX; i++) for (let j = 0; j < nZ; j++) {
+      const a = i * W + j, b = a + 1, d = a + W, e = d + 1; idx.push(a, d, b, b, d, e);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+
+  // a HOT trailing-edge ribbon (the glowing molten lip) for [ta,tb], verts minus `off`
+  function edgeGeo(ta, tb, off) {
+    const nX = seg(Math.max(4, Math.round(11 * detail * (tb - ta))));
+    const rw = 0.05 * reach;                              // ribbon width, in from the trailing edge
+    const verts = [], idx = [];
+    for (let i = 0; i <= nX; i++) {
+      const t = ta + (tb - ta) * (i / nX);
+      const x = xAt(t), zc = zMid(t), w = chordAt(t), y0 = yAt(t) + camber * 0.5;
+      const zEdge = zc + 0.5 * w, zIn = zEdge - rw;
+      verts.push(x - off.x, y0 - off.y, zIn - off.z, x - off.x, y0 - off.y, zEdge - off.z);
+    }
+    for (let i = 0; i < nX; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+
+  const wristFrac = 0.32;
+  const wristT = wristFrac;
+  const wristX = xAt(wristT), wristY = yAt(wristT), wristZ = zMid(wristT);
+  const O0 = { x: 0, y: 0, z: 0 }, OW = { x: wristX, y: wristY, z: wristZ };
+
+  function buildSide(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+    const wingTip = new THREE.Group();
+    wingTip.position.set(wristX * side, wristY, wristZ);
+
+    // leading SPAR — a matte iron tube along the sharp leading edge, thick root → thin tip.
+    const lead = [];
+    for (let k = 0; k <= 10; k++) { const t = k / 10; lead.push({ x: xAt(t), y: yAt(t) + camber * 0.15, z: zMid(t) - 0.5 * chordAt(t) }); }
+    for (let s = 0; s < lead.length - 1; s++) {
+      const a = lead[s], b = lead[s + 1];
+      const inner = b.x < wristX; const par = inner ? pivot : wingTip;
+      const ox = inner ? 0 : wristX, oy = inner ? 0 : wristY, oz = inner ? 0 : wristZ;
+      const r0 = 0.11 * ws * (1 - 0.8 * s / 10) + 0.012, r1 = 0.11 * ws * (1 - 0.8 * (s + 1) / 10) + 0.01;
+      par.add(bone((a.x - ox) * side, a.y - oy, a.z - oz, (b.x - ox) * side, b.y - oy, b.z - oz, r0, r1, sparMat));
+    }
+
+    // the two fin panels (inner on pivot, outer on wrist) + their hot trailing ribbons.
+    const inFin = new THREE.Mesh(finGeo(0, wristT, O0), finMat); inFin.scale.x = side; pivot.add(inFin);
+    const outFin = new THREE.Mesh(finGeo(wristT, 1, OW), finMat); outFin.scale.x = side; wingTip.add(outFin);
+    const inEdge = new THREE.Mesh(edgeGeo(0, wristT, O0), edgeMat); inEdge.scale.x = side; pivot.add(inEdge);
+    const outEdge = new THREE.Mesh(edgeGeo(wristT, 1, OW), edgeMat); outEdge.scale.x = side; wingTip.add(outEdge);
+
+    // 2 glowing lava-crack veins raked along the blade (surface life, not clutter).
+    for (const vt of [0.34, 0.62]) {
+      const t0 = vt, t1 = Math.min(0.97, vt + 0.34);
+      const a = new THREE.Vector3(xAt(t0), yAt(t0) + camber * 0.6, zMid(t0));
+      const b = new THREE.Vector3(xAt(t1), yAt(t1) + camber * 0.4, zMid(t1) + chordAt(t1) * 0.18);
+      const inner = t0 * reach < wristX; const par = inner ? pivot : wingTip;
+      const off = inner ? O0 : OW;
+      par.add(rayTubeMolten(a, b, off, side, veinRoot, veinTip, ws));
+    }
+
+    const tipObj = new THREE.Object3D();
+    tipObj.position.set((xAt(1) - wristX) * side, yAt(1) - wristY, zMid(1) - wristZ);
+    wingTip.add(tipObj);
+    const marker = new THREE.Object3D();
+    marker.position.copy(tipObj.position); wingTip.add(marker);
+    pivot.add(wingTip); group.add(pivot);
+    return { pivot, wingTip, marker, tipObj };
+  }
+
+  // a small glowing vein tube (baked root→tip brightness), parented under `off`.
+  function rayTubeMolten(a, b, off, side, c0, c1, ws) {
+    const A = new THREE.Vector3((a.x - off.x) * side, a.y - off.y, a.z - off.z);
+    const B = new THREE.Vector3((b.x - off.x) * side, b.y - off.y, b.z - off.z);
+    const path = new THREE.LineCurve3(A, B);
+    const g = new THREE.TubeGeometry(path, seg(4), 0.02 * ws, seg(4), false);
+    const cols = [], pos = g.attributes.position, c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) { const t = i / pos.count; c.copy(c0).lerp(c1, t); cols.push(c.r, c.g, c.b); }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    const m = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, emissive: 0xffffff, emissiveIntensity: 1.0, roughness: 0.4 });
+    m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = emissive * vColor;'); };
+    spineMats.push(m);
+    return new THREE.Mesh(g, m);
+  }
+
+  const R = buildSide(1), L = buildSide(-1);
+  const collar = model.collarStage != null ? buildForgeCollar(def, model, attach, spineMats) : null;
+  if (collar) group.add(collar.group);
+
+  const wingElements = [{
+    root: new THREE.Vector3(0, 0, zMid(0)),
+    tip: new THREE.Vector3(xAt(1), yAt(1), zMid(1)),
+    length: reach, tipObj: R.tipObj,
+  }];
+
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null,
+      wingRigL: null, wingRigR: null,
+      wingBladePivotsL: null, wingBladePivotsR: null,
+      wingElements,
+      motifAnchor: collar ? collar.motifAnchor : null,
+    },
+    wingMat: finMat,
+    spineMats,
+  };
+}
+
+registerWings('moltenBladeWings', buildMoltenBladeWings);
+
+// ── BONFIRE MANE (EMBER — the redo: a wing of living flame tongues) ───────────
+// Ember IS a creature of living fire, so its wing is not a fin or a comb but a MANE OF
+// FLAME: 4–5 broad, SOFT, IRREGULAR flame tongues that grow off one taut molten leading
+// arm, overlap into a billowing sheet at the base, and separate into soft curling WISPS at
+// the trailing edge. The whole mass rakes back+down, streaming off the forge-collar nape
+// with the body's line of action (jade's lesson: the wing GROWS off the creature, it is not
+// a symmetric part bolted on). The anti-mechanical levers (the prior rejects all read as
+// manufactured): (1) every tongue edge is ROUNDED + tapers to a wisp — no hard corners; (2)
+// deterministic IRREGULARITY — no two tongues share a length, curl, or rake, tips flick
+// different ways; (3) it reads as fire-SUBSTANCE not lit metal because the glow lives in the
+// THIN curling tips (bright + hot) while the thick overlapping cores stay dark molten basalt
+// — exactly how real flame + molten glass read. Fold: the tongues furl and nest inward like a
+// fire guttering, the span contracts hard. Direct wingPivot drive + per-tongue lag flicker.
+function buildBonfireManeWings(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale || 1;
+  const N = Math.max(3, Math.round(model.tongueCount ?? 5));
+  const reach = (model.maneSpan ?? 5.2) * ws;           // half-span
+  const sweep = model.maneSweep ?? 0.5;                 // arm back-sweep
+  const theta = model.maneDihedral ?? 0.26;             // upsweep dihedral
+  const armLen = reach * 0.5;                            // tongues over-reach the arm to the tip envelope
+  const camber = model.maneCamber ?? 0.34;   // deeper billow → each tongue presents broad cupped area from the rear chase (not a thin sliver)
+  const detail = model.maneDetail ?? 1;
+  const rakeDown = model.maneRakeDown ?? 0.16;          // the whole mane rakes DOWN (streams off the body)
+
+  // molten diffuse: deep crimson-black ROOTS → molten body → hot orange → a white-GOLD hot core up
+  // the spine and at the tips. A strong dark→hot gradient (not a flat pale sheet) is what reads as
+  // intense FIRE instead of a fried wafer/prawn-cracker.
+  const cRoot = new THREE.Color(def.wingInner ?? 0x2a0a04);   // near-black crimson base
+  const cBody = new THREE.Color(model.maneMid ?? 0x9e2408);   // richer molten crimson mid
+  const cTip = new THREE.Color(model.maneTipColor ?? 0xff9a34);   // HOT ORANGE
+  const cHotCore = new THREE.Color(model.maneCore ?? 0xffe0a0);   // white-gold incandescent core/tip streak (the hottest fire)
+  // MOLTEN leading spar — a lit ember rod, not a dead black stick: warm diffuse + a hot emissive
+  // glow so it reads as forged/glowing metal fused into the flame sheet (gate: the arm read as a
+  // detached near-black rod against the wing).
+  const armMat = new THREE.MeshStandardMaterial({ color: model.maneArmColor ?? 0x8a2a0c, roughness: 0.55, metalness: 0.1, emissive: model.maneArmGlow ?? 0xff6a1e, emissiveIntensity: 0.5 });
+  // ONE material for the tongues: vColor is the molten→hot gradient (diffuse), and the emissive
+  // is GRAFTED to follow vColor (WARM, not white) so only the bright thin tips glow ORANGE-HOT
+  // (dark thick cores stay unlit) — fire-substance, not white feathers.
+  // roughness ~1 / no metalness → NO specular sheen (fire never reads glossy).
+  // emissiveIntensity kept LOW (≈0.5): in the rear-chase gameplay view the dragon flies AWAY from a
+  // low sun, so its camera-facing side is BACKLIT/shadowed and lit almost entirely by emissive —
+  // at 1.2 the pure emissive blew past the bloom threshold (1.0) and the whole wing bloomed to WHITE
+  // in-game (invisible in the old raw studio captures, which front-lit everything). Keeping the peak
+  // emissive under the threshold lets the tongues GLOW warm without whiting out; the bright DIFFUSE
+  // orange (color×vColor) still carries the hot read when the wing catches light.
+  const maneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide, emissive: model.maneEmissive ?? 0xff7a22, emissiveIntensity: model.maneGlow ?? 0.5 });
+  // CRITICAL: the emissive-concentration graft and the fresnel rim BOTH set onBeforeCompile —
+  // composing them in ONE composeSurface call (was: a manual graft then applyFresnelRim, which
+  // silently OVERWROTE the graft → the whole mane glowed at full uniform emissive with no dark
+  // cores, the exact "flat lit-paper sheet" the gate flagged). Order matters: concentrate FIRST
+  // (multiply emissive by vColor so only the bright hot tips glow — dark basalt cores stay unlit),
+  // THEN add the tight rim.
+  const moltenEmitPatch = {
+    key: 'moltenEmit',
+    bodyFrag: `totalEmissiveRadiance *= pow(vColor, vec3(1.6));`,
+  };
+  composeSurface(maneMat, [moltenEmitPatch, fresnelRimPatch(def.apexSeam ?? cTip.getHex(), { intensity: 0.1, power: 3.8, bias: 0.0 })]);   // tight, low rim → no broad orange wash and no extra bloom over the threshold; the diffuse + tip fringe carry the read
+  // CRITICAL: spineMats materials are DRIVEN every frame by the Surge loop in dragon.js — in the
+  // normal (non-surge) state it does `m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff)` and
+  // `m.emissiveIntensity = m.userData.baseIntensity ?? 1`. Without these userData tags the wing's
+  // warm emissive was overwritten with PURE WHITE @ 1.0 every frame → the whole mane bloomed to
+  // white in-game (never visible in the studio, which doesn't run that loop). Tag both wing mats
+  // with their real base emissive/intensity so the runtime PRESERVES the molten colour and flares
+  // warm-gold (not white) during Surge.
+  maneMat.userData.baseEmissive = (model.maneEmissive ?? 0xff7a22);
+  maneMat.userData.baseIntensity = (model.maneGlow ?? 0.5);
+  armMat.userData.baseEmissive = (model.maneArmGlow ?? 0xff6a1e);
+  armMat.userData.baseIntensity = 0.4;
+  spineMats.push(maneMat, armMat);
+
+  // deterministic per-tongue IRREGULARITY (no Math.random — determinism is a deliverable). A
+  // fixed jitter pattern so no two tongues match; the mane reads grown, not stamped-out.
+  const jLen = [0.14, -0.16, 0.20, -0.11, 0.17, -0.19, 0.09];   // wider length spread (±≥11%) → visibly non-mirrored L/R
+  const jCurl = [0.9, 1.25, 0.7, 1.4, 1.0, 1.2, 0.8];
+  const jRake = [0.02, 0.11, 0.04, 0.15, 0.06, 0.13, 0.03];
+  const jUp = [0.7, 0.35, 0.9, 0.5, 0.65, 0.3, 0.8];   // tips flick UP (mostly positive → the mane licks upward with energy, not a limp back-droop)
+  const jLick = [0.9, -1.2, 0.6, -0.85, 1.1, -0.7, 0.5];   // tip LICK direction/strength — alternating signs → S-curves, no two alike
+  const jWid = [0.12, -0.14, 0.08, -0.1, 0.15, -0.09, 0.06];   // per-tongue chord width variation
+  const jPitch = [0.5, -0.35, 0.7, -0.2, 0.4, -0.5, 0.6];   // per-tongue HEIGHT stagger → rear view shows undulating height bands, not one flat plank
+  const jRoll = [0.22, -0.3, 0.15, -0.26, 0.34, -0.18, 0.28];   // per-tongue ROLL (twist about length) → edge-on rear view shows a sliver of each tongue's FACE, not a dead-straight rod
+
+  // a LICKING flame tongue: broad root → swelling belly → a soft flickering point, with its TWO
+  // edges independently notched (asymmetric concave flame-licks) so the outline reads as fire, not
+  // a smooth leaf/feather petal. Centreline is an S-curve; the two edges never mirror each other.
+  function tongueGeo(len, wRoot, curlZ, curlY, lick, seed) {
+    const nX = seg(Math.max(8, Math.round(15 * detail)));
+    const nZ = seg(3);
+    const verts = [], cols = [], idx = [];
+    const c = new THREE.Color();
+    // per-edge notch phases/frequencies (deterministic, seed-driven) → left and right edges lick
+    // at different rates so no tongue is a smooth petal and the two edges are never symmetric.
+    const phL = seed * 1.7, phR = seed * 2.3 + 1.1;
+    const fL = 4 + (seed % 3), fR = 5 + ((seed + 1) % 3);
+    const nd = 0.4;   // notch depth (fraction of half-width bitten out at a lick trough)
+    for (let i = 0; i <= nX; i++) {
+      const t = i / nX;
+      // FLAME-LEAF profile: broad root (bases overlap into one sheet, no finger-gaps), a swelling
+      // belly, then a CONVEX round-off to a soft point.
+      const belly = 0.55 + 0.45 * Math.sin(Math.min(1, t * 1.08) * Math.PI);   // broad belly swell
+      const tipCap = Math.pow(1 - Math.pow(t, 2.6), 0.5);                       // convex cap: full width until late, then rounds to a soft point (no flat cut)
+      const w = wRoot * belly * tipCap;
+      // independent per-edge lick factors (1 = full extent, dips to 1-nd at a notch trough); the
+      // notches fade in past the root so the bases stay solid/overlapping.
+      const grow = Math.min(1, t / 0.22);
+      const licL = 1 - nd * grow * (0.5 + 0.5 * Math.sin((t * fL + phL) * Math.PI));
+      const licR = 1 - nd * grow * (0.5 + 0.5 * Math.sin((t * fR + phR) * Math.PI));
+      const zc = curlZ * t * t + lick * Math.pow(t, 3);  // parabolic aft-curl + cubic tip LICK → an S-curve centreline (tips deflect, per-tongue sign varies)
+      const yc = t * len * Math.tan(theta) + curlY * t * t - rakeDown * t * len;   // dihedral + tip curl + the whole tongue rakes DOWN
+      const zL = zc - 0.5 * w * licL, zR = zc + 0.5 * w * licR;   // asymmetric flame-lick edges
+      for (let j = 0; j <= nZ; j++) {
+        const cf = j / nZ;
+        const z = zL + cf * (zR - zL);
+        const mid = 1 - Math.abs(cf - 0.5) * 2;   // 1 at the centre-line → 0 at the edges
+        // VOLUME: a strong raised central RIDGE (deep camber, sharper dome) tapering to thin edges
+        // → each tongue reads as a rounded 3D flame, NOT a flat wafer/prawn-cracker. Ridge deepens
+        // toward the belly and eases at root/tip.
+        const camb = camber * Math.pow(mid, 0.8) * (0.45 + 0.55 * Math.sin(t * Math.PI));
+        verts.push(t * len, yc + camb, z);
+        // Vertical gradient: deep crimson-black ROOT → molten crimson → hot orange TIP.
+        if (t < 0.30) c.copy(cRoot).lerp(cBody, t / 0.30);
+        else if (t < 0.62) c.copy(cBody);
+        else c.copy(cBody).lerp(cTip, Math.pow((t - 0.62) / 0.38, 0.8));
+        // HOT CORE SPINE: the centre-line runs incandescent white-gold (hotter toward the tip), the
+        // EDGES fall dark — this is form-shading that reads as a rounded voluminous flame with a
+        // glowing core, the opposite of the flat bright-edged wafer that read as a fried chip.
+        c.lerp(cHotCore, Math.pow(mid, 2.4) * (0.12 + 0.5 * Math.pow(t, 1.5)));
+        c.multiplyScalar(0.5 + 0.5 * Math.pow(mid, 0.55));   // darken the outer edges → rounded volume, not a flat sheet
+        cols.push(c.r, c.g, c.b);
+      }
+    }
+    const W = nZ + 1;
+    for (let i = 0; i < nX; i++) for (let j = 0; j < nZ; j++) { const a = i * W + j, b = a + 1, d = a + W, e = d + 1; idx.push(a, d, b, b, d, e); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+
+  // swell-then-taper base lengths (longest mid-wing) + irregular jitter.
+  const lenBase = (i, n) => { const t = n > 1 ? i / (n - 1) : 0.5; return 0.62 + 0.38 * Math.sin((0.16 + t * 0.72) * Math.PI); };
+  const chordK = model.maneChord ?? 0.4;
+  const wristFrac = 0.3;
+
+  // TWO flame-wings PER SIDE (the Cloudjumper / Stormcutter layout): an UPPER wing that tilts up
+  // with the fire's energy, and a smaller LOWER wing seated below and swept back a touch flatter.
+  // Each wing's tongues stay BROAD + overlapping so the wing reads as one bold flame plane (not a
+  // spiky fan). The per-wing rest TILT lives on an `orient` group nested INSIDE the flap pivot, so
+  // the runtime flap (which sets pivot.rotation.z) can't overwrite the baseline splay.
+  const WING_CFG = [
+    { id: 0, reachK: 1.0,  Nt: model.maneUpperN ?? 3, lenK: 1.0,  rx: 0.0,  ry: -0.04, rz: 0.16 },   // UPPER — lifts up
+    { id: 1, reachK: 0.7,  Nt: model.maneLowerN ?? 3, lenK: 0.82, rx: 0.05, ry: -0.2,  rz: -0.42 },  // LOWER — drops below, swept back
+  ];
+
+  function buildWing(side, cfg) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+    const orient = new THREE.Group();
+    orient.rotation.set(cfg.rx, side * cfg.ry, side * cfg.rz);   // per-wing rest splay (flap rotates `pivot`; this holds the baseline)
+    pivot.add(orient);
+
+    const reachW = reach * cfg.reachK, armLenW = reachW * 0.5, maxLenW = reachW * 0.86, Nt = Math.max(2, cfg.Nt);
+    const wristXW = armLenW * wristFrac, wristYW = wristXW * Math.tan(theta), wristZW = wristXW * Math.tan(sweep);
+    const wingTip = new THREE.Group();
+    wingTip.position.set(wristXW * side, wristYW, wristZW);
+
+    // molten leading ARM — a SHORT root stub only (not a full-span rod): the flames over-reach it,
+    // so a long spar protruded past the wing as a thin stick and read as an extra wing. Keep it a
+    // small glowing root nub.
+    const armEnd = armLenW * 0.34;
+    const arm = [{ x: 0.05, y: 0, z: -0.02 }, { x: armEnd, y: armEnd * Math.tan(theta), z: armEnd * Math.tan(sweep) }];
+    const baseR = 0.08 * ws * (0.7 + 0.3 * cfg.reachK);   // slim stub, not a chunky rod
+    for (let s = 0; s < arm.length - 1; s++) {
+      const a = arm[s], b = arm[s + 1], inner = b.x < wristXW, par = inner ? orient : wingTip;
+      const ox = inner ? 0 : wristXW, oy = inner ? 0 : wristYW, oz = inner ? 0 : wristZW;
+      const r0 = baseR * (1 - 0.8 * s / (arm.length - 1)) + 0.02, r1 = baseR * (1 - 0.8 * (s + 1) / (arm.length - 1)) + 0.018;
+      par.add(bone((a.x - ox) * side, a.y - oy, a.z - oz, (b.x - ox) * side, b.y - oy, b.z - oz, r0, r1, armMat));
+    }
+
+    const tonguePivots = [], elements = [];
+    const ph = (side < 0 ? 2 : 0) + cfg.id * 3;   // per-side AND per-wing jitter phase → upper/lower + L/R all differ (no mirror, no twins)
+    const jx = (i) => (i + ph) % jLen.length;
+    for (let i = 0; i < Nt; i++) {
+      const t = Nt > 1 ? i / (Nt - 1) : 0;
+      const rootX = armLenW * (0.14 + 0.12 * t);               // CLUSTER the wing's tongues at a common root, both inside the wrist so they hang off ONE parent and move together (was spread 0.1→0.9 → read as separate flames)
+      const rootY = rootX * Math.tan(theta);
+      const rootZ = rootX * Math.tan(sweep) + 0.02 * i;         // tight root stagger → the 2 tongues sit almost coincident (one wing plane)
+      const len = maxLenW * (lenBase(i, Nt) + jLen[jx(i)]) * cfg.lenK;
+      const wRoot = chordK * reachW * (0.82 + 0.22 * Math.sin(t * Math.PI)) * (1 + jWid[jx(i)]);   // slimmer chord (was too thick/busy)
+      const curlZ = reachW * 0.22 * jCurl[jx(i)];              // less aft curl → the 2 tongues overlap rather than fan apart
+      const curlY = reachW * 0.09 * jUp[jx(i)];                 // MILD up-flick (upward energy comes from the wing tilt, not per-tongue splay)
+      const lick = reachW * 0.14 * jLick[jx(i)];
+      const inner = rootX < wristXW, parent = inner ? orient : wingTip;
+      const pitchY = reachW * 0.03 * jPitch[jx(i)];
+      const px = inner ? rootX * side : (rootX - wristXW) * side, py = (inner ? rootY : rootY - wristYW) + pitchY, pz = inner ? rootZ : rootZ - wristZW;
+      const rest = new THREE.Group();
+      rest.position.set(px, py, pz);
+      rest.rotation.y = side * -(0.01 + jRake[jx(i)] * 0.3);     // near-zero fan → the 2 tongues stack into ONE wing shape (not a spread fan)
+      rest.rotation.z = side * (theta + 0.06 * jPitch[jx(i)]);
+      rest.rotation.x = jRoll[jx(i)] * 0.4;
+      const lag = new THREE.Group(); rest.add(lag);
+      const mesh = new THREE.Mesh(tongueGeo(len, wRoot, curlZ, curlY, lick, i + ph), maneMat);
+      mesh.scale.x = side; lag.add(mesh);
+      const tipObj = new THREE.Object3D(); tipObj.position.set(len * side, 0, curlZ + lick); lag.add(tipObj);
+      parent.add(rest);
+      tonguePivots.push({ pivot: lag, idx: i, side, restY: rest.rotation.y, restZ: rest.rotation.z });
+      elements.push({ root: new THREE.Vector3(rootX, rootY, rootZ), len, tipObj });
+    }
+    const marker = new THREE.Object3D();
+    marker.position.set((reachW - wristXW) * side, reachW * Math.tan(theta) - wristYW, wristZW);
+    wingTip.add(marker); orient.add(wingTip); group.add(pivot);
+    return { pivot, wingTip, marker, tonguePivots, elements };
+  }
+
+  // upper (primary) + lower (secondary) per side
+  const Rup = buildWing(1, WING_CFG[0]), Lup = buildWing(-1, WING_CFG[0]);
+  const Rlo = buildWing(1, WING_CFG[1]), Llo = buildWing(-1, WING_CFG[1]);
+  const collar = model.collarStage != null ? buildForgeCollar(def, model, attach, spineMats) : null;
+  if (collar) group.add(collar.group);
+  const bladeR = Rup.tonguePivots.concat(Rlo.tonguePivots), bladeL = Lup.tonguePivots.concat(Llo.tonguePivots);
+  const wingElements = Rup.elements.concat(Rlo.elements).map((e) => ({ root: e.root, tip: new THREE.Vector3(e.root.x + e.len, e.root.y, e.root.z), length: e.len, tipObj: e.tipObj }));
+
+  return {
+    group,
+    parts: {
+      wingPivotL: Lup.pivot, wingPivotR: Rup.pivot,
+      wingTipL: Lup.wingTip, wingTipR: Rup.wingTip,
+      tipMarkerL: Lup.marker, tipMarkerR: Rup.marker,
+      wingPivot2L: Llo.pivot, wingPivot2R: Rlo.pivot,   // LOWER flame-wing pair (Cloudjumper layout) — flapped offbeat by the rig
+      wingRigL: null, wingRigR: null,
+      wingBladePivotsL: bladeL, wingBladePivotsR: bladeR,
+      wingElements,
+      motifAnchor: collar ? collar.motifAnchor : null,
+    },
+    wingMat: maneMat,
+    spineMats,
+  };
+}
+
+registerWings('bonfireManeWings', buildBonfireManeWings);
+
 
 // ── SILK FIN SAILS (JADE, §3 col 3) ──────────────────────────────────────────
 // A koi/eastern river-dragon's fins: NOT a bat wing. Per side, 3 lobes (forms 0–1)
