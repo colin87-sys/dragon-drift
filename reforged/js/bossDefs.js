@@ -313,6 +313,12 @@ export const BOSSES = {
       { part: 'ribPivotL1' }, { part: 'ribPivotR1' },
       { part: 'ribPivotL3' }, { part: 'ribPivotR3' },
     ],
+    // §ENG-E ORGAN BREAK (§5b slot 4, the Colossi parry DEBUT): PERFECT-parry a rib's
+    // amber (from ribThread, or the closingRibs strain volley) 3× → that rib CRACKS and
+    // its amber volley + constrict arc are deleted for the fight (parry as sculptor). The
+    // reachable ribs are exactly the four that fire tagged amber (L1/R1/L3/R3); no list
+    // needed. Parry-fed only (never gunfire) — the diff from HOLLOWGATE's panes.
+    destructibleRibs: true,
     // §ENG-A-R: swatted/reflected bullets snap to one of these organs (roll-directed),
     // so a parry always lands on a rib or the skull instead of the hollow gap the rail
     // flies through. Two rib anchors per flank + the skull as the centre-line/fallback
