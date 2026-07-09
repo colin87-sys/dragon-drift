@@ -272,6 +272,15 @@ per-rubric-axis TARGET scores (aim every §5 axis ≥ 3.5 at round-0, no axis a 
 rear-chase/spectacle/silhouette requirements, and the reusable-kit inventory (§6). A pre-scored sheet
 is the actual time-saver — the design is decided on the sheet, not litigated at the gate.
 
+**RECORD SETTLED DECISIONS + AUDIT RULINGS — so the next chat doesn't re-litigate them.** As owner
+decisions get made and audits rule on suspects (e.g. "this dial that echoes a shipped dragon is
+kept-as-justified because <reason>, not leakage"), write them into a **"SETTLED — do NOT re-litigate"**
+block near the TOP of the sheet, each with its reasoning or a pointer to it. A design/build handoff to a
+fresh implementation chat MUST read that block first. Without it, every new chat re-opens the same
+resolved calls (rename this dial? is the persona too close? is the tone a clone?) and burns the rounds
+the pre-score was meant to save. Closed calls stay closed unless the builder raises a real objection to
+the owner — never silently changed.
+
 ---
 
 ## 4. Verify by FAILURE-CLASS (four tools, four failure modes)
@@ -422,6 +431,13 @@ Do these in round 1 so you skip Solar's 7-round climb AND its second pass entire
 6. Verify by failure-class (tricount, blueprint, smoke/flight, wingsymprobe, dragonstudio) → then the
    HIGH-EFFORT combined Fable gate (§5), run as a standing checkpoint, to PASS (now 2–3 rounds).
 7. Checkpoint the human on the live preview for motion/feel + any net-new element, before finalizing.
+
+**Handing a finished sheet to a fresh IMPLEMENTATION chat?** The handoff prompt must point it at (in
+order) the method, the sheet, and — FIRST among the sheet's sections — the **"SETTLED — do NOT
+re-litigate"** block (§3.5), so it builds the audited design instead of re-deriving it. An
+implementation chat's job is to BUILD the contract (apex-first, round-0 self-audit, verify-by-class,
+high-effort Fable gate to PASS, owner motion checkpoint), not to redesign it; closed calls stay closed
+unless it raises a real objection to the owner.
 
 **Pearl and Obsidian each need their OWN signature idea, tone, and palette** — reuse the METHOD and the
 CODE PATTERNS, never a shipped dragon's silhouette/tone/motif/hue (the roster's anti-collision rule; see

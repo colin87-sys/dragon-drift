@@ -40,6 +40,30 @@ COMPARED in-game before the owner decides to replace or retire the original. Thi
 
 ---
 
+## SETTLED — do NOT re-litigate (read this before building)
+
+These were decided by the owner or ruled by the Fable design/compliance audits. They are CLOSED — build
+to them; do not reopen or "improve" them. (Full reasoning is where cited.)
+
+**Owner decisions:** TRAIN-HERO signature (not wing-spread) · `title: 'The Dawnfire Empress'` ·
+dark-garnet dorsal + small pale-gold f3 belly nod (§4) · animated `trainSpread` fold/fan APPROVED (§7.2)
+· build as a COEXISTING new `phoenixEmpress` block, shipped `phoenix` untouched (§ coexistence).
+
+**Audit rulings (kept-as-justified — these are NOT Solar-leakage; do not strip or re-argue them):**
+- **`primaryGaps`** (splayed spread-primaries) — native raptor anatomy from the refs; kept, renamed off
+  Solar's `pinionSlots` (§3b). Do not rename back or remove.
+- **`trainLift`** — a sanctioned tail-lift appendage dial for the ascending read; kept (§3d). Not the
+  ladder currency (count/sector are). Do not call it a "banner rise."
+- **ONE near-white (Dawn Coal)** — a deliberate rebirth beat, not a quota; kept, f3-only (§4/§7).
+- **Empress persona** — the fenghuang IS the empress icon; it's the referent's royalty, not Solar-gravity
+  (§1). Kept. Her ladder is a REBIRTH, not a coronation (§5).
+- **Dark-bodied tone** — a principled fire-identity choice (a light body is the orange-blob trap), owner
+  ref is molten-on-black; kept, with an explicit TONE check in the QA veto (§4/QA-1.4).
+
+If you think any of these is wrong, RAISE IT with the owner — do not silently change it.
+
+---
+
 ## 1. IDENTITY
 
 **She is the fire that rises where the king's darkness reigns.** Solar is a horizontal eclipse
