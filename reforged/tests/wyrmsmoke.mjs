@@ -48,6 +48,10 @@ await page.evaluate(async () => {
   }
 });
 await page.waitForTimeout(600);
+// Prove the WYRM engine actually ran (not classic, not a silent no-op): 2 volleys
+// × (5 strikes + 1 finale) = 12 dispatches. Catches a broken/reverted toggle.
+const hits = await page.evaluate(() => window.__wyrmHits | 0);
+check(`wyrm engine dispatched all strikes+finales (${hits}/12)`, hits === 12);
 await page.evaluate(() => window.__dd.emit('bossEnd', { dist: 0 }));
 await page.waitForTimeout(200);
 
