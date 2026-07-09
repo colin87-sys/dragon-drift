@@ -458,10 +458,10 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
     `lungeProfile LAW: (p0+p1)/2 === 1 (got [${saved}])`);
   let hits = 0, collecting = false;
   on('bossDamage', (e) => { if (collecting && e.kind === 'lance') hits++; });
-  const arrivalFrame = (prof, targetRel, dt) => {
+  const arrivalFrame = (prof, targetRel, dt, ty = 13) => {
     L.lungeProfile = prof;
     bullets.resetBossBullets();
-    spawnWisp(2, 0, 13, targetRel);   // slot 2 = a mild bearing
+    spawnWisp(2, 0, ty, targetRel);   // slot 2 = a mild bearing
     collecting = true; hits = 0;
     let frame = 0, prevRel = -Infinity;
     while (frame < 400 && hits < 1) {
@@ -487,8 +487,18 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
       }
     }
   }
+  // The Codex cell: the nearest-organ clamp (targetRel 4 → a 2.5m flight,
+  // SHORTER than one 20fps frame) — constant speed arrives on frame 1; the
+  // profile must too (this is exactly where the set-vrel-for-next-step form
+  // was one frame late). Target y sits by the spawn so the landing test hits.
+  {
+    const ref = arrivalFrame(null, 4, 1 / 20, 9);
+    const got = arrivalFrame(saved, 4, 1 / 20, 9);
+    assertEq(got, ref, `sub-frame flight (rel 4 @ 20fps) arrives with constant speed (frame ${ref})`);
+    assertEq(ref, 1, 'the sub-frame flight really is a frame-1 arrival (the cell is honest)');
+  }
   L.lungeProfile = saved;
-  ok('T-W8 lunge invariance: 3 depths × 3 dts × 2 profiles == constant-speed arrival, rel monotone');
+  ok('T-W8 lunge invariance: 3 depths × 3 dts × 2 profiles + the sub-frame cell == constant-speed arrival');
 }
 
 console.log(`\n${n} wisp checks passed.`);
