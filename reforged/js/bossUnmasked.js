@@ -130,6 +130,54 @@ export function buildUnmasked(def, quality = 1) {
   halo.name = 'coronaHalo';
   stage1.add(halo);
 
+  // ── THE CRACK SEAMS (S1→S2 transition): jagged hot fractures that spider across the black
+  // disc as the mask breaks open — the "it made the masks" rite (the Voidmaw rhyme). Additive
+  // gold-white polylines from near the pupil to the rim, HOT at the core → dark at the tip so
+  // they read as splitting light bleeding through, not drawn lines. Hidden (opacity 0) until
+  // setStageMorph drives them; they ride `stage1`, so they collapse away with the mask. ──
+  // Built as TAPERED QUADS (not LineSegments — WebGL draws lines at a fixed 1px, too thin to
+  // glow at fight distance): each bolt segment is a ribbon that is WIDE + hot at the core and
+  // narrows + darkens to the rim, so additive blending reads it as splitting light.
+  const crackMat = track(new THREE.MeshBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  crackMat.toneMapped = false;
+  const crackHot = new THREE.Color(accent).lerp(new THREE.Color(0xffffff), 0.5);
+  // SEPARATE RNG stream (determinism): the crack jitter must NOT consume the main `rnd`
+  // stream, or every seeded draw built after it (the stage-2 pupil biases, the scar) shifts —
+  // adding this geometry would silently move the shipped seraph. A private seed keeps `rnd`
+  // (and therefore stage 2) byte-for-byte unchanged.
+  const crnd = mulberry32(0x1ceb00d);
+  const crackPos = [], crackCol = [], crackIdx = [];
+  const NCRACKS = lowQ ? 6 : 9;
+  let cv = 0;   // running vertex count
+  for (let c = 0; c < NCRACKS; c++) {
+    let ang = (c / NCRACKS) * TAU + (crnd() - 0.5) * 0.5;
+    let r = 0.3, px = Math.cos(ang) * r, py = Math.sin(ang) * r, pb = 1;
+    const segs = 3 + (crnd() * 3 | 0);
+    for (let s = 0; s < segs; s++) {
+      ang += (crnd() - 0.5) * 0.9;                                  // jitter the heading → a forked bolt
+      r = Math.min(DISC_R * 0.98, r + (DISC_R - 0.3) / segs * (0.7 + crnd() * 0.6));
+      const nx = Math.cos(ang) * r, ny = Math.sin(ang) * r, nb = Math.max(0, 1 - r / DISC_R);
+      const dx = nx - px, dy = ny - py, dl = Math.hypot(dx, dy) || 1;
+      const ox = -dy / dl, oy = dx / dl;                            // unit perpendicular to the segment
+      const wp = 0.03 + 0.14 * pb, wn = 0.03 + 0.14 * nb;           // half-width tapers with brightness
+      crackPos.push(px + ox * wp, py + oy * wp, DISC_Z + 0.06, px - ox * wp, py - oy * wp, DISC_Z + 0.06,
+        nx + ox * wn, ny + oy * wn, DISC_Z + 0.06, nx - ox * wn, ny - oy * wn, DISC_Z + 0.06);
+      for (const b of [pb, pb, nb, nb]) crackCol.push(crackHot.r * b, crackHot.g * b, crackHot.b * b);
+      crackIdx.push(cv, cv + 1, cv + 2, cv + 1, cv + 3, cv + 2);
+      cv += 4;
+      px = nx; py = ny; pb = nb;
+    }
+  }
+  const crackGeo = new THREE.BufferGeometry();
+  crackGeo.setAttribute('position', new THREE.Float32BufferAttribute(crackPos, 3));
+  crackGeo.setAttribute('color', new THREE.Float32BufferAttribute(crackCol, 3));
+  crackGeo.setIndex(crackIdx);
+  const cracks = new THREE.Mesh(crackGeo, crackMat);
+  cracks.name = 'crackSeams';
+  stage1.add(cracks);
+
   // ── THE EYE — a BIG HDR white almond that DOMINATES the disc (~0.77× disc diameter,
   // wider than the 26u lane, §5j). Named `focalEye`. The black disc is its rim. White-
   // hot, toneMapped=false ×HOT so it blooms. ──
@@ -501,12 +549,39 @@ export function buildUnmasked(def, quality = 1) {
   kit.flashBind(lidMat, 0.0);
   kit.finalize();
 
-  // Stage select (CP2 wires this to the phase machine; for now a debug/gate hook).
+  // ── THE S1→S2 CRACK TRANSITION ── the eclipse mask CRACKS open and the seraph BLOOMS out
+  // of the collapsing sun. One eased driver `setStageMorph(k)`: k 0 = full stage 1 (the second
+  // sun) → k 1 = full stage 2 (the seraph). Both sub-rigs live during the morph; the read is
+  // coherent because each rig scales as a WHOLE (no per-part detachment — the eyes ride their
+  // stage-2 group as it blooms, the cracks/corona ride stage-1 as it collapses). At k 0 and
+  // k 1 every driven value returns to the shipped pose byte-for-byte (verified). CP2 drives k
+  // over the phase seam; the studio 'morph' dial + the stage selector drive it for playtest. ──
+  const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  let coronaFlare = 0;   // corona destabilises (flares) as the sun cracks, read in tickBody
+  let stageMorph = 0;
+  function setStageMorph(k) {
+    stageMorph = Math.max(0, Math.min(1, k));
+    const m = stageMorph;
+    stage1.visible = m < 0.995;
+    stage2.visible = m > 0.005;
+    // The eclipse mask (disc + corona + hood + cracks) COLLAPSES toward the centre as it opens.
+    stage1.scale.setScalar(Math.max(1e-4, 1 - smooth(0.35, 0.72, m)));
+    // The CRACKS spider across the disc — peak mid-crack, gone once the mask is consumed.
+    crackMat.opacity = Math.sin(Math.PI * Math.min(1, m / 0.72)) * 0.9;
+    // The corona FLARES as the sun destabilises, then dies with the collapse (added in tickBody).
+    coronaFlare = smooth(0.05, 0.4, m) * (1 - smooth(0.4, 0.72, m));
+    // The seraph BLOOMS out of the collapsing sun — scales up from behind the disc so it is
+    // REVEALED (occlusion, not a fade) as the mask shrinks off it. Full at k 1 (= shipped).
+    stage2.scale.setScalar(0.2 + 0.8 * smooth(0.4, 1.0, m));
+  }
+
+  // Stage select (CP2 wires this to the phase machine; for now a debug/gate hook). A discrete
+  // stage pick maps to the morph endpoints — stage 1 → k 0, stage 2+ → k 1 (a hard cut). The
+  // stage selector uses this; the transition itself is setStageMorph.
   let stageN = 1;
   function setDebugStage(n) {
     stageN = n;
-    stage1.visible = (n == null || n === 1);
-    stage2.visible = (n === 2);
+    setStageMorph(n == null || n <= 1 ? 0 : 1);
   }
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
@@ -604,7 +679,7 @@ export function buildUnmasked(def, quality = 1) {
     // ── Corona: BREATHE (never spin); brighter as the eye opens + on charge; dimmer
     // when heavy-lidded (the lidded sun is dimmer). .color scales the vertex colours. ──
     const breatheC = 0.62 + Math.sin(time * 0.6 * TAU) * 0.08 + aperture * 0.3 + charge * 0.35;
-    const cK = Math.max(0, breatheC) * (1 - dyingK);
+    const cK = Math.max(0, breatheC) * (1 - dyingK) + coronaFlare * 0.9;   // + the S1→S2 crack flare (the sun destabilising)
     coronaMat.color.setScalar(cK);
     lashMat.opacity = (0.35 + aperture * 0.35 + charge * 0.2) * (1 - dyingK);
 
@@ -678,6 +753,7 @@ export function buildUnmasked(def, quality = 1) {
     notice,
     allSnap,
     setDebugStage,
+    setStageMorph,
     setDebugWing,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
