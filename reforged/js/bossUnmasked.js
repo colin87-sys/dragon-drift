@@ -877,6 +877,7 @@ export function buildUnmasked(def, quality = 1) {
 
   return {
     group, muzzle, orbiters,
+    stageTransitionDur: TRANS_DUR,   // boss.js reads this to HOLD FIRE through the crack/unveiling + land the reveal beat on the eye-snap
     setDissolve: setDissolveEmotive,
     setCharge,
     setGaze,

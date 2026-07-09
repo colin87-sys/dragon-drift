@@ -487,6 +487,9 @@ for (const key of BOSS_ORDER) {
   um.setPhase(2);
   for (let i = 0; i < 30; i++) um.tick(0.1, 4 + i * 0.1);
   assert(s3.visible && s2.visible, 'phase→2 settles on the unveiling (stage 3 core up, the seraph wings kept)');
+  // The transition BEAT contract: the model exposes its transition duration so boss.js can hold
+  // fire through the crack/unveiling and land the all-eyes reveal (camera + slow-mo) on the eye-snap.
+  assert(um.stageTransitionDur > 0, `unmasked exposes stageTransitionDur for the fire-hold + reveal beat (${um.stageTransitionDur})`);
   um.dispose();
   ok('unmasked LIVE STAGE MACHINE: setPhase animates the crack (P1) then the unveiling (P2) — the fight progresses through the forms');
 }
