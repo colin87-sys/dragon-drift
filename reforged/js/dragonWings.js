@@ -1797,10 +1797,12 @@ function buildBonfireManeWings(def, model, attach, giM) {
     const wingTip = new THREE.Group();
     wingTip.position.set(wristXW * side, wristYW, wristZW);
 
-    // molten leading ARM
-    const arm = [{ x: 0.05, y: 0, z: -0.02 }];
-    for (let i = 0; i < Nt; i++) { const t = Nt > 1 ? i / (Nt - 1) : 0; const rx = armLenW * (0.1 + 0.82 * t); arm.push({ x: rx, y: rx * Math.tan(theta), z: rx * Math.tan(sweep) }); }
-    const baseR = 0.15 * ws * (0.7 + 0.3 * cfg.reachK);
+    // molten leading ARM — a SHORT root stub only (not a full-span rod): the flames over-reach it,
+    // so a long spar protruded past the wing as a thin stick and read as an extra wing. Keep it a
+    // small glowing root nub.
+    const armEnd = armLenW * 0.34;
+    const arm = [{ x: 0.05, y: 0, z: -0.02 }, { x: armEnd, y: armEnd * Math.tan(theta), z: armEnd * Math.tan(sweep) }];
+    const baseR = 0.08 * ws * (0.7 + 0.3 * cfg.reachK);   // slim stub, not a chunky rod
     for (let s = 0; s < arm.length - 1; s++) {
       const a = arm[s], b = arm[s + 1], inner = b.x < wristXW, par = inner ? orient : wingTip;
       const ox = inner ? 0 : wristXW, oy = inner ? 0 : wristYW, oz = inner ? 0 : wristZW;
@@ -1813,22 +1815,22 @@ function buildBonfireManeWings(def, model, attach, giM) {
     const jx = (i) => (i + ph) % jLen.length;
     for (let i = 0; i < Nt; i++) {
       const t = Nt > 1 ? i / (Nt - 1) : 0;
-      const rootX = armLenW * (0.1 + 0.8 * t);
+      const rootX = armLenW * (0.14 + 0.12 * t);               // CLUSTER the wing's tongues at a common root, both inside the wrist so they hang off ONE parent and move together (was spread 0.1→0.9 → read as separate flames)
       const rootY = rootX * Math.tan(theta);
-      const rootZ = rootX * Math.tan(sweep) + 0.05 * i;
+      const rootZ = rootX * Math.tan(sweep) + 0.02 * i;         // tight root stagger → the 2 tongues sit almost coincident (one wing plane)
       const len = maxLenW * (lenBase(i, Nt) + jLen[jx(i)]) * cfg.lenK;
-      const wRoot = chordK * reachW * (0.98 + 0.28 * Math.sin(t * Math.PI)) * (1 + jWid[jx(i)]);   // BROADER roots → tongues overlap into one bold flame plane per wing (de-spiked)
-      const curlZ = reachW * 0.32 * jCurl[jx(i)];
-      const curlY = reachW * 0.1 * jUp[jx(i)];                   // MILD per-tongue up-flick (was 0.2 → over-splayed into separate spikes); the upward energy now comes from the wing tilt
-      const lick = reachW * 0.16 * jLick[jx(i)];
+      const wRoot = chordK * reachW * (0.82 + 0.22 * Math.sin(t * Math.PI)) * (1 + jWid[jx(i)]);   // slimmer chord (was too thick/busy)
+      const curlZ = reachW * 0.22 * jCurl[jx(i)];              // less aft curl → the 2 tongues overlap rather than fan apart
+      const curlY = reachW * 0.09 * jUp[jx(i)];                 // MILD up-flick (upward energy comes from the wing tilt, not per-tongue splay)
+      const lick = reachW * 0.14 * jLick[jx(i)];
       const inner = rootX < wristXW, parent = inner ? orient : wingTip;
-      const pitchY = reachW * 0.05 * jPitch[jx(i)];
+      const pitchY = reachW * 0.03 * jPitch[jx(i)];
       const px = inner ? rootX * side : (rootX - wristXW) * side, py = (inner ? rootY : rootY - wristYW) + pitchY, pz = inner ? rootZ : rootZ - wristZW;
       const rest = new THREE.Group();
       rest.position.set(px, py, pz);
-      rest.rotation.y = side * -(0.02 + jRake[jx(i)] * 0.7);     // tighter fan (less splay → tongues overlap within the wing)
-      rest.rotation.z = side * (theta + 0.10 * jPitch[jx(i)]);
-      rest.rotation.x = jRoll[jx(i)] * 0.7;
+      rest.rotation.y = side * -(0.01 + jRake[jx(i)] * 0.3);     // near-zero fan → the 2 tongues stack into ONE wing shape (not a spread fan)
+      rest.rotation.z = side * (theta + 0.06 * jPitch[jx(i)]);
+      rest.rotation.x = jRoll[jx(i)] * 0.4;
       const lag = new THREE.Group(); rest.add(lag);
       const mesh = new THREE.Mesh(tongueGeo(len, wRoot, curlZ, curlY, lick, i + ph), maneMat);
       mesh.scale.x = side; lag.add(mesh);

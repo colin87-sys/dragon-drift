@@ -62,7 +62,7 @@ const SPECS = {
     // Cloudjumper / Stormcutter TWIN-WING layout: TWO flame-wings per side (an upper that lifts and
     // a smaller lower that spreads), 3 tongues each → 6 elements per side. The upswept wings trade
     // horizontal span for vertical reach, so span:body reads lower than a flat wing.
-    wingElements: 6,                            // 3 upper + 3 lower flame tongues per side
+    wingElements: 4,                            // 2 upper + 2 lower flame tongues per side (each wing = 2 overlapping tongues → reads as ONE clean wing)
     foldMax: 1.02,                             // twin upswept wings don't furl as tightly (provisional)
     triTargets: [2600, 4200, 5800],
     headBody: [[2.0, 2.6], [3.0, 4.2], [4.5, 5.5]],
