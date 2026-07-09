@@ -2653,4 +2653,44 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('ENG-E ORGAN BREAK: 3 perfect rib parries crack the rib (its volley + arc deleted); over-crack is inert ✓');
 }
 
+// §ENG-B authored gaps: a def can LOCK a wall's safe lane to an organ (card-gated), so the
+// dread's gap is a boss-read, not player-tracking. Hero: STORMREND's eye during its dread.
+{
+  const bul = () => bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+  const laneAt = (bs, gx, half) => bs.length > 0 && bs.every((b) => Math.abs(b.x - gx) >= half - 0.01);
+
+  // G1 coexist (headless def/model null): curtain gap at the shipped -sign(player.x||1)*5.5.
+  // makePlayer x=0 → -sign(0||1)*5.5 = -5.5.
+  bullets.resetBossBullets(); boss.debugEmitAttack('curtain', makePlayer(), 1);
+  assert(laneAt(bul(), -5.5, 3.0), 'ENG-B coexist: un-opted curtain gap sits at the shipped player-sign lane (-5.5)');
+
+  // Live stormrend for the opted paths (player parked off-lane at +6).
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const p = makePlayer(); p.position.x = 6;
+  boss.forceBoss(p, BOSS_ORDER.indexOf('stormrend'));
+  boss.debugForceFight(p);
+  for (let i = 0; i < 30; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+
+  const eyeX = boss.debugPartWorldPos('focalEye').x;
+  // G4 (card OFF): un-opted movingGap SLIDES from the player seed — so it does NOT leave a
+  // single locked lane at the eye (the anchor is inert outside its card).
+  boss.debugForceCard(null);
+  bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+  assert(!laneAt(bul(), eyeX, 2.6), 'ENG-B card-off: movingGap does NOT lock to the eye (anchor inert; shipped player-seeded slide)');
+
+  // G2 (card ON): every row's lane LOCKS to the eye — a single boss-read gap, not the slide.
+  assert(boss.debugForceCard('stormrend_eye'), 'ENG-B: stormrend_eye card arms via debugForceCard');
+  bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+  assert(laneAt(bul(), eyeX, 2.6), `ENG-B: during the dread, movingGap LOCKS its lane to the eye (x≈${eyeX.toFixed(1)}), not the player at +6`);
+
+  // G5 clamp (authored out-of-arena → clamps into the arena, laneSafe holds).
+  const saved = BOSSES.stormrend.gapAnchor.movingGap;
+  BOSSES.stormrend.gapAnchor.movingGap = { card: 'stormrend_eye', x: 40 };
+  bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+  assert(laneAt(bul(), 9, 2.6), 'ENG-B clamp: an out-of-arena authored x (40) clamps to the +9 lane (never unreachable)');
+  BOSSES.stormrend.gapAnchor.movingGap = saved;
+  boss.resetBoss();
+  ok('ENG-B authored gaps: the dread wall’s lane LOCKS to the storm’s eye (a boss-read); card-off = shipped player placement; out-of-arena clamps in ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);

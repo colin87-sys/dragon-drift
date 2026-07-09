@@ -3147,6 +3147,26 @@ function resolveReflectTargets(player) {
   return out.length ? out : null;   // empty → null → centre (never-whiff, unlike emit's SKIP)
 }
 
+// §ENG-B: resolve a def-authored gap anchor for attack id → a lane X, or null (null = take
+// the shipped player-derived placement, byte-identical). Card-gated specs (the horizonPocketX
+// precedent, generalized) are inert outside their card. On failure it falls back to null →
+// the shipped placement (never a gapless wall — the resolveReflectTargets never-whiff flip,
+// not emit's SKIP). Returns UNCLAMPED — each read point pushes it through its own shipped clamp.
+const _gapV = new THREE.Vector3();
+function resolveGapAnchor(id) {
+  const spec = def?.gapAnchor?.[id];
+  if (!spec) return null;                                       // un-opted
+  if (spec.card && activeCard?.id !== spec.card) return null;   // card-gated, card not live
+  let x = null;
+  if (spec.part && model?.partWorldPos) {
+    const w = model.partWorldPos(spec.part, _gapV);
+    if (w) x = w.x;                                             // live world-x of the organ
+  }
+  if (x == null && typeof spec.x === 'number') x = spec.x;      // fixed-x author / part fallback
+  if (x == null) return null;                                   // nothing resolvable → shipped
+  return x + (spec.offset ?? 0);
+}
+
 // Solve the lateral velocity that puts a bullet on a target point as it closes,
 // FROM an arbitrary origin o = {x, y, rel} (per-emitter time-to-impact, §5e).
 function aimVelFrom(o, targetX, targetY, closing) {
@@ -3412,7 +3432,9 @@ function executeAttack(id, player) {
     const stepY = quality < 0.75 ? 4.6 : 3.4;
     // Gap sits toward your opposite side (commit early) but not all the way across —
     // 5.5m, not 7m, so the traversal is fair to read + fly in the reaction window.
-    const gap = Math.max(-hw + slot, Math.min(hw - slot, -Math.sign(player.position.x || 1) * 5.5));
+    // §ENG-B: an authored anchor (e.g. an organ's live x) LOCKS the lane; null = shipped player-sign.
+    const ax = resolveGapAnchor('curtain');
+    const gap = Math.max(-hw + slot, Math.min(hw - slot, ax != null ? ax : -Math.sign(player.position.x || 1) * 5.5));
     // Slower close than the aimed/fan shots: a full wall must be READ (find the gap)
     // AND traversed, so it needs a longer reaction window than a bullet you sidestep.
     const slow = closing * 0.66;
@@ -3432,9 +3454,12 @@ function executeAttack(id, player) {
     const g0 = Math.max(-6, Math.min(6, player.position.x));
     const slow = closing * 0.9;
     for (let k = 0; k < rows; k++) {
-      const gap = Math.max(-9, Math.min(9, g0 + dir * 2.6 * k));
       const b = activeBand[k % activeBand.length];
       pending.push({ t: k * 0.3, fire: () => {
+        // §ENG-B: an authored anchor LOCKS the lane (re-resolved live per row — a moving
+        // organ tracks); un-opted keeps the shipped slide from the player-seeded g0.
+        const ax = resolveGapAnchor('movingGap');
+        const gap = Math.max(-9, Math.min(9, ax != null ? ax : g0 + dir * 2.6 * k));
         const hw = Math.min(12, arenaHW - 1), sx = (hw * 2) / n;
         // Bands track the player's LIVE height so the wall can't be out-CLIMBED —
         // flying high/low just keeps you sandwiched; the moving X gap is the answer.
@@ -3483,7 +3508,10 @@ function executeAttack(id, player) {
     const rad = 10, contract = 0.62;
     const slow = closing * 0.8;
     const inSpd = (rad * contract) / (pose.rel / slow);   // arrives at rad×(1−contract) ≈ 3.8
-    const cx = anchorX, cy = B.fightHeight;
+    // §ENG-B: an authored ring centre (e.g. the storm's eye) — clamped to iris's own ±8
+    // envelope; resolved ONCE here (not per-ring) so the volley's rings stay concentric.
+    const gax = resolveGapAnchor('iris');
+    const cx = gax != null ? Math.max(-8, Math.min(8, gax)) : anchorX, cy = B.fightHeight;
     for (let k = 0; k < rings; k++) {
       const b = activeBand[k % activeBand.length];
       pending.push({ t: k * 0.4, fire: () => {
@@ -4390,6 +4418,13 @@ export function debugForceFight(player) {
 // PR3 test seams (headless, deterministic — no flaky rAF-throttled dwell/charge):
 // bank pips directly, read the aimed-beam part pick, and fire the Surge climax
 // synchronously. Only touch live state when a fight is running.
+// §ENG-B test seam: arm/clear a def card without driving hp (cards otherwise arm at hp
+// fractions, so the card-gated gapAnchor is untestable headlessly). Returns whether it armed.
+export function debugForceCard(id) {
+  const c = (id && def?.cards?.find((cc) => cc.id === id)) || null;
+  activeCard = c; cardTimer = c ? (c.timer ?? 24) : 0;
+  return !!c;
+}
 export function debugBankLocks(n = 2) {
   const cands = lockCandidates();
   if (!cands.length) return 0;

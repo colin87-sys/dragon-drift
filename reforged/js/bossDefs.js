@@ -128,6 +128,14 @@ export const BOSSES = {
     tier: 1,                               // SENTINEL (§5b band 1)
     hpMax: 220,
     virtualLockOrgan: 'focalEye',          // LANCE V1: the storm-eye core (bossMandala.js)
+    // §ENG-B hero: during the dread card, the storm's gaps are the EYE's — iris rings
+    // centre on focalEye and movingGap's safe lane LOCKS to the eye axis ("fly into the
+    // eye of the storm" is literally true; the ±5 station sway makes the eye a legible
+    // moving read, the horizonPocketX grammar). Outside the card: shipped player placement.
+    gapAnchor: {
+      iris:      { card: 'stormrend_eye', part: 'focalEye' },
+      movingGap: { card: 'stormrend_eye', part: 'focalEye' },
+    },
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the
     // legacy crystal-core construct — see voidmaw's `archetype` comment above.
