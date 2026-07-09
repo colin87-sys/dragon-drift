@@ -671,20 +671,20 @@ export function buildUnmasked(def, quality = 1) {
   // stage pick maps to the driver endpoints — 1 → the eclipse (morph 0), 2 → the seraph
   // (morph 1, unveiling 0), 3 → the unveiled third form (morph 1, unveiling 1). The stage
   // selector uses this; the transitions themselves are setStageMorph / setStage3.
+  // ── THE LIVE STAGE MACHINE (boss.js calls model.setPhase on every phase advance): the fight
+  // ANIMATES the transition INTO the new phase's stage — phase 1 plays the S1→S2 CRACK, phase 2
+  // plays the S2→S3 UNVEILING. `transKind` names the running transition, `transT` eases 0→1 over
+  // TRANS_DUR (advanced in tickBody). ──
+  const TRANS_DUR = 2.0;
+  let transKind = null, transT = 0;
   let stageN = 1;
   function setDebugStage(n) {
+    transKind = null;   // a hard stage-set is a CUT — cancel any running transition (also the SKIP path)
     stageN = n;
     setStageMorph(n == null || n <= 1 ? 0 : 1);
     setStage3(n >= 3 ? 1 : 0);
   }
 
-  // ── THE LIVE STAGE MACHINE (boss.js calls model.setPhase on every phase advance): the fight
-  // ANIMATES the transition INTO the new phase's stage — phase 1 plays the S1→S2 CRACK, phase 2
-  // plays the S2→S3 UNVEILING. `transKind` names the running transition, `transT` eases 0→1 over
-  // TRANS_DUR (advanced in tickBody). A phase we're already at (spawn-start via setDebugStage)
-  // never re-animates — setPhase only fires on a genuine advance (breakShield), never at spawn. ──
-  const TRANS_DUR = 2.0;
-  let transKind = null, transT = 0;
   function setPhase(n) {
     if (n === 1) { transKind = 'crack'; transT = 0; }        // S1 → S2: the mask cracks, the seraph blooms
     else if (n === 2) { transKind = 'unveil'; transT = 0; }  // S2 → S3: the core unveils, the wings mantle full
