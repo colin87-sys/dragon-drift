@@ -3,11 +3,12 @@
 // Layer unlock order: bass+melody always → arpeggio on boost →
 // high-lead on combo≥2 → percussion on combo≥3 → fever sparkle on surge.
 
+import { CONFIG } from './config.js';
 import { saveData, persist } from './save.js';
 import { TRACKS } from './tracks.js';
 import { mulberry32 } from './util.js';
 import { upgradeMasterChain } from './sfxLimiter.js';
-import { snapToChord, chordLadder, nextGridDelay } from './harmony.js';
+import { snapToChord, chordLadder, nextGridDelay, tonicOf } from './harmony.js';
 import { INSTS } from './insts.js';
 import { sectionAt, chooseSection, melodyVariant } from './composer.js';
 import { on } from './events.js';
@@ -19,6 +20,13 @@ export { TRACKS };
 // the A/B escape hatch for judging the overhaul on the PR preview.
 const AUDIO_V2 = (() => {
   try { return !/[?&]audio=v1(&|$)/.test(window.location.search); } catch { return true; }
+})();
+// Unleash-phrase rollout flag (PR9): ON by default; `?unleash=v1` restores the
+// shipped brand phrase (immediate release, swell inhale, pentatonic strikes, no
+// finale) — the A/B escape hatch for judging the reward rebuild on the preview.
+// Gates BOTH the new synth bodies below and the beat-hold (boss.js consults it).
+export const UNLEASH_V2 = (() => {
+  try { return !/[?&]unleash=v1(&|$)/.test(window.location.search); } catch { return true; }
 })();
 let limiterActive = false;   // worklet limiter engaged (false = shipped chain)
 let audioUnderruns = 0;      // audio-thread stall beacons from the limiter worklet
@@ -590,6 +598,88 @@ function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay
 let surgeReadyNodes = null;
 let surgeCrackleNodes = null;
 let dwellHumNodes = null;   // V5/PR7: the LANCE dwell "closing-in" hum (frequency tracks progress)
+// PR9 UNLEASH PHRASE state — the INHALE riser handle + the held strike voices
+// awaiting the finale cadence (C2/C3). All AudioContext-time scheduled, zero RNG.
+let brandRiserNodes = null; // { out, sources } — one live riser at a time
+let lanceVoices = [];       // held strike voices: [{ g, until }]
+let lanceChordGain = null;  // shared bus for the voices (+ the echo glue), lazy
+
+// Stepped param ramp: many small setValueAtTime points instead of one long
+// exponentialRamp, so brandRiserRelease can cancelScheduledValues(tStop) and the
+// param HOLDS its last-reached value (the "rise stops" arrival cue) instead of
+// snapping back to the ramp's start — the classic cancel-mid-ramp gotcha, dodged
+// without relying on cancelAndHoldAtTime support.
+function stepRamp(param, t0, dur, from, to, exp = true, steps = 24) {
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    const v = exp ? from * Math.pow(to / from, u) : from + (to - from) * u;
+    param.setValueAtTime(v, t0 + dur * u);
+  }
+}
+
+// The held-voice bus (PR9/C2): strike voices sum here → sfxBus, with one small
+// feedback-delay echo send for chord glue/space. Returns to sfxBus by design —
+// NEVER the music convolver (its return re-enters musicBus and would inherit
+// music mute; the getBeatClock/getHarmony null contract must hold for FX too).
+function getLanceChordBus(a) {
+  if (lanceChordGain) return lanceChordGain;
+  lanceChordGain = a.createGain();
+  lanceChordGain.gain.value = 1;
+  lanceChordGain.connect(sfxBus);
+  const send = a.createGain(); send.gain.value = 0.3;
+  const dly = a.createDelay(0.5); dly.delayTime.value = 0.16;
+  const fb = a.createGain(); fb.gain.value = 0.28;
+  const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
+  lanceChordGain.connect(send).connect(dly).connect(lp);
+  lp.connect(fb).connect(dly);   // the feedback loop (legal: contains a DelayNode)
+  lp.connect(sfxBus);
+  return lanceChordGain;
+}
+
+// One sustaining strike voice (PR9/C2): slow-attack (~60ms) triangle+octave pair
+// — the sustain envelope tone() can't make. LAW: capped at strikeVoiceMax, and
+// every voice schedules its OWN release at voiceMaxHoldS on creation, so a
+// dropped finale (boss died mid-roll, queue cleared) can never strand a drone.
+function lanceVoiceStart(a, freq, t0) {
+  const L = CONFIG.LOCK;
+  lanceVoices = lanceVoices.filter((v) => v.until > t0);
+  if (lanceVoices.length >= L.strikeVoiceMax || !(freq > 0)) return;
+  const bus = getLanceChordBus(a);
+  const g = a.createGain();
+  const until = t0 + L.voiceMaxHoldS;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.setTargetAtTime(L.strikeSustainVol, t0 + 0.001, 0.06);
+  g.gain.setTargetAtTime(0.0001, until, 0.3);   // the self-release watchdog (LAW)
+  for (const [type, mul, vol] of [['triangle', 1, 1], ['sine', 2, 0.35]]) {
+    const o = a.createOscillator();
+    o.type = type; o.frequency.value = freq * mul;
+    const og = a.createGain(); og.gain.value = vol;
+    o.connect(og).connect(g);
+    o.start(t0);
+    o.stop(until + 1.4);
+  }
+  g.connect(bus);
+  lanceVoices.push({ g, until });
+}
+
+// The cadence (PR9/C2): a FULL set's held voices swell briefly and release
+// together under the finale — the run coming home as a stacked chord. A partial
+// volley just lets go (notes, no cadence — the class separation is the point).
+function lanceChordRelease(t, full) {
+  const L = CONFIG.LOCK;
+  for (const v of lanceVoices) {
+    const g = v.g.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(L.strikeSustainVol, t);
+    if (full) {
+      g.linearRampToValueAtTime(L.strikeSustainVol * 1.2, t + 0.12);
+      g.setTargetAtTime(0.0001, t + 0.12, 0.35);
+    } else {
+      g.setTargetAtTime(0.0001, t, 0.12);
+    }
+  }
+  lanceVoices = [];
+}
 
 export const sfx = {
   // Glassy ice-bell pluck: pure fundamental + bright inharmonic partial
@@ -828,10 +918,12 @@ export const sfx = {
   // itself routes through sfxBus, and the kick sidechain lives on its own
   // pumpGain node, so musicBus.gain is free for this transient automation. The
   // restore target is musicTarget() so it respects mute/volume.
-  volleyDuck() {
+  // PR9: `delay` anchors the duck under the beat-held DROP, not the commit —
+  // still the ONE musicBus.gain automation (L191: never add a second writer).
+  volleyDuck(delay = 0) {
     const a = getCtx();
     if (!a || !musicBus) return;
-    const t = a.currentTime, base = musicTarget();
+    const t = a.currentTime + (UNLEASH_V2 ? Math.max(0, delay) : 0), base = musicTarget();
     musicBus.gain.cancelScheduledValues(t);
     musicBus.gain.setValueAtTime(base * 0.55, t);
     musicBus.gain.setTargetAtTime(base, t + 0.18, 0.12);
@@ -1116,12 +1208,110 @@ export const sfx = {
     tone({ freq: 140, end: 90, dur: 0.06, type: 'sine', vol: 0.05 });        // sub tick (weight)
   },
   // The set completes: a quick low→high arpeggio (each brand answers), then the
-  // dragon DRAWS BREATH — the rising inhale IS the cap fuse made audible.
-  brandCap() {
+  // dragon DRAWS BREATH. v2 (PR9/C3): the breath is a true RISER — an uplifter
+  // bed + sub + an accelerating tick-ratchet that STOPS at the release and
+  // leaves a silence void before the drop (brandRiserRelease). v1: the shipped
+  // plain 0.8s swell.
+  brandCap(n = 0) {
     tone({ freq: 660, dur: 0.08, type: 'triangle', vol: 0.06 });
     tone({ freq: 880, dur: 0.08, type: 'triangle', vol: 0.06, delay: 0.07 });
     tone({ freq: 1175, dur: 0.1, type: 'triangle', vol: 0.065, delay: 0.14 });
-    tone({ freq: 280, end: 860, dur: 0.8, type: 'sine', vol: 0.05, delay: 0.2 });
+    if (!UNLEASH_V2) {
+      tone({ freq: 280, end: 860, dur: 0.8, type: 'sine', vol: 0.05, delay: 0.2 });
+      return;
+    }
+    sfx.brandRiserStart(n || 3);
+  },
+  // PR9/C3 — the INHALE riser. Three voices on one output gain, every parameter
+  // step-scheduled on the AudioContext clock (stepRamp — cancellable without
+  // ramp snap-back, zero setTimeout, zero RNG): (1) a bandpass-noise uplifter
+  // sweeping 400 Hz → an n-scaled ceiling, (2) a sub uplifter 45→110 Hz, (3) a
+  // tick-ratchet accelerating over the fuse then holding at max rate — the rate
+  // and ceiling scale SUPER-linearly with n (C4: a 6-set is a different class of
+  // sound, not 2× the notes). Past riserMaxHoldS the whole thing self-fades
+  // (deflect can stall a release forever; a riser must never become a drone).
+  brandRiserStart(n = 3) {
+    const a = getCtx();
+    if (!a || !sfxBus || !UNLEASH_V2) return;
+    sfx.brandRiserCancel();
+    const L = CONFIG.LOCK;
+    const t0 = a.currentTime;
+    const T = L.capFuse;                                   // the audible fuse = the ramp
+    const nn = Math.max(1, n);
+    const big = Math.pow(nn / 3, L.riserTickPowN);         // the super-linear n factor
+    const out = a.createGain();
+    out.gain.setValueAtTime(0.0001, t0);
+    stepRamp(out.gain, t0, T, 0.003, Math.min(0.09, 0.04 + 0.012 * (nn - 3)), true);
+    out.gain.setTargetAtTime(0.0001, t0 + T + L.riserMaxHoldS, 0.15);  // the self-fade watchdog
+    out.connect(sfxBus);
+    const sources = [];
+    // (1) the uplifter bed
+    const src = a.createBufferSource();
+    src.buffer = getNoiseBuffer(a);
+    src.loop = true;
+    const bp = a.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 2.4;
+    stepRamp(bp.frequency, t0, T, 400, Math.min(7000, 2600 + 750 * nn), true);
+    src.connect(bp).connect(out);
+    src.start(t0);
+    sources.push(src);
+    // (2) the sub uplifter — the pitch-rise the body feels
+    const sub = a.createOscillator();
+    sub.type = 'sine';
+    stepRamp(sub.frequency, t0, T, 45, 110, false);
+    const subG = a.createGain(); subG.gain.value = 0.9;
+    sub.connect(subG).connect(out);
+    sub.start(t0);
+    sources.push(sub);
+    // (3) the tick-ratchet: one square osc gated by a scheduled gain comb —
+    // tick rate accelerates ×3 across the fuse, then holds at max (the plateau
+    // keeps motion through any beat-hold — L209: a beat needs MOTION).
+    const tick = a.createOscillator();
+    tick.type = 'square';
+    stepRamp(tick.frequency, t0, T, 1300, 2600, true, 12);
+    const tickG = a.createGain();
+    tickG.gain.setValueAtTime(0.0001, t0);
+    const rate0 = L.riserTickBase * big;
+    let tk = 0;
+    for (let i = 0; i < 160 && tk < T + L.riserMaxHoldS; i++) {
+      tickG.gain.setValueAtTime(0.5, t0 + tk);
+      tickG.gain.setTargetAtTime(0.0001, t0 + tk + 0.004, 0.007);
+      tk += 1 / (rate0 * (1 + 2 * Math.min(1, tk / T)));
+    }
+    tick.connect(tickG).connect(out);
+    tick.start(t0);
+    sources.push(tick);
+    const stopAt = t0 + T + L.riserMaxHoldS + 1.0;
+    for (const s of sources) { try { s.stop(stopAt); } catch {} }
+    brandRiserNodes = { out, sources };
+  },
+  // The release seam (PR9/C3): freeze every rising parameter at t_rel − gap (the
+  // ear's "arrival" cue — the rise STOPS) and cut the gain — the silence VOID
+  // that makes the drop land. `delaySec` = the beat-hold D from lockVolley;
+  // no-op when no riser is live (manual tap mid-set, v1, decay).
+  brandRiserRelease(delaySec = 0, gapSec = 0.06) {
+    const a = getCtx();
+    const nds = brandRiserNodes;
+    brandRiserNodes = null;
+    if (!a || !nds) return;
+    const tStop = Math.max(a.currentTime, a.currentTime + delaySec - gapSec);
+    for (const s of nds.sources) { try { s.stop(tStop + 0.08); } catch {} }
+    const g = nds.out.gain;
+    g.cancelScheduledValues(tStop);   // stepped points before tStop survive = the freeze
+    g.setTargetAtTime(0.0001, tStop, 0.006);
+  },
+  // Teardown for every non-release exit (locks stripped, sealed tap, fight end):
+  // fast fade, no void, no drop. The scheduled self-fade watchdog covers exits
+  // with no event at all (death mid-fuse).
+  brandRiserCancel() {
+    const a = getCtx();
+    const nds = brandRiserNodes;
+    brandRiserNodes = null;
+    if (!a || !nds) return;
+    const t = a.currentTime;
+    nds.out.gain.cancelScheduledValues(t);
+    nds.out.gain.setTargetAtTime(0.0001, t, 0.05);
+    for (const s of nds.sources) { try { s.stop(t + 0.4); } catch {} }
   },
   // The exhale (PR4b — the release with WEIGHT; owner: "sound is underwhelming").
   // The research-backed gesture: a bass THUMP anchors the moment, the whoosh
@@ -1129,25 +1319,76 @@ export const sfx = {
   // faint detuned chirps smear the release so the volley audibly sounds PLURAL.
   // The per-hit reward moved to brandStrike (the impact arpeggio) — the release
   // is the exhale, the landings are the drum-roll.
-  brandLoose(n = 3) {
-    tone({ freq: 100, end: 40, dur: 0.09, type: 'sine', vol: 0.14 });          // the thump (weight)
-    noiseWhoosh({ from: 400, to: 4000, dur: 0.36, vol: 0.11, q: 1.4 });        // breath sweeping UP + out
-    tone({ freq: 900, end: 220, dur: 0.34, type: 'sawtooth', vol: 0.045 });    // the body sweep, under it
+  // v2 (PR9): THE DROP. Everything schedules at `delay` (the beat-hold D from
+  // lockVolley) so the hit lands ON the song's grid, and the layered big-hit
+  // recipe fills what the shipped body lacked: a 5ms noise CLICK (the "contact"
+  // attack), a SUB-DROP whose falling pitch-envelope IS the punch, and an air
+  // layer on top. A FULL set drops heavier (C4).
+  brandLoose(n = 3, delay = 0, full = false) {
+    const d = UNLEASH_V2 ? Math.max(0, delay) : 0;
+    tone({ freq: 100, end: 40, dur: 0.09, type: 'sine', vol: 0.14, delay: d }); // the thump (weight)
+    noiseWhoosh({ from: 400, to: 4000, dur: 0.36, vol: 0.11, q: 1.4, delay: d }); // breath sweeping UP + out
+    tone({ freq: 900, end: 220, dur: 0.34, type: 'sawtooth', vol: 0.045, delay: d }); // the body sweep, under it
     for (let i = 0; i < Math.min(n, 6); i++) {
       tone({ freq: 620 + i * 47, end: 1500 + i * 180, dur: 0.12, type: 'sawtooth',
-        vol: 0.028, delay: 0.02 + i * 0.018 });   // detuned launch chirps (plurality)
+        vol: 0.028, delay: d + 0.02 + i * 0.018 });   // detuned launch chirps (plurality)
     }
+    if (!UNLEASH_V2) return;
+    noiseWhoosh({ from: 5200, to: 5000, dur: 0.014, vol: 0.1, q: 0.4, delay: d });  // the 5ms contact CLICK
+    tone({ freq: 120, end: 45, dur: 0.3, type: 'sine', vol: full ? 0.16 : 0.11, delay: d }); // the SUB-DROP
+    noiseWhoosh({ from: 5500, to: 9000, dur: 0.22, vol: full ? 0.05 : 0.03, q: 0.5, delay: d + 0.01 }); // air
   },
   // A wisp finds its brand — one note of the impact ARPEGGIO (k = position in the
   // drum-roll): a short pluck stepping UP a pentatonic, so N landings play an
   // ascending riff and a bigger volley is intrinsically more rewarding (the Rez
   // lesson). Deterministic micro-detune from k — organic, zero RNG.
-  brandStrike(k = 0) {
+  // v2 (PR9/C2): the run climbs the LIVE CHORD (getHarmony + chordLadder — the
+  // key-aware ladder ember/perfect already ride) so N landings are an arpeggio
+  // IN the song, not beside it; each strike leaves a HELD VOICE on the chord bus
+  // so the finale can resolve the stack (lanceChordRelease), and pumps the music
+  // a notch (pumpDuck — the L191-safe sidechain node, never musicBus.gain).
+  // Null oracle (music off) → the exact shipped pentatonic pitches; the voices
+  // are sfx-bus and start regardless (music-independent by design).
+  brandStrike(k = 0, n = 1, full = false) {
     const PENTA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2];   // major pentatonic ratios
-    const f = 660 * PENTA[k % PENTA.length] * (k >= PENTA.length ? 2 : 1) * (1 + ((k * 7) % 5 - 2) * 0.002);
+    const det = 1 + ((k * 7) % 5 - 2) * 0.002;          // deterministic micro-detune (kept)
+    let f = 660 * PENTA[k % PENTA.length] * (k >= PENTA.length ? 2 : 1) * det;
+    if (UNLEASH_V2) {
+      const h = getHarmony();
+      if (h) f = chordLadder(660, h.chord, k) * det;
+    }
     tone({ freq: f, end: f * 0.985, dur: 0.09, type: 'triangle', vol: 0.075 });
     tone({ freq: f * 2, dur: 0.05, type: 'sine', vol: 0.035, delay: 0.005 });  // sparkle octave
     noiseWhoosh({ from: 2600, to: 900, dur: 0.07, vol: 0.03, q: 2.2 });        // the ember burst
+    if (!UNLEASH_V2) return;
+    const a = getCtx();
+    if (!a) return;
+    lanceVoiceStart(a, f, a.currentTime);
+    pumpDuck(pumpGain, CONFIG.LOCK.impactDuckAmt, a.currentTime);   // the roll pumps the music
+  },
+  // PR9/C2 — THE RESERVED FINALE: the last wisp of a volley lands the accented
+  // close. The note is the TONIC lifted above the run (the V→I cadence home) +
+  // landing weight; a FULL set also gets the crash-style air tail and the held
+  // voices swelling home as a stacked chord — the "different class of event"
+  // (C4). A partial volley gets the plain accented note, no cadence.
+  brandFinale(n = 3, full = false) {
+    if (!UNLEASH_V2) return;
+    const a = getCtx();
+    if (!a) return;
+    const h = getHarmony();
+    let f = h ? tonicOf(h.chord) : 660;
+    if (!(f > 0)) f = 660;
+    while (f < 1150) f *= 2;   // lift the tonic ABOVE the run — the finale tops the phrase
+    tone({ freq: f, end: f * 0.99, dur: 0.22, type: 'triangle', vol: full ? 0.11 : 0.085 });
+    tone({ freq: f * 2, dur: 0.12, type: 'sine', vol: 0.05, delay: 0.004 });
+    tone({ freq: 130, end: 55, dur: 0.18, type: 'sine', vol: full ? 0.12 : 0.07 });  // landing weight
+    noiseWhoosh({ from: 3200, to: 700, dur: 0.12, vol: 0.045, q: 1.8 });
+    const t0 = a.currentTime;
+    if (full) {
+      noiseWhoosh({ from: 5800, to: 9200, dur: 0.9, vol: 0.05, q: 0.5 });  // the crash tail seals it
+      pumpDuck(pumpGain, Math.min(0.32, CONFIG.LOCK.impactDuckAmt * 1.6), t0);
+    }
+    lanceChordRelease(t0, full);
   },
   // A lone brand ashing off (decay release) — deliberately lesser than the exhale.
   brandFizzle() {
