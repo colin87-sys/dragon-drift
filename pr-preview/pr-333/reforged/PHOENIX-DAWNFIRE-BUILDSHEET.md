@@ -11,6 +11,8 @@ plumbing: the recipe registry, the attach contract, `flatTriMesh`, the stage-awa
 distinctiveness gate, §2 rear-chase primacy, §3 spectacle triad, §3b the anti-tacky lighting
 doctrine). Worked reference implementation: [`SOLAR-ECLIPSE-BUILDSHEET.md`](./SOLAR-ECLIPSE-BUILDSHEET.md)
 + `js/dragonSovereign.js`. Numbers here are the authority; the Fable gate (§QA) judges against this sheet.
+**To START a build session:** copy the handoff prompt in [`PHOENIX-BUILD-HANDOFF.md`](./PHOENIX-BUILD-HANDOFF.md)
+into a fresh chat.
 
 Sourced from: the owner's 4 phoenix reference images (the spread-display + streaming flame-plume +
 molten-gold-on-black + fire-feathers) + the Fable design synthesis + the method's fixed constraints.
