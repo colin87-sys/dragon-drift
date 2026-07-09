@@ -40,6 +40,8 @@ let wingPivot2L = null;
 let wingPivot2R = null;
 let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
 let wingRigR = null;
+let wingLobePivotsL = null;  // jade silk-fin per-lobe furl pivots ({pivot,idx,side}), null otherwise
+let wingLobePivotsR = null;
 let wingBladePivotsL = null;  // blade-feather comb per-blade lag pivots, null otherwise
 let wingBladePivotsR = null;
 let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
@@ -56,6 +58,7 @@ let vySmooth = 0;         // lagged vertical velocity → vertJerk drives the sp
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
+let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniforms,baseSpeed})
 let tailOrbiters = null;  // orbiting tail shards / ring fragments
 
 // Materials animated at runtime (boost glow / fever tint)
@@ -166,9 +169,12 @@ export function createDragon(scene, def, riderDef) {
   wingRigR = result.parts.wingRigR || null;
   wingBladePivotsL = result.parts.wingBladePivotsL || null;
   wingBladePivotsR = result.parts.wingBladePivotsR || null;
+  wingLobePivotsL = result.parts.wingLobePivotsL || null;
+  wingLobePivotsR = result.parts.wingLobePivotsR || null;
   tailFins = result.parts.tailFins || [];
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
+  bodyWave = result.parts.bodyWave || null;   // koiSerpent travelling-wave uniform (jade)
   tailOrbiters = result.parts.tailOrbiters || null;
   glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
@@ -382,6 +388,7 @@ export function disposeDragon() {
   wingMidL = null;
   wingMidR = null;
   bodySegs = null;
+  bodyWave = null;
   tailOrbiters = null;
   ponyMeshes = [];
   trailSprites = [];
@@ -711,6 +718,36 @@ export function updateDragon(dt, player, time) {
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
+  } else if (wingLobePivotsL || wingLobePivotsR) {
+    // ── JADE silk-fin fans — a fully SYMMETRIC koi beat ──────────────────────────────
+    // The user's ask: the N lobes per side beat so L1↔R1, L2↔R2, L3↔R3 fire TOGETHER.
+    // The whole fan tilts with the wingbeat as a clean MIRROR (both fans up/down together),
+    // and each lobe beats on the SAME phase for its L and R twin (side only flips the spread
+    // direction so both fans open outward together), with a small inboard→outboard lag for a
+    // living fin. NO asymmetric wingTip phase (that was the "beating asymmetrical" read).
+    wingPivotR.rotation.set(0.12 + climbBias, -0.12 + turnBias * 0.8, -rootFlap + turnBias + rollFold);
+    wingPivotL.rotation.set(0.12 + climbBias,  0.12 + turnBias * 0.8,  rootFlap + turnBias - rollFold);
+    if (wingTipR) wingTipR.rotation.set(0, 0, 0);   // rear-lobe carrier rides the fan (no independent asymmetric wobble)
+    if (wingTipL) wingTipL.rotation.set(0, 0, 0);
+    const lAmp = activeDef.model.lobeBeatAmp ?? 0.26;
+    const lLag = activeDef.model.lobeBeatLag ?? 0.85;      // BIG inboard→outboard lag so each lobe sits at its OWN angle → the 3 read as SEPARATE parts (not a merged 2)
+    const lSpread = activeDef.model.lobeBeatSpread ?? 0.22; // static extra fan so the lobes never close INTO each other
+    const lFlow = activeDef.model.lobeBeatFlow ?? 0.2;    // slow trailing sway, strongest on the REAR lobe → the back of the fan FLOWS (less stiff)
+    for (const arr of [wingLobePivotsR, wingLobePivotsL]) {
+      if (!arr) continue;
+      const n = Math.max(1, arr.length - 1);
+      for (const b of arr) {
+        const t = b.pivot; if (!t) continue;
+        const fr = b.idx / n;                                   // 0 inner → 1 outer/rear
+        const lp = phase - fr * lLag;                           // SAME lp for L_i and R_i → they beat together
+        // OPEN direction = -side (matches the rest rake); bias the fan OPEN (static spread) so
+        // the lobes stay separated, then the beat + a slow rear-weighted flow ride on top.
+        const beat = Math.sin(lp) * lAmp * (0.5 + 0.7 * fr);    // outer lobes swing widest
+        const flow = Math.sin(lp * 0.5 + 1.2) * lFlow * fr;     // lazy trailing sway → flowy rear
+        t.rotation.y = damp(t.rotation.y, -b.side * (lSpread * fr + beat + flow), 9, dt);
+        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * lAmp * 0.3 + Math.sin(lp * 0.5) * lFlow * fr, 9, dt);
+      }
+    }
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
@@ -862,6 +899,23 @@ export function updateDragon(dt, player, time) {
     }
   }
 
+  // koiSerpent (jade): flex the ONE tube mesh into a swimming S on the CPU — each vertex
+  // x = baseX + amp·ramp·sin(freq·z + phase), ramp 0 at the head → 1 at the tail (head leads,
+  // tail whips). Phase ACCUMULATES (never phase = speed·clock, or a boost jolts the wave) and
+  // the speed factor eases so cruise→boost quickens smoothly. ~N·K verts (one hero) = trivial.
+  if (bodyWave) {
+    const sp = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
+    bodyWave.spd = damp(bodyWave.spd ?? sp, sp, 3, dt);
+    bodyWave.phase += dt * bodyWave.baseSpeed * (0.6 + bodyWave.spd * 0.7);
+    const arr = bodyWave.geo.attributes.position.array;
+    const { baseX, baseY, spineZ, ramp, amp, ampY, freq, phase, count } = bodyWave;
+    for (let v = 0; v < count; v++) {
+      const ph = freq * spineZ[v] + phase;
+      arr[v * 3] = baseX[v] + amp * ramp[v] * Math.sin(ph);
+      arr[v * 3 + 1] = baseY[v] + ampY * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+    }
+    bodyWave.geo.attributes.position.needsUpdate = true;
+  }
   // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each
   // plate behind trails with a phase lag, so the chain slithers in zero-g; turning
   // bends it (lead first, rear dragging), speed adds a faint whip.

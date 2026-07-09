@@ -107,7 +107,10 @@ export function buildStormMandala(def, quality = 1) {
   // keeps it hot on the no-postfx fallback where materials tone-map
   // individually instead of once in OutputPass.
   // ---------------------------------------------------------------------
-  const eyeSeg = lowQ ? [10, 8] : [14, 10];
+  // Budget relief: the eye is the ONE focal — a rounder core reads as a genuine
+  // hot disc at fight distance (not a faceted gem), so q1 gets a denser sphere;
+  // q0.5 keeps the coarse cut.
+  const eyeSeg = lowQ ? [10, 8] : [16, 10];
   const eyeGeo = new THREE.SphereGeometry(1.15, eyeSeg[0], eyeSeg[1]);
   eyeGeo.translate(0, 0, EYE_Z);
   const EYE_BASE = new THREE.Color(0xfff6d8);   // near-white-gold, unblinking
@@ -116,6 +119,7 @@ export function buildStormMandala(def, quality = 1) {
   eyeMat.toneMapped = false;
   eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeMesh.name = 'focalEye';   // LANCE seam: V1 aim-line target (partWorldPos), byte-neutral metadata
   rig.add(eyeMesh);
 
   // ---------------------------------------------------------------------
@@ -284,8 +288,14 @@ export function buildStormMandala(def, quality = 1) {
   // each layer.
   // ---------------------------------------------------------------------
   const SWIRL_OFF = THREE.MathUtils.degToRad(35);
+  // Budget-relief pass (2026-07): the swept vanes carry the silhouette, so the
+  // one place tris pay at 30m is their EDGE. A 6-sided cross-section (vs the
+  // original flat 4-sided diamond) gives each blade a carved ridge-line that
+  // catches the gold storm-light along its length instead of a single flat
+  // facet — richer vanes, same simple wheel. q0.5 keeps the cheap 4-sided cut.
+  const BLADE_RSEG = lowQ ? 4 : 6;
   function buildBlade(radius, angle, len, windDir, z) {
-    let geo = strip(new THREE.ConeGeometry(0.32, len, 4));
+    let geo = strip(new THREE.ConeGeometry(0.32, len, BLADE_RSEG));
     geo.scale(1, 1, 0.35);         // flatten into a blade cross-section
     geo.translate(0, len / 2, 0);  // root (base) at local origin, tip (apex) at local +Y
     const tangentAngle = angle + windDir * (Math.PI / 2);
@@ -370,7 +380,7 @@ export function buildStormMandala(def, quality = 1) {
     // caps its blade's apex exactly: root at the rail, apex at root + dir*len.
     const dirAngle = a + Math.PI / 2 + SWIRL_OFF;
     const dir = new THREE.Vector3(Math.cos(dirAngle), Math.sin(dirAngle), 0);
-    let tip = strip(new THREE.ConeGeometry(0.14, TIP_LEN, 4));
+    let tip = strip(new THREE.ConeGeometry(0.14, TIP_LEN, BLADE_RSEG));
     tip.scale(1, 1, 0.35);
     tip.translate(0, 3.2 - TIP_LEN / 2, 0);   // sit over the blade's outer end
     tip.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
@@ -461,7 +471,11 @@ export function buildStormMandala(def, quality = 1) {
   const orbiterMat = track(new THREE.MeshStandardMaterial({
     color: 0x0a1013, emissive: accent, emissiveIntensity: 0.25, roughness: 0.35, metalness: 0.4, flatShading: true,
   }));
-  const orbiterGeo = new THREE.TorusGeometry(0.62, 0.11, 6, 14);
+  // Budget relief: the 3 ring-blade orbiters keep their identity but get a
+  // rounder, more-carved tube at q1 (dim teal, still §3-law-8 dark satellites);
+  // q0.5 keeps the coarse ring.
+  const orbSeg = lowQ ? [6, 14] : [6, 16];
+  const orbiterGeo = new THREE.TorusGeometry(0.62, 0.11, orbSeg[0], orbSeg[1]);
   const orbiters = [];
   const orbiterCount = lowQ ? 2 : 3;
   for (let i = 0; i < orbiterCount; i++) {

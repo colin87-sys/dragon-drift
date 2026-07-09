@@ -341,6 +341,16 @@ export function buildTwinWraith(def, quality = 1) {
     fin.position.set(sx * 0.12, 0.7, BODY_LEN * 0.16);
     fin.rotation.z = sx * -0.15;
     twin.add(fin);
+    // LANCE anchor (PR4a): `crescentFin` is name-duplicated on BOTH twins (and
+    // name-looked-up per twin for the mantle pose), so the SEEKER's lockable fin
+    // gets its own uniquely-named EMPTY marker — zero geometry (byte-neutral,
+    // tricount unchanged), rides the fin's mantle/orbit transform. partWorldPos
+    // resolves it globally; the twins' BODIES stay non-lockable (LAW §II.9).
+    if (seeker) {
+      const finMark = new THREE.Object3D();
+      finMark.name = 'seekerFin';
+      fin.add(finMark);
+    }
     // The fin's OUTER edge is oxblood too (part of the lit silhouette) — not silver.
     const finRim = new THREE.Mesh(finRimGeo(), rimMatT);
     finRim.scale.set(sx * 1.35, 1.35, 1.35); finRim.position.copy(fin.position);
@@ -389,6 +399,16 @@ export function buildTwinWraith(def, quality = 1) {
       tail.segs = segs;
       twin.add(tail.mesh);
       ribbons.push(tail);
+      // LANCE anchor (PR4a): the `eitherScar` STRIP's geometry is rebuilt in
+      // twin-local space (its mesh origin sits at the twin centre), so the lock
+      // anchor rides the scar CHAIN's second pivot instead — a uniquely-named
+      // EMPTY that tracks the flowing snapped tail. Byte-neutral (no geometry);
+      // `ribbonPivot` names/count untouched (the telegraph gate still finds them).
+      if (isScar) {
+        const scarMark = new THREE.Object3D();
+        scarMark.name = 'seekerScar';
+        segs[1].pivot.add(scarMark);
+      }
     }
 
     // Every material this twin draws — collected so the §5j materialise can fade each from 0→1 on

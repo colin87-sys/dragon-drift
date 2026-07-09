@@ -9,7 +9,8 @@ const { MILESTONES, MASTERY_STARS } = await import('../js/milestones.js');
 const { TITLES, titleById, levelTitleId } = await import('../js/titles.js');
 const { ASCENSION_TIERS } = await import('../js/ascension.js');
 const { FLIGHTMARKS } = await import('../js/flightmarks.js');
-const { DRAGONS } = await import('../js/dragons.js');
+const { DRAGONS, wispTintFor, lanceRuneFor, WISP_JADE } = await import('../js/dragons.js');
+const { BOSSES } = await import('../js/bossDefs.js');
 
 let n = 0;
 const ok = (msg) => { n++; console.log(`  ✓ ${msg}`); };
@@ -53,13 +54,13 @@ ok(`${untiered.length} untiered missions rotate forever`);
 // --- Feats ---
 const fids = FEAT_DEFS.map((d) => d.id);
 assertEq(new Set(fids).size, fids.length, 'feat ids unique');
-assertEq(FEAT_DEFS.length, 30, 'exactly 30 feats');
+assertEq(FEAT_DEFS.length, 35, 'exactly 35 feats');
 for (const d of FEAT_DEFS) {
   assert(d.reward >= 20 && d.reward <= 150, `feat ${d.id} reward in [20,150]`);
   assert(['skill', 'journey', 'collection'].includes(d.cat), `feat ${d.id} category valid`);
   if (d.title) assert(titleById(d.title), `feat ${d.id} title '${d.title}' exists`);
 }
-ok('30 feats, unique ids, rewards in [20,150], titles resolvable');
+ok('35 feats, unique ids, rewards in [20,150], titles resolvable');
 
 // --- Weekly trials ---
 const tids = TRIAL_POOL.map((t) => t.id);
@@ -129,5 +130,54 @@ for (const [key, d] of Object.entries(DRAGONS)) {
   }
 }
 ok(`${Object.keys(DRAGONS).length} dragons have expected form counts (3 starter / 4 premium)`);
+
+// --- PR8 Eternal wisp cosmetic: the SSSR roster carries a personal lanceTint +
+// lanceRune; every other dragon (SSR starters, asset-backed) carries neither so
+// they keep the shipped jade wisp + shared rune. ---
+const sssr = Object.entries(DRAGONS).filter(([, d]) => d.maxRarity === 'SSSR' && !d.assetBacked);
+assertEq(sssr.length, 9, 'exactly 9 Eternal-capable (SSSR, procedural) dragons');
+for (const [key, d] of sssr) {
+  assert(typeof d.lanceTint === 'number' && d.lanceTint >= 0 && d.lanceTint <= 0xffffff,
+    `dragon ${key} carries a valid lanceTint hex`);
+  assert(typeof d.lanceRune === 'string' && d.lanceRune.length > 0,
+    `dragon ${key} carries a lanceRune key`);
+}
+ok('9 SSSR dragons each carry lanceTint (hex) + lanceRune (key)');
+const tints = sssr.map(([, d]) => d.lanceTint);
+assertEq(new Set(tints).size, tints.length, 'the 9 Eternal wisp tints are all distinct');
+ok('Eternal wisp tints are distinct per dragon');
+for (const [key, d] of Object.entries(DRAGONS)) {
+  if (d.maxRarity === 'SSSR' && !d.assetBacked) continue;
+  assert(d.lanceTint === undefined && d.lanceRune === undefined,
+    `non-Eternal dragon ${key} carries no lanceTint/lanceRune (keeps jade)`);
+}
+ok('non-Eternal dragons carry no lanceTint/lanceRune');
+
+// Gating kernel: wispTintFor / lanceRuneFor apply the accent ONLY at formLevel>=3.
+const sample = sssr[0][1];
+for (const fl of [0, 1, 2]) {
+  assertEq(wispTintFor(sample, fl), WISP_JADE, `wispTintFor → jade at form ${fl}`);
+  assertEq(lanceRuneFor(sample, fl), null, `lanceRuneFor → null at form ${fl}`);
+}
+assertEq(wispTintFor(sample, 3), sample.lanceTint, 'wispTintFor → accent at Eternal (form 3)');
+assertEq(lanceRuneFor(sample, 3), sample.lanceRune, 'lanceRuneFor → rune at Eternal (form 3)');
+// A dragon with no lanceTint stays jade even at form 3 (defensive: SSR can't reach 3).
+assertEq(wispTintFor(DRAGONS.azure, 3), WISP_JADE, 'wispTintFor → jade for a dragon with no lanceTint');
+assertEq(wispTintFor(null, 3), WISP_JADE, 'wispTintFor → jade for a null def');
+ok('wispTintFor/lanceRuneFor gate the accent on formLevel>=3 + a present lanceTint');
+
+// --- Eye-weak-point decouple (A): a boss whose submerged eye seals only ITSELF ---
+// (not the whole lock layer) MUST name the paintable organ it seals via `eyeOrgan`,
+// and that organ MUST be a real lockPart — else paintableParts() can never drop it
+// and the shackles would go dark with the eye again (the exact regression this fixes).
+for (const [key, def] of Object.entries(BOSSES)) {
+  if (!def.eyeWeakPoint) continue;
+  assert(typeof def.eyeOrgan === 'string' && def.eyeOrgan.length > 0,
+    `eyeWeakPoint boss ${key} names an eyeOrgan`);
+  const parts = (def.lockParts || []).map((lp) => lp.part);
+  assert(parts.includes(def.eyeOrgan),
+    `${key}.eyeOrgan ('${def.eyeOrgan}') is one of its lockParts`);
+}
+ok('eyeWeakPoint bosses name an eyeOrgan that is a real lockPart (decouple invariant)');
 
 console.log(`\n${n} def checks passed.`);

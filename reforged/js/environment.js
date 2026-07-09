@@ -20,6 +20,11 @@ let rnd = null;
 let bands = [];
 let feverMix = 0;
 let bossMix = 0; // eased boss-grade signal (see updateEnvironment), local copy — same pattern as feverMix
+let skyDim = 0;  // EMBERTIDE sky-replacement: 0 = the real dome; 1 = fully faded out (EMBERTIDE IS the sky)
+// setSkyFade(k): the sky-replacement crossfade hook ("one sky, never two"). boss.js ramps this to 1 while
+// a `def.skyReplace` boss (EMBERTIDE) owns the sky, back to 0 otherwise. Dims the dome shader toward black
+// and hides the mesh entirely at k≈1 (draw replaced, not stacked → overdraw flat). Inert (0) otherwise.
+export function setSkyFade(k) { skyDim = Math.max(0, Math.min(1, k)); }
 
 const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 
@@ -284,7 +289,13 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       sunGlow: { value: new THREE.Color(0xfff0c8) },
       sunDir: { value: new THREE.Vector3(-0.22, 0.1, -1).normalize() },
       feverMix: { value: 0 },
+      dimMix: { value: 0 },
       starMix: { value: 0 },
+      // Dual-fog (BIOME-DESIGN.md §5.2): the far-field fog COLOR + its 0→1
+      // gate. fogFarMix is 0 wherever no biome declares fogFarColor, so the
+      // blend below is a branchless no-op there (the starMix pattern).
+      fogFarColor: { value: new THREE.Color(0x57221a) },
+      fogFarMix: { value: 0 },
       time: { value: 0 },
     },
     vertexShader: `
@@ -295,8 +306,8 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       }`,
     fragmentShader: `
       varying vec3 vDir;
-      uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir;
-      uniform float feverMix, starMix, time;
+      uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
+      uniform float feverMix, starMix, fogFarMix, time, dimMix;
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
@@ -305,6 +316,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         vec3 mid = mix(midColor, vec3(0.55, 0.25, 0.9), feverMix * 0.7);
         vec3 col = mix(hor, mid, smoothstep(0.0, 0.25, h));
         col = mix(col, topColor, smoothstep(0.2, 0.7, h));
+        // Dual-fog far color (§5.2): the sky's lowest band IS the far field —
+        // sink it toward fogFarColor. Branchless: fogFarMix is 0 in biomes
+        // without a fogFarColor, leaving the gradient byte-identical.
+        col = mix(col, fogFarColor, fogFarMix * (1.0 - smoothstep(0.0, 0.15, h)));
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
         // blowing out the centre of the screen and washing out contrast.
@@ -327,7 +342,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         col += vec3(0.85, 0.9, 1.0) * star * starMix;
         // Night biomes also get a faint, slow aurora veil of their own.
         col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12;
-        gl_FragColor = vec4(col, 1.0);
+        // EMBERTIDE sky-replacement crossfade ("one sky, never two"): as EMBERTIDE's dome
+        // fades IN, dim the real dome toward black (and it's hidden entirely at dimMix≈1,
+        // so its draw is replaced, not stacked — overdraw stays flat).
+        gl_FragColor = vec4(col * (1.0 - dimMix), 1.0);
       }`,
   });
   sky = new THREE.Mesh(new THREE.SphereGeometry(800, 24, 16), skyMat);
@@ -366,9 +384,27 @@ function makeBand(scene, def) {
     }
   }
   mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  updateBandVisibility(band);
   scene.add(mesh);
   return band;
 }
+
+// --- Per-biome instance tint for SHARED archetypes (BIOME-DESIGN.md §5.4) ----
+// The verdigris paint-bug fix: column/slab/dome hardcode mergeParts([...], 0)
+// (Sanctuary verdigris), so they rendered verdigris even in the Amber Wastes.
+// instanceColor MULTIPLIES the material's base color, so entries are per-channel
+// RATIOS (target ÷ base): biome 0 is identity WHITE (writing the verdigris hex
+// would SQUARE the color and darken Sanctuary), biome 1 is sandstone ÷ verdigris
+// (0xe2bd8a ÷ 0x86b39c — components > 1 are legal). One instance color spans
+// BOTH material groups of a merged archetype; the ratio is derived from the
+// primary pair and the accent shift is accepted as approximate. Zero new draws.
+const TINT_WHITE = new THREE.Color(0xffffff);
+const BIOME_TINTS = [
+  TINT_WHITE,                                          // 0 Sanctuary — identity (the base paint)
+  new THREE.Color(0xe2 / 0x86, 0xbd / 0xb3, 0x8a / 0x9c), // 1 Wastes — sandstone ratio
+  TINT_WHITE, TINT_WHITE, TINT_WHITE, TINT_WHITE,      // 2–5 — no shared archetypes today
+];
 
 const m4 = new THREE.Matrix4();
 const quat = new THREE.Quaternion();
@@ -378,7 +414,8 @@ const sclV = new THREE.Vector3();
 function writeMatrix(band, i, d) {
   // Park instances whose archetype doesn't belong to the biome at their
   // distance — they re-enter when recycled into a matching stretch.
-  const active = band.def.biomes.includes(biomeIndexAt(Math.max(d.dist, 0)));
+  const bi = biomeIndexAt(Math.max(d.dist, 0));
+  const active = band.def.biomes.includes(bi);
   eul.set(0, d.rotY ?? (d.rotY = rnd() * Math.PI), d.tilt);
   quat.setFromEuler(eul);
   if (active) {
@@ -387,6 +424,22 @@ function writeMatrix(band, i, d) {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }
   band.mesh.setMatrixAt(i, m4);
+  // Shared archetypes (whitelisted in >1 biome) tint per dominant biome so the
+  // same mesh reads verdigris in Sanctuary and sandstone in the Wastes.
+  // Single-biome archetypes never allocate instanceColor — untouched.
+  if (band.def.biomes.length > 1) {
+    band.mesh.setColorAt(i, BIOME_TINTS[bi] ?? TINT_WHITE);
+  }
+}
+
+// A band with EVERY instance parked draws nothing useful — gate the whole mesh
+// off (§5.4: mesh.visible is the correct kill switch; frustum culling is
+// deliberately disabled). WALL_WINDOW (900) < biomeLength (1500) means at most
+// 2 biomes are in-window, so per-frame prop draws collapse to the live biomes'
+// archetypes no matter how many exclusives the roster grows.
+function updateBandVisibility(band) {
+  band.mesh.visible = band.data.some(
+    (d) => band.def.biomes.includes(biomeIndexAt(Math.max(d.dist, 0))));
 }
 
 function recycleBand(band, playerDist) {
@@ -400,7 +453,13 @@ function recycleBand(band, playerDist) {
       changed = true;
     }
   }
-  if (changed) band.mesh.instanceMatrix.needsUpdate = true;
+  if (changed) {
+    band.mesh.instanceMatrix.needsUpdate = true;
+    if (band.mesh.instanceColor) band.mesh.instanceColor.needsUpdate = true;
+    // Active/parked state is baked into each instance at write time, so the
+    // band's visibility can only change when instances were rewritten.
+    updateBandVisibility(band);
+  }
 }
 
 // Re-seat a band's instances around the start line. Without this, restarting
@@ -415,6 +474,8 @@ function reseedBand(band) {
     writeMatrix(band, i, d);
   }
   band.mesh.instanceMatrix.needsUpdate = true;
+  if (band.mesh.instanceColor) band.mesh.instanceColor.needsUpdate = true;
+  updateBandVisibility(band);   // the restart path must re-evaluate the gate too
 }
 
 export function resetEnvironment(seed) {
@@ -439,9 +500,11 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.midColor.value.copy(env.skyMid);
   su.horizonColor.value.copy(env.skyHorizon);
   su.sunGlow.value.copy(env.sunGlow);
-  sceneRef.fog.color.copy(env.fogColor);
+  sceneRef.fog.color.copy(env.fogColor);   // scene fog keeps the NEAR color (§5.2)
   sceneRef.fog.near = env.fogNear;
   sceneRef.fog.far = env.fogFar;
+  su.fogFarColor.value.copy(env.fogFarColor);
+  su.fogFarMix.value = env.fogFarMix;
   sun.color.copy(env.lightSun);
   sun.intensity = env.lightSunI;
   hemi.color.copy(env.hemiSky);
@@ -453,11 +516,16 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     horizon: env.skyHorizon,
     zenith: env.skyTop,
     waveAmp: env.waveAmp,
+    // Dual-fog (§5.2 three-touch rule): the water's far-fog color rides the
+    // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
+    fogFarColor: env.fogFarColor,
   });
 
   // Dragon Surge sky tint (damped so it sweeps in/out smoothly)
   feverMix = damp(feverMix, feverActive ? 1 : 0, 2.5, dt);
   su.feverMix.value = feverMix;
+  su.dimMix.value = skyDim;          // EMBERTIDE sky-replacement crossfade
+  sky.visible = skyDim < 0.985;      // hide the real dome once EMBERTIDE fully covers (draw replaced, not added)
   su.starMix.value = env.starMix;
   su.time.value = time;
 

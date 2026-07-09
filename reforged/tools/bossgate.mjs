@@ -51,7 +51,34 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // EITHERWING (§5b slot 5): OXBLOOD + aged-silver over the warm AMBER WASTES sunset
   // (dist ~2250, biome index 1) — its home sky per the r9 spec + §7c sunset backdrop; the
   // warmest sky in the cycle is the hardest test for the warm-dark accents (L140/L141).
-  eitherwing: 2250 };
+  eitherwing: 2250,
+  // KARNVOW (§5b slot 9): the COLD-STEEL·dark Trophy-Duelist. §5h biome pairing =
+  // a COLD accent needs a COOL, ACCENT-ALIGNED sky, or (a) its cold edges/bloom fringe
+  // false-magenta on a warm horizon (the symmetric twin of the ashtalon/marrowcoil
+  // warm-boss-cool-sky trap, line 40-49), and (b) a non-blue ambient (e.g. teal)
+  // pollutes the accent tier with off-hue pixels and flakes the G3 attribution.
+  // LUMEN MIRE (dist ~6600, biome index 4, teal horizon 0x3fd8b0) is BRIGHT (the dark
+  // silhouette reads — §3b.7 wants a dark boss on a bright complementary sky) and COOL
+  // (the cold-glint bloom never fringes danger-magenta — zero). The cold identity is
+  // carried by bright emissive seam-lines + a lit gorget band + the aperture rim, so
+  // it dominates the accent tier over the teal ambient. NOT a `gate.pale` override —
+  // KARNVOW is a DARK boss; this is the standard temperature-complement capture.
+  karnvow: 6600,
+  // ONEWING (§5b slot 12): a DARK boss with an ashen MAUVE-rose accent + a single
+  // grief-dim eye focal, whose home (§3b sheet) is a DARK sky. §5h biome pairing: the
+  // mauve accent needs a purple-ALIGNED ambient (a teal sky pollutes the accent tier +
+  // its fog dilutes the eye focal below G1; a warm/neutral sky drifts the mauve rims
+  // toward the danger band). ASTRAL SHALLOWS (dist 8000, biome idx 5, near-black violet
+  // sky) is the DARK, mauve-aligned, low-fog capture: the eye focal reads (little fog
+  // dilution), the mauve accent attributes against the aligned purple ambient, and its
+  // blue-purple hemisphere never false-magentas the dark faces (danger-magenta 0).
+  onewing: 8000,
+  // WEFTWITCH (§5b slot 11): a moth-grey bust + PALE-GOLD lit-edge/web over her home
+  // ASTRAL sky (~8000m, near-black violet — §7c biome pairing / BIOME-DESIGN.md). The
+  // dark body reads by its gold fresnel rim + spoke-web there, and the near-black
+  // violet keeps the warm accent OUT of a magenta sunset's blue↔orange false-magenta
+  // overlap (the same G3 trap MARROWCOIL avoids at 8000).
+  weftwitch: 8000 };
 
 // --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
 // (tools/bossstudio.html) instead of the contaminated in-game frame — a
@@ -221,7 +248,16 @@ const DUMP = process.env.GATE_DUMP;   // set to a dir to dump the captured frame
 // and the mask lines up exactly (proven: 4/4 frames identical). Restricted to
 // pale defs so the shipped DARK bosses (whose sky-blend is already dark, and one
 // of whose G1 clusters sits right on its ceiling) capture byte-identically.
-const CAPTURE_FREEZE = !!gate.pale;
+// `gate.freeze` (additive, KARNVOW r3): fast MOVERS hit the SAME two-frame race —
+// the trophy-duelist DARTS ±4.4u in ~0.3s (~15u/s), sliding its small focal glint
+// off the projected mask between the grabs (G1 flaked 255↔239 with a 0% cluster —
+// the glint simply wasn't where the mask said the body was). Freezing samples the
+// mask + screenshot at ONE pose; no threshold changes. Shipped defs carry neither
+// flag → byte-identical captures.
+// `gate.inverted` (EMBERTIDE, slot 13 — the sanctioned VALUE INVERSION, §7b): the
+// frame-wide light FIELD + its charge swell animate between the two grabs, so freeze
+// for a clean dark-focal read (same rationale as pale; no threshold change).
+const CAPTURE_FREEZE = !!gate.pale || !!gate.freeze || !!gate.inverted;
 async function grab(tag) {
   if (CAPTURE_FREEZE && !STUDIO) await page.evaluate(() => { const g = window.__dd.game; if (g.state === 'playing') { g.__gateFrozen = true; g.state = 'paused'; } });
   const mask = await page.evaluate(extractMask);
@@ -385,6 +421,7 @@ try {
   const lumas = [];
   const accentHues = [];
   let bright240 = 0, maxLum = 0, dangerPix = 0, toyPix = 0;
+  let minLum = 255, veryDark = 0;   // gate.inverted: the DARK focal (eye-hollows) is the darkest cluster
   for (let i = 0; i < idleOpaque.length; i++) {
     if (!idleOpaque[i]) continue;
     const x = i % W, y = (i / W) | 0;
@@ -392,7 +429,9 @@ try {
     const L = luma(r, g, b), s = satOf(r, g, b), v = valOf(r, g, b), h = hueOf(r, g, b);
     lumas.push(L);
     if (L > maxLum) maxLum = L;
+    if (L < minLum) minLum = L;
     if (L >= 240) bright240++;
+    if (L <= 12) veryDark++;   // the near-black eye-hollows (darker than the RELIEF_DARK face base)
     // Accent pixels: saturated, lit, but not the white-hot focal → the identity tier.
     if (s > 0.35 && v > 0.22 && v < 0.97) accentHues.push(h);
     // Toy-color body: a genuinely BRIGHT + SATURATED pixel (the failure §3.3
@@ -411,8 +450,17 @@ try {
   // boss (stormrend's blade-rings) the opaque silhouette is small so a normal
   // eye is a larger fraction — the ceiling is set to bracket both shipped
   // Sentinels (voidmaw ~1%, stormrend ~5%) while still catching a real wash.
-  rec('G1', 'focal (§3.2)', maxLum >= 250 && bright240 <= silN * 0.07,
-    `maxLum ${maxLum.toFixed(0)} (need ≥250); ≥240 cluster ${(100 * bright240 / silN).toFixed(2)}% of silhouette (need ≤7%)`);
+  if (gate.inverted) {
+    // G1 INVERTED (§7b VALUE-INVERSION override, EMBERTIDE slot 13): the focal is
+    // DARKNESS in brightness — the darkest cluster (the eye-hollows) is the focal,
+    // not the brightest. A genuine near-black focal must exist AND stay SMALL (dark +
+    // SMALL = eye-hollows, not a dark wash / a solid head swallowing the field).
+    rec('G1', 'dark focal (§3.2, INVERTED)', minLum <= 12 && veryDark >= 1 && veryDark <= silN * 0.10,
+      `minLuma ${minLum.toFixed(0)} (need ≤12 — a true dark focal); ≤12 cluster ${(100 * veryDark / silN).toFixed(2)}% of silhouette (need ≤10% — the hollows, not a wash)`);
+  } else {
+    rec('G1', 'focal (§3.2)', maxLum >= 250 && bright240 <= silN * 0.07,
+      `maxLum ${maxLum.toFixed(0)} (need ≥250); ≥240 cluster ${(100 * bright240 / silN).toFixed(2)}% of silhouette (need ≤7%)`);
+  }
 
   // G2 — dark body (§3.3): a DARK body (median luma low) that is not a bright
   // saturated toy-color wash. Median luma is the primary read (a bright toy
@@ -421,7 +469,15 @@ try {
   // Sentinels (voidmaw med ~30 / toy ~15%, stormrend's teal med ~55 / toy ~40%).
   // (or, sanctioned pale, the inverse: a bright body with a dark edge-cage.)
   const medL = median(lumas), toyFrac = toyPix / silN;
-  if (gate.pale) {
+  if (gate.inverted) {
+    // G2 EXEMPT (§7b VALUE-INVERSION, EMBERTIDE): the "body" is deliberately the
+    // BRIGHT field and ~half the silhouette is the DARK face, so a median-luma
+    // dark-body read is meaningless here. The dark focal is enforced by G1-inverted
+    // instead; the bright field is attributed by G3. (Sanctioned exemption, not a skip
+    // to hide a failure — the value inversion is the registry identity for slot 13.)
+    rec('G2', 'dark body (§3.3) — EXEMPT (INVERTED value, §7b)', true,
+      `value-inversion exempt: the bright field IS the body, the dark face+hollows are the focal (median luma ${medL.toFixed(0)}, G1-inverted enforces the dark focal)`);
+  } else if (gate.pale) {
     rec('G2', 'dark body (§3.3, PALE-sanctioned)', medL >= 150,
       `pale override: median luma ${medL.toFixed(0)} (need ≥150)`);
   } else {
@@ -456,9 +512,27 @@ try {
   const fullMask = idle.mask.full.silCount ? idle.mask.full : idle.mask.opaque;
   const cov = fullMask.silCount / frame;
   const comX = fullMask.comX / W, comY = fullMask.comY / H;
-  const comOk = comX > 0.2 && comX < 0.8 && comY > 0.05 && comY < 0.72;
-  rec('G4', 'presence (§1)', cov >= 0.025 && cov <= 0.42 && comOk,
-    `visible coverage ${(100 * cov).toFixed(1)}% (geom mask; need 2.5–42%, bloom adds more); COM (${comX.toFixed(2)}, ${comY.toFixed(2)}) ${comOk ? 'centred' : 'OFF-CENTRE'}`);
+  // Per-def PRESENCE override (gate.presence): a boss whose registry identity places
+  // its mass OFF the centred envelope — an overhead hanging bell that "owns the space
+  // above" (§5b/§5c WORLD-ENDERS slot 10), a ground-anchored horizon band — reads
+  // outside the default comY box in the auto-framed studio (a bell's mass IS its wide
+  // flared mouth, so the silhouette is legitimately bottom-heavy; in-game it hangs
+  // overhead entirely). An override must cite its registry sanction in a def comment.
+  const pres = gate.presence || {};
+  const comYMin = pres.comYMin ?? 0.05, comYMax = pres.comYMax ?? 0.72;
+  const comXMin = pres.comXMin ?? 0.2, comXMax = pres.comXMax ?? 0.8;
+  const comOk = comX > comXMin && comX < comXMax && comY > comYMin && comY < comYMax;
+  if (gate.frameFill) {
+    // G4 EXEMPT (§7b VALUE-INVERSION / frameFill, EMBERTIDE slot 13): the boss IS the
+    // backdrop — it legitimately fills AND overflows the frame (the spatial peak, "it
+    // never fits"). The 2.5–42% presence envelope is the opposite of its design goal.
+    // (Sanctioned; cited to the registry — the frame-wide field is slot 13's identity.)
+    rec('G4', 'presence (§1) — EXEMPT (frameFill, §7b)', true,
+      `frame-fill exempt: coverage ${(100 * cov).toFixed(1)}% (it overflows the frame by design — the spatial peak, never fits); COM (${comX.toFixed(2)}, ${comY.toFixed(2)})`);
+  } else {
+    rec('G4', 'presence (§1)', cov >= 0.025 && cov <= 0.42 && comOk,
+      `visible coverage ${(100 * cov).toFixed(1)}% (geom mask; need 2.5–42%, bloom adds more); COM (${comX.toFixed(2)}, ${comY.toFixed(2)}) ${comOk ? 'centred' : 'OFF-CENTRE'}${gate.presence ? ' [presence override]' : ''}`);
+  }
 
   // G5 — telegraph shape (§3.5): the MOST-charged candidate silhouette differs
   // from idle by ≥6% (shape change, not just colour).

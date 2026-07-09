@@ -76,8 +76,19 @@ let t = 0;
 // joined; raised 320→440s when MARROWCOIL (boss 4) joined; raised 440→640s when
 // EITHERWING (boss 5, the Colossi PEAK) joined — hp 330 + the figure-eight
 // moving-station runs ~120s solo, so the 5-boss gauntlet clears well past the old cap.
-// Raised 640→800s when THRUMSWARM (boss 7) joined (HOLLOWGATE/THRUMSWARM each ~100s solo).
-for (let i = 0; i < 60 * 800 && !rushClear; i++) {
+// Raised 640→800s when THRUMSWARM (boss 7) joined; 800→980s when BRINEHOLM (boss 8,
+// a Calamity — hp 410, the slowest TIDAL-DRONE cadence) joined the tail (8 bosses now).
+// Raised 1150→1500s when WEFTWITCH (boss 11, hp 520, ~141s syncopated-loom kill) joined —
+// the clear lands ~1265s but boss randomness (approach sides, rest rolls) spreads it, so the
+// cap keeps ~15% headroom (a 1320 cap flaked on slow-roll runs). Raised 1500→1700s when
+// ONEWING (boss 12) joined — its lying-FELLED card + crippled second stand adds ~165s
+// worst-case (immortal-player rider-only chip; a skilled run is faster).
+// Raised 1700→2200s when EMBERTIDE (boss 13, tier-4 full-frame) + THE UNMASKED (boss 14,
+// the APEX, hp 600) joined the tail — two heavy bosses add ~350s worst-case to the raw sim.
+// NOTE: the raw sim now clears >20min. §5h's "gauntlet ≤20min" contract leans on its "rush
+// at 0.75× hp" knob, which is NOT implemented yet (hpMax = def.hpMax unconditionally) — the
+// band balance pass owns pulling that lever; this cap is only the test harness.
+for (let i = 0; i < 60 * 2200 && !rushClear; i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks
@@ -107,7 +118,10 @@ on('bossStart', (e) => { if (e && e.id) f2.add(e.id); });
 on('rushClear', (e) => { rc2 = e; });
 boss.startBossRush(player, only);
 let t2 = 0;
-for (let i = 0; i < 60 * 180 && !rc2; i++) {
+// Budget raised 180→240s: the last boss (BRINEHOLM) gates chip on its eye-surface
+// weak-point window (~20% invulnerable) + a 7.5s SOUNDING dive, so a solo pick of
+// the slowest boss clears well past the old 3-minute cap even under adequate play.
+for (let i = 0; i < 60 * 240 && !rc2; i++) {
   const dt = 1 / 60; t2 += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;
   if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
