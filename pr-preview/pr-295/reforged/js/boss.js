@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
-import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll } from './sfx.js';
+import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll, UNLEASH_V2 } from './sfx.js';
+import { nextGridDelay } from './harmony.js';
 import { input, focusHeldNow } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
@@ -48,6 +49,7 @@ let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER
 let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
 let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
 let debugPhaseJump = null;     // ?bossPhase=N (1-based): open the fight fast-forwarded to phase N
+let debugStagePin = null;      // dev stage-jump: pin a multi-stage boss's visible STAGE sub-rig (THE UNMASKED 1/2/3)
 let debugEntrancePin = null;   // capture hook: 0..1 holds an ENTRANCE_SCRIPTS pose (the Baton Cross) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
@@ -89,10 +91,15 @@ export function rushRosterInfo() {
       id: k, name: BOSSES[k].name, title: BOSSES[k].title,
       accent: BOSSES[k].accent, glow: BOSSES[k].glow,
       unlocked: devAll || beaten.includes(k),
+      // How many STAGE sub-rigs this boss has built (>1 = multi-stage, drives the dev
+      // stage-jump selector). Single-stage bosses report 1 and never offer a stage pick.
+      stagesBuilt: BOSSES[k].stagesBuilt || (BOSSES[k].stages && BOSSES[k].stages > 1 ? BOSSES[k].stages : 1),
     })),
     unlockedCount: rushRoster().length,
     bestClearMs: saveData.bossRush?.bestClearMs || 0,
     cleared: saveData.bossRush?.cleared || 0,
+    // Dev seam (?dev / ?rush=all): expose the stage-jump selector for quick playtesting.
+    devAll,
   };
 }
 
@@ -911,6 +918,12 @@ let wallMatEmber = null;   // EMBERTIDE-only: dark, soft-edged multiply shadow w
 let arenaHY = CONFIG.laneMaxY;
 let arenaTargetHY = CONFIG.laneMaxY;
 let crushFired = false, crushT = 0, crushBoxT = 0, crushHoldT = 0;   // per-phase wave trigger + hold + the letterbox pulse timer
+// THE STAGE-TRANSITION BEAT (multi-stage bosses w/ model.stageTransitionDur — THE UNMASKED):
+// the crack/unveiling plays FIRE-FREE, then the all-eyes REVEAL snaps as a punctuated beat
+// (camera punch + a beat of slow-mo + the form's name) before the new stage's attacks open.
+// stageBeatT counts up while the beat runs (-1 = inactive); revealed = the reveal has landed.
+let stageBeatT = -1, stageBeatDur = 0, stageBeatRevealed = true;
+const STAGE_REVEAL_HOLD = 0.7;   // the "screenshot" beat held after the eyes lock, before fire resumes
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
 // so overlapping/concentric waves read apart even for colour-blind players — and
@@ -1264,9 +1277,37 @@ function surgeForkLances(player) {
   let pips = 0;
   for (const lk of locks) pips += lk.stacks;
   const dmgEach = lanceDmgEach(pips, currentPhaseHp());
+  // The fork is never beat-held (it rides the Surge-break's own beat), so its
+  // launch IS its commit — lockLaunch fires here, in step with the lances (PR9).
+  const cap = CONFIG.LOCK.capByTier[def?.tier ?? 1] ?? 0;
+  const full = cap > 0 && pips >= cap;
+  emit('lockLaunch', { count: pips, full, source: 'fork' });
   let i = 0;
-  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips);
-  emit('lockVolley', { count: pips, source: 'fork', dmgEach });
+  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips, full, true);
+  emit('lockVolley', { count: pips, source: 'fork', dmgEach, delay: 0, full });
+}
+
+// PR9 (C1): the quantize-to-grid hold for a committed volley — seconds until the
+// song's next 1/subdiv grid point (subdiv 1 = the beat, 4 = a 16th). Null clock
+// (music off / headless / backgrounded) or gate off → 0 = launch now, verbatim
+// v1 timing (the getBeatClock contract — no volley ever depends on audio state).
+// Nearer than releaseMinLeadMs the riser has no stop+void runway → roll to the
+// FOLLOWING grid point; past releaseQuantMaxS (slow stations) fall back to the
+// next 8th rather than hold a committed volley beyond the ceiling.
+function releaseQuantDelay(subdiv) {
+  const L = CONFIG.LOCK;
+  if (!L.releaseQuant || !UNLEASH_V2) return 0;
+  const bc = getBeatClock();
+  if (!bc) return 0;
+  const lead = L.releaseMinLeadMs / 1000;
+  let d = nextGridDelay(bc, subdiv);
+  if (d < lead) d += bc.beatLen / subdiv;
+  if (d > L.releaseQuantMaxS) {
+    d = nextGridDelay(bc, subdiv * 2);
+    if (d < lead) d += bc.beatLen / (subdiv * 2);
+    if (d > L.releaseQuantMaxS) d = 0;
+  }
+  return d;
 }
 
 // Pink aura + crackling lightning on the dragon while Surge is active.
@@ -1376,7 +1417,7 @@ export function startBossEncounter(player, defOverride) {
   // Fresh fight = full-height sky; the crush (def.skyCrush) re-arms per encounter.
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true;
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -1400,6 +1441,12 @@ export function startBossEncounter(player, defOverride) {
   // exposing setWaterPlane; every other boss is inert. Fed only here — never in the
   // studio/tests — so the isolated captures stay byte-identical.
   model.setWaterPlane?.(0);
+
+  // Dev stage-jump (rush picker / ?bossStage): set the INITIAL visible stage to the picked
+  // starting stage (its phase is fast-forwarded alongside — see setBossDebugStage). The fight
+  // then progresses from there, animating each transition at the live phase advance. Left null
+  // → stage 1 (the default). Inert on single-stage bosses (they expose no setDebugStage).
+  if (debugStagePin != null) model.setDebugStage?.(debugStagePin);
 
   // Approach choreography (§5e): from behind (overtake up and over), the side,
   // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),
@@ -1548,7 +1595,7 @@ function endEncounter(player) {
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true;
   ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
@@ -1695,6 +1742,8 @@ function enterFight() {
     saveData.flags.lockUnlocked = true;
     persist();
   }
+  // LANCE LAB: name the range once per fight so the preview reads as intended.
+  if (labPacifist) ui.bossNote?.('✦ LANCE LAB ✦', 'PAINT AND UNLEASH — IT WON\'T FIGHT BACK', 'gold', 3.2);
   poseSX = pose.x; poseSY = pose.y; poseSmooth = true;   // seed the group x/y smoother from the entrance-end pose (no handoff jump)
   if (cineYaw != null) fightWobbleT = 0;   // released from a scripted entrance → ease the yaw/roll wobble in from its settled facing (no snap)
   entranceId = null;                  // the scripted entrance is done
@@ -1940,6 +1989,24 @@ export function updateBoss(dt, player, time, camera) {
   }
   arenaHY += (arenaTargetHY - arenaHY) * Math.min(dt * 1.6, 1);
   game.bossArenaHY = arenaHY < CONFIG.laneMaxY - 0.3 ? arenaHY : null;
+
+  // ── THE STAGE-TRANSITION BEAT (THE UNMASKED): advance the fire-free crack/unveiling, then
+  // land the all-eyes REVEAL as a punctuation the instant the new form settles — a camera punch,
+  // a beat of slow-mo (the "screenshot" hold), and the form's name (deferred here from the
+  // shield-break so it reads ON the eye-snap). Fire stays held (attackTimer, set in breakShield)
+  // through the reveal hold; the model owns the visual morph + the eye-snap itself. ──
+  if (stageBeatT >= 0 && phase === 'fight') {
+    stageBeatT += dt;
+    if (!stageBeatRevealed && stageBeatT >= stageBeatDur) {
+      stageBeatRevealed = true;
+      cameraCtl.shake?.(1.5);
+      game.slowMoTimer = Math.max(game.slowMoTimer, 0.9); setSlowMo(true);   // reuse the near-death dilation channel (main.js reads it)
+      const stageName = def.phases[phaseIdx]?.name || def.name;
+      ui.bossNote?.(stageName, def.epithet || def.name, 'phase', 2.8);
+      sfx.milestone?.();
+    }
+    if (stageBeatT >= stageBeatDur + STAGE_REVEAL_HOLD) stageBeatT = -1;   // beat done — the new stage's attacks may open
+  }
 
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
   driveSwarm(dt, player);          // §5d slot 7: the condense/scatter cycle + formation (inert for other bosses)
@@ -2236,7 +2303,8 @@ export function updateBoss(dt, player, time, camera) {
 
     // §5f the HOLD-BREAKER shot (armed by enterFight on a def.holdBreaker boss):
     // one slow, survivable, PARRYABLE amber lobbed into the reveal hold.
-    if (holdBreakerT > 0) {
+    // (The ONE fire not behind attackTimer — the LANCE LAB gates it too.)
+    if (holdBreakerT > 0 && !labPacifist) {
       holdBreakerT -= dt;
       if (holdBreakerT <= 0) {
         const slow = B.bulletSpeed * 0.5;
@@ -2272,13 +2340,16 @@ export function updateBoss(dt, player, time, camera) {
       flashPart: () => model.flash?.(0.15),
       // V2 LANCE-PAINT (SOP §II.5): the paint machine's per-frame world view.
       tier: def.tier ?? 1,
-      cap: CONFIG.LOCK.capByTier[def.tier ?? 1] ?? 0,
+      // LANCE LAB: force the max cap so the FULL-6 cadence/finale is testable
+      // (5 organs + one tier-3 stack reaches 6; damage is frozen in the lab, so
+      // no balance surface). Live game: the shipped tier ladder, untouched.
+      cap: labPacifist ? 6 : (CONFIG.LOCK.capByTier[def.tier ?? 1] ?? 0),
       deflected: lockDeflected(),
       phaseHp: currentPhaseHp(),
       paintUnlocked: !!saveData.flags.lockUnlocked,
       paintables: paintableParts(),
       amberVenting: (part) => (amberVent.get(part) ?? -1) > fightNow,
-      fireLance: (part, dmg, i, n) => fireLanceAt(player, part, dmg, i, n),
+      fireLance: (part, dmg, i, n, full, snap) => fireLanceAt(player, part, dmg, i, n, full, snap),
       // V5 FOCUS (PR5): the deliberate hold (2nd finger past focusArmMs / F) —
       // halves the effective dwell in the lock layer. Level-read every frame.
       focusHeld: focusHeldNow(),
@@ -2291,6 +2362,11 @@ export function updateBoss(dt, player, time, camera) {
         const toEdge = Math.min(bc.phase * bc.beatLen, bc.toNextBeat);
         return toEdge <= CONFIG.LOCK.beatWindow;
       })(),
+      // PR9 BEAT-LOCKED RELEASE (C1): seconds to hold a committed volley so the
+      // LAUNCH lands on the song's grid — CAP AUTO-RELEASE ONLY (a manual tap is
+      // never held: the tap is the player's timing, LAW). 0 when music is off
+      // (headless/muted) or the gate is off — byte-identical launch frames (T-E2).
+      gridDelayBeat: releaseQuantDelay(1),
     };
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);
@@ -2687,6 +2763,11 @@ export function updateBoss(dt, player, time, camera) {
       }
     } else if (pending.length === 0) {
       // Idle between attacks → count down, then begin telegraphing the next one.
+      // LANCE LAB: the range target never attacks — pin the idle clock high so
+      // the telegraph never arms (chargeT is only ever armed inside this branch,
+      // and pending[] only fills from executeAttack, so ALL fire stops here).
+      // Keeping attackTimer > 0 also holds the exposure window open.
+      if (labPacifist) attackTimer = Math.max(attackTimer, 5);
       attackTimer -= dt;
       if (attackTimer <= 0) {
         const ph = def.phases[phaseIdx];
@@ -2841,6 +2922,14 @@ function breakShield(player) {
   // new phase's first attack can telegraph.
   pending.length = 0;
   attackTimer = Math.max(attackTimer, 1.6);
+  // A MULTI-STAGE boss (THE UNMASKED) plays its form-change as a CINEMATIC BEAT: hold fire
+  // for the whole crack/unveiling (model.stageTransitionDur) PLUS a reveal hold, so the eyes
+  // snap to you before the new stage opens up. The reveal emphasis fires at the arrival below.
+  const _stageDur = model.stageTransitionDur;
+  if (_stageDur && def.phases[phaseIdx + 1]) {
+    stageBeatT = 0; stageBeatDur = _stageDur; stageBeatRevealed = false;
+    attackTimer = Math.max(attackTimer, _stageDur + STAGE_REVEAL_HOLD);
+  }
   // The surviving-the-phase card resolves the instant its shield bursts: capture
   // if the whole card was hitless. The next phase's card arms right after.
   endCard();
@@ -2853,8 +2942,10 @@ function breakShield(player) {
     rhythm?.reset();
     rhythmRest = null;
     beginCard(phaseIdx);
-    model.setPhase?.(phaseIdx);   // optional damage-state hook (KARNVOW's cloak tears; others ignore)
-    ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
+    model.setPhase?.(phaseIdx);   // optional damage-state hook (KARNVOW's cloak tears; THE UNMASKED animates its stage transition; others ignore)
+    // The PHASE announcement: for a stage-transition boss it's DEFERRED to the reveal (it lands
+    // ON the eye-snap, not at the shield-burst 2s earlier); every other boss announces now.
+    if (!model.stageTransitionDur) ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
     harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
     // §5b the arena-mender: each phase seam TEARS a sector of her web and she
@@ -3550,7 +3641,7 @@ function paintableParts() {
 // off-shoulder (the rider fires from +0.6; wisps leave from −0.6). `vrel` is the
 // plain bossSpeed — the arrival FRAME is identical to the pre-wisp straight lance.
 const _lanceV = new THREE.Vector3();
-function fireLanceAt(player, part, dmg, i = 0, n = 1) {
+function fireLanceAt(player, part, dmg, i = 0, n = 1, full = false, snap = false) {
   const w = model && model.partWorldPos ? model.partWorldPos(part, _lanceV) : null;
   const tx = w ? w.x : pose.x, ty = w ? w.y : pose.y;
   const trel = w ? Math.max(-w.z - player.dist, 4) : pose.rel;
@@ -3564,6 +3655,8 @@ function fireLanceAt(player, part, dmg, i = 0, n = 1) {
     color: lanceTint, coreColor: 0xeafff6, dmg, r: 0.5, life: 4, part,
     homeDelay: L.lanceHomeDelay,
     curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,   // deterministic: slot parity, no RNG
+    volleyN: n, volleyFull: full, volleyFirst: i === 0,   // PR9 presentation tags (finale detect)
+    volleySnap: snap,   // PR9.1: impact-roll grid eligibility (cap/fork auto, or an EARNED perfect tap)
   });
 }
 
@@ -3766,6 +3859,12 @@ function ventSprayBeat() {
 
 function damageBoss(amount, kind, e = null) {
   if (phase !== 'fight') return;
+  // LANCE LAB: the range target is an anvil — flash so a landed strike still
+  // visibly answers, but NO state ever changes: hp frozen (never reaches a
+  // shield floor → lockDeflected stays false → painting always live), no organ
+  // cracks (routePartDamage skipped → brands never drop), no riposte return,
+  // no death. This one early-return IS the repeat-volley mechanism.
+  if (labPacifist) { model?.flash?.(0.3); return; }
   // §5f SURVIVAL-CARD SEAL (slot 10 debut — The Last Toll): while a `survival` card
   // runs, the boss is SEALED — all damage deflects and the UNFILLABLE BAR is the tell
   // (§5f's exact grammar). No bubble: the tolls keep firing (a pure-dodge exam) and
@@ -3924,7 +4023,7 @@ export function resetBoss() {
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true;
   ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
@@ -3958,8 +4057,42 @@ export function setBossDebugPhase(n) {
   debugPhaseJump = Number.isFinite(n) && n > 1 ? n - 1 : null;
 }
 
+// Dev stage-jump: pin the visible STAGE sub-rig of a multi-stage boss (THE UNMASKED). Set
+// FRESH on every launch (the rush picker passes 1 for a normal start) so a stale pick doesn't
+// leak into the next run. Applied at spawn (after the model is built) and live if a boss is
+// already active. Stage 1 (or unset) → the boss's default; 2/3 → the seraph / the unveiling.
+// Dev stage-jump (rush picker / ?bossStage): pick the STARTING stage of a multi-stage boss.
+// The fight then PROGRESSES from there — start at stage 1 and play the transitions live as the
+// phases advance (owner: "start at S1, kill the first form, continue to see the transition"),
+// or jump straight into stage 2/3. So a stage pick sets BOTH the initial visible rig AND the
+// starting phase (its HP fast-forward): stage N ↔ phase N-1. The per-phase transition itself is
+// animated by the boss (model.setPhase) at each live advance — NOT pinned here.
+export function setBossDebugStage(n) {
+  const s = Number.isFinite(n) && n >= 1 ? n : 1;
+  debugStagePin = s > 1 ? s : null;        // spawn: the initial visible stage (stage 1 = the default)
+  debugPhaseJump = s > 1 ? s - 1 : null;   // spawn: start the fight at that stage's phase (HP parked there)
+  if (active && model?.setDebugStage) model.setDebugStage(s);   // live re-pin (studio/debug only)
+}
+
 export function setBossDebugDefIdx(k) {
   debugDefIdx = k;
+}
+
+// LANCE LAB (?lab[=bossKey], owner playtest range for the unleash phrase): the
+// chosen boss spawns shortly after takeoff with its organs fully brandable but
+// it NEVER attacks and NEVER takes damage — hp frozen means no shield floors,
+// no organ cracks, no riposte, no death: paint → unleash → repaint forever.
+// Default target HOLLOWGATE (5 spread rose panes on a static ahead-holding
+// window — the calmest range); the lab also forces the pip cap to 6 so the
+// FULL-cap cadence/finale is testable (no stock boss is tier ≥4 + paintable).
+// Every labPacifist gate below is inert without the param (coexist law).
+let labPacifist = false;
+export function setBossLab(key) {
+  const k = String(key || 'hollowgate').toLowerCase();
+  const idx = BOSS_ORDER.indexOf(k);
+  setBossDebugDefIdx(idx >= 0 ? idx : BOSS_ORDER.indexOf('hollowgate'));
+  setBossDebugFirstAt(180);
+  labPacifist = true;
 }
 
 // Capture hook (bosscrop): pin the charge/mantle pose at `level` (0..1) so a still
@@ -4087,7 +4220,7 @@ export function bossDebugState() {
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
   // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
