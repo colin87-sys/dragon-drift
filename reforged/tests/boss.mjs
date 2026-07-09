@@ -363,6 +363,47 @@ for (const key of BOSS_ORDER) {
   ok('unmasked stage-2 SERAPH: eight eyed wings (bilateral card-fan) + the original focal almond eye, wheels retired');
 }
 {
+  // THE UNMASKED (stage 2 BEHAVIOUR): the CHARGE mantle-flare + the ALL-SNAP reveal.
+  // At rest the ~9 eyes wander on independent lag+bias (the field looks every which way);
+  // the all-snap collapses them onto the player at once — the screenshot of the game.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  um.setDebugStage(2);   // pin the stage-2 sub-rig so tickBody drives the wings + eye field
+
+  // CHARGE MANTLE-FLARE: the fan OPENS on charge — the upper wing lifts toward vertical
+  // (rotation.z rises). Compared at the SAME time so the shared breath-sine term cancels and
+  // the delta isolates the flare (charge 0 → zero flare → the signed-off idle is unchanged).
+  const upR = findAllByName(um.group, 'wing_upper_R')[0];
+  um.setGaze(0, 0); um.setCharge(0); um.tick(0.05, 5.0); const relaxZ = upR.rotation.z;
+  um.setCharge(1); um.tick(0.0, 5.0); const flaredZ = upR.rotation.z;
+  assert(flaredZ > relaxZ + 0.1, `unmasked charge MANTLE-FLARES the fan open (upper wing lifts ${relaxZ.toFixed(3)} → ${flaredZ.toFixed(3)})`);
+  um.setCharge(0);
+
+  // Collect the peripheral eye-pupils (each carries its own tracking userData).
+  const pupils = [];
+  um.group.traverse((o) => { if (o.userData && o.userData.biasX !== undefined && o.userData.base) pupils.push(o); });
+  assert(pupils.length >= 8, `unmasked stage-2 fields a ring of tracking eye-pupils (${pupils.length})`);
+  const spread = (arr) => { const m = arr.reduce((a, b) => a + b, 0) / arr.length; return Math.sqrt(arr.reduce((a, b) => a + (b - m) ** 2, 0) / arr.length); };
+
+  // IDLE WANDER: with the player off-centre, each eye eases toward the gaze at its OWN rate
+  // plus its resting bias → the field's gaze directions SCATTER (they don't all point one way).
+  um.setGaze(0.6, -0.3);
+  for (let i = 0; i < 40; i++) um.tick(0.05, 6 + i * 0.05);
+  const scatter = spread(pupils.map((p) => p.userData.gx));
+  assert(scatter > 0.05, `unmasked eyes idle-wander on independent bias — the field SCATTERS (σ ${scatter.toFixed(3)})`);
+
+  // THE ALL-SNAP: every eye drops its bias and locks near-instantly → the field CONVERGES
+  // onto the player (σ collapses; the mean gaze rides toward the player's gazeX ≈ 0.6).
+  um.allSnap();
+  for (let i = 0; i < 12; i++) um.tick(0.05, 8 + i * 0.05);
+  const snapped = spread(pupils.map((p) => p.userData.gx));
+  const meanX = pupils.reduce((a, p) => a + p.userData.gx, 0) / pupils.length;
+  assert(snapped < scatter * 0.5, `unmasked ALL-SNAP converges the eye field to one gaze (σ ${scatter.toFixed(3)} → ${snapped.toFixed(3)})`);
+  assert(meanX > 0.35, `unmasked ALL-SNAP locks the field ONTO the player (mean gx ${meanX.toFixed(2)} → toward 0.6)`);
+
+  um.dispose();
+  ok('unmasked stage-2 BEHAVIOUR: charge mantle-flares the fan; the ALL-SNAP collapses the wandering eye field onto the player');
+}
+{
   const colossus = buildBoss(BOSSES.craghold, 1);
   const fingers = findAllByName(colossus.group, 'fingerPivot');
   assert(fingers.length >= 6, `craghold exposes ≥6 named fingerPivots for the telegraph gate (${fingers.length})`);

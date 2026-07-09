@@ -380,6 +380,11 @@ export function buildUnmasked(def, quality = 1) {
     { key: 'middle', rotZ: -0.88, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.45, y: 0.02 } }, // out, ~horizontal — lifted so it stays DISTINCT from the lowest wing
     { key: 'lower',  rotZ: -1.20, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.42 } },// out-and-slightly-down (~−25°) — the distinct lowest wing
   ];
+  // CHARGE MANTLE-FLARE sign per wing (right-side convention; ×side in the tick mirrors it): on
+  // charge the fan OPENS — the upper pair lifts toward vertical (+), the lower pair sweeps
+  // down-and-out (−), the middle holds — so the mandorla WIDENS as the wrath gathers, then
+  // settles back at rest (charge 0 → zero flare → the signed-off idle is byte-identical).
+  const FLARE_SIGN = { upper: 1.0, upmid: 0.45, middle: -0.3, lower: -1.0 };
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
   // as a rendering bug). Nudge each new eye out of any earlier eye it overlaps IN THE SAME
@@ -418,7 +423,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78 }).group);   // per-wing value ladder + painted moon-rim (two tiers → the fan fingers separate)
       stage2.add(pivot);
       pivot.updateMatrix();
-      shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp });
+      shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0) });
       // ONE small almond eye per wing — 4 per side, 8 total (+ central = 9). Seated OUT at the
       // wing's ELBOW / where the primary fan starts (on the leading edge) — NOT pooled at the
       // central root cord (owner r-fix). The wing-local elbow point is pushed through THIS wing's
@@ -524,9 +529,22 @@ export function buildUnmasked(def, quality = 1) {
   // ──────────────────────────────────────────────────────────────────────────
   const DANGER = new THREE.Color(0xff2b6a);
   const _c = new THREE.Color();
+  // Base eye-field values captured so the wrath tell + snap flare lerp FROM the signed-off
+  // resting colours and return to them exactly (irisMat paints BOTH the ~9 peripheral irises
+  // and the great iris; catchMat paints every catchlight + the great catch — one lerp does the
+  // whole field, which is the point: the eyes go wrathful as ONE being).
+  const IRIS_BASE = irisMat.color.clone();
+  const CATCH_BASE = catchMat.color.clone();
 
   let charge = 0;
   function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
+
+  // ── THE ALL-SNAP (§4b DEATH-of-doubt reveal / the screenshot of the game): every eye across
+  // the wings + the great eye abandons its own idle wander and LOCKS dead-on the player at once,
+  // the catchlights flare hot, and the wings freeze mid-breath — a held, total stare. Triggered
+  // by the fight machine (CP2) at the phase turn; `snapT` is the hold, `snapK` the eased weight.
+  let snapT = 0, snapK = 0;
+  function allSnap() { snapT = 0.8; saccadeT = 0; }
 
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
   function setGaze(nx, ny) { gazeTX = Math.max(-1, Math.min(1, nx)); gazeTY = Math.max(-1, Math.min(1, ny)); }
@@ -604,22 +622,42 @@ export function buildUnmasked(def, quality = 1) {
     // degrees about each shoulder's base angle, tiers lagging via per-wing phase; charge
     // deepens the breath. ──
     if (stage2.visible) {
-      const breath = 1 + charge * 0.8;
+      // ── THE ALL-SNAP hold: eased weight snapK crossfades the whole field from independent
+      // idle-wander to ONE locked gaze, and back. Snaps fast (dt·22), releases soft (dt·7). ──
+      if (snapT > 0) snapT -= dt;
+      const snapping = snapT > 0;
+      snapK += ((snapping ? 1 : 0) - snapK) * Math.min(1, dt * (snapping ? 22 : 7));
+
+      // ── The wings BREATHE (charge deepens it), MANTLE-FLARE open on charge (the mandorla
+      // widens as wrath gathers), and FREEZE mid-breath on the snap (stillness makes the stare
+      // total). charge 0 + snapK 0 → breath 1, zero flare → the signed-off idle unchanged. ──
+      const breath = (1 + charge * 0.8) * (1 - snapK * 0.9);
       for (const s of shoulders) {
-        s.obj.rotation.z = s.baseRotZ + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath;
+        s.obj.rotation.z = s.baseRotZ
+          + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath
+          + s.flareZ * charge * 0.16;
       }
+
+      // ── WRATH TELL: the whole eye field bleeds from gold toward danger-red as the charge
+      // gathers (irisMat paints every peripheral + the great iris — they redden as ONE being);
+      // the SNAP flares every catchlight hot. Both lerp from the captured base and return to it. ──
+      irisMat.color.copy(IRIS_BASE).lerp(DANGER, charge * 0.5);
+      catchMat.color.copy(CATCH_BASE).multiplyScalar(1 + snapK * 1.8);
+
       // The great central eye's pupil tracks the player (the focal); constricts on charge.
       const gk = 1 - charge * 0.3;
       greatPupil.position.set(gazeX * GW * 0.24, GEY + gazeY * GH * 0.2, GF + 0.08);
       greatPupil.scale.set(GW * 0.38 * gk, GH * 0.44 * gk, 0.5);
       // Each peripheral pupil tracks the player within its own sclera, sitting proud of the
-      // front. Independent per-eye LAG + a small resting BIAS make the field read as living
-      // eyes that look every which way; the shared gazeX/gazeY drags them toward the player.
-      // (CP2 adds the ALL-SNAP: bias→0 + lag→0 for one frame + a catchlight flare.)
+      // front. Independent per-eye LAG + a small resting BIAS make the field read as living eyes
+      // that look every which way; the shared gazeX/gazeY drags them toward the player. On the
+      // ALL-SNAP, snapK fades each eye's bias→0 and its lag→near-instant, so the ~9 scattered
+      // gazes CONVERGE to a single dead-on lock — the reveal hold (the screenshot of the game).
       for (const p of pupils) {
         const u = p.userData;
-        const tgx = gazeX + u.biasX, tgy = gazeY + u.biasY;
-        const k = Math.min(1, dt * (2 + u.lag * 7));
+        const tgx = gazeX + u.biasX * (1 - snapK);
+        const tgy = gazeY + u.biasY * (1 - snapK);
+        const k = Math.min(1, dt * ((2 + u.lag * 7) * (1 - snapK) + 30 * snapK));
         u.gx += (tgx - u.gx) * k;
         u.gy += (tgy - u.gy) * k;
         p.position.set(u.base.x + u.gx * u.size * 0.4, u.base.y + u.gy * u.size * 0.4 * (u.openF || 1), u.base.z + u.size * 0.62);
@@ -638,6 +676,7 @@ export function buildUnmasked(def, quality = 1) {
     setCharge,
     setGaze,
     notice,
+    allSnap,
     setDebugStage,
     setDebugWing,
     setHealth: kit.setHealth,
