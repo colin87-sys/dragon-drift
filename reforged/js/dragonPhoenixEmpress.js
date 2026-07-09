@@ -82,6 +82,9 @@ function empressMats(def, glow, stage) {
   const vaneDark   = surgeMat(0x241012, 0x260c08, vaneI * 0.10 + 0.05, 0.74);   // near-dark blade
   const vaneEdgeLo = surgeMat(0x3a1218, EMBER, vaneI * 0.6, 0.5);               // lower rim ember-crimson (dimmed)
   const vaneEdgeHi = surgeMat(0x4a2810, AMBER, vaneI * 0.65, 0.46);            // upper rim amber (dimmed)
+  // The peacock EYE inset on each main vane face — amber, a touch hotter than the rim, so the
+  // dark blade carries a readable light MOTIF (empress-train signature). IN accentMats.
+  const vaneEye    = surgeMat(0x4a2c0e, AMBER, vaneI * 0.95, 0.4);
 
   // DORSAL keel-seam (thin ember groove) + heart-fire GORGET (amber breast chevron,
   // withheld until f2). Both IN spineMats (torso) → flare on Surge.
@@ -107,7 +110,7 @@ function empressMats(def, glow, stage) {
   const eyeMat = new THREE.MeshStandardMaterial({ color: def.eye ?? 0xffcf6a, emissive: 0xc07a1a, emissiveIntensity: 1.5, flatShading: true, roughness: 0.3, metalness: 0.2 });
   eyeMat.userData.baseEmissive = 0xc07a1a; eyeMat.userData.baseIntensity = 1.5;
 
-  return { bodyFlat, belly, copper, covert, pinionRoot, pinionTip, pinionEdge, vaneDark, vaneEdgeLo, vaneEdgeHi, keelSeam, gorget, crestGlow, crestTip, coalEye, coalBezel, dawnCoal, eyeMat, stage: st };
+  return { bodyFlat, belly, copper, covert, pinionRoot, pinionTip, pinionEdge, vaneDark, vaneEdgeLo, vaneEdgeHi, vaneEye, keelSeam, gorget, crestGlow, crestTip, coalEye, coalBezel, dawnCoal, eyeMat, stage: st };
 }
 
 // ── shared plumbing (look-neutral; copied construction, not appearance) ─────────
@@ -147,6 +150,35 @@ function bar(a, b, r, mat) {
   m.position.set(a[0], a[1], a[2]);
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
   return m;
+}
+// A CREASED kite feather (4 tris): a diamond blade with a shallow dihedral crease down its
+// spine, so flat shading gives TWO facet values per feather for free (the "real plumage" cue).
+// base→tip runs `along`; `side` is the width axis; `up` lifts the spine crease proud. Returns tris.
+function kiteFeather(base, along, side, up, len, wid, crease = 0.35) {
+  // A(s, u, t): move `s` along the width axis, `u` along the up (proud) axis, `t` along the length.
+  const A = (s, u, t) => [
+    base[0] + along[0] * t + side[0] * s + up[0] * u,
+    base[1] + along[1] * t + side[1] * s + up[1] * u,
+    base[2] + along[2] * t + side[2] * s + up[2] * u];
+  const spine = A(0, wid * crease, 0.55 * len);        // raised mid-spine (the crease apex)
+  const tip = A(0, 0, len), l = A(-wid, 0, 0.42 * len), r = A(wid, 0, 0.42 * len), b = A(0, 0, 0);
+  return [[b, l, spine], [l, tip, spine], [b, spine, r], [spine, tip, r]];
+}
+// A shingled ROW of overlapping dark feathers along a centreline path `at(t)` (t 0→1), each
+// laid proud of the surface (`normalAt`) and pointing `alongAt`. Overlap ~55% → a scalloped,
+// stepped edge that reads in silhouette. Returns one flatTriMesh (one draw call).
+const NZ = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+function shingleRow(count, at, alongAt, normalAt, len, wid, mat, crease = 0.35) {
+  const tris = [];
+  for (let i = 0; i < count; i++) {
+    const t = count > 1 ? i / (count - 1) : 0.5;
+    const c = at(t), al = NZ(alongAt(t)), n = NZ(normalAt(t));
+    const side = new THREE.Vector3().crossVectors(new THREE.Vector3(...al), new THREE.Vector3(...n)).normalize();
+    const base = [c[0] + n[0] * 0.02, c[1] + n[1] * 0.02, c[2] + n[2] * 0.02];
+    const L = typeof len === 'function' ? len(t) : len, W = typeof wid === 'function' ? wid(t) : wid;
+    tris.push(...kiteFeather(base, al, [side.x, side.y, side.z], n, L, W, crease));
+  }
+  return flatTriMesh(tris, mat);
 }
 
 // SCYTHE WING PROFILE (the anti-M signature): a single continuous RISING RAKE whose
@@ -225,27 +257,105 @@ function buildPyreHeartTorso(def, model, _bodyMat) {
   if (gorgetOn) {
     const gg = new THREE.Group();
     const bloom = model.gorget ?? 1;   // 0.6 (conferred) → 1 (blazing)
-    // 3 nested downward CHEVRON seams (thin V strokes, not a filled plate) molded into the
-    // breast keel — the dark-body + thin-saturated-rim technique spent on a GORGET, not a ring.
-    const w = 0.15 + 0.04 * bloom, drop = 0.09 + 0.03 * bloom;
-    // copper bezel backing (one small facet behind the seams — frames, never out-shines)
-    gg.add(flatTriMesh([[[-w * 1.2, 0.03, -0.01], [0, -drop * 2.3, -0.01], [w * 1.2, 0.03, -0.01]]], M.copper));
+    // 3 nested downward CHEVRON seams (thin V strokes, not a filled plate) — the dark-body +
+    // thin-saturated-rim technique spent on a GORGET. Sized UP + wrapped so the conferred regalia
+    // actually reads (the side profile catches the copper collar; the chevrons catch a bank).
+    const w = 0.24 + 0.06 * bloom, drop = 0.14 + 0.04 * bloom, thick = 0.028;
+    // a slim copper COLLAR plate wrapping the breast sides (reads in side profile)
+    for (const s of [1, -1]) {
+      gg.add(flatTriMesh([[[s * w * 0.5, 0.10, -0.02], [s * w * 1.35, -0.02, 0.12], [s * w * 0.7, -drop * 1.4, 0.02]]], M.copper));
+    }
     for (let k = 0; k < 3; k++) {
       const yy = -k * drop * 0.72, ww = w * (1 - k * 0.24);
-      // a thin V = two slim gold bars meeting at the point (a seam-chevron, reads as a stroke)
-      gg.add(bar([-ww, yy, 0.02], [0, yy - drop, 0.05], 0.018, M.gorget));
-      gg.add(bar([ww, yy, 0.02], [0, yy - drop, 0.05], 0.018, M.gorget));
+      gg.add(bar([-ww, yy, 0.02], [0, yy - drop, 0.06], thick, M.gorget));
+      gg.add(bar([ww, yy, 0.02], [0, yy - drop, 0.06], thick, M.gorget));
     }
     gg.position.copy(gPos);
-    gg.rotation.x = -0.55;   // face DOWN-and-forward (the underside a believer catches on a bank)
+    gg.rotation.x = -0.35;   // face forward-down but upright enough to catch the side/rear-¾ read
     group.add(gg);
     spineMats.push(M.gorget);
   }
 
-  // Shoulder fairings — body-flat fillets from each wing root inboard to the neck base,
-  // so no background survives between neck, shoulder and wing roots in the rear read.
+  // ── PLUMAGE + REGALIA richness (all dark covert relief unless noted; richness by facet +
+  // silhouette, never new light — the coal doctrine holds) ─────────────────────────────────
+  // B1 — NECK RUFF / imperial collar (conferred at f2): a ring of overlapping dark feather-points
+  // around the neck base flaring back over the shoulders — the strongest "regal empress" cue and
+  // it FRAMES the head in the rear-chase view. Tips kissed rose at f2+ (the crest hue-station).
+  const ruff = model.ruff ?? 0;
+  if (ruff > 0) {
+    const cz = -1.04, cy0 = TORSO_Y + 0.14, R = 0.30 + 0.06 * ruff;
+    group.add(shingleRow(seg(11),
+      (u) => { const ang = (u - 0.5) * Math.PI * 1.55; return [Math.sin(ang) * R, cy0 + Math.cos(ang) * R * 0.85 + 0.06, cz + 0.04 * Math.abs(Math.sin(ang))]; },
+      (u) => { const ang = (u - 0.5) * Math.PI * 1.55; return [Math.sin(ang) * 0.4, 0.2 + 0.2 * Math.cos(ang), 0.9]; },
+      (u) => { const ang = (u - 0.5) * Math.PI * 1.55; return [Math.sin(ang), Math.cos(ang) + 0.3, 0.15]; },
+      () => (0.40 + 0.08 * ruff), () => 0.12, M.covert, 0.42));
+    // rose-kissed tips (a few) — the imperial collar catches the crest hue
+    for (let j = -2; j <= 2; j++) {
+      const ang = (j / 5) * Math.PI * 1.3;
+      const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), M.crestTip);
+      tip.position.set(Math.sin(ang) * R * 1.15, cy0 + Math.cos(ang) * R * 0.9 + 0.42, cz + 0.42);
+      group.add(tip);
+    }
+  }
+
+  // B2 — FLANK + breast SHINGLE rows: broad dark feather scallops down each flank (and a breast
+  // rank) so the bare fuselage reads as a feathered body from every angle. Rows grow per form.
+  const flankRows = Math.round(model.flankShingle ?? 0);
+  for (let row = 0; row < flankRows; row++) {
+    for (const side of [1, -1]) {
+      group.add(shingleRow(seg(6),
+        (u) => { const z = -0.55 + u * 1.15; const hw = 0.55 * Math.max(0.3, 1 - Math.abs(z + 0.2) / 2.3); return [side * hw * 0.94, TORSO_Y - 0.06 + row * 0.24, z]; },
+        () => [0, -0.12, 1],
+        () => [side * 0.92, 0.28, 0],
+        () => 0.26, () => 0.11, M.covert, 0.45));
+    }
+  }
+
+  // B3 — DORSAL PLUME RIDGE: small back-swept dark plumes along the spine (the keel-seam ember
+  // now glows BETWEEN structure instead of being a lone stripe). Rear-chase + top stare at this.
+  const dPlumes = Math.round(model.dorsalPlumes ?? 0);
+  if (dPlumes > 0) {
+    group.add(shingleRow(seg(dPlumes),
+      (u) => { const z = -0.95 + u * 1.85; return [0, dorsalTop(z) + 0.04, z]; },
+      () => [0, -0.25, 1],
+      () => [0, 1, -0.1],
+      (u) => 0.24 + 0.08 * (1 - Math.abs(u - 0.4)), () => 0.06, M.covert, 0.4));
+  }
+
+  // B4 — folded COPPER TALONS tucked under the hip (chick-stub at f0 → full at f3, +anklet band):
+  // converts "paper glider" to "creature". Copper, non-emissive — doctrine-clean. Side/below read.
+  const talons = model.talons ?? 0;
+  if (talons > 0) {
+    for (const side of [1, -1]) {
+      const shin = spike(0.24 * talons, 0.05, 0.03, M.copper, 4);
+      shin.position.set(side * 0.15, TORSO_Y - 0.10, 0.34); shin.rotation.x = 2.05; shin.rotation.z = -side * 0.1;
+      group.add(shin);
+      const foot = new THREE.Group();
+      foot.position.set(side * 0.17, TORSO_Y - 0.32, 0.52);
+      for (let c = 0; c < 3; c++) {
+        const claw = spike(0.16 * talons, 0.026, 0.004, M.copper, 4);
+        claw.rotation.x = 2.5; claw.rotation.z = (c - 1) * 0.34; claw.rotation.y = side * 0.12;
+        foot.add(claw);
+      }
+      group.add(foot);
+      if (talons >= 1) {   // anklet band (f3)
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.05, seg(6)), M.gorget);
+        band.position.set(side * 0.16, TORSO_Y - 0.26, 0.47); band.rotation.x = 2.05;
+        group.add(band);
+      }
+    }
+  }
+
+  // W4 — SCAPULAR / TERTIAL FILLET: overlapping dark plates from each wing root inboard to the
+  // neck base, so the wing grows OUT of the body instead of butting into it (and no background
+  // survives between neck, shoulder and wing roots in the rear read). Layered, not a single tri.
   for (const s of [1, -1]) {
     group.add(flatTriMesh([[[s * 0.5, TORSO_Y + 0.30, -0.55], [s * 0.10, TORSO_Y + 0.28, -1.15], [s * 0.46, TORSO_Y + 0.16, -0.30]]], M.bodyFlat));
+    // three shingled scapular feathers sweeping off the shoulder over the wing root
+    group.add(shingleRow(seg(3),
+      (u) => [s * (0.30 + 0.16 * u), TORSO_Y + 0.34 - 0.05 * u, -0.72 + 0.34 * u],
+      () => [s * 0.45, -0.05, 0.88],
+      () => [s * 0.3, 0.95, 0], () => 0.40, () => 0.13, M.covert, 0.4));
   }
 
   // Line-of-action: head high → neck down → LEVEL body → tail root (the train lifts, not
@@ -280,7 +390,8 @@ registerTorso('pyreHeartTorso', buildPyreHeartTorso);
 // crimson-tip gradient. Vertical profile = a single continuous RISING RAKE, terminal peak.
 function buildOneScytheWing(M, dials) {
   const wg = new THREE.Group();
-  const { halfSpan, rake, tipRise, primaries, pinionSlots, rootChord, tipChord } = dials;
+  const { halfSpan, rake, tipRise, primaries, pinionSlots, rootChord, tipChord, covertRank, alula } = dials;
+  const nz = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
   const L = (t) => [t * halfSpan, scytheY(t, halfSpan, tipRise), scytheZ(t, halfSpan, rake)];
   const chord = (t) => rootChord * (1 - t) + tipChord * t;   // narrow, tapering to a point
   const tCov = 0.34;   // covert sheet spans the inner third
@@ -296,11 +407,24 @@ function buildOneScytheWing(M, dials) {
     wg.add(flatTriMesh([[a, b, bt], [a, bt, at]], M.covert));
   }
 
-  // BLADE PRIMARIES — discrete z-staggered feathers off the outer two-thirds. Each = a
-  // 2-segment tapered vane (root tier near-dark → tip tier crimson: the fire lives on the
-  // tips). The outer `pinionSlots` feathers separate with negative-space gaps (narrowed
-  // bases). The last primary curls slightly inward (flame-lick tip).
+  // W1 — SHINGLED SECONDARY-COVERT RANK (conferred at f1): a row of overlapping dark kite
+  // feathers along the trailing edge from the covert bed out over the primary roots, so the
+  // straight trailing line becomes a SCALLOPED, stepped, feathered edge (the #1 "real wing"
+  // cue — reads in pure silhouette). Dark covert diffuse; richness by facet relief, not light.
+  if (covertRank > 0) {
+    wg.add(shingleRow(seg(9),
+      (u) => covTrail(0.26 + 0.36 * u),
+      (u) => { const t = 0.26 + 0.36 * u; return nz([covTrail(t)[0] - covLead(t)[0], -0.15, covTrail(t)[2] - covLead(t)[2] + 0.1]); },
+      () => nz([0, 0.7, -0.3]),
+      (u) => (0.30 + 0.16 * (1 - Math.abs(u - 0.5) * 2)) * rootChord,
+      () => 0.11 * rootChord, M.covert, 0.4));
+  }
+
+  // W2 — BLADE PRIMARIES, now CREASED + BARBED (was 3 coplanar tris): each has a dihedral
+  // spine crease (two facet values under flat shading = free plumage relief) + a trailing barb
+  // notch, and still carries the dark-root → crimson-tip gradient + the outer pinion slots.
   const nP = Math.max(1, Math.round(primaries));
+  const folded = tipRise >= 0.5;   // the whelp keeps simple stubs; folded pinions arrive with rake
   const wingEls = [];
   for (let k = 0; k < nP; k++) {
     const t0 = tCov + (1 - tCov) * (k / nP);
@@ -308,27 +432,50 @@ function buildOneScytheWing(M, dials) {
     const outer = k / (nP - 1 || 1);
     const a = L(t0), b = L(t1);
     const c = chord((t0 + t1) / 2);
-    // slot: the outer pinionSlots feathers pull their base narrower → a see-through gap.
     const slotted = pinionSlots > 0 && k >= nP - pinionSlots;
     const gap = slotted ? 0.32 : 0.0;
     const ba = [a[0] + (b[0] - a[0]) * (gap * 0.5), a[1] + (b[1] - a[1]) * (gap * 0.5), a[2] + (b[2] - a[2]) * (gap * 0.5)];
     const bb = [a[0] + (b[0] - a[0]) * (1 - gap * 0.5), a[1] + (b[1] - a[1]) * (1 - gap * 0.5), a[2] + (b[2] - a[2]) * (1 - gap * 0.5)];
     const mid = [(ba[0] + bb[0]) / 2, (ba[1] + bb[1]) / 2, (ba[2] + bb[2]) / 2];
-    // primaries project aft — but STUBBY at low rake (f0) so the whelp reads a rounded
-    // ash-chick, not pre-conferred flame serrations; they extend into full pinions as rake climbs.
     const featherLen = c * (1.05 + 0.55 * outer) * (0.5 + 0.5 * tipRise);
-    const curl = (k === nP - 1) ? -0.10 * featherLen : 0;   // inward flame-lick on the last
+    const curl = (k === nP - 1) ? -0.10 * featherLen : 0;
     const drop = -0.10 * featherLen;
-    // split point (60% out) between the dark root tier and the crimson tip tier
-    const sfx = mid[0] + curl * 0.5, sfy = mid[1] + drop * 0.6, sfz = mid[2] + featherLen * 0.6;
-    const tfx = mid[0] + curl, tfy = mid[1] + drop, tfz = mid[2] + featherLen;
-    const splitP = [sfx, sfy, sfz], tipP = [tfx, tfy, tfz];
-    // root tier (dark) — base pair to split point
-    wg.add(flatTriMesh([[ba, bb, splitP]], M.pinionRoot));
-    // tip tier (crimson) — split to the point; rose feather-edge kiss on the trailing side
-    wg.add(flatTriMesh([[ba, splitP, tipP]], M.pinionTip));
-    wg.add(flatTriMesh([[splitP, bb, tipP]], M.pinionEdge));
+    const along = nz([mid[0] + curl - mid[0], drop, featherLen]);   // aft+down (+curl)
+    const splitP = [mid[0] + curl * 0.6, mid[1] + drop * 0.6, mid[2] + featherLen * 0.6];
+    const tipP = [mid[0] + curl, mid[1] + drop, mid[2] + featherLen];
+    if (!folded) {
+      // f0 stub: the old flat 3-tri feather (rounded, quiet)
+      wg.add(flatTriMesh([[ba, bb, splitP]], M.pinionRoot));
+      wg.add(flatTriMesh([[ba, splitP, tipP]], M.pinionTip));
+      wg.add(flatTriMesh([[splitP, bb, tipP]], M.pinionEdge));
+    } else {
+      // raised spine crease apex (lifts the centreline proud → two facet values per feather)
+      const crH = 0.07 * featherLen;
+      const crease = [splitP[0], splitP[1] + crH, splitP[2] - 0.05 * featherLen];
+      // root tier (dark) — two creased halves
+      wg.add(flatTriMesh([[ba, mid, crease], [mid, bb, crease]], M.pinionRoot));
+      // tip tier (crimson) — two creased halves to the point
+      wg.add(flatTriMesh([[mid, crease, tipP]], M.pinionTip));
+      wg.add(flatTriMesh([[crease, bb, tipP]], M.pinionEdge));
+      // trailing BARB notch near the tip (a small forked flag on the aft edge)
+      const barbRoot = [bb[0] + (tipP[0] - bb[0]) * 0.55, bb[1] + (tipP[1] - bb[1]) * 0.55, bb[2] + (tipP[2] - bb[2]) * 0.55];
+      const barbTip = [barbRoot[0] + along[0] * 0.12 * featherLen + 0.02, barbRoot[1] + along[1] * 0.1 * featherLen, barbRoot[2] + along[2] * 0.12 * featherLen];
+      wg.add(flatTriMesh([[barbRoot, barbTip, tipP]], M.pinionEdge));
+    }
     wingEls.push({ station: (t0 + t1) / 2, tip: tipP, length: featherLen });
+  }
+
+  // W3 — ALULA (conferred at f2): three short copper-shafted dark feathers at the wrist
+  // (t≈0.34, where covert meets primaries), splayed forward-up — breaks the dead-straight
+  // leading spar at the point the rear-chase eye lands, and reads the wing as JOINTED.
+  if (alula > 0) {
+    const wl = L(0.33);
+    for (let j = 0; j < 3; j++) {
+      const base = [wl[0] + 0.02 * j, wl[1] + 0.03, wl[2] - 0.04];
+      const al = nz([-0.12, 0.55, -0.75 + 0.14 * j]);
+      wg.add(flatTriMesh(kiteFeather(base, al, [1, 0, 0], [0, 1, 0], 0.20 - 0.03 * j, 0.05), M.covert));
+      wg.add(bar(base, [base[0] + al[0] * 0.16, base[1] + al[1] * 0.16, base[2] + al[2] * 0.16], 0.011, M.copper));
+    }
   }
 
   // Gold-copper armored LEADING SPAR (thick root → thin tip) tracing the rising rake —
@@ -350,7 +497,8 @@ function buildScythePinionWings(def, model, attach, _giM) {
   const tipRise = model.tipRise ?? 1;
   const primaries = Math.round(model.primaries ?? 7);
   const pinionSlots = Math.round(model.pinionSlots ?? 3);
-  const dials = { halfSpan, rake, tipRise, primaries, pinionSlots, rootChord: model.rootChord ?? 1.5, tipChord: model.tipChord ?? 0.28 };
+  const dials = { halfSpan, rake, tipRise, primaries, pinionSlots, rootChord: model.rootChord ?? 1.5, tipChord: model.tipChord ?? 0.28,
+    covertRank: model.covertRank ?? 1, alula: model.alula ?? 1 };
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
@@ -418,15 +566,17 @@ function buildCometCrestHead(def, model, mats) {
   jaw.rotation.x = -Math.PI / 2 + 0.16;
   group.add(jaw);
 
-  // Eyes — amber-gold almond, emissive; eyeShape ladders 34% round (chick) → 16% almond.
+  // Eyes — amber-gold almond, emissive; eyeShape ladders 34% round (chick) → 16% almond. H3:
+  // shrunk ~15% + a dark BROW-RIDGE facet above so the eye sits IN the skull, not ON it as a sticker.
   const shape = model.eyeShape ?? 1;
-  const eScale = 0.12 * hs * (0.9 + 0.4 * (1 - shape));   // rounder+bigger young, keener apex
+  const eScale = 0.102 * hs * (0.9 + 0.4 * (1 - shape));
   spineMats.push(eyeMat);
   for (const side of [1, -1]) {
+    // brow ridge (dark) — a small hooded facet over the eye
+    group.add(flatTriMesh([[[side * 0.10 * hs, 0.18 * hs, -0.10 * hs], [side * 0.30 * hs, 0.15 * hs, -0.20 * hs], [side * 0.24 * hs, 0.05 * hs, -0.24 * hs]]], M.bodyFlat));
     const eye = new THREE.Mesh(new THREE.OctahedronGeometry(eScale, 0), eyeMat);
-    eye.position.set(side * 0.20 * hs, 0.06 * hs, -0.20 * hs);
-    // almond as shape→0: wider + flatter; rounder as shape→1
-    eye.scale.set(1.2 + (1 - shape) * 0.9, 0.62 + shape * 0.5, 1);
+    eye.position.set(side * 0.21 * hs, 0.05 * hs, -0.20 * hs);
+    eye.scale.set(1.2 + (1 - shape) * 0.9, 0.62 + shape * 0.5, 0.8);   // set INTO the skull (z-flatter)
     group.add(eye);
   }
 
@@ -437,27 +587,58 @@ function buildCometCrestHead(def, model, mats) {
   const crestPos = new THREE.Vector3(0, 0.24 * hs, 0.20);   // crown, back of skull
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.copy(crestPos); group.add(motifAnchor);
   if (nCrest > 0) spineMats.push(M.crestGlow);
+
+  // H2b — NAPE MANTLE: a small fan of dark feathers rooting the crest into the neck (so the
+  // crest connects to the body / the B1 ruff instead of floating). Conferred with the crest.
+  if (nCrest > 0) {
+    group.add(shingleRow(seg(5),
+      (u) => [(u - 0.5) * 0.36 * hs, (0.16 - 0.04 * Math.abs(u - 0.5) * 2) * hs, 0.24 * hs],
+      () => [0, -0.4, 1], () => [0, 1, -0.2],
+      () => 0.34 * hs, () => 0.09 * hs, M.covert, 0.4));
+  }
+
   for (let k = 0; k < nCrest; k++) {
     const cen = (nCrest - 1) / 2;
     const off = nCrest > 1 ? (k - cen) / (cen || 1) : 0;   // −1..1 across the crest
-    const clen = (0.46 + 0.16 * (1 - Math.abs(off))) * hs;  // center quill longest (streams rearward)
+    const clen = (0.50 + 0.18 * (1 - Math.abs(off))) * hs;  // center quill longest (streams rearward)
     const q = new THREE.Group();
     q.position.set(crestPos.x + off * 0.14 * hs, crestPos.y, crestPos.z);
     q.rotation.x = 1.15;                     // rake back over the nape (streams rearward)
     q.rotation.z = -off * 0.42;              // splay outward
-    // copper shaft
-    const shaft = spike(clen, 0.028 * hs, 0.006, M.copper, 4); q.add(shaft);
-    // rose emissive vane along the shaft (the crest fire)
-    const vt = [[[-0.05 * hs, clen * 0.3, 0], [0.05 * hs, clen * 0.3, 0], [0, clen * 0.92, 0.01]]];
-    q.add(flatTriMesh(vt, M.crestGlow));
-    // small ROSE coal tip (the crest is the rose hue-station; NOT amber/near-white — the Dawn
-    // Coal must stay the ONE near-white). OUT of surge arrays (holds hue).
+    const shaft = spike(clen, 0.03 * hs, 0.006, M.copper, 4); q.add(shaft);
+    // H2 — a BARBED streamer vane (wider, notched) rather than a single sliver: two barbs + a
+    // point, so the crest reads as real plumage. Rose emissive (the crest hue-station).
+    const w = 0.07 * hs;
+    q.add(flatTriMesh([
+      [[-w, clen * 0.28, 0], [w, clen * 0.28, 0], [0, clen * 0.62, 0.005]],
+      [[-w * 0.8, clen * 0.55, 0], [w * 0.8, clen * 0.55, 0], [0, clen * 0.96, 0.01]],
+    ], M.crestGlow));
+    // a short UNDER-feather behind each main crest quill (dark) — depth
+    q.add(flatTriMesh([[[-w * 0.6, clen * 0.2, -0.02], [w * 0.6, clen * 0.2, -0.02], [0, clen * 0.7, -0.03]]], M.covert));
+    // small ROSE coal tip (the crest is the rose hue-station; OUT of surge arrays, holds hue).
     if ((model.coalBloom ?? 1) > 0) {
       const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.05 * hs, 0), M.crestTip);
       coal.position.set(0, clen, 0);
       q.add(coal);
     }
     group.add(q);
+  }
+
+  // H1 — the DIADEM (conferred at f3): a thin copper tiara ARC seated at the crest root, OPEN
+  // at the front (emphatically NOT a body-ring/halo — that's Solar/Pearl), set with 3 rose gems.
+  // Head-scale keeps her bottom-heavy doctrine intact while giving the crown an actual crown.
+  if ((model.diadem ?? 0) > 0) {
+    const R = 0.26 * hs, cy = 0.20 * hs, cz = 0.02 * hs, N = 6;
+    for (let i = 0; i < N; i++) {
+      const a0 = Math.PI * (0.15 + 0.7 * (i / N)), a1 = Math.PI * (0.15 + 0.7 * ((i + 1) / N));   // rear open-C arc
+      const p0 = [Math.cos(a0) * R * 1.1, cy + Math.sin(a0) * R, cz + 0.14 * hs * Math.sin(a0)];
+      const p1 = [Math.cos(a1) * R * 1.1, cy + Math.sin(a1) * R, cz + 0.14 * hs * Math.sin(a1)];
+      group.add(bar(p0, p1, 0.016 * hs, M.copper));
+      if (i % 2 === 0) {
+        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.036 * hs, 0), M.crestTip);
+        gem.position.set(p0[0], p0[1] + 0.02, p0[2]); group.add(gem);
+      }
+    }
   }
   return { group, spineMats, motifAnchor, headLength };
 }
@@ -489,6 +670,25 @@ export function trainFanLayout(model) {
   let minGap = Infinity;
   for (let i = 1; i < angs.length; i++) minGap = Math.min(minGap, angs[i] - angs[i - 1]);
   return { quills, fanDeg, minGapRad: minGap === Infinity ? half : minGap, nQuills: quills.length };
+}
+
+// T1 — the INNER UNDER-RANK: a second, shorter arc of downy quills nested a half-step between
+// the main rank (f3 only, via model.underQuills), so the fan reads as layered feather-MASS and
+// the coal constellation doubles into two nested arcs. Same mirrored-pair construction → Σcant=0.
+export function trainUnderLayout(model) {
+  const n = Math.max(0, Math.round(model.underQuills ?? 0));
+  const fanDeg = Math.min(model.trainFan ?? 150, 175);
+  const half = (fanDeg / 2) * Math.PI / 180;
+  const pairs = Math.floor(n / 2);
+  const quills = [];
+  for (let p = 1; p <= pairs; p++) {
+    const phi = half * ((p - 0.5) / (pairs + 0.4));           // half-step, tucked inside the main sector
+    const cant = (p % 2 === 1 ? 1 : -1) * (6 * Math.PI / 180);
+    const lenScale = Math.pow(0.85, p - 0.5);
+    quills.push({ phi: +phi, cant: +cant, lenScale });
+    quills.push({ phi: -phi, cant: -cant, lenScale });         // mirror → Σ cant = 0
+  }
+  return { quills, nQuills: quills.length };
 }
 
 // ── TAIL: 'pyreTrainTail' — THE HERO ─────────────────────────────────────────────
@@ -536,57 +736,65 @@ function buildPyreTrainTail(def, model, mats, anchor) {
   const maxLen = Math.min(1.1 * bodyLen, (model.trainQuills ?? 9) >= 4 ? 1.1 * bodyLen : 0.7 * bodyLen);
   const coalOn = (model.coalBloom ?? 1) > 0;
   const dawnOn = (model.dawnCoal ?? 0) > 0;   // the near-white center coal, f3 only
-  const accentMats = [M.vaneEdgeLo, M.vaneEdgeHi];  // vane EDGE gradient flares on Surge; the dark blade + coals stay OUT
+  const vaneEyes = (model.vaneEyes ?? 0) > 0; // the peacock-eye motif ignites at f2
+  const accentMats = [M.vaneEdgeLo, M.vaneEdgeHi, M.vaneEye];  // edge gradient + eye flare on Surge; dark blade + coals stay OUT
 
-  for (const q of layout.quills) {
-    const len = maxLen * q.lenScale;
-    // Quill rest direction: rolled by phi around +Z (0 = straight down), trailing aft (+Z).
-    // The vane pitches ~24° up toward the chase lens; the ±8° cant faces the bright face at
-    // the cam and balances the row (mirrored pairs → Σ=0).
+  // One quill: copper shaft + a broad teardrop vane (dark blade, flat readable RIBBON rims in a
+  // crimson→amber gradient, an optional peacock-eye inset) + a coal-eye gem at the tip. `big` =
+  // the main rank; the under-rank is smaller/dimmer with no eye. Camera-facing pitch + ±cant.
+  const addQuill = (q, len, big) => {
     const quill = new THREE.Group();
-    quill.rotation.z = q.phi;     // fan splay (roll around the trail axis)
-    quill.rotation.x = 0.0;
+    quill.rotation.z = q.phi;
     fanG.add(quill);
-    // within the rolled frame, the shaft runs +Z (aft) and slightly down (−Y); the vane
-    // tilts up (camera-facing) and cants ±8° about its own axis.
     const shaftDir = new THREE.Vector3(0, -0.32, 1).normalize();
-    const shaftEnd = [shaftDir.x * len, shaftDir.y * len, shaftDir.z * len];
-    quill.add(bar([0, 0, 0], shaftEnd, 0.028, M.copper));
-    // teardrop VANE — a flat blade along the shaft, pitched up + canted to face the lens.
+    quill.add(bar([0, 0, 0], [shaftDir.x * len, shaftDir.y * len, shaftDir.z * len], big ? 0.026 : 0.018, M.copper));
     const vane = new THREE.Group();
     vane.rotation.x = 0.42;       // pitch the vane face up toward the elevated chase cam (~24°)
-    vane.rotation.z = q.cant;     // ±8° alternating cant (balanced across the mirrored pair)
+    vane.rotation.z = q.cant;     // ±cant (balanced across the mirrored pair)
     quill.add(vane);
-    // Broad TEARDROP vane (widest ~40% out) so the 9 overlap into a full fanned robe. "A coal,
-    // not a torch": the blade FACE is near-dark ash-maroon; the fire is a thin crimson→amber
-    // EDGE gradient tracing the rim (lower ember → upper amber toward the coal). DoubleSide so
-    // it reads canted to the cam. The BRIGHT element is the coal-eye gem at the tip.
-    const wMax = 0.19 + 0.12 * q.lenScale;
+    const wMax = (big ? 0.19 : 0.13) + (big ? 0.12 : 0.07) * q.lenScale;
     const zBase = len * 0.06, zSh = len * 0.40, zTip = len * 0.95;
     const wBase = wMax * 0.5;
     const b0 = [-wBase, 0, zBase], b1 = [wBase, 0, zBase];
     const s0 = [-wMax, 0.02 * len, zSh], s1 = [wMax, 0.02 * len, zSh];
     const tipP = [0, 0, zTip];
-    // DARK blade interior (the coal body)
-    vane.add(flatTriMesh([[b0, b1, s1], [b0, s1, s0], [s0, s1, tipP]], M.vaneDark));
-    // THIN, dim glowing edge rods tracing the rim — lower ember-crimson, upper amber. Kept
-    // subtle so the GEMS, not the wires, carry the train's light (the ember-constellation read).
-    const er = 0.011 + 0.004 * q.lenScale;
-    vane.add(bar(b0, s0, er, M.vaneEdgeLo)); vane.add(bar(b1, s1, er, M.vaneEdgeLo));
-    vane.add(bar(s0, tipP, er, M.vaneEdgeHi)); vane.add(bar(s1, tipP, er, M.vaneEdgeHi));
-    // faceted COAL-EYE at the tip — the BRIGHTEST thing in the fan (a hanging ember over the
-    // dark blade). Bigger + hotter than the rim so the constellation owns the lower frame.
-    if (coalOn) {
-      const isCenter = q.phi === 0;
-      const isDawn = isCenter && dawnOn;
-      const gemR = isDawn ? 0.088 : 0.074;
-      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.12, 0), M.coalBezel);
-      bezel.position.set(0, 0, zTip); bezel.scale.set(1, 1.28, 1);
-      vane.add(bezel);
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), isDawn ? M.dawnCoal : M.coalEye);
-      gem.position.set(0, 0, zTip + (isDawn ? 0.02 : 0)); gem.scale.set(1, 1.28, 1);
-      vane.add(gem);
+    vane.add(flatTriMesh([[b0, b1, s1], [b0, s1, s0], [s0, s1, tipP]], M.vaneDark));   // dark blade
+    // flat RIBBON rims (readable at chase distance, unlike the old hairline rods) — lower
+    // ember-crimson, upper amber. Offset inward in the vane plane so the blade stays dark-centred.
+    const rw = big ? 0.05 : 0.035;
+    const rimQ = (a, bb, ox, mat) => { const a2 = [a[0] + ox, a[1] + 0.004, a[2]], b2 = [bb[0] + ox, bb[1] + 0.004, bb[2]]; vane.add(flatTriMesh([[a, bb, b2], [a, b2, a2]], mat)); };
+    rimQ(b0, s0, +rw, M.vaneEdgeLo); rimQ(b1, s1, -rw, M.vaneEdgeLo);
+    rimQ(s0, tipP, +rw, M.vaneEdgeHi); rimQ(s1, tipP, -rw, M.vaneEdgeHi);
+    // T2 — peacock EYE inset (~60% out) on the main rank at f2+: a small amber diamond the dark
+    // blade carries, so the train has readable light INSIDE the feathers (the empress signature).
+    if (big && vaneEyes) {
+      const ez = len * 0.60, ew = wMax * 0.34, ey = 0.02 * len;
+      vane.add(flatTriMesh([[[-ew, ey, ez], [0, ey, ez + ew * 1.3], [ew, ey, ez]], [[-ew, ey, ez], [ew, ey, ez], [0, ey, ez - ew * 1.3]]], M.vaneEye));
     }
+    // coal-eye gem at the tip — the brightest thing in the fan.
+    if (coalOn) {
+      const isDawn = q.phi === 0 && dawnOn && big;
+      const gemR = isDawn ? 0.088 : (big ? 0.072 : 0.05);
+      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.12, 0), M.coalBezel);
+      bezel.position.set(0, 0, zTip); bezel.scale.set(1, 1.28, 1); vane.add(bezel);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), isDawn ? M.dawnCoal : M.coalEye);
+      gem.position.set(0, 0, zTip + (isDawn ? 0.02 : 0)); gem.scale.set(1, 1.28, 1); vane.add(gem);
+    }
+  };
+
+  for (const q of layout.quills) addQuill(q, maxLen * q.lenScale, true);
+  // T1 — inner under-rank (f3): shorter downy quills nested between the main rank → layered
+  // feather-mass + a doubled coal constellation (two nested arcs).
+  for (const q of trainUnderLayout(model).quills) addQuill(q, maxLen * 0.6 * q.lenScale, false);
+
+  // T3 — TAIL-ROOT COVERT SKIRT: a shingled cone of dark feathers wrapping the fan root at the
+  // hip, hiding the naked shafts-glued-to-a-cone junction that sits dead-centre of the rear frame.
+  if ((model.trainQuills ?? 9) >= 4) {
+    fanG.add(shingleRow(seg(9),
+      (u) => { const ang = (u - 0.5) * Math.PI * 1.15; return [Math.sin(ang) * 0.17, -0.03 - 0.02 * Math.cos(ang), Math.cos(ang) * 0.05 - 0.02]; },
+      (u) => { const ang = (u - 0.5) * Math.PI * 1.15; return [Math.sin(ang) * 0.55, -0.45, 0.72]; },
+      () => [0, 0.55, 0.35],
+      () => 0.30, () => 0.085, M.covert, 0.4));
   }
   return { group, segs, accentMats };
 }

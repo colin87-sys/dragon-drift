@@ -342,6 +342,11 @@ if (!cp1) {
     ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
     ok(!!per[f].parts.spinePoints && per[f].parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
     ok(!!per[f].parts.motifAnchor, `${key} f${f}: motifAnchor published`);   // crest anchor exists every form
+    // NO NaN vertices — a NaN blows the bounding box → the dragon frames off-screen (invisible),
+    // and it silently defeats wingsymprobe (NaN comparisons read as PASS). Guard it as a hard fail.
+    { const g = buildDragonModel(per[f].def, {}).group; g.updateMatrixWorld(true); let nan = 0;
+      g.traverse((o) => { const p = o.isMesh && o.geometry && o.geometry.attributes && o.geometry.attributes.position; if (!p) return; for (let i = 0; i < p.count; i++) if (!Number.isFinite(p.getX(i) + p.getY(i) + p.getZ(i))) nan++; });
+      ok(nan === 0, `${key} f${f}: no NaN vertices (${nan})`); }
     ok(per[f].parts.coreGlow === null || (per[f].parts.coreGlow && per[f].parts.coreGlow.isSprite),
       `${key} f${f}: coreGlow is a sprite/null (never a colour number — the invisible-dragon crash class)`);
     // wing rig contract — the flap path null-derefs without these.
