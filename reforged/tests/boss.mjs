@@ -2018,14 +2018,21 @@ function driveKill(idx) {
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
   let t = 0, sawFight = false, sawShield = false, sawNarrow = false, sawCrush = false, sawEbb = false;
+  let sawRefill = false, prevFrac = 1;   // multi-form (formLifebars): the bar refills to full each form
   let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinY = 99, setpieceMinRel = 99, chargedDuringSetpiece = false;
-  for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
+  // 340s window: THE UNMASKED is a MULTI-FORM boss (def.formLifebars) — three full health
+  // bars fought back-to-back (~3.5 min), so it needs a longer sim than a single-bar boss.
+  // Every other boss kills well under 200s and early-exits, so the wider cap is free for them.
+  for (let i = 0; i < 60 * 340 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
     t += dt;
     player.dist += CONFIG.BOSS.cruiseSpeed * dt;             // mimic forward flight
     if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
     const st = boss.bossDebugState();
     if (st.phase === 'fight') sawFight = true;
+    const frac = st.hp / st.hpMax;
+    if (frac > prevFrac + 0.3) sawRefill = true;   // the bar JUMPED up → a multi-form REFILL (a new form's full bar)
+    prevFrac = frac;
     if (st.shielded) {
       sawShield = true;
       game.consecutiveRings = game.feverThreshold;   // grazed enough to charge
@@ -2046,7 +2053,7 @@ function driveKill(idx) {
     else if (sawCrush && st.phase === 'fight') sawEbb = true;   // the crush RELEASED mid-fight (a wave, not a mode)
     boss.updateBoss(dt, player, t);
   }
-  return { t, sawFight, sawShield, sawNarrow, sawCrush, sawEbb,
+  return { t, sawFight, sawShield, sawNarrow, sawCrush, sawEbb, sawRefill,
     sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
@@ -2059,6 +2066,10 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assert(r.sawShield, `${key}: raised a shield at a phase floor (only Surge bursts it)`);
   assert(r.surges >= 3, `${key}: ~3 Surge unleashes to burst the shields and kill (got ${r.surges})`);
   assert(r.killed, `${key}: shield-gated boss dies after the phases are burst`);
+  // MULTI-FORM boss (def.formLifebars): each form is its OWN full bar — the health REFILLS to
+  // full at each form change (you defeat a form to 0, then the next arrives full). Single-bar
+  // bosses never refill, so this asserts the multi-form economy only where the def opts in.
+  if (BOSSES[key].formLifebars) assert(r.sawRefill, `${key}: multi-form health REFILLS per form (each form is a full bar)`);
   // Spell cards (§5f): a def with cards resolves EACH one across the full kill
   // (one per phase, ending at that phase's shield-break / the final death).
   if (BOSSES[key].cards) {
