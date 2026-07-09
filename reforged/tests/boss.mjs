@@ -1943,6 +1943,37 @@ assert(bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFI
 bullets.resetBossBullets();
 ok('reflect: roll swats amber bullets back for bonus damage; plain bullets immune (until Surge)');
 
+// --- 3c-R. §ENG-A-R: directional roll-parry reflect onto body parts ----------
+// A swatted bullet snaps to a hittable organ (roll-directed), never the hollow centre.
+{
+  const rw = CONFIG.BOSS.reflectWindow, sg = CONFIG.BOSS.settleGap, fh = CONFIG.BOSS.fightHeight;
+  const spawnAmber = () => { bullets.resetBossBullets(); bullets.spawnBossBullet({ owner: 'boss', x: 0.5, y: 8, rel: 2, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 }); };
+  const reflected = () => bullets.debugActiveBullets().find((b) => b.owner === 'player');
+  const roller = (dir) => Object.assign(makePlayer(), { lastRollDir: dir });
+
+  // Coexist: no targets → the shipped centre aim, byte-identical.
+  spawnAmber(); bullets.reflectBossBullets(makePlayer(), rw, sg, 0, fh);
+  let rb = reflected();
+  assert(rb && Math.abs(rb.tx) < 1e-6 && Math.abs(rb.ty - fh) < 1e-6 && rb.targetRel === sg && rb.aimPart === null,
+    'ENG-A-R coexist: no targets → swat aims at the boss centre (shipped path)');
+
+  const T = [{ x: -4, y: 13, rel: 30, part: 'L' }, { x: 4, y: 13, rel: 30, part: 'R' }, { x: 0, y: 13, rel: 30, part: 'skull' }];
+  spawnAmber(); bullets.reflectBossBullets(roller(-1), rw, sg, 0, fh, false, 1, T);
+  rb = reflected();
+  assert(rb && rb.aimPart === 'L' && Math.abs(rb.tx + 4) < 1e-6, 'ENG-A-R: a leftward roll (dir −1) swats to the boss’s LEFT part');
+  spawnAmber(); bullets.reflectBossBullets(roller(1), rw, sg, 0, fh, false, 1, T);
+  rb = reflected();
+  assert(rb && rb.aimPart === 'R', 'ENG-A-R: a rightward roll (dir +1) swats RIGHT; the centre-line skull is never a sided pick');
+
+  // Auto-snap: favored side empty → nearest-anywhere, never a centre whiff.
+  const LEFT = [{ x: -4, y: 13, rel: 30, part: 'La' }, { x: -6, y: 13, rel: 30, part: 'Lb' }];
+  spawnAmber(); bullets.reflectBossBullets(roller(1), rw, sg, 0, fh, false, 1, LEFT);
+  rb = reflected();
+  assert(rb && (rb.aimPart === 'La' || rb.aimPart === 'Lb') && rb.tx < 0, 'ENG-A-R auto-snap: no part on the favored side → nearest-anywhere (never a whiff to centre)');
+  bullets.resetBossBullets();
+  ok('ENG-A-R: roll-directed reflect snaps to a hittable part on the favored side, else nearest-anywhere, never the hollow centre; un-opted = centre aim ✓');
+}
+
 // --- 3d. Surge hyper (Increment 3): all-reflect + bullet-time + double rider --
 // The all-reflect core is proven above (all=true). Here assert the two tuning
 // knobs the controller applies while feverActive are sane (slower bullets,
@@ -2549,6 +2580,30 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     'ENG-A coexist (live): a non-opted boss (voidmaw) still fires crossfire from ±10');
   boss.resetBoss();
   ok('ENG-A per-organ emit: eitherwing crossfire fires from & tracks both twins; un-opted bosses keep the ±10 posts ✓');
+}
+
+// §ENG-A-R live wiring: marrowcoil's def resolves its rib/skull reflect anchors (a live
+// fight — needs the scene, so it runs here after the earlier boot blocks). Un-opted bosses
+// resolve to null → the shipped centre aim.
+{
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const mp = makePlayer();
+  boss.forceBoss(mp, BOSS_ORDER.indexOf('marrowcoil'));
+  boss.debugForceFight(mp);
+  for (let i = 0; i < 20; i++) boss.updateBoss(1 / 60, mp, 2 + i / 60);
+  const rt = boss.debugReflectTargets(mp);
+  assert(rt && rt.length >= 4 && rt.every((c) => c.rel > 0.5 && typeof c.part === 'string'),
+    `ENG-A-R: marrowcoil resolves its rib/skull reflect anchors ahead of the plane (got ${rt ? rt.length : 'null'})`);
+  assert(rt.some((c) => c.part === 'skullGroup') && rt.filter((c) => c.part.startsWith('ribPivot')).length >= 3,
+    'ENG-A-R: marrowcoil reflect anchors are the ribs + the skull');
+  boss.resetBoss();
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const vp = makePlayer();
+  boss.forceBoss(vp, BOSS_ORDER.indexOf('voidmaw')); boss.debugForceFight(vp);
+  for (let i = 0; i < 10; i++) boss.updateBoss(1 / 60, vp, 2 + i / 60);
+  assert(boss.debugReflectTargets(vp) === null, 'ENG-A-R coexist: a non-opted boss (voidmaw) has no reflect targets → centre aim');
+  boss.resetBoss();
+  ok('ENG-A-R live: marrowcoil ribs+skull resolve as reflect anchors; un-opted bosses keep centre aim ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);

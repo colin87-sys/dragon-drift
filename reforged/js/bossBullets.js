@@ -105,6 +105,7 @@ function makeSlot() {
     dmg: 0,
     reflectable: false,
     targetRel: 0, tx: 0, ty: 0,   // arrival target for boss-ward bullets
+    aimPart: null,   // §ENG-A-R: the boss part a reflected bullet was aimed at (diagnostics + ENG-E hook + gate read; the update loop never reads it)
     color: 0xffffff,
     coreColor: 0xffffff,   // white by default; graze-bait darkens it (the "donut" read)
     life: 0,
@@ -546,6 +547,7 @@ export function spawnBossBullet(opts) {
   s.color = opts.color || 0xff4488;
   s.coreColor = opts.coreColor || 0xffffff;
   s.life = opts.life || 6;
+  s.aimPart = null;   // §ENG-A-R: cleared per fresh bullet (set only when reflected onto a part)
   s.age = 0;   // reset the spawn-in ramp for this fresh bullet
   s.homeDelay = opts.homeDelay ?? 0;
   s.curl = opts.curl ?? 0;
@@ -588,7 +590,7 @@ export function debugActiveBullets() {
   const out = [];
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
-    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable, part: s.part, coreColor: s.coreColor });
+    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable, part: s.part, coreColor: s.coreColor, tx: s.tx, ty: s.ty, targetRel: s.targetRel, aimPart: s.aimPart });
   }
   return out;
 }
@@ -840,7 +842,12 @@ export function updateBossBullets(dt, player) {
 let debugPerfectRel = null;
 export function setDebugPerfectParryRel(v) { debugPerfectRel = v; }
 
-export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1) {
+// §ENG-A-R: a candidate part counts as being on the roll-favored SIDE only when its x
+// clears the boss centre by this margin — so a centre-line anchor (e.g. the skull, x≈0)
+// belongs to neither side and stays the nearest-anywhere fallback, never a directional pick.
+const REFLECT_SIDE_EPS = 0.5;
+
+export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1, targets = null) {
   let total = 0, perfect = 0;
   let snapParts = null;   // V4 (PR4): source-part tags of PERFECTLY parried ambers
   for (let i = 0; i < POOL; i++) {
@@ -851,14 +858,29 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     const dx = s.x - player.position.x, dy = s.y - player.position.y;
     if (dx * dx + dy * dy > 9) continue;            // must be near the player to swat
     const isPerfect = s.rel <= (debugPerfectRel ?? CONFIG.BOSS.perfectParryRel);
+    // §ENG-A-R target pick: roll-favored side first, else nearest-anywhere, else the
+    // boss centre (never a whiff). `targets` null (un-opted def) → the shipped centre aim.
+    let tx = bossX, ty = bossY, trel = settleGap, aimPart = null;
+    if (targets) {
+      const dir = player.lastRollDir || 0;          // ±1; 0/absent = unbiased
+      let best = null, bestD = Infinity, side = null, sideD = Infinity;
+      for (const c of targets) {
+        const ddx = c.x - s.x, ddy = c.y - s.y, d2 = ddx * ddx + ddy * ddy;
+        if (d2 < bestD) { bestD = d2; best = c; }
+        if (dir && (c.x - bossX) * dir > REFLECT_SIDE_EPS && d2 < sideD) { sideD = d2; side = c; }
+      }
+      const pick = side || best;                    // auto-snap: favored side, else anywhere
+      if (pick) { tx = pick.x; ty = pick.y; trel = Math.max(pick.rel, 4); aimPart = pick.part; }
+    }
     // Flip it back at the boss.
     s.owner = 'player';
-    s.targetRel = settleGap;
-    s.tx = bossX; s.ty = bossY;
+    s.targetRel = trel;
+    s.tx = tx; s.ty = ty;
+    s.aimPart = aimPart;
     s.vrel = CONFIG.BOSS.bossSpeed;
-    const t = Math.max((settleGap - s.rel) / CONFIG.BOSS.bossSpeed, 0.05);
-    s.vx = (bossX - s.x) / t;
-    s.vy = (bossY - s.y) / t;
+    const t = Math.max((trel - s.rel) / CONFIG.BOSS.bossSpeed, 0.05);
+    s.vx = (tx - s.x) / t;
+    s.vy = (ty - s.y) / t;
     s.color = isPerfect ? 0xaef0ff : 0x66ddff;      // perfect = brighter
     const mult = (isPerfect ? CONFIG.BOSS.reflectPerfectMult : CONFIG.BOSS.reflectDamageMult) * dmgBonus;   // dmgBonus: adrenaline R4 (default 1)
     s.dmg = (s.dmg > 0 ? s.dmg : 5) * mult;
