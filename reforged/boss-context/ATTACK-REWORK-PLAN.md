@@ -486,13 +486,19 @@ cadence dials × pattern load × verb demands. 0–5 each.
   5, 9, 13 (§5b principle 6). As shipped: 5's dread is the vocabulary's default (A.5), 9 is a
   double trough (A.9), and 13's dread mechanic is unreachable (A.13). Only 13 is near-fixed by
   data. C.4, C.6, C.9 exist precisely to restore the three teeth.
-- **B-2 — identical openers, three fights out of five.** `['aimed','fan']` is P1 for Marrowcoil,
-  Hollowgate, AND Thrumswarm (and near-P1 for Voidmaw). Three first-impressions in the
-  mid-roster play identically for the opening ~20 seconds regardless of silhouette. C.3 re-opens
-  Marrowcoil (aimed+iris-off-the-coil); Hollowgate keeps aimed/fan (the verse IS its identity —
-  "door-prayer verses (low aimed murmur)"); Thrumswarm's is excused by formation-delivery
-  (`SWARM_ATTACK_FORM` makes its `fan` a swarm-shape, visibly different) — with 4 changed, no two
-  adjacent openers repeat.
+- **B-2 — identical openers.** `['aimed','fan']` is P1 for Marrowcoil, Hollowgate, AND Thrumswarm
+  (and near-P1 for Voidmaw). *Correction (C.3a build): it was actually FOUR bosses — **UNMASKED
+  stage-1** also opens `['aimed','fan']`; the original count missed it.* Three-plus first-impressions
+  in the mid-roster play identically for the opening ~20 seconds regardless of silhouette. **C.3a
+  (SHIPPED)** re-opens Marrowcoil to `['aimed','iris']` (the contracting rings — "read the bone
+  rings" made true); Hollowgate keeps aimed/fan (the verse IS its identity — "door-prayer verses
+  (low aimed murmur)"); Thrumswarm's is excused by formation-delivery (`SWARM_ATTACK_FORM` makes
+  its `fan` a swarm-shape, visibly different); Unmasked's is the Apex medley opening on a quote, a
+  sanctioned special case. So the remaining `['aimed','fan']` cluster (Hollowgate/Thrumswarm/
+  Unmasked) is by-design-accepted, and no two ADJACENT openers repeat. Marrowcoil's new
+  `['aimed','iris']` shares a MULTISET with Knellgrave's `['iris','aimed']`, but the byte-strings
+  differ, the slots (4 vs 10) are non-adjacent, and their rhythm signatures (burst-sustain vs
+  music-locked) + rhythmprint (min KS 0.26) keep them distinct — accepted.
 - **B-3 — the cadence ladder inverts at 7** (AUDIT §3.E.2 doc-side; code confirms): Thrumswarm P4
   `[1.05, 1.4]` ≤ Weftwitch P5 `[1.05, 1.4]` = the WE band's tightest, and < Karnvow P3
   `[1.2, 1.5]`. Recommendation (data-only, no pattern change): lift Thrumswarm P3/P4 to the 1.2
@@ -989,7 +995,7 @@ curriculum" (Part D intro), so it cannot start before C.1–C.9 merge.
 |---|---|---|---|---|---|
 | 1 | **C.9a EMBERTIDE** (collision swap + honesty — SHIPPED) | P2 `movingGap → secondWave` in BOTH `attacks[]` AND the P2 phrase (dissolves the B-4 collision — the phrase, not `attacks[]`, drives emission); P5 `attacks → ['crestfall','crossfire']` + rename P5 phrase bursts to crestfall (honesty; the override already fires crestfall) | none | `horizonPocketX` + the boss.js `embertide_horizonbreak` crestfall override, both shipped | NOT a defect fix — PRE-BUILD checkpoint found the dread already works (override force-selects crestfall). Verify: P2 now fires `secondWave`; `gapC = horizonPocketX` still governs P5 |
 | 2 | **C.2a ASHTALON id swap** (SHIPPED) | P3 `spiralStream` → `fan` in BOTH `attacks[]` AND the P3 phrase (`['stream','fan','secondWave']`) | none | all four ids shipped | P3 plays sparse-pursuit, no turret fill. No drift — matched live code; `fan` adds a 2nd amber carrier; rhythmprint byte-identical (count/gap kept) |
-| 3 | **C.3a MARROWCOIL opener** | P1 → `['aimed','iris']`, `fan` moves to P2 (kills B-2) | none | `iris` shipped (still lane-anchored until ENG-B — an honest intermediate state, noted in the PR) | first 20s no longer identical to slots 6/7 |
+| 3 | **C.3a MARROWCOIL opener** (SHIPPED) | P1 `['aimed','fan']` → `['aimed','iris']` (attacks[] + P1 phrase burst); `fan` relocated to P2 (attacks[] + a new P2 phrase burst) | none | `iris` shipped (still lane-anchored until ENG-B — an honest intermediate state) | first 20s reads as rings, off the 4-way `['aimed','fan']` collision (drift: it was 4 bosses incl. UNMASKED, not 3 — B-2 corrected). rhythmprint re-cleared (KS 0.26); P2's added measure moved its print but stayed distinct |
 | 4 | **B-3 THRUMSWARM dials** | P3/P4 cadence → `[1.2, 1.55]` / `[1.2, 1.5]` | none | PRESSURE OSTINATO signature carries the density feel | rhythmprint still clears vs all 13; the fight still feels relentless (human judges on preview) |
 | 5 | **C.1a STORMREND teach fix** | `iris` (slow form) moves to P2; `secondWave` added to P2 | none | both ids shipped | iris no longer debuts inside the dread (law 4 fixed even before the new dread lands) |
 
