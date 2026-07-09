@@ -714,16 +714,22 @@ export function updateDragon(dt, player, time) {
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
+    // FEATHER = a fore-aft PITCH (rotation.x). Under the L wing's scale.x=-1 mirror, rotation.x
+    // does NOT flip sense (it moves the chord in Y identically on both wings), so a SYMMETRIC
+    // feather needs the SAME sign L/R — the old ±feather was an antisymmetric roll-twist that made
+    // the pair beat off-square every stroke (the "wings aren't symmetric" bug). climb bias stays
+    // shared (a pitch input, symmetric).
     wingPivotR.rotation.x = damp(wingPivotR.rotation.x, 0.14 + feather * 0.18 + climbBias, 10, dt);
-    wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 - feather * 0.18 + climbBias, 10, dt);
+    wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 + feather * 0.18 + climbBias, 10, dt);
     wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
     wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
-    // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke, with a
-    // small delay between wings so the silhouette feels less mechanical.
-    wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
-    wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
+    // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke. BOTH tips ride the ONE
+    // tipLag clock (mirror sign) — the old L branch ran a DIFFERENT phase (sin(phase+1.18) vs the
+    // R tipLag sin(phase+0.95)), so the tips folded a beat apart: the visible off-beat asymmetry.
+    wingTipR.rotation.z = damp(wingTipR.rotation.z,  tipLag * 0.28 + turnBias * 0.45, 12, dt);
+    wingTipL.rotation.z = damp(wingTipL.rotation.z, -tipLag * 0.28 + turnBias * 0.45, 12, dt);
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
-    wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+    wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 + feather * 0.16, 10, dt);
   }
   // Per-blade LAG (blade-feather comb): each feather trails the beat a beat behind
   // (ASHTALON covert pattern), the lag deepening outward. Additive + nullable.

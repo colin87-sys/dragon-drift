@@ -19,7 +19,10 @@ function sovereignMats(def, glow) {
   const g = Math.min(glow ?? 1, 1.3);
   // Body carries a faint indigo emissive floor so the king's body doesn't vanish to pure black
   // on dark skies (polish note 4) — still opaque, degrades with glowLevel-independent lighting.
-  const bodyFlat = new THREE.MeshStandardMaterial({ color: def.body ?? 0x080b14, emissive: 0x0c1322, emissiveIntensity: 0.07, flatShading: true, roughness: 0.66, metalness: 0.12 });
+  // DoubleSide: the body/neck/skull/tail lofts are open-ended tubes in places, and one stray
+  // fairing tri can wind either way — rendering both faces guarantees the king never reads hollow
+  // from any chase angle (the see-through bug). Cheap on these low-poly meshes.
+  const bodyFlat = new THREE.MeshStandardMaterial({ color: def.body ?? 0x080b14, emissive: 0x0c1322, emissiveIntensity: 0.07, flatShading: true, roughness: 0.66, metalness: 0.12, side: THREE.DoubleSide });
   // Golds: LOWER metalness + a warm emissive floor so shadowed/away-facing facets stay warm gold
   // instead of going olive-drab (metallic gold with no environment to reflect reads green — polish note 1).
   const gCol = def.scales ?? GOLD, ghCol = def.horn ?? GOLD_HI;
@@ -52,7 +55,9 @@ function loftRings(rings, mat, N = 8, cap = true) {
     const a = rings[i], b = rings[i + 1];
     for (let j = 0; j < N; j++) {
       const t0 = (j / N) * Math.PI * 2, t1 = ((j + 1) / N) * Math.PI * 2;
-      tris.push([P(a, t0), P(b, t0), P(b, t1)], [P(a, t0), P(b, t1), P(a, t1)]);
+      // Wind OUTWARD (normals point away from the centerline) so flat-shaded facets light from
+      // outside and match the end-caps — the old winding pointed normals inward → hollow read.
+      tris.push([P(a, t0), P(b, t1), P(b, t0)], [P(a, t0), P(a, t1), P(b, t1)]);
     }
   }
   if (cap) {
