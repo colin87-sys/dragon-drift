@@ -590,7 +590,7 @@ function buildScepterWhipTail(def, model, mats, anchor) {
   // rear-chase frame (it used to rise almost on the camera-body axis, occluded). The lateral bias
   // also moves the tip AWAY from the camera axis — the correct direction for the idle-coil safety.
   const curveY = (t) => -0.11 * T * Math.sin(Math.PI * t * 0.9) + (0.09 + 0.17 * tailRise) * T * t;
-  const curveX = (t) => 0.30 * T * Math.max(0, t - 0.45) * Math.max(0, t - 0.45);
+  const curveX = (t) => 0.38 * T * Math.max(0, t - 0.45) * Math.max(0, t - 0.45);   // CP2c: wider tip swing so the trident notch reads clear of the body outline
   const rAt = (t) => rootR * Math.pow(1 - t * 0.93, 0.7) + 0.012;
   const P = (t) => ({ x: curveX(t), y: a.y + curveY(t), z: a.z + t * T, r: rAt(t) });
 
@@ -620,26 +620,31 @@ function buildScepterWhipTail(def, model, mats, anchor) {
   // fire; the emberF ladder makes them dark at f0 and blazing at f3 for free. Held to t≤0.68 so the
   // terminal scepter owns the tip. Each parented to its segment so it sways with the idle coil.
   const fins = Math.round(model.tailFins ?? 4);
-  const sail = (si, sj, p, rr, fh) => {
+  const sail = (si, sj, p, rr, fh, yaw) => {
     const bx = p.x - sj.x, by = p.y - sj.y + rr, bz = p.z - sj.z;
-    const fL = [bx, by, bz - rr * 0.8], fT = [bx, by, bz + rr * 1.4];
-    const mid = [bx, by + fh * 0.55, bz + rr * 0.5 + fh * 0.15];   // swept back
-    const apex = [bx, by + fh, bz + fh * 0.3];                     // leading edge rakes back as it rises
-    segs[si].add(flatTriMesh([[fL, fT, mid]], M.memTiers[2]));     // lower ember tier
-    segs[si].add(flatTriMesh([[fL, mid, apex]], M.memTiers[3]));   // upper (bright) ember tier
+    // CANT the sail ~±13° about the VERTICAL axis through its root so the bright ember tip catches the
+    // REAR-CHASE cam (a pure-dorsal sail sits edge-on to it, foreshortened to a sliver); alternate L/R
+    // so the row of fins fans herringbone and the tail stays balanced.
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const rot = (px, py, pz) => { const dx = px - bx, dz = pz - bz; return [bx + dx * cy + dz * sy, py, bz - dx * sy + dz * cy]; };
+    const fL = rot(bx, by, bz - rr * 0.8), fT = rot(bx, by, bz + rr * 1.4);
+    const mid = rot(bx, by + fh * 0.55, bz + rr * 0.5 + fh * 0.15);   // swept back
+    const apex = rot(bx, by + fh, bz + fh * 0.3);                     // leading edge rakes back as it rises
+    segs[si].add(flatTriMesh([[fL, fT, mid]], M.memTiers[2]));        // lower ember tier
+    segs[si].add(flatTriMesh([[fL, mid, apex]], M.memTiers[3]));      // upper (bright) ember tier
   };
   for (let k = 0; k < fins; k++) {
     const t = 0.15 + 0.53 * (k / Math.max(1, fins - 1));
     const p = P(t), rr = p.r, fh = (2.0 * rr + 0.05) * 2.2 * Math.pow(0.88, k);
     const si = Math.min(nChain - 1, Math.floor(t * nChain)), sj = P(jointT(si));
-    sail(si, sj, p, rr, fh);
+    sail(si, sj, p, rr, fh, (k % 2 ? -1 : 1) * 0.23);   // ±13° alternating cant
   }
   // BANNER fin (f2+ / tailFins≥3): a double-height ember sail at t≈0.80 — the mid-tail silhouette
   // event the side/rear-¾ read lacked.
   if (fins >= 3) {
     const t = 0.80, p = P(t), rr = p.r;
     const si = Math.min(nChain - 1, Math.floor(t * nChain)), sj = P(jointT(si));
-    sail(si, sj, p, rr, (2.0 * rr + 0.05) * 5.0);
+    sail(si, sj, p, rr, (2.0 * rr + 0.05) * 5.0, 0.28);   // banner canted a touch more to face the chase cam
   }
 
   // SPINE-OF-LIGHT continuation — violet keel gems down the tail dorsal ridge, converging toward the
@@ -662,7 +667,9 @@ function buildScepterWhipTail(def, model, mats, anchor) {
   const tip = P(1), lj = P(jointT(nChain - 1)), tipG = segs[nChain - 1];
   const lx = tip.x - lj.x, ly = tip.y - lj.y, lz = tip.z - lj.z;
   const bloom = model.crescentBloom ?? 1;
-  const spread = 0.5 + 0.35 * bloom, plen = 1.0 * (0.4 + 0.6 * bloom);
+  // plen ladders 0.15→1.0: the f0 hook shrinks to a tiny nub (it used to pre-spend the crown reveal)
+  // so the full trident scepter reads as a genuine f1+ coronation step (Fable f0→f1 rung polish).
+  const spread = 0.5 + 0.35 * bloom, plen = 1.0 * (0.15 + 0.85 * bloom);
   const prongRots = [new THREE.Euler(-1.2, 0.35, spread), new THREE.Euler(-1.2, 0.35, -spread)];
   if (bloom >= 0.6) prongRots.push(new THREE.Euler(-1.35, 0, 0));   // central near-vertical prong → crown/trident read
   for (let pi = 0; pi < prongRots.length; pi++) {
