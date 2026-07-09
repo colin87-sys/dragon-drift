@@ -184,6 +184,13 @@ export const CONFIG = {
                             // anchor must chase the organ's centre of motion, not its animation
                             // frame — a raw anchor jitter-breaks locks by construction
     linger: 0.6,            // TUNE(0.4–0.8) — aim-line persistence after leaving the cone
+    relockMemoryS: 4.0,     // TUNE(2–6) — SOUND-ONLY window after a held line lets go: re-grabbing
+                            // that same organ within it is a "warm" re-acquire (hum suppressed,
+                            // lockOn downgraded to a tick — the weave-away-and-back nag fix).
+                            // Matched to `decay` (a set stays warm as long as its brands live).
+    relockWarmFrac: 0,      // TUNE(0–0.6; 0 = off) — GAMEPLAY (owner sign-off to raise): a warm
+                            // re-acquire seeds this fraction of dwell, so weaving back costs less
+                            // than the full dwellTime. 0 = inert (sound fix only, no dwell change).
     paintHopGrace: 0.8,     // TUNE(0.5–1.2) — after a paint the aim RELEASES and the painted
                             // organ can't re-acquire for this long, so the reticle decisively
                             // HOPS to the next unpainted organ (owner playtest: hovering the

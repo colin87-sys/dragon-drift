@@ -20,7 +20,7 @@ import { initParticles, updateParticles, resetParticles, setParticleQuality } fr
 import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
-import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2 } from './sfx.js';
+import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3 } from './sfx.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -398,7 +398,7 @@ on('bossToll', () => kick('bossToll'));
 // THE LANCE V1 juice: a crisp chime the instant the aim-line locks onto a boss
 // organ (paired with the reticle's green snap), and a soft tick on each crack-tick
 // the held line chips in a lull — so "you're doing the right thing" is audible.
-on('aimLock', () => sfx.lockOn?.());
+on('aimLock', (p) => sfx.lockOn?.(!!(p && p.relock)));
 // HUNTER'S BRAND sound phrase: set (per paint, rising) → inhale (cap fuse) →
 // exhale (cap volley) / fizzle (a lone brand ashing off on decay).
 on('lockPaint', (p) => sfx.brandSet?.((p && p.count) || 1));
@@ -1341,7 +1341,11 @@ function tick() {
     // not reticle.js — the reticle early-returns when disabled, and this cue's
     // whole job is the no-reticle acquire loop. Silences on lock (aimHeld → the
     // chime), on sealed/muted, and on any non-fight/paused frame (0 stops it).
-    sfx.dwellHum?.(lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted ? lh.dwell : 0);   // (lh read above, pre-updateDragon)
+    // v3: a warm re-grab (lh.relock — the organ a held line just let go of) drives
+    // the hum to 0, so weaving away and back is a SILENT re-acquire — the reticle
+    // fill is the only progress channel there (owner: the re-firing hum was grating).
+    const humOn = lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted && !(LANCE_V3 && lh.relock);
+    sfx.dwellHum?.(humOn ? lh.dwell : 0);   // (lh read above, pre-updateDragon)
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget());
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);

@@ -52,6 +52,21 @@ const S = {
   looseReq: false,   // V3 MANUAL LOOSE (PR3): a not-ready tap requested a volley; the
                      // state machine consumes it next step (releaseVolley needs ctx.phaseHp)
   dwellNeed: 0,      // V5 (PR5): this frame's effective dwell threshold (halved while FOCUS held)
+  // RE-LOCK MEMORY (lance audio v3): a PER-PART map of organ name → remaining
+  // seconds. A HELD line letting go arms its organ; re-grabbing ANY armed organ
+  // within the window is a "warm" re-acquire — the sound layer suppresses the dwell
+  // hum + downgrades the lockOn chime to a single tick (owner: the weave-away-and-back
+  // loop re-firing the full hum-swell + chime was grating). Per-part (not a single
+  // slot) so an A→B→A→B rotation between two organs stays warm on EVERY hop, not just
+  // a strict same-organ out-and-back. Armed ONLY on a held release (releaseAim), so an
+  // interrupted first acquire still earns its full chime. Pure sound state — no
+  // gameplay effect unless CONFIG.LOCK.relockWarmFrac > 0 (owner-gated, default 0).
+  reLock: {},
+  // Latched ONCE on the acquisition frame: is the current aim a warm re-grab? The
+  // chime (aimLock edge) and the hum (lockHudState.relock) both read this latch, so
+  // they agree even if the memory window expires mid-dwell (display == logic — a
+  // half-suppressed hum then a full chime was the unlatched failure).
+  aimWarm: false,
 };
 
 const _w = new THREE.Vector3();       // scratch for partWorldPos
@@ -66,6 +81,7 @@ export function initLockLayer() {
   S.cap = 0; S.deflected = false;
   S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
+  S.reLock = {}; S.aimWarm = false;
 }
 
 // Reset transient aim + paint state. SILENT by design for every reason
@@ -78,6 +94,7 @@ export function clearLocks(_reason) {
   S.locks.length = 0; S.capFuseT = 0; S.capFuseDur = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
+  S.reLock = {}; S.aimWarm = false;
   // Leaving a fight must drop fightRunning too — else the flag survives into the
   // NEXT boss's entrance cinematic (updateLockLayer only runs in phase 'fight', so
   // it can't refresh a stale true), and lockHudState().active stays true → the
@@ -111,7 +128,11 @@ function coneCandidate(player, ctx) {
 }
 
 function releaseAim() {
-  S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
+  // A HELD line letting go arms the re-lock window on that organ (the "I just had
+  // this, don't re-announce it" memory). A never-held drop (acquire interrupted
+  // mid-dwell) does NOT arm it — that organ still owes its first full chime.
+  if (S.aimHeld && S.aimPart) S.reLock[S.aimPart] = L.relockMemoryS;
+  S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0; S.aimWarm = false;
 }
 
 // A fresh brand (a new pip OR a stack) refreshes the WHOLE banked set's decay
@@ -153,6 +174,7 @@ export function updateLockLayer(dt, player, ctx) {
   const px = player.position.x, py = player.position.y;
   if (S.hopT > 0) { S.hopT -= dt; if (S.hopT <= 0) S.hopPart = null; }
   if (S.paintCd > 0) S.paintCd -= dt;
+  for (const p in S.reLock) { const r = S.reLock[p] - dt; if (r > 0) S.reLock[p] = r; else delete S.reLock[p]; }
 
   // ---- V1 aim: acquire (tight cone) / hold (retention cone + drain) — L177 ----
   if (!S.aimPart) {
@@ -187,6 +209,15 @@ export function updateLockLayer(dt, player, ctx) {
       S.offT = 0;
       // The acquisition frame counts, at FULL rate (no quiet penalty on aiming — NB above).
       S.aimDwell = Math.min(dt, L.dwellTime);
+      // WARM latch: is this organ one a held line recently let go of? Decided ONCE
+      // here so the hum + chime agree for the whole re-acquire (display == logic).
+      S.aimWarm = S.reLock[hit] > 0;
+      // WARM RE-ACQUIRE (owner-gated, default off): a warm re-grab seeds partial
+      // dwell, so weaving away and back doesn't pay the full 0.35s again.
+      // relockWarmFrac 0 = inert (no gameplay change).
+      if (L.relockWarmFrac > 0 && S.aimWarm) {
+        S.aimDwell = Math.max(S.aimDwell, L.dwellTime * L.relockWarmFrac);
+      }
     }
   } else {
     // TRACKING — once a dwell is accruing/held, the wider RETENTION cone applies,
@@ -228,7 +259,12 @@ export function updateLockLayer(dt, player, ctx) {
   // playtest: a bright green 'locked' on a sealed boss reads as a broken lock).
   const held = S.aimHeld && !S.muted && !ctx.deflected;
   const justLocked = held && !S._wasHeld;
-  if (justLocked) emit('aimLock', { part: S.aimPart });
+  if (justLocked) {
+    // relock (the latched warm flag) = this is an organ a held line recently let go
+    // of, within the memory window (the weave-away-and-back re-grab). The sound layer
+    // reads it to stay quiet instead of re-announcing a lock the player never lost.
+    emit('aimLock', { part: S.aimPart, relock: S.aimWarm });
+  }
   S._wasHeld = held;
 
   // ---- V2 LANCE-PAINT (PR2) ----------------------------------------------------
@@ -465,6 +501,9 @@ export function lockHudState() {
     muted: S.muted,
     aimHeld: S.aimHeld && !S.muted && !S.deflected,   // sealed → never shown green
     dwell: Math.max(0, Math.min(1, S.aimDwell / (S.dwellNeed || L.dwellTime))),  // 0..1 acquisition progress (focus-aware)
+    // The current aim organ is a warm re-grab (the latched flag) — the dwell-hum
+    // drive reads this to stay silent on the weave-back re-acquire.
+    relock: S.aimPart != null && S.aimWarm,
     hasOrgan: S.hasOrgan,
     aimPart: S.hudPart,
     x: _hud.x, y: _hud.y, z: _hud.z,
