@@ -108,6 +108,9 @@ const UM_EXTRAS = [
   // STAGE 2 — the seraph (the hero stage). Pin the stage-2 sub-rig.
   { name: 's2idle',   o: { stage: 2, t: 3.0 } },
   { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
+  // STAGE 3 — the unveiling: wings mantled fully open, the star-eye + starburst + halo unveiled.
+  { name: 's3idle',   o: { stage: 3, t: 3.0 } },
+  { name: 's3charge', o: { stage: 3, charge: 1, t: 2.2 } },
   // THE ALL-SNAP reveal — fire the snap at 2.7, render at 3.0 so the lock has eased in; the
   // player is off-centre (gx/gy) so every eye visibly converges to the SAME off-axis point.
   { name: 's2snap',   o: { stage: 2, snap: 2.7, gx: 0.55, gy: -0.25, t: 3.0 } },
@@ -155,7 +158,9 @@ const FIGHT_STATES = bossId === 'eitherwing'
                { name: 's2snap', o: { stage: 2, snap: 2.7, gx: 0.55, gy: -0.25, t: 3.0 } },
                { name: 's12crackA', o: { morph: 0.30, t: 3.0 } },
                { name: 's12crackB', o: { morph: 0.52, t: 3.0 } },
-               { name: 's12crackC', o: { morph: 0.74, t: 3.0 } }]
+               { name: 's12crackC', o: { morph: 0.74, t: 3.0 } },
+               { name: 's3idle', o: { stage: 3, t: 3.0 } },
+               { name: 's3charge', o: { stage: 3, charge: 1, t: 2.2 } }]
             : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [

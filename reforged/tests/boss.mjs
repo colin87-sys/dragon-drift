@@ -356,9 +356,12 @@ for (const key of BOSS_ORDER) {
   const gbox = new THREE.Box3().setFromObject(great);
   const gw = gbox.max.x - gbox.min.x;
   assert(gw < 8.0, `unmasked focal eye is a modest focal, not a body (world bbox width ${gw.toFixed(1)}u < 8u; ~⅓ the old body-eye)`);
-  // THE EYE FIELD (the identity). The halo is RESERVED for the third form — stage 2 has NO ring.
+  // THE EYE FIELD (the identity). The halo belongs to the THIRD form — it lives in stage3Rig
+  // (hidden here), so at stage 2 no halo is VISIBLE (the eyed wings + focal eye stand alone).
   assert(findAllByName(um.group, 'eyeScleras')[0] && findAllByName(um.group, 'eyeSockets')[0], 'unmasked stage-2 eye field present (sockets + scleras merged)');
-  assert(!findAllByName(um.group, 'halo')[0], 'unmasked stage-2 has NO halo (reserved for the third form)');
+  um.setDebugStage(2);
+  const s2halo = findAllByName(um.group, 'halo')[0];
+  assert(s2halo && !s2halo.parent.visible, 'unmasked stage-2 shows NO halo (it rides stage3Rig, hidden until the unveiling)');
   um.dispose();
   ok('unmasked stage-2 SERAPH: eight eyed wings (bilateral card-fan) + the original focal almond eye, wheels retired');
 }
@@ -432,6 +435,60 @@ for (const key of BOSS_ORDER) {
   um.setDebugStage(2); assert(!s1.visible && s2.visible && Math.abs(s2.scale.x - 1) < 1e-6, 'setDebugStage(2) → the seraph at full scale (morph 1)');
   um.dispose();
   ok('unmasked S1→S2 CRACK: setStageMorph blends eclipse→seraph (mask collapses + cracks glow + seraph blooms); endpoints are the shipped stages');
+}
+{
+  // THE UNMASKED STAGE 3 — THE UNVEILING: the seraph's core opens (star-eye + starburst + halo)
+  // and the wings MANTLE FULLY OPEN. It REUSES stage 2's wings (the SAME seraph, mantled — no
+  // duplicate wing set, tri-lean), swapping only the centre: at stage 2 the third-form motifs
+  // are hidden and the plain focal eye shows; at stage 3 they unveil and the focal eye retires.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  const s3 = findAllByName(um.group, 'stage3Rig')[0];
+  const starEye = findAllByName(um.group, 'starEye')[0];
+  const burst = findAllByName(um.group, 'starburst')[0];
+  const halo = findAllByName(um.group, 'halo')[0];
+  const focal = findAllByName(um.group, 'greatEye')[0];
+  const wings = findAllByName(um.group, 'stage2Rig')[0];
+  assert(s3 && starEye && burst && halo, 'unmasked exposes stage3Rig + starEye + starburst + halo');
+  // Stage 2: the third-form core is hidden; the plain focal eye shows.
+  um.setDebugStage(2);
+  assert(!s3.visible && focal.visible, 'stage 2 hides the third-form core (stage3Rig) and shows the plain focal eye');
+  // Stage 3: the core unveils; the focal eye retires; the SAME seraph wings stay up (reused).
+  um.setDebugStage(3);
+  assert(s3.visible, 'stage 3 unveils the core (stage3Rig visible)');
+  assert(!focal.visible, 'stage 3 retires the plain focal eye (the star-eye takes the centre)');
+  assert(wings.visible, 'stage 3 REUSES the stage-2 seraph wings (not a duplicate set)');
+  // The wings MANTLE fully open — a wider spread than stage 2 (compared at the same time so the
+  // shared breath-sine cancels and the delta isolates the stage-3 mantle).
+  const upR = findAllByName(um.group, 'wing_upper_R')[0];
+  um.setDebugStage(2); um.tick(0, 5.0); const z2 = upR.rotation.z;
+  um.setDebugStage(3); um.tick(0, 5.0); const z3 = upR.rotation.z;
+  assert(z3 > z2 + 0.1, `stage 3 MANTLES the wings fully open (upper wing ${z2.toFixed(2)} → ${z3.toFixed(2)})`);
+  um.dispose();
+  ok('unmasked STAGE 3 UNVEILING: star-eye + starburst + halo unveil, the focal eye retires, and the SAME seraph wings mantle fully open');
+}
+{
+  // THE UNMASKED LIVE STAGE MACHINE: boss.js calls model.setPhase(n) at each phase advance;
+  // the model ANIMATES the transition INTO that stage (phase 1 = the S1→S2 crack, phase 2 =
+  // the S2→S3 unveiling) instead of snapping — so the fight progresses through the forms and
+  // the transitions play live (owner: "start at S1, kill the first form, continue to see it").
+  const um = buildBoss(BOSSES.unmasked, 1);
+  const s1 = findAllByName(um.group, 'stage1Rig')[0];
+  const s2 = findAllByName(um.group, 'stage2Rig')[0];
+  const s3 = findAllByName(um.group, 'stage3Rig')[0];
+  um.setDebugStage(1);
+  assert(s1.visible && !s2.visible && !s3.visible, 'the stage machine starts at the eclipse (stage 1)');
+  // Phase advance → 1: the CRACK animates (mid-way BOTH rigs live; then it settles on the seraph).
+  um.setPhase(1);
+  um.tick(0.1, 0.1);
+  assert(s1.visible && s2.visible, 'phase→1 mid-crack: both the eclipse and the seraph are live (animating, not a snap)');
+  for (let i = 0; i < 30; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past TRANS_DUR
+  assert(!s1.visible && s2.visible && !s3.visible, 'phase→1 settles on the seraph (stage 2)');
+  // Phase advance → 2: the UNVEILING animates the third-form core in (the wings are kept).
+  um.setPhase(2);
+  for (let i = 0; i < 30; i++) um.tick(0.1, 4 + i * 0.1);
+  assert(s3.visible && s2.visible, 'phase→2 settles on the unveiling (stage 3 core up, the seraph wings kept)');
+  um.dispose();
+  ok('unmasked LIVE STAGE MACHINE: setPhase animates the crack (P1) then the unveiling (P2) — the fight progresses through the forms');
 }
 {
   const colossus = buildBoss(BOSSES.craghold, 1);

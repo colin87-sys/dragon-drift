@@ -1557,7 +1557,7 @@ export const BOSSES = {
     approachFrom: 'ahead',                // CP2 upgrades to the secondSun.handoff() landmark approach
     scale: 2.4,                           // sky-scale — the disc hangs huge above the lane (TUNE in studio)
     stages: 3,                            // the stage system (CP2 dissolve-swaps the sub-rigs)
-    stagesBuilt: 2,                       // how many stage sub-rigs actually EXIST today (1 eclipse-eye + 2 seraph; stage 3 the unveiling is deferred). Drives the dev stage-jump selector; bump to 3 when stage 3 lands.
+    stagesBuilt: 3,                       // how many stage sub-rigs exist: 1 eclipse-eye · 2 seraph · 3 the unveiling (star-eye + starburst + halo, wings mantled). Drives the dev stage-jump selector.
     grazeForm: 'medley',                  // §5i.B APEX graze — quotes the roster's graze forms (CP2)
     // Decision-C gate overrides (§7b sanctioned): ~20 eyes are many small bright points
     // (G1 assumes ONE focal); the wheels frame-fill (G4). Cited to the registry sanction.

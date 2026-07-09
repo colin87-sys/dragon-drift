@@ -1436,10 +1436,10 @@ export function startBossEncounter(player, defOverride) {
   // studio/tests — so the isolated captures stay byte-identical.
   model.setWaterPlane?.(0);
 
-  // Dev stage-jump (rush picker / ?bossStage): pin which STAGE sub-rig a multi-stage boss
-  // shows, so THE UNMASKED's stage 2 (the seraph) / stage 3 (the unveiling) can be playtested
-  // in a live fight without waiting on the CP2 dissolve-swap. Inert on single-stage bosses
-  // (they expose no setDebugStage). Left null → the boss's own default (stage 1).
+  // Dev stage-jump (rush picker / ?bossStage): set the INITIAL visible stage to the picked
+  // starting stage (its phase is fast-forwarded alongside — see setBossDebugStage). The fight
+  // then progresses from there, animating each transition at the live phase advance. Left null
+  // → stage 1 (the default). Inert on single-stage bosses (they expose no setDebugStage).
   if (debugStagePin != null) model.setDebugStage?.(debugStagePin);
 
   // Approach choreography (§5e): from behind (overtake up and over), the side,
@@ -4027,9 +4027,17 @@ export function setBossDebugPhase(n) {
 // FRESH on every launch (the rush picker passes 1 for a normal start) so a stale pick doesn't
 // leak into the next run. Applied at spawn (after the model is built) and live if a boss is
 // already active. Stage 1 (or unset) → the boss's default; 2/3 → the seraph / the unveiling.
+// Dev stage-jump (rush picker / ?bossStage): pick the STARTING stage of a multi-stage boss.
+// The fight then PROGRESSES from there — start at stage 1 and play the transitions live as the
+// phases advance (owner: "start at S1, kill the first form, continue to see the transition"),
+// or jump straight into stage 2/3. So a stage pick sets BOTH the initial visible rig AND the
+// starting phase (its HP fast-forward): stage N ↔ phase N-1. The per-phase transition itself is
+// animated by the boss (model.setPhase) at each live advance — NOT pinned here.
 export function setBossDebugStage(n) {
-  debugStagePin = Number.isFinite(n) && n > 1 ? n : null;
-  if (active && model?.setDebugStage) model.setDebugStage(debugStagePin || 1);
+  const s = Number.isFinite(n) && n >= 1 ? n : 1;
+  debugStagePin = s > 1 ? s : null;        // spawn: the initial visible stage (stage 1 = the default)
+  debugPhaseJump = s > 1 ? s - 1 : null;   // spawn: start the fight at that stage's phase (HP parked there)
+  if (active && model?.setDebugStage) model.setDebugStage(s);   // live re-pin (studio/debug only)
 }
 
 export function setBossDebugDefIdx(k) {
