@@ -314,6 +314,96 @@ for (const key of BOSS_ORDER) {
   ok('stormrend telegraph: setCharge(1) flares the iris petals open (silhouette change)');
 }
 {
+  // THE UNMASKED (stage 1): the CHARGE-TELL slides the hood open to WRATH — the
+  // lidPivot position changes (a silhouette change), not just the corona recolour.
+  const unmasked = buildBoss(BOSSES.unmasked, 1);
+  const lid = findAllByName(unmasked.group, 'lidPivot')[0];
+  assert(lid, 'unmasked exposes a named lidPivot (stage 1) for the telegraph gate');
+  unmasked.tick(0.05, 0.5);   // settle the heavy-lidded rest pose before snapshotting
+  const preLidY = lid.position.y;
+  unmasked.setCharge(1);
+  for (let i = 0; i < 8; i++) unmasked.tick(0.1, 1.0 + i * 0.1);   // let the aperture ease toward wrath
+  assert(Math.abs(lid.position.y - preLidY) > 0.2,
+    `unmasked hood slides open on charge — silhouette change (lidPivot.y ${lid.position.y.toFixed(3)}, was ${preLidY.toFixed(3)})`);
+  unmasked.dispose();
+  ok('unmasked telegraph: setCharge(1) slides the hood open to wrath (silhouette change)');
+}
+{
+  // THE UNMASKED (stage 2): the SERAPH — six feathered wings in a vertical bilateral
+  // mandorla, COVERED IN EYES, converging on ONE great central eye. The retired Ophanim
+  // wheels must be GONE (no wheelGimbal / no closed ring but the faint gold 'halo'); the
+  // pair gaps must be UNEVEN (anti-gear); the great eye must DOMINATE the peripheral eyes.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  assert(findAllByName(um.group, 'wheelGimbal0').length === 0, 'unmasked stage-2 wheels are RETIRED (no wheelGimbal)');
+  // EIGHT wings as a BILATERAL 4-per-side card-fan (upper/upmid/middle/lower ×2), from the merged
+  // angel wing. upper/middle/lower carry the mirror check below.
+  const wingNames = ['wing_upper_R', 'wing_upper_L', 'wing_upmid_R', 'wing_upmid_L', 'wing_middle_R', 'wing_middle_L', 'wing_lower_R', 'wing_lower_L'];
+  const wings = wingNames.map((n) => findAllByName(um.group, n)[0]);
+  assert(wings.every(Boolean), 'unmasked exposes eight wings (bilateral 4-per-side card-fan)');
+  um.group.updateMatrixWorld(true);
+  // BILATERAL, NEVER RADIAL (radial read as a wheel — the original failure): each pair's L
+  // wing mirrors its R via a scale.x flip, and the two roots sit on opposite sides of centre.
+  for (const key of ['upper', 'middle', 'lower']) {
+    const R = findAllByName(um.group, `wing_${key}_R`)[0], L = findAllByName(um.group, `wing_${key}_L`)[0];
+    assert(Math.sign(R.scale.x) !== Math.sign(L.scale.x), `unmasked ${key} pair is bilaterally MIRRORED (scale.x flip, not radial)`);
+    assert(Math.abs(R.rotation.z + L.rotation.z) < 0.2, `unmasked ${key} pair rotations mirror about the vertical (${R.rotation.z.toFixed(2)} vs ${L.rotation.z.toFixed(2)})`);
+  }
+  // THE FOCAL EYE is a SMALL deep focal nestled in the feathers — NOT a big "body" eye (a
+  // large pale central eye made the wings read as spider legs on a body). It exists + is modest.
+  const great = findAllByName(um.group, 'greatEye')[0];
+  assert(great, 'unmasked exposes the central focal eye');
+  um.group.updateMatrixWorld(true);
+  const gbox = new THREE.Box3().setFromObject(great);
+  const gw = gbox.max.x - gbox.min.x;
+  assert(gw < 8.0, `unmasked focal eye is a modest focal, not a body (world bbox width ${gw.toFixed(1)}u < 8u; ~⅓ the old body-eye)`);
+  // THE EYE FIELD (the identity). The halo is RESERVED for the third form — stage 2 has NO ring.
+  assert(findAllByName(um.group, 'eyeScleras')[0] && findAllByName(um.group, 'eyeSockets')[0], 'unmasked stage-2 eye field present (sockets + scleras merged)');
+  assert(!findAllByName(um.group, 'halo')[0], 'unmasked stage-2 has NO halo (reserved for the third form)');
+  um.dispose();
+  ok('unmasked stage-2 SERAPH: eight eyed wings (bilateral card-fan) + the original focal almond eye, wheels retired');
+}
+{
+  // THE UNMASKED (stage 2 BEHAVIOUR): the CHARGE mantle-flare + the ALL-SNAP reveal.
+  // At rest the ~9 eyes wander on independent lag+bias (the field looks every which way);
+  // the all-snap collapses them onto the player at once — the screenshot of the game.
+  const um = buildBoss(BOSSES.unmasked, 1);
+  um.setDebugStage(2);   // pin the stage-2 sub-rig so tickBody drives the wings + eye field
+
+  // CHARGE MANTLE-FLARE: the fan OPENS on charge — the upper wing lifts toward vertical
+  // (rotation.z rises). Compared at the SAME time so the shared breath-sine term cancels and
+  // the delta isolates the flare (charge 0 → zero flare → the signed-off idle is unchanged).
+  const upR = findAllByName(um.group, 'wing_upper_R')[0];
+  um.setGaze(0, 0); um.setCharge(0); um.tick(0.05, 5.0); const relaxZ = upR.rotation.z;
+  um.setCharge(1); um.tick(0.0, 5.0); const flaredZ = upR.rotation.z;
+  assert(flaredZ > relaxZ + 0.1, `unmasked charge MANTLE-FLARES the fan open (upper wing lifts ${relaxZ.toFixed(3)} → ${flaredZ.toFixed(3)})`);
+  um.setCharge(0);
+
+  // Collect the peripheral eye-pupils (each carries its own tracking userData).
+  const pupils = [];
+  um.group.traverse((o) => { if (o.userData && o.userData.biasX !== undefined && o.userData.base) pupils.push(o); });
+  assert(pupils.length >= 8, `unmasked stage-2 fields a ring of tracking eye-pupils (${pupils.length})`);
+  const spread = (arr) => { const m = arr.reduce((a, b) => a + b, 0) / arr.length; return Math.sqrt(arr.reduce((a, b) => a + (b - m) ** 2, 0) / arr.length); };
+
+  // IDLE WANDER: with the player off-centre, each eye eases toward the gaze at its OWN rate
+  // plus its resting bias → the field's gaze directions SCATTER (they don't all point one way).
+  um.setGaze(0.6, -0.3);
+  for (let i = 0; i < 40; i++) um.tick(0.05, 6 + i * 0.05);
+  const scatter = spread(pupils.map((p) => p.userData.gx));
+  assert(scatter > 0.05, `unmasked eyes idle-wander on independent bias — the field SCATTERS (σ ${scatter.toFixed(3)})`);
+
+  // THE ALL-SNAP: every eye drops its bias and locks near-instantly → the field CONVERGES
+  // onto the player (σ collapses; the mean gaze rides toward the player's gazeX ≈ 0.6).
+  um.allSnap();
+  for (let i = 0; i < 12; i++) um.tick(0.05, 8 + i * 0.05);
+  const snapped = spread(pupils.map((p) => p.userData.gx));
+  const meanX = pupils.reduce((a, p) => a + p.userData.gx, 0) / pupils.length;
+  assert(snapped < scatter * 0.5, `unmasked ALL-SNAP converges the eye field to one gaze (σ ${scatter.toFixed(3)} → ${snapped.toFixed(3)})`);
+  assert(meanX > 0.35, `unmasked ALL-SNAP locks the field ONTO the player (mean gx ${meanX.toFixed(2)} → toward 0.6)`);
+
+  um.dispose();
+  ok('unmasked stage-2 BEHAVIOUR: charge mantle-flares the fan; the ALL-SNAP collapses the wandering eye field onto the player');
+}
+{
   const colossus = buildBoss(BOSSES.craghold, 1);
   const fingers = findAllByName(colossus.group, 'fingerPivot');
   assert(fingers.length >= 6, `craghold exposes ≥6 named fingerPivots for the telegraph gate (${fingers.length})`);

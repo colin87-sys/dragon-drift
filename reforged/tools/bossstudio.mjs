@@ -91,12 +91,36 @@ const TS_EXTRAS = [
   { name: 'ring', o: { formation: 'ring', condense: 1, t: 2.4 } },
   { name: 'wall', o: { formation: 'wall', condense: 1, t: 2.4 } },
 ];
+// THE UNMASKED (slot 14): the eye TRACKS the player's stick, so capture the GAZE
+// EXTREMES (full stick each way + a corner) to verify the pupil stays in the sclera
+// with no glitch/clip at the limits.
+const UM_EXTRAS = [
+  { name: 'gazeR',  o: { gx: 1, gy: 0, t: 4.0 } },
+  { name: 'gazeL',  o: { gx: -1, gy: 0, t: 4.0 } },
+  { name: 'gazeU',  o: { gx: 0, gy: 1, t: 4.0 } },
+  { name: 'gazeD',  o: { gx: 0, gy: -1, t: 4.0 } },
+  { name: 'gazeUR', o: { gx: 1, gy: 1, t: 4.0 } },
+  // STAGE 2 — the seraph (the hero stage). Pin the stage-2 sub-rig.
+  { name: 's2idle',   o: { stage: 2, t: 3.0 } },
+  { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
+  // THE ALL-SNAP reveal — fire the snap at 2.7, render at 3.0 so the lock has eased in; the
+  // player is off-centre (gx/gy) so every eye visibly converges to the SAME off-axis point.
+  { name: 's2snap',   o: { stage: 2, snap: 2.7, gx: 0.55, gy: -0.25, t: 3.0 } },
+  // WING-DESIGN: a single isolated wing (eyes/great-eye/halo stripped) for silhouette work.
+  { name: 'wingsolo', o: { wingsolo: 1, t: 3.0 } },
+];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
   : bossId === 'hollowgate' ? [...STATES, ...HG_EXTRAS]
   : bossId === 'brineholm' ? [...STATES, ...BH_EXTRAS]
-  : bossId === 'thrumswarm' ? [...TS_STATES, ...TS_EXTRAS] : STATES;
+  : bossId === 'thrumswarm' ? [...TS_STATES, ...TS_EXTRAS]
+  : bossId === 'unmasked' ? [...STATES, ...UM_EXTRAS] : STATES;
 
-const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
+const ALL_BGS = ['dark', 'pale', 'sunset', 'white'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies); white = pure-silhouette check
+// Fast-iteration filters: ONLY_STATE=s2idle ONLY_BG=pale,dark renders just those (skips the
+// full 27-sheet sweep during a tight design loop). Unset → the full canonical sweep.
+const ONLY_STATE = (process.env.ONLY_STATE || '').split(',').filter(Boolean);
+const ONLY_BG = (process.env.ONLY_BG || '').split(',').filter(Boolean);
+const BGS = ONLY_BG.length ? ALL_BGS.filter((b) => ONLY_BG.includes(b)) : ALL_BGS;
 // The fight-distance frames (§7c L140): ONE front-on shot per key state at the REAL
 // encounter geometry (FOV 72, boss at rel 30, NO auto-framing) — judged for PRESENCE.
 // idle = the formation at full spread; handoff = the interlocked-crossing "money frame".
@@ -120,7 +144,11 @@ const FIGHT_STATES = bossId === 'eitherwing'
         // gives the trace time to draw most of the seal (~2.2s to full).
         : bossId === 'karnvow'
           ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'dread', o: { sp: 0.9, dread: true, t: 2.6 } }]
-          : [{ name: 'idle', o: { t: 2.85 } }];
+          : bossId === 'unmasked'
+            ? [{ name: 'idle', o: { t: 2.85 } }, { name: 's2idle', o: { stage: 2, t: 3.0 } },
+               { name: 's2charge', o: { stage: 2, charge: 1, t: 2.2 } },
+               { name: 's2snap', o: { stage: 2, snap: 2.7, gx: 0.55, gy: -0.25, t: 3.0 } }]
+            : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
   { name: 'front',        label: 'front' },
@@ -147,6 +175,7 @@ await page.evaluate(() => window.studioPauseLoop());
 const SHEET_CLIP = { x: 0, y: 0, width: 1000, height: 1000 };   // sheet = 2 cols × 500px cells
 const written = [];
 for (const st of states) {
+  if (ONLY_STATE.length && !ONLY_STATE.includes(st.name)) continue;
   for (const bgName of BGS) {
     await page.evaluate(() => window.studioSheetInit(2, 2, 500));
     for (let i = 0; i < ANGLES.length; i++) {
@@ -165,6 +194,7 @@ for (const st of states) {
 // FIGHT-DISTANCE FRAMES — single front-on shots at the real encounter geometry. Composited
 // through the same GL→2D sheet path as the contact sheets (a 1×1 tile) for capture parity.
 for (const st of FIGHT_STATES) {
+  if (ONLY_STATE.length && !ONLY_STATE.includes(st.name)) continue;
   for (const bgName of BGS) {
     await page.evaluate(() => window.studioSheetInit(1, 1, 1000));
     await page.evaluate((o) => window.renderState(o), { boss: bossId, seed: SEED, bg: bgName, fight: true, ...st.o });

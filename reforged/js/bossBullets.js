@@ -391,11 +391,16 @@ function updateWispImpacts(dt) {
     const q = impactQ[i];
     if (q.t > 0) continue;
     trailV.set(q.x, q.y, q.z);
-    // The ONE ring (§2 additive budget): a FULL volley's ring belongs to the
+    // The ONE ring (§2 additive budget): a FULL v2 volley's ring belongs to the
     // FINALE (the reserved climax) INSTEAD of slot 0; partial volleys keep the
-    // shipped first-strike ring. Never both.
-    wispImpact(trailV, q.full ? !!q.finale : q.k === 0, wispTint);
-    emit('lockStrike', { k: q.k, n: q.n, full: q.full, finale: q.finale });
+    // shipped first-strike ring. Never both. UNLEASH_V2 gate (Codex review): in
+    // ?unleash=v1 the finale doesn't exist — brandFinale is a no-op, so a tagged
+    // last impact would fall SILENT and the ring would leave slot 0. Gating the
+    // finale off in v1 routes the last impact back to brandStrike (the shipped
+    // pentatonic) and restores the first-strike ring — a true byte-for-byte A/B.
+    const v2full = UNLEASH_V2 && q.full;
+    wispImpact(trailV, v2full ? !!q.finale : q.k === 0, wispTint);
+    emit('lockStrike', { k: q.k, n: q.n, full: q.full, finale: v2full && q.finale });
     impactQ.splice(i, 1);
   }
 }
