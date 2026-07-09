@@ -90,6 +90,10 @@ function empressMats(def, glow, stage) {
 
   // COMET-CREST blade emissive (rose) — IN spineMats (head).
   const crestGlow = surgeMat(0x5a1830, ROSE, crestI, 0.5);
+  // Crest coal TIP — true ROSE (not amber-gold), so the crown reads as the rose hue-station
+  // and does NOT add cream-white points competing with the ONE Dawn Coal. Holds hue (out of
+  // surge arrays), like the coal-eyes.
+  const crestTip = new THREE.MeshStandardMaterial({ color: 0xe86a90, emissive: ROSE, emissiveIntensity: crestI * 1.3, flatShading: true, roughness: 0.3, metalness: 0.12 });
 
   // COAL-EYE gem — amber-gold emissive, the BRIGHTEST point of the train (the constellation
   // that owns the lower frame). Stays OUT of every surge array (holds its own hue — the
@@ -103,7 +107,7 @@ function empressMats(def, glow, stage) {
   const eyeMat = new THREE.MeshStandardMaterial({ color: def.eye ?? 0xffcf6a, emissive: 0xc07a1a, emissiveIntensity: 1.5, flatShading: true, roughness: 0.3, metalness: 0.2 });
   eyeMat.userData.baseEmissive = 0xc07a1a; eyeMat.userData.baseIntensity = 1.5;
 
-  return { bodyFlat, belly, copper, covert, pinionRoot, pinionTip, pinionEdge, vaneDark, vaneEdgeLo, vaneEdgeHi, keelSeam, gorget, crestGlow, coalEye, coalBezel, dawnCoal, eyeMat, stage: st };
+  return { bodyFlat, belly, copper, covert, pinionRoot, pinionTip, pinionEdge, vaneDark, vaneEdgeLo, vaneEdgeHi, keelSeam, gorget, crestGlow, crestTip, coalEye, coalBezel, dawnCoal, eyeMat, stage: st };
 }
 
 // ── shared plumbing (look-neutral; copied construction, not appearance) ─────────
@@ -446,9 +450,10 @@ function buildCometCrestHead(def, model, mats) {
     // rose emissive vane along the shaft (the crest fire)
     const vt = [[[-0.05 * hs, clen * 0.3, 0], [0.05 * hs, clen * 0.3, 0], [0, clen * 0.92, 0.01]]];
     q.add(flatTriMesh(vt, M.crestGlow));
-    // small coal-eye tip (amber-gold on dark bezel; OUT of surge arrays)
+    // small ROSE coal tip (the crest is the rose hue-station; NOT amber/near-white — the Dawn
+    // Coal must stay the ONE near-white). OUT of surge arrays (holds hue).
     if ((model.coalBloom ?? 1) > 0) {
-      const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.056 * hs, 0), M.coalEye);
+      const coal = new THREE.Mesh(new THREE.OctahedronGeometry(0.05 * hs, 0), M.crestTip);
       coal.position.set(0, clen, 0);
       q.add(coal);
     }
