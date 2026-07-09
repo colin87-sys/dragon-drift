@@ -829,9 +829,9 @@ export const BOSSES = {
     // carrier. Escalation by pattern unlock + cadence (floor 1.2), never raw count.
     phases: [
       { atFrac: 1.00, cadence: [1.2, 1.6], attacks: ['aimed', 'fan'] },                         // P1: the murmur (loose swarm, aimed amber from the eye)
-      { atFrac: 0.70, cadence: [1.15, 1.5], attacks: ['spiral', 'stream', 'aimed'] },           // P2: the ring condenses — radial fire
-      { atFrac: 0.42, cadence: [1.1, 1.45], attacks: ['curtain', 'movingGap', 'fan'] },         // P3: the wall condenses — lane denial
-      { atFrac: 0.18, cadence: [1.05, 1.4], attacks: ['spiralStream', 'crossfire', 'stream', 'iris'] }, // P4: Your Own Wings (dread)
+      { atFrac: 0.70, cadence: [1.2, 1.5], attacks: ['spiral', 'stream', 'aimed'] },            // P2: the ring condenses — radial fire (§B-3: lower bound lifted to the 1.2 Calamities floor)
+      { atFrac: 0.42, cadence: [1.2, 1.45], attacks: ['curtain', 'movingGap', 'fan'] },         // P3: the wall condenses — lane denial (§B-3: lower bound → 1.2 floor)
+      { atFrac: 0.18, cadence: [1.2, 1.4], attacks: ['spiralStream', 'crossfire', 'stream', 'iris'] }, // P4: Your Own Wings (dread) — (§B-3: lower bound → 1.2 floor; cadence is FALLBACK only — the PRESSURE-OSTINATO phrase drives live pacing, so this is a def-consistency fix, not a difficulty change)
     ],
     // Spell cards (§5f grammar; 4 cards — the Calamities band floor (§5g); dread
     // card LAST, name fixed by the §5f signature-move assignment). Naming grammar:
