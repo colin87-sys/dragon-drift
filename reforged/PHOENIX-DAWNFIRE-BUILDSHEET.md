@@ -17,13 +17,26 @@ molten-gold-on-black + fire-feathers) + the Fable design synthesis + the method'
 **Owner-confirmed direction: TRAIN-HERO** (the hero mass is the streaming lower-rear quill-train; the
 wings are supporting slender scythes — the clean inversion of Solar's top-heavy crown).
 
-**Frozen contract (do not change):** `key:'phoenix'` · `name:'Phoenix Ascendant'` · `rarity/maxRarity
-SSSR` · `cost:6000` · `stats {speed 1.14, handling 1.27, drain 0.70, regen 1.35}` · `archetype:'phoenix'`
-STAYS (it is the RIG flag for warm ember-motes / the Rebirth Surge in `dragon.js`, not a model path) ·
-`maxTierFor('phoenix')===3` · `hasStyle:true` (keeps her own warm trail hue in Surge). `title` "Reborn
-in fire" kept (the sheet's identity name "The Dawnfire Empress" is the design north star, not a shipped
-string, unless the owner elects to change `title`). `parts` swaps to the four new builders; `forms[]`
-palette is replaced by §4 (the shipped ivory apex body `0xeee2c6` is RETIRED — it is the toy-bright trap).
+**COEXISTENCE — build as a NEW character block, do NOT replace the shipped `phoenix` (owner directive).**
+The premium rebuild is authored as a **new roster def key** so both dragons exist side-by-side and can be
+COMPARED in-game before the owner decides to replace or retire the original. This is the method's
+"coexist → prove on a hero → migrate" principle applied at the roster level.
+- **New key: `phoenixEmpress`** (working name — owner may rename). It is a fresh entry in `DRAGONS`
+  (`js/dragons.js`), NOT an edit to the existing `phoenix` def. The shipped `phoenix` (avian/feather/
+  plume/beaked firebird) stays **byte-identical and fully playable** throughout.
+- **Mirror the shipped phoenix so the comparison is fair:** `name:'Phoenix Ascendant'` → display name
+  the owner's call (e.g. keep, or "Phoenix — Dawnfire"), `rarity/maxRarity SSSR`, `cost:6000`,
+  `stats {speed 1.14, handling 1.27, drain 0.70, regen 1.35}`, `archetype:'phoenix'` (the RIG flag for
+  warm ember-motes / Rebirth Surge in `dragon.js`, not a model path), `maxTierFor===3`, `hasStyle:true`.
+- **`title: 'The Dawnfire Empress'`** (owner-confirmed — adopt the identity name as the shipped title).
+- `parts` points to the four NEW builders (§3); `forms[]` uses the §4 palette. The shipped ivory apex
+  body `0xeee2c6` is NOT carried over — this block never uses it (it is the toy-bright trap).
+- **Migration (later, owner-gated):** once compared and blessed, either repoint `key:'phoenix'` at the
+  new builders/palette and delete `phoenixEmpress`, or retire the old `phoenix` and promote this key.
+  Until then, NOTHING about the shipped dragon changes. New builders stay default-off; only
+  `phoenixEmpress.parts` opts in, so the rest of the roster is byte-identical.
+- Coexistence surfaces the new dragon in the shop/roster as its own entry (that IS the comparison
+  surface). If the owner prefers a hidden dev-only compare instead, gate it behind a flag — owner call.
 
 ---
 
@@ -156,8 +169,13 @@ COAL; the fire lives only on edges, tips and gems — and it is THREE separated 
 
 - **Base diffuse (large surfaces, always dark, L ≤ 0.22):** warm ash-charcoal → deep GARNET ramp per
   form: `0x1a0f0d → 0x241012 → 0x2c1014 → 0x331016` (the ramp goes charcoal → garnet, REDDER never
-  lighter — the apex body stays dark so the emissive carries the fire). Belly one tier warmer umber
-  `0x3a2114`. This alone separates her from Ember Wyrm's bold-orange body and from the retired ivory apex.
+  lighter — the DORSAL masses stay dark so the emissive carries the fire). Belly one tier warmer umber
+  `0x3a2114`. This separates her from Ember Wyrm's bold-orange body and from the retired ivory apex.
+- **Apex-body owner call — RESOLVED (owner yes):** the dorsal masses stay dark-garnet at every form
+  (doctrine, anti-washout), BUT the APEX (f3) belly gets a small **pale-gold nod** to the retired
+  "white-gold divine" firebird — belly-only, downward-facing, `~0xe8c58a`, so it warms the underside a
+  believer catches on a bank without ever lightening the dorsal read the chase cam sees. Lower forms keep
+  the umber belly; only f3 gains the pale-gold underlight.
 - **Accent diffuse (forged tier, never emissive):** burnished copper / rose-gold `0x8a4a22` — beak,
   talons, quill shafts, crest shafts, gorget bezel; catches sun edge-highlights.
 - **Emissive (opaque, vertex-baked, sat ≥ 0.75, value ≤ 0.9 — blooms in-colour under ACES + UnrealBloom):**
@@ -209,26 +227,32 @@ the empress's train. All dials monotonic.
 1. **Slender wings vs the "wings ~70% of frame" doctrine.** The train deliberately steals frame-share
    from the wings. If chase-cam majesty feels thin, the fallback is +30% chord on the covert sheet
    (keeping the rake family) — decide AFTER the first rear-chase capture, not before.
-2. **Train ↔ camera interaction.** The fan trails toward the lens: cap total train length ≈ 1.1× body
-   and lift ≤ 35° so it never clips the near plane or occludes rings/obstacles at chase distance. The
-   idle/bank SWAY of 9 quills is a MOTION question the Fable gate is blind to — human judges live.
-   Optional spectacle upgrade needing a human call: an animated `trainSpread` (folds in dive, fans in
-   glide/surge) — high wow, extra rig work.
-3. **How bright is too bright (the retired ivory apex).** This sheet holds the apex BODY dark-garnet
-   (anti-washout, anti-Ember-Wyrm). If the owner misses the old "white-gold divine" apex, the compromise
-   is a pale-gold BELLY tier only (downward-facing, small) — never the dorsal masses. **← owner call.**
+2. **`trainSpread` animated fan — APPROVED (owner yes), a planned feature.** The train FOLDS in
+   (quills draw together, sector narrows) on a dive/boost and FANS OUT (full sector, lift up) in a
+   glide and on Rebirth Surge — a living display, her signature motion beat. Implement as a rig
+   behaviour driving the per-quill rest angles from a `trainSpread` 0→1 value (like the wing flap
+   drives pinion fold); vertex-baked rest fan stays the floor, the animation opens/closes above it.
+   Constraint: cap total train length ≈ 1.1× body and lift ≤ 35° (fanned) so it never clips the near
+   plane or occludes rings/obstacles at chase distance. The idle/bank sway + the fold/fan feel are
+   MOTION the Fable gate is blind to — human judges on the live preview.
+3. **Apex-body brightness — RESOLVED (owner yes):** dark-garnet dorsal at every form + a small pale-gold
+   f3 BELLY nod only (§4). Not an open question anymore; recorded here for provenance.
 4. **Coal-eyes reading as eyes/targets.** Nine glowing gems could momentarily read as creature eyes or
    pickups at distance; verify at 250px in dragonstudio; mitigation = smaller gems + stronger vane
    gradients.
 5. **Pearl anti-collision watch.** Pearl is also feathered with a banner tail; the standing Fable
    distinctiveness veto must get a PEARL tile alongside the Solar tile (and Ember + Cinderwing
    black-fills) every round.
-6. **Title.** `title` stays "Reborn in fire" unless the owner elects "The Dawnfire Empress."
+6. **Title — RESOLVED (owner yes):** `title: 'The Dawnfire Empress'`.
+7. **Coexistence key name.** `phoenixEmpress` is a working key — owner may rename before/at build. It
+   ships as its own roster/shop entry (the comparison surface) until the migration call.
 
 ## QA — the gate (per PREMIUM-DRAGON-METHOD §4–5)
 
-1. **Calibration:** run the capture set + Fable gate on the SHIPPED phoenix FIRST — expected FAIL (the
-   lightly-composed firebird this rebuild replaces). Record it as the baseline.
+1. **Side-by-side baseline:** because the new `phoenixEmpress` COEXISTS with the shipped `phoenix`, the
+   comparison is direct — render both through `dragonstudio` (and view both in-game). Run the Fable gate
+   on the shipped `phoenix` first as the baseline (expected FAIL — the lightly-composed firebird), then
+   grade `phoenixEmpress` against the same rubric. The delta IS the owner's compare-before-migrate evidence.
 2. **Verify by failure-class:** `tools/tricount.mjs phoenix` (monotonic, < 6000) · `tests/blueprint.mjs`
    · `tests/smoke.mjs` (the coreGlow-mesh-or-null + wing-pivot crash classes) · `tools/wingsymprobe.mjs
    phoenix` (the ±8° alternating quill cant + mirrored wings must PASS as a pair) · `tools/dragonstudio.mjs
@@ -250,14 +274,21 @@ New file `js/dragonPhoenixEmpress.js` registering `pyreHeartTorso` · `scythePin
 `cometCrestHead` · `pyreTrainTail` (all default-off). New `empressMats(def, glow, stage)` copying only
 the `sovereignMats` STRUCTURE. New dials via `forms[]` accretion only: `trainQuills`, `trainFan`,
 `trainLift`, `coalBloom`, `dawnCoal`, `crestQuills`, `gorget`, `pinionSlots`, `sweepRake`, `tipRise`,
-`keelSeam`, `eyeShape`, `glowLevel`, `igniteStage`. The `archetype:'phoenix'` legacy inference in
-`js/dragonRecipe.js` (~line 67) is superseded by the explicit `parts` — retire or guard it so it doesn't
-shadow the new builders. Roster stays byte-identical until `phoenix.parts` opts in.
+`keelSeam`, `eyeShape`, `glowLevel`, `igniteStage`. **Do NOT touch the `archetype:'phoenix'` legacy
+inference in `js/dragonRecipe.js` (~line 67)** — the shipped `phoenix` still relies on it during
+coexistence. The new `phoenixEmpress` block sets explicit `parts` (which win over any inference) AND
+keeps `archetype:'phoenix'` only as the RIG flag (ember-motes / Rebirth Surge); verify the explicit
+parts are not shadowed by the inference for the new key. Roster stays byte-identical until
+`phoenixEmpress.parts` opts in; the shipped `phoenix` is never edited until the migration call.
 
 ---
 
 ## CHANGELOG
 
 - **2026-07-09 — sheet authored.** Fable-synthesized from the owner's 4 reference images + the premium
-  method. Owner-confirmed TRAIN-HERO direction. Not yet implemented — this is the build contract for the
-  Phoenix session.
+  method. Owner-confirmed TRAIN-HERO direction.
+- **2026-07-09 — owner decisions folded in:** (1) build as a NEW coexisting roster block
+  `phoenixEmpress` — do NOT replace the shipped `phoenix`; compare in-game, migrate/retire later
+  (owner directive); (2) `title: 'The Dawnfire Empress'`; (3) apex-body = dark-garnet dorsal + a small
+  pale-gold f3 belly nod; (4) the animated `trainSpread` fold/fan motion beat = APPROVED. Not yet
+  implemented — this is the build contract for the Phoenix session.
