@@ -472,8 +472,13 @@ export function lockHudState() {
     pips: totalPips(),
     ashen: S.deflected,
     blink: S.locks.length > 0 && !S.deflected && S.locks[0].age > L.decay - 1.0,
+    // The inhale: pips swell as the breath draws. Denominator is the ACTUAL
+    // (beat-aligned) fuse length so the visual completes EXACTLY when the volley
+    // fires (display == logic — L177/L180.1); headless (capFuseDur 0) → capFuse,
+    // unchanged. Codex review: a short aligned inhale otherwise fired before the
+    // swell reached full, a long one sat maxed early.
     fuse01: (S.cap > 0 && totalPips() >= S.cap && !S.deflected)
-      ? Math.min(1, S.capFuseT / L.capFuse) : 0,   // the inhale: pips swell as the breath draws
+      ? Math.min(1, S.capFuseT / (S.capFuseDur || L.capFuse)) : 0,
     // Per-lock marker anchors: live world pos + remaining life (1 → fresh, 0 → gone).
     locks: S.locks.map((lk) => ({
       x: lk.x ?? 0, y: lk.y ?? 0, z: lk.z ?? 0,

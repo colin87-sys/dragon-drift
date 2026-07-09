@@ -1,6 +1,7 @@
 // In-run juice: hitstop precedence contract, instant restore, postfx kick
 // tier behavior, death grade engage/release.
 import { boot, check } from './browser.mjs';
+import { CONFIG } from '../js/config.js';
 
 const { page, errors, done } = await boot();
 // Pin quality tier 0: headless software-GL runs slow enough that the
@@ -59,6 +60,10 @@ check('tier-0 kick raises bloom+lift impulses', kicked.bloom > 0.2 && kicked.lif
 
 // PR-B: the reserved lance-FINALE beat — a 90ms hitstop + the jade postfx kick
 // (the physical "impact" on a full volley's climax). Fired via the juice event.
+// Wait out the 180ms hitstop cooldown from the earlier machine-gun test first:
+// zeroing game.hitstopTimer does NOT reset juice.js's private lastHitstopAt, so
+// without this the finale hitstop can be refused and the assertion flake (Codex).
+await new Promise((r) => setTimeout(r, CONFIG.JUICE.hitstopCooldownMs + 60));
 await page.evaluate(() => {
   const dd = window.__dd;
   dd.game.hitstopTimer = 0; dd.game.slowMoTimer = 0; dd.game.state = 'playing';
