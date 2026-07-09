@@ -47,6 +47,17 @@ detonate them to white.
 king needed a second star the rear view actually reads — a violet `napeStar` octahedron on the
 mantle crest (net-new; flag for owner approval since it's a new silhouette element).
 
+**The bright band must FACE the camera, not sit edge-on to it.** First corona build put the
+saturated violet/amber rim on the annulus's thin *depth-edge* band — which is edge-on to a
+rear-chase cam, so it read as a near-invisible dark hoop (Fable round-1: "a cathedral without its
+rose window"). Fix: split the *front* (camera-facing) face radially — inner dark moon-disk +
+an OUTER saturated rim band [Rm..Ro] — so the glow faces the viewer. General rule for any
+emissive-rim motif on a primary-view cam: put the lit facets on the face the camera sees, and size
+the lit band for pixel area at gameplay distance, not just intensity. (Two Fable rounds took this
+from 3.77 → 4.13 PASS; the other round-2 fixes were a lit dorsal "spine of light" so the black-body
+center isn't a void, and seating tip/tail jewels at ~0.9× blade length so they read welded not
+floating — a centred octahedron at the exact 1.0 tip of a point-narrow spike leaves a silhouette gap.)
+
 **Verify.** `tricount` 4 forms <6000 · `wingsymprobe solar` PASS (arch/lances are mirror-built, so
 symmetry is free) · `starters.mjs` +20 solar asserts (igniteStage/gem-radius/coronaRing-f3-only/
 arch/carpal/nape monotonic; motif-anchor waived at f0) · blueprint + smoke green · `dragonstudio

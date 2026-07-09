@@ -72,7 +72,7 @@ function sovereignMats(def, glow, stage) {
   // Eclipse corona: a DARK opaque moon-disk body wearing a thin saturated bicolour rim (violet +
   // ember) with gold bevels — jeweled, not a smoky additive halo. Rim mats also stay out of spineMats.
   const coronaDark = new THREE.MeshStandardMaterial({ color: 0x0d0a18, emissive: 0x0d0a18, emissiveIntensity: 0.05, flatShading: true, roughness: 0.7, metalness: 0.1 });
-  const coronaRimV = new THREE.MeshStandardMaterial({ color: 0xb784ff, emissive: veinEmis, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });
+  const coronaRimV = new THREE.MeshStandardMaterial({ color: 0x9a5cff, emissive: veinEmis, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });   // deepened lilac→true violet (was 0xb784ff, read pale under bloom)
   const coronaRimA = new THREE.MeshStandardMaterial({ color: 0xffb46a, emissive: 0xff8c1a, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });   // saturated amber (was deep-amber 0xd4680f — too dark to read)
   return { bodyFlat, gold, goldHi, violet, violetMantle, membrane, memTiers, veinMat, gem, napeStar, sparTip, coronaDark, coronaRimV, coronaRimA, stage: st };
 }
@@ -174,7 +174,10 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
     // between the wings is a lit ridge, not a black void from the chase cam (the eclipse-black body
     // keeps its dark mass; only the dorsal line lights). Part of the ignition ladder — dark until Radiant.
     if (M.stage >= 2) {
-      const gemCap = new THREE.Mesh(new THREE.OctahedronGeometry(0.055 + 0.03 * (1 - t), 0), M.napeStar);
+      // Scale up at Eternal (stage 3) so the spine of light carries the valley on its own at chase
+      // distance rather than leaning on the corona (Fable round-2 polish).
+      const gemR = (0.055 + 0.03 * (1 - t)) * (M.stage >= 3 ? 1.5 : 1);
+      const gemCap = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), M.napeStar);
       gemCap.position.set(0, topY + h * 0.9, z);
       gemCap.scale.set(1, 1.3, 1);
       group.add(gemCap);
@@ -630,8 +633,10 @@ function buildScepterWhipTail(def, model, mats, anchor) {
     tipG.add(prong);
   }
   if (bloom > 0.4) {
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.075 * bloom, 0), M.gem);
-    star.position.set(lx, ly + plen * 0.5, lz + plen * 0.3);
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.085 * bloom, 0), M.gem);
+    // Seat the captive star DOWN in the crescent crotch so it overlaps the prong bases (welded), not
+    // floating free above the barb (the isolated speck Fable flagged in side/rear-¾/top views).
+    star.position.set(lx, ly + plen * 0.24, lz + plen * 0.12);
     tipG.add(star);
   }
   return { group, segs, accentMats: [M.violet, M.gem] };
