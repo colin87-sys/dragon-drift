@@ -101,6 +101,20 @@ for (const e of economies) {
 }
 ok('per-boss pure-lance clear volleys + TTK estimate sit in the sane band');
 
+// --- SCAR-BURN (§4b) --------------------------------------------------------
+// The burn bound / total-release ceiling / not-a-phase-deleter / frac laws are all
+// enforced via invariantBreaches above; these assert the burn is actually WIRED (a
+// regression that drops the scarBurn config or its minTier gate is caught here).
+const knell = economies.find((e) => e.id === 'knellgrave');
+assert(knell && knell.burnFrac > 0, `KNELLGRAVE carries a SCAR-BURN frac (got ${knell?.burnFrac})`);
+assert(knell.phases.some((p) => p.burn > 0), 'KNELLGRAVE phases actually earn a burn on a full on-tell release');
+assert(knell.phases.every((p) => !p.phaseDeletable),
+  `KNELLGRAVE is never a phase-deleter (TTKs ${knell.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${knell.phases.map((p) => p.cardTimer).join('/')})`);
+// Tiers 1-3 (and un-keyed bosses) carry NO burn — the mid-game is byte-identical.
+assert(economies.filter((e) => e.tier < CONFIG.LOCK.scarBurn.minTier).every((e) => e.burnFrac === 0),
+  'no boss below scarBurn.minTier earns a burn (tiers 1-3 unchanged)');
+ok(`SCAR-BURN wired on KNELLGRAVE (frac ${knell.burnFrac}), never a phase-deleter, tiers 1-3 burn-free`);
+
 // --- Roster coverage --------------------------------------------------------
 assertEq(economies.length, BOSS_ORDER.length, 'one economy row per boss in BOSS_ORDER');
 assert(economies.filter((e) => e.lanceCapable).length >= 4, 'at least 4 truly lance-capable bosses (have paint targets)');

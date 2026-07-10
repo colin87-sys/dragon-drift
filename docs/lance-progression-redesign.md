@@ -189,31 +189,39 @@ every Tier-4/5 full-cap release. Per-boss, each rung still adds exactly ONE
 fight rule, and each rule is the boss's own hook spoken in lance grammar.
 
 **Rung 10 — KNELLGRAVE (the bell; the read is RHYTHM).** *The metronome fight.*
-- **Organs** (all real named anatomy in `bossKnellgrave.js`, plus two byte-neutral
-  empties per the EITHERWING marker precedent):
-  - `lipCrack` (new empty at the candle-lit crack's terminus on the flared lip,
-    y≈20, always in frame) — the WOUND, the easy anchor; the crack is the boss's
-    glow-shape claim, so the brand sits on the thing the eye already reads.
-  - `chainBind0`, `chainBind1` (new empties on the clapper chain's binding links,
-    dangling into frame at y≈14–18) — RESTRAINTS, the Brineholm mercy grammar:
-    you brand what binds the prisoner, never the prisoner. The bound figure
-    (`knellFigure`/`clapperHead`) is deliberately unpaintable — if aimed at, the
-    reticle stays cold (per-part honesty; "the marks will not take on the bound").
-  - `virtualLockOrgan: 'bellMouth'` — V1 anchor = the muzzle (ASHTALON precedent).
-  - Reachable cap: (3 lockParts + virtual) × stackMax 2 = 8 ≥ tier cap 6 ✓.
-- **Fair windows:** the swing extremes (turnarounds — the proven acquisition
-  shape) and the post-toll recoil beat; the lipCrack is quasi-static.
-- **The ONE new rule — RESONANT RELEASE:** on this def the release beat window IS
-  the toll. Music is dead here (`musicDies`), so `beatOn` is fed from the toll
-  clock (`def.bpm` 60, accelerating — a small def-gated seam in boss.js). A volley
-  loosed ON the toll is the perfect release: ×1.25 inside the clamp + SCAR-BURN.
-  The lance thereby RIDES the fight's one read — you dodge on the beat, you
-  strike on the beat.
-- P4 (The Last Toll) is the survival card: sealed, honest ashen reticle, zero
-  lance — unchanged, correct.
-- **Utility math:** phase spans 144/120/96 → full-set volley ≈ 14.4/12/9.6
-  clamped; on-tell burn frac 0.25 ⇒ +~2.5% of a phase (≈12.5% of the volley),
-  scaling down for partial releases. From 0% today.
+**AS SHIPPED (PR2a organs merged; PR2b resonant release + SCAR-BURN in progress) —
+this section is corrected to the LIVE 5-phase def, superseding the original spec.**
+- **Organs (as built, verified `tests/knellorgans.mjs`):**
+  - `virtualLockOrgan: 'knellWound'` — the WOUND / V1 focal: a byte-neutral empty at
+    the front-left LIP-BITE RIM (the lit candle-mouth the toll escapes from), placed
+    clear of the bound clapper's head and low enough to stay in the flight lane
+    (§CP2 — the original mouth-interior placement read as branding the prisoner's
+    face and was moved).
+  - `lockParts: [knellBindL, knellBindR]` — the two chain-BIND restraints on the
+    clapper's wrist cuffs (iron, not the person). The bound figure
+    (`knellFigure`/`clapperHead`) is deliberately unpaintable.
+  - Reachable cap: wound(virtual) + 2 binds = 3 targets × stackMax 2 = **6 = tier cap**
+    (the shipped set is tighter than the original spec's `lipCrack`+2 chainlinks+`bellMouth`
+    = 8; a deliberate, in-lane, prisoner-clear choice).
+- **Fair windows:** the swing extremes (turnarounds) and the post-toll recoil beat.
+- **The ONE new rule — RESONANT RELEASE (§CP1 corrected):** the release tell is the
+  boss's own TOLL (bell + ring-wall + shake). ⚠ Music being dead (`musicDies`) does
+  NOT null the beat clock — `musicKill` only mutes the bus; `getBeatClock()` stays
+  live, so the generic `beatOn` here is a silent, illegible coin-flip. The fix:
+  def-gated on `musicDies`, `ctx.beatOn` is keyed to the real toll edge (leading:
+  `chargeT ≤ beatWindow`; trailing: within `beatWindow` of the last attack toll), and
+  the grid-aligned cap fuse is suppressed. `def.bpm` is inert legacy data (nothing
+  reads it) — the toll cadence lives in the phrase gaps. A MANUAL loose ON the toll is
+  the perfect release: ×1.25 inside the clamp + SCAR-BURN. You dodge on the toll, you
+  strike on the toll.
+- **P5** (The Last Toll, not P4 — the def has 5 phases) is the survival card: sealed,
+  zero lance. (PR2a fix: a held lock during the seal no longer leaks rider chip into
+  the clapper-resolve seam — §CP2 `e.part == null` gate.)
+- **Utility math (live 5-phase def, spans 144/72/72/72/120, card timers 24/26/24/26/30):**
+  full on-tell set volley ≈ 14.4 / 7.2 / 7.2 / 7.2 / 12.0 (ROI-clamped); burn frac 0.25 ⇒
+  +25% of the clamped volley (≈+2.5% of a phase). Not-a-phase-deleter worst margin
+  ≈ 1.25 (P3, the tightest) — passing, ~22% thinner than the doc's earlier fiction
+  (which was computed on a dead 4-phase def). From 0% (V1-only) today.
 
 **Rung 11 — WEFTWITCH (she re-weaves what you break).** *The volley gets a JOB.*
 - **Organs:** `handL`, `handR` (new empties at the two working spinneret-arm

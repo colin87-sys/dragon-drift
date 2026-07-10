@@ -605,17 +605,19 @@ export function buildKnellgrave(def, quality = 1) {
   ember.position.x = SPINE_X;
   emberMat.side = THREE.DoubleSide;
   bellGroup.add(ember);
-  // LANCE V1 focal + 3rd paint organ: a byte-neutral named empty in the bell MOUTH —
-  // the WOUND the candle-light + toll escape from (the one HDR focal reads here).
-  // Placed LOW in the mouth opening (below the lip bite), NOT at the slit's high
-  // centroid (~y32, above the aim ceiling), so its world y sits comfortably inside
-  // the flight lane WITH swing headroom: with def.scale 1.75 + stationY 20 + the
-  // pendulum swing, a lip-height anchor grazes laneMaxY 22 (Codex P2); at local −8.5
-  // it resolves to ~y18 and stays < 21 across the whole swing (knellorgans.mjs
-  // asserts the swing MAX, not one frame). partWorldPos resolves it live.
+  // LANCE V1 focal + 3rd paint organ: a byte-neutral named empty at the front-left
+  // LIP-BITE RIM — the WOUND, the lit crack/candle-mouth the toll escapes from (the
+  // one HDR focal reads here). Placed on the RIM (x −2.5 toward the front-left bite,
+  // z 4.5 out at the lip radius), NOT (a) at the slit's high centroid (~y32, above the
+  // aim ceiling) and NOT (b) buried in the dead-black mouth interior over the bound
+  // clapper's HEAD (the §CP2 fix — a brand there read as marking the prisoner's face
+  // and lost the candle fiction). Local y −8.5 keeps its world y in the flight lane
+  // (laneMaxY 22) across the swing; the lateral offset clears the head by ≥3 world
+  // units. knellorgans.mjs samples a FULL swing period (+ driven charge/dread) and
+  // asserts the real MAX. partWorldPos resolves it live.
   const wound = new THREE.Object3D();
   wound.name = 'knellWound';
-  wound.position.set(SPINE_X, -8.5, 1.8);
+  wound.position.set(-2.5, -8.5, 4.5);
   bellGroup.add(wound);
 
   // ---- SPREADING FRACTURES — the readable per-phase damage on the FRONT FACE. As the ruin

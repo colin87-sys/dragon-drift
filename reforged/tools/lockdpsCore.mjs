@@ -54,10 +54,25 @@ export function reachableCap(def, LOCK, phaseIdx) {
   return { tierCap, paintable, nTargets, capPips };
 }
 
+// The realistic wall-clock to bank ONE pip under fire (dwell + cross-organ cooldown +
+// the dodging tax between paints) — the calibrated per-pip cost the not-a-phase-deleter
+// model prices the exploit-optimal on-tell spam against. NOT LOCK.dwellTime (that is the
+// frictionless ideal that wrongly condemns even the shipped game — §8C).
+export const REALISTIC_PER_PIP = 1.35;
+
+// SCAR-BURN fraction for a boss (§4b): the per-slot burn frac if the boss is at/above
+// minTier and carries a fracBySlot entry, else 0 (tiers 1-3 + un-keyed bosses = no burn).
+export function scarFrac(def, LOCK) {
+  const sb = LOCK.scarBurn;
+  if (!sb || (def.tier || 1) < (sb.minTier ?? Infinity)) return 0;
+  return sb.fracBySlot?.[def.id] ?? 0;
+}
+
 // Per-boss LANCE economy, computed PER PHASE (a phase-gated lockPart changes the
 // reachable cap between phases). Each phase carries its own capPips + ROI-clamped
-// per-lance/full-volley damage (base + beat), whether the clamp bites, the volley
-// as a fraction of the phase, and pure-lance volleys-to-clear.
+// per-lance/full-volley damage (base + beat), the SCAR-BURN a perfect on-tell full
+// release adds, whether the clamp bites, the volley as a fraction of the phase, and
+// pure-lance volleys-to-clear + the not-a-phase-deleter TTK vs the card timer.
 export function bossEconomy(def, LOCK, lanceDmgEach) {
   const tier = def.tier || 1;
   const tierCap = (LOCK.capByTier || {})[tier] ?? 0;
@@ -65,6 +80,8 @@ export function bossEconomy(def, LOCK, lanceDmgEach) {
   const lanceCapable = tierCap > 0 && nLockParts > 0;
   const roiFrac = LOCK.volleyRoiFrac;
   const beatMult = LOCK.beatMult;
+  const burnFrac = scarFrac(def, LOCK);
+  const burnFloor = LOCK.scarBurn?.burnFloor ?? Infinity;
   const spans = phaseSpans(def);
   const phases = spans.map((phaseHp, i) => {
     const capPips = lanceCapable ? reachableCap(def, LOCK, i).capPips : 0;
@@ -77,7 +94,26 @@ export function bossEconomy(def, LOCK, lanceDmgEach) {
     const clamped = capPips > 0 && volley >= roiCeil - 1e-9;
     const pct = phaseHp > 0 ? volley / phaseHp : 0;
     const toClear = volley > 0 ? Math.ceil(phaseHp / volley) : Infinity;
-    return { phaseHp, nTargets, capPips, each, volley, volleyBeat, roiCeil, clamped, pct, toClear };
+    // SCAR-BURN: a PERFECT on-tell full-cap release burns `burnFrac × volleyBeat` extra
+    // over dur (the burn scales the already-ROI-clamped beat volley). totalRelease is
+    // the full earned yield of one perfect full release.
+    const burn = capPips >= burnFloor ? burnFrac * volleyBeat : 0;
+    const totalRelease = volleyBeat + burn;
+    // NOT-A-PHASE-DELETER (§8C): the exploit-optimal SUSTAINED on-tell DPS — max over
+    // release sizes k of (volley(k)+burn(k)) / (k · REALISTIC_PER_PIP). A phase is
+    // "deletable" if the lance ALONE would clear its HP faster than the card timer.
+    let worstDps = 0;
+    for (let k = 1; k <= capPips; k++) {
+      const vB = k * lanceDmgEach(k, phaseHp, beatMult);
+      const bn = k >= burnFloor ? burnFrac * vB : 0;
+      const dps = (vB + bn) / (k * REALISTIC_PER_PIP);
+      if (dps > worstDps) worstDps = dps;
+    }
+    const cardTimer = def.titleCards?.[i]?.timer ?? null;
+    const deleterTtk = worstDps > 0 ? phaseHp / worstDps : Infinity;
+    const phaseDeletable = cardTimer != null && capPips > 0 && deleterTtk < cardTimer;
+    return { phaseHp, nTargets, capPips, each, volley, volleyBeat, roiCeil, clamped, pct, toClear,
+             burnFrac, burn, totalRelease, cardTimer, worstDps, deleterTtk, phaseDeletable };
   });
   const totalHp = spans.reduce((a, b) => a + b, 0);
   const clearable = phases.filter((p) => isFinite(p.toClear));
@@ -88,7 +124,7 @@ export function bossEconomy(def, LOCK, lanceDmgEach) {
     : (tierCap === 0 ? 'tier cap 0 (Sentinel)' : 'no paint targets (V1 aim only)');
   return {
     id: def.id, name: def.name, tier, hpMax: def.hpMax || 0,
-    tierCap, peakCap, capVaries, lanceCapable, reason,
+    tierCap, peakCap, capVaries, lanceCapable, reason, burnFrac,
     phases, totalHp, totalVolleys,
     allPhasesClearable: clearable.length === phases.length,
   };
@@ -139,7 +175,25 @@ export function invariantBreaches(economies, LOCK) {
       if (p.capPips > 0 && p.volleyBeat > p.roiCeil + eps) {
         out.push(`${e.id} phase ${i + 1}: BEAT volley ${p.volleyBeat.toFixed(2)} breaches ROI ceil ${p.roiCeil.toFixed(2)}`);
       }
+      // SCAR-BURN §4b: the burn is bounded at burnFrac × the (clamped) beat volley, and
+      // the TOTAL earned release (volley + burn) stays ≤ (1 + burnFrac) × the ROI ceiling —
+      // the burn escalates the earned yield without breaching the phase-HP law.
+      if (p.burn > p.burnFrac * p.volleyBeat + eps) {
+        out.push(`${e.id} phase ${i + 1}: burn ${p.burn.toFixed(2)} > burnFrac×volleyBeat ${(p.burnFrac * p.volleyBeat).toFixed(2)}`);
+      }
+      if (p.capPips > 0 && p.totalRelease > (1 + p.burnFrac) * p.roiCeil + eps) {
+        out.push(`${e.id} phase ${i + 1}: total release ${p.totalRelease.toFixed(2)} > (1+frac)×ROI ceil ${((1 + p.burnFrac) * p.roiCeil).toFixed(2)}`);
+      }
+      // NOT-A-PHASE-DELETER §8C: the lance alone must never clear a phase faster than its
+      // card timer (the exploit-optimal on-tell spam TTK ≥ the timer).
+      if (p.phaseDeletable) {
+        out.push(`${e.id} phase ${i + 1}: PHASE-DELETER — lance TTK ${p.deleterTtk.toFixed(1)}s < card timer ${p.cardTimer}s`);
+      }
     });
+    // Frac law: no burn fraction exceeds 1.0, and burn is 0 below minTier.
+    const minTier = LOCK.scarBurn?.minTier ?? Infinity;
+    if (e.burnFrac > 1 + eps) out.push(`${e.id}: burnFrac ${e.burnFrac} > 1.0`);
+    if (e.tier < minTier && e.burnFrac > 0) out.push(`${e.id}: tier ${e.tier} < minTier ${minTier} but burnFrac ${e.burnFrac} > 0`);
   }
   return out;
 }

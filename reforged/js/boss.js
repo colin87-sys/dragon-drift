@@ -246,6 +246,15 @@ let bulletColor = 0xff2b6a;    // magenta = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
+// SCAR-BURN (§4b): active DOT burns from perfect on-tell releases. Each entry ticks
+// `tick` damage every `interval`s while !lockDeflected() (pause on transient seal),
+// and is CLEARED on phase-transition / teardown (never leaked across a phase pool).
+let burns = [];
+let _lastBeatOn = false;       // stashed ctx.beatOn (debug seam: observe the resonant window)
+// The last REAL toll time (the musicDies attack-release toll — bell + ring + shake):
+// the resonant-release beat edge KNELLGRAVE's ctx.beatOn keys to (the inaudible music
+// grid stays live under musicKill, so the generic beatOn is a coin-flip here — §CP1).
+let lastRealTollAt = -10;
 // LENS (intervention 3b): the live telegraph wind-up as 0→1, for the reticle's
 // "danger-at-the-gaze" chevrons. Derived (not a second stored copy), so it can never
 // drift from model.setCharge; 0 whenever nothing is winding up. Read by reticle.js.
@@ -370,7 +379,7 @@ const RESOLVE_GRAZE  = 0.02;  // per discGraze tick on the ride wall
 const RESOLVE_PARRY  = 0.10;  // per parried ROLL of the seal-era aimed ambers
 const RESOLVE_STRIKE = 0.055; // per scoped clapper strike through the seal
 const CLAPPER_HIT_R = 6.0;    // §ENG-LT: a rider chip's LANDING point must fall within this of clapperHead (the scope fence — a pattern landing elsewhere can't feed)
-const CLAPPER_NEAR = 7.0;     // §ENG-LT: the PLAYER must be within this of clapperHead (the skill gate — "dart under the bell"; knellgrave has no lockParts so rider chip always aims the pose centre)
+const CLAPPER_NEAR = 7.0;     // §ENG-LT: the PLAYER must be within this of clapperHead (the skill gate — "dart under the bell"). NB since PR2a KNELLGRAVE HAS lockParts, so the clapper seam requires a POSE-CENTRE chip (e.part==null, §CP2) — a lock-retargeted chip can't turn this proximity gate into a resolve turret
 const _wpV = new THREE.Vector3();   // scratch for the clapper weak-part world resolve
 let discCd = 0;               // §5i.B: arm cooldown — pockets don't stack every toll (less frequent, less busy)
 // §5i.B GRAZE REWARD BANDS — shared look for slipstream/orbit/disc so the three read as ONE
@@ -1752,6 +1761,7 @@ export function inBossRush() { return rushMode; }
 function endEncounter(player) {
   clearSetpiece();
   clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
+  burns.length = 0;           // SCAR-BURN never outlives the fight (§CP1 B-2)
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
@@ -2574,10 +2584,19 @@ export function updateBoss(dt, player, time, camera) {
       // V5 FOCUS (PR5): the deliberate hold (2nd finger past focusArmMs / F) —
       // halves the effective dwell in the lock layer. Level-read every frame.
       focusHeld: focusHeldNow(),
-      // V3.E1 (PR5): true when NOW is within ±beatWindow of a music-beat edge —
-      // a manual loose on the beat is a PERFECT RELEASE (volleys only, the LAW).
-      // getBeatClock() is null when music is off/headless → simply never perfect.
+      // V3.E1 (PR5): true when NOW is within ±beatWindow of a beat edge — a manual
+      // loose on the beat is a PERFECT RELEASE (volleys only, the LAW).
+      // §CP1 RESONANT RELEASE: on a `musicDies` boss (KNELLGRAVE) the music BUS is
+      // muted but the beat SCHEDULER keeps running, so the generic getBeatClock edge
+      // is a silent, illegible coin-flip. The honest beat here is the boss's own
+      // TOLL (bell + ring + shake) — leading: the toll fires when chargeT hits 0, so
+      // the window opens as chargeT enters ±beatWindow; trailing: within beatWindow
+      // of the last real toll. The player hears/sees/anticipates THIS edge.
       beatOn: (() => {
+        if (def.musicDies) {
+          return (chargeT > 0 && chargeT <= CONFIG.LOCK.beatWindow)
+            || (time - lastRealTollAt <= CONFIG.LOCK.beatWindow);
+        }
         const bc = getBeatClock();
         if (!bc) return false;
         const toEdge = Math.min(bc.phase * bc.beatLen, bc.toNextBeat);
@@ -2586,9 +2605,14 @@ export function updateBoss(dt, player, time, camera) {
       // PR-B BEAT-ALIGNED INHALE (C1, revised): the cap fuse STRETCHES to end a
       // void before the beat, then fires immediately — no post-fuse lag. Captured
       // by the lock layer at the cap edge; null clock / gate off → plain capFuse.
-      beatFuseDur: beatAlignedFuse(),
+      // §CP1: SUPPRESSED on musicDies — aligning the auto-release inhale to the
+      // inaudible grid is meaningless there; a plain capFuse keeps the cap release
+      // honest (the resonant bonus is the player's MANUAL on-toll tap, not the auto).
+      beatFuseDur: def.musicDies ? 0 : beatAlignedFuse(),
     };
+    _lastBeatOn = lockCtx.beatOn;
     updateLockLayer(dt, player, lockCtx);
+    updateBurns(dt);
     driveAimTeach(dt, lockCtx);
     driveLockTeach(dt, lockCtx);
     driveSnapTeach(dt, lockCtx);
@@ -2684,7 +2708,9 @@ export function updateBoss(dt, player, time, camera) {
           // survival seal) feeds RESOLVE — +1 per ROLL (the rollParried latch; perfect not
           // required: the survival exam is dodge-first, parry is a bonus feed). Surge reflects
           // don't count (§5i.C law 4). Reads r.total, NEVER snapParts — knellgrave ambers are
-          // untagged and stay untagged (§ENG-LT: no tags on an emitOrigins/no-lockParts def).
+          // untagged and stay untagged (§ENG-LT: knellgrave is an `emitOrigins` def, so V4
+          // parry-snaps are scoped to its real lockParts and its ambers carry at most a
+          // 'bellMouth' tag — never a phantom paint, even though PR2a added bind/wound lockParts).
           if (def.survivalResolve && !surge && activeCard && activeCard.survival && r.total > 0) {
             feedResolve(RESOLVE_PARRY);
           }
@@ -3192,6 +3218,7 @@ export function updateBoss(dt, player, time, camera) {
           model.tollNow?.(time);
           cameraCtl.shake?.(0.16 + w * 0.2);
           emit('bossToll', { k: w });
+          lastRealTollAt = time;   // SCAR-BURN: the resonant-release beat edge (§CP1)
         }
         executeAttack(curAttack, player);
         emitGhostHalf(player);   // §5f the dead twin's parryable half, from the frame (def.ghostHalf; inert otherwise)
@@ -3481,6 +3508,7 @@ function activateSurge(player) {
 // can't push past a phase floor.
 function breakShield(player) {
   shielded = false;
+  burns.length = 0;               // SCAR-BURN: cancel at the phase seam (§CP1 B-2 — never leak into the next phase's pool)
   model.shatterShield?.();        // the bubble breaks into flying shards
   model.setShieldVisible?.(false);
   model.flash(1.0);
@@ -4563,7 +4591,45 @@ on('lockVolley', (p) => {
     game.score += pts;
     ui.bossNote?.('♪ ON THE BEAT ♪', `+${pts}`, 'gold', 1.6);
   }
+  // SCAR-BURN (§4b): an ON-TELL (perfect) manual release of ≥ burnFloor pips on a
+  // tier ≥ minTier boss leaves a burning brand — an extra `frac × volleyTotal` paid
+  // over `dur` as scheduled DOT ticks. The cap auto-release (source 'cap') never has
+  // p.perfect, so it never burns (the safe fallback). `dmgEach` is already the
+  // ROI-clamped per-lance figure, so `count × dmgEach` is the clamped volley total.
+  const sb = CONFIG.LOCK.scarBurn;
+  const frac = sb && (def?.tier ?? 1) >= sb.minTier ? (sb.fracBySlot?.[def.id] ?? 0) : 0;
+  if (p && p.perfect && frac > 0 && p.count >= sb.burnFloor && p.dmgEach > 0 && !labPacifist) {
+    const total = frac * p.count * p.dmgEach;
+    const interval = 0.3;
+    const nTicks = Math.max(1, Math.round(sb.dur / interval));
+    burns.push({ tick: total / nTicks, ticksLeft: nTicks, interval, tAcc: 0 });
+    emit('lockBurn', { total, dur: sb.dur, count: p.count });
+  }
 });
+
+// Tick the active SCAR-BURN DOTs. PAUSES entirely while lockDeflected() (shield /
+// survival seal / scattered) — a sealed boss eats no burn and the ticks resume on
+// the break (never spam the shieldPing, never lose damage — §CP1). Damage is routed
+// through damageBoss with kind 'lockburn' and NO `e`, so routePartDamage never runs:
+// a burn accrues zero part-crack hits and charges no meters. Burns are CLEARED (not
+// paused) on a phase transition / teardown so P(n)-priced ticks never leak into
+// P(n+1)'s pool (§CP1 B-2).
+function updateBurns(dt) {
+  if (!burns.length) return;
+  if (lockDeflected()) return;   // pause; the entries persist, tAcc frozen
+  for (let i = burns.length - 1; i >= 0; i--) {
+    const b = burns[i];
+    b.tAcc += dt;
+    while (b.tAcc >= b.interval && b.ticksLeft > 0) {
+      b.tAcc -= b.interval;
+      b.ticksLeft--;
+      damageBoss(b.tick, 'lockburn');   // no `e` → no crack accounting, no meters
+      model.flash?.(0.08);
+      emit('lockBurnTick', {});
+    }
+    if (b.ticksLeft <= 0) burns.splice(i, 1);
+  }
+}
 
 function driveAimTeach(dt, ctx) {
   if (!def || !def.virtualLockOrgan || saveData.flags.aimTaught) return;
@@ -4698,17 +4764,19 @@ function damageBoss(amount, kind, e = null) {
   // no death. This one early-return IS the repeat-volley mechanism.
   if (labPacifist) { model?.flash?.(0.3); return; }
   // §ENG-LT THE CLAPPER SEAM (def.survivalResolve.weakPart — knellgrave-only): during the
-  // survival seal the bound clapper is the ONE thing that answers a hit. Scoped FOUR ways so
+  // survival seal the bound clapper is the ONE thing that answers a hit. Scoped FIVE ways so
   // the seal never leaks: (1) only while the seal runs; (2) RIDER chip only — 'player' returns
   // stay the parry economy's (§3c, no double-dip), 'surge' stays fully sealed, 'lance' never
-  // flies (lockDeflected); (3) the LANDING point must fall within CLAPPER_HIT_R of the part's
-  // live world x/y; (4) the PLAYER must be within CLAPPER_NEAR of it — knellgrave has no
-  // lockParts so rider chip always aims the pose centre, so proximity is the "dart under the
-  // bell" verb. NO hp moves — the fairness hatch stays intact; the strike feeds RESOLVE and the
-  // bell RINGS (a diegetic answering toll, unmistakably NOT the deflect ping). Above the seal so
-  // it wins the frame the seal would otherwise eat.
+  // flies (lockDeflected); (3) the chip must be POSE-CENTRE aimed (`e.part == null`) — a
+  // LOCK-RETARGETED chip (tagged `e.part` by fireRiderShot) is excluded, so holding a bind/wound
+  // lock through the seal can't turn the rider into a resolve turret (the §CP2 PR2a leak fix —
+  // KNELLGRAVE gained lockParts, falsifying the old "always pose-centre" assumption this seam
+  // rested on); (4) the LANDING point within CLAPPER_HIT_R of the part's live world x/y;
+  // (5) the PLAYER within CLAPPER_NEAR of it — proximity is the "dart under the bell" verb. NO
+  // hp moves — the fairness hatch stays intact; the strike feeds RESOLVE and the bell RINGS (a
+  // diegetic answering toll, NOT the deflect ping). Above the seal so it wins the frame.
   if (activeCard && activeCard.survival && def.survivalResolve?.weakPart
-      && kind === 'rider' && e && e.x != null && e.y != null && lastPlayer) {
+      && kind === 'rider' && e && e.x != null && e.y != null && e.part == null && lastPlayer) {
     const w = model?.partWorldPos?.(def.survivalResolve.weakPart, _wpV);
     if (w
         && Math.hypot(e.x - w.x, e.y - w.y) <= CLAPPER_HIT_R
@@ -4826,6 +4894,7 @@ function damageBoss(amount, kind, e = null) {
 export function resetBoss() {
   clearSetpiece();
   clearLocks('death');   // THE LANCE layer: drop aim/lock state on a hard teardown
+  burns.length = 0; lastRealTollAt = -10;   // SCAR-BURN: drop burn state + toll clock on teardown
   musicRestore();        // §5f: a hard teardown never strands the run in silence (idempotent)
   removeSeed();   // §5e: no stale horizon silhouette across a run teardown
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
@@ -5079,6 +5148,15 @@ export function debugBankLocks(n = 2) {
 export function debugBeamAimPart(px = 0, py = 0) {
   return beamAimPart({ position: { x: px, y: py } })?.part ?? null;
 }
+// SCAR-BURN test seams (headless): observe the resonant window (`beatOn`), the live
+// burn state, and request a manual loose (the perfect-release path when beatOn).
+export function debugBeatOn() { return _lastBeatOn; }
+export function debugBurns() {
+  let pending = 0;
+  for (const b of burns) pending += b.tick * b.ticksLeft;
+  return { active: burns.length, pending };
+}
+export function debugLoose() { requestLoose(); }
 export function debugLockCandidates() { return lockCandidates(); }
 export function debugPartWorldPos(part) {
   const w = model && model.partWorldPos ? model.partWorldPos(part, _beamV) : null;

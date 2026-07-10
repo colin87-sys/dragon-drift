@@ -22,33 +22,48 @@ await page.waitForTimeout(1200);
 const id = await page.evaluate(() => window.__dd.bossState()?.id);
 check(`fighting knellgrave (got ${id})`, id === 'knellgrave');
 
-// The bell SWINGS (pendulum), so an organ's world Y oscillates — sample the whole
-// swing and test the EXTREMES, not one lucky frame (a single sample masked a
-// lip-height anchor that grazed the ceiling at the swing peak; Codex P2). laneMaxY
-// 22 is the player's aim ceiling; laneMinY 2.5 the floor. Require a headroom margin
-// so the organ is reliably (not marginally) aimable at every swing phase.
-const LANE_MAX_Y = 22, LANE_MIN_Y = 2.5, HEADROOM = 1.0;
+// The bell SWINGS (pendulum, primary period ~7.4s) AND the swing amplitude GROWS with
+// charge/dread (ampTarget = 0.10 + charge·0.16 + sweepK·0.30) — so an organ's world Y
+// oscillates and the extreme lives in the DREAD state, not the opening idle. Sample a
+// FULL period with charge DRIVEN, and test the real MAX, not one lucky frame (§CP2: a
+// short opening-idle sample missed the P4-sweep peak). laneMaxY 22 is the hard aim
+// ceiling; laneMinY 2.5 the floor. Keep a safety margin under 22 for the sweepK
+// component this headless drive can't fully force.
+const LANE_MAX_Y = 22, LANE_MIN_Y = 2.5, WOUND_CEIL = 21.5;
+await page.evaluate(() => window.__dd.bossPinCharge(1));   // force the high-amplitude (dread) swing
 const samples = [];
-for (let i = 0; i < 14; i++) {
+for (let i = 0; i < 40; i++) {   // 40 × 220ms ≈ 8.8s > one 7.4s swing period
   samples.push(await page.evaluate(() => ({
     wound: window.__dd.bossPartWorldPos('knellWound'),
     bindL: window.__dd.bossPartWorldPos('knellBindL'),
     bindR: window.__dd.bossPartWorldPos('knellBindR'),
+    head: window.__dd.bossPartWorldPos('clapperHead'),
   })));
-  await page.waitForTimeout(220);   // ~3s total spans a full swing
+  await page.waitForTimeout(220);
 }
 const ok = (p) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
 const span = (key) => {
   const ys = samples.map((s) => s[key]).filter(ok).map((p) => p.y);
   return ys.length === samples.length ? { min: Math.min(...ys), max: Math.max(...ys) } : null;
 };
-const inLane = (s) => s && s.max <= LANE_MAX_Y - HEADROOM && s.min >= LANE_MIN_Y;
-for (const key of ['wound', 'bindL', 'bindR']) {
+const wS = span('wound');
+check(`wound stays aimable across the DREAD swing (y ${wS ? `${wS.min.toFixed(1)}..${wS.max.toFixed(1)}` : 'UNRESOLVED'}, need ≤ ${WOUND_CEIL})`,
+  wS && wS.max <= WOUND_CEIL && wS.min >= LANE_MIN_Y);
+for (const key of ['bindL', 'bindR']) {
   const s = span(key);
-  check(`${key} stays in-lane across the swing (y ${s ? `${s.min.toFixed(1)}..${s.max.toFixed(1)}` : 'UNRESOLVED'}, need ≤ ${LANE_MAX_Y - HEADROOM})`, inLane(s));
+  check(`${key} stays in-lane across the swing (y ${s ? `${s.min.toFixed(1)}..${s.max.toFixed(1)}` : 'UNRESOLVED'})`,
+    s && s.max <= LANE_MAX_Y && s.min >= LANE_MIN_Y);
 }
-const pos = samples[samples.length - 1];
-check('bindL / bindR are mirrored (distinct x)', ok(pos.bindL) && ok(pos.bindR) && Math.sign(pos.bindL.x) !== Math.sign(pos.bindR.x));
+// §CP2 BLOCKER 2: the wound must NEVER read as branding the bound prisoner's face —
+// it must clear the clapperHead by a real margin at EVERY swing phase.
+const headClear = samples.every((s) => ok(s.wound) && ok(s.head) && Math.hypot(s.wound.x - s.head.x, s.wound.y - s.head.y, s.wound.z - s.head.z) >= 2.5);
+const minHeadGap = Math.min(...samples.filter((s) => ok(s.wound) && ok(s.head)).map((s) => Math.hypot(s.wound.x - s.head.x, s.wound.y - s.head.y, s.wound.z - s.head.z)));
+check(`wound clears the bound prisoner's head at every swing phase (min gap ${minHeadGap.toFixed(1)} ≥ 2.5)`, headClear);
+// Mirror invariant: the LEFT cuff stays left of the RIGHT cuff at every swing phase
+// (checking opposite x-SIGNS is wrong — a hard dread swing shifts the whole clapper to
+// one side of world-x=0, so both can share a sign while still being mirrored).
+const mirrored = samples.every((s) => ok(s.bindL) && ok(s.bindR) && s.bindL.x < s.bindR.x);
+check('bindL stays left of bindR across the swing (mirror preserved)', mirrored);
 
 const paintables = await page.evaluate(() => window.__dd.bossPaintables());
 check(`paintables include wound + both binds (${JSON.stringify(paintables)})`,
