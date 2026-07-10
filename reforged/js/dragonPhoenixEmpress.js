@@ -48,92 +48,74 @@ function spectacleMode() {
 // structure, re-authored for warm hues). Each hue is saturated + bloom-safe (sat≥0.75,
 // value≤0.9) so it blooms IN ITS OWN COLOUR under ACES + UnrealBloom — never additive
 // washout. `glow` (glowLevel) multiplies every emissive for adaptive-tier friendliness.
+// ── THE CALDERA SYSTEM (molten fire) — "crust holds the line, fire holds the night" ──────────
+// Inverted value hierarchy: interior masses GLOW, silhouette edges + plate seams stay DARK cooled
+// crust. Five heat tiers; every material belongs to exactly one. Flat-shaded plates keep two values
+// (lit magma face + dark crust rim) so facets survive ACES+bloom, and on a pale/gold sky the crust
+// perimeter keeps her a readable silhouette (she never dissolves into the sky).
 function empressMats(def, glow, stage) {
   const st = Math.max(0, Math.min(3, Math.round(stage ?? 3)));
   const g = glow ?? 1;
-  // Per-stage intensity ladders (surge tick multiplies baseIntensity; g scales the floor).
-  const keelI  = [0.10, 0.35, 0.65, 1.05][st] * g;  // dorsal molten keel-seam (faint→molten)
-  const pinI   = [0, 0.55, 1.15, 1.75][st] * g;     // pinion crimson fire (first at f1)
-  const vaneI  = [0, 0.55, 1.05, 1.65][st] * g;     // train-quill vane edge gradient
-  const coalI  = [0, 0.70, 1.25, 2.05][st] * g;     // coal-eye gems (mesh withheld at f0)
-  const gorgetI = [0, 0, 1.35, 2.10][st] * g;       // heart-fire gorget (conferred at f2)
-  const crestI = [0, 0.75, 1.30, 2.05][st] * g;     // comet-crest rose (bumped so the 3rd hue survives chase distance)
+  // heat-tier palettes (diffuse / emissive) — emissives held sat≥.75 val≤.85 so they bloom IN-HUE
+  const CRUST_D = 0x261210, CRUST_E = 0x521808;   // T4 cooled crust (edges, ≥40% of the read)
+  const LAVA_D = 0x7a2410, LAVA_E = 0xc0340e;     // T3 lava-deep (cooling zones, belly, hems)
+  const MAGMA_D = 0xb8481a, MAGMA_E = 0xd85a12;   // T2 magma (main body panels, wing mid)
+  const SUN_D = 0xffc258, SUN_E = 0xe89a1e;       // T1 sungold (cracks/fissures, vane hearts)
+  const WHITE_D = 0xffe8c0, WHITE_E = 0xffd39a;   // T0 whiteheart (rationed ≤4%, f3)
+  const ROSEF = 0xe83a6a, ROSEF_E = 0xe83a6a;     // crest rose-fire (4th hue, separates head)
+  // per-stage intensity ramps (× glowLevel; surge tick lifts the base further)
+  const magmaI = [0.12, 0.44, 0.74, 1.00][st] * g;   // body magma glow (f0 cinder → f3 living magma)
+  const sunI   = [0.10, 0.55, 1.05, 1.55][st] * g;   // fissures / cracks
+  const pinI   = [0, 0.60, 1.15, 1.70][st] * g;      // wing fire
+  const heartI = [0, 0, 1.45, 2.15][st] * g;         // molten heart / gorget (f2+)
+  const crestI = [0, 0.75, 1.30, 2.05][st] * g;
+  const pearlI = [0, 0.70, 1.30, 1.90][st] * g;      // molten-pearl gems (mantle / wake / coal-eye)
 
-  // BODY — dark garnet matte, always present (stage-independent). A lifted garnet
-  // emissive floor keeps her faceted-garnet, not void-black, on a dark sky. DoubleSide
-  // guards the open-ended neck loft + stray fairing tris (no hollow read).
-  const bodyFlat = new THREE.MeshStandardMaterial({ color: def.body ?? 0x241012, emissive: 0x1a0a0a, emissiveIntensity: 0.10, flatShading: true, roughness: 0.72, metalness: 0.10, side: THREE.DoubleSide });
-  // Belly one tier warmer (umber); the APEX belly gets the pale-gold underlight nod
-  // (belly-only, downward-facing — warms the underside a believer catches on a bank
-  // without ever lightening the dorsal read the chase cam sees).
-  const bellyCol = st >= 3 ? (def.bellyGold ?? PALEGOLD) : (def.belly ?? UMBER);
-  const belly = new THREE.MeshStandardMaterial({ color: bellyCol, emissive: st >= 3 ? 0x2a1408 : 0x160a06, emissiveIntensity: st >= 3 ? 0.16 : 0.06, flatShading: true, roughness: 0.7, metalness: 0.08, side: THREE.DoubleSide });
-  // Burnished copper accent (forged tier, never emissive) — beak, talons, shafts.
-  const copper = new THREE.MeshStandardMaterial({ color: def.copper ?? COPPER, flatShading: true, roughness: 0.4, metalness: 0.55, emissive: 0x3a1c0a, emissiveIntensity: 0.18 });
-  // THE EMPRESS'S GOLD — a two-tier JEWELRY metal (rose-gold → bright gold at the apex),
-  // high metalness with a DEEP-AMBER emissive floor so shadowed/away-facing gold stays warm
-  // gold, never olive (Solar's anti-olive plate trick, spent on JEWELRY not armor — clasp,
-  // pectoral, tiara, collets, bezels, spar). This is the "expensive/regal" material MASS the
-  // chase cam catches as sun edge-highlights; it is metallic DIFFUSE, not new emissive.
+  const surgeMat = (col, emis, inten, rough) => { const m = new THREE.MeshStandardMaterial({ color: col, emissive: emis, emissiveIntensity: inten, flatShading: true, roughness: rough ?? 0.5, metalness: 0.1, side: THREE.DoubleSide }); m.userData.baseEmissive = emis; m.userData.baseIntensity = inten; return m; };
+
+  // BODY = T2 MAGMA (f0 reads a crust-dark cinder; magma kindles f1+). The shingle ranks (covert)
+  // ride over it as T4 crust, so the lit magma only shows in the plate valleys.
+  const bodyFlat = surgeMat(st === 0 ? CRUST_D : MAGMA_D, MAGMA_E, magmaI * 0.85, 0.66); bodyFlat.metalness = 0.08;
+  // BELLY = T3 lava-deep (glows underneath on a bank — the actual-fire successor to the pale-gold nod).
+  const belly = surgeMat(st === 0 ? CRUST_D : LAVA_D, LAVA_E, magmaI * 0.6, 0.66);
+  // COPPER kept for beak/talons — a dark forged metal (crust register, never bright).
+  const copper = new THREE.MeshStandardMaterial({ color: def.copper ?? COPPER, flatShading: true, roughness: 0.42, metalness: 0.5, emissive: 0x3a1408, emissiveIntensity: 0.16 });
+  // JEWELRY GOLD (6th, non-emissive tier) — regalia riding ON the fire (cuffs, tiara, collets, brooch).
   const goldCol = st >= 3 ? (def.brightGold ?? 0xe8c078) : (def.roseGold ?? 0xc07a3a);
   const gold = new THREE.MeshStandardMaterial({ color: goldCol, flatShading: true, roughness: 0.34, metalness: 0.62, emissive: 0xb06a14, emissiveIntensity: 0.22 });
   const goldHi = new THREE.MeshStandardMaterial({ color: st >= 2 ? 0xf2d89a : 0xd8a860, flatShading: true, roughness: 0.26, metalness: 0.64, emissive: 0xc07a18, emissiveIntensity: 0.22 });
+  // COVERT / shingle plates = T4 CRUST — the cooled dark plates whose SEAMS glow. Warm-dark floor,
+  // never void-black (so the crust reads as cooling rock on a dark sky, not a hole).
+  const covert = surgeMat(CRUST_D, CRUST_E, 0.18, 0.8); covert.metalness = 0.05;
 
-  // Wing COVERT sheet (dark root) — ZERO emissive, so the fire on the primaries reads.
-  const covert = new THREE.MeshStandardMaterial({ color: def.covert ?? 0x2a1013, flatShading: true, roughness: 0.82, metalness: 0.06, side: THREE.DoubleSide });
+  // WING fire tiers (CP1: the OLD wings ride along, re-tiered magma so they don't clash; CP2 rebuilds).
+  const pinionRoot = surgeMat(st === 0 ? CRUST_D : LAVA_D, LAVA_E, pinI * 0.4, 0.7);
+  const pinionTip  = surgeMat(st === 0 ? CRUST_D : MAGMA_D, MAGMA_E, pinI, 0.52);
+  const pinionEdge = surgeMat(st === 0 ? CRUST_D : SUN_D, SUN_E, pinI * 0.7, 0.44);
 
-  // Helper: a surge-registered emissive material (baseEmissive/baseIntensity so the
-  // Rebirth Surge tick lerps the correct hue toward feverWing and boosts intensity).
-  const surgeMat = (col, emis, inten, rough) => { const m = new THREE.MeshStandardMaterial({ color: col, emissive: emis, emissiveIntensity: inten, flatShading: true, roughness: rough ?? 0.5, metalness: 0.1, side: THREE.DoubleSide }); m.userData.baseEmissive = emis; m.userData.baseIntensity = inten; return m; };
+  // MANTLE / WAKE flame-tongue tiers: dark crust blade + magma→sungold hot edges.
+  const vaneDark   = surgeMat(CRUST_D, CRUST_E, 0.16, 0.74);
+  const vaneEdgeLo = surgeMat(LAVA_D, MAGMA_E, sunI * 0.7, 0.5);
+  const vaneEdgeHi = surgeMat(SUN_D, SUN_E, sunI * 0.85, 0.44);
+  const vaneEye    = surgeMat(SUN_D, SUN_E, sunI * 0.95, 0.4);
 
-  // PINION FIRE — deep CRIMSON (blood-red, not pink) so the wing hue stays its own station,
-  // distinct from the rose crest and the amber coals. Dark-root → crimson-tip, emissive only
-  // toward the tips. IN spineMats (flare on Surge). Rose is reserved for the CREST alone.
-  const PINION_CRIMSON = 0xcc1024;
-  // The ash-chick (st 0) wears NO wing fire: the primary DIFFUSE goes dark ash so f0 reads a
-  // rounded charcoal whelp; the crimson diffuse + emissive kindle together from f1.
-  const pinDiff = st === 0 ? 0x241012 : 0x5e1420, pinDiffE = st === 0 ? 0x2a1013 : 0x6a1626;
-  const pinionRoot = surgeMat(0x241012, 0x50101c, pinI * 0.22, 0.72);
-  const pinionTip  = surgeMat(pinDiff, PINION_CRIMSON, pinI, 0.5);
-  const pinionEdge = surgeMat(pinDiffE, PINION_CRIMSON, pinI * 0.55, 0.46);
+  // DORSAL MAGMA FISSURE (T1 sungold crack down the spine) + MOLTEN HEART spill (f2+).
+  const keelSeam = surgeMat(SUN_D, SUN_E, sunI, 0.5);
+  const gorget = surgeMat(SUN_D, WHITE_E, heartI, 0.38);
 
-  // TRAIN-QUILL vane — "a COAL, not a torch", and the light lives in the GEMS not the wires:
-  // near-dark ash-maroon blade + a THIN, dim crimson→amber edge tracing the rim (so the fan
-  // reads as dark blades, not gold filigree). Edge mats IN accentMats (flare on Surge); the
-  // coal-eye gem at the tip is the bright element — the ember constellation.
-  const vaneDark   = surgeMat(0x241012, 0x260c08, vaneI * 0.10 + 0.05, 0.74);   // near-dark blade
-  const vaneEdgeLo = surgeMat(0x3a1218, EMBER, vaneI * 0.6, 0.5);               // lower rim ember-crimson (dimmed)
-  const vaneEdgeHi = surgeMat(0x4a2810, AMBER, vaneI * 0.65, 0.46);            // upper rim amber (dimmed)
-  // The peacock EYE inset on each main vane face — amber, a touch hotter than the rim, so the
-  // dark blade carries a readable light MOTIF (empress-train signature). IN accentMats.
-  const vaneEye    = surgeMat(0x4a2c0e, AMBER, vaneI * 0.95, 0.4);
+  // CREST rose-fire (4th hue-station, separates the head from the body furnace at distance).
+  const crestGlow = surgeMat(0x5a1830, ROSEF_E, crestI, 0.5);
+  const crestTip = new THREE.MeshStandardMaterial({ color: ROSEF, emissive: ROSEF_E, emissiveIntensity: crestI * 1.3, flatShading: true, roughness: 0.3, metalness: 0.12 });
 
-  // DORSAL keel-seam (thin ember groove) + heart-fire GORGET (amber breast chevron,
-  // withheld until f2). Both IN spineMats (torso) → flare on Surge.
-  const keelSeam = surgeMat(0x3a1810, EMBER, keelI, 0.55);
-  const gorget = surgeMat(0x5a3410, AMBER, gorgetI, 0.4);
-
-  // COMET-CREST blade emissive (rose) — IN spineMats (head).
-  const crestGlow = surgeMat(0x5a1830, ROSE, crestI, 0.5);
-  // Crest coal TIP — true ROSE (not amber-gold), so the crown reads as the rose hue-station
-  // and does NOT add cream-white points competing with the ONE Dawn Coal. Holds hue (out of
-  // surge arrays), like the coal-eyes.
-  const crestTip = new THREE.MeshStandardMaterial({ color: 0xe86a90, emissive: ROSE, emissiveIntensity: crestI * 1.3, flatShading: true, roughness: 0.3, metalness: 0.12 });
-
-  // COAL-EYE gem — amber-gold emissive, the BRIGHTEST point of the train (the constellation
-  // that owns the lower frame). Stays OUT of every surge array (holds its own hue — the
-  // constellation must not blow to gold-white on Rebirth). A thin dark bezel frames it.
-  const coalEye = new THREE.MeshStandardMaterial({ color: 0xffd888, emissive: 0xffb028, emissiveIntensity: coalI * 2.7, flatShading: true, roughness: 0.22, metalness: 0.15 });
-  // coal-eye BEZEL is now GOLD (a jewel SETTING, the welded-gem law) — the amber gem sits in a
-  // gold collet so each coal reads as a set stone, not a floating dot.
+  // MOLTEN-PEARL gems (mantle ray hearts, wake sparks, coal-eyes) — T1 hot, gold-set.
+  const coalEye = new THREE.MeshStandardMaterial({ color: WHITE_D, emissive: SUN_E, emissiveIntensity: pearlI * 2.4, flatShading: true, roughness: 0.22, metalness: 0.14 });
   const coalBezel = goldHi;
-  // The Dawn Coal — the ONE near-white, f3-only, tiny. OUT of all surge arrays.
-  const dawnCoal = new THREE.MeshStandardMaterial({ color: DAWNCOAL, emissive: 0xffdca0, emissiveIntensity: st >= 3 ? 2.4 * g : 0, flatShading: true, roughness: 0.24 });
+  // DAWN COAL = T0 WHITEHEART — the ONE near-white, f3-only, tiny (rationed by the ≤4% area budget).
+  const dawnCoal = new THREE.MeshStandardMaterial({ color: WHITE_D, emissive: WHITE_E, emissiveIntensity: st >= 3 ? 2.4 * g : 0, flatShading: true, roughness: 0.24 });
 
-  // Eyes — amber-gold almond, emissive, the only lit facial point (no brow gem).
-  const eyeMat = new THREE.MeshStandardMaterial({ color: def.eye ?? 0xffcf6a, emissive: 0xc07a1a, emissiveIntensity: 1.5, flatShading: true, roughness: 0.3, metalness: 0.2 });
-  eyeMat.userData.baseEmissive = 0xc07a1a; eyeMat.userData.baseIntensity = 1.5;
-
+  // EYE — a hot sungold almond.
+  const eyeMat = new THREE.MeshStandardMaterial({ color: WHITE_D, emissive: SUN_E, emissiveIntensity: 1.6, flatShading: true, roughness: 0.3, metalness: 0.2 });
+  eyeMat.userData.baseEmissive = SUN_E; eyeMat.userData.baseIntensity = 1.6;
   return { bodyFlat, belly, copper, gold, goldHi, covert, pinionRoot, pinionTip, pinionEdge, vaneDark, vaneEdgeLo, vaneEdgeHi, vaneEye, keelSeam, gorget, crestGlow, crestTip, coalEye, coalBezel, dawnCoal, eyeMat, stage: st };
 }
 
