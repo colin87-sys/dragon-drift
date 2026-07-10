@@ -53,7 +53,11 @@ function sovereignMats(def, glow, stage) {
   // ember orange-red at the outer tier stays mid-value → holds colour through bloom.
   const memEmis = [0x200504, 0x6e1410, 0xb42414, 0xe8401c];
   const memBaseI = [0.05, 0.2, 0.45, 0.8];
-  const mem = (col, i) => { const inten = memBaseI[i] * emberF; const m = new THREE.MeshStandardMaterial({ color: col, emissive: memEmis[i], emissiveIntensity: inten, flatShading: true, roughness: 0.76, side: THREE.DoubleSide }); m.userData.baseEmissive = memEmis[i]; m.userData.baseIntensity = inten; return m; };
+  // BUG FIX (visibility): the membranes must be TRANSPARENT so the game's wing-fade (dragon.js drives
+  // wingMat.opacity → 0.82/0.77/0.70) actually works — Solar was the ONLY dragon with a fully OPAQUE
+  // wing wall (opacity writes were inert without transparent:true), so you couldn't see obstacles
+  // through the 70%-of-frame wing. Matches dragonUnifiedHull's translucent-membrane recipe.
+  const mem = (col, i) => { const inten = memBaseI[i] * emberF; const m = new THREE.MeshStandardMaterial({ color: col, emissive: memEmis[i], emissiveIntensity: inten, flatShading: true, roughness: 0.76, side: THREE.DoubleSide, transparent: true, opacity: 0.82 }); m.userData.baseEmissive = memEmis[i]; m.userData.baseIntensity = inten; return m; };
   const memTiers = [mem(0x45120e, 0), mem(0x5a160e, 1), mem(0x7a1622, 2), mem(0x9c2233, 3)];   // root→outer
   const membrane = memTiers[2];
   // Starlight-vein circuit — saturated violet, upper-surface placement (see buildOneWing).
