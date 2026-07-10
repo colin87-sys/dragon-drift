@@ -82,7 +82,7 @@ for (const key of BOSS_ORDER) {
     prev = ph.atFrac;
     assert(Array.isArray(ph.attacks) && ph.attacks.length > 0, `${key} phase has attacks`);
     for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
-      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'crestfall'].includes(a), `${key} attack '${a}' is known`);
+      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'crestfall', 'geyser'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
   }
   // Spell cards (§5f/§5h): optional (coexist rule), but if present they must
@@ -2002,7 +2002,7 @@ ok('Surge hyper knobs: faster rider + all-bullets-reflectable + shield-burst');
 // every attack fits the low-tier ceiling (no ~1.2s closing window ever holds
 // more than ~55 bullets), and every 2D fill leaves a threadable designed lane.
 const ALL_ATTACKS = ['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
-  'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'];
+  'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'geyser'];
 const TRAVEL = CONFIG.BOSS.settleGap / (CONFIG.BOSS.bulletSpeed * 0.8);   // slowest closing ≈ 1.34s
 const laneSafe = (v, half = 2.2) => {
   for (let g = -11; g <= 11; g += 0.25) {
@@ -2039,6 +2039,25 @@ for (const q of [1, 0.7]) {
     if (!r.bullets.length) continue;   // the instant volley is empty (all streamed)
     assert(laneSafe(r.bullets), `movingGap row @t${r.t.toFixed(2)} leaves a sliding safe lane`);
   }
+}
+// §ENG-C geyser: the roster's ONE bottom-up pattern — born below frame, erupts upward,
+// plume-led (each plume beat emits ZERO bullets, one beat ahead of its row), sliding
+// threadable gap, crestfall's budget. The Calamities band's single new attack id.
+{
+  bullets.resetBossBullets();
+  const vols = boss.debugEmitAttack('geyser', makePlayer(), 1);
+  const rows = vols.filter((v) => v.bullets.length);
+  assertEq(rows.length, 5, 'geyser fires 5 eruption rows @q1 (crestfall dials; plume beats are bullet-free)');
+  assert(rows[0].t >= 0.32 - 1e-9, 'geyser: the first eruption lands one full beat after its plume (drawn-in-world lead)');
+  for (const r of rows) {
+    assert(r.bullets.every((b) => b.y <= CONFIG.laneMinY - 3 + 1e-6),
+      `geyser row @t${r.t.toFixed(2)} births BELOW the frame (y ≤ laneMinY − 3)`);
+    assert(r.bullets.every((b) => b.vy > 0), `geyser row @t${r.t.toFixed(2)} erupts UPWARD (vy > 0)`);
+    assert(r.bullets.every((b) => b.y > -16 && b.y + b.vy * 1.0 > CONFIG.laneMinY),
+      `geyser row @t${r.t.toFixed(2)} survives the −16 cull floor and erupts INTO the lane within 1s`);
+    assert(laneSafe(r.bullets), `geyser row @t${r.t.toFixed(2)} leaves a sliding threadable lane`);
+  }
+  ok('ENG-C geyser: 5 rows born below-frame erupt UPWARD, plume-led (one beat ahead, bullet-free), sliding threadable gap, crestfall budget ✓');
 }
 bullets.resetBossBullets();
 ok(`pattern budget: ${ALL_ATTACKS.length} attacks fit the low-tier bullet cap; fills keep designed lanes`);
@@ -2651,6 +2670,309 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   boss.resetBoss();
   bullets.setDebugPerfectParryRel(null);
   ok('ENG-E ORGAN BREAK: 3 perfect rib parries crack the rib (its volley + arc deleted); over-crack is inert ✓');
+}
+
+// §ENG-B authored gaps: a def can LOCK a wall's safe lane to an organ (card-gated), so the
+// dread's gap is a boss-read, not player-tracking. Hero: STORMREND's eye during its dread.
+{
+  const bul = () => bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+  const laneAt = (bs, gx, half) => bs.length > 0 && bs.every((b) => Math.abs(b.x - gx) >= half - 0.01);
+
+  // G1 coexist (headless def/model null): curtain gap at the shipped -sign(player.x||1)*5.5.
+  // makePlayer x=0 → -sign(0||1)*5.5 = -5.5.
+  bullets.resetBossBullets(); boss.debugEmitAttack('curtain', makePlayer(), 1);
+  assert(laneAt(bul(), -5.5, 3.0), 'ENG-B coexist: un-opted curtain gap sits at the shipped player-sign lane (-5.5)');
+
+  // Live stormrend for the opted paths (player parked off-lane at +6).
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const p = makePlayer(); p.position.x = 6;
+  boss.forceBoss(p, BOSS_ORDER.indexOf('stormrend'));
+  boss.debugForceFight(p);
+  for (let i = 0; i < 30; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+
+  const eyeX = boss.debugPartWorldPos('focalEye').x;
+  // G4 (card OFF): un-opted movingGap SLIDES from the player seed — so it does NOT leave a
+  // single locked lane at the eye (the anchor is inert outside its card).
+  boss.debugForceCard(null);
+  bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+  assert(!laneAt(bul(), eyeX, 2.6), 'ENG-B card-off: movingGap does NOT lock to the eye (anchor inert; shipped player-seeded slide)');
+
+  // G2 (card ON): every row's lane LOCKS to the eye — a single boss-read gap, not the slide.
+  assert(boss.debugForceCard('stormrend_eye'), 'ENG-B: stormrend_eye card arms via debugForceCard');
+  bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+  assert(laneAt(bul(), eyeX, 2.6), `ENG-B: during the dread, movingGap LOCKS its lane to the eye (x≈${eyeX.toFixed(1)}), not the player at +6`);
+
+  // G5 clamp (authored out-of-arena → clamps into the arena, laneSafe holds).
+  const saved = BOSSES.stormrend.gapAnchor.movingGap;
+  BOSSES.stormrend.gapAnchor.movingGap = { card: 'stormrend_eye', x: 40 };
+  bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+  assert(laneAt(bul(), 9, 2.6), 'ENG-B clamp: an out-of-arena authored x (40) clamps to the +9 lane (never unreachable)');
+  BOSSES.stormrend.gapAnchor.movingGap = saved;
+  boss.resetBoss();
+  ok('ENG-B authored gaps: the dread wall’s lane LOCKS to the storm’s eye (a boss-read); card-off = shipped player placement; out-of-arena clamps in ✓');
+}
+
+// §ENG-D SLIPSTREAM: ASHTALON's stoop grows a drawn moving safe pocket; riding its edge-wall
+// pays graze ticks (annulus, not radius), and a Surge release after a ≥0.8s ride EXPOSES the
+// hunter (amplified chip). The pose-region analogue of the shipped "beamEdge annulus" gate.
+{
+  const armAshtalon = () => {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('ashtalon'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  // The pocket only exists while the stoop's dive is live (not before the setpiece arms).
+  {
+    const p = armAshtalon();
+    assert(boss.bossDebugState().slipActive === false, 'ENG-D: no slipstream pocket before the stoop arms');
+    boss.debugRunSetpiece('stoopingStrike');
+    let sawActive = false, ticks = 0, rideMax = 0, chargeStart = null;
+    on('slipGraze', () => { ticks++; });
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        sawActive = true;
+        rideMax = Math.max(rideMax, st.slipRideT);
+        if (chargeStart == null) chargeStart = game.grazeCharge + game.consecutiveRings;
+        p.position.x = st.slipX + st.slipR.in + st.slipR.wall / 2;   // park ON THE WALL (the goldmine band)
+        p.position.y = st.slipY;
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+    }
+    assert(sawActive, 'ENG-D: the pocket goes live during the stoop dive');
+    assert(boss.bossDebugState().slipActive === false, 'ENG-D: the pocket closes when the dive path completes');
+    assert(ticks > 0, `ENG-D: riding the wall pays graze ticks (${ticks} slipGraze)`);
+    assert(rideMax > 0.8, `ENG-D: the ride is earnable with margin (rideMax ${rideMax.toFixed(2)}s)`);
+    const chargeEnd = game.grazeCharge + game.consecutiveRings;
+    assert(chargeEnd > chargeStart, 'ENG-D: the ride feeds the Surge bank (graze economy)');
+    boss.resetBoss();
+  }
+  // Annulus, not radius: parking dead-centre accrues the ride timer but pays NOTHING.
+  {
+    const p = armAshtalon();
+    boss.debugRunSetpiece('stoopingStrike');
+    let coreTicks = 0, coreRide = 0;
+    on('slipGraze', () => { coreTicks++; });
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) { p.position.x = st.slipX; p.position.y = st.slipY; coreRide = st.slipRideT; }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      // count only ticks earned while dead-centre — reset the counter each frame we're centred
+    }
+    assert(coreRide > 0, 'ENG-D annulus: parking the safe core still accrues the ride timer');
+    assert(coreTicks === 0, `ENG-D annulus-not-radius: the too-close core is UNPAID (${coreTicks} ticks dead-centre)`);
+    boss.resetBoss();
+  }
+  // Break → reset: leaving the pocket (past the 0.3s grace) zeroes the ride timer.
+  {
+    const p = armAshtalon();
+    boss.debugRunSetpiece('stoopingStrike');
+    let rode = false;
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        if (st.slipRideT > 0.5 && !rode) { rode = true; }   // ride a bit first
+        if (rode) { p.position.x = st.slipX + 14; p.position.y = st.slipY; }   // then bail hard
+        else { p.position.x = st.slipX + st.slipR.in + st.slipR.wall / 2; p.position.y = st.slipY; }
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (rode) {
+        for (let j = 0; j < 30; j++) boss.updateBoss(1 / 60, p, 3 + (i + j) / 60);   // let the 0.3s grace lapse
+        break;
+      }
+    }
+    assert(rode, 'ENG-D break test: the player rode the wall before bailing');
+    assert(boss.bossDebugState().slipRideT === 0, 'ENG-D break → reset: bailing the pocket past the grace zeroes the ride timer');
+    boss.resetBoss();
+  }
+  // The §5f answer: ride ≥0.8s, then a Surge release EXPOSES the hunter (amplified chip);
+  // an immediate release (ride < 0.8s) does NOT fire the exposure.
+  {
+    // (a) immediate release — no exposure.
+    const p = armAshtalon();
+    boss.debugRunSetpiece('stoopingStrike');
+    let exposedEarly = false;
+    on('slipExposed', () => { exposedEarly = true; });
+    // wait for the pocket, then tap Surge on the very first live frame (ride ≈ 0)
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        p.position.x = st.slipX + st.slipR.in + st.slipR.wall / 2; p.position.y = st.slipY;
+        game.consecutiveRings = game.feverThreshold; input.surgeTap = true;
+        boss.updateBoss(1 / 60, p, 3 + i / 60);
+        break;
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+    }
+    assert(boss.bossDebugState().slipRideT < 0.8, 'ENG-D exposure control: the release happened before a 0.8s ride');
+    assert(!exposedEarly, 'ENG-D: releasing Surge WITHOUT a ≥0.8s ride does NOT expose the hunter');
+    boss.resetBoss();
+
+    // (b) ride ≥0.8s then release — exposure fires + the surge chip lands amplified.
+    const p2 = armAshtalon();
+    boss.debugRunSetpiece('stoopingStrike');
+    let exposed = false; on('slipExposed', () => { exposed = true; });
+    let tapped = false, hpBefore = null;
+    for (let i = 0; i < 500; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        p2.position.x = st.slipX + st.slipR.in + st.slipR.wall / 2; p2.position.y = st.slipY;
+        if (st.slipRideT >= 0.85 && !tapped) {
+          tapped = true; hpBefore = st.hp;
+          game.consecutiveRings = game.feverThreshold; input.surgeTap = true;
+        }
+      }
+      boss.updateBoss(1 / 60, p2, 3 + i / 60);
+      if (tapped) { for (let j = 0; j < 150; j++) boss.updateBoss(1 / 60, p2, 3 + (i + j) / 60); break; }   // let the surge cinematic strike
+    }
+    assert(tapped, 'ENG-D exposure: the player rode ≥0.85s then released Surge');
+    assert(exposed, 'ENG-D §5f answer: a Surge release after the ≥0.8s ride EXPOSES the hunter');
+    const dropped = hpBefore - boss.bossDebugState().hp;
+    assert(dropped >= 21, `ENG-D exposure amp: the surge chip lands amplified (~2× ${CONFIG.BOSS.surgeBeamDamage ?? 14}); hp dropped ${dropped.toFixed(1)}`);
+    boss.resetBoss();
+  }
+  // Coexist: a non-slipstream boss never enters the branch.
+  {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const vp = makePlayer();
+    let ticks = 0, exposed = false;
+    on('slipGraze', () => { ticks++; }); on('slipExposed', () => { exposed = true; });
+    boss.forceBoss(vp, BOSS_ORDER.indexOf('voidmaw')); boss.debugForceFight(vp);
+    for (let i = 0; i < 300; i++) boss.updateBoss(1 / 60, vp, 2 + i / 60);
+    const st = boss.bossDebugState();
+    assert(ticks === 0 && !exposed && st.slipActive === false && st.slipRideT === 0,
+      'ENG-D coexist: a non-slipstream boss (voidmaw) never rides/exposes (inert branch)');
+    boss.resetBoss();
+  }
+  ok('ENG-D SLIPSTREAM: the stoop grows a drawn wake pocket; riding the wall pays (annulus, not core), a ≥0.8s ride + Surge EXPOSES the hunter (amplified); inert for others ✓');
+}
+
+// §ENG-C4 ORBIT ANNULUS: EITHERWING's figure-eight grows a drawn band about the group centre;
+// co-rotating in the band pays graze ticks (annulus, not core), and a full unbroken lap
+// (|unwrapped Δθ| ≥ 2π) is the jackpot: +1 adrenaline rung + an i-frame pulse. Lap-law analogue
+// of the shipped "annulus + depth-window" gate.
+{
+  const armEitherwing = () => {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('eitherwing'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  const orbitAt = (p, st, phi) => {
+    const r = st.orbR.in + st.orbR.wall / 2;
+    p.position.x = st.poseX + r * Math.cos(phi);
+    p.position.y = st.poseY + r * Math.sin(phi);
+  };
+  // debugRunSetpiece leaves the pose at the stale swayed station until the next tick, then
+  // the eight snaps it to k≈0. Settle 2 frames (player parked at the live centre → no in-band)
+  // so the pose is on the smooth eight before any measurement (a test-harness detail; live, the
+  // band is drawn AT the pose so both move together).
+  const settleEight = (p) => {
+    for (let s = 0; s < 2; s++) { const st = boss.bossDebugState(); p.position.x = st.poseX; p.position.y = st.poseY; boss.updateBoss(1 / 60, p, 2.9 + s / 60); }
+  };
+  // Live only during the eight + in-band ticks ramp + a full lap fires the jackpot.
+  {
+    const p = armEitherwing();
+    assert(boss.bossDebugState().orbActive === false, 'ENG-C4: no orbit band before the eight arms');
+    boss.debugRunSetpiece('figureEight'); settleEight(p);
+    let ticks = 0, laps = 0, rungs = 0, sawInvuln = false, sawActive = false, chargeStart = null;
+    on('orbGraze', () => { ticks++; });
+    on('orbitLap', (e) => { laps = Math.max(laps, e.laps); });
+    on('adrenalineRung', () => { rungs++; });
+    let phi = 0;
+    for (let i = 0; i < 600; i++) {
+      const st = boss.bossDebugState();
+      if (st.orbActive) {
+        sawActive = true;
+        if (chargeStart == null) chargeStart = game.grazeCharge + game.consecutiveRings;
+        phi += 3.0 * (1 / 60);            // ~a lap every 2.1s, inside the 8s window
+        orbitAt(p, st, phi);
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (p.rollInvuln > 0) sawInvuln = true;
+    }
+    assert(sawActive, 'ENG-C4: the orbit band goes live during the figure-eight');
+    assert(boss.bossDebugState().orbActive === false, 'ENG-C4: the band closes when the eight completes');
+    assert(ticks > 0, `ENG-C4: co-rotating in the band pays graze ticks (${ticks} orbGraze)`);
+    assert(laps >= 1, `ENG-C4: a full unbroken lap fires the jackpot (laps=${laps})`);
+    assert(rungs >= 1, 'ENG-C4: the lap advances an adrenaline rung (the ladder ceremony fires the same tick)');
+    assert(sawInvuln, 'ENG-C4: the lap grants an i-frame pulse (rollInvuln > 0)');
+    assert((game.grazeCharge + game.consecutiveRings) > chargeStart, 'ENG-C4: the orbit feeds the graze bank');
+    boss.resetBoss();
+  }
+  // Dead-centre is unpaid AND lap-dead (the parking-exploit kill).
+  {
+    const p = armEitherwing();
+    boss.debugRunSetpiece('figureEight'); settleEight(p);
+    let ticks = 0, laps = 0;
+    on('orbGraze', () => { ticks++; }); on('orbitLap', () => { laps++; });
+    for (let i = 0; i < 240; i++) {
+      const st = boss.bossDebugState();
+      if (st.orbActive) { p.position.x = st.poseX; p.position.y = st.poseY; }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+    }
+    assert(ticks === 0 && laps === 0 && Math.abs(boss.bossDebugState().orbAcc) < 1e-6,
+      `ENG-C4 annulus-not-radius: the dead centre pays nothing and mints no laps (${ticks} ticks, ${laps} laps)`);
+    boss.resetBoss();
+  }
+  // A broken lap does NOT pay: drive a partial arc, bail past the grace, resume another partial
+  // arc — neither side alone is a full 2π, and the break zeroes the accumulator, so no jackpot.
+  // (Arcs kept modest so the one-frame pose-lag drift can't push either side past 2π on its own —
+  // the FULL-lap jackpot is already proven in the first sub-block.)
+  {
+    const p = armEitherwing();
+    boss.debugRunSetpiece('figureEight'); settleEight(p);
+    let laps = 0; on('orbitLap', () => { laps++; });
+    let phi = 0, phase = 0, broke = false;
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.orbActive) {
+        if (phase === 0) {                       // drive ~170° in-band (well under a lap)
+          phi += 3.0 * (1 / 60); orbitAt(p, st, phi);
+          if (phi >= 3.0) phase = 1;
+        } else if (phase === 1) {                // bail far out, let the 0.3s grace lapse (→ orbAcc dies)
+          p.position.x = st.poseX + 12; p.position.y = st.poseY; broke = true;
+          for (let j = 0; j < 30; j++) boss.updateBoss(1 / 60, p, 3 + (i + j) / 60);
+          assert(Math.abs(boss.bossDebugState().orbAcc) < 1e-6, 'ENG-C4 break: bailing past the grace zeroes the accumulator');
+          phase = 2;
+        } else {                                 // resume another ~115° in-band (still no full lap)
+          phi += 3.0 * (1 / 60); orbitAt(p, st, phi);
+        }
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (phase === 2 && phi >= 5.0) break;
+    }
+    assert(broke, 'ENG-C4 break test: the player drove a partial arc then bailed');
+    assert(laps === 0, 'ENG-C4: a lap broken past the grace does NOT pay (accumulator died with the break)');
+    boss.resetBoss();
+  }
+  // Coexist: a non-orbitAnnulus boss never enters the branch even with figureEight forced.
+  {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const vp = makePlayer();
+    let ticks = 0, laps = 0;
+    on('orbGraze', () => { ticks++; }); on('orbitLap', () => { laps++; });
+    boss.forceBoss(vp, BOSS_ORDER.indexOf('voidmaw')); boss.debugForceFight(vp);
+    boss.debugRunSetpiece('figureEight');
+    let phi = 0;
+    for (let i = 0; i < 200; i++) {
+      const st = boss.bossDebugState();
+      phi += 3.0 * (1 / 60);
+      vp.position.x = st.poseX + (st.orbR.in + st.orbR.wall / 2) * Math.cos(phi);
+      vp.position.y = st.poseY + (st.orbR.in + st.orbR.wall / 2) * Math.sin(phi);
+      boss.updateBoss(1 / 60, vp, 2 + i / 60);
+    }
+    const st = boss.bossDebugState();
+    assert(ticks === 0 && laps === 0 && st.orbActive === false && st.orbAcc === 0 && st.slipActive === false,
+      'ENG-C4 coexist: a non-orbitAnnulus boss (voidmaw) never rides/laps (inert branch)');
+    boss.resetBoss();
+  }
+  ok('ENG-C4 ORBIT ANNULUS: the figure-eight grows a drawn band; co-rotating pays ticks + a full lap jackpots (+rung, i-frames); dead-centre/broken-lap unpaid; inert for others ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);

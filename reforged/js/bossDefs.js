@@ -128,6 +128,14 @@ export const BOSSES = {
     tier: 1,                               // SENTINEL (§5b band 1)
     hpMax: 220,
     virtualLockOrgan: 'focalEye',          // LANCE V1: the storm-eye core (bossMandala.js)
+    // §ENG-B hero: during the dread card, the storm's gaps are the EYE's — iris rings
+    // centre on focalEye and movingGap's safe lane LOCKS to the eye axis ("fly into the
+    // eye of the storm" is literally true; the ±5 station sway makes the eye a legible
+    // moving read, the horizonPocketX grammar). Outside the card: shipped player placement.
+    gapAnchor: {
+      iris:      { card: 'stormrend_eye', part: 'focalEye' },
+      movingGap: { card: 'stormrend_eye', part: 'focalEye' },
+    },
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the
     // legacy crystal-core construct — see voidmaw's `archetype` comment above.
@@ -254,6 +262,11 @@ export const BOSSES = {
     // a bullet-time close pass with the visor tracking you, pulls ahead (back to
     // camera), then wheels 180° to face you. Announced, no fire, tap to skip.
     cinematicEntrance: true,
+    // §5i.B COLOSSI graze (C.2b) — SLIPSTREAM: ride the stoop's wake pocket for graze
+    // ticks, then "surge INTO the dive gap" for the exposure window. Inert until the
+    // stoopingStrike setpiece is live; the pocket derives its centre/timing from the
+    // live dive pose at runtime (boss.js grazeForm cluster).
+    grazeForm: 'slipstream',
     // §5e moving-station setpieces (fire while they travel, per-phase). P2 = the
     // wide CIRCLING orbit; P3 = the EMBER HUNT stooping dive from above (dread).
     setpieces: [
@@ -452,6 +465,11 @@ export const BOSSES = {
     // dread card fires the mirrored SIMULTANEOUS crossfire ("Both Halves at Once").
     // §5i CALL-AND-RESPONSE: the twins alternate A-B phrases; the eye handoff is the
     // baton between them (the rhythm block below authors the alternation).
+    // §5i.B COLOSSI graze (C.4) — ORBIT ANNULUS: co-rotate with the figure-eight inside a
+    // drawn band about the group centre; a full unbroken lap = +1 adrenaline rung + an
+    // i-frame pulse. Inert until the figureEight setpiece runs; the band derives its
+    // centre from the live group pose at runtime (boss.js grazeForm cluster).
+    grazeForm: 'orbitAnnulus',
     setpieces: [
       { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true },                // P2: the pair leaves station, laces the eight
       { id: 'figureEight', atPhase: 2, dur: 7.0, moving: true, dread: true },   // P3: desperation keeps moving (Both Halves at Once)
@@ -716,15 +734,15 @@ export const BOSSES = {
     setpieces: [
       { id: 'sounding', atPhase: 3, dur: 7.5, moving: true, dread: true },   // P4 THE ISLAND BREATHES — Sounding
     ],
-    // Tier 3 difficulty: the geyser walls (tunnel/curtain/iris) are the tide's
-    // signature; the slow tracking `stream` is the drone's sustained hose (the
+    // Tier 3 difficulty: the erupting `geyser` walls (the floor's bottom-up spouts) are
+    // the tide's signature; the slow tracking `stream` is the drone's sustained hose (the
     // amber carrier). Escalation by pattern unlock + cadence (floor 1.2), never
     // raw bullet count. BRINEHOLM idles SLOWER than any boss (the drone).
     phases: [
       { atFrac: 1.00, cadence: [1.6, 2.2], attacks: ['stream', 'aimed'] },                    // P1: the drone wakes (one long tide)
       { atFrac: 0.72, cadence: [1.5, 2.0], attacks: ['stream', 'tunnel', 'aimed'] },           // P2: the tide grows walls (rising geyser rings)
-      { atFrac: 0.45, cadence: [1.4, 1.9], attacks: ['stream', 'iris', 'fan'] },               // P3: the bound strains (shackle amber; mercy softens)
-      { atFrac: 0.20, cadence: [1.3, 1.7], attacks: ['curtain', 'iris', 'spiralStream', 'stream'] },  // P4: Sounding (dread — the floor erupts)
+      { atFrac: 0.45, cadence: [1.4, 1.9], attacks: ['stream', 'geyser', 'fan'] },             // P3: first spouts — GEYSER debuts (teach-before-test at the slow tidal pulse); `fan` is the shackle amber
+      { atFrac: 0.20, cadence: [1.3, 1.7], attacks: ['geyser', 'iris', 'stream'] },            // P4: Sounding (dread — the floor FINALLY erupts) — `geyser` leads; `curtain`/`spiralStream` leave the def (kills the 6≡8 dread-multiset collision); `stream` carries the amber
     ],
     // Spell cards (§5f grammar; 4 cards — the Calamities band's move-set floor
     // (§5g); dread card LAST, name fixed by the §5f signature-move assignment).
@@ -764,7 +782,7 @@ export const BOSSES = {
           ratioBurst: 0.2,
           phrase: [
             { kind: 'sustain', attack: 'stream', beats: 3, gap: [1.5, 1.9] },
-            { kind: 'burst',   attack: 'iris',   count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'geyser', count: 2, gap: 0.5 },   // GEYSER teach: plume-read at swell pace (was iris; count/gap unchanged → rhythmprint byte-identical)
             { kind: 'sustain', attack: 'fan',    beats: 1, gap: 1.6 },
           ],
           restLo: 3.2, restHi: 4.8, restDist: 'decaying',
@@ -773,10 +791,10 @@ export const BOSSES = {
           // (the `stream` sustain doubles as the AMBER carrier under the geysers)
           ratioBurst: 0.4,
           phrase: [
-            { kind: 'burst',   attack: 'curtain',      count: 2, gap: 0.45 },
+            { kind: 'burst',   attack: 'geyser',       count: 2, gap: 0.45 },   // the floor erupts (was curtain; timing unchanged → rhythmprint byte-identical)
             { kind: 'burst',   attack: 'iris',         count: 2, gap: 0.45 },
             { kind: 'sustain', attack: 'stream',       beats: 2, gap: 1.4 },
-            { kind: 'burst',   attack: 'spiralStream', count: 2, gap: 0.4 },
+            { kind: 'burst',   attack: 'geyser',       count: 2, gap: 0.4 },     // a second spout wave (was spiralStream; timing unchanged)
           ],
           restLo: 2.8, restHi: 4.4, restDist: 'decaying',
         },
