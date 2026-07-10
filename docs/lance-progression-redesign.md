@@ -220,8 +220,12 @@ this section is corrected to the LIVE 5-phase def, superseding the original spec
 - **Utility math (live 5-phase def, spans 144/72/72/72/120, card timers 24/26/24/26/30):**
   full on-tell set volley ≈ 14.4 / 7.2 / 7.2 / 7.2 / 12.0 (ROI-clamped); burn frac 0.25 ⇒
   +25% of the clamped volley (≈+2.5% of a phase). Not-a-phase-deleter worst margin
-  ≈ 1.25 (P3, the tightest) — passing, ~22% thinner than the doc's earlier fiction
-  (which was computed on a dead 4-phase def). From 0% (V1-only) today.
+  ≈ **1.25 (P2 and P4, the tightest; P3 is 1.35)** — passing, ~22% thinner than the doc's
+  earlier fiction (computed on a dead 4-phase def). ⚠ This margin certifies the
+  CALIBRATED-HUMAN model (`REALISTIC_PER_PIP 1.35`); the runtime has no per-release
+  cooldown, so a TAS-limit burnFloor-per-toll could exceed it — a hard bound would need a
+  burn ICD (owner-level, deferred, §CP2 SHOULD-FIX-4). Human play is gated by the toll
+  cadence + the 0.24s window. From 0% (V1-only) today.
 
 **Rung 11 — WEFTWITCH (she re-weaves what you break).** *The volley gets a JOB.*
 - **Organs:** `handL`, `handR` (new empties at the two working spinneret-arm

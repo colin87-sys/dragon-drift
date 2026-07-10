@@ -56,8 +56,15 @@ export function reachableCap(def, LOCK, phaseIdx) {
 
 // The realistic wall-clock to bank ONE pip under fire (dwell + cross-organ cooldown +
 // the dodging tax between paints) — the calibrated per-pip cost the not-a-phase-deleter
-// model prices the exploit-optimal on-tell spam against. NOT LOCK.dwellTime (that is the
-// frictionless ideal that wrongly condemns even the shipped game — §8C).
+// model prices on-tell spam against. NOT LOCK.dwellTime (that frictionless ideal wrongly
+// condemns even the shipped game — §8C).
+// ⚠ HONESTY (§CP2 SHOULD-FIX-4): this bounds CALIBRATED-HUMAN cadence, NOT the runtime
+// mechanical floor. The engine has no per-release cooldown, so a TAS-limit player banking
+// at ~0.4-0.57 s/pip (+ free parry-snaps) and loosing one burnFloor set per toll can
+// exceed the modeled DPS (~2.3× at the limit), crossing the tightest margins. A HARD
+// runtime bound would need a burn ICD / per-release cooldown — an owner-level LAW change,
+// deliberately NOT snuck in here. This invariant certifies the MODEL is fair; the runtime
+// is fair for human play, gated by the toll cadence + the 0.24s window.
 export const REALISTIC_PER_PIP = 1.35;
 
 // SCAR-BURN fraction for a boss (§4b): the per-slot burn frac if the boss is at/above
@@ -109,7 +116,7 @@ export function bossEconomy(def, LOCK, lanceDmgEach) {
       const dps = (vB + bn) / (k * REALISTIC_PER_PIP);
       if (dps > worstDps) worstDps = dps;
     }
-    const cardTimer = def.titleCards?.[i]?.timer ?? null;
+    const cardTimer = def.cards?.[i]?.timer ?? null;   // NB the def field is `cards`, not `titleCards` (§CP2 BLOCKER-1: a typo here made the whole not-a-phase-deleter invariant dead code)
     const deleterTtk = worstDps > 0 ? phaseHp / worstDps : Infinity;
     const phaseDeletable = cardTimer != null && capPips > 0 && deleterTtk < cardTimer;
     return { phaseHp, nTargets, capPips, each, volley, volleyBeat, roiCeil, clamped, pct, toClear,

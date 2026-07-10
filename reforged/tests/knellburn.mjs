@@ -45,23 +45,41 @@ const afterOffBeat = await page.evaluate(() => window.__dd.bossBurns());
 check(`a non-tell release schedules NO burn (active ${afterOffBeat.active})`, afterOffBeat.active === 0);
 
 // (3) PERFECT release: bank pips, loose the frame the toll window is open → a burn schedules.
-const burnAfterPerfect = await page.evaluate(async () => {
-  // Poll for the toll window, then loose inside it.
+const perfect = await page.evaluate(async () => {
   for (let i = 0; i < 400; i++) {
     if (window.__dd.bossBeatOn()) { window.__dd.bossBankLocks(4); window.__dd.bossLoose(); break; }
     await new Promise((r) => setTimeout(r, 16));
   }
   await new Promise((r) => setTimeout(r, 120));   // let updateLockLayer process the loose
-  return window.__dd.bossBurns();
+  return { burns: window.__dd.bossBurns(), hp: window.__dd.bossState().hp };
 });
-check(`a PERFECT on-toll release schedules a burn (active ${burnAfterPerfect.active}, pending ${burnAfterPerfect.pending.toFixed(2)})`,
-  burnAfterPerfect.active > 0 && burnAfterPerfect.pending > 0);
+check(`a PERFECT on-toll release schedules a burn (active ${perfect.burns.active}, pending ${perfect.burns.pending.toFixed(2)})`,
+  perfect.burns.active > 0 && perfect.burns.pending > 0);
 
-// (3b) the burn TICKS DOWN and clears within ~dur.
-const pendA = burnAfterPerfect.pending;
-await page.waitForTimeout(1200);
-const pendB = await page.evaluate(() => window.__dd.bossBurns().pending);
-check(`the burn drains over time (${pendA.toFixed(2)} → ${pendB.toFixed(2)})`, pendB < pendA);
+// (3b) the burn actually DAMAGES the boss (hp falls) as it ticks — not just a counter
+// that decrements (§CP2 SHOULD-FIX-3: `pending` draining alone would stay green even if
+// damageBoss('lockburn') were a no-op).
+const pendA = perfect.burns.pending, hpA = perfect.hp;
+await page.waitForTimeout(1400);
+const afterDrain = await page.evaluate(() => ({ pending: window.__dd.bossBurns().pending, hp: window.__dd.bossState().hp }));
+check(`the burn drains its counter over time (${pendA.toFixed(2)} → ${afterDrain.pending.toFixed(2)})`, afterDrain.pending < pendA);
+check(`the burn actually reduces boss hp (${hpA.toFixed(1)} → ${afterDrain.hp.toFixed(1)})`, afterDrain.hp < hpA);
+
+// (4) DEFLECT-PAUSE: a fresh burn frozen under a raised shield — no ticks, no loss (the
+// one-deflect rule). Schedule a burn, raise the shield, and confirm `pending` holds.
+const paused = await page.evaluate(async () => {
+  for (let i = 0; i < 400; i++) {
+    if (window.__dd.bossBeatOn()) { window.__dd.bossBankLocks(4); window.__dd.bossLoose(); break; }
+    await new Promise((r) => setTimeout(r, 16));
+  }
+  await new Promise((r) => setTimeout(r, 120));
+  window.__dd.bossRaiseShield();
+  const p0 = window.__dd.bossBurns().pending;
+  await new Promise((r) => setTimeout(r, 700));   // >2 tick intervals
+  return { p0, p1: window.__dd.bossBurns().pending };
+});
+check(`the burn PAUSES while shielded (pending held ${paused.p0.toFixed(2)} → ${paused.p1.toFixed(2)})`,
+  paused.p0 > 0 && Math.abs(paused.p1 - paused.p0) < 1e-6);
 
 check('no console errors through the knellgrave burn run', errors.length === 0) || console.error(errors.join('\n'));
 console.log('\nknellgrave SCAR-BURN verification passed.');
