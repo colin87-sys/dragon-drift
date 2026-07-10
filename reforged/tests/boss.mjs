@@ -2975,4 +2975,115 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('ENG-C4 ORBIT ANNULUS: the figure-eight grows a drawn band; co-rotating pays ticks + a full lap jackpots (+rung, i-frames); dead-centre/broken-lap unpaid; inert for others ✓');
 }
 
+// §ENG-C7 SHRINKING SAFE DISC: each KNELLGRAVE iris toll opens a drawn disc at the volley's own
+// centre; it shrinks with the contracting ring-walls, riding the RIM pays ESCALATING ticks
+// (annulus, not the safe core), and the pocket DIES on the last ring's beat. The def label is
+// already live, so the branch IS the activation — this block also guards Knellgrave regression.
+{
+  const armKnellgrave = () => {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('knellgrave'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  // Arms on the toll (only in a fight); shrinks monotonically to the iris terminal radius; dies.
+  {
+    const p = armKnellgrave();
+    assert(boss.bossDebugState().discActive === false, 'ENG-C7: no pocket before an iris toll');
+    let pockets = 0; on('discPocket', (e) => { if (e.toll === 1) pockets++; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);   // bakes an iris volley AND arms the pocket
+    const st0 = boss.bossDebugState();
+    assert(st0.discActive && st0.discTollN === 1 && pockets === 1, 'ENG-C7: an iris toll opens pocket #1');
+    const r0 = st0.discR0;
+    // Park dead-centre (unpaid) so the shrink runs clean; drive until the pocket dies or re-arms.
+    let prevR = st0.discR, monotonic = true, lastLiveR = st0.discR, died = false;
+    for (let i = 0; i < 200; i++) {
+      const st = boss.bossDebugState();
+      if (st.discActive && st.discTollN === 1) {
+        if (st.discR > prevR + 1e-6) monotonic = false;
+        prevR = st.discR; lastLiveR = st.discR;
+        p.position.x = st.discX; p.position.y = st.discY;   // dead-centre: shrink without earning
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      const s2 = boss.bossDebugState();
+      if (!s2.discActive && s2.discTollN === 1) { died = true; break; }   // clean death before any re-arm
+      if (s2.discTollN > 1) break;                                        // a natural iris re-armed — stop
+    }
+    assert(monotonic, 'ENG-C7: the disc radius shrinks monotonically as the rings close');
+    assert(r0 > boss.bossDebugState().discGeom.rEnd, 'ENG-C7: the pocket starts wider than the iris terminal radius');
+    if (died) {
+      assert(Math.abs(lastLiveR - boss.bossDebugState().discGeom.rEnd) < 0.25, `ENG-C7: the last live radius meets the iris terminal (~${boss.bossDebugState().discGeom.rEnd})`);
+      assert(boss.bossDebugState().discR === 0, 'ENG-C7: the pocket dies on the last beat (discR → 0)');
+    }
+    boss.resetBoss();
+  }
+  // Escalating ticks on the rim + feeds the bank; dead-centre + outside are unpaid.
+  {
+    const p = armKnellgrave();
+    let ticks = 0; const gaps = []; let lastT = null, frame = 0;
+    on('discGraze', () => { ticks++; if (lastT != null) gaps.push(frame - lastT); lastT = frame; });
+    const chargeStart = game.grazeCharge + game.consecutiveRings;
+    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);
+    for (let i = 0; i < 200; i++) {
+      frame = i;
+      const st = boss.bossDebugState();
+      if (st.discActive && st.discTollN === 1) { p.position.x = st.discX + st.discR * 0.85; p.position.y = st.discY; }   // mid-rim
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (boss.bossDebugState().discTollN > 1) break;
+    }
+    assert(ticks > 0, `ENG-C7: riding the rim pays graze ticks (${ticks} discGraze)`);
+    assert(gaps.length >= 2 && gaps[gaps.length - 1] < gaps[0], `ENG-C7: ticks ESCALATE as the disc closes (first gap ${gaps[0]}f > last ${gaps[gaps.length - 1]}f)`);
+    assert((game.grazeCharge + game.consecutiveRings) > chargeStart, 'ENG-C7: the rim ride feeds the graze bank');
+    boss.resetBoss();
+
+    // Dead-centre is unpaid; outside is unpaid.
+    const p2 = armKnellgrave();
+    let coreTicks = 0; on('discGraze', () => { coreTicks++; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p2, 1);
+    for (let i = 0; i < 60; i++) { const st = boss.bossDebugState(); if (st.discActive) { p2.position.x = st.discX; p2.position.y = st.discY; } boss.updateBoss(1 / 60, p2, 3 + i / 60); if (boss.bossDebugState().discTollN > 1) break; }
+    const coreOnly = coreTicks;
+    for (let i = 0; i < 40; i++) { const st = boss.bossDebugState(); if (st.discActive) { p2.position.x = st.discX + st.discR + 3; p2.position.y = st.discY; } boss.updateBoss(1 / 60, p2, 4 + i / 60); if (boss.bossDebugState().discTollN > 1) break; }
+    assert(coreOnly === 0 && coreTicks === 0, `ENG-C7 annulus-not-radius: the safe core and the outside are UNPAID (${coreTicks} ticks)`);
+    assert(game.health === 1e9, 'ENG-C7: the form itself never damages the player');
+    boss.resetBoss();
+  }
+  // Toll-count schedule: a second pocket starts smaller than the first.
+  {
+    const p = armKnellgrave();
+    const r0s = []; on('discPocket', (e) => { r0s.push(e.r0); });
+    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);
+    boss.debugEmitAttack('iris', p, 1);   // a second iris toll (same phase) → pocket #2
+    assert(r0s.length >= 2 && r0s[1] < r0s[0], `ENG-C7: successive tolls open smaller pockets (${r0s[0].toFixed(1)} → ${r0s[1].toFixed(1)})`);
+    boss.resetBoss();
+  }
+  // Survival purity: during The Last Toll ride the form is dead (no farm, pure dodge).
+  {
+    const p = armKnellgrave();
+    boss.debugForceCard('knellgrave_last');
+    boss.debugRunSetpiece('lastToll');
+    let pocket = false; on('discPocket', () => { pocket = true; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);
+    for (let i = 0; i < 60; i++) boss.updateBoss(1 / 60, p, 3 + i / 60);
+    assert(!pocket && boss.bossDebugState().discActive === false, 'ENG-C7: The Last Toll ride stays pure dodge (no pocket arms during the setpiece)');
+    boss.resetBoss();
+  }
+  // Coexist: a non-shrinkDisc boss firing iris never opens a pocket.
+  {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const vp = makePlayer();
+    let ticks = 0, pocket = false;
+    on('discGraze', () => { ticks++; }); on('discPocket', () => { pocket = true; });
+    boss.forceBoss(vp, BOSS_ORDER.indexOf('stormrend')); boss.debugForceFight(vp);
+    bullets.resetBossBullets(); boss.debugEmitAttack('iris', vp, 1);
+    for (let i = 0; i < 120; i++) { const st = boss.bossDebugState(); vp.position.x = st.discX + 4; vp.position.y = st.discY; boss.updateBoss(1 / 60, vp, 2 + i / 60); }
+    const st = boss.bossDebugState();
+    assert(ticks === 0 && !pocket && st.discActive === false && st.discR === 0 && st.slipActive === false && st.orbActive === false,
+      'ENG-C7 coexist: a non-shrinkDisc boss (stormrend) firing iris opens no pocket (inert branch)');
+    boss.resetBoss();
+  }
+  ok('ENG-C7 SHRINKING SAFE DISC: iris tolls open a drawn disc that shrinks to the ring terminal; rim ride pays escalating ticks (core/outside unpaid), dies on the last beat, smaller per toll; Last Toll pure; inert for others ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);
