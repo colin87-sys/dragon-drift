@@ -608,7 +608,7 @@ export function buildTwinWraith(def, quality = 1) {
   // is the value we glide away from so the travel is a full socket-to-socket sweep.
   let holdT = 0;               // 0 = A holds, 1 = B holds (eased display value)
   let holdTarget = 0;
-  let handoffTimer = 3.0;      // seconds until the next handoff (the baton beat)
+  let handoffTimer = 5.5;      // seconds until the next handoff (the baton beat). §BOSS-FEEL-AUDIT: 3.0→5.5 — the old ~3s possession out-ran the parry economy, so the holder-stagger (3 parries mid-possession) could never bank; a ~5–6.6s possession spans 2–3 carrier volleys.
   let debugHold = null;        // test/studio pin: forces holdT to a value
   let entranceU = null;        // §5j THE BATON CROSS: 0..1 entrance clock (null = normal fight); overrides the orbit
   const _entAim = new THREE.Vector3();   // §5j: the dragon's position in RIG space (fed by the script) — the eye lookAt target
@@ -833,7 +833,7 @@ export function buildTwinWraith(def, quality = 1) {
     else if (debugHold != null) { holdTarget = debugHold; }
     else if (eyeDropT > 0) { handoffTimer = Math.max(handoffTimer, 0.6); }   // §ENG-EW: the eye is DOWN — no flip, no pin; hold the baton so recovery re-seats the SAME holder (the boss.js §2d watcher never mistakes recovery for a baton pass)
     else if (charge > 0.15) { /* hold — the tell: the eye stays put on the firer */ }
-    else if (handoffTimer <= 0 && moving) { holdTarget = holdTarget < 0.5 ? 1 : 0; handoffTimer = 2.4 + Math.random() * 1.2; }
+    else if (handoffTimer <= 0 && moving) { holdTarget = holdTarget < 0.5 ? 1 : 0; handoffTimer = 5.0 + Math.random() * 1.6; }   // §BOSS-FEEL-AUDIT: 2.4+rnd*1.2 → 5.0+rnd*1.6 (a possession now spans enough carrier volleys to bank the stagger)
     const handoffSpeed = charge > 0.15 ? 10 : 3.4;
     holdT += (holdTarget - holdT) * Math.min(1, dt * handoffSpeed);
 

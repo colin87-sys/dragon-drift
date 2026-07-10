@@ -2691,11 +2691,13 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   for (let i = 0; i < 30; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
 
   const eyeX = boss.debugPartWorldPos('focalEye').x;
-  // G4 (card OFF): un-opted movingGap SLIDES from the player seed — so it does NOT leave a
-  // single locked lane at the eye (the anchor is inert outside its card).
+  // §BOSS-FEEL-AUDIT: the eye-anchor is now UN-GATED (was card-only — 2/3 of the fight had no
+  // boss-unique read). Card OFF, stormrend movingGap STILL locks to the eye: the whole fight is
+  // "chase the eye". The old card-off "does NOT lock" assert INVERTS by design — the coexist
+  // leg is re-targeted to a no-gapAnchor def below (the ENG-LT twin-split law).
   boss.debugForceCard(null);
   bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
-  assert(!laneAt(bul(), eyeX, 2.6), 'ENG-B card-off: movingGap does NOT lock to the eye (anchor inert; shipped player-seeded slide)');
+  assert(laneAt(bul(), eyeX, 2.6), 'BOSS-FEEL: stormrend movingGap locks to the eye with NO card (un-gated — the read runs the whole fight)');
 
   // G2 (card ON): every row's lane LOCKS to the eye — a single boss-read gap, not the slide.
   assert(boss.debugForceCard('stormrend_eye'), 'ENG-B: stormrend_eye card arms via debugForceCard');
@@ -2709,7 +2711,16 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assert(laneAt(bul(), 9, 2.6), 'ENG-B clamp: an out-of-arena authored x (40) clamps to the +9 lane (never unreachable)');
   BOSSES.stormrend.gapAnchor.movingGap = saved;
   boss.resetBoss();
-  ok('ENG-B authored gaps: the dread wall’s lane LOCKS to the storm’s eye (a boss-read); card-off = shipped player placement; out-of-arena clamps in ✓');
+  // §BOSS-FEEL-AUDIT twin-split coexist: a def with NO gapAnchor.movingGap (voidmaw) stays
+  // player-seeded — the un-gate is stormrend-scoped, not global.
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const vp = makePlayer(); vp.position.x = 6;
+  boss.forceBoss(vp, BOSS_ORDER.indexOf('voidmaw')); boss.debugForceFight(vp);
+  for (let i = 0; i < 10; i++) boss.updateBoss(1 / 60, vp, 2 + i / 60);
+  bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', vp, 1);
+  assert(!laneAt(bul(), eyeX, 2.6), 'ENG-B coexist: voidmaw movingGap does NOT lock to stormrend’s eye (no gapAnchor → player-seeded slide)');
+  boss.resetBoss();
+  ok('ENG-B authored gaps: the storm’s eye lane locks WHOLE-FIGHT (un-gated, BOSS-FEEL); coexist def stays player-seeded; out-of-arena clamps in ✓');
 }
 
 // §ENG-D SLIPSTREAM: ASHTALON's stoop grows a drawn moving safe pocket; riding its edge-wall
@@ -3611,16 +3622,18 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   parry(p, 6.9, 'eitherMuzzle');
   assert(holderParries() === 0, 'ENG-EW window: no re-banking while the window is live (staggerT<=0 gate)');
 
-  // C.7 BATON RESET: the bank dies with the baton, and never fires across a pass.
+  // C.7 BATON DECAY (§BOSS-FEEL-AUDIT): a baton pass DECAYS the bank by ONE, not a full wipe —
+  // the old wipe + the ~3s baton made "3 perfect parries per possession" unreachable, so the
+  // stagger never fired live; decay lets cross-possession mastery accumulate.
   p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 5); eyeDrops = 0;
   parry(p, 5.1, 'eitherMuzzle'); parry(p, 5.2, 'eitherMuzzle');
   assert(holderParries() === 2, 'ENG-EW baton: banked 2 before the pass');
-  boss.debugSetHandoff(1); boss.updateBoss(1 / 60, p, 5.25); boss.updateBoss(1 / 60, p, 5.27);   // the §2d watcher clears on the flip
-  assert(holderParries() === 0, 'ENG-EW baton: the count FADES on the baton pass (mid-possession only)');
+  boss.debugSetHandoff(1); boss.updateBoss(1 / 60, p, 5.25); boss.updateBoss(1 / 60, p, 5.27);   // the §2d watcher decays on the flip
+  assert(holderParries() === 1, 'ENG-EW baton: the count DECAYS by one on the baton pass (not a full wipe — the reachability fix)');
   parry(p, 5.4, 'eitherMuzzle');
-  assert(eyeDrops === 0, 'ENG-EW baton: a lone bank after the pass does NOT drop (the count died)');
-  parry(p, 5.5, 'eitherMuzzle'); parry(p, 5.6, 'eitherMuzzle');
-  assert(eyeDrops === 1, 'ENG-EW baton: a fresh 3 (post-pass) fires the drop');
+  assert(eyeDrops === 0 && holderParries() === 2, 'ENG-EW baton: one bank after the pass reaches 2/3, no drop yet');
+  parry(p, 5.5, 'eitherMuzzle');
+  assert(eyeDrops === 1, 'ENG-EW baton: the 3rd (accumulated ACROSS the pass) fires the drop');
 
   // C.8 HOLDER-SIDE crossfire counts; the seeker's half does not.
   p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 5);   // twinA holds
@@ -3662,6 +3675,78 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   boss.resetBoss();
   bullets.setDebugPerfectParryRel(null);
   ok('ENG-EW HOLDER-STAGGER: tagged holder amber banks 3× mid-possession → the eye DROPS to the thread midpoint (window silent); baton pass fades the count; seeker-side/surge/window unbanked; snap-guard blocks phantom pips; the dread iris centres on threadMid; inert for others ✓');
+}
+
+// §BOSS-FEEL-AUDIT — durable regression fences for the boss-feel batch (each fix gets a gate so
+// it can't silently regress — the exact failure that shipped on EITHERWING's stagger).
+{
+  const armBoss = (name) => {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf(name));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+
+  // FIX 1 — MARROWCOIL: the P3 rest floor is re-banded (not hotter than the slot-5 peak) and the
+  // wall burst is a threadable pair. Def-level fences complementing rhythmprint.
+  const mcP3 = BOSSES.marrowcoil.rhythm.phases[2], ewP3 = BOSSES.eitherwing.rhythm.phases[2];
+  assert(mcP3.restLo >= 1.3 && mcP3.restLo >= ewP3.restLo - 0.2,
+    `BOSS-FEEL Marrowcoil: the P3 rest floor (${mcP3.restLo}) is re-banded vs the slot-5 peak (${ewP3.restLo})`);
+  assert(mcP3.phrase.find((m) => m.attack === 'movingGap').count === 2,
+    'BOSS-FEEL Marrowcoil: the P3 wall burst is a threadable pair (count 2), not a triple');
+
+  // FIX 2 — BRINEHOLM: the sway-AWARE wall-margin assert (the exact term the July-7 fix omitted,
+  // which is why CI stayed green while the trap regressed).
+  {
+    const d = BOSSES.brineholm;
+    const swayAmp = d.holdSway?.amp ?? 5.0;
+    const worst = 4.5 * (d.scale ?? 1) + swayAmp;   // outer shacklePost world-x + full sway
+    assert(worst <= CONFIG.laneHalfWidth - CONFIG.LOCK.coneXY - 2,
+      `BOSS-FEEL Brineholm: the outer shackle's worst swing (${worst.toFixed(2)}) clears the ±${CONFIG.laneHalfWidth} wall with acquire margin (SWAY-AWARE)`);
+    assert(Array.isArray(d.reflectTargets) && d.reflectTargets.includes('shacklePost0'),
+      'BOSS-FEEL Brineholm: the shackles are reflectTargets (remote parry reach — no fly-into-the-wall)');
+  }
+
+  // FIX 3 — EITHERWING: the stagger is REACHABLE with the LIVE baton (NO debugHold pin — the flaw
+  // the original gate had). 3 muzzle parries inside the fresh (~5.5s) first possession → the drop.
+  {
+    bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);
+    const p = armBoss('eitherwing');
+    let drops = 0; on('bossEyeDrop', () => { drops++; });
+    const parryMuzzle = (t) => {
+      bullets.resetBossBullets();
+      bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6, part: 'eitherMuzzle' });
+      p.rollInvuln = 0.2; p.lastRollDir = -1;
+      boss.updateBoss(1 / 60, p, t);
+      p.rollInvuln = 0;
+      boss.updateBoss(1 / 60, p, t + 0.02);
+    };
+    parryMuzzle(2.2); parryMuzzle(2.7); parryMuzzle(3.2);   // one live possession, baton un-pinned
+    assert(drops === 1, `BOSS-FEEL Eitherwing: 3 muzzle parries in ONE live possession drop the eye (${drops}) — the payoff is reachable without pinning the baton`);
+    bullets.setDebugPerfectParryRel(null);
+    boss.resetBoss();
+  }
+
+  // FIX 7 — HOLLOWGATE: with every pane cracked, spiralStream still FIRES (the silent-volley bug).
+  {
+    const p = armBoss('hollowgate');
+    for (let i = 0; i < 8; i++) boss.debugCrackPane(i);   // sculpt the whole window
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiralStream', p, 1);
+    const bs = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+    assert(bs.length > 0, `BOSS-FEEL Hollowgate: spiralStream fires with all panes broken (${bs.length} bullets — no more silent dread volley)`);
+    boss.resetBoss();
+  }
+
+  // FIX 8 — KNELLGRAVE: P4 carries `spiral`, so the toll-wall loop doesn't die for a phase.
+  assert(BOSSES.knellgrave.phases[3].attacks.includes('spiral'),
+    'BOSS-FEEL Knellgrave: P4 (Pendulum Sweep) carries spiral — the toll loop runs the whole fight');
+  assert(BOSSES.knellgrave.rhythm.phases[3].phrase.some((m) => m.attack === 'spiral'),
+    'BOSS-FEEL Knellgrave: the P4 phrase tolls (a spiral measure)');
+
+  ok('BOSS-FEEL-AUDIT fences: Marrowcoil re-banded, Brineholm sway-margin holds + reflectTargets, Eitherwing stagger reachable on the LIVE baton, Hollowgate no silent volley, Knellgrave P4 tolls ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);
