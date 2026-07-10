@@ -4001,4 +4001,54 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('BOSS-FEEL BATCH-2b (rally / rhythm-chain): Karnvow riposte is cd-gated + the in-window rally answer escalates to a flinch (voidmaw inert), Knellgrave on-beat ghost-beat banks complete the chain + off-beat resets (weftwitch inert) ✓');
 }
 
+// §ENG-D-R SLIPSTREAM reachability — a BOUNDED-CHASER gate (the real control model, NOT the teleport
+// oracle): from cruise altitude the surfable wake must be catchable the moment it opens, ride a real
+// duration, and NOT be a free lane. Fails on the shipped ceiling clamp (18), passes on the fix (14).
+{
+  const damp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));   // util.js:19 verbatim
+  const clampAx = (v) => Math.max(-1, Math.min(1, v));
+  const runSurf = (steer) => {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer(); p.position.x = 0; p.position.y = 8;
+    boss.setBossDebugPhase(3);
+    boss.forceBoss(p, BOSS_ORDER.indexOf('ashtalon'));
+    boss.debugForceFight(p);
+    const dt = 1 / 60;
+    let startT = -1, firstTouch = -1, liveFrames = 0, inFrames = 0, paidWall = 0, rideBest = 0, releaseAt = -1, t = 2;
+    for (let i = 0; i < 60 * 8; i++) {
+      boss.debugClearShield();
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        if (startT < 0) startT = t;
+        liveFrames++;
+        const cx = st.slipX, cy = st.slipY, ddx = p.position.x - cx, ddy = p.position.y - cy;
+        const d = Math.hypot(ddx, ddy) || 1e-6, rIn = st.slipR.in, rOut = st.slipR.in + st.slipR.wall;
+        if (d < rOut) { inFrames++; if (firstTouch < 0) firstTouch = t - startT; }
+        if (d >= rIn && d < rOut) paidWall += dt;
+        rideBest = Math.max(rideBest, st.slipRideT);
+        if (releaseAt < 0 && st.slipRideT >= 0.8) releaseAt = t;
+        if (steer && (t - startT) >= 0.25) {                          // faithful chaser: 0.25s reaction, then steer to the wall-band midpoint on the near side
+          const rMid = rIn + st.slipR.wall / 2, tx = cx + (ddx / d) * rMid, ty = cy + (ddy / d) * rMid;
+          p.velocity.x = damp(p.velocity.x, clampAx((tx - p.position.x) * 2) * CONFIG.lateralSpeed, CONFIG.moveAccel, dt);
+          p.velocity.y = damp(p.velocity.y, clampAx((ty - p.position.y) * 2) * CONFIG.verticalSpeed, CONFIG.moveAccel, dt);
+          p.position.x = Math.max(-CONFIG.laneHalfWidth, Math.min(CONFIG.laneHalfWidth, p.position.x + p.velocity.x * dt));
+          p.position.y = Math.max(CONFIG.laneMinY, Math.min(CONFIG.laneMaxY, p.position.y + p.velocity.y * dt));
+        }
+      } else if (startT >= 0) break;                                  // the first stoop's window closed
+      boss.updateBoss(dt, p, t); t += dt;
+    }
+    boss.setBossDebugPhase(1); boss.resetBoss();
+    const liveDur = liveFrames * dt;
+    return { firstTouch, occ: liveFrames ? inFrames / liveFrames : 0, paidWall, rideBest, releaseRoom: releaseAt >= 0 ? (startT + liveDur - releaseAt) : 0, liveDur };
+  };
+  const surf = runSurf(true), park = runSurf(false);
+  assert(surf.firstTouch >= 0 && surf.firstTouch <= 0.6, `ENG-D-R slipstream: reachable from cruise soon after it opens (firstTouch ${surf.firstTouch.toFixed(2)}s <= 0.6)`);
+  assert(surf.occ >= 0.70, `ENG-D-R slipstream: rideable for most of the live window (occupancy ${(surf.occ * 100).toFixed(0)}% >= 70%)`);
+  assert(surf.paidWall >= 1.5, `ENG-D-R slipstream: earns a real paid-wall ride (${surf.paidWall.toFixed(2)}s >= 1.5)`);
+  assert(surf.rideBest >= 0.8 && surf.releaseRoom >= 1.2, `ENG-D-R slipstream: the ≥0.8s ride arms with room to release the surge (ride ${surf.rideBest.toFixed(2)}, room ${surf.releaseRoom.toFixed(2)}s)`);
+  assert(park.paidWall < 0.6, `ENG-D-R slipstream: NOT a free lane — a parked cruise player barely earns (${park.paidWall.toFixed(2)}s < 0.6)`);
+  ok('ENG-D-R SLIPSTREAM reachability: a bounded chaser catches the wake from cruise, rides the paid wall through the drop with surge-release room; a parked player earns almost nothing ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);

@@ -372,7 +372,7 @@ const SLIP_R_IN = 3.2;        // safe-core radius (inside = riding, UNPAID — a
 const SLIP_WALL = 1.5;        // the edge-wall band; graze ticks live in [R_IN, R_IN+WALL)
 const SLIP_FOLLOW = 4;        // 1/s follower rate — the wake lag (~2.4u at full dive speed)
 const SLIP_K_ON = 0.42;       // pocket LIVE from the dive knee to path end (k in [0.42, 1])
-const SLIP_Y_MIN = 4, SLIP_Y_MAX = 18;   // centre clamp — the full annulus stays reachable
+const SLIP_Y_MIN = 4, SLIP_Y_MAX = 14;   // centre clamp — capped to the LANE HEART so the wake is surfable from cruise altitude the MOMENT it opens (the 18 cap parked it in a ceiling sliver depth-fused with the far diving boss; §ENG-D-R reachability, probe-gated)
 // §5i.B ORBIT ANNULUS (EITHERWING's Colossi graze, C.4) — fly the figure-eight WITH them.
 let orbAcc = 0;               // unwrapped Δθ accumulator (radians) while band contact is unbroken
 let orbPrevTh = null;         // last frame's atan2 about the pose centre (null = no contact yet)
@@ -3016,8 +3016,10 @@ export function updateBoss(dt, player, time, camera) {
     // dive-stream bullets outside it. One grazeForm per boss; defs without
     // grazeForm==='slipstream' never enter this branch (inert). ----
     if (def.grazeForm === 'slipstream') {
-      const live = setpieceT >= 0 && setpieceDef?.id === 'stoopingStrike'
-        && (setpieceT / setpieceDef.dur) >= SLIP_K_ON;
+      const stoopK = (setpieceT >= 0 && setpieceDef?.id === 'stoopingStrike')
+        ? setpieceT / setpieceDef.dur : -1;
+      const live = stoopK >= SLIP_K_ON;
+      const holdTell = stoopK >= 0.2;                             // §ENG-D-R the PADDLE-OUT: the tell rides the climb BEFORE the pocket opens
       if (live) {
         const cx = Math.max(-(arenaHW - SLIP_R_IN - SLIP_WALL), Math.min(arenaHW - SLIP_R_IN - SLIP_WALL, pose.x));
         const cy = Math.max(SLIP_Y_MIN, Math.min(SLIP_Y_MAX, pose.y));
@@ -3038,14 +3040,18 @@ export function updateBoss(dt, player, time, camera) {
           }
         } else if (beamGrace > 0) { beamGrace -= dt; }             // a wing-flick across the wall doesn't reset
         else { beamHeld = 0; beamTick = 0; slipRideT = 0; }        // real exit → ramp AND ride timer reset
-      } else { beamHeld = 0; beamTick = 0; beamGrace = 0; slipRideT = 0; }
+      } else {
+        beamHeld = 0; beamTick = 0; beamGrace = 0; slipRideT = 0;
+        if (holdTell) {                                            // §ENG-D-R the pre-tell ring HONESTLY marks where the pocket will open (clamped to the lane heart), so you paddle out during the dread climb — also fixes the stale-(0,0) first-stoop tell (slipX/slipY were never reset)
+          slipX = Math.max(-(arenaHW - SLIP_R_IN - SLIP_WALL), Math.min(arenaHW - SLIP_R_IN - SLIP_WALL, pose.x));
+          slipY = Math.max(SLIP_Y_MIN, Math.min(SLIP_Y_MAX, pose.y));
+        }
+      }
       slipWasLive = live;
       if (slipExposeT > 0) slipExposeT = Math.max(0, slipExposeT - dt);
       // Drive the drawn band: at the player plane, brighter as the ramp climbs (the
       // payout is SEEN ramping); a faint pre-tell during the HOLD; hidden when not live.
       if (slipBandMesh) {
-        const holdTell = setpieceT >= 0 && setpieceDef?.id === 'stoopingStrike'
-          && (setpieceT / setpieceDef.dur) >= 0.2;
         const tgt = live ? GRAZE_BAND_BASE + Math.min(GRAZE_BAND_RAMP, beamHeld * 0.06) : (holdTell ? 0.14 : 0);
         slipBandMat.opacity += (tgt - slipBandMat.opacity) * Math.min(1, dt * 6);
         slipBandMesh.visible = slipBandMat.opacity > 0.02;
