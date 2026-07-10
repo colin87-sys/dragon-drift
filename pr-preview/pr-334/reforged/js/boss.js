@@ -253,7 +253,7 @@ let curAttack = null;          // the attack being telegraphed
 let rhythm = null;
 let rhythmRest = null;
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
-const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave', 'crestfall']);
+const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave', 'crestfall', 'geyser']);
 // Def-gated SETPIECE (the ONE deliberate exception to "a new boss needs zero
 // controller changes" — BOSS-DESIGN.md §5's Tier 2 "the fight moves" clause
 // requires a station-leave beat, and station-keeping lives here). A def opts in
@@ -3585,6 +3585,50 @@ function executeAttack(id, player) {
         for (let x = -hw; x <= hw; x += stepX) {
           if (Math.abs(x - gap) < 3.4) continue;   // the safe pocket (generous — a full frame)
           emitBoss(x, topY, 0, -5.5, -slow, false, b.c, b.s);   // breaks DOWNWARD (vy) + closes (vrel)
+        }
+      } });
+    }
+  } else if (id === 'geyser') {
+    // GEYSER (ENG-C — the Calamities band's ONE new attack id, §5b; BRINEHOLM-only,
+    // crestfall's deliberate bottom-up MIRROR across the 8/13 value-inversion axis).
+    // THE FLOOR ERUPTS: full-width rows are born BELOW the frame (CONFIG.laneMinY - 3
+    // = -0.5, safely inside the -16 cull floor bossBullets.js widened for exactly this
+    // §5e need) and erupt UPWARD (vy > 0) while closing (vrel); the safe gap SLIDES
+    // between rows like movingGap's. FAIRNESS (§5i.B drawn-in-world): ONE BEAT before
+    // each row, spray plumes flash at the foot of every DOOMED column — the gap column
+    // stays dark — so each eruption is read on the water line, never an unreadable wall.
+    const rows = quality < 0.75 ? 4 : 5;                  // crestfall's dials, verbatim
+    const slow = closing * 0.6;
+    const dir = Math.random() < 0.5 ? 1 : -1;             // slide direction only (crestfall/movingGap precedent)
+    const g0 = Math.max(-6, Math.min(6, player.position.x));
+    const BEAT = 0.32;                                    // crestfall's row step doubles as the plume lead
+    for (let k = 0; k < rows; k++) {
+      const b = activeBand[k % activeBand.length];
+      let gapX = null;   // sealed at PLUME time; the eruption REUSES it (the telegraph can never lie)
+      const solveGap = () => {
+        const hw = Math.min(12, arenaHW - 1);
+        // §ENG-B: a def-authored anchor (e.g. the submerged head's live x during the
+        // Sounding — the lee pocket) LOCKS the lane; resolved at plume time so plume and
+        // eruption always agree. Un-opted (ENG-C ships no opt) → the player-seeded slide.
+        const ax = resolveGapAnchor('geyser');
+        return Math.max(-hw + 3.4, Math.min(hw - 3.4, ax != null ? ax : g0 + dir * 2.5 * k));
+      };
+      pending.push({ t: k * BEAT, fire: () => {           // the PLUME beat — zero bullets
+        gapX = solveGap();
+        const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
+        for (let x = -hw; x <= hw; x += stepX) {
+          if (Math.abs(x - gapX) < 3.4) continue;         // the safe column shows NO plume
+          tmp.set(x, CONFIG.laneMinY - 0.3, -(player.dist + pose.rel));
+          burst(tmp, def?.accent ?? 0x3ad0b0, { count: 5, speed: 8, size: 0.8, life: 0.45 });
+        }
+      } });
+      pending.push({ t: k * BEAT + BEAT, fire: () => {    // the ERUPTION, one beat later
+        const gap = gapX != null ? gapX : solveGap();     // defensive — never a gapless wall
+        const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
+        const footY = CONFIG.laneMinY - 3;                // BELOW the frame (world y -0.5)
+        for (let x = -hw; x <= hw; x += stepX) {
+          if (Math.abs(x - gap) < 3.4) continue;          // crestfall's safe slot, mirrored
+          emitBoss(x, footY, 0, 5.5, -slow, false, b.c, b.s);   // ERUPTS upward (+vy) + closes (vrel)
         }
       } });
     }
