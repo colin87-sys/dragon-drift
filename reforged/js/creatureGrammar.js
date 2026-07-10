@@ -87,6 +87,16 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.flapProfile.lagWrist', group: 'motion', kind: 'number', min: 0, max: 3, desc: 'Shoulder→wrist phase lag (rad).' },
   { path: 'model.flapProfile.elbowAmp', group: 'motion', kind: 'number', min: 0, max: 1.5, desc: 'Elbow swing amplitude.' },
   { path: 'model.flapProfile.foldAmp', group: 'motion', kind: 'number', min: 0, max: 1.5, desc: 'Wrist counter-fold amplitude.' },
+  { path: 'model.flapArc', group: 'motion', kind: 'object', desc: 'Wide jointed wingbeat for direct-pivot wings — the arm sweeps a big asymmetric arc off the certified flapEnv envelope (see dragon.js direct-pivot branch).' },
+  { path: 'model.flapArc.apexDeg', group: 'motion', kind: 'number', min: 20, max: 100, desc: 'Arm elevation at the apex (top of the up-beat, ~12 o\'clock).' },
+  { path: 'model.flapArc.bottomDeg', group: 'motion', kind: 'number', min: 20, max: 90, desc: 'Arm depression at the bottom of the down-beat (~5–6 o\'clock).' },
+  { path: 'model.flapArc.downFrac', group: 'motion', kind: 'number', min: 0.4, max: 0.7, desc: 'Fraction of the cycle spent on the (slower/broader) power down-beat.' },
+  { path: 'model.flapTipFold', group: 'motion', kind: 'number', min: 0, max: 1.5, desc: 'Primary/tip fold depth on the up-beat (folded high, extended straight on the down-beat).' },
+  { path: 'model.flapFoldSweep', group: 'motion', kind: 'number', min: 0, max: 2, desc: 'Rearward comb sweep on the up-beat — the blade comb folds back so the planform/span contracts.' },
+  { path: 'model.flapTipFoldLag', group: 'motion', kind: 'number', min: -0.35, max: 0.5, desc: 'Fold phase lag vs the arm (cycles) — negative = fold LEADS into the up-beat recovery.' },
+  { path: 'model.flapBladeCascade', group: 'motion', kind: 'object', desc: 'Deepened per-feather furl for blade-comb wings (amp + inboard→outboard lag).' },
+  { path: 'model.flapBladeCascade.amp', group: 'motion', kind: 'number', min: 0, max: 0.6, desc: 'Per-feather furl amplitude.' },
+  { path: 'model.flapBladeCascade.lag', group: 'motion', kind: 'number', min: 0, max: 3, desc: 'Inboard→outboard feather lag across the comb.' },
 
   // --- material finish (model.*) ----------------------------------------------
   { path: 'model.bodyMetalness', group: 'material', kind: 'number', min: 0, max: 1, desc: 'Body metalness (0 = matte organic hide).' },
