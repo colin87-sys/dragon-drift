@@ -606,7 +606,7 @@ grandfatherAscension(Object.keys(DRAGONS));
 // Grant it owned + at Eternal on boot so it's immediately equippable in the shop without
 // grinding its 6000 cost. Scoped to this one key; the shipped roster/economy is untouched.
 // Both spectacle skins (Heart of Rebirth + Comet-Veils) are granted so the owner can A/B them.
-for (const key of ['phoenixEmpress', 'phoenixEmpressVeils']) {
+for (const key of ['phoenixEmpress']) {
   if (DRAGONS[key] && !saveData.skins.owned.includes(key)) {
     saveData.skins.owned.push(key);
     const e = saveData.ascension.tiers.find((t) => t[0] === key);

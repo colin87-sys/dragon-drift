@@ -319,6 +319,32 @@ parts are not shadowed by the inference for the new key. Roster stays byte-ident
   around the aft axis, collapsing into a narrow rearward tassel). "A coal-dark empress dragging a
   golden sunrise behind her."
 
+## ★ GOVERNING LAW 2026-07-10 — VISIBILITY FIRST (the bottom-heavy train premise is RETIRED)
+
+**The whole "big bottom-heavy pyre-train" premise was wrong for a rear-chase flyer.** Captured from the
+REAL in-game chase cam (not studio angles): the chase camera sits behind+above looking forward-down;
+the course (water, obstacles, the next ring) lives in the CENTRE + LOWER-CENTRE of the frame; the UPPER
+frame is empty sky. A big bottom glory parks a mass in the lower-centre — over the playfield — and
+because she is "coal, not torch" that mass is DARK, reading as a hole punched in the view. Every train
+version (perpendicular fan → raked cone → gathered drape) was a different shape of the same
+frame-blocking blob. **Solar proves the fix: its glory is compact + held UP near the head in the empty
+sky, so the dragon is a slim silhouette and the playfield stays clear.**
+
+**THE RISEN DAWN (current + final architecture).** She has RISEN — she no longer drags the dawn behind
+her. Glory moves to the SKY ZONE: a **SUNRISE MANTLE** of 3→5→7 discrete gold-rachis coal-tipped rays
+rising UP off the nape (sector <130° so it can never close into a ring; every ray elevation ≥15°, never
+points down; short, ≤0.55×body; half-span inside the wing block). The **Heart of Rebirth** shrinks to a
+compact **nape BROOCH** pinning the mantle (Dawn Coal reborn in its vent, f3-only). The tail is a slim
+**EMBER WAKE** — a thin garnet whip curving UP-aft, shedding a few discrete BRIGHT ember-gems (sparks,
+not a sheet; near-zero footprint, luminous not dark). Body/wings/crest unchanged (already compact).
+
+**THE LOWER-FRAME CLEARANCE LAW (governing, asserted in `tests/starters.mjs`).** The occlusion corridor
+= { y < spine, z > hip } projects onto the lower-centre playfield; NOTHING large/opaque/dark may live
+there. Asserts: corridor max|x| ≤ 0.6 (no wide mass) + corridor tri-area ≤ 1.3 (no cloth; the old train
+was ~5 at |x|>1.3). Mantle-envelope asserts: sector <130°, every ray elevation ≥15°, ≤7 discrete rays.
+**Gate every future change on the REAL chase-cam frame with the course visible (`tools/framecap.mjs`),
+never the studio void — the studio cam looks AT the dragon, the game cam looks PAST it at the course.**
+
 ## ⚠ SUPERSEDED 2026-07-10 — the frontal-plane fan was a DRAG-PLATE (re-architected to a raked cone)
 
 The "bottom-heavy perpendicular fan" (quills radiating in the FRONTAL plane, ⊥ to flight) passed the

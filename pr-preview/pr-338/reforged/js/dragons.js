@@ -973,8 +973,8 @@ export const DRAGONS = {
       igniteStage: 3,
       // plumage + regalia + GOLD-jewelry richness dials (apex reference; forms confer per rung):
       covertRank: 1, alula: 1, vaneEyes: 1, underQuills: 6, ruff: 1, flankShingle: 2,
-      dorsalPlumes: 6, talons: 1.0, diadem: 1, clasp: 1.0, heartScale: 1.0,
-      spectacle: 'heart', heartScale: 1.0,   // SPECTACLE A — the Heart of Rebirth at the fan hub
+      dorsalPlumes: 6, talons: 1.0, diadem: 1, clasp: 1.0, heartScale: 1.0, mantleRays: 7, mantleSector: 125, wakeEmbers: 5,
+      heartScale: 1.0, mantleRays: 7, mantleSector: 125, wakeEmbers: 5,   // THE RISEN DAWN — sunrise mantle + ember wake
     },
     forms: [
       // f0 — ASH HATCHLING: charcoal ash-chick, round, dim, a promise. No train (2 nubs,
@@ -982,7 +982,7 @@ export const DRAGONS = {
       { igniteStage: 0, trainQuills: 2, trainFan: 96, trainLift: 0.1, coalBloom: 0, dawnCoal: 0, membrane: 0,
         primaries: 4, pinionSlots: 0, sweepRake: 0.35, tipRise: 0.35, crestQuills: 0, gorget: 0,
         eyeShape: 1.0, glowLevel: 0.25, headScale: 1.3, spanScale: 0.70,
-        covertRank: 0, alula: 0, vaneEyes: 0, underQuills: 0, ruff: 0, flankShingle: 1, dorsalPlumes: 0, talons: 0.5, diadem: 0, clasp: 0, heartScale: 0,
+        covertRank: 0, alula: 0, vaneEyes: 0, underQuills: 0, ruff: 0, flankShingle: 1, dorsalPlumes: 0, talons: 0.5, diadem: 0, clasp: 0, heartScale: 0, mantleRays: 0, mantleSector: 0, wakeEmbers: 0,
         colors: { body: 0x1a0f0d, belly: 0x2a1810, covert: 0x241012, eye: 0xd8a860,
           wingEmissive: 0x5a1220, coreGlow: 0x8a3010, apexSeam: 0xd9541a,
           trail: 0xc65a2a, boostTrail: 0xd97a3a } },
@@ -991,7 +991,7 @@ export const DRAGONS = {
       { igniteStage: 1, trainQuills: 3, trainFan: 112, trainLift: 0.4, coalBloom: 0.5, dawnCoal: 0, membrane: 1,
         primaries: 5, pinionSlots: 2, sweepRake: 0.55, tipRise: 0.55, crestQuills: 1, gorget: 0,
         eyeShape: 0.7, glowLevel: 0.5, headScale: 1.15, spanScale: 0.82,
-        covertRank: 1, alula: 0, vaneEyes: 0, underQuills: 0, ruff: 0, flankShingle: 1, dorsalPlumes: 6, talons: 0.7, diadem: 0, clasp: 0.5, heartScale: 0.3,
+        covertRank: 1, alula: 0, vaneEyes: 0, underQuills: 0, ruff: 0, flankShingle: 1, dorsalPlumes: 6, talons: 0.7, diadem: 0, clasp: 0.5, heartScale: 0, mantleRays: 3, mantleSector: 60, wakeEmbers: 2,
         colors: { body: 0x241012, belly: 0x321c12, covert: 0x2a1013, eye: 0xe0b866,
           wingEmissive: 0xc0142e, coreGlow: 0xc0401a, apexSeam: 0xd9541a,
           trail: 0xd65e28, boostTrail: 0xe08038 } },
@@ -1001,7 +1001,7 @@ export const DRAGONS = {
       { igniteStage: 2, trainQuills: 4, trainFan: 124, trainLift: 0.7, coalBloom: 0.8, dawnCoal: 0, membrane: 1,
         primaries: 6, pinionSlots: 3, sweepRake: 0.78, tipRise: 0.78, crestQuills: 3, gorget: 0.6,
         eyeShape: 0.4, glowLevel: 0.75, headScale: 1.05, spanScale: 0.92,
-        covertRank: 1, alula: 1, vaneEyes: 1, underQuills: 0, ruff: 1, flankShingle: 2, dorsalPlumes: 6, talons: 0.85, diadem: 0, clasp: 0.8, heartScale: 0.6,
+        covertRank: 1, alula: 1, vaneEyes: 1, underQuills: 0, ruff: 1, flankShingle: 2, dorsalPlumes: 6, talons: 0.85, diadem: 0, clasp: 0.8, heartScale: 0, mantleRays: 5, mantleSector: 95, wakeEmbers: 3,
         colors: { body: 0x2c1014, belly: 0x3a2114, covert: 0x2c1013, eye: 0xe8c072,
           wingEmissive: 0xe0173a, coreGlow: 0xd9541a, apexSeam: 0xe83a6a,
           trail: 0xe06a2c, boostTrail: 0xe89040 } },
@@ -1011,7 +1011,7 @@ export const DRAGONS = {
       { igniteStage: 3, trainQuills: 5, trainFan: 132, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1, membrane: 1,
         primaries: 6, pinionSlots: 4, sweepRake: 1.0, tipRise: 1.0, crestQuills: 5, gorget: 1.0,
         eyeShape: 0.16, glowLevel: 1.0, headScale: 1.0, spanScale: 1.06,
-        covertRank: 1, alula: 1, vaneEyes: 1, underQuills: 6, ruff: 1, flankShingle: 2, dorsalPlumes: 6, talons: 1.0, diadem: 1, clasp: 1.0, heartScale: 1.0,
+        covertRank: 1, alula: 1, vaneEyes: 1, underQuills: 6, ruff: 1, flankShingle: 2, dorsalPlumes: 6, talons: 1.0, diadem: 1, clasp: 1.0, heartScale: 1.0, mantleRays: 7, mantleSector: 125, wakeEmbers: 5,
         colors: { body: 0x331016, belly: 0x3a2114, bellyGold: 0xe8c58a, covert: 0x2e1015, eye: 0xffcf6a,
           wingEmissive: 0xe0173a, coreGlow: 0xd9541a, apexSeam: 0xe83a6a,
           trail: 0xe8742e, boostTrail: 0xf0a050 } },
@@ -1635,37 +1635,9 @@ export const DRAGONS = {
   },
 };
 
-// SPECTACLE A/B — a second shop entry cloning the Empress but flying the COMET-VEILS spectacle
-// (twin trailing streamers) instead of the Heart of Rebirth (the hub coal-sun), so the owner can
-// compare the two apex spectacles by switching SKINS in the shop. Identical body/stats/colors;
-// only the tail spectacle dials differ (spectacle:'veils', heart off, veils ramp on).
-DRAGONS.phoenixEmpressVeils = (() => {
-  const v = structuredClone(DRAGONS.phoenixEmpress);
-  v.name = 'Phoenix — Veils';
-  v.title = 'The Dawnfire Empress · Comet-Veils';
-  v.model.spectacle = 'veils'; v.model.heartScale = 0; v.model.veils = 1; v.model.veilSegs = 9; v.model.veilLen = 2.0;
-  const perForm = [
-    { veils: 0, veilSegs: 0, veilLen: 0, heartScale: 0 },   // f0 — no robe
-    { veils: 1, veilSegs: 4, veilLen: 1.1, heartScale: 0 }, // f1 — short pennants
-    { veils: 1, veilSegs: 7, veilLen: 1.7, heartScale: 0 }, // f2 — grown, amber tier
-    { veils: 1, veilSegs: 9, veilLen: 2.0, heartScale: 0 }, // f3 — full swallowtail + wake
-  ];
-  v.forms.forEach((f, i) => Object.assign(f, perForm[i]));
-  return v;
-})();
-// Reorder so the two empress skins sit ADJACENT in the shop rail (Object.keys = insertion order;
-// the clone above would otherwise land dead-last, far from phoenixEmpress). Same object ref.
-(() => {
-  const veils = DRAGONS.phoenixEmpressVeils;
-  const reordered = {};
-  for (const k of Object.keys(DRAGONS)) {
-    if (k === 'phoenixEmpressVeils') continue;
-    reordered[k] = DRAGONS[k];
-    if (k === 'phoenixEmpress') reordered.phoenixEmpressVeils = veils;
-  }
-  for (const k of Object.keys(DRAGONS)) delete DRAGONS[k];
-  Object.assign(DRAGONS, reordered);
-})();
+// (The Comet-Veils A/B skin was retired — The Risen Dawn subsumes the trailing spectacle as a
+// sparse ember wake; a second identical skin added nothing.)
+
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).
 export const DRAGON_STAT_CAP = { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 };
