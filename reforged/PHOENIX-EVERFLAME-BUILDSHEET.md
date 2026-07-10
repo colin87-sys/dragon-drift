@@ -38,13 +38,12 @@ Context you need up front:
   • FIRE IS THE BODY, built from OPAQUE flat-shaded facets + SATURATED bloom-safe emissive — NEVER
     additive/transparent washout shells (that is the "tacky" look). Feathers read as FLAME by SHAPE
     + heat gradient (S-tapered tongues, root-hot/tip-cool, gaps between them), not by translucency.
-  • THE VISIBILITY LAW is non-negotiable: rear-chase cam looks forward-down; the course lives in
-    center + lower-center; the dragon must be COMPACT and must NOT park mass in the lower-center
-    corridor { y<spine, z>hip } (corridor max|x|≤0.6, footprint≤1.3). Bright is LESS fatal than dark
-    (an effect, not a hole) but bright ≠ license for SIZE. The streaming fire lives in the WINGS
-    raked AFT-AND-UP (toward the empty upper corners), and the tail is sparse LUMINOUS points — never
-    an opaque sheet in the playfield. Judge in the REAL chase cam (tools/framecap.mjs), not the
-    studio void (that meta-lesson killed four prior rebuilds).
+  • THE VISIBILITY LAW is non-negotiable (full corridor form in §4): the rear-chase cam looks
+    forward-down and the course lives in the CENTER + LOWER-CENTER of every frame — so she stays
+    COMPACT and keeps the lower-centre CLEAR. The streaming fire lives in the WINGS, raked
+    AFT-AND-UP toward the empty upper corners; the tail is sparse LUMINOUS points, never an opaque
+    sheet over the playfield. Judge in the REAL chase cam (tools/framecap.mjs), not the studio void
+    (that meta-lesson killed four prior rebuilds).
   • NO LEAK. Author fresh: do NOT reconstruct the Molten Phoenix's crust-shards / obsidian mask /
     pyre-fan wings / molten-heart caldera / ember-whip tail; the retired coal empress's pyre-train /
     scythe wings / comet crest; the shipped Phoenix Ascendant's solid feather wing / flame-plume /
