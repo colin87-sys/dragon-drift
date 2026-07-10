@@ -371,7 +371,8 @@ export const CONFIG = {
       echoDmgMult: 0.5,     // ONEWING spectral echo-pip damage (later PR; unused here)
       fracBySlot: {         // per-boss burn fraction of the (already ROI-clamped) volley
         knellgrave: 0.25,   // WE opener — gentle
-        // weftwitch: 0.30, onewing: 0.35, embertide: 0 (beam fork), unmasked: 0.20 — later PRs
+        weftwitch: 0.30,    // WE mid — her music is LIVE, so the perfect release is the normal on-beat tap (no toll-clock analog)
+        // onewing: 0.35, embertide: 0 (beam fork), unmasked: 0.20 — later PRs
       },
     },
   },

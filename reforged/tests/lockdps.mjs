@@ -115,10 +115,16 @@ assert(knell.phases.every((p) => p.cardTimer != null),
   `KNELLGRAVE card timers resolve for the not-a-phase-deleter check (got ${knell.phases.map((p) => p.cardTimer).join('/')})`);
 assert(knell.phases.every((p) => !p.phaseDeletable),
   `KNELLGRAVE is never a phase-deleter (TTKs ${knell.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${knell.phases.map((p) => p.cardTimer).join('/')})`);
+// WEFTWITCH (§5i rung 11) — lance-capable, burn-wired, never a phase-deleter (her P5 is
+// the thinnest endgame margin ~1.08 — a named GO gate; the invariant certifies ≥1.0).
+const weft = economies.find((e) => e.id === 'weftwitch');
+assert(weft && weft.lanceCapable && weft.burnFrac > 0, `WEFTWITCH is lance-capable + burn-wired (frac ${weft?.burnFrac})`);
+assert(weft.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `WEFTWITCH is never a phase-deleter (TTKs ${weft.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${weft.phases.map((p) => p.cardTimer).join('/')})`);
 // Tiers 1-3 (and un-keyed bosses) carry NO burn — the mid-game is byte-identical.
 assert(economies.filter((e) => e.tier < CONFIG.LOCK.scarBurn.minTier).every((e) => e.burnFrac === 0),
   'no boss below scarBurn.minTier earns a burn (tiers 1-3 unchanged)');
-ok(`SCAR-BURN wired on KNELLGRAVE (frac ${knell.burnFrac}), never a phase-deleter, tiers 1-3 burn-free`);
+ok(`SCAR-BURN wired on KNELLGRAVE (${knell.burnFrac}) + WEFTWITCH (${weft.burnFrac}), never phase-deleters, tiers 1-3 burn-free`);
 
 // --- Roster coverage --------------------------------------------------------
 assertEq(economies.length, BOSS_ORDER.length, 'one economy row per boss in BOSS_ORDER');

@@ -228,23 +228,39 @@ this section is corrected to the LIVE 5-phase def, superseding the original spec
   cadence + the 0.24s window. From 0% (V1-only) today.
 
 **Rung 11 — WEFTWITCH (she re-weaves what you break).** *The volley gets a JOB.*
-- **Organs:** `handL`, `handR` (new empties at the two working spinneret-arm
-  tips — her hands are her §4b face AND her weapons; emitter = organ, §5f law 7)
-  + `weftScar` (the existing named scar-stub on the broken web arm — the wound).
-  `loomHeart` stays the V1 anchor (promoted paintable on a V2 boss, L183).
-  Reachable: (3+1)×2 = 8 ≥ 6 ✓.
-- **Fair windows:** dwell-painting her is deliberately hard (the def warns the
-  loom-heart is "always emitting, never a free rest-beat paint") — so the two
-  sanctioned routes are (a) the THREAD-CUT stagger (parry the taut-thread ambers
-  3× → loom stilled 2.5s = the authored paint window; the fight's own parry job
-  opens the lance window) and (b) V4 parry-snap off her aimed ambers directly.
-- **The ONE new rule — THE VOLLEY INTERRUPTS:** when she begins stitching a safe
-  lane shut (the re-weave, her anti-flee hook), the weaving hand glows; a volley
-  of ≥3 pips landing during the mend CANCELS that mend and stills the loom ~1.5s.
-  The lance becomes lane preservation — utility beyond the HP bar, aimed squarely
-  at the thing that makes this fight hers. DPS unchanged on top (chip + burn).
-- **Utility math:** spans 114/114/114/94/83 → volley clamps to ~10% everywhere;
-  on-tell burn frac 0.30 ⇒ +~3% per full-set release. From ~0% (V1-only) today.
+**AS SHIPPED (organs + SCAR-BURN increment; the rule follows) — corrected against the
+live code by the §CP1 pre-audit, which found the original spec wrong twice over.**
+- **Organs (verified `tests/weftorgans.mjs`):** `lockParts: [palmL, palmR]` — her two
+  weaving HANDS (her §4b face AND her weapons; the real nodes are `palmL`/`palmR` on
+  `handPivotL/R`, NOT "spinneret-arm tips" — the original prose was wrong). `loomHeart`
+  stays the V1 anchor (paintable on a V2 boss). loomHeart(virtual) + 2 palms = 3 targets
+  × stackMax 2 = **6 = cap** (the KNELLGRAVE shape). ⚠ `weftScar` is NOT a lock organ:
+  the anti-spider "no limb below horizontal" law puts the whole crown above `laneMaxY 22`
+  (weftScar world y ~24) — unaimable (the PR2a reachability LAW). If a 3rd target is ever
+  wanted, the `rosette` knots (world y ~10–18, "motifs of what she's mended") beat the
+  grief-wound.
+- **Fair windows:** plain dwell-painting the palms WORKS (they move slowly — inside the
+  EMA anchor + 4.0 retention cone; they never amber-vent; `lockDeflected` only seals under
+  shield). The THREAD-CUT stagger (parry ambers 3× → loom stilled) is a bonus quiet paint
+  window (note `quietDwellMult` slows dwell there). NOT parry-locked — the amber floor (CI-
+  guaranteed ≤12s/phase) supplies enough to bank a set.
+- **The burn tell:** her music is LIVE (`musicDies` is KNELLGRAVE-only), so the perfect
+  release is the normal on-beat tap (`getBeatClock`, unchanged) — her stitch-pluck already
+  lands on that grid. SCAR-BURN is a ONE-LINE add (`fracBySlot.weftwitch 0.30`).
+- **THE ONE NEW RULE — DEFERRED to a follow-up increment (its own critic gate).** The
+  original "a volley INTERRUPTS her mend" is UNIMPLEMENTABLE: there is no mid-phase mend to
+  interrupt — `restitchWeb()` fires only at PHASE SEAMS (cosmetic; closes no lane; the
+  Surge-fork auto-looses there, so it would fire itself). The honest replacement inverts the
+  verb — **THE VOLLEY TEARS, SHE MENDS**: a ≥3-pip volley tears a web sector (reuse the
+  `restitchWeb` tear machinery) → she stops to re-weave it → a ~2.5s mid-phase mend window
+  (the `staggerT` grammar). "She mends what you break" made playable; her identity beat
+  plays MORE, not never. Guards: once/phase, mutually exclusive with the thread-cut stagger,
+  `source:'fork'` excluded. Plus V4 parry-snap needs her `aimed` ambers tagged (alternating
+  `palmL`/`palmR`) WITHOUT `emitOrigins` (that lever doubles bullet density).
+- **Utility math:** spans 114/114/114/94/83 → volley clamps to ~10% everywhere; on-beat
+  burn frac 0.30 ⇒ +~3% per full-set release. ⚠ Her P5 is the thinnest endgame not-a-phase-
+  deleter margin (~1.08) — a named GO gate (headless persona + a real dread-card playthrough
+  before the rule ships). From ~0% (V1-only) today.
 
 **Rung 12 — ONEWING (the fled twin; it mirrors your last dodge).** *The Eitherwing
 payoff.* The player painted this exact eye at rung 5.
@@ -547,11 +563,15 @@ boss's balance moves except where this doc says so.
 > The human owner remains the FINAL gate for any LAW change (SCAR-BURN, cap/ROI).
 > The critic advises; it does not approve on the owner's behalf.
 
-> **LIVE STATUS (2026-07-10).** PR0 ✅ merged. PR2a (KNELLGRAVE organs) ✅ merged
-> in PR #349 — KNELLGRAVE is now lance-capable (wound + 2 binds, cap 6, 53
-> volleys-in-band). **NOW BUILDING: PR2b/PR3 — the resonant on-toll release +
-> SCAR-BURN on KNELLGRAVE.** Then PR4 WEFTWITCH → PR5 ONEWING → PR6 EMBERTIDE →
-> PR7 THE UNMASKED → PR8 mid-ladder polish → PR9 elemental loadout.
+> **LIVE STATUS (2026-07-10).** PR0 ✅. PR2a (KNELLGRAVE organs) ✅ merged #349.
+> PR2b/PR3 (KNELLGRAVE resonant on-toll release + SCAR-BURN + PR2a blocker fixes)
+> ✅ merged #355. **NOW BUILDING: PR4a — WEFTWITCH organs (palms + loomHeart, cap 6)
+> + SCAR-BURN (frac 0.30, one line — her music is live).** Her "volley tears / she
+> mends" rule + V4 parry-snap tag ride PR4b (deferred, its own critic gate — the
+> original "volley interrupts the mend" was unimplementable, §CP1). Then PR5 ONEWING →
+> PR6 EMBERTIDE → PR7 THE UNMASKED → PR8 mid-ladder polish → PR9 elemental loadout.
+> **Standing process: every rung gets a CP1 pre-audit + a CP2 diff critic (owner
+> directive); the human owner is the final gate on any damage LAW.**
 > **Learned in PR2a (a reachability LAW for every remaining boss): an organ is
 > only lockable if its WORLD Y ≤ `laneMaxY` (22) across its whole animation — the
 > aim cone tests player-Y vs organ-Y, and the static `lockdpsCore` model has no
