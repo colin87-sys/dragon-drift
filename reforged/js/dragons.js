@@ -1653,6 +1653,19 @@ DRAGONS.phoenixEmpressVeils = (() => {
   v.forms.forEach((f, i) => Object.assign(f, perForm[i]));
   return v;
 })();
+// Reorder so the two empress skins sit ADJACENT in the shop rail (Object.keys = insertion order;
+// the clone above would otherwise land dead-last, far from phoenixEmpress). Same object ref.
+(() => {
+  const veils = DRAGONS.phoenixEmpressVeils;
+  const reordered = {};
+  for (const k of Object.keys(DRAGONS)) {
+    if (k === 'phoenixEmpressVeils') continue;
+    reordered[k] = DRAGONS[k];
+    if (k === 'phoenixEmpress') reordered.phoenixEmpressVeils = veils;
+  }
+  for (const k of Object.keys(DRAGONS)) delete DRAGONS[k];
+  Object.assign(DRAGONS, reordered);
+})();
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).
 export const DRAGON_STAT_CAP = { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 };
