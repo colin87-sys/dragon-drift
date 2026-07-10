@@ -337,22 +337,36 @@ CP2"); this plan is that CP2, shaped.
 
 ### 4b. The ONE new law — SCAR-BURN ⚠ (owner sign-off required)
 
-> **`scarBurn: { minTier: 4, frac: 0.5, dur: 3.0, fullCapOnly: true }`** — a
-> FULL-CAP release on a tier ≥4 boss leaves burning brands on the struck organs:
-> an additional `frac × volleyTotal` paid over `dur` seconds as visible burn
-> ticks (reuse the crack-tick presentation channel; damage on scheduled frames).
+> **OWNER DECISION (2026-07-10): the burn is EARNED, not automatic, and its size
+> tracks how HARD the timing is. It is gated behind a PERFECT release (a full cap
+> loosed on the boss's own tell — on-beat / at the crest / at the handoff), and
+> the burn fraction RAMPS across the endgame: gentle on the openers, the big 15%+
+> payoff reserved for the final boss.** The owner's note verbatim: "15% is a lot…
+> but for the final boss maybe." So a sloppy release still does today's chip; only
+> a well-timed one bites, and it bites hardest exactly where the timing is hardest.
+
+> **`scarBurn: { minTier: 4, perfectOnly: true, dur: 3.0, fracBySlot: { knellgrave: 0.25, weftwitch: 0.30, onewing: 0.35, embertide: /* via beam, §band-4 */, unmasked: 1.0 } }`**
+> — a PERFECT full-cap release on a tier ≥4 boss leaves burning brands on the
+> struck organs: an extra `frac × volleyTotal` paid over `dur` seconds as visible
+> burn ticks (reuse the crack-tick presentation channel; damage on scheduled frames).
+> A non-perfect release does NOT burn (it is today's plain volley).
 
 Why this shape:
+- **The reward tracks the difficulty of the timing** (owner directive). The
+  window that triggers the burn is each boss's signature tell — KNELLGRAVE's toll
+  beat, WEFTWITCH's re-weave, the finale's RECKONING. Harder tell → bigger burn.
+  The opener asks for an easy-ish on-beat and pays +2.5% of a phase; the finale
+  asks for a perfect set on stage 3 and pays the showcase number.
 - **It is additive and band-gated.** Tiers 1–3 are byte-identical — the shipped
   mid-game balance (bosses 4–9) does not move at all.
 - **It preserves the ROI LAW instead of raising it.** The instantaneous volley
-  still clamps at 10%; the burn is bounded at 0.5× the (already-clamped) volley,
-  so the worst case per release is 15% of a phase, paid over 3 s, earned only by
-  a complete 6-pip set. New invariant for `lockdpsCore`/`tests/lockdps.mjs`:
-  `burn ≤ scarBurn.frac × volley` (and therefore `volley + burn ≤ 1.5 × roiCeil`).
-- **It rewards exactly the thing the endgame organs enable** — full sets — and
-  compounds with the beat bonus, so mastery (complete the set, release on the
-  beat) is what grows, not raw numbers.
+  still clamps at 10%; the burn is bounded per-boss, peaking at 0.5× the
+  (already-clamped) volley on the pre-finale bosses (≤15% total) and rising to
+  1.0× only at the Apex RECKONING. New invariant for `lockdpsCore`/`tests/lockdps.mjs`:
+  `burn ≤ scarBurn.frac × volley` per boss (and `volley + burn ≤ (1 + frac) × roiCeil`).
+- **It rewards exactly the thing the endgame organs enable** — full sets loosed on
+  the beat — so mastery (complete the set, release on the tell) is what grows, not
+  raw numbers. A player who ignores timing sees no change from today.
 - **Fiction-true:** the game's verb is BRANDING; at World-Ender tier the brands
   finally scar. "The lance bites" is a picture, not a tooltip.
 - Rejected alternatives, for the record: a tiered `volleyRoiFracByTier`
@@ -386,13 +400,46 @@ Sign-off should confirm both halves (the quirk-as-feature and the 1.0 burn).
 ### 4e. The resulting trajectory (perfect full-cap release, % of current phase)
 
 ```
-boss    1-3   4    5    6     7    8     9    10    11    12    13    14
-now     0*    6%   5.4% 10%   5%   9%    9%   0     0     0     0     0
-plan    0*    6%   5.4% 10%   5%   9%    9%   15%   15%   15%†  15%‡  9.4→12.5%(form)
+boss    1-3   4    5    6     7    8     9    10      11      12      13     14
+now     0*    6%   5.4% 10%   5%   9%    9%   0       0       0       0      0
+plan    0*    6%   5.4% 10%   5%   9%    9%   12.5%   13%     13.5%†  ‡      9.4→12.5%(form)
 ```
-\* V1 utility only (rate +15%, exposure ticks). † reached ~2× faster (echo-pips).
-‡ or converted into beam-duel seconds via the fork. A curve that now rises to the
-finale instead of cresting at boss 6.
+\* V1 utility only (rate +15%, exposure ticks). Endgame numbers are the PERFECT
+full-cap release (a sloppy release stays at today's plain clamp — no burn). The
+burn RAMPS by difficulty (owner directive): opener +2.5% → 12,13 higher →
+finale RECKONING the showcase. † reached ~2× faster (echo-pips). ‡ EMBERTIDE
+converts pips into beam-duel seconds via the fork rather than a burn volley. A
+curve that now rises to the finale instead of cresting at boss 6 — and only for
+players who earn the timing.
+
+### 4f. Audiovisual escalation ⚠ (OWNER REQUIREMENT, 2026-07-10)
+
+The owner's directive, verbatim: *"make appropriate visual and sound to mark these
+as different — they should be meaningfully different in the sense that it looks more
+powerful and sounds that way."* This is a HARD gate, not polish: a new lance tier
+that does more damage but reads/sounds like the old volley is NOT shippable. Each
+escalation rung must be legibly, audibly bigger than the one before it.
+
+- **Plain volley (bosses 4–9, unchanged):** the shipped jade wisps + `sfxLance2`
+  release. This is the BASELINE the endgame must visibly out-class.
+- **A PERFECT release (on-tell):** already distinct today (the on-beat snap/juice)
+  — the endgame keeps this as the "you nailed it" read and builds on it.
+- **SCAR-BURN (tier ≥4, earned):** the struck organ keeps a burning brand —
+  hotter/whiter core, a lingering ember plume + heat-shimmer on the mark, and a
+  layered burn SFX (a searing sustain under the impact, not just a louder ping).
+  The wisps themselves read heavier (thicker/hotter ribbon) so the volley LOOKS
+  like it will leave a scar before it lands. It must be unmistakable that this hit
+  is doing more than a normal one.
+- **THE RECKONING (finale showcase):** the top of the ladder — the biggest, most
+  overdriven version (all five relic-brands igniting at once, a screen-scale
+  release beat, the fullest SFX stack). It should feel like the payoff the whole
+  run's lance practice was building toward.
+
+Constraints on the spectacle: honor §2's overdraw cliff (ember plume = thin
+line/point-class FX + bloom, never a big additive shell), and keep the SFX in the
+existing `sfxLance*` family so it reads as the SAME weapon grown up, not a new one.
+The audiovisual step is a named deliverable in every endgame boss's PR, gated at
+review — a damage change without the matching look/sound is incomplete.
 
 ---
 
