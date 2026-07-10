@@ -13,8 +13,8 @@ import { saveData } from './save.js';
 
 const LENS_FORCE = (() => {
   try {
-    const m = /[?&]lens=([0-9])/.exec(window.location.search);
-    return m ? m[1] !== '0' : null;   // ?lens=0 → false, ?lens=<other digit> → true, absent → null
+    const m = /[?&]lens=([0-9]+)(?:&|$)/.exec(window.location.search);
+    return m ? m[1] !== '0' : null;   // ?lens=0 → false, ?lens=<non-zero> → true, absent/malformed → null
   } catch { return null; }
 })();
 

@@ -143,7 +143,7 @@ export function updateReticle(player, playing) {
     el.classList.add('boss');
     el.classList.remove('gate');
     tmpV.set(L.x, L.y, L.z).project(camera);
-    if (tmpV.z > 1) { el.style.opacity = 0; return; }   // organ behind the camera
+    if (tmpV.z > 1) { el.style.opacity = 0; el.classList.remove('threat', 'threat-hot'); return; }   // organ behind the camera
     const sx = (tmpV.x * 0.5 + 0.5) * window.innerWidth;
     const sy = (-tmpV.y * 0.5 + 0.5) * window.innerHeight;
     // Sealed = muted (slot 13) OR the deflect rule (shield/scatter/closed eye/
@@ -277,6 +277,10 @@ function renderPips(hud) {
 const _mv = new THREE.Vector3();
 function renderMarks(hud) {
   const locks = hud.locks || [];
+  // PR2 saturation split: marks live under #hud (not #reticle), so the .lens2 skin can't
+  // cascade to them — carry it per-mark from the Bullet Clarity setting so their BORDER
+  // desaturates to mint-white chrome (the fill + rune stay jade energy).
+  const clarity = lensClarity();
   for (let i = 0; i < markEls.length; i++) {
     const m = markEls[i];
     const lk = locks[i];
@@ -286,6 +290,7 @@ function renderMarks(hud) {
     const sx = (_mv.x * 0.5 + 0.5) * window.innerWidth;
     const sy = (-_mv.y * 0.5 + 0.5) * window.innerHeight;
     m.classList.add('show');
+    m.classList.toggle('lens2', clarity);
     m.classList.toggle('kindle', lk.life > 0.94);   // the fresh brand's kindle flash
     m.classList.toggle('ashen', !!hud.ashen);
     m.classList.toggle('blink', !!lk.blink);
