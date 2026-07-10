@@ -212,11 +212,18 @@ export function updateLockLayer(dt, player, ctx) {
       // WARM latch: is this organ one a held line recently let go of? Decided ONCE
       // here so the hum + chime agree for the whole re-acquire (display == logic).
       S.aimWarm = S.reLock[hit] > 0;
-      // WARM RE-ACQUIRE (owner-gated, default off): a warm re-grab seeds partial
-      // dwell, so weaving away and back doesn't pay the full 0.35s again.
-      // relockWarmFrac 0 = inert (no gameplay change).
+      // WARM RE-ACQUIRE (owner-gated): a warm re-grab seeds partial dwell, so weaving
+      // away to DODGE and back doesn't pay the full dwell again. The seed scales by the
+      // SAME focus multiplier the completion threshold uses (S.dwellNeed below), so it's
+      // always `relockWarmFrac` of what you'd actually OWE — not of the cold need. This
+      // fixes the focus×warm units mismatch that otherwise collapsed a FOCUSED re-grab to
+      // ~4 frames (seed 0.14 vs a halved 0.175 need = an 80% discount); now it's a true
+      // 40% discount in every focus state (~8 frames focused; 0.21s un-focused — unchanged),
+      // and it keeps the WHOLE relockWarmFrac range safe (seed < need for any frac < 1, so
+      // no same-frame-lock cliff at frac ≥ focusDwellMult). relockWarmFrac 0 = inert.
       if (L.relockWarmFrac > 0 && S.aimWarm) {
-        S.aimDwell = Math.max(S.aimDwell, L.dwellTime * L.relockWarmFrac);
+        const need = L.dwellTime * (ctx.focusHeld ? L.focusDwellMult : 1);
+        S.aimDwell = Math.max(S.aimDwell, need * L.relockWarmFrac);
       }
     }
   } else {
