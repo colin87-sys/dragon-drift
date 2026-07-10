@@ -300,6 +300,48 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   ok('T-F1 focus halves the dwell threshold; HUD fill matches; arm-gap LAW holds');
 }
 
+// --- T-F2 — WARM re-lock seed is FOCUS-AWARE (dodge-and-reengage, no snap) -----
+// Guards the focus×warm units fix: a warm re-grab seeds relockWarmFrac of the
+// EFFECTIVE (focus-scaled) need, so the fill starts at the SAME 40% in every focus
+// state and can never same-frame lock. A regression to the old `dwellTime×frac` seed
+// would make the FOCUSED warm fill jump in at 80% (and re-open the frac≥0.5 cliff) —
+// caught here, where no other gate would notice.
+{
+  const ORGANS = { A: { x: 0, y: 0, z: 0 } };
+  const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
+  const mkCtx = (focus) => ({
+    fightRunning: true, model, candidates: ['A'], muted: false, emittersLive: true,
+    exposureWindow: false, damageBoss() {}, flashPart() {}, tier: 2, cap: 3,
+    deflected: false, phaseHp: 100, paintUnlocked: false, paintables: ['A'],
+    amberVenting: () => false, fireLance() {}, focusHeld: focus,
+  });
+  const IN = { position: { x: 0, y: 0 } }, OFF = { position: { x: 20, y: 0 } };
+  const savedFrac = L.relockWarmFrac;
+  // Establish a held lock (arms the per-organ warm latch), weave OFF past `linger`
+  // to release, then weave back ONE frame — the warm re-grab acquisition frame.
+  const warmRegrab = (focus, frac) => {
+    L.relockWarmFrac = frac;
+    lock.initLockLayer();
+    for (let f = 0; f < 20; f++) lock.updateLockLayer(0.03, IN, mkCtx(focus));   // hold → lock (arms reLock)
+    for (let f = 0; f < 30; f++) lock.updateLockLayer(0.03, OFF, mkCtx(focus));  // fly off → releaseAim (0.9s < relockMemoryS)
+    lock.updateLockLayer(0.03, IN, mkCtx(focus));                                // weave back: the warm re-grab
+    const h = lock.lockHudState();
+    return { dwell: h.dwell, relock: h.relock, held: lock.lockAimHeld() };
+  };
+  const warmNo = warmRegrab(false, 0.4);
+  const warmFoc = warmRegrab(true, 0.4);
+  assert(warmNo.relock === true && warmFoc.relock === true, 'T-F2: the re-grab is a WARM re-acquire (per-organ latch)');
+  assert(Math.abs(warmNo.dwell - 0.4) < 0.06, `T-F2: un-focused warm seeds ~40% of need (${warmNo.dwell.toFixed(3)})`);
+  // THE FIX: focused warm also seeds ~40% (not the old 80% snap).
+  assert(Math.abs(warmFoc.dwell - 0.4) < 0.06, `T-F2: FOCUSED warm seeds ~40% of need too, not 80% (${warmFoc.dwell.toFixed(3)})`);
+  assert(warmNo.held === false && warmFoc.held === false, 'T-F2: a warm re-grab never same-frame locks at frac 0.4');
+  // Cliff guard: even at the top of the sane range, seed = need×frac < need → no instant lock.
+  const cliff = warmRegrab(true, 0.99);
+  assert(cliff.held === false, `T-F2: no same-frame lock even at frac 0.99 focused (dwell ${cliff.dwell.toFixed(3)})`);
+  L.relockWarmFrac = savedFrac;
+  ok('T-F2 warm re-lock seed is focus-aware: ~40% fill in every state, no same-frame cliff');
+}
+
 // --- T-E1 — perfect release: a MANUAL loose on the beat (PR5) ------------------
 {
   const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 10, y: 0, z: 0 } };
