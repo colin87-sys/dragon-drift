@@ -108,6 +108,11 @@ ok('per-boss pure-lance clear volleys + TTK estimate sit in the sane band');
 const knell = economies.find((e) => e.id === 'knellgrave');
 assert(knell && knell.burnFrac > 0, `KNELLGRAVE carries a SCAR-BURN frac (got ${knell?.burnFrac})`);
 assert(knell.phases.some((p) => p.burn > 0), 'KNELLGRAVE phases actually earn a burn on a full on-tell release');
+// The not-a-phase-deleter check must NOT pass vacuously: card timers must actually
+// resolve (§CP2 BLOCKER-1 — a `titleCards` typo silently nulled every timer, so the
+// check below never evaluated a real number).
+assert(knell.phases.every((p) => p.cardTimer != null),
+  `KNELLGRAVE card timers resolve for the not-a-phase-deleter check (got ${knell.phases.map((p) => p.cardTimer).join('/')})`);
 assert(knell.phases.every((p) => !p.phaseDeletable),
   `KNELLGRAVE is never a phase-deleter (TTKs ${knell.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${knell.phases.map((p) => p.cardTimer).join('/')})`);
 // Tiers 1-3 (and un-keyed bosses) carry NO burn — the mid-game is byte-identical.

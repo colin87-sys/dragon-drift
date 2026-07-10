@@ -1761,7 +1761,7 @@ export function inBossRush() { return rushMode; }
 function endEncounter(player) {
   clearSetpiece();
   clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
-  burns.length = 0;           // SCAR-BURN never outlives the fight (§CP1 B-2)
+  burns.length = 0; lastRealTollAt = -10;   // SCAR-BURN + toll clock never outlive the fight (§CP1 B-2 / §CP2 NIT-8)
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
@@ -2305,6 +2305,9 @@ export function updateBoss(dt, player, time, camera) {
       // music DIES ON the warn-end toll and stays dead for the whole fight (skip
       // must NOT restore it; the defeat fanfare / resetBoss bring it back). From
       // here the accelerating toll is the only clock — silence as dread.
+      // NB this warn-end toll deliberately does NOT set lastRealTollAt (§CP2 NIT-10): it
+      // fires before the fight loop runs a lock ctx, so it can't (and shouldn't) open a
+      // resonant window — only the in-fight attack tolls (boss.js §musicDies block) feed it.
       if (def.musicDies) { musicKill(); bellToll(1); model?.tollNow?.(time); }
       // §5j: a def opts into a scripted pre-fight cinematic via `def.entrance` (an
       // ENTRANCE_SCRIPTS id); the legacy `cinematicEntrance` flag maps to ASHTALON's
@@ -4600,7 +4603,7 @@ on('lockVolley', (p) => {
   const frac = sb && (def?.tier ?? 1) >= sb.minTier ? (sb.fracBySlot?.[def.id] ?? 0) : 0;
   if (p && p.perfect && frac > 0 && p.count >= sb.burnFloor && p.dmgEach > 0 && !labPacifist) {
     const total = frac * p.count * p.dmgEach;
-    const interval = 0.3;
+    const interval = sb.tickInterval ?? 0.3;
     const nTicks = Math.max(1, Math.round(sb.dur / interval));
     burns.push({ tick: total / nTicks, ticksLeft: nTicks, interval, tAcc: 0 });
     emit('lockBurn', { total, dur: sb.dur, count: p.count });
@@ -4620,7 +4623,10 @@ function updateBurns(dt) {
   for (let i = burns.length - 1; i >= 0; i--) {
     const b = burns[i];
     b.tAcc += dt;
-    while (b.tAcc >= b.interval && b.ticksLeft > 0) {
+    // Re-check lockDeflected() PER TICK (§CP2 SHOULD-FIX-6): a burn tick can push hp to
+    // the phase floor and raise the shield mid-frame — sibling ticks must then stop, not
+    // ping the freshly-raised shield (the seal would eat + lose them, spamming shieldPing).
+    while (b.tAcc >= b.interval && b.ticksLeft > 0 && !lockDeflected()) {
       b.tAcc -= b.interval;
       b.ticksLeft--;
       damageBoss(b.tick, 'lockburn');   // no `e` → no crack accounting, no meters

@@ -30,7 +30,13 @@ check(`fighting knellgrave (got ${id})`, id === 'knellgrave');
 // ceiling; laneMinY 2.5 the floor. Keep a safety margin under 22 for the sweepK
 // component this headless drive can't fully force.
 const LANE_MAX_Y = 22, LANE_MIN_Y = 2.5, WOUND_CEIL = 21.5;
-await page.evaluate(() => window.__dd.bossPinCharge(1));   // force the high-amplitude (dread) swing
+// Drive the WORST-CASE amplitude: pinned charge (0.16) + the P4 pendulumSweep setpiece
+// (sweepK 0.30) — the swing turnarounds are the design's fair-acquisition windows AND
+// the amplitude peak, and they live in a phase where the lance is fully live (§CP2
+// SHOULD-FIX-2: a charge-only drive missed the sweep component that lifts organs toward
+// the ceiling).
+await page.evaluate(() => { window.__dd.bossPinCharge(1); window.__dd.bossRunSetpiece('pendulumSweep'); });
+await page.waitForTimeout(600);
 const samples = [];
 for (let i = 0; i < 40; i++) {   // 40 × 220ms ≈ 8.8s > one 7.4s swing period
   samples.push(await page.evaluate(() => ({

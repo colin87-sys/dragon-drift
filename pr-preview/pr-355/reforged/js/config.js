@@ -358,15 +358,16 @@ export const CONFIG = {
     // scheduled DOT ticks. The cap AUTO-release NEVER burns (the safe fallback); a
     // non-tell tap is today's plain volley. Homed in boss.js (a `burns[]` list off the
     // lockVolley event) — NOT lockLayer (that module owns no game state); ticks pause
-    // while deflected and CANCEL on shield-raise / phase-transition / teardown. Kind
-    // 'lockburn' accrues NO part-crack hits and charges NO meters. Byte-inert below
-    // minTier and when frac is 0/absent (tiers 1-3 unchanged). `fracBySlot` ramps by
-    // boss (gentle openers; the finale is retuned to ~1/3, §8D). echoDmgMult is the
-    // ONEWING spectral-echo dial (later PR), parked here with the family.
+    // while deflected and CANCEL on phase-transition (the shield-BREAK at breakShield)
+    // + fight teardown. Kind 'lockburn' accrues NO part-crack hits and charges NO
+    // meters. Byte-inert below minTier and when frac is 0/absent (tiers 1-3 unchanged).
+    // `fracBySlot` ramps by boss (gentle openers; the finale is retuned to ~1/3, §8D).
+    // echoDmgMult is the ONEWING spectral-echo dial (later PR), parked with the family.
     scarBurn: {
       minTier: 4,           // LAW — tiers 1-3 byte-identical (no burn)
       burnFloor: 3,         // LAW — min painted pips in the release to earn a burn
       dur: 3.0,             // TUNE(2.0-4.0) — burn lifetime (seconds)
+      tickInterval: 0.3,    // TUNE(0.2-0.5) — seconds between burn DOT ticks
       echoDmgMult: 0.5,     // ONEWING spectral echo-pip damage (later PR; unused here)
       fracBySlot: {         // per-boss burn fraction of the (already ROI-clamped) volley
         knellgrave: 0.25,   // WE opener — gentle
