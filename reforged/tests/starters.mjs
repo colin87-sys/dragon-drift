@@ -327,7 +327,7 @@ if (!cp1) {
 // quills keep ≥ 1 quill-width of negative space, the ±8° cant balances to Σ≈0 (a mirrored pair), and
 // the vane diffuse stays dark (the emissive carries the fire) — the §2/§3d/§4 contract, in numbers.
 if (!cp1) {
-  const { trainFanLayout } = await import('../js/dragonPhoenixEmpress.js');
+  const { mantleLayout } = await import('../js/dragonPhoenixEmpress.js');
   const key = 'phoenixEmpress';
   const maxT = maxTierFor(key);
   ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
@@ -383,29 +383,40 @@ if (!cp1) {
   const hs = per.map((p) => p.m.headScale);
   ok(hs[0] > hs[1] && hs[1] > hs[2] && hs[2] >= hs[3], `${key}: headScale monotonic (chick→empress)`);
 
-  // ── the PYRE-TRAIN not-a-ring guarantees (per form) ──
-  for (let f = 1; f <= maxT; f++) {   // f0 has 2 stub nubs — the fan asserts start where the fan does
-    const lay = trainFanLayout(per[f].m);
-    ok(lay.fanDeg <= 135, `${key} f${f}: fan sector ${lay.fanDeg}° ≤ 135° (filled wedge, not a 150° spray)`);
-    ok(lay.nQuills <= 5, `${key} f${f}: ≤5 broad PANELS (${lay.nQuills}) — not a spray of thin wires`);
-    // COHESION (anti-feather-duster): the panels are webbed by a pleated membrane so the drape reads
-    // as ONE shaped train, never separated spokes. The OLD "mandatory negative space" assert enforced
-    // the duster and is retired — negative space now lives at the HEM (between fingertips), not the gaps.
-    ok(lay.fillRatio >= 0.95, `${key} f${f}: panels webbed into a cohesive drape (fill ${lay.fillRatio.toFixed(2)} ≥ 0.95)`);
-    // ±cant balances to Σ≈0 (mirrored L/R pair — reads balanced like a wing pair).
-    const cantSum = lay.quills.reduce((a, q) => a + q.cant, 0);
-    ok(Math.abs(cantSum) < 1e-9, `${key} f${f}: tail-quill cant balances Σ≈0 (${cantSum.toExponential(1)})`);
-    // COMET hierarchy (baked-in directional flow, not a symmetric pom-pom): a deep center plume + a
-    // short wide hem → a strong length spread (Δ ≥ 0.35·max), so head-on it gathers into a train.
-    const lens = lay.quills.map((q) => q.lenScale);
-    const lo = Math.min(...lens), hi = Math.max(...lens);
-    ok(hi - lo >= 0.30 * hi, `${key} f${f}: comet hierarchy — deep center vs short hem (Δ${(hi - lo).toFixed(2)} ≥ ${(0.30 * hi).toFixed(2)})`);
-    // THE anti-drag-plate law: every quill rakes AFT (α ≤ 60°; the failed frontal disk was α≈90°),
-    // AND the raked cone still projects a WIDE burst to the rear cam (length·sinα·sinφ spans the frame).
-    const maxAlpha = Math.max(...lay.quills.map((q) => (q.alpha ?? Math.PI / 2) * 180 / Math.PI));
-    ok(maxAlpha <= 60.001, `${key} f${f}: every quill rakes aft, α≤60° (max ${maxAlpha.toFixed(1)}° — not a drag-plate)`);
-    const projHalf = Math.max(...lay.quills.map((q) => Math.abs(q.lenScale * Math.sin(q.alpha ?? Math.PI / 2) * Math.sin(q.phi))));
-    ok(projHalf > 0.50, `${key} f${f}: raked cone still projects a WIDE rear burst (half-width ${projHalf.toFixed(2)} > 0.50)`);
+  // ── THE RISEN DAWN — visibility guarantees (the signature must NOT occlude the playfield) ──
+  // MANTLE ENVELOPE (sky-zone containment): the sunrise fan rises UP, never down, and can never
+  // close into a ring or drift into Solar's corona register.
+  for (let f = 2; f <= maxT; f++) {   // mantle arrives at f1; assert from f2 where it's substantial
+    const lay = mantleLayout(per[f].m);
+    ok(lay.sectorDeg < 130, `${key} f${f}: mantle sector ${lay.sectorDeg}° < 130° (open fan, never a ring)`);
+    ok(lay.elevMinDeg >= 15, `${key} f${f}: every mantle ray rises ≥15° above horizontal (${lay.elevMinDeg.toFixed(0)}° — nothing points down)`);
+    ok(lay.nRays <= 7, `${key} f${f}: ≤7 discrete rays (${lay.nRays}) with sky between (not a solid sheet)`);
+    const cantSum = lay.rays.reduce((a, q) => a + q.cant, 0);
+    ok(Math.abs(cantSum) < 1e-9, `${key} f${f}: mantle cant balances Σ≈0 (${cantSum.toExponential(1)})`);
+  }
+  // THE LOWER-FRAME CLEARANCE LAW — the never-regress anti-occlusion guardrail. The chase cam
+  // projects the corridor { y < bodyMid, z > hip } onto the lower-centre playfield; NO large mass
+  // may live there. The old train failed this at |x|>1.3 and area~5; the wake is bright points only.
+  {
+    const g = buildDragonModel(per[3].def, {}).group; g.updateMatrixWorld(true);
+    const P = new THREE.Vector3(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+    let maxAbsX = 0, corridorArea = 0;
+    g.traverse((o) => {
+      if (!(o.isMesh && o.geometry?.attributes?.position)) return;
+      const pos = o.geometry.attributes.position, idx = o.geometry.index;
+      const nTri = idx ? idx.count / 3 : pos.count / 3;
+      for (let t = 0; t < nTri; t++) {
+        const ia = idx ? idx.getX(t * 3) : t * 3, ib = idx ? idx.getX(t * 3 + 1) : t * 3 + 1, ic = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
+        A.fromBufferAttribute(pos, ia).applyMatrix4(o.matrixWorld); B.fromBufferAttribute(pos, ib).applyMatrix4(o.matrixWorld); C.fromBufferAttribute(pos, ic).applyMatrix4(o.matrixWorld);
+        // corridor = below the spine line AND aft of the hip (the lower-centre play zone)
+        const inCorr = (p) => p.y < 0.30 && p.z > 0.85;
+        if (!(inCorr(A) || inCorr(B) || inCorr(C))) continue;
+        maxAbsX = Math.max(maxAbsX, Math.abs(A.x), Math.abs(B.x), Math.abs(C.x));
+        corridorArea += P.copy(B).sub(A).cross(C.clone().sub(A)).length() * 0.5;
+      }
+    });
+    ok(maxAbsX <= 0.6, `${key}: lower-frame corridor stays narrow (max|x| ${maxAbsX.toFixed(2)} ≤ 0.6 — no wide mass over the playfield)`);
+    ok(corridorArea <= 1.3, `${key}: lower-frame corridor near-empty (area ${corridorArea.toFixed(2)} ≤ 1.3 — no cloth blocking the view)`);
   }
   // vane diffuse held dark (L ≤ 0.22 — the emissive carries the fire, not a toy-bright sheet).
   const { materials } = buildDragonModel(per[3].def, {});

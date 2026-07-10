@@ -723,328 +723,131 @@ registerHead('cometCrestHead', buildCometCrestHead);
 // asserts (sector < 180°, quill gap ≥ 1 quill-width, cant-balance Σ≈0) read the SAME
 // numbers the geometry is built from. Returns per-quill { phi, cant, len, mirror } in a
 // downward-and-outward sector, built as mirrored pairs so cant-balance is Σ=0 by design.
-export function trainFanLayout(model) {
-  const nRaw = Math.max(1, Math.round(model.trainQuills ?? 5));
-  const fanDeg = Math.min(model.trainFan ?? 132, 135);       // PROJECTED sector (filled, not sprayed)
-  const half = (fanDeg / 2) * Math.PI / 180;
-  const odd = nRaw % 2 === 1;
-  const pairs = Math.floor(nRaw / 2);
-  // THE GATHERED COURT-TRAIN — a RAKED, PLEATED half-cone drape (not a spray of wires). Still aft-raked
-  // (α ≤ 60° = the anti-drag-plate law), but the rake ladder is INVERTED: the CENTER plume rakes deepest
-  // (α small → longest, deepest-trailing comet point) and the EDGES splay WIDE + short (the hem). Head-on
-  // this gathers into a pointed, down-swept comet-train instead of a symmetric radial feather-duster.
-  // Projection budget preserved: length = projAt(f)/sin(α) keeps the rear burst wide.
-  const rakeTighten = model.rakeTighten ?? 0;                        // 0 = glide (blossom) → 1 = boost (furl to a spear)
-  const alphaAt = (f) => ((38 + 20 * f) * (1 - 0.5 * rakeTighten)) * Math.PI / 180;   // 38° center → 58° hem (≤60 law, margin)
-  const projAt = (f) => 0.61 + 0.44 * Math.pow(Math.cos(f * Math.PI / 2), 1.3) + 0.10 * Math.exp(-Math.pow((f - 0.55) / 0.22, 2));  // comet: ~1.05 center → 0.61 hem
-  const mk = (f, sgn, p) => {
-    const alpha = alphaAt(f), proj = projAt(f);
-    return { phi: sgn * half * f, cant: sgn * (p % 2 === 1 ? 1 : -1) * (5 * Math.PI / 180),
-      alpha, proj, lenScale: proj / Math.max(0.2, Math.sin(alpha)), curlOut: (p === pairs) ? 1 : 0, mirror: sgn, fFrac: f };
-  };
-  const quills = [];
-  if (odd) quills.push({ phi: 0, cant: 0, alpha: alphaAt(0), proj: projAt(0), lenScale: projAt(0) / Math.sin(alphaAt(0)), curlOut: 0, mirror: 0, fFrac: 0 });
-  for (let p = 1; p <= pairs; p++) {
-    const f = odd ? p / pairs : (p - 0.5) / pairs;                  // sector fraction (0 center → 1 hem)
-    quills.push(mk(f, +1, p));
-    quills.push(mk(f, -1, p));
-  }
-  quills.sort((a, b) => a.phi - b.phi);                              // sort by azimuth → adjacency for the pleats
-  const pitchRad = pairs > 0 ? half / pairs : half;
-  // fillRatio: how much of each pitch the vane+membrane covers (≥1 = pleated/webbed, no bare gaps).
-  // The membrane gores extend to 56% toward each neighbour → ~1.12 coverage when present.
-  const fillRatio = (nRaw >= 3 && (model.membrane ?? 1) > 0) ? 1.12 : 0.5;
-  return { quills, fanDeg, minGapRad: pitchRad, pitchRad, membraneT: [0.12, 0.60], fillRatio, nQuills: quills.length };
-}
+// ── THE RISEN DAWN ──────────────────────────────────────────────────────────────
+// She no longer DRAGS the dawn behind her (a big dark cloth over the playfield in the
+// rear-chase cam — a visibility failure). She has RISEN: the fan grammar flips UP to a
+// SUNRISE MANTLE over the shoulders (in the empty SKY zone, above the spine line, where
+// no course info lives), and she sheds her ashes as a sparse WAKE of discrete luminous
+// ember-gems. The signature keeps the lower-centre PLAYFIELD clear — enforced by the
+// Lower-Frame Clearance asserts in tests/starters.mjs. See BUILDSHEET (visibility law).
 
-// T1 — the INNER UNDER-RANK: a second, shorter arc of downy quills nested a half-step between
-// the main rank (f3 only, via model.underQuills), so the fan reads as layered feather-MASS and
-// the coal constellation doubles into two nested arcs. Same mirrored-pair construction → Σcant=0.
-export function trainUnderLayout(model) {
-  const n = Math.max(0, Math.round(model.underQuills ?? 0));
-  const fanDeg = Math.min(model.trainFan ?? 150, 175);
-  const half = (fanDeg / 2) * Math.PI / 180;
+// The mantle ray layout — SHARED with tests/starters.mjs (mantle-envelope asserts read the
+// same numbers). Rays fan in an UPWARD sector (<130° so it can never close into a ring),
+// mirrored pairs → Σcant=0. Each ray is SHORT (≤0.55×body) and points up, never down.
+export function mantleLayout(model) {
+  const n = Math.max(0, Math.round(model.mantleRays ?? 7));
+  const sectorDeg = Math.min(model.mantleSector ?? 125, 129);   // hard < 130° (never a ring)
+  const half = (sectorDeg / 2) * Math.PI / 180;
+  const odd = n % 2 === 1;
   const pairs = Math.floor(n / 2);
-  const quills = [];
-  const tighten = model.rakeTighten ?? 0;
+  const lenAt = (f) => 0.86 + 0.14 * Math.cos(f * Math.PI / 2);   // center ray a touch taller
+  const rays = [];
+  if (n > 0 && odd) rays.push({ phi: 0, cant: 0, lenScale: lenAt(0), mirror: 0, fFrac: 0 });
   for (let p = 1; p <= pairs; p++) {
-    const f = p / pairs;
-    const phi = half * ((p - 0.5) / (pairs + 0.4));           // half-step, tucked inside the main sector
-    const cant = (p % 2 === 1 ? 1 : -1) * (6 * Math.PI / 180);
-    const alpha = ((50 - 22 * f) * (1 - 0.5 * tighten)) * Math.PI / 180;   // raked aft (nests a half-step forward of the main cone)
-    const proj = 0.72 + 0.22 * Math.cos(f * Math.PI / 2);
-    const lenScale = proj / Math.max(0.2, Math.sin(alpha));
-    quills.push({ phi: +phi, cant: +cant, alpha, proj, lenScale, curlOut: 0, mirror: +1 });
-    quills.push({ phi: -phi, cant: -cant, alpha, proj, lenScale, curlOut: 0, mirror: -1 });   // mirror → Σ cant = 0
+    const f = odd ? p / pairs : (p - 0.5) / pairs;
+    const phi = half * f, cant = (p % 2 === 1 ? 1 : -1) * (5 * Math.PI / 180);
+    rays.push({ phi: +phi, cant: +cant, lenScale: lenAt(f), mirror: +1, fFrac: f });
+    rays.push({ phi: -phi, cant: -cant, lenScale: lenAt(f), mirror: -1, fFrac: f });
   }
-  return { quills, nQuills: quills.length };
+  return { rays, sectorDeg, elevMinDeg: 90 - sectorDeg / 2, nRays: rays.length };
 }
 
-// ── TAIL: 'pyreTrainTail' — THE HERO ─────────────────────────────────────────────
-// Short structural tail root → the TRAIN: 2/4/6/9 quills fanned in a downward-aft sector
-// (≤150°, hard <180°). Each quill = a copper shaft + a teardrop vane (crimson→amber edge
-// gradient) + a faceted coal-eye at the tip (the gem-cluster ARC — the dark-body-bright-rim
-// technique spent on a constellation, never a ring). Camera-facing: vanes pitch up toward
-// the chase lens, alternating ±8° L/R cant. `trainLift` raises the whole fan's rest pitch.
-function buildPyreTrainTail(def, model, mats, anchor) {
+// The Heart of Rebirth — now a compact NAPE BROOCH pinning the mantle (was a fan-hub monument):
+// dark ash crust plates over an ember shell (torch-proof), gold collar + prongs, the Dawn Coal
+// (the ONE near-white) reborn in the vent, f3-only. Built at the mantle hub.
+function buildHeartBrooch(model, M) {
+  const heart = new THREE.Group();
+  const hs = 0.34 * (model.heartScale ?? 1);
+  heart.add(new THREE.Mesh(new THREE.IcosahedronGeometry(hs * 0.9, 0), M.keelSeam));   // ember shell
+  const icoG = new THREE.IcosahedronGeometry(hs, 0);
+  const ico = icoG.index ? icoG.toNonIndexed() : icoG;
+  const p = ico.attributes.position; let vent = null;
+  for (let f = 0; f < p.count / 3; f++) {
+    const i = f * 3;
+    const A = [p.getX(i), p.getY(i), p.getZ(i)], B = [p.getX(i + 1), p.getY(i + 1), p.getZ(i + 1)], C = [p.getX(i + 2), p.getY(i + 2), p.getZ(i + 2)];
+    const cen = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3, (A[2] + B[2] + C[2]) / 3];
+    if (cen[1] < -hs * 0.4 && cen[2] > 0) { vent = cen; continue; }   // omit → vent, faces down-aft toward the cam
+    const push = 1.05, sc = (v) => [(cen[0] + (v[0] - cen[0]) * 0.82) * push, (cen[1] + (v[1] - cen[1]) * 0.82) * push, (cen[2] + (v[2] - cen[2]) * 0.82) * push];
+    heart.add(flatTriMesh([[sc(A), sc(B), sc(C)]], M.covert));
+  }
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(hs * 1.02, hs * 1.02, hs * 0.34, 8, 1, true), M.goldHi);
+  collar.rotation.x = Math.PI / 2; heart.add(collar);
+  for (let k = 0; k < 4; k++) { const ang = (k / 4) * Math.PI * 2 + 0.4; heart.add(bar([Math.cos(ang) * hs * 0.9, Math.sin(ang) * hs * 0.9, hs * 0.2], [Math.cos(ang) * hs * 1.05, Math.sin(ang) * hs * 1.05, -hs * 0.2], 0.026, M.gold)); }
+  if ((model.dawnCoal ?? 0) > 0) {
+    const vc = vent || [0, -hs * 0.7, hs * 0.5], vl = Math.hypot(vc[0], vc[1], vc[2]) || 1, vp = [vc[0] / vl * hs * 0.55, vc[1] / vl * hs * 0.55, vc[2] / vl * hs * 0.55];
+    const collet = new THREE.Mesh(new THREE.OctahedronGeometry(0.055 * (model.heartScale ?? 1), 0), M.goldHi); collet.position.set(...vp); heart.add(collet);
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.038 * (model.heartScale ?? 1), 0), M.dawnCoal); core.position.set(vp[0], vp[1], vp[2] + 0.03); heart.add(core);
+  }
+  return heart;
+}
+
+// TAIL builder — the EMBER WAKE (a slim garnet whip shedding luminous ember-sparks aft) + the
+// DAWN MANTLE (the sunrise fan rising off the nape) + the Heart brooch. Returns the trainFan rig
+// contract unchanged { fanG, quills, baseLiftX, heart } so the existing animators drive the mantle.
+function buildRisenTail(def, model, mats, anchor) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
   const M = empressMats(def, glow, model.igniteStage);
-  const a = anchor ?? { y: 0.16, z: 1.00 };
+  const bodyLen = 2.36;
 
-  // Short structural tail root (a small nested chain so the idle coil sways the whole
-  // train gently). Rotation-only bone → a connected loft never tears.
-  const rootLen = 0.6, nRoot = 2;
+  // ── EMBER WAKE: a slim whip trailing aft + UP (rising embers, out of the low playfield
+  //    corridor), shedding discrete bright ember-gems. NO dark vane sheet — near-zero footprint.
+  const a = anchor ?? { y: 0.16, z: 1.00 };
+  const rootLen = 1.5, nRoot = 3;
   const segs = [];
   let parent = group, prevZ = 0;
   for (let s = 0; s < nRoot; s++) {
     const z0 = a.z + (s / nRoot) * rootLen, z1 = a.z + ((s + 1) / nRoot) * rootLen;
     const sg = new THREE.Group();
     sg.position.set(0, s === 0 ? a.y : 0, z0 - prevZ);
+    sg.rotation.x = -0.30;   // each seg lifts → the whip curves UP aft (rising, clears the water zone)
     parent.add(sg);
-    const rings = [
-      { z: 0, rx: 0.12 * (1 - s * 0.3), ry: 0.12 * (1 - s * 0.3), cy: 0 },
-      { z: z1 - z0, rx: 0.09 * (1 - s * 0.3), ry: 0.09 * (1 - s * 0.3), cy: 0 },
-    ];
-    sg.add(loftRings(rings, M.bodyFlat, seg(6), false));
+    const r0 = 0.085 * (1 - s * 0.32), r1 = Math.max(0.02, 0.085 * (1 - (s + 1) * 0.32));
+    sg.add(loftRings([{ z: 0, rx: r0, ry: r0, cy: 0 }, { z: z1 - z0, rx: r1, ry: r1, cy: 0 }], M.bodyFlat, seg(6), false));
     segs.push(sg); parent = sg; prevZ = z0;
   }
-  segs[0].isBone = true;   // idle coil bends the train (never tears it)
+  segs[0].isBone = true;   // idle coil sways the whip
+  // plume-lick tip (3 short ember feathers) on the last seg
+  const tipG = new THREE.Group(); tipG.position.set(0, 0, rootLen / nRoot); segs[segs.length - 1].add(tipG);
+  for (let j = -1; j <= 1; j++) tipG.add(flatTriMesh([[[j * 0.05, 0, 0], [j * 0.14, 0.05 + 0.03 * Math.abs(j), 0.32], [j * 0.02, -0.03, 0.14]]], M.vaneEdgeHi));
+  // shed ember-gems along the whip (bright luminous points — sparks, not a sheet). Rise aft.
+  const nEmber = Math.max(0, Math.round(model.wakeEmbers ?? 5));
+  const emberTs = [0.22, 0.42, 0.62, 0.80, 0.95];
+  if ((model.coalBloom ?? 1) > 0) for (let i = 0; i < nEmber; i++) {
+    const t = emberTs[i], z = a.z + t * rootLen, y = a.y + 0.42 * t, r = 0.10 - 0.045 * t;
+    const bz = new THREE.Mesh(new THREE.OctahedronGeometry(r * 1.32, 0), M.coalBezel); bz.position.set(0, y, z); group.add(bz);
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(r, 0), M.coalEye); gem.position.set(0, y + 0.02, z); gem.scale.set(1, 1.25, 1); group.add(gem);
+  }
 
-  // The TRAIN fan hangs off the last root segment. trainLift raises the whole fan's rest
-  // pitch (drooping ember-tail at f0 → proud lifted display at f3) — the ASCENDING read
-  // without tilting the body.
-  const fanG = new THREE.Group();
-  const lift = model.trainLift ?? 1;
-  fanG.position.set(0, 0.02, rootLen / nRoot);
-  fanG.rotation.x = -0.10 + 0.18 * lift;   // near-LEVEL now — the aft-down streaming lives in each quill's RAKE, not in tilting the whole plate (lift is a small nod)
-  segs[segs.length - 1].add(fanG);
-  const mainQuills = [];   // exposed to the animator so the fan FLEXES (furl-breath + ripple), not a rigid lump
-
-  const layout = trainFanLayout(model);
-  const bodyLen = 2.36;                       // ~torso long-axis (for the ≈1.1× cap)
-  const maxLen = Math.min(1.1 * bodyLen, (model.trainQuills ?? 5) >= 3 ? 1.1 * bodyLen : 0.7 * bodyLen);
-  const coalOn = (model.coalBloom ?? 1) > 0;
-  const spec = model.spectacle || spectacleMode();   // per-skin dial ('heart'/'veils'/'both'); URL fallback
-  const heartActive = (spec === 'heart' || spec === 'both') && (model.heartScale ?? 0) > 0;
-  const veilsActive = (spec === 'veils' || spec === 'both') && (model.veils ?? 0) > 0;
-  // Dawn Coal (the ONE near-white) RELOCATES to the Heart's core when the Heart is active — so
-  // it's still exactly one near-white, now the newborn heart instead of the center-quill tip.
-  const dawnOn = (model.dawnCoal ?? 0) > 0 && !heartActive;
-  const vaneEyes = (model.vaneEyes ?? 0) > 0; // the peacock-eye motif ignites at f2
-  const accentMats = [M.vaneEdgeLo, M.vaneEdgeHi, M.vaneEye, M.keelSeam];  // + keelSeam so the Heart's molten seams flare on Rebirth
-
-  // One quill: copper shaft + a broad teardrop vane (dark blade, flat readable RIBBON rims in a
-  // crimson→amber gradient, an optional peacock-eye inset) + a coal-eye gem at the tip. `big` =
-  // the main rank; the under-rank is smaller/dimmer with no eye. Camera-facing pitch + ±cant.
-  const addQuill = (q, len) => {
-    // A broad PANEL (not a wire) raked aft. rotation.z=phi rolls around the flight axis; the inner
-    // RAKE pitches it aft by (90°−α). Wide creased vane + thin interior shaft (gold only on the
-    // center + hem panels) so the GOLD stops being the silhouette — the dark drape is.
-    const alpha = q.alpha ?? (48 * Math.PI / 180);
-    const quill = new THREE.Group();
-    quill.rotation.z = q.phi;
-    fanG.add(quill);
-    const rake = new THREE.Group();
-    rake.rotation.x = -(Math.PI / 2 - alpha);
-    rake.rotation.z = q.cant * 0.6;
-    quill.add(rake);
-    const isHero = (q.phi === 0 || q.curlOut);   // center plume + hem panels keep the gold rachis
-    const rec = { g: quill, rake, phi: q.phi, alpha, len, proj: q.proj, restRakeX: rake.rotation.x };
-    mainQuills.push(rec);
-    const wMax = 0.30 + 0.30 * q.proj;           // ~2.2× broader panels (they OVERLAP with the pleats)
-    const yBase = -len * 0.05, ySh = -len * 0.45, yTip = -len * 0.96;
-    const wBase = wMax * 0.42;
-    const cx = q.curlOut ? Math.sign(q.mirror || 1) * 0.12 * len : 0;   // hem panels splay out
-    const cz = q.curlOut ? 0.10 * len : 0.03 * len;                     // tip recurve (flame-lick)
-    rake.add(bar([0, 0, 0], [cx * 0.35, -0.40 * len, cz * 0.35], isHero ? 0.026 : 0.013, isHero ? M.goldHi : M.copper));  // rachis, short (40%)
-    const b0 = [-wBase, yBase, 0], b1 = [wBase, yBase, 0];
-    const s0 = [-wMax, ySh, 0.01 * len], s1 = [wMax, ySh, 0.01 * len];
-    const tipP = [cx, yTip, cz];
-    // pleated PANEL with a raised spine crease (two flat-shade values per panel = free relief)
-    const c0 = [0, yBase, 0.04 * len], c1 = [0, ySh, 0.06 * len];
-    rake.add(flatTriMesh([[b0, c0, c1], [b0, c1, s0], [s0, c1, tipP]], M.vaneDark));   // left half
-    rake.add(flatTriMesh([[c0, b1, c1], [c1, b1, s1], [c1, s1, tipP]], M.vaneDark));   // right half
-    if (vaneEyes) {   // peacock EYE inset (~55% down the panel)
-      const ey = -len * 0.55, ew = wMax * 0.3;
-      rake.add(flatTriMesh([[[-ew, ey, 0.05], [0, ey - ew * 1.3, 0.06], [ew, ey, 0.05]], [[-ew, ey, 0.05], [ew, ey, 0.05], [0, ey + ew * 1.3, 0.06]]], M.vaneEye));
-    }
-    // coal-eye gem at the finger tip — gold-set
+  // ── DAWN MANTLE: the sunrise fan RISING off the nape, leaned aft over the shoulders into the
+  //    SKY zone (above the spine line). Discrete gold-rachis rays with lit vanes + coal-eye tips.
+  const mantleG = new THREE.Group();
+  mantleG.position.set(0, TORSO_Y + 0.42, -0.55);
+  mantleG.rotation.x = 0.6;   // lean the fan aft — up-and-back, facing the behind+above chase cam
+  group.add(mantleG);
+  const rayRecs = [];
+  const mlen = 0.55 * bodyLen;
+  const coalOn = (model.coalBloom ?? 1) > 0, vaneEyes = (model.vaneEyes ?? 0) > 0;
+  for (const q of mantleLayout(model).rays) {
+    const ray = new THREE.Group();
+    ray.rotation.z = q.phi;        // fan LEFT-RIGHT (rays point UP at phi=0)
+    ray.rotation.y = q.cant;
+    mantleG.add(ray);
+    const len = mlen * q.lenScale, w = 0.05 + 0.05 * q.lenScale;
+    ray.add(bar([0, 0, 0], [0, len, 0], 0.02, M.goldHi));   // gold rachis
+    ray.add(flatTriMesh([[[-w, len * 0.16, 0.01], [w, len * 0.16, 0.01], [0, len * 0.92, 0.02]]], M.vaneEdgeHi));   // lit vane (amber)
+    ray.add(flatTriMesh([[[-w * 0.7, len * 0.16, 0.0], [0, len * 0.55, 0.008], [-w * 0.2, len * 0.86, 0.008]]], M.vaneEdgeLo));   // inner ember streak
+    if (vaneEyes && Math.abs(q.phi) > 0.01) { const ey = len * 0.5; ray.add(flatTriMesh([[[-w * 0.5, ey, 0.02], [0, ey - w, 0.03], [w * 0.5, ey, 0.02]]], M.vaneEye)); }
     if (coalOn) {
-      const isDawn = q.phi === 0 && dawnOn;
-      const gemR = isDawn ? 0.12 : 0.095;
-      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.34, 0), M.coalBezel);
-      bezel.position.set(cx, yTip, cz); bezel.scale.set(1.3, 1, 0.8); rake.add(bezel);
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), isDawn ? M.dawnCoal : M.coalEye);
-      gem.position.set(cx, yTip - (isDawn ? 0.02 : 0), cz); gem.scale.set(1.3, 1, 1); rake.add(gem);
+      const bez = new THREE.Mesh(new THREE.OctahedronGeometry(0.086, 0), M.coalBezel); bez.position.set(0, len, 0); bez.scale.set(1, 1.3, 0.8); ray.add(bez);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.062, 0), M.coalEye); gem.position.set(0, len + 0.01, 0); gem.scale.set(1, 1.3, 1); ray.add(gem);
     }
-    rec.tip = tipP;
-    return rec;
-  };
-
-  // rotation helpers: a rake-local point → fanG frame and back (roll φ around Z after rake −(90−α) about X)
-  const rotX = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c]; };
-  const rotZ = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]]; };
-  const fwd = (rec, p) => rotZ(rotX(p, rec.restRakeX), rec.phi);
-  const inv = (rec, p) => rotX(rotZ(p, -rec.phi), -rec.restRakeX);
-  const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-  const scl3 = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-  // PLEATED MEMBRANE: fill each bay with two half-gores, each RIGID to one panel's rake (so animation
-  // slides pleat over pleat, never tears a hole). They overlap ~12% at the mid-seam like gathered cloth.
-  const addPleats = (recs, layout) => {
-    const [t0, t2] = layout.membraneT, t1 = (t0 + t2) / 2, ts = [t0, t1, t2];
-    for (let i = 0; i < recs.length - 1; i++) {
-      const A = recs[i], B = recs[i + 1];
-      const pA = ts.map((t) => fwd(A, [0, -t * A.len, 0])), pB = ts.map((t) => fwd(B, [0, -t * B.len, 0]));
-      const build = (own, oLen, frac) => {
-        const spine = ts.map((t) => [0, -t * oLen, 0.02 * oLen]);
-        const seamL = ts.map((_, k) => inv(own, scl3(lerp3(pA[k], pB[k], frac), 0.93)));   // 6% past mid + hub sag
-        for (let k = 0; k < ts.length - 1; k++) own.rake.add(flatTriMesh([[spine[k], seamL[k], seamL[k + 1]], [spine[k], seamL[k + 1], spine[k + 1]]], M.vaneDark));
-      };
-      build(A, A.len, 0.56); build(B, B.len, 0.44);
-    }
-  };
-  // ONE BURNING HEM: a continuous ember→amber stroke scalloping the trailing edge tip→valley→tip
-  // across the whole drape + coals seated in the valleys (the constellation, sewn to a hem).
-  const addHem = (recs, layout, M) => {
-    const tipW = recs.map((r) => fwd(r, [0, -0.94 * r.len, 0.03 * r.len]));
-    for (let i = 0; i < recs.length - 1; i++) {
-      const a = tipW[i], b = tipW[i + 1];
-      const valley = scl3(lerp3(fwd(recs[i], [0, -0.72 * recs[i].len, 0]), fwd(recs[i + 1], [0, -0.72 * recs[i + 1].len, 0]), 0.5), 0.96);
-      const mat = (i === 0 || i === recs.length - 2) ? M.vaneEdgeHi : M.vaneEdgeLo;
-      const off = (p) => [p[0], p[1], p[2] + 0.05];
-      fanG.add(flatTriMesh([[a, valley, off(valley)], [a, off(valley), off(a)], [valley, b, off(b)], [valley, off(b), off(valley)]], mat));
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.062, 0), M.coalEye);
-      gem.position.set(valley[0], valley[1], valley[2] + 0.03); gem.scale.set(1.2, 1, 0.8); fanG.add(gem);
-    }
-  };
-  const recs = layout.quills.map((q) => addQuill(q, maxLen * q.lenScale));
-  if ((model.membrane ?? 1) > 0 && recs.length >= 2) addPleats(recs, layout);
-  if ((model.coalBloom ?? 1) > 0 && recs.length >= 3) addHem(recs, layout, M);
-
-  // T3 — TAIL-ROOT COVERT SKIRT: a shingled cone of dark feathers wrapping the fan root at the
-  // hip, hiding the naked shafts-glued-to-a-cone junction that sits dead-centre of the rear frame.
-  if ((model.trainQuills ?? 5) >= 3) {
-    fanG.add(shingleRow(seg(9),
-      (u) => { const ang = (u - 0.5) * Math.PI * 1.15; return [Math.sin(ang) * 0.17, -0.03 - 0.02 * Math.cos(ang), Math.cos(ang) * 0.05 - 0.02]; },
-      (u) => { const ang = (u - 0.5) * Math.PI * 1.15; return [Math.sin(ang) * 0.55, -0.45, 0.72]; },
-      () => [0, 0.55, 0.35],
-      () => 0.30, () => 0.085, M.covert, 0.4));
+    rayRecs.push({ g: ray, rake: ray, phi: q.phi, alpha: 0, restRakeX: 0, frac: q.fFrac, len });
   }
-
-  // THE TRAIN-CLASP (conferred via model.clasp) — a large faceted GOLD brooch at the hip where
-  // the robe hangs: a teardrop cabochon + two shoulder plates + a central rose gem, dead-centre
-  // of the rear frame. Her jewelry SET-PIECE anchor — the precious-metal MASS Solar has and she
-  // lacked. Reads as gold that catches the sun on every bank.
-  if ((model.clasp ?? 0) > 0 && !heartActive) {   // the Heart absorbs the clasp into its gold collar
-    const cl = new THREE.Group();
-    cl.position.set(0, 0.0, 0.03);
-    const s = 0.20 + 0.12 * (model.clasp ?? 1);
-    cl.add(flatTriMesh([
-      [[-s * 0.62, s * 0.5, 0.05], [s * 0.62, s * 0.5, 0.05], [0, -s * 1.15, 0.02]],
-      [[-s * 0.62, s * 0.5, 0.05], [0, -s * 1.15, 0.02], [-s * 0.5, -s * 0.2, -0.04]],
-      [[s * 0.62, s * 0.5, 0.05], [s * 0.5, -s * 0.2, -0.04], [0, -s * 1.15, 0.02]],
-      [[-s * 0.62, s * 0.5, 0.05], [s * 0.62, s * 0.5, 0.05], [0, s * 0.75, -0.02]],
-    ], M.goldHi));
-    for (const sd of [1, -1]) cl.add(flatTriMesh([[[sd * s * 0.5, s * 0.4, 0], [sd * s * 0.82, -s * 0.08, -0.03], [sd * s * 0.45, -s * 0.4, 0]]], M.gold));   // shorter, drooped shoulder plates (not a horizontal rod)
-    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.08, 0), M.crestTip);
-    gem.position.set(0, s * 0.05, 0.1); gem.scale.set(1, 1.35, 0.8); cl.add(gem);
-    fanG.add(cl);
-  }
-  // ── SPECTACLE A ── THE HEART OF REBIRTH: a monument-scale FACETED MOLTEN COAL-SUN at the fan
-  // hub — the THIRD, largest rung of her coal motif (tip constellation → Dawn Coal → THE coal they
-  // were struck from). Dark ash crust plates over an ember shell, so light escapes only through the
-  // seam-moats (torch-proof by construction: the lit footprint is a thin crack-network, never a
-  // disk). Interior to the silhouette (the rays already converge here). Gated by model.heartScale.
+  // Heart of Rebirth brooch (f3) — pins the mantle at the nape hub.
   let heart = null;
-  if (heartActive) {
-    heart = new THREE.Group();
-    const hs = 0.66 * (model.heartScale ?? 1);          // crust radius (~0.55×body at f3)
-    heart.position.set(0, 0, 0.04);                     // at the hub, slightly proud so the rays root at its rim
-    // inner ember SHELL (mostly occluded — shows only through the crust seams)
-    const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(hs * 0.9, 0), M.keelSeam);
-    heart.add(shell);
-    // CRACKED CRUST — 20 dark ash plates (one per icosa face), scaled toward each face centroid so
-    // a molten seam-moat rings every plate; pushed proud. One lower-front plate omitted = the VENT.
-    const icoG = new THREE.IcosahedronGeometry(hs, 0);
-    const ico = icoG.index ? icoG.toNonIndexed() : icoG;
-    const p = ico.attributes.position;
-    const nFace = p.count / 3;
-    let ventCentroid = null;
-    for (let f = 0; f < nFace; f++) {
-      const i = f * 3;
-      const a = [p.getX(i), p.getY(i), p.getZ(i)], b = [p.getX(i + 1), p.getY(i + 1), p.getZ(i + 1)], c = [p.getX(i + 2), p.getY(i + 2), p.getZ(i + 2)];
-      const cen = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
-      // the vent = the plate whose centroid faces down-front (−y, +z toward cam)
-      if (cen[1] < -hs * 0.5 && cen[2] > 0) { ventCentroid = cen; continue; }   // omit → vent crack
-      const push = 1.05;
-      const sc = (v) => [(cen[0] + (v[0] - cen[0]) * 0.82) * push, (cen[1] + (v[1] - cen[1]) * 0.82) * push, (cen[2] + (v[2] - cen[2]) * 0.82) * push];
-      heart.add(flatTriMesh([[sc(a), sc(b), sc(c)]], M.covert));
-    }
-    // GOLD equatorial setting (the retired clasp, reborn as the coal's collar) + 4 prong claws
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(hs * 1.02, hs * 1.02, hs * 0.34, 8, 1, true), M.goldHi);
-    collar.rotation.x = Math.PI / 2; heart.add(collar);
-    for (let k = 0; k < 4; k++) { const ang = (k / 4) * Math.PI * 2 + 0.4; heart.add(bar([Math.cos(ang) * hs * 0.9, Math.sin(ang) * hs * 0.9, hs * 0.2], [Math.cos(ang) * hs * 1.05, Math.sin(ang) * hs * 1.05, -hs * 0.2], 0.03, M.gold)); }
-    // THE VENT CORE — the ONE near-white Dawn Coal, reborn deep in the vent, in a gold collet, with
-    // 3 short amber slivers licking out along the deepest cracks.
-    const vc = ventCentroid || [0, -hs * 0.7, hs * 0.5];
-    const vlen = Math.hypot(vc[0], vc[1], vc[2]) || 1;
-    const vpos = [vc[0] / vlen * hs * 0.55, vc[1] / vlen * hs * 0.55, vc[2] / vlen * hs * 0.55];
-    if ((model.dawnCoal ?? 0) > 0) {
-      const collet = new THREE.Mesh(new THREE.OctahedronGeometry(0.09 * (model.heartScale ?? 1), 0), M.goldHi);
-      collet.position.set(...vpos); heart.add(collet);
-      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.06 * (model.heartScale ?? 1), 0), M.dawnCoal);
-      core.position.set(vpos[0], vpos[1], vpos[2] + 0.04); heart.add(core);
-      for (let k = -1; k <= 1; k++) heart.add(bar(vpos, [vpos[0] + k * hs * 0.28, vpos[1] - hs * 0.22, vpos[2] + hs * 0.1], 0.016, M.vaneEdgeHi));
-    }
-    fanG.add(heart);
-  }
+  if ((model.heartScale ?? 0) > 0) { heart = buildHeartBrooch(model, M); heart.position.set(0, 0, 0.04); mantleG.add(heart); }
 
-  // ── SPECTACLE B ── THE REBIRTH COMET-VEILS: twin trailing streamers off the hip, burning ember at
-  // the root → cooling amber → dark ash, ending in a scatter of shed-ember shards. Articulated
-  // kite-diamonds on a drooping serpentine path (mirrored pair → Σcant≈0). Gated by model.veils.
-  const veilPivots = [];
-  if (veilsActive) {
-    const nSeg = Math.max(3, Math.round(model.veilSegs ?? 9));
-    const vLen = (model.veilLen ?? 2.0) * bodyLen;
-    for (const side of [1, -1]) {
-      const veil = new THREE.Group();
-      veil.position.set(side * 0.28, -0.02, 0.1);   // outboard of the hub, flanking the fan
-      fanG.add(veil); veilPivots.push({ g: veil, side });
-      let prev = [0, 0, 0];
-      for (let s = 1; s <= nSeg; s++) {
-        const t = s / nSeg;
-        const yaw = side * (0.18 + 0.5 * t);                                  // splay outward (frames the fan)
-        const wob = (0.08 + 0.18 * t) * Math.sin(3 * Math.PI * t + side);      // serpentine wave
-        const cur = [side * (0.1 + 0.9 * t) + wob, -0.08 - 0.5 * t + wob * 0.4, 0.12 + vLen * t / nSeg * s * 0.5];
-        const w = (0.34 - 0.22 * t);                                          // taper
-        const cant = (s % 2 ? 1 : -1) * side * (14 * Math.PI / 180);
-        // material gradient: root ember → mid amber → tip ash
-        const rimMat = t < 0.35 ? M.vaneEdgeLo : (t < 0.7 ? M.vaneEdgeHi : M.covert);
-        const dir = [cur[0] - prev[0], cur[1] - prev[1], cur[2] - prev[2]];
-        const dl = Math.hypot(...dir) || 1; const perp = [-dir[1] / dl * w, dir[0] / dl * w, 0];
-        const rot = [Math.cos(cant), Math.sin(cant)];
-        const pL = [prev[0] - perp[0] * rot[0], prev[1] - perp[1] * rot[0], prev[2] - perp[0] * rot[1]];
-        const pR = [prev[0] + perp[0], prev[1] + perp[1], prev[2]];
-        veil.add(flatTriMesh([[pL, pR, cur], [pL, cur, [prev[0], prev[1], prev[2] - w * 0.3]]], t < 0.7 ? M.vaneDark : M.covert));
-        veil.add(flatTriMesh([[pR, cur, [pR[0], pR[1] + 0.02, pR[2] + 0.03]]], rimMat));   // lit rim ribbon
-        if (s <= 3) veil.add(bar(prev, cur, 0.02, M.copper));                 // rooted shaft (structural part)
-        prev = cur;
-      }
-      // SHED-EMBER WAKE — a few discrete shards trailing past the tip (dark ash flakes + ember gems)
-      for (let e = 0; e < 5; e++) {
-        const tt = 1 + e * 0.14;
-        const sp = [side * (1.0 + 0.5 * tt), -0.6 - 0.45 * tt, 0.12 + vLen * tt / nSeg * nSeg * 0.5];
-        const isEmber = e % 2 === 0;
-        const shard = new THREE.Mesh(isEmber ? new THREE.OctahedronGeometry(0.06 - e * 0.006, 0) : new THREE.TetrahedronGeometry(0.07 - e * 0.006, 0), isEmber ? M.coalEye : M.covert);
-        shard.position.set(...sp); veil.add(shard);
-      }
-    }
-  }
-
-  // maxPhi → the animator normalises each quill's outward fraction (ripple deepens outward)
-  const maxPhi = mainQuills.reduce((m, q) => Math.max(m, Math.abs(q.phi)), 1e-3);
-  for (const q of mainQuills) q.frac = Math.abs(q.phi) / maxPhi;
-  return { group, segs, accentMats, trainFan: { fanG, quills: mainQuills, baseLiftX: fanG.rotation.x, heart, veils: veilPivots } };
+  return { group, segs, accentMats: [M.vaneEdgeLo, M.vaneEdgeHi, M.vaneEye, M.keelSeam], trainFan: { fanG: mantleG, quills: rayRecs, baseLiftX: mantleG.rotation.x, heart } };
 }
-registerTail('pyreTrainTail', buildPyreTrainTail);
+registerTail('pyreTrainTail', buildRisenTail);
