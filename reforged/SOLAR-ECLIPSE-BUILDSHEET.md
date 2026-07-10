@@ -216,3 +216,26 @@ transparent-drawable ≤ target, star-gem = gem/no-lid at every form, maxTier cl
   - Verified: tricount 967/1302/1611/2010 (all 4 forms, <6000) · wingsymprobe PASS · starters +20
     solar coronation-ladder asserts + blueprint + smoke green · dragonstudio r-cp2 rear silhouette
     reads M · Fable spectacle re-grade.
+
+- **CP3 — THE CORONATION SPEND (spectacle headroom).** Owner: the apex had ~3800 tris of unused budget;
+  spend it to make Solar truly grind-worthy. Fable-synthesized plan; the rule was AMPLIFY the loved
+  M-cathedral/eclipse identity, never redesign it. Built (apex 2184 → 3285 tris, the wow sweet-spot):
+  - **Grand Eclipse rose-window corona** — the annulus became a cathedral rose window (bigger, gold
+    inner tracery ring + 4 mullion spokes across the dark moon-disk, 4 violet compass gems, 8 eclipse
+    streamer rays that SKIP 12 o'clock so the M skyline is untouched). Still dark-disk + saturated
+    camera-facing rim (flat tris, no torus). Ring named `eclipseCorona`; gated on the `coronaGrand` dial.
+  - **Votive spires** — the carpal lances gained collar rings + hex plinth + inner-face crockets
+    (stepped cathedral towers) at the SAME height/rake/outline (`spireTier` 0/0/1/2).
+  - **Flying buttresses** (`buttress` 0/0/1/2) — gold arcs from the body to the mid-spar; they frame the
+    corona from the chase cam. **Boss keystones** on the vault crowns (`vaultSculpt`). (The 3×3 camber
+    quilt was intentionally OMITTED — low wow-per-tri smoothness + moiré risk near the density floor.)
+  - **Forged cuirass** — dorsal studs → beveled chevron plates + gold claw-set spine gems, upscaled to
+    clear the sub-8px floor (`cuirassPlate`). **Pauldrons + haunch guards** (`pauldrons` 0/0/1/2), a
+    **rear circlet** (`rearCirclet` — crowned-from-behind), an **order-star** sunburst on the nape
+    (`orderStar`), and a **scepter crown-orb** with 2 orbiting gem shards (`scepterOrb`, via tailOrbiters).
+  - **Motion:** the eclipse CORONA slowly rotates (the eclipse crawls; boost/Surge quicken it) + the
+    scepter shards orbit. Deeper motion (Surge TOTALITY, ignition wave, banner luff, rim shimmer) left
+    for the live-preview pass. **Doctrine held:** all opaque-emissive, no additive washout, ≤1 near-white
+    (unchanged spar tips), streamers few+large (density-law safe), M silhouette preserved (sil-rear diff).
+  - Verified: tricount 968/1336/2318/3285 (per-form <6000, monotonic) · wingsymprobe PASS · smoke +
+    starters green · dragonstudio: rose-window corona reads, M intact · Fable spectacle gate.
