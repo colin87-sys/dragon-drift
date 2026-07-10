@@ -192,8 +192,8 @@ change the profile in one place or the trails detach).
 ## §3 BODY / HEAD / TAIL
 
 ### §3a Body — `everflameTorso` (~450 tris)
-Publishes the FULL attach contract (`wingRootL/R`, `headBase`, `tailAnchor`, `halfWidthAt`,
-`bodyMidY`, `riderSocket`, `spinePoints`, `motifAnchor`) and `coreGlow` as a mesh-or-`null` (never a
+Publishes the FULL attach contract (`wingRoot(side)`, `headBase`, `tailAnchor`, `keelTopAt`,
+`halfWidthAt`, `bodyMidY`, `riderSocket`, `spinePoints`, `motifAnchor`) and `coreGlow` as a mesh-or-`null` (never a
 color number — the invisible-dragon crash class). A compact keeled teardrop, LEVEL long axis, lofted
 from FEWER LARGER facets — F1 goldfire fields, garnet rims on every facet boundary, F3 crimson on the
 shadow-side belly.
@@ -362,8 +362,9 @@ Follow them and the build lands ~3.5+ before the first Fable round.
 - **ONE EXPORTED PROFILE FOR GEOMETRY + FX.** Any curve used by BOTH the vane geometry AND the wingtip
   FX marker / `wingElements` tip must be a SINGLE exported function — change it in one place or the
   trails + aero-shear detach from the moved tip.
-- **PUBLISH THE FULL ATTACH CONTRACT** (`wingRootL/R`, `headBase`, `tailAnchor`, `halfWidthAt`,
-  `bodyMidY`, `riderSocket`, `spinePoints`, `motifAnchor`) or the orchestrator null-derefs at build.
+- **PUBLISH THE FULL ATTACH CONTRACT** (`wingRoot(side)`, `headBase`, `tailAnchor`, `keelTopAt`,
+  `halfWidthAt`, `bodyMidY`, `riderSocket`, `spinePoints`, `motifAnchor`) or the orchestrator
+  null-derefs at build.
 
 **Silhouette / connectedness (why the black-fill test is the harshest gate):**
 - **ROOT-IN-FILL INVARIANT.** Every discrete blade/feather/spark must ROOT INSIDE the filled surface
@@ -371,6 +372,8 @@ Follow them and the build lands ~3.5+ before the first Fable round.
   or it floats as a detached island in the black-fill silhouette (the "loose-slat / biplane" read). The
   plane / Seraph / spray-of-wires vetoes all reduce to two measurable properties: CONNECTEDNESS (no
   detached islands) and EDGE-CHARACTER (straight = plane, smooth = vault, serrated-from-fill = alive).
+  (Scope: elements borne on a FILLED surface. A deliberately sparse free-spark field — e.g. §3c's
+  spark-ribbon tail — is exempt; its law is the mandated SPACING, not connectedness.)
 - **RANK-VALUE-STEP.** Each layered/shingled rank must sit a value/tier off the surface beneath it, or
   it vanishes (same-tier-on-same-tier is invisible at chase distance).
 
