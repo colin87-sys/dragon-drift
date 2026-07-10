@@ -1092,9 +1092,10 @@ export const BOSSES = {
     muzzle: 'bellMouth',          // the toll origin (emitter = organ, §5f law 7); aim solves against its world rel
     // LANCE (§5i rung 10 — the endgame's FIRST paintable World-Ender; docs/lance-
     // progression-redesign.md §3). V1 focal aim = the mouth WOUND (`knellWound`, the
-    // one HDR focal — the candle-light + toll escape here; placed low on the crack so
-    // its world y sits inside the flight lane, unlike the slit centroid at ~y32 which
-    // is above laneMaxY 22 and unaimable). V2 paint targets = the two chain-BIND
+    // one HDR focal — the lit candle-mouth the toll escapes from; placed on the
+    // front-left LIP-BITE RIM, clear of the bound clapper's head, and low enough that
+    // its world y stays inside the flight lane — unlike the slit centroid at ~y32 which
+    // is above laneMaxY 22 and unaimable, §CP2). V2 paint targets = the two chain-BIND
     // restraints on the clapper's wrist cuffs (`knellBind{L,R}`) — you brand the
     // BINDINGS, never the honorably-unpaintable prisoner FIGURE. wound(virtual) + 2
     // binds = 3 paint targets → reaches the tier-4 cap of 6 (REACHABILITY LAW), all

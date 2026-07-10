@@ -189,31 +189,43 @@ every Tier-4/5 full-cap release. Per-boss, each rung still adds exactly ONE
 fight rule, and each rule is the boss's own hook spoken in lance grammar.
 
 **Rung 10 — KNELLGRAVE (the bell; the read is RHYTHM).** *The metronome fight.*
-- **Organs** (all real named anatomy in `bossKnellgrave.js`, plus two byte-neutral
-  empties per the EITHERWING marker precedent):
-  - `lipCrack` (new empty at the candle-lit crack's terminus on the flared lip,
-    y≈20, always in frame) — the WOUND, the easy anchor; the crack is the boss's
-    glow-shape claim, so the brand sits on the thing the eye already reads.
-  - `chainBind0`, `chainBind1` (new empties on the clapper chain's binding links,
-    dangling into frame at y≈14–18) — RESTRAINTS, the Brineholm mercy grammar:
-    you brand what binds the prisoner, never the prisoner. The bound figure
-    (`knellFigure`/`clapperHead`) is deliberately unpaintable — if aimed at, the
-    reticle stays cold (per-part honesty; "the marks will not take on the bound").
-  - `virtualLockOrgan: 'bellMouth'` — V1 anchor = the muzzle (ASHTALON precedent).
-  - Reachable cap: (3 lockParts + virtual) × stackMax 2 = 8 ≥ tier cap 6 ✓.
-- **Fair windows:** the swing extremes (turnarounds — the proven acquisition
-  shape) and the post-toll recoil beat; the lipCrack is quasi-static.
-- **The ONE new rule — RESONANT RELEASE:** on this def the release beat window IS
-  the toll. Music is dead here (`musicDies`), so `beatOn` is fed from the toll
-  clock (`def.bpm` 60, accelerating — a small def-gated seam in boss.js). A volley
-  loosed ON the toll is the perfect release: ×1.25 inside the clamp + SCAR-BURN.
-  The lance thereby RIDES the fight's one read — you dodge on the beat, you
-  strike on the beat.
-- P4 (The Last Toll) is the survival card: sealed, honest ashen reticle, zero
-  lance — unchanged, correct.
-- **Utility math:** phase spans 144/120/96 → full-set volley ≈ 14.4/12/9.6
-  clamped; on-tell burn frac 0.25 ⇒ +~2.5% of a phase (≈12.5% of the volley),
-  scaling down for partial releases. From 0% today.
+**AS SHIPPED (PR2a organs merged; PR2b resonant release + SCAR-BURN in progress) —
+this section is corrected to the LIVE 5-phase def, superseding the original spec.**
+- **Organs (as built, verified `tests/knellorgans.mjs`):**
+  - `virtualLockOrgan: 'knellWound'` — the WOUND / V1 focal: a byte-neutral empty at
+    the front-left LIP-BITE RIM (the lit candle-mouth the toll escapes from), placed
+    clear of the bound clapper's head and low enough to stay in the flight lane
+    (§CP2 — the original mouth-interior placement read as branding the prisoner's
+    face and was moved).
+  - `lockParts: [knellBindL, knellBindR]` — the two chain-BIND restraints on the
+    clapper's wrist cuffs (iron, not the person). The bound figure
+    (`knellFigure`/`clapperHead`) is deliberately unpaintable.
+  - Reachable cap: wound(virtual) + 2 binds = 3 targets × stackMax 2 = **6 = tier cap**
+    (the shipped set is tighter than the original spec's `lipCrack`+2 chainlinks+`bellMouth`
+    = 8; a deliberate, in-lane, prisoner-clear choice).
+- **Fair windows:** the swing extremes (turnarounds) and the post-toll recoil beat.
+- **The ONE new rule — RESONANT RELEASE (§CP1 corrected):** the release tell is the
+  boss's own TOLL (bell + ring-wall + shake). ⚠ Music being dead (`musicDies`) does
+  NOT null the beat clock — `musicKill` only mutes the bus; `getBeatClock()` stays
+  live, so the generic `beatOn` here is a silent, illegible coin-flip. The fix:
+  def-gated on `musicDies`, `ctx.beatOn` is keyed to the real toll edge (leading:
+  `chargeT ≤ beatWindow`; trailing: within `beatWindow` of the last attack toll), and
+  the grid-aligned cap fuse is suppressed. `def.bpm` is inert legacy data (nothing
+  reads it) — the toll cadence lives in the phrase gaps. A MANUAL loose ON the toll is
+  the perfect release: ×1.25 inside the clamp + SCAR-BURN. You dodge on the toll, you
+  strike on the toll.
+- **P5** (The Last Toll, not P4 — the def has 5 phases) is the survival card: sealed,
+  zero lance. (PR2a fix: a held lock during the seal no longer leaks rider chip into
+  the clapper-resolve seam — §CP2 `e.part == null` gate.)
+- **Utility math (live 5-phase def, spans 144/72/72/72/120, card timers 24/26/24/26/30):**
+  full on-tell set volley ≈ 14.4 / 7.2 / 7.2 / 7.2 / 12.0 (ROI-clamped); burn frac 0.25 ⇒
+  +25% of the clamped volley (≈+2.5% of a phase). Not-a-phase-deleter worst margin
+  ≈ **1.25 (P2 and P4, the tightest; P3 is 1.35)** — passing, ~22% thinner than the doc's
+  earlier fiction (computed on a dead 4-phase def). ⚠ This margin certifies the
+  CALIBRATED-HUMAN model (`REALISTIC_PER_PIP 1.35`); the runtime has no per-release
+  cooldown, so a TAS-limit burnFloor-per-toll could exceed it — a hard bound would need a
+  burn ICD (owner-level, deferred, §CP2 SHOULD-FIX-4). Human play is gated by the toll
+  cadence + the 0.24s window. From 0% (V1-only) today.
 
 **Rung 11 — WEFTWITCH (she re-weaves what you break).** *The volley gets a JOB.*
 - **Organs:** `handL`, `handR` (new empties at the two working spinneret-arm
@@ -518,6 +530,36 @@ Every increment is def-gated data + one consumer; a def without the new field is
 byte-identical (the established LOCK pattern: "neutral at rung 0"). No shipped
 boss's balance moves except where this doc says so.
 
+> **THE FABLE CRITIC GATE (standing rule — owner directive 2026-07-10).** Every PR
+> in this rollout passes an ADVERSARIAL Fable review at two checkpoints, in the
+> repo's BOSS-DESIGN §3b gate tradition — a HARSH critic whose job is to find the
+> flaw, not to approve:
+> - **CP1 — pre-build design critique (BEFORE writing code):** the mechanic/design
+>   approach is handed to a Fable critic to attack — does it fight an existing
+>   system, is the causality sound, does it honor the boss's one read, what's the
+>   balance/fairness/perf risk, what's the anti-read. Code is not written until the
+>   named flaws are answered.
+> - **CP2 — pre-commit critique (AFTER implementation + green gates):** the diff is
+>   handed to a Fable critic to attack — correctness, coexist-safety, the
+>   byte-identical claim for untouched bosses, hidden regressions, and whether it
+>   actually delivers the intended feel (not just passes tests). Findings are fixed
+>   or explicitly dispositioned before commit/merge.
+> The human owner remains the FINAL gate for any LAW change (SCAR-BURN, cap/ROI).
+> The critic advises; it does not approve on the owner's behalf.
+
+> **LIVE STATUS (2026-07-10).** PR0 ✅ merged. PR2a (KNELLGRAVE organs) ✅ merged
+> in PR #349 — KNELLGRAVE is now lance-capable (wound + 2 binds, cap 6, 53
+> volleys-in-band). **NOW BUILDING: PR2b/PR3 — the resonant on-toll release +
+> SCAR-BURN on KNELLGRAVE.** Then PR4 WEFTWITCH → PR5 ONEWING → PR6 EMBERTIDE →
+> PR7 THE UNMASKED → PR8 mid-ladder polish → PR9 elemental loadout.
+> **Learned in PR2a (a reachability LAW for every remaining boss): an organ is
+> only lockable if its WORLD Y ≤ `laneMaxY` (22) across its whole animation — the
+> aim cone tests player-Y vs organ-Y, and the static `lockdpsCore` model has no
+> camera, so it will call an unreachable organ "capable." High/overhead bosses
+> (the World-Enders trend big + high) must place anchors DOWN in the lane; verify
+> per boss in the real engine (`tests/knellorgans.mjs` is the template — sample
+> the full animation and assert the MAX y, not one frame).**
+
 - **PR0 — re-green the gate (housekeeping, blocking). ✅ DONE (commit `36b754d`).**
   `tests/lockdps.mjs` asserted KARNVOW lance-inert but KARNVOW now has trophy
   lockParts; the assertion was corrected (KARNVOW → capable; ASHTALON remains the
@@ -530,17 +572,21 @@ boss's balance moves except where this doc says so.
   REACHABILITY LAW for tiers ≥4 (will be RED-as-TODO for 10–14 until their PRs —
   land it `.skip`-annotated per slot and un-skip as each ships, so the ladder is
   enforced ratchet-style). No behavior.
-- **PR2 — HERO: KNELLGRAVE.** Organs (2 empties + def data) + the toll-beat seam
-  (def-gated `beatOn` source) + resonant-release wiring. Proves the whole thesis
-  on the World-Ender opener: an endgame boss gains real lance utility while its
-  gimmick (rhythm) is AMPLIFIED, not diluted. *Gates: lockdps bands (KNELLGRAVE
-  enters the capable set, ~42 volleys-to-clear in band), lock.mjs, boss.mjs,
-  tricount (zero delta), knellshot/tiershots; owner judges the toll-release feel
-  on the PR preview.*
-- **PR3 — SCAR-BURN.** Config knob (default present but `minTier: 4` means
-  tiers 1–3 byte-identical), `lockLayer`/boss seam for burn ticks, extend
-  `lockdpsCore` + `tests/lockdps.mjs` with the burn invariant (intentional test
-  update, flagged in the PR body). ⚠ owner sign-off on the law before merge.
+- **PR2a — HERO: KNELLGRAVE organs. ✅ MERGED (PR #349).** wound(virtual) + 2 bind
+  restraints on the clapper cuffs → cap 6, 53 volleys-in-band; the bound prisoner
+  stays unpaintable. Regression guard `tests/knellorgans.mjs`. An endgame boss
+  gains real lance utility, purely additively.
+- **PR2b / PR3 — KNELLGRAVE resonant on-toll release + SCAR-BURN. ⏳ IN PROGRESS.**
+  (a) The toll-beat seam: KNELLGRAVE's music is dead (`musicDies` → `getBeatClock`
+  null), so `ctx.beatOn` is fed from the toll clock (def-gated) — a manual release
+  landing ON the toll is the perfect/resonant release. (b) SCAR-BURN config knob
+  (`minTier: 4`, so tiers 1–3 byte-identical) + the `lockLayer`/boss burn-tick
+  seam: an on-tell (perfect) partial release of ≥`burnFloor` pips leaves a burn =
+  `frac × volley` over `dur`; the cap auto-release never burns; deflect pauses the
+  burn (the one-deflect rule). Extend `lockdpsCore` + `tests/lockdps.mjs` with the
+  burn invariant (intentional test update, flagged in the PR body). Distinct hotter
+  audiovisual read (§4f). ⚠ owner sign-off on the burn LAW before merge. *Gates:
+  lockdps bands + burn invariant, lock.mjs, boss.mjs, knellorgans, tricount.*
 - **PR4 — WEFTWITCH.** Hand/scar organs + mend-interrupt consumer in her
   re-weave controller. *Extra gate: the interrupt must never fire during the
   survival-critical mends if any are authored as guaranteed — review with her
