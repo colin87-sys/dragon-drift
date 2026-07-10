@@ -349,6 +349,13 @@ let discX = 0, discY = 0;     // pocket centre — the iris volley's baked (cx, 
 let discTollN = 0;            // pocket-opening tolls THIS PHASE (the shrink-schedule key)
 const DISC_R_END = 3.8;       // the iris terminal radius: rad 10 × (1 − contract 0.62)
 const DISC_WALL_FRAC = 0.30;  // the paid rim = [R·(1−frac), R) — PROPORTIONAL (unit-ring scale)
+let discCd = 0;               // §5i.B: arm cooldown — pockets don't stack every toll (less frequent, less busy)
+// §5i.B GRAZE REWARD BANDS — shared look for slipstream/orbit/disc so the three read as ONE
+// consistent "fly into this to be rewarded" ring. A LIGHTER, less-saturated reward pink than the
+// deep danger-magenta bullets (0xff2b6a) so a reward never reads as a threat (⚠ #1 preview tunable).
+const GRAZE_BAND_COLOR = 0xff8ce6;   // soft reward pink (sat ~0.45 vs danger's ~0.69 — a distinct, calmer read)
+const GRAZE_BAND_BASE = 0.4;         // opacity floor while live — bumped so even the small orbit ring is legible
+const GRAZE_BAND_RAMP = 0.32;        // + up to this as the graze ramp climbs (the payout is SEEN building)
 let eyeHold = 0;              // §5f slot 8: seconds to KEEP the eye submerged after a strike (so the heavy lid actually closes)
 let lastPlayer = null;       // the player from the last updateBoss (for event-driven mote spawns with no player arg)
 // NO-HIT ADRENALINE LADDER (§5i.B meta spine, global — lands with slot 6).
@@ -1104,7 +1111,7 @@ export function initBoss(sc) {
   {
     const rg = new THREE.RingGeometry(SLIP_R_IN, SLIP_R_IN + SLIP_WALL, 40);
     slipBandMat = new THREE.MeshBasicMaterial({
-      color: 0xff4fd0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      color: GRAZE_BAND_COLOR, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
       depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
     });
     slipBandMesh = new THREE.Mesh(rg, slipBandMat);
@@ -1122,7 +1129,7 @@ export function initBoss(sc) {
   {
     const rg = new THREE.RingGeometry(ORB_R_IN, ORB_R_IN + ORB_WALL, 40);
     orbBandMat = new THREE.MeshBasicMaterial({
-      color: 0xff4fd0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      color: GRAZE_BAND_COLOR, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
       depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
     });
     orbBandMesh = new THREE.Mesh(rg, orbBandMat);
@@ -1140,7 +1147,7 @@ export function initBoss(sc) {
   {
     const rg = new THREE.RingGeometry(1 - DISC_WALL_FRAC, 1, 48);
     discBandMat = new THREE.MeshBasicMaterial({
-      color: 0xff4fd0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      color: GRAZE_BAND_COLOR, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
       depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
     });
     discBandMesh = new THREE.Mesh(rg, discBandMat);
@@ -1488,7 +1495,7 @@ export function startBossEncounter(player, defOverride) {
   beamHeld = 0; beamTick = 0; beamGrace = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM ramp/exposure reset
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS accumulator reset
-  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0;   // §5i.B SHRINKING SAFE DISC reset
+  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC reset
   // CP2 (KARNVOW, all def-gated — inert for every other def): the stat-taunt charm
   // flare, the reveal-hold breaker shot, the reflect-once riposte, hold-until-flinch.
   entranceFlareAt = null; entranceFlareId = null;
@@ -1671,7 +1678,7 @@ function endEncounter(player) {
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS: never outlives the fight
-  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0;   // §5i.B SHRINKING SAFE DISC: never outlives the fight
+  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC: never outlives the fight
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }    // a fight torn down mid-stoop must not strand the ring
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
@@ -1893,7 +1900,7 @@ function enterFight() {
     beginCard(phaseIdx);
     armSetpieceForPhase(phaseIdx);
     if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdFlinchDone = false; }
-    if (def.grazeForm === 'shrinkDisc') { discDur = 0; discR = 0; discTollN = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // §5i.B: a phase advance re-offers a generous first pocket
+    if (def.grazeForm === 'shrinkDisc') { discDur = 0; discR = 0; discTollN = 0; discCd = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // §5i.B: a phase advance re-offers a generous first pocket
     // A dev stage-pick of S2/S3 (debugStagePin > 1) opens WITH the transition INTO that form:
     // the boss arrived as the PREVIOUS form (spawn hook), now play the crack/unveiling as a
     // SKIPPABLE intro. setPhase(target) animates into `phaseIdx`'s stage; the beat holds fire +
@@ -2774,7 +2781,7 @@ export function updateBoss(dt, player, time, camera) {
       if (slipBandMesh) {
         const holdTell = setpieceT >= 0 && setpieceDef?.id === 'stoopingStrike'
           && (setpieceT / setpieceDef.dur) >= 0.2;
-        const tgt = live ? 0.3 + Math.min(0.3, beamHeld * 0.06) : (holdTell ? 0.12 : 0);
+        const tgt = live ? GRAZE_BAND_BASE + Math.min(GRAZE_BAND_RAMP, beamHeld * 0.06) : (holdTell ? 0.14 : 0);
         slipBandMat.opacity += (tgt - slipBandMat.opacity) * Math.min(1, dt * 6);
         slipBandMesh.visible = slipBandMat.opacity > 0.02;
         if (slipBandMesh.visible) slipBandMesh.position.set(slipX, slipY, -(player.dist + 4));
@@ -2821,7 +2828,7 @@ export function updateBoss(dt, player, time, camera) {
       } else { beamHeld = 0; beamTick = 0; beamGrace = 0; orbAcc = 0; orbPrevTh = null; }
       // Drive the drawn band: centre at the live pose, player plane; brighter as the ramp climbs.
       if (orbBandMesh) {
-        const tgt = live ? 0.3 + Math.min(0.3, beamHeld * 0.06) : 0;
+        const tgt = live ? GRAZE_BAND_BASE + Math.min(GRAZE_BAND_RAMP, beamHeld * 0.06) : 0;
         orbBandMat.opacity += (tgt - orbBandMat.opacity) * Math.min(1, dt * 6);
         orbBandMesh.visible = orbBandMat.opacity > 0.02;
         if (orbBandMesh.visible) orbBandMesh.position.set(pose.x, pose.y, -(player.dist + 4));
@@ -2836,6 +2843,7 @@ export function updateBoss(dt, player, time, camera) {
     // the wall). The form punishes NOTHING — the threat stays the iris bullets. One
     // grazeForm per boss; defs without grazeForm==='shrinkDisc' are inert. ----
     if (def.grazeForm === 'shrinkDisc') {
+      if (discCd > 0) discCd = Math.max(0, discCd - dt);         // the arm cooldown ticks down every frame
       const live = discDur > 0 && setpieceT < 0 && !shielded;   // holdFlinch's gate discipline
       if (live) {
         discAge += dt;
@@ -2860,7 +2868,7 @@ export function updateBoss(dt, player, time, camera) {
       } else if (discDur > 0) { discDur = 0; discR = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // setpiece/shield rose mid-pocket
       // Drive the drawn band — a UNIT ring uniformly scaled to the live radius.
       if (discBandMesh) {
-        const tgt = discR > 0 ? 0.28 + Math.min(0.3, beamHeld * 0.06) : 0;
+        const tgt = discR > 0 ? GRAZE_BAND_BASE + Math.min(GRAZE_BAND_RAMP, beamHeld * 0.06) : 0;
         discBandMat.opacity += (tgt - discBandMat.opacity) * Math.min(1, dt * 6);
         discBandMesh.visible = discBandMat.opacity > 0.02;
         if (discBandMesh.visible) {
@@ -3815,8 +3823,9 @@ function executeAttack(id, player) {
     // §5i.B SHRINKING SAFE DISC (C.7): an iris toll opens a pocket — the volley's own
     // contracting safe middle, drawn and paid. Def-gated; inert for every other def. Gated
     // off during the Last Toll ride (the survival exam stays pure dodge) and while shielded.
-    if (def?.grazeForm === 'shrinkDisc' && setpieceT < 0 && !shielded) {
+    if (def?.grazeForm === 'shrinkDisc' && setpieceT < 0 && !shielded && discCd <= 0) {
       discTollN++;
+      discCd = 1.6;   // §5i.B: a breather between pockets — one ring at a time, not one every toll (less busy)
       armDiscPocket(cx, cy, (rings - 1) * 0.4 + pose.rel / slow,
         Math.min(Math.max(5.6, 8.0 - 0.6 * (discTollN - 1)), arenaHW - Math.abs(cx) - 0.5));
     }
@@ -4554,7 +4563,7 @@ export function resetBoss() {
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM teardown
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS teardown
-  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0;   // §5i.B SHRINKING SAFE DISC teardown
+  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC teardown
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
