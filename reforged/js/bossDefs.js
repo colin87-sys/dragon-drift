@@ -729,15 +729,15 @@ export const BOSSES = {
     setpieces: [
       { id: 'sounding', atPhase: 3, dur: 7.5, moving: true, dread: true },   // P4 THE ISLAND BREATHES — Sounding
     ],
-    // Tier 3 difficulty: the geyser walls (tunnel/curtain/iris) are the tide's
-    // signature; the slow tracking `stream` is the drone's sustained hose (the
+    // Tier 3 difficulty: the erupting `geyser` walls (the floor's bottom-up spouts) are
+    // the tide's signature; the slow tracking `stream` is the drone's sustained hose (the
     // amber carrier). Escalation by pattern unlock + cadence (floor 1.2), never
     // raw bullet count. BRINEHOLM idles SLOWER than any boss (the drone).
     phases: [
       { atFrac: 1.00, cadence: [1.6, 2.2], attacks: ['stream', 'aimed'] },                    // P1: the drone wakes (one long tide)
       { atFrac: 0.72, cadence: [1.5, 2.0], attacks: ['stream', 'tunnel', 'aimed'] },           // P2: the tide grows walls (rising geyser rings)
-      { atFrac: 0.45, cadence: [1.4, 1.9], attacks: ['stream', 'iris', 'fan'] },               // P3: the bound strains (shackle amber; mercy softens)
-      { atFrac: 0.20, cadence: [1.3, 1.7], attacks: ['curtain', 'iris', 'spiralStream', 'stream'] },  // P4: Sounding (dread — the floor erupts)
+      { atFrac: 0.45, cadence: [1.4, 1.9], attacks: ['stream', 'geyser', 'fan'] },             // P3: first spouts — GEYSER debuts (teach-before-test at the slow tidal pulse); `fan` is the shackle amber
+      { atFrac: 0.20, cadence: [1.3, 1.7], attacks: ['geyser', 'iris', 'stream'] },            // P4: Sounding (dread — the floor FINALLY erupts) — `geyser` leads; `curtain`/`spiralStream` leave the def (kills the 6≡8 dread-multiset collision); `stream` carries the amber
     ],
     // Spell cards (§5f grammar; 4 cards — the Calamities band's move-set floor
     // (§5g); dread card LAST, name fixed by the §5f signature-move assignment).
@@ -777,7 +777,7 @@ export const BOSSES = {
           ratioBurst: 0.2,
           phrase: [
             { kind: 'sustain', attack: 'stream', beats: 3, gap: [1.5, 1.9] },
-            { kind: 'burst',   attack: 'iris',   count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'geyser', count: 2, gap: 0.5 },   // GEYSER teach: plume-read at swell pace (was iris; count/gap unchanged → rhythmprint byte-identical)
             { kind: 'sustain', attack: 'fan',    beats: 1, gap: 1.6 },
           ],
           restLo: 3.2, restHi: 4.8, restDist: 'decaying',
@@ -786,10 +786,10 @@ export const BOSSES = {
           // (the `stream` sustain doubles as the AMBER carrier under the geysers)
           ratioBurst: 0.4,
           phrase: [
-            { kind: 'burst',   attack: 'curtain',      count: 2, gap: 0.45 },
+            { kind: 'burst',   attack: 'geyser',       count: 2, gap: 0.45 },   // the floor erupts (was curtain; timing unchanged → rhythmprint byte-identical)
             { kind: 'burst',   attack: 'iris',         count: 2, gap: 0.45 },
             { kind: 'sustain', attack: 'stream',       beats: 2, gap: 1.4 },
-            { kind: 'burst',   attack: 'spiralStream', count: 2, gap: 0.4 },
+            { kind: 'burst',   attack: 'geyser',       count: 2, gap: 0.4 },     // a second spout wave (was spiralStream; timing unchanged)
           ],
           restLo: 2.8, restHi: 4.4, restDist: 'decaying',
         },

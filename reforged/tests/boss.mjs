@@ -82,7 +82,7 @@ for (const key of BOSS_ORDER) {
     prev = ph.atFrac;
     assert(Array.isArray(ph.attacks) && ph.attacks.length > 0, `${key} phase has attacks`);
     for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
-      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'crestfall'].includes(a), `${key} attack '${a}' is known`);
+      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'crestfall', 'geyser'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
   }
   // Spell cards (§5f/§5h): optional (coexist rule), but if present they must
@@ -2002,7 +2002,7 @@ ok('Surge hyper knobs: faster rider + all-bullets-reflectable + shield-burst');
 // every attack fits the low-tier ceiling (no ~1.2s closing window ever holds
 // more than ~55 bullets), and every 2D fill leaves a threadable designed lane.
 const ALL_ATTACKS = ['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
-  'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'];
+  'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire', 'geyser'];
 const TRAVEL = CONFIG.BOSS.settleGap / (CONFIG.BOSS.bulletSpeed * 0.8);   // slowest closing ≈ 1.34s
 const laneSafe = (v, half = 2.2) => {
   for (let g = -11; g <= 11; g += 0.25) {
@@ -2039,6 +2039,25 @@ for (const q of [1, 0.7]) {
     if (!r.bullets.length) continue;   // the instant volley is empty (all streamed)
     assert(laneSafe(r.bullets), `movingGap row @t${r.t.toFixed(2)} leaves a sliding safe lane`);
   }
+}
+// §ENG-C geyser: the roster's ONE bottom-up pattern — born below frame, erupts upward,
+// plume-led (each plume beat emits ZERO bullets, one beat ahead of its row), sliding
+// threadable gap, crestfall's budget. The Calamities band's single new attack id.
+{
+  bullets.resetBossBullets();
+  const vols = boss.debugEmitAttack('geyser', makePlayer(), 1);
+  const rows = vols.filter((v) => v.bullets.length);
+  assertEq(rows.length, 5, 'geyser fires 5 eruption rows @q1 (crestfall dials; plume beats are bullet-free)');
+  assert(rows[0].t >= 0.32 - 1e-9, 'geyser: the first eruption lands one full beat after its plume (drawn-in-world lead)');
+  for (const r of rows) {
+    assert(r.bullets.every((b) => b.y <= CONFIG.laneMinY - 3 + 1e-6),
+      `geyser row @t${r.t.toFixed(2)} births BELOW the frame (y ≤ laneMinY − 3)`);
+    assert(r.bullets.every((b) => b.vy > 0), `geyser row @t${r.t.toFixed(2)} erupts UPWARD (vy > 0)`);
+    assert(r.bullets.every((b) => b.y > -16 && b.y + b.vy * 1.0 > CONFIG.laneMinY),
+      `geyser row @t${r.t.toFixed(2)} survives the −16 cull floor and erupts INTO the lane within 1s`);
+    assert(laneSafe(r.bullets), `geyser row @t${r.t.toFixed(2)} leaves a sliding threadable lane`);
+  }
+  ok('ENG-C geyser: 5 rows born below-frame erupt UPWARD, plume-led (one beat ahead, bullet-free), sliding threadable gap, crestfall budget ✓');
 }
 bullets.resetBossBullets();
 ok(`pattern budget: ${ALL_ATTACKS.length} attacks fit the low-tier bullet cap; fills keep designed lanes`);
