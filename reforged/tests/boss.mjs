@@ -3085,19 +3085,17 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(tolls.length >= 2 && tolls[1] === 2, `ENG-H peal: after the cooldown a fresh toll re-arms (toll ${tolls[1]})`);
     boss.resetBoss();
   }
-  // Survival purity — during BOTH setpieces (Pendulum Sweep AND The Last Toll ride) a spiral arms
-  // no pocket (no farm; pure dodge), then arms again once cleared.
+  // Sweep purity STAYS LAW — pendulumSweep never arms a pocket (no farm mid-swing). The Last
+  // Toll leg is REVERSED by §ENG-LT (the ride now arms — asserted in the §ENG-LT block below).
   {
-    for (const [card, sp] of [['knellgrave_sweep', 'pendulumSweep'], ['knellgrave_last', 'lastToll']]) {
-      const p = armKnellgrave();
-      boss.debugForceCard(card);
-      boss.debugRunSetpiece(sp);
-      let pocket = false; on('discPocket', () => { pocket = true; });
-      bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);
-      for (let i = 0; i < 60; i++) boss.updateBoss(1 / 60, p, 3 + i / 60);
-      assert(!pocket && boss.bossDebugState().discActive === false, `ENG-H purity: no pocket arms during ${sp} (pure dodge)`);
-      boss.resetBoss();
-    }
+    const p = armKnellgrave();
+    boss.debugForceCard('knellgrave_sweep');
+    boss.debugRunSetpiece('pendulumSweep');
+    let pocket = false; on('discPocket', () => { pocket = true; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);
+    for (let i = 0; i < 60; i++) boss.updateBoss(1 / 60, p, 3 + i / 60);
+    assert(!pocket && boss.bossDebugState().discActive === false, 'ENG-H purity: no pocket arms during pendulumSweep (pure dodge)');
+    boss.resetBoss();
   }
   // The arm site MOVED: an iris volley on knellgrave now arms NOTHING.
   {
@@ -3224,6 +3222,165 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     boss.resetBoss();
   }
   ok('ENG-H PENDULUM SWEEP + BOB-LOCK: the bell swings across the lane in widening arcs (off-lane at the extremes, into the band at the nadir), returns to station; the movingGap lane mirrors the bell at −0.36× (tracks the swing, clamps hostile scales, reverts player-seeded off-card) ✓');
+}
+
+// §ENG-LT THE LAST TOLL agency rework: the survival ride un-gates the toll-wall graze (cadence-
+// driven pockets, since srel/slow is degenerate overhead), a RESOLVE meter that grazing/parrying/
+// clapper-strikes fill breaks the seal EARLY + staggers the bell, and the bound clapper is the
+// seal's one scoped weak-point. Reverses the shipped "pure dodge" leg. Headless proves the
+// mechanics FUNCTION; the human judges the band on the dread frame + the exam's difficulty.
+{
+  const armKnell = () => {
+    boss.resetBoss();   // clear `active` so startBossEncounter rebuilds fresh (the ENG-EW 2nd-encounter law) + resets resolveK
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('knellgrave'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  const clapper = () => boss.debugPartWorldPos('clapperHead');
+  const strike = (p, near = true) => {
+    const w = clapper();
+    if (near) { p.position.x = w.x; p.position.y = w.y; }
+    boss.updateBoss(1 / 60, p, 5);   // populate lastPlayer at the parked position
+    emit('bossDamage', { amount: 2, kind: 'rider', x: w.x, y: w.y });
+  };
+
+  // A. RIDE MODE reverses the purity leg: a spiral toll during The Last Toll ARMS a ride pocket
+  // (cadence-driven — discR1 = SPIRAL_OUT_SPD·RIDE_POCKET_DUR, srel-free), and replace-on-arm.
+  {
+    const p = armKnell();
+    boss.debugRunSetpiece('lastToll');
+    let tolls = []; on('discPocket', (e) => { tolls.push(e.toll); });
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);
+    const st = boss.bossDebugState();
+    assert(st.discActive && st.discRide === true && st.discTollN >= 1, 'ENG-LT ride: a spiral toll ARMS a pocket during The Last Toll (the purity leg reversed)');
+    assert(Math.abs(st.discR1 - st.discGeom.outSpd * 1.8) < 1e-6, `ENG-LT ride: the wall is cadence-driven (discR1 ${st.discR1.toFixed(1)} == outSpd·1.8, srel-free)`);
+    assert(Math.abs(st.discX) <= 8 && st.discY >= 12 && st.discY <= 22, `ENG-LT ride: the pocket centres on the overhead mouth (${st.discX.toFixed(1)}, ${st.discY.toFixed(1)})`);
+    // Replace-on-arm (no cd in ride mode): a second spiral < 1.6s later opens pocket #2.
+    boss.debugEmitAttack('spiral', p, 1);
+    assert(tolls.length === 2 && tolls[1] === tolls[0] + 1, `ENG-LT ride: replace-on-arm — a 2nd toll re-arms (no discCd; tolls ${tolls.join(',')})`);
+    // Grows and dies on its ~1.8s clock parked dead-centre.
+    let maxR = 0, died = false;
+    for (let i = 0; i < 130; i++) { const s = boss.bossDebugState(); if (s.discActive) { p.position.x = s.discX; p.position.y = s.discY; maxR = Math.max(maxR, s.discR); } boss.updateBoss(1 / 60, p, 6 + i / 60); if (!boss.bossDebugState().discActive) { died = true; break; } if (boss.bossDebugState().discTollN > tolls.length) break; }
+    assert(maxR > 8, `ENG-LT ride: the wall GROWS toward its terminal radius (maxR ${maxR.toFixed(1)})`);
+    boss.resetBoss();
+  }
+
+  // B. The ride rim pays graze AND feeds RESOLVE; dead-centre + outside unpaid; never damages.
+  {
+    const p = armKnell();
+    boss.debugForceCard('knellgrave_last');   // the survival seal (so RESOLVE feeds)
+    boss.debugRunSetpiece('lastToll');
+    let ticks = 0; on('discGraze', () => { ticks++; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);
+    const chargeStart = game.grazeCharge + game.consecutiveRings;
+    for (let i = 0; i < 120; i++) { const s = boss.bossDebugState(); if (s.discActive) { p.position.x = s.discX; p.position.y = s.discY - s.discR * (1 - s.discGeom.wallFrac / 2); } boss.updateBoss(1 / 60, p, 6 + i / 60); }
+    assert(ticks > 0, `ENG-LT ride: riding the rim pays graze ticks (${ticks})`);
+    assert((game.grazeCharge + game.consecutiveRings) > chargeStart, 'ENG-LT ride: the rim ride feeds the graze bank');
+    assert(boss.bossDebugState().resolveK > 0, `ENG-LT ride: riding the rim feeds the RESOLVE meter (${boss.bossDebugState().resolveK.toFixed(2)})`);
+    assert(game.health === 1e9, 'ENG-LT ride: the form itself never damages the player');
+    boss.resetBoss();
+  }
+
+  // C. The meter breaks the seal EARLY + staggers: fill it via clapper strikes → seal releases.
+  {
+    const p = armKnell();
+    boss.debugForceCard('knellgrave_last');
+    let breaks = 0; on('bossSealBreak', () => { breaks++; });
+    const hp0 = boss.bossDebugState().hp;
+    for (let i = 0; i < 30 && breaks === 0; i++) strike(p, true);
+    assert(breaks === 1, `ENG-LT resolve: filling the meter breaks the seal exactly once (${breaks})`);
+    assert(boss.bossDebugState().resolveK >= 1 - 1e-9, 'ENG-LT resolve: the meter reads full at the break');
+    // The seal released — a rider chip now LANDS (no longer deflected) while the bell staggers.
+    const hpBefore = boss.bossDebugState().hp;
+    emit('bossDamage', { amount: 8, kind: 'rider', x: 0, y: CONFIG.BOSS.fightHeight });
+    assert(boss.bossDebugState().hp < hpBefore, `ENG-LT resolve: post-break the seal is gone — chip lands (${hpBefore.toFixed(0)} → ${boss.bossDebugState().hp.toFixed(0)})`);
+    // The stagger silences scheduling for ~2.5s (no new wind-up arms).
+    let charged = false;
+    for (let i = 0; i < 120; i++) { boss.updateBoss(1 / 60, p, 7 + i / 60); if (boss.bossDebugState().charging) charged = true; }
+    assert(!charged, 'ENG-LT resolve: the bell STAGGERS — no wind-up arms during the ~2.5s silence');
+    assert(hp0 >= 0, 'ENG-LT resolve: (hp sampled clean)');
+    boss.resetBoss();
+  }
+
+  // D. The fairness hatch is intact: never feeding, the meter never fires (the timer outlast — the
+  // shipped endCard path — still owns the resolution; the lifecycle suite drives it to a kill).
+  {
+    const p = armKnell();
+    boss.debugForceCard('knellgrave_last');
+    let breaks = 0; on('bossSealBreak', () => { breaks++; });
+    for (let i = 0; i < 120; i++) boss.updateBoss(1 / 60, p, 5 + i / 60);   // dodge-only: no graze, no parry, no strike
+    assert(breaks === 0 && boss.bossDebugState().resolveK === 0, 'ENG-LT fairness: without active play the meter stays empty and never breaks the seal (the outlast hatch is untouched)');
+    boss.resetBoss();
+  }
+
+  // E. The carve-out is SCOPED — the seal never leaks.
+  {
+    const p = armKnell();
+    boss.debugForceCard('knellgrave_last');
+    const rk = () => boss.bossDebugState().resolveK;
+    const hp = () => boss.bossDebugState().hp;
+    // (a) rider at the clapper but the PLAYER far → deflected (proximity gate).
+    let clapHits = 0; on('bossClapperHit', () => { clapHits++; });
+    const w = clapper(); p.position.x = w.x + 40; p.position.y = w.y; boss.updateBoss(1 / 60, p, 5);
+    const rkA = rk(), hpA = hp(); emit('bossDamage', { amount: 5, kind: 'rider', x: w.x, y: w.y });
+    assert(rk() === rkA && hp() === hpA && clapHits === 0, 'ENG-LT carve-out: rider at the clapper with the player FAR is deflected (proximity gate)');
+    // (b) rider LANDING far from the clapper (player parked ON it) → deflected (landing gate).
+    const wb = clapper(); p.position.x = wb.x; p.position.y = wb.y; boss.updateBoss(1 / 60, p, 5);
+    const rkB = rk(); emit('bossDamage', { amount: 5, kind: 'rider', x: wb.x + 40, y: wb.y });
+    assert(rk() === rkB, 'ENG-LT carve-out: a rider hit LANDING far from the clapper is deflected (landing gate)');
+    // (c) rider at the clapper with the player NEAR → the strike lands (feeds resolve, no hp).
+    const w2 = clapper(); p.position.x = w2.x; p.position.y = w2.y; boss.updateBoss(1 / 60, p, 5);
+    const rkC = rk(), hpC = hp(); emit('bossDamage', { amount: 5, kind: 'rider', x: w2.x, y: w2.y });
+    assert(rk() > rkC && hp() === hpC && clapHits === 1, 'ENG-LT carve-out: rider at the clapper, player near → the strike feeds resolve, moves no hp');
+    // (d) SURGE at the clapper, player near → fully sealed (kind gate).
+    const w3 = clapper(); p.position.x = w3.x; p.position.y = w3.y; boss.updateBoss(1 / 60, p, 5);
+    const rkD = rk(); emit('bossDamage', { amount: 20, kind: 'surge', x: w3.x, y: w3.y });
+    assert(rk() === rkD, 'ENG-LT carve-out: SURGE stays fully sealed even at the clapper (kind gate)');
+    boss.resetBoss();
+  }
+  // (e) parrying a live seal-era amber feeds resolve; a Surge reflect does not.
+  {
+    const p = armKnell();
+    boss.debugForceCard('knellgrave_last');
+    bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);
+    const rk0 = boss.bossDebugState().resolveK;
+    bullets.resetBossBullets();
+    bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 });
+    p.rollInvuln = 0.2; p.lastRollDir = -1;
+    boss.updateBoss(1 / 60, p, 6);
+    assert(boss.bossDebugState().resolveK > rk0, 'ENG-LT parry feed: parrying a seal-era amber feeds resolve');
+    // Surge reflects don't count.
+    const rkS = boss.bossDebugState().resolveK;
+    game.feverActive = true;
+    bullets.resetBossBullets();
+    bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 });
+    p.rollInvuln = 0.2; p.lastRollDir = -1;
+    boss.updateBoss(1 / 60, p, 6.1);
+    game.feverActive = false;
+    assert(boss.bossDebugState().resolveK === rkS, 'ENG-LT parry feed: Surge reflects don’t count (§5i.C law 4)');
+    bullets.setDebugPerfectParryRel(null);
+    boss.resetBoss();
+  }
+
+  // F. Coexist: another survival card (EMBERTIDE) and non-shrinkDisc bosses stay inert.
+  {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const ep = makePlayer();
+    boss.forceBoss(ep, BOSS_ORDER.indexOf('embertide'));
+    boss.debugForceFight(ep);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, ep, 2 + i / 60);
+    boss.debugForceCard('embertide_horizonbreak');   // embertide's survival card — no survivalResolve
+    let breaks = 0, clap = 0; on('bossSealBreak', () => { breaks++; }); on('bossClapperHit', () => { clap++; });
+    emit('bossDamage', { amount: 10, kind: 'rider', x: ep.position.x, y: ep.position.y });
+    assert(breaks === 0 && clap === 0 && boss.bossDebugState().resolveK === 0 && boss.bossDebugState().discRide === false,
+      'ENG-LT coexist: EMBERTIDE’s survival card carries no resolve/clapper seam (deflects, zero resolve state)');
+    boss.resetBoss();
+  }
+  ok('ENG-LT THE LAST TOLL: the survival ride un-gates the toll-wall (cadence-driven, replace-on-arm); riding + parrying + clapper-strikes feed a RESOLVE meter that breaks the seal early + staggers; the clapper seam is scoped (far/wrong-kind/wrong-landing deflect); the outlast hatch is untouched; inert for other survival cards ✓');
 }
 
 // §ENG-G THREAD-THE-GAP: MARROWCOIL scores flying cleanly through a wall's authored safe gap —

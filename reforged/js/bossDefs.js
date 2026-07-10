@@ -31,7 +31,7 @@
 // aligned 1:1 with `phases` (card[i] ↔ phase[i]). A card =
 //   { id (stable, never the display name), name, atFrac (= its phase's),
 //     timer (~20–30s capture window), dread? (exactly ONE, always last),
-//     survival? (invincible seal — timeout snaps hp past atFrac) }.
+//     survival? (invincible seal — outlast the timer to resolve; no hp snap) }.
 // Naming grammar (§5f): "<FRAGMENT OF THE EPITHET> — <plain pattern name>".
 // Capture = survive the card hitless; ledgered per-card (local-only, save.js).
 // A def WITHOUT `cards` keeps the un-carded phase behaviour (coexist rule).
@@ -1115,6 +1115,16 @@ export const BOSSES = {
     // the graze anatomy; ride the shrinking safe disc through escalating ticks, bail
     // on the last beat (offered once per phase). Def-gated (slot-6 continuous detector).
     grazeForm: 'shrinkDisc',
+    // §ENG-LT THE LAST TOLL REWORK (owner playtest: the survival exam under-delivered as
+    // passive). REVERSES the shipped "the survival ride stays pure dodge" gate, knellgrave-only:
+    // (1) ride-mode toll-wall pockets driven off the TOLL CADENCE (srel/slow is degenerate
+    // overhead); (2) SURVIVAL RESOLVE — riding the rims, parrying the seal-era aimed ambers, and
+    // striking the clapper fill a meter that breaks the seal EARLY + staggers the bell (a second,
+    // FASTER resolution; outlasting the timer still succeeds untouched); (3) the bound clapper is
+    // the seal's one weak point (rider chip, up close — no hp, feeds the meter). `setpiece` = the
+    // SETPIECE_PATHS id the ride-mode graze binds to; `weakPart` = the partWorldPos node the
+    // seal-era carve-out tests.
+    survivalResolve: { setpiece: 'lastToll', weakPart: 'clapperHead' },
     // §ENG-H C.7-proper — the toll RADIATES: the spiral toll's origin (and the sweep's
     // stream hose) ride the swinging bellMouth (emitter = organ, §5f law 7). The toll-wall
     // graze arms from the bell, not the lane centre.
@@ -1129,8 +1139,10 @@ export const BOSSES = {
     // the audit's named "awe fix"): the bell swings down + forward until it hangs
     // DIRECTLY OVERHEAD (rel≈3, the mouth above your head, the prisoner straining in
     // the gaping crack seen from beneath), rides there through the accelerating tolls,
-    // then hauls back. moving: the survival tolls keep firing (a pure-dodge exam —
-    // the card's seal deflects all damage; the unfillable bar is the tell).
+    // then hauls back. moving: the survival tolls keep firing. §ENG-LT made the exam
+    // ACTIVE: the seal deflects chip, but riding the ride-mode toll walls + parrying the
+    // seal-era ambers + striking the bound clapper fill a RESOLVE meter that breaks the
+    // seal early + staggers the bell (outlasting the timer still succeeds untouched).
     setpieces: [
       { id: 'pendulumSweep', atPhase: 3, dur: 14, moving: true },              // §ENG-H P4: the bell SWINGS across the lane (no dread flag — the swing-widen is the model's sweepK hook, not skyOpen)
       { id: 'lastToll',      atPhase: 4, dur: 26, moving: true, dread: true },  // atPhase 3 → 4 (the Last Toll ride follows its phase into P5)
@@ -1163,7 +1175,9 @@ export const BOSSES = {
     // card LAST). Naming grammar "<EPITHET FRAGMENT> — <plain pattern>". The brief's
     // 4-card set is reconciled to 4 phases (the Sweep promoted to its own phase) so
     // the atFracs align. The dread card is ALSO the roster's survival card (×2 max,
-    // §5f — slots 10 + 13): boss sealed, pure rhythm dodge; timeout snaps hp past atFrac.
+    // §5f — slots 10 + 13): boss sealed, rhythm dodge; outlasting the timer resolves it
+    // (no hp snap — breakShield already parked hp at this phase's atFrac floor on entry),
+    // OR §ENG-LT SURVIVAL RESOLVE breaks the seal early via active play.
     cards: [
       { id: 'knellgrave_first',  name: 'IT RINGS — The First Toll',   atFrac: 1.00, timer: 24 },
       { id: 'knellgrave_second', name: 'IT RINGS — The Second Toll',  atFrac: 0.70, timer: 26 },   // the RHYTHM PARRY card: the aimed chain on the toll
