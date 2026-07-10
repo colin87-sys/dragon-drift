@@ -529,8 +529,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
 #reticle.lens2.boss .rsq.inner { display: none; }
 #reticle.lens2.boss .rsq {
   --bk: 34%;                                     /* corner-bracket arm box, fraction of the side */
-  opacity: calc(1 - var(--yield, 0) * 0.55);     /* (3a) yield: brackets + glow recede together, never below the lock read */
-  box-shadow: 0 0 6px rgba(150, 210, 240, 0.4);
+  box-shadow: none;                              /* the mask (border-box) clips box-shadow away — glow moves to the ::before halo */
   -webkit-mask:
     linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
     linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
@@ -542,28 +541,40 @@ body[data-qtier="2"] .hud-sew { display: none; }
     linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
     linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
 }
-/* Tight, corner-hugging glow instead of the full-square bloom (which would re-fill the
-   hollow centre). Higher specificity than the base boss aiming/locked rules, so it wins. */
-#reticle.lens2.boss.aiming .rsq { box-shadow: 0 0 8px rgba(90, 255, 180, calc(0.35 + var(--dwell, 0) * 0.4)); }
-#reticle.lens2.boss.locked .rsq { box-shadow: 0 0 9px rgba(60, 255, 160, 0.85); }
+/* (3a) YIELD lives here, NOT on the brackets. An UNMASKED halo behind the brackets carries
+   the whole bloom (a masked element's box-shadow never paints — it's clipped to the border
+   box). Its opacity recedes with --yield so the glow steps back under threat while the
+   bracket border + dwell fill stay at full opacity (never reads as "lock lost"). Sits behind
+   the brackets in paint order (::before is the first child). */
+#reticle.lens2.boss::before {
+  content: ''; position: absolute; inset: 12%; border-radius: 8px; pointer-events: none;
+  box-shadow: 0 0 12px 1px rgba(150, 210, 240, 0.42);
+  opacity: calc(1 - var(--yield, 0));
+}
+#reticle.lens2.boss.aiming::before { box-shadow: 0 0 14px 1px rgba(90, 255, 180, calc(0.35 + var(--dwell, 0) * 0.45)); }
+#reticle.lens2.boss.locked::before { box-shadow: 0 0 16px 2px rgba(60, 255, 160, 0.7); }
 
 /* (3b) TELEGRAPH-AT-THE-GAZE: four magenta danger chevrons just outside the bracket
    frame, ramped straight off the boss wind-up (--threat 0→1) and flared outward as it
    builds — the "incoming" cue lands where the eyes already are. Magenta = the role-locked
    danger hue; outward MOTION + a final-instant blink keep it legible beyond colour. */
 #reticle .rchevs { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
-#reticle.lens2.threat .rchevs { opacity: var(--threat, 0); }
+#reticle.lens2.boss.threat .rchevs { opacity: var(--threat, 0); }   /* .boss-scoped: never leaks onto the ring/gate reticle */
 #reticle .rchevs i {
   position: absolute; left: 50%; top: 50%; width: 0; height: 0;
   --sz: 7px; --pt: calc(var(--sz) * 1.4);
+  /* base offset (46px) sits OUTSIDE the 45px half-frame at --threat 0, then flares further
+     out — so a chevron never appears in the muzzle zone where it could alias as a bullet. */
+  --off: calc(46px + var(--threat, 0) * 18px);
   filter: drop-shadow(0 0 3px rgba(255, 43, 106, 0.75));
 }
-#reticle .rchevs i:nth-child(1) { /* up */    border-left: var(--sz) solid transparent; border-right: var(--sz) solid transparent; border-bottom: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateY(calc(-34px - var(--threat, 0) * 20px)); }
-#reticle .rchevs i:nth-child(2) { /* right */ border-top: var(--sz) solid transparent; border-bottom: var(--sz) solid transparent; border-left: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateX(calc(34px + var(--threat, 0) * 20px)); }
-#reticle .rchevs i:nth-child(3) { /* down */  border-left: var(--sz) solid transparent; border-right: var(--sz) solid transparent; border-top: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateY(calc(34px + var(--threat, 0) * 20px)); }
-#reticle .rchevs i:nth-child(4) { /* left */  border-top: var(--sz) solid transparent; border-bottom: var(--sz) solid transparent; border-right: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateX(calc(-34px - var(--threat, 0) * 20px)); }
-#reticle.lens2.threat-hot .rchevs { animation: chev-blink 0.16s steps(1) infinite; }
-@keyframes chev-blink { 0%, 100% { filter: brightness(1.7); } 50% { filter: brightness(0.55); } }
+#reticle .rchevs i:nth-child(1) { /* up */    border-left: var(--sz) solid transparent; border-right: var(--sz) solid transparent; border-bottom: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateY(calc(-1 * var(--off))); }
+#reticle .rchevs i:nth-child(2) { /* right */ border-top: var(--sz) solid transparent; border-bottom: var(--sz) solid transparent; border-left: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateX(var(--off)); }
+#reticle .rchevs i:nth-child(3) { /* down */  border-left: var(--sz) solid transparent; border-right: var(--sz) solid transparent; border-top: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateY(var(--off)); }
+#reticle .rchevs i:nth-child(4) { /* left */  border-top: var(--sz) solid transparent; border-bottom: var(--sz) solid transparent; border-right: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateX(calc(-1 * var(--off))); }
+/* Final-instant blink at ~2.9Hz (under the 3Hz photosensitivity guideline), soft brightness swing. */
+#reticle.lens2.threat-hot .rchevs { animation: chev-blink 0.34s steps(1) infinite; }
+@keyframes chev-blink { 0%, 100% { filter: brightness(1.45); } 50% { filter: brightness(0.7); } }
 
 /* ============ AUDIO / PAUSE BUTTON ============ */
 .audio-btns { display: none; }

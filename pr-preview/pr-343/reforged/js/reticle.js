@@ -136,7 +136,7 @@ export function updateReticle(player, playing) {
     const L = lockHudState();
     if (!L.active) {
       el.style.opacity = 0; el.classList.remove('boss', 'locked', 'aiming', 'snap'); prevLocked = false;
-      if (LENS2) { el.classList.remove('threat', 'threat-hot', 'yield'); yieldAmt = 0; }
+      if (LENS2) { el.classList.remove('threat', 'threat-hot'); yieldAmt = 0; }
       renderMarks(L);   // brand marks are STATE — they track even when no organ leads
       return;
     }
@@ -171,6 +171,9 @@ export function updateReticle(player, playing) {
     return;
   }
   el.classList.remove('boss', 'sealed', 'aiming', 'snap');
+  // LENS: a boss killed mid-wind-up flips game.inBoss without passing the !L.active
+  // cleanup, so clear the threat cues here too or stale chevrons ride the ring reticle.
+  if (LENS2) { el.classList.remove('threat', 'threat-hot'); yieldAmt = 0; }
   if (markEls.length && markEls[0].classList.contains('show')) for (const m of markEls) m.classList.remove('show');
 
   const ring = nextRingAhead(player.dist + 4);
