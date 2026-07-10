@@ -27,17 +27,38 @@ const subFloor = await page.evaluate(async () => {
 check(`a 2-pip release does NOT tear the web (staggerT ${subFloor.staggerT?.toFixed?.(2) ?? 'n/a'}, mendOffered ${subFloor.mendOffered})`,
   subFloor.skip || (subFloor.staggerT < 0.01 && subFloor.mendOffered === false));
 
-// (2) A ≥burnFloor (4-pip) DELIBERATE release TEARS the web → mend window opens.
-const torn = await page.evaluate(async () => {
-  // Wait for any residual stagger to clear so we measure the trigger cleanly.
+// (2a) A fork (Surge) release must NOT tear the web — only a deliberate tap/cap does
+// (§CP2 SF-2: widening the source guard to include fork/decay would pass every other gate).
+const forked = await page.evaluate(async () => {
   for (let i = 0; i < 200 && window.__dd.bossState().staggerT > 0.01; i++) await new Promise((r) => setTimeout(r, 50));
-  window.__dd.bossBankLocks(4); window.__dd.bossLoose();
+  if (window.__dd.bossState().mendOffered) return { skip: true };
+  window.__dd.bossBankLocks(4);
+  window.__dd.bossStrikeSurge();   // fires surgeForkLances → lockVolley {source:'fork'}
   await new Promise((r) => setTimeout(r, 150));
   const s = window.__dd.bossState();
-  return { staggerT: s.staggerT, mendOffered: s.mendOffered, bullets: s.bullets };
+  return { staggerT: s.staggerT, mendOffered: s.mendOffered };
 });
-check(`a 4-pip release TEARS the web → mend window opens (staggerT ${torn.staggerT.toFixed(2)}, mendOffered ${torn.mendOffered})`,
+check(`a Surge FORK release does NOT tear the web (staggerT ${forked.staggerT?.toFixed?.(2) ?? 'n/a'}, mendOffered ${forked.mendOffered})`,
+  forked.skip || (forked.staggerT < 0.01 && forked.mendOffered === false));
+
+// (2b) A ≥burnFloor (4-pip) DELIBERATE tap release TEARS the web → mend window opens, and it
+// must be the MEND, not a thread-cut: the queued `pending` is WIPED (quiet window) but live
+// ambers SURVIVE (§CP2 SF-1: the two invariants that distinguish it from the thread-cut).
+const torn = await page.evaluate(async () => {
+  for (let i = 0; i < 200 && window.__dd.bossState().staggerT > 0.01; i++) await new Promise((r) => setTimeout(r, 50));
+  // Let her fire so there are live ambers to prove they SURVIVE the mend.
+  for (let i = 0; i < 120 && window.__dd.bossState().bullets < 1; i++) await new Promise((r) => setTimeout(r, 50));
+  const before = window.__dd.bossState().bullets;
+  window.__dd.bossBankLocks(4); window.__dd.bossLoose();
+  await new Promise((r) => setTimeout(r, 120));
+  const s = window.__dd.bossState();
+  return { staggerT: s.staggerT, mendOffered: s.mendOffered, pendingN: s.pendingN, bulletsBefore: before, bulletsAfter: s.bullets };
+});
+check(`a 4-pip TAP release TEARS the web → mend window opens (staggerT ${torn.staggerT.toFixed(2)}, mendOffered ${torn.mendOffered})`,
   torn.staggerT > 1.5 && torn.mendOffered === true);
+check(`the mend window is QUIET — queued sub-volleys wiped (pendingN ${torn.pendingN})`, torn.pendingN === 0);
+check(`live ambers SURVIVE the mend — NOT deleted like a thread-cut (bullets ${torn.bulletsBefore}→${torn.bulletsAfter})`,
+  torn.bulletsBefore === 0 || torn.bulletsAfter > 0);
 
 // (3) ONCE per phase: a second ≥floor release in the same phase does NOT re-open it.
 const second = await page.evaluate(async () => {

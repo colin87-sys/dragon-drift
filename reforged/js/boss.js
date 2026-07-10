@@ -2775,6 +2775,10 @@ export function updateBoss(dt, player, time, camera) {
               sfx.stitchPluck?.(threadCutHits);
               ui.bossNote?.(`✦ THREAD FRAYING — ${threadCutHits}/${THREAD_CUT_HITS} ✦`, 'PARRY AGAIN TO CUT IT', 'gold', 1.1);
             }
+          } else if (def.threadCut && !surge && staggerT > 0) {
+            // §CP2 SF-5: a parry lands DURING a mend window (the thread won't fray while she
+            // weaves) — say so, else the fray counter reads as broken (the deflect is silent).
+            ui.bossNote?.('✦ THE THREAD WON’T FRAY WHILE SHE MENDS ✦', 'BRAND HER — DON’T PARRY', 'gold', 1.0);
           }
           // §5i.C GHOST-HALF PARRY → STAGGER + FRAME-BREAK (ONEWING, registry row 12): a
           // PERFECT parry of a ghost bullet (part 'frameGroup') STAGGERS it, and parrying
@@ -3523,6 +3527,10 @@ function activateSurge(player) {
 function breakShield(player) {
   shielded = false;
   burns.length = 0;               // SCAR-BURN: cancel at the phase seam (§CP1 B-2 — never leak into the next phase's pool)
+  staggerT = 0;                   // §CP2 SF-4: a stagger/mend window never LEAKS across a phase seam — the leftover
+                                  // silence + the staggerT<=0 lockout (blocking a fresh mend AND thread-cut banking)
+                                  // would otherwise bleed into the new phase (crossing the floor inside a mend is the
+                                  // incentivized burst play). A fresh phase starts clean (also fixes the pre-existing thread-cut leak).
   model.shatterShield?.();        // the bubble breaks into flying shards
   model.setShieldVisible?.(false);
   model.flash(1.0);
@@ -5236,7 +5244,7 @@ export function bossDebugState() {
   // live possession/drop, so the crop tool + gate can read the eye-drop state.
   const hs = model?.holdState?.();
   const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0, staggerT, mendOffered };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0, staggerT, mendOffered, pendingN: pending.length };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
