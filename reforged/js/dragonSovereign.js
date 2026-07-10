@@ -30,7 +30,7 @@ function sovereignMats(def, glow, stage) {
   const gemI = [0, 0.9, 1.8, 2.9][st];        // brow star-gem
   const napeI = [0, 0, 1.6, 2.6][st];         // dorsal nape-star (the chase-cam sigil)
   const emberF = [0, 0.3, 0.62, 1.0][st];     // membrane trailing-ember factor (stage-1 KINDLE = f1's first wing-light)
-  const coronaI = [0, 0, 0, 3.4][st];         // eclipse-corona rim (Eternal only) — bright enough to read at chase scale
+  const coronaI = [0, 0, 0, 2.6][st];         // eclipse-corona rim (Eternal only) — bright enough to read at chase scale; trimmed 3.4→2.6 (CP3.3) to tighten the bloom halo that glare-masks obstacles beside the rim arc
   const sparI = st >= 3 ? 3.5 : 0;            // white-hot spar tips (Eternal only)
 
   // Body: SATURATED indigo (not gray) + a lifted indigo emissive floor so the king reads
@@ -53,7 +53,11 @@ function sovereignMats(def, glow, stage) {
   // ember orange-red at the outer tier stays mid-value → holds colour through bloom.
   const memEmis = [0x200504, 0x6e1410, 0xb42414, 0xe8401c];
   const memBaseI = [0.05, 0.2, 0.45, 0.8];
-  const mem = (col, i) => { const inten = memBaseI[i] * emberF; const m = new THREE.MeshStandardMaterial({ color: col, emissive: memEmis[i], emissiveIntensity: inten, flatShading: true, roughness: 0.76, side: THREE.DoubleSide }); m.userData.baseEmissive = memEmis[i]; m.userData.baseIntensity = inten; return m; };
+  // BUG FIX (visibility): the membranes must be TRANSPARENT so the game's wing-fade (dragon.js drives
+  // wingMat.opacity → 0.82/0.77/0.70) actually works — Solar was the ONLY dragon with a fully OPAQUE
+  // wing wall (opacity writes were inert without transparent:true), so you couldn't see obstacles
+  // through the 70%-of-frame wing. Matches dragonUnifiedHull's translucent-membrane recipe.
+  const mem = (col, i) => { const inten = memBaseI[i] * emberF; const m = new THREE.MeshStandardMaterial({ color: col, emissive: memEmis[i], emissiveIntensity: inten, flatShading: true, roughness: 0.76, side: THREE.DoubleSide, transparent: true, opacity: 0.82 }); m.userData.baseEmissive = memEmis[i]; m.userData.baseIntensity = inten; return m; };
   const memTiers = [mem(0x45120e, 0), mem(0x5a160e, 1), mem(0x7a1622, 2), mem(0x9c2233, 3)];   // root→outer
   const membrane = memTiers[2];
   // Starlight-vein circuit — saturated violet, upper-surface placement (see buildOneWing).
@@ -71,7 +75,11 @@ function sovereignMats(def, glow, stage) {
   const sparTip = new THREE.MeshStandardMaterial({ color: 0xffe2b0, emissive: 0xffa028, emissiveIntensity: sparI, flatShading: true, roughness: 0.3 });
   // Eclipse corona: a DARK opaque moon-disk body wearing a thin saturated bicolour rim (violet +
   // ember) with gold bevels — jeweled, not a smoky additive halo. Rim mats also stay out of spineMats.
-  const coronaDark = new THREE.MeshStandardMaterial({ color: 0x0d0a18, emissive: 0x0d0a18, emissiveIntensity: 0.05, flatShading: true, roughness: 0.7, metalness: 0.1 });
+  // Dark band is now TRANSPARENT (CP3.2): a ghosted umbra the player sees forward THROUGH in rear-chase.
+  // The eclipse reads by SILHOUETTE + saturated-rim contrast, not opacity — a 0.74 near-black band over a
+  // bright canyon still composites near-black. DoubleSide because the corona ring drops its back disk (so
+  // the band is single-layer: a stacked back disk would be two 0.74 layers ≈ 7% transmission = opaque).
+  const coronaDark = new THREE.MeshStandardMaterial({ color: 0x0d0a18, emissive: 0x0d0a18, emissiveIntensity: 0.05, flatShading: true, roughness: 0.7, metalness: 0.1, transparent: true, opacity: 0.60, side: THREE.DoubleSide });   // umbra deepened 0.74→0.60 (CP3.3): 40% show-through; eclipse still reads dark by silhouette+rim contrast (read floor ~0.55)
   const coronaRimV = new THREE.MeshStandardMaterial({ color: 0x9a5cff, emissive: veinEmis, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });   // deepened lilac→true violet (was 0xb784ff, read pale under bloom)
   const coronaRimA = new THREE.MeshStandardMaterial({ color: 0xffb46a, emissive: 0xff8c1a, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });   // saturated amber (was deep-amber 0xd4680f — too dark to read)
   return { bodyFlat, gold, goldHi, violet, violetMantle, membrane, memTiers, veinMat, gem, napeStar, sparTip, coronaDark, coronaRimV, coronaRimA, stage: st };
@@ -157,6 +165,7 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // Dorsal keel-ridge: one bold rank of faceted gold cuirass studs (swell-then-taper),
   // violet seam grooves between — reads as forged armor, never a flat white sticker.
   const shields = Math.round(model.keelShields ?? 5);
+  const cuirassPlate = (model.cuirassPlate ?? 0) > 0;   // CP3 S2: studs → forged plates + claw-set gems
   for (let i = 0; i < shields; i++) {
     const t = i / Math.max(1, shields - 1);
     const z = -0.9 + t * 2.3;
@@ -165,20 +174,38 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
     const stud = spike(h, 0.16 * (1 - 0.4 * t), 0.02, M.gold, 4);   // 4-facet gold chevron stud
     stud.position.set(0, topY, z);
     group.add(stud);
+    // CP3 S2 — a forged beveled chevron PLATE shingled under each stud (overlapping down the spine),
+    // turning the dorsal line from studs-on-void into a gold cuirass ridge from the chase cam.
+    if (cuirassPlate) {
+      const pw = 0.30 * (1 - 0.3 * t), pl = 0.34;
+      const y0 = topY - 0.10, zf = z - pl * 0.5, zb = z + pl * 0.5;
+      const plate = flatTriMesh([
+        [[-pw, y0, zb], [pw, y0, zb], [0, y0 + 0.05, zf]],           // chevron point-forward, low bevel
+        [[-pw, y0, zb], [0, y0 + 0.05, zf], [-pw * 0.5, y0 + 0.02, zf]],
+        [[pw, y0, zb], [pw * 0.5, y0 + 0.02, zf], [0, y0 + 0.05, zf]],
+      ], M.gold);
+      group.add(plate);
+    }
     if (i > 0) {
       const seam = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.05), M.violet);
       seam.position.set(0, topY - 0.02, z - 0.28);
       group.add(seam);
     }
     // SPINE OF LIGHT (stage≥2): a saturated violet gem crowning each dorsal stud so the valley
-    // between the wings is a lit ridge, not a black void from the chase cam (the eclipse-black body
-    // keeps its dark mass; only the dorsal line lights). Part of the ignition ladder — dark until Radiant.
+    // between the wings is a lit ridge, not a black void from the chase cam. CP3 S2: upscaled so it
+    // clears the sub-8px density floor at chase distance, in a gold claw-setting.
     if (M.stage >= 2) {
-      // Scale up at Eternal (stage 3) so the spine of light carries the valley on its own at chase
-      // distance rather than leaning on the corona (Fable round-2 polish).
-      const gemR = (0.055 + 0.03 * (1 - t)) * (M.stage >= 3 ? 1.5 : 1);
+      const gemR = (0.075 + 0.03 * (1 - t)) * (M.stage >= 3 ? 1.6 : 1.2);
+      const gy = topY + h * 0.9;
+      if (cuirassPlate) for (let c = 0; c < 4; c++) {   // 4-prong gold claw setting under the gem
+        const claw = spike(gemR * 1.5, 0.02, 0.004, M.goldHi, 3);
+        const ca = c * Math.PI / 2;
+        claw.position.set(Math.cos(ca) * gemR * 0.7, gy - gemR * 0.6, z + Math.sin(ca) * gemR * 0.7);
+        claw.rotation.x = Math.sin(ca) * 0.5; claw.rotation.z = -Math.cos(ca) * 0.5;
+        group.add(claw);
+      }
       const gemCap = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), M.napeStar);
-      gemCap.position.set(0, topY + h * 0.9, z);
+      gemCap.position.set(0, gy, z);
       gemCap.scale.set(1, 1.3, 1);
       group.add(gemCap);
     }
@@ -214,10 +241,42 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // star on the nape that the chase view actually reads. NOT in spineMats (stays its own saturated hue).
   const nape = model.napeStar ?? 0;
   if (nape > 0) {
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.11 * (0.7 + 0.3 * nape), 0), M.napeStar);
-    star.position.set(0, coronaPos.y + dome * 0.72, coronaPos.z - depth * 0.42);
+    const nx = 0, ny = coronaPos.y + dome * 0.72, nz = coronaPos.z - depth * 0.42;
+    // CP3 S5 — the ORDER-STAR: a faceted gold sunburst setting (6 rays + backplate) turns the rearward
+    // sigil into a royal insignia the chase cam reads as a decoration, not just a dot.
+    if ((model.orderStar ?? 0) > 0) {
+      const rays = [];
+      for (let r = 0; r < 6; r++) {
+        const a = r * Math.PI / 3, R = 0.22, w = 0.05;
+        rays.push([[nx, ny, nz - 0.02], [nx + Math.cos(a - 0.0) * R, ny + Math.sin(a) * R, nz - 0.02],
+          [nx + Math.cos(a + w) * R * 0.5, ny + Math.sin(a + w) * R * 0.5, nz - 0.02]]);
+      }
+      group.add(flatTriMesh(rays, M.goldHi));
+    }
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.13 * (0.7 + 0.3 * nape), 0), M.napeStar);
+    star.position.set(nx, ny, nz);
     star.scale.set(1, 1.3, 1);
     group.add(star);
+  }
+
+  // CP3 S3 — PAULDRONS + HAUNCH GUARDS: faceted gold shoulder plates over the wing roots (weld the
+  // wings to the body in rear-¾) + haunch plates at the hip re-swell. Violet seam groove on each.
+  const pauld = Math.round(model.pauldrons ?? 0);
+  if (pauld >= 1) for (const s of [1, -1]) {   // pauldrons over the wing roots
+    const px = s * 0.52, py = TORSO_Y + 0.30, pz = -0.72;
+    group.add(flatTriMesh([
+      [[px - s * 0.22, py + 0.14, pz - 0.28], [px + s * 0.20, py + 0.06, pz - 0.30], [px + s * 0.10, py - 0.06, pz + 0.26]],
+      [[px - s * 0.22, py + 0.14, pz - 0.28], [px + s * 0.10, py - 0.06, pz + 0.26], [px - s * 0.14, py - 0.02, pz + 0.24]],
+    ], M.gold));
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, 0.4), M.violet);
+    seam.position.set(px + s * 0.02, py + 0.06, pz); group.add(seam);
+  }
+  if (pauld >= 2) for (const s of [1, -1]) {   // haunch guards at the hip re-swell (f3)
+    const hx = s * 0.44, hy = TORSO_Y + 0.14, hz = 0.92;
+    group.add(flatTriMesh([
+      [[hx - s * 0.16, hy + 0.12, hz - 0.24], [hx + s * 0.14, hy + 0.04, hz - 0.22], [hx + s * 0.06, hy - 0.10, hz + 0.24]],
+      [[hx - s * 0.16, hy + 0.12, hz - 0.24], [hx + s * 0.06, hy - 0.10, hz + 0.24], [hx - s * 0.12, hy - 0.04, hz + 0.22]],
+    ], M.goldHi));
   }
 
   // ECLIPSE CORONA (coronaRing / Eternal only): an OPAQUE moon-disk annulus standing vertical behind
@@ -227,31 +286,71 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // additive halo. Rim mats stay OUT of spineMats (Surge would blow them to white).
   if ((model.coronaRing ?? 0) > 0) {
     const ring = new THREE.Group();
-    // Radii: inner DARK moon-disk band [Ri..Rm] + a WIDE saturated RIM band [Rm..Ro] on the
-    // CAMERA-FACING front face (the old build put the bright colour on the thin depth-edge, which is
-    // edge-on to the rear-chase cam → near-invisible). Now the glowing rose-window rim faces the cam.
-    const Ro = 1.10, Rm = 0.90, Ri = 0.78, d = 0.10, N = 12;
+    ring.name = 'eclipseCorona';   // published for the motion tick (slow eclipse crawl / Surge TOTALITY)
+    // CP3 "GRAND ECLIPSE" — the annulus becomes a cathedral ROSE WINDOW wearing eclipse streamers.
+    // Still eclipse-BY-CONSTRUCTION (dark matte moon-disk + a thin saturated CAMERA-FACING rim, flat
+    // tris, NO torus). Scaled to monument size but CAPPED so it stays enthroned BELOW the spire tips.
+    const Ro = 1.30, Rm = 1.10, Ri = 0.88, d = 0.10, N = 16;   // RIM DIET (CP3.3): Rm 1.06→1.10 thins the OPAQUE emissive rim (the real remaining blocker — ~2.5× the umbra) to 0.20u ≈ 8.2px (density floor — do NOT raise further) and auto-widens the ghosted umbra band (Ri→Rm) to fill. Ro unchanged → outer silhouette + sil-rear diff intact.
     const pt = (r, ang, z) => [Math.cos(ang) * r, Math.sin(ang) * r, z];
     const darkT = [], vT = [], aT = [], goldT = [];
     for (let i = 0; i < N; i++) {
       const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
-      // front face, inner dark annulus [Ri..Rm]
       const iF0 = pt(Ri, a0, d / 2), mF0 = pt(Rm, a0, d / 2), mF1 = pt(Rm, a1, d / 2), iF1 = pt(Ri, a1, d / 2);
-      darkT.push([iF0, mF0, mF1], [iF0, mF1, iF1]);
-      // front face, OUTER saturated rim annulus [Rm..Ro] — alternating violet/amber, faces the cam
+      darkT.push([iF0, mF0, mF1], [iF0, mF1, iF1]);       // front inner dark moon-disk band
       const oF0 = pt(Ro, a0, d / 2), oF1 = pt(Ro, a1, d / 2);
-      const rim = (i % 2 === 0) ? vT : aT;
-      rim.push([mF0, oF0, oF1], [mF0, oF1, mF1]);
-      // back face (all dark) + outer depth band (dark, so only the front rim glows)
+      ((i % 2 === 0) ? vT : aT).push([mF0, oF0, oF1], [mF0, oF1, mF1]);   // front outer rim (violet/amber)
       const iB0 = pt(Ri, a0, -d / 2), oB0 = pt(Ro, a0, -d / 2), oB1 = pt(Ro, a1, -d / 2), iB1 = pt(Ri, a1, -d / 2);
-      darkT.push([iB0, oB1, oB0], [iB0, iB1, oB1]);
-      darkT.push([oF0, oB0, oB1], [oF0, oB1, oF1]);
+      // Back disk REMOVED (CP3.2): the umbra band is now single-layer so a sightline crosses ONE 0.74 layer
+      // (26% show-through), not two. The front band is DoubleSide, so the ring still reads from the shop-front.
+      darkT.push([oF0, oB0, oB1], [oF0, oB1, oF1]);       // outer depth band (dark, edge-on to the chase cam)
       goldT.push([iF0, iB1, iB0], [iF0, iF1, iB1]);       // inner bevel (gold)
+    }
+    // 8 ECLIPSE STREAMER RAYS off the rim — FEW + LARGE (density-law safe), deliberately SKIPPING the
+    // top (~90°) so the loved M skyline (spire–head–spire) is untouched; light escapes around the disk.
+    const grand = (model.coronaGrand ?? 0) > 0;   // the rose-window extras (rays/tracery/gems) — Eternal only
+    const rayAng = grand ? [0, 0.7, 2.44, Math.PI, 3.66, 4.36, 4.98, 5.6] : [];   // radians: right/low-diagonals/left/bottom — no 12 o'clock
+    for (let r = 0; r < rayAng.length; r++) {
+      const a = rayAng[r], hw = 0.10, long = r % 2 === 0, Rt = long ? 1.6 : 1.4;   // reach trimmed (CP3.2) + width 0.13→0.10 (CP3.3, 0.26u ≈ 11px ≥ floor): the crawl sweeps rays through the whole clock, so less solid angle per sweep = less swept occlusion
+      const bL = pt(Ro * 0.99, a - hw, d / 2), bR = pt(Ro * 0.99, a + hw, d / 2), tip = pt(Rt, a, d / 2);
+      const bLb = pt(Ro * 0.99, a - hw, -d / 2), bRb = pt(Ro * 0.99, a + hw, -d / 2), tipb = pt(Rt, a, -d / 2);
+      ((r % 2 === 0) ? vT : aT).push([bL, bR, tip]);      // front emissive (violet=long / amber=short)
+      darkT.push([bLb, tipb, bRb]);                       // dark back
+    }
+    // ROSE-WINDOW TRACERY (grand only): a thin gold outer ring + a central OCULUS ring + 4 gold mullion
+    // spokes bridging the two. The spokes spring from the OCULUS (r 0.45), NOT from dead-centre — so the
+    // aperture inside (r<0.40) stays open glass and the player sees FORWARD THROUGH the corona in rear-
+    // chase (the spokes used to cross r 0.12 and screen the sightline, causing blind crashes). This is
+    // the more authentic rose-window read (mullions radiate from an inner medallion, never the centre),
+    // and it's uniform shop+gameplay — no context mismatch. The 4-spoke skyline is untouched.
+    if (grand) {
+      const trIn = 0.80, trOut = 0.86;
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+        goldT.push([pt(trIn, a0, d / 2 + 0.01), pt(trOut, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01)],
+                   [pt(trIn, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01), pt(trIn, a1, d / 2 + 0.01)]);
+      }
+      const ocIn = 0.40, ocOut = 0.45;   // central oculus ring — frames the open aperture the spokes spring from
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+        goldT.push([pt(ocIn, a0, d / 2 + 0.01), pt(ocOut, a0, d / 2 + 0.01), pt(ocOut, a1, d / 2 + 0.01)],
+                   [pt(ocIn, a0, d / 2 + 0.01), pt(ocOut, a1, d / 2 + 0.01), pt(ocIn, a1, d / 2 + 0.01)]);
+      }
+      for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {   // 4 compass mullions (radial bars)
+        const w = 0.065;   // widened (Fable polish) so the spokes clear the sub-8px floor at chase distance
+        goldT.push([pt(ocOut, a - w, d / 2 + 0.01), pt(0.82, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01)],
+                   [pt(ocOut, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01), pt(ocOut, a + w, d / 2 + 0.01)]);
+      }
     }
     ring.add(flatTriMesh(darkT, M.coronaDark));
     ring.add(flatTriMesh(vT, M.coronaRimV));
     ring.add(flatTriMesh(aT, M.coronaRimA));
     ring.add(flatTriMesh(goldT, M.goldHi));
+    // 4 COMPASS GEMS at the mullion/ring junctions — violet, ride the ignition ladder (M.gem).
+    if (grand) for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
+      const g = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), M.gem);
+      g.position.set(Math.cos(a) * 0.83, Math.sin(a) * 0.83, d / 2 + 0.04);
+      ring.add(g);
+    }
     ring.position.set(0, TORSO_Y + 0.92, -0.72);
     ring.rotation.x = -0.21;   // tilt ~12° forward (top leans toward the head)
     group.add(ring);
@@ -296,7 +395,7 @@ registerTorso('regnalKeelTorso', buildRegnalKeelTorso);
 // for the left; dihedral raises the tips into the rear cathedral arch.
 function buildOneWing(M, dials, dih) {
   const wg = new THREE.Group();
-  const { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots } = dials;
+  const { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots, spireTier, buttress, vaultSculpt } = dials;
   const rootChord = 2.7, tipChord = 0.5, sweepZ = halfSpan * 0.28;
   // Built CANONICAL (+X); the left wing is a scale.x=-1 mirror of this (in buildLanceVaultWings)
   // so the shared flap animator's MIRRORED poses land symmetric (it feeds L/R opposite rotations,
@@ -356,6 +455,29 @@ function buildOneWing(M, dials, dih) {
     spar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     wg.add(spar);
   }
+  // CP3 S1 — gold BOSS keystones at each vault crown + FLYING BUTTRESSES arcing from the body up to
+  // the mid-spar (literal cathedral engineering under the arch; the 70%-of-frame wing wall gains depth).
+  if (vaultSculpt && M.stage >= 2) for (let f = 1; f < fingers; f++) {
+    const A = st[f], B = st[f + 1];
+    const boss = spike(0.14, 0.06, 0.01, M.goldHi, 4);
+    boss.position.set((A.l[0] + B.l[0]) / 2, (A.l[1] + B.l[1]) / 2 + 0.04, (A.l[2] + B.l[2]) / 2);
+    boss.rotation.x = -0.3;
+    wg.add(boss);
+  }
+  if (buttress >= 1) {
+    const tubeArc = (p0, p1, bow, r) => {
+      const c = [(p0[0] + p1[0]) / 2 + bow[0], (p0[1] + p1[1]) / 2 + bow[1], (p0[2] + p1[2]) / 2 + bow[2]];
+      let prev = p0; const N = 5;
+      for (let k = 1; k <= N; k++) { const u = k / N, mu = 1 - u;
+        const pt = [mu * mu * p0[0] + 2 * mu * u * c[0] + u * u * p1[0], mu * mu * p0[1] + 2 * mu * u * c[1] + u * u * p1[1], mu * mu * p0[2] + 2 * mu * u * c[2] + u * u * p1[2]];
+        wg.add(tube(prev, pt, r, M.gold)); prev = pt; }
+      // anchor BOSS at the body end so the buttress reads load-bearing, not a floating wire (Fable polish)
+      const boss = new THREE.Mesh(new THREE.OctahedronGeometry(r * 2.6, 0), M.gold);
+      boss.position.set(p0[0], p0[1], p0[2]); wg.add(boss);
+    };
+    tubeArc([0.05, -0.5, 0.25], st[Math.max(1, Math.round(fingers * 0.4))].l, [0.2, -0.35, 0.1], 0.035);
+    if (buttress >= 2) tubeArc([0.15, -0.45, 0.55], st[Math.max(1, Math.round(fingers * 0.6))].l, [0.3, -0.3, 0.15], 0.03);
+  }
   // Finger ribs (gold) + a BOLD violet starlight vein running each finger line — now seated ABOVE
   // the rib (proud of the upper surface) so the rear-chase cam actually catches it (it used to sit
   // 0.02 BELOW the rib, occluded from above). The Eclipse identity, emissive-on-opaque.
@@ -397,18 +519,47 @@ function buildOneWing(M, dials, dih) {
   if (carpalLance > 0) {
     const t = 0.35, l = L(t);
     const clen = halfSpan * 0.212 * carpalLance;
-    const rot = new THREE.Euler(-0.45, 0, -0.18);
-    const lance = spike(clen, 0.22, 0.01, M.stage >= 3 ? M.sparTip : M.goldHi, 5);
-    lance.position.set(l[0], l[1], l[2]);
+    const rot = new THREE.Euler(-0.45, 0, -0.34);   // splayed outboard (CP3.2): shaft leaves the ±6–9° swerve corridor; the M valley widens into a chalice (peak drops only ~0.1u — the M survives, more majestic)
+    // CP3.3 DECOUPLE — the spire rides its OWN named group whose origin is the carpal station `l`, so
+    // dragon.js can COUNTER-ROTATE it against the flap (a mast that doesn't sway with the sail): the base
+    // still travels with the wing, but the tall bright shaft holds its orientation, so its tip stops
+    // scissoring across the forward view on every upstroke. Children are built at LOCAL offsets (rest
+    // pose is byte-identical — the group sits at `l` with identity orientation).
+    const spireG = new THREE.Group();
+    spireG.name = 'carpalSpire';
+    spireG.position.set(l[0], l[1], l[2]);
+    wg.add(spireG);
+    const lance = spike(clen, 0.17, 0.01, M.stage >= 3 ? M.sparTip : M.goldHi, 5);   // thinned base 0.22→0.17 (still ~14px ≥ floor, still ~2.6× the rank pikes) — slimmer = more cathedral, narrower bar to see past
     lance.rotation.copy(rot);
-    wg.add(lance);
-    tipJewel(l, clen, rot, 0.07);
+    spireG.add(lance);
+    if (M.stage >= 2) {   // tip jewel at the blade's TRUE rotated tip (0.9× length), LOCAL to the spire group
+      const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.07, 0), M.veinMat);
+      const tl = new THREE.Vector3(0, clen * 0.9, 0).applyEuler(rot);
+      cap.position.set(tl.x, tl.y, tl.z);
+      spireG.add(cap);
+    }
+    // CP3 VOTIVE SPIRE — the plain lance becomes a stepped cathedral spire. SAME height/rake/outline
+    // (interior detail of the existing landmark; the M silhouette contract is untouched). A point at
+    // fraction s up the shaft, in the lance's own rotated frame — LOCAL to the spire group:
+    const along = (s) => { const p = new THREE.Vector3(0, s * clen, 0).applyEuler(rot); return [p.x, p.y, p.z]; };
+    const banded = (s, rTop, rBot, h, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, seg(6)), mat); m.position.set(...along(s)); m.rotation.copy(rot); spireG.add(m); };
+    if (spireTier >= 1) { banded(0.30, 0.13, 0.13, 0.06, M.goldHi); banded(0.55, 0.10, 0.10, 0.05, M.goldHi); }   // collar rings (radii thinned to track the slimmer shaft)
+    if (spireTier >= 2) {
+      banded(0.03, 0.21, 0.25, 0.14, M.gold);   // hex plinth at the carpal (thinned to track the shaft)
+      for (const s of [0.42, 0.66]) {            // 2 crockets — gold hooks on the OUTER face (CP3.2: flipped off the valley so they stop snagging the center corridor at head-height)
+        const cr = spike(0.34, 0.09, 0.006, M.goldHi, 4);
+        const base = along(s);
+        cr.position.set(base[0] + 0.16, base[1], base[2] + 0.02);   // outer face (+x on the canonical +X wing)
+        cr.rotation.set(-0.5, 0, -1.15);         // hook up-and-outward
+        spireG.add(cr);
+      }
+    }
   }
 
   // Pike rank — DEMOTED behind the carpal: re-stationed OUTBOARD of the lance, steeper 0.62^i decay
   // so the rank reads LANCE → step → step → tip (a scale hierarchy), not a picket fence of equals.
   for (let i = 0; i < pikes; i++) {
-    const t = 0.44 + 0.28 * (i / Math.max(1, pikes - 1 || 1));
+    const t = 0.47 + 0.28 * (i / Math.max(1, pikes - 1 || 1));   // rank start nudged out (CP3.2) so the splayed lance shaft doesn't tangle the first pike in the rear silhouette
     const l = L(t);
     const plen = halfSpan * 0.24 * Math.pow(0.62, i);
     const rot = new THREE.Euler(-0.65, 0, -0.3);         // rake up-and-forward off the arm
@@ -439,7 +590,10 @@ function buildLanceVaultWings(def, model, attach, _giM) {
   const archRise = model.archRise ?? 1;         // 0 (linear princeling glide) → 1 (full cathedral arch)
   const carpalLance = model.carpalLance ?? 2.6; // twin-spire length× (0 = none)
   const pinionSlots = Math.round(model.pinionSlots ?? 2);
-  const dials = { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots };
+  const spireTier = Math.round(model.spireTier ?? 2);   // CP3: 0 plain lance · 1 collars · 2 plinth+crockets
+  const buttress = Math.round(model.buttress ?? 2);     // CP3 S1: flying buttresses per wing (0/1/2)
+  const vaultSculpt = (model.vaultSculpt ?? 1) > 0;     // CP3 S1: gold boss-ribs on the vault crowns
+  const dials = { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots, spireTier, buttress, vaultSculpt };
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
@@ -470,6 +624,7 @@ function buildLanceVaultWings(def, model, attach, _giM) {
     mid.add(marker);
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
     pivots['tipMarker' + s] = marker;
+    pivots['carpalSpire' + s] = mid.getObjectByName('carpalSpire') || null;   // CP3.3: the flap-decoupled spire (per-side subtree → correct handle)
     wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + halfSpan * 0.34], length: halfSpan, tipObj: marker });
   }
   return { group, spineMats: [M.violet], wingMat: M.membrane, parts: { ...pivots, wingElements } };
@@ -526,6 +681,18 @@ function buildEclipseCrownHead(def, model, mats) {
     occ.position.set(0, 0.26 * hs, 0.30);
     occ.rotation.x = 0.85;   // rake back over the nape
     group.add(occ);
+  }
+  // CP3 S4 — the REAR CIRCLET: an occipital arc of bold gold points BEHIND the crown (the crown the
+  // CHASE CAM sees; the lance-horns face forward). Makes "crowned" legible from behind. Rides crownHorns.
+  if ((model.rearCirclet ?? 0) > 0 && crown >= 3) {
+    const nPts = crown >= 4 ? 5 : 2;
+    for (let p = 0; p < nPts; p++) {
+      const a = (p / (nPts - 1) - 0.5) * 2.4;   // fan across the occiput
+      const pt = spike(0.16 * hs * (1 - 0.3 * Math.abs(a) / 1.2), 0.035 * hs, 0.004, M.goldHi, 4);
+      pt.position.set(Math.sin(a) * 0.30 * hs, 0.30 * hs, 0.40 - Math.cos(a) * 0.04);
+      pt.rotation.x = 1.0; pt.rotation.z = -Math.sin(a) * 0.6;
+      group.add(pt);
+    }
   }
 
   // STAR-GEM motif (brow center): big faceted violet octahedron in a gold setting. A GEM — never opens.
@@ -700,12 +867,35 @@ function buildScepterWhipTail(def, model, mats, anchor) {
     tipG.add(flatTriMesh(rimT, M.gold));
   }
   // Captive star — now large enough to register at chase distance, centered in front of the sigil disk.
+  const orbiters = [];
   if (bloom > 0.4) {
+    const sx = lx, sy = ly + plen * 0.28, sz = lz + plen * 0.18;
     const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.16 * bloom, 0), M.gem);
-    star.position.set(lx, ly + plen * 0.28, lz + plen * 0.18);
+    star.position.set(sx, sy, sz);
     star.scale.set(1, 1.2, 1);
     tipG.add(star);
+    // CP3 S6 — the SCEPTER CROWN-ORB: a small gold ring (echo of the corona, capped ≤0.18) around the
+    // captive star + two opaque violet gem SHARDS published as tailOrbiters (they orbit the star for
+    // free via the engine's orbiter tick — motion for one line, zero new transparent drawables).
+    if ((model.scepterOrb ?? 0) > 0) {
+      const R = 0.17, N = 8;
+      const pt = (a, z) => [sx + Math.cos(a) * R, sy + Math.sin(a) * R, sz + z];
+      const ringT = [];
+      for (let i = 0; i < N; i++) { const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2; ringT.push([pt(a0, 0.01), pt(a0 + 0.14, 0.01), pt(a1, 0.01)]); }
+      tipG.add(flatTriMesh(ringT, M.goldHi));
+      // Orbit the shards around a group AT the star (the engine's orbiter tick sets mesh.position
+      // relative to its PARENT origin — so the parent must be the orbit centre, not the tail segment).
+      const orbCenter = new THREE.Group();
+      orbCenter.position.set(sx, sy, sz);
+      tipG.add(orbCenter);
+      for (const side of [1, -1]) {
+        const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), M.gem);
+        shard.position.set(side * 0.24, 0, 0);
+        orbCenter.add(shard);
+        orbiters.push({ mesh: shard, ang: side > 0 ? 0 : Math.PI, speed: 1.3, radius: 0.24, baseRadius: 0.24, flat: 1, baseY: 0, spin: 1 });
+      }
+    }
   }
-  return { group, segs, accentMats: [M.violet, M.gem, M.veinMat] };
+  return { group, segs, accentMats: [M.violet, M.gem, M.veinMat], orbiters: orbiters.length ? orbiters : null };
 }
 registerTail('scepterWhipTail', buildScepterWhipTail);

@@ -31,7 +31,7 @@
 // aligned 1:1 with `phases` (card[i] ↔ phase[i]). A card =
 //   { id (stable, never the display name), name, atFrac (= its phase's),
 //     timer (~20–30s capture window), dread? (exactly ONE, always last),
-//     survival? (invincible seal — timeout snaps hp past atFrac) }.
+//     survival? (invincible seal — outlast the timer to resolve; no hp snap) }.
 // Naming grammar (§5f): "<FRAGMENT OF THE EPITHET> — <plain pattern name>".
 // Capture = survive the card hitless; ledgered per-card (local-only, save.js).
 // A def WITHOUT `cards` keeps the un-carded phase behaviour (coexist rule).
@@ -128,6 +128,14 @@ export const BOSSES = {
     tier: 1,                               // SENTINEL (§5b band 1)
     hpMax: 220,
     virtualLockOrgan: 'focalEye',          // LANCE V1: the storm-eye core (bossMandala.js)
+    // §ENG-B hero: during the dread card, the storm's gaps are the EYE's — iris rings
+    // centre on focalEye and movingGap's safe lane LOCKS to the eye axis ("fly into the
+    // eye of the storm" is literally true; the ±5 station sway makes the eye a legible
+    // moving read, the horizonPocketX grammar). Outside the card: shipped player placement.
+    gapAnchor: {
+      iris:      { card: 'stormrend_eye', part: 'focalEye' },
+      movingGap: { card: 'stormrend_eye', part: 'focalEye' },
+    },
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the
     // legacy crystal-core construct — see voidmaw's `archetype` comment above.
@@ -254,6 +262,11 @@ export const BOSSES = {
     // a bullet-time close pass with the visor tracking you, pulls ahead (back to
     // camera), then wheels 180° to face you. Announced, no fire, tap to skip.
     cinematicEntrance: true,
+    // §5i.B COLOSSI graze (C.2b) — SLIPSTREAM: ride the stoop's wake pocket for graze
+    // ticks, then "surge INTO the dive gap" for the exposure window. Inert until the
+    // stoopingStrike setpiece is live; the pocket derives its centre/timing from the
+    // live dive pose at runtime (boss.js grazeForm cluster).
+    grazeForm: 'slipstream',
     // §5e moving-station setpieces (fire while they travel, per-phase). P2 = the
     // wide CIRCLING orbit; P3 = the EMBER HUNT stooping dive from above (dread).
     setpieces: [
@@ -324,6 +337,10 @@ export const BOSSES = {
     // flies through. Two rib anchors per flank + the skull as the centre-line/fallback
     // anchor (the same bones the player already reads as lance/amber anatomy, §5i.C).
     reflectTargets: ['ribPivotL1', 'ribPivotR1', 'ribPivotL3', 'ribPivotR3', 'skullGroup'],
+    // §5i.B THREAD-THE-GAP (ENG-G) — flying cleanly through a wall's safe gap (its P3 movingGap,
+    // and the rib-aperture to come) scores by clearance+lateness and CHAINS. A discrete per-row
+    // scorer (no tick ramp); a visible THREADED flourish. Inert for every boss without this label.
+    grazeForm: 'threadTheGap',
     accent: 0x8fd0ff,         // ice-blue — the cold lights on dead bone (identity in emissive)
     glow: 0xbfe6ff,           // paler ice (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
@@ -452,6 +469,11 @@ export const BOSSES = {
     // dread card fires the mirrored SIMULTANEOUS crossfire ("Both Halves at Once").
     // §5i CALL-AND-RESPONSE: the twins alternate A-B phrases; the eye handoff is the
     // baton between them (the rhythm block below authors the alternation).
+    // §5i.B COLOSSI graze (C.4) — ORBIT ANNULUS: co-rotate with the figure-eight inside a
+    // drawn band about the group centre; a full unbroken lap = +1 adrenaline rung + an
+    // i-frame pulse. Inert until the figureEight setpiece runs; the band derives its
+    // centre from the live group pose at runtime (boss.js grazeForm cluster).
+    grazeForm: 'orbitAnnulus',
     setpieces: [
       { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true },                // P2: the pair leaves station, laces the eight
       { id: 'figureEight', atPhase: 2, dur: 7.0, moving: true, dread: true },   // P3: desperation keeps moving (Both Halves at Once)
@@ -462,6 +484,13 @@ export const BOSSES = {
     // Resolved per-volley via partWorldPos('eitherTwinA'|'eitherTwinB'); a volley whose
     // twins are both behind the player plane (near lobe of the eight) goes silent.
     emitOrigins: { crossfire: ['eitherTwinA', 'eitherTwinB'], aimed: ['eitherMuzzle'], stream: ['eitherMuzzle'] },
+    // §5b slot 5 ORGAN-BREAK reuse (ENG-EW): perfect-parry the HOLDER's amber 3× mid-
+    // possession → the handoff STAGGERS and the eye DROPS to the thread midpoint (a 2.5s
+    // strike window). Reuses the shared partParries ledger + staggerT window; inert otherwise.
+    holderStagger: true,
+    // §C.4 dread (ENG-EW): the P3 iris contracts on the twins' THREAD MIDPOINT (the named
+    // threadMid empty), not the player — resolved once per volley through the ENG-B seam.
+    gapAnchor: { iris: { part: 'threadMid' } },
     // Tier 2 difficulty: crossfire is the twins' signature (both flanks at once);
     // movingGap/secondWave = the lane-denial half; iris debuts in the dread phase.
     // Escalation by pattern unlock + cadence, never raw bullet count.
@@ -716,15 +745,15 @@ export const BOSSES = {
     setpieces: [
       { id: 'sounding', atPhase: 3, dur: 7.5, moving: true, dread: true },   // P4 THE ISLAND BREATHES — Sounding
     ],
-    // Tier 3 difficulty: the geyser walls (tunnel/curtain/iris) are the tide's
-    // signature; the slow tracking `stream` is the drone's sustained hose (the
+    // Tier 3 difficulty: the erupting `geyser` walls (the floor's bottom-up spouts) are
+    // the tide's signature; the slow tracking `stream` is the drone's sustained hose (the
     // amber carrier). Escalation by pattern unlock + cadence (floor 1.2), never
     // raw bullet count. BRINEHOLM idles SLOWER than any boss (the drone).
     phases: [
       { atFrac: 1.00, cadence: [1.6, 2.2], attacks: ['stream', 'aimed'] },                    // P1: the drone wakes (one long tide)
       { atFrac: 0.72, cadence: [1.5, 2.0], attacks: ['stream', 'tunnel', 'aimed'] },           // P2: the tide grows walls (rising geyser rings)
-      { atFrac: 0.45, cadence: [1.4, 1.9], attacks: ['stream', 'iris', 'fan'] },               // P3: the bound strains (shackle amber; mercy softens)
-      { atFrac: 0.20, cadence: [1.3, 1.7], attacks: ['curtain', 'iris', 'spiralStream', 'stream'] },  // P4: Sounding (dread — the floor erupts)
+      { atFrac: 0.45, cadence: [1.4, 1.9], attacks: ['stream', 'geyser', 'fan'] },             // P3: first spouts — GEYSER debuts (teach-before-test at the slow tidal pulse); `fan` is the shackle amber
+      { atFrac: 0.20, cadence: [1.3, 1.7], attacks: ['geyser', 'iris', 'stream'] },            // P4: Sounding (dread — the floor FINALLY erupts) — `geyser` leads; `curtain`/`spiralStream` leave the def (kills the 6≡8 dread-multiset collision); `stream` carries the amber
     ],
     // Spell cards (§5f grammar; 4 cards — the Calamities band's move-set floor
     // (§5g); dread card LAST, name fixed by the §5f signature-move assignment).
@@ -764,7 +793,7 @@ export const BOSSES = {
           ratioBurst: 0.2,
           phrase: [
             { kind: 'sustain', attack: 'stream', beats: 3, gap: [1.5, 1.9] },
-            { kind: 'burst',   attack: 'iris',   count: 2, gap: 0.5 },
+            { kind: 'burst',   attack: 'geyser', count: 2, gap: 0.5 },   // GEYSER teach: plume-read at swell pace (was iris; count/gap unchanged → rhythmprint byte-identical)
             { kind: 'sustain', attack: 'fan',    beats: 1, gap: 1.6 },
           ],
           restLo: 3.2, restHi: 4.8, restDist: 'decaying',
@@ -773,10 +802,10 @@ export const BOSSES = {
           // (the `stream` sustain doubles as the AMBER carrier under the geysers)
           ratioBurst: 0.4,
           phrase: [
-            { kind: 'burst',   attack: 'curtain',      count: 2, gap: 0.45 },
+            { kind: 'burst',   attack: 'geyser',       count: 2, gap: 0.45 },   // the floor erupts (was curtain; timing unchanged → rhythmprint byte-identical)
             { kind: 'burst',   attack: 'iris',         count: 2, gap: 0.45 },
             { kind: 'sustain', attack: 'stream',       beats: 2, gap: 1.4 },
-            { kind: 'burst',   attack: 'spiralStream', count: 2, gap: 0.4 },
+            { kind: 'burst',   attack: 'geyser',       count: 2, gap: 0.4 },     // a second spout wave (was spiralStream; timing unchanged)
           ],
           restLo: 2.8, restHi: 4.4, restDist: 'decaying',
         },
@@ -1061,6 +1090,18 @@ export const BOSSES = {
     stationY: 20,
     entrance: 'itLiftsItsHead',   // §5j (falls back to the plain approach until the ENTRANCE_SCRIPTS entry lands, CP2)
     muzzle: 'bellMouth',          // the toll origin (emitter = organ, §5f law 7); aim solves against its world rel
+    // LANCE (§5i rung 10 — the endgame's FIRST paintable World-Ender; docs/lance-
+    // progression-redesign.md §3). V1 focal aim = the mouth WOUND (`knellWound`, the
+    // one HDR focal — the candle-light + toll escape here; placed low on the crack so
+    // its world y sits inside the flight lane, unlike the slit centroid at ~y32 which
+    // is above laneMaxY 22 and unaimable). V2 paint targets = the two chain-BIND
+    // restraints on the clapper's wrist cuffs (`knellBind{L,R}`) — you brand the
+    // BINDINGS, never the honorably-unpaintable prisoner FIGURE. wound(virtual) + 2
+    // binds = 3 paint targets → reaches the tier-4 cap of 6 (REACHABILITY LAW), all
+    // within the flight lane. The resonant on-toll release + SCAR-BURN ride in later
+    // PRs; this PR only makes the organs live (inert→capable).
+    virtualLockOrgan: 'knellWound',
+    lockParts: [{ part: 'knellBindL' }, { part: 'knellBindR' }],
     // PALETTE (§5b glow-shape claim = vertical candle-slit; Part 2.4 clearance):
     // candle 0xffd890 (≈39°, sat 0.44 — PALE/low-sat warm) sits clear of the parry
     // amber ROLE colour 0xffc23c (≈37°, sat 0.76) by a VALUE/SATURATION tier, not
@@ -1086,14 +1127,37 @@ export const BOSSES = {
     // the graze anatomy; ride the shrinking safe disc through escalating ticks, bail
     // on the last beat (offered once per phase). Def-gated (slot-6 continuous detector).
     grazeForm: 'shrinkDisc',
+    // §ENG-LT THE LAST TOLL REWORK (owner playtest: the survival exam under-delivered as
+    // passive). REVERSES the shipped "the survival ride stays pure dodge" gate, knellgrave-only:
+    // (1) ride-mode toll-wall pockets driven off the TOLL CADENCE (srel/slow is degenerate
+    // overhead); (2) SURVIVAL RESOLVE — riding the rims, parrying the seal-era aimed ambers, and
+    // striking the clapper fill a meter that breaks the seal EARLY + staggers the bell (a second,
+    // FASTER resolution; outlasting the timer still succeeds untouched); (3) the bound clapper is
+    // the seal's one weak point (rider chip, up close — no hp, feeds the meter). `setpiece` = the
+    // SETPIECE_PATHS id the ride-mode graze binds to; `weakPart` = the partWorldPos node the
+    // seal-era carve-out tests.
+    survivalResolve: { setpiece: 'lastToll', weakPart: 'clapperHead' },
+    // §ENG-H C.7-proper — the toll RADIATES: the spiral toll's origin (and the sweep's
+    // stream hose) ride the swinging bellMouth (emitter = organ, §5f law 7). The toll-wall
+    // graze arms from the bell, not the lane centre.
+    emitOrigins: { spiral: ['bellMouth'], stream: ['bellMouth'] },
+    // §ENG-B/§ENG-H BOB-LOCK: during the Pendulum Sweep the movingGap safe lane sits
+    // OPPOSITE the bell (mirror, not tracker — read the bell, not the wall). scale −0.36
+    // maps the mouth's full worst-case envelope (±~24) inside movingGap's ±9 clamp so the
+    // mirror stays honest across the whole arc (the clamp never silently bites). Card-gated
+    // to the sweep phase; card down → the shipped player-seeded slide returns.
+    gapAnchor: { movingGap: { card: 'knellgrave_sweep', part: 'bellMouth', scale: -0.36 } },
     // §5e THE LAST TOLL setpiece (P4, dread+survival — the mid-fight clapper reveal,
     // the audit's named "awe fix"): the bell swings down + forward until it hangs
     // DIRECTLY OVERHEAD (rel≈3, the mouth above your head, the prisoner straining in
     // the gaping crack seen from beneath), rides there through the accelerating tolls,
-    // then hauls back. moving: the survival tolls keep firing (a pure-dodge exam —
-    // the card's seal deflects all damage; the unfillable bar is the tell).
+    // then hauls back. moving: the survival tolls keep firing. §ENG-LT made the exam
+    // ACTIVE: the seal deflects chip, but riding the ride-mode toll walls + parrying the
+    // seal-era ambers + striking the bound clapper fill a RESOLVE meter that breaks the
+    // seal early + staggers the bell (outlasting the timer still succeeds untouched).
     setpieces: [
-      { id: 'lastToll', atPhase: 3, dur: 26, moving: true, dread: true },
+      { id: 'pendulumSweep', atPhase: 3, dur: 14, moving: true },              // §ENG-H P4: the bell SWINGS across the lane (no dread flag — the swing-widen is the model's sweepK hook, not skyOpen)
+      { id: 'lastToll',      atPhase: 4, dur: 26, moving: true, dread: true },  // atPhase 3 → 4 (the Last Toll ride follows its phase into P5)
     ],
     // §7b PRESENCE override (sanctioned): KNELLGRAVE "owns the space ABOVE" (§5b/§5c
     // WORLD-ENDERS) — a colossal overhead hanging bell. A bell's mass IS its wide
@@ -1108,22 +1172,29 @@ export const BOSSES = {
     // amber carriers. ⚠ amberdiet reads THESE phase attacks (not the card seal), so
     // 'aimed' stays in EVERY phase — incl. the P4 survival card (the runtime seal is
     // pure-dodge, but the phase must still be ABLE to serve amber; §5i.C exemption).
+    // §ENG-H C.7-proper: 5 phases. The TOLL is now the `spiral` ring-wall (radiating from
+    // the bell); iris is gone. P3 The Cracked Peal doubles the toll (hemiola); P4 Pendulum
+    // Sweep is the setpiece phase (the swung stream hose + the bob-mirrored movingGap lanes).
     phases: [
-      { atFrac: 1.00, cadence: [1.4, 1.7], attacks: ['iris', 'aimed'] },              // P1: The First Toll
-      { atFrac: 0.70, cadence: [1.3, 1.6], attacks: ['iris', 'crossfire', 'aimed'] }, // P2: The Second Toll — RHYTHM PARRY card (amber chain on the beat)
-      { atFrac: 0.45, cadence: [1.2, 1.5], attacks: ['iris', 'fan', 'aimed'] },       // P3: Pendulum Sweep (the perpendicular cross)
-      { atFrac: 0.25, cadence: [1.1, 1.4], attacks: ['iris', 'fan', 'aimed'] },       // P4: The Last Toll (survival) — 'aimed' kept for amberdiet
+      { atFrac: 1.00, cadence: [1.4, 1.7],  attacks: ['spiral', 'aimed'] },              // P1 The First Toll — teach: the toll RADIATES; ride its rim
+      { atFrac: 0.70, cadence: [1.3, 1.6],  attacks: ['spiral', 'aimed'] },              // P2 The Second Toll — RHYTHM PARRY: the aimed chain on the beat
+      { atFrac: 0.55, cadence: [1.25, 1.5], attacks: ['spiral', 'aimed'] },              // P3 The Cracked Peal — double tolls (hemiola), the squeeze
+      { atFrac: 0.40, cadence: [1.2, 1.45], attacks: ['stream', 'movingGap', 'aimed'] }, // P4 Pendulum Sweep — the setpiece phase (swung hose + mirrored lanes)
+      { atFrac: 0.25, cadence: [1.1, 1.4],  attacks: ['spiral', 'fan', 'aimed'] },       // P5 The Last Toll (survival) — 'aimed' kept for amberdiet (§5i.C)
     ],
     // Spell cards (§5f grammar; 4 cards 1:1 with phases — the card gate asserts
     // cards.length === phases.length and each card.atFrac === its phase's; dread
     // card LAST). Naming grammar "<EPITHET FRAGMENT> — <plain pattern>". The brief's
     // 4-card set is reconciled to 4 phases (the Sweep promoted to its own phase) so
     // the atFracs align. The dread card is ALSO the roster's survival card (×2 max,
-    // §5f — slots 10 + 13): boss sealed, pure rhythm dodge; timeout snaps hp past atFrac.
+    // §5f — slots 10 + 13): boss sealed, rhythm dodge; outlasting the timer resolves it
+    // (no hp snap — breakShield already parked hp at this phase's atFrac floor on entry),
+    // OR §ENG-LT SURVIVAL RESOLVE breaks the seal early via active play.
     cards: [
       { id: 'knellgrave_first',  name: 'IT RINGS — The First Toll',   atFrac: 1.00, timer: 24 },
-      { id: 'knellgrave_second', name: 'IT RINGS — The Second Toll',  atFrac: 0.70, timer: 26 },   // the RHYTHM PARRY card: a 4–6 amber chain on the toll
-      { id: 'knellgrave_sweep',  name: 'IT RINGS — Pendulum Sweep',   atFrac: 0.45, timer: 26 },
+      { id: 'knellgrave_second', name: 'IT RINGS — The Second Toll',  atFrac: 0.70, timer: 26 },   // the RHYTHM PARRY card: the aimed chain on the toll
+      { id: 'knellgrave_peal',   name: 'IT RINGS — The Cracked Peal', atFrac: 0.55, timer: 24 },   // §ENG-H NEW — the double toll (hemiola); the second wall squeezes the rider
+      { id: 'knellgrave_sweep',  name: 'IT RINGS — Pendulum Sweep',   atFrac: 0.40, timer: 26 },   // atFrac 0.45 → 0.40 (aligns to its phase); the setpiece phase
       { id: 'knellgrave_last',   name: 'IT RINGS — The Last Toll',    atFrac: 0.25, timer: 30, dread: true, survival: true },  // nine accelerating tolls; pure dodge; the clapper's FULL mid-fight reveal
     ],
     // §5i MUSIC-LOCKED (slot 10) — the toll is the ONLY clock (music is DEAD); the
@@ -1136,40 +1207,48 @@ export const BOSSES = {
       signature: 'music-locked',
       ticket: { bpm: 60, quantize: '1/4' },   // the toll's beat; attacks snap to it (the silence's clock)
       phases: [
-        { // P1 — The First Toll: slow, regular tolls (the ring-wall on the beat) + aimed amber
+        { // P1 — The First Toll: slow, regular SPIRAL tolls (the ring-wall on the beat) + aimed amber
           ratioBurst: 0.0,
           phrase: [
-            { kind: 'sustain', attack: 'iris',  beats: 2, gap: [1.4, 1.6] },
-            { kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.5 },
+            { kind: 'sustain', attack: 'spiral', beats: 2, gap: [1.4, 1.6] },
+            { kind: 'sustain', attack: 'aimed',  beats: 1, gap: 1.5 },
           ],
           restLo: 1.5, restHi: 1.7, restDist: 'uniform',   // the metronomic toll — low variance, tighter than voidmaw
         },
-        { // P2 — The Second Toll: the RHYTHM PARRY chain (crossfire amber) lands ON the toll
-          ratioBurst: 0.3,
+        { // P2 — The Second Toll: the RHYTHM PARRY chain — a 4-amber AIMED burst lands ON the toll's beat
+          ratioBurst: 0.4,
           phrase: [
-            { kind: 'sustain', attack: 'iris',      beats: 2, gap: [1.25, 1.45] },
-            { kind: 'burst',   attack: 'crossfire', count: 2, gap: 0.42 },   // the 4–6 amber chain on the beat
-            { kind: 'sustain', attack: 'aimed',     beats: 1, gap: 1.35 },
+            { kind: 'sustain', attack: 'spiral', beats: 2, gap: [1.25, 1.45] },
+            { kind: 'burst',   attack: 'aimed',  count: 4, gap: [0.5, 0.62] },   // the 4–6 amber chain on the beat (§5d slot-10)
           ],
           restLo: 1.35, restHi: 1.55, restDist: 'uniform',
         },
-        { // P3 — Pendulum Sweep: the perpendicular cross; the tolls tighten
+        { // P3 — The Cracked Peal: two SPIRAL tolls a half-beat apart (the hemiola double
+          // toll — the second wall squeezes the rider) + an aimed answer.
+          ratioBurst: 0.5,
+          phrase: [
+            { kind: 'burst',   attack: 'spiral', count: 2, gap: [0.1, 0.16] },   // the double toll (§ENG-H §3d — discCd keeps the 2nd from double-arming)
+            { kind: 'sustain', attack: 'aimed',  beats: 1, gap: [1.3, 1.5] },
+          ],
+          restLo: 1.25, restHi: 1.5, restDist: 'uniform',
+        },
+        { // P4 — Pendulum Sweep: the sweep bed — the swung stream hose + the bob-mirrored
+          // movingGap lanes + aimed; the pattern rains from wherever the crossing carries it.
           ratioBurst: 0.2,
           phrase: [
-            { kind: 'sustain', attack: 'iris',  beats: 2, gap: [1.15, 1.35] },
-            { kind: 'sustain', attack: 'fan',   beats: 1, gap: 1.25 },
-            { kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.25 },
+            { kind: 'sustain', attack: 'stream',    beats: 1, gap: [1.2, 1.45] },
+            { kind: 'sustain', attack: 'movingGap', beats: 1, gap: [1.2, 1.45] },
+            { kind: 'sustain', attack: 'aimed',     beats: 1, gap: [1.2, 1.45] },
           ],
-          restLo: 1.2, restHi: 1.4, restDist: 'uniform',
+          restLo: 1.2, restHi: 1.45, restDist: 'uniform',
         },
-        { // P4 — The Last Toll (dread/survival): nine ACCELERATING tolls (the rest
+        { // P5 — The Last Toll (dread/survival): nine ACCELERATING spiral tolls (the rest
           // DECAYS toward each — the crescendo to silence). 'aimed' keeps the phase
           // amber-capable for amberdiet; the card SEALS it pure-dodge at runtime.
           ratioBurst: 0.35,
           phrase: [
-            { kind: 'sustain', attack: 'iris',  beats: 3, gap: [0.95, 1.15] },
-            { kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.05 },
-            { kind: 'sustain', attack: 'fan',   beats: 1, gap: 1.0 },
+            { kind: 'sustain', attack: 'spiral', beats: 2, gap: [0.95, 1.15] },
+            { kind: 'sustain', attack: 'aimed',  beats: 1, gap: 1.05 },
           ],
           restLo: 0.9, restHi: 1.5, restDist: 'decaying',   // the toll accelerates toward the last beat
         },

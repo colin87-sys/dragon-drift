@@ -320,9 +320,6 @@ if (!cp1) {
   ok(ns[0] === 0 && ns[1] === 0 && ns[2] > 0 && ns[2] < ns[3], `${key}: nape-star arrives at Radiant (${ns.join('→')})`);
 }
 
-// ── PHOENIX DAWNFIRE EMPRESS (SSSR premium, 4 forms) — the REBIRTH coronation ladder ─────────────
-// The empress reaches Eternal (not a form-2-capped starter), so her own block. Asserts the ladder
-// CONFERS regalia rung by rung (igniteStage 0→3, the train quills / coals / crest / gorget arriving
 
 console.log(`\nStarter geometry asserts (§7)${cp1 ? ' — CP1 (apex bands)' : ''}: ${pass} passed, ${fail} failed.`);
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }

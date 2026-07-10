@@ -35,6 +35,8 @@ let wingPivotL = null;
 let wingPivotR = null;
 let wingMidL = null;  // middle joint of the 3-segment articulated wing (Mk II), null otherwise
 let wingMidR = null;
+let carpalSpireL = null;  // Solar CP3.3: flap-decoupled carpal spire groups (counter-rotated against the beat), null otherwise
+let carpalSpireR = null;
 let wingTipL = null;  // secondary fold joint for 2-segment wing
 let wingTipR = null;
 let wingPivot2L = null;
@@ -114,6 +116,7 @@ let riderGroup = null;
 let scarfMesh = null;
 let riderGlow = null;     // glow sprite behind the rider (premium riders)
 let riderOrbiters = [];   // orbiting shards (Void Oracle) animated each frame
+let coronaSpin = null;    // Solar CP3 eclipse-corona ring — slow in-plane rotation (the eclipse crawls)
 const PONY_LEN = 0.24;
 let ponySegs = 10;
 let ponyPoints = [];
@@ -171,10 +174,13 @@ export function createDragon(scene, def, riderDef) {
   setActiveDetail(modelDetail);
   const result = buildDragonModel(def);
   group = result.group;
+  coronaSpin = group.getObjectByName('eclipseCorona') || null;   // Solar CP3: cache the eclipse ring for the crawl
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
   wingMidL = result.parts.wingMidL || null;
   wingMidR = result.parts.wingMidR || null;
+  carpalSpireL = result.parts.carpalSpireL || null;
+  carpalSpireR = result.parts.carpalSpireR || null;
   wingYokeL = result.parts.wingYokeL || null;
   wingYokeR = result.parts.wingYokeR || null;
   wingRigL = result.parts.wingRigL || null;
@@ -399,6 +405,8 @@ export function disposeDragon() {
   wingYokeR = null;
   wingMidL = null;
   wingMidR = null;
+  carpalSpireL = null;
+  carpalSpireR = null;
   bodySegs = null;
   bodyWave = null;
   tailOrbiters = null;
@@ -476,6 +484,10 @@ export function updateDragon(dt, player, time) {
     player.position.y + Math.sin(time * 2.1) * 0.16,
     player.position.z
   );
+
+  // Solar CP3 — the ECLIPSE CRAWLS: the corona rose-window rotates slowly in its own plane (boost
+  // quickens it, Surge flares it). In-plane local-Z spin, so the forward tilt is preserved. Cheap.
+  if (coronaSpin) coronaSpin.rotateZ(dt * (player.feverActive ? 0.5 : player.boosting ? 0.28 : 0.15));
 
   // Asset-backed (GLB) baked-clip flap, if present. The reactive wing flap still
   // runs through the wingRig path below; this only ticks a skinned GLB's own clip.
@@ -634,7 +646,8 @@ export function updateDragon(dt, player, time) {
     // whichever motion path it rides — so the starters (basic direct-pivot) freeze exactly
     // like the yoke dragons always could, and the studio captures the identical pose.
     setFlapDebugPose({ wingRigL, wingRigR, wingYokeL, wingYokeR, wingPivotL, wingPivotR,
-      wingMidL, wingMidR, wingTipL, wingTipR, wingBladePivotsL, wingBladePivotsR }, activeDef.model, WING_DEBUG);
+      wingMidL, wingMidR, wingTipL, wingTipR, wingBladePivotsL, wingBladePivotsR,
+      carpalSpireL, carpalSpireR }, activeDef.model, WING_DEBUG);
     if (!wingDebugLogged) {
       // Prove gameplay reaches the harness pose: log the resolved state + (for yoke rigs) the
       // wing chain's elevation in the DRAGON'S OWN frame (independent of body bank/pitch).
@@ -778,6 +791,13 @@ export function updateDragon(dt, player, time) {
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
+    // CP3.3 — counter-rotate the decoupled carpal spires against the flap beat (Solar) so their bright
+    // tips don't scissor across the forward view each upstroke. Cancel ONLY the sinusoid (sin·flapAmp),
+    // not the mantle bias / turnBias / rollFold — the spires still lean into turns and ride the inhale
+    // raise. Opposite L/R signs mirror the pivots' −rootFlap/+rootFlap, so the pair stays symmetric.
+    const spireStab = activeDef.model.spireStabilize ?? 0;
+    if (carpalSpireR) carpalSpireR.rotation.z = damp(carpalSpireR.rotation.z,  spireStab * Math.sin(phase) * flapAmp, 14, dt);
+    if (carpalSpireL) carpalSpireL.rotation.z = damp(carpalSpireL.rotation.z, -spireStab * Math.sin(phase) * flapAmp, 14, dt);
     // FEATHER = a fore-aft PITCH (rotation.x). Under the L wing's scale.x=-1 mirror, rotation.x
     // does NOT flip sense (it moves the chord in Y identically on both wings), so a SYMMETRIC
     // feather needs the SAME sign L/R — the old ±feather was an antisymmetric roll-twist that made

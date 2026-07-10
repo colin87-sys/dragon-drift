@@ -6,6 +6,7 @@ import { burst, wispImpact } from './particles.js';
 import { emit } from './events.js';
 import { getBeatClock, UNLEASH_V2 } from './sfx.js';
 import { nextGridDelay } from './harmony.js';
+import { lensClarity } from './lensFlag.js';
 
 // Boss bullet pool — one InstancedMesh, recycled by the same windowed-cursor
 // pattern as embers.js (one draw call regardless of count; cheap on mobile).
@@ -23,6 +24,16 @@ import { nextGridDelay } from './harmony.js';
 const POOL = CONFIG.BOSS.bulletPool;
 const R = CONFIG.playerRadius;
 const TIERS = CONFIG.BOSS.renderTiers;   // render-order law: nothing draws over a bullet
+
+// THREAT read for the reticle's yield cue (intervention 3a): the nearest inbound
+// boss bullet whose lateral offset falls inside ~1.5× the graze annulus, so the aim
+// chrome can recede exactly when a shot is about to reach the player's lane. Computed
+// FREE inside updateBossBullets' existing pool walk (no extra iteration) and cached
+// here; reticle.js reads it via incomingThreat(). Pure query — policy lives at the
+// caller (the beamContact precedent). minTti = Infinity when the lane is clear.
+const _threat = { minTti: Infinity, count: 0 };
+const THREAT_LAT = (R * CONFIG.BOSS.grazeScale + CONFIG.BOSS.bulletRadius) * 1.5;
+export function incomingThreat() { return _threat; }
 
 let mesh = null;       // colour body (soft round disc, per-bullet tint)
 let coreMesh = null;   // white centre (colour-blind-safe read — everyone sees the dot)
@@ -626,6 +637,13 @@ export function updateBossBullets(dt, player) {
   const px = player.position.x;
   const py = player.position.y;
   const bossR = CONFIG.BOSS.bossHitRadius;
+  let threatMin = Infinity, threatCount = 0;   // reticle-yield read, rebuilt this frame
+  // LENS imminent-bullet legibility knobs, resolved per-frame from the Bullet Clarity
+  // setting. OFF ⇒ the shipped heat-only flare over CONFIG.BOSS.flareTti, FLARE_SIZE_K 0
+  // ⇒ flarePop === 1 (byte-identical size + flare window).
+  const clarity = lensClarity();
+  const FLARE_TTI = clarity ? CONFIG.BOSS.flareTtiLens : CONFIG.BOSS.flareTti;
+  const FLARE_SIZE_K = clarity ? CONFIG.BOSS.flareSizeK : 0;
 
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
@@ -643,10 +661,21 @@ export function updateBossBullets(dt, player) {
     // you FIRST flares first — "which hits me" is a colour read. A reflectable
     // bullet flares bright the instant it enters the parry window (the parry cue).
     let flare = 0;
+    let ttiFlare = 0;   // LENS size-pop drives off THIS (pure time-to-impact), never the
+                        // parry pulse below — else every reflectable bullet (and EVERY
+                        // bullet in Surge) would throb its size at ~3.5Hz (the "loom" we killed).
     let breathe = 1;
     if (s.owner === 'boss' && s.rel > 0) {
       const tti = s.rel / Math.max(Math.abs(s.vrel), 1);
-      if (tti < 0.3) flare = 1 - tti / 0.3;
+      if (tti < FLARE_TTI) { flare = 1 - tti / FLARE_TTI; ttiFlare = flare; }
+      // THREAT read (3a): a bullet heading into the player's lane and closing soon.
+      if (tti < 1.5) {
+        const ldx = s.x - px, ldy = s.y - py;
+        if (ldx * ldx + ldy * ldy < THREAT_LAT * THREAT_LAT) {
+          threatCount++;
+          if (tti < threatMin) threatMin = tti;
+        }
+      }
       // In Surge every bullet is parryable, so every bullet flares in the window.
       const parryable = s.reflectable || game.feverActive;
       if (parryable && s.rel <= CONFIG.BOSS.reflectWindow) {
@@ -684,7 +713,12 @@ export function updateBossBullets(dt, player) {
     const grow = s.age < CONFIG.BOSS.spawnRampT
       ? (t => t * (2 - t))(Math.max(0, Math.min(1, s.age / CONFIG.BOSS.spawnRampT)))
       : 1;
-    const drawScale = shrink * grow;
+    // LENS size POP (intervention 1): an imminent boss bullet grows with its flare so
+    // "which hits me first" is a size read too, not heat alone. Boss-only, and only
+    // beyond the shipped visual (FLARE_SIZE_K is 0 unless ?lens=2). s.r — the hitbox —
+    // is untouched, so the extra size is purely forgiving.
+    const flarePop = (s.owner === 'boss' && FLARE_SIZE_K) ? 1 + FLARE_SIZE_K * ttiFlare : 1;
+    const drawScale = shrink * grow * flarePop;
 
     // Round camera-facing bullet: a soft colour BODY with a WHITE CENTRE on top,
     // plus a ground shadow (all off one slot). No spin — the disc is radial.
@@ -705,7 +739,7 @@ export function updateBossBullets(dt, player) {
       outlineMesh.setMatrixAt(i, HIDDEN);   // hidden the instant it crosses (near-field only)
       shadowMesh.setMatrixAt(i, HIDDEN);
     } else {
-      m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 3.1 * grow));   // outline ring (under the body)
+      m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 3.1 * grow * flarePop));   // outline ring (under the body; grows with the LENS flare pop)
       outlineMesh.setMatrixAt(i, m4);
       outlineColV.copy(OUTLINE_TINT).lerp(OUTLINE_FOG, far * 0.5);
       outlineMesh.setColorAt(i, outlineColV);
@@ -827,6 +861,8 @@ export function updateBossBullets(dt, player) {
       }
     }
   }
+  _threat.minTti = threatMin;   // publish this frame's reticle-yield read (3a)
+  _threat.count = threatCount;
   mesh.instanceMatrix.needsUpdate = true;
   coreMesh.instanceMatrix.needsUpdate = true;
   outlineMesh.instanceMatrix.needsUpdate = true;
@@ -961,6 +997,7 @@ export function beamContact(player, depthHi = 7) {
 export function bossBulletCount() { return activeCount(); }
 
 export function resetBossBullets() {
+  _threat.minTti = Infinity; _threat.count = 0;   // clear the reticle-yield read between fights (robust to future reorder)
   for (let i = 0; i < POOL; i++) {
     if (slots[i]) slots[i].active = false;
     if (mesh) mesh.setMatrixAt(i, HIDDEN);

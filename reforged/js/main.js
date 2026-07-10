@@ -20,7 +20,8 @@ import { initParticles, updateParticles, resetParticles, setParticleQuality } fr
 import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
-import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3 } from './sfx.js';
+import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
+import { lanceWyrm } from './sfxLance2.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -421,8 +422,11 @@ const REDUCE_MOTION = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-m
 on('lockVolley', (p) => {
   if (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')) {
     const d = p.delay || 0;
-    sfx.brandRiserRelease?.(d, CONFIG.LOCK.releaseGapMs / 1000);   // rise STOPS → the void
-    sfx.brandLoose?.(p.count, d, !!p.full);                        // → THE DROP, on the grid
+    const wyrm = getLanceProfile() === 'wyrm';
+    sfx.brandRiserRelease?.(d, CONFIG.LOCK.releaseGapMs / 1000);   // rise STOPS → the void (inhale is classic under both)
+    // The LOOSE sound forks by profile: wyrm plays a lean dry snap ("quiet hands"),
+    // classic plays the full launch. The music-bus volleyDuck fires under both.
+    (wyrm ? lanceWyrm : sfx).brandLoose?.(p.count, d, !!p.full);
     sfx.volleyDuck?.(d);   // PR7: dip the music ~200ms so the exhale owns the moment
   } else {
     sfx.brandRiserCancel?.();   // decay fizzle: no drop, no void — just let the riser go
@@ -444,8 +448,12 @@ on('lockLaunch', (p) => {
 // hit), a jade DOM screen-flash, and a camera lurch. The camera punch is motion,
 // so it's gated on reduced-motion; the hitstop + flash-gate live in juice/ui.
 on('lockStrike', (p) => {
+  // A/B profile dispatch: 'wyrm' routes the IMPACT + FINALE to the boss-body
+  // resonator engine (sfxLance2); everything else (juice, flash, camera) is
+  // profile-agnostic. 'classic' is the shipped path, byte-identical.
+  const eng = getLanceProfile() === 'wyrm' ? lanceWyrm : sfx;
   if (p && p.finale) {
-    sfx.brandFinale?.(p.n || 0, !!p.full);
+    eng.brandFinale?.(p.n || 0, !!p.full);
     if (p.full) {
       juiceEvent('wispFinale');   // 90ms hitstop + the jade postfx kick
       ui.lanceFlash?.();          // jade screen-flash (reduced-motion gated inside)
@@ -453,7 +461,39 @@ on('lockStrike', (p) => {
         cameraCtl.punchKick?.();  // the camera lurch — motion, so reduce-motion skips it
       }
     }
-  } else sfx.brandStrike?.((p && p.k) || 0, (p && p.n) || 1, !!(p && p.full));
+  } else eng.brandStrike?.((p && p.k) || 0, (p && p.n) || 1, !!(p && p.full));
+});
+// Wyrm profile: seed the boss-body resonator on each fight (both profiles call
+// setBoss so a mid-fight flip to wyrm lazy-starts the right body) and tear it
+// down when the fight ends.
+on('bossStart', (p) => lanceWyrm.setBoss(p && p.id));
+on('bossEnd', () => lanceWyrm.bossVoiceEnd());
+// A/B HOTKEY (Shift+L): flip the lance sound profile mid-fight — the only way to
+// judge "satisfying vs annoying" is to switch inside the same volley cadence
+// without losing fight state (a URL reload can't). Self-contained toast so it has
+// no coupling to the HUD internals. Toggling away from wyrm tears its resonator
+// down so a stale body never rings under the classic path.
+let _lanceToastEl = null;
+function _lanceToast(msg) {
+  if (!_lanceToastEl) {
+    _lanceToastEl = document.createElement('div');
+    _lanceToastEl.style.cssText =
+      'position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:120;' +
+      'font:600 15px system-ui,sans-serif;color:#eafff6;background:rgba(8,20,16,0.82);' +
+      'padding:8px 16px;border-radius:8px;pointer-events:none;transition:opacity .3s;letter-spacing:.02em';
+    document.body.appendChild(_lanceToastEl);
+  }
+  _lanceToastEl.textContent = msg;
+  _lanceToastEl.style.opacity = '1';
+  clearTimeout(_lanceToastEl._t);
+  _lanceToastEl._t = setTimeout(() => { if (_lanceToastEl) _lanceToastEl.style.opacity = '0'; }, 1400);
+}
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyL' && e.shiftKey && !e.repeat) {
+    if (getLanceProfile() === 'wyrm') lanceWyrm.bossVoiceEnd();   // stand the resonator down before leaving wyrm
+    const p = toggleLanceProfile();
+    _lanceToast('Lance SFX: ' + (p === 'wyrm' ? 'WYRM (boss-body)' : 'CLASSIC'));
+  }
 });
 // PR3: loosing onto a SEALED boss can't take — a soft muffled thunk names the miss;
 // the pips are kept (the lock layer never wastes them), the reticle row shakes once.
