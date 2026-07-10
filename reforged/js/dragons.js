@@ -660,7 +660,7 @@ export const DRAGONS = {
     rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
     accentHue: 0xffcf6a,   // §9 law-9 carrier: solar gold
     archetype: 'phoenix',  // RIG flag only (warm ember motes + Rebirth fire-trails); explicit parts override the recipe
-    parts: { torso: 'sunhawk', wings: 'feather', tail: 'plume', head: 'sunhawkCrown', surface: { shader: [] } },
+    parts: { torso: 'sunhawk', wings: 'sunfeather', tail: 'plume', head: 'sunhawkCrown', surface: { shader: [] } },
     stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
     hasStyle: true,        // keep its own white-gold trail colour even in Surge
     feverWing: 0xffe6a8, feverEye: 0xfff2c8,
@@ -671,8 +671,9 @@ export const DRAGONS = {
       // SUNHAWK sculpt ladder (apex reference — see forms[] for the per-rung schedule):
       igniteStage: 3, glowLevel: 1.0, keelDepth: 1.0, neckArch: 1.0, coreScale: 1.0,
       headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, crownFan: 5, crownLen: 1.0, spineGlow: 1.0,
-      // wing/tail regalia dials (bespoke parts read them at CP2/CP3; harmless now):
-      collarFan: 1.0, roseGoldEdge: 1.0, fingerSplit: 1.0, pennantLift: 1.0, pennantRibbons: 5,
+      // FEATHER-WING ranks (the hero) + the emargination/rim + regalia dials, apex reference:
+      covertRank: 7, secondaryRank: 6, primaryFingers: 5, fingerSplit: 1.0, roseGoldEdge: 1.0,
+      collarFan: 1.0, pennantLift: 1.0, pennantRibbons: 5,
     },
     forms: [
       // f0 EMBER HATCHLING — a warm charcoal chick: proud STUB keel, big head, ember crest,
@@ -680,6 +681,7 @@ export const DRAGONS = {
       { igniteStage: 0, glowLevel: 0.25, keelDepth: 0.7, neckArch: 0.3, coreScale: 0.5,
         headScale: 1.3, eyeScale: 1.3, torsoScale: 0.82, crownFan: 2, crownLen: 0.6, spineGlow: 0,
         collarFan: 0, roseGoldEdge: 0, fingerSplit: 0, pennantLift: 0.2, pennantRibbons: 1, wingScale: 1.0,
+        covertRank: 3, secondaryRank: 2, primaryFingers: 2,
         colors: { body: 0x2a1712, belly: 0x3a1e0e, horn: 0xd8a24a, featherEdge: 0xff8a5a, wingEmissive: 0xff8a2a,
           featherIn: 0xff8a2a, featherOut: 0xffc85a, featherHi: 0xfff2c8, scales: 0xd8a24a,
           coreGlow: 0xfff2c8, apexSeam: 0xffb05a, eye: 0xffc85a, trail: 0xff973c, boostTrail: 0xffc45c } },
@@ -688,6 +690,7 @@ export const DRAGONS = {
       { igniteStage: 1, glowLevel: 0.5, keelDepth: 0.85, neckArch: 0.6, coreScale: 0.7,
         headScale: 1.15, eyeScale: 1.05, torsoScale: 0.9, crownFan: 3, crownLen: 0.75, spineGlow: 0.35,
         collarFan: 0.3, roseGoldEdge: 0.3, fingerSplit: 0.3, pennantLift: 0.5, pennantRibbons: 3, wingScale: 1.1,
+        covertRank: 4, secondaryRank: 4, primaryFingers: 3,
         colors: { body: 0x32150f, belly: 0x4a2612, horn: 0xe6b850, featherEdge: 0xff9a7a, wingEmissive: 0xc24014,
           featherIn: 0xff6a1a, featherOut: 0xffd166, featherHi: 0xfff0b8, scales: 0xe6b850,
           coreGlow: 0xfff0b8, apexSeam: 0xffb030, eye: 0xffd166, trail: 0xff8c2e, boostTrail: 0xffd36b } },
@@ -696,6 +699,7 @@ export const DRAGONS = {
       { igniteStage: 2, glowLevel: 0.75, keelDepth: 0.95, neckArch: 0.85, coreScale: 0.85,
         headScale: 1.05, eyeScale: 0.85, torsoScale: 0.95, crownFan: 4, crownLen: 0.9, spineGlow: 0.7,
         collarFan: 0.6, roseGoldEdge: 0.7, fingerSplit: 0.6, pennantLift: 0.8, pennantRibbons: 4, wingScale: 1.2,
+        covertRank: 6, secondaryRank: 5, primaryFingers: 4,
         colors: { body: 0x6a4a30, belly: 0x5a3018, horn: 0xf0c860, featherEdge: 0xff9c7a, wingEmissive: 0xff8a2a,
           featherIn: 0xffb24a, featherOut: 0xffe8b0, featherHi: 0xfff8e0, scales: 0xf0c860,
           coreGlow: 0xfff8e0, apexSeam: 0xffe6a0, eye: 0xffe6a0, trail: 0xff942e, boostTrail: 0xffe082 } },
@@ -704,6 +708,7 @@ export const DRAGONS = {
       { igniteStage: 3, glowLevel: 1.0, keelDepth: 1.0, neckArch: 1.0, coreScale: 1.0,
         headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, crownFan: 5, crownLen: 1.0, spineGlow: 1.0,
         collarFan: 1.0, roseGoldEdge: 1.0, fingerSplit: 1.0, pennantLift: 1.0, pennantRibbons: 5, wingScale: 1.3,
+        covertRank: 7, secondaryRank: 6, primaryFingers: 5,
         colors: { body: 0xf2e8cf, belly: 0x5a3018, horn: 0xf4d580, featherEdge: 0xff9a7a, wingEmissive: 0xff8a2a,
           featherIn: 0xffd166, featherOut: 0xfff0c8, featherHi: 0xfff8e8, scales: 0xfff4d8,
           coreGlow: 0xfff8e8, apexSeam: 0xffe07a, aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8 } },
