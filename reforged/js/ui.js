@@ -1753,6 +1753,14 @@ export const ui = {
           ${assistSeg('reticle', saveData.settings.reticle, Math.round(CONFIG.reticleOffBonus * 100))}
         </div>
         <div class="settings-group">
+          <div class="settings-label">BULLET CLARITY</div>
+          <p class="sub">Boss fights: hollow lock reticle, bigger imminent bullets, danger telegraph.</p>
+          <div class="seg-row">
+            <button class="seg-btn${saveData.settings.bulletClarity ? ' sel' : ''}" data-assist="bulletClarity" data-val="1">ON</button>
+            <button class="seg-btn${saveData.settings.bulletClarity ? '' : ' sel'}" data-assist="bulletClarity" data-val="0">OFF</button>
+          </div>
+        </div>
+        <div class="settings-group">
           <div class="settings-label">LAST-CHANCE SLOW-MO</div>
           ${assistSeg('slowMo', saveData.settings.slowMo, Math.round(CONFIG.slowMoOffBonus * 100))}
         </div>
@@ -1987,6 +1995,7 @@ export const ui = {
         </div>`;
       body = `
         <div class="toggle-row"><span class="toggle-lbl">TARGET RETICLE</span>${segOnOff('reticle', saveData.settings.reticle, Math.round(CONFIG.reticleOffBonus * 100))}</div>
+        <div class="toggle-row"><span class="toggle-lbl">BULLET CLARITY <small>boss</small></span>${toggleOnOff('bulletClarity', saveData.settings.bulletClarity)}</div>
         <div class="toggle-row"><span class="toggle-lbl">LAST-CHANCE SLOW-MO</span>${segOnOff('slowMo', saveData.settings.slowMo, Math.round(CONFIG.slowMoOffBonus * 100))}</div>
         <div class="toggle-row"><span class="toggle-lbl">GLIDE ASSIST <small>−${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%</small></span>${toggleOnOff('glideAssist', saveData.settings.glideAssist)}</div>
         ${isTouch() ? '' : `<div class="toggle-row"><span class="toggle-lbl">MOUSE STEERING</span>${toggleOnOff('mouseSteer', saveData.settings.mouseSteer)}</div>`}

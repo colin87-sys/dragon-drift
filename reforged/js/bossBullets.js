@@ -6,7 +6,7 @@ import { burst, wispImpact } from './particles.js';
 import { emit } from './events.js';
 import { getBeatClock, UNLEASH_V2 } from './sfx.js';
 import { nextGridDelay } from './harmony.js';
-import { LENS2 } from './lensFlag.js';
+import { lensClarity } from './lensFlag.js';
 
 // Boss bullet pool — one InstancedMesh, recycled by the same windowed-cursor
 // pattern as embers.js (one draw call regardless of count; cheap on mobile).
@@ -24,11 +24,6 @@ import { LENS2 } from './lensFlag.js';
 const POOL = CONFIG.BOSS.bulletPool;
 const R = CONFIG.playerRadius;
 const TIERS = CONFIG.BOSS.renderTiers;   // render-order law: nothing draws over a bullet
-
-// LENS (?lens=2) imminent-bullet legibility knobs, resolved once. Off ⇒ the shipped
-// heat-only flare over CONFIG.BOSS.flareTti with no size change (byte-identical).
-const FLARE_TTI = LENS2 ? CONFIG.BOSS.flareTtiLens : CONFIG.BOSS.flareTti;
-const FLARE_SIZE_K = LENS2 ? CONFIG.BOSS.flareSizeK : 0;
 
 // THREAT read for the reticle's yield cue (intervention 3a): the nearest inbound
 // boss bullet whose lateral offset falls inside ~1.5× the graze annulus, so the aim
@@ -643,6 +638,12 @@ export function updateBossBullets(dt, player) {
   const py = player.position.y;
   const bossR = CONFIG.BOSS.bossHitRadius;
   let threatMin = Infinity, threatCount = 0;   // reticle-yield read, rebuilt this frame
+  // LENS imminent-bullet legibility knobs, resolved per-frame from the Bullet Clarity
+  // setting. OFF ⇒ the shipped heat-only flare over CONFIG.BOSS.flareTti, FLARE_SIZE_K 0
+  // ⇒ flarePop === 1 (byte-identical size + flare window).
+  const clarity = lensClarity();
+  const FLARE_TTI = clarity ? CONFIG.BOSS.flareTtiLens : CONFIG.BOSS.flareTti;
+  const FLARE_SIZE_K = clarity ? CONFIG.BOSS.flareSizeK : 0;
 
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
