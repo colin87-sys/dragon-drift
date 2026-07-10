@@ -338,6 +338,12 @@ export const CONFIG = {
     focusDwellMult: 0.5,    // LAW
     // score (embers NEVER)
     paintScore: 10, lanceHitScore: 15, perfectReleaseScore: 150,  // LAW: parry stays score-premier
+    // LENS (intervention 3a) — reticle YIELD: while a boss bullet is closing to within
+    // `tti` seconds of the player's lane, the aim chrome's GLOW eases back so the threat
+    // is the loudest thing at the point of gaze. Presentation only (read by reticle.js
+    // under ?lens=2; inert otherwise) — the lock state machine never sees it, and the
+    // lock border / dwell fill are never dimmed. tti: 0 disables the yield entirely.
+    reticleYield: { tti: 0.9 },
   },
 
   BOSS: {
@@ -364,6 +370,15 @@ export const CONFIG = {
     bulletRadius: 0.55,
     spawnRampT: 0.12,       // seconds a bullet takes to grow from a point to full size at spawn
                             // (kills the "materialises from nowhere" pop up close — L148)
+    // Imminent-bullet FLARE window (the time-to-impact depth cue in bossBullets.js).
+    // Shipped: heat-only over the last flareTti seconds. The LENS overhaul (?lens=2)
+    // widens the window to flareTtiLens AND adds a size POP (flareSizeK, the fraction
+    // the disc grows at full flare) so "which hits me first" is a size+heat read at
+    // the exact moment it matters — the Enter-the-Gungeon "big fair bullet" lesson.
+    // The visual grows BEYOND the hitbox (s.r untouched), so the mismatch is forgiving.
+    flareTti: 0.3,          // shipped window (s); LENS is inert unless ?lens=2
+    flareTtiLens: 0.45,     // widened window under ?lens=2
+    flareSizeK: 0.35,       // disc grows ×(1 + this*flare) under ?lens=2; 0 ⇒ shipped size
     bulletHitScale: 0.62,   // effective player hit radius = playerRadius × this (forgiving)
     bulletSpeed: 28,        // closing speed (m/s) → reaction window ≈ settleGap/speed ≈ 1.07s
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
