@@ -1523,8 +1523,8 @@ for (const key of BOSS_ORDER) {
 // musicKill() hard-zeros the music target; the kill survives being re-applied and
 // is folded into musicTarget() (so mute/volume/bg-restore paths preserve it);
 // musicRestore() brings the target back. The DEFEAT path is asserted after the
-// full-roster lifecycle below (knellgrave is last in BOSS_ORDER: its sim kills the
-// music at warn-end and the defeat fanfare must have restored it), and the
+// full-roster lifecycle below (knellgrave's sim kills the music at warn-end and the
+// defeat fanfare must have restored it — the lifecycle drives every boss to a kill), and the
 // resetBoss teardown path is asserted here directly.
 {
   const { musicKill, musicRestore, musicKillState } = await import('../js/sfx.js');
@@ -2975,10 +2975,12 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('ENG-C4 ORBIT ANNULUS: the figure-eight grows a drawn band; co-rotating pays ticks + a full lap jackpots (+rung, i-frames); dead-centre/broken-lap unpaid; inert for others ✓');
 }
 
-// §ENG-C7 SHRINKING SAFE DISC: each KNELLGRAVE iris toll opens a drawn disc at the volley's own
-// centre; it shrinks with the contracting ring-walls, riding the RIM pays ESCALATING ticks
-// (annulus, not the safe core), and the pocket DIES on the last ring's beat. The def label is
-// already live, so the branch IS the activation — this block also guards Knellgrave regression.
+// §ENG-C7→§ENG-H TOLL-WALL DISC: each KNELLGRAVE SPIRAL toll radiates an EXPANDING ring-wall
+// from the bell mouth; a drawn disc GROWS from 0 out to the wavefront's crossing radius,
+// riding the RIM from inside pays ESCALATING ticks (annulus, not the safe core), and the
+// pocket DIES on the beat the wall reaches you (bail one step inward). The C.7 toll flip
+// (§ENG-H): the arm MOVED from iris→spiral and the pocket INVERTED (shrink→grow). This block
+// also guards Knellgrave regression (the drawn rim IS the wavefront — the honesty identity).
 {
   const armKnellgrave = () => {
     game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
@@ -2988,104 +2990,240 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
     return p;
   };
-  // Arms on the toll (only in a fight); shrinks monotonically to the iris terminal radius; dies.
+  // Arms on the SPIRAL toll (only in a fight); GROWS monotonically to the wavefront radius; dies.
   {
     const p = armKnellgrave();
-    assert(boss.bossDebugState().discActive === false, 'ENG-C7: no pocket before an iris toll');
+    assert(boss.bossDebugState().discActive === false, 'ENG-H toll-wall: no pocket before a spiral toll');
     let pockets = 0; on('discPocket', (e) => { if (e.toll === 1) pockets++; });
-    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);   // bakes an iris volley AND arms the pocket
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);   // fires a spiral toll AND arms the wall
     const st0 = boss.bossDebugState();
-    assert(st0.discActive && st0.discTollN === 1 && pockets === 1, 'ENG-C7: an iris toll opens pocket #1');
-    const r0 = st0.discR0;
-    // Park dead-centre (unpaid) so the shrink runs clean; drive until the pocket dies or re-arms.
+    assert(st0.discActive && st0.discTollN === 1 && pockets === 1, 'ENG-H toll-wall: a spiral toll opens pocket #1');
+    const r1 = st0.discR1, outSpd = st0.discGeom.outSpd;
+    assert(st0.discR < 0.5, 'ENG-H toll-wall: the wall starts at ~0 (no start radius — it grows from the bell)');
+    // The wavefront terminal radius = SPIRAL_OUT_SPD · dur (drawn == wavefront by construction).
+    // Park dead-centre (unpaid) so the growth runs clean; drive until the pocket dies or re-arms.
     let prevR = st0.discR, monotonic = true, lastLiveR = st0.discR, died = false;
     for (let i = 0; i < 200; i++) {
       const st = boss.bossDebugState();
       if (st.discActive && st.discTollN === 1) {
-        if (st.discR > prevR + 1e-6) monotonic = false;
+        if (st.discR < prevR - 1e-6) monotonic = false;   // GROWS
         prevR = st.discR; lastLiveR = st.discR;
-        p.position.x = st.discX; p.position.y = st.discY;   // dead-centre: shrink without earning
+        p.position.x = st.discX; p.position.y = st.discY;   // dead-centre: grow without earning
       }
       boss.updateBoss(1 / 60, p, 3 + i / 60);
       const s2 = boss.bossDebugState();
       if (!s2.discActive && s2.discTollN === 1) { died = true; break; }   // clean death before any re-arm
-      if (s2.discTollN > 1) break;                                        // a natural iris re-armed — stop
+      if (s2.discTollN > 1) break;                                        // a natural toll re-armed — stop
     }
-    assert(monotonic, 'ENG-C7: the disc radius shrinks monotonically as the rings close');
-    assert(r0 > boss.bossDebugState().discGeom.rEnd, 'ENG-C7: the pocket starts wider than the iris terminal radius');
-    if (died) {
-      assert(Math.abs(lastLiveR - boss.bossDebugState().discGeom.rEnd) < 0.25, `ENG-C7: the last live radius meets the iris terminal (~${boss.bossDebugState().discGeom.rEnd})`);
-      assert(boss.bossDebugState().discR === 0, 'ENG-C7: the pocket dies on the last beat (discR → 0)');
-    }
+    assert(monotonic, 'ENG-H toll-wall: the wall radius GROWS monotonically toward the crossing');
+    assert(Math.abs(lastLiveR - r1) < 0.35 || died, `ENG-H toll-wall: the last live radius reaches the wavefront terminal (~${r1.toFixed(1)}, last ${lastLiveR.toFixed(1)})`);
+    if (died) assert(boss.bossDebugState().discR === 0, 'ENG-H toll-wall: the pocket dies on the beat the wall crosses (discR → 0)');
     boss.resetBoss();
   }
-  // Escalating ticks on the rim + feeds the bank; dead-centre + outside are unpaid.
+  // Honesty — the DRAWN rim IS the wavefront: live bullets sit at exactly discR (drawn==paid==real).
+  {
+    const p = armKnellgrave();
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);
+    let checked = 0, worst = 0;
+    for (let i = 0; i < 40; i++) {
+      p.position.x = boss.bossDebugState().discX + 40;   // park far away (unpaid; don't perturb)
+      boss.updateBoss(1 / 60, p, 3 + i / 60);            // advances discAge AND the bullet pool on the SAME clock (updateBossBullets is called inside)
+      const st = boss.bossDebugState();
+      if (st.discActive && st.discR > 1.5) {
+        const bs = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+        if (bs.length) {
+          const maxLat = Math.max(...bs.map((b) => Math.hypot(b.x - st.discX, b.y - st.discY)));
+          worst = Math.max(worst, Math.abs(maxLat - st.discR));
+          checked++;
+        }
+      }
+    }
+    assert(checked >= 3 && worst < 0.8, `ENG-H honesty: the drawn rim tracks the live wavefront (worst |maxLat − discR| = ${worst.toFixed(2)} over ${checked} frames)`);
+    boss.resetBoss();
+  }
+  // Escalating ticks on the LOWER rim + feeds the bank; dead-centre + outside are unpaid.
   {
     const p = armKnellgrave();
     let ticks = 0; const gaps = []; let lastT = null, frame = 0;
     on('discGraze', () => { ticks++; if (lastT != null) gaps.push(frame - lastT); lastT = frame; });
     const chargeStart = game.grazeCharge + game.consecutiveRings;
-    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);
     for (let i = 0; i < 200; i++) {
       frame = i;
       const st = boss.bossDebugState();
-      if (st.discActive && st.discTollN === 1) { p.position.x = st.discX + st.discR * 0.85; p.position.y = st.discY; }   // mid-rim
+      if (st.discActive && st.discTollN === 1) { p.position.x = st.discX; p.position.y = st.discY - st.discR * (1 - st.discGeom.wallFrac / 2); }   // lower rim (recomputed per frame as the wall grows)
       boss.updateBoss(1 / 60, p, 3 + i / 60);
       if (boss.bossDebugState().discTollN > 1) break;
     }
-    assert(ticks > 0, `ENG-C7: riding the rim pays graze ticks (${ticks} discGraze)`);
-    assert(gaps.length >= 2 && gaps[gaps.length - 1] < gaps[0], `ENG-C7: ticks ESCALATE as the disc closes (first gap ${gaps[0]}f > last ${gaps[gaps.length - 1]}f)`);
-    assert((game.grazeCharge + game.consecutiveRings) > chargeStart, 'ENG-C7: the rim ride feeds the graze bank');
+    assert(ticks > 0, `ENG-H toll-wall: riding the rim pays graze ticks (${ticks} discGraze)`);
+    assert(gaps.length >= 2 && gaps[gaps.length - 1] < gaps[0], `ENG-H toll-wall: ticks ESCALATE toward the crossing (first gap ${gaps[0]}f > last ${gaps[gaps.length - 1]}f)`);
+    assert((game.grazeCharge + game.consecutiveRings) > chargeStart, 'ENG-H toll-wall: the rim ride feeds the graze bank');
     boss.resetBoss();
 
     // Dead-centre is unpaid; outside is unpaid.
     const p2 = armKnellgrave();
     let coreTicks = 0; on('discGraze', () => { coreTicks++; });
-    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p2, 1);
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p2, 1);
     for (let i = 0; i < 60; i++) { const st = boss.bossDebugState(); if (st.discActive) { p2.position.x = st.discX; p2.position.y = st.discY; } boss.updateBoss(1 / 60, p2, 3 + i / 60); if (boss.bossDebugState().discTollN > 1) break; }
     const coreOnly = coreTicks;
     for (let i = 0; i < 40; i++) { const st = boss.bossDebugState(); if (st.discActive) { p2.position.x = st.discX + st.discR + 3; p2.position.y = st.discY; } boss.updateBoss(1 / 60, p2, 4 + i / 60); if (boss.bossDebugState().discTollN > 1) break; }
-    assert(coreOnly === 0 && coreTicks === 0, `ENG-C7 annulus-not-radius: the safe core and the outside are UNPAID (${coreTicks} ticks)`);
-    assert(game.health === 1e9, 'ENG-C7: the form itself never damages the player');
+    assert(coreOnly === 0 && coreTicks === 0, `ENG-H toll-wall annulus-not-radius: the safe core and the outside are UNPAID (${coreTicks} ticks)`);
+    assert(game.health === 1e9, 'ENG-H toll-wall: the form itself never damages the player');
     boss.resetBoss();
   }
-  // Toll-count schedule: a second pocket starts smaller than the first.
+  // The Cracked Peal squeeze + the cooldown: two back-to-back spiral tolls open exactly ONE pocket;
+  // after the cooldown lapses a third re-arms (§ENG-H §3d — the 2nd wall can't double-arm).
   {
     const p = armKnellgrave();
-    const r0s = []; on('discPocket', (e) => { r0s.push(e.r0); });
-    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);   // pocket #1
-    // The arm cooldown blocks a back-to-back second pocket (that's the "less frequent" behaviour),
-    // so let the live fight fire its next iris toll organically to open pocket #2 (parked dead-centre).
-    for (let i = 0; i < 700 && r0s.length < 2; i++) { const st = boss.bossDebugState(); if (st.discActive) { p.position.x = st.discX; p.position.y = st.discY; } boss.updateBoss(1 / 60, p, 3 + i / 60); }
-    assert(r0s.length >= 2 && r0s[1] < r0s[0], `ENG-C7: successive tolls open smaller pockets (${r0s[0].toFixed(1)} → ${r0s[1].toFixed(1)})`);
+    const tolls = []; on('discPocket', (e) => { tolls.push(e.toll); });
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);   // toll 1 → pocket
+    const dur1 = boss.bossDebugState().discR1;
+    boss.debugEmitAttack('spiral', p, 1);                               // the 2nd peal toll (inside discCd) → NO arm
+    assert(tolls.length === 1 && tolls[0] === 1, `ENG-H peal: two back-to-back tolls open exactly ONE pocket (${tolls.length})`);
+    assert(Math.abs(boss.bossDebugState().discR1 - dur1) < 1e-6, 'ENG-H peal: the 2nd toll does not disturb pocket #1 (no re-arm, no re-size)');
+    for (let i = 0; i < 700 && tolls.length < 2; i++) { const st = boss.bossDebugState(); if (st.discActive) { p.position.x = st.discX; p.position.y = st.discY; } boss.updateBoss(1 / 60, p, 3 + i / 60); }
+    assert(tolls.length >= 2 && tolls[1] === 2, `ENG-H peal: after the cooldown a fresh toll re-arms (toll ${tolls[1]})`);
     boss.resetBoss();
   }
-  // Survival purity: during The Last Toll ride the form is dead (no farm, pure dodge).
+  // Survival purity — during BOTH setpieces (Pendulum Sweep AND The Last Toll ride) a spiral arms
+  // no pocket (no farm; pure dodge), then arms again once cleared.
+  {
+    for (const [card, sp] of [['knellgrave_sweep', 'pendulumSweep'], ['knellgrave_last', 'lastToll']]) {
+      const p = armKnellgrave();
+      boss.debugForceCard(card);
+      boss.debugRunSetpiece(sp);
+      let pocket = false; on('discPocket', () => { pocket = true; });
+      bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);
+      for (let i = 0; i < 60; i++) boss.updateBoss(1 / 60, p, 3 + i / 60);
+      assert(!pocket && boss.bossDebugState().discActive === false, `ENG-H purity: no pocket arms during ${sp} (pure dodge)`);
+      boss.resetBoss();
+    }
+  }
+  // The arm site MOVED: an iris volley on knellgrave now arms NOTHING.
   {
     const p = armKnellgrave();
-    boss.debugForceCard('knellgrave_last');
-    boss.debugRunSetpiece('lastToll');
     let pocket = false; on('discPocket', () => { pocket = true; });
-    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);
-    for (let i = 0; i < 60; i++) boss.updateBoss(1 / 60, p, 3 + i / 60);
-    assert(!pocket && boss.bossDebugState().discActive === false, 'ENG-C7: The Last Toll ride stays pure dodge (no pocket arms during the setpiece)');
+    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);   // iris still fires, but no longer arms a pocket
+    assert(!pocket && boss.bossDebugState().discActive === false, 'ENG-H: iris arms no pocket (the toll-wall moved to spiral)');
     boss.resetBoss();
   }
-  // Coexist: a non-shrinkDisc boss firing iris never opens a pocket.
+  // Coexist: a non-shrinkDisc boss firing spiral never opens a pocket, and its bullets stay at the
+  // un-opted origin (anchorX, fightHeight) — byte-identical to the shipped lane-anchored radial.
   {
     game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
     const vp = makePlayer();
     let ticks = 0, pocket = false;
     on('discGraze', () => { ticks++; }); on('discPocket', () => { pocket = true; });
     boss.forceBoss(vp, BOSS_ORDER.indexOf('stormrend')); boss.debugForceFight(vp);
-    bullets.resetBossBullets(); boss.debugEmitAttack('iris', vp, 1);
-    for (let i = 0; i < 120; i++) { const st = boss.bossDebugState(); vp.position.x = st.discX + 4; vp.position.y = st.discY; boss.updateBoss(1 / 60, vp, 2 + i / 60); }
+    for (let i = 0; i < 10; i++) boss.updateBoss(1 / 60, vp, 2 + i / 60);
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', vp, 1);
+    const bs = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+    const anchorX = Math.max(-8, Math.min(8, vp.position.x * 0.7));
+    assert(bs.length > 0 && bs.every((b) => Math.abs(b.x - anchorX) < 1e-6 && Math.abs(b.y - CONFIG.BOSS.fightHeight) < 1e-6),
+      'ENG-H coexist: a non-opted boss (stormrend) fires spiral from the shipped (anchorX, fightHeight)');
+    for (let i = 0; i < 120; i++) { const st = boss.bossDebugState(); vp.position.x = st.discX + 4; vp.position.y = st.discY; boss.updateBoss(1 / 60, vp, 3 + i / 60); }
     const st = boss.bossDebugState();
     assert(ticks === 0 && !pocket && st.discActive === false && st.discR === 0 && st.slipActive === false && st.orbActive === false,
-      'ENG-C7 coexist: a non-shrinkDisc boss (stormrend) firing iris opens no pocket (inert branch)');
+      'ENG-H coexist: a non-shrinkDisc boss (stormrend) firing spiral opens no pocket (inert branch)');
     boss.resetBoss();
   }
-  ok('ENG-C7 SHRINKING SAFE DISC: iris tolls open a drawn disc that shrinks to the ring terminal; rim ride pays escalating ticks (core/outside unpaid), dies on the last beat, smaller per toll; Last Toll pure; inert for others ✓');
+  ok('ENG-H TOLL-WALL DISC: spiral tolls radiate an expanding wall (drawn == wavefront) from the bell; rim ride pays escalating ticks (core/outside unpaid), dies as the wall crosses; the peal double-toll arms once; iris arms nothing; both setpieces pure; inert for others ✓');
+}
+
+// §ENG-H PENDULUM SWEEP + BOB-LOCK: the P4 hero setpiece — the bell swings ACROSS the lane in
+// three widening arcs (§5c WE contract), and the movingGap safe lane sits OPPOSITE the bob
+// (read the bell, not the wall). Headless proves the crossings/reachability + the mirror; the
+// human judges whether the arc reads as MASS swinging (the SotC frame) on the PR preview.
+{
+  const armKnellgrave = () => {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('knellgrave'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  // Sweep geometry: the bell CROSSES the lane repeatedly, dips into the band (never under it),
+  // the nadir comes AT you (never behind the camera), and the pose returns to station.
+  {
+    const p = armKnellgrave();
+    boss.debugForceCard('knellgrave_sweep');
+    boss.debugRunSetpiece('pendulumSweep');
+    let maxAbsMouthX = 0, minMouthY = Infinity, minPoseRel = Infinity, crossings = 0, prevSign = 0, sawSetpiece = false;
+    for (let i = 0; i < 900; i++) {
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      const st = boss.bossDebugState();
+      if (!st.setpiece) { if (sawSetpiece) break; else continue; }
+      sawSetpiece = true;
+      const mouth = boss.debugPartWorldPos('bellMouth');
+      if (mouth) { maxAbsMouthX = Math.max(maxAbsMouthX, Math.abs(mouth.x)); minMouthY = Math.min(minMouthY, mouth.y); }
+      minPoseRel = Math.min(minPoseRel, st.poseRel);
+      const sign = st.poseX > 3 ? 1 : st.poseX < -3 ? -1 : 0;   // deadband so near-zero jitter doesn't count
+      if (sign !== 0 && prevSign !== 0 && sign !== prevSign) crossings++;
+      if (sign !== 0) prevSign = sign;
+    }
+    assert(sawSetpiece, 'ENG-H sweep: the pendulumSweep setpiece runs');
+    assert(maxAbsMouthX >= 11, `ENG-H sweep: the bell CROSSES the lane (max |mouth.x| ${maxAbsMouthX.toFixed(1)} ≥ 11 — off-lane at the extremes)`);
+    assert(crossings >= 4, `ENG-H sweep: it crosses the lane repeatedly (${crossings} sign changes ≥ 4)`);
+    assert(minMouthY <= 15 && minMouthY >= CONFIG.laneMinY, `ENG-H sweep: the mouth dips into the band, never under it (min mouth.y ${minMouthY.toFixed(1)})`);
+    assert(minPoseRel >= 10 && minPoseRel <= 14, `ENG-H sweep: the nadir comes AT you but never behind the camera (min poseRel ${minPoseRel.toFixed(1)})`);
+    for (let i = 0; i < 8; i++) boss.updateBoss(1 / 60, p, 20 + i / 60);   // settle to station
+    const stEnd = boss.bossDebugState();
+    assert(!stEnd.setpiece && Math.abs(stEnd.poseRel - CONFIG.BOSS.settleGap) < 2.5, `ENG-H sweep: the pose returns to station (rel ${stEnd.poseRel.toFixed(1)} ≈ ${CONFIG.BOSS.settleGap})`);
+    boss.resetBoss();
+  }
+  // Bob-lock: the movingGap safe lane sits at clamp(−0.36·mouthX, ±9) — the bell's MIRROR, not
+  // the player's x. (debugEmitAttack flushes all rows on one pose → a single uniform gap, §D-4.)
+  {
+    const p = armKnellgrave();
+    boss.debugForceCard('knellgrave_sweep');
+    boss.debugRunSetpiece('pendulumSweep');
+    p.position.x = 6;   // the player-seeded g0 would centre the gap near +6
+    const measure = () => {
+      const mouth = boss.debugPartWorldPos('bellMouth');
+      const expect = Math.max(-9, Math.min(9, -0.36 * mouth.x));
+      bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+      const bs = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+      const gapClear = bs.every((b) => Math.abs(b.x - expect) >= 2.6 - 1e-6);   // no bullet in the mirrored gap
+      const playerLaneFilled = bs.some((b) => Math.abs(b.x - 6) < 2.6);         // the player's +6 lane is NOT the gap
+      const allInClamp = bs.every((b) => Math.abs(b.x) <= 13);                  // arena-bounded
+      return { expect, mouthX: mouth.x, gapClear, playerLaneFilled, allInClamp, n: bs.length };
+    };
+    for (let i = 0; i < 270; i++) boss.updateBoss(1 / 60, p, 3 + i / 60);   // past the env ramp (k≥0.30) → full-amplitude swing
+    const a = measure();
+    assert(a.n > 0 && a.gapClear, `ENG-H bob-lock: the safe lane sits at −0.36·mouthX (gap ${a.expect.toFixed(1)}, mouth ${a.mouthX.toFixed(1)}) — no bullet in it`);
+    // Rows track the swinging bell: sample across a full-amplitude window — the mirrored lane SWEEPS
+    // a wide range, stays clear + arena-bounded at every sample, and is demonstrably the bell's
+    // mirror (not the player's x) at a frame where it sits away from +6 (§D-4 — the per-row live
+    // re-resolve made observable over frames, not from one synchronous flush).
+    let gapLo = Infinity, gapHi = -Infinity, allClear = a.gapClear, sawMirrorNotPlayer = false;
+    for (let w = 0; w < 16; w++) {
+      for (let i = 0; i < 8; i++) boss.updateBoss(1 / 60, p, 8 + (w * 8 + i) / 60);
+      const m = measure();
+      gapLo = Math.min(gapLo, m.expect); gapHi = Math.max(gapHi, m.expect);
+      allClear = allClear && m.gapClear && m.allInClamp;
+      if (Math.abs(m.expect - 6) > 3 && m.playerLaneFilled) sawMirrorNotPlayer = true;
+    }
+    assert(allClear, 'ENG-H bob-lock: the safe lane sits at clamp(−0.36·mouthX, ±9) at every sampled frame (the bell mirror, arena-bounded)');
+    assert(gapHi - gapLo > 1.5, `ENG-H bob-lock: the lane SWEEPS with the bell across the swing (range ${gapLo.toFixed(1)}…${gapHi.toFixed(1)})`);
+    assert(sawMirrorNotPlayer, 'ENG-H bob-lock: the gap is the BELL’s mirror, not the player’s x=+6 (a filled player lane while the mirror sits elsewhere)');
+    // Hostile scale clamp fence: even a runaway scale lands inside movingGap's ±9 (the ENG-B G5 idiom).
+    const savedScale = BOSSES.knellgrave.gapAnchor.movingGap.scale;
+    BOSSES.knellgrave.gapAnchor.movingGap.scale = -2;
+    const c = measure();
+    assert(Math.abs(Math.max(-9, Math.min(9, -2 * c.mouthX))) <= 9 && c.n > 0 && c.allInClamp, 'ENG-H bob-lock: a runaway scale still clamps inside ±9 (never off-arena)');
+    BOSSES.knellgrave.gapAnchor.movingGap.scale = savedScale;
+    // Card OFF → resolveGapAnchor returns null → the shipped player-seeded slide returns (the gap follows the player, not the bell).
+    boss.debugForceCard(null);
+    const mouthOff = boss.debugPartWorldPos('bellMouth');
+    const mirror = Math.max(-9, Math.min(9, -0.36 * mouthOff.x));
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+    const bsOff = bullets.debugActiveBullets().filter((bb) => bb.owner === 'boss');
+    const mirrorTaken = mouthOff && Math.abs(mirror - 6) > 3 && bsOff.every((bb) => Math.abs(bb.x - mirror) >= 2.6 - 1e-6);
+    assert(bsOff.length > 0 && !mirrorTaken, 'ENG-H bob-lock: card down → the bell mirror is NOT the gap (the player-seeded slide returned)');
+    boss.resetBoss();
+  }
+  ok('ENG-H PENDULUM SWEEP + BOB-LOCK: the bell swings across the lane in widening arcs (off-lane at the extremes, into the band at the nadir), returns to station; the movingGap lane mirrors the bell at −0.36× (tracks the swing, clamps hostile scales, reverts player-seeded off-card) ✓');
 }
 
 // §ENG-G THREAD-THE-GAP: MARROWCOIL scores flying cleanly through a wall's authored safe gap —

@@ -833,7 +833,11 @@ export function buildKnellgrave(def, quality = 1) {
   // ==================================================================
   let charge = 0; function setCharge(k) { charge = clamp01(k); }
   let tell = null; function setAttackTell(id) { tell = id || null; }
-  let setpieceK = 0, dreadK = 0; function setSetpiece(k, sdef) { setpieceK = clamp01(k); dreadK = (sdef && sdef.dread) ? setpieceK : 0; }
+  // §ENG-H: the PENDULUM SWEEP widens the swing WITHOUT the dread flag (the flag would fire
+  // the Last Toll's one-way skyOpen reveal two cards early). The model keys on sdef.id (the
+  // MARROWCOIL fly-through-vs-dread precedent) so the sweep drives its own amplitude.
+  let setpieceK = 0, dreadK = 0, sweepK = 0;
+  function setSetpiece(k, sdef) { setpieceK = clamp01(k); dreadK = (sdef && sdef.dread) ? setpieceK : 0; sweepK = (sdef && sdef.id === 'pendulumSweep') ? setpieceK : 0; }
   // THE RUIN LADDER (§5 escalation — "the bell OPENS across the fight"): ruinK = 1−hp,
   // fed by the controller's setHealth every frame. Phase by phase the crack gapes wider
   // (a thin line → a flood by the final card), the sprung plates lift, the suspended
@@ -920,8 +924,10 @@ export function buildKnellgrave(def, quality = 1) {
     painEase += (Math.max(0, painT) - painEase) * Math.min(1, dt * 9);
     ringKick *= Math.max(0, 1 - dt * 3);
     const noticeK = noticeT > 0 ? clamp01(noticeT / 1.0) : 0;
-    // amplitude: base sway + charge-widened arc + dread (the Last Toll swings hardest)
-    const ampTarget = 0.10 + charge * 0.16 + dreadK * 0.10;
+    // amplitude: base sway + charge-widened arc + dread (the Last Toll swings hardest) +
+    // §ENG-H the PENDULUM SWEEP's own widen (the silhouette telegraph doing its job at
+    // setpiece scale — the bell visibly SWINGS across the lane, not just translates).
+    const ampTarget = 0.10 + charge * 0.16 + dreadK * 0.10 + sweepK * 0.30;
     swingA += (ampTarget - swingA) * Math.min(1, dt * 2.5);
     const swing = Math.sin(time * 0.85) * swingA + Math.sin(time * 0.37 + 1.1) * swingA * 0.35;
     if (entranceU == null) {
