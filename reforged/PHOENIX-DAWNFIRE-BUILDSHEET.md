@@ -327,7 +327,19 @@ spoiler / "90° flap" on a creature flying forward — aerodynamic nonsense. The
 still camera looks straight down the flight axis (where the disk projects at max width); side/top
 reads exposed its zero fore-aft depth (a hanging skirt; invisible from above).
 
-**THE TRAILING DAWN (current architecture).** Each quill now RAKES AFT into a half-cone: `rotation.z=φ`
+**THE GATHERED COURT-TRAIN (current — refines the Trailing Dawn).** The raked cone, built as many thin
+quills, read as a **feather-duster** head-on (a symmetric radial spray of near-equal wires with bead
+tips — the gold shafts *were* the silhouette) and only cohered into a train when a bank foreshortened
+them into overlap. Fix: **5 broad PANELS (not 15 wires)** webbed by a **PLEATED MEMBRANE** (each half-gore
+rigid to one panel's rake group → slides pleat-over-pleat, never tears) into one shaped drape; the α
+ladder INVERTED (deep center comet-point α≈38° → wide short hem α≈58°) for a baked-in gathered, down-
+swept **comet hierarchy** (not a symmetric pom-pom); sector 150°→132° but FILLED; and ONE burning hem
+stroke + valley coals replace 36 per-panel rim slivers. Negative space relocated from between-spokes to
+between-fingertips (the hem). Gold re-massed off the silhouette (thin copper interior rachises; gold only
+on the center + hem panels + collets). Asserts: `nQuills≤5`, `fanDeg≤135`, `fillRatio≥0.95` (cohesion,
+replacing the old "mandatory negative space" assert that *enforced* the duster), comet Δ≥0.30·max, α≤60.
+
+**THE TRAILING DAWN (rake foundation).** Each quill RAKES AFT into a half-cone: `rotation.z=φ`
 rolls it around the flight axis, an inner rake group pitches it aft by `(90°−α)`. **THE LAW: α ≤ 60°
 for every quill** (rake measured from the aft/flight axis; the failed disk was α≈90°) — asserted in
 `tests/starters.mjs`. Key trick: a quill's rear-cam projection = `length·sin α`, so lengths are sized

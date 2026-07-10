@@ -968,7 +968,7 @@ export const DRAGONS = {
       scale: 1.18, flapBias: 0.82, flapAmp: 0.74,   // lighter, quicker bird wingbeat than Solar's bow
       tailLagScale: 0.05,
       spanScale: 1.06, primaries: 6, pinionSlots: 4, sweepRake: 1.0, tipRise: 1.0,
-      trainQuills: 9, trainFan: 150, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1,
+      trainQuills: 5, trainFan: 132, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1, membrane: 1,
       crestQuills: 5, gorget: 1.0, eyeShape: 0.16, glowLevel: 1.0, headScale: 1.0,
       igniteStage: 3,
       // plumage + regalia + GOLD-jewelry richness dials (apex reference; forms confer per rung):
@@ -979,7 +979,7 @@ export const DRAGONS = {
     forms: [
       // f0 — ASH HATCHLING: charcoal ash-chick, round, dim, a promise. No train (2 nubs,
       // unlit), no coals, no crest, no gorget. igniteStage 0 (all emissives dark).
-      { igniteStage: 0, trainQuills: 2, trainFan: 90, trainLift: 0.1, coalBloom: 0, dawnCoal: 0,
+      { igniteStage: 0, trainQuills: 2, trainFan: 96, trainLift: 0.1, coalBloom: 0, dawnCoal: 0, membrane: 0,
         primaries: 4, pinionSlots: 0, sweepRake: 0.35, tipRise: 0.35, crestQuills: 0, gorget: 0,
         eyeShape: 1.0, glowLevel: 0.25, headScale: 1.3, spanScale: 0.70,
         covertRank: 0, alula: 0, vaneEyes: 0, underQuills: 0, ruff: 0, flankShingle: 1, dorsalPlumes: 0, talons: 0.5, diadem: 0, clasp: 0, heartScale: 0,
@@ -988,7 +988,7 @@ export const DRAGONS = {
           trail: 0xc65a2a, boostTrail: 0xd97a3a } },
       // f1 — KINDLED FLEDGLING: first quills catch, the fire takes. 4 quills ~90°, first
       // coals (dim amber), crest 1, first 2 pinion slots + crimson tips. igniteStage 1.
-      { igniteStage: 1, trainQuills: 4, trainFan: 100, trainLift: 0.4, coalBloom: 0.5, dawnCoal: 0,
+      { igniteStage: 1, trainQuills: 3, trainFan: 112, trainLift: 0.4, coalBloom: 0.5, dawnCoal: 0, membrane: 1,
         primaries: 5, pinionSlots: 2, sweepRake: 0.55, tipRise: 0.55, crestQuills: 1, gorget: 0,
         eyeShape: 0.7, glowLevel: 0.5, headScale: 1.15, spanScale: 0.82,
         covertRank: 1, alula: 0, vaneEyes: 0, underQuills: 0, ruff: 0, flankShingle: 1, dorsalPlumes: 6, talons: 0.7, diadem: 0, clasp: 0.5, heartScale: 0.3,
@@ -998,7 +998,7 @@ export const DRAGONS = {
       // f2 — PYRE DANCER: the display ignites, she performs. 6 quills ~120°, brighter coals
       // on all tips, crest 3, 3 slots + outer-40% gradient, the GORGET is conferred (gold
       // mesh appears), rose feather-edge kiss arrives. igniteStage 2.
-      { igniteStage: 2, trainQuills: 6, trainFan: 130, trainLift: 0.7, coalBloom: 0.8, dawnCoal: 0,
+      { igniteStage: 2, trainQuills: 4, trainFan: 124, trainLift: 0.7, coalBloom: 0.8, dawnCoal: 0, membrane: 1,
         primaries: 6, pinionSlots: 3, sweepRake: 0.78, tipRise: 0.78, crestQuills: 3, gorget: 0.6,
         eyeShape: 0.4, glowLevel: 0.75, headScale: 1.05, spanScale: 0.92,
         covertRank: 1, alula: 1, vaneEyes: 1, underQuills: 0, ruff: 1, flankShingle: 2, dorsalPlumes: 6, talons: 0.85, diadem: 0, clasp: 0.8, heartScale: 0.6,
@@ -1008,7 +1008,7 @@ export const DRAGONS = {
       // f3 — DAWNFIRE EMPRESS: the full pyre-train, reborn. 9 quills ~150° proud, blazing
       // coal arc + the near-white Dawn Coal (center, f3-only), crest 5 coal-tipped, full
       // pinion slots + rake + tip curl + rose edge, gorget blazing, pale-gold belly nod.
-      { igniteStage: 3, trainQuills: 9, trainFan: 150, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1,
+      { igniteStage: 3, trainQuills: 5, trainFan: 132, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1, membrane: 1,
         primaries: 6, pinionSlots: 4, sweepRake: 1.0, tipRise: 1.0, crestQuills: 5, gorget: 1.0,
         eyeShape: 0.16, glowLevel: 1.0, headScale: 1.0, spanScale: 1.06,
         covertRank: 1, alula: 1, vaneEyes: 1, underQuills: 6, ruff: 1, flankShingle: 2, dorsalPlumes: 6, talons: 1.0, diadem: 1, clasp: 1.0, heartScale: 1.0,
