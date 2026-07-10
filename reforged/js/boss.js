@@ -246,6 +246,12 @@ let bulletColor = 0xff2b6a;    // magenta = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
+// LENS (intervention 3b): the live telegraph wind-up as 0→1, for the reticle's
+// "danger-at-the-gaze" chevrons. Derived (not a second stored copy), so it can never
+// drift from model.setCharge; 0 whenever nothing is winding up. Read by reticle.js.
+export function bossCharge01() {
+  return chargeDur > 0 && chargeT > 0 ? Math.max(0, Math.min(1, 1 - chargeT / chargeDur)) : 0;
+}
 // §5i RHYTHM: the phrase machine for defs with a `rhythm` block (bossRhythm.js).
 // null for a def without one → the legacy uniform cadence roll (coexist rule).
 // `rhythmRest` stashes the rest the machine returned alongside the picked attack,

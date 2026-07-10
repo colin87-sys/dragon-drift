@@ -6,6 +6,9 @@ import { saveData } from './save.js';
 import { game } from './gameState.js';
 import { lockHudState } from './lockLayer.js';
 import { on } from './events.js';
+import { LENS2 } from './lensFlag.js';
+import { incomingThreat } from './bossBullets.js';
+import { bossCharge01 } from './boss.js';
 
 // Panzer-Dragoon-style nested-square target reticle: projects the next
 // ring/window onto the screen as two counter-rotating squares. Pure DOM
@@ -46,6 +49,7 @@ export function markRune() { return markRunePath; }   // test seam
 let el = null;
 let camera = null;
 let prevLocked = false;   // edge-detect the green-snap pop in a boss
+let yieldAmt = 0;         // LENS: eased 0→1 "aim chrome recedes" amount (glow only, never the lock read)
 let pipWrap = null;       // the V2 painted-pip row (created in initReticle)
 let pipEls = [];
 let markEls = [];          // in-world painted-organ markers (pooled, ≤6)
@@ -57,6 +61,17 @@ export function initReticle(cam) {
   // .rsnap = the one-shot lock-on ring flash (fires on the green snap).
   el.innerHTML = '<div class="rsq"></div><div class="rsq inner"></div><div class="rsnap"></div><div class="lockpips"></div>';
   pipWrap = el.querySelector('.lockpips');
+  // LENS (?lens=2): the visibility overhaul. Mark the reticle so the CSS swaps in the
+  // hollow corner-bracket skin (empty centre over the muzzle — intervention 2) and
+  // append the four "danger-at-the-gaze" telegraph chevrons (intervention 3b) that
+  // ramp with the boss wind-up right where the player's eyes already are.
+  if (LENS2) {
+    el.classList.add('lens2');
+    const chevs = document.createElement('div');
+    chevs.className = 'rchevs';
+    chevs.innerHTML = '<i></i><i></i><i></i><i></i>';   // up / right / down / left, flaring outward
+    el.appendChild(chevs);
+  }
   // Painted-organ marker pool: a painted organ carries its OWN pinned square with a
   // draining fill (how long the lock holds) — the reticle is the PAINTER, these are
   // the PAINTED (one reticle can't carry three locks' worth of state). Pure DOM.
@@ -121,6 +136,7 @@ export function updateReticle(player, playing) {
     const L = lockHudState();
     if (!L.active) {
       el.style.opacity = 0; el.classList.remove('boss', 'locked', 'aiming', 'snap'); prevLocked = false;
+      if (LENS2) { el.classList.remove('threat', 'threat-hot', 'yield'); yieldAmt = 0; }
       renderMarks(L);   // brand marks are STATE — they track even when no organ leads
       return;
     }
@@ -149,6 +165,7 @@ export function updateReticle(player, playing) {
     const scale = ashen ? 1.15 : (locked ? 0.82 : (1.35 - 0.35 * dwell));
     el.style.opacity = ashen ? 0.5 : (0.72 + 0.28 * dwell);
     el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale})`;
+    if (LENS2) updateLensCues();
     renderPips(L);
     renderMarks(L);
     return;
@@ -191,6 +208,27 @@ export function updateReticle(player, playing) {
   el.style.opacity = 0.85 * fade;
   el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale * (locked ? 0.85 : 1)})`;
   el.classList.toggle('locked', locked);
+}
+
+// LENS cues (interventions 3a + 3b), boss branch only, ?lens=2. 3a — THREAT YIELD:
+// ease the aim chrome's GLOW down while a boss bullet is closing into the player's
+// lane, so the reticle politely steps back and the threat is the loudest thing at the
+// point of gaze. The lock border and dwell fill are NEVER touched (dimming those would
+// read as "lock lost"); only the bloom recedes, eased ~0.25s so it never flickers.
+// 3b — TELEGRAPH: drive the four danger chevrons straight off the live boss wind-up so
+// "incoming" lands where the eyes already are, blinking in the final instant. Pure
+// DOM/CSS-var writes (--yield, --threat) — zero render cost, and inert when the flag is off.
+function updateLensCues() {
+  const ry = CONFIG.LOCK.reticleYield;
+  const th = incomingThreat();
+  const want = (ry.tti > 0 && th.minTti < ry.tti) ? 1 : 0;
+  yieldAmt += (want - yieldAmt) * 0.16;   // frame-paced ease (~0.25s in/out); visual only
+  if (yieldAmt < 0.001) yieldAmt = 0;
+  el.style.setProperty('--yield', yieldAmt.toFixed(3));
+  const charge = bossCharge01();
+  el.style.setProperty('--threat', charge.toFixed(3));
+  el.classList.toggle('threat', charge > 0.02);
+  el.classList.toggle('threat-hot', charge > 0.82);   // final-instant blink
 }
 
 // V2 LANCE pips: painted locks as a square-pip row under the reticle (squares, not
