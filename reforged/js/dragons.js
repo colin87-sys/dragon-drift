@@ -643,6 +643,83 @@ export const DRAGONS = {
     aura: 0xffb060, eye: 0xffd98a, trail: 0xff6a14, boostTrail: 0xffc46a,
   },
 
+  // ── PHOENIX EVERFLAME — "she IS a flame that flies" (PHOENIX-EVERFLAME-BUILDSHEET.md).
+  // A BRIGHT fire-body apex on the FLARE system (dragonEverflame.js) — the exact
+  // INVERSION of the Molten Phoenix: a LUMINOUS goldfire body ("light field, dark on
+  // the rims"), swept flame-CASCADE wings (streaming fire raked aft-and-up), a furnace
+  // keel grading to an F0 keel-star, and twin high spark-ribbons. Fire IS the body,
+  // built from OPAQUE flat-shaded facets + saturated bloom-safe emissive (NEVER
+  // additive shells). Coexists with `phoenix` + `phoenixMolten` (all byte-identical).
+  // `archetype: 'phoenix'` is a RIG flag only (warm ember-mote wake + Rebirth fire-
+  // trails the references show); explicit parts override the recipe. Growth beat:
+  // "the fire CATCHES" (kindling → wildfire), the fuel vanishing into flame.
+  phoenixEverflame: {
+    name: 'Phoenix Everflame',
+    lanceTint: 0xe69b1f, lanceRune: 'everflame',   // Eternal wisp: goldfire (distinct from molten 0xff5410 / phoenix 0xff7a1a)
+    title: 'She is the flame that flies',
+    rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
+    accentHue: 0xe69b1f,   // §9 law-9 carrier: goldfire
+    archetype: 'phoenix',  // RIG flag only (warm ember motes + Rebirth fire-trails); explicit parts override the recipe
+    parts: { torso: 'everflameTorso', wings: 'flareCascadeWings', head: 'blazeCrestHead', tail: 'sparkRibbonTail', surface: { shader: [] } },
+    stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
+    hasStyle: true,        // keep its own goldfire trail colour even in Surge
+    feverWing: 0xffe4b0, feverEye: 0xffe9c4,
+    feverWash: [0.05, 0.036, 0.014],   // Flashover screen wash: warm goldfire, kept low so it never overexposes the frame
+    // Base model holds APEX reference dials; each form dials the ladder (cumulative).
+    model: {
+      scale: 1.18, flapBias: 0.9, flapAmp: 0.92,
+      // FLARE body ladder (apex reference — see forms[] for the per-rung schedule):
+      igniteStage: 3, glowLevel: 1.0, keelHeat: 1.0, lickCount: 5, crestLicks: 3, crestLen: 1.0,
+      headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0,
+      // FLARE-CASCADE wing ladder: span/chord grow, tongues + cascade-rise + gaps +
+      // tip-frays arrive rung by rung (each form ADDS fire hardware).
+      spanScale: 1.0, chordScale: 1.0, cascadeRise: 1.0, tongueCount: 7, gapWidth: 1.0, frayEmbers: 1,
+      ribbonLen: 1.0,
+    },
+    forms: [
+      // f0 FIRST SPARK — a garnet-bodied fledgling; flame-blanket-only stub wings, NO
+      // tongues/ribbons/crest; only the furnace-keel LINE lit (F2). One thread of fire
+      // in a dark bird (a faint warm smolder gradient keeps it off the shipped charcoal
+      // f0 and off molten's crack-network f0).
+      { igniteStage: 0, glowLevel: 0.25, keelHeat: 0.4, lickCount: 0, crestLicks: 0, crestLen: 0.5,
+        headScale: 1.3, eyeScale: 1.3, torsoScale: 0.82,
+        spanScale: 0.72, chordScale: 0.75, cascadeRise: 0, tongueCount: 0, gapWidth: 0, frayEmbers: 0, ribbonLen: 0,
+        colors: { body: 0x3a1a12, goldfire: 0x9a5410, flame: 0xc23a0e, crimson: 0x7a1c12, garnet: 0x361008,
+          coreGlow: 0xff8030, apexSeam: 0xc23a0e, eye: 0xd88a3a } },
+      // f1 KINDLED — 4 cascade tongues + 3 dorsal licks; the body field ignites to F2
+      // flame-orange, the keel to F1 goldfire. The fire catches.
+      { igniteStage: 1, glowLevel: 0.5, keelHeat: 0.6, lickCount: 3, crestLicks: 0, crestLen: 0.7,
+        headScale: 1.15, eyeScale: 1.05, torsoScale: 0.9,
+        spanScale: 0.85, chordScale: 0.85, cascadeRise: 0.35, tongueCount: 4, gapWidth: 0.4, frayEmbers: 0, ribbonLen: 0,
+        colors: { body: 0x5e2410, goldfire: 0xd98a30, flame: 0xd9541a, crimson: 0x9a2214, garnet: 0x3c120a,
+          coreGlow: 0xffa040, apexSeam: 0xd9541a, eye: 0xffb84a } },
+      // f2 ROARING BLAZE — 6 tongues with gaps + crest licks + the first (short) ribbon
+      // pair; the body field turns F1 goldfire (she becomes the gold-on-black reference).
+      // SIGNATURE: the cascade rise arrives (cascadeRise → 0.7).
+      { igniteStage: 2, glowLevel: 0.75, keelHeat: 0.8, lickCount: 4, crestLicks: 2, crestLen: 0.85,
+        headScale: 1.05, eyeScale: 0.85, torsoScale: 0.95,
+        spanScale: 0.93, chordScale: 0.93, cascadeRise: 0.7, tongueCount: 6, gapWidth: 0.7, frayEmbers: 0, ribbonLen: 0.5,
+        colors: { body: 0x7f4f14, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xb32613, garnet: 0x421210,
+          coreGlow: 0xffb060, apexSeam: 0xe69b1f, eye: 0xffd07a } },
+      // f3 THE EVERFLAME — full 7-tongue cascade + tip frays + full twin ribbons + 5
+      // dorsal licks; the F0 keel-star + eyes ignite; Flashover surge unlocked. Full
+      // concave-cupped sweep.
+      { igniteStage: 3, glowLevel: 1.0, keelHeat: 1.0, lickCount: 5, crestLicks: 3, crestLen: 1.0,
+        headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0,
+        spanScale: 1.0, chordScale: 1.0, cascadeRise: 1.0, tongueCount: 7, gapWidth: 1.0, frayEmbers: 1, ribbonLen: 1.0,
+        colors: { body: 0x8a5c12, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xb32613, garnet: 0x421210,
+          coreGlow: 0xffc46a, apexSeam: 0xffe4b0, eye: 0xffe9c4 } },
+    ],
+    fx: { auraColor: '255,180,90', auraIdle: 0.0, sparkle: false },
+    // Top-level fallbacks (≈ the apex Everflame, for any raw render).
+    body: 0x8a5c12, belly: 0x571712, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xb32613, garnet: 0x421210,
+    scales: 0xe69b1f, horn: 0x421210,
+    featherIn: 0xe69b1f, featherOut: 0xd9541a, featherEdge: 0xb32613, featherHi: 0xffe9c4,
+    wingInner: 0xe69b1f, wingOuter: 0xd9541a, wingEmissive: 0xe69b1f,
+    apexEye: 0xffe9c4, apexSeam: 0xffe4b0, coreGlow: 0xffc46a, surgeHi: 0xffe9c4,
+    aura: 0xffb060, eye: 0xffe9c4, trail: 0xe69b1f, boostTrail: 0xffc46a,
+  },
+
 
 
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing

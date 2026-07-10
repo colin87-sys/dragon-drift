@@ -395,6 +395,88 @@ if (!cp1) {
   ok(cc[0] > cc[1] && cc[1] > cc[2] && cc[2] > cc[3], `${key}: crust seals at f0, opens toward apex (${cc.join('>')})`);
 }
 
+// ── PHOENIX EVERFLAME (SSSR premium, 4 forms) — the FLARE "the fire CATCHES" coronation
+// ladder + THE VISIBILITY LAW. The caldera INVERTED: a BRIGHT fire-body whose growth is
+// "kindling → wildfire" (the fuel vanishing into flame). Reaches Eternal (own block).
+// Asserts the ladder WITHHOLDS the fire hardware at the garnet fledgling and confers it
+// rung by rung (igniteStage 0→3, the cascade tongues / crest licks / spark-ribbons / tip
+// frays / keel-star arriving on schedule), AND the Lower-Frame Clearance law: no wide/large
+// mass in the rear-chase corridor { y<spine, z>hip } at ANY form (max|x|≤0.6, footprint ≤1.3).
+// The design INVERTS molten's value structure, so we carry the design-AGNOSTIC asserts
+// (corridor, tris/dials monotonic, NaN guard, attach contract) but inherit NO dark-body
+// numeric ceiling (L: re-read guardrails when the design intent inverts).
+if (!cp1) {
+  const key = 'phoenixEverflame';
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  const per = [];
+  for (let f = 0; f <= maxT; f++) {
+    const def = ascendedDef(DRAGONS[key], f, 0);
+    const { group, parts } = buildDragonModel(def, {});
+    const scale = def.model.scale || 1;
+    group.updateMatrixWorld(true);
+    setFlapDebugPose(parts, def.model, 'glide');
+    group.updateMatrixWorld(true);
+    let tris = 0, nan = 0;
+    // VISIBILITY corridor { y<spineY, z>hipZ } in de-scaled model space (glide pose).
+    const spineY = 0.15, hipZ = 0.5;
+    let cMaxX = 0, cxMin = Infinity, cxMax = -Infinity, cyMin = Infinity;
+    const P = new THREE.Vector3();
+    group.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      const p = o.geometry.attributes.position; if (!p) return;
+      tris += p.index ? p.index.count / 3 : p.count / 3;
+      for (let i = 0; i < p.count; i++) {
+        P.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+        if (!Number.isFinite(P.x) || !Number.isFinite(P.y) || !Number.isFinite(P.z)) { nan++; continue; }
+        const x = P.x / scale, y = P.y / scale, z = P.z / scale;
+        if (y < spineY && z > hipZ) { cMaxX = Math.max(cMaxX, Math.abs(x)); cxMin = Math.min(cxMin, x); cxMax = Math.max(cxMax, x); cyMin = Math.min(cyMin, y); }
+      }
+    });
+    const footprint = cxMax > cxMin ? (cxMax - cxMin) * (spineY - cyMin) : 0;
+    per.push({ m: def.model, parts, tris: Math.round(tris), nan, cMaxX, footprint });
+  }
+  for (let f = 0; f <= maxT; f++) {
+    ok(per[f].nan === 0, `${key} f${f}: no NaN vertices (${per[f].nan})`);   // the invisible-vertex guard
+    ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
+    ok(!!per[f].parts.spinePoints && per[f].parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
+    ok(!!per[f].parts.wingElements && per[f].parts.wingElements.length === 2, `${key} f${f}: 2 wingElements published`);
+    ok(!!per[f].parts.motifAnchor, `${key} f${f}: motifAnchor published`);
+    // THE VISIBILITY LAW (unconditional, every form): compact + lower-centre clear.
+    ok(per[f].cMaxX <= 0.6, `${key} f${f}: corridor max|x| ${per[f].cMaxX.toFixed(2)} ≤ 0.6 (no wide lower-centre mass)`);
+    ok(per[f].footprint <= 1.3, `${key} f${f}: corridor frontal footprint ${per[f].footprint.toFixed(2)} ≤ 1.3`);
+  }
+  // tris monotonic — every rung bolts on hardware (tongues/licks/ribbons), not just brightness.
+  ok(per[0].tris < per[1].tris && per[1].tris < per[2].tris && per[2].tris < per[3].tris,
+    `${key}: tris monotonic across the 4 forms (${per.map((p) => p.tris).join(' < ')})`);
+  // ignition ramp 0→3 (the growth currency: dark at the fledgling, full at the Everflame).
+  const ig = per.map((p) => p.m.igniteStage ?? 3);
+  ok(ig[0] === 0 && ig[0] < ig[1] && ig[1] < ig[2] && ig[2] < ig[3], `${key}: igniteStage monotonic 0→3 (${ig.join('→')})`);
+  // the CASCADE TONGUES withheld at f0 (flame-blanket-only stub wings) then grow to 7.
+  const tc = per.map((p) => p.m.tongueCount ?? 7);
+  ok(tc[0] === 0 && tc[0] < tc[1] && tc[1] < tc[2] && tc[2] < tc[3], `${key}: cascade tongues 0→7 monotonic (${tc.join('→')})`);
+  // the cascade RISE (the concave-cupped signature) grows each rung, arriving at f2 (≥0.7).
+  const cr2 = per.map((p) => p.m.cascadeRise ?? 1);
+  ok(cr2[0] === 0 && cr2[0] < cr2[1] && cr2[1] < cr2[2] && cr2[2] < cr2[3] && cr2[2] >= 0.7, `${key}: cascadeRise monotonic, signature at f2 (${cr2.join('→')})`);
+  // the SPARK-RIBBONS are withheld until Roaring Blaze (f2) then lengthen into Eternal.
+  const rl = per.map((p) => p.m.ribbonLen ?? 1);
+  ok(rl[0] === 0 && rl[1] === 0 && rl[2] > 0 && rl[2] < rl[3], `${key}: spark-ribbons arrive at f2 (${rl.join('→')})`);
+  // the CREST LICKS are withheld until f2 (bare-crowned whelp) then complete at Eternal.
+  const cl2 = per.map((p) => p.m.crestLicks ?? 3);
+  ok(cl2[0] === 0 && cl2[1] === 0 && cl2[2] > 0 && cl2[2] < cl2[3], `${key}: crest licks arrive at f2 (${cl2.join('→')})`);
+  // the TIP FRAYS are an ETERNAL-only rung (the doubled fray-shards ride the full cascade).
+  const fe = per.map((p) => p.m.frayEmbers ?? 1);
+  ok(fe[0] === 0 && fe[1] === 0 && fe[2] === 0 && fe[3] > 0, `${key}: tip frays are f3-only (${fe.join(',')})`);
+  // the dorsal LICKS + the wing CHORD grow each rung (the silhouette earns its cascade).
+  const lk = per.map((p) => p.m.lickCount ?? 5), ch = per.map((p) => p.m.chordScale ?? 1);
+  ok(lk[0] === 0 && lk[0] < lk[1] && lk[1] < lk[2] && lk[2] < lk[3], `${key}: dorsal licks 0→5 monotonic (${lk.join('→')})`);
+  ok(ch[0] < ch[1] && ch[1] < ch[2] && ch[2] < ch[3], `${key}: wing chord grows each rung (${ch.join('→')})`);
+  // the furnace-keel HEAT + the body glow ramp each rung (the fire catches, then roars).
+  const kh = per.map((p) => p.m.keelHeat ?? 1), gl = per.map((p) => p.m.glowLevel ?? 1);
+  ok(kh[0] < kh[1] && kh[1] < kh[2] && kh[2] < kh[3], `${key}: keel heat monotonic (${kh.join('→')})`);
+  ok(gl[0] < gl[1] && gl[1] < gl[2] && gl[2] < gl[3], `${key}: glow level monotonic (${gl.join('→')})`);
+}
+
 
 console.log(`\nStarter geometry asserts (§7)${cp1 ? ' — CP1 (apex bands)' : ''}: ${pass} passed, ${fail} failed.`);
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
