@@ -106,7 +106,7 @@ ok('per-boss pure-lance clear volleys + TTK estimate sit in the sane band');
 // enforced via invariantBreaches above; these assert the burn is actually WIRED (a
 // regression that drops the scarBurn config or its minTier gate is caught here).
 const knell = economies.find((e) => e.id === 'knellgrave');
-assert(knell && knell.burnFrac > 0, `KNELLGRAVE carries a SCAR-BURN frac (got ${knell?.burnFrac})`);
+assert(knell && knell.burnFrac === 0.25, `KNELLGRAVE SCAR-BURN frac is exactly 0.25 (got ${knell?.burnFrac}) — a silent drift is caught here`);
 assert(knell.phases.some((p) => p.burn > 0), 'KNELLGRAVE phases actually earn a burn on a full on-tell release');
 // The not-a-phase-deleter check must NOT pass vacuously: card timers must actually
 // resolve (§CP2 BLOCKER-1 — a `titleCards` typo silently nulled every timer, so the
@@ -118,7 +118,8 @@ assert(knell.phases.every((p) => !p.phaseDeletable),
 // WEFTWITCH (§5i rung 11) — lance-capable, burn-wired, never a phase-deleter (her P5 is
 // the thinnest endgame margin ~1.08 — a named GO gate; the invariant certifies ≥1.0).
 const weft = economies.find((e) => e.id === 'weftwitch');
-assert(weft && weft.lanceCapable && weft.burnFrac > 0, `WEFTWITCH is lance-capable + burn-wired (frac ${weft?.burnFrac})`);
+assert(weft && weft.lanceCapable && weft.burnFrac === 0.30, `WEFTWITCH is lance-capable + burn-wired at exactly 0.30 (frac ${weft?.burnFrac})`);
+assert(weft.phases.some((p) => p.burn > 0), 'WEFTWITCH phases actually earn a burn on a full on-beat release');
 assert(weft.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
   `WEFTWITCH is never a phase-deleter (TTKs ${weft.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${weft.phases.map((p) => p.cardTimer).join('/')})`);
 // Tiers 1-3 (and un-keyed bosses) carry NO burn — the mid-game is byte-identical.

@@ -239,11 +239,24 @@ live code by the §CP1 pre-audit, which found the original spec wrong twice over
   (weftScar world y ~24) — unaimable (the PR2a reachability LAW). If a 3rd target is ever
   wanted, the `rosette` knots (world y ~10–18, "motifs of what she's mended") beat the
   grief-wound.
-- **Fair windows:** plain dwell-painting the palms WORKS (they move slowly — inside the
-  EMA anchor + 4.0 retention cone; they never amber-vent; `lockDeflected` only seals under
-  shield). The THREAD-CUT stagger (parry ambers 3× → loom stilled) is a bonus quiet paint
-  window (note `quietDwellMult` slows dwell there). NOT parry-locked — the amber floor (CI-
-  guaranteed ≤12s/phase) supplies enough to bank a set.
+- **Fair windows (§CP2 corrected):** the palms are MOVING organs — Y is safe by a wide
+  margin, and their base+station-sway X stays in reach (~14/15.6), but the gaze-chase
+  (flying at a palm PUSHES it away, +~3.9) and the thread-cut recoil (+~3.4) push ONE palm
+  TRANSIENTLY out of reach. This is designed intermittent reach (Colossi+ moving-organ
+  grammar): **loomHeart is the reliable anchor** (it sways but has no gaze/cast carrot, so
+  it never dodges you), the mirror palm stays reachable, and `freshenLocks` banks the set
+  over the ~9s sway cycle. So the cap-6 bank is achievable but HARDER than "plain dwell-
+  painting" — a preview/playtest judges the FEEL. The THREAD-CUT stagger (parry ambers 3×
+  → loom stilled) is a bonus paint window (but `quietDwellMult` slows dwell there, and the
+  cut recoil throws the near palm out — paint loomHeart + the far palm during it). NOT
+  parry-locked — the amber floor (CI-guaranteed ≤12s/phase) supplies enough amber.
+- **⚠ PREVIEW NOTE (§CP2 S2 — the amber-vocabulary read):** the brand shimmer + marker +
+  tether land on her HANDS, which are also her §4b face AND the amber charge-tell carrier
+  (the taut thread flashes amber between them). MARROWCOIL teaches "its amber guards it —
+  parry to brand"; on WEFTWITCH the identical amber read guards nothing (her palms never
+  `amberVent`). Not a correctness bug (colours are role-separated; no meter/double-dip),
+  but a taught-vocabulary + legibility stack the human must judge on the preview. If it
+  reads badly, PR4b's amber-tagging is the natural place to wire the vent.
 - **The burn tell:** her music is LIVE (`musicDies` is KNELLGRAVE-only), so the perfect
   release is the normal on-beat tap (`getBeatClock`, unchanged) — her stitch-pluck already
   lands on that grid. SCAR-BURN is a ONE-LINE add (`fracBySlot.weftwitch 0.30`).
