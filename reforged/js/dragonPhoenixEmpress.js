@@ -58,9 +58,9 @@ function empressMats(def, glow, stage) {
   const g = glow ?? 1;
   // heat-tier palettes (diffuse / emissive) — emissives held sat≥.75 val≤.85 so they bloom IN-HUE
   const CRUST_D = 0x261210, CRUST_E = 0x521808;   // T4 cooled crust (edges, ≥40% of the read)
-  const LAVA_D = 0x7a2410, LAVA_E = 0xc0340e;     // T3 lava-deep (cooling zones, belly, hems)
-  const MAGMA_D = 0xb8481a, MAGMA_E = 0xd85a12;   // T2 magma (main body panels, wing mid)
-  const SUN_D = 0xffc258, SUN_E = 0xe89a1e;       // T1 sungold (cracks/fissures, vane hearts)
+  const LAVA_D = 0x5e1c0c, LAVA_E = 0xe0480e;     // T3 lava-deep (cooling zones, belly, hems)
+  const MAGMA_D = 0x8f3410, MAGMA_E = 0xff6a14;   // T2 magma (main body panels, wing mid)
+  const SUN_D = 0xffb84a, SUN_E = 0xffb32a;       // T1 sungold (cracks/fissures, vane hearts)
   const WHITE_D = 0xffe8c0, WHITE_E = 0xffd39a;   // T0 whiteheart (rationed ≤4%, f3)
   const ROSEF = 0xe83a6a, ROSEF_E = 0xe83a6a;     // crest rose-fire (4th hue, separates head)
   // per-stage intensity ramps (× glowLevel; surge tick lifts the base further)
@@ -75,9 +75,9 @@ function empressMats(def, glow, stage) {
 
   // BODY = T2 MAGMA (f0 reads a crust-dark cinder; magma kindles f1+). The shingle ranks (covert)
   // ride over it as T4 crust, so the lit magma only shows in the plate valleys.
-  const bodyFlat = surgeMat(st === 0 ? CRUST_D : MAGMA_D, MAGMA_E, magmaI * 0.85, 0.66); bodyFlat.metalness = 0.08;
+  const bodyFlat = surgeMat(st === 0 ? CRUST_D : MAGMA_D, MAGMA_E, magmaI * 1.15, 0.62); bodyFlat.metalness = 0.06;
   // BELLY = T3 lava-deep (glows underneath on a bank — the actual-fire successor to the pale-gold nod).
-  const belly = surgeMat(st === 0 ? CRUST_D : LAVA_D, LAVA_E, magmaI * 0.6, 0.66);
+  const belly = surgeMat(st === 0 ? CRUST_D : MAGMA_D, MAGMA_E, magmaI * 0.95, 0.62);
   // COPPER kept for beak/talons — a dark forged metal (crust register, never bright).
   const copper = new THREE.MeshStandardMaterial({ color: def.copper ?? COPPER, flatShading: true, roughness: 0.42, metalness: 0.5, emissive: 0x3a1408, emissiveIntensity: 0.16 });
   // JEWELRY GOLD (6th, non-emissive tier) — regalia riding ON the fire (cuffs, tiara, collets, brooch).
@@ -105,17 +105,17 @@ function empressMats(def, glow, stage) {
 
   // CREST rose-fire (4th hue-station, separates the head from the body furnace at distance).
   const crestGlow = surgeMat(0x5a1830, ROSEF_E, crestI, 0.5);
-  const crestTip = new THREE.MeshStandardMaterial({ color: ROSEF, emissive: ROSEF_E, emissiveIntensity: crestI * 1.3, flatShading: true, roughness: 0.3, metalness: 0.12 });
+  const crestTip = new THREE.MeshStandardMaterial({ color: 0xc42a52, emissive: 0xe83a5a, emissiveIntensity: crestI * 1.2, flatShading: true, roughness: 0.32, metalness: 0.1 });
 
   // MOLTEN-PEARL gems (mantle ray hearts, wake sparks, coal-eyes) — T1 hot, gold-set.
-  const coalEye = new THREE.MeshStandardMaterial({ color: WHITE_D, emissive: SUN_E, emissiveIntensity: pearlI * 2.4, flatShading: true, roughness: 0.22, metalness: 0.14 });
+  const coalEye = new THREE.MeshStandardMaterial({ color: 0xffbe6a, emissive: 0xff7d14, emissiveIntensity: pearlI * 2.2, flatShading: true, roughness: 0.24, metalness: 0.12 });
   const coalBezel = goldHi;
   // DAWN COAL = T0 WHITEHEART — the ONE near-white, f3-only, tiny (rationed by the ≤4% area budget).
   const dawnCoal = new THREE.MeshStandardMaterial({ color: WHITE_D, emissive: WHITE_E, emissiveIntensity: st >= 3 ? 2.4 * g : 0, flatShading: true, roughness: 0.24 });
 
   // EYE — a hot sungold almond.
-  const eyeMat = new THREE.MeshStandardMaterial({ color: WHITE_D, emissive: SUN_E, emissiveIntensity: 1.6, flatShading: true, roughness: 0.3, metalness: 0.2 });
-  eyeMat.userData.baseEmissive = SUN_E; eyeMat.userData.baseIntensity = 1.6;
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffcf7a, emissive: 0xff8a1e, emissiveIntensity: 1.7, flatShading: true, roughness: 0.3, metalness: 0.2 });
+  eyeMat.userData.baseEmissive = 0xff8a1e; eyeMat.userData.baseIntensity = 1.6;
   return { bodyFlat, belly, copper, gold, goldHi, covert, pinionRoot, pinionTip, pinionEdge, vaneDark, vaneEdgeLo, vaneEdgeHi, vaneEye, keelSeam, gorget, crestGlow, crestTip, coalEye, coalBezel, dawnCoal, eyeMat, stage: st };
 }
 
@@ -249,11 +249,11 @@ function buildPyreHeartTorso(def, model, _bodyMat) {
   const seamPts = [-1.15, -0.7, -0.25, 0.2, 0.6, 0.95];
   for (let i = 0; i < seamPts.length - 1; i++) {
     const z0 = seamPts[i], z1 = seamPts[i + 1], y0 = dorsalTop(z0), y1 = dorsalTop(z1);
-    // ember channel floor (the molten groove)
-    group.add(flatTriMesh([[[-0.045, y0, z0], [0.045, y0, z0], [0.045, y1, z1]], [[-0.045, y0, z0], [0.045, y1, z1], [-0.045, y1, z1]]], M.keelSeam));
-    // two gold bevel rails flanking the groove (the channel edges = precious-metal spine)
-    group.add(bar([0.055, y0 + 0.02, z0], [0.055, y1 + 0.02, z1], 0.02, M.gold));
-    group.add(bar([-0.055, y0 + 0.02, z0], [-0.055, y1 + 0.02, z1], 0.02, M.gold));
+    // SUNGOLD magma crack (the glowing groove) — wider so it reads as a molten fissure, not a wire
+    group.add(flatTriMesh([[[-0.07, y0, z0], [0.07, y0, z0], [0.07, y1, z1]], [[-0.07, y0, z0], [0.07, y1, z1], [-0.07, y1, z1]]], M.keelSeam));
+    // two CRUST rails flanking the crack (cooled-rock lips of the fissure — dark, not gold)
+    group.add(bar([0.10, y0 + 0.03, z0], [0.10, y1 + 0.03, z1], 0.035, M.covert));
+    group.add(bar([-0.10, y0 + 0.03, z0], [-0.10, y1 + 0.03, z1], 0.035, M.covert));
   }
 
   // HEART-FIRE GORGET (withheld to f2 via model.gorget) — a saturated gold 3-facet
@@ -270,19 +270,23 @@ function buildPyreHeartTorso(def, model, _bodyMat) {
     // PECTORAL GORGET — a solid faceted GOLD lamellar collar: 5 large overlapping gold teardrop
     // drops across the breast keel + an amber heart-seam glowing behind them + a central rose
     // heart-stone. The precious-metal MASS on the chest (reads on every bank + in side profile).
-    const drops = 5, span = 0.32 + 0.06 * bloom;
-    for (let k = 0; k < drops; k++) {
-      const f = (k - (drops - 1) / 2) / ((drops - 1) / 2);   // −1..1
-      const cx = f * span, cy = -0.02 - 0.07 * Math.abs(f), dl = 0.17 - 0.03 * Math.abs(f);
+    // MOLTEN HEART CALDERA — a T1 sungold GLOW-POOL with 5 dark CRUST plates cracking over it, and
+    // (f3) a T0 WHITEHEART core in the vent: the burning heart of a magma creature, not a gold bib.
+    const span = 0.36 + 0.06 * bloom;
+    gg.add(flatTriMesh([[[-span, 0.14, -0.03], [span, 0.14, -0.03], [0, -span * 1.25, -0.04]]], M.gorget));  // the glow-pool (shows in the seams)
+    for (let k = 0; k < 5; k++) {
+      const fk = (k - 2) / 2, cx = fk * span * 0.9, cy = 0.05 - 0.05 * Math.abs(fk), dl = 0.15 - 0.02 * Math.abs(fk);
       gg.add(flatTriMesh([
-        [[cx - dl * 0.55, cy + dl * 0.4, 0.03], [cx + dl * 0.55, cy + dl * 0.4, 0.03], [cx, cy - dl, 0.0]],
-        [[cx - dl * 0.55, cy + dl * 0.4, 0.03], [cx, cy - dl, 0.0], [cx - dl * 0.45, cy - dl * 0.2, -0.03]],
-        [[cx + dl * 0.55, cy + dl * 0.4, 0.03], [cx + dl * 0.45, cy - dl * 0.2, -0.03], [cx, cy - dl, 0.0]],
-      ], k % 2 ? M.gold : M.goldHi));
+        [[cx - dl * 0.5, cy + dl * 0.5, 0.05], [cx + dl * 0.5, cy + dl * 0.5, 0.05], [cx, cy - dl, 0.02]],
+        [[cx - dl * 0.5, cy + dl * 0.5, 0.05], [cx, cy - dl, 0.02], [cx - dl * 0.42, cy - dl * 0.1, -0.02]],
+      ], M.covert));   // dark crust plates — the glow-pool burns in the seams BETWEEN them
     }
-    gg.add(flatTriMesh([[[-span * 0.55, 0.08, -0.02], [span * 0.55, 0.08, -0.02], [0, -0.16, -0.03]]], M.gorget));  // amber heart-seam behind
-    const heart = new THREE.Mesh(new THREE.OctahedronGeometry(0.065, 0), M.crestTip);
-    heart.position.set(0, -0.02, 0.08); heart.scale.set(1, 1.35, 0.9); gg.add(heart);
+    if (M.stage >= 3) {   // the ONE legitimate near-white: the whiteheart core, f3 only
+      const collet = new THREE.Mesh(new THREE.OctahedronGeometry(0.095, 0), M.goldHi);
+      collet.position.set(0, -0.03, 0.06); collet.scale.set(1, 1.3, 0.7); gg.add(collet);
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.066, 0), M.dawnCoal);
+      core.position.set(0, -0.03, 0.1); core.scale.set(1, 1.3, 0.9); gg.add(core);
+    }
     gg.position.copy(gPos);
     gg.rotation.x = -0.3;
     group.add(gg);
@@ -308,14 +312,14 @@ function buildPyreHeartTorso(def, model, _bodyMat) {
 
   // B2 — FLANK + breast SHINGLE rows: broad dark feather scallops down each flank (and a breast
   // rank) so the bare fuselage reads as a feathered body from every angle. Rows grow per form.
-  const flankRows = Math.round(model.flankShingle ?? 0);
+  const flankRows = Math.max(Math.round(model.flankShingle ?? 0), (model.igniteStage ?? 3) >= 2 ? 3 : (model.igniteStage ?? 3));
   for (let row = 0; row < flankRows; row++) {
     for (const side of [1, -1]) {
-      group.add(shingleRow(seg(6),
-        (u) => { const z = -0.55 + u * 1.15; const hw = 0.55 * Math.max(0.3, 1 - Math.abs(z + 0.2) / 2.3); return [side * hw * 0.94, TORSO_Y - 0.06 + row * 0.24, z]; },
-        () => [0, -0.12, 1],
-        () => [side * 0.92, 0.28, 0],
-        () => 0.26, () => 0.11, M.covert, 0.45));
+      group.add(shingleRow(seg(7),
+        (u) => { const z = -0.7 + u * 0.95; const hw = 0.58 * Math.max(0.3, 1 - Math.abs(z + 0.2) / 2.4); return [side * hw * 0.92, TORSO_Y + 0.12 - row * 0.26, z]; },
+        () => [side * 0.35, -0.12, 0.62],
+        () => [side * 0.9, 0.34, 0],
+        () => 0.36, () => 0.30, M.covert, 0.5));
     }
   }
 
