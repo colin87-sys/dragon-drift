@@ -1060,7 +1060,13 @@ for (const key of BOSS_ORDER) {
 // on the charge envelope). All model-side (the studio default — entrance 1, loom 0,
 // crush 0, no tell — stays byte-identical to the CP1 frames).
 {
+  // Seed the MODEL BUILD deterministically (buildBoss consumes real Math.random for procedural
+  // geometry, so the eyeHollow scale drifted with the upstream RNG stream — the latent flake this
+  // block hit ~1-in-5; same class as the karnvow footwork seed above).
+  const _rrEmb = Math.random; let _sEmb = 0x3D9A6F1B;
+  Math.random = () => { _sEmb = (_sEmb * 1103515245 + 12345) & 0x7fffffff; return _sEmb / 0x80000000; };
   const em = buildBoss(BOSSES.embertide, 1);
+  Math.random = _rrEmb;
   const faceRig = em.group.getObjectByName('faceRig');
   const eh = em.group.getObjectByName('eyeHollow0');
   const mouth = em.group.getObjectByName('mouthNotch');
@@ -3792,7 +3798,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     boss.debugForceFight(p);
     let arms = 0, prev = boss.bossDebugState().setpiece;   // initial arm already true — count re-arm edges
     for (let i = 0; i < 60 * 48; i++) {
-      boss.debugClearShield();                       // hold the boss unshielded (its DPS-gate shield is orthogonal to recur; a live player Surge-breaks it)
+      boss.debugClearShield();                       // INERT belt-and-braces: P3 is ashtalon's last phase (floor 0), so it's unshielded the whole phase in live play and recur is live-reachable with no help — this only guards against a stray floor-shield in the headless park, NOT a cover-up (verified post-build)
       boss.updateBoss(1 / 60, p, 2 + i / 60);
       const now = boss.bossDebugState().setpiece;
       if (now && !prev) arms++;                      // false→true edge = a fresh stoop re-armed
@@ -3834,6 +3840,15 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     for (let i = 0; i < 3; i++) boss.debugCrackRib(i);
     assert(!boss.bossDebugState().breached, 'DOOR OPENS coexist: 3 rib breaks never arm the breach (pane row only)');
     boss.resetBoss();
+    // PRODUCTION PATH: the last pane broken by GUNFIRE routing (not the debug seam) must arm the
+    // breach — proves the shipped applyPartBreak arm, not just the debugCrackPane mirror.
+    const p3 = armBoss('hollowgate');
+    for (let i = 0; i < 7; i++) boss.debugCrackPane(i);   // sculpt 7 via the seam
+    let prodBreach = 0, lastLeft = -1;
+    on('bossBreach', () => { prodBreach++; }); on('bossPaneBreak', (e) => { lastLeft = e.left; });
+    for (let k = 0; k < 6 && !boss.bossDebugState().breached; k++) emit('bossDamage', { amount: 1, kind: 'player', part: 7 });   // break pane 7 by shot routing (numeric part → routePartDamage, weight 1, PART_CRACK_HITS hits)
+    assert(prodBreach === 1 && lastLeft === 0 && boss.bossDebugState().breached, `DOOR OPENS: the SHIPPED applyPartBreak arm fires when the last pane breaks by gunfire (breach ${prodBreach}, left ${lastLeft})`);
+    boss.resetBoss();
   }
 
   // --- ONEWING grief-transference: after the frame breaks, the living wing's aimed solves to the
@@ -3867,6 +3882,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     bullets.resetBossBullets(); boss.debugEmitAttack('aimed', p, 1);
     bs = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
     assert(bs.length > 0 && bs.every((b) => !b.reflectable), 'ONEWING grief: post-break aimed is UNPARRYABLE (the grief moved into the living wing)');
+    assert(bs.every((b) => b.color === BOSSES.onewing.bulletColor && b.part == null), 'ONEWING grief: post-break aimed wears the danger-magenta bulletColor with no part tag (no false-amber lie, no Surge-bankable ghost hit)');
     assert(bs.every((b) => Math.abs(solveX(b)) < 3), 'ONEWING grief: post-break aimed solves to the MIRROR (~0), NOT the live player at x=25');
     bullets.setDebugPerfectParryRel(null);
     boss.resetBoss();
@@ -3941,15 +3957,17 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     };
     const p = armBoss('knellgrave');
     boss.debugForceCard('knellgrave_second');
-    // Drive live until a real toll rings, then FREEZE scheduling (shield) so the ghost-beat clock is fixed.
-    let rang = false; on('bossToll', () => { rang = true; });
+    // Drive live until TWO real tolls ring (the 1st is skipped by the -10 sentinel, so the 2nd is
+    // what makes the metronome MEASURE a gap), then FREEZE scheduling (shield) so the clock is fixed.
+    let tolls = 0; on('bossToll', () => { tolls++; });
     let tt = 3;
-    for (let i = 0; i < 60 * 20 && !rang; i++) { tt += 1 / 60; boss.updateBoss(1 / 60, p, tt); }
-    assert(rang, 'KNELLGRAVE chain: a real toll rang during The Second Toll (clock live)');
+    for (let i = 0; i < 60 * 25 && tolls < 2; i++) { tt += 1 / 60; boss.updateBoss(1 / 60, p, tt); }
+    assert(tolls >= 2, 'KNELLGRAVE chain: two real tolls rang during The Second Toll (the live metronome measured a gap)');
     boss.debugRaiseShield();
     const st0 = boss.bossDebugState();
     const gap = st0.tollGap, base = st0.tollAt;
-    const beat = (j) => base + (Math.round((tt + 0.5 - base) / gap) + j) * gap;   // on the ghost beat, strictly after tt
+    assert(gap !== 1.2 && gap >= 0.5 && gap <= 2.4, `KNELLGRAVE chain: the ghost-beat runs on the MEASURED toll gap, not the 1.2 default (gap ${gap.toFixed(3)} in the [0.5,2.4] clamp band)`);
+    const beat = (j) => base + (Math.ceil((tt + 0.5 - base) / gap) + j) * gap;   // on the ghost beat, strictly after tt (ceil: never step time backwards)
     let chain = 0; on('bossTollChain', () => { chain++; });
     const hp0 = boss.bossDebugState().hp;
     parryAt(p, beat(0)); parryAt(p, beat(1)); parryAt(p, beat(2)); parryAt(p, beat(3));   // 4 ON-BEAT banks
@@ -3965,7 +3983,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     for (let i = 0; i < 60 * 20 && !rang2; i++) { t2 += 1 / 60; boss.updateBoss(1 / 60, p2, t2); }
     boss.debugRaiseShield();
     const s2 = boss.bossDebugState(); const g2 = s2.tollGap, b2 = s2.tollAt;
-    const on2 = (j) => b2 + (Math.round((t2 + 0.5 - b2) / g2) + j) * g2;
+    const on2 = (j) => b2 + (Math.ceil((t2 + 0.5 - b2) / g2) + j) * g2;   // ceil: never step updateBoss time backwards
     let chain2 = 0; on('bossTollChain', () => { chain2++; });
     parryAt(p2, on2(0)); parryAt(p2, on2(1));                                   // 2 on-beat banks
     parryAt(p2, on2(2) + g2 * 0.5);                                             // then OFF the beat (half a beat late)
