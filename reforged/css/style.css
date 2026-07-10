@@ -554,6 +554,35 @@ body[data-qtier="2"] .hud-sew { display: none; }
 #reticle.lens2.boss.aiming::before { box-shadow: 0 0 14px 1px rgba(90, 255, 180, calc(0.35 + var(--dwell, 0) * 0.45)); }
 #reticle.lens2.boss.locked::before { box-shadow: 0 0 16px 2px rgba(60, 255, 160, 0.7); }
 
+/* ===== PR2 — THE SATURATION SPLIT (break the green channel) =====
+   The shipped boss reticle/pips/marks are the SAME jade (80,255,170) as the player's own
+   wisp-lance projectiles, so green means both "your aim UI" and "your bullets" — the exact
+   collision behind the readability complaint. Under Bullet Clarity we split on saturation:
+   the aiming CHROME (reticle + pip + mark BORDERS) desaturates to a pale mint-white
+   (--lock-chrome), while the banked ENERGY (pip/mark FILLS + the brand rune) stays full jade
+   (--lock-energy) because it literally becomes those wisps. Now enemy magenta vs pale-white
+   aim-UI vs saturated-jade player-energy separate on hue AND saturation AND luminance. The
+   one-shot .rsnap flash + the locked ::before halo stay jade, so the MOMENT of locking still
+   pops green — only the persistent chrome desaturates. Scoped to Bullet Clarity (opt-out
+   returns the classic all-jade reticle); the collision only exists in boss fights anyway. */
+#reticle.lens2 { --lock-chrome: 200, 248, 232; --lock-energy: 80, 255, 170; }
+/* reticle brackets: steel → mint-white with dwell (was steel → jade); locked = white-hot mint.
+   :not(.sealed) so the muted/deflected grey border (line ~510, same specificity, later source)
+   still wins when the layer is frozen — a sealed boss must NOT show a live-looking chrome. */
+#reticle.lens2.boss:not(.sealed) .rsq {
+  border-color: color-mix(in srgb, rgba(222,234,246,0.94), rgba(var(--lock-chrome),0.98) calc(var(--dwell,0) * 100%));
+}
+#reticle.lens2.boss.locked .rsq { border-color: rgba(214, 250, 238, 1); }   /* locked ⇒ never sealed (reticle.js) */
+/* pip row: BORDER = chrome (mint-white); FILL stays jade energy (untouched below). :not(.ashen)
+   so an ashen (frozen) pip keeps its grey border — this override out-specifies the ashen rule. */
+#reticle.lens2 .lockpip:not(.ashen) { border-color: rgba(var(--lock-chrome), 0.4); }
+#reticle.lens2 .lockpip.filled:not(.ashen) { border-color: rgba(var(--lock-chrome), 0.95); }
+/* organ marks (appended to #hud, class-toggled in renderMarks): BORDER + stacked outline =
+   chrome; the .fill and the .rune stroke stay jade energy (untouched). :not(.ashen) keeps a
+   frozen mark grey. */
+.lockmark.lens2:not(.ashen) { border-color: rgba(200, 248, 232, 0.85); }
+.lockmark.lens2.stacked:not(.ashen) { outline-color: rgba(200, 248, 232, 0.5); }
+
 /* (3b) TELEGRAPH-AT-THE-GAZE: four magenta danger chevrons just outside the bracket
    frame, ramped straight off the boss wind-up (--threat 0→1) and flared outward as it
    builds — the "incoming" cue lands where the eyes already are. Magenta = the role-locked
