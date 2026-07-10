@@ -260,16 +260,29 @@ live code by the §CP1 pre-audit, which found the original spec wrong twice over
 - **The burn tell:** her music is LIVE (`musicDies` is KNELLGRAVE-only), so the perfect
   release is the normal on-beat tap (`getBeatClock`, unchanged) — her stitch-pluck already
   lands on that grid. SCAR-BURN is a ONE-LINE add (`fracBySlot.weftwitch 0.30`).
-- **THE ONE NEW RULE — DEFERRED to a follow-up increment (its own critic gate).** The
-  original "a volley INTERRUPTS her mend" is UNIMPLEMENTABLE: there is no mid-phase mend to
-  interrupt — `restitchWeb()` fires only at PHASE SEAMS (cosmetic; closes no lane; the
-  Surge-fork auto-looses there, so it would fire itself). The honest replacement inverts the
-  verb — **THE VOLLEY TEARS, SHE MENDS**: a ≥3-pip volley tears a web sector (reuse the
-  `restitchWeb` tear machinery) → she stops to re-weave it → a ~2.5s mid-phase mend window
-  (the `staggerT` grammar). "She mends what you break" made playable; her identity beat
-  plays MORE, not never. Guards: once/phase, mutually exclusive with the thread-cut stagger,
-  `source:'fork'` excluded. Plus V4 parry-snap needs her `aimed` ambers tagged (alternating
-  `palmL`/`palmR`) WITHOUT `emitOrigins` (that lever doubles bullet density).
+- **THE ONE NEW RULE — SHIPPED (PR4b): THE VOLLEY TEARS, SHE MENDS.** (The original "a
+  volley INTERRUPTS her mend" was UNIMPLEMENTABLE — no mid-phase mend exists; `restitchWeb`
+  fires only at phase seams, cosmetically, and the Surge-fork auto-looses there. Inverted.)
+  A DELIBERATE ≥`burnFloor`-pip release (a manual tap OR the cap auto-loose — never a decay
+  fizzle or the Surge `fork`) TEARS a web sector (`restitchWeb`, cosmetic) → she stops to
+  re-weave it → a ~2.5s mid-phase MEND window (the shared `staggerT` the `def.threadCut`
+  consumer drains). "She mends what you break" made playable; her identity beat plays MORE.
+  Guards (all shipped + tested `weftmend.mjs`): ONCE/phase; the trigger keeps live ambers
+  alive (deleting them stays parry's verb) but WIPES queued `pending` so the window is quiet;
+  the thread-cut bank now carries a `staggerT<=0` guard so a mend can't chain a thread-cut.
+  Her hands keep WEAVING through the mend (no stillness freeze) — moving organs, so the
+  window's reliable paint is the loomHeart anchor, NOT a free 6-cap buffet (§CP1 PR4b).
+  ⚠ **P5 BALANCE — a HARD owner GO gate:** the mend is a free once/phase paint window, and
+  her P5 not-a-phase-deleter margin is the thinnest in the endgame (~1.08). The static model
+  cannot see windows (the `REALISTIC_PER_PIP` calibrated-human caveat IS the margin here), so
+  the P5 dread-card playthrough is a required pre-merge sign-off. If it plays under the line,
+  the dials in order: hands-work-harder, window 2.5→1.8s, once/FIGHT — never the ROI/burn
+  numbers. (NB the dead-config `quietDwellMult` is NOT a brake — it is wired to nothing.)
+- **DEFERRED to PR4c (its own gate):** V4 parry-snap — her `aimed` is 3 real bullets (not a
+  beam), but they fire from the loom, so the HONEST wiring spawns the side bullets FROM her
+  hands (`palmL`/loom/`palmR`, count unchanged) + vents the palms amber (resolving the S2
+  amber-vocabulary note), NOT a dishonest palm-tag on loom-fired bullets and NOT `emitOrigins`
+  (6 bullets). Her palms are already dwell-paintable, so parry-snap is a bonus, not required.
 - **Utility math:** spans 114/114/114/94/83 → volley clamps to ~10% everywhere; on-beat
   burn frac 0.30 ⇒ +~3% per full-set release. ⚠ Her P5 is the thinnest endgame not-a-phase-
   deleter margin (~1.08) — a named GO gate (headless persona + a real dread-card playthrough
@@ -578,10 +591,12 @@ boss's balance moves except where this doc says so.
 
 > **LIVE STATUS (2026-07-10).** PR0 ✅. PR2a (KNELLGRAVE organs) ✅ merged #349.
 > PR2b/PR3 (KNELLGRAVE resonant on-toll release + SCAR-BURN + PR2a blocker fixes)
-> ✅ merged #355. **NOW BUILDING: PR4a — WEFTWITCH organs (palms + loomHeart, cap 6)
-> + SCAR-BURN (frac 0.30, one line — her music is live).** Her "volley tears / she
-> mends" rule + V4 parry-snap tag ride PR4b (deferred, its own critic gate — the
-> original "volley interrupts the mend" was unimplementable, §CP1). Then PR5 ONEWING →
+> ✅ merged #355. PR4a (WEFTWITCH organs + SCAR-BURN) ✅ merged #356. **NOW BUILDING:
+> PR4b — WEFTWITCH's "THE VOLLEY TEARS, SHE MENDS" rule (⚠ P5 owner-playtest GO gate).**
+> V4 parry-snap → PR4c (deferred). Then ONEWING (rung 12 — the spectral echo-pip, a
+> new lockLayer kernel; CP1 pre-audit done: brand the DEAD frame, the echo marks the
+> out-of-lane living eye — "invert" option; + the felled-lie deflect fix + frame-break
+> wiring). Then PR5 →
 > PR6 EMBERTIDE → PR7 THE UNMASKED → PR8 mid-ladder polish → PR9 elemental loadout.
 > **Standing process: every rung gets a CP1 pre-audit + a CP2 diff critic (owner
 > directive); the human owner is the final gate on any damage LAW.**
