@@ -359,6 +359,19 @@ let discX = 0, discY = 0;     // pocket centre — the spiral toll's origin (the
 let discTollN = 0;            // pocket-opening tolls THIS PHASE (the emit-payload + re-offer accounting key)
 const SPIRAL_OUT_SPD = 9;     // the spiral bullets' outward lateral speed — the wavefront radius is SPIRAL_OUT_SPD·t, so drawn == wavefront is a construction identity (§ENG-H §3b)
 const DISC_WALL_FRAC = 0.30;  // the paid rim = [R·(1−frac), R) — PROPORTIONAL (unit-ring scale)
+const RIDE_POCKET_DUR = 1.8;  // §ENG-LT: The Last Toll ride pockets are driven off the TOLL CADENCE, not srel/slow (degenerate overhead — the mouth's rel is behind/at the plane); r1 = SPIRAL_OUT_SPD·dur, drawn == the wavefront's plane-projected radius (9·t, invariant of rel)
+// §ENG-LT SURVIVAL RESOLVE (def.survivalResolve — knellgrave-only): active play during the
+// survival seal fills a meter; full = the seal breaks EARLY + the bell staggers. A SECOND,
+// FASTER resolution — the outlast timer path is untouched (a dodge-only player still wins).
+let resolveK = 0;             // 0..1 across the live survival card
+let resolveNoted = 0;         // thirds announced (the visible-progress law — the thread-cut CP2 / holder-stagger n/3 grammar)
+let resolveHinted = false;    // one-shot ride teach (§2e)
+const RESOLVE_GRAZE  = 0.02;  // per discGraze tick on the ride wall
+const RESOLVE_PARRY  = 0.10;  // per parried ROLL of the seal-era aimed ambers
+const RESOLVE_STRIKE = 0.055; // per scoped clapper strike through the seal
+const CLAPPER_HIT_R = 6.0;    // §ENG-LT: a rider chip's LANDING point must fall within this of clapperHead (the scope fence — a pattern landing elsewhere can't feed)
+const CLAPPER_NEAR = 7.0;     // §ENG-LT: the PLAYER must be within this of clapperHead (the skill gate — "dart under the bell"; knellgrave has no lockParts so rider chip always aims the pose centre)
+const _wpV = new THREE.Vector3();   // scratch for the clapper weak-part world resolve
 let discCd = 0;               // §5i.B: arm cooldown — pockets don't stack every toll (less frequent, less busy)
 // §5i.B GRAZE REWARD BANDS — shared look for slipstream/orbit/disc so the three read as ONE
 // consistent "fly into this to be rewarded" ring. A LIGHTER, less-saturated reward pink than the
@@ -983,6 +996,7 @@ function beginCard(idx) {
   cardTimer = activeCard.timer ?? 24;
   cardHits0 = game.bossHitsTakenRun;
   cardExpired = false;
+  if (activeCard.survival) { resolveK = 0; resolveNoted = 0; }   // §ENG-LT: the resolve meter is fresh per survival-card arm (the live path + the ?bossPhase jump both route here)
   // Small lower-right title card (§5f) — the reveal card owns the lower-third;
   // the spell card names the pattern without covering it.
   ui.bossCard?.(activeCard.name, def.accent, !!activeCard.dread);
@@ -1675,6 +1689,7 @@ export function startBossEncounter(player, defOverride) {
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
+  resolveK = 0; resolveNoted = 0; resolveHinted = false;   // §ENG-LT: the survival-resolve meter is fresh per encounter
   holderPrevTarget = null;   // §ENG-EW: the holder-stagger baton edge is fresh per encounter (partParries.clear() above covers HOLDER_KEY)
   threadCutHits = 0; harvestOffered = false;   // §5i.C slot 11 thread-cut + harvest state
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
@@ -1742,6 +1757,7 @@ function endEncounter(player) {
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS: never outlives the fight
   discAge = 0; discDur = 0; discR = 0; discR1 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC: never outlives the fight
+  resolveK = 0; resolveNoted = 0;   // §ENG-LT: the resolve meter never outlives the fight
   gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP: never outlives the fight
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }    // a fight torn down mid-stoop must not strand the ring
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
@@ -2664,6 +2680,14 @@ export function updateBoss(dt, player, time, camera) {
               }
             }
           }
+          // §ENG-LT: parrying the seal-era `aimed` ambers (P5 fires live amber through the
+          // survival seal) feeds RESOLVE — +1 per ROLL (the rollParried latch; perfect not
+          // required: the survival exam is dodge-first, parry is a bonus feed). Surge reflects
+          // don't count (§5i.C law 4). Reads r.total, NEVER snapParts — knellgrave ambers are
+          // untagged and stay untagged (§ENG-LT: no tags on an emitOrigins/no-lockParts def).
+          if (def.survivalResolve && !surge && activeCard && activeCard.survival && r.total > 0) {
+            feedResolve(RESOLVE_PARRY);
+          }
           // V4 LOCK-SNAP (PR4, owner-ruled PERFECT-ONLY): a perfect parry of a
           // part-tagged amber snaps a brand onto the organ that FIRED it — the
           // C3 answer (a venting organ can't be dwell-painted; the parry is its
@@ -2938,7 +2962,12 @@ export function updateBoss(dt, player, time, camera) {
     // defs without grazeForm==='shrinkDisc' are inert. (§ENG-H toll flip.) ----
     if (def.grazeForm === 'shrinkDisc') {
       if (discCd > 0) discCd = Math.max(0, discCd - dt);         // the arm cooldown ticks down every frame
-      const live = discDur > 0 && setpieceT < 0 && !shielded;   // holdFlinch's gate discipline
+      const ride = discRideMode();                              // §ENG-LT: the one survival ride where the graze stays live
+      if (ride && !resolveHinted) {                             // one-shot teach (the swarm/eye-deflect-hint precedent)
+        resolveHinted = true;
+        ui.bossNote?.('✦ THE PRISONER STRAINS — THE SEAL CAN BREAK ✦', 'RIDE THE TOLL RIMS · STRIKE THE CLAPPER', 'gold', 3.2);
+      }
+      const live = discDur > 0 && !shielded && (setpieceT < 0 || ride);   // §ENG-LT: ride keeps the pocket live overhead; else shipped setpieceT<0 discipline
       if (live) {
         discAge += dt;
         if (discAge >= discDur) { discDur = 0; discR = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // THE LAST BEAT (the wall reaches the plane)
@@ -2953,13 +2982,14 @@ export function updateBoss(dt, player, time, camera) {
               if (beamTick <= 0) {
                 bulletGraze(player);                            // the payout rides the graze economy
                 emit('discGraze', { r: discR, held: beamHeld, toll: discTollN });
+                if (ride && activeCard && activeCard.survival) feedResolve(RESOLVE_GRAZE);   // §ENG-LT: riding the ride wall feeds the resolve meter (post-break it pays graze only)
                 beamTick = Math.max(0.14, (discDur - discAge) * 0.30 - beamHeld * 0.03);   // ESCALATING: interval ∝ TIME-TO-CROSSING (richest as the wall lands)
               }
             }
           } else if (beamGrace > 0) { beamGrace -= dt; }
           else { beamHeld = 0; beamTick = 0; }                  // real exit → the ramp resets (pocket stays)
         }
-      } else if (discDur > 0) { discDur = 0; discR = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // setpiece/shield rose mid-pocket
+      } else if (discDur > 0) { discDur = 0; discR = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // shield or a NON-ride setpiece rose mid-pocket (pendulumSweep purity preserved)
       // Drive the drawn band — a UNIT ring uniformly scaled to the live radius.
       if (discBandMesh) {
         const tgt = discR > 0 ? GRAZE_BAND_BASE + Math.min(GRAZE_BAND_RAMP, beamHeld * 0.06) : 0;
@@ -3131,6 +3161,14 @@ export function updateBoss(dt, player, time, camera) {
       // THREAD-CUT's verb, not ours). `if (shielded)` precedes us, so a shield freezes
       // the window rather than double-spending it. The bonus = 2.5s of scheduling silence
       // (free rider-chip + gun uptime) + the parked eyeRig lock organ at the midpoint.
+      staggerT = Math.max(0, staggerT - dt);
+      if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
+    } else if (def.survivalResolve && staggerT > 0) {
+      // §ENG-LT: the staggered bell (its survival seal broken early) schedules nothing for
+      // 2.5s — free chip + gun uptime directly under the gaping mouth (rider aims the pose
+      // centre at rel≈3; lances re-arm the instant the card nulls — lockDeflected's seal clause
+      // released). In-flight + queued pending still land; `if (shielded)` precedes, so a shield
+      // freezes the window rather than double-spending it.
       staggerT = Math.max(0, staggerT - dt);
       if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
     } else if (chargeT > 0) {
@@ -3368,6 +3406,47 @@ function armDiscPocket(cx, cy, dur, r1) {
   discX = cx; discY = cy; discAge = 0; discDur = dur;
   discR1 = Math.max(r1, 3); discR = 0;
   emit('discPocket', { toll: discTollN, r1: discR1 });
+}
+
+// §ENG-LT RIDE MODE: the ONE survival ride where the toll-wall graze stays live. Triple-gated —
+// the label (grazeForm), the def opt-in (survivalResolve), and the setpiece IDENTITY (only
+// knellgrave's def names 'lastToll') — so every other setpiece/def, incl. pendulumSweep, keeps
+// the shipped setpieceT<0 purity. (Reverses the ENG-C7/ENG-H "survival ride stays pure dodge"
+// decision, scoped to knellgrave's survival ride only — owner playtest call.)
+function discRideMode() {
+  return !!(def && def.grazeForm === 'shrinkDisc' && def.survivalResolve
+    && setpieceT >= 0 && setpieceDef && setpieceDef.id === def.survivalResolve.setpiece);
+}
+
+// §ENG-LT: active play during the seal fills the resolve meter; each third is SEEN (the bell
+// shivers), and a full meter breaks the seal early. Def + survival-card gated; inert otherwise.
+function feedResolve(amt) {
+  if (!def?.survivalResolve || !(activeCard && activeCard.survival) || resolveK >= 1) return;
+  resolveK = Math.min(1, resolveK + amt);
+  emit('bossResolve', { k: resolveK });
+  const third = Math.floor(resolveK * 3);
+  if (third > resolveNoted && resolveK < 1) {
+    resolveNoted = third;
+    ui.bossNote?.(`✦ THE BELL FALTERS — ${third}/3 ✦`, 'RIDE THE TOLLS · STRIKE THE CLAPPER', 'gold', 1.1);
+    model.hurt?.(0.3);   // the bell shivers at each third (ringKick — pre-built feedback)
+  }
+  if (resolveK >= 1) breakSurvivalSeal();
+}
+
+// §ENG-LT: the payoff beat. Resolve the card through the SAME hook the outlast path uses
+// (endCard — an early HITLESS break IS a capture, deliberately: mastery shortens the exam AND
+// banks the card), then STAGGER the bell (2.5s of scheduling silence — the shared staggerT
+// grammar, a 4th def-gated consumer) so chip lands under the gaping mouth. The ride setpiece
+// keeps running: the sky-tear reveal is dreadK's (setpiece-driven), not the card's.
+function breakSurvivalSeal() {
+  endCard();
+  staggerT = 2.5;
+  if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
+  model.hurt?.(1.0); model.flash?.(1.0);          // the bell RINGS its own stagger
+  cameraCtl.shake?.(1.2);
+  sfx.shieldShatter?.();
+  ui.bossNote?.('✦ THE SEAL BREAKS ✦', 'THE BELL STAGGERS — STRIKE', 'gold', 2.4);
+  emit('bossSealBreak', { early: true });
 }
 
 function activateSurge(player) {
@@ -3839,11 +3918,24 @@ function executeAttack(id, player) {
     const slow = closing * 0.78;
     // §5i.B TOLL-WALL arm — MOVED here from the iris branch (§ENG-H toll flip): the wall
     // GROWS from the bell mouth. dur = time-to-crossing (srel/slow); r1 = the wavefront's
-    // radius at that crossing (SPIRAL_OUT_SPD·dur). Gated off during setpieces/shield/cd.
-    if (def?.grazeForm === 'shrinkDisc' && setpieceT < 0 && !shielded && discCd <= 0) {
+    // radius at that crossing (SPIRAL_OUT_SPD·dur). Gated off during setpieces/shield/cd —
+    // EXCEPT the one §ENG-LT ride (The Last Toll), where it arms off the TOLL CADENCE instead.
+    const ride = discRideMode();
+    if (def?.grazeForm === 'shrinkDisc' && !shielded && (ride || (setpieceT < 0 && discCd <= 0))) {
       discTollN++;
-      discCd = 1.6;   // §5i.B: a breather between pockets — one wall at a time (and the Cracked Peal's 2nd toll can't double-arm, §ENG-H)
-      armDiscPocket(scx, scy, srel / slow, SPIRAL_OUT_SPD * (srel / slow));
+      if (ride) {
+        // §ENG-LT RIDE MODE: overhead the mouth's rel is degenerate/behind-plane (srel/slow
+        // ≈ 0.05–0.2s — the ENG-C7 gate's own reason), so the pocket rides the TOLL CADENCE:
+        // dur = RIDE_POCKET_DUR, r1 = SPIRAL_OUT_SPD·dur. The drawn ring stays the wavefront's
+        // PLANE-PROJECTED radius (9·t regardless of rel — the honesty identity survives
+        // overhead). REPLACE-ON-ARM: a fresh toll supersedes the live pocket (its plane threat
+        // spent ~0.1s after its toll) — pockets tighten as the knell accelerates. discCd is
+        // neither consulted nor set (the accelerating knell outruns 1.6s; the peal law is P3/station-scoped).
+        armDiscPocket(scx, scy, RIDE_POCKET_DUR, SPIRAL_OUT_SPD * RIDE_POCKET_DUR);
+      } else {
+        discCd = 1.6;   // §5i.B: a breather between pockets — one wall at a time (the Cracked Peal's 2nd toll can't double-arm, §ENG-H)
+        armDiscPocket(scx, scy, srel / slow, SPIRAL_OUT_SPD * (srel / slow));
+      }
     }
     for (let i = 0; i < n; i++) {
       const a = spiralPhase + (i / n) * Math.PI * 2;
@@ -4605,11 +4697,35 @@ function damageBoss(amount, kind, e = null) {
   // cracks (routePartDamage skipped → brands never drop), no riposte return,
   // no death. This one early-return IS the repeat-volley mechanism.
   if (labPacifist) { model?.flash?.(0.3); return; }
+  // §ENG-LT THE CLAPPER SEAM (def.survivalResolve.weakPart — knellgrave-only): during the
+  // survival seal the bound clapper is the ONE thing that answers a hit. Scoped FOUR ways so
+  // the seal never leaks: (1) only while the seal runs; (2) RIDER chip only — 'player' returns
+  // stay the parry economy's (§3c, no double-dip), 'surge' stays fully sealed, 'lance' never
+  // flies (lockDeflected); (3) the LANDING point must fall within CLAPPER_HIT_R of the part's
+  // live world x/y; (4) the PLAYER must be within CLAPPER_NEAR of it — knellgrave has no
+  // lockParts so rider chip always aims the pose centre, so proximity is the "dart under the
+  // bell" verb. NO hp moves — the fairness hatch stays intact; the strike feeds RESOLVE and the
+  // bell RINGS (a diegetic answering toll, unmistakably NOT the deflect ping). Above the seal so
+  // it wins the frame the seal would otherwise eat.
+  if (activeCard && activeCard.survival && def.survivalResolve?.weakPart
+      && kind === 'rider' && e && e.x != null && e.y != null && lastPlayer) {
+    const w = model?.partWorldPos?.(def.survivalResolve.weakPart, _wpV);
+    if (w
+        && Math.hypot(e.x - w.x, e.y - w.y) <= CLAPPER_HIT_R
+        && Math.hypot(lastPlayer.position.x - w.x, lastPlayer.position.y - w.y) <= CLAPPER_NEAR) {
+      model.hurt?.(0.5);        // the bell RINGS the strike (ringKick + painT — the §4b FLINCH carrier)
+      bellToll(0.3, 0.35);      // a quiet answering toll — diegetic, unmistakably NOT the deflect ping
+      emit('bossClapperHit', {});
+      feedResolve(RESOLVE_STRIKE);
+      return;                   // consumed — never falls through to the seal's flash/ping
+    }
+  }
   // §5f SURVIVAL-CARD SEAL (slot 10 debut — The Last Toll): while a `survival` card
   // runs, the boss is SEALED — all damage deflects and the UNFILLABLE BAR is the tell
   // (§5f's exact grammar). No bubble: the tolls keep firing (a pure-dodge exam) and
   // the dread setpiece runs. Outlasting the timer resolves the card (see the card
-  // timeout); lances already deflect via lockDeflected.
+  // timeout); lances already deflect via lockDeflected. §ENG-LT: the clapper seam above
+  // is the one scoped exception; SURVIVAL RESOLVE can break this seal EARLY (feedResolve).
   if (activeCard && activeCard.survival) { model?.flash?.(0.12); sfx.shieldPing?.(); return; }
   // §5f the LYING FELLED window: the boss is faking death — no chip lands until the
   // truth reveals (the returning bar). Inert for every other def (felledLieT stays 0).
@@ -4764,6 +4880,7 @@ export function resetBoss() {
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM teardown
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS teardown
   discAge = 0; discDur = 0; discR = 0; discR1 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC teardown
+  resolveK = 0; resolveNoted = 0;   // §ENG-LT: resolve meter teardown
   gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP teardown
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
@@ -5001,7 +5118,7 @@ export function bossDebugState() {
   // live possession/drop, so the crop tool + gate can read the eye-drop state.
   const hs = model?.holdState?.();
   const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
