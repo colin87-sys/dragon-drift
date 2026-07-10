@@ -6,7 +6,7 @@ import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
-import { solveWing, flapEnv } from './wingFlapSolver.js';
+import { solveWing, flapEnv, curlEnv } from './wingFlapSolver.js';
 import { setFlapDebugPose, resolveWingDebug } from './wingDebugPose.js';
 import { setActiveDetail } from './modelDetail.js';
 
@@ -776,8 +776,34 @@ export function updateDragon(dt, player, time) {
       }
     }
   } else {
-    wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
-    wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
+    // Direct-pivot wing (azure blade-comb). OPT-IN WIDE JOINTED ARC via model.flapArc: instead of
+    // the shallow ±30° sine, the arm sweeps a big asymmetric arc off the SAME CI-certified envelope
+    // the yoke solver uses (flapEnv), the primaries FOLD on the up-beat (curlEnv → folded high at the
+    // apex, extended straight on the power down-beat), and the per-blade cascade below trails deeper.
+    // A bird's shoulder→wrist→primaries fold, staged for readability. All knobs nullable → every
+    // shipped direct-pivot dragon is byte-identical (no flapArc → the exact old sine beat).
+    const arc = activeDef.model.flapArc;
+    let armR, armL, tipFoldR, tipFoldL;
+    if (arc) {
+      const apexRad = (arc.apexDeg ?? 82) * Math.PI / 180, bottomRad = (arc.bottomDeg ?? 58) * Math.PI / 180;
+      const cfg = { downFrac: arc.downFrac ?? 0.58, downDepth: bottomRad / apexRad };
+      // ampScale carries the shipped dive/climb/decel/boost amplitude modulation (≈1 at cruise, ~1.35 boost).
+      const ampScale = flapAmp / (0.52 * (activeDef.model.flapAmp ?? 1));
+      // elev: +apexRad at the apex (wings UP, ~12 o'clock) → −bottomRad at the bottom (wings DOWN,
+      // ~5 o'clock). rotation.z is UP-positive on the R wing (see the down-beat pose), and the branch
+      // below applies pr.z = −arm, so arm = −elev. Inhale mantle rides the whole arc high (+z).
+      const elev = Math.max(-bottomRad * 1.12, Math.min(apexRad * 1.12, flapEnv(phase, cfg) * apexRad * ampScale));
+      const arm = -elev - inhale01 * 0.55;
+      // tip/primary FOLD: 1 (folded) at the apex → 0 (extended straight) at the bottom, lagged so the
+      // hand trails the arm (overlapping action). The wide arc's silhouette-changing ingredient.
+      const fold = curlEnv(phase - Math.PI * 2 * (activeDef.model.flapTipFoldLag ?? 0.14), cfg)
+        * (activeDef.model.flapTipFold ?? 0.6);
+      armR = arm; armL = arm; tipFoldR = fold; tipFoldL = fold;
+    } else {
+      armR = rootFlap; armL = rootFlap; tipFoldR = tipLag * 0.28; tipFoldL = tipLag * 0.28;
+    }
+    wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -armR + turnBias + rollFold, 14, dt);
+    wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  armL + turnBias - rollFold, 14, dt);
     // FEATHER = a fore-aft PITCH (rotation.x). Under the L wing's scale.x=-1 mirror, rotation.x
     // does NOT flip sense (it moves the chord in Y identically on both wings), so a SYMMETRIC
     // feather needs the SAME sign L/R — the old ±feather was an antisymmetric roll-twist that made
@@ -788,20 +814,27 @@ export function updateDragon(dt, player, time) {
     wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
     wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
     // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke. BOTH tips ride the ONE
-    // tipLag clock (mirror sign) — the old L branch ran a DIFFERENT phase (sin(phase+1.18) vs the
-    // R tipLag sin(phase+0.95)), so the tips folded a beat apart: the visible off-beat asymmetry.
-    wingTipR.rotation.z = damp(wingTipR.rotation.z,  tipLag * 0.28 + turnBias * 0.45, 12, dt);
-    wingTipL.rotation.z = damp(wingTipL.rotation.z, -tipLag * 0.28 + turnBias * 0.45, 12, dt);
+    // clock (mirror sign) — the old L branch ran a DIFFERENT phase (sin(phase+1.18) vs the R
+    // tipLag sin(phase+0.95)), so the tips folded a beat apart: the visible off-beat asymmetry.
+    wingTipR.rotation.z = damp(wingTipR.rotation.z,  tipFoldR + turnBias * 0.45, 12, dt);
+    wingTipL.rotation.z = damp(wingTipL.rotation.z, -tipFoldL + turnBias * 0.45, 12, dt);
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
     wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 + feather * 0.16, 10, dt);
   }
   // Per-blade LAG (blade-feather comb): each feather trails the beat a beat behind
   // (ASHTALON covert pattern), the lag deepening outward. Additive + nullable.
+  // model.flapBladeCascade (nullable) DEEPENS the per-feather furl to match the wide arc — a bigger
+  // amplitude + a longer inboard→outboard lag so the primaries visibly peel open on the down-beat and
+  // rake back on the up-beat (the "different parts of the wing lead and follow" read). Absent → the
+  // exact shipped covert whisper (byte-identical for every other blade-comb dragon).
+  const casc = activeDef.model.flapBladeCascade;
   for (const arr of [wingBladePivotsR, wingBladePivotsL]) {
     if (!arr) continue;
     for (const b of arr) {
       const fr = arr.length > 1 ? b.idx / (arr.length - 1) : 0;
-      const sw = Math.sin(phase - 0.5 - fr * 0.9) * (0.05 + 0.09 * fr);
+      const sw = casc
+        ? Math.sin(phase - 0.5 - fr * (casc.lag ?? 1.35)) * ((casc.amp ?? 0.18) * (0.35 + 0.9 * fr))
+        : Math.sin(phase - 0.5 - fr * 0.9) * (0.05 + 0.09 * fr);
       b.pivot.rotation.z = damp(b.pivot.rotation.z, b.side * (0.02 + 0.10 * fr) + sw, 12, dt);
     }
   }

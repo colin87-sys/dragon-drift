@@ -16,7 +16,7 @@
 //   4. basic DIRECT     (parts.wingPivotL + wingTipL — azure/ember/jade ship on this)
 // Purely additive: reads rig parts + model knobs, sets rotations. No geometry touched.
 
-import { solveWing, phaseCenter } from './wingFlapSolver.js';
+import { solveWing, phaseCenter, flapEnv, curlEnv } from './wingFlapSolver.js';
 import { flapWing, formStrength } from './dragonWingFlap.js';
 
 // The named freeze states. Five are wing-cycle points (up-low · dome · apex-V · mid-press ·
@@ -136,8 +136,21 @@ export function setFlapDebugPose(parts, model, state) {
   // ── basic DIRECT-PIVOT 2-bone wing (azure/ember/jade ship here) — port of the else
   // branch, direct-SET to the damp targets (no settle needed).
   const flapAmp = 0.52 * (model.flapAmp ?? 1) * (1 - 0.7 * dive);
-  const rootFlap = Math.sin(phase) * flapAmp + 0.1;
-  const tipLag = Math.sin(phase + 0.95);
+  // WIDE JOINTED ARC (model.flapArc) — the exact live-branch math so the pin reproduces live motion
+  // (L137: a truthful capture must pose what the game poses). Absent → the shipped shallow sine beat.
+  const arc = model.flapArc;
+  let rootFlap, tipFoldZ;
+  if (arc) {
+    const apexRad = (arc.apexDeg ?? 82) * Math.PI / 180, bottomRad = (arc.bottomDeg ?? 58) * Math.PI / 180;
+    const cfg = { downFrac: arc.downFrac ?? 0.58, downDepth: bottomRad / apexRad };
+    const ampScale = 1 - 0.7 * dive;   // dive tuck collapses the arc (matches live flapAmp modulation)
+    const elev = Math.max(-bottomRad * 1.12, Math.min(apexRad * 1.12, flapEnv(phase, cfg) * apexRad * ampScale));
+    rootFlap = -elev;   // pr.z = −rootFlap = elev (UP-positive); +apex at the top, −bottom at the deep down-beat
+    tipFoldZ = curlEnv(phase - Math.PI * 2 * (model.flapTipFoldLag ?? 0.14), cfg) * (model.flapTipFold ?? 0.6);
+  } else {
+    rootFlap = Math.sin(phase) * flapAmp + 0.1;
+    tipFoldZ = Math.sin(phase + 0.95) * 0.28;
+  }
   const pr = parts.wingPivotR, pl = parts.wingPivotL, tr = parts.wingTipR, tl = parts.wingTipL;
   if (pr) {
     pr.rotation.z = -rootFlap + turnBias + rollFold;
@@ -152,13 +165,13 @@ export function setFlapDebugPose(parts, model, state) {
     pl.rotation.y = 0.18 + turnBias * 0.8;
   }
   if (tr) {
-    tr.rotation.z = tipLag * 0.28 + turnBias * 0.45;
+    tr.rotation.z = tipFoldZ + turnBias * 0.45;
     tr.rotation.x = -0.12 + feather * 0.16;
   }
   if (tl) {
-    // BOTH tips on the ONE tipLag clock (mirror sign) — not a separate sin(phase+1.18) that
+    // BOTH tips on the ONE fold clock (mirror sign) — not a separate sin(phase+1.18) that
     // folded the L tip a beat off the R (the off-beat asymmetry). Matches dragon.js.
-    tl.rotation.z = -tipLag * 0.28 + turnBias * 0.45;
+    tl.rotation.z = -tipFoldZ + turnBias * 0.45;
     tl.rotation.x = -0.12 + feather * 0.16;
   }
   poseBladePivots(parts, state);
