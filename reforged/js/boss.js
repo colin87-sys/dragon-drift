@@ -3773,14 +3773,15 @@ function executeAttack(id, player) {
     // Slower close than the aimed/fan shots: a full wall must be READ (find the gap)
     // AND traversed, so it needs a longer reaction window than a bullet you sidestep.
     const slow = closing * 0.66;
-    noteGapThreadRow(gap, slot, CONFIG.laneMinY + 2.5, CONFIG.laneMaxY - 2, 0, -slow);   // §ENG-G thread ledger
     const b = activeBand[bandIdx++ % activeBand.length];
+    let spawned = 0;
     for (let x = -hw; x <= hw; x += stepX) {
       if (Math.abs(x - gap) < slot) continue;
       for (let y = CONFIG.laneMinY + 2.5; y <= CONFIG.laneMaxY - 2; y += stepY) {
-        emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
+        if (emitBoss(x, y, 0, 0, -slow, false, b.c, b.s)) spawned++;
       }
     }
+    if (spawned) noteGapThreadRow(gap, slot, CONFIG.laneMinY + 2.5, CONFIG.laneMaxY - 2, 0, -slow);   // §ENG-G: only score a row that actually materialised (pool cap can clip it)
   } else if (id === 'movingGap') {
     // MOVING-GAP WALL — timed rows (two y-bands each) whose safe gap SLIDES
     // sideways between rows: you can't pre-camp the gap, you track it in time.
@@ -3800,13 +3801,14 @@ function executeAttack(id, player) {
         // Bands track the player's LIVE height so the wall can't be out-CLIMBED —
         // flying high/low just keeps you sandwiched; the moving X gap is the answer.
         const cy = Math.max(CONFIG.laneMinY + 3, Math.min(CONFIG.laneMaxY - 3, player.position.y));
-        noteGapThreadRow(gap, 2.6, cy - 2.4, cy + 2.4, 0, -slow);   // §ENG-G thread ledger (per row)
+        let spawned = 0;
         for (let x = -hw; x <= hw; x += sx) {
           if (Math.abs(x - gap) < 2.6) continue;
           for (const y of [cy - 2.4, cy + 2.4]) {
-            emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
+            if (emitBoss(x, y, 0, 0, -slow, false, b.c, b.s)) spawned++;
           }
         }
+        if (spawned) noteGapThreadRow(gap, 2.6, cy - 2.4, cy + 2.4, 0, -slow);   // §ENG-G: score only a materialised row
       } });
     }
   } else if (id === 'crestfall') {
@@ -3831,11 +3833,12 @@ function executeAttack(id, player) {
         const gapC = horizonPocketX != null ? horizonPocketX : (g0 + dir * 2.5 * k);
         const gap = Math.max(-hw + 3.4, Math.min(hw - 3.4, gapC));
         const topY = CONFIG.laneMaxY + 3;          // spawn AT the crest, above the frame top
-        noteGapThreadRow(gap, 3.4, topY, topY, -5.5, -slow);   // §ENG-G thread ledger (a falling line)
+        let spawned = 0;
         for (let x = -hw; x <= hw; x += stepX) {
           if (Math.abs(x - gap) < 3.4) continue;   // the safe pocket (generous — a full frame)
-          emitBoss(x, topY, 0, -5.5, -slow, false, b.c, b.s);   // breaks DOWNWARD (vy) + closes (vrel)
+          if (emitBoss(x, topY, 0, -5.5, -slow, false, b.c, b.s)) spawned++;   // breaks DOWNWARD (vy) + closes (vrel)
         }
+        if (spawned) noteGapThreadRow(gap, 3.4, topY, topY, -5.5, -slow);   // §ENG-G: score only a materialised row (a falling line)
       } });
     }
   } else if (id === 'geyser') {
@@ -3876,11 +3879,12 @@ function executeAttack(id, player) {
         const gap = gapX != null ? gapX : solveGap();     // defensive — never a gapless wall
         const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
         const footY = CONFIG.laneMinY - 3;                // BELOW the frame (world y -0.5)
-        noteGapThreadRow(gap, 3.4, footY, footY, 5.5, -slow);   // §ENG-G thread ledger (a rising line; eruption beat only)
+        let spawned = 0;
         for (let x = -hw; x <= hw; x += stepX) {
           if (Math.abs(x - gap) < 3.4) continue;          // crestfall's safe slot, mirrored
-          emitBoss(x, footY, 0, 5.5, -slow, false, b.c, b.s);   // ERUPTS upward (+vy) + closes (vrel)
+          if (emitBoss(x, footY, 0, 5.5, -slow, false, b.c, b.s)) spawned++;   // ERUPTS upward (+vy) + closes (vrel)
         }
+        if (spawned) noteGapThreadRow(gap, 3.4, footY, footY, 5.5, -slow);   // §ENG-G: score only a materialised row (a rising line; eruption beat only)
       } });
     }
   } else if (id === 'iris') {
@@ -4024,7 +4028,9 @@ function fireRing(cx, cy, radius, m, vrel, color, sizeMult = 1, coreColor = null
 // if reflectable, otherwise the boss's magenta danger colour. `coreColor` overrides
 // the white "hot disc" centre — ONLY graze-bait passes one (the dark "donut" read).
 function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1, coreColor = null, originRel = null, part = null) {
-  spawnBossBullet({
+  // Returns the spawned bullet, or null if the pool was saturated (visibleCap) — callers that
+  // need to know a column actually materialised (§ENG-G thread ledger) read this.
+  return spawnBossBullet({
     owner: 'boss', x, y, rel: originRel ?? pose.rel,
     vx, vy, vrel, color: color ?? (reflectable ? REFLECT_COLOR : bulletColor), reflectable,
     dmg: B.bulletDamage, r: B.bulletRadius * sizeMult, life: 6,

@@ -3197,7 +3197,19 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     const st = boss.bossDebugState();
     assert(st.gapThreadRows.length === 0 && st.gapThreadStreak === 0, 'ENG-G: resetBoss clears the ledger + chain');
   }
-  ok('ENG-G THREAD-THE-GAP: a clean in-gap wall crossing scores by clearance+lateness + chains (visible THREADED); out-of-gap/dodged-around/hit unpaid; inert for un-opted bosses ✓');
+  // 9. Codex P2 fix: a wall row CLIPPED by the bullet-pool cap records NO ledger row (no phantom
+  //    thread — a saturated fight must not award THREADED for a wall that never materialised).
+  {
+    const p = armMarrowcoil();
+    bullets.resetBossBullets();
+    bullets.setBossBulletQuality(0);   // visibleCap → its 60 floor
+    for (let i = 0; i < 80; i++) bullets.spawnBossBullet({ owner: 'boss', x: 0, y: 8, rel: 20, vrel: -10, r: 0.5, dmg: 1, life: 6 });   // saturate the pool
+    boss.debugEmitAttack('movingGap', p, 1);   // every column now clips (spawnBossBullet → null)
+    assert(boss.bossDebugState().gapThreadRows.length === 0, 'ENG-G: a pool-clipped wall row records NO ledger row (no phantom thread)');
+    bullets.setBossBulletQuality(1); bullets.resetBossBullets();   // restore
+    boss.resetBoss();
+  }
+  ok('ENG-G THREAD-THE-GAP: a clean in-gap wall crossing scores by clearance+lateness + chains (visible THREADED); out-of-gap/dodged-around/hit unpaid; pool-clipped rows unscored; inert for un-opted bosses ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);
