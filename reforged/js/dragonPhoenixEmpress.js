@@ -795,6 +795,7 @@ function buildPyreTrainTail(def, model, mats, anchor) {
   fanG.position.set(0, 0.02, rootLen / nRoot);
   fanG.rotation.x = -0.55 + 0.85 * lift;   // f0 droops down-back, f3 lifts proud
   segs[segs.length - 1].add(fanG);
+  const mainQuills = [];   // exposed to the animator so the fan FLEXES (furl-breath + ripple), not a rigid lump
 
   const layout = trainFanLayout(model);
   const bodyLen = 2.36;                       // ~torso long-axis (for the ≈1.1× cap)
@@ -816,6 +817,7 @@ function buildPyreTrainTail(def, model, mats, anchor) {
     quill.rotation.y = q.cant * 0.7;       // small camera-facing twist (balanced across the mirror → Σ≈0)
     if (!big) quill.position.z -= 0.12;     // recess the under-rank behind (depth, not a gap-filler)
     fanG.add(quill);
+    if (big) mainQuills.push({ g: quill, phi: q.phi, restY: quill.rotation.y });   // for the furl-breath + ripple
     const wMax = (big ? 0.17 : 0.11) + (big ? 0.12 : 0.06) * q.lenScale;
     const yBase = -len * 0.06, ySh = -len * 0.42, yTip = -len * 0.95;   // the ray runs DOWN (−Y) in-plane
     const wBase = wMax * 0.5;
@@ -880,6 +882,9 @@ function buildPyreTrainTail(def, model, mats, anchor) {
     gem.position.set(0, s * 0.05, 0.1); gem.scale.set(1, 1.35, 0.8); cl.add(gem);
     fanG.add(cl);
   }
-  return { group, segs, accentMats };
+  // maxPhi → the animator normalises each quill's outward fraction (ripple deepens outward)
+  const maxPhi = mainQuills.reduce((m, q) => Math.max(m, Math.abs(q.phi)), 1e-3);
+  for (const q of mainQuills) q.frac = Math.abs(q.phi) / maxPhi;
+  return { group, segs, accentMats, trainFan: { fanG, quills: mainQuills, baseLiftX: fanG.rotation.x } };
 }
 registerTail('pyreTrainTail', buildPyreTrainTail);

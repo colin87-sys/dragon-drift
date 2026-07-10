@@ -968,7 +968,7 @@ export const DRAGONS = {
       scale: 1.18, flapBias: 0.82, flapAmp: 0.74,   // lighter, quicker bird wingbeat than Solar's bow
       tailLagScale: 0.05,
       spanScale: 1.06, primaries: 6, pinionSlots: 4, sweepRake: 1.0, tipRise: 1.0,
-      trainQuills: 9, trainFan: 162, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1,
+      trainQuills: 9, trainFan: 150, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1,
       crestQuills: 5, gorget: 1.0, eyeShape: 0.16, glowLevel: 1.0, headScale: 1.0,
       igniteStage: 3,
       // plumage + regalia + GOLD-jewelry richness dials (apex reference; forms confer per rung):
@@ -1007,7 +1007,7 @@ export const DRAGONS = {
       // f3 — DAWNFIRE EMPRESS: the full pyre-train, reborn. 9 quills ~150° proud, blazing
       // coal arc + the near-white Dawn Coal (center, f3-only), crest 5 coal-tipped, full
       // pinion slots + rake + tip curl + rose edge, gorget blazing, pale-gold belly nod.
-      { igniteStage: 3, trainQuills: 9, trainFan: 162, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1,
+      { igniteStage: 3, trainQuills: 9, trainFan: 150, trainLift: 1.0, coalBloom: 1.0, dawnCoal: 1,
         primaries: 6, pinionSlots: 4, sweepRake: 1.0, tipRise: 1.0, crestQuills: 5, gorget: 1.0,
         eyeShape: 0.16, glowLevel: 1.0, headScale: 1.0, spanScale: 1.06,
         covertRank: 1, alula: 1, vaneEyes: 1, underQuills: 6, ruff: 1, flankShingle: 2, dorsalPlumes: 6, talons: 1.0, diadem: 1, clasp: 1.0,

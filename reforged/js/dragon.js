@@ -48,6 +48,7 @@ let wingBladePivotsR = null;
 let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
 let head = null;
 let tailSegs = [];
+let trainFan = null;   // phoenixEmpress: exposed Dawn-Fan (flexes with flight)
 let spineSegs = [];       // night-fury body-spine whip bones (empty for every other dragon)
 let surge01 = 0;          // Dragon-Surge (fever) blend
 let boost01 = 0;          // held speed-boost blend (distinct from surge)
@@ -186,6 +187,7 @@ export function createDragon(scene, def, riderDef) {
   tailFins = result.parts.tailFins || [];
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
+  trainFan = result.parts.trainFan || null;
   bodyWave = result.parts.bodyWave || null;   // koiSerpent travelling-wave uniform (jade)
   tailOrbiters = result.parts.tailOrbiters || null;
   glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
@@ -898,6 +900,20 @@ export function updateDragon(dt, player, time) {
       tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, climbAmount * 0.08 * lock + tWhip * lock, lam, dt);
       tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder + coil, lam, dt);
       tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -coil * 0.4, 10, dt);   // slight bank into the coil (like azure)
+    }
+    // DAWN-FAN flex (phoenixEmpress) — the train is COUPLED to flight, not a rigid lump: it
+    // trails/swings behind the body with a lag, STREAMS BACK + FURLS (constricts) as speed rises,
+    // bobs on the wingbeat, and a ripple runs outward through the quills. All from flight state.
+    if (trainFan) {
+      const fg = trainFan.fanG;
+      fg.rotation.z = damp(fg.rotation.z, -turnBias * 0.55 * bankHard + Math.sin(time * 0.8 - 1.0) * 0.13, 8, dt);
+      fg.rotation.y = damp(fg.rotation.y, Math.sin(time * 1.0 - 0.6) * 0.10, 8, dt);
+      fg.rotation.x = damp(fg.rotation.x, trainFan.baseLiftX + Math.sin(phase - 0.6) * 0.07 - speedNorm * 0.14, 8, dt);   // bob + stream back at speed
+      const furl = 1 - 0.11 * speedNorm - 0.08 * (0.5 - 0.5 * Math.cos(time * 1.2));   // ~0.81 (fast/furled) ↔ 1.0
+      for (const q of trainFan.quills) {
+        q.g.rotation.z = damp(q.g.rotation.z, q.phi * furl, 8, dt);
+        q.g.rotation.x = damp(q.g.rotation.x, Math.sin(time * 3.0 - q.frac * 1.5) * 0.06 * (0.35 + q.frac), 8, dt);
+      }
     }
   } else {
     // FLAP-COUPLED tail (yoke dragons): the tail DROPS a few degrees at the wing apex as a
