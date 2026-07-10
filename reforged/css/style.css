@@ -560,12 +560,12 @@ body[data-qtier="2"] .hud-sew { display: none; }
    collision behind the readability complaint. Under Bullet Clarity we split on saturation:
    the aiming CHROME (reticle + pip + mark BORDERS) desaturates to a pale mint-white
    (--lock-chrome), while the banked ENERGY (pip/mark FILLS + the brand rune) stays full jade
-   (--lock-energy) because it literally becomes those wisps. Now enemy magenta vs pale-white
+   (the shipped literals) because it literally becomes those wisps. Now enemy magenta vs pale-white
    aim-UI vs saturated-jade player-energy separate on hue AND saturation AND luminance. The
    one-shot .rsnap flash + the locked ::before halo stay jade, so the MOMENT of locking still
    pops green — only the persistent chrome desaturates. Scoped to Bullet Clarity (opt-out
    returns the classic all-jade reticle); the collision only exists in boss fights anyway. */
-#reticle.lens2 { --lock-chrome: 200, 248, 232; --lock-energy: 80, 255, 170; }
+#reticle.lens2 { --lock-chrome: 200, 248, 232; }   /* the pale mint aim-chrome; energy stays the shipped jade literals */
 /* reticle brackets: steel → mint-white with dwell (was steel → jade); locked = white-hot mint.
    :not(.sealed) so the muted/deflected grey border (line ~510, same specificity, later source)
    still wins when the layer is frozen — a sealed boss must NOT show a live-looking chrome. */
