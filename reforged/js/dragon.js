@@ -114,6 +114,7 @@ let riderGroup = null;
 let scarfMesh = null;
 let riderGlow = null;     // glow sprite behind the rider (premium riders)
 let riderOrbiters = [];   // orbiting shards (Void Oracle) animated each frame
+let coronaSpin = null;    // Solar CP3 eclipse-corona ring — slow in-plane rotation (the eclipse crawls)
 const PONY_LEN = 0.24;
 let ponySegs = 10;
 let ponyPoints = [];
@@ -171,6 +172,7 @@ export function createDragon(scene, def, riderDef) {
   setActiveDetail(modelDetail);
   const result = buildDragonModel(def);
   group = result.group;
+  coronaSpin = group.getObjectByName('eclipseCorona') || null;   // Solar CP3: cache the eclipse ring for the crawl
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
   wingMidL = result.parts.wingMidL || null;
@@ -476,6 +478,10 @@ export function updateDragon(dt, player, time) {
     player.position.y + Math.sin(time * 2.1) * 0.16,
     player.position.z
   );
+
+  // Solar CP3 — the ECLIPSE CRAWLS: the corona rose-window rotates slowly in its own plane (boost
+  // quickens it, Surge flares it). In-plane local-Z spin, so the forward tilt is preserved. Cheap.
+  if (coronaSpin) coronaSpin.rotateZ(dt * (player.feverActive ? 0.5 : player.boosting ? 0.28 : 0.15));
 
   // Asset-backed (GLB) baked-clip flap, if present. The reactive wing flap still
   // runs through the wingRig path below; this only ticks a skinned GLB's own clip.

@@ -813,6 +813,9 @@ export const DRAGONS = {
       // CP2 spectacle ladder (apex reference; forms dial each rung — see forms[] below):
       igniteStage: 3, archRise: 1.0, carpalLance: 2.6, pinionSlots: 2, tailRise: 1.0,
       napeStar: 1, coronaRing: 1, sparTipHeat: 1,
+      // CP3 "Coronation Spend" ladder (spectacle headroom; apex reference):
+      spireTier: 2, coronaGrand: 1, cuirassPlate: 1, rearCirclet: 1, orderStar: 1, pauldrons: 1,
+      buttress: 2, vaultSculpt: 1, scepterOrb: 1,
     },
     forms: [
       // HATCHLING (0) — round princeling, LINEAR glide (no arch), no mantle/gem/corona: a bare
@@ -822,6 +825,7 @@ export const DRAGONS = {
         glowLevel: 0.25, tuskScale: 0, eyeScale: 1.4, headScale: 1.3, hornLen: 0.9, tailSegments: 5,
         igniteStage: 0, archRise: 0, carpalLance: 0, pinionSlots: 0, tailRise: 0, napeStar: 0,
         coronaRing: 0, sparTipHeat: 0,
+        spireTier: 0, coronaGrand: 0, cuirassPlate: 0, rearCirclet: 0, orderStar: 0, pauldrons: 0, buttress: 0, vaultSculpt: 0, scepterOrb: 0,
         colors: { body: 0x0d1018, wingInner: 0x6e2418, wingOuter: 0x4a160e,
           wingEmissive: 0x5a1c10, scales: 0x7a6038, horn: 0x9a7c4a,
           apexSeam: 0x8a6fb0, eye: 0xc8a868, coreGlow: 0xb784ff } },
@@ -832,6 +836,7 @@ export const DRAGONS = {
         glowLevel: 0.5, tuskScale: 0, eyeScale: 1.1, headScale: 1.15, hornLen: 1.25, tailSegments: 7,
         igniteStage: 1, archRise: 0.35, carpalLance: 0.8, pinionSlots: 0, tailRise: 0.4, napeStar: 0,
         coronaRing: 0, sparTipHeat: 0,
+        spireTier: 0, coronaGrand: 0, cuirassPlate: 0, rearCirclet: 0, orderStar: 0, pauldrons: 0, buttress: 0, vaultSculpt: 1, scepterOrb: 0,
         colors: { body: 0x0c1322, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a2414, scales: 0xa88a48, horn: 0xc09a54,
           apexSeam: 0xb784ff, eye: 0xe0bc78, coreGlow: 0xb784ff } },
@@ -843,6 +848,7 @@ export const DRAGONS = {
         glowLevel: 0.75, tuskScale: 0.7, eyeScale: 0.85, headScale: 1.05, hornLen: 1.5, tailSegments: 8,
         igniteStage: 2, archRise: 0.7, carpalLance: 1.8, pinionSlots: 1, tailRise: 0.7, napeStar: 0.6,
         coronaRing: 0, sparTipHeat: 0,
+        spireTier: 1, coronaGrand: 0, cuirassPlate: 1, rearCirclet: 1, orderStar: 1, pauldrons: 1, buttress: 1, vaultSculpt: 1, scepterOrb: 0,
         colors: { body: 0x0a1020, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xd8b25a,
           apexSeam: 0xb784ff, eye: 0xecd090, coreGlow: 0xb784ff } },
@@ -854,6 +860,7 @@ export const DRAGONS = {
         glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 2.1, tailSegments: 9,
         tailLength: 1.3, igniteStage: 3, archRise: 1.0, carpalLance: 2.6, pinionSlots: 2, tailRise: 1.0,
         napeStar: 1, coronaRing: 1, sparTipHeat: 1,
+        spireTier: 2, coronaGrand: 1, cuirassPlate: 1, rearCirclet: 1, orderStar: 1, pauldrons: 2, buttress: 2, vaultSculpt: 1, scepterOrb: 1,
         colors: { body: 0x080b14, wingInner: 0x9c2233, wingOuter: 0x5a160e,
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xddc070,
           apexSeam: 0xb784ff, eye: 0xf4e2a8, coreGlow: 0xb784ff } },
