@@ -518,6 +518,36 @@ Every increment is def-gated data + one consumer; a def without the new field is
 byte-identical (the established LOCK pattern: "neutral at rung 0"). No shipped
 boss's balance moves except where this doc says so.
 
+> **THE FABLE CRITIC GATE (standing rule — owner directive 2026-07-10).** Every PR
+> in this rollout passes an ADVERSARIAL Fable review at two checkpoints, in the
+> repo's BOSS-DESIGN §3b gate tradition — a HARSH critic whose job is to find the
+> flaw, not to approve:
+> - **CP1 — pre-build design critique (BEFORE writing code):** the mechanic/design
+>   approach is handed to a Fable critic to attack — does it fight an existing
+>   system, is the causality sound, does it honor the boss's one read, what's the
+>   balance/fairness/perf risk, what's the anti-read. Code is not written until the
+>   named flaws are answered.
+> - **CP2 — pre-commit critique (AFTER implementation + green gates):** the diff is
+>   handed to a Fable critic to attack — correctness, coexist-safety, the
+>   byte-identical claim for untouched bosses, hidden regressions, and whether it
+>   actually delivers the intended feel (not just passes tests). Findings are fixed
+>   or explicitly dispositioned before commit/merge.
+> The human owner remains the FINAL gate for any LAW change (SCAR-BURN, cap/ROI).
+> The critic advises; it does not approve on the owner's behalf.
+
+> **LIVE STATUS (2026-07-10).** PR0 ✅ merged. PR2a (KNELLGRAVE organs) ✅ merged
+> in PR #349 — KNELLGRAVE is now lance-capable (wound + 2 binds, cap 6, 53
+> volleys-in-band). **NOW BUILDING: PR2b/PR3 — the resonant on-toll release +
+> SCAR-BURN on KNELLGRAVE.** Then PR4 WEFTWITCH → PR5 ONEWING → PR6 EMBERTIDE →
+> PR7 THE UNMASKED → PR8 mid-ladder polish → PR9 elemental loadout.
+> **Learned in PR2a (a reachability LAW for every remaining boss): an organ is
+> only lockable if its WORLD Y ≤ `laneMaxY` (22) across its whole animation — the
+> aim cone tests player-Y vs organ-Y, and the static `lockdpsCore` model has no
+> camera, so it will call an unreachable organ "capable." High/overhead bosses
+> (the World-Enders trend big + high) must place anchors DOWN in the lane; verify
+> per boss in the real engine (`tests/knellorgans.mjs` is the template — sample
+> the full animation and assert the MAX y, not one frame).**
+
 - **PR0 — re-green the gate (housekeeping, blocking). ✅ DONE (commit `36b754d`).**
   `tests/lockdps.mjs` asserted KARNVOW lance-inert but KARNVOW now has trophy
   lockParts; the assertion was corrected (KARNVOW → capable; ASHTALON remains the
@@ -530,17 +560,21 @@ boss's balance moves except where this doc says so.
   REACHABILITY LAW for tiers ≥4 (will be RED-as-TODO for 10–14 until their PRs —
   land it `.skip`-annotated per slot and un-skip as each ships, so the ladder is
   enforced ratchet-style). No behavior.
-- **PR2 — HERO: KNELLGRAVE.** Organs (2 empties + def data) + the toll-beat seam
-  (def-gated `beatOn` source) + resonant-release wiring. Proves the whole thesis
-  on the World-Ender opener: an endgame boss gains real lance utility while its
-  gimmick (rhythm) is AMPLIFIED, not diluted. *Gates: lockdps bands (KNELLGRAVE
-  enters the capable set, ~42 volleys-to-clear in band), lock.mjs, boss.mjs,
-  tricount (zero delta), knellshot/tiershots; owner judges the toll-release feel
-  on the PR preview.*
-- **PR3 — SCAR-BURN.** Config knob (default present but `minTier: 4` means
-  tiers 1–3 byte-identical), `lockLayer`/boss seam for burn ticks, extend
-  `lockdpsCore` + `tests/lockdps.mjs` with the burn invariant (intentional test
-  update, flagged in the PR body). ⚠ owner sign-off on the law before merge.
+- **PR2a — HERO: KNELLGRAVE organs. ✅ MERGED (PR #349).** wound(virtual) + 2 bind
+  restraints on the clapper cuffs → cap 6, 53 volleys-in-band; the bound prisoner
+  stays unpaintable. Regression guard `tests/knellorgans.mjs`. An endgame boss
+  gains real lance utility, purely additively.
+- **PR2b / PR3 — KNELLGRAVE resonant on-toll release + SCAR-BURN. ⏳ IN PROGRESS.**
+  (a) The toll-beat seam: KNELLGRAVE's music is dead (`musicDies` → `getBeatClock`
+  null), so `ctx.beatOn` is fed from the toll clock (def-gated) — a manual release
+  landing ON the toll is the perfect/resonant release. (b) SCAR-BURN config knob
+  (`minTier: 4`, so tiers 1–3 byte-identical) + the `lockLayer`/boss burn-tick
+  seam: an on-tell (perfect) partial release of ≥`burnFloor` pips leaves a burn =
+  `frac × volley` over `dur`; the cap auto-release never burns; deflect pauses the
+  burn (the one-deflect rule). Extend `lockdpsCore` + `tests/lockdps.mjs` with the
+  burn invariant (intentional test update, flagged in the PR body). Distinct hotter
+  audiovisual read (§4f). ⚠ owner sign-off on the burn LAW before merge. *Gates:
+  lockdps bands + burn invariant, lock.mjs, boss.mjs, knellorgans, tricount.*
 - **PR4 — WEFTWITCH.** Hand/scar organs + mend-interrupt consumer in her
   re-weave controller. *Extra gate: the interrupt must never fire during the
   survival-critical mends if any are authored as guaranteed — review with her
