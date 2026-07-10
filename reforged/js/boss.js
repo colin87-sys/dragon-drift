@@ -3441,7 +3441,12 @@ function placeGroup(player, time, dt) {
     // settled square facing (cineYaw≈0) to the full sin-wobble in one frame (L150). Full within ~0.6s.
     fightWobbleT += dt || 0.016;
     const w = Math.min(1, fightWobbleT / 0.6);
-    group.rotation.set(0, Math.sin(time * 0.5) * 0.12 * w, Math.sin(time * 0.9) * 0.08 * w);
+    // §COMFORT: the idle menacing yaw/roll wobble is def-scalable. A flying dragon wobbles;
+    // an ANCHORED loom (WEFTWITCH) shouldn't — and her ±0.12 yaw projects her far-forward
+    // hand organs (HAND_Z 4.6) ~±0.7 world-X toward the ±13 kill wall (the term the palm-comfort
+    // audit missed). Default 1 = byte-identical for every existing boss (coexist no-op).
+    const wob = def.idleWobble ?? 1;
+    group.rotation.set(0, Math.sin(time * 0.5) * 0.12 * w * wob, Math.sin(time * 0.9) * 0.08 * w * wob);
   }
   // GAZE FEED (optional model hook): normalized offset of the player relative to
   // the boss's facing axis, in WORLD axes — placeGroup keeps rotation near-

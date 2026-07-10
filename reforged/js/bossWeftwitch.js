@@ -339,7 +339,7 @@ export function buildWeftwitch(def, quality = 1) {
   // down. A taut thread is strung between them (the charge tell / laserLance).
   const handPivots = {};
   const pointFingers = {};   // the long index finger that points DOWN on notice
-  const HAND_X = 7.4, HAND_Y = 1.6, HAND_Z = 4.6;
+  const HAND_X = 7.0, HAND_Y = 1.6, HAND_Z = 4.6;   // §COMFORT: 7.4→7.0 (world ±9.62→±9.1). FLOOR ~6.8 — below it the palms merge into the mantle (half-width ~6.4 here) and the "oversized hands held WIDE" carrying cue dies.
   function buildHand(side) {
     const sx = side === 'L' ? -1 : 1;
     const pivot = new THREE.Group();
@@ -824,7 +824,13 @@ export function buildWeftwitch(def, quality = 1) {
     for (const side of ['L', 'R']) {
       const sx = side === 'L' ? -1 : 1;
       const hp = handPivots[side];
-      hp.position.x = sx * HAND_X + gazeEX * 3.0 - painEase * sx * 1.2 + sx * cutEase * 2.6 + sx * castK * 3.4;   // track the lane; recoil on hit; thrown APART on a thread-cut; PULLED WIDE on the entrance cast
+      // §COMFORT: the gaze term used to shift BOTH hands toward the player (no sx) — so the NEAR
+      // (chased) palm fled OUTWARD toward the ±13 kill wall as you moved to acquire it (a lock that
+      // runs from you). Cap the near hand's OUTWARD drift to 0.3; the FAR hand still sweeps the full
+      // gaze toward the worked lane (the "she watches you" read survives; the hood/loom still track).
+      const gz = gazeEX * 3.0;
+      const gzHand = Math.sign(gz) === sx ? sx * Math.min(Math.abs(gz), 0.3) : gz;
+      hp.position.x = sx * HAND_X + gzHand - painEase * sx * 1.2 + sx * cutEase * 2.6 + sx * castK * 3.4;   // track the lane; recoil on hit; thrown APART on a thread-cut; PULLED WIDE on the entrance cast
       hp.position.y = HAND_Y + wv * sx + gazeEY * 1.8 + castK * 2.0;   // lifted as she casts the web
       hp.rotation.z = sx * (0.2 + wv * 0.5) - gazeEX * 0.2;
       hp.rotation.y = sx * (0.5 - stillness * 0.2);
