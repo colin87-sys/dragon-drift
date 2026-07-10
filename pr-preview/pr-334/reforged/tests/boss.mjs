@@ -2850,4 +2850,129 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('ENG-D SLIPSTREAM: the stoop grows a drawn wake pocket; riding the wall pays (annulus, not core), a ≥0.8s ride + Surge EXPOSES the hunter (amplified); inert for others ✓');
 }
 
+// §ENG-C4 ORBIT ANNULUS: EITHERWING's figure-eight grows a drawn band about the group centre;
+// co-rotating in the band pays graze ticks (annulus, not core), and a full unbroken lap
+// (|unwrapped Δθ| ≥ 2π) is the jackpot: +1 adrenaline rung + an i-frame pulse. Lap-law analogue
+// of the shipped "annulus + depth-window" gate.
+{
+  const armEitherwing = () => {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('eitherwing'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  const orbitAt = (p, st, phi) => {
+    const r = st.orbR.in + st.orbR.wall / 2;
+    p.position.x = st.poseX + r * Math.cos(phi);
+    p.position.y = st.poseY + r * Math.sin(phi);
+  };
+  // debugRunSetpiece leaves the pose at the stale swayed station until the next tick, then
+  // the eight snaps it to k≈0. Settle 2 frames (player parked at the live centre → no in-band)
+  // so the pose is on the smooth eight before any measurement (a test-harness detail; live, the
+  // band is drawn AT the pose so both move together).
+  const settleEight = (p) => {
+    for (let s = 0; s < 2; s++) { const st = boss.bossDebugState(); p.position.x = st.poseX; p.position.y = st.poseY; boss.updateBoss(1 / 60, p, 2.9 + s / 60); }
+  };
+  // Live only during the eight + in-band ticks ramp + a full lap fires the jackpot.
+  {
+    const p = armEitherwing();
+    assert(boss.bossDebugState().orbActive === false, 'ENG-C4: no orbit band before the eight arms');
+    boss.debugRunSetpiece('figureEight'); settleEight(p);
+    let ticks = 0, laps = 0, rungs = 0, sawInvuln = false, sawActive = false, chargeStart = null;
+    on('orbGraze', () => { ticks++; });
+    on('orbitLap', (e) => { laps = Math.max(laps, e.laps); });
+    on('adrenalineRung', () => { rungs++; });
+    let phi = 0;
+    for (let i = 0; i < 600; i++) {
+      const st = boss.bossDebugState();
+      if (st.orbActive) {
+        sawActive = true;
+        if (chargeStart == null) chargeStart = game.grazeCharge + game.consecutiveRings;
+        phi += 3.0 * (1 / 60);            // ~a lap every 2.1s, inside the 8s window
+        orbitAt(p, st, phi);
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (p.rollInvuln > 0) sawInvuln = true;
+    }
+    assert(sawActive, 'ENG-C4: the orbit band goes live during the figure-eight');
+    assert(boss.bossDebugState().orbActive === false, 'ENG-C4: the band closes when the eight completes');
+    assert(ticks > 0, `ENG-C4: co-rotating in the band pays graze ticks (${ticks} orbGraze)`);
+    assert(laps >= 1, `ENG-C4: a full unbroken lap fires the jackpot (laps=${laps})`);
+    assert(rungs >= 1, 'ENG-C4: the lap advances an adrenaline rung (the ladder ceremony fires the same tick)');
+    assert(sawInvuln, 'ENG-C4: the lap grants an i-frame pulse (rollInvuln > 0)');
+    assert((game.grazeCharge + game.consecutiveRings) > chargeStart, 'ENG-C4: the orbit feeds the graze bank');
+    boss.resetBoss();
+  }
+  // Dead-centre is unpaid AND lap-dead (the parking-exploit kill).
+  {
+    const p = armEitherwing();
+    boss.debugRunSetpiece('figureEight'); settleEight(p);
+    let ticks = 0, laps = 0;
+    on('orbGraze', () => { ticks++; }); on('orbitLap', () => { laps++; });
+    for (let i = 0; i < 240; i++) {
+      const st = boss.bossDebugState();
+      if (st.orbActive) { p.position.x = st.poseX; p.position.y = st.poseY; }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+    }
+    assert(ticks === 0 && laps === 0 && Math.abs(boss.bossDebugState().orbAcc) < 1e-6,
+      `ENG-C4 annulus-not-radius: the dead centre pays nothing and mints no laps (${ticks} ticks, ${laps} laps)`);
+    boss.resetBoss();
+  }
+  // A broken lap does NOT pay: drive a partial arc, bail past the grace, resume another partial
+  // arc — neither side alone is a full 2π, and the break zeroes the accumulator, so no jackpot.
+  // (Arcs kept modest so the one-frame pose-lag drift can't push either side past 2π on its own —
+  // the FULL-lap jackpot is already proven in the first sub-block.)
+  {
+    const p = armEitherwing();
+    boss.debugRunSetpiece('figureEight'); settleEight(p);
+    let laps = 0; on('orbitLap', () => { laps++; });
+    let phi = 0, phase = 0, broke = false;
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.orbActive) {
+        if (phase === 0) {                       // drive ~170° in-band (well under a lap)
+          phi += 3.0 * (1 / 60); orbitAt(p, st, phi);
+          if (phi >= 3.0) phase = 1;
+        } else if (phase === 1) {                // bail far out, let the 0.3s grace lapse (→ orbAcc dies)
+          p.position.x = st.poseX + 12; p.position.y = st.poseY; broke = true;
+          for (let j = 0; j < 30; j++) boss.updateBoss(1 / 60, p, 3 + (i + j) / 60);
+          assert(Math.abs(boss.bossDebugState().orbAcc) < 1e-6, 'ENG-C4 break: bailing past the grace zeroes the accumulator');
+          phase = 2;
+        } else {                                 // resume another ~115° in-band (still no full lap)
+          phi += 3.0 * (1 / 60); orbitAt(p, st, phi);
+        }
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (phase === 2 && phi >= 5.0) break;
+    }
+    assert(broke, 'ENG-C4 break test: the player drove a partial arc then bailed');
+    assert(laps === 0, 'ENG-C4: a lap broken past the grace does NOT pay (accumulator died with the break)');
+    boss.resetBoss();
+  }
+  // Coexist: a non-orbitAnnulus boss never enters the branch even with figureEight forced.
+  {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const vp = makePlayer();
+    let ticks = 0, laps = 0;
+    on('orbGraze', () => { ticks++; }); on('orbitLap', () => { laps++; });
+    boss.forceBoss(vp, BOSS_ORDER.indexOf('voidmaw')); boss.debugForceFight(vp);
+    boss.debugRunSetpiece('figureEight');
+    let phi = 0;
+    for (let i = 0; i < 200; i++) {
+      const st = boss.bossDebugState();
+      phi += 3.0 * (1 / 60);
+      vp.position.x = st.poseX + (st.orbR.in + st.orbR.wall / 2) * Math.cos(phi);
+      vp.position.y = st.poseY + (st.orbR.in + st.orbR.wall / 2) * Math.sin(phi);
+      boss.updateBoss(1 / 60, vp, 2 + i / 60);
+    }
+    const st = boss.bossDebugState();
+    assert(ticks === 0 && laps === 0 && st.orbActive === false && st.orbAcc === 0 && st.slipActive === false,
+      'ENG-C4 coexist: a non-orbitAnnulus boss (voidmaw) never rides/laps (inert branch)');
+    boss.resetBoss();
+  }
+  ok('ENG-C4 ORBIT ANNULUS: the figure-eight grows a drawn band; co-rotating pays ticks + a full lap jackpots (+rung, i-frames); dead-centre/broken-lap unpaid; inert for others ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);

@@ -465,6 +465,11 @@ export const BOSSES = {
     // dread card fires the mirrored SIMULTANEOUS crossfire ("Both Halves at Once").
     // §5i CALL-AND-RESPONSE: the twins alternate A-B phrases; the eye handoff is the
     // baton between them (the rhythm block below authors the alternation).
+    // §5i.B COLOSSI graze (C.4) — ORBIT ANNULUS: co-rotate with the figure-eight inside a
+    // drawn band about the group centre; a full unbroken lap = +1 adrenaline rung + an
+    // i-frame pulse. Inert until the figureEight setpiece runs; the band derives its
+    // centre from the live group pose at runtime (boss.js grazeForm cluster).
+    grazeForm: 'orbitAnnulus',
     setpieces: [
       { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true },                // P2: the pair leaves station, laces the eight
       { id: 'figureEight', atPhase: 2, dur: 7.0, moving: true, dread: true },   // P3: desperation keeps moving (Both Halves at Once)

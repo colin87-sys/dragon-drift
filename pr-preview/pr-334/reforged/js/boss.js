@@ -284,6 +284,7 @@ let beamDuelTick = 0;            // graze-payout tick while centered
 let beamDuelCd = 8;              // cooldown between duels
 let beamDuelMesh = null, beamDuelMat = null;   // the locked beam (crest → ship)
 let slipBandMesh = null, slipBandMat = null;   // §5i.B SLIPSTREAM: the drawn surge-pink wake annulus (built once, hidden)
+let orbBandMesh = null, orbBandMat = null;     // §5i.B ORBIT ANNULUS: the drawn surge-pink orbit band (built once, hidden)
 let condHold = 0;            // seconds the swarm stays CONDENSED past its last shot (bridges the ostinato)
 // §5i.B ABSORB-A-COLOR (THRUMSWARM's Calamities graze, def-gated `grazeForm:'absorbColor'`):
 // the swarm SHEDS surge-pink motes braided into the magenta stream; weaving in and SOAKing
@@ -334,6 +335,12 @@ const SLIP_WALL = 1.5;        // the edge-wall band; graze ticks live in [R_IN, 
 const SLIP_FOLLOW = 4;        // 1/s follower rate — the wake lag (~2.4u at full dive speed)
 const SLIP_K_ON = 0.42;       // pocket LIVE from the dive knee to path end (k in [0.42, 1])
 const SLIP_Y_MIN = 4, SLIP_Y_MAX = 18;   // centre clamp — the full annulus stays reachable
+// §5i.B ORBIT ANNULUS (EITHERWING's Colossi graze, C.4) — fly the figure-eight WITH them.
+let orbAcc = 0;               // unwrapped Δθ accumulator (radians) while band contact is unbroken
+let orbPrevTh = null;         // last frame's atan2 about the pose centre (null = no contact yet)
+let orbLaps = 0;              // laps completed THIS setpiece (debug/ceremony)
+const ORB_R_IN = 3.6;         // safe-core radius — inside is UNPAID + no lap progress (annulus not radius)
+const ORB_WALL = 1.5;         // the band; ticks + θ accrual live in [R_IN, R_IN+WALL)
 let eyeHold = 0;              // §5f slot 8: seconds to KEEP the eye submerged after a strike (so the heavy lid actually closes)
 let lastPlayer = null;       // the player from the last updateBoss (for event-driven mote spawns with no player arg)
 // NO-HIT ADRENALINE LADDER (§5i.B meta spine, global — lands with slot 6).
@@ -722,6 +729,7 @@ function armSetpieceForPhase(idx) {
   setpieceDef = sp;
   setpieceT = 0;
   if (sp.id === 'stoopingStrike') { slipExposeUsed = false; slipRideT = 0; }   // §5i.B SLIPSTREAM: re-offer the exposure per stoop (inert otherwise)
+  if (sp.id === 'figureEight') { orbAcc = 0; orbPrevTh = null; orbLaps = 0; }   // §5i.B ORBIT ANNULUS: fresh accumulator per eight (inert otherwise)
   // §5e/§5f Your Own Wings: snapshot the player's recorded flight path NOW so the copy
   // replays exactly what they just flew (capped to fairness in the path fn).
   if (sp.id === 'yourWings') wingsPath = poseRing.slice(-70);
@@ -1099,6 +1107,24 @@ export function initBoss(sc) {
     scene.add(slipBandMesh);
   }
 
+  // §5i.B ORBIT ANNULUS band (EITHERWING, def.grazeForm==='orbitAnnulus'): a second
+  // surge-pink annulus with its OWN baked radii (3.6–5.1 — a shared mesh could only
+  // uniform-scale, which preserves the ratio not the wall width, so the drawn band would
+  // lie about the paid band). Built once, hidden; only ever shown while the eight runs.
+  {
+    const rg = new THREE.RingGeometry(ORB_R_IN, ORB_R_IN + ORB_WALL, 40);
+    orbBandMat = new THREE.MeshBasicMaterial({
+      color: 0xff4fd0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
+    });
+    orbBandMesh = new THREE.Mesh(rg, orbBandMat);
+    orbBandMesh.name = 'orbBand';
+    orbBandMesh.renderOrder = TIERS.arenaWall;
+    orbBandMesh.frustumCulled = false;
+    orbBandMesh.visible = false;
+    scene.add(orbBandMesh);
+  }
+
   // §5i.B ABSORB-A-COLOR soak motes: ONE additive Points cloud (surge-pink), parked
   // off-screen until a swarm boss sheds into it. One draw, one additive volume.
   {
@@ -1435,6 +1461,7 @@ export function startBossEncounter(player, defOverride) {
   // §5i.B: beam-edge ramp + adrenaline ladder reset per encounter (rung-0 = neutral).
   beamHeld = 0; beamTick = 0; beamGrace = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM ramp/exposure reset
+  orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS accumulator reset
   // CP2 (KARNVOW, all def-gated — inert for every other def): the stat-taunt charm
   // flare, the reveal-hold breaker shot, the reflect-once riposte, hold-until-flinch.
   entranceFlareAt = null; entranceFlareId = null;
@@ -1616,7 +1643,9 @@ function endEncounter(player) {
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
+  orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS: never outlives the fight
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }    // a fight torn down mid-stoop must not strand the ring
+  if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   if (model && model.rig && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky: pull the reparented dome
   // EMBERTIDE-as-sky: HARD-restore the real dome the instant the fight ends. The
   // updateBoss fade-back (active→0) only runs while state==='playing'; a Boss-Rush-final
@@ -2722,6 +2751,53 @@ export function updateBoss(dt, player, time, camera) {
       }
     }
 
+    // ---- §5i.B ORBIT ANNULUS (EITHERWING's Colossi graze, C.4, def-gated) — co-rotate
+    // with the twins' figure-eight inside a drawn band about the group centre. In-band
+    // contact pays ramping ticks (the beamEdge economy verbatim); a full UNBROKEN lap
+    // (|unwrapped Δθ| ≥ 2π) is the discrete jackpot: +1 adrenaline rung + an i-frame
+    // pulse. The band punishes NOTHING; the threat stays the twins' converging volleys.
+    // θ accrues in-band ONLY (a dead-centre wiggle can't farm laps). One grazeForm per
+    // boss; defs without grazeForm==='orbitAnnulus' are inert. ----
+    if (def.grazeForm === 'orbitAnnulus') {
+      const live = setpieceT >= 0 && setpieceDef?.id === 'figureEight';
+      if (live) {
+        const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+        const d2 = dx * dx + dy * dy, rOut = ORB_R_IN + ORB_WALL;
+        const inBand = d2 >= ORB_R_IN * ORB_R_IN && d2 < rOut * rOut;
+        if (inBand || beamGrace > 0) {
+          const th = Math.atan2(dy, dx);
+          if (orbPrevTh != null) {
+            let dTh = th - orbPrevTh;
+            dTh -= Math.round(dTh / (Math.PI * 2)) * Math.PI * 2;   // wrap to (−π, π]
+            orbAcc += dTh;                                          // unwrapped accumulator
+            if (Math.abs(orbAcc) >= Math.PI * 2) {                  // ---- THE LAP ----
+              orbAcc -= Math.sign(orbAcc) * Math.PI * 2;            // keep the remainder (laps chain)
+              orbLaps++;
+              orbitLapJackpot(player);
+            }
+          }
+          orbPrevTh = th;
+        }
+        if (inBand) {
+          beamGrace = 0.3;                                          // bridge a wing-flick across the wall
+          beamHeld += dt; beamTick -= dt;
+          if (beamTick <= 0) {
+            bulletGraze(player);                                    // ticks ride the graze economy
+            emit('orbGraze', { held: beamHeld, acc: orbAcc });
+            beamTick = Math.max(0.18, 0.5 - beamHeld * 0.07);       // the beamEdge ramp verbatim
+          }
+        } else if (beamGrace > 0) { beamGrace -= dt; }
+        else { beamHeld = 0; beamTick = 0; orbAcc = 0; orbPrevTh = null; }   // real break → lap progress dies
+      } else { beamHeld = 0; beamTick = 0; beamGrace = 0; orbAcc = 0; orbPrevTh = null; }
+      // Drive the drawn band: centre at the live pose, player plane; brighter as the ramp climbs.
+      if (orbBandMesh) {
+        const tgt = live ? 0.3 + Math.min(0.3, beamHeld * 0.06) : 0;
+        orbBandMat.opacity += (tgt - orbBandMat.opacity) * Math.min(1, dt * 6);
+        orbBandMesh.visible = orbBandMat.opacity > 0.02;
+        if (orbBandMesh.visible) orbBandMesh.position.set(pose.x, pose.y, -(player.dist + 4));
+      }
+    }
+
     // ---- §5i.C BEAM DUEL (EMBERTIDE's SURGE mechanic, def-gated) — at Surge ≥50% the
     // tide LOCKS a beam on you: a sideways DRIFT tries to shove you off the crest line
     // while you HOLD lane-center (fire INTO the crest). Hold long enough and the duel is
@@ -3022,6 +3098,18 @@ export function syncSkyRig(cam) {
 
 // Unleash Dragon Surge: the hyper (all-reflect + double rider, see updateBoss)
 // AND the shield-breaker. Charged by grazing; fired by the player (Space / tap).
+// §5i.B ORBIT ANNULUS lap jackpot ("+1 level + i-frame pulse") — paid entirely through
+// shipped seams. The rung advance rides the NO-HIT ADRENALINE LADDER's own ceremony:
+// fast-forward the no-hit clock to the next threshold, and the ladder block (same fight
+// tick, below the grazeForm cluster) converts it to a rung with its bossNote/sfx/emit.
+function orbitLapJackpot(player) {
+  if (adrenRung < 5) adrenT = Math.max(adrenT, ADREN_RUNGS[adrenRung]);
+  player.rollInvuln = Math.max(player.rollInvuln, CONFIG.rollInvuln);   // the shipped i-frame field (0.5s), non-stacking
+  ui.bossNote?.('◎ FULL ORBIT ◎', 'FLY THE EIGHT — UNTOUCHABLE', 'gold', 2.0);
+  model.flash?.(0.6); sfx.milestone?.();
+  emit('orbitLap', { laps: orbLaps, held: beamHeld });
+}
+
 function activateSurge(player) {
   game.feverActive = true;
   game.feverTimer = CONFIG.feverDuration;
@@ -4377,7 +4465,9 @@ export function resetBoss() {
   setGrazeBonus(1); game.adrenGainMult = 1;
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM teardown
+  orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS teardown
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }
+  if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   activeBand = BAND;
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
@@ -4532,6 +4622,7 @@ export function debugRunSetpiece(id) {
   setpieceDef = sp;
   setpieceT = 0;
   if (sp.id === 'stoopingStrike') { slipExposeUsed = false; slipRideT = 0; }   // §5i.B SLIPSTREAM: re-offer per stoop (test seam parity)
+  if (sp.id === 'figureEight') { orbAcc = 0; orbPrevTh = null; orbLaps = 0; }   // §5i.B ORBIT ANNULUS: fresh accumulator per eight (test seam parity)
   if (!sp.moving) { attackTimer = Math.max(attackTimer, sp.dur + 1.2); riderTimer = Math.max(riderTimer, sp.dur); }
 }
 
@@ -4600,7 +4691,8 @@ export function bossDebugState() {
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
   const slipActive = def?.grazeForm === 'slipstream' && setpieceT >= 0
     && setpieceDef?.id === 'stoopingStrike' && (setpieceT / (setpieceDef?.dur || 1)) >= SLIP_K_ON;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL } };
+  const orbActive = def?.grazeForm === 'orbitAnnulus' && setpieceT >= 0 && setpieceDef?.id === 'figureEight';
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL } };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
