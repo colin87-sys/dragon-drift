@@ -320,6 +320,81 @@ if (!cp1) {
   ok(ns[0] === 0 && ns[1] === 0 && ns[2] > 0 && ns[2] < ns[3], `${key}: nape-star arrives at Radiant (${ns.join('→')})`);
 }
 
+// ── MOLTEN PHOENIX (SSSR premium, 4 forms) — the CALDERA "living magma" coronation ladder + THE
+// VISIBILITY LAW. Reaches Eternal (own block, not the form-2 SPECS loop). Asserts the caldera ladder
+// WITHHOLDS regalia at the dormant whelp and confers it rung by rung (igniteStage 0→3, the molten
+// heart / fire-primaries / dominant pinion / eruption crest arriving on schedule; the crust SEALS at
+// f0 and opens toward the apex), AND the non-negotiable Lower-Frame Clearance law: no wide/large mass
+// in the rear-chase corridor { y<spine, z>hip } at ANY form (max|x|≤0.6, frontal footprint ≤1.3).
+if (!cp1) {
+  const key = 'phoenixMolten';
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  const per = [];
+  for (let f = 0; f <= maxT; f++) {
+    const def = ascendedDef(DRAGONS[key], f, 0);
+    const { group, parts } = buildDragonModel(def, {});
+    const scale = def.model.scale || 1;
+    group.updateMatrixWorld(true);
+    setFlapDebugPose(parts, def.model, 'glide');
+    group.updateMatrixWorld(true);
+    let tris = 0, nan = 0;
+    // VISIBILITY corridor { y<spineY, z>hipZ } in de-scaled model space (glide pose).
+    const spineY = 0.15, hipZ = 0.5;
+    let cMaxX = 0, cxMin = Infinity, cxMax = -Infinity, cyMin = Infinity;
+    const P = new THREE.Vector3();
+    group.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      const p = o.geometry.attributes.position; if (!p) return;
+      tris += p.index ? p.index.count / 3 : p.count / 3;
+      for (let i = 0; i < p.count; i++) {
+        P.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+        if (!Number.isFinite(P.x) || !Number.isFinite(P.y) || !Number.isFinite(P.z)) { nan++; continue; }
+        const x = P.x / scale, y = P.y / scale, z = P.z / scale;
+        if (y < spineY && z > hipZ) { cMaxX = Math.max(cMaxX, Math.abs(x)); cxMin = Math.min(cxMin, x); cxMax = Math.max(cxMax, x); cyMin = Math.min(cyMin, y); }
+      }
+    });
+    const footprint = cxMax > cxMin ? (cxMax - cxMin) * (spineY - cyMin) : 0;
+    per.push({ m: def.model, parts, tris: Math.round(tris), nan, cMaxX, footprint });
+  }
+  for (let f = 0; f <= maxT; f++) {
+    ok(per[f].nan === 0, `${key} f${f}: no NaN vertices (${per[f].nan})`);   // the invisible-vertex guard
+    ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
+    ok(!!per[f].parts.spinePoints && per[f].parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
+    ok(!!per[f].parts.wingElements && per[f].parts.wingElements.length === 2, `${key} f${f}: 2 wingElements published`);
+    // THE VISIBILITY LAW (unconditional, every form): compact + lower-centre clear.
+    ok(per[f].cMaxX <= 0.6, `${key} f${f}: corridor max|x| ${per[f].cMaxX.toFixed(2)} ≤ 0.6 (no wide lower-centre mass)`);
+    ok(per[f].footprint <= 1.3, `${key} f${f}: corridor frontal footprint ${per[f].footprint.toFixed(2)} ≤ 1.3`);
+  }
+  // motif anchor (the molten heart) present from f1 (withheld MESH at the dormant whelp).
+  for (let f = 1; f <= maxT; f++) ok(!!per[f].parts.motifAnchor, `${key} f${f}: motifAnchor published`);
+  // tris monotonic — every rung bolts on hardware (heart/primaries/crest), not just brightness.
+  ok(per[0].tris < per[1].tris && per[1].tris < per[2].tris && per[2].tris < per[3].tris,
+    `${key}: tris monotonic across the 4 forms (${per.map((p) => p.tris).join(' < ')})`);
+  // ignition ramp 0→3 (the growth currency: dark at the whelp, full at the Empress).
+  const ig = per.map((p) => p.m.igniteStage ?? 3);
+  ok(ig[0] === 0 && ig[0] < ig[1] && ig[1] < ig[2] && ig[2] < ig[3], `${key}: igniteStage monotonic 0→3 (${ig.join('→')})`);
+  // the MOLTEN HEART is withheld at the dormant whelp (heartScale 0) then grows.
+  const hs2 = per.map((p) => p.m.heartScale ?? 1);
+  ok(hs2[0] === 0 && hs2[0] < hs2[1] && hs2[1] < hs2[2] && hs2[2] < hs2[3], `${key}: heart withheld at f0 then grows (${hs2.join('→')})`);
+  // fire-PRIMARIES withheld at f0 (bare crust fan) then grow to the full 7-blade pyre-fan.
+  const pr = per.map((p) => p.m.primaries ?? 7);
+  ok(pr[0] === 0 && pr[0] < pr[1] && pr[1] < pr[2] && pr[2] < pr[3], `${key}: fire-primaries 0→7 monotonic (${pr.join('→')})`);
+  // the DOMINANT PINION (×1.7) + T0 whiteheart are an ETERNAL-only rung.
+  const pd = per.map((p) => p.m.pinionDom ?? 0);
+  ok(pd[0] === 0 && pd[1] === 0 && pd[2] === 0 && pd[3] > 0, `${key}: dominant pinion is f3-only (${pd.join(',')})`);
+  // the eruption CREST (sky-zone glory) is withheld at the whelp then fans open.
+  const cf = per.map((p) => p.m.crestFan ?? 0);
+  ok(cf[0] === 0 && cf[0] < cf[1] && cf[1] < cf[2] && cf[2] < cf[3], `${key}: eruption crest 0→5 monotonic (${cf.join('→')})`);
+  // the wing ARCH (upturn) + chord grow each rung (the silhouette earns its fan).
+  const up = per.map((p) => p.m.upturn ?? 1), ch = per.map((p) => p.m.chordScale ?? 1);
+  ok(up[0] === 0 && up[0] < up[1] && up[1] < up[2] && up[2] < up[3], `${key}: wing upturn monotonic 0→1 (${up.join('→')})`);
+  ok(ch[0] < ch[1] && ch[1] < ch[2] && ch[2] < ch[3], `${key}: wing chord grows each rung (${ch.join('→')})`);
+  // the crust SEALS at the dormant whelp (coverage 1.0) and OPENS toward the apex (more molten seams).
+  const cc = per.map((p) => p.m.crustCoverage ?? 1);
+  ok(cc[0] > cc[1] && cc[1] > cc[2] && cc[2] > cc[3], `${key}: crust seals at f0, opens toward apex (${cc.join('>')})`);
+}
+
 
 console.log(`\nStarter geometry asserts (§7)${cp1 ? ' — CP1 (apex bands)' : ''}: ${pass} passed, ${fail} failed.`);
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
