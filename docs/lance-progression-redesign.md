@@ -211,8 +211,9 @@ fight rule, and each rule is the boss's own hook spoken in lance grammar.
   strike on the beat.
 - P4 (The Last Toll) is the survival card: sealed, honest ashen reticle, zero
   lance — unchanged, correct.
-- **Utility math:** phase spans 144/120/96 → perfect full-set volley ≈ 14.4/12/9.6
-  clamped, +50% burn ⇒ ~15% of each phase per toll-perfect volley. From 0% today.
+- **Utility math:** phase spans 144/120/96 → full-set volley ≈ 14.4/12/9.6
+  clamped; on-tell burn frac 0.25 ⇒ +~2.5% of a phase (≈12.5% of the volley),
+  scaling down for partial releases. From 0% today.
 
 **Rung 11 — WEFTWITCH (she re-weaves what you break).** *The volley gets a JOB.*
 - **Organs:** `handL`, `handR` (new empties at the two working spinneret-arm
@@ -231,7 +232,7 @@ fight rule, and each rule is the boss's own hook spoken in lance grammar.
   The lance becomes lane preservation — utility beyond the HP bar, aimed squarely
   at the thing that makes this fight hers. DPS unchanged on top (chip + burn).
 - **Utility math:** spans 114/114/114/94/83 → volley clamps to ~10% everywhere;
-  +burn ⇒ ~15% per full-cap release. From ~0% (V1-only) today.
+  on-tell burn frac 0.30 ⇒ +~3% per full-set release. From ~0% (V1-only) today.
 
 **Rung 12 — ONEWING (the fled twin; it mirrors your last dodge).** *The Eitherwing
 payoff.* The player painted this exact eye at rung 5.
@@ -242,25 +243,39 @@ payoff.* The player painted this exact eye at rung 5.
 - **Fair windows:** the RUBATO's held wind-ups and denied downbeats are long
   telegraphs = paint windows; the eye is the easy anchor; the ghost volley's
   ambers (already parryable per `ghostHalf`) are the V4 snap route onto the frame.
-- **The ONE new rule — THE ECHO-PIP:** branding the LIVING eye also lays a
-  spectral twin pip on the fused frame (ghost-pale `ghostColor` marker, no dwell
-  cost, counts toward cap, renders its own brand — no phantom pips). Two halves
-  of the broken whole, made lance grammar: your pips arrive in pairs, and time-to-
-  cap roughly halves — the endgame generosity is the boss's own grief. Coupling:
-  breaking the fused frame (the existing trade — removes the ghost volley but
-  ENRAGES tempo) also kills the echo anchor (`dropLockPart`); keeping the ghost
-  alive keeps your economy. A real strategic choice, both ways honest.
-- **Utility math:** spans ~119/119/119/97/86 → clamped volley ≈ 10%, +burn 15%,
-  reached ~2× as fast as any other Tier-4 boss. From 0% today.
+- **The ONE new rule — THE ECHO-PIP (SPECTRAL, revised per feasibility §8B):**
+  branding the LIVING eye also lays a spectral twin pip on the fused frame
+  (ghost-pale `ghostColor` marker, no dwell cost, renders its own brand — no
+  phantom pips). Two halves of the broken whole, made lance grammar: your pips
+  arrive in pairs. BUT the ghost is spectral — it strikes at **0.5× damage
+  (`echoDmgMult`), leaves NO scar/burn, and does not count toward `burnFloor`** —
+  because a free full-strength ghost per paint doubles throughput and, combined
+  with on-tell partial releases, turns ONEWING's smaller late phases into a
+  phase-deleter (the balance snag §8B/§8C catches). "The dead twin answers, but
+  lighter." Coupling: breaking the fused frame (the existing trade — removes the
+  ghost volley but ENRAGES tempo) also kills the echo anchor (`dropLockPart`);
+  keeping the ghost alive keeps the extra (half-strength) pips. A real strategic
+  choice, both ways honest.
+- **Narration (owner: "won't be obvious without some narration"):** every time an
+  eye-mark echoes, a paler twin mark lights on the dead twin's frame with a brief
+  connecting pulse so the pairing reads; plus two one-time hint lines in the game's
+  existing lock-teach idiom — "THE DEAD TWIN ANSWERS / YOUR FIRST MARK ECHOES ONTO
+  ITS FRAME" on the first echo, and "ONLY THE FIRST MARK ECHOES" the instant a
+  second mark does not echo (new `saveData.flags.echoTaught` gate alongside
+  `lockTaught`/`snapTaught`).
+- **Utility math:** spans ~119/119/119/97/86 → clamped volley ≈ 10%, +burn ~15% on
+  a full on-tell set; echoes reach cap faster but at half strength, so the phase
+  stays above its card timer (§8C). From 0% today.
 
 **Rung 13 — EMBERTIDE (a wall of light; the read is the BEAM DUEL).** *Paint the
 darkness; feed the beam.* Formally retires the stale "slot 13 lockMuted" intent.
 - **Organs — the dark negative-relief features surfacing in the bright field**
   (the sanctioned value-inversion, now applied to the lance: jade brands pinned
-  as dark-halo marks in light): `eyeHollowL`, `eyeHollowR` (new empties on
-  `faceRig`), `mouthNotch` (named), and `leashNotch` (named — the lore scar that
-  points at slot 14; branding it is the player touching the lore web).
-  `virtualLockOrgan: 'faceRig'`. Reachable: (4+1)×2 = 10 ≥ 6 ✓.
+  as dark-halo marks in light): `eyeHollow0`, `eyeHollow1`, `mouthNotch`, and
+  `leashNotch` (the lore scar that points at slot 14; branding it is the player
+  touching the lore web) — **all four already exist as named nodes in the model,
+  plus `faceRig`; no new empties needed** (feasibility §1e/§8F). `virtualLockOrgan:
+  'faceRig'`. Reachable: (4+1)×2 = 10 ≥ 6 ✓.
 - **Fair windows:** the face-relief organs are live only while the face is
   SURFACED — the rung-8 `eyeOrgan` surfacing-gate pattern generalized to a list
   (`surfaceOrgans`). Reuse, not a new rule. The leashNotch rides crest passes.
@@ -298,14 +313,19 @@ CP2"); this plan is that CP2, shaped.
     `relicSpool` (Weftwitch), `relicShard` (Knellgrave) — the KARNVOW trophy
     lesson quoted at the top of the lore web. Branding a relic flashes that
     boss's palette + a one-note quote of its theme (pure presentation).
-  - **THE RECKONING (collection mechanic, presentation + economy):** brand all
-    five relics at least once during stage 2 → stage 3's full-cap releases burn
-    at `scarBurnFrac` 1.0 instead of 0.5 (§4d). Every eye across the wings snaps
-    to the player when the fifth relic takes — the reveal-hold screenshot, earned
-    by the lance.
+  - **THE RECKONING (collection mechanic, presentation + economy — retuned per
+    owner to ~1/3, §8D):** brand all five relics at least once during stage 2 →
+    THE RECKONING *unlocks* the finale burn: stage 3's on-tell releases go from NO
+    burn to `scarBurnFrac` **0.20** (not the old 1.0 — that made the perfect-lance
+    player ~52% of clear pace; 0.20 lands ~31.5%, a hair under a third by design).
+    Every eye across the wings snaps to the player when the fifth relic takes — the
+    reveal-hold screenshot, earned by the lance. The finale still owns the biggest
+    RAW numbers in the game (the huge form-bar makes its volleys the largest
+    anywhere); its "peak" feel is spectacle + absolute size, not a dominating share.
 - **Stage 3 — the unveiling (phases:[2]):** everything converges: `starEye`, the
-  `halo` anchor, `wingRootL`/`wingRootR` relic-root empties. Full-cap on-beat
-  releases into the unveiled core are the game's peak lance expression.
+  `halo` anchor, `wingRootL`/`wingRootR` relic-root empties. On-tell releases
+  into the unveiled core (post-RECKONING, burning at frac 0.20) are the game's
+  peak lance expression.
 - **Fair windows:** stage rhythm is the roster's most SPACIOUS (the medley's
   stillness — restLo 1.2–2.7s); eyes track with lag and are caught at wing-idle
   turnarounds; relics are fixed at wing-roots (easy); the survival honesty rules
@@ -313,10 +333,12 @@ CP2"); this plan is that CP2, shaped.
 - **Utility math (the headline):** `formLifebars` ⇒ `currentPhaseHp()` returns the
   full 240 form bar, so the ROI ceiling is 24 and **the clamp never bites at the
   finale** — the lance is purely skill-limited. Base full set 12 (5% of a form),
-  on-beat 15 (6.25%), +burn 22.5 (~9.4%), RECKONING-perfect 30 (**12.5% of a form
-  bar per volley**). Four to six perfect volleys ≈ half a form. At boss 4 a volley
-  was 6 HP (2% of hpMax); at the finale a perfect volley is 30 HP. The system the
-  player has mastered for thirteen fights is, at last, loud.
+  on-beat 15 (6.25%), and post-RECKONING an on-tell release burns at frac 0.20 →
+  +3 burn = 18 (**7.5% of a form bar per volley**); across the fight that is
+  ~31.5% of clear pace (~1/3, the owner's target — §8D), NOT the ~52% the old
+  frac 1.0 produced. At boss 4 a volley was 6 HP (2% of hpMax); at the finale an
+  on-tell volley is 18 HP into the largest bars in the game. The system the player
+  has mastered for thirteen fights is, at last, loud — without dominating.
 
 ---
 
@@ -337,33 +359,42 @@ CP2"); this plan is that CP2, shaped.
 
 ### 4b. The ONE new law — SCAR-BURN ⚠ (owner sign-off required)
 
-> **OWNER DECISION (2026-07-10): the burn is EARNED, not automatic, and its size
-> tracks how HARD the timing is. It is gated behind a PERFECT release (a full cap
-> loosed on the boss's own tell — on-beat / at the crest / at the handoff), and
-> the burn fraction RAMPS across the endgame: gentle on the openers, the big 15%+
-> payoff reserved for the final boss.** The owner's note verbatim: "15% is a lot…
-> but for the final boss maybe." So a sloppy release still does today's chip; only
-> a well-timed one bites, and it bites hardest exactly where the timing is hardest.
+> **OWNER DECISION (2026-07-10, REVISED — supersedes the "perfect full-cap"
+> framing; see feasibility §8A for the full derivation): the burn is earned by a
+> DELIBERATE MANUAL loose fired ON the boss's tell (the toll, the crest, the beat),
+> at WHATEVER charge you are holding above a floor of `burnFloor` (3) painted pips.**
+> You choose: fire a partial charge on the tell to get the burn, or bank longer for
+> a bigger plain volley that AUTO-FIRES with no burn (the safe fallback). The
+> boss's tell — not your charge state — drives the timing, so the window is as wide
+> as the player wants. This fixes the owner's objection that a "full-cap perfect
+> release" is a razor-thin ~1s window AND that the beat-aligned cap auto-release
+> already lands on-beat for free (it would un-earn the burn). The burn fraction
+> still RAMPS by boss; the big payoff stays at the finale.
 
-> **`scarBurn: { minTier: 4, perfectOnly: true, dur: 3.0, fracBySlot: { knellgrave: 0.25, weftwitch: 0.30, onewing: 0.35, embertide: /* via beam, §band-4 */, unmasked: 1.0 } }`**
-> — a PERFECT full-cap release on a tier ≥4 boss leaves burning brands on the
-> struck organs: an extra `frac × volleyTotal` paid over `dur` seconds as visible
-> burn ticks (reuse the crack-tick presentation channel; damage on scheduled frames).
-> A non-perfect release does NOT burn (it is today's plain volley).
+> **`scarBurn: { minTier: 4, onTellOnly: true, burnFloor: 3, echoDmgMult: 0.5, dur: 3.0, fracBySlot: { knellgrave: 0.25, weftwitch: 0.30, onewing: 0.35, embertide: /* via beam fork — no burn */, unmasked: 0.20 } }`**
+> — a manual ON-TELL loose of ≥ `burnFloor` pips on a tier ≥4 boss leaves burning
+> brands on the struck organs: an extra `frac × volleyTotal` paid over `dur`
+> seconds as visible burn ticks (reuse the crack-tick presentation channel; damage
+> on scheduled frames). The cap AUTO-release never burns; a non-tell loose is
+> today's plain volley. (`onTellOnly` means "fired on the tell," NOT "full cap.")
 
 Why this shape:
 - **The reward tracks the difficulty of the timing** (owner directive). The
   window that triggers the burn is each boss's signature tell — KNELLGRAVE's toll
   beat, WEFTWITCH's re-weave, the finale's RECKONING. Harder tell → bigger burn.
-  The opener asks for an easy-ish on-beat and pays +2.5% of a phase; the finale
-  asks for a perfect set on stage 3 and pays the showcase number.
+  The opener asks for an easy-ish on-beat and pays ~+2.5% of a phase; the finale
+  the showcase number.
+- **It reuses an existing release path** (the manual `tap`/`requestLoose` seam) —
+  it is actually LESS code, not a new subsystem (feasibility §8A).
 - **It is additive and band-gated.** Tiers 1–3 are byte-identical — the shipped
   mid-game balance (bosses 4–9) does not move at all.
 - **It preserves the ROI LAW instead of raising it.** The instantaneous volley
-  still clamps at 10%; the burn is bounded per-boss, peaking at 0.5× the
-  (already-clamped) volley on the pre-finale bosses (≤15% total) and rising to
-  1.0× only at the Apex RECKONING. New invariant for `lockdpsCore`/`tests/lockdps.mjs`:
-  `burn ≤ scarBurn.frac × volley` per boss (and `volley + burn ≤ (1 + frac) × roiCeil`).
+  still clamps at 10%; the burn is bounded per-boss (frac 0.20–0.35 across the
+  endgame, ≤+~15% of a phase on a full-set on-tell release, scaling DOWN for
+  partial releases). Per-pip damage stays capped, so spamming small on-tell
+  releases yields the SAME damage-per-second as banking big — no runaway (§8A/§8C).
+  New invariant for `lockdpsCore`/`tests/lockdps.mjs`: `burn ≤ scarBurn.frac(boss)
+  × volley` and `volley + burn ≤ (1 + frac) × roiCeil`.
 - **It rewards exactly the thing the endgame organs enable** — full sets loosed on
   the beat — so mastery (complete the set, release on the tell) is what grows, not
   raw numbers. A player who ignores timing sees no change from today.
@@ -393,11 +424,13 @@ On a `formLifebars` boss, `currentPhaseHp()` returns the FULL form bar (240), so
 the ROI ceiling (24) exceeds any raw volley (≤15 on-beat) — **the clamp never
 bites at the finale by construction.** This is an existing property of the
 shipped code, not a change; this plan treats it as the intended crescendo and
-adds THE RECKONING on top: `scarBurnFrac` 0.5 → 1.0 for stage 3 after all five
-relics are branded (perfect volley = 15 + 15 burn = 30 = 12.5%/form-bar).
-Sign-off should confirm both halves (the quirk-as-feature and the 1.0 burn).
+adds THE RECKONING on top (RETUNED to ~1/3 per owner, §8D): branding all five
+relics UNLOCKS the stage-3 burn from NONE to `scarBurnFrac` **0.20** (on-tell
+release = 15 + 3 burn = 18 = 7.5%/form-bar), landing the perfect-lance player at
+~31.5% of clear pace — a hair under a third, so the finale never creeps up.
+Sign-off should confirm both halves (the quirk-as-feature and the 0.20 unlock).
 
-### 4e. The resulting trajectory (perfect full-cap release, % of current phase)
+### 4e. The resulting trajectory (full-set ON-TELL release, % of current phase)
 
 ```
 boss    1-3   4    5    6     7    8     9    10      11      12      13     14
@@ -407,7 +440,8 @@ plan    0*    6%   5.4% 10%   5%   9%    9%   12.5%   13%     13.5%†  ‡     
 \* V1 utility only (rate +15%, exposure ticks). Endgame numbers are the PERFECT
 full-cap release (a sloppy release stays at today's plain clamp — no burn). The
 burn RAMPS by difficulty (owner directive): opener +2.5% → 12,13 higher →
-finale RECKONING the showcase. † reached ~2× faster (echo-pips). ‡ EMBERTIDE
+finale RECKONING the showcase. † reached faster via SPECTRAL echo-pips (half
+damage, no scar — §8B). ‡ EMBERTIDE
 converts pips into beam-duel seconds via the fork rather than a burn volley. A
 curve that now rises to the finale instead of cresting at boss 6 — and only for
 players who earn the timing.
@@ -484,11 +518,10 @@ Every increment is def-gated data + one consumer; a def without the new field is
 byte-identical (the established LOCK pattern: "neutral at rung 0"). No shipped
 boss's balance moves except where this doc says so.
 
-- **PR0 — re-green the gate (housekeeping, blocking).** `tests/lockdps.mjs` is
-  RED on master: it asserts KARNVOW is lance-inert but KARNVOW now has trophy
-  lockParts. Update the roster assertions (KARNVOW → capable; ASHTALON remains
-  the named V1-only example). No behavior. *Gate: lockdps + lock + boss suites
-  green; `node tools/lockdps.mjs --ci` clean baseline recorded.*
+- **PR0 — re-green the gate (housekeeping, blocking). ✅ DONE (commit `36b754d`).**
+  `tests/lockdps.mjs` asserted KARNVOW lance-inert but KARNVOW now has trophy
+  lockParts; the assertion was corrected (KARNVOW → capable; ASHTALON remains the
+  named V1-only example). Baseline `node tools/lockdps.mjs --ci` green.
 - **PR1 — the ladder is data.** This doc lands; add `lockRole` to every def
   (`v1Teach | v1Pressure | v1Mover | paintTeach | sweepExam | movingSet |
   destructible | timingException | splitEcology | parrySnap | resonant |
@@ -523,7 +556,22 @@ boss's balance moves except where this doc says so.
   destructible relics) hasn't landed yet, split: eyes first, relics+RECKONING
   ride the relic PR.
 - **PR8 — mid-ladder polish.** MARROWCOIL P1 rib gating; THRUMSWARM
-  `decayPauseWhileHidden`; KARNVOW snap-attribution. Small, independent, last.
+  `decayPauseWhileHidden`; KARNVOW snap-attribution. Small, independent.
+- **PR9 — ELEMENTAL LOADOUT (owner design-direction, §8E; Phase-2).** A per-dragon
+  `lanceEffect` field beside the existing `lanceTint`/`lanceRune` (today cosmetic
+  only), unlocked at a dragon's Eternal/top form via the existing grind economy.
+  Ship three: **Standard** (universal on-tell burst — what the free Azure Drake
+  and every un-ascended dragon flies), **Ember** (the SCAR-BURN reframed as the
+  DOT element's signature), **Frost** (a short boss-slow — the one Yellow-risk
+  item: needs a new boss-tempo hook). Element = a build choice at the roost;
+  per-boss organs + on-tell timing stay the in-fight skill (clean division of
+  labor, no added in-fight complexity). ⚠ Gated on Standard passing the reformed
+  not-a-phase-deleter invariant AND a new **iso-budget** per-element invariant
+  (§8E): every element delivers the SAME total on-tell budget as Standard —
+  reshaped in time or traded for utility, never more raw damage — and the free
+  starter on Standard must clear the entire game. Grinding buys STRATEGY, never
+  power; progression never sits behind a purchase. Comes AFTER the per-boss ladder
+  is built and proven.
 
 Per-PR verification, always: `tests/lockdps.mjs`, `tests/lock.mjs`,
 `tests/boss.mjs`, `node tools/lockdps.mjs --ci`, `tricount`, `tiershots`; feel is
@@ -556,12 +604,22 @@ judged by the human on the PR preview (CLAUDE.md rule 4). Each PR adds its
   the mechanic, or the balance tool silently under-reports the endgame lance.
 - **`formLifebars` ROI quirk (§4d):** confirm the finale's clamp-free volleys are
   intended (recommended: yes — it IS the crescendo).
-- **Owner sign-off needed on:** (1) SCAR-BURN (§4b — the one new law; effective
-  per-volley ceiling 10%→15% at T4+, and the invariant/test change);
-  (2) EMBERTIDE fork→beam feed (§3 rung 13 — touches the Surge ladder boundary,
-  audit ED-8) plus formally retiring the slot-13 `lockMuted` intent;
-  (3) ONEWING echo-pip (§3 rung 12 — pips granted without dwell) and THE
-  RECKONING's 1.0 burn at the Apex (§4d).
+- **Thin-margin phases (measure in-game, §8C):** WEFTWITCH P5 (~1.08×) and
+  ONEWING P5 (~1.04×) clear only just above their card timers under ideal
+  perfect-lance play — named GO gates on PR4/PR5 (confirm with the headless
+  lance-persona + a real playthrough before merge).
+- **Elemental combinatorial surface (§8E):** per-dragon effects mean EVERY
+  dragon × boss combo must stay in the fair band. Tamed by the iso-budget rule
+  (every element = Standard's total budget, reshaped) + a new per-element
+  invariant; PR9 is gated on it. Frost's boss-slow hook is the one new subsystem.
+- **Owner sign-off needed on:** (1) SCAR-BURN as an on-tell PARTIAL release
+  (§4b/§8A — the one new law; effective per-volley ceiling ≤+15% at T4+, and the
+  invariant/test change); (2) EMBERTIDE fork→beam feed (§3 rung 13 — touches the
+  Surge ladder boundary, audit ED-8) plus formally retiring the slot-13
+  `lockMuted` intent; (3) ONEWING SPECTRAL echo-pip (§3 rung 12 — half-damage,
+  no-scar granted pips + the narration beat) and THE RECKONING's **0.20** finale
+  burn (~1/3 of clear pace, §4d/§8D); (4) the elemental/per-dragon direction as a
+  Phase-2 PR9 (§8E).
 - **Open lore question:** branding EMBERTIDE's `leashNotch` touches the 13→14
   leash thread — does the brand deserve a one-line note card ("EVEN THIS WAS
   LEASHED") the first time it takes? Cheap, big lore payoff; owner call.

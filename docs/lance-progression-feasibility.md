@@ -5,6 +5,16 @@ Status: ANALYSIS (no code). Pressure-tests `docs/lance-progression-redesign.md`
 (same date) against the live code, the real `lockdps` economy table, and the
 test/tool suite, so the eventual implementation cannot break the game.
 
+> **⚠ READ THE ADDENDUM FIRST (§8, owner follow-up 2026-07-10).** Four owner
+> decisions land after this doc's first pass and SUPERSEDE parts of §1a, §2c,
+> §3a, and §4-finale: SCAR-BURN is redesigned from "perfect full-cap release"
+> into a **deliberate on-tell PARTIAL release** (the owner correctly caught that
+> the full-cap window is a razor-thin ~1s and partly free); the ONEWING echo
+> needs **half-damage ghost pips** as a balance brake + a narration beat; the
+> finale burn drops to **frac 0.20** (~1/3 of clear pace, not 1/2); and a new
+> **elemental / per-dragon lance** direction is assessed. Where §8 and the
+> earlier sections disagree, §8 wins.
+
 Ground truth verified today, on this tree (`36b754d`):
 
 - `node tools/lockdps.mjs --ci` → exit 0. `node tests/lockdps.mjs` → 5 checks green.
@@ -625,3 +635,328 @@ Cheapest real proof that endgame lance is fun AND balanced: **PR2+PR3 on
 KNELLGRAVE** — one boss, one new law at its gentlest setting, the full
 verification spine online, and every later PR is then data + one consumer
 walking through gates that already exist.
+
+---
+
+## 8. ADDENDUM — owner follow-up (2026-07-10)
+
+Four decisions from the owner after the first pass. §8A–D supersede the noted
+earlier sections. All numbers below re-derived against the live spans; the
+arithmetic is shown inline and was checked with a throwaway model script
+(reproduced in the commit notes). Gates re-run green after these edits
+(`node tools/lockdps.mjs --ci` → 0, `node tests/lockdps.mjs` → 0); these are
+design changes to be implemented later, not code changes now.
+
+### 8A. SCAR-BURN is redesigned: a deliberate ON-TELL PARTIAL release (supersedes §1a, §2a-b)
+
+**The owner's objection is correct and it kills the original shape.** Re-reading
+the release paths in `lockLayer.js`:
+
+- `requestLoose()` → `looseReq` → `releaseVolley(ctx,'tap')` — the manual loose.
+- The cap fuse → `releaseVolley(ctx,'cap')` — the AUTO release, ~`capFuse` 1.0s
+  after you hit cap.
+- `onBeat = source==='tap' && !!ctx.beatOn` — **the perfect path already fires at
+  ANY pip count**, not only full cap; there is no `full` requirement in the code.
+- `tapVolleyMinLocks` 2 — the manual-loose floor (enforced at the boss tap seam).
+
+So "perfect = on-beat at full cap" gave the player only the ~1s window between
+hitting cap and the auto-release to nail the beat — and my own note (d) flagged
+that the beat-aligned cap auto-release already lands on-beat for free. It was
+never a real, learnable skill window. **Drop the full-cap requirement entirely.**
+
+**The mechanic (the owner's partial-release frontrunner, adopted):**
+
+> **SCAR-BURN fires on a DELIBERATE manual loose timed to the boss's tell, at
+> whatever charge you currently hold above a floor.** Trigger:
+> `source==='tap' && ctx.beatOn && paintedPips ≥ burnFloor`. The burn =
+> `frac × (painted-pip share of the fired, ROI-clamped, beat-boosted volley)`,
+> paid over `dur` as ticks (the crack-tick channel). The **cap auto-release
+> (`source==='cap'`) NEVER burns** — it stays the safe, no-skill fallback: bank
+> to cap, do nothing, it fizzles out as today's plain volley. So the decision is
+> real and player-owned: *fire a partial charge ON the tell for the scar, or bank
+> longer for a bigger base volley that auto-releases with no scar.* The boss's
+> tell (not your cap state) is the timing driver, and the window is as wide as you
+> want — you choose when to commit.
+
+This is LESS code than the original: it reuses the existing `onBeat` path in
+`releaseVolley` verbatim; the only additions are the `paintedPips ≥ burnFloor`
+gate and the burn schedule (still homed in `boss.js` per §1a). `beatOn` is null
+headless, so determinism is still free by construction.
+
+**burnFloor = 3, and it counts PAINTED pips only** (granted echo pips, §8B, do
+NOT count toward it). Rationale: (a) "half a charge" of a 6-cap reads as a
+committed strike, matching the owner's "releasing half a charge" mental model;
+(b) counting painted-only makes the floor echo-proof (you cannot shortcut to a
+burn on free ghost pips). Below the floor → today's plain volley, no burn.
+
+**Does partial-release break the not-a-phase-deleter bar? (the owner's exact
+worry: more frequent smaller burns could out-DPS a full-cap burn.)** In the
+unclamped small-pip regime, per-pip damage is capped at `lanceDmg×beatMult` = 2.5
+and per-pip time is `dwell+cd` = 0.57s, so **partial-release DPS is
+pip-count-independent** — 1-pip spam and 4-pip releases give the same
+`2.5(1+frac)` per pip. Skipping the capFuse makes manual partial ~13% faster per
+pip than full-cap auto — real, but bounded. The magnitude invariants (burn ≤
+frac×volley; total ≤ (1+frac)×ROI ceil) still hold for ANY release size, since
+every volley is ROI-clamped and burn scales the painted share.
+
+The cadence guard needed reformulating (§8C) because the frictionless 0.57s/pip
+ideal condemns even the shipped game (a frictionless manual-tap player already
+"deletes" KNELLGRAVE P3 with no burn — proof the ideal is the wrong yardstick).
+At a **realistic 1.35 s/pip** (plan §4c's 7–8 s per 6-cap cycle under fire), the
+optimal on-tell partial-burn lance-only clear stays above every card timer:
+
+```
+KNELL f0.25:  P1 62.2s/24  P2 51.8/26  P3 41.5/26  P4 51.8/30    (min ratio 1.60)
+WEFT  f0.30:  P1 47.5/26   ...         P4 38.9/28  P5 34.6/32     (min ratio 1.08, P5)
+ONEWING f0.35 (echo, half-ghost): P1 42.3/24 ... P4 34.6/28 P5 31.1/30 (min 1.04, P5)
+shipped base f0 calibration: every phase ≥1.5× its timer (lance stays a fraction)
+```
+
+WEFT P5 (1.08) and ONEWING P5 (1.04) are the tightest — positive, but thin; they
+are the theoretical frictionless exploits and become the PR4/PR5 persona-
+measurement GO gates.
+
+**burnFloor teach:** a new `burnTaught` save flag + a one-line hint the first time
+the player lands an on-tell partial burn on KNELLGRAVE (the first burn-capable
+boss), riding the existing `on('lockVolley')` `p.perfect` branch in `boss.js`
+(~L4424, which already shows "♪ ON THE BEAT ♪"): extend it to "SCARRED — LOOSE
+ON THE TOLL" the first time `p.perfect && p.burned`.
+
+### 8B. ONEWING echo needs half-damage ghosts + a narration beat (supersedes §2c, §3c-T-E1)
+
+**Echo-first-only is APPROVED, but partial-release (§8A) retroactively makes the
+approved echo dangerous.** A free ghost pip per eye-paint = 2 pips for one dwell;
+in a manual-partial world you can paint the eye, fire, repeat — double throughput
+on ONEWING's small late phases (P4 97, P5 86). Verified: a FULL-damage ghost is a
+phase-deleter even at frac 0.15 (ONEWING P5 clears in 23.3s < 30s timer), and
+even with ZERO burn the free-pip acceleration alone sits at the timer.
+
+**The single load-bearing brake: granted (echo) pips are SPECTRAL — they deal
+`echoDmgMult` = 0.5× lance damage and contribute NO burn** ("the ghost strikes,
+but lighter; only your own brands scar"). With half-ghost + floor-counts-painted,
+ONEWING **keeps its planned frac 0.35** and every phase passes (P5 ratio 1.04).
+This is thematically perfect (a ghost is a lesser echo) and a small kernel touch:
+mark granted pips (`lk.granted`), scale their `dmg` by `L.echoDmgMult` in
+`releaseVolley`, exclude them from the burn base and the floor count. It preserves
+the plan's ONEWING identity — pips still arrive in pairs, time-to-cap still
+roughly halves for the auto-release path — just at half the ghost's bite.
+
+**The narration beat (owner: "won't be obvious without some narration").** Two
+layers, both in the game's established idiom:
+
+- **Every-time diegetic tell (not a teach — the legibility that makes the pairing
+  readable each time):** when the eye-paint grants the ghost, draw the ghost mark
+  in `ghostColor` (ghost-pale, the plan's spec) with a brief one-shot tether
+  pulse eye→frame (the existing `tetherOpacity` line-class FX, §config) that fades
+  in ~0.4s. The `lockPaint` BRAND POP already fires a jade burst on the painted
+  organ (`boss.js:4405`); add a paired, dimmer ghost-pale burst on `frameRim` on
+  the same event when `p.granted` — so the eye lights, and a paler twin lights on
+  the frame, unmistakably paired, on every echo.
+- **One-time teach (the two rules, once each), via a new `echoTaught` flag on the
+  `on('lockPaint')` handler (the exact `lockTaught`/`snapTaught` pattern at
+  `boss.js:4399`):** first eye-echo on ONEWING → `ui.bossNote('THE DEAD TWIN
+  ANSWERS', 'YOUR FIRST MARK ECHOES ONTO ITS FRAME', 'gold', 2.6)`. The "only the
+  FIRST mark echoes" rule teaches itself by absence the moment the player stacks
+  the eye and sees no second ghost — but reinforce it once: when the player paints
+  a SECOND eye pip and no echo fires, a one-shot `'ONLY THE FIRST MARK ECHOES'`
+  sub-note (gated by the same flag so it shows at most once). Keep it to these two
+  lines; no wall of text.
+
+Unit test additions (extend §3c T-E1): granted pip renders a marker at the
+frame's world pos with `life`/`ghost` set (rule 11, no phantom); granted pip's
+lance `dmg === 0.5 × a painted pip's` in the same volley; granted pip does NOT
+count toward `burnFloor` (a 2-pip eye+ghost on-tell tap does NOT burn); a second
+eye stack grants NO further ghost; `dropLockPart('frameRim')` on frame-break
+removes the ghost + its marker.
+
+### 8C. The reformed NOT-A-PHASE-DELETER invariant (supersedes §3a invariant 8)
+
+Replace the ideal-cadence full-cap invariant 8 with a **realistic-cadence,
+optimal-partial-release** guard. Add a labeled MODELING constant to
+`lockdpsCore.mjs` (NOT `config.js` — it is a balance-tool assumption, not a game
+LAW): `const REALISTIC_PER_PIP = 1.35;` (documented against plan §4c; calibrated
+so every SHIPPED phase clears lance-only in ≥1.4× its card timer, and the
+endgame in ≥1.0×). The predicate, per phase, searches the fastest lance-only
+clear over painted-pip counts and asserts it does not beat the card timer:
+
+```js
+// echo grants 1 spectral ghost (0.5× dmg, no burn) once painted ≥ 1.
+function fastestLanceClear(phaseHp, sbFrac, cap, def, LOCK) {
+  const beatCap = LOCK.lanceDmg * LOCK.beatMult;      // 2.5
+  const roi = LOCK.volleyRoiFrac * phaseHp;
+  const echo = !!def.echoPips, floor = LOCK.burnFloor ?? 3;
+  const gMul = LOCK.echoDmgMult ?? 0.5;
+  let best = 0;
+  for (let painted = 1; painted <= cap; painted++) {
+    const granted = echo ? 1 : 0;
+    if (painted + granted > cap) break;
+    const vol  = Math.min(painted * beatCap + granted * beatCap * gMul, roi);
+    const burn = painted >= floor ? sbFrac * Math.min(painted * beatCap, roi) : 0;
+    best = Math.max(best, (vol + burn) / (painted * REALISTIC_PER_PIP));
+  }
+  return best > 0 ? phaseHp / best : Infinity;
+}
+// in invariantBreaches, per phase i:
+const t = cardTimer(def, i);
+if (t && fastestLanceClear(p.phaseHp, sbFrac, p.capPips, def, LOCK) < t - eps)
+  out.push(`${e.id} phase ${i+1}: fastest lance-only clear < card timer ${t}s (phase-deleter)`);
+```
+
+This single predicate now catches BOTH the partial-burn frequency exploit AND the
+echo free-pip exploit, and it PASSES for the recommended tuning (KNELL 0.25 /
+WEFT 0.30 / ONEWING 0.35 with echo half-ghost / UNMASKED 0.20). The magnitude
+invariants (4/5) and the REACHABILITY law (7) are unchanged. New config lints:
+`burnFloor 3`, `echoDmgMult 0.5`, `echoPips` set only on onewing.
+
+### 8D. Finale retuned to ~1/3 (supersedes §4d / §2d finale note)
+
+Owner: "1/3 for now for the final boss." My finding was frac 1.0 → ~1/2. On the
+`formLifebars` finale, `currentPhaseHp` returns the full 240 form bar, ROI ceil
+24, an on-beat volley ≤ 15 (6 pips × 2.5, never clamps). Lance realistic DPS =
+`beatCap × (1+frac) / REALISTIC_PER_PIP`; stage-3 required pace = 240/34 =
+7.06 HP/s. Solving for a ~1/3 share:
+
+```
+frac   lance dps   share of pace   full-cap on-tell volley (% of 240 form)
+0      1.85        26.2%           15.0  (6.3%)   <- base, no burn
+0.20   2.22        31.5%           18.0  (7.5%)   <- RECOMMENDED
+0.22   2.26        32.0%           18.3  (7.6%)
+1.00   3.70        52.4%           30.0  (12.5%)  <- old plan value (~1/2)
+```
+
+**`fracBySlot.unmasked = 0.20`** → ~31.5% of clear pace (a hair under a third,
+deliberately, so the finale never creeps). THE RECKONING now UNLOCKS the burn at
+the finale (pre-collection stage 3 = no burn, ~26% base share; brand all 5 relics
+→ frac 0.20 → ~31.5% + the all-relics-ignite spectacle). The finale still has the
+game's biggest ABSOLUTE volley numbers (the 240 form bar makes on-tell volleys
+the largest anywhere) — the "peak" reads through the spectacle (§4f) and the raw
+numbers, not through a dominant share. All endgame bosses stay in the sane band
+(base volleys 42/50/50/52/60 unchanged — partial release is a player choice, not
+the modeled baseline) and pass the reformed invariant (§8C).
+
+### 8E. Elemental wyrmfire types / per-dragon lance effects (owner design-direction)
+
+**How pre-wired it is (verified):** `js/dragons.js` already gives each dragon
+`lanceTint` (color) + `lanceRune` (wisp/mark shape). These are **cosmetic-only
+and gated to the ETERNAL form** (`formLevel ≥ 3`, the paid ascension tier —
+`wispTintFor`/`lanceRuneFor`, dragons.js:1603), with an explicit code comment:
+"damage is a separate arg, so a tint can never change behaviour." Consumers:
+`boss.js:4317` (wisp color), `reticle.js`/`main.js` (mark rune). The mechanical
+volley (`lanceDmgEach`) is uniform across all dragons today. **A `lanceEffect`
+data field slots in right next to `lanceTint`/`lanceRune`, at the same
+Eternal-form gate** — the hook is already the right shape. The grind economy
+exists too: R free (Azure Drake, cost 0) → SSSR 6000 ember, plus the `ascension.js`
+5-tier mastery ladder + Radiance prestige.
+
+**1) Thesis fit — ENRICHES, if the division of labor is clean.** The per-boss
+axis (organs + on-tell timing) is the SKILL layer of a single fight; the
+per-dragon element is the BUILD/loadout layer chosen at the roost BEFORE the
+fight. They are orthogonal: *element = what your volley DOES; per-boss organs +
+timing = how well and WHEN you land it.* "Which dragon do I bring to THIS boss"
+is exactly the meta-question that adds replay without adding in-fight cognitive
+load (you pick once, not mid-fight — the one-puzzle-read law is untouched). It
+fragments only if elements change the in-fight read; keep them to volley SHAPE,
+never a second mechanic to track.
+
+**2) Burn relationship — COMPLEMENT with a clean split (do not fully replace).**
+The tempting move is "burn = the DOT element," but that regresses the base game:
+a player on the free Azure Drake would then get NO endgame escalation — the exact
+flatline the plan set out to fix. The clean split:
+
+- **The on-tell TIMING (§8A) stays universal and orthogonal** — it is the
+  skill gate that makes your element PROC. Any element benefits from a perfect
+  on-tell release.
+- **STANDARD (the default, every dragon at form < 3 and every dragon without a
+  `lanceEffect`) gets the universal earned escalation as a bigger on-tell
+  BURST** — this is the SCAR-BURN budget I designed (§8A numbers), relabeled as
+  Standard's instantaneous version. The free dragon still gets "the lance finally
+  bites."
+- **ELEMENTS reshape that same budget** at the Eternal tier: DOT/Ember spreads it
+  over time (my burn ticks — better vs organs that stay exposed, worse vs quick
+  phase flips); Frost trades part of it for a slow (utility, not DPS). **Same
+  total budget, different shape.** So the SCAR-BURN mechanic + numbers I designed
+  become the substrate; "elements" is a later re-shape of the identical budget
+  across dragons — minimal rework.
+
+**3) Feasibility per element:**
+- **STANDARD (bigger on-tell burst):** GREEN — it is §8A, relabeled; seam exists.
+- **EMBER / DOT (the burn ticks):** GREEN/YELLOW — the burn subsystem I'm already
+  designing (§1a) IS this element.
+- **FROST (slow):** YELLOW — needs a boss-side tempo debuff (scale `attackTimer`
+  / per-phase `cadence` / `bulletSpeed` for ~1.5s on an on-tell release). The
+  levers exist and are moddable, but there is no debuff system today; it MUST be
+  inert during survival cards (the seal owns the tempo) and must never reduce the
+  HP-gate pace (the slow is dodging relief, not a DPS win). Watch the one-read law
+  — keep the slow short and subtle so it doesn't reframe the fight's felt tempo.
+- **ASTRAL / CHAIN (a second organ hit):** YELLOW/RED — needs multi-target volley
+  routing; defer past the first element set.
+
+**4) Balance — the iso-budget rule collapses the combinatorial surface.** Per-
+dragon effects mean every dragon × boss × phase must stay in-band, which is a
+blow-up — UNLESS elements are ISO-BUDGET SIDEGRADES. The design rule:
+
+> **Every element delivers ≤ the STANDARD on-tell budget in total effect,
+> redistributed in TIME (DOT) or traded for UTILITY (Frost) — never more total
+> DPS. The FREE Azure Drake flying STANDARD must clear every boss inside every
+> card timer, and no boss's fair band may depend on any element.**
+
+Then the combinatorial explosion collapses to two provable facts: (a) STANDARD is
+safe (the reformed §8C invariant already proves this), and (b) each element ≤
+STANDARD budget (a new per-element invariant: `Σ element_value ≤ standard_value`
+per boss/phase). Every element × boss combo passes by construction. Grinding
+another dragon then buys STRATEGY (a better-shaped tool for a given boss), never a
+power tier, and progression NEVER gates behind a purchase — the Eternal-form gate
+means elements are a LATE mastery reward you earn AFTER beating the game on
+Standard, which reinforces "worth grinding" without pay-to-win.
+
+**5) Recommendation — ship it, but as a PHASE-2 feature AFTER the per-boss ladder
+lands.** The per-boss ladder (PRs 2–7) must exist and be balance-proven before a
+per-dragon MULTIPLIER on it is meaningful; folding elements in now multiplies the
+balance surface before the base axis is validated. Concrete shape when it ships:
+
+- A `lanceEffect` field on each dragon def, next to `lanceTint`/`lanceRune`, at
+  the `formLevel ≥ 3` gate (mechanical effect + cosmetic tint arrive together at
+  the top of a dragon's growth — the mastery payoff).
+- **Three elements to start:** STANDARD (all form<3 / no-effect dragons — the
+  universal on-tell burst), EMBER/DOT (the warm-tint line — Ember/Phoenix
+  `phoenixFlame`/`solarCrown`), FROST (the cold-tint line — `nightFang`/
+  `seraphWing` sky-blues). A 4th (Astral chain) later.
+- **Taught** the first time an Eternal dragon lands an on-tell release: a one-line
+  note naming its element ("EMBERWYRM — YOUR SCARS BURN" / "FROSTWYRM — THE SKY
+  SLOWS"), same one-time-flag idiom as §8B.
+- **Rollout slot:** a new **PR9 (Elemental loadout)** after PR7, gated on the
+  §8C invariant being green for STANDARD across all bosses first, plus the new
+  iso-budget per-element invariant. NOT in the endgame-ladder PRs.
+
+### 8F. Plan-doc (`docs/lance-progression-redesign.md`) edits required
+
+Apply these so the plan and this feasibility pass stay coherent:
+
+1. **§4b (SCAR-BURN law):** rewrite the trigger from "a PERFECT full-cap release"
+   to "a deliberate manual ON-TELL loose at ≥ `burnFloor` (3) painted pips; the
+   cap auto-release never burns (safe fallback)." Add `burnFloor: 3` and
+   `echoDmgMult: 0.5` to the `scarBurn` config block; keep `perfectOnly` meaning
+   "on-tell only," not "full-cap only."
+2. **§3 rung 10 utility math:** the stale "+50% burn ⇒ ~15%/phase" line — replace
+   with the ramped/partial numbers (frac 0.25 ⇒ ~12.5% of a full-cap on-tell
+   release; partial releases scale down).
+3. **§3 rung 12 (ONEWING):** add that granted (echo) pips are spectral — 0.5×
+   damage, no scar, don't count toward the burn floor — and the two-line
+   narration beat (§8B). Keep frac 0.35.
+4. **§3 rung 13 (EMBERTIDE):** fix the organ names — the model already has
+   `eyeHollow0`/`eyeHollow1` (not `eyeHollowL/R`), `mouthNotch`, `leashNotch`,
+   `faceRig`; no new empties needed.
+5. **§4b `fracBySlot`:** `{ knellgrave: 0.25, weftwitch: 0.30, onewing: 0.35,
+   embertide: (via beam, no burn), unmasked: 0.20 }`. Note the ramp is NOT
+   monotonic by design — ONEWING's echo boosts throughput, so its burn frac is
+   not lifted further; EMBERTIDE converts via the fork.
+6. **§4d (Apex exception / RECKONING):** change 0.5→1.0 to "RECKONING UNLOCKS the
+   burn: stage-3 goes from no burn to `frac 0.20`," yielding ~1/3 (not ~1/2) of
+   clear pace. State the finale share target explicitly as ~1/3.
+7. **§6 rollout:** strike PR0 (already done, commit `36b754d`); add **PR9
+   (Elemental loadout)** after PR7 as the per-dragon `lanceEffect` phase, gated on
+   Standard passing the reformed not-a-phase-deleter invariant + a new iso-budget
+   per-element invariant.
+8. **§7 risks:** add the two thin margins (WEFT P5 1.08, ONEWING P5 1.04) as
+   named PR4/PR5 persona-measurement GO gates, and the elemental combinatorial
+   surface (tamed by the iso-budget rule, §8E).
