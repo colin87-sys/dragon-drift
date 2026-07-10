@@ -306,3 +306,38 @@ parts are not shadowed by the inference for the new key. Roster stays byte-ident
   Round-0 self-audit reseated the gorget (breast chevron, was an oversized neck lozenge) + broadened
   the train into a full "empress robe" fan. TODO (owner-gated, motion): wire the approved `trainSpread`
   fold/fan animation beat; owner motion/feel review on the live preview.
+- **2026-07-10 — RICHNESS PASS (owner: "too simple").** Added organized detail RANKS (all dark facet
+  relief, coal-doctrine safe): shingled wing coverts + creased/barbed primaries + alula + scapulars;
+  train inner under-rank (doubled coal constellation) + peacock vane-eyes + root skirt; neck ruff,
+  flank/breast shingles, dorsal plumes, copper talons; radiant crest + nape mantle + inset eye. Apex
+  ~2.4k tris. Fable 4.00→4.17.
+- **2026-07-10 — THE GLOW-UP (owner: "too basic for an Eternal grind reward"; distill Solar's
+  epicness).** A high-effort Fable pass distilled Solar's majesty principles and applied them
+  Phoenix-natively. See the FIVE new DOCTRINE laws below; apex ~2.3k tris. Fable 3.92 → 4.00 →
+  **4.67 PASS (Eternal-worthy)** across three gate rounds — the decisive fix was rebuilding the
+  Dawn Fan in the FRONTAL plane so the rays radiate a wide ~162° sunrise-burst (they were rolled
+  around the aft axis, collapsing into a narrow rearward tassel). "A coal-dark empress dragging a
+  golden sunrise behind her."
+
+## GLOW-UP DOCTRINE (added 2026-07-10 — the Solar-principles → Phoenix application)
+
+Distilled from what makes Solar read as a majestic king, translated to the empress without copying
+his ring/arch/violet:
+
+1. **Frame-share law for the hero.** At chase distance the TRAIN must span ≥1.5× the torso's rear-view
+   width and ~⅓ of the frame height — it is her dominant set-piece (Solar's corona-ring equivalent, but
+   NOT a ring). The fan outline must be SHAPED (a lyre / ray-burst: center-peak + a secondary shoulder
+   swell + outer horn-curl), never a flat broom. Assert quill-length is non-monotonic across the sector.
+2. **Jewelry-not-armor gold.** A two-tier rose-gold → bright-gold METALLIC DIFFUSE with a deep-amber
+   emissive floor (anti-olive; Solar's plate trick). Gold appears ONLY as jewelry forms — the
+   train-clasp brooch, gem collets/bezels, the pectoral collar, the tiara, the wing spar, the keel
+   rails — never plate armor (that is Solar's register). It is precious-metal MASS that catches the sun,
+   NOT new emissive. The +30% chord (Risk #1 fallback) is EXERCISED and now canon.
+3. **Scale-hierarchy law (import from Solar CP2).** Every repeated rank (wing primaries, train quills,
+   crest, shingles) carries ONE dominant element + geometric decay — the wing's terminal "empress
+   pinion" (~1.7×), the fan's center ray — never a picket fence of equals. Light follows the same
+   hierarchy: consolidate the wing fire into two long burning crescent strokes, not per-feather dashes.
+4. **Jewel-setting law.** Every gem reads ≥8px at chase distance and is SET in a gold bezel/collet at
+   ~0.9× its carrier's length (Solar's welded-gem law). Floating/sub-pixel gems ("confetti") are a fail.
+5. **Crown-echoes-train motif.** The radiant tiara is a miniature ray-burst of the Dawn Fan — one
+   grammar, two anchors (crown above, train below), both read by the rear cam.
