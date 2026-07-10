@@ -961,12 +961,19 @@ export const BOSSES = {
     // read; that rule is inviolable (§3b sheet in BOSS-DESIGN.md §5d).
     archetype: 'weftwitch',
     muzzle: 'loomHeart',      // she emits from the loom-heart at the hub (emitter = organ, §5f law 7 / L148)
-    // LANCE V1 aim anchor (the karnvow lesson, PR #258: lockCandidates() returns only
-    // lockParts + virtualLockOrgan — a def naming neither loses the whole aim/lock verb).
-    // The organ IS the anchor (ashtalon muzzle-as-anchor precedent): the loom-heart is
-    // always emitting, always under fire, never a free rest-beat paint. V2 lockParts
-    // (per-spinneret brands?) are a CP2+ decision.
+    // LANCE (§5i rung 11 — the arena-weaver joins the endgame ladder; docs/lance-
+    // progression-redesign.md §3). V1 aim anchor = the loom-heart (the karnvow lesson,
+    // PR #258: lockCandidates() returns only lockParts + virtualLockOrgan; the organ IS
+    // the anchor, ashtalon muzzle-as-anchor precedent — always emitting, always under
+    // fire, never a free rest-beat paint). V2 paint targets = her two weaving HANDS
+    // (`palmL`/`palmR` — her §4b face AND her weapons, emitter=organ). The web-arm scar
+    // is NOT a lock organ: the anti-spider "no limb below horizontal" law puts the whole
+    // crown above laneMaxY 22 (weftScar world y ~24) — unaimable (§CP1 pre-audit; the
+    // PR2a reachability LAW). loomHeart(virtual) + 2 palms = 3 targets × stackMax 2 = 6 =
+    // tier cap (the KNELLGRAVE shape). The 'volley tears / she mends' rule + V4 parry-snap
+    // ride a follow-up increment (each behind its own critic gate).
     virtualLockOrgan: 'loomHeart',
+    lockParts: [{ part: 'palmL' }, { part: 'palmR' }],
     accent: 0xe8c466,         // WARM PALE-GOLD woven-thread (Decision C — pushed OFF the WE rose-triple). Hue ≈43°,
                               // far clear of danger-magenta's 327–357° reserved band; saturated enough to HOLD its
                               // hue under bloom (bossgate G3 attribution — a paler gold washed to white). Resolves

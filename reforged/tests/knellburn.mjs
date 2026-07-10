@@ -82,5 +82,5 @@ check(`the burn PAUSES while shielded (pending held ${paused.p0.toFixed(2)} → 
   paused.p0 > 0 && Math.abs(paused.p1 - paused.p0) < 1e-6);
 
 check('no console errors through the knellgrave burn run', errors.length === 0) || console.error(errors.join('\n'));
-console.log('\nknellgrave SCAR-BURN verification passed.');
+console.log(process.exitCode ? '\nknellgrave SCAR-BURN verification FAILED.' : '\nknellgrave SCAR-BURN verification passed.');
 await done();
