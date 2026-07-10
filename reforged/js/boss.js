@@ -349,12 +349,15 @@ let orbPrevTh = null;         // last frame's atan2 about the pose centre (null 
 let orbLaps = 0;              // laps completed THIS setpiece (debug/ceremony)
 const ORB_R_IN = 3.6;         // safe-core radius — inside is UNPAID + no lap progress (annulus not radius)
 const ORB_WALL = 1.5;         // the band; ticks + θ accrual live in [R_IN, R_IN+WALL)
-// §5i.B SHRINKING SAFE DISC (KNELLGRAVE's WE graze, C.7) — toll-ring pockets.
+// §5i.B TOLL-WALL DISC (KNELLGRAVE's WE graze, C.7-proper) — the bell's spiral toll
+// radiates an EXPANDING ring-wall; ride its rim from inside, bail before it crosses.
+// (Pre-C.7 this was the iris's SHRINKING safe middle; the toll flip inverted it —
+// §ENG-H. The label `shrinkDisc` is kept; its meaning is now the wall's TIME shrinking.)
 let discAge = 0, discDur = 0; // pocket clock: age counts up; dur 0 = no pocket
-let discR = 0, discR0 = 0;    // live drawn/paid radius; this pocket's start radius
-let discX = 0, discY = 0;     // pocket centre — the iris volley's baked (cx, cy)
-let discTollN = 0;            // pocket-opening tolls THIS PHASE (the shrink-schedule key)
-const DISC_R_END = 3.8;       // the iris terminal radius: rad 10 × (1 − contract 0.62)
+let discR = 0, discR1 = 0;    // live drawn radius (GROWS 0 → discR1); this toll's TERMINAL wavefront radius (where the wall crosses the player plane)
+let discX = 0, discY = 0;     // pocket centre — the spiral toll's origin (the swinging bellMouth)
+let discTollN = 0;            // pocket-opening tolls THIS PHASE (the emit-payload + re-offer accounting key)
+const SPIRAL_OUT_SPD = 9;     // the spiral bullets' outward lateral speed — the wavefront radius is SPIRAL_OUT_SPD·t, so drawn == wavefront is a construction identity (§ENG-H §3b)
 const DISC_WALL_FRAC = 0.30;  // the paid rim = [R·(1−frac), R) — PROPORTIONAL (unit-ring scale)
 let discCd = 0;               // §5i.B: arm cooldown — pockets don't stack every toll (less frequent, less busy)
 // §5i.B GRAZE REWARD BANDS — shared look for slipstream/orbit/disc so the three read as ONE
@@ -504,6 +507,27 @@ const SETPIECE_PATHS = {
     }
     const t = easeInOut((k - 0.82) / 0.18);
     return { x: 0, y: LOW_Y + (HIGH_Y - LOW_Y) * t, rel: NEAR + (B.settleGap - NEAR) * t };
+  },
+  // KNELLGRAVE — PENDULUM SWEEP (§5c WE "pendulum sweeps across the lane"; C.7 ENG-H):
+  // three widening arcs about an unseen yoke far above the frame — the lastToll grammar
+  // turned sideways. A real pendulum read: lowest + nearest + fastest mid-crossing, high
+  // + far + slow at the extremes (x and the y/rel dip phase-locked through arc = 1 − ph²).
+  // MOVING — the P4 kit keeps firing: stream pours from the crossing bellMouth (emitOrigins,
+  // per tick), movingGap's safe lane LOCKS opposite the bob (gapAnchor scale, §ENG-B), aimed
+  // rides the muzzle (resolveEmitOrigin). Counter-verb: READ THE SWING — be where the bell
+  // is not; the mirrored lane says where that is. NO dread flag (the skyOpen ratchet is the
+  // Last Toll's alone); the swing-widen comes from the model's sweepK hook instead.
+  pendulumSweep(k) {
+    const B = CONFIG.BOSS;
+    const env = k < 0.30 ? easeInOut(k / 0.30) : k > 0.86 ? easeInOut((1 - k) / 0.14) : 1;
+    const ph = Math.sin(k * Math.PI * 6);   // three full arcs = six lane-crossings
+    const arc = (1 - ph * ph) * env;        // 0 at the extremes → 1 at each bob nadir
+    return {
+      x: ph * 14 * env,                     // the ±14 sweep — off-lane at the extremes (the §5c WE contract)
+      y: 20 - 9 * arc,                      // yoke-high 20 at the ends → 11 crossing (mouth ≈ 12.6, mid-band)
+      rel: B.settleGap - 18 * arc,          // 30 → ~12 at each nadir (the crossing comes AT you; ≥12 keeps ~0.55s flight)
+      roll: -ph * 0.16 * env,               // hangs INTO the arc (the chain points at the unseen yoke)
+    };
   },
   // The crossing pass: sweep out wide, rise, close in, and drift straight
   // across the lane OVER the player (hands spread via model.setSetpiece) —
@@ -1532,7 +1556,7 @@ export function startBossEncounter(player, defOverride) {
   beamHeld = 0; beamTick = 0; beamGrace = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM ramp/exposure reset
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS accumulator reset
-  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC reset
+  discAge = 0; discDur = 0; discR = 0; discR1 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC reset
   gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP reset
   // CP2 (KARNVOW, all def-gated — inert for every other def): the stat-taunt charm
   // flare, the reveal-hold breaker shot, the reflect-once riposte, hold-until-flinch.
@@ -1717,7 +1741,7 @@ function endEncounter(player) {
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS: never outlives the fight
-  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC: never outlives the fight
+  discAge = 0; discDur = 0; discR = 0; discR1 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC: never outlives the fight
   gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP: never outlives the fight
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }    // a fight torn down mid-stoop must not strand the ring
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
@@ -2904,21 +2928,22 @@ export function updateBoss(dt, player, time, camera) {
       }
     }
 
-    // ---- §5i.B SHRINKING SAFE DISC (KNELLGRAVE's World-Ender graze, C.7, def-gated) —
-    // toll-ring pockets: each iris toll opens a drawn disc at the volley's own centre,
-    // shrinking with the contracting ring-walls; riding the RIM (annulus, not radius —
-    // the dead centre is safe but UNPAID) pays ticks that ESCALATE as the disc closes;
-    // the pocket DIES on the last ring's beat (bail: commit inside, or thread out through
-    // the wall). The form punishes NOTHING — the threat stays the iris bullets. One
-    // grazeForm per boss; defs without grazeForm==='shrinkDisc' are inert. ----
+    // ---- §5i.B TOLL-WALL DISC (KNELLGRAVE's World-Ender graze, C.7-proper, def-gated) —
+    // each SPIRAL toll radiates an EXPANDING ring-wall from the bell mouth: a drawn disc
+    // GROWS from 0 out to the wavefront's crossing radius. Riding the RIM from inside
+    // (annulus, not radius — the dead centre stays safe but UNPAID) pays ticks that
+    // ESCALATE as the crossing nears; the pocket DIES on the beat the wall reaches you
+    // (bail: one step INWARD, always safe, or thread out through the wall). The form
+    // punishes NOTHING — the threat stays the spiral bullets. One grazeForm per boss;
+    // defs without grazeForm==='shrinkDisc' are inert. (§ENG-H toll flip.) ----
     if (def.grazeForm === 'shrinkDisc') {
       if (discCd > 0) discCd = Math.max(0, discCd - dt);         // the arm cooldown ticks down every frame
       const live = discDur > 0 && setpieceT < 0 && !shielded;   // holdFlinch's gate discipline
       if (live) {
         discAge += dt;
-        if (discAge >= discDur) { discDur = 0; discR = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // THE LAST BEAT
+        if (discAge >= discDur) { discDur = 0; discR = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // THE LAST BEAT (the wall reaches the plane)
         else {
-          discR = discR0 + (DISC_R_END - discR0) * (discAge / discDur);   // the shrink (linear, rings-honest)
+          discR = discR1 * (discAge / discDur);                 // the GROWTH (linear from 0 — drawn == the SPIRAL_OUT_SPD·t wavefront)
           const dx = player.position.x - discX, dy = player.position.y - discY;
           const d2 = dx * dx + dy * dy, rIn = discR * (1 - DISC_WALL_FRAC);
           if (d2 < discR * discR) {
@@ -2928,7 +2953,7 @@ export function updateBoss(dt, player, time, camera) {
               if (beamTick <= 0) {
                 bulletGraze(player);                            // the payout rides the graze economy
                 emit('discGraze', { r: discR, held: beamHeld, toll: discTollN });
-                beamTick = Math.max(0.16, discR * 0.075 - beamHeld * 0.04);   // ESCALATING: interval ∝ radius
+                beamTick = Math.max(0.14, (discDur - discAge) * 0.30 - beamHeld * 0.03);   // ESCALATING: interval ∝ TIME-TO-CROSSING (richest as the wall lands)
               }
             }
           } else if (beamGrace > 0) { beamGrace -= dt; }
@@ -3335,10 +3360,14 @@ function updateGapThreadRows(dt, player) {
 
 // §5i.B SHRINKING SAFE DISC (C.7): open a toll-ring pocket at the iris volley's baked centre.
 // A named helper so C.7-proper (iris→bellMouth spiral) re-arms from ONE call site, not a redesign.
-function armDiscPocket(cx, cy, dur, r0) {
+// §ENG-H: arm a TOLL-WALL pocket at the spiral toll's origin (the bell mouth). The wall
+// GROWS from 0 out to r1 (the wavefront's crossing radius = SPIRAL_OUT_SPD · dur) over
+// `dur` seconds, so drawn == wavefront by construction. discR starts at 0 (there is no
+// start radius any more — the shrink schedule is retired, §ENG-H §3b).
+function armDiscPocket(cx, cy, dur, r1) {
   discX = cx; discY = cy; discAge = 0; discDur = dur;
-  discR0 = Math.max(r0, DISC_R_END + 0.4); discR = discR0;
-  emit('discPocket', { toll: discTollN, r0: discR0 });
+  discR1 = Math.max(r1, 3); discR = 0;
+  emit('discPocket', { toll: discTollN, r1: discR1 });
 }
 
 function activateSurge(player) {
@@ -3571,7 +3600,10 @@ function resolveGapAnchor(id) {
   }
   if (x == null && typeof spec.x === 'number') x = spec.x;      // fixed-x author / part fallback
   if (x == null) return null;                                   // nothing resolvable → shipped
-  return x + (spec.offset ?? 0);
+  // §ENG-H: `scale` (multiplicative, applied before `offset`) lets a lane MIRROR an organ
+  // instead of tracking it — knellgrave's movingGap gap sits opposite the swinging bell
+  // (scale −0.36). Default 1 → every shipped descriptor is byte-identical.
+  return x * (spec.scale ?? 1) + (spec.offset ?? 0);
 }
 
 // Solve the lateral velocity that puts a bullet on a target point as it closes,
@@ -3792,12 +3824,31 @@ function executeAttack(id, player) {
     }
   } else if (id === 'spiral') {
     // Instant radial burst: bullets fly OUTWARD from the boss as they close.
+    // §C.7 (§ENG-H): a def may opt the radial's origin onto an organ (emitOrigins.spiral)
+    // — the toll radiates FROM the bell. NEVER-WHIFF fallback (resolveReflectTargets'
+    // semantics, NOT ENG-A's SKIP): the def.musicDies toll block rang the bell on this same
+    // frame, so a bullet-less toll would break audio-fairness — an unresolvable organ falls
+    // back to emitOrigin (def.muzzle, pose-backed), never a skipped volley. Un-opted defs
+    // take anchorX, byte-identical. (One declared origin → os[0]; knellgrave declares
+    // exactly one bellMouth, so the bullet count never multiplies.)
+    const os = resolveEmitOrigins('spiral', player);
+    const o = os ? (os[0] ?? { x: emitOrigin.x, y: emitOrigin.y, rel: emitOrigin.rel }) : null;
+    const scx = o ? o.x : anchorX, scy = o ? o.y : B.fightHeight, srel = o ? o.rel : pose.rel;
     const n = quality < 0.75 ? 8 : 11;
     spiralPhase += 0.6;
     const slow = closing * 0.78;
+    // §5i.B TOLL-WALL arm — MOVED here from the iris branch (§ENG-H toll flip): the wall
+    // GROWS from the bell mouth. dur = time-to-crossing (srel/slow); r1 = the wavefront's
+    // radius at that crossing (SPIRAL_OUT_SPD·dur). Gated off during setpieces/shield/cd.
+    if (def?.grazeForm === 'shrinkDisc' && setpieceT < 0 && !shielded && discCd <= 0) {
+      discTollN++;
+      discCd = 1.6;   // §5i.B: a breather between pockets — one wall at a time (and the Cracked Peal's 2nd toll can't double-arm, §ENG-H)
+      armDiscPocket(scx, scy, srel / slow, SPIRAL_OUT_SPD * (srel / slow));
+    }
     for (let i = 0; i < n; i++) {
       const a = spiralPhase + (i / n) * Math.PI * 2;
-      emitBoss(anchorX, B.fightHeight, Math.cos(a) * 9, Math.sin(a) * 9, -slow);
+      if (o) emitBoss(scx, scy, Math.cos(a) * SPIRAL_OUT_SPD, Math.sin(a) * SPIRAL_OUT_SPD, -slow, false, null, 1, null, srel);
+      else   emitBoss(anchorX, B.fightHeight, Math.cos(a) * SPIRAL_OUT_SPD, Math.sin(a) * SPIRAL_OUT_SPD, -slow);
     }
   } else if (id === 'tunnel') {
     // A succession of bullet-RINGS rushing at you — a glowing tube to fly down,
@@ -3971,15 +4022,9 @@ function executeAttack(id, player) {
     // envelope; resolved ONCE here (not per-ring) so the volley's rings stay concentric.
     const gax = resolveGapAnchor('iris');
     const cx = gax != null ? Math.max(-8, Math.min(8, gax)) : anchorX, cy = B.fightHeight;
-    // §5i.B SHRINKING SAFE DISC (C.7): an iris toll opens a pocket — the volley's own
-    // contracting safe middle, drawn and paid. Def-gated; inert for every other def. Gated
-    // off during the Last Toll ride (the survival exam stays pure dodge) and while shielded.
-    if (def?.grazeForm === 'shrinkDisc' && setpieceT < 0 && !shielded && discCd <= 0) {
-      discTollN++;
-      discCd = 1.6;   // §5i.B: a breather between pockets — one ring at a time, not one every toll (less busy)
-      armDiscPocket(cx, cy, (rings - 1) * 0.4 + pose.rel / slow,
-        Math.min(Math.max(5.6, 8.0 - 0.6 * (discTollN - 1)), arenaHW - Math.abs(cx) - 0.5));
-    }
+    // (§ENG-H: the shrinkDisc pocket arm MOVED from here to the `spiral` branch — the toll
+    // now radiates an EXPANDING wall from the bell mouth, not a shrinking iris middle. This
+    // branch is stash-free for every def; the gapAnchor iris read above is unchanged.)
     for (let k = 0; k < rings; k++) {
       const b = activeBand[k % activeBand.length];
       pending.push({ t: k * 0.4, fire: () => {
@@ -4718,7 +4763,7 @@ export function resetBoss() {
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM teardown
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS teardown
-  discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC teardown
+  discAge = 0; discDur = 0; discR = 0; discR1 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC teardown
   gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP teardown
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
@@ -4956,7 +5001,7 @@ export function bossDebugState() {
   // live possession/drop, so the crop tool + gate can read the eye-drop state.
   const hs = model?.holdState?.();
   const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR0, discTollN, discGeom: { rEnd: DISC_R_END, wallFrac: DISC_WALL_FRAC }, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
