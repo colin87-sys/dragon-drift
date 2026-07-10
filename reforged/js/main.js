@@ -600,7 +600,6 @@ grantEarnedLevelTitles(saveData.level);
 migrateFlightmarks();
 grandfatherAscension(Object.keys(DRAGONS));
 
-
 // Dev mode (?dev URL, or the Settings toggle saveData.settings.dev): unlock
 // everything for testing — all dragons at max form, all riders + styles, full
 // embers. Saves are FROZEN first so this override never overwrites real

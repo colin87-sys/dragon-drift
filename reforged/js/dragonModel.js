@@ -297,7 +297,6 @@ export function buildDragonModel(def, opts = {}) {
   if (tailResult.accentMats) for (const m of tailResult.accentMats) spineMats.push(m);
   let tailFins = tailResult.tailFins;
   let tailSegs = tailResult.segs;
-  const trainFan = tailResult.trainFan ?? null;   // phoenixEmpress: the exposed fan (flexes with flight)
   // An orbit-style tail (the wyrm's shard relics) returns orbiters the rig spins.
   const tailOrbiters = tailResult.orbiters ?? null;
 
@@ -399,7 +398,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, trainFan, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -408,7 +407,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, trainFan, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket,
+      head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket,
       wingYokeL, wingYokeR,
       wingPivotL, wingPivotR,
       wingMidL, wingMidR,
@@ -431,7 +430,7 @@ export function buildDragonModel(def, opts = {}) {
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
   const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR, wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR } = parts;
-  const { bodySegs, tailOrbiters, wingBladePivotsL, wingBladePivotsR, trainFan } = parts;
+  const { bodySegs, tailOrbiters, wingBladePivotsL, wingBladePivotsR } = parts;
   const flapBias = def.model.flapBias || 1;
   const flapAmp = def.model.flapAmp ?? 1;
   const segLag = (def.model.segmentLag ?? 0.14) * 7;
@@ -532,22 +531,6 @@ export function makePreviewTick(def, result) {
         tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
         tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
         tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
-      }
-    }
-    // TRAIN-FAN flex (phoenixEmpress) — the fan is COUPLED to flight and FLEXES, not a rigid lump:
-    // it trails/sways behind the body with a lag (a wedding-train pendulum), breathes a FURL
-    // (constrict↔spread) + a lift BOB on the wingbeat, and a RIPPLE travels outward through the
-    // quills. All tied to the `phase`/body clocks so it moves WITH the wings, never independently.
-    if (trainFan) {
-      const fg = trainFan.fanG;
-      fg.rotation.z = Math.sin(t * 0.7 - 1.1) * 0.14;      // pendulum sway → the train sweeps behind her
-      fg.rotation.y = Math.sin(t * 0.9 - 0.7) * 0.08;      // slow yaw
-      fg.rotation.x = trainFan.baseLiftX + Math.sin(phase - 0.6) * 0.05;   // small lift bob on the wingbeat
-      // AFT-TRAVELLING WAVE: bend each quill's RAKE by a phase-lagged amount (root→outer) so a wave
-      // runs down the cone like a banner in the airflow — alive AND streamlined (never a flat swish).
-      for (const q of trainFan.quills) {
-        if (!q.rake) continue;
-        q.rake.rotation.x = q.restRakeX + Math.sin(phase * 0.6 - (q.frac ?? 0) * 1.6) * 0.05;
       }
     }
     // Stabilizer-flap idle (gated by flapFlutter → ONLY the SVJ spoiler flaps; every
