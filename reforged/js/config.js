@@ -342,6 +342,7 @@ export const CONFIG = {
 
   BOSS: {
     firstAt: 2500,          // metres: earliest a boss can appear
+    threadScore: 75,        // §5i.B THREAD-THE-GAP base score per cleanly-threaded wall row (×edge/late/chain)
     interval: 3200,         // metres between encounters
     intervalJitter: 900,
     settleGap: 30,          // metres ahead the boss holds (player-relative frame)

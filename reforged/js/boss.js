@@ -6,7 +6,7 @@ import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll, UNLEAS
 import { nextGridDelay } from './harmony.js';
 import { input, focusHeldNow } from './input.js';
 import { cameraCtl } from './cameraController.js';
-import { burst } from './particles.js';
+import { burst, gateThreadBurst } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { bulletGraze } from './collision.js';
@@ -356,6 +356,20 @@ let discCd = 0;               // §5i.B: arm cooldown — pockets don't stack ev
 const GRAZE_BAND_COLOR = 0xff8ce6;   // soft reward pink (sat ~0.45 vs danger's ~0.69 — a distinct, calmer read)
 const GRAZE_BAND_BASE = 0.4;         // opacity floor while live — bumped so even the small orbit ring is legible
 const GRAZE_BAND_RAMP = 0.32;        // + up to this as the graze ramp climbs (the payout is SEEN building)
+// §5i.B THREAD-THE-GAP (MARROWCOIL's Colossi scorer, ENG-G) — reward flying cleanly through a
+// wall attack's authored safe gap. A DISCRETE per-row award at the crossing frame (NOT a tick
+// form — the other half of the dedup law), keyed on a fire-time row ledger. `gapThread`-prefixed
+// (the "thread" namespace is crowded: threadCut/ribThread/threadGate).
+let gapThreadRows = [];              // { gapX, halfW, yLo, yHi, vy, rel, vrel, age, hits0, inGapT }
+let gapThreadStreak = 0;             // consecutive clean threads (chain multiplier); caps at GAP_THREAD_CAP
+let gapThreadLastT = -1e9;           // fightNow of the last award (the chain window)
+let gapThreadHitsMark = 0;           // bossHitsTakenRun watermark — any bullet hit breaks the chain
+const GAP_THREAD_LATE_S = 1.2;       // in-gap dwell at/under which "late commit" pays full (brave > camper)
+const GAP_THREAD_CHAIN_K = 0.25;     // chain bonus per streak step
+const GAP_THREAD_CAP = 9;            // streak cap (chain ≤ ×3.25)
+const GAP_THREAD_CHAIN_S = 6.0;      // seconds of idle before the chain lapses
+const GAP_THREAD_WATCH_REL = 8;      // start banking the lateness clock inside this depth
+const GAP_THREAD_YPAD = 2.2;         // vertical tolerance — the "wall actually swept your height" test
 let eyeHold = 0;              // §5f slot 8: seconds to KEEP the eye submerged after a strike (so the heavy lid actually closes)
 let lastPlayer = null;       // the player from the last updateBoss (for event-driven mote spawns with no player arg)
 // NO-HIT ADRENALINE LADDER (§5i.B meta spine, global — lands with slot 6).
@@ -1496,6 +1510,7 @@ export function startBossEncounter(player, defOverride) {
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM ramp/exposure reset
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS accumulator reset
   discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC reset
+  gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP reset
   // CP2 (KARNVOW, all def-gated — inert for every other def): the stat-taunt charm
   // flare, the reveal-hold breaker shot, the reflect-once riposte, hold-until-flinch.
   entranceFlareAt = null; entranceFlareId = null;
@@ -1679,6 +1694,7 @@ function endEncounter(player) {
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS: never outlives the fight
   discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC: never outlives the fight
+  gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP: never outlives the fight
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }    // a fight torn down mid-stoop must not strand the ring
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
@@ -2653,6 +2669,9 @@ export function updateBoss(dt, player, time, camera) {
       rollParried = false;
     }
 
+    // ---- §5i.B THREAD-THE-GAP (def-gated discrete scorer; inert unless the ledger has rows) ----
+    updateGapThreadRows(dt, player);
+
     // ---- §5i.B RIDE-THE-BEAM-EDGE (def-gated continuous graze) ----
     if (def.grazeForm === 'beamEdge') {
       if (beamContact(player, 7)) {
@@ -3190,6 +3209,58 @@ function orbitLapJackpot(player) {
   emit('orbitLap', { laps: orbLaps, held: beamHeld });
 }
 
+// §5i.B THREAD-THE-GAP (ENG-G): the fire-time ledger + crossing walker + award.
+function gapThreadActive() { return def?.grazeForm === 'threadTheGap' || def?.gapThread === true; }
+// Record a wall row at its fire closure — the SAME gap the bullets use, so the scorer can never
+// disagree with the wall. Snapshots pose.rel (emitBoss's default birth depth) + the hit watermark.
+function noteGapThreadRow(gapX, halfW, yLo, yHi, vy, vrel) {
+  if (!gapThreadActive()) return;
+  gapThreadRows.push({ gapX, halfW, yLo, yHi, vy, rel: pose.rel, vrel, age: 0, hits0: game.bossHitsTakenRun, inGapT: 0 });
+}
+function gapThreadAward(player, row) {
+  const px = player.position.x;
+  const clearance = row.halfW - Math.abs(px - row.gapX);
+  const edge = Math.max(0, Math.min(1, 1 - clearance / row.halfW));   // 0 dead-centre → 1 kissing the wall
+  const late = Math.max(0, Math.min(1, 1 - row.inGapT / GAP_THREAD_LATE_S));   // 1 = last-instant commit
+  const chain = 1 + GAP_THREAD_CHAIN_K * Math.min(gapThreadStreak, GAP_THREAD_CAP);   // streak BEFORE this thread
+  const points = Math.round((CONFIG.BOSS.threadScore ?? 75) * (1 + 0.5 * edge + 0.5 * late) * chain
+    * game.combo * game.scoreMult);
+  game.score += points;
+  gapThreadStreak++;
+  gapThreadLastT = fightNow;
+  ui.threadPopup?.(points, gapThreadStreak);
+  gateThreadBurst(player.position);
+  sfx.gate?.();
+  if (gapThreadStreak === 3 || gapThreadStreak === 6) ui.bossNote?.(`✦ THREADED ×${gapThreadStreak} ✦`, 'STAY IN THE GAP', 'gold', 1.6);
+  const feeds = 1 + (edge > 0.5 ? 1 : 0);   // the surge-bank feed (holdFlinch precedent — SEEN in the gem HUD)
+  for (let i = 0; i < feeds; i++) bulletGraze(player);
+  emit('gapThread', { streak: gapThreadStreak, edge, late, points });
+}
+// Walk the ledger once per fight tick: integrate each row's depth, bank its lateness clock while
+// it's inbound + in-gap, and resolve it ONCE at its crossing frame (in-gap ∧ exposed ∧ clean).
+function updateGapThreadRows(dt, player) {
+  if (!gapThreadActive()) { if (gapThreadRows.length) gapThreadRows.length = 0; return; }
+  if (game.bossHitsTakenRun !== gapThreadHitsMark) { gapThreadStreak = 0; gapThreadHitsMark = game.bossHitsTakenRun; }
+  if (fightNow - gapThreadLastT > GAP_THREAD_CHAIN_S) gapThreadStreak = 0;
+  const px = player.position.x, py = player.position.y;
+  for (let i = gapThreadRows.length - 1; i >= 0; i--) {
+    const row = gapThreadRows[i];
+    const prevRel = row.rel;
+    row.rel += row.vrel * dt; row.age += dt;
+    if (row.rel > 0 && row.rel <= GAP_THREAD_WATCH_REL && Math.abs(px - row.gapX) < row.halfW) row.inGapT += dt;
+    if (prevRel > 0 && row.rel <= 0) {   // THE CROSSING FRAME — one verdict per row, ever
+      const clean = game.bossHitsTakenRun === row.hits0;
+      const inGap = Math.abs(px - row.gapX) < row.halfW;
+      const yNow = row.vy * row.age;
+      const exposed = py >= row.yLo + yNow - GAP_THREAD_YPAD && py <= row.yHi + yNow + GAP_THREAD_YPAD;
+      if (clean && inGap && exposed) gapThreadAward(player, row);
+      gapThreadRows.splice(i, 1);
+    } else if (row.rel < -2 || row.age > 12) {
+      gapThreadRows.splice(i, 1);   // safety cull
+    }
+  }
+}
+
 // §5i.B SHRINKING SAFE DISC (C.7): open a toll-ring pocket at the iris volley's baked centre.
 // A named helper so C.7-proper (iris→bellMouth spiral) re-arms from ONE call site, not a redesign.
 function armDiscPocket(cx, cy, dur, r0) {
@@ -3702,6 +3773,7 @@ function executeAttack(id, player) {
     // Slower close than the aimed/fan shots: a full wall must be READ (find the gap)
     // AND traversed, so it needs a longer reaction window than a bullet you sidestep.
     const slow = closing * 0.66;
+    noteGapThreadRow(gap, slot, CONFIG.laneMinY + 2.5, CONFIG.laneMaxY - 2, 0, -slow);   // §ENG-G thread ledger
     const b = activeBand[bandIdx++ % activeBand.length];
     for (let x = -hw; x <= hw; x += stepX) {
       if (Math.abs(x - gap) < slot) continue;
@@ -3728,6 +3800,7 @@ function executeAttack(id, player) {
         // Bands track the player's LIVE height so the wall can't be out-CLIMBED —
         // flying high/low just keeps you sandwiched; the moving X gap is the answer.
         const cy = Math.max(CONFIG.laneMinY + 3, Math.min(CONFIG.laneMaxY - 3, player.position.y));
+        noteGapThreadRow(gap, 2.6, cy - 2.4, cy + 2.4, 0, -slow);   // §ENG-G thread ledger (per row)
         for (let x = -hw; x <= hw; x += sx) {
           if (Math.abs(x - gap) < 2.6) continue;
           for (const y of [cy - 2.4, cy + 2.4]) {
@@ -3758,6 +3831,7 @@ function executeAttack(id, player) {
         const gapC = horizonPocketX != null ? horizonPocketX : (g0 + dir * 2.5 * k);
         const gap = Math.max(-hw + 3.4, Math.min(hw - 3.4, gapC));
         const topY = CONFIG.laneMaxY + 3;          // spawn AT the crest, above the frame top
+        noteGapThreadRow(gap, 3.4, topY, topY, -5.5, -slow);   // §ENG-G thread ledger (a falling line)
         for (let x = -hw; x <= hw; x += stepX) {
           if (Math.abs(x - gap) < 3.4) continue;   // the safe pocket (generous — a full frame)
           emitBoss(x, topY, 0, -5.5, -slow, false, b.c, b.s);   // breaks DOWNWARD (vy) + closes (vrel)
@@ -3802,6 +3876,7 @@ function executeAttack(id, player) {
         const gap = gapX != null ? gapX : solveGap();     // defensive — never a gapless wall
         const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
         const footY = CONFIG.laneMinY - 3;                // BELOW the frame (world y -0.5)
+        noteGapThreadRow(gap, 3.4, footY, footY, 5.5, -slow);   // §ENG-G thread ledger (a rising line; eruption beat only)
         for (let x = -hw; x <= hw; x += stepX) {
           if (Math.abs(x - gap) < 3.4) continue;          // crestfall's safe slot, mirrored
           emitBoss(x, footY, 0, 5.5, -slow, false, b.c, b.s);   // ERUPTS upward (+vy) + closes (vrel)
@@ -4564,6 +4639,7 @@ export function resetBoss() {
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM teardown
   orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS teardown
   discAge = 0; discDur = 0; discR = 0; discR0 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC teardown
+  gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP teardown
   if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
@@ -4792,7 +4868,8 @@ export function bossDebugState() {
     && setpieceDef?.id === 'stoopingStrike' && (setpieceT / (setpieceDef?.dur || 1)) >= SLIP_K_ON;
   const orbActive = def?.grazeForm === 'orbitAnnulus' && setpieceT >= 0 && setpieceDef?.id === 'figureEight';
   const discActive = def?.grazeForm === 'shrinkDisc' && discDur > 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR0, discTollN, discGeom: { rEnd: DISC_R_END, wallFrac: DISC_WALL_FRAC } };
+  const gapThreadDbg = gapThreadRows.map((r) => ({ gapX: r.gapX, halfW: r.halfW, rel: r.rel }));
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR0, discTollN, discGeom: { rEnd: DISC_R_END, wallFrac: DISC_WALL_FRAC }, gapThreadStreak, gapThreadRows: gapThreadDbg };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

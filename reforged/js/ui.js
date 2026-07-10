@@ -894,6 +894,12 @@ export const ui = {
     this._popup(`THREADED +${points}`, 'cyan');
   },
 
+  // §5i.B THREAD-THE-GAP: threading a boss WALL's safe gap — same word/colour as the course
+  // gate (it's the same skill), streak-aware like parryPopup. Boss.js owns the scoring.
+  threadPopup(points, streak) {
+    this._popup(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan');
+  },
+
   milestonePopup(metres) {
     const b = els.milestoneBanner;
     if (!b) { this._popup2(`${metres} m!`, 'gold'); return; }
@@ -1392,6 +1398,7 @@ export const ui = {
   },
 
   _popup(text, color) {
+    if (!els.popup) return;   // headless / no-DOM: UI popups no-op (a boss can now score-pop mid-fight)
     els.popup.textContent = text;
     els.popup.dataset.color = color;
     restartAnim(els.popup, 'popup-anim');

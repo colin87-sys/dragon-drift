@@ -3088,4 +3088,116 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('ENG-C7 SHRINKING SAFE DISC: iris tolls open a drawn disc that shrinks to the ring terminal; rim ride pays escalating ticks (core/outside unpaid), dies on the last beat, smaller per toll; Last Toll pure; inert for others ✓');
 }
 
+// §ENG-G THREAD-THE-GAP: MARROWCOIL scores flying cleanly through a wall's authored safe gap —
+// a DISCRETE per-row award (clearance+lateness, chains) with a visible THREADED flourish. The
+// headless sim runs no collision, so a row resolves purely from the fire-time ledger + player x/y.
+{
+  const armMarrowcoil = () => {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('marrowcoil'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  // 1. Row-record fidelity: a movingGap volley records one ledger row per fired row.
+  {
+    const p = armMarrowcoil();
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+    const rows = boss.bossDebugState().gapThreadRows;
+    assert(rows.length === 5, `ENG-G: movingGap records 5 ledger rows @q1 (got ${rows.length})`);
+    assert(rows.every((r) => Math.abs(r.gapX) <= 9 + 1e-6 && r.halfW === 2.6), 'ENG-G: each row carries its own in-arena gap-x + the branch skip half-width');
+    boss.resetBoss();
+  }
+  // 2. A clean in-gap crossing pays: score + chain + surge bank all rise.
+  {
+    const p = armMarrowcoil();
+    let threads = 0; on('gapThread', () => { threads++; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+    const g0 = boss.bossDebugState().gapThreadRows[0].gapX;
+    const score0 = game.score, bank0 = game.grazeCharge + game.consecutiveRings;
+    for (let i = 0; i < 120 && threads === 0; i++) { p.position.x = g0; p.position.y = 8; boss.updateBoss(1 / 60, p, 3 + i / 60); }
+    assert(threads >= 1, `ENG-G: a clean in-gap crossing pays a THREAD (${threads})`);
+    assert(game.score > score0, 'ENG-G: threading raises the score');
+    assert(boss.bossDebugState().gapThreadStreak >= 1, 'ENG-G: a thread starts a chain');
+    assert((game.grazeCharge + game.consecutiveRings) > bank0, 'ENG-G: the thread feeds the surge bank');
+    boss.resetBoss();
+  }
+  // 3. Parking outside every gap pays nothing (x beyond the ±9 gap clamp).
+  {
+    const p = armMarrowcoil();
+    let threads = 0; on('gapThread', () => { threads++; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+    for (let i = 0; i < 120; i++) { p.position.x = 20; p.position.y = 8; boss.updateBoss(1 / 60, p, 3 + i / 60); }
+    assert(threads === 0, 'ENG-G: parking outside every gap (a doomed column) pays nothing');
+    boss.resetBoss();
+  }
+  // 4. In the gap-x but above the wall's swept band (dodged around) ≠ threading (the exposed test).
+  {
+    const p = armMarrowcoil();
+    let threads = 0; on('gapThread', () => { threads++; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+    const g0 = boss.bossDebugState().gapThreadRows[0].gapX;
+    for (let i = 0; i < 120; i++) { p.position.x = g0; p.position.y = CONFIG.laneMaxY + 12; boss.updateBoss(1 / 60, p, 3 + i / 60); }
+    assert(threads === 0, 'ENG-G: in the gap-x but far above the wall band (dodged around) pays nothing');
+    boss.resetBoss();
+  }
+  // 5. Consecutive threads chain; a bullet hit breaks the chain.
+  {
+    const p = armMarrowcoil();
+    const pts = []; on('gapThread', (e) => { pts.push(e.points); });
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+    let g = boss.bossDebugState().gapThreadRows[0].gapX;
+    for (let i = 0; i < 120 && pts.length < 1; i++) { p.position.x = g; p.position.y = 8; boss.updateBoss(1 / 60, p, 3 + i / 60); }
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+    g = boss.bossDebugState().gapThreadRows[0].gapX;
+    for (let i = 0; i < 120 && pts.length < 2; i++) { p.position.x = g; p.position.y = 8; boss.updateBoss(1 / 60, p, 5 + i / 60); }
+    assert(pts.length >= 2 && pts[pts.length - 1] > pts[0], `ENG-G: consecutive threads chain — later pays more (${pts[0]} → ${pts[pts.length - 1]})`);
+    const streakBefore = boss.bossDebugState().gapThreadStreak;
+    game.bossHitsTakenRun++;   // simulate a bullet hit (the walker watches this counter)
+    boss.updateBoss(1 / 60, p, 9);
+    assert(streakBefore >= 2 && boss.bossDebugState().gapThreadStreak === 0, 'ENG-G: a bullet hit breaks the chain');
+    boss.resetBoss();
+  }
+  // 6. Tighter (nearer the doomed column) pays more than camping dead-centre (the edge dial).
+  //    Uses curtain — a SINGLE gap (movingGap's 5 rows cross simultaneously in the headless flush,
+  //    so a wall-hug position sits in two adjacent rows' gaps at once and muddies the reading).
+  {
+    const pA = armMarrowcoil();
+    let ptsA = 0; on('gapThread', (e) => { if (!ptsA) ptsA = e.points; });   // latch first only (listeners never detach)
+    bullets.resetBossBullets(); boss.debugEmitAttack('curtain', pA, 1);
+    let g = boss.bossDebugState().gapThreadRows[0].gapX;
+    for (let i = 0; i < 140 && ptsA === 0; i++) { pA.position.x = g; pA.position.y = 8; boss.updateBoss(1 / 60, pA, 3 + i / 60); }   // dead-centre (edge 0)
+    boss.resetBoss();
+    const pB = armMarrowcoil();
+    let ptsB = 0; on('gapThread', (e) => { if (!ptsB) ptsB = e.points; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('curtain', pB, 1);
+    g = boss.bossDebugState().gapThreadRows[0].gapX;
+    for (let i = 0; i < 140 && ptsB === 0; i++) { pB.position.x = g + (3.0 - 0.3); pB.position.y = 8; boss.updateBoss(1 / 60, pB, 3 + i / 60); }   // hug the doomed column (edge high)
+    assert(ptsA > 0 && ptsB > ptsA, `ENG-G: tighter pays more (dead-centre ${ptsA} < wall-hug ${ptsB})`);
+    boss.resetBoss();
+  }
+  // 7. Coexist: a wall-firing but UN-OPTED boss (stormrend) records no rows and pays no thread.
+  {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const sp = makePlayer();
+    let threads = 0; on('gapThread', () => { threads++; });
+    boss.forceBoss(sp, BOSS_ORDER.indexOf('stormrend')); boss.debugForceFight(sp);
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', sp, 1);
+    assert(boss.bossDebugState().gapThreadRows.length === 0, 'ENG-G coexist: an un-opted boss records NO ledger rows');
+    for (let i = 0; i < 100; i++) { sp.position.x = 0; sp.position.y = 8; boss.updateBoss(1 / 60, sp, 2 + i / 60); }
+    assert(threads === 0, 'ENG-G coexist: an un-opted boss (stormrend) firing movingGap pays no thread');
+    boss.resetBoss();
+  }
+  // 8. Hygiene: no thread state survives teardown.
+  {
+    const p = armMarrowcoil();
+    bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
+    boss.resetBoss();
+    const st = boss.bossDebugState();
+    assert(st.gapThreadRows.length === 0 && st.gapThreadStreak === 0, 'ENG-G: resetBoss clears the ledger + chain');
+  }
+  ok('ENG-G THREAD-THE-GAP: a clean in-gap wall crossing scores by clearance+lateness + chains (visible THREADED); out-of-gap/dodged-around/hit unpaid; inert for un-opted bosses ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);
