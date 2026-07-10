@@ -12,11 +12,9 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = '1ab7d6aebc2e';                          // STAMP:VERSION
+const VERSION = '7628b6865ab1';                          // STAMP:VERSION
 const ASSETS = [
   './',
-  './assets/models/thundercoil.glb',
-  './assets/models/verdant.glb',
   './css/style.css',
   './index.html',
   './js/ambient.js',
@@ -70,7 +68,6 @@ const ASSETS = [
   './js/dragonNightFury.js',
   './js/dragonOrganism.js',
   './js/dragonParts.js',
-  './js/dragonPhoenixEmpress.js',
   './js/dragonRecipe.js',
   './js/dragonSeraph.js',
   './js/dragonSeraphBody.js',
@@ -103,6 +100,7 @@ const ASSETS = [
   './js/input.js',
   './js/insts.js',
   './js/juice.js',
+  './js/lensFlag.js',
   './js/level.js',
   './js/lockLayer.js',
   './js/main.js',
@@ -128,6 +126,8 @@ const ASSETS = [
   './js/save.js',
   './js/setpieces.js',
   './js/sfx.js',
+  './js/sfxLance2.js',
+  './js/sfxLanceMath.js',
   './js/sfxLimiter.js',
   './js/sfxLoudness.js',
   './js/sfxRender.js',

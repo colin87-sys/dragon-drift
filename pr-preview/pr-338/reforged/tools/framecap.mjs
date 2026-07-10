@@ -2,7 +2,7 @@
 // signature OCCLUDES the forward play view in the real chase cam. NOT cleanshot (rings stay).
 //   node tools/framecap.mjs <dragonKey> [spectacle] [waitMs]
 import { boot } from '../tests/browser.mjs';
-const key = process.argv[2] || 'phoenixEmpress';
+const key = process.argv[2] || 'solar';
 const spectacle = process.argv[3] || '';
 const waitMs = parseInt(process.argv[4] || '3500', 10);
 const VIEW = { width: 1280, height: 720 };

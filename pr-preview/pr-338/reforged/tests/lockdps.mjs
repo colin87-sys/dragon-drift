@@ -63,13 +63,15 @@ for (const e of economies) {
   assert(e.lanceCapable === (e.peakCap > 0), `${e.id}: lanceCapable iff any phase is paintable`);
 }
 // A boss with a virtualLockOrgan but NO lockParts is V1-aim-only → lance inert
-// (boss.js paintableParts returns null there). KARNVOW + ASHTALON are exactly
-// this on master; the tier-1 Sentinels are inert via a 0 tier cap.
+// (boss.js paintableParts returns null there). ASHTALON is exactly this; the
+// tier-1 Sentinels are inert via a 0 tier cap. (KARNVOW WAS this until CP2 gave
+// it 5 trophy-charm lockParts — it's now lance-capable, peakCap 5. KNELLGRAVE
+// likewise gained wound+bind lockParts — the endgame ladder, §5i rung 10.)
 const inert = economies.filter((e) => !e.lanceCapable);
 assert(inert.every((e) => e.peakCap === 0 && e.reason), 'every lance-inert boss carries a 0 cap + a reason');
 const noTargets = inert.filter((e) => e.reason.includes('no paint targets')).map((e) => e.id);
-assert(noTargets.includes('karnvow') && noTargets.includes('ashtalon'),
-  'KARNVOW + ASHTALON are lance-inert for want of paint targets (virtualLockOrgan is V1-aim-only)');
+assert(noTargets.includes('ashtalon') && !noTargets.includes('karnvow'),
+  'ASHTALON is lance-inert for want of paint targets (V1-aim-only); KARNVOW gained trophy-charm lockParts in CP2 and is now lance-capable');
 // A boss capped BELOW its tier by too few organs is modelled (THRUMSWARM: 1
 // organ × stackMax ⇒ 2, not the tier-3 five).
 const thrum = economies.find((e) => e.id === 'thrumswarm');

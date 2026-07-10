@@ -79,9 +79,9 @@ export const cameraCtl = {
 
   init(cam, player) {
     camera = cam;
-    smoothPos.set(player.position.x, player.position.y + 3.2, player.position.z + 11);
+    smoothPos.set(player.position.x, player.position.y + 4.6, player.position.z + 13.2);   // match the raised chase pose
     camera.position.copy(smoothPos);
-    camera.lookAt(player.position.x, player.position.y, player.position.z - 16);
+    camera.lookAt(player.position.x, player.position.y + 0.5, player.position.z - 16);
     deathOn = false;
     deathT = 0;
     gateKickT = 0;
@@ -243,8 +243,11 @@ export const cameraCtl = {
     // A touch further back + higher than before so the (now larger) dragon sits
     // lower in frame and more of the path ahead stays visible. A canyon pulls it
     // ~1.6 closer so the chase cam rides clear of the flanking rock.
-    const targetBack = (player.feverActive ? 7.2 : player.boosting ? 8.8 : 12.3) - canyonW * 1.6;
-    const targetHeight = player.feverActive ? 2.5 : player.boosting ? 3.0 : 3.6;
+    const targetBack = (player.feverActive ? 7.2 : player.boosting ? 8.8 : 13.2) - canyonW * 1.6;
+    // Raised + steepened (visibility fix): a deeper look-down puts the dragon LOWER in frame so the
+    // path ahead opens ABOVE it, instead of the dragon sitting on the horizon band where obstacles are.
+    // All three states scaled together so entering boost/fever doesn't read as a camera dive.
+    const targetHeight = player.feverActive ? 3.2 : player.boosting ? 3.9 : 4.6;
     const dx = player.position.x * 0.9;
     smoothPos.x = damp(smoothPos.x, dx,                    4.5, dt);
     smoothPos.y = damp(smoothPos.y, player.position.y + targetHeight, player.boosting ? 6.5 : 4.5, dt);
@@ -292,8 +295,9 @@ export const cameraCtl = {
       camera.position.y += (Math.random() * 2 - 1) * k;
     }
 
-    // Aim a little higher (toward the path) so the dragon drops lower in frame.
-    lookTarget.set(player.position.x, player.position.y + 1.0 + speedNorm * 0.25, player.position.z - 16);
+    // Aim the axis further DOWN toward the path (0.5, was 1.0) so the dragon drops lower in frame and
+    // the forward obstacle field reads above its silhouette.
+    lookTarget.set(player.position.x, player.position.y + 0.5 + speedNorm * 0.25, player.position.z - 16);
     camera.lookAt(lookTarget);
 
     // Rear-view overtake beat (ASHTALON §5f): swing AHEAD of and above the dragon

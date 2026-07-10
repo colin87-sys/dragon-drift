@@ -188,9 +188,15 @@ export const CONFIG = {
                             // that same organ within it is a "warm" re-acquire (hum suppressed,
                             // lockOn downgraded to a tick — the weave-away-and-back nag fix).
                             // Matched to `decay` (a set stays warm as long as its brands live).
-    relockWarmFrac: 0,      // TUNE(0–0.6; 0 = off) — GAMEPLAY (owner sign-off to raise): a warm
-                            // re-acquire seeds this fraction of dwell, so weaving back costs less
-                            // than the full dwellTime. 0 = inert (sound fix only, no dwell change).
+    relockWarmFrac: 0.4,    // TUNE(0–0.6; 0 = off) — GAMEPLAY (owner sign-off, granted): a warm
+                            // re-acquire seeds this fraction of the EFFECTIVE dwell need, so weaving
+                            // away to DODGE and back costs less than a fresh lock — the attention-
+                            // economics fix: dodging no longer taxes the lock. The seed is scaled by
+                            // the focus multiplier in lockLayer.js (always `frac` of what you'd owe),
+                            // so a focused re-grab is a true 40% discount (~8 frames), NOT the old
+                            // ~4-frame snap, and the whole range is safe (seed < need for any frac<1
+                            // — no same-frame-lock cliff). First acquisition still pays full dwell;
+                            // volley total stays ROI-clamped (volleyRoiFrac). 0 = inert (sound-only).
     paintHopGrace: 0.8,     // TUNE(0.5–1.2) — after a paint the aim RELEASES and the painted
                             // organ can't re-acquire for this long, so the reticle decisively
                             // HOPS to the next unpainted organ (owner playtest: hovering the
@@ -328,6 +334,9 @@ export const CONFIG = {
     strikeCrunchVol: 0.07,  // TUNE(0–0.12) — saturated broadband CRUNCH front level (the main "bite")
     strikeGritDrive: 0.65,  // TUNE(0.4–0.9) — soft-sat drive on the impact grit (>0.8 reads as artifact, not violence)
     strikeDebrisVol: 0.028, // TUNE(0–0.05) — per-hit falling-shard / ember-sizzle debris-tail level
+    lanceHoldAmt: 0.32,     // TUNE(0.2–0.45) — Wyrm profile's ONE-per-volley sustained sidechain
+                            // hold (deeper than impactDuckAmt: a held hole earns more depth than the
+                            // per-hit flutter, and must out-dip the groove's own kick pump)
     // V4
     snapPerVolley: 1,       // LAW — max V4 paints per amber volley; 0 during fever (LAW)
     // V5
@@ -335,10 +344,17 @@ export const CONFIG = {
     focusDwellMult: 0.5,    // LAW
     // score (embers NEVER)
     paintScore: 10, lanceHitScore: 15, perfectReleaseScore: 150,  // LAW: parry stays score-premier
+    // LENS (intervention 3a) — reticle YIELD: while a boss bullet is closing to within
+    // `tti` seconds of the player's lane, the aim chrome's GLOW eases back so the threat
+    // is the loudest thing at the point of gaze. Presentation only (read by reticle.js
+    // under ?lens=2; inert otherwise) — the lock state machine never sees it, and the
+    // lock border / dwell fill are never dimmed. tti: 0 disables the yield entirely.
+    reticleYield: { tti: 0.9 },
   },
 
   BOSS: {
     firstAt: 2500,          // metres: earliest a boss can appear
+    threadScore: 75,        // §5i.B THREAD-THE-GAP base score per cleanly-threaded wall row (×edge/late/chain)
     interval: 3200,         // metres between encounters
     intervalJitter: 900,
     settleGap: 30,          // metres ahead the boss holds (player-relative frame)
@@ -360,6 +376,15 @@ export const CONFIG = {
     bulletRadius: 0.55,
     spawnRampT: 0.12,       // seconds a bullet takes to grow from a point to full size at spawn
                             // (kills the "materialises from nowhere" pop up close — L148)
+    // Imminent-bullet FLARE window (the time-to-impact depth cue in bossBullets.js).
+    // Shipped: heat-only over the last flareTti seconds. The LENS overhaul (?lens=2)
+    // widens the window to flareTtiLens AND adds a size POP (flareSizeK, the fraction
+    // the disc grows at full flare) so "which hits me first" is a size+heat read at
+    // the exact moment it matters — the Enter-the-Gungeon "big fair bullet" lesson.
+    // The visual grows BEYOND the hitbox (s.r untouched), so the mismatch is forgiving.
+    flareTti: 0.3,          // shipped window (s); LENS is inert unless ?lens=2
+    flareTtiLens: 0.45,     // widened window under ?lens=2
+    flareSizeK: 0.35,       // disc grows ×(1 + this*flare) under ?lens=2; 0 ⇒ shipped size
     bulletHitScale: 0.62,   // effective player hit radius = playerRadius × this (forgiving)
     bulletSpeed: 28,        // closing speed (m/s) → reaction window ≈ settleGap/speed ≈ 1.07s
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
