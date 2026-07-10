@@ -678,6 +678,7 @@ function buildCometCrestHead(def, model, mats) {
   if ((model.diadem ?? 0) > 0) {
     const tia = new THREE.Group();
     tia.position.set(0, 0.19 * hs, 0.05 * hs);
+    tia.scale.setScalar(1.2);   // +20% so the crown reads crowned at chase distance, not just in crops
     const bw = 0.30 * hs;   // solid gold brow band
     tia.add(flatTriMesh([
       [[-bw, 0, 0.02], [bw, 0, 0.02], [bw, 0.06 * hs, -0.02]],
@@ -874,7 +875,7 @@ function buildPyreTrainTail(def, model, mats, anchor) {
       [[s * 0.62, s * 0.5, 0.05], [s * 0.5, -s * 0.2, -0.04], [0, -s * 1.15, 0.02]],
       [[-s * 0.62, s * 0.5, 0.05], [s * 0.62, s * 0.5, 0.05], [0, s * 0.75, -0.02]],
     ], M.goldHi));
-    for (const sd of [1, -1]) cl.add(flatTriMesh([[[sd * s * 0.55, s * 0.42, 0], [sd * s * 1.2, s * 0.16, -0.03], [sd * s * 0.5, -s * 0.35, 0]]], M.gold));
+    for (const sd of [1, -1]) cl.add(flatTriMesh([[[sd * s * 0.5, s * 0.4, 0], [sd * s * 0.82, -s * 0.08, -0.03], [sd * s * 0.45, -s * 0.4, 0]]], M.gold));   // shorter, drooped shoulder plates (not a horizontal rod)
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.08, 0), M.crestTip);
     gem.position.set(0, s * 0.05, 0.1); gem.scale.set(1, 1.35, 0.8); cl.add(gem);
     fanG.add(cl);

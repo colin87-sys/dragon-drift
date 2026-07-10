@@ -313,7 +313,11 @@ parts are not shadowed by the inference for the new key. Roster stays byte-ident
   ~2.4k tris. Fable 4.00→4.17.
 - **2026-07-10 — THE GLOW-UP (owner: "too basic for an Eternal grind reward"; distill Solar's
   epicness).** A high-effort Fable pass distilled Solar's majesty principles and applied them
-  Phoenix-natively. See the FIVE new DOCTRINE laws below; apex ~2.4k tris.
+  Phoenix-natively. See the FIVE new DOCTRINE laws below; apex ~2.3k tris. Fable 3.92 → 4.00 →
+  **4.67 PASS (Eternal-worthy)** across three gate rounds — the decisive fix was rebuilding the
+  Dawn Fan in the FRONTAL plane so the rays radiate a wide ~162° sunrise-burst (they were rolled
+  around the aft axis, collapsing into a narrow rearward tassel). "A coal-dark empress dragging a
+  golden sunrise behind her."
 
 ## GLOW-UP DOCTRINE (added 2026-07-10 — the Solar-principles → Phoenix application)
 
