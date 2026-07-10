@@ -393,9 +393,11 @@ if (!cp1) {
     // ±8° cant balances to Σ≈0 (a mirrored L/R pair — must still read balanced like a wing pair).
     const cantSum = lay.quills.reduce((a, q) => a + q.cant, 0);
     ok(Math.abs(cantSum) < 1e-9, `${key} f${f}: tail-quill cant balances Σ≈0 (${cantSum.toExponential(1)})`);
-    // swell-then-taper: the center quill is the longest (lenScale peaks at the middle).
+    // SHAPED lyre outline (Dawn-Fan doctrine): the fan is NOT a flat broom — quill lengths vary
+    // meaningfully across the sector (a center peak + a secondary shoulder swell), never uniform.
     const lens = lay.quills.map((q) => q.lenScale);
-    ok(Math.max(...lens) === lens[0] || lay.quills.find((q) => q.phi === 0), `${key} f${f}: center quill longest (swell-then-taper)`);
+    const lo = Math.min(...lens), hi = Math.max(...lens);
+    ok(hi - lo > 0.08 * hi, `${key} f${f}: fan outline is SHAPED, not a flat broom (Δ${(hi - lo).toFixed(2)})`);
   }
   // vane diffuse held dark (L ≤ 0.22 — the emissive carries the fire, not a toy-bright sheet).
   const { materials } = buildDragonModel(per[3].def, {});
