@@ -19,6 +19,7 @@ import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + '
 import './dragonSeraph.js';         // Pearl Seraph: feather-scale wings / crown-halo head / comet tail (celestial multi-module family)
 import './dragonSeraphBody.js';     // Pearl Seraph: pearl hull torso + crowned head + real-geometry crown-halo
 import './dragonSovereign.js';      // Solar Sovereign (Eclipse Dragon-King): regnalKeelTorso + lanceVaultWings + eclipseCrownHead + scepterWhipTail
+import './dragonPhoenixEmpress.js'; // Dawnfire Empress: pyreHeartTorso + scythePinionWings + cometCrestHead + pyreTrainTail
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
@@ -299,6 +300,7 @@ export function buildDragonModel(def, opts = {}) {
   let tailSegs = tailResult.segs;
   // An orbit-style tail (the wyrm's shard relics) returns orbiters the rig spins.
   const tailOrbiters = tailResult.orbiters ?? null;
+  const pyreTrain = tailResult.pyreTrain ?? null;
 
   // --- Wings -------------------------------------------------------------
   // The wing system (membrane / none) comes from the recipe's WINGS module
@@ -398,7 +400,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -407,7 +409,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, riderSocket,
+      head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket,
       wingYokeL, wingYokeR,
       wingPivotL, wingPivotR,
       wingMidL, wingMidR,
