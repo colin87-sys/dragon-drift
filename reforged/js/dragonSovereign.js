@@ -53,7 +53,11 @@ function sovereignMats(def, glow, stage) {
   // ember orange-red at the outer tier stays mid-value → holds colour through bloom.
   const memEmis = [0x200504, 0x6e1410, 0xb42414, 0xe8401c];
   const memBaseI = [0.05, 0.2, 0.45, 0.8];
-  const mem = (col, i) => { const inten = memBaseI[i] * emberF; const m = new THREE.MeshStandardMaterial({ color: col, emissive: memEmis[i], emissiveIntensity: inten, flatShading: true, roughness: 0.76, side: THREE.DoubleSide }); m.userData.baseEmissive = memEmis[i]; m.userData.baseIntensity = inten; return m; };
+  // BUG FIX (visibility): the membranes must be TRANSPARENT so the game's wing-fade (dragon.js drives
+  // wingMat.opacity → 0.82/0.77/0.70) actually works — Solar was the ONLY dragon with a fully OPAQUE
+  // wing wall (opacity writes were inert without transparent:true), so you couldn't see obstacles
+  // through the 70%-of-frame wing. Matches dragonUnifiedHull's translucent-membrane recipe.
+  const mem = (col, i) => { const inten = memBaseI[i] * emberF; const m = new THREE.MeshStandardMaterial({ color: col, emissive: memEmis[i], emissiveIntensity: inten, flatShading: true, roughness: 0.76, side: THREE.DoubleSide, transparent: true, opacity: 0.82 }); m.userData.baseEmissive = memEmis[i]; m.userData.baseIntensity = inten; return m; };
   const memTiers = [mem(0x45120e, 0), mem(0x5a160e, 1), mem(0x7a1622, 2), mem(0x9c2233, 3)];   // root→outer
   const membrane = memTiers[2];
   // Starlight-vein circuit — saturated violet, upper-surface placement (see buildOneWing).
@@ -307,7 +311,12 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
       ((r % 2 === 0) ? vT : aT).push([bL, bR, tip]);      // front emissive (violet=long / amber=short)
       darkT.push([bLb, tipb, bRb]);                       // dark back
     }
-    // ROSE-WINDOW TRACERY (grand only): a thin gold inner ring + 4 gold mullion spokes crossing the disk.
+    // ROSE-WINDOW TRACERY (grand only): a thin gold outer ring + a central OCULUS ring + 4 gold mullion
+    // spokes bridging the two. The spokes spring from the OCULUS (r 0.45), NOT from dead-centre — so the
+    // aperture inside (r<0.40) stays open glass and the player sees FORWARD THROUGH the corona in rear-
+    // chase (the spokes used to cross r 0.12 and screen the sightline, causing blind crashes). This is
+    // the more authentic rose-window read (mullions radiate from an inner medallion, never the centre),
+    // and it's uniform shop+gameplay — no context mismatch. The 4-spoke skyline is untouched.
     if (grand) {
       const trIn = 0.80, trOut = 0.86;
       for (let i = 0; i < N; i++) {
@@ -315,10 +324,16 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
         goldT.push([pt(trIn, a0, d / 2 + 0.01), pt(trOut, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01)],
                    [pt(trIn, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01), pt(trIn, a1, d / 2 + 0.01)]);
       }
+      const ocIn = 0.40, ocOut = 0.45;   // central oculus ring — frames the open aperture the spokes spring from
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+        goldT.push([pt(ocIn, a0, d / 2 + 0.01), pt(ocOut, a0, d / 2 + 0.01), pt(ocOut, a1, d / 2 + 0.01)],
+                   [pt(ocIn, a0, d / 2 + 0.01), pt(ocOut, a1, d / 2 + 0.01), pt(ocIn, a1, d / 2 + 0.01)]);
+      }
       for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {   // 4 compass mullions (radial bars)
         const w = 0.065;   // widened (Fable polish) so the spokes clear the sub-8px floor at chase distance
-        goldT.push([pt(0.12, a - w, d / 2 + 0.01), pt(0.82, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01)],
-                   [pt(0.12, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01), pt(0.12, a + w, d / 2 + 0.01)]);
+        goldT.push([pt(ocOut, a - w, d / 2 + 0.01), pt(0.82, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01)],
+                   [pt(ocOut, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01), pt(ocOut, a + w, d / 2 + 0.01)]);
       }
     }
     ring.add(flatTriMesh(darkT, M.coronaDark));
