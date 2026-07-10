@@ -311,6 +311,7 @@ let condHold = 0;            // seconds the swarm stays CONDENSED past its last 
 // other archetype (no grazeForm, no shed).
 let soakMotes = null;        // the THREE.Points object (one additive draw)
 let harvestOffered = false;  // §5i moteHarvest (slot 11): the once-per-phase bloom spent-flag
+let mendOffered = false;     // §5i.C slot 11 THE VOLLEY TEARS, SHE MENDS: once-per-phase mend-window spent-flag
 let soakPos = null;          // its position attribute buffer
 const soakList = [];         // active pink motes {x,y,rel,vx,vy,vrel,ttl}
 const SOAK_MAX = 20;         // hard cap on-screen (one Points draw regardless of count); the harvest bloom wants density
@@ -1700,7 +1701,7 @@ export function startBossEncounter(player, defOverride) {
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
   resolveK = 0; resolveNoted = 0; resolveHinted = false;   // §ENG-LT: the survival-resolve meter is fresh per encounter
   holderPrevTarget = null;   // §ENG-EW: the holder-stagger baton edge is fresh per encounter (partParries.clear() above covers HOLDER_KEY)
-  threadCutHits = 0; harvestOffered = false;   // §5i.C slot 11 thread-cut + harvest state
+  threadCutHits = 0; harvestOffered = false; mendOffered = false;   // §5i.C slot 11 thread-cut + harvest + mend state
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
@@ -2760,7 +2761,11 @@ export function updateBoss(dt, player, time, camera) {
           // (every in-flight amber deletes + the queued sub-volleys drop) and the
           // loom is STILLED for a 2.5s strike window (parry ACCELERATES, §5i.C
           // law 4). Surge reflects don't count (not the amber read).
-          if (def.threadCut && !surge) {
+          // §CP1 PR4b: NO banking DURING a stagger window (staggerT>0) — the holderStagger
+          // precedent (2698). Since THE VOLLEY TEARS/SHE MENDS keeps live ambers inside its
+          // 2.5s window (unlike thread-cut, which deletes them), parries would otherwise chain
+          // a thread-cut ON TOP of a mend → ~5s of stacked stillness on her thinnest phase.
+          if (def.threadCut && !surge && staggerT <= 0) {
             threadCutHits++;
             if (threadCutHits >= THREAD_CUT_HITS) { threadCutHits = 0; triggerThreadCut(player); }
             else {
@@ -3559,6 +3564,7 @@ function breakShield(player) {
     if (!model.stageTransitionDur) ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
     harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
+    mendOffered = false;      // §5i.C: a fresh phase re-offers the tear/mend window
     // §5b the arena-mender: each phase seam TEARS a sector of her web and she
     // visibly re-weaves it (optional model hook — only the weftwitch has one).
     model.restitchWeb?.();
@@ -4617,6 +4623,25 @@ on('lockVolley', (p) => {
     burns.push({ tick: total / nTicks, ticksLeft: nTicks, interval, tAcc: 0 });
     emit('lockBurn', { total, dur: sb.dur, count: p.count });
   }
+  // §5i.C THE VOLLEY TEARS, SHE MENDS (WEFTWITCH rung 11 rule): a DELIBERATE ≥burnFloor-pip
+  // release (a manual tap or the cap auto-loose — NEVER a decay fizzle or the Surge 'fork')
+  // TEARS a web sector and forces her to MEND it: a 2.5s mid-phase scheduling-silence window
+  // (the shared `staggerT` the `def.threadCut` consumer already drains — §3186). ONCE per
+  // phase. Unlike the THREAD-CUT stagger it does NOT delete in-flight ambers (that stays
+  // parry's verb) — but it WIPES queued `pending` sub-volleys so the window is actually quiet
+  // (the breakShield precedent). Her hands keep weaving (moving organs — NO stillness freeze),
+  // so the reliable paint is the loomHeart anchor, not a free 6-cap buffet (§CP1 PR4b). The
+  // cosmetic restitch runs ~3.4s (a slight visual tail past the 2.5s window — acceptable).
+  if (def.threadCut && !mendOffered && (p?.source === 'tap' || p?.source === 'cap')
+      && p.count >= (sb?.burnFloor ?? 3) && phase === 'fight' && !shielded && staggerT <= 0 && !labPacifist) {
+    mendOffered = true;
+    staggerT = 2.5;
+    pending.length = 0;
+    model.restitchWeb?.();
+    if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
+    ui.bossNote?.('✦ YOU TORE THE WEB — SHE MENDS ✦', 'BRAND WHILE SHE WEAVES', 'gold', 1.6);
+    emit('weftMend', {});
+  }
 });
 
 // Tick the active SCAR-BURN DOTs. PAUSES entirely while lockDeflected() (shield /
@@ -5211,7 +5236,7 @@ export function bossDebugState() {
   // live possession/drop, so the crop tool + gate can read the eye-drop state.
   const hs = model?.holdState?.();
   const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0, staggerT, mendOffered };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
