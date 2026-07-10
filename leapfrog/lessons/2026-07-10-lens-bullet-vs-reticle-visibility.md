@@ -51,6 +51,29 @@ byte-identical roster), all three interventions proven together:
   returns a non-transparent colour for a 0-width border side, so probe direction by the
   transform matrix, not by which `border*Color` is set.)
 
+- **A CSS `mask` clips `box-shadow` away — glow must live on an UNMASKED layer.** The
+  hollow-bracket look masks `.rsq` to its four corners (`mask-clip` defaults to `border-box`),
+  and `box-shadow` paints *outside* the border box → it renders **zero** glow (confirmed by a
+  headless-Chromium render, not eyeballing). Worse, the first cut then implemented the yield as
+  `.rsq { opacity: calc(1 - --yield*0.55) }`, which dims the *bracket border itself* — i.e. the
+  green lock read — up to 55%, the exact "my lock broke" failure the design swore off. Fix: put
+  the bloom on an unmasked `#reticle::before` halo and drive `--yield` into *its* opacity;
+  restore `.rsq` opacity to 1. (Not `filter: drop-shadow` on `.rsq` — `ret-boss-breathe`
+  animates `filter: brightness` and clobbers it.) Lesson: when you `mask` an element, its own
+  `box-shadow` is gone; glow needs a sibling/pseudo, and never dim the element that carries the
+  state read.
+- **Don't couple a SIZE cue to the parry pulse.** `flarePop` first read the same `flare` that
+  the parry-window branch pumps with a `sin(clock*22)` ~3.5Hz oscillation — so under `?lens=2`
+  every reflectable bullet (and *every* bullet during Surge) throbbed its size, re-introducing
+  the "loom" the flare system had replaced. Drive size off a *pure* time-to-impact term
+  (`ttiFlare`), captured before the parry `Math.max`, leaving the parry cue heat-only.
+- **Photosensitivity: keep blinks ≤ ~3Hz.** A `0.16s` chevron blink = 6.25 flashes/s, over the
+  guideline at the point of gaze. Slowed to `0.34s` (~2.9Hz) with a softer brightness swing.
+- **A telegraph cue in the role-locked bullet hue can alias as a bullet.** The magenta chevrons
+  are exactly `0xff2b6a`; at low `--threat` they sat 34px from centre — *inside* the 90px frame,
+  in the muzzle zone the hollow reticle is clearing. Push them to ≥46px (outside the half-frame)
+  at all threat levels so a wind-up chevron never reads as a spawning shot.
+
 ## The reusable pattern
 - **Coexist behind an inert URL flag** (`js/lensFlag.js`, mirroring `?unleash=v1`/`?lance=v2`):
   a hero A/B where OFF is byte-identical and the gates prove it. `FLARE_SIZE_K` resolves to

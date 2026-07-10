@@ -660,10 +660,13 @@ export function updateBossBullets(dt, player) {
     // you FIRST flares first — "which hits me" is a colour read. A reflectable
     // bullet flares bright the instant it enters the parry window (the parry cue).
     let flare = 0;
+    let ttiFlare = 0;   // LENS size-pop drives off THIS (pure time-to-impact), never the
+                        // parry pulse below — else every reflectable bullet (and EVERY
+                        // bullet in Surge) would throb its size at ~3.5Hz (the "loom" we killed).
     let breathe = 1;
     if (s.owner === 'boss' && s.rel > 0) {
       const tti = s.rel / Math.max(Math.abs(s.vrel), 1);
-      if (tti < FLARE_TTI) flare = 1 - tti / FLARE_TTI;
+      if (tti < FLARE_TTI) { flare = 1 - tti / FLARE_TTI; ttiFlare = flare; }
       // THREAT read (3a): a bullet heading into the player's lane and closing soon.
       if (tti < 1.5) {
         const ldx = s.x - px, ldy = s.y - py;
@@ -713,7 +716,7 @@ export function updateBossBullets(dt, player) {
     // "which hits me first" is a size read too, not heat alone. Boss-only, and only
     // beyond the shipped visual (FLARE_SIZE_K is 0 unless ?lens=2). s.r — the hitbox —
     // is untouched, so the extra size is purely forgiving.
-    const flarePop = (s.owner === 'boss' && FLARE_SIZE_K) ? 1 + FLARE_SIZE_K * flare : 1;
+    const flarePop = (s.owner === 'boss' && FLARE_SIZE_K) ? 1 + FLARE_SIZE_K * ttiFlare : 1;
     const drawScale = shrink * grow * flarePop;
 
     // Round camera-facing bullet: a soft colour BODY with a WHITE CENTRE on top,
@@ -993,6 +996,7 @@ export function beamContact(player, depthHi = 7) {
 export function bossBulletCount() { return activeCount(); }
 
 export function resetBossBullets() {
+  _threat.minTti = Infinity; _threat.count = 0;   // clear the reticle-yield read between fights (robust to future reorder)
   for (let i = 0; i < POOL; i++) {
     if (slots[i]) slots[i].active = false;
     if (mesh) mesh.setMatrixAt(i, HIDDEN);
