@@ -541,13 +541,14 @@ export function makePreviewTick(def, result) {
     // quills. All tied to the `phase`/body clocks so it moves WITH the wings, never independently.
     if (trainFan) {
       const fg = trainFan.fanG;
-      fg.rotation.z = Math.sin(t * 0.7 - 1.1) * 0.16;      // lag the body bank → trails behind
-      fg.rotation.y = Math.sin(t * 0.9 - 0.7) * 0.10;      // slow yaw sway
-      fg.rotation.x = trainFan.baseLiftX + Math.sin(phase - 0.6) * 0.06;   // lift bob on the wingbeat
-      const furl = 1 - 0.13 * (0.5 - 0.5 * Math.cos(t * 1.15));            // 0.87 (furled) ↔ 1.0 (spread)
+      fg.rotation.z = Math.sin(t * 0.7 - 1.1) * 0.14;      // pendulum sway → the train sweeps behind her
+      fg.rotation.y = Math.sin(t * 0.9 - 0.7) * 0.08;      // slow yaw
+      fg.rotation.x = trainFan.baseLiftX + Math.sin(phase - 0.6) * 0.05;   // small lift bob on the wingbeat
+      // AFT-TRAVELLING WAVE: bend each quill's RAKE by a phase-lagged amount (root→outer) so a wave
+      // runs down the cone like a banner in the airflow — alive AND streamlined (never a flat swish).
       for (const q of trainFan.quills) {
-        q.g.rotation.z = q.phi * furl;                                     // breathe the spread
-        q.g.rotation.x = Math.sin(phase * 0.5 - q.frac * 1.5) * 0.06 * (0.35 + q.frac);   // outward ripple
+        if (!q.rake) continue;
+        q.rake.rotation.x = q.restRakeX + Math.sin(phase * 0.6 - (q.frac ?? 0) * 1.6) * 0.05;
       }
     }
     // Stabilizer-flap idle (gated by flapFlutter → ONLY the SVJ spoiler flaps; every

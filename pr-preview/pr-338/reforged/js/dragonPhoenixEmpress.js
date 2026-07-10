@@ -725,24 +725,29 @@ registerHead('cometCrestHead', buildCometCrestHead);
 // downward-and-outward sector, built as mirrored pairs so cant-balance is Σ=0 by design.
 export function trainFanLayout(model) {
   const nRaw = Math.max(1, Math.round(model.trainQuills ?? 9));
-  const fanDeg = Math.min(model.trainFan ?? 162, 176);       // hard-capped < 180°
+  const fanDeg = Math.min(model.trainFan ?? 150, 176);       // PROJECTED sector (hard-capped < 180°)
   const half = (fanDeg / 2) * Math.PI / 180;
   const odd = nRaw % 2 === 1;
   const pairs = Math.floor(nRaw / 2);
-  // SHAPED LYRE outline (not a broom): the center ray is the tallest, a broad secondary SWELL
-  // at ~0.62 of the sector gives the fan shoulders, and the outer rays stay LONG (soft taper).
-  // Non-monotonic across the sector — the "shaped outline" doctrine.
-  const lenAt = (f) => 0.72 + 0.28 * Math.cos(f * Math.PI / 2) + 0.11 * Math.exp(-Math.pow((f - 0.6) / 0.26, 2));
+  // THE TRAILING DAWN — a RAKED HALF-CONE, not a frontal disk. Each quill rakes AFT by an angle
+  // measured from the flight axis: `alpha` ≤ 60° ALWAYS (the anti-drag-plate law; the old flat
+  // fan was α≈90° = an air-brake). Because a quill's rear-camera projection = length·sin(α), we
+  // size length from the PROJECTION budget backwards — projAt(f)/sin(α) — so the rear-chase burst
+  // stays exactly as wide as the flat fan did, while the mass now streams aft with real depth.
+  const rakeTighten = model.rakeTighten ?? 0;                        // 0 = glide (blossom) → 1 = boost (furl to a spear)
+  const alphaAt = (f) => ((55 - 25 * f) * (1 - 0.5 * rakeTighten)) * Math.PI / 180;   // 55°→30°, tightening toward the axis at speed
+  const projAt = (f) => 0.72 + 0.28 * Math.cos(f * Math.PI / 2) + 0.11 * Math.exp(-Math.pow((f - 0.6) / 0.26, 2));  // the shaped LYRE outline, as PROJECTED width
+  const mk = (f, sgn, p) => {
+    const alpha = alphaAt(f), proj = projAt(f);
+    return { phi: sgn * half * f, cant: sgn * (p % 2 === 1 ? 1 : -1) * (8 * Math.PI / 180),
+      alpha, proj, lenScale: proj / Math.max(0.2, Math.sin(alpha)), curlOut: (p === pairs) ? 1 : 0, mirror: sgn };
+  };
   const quills = [];
-  if (odd) quills.push({ phi: 0, cant: 0, lenScale: lenAt(0), curlOut: 0, mirror: 0 });
+  if (odd) quills.push({ phi: 0, cant: 0, alpha: alphaAt(0), proj: projAt(0), lenScale: projAt(0) / Math.sin(alphaAt(0)), curlOut: 0, mirror: 0 });
   for (let p = 1; p <= pairs; p++) {
     const f = odd ? p / pairs : (p - 0.5) / pairs;                  // sector fraction (0 center → 1 edge)
-    const phi = half * f;                                          // roll from center (0=down)
-    const cant = (p % 2 === 1 ? 1 : -1) * (8 * Math.PI / 180);      // alternating ±8° per pair
-    const lenScale = lenAt(f);
-    const curlOut = (p === pairs) ? 1 : 0;                          // outermost pair = the lyre horns
-    quills.push({ phi: +phi, cant: +cant, lenScale, curlOut, mirror: +1 });  // right
-    quills.push({ phi: -phi, cant: -cant, lenScale, curlOut, mirror: -1 });  // left = mirror → Σ cant = 0
+    quills.push(mk(f, +1, p));   // right
+    quills.push(mk(f, -1, p));   // left = mirror → Σ cant = 0
   }
   // angular gap between adjacent quills vs a quill's angular "width" (the not-a-ring assert)
   const angs = quills.map((q) => q.phi).sort((a, b) => a - b);
@@ -760,12 +765,16 @@ export function trainUnderLayout(model) {
   const half = (fanDeg / 2) * Math.PI / 180;
   const pairs = Math.floor(n / 2);
   const quills = [];
+  const tighten = model.rakeTighten ?? 0;
   for (let p = 1; p <= pairs; p++) {
+    const f = p / pairs;
     const phi = half * ((p - 0.5) / (pairs + 0.4));           // half-step, tucked inside the main sector
     const cant = (p % 2 === 1 ? 1 : -1) * (6 * Math.PI / 180);
-    const lenScale = 0.72 + 0.22 * Math.cos((p / pairs) * Math.PI / 2);   // stay long (doubled arc reads)
-    quills.push({ phi: +phi, cant: +cant, lenScale, curlOut: 0, mirror: +1 });
-    quills.push({ phi: -phi, cant: -cant, lenScale, curlOut: 0, mirror: -1 });   // mirror → Σ cant = 0
+    const alpha = ((50 - 22 * f) * (1 - 0.5 * tighten)) * Math.PI / 180;   // raked aft (nests a half-step forward of the main cone)
+    const proj = 0.72 + 0.22 * Math.cos(f * Math.PI / 2);
+    const lenScale = proj / Math.max(0.2, Math.sin(alpha));
+    quills.push({ phi: +phi, cant: +cant, alpha, proj, lenScale, curlOut: 0, mirror: +1 });
+    quills.push({ phi: -phi, cant: -cant, alpha, proj, lenScale, curlOut: 0, mirror: -1 });   // mirror → Σ cant = 0
   }
   return { quills, nQuills: quills.length };
 }
@@ -807,7 +816,7 @@ function buildPyreTrainTail(def, model, mats, anchor) {
   const fanG = new THREE.Group();
   const lift = model.trainLift ?? 1;
   fanG.position.set(0, 0.02, rootLen / nRoot);
-  fanG.rotation.x = -0.55 + 0.85 * lift;   // f0 droops down-back, f3 lifts proud
+  fanG.rotation.x = -0.10 + 0.18 * lift;   // near-LEVEL now — the aft-down streaming lives in each quill's RAKE, not in tilting the whole plate (lift is a small nod)
   segs[segs.length - 1].add(fanG);
   const mainQuills = [];   // exposed to the animator so the fan FLEXES (furl-breath + ripple), not a rigid lump
 
@@ -828,42 +837,45 @@ function buildPyreTrainTail(def, model, mats, anchor) {
   // crimson→amber gradient, an optional peacock-eye inset) + a coal-eye gem at the tip. `big` =
   // the main rank; the under-rank is smaller/dimmer with no eye. Camera-facing pitch + ±cant.
   const addQuill = (q, len, big) => {
-    // THE FIX for a WIDE burst: each ray is a vane lying in the FRONTAL plane (facing the rear
-    // cam), radiating from the hip at angle `phi` from straight-down. rotation.z = phi spreads the
-    // rays laterally across the lower frame — a real ~162° sunrise, not a narrow aft-pointing cone.
+    // THE TRAILING DAWN: the quill RAKES AFT into a half-cone. `rotation.z = phi` rolls it around
+    // the flight axis (the wide sunrise still projects to the rear cam), and an inner RAKE group
+    // pitches it aft by (90° − α) so the vane streams BEHIND her (α ≤ 60°, never a flat plate). The
+    // raked vane's own face ends up pointing up-and-aft — straight at the behind+above chase cam.
+    const alpha = q.alpha ?? (48 * Math.PI / 180);
     const quill = new THREE.Group();
-    quill.rotation.z = q.phi;              // radiate in the frontal plane (the ray points down at phi=0)
-    quill.rotation.y = q.cant * 0.7;       // small camera-facing twist (balanced across the mirror → Σ≈0)
-    if (!big) quill.position.z -= 0.12;     // recess the under-rank behind (depth, not a gap-filler)
+    quill.rotation.z = q.phi;                    // roll around the aft/flight axis (0 = straight down)
     fanG.add(quill);
-    if (big) mainQuills.push({ g: quill, phi: q.phi, restY: quill.rotation.y });   // for the furl-breath + ripple
-    const wMax = (big ? 0.17 : 0.11) + (big ? 0.12 : 0.06) * q.lenScale;
-    const yBase = -len * 0.06, ySh = -len * 0.42, yTip = -len * 0.95;   // the ray runs DOWN (−Y) in-plane
+    const rake = new THREE.Group();
+    rake.rotation.x = -(Math.PI / 2 - alpha);    // pitch the ray AFT by (90°−α) — the anti-drag-plate move
+    rake.rotation.z = q.cant * 0.6;              // small ±cant (balanced across the mirror → Σ≈0)
+    quill.add(rake);
+    if (big) mainQuills.push({ g: quill, rake, phi: q.phi, alpha, restRakeX: rake.rotation.x });
+    const wMax = (big ? 0.17 : 0.11) + (big ? 0.12 : 0.06) * q.proj;
+    const yBase = -len * 0.06, ySh = -len * 0.42, yTip = -len * 0.95;   // the ray runs down (−Y) in the RAKE frame
     const wBase = wMax * 0.5;
-    const cx = q.curlOut ? Math.sign(q.mirror || 1) * 0.15 * len : 0;    // lyre-horn tip curl (outward)
-    const cz = q.curlOut ? 0.06 * len : 0;                              // horn tips lift toward the cam
-    quill.add(bar([0, 0, 0], [cx * 0.5, yTip, cz * 0.5], big ? 0.03 : 0.018, big ? M.goldHi : M.copper));  // gold ray spine
+    const cx = q.curlOut ? Math.sign(q.mirror || 1) * 0.13 * len : 0;    // lyre-horn tip curl (outward)
+    const cz = q.curlOut ? 0.10 * len : 0.03 * len;                     // tip RECURVE (flame-lick up-aft on the last stretch)
+    rake.add(bar([0, 0, 0], [cx * 0.5, yTip, cz * 0.5], big ? 0.03 : 0.018, big ? M.goldHi : M.copper));  // gilded streamer-shaft
     const b0 = [-wBase, yBase, 0], b1 = [wBase, yBase, 0];
     const s0 = [-wMax, ySh, 0.01 * len], s1 = [wMax, ySh, 0.01 * len];
     const tipP = [cx, yTip, cz];
-    quill.add(flatTriMesh([[b0, b1, s1], [b0, s1, s0], [s0, s1, tipP]], M.vaneDark));   // dark blade, faces the cam
-    // ribbon rims tracing the edges (raised toward the cam) — lower ember → upper amber
+    rake.add(flatTriMesh([[b0, b1, s1], [b0, s1, s0], [s0, s1, tipP]], M.vaneDark));   // dark blade
     const rw = big ? 0.05 : 0.035;
-    const rimQ = (a, bb, ox, mat) => { const a2 = [a[0] + ox, a[1], a[2] + 0.03], b2 = [bb[0] + ox, bb[1], bb[2] + 0.03]; quill.add(flatTriMesh([[a, bb, b2], [a, b2, a2]], mat)); };
+    const rimQ = (a, bb, ox, mat) => { const a2 = [a[0] + ox, a[1], a[2] + 0.03], b2 = [bb[0] + ox, bb[1], bb[2] + 0.03]; rake.add(flatTriMesh([[a, bb, b2], [a, b2, a2]], mat)); };
     rimQ(b0, s0, +rw, M.vaneEdgeLo); rimQ(b1, s1, -rw, M.vaneEdgeLo);
     rimQ(s0, tipP, +rw, M.vaneEdgeHi); rimQ(s1, tipP, -rw, M.vaneEdgeHi);
     if (big && vaneEyes) {   // peacock EYE inset (~60% down the ray)
       const ey = -len * 0.6, ew = wMax * 0.34;
-      quill.add(flatTriMesh([[[-ew, ey, 0.02], [0, ey - ew * 1.3, 0.02], [ew, ey, 0.02]], [[-ew, ey, 0.02], [ew, ey, 0.02], [0, ey + ew * 1.3, 0.02]]], M.vaneEye));
+      rake.add(flatTriMesh([[[-ew, ey, 0.02], [0, ey - ew * 1.3, 0.02], [ew, ey, 0.02]], [[-ew, ey, 0.02], [ew, ey, 0.02], [0, ey + ew * 1.3, 0.02]]], M.vaneEye));
     }
-    // coal-eye gem at the ray tip — gold-set, the constellation jewel
+    // coal-eye gem at the ray tip — gold-set; the constellation now an ARC-IN-DEPTH (sparks trailing)
     if (coalOn) {
       const isDawn = q.phi === 0 && dawnOn && big;
       const gemR = isDawn ? 0.115 : (big ? 0.098 : 0.064);
       const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.34, 0), M.coalBezel);
-      bezel.position.set(cx, yTip, cz); bezel.scale.set(1.3, 1, 0.8); quill.add(bezel);
+      bezel.position.set(cx, yTip, cz); bezel.scale.set(1.3, 1, 0.8); rake.add(bezel);
       const gem = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), isDawn ? M.dawnCoal : M.coalEye);
-      gem.position.set(cx, yTip - (isDawn ? 0.02 : 0), cz); gem.scale.set(1.3, 1, 1); quill.add(gem);
+      gem.position.set(cx, yTip - (isDawn ? 0.02 : 0), cz); gem.scale.set(1.3, 1, 1); rake.add(gem);
     }
   };
 
