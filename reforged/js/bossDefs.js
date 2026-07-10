@@ -484,6 +484,13 @@ export const BOSSES = {
     // Resolved per-volley via partWorldPos('eitherTwinA'|'eitherTwinB'); a volley whose
     // twins are both behind the player plane (near lobe of the eight) goes silent.
     emitOrigins: { crossfire: ['eitherTwinA', 'eitherTwinB'], aimed: ['eitherMuzzle'], stream: ['eitherMuzzle'] },
+    // §5b slot 5 ORGAN-BREAK reuse (ENG-EW): perfect-parry the HOLDER's amber 3× mid-
+    // possession → the handoff STAGGERS and the eye DROPS to the thread midpoint (a 2.5s
+    // strike window). Reuses the shared partParries ledger + staggerT window; inert otherwise.
+    holderStagger: true,
+    // §C.4 dread (ENG-EW): the P3 iris contracts on the twins' THREAD MIDPOINT (the named
+    // threadMid empty), not the player — resolved once per volley through the ENG-B seam.
+    gapAnchor: { iris: { part: 'threadMid' } },
     // Tier 2 difficulty: crossfire is the twins' signature (both flanks at once);
     // movingGap/secondWave = the lane-denial half; iris debuts in the dread phase.
     // Escalation by pattern unlock + cadence, never raw bullet count.

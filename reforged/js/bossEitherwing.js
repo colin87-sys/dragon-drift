@@ -510,6 +510,15 @@ export function buildTwinWraith(def, quality = 1) {
   splitCore.renderOrder = 7;
   rig.add(splitCore);
 
+  // §ENG-EW THREAD MIDPOINT — a byte-neutral named EMPTY (zero geometry, the
+  // seekerFin/seekerScar precedent) seated on the thread's true midpoint each tick
+  // (the ember-motes anchor). Makes the midpoint def-addressable: the dread iris
+  // contracts on it (gapAnchor: { iris: { part: 'threadMid' } }) and the dropped eye
+  // sags to it. `partWorldPos` resolves it via the generic bossModel.js accessor.
+  const threadMid = new THREE.Object3D();
+  threadMid.name = 'threadMid';
+  rig.add(threadMid);
+
   // The BEADED THREAD — a LineSegments strand strung between the two sockets, with
   // beads, that the eye rides (overdraw-exempt, §2). Rebuilt each frame from the
   // live socket world positions so it always connects the drifting twins.
@@ -605,6 +614,12 @@ export function buildTwinWraith(def, quality = 1) {
   const _entAim = new THREE.Vector3();   // §5j: the dragon's position in RIG space (fed by the script) — the eye lookAt target
   let entAimSet = false;
   const _aimDir = new THREE.Vector3();
+  // §ENG-EW EYE-DROP: when the holder-stagger fires (boss.js), the eye UNSEATS and sags to
+  // the thread midpoint for a strike window. `eyeDropT` counts the window down; `dropEase`
+  // eases the seat override in/out so the drop and recovery never snap.
+  let eyeDropT = 0, dropEase = 0;
+  function holdState() { return { t: holdT, target: holdTarget, drop: eyeDropT }; }
+  function dropEye(dur = 2.5) { if (dyingK <= 0 && entranceU == null) eyeDropT = Math.max(eyeDropT, dur); }
 
   // Figure-eight orbit: the twins ride a lemniscate 180° out of phase around a
   // slowly drifting centre — the fight NEVER stops moving. Kept LOCAL (the group
@@ -816,6 +831,7 @@ export function buildTwinWraith(def, quality = 1) {
     handoffTimer -= dt;
     if (entranceU != null) { /* the Baton Cross pins holdT directly — no random handoff */ }
     else if (debugHold != null) { holdTarget = debugHold; }
+    else if (eyeDropT > 0) { handoffTimer = Math.max(handoffTimer, 0.6); }   // §ENG-EW: the eye is DOWN — no flip, no pin; hold the baton so recovery re-seats the SAME holder (the boss.js §2d watcher never mistakes recovery for a baton pass)
     else if (charge > 0.15) { /* hold — the tell: the eye stays put on the firer */ }
     else if (handoffTimer <= 0 && moving) { holdTarget = holdTarget < 0.5 ? 1 : 0; handoffTimer = 2.4 + Math.random() * 1.2; }
     const handoffSpeed = charge > 0.15 ? 10 : 3.4;
@@ -845,6 +861,17 @@ export function buildTwinWraith(def, quality = 1) {
     // A gentle arc up off the thread mid-glide (the eye lifts as it crosses).
     const glideLift = Math.sin(Math.max(0, Math.min(1, holdT)) * Math.PI) * (Math.abs(holdTarget - holdT) > 0.05 ? 0.5 : 0.12);
     eyeRig.position.set(_eye.x, _eye.y + glideLift, _eye.z + 0.15);
+    // §ENG-EW EYE-DROP seat: when the handoff STAGGERS, nobody holds the eye — it UNSEATS
+    // and sags to ~0.9 BELOW the thread's midpoint (the thread itself droops −0.25 at mid,
+    // so the dropped orb reads clearly OFF the strand, "on the floor" of the formation). The
+    // sockGlow easing idiom eases dropEase 0→1→0 so the drop and recovery never snap; recovery
+    // is free — dropEase eases back and the shipped seat above retakes the position.
+    if (eyeDropT > 0) eyeDropT = Math.max(0, eyeDropT - dt);
+    dropEase += ((eyeDropT > 0 ? 1 : 0) - dropEase) * Math.min(1, dt * 6);
+    if (dropEase > 0.01) {
+      const dm = _sa.clone().lerp(_sb, 0.5); dm.y -= 0.9;
+      eyeRig.position.lerp(dm, dropEase);
+    }
     // §5j MATERIALISE: twinB's socket sits at its full ±9 position even at scale 0, so the DRAWN
     // thread/beads would stretch to the still-INVISIBLE twin. Grow the drawn far-end from the EYE
     // (beat 1: twinB not formed → a short strand twinA→eye) OUT to twinB's socket as it materialises
@@ -996,6 +1023,7 @@ export function buildTwinWraith(def, quality = 1) {
     if (noticeT > 0) eyeK *= 1.4;   // the eye SNAPS bright on notice (the ignition beat — CP1 r4 directive 2)
     if (gliding) eyeK *= 0.78;
     eyeK *= Math.max(0, 1 - dyingK * 1.7);   // the shared ember GUTTERS OUT by the flee (the glow retreats into the socket ring)
+    eyeK *= (1 - dropEase * 0.55);   // §ENG-EW: the dropped eye GUTTERS (nobody holds it) — guttering, not dead
     orbMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.02, eyeK) * EYE_HOT);
     // Under shield the catchlight stays a VISIBLE hot pinpoint (marks the holder — the
     // eye is not dead, CP1 r8 dir 1) but LEASHED to ~0.5 so its bloom cluster stays under
@@ -1018,7 +1046,7 @@ export function buildTwinWraith(def, quality = 1) {
     // Pupil: constricts on charge/notice (the charge tell), tracks the player, and on
     // a HANDOFF biases toward the RECEIVING twin so the eye LOOKS where it's going
     // (CP1 r2 directive 2). Death dilates it (§4b: dilation = death).
-    const pupilBase = 1 - charge * 0.4 - (noticeT > 0.4 ? 0.3 : 0) + dyingK * 0.6;
+    const pupilBase = 1 - charge * 0.4 - (noticeT > 0.4 ? 0.3 : 0) + dyingK * 0.6 + dropEase * 0.5;   // §ENG-EW: the stunned dropped eye DILATES (the model's "dilation = stun/death" grammar)
     pupil.scale.setScalar(Math.max(0.4, pupilBase) * (1 - tuck * 0.5));
     const recv = holdTarget > 0.5 ? _sb : _sa;
     const glideBiasX = gliding ? Math.max(-1, Math.min(1, (recv.x - _eye.x) * 0.6)) * 0.07 : 0;
@@ -1103,6 +1131,7 @@ export function buildTwinWraith(def, quality = 1) {
     const debrisGone = dyingK >= 0.7;
     beads.visible = !debrisGone;
     const mid = _sa.clone().lerp(_sb, 0.5);
+    threadMid.position.copy(mid);   // §ENG-EW: publish the def-addressable thread midpoint (dread iris anchor + the eye-drop seat)
     for (const o of orbiters) {
       o.visible = !debrisGone;
       const u = o.userData;
@@ -1185,6 +1214,9 @@ export function buildTwinWraith(def, quality = 1) {
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     // §7b diagnostics + test/studio pins (not part of the controller contract).
     eyeWorldLocalPos, twinSeparation, threadLength, setDebugHandoff, twinBodyLum,
+    // §ENG-EW holder-stagger hooks: holdState() reports possession + drop; dropEye() unseats
+    // the eye to the thread midpoint for the strike window (both consumed by boss.js).
+    holdState, dropEye,
     dispose() {
       group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
     },

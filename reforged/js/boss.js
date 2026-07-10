@@ -278,6 +278,7 @@ let staggerT = 0;             // >0 = the queen is STAGGERED (parry job): the sw
 let staggerHits = 0;         // amber-volley parries banked toward the next stagger (SCATTER-STAGGER, §5i.C)
 let threadCutHits = 0;       // amber parries banked toward the next THREAD-CUT (WEFTWITCH §5i.C, CP2)
 const THREAD_CUT_HITS = 3;   // parries to cut the thread (tunable — drop to 2 if it plays grindy)
+let holderPrevTarget = null; // §ENG-EW: last-seen eitherwing holdTarget — a flip = the baton passed (the mid-possession reset edge; null = fresh encounter)
 let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
 let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
 let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
@@ -890,6 +891,22 @@ function triggerThreadCut(player) {
     ui.bossNote?.('✦ THREAD CUT — STRIKE NOW ✦', 'HER VOLLEY UNRAVELS', 'gold', 2.4);
   }
   emit('threadCut', { cleared: cut, bloomed });
+}
+
+// §5i.C ORGAN-BREAK REUSE (EITHERWING, §5b slot 5): the holder-stagger payoff. Three
+// perfect parries of the eye-HOLDER's amber mid-possession STAGGER the handoff — the eye
+// UNSEATS and DROPS to the thread midpoint for a 2.5s strike window (the shared staggerT
+// var, the thrumswarm/weftwitch precedent). NOT applyPartBreak: nothing dies, no brand
+// drops, no index — the stagger is a timer + a model pose, so it borrows SCATTER-STAGGER's
+// shape, not the part-death ceremony.
+function staggerHolder(player) {
+  partParries.delete(HOLDER_KEY);
+  staggerT = 2.5;                                  // the shared window var (thrumswarm/weftwitch precedent)
+  model.dropEye?.(2.5);                            // the model beat: the eye UNSEATS and falls to the thread midpoint (bossEitherwing.js)
+  if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }   // the wind-up dies with the drop
+  ui.bossNote?.('✦ THE HANDOFF STAGGERS ✦', 'THE EYE DROPS — STRIKE IT', 'gold', 2.4);
+  sfx.milestone?.(); cameraCtl.shake?.(0.8); model.hurt?.(0.6);
+  emit('bossEyeDrop', {});
 }
 
 // Move the soak motes; a mote within soak radius of the player is ABSORBED (bulletGraze →
@@ -1634,6 +1651,7 @@ export function startBossEncounter(player, defOverride) {
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
+  holderPrevTarget = null;   // §ENG-EW: the holder-stagger baton edge is fresh per encounter (partParries.clear() above covers HOLDER_KEY)
   threadCutHits = 0; harvestOffered = false;   // §5i.C slot 11 thread-cut + harvest state
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
@@ -2602,6 +2620,26 @@ export function updateBoss(dt, player, time, camera) {
               }
             }
           }
+          // §5i.C ORGAN-BREAK REUSE (EITHERWING, §5b slot 5): a PERFECT parry of the
+          // HOLDER's amber — the eitherMuzzle volley (aimed/stream) OR the holder twin's
+          // half of the crossfire — banks toward the stagger. At 3 mid-possession the
+          // handoff STAGGERS and the eye DROPS to the thread midpoint (a 2.5s strike
+          // window). The bank dies with the baton (below, beside eyeWeakPoint). Surge
+          // reflects don't count (§5i.C law 4). Perfect-only (snapParts is). staggerT<=0
+          // stops banking DURING the window (no chained re-stagger off the dropped eye's
+          // leftover ambers). Above the V4 snap loop (consume before paint). Def-gated; inert.
+          if (def.holderStagger && !surge && staggerT <= 0 && r.snapParts.length && model.holdState) {
+            const holderName = model.holdState().target < 0.5 ? 'eitherTwinA' : 'eitherTwinB';
+            if (r.snapParts.includes('eitherMuzzle') || r.snapParts.includes(holderName)) {
+              const n = (partParries.get(HOLDER_KEY) ?? 0) + 1;   // +1 per ROLL (snapParts deduped, the consumer latched by rollParried) — a mixed muzzle+twin burst collapses to +1
+              partParries.set(HOLDER_KEY, n);
+              if (n >= HOLDER_STAGGER_PARRIES) staggerHolder(player);
+              else {
+                model.hurt?.(0.4);   // the HOLDER recoils (bossEitherwing hurt() sets painTwin to the holder), the seeker darts protectively
+                ui.bossNote?.(`✦ THE HOLDER FALTERS — ${n}/${HOLDER_STAGGER_PARRIES} ✦`, 'PARRY ITS VOLLEY AGAIN', 'gold', 1.1);
+              }
+            }
+          }
           // V4 LOCK-SNAP (PR4, owner-ruled PERFECT-ONLY): a perfect parry of a
           // part-tagged amber snaps a brand onto the organ that FIRED it — the
           // C3 answer (a venting organ can't be dwell-painted; the parry is its
@@ -2618,7 +2656,13 @@ export function updateBoss(dt, player, time, camera) {
               // string organ name here; paintFromParry type-guards the rest.
               let tag = r.snapParts[sp];
               if (typeof tag === 'number' && def.destructiblePanes) tag = 'rosePane' + tag;
-              if (typeof tag === 'string' && !lockPartDead(tag)) paintFromParry(tag);
+              // §ENG-EW hazard guard: an emit-tagged def (eitherwing) now carries its bullets'
+              // SOURCE names (eitherMuzzle/eitherTwinA/B) — which paintFromParry would brand as
+              // phantom lock organs (it accepts any string; lockPartDead doesn't know them). Scope
+              // the paint to real lockParts for such defs. Un-emitOrigins defs short-circuit to
+              // shipped behavior (marrowcoil ribs, hollowgate panes, karnvow — all unchanged).
+              if (typeof tag === 'string' && !lockPartDead(tag) &&
+                  (!def.emitOrigins || def.lockParts.some((lp) => lp.part === tag))) paintFromParry(tag);
             }
           }
           // §5i.C SCATTER-STAGGER (THRUMSWARM's parry job): parry the queen's amber-eye
@@ -3017,6 +3061,19 @@ export function updateBoss(dt, player, time, camera) {
       model.setEyeUp((chargeT > 0 || eyeHold > 0) ? 0 : 1);
     }
 
+    // §ENG-EW §5b slot-5 "mid-possession": the banked holder parries belong to THIS
+    // possession — a baton pass (holdTarget flip) clears them. Flips only happen at
+    // charge<=0.15 rests (the eye PINS to the firer during a wind-up, and the eye-drop
+    // freeze re-arms the timer), so a mid-volley bank is never eaten. The reset is SEEN.
+    if (def.holderStagger && model.holdState) {
+      const t = model.holdState().target;
+      if (holderPrevTarget != null && t !== holderPrevTarget && (partParries.get(HOLDER_KEY) ?? 0) > 0) {
+        partParries.delete(HOLDER_KEY);
+        ui.bossNote?.('THE EYE PASSES — THE COUNT FADES', '', 'gold', 0.9);
+      }
+      holderPrevTarget = t;
+    }
+
     if (shielded) {
       // Armour is up: the boss FLOODS graze-bait — dense rings streaming close past
       // you with a threadable lane. Weaving them tight is how you charge the Surge
@@ -3040,6 +3097,15 @@ export function updateBoss(dt, player, time, camera) {
       // §5i.C THREAD-CUT window (WEFTWITCH): the loom is STILLED — any wind-up
       // cancels, nothing new is drawn, the strike window runs. (THRUMSWARM's
       // staggerT is consumed in driveSwarm instead — LOCKED condensed.)
+      staggerT = Math.max(0, staggerT - dt);
+      if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
+    } else if (def.holderStagger && staggerT > 0) {
+      // §ENG-EW §5b slot-5 window (EITHERWING): NOBODY holds the eye — no wind-up arms,
+      // nothing new schedules (the eye is on the floor at the thread midpoint). In-flight
+      // bullets + already-queued pending sub-volleys still land (deleting in-flight is
+      // THREAD-CUT's verb, not ours). `if (shielded)` precedes us, so a shield freezes
+      // the window rather than double-spending it. The bonus = 2.5s of scheduling silence
+      // (free rider-chip + gun uptime) + the parked eyeRig lock organ at the midpoint.
       staggerT = Math.max(0, staggerT - dt);
       if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
     } else if (chargeT > 0) {
@@ -3462,7 +3528,7 @@ function resolveEmitOrigins(id, player) {
     if (!w) continue;
     const rel = -w.z - player.dist;
     if (rel <= 0.5) continue;   // behind/at the plane → would fly away (emitRibBullets guard)
-    out.push({ x: w.x, y: w.y, rel });
+    out.push({ x: w.x, y: w.y, rel, part: name });   // §ENG-EW: carry the source-organ TAG (the resolveReflectTargets precedent) so a perfect parry is attributable (holder-stagger)
   }
   return out;   // possibly [] — opted-in but nothing ahead → SKIP, don't post-fire
 }
@@ -3709,7 +3775,7 @@ function executeAttack(id, player) {
     if (origins) {
       for (const o of origins) for (let i = -1; i <= 1; i++) {
         const v = aimVelFrom(o, px + i * 1.6, py, closing);
-        emitBoss(o.x, o.y, v.vx, v.vy, -closing, true, null, 1, null, o.rel);
+        emitBoss(o.x, o.y, v.vx, v.vy, -closing, true, null, 1, null, o.rel, o.part);   // §ENG-EW: tag the holder muzzle's amber (eitherMuzzle)
       }
     } else {
       for (let i = -1; i <= 1; i++) {
@@ -3942,7 +4008,7 @@ function executeAttack(id, player) {
         if (origins) {
           for (const o of origins) {
             const v = aimVelFrom(o, player.position.x, player.position.y, slow);
-            emitBoss(o.x, o.y, v.vx, v.vy, -slow, amber, null, 1, null, o.rel);
+            emitBoss(o.x, o.y, v.vx, v.vy, -slow, amber, null, 1, null, o.rel, o.part);   // §ENG-EW: tag the holder muzzle's amber (eitherMuzzle)
           }
         } else {
           const v = aimVel(player.position.x, player.position.y, slow);
@@ -3984,7 +4050,7 @@ function executeAttack(id, player) {
         for (let i = 0; i < each; i++) {
           const off = (i / (each - 1) - 0.5) * 5;
           const t = Math.max(o.rel / slow, 0.05);   // per-emitter time-to-impact (§5e)
-          emitBoss(o.x, o.y, (px + off - o.x) / t, (py - o.y) / t, -slow, true, null, 1, null, o.rel);
+          emitBoss(o.x, o.y, (px + off - o.x) / t, (py - o.y) / t, -slow, true, null, 1, null, o.rel, o.part);   // §ENG-EW: tag the firing twin's amber (eitherTwinA/B)
         }
       }
     } else {
@@ -4415,6 +4481,8 @@ const partHits = new Map();          // "key:idx" → accumulated counted hits (
 // the amber's source-part TAG STRING ('ribPivotL1'), fed from reflectBossBullets' snapParts
 // (perfect-only, deduped per roll). Generic for later reuses (C.4 holder, C.6 gems).
 const RIB_BREAK_PARRIES = 3;         // N (§5b "N×") — the roster's canonical 3 (panes/stagger/holder)
+const HOLDER_STAGGER_PARRIES = 3;    // §5b slot 5 verbatim "3× mid-possession" — the roster's canonical 3, reused on EITHERWING's eye-holder
+const HOLDER_KEY = 'eitherHolder';   // the partParries key for the holder-stagger bank (synthetic — the POSSESSION, not a node)
 const partParries = new Map();       // part-tag → banked PERFECT parries
 // Rib tag ('ribPivotL3') → canonical index (L0=0,R0=1,L1=2,…); -1 for non-rib/unknown tags.
 function ribTagToIdx(tag) {
@@ -4870,6 +4938,9 @@ export function debugPaintables() { return paintableParts(); }
 export function debugReflectTargets(player) { return resolveReflectTargets(player); }
 export function debugShimmerCount() { return shimmers.filter((s) => s.visible).length; }
 export function debugTetherCount() { return tether && tether.visible ? tether.geometry.drawRange.count / 2 : 0; }
+// §ENG-EW test seam: pin the live eitherwing eye-holder (0 = twinA holds, 1 = twinB, null = release)
+// so the holder-stagger gate can drive a deterministic possession + baton flip. No-op off eitherwing.
+export function debugSetHandoff(t) { model?.setDebugHandoff?.(t); }
 
 export function bossDebugState() {
   // chargeLevel: 0 at the start of a wind-up → 1 at full contraction (mirrors the
@@ -4881,7 +4952,11 @@ export function bossDebugState() {
   const orbActive = def?.grazeForm === 'orbitAnnulus' && setpieceT >= 0 && setpieceDef?.id === 'figureEight';
   const discActive = def?.grazeForm === 'shrinkDisc' && discDur > 0;
   const gapThreadDbg = gapThreadRows.map((r) => ({ gapX: r.gapX, halfW: r.halfW, rel: r.rel }));
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR0, discTollN, discGeom: { rEnd: DISC_R_END, wallFrac: DISC_WALL_FRAC }, gapThreadStreak, gapThreadRows: gapThreadDbg };
+  // §ENG-EW holder-stagger debug (the slip/orb field precedent): the banked parries + the
+  // live possession/drop, so the crop tool + gate can read the eye-drop state.
+  const hs = model?.holdState?.();
+  const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR0, discTollN, discGeom: { rEnd: DISC_R_END, wallFrac: DISC_WALL_FRAC }, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

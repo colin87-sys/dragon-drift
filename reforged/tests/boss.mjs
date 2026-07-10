@@ -3212,4 +3212,161 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('ENG-G THREAD-THE-GAP: a clean in-gap wall crossing scores by clearance+lateness + chains (visible THREADED); out-of-gap/dodged-around/hit unpaid; pool-clipped rows unscored; inert for un-opted bosses ✓');
 }
 
+// §ENG-EW HOLDER-STAGGER + MIDPOINT-IRIS (EITHERWING, §5b slot 5): perfect-parry the eye-
+// HOLDER's amber 3× mid-possession → the handoff STAGGERS and the eye DROPS to the thread
+// midpoint for a 2.5s window; the P3 dread iris contracts on that same midpoint (threadMid),
+// not the player. Mirrors the ENG-E organ-break loop + the ENG-C4 arm harness.
+{
+  // --- A. MODEL TIER: holdState()/threadMid/dropEye (buildBoss directly). ---
+  const tw = buildBoss(BOSSES.eitherwing, 1);
+  const wp = (nm) => tw.group.getObjectByName(nm).getWorldPosition(new THREE.Vector3());
+  const midLocal = () => tw.group.getObjectByName('threadMid').position.clone();   // rig-local (the eye seat's space)
+  // A.1 holdState follows the pin; threadMid sits at the twins' midpoint.
+  tw.setDebugHandoff(0); for (let i = 0; i < 20; i++) tw.tick(1 / 60, 40 + i / 60);
+  assert(tw.holdState && tw.holdState().target === 0, 'ENG-EW model: holdState() reports twinA holding under setDebugHandoff(0)');
+  tw.setDebugHandoff(1); for (let i = 0; i < 20; i++) tw.tick(1 / 60, 41 + i / 60);
+  assert(tw.holdState().target === 1, 'ENG-EW model: holdState().target follows setDebugHandoff(1)');
+  assert(!!tw.group.getObjectByName('threadMid'), 'ENG-EW model: the named threadMid empty exists (byte-neutral)');
+  const mA = wp('eitherTwinA'), mB = wp('eitherTwinB'), mM = wp('threadMid');
+  assert(Math.abs(mM.x - (mA.x + mB.x) / 2) < 1.5,
+    `ENG-EW model: threadMid tracks the twins' x-midpoint (mid ${mM.x.toFixed(2)} vs mean ${((mA.x + mB.x) / 2).toFixed(2)})`);
+  // A.2 dropEye unseats the eye to the midpoint (below it), then recovers.
+  tw.setDebugHandoff(0); for (let i = 0; i < 24; i++) tw.tick(1 / 60, 50 + i / 60);
+  const seat = tw.eyeWorldLocalPos().clone();
+  assert(tw.holdState().drop === 0, 'ENG-EW model: the eye is seated (drop 0) before dropEye');
+  tw.dropEye(2.5);
+  for (let i = 0; i < 30; i++) tw.tick(1 / 60, 53 + i / 60);   // ~0.5s: ease down
+  const dropped = tw.eyeWorldLocalPos().clone(), midNow = midLocal();
+  assert(tw.holdState().drop > 0, 'ENG-EW model: holdState().drop > 0 during the window');
+  assert(dropped.distanceTo(seat) > 0.8, 'ENG-EW model: the eye LEAVES the holder seat on dropEye');
+  assert(Math.hypot(dropped.x - midNow.x, dropped.z - midNow.z) < 1.3 && dropped.y < midNow.y - 0.3,
+    `ENG-EW model: the dropped eye lands near the thread midpoint, BELOW it (Δxz ${Math.hypot(dropped.x - midNow.x, dropped.z - midNow.z).toFixed(2)}, Δy ${(dropped.y - midNow.y).toFixed(2)})`);
+  // A.3 a mid-drop pin drives target, not position (the drop lerp owns position).
+  tw.setDebugHandoff(1); for (let i = 0; i < 6; i++) tw.tick(1 / 60, 55 + i / 60);
+  assert(tw.holdState().target === 1, 'ENG-EW model: a mid-drop setDebugHandoff pin is honored (target follows)');
+  const dEye = tw.eyeWorldLocalPos(), dMid = midLocal();
+  assert(tw.holdState().drop > 0 && Math.hypot(dEye.x - dMid.x, dEye.z - dMid.z) < 1.3,
+    'ENG-EW model: during the drop the eye stays at the midpoint regardless of the pin flip');
+  // A.4 recovery: after 2.5s+ease the eye re-seats off the midpoint, drop clears.
+  tw.setDebugHandoff(0); for (let i = 0; i < 180; i++) tw.tick(1 / 60, 56 + i / 60);
+  assert(tw.holdState().drop === 0, 'ENG-EW model: the window closes (drop 0) ~2.5s after dropEye');
+  const rEye = tw.eyeWorldLocalPos(), rMid = midLocal();
+  assert(Math.hypot(rEye.x - rMid.x, rEye.z - rMid.z) > 0.8,
+    'ENG-EW model: after recovery the eye re-seats at the holder seat (off the midpoint), never stuck dropped');
+  tw.dispose();
+  ok('ENG-EW model: holdState/threadMid/dropEye — the eye unseats to the thread midpoint (below), the pin drives target not position, and it recovers ✓');
+
+  // --- B/C. LIVE LOOP: tags, the 3-parry drop, the baton reset, surge/window gates, the iris. ---
+  bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);   // any in-window parry = perfect (never frame-tight in CI)
+  const armEW = () => {
+    boss.resetBoss();   // clear `active` so startBossEncounter rebuilds a FRESH model (else the eye-drop state persists — the 2nd-encounter trap)
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('eitherwing'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 12; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  const bossBullets = () => bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+
+  // B.4 TAG PLUMBING: the opted emits now carry their source-organ tag.
+  let p = armEW();
+  bullets.resetBossBullets(); boss.debugEmitAttack('crossfire', p, 1);
+  const cb = bossBullets();
+  assert(cb.length > 0 && cb.every((b) => b.part === 'eitherTwinA' || b.part === 'eitherTwinB'),
+    'ENG-EW tag: crossfire ambers carry the firing twin tag (eitherTwinA/B)');
+  bullets.resetBossBullets(); boss.debugEmitAttack('aimed', p, 1);
+  const ab = bossBullets();
+  assert(ab.length > 0 && ab.every((b) => b.part === 'eitherMuzzle'),
+    'ENG-EW tag: aimed ambers carry the holder muzzle tag (eitherMuzzle)');
+
+  // Shared parry harness (the ENG-E shape): plant ONE tagged amber, pulse i-frames, tick.
+  let eyeDrops = 0; on('bossEyeDrop', () => { eyeDrops++; });
+  let paintedNonPart = null; on('lockPaint', (e) => { if (e && e.part && !['eyeRig', 'seekerFin', 'seekerScar'].includes(e.part)) paintedNonPart = e.part; });
+  const parry = (pl, t, part) => {
+    bullets.resetBossBullets();
+    bullets.spawnBossBullet({ owner: 'boss', x: pl.position.x, y: pl.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6, part });
+    pl.rollInvuln = 0.2; pl.lastRollDir = -1;
+    boss.updateBoss(1 / 60, pl, t);          // reflect consumer banks +1 on the tagged amber
+    pl.rollInvuln = 0;
+    boss.updateBoss(1 / 60, pl, t + 0.02);   // drop i-frames → re-latch rollParried for the next burst
+  };
+  const holderParries = () => boss.bossDebugState().holderParries;
+
+  // B.5 SNAP-GUARD: parrying the muzzle amber never brands it as a phantom lock organ.
+  p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 4.9);
+  parry(p, 5.0, 'eitherMuzzle');
+  assert(paintedNonPart === null, `ENG-EW snap-guard: parrying an eitherMuzzle amber paints no phantom lock pip (saw ${paintedNonPart})`);
+
+  // C.6 FULL LOOP: 3 holder parries mid-possession drop the eye; the window is silent.
+  p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 5); eyeDrops = 0;
+  parry(p, 5.1, 'eitherMuzzle'); parry(p, 5.2, 'eitherMuzzle');
+  assert(eyeDrops === 0 && holderParries() === 2, `ENG-EW loop: 2 holder parries bank (2/3) without dropping (drops ${eyeDrops}, bank ${holderParries()})`);
+  const bulletsBeforeWindow = bossBullets().length;
+  parry(p, 5.3, 'eitherMuzzle');
+  assert(eyeDrops === 1, 'ENG-EW loop: the 3rd holder parry STAGGERS the handoff (bossEyeDrop fires)');
+  const sd = boss.bossDebugState();
+  assert(sd.eyeDrop > 0 && holderParries() === 0, `ENG-EW loop: the eye is DOWN (eyeDrop ${sd.eyeDrop.toFixed(2)}) and the bank clears on the stagger`);
+  // The window silences scheduling: no new charge/bullets over ~2s of frames (pending may still land).
+  let firedInWindow = 0; const b0 = bossBullets().length;
+  for (let i = 0; i < 90; i++) { const pre = bossBullets().length; boss.updateBoss(1 / 60, p, 6 + i / 60); firedInWindow += Math.max(0, bossBullets().length - pre); }
+  assert(!boss.bossDebugState().charging, 'ENG-EW window: no wind-up arms while the eye is down');
+
+  // C.9b FROZEN DURING THE WINDOW: banking is gated off while staggerT > 0.
+  parry(p, 6.9, 'eitherMuzzle');
+  assert(holderParries() === 0, 'ENG-EW window: no re-banking while the window is live (staggerT<=0 gate)');
+
+  // C.7 BATON RESET: the bank dies with the baton, and never fires across a pass.
+  p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 5); eyeDrops = 0;
+  parry(p, 5.1, 'eitherMuzzle'); parry(p, 5.2, 'eitherMuzzle');
+  assert(holderParries() === 2, 'ENG-EW baton: banked 2 before the pass');
+  boss.debugSetHandoff(1); boss.updateBoss(1 / 60, p, 5.25); boss.updateBoss(1 / 60, p, 5.27);   // the §2d watcher clears on the flip
+  assert(holderParries() === 0, 'ENG-EW baton: the count FADES on the baton pass (mid-possession only)');
+  parry(p, 5.4, 'eitherMuzzle');
+  assert(eyeDrops === 0, 'ENG-EW baton: a lone bank after the pass does NOT drop (the count died)');
+  parry(p, 5.5, 'eitherMuzzle'); parry(p, 5.6, 'eitherMuzzle');
+  assert(eyeDrops === 1, 'ENG-EW baton: a fresh 3 (post-pass) fires the drop');
+
+  // C.8 HOLDER-SIDE crossfire counts; the seeker's half does not.
+  p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 5);   // twinA holds
+  parry(p, 5.1, 'eitherTwinB');   // the SEEKER's amber
+  assert(holderParries() === 0, 'ENG-EW duo-law: parrying the SEEKER twin (eitherTwinB) banks nothing');
+  parry(p, 5.2, 'eitherTwinA');   // the HOLDER's amber
+  assert(holderParries() === 1, 'ENG-EW duo-law: parrying the HOLDER twin (eitherTwinA) banks +1');
+
+  // C.9 SURGE reflects don't count.
+  p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 5);
+  game.feverActive = true;
+  parry(p, 5.1, 'eitherMuzzle');
+  game.feverActive = false;
+  assert(holderParries() === 0, 'ENG-EW: surge reflects are free-for-all, not the amber read (0 bank)');
+
+  // C.10 MIDPOINT-IRIS: the dread iris centres on threadMid, not the player.
+  p = armEW();
+  p.position.x = -8; for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 5 + i / 60);   // publish threadMid; anchorX would be -5.6
+  bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);
+  const ib = bossBullets();
+  const meanX = ib.reduce((s, b) => s + b.x, 0) / ib.length;
+  const midX = boss.debugPartWorldPos('threadMid').x;
+  assert(ib.length > 0 && Math.abs(meanX - midX) < 1.2,
+    `ENG-EW iris: the rings centre on threadMid (mean x ${meanX.toFixed(2)} vs threadMid ${midX.toFixed(2)})`);
+  assert(Math.abs(meanX - (-5.6)) >= 3,
+    `ENG-EW iris: the player-derived placement (anchorX −5.6) is provably NOT taken (mean x ${meanX.toFixed(2)})`);
+
+  // C.11 COEXIST INERT: a boss without holderStagger banks nothing, never drops.
+  eyeDrops = 0;
+  boss.resetBoss();   // clear `active` so the boss actually switches to voidmaw
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const pv = makePlayer();
+  boss.forceBoss(pv, BOSS_ORDER.indexOf('voidmaw'));
+  boss.debugForceFight(pv);
+  for (let i = 0; i < 10; i++) boss.updateBoss(1 / 60, pv, 2 + i / 60);
+  parry(pv, 5.1, 'eitherMuzzle'); parry(pv, 5.2, 'eitherMuzzle'); parry(pv, 5.3, 'eitherMuzzle');
+  assert(eyeDrops === 0 && boss.bossDebugState().holderParries === 0,
+    'ENG-EW coexist: a non-holderStagger boss (voidmaw) banks nothing and never drops the eye');
+  boss.resetBoss();
+  bullets.setDebugPerfectParryRel(null);
+  ok('ENG-EW HOLDER-STAGGER: tagged holder amber banks 3× mid-possession → the eye DROPS to the thread midpoint (window silent); baton pass fades the count; seeker-side/surge/window unbanked; snap-guard blocks phantom pips; the dread iris centres on threadMid; inert for others ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);
