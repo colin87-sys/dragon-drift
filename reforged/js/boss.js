@@ -2792,6 +2792,13 @@ export function updateBoss(dt, player, time, camera) {
             if (tollChainN > 0 && time - tollChainAt > RHYTHM_CHAIN_TIMEOUT) tollChainN = 0;   // a missed amber broke the chain
             const since = time - lastRealTollAt;
             const ghost = Math.abs(since - Math.round(since / lastTollGap) * lastTollGap);
+            // §ENG-C3 KNOWN FRAGILITY (preview-judged, deferred): at a BURST HEAD `lastTollGap`
+            // still holds the stale spiral→aimed transition gap, so the 1st chain amber banks
+            // only if parried AFTER its own toll rings (the "on the beat" read) — a parry landed
+            // early (within reflectWindow, before the toll) evaluates against the stale gap and
+            // silently no-banks, capping that burst at 3/4. Arguably by-design ("on the bell's
+            // beat" = after it tolls); if a preview says it reads unfair, accept the parry against
+            // the IMMINENT release too (chargeT is the wind-up) — a mechanic change the owner should feel-check.
             if (lastRealTollAt > 0 && ghost <= RHYTHM_PARRY_WINDOW) {
               tollChainN++; tollChainAt = time;
               const need = def.rhythmParry.chain ?? 4;
@@ -3683,6 +3690,7 @@ function breakShield(player) {
     // semantics byte-identical.
     riposteCd = 0; rallyN = 0; rallyWindowT = 0; rallyAnswerT = 0; riposteReturnMult = 0.62;
     holdFlinchCd = 0; holdFlinchPay = 1; holdTier = 0;
+    staggerT = 0;   // §ENG-C3 FIX: a chain completion that raised THIS floor-shield froze staggerT under it — clear it at the seam so the next phase can't open with free scheduling silence
     if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; }
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
@@ -4972,6 +4980,7 @@ function damageBoss(amount, kind, e = null) {
         model.riposte?.();
         riposteReturnT = 0.22;
         riposteReturnMult = 0.62 * Math.pow(RALLY_STEP, rallyN);   // 0.713, then 0.820
+        riposteCd = RIPOSTE_CD;   // §ENG-KV FIX: keep the cd HOT through a live rally — a rally can outlive 7s (late answers), and a stale cd would let a stray player-kind landing enter the FRESH branch and WIPE rallyN mid-rally
         sfx.shieldPing?.();
         if (group) burst(group.position, 0xffc23c, { count: 10, speed: 14, size: 0.9, life: 0.4 });
         emit('bossRiposte', { phase: phaseIdx, rally: rallyN });
