@@ -161,6 +161,11 @@ export function setFlapDebugPose(parts, model, state) {
     tl.rotation.z = -tipLag * 0.28 + turnBias * 0.45;
     tl.rotation.x = -0.12 + feather * 0.16;
   }
+  // CP3.3 spire counter (Solar) — parity with dragon.js so studio/flapstrip captures show the STABILISED
+  // spire, not the fully-swept one (else the acceptance strip is a false negative). Opposite L/R signs.
+  const spireStab = model.spireStabilize ?? 0;
+  if (parts.carpalSpireR) parts.carpalSpireR.rotation.z =  spireStab * Math.sin(phase) * flapAmp;
+  if (parts.carpalSpireL) parts.carpalSpireL.rotation.z = -spireStab * Math.sin(phase) * flapAmp;
   poseBladePivots(parts, state);
   poseLobePivots(parts, state);
   return r;

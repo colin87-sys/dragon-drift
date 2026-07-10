@@ -283,3 +283,29 @@ transparent-drawable ≤ target, star-gem = gem/no-lid at every form, maxTier cl
     wider M valley. Transparent-drawable ledger: the #347 membrane fix already changed the count; the
     corona umbra adds +1 dark (non-additive) drawable — the ≤8 line (§10) predates the membrane fix and
     needs an honest recount in a follow-up.
+
+- **CP3.3 — THE FLAP SWEEP + THE RING THAT STILL WOULDN'T CLEAR.** Owner (post-#352): "when the wing
+  FLAPS the 2 spikes occlude" + "the round thing is still hard to see through." High-effort Fable pass +
+  a corrected sign. Two findings:
+  - **Flap-swept spires (the new axis).** Solar rides the plain DIRECT-PIVOT wing path (`dragon.js` ~785),
+    so the WHOLE wing incl. the tall carpal spires is one rigid body on `wingPivot.rotation.z = −rootFlap`.
+    At peak upstroke the spire tips swing from ~16° (rest, the pose #352 fixed) to ~9° azimuth — INTO the
+    ±10° corridor, worse on boost, both sides converging like a scissor once per beat. A single-phase
+    capture showed this as ZERO (it only ever caught the rest phase). FIX — **DECOUPLE (mast-not-sail):**
+    the spire is now its own named group `carpalSpire` with origin at the carpal station; `dragon.js`
+    counter-rotates it by `spireStabilize(0.85)·sin(phase)·flapAmp` so the base still travels with the wing
+    but the shaft holds orientation → the tip stops crossing the view. Cancels ONLY the sinusoid (turns +
+    inhale-raise still carry the spires). **Opposite L/R signs** (mirror the pivots' −/+rootFlap) — the
+    same-sign form amplifies the left spire; wingsymprobe Δ0.000 is the guard. Rest pose byte-identical,
+    0 tris. Debug-poser parity (`wingDebugPose.js`) so the flapstrip capture tells the truth.
+  - **The ring: the RIM was the blocker, not the band.** #352 ghosted the dark umbra band — but the audit
+    showed the OPAQUE emissive rim annulus (Rm 1.06→Ro 1.30) is ~2.5× the band's occlusion + a bloom halo
+    that glare-masks nearby obstacles. #352 ghosted the smaller contributor. FIX — **RIM DIET:** `Rm
+    1.06→1.10` (thins the opaque rim to 0.20u ≈ 8.2px, the density floor — do NOT raise further — and
+    auto-widens the ghosted umbra to fill), `coronaI 3.4→2.6` (tighten the halo), umbra `0.74→0.60` (40%
+    show-through), streamer width `0.13→0.10`. All radial/opacity/intensity → spin-proof.
+  - Verified: smoke green · wingsymprobe Δ0.000 · tricount 0-over-budget (Eternal 3499) · starters 242/0
+    (rest silhouette intact) · blueprint 4/4 · **flapstrip (5-phase)** — spikes stay outboard of the
+    corridor at every phase incl. apex/recovery, corona see-through throughout, M intact. Owner judges on
+    the #352 preview: the umbra 0.60, the rim brightness 2.6, and the stabilised-spire MOTION feel
+    (retreats: umbra 0.66, rim 3.0, spireStabilize down from 0.85 if the spires read too gyro-rigid).
