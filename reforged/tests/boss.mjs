@@ -1060,7 +1060,13 @@ for (const key of BOSS_ORDER) {
 // on the charge envelope). All model-side (the studio default — entrance 1, loom 0,
 // crush 0, no tell — stays byte-identical to the CP1 frames).
 {
+  // Seed the MODEL BUILD deterministically (buildBoss consumes real Math.random for procedural
+  // geometry, so the eyeHollow scale drifted with the upstream RNG stream — the latent flake this
+  // block hit ~1-in-5; same class as the karnvow footwork seed above).
+  const _rrEmb = Math.random; let _sEmb = 0x3D9A6F1B;
+  Math.random = () => { _sEmb = (_sEmb * 1103515245 + 12345) & 0x7fffffff; return _sEmb / 0x80000000; };
   const em = buildBoss(BOSSES.embertide, 1);
+  Math.random = _rrEmb;
   const faceRig = em.group.getObjectByName('faceRig');
   const eh = em.group.getObjectByName('eyeHollow0');
   const mouth = em.group.getObjectByName('mouthNotch');
@@ -1550,7 +1556,15 @@ for (const key of BOSS_ORDER) {
 // change); the cowl/lance-tip/chain pivots must all exist (the emotion + organ +
 // swing rig the controller drives). The lance is one part, three jobs (§5f).
 {
+  // Seed the MODEL BUILD (not just the footwork tick loop below): buildBoss consumes real
+  // Math.random for procedural geometry, so the round-3 footwork x-spread drifted with
+  // whatever the upstream tests left on the stream — the latent flake this block documents.
+  // A deterministic build makes the spread deterministic (the seed the footwork loop's own
+  // comment admits it was missing), so the assert is stable regardless of test order/RNG.
+  const _rrBuild = Math.random; let _sBuild = 0x1B7A43C9;
+  Math.random = () => { _sBuild = (_sBuild * 1103515245 + 12345) & 0x7fffffff; return _sBuild / 0x80000000; };
   const kv = buildBoss(BOSSES.karnvow, 1);
+  Math.random = _rrBuild;
   // Named pivots the telegraph + charisma + organ rig depend on.
   const lancePivot = kv.group.getObjectByName('lancePivot');
   assert(!!lancePivot, 'karnvow exposes the named lancePivot (the couch→point telegraph)');
@@ -2691,11 +2705,13 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   for (let i = 0; i < 30; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
 
   const eyeX = boss.debugPartWorldPos('focalEye').x;
-  // G4 (card OFF): un-opted movingGap SLIDES from the player seed — so it does NOT leave a
-  // single locked lane at the eye (the anchor is inert outside its card).
+  // §BOSS-FEEL-AUDIT: the eye-anchor is now UN-GATED (was card-only — 2/3 of the fight had no
+  // boss-unique read). Card OFF, stormrend movingGap STILL locks to the eye: the whole fight is
+  // "chase the eye". The old card-off "does NOT lock" assert INVERTS by design — the coexist
+  // leg is re-targeted to a no-gapAnchor def below (the ENG-LT twin-split law).
   boss.debugForceCard(null);
   bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', p, 1);
-  assert(!laneAt(bul(), eyeX, 2.6), 'ENG-B card-off: movingGap does NOT lock to the eye (anchor inert; shipped player-seeded slide)');
+  assert(laneAt(bul(), eyeX, 2.6), 'BOSS-FEEL: stormrend movingGap locks to the eye with NO card (un-gated — the read runs the whole fight)');
 
   // G2 (card ON): every row's lane LOCKS to the eye — a single boss-read gap, not the slide.
   assert(boss.debugForceCard('stormrend_eye'), 'ENG-B: stormrend_eye card arms via debugForceCard');
@@ -2709,7 +2725,16 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assert(laneAt(bul(), 9, 2.6), 'ENG-B clamp: an out-of-arena authored x (40) clamps to the +9 lane (never unreachable)');
   BOSSES.stormrend.gapAnchor.movingGap = saved;
   boss.resetBoss();
-  ok('ENG-B authored gaps: the dread wall’s lane LOCKS to the storm’s eye (a boss-read); card-off = shipped player placement; out-of-arena clamps in ✓');
+  // §BOSS-FEEL-AUDIT twin-split coexist: a def with NO gapAnchor.movingGap (voidmaw) stays
+  // player-seeded — the un-gate is stormrend-scoped, not global.
+  game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+  const vp = makePlayer(); vp.position.x = 6;
+  boss.forceBoss(vp, BOSS_ORDER.indexOf('voidmaw')); boss.debugForceFight(vp);
+  for (let i = 0; i < 10; i++) boss.updateBoss(1 / 60, vp, 2 + i / 60);
+  bullets.resetBossBullets(); boss.debugEmitAttack('movingGap', vp, 1);
+  assert(!laneAt(bul(), eyeX, 2.6), 'ENG-B coexist: voidmaw movingGap does NOT lock to stormrend’s eye (no gapAnchor → player-seeded slide)');
+  boss.resetBoss();
+  ok('ENG-B authored gaps: the storm’s eye lane locks WHOLE-FIGHT (un-gated, BOSS-FEEL); coexist def stays player-seeded; out-of-arena clamps in ✓');
 }
 
 // §ENG-D SLIPSTREAM: ASHTALON's stoop grows a drawn moving safe pocket; riding its edge-wall
@@ -3085,16 +3110,28 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(tolls.length >= 2 && tolls[1] === 2, `ENG-H peal: after the cooldown a fresh toll re-arms (toll ${tolls[1]})`);
     boss.resetBoss();
   }
-  // Sweep purity STAYS LAW — pendulumSweep never arms a pocket (no farm mid-swing). The Last
-  // Toll leg is REVERSED by §ENG-LT (the ride now arms — asserted in the §ENG-LT block below).
+  // §ENG-C2 SWEEP POCKET (twin-split of the old purity leg, the ENG-LT law): the sweeping bell
+  // TOLLS too — a spiral during pendulumSweep now ARMS a pocket via the NORMAL srel math (NOT
+  // ride mode, unlike the overhead Last Toll), under the shipped discCd. Riding it pays graze
+  // but never feeds resolve (P4 carries no survival card — the resolve economy must not leak in).
   {
     const p = armKnellgrave();
     boss.debugForceCard('knellgrave_sweep');
     boss.debugRunSetpiece('pendulumSweep');
-    let pocket = false; on('discPocket', () => { pocket = true; });
+    let pockets = 0; on('discPocket', () => { pockets++; });
     bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);
-    for (let i = 0; i < 60; i++) boss.updateBoss(1 / 60, p, 3 + i / 60);
-    assert(!pocket && boss.bossDebugState().discActive === false, 'ENG-H purity: no pocket arms during pendulumSweep (pure dodge)');
+    const st = boss.bossDebugState();
+    assert(st.discActive && st.discRide === false && st.discTollN === 1 && pockets === 1,
+      `ENG-C2 sweep: a spiral ARMS a pocket during pendulumSweep, NOT ride mode (active ${st.discActive}, ride ${st.discRide}, toll ${st.discTollN})`);
+    assert(st.discR1 > 3 && st.discR1 < 13 && Math.abs(st.discR1 - st.discGeom.outSpd * 1.8) > 1e-3,
+      `ENG-C2 sweep: HONEST srel wall radius above the max(r1,3) clamp, not the ride cadence value (discR1 ${st.discR1.toFixed(1)} ∈ (3,13))`);
+    // discCd honored: a 2nd immediate spiral does NOT re-arm (unlike ride mode's replace-on-arm).
+    boss.debugEmitAttack('spiral', p, 1);
+    assert(boss.bossDebugState().discTollN === 1, 'ENG-C2 sweep: the shipped discCd holds — a 2nd immediate toll opens no pocket');
+    let ticks = 0; on('discGraze', () => { ticks++; });
+    for (let i = 0; i < 120; i++) { const s = boss.bossDebugState(); if (s.discActive) { p.position.x = s.discX; p.position.y = s.discY - s.discR * (1 - s.discGeom.wallFrac / 2); } boss.updateBoss(1 / 60, p, 3 + i / 60); }
+    assert(ticks > 0 && boss.bossDebugState().resolveK === 0,
+      `ENG-C2 sweep: riding the rim pays graze (${ticks}) without feeding resolve (P4 has no survival card)`);
     boss.resetBoss();
   }
   // The arm site MOVED: an iris volley on knellgrave now arms NOTHING.
@@ -3125,7 +3162,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
       'ENG-H coexist: a non-shrinkDisc boss (stormrend) firing spiral opens no pocket (inert branch)');
     boss.resetBoss();
   }
-  ok('ENG-H TOLL-WALL DISC: spiral tolls radiate an expanding wall (drawn == wavefront) from the bell; rim ride pays escalating ticks (core/outside unpaid), dies as the wall crosses; the peal double-toll arms once; iris arms nothing; both setpieces pure; inert for others ✓');
+  ok('ENG-H TOLL-WALL DISC: spiral tolls radiate an expanding wall (drawn == wavefront) from the bell; rim ride pays escalating ticks (core/outside unpaid), dies as the wall crosses; the peal double-toll arms once; iris arms nothing; the Last Toll rides + the sweep arms under the shipped cd, every OTHER setpiece pure; inert for others ✓');
 }
 
 // §ENG-H PENDULUM SWEEP + BOB-LOCK: the P4 hero setpiece — the bell swings ACROSS the lane in
@@ -3611,16 +3648,18 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   parry(p, 6.9, 'eitherMuzzle');
   assert(holderParries() === 0, 'ENG-EW window: no re-banking while the window is live (staggerT<=0 gate)');
 
-  // C.7 BATON RESET: the bank dies with the baton, and never fires across a pass.
+  // C.7 BATON DECAY (§BOSS-FEEL-AUDIT): a baton pass DECAYS the bank by ONE, not a full wipe —
+  // the old wipe + the ~3s baton made "3 perfect parries per possession" unreachable, so the
+  // stagger never fired live; decay lets cross-possession mastery accumulate.
   p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 5); eyeDrops = 0;
   parry(p, 5.1, 'eitherMuzzle'); parry(p, 5.2, 'eitherMuzzle');
   assert(holderParries() === 2, 'ENG-EW baton: banked 2 before the pass');
-  boss.debugSetHandoff(1); boss.updateBoss(1 / 60, p, 5.25); boss.updateBoss(1 / 60, p, 5.27);   // the §2d watcher clears on the flip
-  assert(holderParries() === 0, 'ENG-EW baton: the count FADES on the baton pass (mid-possession only)');
+  boss.debugSetHandoff(1); boss.updateBoss(1 / 60, p, 5.25); boss.updateBoss(1 / 60, p, 5.27);   // the §2d watcher decays on the flip
+  assert(holderParries() === 1, 'ENG-EW baton: the count DECAYS by one on the baton pass (not a full wipe — the reachability fix)');
   parry(p, 5.4, 'eitherMuzzle');
-  assert(eyeDrops === 0, 'ENG-EW baton: a lone bank after the pass does NOT drop (the count died)');
-  parry(p, 5.5, 'eitherMuzzle'); parry(p, 5.6, 'eitherMuzzle');
-  assert(eyeDrops === 1, 'ENG-EW baton: a fresh 3 (post-pass) fires the drop');
+  assert(eyeDrops === 0 && holderParries() === 2, 'ENG-EW baton: one bank after the pass reaches 2/3, no drop yet');
+  parry(p, 5.5, 'eitherMuzzle');
+  assert(eyeDrops === 1, 'ENG-EW baton: the 3rd (accumulated ACROSS the pass) fires the drop');
 
   // C.8 HOLDER-SIDE crossfire counts; the seeker's half does not.
   p = armEW(); boss.debugSetHandoff(0); boss.updateBoss(1 / 60, p, 5);   // twinA holds
@@ -3662,6 +3701,304 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   boss.resetBoss();
   bullets.setDebugPerfectParryRel(null);
   ok('ENG-EW HOLDER-STAGGER: tagged holder amber banks 3× mid-possession → the eye DROPS to the thread midpoint (window silent); baton pass fades the count; seeker-side/surge/window unbanked; snap-guard blocks phantom pips; the dread iris centres on threadMid; inert for others ✓');
+}
+
+// §BOSS-FEEL-AUDIT — durable regression fences for the boss-feel batch (each fix gets a gate so
+// it can't silently regress — the exact failure that shipped on EITHERWING's stagger).
+{
+  const armBoss = (name) => {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf(name));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+
+  // FIX 1 — MARROWCOIL: the P3 rest floor is re-banded (not hotter than the slot-5 peak) and the
+  // wall burst is a threadable pair. Def-level fences complementing rhythmprint.
+  const mcP3 = BOSSES.marrowcoil.rhythm.phases[2], ewP3 = BOSSES.eitherwing.rhythm.phases[2];
+  assert(mcP3.restLo >= 1.3 && mcP3.restLo >= ewP3.restLo - 0.2,
+    `BOSS-FEEL Marrowcoil: the P3 rest floor (${mcP3.restLo}) is re-banded vs the slot-5 peak (${ewP3.restLo})`);
+  assert(mcP3.phrase.find((m) => m.attack === 'movingGap').count === 2,
+    'BOSS-FEEL Marrowcoil: the P3 wall burst is a threadable pair (count 2), not a triple');
+
+  // FIX 2 — BRINEHOLM: the sway-AWARE wall-margin assert (the exact term the July-7 fix omitted,
+  // which is why CI stayed green while the trap regressed).
+  {
+    const d = BOSSES.brineholm;
+    const swayAmp = d.holdSway?.amp ?? 5.0;
+    const worst = 4.5 * (d.scale ?? 1) + swayAmp;   // outer shacklePost world-x + full sway
+    assert(worst <= CONFIG.laneHalfWidth - CONFIG.LOCK.coneXY - 2,
+      `BOSS-FEEL Brineholm: the outer shackle's worst swing (${worst.toFixed(2)}) clears the ±${CONFIG.laneHalfWidth} wall with acquire margin (SWAY-AWARE)`);
+    assert(Array.isArray(d.reflectTargets) && d.reflectTargets.includes('shacklePost0'),
+      'BOSS-FEEL Brineholm: the shackles are reflectTargets (remote parry reach — no fly-into-the-wall)');
+  }
+
+  // FIX 3 — EITHERWING: the stagger is REACHABLE with the LIVE baton (NO debugHold pin — the flaw
+  // the original gate had). 3 muzzle parries inside the fresh (~5.5s) first possession → the drop.
+  {
+    bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);
+    const p = armBoss('eitherwing');
+    let drops = 0; on('bossEyeDrop', () => { drops++; });
+    const parryMuzzle = (t) => {
+      bullets.resetBossBullets();
+      bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6, part: 'eitherMuzzle' });
+      p.rollInvuln = 0.2; p.lastRollDir = -1;
+      boss.updateBoss(1 / 60, p, t);
+      p.rollInvuln = 0;
+      boss.updateBoss(1 / 60, p, t + 0.02);
+    };
+    parryMuzzle(2.2); parryMuzzle(2.7); parryMuzzle(3.2);   // one live possession, baton un-pinned
+    assert(drops === 1, `BOSS-FEEL Eitherwing: 3 muzzle parries in ONE live possession drop the eye (${drops}) — the payoff is reachable without pinning the baton`);
+    bullets.setDebugPerfectParryRel(null);
+    boss.resetBoss();
+  }
+
+  // FIX 7 — HOLLOWGATE: with every pane cracked, spiralStream still FIRES (the silent-volley bug).
+  {
+    const p = armBoss('hollowgate');
+    for (let i = 0; i < 8; i++) boss.debugCrackPane(i);   // sculpt the whole window
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiralStream', p, 1);
+    const bs = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+    assert(bs.length > 0, `BOSS-FEEL Hollowgate: spiralStream fires with all panes broken (${bs.length} bullets — no more silent dread volley)`);
+    boss.resetBoss();
+  }
+
+  // FIX 8 — KNELLGRAVE: P4 carries `spiral`, so the toll-wall loop doesn't die for a phase.
+  assert(BOSSES.knellgrave.phases[3].attacks.includes('spiral'),
+    'BOSS-FEEL Knellgrave: P4 (Pendulum Sweep) carries spiral — the toll loop runs the whole fight');
+  assert(BOSSES.knellgrave.rhythm.phases[3].phrase.some((m) => m.attack === 'spiral'),
+    'BOSS-FEEL Knellgrave: the P4 phrase tolls (a spiral measure)');
+
+  ok('BOSS-FEEL-AUDIT fences: Marrowcoil re-banded, Brineholm sway-margin holds + reflectTargets, Eitherwing stagger reachable on the LIVE baton, Hollowgate no silent volley, Knellgrave P4 tolls ✓');
+}
+
+// §BOSS-FEEL BATCH-2 — durable fences for the five engagement-loop mechanics: ASHTALON recur,
+// HOLLOWGATE "the door opens", ONEWING grief-transference, KARNVOW rally, KNELLGRAVE rhythm chain.
+{
+  const armBoss = (name) => {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf(name));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+
+  // --- ASHTALON recur: the stoop RE-ARMS in P3 (recur:9); only a `recur` def ever re-arms ---
+  {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.setBossDebugPhase(3);                       // P3 (0-based phaseIdx 2) — where stoopingStrike arms
+    boss.forceBoss(p, BOSS_ORDER.indexOf('ashtalon'));
+    boss.debugForceFight(p);
+    let arms = 0, prev = boss.bossDebugState().setpiece;   // initial arm already true — count re-arm edges
+    for (let i = 0; i < 60 * 48; i++) {
+      boss.debugClearShield();                       // INERT belt-and-braces: P3 is ashtalon's last phase (floor 0), so it's unshielded the whole phase in live play and recur is live-reachable with no help — this only guards against a stray floor-shield in the headless park, NOT a cover-up (verified post-build)
+      boss.updateBoss(1 / 60, p, 2 + i / 60);
+      const now = boss.bossDebugState().setpiece;
+      if (now && !prev) arms++;                      // false→true edge = a fresh stoop re-armed
+      prev = now;
+    }
+    assert(arms >= 2, `ASHTALON recur: the stoop RE-ARMS in P3 (${arms} re-arms in 48s — recur:9 → a ~14.5s cycle)`);
+    boss.setBossDebugPhase(1);                       // HAZARD: debugPhaseJump survives resetBoss — clear it
+    boss.resetBoss();
+  }
+  // Coexist: voidmaw (no setpieces) never arms one.
+  {
+    const p = armBoss('voidmaw');
+    let armed = false;
+    for (let i = 0; i < 60 * 30 && !armed; i++) { if (boss.bossDebugState().setpiece) armed = true; boss.updateBoss(1 / 60, p, 2 + i / 60); }
+    assert(!armed, 'ASHTALON recur coexist: voidmaw (no setpieces) never arms one');
+    boss.resetBoss();
+  }
+
+  // --- HOLLOWGATE "THE DOOR OPENS": the LAST pane arms the breach + a 1.5× bare-hub weak-point ---
+  {
+    const p = armBoss('hollowgate');
+    let breachEvt = 0; on('bossBreach', () => { breachEvt++; });
+    for (let i = 0; i < 7; i++) boss.debugCrackPane(i);
+    assert(!boss.bossDebugState().breached, 'DOOR OPENS: 7/8 panes cracked — not breached yet');
+    const hp0 = boss.bossDebugState().hp;
+    emit('bossDamage', { amount: 10, kind: 'rider' });                    // no x/y/part → partBonus 0
+    assertEq(Math.round((hp0 - boss.bossDebugState().hp) * 100) / 100, 10, 'DOOR OPENS: a pre-breach chip is 1× (10)');
+    boss.debugCrackPane(7);
+    assert(boss.bossDebugState().breached, 'DOOR OPENS: the LAST pane arms the breach');
+    assertEq(breachEvt, 1, 'DOOR OPENS: bossBreach emits exactly once');
+    boss.debugCrackPane(7);                                               // idempotent re-crack
+    assertEq(breachEvt, 1, 'DOOR OPENS: a re-crack never re-arms');
+    const hp1 = boss.bossDebugState().hp;
+    emit('bossDamage', { amount: 10, kind: 'rider' });
+    assertEq(Math.round((hp1 - boss.bossDebugState().hp) * 100) / 100, 15, 'DOOR OPENS: the breached hub chips 1.5× (15)');
+    boss.resetBoss();
+    // Coexist: a non-pane part-break (marrowcoil ribs) never arms the breach.
+    const p2 = armBoss('marrowcoil');
+    for (let i = 0; i < 3; i++) boss.debugCrackRib(i);
+    assert(!boss.bossDebugState().breached, 'DOOR OPENS coexist: 3 rib breaks never arm the breach (pane row only)');
+    boss.resetBoss();
+    // PRODUCTION PATH: the last pane broken by GUNFIRE routing (not the debug seam) must arm the
+    // breach — proves the shipped applyPartBreak arm, not just the debugCrackPane mirror.
+    const p3 = armBoss('hollowgate');
+    for (let i = 0; i < 7; i++) boss.debugCrackPane(i);   // sculpt 7 via the seam
+    let prodBreach = 0, lastLeft = -1;
+    on('bossBreach', () => { prodBreach++; }); on('bossPaneBreak', (e) => { lastLeft = e.left; });
+    for (let k = 0; k < 6 && !boss.bossDebugState().breached; k++) emit('bossDamage', { amount: 1, kind: 'player', part: 7 });   // break pane 7 by shot routing (numeric part → routePartDamage, weight 1, PART_CRACK_HITS hits)
+    assert(prodBreach === 1 && lastLeft === 0 && boss.bossDebugState().breached, `DOOR OPENS: the SHIPPED applyPartBreak arm fires when the last pane breaks by gunfire (breach ${prodBreach}, left ${lastLeft})`);
+    boss.resetBoss();
+  }
+
+  // --- ONEWING grief-transference: after the frame breaks, the living wing's aimed solves to the
+  //     MIRROR (the dead twin's read) — magenta + UNPARRYABLE — NOT the live player ---
+  {
+    bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);
+    const p = armBoss('onewing');
+    // Baseline (frame intact): aimed is amber/parryable and tracks the LIVE player.
+    p.position.x = 0; p.position.y = 0;
+    for (let i = 0; i < 70; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);   // fill the poseRing (≥5 samples) at x≈0
+    p.position.x = 25;                                                     // teleport far, do NOT tick (ring stays ~0)
+    bullets.resetBossBullets(); boss.debugEmitAttack('aimed', p, 1);
+    // Solve each bullet's aim target back from its spawn (x + vx·rel/closing recovers the aimed point).
+    const solveX = (b) => b.x + b.vx * (b.rel / CONFIG.BOSS.bulletSpeed);
+    let bs = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+    assert(bs.length > 0 && bs.every((b) => b.reflectable), 'ONEWING grief: pre-break aimed is amber/parryable (shipped)');
+    assert(Math.min(...bs.map((b) => Math.abs(solveX(b) - 25))) < 3, 'ONEWING grief: pre-break aimed TRACKS the LIVE player at x=25');
+    // Break the frame: 4 perfect parries of frameGroup ambers (the break consumer is not phase-gated).
+    const parryFrame = (t) => {
+      bullets.resetBossBullets();
+      bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6, part: 'frameGroup' });
+      p.rollInvuln = 0.2; p.lastRollDir = -1;
+      boss.updateBoss(1 / 60, p, t); p.rollInvuln = 0; boss.updateBoss(1 / 60, p, t + 0.02);
+    };
+    p.position.x = 0; p.position.y = 0;
+    parryFrame(3.0); parryFrame(3.1); parryFrame(3.2); parryFrame(3.3);
+    assert(boss.bossDebugState().ghostFrameBroken, 'ONEWING grief: 4 perfect frame parries break the frame');
+    // Post-break: settle the ring at x≈0, teleport to x=25, emit — aimed must solve to the MIRROR.
+    for (let i = 0; i < 70; i++) boss.updateBoss(1 / 60, p, 4 + i / 60);
+    p.position.x = 25;                                                     // teleport, no tick
+    bullets.resetBossBullets(); boss.debugEmitAttack('aimed', p, 1);
+    bs = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+    assert(bs.length > 0 && bs.every((b) => !b.reflectable), 'ONEWING grief: post-break aimed is UNPARRYABLE (the grief moved into the living wing)');
+    assert(bs.every((b) => b.color === BOSSES.onewing.bulletColor && b.part == null), 'ONEWING grief: post-break aimed wears the danger-magenta bulletColor with no part tag (no false-amber lie, no Surge-bankable ghost hit)');
+    assert(bs.every((b) => Math.abs(solveX(b)) < 3), 'ONEWING grief: post-break aimed solves to the MIRROR (~0), NOT the live player at x=25');
+    bullets.setDebugPerfectParryRel(null);
+    boss.resetBoss();
+  }
+
+  ok('BOSS-FEEL BATCH-2 (recur / door / grief): Ashtalon stoop re-arms in P3 (voidmaw inert), Hollowgate last-pane breach + 1.5× hub (ribs inert), Onewing post-break aimed goes magenta + mirror-aimed ✓');
+}
+
+// §BOSS-FEEL BATCH-2b — KARNVOW rally + KNELLGRAVE rhythm-parry chain (the two M-sized mechanics).
+{
+  const armBoss = (name, phase) => {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    if (phase) boss.setBossDebugPhase(phase);
+    boss.forceBoss(p, BOSS_ORDER.indexOf(name));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, 2 + i / 60); }
+    return p;
+  };
+
+  // --- KARNVOW rally: cd-gated riposte, the rally answer (time-window, zero paint), coexist ---
+  {
+    bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);
+    const p = armBoss('karnvow', 2);                 // P2 (phaseIdx 1) — reflectRiposte.fromPhase 1
+    let rip = [], ans = 0, flinch = 0;
+    on('bossRiposte', (e) => rip.push(e)); on('bossRallyAnswer', () => ans++); on('bossRallyFlinch', () => flinch++);
+    boss.debugClearShield();
+    emit('bossDamage', { amount: 5, kind: 'player', x: 0, y: 8 });   // a reflected hit → a FRESH riposte
+    assert(rip.length === 1 && rip[0].rally === 0, `KARNVOW rally: a reflected hit triggers a fresh riposte (${rip.length}, rally ${rip[0]?.rally})`);
+    emit('bossDamage', { amount: 5, kind: 'player', x: 0, y: 8 });   // a 2nd immediate hit, no rally answered
+    assert(rip.length === 1, 'KARNVOW rally: the riposte is on a 7s cd — no 2nd fresh riposte without a rally');
+    // The RALLY: each exchange = let the return emit (arms the answer window), parry inside it
+    // (the time-window answer, zero bullet tag), then the re-reflect LANDS (continuation). 3 → flinch.
+    const parryOnce = (t) => {
+      bullets.resetBossBullets();
+      bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 5, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 });
+      p.rollInvuln = 0.2; p.lastRollDir = -1;
+      boss.updateBoss(1 / 60, p, t);
+      p.rollInvuln = 0;
+    };
+    let tt = 5;
+    for (let ex = 0; ex < 3; ex++) {
+      for (let k = 0; k < 16; k++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, tt); tt += 1 / 60; }   // let the return emit → rallyWindowT armed
+      boss.debugClearShield(); parryOnce(tt); tt += 1 / 60;                                                       // parry inside the window → the rally answer
+      emit('bossDamage', { amount: 3, kind: 'player', x: 0, y: 8 });                                             // the re-reflect LANDS → the continuation (headless physics don't auto-route it, as the shipped karnvow drive also injects)
+    }
+    assert(ans >= 3, `KARNVOW rally: each in-window parry fires a rally answer, escalating (×${ans}, zero bullet tag — no phantom organ)`);
+    assert(rip.some((r) => r.rally === 1) && rip.some((r) => r.rally === 2), `KARNVOW rally: the return RE-ARMS faster per exchange (${rip.map((r) => r.rally).join(',')})`);
+    assert(flinch >= 1, `KARNVOW rally: 3 escalating exchanges end in the duelist's FLINCH (×${flinch})`);
+    bullets.setDebugPerfectParryRel(null);
+    boss.resetBoss(); boss.setBossDebugPhase(1);
+    // Coexist (the assert the audit found MISSING): a def without reflectRiposte never returns fire.
+    const vp = armBoss('voidmaw');
+    let vrip = 0; on('bossRiposte', () => vrip++);
+    const vhp0 = boss.bossDebugState().hp;
+    emit('bossDamage', { amount: 5, kind: 'player', x: 0, y: 8 });
+    assert(vrip === 0 && boss.bossDebugState().hp < vhp0, 'KARNVOW rally coexist: voidmaw (no reflectRiposte) never ripostes — the hit lands');
+    boss.resetBoss();
+  }
+
+  // --- KNELLGRAVE rhythm-parry chain: the GHOST-BEAT predicate (on-beat banks complete; off-beat resets) ---
+  {
+    bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);
+    const parryAt = (p, when) => {
+      bullets.resetBossBullets();
+      bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 1.5, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 10, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 });
+      p.rollInvuln = 0.2; p.lastRollDir = -1;
+      boss.updateBoss(1 / 60, p, when);
+      p.rollInvuln = 0;
+      boss.updateBoss(1 / 60, p, when + 0.017);   // a non-rolling frame clears the rollParried latch so the NEXT parry banks
+    };
+    const p = armBoss('knellgrave');
+    boss.debugForceCard('knellgrave_second');
+    // Drive live until TWO real tolls ring (the 1st is skipped by the -10 sentinel, so the 2nd is
+    // what makes the metronome MEASURE a gap), then FREEZE scheduling (shield) so the clock is fixed.
+    let tolls = 0; on('bossToll', () => { tolls++; });
+    let tt = 3;
+    for (let i = 0; i < 60 * 25 && tolls < 2; i++) { tt += 1 / 60; boss.updateBoss(1 / 60, p, tt); }
+    assert(tolls >= 2, 'KNELLGRAVE chain: two real tolls rang during The Second Toll (the live metronome measured a gap)');
+    boss.debugRaiseShield();
+    const st0 = boss.bossDebugState();
+    const gap = st0.tollGap, base = st0.tollAt;
+    assert(gap !== 1.2 && gap >= 0.5 && gap <= 2.4, `KNELLGRAVE chain: the ghost-beat runs on the MEASURED toll gap, not the 1.2 default (gap ${gap.toFixed(3)} in the [0.5,2.4] clamp band)`);
+    const beat = (j) => base + (Math.ceil((tt + 0.5 - base) / gap) + j) * gap;   // on the ghost beat, strictly after tt (ceil: never step time backwards)
+    let chain = 0; on('bossTollChain', () => { chain++; });
+    const hp0 = boss.bossDebugState().hp;
+    parryAt(p, beat(0)); parryAt(p, beat(1)); parryAt(p, beat(2)); parryAt(p, beat(3));   // 4 ON-BEAT banks
+    assert(chain === 1, `KNELLGRAVE chain: 4 on-beat parries ring the chain exactly once (${chain})`);
+    assert(boss.bossDebugState().staggerT > 0, 'KNELLGRAVE chain: completion opens the 2.5s bell-stagger window (the chunk raises the floor under the frozen shield — the ENG-LT law)');
+    assertEq(boss.bossDebugState().tollChainN, 0, 'KNELLGRAVE chain: the chain resets after completion');
+    boss.resetBoss();
+    // Off-beat: an off-beat parry breaks a partial chain (no completion).
+    const p2 = armBoss('knellgrave');
+    boss.debugForceCard('knellgrave_second');
+    let rang2 = false; on('bossToll', () => { rang2 = true; });
+    let t2 = 3;
+    for (let i = 0; i < 60 * 20 && !rang2; i++) { t2 += 1 / 60; boss.updateBoss(1 / 60, p2, t2); }
+    boss.debugRaiseShield();
+    const s2 = boss.bossDebugState(); const g2 = s2.tollGap, b2 = s2.tollAt;
+    const on2 = (j) => b2 + (Math.ceil((t2 + 0.5 - b2) / g2) + j) * g2;   // ceil: never step updateBoss time backwards
+    let chain2 = 0; on('bossTollChain', () => { chain2++; });
+    parryAt(p2, on2(0)); parryAt(p2, on2(1));                                   // 2 on-beat banks
+    parryAt(p2, on2(2) + g2 * 0.5);                                             // then OFF the beat (half a beat late)
+    assertEq(boss.bossDebugState().tollChainN, 0, 'KNELLGRAVE chain: an off-beat parry BREAKS the chain (banks reset)');
+    assertEq(chain2, 0, 'KNELLGRAVE chain: an off-beat parry never completes the chain');
+    boss.resetBoss();
+    // Coexist: weftwitch parries advance ITS thread-cut counter, never the toll chain.
+    const wp = armBoss('weftwitch');
+    parryAt(wp, 4.0);
+    assertEq(boss.bossDebugState().tollChainN, 0, 'KNELLGRAVE chain coexist: a weftwitch parry never banks a toll chain');
+    bullets.setDebugPerfectParryRel(null);
+    boss.resetBoss();
+  }
+
+  ok('BOSS-FEEL BATCH-2b (rally / rhythm-chain): Karnvow riposte is cd-gated + the in-window rally answer escalates to a flinch (voidmaw inert), Knellgrave on-beat ghost-beat banks complete the chain + off-beat resets (weftwitch inert) ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);
