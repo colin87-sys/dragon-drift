@@ -44,6 +44,13 @@ export const DRAGONS = {
       hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02, ridgeStyle: 'scute', ridgeColor: 0x264460,   // dorsal scutes: low leaf-scutes tinted to the body value so the back reads as one sleek mass (gate r8 dir 9), not pale beads
       wingRootOffset: { z: -0.4 },   // shoulder forward toward the nose (−z) so the comb roots on the shoulder, not the mid-back (was reading too far aft)
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
+      // WIDE JOINTED WINGBEAT (dragon flight, not bird flutter): the arm sweeps a big asymmetric arc
+      // (apex ≈ 12 o'clock, bottom ≈ 5 o'clock) off the certified flapEnv envelope, the primaries FOLD
+      // on the up-beat + rake back, and the per-feather cascade trails — shoulder leads → hand → tips.
+      // Down-beat is the slower/broader power half (downFrac). Starting values; the aesthetics gate tunes.
+      flapArc: { apexDeg: 80, bottomDeg: 56, downFrac: 0.58 },
+      flapTipFold: 0.7, flapTipFoldLag: 0.14,   // deep primary fold on recovery, trailing the arm
+      flapBladeCascade: { amp: 0.2, lag: 1.35 }, // out-of-sync feather furl across the comb
     },
     // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
     // glider with a stub comb + crest nub + forked tail-hint → adolescent, blades
