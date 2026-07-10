@@ -830,6 +830,10 @@ export function buildWeftwitch(def, quality = 1) {
       // gaze toward the worked lane (the "she watches you" read survives; the hood/loom still track).
       const gz = gazeEX * 3.0;
       const gzHand = Math.sign(gz) === sx ? sx * Math.min(Math.abs(gz), 0.3) : gz;
+      // §COMFORT-D2: the near-hand OUTWARD gaze drift is capped (above); the thread-cut recoil +
+      // entrance cast still throw the hands fully APART (the drama), but during that recoil the
+      // palms LEAVE the paintable set (boss.js paintableParts) — so a flung palm at the wall is
+      // never an acquire target, and loomHeart is the strike-window anchor. Position stays honest.
       hp.position.x = sx * HAND_X + gzHand - painEase * sx * 1.2 + sx * cutEase * 2.6 + sx * castK * 3.4;   // track the lane; recoil on hit; thrown APART on a thread-cut; PULLED WIDE on the entrance cast
       hp.position.y = HAND_Y + wv * sx + gazeEY * 1.8 + castK * 2.0;   // lifted as she casts the web
       hp.rotation.z = sx * (0.2 + wv * 0.5) - gazeEX * 0.2;
@@ -967,6 +971,8 @@ export function buildWeftwitch(def, quality = 1) {
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece, setGaze, notice,
     setEntrance, setEntranceSteer, setWaterPlane, fireBeam, cutThread, restitchWeb, setThreadStrain,
+    handsFlung: () => cutEase > 0.5,   // §COMFORT-D2: hands thrown APART in the thread-cut recoil — boss.js drops the palm lock organs from the paint set while true (loomHeart stays the strike-window anchor), so a flung palm at the wall is never an acquire target
+
     setHealth: kit.setHealth, setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible, shatterShield: kit.shatterShield,
     flash, hurt,

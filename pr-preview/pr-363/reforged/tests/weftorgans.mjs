@@ -17,8 +17,15 @@
 // lesson: a gate that never exercises the load-bearing variable manufactures a green). Here we
 // PIN the real player against each wall (window.__dd.player.position.x), which is the honest
 // coupling input — gaze feeds off player.position.x (boss.js) — and sample ≥1 full station-sway
-// period (freq 0.5 → ~12.6s) so the sway peak lines up with the saturated gaze. The NEAR palm
-// (same side as the pinned player) is the worst case; the FAR palm is pushed inward (safe).
+// period (freq 0.5 → ~12.6s) so the sway peak lines up with the gaze (gazeEX ~0.8 at the wall; it
+// is the per-hand OUTWARD CAP, not gazeEX, that saturates). The NEAR palm (same side as the pinned
+// player) is the worst case; the FAR palm is dragged inward (which we ASSERT — a dead coupling
+// would leave it near base, so the far checks alone would be theater; §CP2-D1).
+//
+// THE THREAD-CUT RECOIL: the hands throw fully APART during the 2.5s strike window (the drama,
+// guarded by boss.mjs). While flung they LEAVE the paint set (model.handsFlung → paintableParts),
+// so a palm swung toward the wall is never an acquire target — loomHeart is the window anchor. The
+// palms are position-honest (not bounded) and rejoin as the recoil settles; asserted at the end.
 import { boot, check } from './browser.mjs';
 
 const { page, errors, done } = await boot({
@@ -42,8 +49,8 @@ const PERIOD_MS = 12600;           // station-sway period at freq 0.5
 const STEP_MS = 200, N = Math.ceil((PERIOD_MS + 2600) / STEP_MS);   // ≥1 full period + settle (~76 samples ≈ 15.2s)
 const ok = (p) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
 
-// Sample the organs while the player is PINNED at `pinX` (re-pinned every step so gaze stays
-// saturated). Returns per-organ envelopes over ≥1 sway period with the coupling firing live.
+// Sample the organs while the player is PINNED at `pinX` (re-pinned every step so the gaze target
+// holds). Returns per-organ envelopes over ≥1 sway period with the coupling firing live.
 async function sweep(pinX) {
   const samples = [];
   for (let i = 0; i < N; i++) {
@@ -60,9 +67,10 @@ async function sweep(pinX) {
   const env = (key) => {
     const ps = samples.map((s) => s[key]).filter(ok);
     if (ps.length !== samples.length) return null;
-    return { maxY: Math.max(...ps.map((p) => p.y)), minY: Math.min(...ps.map((p) => p.y)), maxAbsX: Math.max(...ps.map((p) => Math.abs(p.x))), last: ps[ps.length - 1] };
+    return { maxY: Math.max(...ps.map((p) => p.y)), minY: Math.min(...ps.map((p) => p.y)), maxAbsX: Math.max(...ps.map((p) => Math.abs(p.x))), minAbsX: Math.min(...ps.map((p) => Math.abs(p.x))), last: ps[ps.length - 1] };
   };
-  return { palmL: env('palmL'), palmR: env('palmR'), loom: env('loom') };
+  const pinHeld = await page.evaluate((px) => Math.abs(window.__dd.player.position.x - px) < 1.5, pinX);
+  return { palmL: env('palmL'), palmR: env('palmR'), loom: env('loom'), pinHeld };
 }
 
 // Pass A — player pinned RIGHT: palmR is the NEAR (chased) hand → its worst case.
@@ -83,6 +91,17 @@ check(`palmL (far, pushed inward) stays comfortable while player is RIGHT (|x|�
 check(`palmR (far, pushed inward) stays comfortable while player is LEFT (|x|≤${left.palmR ? left.palmR.maxAbsX.toFixed(1) : '?'} ≤ ${X_COMFORT})`,
   left.palmR && left.palmR.maxAbsX <= X_COMFORT);
 
+// §CP2-D1 — PROVE THE COUPLING FIRED (the far-comfort checks above pass even with gaze DEAD, so
+// on their own they're theater — the ENG-EW false-green trap this test exists to escape). (a) The
+// pin must have HELD (else no gaze target); (b) the FAR palm must be dragged INWARD by the live
+// gaze — its CLOSEST approach must drop well below its gaze-dead base (~8.4 |x|); a dead coupling
+// leaves it near base. If either fails, the whole sweep proved nothing.
+check(`the player pin HELD both sweeps (no auto-centre / clamp swallowed it)`, right.pinHeld === true && left.pinHeld === true);
+check(`gaze coupling is LIVE — far palmL dragged inward while player RIGHT (min|x|=${right.palmL ? right.palmL.minAbsX.toFixed(1) : '?'} ≤ 7.0)`,
+  right.palmL && right.palmL.minAbsX <= 7.0);
+check(`gaze coupling is LIVE — far palmR dragged inward while player LEFT (min|x|=${left.palmR ? left.palmR.minAbsX.toFixed(1) : '?'} ≤ 7.0)`,
+  left.palmR && left.palmR.minAbsX <= 7.0);
+
 // Palms Y-safe with the analytic gaze+bob added (unchanged from the reachability guard).
 for (const [key, e] of [['palmL', left.palmL], ['palmR', right.palmR]]) {
   check(`${key} Y safe incl. gaze+bob (y ${e ? `${e.minY.toFixed(1)}..${(e.maxY + GAZE_Y + BOB_Y).toFixed(1)}` : '?'} ≤ ${LANE_MAX_Y})`,
@@ -101,6 +120,46 @@ check('palmL is left of palmR (mirror)', ok(right.palmL?.last) && ok(right.palmR
 const paintables = await page.evaluate(() => window.__dd.bossPaintables());
 check(`paintables include both palms + loomHeart (${JSON.stringify(paintables)})`,
   Array.isArray(paintables) && ['palmL', 'palmR', 'loomHeart'].every((p) => paintables.includes(p)));
+
+// §CP2-D2 — THE THREAD-CUT RECOIL flings the hands APART (the drama, guarded by boss.mjs), which
+// swings a palm toward the ±13 kill wall during the 2.5s strike window. The fix is not to bound the
+// throw (that kills the recoil) but to drop the flung palms from the PAINT SET while they're flung
+// (model.handsFlung → paintableParts) — so the target is the central loomHeart anchor, never a palm
+// lured to the wall. Trigger a cut and assert: (a) mid-recoil the paintables are loomHeart-ONLY (no
+// palmL/palmR); (b) loomHeart stays comfortable throughout; (c) the palms REJOIN once the recoil
+// settles (the seal is transient, not a permanent delisting).
+const cut = await (async () => {
+  await page.evaluate(() => window.__dd.bossThreadCut());
+  await page.waitForTimeout(300);   // let cutEase rise past the handsFlung threshold
+  let sealed = null, loomMax = 0, ok2 = true;
+  for (let i = 0; i < 8; i++) {     // ~1.4s — the flung window
+    const s = await page.evaluate(() => ({ paint: window.__dd.bossPaintables(), lm: window.__dd.bossPartWorldPos('loomHeart') }));
+    if (!Array.isArray(s.paint) || !ok(s.lm)) { ok2 = false; break; }
+    if (sealed === null) sealed = s.paint;
+    loomMax = Math.max(loomMax, Math.abs(s.lm.x));
+    await page.waitForTimeout(170);
+  }
+  // let the recoil fully settle (cutT → 0 at dt·0.4/s ≈ 2.5s) and poll for the palms rejoining —
+  // headless frame pacing varies, so poll up to ~6s rather than assume a fixed settle time.
+  let rejoined = [];
+  for (let i = 0; i < 30; i++) {
+    rejoined = (await page.evaluate(() => window.__dd.bossPaintables())) || [];
+    if (['palmL', 'palmR'].every((p) => rejoined.includes(p))) break;
+    await page.waitForTimeout(200);
+  }
+  return { sealed: sealed || [], loomMax, rejoined, ok2 };
+})();
+check(`thread-cut recoil SEALS the flung palms out of the paint set (mid-recoil paintables: ${JSON.stringify(cut.sealed)})`,
+  cut.ok2 && cut.sealed.includes('loomHeart') && !cut.sealed.includes('palmL') && !cut.sealed.includes('palmR'));
+check(`loomHeart stays the comfortable anchor THROUGH the cut window (|x|≤${cut.ok2 ? cut.loomMax.toFixed(1) : '?'} ≤ ${X_COMFORT})`,
+  cut.ok2 && cut.loomMax <= X_COMFORT);
+check(`the palms REJOIN the paint set once the recoil settles (${JSON.stringify(cut.rejoined)})`,
+  ['palmL', 'palmR', 'loomHeart'].every((p) => cut.rejoined.includes(p)));
+
+// §CP2-D4 — the pinned player flew ~34s of live bullet-fire; prove the boss is still the live
+// WEFTWITCH (a mid-sweep death/teardown would otherwise surface only as silent bare-`?` failures).
+check(`still fighting weftwitch after the full sweep (liveness)`,
+  (await page.evaluate(() => window.__dd.bossState()?.id)) === 'weftwitch');
 
 check('no console errors through the weftwitch comfort run', errors.length === 0) || console.error(errors.join('\n'));
 console.log(process.exitCode ? '\nweftwitch organ-comfort verification FAILED.' : '\nweftwitch organ-comfort verification passed.');

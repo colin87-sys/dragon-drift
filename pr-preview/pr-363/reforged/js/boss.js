@@ -4607,9 +4607,16 @@ function paintableParts() {
   // it's submerged — so the shackles stay brandable through the down windows and the
   // eye itself waits for its surface. It rejoins the instant it surfaces.
   const eyeSealed = def.eyeWeakPoint && def.eyeOrgan && model.eyeIsUp && !model.eyeIsUp();
+  // §COMFORT-D2 RECOIL SEAL (WEFTWITCH): while the thread-cut throws her hands APART (they swing
+  // toward the ±13 kill wall during the strike window), the flung palms LEAVE the paint set — so
+  // the intended target is the central loomHeart anchor, never a palm lured out to the wall. The
+  // palms rejoin as the recoil settles. Def-gated (recoilOrgans) + model-gated (handsFlung); inert
+  // for every other boss and whenever the hands are home.
+  const recoilSealed = def.recoilOrgans && model.handsFlung && model.handsFlung();
   const out = [];
   for (const lp of def.lockParts) {
     if (eyeSealed && lp.part === def.eyeOrgan) continue;
+    if (recoilSealed && def.recoilOrgans.includes(lp.part)) continue;
     if ((!lp.phases || lp.phases.includes(phaseIdx)) && !lockPartDead(lp.part)) out.push(lp.part);
   }
   if (def.virtualLockOrgan && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
