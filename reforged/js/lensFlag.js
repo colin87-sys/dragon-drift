@@ -1,13 +1,25 @@
-// LENS visibility overhaul rollout flag (PR "lens"): OFF by default so the shipped
-// roster is byte-identical; `?lens=2` flips ON the three bullet-vs-reticle
-// visibility interventions proven together as one hero increment —
+// LENS visibility overhaul gate. The three bullet-vs-reticle interventions (see below)
+// ship as one behaviour, now controlled by the **Bullet Clarity** setting (default ON)
+// instead of a fixed flag, so players can turn them off and the toggle takes effect
+// without a reload. The interventions:
 //   (1) imminent boss-bullet SIZE POP (the last-instant flare grows, not just heats),
-//   (2) HOLLOW corner-bracket boss reticle (empty centre over the muzzle so a
-//       spawning bullet is never hidden behind aim chrome),
-//   (3) THREAT-YIELD fade + telegraph-at-the-gaze chevrons (the reticle recedes and
-//       the wind-up cue appears where the eyes already are).
-// The A/B escape hatch for judging the overhaul on the PR preview; see the lesson
-// leapfrog/lessons/2026-07-10-lens-bullet-vs-reticle-visibility.md.
-export const LENS2 = (() => {
-  try { return /[?&]lens=2(&|$)/.test(window.location.search); } catch { return false; }
+//   (2) HOLLOW corner-bracket boss reticle (empty centre over the muzzle),
+//   (3) THREAT-YIELD fade + telegraph-at-the-gaze chevrons.
+//
+// URL override for A/B on the preview: `?lens=2` forces the overhaul ON and `?lens=0`
+// forces it OFF, regardless of the setting (the escape hatch for judging it). Absent →
+// follow the setting. See leapfrog/lessons/2026-07-10-lens-bullet-vs-reticle-visibility.md.
+import { saveData } from './save.js';
+
+const LENS_FORCE = (() => {
+  try {
+    const m = /[?&]lens=([0-9])/.exec(window.location.search);
+    return m ? m[1] !== '0' : null;   // ?lens=0 → false, ?lens=<other digit> → true, absent → null
+  } catch { return null; }
 })();
+
+// Runtime query — is the overhaul active right now? Read per-frame by bossBullets.js and
+// reticle.js so the setting toggles live. URL force wins over the setting when present.
+export function lensClarity() {
+  return LENS_FORCE !== null ? LENS_FORCE : !!saveData.settings.bulletClarity;
+}
