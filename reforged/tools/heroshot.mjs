@@ -9,8 +9,8 @@ const { page, errors, done } = await boot({
   deviceScaleFactor: 3,
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
     v: 2, stats: { runs: 9 }, flags: { seenIntro: true }, embers: 12480,
-    skins: { owned: ['azure','ember','obsidian','solar'], equipped: 'obsidian' },
-    ascension: { tiers: [['obsidian',3],['solar',3],['ember',2]], radiance: [] },
+    skins: { owned: ['azure','ember','solar'], equipped: 'solar' },
+    ascension: { tiers: [['solar',3],['ember',2]], radiance: [] },
     cosmetics: { marksOwned: [], markEquipped: '', formPref: [] },
   }))`,
 });
