@@ -1090,6 +1090,18 @@ export const BOSSES = {
     stationY: 20,
     entrance: 'itLiftsItsHead',   // §5j (falls back to the plain approach until the ENTRANCE_SCRIPTS entry lands, CP2)
     muzzle: 'bellMouth',          // the toll origin (emitter = organ, §5f law 7); aim solves against its world rel
+    // LANCE (§5i rung 10 — the endgame's FIRST paintable World-Ender; docs/lance-
+    // progression-redesign.md §3). V1 focal aim = the mouth WOUND (`knellWound`, the
+    // one HDR focal — the candle-light + toll escape here; placed low on the crack so
+    // its world y sits inside the flight lane, unlike the slit centroid at ~y32 which
+    // is above laneMaxY 22 and unaimable). V2 paint targets = the two chain-BIND
+    // restraints on the clapper's wrist cuffs (`knellBind{L,R}`) — you brand the
+    // BINDINGS, never the honorably-unpaintable prisoner FIGURE. wound(virtual) + 2
+    // binds = 3 paint targets → reaches the tier-4 cap of 6 (REACHABILITY LAW), all
+    // within the flight lane. The resonant on-toll release + SCAR-BURN ride in later
+    // PRs; this PR only makes the organs live (inert→capable).
+    virtualLockOrgan: 'knellWound',
+    lockParts: [{ part: 'knellBindL' }, { part: 'knellBindR' }],
     // PALETTE (§5b glow-shape claim = vertical candle-slit; Part 2.4 clearance):
     // candle 0xffd890 (≈39°, sat 0.44 — PALE/low-sat warm) sits clear of the parry
     // amber ROLE colour 0xffc23c (≈37°, sat 0.76) by a VALUE/SATURATION tier, not

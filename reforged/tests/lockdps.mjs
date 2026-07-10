@@ -65,7 +65,8 @@ for (const e of economies) {
 // A boss with a virtualLockOrgan but NO lockParts is V1-aim-only → lance inert
 // (boss.js paintableParts returns null there). ASHTALON is exactly this; the
 // tier-1 Sentinels are inert via a 0 tier cap. (KARNVOW WAS this until CP2 gave
-// it 5 trophy-charm lockParts — it's now lance-capable, peakCap 5.)
+// it 5 trophy-charm lockParts — it's now lance-capable, peakCap 5. KNELLGRAVE
+// likewise gained wound+bind lockParts — the endgame ladder, §5i rung 10.)
 const inert = economies.filter((e) => !e.lanceCapable);
 assert(inert.every((e) => e.peakCap === 0 && e.reason), 'every lance-inert boss carries a 0 cap + a reason');
 const noTargets = inert.filter((e) => e.reason.includes('no paint targets')).map((e) => e.id);

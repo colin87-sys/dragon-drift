@@ -605,6 +605,18 @@ export function buildKnellgrave(def, quality = 1) {
   ember.position.x = SPINE_X;
   emberMat.side = THREE.DoubleSide;
   bellGroup.add(ember);
+  // LANCE V1 focal + 3rd paint organ: a byte-neutral named empty in the bell MOUTH —
+  // the WOUND the candle-light + toll escape from (the one HDR focal reads here).
+  // Placed LOW in the mouth opening (below the lip bite), NOT at the slit's high
+  // centroid (~y32, above the aim ceiling), so its world y sits comfortably inside
+  // the flight lane WITH swing headroom: with def.scale 1.75 + stationY 20 + the
+  // pendulum swing, a lip-height anchor grazes laneMaxY 22 (Codex P2); at local −8.5
+  // it resolves to ~y18 and stays < 21 across the whole swing (knellorgans.mjs
+  // asserts the swing MAX, not one frame). partWorldPos resolves it live.
+  const wound = new THREE.Object3D();
+  wound.name = 'knellWound';
+  wound.position.set(SPINE_X, -8.5, 1.8);
+  bellGroup.add(wound);
 
   // ---- SPREADING FRACTURES — the readable per-phase damage on the FRONT FACE. As the ruin
   // climbs, NEW glowing cracks light up ONE PER PHASE, webbing out from the candle-slit across
@@ -710,6 +722,14 @@ export function buildKnellgrave(def, quality = 1) {
     const cuffChain = [];
     for (let c = 0; c < 2; c++) { const lk = strip(new THREE.TorusGeometry(0.18, 0.07, 4, 8)); if (c % 2) lk.rotateX(Math.PI / 2); lk.translate(0, -2.55 - c * 0.4, 0); cuffChain.push(lk); }
     armPivot.add(new THREE.Mesh(mergeK(cuffChain, `cuffChain${sx}`), ironMat));
+    // LANCE restraint organ (V2): a byte-neutral named empty AT the wrist cuff — the
+    // brandable BINDING (the restraint you strike, distinct from the honorably
+    // unpaintable prisoner FIGURE). Rides the arm strain via armPivot; partWorldPos
+    // resolves it live. Named knellBindL / knellBindR (mirror of the arm side).
+    const bindAnchor = new THREE.Object3D();
+    bindAnchor.name = `knellBind${sx > 0 ? 'R' : 'L'}`;
+    bindAnchor.position.set(0, -2.25, 0);   // the cuff torus position
+    armPivot.add(bindAnchor);
     clapperPivot.add(armPivot);
     armPivots.push({ pivot: armPivot, sx, restZ: sx * 0.32 });
   }
