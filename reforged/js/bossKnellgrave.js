@@ -605,6 +605,15 @@ export function buildKnellgrave(def, quality = 1) {
   ember.position.x = SPINE_X;
   emberMat.side = THREE.DoubleSide;
   bellGroup.add(ember);
+  // LANCE V1 focal + 3rd paint organ: a byte-neutral named empty at the LOWER crack /
+  // mouth — the WOUND the candle-light + toll escape from (the one HDR focal reads
+  // here). Placed LOW on the crack (not the slit's high centroid) so its world y sits
+  // inside the flight lane (laneMaxY 22): the overhead bell's slit centroid is ~y32
+  // (unreachable to aim), but the mouth wound is ~y18. partWorldPos resolves it live.
+  const wound = new THREE.Object3D();
+  wound.name = 'knellWound';
+  wound.position.set(SPINE_X, -6.0, bellRadiusAt(-6.0) + 0.3);
+  bellGroup.add(wound);
 
   // ---- SPREADING FRACTURES — the readable per-phase damage on the FRONT FACE. As the ruin
   // climbs, NEW glowing cracks light up ONE PER PHASE, webbing out from the candle-slit across
@@ -710,6 +719,14 @@ export function buildKnellgrave(def, quality = 1) {
     const cuffChain = [];
     for (let c = 0; c < 2; c++) { const lk = strip(new THREE.TorusGeometry(0.18, 0.07, 4, 8)); if (c % 2) lk.rotateX(Math.PI / 2); lk.translate(0, -2.55 - c * 0.4, 0); cuffChain.push(lk); }
     armPivot.add(new THREE.Mesh(mergeK(cuffChain, `cuffChain${sx}`), ironMat));
+    // LANCE restraint organ (V2): a byte-neutral named empty AT the wrist cuff — the
+    // brandable BINDING (the restraint you strike, distinct from the honorably
+    // unpaintable prisoner FIGURE). Rides the arm strain via armPivot; partWorldPos
+    // resolves it live. Named knellBindL / knellBindR (mirror of the arm side).
+    const bindAnchor = new THREE.Object3D();
+    bindAnchor.name = `knellBind${sx > 0 ? 'R' : 'L'}`;
+    bindAnchor.position.set(0, -2.25, 0);   // the cuff torus position
+    armPivot.add(bindAnchor);
     clapperPivot.add(armPivot);
     armPivots.push({ pivot: armPivot, sx, restZ: sx * 0.32 });
   }
