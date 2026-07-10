@@ -569,6 +569,80 @@ export const DRAGONS = {
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 
+  // ── MOLTEN PHOENIX — "a phoenix of living magma" (PHOENIX-MOLTEN-BUILDSHEET.md).
+  // A FRESH premium apex built on the CALDERA system (dragonPhoenixMolten.js):
+  // glowing T2-magma body under a dark T4-crust plate FIELD, a T1-sungold spine
+  // fissure, and the MOLTEN HEART caldera on the breast (T1 glow-pool + T0
+  // whiteheart core). Coexists with the shipped `phoenix` (byte-identical) so the
+  // owner can compare old-vs-new. NOT the retired coal empress — every form is
+  // re-derived from the molten identity (crust holds the line, fire holds the
+  // night). `archetype: 'phoenix'` is kept only as a RIG flag (warm ember motes +
+  // constant Rebirth-Surge wingtip fire), not a model path (explicit parts win).
+  // Wings are the ride-along `feather` at CP1; `pyreFanWings` land at CP2.
+  phoenixMolten: {
+    name: 'Molten Phoenix',
+    lanceTint: 0xff5410, lanceRune: 'moltenCore',   // Eternal wisp: molten-core orange (distinct from phoenix 0xff7a1a)
+    title: 'She is the fire',
+    rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
+    accentHue: 0xff6a14,   // §9 law-9 carrier: magma orange
+    archetype: 'phoenix',  // RIG flag only (warm surge motes + Rebirth fire-trails); explicit parts override the recipe
+    parts: { torso: 'moltenPhoenixTorso', wings: 'pyreFanWings', head: 'calderaCrestHead', tail: 'emberWhipTail', surface: { shader: [] } },
+    stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
+    hasStyle: true,        // keep its own molten trail colour even in Surge
+    feverWing: 0xffd9a0, feverEye: 0xffe8c0,
+    feverWash: [0.058, 0.038, 0.012],   // Rebirth screen wash: warm magma-gold, kept low so it never overexposes the frame
+    // Base model holds APEX reference dials; each form dials the ladder (cumulative).
+    model: {
+      scale: 1.18, tailSegments: 7, flapBias: 0.9, flapAmp: 0.92,
+      // CALDERA body ladder (apex reference — see forms[] for the per-rung schedule):
+      igniteStage: 3, glowLevel: 1.0, heartScale: 1.0, crustCoverage: 0.7,
+      crestFan: 5, crestLen: 1.0, headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, spineGlow: 1.0,
+      tailFins: 4, tailLength: 1.0,
+      // PYRE-FAN wing ladder: span/chord/upturn grow, the primary rank + dominant
+      // pinion + slots + hem-fire arrive rung by rung (each form ADDS wing hardware).
+      spanScale: 1.0, chordScale: 1.0, upturn: 1.0, hemFire: 1.0,
+      primaries: 7, pinionSlots: 3, pinionDom: 1, secondaries: 10, alula: 1,
+    },
+    forms: [
+      // f0 DORMANT HATCHLING — crusted-over magma, unbroken; faint RED cracks the
+      // only tell. Wings a short bare crust fan (no fire-primaries, no hem-fire).
+      { igniteStage: 0, glowLevel: 0.25, heartScale: 0, crustCoverage: 1.0,
+        crestFan: 0, crestLen: 0.5, headScale: 1.3, eyeScale: 1.3, torsoScale: 0.82, spineGlow: 0,
+        spanScale: 0.72, chordScale: 0.75, upturn: 0, hemFire: 0, primaries: 0, pinionSlots: 0, pinionDom: 0, secondaries: 6, alula: 0, tailFins: 1,
+        colors: { body: 0x1c0d0a, magma: 0x5e2410, sungold: 0xe0480e, lavaDeep: 0x3a1408,
+          coreGlow: 0xff8030, apexSeam: 0xe0480e, eye: 0xc85a1e } },
+      // f1 FRACTURING — the crust cracks; fissures glow SUNGOLD, the heart rim forms,
+      // first 3 fire-primaries + hem-fire kindle, the wing begins to arch (upturn 0.3).
+      { igniteStage: 1, glowLevel: 0.5, heartScale: 0.5, crustCoverage: 0.92,
+        crestFan: 2, crestLen: 0.7, headScale: 1.15, eyeScale: 1.05, torsoScale: 0.9, spineGlow: 0.35,
+        spanScale: 0.85, chordScale: 0.85, upturn: 0.3, hemFire: 0.35, primaries: 3, pinionSlots: 0, pinionDom: 0, secondaries: 8, alula: 1, tailFins: 2,
+        colors: { body: 0x22100c, magma: 0x7a2e10, sungold: 0xffab34, lavaDeep: 0x4e1808,
+          coreGlow: 0xffa040, apexSeam: 0xffab34, eye: 0xffb84a } },
+      // f2 MOLTEN DANCER — half the plates run molten, the MOLTEN HEART OPENS, the
+      // eruption crest arrives, 5 primaries with the outboard slots opening.
+      { igniteStage: 2, glowLevel: 0.75, heartScale: 0.85, crustCoverage: 0.8,
+        crestFan: 3, crestLen: 0.85, headScale: 1.05, eyeScale: 0.85, torsoScale: 0.95, spineGlow: 0.7,
+        spanScale: 0.93, chordScale: 0.93, upturn: 0.6, hemFire: 0.7, primaries: 5, pinionSlots: 2, pinionDom: 0, secondaries: 10, alula: 1, tailFins: 3,
+        colors: { body: 0x261210, magma: 0x8f3410, sungold: 0xffb32a, lavaDeep: 0x5e1c0c,
+          coreGlow: 0xffb060, apexSeam: 0xffb32a, eye: 0xffc85a } },
+      // f3 THE MOLTEN EMPRESS — living magma: full crust-crack field, the whiteheart
+      // core ignites, the full 7-blade pyre-fan with the DOMINANT PINION + T0 stroke.
+      { igniteStage: 3, glowLevel: 1.0, heartScale: 1.0, crustCoverage: 0.7,
+        crestFan: 5, crestLen: 1.0, headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, spineGlow: 1.0,
+        spanScale: 1.0, chordScale: 1.0, upturn: 1.0, hemFire: 1.0, primaries: 7, pinionSlots: 3, pinionDom: 1, secondaries: 10, alula: 1, tailFins: 4,
+        colors: { body: 0x261210, magma: 0x9a3a12, sungold: 0xffb84a, lavaDeep: 0x5e1c0c,
+          coreGlow: 0xffc46a, apexSeam: 0xffb84a, eye: 0xffd98a } },
+    ],
+    fx: { auraColor: '255,140,60', auraIdle: 0.0, sparkle: false },
+    // Top-level fallbacks (≈ the apex Molten Empress, for any raw render).
+    body: 0x261210, belly: 0x3a1408, magma: 0x9a3a12, sungold: 0xffb84a, lavaDeep: 0x5e1c0c,
+    scales: 0xffb84a, horn: 0x8f3410,
+    featherIn: 0xff7a1a, featherOut: 0x9a3a12, featherEdge: 0xffb84a, featherHi: 0xffe8c0,
+    wingInner: 0xff7a1a, wingOuter: 0x9a3a12, wingEmissive: 0xff6a14,
+    apexEye: 0xffe8c0, apexSeam: 0xffb84a, coreGlow: 0xffc46a, surgeHi: 0xffe8c0,
+    aura: 0xffb060, eye: 0xffd98a, trail: 0xff6a14, boostTrail: 0xffc46a,
+  },
+
 
 
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing

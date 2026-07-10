@@ -4045,7 +4045,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   const surf = runSurf(true), park = runSurf(false);
   assert(surf.firstTouch >= 0 && surf.firstTouch <= 0.6, `ENG-D-R slipstream: reachable from cruise soon after it opens (firstTouch ${surf.firstTouch.toFixed(2)}s <= 0.6)`);
   assert(surf.occ >= 0.70, `ENG-D-R slipstream: rideable for most of the live window (occupancy ${(surf.occ * 100).toFixed(0)}% >= 70%)`);
-  assert(surf.paidWall >= 1.5, `ENG-D-R slipstream: earns a real paid-wall ride (${surf.paidWall.toFixed(2)}s >= 1.5)`);
+  assert(surf.paidWall >= 2.5, `ENG-D-R slipstream: earns the FULL lane-heart paid ride (${surf.paidWall.toFixed(2)}s >= 2.5) — a SECOND discriminator so a partial regression (e.g. clamp 16) can't slip past firstTouch alone (18 → 2.17s fails)`);
   assert(surf.rideBest >= 0.8 && surf.releaseRoom >= 1.2, `ENG-D-R slipstream: the ≥0.8s ride arms with room to release the surge (ride ${surf.rideBest.toFixed(2)}, room ${surf.releaseRoom.toFixed(2)}s)`);
   assert(park.paidWall < 0.6, `ENG-D-R slipstream: NOT a free lane — a parked cruise player barely earns (${park.paidWall.toFixed(2)}s < 0.6)`);
   ok('ENG-D-R SLIPSTREAM reachability: a bounded chaser catches the wake from cruise, rides the paid wall through the drop with surge-release room; a parked player earns almost nothing ✓');
