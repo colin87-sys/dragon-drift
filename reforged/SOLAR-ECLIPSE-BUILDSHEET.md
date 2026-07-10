@@ -239,3 +239,73 @@ transparent-drawable ≤ target, star-gem = gem/no-lid at every form, maxTier cl
     (unchanged spar tips), streamers few+large (density-law safe), M silhouette preserved (sil-rear diff).
   - Verified: tricount 968/1336/2318/3285 (per-form <6000, monotonic) · wingsymprobe PASS · smoke +
     starters green · dragonstudio: rose-window corona reads, M intact · Fable spectacle gate.
+
+- **CP3.1 — REAR-CHASE FORWARD VISIBILITY.** Owner played the apex and couldn't see obstacles ahead
+  (blind crashes). High-effort Fable diagnosis: shallow ~5.2° chase declination (global) + Solar being
+  the biggest occluder + a genuine bug (opaque wings). Fixes:
+  - **Camera (global, `cameraController.js`)** — raised/steepened the chase pose (targetHeight 3.6→4.6,
+    targetBack 12.3→13.2, lookTarget y +1.0→+0.5) so the horizon/obstacle band sits in frame.
+  - **Wing transparency bug (`dragonSovereign.js`)** — Solar's membrane `mem()` mats were opaque; added
+    `transparent:true, opacity:0.82` so obstacles show through the wing wall (the wing-fade contract).
+  - **Corona OCULUS** — the rose-window mullions used to converge to dead-centre (r 0.12), screening the
+    forward sightline through the ring. They now spring from a central OCULUS ring (r 0.45); the aperture
+    inside (r<0.40) stays open glass so the player sees FORWARD THROUGH the corona. UNIFORM shop+gameplay
+    (no context mismatch) and the more authentic rose-window read (spokes radiate from an inner medallion,
+    never the centre). +32 tris (apex 3499, still <6000). M skyline untouched.
+  - Verified: smoke green · tricount 0-over-budget · gameshots T3 rear-chase confirms open center window +
+    rose window still reads. Owner to judge motion/feel on the PR #347 live preview.
+
+- **CP3.2 — SEE PAST THE CORONA BODY + THE M-SPIRES.** Owner (post-#347): "improved, but the corona [ring
+  body] and the big medial wing spikes are still hard to see past." High-effort Fable spatial diagnosis
+  found the two remaining occluders BOTH sit in the ±10° threat-reaction corridor — and a key discovery:
+  **the corona ROTATES every frame (`dragon.js:484`), so any ANGULAR fix (re-angling streamers, mullion-X,
+  the "skip 12 o'clock" gap) time-averages to nothing in gameplay.** Only radial / opacity / reach fixes
+  bite. Fixes (all UNIFORM shop+gameplay — no `preview` split):
+  - **Ghost the umbra** — the dark moon-disk band `M.coronaDark` is now `transparent, opacity 0.74` and the
+    ring's BACK disk was dropped so the band is single-layer (26% show-through, not two stacked 0.74 layers
+    ≈ 7%). The eclipse reads by SILHOUETTE + saturated-rim contrast, not opacity; rim/tracery/oculus/gems
+    stay fully opaque. DoubleSide keeps the ring reading from the shop-front. The player now sees the
+    horizon THROUGH the umbra — the band owned the final reaction second at every spin phase.
+  - **Trim streamer reach** — `Rt 1.9/1.55 → 1.6/1.4`. Under the crawl the rays sweep the whole clock, so
+    shorter reach = less swept occlusion (width/count untouched — still density-law safe).
+  - **Splay the twin spires into a chalice** — carpal-lance roll `−0.18 → −0.34` moves each shaft out of
+    the ±6–9° swerve zone; the M valley widens (peak drops only ~0.1u — silhouette survives, more majestic).
+  - **Thin the spire** — shaft `0.22 → 0.17`, collars/plinth tracked down (still ≥8px, still ~2.6× the rank
+    pikes). **Flip the crockets outboard** (off the valley) + nudge the pike-rank start `0.44 → 0.47` so the
+    splayed shaft doesn't tangle the first pike in the rear silhouette.
+  - **Reshape beats opacity for SOLID regalia** — the spires were splayed/thinned, NOT ghosted: a
+    translucent gold monument (near-white sparTip at f3) reads as broken metal / cheap glow. Opacity is for
+    membranes + shadow (wings, umbra); reshape is for regalia.
+  - Verified: smoke green · wingsymprobe Δ0.000 (splay mirrors via scale.x=−1) · tricount 0-over-budget
+    (net −32 from the dropped back disk; apex ~3467) · gameshots T3 confirms horizon visible through the
+    umbra + open central corridor, M intact. Two owner-judgment calls ride the PR preview (per #347
+    protocol, with before/after pairs): the 0.74 umbra ("weaker eclipse?" — retreat to 0.80 if so) and the
+    wider M valley. Transparent-drawable ledger: the #347 membrane fix already changed the count; the
+    corona umbra adds +1 dark (non-additive) drawable — the ≤8 line (§10) predates the membrane fix and
+    needs an honest recount in a follow-up.
+
+- **CP3.3 — THE FLAP SWEEP + THE RING THAT STILL WOULDN'T CLEAR.** Owner (post-#352): "when the wing
+  FLAPS the 2 spikes occlude" + "the round thing is still hard to see through." High-effort Fable pass +
+  a corrected sign. Two findings:
+  - **Flap-swept spires (the new axis).** Solar rides the plain DIRECT-PIVOT wing path (`dragon.js` ~785),
+    so the WHOLE wing incl. the tall carpal spires is one rigid body on `wingPivot.rotation.z = −rootFlap`.
+    At peak upstroke the spire tips swing from ~16° (rest, the pose #352 fixed) to ~9° azimuth — INTO the
+    ±10° corridor, worse on boost, both sides converging like a scissor once per beat. A single-phase
+    capture showed this as ZERO (it only ever caught the rest phase). FIX — **DECOUPLE (mast-not-sail):**
+    the spire is now its own named group `carpalSpire` with origin at the carpal station; `dragon.js`
+    counter-rotates it by `spireStabilize(0.85)·sin(phase)·flapAmp` so the base still travels with the wing
+    but the shaft holds orientation → the tip stops crossing the view. Cancels ONLY the sinusoid (turns +
+    inhale-raise still carry the spires). **Opposite L/R signs** (mirror the pivots' −/+rootFlap) — the
+    same-sign form amplifies the left spire; wingsymprobe Δ0.000 is the guard. Rest pose byte-identical,
+    0 tris. Debug-poser parity (`wingDebugPose.js`) so the flapstrip capture tells the truth.
+  - **The ring: the RIM was the blocker, not the band.** #352 ghosted the dark umbra band — but the audit
+    showed the OPAQUE emissive rim annulus (Rm 1.06→Ro 1.30) is ~2.5× the band's occlusion + a bloom halo
+    that glare-masks nearby obstacles. #352 ghosted the smaller contributor. FIX — **RIM DIET:** `Rm
+    1.06→1.10` (thins the opaque rim to 0.20u ≈ 8.2px, the density floor — do NOT raise further — and
+    auto-widens the ghosted umbra to fill), `coronaI 3.4→2.6` (tighten the halo), umbra `0.74→0.60` (40%
+    show-through), streamer width `0.13→0.10`. All radial/opacity/intensity → spin-proof.
+  - Verified: smoke green · wingsymprobe Δ0.000 · tricount 0-over-budget (Eternal 3499) · starters 242/0
+    (rest silhouette intact) · blueprint 4/4 · **flapstrip (5-phase)** — spikes stay outboard of the
+    corridor at every phase incl. apex/recovery, corona see-through throughout, M intact. Owner judges on
+    the #352 preview: the umbra 0.60, the rim brightness 2.6, and the stabilised-spire MOTION feel
+    (retreats: umbra 0.66, rim 3.0, spireStabilize down from 0.85 if the spires read too gyro-rigid).

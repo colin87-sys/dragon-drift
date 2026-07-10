@@ -22,19 +22,32 @@ await page.waitForTimeout(1200);
 const id = await page.evaluate(() => window.__dd.bossState()?.id);
 check(`fighting knellgrave (got ${id})`, id === 'knellgrave');
 
-const pos = await page.evaluate(() => ({
-  wound: window.__dd.bossPartWorldPos('knellWound'),
-  bindL: window.__dd.bossPartWorldPos('knellBindL'),
-  bindR: window.__dd.bossPartWorldPos('knellBindR'),
-}));
+// The bell SWINGS (pendulum), so an organ's world Y oscillates — sample the whole
+// swing and test the EXTREMES, not one lucky frame (a single sample masked a
+// lip-height anchor that grazed the ceiling at the swing peak; Codex P2). laneMaxY
+// 22 is the player's aim ceiling; laneMinY 2.5 the floor. Require a headroom margin
+// so the organ is reliably (not marginally) aimable at every swing phase.
+const LANE_MAX_Y = 22, LANE_MIN_Y = 2.5, HEADROOM = 1.0;
+const samples = [];
+for (let i = 0; i < 14; i++) {
+  samples.push(await page.evaluate(() => ({
+    wound: window.__dd.bossPartWorldPos('knellWound'),
+    bindL: window.__dd.bossPartWorldPos('knellBindL'),
+    bindR: window.__dd.bossPartWorldPos('knellBindR'),
+  })));
+  await page.waitForTimeout(220);   // ~3s total spans a full swing
+}
 const ok = (p) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
-// laneMaxY 22 is the player's vertical ceiling — an organ above it can never enter
-// the aim cone (player y vs organ y). All three lance organs MUST sit within reach.
-const LANE_MAX_Y = 22;
-const reachable = (p) => ok(p) && p.y <= LANE_MAX_Y;
-check(`knellWound resolves & in-lane (${JSON.stringify(pos.wound)})`, reachable(pos.wound));
-check(`knellBindL resolves & in-lane (${JSON.stringify(pos.bindL)})`, reachable(pos.bindL));
-check(`knellBindR resolves & in-lane (${JSON.stringify(pos.bindR)})`, reachable(pos.bindR));
+const span = (key) => {
+  const ys = samples.map((s) => s[key]).filter(ok).map((p) => p.y);
+  return ys.length === samples.length ? { min: Math.min(...ys), max: Math.max(...ys) } : null;
+};
+const inLane = (s) => s && s.max <= LANE_MAX_Y - HEADROOM && s.min >= LANE_MIN_Y;
+for (const key of ['wound', 'bindL', 'bindR']) {
+  const s = span(key);
+  check(`${key} stays in-lane across the swing (y ${s ? `${s.min.toFixed(1)}..${s.max.toFixed(1)}` : 'UNRESOLVED'}, need ≤ ${LANE_MAX_Y - HEADROOM})`, inLane(s));
+}
+const pos = samples[samples.length - 1];
 check('bindL / bindR are mirrored (distinct x)', ok(pos.bindL) && ok(pos.bindR) && Math.sign(pos.bindL.x) !== Math.sign(pos.bindR.x));
 
 const paintables = await page.evaluate(() => window.__dd.bossPaintables());

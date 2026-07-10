@@ -188,9 +188,15 @@ export const CONFIG = {
                             // that same organ within it is a "warm" re-acquire (hum suppressed,
                             // lockOn downgraded to a tick — the weave-away-and-back nag fix).
                             // Matched to `decay` (a set stays warm as long as its brands live).
-    relockWarmFrac: 0,      // TUNE(0–0.6; 0 = off) — GAMEPLAY (owner sign-off to raise): a warm
-                            // re-acquire seeds this fraction of dwell, so weaving back costs less
-                            // than the full dwellTime. 0 = inert (sound fix only, no dwell change).
+    relockWarmFrac: 0.4,    // TUNE(0–0.6; 0 = off) — GAMEPLAY (owner sign-off, granted): a warm
+                            // re-acquire seeds this fraction of the EFFECTIVE dwell need, so weaving
+                            // away to DODGE and back costs less than a fresh lock — the attention-
+                            // economics fix: dodging no longer taxes the lock. The seed is scaled by
+                            // the focus multiplier in lockLayer.js (always `frac` of what you'd owe),
+                            // so a focused re-grab is a true 40% discount (~8 frames), NOT the old
+                            // ~4-frame snap, and the whole range is safe (seed < need for any frac<1
+                            // — no same-frame-lock cliff). First acquisition still pays full dwell;
+                            // volley total stays ROI-clamped (volleyRoiFrac). 0 = inert (sound-only).
     paintHopGrace: 0.8,     // TUNE(0.5–1.2) — after a paint the aim RELEASES and the painted
                             // organ can't re-acquire for this long, so the reticle decisively
                             // HOPS to the next unpainted organ (owner playtest: hovering the

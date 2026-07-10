@@ -31,7 +31,7 @@
 // aligned 1:1 with `phases` (card[i] ↔ phase[i]). A card =
 //   { id (stable, never the display name), name, atFrac (= its phase's),
 //     timer (~20–30s capture window), dread? (exactly ONE, always last),
-//     survival? (invincible seal — timeout snaps hp past atFrac) }.
+//     survival? (invincible seal — outlast the timer to resolve; no hp snap) }.
 // Naming grammar (§5f): "<FRAGMENT OF THE EPITHET> — <plain pattern name>".
 // Capture = survive the card hitless; ledgered per-card (local-only, save.js).
 // A def WITHOUT `cards` keeps the un-carded phase behaviour (coexist rule).
@@ -1127,14 +1127,37 @@ export const BOSSES = {
     // the graze anatomy; ride the shrinking safe disc through escalating ticks, bail
     // on the last beat (offered once per phase). Def-gated (slot-6 continuous detector).
     grazeForm: 'shrinkDisc',
+    // §ENG-LT THE LAST TOLL REWORK (owner playtest: the survival exam under-delivered as
+    // passive). REVERSES the shipped "the survival ride stays pure dodge" gate, knellgrave-only:
+    // (1) ride-mode toll-wall pockets driven off the TOLL CADENCE (srel/slow is degenerate
+    // overhead); (2) SURVIVAL RESOLVE — riding the rims, parrying the seal-era aimed ambers, and
+    // striking the clapper fill a meter that breaks the seal EARLY + staggers the bell (a second,
+    // FASTER resolution; outlasting the timer still succeeds untouched); (3) the bound clapper is
+    // the seal's one weak point (rider chip, up close — no hp, feeds the meter). `setpiece` = the
+    // SETPIECE_PATHS id the ride-mode graze binds to; `weakPart` = the partWorldPos node the
+    // seal-era carve-out tests.
+    survivalResolve: { setpiece: 'lastToll', weakPart: 'clapperHead' },
+    // §ENG-H C.7-proper — the toll RADIATES: the spiral toll's origin (and the sweep's
+    // stream hose) ride the swinging bellMouth (emitter = organ, §5f law 7). The toll-wall
+    // graze arms from the bell, not the lane centre.
+    emitOrigins: { spiral: ['bellMouth'], stream: ['bellMouth'] },
+    // §ENG-B/§ENG-H BOB-LOCK: during the Pendulum Sweep the movingGap safe lane sits
+    // OPPOSITE the bell (mirror, not tracker — read the bell, not the wall). scale −0.36
+    // maps the mouth's full worst-case envelope (±~24) inside movingGap's ±9 clamp so the
+    // mirror stays honest across the whole arc (the clamp never silently bites). Card-gated
+    // to the sweep phase; card down → the shipped player-seeded slide returns.
+    gapAnchor: { movingGap: { card: 'knellgrave_sweep', part: 'bellMouth', scale: -0.36 } },
     // §5e THE LAST TOLL setpiece (P4, dread+survival — the mid-fight clapper reveal,
     // the audit's named "awe fix"): the bell swings down + forward until it hangs
     // DIRECTLY OVERHEAD (rel≈3, the mouth above your head, the prisoner straining in
     // the gaping crack seen from beneath), rides there through the accelerating tolls,
-    // then hauls back. moving: the survival tolls keep firing (a pure-dodge exam —
-    // the card's seal deflects all damage; the unfillable bar is the tell).
+    // then hauls back. moving: the survival tolls keep firing. §ENG-LT made the exam
+    // ACTIVE: the seal deflects chip, but riding the ride-mode toll walls + parrying the
+    // seal-era ambers + striking the bound clapper fill a RESOLVE meter that breaks the
+    // seal early + staggers the bell (outlasting the timer still succeeds untouched).
     setpieces: [
-      { id: 'lastToll', atPhase: 3, dur: 26, moving: true, dread: true },
+      { id: 'pendulumSweep', atPhase: 3, dur: 14, moving: true },              // §ENG-H P4: the bell SWINGS across the lane (no dread flag — the swing-widen is the model's sweepK hook, not skyOpen)
+      { id: 'lastToll',      atPhase: 4, dur: 26, moving: true, dread: true },  // atPhase 3 → 4 (the Last Toll ride follows its phase into P5)
     ],
     // §7b PRESENCE override (sanctioned): KNELLGRAVE "owns the space ABOVE" (§5b/§5c
     // WORLD-ENDERS) — a colossal overhead hanging bell. A bell's mass IS its wide
@@ -1149,22 +1172,29 @@ export const BOSSES = {
     // amber carriers. ⚠ amberdiet reads THESE phase attacks (not the card seal), so
     // 'aimed' stays in EVERY phase — incl. the P4 survival card (the runtime seal is
     // pure-dodge, but the phase must still be ABLE to serve amber; §5i.C exemption).
+    // §ENG-H C.7-proper: 5 phases. The TOLL is now the `spiral` ring-wall (radiating from
+    // the bell); iris is gone. P3 The Cracked Peal doubles the toll (hemiola); P4 Pendulum
+    // Sweep is the setpiece phase (the swung stream hose + the bob-mirrored movingGap lanes).
     phases: [
-      { atFrac: 1.00, cadence: [1.4, 1.7], attacks: ['iris', 'aimed'] },              // P1: The First Toll
-      { atFrac: 0.70, cadence: [1.3, 1.6], attacks: ['iris', 'crossfire', 'aimed'] }, // P2: The Second Toll — RHYTHM PARRY card (amber chain on the beat)
-      { atFrac: 0.45, cadence: [1.2, 1.5], attacks: ['iris', 'fan', 'aimed'] },       // P3: Pendulum Sweep (the perpendicular cross)
-      { atFrac: 0.25, cadence: [1.1, 1.4], attacks: ['iris', 'fan', 'aimed'] },       // P4: The Last Toll (survival) — 'aimed' kept for amberdiet
+      { atFrac: 1.00, cadence: [1.4, 1.7],  attacks: ['spiral', 'aimed'] },              // P1 The First Toll — teach: the toll RADIATES; ride its rim
+      { atFrac: 0.70, cadence: [1.3, 1.6],  attacks: ['spiral', 'aimed'] },              // P2 The Second Toll — RHYTHM PARRY: the aimed chain on the beat
+      { atFrac: 0.55, cadence: [1.25, 1.5], attacks: ['spiral', 'aimed'] },              // P3 The Cracked Peal — double tolls (hemiola), the squeeze
+      { atFrac: 0.40, cadence: [1.2, 1.45], attacks: ['stream', 'movingGap', 'aimed'] }, // P4 Pendulum Sweep — the setpiece phase (swung hose + mirrored lanes)
+      { atFrac: 0.25, cadence: [1.1, 1.4],  attacks: ['spiral', 'fan', 'aimed'] },       // P5 The Last Toll (survival) — 'aimed' kept for amberdiet (§5i.C)
     ],
     // Spell cards (§5f grammar; 4 cards 1:1 with phases — the card gate asserts
     // cards.length === phases.length and each card.atFrac === its phase's; dread
     // card LAST). Naming grammar "<EPITHET FRAGMENT> — <plain pattern>". The brief's
     // 4-card set is reconciled to 4 phases (the Sweep promoted to its own phase) so
     // the atFracs align. The dread card is ALSO the roster's survival card (×2 max,
-    // §5f — slots 10 + 13): boss sealed, pure rhythm dodge; timeout snaps hp past atFrac.
+    // §5f — slots 10 + 13): boss sealed, rhythm dodge; outlasting the timer resolves it
+    // (no hp snap — breakShield already parked hp at this phase's atFrac floor on entry),
+    // OR §ENG-LT SURVIVAL RESOLVE breaks the seal early via active play.
     cards: [
       { id: 'knellgrave_first',  name: 'IT RINGS — The First Toll',   atFrac: 1.00, timer: 24 },
-      { id: 'knellgrave_second', name: 'IT RINGS — The Second Toll',  atFrac: 0.70, timer: 26 },   // the RHYTHM PARRY card: a 4–6 amber chain on the toll
-      { id: 'knellgrave_sweep',  name: 'IT RINGS — Pendulum Sweep',   atFrac: 0.45, timer: 26 },
+      { id: 'knellgrave_second', name: 'IT RINGS — The Second Toll',  atFrac: 0.70, timer: 26 },   // the RHYTHM PARRY card: the aimed chain on the toll
+      { id: 'knellgrave_peal',   name: 'IT RINGS — The Cracked Peal', atFrac: 0.55, timer: 24 },   // §ENG-H NEW — the double toll (hemiola); the second wall squeezes the rider
+      { id: 'knellgrave_sweep',  name: 'IT RINGS — Pendulum Sweep',   atFrac: 0.40, timer: 26 },   // atFrac 0.45 → 0.40 (aligns to its phase); the setpiece phase
       { id: 'knellgrave_last',   name: 'IT RINGS — The Last Toll',    atFrac: 0.25, timer: 30, dread: true, survival: true },  // nine accelerating tolls; pure dodge; the clapper's FULL mid-fight reveal
     ],
     // §5i MUSIC-LOCKED (slot 10) — the toll is the ONLY clock (music is DEAD); the
@@ -1177,40 +1207,48 @@ export const BOSSES = {
       signature: 'music-locked',
       ticket: { bpm: 60, quantize: '1/4' },   // the toll's beat; attacks snap to it (the silence's clock)
       phases: [
-        { // P1 — The First Toll: slow, regular tolls (the ring-wall on the beat) + aimed amber
+        { // P1 — The First Toll: slow, regular SPIRAL tolls (the ring-wall on the beat) + aimed amber
           ratioBurst: 0.0,
           phrase: [
-            { kind: 'sustain', attack: 'iris',  beats: 2, gap: [1.4, 1.6] },
-            { kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.5 },
+            { kind: 'sustain', attack: 'spiral', beats: 2, gap: [1.4, 1.6] },
+            { kind: 'sustain', attack: 'aimed',  beats: 1, gap: 1.5 },
           ],
           restLo: 1.5, restHi: 1.7, restDist: 'uniform',   // the metronomic toll — low variance, tighter than voidmaw
         },
-        { // P2 — The Second Toll: the RHYTHM PARRY chain (crossfire amber) lands ON the toll
-          ratioBurst: 0.3,
+        { // P2 — The Second Toll: the RHYTHM PARRY chain — a 4-amber AIMED burst lands ON the toll's beat
+          ratioBurst: 0.4,
           phrase: [
-            { kind: 'sustain', attack: 'iris',      beats: 2, gap: [1.25, 1.45] },
-            { kind: 'burst',   attack: 'crossfire', count: 2, gap: 0.42 },   // the 4–6 amber chain on the beat
-            { kind: 'sustain', attack: 'aimed',     beats: 1, gap: 1.35 },
+            { kind: 'sustain', attack: 'spiral', beats: 2, gap: [1.25, 1.45] },
+            { kind: 'burst',   attack: 'aimed',  count: 4, gap: [0.5, 0.62] },   // the 4–6 amber chain on the beat (§5d slot-10)
           ],
           restLo: 1.35, restHi: 1.55, restDist: 'uniform',
         },
-        { // P3 — Pendulum Sweep: the perpendicular cross; the tolls tighten
+        { // P3 — The Cracked Peal: two SPIRAL tolls a half-beat apart (the hemiola double
+          // toll — the second wall squeezes the rider) + an aimed answer.
+          ratioBurst: 0.5,
+          phrase: [
+            { kind: 'burst',   attack: 'spiral', count: 2, gap: [0.1, 0.16] },   // the double toll (§ENG-H §3d — discCd keeps the 2nd from double-arming)
+            { kind: 'sustain', attack: 'aimed',  beats: 1, gap: [1.3, 1.5] },
+          ],
+          restLo: 1.25, restHi: 1.5, restDist: 'uniform',
+        },
+        { // P4 — Pendulum Sweep: the sweep bed — the swung stream hose + the bob-mirrored
+          // movingGap lanes + aimed; the pattern rains from wherever the crossing carries it.
           ratioBurst: 0.2,
           phrase: [
-            { kind: 'sustain', attack: 'iris',  beats: 2, gap: [1.15, 1.35] },
-            { kind: 'sustain', attack: 'fan',   beats: 1, gap: 1.25 },
-            { kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.25 },
+            { kind: 'sustain', attack: 'stream',    beats: 1, gap: [1.2, 1.45] },
+            { kind: 'sustain', attack: 'movingGap', beats: 1, gap: [1.2, 1.45] },
+            { kind: 'sustain', attack: 'aimed',     beats: 1, gap: [1.2, 1.45] },
           ],
-          restLo: 1.2, restHi: 1.4, restDist: 'uniform',
+          restLo: 1.2, restHi: 1.45, restDist: 'uniform',
         },
-        { // P4 — The Last Toll (dread/survival): nine ACCELERATING tolls (the rest
+        { // P5 — The Last Toll (dread/survival): nine ACCELERATING spiral tolls (the rest
           // DECAYS toward each — the crescendo to silence). 'aimed' keeps the phase
           // amber-capable for amberdiet; the card SEALS it pure-dodge at runtime.
           ratioBurst: 0.35,
           phrase: [
-            { kind: 'sustain', attack: 'iris',  beats: 3, gap: [0.95, 1.15] },
-            { kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.05 },
-            { kind: 'sustain', attack: 'fan',   beats: 1, gap: 1.0 },
+            { kind: 'sustain', attack: 'spiral', beats: 2, gap: [0.95, 1.15] },
+            { kind: 'sustain', attack: 'aimed',  beats: 1, gap: 1.05 },
           ],
           restLo: 0.9, restHi: 1.5, restDist: 'decaying',   // the toll accelerates toward the last beat
         },

@@ -816,6 +816,7 @@ export const DRAGONS = {
       // CP3 "Coronation Spend" ladder (spectacle headroom; apex reference):
       spireTier: 2, coronaGrand: 1, cuirassPlate: 1, rearCirclet: 1, orderStar: 1, pauldrons: 1,
       buttress: 2, vaultSculpt: 1, scepterOrb: 1,
+      spireStabilize: 0.85,   // CP3.3: counter-rotate the carpal spires against the flap so they don't scissor the forward view (0 = fully ride the flap)
     },
     forms: [
       // HATCHLING (0) — round princeling, LINEAR glide (no arch), no mantle/gem/corona: a bare

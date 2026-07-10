@@ -6,7 +6,7 @@ import { saveData } from './save.js';
 import { game } from './gameState.js';
 import { lockHudState } from './lockLayer.js';
 import { on } from './events.js';
-import { LENS2 } from './lensFlag.js';
+import { lensClarity } from './lensFlag.js';
 import { incomingThreat } from './bossBullets.js';
 import { bossCharge01 } from './boss.js';
 
@@ -61,17 +61,14 @@ export function initReticle(cam) {
   // .rsnap = the one-shot lock-on ring flash (fires on the green snap).
   el.innerHTML = '<div class="rsq"></div><div class="rsq inner"></div><div class="rsnap"></div><div class="lockpips"></div>';
   pipWrap = el.querySelector('.lockpips');
-  // LENS (?lens=2): the visibility overhaul. Mark the reticle so the CSS swaps in the
-  // hollow corner-bracket skin (empty centre over the muzzle — intervention 2) and
-  // append the four "danger-at-the-gaze" telegraph chevrons (intervention 3b) that
-  // ramp with the boss wind-up right where the player's eyes already are.
-  if (LENS2) {
-    el.classList.add('lens2');
-    const chevs = document.createElement('div');
-    chevs.className = 'rchevs';
-    chevs.innerHTML = '<i></i><i></i><i></i><i></i>';   // up / right / down / left, flaring outward
-    el.appendChild(chevs);
-  }
+  // LENS visibility overhaul: the four "danger-at-the-gaze" telegraph chevrons (intervention
+  // 3b) always live in the DOM (cheap, hidden until a wind-up) — the .lens2 skin (hollow
+  // corner brackets, intervention 2) and .threat visibility are toggled per-frame from the
+  // Bullet Clarity setting, so the toggle takes effect live without a rebuild.
+  const chevs = document.createElement('div');
+  chevs.className = 'rchevs';
+  chevs.innerHTML = '<i></i><i></i><i></i><i></i>';   // up / right / down / left, flaring outward
+  el.appendChild(chevs);
   // Painted-organ marker pool: a painted organ carries its OWN pinned square with a
   // draining fill (how long the lock holds) — the reticle is the PAINTER, these are
   // the PAINTED (one reticle can't carry three locks' worth of state). Pure DOM.
@@ -120,7 +117,7 @@ export function updateReticle(player, playing) {
   // running — and a mid-fight toggle froze stale marks on screen).
   if (!playing || !wantReticle) {
     el.style.opacity = 0;
-    el.classList.remove('boss');
+    el.classList.remove('boss', 'threat', 'threat-hot', 'lens2'); yieldAmt = 0;
     if (playing && game.inBoss) renderMarks(lockHudState());
     else if (markEls.length && markEls[0].classList.contains('show')) {
       for (const m of markEls) m.classList.remove('show');
@@ -134,16 +131,19 @@ export function updateReticle(player, playing) {
   // "sealed" skin when the target is muted (slot 13) or no organ is up. Pure DOM.
   if (game.inBoss) {
     const L = lockHudState();
+    // Bullet Clarity (LENS): the hollow-bracket skin + telegraph/yield cues, toggled live.
+    const clarity = lensClarity();
+    el.classList.toggle('lens2', clarity);
     if (!L.active) {
       el.style.opacity = 0; el.classList.remove('boss', 'locked', 'aiming', 'snap'); prevLocked = false;
-      if (LENS2) { el.classList.remove('threat', 'threat-hot'); yieldAmt = 0; }
+      el.classList.remove('threat', 'threat-hot'); yieldAmt = 0;
       renderMarks(L);   // brand marks are STATE — they track even when no organ leads
       return;
     }
     el.classList.add('boss');
     el.classList.remove('gate');
     tmpV.set(L.x, L.y, L.z).project(camera);
-    if (tmpV.z > 1) { el.style.opacity = 0; return; }   // organ behind the camera
+    if (tmpV.z > 1) { el.style.opacity = 0; el.classList.remove('threat', 'threat-hot'); return; }   // organ behind the camera
     const sx = (tmpV.x * 0.5 + 0.5) * window.innerWidth;
     const sy = (-tmpV.y * 0.5 + 0.5) * window.innerHeight;
     // Sealed = muted (slot 13) OR the deflect rule (shield/scatter/closed eye/
@@ -165,15 +165,16 @@ export function updateReticle(player, playing) {
     const scale = ashen ? 1.15 : (locked ? 0.82 : (1.35 - 0.35 * dwell));
     el.style.opacity = ashen ? 0.5 : (0.72 + 0.28 * dwell);
     el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale})`;
-    if (LENS2) updateLensCues();
+    if (clarity) updateLensCues();
+    else { el.classList.remove('threat', 'threat-hot'); yieldAmt = 0; }
     renderPips(L);
     renderMarks(L);
     return;
   }
   el.classList.remove('boss', 'sealed', 'aiming', 'snap');
   // LENS: a boss killed mid-wind-up flips game.inBoss without passing the !L.active
-  // cleanup, so clear the threat cues here too or stale chevrons ride the ring reticle.
-  if (LENS2) { el.classList.remove('threat', 'threat-hot'); yieldAmt = 0; }
+  // cleanup, so clear the threat cues + skin here too or stale chevrons ride the ring reticle.
+  el.classList.remove('threat', 'threat-hot', 'lens2'); yieldAmt = 0;
   if (markEls.length && markEls[0].classList.contains('show')) for (const m of markEls) m.classList.remove('show');
 
   const ring = nextRingAhead(player.dist + 4);
@@ -276,6 +277,10 @@ function renderPips(hud) {
 const _mv = new THREE.Vector3();
 function renderMarks(hud) {
   const locks = hud.locks || [];
+  // PR2 saturation split: marks live under #hud (not #reticle), so the .lens2 skin can't
+  // cascade to them — carry it per-mark from the Bullet Clarity setting so their BORDER
+  // desaturates to mint-white chrome (the fill + rune stay jade energy).
+  const clarity = lensClarity();
   for (let i = 0; i < markEls.length; i++) {
     const m = markEls[i];
     const lk = locks[i];
@@ -285,6 +290,7 @@ function renderMarks(hud) {
     const sx = (_mv.x * 0.5 + 0.5) * window.innerWidth;
     const sy = (-_mv.y * 0.5 + 0.5) * window.innerHeight;
     m.classList.add('show');
+    m.classList.toggle('lens2', clarity);
     m.classList.toggle('kindle', lk.life > 0.94);   // the fresh brand's kindle flash
     m.classList.toggle('ashen', !!hud.ashen);
     m.classList.toggle('blink', !!lk.blink);
