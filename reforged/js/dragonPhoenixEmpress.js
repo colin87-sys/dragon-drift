@@ -503,8 +503,8 @@ function buildOneScytheWing(M, dials) {
   // CONTINUOUS EMBER STROKE tracing the primary tips — one long burning crescent edge (reads at
   // chase distance where per-feather dashes vanish). Bright only where the fire is (outer half).
   if (folded && tips.length > 1) {
-    for (let i = Math.floor(tips.length * 0.35); i < tips.length - 1; i++) {
-      const p = tips[i], q = tips[i + 1], off = 0.07;
+    for (let i = Math.floor(tips.length * 0.3); i < tips.length - 1; i++) {
+      const p = tips[i], q = tips[i + 1], off = 0.12;   // bolder continuous crescent stroke
       const p2 = [p[0], p[1] - off, p[2] - off], q2 = [q[0], q[1] - off, q[2] - off];
       wg.add(flatTriMesh([[p, q, q2], [p, q2, p2]], M.pinionTip));
     }
@@ -694,16 +694,12 @@ function buildCometCrestHead(def, model, mats) {
       const rl = (0.26 - 0.08 * Math.abs(f)) * hs;          // center ray tallest (ray-burst)
       const bx = f * 0.24 * hs;
       const rot = new THREE.Euler(-0.18, 0, -f * 0.5);
-      const ray = spike(rl, 0.032 * hs, 0.004, M.goldHi, 4);
+      const ray = spike(rl, 0.036 * hs, 0.004, M.goldHi, 4);
       ray.position.set(bx, 0.05 * hs, 0); ray.rotation.copy(rot);
       tia.add(ray);
-      if (i % 2 === 0) {   // 3 rose gems set at 0.9× ray length, in gold collets
-        const gp = new THREE.Vector3(0, rl * 0.9, 0).applyEuler(rot);
-        const collet = spike(0.05 * hs, 0.036 * hs, 0.024 * hs, M.gold, 4);
-        collet.position.set(bx + gp.x * 0.8, 0.05 * hs + gp.y * 0.8, gp.z * 0.8); collet.rotation.copy(rot);
-        tia.add(collet);
-        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.05 * hs, 0), M.crestTip);
-        gem.position.set(bx + gp.x, 0.05 * hs + gp.y, gp.z); gem.scale.set(1, 1.3, 1);
+      if (i % 2 === 0) {   // 3 rose gems SEATED IN THE BAND at the ray roots (not floating at the tips)
+        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.052 * hs, 0), M.crestTip);
+        gem.position.set(bx, 0.055 * hs, 0.02); gem.scale.set(1, 1.1, 0.6);   // embedded in the solid gold band
         tia.add(gem);
       }
     }
@@ -726,7 +722,7 @@ export function trainFanLayout(model) {
   // SHAPED LYRE outline (not a broom): the center ray is the tallest, a broad secondary SWELL
   // at ~0.62 of the sector gives the fan shoulders, and the outer rays stay LONG (soft taper).
   // Non-monotonic across the sector — the "shaped outline" doctrine.
-  const lenAt = (f) => 0.66 + 0.34 * Math.cos(f * Math.PI / 2) + 0.13 * Math.exp(-Math.pow((f - 0.62) / 0.24, 2));
+  const lenAt = (f) => 0.72 + 0.28 * Math.cos(f * Math.PI / 2) + 0.11 * Math.exp(-Math.pow((f - 0.6) / 0.26, 2));
   const quills = [];
   if (odd) quills.push({ phi: 0, cant: 0, lenScale: lenAt(0), curlOut: 0, mirror: 0 });
   for (let p = 1; p <= pairs; p++) {
@@ -818,14 +814,18 @@ function buildPyreTrainTail(def, model, mats, anchor) {
   const addQuill = (q, len, big) => {
     const quill = new THREE.Group();
     quill.rotation.z = q.phi;
+    if (!big) quill.position.z -= 0.14;   // recess the under-rank BEHIND the main fan (depth layer, not a gap-filler)
     fanG.add(quill);
     const shaftDir = new THREE.Vector3(0, -0.32, 1).normalize();
-    quill.add(bar([0, 0, 0], [shaftDir.x * len, shaftDir.y * len, shaftDir.z * len], big ? 0.026 : 0.018, M.copper));
+    quill.add(bar([0, 0, 0], [shaftDir.x * len, shaftDir.y * len, shaftDir.z * len], big ? 0.03 : 0.018, big ? M.goldHi : M.copper));
     const vane = new THREE.Group();
     vane.rotation.x = 0.42;       // pitch the vane face up toward the elevated chase cam (~24°)
     vane.rotation.z = q.cant;     // ±cant (balanced across the mirrored pair)
     quill.add(vane);
-    const wMax = (big ? 0.34 : 0.20) + (big ? 0.22 : 0.11) * q.lenScale;   // ~1.8× broader vanes (FEWER-LARGER)
+    // OPEN RAY-BURST (not a closed bell): vanes narrow enough that radiating NEGATIVE SPACE shows
+    // between the gold rays, while the shaped lenAt keeps the outer rays long (they splay past the
+    // body width). The gap between rays is what makes the 162° sector read as a burst in silhouette.
+    const wMax = (big ? 0.17 : 0.11) + (big ? 0.12 : 0.06) * q.lenScale;
     const zBase = len * 0.06, zSh = len * 0.42, zTip = len * 0.95;
     const wBase = wMax * 0.5;
     const cx = q.curlOut ? Math.sign(q.mirror || 1) * 0.17 * len : 0;      // lyre-horn tip curl (outermost pair)
