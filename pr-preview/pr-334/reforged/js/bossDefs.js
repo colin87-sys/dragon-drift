@@ -262,6 +262,11 @@ export const BOSSES = {
     // a bullet-time close pass with the visor tracking you, pulls ahead (back to
     // camera), then wheels 180° to face you. Announced, no fire, tap to skip.
     cinematicEntrance: true,
+    // §5i.B COLOSSI graze (C.2b) — SLIPSTREAM: ride the stoop's wake pocket for graze
+    // ticks, then "surge INTO the dive gap" for the exposure window. Inert until the
+    // stoopingStrike setpiece is live; the pocket derives its centre/timing from the
+    // live dive pose at runtime (boss.js grazeForm cluster).
+    grazeForm: 'slipstream',
     // §5e moving-station setpieces (fire while they travel, per-phase). P2 = the
     // wide CIRCLING orbit; P3 = the EMBER HUNT stooping dive from above (dread).
     setpieces: [
