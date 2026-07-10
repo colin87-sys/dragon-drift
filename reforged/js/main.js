@@ -600,6 +600,17 @@ grantEarnedLevelTitles(saveData.level);
 migrateFlightmarks();
 grandfatherAscension(Object.keys(DRAGONS));
 
+// COEXISTENCE REVIEW AFFORDANCE (remove or gate at the migration call): the premium
+// `phoenixEmpress` ("The Dawnfire Empress") ships as a coexisting roster entry so it can be
+// FLOWN and compared against the shipped `phoenix` before the owner decides to replace/retire.
+// Grant it owned + at Eternal on boot so it's immediately equippable in the shop without
+// grinding its 6000 cost. Scoped to this one key; the shipped roster/economy is untouched.
+if (DRAGONS.phoenixEmpress && !saveData.skins.owned.includes('phoenixEmpress')) {
+  saveData.skins.owned.push('phoenixEmpress');
+  const e = saveData.ascension.tiers.find((t) => t[0] === 'phoenixEmpress');
+  if (e) e[1] = ASCENSION_TIERS.length; else saveData.ascension.tiers.push(['phoenixEmpress', ASCENSION_TIERS.length]);
+}
+
 // Dev mode (?dev URL, or the Settings toggle saveData.settings.dev): unlock
 // everything for testing — all dragons at max form, all riders + styles, full
 // embers. Saves are FROZEN first so this override never overwrites real
