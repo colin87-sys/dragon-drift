@@ -906,13 +906,15 @@ export function updateDragon(dt, player, time) {
     // bobs on the wingbeat, and a ripple runs outward through the quills. All from flight state.
     if (trainFan) {
       const fg = trainFan.fanG;
-      fg.rotation.z = damp(fg.rotation.z, -turnBias * 0.55 * bankHard + Math.sin(time * 0.8 - 1.0) * 0.13, 8, dt);
-      fg.rotation.y = damp(fg.rotation.y, Math.sin(time * 1.0 - 0.6) * 0.10, 8, dt);
-      fg.rotation.x = damp(fg.rotation.x, trainFan.baseLiftX + Math.sin(phase - 0.6) * 0.07 - speedNorm * 0.14, 8, dt);   // bob + stream back at speed
-      const furl = 1 - 0.11 * speedNorm - 0.08 * (0.5 - 0.5 * Math.cos(time * 1.2));   // ~0.81 (fast/furled) ↔ 1.0
+      fg.rotation.z = damp(fg.rotation.z, -turnBias * 0.55 * bankHard + Math.sin(time * 0.8 - 1.0) * 0.12, 8, dt);   // bank pendulum → sweeps wide through turns
+      fg.rotation.y = damp(fg.rotation.y, Math.sin(time * 1.0 - 0.6) * 0.09, 8, dt);
+      fg.rotation.x = damp(fg.rotation.x, trainFan.baseLiftX + Math.sin(phase - 0.6) * 0.06, 8, dt);   // small lift bob
+      // Speed FURLS the cone tighter to the flight axis (comet-spear at speed; blossoms on glide),
+      // and an aft-travelling WAVE runs root→outer down the cone — physically-true plume behavior.
+      const furl = -speedNorm * 0.32;   // tighten α toward the axis at speed (rake.x more negative)
       for (const q of trainFan.quills) {
-        q.g.rotation.z = damp(q.g.rotation.z, q.phi * furl, 8, dt);
-        q.g.rotation.x = damp(q.g.rotation.x, Math.sin(time * 3.0 - q.frac * 1.5) * 0.06 * (0.35 + q.frac), 8, dt);
+        if (!q.rake) continue;
+        q.rake.rotation.x = damp(q.rake.rotation.x, q.restRakeX + furl + Math.sin(time * 2.6 - (q.frac ?? 0) * 1.6) * 0.06, 8, dt);
       }
     }
   } else {

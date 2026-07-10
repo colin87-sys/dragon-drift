@@ -398,6 +398,15 @@ if (!cp1) {
     const lens = lay.quills.map((q) => q.lenScale);
     const lo = Math.min(...lens), hi = Math.max(...lens);
     ok(hi - lo > 0.08 * hi, `${key} f${f}: fan outline is SHAPED, not a flat broom (Δ${(hi - lo).toFixed(2)})`);
+    // THE TRAILING DAWN — anti-drag-plate law: every quill must RAKE AFT (rake angle α from the
+    // flight axis ≤ 60°; the failed frontal disk was α≈90°). AND the raked cone must still project
+    // a WIDE burst to the rear cam (projected half-width = Σ len·sinα·sinφ spans the frame).
+    if (f >= 1) {
+      const maxAlpha = Math.max(...lay.quills.map((q) => (q.alpha ?? Math.PI / 2) * 180 / Math.PI));
+      ok(maxAlpha <= 60.001, `${key} f${f}: every quill rakes aft, α≤60° (max ${maxAlpha.toFixed(1)}° — not a drag-plate)`);
+      const projHalf = Math.max(...lay.quills.map((q) => Math.abs(q.lenScale * Math.sin(q.alpha ?? Math.PI / 2) * Math.sin(q.phi))));
+      ok(projHalf > 0.55, `${key} f${f}: raked cone still projects a WIDE rear burst (half-width ${projHalf.toFixed(2)})`);
+    }
   }
   // vane diffuse held dark (L ≤ 0.22 — the emissive carries the fire, not a toy-bright sheet).
   const { materials } = buildDragonModel(per[3].def, {});

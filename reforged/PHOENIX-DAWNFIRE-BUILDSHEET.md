@@ -319,6 +319,25 @@ parts are not shadowed by the inference for the new key. Roster stays byte-ident
   around the aft axis, collapsing into a narrow rearward tassel). "A coal-dark empress dragging a
   golden sunrise behind her."
 
+## ⚠ SUPERSEDED 2026-07-10 — the frontal-plane fan was a DRAG-PLATE (re-architected to a raked cone)
+
+The "bottom-heavy perpendicular fan" (quills radiating in the FRONTAL plane, ⊥ to flight) passed the
+still gate but **failed in motion**: a wide flat disk normal to the airflow reads as an air-brake /
+spoiler / "90° flap" on a creature flying forward — aerodynamic nonsense. The stills lied because the
+still camera looks straight down the flight axis (where the disk projects at max width); side/top
+reads exposed its zero fore-aft depth (a hanging skirt; invisible from above).
+
+**THE TRAILING DAWN (current architecture).** Each quill now RAKES AFT into a half-cone: `rotation.z=φ`
+rolls it around the flight axis, an inner rake group pitches it aft by `(90°−α)`. **THE LAW: α ≤ 60°
+for every quill** (rake measured from the aft/flight axis; the failed disk was α≈90°) — asserted in
+`tests/starters.mjs`. Key trick: a quill's rear-cam projection = `length·sin α`, so lengths are sized
+from the PROJECTION budget backwards (`L = projWidth(φ)/sin α`) — the rear-chase burst stays exactly
+as wide as the flat fan, while the mass streams aft with real depth (she *tows the dawn behind her*).
+Motion: speed FURLS α tighter (comet-spear at speed, blossom on glide); an aft-travelling wave runs
+root→outer down the cone (banner in the airflow, not a skirt swish). The gold streamer-shafts, the
+coal constellation (now an arc-in-depth of trailing sparks), and the Heart of Rebirth (the comet's
+head the wake pours from) all re-homed unchanged. The §2 frontal-fan geometry below is HISTORY.
+
 ## GLOW-UP DOCTRINE (added 2026-07-10 — the Solar-principles → Phoenix application)
 
 Distilled from what makes Solar read as a majestic king, translated to the empress without copying
