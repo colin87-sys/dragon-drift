@@ -63,9 +63,14 @@ Process (follow the method + this sheet):
   5. Verify by failure-class before claiming: node tools/tricount.mjs --ci · node tests/starters.mjs
     (add the premium's own ladder block + the corridor asserts + a NaN-vertex guard) · node
     tests/blueprint.mjs · node tests/smoke.mjs · node tools/wingsymprobe.mjs phoenixEverflame ·
-    node tools/dragonstudio.mjs phoenixEverflame r0 · node tools/framecap.mjs phoenixEverflame .
+    node tools/dragonstudio.mjs phoenixEverflame r0 · node tools/framecap.mjs phoenixEverflame
     Add a lesson file per meaningful change (leapfrog/lessons/<date>-<slug>.md). Update defs.mjs
     (SSSR count +1, unique lanceTint/lanceRune) + re-stamp the SW precache (tools/stamp-sw.mjs).
+    Roster def: mirror the phoenixMolten def SCAFFOLD (rarity/maxRarity SSSR, cost 6000, stats
+    {speed 1.14, handling 1.27, drain 0.70, regen 1.35}, hasStyle:true, archetype:'phoenix' as a RIG
+    flag ONLY — it supplies the warm ember-mote WAKE + Rebirth fire-trails the references show;
+    explicit `parts` override the recipe), with its OWN accentHue/feverWing/feverWash in the F1–F2
+    goldfire band.
   6. The human judges MOTION/FEEL on the PR preview. Surface the ONE load-bearing decision (§B: the
     swept-cascade WING as hero over a symmetric frontal spread) before freezing anything downstream.
 
@@ -134,8 +139,17 @@ transparent-drawable budget is untouched). The **framecap gate is the ration-set
 derived, not inherited): ring + nearest obstacle legible within ~1.5 dragon-widths, WITH Surge on.
 
 **SURGE = "FLASHOVER":** every tier promotes one rung (F2→F1, F1→F0-adjacent), ribbons lengthen ~40%,
-tip frays double — the white-hot reference IS this transient state. Gate: framecap course-legibility
-during Flashover; nothing else (whiteheart-style bloom is permitted).
+tip frays double (the tier promotion rides the existing `spineMats` surge lerp; the ribbon-lengthen /
+fray-double is a `surgeStretch` transform on the ribbon/fray groups driven from the flight tick's
+surge value — if no clean hook exists, ship tier-promotion-only and note it for the owner; the
+framecap gate is unchanged either way) — the white-hot reference IS this transient state. Gate:
+framecap course-legibility during Flashover; nothing else (whiteheart-style bloom is permitted).
+
+**The drifting EMBER FIELD (reference-fidelity item):** refs 1/2/3 all shed sparks into the air around
+her. That ambient wake is the engine's phoenix-archetype rig motes — delivered by setting
+`archetype: 'phoenix'` on the def as a RIG FLAG (warm ember-mote wake + Rebirth fire-trails), NOT a
+model path (explicit `parts` override the recipe). The *attached* sparks (tip frays, ribbon facets)
+are geometry; the *drifting* embers are that rig wake — both must be present so she visibly "sheds fire."
 
 **Feathers read as FLAME, not plumage:** an S-tapered tongue outline (no rachis/barb anatomy),
 root-hot/tip-cool hue steps, gaps between tongues, frayed micro-shard tips. A solid gold feather with
@@ -164,7 +178,7 @@ change the profile in one place or the trails detach).
   `y(t) = hs·0.62·(1 − cos(π·min((t−0.45)/0.55, 1)))^0.7`. No straight line longer than one station.
 - **Scale hierarchy WITHOUT a leading pinion:** tongue lengths grade ~2.2:1, with the DOMINANT tongue
   at the **inboard-trailing** position (the streamer that pours off the wing's trailing edge). Molten's
-  dominant was the terminal LEADING pinion ×1.7 — inverting the dominant's POSITION is a structural
+  dominant was the terminal (outermost) pinion ×1.7 — inverting the dominant's POSITION is a structural
   differentiator, not a re-skin.
 - **Heat direction (a bonus distinctiveness tell):** the wing cools root→tip (fire attached to the
   body-fuel) — Molten's pyre-fan got HOTTER toward the pinion. Opposite gradient = opposite creature.
@@ -186,7 +200,9 @@ shadow-side belly.
 - **THE FURNACE KEEL** (the core-glow signature, non-leaking): one continuous throat→chest→belly-keel
   STRIP of F1 grading to a single F0 **keel-star** facet-cluster at the chest — a *line of white heat
   inside the flame*, explicitly NOT a caldera pool behind crust (no crust exists on this creature).
-  This is the `motifAnchor`.
+  This is the `motifAnchor`. The keel-star must read as the white TERMINUS of the keel strip (an
+  elongated facet-cluster continuous with it), never a detached chest disk/pool — hand the CP1 critic
+  a molten-heart tile as a veto comparison.
 - **Dorsal licks:** a row of 5 small flame licks nape→hip, alternately canted L/R toward the camera
   — the rear-chase "no dark back" guarantee AND the visible ignition-ramp hardware (gated per rung).
 
@@ -233,7 +249,7 @@ LACKS the cascade).
 
 | Form | Name | confers | igniteStage / glow | ~tris |
 |---|---|---|---|---|
-| **f0 First Spark** | a garnet-bodied fledgling; flame-blanket-only stub wings, NO tongues/ribbons/crest; only the furnace-keel line lit (F2) — one thread of fire in a dark bird | 0 / 0.25 | ~1.0k |
+| **f0 First Spark** | a garnet-bodied fledgling; flame-blanket-only stub wings, NO tongues/ribbons/crest; only the furnace-keel line lit (F2) — one thread of fire in a dark bird. *f0's tell is the ONE continuous ventral keel LINE — never a crack network (molten f0's tell) and never a plain charcoal bird (the shipped f0); give the garnet body a faint warm smolder gradient so the sil-rear f0 tile is not mistakable for either neighbour's base form (add both f0 tiles to the CP3 comparison set).* | 0 / 0.25 | ~1.0k |
 | **f1 Kindled** | HARDWARE: 4 cascade tongues + 3 dorsal licks. LIGHT: body field ignites to F2 flame-orange, keel to F1 | 1 / 0.5 | ~1.5k |
 | **f2 Roaring Blaze** | HARDWARE: 6 tongues with gaps, crest licks, first (short) ribbon pair. LIGHT: body field turns F1 goldfire — she becomes the gold-on-black reference. SIGNATURE: the cascade rise arrives (cascadeRise 0→0.7) | 2 / 0.75 | ~2.1k |
 | **f3 The Everflame** (Eternal) | HARDWARE: full 7-tongue cascade + tip frays + full twin ribbons + 5 dorsal licks. LIGHT: F0 keel-star + eyes ignite; Flashover surge unlocked. SIGNATURE: full concave-cupped sweep | 3 / 1.0 | ~2.8k |
@@ -306,7 +322,7 @@ shipped `phoenix` FIRST — it should FAIL "flame-not-plumage."
 | Axis | vs MOLTEN Phoenix | vs shipped PHOENIX Ascendant | vs SOLAR Sovereign | vs SERAPH / Pearl |
 |---|---|---|---|---|
 | **Silhouette / region** | swept aft-up V-cascade (upper-lateral-trailing), body luminous — vs broad flat pyre-fan, body crusted | streaming wind-blown flame — vs static avian spread + plume | concave-cupped, no top-centre mass — vs interior-peak cathedral-M | twin high lateral ribbons — vs single centred comet / halo |
-| **Wing construction** | discrete flame tongues + air gaps, NO membrane/shingled ranks/leading pinion — vs cambered membrane + 3 shingled ranks + dominant leading pinion | tongues + gaps — vs a solid feather sheet | no vault-bays / carpal lances | no feather-scales |
+| **Wing construction** | discrete flame tongues + air gaps, NO membrane/shingled ranks/leading pinion — vs cambered membrane + 3 shingled ranks + dominant leading pinion | tongues + gaps — vs a continuous TRANSLUCENT feather web (ShapeGeometry, opacity 0.82); Everflame is 100% opaque | no vault-bays / carpal lances | no feather-scales |
 | **Signature / regalia** | furnace-keel LINE + twin spark-ribbons — vs caldera heart-pool + obsidian mask | cascade + ribbons — vs flame-plume + "Rebirth" | no ring/corona | no crown-halo |
 | **Palette / glow** | light-field / dark-rim (INVERTED); goldfire body `0xe69b1f` — vs crust field `0x261210` | amber-gold→crimson streaming FIRE — vs WHITE-gold divine plumage | fire ladder — vs violet/gold | fire — vs pearl/white |
 | **Growth beat** | "the fire CATCHES" (kindling→wildfire, fuel vanishing into flame) — vs "the crust CRACKS" | vs "rebirth surge" | vs "wings learn the arch" | vs Pearl's reveal |
@@ -314,7 +330,72 @@ shipped `phoenix` FIRST — it should FAIL "flame-not-plumage."
 
 ---
 
-*Author's note for the implementation chat: §1–§8 are the audited design. Build the contract
+## §9 CARRIED CRAFT LESSONS (design-agnostic — the accumulated laws that make the build cheap + correct)
+These are the RELEVANT, shape-agnostic craft/engineering/process laws from the ledger — none of them
+dictates a shape, a palette, or a motif; they are containers + guardrails that apply to ANY premium.
+Follow them and the build lands ~3.5+ before the first Fable round.
+
+**Material / value craft (apply to the FLARE palette, not a specific look):**
+- **VALUE-GAP LAW.** The BODY-FIELD emissive ceiling must sit at least one tier BELOW the ACCENT
+  ceiling, or ACES + bloom flatten every hue into one smear. (Here: body field ~0.55–0.65, keel-star +
+  outer tips hotter.) The recurring "premium reads as flat bright paint" failure is almost always a
+  missing value gap, not a wrong hue.
+- **TWO VALUES PER FACET.** Give every flat-shaded facet a second value — a lit field + a dark rim, or
+  a raised ridge + a shadowed groove. Which polarity is the design's call; the relief itself is the law
+  (it survives flat-shading + bloom where a single value reads as a blob).
+- **BRIGHT-FIRST, RATION DOWN FROM CAPTURES.** Pitch intensities/areas hot, then dual-sky + framecap and
+  lower ONLY where a real capture washes out. Area/intensity ceilings are measurement-derived, never
+  inherited from another dragon's numbers.
+- **ORGANIZED RANKS, NOT TRI COUNT.** Perceived craftsmanship = the number of ORGANIZED detail systems
+  (a rank of N repeated units at a fixed pitch), not triangle count. N units in a rank read as crafted;
+  the same N tris scattered read as noise (the gate scores a NOISE veto).
+
+**Geometry crash-classes (each has bitten before; each is invisible to tricount/asserts):**
+- **PLAIN-ARRAY TRIS.** Tri-list helpers index `a[0]/a[1]/a[2]` — pass PLAIN ARRAYS, never a `Vector3`
+  (whose `[0]` is `undefined` → every vertex NaN). NaN is invisible to tricount, geometry asserts, and
+  the flight tick, and it even fools a comparison-based symmetry probe (`NaN > worst` is false) — ONLY
+  the render shows it (an empty/blown frame). Always eyeball a render after any geometry change, and
+  keep a hard NaN-vertex guard in the starters asserts.
+- **coreGlow IS A MESH OR `null`, never a colour number** — the orchestrator builds the real back-glow
+  sprite only when this is falsy; a number makes it skip that and crash on `.userData.base` every frame
+  (an invisible dragon).
+- **ONE EXPORTED PROFILE FOR GEOMETRY + FX.** Any curve used by BOTH the vane geometry AND the wingtip
+  FX marker / `wingElements` tip must be a SINGLE exported function — change it in one place or the
+  trails + aero-shear detach from the moved tip.
+- **PUBLISH THE FULL ATTACH CONTRACT** (`wingRootL/R`, `headBase`, `tailAnchor`, `halfWidthAt`,
+  `bodyMidY`, `riderSocket`, `spinePoints`, `motifAnchor`) or the orchestrator null-derefs at build.
+
+**Silhouette / connectedness (why the black-fill test is the harshest gate):**
+- **ROOT-IN-FILL INVARIANT.** Every discrete blade/feather/spark must ROOT INSIDE the filled surface
+  (clamp its root parameter to the fill boundary) and extend outward — never root on a bare edge/spar,
+  or it floats as a detached island in the black-fill silhouette (the "loose-slat / biplane" read). The
+  plane / Seraph / spray-of-wires vetoes all reduce to two measurable properties: CONNECTEDNESS (no
+  detached islands) and EDGE-CHARACTER (straight = plane, smooth = vault, serrated-from-fill = alive).
+- **RANK-VALUE-STEP.** Each layered/shingled rank must sit a value/tier off the surface beneath it, or
+  it vanishes (same-tier-on-same-tier is invisible at chase distance).
+
+**Process (the meta-laws that save the most rounds):**
+- **JUDGE IN THE REAL CHASE CAM, never the studio void.** The studio looks AT the model (a turntable);
+  the game looks PAST it at the course. A beautiful turntable render is necessary, not sufficient — this
+  meta-lesson killed four prior rebuilds. `framecap.mjs` (full frame + course, incl. Surge) is the
+  binding visibility gate.
+- **VERIFY BY FAILURE-CLASS.** tricount (budget) · blueprint (integrity) · smoke (per-frame crash →
+  invisible dragon) · wingsymprobe (mirror symmetry) · dragonstudio + framecap (aesthetics). Each
+  catches a class the others are blind to; a green budget says nothing about whether it renders in flight.
+- **THE CHECKPOINT GATE IS THE PROCESS.** Budget ONE rework per checkpoint; a first-try Fable pass is a
+  red flag that the bar was too soft. The harsh critic naming the exact fix, then a small surgical
+  change, is the loop working.
+- **A REGRESSION ASSERT CAN ENFORCE THE FAILURE IT WAS WRITTEN TO PREVENT — re-read guardrails when the
+  design intent INVERTS.** ⚠ Everflame INVERTS Molten's value structure: carry the design-agnostic
+  asserts (the corridor law, tris/dials monotonic, the NaN guard, the attach contract) but do NOT
+  inherit any molten assert that encoded a DARK body (e.g. a "wing diffuse value ≤ X" ceiling) — a
+  bright body must be re-scoped, not policed by the dark design's numbers.
+- **WHEN YOU RETIRE/REPLACE A DESIGN, GREP THE TEST DIR FOR DANGLING REFERENCES** to the removed key
+  (a stale `DRAGONS.<retiredKey>` throws `JSON.parse(undefined)` and reds the suite).
+
+---
+
+*Author's note for the implementation chat: §1–§9 are the audited design. Build the contract
 (apex-first, round-0 self-audit, verify-by-class, high-effort Fable gate at each checkpoint, owner
 motion checkpoint); don't redesign it. Closed calls (the FLARE inversion, the swept-cascade hero, the
 no-leak map) stay closed unless you raise a real objection to the owner.*
