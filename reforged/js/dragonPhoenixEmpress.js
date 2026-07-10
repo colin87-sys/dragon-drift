@@ -306,13 +306,8 @@ function buildPyreHeartTorso(def, model, _bodyMat) {
       (u) => { const ang = (u - 0.5) * Math.PI * 1.55; return [Math.sin(ang) * 0.4, 0.2 + 0.2 * Math.cos(ang), 0.9]; },
       (u) => { const ang = (u - 0.5) * Math.PI * 1.55; return [Math.sin(ang), Math.cos(ang) + 0.3, 0.15]; },
       () => (0.40 + 0.08 * ruff), () => 0.12, M.covert, 0.42));
-    // rose-kissed tips (a few) — the imperial collar catches the crest hue
-    for (let j = -2; j <= 2; j++) {
-      const ang = (j / 5) * Math.PI * 1.3;
-      const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), M.crestTip);
-      tip.position.set(Math.sin(ang) * R * 1.15, cy0 + Math.cos(ang) * R * 0.9 + 0.42, cz + 0.42);
-      group.add(tip);
-    }
+    // (rose-kissed ruff tips removed — they read as floating confetti beside the head; the rose
+    // hue-station is carried cleanly by the crest + the tiara band gems.)
   }
 
   // B2 — FLANK + breast SHINGLE rows: broad dark feather scallops down each flank (and a breast
@@ -812,49 +807,41 @@ function buildPyreTrainTail(def, model, mats, anchor) {
   // crimson→amber gradient, an optional peacock-eye inset) + a coal-eye gem at the tip. `big` =
   // the main rank; the under-rank is smaller/dimmer with no eye. Camera-facing pitch + ±cant.
   const addQuill = (q, len, big) => {
+    // THE FIX for a WIDE burst: each ray is a vane lying in the FRONTAL plane (facing the rear
+    // cam), radiating from the hip at angle `phi` from straight-down. rotation.z = phi spreads the
+    // rays laterally across the lower frame — a real ~162° sunrise, not a narrow aft-pointing cone.
     const quill = new THREE.Group();
-    quill.rotation.z = q.phi;
-    if (!big) quill.position.z -= 0.14;   // recess the under-rank BEHIND the main fan (depth layer, not a gap-filler)
+    quill.rotation.z = q.phi;              // radiate in the frontal plane (the ray points down at phi=0)
+    quill.rotation.y = q.cant * 0.7;       // small camera-facing twist (balanced across the mirror → Σ≈0)
+    if (!big) quill.position.z -= 0.12;     // recess the under-rank behind (depth, not a gap-filler)
     fanG.add(quill);
-    const shaftDir = new THREE.Vector3(0, -0.32, 1).normalize();
-    quill.add(bar([0, 0, 0], [shaftDir.x * len, shaftDir.y * len, shaftDir.z * len], big ? 0.03 : 0.018, big ? M.goldHi : M.copper));
-    const vane = new THREE.Group();
-    vane.rotation.x = 0.42;       // pitch the vane face up toward the elevated chase cam (~24°)
-    vane.rotation.z = q.cant;     // ±cant (balanced across the mirrored pair)
-    quill.add(vane);
-    // OPEN RAY-BURST (not a closed bell): vanes narrow enough that radiating NEGATIVE SPACE shows
-    // between the gold rays, while the shaped lenAt keeps the outer rays long (they splay past the
-    // body width). The gap between rays is what makes the 162° sector read as a burst in silhouette.
     const wMax = (big ? 0.17 : 0.11) + (big ? 0.12 : 0.06) * q.lenScale;
-    const zBase = len * 0.06, zSh = len * 0.42, zTip = len * 0.95;
+    const yBase = -len * 0.06, ySh = -len * 0.42, yTip = -len * 0.95;   // the ray runs DOWN (−Y) in-plane
     const wBase = wMax * 0.5;
-    const cx = q.curlOut ? Math.sign(q.mirror || 1) * 0.17 * len : 0;      // lyre-horn tip curl (outermost pair)
-    const cy = q.curlOut ? 0.06 * len : 0;
-    const b0 = [-wBase, 0, zBase], b1 = [wBase, 0, zBase];
-    const s0 = [-wMax, 0.02 * len, zSh], s1 = [wMax, 0.02 * len, zSh];
-    const tipP = [cx, cy, zTip];
-    vane.add(flatTriMesh([[b0, b1, s1], [b0, s1, s0], [s0, s1, tipP]], M.vaneDark));   // dark blade
-    // flat RIBBON rims (readable at chase distance, unlike the old hairline rods) — lower
-    // ember-crimson, upper amber. Offset inward in the vane plane so the blade stays dark-centred.
+    const cx = q.curlOut ? Math.sign(q.mirror || 1) * 0.15 * len : 0;    // lyre-horn tip curl (outward)
+    const cz = q.curlOut ? 0.06 * len : 0;                              // horn tips lift toward the cam
+    quill.add(bar([0, 0, 0], [cx * 0.5, yTip, cz * 0.5], big ? 0.03 : 0.018, big ? M.goldHi : M.copper));  // gold ray spine
+    const b0 = [-wBase, yBase, 0], b1 = [wBase, yBase, 0];
+    const s0 = [-wMax, ySh, 0.01 * len], s1 = [wMax, ySh, 0.01 * len];
+    const tipP = [cx, yTip, cz];
+    quill.add(flatTriMesh([[b0, b1, s1], [b0, s1, s0], [s0, s1, tipP]], M.vaneDark));   // dark blade, faces the cam
+    // ribbon rims tracing the edges (raised toward the cam) — lower ember → upper amber
     const rw = big ? 0.05 : 0.035;
-    const rimQ = (a, bb, ox, mat) => { const a2 = [a[0] + ox, a[1] + 0.004, a[2]], b2 = [bb[0] + ox, bb[1] + 0.004, bb[2]]; vane.add(flatTriMesh([[a, bb, b2], [a, b2, a2]], mat)); };
+    const rimQ = (a, bb, ox, mat) => { const a2 = [a[0] + ox, a[1], a[2] + 0.03], b2 = [bb[0] + ox, bb[1], bb[2] + 0.03]; quill.add(flatTriMesh([[a, bb, b2], [a, b2, a2]], mat)); };
     rimQ(b0, s0, +rw, M.vaneEdgeLo); rimQ(b1, s1, -rw, M.vaneEdgeLo);
     rimQ(s0, tipP, +rw, M.vaneEdgeHi); rimQ(s1, tipP, -rw, M.vaneEdgeHi);
-    // T2 — peacock EYE inset (~60% out) on the main rank at f2+: a small amber diamond the dark
-    // blade carries, so the train has readable light INSIDE the feathers (the empress signature).
-    if (big && vaneEyes) {
-      const ez = len * 0.60, ew = wMax * 0.34, ey = 0.02 * len;
-      vane.add(flatTriMesh([[[-ew, ey, ez], [0, ey, ez + ew * 1.3], [ew, ey, ez]], [[-ew, ey, ez], [ew, ey, ez], [0, ey, ez - ew * 1.3]]], M.vaneEye));
+    if (big && vaneEyes) {   // peacock EYE inset (~60% down the ray)
+      const ey = -len * 0.6, ew = wMax * 0.34;
+      quill.add(flatTriMesh([[[-ew, ey, 0.02], [0, ey - ew * 1.3, 0.02], [ew, ey, 0.02]], [[-ew, ey, 0.02], [ew, ey, 0.02], [0, ey + ew * 1.3, 0.02]]], M.vaneEye));
     }
-    // coal-eye gem at the tip — the brightest thing in the fan, now ~1.4× larger and SET in a
-    // GOLD collet (the welded-gem law) so the doubled arc reads as a constellation of jewels.
+    // coal-eye gem at the ray tip — gold-set, the constellation jewel
     if (coalOn) {
       const isDawn = q.phi === 0 && dawnOn && big;
       const gemR = isDawn ? 0.115 : (big ? 0.098 : 0.064);
-      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.34, 0), M.coalBezel);   // gold setting (rim shows)
-      bezel.position.set(cx, cy, zTip); bezel.scale.set(1, 1.3, 0.8); vane.add(bezel);
+      const bezel = new THREE.Mesh(new THREE.OctahedronGeometry(gemR * 1.34, 0), M.coalBezel);
+      bezel.position.set(cx, yTip, cz); bezel.scale.set(1.3, 1, 0.8); quill.add(bezel);
       const gem = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), isDawn ? M.dawnCoal : M.coalEye);
-      gem.position.set(cx, cy, zTip + (isDawn ? 0.02 : 0)); gem.scale.set(1, 1.3, 1); vane.add(gem);
+      gem.position.set(cx, yTip - (isDawn ? 0.02 : 0), cz); gem.scale.set(1.3, 1, 1); quill.add(gem);
     }
   };
 
