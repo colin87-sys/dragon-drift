@@ -227,31 +227,59 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // additive halo. Rim mats stay OUT of spineMats (Surge would blow them to white).
   if ((model.coronaRing ?? 0) > 0) {
     const ring = new THREE.Group();
-    // Radii: inner DARK moon-disk band [Ri..Rm] + a WIDE saturated RIM band [Rm..Ro] on the
-    // CAMERA-FACING front face (the old build put the bright colour on the thin depth-edge, which is
-    // edge-on to the rear-chase cam → near-invisible). Now the glowing rose-window rim faces the cam.
-    const Ro = 1.10, Rm = 0.90, Ri = 0.78, d = 0.10, N = 12;
+    ring.name = 'eclipseCorona';   // published for the motion tick (slow eclipse crawl / Surge TOTALITY)
+    // CP3 "GRAND ECLIPSE" — the annulus becomes a cathedral ROSE WINDOW wearing eclipse streamers.
+    // Still eclipse-BY-CONSTRUCTION (dark matte moon-disk + a thin saturated CAMERA-FACING rim, flat
+    // tris, NO torus). Scaled to monument size but CAPPED so it stays enthroned BELOW the spire tips.
+    const Ro = 1.30, Rm = 1.06, Ri = 0.88, d = 0.10, N = 16;
     const pt = (r, ang, z) => [Math.cos(ang) * r, Math.sin(ang) * r, z];
     const darkT = [], vT = [], aT = [], goldT = [];
     for (let i = 0; i < N; i++) {
       const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
-      // front face, inner dark annulus [Ri..Rm]
       const iF0 = pt(Ri, a0, d / 2), mF0 = pt(Rm, a0, d / 2), mF1 = pt(Rm, a1, d / 2), iF1 = pt(Ri, a1, d / 2);
-      darkT.push([iF0, mF0, mF1], [iF0, mF1, iF1]);
-      // front face, OUTER saturated rim annulus [Rm..Ro] — alternating violet/amber, faces the cam
+      darkT.push([iF0, mF0, mF1], [iF0, mF1, iF1]);       // front inner dark moon-disk band
       const oF0 = pt(Ro, a0, d / 2), oF1 = pt(Ro, a1, d / 2);
-      const rim = (i % 2 === 0) ? vT : aT;
-      rim.push([mF0, oF0, oF1], [mF0, oF1, mF1]);
-      // back face (all dark) + outer depth band (dark, so only the front rim glows)
+      ((i % 2 === 0) ? vT : aT).push([mF0, oF0, oF1], [mF0, oF1, mF1]);   // front outer rim (violet/amber)
       const iB0 = pt(Ri, a0, -d / 2), oB0 = pt(Ro, a0, -d / 2), oB1 = pt(Ro, a1, -d / 2), iB1 = pt(Ri, a1, -d / 2);
-      darkT.push([iB0, oB1, oB0], [iB0, iB1, oB1]);
-      darkT.push([oF0, oB0, oB1], [oF0, oB1, oF1]);
+      darkT.push([iB0, oB1, oB0], [iB0, iB1, oB1]);       // back (dark)
+      darkT.push([oF0, oB0, oB1], [oF0, oB1, oF1]);       // outer depth band (dark)
       goldT.push([iF0, iB1, iB0], [iF0, iF1, iB1]);       // inner bevel (gold)
+    }
+    // 8 ECLIPSE STREAMER RAYS off the rim — FEW + LARGE (density-law safe), deliberately SKIPPING the
+    // top (~90°) so the loved M skyline (spire–head–spire) is untouched; light escapes around the disk.
+    const grand = (model.coronaGrand ?? 0) > 0;   // the rose-window extras (rays/tracery/gems) — Eternal only
+    const rayAng = grand ? [0, 0.7, 2.44, Math.PI, 3.66, 4.36, 4.98, 5.6] : [];   // radians: right/low-diagonals/left/bottom — no 12 o'clock
+    for (let r = 0; r < rayAng.length; r++) {
+      const a = rayAng[r], hw = 0.13, long = r % 2 === 0, Rt = long ? 1.9 : 1.55;
+      const bL = pt(Ro * 0.99, a - hw, d / 2), bR = pt(Ro * 0.99, a + hw, d / 2), tip = pt(Rt, a, d / 2);
+      const bLb = pt(Ro * 0.99, a - hw, -d / 2), bRb = pt(Ro * 0.99, a + hw, -d / 2), tipb = pt(Rt, a, -d / 2);
+      ((r % 2 === 0) ? vT : aT).push([bL, bR, tip]);      // front emissive (violet=long / amber=short)
+      darkT.push([bLb, tipb, bRb]);                       // dark back
+    }
+    // ROSE-WINDOW TRACERY (grand only): a thin gold inner ring + 4 gold mullion spokes crossing the disk.
+    if (grand) {
+      const trIn = 0.80, trOut = 0.86;
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+        goldT.push([pt(trIn, a0, d / 2 + 0.01), pt(trOut, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01)],
+                   [pt(trIn, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01), pt(trIn, a1, d / 2 + 0.01)]);
+      }
+      for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {   // 4 compass mullions (thin radial bars)
+        const w = 0.045;
+        goldT.push([pt(0.12, a - w, d / 2 + 0.01), pt(0.82, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01)],
+                   [pt(0.12, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01), pt(0.12, a + w, d / 2 + 0.01)]);
+      }
     }
     ring.add(flatTriMesh(darkT, M.coronaDark));
     ring.add(flatTriMesh(vT, M.coronaRimV));
     ring.add(flatTriMesh(aT, M.coronaRimA));
     ring.add(flatTriMesh(goldT, M.goldHi));
+    // 4 COMPASS GEMS at the mullion/ring junctions — violet, ride the ignition ladder (M.gem).
+    if (grand) for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
+      const g = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), M.gem);
+      g.position.set(Math.cos(a) * 0.83, Math.sin(a) * 0.83, d / 2 + 0.04);
+      ring.add(g);
+    }
     ring.position.set(0, TORSO_Y + 0.92, -0.72);
     ring.rotation.x = -0.21;   // tilt ~12° forward (top leans toward the head)
     group.add(ring);
@@ -296,7 +324,7 @@ registerTorso('regnalKeelTorso', buildRegnalKeelTorso);
 // for the left; dihedral raises the tips into the rear cathedral arch.
 function buildOneWing(M, dials, dih) {
   const wg = new THREE.Group();
-  const { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots } = dials;
+  const { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots, spireTier } = dials;
   const rootChord = 2.7, tipChord = 0.5, sweepZ = halfSpan * 0.28;
   // Built CANONICAL (+X); the left wing is a scale.x=-1 mirror of this (in buildLanceVaultWings)
   // so the shared flap animator's MIRRORED poses land symmetric (it feeds L/R opposite rotations,
@@ -403,6 +431,22 @@ function buildOneWing(M, dials, dih) {
     lance.rotation.copy(rot);
     wg.add(lance);
     tipJewel(l, clen, rot, 0.07);
+    // CP3 VOTIVE SPIRE — the plain lance becomes a stepped cathedral spire. SAME height/rake/outline
+    // (interior detail of the existing landmark; the M silhouette contract is untouched). A point at
+    // fraction s up the shaft, in the lance's own rotated frame:
+    const along = (s) => { const p = new THREE.Vector3(0, s * clen, 0).applyEuler(rot); return [l[0] + p.x, l[1] + p.y, l[2] + p.z]; };
+    const banded = (s, rTop, rBot, h, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, seg(6)), mat); m.position.set(...along(s)); m.rotation.copy(rot); wg.add(m); };
+    if (spireTier >= 1) { banded(0.30, 0.16, 0.16, 0.06, M.goldHi); banded(0.55, 0.12, 0.12, 0.05, M.goldHi); }   // collar rings
+    if (spireTier >= 2) {
+      banded(0.03, 0.26, 0.30, 0.14, M.gold);   // hex plinth at the carpal
+      for (const s of [0.42, 0.66]) {            // 2 crockets — gold hooks on the inner (bodyward) face
+        const cr = spike(0.34, 0.09, 0.006, M.goldHi, 4);
+        const base = along(s);
+        cr.position.set(base[0] - 0.16, base[1], base[2] + 0.02);   // inner face (−x on the canonical +X wing)
+        cr.rotation.set(-0.5, 0, 1.15);          // hook up-and-inward
+        wg.add(cr);
+      }
+    }
   }
 
   // Pike rank — DEMOTED behind the carpal: re-stationed OUTBOARD of the lance, steeper 0.62^i decay
@@ -439,7 +483,8 @@ function buildLanceVaultWings(def, model, attach, _giM) {
   const archRise = model.archRise ?? 1;         // 0 (linear princeling glide) → 1 (full cathedral arch)
   const carpalLance = model.carpalLance ?? 2.6; // twin-spire length× (0 = none)
   const pinionSlots = Math.round(model.pinionSlots ?? 2);
-  const dials = { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots };
+  const spireTier = Math.round(model.spireTier ?? 2);   // CP3: 0 plain lance · 1 collars · 2 plinth+crockets
+  const dials = { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots, spireTier };
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
