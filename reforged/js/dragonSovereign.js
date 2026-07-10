@@ -315,8 +315,8 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
         goldT.push([pt(trIn, a0, d / 2 + 0.01), pt(trOut, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01)],
                    [pt(trIn, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01), pt(trIn, a1, d / 2 + 0.01)]);
       }
-      for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {   // 4 compass mullions (thin radial bars)
-        const w = 0.045;
+      for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {   // 4 compass mullions (radial bars)
+        const w = 0.065;   // widened (Fable polish) so the spokes clear the sub-8px floor at chase distance
         goldT.push([pt(0.12, a - w, d / 2 + 0.01), pt(0.82, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01)],
                    [pt(0.12, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01), pt(0.12, a + w, d / 2 + 0.01)]);
       }
@@ -451,6 +451,9 @@ function buildOneWing(M, dials, dih) {
       for (let k = 1; k <= N; k++) { const u = k / N, mu = 1 - u;
         const pt = [mu * mu * p0[0] + 2 * mu * u * c[0] + u * u * p1[0], mu * mu * p0[1] + 2 * mu * u * c[1] + u * u * p1[1], mu * mu * p0[2] + 2 * mu * u * c[2] + u * u * p1[2]];
         wg.add(tube(prev, pt, r, M.gold)); prev = pt; }
+      // anchor BOSS at the body end so the buttress reads load-bearing, not a floating wire (Fable polish)
+      const boss = new THREE.Mesh(new THREE.OctahedronGeometry(r * 2.6, 0), M.gold);
+      boss.position.set(p0[0], p0[1], p0[2]); wg.add(boss);
     };
     tubeArc([0.05, -0.5, 0.25], st[Math.max(1, Math.round(fingers * 0.4))].l, [0.2, -0.35, 0.1], 0.035);
     if (buttress >= 2) tubeArc([0.15, -0.45, 0.55], st[Math.max(1, Math.round(fingers * 0.6))].l, [0.3, -0.3, 0.15], 0.03);
