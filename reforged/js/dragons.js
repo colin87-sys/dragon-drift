@@ -946,6 +946,47 @@ export const DRAGONS = {
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 
+
+  phoenixEmpress: {
+    name: 'Phoenix Ascendant',
+    title: 'The Dawnfire Empress',
+    rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
+    stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
+    archetype: 'phoenix', hasStyle: true,
+    parts: { torso: 'pyreHeartTorso', wings: 'scythePinionWings', head: 'cometCrestHead', tail: 'pyreTrainTail' },
+    feverWing: 0xffe6a8, feverEye: 0xfff2c8, feverWash: [0.058, 0.043, 0.014],
+    model: {
+      scale: 1.18, wingScale: 1.0, flapBias: 1.08, flapAmp: 0.86,
+      igniteStage: 3, trainQuills: 9, trainFan: 150, trainLift: 0.45, coalBloom: 3,
+      primaryCount: 7, primaryGaps: 4, pinionSpan: 5.6, crestQuills: 5, gorget: 2,
+      eyeShape: 0.16, glowLevel: 1.0,
+    },
+    forms: [
+      { igniteStage: 0, trainQuills: 2, trainFan: 90, trainLift: -0.10, coalBloom: 0,
+        primaryCount: 4, primaryGaps: 0, pinionSpan: 3.6, crestQuills: 0, gorget: 0, eyeShape: 0.34, glowLevel: 0.25,
+        colors: { body: 0x1a0f0d, belly: 0x3a2114, wingInner: 0x241012, wingOuter: 0x3a1114, wingEmissive: 0xe0173a,
+          scales: 0x8a4a22, horn: 0x8a4a22, eye: 0xd98a12, apexSeam: 0xd9541a, coreGlow: 0xd9541a, trail: 0xd9541a, boostTrail: 0xd98a12 } },
+      { igniteStage: 1, trainQuills: 4, trainFan: 90, trainLift: 0.05, coalBloom: 1,
+        primaryCount: 5, primaryGaps: 2, pinionSpan: 4.35, crestQuills: 1, gorget: 0, eyeShape: 0.26, glowLevel: 0.50,
+        colors: { body: 0x241012, belly: 0x3a2114, wingInner: 0x2a1012, wingOuter: 0x3a1114, wingEmissive: 0xe0173a,
+          scales: 0x8a4a22, horn: 0x8a4a22, eye: 0xd98a12, apexSeam: 0xd9541a, coreGlow: 0xd9541a, trail: 0xd9541a, boostTrail: 0xd98a12 } },
+      { igniteStage: 2, trainQuills: 6, trainFan: 120, trainLift: 0.24, coalBloom: 2,
+        primaryCount: 6, primaryGaps: 3, pinionSpan: 5.0, crestQuills: 3, gorget: 1, eyeShape: 0.20, glowLevel: 0.75,
+        colors: { body: 0x2c1014, belly: 0x3a2114, wingInner: 0x301013, wingOuter: 0x3a1114, wingEmissive: 0xe0173a,
+          scales: 0x8a4a22, horn: 0x8a4a22, eye: 0xd98a12, apexSeam: 0xd9541a, coreGlow: 0xd9541a, trail: 0xd9541a, boostTrail: 0xd98a12 } },
+      { igniteStage: 3, trainQuills: 9, trainFan: 150, trainLift: 0.45, coalBloom: 3,
+        primaryCount: 7, primaryGaps: 4, pinionSpan: 5.6, crestQuills: 5, gorget: 2, eyeShape: 0.16, glowLevel: 1.0,
+        colors: { body: 0x331016, belly: 0xe8c58a, wingInner: 0x331016, wingOuter: 0x3a1114, wingEmissive: 0xe0173a,
+          scales: 0x8a4a22, horn: 0x8a4a22, eye: 0xd98a12, apexEye: 0xd98a12, apexSeam: 0xd9541a, coreGlow: 0xd9541a,
+          trail: 0xd9541a, boostTrail: 0xd98a12 } },
+    ],
+    fx: { auraColor: '217,84,26', auraIdle: 0.0, sparkle: false },
+    body: 0x331016, belly: 0xe8c58a, scales: 0x8a4a22, horn: 0x8a4a22,
+    wingInner: 0x331016, wingOuter: 0x3a1114, wingEmissive: 0xe0173a,
+    apexEye: 0xd98a12, apexSeam: 0xd9541a, coreGlow: 0xd9541a, surgeHi: 0xffe6a8,
+    eye: 0xd98a12, trail: 0xd9541a, boostTrail: 0xd98a12,
+  },
+
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
   // energy bands, lateral astral fin-vanes, a regal mask head + a celestial saddle,
   // that slithers HORIZONTALLY (low + readable, §0.5) and tapers into a streaming

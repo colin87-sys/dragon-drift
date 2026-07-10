@@ -320,6 +320,43 @@ if (!cp1) {
   ok(ns[0] === 0 && ns[1] === 0 && ns[2] > 0 && ns[2] < ns[3], `${key}: nape-star arrives at Radiant (${ns.join('→')})`);
 }
 
+
+// ── PHOENIX EMPRESS (SSSR premium, 4 forms) — pyre-train rebirth ladder ───────
+if (!cp1) {
+  const key = 'phoenixEmpress';
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  const per = [];
+  for (let f = 0; f <= maxT; f++) {
+    const def = ascendedDef(DRAGONS[key], f, 0);
+    const { group, parts, materials } = buildDragonModel(def, {});
+    let tris = 0; group.traverse((o) => { if (o.isMesh && o.geometry) { const g = o.geometry; tris += g.index ? g.index.count / 3 : (g.attributes?.position?.count / 3 || 0); } });
+    per.push({ m: def.model, parts, materials, tris: Math.round(tris) });
+  }
+  for (let f = 0; f <= maxT; f++) {
+    ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
+    ok(!!per[f].parts.spinePoints && per[f].parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
+    ok(per[f].parts.coreGlow === null || (per[f].parts.coreGlow && per[f].parts.coreGlow.isObject3D), `${key} f${f}: coreGlow mesh-or-null contract`);
+    ok(!!per[f].parts.wingPivotL && !!per[f].parts.wingPivotR && !!per[f].parts.tipMarkerL && !!per[f].parts.tipMarkerR, `${key} f${f}: wing pivots and tip markers published`);
+    ok(per[f].parts.wingElements?.length === (per[f].m.primaryCount * 2), `${key} f${f}: scythe primary metadata count matches both wings`);
+    ok((per[f].m.trainFan ?? 0) < 180, `${key} f${f}: train fan hard-capped below 180° (${per[f].m.trainFan})`);
+    ok((per[f].parts.pyreTrain?.minGap ?? 0) >= 0.15, `${key} f${f}: train quill gap ≥ one quill-width proxy (${per[f].parts.pyreTrain?.minGap})`);
+    ok(Math.abs(per[f].parts.pyreTrain?.cantSum ?? 0) <= 0.01, `${key} f${f}: tail-quill cant balance Σ≈0`);
+  }
+  const quills = per.map((p) => p.m.trainQuills), fans = per.map((p) => p.m.trainFan), lifts = per.map((p) => p.m.trainLift);
+  const gaps = per.map((p) => p.m.primaryGaps), crests = per.map((p) => p.m.crestQuills), glows = per.map((p) => p.m.glowLevel);
+  ok(quills.join(',') === '2,4,6,9', `${key}: trainQuills ladder 2/4/6/9 (${quills.join('/')})`);
+  ok(fans[0] === 90 && fans[1] === 90 && fans[2] === 120 && fans[3] === 150, `${key}: trainFan ladder 90/90/120/150 (${fans.join('/')})`);
+  ok(lifts[0] < lifts[1] && lifts[1] < lifts[2] && lifts[2] < lifts[3], `${key}: trainLift monotonic low→proud (${lifts.join('→')})`);
+  ok(gaps[0] === 0 && gaps[1] === 2 && gaps[2] === 3 && gaps[3] === 4, `${key}: primaryGaps ladder 0/2/3/full (${gaps.join('/')})`);
+  ok(crests[0] === 0 && crests[1] === 1 && crests[2] === 3 && crests[3] === 5, `${key}: crestQuills ladder 0/1/3/5 (${crests.join('/')})`);
+  ok(glows[0] < glows[1] && glows[1] < glows[2] && glows[2] < glows[3], `${key}: glowLevel monotonic (${glows.join('→')})`);
+  ok(per[0].tris < per[1].tris && per[1].tris < per[2].tris && per[2].tris < per[3].tris, `${key}: tris monotonic across forms (${per.map((p) => p.tris).join(' < ')})`);
+  const dawnHex = 0xffe9c4;
+  const surgeHexes = new Set(per[3].materials.spineMats.map((m) => m.color?.getHex?.()).filter((v) => v !== undefined));
+  ok(!surgeHexes.has(dawnHex), `${key}: Dawn Coal stays out of surge/spine mats`);
+}
+
 console.log(`\nStarter geometry asserts (§7)${cp1 ? ' — CP1 (apex bands)' : ''}: ${pass} passed, ${fail} failed.`);
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
 process.exit(0);

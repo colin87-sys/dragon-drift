@@ -394,3 +394,5 @@ parts are not shadowed by the inference for the new key. Roster stays byte-ident
   acknowledged the dark-tone adjacency + added a TONE check to the veto; moved the tail-quill balance to
   a `starters.mjs` assert (wingsymprobe can't see the tail); teardrop-cut coal-eyes (not Solar's
   octahedron). Design core unchanged — all fixes surgical. Still the build contract; not implemented.
+
+- **2026-07-10 — implementation pass:** added the default-off `phoenixEmpress` roster entry and new `js/dragonPhoenixEmpress.js` builders (`pyreHeartTorso`, `scythePinionWings`, `cometCrestHead`, `pyreTrainTail`), wired them through explicit `parts`, and added a phoenixEmpress `tests/starters.mjs` block for the ladder / fan-sector / gap / cant-balance / Dawn-Coal surge exclusions. Shipped `phoenix` remains untouched for side-by-side comparison.
