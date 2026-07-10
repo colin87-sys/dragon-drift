@@ -283,6 +283,7 @@ let beamDuelHeld = 0;            // accrued seconds held at lane-center (win thr
 let beamDuelTick = 0;            // graze-payout tick while centered
 let beamDuelCd = 8;              // cooldown between duels
 let beamDuelMesh = null, beamDuelMat = null;   // the locked beam (crest → ship)
+let slipBandMesh = null, slipBandMat = null;   // §5i.B SLIPSTREAM: the drawn surge-pink wake annulus (built once, hidden)
 let condHold = 0;            // seconds the swarm stays CONDENSED past its last shot (bridges the ostinato)
 // §5i.B ABSORB-A-COLOR (THRUMSWARM's Calamities graze, def-gated `grazeForm:'absorbColor'`):
 // the swarm SHEDS surge-pink motes braided into the magenta stream; weaving in and SOAKing
@@ -322,6 +323,17 @@ let holdFlinchDone = false;    // offered once per phase
 let beamHeld = 0;              // seconds of unbroken beam contact (the ramp)
 let beamTick = 0;              // countdown to the next tick payout
 let beamGrace = 0;             // seconds of contact-loss tolerated before reset
+// §5i.B SLIPSTREAM (ASHTALON's Colossi graze, C.2b) — ride the stoop's WAKE pocket.
+let slipRideT = 0;            // seconds riding the stoop's wake pocket (grace-bridged)
+let slipExposeT = 0;          // >0 = the "surge INTO the dive gap" exposure window (amplified chip)
+let slipExposeUsed = false;   // armed once per stoop (re-offered when a stoop arms)
+let slipX = 0, slipY = 0;     // the pocket centre (lagged follower of the dive pose)
+let slipWasLive = false;      // edge-detect the pocket arming (snap follower on the first live frame)
+const SLIP_R_IN = 3.2;        // safe-core radius (inside = riding, UNPAID — annulus not radius)
+const SLIP_WALL = 1.5;        // the edge-wall band; graze ticks live in [R_IN, R_IN+WALL)
+const SLIP_FOLLOW = 4;        // 1/s follower rate — the wake lag (~2.4u at full dive speed)
+const SLIP_K_ON = 0.42;       // pocket LIVE from the dive knee to path end (k in [0.42, 1])
+const SLIP_Y_MIN = 4, SLIP_Y_MAX = 18;   // centre clamp — the full annulus stays reachable
 let eyeHold = 0;              // §5f slot 8: seconds to KEEP the eye submerged after a strike (so the heavy lid actually closes)
 let lastPlayer = null;       // the player from the last updateBoss (for event-driven mote spawns with no player arg)
 // NO-HIT ADRENALINE LADDER (§5i.B meta spine, global — lands with slot 6).
@@ -709,6 +721,7 @@ function armSetpieceForPhase(idx) {
   if (!sp || !SETPIECE_PATHS[sp.id]) return;
   setpieceDef = sp;
   setpieceT = 0;
+  if (sp.id === 'stoopingStrike') { slipExposeUsed = false; slipRideT = 0; }   // §5i.B SLIPSTREAM: re-offer the exposure per stoop (inert otherwise)
   // §5e/§5f Your Own Wings: snapshot the player's recorded flight path NOW so the copy
   // replays exactly what they just flew (capped to fairness in the path fn).
   if (sp.id === 'yourWings') wingsPath = poseRing.slice(-70);
@@ -1068,6 +1081,24 @@ export function initBoss(sc) {
     scene.add(beamDuelMesh);
   }
 
+  // §5i.B SLIPSTREAM band (ASHTALON, def.grazeForm==='slipstream'): a surge-pink annulus
+  // drawn at the wake pocket so the rail-depth read is legible (built once, hidden; only
+  // ever shown while the stoop's pocket is live). Surge-pink 0xff4fd0 is the shipped reward
+  // hue (the surge burst); renderOrder below bullets so bullets always read on top.
+  {
+    const rg = new THREE.RingGeometry(SLIP_R_IN, SLIP_R_IN + SLIP_WALL, 40);
+    slipBandMat = new THREE.MeshBasicMaterial({
+      color: 0xff4fd0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
+    });
+    slipBandMesh = new THREE.Mesh(rg, slipBandMat);
+    slipBandMesh.name = 'slipBand';
+    slipBandMesh.renderOrder = TIERS.arenaWall;
+    slipBandMesh.frustumCulled = false;
+    slipBandMesh.visible = false;
+    scene.add(slipBandMesh);
+  }
+
   // §5i.B ABSORB-A-COLOR soak motes: ONE additive Points cloud (surge-pink), parked
   // off-screen until a swarm boss sheds into it. One draw, one additive volume.
   {
@@ -1403,6 +1434,7 @@ export function startBossEncounter(player, defOverride) {
   partParries.clear();    // §ENG-E: rib parry-ledger resets per encounter (model cracked state resets via the per-fight rebuild)
   // §5i.B: beam-edge ramp + adrenaline ladder reset per encounter (rung-0 = neutral).
   beamHeld = 0; beamTick = 0; beamGrace = 0;
+  slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM ramp/exposure reset
   // CP2 (KARNVOW, all def-gated — inert for every other def): the stat-taunt charm
   // flare, the reveal-hold breaker shot, the reflect-once riposte, hold-until-flinch.
   entranceFlareAt = null; entranceFlareId = null;
@@ -1583,6 +1615,8 @@ function endEncounter(player) {
   clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
+  slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
+  if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }    // a fight torn down mid-stoop must not strand the ring
   if (model && model.rig && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky: pull the reparented dome
   // EMBERTIDE-as-sky: HARD-restore the real dome the instant the fight ends. The
   // updateBoss fade-back (active→0) only runs while state==='playing'; a Boss-Rush-final
@@ -2643,6 +2677,51 @@ export function updateBoss(dt, player, time, camera) {
       else { beamHeld = 0; holdTier = 0; }
     }
 
+    // ---- §5i.B SLIPSTREAM (ASHTALON's Colossi graze, C.2b, def-gated) — ride the
+    // stoop's WAKE: a drawn moving safe pocket trailing the dive line; its edge-walls
+    // are the graze goldmine (ramping ticks — the beamEdge economy verbatim). Riding
+    // ≥0.8s arms the §5f answer: a Surge release inside grants the exposure window.
+    // The pocket punishes NOTHING (no damage / no push-out) — the real threat is the
+    // dive-stream bullets outside it. One grazeForm per boss; defs without
+    // grazeForm==='slipstream' never enter this branch (inert). ----
+    if (def.grazeForm === 'slipstream') {
+      const live = setpieceT >= 0 && setpieceDef?.id === 'stoopingStrike'
+        && (setpieceT / setpieceDef.dur) >= SLIP_K_ON;
+      if (live) {
+        const cx = Math.max(-(arenaHW - SLIP_R_IN - SLIP_WALL), Math.min(arenaHW - SLIP_R_IN - SLIP_WALL, pose.x));
+        const cy = Math.max(SLIP_Y_MIN, Math.min(SLIP_Y_MAX, pose.y));
+        if (!slipWasLive) { slipX = cx; slipY = cy; }              // snap the follower on arm (no sweep-in from stale)
+        slipX += (cx - slipX) * Math.min(1, dt * SLIP_FOLLOW);     // the wake lags the dive line
+        slipY += (cy - slipY) * Math.min(1, dt * SLIP_FOLLOW);
+        const dx = player.position.x - slipX, dy = player.position.y - slipY;
+        const d2 = dx * dx + dy * dy, rOut = SLIP_R_IN + SLIP_WALL;
+        if (d2 < rOut * rOut) {
+          beamGrace = 0.3; slipRideT += dt;                        // riding (core or wall) keeps the timer alive
+          if (d2 >= SLIP_R_IN * SLIP_R_IN) {                       // the WALL — annulus, not radius (dead-centre is unpaid)
+            beamHeld += dt; beamTick -= dt;
+            if (beamTick <= 0) {
+              bulletGraze(player);                                 // the payout rides the normal graze economy
+              emit('slipGraze', { held: beamHeld, ride: slipRideT });
+              beamTick = Math.max(0.18, 0.5 - beamHeld * 0.07);    // the beamEdge ramp verbatim
+            }
+          }
+        } else if (beamGrace > 0) { beamGrace -= dt; }             // a wing-flick across the wall doesn't reset
+        else { beamHeld = 0; beamTick = 0; slipRideT = 0; }        // real exit → ramp AND ride timer reset
+      } else { beamHeld = 0; beamTick = 0; beamGrace = 0; slipRideT = 0; }
+      slipWasLive = live;
+      if (slipExposeT > 0) slipExposeT = Math.max(0, slipExposeT - dt);
+      // Drive the drawn band: at the player plane, brighter as the ramp climbs (the
+      // payout is SEEN ramping); a faint pre-tell during the HOLD; hidden when not live.
+      if (slipBandMesh) {
+        const holdTell = setpieceT >= 0 && setpieceDef?.id === 'stoopingStrike'
+          && (setpieceT / setpieceDef.dur) >= 0.2;
+        const tgt = live ? 0.3 + Math.min(0.3, beamHeld * 0.06) : (holdTell ? 0.12 : 0);
+        slipBandMat.opacity += (tgt - slipBandMat.opacity) * Math.min(1, dt * 6);
+        slipBandMesh.visible = slipBandMat.opacity > 0.02;
+        if (slipBandMesh.visible) slipBandMesh.position.set(slipX, slipY, -(player.dist + 4));
+      }
+    }
+
     // ---- §5i.C BEAM DUEL (EMBERTIDE's SURGE mechanic, def-gated) — at Surge ≥50% the
     // tide LOCKS a beam on you: a sideways DRIFT tries to shove you off the crest line
     // while you HOLD lane-center (fire INTO the crest). Hold long enough and the duel is
@@ -2956,6 +3035,15 @@ function activateSurge(player) {
   wasReady = false;
   cameraCtl.shake?.(0.5);
   emit('surge');
+  // §5f C.2b "surge INTO the dive gap": releasing Surge while RIDING the stoop's
+  // slipstream pocket (≥0.8s unbroken) EXPOSES the hunter — an amplified chip window.
+  // Once per stoop (slipExposeUsed); the surge beam itself lands amplified via damageBoss.
+  if (def?.grazeForm === 'slipstream' && !slipExposeUsed && slipRideT >= 0.8) {
+    slipExposeUsed = true; slipExposeT = 2.5;
+    ui.bossNote?.('✦ INTO THE DIVE GAP ✦', 'THE HUNTER IS EXPOSED', 'gold', 2.4);
+    model.flash?.(0.8); sfx.milestone?.();
+    emit('slipExposed', { ride: slipRideT });
+  }
   // Kick off the mouth-beam cinematic: a charge wind-up, then the beam strikes and
   // bursts the shield (breakShield fires at the moment of impact, not now).
   surgeSeq = { phase: 'charge', t: 0 };
@@ -4153,6 +4241,7 @@ function damageBoss(amount, kind, e = null) {
   // the desperate last stand resolves fast, not a slog through the returned bar. Only
   // ever set post-lie (def.felledLie); byte-identical for every other def.
   if (crippled) amount *= 2.4;
+  if (slipExposeT > 0) amount *= 2;   // §5f C.2b SLIPSTREAM exposure window (only ever set for grazeForm==='slipstream' defs)
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash
@@ -4243,6 +4332,8 @@ export function resetBoss() {
   // §5i.B: neutralise the ladder's published effects on teardown (coexist floor).
   setGrazeBonus(1); game.adrenGainMult = 1;
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
+  slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM teardown
+  if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }
   activeBand = BAND;
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
@@ -4396,6 +4487,7 @@ export function debugRunSetpiece(id) {
   if (!SETPIECE_PATHS[sp.id]) return;
   setpieceDef = sp;
   setpieceT = 0;
+  if (sp.id === 'stoopingStrike') { slipExposeUsed = false; slipRideT = 0; }   // §5i.B SLIPSTREAM: re-offer per stoop (test seam parity)
   if (!sp.moving) { attackTimer = Math.max(attackTimer, sp.dur + 1.2); riderTimer = Math.max(riderTimer, sp.dur); }
 }
 
@@ -4462,7 +4554,9 @@ export function bossDebugState() {
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
   // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin };
+  const slipActive = def?.grazeForm === 'slipstream' && setpieceT >= 0
+    && setpieceDef?.id === 'stoopingStrike' && (setpieceT / (setpieceDef?.dur || 1)) >= SLIP_K_ON;
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL } };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

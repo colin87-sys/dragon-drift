@@ -2693,4 +2693,142 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('ENG-B authored gaps: the dread wall’s lane LOCKS to the storm’s eye (a boss-read); card-off = shipped player placement; out-of-arena clamps in ✓');
 }
 
+// §ENG-D SLIPSTREAM: ASHTALON's stoop grows a drawn moving safe pocket; riding its edge-wall
+// pays graze ticks (annulus, not radius), and a Surge release after a ≥0.8s ride EXPOSES the
+// hunter (amplified chip). The pose-region analogue of the shipped "beamEdge annulus" gate.
+{
+  const armAshtalon = () => {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf('ashtalon'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) boss.updateBoss(1 / 60, p, 2 + i / 60);
+    return p;
+  };
+  // The pocket only exists while the stoop's dive is live (not before the setpiece arms).
+  {
+    const p = armAshtalon();
+    assert(boss.bossDebugState().slipActive === false, 'ENG-D: no slipstream pocket before the stoop arms');
+    boss.debugRunSetpiece('stoopingStrike');
+    let sawActive = false, ticks = 0, rideMax = 0, chargeStart = null;
+    on('slipGraze', () => { ticks++; });
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        sawActive = true;
+        rideMax = Math.max(rideMax, st.slipRideT);
+        if (chargeStart == null) chargeStart = game.grazeCharge + game.consecutiveRings;
+        p.position.x = st.slipX + st.slipR.in + st.slipR.wall / 2;   // park ON THE WALL (the goldmine band)
+        p.position.y = st.slipY;
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+    }
+    assert(sawActive, 'ENG-D: the pocket goes live during the stoop dive');
+    assert(boss.bossDebugState().slipActive === false, 'ENG-D: the pocket closes when the dive path completes');
+    assert(ticks > 0, `ENG-D: riding the wall pays graze ticks (${ticks} slipGraze)`);
+    assert(rideMax > 0.8, `ENG-D: the ride is earnable with margin (rideMax ${rideMax.toFixed(2)}s)`);
+    const chargeEnd = game.grazeCharge + game.consecutiveRings;
+    assert(chargeEnd > chargeStart, 'ENG-D: the ride feeds the Surge bank (graze economy)');
+    boss.resetBoss();
+  }
+  // Annulus, not radius: parking dead-centre accrues the ride timer but pays NOTHING.
+  {
+    const p = armAshtalon();
+    boss.debugRunSetpiece('stoopingStrike');
+    let coreTicks = 0, coreRide = 0;
+    on('slipGraze', () => { coreTicks++; });
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) { p.position.x = st.slipX; p.position.y = st.slipY; coreRide = st.slipRideT; }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      // count only ticks earned while dead-centre — reset the counter each frame we're centred
+    }
+    assert(coreRide > 0, 'ENG-D annulus: parking the safe core still accrues the ride timer');
+    assert(coreTicks === 0, `ENG-D annulus-not-radius: the too-close core is UNPAID (${coreTicks} ticks dead-centre)`);
+    boss.resetBoss();
+  }
+  // Break → reset: leaving the pocket (past the 0.3s grace) zeroes the ride timer.
+  {
+    const p = armAshtalon();
+    boss.debugRunSetpiece('stoopingStrike');
+    let rode = false;
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        if (st.slipRideT > 0.5 && !rode) { rode = true; }   // ride a bit first
+        if (rode) { p.position.x = st.slipX + 14; p.position.y = st.slipY; }   // then bail hard
+        else { p.position.x = st.slipX + st.slipR.in + st.slipR.wall / 2; p.position.y = st.slipY; }
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (rode) {
+        for (let j = 0; j < 30; j++) boss.updateBoss(1 / 60, p, 3 + (i + j) / 60);   // let the 0.3s grace lapse
+        break;
+      }
+    }
+    assert(rode, 'ENG-D break test: the player rode the wall before bailing');
+    assert(boss.bossDebugState().slipRideT === 0, 'ENG-D break → reset: bailing the pocket past the grace zeroes the ride timer');
+    boss.resetBoss();
+  }
+  // The §5f answer: ride ≥0.8s, then a Surge release EXPOSES the hunter (amplified chip);
+  // an immediate release (ride < 0.8s) does NOT fire the exposure.
+  {
+    // (a) immediate release — no exposure.
+    const p = armAshtalon();
+    boss.debugRunSetpiece('stoopingStrike');
+    let exposedEarly = false;
+    on('slipExposed', () => { exposedEarly = true; });
+    // wait for the pocket, then tap Surge on the very first live frame (ride ≈ 0)
+    for (let i = 0; i < 400; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        p.position.x = st.slipX + st.slipR.in + st.slipR.wall / 2; p.position.y = st.slipY;
+        game.consecutiveRings = game.feverThreshold; input.surgeTap = true;
+        boss.updateBoss(1 / 60, p, 3 + i / 60);
+        break;
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+    }
+    assert(boss.bossDebugState().slipRideT < 0.8, 'ENG-D exposure control: the release happened before a 0.8s ride');
+    assert(!exposedEarly, 'ENG-D: releasing Surge WITHOUT a ≥0.8s ride does NOT expose the hunter');
+    boss.resetBoss();
+
+    // (b) ride ≥0.8s then release — exposure fires + the surge chip lands amplified.
+    const p2 = armAshtalon();
+    boss.debugRunSetpiece('stoopingStrike');
+    let exposed = false; on('slipExposed', () => { exposed = true; });
+    let tapped = false, hpBefore = null;
+    for (let i = 0; i < 500; i++) {
+      const st = boss.bossDebugState();
+      if (st.slipActive) {
+        p2.position.x = st.slipX + st.slipR.in + st.slipR.wall / 2; p2.position.y = st.slipY;
+        if (st.slipRideT >= 0.85 && !tapped) {
+          tapped = true; hpBefore = st.hp;
+          game.consecutiveRings = game.feverThreshold; input.surgeTap = true;
+        }
+      }
+      boss.updateBoss(1 / 60, p2, 3 + i / 60);
+      if (tapped) { for (let j = 0; j < 150; j++) boss.updateBoss(1 / 60, p2, 3 + (i + j) / 60); break; }   // let the surge cinematic strike
+    }
+    assert(tapped, 'ENG-D exposure: the player rode ≥0.85s then released Surge');
+    assert(exposed, 'ENG-D §5f answer: a Surge release after the ≥0.8s ride EXPOSES the hunter');
+    const dropped = hpBefore - boss.bossDebugState().hp;
+    assert(dropped >= 21, `ENG-D exposure amp: the surge chip lands amplified (~2× ${CONFIG.BOSS.surgeBeamDamage ?? 14}); hp dropped ${dropped.toFixed(1)}`);
+    boss.resetBoss();
+  }
+  // Coexist: a non-slipstream boss never enters the branch.
+  {
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const vp = makePlayer();
+    let ticks = 0, exposed = false;
+    on('slipGraze', () => { ticks++; }); on('slipExposed', () => { exposed = true; });
+    boss.forceBoss(vp, BOSS_ORDER.indexOf('voidmaw')); boss.debugForceFight(vp);
+    for (let i = 0; i < 300; i++) boss.updateBoss(1 / 60, vp, 2 + i / 60);
+    const st = boss.bossDebugState();
+    assert(ticks === 0 && !exposed && st.slipActive === false && st.slipRideT === 0,
+      'ENG-D coexist: a non-slipstream boss (voidmaw) never rides/exposes (inert branch)');
+    boss.resetBoss();
+  }
+  ok('ENG-D SLIPSTREAM: the stoop grows a drawn wake pocket; riding the wall pays (annulus, not core), a ≥0.8s ride + Surge EXPOSES the hunter (amplified); inert for others ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);
