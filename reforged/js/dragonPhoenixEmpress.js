@@ -412,12 +412,22 @@ function buildOneScytheWing(M, dials) {
   // straight trailing line becomes a SCALLOPED, stepped, feathered edge (the #1 "real wing"
   // cue — reads in pure silhouette). Dark covert diffuse; richness by facet relief, not light.
   if (covertRank > 0) {
-    wg.add(shingleRow(seg(9),
-      (u) => covTrail(0.26 + 0.36 * u),
-      (u) => { const t = 0.26 + 0.36 * u; return nz([covTrail(t)[0] - covLead(t)[0], -0.15, covTrail(t)[2] - covLead(t)[2] + 0.1]); },
+    const covMid = (t) => { const a = covLead(t), b = covTrail(t); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]; };
+    // trailing rank — extended INBOARD to t≈0.08 with deeper scallops so the wing reads feathered
+    // from the ROOT to the first primary (kills the blank inner-wing rod the chase cam saw).
+    wg.add(shingleRow(seg(11),
+      (u) => covTrail(0.08 + 0.54 * u),
+      (u) => { const t = 0.08 + 0.54 * u; return nz([covTrail(t)[0] - covLead(t)[0], -0.15, covTrail(t)[2] - covLead(t)[2] + 0.1]); },
       () => nz([0, 0.7, -0.3]),
-      (u) => (0.30 + 0.16 * (1 - Math.abs(u - 0.5) * 2)) * rootChord,
-      () => 0.11 * rootChord, M.covert, 0.4));
+      (u) => (0.36 + 0.18 * (1 - Math.abs(u - 0.5) * 2)) * rootChord,
+      () => 0.12 * rootChord, M.covert, 0.45));
+    // a MID-CHORD rank across the inner wing SURFACE (not just the edge) — surface relief so the
+    // inner third carries facet steps, not a flat dark plane.
+    wg.add(shingleRow(seg(7),
+      (u) => covMid(0.06 + 0.34 * u),
+      (u) => { const t = 0.06 + 0.34 * u; return nz([covTrail(t)[0] - covLead(t)[0], -0.1, covTrail(t)[2] - covLead(t)[2]]); },
+      () => nz([0, 0.85, -0.2]),
+      () => 0.24 * rootChord, () => 0.10 * rootChord, M.covert, 0.4));
   }
 
   // W2 — BLADE PRIMARIES, now CREASED + BARBED (was 3 coplanar tris): each has a dihedral
@@ -629,15 +639,19 @@ function buildCometCrestHead(def, model, mats) {
   // Head-scale keeps her bottom-heavy doctrine intact while giving the crown an actual crown.
   if ((model.diadem ?? 0) > 0) {
     const R = 0.26 * hs, cy = 0.20 * hs, cz = 0.02 * hs, N = 6;
+    const bandPt = (a) => [Math.cos(a) * R * 1.1, cy + Math.sin(a) * R, cz + 0.14 * hs * Math.sin(a)];
     for (let i = 0; i < N; i++) {
       const a0 = Math.PI * (0.15 + 0.7 * (i / N)), a1 = Math.PI * (0.15 + 0.7 * ((i + 1) / N));   // rear open-C arc
-      const p0 = [Math.cos(a0) * R * 1.1, cy + Math.sin(a0) * R, cz + 0.14 * hs * Math.sin(a0)];
-      const p1 = [Math.cos(a1) * R * 1.1, cy + Math.sin(a1) * R, cz + 0.14 * hs * Math.sin(a1)];
-      group.add(bar(p0, p1, 0.016 * hs, M.copper));
-      if (i % 2 === 0) {
-        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.036 * hs, 0), M.crestTip);
-        gem.position.set(p0[0], p0[1] + 0.02, p0[2]); group.add(gem);
-      }
+      group.add(bar(bandPt(a0), bandPt(a1), 0.018 * hs, M.copper));
+    }
+    // gems WELDED onto the band at segment midpoints (embedded, with a copper collet) — no
+    // floating confetti: each gem straddles the band bar it sits on.
+    for (let i = 0; i < N; i += 2) {
+      const am = Math.PI * (0.15 + 0.7 * ((i + 0.5) / N)), p = bandPt(am);
+      group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.026 * hs, 0.03 * hs, 0.03 * hs, seg(5)), M.copper).translateX(0));   // collet
+      const collet = group.children[group.children.length - 1]; collet.position.set(p[0], p[1], p[2]);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.04 * hs, 0), M.crestTip);
+      gem.position.set(p[0], p[1] + 0.01 * hs, p[2]); group.add(gem);
     }
   }
   return { group, spineMats, motifAnchor, headLength };
