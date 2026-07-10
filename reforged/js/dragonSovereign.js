@@ -311,7 +311,12 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
       ((r % 2 === 0) ? vT : aT).push([bL, bR, tip]);      // front emissive (violet=long / amber=short)
       darkT.push([bLb, tipb, bRb]);                       // dark back
     }
-    // ROSE-WINDOW TRACERY (grand only): a thin gold inner ring + 4 gold mullion spokes crossing the disk.
+    // ROSE-WINDOW TRACERY (grand only): a thin gold outer ring + a central OCULUS ring + 4 gold mullion
+    // spokes bridging the two. The spokes spring from the OCULUS (r 0.45), NOT from dead-centre — so the
+    // aperture inside (r<0.40) stays open glass and the player sees FORWARD THROUGH the corona in rear-
+    // chase (the spokes used to cross r 0.12 and screen the sightline, causing blind crashes). This is
+    // the more authentic rose-window read (mullions radiate from an inner medallion, never the centre),
+    // and it's uniform shop+gameplay — no context mismatch. The 4-spoke skyline is untouched.
     if (grand) {
       const trIn = 0.80, trOut = 0.86;
       for (let i = 0; i < N; i++) {
@@ -319,10 +324,16 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
         goldT.push([pt(trIn, a0, d / 2 + 0.01), pt(trOut, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01)],
                    [pt(trIn, a0, d / 2 + 0.01), pt(trOut, a1, d / 2 + 0.01), pt(trIn, a1, d / 2 + 0.01)]);
       }
+      const ocIn = 0.40, ocOut = 0.45;   // central oculus ring — frames the open aperture the spokes spring from
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
+        goldT.push([pt(ocIn, a0, d / 2 + 0.01), pt(ocOut, a0, d / 2 + 0.01), pt(ocOut, a1, d / 2 + 0.01)],
+                   [pt(ocIn, a0, d / 2 + 0.01), pt(ocOut, a1, d / 2 + 0.01), pt(ocIn, a1, d / 2 + 0.01)]);
+      }
       for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {   // 4 compass mullions (radial bars)
         const w = 0.065;   // widened (Fable polish) so the spokes clear the sub-8px floor at chase distance
-        goldT.push([pt(0.12, a - w, d / 2 + 0.01), pt(0.82, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01)],
-                   [pt(0.12, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01), pt(0.12, a + w, d / 2 + 0.01)]);
+        goldT.push([pt(ocOut, a - w, d / 2 + 0.01), pt(0.82, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01)],
+                   [pt(ocOut, a - w, d / 2 + 0.01), pt(0.82, a + w, d / 2 + 0.01), pt(ocOut, a + w, d / 2 + 0.01)]);
       }
     }
     ring.add(flatTriMesh(darkT, M.coronaDark));

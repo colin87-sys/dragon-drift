@@ -239,3 +239,18 @@ transparent-drawable ≤ target, star-gem = gem/no-lid at every form, maxTier cl
     (unchanged spar tips), streamers few+large (density-law safe), M silhouette preserved (sil-rear diff).
   - Verified: tricount 968/1336/2318/3285 (per-form <6000, monotonic) · wingsymprobe PASS · smoke +
     starters green · dragonstudio: rose-window corona reads, M intact · Fable spectacle gate.
+
+- **CP3.1 — REAR-CHASE FORWARD VISIBILITY.** Owner played the apex and couldn't see obstacles ahead
+  (blind crashes). High-effort Fable diagnosis: shallow ~5.2° chase declination (global) + Solar being
+  the biggest occluder + a genuine bug (opaque wings). Fixes:
+  - **Camera (global, `cameraController.js`)** — raised/steepened the chase pose (targetHeight 3.6→4.6,
+    targetBack 12.3→13.2, lookTarget y +1.0→+0.5) so the horizon/obstacle band sits in frame.
+  - **Wing transparency bug (`dragonSovereign.js`)** — Solar's membrane `mem()` mats were opaque; added
+    `transparent:true, opacity:0.82` so obstacles show through the wing wall (the wing-fade contract).
+  - **Corona OCULUS** — the rose-window mullions used to converge to dead-centre (r 0.12), screening the
+    forward sightline through the ring. They now spring from a central OCULUS ring (r 0.45); the aperture
+    inside (r<0.40) stays open glass so the player sees FORWARD THROUGH the corona. UNIFORM shop+gameplay
+    (no context mismatch) and the more authentic rose-window read (spokes radiate from an inner medallion,
+    never the centre). +32 tris (apex 3499, still <6000). M skyline untouched.
+  - Verified: smoke green · tricount 0-over-budget · gameshots T3 rear-chase confirms open center window +
+    rose window still reads. Owner to judge motion/feel on the PR #347 live preview.
