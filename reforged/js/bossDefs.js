@@ -337,6 +337,10 @@ export const BOSSES = {
     // flies through. Two rib anchors per flank + the skull as the centre-line/fallback
     // anchor (the same bones the player already reads as lance/amber anatomy, §5i.C).
     reflectTargets: ['ribPivotL1', 'ribPivotR1', 'ribPivotL3', 'ribPivotR3', 'skullGroup'],
+    // §5i.B THREAD-THE-GAP (ENG-G) — flying cleanly through a wall's safe gap (its P3 movingGap,
+    // and the rib-aperture to come) scores by clearance+lateness and CHAINS. A discrete per-row
+    // scorer (no tick ramp); a visible THREADED flourish. Inert for every boss without this label.
+    grazeForm: 'threadTheGap',
     accent: 0x8fd0ff,         // ice-blue — the cold lights on dead bone (identity in emissive)
     glow: 0xbfe6ff,           // paler ice (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
