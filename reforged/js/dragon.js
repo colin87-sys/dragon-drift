@@ -622,7 +622,7 @@ export function updateDragon(dt, player, time) {
   flapPhase = (flapPhase + dt * flapSpeed) % (Math.PI * 2);
   // `?wingDebug`: freeze the whole beat clock at the named cycle point so the wings — AND the
   // phase-coupled head wobble / secondary wings below — hold ONE reproducible pose.
-  if (WING_DEBUG) flapPhase = resolveWingDebug(WING_DEBUG, activeDef.model.flap).phase;
+  if (WING_DEBUG) flapPhase = resolveWingDebug(WING_DEBUG, activeDef.model.flap || activeDef.model.flapArc).phase;
   const phase = flapPhase;
   // Mantle bias: NEGATIVE rootFlap = wings up (the apex convention), so the
   // inhale rides the whole stroke high — a held high-V.
@@ -783,7 +783,7 @@ export function updateDragon(dt, player, time) {
     // A bird's shoulder→wrist→primaries fold, staged for readability. All knobs nullable → every
     // shipped direct-pivot dragon is byte-identical (no flapArc → the exact old sine beat).
     const arc = activeDef.model.flapArc;
-    let armR, armL, tipFoldR, tipFoldL;
+    let armR, armL, tipFoldR, tipFoldL, foldSweep = 0;
     if (arc) {
       const apexRad = (arc.apexDeg ?? 82) * Math.PI / 180, bottomRad = (arc.bottomDeg ?? 58) * Math.PI / 180;
       const cfg = { downFrac: arc.downFrac ?? 0.58, downDepth: bottomRad / apexRad };
@@ -794,11 +794,18 @@ export function updateDragon(dt, player, time) {
       // below applies pr.z = −arm, so arm = −elev. Inhale mantle rides the whole arc high (+z).
       const elev = Math.max(-bottomRad * 1.12, Math.min(apexRad * 1.12, flapEnv(phase, cfg) * apexRad * ampScale));
       const arm = -elev - inhale01 * 0.55;
-      // tip/primary FOLD: 1 (folded) at the apex → 0 (extended straight) at the bottom, lagged so the
-      // hand trails the arm (overlapping action). The wide arc's silhouette-changing ingredient.
-      const fold = curlEnv(phase - Math.PI * 2 * (activeDef.model.flapTipFoldLag ?? 0.14), cfg)
+      // tip/primary FOLD: folded on the UP-beat → extended straight on the power DOWN-beat. The lag is
+      // NEGATIVE so the fold LEADS into the recovery (peaks ≈0.95 at recovery, ≈0.19 mid-downstroke),
+      // and the sense is NEGATED so the primaries rake BACK/DOWN below the arm (a gull kink) instead of
+      // curling inboard over the spine. The wide arc's silhouette-changing ingredient.
+      const fold = curlEnv(phase - Math.PI * 2 * (activeDef.model.flapTipFoldLag ?? -0.14), cfg)
         * (activeDef.model.flapTipFold ?? 0.6);
-      armR = arm; armL = arm; tipFoldR = fold; tipFoldL = fold;
+      armR = arm; armL = arm; tipFoldR = -fold; tipFoldL = -fold;
+      // THE REAL FOLD for a blade comb: sweep the whole arm/comb REARWARD on the up-beat (rotation.y),
+      // drawing the primaries back+in so the planform (and the rear-view span) visibly CONTRACTS —
+      // a bird folds at the shoulder/wrist, not by curling a vestigial tip. Peaks with `fold` at the
+      // recovery, ≈0 on the extended power down-beat. Nullable (flapFoldSweep) → off for shipped combs.
+      foldSweep = fold * (activeDef.model.flapFoldSweep ?? 0);
     } else {
       armR = rootFlap; armL = rootFlap; tipFoldR = tipLag * 0.28; tipFoldL = tipLag * 0.28;
     }
@@ -811,8 +818,8 @@ export function updateDragon(dt, player, time) {
     // shared (a pitch input, symmetric).
     wingPivotR.rotation.x = damp(wingPivotR.rotation.x, 0.14 + feather * 0.18 + climbBias, 10, dt);
     wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 + feather * 0.18 + climbBias, 10, dt);
-    wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
-    wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
+    wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8 + foldSweep, 9, dt);
+    wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8 - foldSweep, 9, dt);
     // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke. BOTH tips ride the ONE
     // clock (mirror sign) — the old L branch ran a DIFFERENT phase (sin(phase+1.18) vs the R
     // tipLag sin(phase+0.95)), so the tips folded a beat apart: the visible off-beat asymmetry.

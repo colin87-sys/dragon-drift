@@ -48,8 +48,9 @@ export const DRAGONS = {
       // (apex ≈ 12 o'clock, bottom ≈ 5 o'clock) off the certified flapEnv envelope, the primaries FOLD
       // on the up-beat + rake back, and the per-feather cascade trails — shoulder leads → hand → tips.
       // Down-beat is the slower/broader power half (downFrac). Starting values; the aesthetics gate tunes.
-      flapArc: { apexDeg: 80, bottomDeg: 56, downFrac: 0.58 },
-      flapTipFold: 0.7, flapTipFoldLag: 0.14,   // deep primary fold on recovery, trailing the arm
+      flapArc: { apexDeg: 80, bottomDeg: 68, downFrac: 0.58 },
+      flapTipFold: 0.7, flapTipFoldLag: -0.14,   // deep primary fold LEADING the up-beat recovery, raking back
+      flapFoldSweep: 2.5,                          // sweep the comb REARWARD on the up-beat → planform/span folds to ~0.5× (recovery)
       flapBladeCascade: { amp: 0.2, lag: 1.35 }, // out-of-sync feather furl across the comb
     },
     // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
