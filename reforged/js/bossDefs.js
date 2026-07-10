@@ -128,13 +128,17 @@ export const BOSSES = {
     tier: 1,                               // SENTINEL (§5b band 1)
     hpMax: 220,
     virtualLockOrgan: 'focalEye',          // LANCE V1: the storm-eye core (bossMandala.js)
-    // §ENG-B hero: during the dread card, the storm's gaps are the EYE's — iris rings
-    // centre on focalEye and movingGap's safe lane LOCKS to the eye axis ("fly into the
-    // eye of the storm" is literally true; the ±5 station sway makes the eye a legible
-    // moving read, the horizonPocketX grammar). Outside the card: shipped player placement.
+    // §ENG-B hero: the storm's gaps are the EYE's — iris rings centre on focalEye and
+    // movingGap's safe lane LOCKS to the eye axis ("fly into the eye of the storm" is
+    // literally true; the ±5 station sway makes the eye a legible moving read).
+    // §BOSS-FEEL-AUDIT: dropped the `card:` gate — the eye-read was the boss's whole
+    // identity but only armed in the FINAL card (2/3 of the fight was generic wall-dodge).
+    // Un-gated, it runs from P2 (where iris/movingGap debut) → the whole fight is "chase the
+    // eye", the P2 slow rings TEACH the read the P3 dread then weaponises. (Ungated form is
+    // the shipped eitherwing precedent: gapAnchor: { iris: { part: 'threadMid' } }.)
     gapAnchor: {
-      iris:      { card: 'stormrend_eye', part: 'focalEye' },
-      movingGap: { card: 'stormrend_eye', part: 'focalEye' },
+      iris:      { part: 'focalEye' },
+      movingGap: { part: 'focalEye' },
     },
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the
@@ -396,11 +400,11 @@ export const BOSSES = {
           ratioBurst: 0.5,
           phrase: [
             { kind: 'sustain', attack: 'stream',    beats: 5, gap: [0.42, 0.50] },
-            { kind: 'burst',   attack: 'crossfire', count: 3, gap: 0.16 },
+            { kind: 'burst',   attack: 'crossfire', count: 2, gap: 0.22 },   // §BOSS-FEEL-AUDIT: 3→2 count, 0.16→0.22 gap — a readable pair, not a triple (out-of-band aggression for slot 4)
             { kind: 'burst',   attack: 'fan',       count: 2, gap: 0.18 },   // §B-2: fan relocated from P1 (kept in the kit)
             { kind: 'sustain', attack: 'iris',      beats: 2, gap: 0.60 },
           ],
-          restLo: 1.1, restHi: 1.7, restDist: 'bimodal',   // quick inter-burst gaps + one long breath
+          restLo: 1.5, restHi: 2.1, restDist: 'bimodal',   // §BOSS-FEEL-AUDIT: rest floor 1.1→1.5 (was hotter than the slot-5 peak); quick inter-burst gaps + one long breath
         },
         { // P3 — the closing ribs (dread): burst-led, walls dominate. The trailing
           // `stream` sustain is the AMBER carrier (§5i C.1 amberdiet data-tune: the
@@ -408,12 +412,12 @@ export const BOSSES = {
           // still serves a parry volley — mirrors the `stream` added to `attacks`).
           ratioBurst: 0.7,
           phrase: [
-            { kind: 'burst',   attack: 'movingGap',    count: 3, gap: 0.14 },
-            { kind: 'burst',   attack: 'spiralStream', count: 2, gap: 0.16 },
+            { kind: 'burst',   attack: 'movingGap',    count: 2, gap: 0.22 },   // §BOSS-FEEL-AUDIT: 3→2 walls, 0.14→0.22 gap — the tightest burst in the roster relaxed to a threadable pair
+            { kind: 'burst',   attack: 'spiralStream', count: 2, gap: 0.22 },   // §BOSS-FEEL-AUDIT: 0.16→0.22 gap
             { kind: 'sustain', attack: 'stream',       beats: 3, gap: 0.42 },
             { kind: 'sustain', attack: 'iris',         beats: 2, gap: 0.55 },
           ],
-          restLo: 0.9, restHi: 1.5, restDist: 'decaying',  // the rest itself tightens toward each slam
+          restLo: 1.3, restHi: 1.9, restDist: 'decaying',  // §BOSS-FEEL-AUDIT: rest floor 0.9→1.3 (marrowcoil out-fired the slot-5 peak by ~1.6×); the rest still tightens toward each slam
         },
       ],
     },
@@ -719,6 +723,16 @@ export const BOSSES = {
       { part: 'shacklePost1', phases: [0, 1, 2] },
       { part: 'shacklePost2', phases: [0, 1, 2] },
     ],
+    // §BOSS-FEEL-AUDIT: a bottom-anchored ISLAND shouldn't strafe ±5. The default station sway
+    // swung the outer shackle (world ±6.75) out to ±11.75 — 1.25m from the instant-kill wall
+    // (±13) — forcing the player INTO the wall to reach the FLY-based lock cone (a prior fix
+    // pulled the posts in but computed margin at sway-zero). Calm the hull: worst outer swing
+    // ±8.35 → ≥4.65m true wall margin. Idle motion still reads from the model's own breathing.
+    holdSway: { amp: 1.6, freq: 0.5 },
+    // §BOSS-FEEL-AUDIT: give the registry's SHACKLE-BREAK parry job remote reach (ENG-A-R) —
+    // roll-directed parries snap to the post you lean toward, so freeing a shackle works from
+    // lane-safe centre instead of only by flying in to paint it (which sat against the wall).
+    reflectTargets: ['shacklePost0', 'shacklePost1', 'shacklePost2', 'eyeRig'],
     eyeWeakPoint: true,       // §5f law 5 (the turn-taking tell): CHIP DAMAGE ONLY LANDS WHILE THE EYE IS UP —
                               // the surfacing/submerging is the weak-point window (controller gates it CP2;
                               // the model owns eyeIsUp()/setEyeUp() and the unmistakable lid/glow animation)
@@ -1180,7 +1194,7 @@ export const BOSSES = {
       { atFrac: 1.00, cadence: [1.4, 1.7],  attacks: ['spiral', 'aimed'] },              // P1 The First Toll — teach: the toll RADIATES; ride its rim
       { atFrac: 0.70, cadence: [1.3, 1.6],  attacks: ['spiral', 'aimed'] },              // P2 The Second Toll — RHYTHM PARRY: the aimed chain on the beat
       { atFrac: 0.55, cadence: [1.25, 1.5], attacks: ['spiral', 'aimed'] },              // P3 The Cracked Peal — double tolls (hemiola), the squeeze
-      { atFrac: 0.40, cadence: [1.2, 1.45], attacks: ['stream', 'movingGap', 'aimed'] }, // P4 Pendulum Sweep — the setpiece phase (swung hose + mirrored lanes)
+      { atFrac: 0.40, cadence: [1.2, 1.45], attacks: ['spiral', 'stream', 'movingGap', 'aimed'] }, // P4 Pendulum Sweep — the setpiece phase (swung hose + mirrored lanes). §BOSS-FEEL-AUDIT: `spiral` restored so the toll-wall loop doesn't go dark for a whole phase (the bell keeps tolling as it swings)
       { atFrac: 0.25, cadence: [1.1, 1.4],  attacks: ['spiral', 'fan', 'aimed'] },       // P5 The Last Toll (survival) — 'aimed' kept for amberdiet (§5i.C)
     ],
     // Spell cards (§5f grammar; 4 cards 1:1 with phases — the card gate asserts
@@ -1237,6 +1251,7 @@ export const BOSSES = {
           // movingGap lanes + aimed; the pattern rains from wherever the crossing carries it.
           ratioBurst: 0.2,
           phrase: [
+            { kind: 'sustain', attack: 'spiral',    beats: 1, gap: [1.2, 1.45] },   // §BOSS-FEEL-AUDIT: the bell still TOLLS as it swings — the toll-wall loop no longer dies for P4
             { kind: 'sustain', attack: 'stream',    beats: 1, gap: [1.2, 1.45] },
             { kind: 'sustain', attack: 'movingGap', beats: 1, gap: [1.2, 1.45] },
             { kind: 'sustain', attack: 'aimed',     beats: 1, gap: [1.2, 1.45] },

@@ -846,7 +846,7 @@ function driveSwarm(dt, player) {
   // invulnerable micro-pauses (the turn-taking tell), not a half-fight gate. A parry-stagger
   // locks it condensed. SCATTERED = chip does nothing (the puzzle read).
   const firing = chargeT > 0 || pending.length > 0 || staggerT > 0;
-  if (firing) condHold = 1.1;                     // stay exposed ~1.1s past the last shot
+  if (firing) condHold = 0.4;                     // §BOSS-FEEL-AUDIT: 1.1→0.4 — at 1.1s no authored rest (≤0.85s) ever opened a scatter, so the swarm was PERMANENTLY condensed and the whole condense/scatter puzzle read (+ the stagger reward) was inert; 0.4 lets the hi-end phrase rests open a real micro-pause
   else condHold = Math.max(0, condHold - dt);
   if (firing || condHold > 0) {
     if (firing) model.setFormation(SWARM_ATTACK_FORM[curAttack] || 'ring');
@@ -3040,8 +3040,11 @@ export function updateBoss(dt, player, time, camera) {
       beamDuelCd -= dt;
       const surgeFrac = game.feverThreshold > 0 ? game.consecutiveRings / game.feverThreshold : 0;
       if (beamDuelT <= 0) {
-        // idle → arm when the meter is ≥50% (Surge not already unleashed) + off cooldown
-        if (!game.feverActive && surgeFrac >= 0.5 && beamDuelCd <= 0) {
+        // idle → arm when the meter is ≥50% (Surge not already unleashed) + off cooldown.
+        // §BOSS-FEEL-AUDIT: never arm during a survival card — the duel's forced drift + hold-
+        // centre demand fights the horizonbreak shadow-ride's sweeping ±8 pocket, shoving the
+        // player out of the ONE safe lane the card requires.
+        if (!game.feverActive && surgeFrac >= 0.5 && beamDuelCd <= 0 && !(activeCard && activeCard.survival)) {
           beamDuelT = 3.6; beamDuelHeld = 0; beamDuelTick = 0;
           beamDuelSide = Math.random() < 0.5 ? 1 : -1;
           ui.bossNote?.('BEAM DUEL', 'HOLD CENTER — FIRE INTO THE CREST', 'gold', 1.8);
@@ -3146,13 +3149,16 @@ export function updateBoss(dt, player, time, camera) {
     }
 
     // §ENG-EW §5b slot-5 "mid-possession": the banked holder parries belong to THIS
-    // possession — a baton pass (holdTarget flip) clears them. Flips only happen at
-    // charge<=0.15 rests (the eye PINS to the firer during a wind-up, and the eye-drop
-    // freeze re-arms the timer), so a mid-volley bank is never eaten. The reset is SEEN.
+    // possession — a baton pass (holdTarget flip) costs the count. §BOSS-FEEL-AUDIT: a pass
+    // now DECAYS the bank by one instead of wiping it (with the shipped strict wipe + the ~3s
+    // baton, 3 parries could never accumulate) — mid-possession pressure survives, cross-
+    // possession mastery accumulates slowly, and "THE COUNT FADES" becomes literally true.
     if (def.holderStagger && model.holdState) {
       const t = model.holdState().target;
-      if (holderPrevTarget != null && t !== holderPrevTarget && (partParries.get(HOLDER_KEY) ?? 0) > 0) {
-        partParries.delete(HOLDER_KEY);
+      const bank = partParries.get(HOLDER_KEY) ?? 0;
+      if (holderPrevTarget != null && t !== holderPrevTarget && bank > 0) {
+        if (bank <= 1) partParries.delete(HOLDER_KEY);
+        else partParries.set(HOLDER_KEY, bank - 1);
         ui.bossNote?.('THE EYE PASSES — THE COUNT FADES', '', 'gold', 0.9);
       }
       holderPrevTarget = t;
@@ -3876,7 +3882,10 @@ function executeAttack(id, player) {
   // parrying a pane's amber cracks it (PANE BREAK). Cracked panes drop their arm.
   if (def?.destructiblePanes && model?.livePanes) {
     if (id === 'spiral') { spiralPhase += 0.5; if (firePaneRadial(player, spiralPhase)) return; }
-    else if (id === 'spiralStream') {
+    // §BOSS-FEEL-AUDIT (BUG): guard on live panes like `spiral` does — with 0 live panes this
+    // queued 9 no-op firePaneRadial closures and returned SILENT (P4's dread lead = three empty
+    // volleys). Empty window now falls through to the generic spiralStream branch below.
+    else if (id === 'spiralStream' && model.livePanes().length) {
       const steps = quality < 0.75 ? 6 : 9;
       for (let k = 0; k < steps; k++) pending.push({ t: k * 0.16, fire: () => firePaneRadial(player, spiralPhase + k * 0.4) });
       spiralPhase += steps * 0.4;
