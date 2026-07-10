@@ -17,6 +17,34 @@ deployed PR preview (no WebGL in CI).
 
 ---
 
+## §0 EXECUTION LOG (live)
+
+- **2026-07-10 — SHOWCASE RETARGETED TO `azure`** (user directive: "do it on azure first").
+  Azure is the FEATHERED falcon starter on the **direct-pivot** path (arm `wingPivot` →
+  per-feather `wingBladePivots`), not the skinned membrane path §2 assumed — so the arc was
+  built on azure's own rig (no new bones, falcon identity preserved). The envelope-import +
+  fold-on-up-beat + out-of-sync-cascade THESIS holds; only the carrier changed.
+- **Shipped (nullable knobs; roster byte-identical):** `model.flapArc {apexDeg 80, bottomDeg
+  68, downFrac 0.58}` (arm arc off `flapEnv`), `flapFoldSweep 2.5` (rearward comb sweep = the
+  real fold for a rigid comb → recovery 0.50× downstroke), `flapTipFold 0.7` +
+  `flapTipFoldLag −0.14` (fold leads recovery, rakes back), `flapBladeCascade {amp 0.2,
+  lag 1.35}`. Wired into BOTH `dragon.js` (live) and `wingDebugPose.js` (the freeze poser, so
+  captures are truthful — L137). New gate `tests/flapcascade.mjs` (auto-run by run-all).
+- **Gate R1 (motion model locked): PASS** (fresh `fable` critic, round 2). Round 1 FAILed on
+  reversed fold + apex spine-crossing + shallow bottom; directives applied; round 2 re-rendered
+  byte-identical pins and PASSed. Measured: apex tip +63° (~1 o'clock), settle tip −52°
+  (~5 o'clock), fold 0.50×, no spine crossing, only azure changed. blueprint 4/4 · starters
+  201/0 · flapcascade 5/5 · tricount unchanged.
+- **R2 polish notes (carried, non-blocking):** (1) apex reads ~1 o'clock not 12 — pushing
+  higher (`apexDeg`↑ / softer `flapTipFoldLag`) trades away the fold (verified: 66° costs
+  0.50→0.65× fold), so it's a FEEL choice for the human. (2) Port the live per-blade cascade
+  (`0.02+0.10·fr + sw`) into `poseBladePivots`' cycle branch so the pins match live exactly
+  (currently a static splay; benign for every invariant). (3) The `±1.12×` arc elevation clamp
+  can flat-top the apex under boost/climb/decel amplitude (×1.35) — check against the
+  no-interior-hold law at the flight-state-composition increment (soft-limit vs hard-clip).
+- **Awaiting the human's feel judgment on the PR preview** (drama/bottom depth, beat speed),
+  then R2 (fold+cascade+composition polish) → roster migration to the other direct-pivot combs.
+
 ## §1 Thesis — why the beat reads stiff, and what actually fixes it
 
 The current beat is a small, symmetric, near-rigid swing. Measured from shipped code:
