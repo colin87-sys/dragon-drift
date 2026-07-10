@@ -3053,8 +3053,10 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   {
     const p = armKnellgrave();
     const r0s = []; on('discPocket', (e) => { r0s.push(e.r0); });
-    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);
-    boss.debugEmitAttack('iris', p, 1);   // a second iris toll (same phase) → pocket #2
+    bullets.resetBossBullets(); boss.debugEmitAttack('iris', p, 1);   // pocket #1
+    // The arm cooldown blocks a back-to-back second pocket (that's the "less frequent" behaviour),
+    // so let the live fight fire its next iris toll organically to open pocket #2 (parked dead-centre).
+    for (let i = 0; i < 700 && r0s.length < 2; i++) { const st = boss.bossDebugState(); if (st.discActive) { p.position.x = st.discX; p.position.y = st.discY; } boss.updateBoss(1 / 60, p, 3 + i / 60); }
     assert(r0s.length >= 2 && r0s[1] < r0s[0], `ENG-C7: successive tolls open smaller pockets (${r0s[0].toFixed(1)} → ${r0s[1].toFixed(1)})`);
     boss.resetBoss();
   }

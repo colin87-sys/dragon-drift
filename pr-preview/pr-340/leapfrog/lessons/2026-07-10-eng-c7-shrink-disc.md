@@ -83,6 +83,21 @@ this does not block — but band prominence + the reward-vs-danger read is a liv
 band-prominence dial isn't yet consistent across the trilogy). (The pre-existing embertide
 `setEntrance` / karnvow footwork entrance flakes remain unrelated and un-patched.)
 
+**Follow-up in the same PR — reward-band UNIFICATION (owner call: "clear & consistent").** The A/B
+finding + owner playtest surfaced that the three graze bands were tuned inconsistently: Eitherwing's
+orbit ring was too faint to notice, Knellgrave's disc dominated the frame and read as danger. Fixed by
+sharing one look across all three: `GRAZE_BAND_COLOR = 0xff8ce6` (a lighter, ~0.45-saturation reward
+pink — pulled clearly off the deep ~0.69-saturation danger-magenta so a reward never reads as a threat;
+the #1 preview tunable), and a shared `GRAZE_BAND_BASE 0.4 / RAMP 0.32` opacity drive (bumped from
+~0.3 so even the small orbit ring is legible). Knellgrave "less frequent": a `discCd = 1.6s` arm
+cooldown so pockets no longer stack on every iris toll (one ring at a time, a visible gap between) —
+the spec's own risk-#2 mitigation. Geometry/paid-band widths unchanged (gameplay balance untouched);
+this is a pure look/frequency pass. The gate test's toll-schedule sub-assert now gathers pocket #2
+ORGANICALLY from the live fight (the cooldown blocks a back-to-back forced arm — that IS the intended
+behaviour). Lesson within the lesson: **headless tests prove a graze form FUNCTIONS, never that it's
+VISIBLE or reads as reward-not-threat — that gap is exactly what the owner's "I don't see it" caught,
+and only the preview closes it.**
+
 **Do not touch:** the `iris` `rad/contract/slow` constants without retuning `DISC_R_END` (assert #6 in
 the gate guards this — they are one anatomy); the `setpieceT < 0` purity gates; `DISC_WALL_FRAC` is the
 draw AND the pay (one ratio — changing it changes both, as intended). This retires the last graze-form
