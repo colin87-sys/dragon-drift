@@ -135,7 +135,7 @@ ok(`${Object.keys(DRAGONS).length} dragons have expected form counts (3 starter 
 // lanceRune; every other dragon (SSR starters, asset-backed) carries neither so
 // they keep the shipped jade wisp + shared rune. ---
 const sssr = Object.entries(DRAGONS).filter(([, d]) => d.maxRarity === 'SSSR' && !d.assetBacked);
-assertEq(sssr.length, 7, 'exactly 7 Eternal-capable (SSSR, procedural) dragons');   // +phoenixEverflame (the Phoenix Everflame)
+assertEq(sssr.length, 7, 'exactly 7 Eternal-capable (SSSR, procedural) dragons');   // +phoenixReforged (Phoenix Ascendant reforged)
 for (const [key, d] of sssr) {
   assert(typeof d.lanceTint === 'number' && d.lanceTint >= 0 && d.lanceTint <= 0xffffff,
     `dragon ${key} carries a valid lanceTint hex`);
