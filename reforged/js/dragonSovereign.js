@@ -157,6 +157,7 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // Dorsal keel-ridge: one bold rank of faceted gold cuirass studs (swell-then-taper),
   // violet seam grooves between — reads as forged armor, never a flat white sticker.
   const shields = Math.round(model.keelShields ?? 5);
+  const cuirassPlate = (model.cuirassPlate ?? 0) > 0;   // CP3 S2: studs → forged plates + claw-set gems
   for (let i = 0; i < shields; i++) {
     const t = i / Math.max(1, shields - 1);
     const z = -0.9 + t * 2.3;
@@ -165,20 +166,38 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
     const stud = spike(h, 0.16 * (1 - 0.4 * t), 0.02, M.gold, 4);   // 4-facet gold chevron stud
     stud.position.set(0, topY, z);
     group.add(stud);
+    // CP3 S2 — a forged beveled chevron PLATE shingled under each stud (overlapping down the spine),
+    // turning the dorsal line from studs-on-void into a gold cuirass ridge from the chase cam.
+    if (cuirassPlate) {
+      const pw = 0.30 * (1 - 0.3 * t), pl = 0.34;
+      const y0 = topY - 0.10, zf = z - pl * 0.5, zb = z + pl * 0.5;
+      const plate = flatTriMesh([
+        [[-pw, y0, zb], [pw, y0, zb], [0, y0 + 0.05, zf]],           // chevron point-forward, low bevel
+        [[-pw, y0, zb], [0, y0 + 0.05, zf], [-pw * 0.5, y0 + 0.02, zf]],
+        [[pw, y0, zb], [pw * 0.5, y0 + 0.02, zf], [0, y0 + 0.05, zf]],
+      ], M.gold);
+      group.add(plate);
+    }
     if (i > 0) {
       const seam = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.05), M.violet);
       seam.position.set(0, topY - 0.02, z - 0.28);
       group.add(seam);
     }
     // SPINE OF LIGHT (stage≥2): a saturated violet gem crowning each dorsal stud so the valley
-    // between the wings is a lit ridge, not a black void from the chase cam (the eclipse-black body
-    // keeps its dark mass; only the dorsal line lights). Part of the ignition ladder — dark until Radiant.
+    // between the wings is a lit ridge, not a black void from the chase cam. CP3 S2: upscaled so it
+    // clears the sub-8px density floor at chase distance, in a gold claw-setting.
     if (M.stage >= 2) {
-      // Scale up at Eternal (stage 3) so the spine of light carries the valley on its own at chase
-      // distance rather than leaning on the corona (Fable round-2 polish).
-      const gemR = (0.055 + 0.03 * (1 - t)) * (M.stage >= 3 ? 1.5 : 1);
+      const gemR = (0.075 + 0.03 * (1 - t)) * (M.stage >= 3 ? 1.6 : 1.2);
+      const gy = topY + h * 0.9;
+      if (cuirassPlate) for (let c = 0; c < 4; c++) {   // 4-prong gold claw setting under the gem
+        const claw = spike(gemR * 1.5, 0.02, 0.004, M.goldHi, 3);
+        const ca = c * Math.PI / 2;
+        claw.position.set(Math.cos(ca) * gemR * 0.7, gy - gemR * 0.6, z + Math.sin(ca) * gemR * 0.7);
+        claw.rotation.x = Math.sin(ca) * 0.5; claw.rotation.z = -Math.cos(ca) * 0.5;
+        group.add(claw);
+      }
       const gemCap = new THREE.Mesh(new THREE.OctahedronGeometry(gemR, 0), M.napeStar);
-      gemCap.position.set(0, topY + h * 0.9, z);
+      gemCap.position.set(0, gy, z);
       gemCap.scale.set(1, 1.3, 1);
       group.add(gemCap);
     }
@@ -214,10 +233,42 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
   // star on the nape that the chase view actually reads. NOT in spineMats (stays its own saturated hue).
   const nape = model.napeStar ?? 0;
   if (nape > 0) {
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.11 * (0.7 + 0.3 * nape), 0), M.napeStar);
-    star.position.set(0, coronaPos.y + dome * 0.72, coronaPos.z - depth * 0.42);
+    const nx = 0, ny = coronaPos.y + dome * 0.72, nz = coronaPos.z - depth * 0.42;
+    // CP3 S5 — the ORDER-STAR: a faceted gold sunburst setting (6 rays + backplate) turns the rearward
+    // sigil into a royal insignia the chase cam reads as a decoration, not just a dot.
+    if ((model.orderStar ?? 0) > 0) {
+      const rays = [];
+      for (let r = 0; r < 6; r++) {
+        const a = r * Math.PI / 3, R = 0.22, w = 0.05;
+        rays.push([[nx, ny, nz - 0.02], [nx + Math.cos(a - 0.0) * R, ny + Math.sin(a) * R, nz - 0.02],
+          [nx + Math.cos(a + w) * R * 0.5, ny + Math.sin(a + w) * R * 0.5, nz - 0.02]]);
+      }
+      group.add(flatTriMesh(rays, M.goldHi));
+    }
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.13 * (0.7 + 0.3 * nape), 0), M.napeStar);
+    star.position.set(nx, ny, nz);
     star.scale.set(1, 1.3, 1);
     group.add(star);
+  }
+
+  // CP3 S3 — PAULDRONS + HAUNCH GUARDS: faceted gold shoulder plates over the wing roots (weld the
+  // wings to the body in rear-¾) + haunch plates at the hip re-swell. Violet seam groove on each.
+  const pauld = Math.round(model.pauldrons ?? 0);
+  if (pauld >= 1) for (const s of [1, -1]) {   // pauldrons over the wing roots
+    const px = s * 0.52, py = TORSO_Y + 0.30, pz = -0.72;
+    group.add(flatTriMesh([
+      [[px - s * 0.22, py + 0.14, pz - 0.28], [px + s * 0.20, py + 0.06, pz - 0.30], [px + s * 0.10, py - 0.06, pz + 0.26]],
+      [[px - s * 0.22, py + 0.14, pz - 0.28], [px + s * 0.10, py - 0.06, pz + 0.26], [px - s * 0.14, py - 0.02, pz + 0.24]],
+    ], M.gold));
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, 0.4), M.violet);
+    seam.position.set(px + s * 0.02, py + 0.06, pz); group.add(seam);
+  }
+  if (pauld >= 2) for (const s of [1, -1]) {   // haunch guards at the hip re-swell (f3)
+    const hx = s * 0.44, hy = TORSO_Y + 0.14, hz = 0.92;
+    group.add(flatTriMesh([
+      [[hx - s * 0.16, hy + 0.12, hz - 0.24], [hx + s * 0.14, hy + 0.04, hz - 0.22], [hx + s * 0.06, hy - 0.10, hz + 0.24]],
+      [[hx - s * 0.16, hy + 0.12, hz - 0.24], [hx + s * 0.06, hy - 0.10, hz + 0.24], [hx - s * 0.12, hy - 0.04, hz + 0.22]],
+    ], M.goldHi));
   }
 
   // ECLIPSE CORONA (coronaRing / Eternal only): an OPAQUE moon-disk annulus standing vertical behind
@@ -324,7 +375,7 @@ registerTorso('regnalKeelTorso', buildRegnalKeelTorso);
 // for the left; dihedral raises the tips into the rear cathedral arch.
 function buildOneWing(M, dials, dih) {
   const wg = new THREE.Group();
-  const { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots, spireTier } = dials;
+  const { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots, spireTier, buttress, vaultSculpt } = dials;
   const rootChord = 2.7, tipChord = 0.5, sweepZ = halfSpan * 0.28;
   // Built CANONICAL (+X); the left wing is a scale.x=-1 mirror of this (in buildLanceVaultWings)
   // so the shared flap animator's MIRRORED poses land symmetric (it feeds L/R opposite rotations,
@@ -383,6 +434,26 @@ function buildOneWing(M, dials, dih) {
     spar.position.set(a[0], a[1], a[2]);
     spar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     wg.add(spar);
+  }
+  // CP3 S1 — gold BOSS keystones at each vault crown + FLYING BUTTRESSES arcing from the body up to
+  // the mid-spar (literal cathedral engineering under the arch; the 70%-of-frame wing wall gains depth).
+  if (vaultSculpt && M.stage >= 2) for (let f = 1; f < fingers; f++) {
+    const A = st[f], B = st[f + 1];
+    const boss = spike(0.14, 0.06, 0.01, M.goldHi, 4);
+    boss.position.set((A.l[0] + B.l[0]) / 2, (A.l[1] + B.l[1]) / 2 + 0.04, (A.l[2] + B.l[2]) / 2);
+    boss.rotation.x = -0.3;
+    wg.add(boss);
+  }
+  if (buttress >= 1) {
+    const tubeArc = (p0, p1, bow, r) => {
+      const c = [(p0[0] + p1[0]) / 2 + bow[0], (p0[1] + p1[1]) / 2 + bow[1], (p0[2] + p1[2]) / 2 + bow[2]];
+      let prev = p0; const N = 5;
+      for (let k = 1; k <= N; k++) { const u = k / N, mu = 1 - u;
+        const pt = [mu * mu * p0[0] + 2 * mu * u * c[0] + u * u * p1[0], mu * mu * p0[1] + 2 * mu * u * c[1] + u * u * p1[1], mu * mu * p0[2] + 2 * mu * u * c[2] + u * u * p1[2]];
+        wg.add(tube(prev, pt, r, M.gold)); prev = pt; }
+    };
+    tubeArc([0.05, -0.5, 0.25], st[Math.max(1, Math.round(fingers * 0.4))].l, [0.2, -0.35, 0.1], 0.035);
+    if (buttress >= 2) tubeArc([0.15, -0.45, 0.55], st[Math.max(1, Math.round(fingers * 0.6))].l, [0.3, -0.3, 0.15], 0.03);
   }
   // Finger ribs (gold) + a BOLD violet starlight vein running each finger line — now seated ABOVE
   // the rib (proud of the upper surface) so the rear-chase cam actually catches it (it used to sit
@@ -484,7 +555,9 @@ function buildLanceVaultWings(def, model, attach, _giM) {
   const carpalLance = model.carpalLance ?? 2.6; // twin-spire length× (0 = none)
   const pinionSlots = Math.round(model.pinionSlots ?? 2);
   const spireTier = Math.round(model.spireTier ?? 2);   // CP3: 0 plain lance · 1 collars · 2 plinth+crockets
-  const dials = { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots, spireTier };
+  const buttress = Math.round(model.buttress ?? 2);     // CP3 S1: flying buttresses per wing (0/1/2)
+  const vaultSculpt = (model.vaultSculpt ?? 1) > 0;     // CP3 S1: gold boss-ribs on the vault crowns
+  const dials = { fingers, pikes, halfSpan, archRise, carpalLance, pinionSlots, spireTier, buttress, vaultSculpt };
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
@@ -571,6 +644,18 @@ function buildEclipseCrownHead(def, model, mats) {
     occ.position.set(0, 0.26 * hs, 0.30);
     occ.rotation.x = 0.85;   // rake back over the nape
     group.add(occ);
+  }
+  // CP3 S4 — the REAR CIRCLET: an occipital arc of bold gold points BEHIND the crown (the crown the
+  // CHASE CAM sees; the lance-horns face forward). Makes "crowned" legible from behind. Rides crownHorns.
+  if ((model.rearCirclet ?? 0) > 0 && crown >= 3) {
+    const nPts = crown >= 4 ? 5 : 2;
+    for (let p = 0; p < nPts; p++) {
+      const a = (p / (nPts - 1) - 0.5) * 2.4;   // fan across the occiput
+      const pt = spike(0.16 * hs * (1 - 0.3 * Math.abs(a) / 1.2), 0.035 * hs, 0.004, M.goldHi, 4);
+      pt.position.set(Math.sin(a) * 0.30 * hs, 0.30 * hs, 0.40 - Math.cos(a) * 0.04);
+      pt.rotation.x = 1.0; pt.rotation.z = -Math.sin(a) * 0.6;
+      group.add(pt);
+    }
   }
 
   // STAR-GEM motif (brow center): big faceted violet octahedron in a gold setting. A GEM — never opens.
@@ -745,12 +830,35 @@ function buildScepterWhipTail(def, model, mats, anchor) {
     tipG.add(flatTriMesh(rimT, M.gold));
   }
   // Captive star — now large enough to register at chase distance, centered in front of the sigil disk.
+  const orbiters = [];
   if (bloom > 0.4) {
+    const sx = lx, sy = ly + plen * 0.28, sz = lz + plen * 0.18;
     const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.16 * bloom, 0), M.gem);
-    star.position.set(lx, ly + plen * 0.28, lz + plen * 0.18);
+    star.position.set(sx, sy, sz);
     star.scale.set(1, 1.2, 1);
     tipG.add(star);
+    // CP3 S6 — the SCEPTER CROWN-ORB: a small gold ring (echo of the corona, capped ≤0.18) around the
+    // captive star + two opaque violet gem SHARDS published as tailOrbiters (they orbit the star for
+    // free via the engine's orbiter tick — motion for one line, zero new transparent drawables).
+    if ((model.scepterOrb ?? 0) > 0) {
+      const R = 0.17, N = 8;
+      const pt = (a, z) => [sx + Math.cos(a) * R, sy + Math.sin(a) * R, sz + z];
+      const ringT = [];
+      for (let i = 0; i < N; i++) { const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2; ringT.push([pt(a0, 0.01), pt(a0 + 0.14, 0.01), pt(a1, 0.01)]); }
+      tipG.add(flatTriMesh(ringT, M.goldHi));
+      // Orbit the shards around a group AT the star (the engine's orbiter tick sets mesh.position
+      // relative to its PARENT origin — so the parent must be the orbit centre, not the tail segment).
+      const orbCenter = new THREE.Group();
+      orbCenter.position.set(sx, sy, sz);
+      tipG.add(orbCenter);
+      for (const side of [1, -1]) {
+        const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), M.gem);
+        shard.position.set(side * 0.24, 0, 0);
+        orbCenter.add(shard);
+        orbiters.push({ mesh: shard, ang: side > 0 ? 0 : Math.PI, speed: 1.3, radius: 0.24, baseRadius: 0.24, flat: 1, baseY: 0, spin: 1 });
+      }
+    }
   }
-  return { group, segs, accentMats: [M.violet, M.gem, M.veinMat] };
+  return { group, segs, accentMats: [M.violet, M.gem, M.veinMat], orbiters: orbiters.length ? orbiters : null };
 }
 registerTail('scepterWhipTail', buildScepterWhipTail);
