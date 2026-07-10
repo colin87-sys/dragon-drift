@@ -275,7 +275,7 @@ export const BOSSES = {
     // wide CIRCLING orbit; P3 = the EMBER HUNT stooping dive from above (dread).
     setpieces: [
       { id: 'circlingPass',   atPhase: 1, dur: 7.0, moving: true },
-      { id: 'stoopingStrike', atPhase: 2, dur: 5.5, moving: true, dread: true },
+      { id: 'stoopingStrike', atPhase: 2, dur: 5.5, moving: true, dread: true, recur: 9 },   // §BOSS-FEEL §1 C.1: ~9s quiet re-arms the stoop — 2–3 stoops per dread card, each re-offering the slip pocket
     ],
     phases: [
       { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'stream'] },                 // P1: the hunter's tracking hose debuts
@@ -1159,6 +1159,13 @@ export const BOSSES = {
     // SETPIECE_PATHS id the ride-mode graze binds to; `weakPart` = the partWorldPos node the
     // seal-era carve-out tests.
     survivalResolve: { setpiece: 'lastToll', weakPart: 'clapperHead' },
+    // §ENG-C3 RHYTHM-PARRY CHAIN (§5b row 10 / §5i.C World-Ender parry DEBUT, finally real):
+    // during The Second Toll the 4-amber aimed chain must be parried ON the knell's beat —
+    // each on-beat parry banks; a full chain pays a chunk + a 2.5s bell stagger (the shared
+    // staggerT window). On-beat = within RHYTHM_PARRY_WINDOW of the nearest MULTIPLE of the
+    // live toll period (the GHOST BEAT — the 4th amber lands one stroke after the burst's last
+    // toll, so the metronome extrapolates one beat; a naive nearest-toll window is unhittable).
+    rhythmParry: { card: 'knellgrave_second', chain: 4 },
     // §ENG-H C.7-proper — the toll RADIATES: the spiral toll's origin (and the sweep's
     // stream hose) ride the swinging bellMouth (emitter = organ, §5f law 7). The toll-wall
     // graze arms from the bell, not the lane centre.
@@ -1613,7 +1620,7 @@ export const BOSSES = {
     // floor; the ghost half is parryable (CP2). cadence = the legacy fallback roll.
     phases: [
       { atFrac: 1.00, cadence: [1.3, 1.9], attacks: ['crossfire', 'aimed'] },              // P1: The Listing Volley
-      { atFrac: 0.78, cadence: [1.2, 1.8], attacks: ['movingGap', 'crossfire', 'aimed'] }, // P2: The Ghost Half (the dead twin's volley begins, as ghost-bullets — CP2)
+      { atFrac: 0.86, cadence: [1.2, 1.8], attacks: ['movingGap', 'crossfire', 'aimed'] }, // P2: The Ghost Half (the dead twin's volley begins, as ghost-bullets — CP2). §ENG-12 C.2: 0.78→0.86 trims the plain P1 intro (ghost gate is phase-INDEXED, so it still starts exactly at P2)
       { atFrac: 0.56, cadence: [1.1, 1.7], attacks: ['secondWave', 'fan', 'aimed'] },       // P3: The Mantling Wing
       { atFrac: 0.34, cadence: [1.0, 1.6], attacks: ['crossfire', 'fan', 'aimed'] },        // P4: The Denied Downbeat (the feint)
       { atFrac: 0.16, cadence: [0.9, 1.5], attacks: ['secondWave', 'crossfire', 'aimed'] }, // P5: The Missing Wing (dread — the old DUAL attack ALONE)
@@ -1624,7 +1631,7 @@ export const BOSSES = {
     // answerable attack; parry the ghost half — CP2). Its name IS the lying-FELLED beat.
     cards: [
       { id: 'onewing_listing',   name: 'WOULD NOT DIE — The Listing Volley', atFrac: 1.00, timer: 24 },
-      { id: 'onewing_ghosthalf', name: 'WOULD NOT DIE — The Ghost Half',     atFrac: 0.78, timer: 26 },
+      { id: 'onewing_ghosthalf', name: 'WOULD NOT DIE — The Ghost Half',     atFrac: 0.86, timer: 26 },
       { id: 'onewing_mantle',    name: 'WOULD NOT DIE — The Mantling Wing',   atFrac: 0.56, timer: 26 },
       { id: 'onewing_denied',    name: 'WOULD NOT DIE — The Denied Downbeat', atFrac: 0.34, timer: 28 },
       { id: 'onewing_missingwing', name: 'WOULD NOT DIE — The Missing Wing',  atFrac: 0.16, timer: 30, dread: true },
