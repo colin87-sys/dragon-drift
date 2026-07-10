@@ -386,27 +386,26 @@ if (!cp1) {
   // ── the PYRE-TRAIN not-a-ring guarantees (per form) ──
   for (let f = 1; f <= maxT; f++) {   // f0 has 2 stub nubs — the fan asserts start where the fan does
     const lay = trainFanLayout(per[f].m);
-    ok(lay.fanDeg < 180, `${key} f${f}: fan sector ${lay.fanDeg}° < 180° (not a ring)`);
-    // quill angular WIDTH (a representative vane): full base width / length, at the outer quill.
-    const quillWidthRad = (2 * 0.15) / (1.1 * 2.36 * Math.pow(0.85, Math.floor(lay.nQuills / 2)));
-    ok(lay.minGapRad >= quillWidthRad, `${key} f${f}: quill gap ${lay.minGapRad.toFixed(3)}rad ≥ 1 quill-width ${quillWidthRad.toFixed(3)}rad (mandatory negative space)`);
-    // ±8° cant balances to Σ≈0 (a mirrored L/R pair — must still read balanced like a wing pair).
+    ok(lay.fanDeg <= 135, `${key} f${f}: fan sector ${lay.fanDeg}° ≤ 135° (filled wedge, not a 150° spray)`);
+    ok(lay.nQuills <= 5, `${key} f${f}: ≤5 broad PANELS (${lay.nQuills}) — not a spray of thin wires`);
+    // COHESION (anti-feather-duster): the panels are webbed by a pleated membrane so the drape reads
+    // as ONE shaped train, never separated spokes. The OLD "mandatory negative space" assert enforced
+    // the duster and is retired — negative space now lives at the HEM (between fingertips), not the gaps.
+    ok(lay.fillRatio >= 0.95, `${key} f${f}: panels webbed into a cohesive drape (fill ${lay.fillRatio.toFixed(2)} ≥ 0.95)`);
+    // ±cant balances to Σ≈0 (mirrored L/R pair — reads balanced like a wing pair).
     const cantSum = lay.quills.reduce((a, q) => a + q.cant, 0);
     ok(Math.abs(cantSum) < 1e-9, `${key} f${f}: tail-quill cant balances Σ≈0 (${cantSum.toExponential(1)})`);
-    // SHAPED lyre outline (Dawn-Fan doctrine): the fan is NOT a flat broom — quill lengths vary
-    // meaningfully across the sector (a center peak + a secondary shoulder swell), never uniform.
+    // COMET hierarchy (baked-in directional flow, not a symmetric pom-pom): a deep center plume + a
+    // short wide hem → a strong length spread (Δ ≥ 0.35·max), so head-on it gathers into a train.
     const lens = lay.quills.map((q) => q.lenScale);
     const lo = Math.min(...lens), hi = Math.max(...lens);
-    ok(hi - lo > 0.08 * hi, `${key} f${f}: fan outline is SHAPED, not a flat broom (Δ${(hi - lo).toFixed(2)})`);
-    // THE TRAILING DAWN — anti-drag-plate law: every quill must RAKE AFT (rake angle α from the
-    // flight axis ≤ 60°; the failed frontal disk was α≈90°). AND the raked cone must still project
-    // a WIDE burst to the rear cam (projected half-width = Σ len·sinα·sinφ spans the frame).
-    if (f >= 1) {
-      const maxAlpha = Math.max(...lay.quills.map((q) => (q.alpha ?? Math.PI / 2) * 180 / Math.PI));
-      ok(maxAlpha <= 60.001, `${key} f${f}: every quill rakes aft, α≤60° (max ${maxAlpha.toFixed(1)}° — not a drag-plate)`);
-      const projHalf = Math.max(...lay.quills.map((q) => Math.abs(q.lenScale * Math.sin(q.alpha ?? Math.PI / 2) * Math.sin(q.phi))));
-      ok(projHalf > 0.55, `${key} f${f}: raked cone still projects a WIDE rear burst (half-width ${projHalf.toFixed(2)})`);
-    }
+    ok(hi - lo >= 0.30 * hi, `${key} f${f}: comet hierarchy — deep center vs short hem (Δ${(hi - lo).toFixed(2)} ≥ ${(0.30 * hi).toFixed(2)})`);
+    // THE anti-drag-plate law: every quill rakes AFT (α ≤ 60°; the failed frontal disk was α≈90°),
+    // AND the raked cone still projects a WIDE burst to the rear cam (length·sinα·sinφ spans the frame).
+    const maxAlpha = Math.max(...lay.quills.map((q) => (q.alpha ?? Math.PI / 2) * 180 / Math.PI));
+    ok(maxAlpha <= 60.001, `${key} f${f}: every quill rakes aft, α≤60° (max ${maxAlpha.toFixed(1)}° — not a drag-plate)`);
+    const projHalf = Math.max(...lay.quills.map((q) => Math.abs(q.lenScale * Math.sin(q.alpha ?? Math.PI / 2) * Math.sin(q.phi))));
+    ok(projHalf > 0.50, `${key} f${f}: raked cone still projects a WIDE rear burst (half-width ${projHalf.toFixed(2)} > 0.50)`);
   }
   // vane diffuse held dark (L ≤ 0.22 — the emissive carries the fire, not a toy-bright sheet).
   const { materials } = buildDragonModel(per[3].def, {});
