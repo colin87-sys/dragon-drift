@@ -75,7 +75,11 @@ function sovereignMats(def, glow, stage) {
   const sparTip = new THREE.MeshStandardMaterial({ color: 0xffe2b0, emissive: 0xffa028, emissiveIntensity: sparI, flatShading: true, roughness: 0.3 });
   // Eclipse corona: a DARK opaque moon-disk body wearing a thin saturated bicolour rim (violet +
   // ember) with gold bevels — jeweled, not a smoky additive halo. Rim mats also stay out of spineMats.
-  const coronaDark = new THREE.MeshStandardMaterial({ color: 0x0d0a18, emissive: 0x0d0a18, emissiveIntensity: 0.05, flatShading: true, roughness: 0.7, metalness: 0.1 });
+  // Dark band is now TRANSPARENT (CP3.2): a ghosted umbra the player sees forward THROUGH in rear-chase.
+  // The eclipse reads by SILHOUETTE + saturated-rim contrast, not opacity — a 0.74 near-black band over a
+  // bright canyon still composites near-black. DoubleSide because the corona ring drops its back disk (so
+  // the band is single-layer: a stacked back disk would be two 0.74 layers ≈ 7% transmission = opaque).
+  const coronaDark = new THREE.MeshStandardMaterial({ color: 0x0d0a18, emissive: 0x0d0a18, emissiveIntensity: 0.05, flatShading: true, roughness: 0.7, metalness: 0.1, transparent: true, opacity: 0.74, side: THREE.DoubleSide });
   const coronaRimV = new THREE.MeshStandardMaterial({ color: 0x9a5cff, emissive: veinEmis, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });   // deepened lilac→true violet (was 0xb784ff, read pale under bloom)
   const coronaRimA = new THREE.MeshStandardMaterial({ color: 0xffb46a, emissive: 0xff8c1a, emissiveIntensity: coronaI, flatShading: true, roughness: 0.34 });   // saturated amber (was deep-amber 0xd4680f — too dark to read)
   return { bodyFlat, gold, goldHi, violet, violetMantle, membrane, memTiers, veinMat, gem, napeStar, sparTip, coronaDark, coronaRimV, coronaRimA, stage: st };
@@ -296,8 +300,9 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
       const oF0 = pt(Ro, a0, d / 2), oF1 = pt(Ro, a1, d / 2);
       ((i % 2 === 0) ? vT : aT).push([mF0, oF0, oF1], [mF0, oF1, mF1]);   // front outer rim (violet/amber)
       const iB0 = pt(Ri, a0, -d / 2), oB0 = pt(Ro, a0, -d / 2), oB1 = pt(Ro, a1, -d / 2), iB1 = pt(Ri, a1, -d / 2);
-      darkT.push([iB0, oB1, oB0], [iB0, iB1, oB1]);       // back (dark)
-      darkT.push([oF0, oB0, oB1], [oF0, oB1, oF1]);       // outer depth band (dark)
+      // Back disk REMOVED (CP3.2): the umbra band is now single-layer so a sightline crosses ONE 0.74 layer
+      // (26% show-through), not two. The front band is DoubleSide, so the ring still reads from the shop-front.
+      darkT.push([oF0, oB0, oB1], [oF0, oB1, oF1]);       // outer depth band (dark, edge-on to the chase cam)
       goldT.push([iF0, iB1, iB0], [iF0, iF1, iB1]);       // inner bevel (gold)
     }
     // 8 ECLIPSE STREAMER RAYS off the rim — FEW + LARGE (density-law safe), deliberately SKIPPING the
@@ -305,7 +310,7 @@ function buildRegnalKeelTorso(def, model, _bodyMat) {
     const grand = (model.coronaGrand ?? 0) > 0;   // the rose-window extras (rays/tracery/gems) — Eternal only
     const rayAng = grand ? [0, 0.7, 2.44, Math.PI, 3.66, 4.36, 4.98, 5.6] : [];   // radians: right/low-diagonals/left/bottom — no 12 o'clock
     for (let r = 0; r < rayAng.length; r++) {
-      const a = rayAng[r], hw = 0.13, long = r % 2 === 0, Rt = long ? 1.9 : 1.55;
+      const a = rayAng[r], hw = 0.13, long = r % 2 === 0, Rt = long ? 1.6 : 1.4;   // reach trimmed (CP3.2): the crawl sweeps rays through the whole clock, so shorter reach = less swept occlusion
       const bL = pt(Ro * 0.99, a - hw, d / 2), bR = pt(Ro * 0.99, a + hw, d / 2), tip = pt(Rt, a, d / 2);
       const bLb = pt(Ro * 0.99, a - hw, -d / 2), bRb = pt(Ro * 0.99, a + hw, -d / 2), tipb = pt(Rt, a, -d / 2);
       ((r % 2 === 0) ? vT : aT).push([bL, bR, tip]);      // front emissive (violet=long / amber=short)
@@ -514,8 +519,8 @@ function buildOneWing(M, dials, dih) {
   if (carpalLance > 0) {
     const t = 0.35, l = L(t);
     const clen = halfSpan * 0.212 * carpalLance;
-    const rot = new THREE.Euler(-0.45, 0, -0.18);
-    const lance = spike(clen, 0.22, 0.01, M.stage >= 3 ? M.sparTip : M.goldHi, 5);
+    const rot = new THREE.Euler(-0.45, 0, -0.34);   // splayed outboard (CP3.2): shaft leaves the ±6–9° swerve corridor; the M valley widens into a chalice (peak drops only ~0.1u — the M survives, more majestic)
+    const lance = spike(clen, 0.17, 0.01, M.stage >= 3 ? M.sparTip : M.goldHi, 5);   // thinned base 0.22→0.17 (still ~14px ≥ floor, still ~2.6× the rank pikes) — slimmer = more cathedral, narrower bar to see past
     lance.position.set(l[0], l[1], l[2]);
     lance.rotation.copy(rot);
     wg.add(lance);
@@ -525,14 +530,14 @@ function buildOneWing(M, dials, dih) {
     // fraction s up the shaft, in the lance's own rotated frame:
     const along = (s) => { const p = new THREE.Vector3(0, s * clen, 0).applyEuler(rot); return [l[0] + p.x, l[1] + p.y, l[2] + p.z]; };
     const banded = (s, rTop, rBot, h, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, seg(6)), mat); m.position.set(...along(s)); m.rotation.copy(rot); wg.add(m); };
-    if (spireTier >= 1) { banded(0.30, 0.16, 0.16, 0.06, M.goldHi); banded(0.55, 0.12, 0.12, 0.05, M.goldHi); }   // collar rings
+    if (spireTier >= 1) { banded(0.30, 0.13, 0.13, 0.06, M.goldHi); banded(0.55, 0.10, 0.10, 0.05, M.goldHi); }   // collar rings (radii thinned to track the slimmer shaft)
     if (spireTier >= 2) {
-      banded(0.03, 0.26, 0.30, 0.14, M.gold);   // hex plinth at the carpal
-      for (const s of [0.42, 0.66]) {            // 2 crockets — gold hooks on the inner (bodyward) face
+      banded(0.03, 0.21, 0.25, 0.14, M.gold);   // hex plinth at the carpal (thinned to track the shaft)
+      for (const s of [0.42, 0.66]) {            // 2 crockets — gold hooks on the OUTER face (CP3.2: flipped off the valley so they stop snagging the center corridor at head-height)
         const cr = spike(0.34, 0.09, 0.006, M.goldHi, 4);
         const base = along(s);
-        cr.position.set(base[0] - 0.16, base[1], base[2] + 0.02);   // inner face (−x on the canonical +X wing)
-        cr.rotation.set(-0.5, 0, 1.15);          // hook up-and-inward
+        cr.position.set(base[0] + 0.16, base[1], base[2] + 0.02);   // outer face (+x on the canonical +X wing)
+        cr.rotation.set(-0.5, 0, -1.15);         // hook up-and-outward
         wg.add(cr);
       }
     }
@@ -541,7 +546,7 @@ function buildOneWing(M, dials, dih) {
   // Pike rank — DEMOTED behind the carpal: re-stationed OUTBOARD of the lance, steeper 0.62^i decay
   // so the rank reads LANCE → step → step → tip (a scale hierarchy), not a picket fence of equals.
   for (let i = 0; i < pikes; i++) {
-    const t = 0.44 + 0.28 * (i / Math.max(1, pikes - 1 || 1));
+    const t = 0.47 + 0.28 * (i / Math.max(1, pikes - 1 || 1));   // rank start nudged out (CP3.2) so the splayed lance shaft doesn't tangle the first pike in the rear silhouette
     const l = L(t);
     const plen = halfSpan * 0.24 * Math.pow(0.62, i);
     const rot = new THREE.Euler(-0.65, 0, -0.3);         // rake up-and-forward off the arm

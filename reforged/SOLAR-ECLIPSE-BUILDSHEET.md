@@ -254,3 +254,32 @@ transparent-drawable ≤ target, star-gem = gem/no-lid at every form, maxTier cl
     never the centre). +32 tris (apex 3499, still <6000). M skyline untouched.
   - Verified: smoke green · tricount 0-over-budget · gameshots T3 rear-chase confirms open center window +
     rose window still reads. Owner to judge motion/feel on the PR #347 live preview.
+
+- **CP3.2 — SEE PAST THE CORONA BODY + THE M-SPIRES.** Owner (post-#347): "improved, but the corona [ring
+  body] and the big medial wing spikes are still hard to see past." High-effort Fable spatial diagnosis
+  found the two remaining occluders BOTH sit in the ±10° threat-reaction corridor — and a key discovery:
+  **the corona ROTATES every frame (`dragon.js:484`), so any ANGULAR fix (re-angling streamers, mullion-X,
+  the "skip 12 o'clock" gap) time-averages to nothing in gameplay.** Only radial / opacity / reach fixes
+  bite. Fixes (all UNIFORM shop+gameplay — no `preview` split):
+  - **Ghost the umbra** — the dark moon-disk band `M.coronaDark` is now `transparent, opacity 0.74` and the
+    ring's BACK disk was dropped so the band is single-layer (26% show-through, not two stacked 0.74 layers
+    ≈ 7%). The eclipse reads by SILHOUETTE + saturated-rim contrast, not opacity; rim/tracery/oculus/gems
+    stay fully opaque. DoubleSide keeps the ring reading from the shop-front. The player now sees the
+    horizon THROUGH the umbra — the band owned the final reaction second at every spin phase.
+  - **Trim streamer reach** — `Rt 1.9/1.55 → 1.6/1.4`. Under the crawl the rays sweep the whole clock, so
+    shorter reach = less swept occlusion (width/count untouched — still density-law safe).
+  - **Splay the twin spires into a chalice** — carpal-lance roll `−0.18 → −0.34` moves each shaft out of
+    the ±6–9° swerve zone; the M valley widens (peak drops only ~0.1u — silhouette survives, more majestic).
+  - **Thin the spire** — shaft `0.22 → 0.17`, collars/plinth tracked down (still ≥8px, still ~2.6× the rank
+    pikes). **Flip the crockets outboard** (off the valley) + nudge the pike-rank start `0.44 → 0.47` so the
+    splayed shaft doesn't tangle the first pike in the rear silhouette.
+  - **Reshape beats opacity for SOLID regalia** — the spires were splayed/thinned, NOT ghosted: a
+    translucent gold monument (near-white sparTip at f3) reads as broken metal / cheap glow. Opacity is for
+    membranes + shadow (wings, umbra); reshape is for regalia.
+  - Verified: smoke green · wingsymprobe Δ0.000 (splay mirrors via scale.x=−1) · tricount 0-over-budget
+    (net −32 from the dropped back disk; apex ~3467) · gameshots T3 confirms horizon visible through the
+    umbra + open central corridor, M intact. Two owner-judgment calls ride the PR preview (per #347
+    protocol, with before/after pairs): the 0.74 umbra ("weaker eclipse?" — retreat to 0.80 if so) and the
+    wider M valley. Transparent-drawable ledger: the #347 membrane fix already changed the count; the
+    corona umbra adds +1 dark (non-additive) drawable — the ≤8 line (§10) predates the membrane fix and
+    needs an honest recount in a follow-up.
