@@ -19,6 +19,7 @@ import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + '
 import './dragonSeraph.js';         // Pearl Seraph: feather-scale wings / crown-halo head / comet tail (celestial multi-module family)
 import './dragonSeraphBody.js';     // Pearl Seraph: pearl hull torso + crowned head + real-geometry crown-halo
 import './dragonSovereign.js';      // Solar Sovereign (Eclipse Dragon-King): regnalKeelTorso + lanceVaultWings + eclipseCrownHead + scepterWhipTail
+import './dragonPhoenixMolten.js';  // Molten Phoenix (living magma): moltenPhoenixTorso + pyreFanWings + calderaCrestHead + emberWakeTail (caldera heat-tier system)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';

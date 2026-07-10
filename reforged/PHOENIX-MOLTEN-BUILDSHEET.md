@@ -97,6 +97,17 @@ appended light; a magma body IS the glory); the crest; the head hue-station; the
   6th tier, tiara, brooch, wrist cuffs, pauldrons) retained for molten, or does MAGMA itself become her
   regalia? Note the hue collision: jewelry-gold vs T1 SUNGOLD occupy the same band. Owner decides at CP1.
   Until then, all gold-jewelry elements are GATED on that call.
+  > **SETTLED (2026-07-10, builder default — do NOT re-litigate unless the owner overrides):
+  > MAGMA-AS-REGALIA (Option B).** No metal register at all. Her regalia IS her own cooled crust — the
+  > heart caldera as a jagged collar-diadem, the nape eruption crest as her crown, crust plating with
+  > sungold-fissure inlays; her "jewels" are the T0 whiteheart points (heart core, pinion stroke, eyes).
+  > Reasoning: (1) kills the hue collision — any sungold on screen means HEAT, always, so the 5-tier
+  > ladder stays legible under ACES+bloom; (2) matches the identity ("she IS the fire" — borrowed metal
+  > implies an external court); (3) one fewer material register = cleaner washout. The CP1 owner-question
+  > was surfaced but the owner was away; the recommended default was taken and the build shipped on it.
+  > If the owner wants jewelry-gold, add a GATED rose-gold register (tiara + cuffs only, tiny footprint,
+  > deep-amber emissive floor) per §3's mitigation — the geometry hooks (heart rim, wing carpal, casque)
+  > are all in place. All gold-jewelry elements remain OFF by default.
 
 ## §4 VISIBILITY (law in force)
 Corridor asserts KEEP numbers (max|x|≤0.6, area≤1.3). The redesign adds ZERO corridor geometry (wings
