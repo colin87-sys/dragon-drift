@@ -1000,6 +1000,7 @@ export const BOSSES = {
     // inside the 10.4 comfort band at the chase-equilibrium worst case. Idle life stays on bustPivot bob.
     holdSway: { amp: 0.5, freq: 0.5 },
     idleWobble: 0.3,          // calm the ±0.12 placeGroup yaw wobble to ±0.036 (anchored loom, not a flying dragon)
+    recoilOrgans: ['palmL', 'palmR'],   // §COMFORT-D2: dropped from the paint set while the thread-cut recoil flings the hands toward the wall (model.handsFlung) — loomHeart stays the strike-window anchor
     // §5i CANCEL-CONVERT MOTE HARVEST: a cut thread blooms into falling surge-motes;
     // steer the bloom to harvest (offered once per phase). Def-gated (reuses slot 6's
     // continuous-graze detector); shipped bosses inert.

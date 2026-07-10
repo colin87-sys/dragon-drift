@@ -51,4 +51,23 @@ law depends on a player-coupled term, the test must move the player — never pi
 **Owner still judges FEEL.** 10.2 sits 0.2 inside the 10.4 law; the number is deterministic (no RNG
 in sway/yaw/gaze) so the gate is stable, but whether it FEELS comfortable is the owner's call on the
 next preview. If it wants more room, the dials are idleWobble 0.3→0.2, holdSway 0.5→0.4, or the gaze
-cap 0.3→0.15 — never widen the 10.4 law to pass.
+cap 0.3→0.15 — never widen the 10.4 law to pass. (Owner playtested it: GOOD.)
+
+**What the CP2 diff critic caught (all folded before merge):**
+- **The rewritten test was still half-theater.** The near-palm checks fired the coupling, but the
+  FAR-palm "stays comfortable" checks PASS with gaze dead (base 9.1 < 10.4) — they distinguished
+  nothing, the exact false-green the rewrite existed to escape. Fix: assert the far palm is dragged
+  INWARD (min|x| ≤ 7, live ~5.1 vs dead ~8.4) and read back `player.position.x` to prove the pin
+  held. **A coupling test must assert the coupling MOVED something, not just that a bound held.**
+- **A big dramatic recoil and an acquirable organ are mutually exclusive near a wall.** The
+  thread-cut "hands thrown APART" (`cutEase`) flings a palm to ~13 (the wall) during the strike
+  window — and there's a dedicated boss.mjs test guarding that the throw is BIG. You can't bound the
+  position (kills the drama + fails that test) AND keep it acquirable. Resolution = the eye-seal /
+  mend-anchor precedent: **let it fly, but DROP it from the paint set while flung** (`model.handsFlung`
+  → `paintableParts` recoilOrgans), so the central anchor (loomHeart) is the only target and a palm
+  lured to the wall is never acquirable. Gate on the model's LIVE recoil state (cutEase>0.5), not a
+  boss.js timer — it auto-clears as the recoil settles, no reset bookkeeping, and the test asserts
+  both the mid-recoil seal (paintables == [anchor]) AND the transient REJOIN.
+- **The P5 dread-card GO gate is now MORE load-bearing, not less.** Comfort removes the hidden
+  real-play slop of wall-hugging palms, so live throughput moves toward the headless model's
+  optimum (which reads no geometry, so its ~1.08 margin didn't budge). Re-judge P5 on the preview.
