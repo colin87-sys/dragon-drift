@@ -1785,6 +1785,11 @@ export const ui = {
           ${gfxToggle('skyClouds')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">OCEAN SWELL</div>
+          <p class="sub">The sea surface rolls with a real swell — a living, undulating horizon instead of a flat line. (Experimental.)</p>
+          ${gfxToggle('waterSwell')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">SMOOTH GRADIENTS</div>
           <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
           ${gfxToggle('dither')}

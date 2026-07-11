@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 import { SUN_DIR } from './biomes.js';
+import { waterSurfaceHeight } from './water.js';
+
+// N10a: the contact plane sits at BASE_Y above the mean surface; with the swell on
+// it rides the local crest height so it doesn't clip through / float over waves.
+// waterSurfaceHeight returns 0 when swell is off → shipped y=0.06 exactly.
+const BASE_Y = 0.06;
 import { getDragonGroup } from './dragon.js';
 
 // Soft contact shadow that grounds the dragon on the water. A single flat plane
@@ -181,6 +187,7 @@ export function updateContactShadow(dt, player) {
     // under the dragon, so uv samples the mask 1:1. Altitude → fainter + softer.
     mesh.position.x = player.position.x;
     mesh.position.z = player.position.z;
+    mesh.position.y = BASE_Y + waterSurfaceHeight(mesh.position.x, mesh.position.z); // N10a: ride the swell
     mesh.scale.set(FIT * 2, FIT * 2, 1);
     mesh.material.uniforms.uSoft.value = 0.004 + hi * 0.02; // blur out as it lifts
     const target = (0.55 * (1.0 - hi * 0.5)) * qFade;
@@ -198,6 +205,7 @@ export function updateContactShadow(dt, player) {
   );
   mesh.position.x = _pos.x;
   mesh.position.z = _pos.z;
+  mesh.position.y = BASE_Y + waterSurfaceHeight(mesh.position.x, mesh.position.z); // N10a: ride the swell
   // Squash a touch along the travel axis so it reads like a cast shadow, not a disc.
   mesh.scale.set(radius * 1.15, radius, 1);
   const target = (0.42 * (1.0 - hi * 0.62)) * qFade;
