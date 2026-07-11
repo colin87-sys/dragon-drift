@@ -72,7 +72,7 @@ function sunhawkMats(def, glow, stage) {
   // T0 WHITE-HOT — the heart core (the ≤1 near-white register). Orange-hot at low forms,
   // igniting to white-hot at Rebirth. OUT of spineMats (it already IS the hottest hue).
   const heartEmis = [orangeCol, orangeCol, 0xffc878, 0xffffff][st];
-  const heartI = [0.4, 1.0, 1.7, 2.4][st] * g;
+  const heartI = [0.5, 1.4, 2.4, 3.4][st] * g;   // blaze the heart (the "bright origin") — P1 gate polish
   const heart = new THREE.MeshStandardMaterial({ color: 0xffe8c0, emissive: heartEmis, emissiveIntensity: heartI, flatShading: true, roughness: 0.3, metalness: 0.05 });
 
   // Eyes — warm gold, the brightest facial points bar the collar.
@@ -286,10 +286,10 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
   let coreGlow = null;
   const lvl = 0.4 + M.stage * 0.2;
   coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlow('255,180,90'), transparent: true, opacity: 0.1 + lvl * 0.18,
+    map: makeGlow('255,190,110'), transparent: true, opacity: 0.16 + lvl * 0.26,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  coreGlow.scale.setScalar(0.6 + lvl * 0.6);
+  coreGlow.scale.setScalar(0.8 + lvl * 0.8);
   coreGlow.position.set(hx, hy, hz - 0.05);
   coreGlow.layers.set(1);
   coreGlow.userData.base = coreGlow.material.opacity;
@@ -555,9 +555,9 @@ function buildSunpennantTail(def, model, _mats, anchor) {
     const u = nRib > 1 ? (i / (nRib - 1)) - 0.5 : 0;   // −0.5 … 0.5 across the drape
     const rlen = baseLen * (0.62 + 0.38 * (1 - Math.abs(u) * 2));   // CENTRE ribbon longest (comet point)
     // RAKE UP-AND-AFT (never down): +z aft + a real +y lift → the pennant rides the sky zone.
-    const dir = [u * 0.55, 0.28 + 0.45 * lift, 1.0];
+    const dir = [u * 0.42, 0.28 + 0.45 * lift, 1.0];   // less splay → a gathered comet-drape, not a spear
     const side = [1, 0, 0];   // broad flat vane, width spread horizontally
-    const wid = 0.30 * (1 - 0.30 * Math.abs(u) * 2);   // broad ribbons; ~12% overlap at the gathered roots
+    const wid = 0.40 * (1 - 0.24 * Math.abs(u) * 2);   // broader ribbons that overlap into one drape
     const base = [u * 0.10, a.y, a.z];                 // gathered roots (close together at the anchor)
     const vane = Math.abs(u) < 0.25 ? M.ivory : M.gold;
     group.add(kiteFeather(base, dir, side, rlen, wid, 0.06, vane, M.emberShadow, M.roseGold));
