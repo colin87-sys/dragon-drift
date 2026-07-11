@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -26,7 +26,7 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality } from './water.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
@@ -171,6 +171,12 @@ if (urlParams.has('shadow') || gfxPref.heroShadow === true) setContactShadowSilh
 if (urlParams.has('ao') || gfxPref.propAO === true) setPropAO(true);
 // N8 atmosphere: apply the saved toggle; ?atmos forces on.
 if (urlParams.has('atmos') || gfxPref.atmosphere === true) setAtmosphereEnabled(true);
+// N9 sky clouds: apply the saved toggle; ?clouds forces on.
+if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(true);
+// N10a water swell: apply the saved toggle; ?swell forces on. Runs after createWater,
+// so it rebuilds the (already-built) mesh subdivided; it precedes applyQuality, which
+// then sets the LOD tier. geomTier defaults 0, so ?swell boots subdivided at tier0.
+if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -652,6 +658,8 @@ ui.init({
     else if (kind === 'heroShadow') setContactShadowSilhouette(value);
     else if (kind === 'propAO') setPropAO(value);
     else if (kind === 'atmosphere') setAtmosphereEnabled(value);
+    else if (kind === 'skyClouds') setSkyCloudsEnabled(value);
+    else if (kind === 'waterSwell') setWaterSwell(value);
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
@@ -1152,8 +1160,10 @@ function applyQuality(tier) {
   setPostTier(tier);
   setPostPixelRatio(PIXEL_RATIOS[tier]);
   setWaterReflective(tier === 0);
+  setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
   setAmbientQuality(QUALITY_SCALARS[tier]);
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
+  setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
 }
 
 function updateQuality(dt) {
@@ -1459,8 +1469,11 @@ function tick() {
     const sunFacing = _camFwd.dot(SUN_DIR);
     if (sunFacing > 0.05) {
       _sunProj.copy(SUN_DIR).add(camera.position).project(camera);
+      // N9: ease the shafts down as clouds drift across the sun (damped in env;
+      // getCloudSunCover() is 0 when clouds are off → shipped intensity).
+      const cloudGate = 1 - 0.75 * getCloudSunCover();
       setGodRaySun(_sunProj.x * 0.5 + 0.5, _sunProj.y * 0.5 + 0.5,
-        Math.min(sunFacing, 1) * 0.6);
+        Math.min(sunFacing, 1) * 0.6 * cloudGate);
     } else {
       setGodRaySun(0.5, 0.8, 0);
     }
