@@ -87,7 +87,6 @@ export const DRAGONS = {
         bladeChord: 0.133, bladeStagger: 0.28, bladeRake: -1,   // approved apex chord + deep stagger + the FANNED per-blade rake formula (sentinel -1) for the hero planform slits (f0 welded them at 0.28/0.14/0.015)
         crestGoldAmount: 1, crestSeat: 0,   // full gold crest at its approved height (f1 muted+sank it)
         wingTipGoldAmount: 1,            // full gold swallow-banner tips (f0/f1 restrained them)
-        tailPlates: true,               // apex keeps its dorsal tail ridge (f0 turned it off)
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body
         bannerSpread: 0.74, bannerLength: 2.15, bannerNotch: 0.85, bannerCoverts: true, tailTerminus: true, tailSeam: true, tailPlates: false,   // REAR-CHASE SPECTACLE (owner S3 + critic addition): amplify the gold swallow-banner ~25% + a gold fork-root covert pair; carry the dorsal ice seam over the TAIL-CONE ridge (tailSeam — the strip that dominates the chase frame; replaces the drill-bit cones tailPlates drew) and cap it with a cyan TERMINUS STUD at the fork — the night read becomes "cyan spine → cyan tail-light → gold swallow". Apex-only
