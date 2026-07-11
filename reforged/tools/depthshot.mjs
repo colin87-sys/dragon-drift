@@ -39,15 +39,20 @@ async function capture(dist, depth) {
   // snap to the warp target on the next few frozen frames.
   await page.evaluate((d) => { window.__dd.noBoss(true); window.__dd.player.dist = d; window.__dd.game.timeScale = 0; }, dist);
   await page.waitForTimeout(500);
+  // Pitch the camera DOWN so the frame looks INTO the water — where Beer–Lambert
+  // reads (near = look-down = bright shallows; far = glancing = dark deeps). A level
+  // chase cam is nearly all glancing angle, where the effect is invisible.
+  await page.evaluate(() => { const c = window.__dd.camera; c.rotation.x -= 0.34; c.updateMatrixWorld(); });
+  await page.waitForTimeout(100);
   const buf = await page.screenshot();
   await done();
   return buf;
 }
 
-const SANC = 400, FROZEN = 3750;
+const SANC = 400, EMBER = 5250; // Emberfall = murkiest water (highest K) → strongest depth read
 const shots = {
   sancOff: await capture(SANC, false), sancOn: await capture(SANC, true),
-  frozenOff: await capture(FROZEN, false), frozenOn: await capture(FROZEN, true),
+  emberOff: await capture(EMBER, false), emberOn: await capture(EMBER, true),
 };
 for (const [k, v] of Object.entries(shots)) writeFileSync(`/tmp/depth-${k}.png`, v);
 
@@ -67,8 +72,8 @@ const png = await page.evaluate(async (b64) => {
   const cells = [
     [imgs.sancOff, 'SANCTUARY — depth OFF (flat tint, shipped)', 0, 0],
     [imgs.sancOn, 'SANCTUARY — depth ON (dark deeps, bright look-down)', 1, 0],
-    [imgs.frozenOff, 'FROZEN REACH — depth OFF (shipped)', 0, 1],
-    [imgs.frozenOn, 'FROZEN REACH — depth ON', 1, 1],
+    [imgs.emberOff, 'EMBERFALL — depth OFF (shipped)', 0, 1],
+    [imgs.emberOn, 'EMBERFALL — depth ON (murkiest water)', 1, 1],
   ];
   ctx.textBaseline = 'middle'; ctx.font = '600 15px system-ui, sans-serif';
   for (const [im, label, col, row] of cells) {
