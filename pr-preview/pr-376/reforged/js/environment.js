@@ -6,6 +6,10 @@ import { biomeIndexAt, computeEnv } from './biomes.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { damp } from './util.js';
+import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
+
+// Re-export the sky-IBL controls so main.js drives them through environment.
+export { setSkyProbeEnabled, skyProbeEnabled };
 
 // Sky dome, lighting, and the prop bands lining the course. Endless: prop
 // instances are recycled — anything behind the player leapfrogs ahead with
@@ -358,6 +362,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.add(sun, sun.target);
   hemi = new THREE.HemisphereLight(0xbfdcff, 0x2e5448, 0.8);
   scene.add(hemi);
+  initSkyProbe(scene, hemi); // N5 sky-IBL probe (dormant until enabled)
 
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
@@ -505,6 +510,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sceneRef.fog.far = env.fogFar;
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
+  updateSkyProbe(env, su.sunDir.value); // N5: reproject the (lerped) sky into the probe
   sun.color.copy(env.lightSun);
   sun.intensity = env.lightSunI;
   hemi.color.copy(env.hemiSky);
