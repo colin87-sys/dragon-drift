@@ -964,8 +964,8 @@ function buildSunfireTrail(def, model, _mats, anchor) {
     });
   }
   // AXIAL CORE — the dominant hot comet head down the centre of the hollow cone (a whisper of wave).
-  const coreF = flameFeather([0, mouthY, mouthZ - 0.06], axisDir, [1, 0, 0.05], baseLen, 0.56 * wf,
-    0.05, coreRamp, 0.12, { seg: 6, tipW: 0.30, wave: { amp: 0.02, cycles: 1.0, phase: 0 } });
+  const coreF = flameFeather([0, mouthY, mouthZ - 0.06], axisDir, [1, 0, 0.05], baseLen, 0.36 * wf,
+    0.05, coreRamp, 0.14, { seg: 7, tipW: 0.12, wave: { amp: 0.06, cycles: 1.15, phase: 0 } });
   pivot.add(coreF.group);
   streamTips.push(coreF.tip);
 
@@ -976,14 +976,20 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // the wing streamers (x≥1.9, z<0.9), no merge. Base y 0.10-rel (0.60 world) → corridor-irrelevant.
   if (lift > 0.35) {
     const cl = 0.7 + 0.3 * lift;
-    // [x, z, dirX, dirY, len, wid]
-    for (const [cx, cz, dx, dy, ln, wd] of [
-      [0, a.z - 0.02, 0, 0.88, 2.6, 0.22],
-      [0.10, a.z - 0.08, 0.22, 0.80, 2.2, 0.18],
-      [-0.10, a.z - 0.08, -0.22, 0.80, 2.2, 0.18],
-    ]) {
-      pivot.add(flameFeather([cx, a.y + 0.10, cz], [dx, dy, 1], [1, 0, 0], ln * cl, wd * wf,
-        0.14, M.hotRibbon, 0.22, { seg: 6, tipW: 0.20, wave: { amp: 0.03, cycles: 0.9, phase: cx >= 0 ? 0 : Math.PI } }).group);
+    // A FAN of thin flame LICKS (a fiery crown), NOT one broad ribbon — a single swept ribbon turns
+    // its broad face to the rear camera and reads as a slab/smokestack. Five thin licks spread in x,
+    // tallest at the centre, each TAPERING to a point + SWEEPING aft → from behind it reads as spread
+    // FIRE with gaps between the licks, not a plank. Pale-hot root → deep-ember tip = the body gradient.
+    const crestRamp = [tMat(0xffe6b0), tMat(0xffce6a), tMat(0xffa030), tMat(0xf26414)];
+    const crestN = 5;
+    for (let i = 0; i < crestN; i++) {
+      const u = i / (crestN - 1) - 0.5;               // −0.5 … 0.5
+      const cen = 1 - Math.abs(u) * 2;                // 1 centre → 0 edge
+      const cx = u * 0.92;                            // spread WIDE (±0.46) → clear dark GAPS between licks (a fiery crown, not a packed slab). Still centreline; wings at x≥1.9.
+      const ln = (1.0 + 0.7 * cen) * cl;              // MODEST height (was a dominant mass) + jagged (centre tallest)
+      const wd = (0.10 + 0.05 * cen) * wf;            // thin, fore-aft width → edge-on from the rear camera
+      pivot.add(flameFeather([cx, a.y + 0.10, a.z - 0.05], [u * 0.5, 0.86, 0.82], [0, 0, 1], ln, wd,
+        0.10, crestRamp, -0.20, { seg: 6, tipW: 0.05, wave: { amp: 0.05, cycles: 0.8, phase: u >= 0 ? 0 : Math.PI } }).group);
     }
   }
 
