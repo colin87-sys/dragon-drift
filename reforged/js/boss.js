@@ -138,6 +138,9 @@ let entranceId = null;         // §5j: which ENTRANCE_SCRIPTS entry is playing 
 let cineYaw = null;            // null = normal facing; else a scripted world-yaw for the turn-around
 let cineRoll = 0;              // scripted bank (rotation.z) — a setpiece path may return `roll`; 0 = level (L155)
 let ribEmitT = 0;             // sub-cadence accumulator for the ribThread rib-bullet emit (L155)
+let archEmitT = 0;            // §ENG-HC sub-cadence accumulator for the archPass converging-iris waves
+let archWaveN = 0;           // §ENG-HC waves fired this fly-through (gate counter)
+let archHinted = false;      // §ENG-HC the "hold the open lane" teach, once per fight
 let headShotT = 0;            // sub-cadence for the L155 flank head-turn mouth shots
 // Fight-phase group x/y smoothing (seeded at enterFight from the entrance-end pose). Absorbs the
 // single-frame lateral JUMP when the fight's station-bob (pose.x = sin(t)*5) takes over from the
@@ -182,6 +185,9 @@ let noWarnFired = false;
 let ghostFrameBroken = false;
 const GHOST_FRAME_HITS = 4;   // perfect parries of the ghost half to dismantle the frame
 let ghostFrameHits = 0;
+let ghostNoted = false;          // §ENG-OW-teach: first-ghost-volley prompt, once per fight
+let ghostPerfectHinted = false;  // §ENG-OW-teach: the "only a PERFECT parry cracks it" hint, once per fight
+let lastGhostVolleyAt = -1e9;    // §ENG-OW-teach: fightNow stamp of the last ghost volley (scopes the perfect-parry hint)
 let soakT = 0;                // the 2× spray-soak graze window (from the frame-break vent)
 const SPRAY_SOAK_BONUS = 2;   // the graze-meter reward for soaking the frame-break vent (§5i.B)
 // §BOSS-FEEL §3 C.1 "THE DOOR OPENS" (HOLLOWGATE, def.destructiblePanes only): set once
@@ -1732,6 +1738,8 @@ export function startBossEncounter(player, defOverride) {
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
   felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0; breached = false;   // §5f the lie is fresh (once) + the frame intact + the door unbreached per encounter
+  ghostNoted = false; ghostPerfectHinted = false; lastGhostVolleyAt = -1e9;   // §ENG-OW-teach: the frame-break teaching is fresh per encounter
+  archEmitT = 0; archWaveN = 0; archHinted = false;   // §ENG-HC the converging iris is fresh per encounter
 
   phase = 'warn';
   warnT = B.warnTime;
@@ -2497,6 +2505,16 @@ export function updateBoss(dt, player, time, camera) {
           if (ribEmitT >= 0.55) { ribEmitT = 0; emitRibStrain(player); }
         }
       }
+      // §ENG-HC THE WALLS CONVERGE: while the fly-through arch is crossing the player's near field
+      // (rel 0.5..15), the beat OWNS its fire (the ribThread precedent) and a slow amber iris
+      // constricts from the inner walls, leaving a sealed player-seeded safe lane. archPass exists
+      // only in hollowgate's def → hollowgate-scoped by construction; inert for every other boss.
+      if (setpieceDef.id === 'archPass' && pose.rel > 0.5 && pose.rel <= 15) {
+        attackTimer = Math.max(attackTimer, 0.5);   // the fly-through beat owns its fire (no normal murmur competes)
+        if (chargeT > 0) { chargeT = 0; model.setAttackTell?.(null); }
+        archEmitT += dt;
+        if (archEmitT >= 0.62) { archEmitT = 0; emitArchConverge(player); }
+      }
       if (k >= 1) clearSetpiece();
     } else {
       if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly
@@ -2594,7 +2612,15 @@ export function updateBoss(dt, player, time, camera) {
       if (riposteReturnT <= 0) {
         const slow = B.bulletSpeed * riposteReturnMult;
         const v = aimVel(player.position.x, player.position.y, slow);
-        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, true, null, 1.1, null, emitOrigin.rel);
+        // §ENG-KV legibility: the RETURN wears the duelist's cold accent CORE on an honest amber
+        // ring (the onewing tinted-core grammar: "this fight's parry object"), lobbed LARGE —
+        // color/core/size only, NEVER a part tag (karnvow has lockParts + no emitOrigins → any
+        // string here would brand a phantom trophy organ, §ENG-EW).
+        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, true, null, 1.45, def.accent ?? null, emitOrigin.rel);
+        tmp.set(emitOrigin.x, emitOrigin.y, -(player.dist + emitOrigin.rel));
+        burst(tmp, def.accent ?? 0xffc23c, { count: 7, speed: 12, size: 0.8, life: 0.35 });   // the ball's birth cue, AT the ball
+        if (!riposteNoted) { riposteNoted = true; ui.bossNote?.('⚔ RIPOSTE ⚔', 'IT PARRIED YOUR PARRY — VOLLEY THE COLD-EYED AMBER BACK', 'gold', 2.4); }
+        emit('bossRiposteReturn', { rally: rallyN });   // gate surface (bossNote is a headless no-op)
         rallyWindowT = RALLY_WINDOW;   // §ENG-KV C.1: the return is in flight — a parry inside RALLY_WINDOW answers it
       }
     }
@@ -2901,8 +2927,18 @@ export function updateBoss(dt, player, time, camera) {
               cameraCtl.shake?.(1.2); sfx.milestone?.();
               emit('bossFrameBreak', {});
             } else {
-              ui.bossNote?.(`✦ GHOST STAGGER — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, 'PARRY THE DEAD HALF APART', 'gold', 1.1);
+              cameraCtl.shake?.(0.35);   // the frame takes the hit — felt, not just read
+              ui.bossNote?.(`✦ THE FRAME CRACKS — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, 'PERFECT-PARRY THE PALE AMBERS AGAIN', 'gold', 1.1);
+              emit('bossGhostStagger', { hits: ghostFrameHits });
             }
+          } else if (def.ghostHalf && !surge && !ghostFrameBroken && !ghostPerfectHinted
+                     && !r.snapParts.includes('frameGroup') && fightNow - lastGhostVolleyAt < 3) {
+            // §ENG-OW-teach: a parry landed near a live ghost volley but banked NOTHING (snapParts
+            // is PERFECT-only) — say WHY, once, or the mechanic reads as "parrying does nothing"
+            // (the owner's exact confusion). Honest looseness: can fire off a living-half amber
+            // parried while ghosts were recently in flight — acceptable for a once-per-fight note.
+            ghostPerfectHinted = true;
+            ui.bossNote?.('✦ ONLY A PERFECT PARRY CRACKS THE FRAME ✦', 'ROLL AS THE PALE AMBER REACHES YOU', 'gold', 2.4);
           }
         }
       }
@@ -3917,6 +3953,44 @@ function emitRibStrain(player) {
   }
 }
 
+// §ENG-HC "THE WALLS CONVERGE" (HOLLOWGATE archPass fly-through): a slow amber IRIS constricts
+// from the arch's inner walls toward the aperture axis, with a player-seeded safe lane SEALED at
+// telegraph time (the geyser can't-lie law — the glint marks where the wall will be, and the wall
+// spawns exactly there 0.45s later). Hold the open lane and you're safe by construction; every
+// bullet is amber/parryable (the boss is on top of you — a parry is always an exit). Setpiece-owned
+// fire (the ribThread precedent), NOT an attack id (the Calamities ≤1-new-id budget is spent on
+// geyser). Reuses the pooled bullet + burst paths — zero new geometry/additive (§2 overdraw law).
+function emitArchConverge(player) {
+  if (!(model && model.archGapWidth && model.archGapSpan)) return;
+  const gapW = model.archGapWidth(), span = model.archGapSpan();
+  const Cx = pose.x, Cy = pose.y + (span.lo + span.hi) / 2, Crel = pose.rel;
+  if (Crel <= 0.5) return;
+  const a = Math.max(1.5, gapW / 2 - 0.35), b = Math.max(2.0, (span.hi - span.lo) / 2 - 1.2);   // rim ellipse (inner pillar faces)
+  // Seed the safe sector at the player's angle from the aperture centre; if dead-centre, use their
+  // heading (a dive-out read), else default straight down (−π/2).
+  const pdx = player.position.x - Cx, pdy = player.position.y - Cy;
+  const moving = player.velocity && Math.hypot(player.velocity.x, player.velocity.y) > 1;
+  const theta = (Math.hypot(pdx, pdy) < 1.2)
+    ? (moving ? Math.atan2(player.velocity.y, player.velocity.x) : -Math.PI / 2)
+    : Math.atan2(pdy, pdx);
+  const GAP_HALF = 0.7, RIM = 12, phase = archWaveN * 0.35, T = 1.15;
+  for (let i = 0; i < RIM; i++) {
+    const ang = phase + (i / RIM) * Math.PI * 2;
+    const d = Math.abs(((ang - theta + Math.PI) % (Math.PI * 2)) - Math.PI);   // angular distance to the safe sector centre
+    if (d < GAP_HALF) continue;                                                // the open lane — no wall here (sealed now, honoured at fire)
+    const rx = Cx + Math.cos(ang) * a, ry = Cy + Math.sin(ang) * b;            // the doomed rim point
+    const tx = Cx + Math.cos(ang) * 2.2, ty = Cy + Math.sin(ang) * 2.5;        // the iris floor (bullet stops here — never crosses into the gap sector)
+    tmp.set(rx, ry, -(player.dist + Crel));
+    burst(tmp, 0xe09a3e, { count: 3, speed: 4, size: 0.5, life: 0.4 });        // the stained-gold glint telegraph (never danger magenta)
+    pending.push({ t: 0.45, fire: () => emitBoss(rx, ry, (tx - rx) / T, (ty - ry) / T, -Crel / T, true, null, 1, null, Crel, null) });
+  }
+  archWaveN++;
+  if (!archHinted) {
+    archHinted = true;
+    ui.bossNote?.('✦ THE WALLS CONVERGE ✦', 'HOLD THE OPEN LANE', 'gold', 2.2);
+  }
+}
+
 // FLANK head-turn shots (L155): the body is flying forward on the flank but the head is
 // craned at you (setHeadLook), so a few skull-origin amber shots close the normal FORWARD
 // way (it's ahead of you now). Reuses the head-origin solver from PR1.
@@ -3966,6 +4040,16 @@ function emitGhostHalf(player) {
   for (let i = 0; i < n; i++) {
     const off = (i - (n - 1) / 2) * 1.5;
     emitBoss(ox, oy, (tgt.x + off - ox) / t, (tgt.y - oy) / t, -closing, true, null, 1, def.ghostColor ?? 0xcfe6ff, orel, 'frameGroup');
+  }
+  // §ENG-OW-teach: the ghost volley just fired — stamp it (scopes the perfect-parry hint) and,
+  // once per fight, TEACH the break (the mechanic was previously taught only in retrospect —
+  // owner: "how do you break frame?"). Placed after the loop so a whiffed (orel<=0.3) volley
+  // never fires it; phaseIdx>=1 gate above keeps it out of the P1 opener.
+  lastGhostVolleyAt = fightNow;
+  if (!ghostNoted) {
+    ghostNoted = true;
+    ui.bossNote?.('✦ THE DEAD TWIN FIRES ✦', `PERFECT-PARRY ITS PALE AMBERS ×${GHOST_FRAME_HITS} — BREAK THE FRAME`, 'gold', 2.8);
+    emit('bossGhostTeach', {});
   }
 }
 
@@ -5044,7 +5128,7 @@ function damageBoss(amount, kind, e = null) {
       riposteReturnT = 0.22;
       sfx.shieldPing?.();
       if (group) burst(group.position, 0xffc23c, { count: 10, speed: 14, size: 0.9, life: 0.4 });
-      if (!riposteNoted) { riposteNoted = true; ui.bossNote?.('⚔ RIPOSTE ⚔', 'IT PARRIED YOUR PARRY — SWAT IT BACK', 'gold', 2.2); }
+      // §ENG-KV legibility: the riposteNoted teach MOVED to the RETURN emit — the note must land while the ball it names is on screen, not 0.22s before it exists.
       emit('bossRiposte', { phase: phaseIdx, rally: 0 });
       return;
     }
@@ -5147,6 +5231,8 @@ export function resetBoss() {
   group = null; model = null; def = null;
   pendingDeath = false;
   felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0; breached = false;   // §5f teardown never strands the lie/frame state (+ the door)
+  ghostNoted = false; ghostPerfectHinted = false; lastGhostVolleyAt = -1e9;   // §ENG-OW-teach teardown
+  archEmitT = 0; archWaveN = 0; archHinted = false;   // §ENG-HC iris teardown
   noWarnDir = null; noWarnFired = false;                     // §5j fresh deferred-banner state per encounter
   rollParried = false;
   shielded = false;
@@ -5434,7 +5520,7 @@ export function bossDebugState() {
   // live possession/drop, so the crop tool + gate can read the eye-drop state.
   const hs = model?.holdState?.();
   const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, archWaveN, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

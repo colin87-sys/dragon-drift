@@ -407,7 +407,13 @@ export function buildTwinWraith(def, quality = 1) {
       if (isScar) {
         const scarMark = new THREE.Object3D();
         scarMark.name = 'seekerScar';
-        segs[1].pivot.add(scarMark);
+        // §ENG-EW-margin: the lock MARKER rides the TWIN at the tail-root offset — NOT a tail pivot.
+        // The tail's lag+swing carried even the root pivot ~12u out, past the ±13 kill wall at the
+        // orbit reversal (the owner's outer-pip crash). Parenting the invisible empty to the twin
+        // bounds it to the calm orbit excursion (~4.7u); the visible scar ribbon still flows freely.
+        // Byte-neutral (no geometry); name/count untouched (the telegraph gate still finds them).
+        scarMark.position.set(0, rootY, 0);   // ride the twin body itself (no −z the yaw could rotate wide, no lateral); the visible scar ribbon still flows out
+        twin.add(scarMark);
       }
     }
 

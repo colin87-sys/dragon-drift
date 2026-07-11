@@ -2416,6 +2416,8 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   let breakEvt = null, sawGhost = false, rolls = 0, felledAfterBreak = 0;
   on('bossFrameBreak', () => { if (!breakEvt) breakEvt = boss.bossDebugState(); });
   on('bossFelledLie', () => { felledAfterBreak++; });   // §5i.C the break must FORFEIT the lie
+  let ghostTeach = 0; const ghostStaggers = [];   // §ENG-OW-teach: the break must be TAUGHT, not learned in retrospect
+  on('bossGhostTeach', () => { ghostTeach++; }); on('bossGhostStagger', (e) => { ghostStaggers.push(e.hits); });
   let t = 0;
   for (let i = 0; i < 60 * 200 && !breakEvt && game.inBoss; i++) {
     const dt = 1 / 60;
@@ -2492,9 +2494,11 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     otherGhost += bullets.debugActiveBullets().filter((b) => b.owner === 'boss' && b.part === 'frameGroup').length;
   }
   assert(otherGhost === 0, `a non-ghostHalf boss (eitherwing) never fires the frame-tagged ghost half (saw ${otherGhost})`);
+  assert(ghostTeach === 1, `§ENG-OW-teach: the frame-break is TAUGHT once on the first ghost volley (fired ${ghostTeach}×) — never the P1 opener`);
+  assert(ghostStaggers.join(',') === '1,2,3', `§ENG-OW-teach: each perfect ghost parry shows THE FRAME CRACKS N/4 progress (${ghostStaggers.join(',')}); the 4th is the break`);
   boss.resetBoss();
   bullets.setDebugPerfectParryRel(null);
-  ok(`onewing ghost-half integration: dead-half fires from the frame (dodge-mirrored) → 4 perfect parries break it → spray-soak vents → ghost stops; inert for others ✓`);
+  ok(`onewing ghost-half integration: dead-half fires from the frame (dodge-mirrored) → 4 perfect parries break it → spray-soak vents → ghost stops; TAUGHT (teach + N/4 progress); inert for others ✓`);
 }
 
 // §5b HUD-SEW render-order LAW + banner-pin lifecycle (weftwitch CP2): the sew and
@@ -4049,6 +4053,108 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assert(surf.rideBest >= 0.8 && surf.releaseRoom >= 1.2, `ENG-D-R slipstream: the ≥0.8s ride arms with room to release the surge (ride ${surf.rideBest.toFixed(2)}, room ${surf.releaseRoom.toFixed(2)}s)`);
   assert(park.paidWall < 0.6, `ENG-D-R slipstream: NOT a free lane — a parked cruise player barely earns (${park.paidWall.toFixed(2)}s < 0.6)`);
   ok('ENG-D-R SLIPSTREAM reachability: a bounded chaser catches the wake from cruise, rides the paid wall through the drop with surge-release room; a parked player earns almost nothing ✓');
+}
+
+// §BATCH-3 — the feel-fix batch: Karnvow return legibility, Eitherwing wall-margin, Hollowgate iris.
+{
+  const armAt = (name, phase) => {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    if (phase) boss.setBossDebugPhase(phase);
+    boss.forceBoss(p, BOSS_ORDER.indexOf(name));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, 2 + i / 60); }
+    return p;
+  };
+
+  // --- KARNVOW legibility: the RETURN ball is DISTINCT (accent core + big lob) + carries NO part tag ---
+  {
+    bullets.setDebugPerfectParryRel(CONFIG.BOSS.reflectWindow);
+    const p = armAt('karnvow', 2);
+    let retEvt = 0; on('bossRiposteReturn', () => retEvt++);
+    boss.debugClearShield();
+    emit('bossDamage', { amount: 5, kind: 'player', x: 0, y: 8 });   // fresh riposte → the return spawns ~0.22s later
+    bullets.resetBossBullets();
+    for (let k = 0; k < 20; k++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, 3 + k / 60); }
+    const all = bullets.debugActiveBullets().filter((b) => b.owner === 'boss');
+    const rb = all.filter((b) => b.reflectable && b.coreColor === BOSSES.karnvow.accent);
+    assert(rb.length >= 1, `KARNVOW legibility: the return wears the duelist accent core 0x${BOSSES.karnvow.accent.toString(16)} (found ${rb.length})`);
+    assert(rb.every((b) => b.part == null), 'KARNVOW legibility: the return carries NO part tag (phantom-organ guard)');
+    assert(rb.every((b) => b.color === 0xffc23c), 'KARNVOW legibility: the return stays an honest amber RING (reflectable, no false-amber lie)');
+    assert(rb.every((b) => b.r > CONFIG.BOSS.bulletRadius * 1.3), `KARNVOW legibility: the return is a LARGE lob (r > ${(CONFIG.BOSS.bulletRadius * 1.3).toFixed(2)})`);
+    assert(all.filter((b) => b.reflectable && b.coreColor !== BOSSES.karnvow.accent).every((b) => b.coreColor === 0xffffff), 'KARNVOW legibility: only the return is re-cored — stock ambers keep the white core');
+    assert(retEvt >= 1, 'KARNVOW legibility: the return fires its teach-surface event (prompt lands with the ball)');
+    bullets.setDebugPerfectParryRel(null); boss.resetBoss(); boss.setBossDebugPhase(1);
+  }
+
+  // --- EITHERWING wall-margin: the LIVE-orbit sway-aware fence (no pins — the ENG-EW law) ---
+  {
+    // Seed the model build deterministically (buildBoss consumes real Math.random for procedural
+    // geometry — an unseeded build would drift the excursion across the fence threshold; same
+    // class as the karnvow-footwork / embertide seeds).
+    const _rrEw = Math.random; let _sEw = 0x71C3A9E5;
+    Math.random = () => { _sEw = (_sEw * 1103515245 + 12345) & 0x7fffffff; return _sEw / 0x80000000; };
+    const ew = buildBoss(BOSSES.eitherwing, 1);
+    Math.random = _rrEw;
+    const V = new THREE.Vector3();
+    const organs = ['eyeRig', 'seekerFin', 'seekerScar'];
+    const maxX = { eyeRig: 0, seekerFin: 0, seekerScar: 0 };
+    for (let i = 0; i < 60 * 90; i++) {
+      ew.tick(1 / 60, i / 60);
+      for (const o of organs) { const w = ew.partWorldPos?.(o, V); if (w) maxX[o] = Math.max(maxX[o], Math.abs(w.x)); }
+    }
+    const sway = BOSSES.eitherwing.holdSway?.amp ?? 5.0;
+    const wall = CONFIG.laneHalfWidth - 4.0;   // a dodge-flick of comfort inside the ±13 kill wall
+    assert(sway <= 1.6, `EITHERWING margin: the station sway is calmed (holdSway.amp ${sway} <= 1.6)`);
+    for (const o of organs) {
+      assert(maxX[o] + sway - CONFIG.LOCK.coneXY <= wall,
+        `EITHERWING margin: acquiring '${o}' clears the ±${CONFIG.laneHalfWidth} wall with comfort (worst ${(maxX[o] + sway - CONFIG.LOCK.coneXY).toFixed(2)} <= ${wall}, SWAY-AWARE)`);
+    }
+    ew.dispose?.();
+  }
+
+  // --- HOLLOWGATE "THE WALLS CONVERGE": the iris fires waves that converge inward, with an occupiable safe lane ---
+  {
+    // Occupiable safe lane: a player holding the aperture-bottom lane is NEVER hit by the iris.
+    const p = armAt('hollowgate');
+    p.position.x = 0; p.position.y = 8;   // the bottom lane — the gap seeds at this angle each wave
+    boss.debugRunSetpiece('archPass');
+    const h0 = game.health;
+    for (let i = 0; i < 60 * 7; i++) {
+      boss.debugClearShield();
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (!boss.bossDebugState().setpiece && boss.bossDebugState().archWaveN > 0) break;   // pass ended
+    }
+    const stH = boss.bossDebugState();
+    assert(stH.archWaveN >= 2, `HOLLOWGATE iris: the fly-through fires >=2 converging waves (${stH.archWaveN})`);
+    assert(game.health >= h0 - 1e-6, `HOLLOWGATE iris: a player holding the sealed open lane is NEVER hit (lost ${(h0 - game.health).toFixed(2)})`);
+    boss.resetBoss();
+    // Converge inward: re-drive, capture the iris bullets, assert each moves toward the aperture axis (x → poseX).
+    const p2 = armAt('hollowgate'); p2.position.x = 0; p2.position.y = 8;
+    boss.debugRunSetpiece('archPass');
+    let converge = 0, diverge = 0;
+    for (let i = 0; i < 60 * 7; i++) {
+      boss.debugClearShield();
+      const px0 = boss.bossDebugState().poseX;
+      for (const b of bullets.debugActiveBullets()) {
+        if (b.owner !== 'boss') continue;
+        const dxc = b.x - px0;
+        if (Math.abs(dxc) > 0.5) { if (Math.sign(b.vx) === -Math.sign(dxc)) converge++; else diverge++; }
+      }
+      boss.updateBoss(1 / 60, p2, 3 + i / 60);
+      if (!boss.bossDebugState().setpiece && boss.bossDebugState().archWaveN > 0) break;
+    }
+    assert(converge > 0 && converge > diverge * 3, `HOLLOWGATE iris: the walls CONVERGE inward toward the aperture axis (converge ${converge} >> diverge ${diverge}; the minority are bullets that reached the iris floor and exited)`);
+    boss.resetBoss();
+    // Coexist: no other boss fires the iris.
+    const p3 = armAt('marrowcoil');
+    for (let i = 0; i < 60 * 3; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p3, 2 + i / 60); }
+    assertEq(boss.bossDebugState().archWaveN, 0, 'HOLLOWGATE iris coexist: marrowcoil never fires an arch wave');
+    boss.resetBoss();
+  }
+
+  ok('BATCH-3 (feel fixes): Karnvow return is DISTINCT + tag-free, Eitherwing outer pips clear the wall (sway-aware), Hollowgate iris converges with an occupiable safe lane (coexist inert) ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);

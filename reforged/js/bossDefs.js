@@ -463,6 +463,7 @@ export const BOSSES = {
     approachFrom: 'sides',    // BOTH SIDES at once (§5e new branch): the twins arrive from both flanks
     entrance: 'batonCross',   // §5j THE BATON CROSS: twins bracket the dragon, the eye crosses right→left, then scissor into the fight (falls back to the 'sides' approach if the script is absent)
     scale: 1.55,              // COLOSSUS — REACH PASS (r8): 1.35→1.55, crossing span ≈ 23u (ASHTALON-class reach)
+    holdSway: { amp: 1.6, freq: 0.5 },   // §ENG-EW-margin (BRINEHOLM precedent): calm the ±5.0 default station sway so acquiring an OUTER pip at the orbit reversal doesn't force the player a dodge-flick from the ±13 kill wall. 1.6 < retentionConeXY 4.0 → a held lock never drops from sway. The REACH presence lives in ORBIT_R, untouched.
     grazeBaitR: 4.0,          // WIDER shield graze-ring (default 3.6) — the r9 body reads big, so the
                               // fixed ring felt tight to thread; 4.0 stays ≤ grazeR (≈4.15) so it still fully skims
     hpMax: 330,               // Tier 2 band (260–330); slot-5 PEAK sits at the top (the sawtooth crest)
