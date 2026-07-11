@@ -229,6 +229,35 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   // rear chase). Default keeps the shipped sphere byte-identical.
   const squareShoulder = !!model.squareShoulders;
   if (bodyMesh && !bridged) for (const s of [-1, 1]) {
+    // facetShoulders (additive, default off): replace the smooth fairing ball with a stack of
+    // 3 flat folded scapular COVERTS (a falcon read at the wing roots, visible dead-astern),
+    // stepping ×0.8 + z-staggered back; the TOP covert sits proud of the back line and carries
+    // a diffuse gold tip (the wing/crest/banner gold-tips grammar). Matte, no emissive.
+    if (model.facetShoulders) {
+      const gold = new THREE.Color(def.accentHue ?? 0xd9b36a);
+      const bodyCol = new THREE.Color(def.body ?? 0x27435f);
+      for (let k = 0; k < 3; k++) {
+        const size = fr.r * fScale * 1.5 * Math.pow(0.8, k);
+        const cg = new THREE.ConeGeometry(size * 0.5, size * 1.9, 4);
+        cg.rotateX(Math.PI / 2);        // lie flat, point back (+z)
+        cg.scale(1, 0.32, 1);           // flatten into a plate
+        let mat = bodyMat;
+        if (k === 0) {                  // gold-tipped top covert
+          cg.computeBoundingBox();
+          const z0 = cg.boundingBox.min.z, span = (cg.boundingBox.max.z - cg.boundingBox.min.z) || 1;
+          const p = cg.attributes.position, col = [], c = new THREE.Color();
+          for (let i = 0; i < p.count; i++) { const t = (p.getZ(i) - z0) / span; c.copy(bodyCol).lerp(gold, t > 0.72 ? (t - 0.72) / 0.28 : 0); col.push(c.r, c.g, c.b); }
+          cg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+          mat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.55, metalness: 0.05, flatShading: true, side: THREE.DoubleSide });
+        }
+        const cov = new THREE.Mesh(cg, mat);
+        const yProud = fr.r * (k === 0 ? 0.42 : 0.16);
+        cov.position.set(s * fr.pos[0] * fScale, fr.pos[1] + yProud, fr.pos[2] - 0.1 - k * 0.14);
+        cov.rotation.set(-0.22, s * (0.22 + k * 0.08), s * -0.2);
+        group.add(cov);
+      }
+      continue;
+    }
     let root;
     if (squareShoulder) {
       // a BEVELED squared scapula (a 6-sided prism reads as a chamfered muscular block
