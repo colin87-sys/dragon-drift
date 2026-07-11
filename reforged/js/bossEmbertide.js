@@ -319,6 +319,35 @@ export function buildEmbertide(def, quality = 1) {
   crestPivot.position.set(0, 6, 0);
   group.add(crestPivot);
 
+  // §5i.C rung 13 — STATION-SPACE LANCE PROXIES + the face-brand presentation (CP1: the face relief
+  // organs live on the camera-locked `rig` at world-Y 150+, |x| 90-420, AND skyReplace reparents rig
+  // out of `group` so partWorldPos can't even resolve them — the aim/comfort double-trap). So the AIM
+  // targets are proxies on `group` (the STATION, exactly like crestPivot above), placed IN-LANE below
+  // each face feature (comfort-legal: worst ~9.6 X / ~21.5 Y ≤ 10.4/22); the BRAND is drawn on the real
+  // sky-face node (setBrandedFeatures) — you aim the lane-anchor, the sky-face answers.
+  const faceProxies = { eyeMarkL: [-4, 5.8], eyeMarkR: [4, 5.8], mouthMark: [0, 3.6] };   // in-lane, ~2u below the Y ceiling for comfort headroom (matching X's slack)
+  for (const [name, [x, y]] of Object.entries(faceProxies)) {
+    const pv = new THREE.Object3D(); pv.name = name; pv.position.set(x, y, 0); group.add(pv);
+  }
+  // The dark-halo BRAND ring, drawn ON the sky face when its proxy is painted (a jade rim around the
+  // dark tear — "a jade brand pinned as a dark-halo mark in the bright field"). Hidden until branded;
+  // eased on/off in tickBody. In faceRig-local space, so it scales with the huge face automatically.
+  const BRAND_NODE = { eyeMarkL: eyeHollow0, eyeMarkR: eyeHollow1, mouthMark: mouthPivot };
+  const brandRings = {};
+  for (const [proxy, node] of Object.entries(BRAND_NODE)) {
+    // NORMAL blending, NOT additive — EMBERTIDE is the "opaque wall of light, ZERO additive" boss
+    // (its identity law + boss.mjs guard); the brand reads as a jade rim ON the field, not a glow ADDED
+    // to it. Kept HDR-bright (toneMapped:false) so a mint rim clears the bright field.
+    const ring = new THREE.Mesh(new THREE.RingGeometry(3.9, 4.9, 28),
+      track(new THREE.MeshBasicMaterial({ color: 0x50ffaa, transparent: true, opacity: 0, side: THREE.DoubleSide, depthTest: false, fog: false, toneMapped: false })));
+    ring.name = `${proxy}Brand`; ring.renderOrder = 8; ring.position.z = 0.35; ring.visible = false;
+    node.add(ring); brandRings[proxy] = { ring, on: 0, target: 0 };
+  }
+  // Called by boss.js each frame with the list of PAINTED proxy names — lights the mapped face node.
+  function setBrandedFeatures(names) {
+    for (const [proxy, b] of Object.entries(brandRings)) b.target = names && names.includes(proxy) ? 1 : 0;
+  }
+
   // EMBER MOTES — small opaque HDR points drifting UP the tide (embers; also the
   // handle's `orbiters`, ≥2 by contract). Opaque (no overdraw); they make the wall of
   // light read ALIVE, not a static skybox. They ride the field, BEHIND the face.
@@ -499,6 +528,13 @@ export function buildEmbertide(def, quality = 1) {
   const sstep = THREE.MathUtils.smoothstep;
 
   function tickBody(dt, time) {
+    // §5i.C rung 13: ease the dark-halo brand rings on/off + a slow pulse while lit (the branded
+    // face feature answering the lane-anchor paint).
+    for (const b of Object.values(brandRings)) {
+      b.on += (b.target - b.on) * Math.min(1, dt * 6);
+      if (b.on > 0.01) { b.ring.visible = true; b.ring.material.opacity = b.on * (0.72 + 0.28 * Math.sin(time * 4)); b.ring.scale.setScalar(1 + b.on * 0.06 * Math.sin(time * 4)); }
+      else b.ring.visible = false;
+    }
     // GAZE — the face turns its dark regard toward the dragon (lagged; a mind).
     const gLag = (noticeT > 0 || charge > 0.5) ? 10 : 3.5;
     gazeX += (gazeTX - gazeX) * Math.min(1, dt * gLag);
@@ -645,6 +681,7 @@ export function buildEmbertide(def, quality = 1) {
     setLoom,            // CP2-A: per-phase face growth (0→1 across the fight)
     setCrush,           // CP2-A: the vertical-squeeze visual (ceiling descends, tide swells)
     setAttackTell,      // CP2-A: §4b tell families — the face poses per attack family
+    setBrandedFeatures, // §5i.C rung 13: light the dark-halo brand on the sky-face node whose in-lane proxy is painted
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,

@@ -1517,6 +1517,19 @@ function surgeForkLances(player) {
   for (const lk of locks) { const d = lk.ghost ? ghostDmg : dmgEach; for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, d, i++, pips, full, true); }
   const volleyTotal = realPips * dmgEach + ghostPips * ghostDmg;
   emit('lockVolley', { count: pips, paintedCount: realPips, source: 'fork', dmgEach, volleyTotal, delay: 0, full });
+  // §5i.C rung 13 — THE FORK IS A WEAPON (EMBERTIDE): pips forked WHILE THE BEAM DUEL IS ARMED each
+  // extend the duel window (+beamDuelExtendPerPip/pip; 6 ≈ +2.1s). The banked brands are ammunition
+  // for the fight's signature Surge mechanic — the fork still does its clamped damage (above) AND buys
+  // duel time (additive). Adds ZERO damage, so it's invisible to the balance model (ED-8: the lance
+  // FEEDS the Surge duel, never replaces it). Inert unless a duel is live on a beamDuel boss.
+  if (def?.beamDuel && beamDuelT > 0 && pips > 0) {
+    const ext = pips * (def.beamDuelExtendPerPip ?? 0);
+    if (ext > 0) {
+      beamDuelT += ext;
+      ui.bossNote?.('✦ THE FORK FEEDS THE BEAM ✦', `+${ext.toFixed(1)}s — HOLD THE CENTER`, 'gold', 1.6);
+      emit('beamDuelExtend', { pips, ext });
+    }
+  }
 }
 
 // PR-B (C1, revised): the beat-aligned INHALE length. PR9 held the committed
@@ -2688,6 +2701,10 @@ export function updateBoss(dt, player, time, camera) {
     };
     _lastBeatOn = lockCtx.beatOn;
     updateLockLayer(dt, player, lockCtx);
+    // §5i.C rung 13 (EMBERTIDE): drive the dark-halo brand on the sky-face from the PAINTED in-lane
+    // proxies — you aim the lane-anchor, the mapped face feature lights. Def-agnostic (only the
+    // embertide model implements setBrandedFeatures); a no-op for every other boss.
+    model.setBrandedFeatures?.(lockPaintedParts());
     updateBurns(dt);
     driveAimTeach(dt, lockCtx);
     driveLockTeach(dt, lockCtx);
@@ -5479,6 +5496,10 @@ export function debugStrikeSurge() {
   strikeSurge(lastPlayer);
   return true;
 }
+// §5i.C rung 13 test seams: arm the beam duel + read its remaining window (so the fork-extend rule
+// is testable without flying the Surge meter to 50% and holding lane-center headless).
+export function debugArmBeamDuel(t = 3.6) { if (!active || !def?.beamDuel) return false; beamDuelT = t; return true; }
+export function debugBeamDuelT() { return beamDuelT; }
 export function debugRaiseShield() {
   if (phase !== 'fight') return false;
   shielded = true;
