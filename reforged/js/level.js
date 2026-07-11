@@ -58,6 +58,13 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   let nextCanyonAt = CANYON_FORCE ? 340 : CONFIG.canyonFirstAt + canyonRnd() * 500;
   let canyon = null; // { type, left, idx, total } while a canyon run is in progress
   let forceAllToggle = false; // ?canyon=all alternates rock/spine runs
+  // The last ring overlayCanyons processed, kept on the CLOSURE (not a per-call
+  // local) because real play generates ~one ring per ensure() chunk — a call-local
+  // "previous ring" is reset every frame, so span + neighbour smoothing would never
+  // see across a chunk boundary. Persisting it makes makeRockGap's `span` and the
+  // delayed-emit neighbour data (prevX/nextX) real in per-frame play, not just in
+  // the 800m-chunk tests.
+  let lastRingSeen = null;
   let prev = { dist: 0, x: 0, y: 8 };
   let swingX = 1;
   let swingY = 1;
@@ -86,6 +93,22 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // slalom path — a forced line that breaks up the free-roam cruising.
   let gauntlet = null; // { stations: [{qx, qyLow}], i }
   let untilGauntlet = 650 + rnd() * 450;
+  // Persistent gauntlet ranges so the canyon overlay's "never stack a canyon on a
+  // gauntlet corridor" check works across per-frame chunks: a gauntlet's
+  // start/end markers land in whatever chunk generated them, but the rings they
+  // guard can be processed by overlayCanyons in a LATER chunk. Checking the
+  // per-chunk `out.gauntletStarts` (as the code used to) made the exclusion
+  // granularity-dependent — false in real per-frame play, true only in the
+  // 800m-chunk tests. Old closed ranges are pruned once the overlay passes them.
+  const gauntletRanges = [];
+  let openGauntletRange = null;
+  function markGauntletStart(d) {
+    openGauntletRange = { start: d, end: Infinity };
+    gauntletRanges.push(openGauntletRange);
+  }
+  function markGauntletEnd(d) {
+    if (openGauntletRange) { openGauntletRange.end = d; openGauntletRange = null; }
+  }
 
   const difficulty = (d) => {
     // First 300m: forced easy approach (tutorial)
@@ -315,6 +338,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   function scriptedBeat(b, out) {
     if (b.type === 'gauntlet') {
       out.gauntletStarts.push(prev.dist + 20);
+      markGauntletStart(prev.dist + 20);
       let p = prev;
       let d = b.dist;
       for (const st of b.stations) {
@@ -325,6 +349,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
         d += 70;
       }
       out.gauntletEnds.push(p.dist + 15);
+      markGauntletEnd(p.dist + 15);
       prev = p;
       return;
     }
@@ -393,6 +418,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
         gauntlet = { stations, i: 0 };
         untilGauntlet = prev.dist + 800 + rnd() * 500;
         out.gauntletStarts.push(prev.dist + 30);
+        markGauntletStart(prev.dist + 30);
       }
       if (gauntlet) {
         const st = gauntlet.stations[gauntlet.i++];
@@ -410,6 +436,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
         if (gauntlet.i >= gauntlet.stations.length) {
           gauntlet = null;
           out.gauntletEnds.push(prev.dist + 15);
+          markGauntletEnd(prev.dist + 15);
         }
         continue;
       }
@@ -532,34 +559,53 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // beat) and no canyon starts in the tutorial zone.
   function overlayCanyons(out) {
     // A canyon never overlays a gauntlet corridor (two forced-line systems would
-    // stack). Skip rings inside any gauntlet range emitted this chunk.
+    // stack). Skip rings inside any KNOWN gauntlet range (persistent across chunks,
+    // not just this chunk's markers — see gauntletRanges above). Prune ranges the
+    // overlay has fully passed so the list stays bounded over a long run.
+    if (out.rings.length && gauntletRanges.length) {
+      const minRingDist = out.rings[0].dist;
+      for (let i = gauntletRanges.length - 1; i >= 0; i--) {
+        if (gauntletRanges[i].end < minRingDist - 300) gauntletRanges.splice(i, 1);
+      }
+    }
     const inGauntlet = (d) => {
-      for (let i = 0; i < out.gauntletStarts.length; i++) {
-        if (d >= out.gauntletStarts[i] && d <= (out.gauntletEnds[i] ?? Infinity)) return true;
+      for (let i = 0; i < gauntletRanges.length; i++) {
+        if (d >= gauntletRanges[i].start && d <= gauntletRanges[i].end) return true;
       }
       return false;
     };
     const firstAt = CANYON_FORCE ? 320 : CONFIG.canyonFirstAt;
-    let prevRing = null, prevSeg = null;
     for (const ring of out.rings) {
-      if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; prevSeg = null; continue; }
+      if (ring.dist < firstAt || inGauntlet(ring.dist)) { lastRingSeen = ring; continue; }
       if (!canyon && ring.dist >= nextCanyonAt) canyon = startCanyon(ring, out);
       if (canyon) {
-        const seg = makeRockGap(ring, prevRing, canyon);
+        // BUILD the segment now (so canyonRnd draw order is byte-identical), but
+        // EMIT it one ring later (`canyon.held`). Only then do we know the NEXT
+        // segment's centre for real, so nextX/nextY are true values in per-frame
+        // play instead of the undefined-fallback they were with a call-local prevSeg.
+        const seg = makeRockGap(ring, lastRingSeen, canyon);
         // Smooth the rib tunnel across seams: each seg knows its neighbours' centres
         // so obstacles.js can interpolate a gentle curve through the rings (rings stay
         // dead-centre) instead of jumping the full ring-wander at each segment seam.
         seg.prevX = canyon.lastGapX !== undefined ? canyon.lastGapX : seg.gapX;
-        if (prevSeg) prevSeg.nextX = seg.gapX;
+        seg.prevY = canyon.lastGapY !== undefined ? canyon.lastGapY : seg.gapY;
+        if (canyon.held) {
+          // The held segment's forward neighbour is now real — backfill + flush it.
+          canyon.held.nextX = seg.gapX;
+          canyon.held.nextY = seg.gapY;
+          canyon.held.spanFwd = ring.dist - canyon.held.dist; // forward span (PR-2 uses it)
+          emitSegment(canyon.held, out);
+        }
         canyon.lastGapX = seg.gapX;
-        out.canyonSegments.push(seg);
+        canyon.lastGapY = seg.gapY;
+        canyon.held = seg;
         canyon.gateTo = ring.dist;   // furthest rib so far → gate-suppression window end
-        // A continuous LINE of boosts — one per finale segment — so you grab boost
-        // after boost down the centre of the rib tube, then shoot out into open air.
-        if (seg.kind === 'straightrib') addFinaleOrb(seg, out);
-        prevSeg = seg;
         canyon.idx++;
         if (--canyon.left <= 0) {
+          // FORCE-FLUSH the final segment in this same chunk (its forward neighbour
+          // never comes) — without this the last rib + any finale orb are lost.
+          emitSegment(canyon.held, out);
+          canyon.held = null;
           out.canyonEnds.push(ring.dist + 40);
           suppressCanyonGates(out, canyon.gateFrom, ring.dist + 40);
           // Test harness: quick repeat with a stretch of normal rings between, so
@@ -568,16 +614,21 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
             ? ring.dist + 300
             : ring.dist + CONFIG.canyonIntervalBase + canyonRnd() * CONFIG.canyonIntervalJitter;
           canyon = null;
-          prevSeg = null;
         }
-      } else {
-        prevSeg = null;
       }
-      prevRing = ring;
+      lastRingSeen = ring;
     }
     // A canyon still in progress at the chunk boundary: suppress the gates inside
     // the part of it generated so far (the rest get suppressed as later chunks run).
     if (canyon) suppressCanyonGates(out, canyon.gateFrom, canyon.gateTo);
+  }
+
+  // Push a built segment into the chunk output. The finale-orb line rides WITH the
+  // segment so orb + rib stay paired in the same chunk (the orb formula is
+  // untouched — seg.dist-8 on the ring line).
+  function emitSegment(seg, out) {
+    out.canyonSegments.push(seg);
+    if (seg.kind === 'straightrib') addFinaleOrb(seg, out);
   }
 
   // Mark base Phase Gates whose dist lands inside a canyon run, so main.js skips
@@ -669,6 +720,9 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     ensure,
     difficulty,
     get generatedUntil() { return generatedUntil; },
+    // Read-only: the dist the next canyon run is scheduled to begin (tests assert
+    // the gate-suppression entry window that anchors to it).
+    get nextCanyonAt() { return nextCanyonAt; },
     // Resume generation FRESH from `target` after a suppressed stretch (a boss
     // arena). Without this the cursor is left far ahead (ensure ran during the
     // fight but nothing was spawned), leaving a blank run when the fight ends.
@@ -679,6 +733,12 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       generatedUntil = target;
       prevHopDirX = 0; prevHopDirY = 0;
       gauntlet = null; canyon = null;
+      // Drop the canyon neighbour cursor with the run (canyon = null already drops
+      // any held segment — its chunk was never consumed during the boss).
+      lastRingSeen = null;
+      // Gauntlet ranges are all behind the new cursor; drop them and any open range.
+      gauntletRanges.length = 0;
+      openGauntletRange = null;
       untilGauntlet = target + 650 + rnd() * 450;
       nextGoldAt = target + CONFIG.goldEmberInterval;
       // §5.3 hard rule: reseat the hazard cursor past the boss too, or the
