@@ -22,7 +22,8 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setDither } from './postfx.js';
+import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
@@ -72,11 +73,17 @@ import { BUILD, BUILT } from './buildId.js';
 })();
 
 // --- Renderer / scene / camera ---
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// N3: install the Neutral tonemapper into the CustomToneMapping slot BEFORE any
+// material compiles. No-op on the frame unless ?tm=neutral selects it below.
+installNeutralToneMap();
+// N2 (renderer contract): request the discrete/high-perf GPU where the platform
+// exposes a choice — a free win for the 60fps-on-weak-mobile goal.
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.92; // pull exposure back so highlights don't wash out
+renderer.outputColorSpace = THREE.SRGBColorSpace; // N2: explicit (was the r160 default) — the seam every colorspace change starts from
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -93,6 +100,10 @@ window.addEventListener('resize', () => {
 
 // --- Seeds: every run gets a fresh course; daily + challenge runs pin one.
 const urlParams = new URLSearchParams(window.location.search);
+// N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
+// ON by default; ?dither=0 kills it for a clean before/after comparison.
+if (urlParams.has('tm')) setToneMap(renderer, urlParams.get('tm'));
+if (urlParams.get('dither') === '0') setDither(false);
 const challengeSeedParam = parseInt(urlParams.get('seed'), 10);
 const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam > 0
   ? challengeSeedParam : null;

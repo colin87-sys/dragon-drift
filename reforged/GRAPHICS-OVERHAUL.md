@@ -445,6 +445,11 @@ marginal cost — no `applyQuality` entry needed; state so in the PR for the Gat
   initiative starts until it passes.
 - **Phase 0 — Foundations & free wins (do first):** N2 → N1 → N3 scaffolding → N3 decision → N4. Nothing changes
   the shipped look without a flag. Exit: banding gate green, <100 draw calls, tone-map montage approved.
+  - **✓ Landed (this branch):** **N2** (`powerPreference:'high-performance'` + explicit `outputColorSpace`;
+    `stencil:false` deferred), **N1** grading-pass dither (`?dither=0` kill switch; tier2 sky/water copies
+    deferred), **N3 scaffolding** (`toneMap.js` Neutral chunk-override + `?tm=aces|agx|neutral`, default ACES).
+    Verified: `tests/graphicsfoundation.mjs` (20/20), `tools/bandshot.mjs` (banding gate), `tools/tonemapshots.mjs`
+    (A/B montage). **Pending owner:** the N3 tone-map decision (judge the montage), then N4 (ParticleBatch).
 - **Phase 1 — Hero look (Azure):** N5 rung 1 → N6 → N7 → N5 rung 2 → **N14 (shading AA, where the artifact now
   peaks)**. Hero-first, judged on Azure in the shop scene + chase cam. Exit: the "bank across the sun" shot approved.
 - **Phase 2 — World & atmosphere:** **N15 (prop AO, opener)** → N8 → N9 (Sanctuary hero biome) → N10 (a/b/c
