@@ -452,8 +452,13 @@ marginal cost — no `applyQuality` entry needed; state so in the PR for the Gat
     `stencil:false` deferred), **N1** grading-pass dither (`?dither=0` kill switch; tier2 sky/water copies
     deferred), **N3 scaffolding** (`toneMap.js` Neutral chunk-override + a `CustomToneMapping` branch patched into
     the vendored `OutputPass`/`OutputShader` so `?tm=neutral` actually tonemaps the composed path; `?tm=aces|agx|neutral`, default ACES).
-    Verified: `tests/graphicsfoundation.mjs` (20/20), `tools/bandshot.mjs` (banding gate), `tools/tonemapshots.mjs`
-    (A/B montage). **Pending owner:** the N3 tone-map decision (judge the montage), then N4 (ParticleBatch).
+    Verified: `tests/graphicsfoundation.mjs` (23/23), `tools/bandshot.mjs` (banding gate), `tools/tonemapshots.mjs`
+    (A/B montage). Merged as #373.
+  - **✓ Landed (#376):** **N4 ParticleBatch** (`?pfx=batch`, default OFF): 320 Sprites kept as state, one
+    `InstancedBufferGeometry` reads them → ≤150 spark draws collapse to 1 (241→188 at tier2). Parity verified vs
+    the vendored sprite shader incl. the tier2 tonemapping/colorspace tail; `tests/particlebatch.mjs` (6/6),
+    `tools/pfxshot.mjs` (tier0+tier2 look A/B). Fog = documented deviation (near-field bursts unaffected).
+    **Pending owner:** the N3 tone-map default flip + the N4 batch default flip (both need a motion judgment).
 - **Phase 1 — Hero look (Azure):** N5 rung 1 → N6 → N7 → N5 rung 2 → **N14 (shading AA, where the artifact now
   peaks)**. Hero-first, judged on Azure in the shop scene + chase cam. Exit: the "bank across the sun" shot approved.
 - **Phase 2 — World & atmosphere:** **N15 (prop AO, opener)** → N8 → N9 (Sanctuary hero biome) → N10 (a/b/c
@@ -523,3 +528,4 @@ One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable 
 | #373 Phase 0 | N2 renderer contract | 9/10 | SHIP | `stencil:false` skip justified (EffectComposer clears stencil); recorded deviation |
 | #373 Phase 0 | N1 gradient dither | 8.5/10 | SHIP | placement/amplitude verified; `?dither=0` = exact identity; tier2 sky/water copies deferred; gate margin added |
 | #373 Phase 0 | N3 tonemap scaffold | 5.5→SHIP | REVISE→fixed | Gate caught: vendored `OutputPass` had no `CustomToneMapping` branch → `?tm=neutral` was untonemapped on tier0/1. Patched `OutputPass.js`+`OutputShader.js`, reshot montage at pinned tier0, restamped `sw.js`, fixed idempotence test |
+| #376 N4 | N4 ParticleBatch | 7.5→SHIP | REVISE→fixed | Billboard/blend parity verified vs vendored sprite shader; 150 draws→1. Gate caught: `BATCH_FRAG` lacked `tonemapping`/`colorspace` chunks → tier2 (direct-to-screen) sparks skipped ACES+sRGB, read ~25-35% dimmer. Added the two includes (auto-gated per render target); `pfxshot` now shoots tier0+tier2. Fog left as documented deviation (near-field bursts unaffected) |
