@@ -324,6 +324,10 @@ export function buildDragonModel(def, opts = {}) {
   // adopt those when present — additive + nullable (other wings builders return
   // neither → the roster is byte-identical).
   if (wingsResult.parts.tailFins) tailFins = wingsResult.parts.tailFins;
+  // Trailing-fire FX emit anchors (additive + nullable): a phoenix that publishes them from its tail
+  // + wing trailing edges sheds ember-fire off those points in the rig; every other dragon → null.
+  const _ember = [...(tailResult.emberEmitters || []), ...(wingsResult.parts.emberEmitters || [])];
+  const emberEmitters = _ember.length ? _ember : null;
   if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
   // Yoke-motif socket: a wings builder may own the motif anchor (ember's forge
   // collar sits between the wing roots). Adopt it only if the head published none.
@@ -401,7 +405,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
+      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -410,7 +414,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, tailFins, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket,
+      head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket,
       wingYokeL, wingYokeR,
       wingPivotL, wingPivotR,
       wingMidL, wingMidR,
