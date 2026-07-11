@@ -789,8 +789,34 @@ export function buildUnmasked(def, quality = 1) {
   // ── THE LIVE STAGE MACHINE (boss.js calls model.setPhase on every phase advance): the fight
   // ANIMATES the transition INTO the new phase's stage — phase 1 plays the S1→S2 CRACK, phase 2
   // plays the S2→S3 UNVEILING. `transKind` names the running transition, `transT` eases 0→1 over
-  // TRANS_DUR (advanced in tickBody). ──
-  const TRANS_DUR = 2.0;
+  // the per-kind duration (advanced in tickBody). ──
+  //
+  // A TRANSFORMATION IS A BEAT MAP, NOT AN EASE (transformation-rework 2026-07): each transition
+  // runs over its OWN duration and carries a HARNESS BEAT TABLE (camera shake / slow-mo / sfx
+  // times in seconds from beat start). The model owns the pure-function-of-transT VISUAL morph
+  // (setStageMorph / setStage3); boss.js reads `stageTransitionSpec(n)` for the durations + beat
+  // table + the reveal/throw punctuation times and fires the camera/audio. `stageTransitionDur`
+  // stays exported as a legacy truthy alias (the multi-stage flag boss.js gates on).
+  const TRANS_DURS = { crack: 6.0, unveil: 4.8 };
+  // Camera/audio beats (sfx tokens are resolved to procedural cues in boss.js — no assets).
+  const CRACK_BEATS = [
+    { t: 0.0, sfx: 'swell' },                          // STILLING — the sub-bass held breath
+    { t: 1.0, shake: 0.35, sfx: 'crack' },             // FIRST CRACK across the sclera
+    { t: 1.4, shake: 0.20, sfx: 'crack' },             // PROPAGATION jolts
+    { t: 1.8, shake: 0.20, sfx: 'crack' },
+    { t: 2.3, shake: 0.20, sfx: 'crack' },
+    { t: 2.9, sfx: 'swell' },                          // STRAIN — the choir swells
+    { t: 3.6, shake: 1.2, slowMo: 0.35, sfx: 'shatter' }, // THE SHATTER — the second sun dies
+  ];
+  const UNVEIL_BEATS = [
+    { t: 0.0, sfx: 'rumble' },                         // GATHER — it stops watching you
+  ];
+  // n = the phase index being ENTERED (setPhase(1)=crack, setPhase(2)=unveil). Pure lookup.
+  function stageTransitionSpec(n) {
+    if (n === 1) return { kind: 'crack',  dur: TRANS_DURS.crack,  revealAt: 5.6, hold: 1.6, beats: CRACK_BEATS };
+    if (n === 2) return { kind: 'unveil', dur: TRANS_DURS.unveil, revealAt: 2.1, throwAt: 1.6, hold: 0.7, beats: UNVEIL_BEATS };
+    return null;
+  }
   let transKind = null, transT = 0;
   let stageN = 1;
   function setDebugStage(n) {
@@ -879,7 +905,7 @@ export function buildUnmasked(def, quality = 1) {
     // drive the matching morph. The all-snap punctuates each arrival (every eye locks as the
     // new form settles — the reveal). Cleared when the transition completes. ──
     if (transKind) {
-      transT = Math.min(1, transT + dt / TRANS_DUR);
+      transT = Math.min(1, transT + dt / (TRANS_DURS[transKind] || 2.0));
       if (transKind === 'crack') setStageMorph(transT);
       else if (transKind === 'unveil') setStage3(transT);
       if (transT >= 1) { const done = transKind; transKind = null; if (done) allSnap(); }
@@ -1015,7 +1041,8 @@ export function buildUnmasked(def, quality = 1) {
 
   return {
     group, muzzle, orbiters,
-    stageTransitionDur: TRANS_DUR,   // boss.js reads this to HOLD FIRE through the crack/unveiling + land the reveal beat on the eye-snap
+    stageTransitionDur: TRANS_DURS.crack,   // legacy truthy alias — the multi-stage flag boss.js gates on (see stageTransitionSpec for real per-kind durations)
+    stageTransitionSpec,                     // (n) → { dur, revealAt, throwAt?, hold, beats } for the transition INTO phase n
     setDissolve: setDissolveEmotive,
     setCharge,
     setGaze,

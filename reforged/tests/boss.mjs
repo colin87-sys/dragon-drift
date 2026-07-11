@@ -481,11 +481,11 @@ for (const key of BOSS_ORDER) {
   um.setPhase(1);
   um.tick(0.1, 0.1);
   assert(s1.visible && s2.visible, 'phase→1 mid-crack: both the eclipse and the seraph are live (animating, not a snap)');
-  for (let i = 0; i < 30; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past TRANS_DUR
+  for (let i = 0; i < 70; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past the crack duration (6.0s — the beat-mapped transition)
   assert(!s1.visible && s2.visible && !s3.visible, 'phase→1 settles on the seraph (stage 2)');
   // Phase advance → 2: the UNVEILING animates the third-form core in (the wings are kept).
   um.setPhase(2);
-  for (let i = 0; i < 30; i++) um.tick(0.1, 4 + i * 0.1);
+  for (let i = 0; i < 60; i++) um.tick(0.1, 4 + i * 0.1);   // run past the unveil duration (4.8s)
   assert(s3.visible && s2.visible, 'phase→2 settles on the unveiling (stage 3 core up, the seraph wings kept)');
   // The transition BEAT contract: the model exposes its transition duration so boss.js can hold
   // fire through the crack/unveiling and land the all-eyes reveal (camera + slow-mo) on the eye-snap.
