@@ -676,9 +676,11 @@ export const DRAGONS = {
       collarFan: 1.0, pennantLift: 1.0, pennantRibbons: 5,
       // The tail hangs off a 4-joint chain; tailWhip makes the rig COIL it at cruise (a travelling
       // S-wave down the joints) + RUDDER it into banks. tailLagScale sets the cruise coil amplitude
-      // (0.13 → a clearly-visible ~±20° travelling tip wave, up from the old rigid ±5°). tailUndulateX
-      // adds a per-joint VERTICAL undulation (up-weighted so it never dips the tail into the corridor).
-      tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.05,
+      // (0.13 → a clearly-visible travelling lateral tip wave). tailUndulateX drives a genuine
+      // phase-lagged VERTICAL travelling wave (the axis the rear-chase camera reads — the key fluidity
+      // dial); tailRudderScale trims the compounding turn-curl on the chain to a graceful arc (not a
+      // J-hook).
+      tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.26, tailRudderScale: 0.5,
     },
     forms: [
       // f0 EMBER HATCHLING — a warm charcoal chick: proud STUB keel, big head, ember crest,
