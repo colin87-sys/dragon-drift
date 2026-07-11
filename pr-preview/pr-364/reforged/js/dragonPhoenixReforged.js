@@ -195,7 +195,7 @@ function flameFeather(base, dir, side, len, wid, curve, matRamp, curl = 0) {
 function buildSunhawkKeelTorso(def, model, _bodyMat) {
   const group = new THREE.Group();
   const M = sunhawkMats(def, model.glowLevel ?? 1, model.igniteStage);
-  const spineMats = [M.gold, M.roseGold, M.orange];
+  const spineMats = [M.ivory, M.goldfire, M.flame, M.crimson, M.gold, M.roseGold, M.orange];   // the whole body flares on Surge
   const bodyScale = model.torsoScale ?? 1;
   const keelDepth = model.keelDepth ?? 1;   // breast-prow projection (0.7→1.0)
   const neckArch = model.neckArch ?? 1;     // proud hawk neck rise (0.3→1.0)
@@ -300,13 +300,28 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
         group.add(kiteFeather([s * w, y, z], [s * 0.28, -0.12, -1], [s * 1, 0, 0.2], 0.28, 0.16, 0.04, M.ivory, M.emberShadow));
       }
     }
-    // upper-flank rank (a row along the side so the flank is not a blank slab)
+    // upper-flank FLAME rank (a row of flame-licks along the side so the flank BURNS, not a
+    // blank gold slab — owner: the whole creature catches fire). Hue cools head→tail.
     for (let i = 0; i < 4; i++) {
-      const z = -0.85 + i * 0.42;
-      const w = halfWidthAt(z) * 0.94;
+      const z = -0.85 + i * 0.42, u = i / 3;
+      const w = halfWidthAt(z) * 0.9;
       const y = (botAt(z) + topAt(z)) * 0.5 - 0.02;
-      group.add(kiteFeather([s * w, y, z], [s * 0.2, -0.05, 1], [s * 0.2, 0.4, 0], 0.30, 0.17, 0.05, M.ivory, M.emberShadow, M.roseGold));
+      const ramp = u < 0.5 ? [M.goldfire, M.flame, M.flame] : [M.flame, M.flame, M.crimson];
+      group.add(flameFeather([s * w, y, z], [s * 0.35, 0.05, 1], [s * 0.2, 0.5, 0], 0.42 - 0.1 * u, 0.14, 0.05, ramp, 0.03).group);
     }
+  }
+
+  // ── THE DORSAL FLAME-MANE — a row of flame-licks running down the SPINE (nape → tail-root),
+  // so the BODY ITSELF is alight (a fire crest), the fire reading across the whole mass, not
+  // just the wing edges (the critic's "body doesn't catch fire"). Hue cools head→tail
+  // (goldfire → flame → crimson); each lick rakes up-and-back with a slight alternating cant.
+  const nMane = seg(9);
+  for (let i = 0; i < nMane; i++) {
+    const t = nMane > 1 ? i / (nMane - 1) : 0;
+    const z = -1.05 + t * 2.35, y = topAt(z);
+    const len = (0.40 - 0.14 * t) * (0.7 + 0.3 * Math.sin(Math.PI * Math.min(t * 1.2, 1)));
+    const ramp = t < 0.38 ? [M.goldfire, M.goldfire, M.flame] : t < 0.72 ? [M.goldfire, M.flame, M.crimson] : [M.flame, M.crimson, M.crimson];
+    group.add(flameFeather([Math.sin(i * 1.4) * 0.05, y, z], [Math.sin(i * 1.4) * 0.22, 0.62, 0.78], [1, 0, 0], len, 0.11, 0.06, ramp, 0.05).group);
   }
 
   // ── THE HEART-FIRE core (signature, kept) — a bright emissive facet-cluster in the keel,
@@ -536,18 +551,18 @@ function buildOneSunWing(M, model) {
     wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, curve, rampAt(t), 0.05 * ws).group);
   }
 
-  // ── TRAILING STREAMERS — FEW (≤4), LONG, strongly CURVED, VARIED-width licks off the outer
-  // trailing edge (broad ⇄ thin), streaming aft-and-up with a graceful terminal curl → FLOWING
-  // fire, not straight red needles (the critic's picket-fence fix). Graded lengths; crimson tips.
-  const nStream = Math.max(2, Math.min(4, Math.round(secN * 0.6)));
+  // ── TRAILING STREAMERS — just 3 BROAD, strongly CURVED flame ribbons off the outer trailing
+  // edge, streaming aft with a graceful S-bow + terminal curl → FLOWING flame strokes, NOT thin
+  // spaghetti-wire (the critic's grace fix: trade count for WIDTH + CURVATURE). Crimson tips.
+  const nStream = Math.max(2, Math.min(3, Math.round(secN * 0.5)));
   for (let i = 0; i < nStream; i++) {
     const u = nStream > 1 ? i / (nStream - 1) : 0.5;
-    const t = 0.34 + u * 0.56, l = L(t), cc = chord(t);
-    const len = (1.6 + 1.0 * Math.sin(Math.PI * (0.3 + 0.5 * u))) * ws;
-    const wid = (i % 2 ? 0.13 : 0.24) * ws;                   // vary broad ⇄ thin
-    const dir = [0.20 + 0.42 * u, 0.08, 1];                   // aft + gentle up (into the empty sky)
+    const t = 0.40 + u * 0.48, l = L(t), cc = chord(t);
+    const len = (1.5 + 0.7 * Math.sin(Math.PI * (0.4 + 0.4 * u))) * ws;   // long but not wiry
+    const wid = (0.34 - 0.06 * u) * ws;                                   // BROAD (all of them)
+    const dir = [0.22 + 0.40 * u, 0.10, 1];                              // aft + gentle up
     const base = [l[0], l[1] + camber(0.9) * cc, l[2] + 0.9 * cc];
-    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.22, rampTrail, 0.22 * ws).group);
+    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.30, rampTrail, 0.26 * ws).group);   // strong bow + curl
   }
 
   // ── LEADING LICKS — just 2 short hot licks lifting off the leading edge (curved + alight).
@@ -623,19 +638,21 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   const segs = [group];
   if (nRib <= 0) return { group, segs, tailFins: null, accentMats: [M.flame, M.crimson] };
 
-  const baseLen = 2.8 + 2.0 * lift;                       // apex ~4.8 — LONG, streaming (not a stub fan)
-  const ramp = [M.goldfire, M.flame, M.crimson];         // root-hot → crimson tip (the combustion)
+  const baseLen = 3.2 + 2.3 * lift;                      // apex ~5.5 — ONE LONG dominant comet-drape
+  const ramp = [M.goldfire, M.flame, M.crimson];        // root-hot → crimson tip (the combustion)
   for (let i = 0; i < nRib; i++) {
-    const u = nRib > 1 ? (i / (nRib - 1)) - 0.5 : 0;      // −0.5 … 0.5 across the drape
-    const rlen = baseLen * (0.5 + 0.5 * (1 - Math.abs(u) * 2));   // CENTRE ribbon longest (the comet point)
-    // an elegant S: stream mostly AFT (a distinct comet-drape BEHIND her, not lost up in the
-    // wing fire), a gentle UP lift + splay, a graceful terminal CURL. Longer than any wing feather.
-    const dir = [u * 0.30, 0.08 + 0.18 * lift, 1.0];
+    const u = nRib > 1 ? (i / (nRib - 1)) - 0.5 : 0;     // −0.5 … 0.5 across the drape
+    const cen = 1 - Math.abs(u) * 2;                     // 1 at centre → 0 at edges
+    // ONE dominant CENTRE ribbon (long + broad = the comet), edges short + fine → reads as a
+    // single graceful fire-TRAIL, not a fan. Bows UP-and-aft so it rises clear of the body and
+    // reads from directly behind (the chase cam), with a graceful terminal curl.
+    const rlen = baseLen * (0.32 + 0.68 * Math.pow(Math.max(cen, 0), 1.4));
+    const dir = [u * 0.30, 0.10 + 0.16 * lift, 1.0];
     const side = [1, 0, 0];
-    const wid = (0.26 - 0.06 * Math.abs(u) * 2) * (0.7 + 0.3 * lift);
-    const curve = 0.16 + 0.10 * Math.abs(u);             // gentle S bow (up)
-    const curl = 0.22 + 0.16 * Math.abs(u);              // graceful terminal curl (rakes aft-up)
-    const base = [u * 0.08, a.y, a.z];                   // gathered roots at the anchor
+    const wid = (0.14 + 0.26 * Math.max(cen, 0)) * (0.7 + 0.3 * lift);   // centre BROAD, edges fine
+    const curve = 0.22 + 0.14 * (1 - cen);              // graceful S bow (rises up → visible from behind)
+    const curl = 0.30;                                  // graceful terminal curl (aft-up)
+    const base = [u * 0.07, a.y, a.z];                  // gathered roots at the anchor
     group.add(flameFeather(base, dir, side, rlen, wid, curve, ramp, curl).group);
   }
   return { group, segs, tailFins: null, accentMats: [M.goldfire, M.flame, M.crimson, M.orange] };
