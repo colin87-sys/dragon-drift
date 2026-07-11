@@ -75,10 +75,10 @@ export const DRAGONS = {
         colors: { body: 0x496d99, belly: 0xd4e9ff, wingInner: 0xc6dff0, wingOuter: 0x6f90b4,   // CP2 r2 dir 4: a true MID value (was 0x33517a, near-apex-deep) — the ramp now reads pale f0 → mid f1 → deep f2
           wingEmissive: 0x5f7f9c, scales: 0xb2cee6, horn: 0xb6cfe4,
           apexSeam: 0x9cc0dc, eye: 0xbfe2fb, coreGlow: 0x86bce4 } },
-      // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
-      // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
+      // Radiant apex (form 2) — proud upright S, keen almond eyes, high-aspect
+      // comb, 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 11.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
+      { wingScale: 1.0, bladeSpan: 9.4, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // FALCON-NARROW (owner CP3): span reined from 11.6 → 9.4 so the apex world-span drops ~18% (16.3→13.3) — from 1.51× Phoenix Ascendant down to ~1.23× (a smidge wider to hold the falcon look), landing span:body ~1.65 at the §5d falcon-spec floor. Blade length adds no tris; denser neck fuses the segment grooves
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
         // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
         // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
