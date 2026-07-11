@@ -44,7 +44,9 @@ export const BIOMES = [
     name: 'SUNKEN SANCTUARY',
     keyShift: 0,
     stars: 0.15,
-    sky: { top: C(0x0d1f3c), mid: C(0x1e4060), horizon: C(0xe8a040), sun: C(0xffd080) },
+    sky: { top: C(0x0d1f3c), mid: C(0x1e4060), horizon: C(0xe8a040), sun: C(0xffd080),
+      // N9 clouds: warm dusk cumulus — sunlit tops, cool blue-grey undersides.
+      cloud: { amount: 0.55, lit: C(0xffdca8), shadow: C(0x24344f) } },
     fog: { color: C(0x1a3050), near: 75, far: 400 },
     light: { sun: C(0xff9a40), sunI: 1.5, hemiSky: C(0x7ab0d8), hemiGround: C(0x1a3828) },
     water: { deep: C(0x061828), shallow: C(0x1a5a6a), waveAmp: 1.0 },
@@ -63,7 +65,9 @@ export const BIOMES = [
     name: 'AMBER WASTES',
     keyShift: 2,
     stars: 0,
-    sky: { top: C(0x6a3820), mid: C(0xd08040), horizon: C(0xffcf96), sun: C(0xfff0c0) },
+    sky: { top: C(0x6a3820), mid: C(0xd08040), horizon: C(0xffcf96), sun: C(0xfff0c0),
+      // N9 clouds: bright high-noon desert cumulus — the brightest sky in the cycle.
+      cloud: { amount: 0.6, lit: C(0xfff2da), shadow: C(0xc79a68) } },
     fog: { color: C(0xeaaf80), near: 60, far: 330 },
     light: { sun: C(0xffc88a), sunI: 2.0, hemiSky: C(0xe8c8a8), hemiGround: C(0x6a4a30) },
     water: { deep: C(0x3a3214), shallow: C(0x9a7a3a), waveAmp: 0.7 },
@@ -194,6 +198,9 @@ const env = {
   // fog is byte-identical). heightK = thin fog with altitude; inscatter = sunward
   // brightening. Consumed by atmosphere.js via applyAtmosphere(env).
   atmosHeightK: 0, atmosInscatter: 0,
+  // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
+  // Consumed by skyClouds.js via applySkyClouds(env).
+  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(),
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -232,5 +239,10 @@ export function computeEnv(dist) {
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
   env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, t);
   env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, t);
+  // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
+  // fall back to the biome's sky mid/top so a cloudy↔clear seam lerps sane hues.
+  env.cloudAmount = lerp(a.sky.cloud?.amount || 0, b.sky.cloud?.amount || 0, t);
+  env.cloudLit.lerpColors(a.sky.cloud?.lit ?? a.sky.top, b.sky.cloud?.lit ?? b.sky.top, t);
+  env.cloudShadow.lerpColors(a.sky.cloud?.shadow ?? a.sky.mid, b.sky.cloud?.shadow ?? b.sky.mid, t);
   return env;
 }

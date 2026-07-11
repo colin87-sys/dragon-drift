@@ -9,10 +9,11 @@ import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
+import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
 
-// Re-export the sky-IBL + prop-AO + atmosphere controls so main.js drives them
-// through environment.
-export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled };
+// Re-export the sky-IBL + prop-AO + atmosphere + sky-cloud controls so main.js
+// drives them through environment.
+export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
 
 // N8: the fog-chunk override MUST run before any material compiles. Installing at
 // module load (before createEnvironment builds the prop materials) guarantees it;
@@ -33,6 +34,9 @@ let bands = [];
 let feverMix = 0;
 let bossMix = 0; // eased boss-grade signal (see updateEnvironment), local copy — same pattern as feverMix
 let skyDim = 0;  // EMBERTIDE sky-replacement: 0 = the real dome; 1 = fully faded out (EMBERTIDE IS the sky)
+let cloudSunCover = 0; // N9: damped cloud coverage over the sun → eases god-ray intensity
+// N9: main.js reads this each frame to fade god-ray shafts as clouds cross the sun.
+export function getCloudSunCover() { return cloudSunCover; }
 // setSkyFade(k): the sky-replacement crossfade hook ("one sky, never two"). boss.js ramps this to 1 while
 // a `def.skyReplace` boss (EMBERTIDE) owns the sky, back to 0 otherwise. Dims the dome shader toward black
 // and hides the mesh entirely at k≈1 (draw replaced, not stacked → overdraw flat). Inert (0) otherwise.
@@ -319,6 +323,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       fogFarColor: { value: new THREE.Color(0x57221a) },
       fogFarMix: { value: 0 },
       time: { value: 0 },
+      ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
     },
     vertexShader: `
       varying vec3 vDir;
@@ -330,6 +335,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, starMix, fogFarMix, time, dimMix;
+      ${CLOUD_HEAD}
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
@@ -342,6 +348,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // sink it toward fogFarColor. Branchless: fogFarMix is 0 in biomes
         // without a fogFarColor, leaving the gradient byte-identical.
         col = mix(col, fogFarColor, fogFarMix * (1.0 - smoothstep(0.0, 0.15, h)));
+        ${CLOUD_BODY}
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
         // blowing out the centre of the screen and washing out contrast.
@@ -372,6 +379,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   });
   sky = new THREE.Mesh(new THREE.SphereGeometry(800, 24, 16), skyMat);
   sky.frustumCulled = false;
+  // N9 (ADJUST-3): the camera-locked dome sorts to z~0 and would draw FIRST, so
+  // every sky pixel shades then gets overdrawn. renderOrder=1 draws it after the
+  // opaque world → early-z rejects occluded sky pixels (depthWrite already false,
+  // depthTest true). This is the perf offset that pays for the cloud FBM.
+  sky.renderOrder = 1;
   scene.add(sky);
 
   // --- Lighting: warm sun ahead, biome-tinted bounce.
@@ -534,6 +546,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
+  applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
+  // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down
+  // as a cloud drifts across it (rather than strobe). main.js reads getCloudSunCover().
+  cloudSunCover = damp(cloudSunCover, sunCloudCover(env, su.sunDir.value, playerDist, time), 3, dt);
   updateSkyProbe(env, su.sunDir.value); // N5: reproject the (lerped) sky into the probe
   sun.color.copy(env.lightSun);
   sun.intensity = env.lightSunI;
