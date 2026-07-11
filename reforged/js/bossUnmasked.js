@@ -1035,6 +1035,17 @@ export function buildUnmasked(def, quality = 1) {
   // whole field, which is the point: the eyes go wrathful as ONE being).
   const IRIS_BASE = irisMat.color.clone();
   const CATCH_BASE = catchMat.color.clone();
+  const SCLERA_BASE = greatScleraMat.color.clone();   // ARENA (PR-B): the S3 focal-lift base (the star-eye/greatEye sclera)
+
+  // ── THE ARENA HEAVEN FOCAL LIFT (PR-B, identity-audit F-2): in THE UNVEILED HEAVEN the gold sky is
+  // BRIGHTER than the shipped S3 focal (star-eye sclera L .516 < heaven horizon .744), so unlifted the
+  // finale reads as "a mask on a sunset" (owner-rejected). heavenK (driven by boss.js as the unveil
+  // completes) raises the halo/starburst/star-eye emissive so the boss's light LEADS the world — the
+  // dark seraph is the shadow the light throws, but its FOCAL still reads. heavenK 0 ⇒ byte-identical
+  // (the halo/burst multipliers are ×1; the sclera/catch writes are heavenK>0-guarded). All TUNE.
+  let heavenK = 0;
+  const SCLERA_LIFT = 0.5, HALO_LIFT = 0.6, BURST_LIFT = 0.9, CATCH_LIFT = 0.8;
+  function setArenaHeaven(k) { heavenK = Math.max(0, Math.min(1, k)); }
 
   let charge = 0;
   function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
@@ -1231,8 +1242,17 @@ export function buildUnmasked(def, quality = 1) {
       // Settled floor 1.0 (survives fight distance) + the S2→S3 IGNITION FLASH (HDR ×burstFlash,
       // toneMapped off → blooms hard for ~0.6s then decays to the steady radiance).
       const pulse = 1.0 + Math.sin(time * 0.8 * TAU) * 0.15 + charge * 0.3 + burstFlash;
-      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse);       // the rays breathe hotter on charge (wrath) + flash on ignition
-      halo3Mat.color.copy(_c.set(def.accent)).multiplyScalar(0.8 + Math.sin(time * 0.5 * TAU) * 0.12);
+      // ARENA (PR-B) heaven lift, layered ON the ignition flash: ×1 at heavenK 0 (byte-identical floats).
+      // The halo/burst brighten so the radiance re-lengthens on the gold sky; the star-eye sclera +
+      // catchlights lift only when heavenK>0.
+      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse * (1 + heavenK * BURST_LIFT));       // wrath charge + ignition flash + heaven lift
+      halo3Mat.color.copy(_c.set(def.accent)).multiplyScalar((0.8 + Math.sin(time * 0.5 * TAU) * 0.12) * (1 + heavenK * HALO_LIFT));
+      if (heavenK > 0) {
+        greatScleraMat.color.copy(SCLERA_BASE).multiplyScalar(1 + heavenK * SCLERA_LIFT);   // the star-eye brightens past the sky (the focal re-takes §3-law-2)
+        catchMat.color.multiplyScalar(1 + heavenK * CATCH_LIFT);                            // composes with the per-frame catch write above; the seraph's eyes are the darkness's stars
+      } else if (greatScleraMat.color.getHex() !== SCLERA_BASE.getHex()) {
+        greatScleraMat.color.copy(SCLERA_BASE);   // one-frame restore on any heaven→off edge (dev re-pin) — byte-identical off the heaven
+      }
       starPupil.position.set(gazeX * SW * 0.3, gazeY * SH * 0.28, SD + 0.1);
       const sk = 1 - charge * 0.3;                                          // constrict on charge (the star-eye shares the wrath tell)
       starPupil.scale.set(SW * 0.42 * sk, SH * 0.5 * sk, 0.4);
@@ -1254,6 +1274,8 @@ export function buildUnmasked(def, quality = 1) {
     notice,
     allSnap,
     setBrandedRelics,
+    setArenaHeaven,
+    debugArenaLift: () => ({ k: heavenK, sclera: greatScleraMat.color.getHex() }),
     setDebugStage,
     setStageMorph,
     setStage3,
