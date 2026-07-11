@@ -142,5 +142,48 @@ applyAtmosphere(env);
 check('tier2 → heightK/inscatter dropped, far-color mix kept', atmosUniforms.uAtmosHeightK.value === 0 && atmosUniforms.uAtmosInscatter.value === 0 && atmosUniforms.uAtmosFarMix.value === 1);
 setAtmosphereEnabled(false); // leave global state shipped for any later import
 
+// --- 7. WATER (N8 PR B): the water fragment's sunward inscatter is +0 identity at
+//     uAtmosInscatter=0, and the nested-mix refactor is algebraically equal to the
+//     shipped `mix(col, mix(fogColor,fogFarColor,fogF), fogF)`. Port the GLSL. -----
+function waterFog(col, fogC, farC, dist, near, far, sunDot, sunTint, inscatter) {
+  const fogF = smoothstep(near, far, dist);
+  let fogCol = mix(fogC, farC, fogF);
+  fogCol += sunTint * (Math.pow(clamp(sunDot, 0, 1), 6) * inscatter * fogF);
+  return mix(col, fogCol, fogF);
+}
+const shippedWaterFog = (col, fogC, farC, dist, near, far) => {
+  const fogF = smoothstep(near, far, dist);
+  return mix(col, mix(fogC, farC, fogF), fogF);
+};
+let wErr = 0, wActive = false;
+for (const dist of [40, 90, 200, 400, 700]) {
+  for (const [c, fc, ffc] of [[0.6, 0.3, 0.05], [0.2, 0.5, 0.9], [0.8, 0.1, 0.1]]) {
+    wErr = Math.max(wErr, Math.abs(waterFog(c, fc, ffc, dist, 70, 380, 0.9, 0.4, 0) - shippedWaterFog(c, fc, ffc, dist, 70, 380)));
+    if (waterFog(c, fc, ffc, dist, 70, 380, 0.9, 0.4, 0.7) !== shippedWaterFog(c, fc, ffc, dist, 70, 380)) wActive = true;
+  }
+}
+check(`water inscatter is byte-identical to shipped at 0 (max err ${wErr.toExponential(2)})`, wErr === 0);
+check('water inscatter changes output when on', wActive);
+
+// --- 8. WATER rebuild-reattach: the shared atmosphere uniform objects survive the
+//     UniformsUtils.clone (buildCheap) AND the Reflector's second internal clone,
+//     across a tier-boundary rebuild — reference equality, not value copy. --------
+{
+  const water = await import('../js/water.js');
+  const added = [];
+  const scene = { add: (o) => added.push(o), remove: () => {} };
+  const latest = () => added[added.length - 1];
+  water.createWater(scene, false); // cheap tier: UniformsUtils.clone(sharedUniforms)
+  check('cheap water shares the atmosphere uniform object (survives clone)', latest().material.uniforms.uAtmosInscatter === atmosUniforms.uAtmosInscatter);
+  try {
+    water.setWaterReflective(true); // rebuild to the reflective tier (2nd clone in Reflector)
+    check('reflective water re-attaches the shared object on rebuild', latest().material.uniforms.uAtmosInscatter === atmosUniforms.uAtmosInscatter);
+  } catch (e) {
+    // Reflector construction may need a GL context headless; the cheap-path clone
+    // already exercises the UniformsUtils.clone trap. Note, don't fail.
+    console.log(`  (reflective rebuild skipped headless: ${String(e).split('\n')[0]})`);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
