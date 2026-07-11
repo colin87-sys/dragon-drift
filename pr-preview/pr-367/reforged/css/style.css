@@ -2372,6 +2372,13 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
 .lockmark.ashen { border-color: rgba(150, 160, 175, 0.7); box-shadow: none; }
 .lockmark.ashen .fill { background: rgba(150, 160, 175, 0.3); }
 .lockmark.blink { animation: lockpip-blink 0.4s steps(2, start) infinite; }
+/* §5i.C rung 12 SPECTRAL ECHO (ONEWING): a GRANTED ghost pip on the living eye — pale, cold,
+   dashed (not solid jade energy) so it reads as an ECHO, not a painted brand (rule 11: a granted
+   pip renders its OWN marker, never a phantom of a real one). */
+.lockmark.ghost:not(.ashen) { border-style: dashed; border-color: rgba(216, 200, 240, 0.75);
+  box-shadow: 0 0 8px rgba(200, 180, 235, 0.4); }
+.lockmark.ghost:not(.ashen) .fill { background: rgba(216, 200, 240, 0.22); }
+.lockmark.ghost:not(.ashen) .rune path { stroke: rgba(224, 212, 246, 0.85); }
 
 /* HUNTER'S BRAND skin: the wyrm-rune sigil on each painted organ; a jade-white
    kindle flash on paint; the pip row INHALES (swells) through the cap fuse and
