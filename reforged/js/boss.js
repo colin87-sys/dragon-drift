@@ -2150,6 +2150,11 @@ function enterFight() {
     if (debugStagePin != null && debugStagePin > 1 && model.stageTransitionDur) {
       model.setPhase?.(target);
       beginStageBeat(true);
+      // ARENA: the picker START-into-S2/S3 must FLOOD like a real shield-break crack, or the sky just
+      // slides to the void/heaven with no flash — the "bad transition" (no crack, no burst). breakShield
+      // fires this on the organic advance; the picker-spawn intro skipped it. target 1 = the S1→S2 crack
+      // (arenaFlood), target ≥ 2 = the S2→S3 unveil (arenaUnveil). Def-gated + tier-degrades (Law 10).
+      if (def.arenaStates) kick(target >= 2 ? 'arenaUnveil' : 'arenaFlood');
       input.surgeTap = false;   // drop the tap that launched the fight so it can't instantly self-skip
       ui.bossNote?.('▶  TAP TO SKIP', 'the form-change', 'gold', model.stageTransitionDur + STAGE_REVEAL_HOLD);
     }
