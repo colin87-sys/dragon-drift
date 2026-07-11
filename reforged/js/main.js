@@ -16,7 +16,7 @@ import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './
 import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
-import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
+import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
 import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
@@ -27,7 +27,7 @@ import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
-import { burst, rollWake, gatherPulse } from './particles.js';
+import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
@@ -104,6 +104,9 @@ const urlParams = new URLSearchParams(window.location.search);
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
 if (urlParams.has('tm')) setToneMap(renderer, urlParams.get('tm'));
 if (urlParams.get('dither') === '0') setDither(false);
+// N4: opt into the instanced spark-particle backend (150 draws → 1). Default OFF
+// (shipped sprite path unchanged); must be set before initParticles.
+if (urlParams.get('pfx') === 'batch') setParticleBackend('batch');
 const challengeSeedParam = parseInt(urlParams.get('seed'), 10);
 const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam > 0
   ? challengeSeedParam : null;
@@ -292,6 +295,13 @@ if (urlParams.has('debug')) {
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
     audioHealth: () => getAudioHealth(),
     postfx: { setPostTier, kick, kickState, handle: postfx },
+    // N4 ParticleBatch seams: fire a burst at a fixed world point in view, and read
+    // the backend/visible count + live draw-call total (for the pfx A/B tool + test).
+    pfx: {
+      stats: particleStats,
+      burst: (n = 60) => burst(camera.localToWorld(new THREE.Vector3(0, 0, -30)), 0xffe0a0, { count: n, speed: 12, size: 1.0, life: 1.2 }),
+      drawCalls: () => renderer.info.render.calls,
+    },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
     // Push the boss schedule out of the way (or restore it) so a stretch of
