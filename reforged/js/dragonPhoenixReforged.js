@@ -38,12 +38,18 @@ function sunhawkMats(def, glow, stage) {
   const ivoryCol = def.body ?? 0xf2e8cf;
   // A WARM emissive floor (amber, not neutral) + a touch of metalness so the pale body
   // reads warm ivory-GOLD under the cool fresnel rim, not cool grey (the CP1 critic note).
-  const ivory = new THREE.MeshStandardMaterial({ color: ivoryCol, emissive: 0x4a2e12, emissiveIntensity: 0.13 + 0.06 * st, flatShading: true, roughness: 0.5, metalness: 0.12, side: THREE.DoubleSide });
+  const ivory = new THREE.MeshStandardMaterial({ color: ivoryCol, emissive: 0x4a2e12, emissiveIntensity: 0.18 + 0.05 * st, flatShading: true, roughness: 0.54, metalness: 0.0, side: THREE.DoubleSide });
 
-  // T4 EMBER-SHADOW — the DARK RELIEF value (feather roots, under-wing, belly, seams,
-  // haunch). The load-bearing second value; a whisper of warm emissive keeps it from
-  // dead-black on a dark sky. NOT in spineMats (the dark relief must not flare on Surge).
+  // T4 EMBER-SHADOW — the DARK RELIEF value (belly, seams, haunch). The load-bearing
+  // second value; a whisper of warm emissive keeps it from dead-black on a dark sky.
   const emberShadow = new THREE.MeshStandardMaterial({ color: def.belly ?? 0x5a3018, emissive: 0x1c0c04, emissiveIntensity: 0.1, flatShading: true, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide });
+
+  // T4-WARM BRONZE — a LIFTED relief value (the wing UNDERSIDE + the feather-rank roots),
+  // warm ember-bronze rather than near-black, so the two-value read is a ~2-tier value gap
+  // (crafted plumage), NOT a ~4-tier black trough (toothy noise). Warm, never cold grey.
+  // metalness 0 + a warm emissive floor → it never goes BLACK in a shadowed/edge-on facet
+  // (the side-profile "dark plank" was a shadowed metallic facet; matte + a floor fixes it).
+  const bronze = new THREE.MeshStandardMaterial({ color: 0xbe9052, emissive: 0x5a3410, emissiveIntensity: 0.4, flatShading: true, roughness: 0.78, metalness: 0.0, side: THREE.DoubleSide });
 
   // T2 GOLD — the REGALIA register (beak, vertebral ridge, wing spar, crown fan, collar
   // gorget, feather shafts). Forged metal: give gold forms a bevel to catch an edge hi.
@@ -54,8 +60,8 @@ function sunhawkMats(def, glow, stage) {
   // T3 ROSE-GOLD / AMBER EDGE — the crisp SILHOUETTE-DEFINING rim on the pale body (feather
   // edges, wing/tail hems, collar tips). Reads BOTH against ivory AND against a pale sky.
   const roseCol = def.featherEdge ?? 0xff9a7a;
-  const roseGold = new THREE.MeshStandardMaterial({ color: roseCol, emissive: 0xff8a2a, emissiveIntensity: 0.14 + 0.14 * st, flatShading: true, roughness: 0.44, metalness: 0.18, side: THREE.DoubleSide });
-  roseGold.userData.baseEmissive = 0xff8a2a; roseGold.userData.baseIntensity = roseGold.emissiveIntensity;
+  const roseGold = new THREE.MeshStandardMaterial({ color: roseCol, emissive: 0xff9a5a, emissiveIntensity: 0.08 + 0.08 * st, flatShading: true, roughness: 0.44, metalness: 0.18, side: THREE.DoubleSide });
+  roseGold.userData.baseEmissive = 0xff9a5a; roseGold.userData.baseIntensity = roseGold.emissiveIntensity;
 
   // EMISSIVE — ORANGE FLAME SUPPORT (the only broad emissive accent, on ~10%: seams,
   // heart glow-pool, wing-vein, collar-heart, pennant hem). Saturated → blooms in-hue.
@@ -74,7 +80,7 @@ function sunhawkMats(def, glow, stage) {
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0xfff2c8, emissive: eyeCol, emissiveIntensity: (1.0 + 0.2 * st) * g, flatShading: true, roughness: 0.28 });
   eyeMat.userData.baseEmissive = eyeCol; eyeMat.userData.baseIntensity = eyeMat.emissiveIntensity;
 
-  return { ivory, emberShadow, gold, roseGold, orange, heart, eyeMat, stage: st, glow: g };
+  return { ivory, emberShadow, bronze, gold, roseGold, orange, heart, eyeMat, stage: st, glow: g };
 }
 
 // Faceted loft: rings [{z, rx, ry, cy, cx?}] → one flat-shaded tube. Winds OUTWARD so
@@ -412,69 +418,64 @@ function buildOneSunWing(M, model) {
 
   const L = (t) => [t * hs, sunLeadY(t, hs), sunLeadZ(t, hs)];
   const chord = (t) => rootChord * (1 - 0.52 * Math.pow(t, 1.05));
-  const camberY = (f) => -0.05 - 0.14 * Math.sin(f * Math.PI);
-  const MP = (t, f) => { const l = L(t), c = chord(t); return [l[0], l[1] + camberY(f) * c, l[2] + f * c]; };
+  // A MODEST chordwise camber + a real THICKNESS between a top vane and a bottom skin, so
+  // the wing is a shallow curved SOLID that never presents as a flat cold plank edge-on (the
+  // CP2 fix) — the THICKNESS does the anti-plank job; a deep camber only digs a dark pocket.
+  const camber = (f) => -0.04 - 0.09 * Math.sin(f * Math.PI);
+  const THICK = 0.10;   // underside drop as a fraction of chord (the airfoil depth)
+  const TOP = (t, f) => { const l = L(t), c = chord(t); return [l[0], l[1] + camber(f) * c, l[2] + f * c]; };
+  const BOT = (t, f) => { const l = L(t), c = chord(t); return [l[0], l[1] + (camber(f) - THICK) * c, l[2] + f * c]; };
 
-  // ── THE ARM — a lofted tapered GOLD spar-limb along the inner lead (t 0→0.42), curved
-  // (rides the lead), giving the wing REAL chord thickness at the shoulder (anti flat-edge).
-  const armTs = [0, 0.14, 0.28, 0.42], armR = [0.14, 0.11, 0.085, 0.06];
-  const armRings = armTs.map((t, i) => { const l = L(t); return { z: l[2], rx: armR[i] * ws, ry: armR[i] * 1.1 * ws, cy: l[1], cx: l[0] }; });
+  // ── THE ARM — a lofted tapered GOLD spar-limb along the inner lead (real chord thickness).
+  const armTs = [0, 0.14, 0.28, 0.42], armR = [0.15, 0.12, 0.09, 0.065];
+  const armRings = armTs.map((t, i) => { const l = L(t); return { z: l[2], rx: armR[i] * ws, ry: armR[i] * 1.15 * ws, cy: l[1], cx: l[0] }; });
   wg.add(loftRings(armRings, M.gold, seg(6), false));
 
-  // ── THE FILLED WEB — a cambered ivory vane surface root→t=0.70 (the anti flat-sheet
-  // MASS: a stack of surfaces, not ruled wires). Ember-shadow along the trailing underside
-  // + a rose-gold trailing rim (the two-value + the silhouette-crisp rim on a pale sky).
+  // ── THE THICK CAMBERED WEB — an ivory VANE top over a warm BRONZE belly (two-value by
+  // construction: a lit ivory back / a warm bronze underside), sealed at the trailing edge
+  // by a rose-gold rim. A curved solid — never a flat cold plank edge-on, and the belly is
+  // WARM, not the cold charcoal the critic flagged.
   const memTs = [0, 0.12, 0.24, 0.36, 0.48, 0.60, 0.70];
   for (let i = 0; i < memTs.length - 1; i++) {
     const t0 = memTs[i], t1 = memTs[i + 1];
-    // ivory vane (lead→0.75 chord)
-    wg.add(flatTriMesh([[MP(t0, 0.0), MP(t1, 0.0), MP(t1, 0.75)], [MP(t0, 0.0), MP(t1, 0.75), MP(t0, 0.75)]], M.ivory));
-    // ember-shadow trailing band (0.75→1.0) — the dark underside value
-    wg.add(flatTriMesh([[MP(t0, 0.75), MP(t1, 0.75), MP(t1, 1.0)], [MP(t0, 0.75), MP(t1, 1.0), MP(t0, 1.0)]], M.emberShadow));
-    // rose-gold trailing rim
-    if (rose > 0) wg.add(flatTriMesh([[MP(t0, 1.0), MP(t1, 1.0), MP(t1, 1.06)], [MP(t0, 1.0), MP(t1, 1.06), MP(t0, 1.06)]], M.roseGold));
+    wg.add(flatTriMesh([[TOP(t0, 0), TOP(t1, 0), TOP(t1, 1)], [TOP(t0, 0), TOP(t1, 1), TOP(t0, 1)]], M.ivory));    // ivory vane top
+    wg.add(flatTriMesh([[BOT(t0, 0), BOT(t1, 1), BOT(t1, 0)], [BOT(t0, 0), BOT(t0, 1), BOT(t1, 1)]], M.bronze));   // bronze belly
+    wg.add(flatTriMesh([[TOP(t0, 1), TOP(t1, 1), BOT(t1, 1)], [TOP(t0, 1), BOT(t1, 1), BOT(t0, 1)]], rose > 0 ? M.roseGold : M.bronze));  // trailing-edge seal
   }
 
-  // ── (1) COVERTS — a shingled row of small ivory kite-feathers over the inner third
-  // (extend INBOARD so the inner wing is not a blank rod). Bright vane / ember-shadow root.
-  for (let i = 0; i < covertN; i++) {
-    const t = 0.04 + (i / Math.max(1, covertN - 1)) * 0.42, l = L(t), c = chord(t);
-    const len = (0.42 - 0.10 * (i / covertN)) * ws, wid = 0.22 * ws;
-    const base = [l[0], l[1] - 0.02 * c, l[2] + 0.16 * c];
-    wg.add(kiteFeather(base, [0.22, -0.06, 1], [1, 0, 0], len, wid, 0.05, M.ivory, M.emberShadow));
-  }
+  // ── (1) COVERTS + (2) SECONDARIES — BROAD ROUNDED feathers shingled at ~55% overlap so
+  // each vane laps over the next (only a thin BRONZE shadow line shows between them — a
+  // ~2-tier value step, NOT the black V-gaps / toothy sawtooth the critic flagged). Warm
+  // bronze roots, not near-black. Seated on the dorsal (top) face.
+  const shingleRank = (n, tA, tB, seat, lenK, widK, vaneOuter) => {
+    for (let i = 0; i < n; i++) {
+      const t = tA + (n > 1 ? i / (n - 1) : 0) * (tB - tA), l = L(t), c = chord(t);
+      const base = [l[0], l[1] + camber(seat) * c - 0.01, l[2] + seat * c];
+      const vane = (vaneOuter && i > n * 0.6) ? M.gold : M.ivory;
+      wg.add(kiteFeather(base, [0.20, -0.05, 1], [1, 0, 0], lenK * c, widK * c, 0.05, vane, M.bronze));
+    }
+  };
+  shingleRank(covertN, 0.04, 0.46, 0.30, 0.52, 0.44);      // coverts (inner third, broad, big overlap)
+  shingleRank(secN, 0.12, 0.70, 0.52, 0.68, 0.48, true);   // secondaries (mid-chord, ivory→gold)
 
-  // ── (2) SECONDARIES — a broad OVERLAPPING mid-chord row (~55% overlap) that carries the
-  // deep filled chord; ivory→gold vanes over ember-shadow roots, a rose-gold rim outboard.
-  for (let i = 0; i < secN; i++) {
-    const t = 0.12 + (i / Math.max(1, secN - 1)) * 0.56, l = L(t), c = chord(t);
-    const len = 0.62 * c, wid = 0.30 * c;
-    const base = [l[0], l[1] - 0.03 * c, l[2] + 0.40 * c];
-    const vane = i > secN * 0.55 ? M.gold : M.ivory;
-    wg.add(kiteFeather(base, [0.24, -0.09, 1], [1, 0, 0], len, wid, 0.06, vane, M.emberShadow, rose > 0.4 ? M.roseGold : null));
-  }
-
-  // ── (3) PRIMARY FINGERS — emarginated GREAT-EAGLE fingers fanning from the carpal (~t0.68),
-  // rooted IN the web. Lengths grade with a central DOMINANT ×1.5. The fan spread widens
-  // with fingerSplit (blunt+bunched at the whelp → fanned fingers at apex). Each finger
-  // rakes AFT and droops slightly DOWN at the tip — NEVER up/in/hooked (the veto).
-  const carpal = MP(0.68, 0.5);
+  // ── (3) PRIMARY FINGERS — BROAD emarginated eagle fingers fanning from the carpal, a
+  // central DOMINANT ×1.5, FAT vanes lying IN the wing plane (not needles). The fan opens
+  // with fingerSplit. Each finger rakes AFT and droops slightly DOWN — NEVER up/in (veto).
+  const carpal = TOP(0.68, 0.55);
   const tips = [];
   for (let i = 0; i < fingerN; i++) {
     const u = fingerN > 1 ? i / (fingerN - 1) : 0.5;
-    // fan angle from +X (spanward) toward +Z (aft); outer fingers rake more aft. The spread
-    // opens with `split` (emargination); at split 0 the fingers bunch near-spanward (blunt).
-    const ang = 0.22 + (0.20 + 0.55 * u) * (0.35 + 0.65 * split);
-    const droop = 0.06 + 0.06 * u;             // slight DOWN at the tip — the anti-curl tell
+    const ang = 0.20 + (0.18 + 0.52 * u) * (0.4 + 0.6 * split);   // fan opens with split
+    const droop = 0.07 + 0.06 * u;                                 // DOWN at the tip (anti-curl)
     const dir = [Math.cos(ang), -droop, Math.sin(ang)];
+    const side = [-Math.sin(ang), 0, Math.cos(ang)];              // width spreads IN the wing plane (flat vane)
     const peak = Math.sin(Math.PI * u);
-    const len = (0.9 + 0.7 * peak) * ws;       // central dominant ~×1.5 over the edge fingers
-    const wid = (0.20 - 0.03 * Math.abs(u - 0.5) * 2) * ws;
-    const vane = u < 0.35 ? M.gold : M.ivory;  // inner primaries gold, outer ivory→white
-    wg.add(kiteFeather([carpal[0], carpal[1], carpal[2]], dir, [0, 1, 0], len, wid, 0.06, vane, M.emberShadow, rose > 0 ? M.roseGold : null));
+    const len = (1.0 + 0.7 * peak) * ws;                           // central dominant ~×1.5
+    const wid = (0.34 - 0.10 * Math.abs(u - 0.5) * 2) * ws;        // FAT fingers, widest at centre
+    const vane = u < 0.3 ? M.gold : M.ivory;
+    wg.add(kiteFeather([carpal[0], carpal[1], carpal[2]], dir, side, len, wid, 0.06, vane, M.bronze, rose > 0.3 ? M.roseGold : null));
     tips.push([carpal[0] + dir[0] * len, carpal[1] + dir[1] * len, carpal[2] + dir[2] * len]);
   }
-  // the outer-finger tip (fold/FX handle) — the widest span point.
   wg.userData.outerTip = tips[fingerN - 1];
   return wg;
 }
