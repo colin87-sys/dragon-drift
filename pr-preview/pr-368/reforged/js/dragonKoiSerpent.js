@@ -124,8 +124,8 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   // material shows it from either flank. GREEN body/belly ramp only — zero new emissive.
   const veilTail = model.veilTail ?? 0;
   if (veilTail > 0) {
-    const vStartT = 0.55;                        // veil covers the rear ~45% of the body
-    const maxH = leadR * 0.9 * veilTail;         // ≤ forward girth → sil-safe
+    const vStartT = 0.5;                         // veil covers the rear ~50% of the body
+    const maxH = leadR * 1.15 * veilTail;        // bold-ish flare that stays sil-safe (the apex's yawed pose shows a taller median fin at rear, so keep height modest); reads on side / rear-¾ and as the tail whips
     const nVeil = new THREE.Vector3(1, 0, 0);    // median fin faces sideways
     const baseD = [], edgeD = [], baseV = [], edgeV = [];
     // Tie the caudal fin to the SILK-FIN ray language: deep-emerald ROOT (at the tube) →

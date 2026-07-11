@@ -1542,7 +1542,7 @@ function buildSilkFinWings(def, model, attach, giM) {
           // CARVE the webs INWARD only (crests stay AT the smooth-blade surface) so the
           // outline never grows — the ray crests are the original silhouette envelope, the
           // webs between them recede into shadow. This is what keeps the sil-rear identical.
-          y -= rayRelief * camber * 0.95 * (1 - ray) * fades;
+          y -= rayRelief * camber * 1.05 * (1 - ray) * fades;  // corrugation depth tuned to the sil-safe ceiling (deeper starts poking the tilted-blade outline)
           crest = ray * fades;                                 // pale ray top    → value banding below
           trough = (1 - ray) * fades;                          // emerald web valley → strong crest/trough contrast at play distance
         }
@@ -1556,8 +1556,8 @@ function buildSilkFinWings(def, model, attach, giM) {
         c.lerp(cL, lead * 0.98);                               // strong deep-emerald leading RAY at FULL contrast (gate rework r4 dir 3 — each lobe reads separately, not one leaf)
         if (cf > 0.74) c.lerp(cL, (cf - 0.74) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
         if (rayRelief > 0) {                                    // CP3: value-band the flutes so the rays READ at rear-chase, not just in the crop
-          c.lerp(cT, crest * rayRelief * 0.30);                // pale-jade highlight on the raised ray crest
-          c.lerp(cL, trough * rayRelief * 0.52);               // deep-emerald in the recessed web → strong ray banding
+          c.lerp(cT, crest * rayRelief * 0.55);                // BRIGHT pale-jade highlight on the raised ray crest
+          c.lerp(cL, trough * rayRelief * 0.82);               // DEEP-emerald in the recessed web → bold alternating light/dark bands
         }
         if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
         cols.push(c.r, c.g, c.b);
@@ -1706,6 +1706,7 @@ function buildSilkFinWings(def, model, attach, giM) {
       wingLobePivotsL: L.lobePivots, wingLobePivotsR: R.lobePivots,
       wingElements,
       motifAnchor: pearl ? pearl.motifAnchor : null,
+      pearlMat: pearl ? pearl.pearlMat : null,   // CP3: the ONE bloom breathes with the swim (dragon.js bodyWave tick)
     },
     wingMat: finMat,
     spineMats,
@@ -1737,6 +1738,7 @@ function buildRiverPearl(def, model, attach, spineMats) {
   const emisI = [0.24, 0.35, 0.55][stage] ?? 0.55; // apex the fullest bloom; f0 lifted so the whelp bead reads; ≤0.55 so it stays MINT, not a white slab
   const pearlMat = new THREE.MeshStandardMaterial({
     color: 0xa6ecc6, emissive: cPearl, emissiveIntensity: emisI, roughness: 0.26, metalness: 0.0 });   // GREENER mint diffuse (was reading near-white) → unmistakably green-leaning, never blue-grey (CP2 polish)
+  pearlMat.userData.baseEmissive = cPearl; pearlMat.userData.baseIntensity = emisI;   // base for the Surge flare + the CP3 breath tick
   const pearl = new THREE.Mesh(new THREE.SphereGeometry(r0, seg(10), seg(8)), pearlMat);
   group.add(pearl);
   spineMats.push(pearlMat);
@@ -1753,7 +1755,7 @@ function buildRiverPearl(def, model, attach, spineMats) {
   // published anchor: the FIXED throat reference (invariant across forms → §7 drift ≤0.15);
   // radius monotonic with the bloom.
   const radius = [0.16, 0.26, 0.4][stage] ?? 0.4;
-  return { group, motifAnchor: { local: new THREE.Vector3(0, wr.y - 0.02, wr.z - 1.15), radius } };
+  return { group, motifAnchor: { local: new THREE.Vector3(0, wr.y - 0.02, wr.z - 1.15), radius }, pearlMat: stage >= 2 ? pearlMat : null };
 }
 
 registerWings('silkFinWings', buildSilkFinWings);
