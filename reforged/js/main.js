@@ -102,11 +102,15 @@ window.addEventListener('resize', () => {
 const urlParams = new URLSearchParams(window.location.search);
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
-if (urlParams.has('tm')) setToneMap(renderer, urlParams.get('tm'));
-if (urlParams.get('dither') === '0') setDither(false);
-// N4: opt into the instanced spark-particle backend (150 draws → 1). Default OFF
-// (shipped sprite path unchanged); must be set before initParticles.
-if (urlParams.get('pfx') === 'batch') setParticleBackend('batch');
+// Graphics effects: apply the player's saved Settings choices; a URL flag (?tm=,
+// ?dither=0, ?pfx=batch) overrides for testing. Defaults (dither on, ACES, batch
+// off) reproduce the shipped look exactly.
+const gfxPref = saveData.settings;
+const tmMode = urlParams.get('tm') || gfxPref.toneMap;
+if (tmMode) setToneMap(renderer, tmMode);
+if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
+// N4 instanced spark backend (150 draws → 1). Must be set before initParticles.
+if (urlParams.get('pfx') === 'batch' || gfxPref.particleBatch === true) setParticleBackend('batch');
 const challengeSeedParam = parseInt(urlParams.get('seed'), 10);
 const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam > 0
   ? challengeSeedParam : null;
@@ -628,6 +632,13 @@ ui.init({
     return false;
   },
   onQualityChange: (v) => { if (v !== null) applyQuality(v); },
+  // Graphics-effects toggles from Settings. Tone-map + dither apply live (three
+  // recompiles on toneMapping change); particle-batch needs a re-init so Settings
+  // reloads for that one (like DEV mode).
+  onGraphicsChange: (kind, value) => {
+    if (kind === 'toneMap') setToneMap(renderer, value);
+    else if (kind === 'dither') setDither(value);
+  },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
   // feedback; AUTO drift between runs is handled by updateModelDetail's gate.
