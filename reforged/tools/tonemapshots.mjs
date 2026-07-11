@@ -34,7 +34,7 @@ const saveFor = `localStorage.setItem('dragonDriftSave', JSON.stringify({
   settings: { reticle: false, slowMo: true, qualityOverride: 0 },
 }))`;
 
-const FREEZE_DIST = 440; // freeze at a fixed COURSE distance so all three boots land on the same seeded frame
+const FREEZE_DIST = 30; // reachable under slow-mo (~5/s); same seeded course position across all three boots
 
 const shots = {};
 for (const mode of MODES) {
@@ -44,7 +44,7 @@ for (const mode of MODES) {
   const query = `?debug&cleanshot&seed=${seed}&tm=${mode}`;
   const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 2, initScript: saveFor });
   await page.click('#btn-start').catch(() => {});
-  await page.waitForFunction((d) => window.__dd && window.__dd.game && window.__dd.game.distance >= d, FREEZE_DIST, { timeout: 25000 }).catch(() => {});
+  await page.waitForFunction((d) => window.__dd && window.__dd.game && window.__dd.game.distance >= d, FREEZE_DIST, { timeout: 18000 }).catch(() => {});
   await page.evaluate(() => { window.__dd.game.timeScale = 0; }); // freeze the matched frame
   await page.waitForTimeout(120);
   const buf = await page.screenshot();
