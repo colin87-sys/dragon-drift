@@ -33,11 +33,12 @@ async function capture(dist, depth) {
   const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 2, initScript: save });
   await page.click('#btn-start').catch(() => {});
   await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.distance >= 20, { timeout: 18000 }).catch(() => {});
-  await page.evaluate((d) => { window.__dd.noBoss(true); window.__dd.player.dist = d; }, dist);
-  await page.waitForFunction((d) => window.__dd.player.dist > d + 40, { timeout: 8000 }, dist).catch(() => {});
-  await page.waitForTimeout(1500);
-  await page.evaluate(() => { window.__dd.game.timeScale = 0; });
-  await page.waitForTimeout(120);
+  // Warp AND freeze in the same tick, so the input-less dragon never flies (and so
+  // never dies into an obstacle at far distances — the old wait-then-freeze lost
+  // far-biome cells to the menu). The biome/fog/water are distance-driven, so they
+  // snap to the warp target on the next few frozen frames.
+  await page.evaluate((d) => { window.__dd.noBoss(true); window.__dd.player.dist = d; window.__dd.game.timeScale = 0; }, dist);
+  await page.waitForTimeout(500);
   const buf = await page.screenshot();
   await done();
   return buf;
