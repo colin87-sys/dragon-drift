@@ -337,6 +337,7 @@ if (urlParams.has('debug')) {
     bossCrush: (on) => debugCrush(on),                // §CP2-D1: force/clear the sky-crush (high-organ seal test)
     bossCrushOn: () => debugCrushOn(),                // §CP2-D1: read the crush state
     bossSetPhase: (n) => setBossDebugPhase(n),        // §CP2-D2: fast-forward to a phase (P5 survival-seal test); call before bossForceFight
+    bossSetStage: (n) => setBossDebugStage(n),        // rung 14: pin/re-pin the visible STAGE sub-rig of THE UNMASKED (live organ-comfort test)
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;
