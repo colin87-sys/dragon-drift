@@ -1775,6 +1775,11 @@ export const ui = {
           ${gfxToggle('propAO')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">ATMOSPHERE</div>
+          <p class="sub">Aerial haze — fog pools low &amp; glows toward the sun. Deepest in Emberfall &amp; the Frozen Reach. (Experimental.)</p>
+          ${gfxToggle('atmosphere')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">SMOOTH GRADIENTS</div>
           <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
           ${gfxToggle('dither')}
