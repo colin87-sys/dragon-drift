@@ -3,6 +3,7 @@ import { mulberry32 } from './util.js';
 import { CONFIG } from './config.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { biomeIndexAt, computeEnv } from './biomes.js';
+import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { damp } from './util.js';
@@ -34,6 +35,13 @@ let bands = [];
 let feverMix = 0;
 let bossMix = 0; // eased boss-grade signal (see updateEnvironment), local copy — same pattern as feverMix
 let skyDim = 0;  // EMBERTIDE sky-replacement: 0 = the real dome; 1 = fully faded out (EMBERTIDE IS the sky)
+// ARENA (PR-A): while THE UNMASKED's void owns the sky, the biome PROP bands (monoliths etc.) must go
+// dark — they bypass `env` (static emissive materials recycled every frame), so without this gate the
+// void ships with fully-lit biome props marching through it (audit F1). Value-space visibility only,
+// self-healed on teardown by the stateless bossArenaMix source (arenaMix → 0 → this flips back next frame).
+let arenaPropsGate = false;
+export function debugArenaProps() { return arenaPropsGate; }
+export function debugSkyDim() { return skyDim; }   // proves the EMBERTIDE sky channel stayed 0 under the arena (disjointness)
 let cloudSunCover = 0; // N9: damped cloud coverage over the sun → eases god-ray intensity
 // N9: main.js reads this each frame to fade god-ray shafts as clouds cross the sun.
 export function getCloudSunCover() { return cloudSunCover; }
@@ -480,7 +488,7 @@ function writeMatrix(band, i, d) {
 // 2 biomes are in-window, so per-frame prop draws collapse to the live biomes'
 // archetypes no matter how many exclusives the roster grows.
 function updateBandVisibility(band) {
-  band.mesh.visible = band.data.some(
+  band.mesh.visible = !arenaPropsGate && band.data.some(
     (d) => band.def.biomes.includes(biomeIndexAt(Math.max(d.dist, 0))));
 }
 
@@ -522,6 +530,7 @@ function reseedBand(band) {
 
 export function resetEnvironment(seed) {
   if (seed !== undefined) rnd = mulberry32(seed + 99);
+  arenaPropsGate = false;   // ARENA (PR-A): a new-run reseed from a paused void frame reseats the bands VISIBLE (belt-and-braces to the self-healing per-frame restore)
   for (const band of bands) reseedBand(band);
   feverMix = 0;
   bossMix = 0;
@@ -532,12 +541,27 @@ export function resetEnvironment(seed) {
 // light field while every solid occluder draws black.
 export function getSkyMesh() { return sky; }
 
-export function updateEnvironment(dt, camera, time, playerDist, feverActive = false, playerSpeed = 0, bossTarget = 0) {
+export function updateEnvironment(dt, camera, time, playerDist, feverActive = false, playerSpeed = 0, bossTarget = 0, arenaMix = 0, arenaFade = 1) {
   sky.position.copy(camera.position);
+  // ARENA (PR-A/B) prop gate: hide the biome prop bands once the arena owns the sky (the flood peak
+  // ~0.45 masks the pop). Re-evaluate ALL bands on the edge BEFORE the recycle loop, so this frame's
+  // recycles already respect the gate. Restore is self-healing: any teardown → arenaMix 0 → gate false →
+  // next frame reseats. The props RETURN only at the tail of the exhale (fade < 0.15, sky already ≈ biome)
+  // — the death burst is long over by fade 0.5, so an earlier return would pop props into a half-heaven
+  // sky (CP2 finding-5).
+  const hideProps = arenaMix >= 0.45 && arenaFade >= 0.15;
+  if (hideProps !== arenaPropsGate) {
+    arenaPropsGate = hideProps;
+    for (const band of bands) updateBandVisibility(band);
+  }
   for (const band of bands) recycleBand(band, playerDist);
 
   // --- Biome atmosphere lerp: sky, fog, lights, water all follow the seam.
   const env = computeEnv(playerDist);
+  // ARENA (PR-A) — THE injection: blend the live env scratch toward the void palette (arenaSkin.js) BEFORE
+  // the fan-out below, so sky uniforms, scene.fog, sun/hemi, setWaterTint AND updateAmbient all read the
+  // overridden scratch. mix 0 ⇒ zero writes ⇒ byte-identical for every other boss + all flight.
+  applyArenaSkin(env, arenaMix, arenaFade);
   const su = sky.material.uniforms;
   su.topColor.value.copy(env.skyTop);
   su.midColor.value.copy(env.skyMid);

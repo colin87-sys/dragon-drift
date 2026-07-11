@@ -12,6 +12,8 @@ import { clearAhead } from './obstacles.js';
 import { bulletGraze } from './collision.js';
 import { buildBoss, buildHorizonSeed } from './bossModel.js';
 import { setSkyFade } from './environment.js';
+import { kick } from './postfx.js';
+import { VOID_BULLETS } from './arenaSkin.js';
 import { makeRhythm } from './bossRhythm.js';
 import { ENTRANCE_SCRIPTS } from './entranceScripts.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex, ladderPickDef, ladderTighten } from './bossDefs.js';
@@ -1118,6 +1120,7 @@ let bandIdx = 0;
 // `bullets: { light, mid, dark }` hex override for those. Resolved ONCE at
 // encounter start (render-only; never touches kinematics) and reset on teardown.
 let activeBand = BAND;
+let arenaBandApplied = false;   // ARENA (PR-A): one-shot latch — swap the dark band to the void's certified lift at the reveal
 function resolveBand(biomeIdx) {
   const o = BIOMES[biomeIdx]?.bullets;
   if (!o) return BAND;
@@ -1626,6 +1629,51 @@ export function bossGradeTarget() {
   return shielded ? 1.0 : 0.6;
 }
 
+// ARENA MIX (THE UNMASKED, PR-A) — the 0→1 signal that drives the value-space arena skin (arenaSkin.js
+// via environment.js), threaded exactly like bossGradeTarget(). STATELESS getter (a pure function of
+// fight state, not a boss-ticked ramp): updateEnvironment runs in EVERY non-paused state (incl. game-
+// over / menu) while updateBoss runs playing-only, so a stateless source self-heals the env + prop gate
+// within one frame of any teardown/skip (the embertideSky ramp trap). Returns 0 for every non-arena
+// boss (def.arenaStates undefined) ⇒ applyArenaSkin early-returns ⇒ byte-identical. PR-A: stages 2 AND
+// 3 hold the void (a void→ordinary pop at the unveil would be worse); PR-B maps phaseIdx 2 → the heaven.
+const ss01 = (t) => { const s = Math.max(0, Math.min(1, t)); return s * s * (3 - 2 * s); };   // clamp+smoothstep
+// THE NATURAL-KILL EXHALE (PR-B): easing the MIX back down would replay heaven→gold-flood→void→white-
+// flood in reverse (a strobe), so on the boss's death the mix HOLDS at its last value and a FADE channel
+// dissolves the arena straight into the returned biome sky over ARENA_EXHALE_DUR ("the sky it stole is
+// given back"). Render-side module state; hard-snapped on the resetBoss teardown.
+let exhaleT = 0, exhaleMix = 0;
+const ARENA_EXHALE_DUR = 2.5;
+const RAY_ON = 1.6;   // PR-B: the void's god-ray suppression releases + the heaven's swell switches on at this mix (the identity's t≈0.6 "we have arrived" beat)
+export function bossArenaMix() {
+  if (!active) return exhaleT > 0 ? exhaleMix : 0;   // hold the arena through the FELLED exhale; fade carries the return
+  if (!def?.arenaStates || phaseIdx < 1) return 0;
+  // The stage clock blends 0→1 (the S1→S2 CRACK, phaseIdx 1 → the void) or 1→2 (the S2→S3 UNVEILING,
+  // phaseIdx 2 → the heaven). A dev stage-pin intro sweeps 0→end THROUGH the void (a 2s recap, no pop).
+  if (stageBeatT >= 0 && stageBeatSkippable) return ss01(stageBeatT / stageBeatDur) * (phaseIdx >= 2 ? 2 : 1);
+  if (stageBeatT >= 0 && phaseIdx === 1) return ss01(stageBeatT / stageBeatDur);
+  if (stageBeatT >= 0 && phaseIdx === 2) return 1 + ss01(stageBeatT / stageBeatDur);
+  return phaseIdx >= 2 ? 2 : 1;   // settled: S2 void · S3 heaven
+}
+// The exhale fade: 1 in-fight, eases 1→0 over ARENA_EXHALE_DUR while the felled boss's arena dissolves
+// back to the biome sky. 1 whenever active (no exhale) or no exhale pending.
+export function bossArenaFade() {
+  return (!active && exhaleT > 0) ? ss01(exhaleT / ARENA_EXHALE_DUR) : 1;
+}
+// THE EXHALE TICK — runs in EVERY non-paused state (called from main.js beside updateEnvironment). The
+// live fight drives the arena in updateBoss's per-frame block, but updateBoss is playing-gated and the
+// finale/rush kill flips straight to 'gameover' (endEncounter → rushClear/settleRun), where updateBoss
+// never runs again — so WITHOUT this the exhale would freeze mid-blend and strand the heaven sky + the
+// hidden prop bands behind the recap until the next hard reset (the CP2/Codex blocker). Decays exhaleT
+// and re-derives the god-ray flags off the fading mix so the shafts ease out WITH the sky; on the last
+// frame it settles them clean. Inert when active (updateBoss owns it) or when no exhale is pending.
+export function updateArenaExhale(dt) {
+  if (active || exhaleT <= 0) return;
+  exhaleT = Math.max(0, exhaleT - dt);
+  const mix = bossArenaMix(), fade = bossArenaFade();
+  game.bossVoidSky = exhaleT > 0 && mix > 0.5 && mix < RAY_ON;
+  game.bossHeavenRays = exhaleT > 0 ? Math.max(0, Math.min(1, (mix - RAY_ON) / (2 - RAY_ON))) * fade : 0;
+}
+
 // ---- Encounter lifecycle ----------------------------------------------------
 
 export function startBossEncounter(player, defOverride) {
@@ -1662,6 +1710,7 @@ export function startBossEncounter(player, defOverride) {
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   activeBand = resolveBand(biomeIndexAt(player.dist));
+  arenaBandApplied = false; exhaleT = 0; exhaleMix = 0;   // ARENA (PR-A/B): fresh encounter re-arms the band latch + cancels any stale exhale
   bulletColor = def.bulletColor ?? 0xff2b6a;
   pending.length = 0;
   chargeT = 0;
@@ -1860,6 +1909,10 @@ export function startBossRush(player, only = null) {
 export function inBossRush() { return rushMode; }
 
 function endEncounter(player) {
+  // ARENA (PR-B) natural-kill EXHALE: capture the live arena mix HERE (before def/active are nulled
+  // below) so the FELLED boss's sky HOLDS at its last value and the fade dissolves it back to the biome
+  // over ARENA_EXHALE_DUR ("the sky it stole is given back"). Non-arena bosses never set it (coexist).
+  { const m = bossArenaMix(); if (active && def?.arenaStates && m > 0) { exhaleMix = m; exhaleT = ARENA_EXHALE_DUR; } }
   clearSetpiece();
   clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
   burns.length = 0; lastRealTollAt = -10; lastTollGap = 1.2; tollChainN = 0; tollChainAt = -10;   // SCAR-BURN + toll clock + §ENG-C3 chain never outlive the fight (§CP1 B-2 / §CP2 NIT-8)
@@ -1890,6 +1943,7 @@ function endEncounter(player) {
   phase = 'idle';
   game.inBoss = false;
   activeBand = BAND;
+  arenaBandApplied = false; game.bossVoidSky = false; game.bossHeavenRays = 0;   // ARENA (PR-A/B): the void/heaven flags never outlive the fight (grep-both law; the stateless getter + the exhale fade restore env + prop gate). The exhale itself (captured above) rides bossArenaFade with active=false.
   // The arena is NEVER left narrowed past a fight (unconditional restore) — the sky
   // ceiling included (the crush clamp + letterbox must not outlive the encounter).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
@@ -2107,6 +2161,11 @@ function enterFight() {
     if (debugStagePin != null && debugStagePin > 1 && model.stageTransitionDur) {
       model.setPhase?.(target);
       beginStageBeat(true, target);
+      // ARENA: the picker START-into-S2/S3 must FLOOD like a real shield-break crack, or the sky just
+      // slides to the void/heaven with no flash — the "bad transition" (no crack, no burst). breakShield
+      // fires this on the organic advance; the picker-spawn intro skipped it. target 1 = the S1→S2 crack
+      // (arenaFlood), target ≥ 2 = the S2→S3 unveil (arenaUnveil). Def-gated + tier-degrades (Law 10).
+      if (def.arenaStates) kick(target >= 2 ? 'arenaUnveil' : 'arenaFlood');
       input.surgeTap = false;   // drop the tap that launched the fight so it can't instantly self-skip
       ui.bossNote?.('▶  TAP TO SKIP', 'the form-change', 'gold', stageBeatDur + stageBeatHold);
     }
@@ -2194,6 +2253,29 @@ export function updateBoss(dt, player, time, camera) {
   skyFadeK += (skyTgt - skyFadeK) * Math.min(1, dt * 3.5);
   setSkyFade(skyFadeK);
   game.embertideSky = skyFadeK > 0.02;   // suppress god-rays while EMBERTIDE IS the sky (no discrete sun → no shafts)
+  // ARENA (PR-A): the void has no sun → suppress god-rays (the embertideSky idiom), and swap the dark
+  // bullet band to the void's certified lift ONCE at the reveal (the default 0x8f0a3c fails the void
+  // backgrounds — a fairness break). The latch fires when the mix first hits 1 (the reveal frame, in
+  // the held-fire window), robust to both the reveal path and the dev-skip path. `bossVoidSky` +
+  // `arenaBandApplied` are hard-cleared in BOTH teardowns (the stateless getter self-heals the rest).
+  const arenaMixNow = bossArenaMix();
+  const arenaFadeNow = bossArenaFade();
+  // VOID window (PR-B): god-ray suppression holds through the void and RELEASES as the unveil passes
+  // mix RAY_ON (1.6) — the heaven has a sun. Without the upper bound the heaven would inherit the void's
+  // suppression and its god-ray swell (its #1 holy carrier) would never fire.
+  game.bossVoidSky = arenaMixNow > 0.5 && arenaMixNow < RAY_ON;
+  // HEAVEN god-ray SWELL signal (0..1): ramps over the last 0.4 of the unveil, full at the heaven, eases
+  // out with the exhale fade. Cleared in BOTH teardowns beside bossVoidSky (grep-both law).
+  game.bossHeavenRays = Math.max(0, Math.min(1, (arenaMixNow - RAY_ON) / (2 - RAY_ON))) * arenaFadeNow;
+  if (def?.arenaStates && !arenaBandApplied && arenaMixNow >= 1) {
+    arenaBandApplied = true;   // resolveBand order is [light, dark, mid] — slot 1 is dark (the void lift persists into the heaven — it passes both)
+    activeBand = [activeBand[0], { c: VOID_BULLETS.dark, s: activeBand[1].s }, activeBand[2]];
+  }
+  // (the FELLED exhale decays in updateArenaExhale, called from main.js in ALL states — updateBoss is
+  // playing-gated, but the finale/rush kill flips straight to gameover, where this block never runs)
+  // THE S3 FOCAL LIFT drive (PR-B): the boss's light LEADS the world — full by the gold-flood peak (mix
+  // 1+T0=1.45), so the burst igniting reads as the CAUSE of the heaven arriving. Inert off the heaven.
+  if (active && model) model.setArenaHeaven?.(ss01((arenaMixNow - 1) / 0.45));
   if (!active) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
@@ -3843,7 +3925,14 @@ function breakShield(player) {
   // A MULTI-STAGE boss (THE UNMASKED) plays its form-change as a CINEMATIC BEAT: hold fire
   // for the whole crack/unveiling (model.stageTransitionDur) PLUS a reveal hold, so the eyes
   // snap to you before the new stage opens up. The reveal emphasis fires at the arrival below.
-  if (model.stageTransitionDur && def.phases[phaseIdx + 1]) beginStageBeat(false, phaseIdx + 1);   // mid-fight advance — not skippable (target = the phase we're entering)
+  if (model.stageTransitionDur && def.phases[phaseIdx + 1]) {
+    beginStageBeat(false, phaseIdx + 1);   // mid-fight advance — not skippable (target = the phase we're entering)
+    // ARENA (PR-A): the S1→S2 crack floods the sky white-violet then drains into the void (the tear
+    // reopening — you're pulled THROUGH it). Def-gated to the crack (phaseIdx 0→1); tier-degrades per
+    // Law 10 (tier 1 halves, tier 2 no-ops → the palette lerp alone carries the flood on weak mobile).
+    if (def.arenaStates && phaseIdx === 0) kick('arenaFlood');          // S1→S2: the tear floods white-violet then drains to the void
+    else if (def.arenaStates && phaseIdx === 1) kick('arenaUnveil');    // S2→S3: the gold bloom of the unveiling
+  }
   // The surviving-the-phase card resolves the instant its shield bursts: capture
   // if the whole card was hitless. The next phase's card arms right after.
   endCard();
@@ -5500,6 +5589,7 @@ export function resetBoss() {
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
   activeBand = BAND;
+  arenaBandApplied = false; game.bossVoidSky = false; game.bossHeavenRays = 0; exhaleT = 0; exhaleMix = 0;   // ARENA (PR-A/B): hard-clear on the game-over/new-run teardown (the hard snap stands — the exhale is only for the natural kill)
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
@@ -5725,6 +5815,10 @@ export function debugBurns() {
 export function debugReckoning() {
   return { branded: [...reckoningBranded], done: reckoningDone, need: def?.reckoningRelics?.length ?? 0 };
 }
+// ARENA (PR-B) test seams: force the natural-kill teardown (the only way to exercise the exhale
+// headless) + read the model's S3 focal-lift state (the byte-identity-off-heaven proof).
+export function debugFell() { if (active && lastPlayer) endEncounter(lastPlayer); }
+export function bossDebugModelLift() { return model?.debugArenaLift?.() ?? null; }
 export function debugLoose() { requestLoose(); }
 export function debugLockCandidates() { return lockCandidates(); }
 export function debugPartWorldPos(part) {
@@ -5786,7 +5880,7 @@ export function bossDebugState() {
   // live possession/drop, so the crop tool + gate can read the eye-drop state.
   const hs = model?.holdState?.();
   const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, stageBeat: stageBeatT >= 0, medleyForm: grazeFormNow(), slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, archWaveN, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, stageBeat: stageBeatT >= 0, medleyForm: grazeFormNow(), slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, archWaveN, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0, bandDark: activeBand[1].c };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
