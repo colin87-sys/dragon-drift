@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Dragon Drift — GPU stress test</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{display:block;width:100vw;height:100vh;touch-action:none}
+    /* Big, phone-readable HUD — config on top, live/final numbers below. */
+    #hud{position:fixed;left:10px;top:10px;right:10px;color:#dbe8ff;font-size:15px;line-height:1.55;
+      background:rgba(8,12,24,.74);padding:10px 12px;border-radius:10px;pointer-events:none;user-select:none;
+      font-variant-numeric:tabular-nums;max-height:94vh;overflow:auto;white-space:pre-wrap}
+    #hud b{color:#35e0ff}
+    #hud .big{font-size:26px;font-weight:700;color:#ffcf5a}
+    #hud .done{color:#4fe08a;font-weight:700}
+    #hud .dim{color:#7f96c2}
+    #err{position:fixed;left:10px;right:10px;top:50%;color:#ff9a9a;font-size:13px;line-height:1.5;
+      white-space:pre-wrap;background:rgba(40,8,8,.72);padding:10px;border-radius:8px;display:none;
+      max-height:45vh;overflow:auto}
+  </style>
+  <!-- Relative import path (NOT the "/lib/..." absolute style some other reforged/tools/*.html
+       pages use) — this page is meant to be opened DIRECTLY by a human on the deployed PR
+       preview (…/pr-preview/pr-N/reforged/tools/stress.html), same as tracer.html/nfview.html.
+       An absolute "/lib/three.module.js" resolves from the DOMAIN root, which breaks under the
+       pr-preview subpath; "../lib/..." resolves relative to reforged/tools/ regardless of how
+       deep the preview URL prefix is, and also matches how the local test server (tests/serve.mjs,
+       ROOT = reforged/) serves it. See nfview.html for the same pattern. -->
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    // Self-report any load/runtime error on-page (house pattern, see nfview.html) — a blank
+    // canvas on a phone must never be a silent mystery.
+    window.__stresserr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display = 'block'; e.textContent = 'Stress test error:\n' + m; } };
+    window.addEventListener('error', (ev) => window.__stresserr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__stresserr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="err"></div>
+  <div id="hud">booting…</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX } from '../js/postfx.js';
+
+    /* -----------------------------------------------------------------------
+     * Dragon Drift — GPU BUDGET STRESS TEST (boss-upgrade plan, Phase 0)
+     *
+     * Self-measuring page that boots the REAL renderer/postfx/lighting config
+     * (not a toy scene) and fills it with a parametric cluster of animated
+     * meshes so we can measure where frame time actually inflects — draw
+     * calls, triangle density, material/program cost, instancing, overdraw,
+     * and the game's own quality tiers.
+     *
+     * URL params (defaults shown):
+     *   meshes=100        draw-call axis: separate THREE.Mesh count in the grid
+     *   tris=500           triangles/mesh TARGET — snapped to the nearest
+     *                       IcosahedronGeometry detail level (PolyhedronGeometry
+     *                       subdivides each edge into detail+1 segments →
+     *                       exactly 20·(d+1)² triangles); the actually-achieved
+     *                       count is reported alongside the target
+     *   mat=standard|basic-additive|energyShell
+     *                       standard      → MeshStandardMaterial, flatShading +
+     *                                       emissive, like the boss body core
+     *                       basic-additive→ MeshBasicMaterial, transparent
+     *                                       additive, depthWrite:false
+     *                       energyShell   → the fresnel ShaderMaterial from
+     *                                       bossModel.js (makeEnergyShell)
+     *   instanced=0|1      1 = the SAME total load (meshes × actualTris) as ONE
+     *                       InstancedMesh instead of N separate Mesh objects —
+     *                       isolates the per-draw-call CPU/GPU overhead directly
+     *   shells=0            N large overlapping additive fresnel shells centered
+     *                       on the cluster (radii 3, 3.5, 4…) — isolates OVERDRAW
+     *                       (fill-rate) cost independent of draw-call count
+     *   tier=0|1|2          applies the game's real quality tier: pixel ratio
+     *                       (main.js PIXEL_RATIOS) + postfx tier (setPostTier)
+     *   warmup=5            seconds of unmeasured run before sampling starts
+     *                       (shader-compile jank) — headless sweeps pass small
+     *                       values (e.g. 1.5); the on-phone default is 5
+     *   sample=10           seconds of measured sampling; on-phone default 10
+     *
+     * Measurement: elapsed time is measured via performance.now() deltas
+     * BETWEEN rAF callbacks (never assumed from a frame-count × 16.6ms guess) —
+     * headless Chromium throttles rAF hard (~8×, see LEAPFROG L105), so a
+     * "10 second" sample still takes 10 real wall-clock seconds but yields far
+     * fewer frames; that under-count IS the signal (relative fps), not noise.
+     * fps = frames-observed / wall-clock-seconds-elapsed. p50/p95 come from the
+     * per-frame delta list collected during the sampling window.
+     *
+     * Output: a big on-screen HUD (config + live fps, then final numbers), plus
+     * window.__stressResult = { params, fps, p50, p95, calls, triangles,
+     * actualTrisPerMesh } and document.title = 'DONE ' + fps.toFixed(1) — the
+     * two automation hooks tools/stress.mjs polls for.
+     * --------------------------------------------------------------------- */
+
+    const qp = new URLSearchParams(location.search);
+    const num = (k, d) => { const v = Number(qp.get(k)); return Number.isFinite(v) ? v : d; };
+    const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+    const VALID_MATS = ['standard', 'basic-additive', 'energyShell'];
+    let matParam = qp.get('mat') || 'standard';
+    if (!VALID_MATS.includes(matParam)) { console.warn(`stress.html: unknown mat "${matParam}", falling back to standard`); matParam = 'standard'; }
+
+    const params = {
+      meshes: Math.max(1, Math.round(num('meshes', 100))),
+      trisTarget: Math.max(1, Math.round(num('tris', 500))),
+      mat: matParam,
+      instanced: num('instanced', 0) ? 1 : 0,
+      shells: Math.max(0, Math.round(num('shells', 0))),
+      tier: clamp(Math.round(num('tier', 0)), 0, 2),
+      warmup: Math.max(0, num('warmup', 5)),
+      sample: Math.max(0.5, num('sample', 10)),
+    };
+
+    // --- Renderer: the game's REAL boot config (main.js:71-81) — same flags,
+    // same order, so this page's raw render cost is representative.
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.92; // pull exposure back so highlights don't wash out (main.js:75)
+    // renderer.info auto-resets on EVERY internal render() call — with the composer on, that
+    // means it only ever holds the LAST pass (the grading fullscreen quad: 1 call, 2 tris).
+    // Take ownership: reset manually at the top of each frame so at sample time the counters
+    // hold the WHOLE frame's submissions (scene pass + bloom mips + output + grading).
+    renderer.info.autoReset = false;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 1600);
+    camera.layers.enable(1); // matches main.js — layer 1 = sprites hidden from water reflection (unused here, kept for parity)
+
+    // --- Postfx: the REAL composer chain (RenderPass -> Bloom -> [GodRays] -> Output -> Grading).
+    // initPostFX's signature is self-contained (renderer, scene, camera) — no game-state hooks are
+    // required at init time, so no stub was needed here (see the PR report for confirmation of this).
+    initPostFX(renderer, scene, camera);
+
+    // --- Quality tier (main.js:804-878 QUALITY_SCALARS / PIXEL_RATIOS / applyQuality). Only the two
+    // levers that touch RAW RENDER COST apply to a synthetic load page: render resolution and the
+    // postfx pass tier. QUALITY_SCALARS itself thins particle/dragon/boss GEOMETRY density elsewhere
+    // in the real game — this page's mesh/tri counts are already explicit URL params, so there is
+    // nothing for that scalar to multiply here.
+    const PIXEL_RATIOS = [
+      Math.min(window.devicePixelRatio, 2),
+      Math.min(window.devicePixelRatio, 1.5),
+      1,
+    ];
+    renderer.setPixelRatio(PIXEL_RATIOS[params.tier]);
+    setPostPixelRatio(PIXEL_RATIOS[params.tier]);
+    setPostSize(window.innerWidth, window.innerHeight);
+    setPostTier(params.tier);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      setPostSize(window.innerWidth, window.innerHeight);
+    });
+
+    // --- Lighting rig (environment.js:337-342) — the real 2-light setup, values copied verbatim.
+    const sun = new THREE.DirectionalLight(0xffe0b0, 1.8);
+    sun.position.set(-60, 45, -150);
+    scene.add(sun, sun.target);
+    const hemi = new THREE.HemisphereLight(0xbfdcff, 0x2e5448, 0.8);
+    scene.add(hemi);
+
+    // --- Sky-coloured backdrop + fog roughly matching the game (environment.js createEnvironment's
+    // default fog: 0xf2c694, 85, 430). The full shader sky dome is a whole biome/time-of-day system
+    // on its own — out of scope for a load-stress page; a flat sky-tinted background is a fair
+    // fill-rate backdrop without dragging in the entire environment module (and its ambient/water/
+    // prop-band dependencies) just to get a colour.
+    scene.background = new THREE.Color(0x8fc7ff);
+    scene.fog = new THREE.Fog(0xf2c694, 85, 430);
+
+    // --- makeEnergyShell, copied verbatim from bossModel.js:12-37 per the brief (importing
+    // bossModel.js would pull in the whole boss build pipeline for one function). ONE deliberate
+    // deviation: the vertex shader gained a `#ifdef USE_INSTANCING` branch (mirrors three.js's own
+    // instancing_vertex chunk) so `instanced=1&mat=energyShell` behaves correctly if a human tries
+    // that combo by hand — the mandated sweep only tests instancing at mat=standard, but this page
+    // accepts arbitrary param combos, and a raw custom ShaderMaterial does NOT get instanceMatrix
+    // applied automatically (unlike the built-in MeshStandardMaterial/MeshBasicMaterial), so without
+    // this every instance would silently stack at the origin instead of measuring real GPU cost.
+    function makeEnergyShell(color, { power = 2.4, strength = 1.0, opacity = 1.0 } = {}) {
+      return new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: new THREE.Color(color) },
+          uPower: { value: power },
+          uStrength: { value: strength },
+          uOpacity: { value: opacity },
+        },
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        vertexShader: /* glsl */`
+          varying vec3 vN; varying vec3 vV;
+          void main() {
+            #ifdef USE_INSTANCING
+              vec4 mv = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+              vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
+            #else
+              vec4 mv = modelViewMatrix * vec4(position, 1.0);
+              vN = normalize(normalMatrix * normal);
+            #endif
+            vV = normalize(-mv.xyz);
+            gl_Position = projectionMatrix * mv;
+          }`,
+        fragmentShader: /* glsl */`
+          uniform vec3 uColor; uniform float uPower; uniform float uStrength; uniform float uOpacity;
+          varying vec3 vN; varying vec3 vV;
+          void main() {
+            float f = pow(1.0 - clamp(dot(vN, vV), 0.0, 1.0), uPower);
+            gl_FragColor = vec4(uColor, f * uStrength * uOpacity);
+          }`,
+      });
+    }
+
+    function makeMaterial(kind) {
+      switch (kind) {
+        case 'basic-additive':
+          return new THREE.MeshBasicMaterial({
+            color: 0xff88cc, transparent: true, opacity: 0.6,
+            blending: THREE.AdditiveBlending, depthWrite: false,
+          });
+        case 'energyShell':
+          return makeEnergyShell(0xff4488, { power: 2.4, strength: 1.0 });
+        case 'standard':
+        default:
+          // Matches the boss body's coreMat (bossModel.js) — flatShading + emissive.
+          return new THREE.MeshStandardMaterial({
+            color: 0x1a0e22, emissive: 0xff4488, emissiveIntensity: 1.5,
+            roughness: 0.35, metalness: 0.45, flatShading: true,
+          });
+      }
+    }
+
+    // --- Geometry: nearest IcosahedronGeometry detail level for the requested tri budget.
+    // PolyhedronGeometry subdivides each icosahedron edge into (detail+1) segments, so detail d
+    // gives exactly 20·(d+1)² triangles (d=0→20, 1→80, 2→180, 3→320 … 19→8000). Report the ACTUAL
+    // count read back off the built geometry, not the formula, so a three.js version quirk can't
+    // silently lie in the result.
+    function icoTris(detail) { return 20 * (detail + 1) * (detail + 1); }
+    function pickDetail(target) {
+      let best = 0, bestDiff = Infinity;
+      for (let d = 0; d <= 25; d++) {
+        const diff = Math.abs(icoTris(d) - target);
+        if (diff < bestDiff) { bestDiff = diff; best = d; }
+      }
+      return best;
+    }
+    const detail = pickDetail(params.trisTarget);
+    const geometry = new THREE.IcosahedronGeometry(1, detail);
+    const actualTrisPerMesh = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
+
+    const sharedMaterial = makeMaterial(params.mat);
+
+    // --- Cluster layout: grid filling ~60% of the viewport at a fixed mid distance (also the
+    // camera's orbit radius, so the fill fraction stays roughly consistent through the orbit).
+    const clusterCenter = new THREE.Vector3(0, 0, 0);
+    const camDist = 42;
+    const cols = Math.ceil(Math.sqrt(params.meshes));
+    const rows = Math.ceil(params.meshes / cols);
+    const fovRad = camera.fov * Math.PI / 180;
+    const frustumH = 2 * camDist * Math.tan(fovRad / 2);
+    const frustumW = frustumH * camera.aspect;
+    const COVERAGE = 0.6;
+    const spacingX = (frustumW * COVERAGE) / cols;
+    const spacingY = (frustumH * COVERAGE) / rows;
+    const meshRadius = clamp(Math.min(spacingX, spacingY) * 0.42, 0.3, 1.3);
+    geometry.scale(meshRadius, meshRadius, meshRadius);
+
+    const group = new THREE.Group();
+    scene.add(group);
+    const tickFns = [];
+
+    // All meshes rotate every frame (realistic per-object matrix cost), whether they're N separate
+    // Mesh objects or one InstancedMesh recomputing per-instance matrices — that's the whole point
+    // of the instanced=0|1 axis: same animated load, different draw-call shape.
+    if (params.instanced) {
+      const mesh = new THREE.InstancedMesh(geometry, sharedMaterial, params.meshes);
+      mesh.frustumCulled = false;
+      const bases = [];
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < params.meshes; i++) {
+        const col = i % cols, row = Math.floor(i / cols);
+        bases.push({
+          pos: new THREE.Vector3(
+            (col - (cols - 1) / 2) * spacingX,
+            (row - (rows - 1) / 2) * spacingY,
+            (Math.random() - 0.5) * spacingX * 0.3
+          ),
+          rx: Math.random() * 6.28, ry: Math.random() * 6.28,
+          sx: 0.6 + Math.random() * 0.9, sy: 0.6 + Math.random() * 0.9,
+        });
+      }
+      tickFns.push((dt) => {
+        for (let i = 0; i < params.meshes; i++) {
+          const b = bases[i];
+          b.rx += dt * b.sx;
+          b.ry += dt * b.sy;
+          dummy.position.copy(b.pos);
+          dummy.rotation.set(b.rx, b.ry, 0);
+          dummy.updateMatrix();
+          mesh.setMatrixAt(i, dummy.matrix);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+      });
+      group.add(mesh);
+    } else {
+      for (let i = 0; i < params.meshes; i++) {
+        const col = i % cols, row = Math.floor(i / cols);
+        const m = new THREE.Mesh(geometry, sharedMaterial);
+        m.position.set(
+          (col - (cols - 1) / 2) * spacingX,
+          (row - (rows - 1) / 2) * spacingY,
+          (Math.random() - 0.5) * spacingX * 0.3
+        );
+        const sx = 0.6 + Math.random() * 0.9, sy = 0.6 + Math.random() * 0.9;
+        group.add(m);
+        tickFns.push((dt) => { m.rotation.x += dt * sx; m.rotation.y += dt * sy; });
+      }
+    }
+
+    // --- Overdraw axis: N large overlapping additive fresnel shells centered on the cluster.
+    // Radii 3, 3.5, 4… (per the brief) — deliberately independent of the `meshes`/`tris`/`instanced`
+    // axes so this isolates fill-rate cost. Shares ONE material (program) across all shells; only
+    // their geometry radius differs.
+    if (params.shells > 0) {
+      const shellMat = makeEnergyShell(0xffcf5a, { power: 2.2, strength: 1.1 });
+      for (let i = 0; i < params.shells; i++) {
+        const r = 3 + i * 0.5;
+        const sg = new THREE.IcosahedronGeometry(r, 2); // fixed moderate detail — shape only, overdraw is the variable under test
+        const sm = new THREE.Mesh(sg, shellMat);
+        sm.position.copy(clusterCenter);
+        scene.add(sm);
+        tickFns.push((dt) => { sm.rotation.y += dt * 0.05; sm.rotation.x += dt * 0.03; });
+      }
+    }
+
+    // --- Camera: slow orbit around the cluster so screen-space fill varies over the sample window.
+    let camAngle = 0;
+    function updateCamera(dt) {
+      camAngle += dt * 0.15;
+      camera.position.set(
+        clusterCenter.x + Math.sin(camAngle) * camDist,
+        clusterCenter.y + camDist * 0.15,
+        clusterCenter.z + Math.cos(camAngle) * camDist
+      );
+      camera.lookAt(clusterCenter);
+    }
+
+    // --- Measurement state machine ------------------------------------------------------------
+    const hud = document.getElementById('hud');
+    let warmupStart = performance.now();
+    let lastT = warmupStart;
+    let warmupDone = false;
+    let sampling = false;
+    let finished = false;
+    let sampleStart = 0;
+    let frameCount = 0;
+    let frameTimes = [];
+    let finalResult = null;
+    let liveFps = 60;
+    let hudTimer = 0;
+
+    function finish(now) {
+      finished = true;
+      sampling = false;
+      const elapsedSec = Math.max((now - sampleStart) / 1000, 1e-3);
+      const fps = frameCount / elapsedSec;
+      const sorted = frameTimes.slice().sort((a, b) => a - b);
+      const pct = (p) => sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] : 0;
+      const p50 = pct(0.5), p95 = pct(0.95);
+      const info = renderer.info.render; // ground truth of what THIS frame submitted (composer passes included)
+      finalResult = {
+        params: { ...params, actualTrisPerMesh },
+        fps, p50, p95, calls: info.calls, triangles: info.triangles, actualTrisPerMesh,
+      };
+      window.__stressResult = finalResult;
+      document.title = 'DONE ' + fps.toFixed(1);
+    }
+
+    function updateHud(now) {
+      hudTimer -= 1;
+      if (hudTimer > 0 && !finished) return; // throttle DOM writes to ~10/s while running
+      hudTimer = 6;
+      const cfgLine = `meshes=<b>${params.meshes}</b> tris=<b>${params.trisTarget}</b>→actual <b>${actualTrisPerMesh}</b> `
+        + `mat=<b>${params.mat}</b> instanced=<b>${params.instanced}</b> shells=<b>${params.shells}</b> tier=<b>${params.tier}</b>`;
+      let phaseLine;
+      if (finished) {
+        const r = finalResult;
+        phaseLine = `<span class="done">DONE</span>  <span class="big">${r.fps.toFixed(1)} fps</span>\n`
+          + `p50 <b>${r.p50.toFixed(2)}ms</b>  p95 <b>${r.p95.toFixed(2)}ms</b>\n`
+          + `renderer.info.render: calls <b>${r.calls}</b>  triangles <b>${r.triangles}</b>`;
+      } else if (!warmupDone) {
+        const left = Math.max(0, params.warmup - (now - warmupStart) / 1000);
+        phaseLine = `<span class="dim">WARMUP</span> ${left.toFixed(1)}s left (shader compile jank, unmeasured)`;
+      } else {
+        const left = Math.max(0, params.sample - (now - sampleStart) / 1000);
+        phaseLine = `<span class="big">${liveFps.toFixed(1)} fps</span>  SAMPLING ${left.toFixed(1)}s left  (frames so far: ${frameCount})`;
+      }
+      hud.innerHTML = `Dragon Drift — GPU stress test\n${cfgLine}\n\n${phaseLine}\n`
+        + `<span class="dim">Headless numbers are RELATIVE (rAF throttled). On a phone, read fps directly.</span>`;
+    }
+
+    function loop() {
+      requestAnimationFrame(loop);
+      const now = performance.now();
+      // rawMs is the MEASURED per-frame delta (unclamped — a 500ms swiftshader/composer frame
+      // must be recorded as 500ms, clamping it was the bug that pinned every p50/p95 at 250.00
+      // in the first sweep run); dt is the ANIMATION step, clamped so a hitch can't teleport
+      // the rotating cluster.
+      const rawMs = now - lastT;
+      const dt = Math.min(rawMs / 1000, 0.25);
+      lastT = now;
+      renderer.info.reset(); // autoReset is off — this frame's counters accumulate ALL passes below
+
+      for (const fn of tickFns) fn(dt);
+      updateCamera(dt);
+
+      // Real postfx per-frame update (speedNorm=0, feverActive=false, bossTarget=0 — this is a
+      // load page, not a live run, so there is no meaningful speed/fever/boss signal to feed; the
+      // composer still runs its full bloom/grading pass cost either way).
+      updatePostFX(dt, 0, false, dt, 0);
+      renderPostFX();
+
+      liveFps = liveFps + (1000 / Math.max(rawMs, 1e-1) - liveFps) * Math.min(dt * 3, 1);
+
+      if (!finished) {
+        if (!warmupDone) {
+          if (now - warmupStart >= params.warmup * 1000) {
+            warmupDone = true;
+            sampling = true;
+            sampleStart = now;
+            frameCount = 0;
+            frameTimes = [];
+          }
+        } else if (sampling) {
+          frameCount++;
+          frameTimes.push(rawMs); // the raw, unclamped delta — see the note at the top of loop()
+          if (now - sampleStart >= params.sample * 1000) finish(now);
+        }
+      }
+      updateHud(now);
+    }
+    requestAnimationFrame(loop);
+    window.__ready = true; // page-load signal, matches the other tools/*.html pages
+  </script>
+</body>
+</html>
