@@ -42,9 +42,9 @@ export const VOID_HEX = {
 
 // THE FLOOD — the S1→S2 crack mid-palette: the hollow LEAKING through the reopened tear. Overexpose
 // to white-violet, then drain into the void — so the transition reads as a teleport, not weather.
-// starMix 0 here so the pinholes FADE IN during the drain ("they are simply there"); fauna zeroed
-// from frame one so the whale never crosses it. All values TUNE (the "pulled-through" feel is a PR-C
-// owner/Fable iteration; these are authored starts, not promises).
+// starMix 0 here so the pinholes FADE IN during the drain ("they are simply there"); fauna/whale/flyby
+// lerp toward 0 across the first half of the crack (they thin out into the flood, gone by the void). All
+// values TUNE (the "pulled-through" feel is a PR-C owner/Fable iteration; these are authored starts).
 export const FLOOD_HEX = {
   skyTop: 0xcfc2f2, skyMid: 0xe8dcff, skyHorizon: 0xf2ecff, sunGlow: 0xffffff,
   fogColor: 0xe8dcff, fogNear: 25, fogFar: 260, fogFarColor: 0xe8dcff, fogFarMix: 1,

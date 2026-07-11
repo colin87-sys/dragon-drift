@@ -103,18 +103,24 @@ for (const biome of BIOMES) {
 // the default 0x8f0a3c FAILS the void, so this row is what makes the §4 build-order fix merge-blocking
 // on any future arena-palette diff). Zero new KNOWN_EXCEPTIONS: every colour must pass both.
 for (const arena of ARENA_CONTRAST) {
-  const band = { ...DEFAULT_BAND, ...(arena.bullets || {}) };
-  const colours = [
-    ['danger', DANGER], ['band-light', band.light], ['band-mid', band.mid], ['band-dark', band.dark],
-    ['reflect-amber', REFLECT_AMBER], ['reflected-cyan', REFLECTED_CYAN],
-  ];
   const fogL = lum(arena.fog), horL = lum(arena.horizon);
-  for (const [name, hex] of colours) {
-    const cL = lum(hex);
-    const okFog = passBg(cL, fogL), okHor = passBg(cL, horL);
-    const status = (okFog && okHor) ? 'PASS' : 'FAIL';
-    if (status === 'FAIL') hardFails++;
-    rows.push({ biome: arena.name, name, hex, cL, fogL, horL, okFog, okHor, status });
+  // §CP2 M2: the arena's dark-band latch swaps ONLY the dark slot — the source biome's light/mid
+  // overrides SURVIVE into the void. So test every biome×void band merge the game can actually render
+  // (band = default ← the source biome ← the arena's dark lift), not just default+arena. Passes today
+  // with wide margins, but this closes the hole so the gate stays merge-blocking on any future edit.
+  for (const biome of BIOMES) {
+    const band = { ...DEFAULT_BAND, ...(biome.bullets || {}), ...(arena.bullets || {}) };
+    const colours = [
+      ['danger', DANGER], ['band-light', band.light], ['band-mid', band.mid], ['band-dark', band.dark],
+      ['reflect-amber', REFLECT_AMBER], ['reflected-cyan', REFLECTED_CYAN],
+    ];
+    for (const [name, hex] of colours) {
+      const cL = lum(hex);
+      const okFog = passBg(cL, fogL), okHor = passBg(cL, horL);
+      const status = (okFog && okHor) ? 'PASS' : 'FAIL';
+      if (status === 'FAIL') hardFails++;
+      rows.push({ biome: `${arena.name} ← ${biome.name}`, name, hex, cL, fogL, horL, okFog, okHor, status });
+    }
   }
 }
 
