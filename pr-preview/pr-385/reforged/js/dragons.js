@@ -651,6 +651,93 @@ export const DRAGONS = {
     aura: 0xffb060, eye: 0xffd98a, trail: 0xff6a14, boostTrail: 0xffc46a,
   },
 
+  // ── PHOENIX ASCENDANT — REFORGED ("The Ascending Sunhawk") — the MASSIVE glow-up of the
+  // shipped `phoenix` (PHOENIX-ASCENDANT-REFORGED-BUILDSHEET.md). A bespoke WHITE-GOLD
+  // divine firebird on the solar-ivory system: a LOFTED KEELED body (proud breast-prow,
+  // arched S-neck, sculpted haunch — NOT the shipped sphere-chain), deep-chord organized-
+  // rank feather wings (emarginated eagle fingers, NO curl), a swept-aft sun-pennant tail,
+  // and a radial sun-gorget collar as the withheld coronation regalia. Coexists with the
+  // shipped `phoenix` (byte-identical) so old-vs-new compare on the preview; migrate only on
+  // owner approval. `archetype: 'phoenix'` is a RIG flag only (warm motes + Rebirth surge).
+  // NOTE: CP1 wings/tail ride along as the shipped `feather`/`plume` (regression only) — the
+  // bespoke `sunfeather`/`sunpennant` land at CP2/CP3.
+  phoenixReforged: {
+    name: 'Phoenix Ascendant (Reforged)',   // distinct from the shipped `phoenix` so the shop/inspect UI lets the owner pick old-vs-reforged by label
+    lanceTint: 0xffcf6a, lanceRune: 'sunhawk',   // Eternal wisp: solar gold (distinct from phoenix 0xff7a1a / molten 0xff5410)
+    title: 'Reborn in fire',
+    rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
+    accentHue: 0xffcf6a,   // §9 law-9 carrier: solar gold
+    archetype: 'phoenix',  // RIG flag only (warm ember motes + Rebirth fire-trails); explicit parts override the recipe
+    parts: { torso: 'sunhawk', wings: 'sunfeather', tail: 'sunfireTrail', head: 'sunhawkCrown', surface: { shader: [] } },
+    stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
+    hasStyle: true,        // keep its own white-gold trail colour even in Surge
+    feverWing: 0xffe6a8, feverEye: 0xfff2c8,
+    feverWash: [0.058, 0.043, 0.014],   // Rebirth screen wash: warm gold, kept low so it never overexposes the frame
+    // Base model holds APEX reference dials; each form dials the ladder (cumulative).
+    model: {
+      scale: 1.18, wingScale: 1.3, flapBias: 0.9, flapAmp: 0.92,
+      // SUNHAWK sculpt ladder (apex reference — see forms[] for the per-rung schedule):
+      igniteStage: 3, glowLevel: 1.0, keelDepth: 1.0, neckArch: 1.0, coreScale: 1.0,
+      headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, crownFan: 5, crownLen: 1.0, spineGlow: 1.0,
+      // FEATHER-WING ranks (the hero) + the emargination/rim + regalia dials, apex reference:
+      covertRank: 7, secondaryRank: 6, primaryFingers: 5, fingerSplit: 1.0, roseGoldEdge: 1.0,
+      collarFan: 1.0, pennantLift: 1.0, pennantRibbons: 5,
+      // The tail hangs off a 4-joint chain; tailWhip makes the rig COIL it at cruise (a travelling
+      // S-wave down the joints) + RUDDER it into banks. tailLagScale sets the cruise coil amplitude
+      // (0.13 → a clearly-visible travelling lateral tip wave). tailUndulateX drives a genuine
+      // phase-lagged VERTICAL travelling wave (the axis the rear-chase camera reads — the key fluidity
+      // dial); tailRudderScale trims the compounding turn-curl on the chain to a graceful arc (not a
+      // J-hook).
+      tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.26, tailRudderScale: 0.5,
+    },
+    forms: [
+      // f0 EMBER HATCHLING — a warm charcoal chick: proud STUB keel, big head, ember crest,
+      // dim heart, NO collar. Hints the apex (level keel, blunt wing) but wears no regalia.
+      { igniteStage: 0, glowLevel: 0.25, keelDepth: 0.7, neckArch: 0.3, coreScale: 0.5,
+        headScale: 1.3, eyeScale: 1.3, torsoScale: 0.82, crownFan: 2, crownLen: 0.6, spineGlow: 0,
+        collarFan: 0, roseGoldEdge: 0, fingerSplit: 0, pennantLift: 0.2, pennantRibbons: 1, wingScale: 1.0,
+        covertRank: 3, secondaryRank: 2, primaryFingers: 2,
+        colors: { body: 0x2a1208, belly: 0x2a0e06, goldfire: 0x9a5410, flame: 0xc23a0e, crimson: 0x8f2a0c, horn: 0xd8a24a, featherEdge: 0xff8a5a, wingEmissive: 0xff8030,
+          featherIn: 0xff8a2a, featherOut: 0xffc85a, featherHi: 0xfff2c8, scales: 0xd8a24a,
+          coreGlow: 0xfff2c8, apexSeam: 0xffb05a, eye: 0xffc85a, trail: 0xff973c, boostTrail: 0xffc45c } },
+      // f1 KINDLED — the firebird: the neck arches, first secondaries, the ember collar-RUFF
+      // buds, the heart lights.
+      { igniteStage: 1, glowLevel: 0.5, keelDepth: 0.85, neckArch: 0.6, coreScale: 0.7,
+        headScale: 1.15, eyeScale: 1.05, torsoScale: 0.9, crownFan: 3, crownLen: 0.75, spineGlow: 0.35,
+        collarFan: 0.3, roseGoldEdge: 0.3, fingerSplit: 0.3, pennantLift: 0.5, pennantRibbons: 3, wingScale: 1.1,
+        covertRank: 4, secondaryRank: 4, primaryFingers: 3,
+        colors: { body: 0x5e2410, belly: 0x3a1408, goldfire: 0xd98a30, flame: 0xd9541a, crimson: 0xba360e, horn: 0xe6b850, featherEdge: 0xff9a7a, wingEmissive: 0xff7a1a,
+          featherIn: 0xff6a1a, featherOut: 0xffd166, featherHi: 0xfff0b8, scales: 0xe6b850,
+          coreGlow: 0xfff0b8, apexSeam: 0xffb030, eye: 0xffd166, trail: 0xff8c2e, boostTrail: 0xffd36b } },
+      // f2 SOLAR — white-gold begins: full ranks, the collar half-fans + gilds, rose-gold
+      // edges arrive, the heart becomes a glow-pool.
+      { igniteStage: 2, glowLevel: 0.75, keelDepth: 0.95, neckArch: 0.85, coreScale: 0.85,
+        headScale: 1.05, eyeScale: 0.85, torsoScale: 0.95, crownFan: 4, crownLen: 0.9, spineGlow: 0.7,
+        collarFan: 0.6, roseGoldEdge: 0.7, fingerSplit: 0.6, pennantLift: 0.8, pennantRibbons: 4, wingScale: 1.2,
+        covertRank: 6, secondaryRank: 5, primaryFingers: 4,
+        colors: { body: 0x7a3a12, belly: 0x3a1408, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xcf440c, horn: 0xf0c860, featherEdge: 0xff9c7a, wingEmissive: 0xff7a1a,
+          featherIn: 0xffb24a, featherOut: 0xffe8b0, featherHi: 0xfff8e0, scales: 0xf0c860,
+          coreGlow: 0xfff8e0, apexSeam: 0xffe6a0, eye: 0xffe6a0, trail: 0xff942e, boostTrail: 0xffe082 } },
+      // f3 CELESTIAL REBIRTH — the WHITE-GOLD DIVINE firebird: the blazing sun-gorget, the
+      // white-hot heart, full emarginated primaries, the full swept sky-pennant, the halo.
+      { igniteStage: 3, glowLevel: 1.0, keelDepth: 1.0, neckArch: 1.0, coreScale: 1.0,
+        headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, crownFan: 5, crownLen: 1.0, spineGlow: 1.0,
+        collarFan: 1.0, roseGoldEdge: 1.0, fingerSplit: 1.0, pennantLift: 1.0, pennantRibbons: 5, wingScale: 1.3,
+        covertRank: 7, secondaryRank: 6, primaryFingers: 5,
+        colors: { body: 0x8a5514, belly: 0x3a1208, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xd8500e, horn: 0xf4c860, featherEdge: 0xff9a5a, wingEmissive: 0xff7a1a,
+          featherIn: 0xffb24a, featherOut: 0xffd166, featherHi: 0xfff2c8, scales: 0xf4c860,
+          coreGlow: 0xffc46a, apexSeam: 0xffb84a, aura: 0xffc888, eye: 0xffe0a0, trail: 0xff9a2e, boostTrail: 0xffc46a } },
+    ],
+    fx: { auraColor: '255,236,190', auraIdle: 0.0, sparkle: false },
+    // Top-level fallbacks (≈ the apex Eternal fire-body, for any raw render).
+    body: 0x8a5514, belly: 0x3a1208, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xd8500e,
+    scales: 0xf4c860, horn: 0xf4c860,
+    featherIn: 0xe69b1f, featherOut: 0xd9541a, featherEdge: 0xff9a5a, featherHi: 0xfff2c8,
+    wingInner: 0xe69b1f, wingOuter: 0xd9541a, wingEmissive: 0xff7a1a,
+    apexEye: 0xffe0a0, apexSeam: 0xffb84a, coreGlow: 0xffc46a, surgeHi: 0xfff2c8,
+    aura: 0xffc888, eye: 0xffe0a0, trail: 0xff9a2e, boostTrail: 0xffc46a,
+  },
+
 
 
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
