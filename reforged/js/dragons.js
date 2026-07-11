@@ -533,18 +533,25 @@ export const DRAGONS = {
       scale: 1.15, tailSegments: 7, neckSegments: 4, flapBias: 0.85, flapAmp: 0.7,
       chine: 1, glassStreak: 1, spanScale: 1.0, glowLevel: 1.0,
       eyeScale: 0.7, headScale: 1.0, tailLength: 1.0, igniteStage: 3,
+      // Wing (scallopCrescentWings) apex reference dials; forms dial each rung.
+      scallopLobes: 4, dihedral: 13, glideRake: 1.0, edgeBand: 1,
+      constellations: 8, wingCreases: 1, cowlPlates: 1,
     },
     // I1 ladder (torso-chine increment): body value DECREASES up the rungs; the
     // wing/head/tail dials are placeholders until I2/I3. The full knapping ladder
     // (scallop lobes, seamRun, ear-fin pairs, split-fan spread) lands in I5.
     forms: [
       { spanScale: 0.70, glowLevel: 0.25, eyeScale: 1.30, headScale: 1.25, igniteStage: 0,
+        scallopLobes: 2, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
         colors: { body: 0x111522, belly: 0x1f2942, wingOuter: 0x111522, eye: 0x96d62a } },
       { spanScale: 0.82, glowLevel: 0.50, eyeScale: 1.05, headScale: 1.12, igniteStage: 1,
+        scallopLobes: 3, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
         colors: { body: 0x0d111b, belly: 0x1c2338, wingOuter: 0x0d111b, eye: 0xa6de3f } },
       { spanScale: 0.92, glowLevel: 0.75, eyeScale: 0.90, headScale: 1.05, igniteStage: 2,
+        scallopLobes: 4, glideRake: 0.5, constellations: 5, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
         colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0xafe24f } },
       { spanScale: 1.00, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
+        scallopLobes: 4, glideRake: 1.0, constellations: 8, wingCreases: 1, cowlPlates: 1, edgeBand: 1,
         colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0xb6e85a } },
     ],
     fx: { auraColor: '40,72,150', auraIdle: 0.03, sparkle: false },

@@ -64,8 +64,11 @@ function vesperMats(def, glow, stage) {
   const glassStreak = new THREE.MeshStandardMaterial({ color: SLATE, emissive: 0x000000, flatShading: true, roughness: 0.6, metalness: 0.03 });
   glassStreak.envMapIntensity = 0.15;
   // Diffuse (NON-emissive) moon-grey speckle for the wing constellations (I2).
-  const speckle = new THREE.MeshStandardMaterial({ color: MOONGREY, emissive: 0x000000, flatShading: true, roughness: 0.55, metalness: 0.05 });
-  speckle.envMapIntensity = 0.22;
+  // Constellation speckle — a DIMMED moon-grey (a notch below the sheet's 0xc9d4e2)
+  // so the diffuse flecks read as faint stars on the black wing without becoming the
+  // second-brightest surface after the eyes on a dark sky (Fable I2 gate, issue 1).
+  const speckle = new THREE.MeshStandardMaterial({ color: 0x9aa6b6, emissive: 0x000000, flatShading: true, roughness: 0.62, metalness: 0.03, side: THREE.DoubleSide });
+  speckle.envMapIntensity = 0.15;
   return { bodyFlat, belly, dorsalFacet, glassStreak, speckle, stage: st };
 }
 
@@ -210,37 +213,136 @@ function buildKnappedTorso(def, model, _bodyMat) {
 }
 registerTorso('knappedTorso', buildKnappedTorso);
 
-// ── WINGS: 'scallopCrescentWings' (I1 PLACEHOLDER) ────────────────────────────
-// A dark, semi-transparent faceted sail per side — modest span so the I1 chase
-// shot judges the TORSO chine, not the wings. Publishes the full flap-rig contract
-// (pivot→mid→tip + tip marker). Replaced by the real 4-lobe scallop crescent +
-// scapular-cowl join + translucent knife-edge in I2. transparent:true from day one
-// (the Solar opaque-wall visibility bug — the game drives wingMat.opacity).
-function buildOnePlaceholderWing(M, halfSpan) {
+// ── WINGS: 'scallopCrescentWings' (the HERO) ──────────────────────────────────
+// THE SCALLOP CRESCENT — the reference money-read. Each wing is a broad faceted
+// night-glass sail whose TRAILING edge is `lobes` oversized, rounded, CONVEX scallop
+// lobes (a fan of big flat tris around a cupped centre — the Sovereign vault-bay
+// re-authored with ZERO hardware: no spars, pikes or lances). The rear-chase
+// silhouette is the double-crescent of scallops spanning the frame laterally.
+//   Seam-failure dead by construction: the membrane root is buried in the body
+// silhouette and a SCAPULAR COWL (overlapping knapped flake-plates, static in the
+// body frame) laps over the root — overlap > weld, no join to fail.
+//   Translucent knife-edge: the outer ~22% of each lobe is a SEPARATE thin band
+// (single-layer, opacity 0.72) so light shows through the rim exactly where the refs
+// show it; the inboard membrane rides the 0.82 wing-fade contract (transparent from
+// day one — the Solar opaque-wall bug). This is the visibility answer for a big dark
+// occluder: the edges the player must see past ARE the see-through part.
+
+// The leading-arm vertical profile — SHARED by the geometry AND the tip marker /
+// wingElements (the documented detach gotcha: the marker must duplicate this or the
+// wingtip trails + aero-shear detach from where the arm actually sits).
+// The REST silhouette is the neutral LATERAL spread (a gentle dihedral V) so the
+// static gate reads the double-crescent, not a vertical staircase. glideRake is a
+// runtime GLIDE-HOLD pose (ref 2 — the high vertical fan) the gate is blind to (§5:
+// "pose, not silhouette; the human judges it on the PR preview"); only a WHISPER is
+// baked so the apex fan sits a touch taller up the ladder without stacking into steps.
+function vesperArmY(t, halfSpan, dih, glideRake) {
+  return t * halfSpan * Math.tan(dih) + glideRake * halfSpan * 0.10 * Math.sin(t * Math.PI * 0.5);
+}
+
+function buildOneScallopWing(M, dials) {
   const wg = new THREE.Group();
-  const rootChord = 1.4, tipChord = 0.4;
-  const L = (t) => [t * halfSpan, t * halfSpan * 0.12, -0.05 + t * halfSpan * 0.28];
-  const cAt = (t) => rootChord * (1 - t) + tipChord * t;
-  const stations = 4;
-  const st = [];
-  for (let f = 0; f <= stations; f++) { const t = f / stations, l = L(t), c = cAt(t); st.push({ l, tip: [l[0], l[1] - 0.05 * c, l[2] + c] }); }
-  const tris = [];
-  for (let f = 0; f < stations; f++) {
-    const A = st[f], B = st[f + 1];
-    tris.push([A.l, B.l, B.tip], [A.l, B.tip, A.tip]);
+  const { lobes, halfSpan, dih, glideRake, edgeBand, creases, constellations } = dials;
+  const rootChord = 2.4, tipChord = 0.5, sweep = 0.30;
+  // Leading arm (canonical +X): out + back (sweep) + up (dihedral + a glideRake whisper).
+  const A = (t) => [t * halfSpan, vesperArmY(t, halfSpan, dih, glideRake), -0.10 + t * halfSpan * sweep];
+  const chordAt = (t) => rootChord * (1 - t) + tipChord * t;
+  // Base trailing point (straight back from the arm + a slight droop) — the sail is
+  // ONE CONTINUOUS cambered surface (no per-lobe fans → no stacked-slat staircase).
+  const Tb = (t) => { const a = A(t), c = chordAt(t); return [a[0] + 0.05 * c, a[1] - 0.05 * c, a[2] + c]; };
+  // ROUNDED-SCALLOP trailing edge: a smooth convex bulge per lobe with SHALLOW
+  // notches (notch depth ~⅓ of the peak) — a scalloped rim, deliberately NOT a
+  // sawtooth. sin() gives the convex arc; the 0.34 floor keeps the cusps shallow.
+  const lobeAmp = 0.30;
+  const scallopD = (t) => { const ph = t * lobes - Math.floor(t * lobes); return lobeAmp * (0.34 + 0.66 * Math.sin(ph * Math.PI)) * chordAt(t); };
+  const Tr = (t) => { const tb = Tb(t); return [tb[0], tb[1], tb[2] + scallopD(t)]; };
+  // Shoulder rail at 78% base chord, camber-dropped so the inboard sail cups (a
+  // vault, not a flat pleat) — the boundary between opaque membrane + knife-edge band.
+  // Camber kept shallow so the side profile lofts as one surface, not a slat stack.
+  const camber = 0.075;
+  const sh = (t) => { const a = A(t), tb = Tb(t); return [a[0] + (tb[0] - a[0]) * 0.78, a[1] + (tb[1] - a[1]) * 0.78 - camber * chordAt(t), a[2] + (tb[2] - a[2]) * 0.78]; };
+
+  // 4 facets per lobe → a rounded arc that still reads as big knapped flats.
+  const SAMP = lobes * 4;
+  const arm = [], shl = [], trl = [];
+  for (let i = 0; i <= SAMP; i++) { const t = i / SAMP; arm.push(A(t)); shl.push(sh(t)); trl.push(Tr(t)); }
+  const memT = [], edgeT = [];
+  for (let i = 0; i < SAMP; i++) {
+    memT.push([arm[i], arm[i + 1], shl[i + 1]], [arm[i], shl[i + 1], shl[i]]);        // inboard cambered membrane (0.82)
+    edgeT.push([shl[i], shl[i + 1], trl[i + 1]], [shl[i], trl[i + 1], trl[i]]);        // scalloped knife-edge band (0.72)
   }
-  wg.add(flatTriMesh(tris, M.wingMat));
+  wg.add(flatTriMesh(memT, M.wingMat));
+  wg.add(flatTriMesh(edgeT, edgeBand ? M.edgeMat : M.wingMat));
+
+  // Finger CREASES (f3): a slim body-hued raised ridge at each lobe centre — an
+  // in-plane geometry-shadow (the "finger-webbed" read), never a layered strip/tube.
+  // Kept low so it doesn't stack into a side-profile shingle.
+  if (creases) for (let f = 0; f < lobes; f++) {
+    const t = (f + 0.5) / lobes, a = A(t), tb = Tb(t), up = 0.014 * chordAt(t);
+    const rA = [a[0], a[1] + up, a[2]], rT = [tb[0], tb[1] + up, tb[2]];
+    wg.add(flatTriMesh([[a, rA, rT], [a, rT, tb]], M.dorsalFacet));
+  }
+
+  // CONSTELLATIONS — diffuse (non-emissive) dimmed moon-grey facet flecks, SCATTERED
+  // in a loose 2D patch on the upper membrane (golden-ratio jitter → not a tidy row of
+  // chevrons; irregular per-fleck rotation + size → scattered stars, not painted
+  // barring). Diffuse paint never touches the emissive cap (Fable I2 gate, issue 1).
+  for (let i = 0; i < constellations; i++) {
+    const ts = 0.26 + 0.34 * ((i * 0.618) % 1);            // span scatter
+    const cf = 0.16 + 0.42 * ((i * 0.382 + 0.2) % 1);      // chord scatter
+    const a = A(ts), tb = Tb(ts);
+    const base = [a[0] + (tb[0] - a[0]) * cf, a[1] + (tb[1] - a[1]) * cf + 0.045, a[2] + (tb[2] - a[2]) * cf];
+    const r = 0.055 + 0.03 * ((i * 0.27) % 1), rot = (i * 1.7) % (Math.PI * 2);
+    const v = (k, rad) => [base[0] + Math.cos(rot + k) * rad, base[1] + 0.004 * ((i % 2) ? 1 : -1), base[2] + Math.sin(rot + k) * rad];
+    wg.add(flatTriMesh([[v(0, r), v(2.1 + (i % 3) * 0.3, r * 0.82), v(4.2, r * 1.12)]], M.speckle));
+  }
   return wg;
 }
+
+// SCAPULAR COWL — overlapping knapped flake-plates (triangular flats in the torso's
+// knap language, NOT a boxy saddle) that lap DIAGONALLY over the wing root from
+// above/behind, STATIC in the body frame so they hide the membrane-root join while
+// the wing flaps under them (overlap > weld — no seam to fail).
+function buildScapularCowl(M, root, side) {
+  const g = new THREE.Group();
+  const rx = root.x, ry = root.y, rz = root.z, s = side;
+  // Inner flake — laps from the spine side diagonally down-and-out over the root.
+  const P = (dx, dy, dz) => [rx + s * dx, ry + dy, rz + dz];
+  g.add(flatTriMesh([
+    [P(-0.24, 0.18, -0.24), P(0.30, 0.12, -0.14), P(0.02, 0.00, 0.32)],   // upper diagonal flake
+    [P(-0.24, 0.18, -0.24), P(0.02, 0.00, 0.32), P(-0.22, 0.04, 0.20)],
+  ], M.dorsalFacet));
+  // Outer flake — a smaller knapped chip overlapping the first, lapping aft over the
+  // root chord (its trailing point buries into the membrane root → no gap).
+  g.add(flatTriMesh([
+    [P(0.14, 0.14, -0.18), P(0.50, 0.04, 0.04), P(0.16, -0.04, 0.36)],
+    [P(0.14, 0.14, -0.18), P(0.16, -0.04, 0.36), P(0.00, 0.02, 0.14)],
+  ], M.bodyFlat));
+  return g;
+}
+
 function buildScallopCrescentWings(def, model, attach, _giM) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
   const M = vesperMats(def, glow, model.igniteStage);
-  const halfSpan = (model.spanScale ?? 1) * 2.6;
-  // Translucent night-glass membrane — transparent from day one so the game's
-  // wing-fade (dragon.js drives wingMat.opacity) actually works.
+  const lobes = Math.round(model.scallopLobes ?? 4);
+  const halfSpan = (model.spanScale ?? 1) * 3.4;
+  const dih = ((model.dihedral ?? 16) * Math.PI) / 180;
+  const glideRake = model.glideRake ?? 0;
+  const edgeBand = (model.edgeBand ?? 1) > 0;
+  const creases = (model.wingCreases ?? 0) > 0;
+  const constellations = Math.round(model.constellations ?? 0);
+  const cowl = (model.cowlPlates ?? 0) > 0;
+  const dials = { lobes, halfSpan, dih, glideRake, edgeBand, creases, constellations };
+
+  // Inboard membrane — transparent from day one so the game's wing-fade
+  // (dragon.js drives wingMat.opacity → 0.82/0.77/0.70) actually works.
   M.wingMat = new THREE.MeshStandardMaterial({ color: def.wingOuter ?? NIGHT, emissive: 0x000000, flatShading: true, roughness: 0.78, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
   M.wingMat.envMapIntensity = 0.2;
+  // Knife-edge band — a SINGLE thin translucent layer (never stacked back-faces; the
+  // CP3.2 0.82² lesson). Slightly cooler so the rim reads as lit night-glass.
+  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(def.wingOuter ?? NIGHT, SLATE, 0.68), emissive: 0x000000, flatShading: true, roughness: 0.68, metalness: 0.02, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
+  M.edgeMat.envMapIntensity = 0.2;
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
@@ -251,19 +353,25 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
-    mid.add(buildOnePlaceholderWing(M, halfSpan));
-    if (side === -1) pivot.scale.x = -1;   // left = mirror → the animator's mirrored poses read symmetric
+    mid.add(buildOneScallopWing(M, dials));   // canonical +X geometry (rake/dihedral baked in)
+    if (side === -1) pivot.scale.x = -1;       // left = mirror → the animator's mirrored poses read symmetric
     group.add(pivot);
+    // Scapular cowl is STATIC (body frame), NOT parented to the flapping pivot.
+    if (cowl) group.add(buildScapularCowl(M, root, side));
     const s = side === 1 ? 'R' : 'L';
+    // Tip marker MUST duplicate the arm profile incl glideRake (detach gotcha).
+    const tipY = vesperArmY(1, halfSpan, dih, glideRake);
     const marker = new THREE.Object3D();
-    marker.position.set(halfSpan, halfSpan * 0.12, -0.05 + halfSpan * 0.28);
+    marker.position.set(halfSpan, tipY, -0.10 + halfSpan * sweepOf());
     mid.add(marker);
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
     pivots['tipMarker' + s] = marker;
-    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + halfSpan * 0.12, root.z + halfSpan * 0.28], length: halfSpan, tipObj: marker });
+    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + halfSpan * sweepOf()], length: halfSpan, tipObj: marker });
   }
   return { group, spineMats: [], wingMat: M.wingMat, parts: { ...pivots, wingElements } };
 }
+// sweep constant shared by the marker + wingElements (mirrors buildOneScallopWing).
+function sweepOf() { return 0.30; }
 registerWings('scallopCrescentWings', buildScallopCrescentWings);
 
 // ── HEAD: 'vesperCatHead' (I1 PLACEHOLDER) ────────────────────────────────────
