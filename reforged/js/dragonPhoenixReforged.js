@@ -33,12 +33,15 @@ function sunhawkMats(def, glow, stage) {
   const g = glow ?? 1;
   const bodyI = [0.22, 0.46, 0.64, 0.8][st] * g;    // body-field FIRE glow (whole creature burns)
 
-  // T1 GOLDFIRE — the big glowing BODY FIELD (the whole creature burns). Form-laddered hue:
-  // dark ember chick → warm goldfire. This is the `ivory` key so torso/head/collar glow fire.
-  const fieldCol = def.body ?? 0x8a5514;
-  const fieldEmis = st === 0 ? 0x6e1c06 : (def.goldfire ?? 0xe69b1f);
-  const ivory = new THREE.MeshStandardMaterial({ color: fieldCol, emissive: fieldEmis, emissiveIntensity: bodyI, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide });
-  ivory.userData.baseEmissive = fieldEmis; ivory.userData.baseIntensity = bodyI;
+  // T1 GOLDFIRE — the big glowing BODY FIELD (the whole creature BURNS). The diffuse is
+  // DARKENED so the saturated goldfire EMISSIVE dominates → the body reads as a glowing EMBER,
+  // not a flat mustard-gold plane (the critic's "body doesn't catch fire"). `ivory` key so the
+  // torso/head/collar all glow fire. Form-laddered: dark cinder chick → white-hot goldfire.
+  const fieldCol = new THREE.Color(def.body ?? 0x8a5514).multiplyScalar(0.4);   // DARK ember → the emissive fire dominates the form
+  const fieldEmis = st === 0 ? 0x8a2606 : 0xe0781a;   // hot ORANGE-gold ember glow (reads as fire, not a gold plane)
+  const bodyGlow = [0.32, 0.7, 1.0, 1.3][st] * g;     // the body itself BURNS (emissive-dominant)
+  const ivory = new THREE.MeshStandardMaterial({ color: fieldCol, emissive: fieldEmis, emissiveIntensity: bodyGlow, flatShading: true, roughness: 0.5, metalness: 0.03, side: THREE.DoubleSide });
+  ivory.userData.baseEmissive = fieldEmis; ivory.userData.baseIntensity = bodyGlow;
   // GOLDFIRE (the HOT gold-white core, for the inner wing membrane + flame-feather hot roots).
   // Pushed genuinely bright + hot-hued so the roots read WHITE/GOLD-HOT (the refs' incandescent
   // hearts), the cool crimson tips reading against it → real combustion, not matte tan.
@@ -51,10 +54,11 @@ function sunhawkMats(def, glow, stage) {
   const flame = new THREE.MeshStandardMaterial({ color: 0x6e2a0e, emissive: flameCol, emissiveIntensity: [0.28, 0.5, 0.78, 0.98][st] * g, flatShading: true, roughness: 0.52, metalness: 0.04, side: THREE.DoubleSide });
   flame.userData.baseEmissive = flameCol; flame.userData.baseIntensity = flame.emissiveIntensity;
 
-  // T3 CRIMSON — the cool SHEATH (outer flame-feather tips, aft ribbon tips). The separable
-  // third hue that keeps the fire from blooming to one orange smear + anchors a pale sky.
-  const crimCol = def.crimson ?? 0xb32613;
-  const crimson = new THREE.MeshStandardMaterial({ color: 0x571712, emissive: crimCol, emissiveIntensity: [0.3, 0.55, 0.86, 1.08][st] * g, flatShading: true, roughness: 0.55, metalness: 0.04, side: THREE.DoubleSide });
+  // T3 CRIMSON — the cool SHEATH (outer flame-feather tips, aft ribbon tips). A WARM red-orange
+  // (not a magenta-red — kills the "pink wire" the cool rim light was pulling out of a saturated
+  // crimson), keeping the fire on a red→orange→gold ramp. Separable third hue, anchors a pale sky.
+  const crimCol = def.crimson ?? 0xc23410;
+  const crimson = new THREE.MeshStandardMaterial({ color: 0x5a1e0c, emissive: crimCol, emissiveIntensity: [0.3, 0.55, 0.86, 1.08][st] * g, flatShading: true, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide });
   crimson.userData.baseEmissive = crimCol; crimson.userData.baseIntensity = crimson.emissiveIntensity;
 
   // T4 GARNET / EMBER-SHADOW — the dark RIM on every facet edge (the "dark on the rims" that
@@ -74,10 +78,10 @@ function sunhawkMats(def, glow, stage) {
   const gold = new THREE.MeshStandardMaterial({ color: goldCol, emissive: 0x7a4a10, emissiveIntensity: 0.2 + 0.14 * st, flatShading: true, roughness: 0.34, metalness: 0.55, side: THREE.DoubleSide });
   gold.userData.baseEmissive = 0x7a4a10; gold.userData.baseIntensity = gold.emissiveIntensity;
 
-  // T3 ROSE-GOLD / AMBER rim (feather edges, hems). Warm, soft — the graceful edge light.
-  const roseCol = def.featherEdge ?? 0xff9a5a;
-  const roseGold = new THREE.MeshStandardMaterial({ color: roseCol, emissive: 0xff9a4a, emissiveIntensity: 0.14 + 0.12 * st, flatShading: true, roughness: 0.44, metalness: 0.12, side: THREE.DoubleSide });
-  roseGold.userData.baseEmissive = 0xff9a4a; roseGold.userData.baseIntensity = roseGold.emissiveIntensity;
+  // T3 WARM-AMBER rim (feather edges, hems) — a warm AMBER, NOT salmon/pink (the critic's
+  // "pink wire" fix: every warm edge stays on the fire ramp, red→orange→gold, no magenta).
+  const roseGold = new THREE.MeshStandardMaterial({ color: 0xff8a34, emissive: 0xff7a1a, emissiveIntensity: 0.14 + 0.12 * st, flatShading: true, roughness: 0.44, metalness: 0.1, side: THREE.DoubleSide });
+  roseGold.userData.baseEmissive = 0xff7a1a; roseGold.userData.baseIntensity = roseGold.emissiveIntensity;
 
   // SATURATED ORANGE emissive — the hottest flame-tip hue (flame-feather points, hems).
   const orangeCol = def.wingEmissive ?? 0xff7a1a;
@@ -284,7 +288,7 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
     const y0 = botAt(z0) + 0.03, y1 = botAt(z1) + 0.03;
     bellyT.push([[-w0, y0, z0], [w0, y0, z0], [w1, y1, z1]], [[-w0, y0, z0], [w1, y1, z1], [-w1, y1, z1]]);
   }
-  group.add(flatTriMesh(bellyT, M.emberShadow));
+  group.add(flatTriMesh(bellyT, M.crimson));   // glowing CRIMSON belly → the cool end of the body's vertical fire gradient (red belly → gold flanks → white-hot dorsal mane)
 
   // ── BREAST + FLANK SHINGLE RANKS — organized rows of ivory kite-feathers (bright vane /
   // ember-shadow root) over the throat, keel AND the upper flanks, so the mass reads
@@ -300,14 +304,17 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
         group.add(kiteFeather([s * w, y, z], [s * 0.28, -0.12, -1], [s * 1, 0, 0.2], 0.28, 0.16, 0.04, M.ivory, M.emberShadow));
       }
     }
-    // upper-flank FLAME rank (a row of flame-licks along the side so the flank BURNS, not a
-    // blank gold slab — owner: the whole creature catches fire). Hue cools head→tail.
-    for (let i = 0; i < 4; i++) {
-      const z = -0.85 + i * 0.42, u = i / 3;
-      const w = halfWidthAt(z) * 0.9;
-      const y = (botAt(z) + topAt(z)) * 0.5 - 0.02;
-      const ramp = u < 0.5 ? [M.goldfire, M.flame, M.flame] : [M.flame, M.flame, M.crimson];
-      group.add(flameFeather([s * w, y, z], [s * 0.35, 0.05, 1], [s * 0.2, 0.5, 0], 0.42 - 0.1 * u, 0.14, 0.05, ramp, 0.03).group);
+    // FLANK FIRE-COAT — TWO rows of flame-licks wrapping the flank (upper + lower) from neck to
+    // haunch, so the whole BODY is wreathed in fire (owner: whole creature catches fire), not a
+    // gold slab with a mane. Hue cools head→tail; the licks stream aft along the body.
+    for (let row = 0; row < 2; row++) {
+      for (let i = 0; i < 6; i++) {
+        const z = -1.05 + i * 0.36, u = i / 5;
+        const w = halfWidthAt(z) * (0.88 - 0.22 * row);
+        const y = (botAt(z) + topAt(z)) * 0.5 + (row === 0 ? 0.10 : -0.12);
+        const ramp = u < 0.5 ? [M.goldfire, M.flame, M.flame] : [M.flame, M.flame, M.crimson];
+        group.add(flameFeather([s * w, y, z], [s * 0.30, 0.04, 1], [s * 0.2, 0.5, 0], 0.40 - 0.1 * u, 0.13, 0.05, ramp, 0.03).group);
+      }
     }
   }
 
@@ -638,20 +645,21 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   const segs = [group];
   if (nRib <= 0) return { group, segs, tailFins: null, accentMats: [M.flame, M.crimson] };
 
-  const baseLen = 3.2 + 2.3 * lift;                      // apex ~5.5 — ONE LONG dominant comet-drape
+  const baseLen = 3.4 + 2.4 * lift;                      // apex ~5.8 — ONE LONG dominant comet-drape
   const ramp = [M.goldfire, M.flame, M.crimson];        // root-hot → crimson tip (the combustion)
-  for (let i = 0; i < nRib; i++) {
-    const u = nRib > 1 ? (i / (nRib - 1)) - 0.5 : 0;     // −0.5 … 0.5 across the drape
+  const nDraw = Math.min(nRib, 3);                       // cap the drawn ribbons → ONE dominant + 2 fine (a trail, not a fan)
+  for (let i = 0; i < nDraw; i++) {
+    const u = nDraw > 1 ? (i / (nDraw - 1)) - 0.5 : 0;   // −0.5 … 0.5 across the drape
     const cen = 1 - Math.abs(u) * 2;                     // 1 at centre → 0 at edges
     // ONE dominant CENTRE ribbon (long + broad = the comet), edges short + fine → reads as a
     // single graceful fire-TRAIL, not a fan. Bows UP-and-aft so it rises clear of the body and
     // reads from directly behind (the chase cam), with a graceful terminal curl.
-    const rlen = baseLen * (0.32 + 0.68 * Math.pow(Math.max(cen, 0), 1.4));
-    const dir = [u * 0.30, 0.10 + 0.16 * lift, 1.0];
+    const rlen = baseLen * (0.34 + 0.66 * Math.pow(Math.max(cen, 0), 1.3));
+    const dir = [u * 0.28, 0.12 + 0.18 * lift, 1.0];
     const side = [1, 0, 0];
-    const wid = (0.14 + 0.26 * Math.max(cen, 0)) * (0.7 + 0.3 * lift);   // centre BROAD, edges fine
-    const curve = 0.22 + 0.14 * (1 - cen);              // graceful S bow (rises up → visible from behind)
-    const curl = 0.30;                                  // graceful terminal curl (aft-up)
+    const wid = (0.20 + 0.44 * Math.max(cen, 0)) * (0.7 + 0.3 * lift);   // centre BROAD (a real drape), edges fine
+    const curve = 0.28 + 0.12 * (1 - cen);              // graceful S bow — rises UP so it reads from directly behind
+    const curl = 0.32;                                  // graceful terminal curl (aft-up)
     const base = [u * 0.07, a.y, a.z];                  // gathered roots at the anchor
     group.add(flameFeather(base, dir, side, rlen, wid, curve, ramp, curl).group);
   }
