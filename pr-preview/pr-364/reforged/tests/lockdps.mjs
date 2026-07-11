@@ -137,6 +137,15 @@ assert(BOSSES.onewing.echoPips === BOSSES.onewing.echoMax,
 assert(onew.phases.some((p) => p.burn > 0), 'ONEWING phases actually earn a burn on a full on-tell release (real pips)');
 assert(onew.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
   `ONEWING is never a phase-deleter incl. the free-ghost DPS (TTKs ${onew.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${onew.phases.map((p) => p.cardTimer).join('/')})`);
+// EMBERTIDE (§5i rung 13) — lance-capable via STATION-SPACE proxies, but NO burn: its escalation is
+// the fork-is-a-weapon (forked pips extend the beam duel — a Surge mechanic that adds duel TIME, not
+// damage, so it's invisible to this model). Confirm the fork-extend dial is wired and the burn stays 0.
+const embr = economies.find((e) => e.id === 'embertide');
+assert(embr && embr.lanceCapable && embr.burnFrac === 0, `EMBERTIDE is lance-capable but earns NO burn (frac ${embr?.burnFrac}) — the fork-extend is its escalation`);
+assert(embr.peakCap === 6, `EMBERTIDE reaches the tier-4 cap 6 (3 proxies + crest V1 × stackMax) — peakCap ${embr?.peakCap}`);
+assert(BOSSES.embertide.beamDuelExtendPerPip > 0, `EMBERTIDE's fork-extend dial is wired (+${BOSSES.embertide.beamDuelExtendPerPip}s/pip)`);
+assert(embr.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `EMBERTIDE is never a phase-deleter (TTKs ${embr.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${embr.phases.map((p) => p.cardTimer).join('/')})`);
 // Tiers 1-3 (and un-keyed bosses) carry NO burn — the mid-game is byte-identical.
 assert(economies.filter((e) => e.tier < CONFIG.LOCK.scarBurn.minTier).every((e) => e.burnFrac === 0),
   'no boss below scarBurn.minTier earns a burn (tiers 1-3 unchanged)');
