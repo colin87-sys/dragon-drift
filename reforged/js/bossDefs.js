@@ -1478,6 +1478,7 @@ export const BOSSES = {
     // danger/deflect windows. NO scar-burn (config: the FORK-EXTEND is 13's escalation, not a burn).
     lockParts: [{ part: 'eyeMarkL' }, { part: 'eyeMarkR' }, { part: 'mouthMark' }],
     virtualLockOrgan: 'crestPivot',   // V1 anchor = the muzzle/crest (on `group`, comfort-legal ~5/19.8); NOT faceRig (Y~110)
+    crushSealOrgans: ['eyeMarkL', 'eyeMarkR', 'crestPivot'],   // §CP2-D1: the HIGH organs leave the aim/paint set while the sky-crush clamps the player low (~10s/phase) — they're out of reach then; the low mouth stays the crush anchor. A REAL fair window (the crush opens/closes)
     beamDuelExtendPerPip: 0.35,       // §5i.C rung 13 THE FORK IS A WEAPON: each pip forked while the duel is armed extends its window by this (6 pips ≈ +2.1s)
     // CRESCENDO SETS (Stormrend's 'crescendo' ramp QUOTED in repeating wave-SETS, each cut harder — the
     // designed echo). Fill apex: curtain/iris/movingGap at the fairness-floored cadence. BEAM DUEL is 13's

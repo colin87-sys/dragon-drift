@@ -1031,7 +1031,7 @@ function beginCard(idx) {
   cardHits0 = game.bossHitsTakenRun;
   cardExpired = false;
   tollChainN = 0; tollChainAt = -10;   // §ENG-C3: the rhythm chain is per-card (beginCard bypassed by debugForceCard — tests reset via resetBoss per arm)
-  if (activeCard.survival) { resolveK = 0; resolveNoted = 0; }   // §ENG-LT: the resolve meter is fresh per survival-card arm (the live path + the ?bossPhase jump both route here)
+  if (activeCard.survival) { resolveK = 0; resolveNoted = 0; beamDuelT = 0; }   // §ENG-LT: fresh resolve meter per survival arm. §CP2-D2 (rung 13): also KILL any live beam duel — a duel (and its lance-extended window) must NOT carry its forced drift-shove into a survival card (esp. EMBERTIDE Horizon Break, whose shadow-ride pocket the shove would fight)
   // Small lower-right title card (§5f) — the reveal card owns the lower-third;
   // the spell card names the pattern without covering it.
   ui.bossCard?.(activeCard.name, def.accent, !!activeCard.dread);
@@ -1495,6 +1495,12 @@ function breakGhostFrame(player) {
 }
 
 function surgeForkLances(player) {
+  // §CP2-D2 (rung 13): a fork into a SEALED window would arrive VOIDED — every pip wasted, breaking
+  // the one-deflect "no lance is ever silently wasted" law. The flagship EMBERTIDE play (bank a full
+  // set at the P4 floor, tap) routes strikeSurge → breakShield (which arms the P5 Horizon Break
+  // survival card → lockDeflected true) → HERE. Keep the banked set (it resumes ashen after the seal),
+  // exactly like the manual loose's deflect path. Inert off a sealed window (every normal fork).
+  if (lockDeflected()) { if (lockCount()) emit('lockSealed', { count: lockCount() }); return; }
   const locks = consumeAllLocks();
   if (!locks.length) return;
   // §5i.C rung 12 (§CP2-D1): the Surge fork is the THIRD lance release path — it MUST halve GHOST
@@ -1525,9 +1531,15 @@ function surgeForkLances(player) {
   if (def?.beamDuel && beamDuelT > 0 && pips > 0) {
     const ext = pips * (def.beamDuelExtendPerPip ?? 0);
     if (ext > 0) {
-      beamDuelT += ext;
-      ui.bossNote?.('✦ THE FORK FEEDS THE BEAM ✦', `+${ext.toFixed(1)}s — HOLD THE CENTER`, 'gold', 1.6);
-      emit('beamDuelExtend', { pips, ext });
+      // §CP2-D3: clamp the extended window — nothing structural else bounds it (a re-fork is only
+      // economy-gated), and an unbounded duel just prolongs the forced drift-shove. Cap at ~2× base.
+      const before = beamDuelT;
+      beamDuelT = Math.min(beamDuelT + ext, (def.beamDuelDur ?? 3.6) * 2);
+      const applied = beamDuelT - before;
+      if (applied > 0.01) {
+        ui.bossNote?.('✦ THE FORK FEEDS THE BEAM ✦', `+${applied.toFixed(1)}s — HOLD THE CENTER`, 'gold', 1.6);
+        emit('beamDuelExtend', { pips, ext: applied });
+      }
     }
   }
 }
@@ -4505,8 +4517,11 @@ function lockCandidates() {
   // whose ENTIRE candidate set can die (frame-break, no virtual organ), and the aim layer reads THIS
   // list. Without the filter the reticle stays live on the broken frame (parked at its fall pose,
   // still resolving with visible=false), can green, and holds the rider chip-rate bonus on a corpse.
-  if (def.lockParts) for (const lp of def.lockParts) if (!lockPartDead(lp.part)) out.push(lp.part);
-  if (def.virtualLockOrgan) out.push(def.virtualLockOrgan);
+  // §CP2-D1: the aim layer must ALSO drop the crush-sealed high organs (paintableParts alone leaves
+  // the V1 aim-line + reticle leading to an organ the clamped player can't reach during the crush).
+  const crushSealed = def.crushSealOrgans && crushHoldT > 0;
+  if (def.lockParts) for (const lp of def.lockParts) if (!lockPartDead(lp.part) && !(crushSealed && def.crushSealOrgans.includes(lp.part))) out.push(lp.part);
+  if (def.virtualLockOrgan && !(crushSealed && def.crushSealOrgans.includes(def.virtualLockOrgan))) out.push(def.virtualLockOrgan);
   return out;
 }
 
@@ -4670,13 +4685,21 @@ function paintableParts() {
   // palms rejoin as the recoil settles. Def-gated (recoilOrgans) + model-gated (handsFlung); inert
   // for every other boss and whenever the hands are home.
   const recoilSealed = def.recoilOrgans && model.handsFlung && model.handsFlung();
+  // §CP2-D1 CRUSH SEAL (EMBERTIDE): while the sky CRUSHES the lane (def.skyCrush → the player is
+  // clamped to bossArenaHY ~13.4 for ~10s/phase), the HIGH organs (the eyes ~y19, the crest ~y19)
+  // are out of the acquire cone — leading the reticle to them strands the player against the invisible
+  // ceiling with dwell that never accrues. Seal them for the crush; the low mouth stays the anchor.
+  // A REAL fair window (the crush is a genuine open/close state — unlike the dropped surfacing gate).
+  const crushSealed = def.crushSealOrgans && crushHoldT > 0;
   const out = [];
   for (const lp of def.lockParts) {
     if (eyeSealed && lp.part === def.eyeOrgan) continue;
     if (recoilSealed && def.recoilOrgans.includes(lp.part)) continue;
+    if (crushSealed && def.crushSealOrgans.includes(lp.part)) continue;
     if ((!lp.phases || lp.phases.includes(phaseIdx)) && !lockPartDead(lp.part)) out.push(lp.part);
   }
-  if (def.virtualLockOrgan && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
+  if (def.virtualLockOrgan && !(crushSealed && def.crushSealOrgans.includes(def.virtualLockOrgan))
+      && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
   return out;
 }
 
@@ -5498,8 +5521,17 @@ export function debugStrikeSurge() {
 }
 // §5i.C rung 13 test seams: arm the beam duel + read its remaining window (so the fork-extend rule
 // is testable without flying the Surge meter to 50% and holding lane-center headless).
-export function debugArmBeamDuel(t = 3.6) { if (!active || !def?.beamDuel) return false; beamDuelT = t; return true; }
+export function debugArmBeamDuel(t = 3.6) { if (!active || !def?.beamDuel) return false; beamDuelT = t; beamDuelHeld = 0; beamDuelTick = 0; return true; }   // §CP2-D4: reset held/tick like the real arm (boss.js:3204) so a seam-armed duel isn't stale
 export function debugBeamDuelT() { return beamDuelT; }
+// §CP2-D1/D2 rung 13 test seams: force/clear the sky-crush (the high-organ seal window), and read
+// the crush state + the survival-seal state (so the crush-seal + the P4→P5 sealed-fork are testable).
+export function debugCrush(on = true) {
+  if (!active || !def?.skyCrush) return false;
+  crushHoldT = on ? (def.skyCrush.hold ?? 10) : 0;
+  arenaTargetHY = on ? (def.skyCrush.hy ?? 14) : CONFIG.laneMaxY;
+  return true;
+}
+export function debugCrushOn() { return crushHoldT > 0; }
 export function debugRaiseShield() {
   if (phase !== 'fight') return false;
   shielded = true;

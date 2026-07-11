@@ -23,7 +23,7 @@ check(`fighting embertide (got ${await page.evaluate(() => window.__dd.bossState
   (await page.evaluate(() => window.__dd.bossState()?.id)) === 'embertide');
 
 const LANE_MAX_Y = 22, LANE_MIN_Y = 2.5, X_COMFORT = 10.4;
-const STEP_MS = 200, N = 58;   // ~11.6s > the default station-sway period (~9s at freq 0.7)
+const STEP_MS = 200, N = 72;   // ~14.4s > BOTH the station-sway period (~9s) and the yaw-wobble period (~12.6s)
 const ok = (p) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
 const samples = [];
 for (let i = 0; i < N; i++) {
@@ -50,17 +50,38 @@ for (const [key, label] of [['eyeL', 'eyeMarkL'], ['eyeR', 'eyeMarkR'], ['mouth'
     e && e.maxY <= LANE_MAX_Y && e.minY >= LANE_MIN_Y);
 }
 
-// THE REPARENT TRAP, asserted directly: the real face node is NO LONGER reachable from `group` after
-// enterFight — partWorldPos returns null (or, if resolved, sits far outside the lane). This is WHY the
-// aim targets are proxies. If this ever starts resolving in-lane, the design premise changed.
+// THE REPARENT TRAP, asserted STRICTLY (§CP2-D5): after the reparent the real face node resolves to
+// NULL from `group` (getObjectByName miss, cached). We assert === null, not "null-or-far", so a name
+// typo (which would ALSO fail loosely) can't pass — and the proxies resolving above (comfort checks)
+// proves it's the reparent, not a broken test. If eyeHollow0 ever resolves again, the premise changed.
 const face = await page.evaluate(() => window.__dd.bossPartWorldPos('eyeHollow0'));
-check(`the sky-face eyeHollow0 is NOT an in-lane aim target post-reparent (${face ? `world x${face.x.toFixed(0)}/y${face.y.toFixed(0)}` : 'null — reparented off group'})`,
-  !face || Math.abs(face.x) > X_COMFORT || face.y > LANE_MAX_Y);
+check(`the sky-face eyeHollow0 resolves to NULL post-reparent — the exact skyReplace trap (proxies survive, it doesn't) (${face ? `x${face.x.toFixed(0)}/y${face.y.toFixed(0)}` : 'null'})`,
+  face == null);
 
 // The lance is LIVE post-reparent: the three proxies are the paintable set (the crest is V1-virtual).
 const paintables = await page.evaluate(() => window.__dd.bossPaintables());
 check(`paintables are the three proxies, live post-reparent (${JSON.stringify(paintables)})`,
   Array.isArray(paintables) && ['eyeMarkL', 'eyeMarkR', 'mouthMark'].every((p) => paintables.includes(p)));
+
+// §CP2-D1 — THE CRUSH SEAL: the boss's own sky-crush clamps the player to bossArenaHY ~13.4 for
+// ~10s/phase, out of reach of the HIGH organs (eyes ~y19, crest ~y19). While the crush holds they
+// must LEAVE the aim/paint set (else the reticle strands the player against the invisible ceiling on
+// dwell that never accrues); the LOW mouth stays the anchor; all return on the ebb.
+const crush = await page.evaluate(async () => {
+  window.__dd.bossCrush(true);
+  await new Promise((r) => setTimeout(r, 60));
+  const on = { crushOn: window.__dd.bossCrushOn(), paint: window.__dd.bossPaintables(), cands: window.__dd.bossLockCandidates?.() };
+  window.__dd.bossCrush(false);
+  await new Promise((r) => setTimeout(r, 60));
+  const off = window.__dd.bossPaintables();
+  return { on, off };
+});
+check(`during the sky-crush the HIGH organs are SEALED — only the low mouth remains (paintables ${JSON.stringify(crush.on.paint)})`,
+  crush.on.crushOn && Array.isArray(crush.on.paint)
+  && crush.on.paint.includes('mouthMark')
+  && !crush.on.paint.includes('eyeMarkL') && !crush.on.paint.includes('eyeMarkR') && !crush.on.paint.includes('crestPivot'));
+check(`the high organs REJOIN on the ebb (${JSON.stringify(crush.off)})`,
+  Array.isArray(crush.off) && ['eyeMarkL', 'eyeMarkR', 'mouthMark', 'crestPivot'].every((p) => crush.off.includes(p)));
 
 check('no console errors through the embertide organ run', errors.length === 0) || console.error(errors.join('\n'));
 console.log(process.exitCode ? '\nembertide organ verification FAILED.' : '\nembertide organ verification passed.');

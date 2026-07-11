@@ -2,7 +2,8 @@
 
 **What we did.** Gave EMBERTIDE (slot 13, tier 4, the sky boss) its lance rung. You dwell-paint three
 **station-space proxy organs** in the lane (`eyeMarkL/R`, `mouthMark`) + `crestPivot` (V1 anchor);
-the **dark-halo brand renders on the real sky-face node** (`eyeHollow0/1`, `mouthNotch`) via
+the **lance's jade seal is stamped on the real sky-face node** (`eyeHollow0/1`, `mouthNotch` — a
+mint rim, NOT a literally-dark mark; the brand is role-color jade like the shimmer/reticle) via
 `setBrandedFeatures` — aim the lane-anchor, the sky-face answers. The ONE new rule — **THE FORK IS A
 WEAPON**: pips forked into a Surge while the BEAM DUEL is armed each extend the duel window
 (`+0.35s/pip`). No burn — the fork-extend IS the escalation. Verified: `embertideorgans` (comfort +
@@ -54,3 +55,34 @@ as slot-machine timing; flagged for the owner's preview judgment (add an arm pre
 random). **No burn: config was right, the plan doc's "chip + burn" line was stale — the fork-extend is
 13's escalation, exactly as ONEWING's echo was 12's (the escalation is the signature mechanic, not the
 burn dial, which stays free as the emergency valve).**
+
+**What the CP2 diff critic caught (all folded before ship):**
+- **The boss's OWN hazard made the organs unreachable, and the comfort test only checked the STATIC
+  lane.** EMBERTIDE's `skyCrush` clamps the player to `bossArenaHY ~13.4` for ~10s of every phase — so
+  the high organs (eyes/crest at y~19) are out of the acquire cone then, and leading the reticle to
+  them strands the player against the invisible ceiling on dwell that never accrues (the exact comfort
+  failure the whole law exists to prevent). `embertideorgans` asserted positions against the STATIC
+  `laneMaxY 22`, never against the DYNAMIC `bossArenaHY` this def itself lowers — a false-green on the
+  boss's own signature hazard. **A comfort test must check reachability under every arena-clamp the def
+  imposes, not just the static lane.** Fix: seal the high organs while `crushHoldT > 0` (the
+  recoilSealed precedent), keep the low mouth as the crush anchor — and this gave the rung the honest
+  FAIR WINDOW the dropped surfacing-gate couldn't (the crush is a REAL open/close state).
+- **A new release path can VOID a banked set into a seal — the flagship play self-destructed.** "Bank a
+  full set at the P4 floor, tap" routes `strikeSurge` → `breakShield` (which ARMS the P5 survival card →
+  `lockDeflected` true) → `surgeForkLances` — so every forked pip arrived voided into the seal, breaking
+  the one-deflect "no lance is ever silently wasted" law. This is the rung's ghost-fork analog: the
+  mechanic's marketed doorway broke at exactly one seam. Fix: `surgeForkLances` bails if
+  `lockDeflected()` (keeps the set, resumes ashen), AND `beginCard(survival)` zeros `beamDuelT` so a
+  live duel's forced drift-shove (and its lance-extended window) never carries into the survival card
+  whose whole read is a different dodge. **Every phase-SEAM is a place a banked-resource mechanic can
+  dump into a sealed window — test the tap AT the seam, not just mid-phase.**
+- **An unbounded accumulator + a seam-only debug arm.** The fork-extend had no upper bound (clamped to
+  ~2× base); the `debugArmBeamDuel` seam didn't reset the duel's held/tick sub-state like the real arm,
+  so a seam-armed duel was subtly stale (fixed). And the reparent assertion was `!face || out-of-lane`
+  — a name typo passed too; tightened to `=== null` (the proxies resolving elsewhere prove it's the
+  reparent, not a broken test). **A "prove the trap" assertion must fail on a broken test, not pass on
+  one.**
+- **Respect the boss's art law in the NEW feedback too.** The brand rim had to be NON-additive
+  (EMBERTIDE is the "opaque wall of light, ZERO additive" boss) and sized/parented per organ (the eye
+  tears open and the mouth balloons ×2.75 on tells — a child ring inherits that; parent to `faceRig` at
+  the node's position, and give the wide-flat mouth an ELLIPTICAL rim or a circle slices through it).

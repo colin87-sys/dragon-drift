@@ -16,8 +16,7 @@ await page.evaluate(() => window.__dd.bossForceFight());
 await page.waitForTimeout(1200);
 check('fighting embertide', (await page.evaluate(() => window.__dd.bossState()?.id)) === 'embertide');
 
-const perPip = await page.evaluate(() => window.__dd.bossState() && 0.35);   // mirror the def dial for the expected math
-const EXT_PER_PIP = 0.35;
+const EXT_PER_PIP = 0.35;   // def.beamDuelExtendPerPip (asserted wired in lockdps.mjs)
 
 // (1) Fork with NO duel armed: the lances fire but the duel window must stay 0 (def-gated boundary).
 const noDuel = await page.evaluate(async () => {
