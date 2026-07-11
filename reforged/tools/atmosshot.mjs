@@ -27,7 +27,7 @@ const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({
   settings: { reticle: false, slowMo: true, qualityOverride: 0 },
 }))`;
 
-async function capture(dist, atmos) {
+async function capture(dist, atmos, bank = false) {
   const query = `?debug&cleanshot&seed=73101${atmos ? '&atmos' : ''}`;
   const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 2, initScript: save });
   await page.click('#btn-start').catch(() => {});
@@ -36,6 +36,10 @@ async function capture(dist, atmos) {
   await page.evaluate((d) => { window.__dd.noBoss(true); window.__dd.player.dist = d; }, dist);
   await page.waitForTimeout(1600); // let the world recycle + fog lerp to the biome
   await page.evaluate(() => { window.__dd.game.timeScale = 0; });
+  // Bank/pitch the (now-frozen) camera to prove the world reconstruction is
+  // correct under rotation — the per-fragment fog recomputes against the rotated
+  // viewMatrix, so any reconstruction bug would show as fog leaning the wrong way.
+  if (bank) await page.evaluate(() => { const c = window.__dd.camera; c.rotation.z += 0.38; c.rotation.x -= 0.28; c.updateMatrixWorld(); });
   await page.waitForTimeout(140);
   const buf = await page.screenshot();
   await done();
@@ -46,6 +50,7 @@ const EMBER = 5250, FROZEN = 3750;
 const shots = {
   emberOff: await capture(EMBER, false), emberOn: await capture(EMBER, true),
   frozenOff: await capture(FROZEN, false), frozenOn: await capture(FROZEN, true),
+  emberBank: await capture(EMBER, true, true),
 };
 for (const [k, v] of Object.entries(shots)) writeFileSync(`/tmp/atmos-${k}.png`, v);
 
@@ -60,14 +65,15 @@ const png = await page.evaluate(async (b64) => {
   const w = imgs.emberOff.width, h = imgs.emberOff.height, pad = 12, lab = 34;
   const c = document.getElementById('c');
   c.width = w * 2 + pad * 3;
-  c.height = (h + lab) * 2 + pad * 3;
+  c.height = (h + lab) * 3 + pad * 4;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, c.width, c.height);
   const cells = [
     [imgs.emberOff, 'EMBERFALL — atmosphere OFF (shipped)', 0, 0],
-    [imgs.emberOn, 'EMBERFALL — atmosphere ON (height fog)', 1, 0],
+    [imgs.emberOn, 'EMBERFALL — atmosphere ON (height fog; rock gates sink into it)', 1, 0],
     [imgs.frozenOff, 'FROZEN REACH — atmosphere OFF (shipped)', 0, 1],
     [imgs.frozenOn, 'FROZEN REACH — atmosphere ON (sunward inscatter)', 1, 1],
+    [imgs.emberBank, 'EMBERFALL — ON, camera BANKED (reconstruction correct under roll/pitch)', 0, 2],
   ];
   ctx.textBaseline = 'middle'; ctx.font = '600 15px system-ui, sans-serif';
   for (const [im, label, col, row] of cells) {

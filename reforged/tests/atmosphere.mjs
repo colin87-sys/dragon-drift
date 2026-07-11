@@ -43,6 +43,41 @@ check('fog_fragment preserves the FOG_EXP2 branch', /FOG_EXP2/.test(ff) && /fogD
 check('fog_vertex keeps vFogDepth verbatim + adds world varyings', /vFogDepth = - mvPosition.z/.test(fv) && /vAtmosWorldY/.test(fv) && /vAtmosWorldDir/.test(fv));
 check('installAtmosphere is idempotent', (() => { const a = THREE.ShaderChunk.fog_fragment; installAtmosphere(); return THREE.ShaderChunk.fog_fragment === a; })());
 
+// --- 1b. vertex world-reconstruction math (the Gate-2 bug: row-dot computed the
+//     FORWARD rotation, not the inverse). Port the exact GLSL — `_atmRel =
+//     (vec4(mv,0.0) * viewMatrix).xyz` = transpose(mat3(viewMatrix))*mv — and
+//     check it against a three.js Matrix4 ground truth on a ROTATED + translated
+//     camera (axis-aligned frames hide the bug; a banked camera exposes it). ----
+{
+  const cam = new THREE.PerspectiveCamera();
+  cam.position.set(3, 5, 8);
+  cam.rotation.set(0.35, 0.7, 0.22); // pitch + yaw + roll — none zero
+  cam.updateMatrixWorld();
+  const viewMatrix = cam.matrixWorldInverse;
+  const e = viewMatrix.elements; // column-major
+  const mv = new THREE.Vector3(10, 4, -50); // fragment, view space
+  // GLSL `vec4(mv,0.0) * viewMatrix` (row-vector * matrix): out.j = dot(mv, column_j).
+  const glslRel = new THREE.Vector3(
+    mv.x * e[0] + mv.y * e[1] + mv.z * e[2],
+    mv.x * e[4] + mv.y * e[5] + mv.z * e[6],
+    mv.x * e[8] + mv.y * e[9] + mv.z * e[10],
+  );
+  const glslWorldY = cam.position.y + glslRel.y;
+  // Ground truth: inverse-rotate mv by the view rotation.
+  const truth = mv.clone().applyMatrix4(new THREE.Matrix4().extractRotation(viewMatrix).transpose());
+  const truthWorldY = cam.position.y + truth.y;
+  check(`vertex world-dir matches Matrix4 truth (err ${glslRel.distanceTo(truth).toExponential(2)})`, glslRel.distanceTo(truth) < 1e-4);
+  check(`vertex world-Y matches truth (${glslWorldY.toFixed(3)} vs ${truthWorldY.toFixed(3)})`, Math.abs(glslWorldY - truthWorldY) < 1e-4);
+  // The buggy row-dot (mat3*mv, forward) must be measurably WRONG here — proves
+  // the test actually discriminates the fix from the bug.
+  const buggyRel = new THREE.Vector3(
+    mv.x * e[0] + mv.y * e[4] + mv.z * e[8],
+    mv.x * e[1] + mv.y * e[5] + mv.z * e[9],
+    mv.x * e[2] + mv.y * e[6] + mv.z * e[10],
+  );
+  check('the forward-rotation form is caught as wrong (guards the fix)', buggyRel.distanceTo(truth) > 1.0);
+}
+
 // --- 2. zero-uniform identity (the coexistence guarantee) --------------------
 // All atmosphere uniforms 0 → every channel byte-identical to stock, across a
 // grid of depths, colors, heights.

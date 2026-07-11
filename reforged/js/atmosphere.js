@@ -21,13 +21,19 @@ import { SUN_DIR } from './biomes.js';
 // row-dot inverse-rotation so it also compiles on WebGL1; (3) a WORLD-space sun
 // dir (constant SUN_DIR) so inscatter is correct in the water Reflector's mirror.
 //
-// SCOPE (PR A): props + generic env meshes join the atmosphere; biome `atmos:{}`
-// channels drive it. OUT OF SCOPE: retiring the sky/water hand-rolled dual-fog
-// into these uniforms (PR B — has the water UniformsUtils.clone identity trap),
-// and the dragon/boss surface shaders (rimLight.js / dragonGlb.js /
-// dragonSurfaceShader.js terminally assign onBeforeCompile — they pick up the
-// chunk at identity now, but must route through chainBeforeCompile before the
-// dragon is meant to sit IN the atmosphere).
+// SCOPE (PR A): the course PROPS (environment.js) and the solid OBSTACLE bodies
+// (obstacles.js — rock gates / spines / skeleton, the big fogged geometry flown
+// through) are bound; biome `atmos:{}` channels drive it. Every other fogged
+// material still gets the chunk at IDENTITY (uniforms stay GL-default 0) but is
+// not yet bound, so it holds the shipped single-color fog when the toggle is on —
+// a deliberate, documented coherence gap. OUT OF SCOPE (PR B): retiring the
+// sky/water hand-rolled dual-fog into these uniforms (custom ShaderMaterials the
+// chunk can't reach; has the water UniformsUtils.clone identity trap), and
+// binding the remaining fogged families — ambient motes, creatures/fauna, and the
+// dragon/boss surface shaders (rimLight.js / dragonGlb.js / dragonSurfaceShader.js
+// terminally assign onBeforeCompile — they must route through chainBeforeCompile,
+// which for heterogeneous patches needs a real customProgramCacheKey to avoid the
+// shared-program alias, before the dragon is meant to sit IN the atmosphere).
 
 export const atmosUniforms = {
   uAtmosFarColor:  { value: new THREE.Color(0, 0, 0) }, // far-field fog color
@@ -102,16 +108,16 @@ export function installAtmosphere() {
 #endif`;
 
   // --- vertex: vFogDepth verbatim; reconstruct world-Y + world view-dir from
-  //     mvPosition (works for sprites — no `transformed` needed). The three
-  //     row-dots are transpose(mat3(viewMatrix)) * mvPosition.xyz (inverse of a
-  //     pure rotation) written without transpose() for WebGL1. ------------------
+  //     mvPosition (works for sprites — no `transformed` needed). The world
+  //     direction is transpose(mat3(viewMatrix)) * mvPosition.xyz (inverse of the
+  //     view rotation). `vec4(v,0.0) * viewMatrix` is the row-vector product =
+  //     transpose(mat3)*v — three's own `inverseTransformDirection` idiom,
+  //     WebGL1-safe and correct under pitch/roll/mirror (a plain mat3*v would be
+  //     the FORWARD rotation — wrong; caught by the Gate-2 vertex-math test). ----
   C.fog_vertex = /* glsl */`#ifdef USE_FOG
   vFogDepth = - mvPosition.z;
-  vec3 _atmRel = vec3(
-    dot(vec3(viewMatrix[0].x, viewMatrix[1].x, viewMatrix[2].x), mvPosition.xyz),
-    dot(vec3(viewMatrix[0].y, viewMatrix[1].y, viewMatrix[2].y), mvPosition.xyz),
-    dot(vec3(viewMatrix[0].z, viewMatrix[1].z, viewMatrix[2].z), mvPosition.xyz));
-  vAtmosWorldDir = _atmRel;                  // camera -> fragment, world space
+  vec3 _atmRel = ( vec4( mvPosition.xyz, 0.0 ) * viewMatrix ).xyz; // camera -> fragment, world space
+  vAtmosWorldDir = _atmRel;
   vAtmosWorldY   = cameraPosition.y + _atmRel.y;
 #endif`;
 
