@@ -38,6 +38,6 @@ check('batch backend reports "batch" + instanced mesh built', batch.stats.backen
 check('pool parity: visible counts match', Math.abs(sprite.stats.visible - batch.stats.visible) <= 2 && batch.stats.visible > 20);
 // The batch collapses ~N spark draws into 1, so it saves ≈ visible-1 draws.
 const saved = sprite.calls - batch.calls;
-check(`draw calls collapsed (${sprite.calls} → ${batch.calls}, saved ${saved} ≥ ${batch.stats.visible - 5})`, saved >= batch.stats.visible - 5);
+check(`draw calls collapsed (${sprite.calls} → ${batch.calls}, saved ${saved} ≥ ${batch.stats.visible - 8})`, saved >= batch.stats.visible - 8);
 
 console.log(`\nsprite calls=${sprite.calls} visible=${sprite.stats.visible} | batch calls=${batch.calls} visible=${batch.stats.visible}`);

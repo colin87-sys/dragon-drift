@@ -81,6 +81,14 @@ const BATCH_FRAG = /* glsl */`
     // Matches SpriteMaterial: rgb = color * texel.rgb, a = opacity * texel.a,
     // under AdditiveBlending (SrcAlpha, One).
     gl_FragColor = vec4(vColor * t.rgb, vOpacity * t.a);
+    // CRITICAL for tier2 parity: SpriteMaterial ends with these chunks. three
+    // injects the toneMapping()/linearToOutputTexel() functions + defines into a
+    // (non-raw) ShaderMaterial and GATES them on the render target — so both are
+    // NO-OPS at tier0/1 (sprites + batch render into the linear HDR RT) and apply
+    // ACES(0.92) + sRGB at tier2 (direct-to-screen). Without them the batch sparks
+    // skip tone mapping on weak devices and read ~25-35% dimmer / harder-edged.
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
   }`;
 
 function initBatch() {
@@ -90,16 +98,24 @@ function initBatch() {
   geo.setAttribute('position', plane.getAttribute('position'));
   geo.setAttribute('uv', plane.getAttribute('uv'));
   geo.instanceCount = POOL;
-  iPos = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
-  iScale = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 2), 2);
-  iRot = new THREE.InstancedBufferAttribute(new Float32Array(POOL), 1);
-  iColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
-  iOpacity = new THREE.InstancedBufferAttribute(new Float32Array(POOL), 1);
+  // Rewritten every frame (writeBatch) → DynamicDrawUsage is the correct hint.
+  iPos = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3).setUsage(THREE.DynamicDrawUsage);
+  iScale = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 2), 2).setUsage(THREE.DynamicDrawUsage);
+  iRot = new THREE.InstancedBufferAttribute(new Float32Array(POOL), 1).setUsage(THREE.DynamicDrawUsage);
+  iColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3).setUsage(THREE.DynamicDrawUsage);
+  iOpacity = new THREE.InstancedBufferAttribute(new Float32Array(POOL), 1).setUsage(THREE.DynamicDrawUsage);
   geo.setAttribute('iPos', iPos);
   geo.setAttribute('iScale', iScale);
   geo.setAttribute('iRot', iRot);
   geo.setAttribute('iColor', iColor);
   geo.setAttribute('iOpacity', iOpacity);
+  // DEVIATION from SpriteMaterial: no scene fog. SpriteMaterial has fog:true, so
+  // sparks beyond the fog near-plane (85u) mix toward the fog colour. Celebration
+  // bursts are near-field (rings/gates/phases/rolls fire AT the dragon, fogFactor≈0),
+  // so this is imperceptible for the hero cases; only FAR bursts (e.g. a boss death
+  // burst at distance) differ. Left out deliberately — ShaderMaterial fog-uniform
+  // refresh over the per-frame biome fog lerp is fiddly; add it (fog:true +
+  // UniformsLib.fog + the fog chunks) if/when the batch default is flipped ON.
   const mat = new THREE.ShaderMaterial({
     uniforms: { map: { value: tex } },
     vertexShader: BATCH_VERT, fragmentShader: BATCH_FRAG,
@@ -401,7 +417,7 @@ export function updateParticles(dt, camera) {
     sp.material.opacity = u.life * 0.85;
   }
 
-  if (useBatch) writeBatch(); // push the sprite-held spark state to the instanced draw
+  if (useBatch && batchMesh) writeBatch(); // push the sprite-held spark state to the instanced draw
 }
 
 export function resetParticles() {
@@ -414,5 +430,5 @@ export function resetParticles() {
     sp.material.opacity = 0;
   }
   visibleCount = 0;
-  if (useBatch) writeBatch(); // clear the instanced draw too
+  if (useBatch && batchMesh) writeBatch(); // clear the instanced draw too
 }
