@@ -25,8 +25,9 @@ const chunk = THREE.ShaderChunk.tonemapping_pars_fragment;
 check('N3: Neutral spliced in (startCompression present)', chunk.includes('startCompression'));
 check('N3: stub replaced (no passthrough Custom body)', !chunk.includes(stub));
 check('N3: still valid GLSL shape (CustomToneMapping defined)', chunk.includes('vec3 CustomToneMapping( vec3 color )'));
-installNeutralToneMap(); // idempotent
-check('N3: install is idempotent (single Neutral body)', (chunk.match(/startCompression/g) || []).length === chunk.match(/startCompression/g).length);
+installNeutralToneMap(); // idempotent — re-read the live chunk and assert it didn't double-splice
+const chunk2 = THREE.ShaderChunk.tonemapping_pars_fragment;
+check('N3: install is idempotent (Neutral spliced exactly once)', (chunk2.match(/startCompression/g) || []).length === 4);
 
 // --- N3: setToneMap selects mode + exposure, rejects garbage ---
 check('N3: modes list is aces/agx/neutral', TONEMAP_MODES.join(',') === 'aces,agx,neutral');
@@ -50,6 +51,14 @@ check('N2: explicit outputColorSpace = SRGB', main.includes('renderer.outputColo
 check('N3: installNeutralToneMap() called before renderer', main.indexOf('installNeutralToneMap()') > 0 && main.indexOf('installNeutralToneMap()') < main.indexOf('new THREE.WebGLRenderer'));
 check('N3: ?tm= wired', /urlParams\.has\('tm'\)/.test(main) && main.includes('setToneMap(renderer'));
 check('N1: ?dither=0 wired', /urlParams\.get\('dither'\)\s*===\s*'0'/.test(main) && main.includes('setDither(false)'));
+
+// --- N3: the composed path (OutputPass) must actually apply CustomToneMapping,
+// or ?tm=neutral is silently untonemapped on tier0/1. Patch the vendored pass. ---
+const outPass = read('lib/postprocessing/OutputPass.js');
+const outShader = read('lib/shaders/OutputShader.js');
+check('N3: OutputPass imports CustomToneMapping', /CustomToneMapping,/.test(outPass));
+check('N3: OutputPass sets CUSTOM_TONE_MAPPING define', outPass.includes('this._toneMapping === CustomToneMapping') && outPass.includes("this.material.defines.CUSTOM_TONE_MAPPING = ''"));
+check('N3: OutputShader has CUSTOM_TONE_MAPPING branch', outShader.includes('#elif defined( CUSTOM_TONE_MAPPING )') && /gl_FragColor\.rgb = CustomToneMapping\( gl_FragColor\.rgb \)/.test(outShader));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

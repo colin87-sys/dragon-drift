@@ -11,6 +11,22 @@ PBR Neutral by overriding the `CustomToneMapping` ShaderChunk body (r160 ships A
 Neutral), plus `setToneMap()` and a `?tm=aces|agx|neutral` A/B — default stays ACES, so the shipped frame is
 byte-identical unless the flag is passed.
 
+**The bug the Gate-2 Fable review caught (bank this — it's vendored-r160 reality).** The doc's premise
+"OutputPass compiles the tonemapping chunk and keys off `renderer.toneMapping`, so one `CustomToneMapping`
+override covers both the composed and the raw path" is **FALSE for r160's vendored `OutputPass`**: its define
+chain (`OutputPass.js`) and `OutputShader.js` hardcode Linear/Reinhard/Cineon/ACES/AgX with **no
+`CustomToneMapping` branch**. So `?tm=neutral` set `renderer.toneMapping = CustomToneMapping`, no define fired,
+and the composed path (tier0/1 — nearly every player + every screenshot tool) rendered **untonemapped linear**,
+which made the A/B montage's "Neutral" panel a lie (untonemapped is the theoretical max of saturation, so it
+*overstated* Neutral). Fix: patch the two vendored files to add the `CUSTOM_TONE_MAPPING` define + `#elif`
+branch (the same patch-a-vendored-chunk technique the doc blesses for N8), and pin `qualityOverride:0` in the
+montage tool so it captures the composed path. Lesson: **native `renderer.toneMapping` only reaches a material
+that three's own program-compiler handles; a post pass that reimplements tone mapping (OutputPass) has its OWN
+hardcoded list — overriding the ShaderChunk is necessary but NOT sufficient, you must also wire the pass.** Also:
+adding a hard static import (`toneMap.js`) means `node tools/stamp-sw.mjs` MUST run or the SW precache omits it
+and returning PWA users break — `buildstamp.mjs` checks stamp *consistency*, not *freshness*, so it won't catch a
+forgotten restamp.
+
 **Gotchas banked.** (1) **The three-resolver only applies to imports loaded AFTER `register()`** — a test's own
 top-level `import ... from 'three'` is hoisted and resolves *before* the body runs, so it fails
 `ERR_MODULE_NOT_FOUND`; the working pattern (copied from `bulletcontrast.mjs`) is `register()` then

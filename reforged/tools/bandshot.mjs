@@ -21,8 +21,8 @@ function loadPlaywright() {
 }
 
 const VIEW = { width: 900, height: 640 };
-// A tall, thin column high in the frame — sky only, clear of the dragon/HUD.
-const CLIP = { x: 120, y: 24, width: 24, height: 300 };
+// A tall column high in the frame — sky only, clear of the dragon/HUD.
+const CLIP = { x: 110, y: 24, width: 44, height: 300 };
 const saveT0 = `localStorage.setItem('dragonDriftSave', JSON.stringify({
   v: 2, embers: 50, stats: { runs: 5 },
   skins: { owned: ['azure'], equipped: 'azure' },
@@ -92,28 +92,29 @@ const result = await page.evaluate(async ({ onUrl, offUrl }) => {
 const png = await page.evaluate(async ({ onUrl, offUrl, result }) => {
   const load = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.src = src; });
   const [a, b] = await Promise.all([load(onUrl), load(offUrl)]);
-  const scale = 3, pad = 12, lab = 34;
+  const scale = 4, pad = 16, lab = 30;
   const w = a.width * scale, h = a.height * scale;
   const c = document.getElementById('c');
   c.width = w * 2 + pad * 3; c.height = h + pad * 2 + lab;
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, c.width, c.height);
-  [[a, `dither ON  (${result.on} transitions/col)`], [b, `dither OFF (${result.off} transitions/col)`]].forEach(([im, label], i) => {
+  [[a, `ON  (${result.on} tr/col)`], [b, `OFF (${result.off} tr/col)`]].forEach(([im, label], i) => {
     const x = pad + i * (w + pad);
     ctx.drawImage(im, x, pad, w, h);
-    ctx.fillStyle = '#ffd86a'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(label, x + w / 2, h + pad + 24);
+    ctx.fillStyle = '#ffd86a'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(label, x + w / 2, h + pad + 22);
   });
   return c.toDataURL('image/png').split(',')[1];
 }, { onUrl: 'data:image/png;base64,' + onBuf.toString('base64'), offUrl: 'data:image/png;base64,' + offBuf.toString('base64'), result });
 writeFileSync('/tmp/bandshot-montage.png', Buffer.from(png, 'base64'));
 await browser.close();
 
-const ok = result.on > result.off;
+const MARGIN = 5;
+const ok = result.on >= result.off + MARGIN;
 console.log(`sky-strip luma transitions per column (frozen frame, dither on vs off):`);
 console.log(`  dither ON : ${result.on}`);
 console.log(`  dither OFF: ${result.off}`);
-console.log(`  → ${ok ? 'PASS' : 'FAIL'} (dither ON must break banding into more transitions)`);
+console.log(`  → ${ok ? 'PASS' : 'FAIL'} (dither ON must exceed OFF by ≥${MARGIN} — banding broken into transitions)`);
 console.log('wrote /tmp/bandshot-on.png, /tmp/bandshot-off.png, /tmp/bandshot-montage.png');
 process.exit(ok ? 0 : 1);
