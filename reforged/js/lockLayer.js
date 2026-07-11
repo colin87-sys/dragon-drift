@@ -534,6 +534,7 @@ export function lockHudState() {
       x: lk.x ?? 0, y: lk.y ?? 0, z: lk.z ?? 0,
       life: Math.max(0, 1 - lk.age / L.decay),
       stacks: lk.stacks,
+      ghost: !!lk.ghost,   // §5i.C rung 12: a granted spectral echo pip — the reticle draws it ghost-pale
       blink: !S.deflected && lk.age > L.decay - 1.0,
     })),
   };
@@ -576,7 +577,16 @@ function releaseVolley(ctx, source) {
   const pips = totalPips();
   if (!pips) return;
   const onBeat = source === 'tap' && !!ctx.beatOn;
-  const dmgEach = lanceDmgEach(pips, ctx.phaseHp, onBeat ? L.beatMult : 1);
+  // §5i.C rung 12 SPECTRAL ECHO: a GHOST pip (lk.ghost — granted on ONEWING's living eye) strikes at
+  // echoDmgMult and fills the ROI clamp only by that fraction, so the clamp is priced on EFFECTIVE
+  // pips (real + echoMult × ghost). A non-echo boss has no ghost stacks ⇒ effPips === pips and every
+  // line below is byte-identical to the pre-echo path.
+  const echoMult = ctx.echoDmgMult ?? 0.5;
+  let realPips = 0, ghostPips = 0;
+  for (const lk of S.locks) { if (lk.ghost) ghostPips += lk.stacks; else realPips += lk.stacks; }
+  const effPips = realPips + echoMult * ghostPips;
+  const dmgEach = lanceDmgEach(effPips, ctx.phaseHp, onBeat ? L.beatMult : 1);
+  const ghostDmg = dmgEach * echoMult;
   // BEAT-ALIGNED RELEASE (PR-B/C1, revised): the beat-lock now lives in the FUSE
   // (the inhale ends a void before the beat), so D is just that VOID — the cap
   // auto-release fires the instant the breath completes, silence for the gap,
@@ -593,12 +603,17 @@ function releaseVolley(ctx, source) {
   const snap = source === 'cap' || onBeat;
   let i = 0;
   for (const lk of S.locks) {
+    const d = lk.ghost ? ghostDmg : dmgEach;
     for (let s = 0; s < lk.stacks; s++) {
-      S.lanceQ.push({ part: lk.part, dmg: dmgEach, t: D + i * (L.lanceStaggerMs / 1000),
+      S.lanceQ.push({ part: lk.part, dmg: d, ghost: !!lk.ghost, t: D + i * (L.lanceStaggerMs / 1000),
         i: i++, n: pips, full, source, snap });
     }
   }
-  emit('lockVolley', { count: pips, source, dmgEach, perfect: onBeat, delay: D, full });
+  // paintedCount (REAL pips only) gates burnFloor + the burn base — a ghost never earns a burn;
+  // volleyTotal is the true summed yield (real + half-ghost). For a non-echo boss both collapse to
+  // the pre-echo values (paintedCount === count, volleyTotal === count × dmgEach).
+  const volleyTotal = realPips * dmgEach + ghostPips * ghostDmg;
+  emit('lockVolley', { count: pips, paintedCount: realPips, source, dmgEach, volleyTotal, perfect: onBeat, delay: D, full });
   S.locks.length = 0;
   S.capFuseT = 0;
   S.refreshT = 0;
@@ -666,6 +681,25 @@ export function dropLockPart(part) {
   if (i < 0) return false;
   S.locks.splice(i, 1);
   S.capFuseT = 0;
+  return true;
+}
+
+// §5i.C rung 12 (ONEWING SPECTRAL ECHO): grant a half-strength GHOST pip on `part` — the living
+// eye, which is NEVER a dwell organ (world-Y above the aim ceiling), so a ghost entry there is
+// ALWAYS pure-ghost: no real/ghost stack mixing, so a boolean `lk.ghost` is safe (the ledger's
+// one-entry-per-part invariant holds). Counts toward the pip cap (echoes reach FULL faster) but
+// releases at echoDmgMult and never toward burnFloor. No-op if the set is at cap, the eye is at its
+// ghost cap, or (defensively) an entry for `part` exists that is NOT a ghost — never stack onto a
+// real paint. Returns true iff a ghost pip was laid (so the caller can play the tether pulse once).
+export function grantEchoPip(part, ghostMax = Infinity) {
+  if (!part || (S.cap > 0 && totalPips() >= S.cap)) return false;
+  const lk = S.locks.find((l) => l.part === part);
+  if (lk) {
+    if (!lk.ghost || lk.stacks >= ghostMax) return false;
+    lk.stacks++;
+  } else {
+    S.locks.push({ part, stacks: 1, age: 0, ghost: true });
+  }
   return true;
 }
 

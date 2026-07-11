@@ -122,10 +122,20 @@ assert(weft && weft.lanceCapable && weft.burnFrac === 0.30, `WEFTWITCH is lance-
 assert(weft.phases.some((p) => p.burn > 0), 'WEFTWITCH phases actually earn a burn on a full on-beat release');
 assert(weft.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
   `WEFTWITCH is never a phase-deleter (TTKs ${weft.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${weft.phases.map((p) => p.cardTimer).join('/')})`);
+// ONEWING (§5i rung 12) — lance-capable via the INVERTED SPECTRAL ECHO: dwell-paint the fused frame
+// (2 organs × stackMax 2 = 4), each first mark grants a half-damage GHOST pip on the eye (echoPips 2)
+// → the cap fills to 6, but the ghosts strike at echoDmgMult so the effective volley is < 6 pips. The
+// echo term must be SEEN by the deleter model (free ghosts raise DPS) or the gate passes vacuously.
+const onew = economies.find((e) => e.id === 'onewing');
+assert(onew && onew.lanceCapable && onew.burnFrac === 0.30, `ONEWING is lance-capable + burn-wired at exactly 0.30 (frac ${onew?.burnFrac})`);
+assert(onew.peakCap === 6, `ONEWING fills the tier-4 cap to 6 (4 dwell + 2 ghost) — peakCap ${onew?.peakCap}`);
+assert(onew.phases.some((p) => p.burn > 0), 'ONEWING phases actually earn a burn on a full on-tell release (real pips)');
+assert(onew.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `ONEWING is never a phase-deleter incl. the free-ghost DPS (TTKs ${onew.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${onew.phases.map((p) => p.cardTimer).join('/')})`);
 // Tiers 1-3 (and un-keyed bosses) carry NO burn — the mid-game is byte-identical.
 assert(economies.filter((e) => e.tier < CONFIG.LOCK.scarBurn.minTier).every((e) => e.burnFrac === 0),
   'no boss below scarBurn.minTier earns a burn (tiers 1-3 unchanged)');
-ok(`SCAR-BURN wired on KNELLGRAVE (${knell.burnFrac}) + WEFTWITCH (${weft.burnFrac}), never phase-deleters, tiers 1-3 burn-free`);
+ok(`SCAR-BURN wired on KNELLGRAVE (${knell.burnFrac}) + WEFTWITCH (${weft.burnFrac}) + ONEWING (${onew.burnFrac}), never phase-deleters, tiers 1-3 burn-free`);
 
 // --- Roster coverage --------------------------------------------------------
 assertEq(economies.length, BOSS_ORDER.length, 'one economy row per boss in BOSS_ORDER');

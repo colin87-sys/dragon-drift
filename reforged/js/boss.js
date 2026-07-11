@@ -26,7 +26,7 @@ import {
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
-  lanceDmgEach, paintFromParry, dropLockPart, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
+  lanceDmgEach, paintFromParry, dropLockPart, grantEchoPip, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
 import { makeGlowTexture } from './util.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
@@ -2658,6 +2658,9 @@ export function updateBoss(dt, player, time, camera) {
       // inaudible grid is meaningless there; a plain capFuse keeps the cap release
       // honest (the resonant bonus is the player's MANUAL on-toll tap, not the auto).
       beatFuseDur: def.musicDies ? 0 : beatAlignedFuse(),
+      // §5i.C rung 12: the SPECTRAL echo's damage multiplier — ghost pips (ONEWING's granted eye
+      // echoes) strike at this fraction and price the ROI clamp by it. Inert unless ghost pips exist.
+      echoDmgMult: CONFIG.LOCK.scarBurn?.echoDmgMult ?? 0.5,
     };
     _lastBeatOn = lockCtx.beatOn;
     updateLockLayer(dt, player, lockCtx);
@@ -2896,6 +2899,10 @@ export function updateBoss(dt, player, time, camera) {
             if (ghostFrameHits >= GHOST_FRAME_HITS) {
               ghostFrameBroken = true;
               model?.breakFrame?.();
+              // §5i.C rung 12 HONEST SACRIFICE: the break kills the lance too — drop both frame dwell
+              // organs' banked pips AND the eye's echo anchor (no more frame → no more echo). The
+              // lance goes to near-zero for the rest of the fight: the either/or the trade promises.
+              dropLockPart('frameGroup'); dropLockPart('frameRoot'); dropLockPart(def.echoTarget);
               ventSpraySoak(player);
               ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
               cameraCtl.shake?.(1.2); sfx.milestone?.();
@@ -4473,6 +4480,11 @@ function lockCandidates() {
 // def that adds an invulnerable state must be reachable from here.
 function lockDeflected() {
   if (shielded) return true;
+  // §5i.C rung 12 (ONEWING felledLie): while the fake death plays the boss is SEALED — painting,
+  // decay + the cap fuse freeze (pips wait, ashen, never wasted) and resume on felledRevive. Without
+  // this the player lances a boss playing dead and every lance is voided with a shieldPing (the
+  // ONE-DEFLECT-RULE violation the burn ticks already avoid via this same predicate). Inert off onewing.
+  if (felledLieT > 0) return true;
   if (def.condenseInvuln && model.condenseLive && model.condenseLive() < 0.45) return true;   // swarm scattered
   // NB the eye-weak-point lid-down is NO LONGER a whole-layer seal (owner playtest:
   // "while the eye's down I can't tag ANYTHING, not even the shackles, for ages").
@@ -4598,6 +4610,10 @@ function lockPartDead(part) {
   if (def.destructibleRibs && part.startsWith('ribPivot')) {   // §ENG-E: a cracked rib leaves the paintable set
     return !(model.ribAlive?.(ribTagToIdx(part)) ?? true);
   }
+  // §5i.C rung 12 (ONEWING): breaking the fused ghost-frame kills BOTH frame dwell organs (frameRoot
+  // is a frameGroup child that falls with it) — the honest-sacrifice trade. The nodes still resolve
+  // (frameGroup.visible=false), so without this the reticle would lead to a frame that fell off.
+  if (def.ghostHalf && ghostFrameBroken && (part === 'frameGroup' || part === 'frameRoot')) return true;
   return false;
 }
 
@@ -4742,6 +4758,23 @@ on('lockPaint', (p) => {
     saveData.flags.snapTaught = true; persist();
     ui.bossNote?.('THE MARK ANSWERS THE PARRY', '', 'gold', 1.8);
   }
+  // §5i.C rung 12 SPECTRAL ECHO (ONEWING): the FIRST mark on each fused-frame organ (a FRESH paint —
+  // not a stack or a refresh) echoes a half-strength GHOST pip onto the living eye — "mark the dead
+  // half, the living half answers." Two frame organs → up to echoMax(2) ghosts ("pips arrive in
+  // pairs"). grantEchoPip enforces the cap + never stacks onto a real pip. Inert for every other def.
+  if (p && def?.echoOrgans && def?.echoTarget && !p.stacked && !p.refreshed && def.echoOrgans.includes(p.part)
+      && grantEchoPip(def.echoTarget, def.echoMax ?? Infinity)) {
+    if (model && model.partWorldPos) {   // a brief connecting pulse so the frame→eye pairing reads
+      const a = model.partWorldPos(p.part, _brandPopV);
+      if (a) burst(a, 0xbfa9d6, { count: 6, speed: 8, size: 0.6, life: 0.4 });
+      const b = model.partWorldPos(def.echoTarget, _brandPopV);
+      if (b) burst(b, 0xd8c8f0, { count: 9, speed: 6, size: 0.7, life: 0.55 });
+    }
+    if (!saveData.flags.echoTaught) {
+      saveData.flags.echoTaught = true; persist();
+      ui.bossNote?.('✦ THE DEAD TWIN ANSWERS ✦', 'MARK ITS FRAME — THE LIVING EYE ECHOES (HALF-STRIKE)', 'gold', 2.8);
+    }
+  }
 });
 on('lockVolley', (p) => {
   if (p && p.source === 'cap' && !saveData.flags.lockCapSeen) {
@@ -4758,16 +4791,21 @@ on('lockVolley', (p) => {
   // SCAR-BURN (§4b): an ON-TELL (perfect) manual release of ≥ burnFloor pips on a
   // tier ≥ minTier boss leaves a burning brand — an extra `frac × volleyTotal` paid
   // over `dur` as scheduled DOT ticks. The cap auto-release (source 'cap') never has
-  // p.perfect, so it never burns (the safe fallback). `dmgEach` is already the
-  // ROI-clamped per-lance figure, so `count × dmgEach` is the clamped volley total.
+  // p.perfect, so it never burns (the safe fallback).
+  // §5i.C rung 12: a SPECTRAL echo (ghost pip) never EARNS a burn — the floor is checked against
+  // paintedCount (REAL pips only) so ghosts can't cross burnFloor for free, and the burn base is the
+  // true volleyTotal (real + half-ghost). For a non-echo boss paintedCount===count and
+  // volleyTotal===count×dmgEach, so this is identical to the pre-echo arithmetic.
   const sb = CONFIG.LOCK.scarBurn;
   const frac = sb && (def?.tier ?? 1) >= sb.minTier ? (sb.fracBySlot?.[def.id] ?? 0) : 0;
-  if (p && p.perfect && frac > 0 && p.count >= sb.burnFloor && p.dmgEach > 0 && !labPacifist) {
-    const total = frac * p.count * p.dmgEach;
+  const paintedCount = p?.paintedCount ?? p?.count ?? 0;
+  const volleyTotal = p?.volleyTotal ?? ((p?.count ?? 0) * (p?.dmgEach ?? 0));
+  if (p && p.perfect && frac > 0 && paintedCount >= sb.burnFloor && volleyTotal > 0 && !labPacifist) {
+    const total = frac * volleyTotal;
     const interval = sb.tickInterval ?? 0.3;
     const nTicks = Math.max(1, Math.round(sb.dur / interval));
     burns.push({ tick: total / nTicks, ticksLeft: nTicks, interval, tAcc: 0 });
-    emit('lockBurn', { total, dur: sb.dur, count: p.count });
+    emit('lockBurn', { total, dur: sb.dur, count: paintedCount });
   }
   // §5i.C THE VOLLEY TEARS, SHE MENDS (WEFTWITCH rung 11 rule): a DELIBERATE ≥burnFloor-pip
   // release (a manual tap or the cap auto-loose — NEVER a decay fizzle or the Surge 'fork')
