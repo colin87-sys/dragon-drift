@@ -1765,6 +1765,11 @@ export const ui = {
           ${gfxToggle('skyIbl')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">DRAGON SHADOW</div>
+          <p class="sub">Casts the dragon's real silhouette on the water — you can see the wings beat. (Experimental.)</p>
+          ${gfxToggle('heroShadow')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">SMOOTH GRADIENTS</div>
           <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
           ${gfxToggle('dither')}

@@ -24,7 +24,7 @@ import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LAN
 import { lanceWyrm } from './sfxLance2.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setDither } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
-import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
+import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
@@ -165,6 +165,8 @@ setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0)
 createWater(scene, true); // real reflection by default; tiers downgrade it
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
+// N6 hero shadow: apply the saved toggle (the RT exists now); ?shadow forces on.
+if (urlParams.has('shadow') || gfxPref.heroShadow === true) setContactShadowSilhouette(true);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -308,6 +310,8 @@ if (urlParams.has('debug')) {
       burst: (n = 60) => burst(camera.localToWorld(new THREE.Vector3(0, 0, -30)), 0xffe0a0, { count: n, speed: 12, size: 1.0, life: 1.2 }),
       drawCalls: () => renderer.info.render.calls,
     },
+    // N6 hero-shadow seams: silhouette on/off + the RT coverage (proves the pass ran).
+    shadow: { on: contactShadowSilhouette, coverage: () => heroShadowCoverage(renderer), maskURL: () => heroShadowMaskURL(renderer) },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
     // Push the boss schedule out of the way (or restore it) so a stretch of
@@ -641,6 +645,7 @@ ui.init({
     if (kind === 'toneMap') setToneMap(renderer, value);
     else if (kind === 'dither') setDither(value);
     else if (kind === 'skyIbl') setSkyProbeEnabled(value);
+    else if (kind === 'heroShadow') setContactShadowSilhouette(value);
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
@@ -1470,6 +1475,7 @@ function tick() {
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget());
+  renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 
   if (perfEl) {
