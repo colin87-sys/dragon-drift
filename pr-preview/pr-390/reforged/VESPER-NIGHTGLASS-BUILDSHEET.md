@@ -287,3 +287,18 @@ Reuses invisible plumbing only: recipe registry, attach contract, LOD scaler, su
   BUILDSHEET.md` (whose organism recommendation was the failed path). Next: introduce the `vesper` stub +
   calibrate the Fable gate on the recovered retired tile, then build torso chine → scallop wing → seam
   increment-by-increment behind the nullable dials.
+- **v1 (BUILT — `dragonVesper.js` + `vesper` roster key, PR #390).** All five increments shipped behind
+  nullable, default-off dials; the rest of the roster is byte-identical. Per-increment high-effort Fable
+  harsh-critic gates: **I1 knappedTorso 4.5** · **I2 scallopCrescentWings 4.4** · **I3 vesperCatHead +
+  splitFanTail 4.3** · **I4 the Starlit Seam 4.4**. The ring failure died by construction (a fixed-profile
+  chined loft → longitudinal strakes + value bands); the seam failure died by construction (a static
+  scapular cowl of knapped flake-plates over a buried wing root). The Starlit Seam is withheld by a
+  near-zero cruise base + a high `surgeGlowMultiplier` (only the multiplicative surge tick blazes it);
+  `feverWing:0x000000` keeps the wings a dark silhouette on Surge (the rig defaults to magenta — every
+  fever hook was overridden cool). Tooling added: `reforged/tools/seamprobe.mjs` (objective two-state hue
+  proof) + a `surge` state in dragonstudio (matched dark-sky cruise/surge pairs) + a `tests/starters.mjs`
+  premium assert block (tris monotonic ↑ · body value ↓ · cruise-emissive = eyes only · zero near-white ·
+  span:body ≤ 2.5 · the no-organism-import firewall). **Owner calls resolved:** fresh roster slot `vesper`
+  (cost 2200) · boost pre-taste OFF (seam fully withheld to the Surge) · name **Nightglass Vesper**.
+  Rides the PR preview (the gate is blind to motion): the `glideRake` glide-hold fan pose + how the black
+  hull reads against a bright canyon biome.
