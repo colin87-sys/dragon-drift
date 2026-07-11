@@ -128,7 +128,11 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     const maxH = leadR * 0.9 * veilTail;         // ≤ forward girth → sil-safe
     const nVeil = new THREE.Vector3(1, 0, 0);    // median fin faces sideways
     const baseD = [], edgeD = [], baseV = [], edgeV = [];
-    const cDeep = colBody.clone().lerp(colShadow, 0.6), cVent = colShadow.clone().lerp(colBelly, 0.5);
+    // Tie the caudal fin to the SILK-FIN ray language: deep-emerald ROOT (at the tube) →
+    // pale-jade SILK EDGE, matching the veil-fins' deep-leading → pale-tip gradient, so it
+    // reads as the same silk, not a separate darker material.
+    const cPale = new THREE.Color(cRim);         // apexSeam pale-jade (the fin-tip silk hue)
+    const cRoot = colBody.clone().lerp(colShadow, 0.6), cEdgeD = colBody.clone().lerp(cPale, 0.72), cEdgeV = colShadow.clone().lerp(colBelly, 0.7);
     for (let i = 0; i < N; i++) {
       const t = N > 1 ? i / (N - 1) : 0;
       if (t < vStartT) { baseD.push(-1); edgeD.push(-1); baseV.push(-1); edgeV.push(-1); continue; }
@@ -137,10 +141,10 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
       const wob = 1 + 0.12 * Math.sin(along * Math.PI * 3.0);              // gentle scalloped trailing edge (flowing veil, not a straight fence)
       const cy = yAt(t), cz = zzOf(i), rH = radii[i] * OVAL_H;
       const hD = maxH * flare * wob, hV = maxH * 0.72 * flare * wob;
-      baseD.push(positions.length / 3); positions.push(0, cy + rH, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(colBody.r, colBody.g, colBody.b);
-      edgeD.push(positions.length / 3); positions.push(0, cy + rH + hD, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cDeep.r, cDeep.g, cDeep.b);
-      baseV.push(positions.length / 3); positions.push(0, cy - rH, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(colShadow.r, colShadow.g, colShadow.b);
-      edgeV.push(positions.length / 3); positions.push(0, cy - rH - hV, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cVent.r, cVent.g, cVent.b);
+      baseD.push(positions.length / 3); positions.push(0, cy + rH, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cRoot.r, cRoot.g, cRoot.b);
+      edgeD.push(positions.length / 3); positions.push(0, cy + rH + hD, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cEdgeD.r, cEdgeD.g, cEdgeD.b);
+      baseV.push(positions.length / 3); positions.push(0, cy - rH, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cRoot.r, cRoot.g, cRoot.b);
+      edgeV.push(positions.length / 3); positions.push(0, cy - rH - hV, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cEdgeV.r, cEdgeV.g, cEdgeV.b);
     }
     const stripBoth = (bArr, eArr) => {
       for (let i = 0; i < N - 1; i++) {

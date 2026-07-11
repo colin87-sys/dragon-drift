@@ -1531,18 +1531,20 @@ function buildSilkFinWings(def, model, attach, giM) {
         // (ray #1 = the leading rib). Displaced along the blade normal (+y) and FADED to
         // zero at the chord edges (edgeFade) + root/tip (lenFade) so the boundary verts —
         // the silhouette outline — never move; only the blade interior corrugates.
-        let crest = 0;
+        let crest = 0, trough = 0;
         if (rayRelief > 0) {
           let ray = 0;
           for (let r = 0; r < 3; r++) { const d = (cf - (0.16 + r * 0.30)) / 0.11; ray += Math.exp(-d * d); }
           ray = Math.min(1, ray);                              // 1 on a ray crest → ~0 in the web between
           const edgeFade = Math.min(1, Math.min(cf, 1 - cf) / 0.14);        // pin the leading/trailing outline
           const lenFade = Math.sin(Math.max(0, Math.min(1, uu)) * Math.PI);  // 0 at root + tip → rays fade before the notch
+          const fades = edgeFade * lenFade;
           // CARVE the webs INWARD only (crests stay AT the smooth-blade surface) so the
           // outline never grows — the ray crests are the original silhouette envelope, the
           // webs between them recede into shadow. This is what keeps the sil-rear identical.
-          y -= rayRelief * camber * 0.95 * (1 - ray) * edgeFade * lenFade;
-          crest = ray * edgeFade * lenFade;                    // ray-crest mask → the value banding below
+          y -= rayRelief * camber * 0.95 * (1 - ray) * fades;
+          crest = ray * fades;                                 // pale ray top    → value banding below
+          trough = (1 - ray) * fades;                          // emerald web valley → strong crest/trough contrast at play distance
         }
         verts.push(x, y, z);
         // value tiers along the chord (law 11): a deep-emerald leading RAY → bright mid
@@ -1553,7 +1555,10 @@ function buildSilkFinWings(def, model, attach, giM) {
         const lead = Math.pow(Math.max(0, 1 - cf * 2.0), 1.05); // strong wide leading-ray band → 0 by ~mid-chord
         c.lerp(cL, lead * 0.98);                               // strong deep-emerald leading RAY at FULL contrast (gate rework r4 dir 3 — each lobe reads separately, not one leaf)
         if (cf > 0.74) c.lerp(cL, (cf - 0.74) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
-        if (crest > 0) c.lerp(cL, crest * rayRelief * 0.42);   // CP3: deep-emerald banding down each raised ray → the flutes read dimensional, not smooth
+        if (rayRelief > 0) {                                    // CP3: value-band the flutes so the rays READ at rear-chase, not just in the crop
+          c.lerp(cT, crest * rayRelief * 0.30);                // pale-jade highlight on the raised ray crest
+          c.lerp(cL, trough * rayRelief * 0.52);               // deep-emerald in the recessed web → strong ray banding
+        }
         if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
         cols.push(c.r, c.g, c.b);
       }
@@ -1667,7 +1672,7 @@ function buildSilkFinWings(def, model, attach, giM) {
         const yFold = -Math.cos(wf * Math.PI) * hw * 0.08 * (nW > 1 ? 1 : 0);  // whisper of a centre crease — enough to bend normals into a light-catch fold, small enough to leave the streamer's rear-silhouette width intact
         verts.push(xw + wf * 2 * hw, yd + yFold, z);
         c.copy(cM).lerp(cT, t * 0.6);                        // held in the green band (mid → pale-jade)
-        if (nW > 1) c.lerp(cLc, (1 - Math.abs(wf) * 2) * 0.22);   // deeper-jade seam down the crease valley → the fold reads
+        if (nW > 1) c.lerp(cLc, (1 - Math.abs(wf) * 2) * 0.22 * Math.min(1, (1 - t) / 0.18));   // deeper-jade seam down the crease valley → the fold reads, faded out before the tip so it never reads as a detached blob
         if (t > 0.85) c.lerp(cR, (t - 0.85) / 0.15);         // mint-pearl only at the last ~15% of the tip
         cols.push(c.r, c.g, c.b);
       }
