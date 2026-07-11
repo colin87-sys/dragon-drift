@@ -131,6 +131,14 @@ export const CONFIG = {
   canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
   canyonIntervalJitter: 1100,
   canyonFirstAt: 900,         // earliest a canyon can begin (past the tutorial)
+  // Decompression buffers: no Phase Gate (crystal wall) in the approach just
+  // before a canyon MOUTH, nor for a stretch AFTER the exit — so bursting out of
+  // a rib finale at full boost never dumps you straight into a blind, off-line
+  // crystal wall (phase-or-crash). The exit buffer is sized so even a speed-stat
+  // dragon boosting out (orb speed ~108-125 m/s) meets the next wall in open air,
+  // in view, after boost decay has begun (carry ~170-195m + ≥90m readability).
+  canyonEntryBuffer: 120,     // metres of gate-free approach before a canyon mouth
+  canyonExitBuffer: 350,      // metres of gate-free open air after a canyon exit
   canyonFadeNear: 1,          // dz where a rock has fully dissolved (at camera)
   canyonFadeFar: 16,          // dz where a rock is fully solid again
   // Vertical limit (active ONLY inside a canyon run): you can't climb over the

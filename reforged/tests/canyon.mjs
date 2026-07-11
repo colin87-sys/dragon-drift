@@ -7,6 +7,7 @@ import { boot, check } from './browser.mjs';
 const { page, done } = await boot();
 const result = await page.evaluate(async () => {
   const { createLevelGen } = await import('./js/level.js');
+  const { CONFIG } = await import('./js/config.js');
   const run = () => {
     const gen = createLevelGen(1337);
     // walk in chunks like the game does, so multi-chunk canyons are exercised
@@ -22,12 +23,13 @@ const result = await page.evaluate(async () => {
       suppress.push(...out.canyonGateSuppress);
       for (const ob of out.obstacles) if (ob.type === 'gate') gateDists.push(ob.dist);
     }
-    return { segs, starts, ends, orbs, suppress, gateDists, ringsLen, obsLen };
+    return { segs, starts, ends, orbs, suppress, gateDists, ringsLen, obsLen,
+             nextCanyonAt: gen.nextCanyonAt };
   };
   const a = run();
   createLevelGen(424242).ensure(9000); // interleave a different seed
   const b = run();
-  return { a, b };
+  return { a, b, entryBuffer: CONFIG.canyonEntryBuffer, exitBuffer: CONFIG.canyonExitBuffer };
 });
 
 const { segs, starts, ends } = result.a;
@@ -60,13 +62,22 @@ if (spineSegs.length) {
       (o) => Math.abs(o.x - s.gapX) < 1e-6 && o.dist > s.dist - 20 && o.dist <= s.dist)));
 }
 
-// Base Phase Gates inside a canyon run are suppressed (no blind crystal window
-// between rib sections) — and only ever gates, only ever inside a canyon range.
-const inCanyonRange = (d) => starts.some((s, i) => d >= s && d <= (ends[i] ?? Infinity));
+// Base Phase Gates near a canyon are suppressed (no blind crystal window between
+// rib sections, no wall in the entry approach or the exit decompression zone) —
+// and only ever gates. The buffers deliberately widen suppression BEYOND the run
+// markers: entry side is anchored to nextCanyonAt (which can precede the realized
+// start marker by a gate hop + the first canyon ring, plus a gauntlet-deferred
+// start — hence generous slack); exit side is exact (ends[i] = lastRing+40, cursor
+// = ends[i] + exitBuffer). A trailing pre-emptive window suppresses gates for a
+// canyon still pending when the 9km walk ends — checked against nextCanyonAt.
+const ENTRY_SLACK = result.entryBuffer + 500;
+const inSuppressRange = (d) =>
+  starts.some((s, i) => d >= s - ENTRY_SLACK && d <= (ends[i] ?? Infinity) + result.exitBuffer)
+  || d >= result.a.nextCanyonAt - 40 - result.entryBuffer;
 check('suppressed entries are all real gate dists',
   result.a.suppress.every((d) => result.a.gateDists.includes(d)));
-check('suppressed gates all fall inside a canyon run',
-  result.a.suppress.every(inCanyonRange));
+check('suppressed gates fall inside a canyon run ± decompression buffers',
+  result.a.suppress.every(inSuppressRange));
 check('suppression is deterministic per seed',
   JSON.stringify(result.a.suppress) === JSON.stringify(result.b.suppress));
 

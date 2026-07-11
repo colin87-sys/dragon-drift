@@ -12,15 +12,16 @@ const result = await page.evaluate(async () => {
   const { createLevelGen } = await import('./js/level.js');
   const walk = (step) => {
     const gen = createLevelGen(1337);
-    const segs = [], starts = [], ends = [];
+    const segs = [], starts = [], ends = [], suppress = [];
     for (let d = step; d <= 9000; d += step) {
       if (gen.generatedUntil >= d) continue;   // mirror main.js spawnAhead guard
       const out = gen.ensure(d);
       segs.push(...out.canyonSegments);
       starts.push(...out.canyonStarts);
       ends.push(...out.canyonEnds);
+      suppress.push(...out.canyonGateSuppress);
     }
-    return { segs, starts, ends };
+    return { segs, starts, ends, suppress };
   };
   return { frame: walk(2), chunky: walk(900) }; // both end EXACTLY at 9000
 });
@@ -48,6 +49,15 @@ check('seam-to-seam corridor centres chain exactly', chained);
 check('spanFwd matches the real distance to the next segment', spans);
 check('segment stream is identical at per-frame and chunked granularity',
   JSON.stringify(result.frame.segs) === JSON.stringify(result.chunky.segs));
+// Gate suppression must ALSO be granularity-invariant — it was the one live hole
+// PR-1 closed (per-frame emitted 0 suppressed gates, chunked emitted several).
+// Compare as SORTED sets: a gate can be suppressed in a different-indexed chunk at
+// each granularity, but the SET of suppressed dists must match.
+const sortNum = (xs) => [...xs].sort((p, q) => p - q);
+check('gate suppression is identical at per-frame and chunked granularity',
+  JSON.stringify(sortNum(result.frame.suppress)) === JSON.stringify(sortNum(result.chunky.suppress)));
+check('gate suppression actually fires under per-frame generation',
+  result.frame.suppress.length >= 1);
 
-console.log(`  (per-frame segments: ${segs.length}, runs: ${result.frame.starts.length})`);
+console.log(`  (per-frame segments: ${segs.length}, runs: ${result.frame.starts.length}, suppressed gates: ${result.frame.suppress.length})`);
 await done();
