@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Reflector } from '../lib/objects/Reflector.js';
 import { SUN_DIR } from './biomes.js';
+import { atmosUniforms } from './atmosphere.js';
 
 // Endless water plane that replaces the snow floor. One GLSL source, two
 // variants: USE_REFLECTION samples a Reflector render target (tier 0); the
@@ -56,6 +57,11 @@ const fragmentShader = /* glsl */`
   uniform float time, waveAmp;
   uniform vec3 deepColor, shallowColor, sunDir, sunColor, horizonColor, zenithColor, fogColor, fogFarColor;
   uniform float fogNear, fogFar;
+  // N8 PR B: shared atmosphere uniforms (0 = shipped). The water is the largest
+  // fogged surface — it joins the sunward inscatter. World-space sun dir so it is
+  // correct in the mirror; identity when uAtmosInscatter is 0.
+  uniform vec3 uAtmosSunDir, uAtmosSunTint;
+  uniform float uAtmosInscatter;
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -134,7 +140,14 @@ const fragmentShader = /* glsl */`
     // exactly the old single-color fog.
     float dist = length(vWorldPos - cameraPosition);
     float fogF = smoothstep(fogNear, fogFar, dist);
-    col = mix(col, mix(fogColor, fogFarColor, fogF), fogF);
+    vec3 fogCol = mix(fogColor, fogFarColor, fogF);
+    // N8 PR B sunward inscatter: brighten the fog toward the sun (matches the
+    // prop chunk's pow(...,6.0)). +0 exactly when uAtmosInscatter is 0 → shipped.
+    // -V is the camera->fragment dir (V = normalize(cameraPosition - vWorldPos)
+    // above) — reuse it to save a normalize on the frame's largest fill surface.
+    float atmSun = pow(clamp(dot(-V, uAtmosSunDir), 0.0, 1.0), 6.0);
+    fogCol += uAtmosSunTint * (atmSun * uAtmosInscatter * fogF);
+    col = mix(col, fogCol, fogF);
 
     gl_FragColor = vec4(col, 1.0);
     // These chunks are render-target aware in r160: the renderer forces
@@ -200,6 +213,12 @@ export function createWater(scene, useReflection) {
   sceneRef = scene;
   reflective = useReflection;
   water = useReflection ? buildReflective() : buildCheap();
+  // N8 PR B: attach the SHARED atmosphere uniform objects by reference on the
+  // CONSTRUCTED material — after buildCheap's clone AND the Reflector's own second
+  // internal UniformsUtils.clone. Runs on every tier rebuild (createWater is
+  // re-called by setWaterReflective), so the water always reads live atmosphere
+  // values. Deliberately NOT in sharedUniforms (that gets cloned + carry-looped).
+  Object.assign(water.material.uniforms, atmosUniforms);
   water.rotation.x = -Math.PI / 2;
   water.position.y = 0;
   water.frustumCulled = false;
