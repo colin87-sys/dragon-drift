@@ -200,7 +200,7 @@ export function updateContactShadow(dt, player) {
   const off = alt * 0.18;
   _pos.set(
     player.position.x + _sunGround.x * off,
-    0.06,
+    0, // y unused — mesh.position.y is set from the swell below
     player.position.z + _sunGround.y * off
   );
   mesh.position.x = _pos.x;

@@ -173,8 +173,9 @@ if (urlParams.has('ao') || gfxPref.propAO === true) setPropAO(true);
 if (urlParams.has('atmos') || gfxPref.atmosphere === true) setAtmosphereEnabled(true);
 // N9 sky clouds: apply the saved toggle; ?clouds forces on.
 if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(true);
-// N10a water swell: apply the saved toggle; ?swell forces on. (applyQuality sets the
-// LOD tier right after; setWaterSwell must run first so the initial build subdivides.)
+// N10a water swell: apply the saved toggle; ?swell forces on. Runs after createWater,
+// so it rebuilds the (already-built) mesh subdivided; it precedes applyQuality, which
+// then sets the LOD tier. geomTier defaults 0, so ?swell boots subdivided at tier0.
 if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
 applyDragonStats(equippedDragon());
 initRings(scene);

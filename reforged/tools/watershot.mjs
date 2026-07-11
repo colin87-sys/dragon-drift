@@ -29,17 +29,17 @@ const save = noSW + `localStorage.setItem('dragonDriftSave', JSON.stringify({
   settings: { reticle: false, slowMo: true, qualityOverride: 0 },
 }))`;
 
-// dt2 = extra sim seconds to advance AFTER the first freeze (for the motion proxy).
-async function capture(dist, swell, advance = 0) {
+async function capture(dist, swell) {
   const query = `?debug&cleanshot&seed=73101${swell ? '&swell' : ''}`;
   const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 2, initScript: save });
   await page.click('#btn-start').catch(() => {});
   await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.distance >= 20, { timeout: 18000 }).catch(() => {});
   await page.evaluate((d) => { window.__dd.noBoss(true); window.__dd.player.dist = d; }, dist);
   await page.waitForFunction((d) => window.__dd.player.dist > d + 40, { timeout: 8000 }, dist).catch(() => {});
-  await page.waitForTimeout(1600 + advance * 1000);
+  await page.waitForTimeout(1600);
   await page.evaluate(() => { window.__dd.game.timeScale = 0; });
-  // Drop the camera low + level so the horizon fills the mid-frame (where the swell reads).
+  // Drop the camera low + level so the horizon fills the mid-frame (where the swell
+  // reads as an undulating silhouette vs the dead-flat OFF line).
   await page.evaluate(() => { const c = window.__dd.camera; c.position.y = 3.6; c.rotation.x += 0.12; c.updateMatrixWorld(); });
   await page.waitForTimeout(120);
   const buf = await page.screenshot();
@@ -47,10 +47,10 @@ async function capture(dist, swell, advance = 0) {
   return buf;
 }
 
-const SANC = 400, WASTES = 2600;
+const SANC = 400, WASTES = 2050; // off the mega-arch midpoints (750/2250) → open vantage
 const shots = {
-  sancOff: await capture(SANC, false), sancOn: await capture(SANC, true), sancOn2: await capture(SANC, true, 1.5),
-  wasteOn: await capture(WASTES, true),
+  sancOff: await capture(SANC, false), sancOn: await capture(SANC, true),
+  wasteOff: await capture(WASTES, false), wasteOn: await capture(WASTES, true),
 };
 for (const [k, v] of Object.entries(shots)) writeFileSync(`/tmp/water-${k}.png`, v);
 
@@ -70,8 +70,8 @@ const png = await page.evaluate(async (b64) => {
   const cells = [
     [imgs.sancOff, 'SANCTUARY — swell OFF (flat horizon, shipped)', 0, 0],
     [imgs.sancOn, 'SANCTUARY — swell ON (living horizon)', 1, 0],
-    [imgs.sancOn2, 'SANCTUARY — swell ON, +1.5s (horizon has rolled — motion)', 0, 1],
-    [imgs.wasteOn, 'AMBER WASTES — swell ON', 1, 1],
+    [imgs.wasteOff, 'AMBER WASTES — swell OFF (flat, shipped)', 0, 1],
+    [imgs.wasteOn, 'AMBER WASTES — swell ON (living horizon)', 1, 1],
   ];
   ctx.textBaseline = 'middle'; ctx.font = '600 15px system-ui, sans-serif';
   for (const [im, label, col, row] of cells) {
