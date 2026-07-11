@@ -300,6 +300,29 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
     group.add(flatTriMesh([[[s * 0.44, 0.56, -0.18], [s * 0.10, 0.60, -1.05], [s * 0.40, 0.40, -0.02]]], M.ivory));
   }
 
+  // ── THE SUN-GORGET COLLAR (the withheld coronation REGALIA, §6) — a radial fanned ruff of
+  // stiff flame-feathers around the nape, raking up-out-and-back → a SUNBURST behind the head
+  // that reads as the bright ORIGIN of the spine glow in the rear-chase. Gold vane / ember-
+  // shadow root / rose-gold rim. `collarFan` BLOOMS it rung by rung (0 = bare nape at the
+  // whelp → a full blazing gorget at Rebirth) — this is the "Reborn in fire" coronation beat.
+  const collarFan = model.collarFan ?? 1;
+  if (collarFan > 0) {
+    const nC = Math.round(4 + 6 * collarFan);       // 4 → 10 broad feathers as it blooms
+    const cz = -1.28, cyN = 0.58;                    // seated at the nape / neck base
+    for (let k = 0; k < nC; k++) {
+      const th = (nC > 1 ? (k / (nC - 1)) - 0.5 : 0) * 2.7;   // fan across the upper hemisphere (~±77°)
+      const sx = Math.sin(th), cyv = Math.cos(th);
+      // BROAD overlapping feathers raked strongly BACK (a laid-back ruff surface, not radial
+      // porcupine spikes): more +z than radial, wide vanes that shingle into a fan.
+      const dir = [sx * 0.66, cyv * 0.62 + 0.14, 0.66];
+      const side = [cyv, -sx, 0];                             // tangential (feathers shingle around the arc)
+      const len = (0.40 + 0.26 * collarFan) * (0.78 + 0.22 * cyv);
+      const base = [sx * 0.13, cyN + cyv * 0.05, cz];
+      const vane = k % 3 === 0 ? M.ivory : M.gold;            // gilt ruff with ivory highlights
+      group.add(kiteFeather(base, dir, side, len, 0.24, 0.04, vane, M.emberShadow, M.roseGold));
+    }
+  }
+
   // Line-of-action: head high (proud arch) → neck down → level body → tail-root settles.
   const spinePoints = [
     new THREE.Vector3(0, 0.62 + 0.62 * nr, -2.20), new THREE.Vector3(0, 0.74, -1.35),
@@ -512,5 +535,36 @@ function buildSunfeatherWings(def, model, attach, _giM) {
 }
 registerWings('sunfeather', buildSunfeatherWings);
 
-// Export the material factory so the tail module (CP3) shares the exact ladder.
+// ── TAIL: 'sunpennant' → 'sunpennantTail' ────────────────────────────────────────
+// Kills the old down-hanging fishbone. A GATHERED sun-pennant: broad overlapping flame-
+// feather ribbons that LIFT up-and-aft into the free sky zone and stream back, staying OUT
+// of the { y<bodyMidY, z>haunch } course corridor (the Visibility Law + fan-must-rake-aft).
+// Centre-longest depth hierarchy (a comet point); ivory/gold vanes over ember-shadow, a
+// rose-gold burning hem. `pennantRibbons` (1→5) + `pennantLift` bloom it up the ladder.
+function buildSunpennantTail(def, model, _mats, anchor) {
+  const group = new THREE.Group();
+  const M = sunhawkMats(def, model.glowLevel ?? 1, model.igniteStage);
+  const a = anchor ?? { y: 0.50, z: 1.60 };
+  const nRib = Math.round(model.pennantRibbons ?? 5);
+  const lift = model.pennantLift ?? 1;
+  const segs = [group];
+  if (nRib <= 0) return { group, segs, tailFins: null, accentMats: [M.gold, M.roseGold] };
+
+  const baseLen = 1.7 + 0.7 * lift;   // apex total pennant length ~2.4 (compact, not a fishbone)
+  for (let i = 0; i < nRib; i++) {
+    const u = nRib > 1 ? (i / (nRib - 1)) - 0.5 : 0;   // −0.5 … 0.5 across the drape
+    const rlen = baseLen * (0.62 + 0.38 * (1 - Math.abs(u) * 2));   // CENTRE ribbon longest (comet point)
+    // RAKE UP-AND-AFT (never down): +z aft + a real +y lift → the pennant rides the sky zone.
+    const dir = [u * 0.55, 0.28 + 0.45 * lift, 1.0];
+    const side = [1, 0, 0];   // broad flat vane, width spread horizontally
+    const wid = 0.30 * (1 - 0.30 * Math.abs(u) * 2);   // broad ribbons; ~12% overlap at the gathered roots
+    const base = [u * 0.10, a.y, a.z];                 // gathered roots (close together at the anchor)
+    const vane = Math.abs(u) < 0.25 ? M.ivory : M.gold;
+    group.add(kiteFeather(base, dir, side, rlen, wid, 0.06, vane, M.emberShadow, M.roseGold));
+  }
+  return { group, segs, tailFins: null, accentMats: [M.gold, M.roseGold, M.orange] };
+}
+registerTail('sunpennant', buildSunpennantTail);
+
+// Export the material factory so downstream modules share the exact ladder.
 export { sunhawkMats, loftRings, kiteFeather, makeGlow };
