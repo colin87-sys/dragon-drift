@@ -7,9 +7,10 @@ import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
+import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 
-// Re-export the sky-IBL controls so main.js drives them through environment.
-export { setSkyProbeEnabled, skyProbeEnabled };
+// Re-export the sky-IBL + prop-AO controls so main.js drives them through environment.
+export { setSkyProbeEnabled, skyProbeEnabled, setPropAO };
 
 // Sky dome, lighting, and the prop bands lining the course. Endless: prop
 // instances are recycled — anything behind the player leapfrogs ahead with
@@ -39,6 +40,7 @@ const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 // is applied in <project_vertex>, so world position is derived right after it).
 const PROP_NOISE_HEAD = /* glsl */`
   varying vec3 vPropWPos;
+  uniform float uAO; varying float vAO;
   float _hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
   float _vnoise(vec3 x){
     vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
@@ -51,9 +53,11 @@ const PROP_NOISE_HEAD = /* glsl */`
 
 function addPropDetail(mat) {
   mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
     shader.vertexShader = shader.vertexShader
-      .replace('void main() {', 'varying vec3 vPropWPos;\nvoid main() {')
+      .replace('void main() {', 'varying vec3 vPropWPos;\nattribute float aoBake;\nvarying float vAO;\nvoid main() {')
       .replace('#include <project_vertex>', `#include <project_vertex>
+        vAO = aoBake;
         #ifdef USE_INSTANCING
           vPropWPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
         #else
@@ -63,7 +67,8 @@ function addPropDetail(mat) {
       .replace('void main() {', PROP_NOISE_HEAD)
       .replace('#include <color_fragment>', `#include <color_fragment>
         float _pn = _vnoise(vPropWPos * 0.5) * 0.6 + _vnoise(vPropWPos * 1.7) * 0.4;
-        diffuseColor.rgb *= 0.86 + 0.26 * _pn;`)
+        diffuseColor.rgb *= 0.86 + 0.26 * _pn;
+        diffuseColor.rgb *= mix(1.0, vAO, uAO);   // N15 baked AO (gated; identity at uAO=0)`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;`);
   };
@@ -122,7 +127,9 @@ function mergeParts(parts, biomeIdx) {
     geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
     mats.push(m === 0 ? propMats.primary[biomeIdx] : propMats.accent[biomeIdx]);
   }
-  return { geometry: mergeGeometries(geos, true), materials: mats };
+  const geometry = mergeGeometries(geos, true);
+  bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
+  return { geometry, materials: mats };
 }
 
 const ARCHETYPES = {
