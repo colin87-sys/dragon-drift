@@ -10,9 +10,17 @@
 
 // The HP span of each phase = (thisPhase.atFrac − nextPhase.atFrac) × hpMax.
 // Mirrors currentPhaseHp() in boss.js (the input lanceDmgEach clamps against).
+// ── MULTI-FORM (def.formLifebars): each phase is its OWN full hpMax bar (the form
+// refills to full at each transition — boss.js currentPhaseHp() returns hpMax, :4557),
+// NOT an atFrac slice of one shared bar. So every span IS hpMax. Without this the model
+// under-states the finale's form HP ([96,72,72] vs [240,240,240]), corrupting its ROI
+// ceiling AND the not-a-phase-deleter TTK — the exact clamp-never-bites property the
+// APEX leans on. THE UNMASKED is the only formLifebars boss, so every other row is
+// byte-identical (§rung14 CP1).
 export function phaseSpans(def) {
   const phases = def.phases || [];
   const hpMax = def.hpMax || 0;
+  if (def.formLifebars) return phases.map(() => Math.max(1, hpMax));
   return phases.map((p, i) => {
     const cur = p.atFrac ?? 1;
     const next = phases[i + 1]?.atFrac ?? 0;
