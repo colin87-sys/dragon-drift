@@ -8,9 +8,16 @@ import { createAmbient, updateAmbient } from './ambient.js';
 import { damp } from './util.js';
 import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
+import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 
-// Re-export the sky-IBL + prop-AO controls so main.js drives them through environment.
-export { setSkyProbeEnabled, skyProbeEnabled, setPropAO };
+// Re-export the sky-IBL + prop-AO + atmosphere controls so main.js drives them
+// through environment.
+export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled };
+
+// N8: the fog-chunk override MUST run before any material compiles. Installing at
+// module load (before createEnvironment builds the prop materials) guarantees it;
+// idempotent, so main.js's explicit boot call is a harmless belt-and-braces.
+installAtmosphere();
 
 // Sky dome, lighting, and the prop bands lining the course. Endless: prop
 // instances are recycled — anything behind the player leapfrogs ahead with
@@ -54,6 +61,7 @@ const PROP_NOISE_HEAD = /* glsl */`
 function addPropDetail(mat) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
+    assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vPropWPos;\nattribute float aoBake;\nvarying float vAO;\nvoid main() {')
       .replace('#include <project_vertex>', `#include <project_vertex>
@@ -525,6 +533,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sceneRef.fog.far = env.fogFar;
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
+  applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   updateSkyProbe(env, su.sunDir.value); // N5: reproject the (lerped) sky into the probe
   sun.color.copy(env.lightSun);
   sun.intensity = env.lightSunI;

@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, setSkyProbeEnabled, setPropAO } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -169,6 +169,8 @@ initContactShadow(scene);
 if (urlParams.has('shadow') || gfxPref.heroShadow === true) setContactShadowSilhouette(true);
 // N15 prop AO: apply the saved toggle; ?ao forces on.
 if (urlParams.has('ao') || gfxPref.propAO === true) setPropAO(true);
+// N8 atmosphere: apply the saved toggle; ?atmos forces on.
+if (urlParams.has('atmos') || gfxPref.atmosphere === true) setAtmosphereEnabled(true);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -649,6 +651,7 @@ ui.init({
     else if (kind === 'skyIbl') setSkyProbeEnabled(value);
     else if (kind === 'heroShadow') setContactShadowSilhouette(value);
     else if (kind === 'propAO') setPropAO(value);
+    else if (kind === 'atmosphere') setAtmosphereEnabled(value);
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
@@ -1150,6 +1153,7 @@ function applyQuality(tier) {
   setPostPixelRatio(PIXEL_RATIOS[tier]);
   setWaterReflective(tier === 0);
   setAmbientQuality(QUALITY_SCALARS[tier]);
+  setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
 }
 
 function updateQuality(dt) {

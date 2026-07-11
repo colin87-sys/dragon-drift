@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { biomeIndexAt } from './biomes.js';
 import { mulberry32 } from './util.js';
+import { bindAtmosphere } from './atmosphere.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
 // Hazards, spawned ahead and culled behind the dragon:
@@ -134,6 +135,13 @@ export function initObstacles(s) {
       color: 0x140f0a, flatShading: true, roughness: 0.9, metalness: 0.0,
     }),
   };
+  // N8: the solid obstacle bodies (rock gates / spines / skeleton — the big
+  // fogged geometry the player flies THROUGH) join the atmosphere so they sink
+  // into the height fog and catch the sunward inscatter like the props. Identity
+  // when the toggle is off. (Transparent mist/soul-fire left out — mist already
+  // reads as haze, soul-fire is a bright detail we don't want fog-tinted.)
+  for (const m of mats.body) bindAtmosphere(m);
+  bindAtmosphere(mats.mover); bindAtmosphere(mats.bone); bindAtmosphere(mats.socket);
   // Phase Gate skins, one material set per biome.
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
   edgeMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 1.4));
