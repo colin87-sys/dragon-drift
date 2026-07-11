@@ -51,6 +51,46 @@ registerSurfaceLayer('spineGlowLine', ({ def, model, attach, gi }) => {
   return { meshes, flareMats };
 });
 
+// SCUTE SEAM (Azure apex) — ONE continuous flat-faceted ridge of opaque-emissive ice
+// riding the keel crest from the shoulder yoke to the tail root: the "spine of light"
+// that owns the dead-centre of the rear-chase frame. Replaces the 11-cone spineGlowLine
+// (which read as a sub-8px near-white "vertebrae zipper"). A raised triangular rail whose
+// two TOP facets face the behind-and-above cam (§2 cant). Emissive is a HIGHER-SAT cyan so
+// it blooms back UP to ice on screen instead of washing to white (§3b sat≥0.75 / near-white budget).
+registerSurfaceLayer('scuteSeam', ({ def, model, attach, gi }) => {
+  const meshes = [], flareMats = [];
+  const g = model.spineGlow ?? 0.2;
+  const seamEmis = def.seamEmissive ?? 0x35b9ff;   // sat≈0.79 — blooms to the 0x8ed5ff ice read, stays cyan under ACES
+  const mat = new THREE.MeshStandardMaterial({
+    color: def.seamDiffuse ?? 0x8ed5ff, emissive: seamEmis,
+    emissiveIntensity: (1.15 + g * 0.9) * gi, roughness: 0.3, metalness: 0.2, flatShading: true,
+  });
+  mat.userData.baseEmissive = seamEmis;
+  mat.userData.baseIntensity = (1.15 + g * 0.9) * gi;
+  flareMats.push(mat);
+  const z0 = -1.8, z1 = 1.6, N = 16, w = 0.06, h = 0.13;
+  const verts = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const z = z0 + t * (z1 - z0);
+    const top = attach.keelTopAt(z);
+    const taper = Math.sin(Math.min(1, Math.min(t, 1 - t) * 4) * Math.PI / 2);   // 0 at the ends → 1 mid-back
+    const ww = w * (0.35 + 0.65 * taper), hh = h * (0.35 + 0.65 * taper);
+    verts.push(-ww, top, z, 0, top + hh, z, ww, top, z);    // baseL · apex · baseR
+  }
+  for (let i = 0; i < N; i++) {
+    const a = i * 3, b = (i + 1) * 3;
+    idx.push(a, a + 1, b + 1, a, b + 1, b);                  // left top facet
+    idx.push(a + 1, a + 2, b + 2, a + 1, b + 2, b + 1);      // right top facet
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  meshes.push(new THREE.Mesh(geo, mat));
+  return { meshes, flareMats };
+});
+
 // Dorsal ENERGY LINE — a row of cyan chevrons marching head→tail along the keel
 // crest (the Night-drake signature). Reads as a bright "<<<" stripe.
 registerSurfaceLayer('dorsalChevrons', ({ def, model, attach, giM }) => {
@@ -248,7 +288,8 @@ export function resolveSurfaceLayers(def, recipe, attach) {
   }
   const model = def.model || {};
   const list = [];
-  if (recipe.torso !== 'avian' && !attach.segmentAnchors && model.spineGlow > 0 && !model.dorsalGlowCount) list.push({ type: 'spineGlowLine' });
+  if (model.scuteSeam) list.push({ type: 'scuteSeam' });   // the continuous seam REPLACES the cone zipper
+  if (recipe.torso !== 'avian' && !attach.segmentAnchors && model.spineGlow > 0 && !model.dorsalGlowCount && !model.scuteSeam) list.push({ type: 'spineGlowLine' });
   if (model.dorsalGlowCount > 0) list.push({ type: 'dorsalChevrons' });
   if (model.backCrest) list.push({ type: 'backCrest' });
   if (model.ridgeCount > 0) list.push({ type: 'scaleRidge' });

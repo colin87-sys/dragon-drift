@@ -547,7 +547,41 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     tip.add(point);
     // AZURE forked-banner read (opt-in; shipped finned geometry untouched): a swept
     // swallowtail membrane echoing the wing blades, DIFFUSE gold tips (law-9 carrier).
-    if (model.tailBannerFork) tip.add(buildForkedBanner(def, 0.62, 1.7, 0.7));
+    if (model.tailBannerFork) {
+      tip.add(buildForkedBanner(def, model.bannerSpread ?? 0.62, model.bannerLength ?? 1.7, model.bannerNotch ?? 0.7));
+      // S3 fork-root COVERTS: two small flat gold-tipped plates astride the fork root, canted so
+      // their faces catch the above-behind cam — the wing/crest gold-tip grammar extended to the
+      // tail root (DIFFUSE only, law-9). Apex-gated.
+      if (model.bannerCoverts) {
+        const cBase = new THREE.Color(def.wingOuter ?? def.body ?? 0x2f5d84);
+        const cGold = new THREE.Color(def.accentHue ?? 0xd9b36a);
+        const covMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.08, side: THREE.DoubleSide });
+        for (const sx of [-1, 1]) {
+          const cg = new THREE.ShapeGeometry(buildBladeShape(0.16, 0.52));
+          cg.rotateX(Math.PI / 2);
+          cg.computeBoundingBox();
+          const z0 = cg.boundingBox.min.z, span = (cg.boundingBox.max.z - cg.boundingBox.min.z) || 1;
+          const p = cg.attributes.position, col = [], c = new THREE.Color();
+          for (let i = 0; i < p.count; i++) { const t = (p.getZ(i) - z0) / span; c.copy(cBase).lerp(cGold, t > 0.7 ? (t - 0.7) / 0.3 : 0); col.push(c.r, c.g, c.b); }
+          cg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+          const cov = new THREE.Mesh(cg, covMat);
+          cov.position.set(sx * 0.13, 0.03, 0.0);
+          cov.rotation.set(0, sx * 0.55, sx * 0.16);
+          tip.add(cov);
+        }
+      }
+      // TERMINUS STUD (the seam's "tail-light"): one flat faceted cyan diamond where the swallow
+      // forks — the endpoint of the dorsal spine of light. Opaque emissive, ONE element ≥8px.
+      if (model.tailTerminus) {
+        const studEmis = def.seamEmissive ?? 0x35b9ff;
+        const studMat = new THREE.MeshStandardMaterial({ color: def.seamDiffuse ?? 0x8ed5ff, emissive: studEmis, emissiveIntensity: (1.25 + g * 0.9) * giM, roughness: 0.28, metalness: 0.2, flatShading: true });
+        studMat.userData.baseEmissive = studEmis; studMat.userData.baseIntensity = (1.25 + g * 0.9) * giM;
+        const stud = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), studMat);
+        stud.scale.set(0.8, 1.0, 1.5);
+        stud.position.set(0, 0.05, 0.05);
+        tip.add(stud);
+      }
+    }
   } else {
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.55, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
