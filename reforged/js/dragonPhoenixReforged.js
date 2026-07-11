@@ -623,9 +623,12 @@ function buildOneSunWing(M, model) {
   // DIAGONAL heat coordinate (not axis-aligned rectangles — the "basic panel/plates" read): a hot
   // inner-leading corner cooling toward the outboard-trailing corner, with a slight wave so the bands
   // aren't ruler-straight. Banded into the same 4 stops.
+  // MONOTONIC + chord-weighted → the bands run STREAMWISE (roughly parallel to the leading edge,
+  // along the feather flow), reading as heat streaks, not the scattered rectangular chips ("confetti")
+  // a wavy span-heavy coordinate produced.
   const memMat = (t, f) => {
-    const h = 0.55 * (f / HEM) + 0.5 * t + 0.06 * Math.sin(3.2 * t);
-    return h < 0.20 ? memHot : h < 0.42 ? memGold : h < 0.64 ? memOrange : memDeep;
+    const h = 0.72 * (f / HEM) + 0.34 * t;
+    return h < 0.24 ? memHot : h < 0.48 ? memGold : h < 0.74 ? memOrange : memDeep;
   };
   for (let si = 0; si < memTs.length - 1; si++) {
     const t0 = memTs[si], t1 = memTs[si + 1];
@@ -736,10 +739,11 @@ function buildOneSunWing(M, model) {
     const len = (1.0 + 0.5 * Math.sin(Math.PI * u)) * ws;
     const wid = (0.24 - 0.07 * Math.abs(u - 0.5) * 2) * ws;
     wg.add(kiteFeather([carpal[0], carpal[1], carpal[2]], dir, side, len, wid, 0.06, M.gold, M.bronze, M.roseGold));
-    // FLAME SHEATH over the gold finger (same aim, shorter + broader) → the gold spine reads as bone
-    // INSIDE flame, folding the last separate spike family into the fiery vane.
-    wg.add(flameFeather([carpal[0], carpal[1], carpal[2]], dir, side, len * 0.82, wid * 1.35, 0.06,
-      [M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[2]], 0.03, { seg: 5, tipW: 0.26, flick: 0.04 * ((i % 2) ? 1 : -1) }).group);
+    // FLAME SHEATH over the gold finger — LONGER than the finger and tapering to a fine tongue past
+    // its tip (small tipW), so the gold spine reads as bone INSIDE a flame that licks beyond it, not a
+    // blunt pale sausage cap (the critic's most un-fire-like element).
+    wg.add(flameFeather([carpal[0], carpal[1], carpal[2]], dir, side, len * 1.12, wid * 1.05, 0.06,
+      [M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[2]], 0.04, { seg: 6, tipW: 0.12, flick: 0.05 * ((i % 2) ? 1 : -1) }).group);
     tips.push([carpal[0] + dir[0] * len, carpal[1] + dir[1] * len, carpal[2] + dir[2] * len]);
   }
   wg.userData.outerTip = tips[nFing - 1];
@@ -855,7 +859,7 @@ function buildSunfireTrail(def, model, _mats, anchor) {
     const cy = a.y + 0.06 - 0.09 * Math.sin(Math.PI * along);
     const cx = sgn * 0.82 * wf * 0.5;
     group.add(flameFeather([cx, cy, cz], [sgn * 0.5, 0.12, 1], [1, 0, 0.2],
-      (1.1 + 0.6 * (i % 2)), 0.09, 0.14, M.hotRibbon, 0.12, { seg: 5 }).group);
+      (0.9 + 0.4 * (i % 2)), 0.08, 0.14, M.hotRibbon, 0.12, { seg: 5, tipW: 0.14 }).group);   // small lobe → sparks, not needle forks
   }
   return { group, segs, tailFins: null, accentMats: [M.goldfire, M.flame, M.crimson, M.orange] };
 }
