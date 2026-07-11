@@ -15,6 +15,7 @@ let sceneRef = null;
 let reflective = false;
 let swellOn = false;        // N10a: whether the surface geometry is subdivided + displaced
 let geomTier = 0;           // N10a: subdivision LOD (0 densest, 2 flat)
+let depthOn = false;        // N10b: whether the Beer–Lambert depth mix is active
 
 const SIZE_W = 520;
 const SIZE_L = 1700;
@@ -23,6 +24,12 @@ const sharedUniforms = {
   time: { value: 0 },
   waveAmp: { value: 1.0 },
   uSwellAmp: { value: 0 }, // N10a: 0 = flat plane (shipped); 1 = swell displacement on
+  // N10b fake Beer–Lambert depth: uAbsorbOn 0 = shipped height-driven mix; 1 = the
+  // view-angle transmittance mix. uAbsorbK = extinction × virtual-bottom depth (one
+  // folded uniform), derived per biome in setWaterTint. Both MUST live here or they
+  // vanish on the reflective↔cheap/swell rebuild (rebuildWater carries sharedUniforms).
+  uAbsorbOn: { value: 0 },
+  uAbsorbK: { value: 0.45 },
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -82,6 +89,7 @@ const fragmentShader = /* glsl */`
   // correct in the mirror; identity when uAtmosInscatter is 0.
   uniform vec3 uAtmosSunDir, uAtmosSunTint;
   uniform float uAtmosInscatter;
+  uniform float uAbsorbOn, uAbsorbK; // N10b depth (0 = shipped height-driven mix)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -113,8 +121,14 @@ const fragmentShader = /* glsl */`
     float NdotV = max(dot(N, V), 0.0);
     float fresnel = 0.04 + 0.96 * pow(1.0 - NdotV, 5.0);
 
-    // Base water body: shallows pick up light at glancing wave faces.
-    vec3 base = mix(deepColor, shallowColor, clamp(0.5 + h * 1.4, 0.0, 1.0) * 0.55);
+    // Base water body: shallows pick up light at glancing wave faces (shipped mix).
+    float tH = clamp(0.5 + h * 1.4, 0.0, 1.0) * 0.55;
+    // N10b fake Beer-Lambert: trans = fraction of virtual-bottom light that survives
+    // the slant view-path (depth / V.y). Look-down -> short path -> bright shallows;
+    // glancing -> long path -> dark deeps. Gated in the mix-FACTOR domain so
+    // uAbsorbOn=0 is byte-identical to the shipped height mix.
+    float trans = exp(-uAbsorbK / max(V.y, 0.05));
+    vec3 base = mix(deepColor, shallowColor, mix(tH, trans, uAbsorbOn));
 
     vec3 refl;
     #ifdef USE_REFLECTION
@@ -246,6 +260,7 @@ function spawnWater() {
   // internal UniformsUtils.clone. Deliberately NOT in sharedUniforms (that gets cloned).
   Object.assign(water.material.uniforms, atmosUniforms);
   water.material.uniforms.uSwellAmp.value = swellOn ? 1 : 0; // 0 keeps the flat plane exact
+  water.material.uniforms.uAbsorbOn.value = depthOn ? 1 : 0; // N10b: 0 keeps the shipped height mix
   water.rotation.x = -Math.PI / 2;
   water.position.y = 0;
   water.frustumCulled = false;
@@ -304,12 +319,21 @@ export function setWaterSwellQuality(tier) {
   if (swellOn && !(wasFlat && nowFlat)) rebuildWater();
 }
 
+// N10b: the WATER DEPTH toggle (Settings / ?depth). A live uniform flip — no rebuild
+// (uAbsorbOn=0 is byte-identical to the shipped height mix; runs on every tier incl.
+// the flat tier2 quad).
+export function setWaterDepth(on) {
+  depthOn = !!on;
+  if (water) water.material.uniforms.uAbsorbOn.value = depthOn ? 1 : 0;
+}
+
 export function updateWater(dt, playerDist, time, fog) {
   if (!water) return;
   water.position.z = -playerDist - 250;
   const u = water.material.uniforms;
   u.time.value = time;
   u.uSwellAmp.value = swellOn ? 1 : 0; // belt-and-braces after any rebuild
+  u.uAbsorbOn.value = depthOn ? 1 : 0; // N10b live toggle (no rebuild needed)
   if (fog) {
     u.fogColor.value.copy(fog.color);
     u.fogNear.value = fog.near;
@@ -339,4 +363,15 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fog
   if (zenith) u.zenithColor.value.copy(zenith);
   if (waveAmp !== undefined) u.waveAmp.value = waveAmp;
   if (fogFarColor) u.fogFarColor.value.copy(fogFarColor);
+  // N10b: derive the extinction×depth per biome from the (lerped) deep/shallow
+  // colours — the darker the deeps read relative to the shallows, the murkier the
+  // water absorbs. No new biome fields; free biome-seam smoothness.
+  if (deep && shallow) u.uAbsorbK.value = absorbKFromColors(deep, shallow);
+}
+
+// Rec.709 relative luminance heuristic → a murkier (darker-deep) biome absorbs faster.
+const _lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+function absorbKFromColors(deep, shallow) {
+  const murk = Math.max(0, Math.min(1, 1 - _lum(deep) / Math.max(_lum(shallow), 0.02)));
+  return 0.35 + 0.5 * murk;
 }

@@ -8,7 +8,7 @@ import { register } from 'node:module';
 import { readFileSync } from 'node:fs';
 register('../tools/three-resolver.mjs', import.meta.url);
 const THREE = await import('three');
-const { createWater, setWaterReflective, setWaterSwell, setWaterSwellQuality, updateWater, waterSurfaceHeight, SWELL } = await import('../js/water.js');
+const { createWater, setWaterReflective, setWaterSwell, setWaterSwellQuality, updateWater, waterSurfaceHeight, setWaterDepth, setWaterTint, SWELL } = await import('../js/water.js');
 
 let pass = 0, fail = 0;
 const check = (label, ok) => { if (ok) { pass++; } else { fail++; console.error(`FAIL: ${label}`); } };
@@ -69,6 +69,36 @@ try {
   console.log(`  (reflective build skipped headless: ${String(e).split('\n')[0]})`);
 }
 setWaterSwell(false);
+
+// --- 7. N10b water depth (Beer–Lambert) --------------------------------------
+const um = () => water().material.uniforms;
+check('depth default OFF → uAbsorbOn 0 (shipped height mix)', um().uAbsorbOn.value === 0);
+setWaterDepth(true);
+check('setWaterDepth(true) → uAbsorbOn 1 (live flip, no rebuild)', um().uAbsorbOn.value === 1);
+setWaterReflective(false); // rebuild to cheap
+check('uAbsorbOn survives a rebuild (in sharedUniforms)', water().material.uniforms.uAbsorbOn.value === 1);
+setWaterReflective(true);
+check('uAbsorbOn survives the reflective rebuild too', water().material.uniforms.uAbsorbOn.value === 1);
+setWaterDepth(false);
+check('setWaterDepth(false) → uAbsorbOn 0', um().uAbsorbOn.value === 0);
+
+// The t-domain identity gate is in the source (mix(tH, trans, uAbsorbOn)).
+check('base uses the t-domain gate mix(tH, trans, uAbsorbOn)', /mix\(deepColor,\s*shallowColor,\s*mix\(tH,\s*trans,\s*uAbsorbOn\)\)/.test(src));
+check('trans is exp(-uAbsorbK / max(V.y, 0.05)) (slant Beer–Lambert)', /exp\(-uAbsorbK\s*\/\s*max\(V\.y,\s*0\.05\)\)/.test(src));
+
+// trans is monotonic: look-down (V.y=1) is BRIGHTER (higher transmittance) than
+// glancing (V.y=0.05). Port the GLSL.
+const K = um().uAbsorbK.value;
+const transAt = (vy) => Math.exp(-K / Math.max(vy, 0.05));
+check(`look-down brighter than glancing (${transAt(1).toFixed(3)} > ${transAt(0.05).toFixed(3)})`, transAt(1) > transAt(0.05) + 0.05);
+
+// Per-biome derivation: murkier (darker-deep) biome absorbs faster. Emberfall
+// (near-black deep vs bright shallow) > Frozen Reach (glassy).
+const C = (hex) => new THREE.Color(hex);
+setWaterTint({ deep: C(0x2a0a08), shallow: C(0xc84818) }); const kEmber = um().uAbsorbK.value; // Emberfall
+setWaterTint({ deep: C(0x122a4a), shallow: C(0x3a6a9a) }); const kFrozen = um().uAbsorbK.value; // Frozen Reach
+check(`Emberfall absorbs faster than Frozen Reach (K ${kEmber.toFixed(2)} > ${kFrozen.toFixed(2)})`, kEmber > kFrozen);
+check('derived K stays in [0.35, 0.85]', kEmber >= 0.35 - 1e-9 && kEmber <= 0.85 + 1e-9 && kFrozen >= 0.35 - 1e-9 && kFrozen <= 0.85 + 1e-9);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

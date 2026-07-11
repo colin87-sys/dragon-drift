@@ -26,7 +26,7 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth } from './water.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
@@ -177,6 +177,8 @@ if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(t
 // so it rebuilds the (already-built) mesh subdivided; it precedes applyQuality, which
 // then sets the LOD tier. geomTier defaults 0, so ?swell boots subdivided at tier0.
 if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
+// N10b water depth: apply the saved toggle; ?depth forces on (live uniform, no rebuild).
+if (urlParams.has('depth') || gfxPref.waterDepth === true) setWaterDepth(true);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -673,6 +675,7 @@ ui.init({
     else if (kind === 'atmosphere') setAtmosphereEnabled(value);
     else if (kind === 'skyClouds') setSkyCloudsEnabled(value);
     else if (kind === 'waterSwell') setWaterSwell(value);
+    else if (kind === 'waterDepth') setWaterDepth(value);
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
