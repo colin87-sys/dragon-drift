@@ -37,14 +37,9 @@ async function capture(dist, foam) {
   await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.distance >= 20, { timeout: 18000 }).catch(() => {});
   await page.evaluate((d) => { window.__dd.noBoss(true); window.__dd.player.dist = d; window.__dd.game.timeScale = 0; }, dist);
   await page.waitForTimeout(500);
-  // Move the frozen camera toward a side prop-row and look down its waterline, so a
-  // near prop base (the collar) fills the frame — center chase framing puts every
-  // prop 15-25m away where a ~2m ring is tiny.
-  await page.evaluate(() => {
-    const c = window.__dd.camera;
-    c.position.x = 12; c.position.y = 3.0; c.position.z += 4;
-    c.rotation.set(-0.22, 0.5, 0); c.updateMatrixWorld();
-  });
+  // Default frozen chase view — the near foreground prop bases (their collars) sit in
+  // the lower frame. (The chase-cam controller re-applies the camera each render even
+  // when frozen, so manual reposition doesn't hold; the chase framing reads fine.)
   await page.waitForTimeout(100);
   const buf = await page.screenshot();
   await done();
