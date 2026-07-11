@@ -511,6 +511,51 @@ export const DRAGONS = {
     eye: 0xe0bc78, trail: 0xb47cf0, boostTrail: 0xc8a8ff,
   },
 
+  // NIGHTGLASS VESPER — a FRESH premium matte-black night drake, authored as
+  // deliberate FLAT FACETS (knapped night-glass), NOT the retired smooth-hull
+  // organism family (see VESPER-NIGHTGLASS-BUILDSHEET.md §Anti-pattern). Fully
+  // additive: nothing shipped changes. Cruise-black law — the only cruise emissive
+  // is the acid-green eyes; the ion-blue Starlit Seam is withheld until the Night
+  // Surge (wired from I4). Body value DARKENS up the ladder (apex = darkest object).
+  vesper: {
+    name: 'Nightglass Vesper',
+    title: 'Knapped from the dark',
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2200,
+    accentHue: 0x2050e8,   // §9 law-9 carrier: ion-blue, emissive-only, Surge-only
+    parts: { torso: 'knappedTorso', wings: 'scallopCrescentWings', head: 'vesperCatHead', tail: 'splitFanTail', surface: { shader: [] } },
+    stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
+    // Apex reference dials; each form dials the per-stage silhouette (cumulative).
+    // Vesper dials (all nullable / default-off in dragonVesper.js): chine,
+    // glassStreak, spanScale, glowLevel, eyeScale, headScale, igniteStage.
+    model: {
+      scale: 1.15, tailSegments: 7, neckSegments: 4, flapBias: 0.85, flapAmp: 0.7,
+      chine: 1, glassStreak: 1, spanScale: 1.0, glowLevel: 1.0,
+      eyeScale: 0.7, headScale: 1.0, tailLength: 1.0, igniteStage: 3,
+    },
+    // I1 ladder (torso-chine increment): body value DECREASES up the rungs; the
+    // wing/head/tail dials are placeholders until I2/I3. The full knapping ladder
+    // (scallop lobes, seamRun, ear-fin pairs, split-fan spread) lands in I5.
+    forms: [
+      { spanScale: 0.70, glowLevel: 0.25, eyeScale: 1.30, headScale: 1.25, igniteStage: 0,
+        colors: { body: 0x111522, belly: 0x1f2942, wingOuter: 0x111522, eye: 0x96d62a } },
+      { spanScale: 0.82, glowLevel: 0.50, eyeScale: 1.05, headScale: 1.12, igniteStage: 1,
+        colors: { body: 0x0d111b, belly: 0x1c2338, wingOuter: 0x0d111b, eye: 0xa6de3f } },
+      { spanScale: 0.92, glowLevel: 0.75, eyeScale: 0.90, headScale: 1.05, igniteStage: 2,
+        colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0xafe24f } },
+      { spanScale: 1.00, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
+        colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0xb6e85a } },
+    ],
+    fx: { auraColor: '40,72,150', auraIdle: 0.03, sparkle: false },
+    hasStyle: true,   // keep the cold ion-blue trail in Surge (never warmed to white)
+    body: 0x070a11, belly: 0x1a2234,
+    wingInner: 0x0a0e17, wingOuter: 0x070a11,
+    eye: 0x96d62a,
+    apexEye: 0xb6e85a, apexSeam: 0x2050e8, coreGlow: 0x2050e8, surgeHi: 0x4d86ff,
+    trail: 0x24427a, boostTrail: 0x3d63c8,
+  },
+
   phoenix: {
     name: 'Phoenix Ascendant',
     lanceTint: 0xff7a1a, lanceRune: 'phoenixFlame',   // Eternal wisp: blazing orange (PR8)
