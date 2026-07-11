@@ -2742,6 +2742,10 @@ export function updateBoss(dt, player, time, camera) {
     fightNow = time;
     const lockCtx = {
       fightRunning: true,
+      // Hide the lance reticle through the stage-transition cinematic (THE UNMASKED): the
+      // rounded-square lock-on frame must not sit in the middle of the all-eyes-snap screenshot.
+      // Locks/pips are untouched — only the reticle draw is gated (the entrance-suppression idiom).
+      hudSuppressed: stageBeatT >= 0,
       model,
       candidates: lockCandidates(),
       muted: !!def.lockMuted,
