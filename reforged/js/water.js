@@ -345,6 +345,10 @@ export function updateWater(dt, playerDist, time, fog) {
 // world (x,z) with the material's live time + waveAmp. The contact-shadow plane
 // rides this so it sits ON the crests instead of clipping through them. Returns 0
 // when swell is off or water absent → the shadow stays at its shipped height.
+// N10c: the foam collars ride the same swell — expose its on/off state so the foam
+// shader displaces in lockstep (waterSurfaceHeight is a per-point probe, not a flag).
+export function getWaterSwellOn() { return swellOn; }
+
 export function waterSurfaceHeight(x, z) {
   if (!swellOn || !water) return 0;
   const u = water.material.uniforms;
