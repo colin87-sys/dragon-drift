@@ -481,15 +481,22 @@ for (const key of BOSS_ORDER) {
   um.setPhase(1);
   um.tick(0.1, 0.1);
   assert(s1.visible && s2.visible, 'phase→1 mid-crack: both the eclipse and the seraph are live (animating, not a snap)');
-  for (let i = 0; i < 30; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past TRANS_DUR
+  for (let i = 0; i < 64; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past the CRACK (6.0s, §XFORM-0 per-kind duration)
   assert(!s1.visible && s2.visible && !s3.visible, 'phase→1 settles on the seraph (stage 2)');
   // Phase advance → 2: the UNVEILING animates the third-form core in (the wings are kept).
   um.setPhase(2);
-  for (let i = 0; i < 30; i++) um.tick(0.1, 4 + i * 0.1);
+  for (let i = 0; i < 52; i++) um.tick(0.1, 8 + i * 0.1);   // run past the UNVEIL (4.8s, §XFORM-0)
   assert(s3.visible && s2.visible, 'phase→2 settles on the unveiling (stage 3 core up, the seraph wings kept)');
   // The transition BEAT contract: the model exposes its transition duration so boss.js can hold
   // fire through the crack/unveiling and land the all-eyes reveal (camera + slow-mo) on the eye-snap.
   assert(um.stageTransitionDur > 0, `unmasked exposes stageTransitionDur for the fire-hold + reveal beat (${um.stageTransitionDur})`);
+  // §XFORM-0 THE BEAT MAP: the model exposes a per-transition spec (dur / revealAt / beats) so the
+  // harness phrases the stretched morph and lands the reveal PUNCH on the eye-snap, not the fade tail.
+  const crackSpec = um.stageTransitionSpec(1), unveilSpec = um.stageTransitionSpec(2);
+  assert(crackSpec.dur === 6.0 && unveilSpec.dur === 4.8, `per-kind transition durations (crack ${crackSpec.dur}s / unveil ${unveilSpec.dur}s)`);
+  assert(crackSpec.revealAt > 0 && crackSpec.revealAt < crackSpec.dur, `the crack reveal PUNCH lands before the morph ends (revealAt ${crackSpec.revealAt} < dur ${crackSpec.dur})`);
+  assert(Array.isArray(crackSpec.beats) && crackSpec.beats.length > 0 && crackSpec.beats.every((b, i, a) => i === 0 || b.t >= a[i - 1].t), 'the crack beat table is non-empty + time-sorted (the dispatcher fires by a monotone cursor)');
+  assert(um.stageTransitionDur === crackSpec.dur, 'stageTransitionDur stays the legacy alias (= the crack dur) so boss.js truthiness gates hold');
   // TAP-TO-SKIP: a hard setDebugStage mid-transition CANCELS the running morph and snaps to the
   // target form (so the intro crack/unveiling can be skipped straight to the fight).
   um.setDebugStage(1); um.setPhase(1); um.tick(0.2, 0.2);   // start the crack, a little in

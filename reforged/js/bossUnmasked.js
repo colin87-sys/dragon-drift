@@ -790,7 +790,11 @@ export function buildUnmasked(def, quality = 1) {
   // ANIMATES the transition INTO the new phase's stage — phase 1 plays the S1→S2 CRACK, phase 2
   // plays the S2→S3 UNVEILING. `transKind` names the running transition, `transT` eases 0→1 over
   // TRANS_DUR (advanced in tickBody). ──
-  const TRANS_DUR = 2.0;
+  // §XFORM-0 per-kind transition durations (a transformation is a BEAT MAP, not an ease): the
+  // CRACK breathes (6s — stills, cracks, shatters, wings unfurl, all eyes open), the UNVEILING
+  // ignites (4.8s — the eye shuts, the wings throw, something that is not an eye lights up).
+  const TRANS_DURS = { crack: 6.0, unveil: 4.8 };
+  const TRANS_DUR = TRANS_DURS.crack;   // legacy alias: boss.js reads stageTransitionDur for the fire-hold + gate truthiness + the intro-note duration
   let transKind = null, transT = 0;
   let stageN = 1;
   function setDebugStage(n) {
@@ -803,6 +807,31 @@ export function buildUnmasked(def, quality = 1) {
   function setPhase(n) {
     if (n === 1) { transKind = 'crack'; transT = 0; }        // S1 → S2: the mask cracks, the seraph blooms
     else if (n === 2) { transKind = 'unveil'; transT = 0; }  // S2 → S3: the core unveils, the wings mantle full
+  }
+
+  // §XFORM-0 THE BEAT MAP — boss.js reads this per transition (n===1 crack, n===2 unveil) for:
+  // `dur` (the fire-free morph length), `revealAt` (the frame the all-eyes REVEAL punch lands —
+  // near the end, ON the eye-snap, not at the fade's tail), `throwAt` (the unveil's wing-throw
+  // punctuation), and `beats` (times → camera shake / slow-mo / a one-shot sfx key). The MODEL
+  // owns the visual morph; the HARNESS owns camera + audio (the shipped contract split). These
+  // are the punctuations that PHRASE the stretched transition; the geometry each beat syncs to
+  // (the sclera fissure, the shatter debris, the wing throw) lands in later increments. §4 law:
+  // shakes ≤ 1.5, ZERO camera hijack — the violence is geometry + light, the harness only shakes.
+  function stageTransitionSpec(n) {
+    if (n === 1) return {
+      dur: TRANS_DURS.crack, revealAt: 5.6,
+      beats: [
+        { t: 1.0, shake: 0.35, sfx: 'shieldPing' },                 // FIRST CRACK — a hero fissure snaps
+        { t: 3.6, shake: 1.1, slowMo: 0.35, sfx: 'shieldShatter' }, // SHATTER — the mask bursts (the burst frame)
+      ],
+    };
+    if (n === 2) return {
+      dur: TRANS_DURS.unveil, revealAt: 2.1, throwAt: 1.6,
+      beats: [
+        { t: 1.6, shake: 0.8, sfx: 'shieldShatter' },               // THE THROW — the wings hurl open
+      ],
+    };
+    return { dur: TRANS_DUR };
   }
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
@@ -879,7 +908,7 @@ export function buildUnmasked(def, quality = 1) {
     // drive the matching morph. The all-snap punctuates each arrival (every eye locks as the
     // new form settles — the reveal). Cleared when the transition completes. ──
     if (transKind) {
-      transT = Math.min(1, transT + dt / TRANS_DUR);
+      transT = Math.min(1, transT + dt / (TRANS_DURS[transKind] || TRANS_DUR));
       if (transKind === 'crack') setStageMorph(transT);
       else if (transKind === 'unveil') setStage3(transT);
       if (transT >= 1) { const done = transKind; transKind = null; if (done) allSnap(); }
@@ -1015,7 +1044,8 @@ export function buildUnmasked(def, quality = 1) {
 
   return {
     group, muzzle, orbiters,
-    stageTransitionDur: TRANS_DUR,   // boss.js reads this to HOLD FIRE through the crack/unveiling + land the reveal beat on the eye-snap
+    stageTransitionDur: TRANS_DUR,   // legacy alias (= the crack): boss.js truthiness gate + intro-note duration
+    stageTransitionSpec,             // §XFORM-0 the per-transition beat map (dur / revealAt / throwAt / beats)
     setDissolve: setDissolveEmotive,
     setCharge,
     setGaze,
