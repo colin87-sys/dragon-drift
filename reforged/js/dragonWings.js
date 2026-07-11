@@ -800,7 +800,13 @@ function buildBladeFeatherWings(def, model, attach, giM) {
   // leading edge −Z, convex trailing +Z), tapering to a point. Painted baseHex→tipHex
   // with gold on the outer third. Camber lifts +Y.
   const bd = model.bladeDetail ?? 1;
-  function bladeGeo(L, wRoot, baseHex, tipHex) {
+  // Falcon transverse BARRING — real falcon primaries carry bold dark cross-bars. This is
+  // free DIFFUSE vertex paint (zero tris, zero glow — law-9 safe): two wide chevron bands
+  // across the blade, pointing toward the tip, kept off the root coverts + the gold tip.
+  // FEW + LARGE (2 bands, ≥8px), ladder-gated by model.bladeBarring (0=none → 1=full apex).
+  const barAmt = model.bladeBarring ?? 0;
+  const cBar = new THREE.Color(model.bladeBarColor ?? 0x101f30);   // deep navy bar — a clear value step below the body so the bars read as bold plumage
+  function bladeGeo(L, wRoot, baseHex, tipHex, bar = false) {
     const nX = seg(Math.max(3, Math.round(7 * bd))), nZ = seg(Math.max(2, Math.round(4 * bd)));
     const verts = [], cols = [], idx = [];
     const cb = new THREE.Color(baseHex), ct = new THREE.Color(tipHex), cg = new THREE.Color(cGold), c = new THREE.Color();
@@ -820,6 +826,19 @@ function buildBladeFeatherWings(def, model, attach, giM) {
         verts.push(x, y, z);
         c.copy(cb).lerp(ct, t * t);
         c.lerp(cTrail, Math.max(0, cf - 0.5) * 0.7);   // trailing half deepens → visible chord structure (dir 6)
+        // Falcon barring (main blades only, not coverts): two CRISP chevron cross-bars on the
+        // OUTBOARD LIGHTER half of the blade (where the navy has sky to bite into — bars on the
+        // dark inboard base are wasted), before the gold tip. Hard flat core + short ramp so the
+        // bars read as deliberate plumage bands, not airbrushed smudges (crisp poly-aligned look).
+        if (bar && barAmt > 0 && t > 0.42 && t < 0.86) {
+          const chev = t - Math.abs(cf - 0.5) * 0.10;   // V pointing toward the tip
+          let b = 0;
+          for (const bc of [0.57, 0.77]) {
+            const d = Math.abs(chev - bc);
+            b = Math.max(b, d < 0.052 ? 1 : Math.max(0, 1 - (d - 0.052) / 0.03));   // flat core + short ramp = crisp edge
+          }
+          c.lerp(cBar, barAmt * b * 0.92);
+        }
         // Gold DIFFUSE tip-paint confined to the outer ~12% with a CRISP boundary (gate r4
         // dir 7: law-9 tips only — no gradient wash down a third of the blade).
         if (t > 0.88) c.lerp(cg, goldAmt * Math.min(1, (t - 0.88) / 0.07));
@@ -943,7 +962,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
       rest.rotation.z = side * theta;
       const lag = new THREE.Group();
       rest.add(lag);
-      const mesh = new THREE.Mesh(bladeGeo(len, wRoot, baseHex, tipHex), wingMat);
+      const mesh = new THREE.Mesh(bladeGeo(len, wRoot, baseHex, tipHex, true), wingMat);
       mesh.scale.x = side;
       lag.add(mesh);
       // Raised central RIB geometry (dir 4) — a slim tapered spar down the blade centre.

@@ -65,7 +65,7 @@ export const DRAGONS = {
           apexSeam: 0x9cbcd6, eye: 0x8ec6ee, coreGlow: 0x9cc0dc } },
       // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
       // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
-      { wingScale: 0.9, bladeSpan: 4.1, bladeCount: 5, bladeDetail: 0.92,   // FALCON-COMPACT (owner CP3): 7.3→4.1 (ladder ×0.56)
+      { wingScale: 0.9, bladeSpan: 4.1, bladeCount: 5, bladeDetail: 0.92, bladeBarring: 0.5,   // FALCON-COMPACT (owner CP3): 7.3→4.1 (ladder ×0.56); bladeBarring 0.5 = the barring begins (gated: none at f0 → half at f1 → full at apex)
         spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
         keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
         crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,   // CP2 r3 dir 3: mute crest gold to body-hue + seat the sprouts into the crown (0.13 = as deep as the §7 motif-invariance drift cap allows) so they root rather than hover
@@ -78,7 +78,7 @@ export const DRAGONS = {
       // Radiant apex (form 2) — proud upright S, keen almond eyes, high-aspect
       // comb, 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 6.5, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // FALCON-COMPACT (owner CP3 r2): span reined 11.6 → 6.5 (a 9.4 first pass still read "way too long" in-flight vs Phoenix). Apex chase-cam width now ≈ Phoenix parity (1.06×, a hair of falcon margin); world-span 16.3→~8.8, span:body ~1.16. This drops below the old §5d falcon floor (1.6) — an OWNER-DIRECTED override of that doctrine guess; the swept blade-comb identity is kept, just at falcon-stoop reach. Blade length adds no tris; denser neck fuses the segment grooves
+      { wingScale: 1.0, bladeSpan: 6.5, bladeCount: 5, bladeDetail: 1.0, bladeBarring: 1.0, neckBlend: 1.45,   // OPTIMIZE+PIZZAZZ (owner): bladeDetail 1.45→1.0 reclaims ~1024 tris (the compacted blades were over-tessellated for their new size, ~sub-8px), and bladeBarring 1.0 paints FREE falcon cross-bars on the primaries (the headline identity gain). FALCON-COMPACT (owner CP3 r2): span reined 11.6 → 6.5 (a 9.4 first pass still read "way too long" in-flight vs Phoenix). Apex chase-cam width now ≈ Phoenix parity (1.06×, a hair of falcon margin); world-span 16.3→~8.8, span:body ~1.16. This drops below the old §5d falcon floor (1.6) — an OWNER-DIRECTED override of that doctrine guess; the swept blade-comb identity is kept, just at falcon-stoop reach. Blade length adds no tris; denser neck fuses the segment grooves
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
         // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
         // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
