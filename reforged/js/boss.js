@@ -3110,7 +3110,11 @@ export function updateBoss(dt, player, time, camera) {
     // θ accrues in-band ONLY (a dead-centre wiggle can't farm laps). One grazeForm per
     // boss; defs without grazeForm==='orbitAnnulus' are inert. ----
     if (grazeFormNow() === 'orbitAnnulus') {
-      const live = setpieceT >= 0 && setpieceDef?.id === 'figureEight';
+      // §5i.D beat-farm guard: a MEDLEY boss (UNMASKED) freezes the hosted eight at k=0
+      // during the fire-free stage-transition cinematic (stageBeatT ≥ 0) — the band would
+      // otherwise draw and a player circling the PARKED boss would bank ticks + a free lap
+      // with zero threat. Identity for eitherwing (stageBeatT is permanently −1).
+      const live = setpieceT >= 0 && setpieceDef?.id === 'figureEight' && stageBeatT < 0;
       if (live) {
         const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
         const d2 = dx * dx + dy * dy, rOut = ORB_R_IN + ORB_WALL;
@@ -5538,14 +5542,14 @@ export function bossDebugState() {
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
   const slipActive = grazeFormNow() === 'slipstream' && setpieceT >= 0
     && setpieceDef?.id === 'stoopingStrike' && (setpieceT / (setpieceDef?.dur || 1)) >= SLIP_K_ON;
-  const orbActive = grazeFormNow() === 'orbitAnnulus' && setpieceT >= 0 && setpieceDef?.id === 'figureEight';
+  const orbActive = grazeFormNow() === 'orbitAnnulus' && setpieceT >= 0 && setpieceDef?.id === 'figureEight' && stageBeatT < 0;
   const discActive = grazeFormNow() === 'shrinkDisc' && discDur > 0;
   const gapThreadDbg = gapThreadRows.map((r) => ({ gapX: r.gapX, halfW: r.halfW, rel: r.rel }));
   // §ENG-EW holder-stagger debug (the slip/orb field precedent): the banked parries + the
   // live possession/drop, so the crop tool + gate can read the eye-drop state.
   const hs = model?.holdState?.();
   const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, medleyForm: grazeFormNow(), slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, archWaveN, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, stageBeat: stageBeatT >= 0, medleyForm: grazeFormNow(), slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, archWaveN, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

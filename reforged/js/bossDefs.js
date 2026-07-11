@@ -1706,7 +1706,19 @@ export const BOSSES = {
     // (holdFlinch: bullet-free, setpiece-free, the ONLY continuous form that survives the
     // Apex's deliberately-sparse rests). Stages 2/3 stay null (status-quo silence) until
     // their PRs wire orbitAnnulus (the Ophanim wheel) + shrinkDisc (the toll-wall).
-    grazeMedley: ['holdFlinch', null, null],
+    grazeMedley: ['holdFlinch', 'orbitAnnulus', null],
+    // §5i.D stage-2 (the Ophanim) HOSTS EITHERWING's figure-eight: the wheel band draws
+    // about the live pose, a full unbroken lap pays the jackpot. `recur:12` re-arms it
+    // through the full 240-hp bar (one 8s eight would be dead ~90% of a stage — the
+    // eitherwing entries served ⅓-bar phases without recur). moving:true so it fires while
+    // travelling. setpieceForPhase(1) → this entry; stages 1/3 return null (stage-scoped).
+    setpieces: [
+      { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true, recur: 12 },
+    ],
+    // §5i.D stage-2 also QUOTES MARROWCOIL's thread-the-gap: a clean crossing of a moving
+    // wall's gap scores. Def-level flag, but STAGE-SCOPED by construction — only stage 2's
+    // attack list carries a wall attack (movingGap), so rows only ever register there.
+    gapThread: true,
     // Decision-C gate overrides (§7b sanctioned): ~20 eyes are many small bright points
     // (G1 assumes ONE focal); the wheels frame-fill (G4). Cited to the registry sanction.
     gate: { eyeCluster: true, frameFill: true },
