@@ -682,7 +682,7 @@ export const DRAGONS = {
         headScale: 1.3, eyeScale: 1.3, torsoScale: 0.82, crownFan: 2, crownLen: 0.6, spineGlow: 0,
         collarFan: 0, roseGoldEdge: 0, fingerSplit: 0, pennantLift: 0.2, pennantRibbons: 1, wingScale: 1.0,
         covertRank: 3, secondaryRank: 2, primaryFingers: 2,
-        colors: { body: 0x2a1208, belly: 0x2a0e06, goldfire: 0x9a5410, flame: 0xc23a0e, crimson: 0x7a1c12, horn: 0xd8a24a, featherEdge: 0xff8a5a, wingEmissive: 0xff8030,
+        colors: { body: 0x2a1208, belly: 0x2a0e06, goldfire: 0x9a5410, flame: 0xc23a0e, crimson: 0x8f2a0c, horn: 0xd8a24a, featherEdge: 0xff8a5a, wingEmissive: 0xff8030,
           featherIn: 0xff8a2a, featherOut: 0xffc85a, featherHi: 0xfff2c8, scales: 0xd8a24a,
           coreGlow: 0xfff2c8, apexSeam: 0xffb05a, eye: 0xffc85a, trail: 0xff973c, boostTrail: 0xffc45c } },
       // f1 KINDLED — the firebird: the neck arches, first secondaries, the ember collar-RUFF
@@ -691,7 +691,7 @@ export const DRAGONS = {
         headScale: 1.15, eyeScale: 1.05, torsoScale: 0.9, crownFan: 3, crownLen: 0.75, spineGlow: 0.35,
         collarFan: 0.3, roseGoldEdge: 0.3, fingerSplit: 0.3, pennantLift: 0.5, pennantRibbons: 3, wingScale: 1.1,
         covertRank: 4, secondaryRank: 4, primaryFingers: 3,
-        colors: { body: 0x5e2410, belly: 0x3a1408, goldfire: 0xd98a30, flame: 0xd9541a, crimson: 0x9a2214, horn: 0xe6b850, featherEdge: 0xff9a7a, wingEmissive: 0xff7a1a,
+        colors: { body: 0x5e2410, belly: 0x3a1408, goldfire: 0xd98a30, flame: 0xd9541a, crimson: 0xba360e, horn: 0xe6b850, featherEdge: 0xff9a7a, wingEmissive: 0xff7a1a,
           featherIn: 0xff6a1a, featherOut: 0xffd166, featherHi: 0xfff0b8, scales: 0xe6b850,
           coreGlow: 0xfff0b8, apexSeam: 0xffb030, eye: 0xffd166, trail: 0xff8c2e, boostTrail: 0xffd36b } },
       // f2 SOLAR — white-gold begins: full ranks, the collar half-fans + gilds, rose-gold
@@ -700,7 +700,7 @@ export const DRAGONS = {
         headScale: 1.05, eyeScale: 0.85, torsoScale: 0.95, crownFan: 4, crownLen: 0.9, spineGlow: 0.7,
         collarFan: 0.6, roseGoldEdge: 0.7, fingerSplit: 0.6, pennantLift: 0.8, pennantRibbons: 4, wingScale: 1.2,
         covertRank: 6, secondaryRank: 5, primaryFingers: 4,
-        colors: { body: 0x7a3a12, belly: 0x3a1408, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xb32613, horn: 0xf0c860, featherEdge: 0xff9c7a, wingEmissive: 0xff7a1a,
+        colors: { body: 0x7a3a12, belly: 0x3a1408, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xcf440c, horn: 0xf0c860, featherEdge: 0xff9c7a, wingEmissive: 0xff7a1a,
           featherIn: 0xffb24a, featherOut: 0xffe8b0, featherHi: 0xfff8e0, scales: 0xf0c860,
           coreGlow: 0xfff8e0, apexSeam: 0xffe6a0, eye: 0xffe6a0, trail: 0xff942e, boostTrail: 0xffe082 } },
       // f3 CELESTIAL REBIRTH — the WHITE-GOLD DIVINE firebird: the blazing sun-gorget, the
@@ -709,13 +709,13 @@ export const DRAGONS = {
         headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, crownFan: 5, crownLen: 1.0, spineGlow: 1.0,
         collarFan: 1.0, roseGoldEdge: 1.0, fingerSplit: 1.0, pennantLift: 1.0, pennantRibbons: 5, wingScale: 1.3,
         covertRank: 7, secondaryRank: 6, primaryFingers: 5,
-        colors: { body: 0x8a5514, belly: 0x3a1208, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xb32613, horn: 0xf4c860, featherEdge: 0xff9a5a, wingEmissive: 0xff7a1a,
+        colors: { body: 0x8a5514, belly: 0x3a1208, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xd8500e, horn: 0xf4c860, featherEdge: 0xff9a5a, wingEmissive: 0xff7a1a,
           featherIn: 0xffb24a, featherOut: 0xffd166, featherHi: 0xfff2c8, scales: 0xf4c860,
           coreGlow: 0xffc46a, apexSeam: 0xffb84a, aura: 0xffc888, eye: 0xffe0a0, trail: 0xff9a2e, boostTrail: 0xffc46a } },
     ],
     fx: { auraColor: '255,236,190', auraIdle: 0.0, sparkle: false },
     // Top-level fallbacks (≈ the apex Eternal fire-body, for any raw render).
-    body: 0x8a5514, belly: 0x3a1208, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xb32613,
+    body: 0x8a5514, belly: 0x3a1208, goldfire: 0xe69b1f, flame: 0xd9541a, crimson: 0xd8500e,
     scales: 0xf4c860, horn: 0xf4c860,
     featherIn: 0xe69b1f, featherOut: 0xd9541a, featherEdge: 0xff9a5a, featherHi: 0xfff2c8,
     wingInner: 0xe69b1f, wingOuter: 0xd9541a, wingEmissive: 0xff7a1a,

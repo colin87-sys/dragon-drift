@@ -33,12 +33,17 @@ function sunhawkMats(def, glow, stage) {
   const g = glow ?? 1;
   const bodyI = [0.22, 0.46, 0.64, 0.8][st] * g;    // body-field FIRE glow (whole creature burns)
 
-  // T1 GOLDFIRE — the big glowing BODY FIELD (the whole creature burns). Form-laddered hue:
-  // dark ember chick → warm goldfire. This is the `ivory` key so torso/head/collar glow fire.
-  const fieldCol = def.body ?? 0x8a5514;
-  const fieldEmis = st === 0 ? 0x6e1c06 : (def.goldfire ?? 0xe69b1f);
-  const ivory = new THREE.MeshStandardMaterial({ color: fieldCol, emissive: fieldEmis, emissiveIntensity: bodyI, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide });
-  ivory.userData.baseEmissive = fieldEmis; ivory.userData.baseIntensity = bodyI;
+  // T1 GOLDFIRE — the big glowing BODY FIELD (the whole creature BURNS). The diffuse is
+  // DARKENED so the saturated goldfire EMISSIVE dominates → the body reads as a glowing EMBER,
+  // not a flat mustard-gold plane (the critic's "body doesn't catch fire"). `ivory` key so the
+  // torso/head/collar all glow fire. Form-laddered: dark cinder chick → white-hot goldfire.
+  const fieldCol = new THREE.Color(def.body ?? 0x8a5514).multiplyScalar(0.4);   // DARK ember → the emissive fire dominates the form
+  const fieldEmis = st === 0 ? 0x8a2606 : 0xe07818;   // hot ORANGE-gold ember glow (reads as fire, not a gold plane)
+  const bodyGlow = [0.4, 0.85, 1.2, 1.5][st] * g;     // the body itself BURNS (emissive-dominant); raised so the warm emissive keeps G>B at grazing rim angles → no rose on the back/flank in a zoom
+  // roughness up + no metalness → the cool rim light can add NO specular blue sheen; the raised warm
+  // emissive keeps the field on the fire ramp even where the rim grazes it (the wing-zoom rose fix).
+  const ivory = new THREE.MeshStandardMaterial({ color: fieldCol, emissive: fieldEmis, emissiveIntensity: bodyGlow, flatShading: true, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide });
+  ivory.userData.baseEmissive = fieldEmis; ivory.userData.baseIntensity = bodyGlow;
   // GOLDFIRE (the HOT gold-white core, for the inner wing membrane + flame-feather hot roots).
   // Pushed genuinely bright + hot-hued so the roots read WHITE/GOLD-HOT (the refs' incandescent
   // hearts), the cool crimson tips reading against it → real combustion, not matte tan.
@@ -51,10 +56,12 @@ function sunhawkMats(def, glow, stage) {
   const flame = new THREE.MeshStandardMaterial({ color: 0x6e2a0e, emissive: flameCol, emissiveIntensity: [0.28, 0.5, 0.78, 0.98][st] * g, flatShading: true, roughness: 0.52, metalness: 0.04, side: THREE.DoubleSide });
   flame.userData.baseEmissive = flameCol; flame.userData.baseIntensity = flame.emissiveIntensity;
 
-  // T3 CRIMSON — the cool SHEATH (outer flame-feather tips, aft ribbon tips). The separable
-  // third hue that keeps the fire from blooming to one orange smear + anchors a pale sky.
-  const crimCol = def.crimson ?? 0xb32613;
-  const crimson = new THREE.MeshStandardMaterial({ color: 0x571712, emissive: crimCol, emissiveIntensity: [0.3, 0.55, 0.86, 1.08][st] * g, flatShading: true, roughness: 0.55, metalness: 0.04, side: THREE.DoubleSide });
+  // T3 CRIMSON — the cool SHEATH (outer flame-feather tips, aft ribbon tips). A pure RED-ORANGE
+  // with the BLUE channel driven to ~zero, so the cool rim light can't pull it toward rose/pink on
+  // a thin edge-on facet (the recurring "pink wire" veto). The cool END of the fire ramp is still
+  // a deep hot red, never a magenta. Separable third hue, anchors a pale sky.
+  const crimCol = def.crimson ?? 0xd8500e;
+  const crimson = new THREE.MeshStandardMaterial({ color: 0x5c1a04, emissive: crimCol, emissiveIntensity: [0.3, 0.5, 0.74, 0.9][st] * g, flatShading: true, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide });
   crimson.userData.baseEmissive = crimCol; crimson.userData.baseIntensity = crimson.emissiveIntensity;
 
   // T4 GARNET / EMBER-SHADOW — the dark RIM on every facet edge (the "dark on the rims" that
@@ -62,22 +69,32 @@ function sunhawkMats(def, glow, stage) {
   const garnet = new THREE.MeshStandardMaterial({ color: def.belly ?? 0x3a1208, emissive: 0x1a0804, emissiveIntensity: 0.1, flatShading: true, roughness: 0.84, metalness: 0.05, side: THREE.DoubleSide });
   const emberShadow = garnet;
 
+  // WARM-EMBER BELLY — the cool END of the body's vertical fire gradient (dark ventral field), but
+  // built pink-PROOF: a dark warm-red diffuse with an orange emissive FLOOR and roughness 1 (no
+  // specular) so the cool rim can register nothing → it reads deep ember, never the rose a lit
+  // saturated crimson belly pulled under the rim.
+  const emberBelly = new THREE.MeshStandardMaterial({ color: 0x3a1206, emissive: 0x8a2c08, emissiveIntensity: 0.45 * g, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide });
+  emberBelly.userData.baseEmissive = 0x8a2c08; emberBelly.userData.baseIntensity = emberBelly.emissiveIntensity;
+
   // DARK WARM UNDERWING (`bronze` key) — the wing belly backing + feather roots. Kept a
   // RECESSIVE dark warm ember (not a glowing red plank) so it never competes with the fire-
   // feathers on top; warm + a small emissive floor so a shadowed facet reads warm, not black.
-  const bronze = new THREE.MeshStandardMaterial({ color: 0x4a2110, emissive: 0x3a1606, emissiveIntensity: 0.14, flatShading: true, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide });
-  bronze.userData.baseEmissive = 0x3a1606; bronze.userData.baseIntensity = bronze.emissiveIntensity;
+  const bronze = new THREE.MeshStandardMaterial({ color: 0x6e3616, emissive: 0x8a4410, emissiveIntensity: 0.4, flatShading: true, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide });
+  bronze.userData.baseEmissive = 0x8a4410; bronze.userData.baseIntensity = bronze.emissiveIntensity;
 
-  // T2 GOLD — the forged REGALIA metal (beak, wing spar-arm, crown + collar shafts, vertebral
-  // ridge). The one non-fire register: gilt metal reading against the flame.
-  const goldCol = def.horn ?? 0xf4c860;
-  const gold = new THREE.MeshStandardMaterial({ color: goldCol, emissive: 0x7a4a10, emissiveIntensity: 0.2 + 0.14 * st, flatShading: true, roughness: 0.34, metalness: 0.55, side: THREE.DoubleSide });
+  // T2 GOLD — the forged REGALIA (beak, crown + collar shafts, vertebral ridge). Low metalness +
+  // a WARM AMBER emissive FLOOR so a flat-shaded unlit facet glows amber, never the dead OLIVE/
+  // KHAKI a metalness-heavy gold collapses to edge-on (the critic's "mud is the anti-fire colour").
+  const goldCol = def.horn ?? 0xf2b64c;
+  const gold = new THREE.MeshStandardMaterial({ color: goldCol, emissive: 0xa05e12, emissiveIntensity: 0.34 + 0.16 * st, flatShading: true, roughness: 0.4, metalness: 0.12, side: THREE.DoubleSide });
   gold.userData.baseEmissive = 0x7a4a10; gold.userData.baseIntensity = gold.emissiveIntensity;
 
-  // T3 ROSE-GOLD / AMBER rim (feather edges, hems). Warm, soft — the graceful edge light.
-  const roseCol = def.featherEdge ?? 0xff9a5a;
-  const roseGold = new THREE.MeshStandardMaterial({ color: roseCol, emissive: 0xff9a4a, emissiveIntensity: 0.14 + 0.12 * st, flatShading: true, roughness: 0.44, metalness: 0.12, side: THREE.DoubleSide });
-  roseGold.userData.baseEmissive = 0xff9a4a; roseGold.userData.baseIntensity = roseGold.emissiveIntensity;
+  // T3 WARM-AMBER rim (feather edges, hems). EMISSIVE-DOMINANT amber over a DARK diffuse with
+  // roughness up (no cool specular): the old salmon DIFFUSE (0xff8a34) was exactly what the cool
+  // rim pulled to rose in the wing-root/collar zoom — a bright warm EDGE, now on a pink-proof
+  // dark-diffuse + amber-emissive basis so no rim can register blue on it.
+  const roseGold = new THREE.MeshStandardMaterial({ color: 0x4a1c06, emissive: 0xffa334, emissiveIntensity: 0.5 + 0.16 * st, flatShading: true, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide });
+  roseGold.userData.baseEmissive = 0xffa334; roseGold.userData.baseIntensity = roseGold.emissiveIntensity;
 
   // SATURATED ORANGE emissive — the hottest flame-tip hue (flame-feather points, hems).
   const orangeCol = def.wingEmissive ?? 0xff7a1a;
@@ -89,12 +106,21 @@ function sunhawkMats(def, glow, stage) {
   const heartI = [0.6, 1.6, 2.6, 3.6][st] * g;
   const heart = new THREE.MeshStandardMaterial({ color: 0xffe8c0, emissive: heartEmis, emissiveIntensity: heartI, flatShading: true, roughness: 0.3, metalness: 0.05 });
 
+  // HOT-RIBBON ramp — dedicated near-pure-EMISSIVE fire materials for the free-STREAMING ribbons
+  // (the tail comet + the wing trailing streamers). A near-black diffuse + roughness 1 (no specular)
+  // means the studio's COOL RIM light can register NOTHING on them → they read as self-lit fire on
+  // the warm gold→orange ramp, never the salmon/pink the rim was pulling off a lit red diffuse (the
+  // recurring pink veto — decisively killed by removing the lit surface, not just re-hueing it).
+  const ribI = 1.15 + 0.28 * st;
+  const ribMat = (emis, k) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: emis, emissiveIntensity: ribI * k * g, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = emis; m.userData.baseIntensity = m.emissiveIntensity; return m; };
+  const hotRibbon = [ribMat(0xffbe4a, 1.0), ribMat(0xff8a20, 1.05), ribMat(0xf25410, 1.0)];
+
   // Eyes — white-hot gold, the brightest facial points.
   const eyeCol = def.eye ?? 0xffd07a;
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0xfff2c8, emissive: eyeCol, emissiveIntensity: (1.1 + 0.3 * st) * g, flatShading: true, roughness: 0.28 });
   eyeMat.userData.baseEmissive = eyeCol; eyeMat.userData.baseIntensity = eyeMat.emissiveIntensity;
 
-  return { ivory, goldfire, flame, crimson, garnet, emberShadow, bronze, gold, roseGold, orange, heart, eyeMat, stage: st, glow: g };
+  return { ivory, goldfire, flame, crimson, garnet, emberShadow, emberBelly, bronze, gold, roseGold, orange, heart, eyeMat, hotRibbon, stage: st, glow: g };
 }
 
 // Faceted loft: rings [{z, rx, ry, cy, cx?}] → one flat-shaded tube. Winds OUTWARD so
@@ -284,7 +310,7 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
     const y0 = botAt(z0) + 0.03, y1 = botAt(z1) + 0.03;
     bellyT.push([[-w0, y0, z0], [w0, y0, z0], [w1, y1, z1]], [[-w0, y0, z0], [w1, y1, z1], [-w1, y1, z1]]);
   }
-  group.add(flatTriMesh(bellyT, M.emberShadow));
+  group.add(flatTriMesh(bellyT, M.emberBelly));   // deep warm-ember belly → the cool end of the vertical fire gradient, pink-proof (see emberBelly)
 
   // ── BREAST + FLANK SHINGLE RANKS — organized rows of ivory kite-feathers (bright vane /
   // ember-shadow root) over the throat, keel AND the upper flanks, so the mass reads
@@ -300,14 +326,17 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
         group.add(kiteFeather([s * w, y, z], [s * 0.28, -0.12, -1], [s * 1, 0, 0.2], 0.28, 0.16, 0.04, M.ivory, M.emberShadow));
       }
     }
-    // upper-flank FLAME rank (a row of flame-licks along the side so the flank BURNS, not a
-    // blank gold slab — owner: the whole creature catches fire). Hue cools head→tail.
-    for (let i = 0; i < 4; i++) {
-      const z = -0.85 + i * 0.42, u = i / 3;
-      const w = halfWidthAt(z) * 0.9;
-      const y = (botAt(z) + topAt(z)) * 0.5 - 0.02;
-      const ramp = u < 0.5 ? [M.goldfire, M.flame, M.flame] : [M.flame, M.flame, M.crimson];
-      group.add(flameFeather([s * w, y, z], [s * 0.35, 0.05, 1], [s * 0.2, 0.5, 0], 0.42 - 0.1 * u, 0.14, 0.05, ramp, 0.03).group);
+    // FLANK FIRE-COAT — TWO rows of flame-licks wrapping the flank (upper + lower) from neck to
+    // haunch, so the whole BODY is wreathed in fire (owner: whole creature catches fire), not a
+    // gold slab with a mane. Hue cools head→tail; the licks stream aft along the body.
+    for (let row = 0; row < 2; row++) {
+      for (let i = 0; i < 6; i++) {
+        const z = -1.05 + i * 0.36, u = i / 5;
+        const w = halfWidthAt(z) * (0.88 - 0.22 * row);
+        const y = (botAt(z) + topAt(z)) * 0.5 + (row === 0 ? 0.10 : -0.12);
+        const ramp = u < 0.5 ? [M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[1]] : [M.hotRibbon[1], M.hotRibbon[2], M.hotRibbon[2]];   // pure-emissive fire → no pink under the cool rim, and it GLOWS in the dark chase view
+        group.add(flameFeather([s * w, y, z], [s * 0.30, 0.04, 1], [s * 0.2, 0.5, 0], 0.40 - 0.1 * u, 0.13, 0.05, ramp, 0.03).group);
+      }
     }
   }
 
@@ -320,8 +349,10 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
     const t = nMane > 1 ? i / (nMane - 1) : 0;
     const z = -1.05 + t * 2.35, y = topAt(z);
     const len = (0.40 - 0.14 * t) * (0.7 + 0.3 * Math.sin(Math.PI * Math.min(t * 1.2, 1)));
-    const ramp = t < 0.38 ? [M.goldfire, M.goldfire, M.flame] : t < 0.72 ? [M.goldfire, M.flame, M.crimson] : [M.flame, M.crimson, M.crimson];
-    group.add(flameFeather([Math.sin(i * 1.4) * 0.05, y, z], [Math.sin(i * 1.4) * 0.22, 0.62, 0.78], [1, 0, 0], len, 0.11, 0.06, ramp, 0.05).group);
+    const ramp = t < 0.38 ? [M.hotRibbon[0], M.hotRibbon[0], M.hotRibbon[1]] : t < 0.72 ? [M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[2]] : [M.hotRibbon[1], M.hotRibbon[2], M.hotRibbon[2]];   // pure-emissive fire (pink-proof + glows in dark)
+    // Rake the licks strongly AFT (more +z than +y) so the mane reads as fire STREAMING back down
+    // the spine, not a row of vertical spikes / a dorsal shark-fin from behind (the critic's note).
+    group.add(flameFeather([Math.sin(i * 1.4) * 0.05, y, z], [Math.sin(i * 1.4) * 0.20, 0.46, 0.90], [1, 0, 0], len, 0.11, 0.06, ramp, 0.05).group);
   }
 
   // ── THE HEART-FIRE core (signature, kept) — a bright emissive facet-cluster in the keel,
@@ -433,33 +464,45 @@ function buildSunhawkCrownHead(def, model, _mats) {
   const spineMats = [M.gold, M.roseGold];
   const hs = model.headScale ?? 1;
 
-  // Lofted ivory wedge skull (points −Z) — flat brow → tapered crown, NOT a bare sphere.
+  // Lofted ivory wedge skull (points −Z) — flat brow → a raptor muzzle that TAPERS to a fine snout
+  // (not the blunt boxy muzzle-block that flirted with an ungulate read): the cheek/muzzle rings are
+  // narrowed and a fine snout-tip ring carries the face to a point, seating the hooked beak.
   const skull = [
     { z: 0.24, rx: 0.19 * hs, ry: 0.20 * hs, cy: 0.02 },   // occiput
     { z: -0.02, rx: 0.22 * hs, ry: 0.22 * hs, cy: 0.03 },  // brow (widest)
-    { z: -0.28, rx: 0.15 * hs, ry: 0.14 * hs, cy: -0.02 }, // cheek
-    { z: -0.48, rx: 0.09 * hs, ry: 0.085 * hs, cy: -0.05 },// muzzle base
+    { z: -0.28, rx: 0.13 * hs, ry: 0.125 * hs, cy: -0.02 },// cheek (narrowed)
+    { z: -0.46, rx: 0.075 * hs, ry: 0.065 * hs, cy: -0.05 },// muzzle (tapering)
+    { z: -0.60, rx: 0.032 * hs, ry: 0.030 * hs, cy: -0.075 },// fine snout tip → raptor point
   ];
   group.add(loftRings(skull, M.ivory, seg(7)));
-  const headLength = 0.9 * hs;
+  const headLength = 1.0 * hs;
 
-  // Short HOOKED gold beak — upper hooks over lower (two beveled facets), regal raptor.
-  const upper = spike(0.26 * hs, 0.10 * hs, 0.006, M.gold, 6);
-  upper.rotation.x = Math.PI / 2 + 0.32;   // points −Z, hooks down
-  upper.position.set(0, -0.01 * hs, -0.52 * hs);
+  // Short HOOKED gold beak — upper hooks over lower (two beveled facets), regal raptor. Seated at the
+  // new fine snout tip so the gold beak reads as the continuation of a tapering raptor face.
+  const upper = spike(0.28 * hs, 0.075 * hs, 0.005, M.gold, 6);
+  upper.rotation.x = Math.PI / 2 + 0.34;   // points −Z, hooks down
+  upper.position.set(0, -0.02 * hs, -0.60 * hs);
   group.add(upper);
-  const lower = spike(0.16 * hs, 0.07 * hs, 0.01, M.gold, 5);
+  const lower = spike(0.15 * hs, 0.05 * hs, 0.008, M.gold, 5);
   lower.rotation.x = Math.PI / 2 + 0.12;
-  lower.position.set(0, -0.08 * hs, -0.48 * hs);
+  lower.position.set(0, -0.09 * hs, -0.56 * hs);
   group.add(lower);
 
-  // Warm gold EYES — the brightest facial points bar the collar, deep-set under the brow.
+  // Warm gold EYES — the brightest facial points bar the collar, deep-set under the brow. A small
+  // dark ember PUPIL sits in front of each (the critic's "flat white lozenge, no pupil, no life"),
+  // giving the SSSR head a focused predatory read instead of a blank diamond.
   const es = model.eyeScale ?? 1;
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.085 * hs * es, 0), M.eyeMat);
-    eye.position.set(side * 0.16 * hs, 0.04 * hs, -0.20 * hs);
-    eye.scale.set(1.35, 0.85, 1);
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.072 * hs * es, 0), M.eyeMat);
+    eye.position.set(side * 0.16 * hs, 0.04 * hs, -0.21 * hs);
+    eye.scale.set(1.3, 0.9, 1);
     group.add(eye);
+    // pupil sits slightly PROUD of the eye centre (same z-plane, nudged out) so it reads as a pupil
+    // WITHIN the white, not a second diamond beside it (the r24 "two-diamond" read).
+    const pupil = new THREE.Mesh(new THREE.OctahedronGeometry(0.05 * hs * es, 0), M.emberShadow);
+    pupil.position.set(side * 0.175 * hs, 0.042 * hs, -0.235 * hs);
+    pupil.scale.set(0.9, 1.25, 0.7);
+    group.add(pupil);
   }
 
   // BACK-RAKED CROWN FAN — stiff gold crest-feathers raking BACK off the crown (the bright
@@ -490,7 +533,10 @@ registerHead('sunhawkCrown', buildSunhawkCrownHead);
 // wingtip trail detaches). t∈[0,1] span; hs = half-span. A gentle, near-LINEAR dihedral
 // rise — NEVER an up-curl at the tip (the primary FINGERS carry the aft-down droop).
 export function sunLeadY(t, hs) { return hs * (0.06 + 0.20 * t); }
-export function sunLeadZ(t, hs) { return -0.05 + 0.42 * hs * Math.pow(t, 1.15); }   // sweep-back ~26°, accelerating outboard
+// A RAPTOR ogee: bows FORWARD (−z) at mid-span then sweeps aft to the tip — a curved leading edge,
+// not the two-segment straight bar the critic flagged. The forward bow term (−sin) peaks mid, dies
+// at root+tip; the base term still sweeps the tip aft. FX marker rides the same curve.
+export function sunLeadZ(t, hs) { return -0.05 + 0.42 * hs * Math.pow(t, 1.15) - 0.16 * hs * Math.sin(Math.PI * t); }
 
 function buildOneSunWing(M, model) {
   const wg = new THREE.Group();
@@ -513,62 +559,89 @@ function buildOneSunWing(M, model) {
   const TOP = (t, f) => { const l = L(t), c = chord(t); return [l[0], l[1] + camber(f) * c, l[2] + f * c]; };
   const BOT = (t, f) => { const l = L(t), c = chord(t); return [l[0], l[1] + (camber(f) - THICK) * c, l[2] + f * c]; };
 
-  // ── THE ARM — a lofted tapered GOLD spar-limb along the inner lead (the one gilt line).
-  const armTs = [0, 0.14, 0.28, 0.42], armR = [0.13, 0.11, 0.085, 0.06];
-  const armRings = armTs.map((t, i) => { const l = L(t); return { z: l[2], rx: armR[i] * ws, ry: armR[i] * 1.1 * ws, cy: l[1], cx: l[0] }; });
-  wg.add(loftRings(armRings, M.gold, seg(6), false));
+  // ── THE LEADING RIDGE — a SLIM hot ridge along the inner lead (replaces the old fat gold spar
+  // "plank" the critic flagged): a thin near-white→amber emissive line that reads as the incandescent
+  // leading EDGE of a burning wing, not a dark box-bar. Tapers to nothing by mid-span.
+  const ridgeTs = [0, 0.16, 0.34, 0.52], ridgeR = [0.055, 0.045, 0.032, 0.016];
+  const ridgeRings = ridgeTs.map((t, i) => { const l = L(t); return { z: l[2], rx: ridgeR[i] * ws, ry: ridgeR[i] * 1.4 * ws, cy: l[1], cx: l[0] }; });
+  wg.add(loftRings(ridgeRings, M.hotRibbon[0], seg(5), false));   // pure-emissive hot gold (pink-proof, like the rest of the fire)
 
-  // ── INNER FIRE MEMBRANE — a SMALL glowing GOLDFIRE web backing the INNER wing only (span
-  // 0→0.42), so the wing root reads as solid HOT fire — never a black plank (the critic's #1),
-  // never see-through. The OUTER wing is PURE streaming flame-feathers (no membrane) — the ref.
-  const inTs = [0, 0.14, 0.28, 0.42];
-  for (let i = 0; i < inTs.length - 1; i++) {
-    const t0 = inTs[i], t1 = inTs[i + 1];
-    wg.add(flatTriMesh([[TOP(t0, 0), TOP(t1, 0), TOP(t1, 0.88)], [TOP(t0, 0), TOP(t1, 0.88), TOP(t0, 0.88)]], M.goldfire));
-    wg.add(flatTriMesh([[BOT(t0, 0), BOT(t1, 0.88), BOT(t1, 0)], [BOT(t0, 0), BOT(t0, 0.88), BOT(t1, 0.88)]], M.goldfire));
+  // ── INNER FIRE MEMBRANE — the glowing web backing the inner+mid wing (span 0→0.62), with a REAL
+  // 2-D heat GRADIENT (hot goldfire at the leading root → flame → crimson at the outboard trailing
+  // corner) so the inner wing is not the "single flat matte-yellow value" the critic saw. Top vane +
+  // bottom skin (thickness = the anti-plank). It runs OUT to 0.62 so it overlaps the feather roots →
+  // no bald panel/streamer SEAM (the critic's "two disconnected objects").
+  const memTs = [0, 0.15, 0.32, 0.48, 0.62];
+  const memFs = [0, 0.45, 0.9];
+  // The WHOLE membrane is pure-emissive (pink-proof: no lit diffuse for the cool rim to pull rose —
+  // the last lit goldfire/flame here were the stage-gated rose WEDGE the critic pixel-traced at the
+  // wing root). But at a MODERATE intensity, NOT the hot thin-feather ribbon level: a broad face at
+  // ribbon intensity blooms to pale cream, so these read as solid ORANGE fire instead.
+  const memI = (0.7 + 0.16 * (M.stage ?? 3)) * (M.glow ?? 1);
+  const mMat = (e) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: e, emissiveIntensity: memI, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = e; m.userData.baseIntensity = memI; return m; };
+  // saturated ORANGE stops (not pale gold) so the broad panels read as rich fire; the white-gold heat
+  // is reserved for the thin feather roots, which can bloom bright without turning a broad face cream.
+  const memHot = mMat(0xffb63a), memGold = mMat(0xf59020), memOrange = mMat(0xe86614), memDeep = mMat(0xd6460c);
+  // FOUR value bands across span×chord (not one flat field): a hot inner-root band → gold → orange →
+  // deep-orange, so even at 4× zoom the membrane reads as graded fire, not a uniform pale quad.
+  const memMat = (t, f) => (f < 0.45
+    ? (t < 0.16 ? memHot : t < 0.34 ? memGold : memOrange)
+    : (t < 0.20 ? memGold : t < 0.44 ? memOrange : memDeep));
+  for (let si = 0; si < memTs.length - 1; si++) {
+    const t0 = memTs[si], t1 = memTs[si + 1];
+    for (let fi = 0; fi < memFs.length - 1; fi++) {
+      const f0 = memFs[fi], f1 = memFs[fi + 1];
+      const mm = memMat((t0 + t1) / 2, (f0 + f1) / 2);
+      wg.add(flatTriMesh([[TOP(t0, f0), TOP(t1, f0), TOP(t1, f1)], [TOP(t0, f0), TOP(t1, f1), TOP(t0, f1)]], mm));
+      wg.add(flatTriMesh([[BOT(t0, f0), BOT(t1, f1), BOT(t1, f0)], [BOT(t0, f0), BOT(t0, f1), BOT(t1, f1)]], mm));
+    }
   }
 
-  // span → FIRE hue ramp (root-hot goldfire → crimson tip). Grace = flow, not a grid.
-  const rampAt = (t) => t < 0.42 ? [M.goldfire, M.goldfire, M.flame]
-    : t < 0.70 ? [M.goldfire, M.flame, M.crimson]
-      : [M.flame, M.crimson, M.crimson];
-  const rampTrail = [M.flame, M.crimson, M.crimson];
-
-  // ── MAIN FIRE-FEATHERS — FEW, LARGE, CURVED, size-graded, VARIED-width flame-feathers combed
-  // aft-outboard across the span (alternating BROAD ⇄ narrow → variation, never a picket fence).
-  // They BUILD the wing surface AS fire; each BOWS gracefully (real curve, not a spike) and
-  // hue-ramps root→tip. Restraint = grace: few + large + flowing. Count ladders with the dials.
-  const nMain = Math.max(3, Math.min(6, Math.round(secN)));
+  // ── MAIN FIRE-FEATHERS — the wing surface BUILT AS FIRE. The critic's picket-fence cure: THREE
+  // length families (±40%), VARIED pitch + width per feather, and — the key — EVERY feather ramps
+  // from a WHITE/GOLD-HOT root to a DEEP-RED tip (not the identical tricolour band on every spear),
+  // so the bands land at different places along different-length feathers → combustion, not a fence.
+  // Roots sit OVER the membrane (f≈0.34) so covert-over-streamer overlap blends feather into panel.
+  const lenFam = [1.28, 0.82, 1.06];   // 3 interleaved length classes → broken rhythm
+  const nMain = Math.max(5, Math.min(8, Math.round(secN + 1)));
   for (let i = 0; i < nMain; i++) {
     const u = nMain > 1 ? i / (nMain - 1) : 0.5;
-    const t = 0.08 + u * 0.82, l = L(t), cc = chord(t);
-    const broad = (i % 2 === 0);
-    const len = (1.0 + 0.85 * Math.sin(Math.PI * u)) * cc * (broad ? 1.15 : 0.82);
-    const wid = (broad ? 0.54 : 0.30) * cc;                   // dramatic width variation
-    const dir = [0.22 + 0.42 * u, -0.02, 1];                  // comb aft-outboard (flow)
-    const curve = 0.13 + 0.07 * u;                            // real graceful BOW, not a straight spike
-    const base = [l[0], l[1] + camber(0.42) * cc + 0.05, l[2] + 0.42 * cc];
-    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, curve, rampAt(t), 0.05 * ws).group);
+    const t = 0.08 + u * 0.84 + 0.02 * Math.sin(i * 1.7), l = L(t), cc = chord(t);
+    const fam = lenFam[i % 3];
+    const len = (0.9 + 0.9 * Math.sin(Math.PI * Math.min(u * 1.05, 1))) * cc * fam;
+    const wid = (0.32 + 0.24 * Math.sin(Math.PI * u)) * cc * (0.8 + 0.4 * ((i % 2) ? 1 : 0));
+    const dir = [0.18 + 0.46 * u + 0.10 * ((i % 2) ? 1 : -0.4), -0.02 - 0.05 * u, 1];   // varied pitch → no lockstep
+    const curve = 0.11 + 0.09 * u + 0.03 * (i % 2);
+    // per-feather hot→cool ramp, ENTIRELY pure-emissive hotRibbon (gold→orange→deep-orange): the
+    // whole flame-feather layer is now pink-proof (no lit goldfire/flame facet left for the cool rim
+    // to pull rose) AND self-lit so it glows in the dark chase view. Innermost hottest, outermost cool.
+    const ramp = u < 0.30 ? [M.hotRibbon[0], M.hotRibbon[0], M.hotRibbon[1]]
+      : u < 0.62 ? [M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[2]]
+        : [M.hotRibbon[1], M.hotRibbon[2], M.hotRibbon[2]];
+    const base = [l[0], l[1] + camber(0.34) * cc + 0.03, l[2] + 0.34 * cc];
+    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, curve, ramp, 0.05 * ws).group);
   }
 
-  // ── TRAILING STREAMERS — just 3 BROAD, strongly CURVED flame ribbons off the outer trailing
-  // edge, streaming aft with a graceful S-bow + terminal curl → FLOWING flame strokes, NOT thin
-  // spaghetti-wire (the critic's grace fix: trade count for WIDTH + CURVATURE). Crimson tips.
+  // ── TRAILING STREAMERS — 3 BROAD flowing ribbons rooted INBOARD of the trailing edge (f≈0.66, so
+  // they emerge from WITHIN the wing, not off a seam) and streaming aft. Broad + few = flame strokes,
+  // not spaghetti-wire; tips cool to the pink-safe red-orange crimson.
+  const rampTrail = M.hotRibbon;   // same near-pure-emissive fire → the streamers never pink under the cool rim
   const nStream = Math.max(2, Math.min(3, Math.round(secN * 0.5)));
   for (let i = 0; i < nStream; i++) {
     const u = nStream > 1 ? i / (nStream - 1) : 0.5;
-    const t = 0.40 + u * 0.48, l = L(t), cc = chord(t);
-    const len = (1.5 + 0.7 * Math.sin(Math.PI * (0.4 + 0.4 * u))) * ws;   // long but not wiry
-    const wid = (0.34 - 0.06 * u) * ws;                                   // BROAD (all of them)
-    const dir = [0.22 + 0.40 * u, 0.10, 1];                              // aft + gentle up
-    const base = [l[0], l[1] + camber(0.9) * cc, l[2] + 0.9 * cc];
-    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.30, rampTrail, 0.26 * ws).group);   // strong bow + curl
+    const t = 0.44 + u * 0.44, l = L(t), cc = chord(t);
+    const len = (1.6 + 0.7 * Math.sin(Math.PI * (0.4 + 0.4 * u))) * ws;
+    const wid = (0.38 - 0.06 * u) * ws;                                  // BROAD (all of them)
+    const dir = [0.22 + 0.40 * u, 0.06, 1];
+    const base = [l[0], l[1] + camber(0.66) * cc, l[2] + 0.66 * cc];     // rooted INSIDE the chord
+    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.28, rampTrail, 0.20 * ws).group);
   }
 
-  // ── LEADING LICKS — just 2 short hot licks lifting off the leading edge (curved + alight).
-  for (let i = 0; i < 2; i++) {
-    const t = 0.18 + i * 0.22, l = L(t);
-    wg.add(flameFeather([l[0], l[1] + 0.02, l[2] - 0.01], [0.42, 0.36, -0.08], [1, 0, 0.3], 0.36 * ws, 0.12 * ws, 0.09, [M.goldfire, M.goldfire, M.flame]).group);
+  // ── LEADING LICKS — 3 short hot licks lifting off the CURVED leading edge (flame variation on the
+  // lead, owner's ask), so the leading edge reads as living fire rather than a hard line.
+  for (let i = 0; i < 3; i++) {
+    const t = 0.12 + i * 0.17, l = L(t);
+    wg.add(flameFeather([l[0], l[1] + 0.02, l[2] - 0.01], [0.40, 0.34 - 0.05 * i, -0.10], [1, 0, 0.3], (0.34 - 0.04 * i) * ws, 0.11 * ws, 0.09, [M.hotRibbon[0], M.hotRibbon[0], M.hotRibbon[1]]).group);
   }
 
   // ── STRUCTURAL PRIMARY FINGERS — 3 emarginated eagle fingers UNDER the fire, for the wing
@@ -638,21 +711,35 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   const segs = [group];
   if (nRib <= 0) return { group, segs, tailFins: null, accentMats: [M.flame, M.crimson] };
 
-  const baseLen = 3.2 + 2.3 * lift;                      // apex ~5.5 — ONE LONG dominant comet-drape
-  const ramp = [M.goldfire, M.flame, M.crimson];        // root-hot → crimson tip (the combustion)
-  for (let i = 0; i < nRib; i++) {
-    const u = nRib > 1 ? (i / (nRib - 1)) - 0.5 : 0;     // −0.5 … 0.5 across the drape
+  // The tail must read as its OWN element, not merge into the wing streamers (the critic's #1 tail
+  // note). Two separations do that: (1) it roots at the tail-root and streams AFT-and-slightly-DOWN,
+  // settling into a LOWER height band than the wing streamers (which lift up-aft off the shoulders) —
+  // vertical separation in the rear-chase; (2) it reaches far past them (apex ~7) → a long comet-drape
+  // trailing behind the body. Corridor-safe: the drape settles to y≈0.34, never into {y<0.30, z>0.85}.
+  const baseLen = 3.6 + 2.0 * lift;                     // apex ~5.6 — LONG + dominant, but not so long the tip goes subpixel-thin
+  // DEDICATED EMBER ramp for the tail: pure-emissive (pink-proof) but ORANGE-dominant at a MODERATE
+  // intensity so the broad tail facets read as TRAILING FIRE (ember grading warm-gold→orange→deep-
+  // orange), not the pale cream silk they became when they bloomed the hot-gold wing ribbon white.
+  const tI = (0.85 + 0.2 * (M.stage ?? 3)) * (M.glow ?? 1);
+  const tMat = (emis) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: emis, emissiveIntensity: tI, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = emis; m.userData.baseIntensity = m.emissiveIntensity; return m; };
+  const ramp = [tMat(0xffa838), tMat(0xf26a16), tMat(0xdc470c)];   // warm gold-orange → ember → deep-orange (reads as fire, never cream)
+  // A LAYERED drape: one dominant broad centre ribbon + finer flanking ribbons at graded lengths,
+  // all streaming AFT and settling low → reads as one graceful comet with inner structure, not a fan.
+  const nDraw = Math.min(Math.max(nRib, 3), 5);
+  for (let i = 0; i < nDraw; i++) {
+    const u = nDraw > 1 ? (i / (nDraw - 1)) - 0.5 : 0;   // −0.5 … 0.5 across the drape
     const cen = 1 - Math.abs(u) * 2;                     // 1 at centre → 0 at edges
-    // ONE dominant CENTRE ribbon (long + broad = the comet), edges short + fine → reads as a
-    // single graceful fire-TRAIL, not a fan. Bows UP-and-aft so it rises clear of the body and
-    // reads from directly behind (the chase cam), with a graceful terminal curl.
-    const rlen = baseLen * (0.32 + 0.68 * Math.pow(Math.max(cen, 0), 1.4));
-    const dir = [u * 0.30, 0.10 + 0.16 * lift, 1.0];
-    const side = [1, 0, 0];
-    const wid = (0.14 + 0.26 * Math.max(cen, 0)) * (0.7 + 0.3 * lift);   // centre BROAD, edges fine
-    const curve = 0.22 + 0.14 * (1 - cen);              // graceful S bow (rises up → visible from behind)
-    const curl = 0.30;                                  // graceful terminal curl (aft-up)
-    const base = [u * 0.07, a.y, a.z];                  // gathered roots at the anchor
+    const rlen = baseLen * (0.48 + 0.52 * Math.pow(Math.max(cen, 0), 1.2));
+    // Stream aft (+z dominant) and LEVEL — the drape sits at body height (y≈0.44), a distinct LOWER
+    // band than the wing streamers (which lift up-aft off the shoulders to y>0.7), and central in x
+    // (the wings flank it) → reads as its OWN comet. A gentle downward belly + a soft terminal lick
+    // give the hanging-drape grace while staying WELL clear of the {y<0.30} corridor over its length.
+    const dir = [u * 0.30, 0.0, 1.0];
+    const side = [1, 0, 0.15 * u];
+    const wid = (0.26 + 0.52 * Math.max(cen, 0)) * (0.74 + 0.26 * lift);   // broader → the tip stays a solid ribbon, never a subpixel sliver
+    const curve = -0.09 - 0.05 * (1 - cen);             // a gentle DOWNWARD belly (a hanging drape)
+    const curl = 0.16;                                  // soft terminal lick (kept small → stays clear of the wings)
+    const base = [u * 0.08, a.y - 0.05 * Math.abs(u), a.z + 0.04 * (1 - cen)];
     group.add(flameFeather(base, dir, side, rlen, wid, curve, ramp, curl).group);
   }
   return { group, segs, tailFins: null, accentMats: [M.goldfire, M.flame, M.crimson, M.orange] };
