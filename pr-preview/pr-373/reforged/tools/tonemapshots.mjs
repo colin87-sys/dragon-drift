@@ -31,16 +31,21 @@ const saveFor = `localStorage.setItem('dragonDriftSave', JSON.stringify({
   ascension: { tiers: [['${key}', 2]], radiance: [] },
   cosmetics: { marksOwned: [], markEquipped: '', formPref: [] },
   flags: { seenFirstSurge: true, hintsSeen: 9 },
-  settings: { reticle: false, slowMo: true, qualityOverride: null },
+  settings: { reticle: false, slowMo: true, qualityOverride: 0 },
 }))`;
+
+const FREEZE_DIST = 440; // freeze at a fixed COURSE distance so all three boots land on the same seeded frame
 
 const shots = {};
 for (const mode of MODES) {
+  // qualityOverride:0 pins tier0 → the composed OutputPass path (where the
+  // CustomToneMapping/Neutral branch lives), and a fixed freeze distance makes
+  // the three boots the same seeded frame — a fair tonal A/B.
   const query = `?debug&cleanshot&seed=${seed}&tm=${mode}`;
   const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 2, initScript: saveFor });
   await page.click('#btn-start').catch(() => {});
-  await page.waitForTimeout(2400);
-  await page.evaluate(() => { window.__dd.game.timeScale = 0; }); // freeze so all three land on the same beat
+  await page.waitForFunction((d) => window.__dd && window.__dd.game && window.__dd.game.distance >= d, FREEZE_DIST, { timeout: 25000 }).catch(() => {});
+  await page.evaluate(() => { window.__dd.game.timeScale = 0; }); // freeze the matched frame
   await page.waitForTimeout(120);
   const buf = await page.screenshot();
   writeFileSync(`/tmp/tm-${mode}.png`, buf);
