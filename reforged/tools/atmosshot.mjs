@@ -34,7 +34,11 @@ async function capture(dist, atmos, bank = false) {
   await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.distance >= 20, { timeout: 18000 }).catch(() => {});
   // Warp to the target biome and hold the boss off so the fog/sky settle cleanly.
   await page.evaluate((d) => { window.__dd.noBoss(true); window.__dd.player.dist = d; }, dist);
-  await page.waitForTimeout(1600); // let the world recycle + fog lerp to the biome
+  // Wait until the sim has actually advanced PAST the warp target (the world has
+  // recycled + the fog lerp has run) before freezing — a fixed sleep occasionally
+  // froze on a not-yet-rendered black frame.
+  await page.waitForFunction((d) => window.__dd.player.dist > d + 40, { timeout: 8000 }, dist).catch(() => {});
+  await page.waitForTimeout(1800); // fog/sky lerp toward the biome
   await page.evaluate(() => { window.__dd.game.timeScale = 0; });
   // Bank/pitch the (now-frozen) camera to prove the world reconstruction is
   // correct under rotation — the per-fragment fog recomputes against the rotated
