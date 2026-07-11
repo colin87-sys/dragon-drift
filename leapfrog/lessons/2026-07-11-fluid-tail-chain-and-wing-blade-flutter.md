@@ -58,8 +58,41 @@ was wrong, which is why the failure was a small residual, not gross.
 3. **Name your animated pivots** (`p.name='sunBladePivot'`, `pivot.name='sunfireTailPivot'`) so a probe
    can find them by `getObjectByName`/`traverse` without guessing among anonymous Groups.
 
+**Critic round (r46 → r47) — three things the harsh pass caught that the first cut got wrong, and
+the fixes are more reusable than the original:**
+
+- **A "vertical undulation" that reads as a pose, not motion, is a BIAS bug.** My first `undX` was
+  `undA·lock·(sin(…) − 0.35)` with `undA=0.05`: the `−0.35` DC term dominated the tiny sine, so a
+  numeric capture of `rotation.x` showed a monotonic drift (a static droop) with almost no oscillation
+  — and the rear-chase camera, which sees the tail END-ON, reads the vertical axis, so the one axis
+  that matters was the dead one. Fix: raise the amplitude until the **cumulative** tip-pitch RANGE is
+  comparable to the lateral wave's (0.20 vs 0.36 rad here), and *verify it as a ± range over frames*,
+  never a point sample. Also: phase-lag spreads CANCEL — `i·0.9` rad/joint over 4 joints (>½ cycle of
+  spread) killed half the cumulative swing; `i·0.7` recovered it. Match the coil's lag family when you
+  want the cumulative to survive.
+- **On a NESTED chain the per-joint rudder/coil COMPOUNDS** (world tip ≈ Σ locals ≈ 2.5× the base on a
+  4-joint tail). The single-joint tail turned ~30°; the same rig code on a 4-joint chain hooked to
+  ~77° — a J-rudder, not grace. The tell: a probe reading `n.rotation.y` returns LOCAL rotations; the
+  visible curl is their SUM. Fix = a nullable `tailRudderScale` (0.5) trimming the turn gain so the
+  *cumulative* lands where the single-joint one did (~25°). **When you multiply an element's joint
+  count, re-budget any per-joint gain against the new cumulative — the old constant now stacks.**
+- **Up-bias a vertical wave and its corridor-safety becomes BY CONSTRUCTION.** The corridor law only
+  bounds DOWN (low-aft mass). Bias the undulation so its most-DOWN phase sits at/above the rest pose
+  (here max cumulative pitch = −0.03 rad, i.e. still *up* of rest, because `sin(…) − 0.20` never goes
+  positive enough to pitch below rest): then the animated tail is bounded by the rest pose, the rest
+  pose already passes the static corridor gate, so **the animated tail passes too without a dynamic
+  sweep** — the "remove the freedom by construction, don't test for it" trick, applied to time instead
+  of space. Belt-and-braces: also multiply the undulation by `cruise` (= `1 − bankHard·0.7`) so a tail
+  yaw-swung into |x| on a hard bank can't simultaneously dip low.
+- **The `b.side` double-flip has a twin in verification:** a still frame cannot show whether "fluid"
+  is real. Bring the critic BOTH a pose strip (read/silhouette) AND a numeric per-joint amplitude table
+  (the wave actually travels) — the critic on r46 correctly refused to credit the vertical axis until
+  it saw ranges, not point samples. Believe the harsh read; it was right on all three.
+
 **→ Unlocks.** The pattern "add rig DOF by publishing a nested `isBone` chain / per-part pivots, offset
 to preserve rest, rippled by an existing nullable rig loop" is the general, roster-safe way to add
 fluidity to ANY welded element (tail, wing, mane, crest, boss appendage) with a byte-identical still.
-And the mirror-vs-sign double-flip rule applies to every `scale.x=−1` mirrored assembly that also feeds
-a per-side rig term.
+Plus three transferable rules banked this pass: (1) match phase-lag family to the cumulative you want;
+(2) re-budget per-joint gain when you add joints (locals compound); (3) up-bias a wave to make its
+corridor safety hold by construction. And the mirror-vs-sign double-flip rule applies to every
+`scale.x=−1` mirrored assembly that also feeds a per-side rig term.
