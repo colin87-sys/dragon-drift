@@ -128,6 +128,12 @@ lighting inputs already flow through one `computeEnv()`.
 
 Impact = visual wow (1–5). Cost = engineering effort + 60fps-mobile risk (1–5).
 
+> **External review (2026-07-11).** A submitted suggestion set was assessed by a high-effort Fable pass against
+> this backlog: ~80% was already covered (often in more detail), the "what not to do" list matched our standing
+> rejections, and **two genuinely new items were added — N14 (shading AA) and N15 (prop vertex AO)** — plus the
+> N10(d) reflection-blur note and the N5 Surge-rebake amendment. See the `Considered & rejected` appendix and
+> `leapfrog/lessons/2026-07-11-graphics-external-review-reconciled.md`.
+
 ### N1 — Gradient dithering + grain — Impact 4 / Cost 1
 **Goal:** kill sky/fog/water banding everywhere in one frame's work — the cheapest visible-quality jump here.
 **Technique:** interleaved gradient noise (Jimenez), ±0.5 LSB, in *display-referred* space — the last line of
@@ -233,9 +239,12 @@ export function updateSkyProbe(env) {          // env = computeEnv() output
 ```
 **Rung 2 (tier0 + shop): specular PMREM.** `PMREMGenerator.fromScene` with only the sky dome visible, 64–128px,
 → `scene.environment` — every MeshStandardMaterial gets roughness-filtered sky reflections. Bake policy: shop/
-menu always (paused, free — the shop is the hero showroom); in-run tier0 only at biome seams (3 staged bakes
-across the crossfade, each on a menu-grade idle slice), hard-gated behind `?env=pmrem` until measured on a real
-phone. If mid-run bakes hitch, ship rung 2 shop-only + run-start-only — still a big win.
+menu always (paused, free — the shop is the hero showroom); in-run tier0 only at **event boundaries** (3 staged
+bakes across each biome crossfade, each on a menu-grade idle slice) — **and add a Dragon Surge on/off pair**,
+since `feverMix` re-tints the sky enough to matter. Hard-gated behind `?env=pmrem` until measured on a real
+phone. **Reject a fixed-cadence (e.g. 0.5s) re-bake:** between seams the dome is piecewise-constant, so a timed
+refresh re-bakes an unchanged environment ~90% of a run and turns an amortizable cost into a ~2 Hz GPU-spike —
+the most perceptible jank shape on a 60fps budget. If mid-run bakes hitch, ship rung 2 shop-only + run-start-only.
 **Coexist / hero:** probe intensity 0 = shipped look; prove on Azure in the shop, then Sanctuary props.
 **Verify:** `tests/skyprobe.mjs` — pure math (SH of constant sky == that constant; monotonic lerp across a seam;
 JS `skyColorAt` matches the GLSL gradient at N directions to 1e-3). **Tiers:** tier0 = probe + PMREM;
@@ -335,6 +344,11 @@ The floor is the second-largest surface; give it silhouette, volume, and world i
   otherwise (the existing parking idiom). One draw call, zero passes; visually welds towers/crystals into the sea.
 - **Reflection cost (with N11):** clamp the mirror camera far to `fogFar+50`, and render the 768² mirror every
   other frame (specular changes slowly) — typically halves the biggest tier0 GPU line-item.
+- **(d) Roughness-blurred reflection (optional; tier0-only, contingent on the N11 half-rate feel call).** Set
+  `generateMipmaps + LinearMipmapLinearFilter` on the Reflector RT and sample with a LOD bias
+  (`textureProj(tDiffuse, proj, uReflBlur*k)`), `uReflBlur` driven by per-biome `waveAmp` (already in
+  `sharedUniforms`); `uReflBlur=0` = shipped. Its real value is **masking the half-rate mirror staleness** N10/N11
+  introduce, so only add it if the half-rate judder shows on preview.
 **Coexist / hero:** each sub-feature flag/uniform-gated; hero = Sanctuary dusk (reflective) + Frozen Reach
 (glassiest). **Verify:** `tests/water.mjs` (JS/GLSL wave parity; both `USE_REFLECTION` variants compile; foam
 instancing math); `?debug=perf` before/after. **Human judges:** horizon swell; foam pulse; reflection half-rate
@@ -371,6 +385,58 @@ uniforms (already lerped in `computeEnv()`). Stateless wrap removes CPU update a
 (no inter-particle forces / 100k counts needed — a vertex-shader field hits the same look for a tenth the code).
 New `weather.js`, per-biome opt-in, Frozen Reach hero. **Tiers:** 4000 / 1600 / 600.
 
+### N14 — Shading anti-alias (specular + emissive) — Impact 3 / Cost 1
+**Goal:** stop the thin wing fins/veins, the perturbed-normal scales, and the water sun-streak from shimmering.
+MSAA supersamples *geometry edges*, not *shading*, and the three surfaces that sparkle all sit **outside** r160's
+built-in `geometryRoughness` specular-AA path: the SurfaceShader emissive terms add `pow(1-N·V, k)` energy to
+`totalEmissiveRadiance` with no filtering; `cellularScalesNormal` perturbs the normal *after* `geometryRoughness`
+was computed; and the water sun-streak is a hand-rolled `pow(dot(Ns,H),240)`. The artifact **peaks in this
+plan's own future** (N5 rung 2 specular + N7 sun-driven emissive raise high-frequency shading), and an aliasing
+emissive flickering across the bloom threshold (1.0, linear) becomes **bloom sparkle** — so taming it stabilizes
+bloom too.
+**Technique (all `fwidth`-based, r160-core, zero-asset, uniform-zero default):**
+```glsl
+// water.js sun-streak (uSpecAA: 0 = shipped):
+float sa = dot(fwidth(Ns), fwidth(Ns));
+float n  = 240.0 / (1.0 + uSpecAA * 240.0 * sa);      // variance-widened exponent
+float spec = pow(max(dot(Ns,H),0.0), n) * mix(1.0, n/240.0*0.5+0.5, uSpecAA);
+// dragonSurfaceShader.js emissive drivers (uEmisAA: 0 = shipped), one shared value object:
+fres /= 1.0 + uEmisAA * fwidth(vDotN) * uRimPower * 8.0;
+// cellularScalesNormalPatch: floor roughness by perturbation magnitude:
+roughnessFactor = max(roughnessFactor, clamp(uEmisAA * length(_scdH) * 2.0, 0.0, 0.3));
+```
+Add `uSpecAA` to water's `sharedUniforms` (survives the reflective↔cheap rebuild — the `fogFarColor` lesson);
+add `uEmisAA` once via the `composeSurface` per-patch uniform merge. Leave the `step()` sun-glints alone (they
+twinkle by design). **Coexist / hero:** defaults 0.0 = proven identity; `?saa=1` flips both for A/B; hero = Azure
+(feather fins are the thin-emissive case). **Verify:** `tests/shadingaa.mjs` string-asserts the fwidth terms +
+zero defaults in all three sources; `tools/shimmershot.mjs` renders the same seeded frame twice with a half-pixel
+camera jitter and asserts per-pixel variance in the sun-streak band **drops** with the flag on (the temporal
+analogue of `bandshot`). **Tiers:** ON at all tiers once approved — *most* valuable at tier2 (pixelRatio 1, no
+composer MSAA); still route the values through an `applyQuality` shared write so a future tier decision has a
+switch. **Roadmap:** end of **Phase 1** (after N5 rung 2 + N7, where the artifact peaks; the water term may ride
+N10a in Phase 2 to touch `water.js` once).
+
+### N15 — Boot-baked procedural prop vertex AO — Impact 3 / Cost 1
+**Goal:** the #1 fix for "toy-like" props — dark column bases, arch/dome undersides, glowcap stems — grounding
+the fleet. It's **100% procedural** (boot-time-computed vertex attribute, no asset file, deterministic), not an
+"asset bake", and it **compounds with N5**: uniform SH irradiance with zero occlusion makes props float *harder*,
+so this matters more after the probe lands. Vertex resolution is enough because the missing term is low-frequency.
+**Technique:** new `js/propAO.js`, called once per archetype from `mergeParts()`/`def.build()` in
+`environment.js` (15 archetypes, boot-time). Default heuristic bake: per-vertex `ao = 1 - aoAmt*w`, `w` from
+(i) `1 - clamp(y/maxY,0,1)` (bases), (ii) `clamp(-normal.y,0,1)` (undersides/eaves/bellies — flat shading already
+face-splits verts, so it's crisp), (iii) an optional part-proximity crevice term. Write as a `color`
+BufferAttribute; set `vertexColors:true` on the 12 shared prop materials in `makeMats()`. Optional `?ao=ray` rung:
+16-ray hemispherical `THREE.Raycaster` self-occlusion (few hundred verts × <500 tris/archetype — bounded, no BVH).
+**Interaction audit (all clean):** `vertexColors` multiplies **`diffuseColor` only** → emissive seams/biolume/
+crystal glow are NOT occluded (correct); `instanceColor` biome tints multiply independently; `addPropDetail` noise
+compounds; darkened diffuse auto-attenuates the N5 probe pickup. Bake **after** `mergeGeometries` so indices align.
+**Coexist:** `?ao=0` writes an all-1.0 attribute → byte-identical (the attribute-identity analogue of uniform-zero).
+**Verify:** `tests/propao.mjs` (CI-safe math: `column` bottom-decile AO < top-decile; `archruin` down-facing verts
+darker than up-facing; determinism; values in `[floor,1]`); local `gameshots` A/B in Sanctuary. **Human judges:**
+glowcap stems in Lumen Mire at night — AO must not kill the biolume read. **Tiers:** all (baked data, zero
+marginal cost — no `applyQuality` entry needed; state so in the PR for the Gate-2 tier row). **Roadmap:**
+**Phase 2 opener**, before N9's 6-biome montage so the montage banks it.
+
 ---
 
 ## Sequenced roadmap
@@ -379,15 +445,16 @@ New `weather.js`, per-biome opt-in, Frozen Reach hero. **Tiers:** 4000 / 1600 / 
   initiative starts until it passes.
 - **Phase 0 — Foundations & free wins (do first):** N2 → N1 → N3 scaffolding → N3 decision → N4. Nothing changes
   the shipped look without a flag. Exit: banding gate green, <100 draw calls, tone-map montage approved.
-- **Phase 1 — Hero look (Azure):** N5 rung 1 → N6 → N7 → N5 rung 2. Hero-first, judged on Azure in the shop
-  scene + chase cam. Exit: the "bank across the sun" shot approved.
-- **Phase 2 — World & atmosphere:** N8 → N9 (Sanctuary hero biome) → N10 (a/b/c separate PRs) → N11 last (needs
+- **Phase 1 — Hero look (Azure):** N5 rung 1 → N6 → N7 → N5 rung 2 → **N14 (shading AA, where the artifact now
+  peaks)**. Hero-first, judged on Azure in the shop scene + chase cam. Exit: the "bank across the sun" shot approved.
+- **Phase 2 — World & atmosphere:** **N15 (prop AO, opener)** → N8 → N9 (Sanctuary hero biome) → N10 (a/b/c
+  separate PRs) → N11 last (needs
   N10's reflection perf wins). Exit: 6-biome montage vs current, side by side; tier1 pinned-device 60fps check.
 - **Phase 3 — Polish & identity:** N12 → N13 → deferred candy (boss shadow via N6, boss atmosphere binding,
   per-boss split-tone). Each phase ends with a Fable phase-review against the 9–10 bar.
 
-**PR estimate:** ~18–24 PRs, target ~20 (Phase 0: 5 · Phase 1: 4–5 · Phase 2: 6 · Phase 3: 3–5), plus ~20 per-PR
-Fable gates and 4 phase-reviews (gates/reviews are not PRs).
+**PR estimate:** ~20–26 PRs, target ~22 (Phase 0: 5 · Phase 1: 5–6 incl. N14 · Phase 2: 7 incl. N15 · Phase 3:
+3–5), plus a per-PR high-effort Fable gate each and 4 phase-reviews (gates/reviews are not PRs).
 
 ---
 
@@ -400,6 +467,23 @@ Fable gates and 4 phase-reviews (gates/reviews are not PRs).
 under `three/webgpu`, measuring weak-phone frame-time headroom + the WebGL2 fallback + the TSL cost of one
 SurfaceShader patch. **Decision rule: reopen only if the prototype shows ≥25% frame-time headroom on the
 weak-mobile floor, or a design need for true compute appears (e.g. 100k-particle murmurations).**
+
+---
+
+## Considered & rejected *(so we don't relitigate)*
+
+- **TAA** — no motion vectors; ghosting on the fast chase cam. (AA is settled: MSAA-RT tier0/1, FXAA tier2 — N2/N12.)
+- **SSR** — the planar `Reflector` mirror is already optimal for a flat sea; screen-space would only add edge dropout.
+- **Depth-texture SSAO** — content mismatch (open sea + sparse props ≈ no occluding contact geometry that N15's
+  baked AO doesn't ground for free) *and* pipeline mismatch (a depth texture forces dropping the composer's
+  4×MSAA HalfFloat RT or an explicit resolve — its real cost includes losing the N2 AA decision). N15 delivers the
+  wanted grounding at zero runtime cost.
+- **`MeshPhysicalMaterial` transmission/iridescence** — deliberately hand-rolled cheaper mobile versions (N7 +
+  the `dragonSurfaceShader.js` header); per-pixel physical is too expensive on weak mobile.
+- **Runtime texture-LUTs / blue-noise PNGs** — violate the zero-asset identity. The grade is parametric (N12);
+  N1's dither is **computed** interleaved-gradient noise, not a PNG.
+- **Motion blur** — fights the danmaku bullet-clarity readability laws.
+- **Raising the pixel-ratio cap** (`min(dpr, 2)`) — the tier system spends headroom on effects, not raw pixels.
 
 ---
 
