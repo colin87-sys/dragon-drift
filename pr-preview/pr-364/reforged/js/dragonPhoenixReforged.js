@@ -31,7 +31,7 @@ const TORSO_Y = 0.2;
 function sunhawkMats(def, glow, stage) {
   const st = Math.max(0, Math.min(3, Math.round(stage ?? 3)));
   const g = glow ?? 1;
-  const bodyI = [0.18, 0.36, 0.5, 0.62][st] * g;    // body-field glow, capped (Surge headroom)
+  const bodyI = [0.22, 0.46, 0.64, 0.8][st] * g;    // body-field FIRE glow (whole creature burns)
 
   // T1 GOLDFIRE — the big glowing BODY FIELD (the whole creature burns). Form-laddered hue:
   // dark ember chick → warm goldfire. This is the `ivory` key so torso/head/collar glow fire.
@@ -39,9 +39,12 @@ function sunhawkMats(def, glow, stage) {
   const fieldEmis = st === 0 ? 0x6e1c06 : (def.goldfire ?? 0xe69b1f);
   const ivory = new THREE.MeshStandardMaterial({ color: fieldCol, emissive: fieldEmis, emissiveIntensity: bodyI, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide });
   ivory.userData.baseEmissive = fieldEmis; ivory.userData.baseIntensity = bodyI;
-  // GOLDFIRE (explicit hot-gold, for flame-feather HOT roots / shafts) — a touch hotter.
-  const goldfire = new THREE.MeshStandardMaterial({ color: 0x9a5e12, emissive: def.goldfire ?? 0xe69b1f, emissiveIntensity: Math.max(bodyI, 0.28 + 0.12 * st) * g, flatShading: true, roughness: 0.46, metalness: 0.05, side: THREE.DoubleSide });
-  goldfire.userData.baseEmissive = def.goldfire ?? 0xe69b1f; goldfire.userData.baseIntensity = goldfire.emissiveIntensity;
+  // GOLDFIRE (the HOT gold-white core, for the inner wing membrane + flame-feather hot roots).
+  // Pushed genuinely bright + hot-hued so the roots read WHITE/GOLD-HOT (the refs' incandescent
+  // hearts), the cool crimson tips reading against it → real combustion, not matte tan.
+  const gfEmis = def.goldfire ?? 0xffbe4a;
+  const goldfire = new THREE.MeshStandardMaterial({ color: 0xc07818, emissive: gfEmis, emissiveIntensity: Math.max(bodyI, 0.5 + 0.22 * st) * g, flatShading: true, roughness: 0.42, metalness: 0.05, side: THREE.DoubleSide });
+  goldfire.userData.baseEmissive = gfEmis; goldfire.userData.baseIntensity = goldfire.emissiveIntensity;
 
   // T2 FLAME — mid heat (mid-wing flame-feathers, dorsal licks, warm underwing).
   const flameCol = def.flame ?? 0xd9541a;
@@ -332,10 +335,10 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
   let coreGlow = null;
   const lvl = 0.4 + M.stage * 0.2;
   coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlow('255,190,110'), transparent: true, opacity: 0.16 + lvl * 0.26,
+    map: makeGlow('255,190,110'), transparent: true, opacity: 0.1 + lvl * 0.14,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  coreGlow.scale.setScalar(0.8 + lvl * 0.8);
+  coreGlow.scale.setScalar(0.5 + lvl * 0.5);   // tamed — was reading as a chest explosion (critic P1)
   coreGlow.position.set(hx, hy, hz - 0.05);
   coreGlow.layers.set(1);
   coreGlow.userData.base = coreGlow.material.opacity;
@@ -495,87 +498,77 @@ function buildOneSunWing(M, model) {
   const TOP = (t, f) => { const l = L(t), c = chord(t); return [l[0], l[1] + camber(f) * c, l[2] + f * c]; };
   const BOT = (t, f) => { const l = L(t), c = chord(t); return [l[0], l[1] + (camber(f) - THICK) * c, l[2] + f * c]; };
 
-  // ── THE ARM — a lofted tapered GOLD spar-limb along the inner lead (the one gilt line the
-  // fire streams off). Real chord thickness at the shoulder.
+  // ── THE ARM — a lofted tapered GOLD spar-limb along the inner lead (the one gilt line).
   const armTs = [0, 0.14, 0.28, 0.42], armR = [0.13, 0.11, 0.085, 0.06];
   const armRings = armTs.map((t, i) => { const l = L(t); return { z: l[2], rx: armR[i] * ws, ry: armR[i] * 1.1 * ws, cy: l[1], cx: l[0] }; });
   wg.add(loftRings(armRings, M.gold, seg(6), false));
 
-  // ── THE UNDERWING — a warm FLAME belly (inboard to ~0.85 chord) that BACKS the fire-feathers
-  // so the gaps read as warm shadow, not see-through sky. NO hard trailing rim: the streaming
-  // flame-feathers (below) ARE the trailing edge (the owner's "trailing flame feathers").
-  const memTs = [0, 0.14, 0.28, 0.42, 0.56, 0.70];
-  for (let i = 0; i < memTs.length - 1; i++) {
-    const t0 = memTs[i], t1 = memTs[i + 1];
-    wg.add(flatTriMesh([[BOT(t0, 0), BOT(t1, 0.85), BOT(t1, 0)], [BOT(t0, 0), BOT(t0, 0.85), BOT(t1, 0.85)]], M.bronze));
+  // ── INNER FIRE MEMBRANE — a SMALL glowing GOLDFIRE web backing the INNER wing only (span
+  // 0→0.42), so the wing root reads as solid HOT fire — never a black plank (the critic's #1),
+  // never see-through. The OUTER wing is PURE streaming flame-feathers (no membrane) — the ref.
+  const inTs = [0, 0.14, 0.28, 0.42];
+  for (let i = 0; i < inTs.length - 1; i++) {
+    const t0 = inTs[i], t1 = inTs[i + 1];
+    wg.add(flatTriMesh([[TOP(t0, 0), TOP(t1, 0), TOP(t1, 0.88)], [TOP(t0, 0), TOP(t1, 0.88), TOP(t0, 0.88)]], M.goldfire));
+    wg.add(flatTriMesh([[BOT(t0, 0), BOT(t1, 0.88), BOT(t1, 0)], [BOT(t0, 0), BOT(t0, 0.88), BOT(t1, 0.88)]], M.goldfire));
   }
 
-  // span → FIRE hue ramp (root-hot goldfire inner → crimson outer). Grace = flow, not a grid.
-  const rampAt = (t) => t < 0.40 ? [M.goldfire, M.goldfire, M.flame]
-    : t < 0.70 ? [M.goldfire, M.flame, M.flame]
-      : [M.flame, M.flame, M.crimson];
-  const rampHot = [M.goldfire, M.goldfire, M.flame];
+  // span → FIRE hue ramp (root-hot goldfire → crimson tip). Grace = flow, not a grid.
+  const rampAt = (t) => t < 0.42 ? [M.goldfire, M.goldfire, M.flame]
+    : t < 0.70 ? [M.goldfire, M.flame, M.crimson]
+      : [M.flame, M.crimson, M.crimson];
   const rampTrail = [M.flame, M.crimson, M.crimson];
 
-  // ── LEADING FLAME-LICKS — a sparse row of short hot licks that lift UP-and-out off the
-  // leading edge, so the leading edge reads CURVED + ALIGHT, not a straight spar (owner note).
-  const nLead = Math.max(2, Math.round(covertN * 0.5));
-  for (let i = 0; i < nLead; i++) {
-    const u = nLead > 1 ? i / (nLead - 1) : 0.5, t = 0.08 + u * 0.5, l = L(t);
-    wg.add(flameFeather([l[0], l[1] + 0.02, l[2] - 0.01], [0.40, 0.34, -0.08], [1, 0, 0.3], (0.34 + 0.14 * Math.sin(Math.PI * u)) * ws, 0.13 * ws, 0.06, rampHot).group);
+  // ── MAIN FIRE-FEATHERS — FEW, LARGE, CURVED, size-graded, VARIED-width flame-feathers combed
+  // aft-outboard across the span (alternating BROAD ⇄ narrow → variation, never a picket fence).
+  // They BUILD the wing surface AS fire; each BOWS gracefully (real curve, not a spike) and
+  // hue-ramps root→tip. Restraint = grace: few + large + flowing. Count ladders with the dials.
+  const nMain = Math.max(3, Math.min(6, Math.round(secN)));
+  for (let i = 0; i < nMain; i++) {
+    const u = nMain > 1 ? i / (nMain - 1) : 0.5;
+    const t = 0.08 + u * 0.82, l = L(t), cc = chord(t);
+    const broad = (i % 2 === 0);
+    const len = (1.0 + 0.85 * Math.sin(Math.PI * u)) * cc * (broad ? 1.15 : 0.82);
+    const wid = (broad ? 0.54 : 0.30) * cc;                   // dramatic width variation
+    const dir = [0.22 + 0.42 * u, -0.02, 1];                  // comb aft-outboard (flow)
+    const curve = 0.13 + 0.07 * u;                            // real graceful BOW, not a straight spike
+    const base = [l[0], l[1] + camber(0.42) * cc + 0.05, l[2] + 0.42 * cc];
+    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, curve, rampAt(t), 0.05 * ws).group);
   }
 
-  // ── THE FIRE-FEATHER RANKS — TWO COMBED sweeps of FEWER, LARGER, size-graded flame-feathers
-  // (the anti-quilt: varied length + curved flow + a per-feather hue gradient, NOT a clone
-  // grid). They comb to a common aft-outboard streamline and BUILD the wing surface AS fire —
-  // hot gold inner, ramping to flame/crimson outboard; each feather's own root→tip ramp = the
-  // combustion. Restraint = grace: few + large.
-  const sweeps = [
-    { n: Math.max(3, Math.round(covertN * 0.7)), tA: 0.06, tB: 0.50, seat: 0.32, lenK: 0.95, rake: 0.22, curve: 0.05 },
-    { n: Math.max(4, Math.round(secN * 0.95)), tA: 0.12, tB: 0.84, seat: 0.52, lenK: 1.25, rake: 0.42, curve: 0.09 },
-  ];
-  for (const sw of sweeps) {
-    for (let i = 0; i < sw.n; i++) {
-      const u = sw.n > 1 ? i / (sw.n - 1) : 0.5;
-      const t = sw.tA + u * (sw.tB - sw.tA), l = L(t), cc = chord(t);
-      const jit = Math.sin(i * 5.7) * 0.05;                                  // seeded pitch jitter → organic scallop
-      const len = (sw.lenK * (0.6 + 0.6 * Math.sin(Math.PI * u))) * cc;      // longest MID-span, no two alike
-      const wid = (0.36 - 0.08 * Math.abs(u - 0.5) * 2) * cc;
-      const dir = [sw.rake * (0.4 + u) + jit, -0.03, 1];                     // comb aft-outboard (flow, not lattice)
-      const base = [l[0], l[1] + camber(sw.seat) * cc + 0.05, l[2] + sw.seat * cc];
-      wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, sw.curve, rampAt(t)).group);
-    }
-  }
-
-  // ── TRAILING FIRE STREAMERS — long S-tapered flame-feathers OFFSET off the trailing/outer
-  // edge, raked AFT-and-up with GAPS (sky shows through) + a graceful terminal CURL → streaming
-  // fire, the owner's "trailing flame feathers". Graded lengths (centre-outer longest), crimson
-  // tips. These ARE the wing's trailing silhouette (no hard rig line shows).
-  const nStream = Math.max(3, Math.round(secN * 0.9));
+  // ── TRAILING STREAMERS — FEW (≤4), LONG, strongly CURVED, VARIED-width licks off the outer
+  // trailing edge (broad ⇄ thin), streaming aft-and-up with a graceful terminal curl → FLOWING
+  // fire, not straight red needles (the critic's picket-fence fix). Graded lengths; crimson tips.
+  const nStream = Math.max(2, Math.min(4, Math.round(secN * 0.6)));
   for (let i = 0; i < nStream; i++) {
     const u = nStream > 1 ? i / (nStream - 1) : 0.5;
-    const t = 0.18 + u * 0.72, l = L(t), cc = chord(t);
-    const len = (1.3 + 0.9 * Math.sin(Math.PI * (0.25 + 0.6 * u))) * ws;     // long, centre-outer longest
-    const wid = (0.22 - 0.05 * Math.abs(u - 0.5) * 2) * ws;
-    const dir = [0.14 + 0.34 * u, 0.10 + 0.06 * u, 1];                        // aft + gently up (into the empty sky)
-    const base = [l[0], l[1] + camber(0.85) * cc, l[2] + 0.85 * cc];         // rooted at the trailing edge, offset past it
-    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.12, rampTrail, 0.14 * ws).group);
+    const t = 0.34 + u * 0.56, l = L(t), cc = chord(t);
+    const len = (1.6 + 1.0 * Math.sin(Math.PI * (0.3 + 0.5 * u))) * ws;
+    const wid = (i % 2 ? 0.13 : 0.24) * ws;                   // vary broad ⇄ thin
+    const dir = [0.20 + 0.42 * u, 0.08, 1];                   // aft + gentle up (into the empty sky)
+    const base = [l[0], l[1] + camber(0.9) * cc, l[2] + 0.9 * cc];
+    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.22, rampTrail, 0.22 * ws).group);
   }
 
-  // ── STRUCTURAL PRIMARY FINGERS — a few emarginated eagle fingers UNDER the fire fringe, for
-  // the wing SILHOUETTE + the no-curl contract (terminal aft-and-DOWN, never up/in). Gilt→amber,
-  // read as the fingered eagle-hand inside the flame.
+  // ── LEADING LICKS — just 2 short hot licks lifting off the leading edge (curved + alight).
+  for (let i = 0; i < 2; i++) {
+    const t = 0.18 + i * 0.22, l = L(t);
+    wg.add(flameFeather([l[0], l[1] + 0.02, l[2] - 0.01], [0.42, 0.36, -0.08], [1, 0, 0.3], 0.36 * ws, 0.12 * ws, 0.09, [M.goldfire, M.goldfire, M.flame]).group);
+  }
+
+  // ── STRUCTURAL PRIMARY FINGERS — 3 emarginated eagle fingers UNDER the fire, for the wing
+  // SILHOUETTE + the no-curl contract (terminal aft-and-DOWN, never up/in). Gilt→amber.
   const carpal = TOP(0.70, 0.5);
-  const nFing = Math.max(2, Math.min(fingerN, 4));
+  const nFing = Math.max(2, Math.min(fingerN, 3));
   const tips = [];
   for (let i = 0; i < nFing; i++) {
     const u = nFing > 1 ? i / (nFing - 1) : 0.5;
-    const ang = 0.22 + (0.16 + 0.50 * u) * (0.4 + 0.6 * split);
+    const ang = 0.24 + (0.16 + 0.50 * u) * (0.4 + 0.6 * split);
     const droop = 0.08 + 0.06 * u;                                 // DOWN at the tip (anti-curl)
     const dir = [Math.cos(ang), -droop, Math.sin(ang)];
     const side = [-Math.sin(ang), 0, Math.cos(ang)];
-    const len = (1.0 + 0.6 * Math.sin(Math.PI * u)) * ws;
-    const wid = (0.26 - 0.08 * Math.abs(u - 0.5) * 2) * ws;
+    const len = (1.0 + 0.5 * Math.sin(Math.PI * u)) * ws;
+    const wid = (0.24 - 0.07 * Math.abs(u - 0.5) * 2) * ws;
     wg.add(kiteFeather([carpal[0], carpal[1], carpal[2]], dir, side, len, wid, 0.06, M.gold, M.bronze, M.roseGold));
     tips.push([carpal[0] + dir[0] * len, carpal[1] + dir[1] * len, carpal[2] + dir[2] * len]);
   }
@@ -635,8 +628,9 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   for (let i = 0; i < nRib; i++) {
     const u = nRib > 1 ? (i / (nRib - 1)) - 0.5 : 0;      // −0.5 … 0.5 across the drape
     const rlen = baseLen * (0.5 + 0.5 * (1 - Math.abs(u) * 2));   // CENTRE ribbon longest (the comet point)
-    // an elegant S: rake AFT + a real UP lift, gentle splay, a graceful terminal CURL (aft-up).
-    const dir = [u * 0.38, 0.16 + 0.30 * lift, 1.0];
+    // an elegant S: stream mostly AFT (a distinct comet-drape BEHIND her, not lost up in the
+    // wing fire), a gentle UP lift + splay, a graceful terminal CURL. Longer than any wing feather.
+    const dir = [u * 0.30, 0.08 + 0.18 * lift, 1.0];
     const side = [1, 0, 0];
     const wid = (0.26 - 0.06 * Math.abs(u) * 2) * (0.7 + 0.3 * lift);
     const curve = 0.16 + 0.10 * Math.abs(u);             // gentle S bow (up)
