@@ -282,6 +282,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.fog = new THREE.Fog(0xf2c694, 85, 430);
 
   // --- Sky dome: biome-lerped gradient with a low sun ahead of the player.
+  // ⚠ This gradient is ported to JS in skyProbe.js `skyColorAt` (the N5 sky-IBL
+  // probe samples it for ambient light). If you change the band math / sun glow
+  // below, update skyColorAt AND tests/skyprobe.mjs together or the ambient drifts.
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,

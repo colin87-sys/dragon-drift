@@ -41,6 +41,15 @@ const ibl = await page.evaluate(() => {
 });
 check('SKY LIGHTING on: probe active + hemi dropped to fill', ibl.probeI > 0 && ibl.hemiI < 0.5);
 check('SKY LIGHTING persisted', ibl.saved === true);
+// Toggling back OFF must restore the shipped ambient EXACTLY (probe 0, hemi 0.8).
+await page.click('.seg-btn[data-gfx="skyIbl"][data-val="0"]');
+await page.waitForTimeout(120);
+const iblOff = await page.evaluate(() => {
+  let probe = null, hemi = null;
+  window.__dd.scene.traverse((o) => { if (o.isLightProbe) probe = o; if (o.isHemisphereLight) hemi = o; });
+  return { probeI: probe && probe.intensity, hemiI: hemi && hemi.intensity };
+});
+check('SKY LIGHTING off restores shipped ambient exactly (probe 0, hemi 0.8)', iblOff.probeI === 0 && Math.abs(iblOff.hemiI - 0.8) < 1e-6);
 
 // Back to CLASSIC restores ACES exposure live.
 await page.click('.seg-btn[data-tm="aces"]');

@@ -519,6 +519,18 @@ run local/on-demand; only math + plumbing tests gate CI).
 
 ---
 
+## Discovered backlog *(found while building)*
+
+- **N16 — Environment prop art pass.** Turning on N5 sky-IBL made it obvious that the world props (the pillars /
+  ruins / obstacle geometry) are low-effort placeholders — flat, blocky, thin materials that "hid" under the old
+  flat ambient and now read as cheap once the sky actually lights them. **Good lighting exposes weak assets.**
+  N15's baked vertex AO helps ground them cheaply, but they want real work: better silhouettes/geometry, surface
+  shader treatment (the prop-detail noise + N8 atmosphere binding), and per-biome material identity. Bigger than a
+  shader initiative — schedule it in Phase 2/3 alongside the world work, and treat every lighting upgrade (N5/N7)
+  as raising the bar the props must meet. (Owner-flagged, 2026-07-11.)
+
+---
+
 ## Gate Log
 
 One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable review. Append as work lands.
@@ -529,3 +541,4 @@ One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable 
 | #373 Phase 0 | N1 gradient dither | 8.5/10 | SHIP | placement/amplitude verified; `?dither=0` = exact identity; tier2 sky/water copies deferred; gate margin added |
 | #373 Phase 0 | N3 tonemap scaffold | 5.5→SHIP | REVISE→fixed | Gate caught: vendored `OutputPass` had no `CustomToneMapping` branch → `?tm=neutral` was untonemapped on tier0/1. Patched `OutputPass.js`+`OutputShader.js`, reshot montage at pinned tier0, restamped `sw.js`, fixed idempotence test |
 | #376 N4 | N4 ParticleBatch | 7.5→SHIP | REVISE→fixed | Billboard/blend parity verified vs vendored sprite shader; 150 draws→1. Gate caught: `BATCH_FRAG` lacked `tonemapping`/`colorspace` chunks → tier2 (direct-to-screen) sparks skipped ACES+sRGB, read ~25-35% dimmer. Added the two includes (auto-gated per render target); `pfxshot` now shoots tier0+tier2. Fog left as documented deviation (near-field bursts unaffected) |
+| #376 N5 | N5 sky-IBL rung 1 | 7→SHIP | REVISE→fixed | SH **radiance** convention + `4π/N` weight independently verified correct. Gate caught: Fibonacci lattice double-weighted the poles → spurious −0.057 band-2 in a constant sky. Fixed `(i+0.5)/n`; added the spec's `tests/skyprobe.mjs` (5/5, catches it); rebalanced `PROBE_INTENSITY` 1.15→0.62 (was ~3× shipped red ambient / read as an exposure shift); drift-guard comment + lesson. Surge/EMBERTIDE sky states = documented deviation |
