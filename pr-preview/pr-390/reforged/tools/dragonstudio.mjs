@@ -42,6 +42,7 @@ const STATES = [
   { name: 'fold',  bgs: ['pale'],                 angles: BODY_ANGLES },
   { name: 'bank',  bgs: ['pale'],                 angles: BODY_ANGLES },
   { name: 'face',  bgs: ['pale'],                 angles: FACE_ANGLES },
+  { name: 'surge', bgs: ['dark'],                 angles: BODY_ANGLES },   // withheld-motif ignition, on the dark sky (matched pair vs glide-dark)
 ];
 
 mkdirSync('reforged-captures', { recursive: true });

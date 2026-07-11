@@ -67,9 +67,16 @@ function vesperMats(def, glow, stage) {
   // Constellation speckle — a DIMMED moon-grey (a notch below the sheet's 0xc9d4e2)
   // so the diffuse flecks read as faint stars on the black wing without becoming the
   // second-brightest surface after the eyes on a dark sky (Fable I2 gate, issue 1).
-  const speckle = new THREE.MeshStandardMaterial({ color: 0x9aa6b6, emissive: 0x000000, flatShading: true, roughness: 0.62, metalness: 0.03, side: THREE.DoubleSide });
-  speckle.envMapIntensity = 0.15;
-  return { bodyFlat, belly, dorsalFacet, glassStreak, speckle, stage: st };
+  const speckle = new THREE.MeshStandardMaterial({ color: 0x656f7e, emissive: 0x000000, flatShading: true, roughness: 0.66, metalness: 0.03, side: THREE.DoubleSide });
+  speckle.envMapIntensity = 0.12;
+  // THE STARLIT SEAM — ion-blue, WITHHELD entirely in cruise. baseIntensity is set
+  // near-zero so at rest the inset seam reads black (the cruise-black law holds — only
+  // the eyes carry light); the shipped surge tick multiplies it by (1 + 0.9·sgm) with
+  // a HIGH surgeGlowMultiplier so ONLY the Night Surge blazes it to ion-blue → surgeHi.
+  // It goes in the surge arrays (spineMats); the eyes stay OUT. Diffuse stays dark blue.
+  const seam = new THREE.MeshStandardMaterial({ color: 0x0a1024, emissive: 0x2050e8, emissiveIntensity: 0.04, flatShading: true, roughness: 0.5, metalness: 0, side: THREE.DoubleSide });
+  seam.userData.baseEmissive = 0x2050e8; seam.userData.baseIntensity = 0.04;   // surge lerps → surgeHi 0x4d86ff
+  return { bodyFlat, belly, dorsalFacet, glassStreak, speckle, seam, stage: st };
 }
 
 // ── The chined heptagon cross-section (unit points, CCW viewed +x-right/+y-up) ──
@@ -184,8 +191,29 @@ function buildKnappedTorso(def, model, _bodyMat) {
     group.add(flatTriMesh(strip, M.glassStreak));
   }
 
-  // Nape motif-anchor (the Starlit Seam seats here; wired in I4). Publishing it now
-  // is a documented crash-guard (parts read attach.motifAnchor).
+  // THE STARLIT SEAM (dorsal) — an INSET ion-blue groove along the ridge, WITHHELD in
+  // cruise (the seam mat's near-zero base reads black; only the Surge lights it). The
+  // seamRun ladder carves it progressively: f0 a single nape NOTCH, f1 to mid-spine,
+  // f2/f3 the full spine. Seated a hair BELOW the glass-streak so it reads as a carved
+  // groove between facets, not a raised rib. Pushed into spineMats (the surge tick).
+  const spineMats = [];
+  const seamRun = model.seamRun;
+  if (seamRun != null && seamRun >= 0) {
+    const full = body.length - 1;
+    const segCount = seamRun <= 0 ? 1 : Math.max(1, Math.round(full * Math.min(1, seamRun)));
+    const srail = body.slice(0, segCount + 1).map(s => [0, s.cy + s.ry + 0.010, s.z]);
+    const hw = 0.035, seamT = [];
+    for (let i = 0; i < srail.length - 1; i++) {
+      const A = srail[i], B = srail[i + 1];
+      seamT.push([[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
+                 [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]);
+    }
+    group.add(flatTriMesh(seamT, M.seam));
+    spineMats.push(M.seam);
+  }
+
+  // Nape motif-anchor (the Starlit Seam seats here). Publishing it is a documented
+  // crash-guard (parts read attach.motifAnchor).
   const motifAnchor = new THREE.Object3D();
   motifAnchor.position.set(0, TORSO_Y + 0.34, -1.68);
   group.add(motifAnchor);
@@ -209,7 +237,7 @@ function buildKnappedTorso(def, model, _bodyMat) {
   };
   // coreGlow MUST be null (not a colour number) or the flight tick null-derefs
   // coreGlow.userData.base every frame — the documented Solar crash.
-  return { group, attach, spinePoints, spineMats: [], mats: { bodyMat: M.bodyFlat }, coreGlow: null };
+  return { group, attach, spinePoints, spineMats, mats: { bodyMat: M.bodyFlat }, coreGlow: null };
 }
 registerTorso('knappedTorso', buildKnappedTorso);
 
@@ -344,6 +372,8 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(def.wingOuter ?? NIGHT, SLATE, 0.68), emissive: 0x000000, flatShading: true, roughness: 0.68, metalness: 0.02, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
   M.edgeMat.envMapIntensity = 0.2;
 
+  const rootSpark = (model.seamRootSpark ?? 0) > 0;   // f3: one short inset seam streak per wing root
+  const wingSpineMats = [];
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
@@ -358,6 +388,16 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
     group.add(pivot);
     // Scapular cowl is STATIC (body frame), NOT parented to the flapping pivot.
     if (cowl) group.add(buildScapularCowl(M, root, side));
+    // WING-ROOT SPARK LINE (f3) — a single short inset seam streak UNDER the cowl (never
+    // veins across the membrane — the wing stays black so the scallop owns the frame).
+    // WITHHELD in cruise; Surge-lit. Static in the body frame so the cowl laps over it.
+    if (rootSpark) {
+      const rx = root.x - side * 0.06, ry = root.y - 0.02, rz = root.z, o = 0.02;
+      group.add(flatTriMesh([
+        [[rx, ry, rz - 0.20], [rx + o, ry, rz + 0.18], [rx - o, ry, rz + 0.18]],
+      ], M.seam));
+      if (!wingSpineMats.includes(M.seam)) wingSpineMats.push(M.seam);
+    }
     const s = side === 1 ? 'R' : 'L';
     // Tip marker MUST duplicate the arm profile incl glideRake (detach gotcha).
     const tipY = vesperArmY(1, halfSpan, dih, glideRake);
@@ -368,7 +408,7 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
     pivots['tipMarker' + s] = marker;
     wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + halfSpan * sweepOf()], length: halfSpan, tipObj: marker });
   }
-  return { group, spineMats: [], wingMat: M.wingMat, parts: { ...pivots, wingElements } };
+  return { group, spineMats: wingSpineMats, wingMat: M.wingMat, parts: { ...pivots, wingElements } };
 }
 // sweep constant shared by the marker + wingElements (mirrors buildOneScallopWing).
 function sweepOf() { return 0.30; }
@@ -457,6 +497,23 @@ function buildSplitFanTail(def, model, mats, anchor) {
   const bandMat = (k) => (k === 1 || k === 2) ? M.dorsalFacet : (k >= 4) ? M.belly : M.bodyFlat;
   group.add(knapLoft(stem, CHINE_PROFILE, bandMat, false));
 
+  // THE STARLIT SEAM (tail stem) — the dorsal circuit continues down the tail (f2/f3:
+  // "full spine + tail stem"). WITHHELD in cruise (seam mat near-zero base); Surge-lit.
+  const accentMats = [];
+  const seamRun = model.seamRun ?? 0;
+  if (seamRun >= 1) {
+    const srail = stem.map(s => [0, s.cy + s.ry + 0.008, s.z]);
+    const hw = 0.026, seamT = [];
+    for (let i = 0; i < srail.length - 1; i++) {
+      const A = srail[i], B = srail[i + 1];
+      seamT.push([[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
+                 [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]);
+    }
+    group.add(flatTriMesh(seamT, M.seam));
+    accentMats.push(M.seam);
+  }
+  const finRims = (model.seamFinRims ?? 0) > 0;   // f3: the fan-fin rims carry the seam
+
   const tip = stem[nSeg];   // {z, cy, ...}
   const tx = 0, ty = tip.cy, tz = tip.z;
   const spread = model.tailFinSpread ?? 0;
@@ -500,6 +557,15 @@ function buildSplitFanTail(def, model, mats, anchor) {
         const tipIn = [px - side * wMid, lift, pz - 0.04];
         const tipOut = [px + side * wMid, lift - 0.02, pz + 0.03];
         group.add(flatTriMesh([[rIn, tipIn, tipOut], [rIn, tipOut, rOut]], p % 2 ? M.dorsalFacet : M.bodyFlat));
+        // FIN-RIM SEAM (f3) — an ion-blue inset line along the petal's outer rim; the
+        // Starlit Seam forks into both fan-fin rims. WITHHELD in cruise, Surge-lit.
+        if (finRims) {
+          const o = 0.014;
+          group.add(flatTriMesh([
+            [rOut, tipOut, [tipOut[0], tipOut[1] + o, tipOut[2]]],
+            [rOut, [tipOut[0], tipOut[1] + o, tipOut[2]], [rOut[0], rOut[1] + o, rOut[2]]],
+          ], M.seam));
+        }
         // PORT-FIN CONSTELLATION (asymmetry nod) — diffuse flecks on the port fin only.
         // Zero-tri-cost identity: fresh + legally clean (NO red prosthetic).
         if (side === -1) {
@@ -516,6 +582,7 @@ function buildSplitFanTail(def, model, mats, anchor) {
       ], M.dorsalFacet));
     }
   }
-  return { group, segs: [], accentMats: [] };
+  if (finRims && !accentMats.includes(M.seam)) accentMats.push(M.seam);
+  return { group, segs: [], accentMats };
 }
 registerTail('splitFanTail', buildSplitFanTail);
