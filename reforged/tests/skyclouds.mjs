@@ -19,6 +19,9 @@ const url = (p) => new URL(p, import.meta.url);
 
 // --- 1. the cloud block is UNIFORM-BRANCHED (off = zero cost, not branchless *0) --
 check('CLOUD_BODY is uniform-branched (if uCloudAmount > eps)', /if\s*\(\s*uCloudAmount\s*>\s*0\.0001\s*\)/.test(CLOUD_BODY));
+// D2: cCov is hoisted ABOVE the branch (=0 when off) so the sun disc can occlude
+// behind clouds while staying byte-identical when clouds are off.
+check('CLOUD_BODY hoists cCov=0 above the branch (sun-disc coupling, identity off)', /float\s+cCov\s*=\s*0\.0;[\s\S]*if\s*\(\s*uCloudAmount/.test(CLOUD_BODY));
 check('CLOUD_HEAD declares the gate + octave/warp uniforms', /uCloudAmount/.test(CLOUD_HEAD) && /uCloudOctaves/.test(CLOUD_HEAD) && /uCloudWarp/.test(CLOUD_HEAD));
 check('octave count is a uniform break-loop (one program across tiers)', /if\s*\(\s*i\s*>=\s*uCloudOctaves\s*\)\s*break/.test(CLOUD_HEAD));
 
@@ -75,6 +78,11 @@ check('skyColorAt still present + unchanged shape (gradient + fogFar + sun glow)
 const envSrc = readFileSync(url('../js/environment.js'), 'utf8');
 check('sky shader splices CLOUD_HEAD + CLOUD_BODY', /\$\{CLOUD_HEAD\}/.test(envSrc) && /\$\{CLOUD_BODY\}/.test(envSrc));
 check('sky.renderOrder set (the perf offset)', /sky\.renderOrder\s*=\s*1/.test(envSrc));
+check('sun disc is occluded by cloud coverage (D2: reads cCov, identity at 0)', /pow\(s, 900\.0\)[\s\S]*cCov/.test(envSrc));
+// D1: the FBM max must clear the coverage window's upper edge (0.72) so cloud
+// cores reach full `shape` (smoothstep(0.40,0.72,n)=1) instead of a translucent
+// veil. (Value-noise FBM tops out ~0.87 even normalized — that's fine, it clears 0.72.)
+{ let m = 0; for (let i = 0; i < 600; i++) m = Math.max(m, jFbm(i * 0.41, i * 0.23, 3)); check(`FBM cores clear the coverage window (max ${m.toFixed(3)} > 0.72)`, m > 0.72); }
 
 setSkyCloudsEnabled(false); setSkyCloudQuality(0); // leave shipped state for later imports
 console.log(`\n${pass} passed, ${fail} failed`);

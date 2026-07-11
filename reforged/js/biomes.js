@@ -46,7 +46,7 @@ export const BIOMES = [
     stars: 0.15,
     sky: { top: C(0x0d1f3c), mid: C(0x1e4060), horizon: C(0xe8a040), sun: C(0xffd080),
       // N9 clouds: warm dusk cumulus — sunlit tops, cool blue-grey undersides.
-      cloud: { amount: 0.55, lit: C(0xffdca8), shadow: C(0x24344f) } },
+      cloud: { amount: 0.85, lit: C(0xffe4b8), shadow: C(0x1e2c46) } },
     fog: { color: C(0x1a3050), near: 75, far: 400 },
     light: { sun: C(0xff9a40), sunI: 1.5, hemiSky: C(0x7ab0d8), hemiGround: C(0x1a3828) },
     water: { deep: C(0x061828), shallow: C(0x1a5a6a), waveAmp: 1.0 },
@@ -67,7 +67,7 @@ export const BIOMES = [
     stars: 0,
     sky: { top: C(0x6a3820), mid: C(0xd08040), horizon: C(0xffcf96), sun: C(0xfff0c0),
       // N9 clouds: bright high-noon desert cumulus — the brightest sky in the cycle.
-      cloud: { amount: 0.6, lit: C(0xfff2da), shadow: C(0xc79a68) } },
+      cloud: { amount: 0.9, lit: C(0xfff6e2), shadow: C(0xbe8f5e) } },
     fog: { color: C(0xeaaf80), near: 60, far: 330 },
     light: { sun: C(0xffc88a), sunI: 2.0, hemiSky: C(0xe8c8a8), hemiGround: C(0x6a4a30) },
     water: { deep: C(0x3a3214), shallow: C(0x9a7a3a), waveAmp: 0.7 },

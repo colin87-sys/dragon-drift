@@ -18,7 +18,10 @@ function loadPlaywright() {
 }
 
 const VIEW = { width: 900, height: 600 };
-const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({
+// Block the service worker so every boot serves the CURRENT on-disk build (the SW
+// otherwise caches an older stamp → the A/B compares different builds).
+const noSW = `if (navigator.serviceWorker) { navigator.serviceWorker.register = () => Promise.resolve({}); };\n`;
+const save = noSW + `localStorage.setItem('dragonDriftSave', JSON.stringify({
   v: 2, embers: 50, stats: { runs: 5 },
   skins: { owned: ['azure'], equipped: 'azure' },
   ascension: { tiers: [['azure', 2]], radiance: [] },
@@ -36,15 +39,16 @@ async function capture(dist, clouds) {
   await page.waitForFunction((d) => window.__dd.player.dist > d + 40, { timeout: 8000 }, dist).catch(() => {});
   await page.waitForTimeout(1600);
   await page.evaluate(() => { window.__dd.game.timeScale = 0; });
-  // Pitch the frozen camera up so the sky (and its clouds) fills more of the frame.
-  await page.evaluate(() => { const c = window.__dd.camera; c.rotation.x += 0.32; c.updateMatrixWorld(); });
+  // Pitch the frozen camera up hard so the cloud band (h~0.03..0.72) fills the frame.
+  await page.evaluate(() => { const c = window.__dd.camera; c.rotation.x += 0.55; c.updateMatrixWorld(); });
   await page.waitForTimeout(120);
   const buf = await page.screenshot();
   await done();
   return buf;
 }
 
-const SANCTUARY = 750, WASTES = 2250;
+// Off the biome midpoints (750 / 2250 sit right on a mega-arch → occluded vantage).
+const SANCTUARY = 400, WASTES = 2600;
 const shots = {
   sancOff: await capture(SANCTUARY, false), sancOn: await capture(SANCTUARY, true),
   wasteOff: await capture(WASTES, false), wasteOn: await capture(WASTES, true),
