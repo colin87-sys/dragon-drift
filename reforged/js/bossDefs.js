@@ -1675,11 +1675,11 @@ export const BOSSES = {
   // 3 STAGES that dissolve-swap between sub-rigs (STAGE 1 second-sun/eclipse-eye →
   // STAGE 2 Ophanim wheels-of-eyes → STAGE 3 the unveiling). Builder: bossUnmasked.js
   // (archetype 'unmasked'). STAGED BUILD: the builder renders STAGE 1 first; stages
-  // 2/3, THE MEDLEY (real card-quoting by stable id), STAR PIPS, the destructible
-  // relics, the verb-shift surge-chase, and the second-sun landmark + handoff() are
-  // CP2 integration (after every stage is owner-signed-off). This def is valid + inert
-  // now: phases/cards/rhythm below are a schema-valid PLACEHOLDER medley (existing
-  // attack ids only, zero new) that CP2 replaces with the real roster quote.
+  // 2/3, STAR PIPS, the destructible relics, the verb-shift surge-chase, and the
+  // second-sun landmark + handoff() are CP2 integration (after every stage is
+  // owner-signed-off). The §5i.D GRAZE MEDLEY is LIVE (grazeMedley below quotes
+  // holdFlinch/orbitAnnulus/shrinkDisc per stage via grazeFormNow()); the phases/cards
+  // still use existing attack ids only (zero new), which CP2 restrikes visually.
   unmasked: {
     id: 'unmasked',
     name: 'THE UNMASKED',                 // 12 chars (title-card budget ≤12)
@@ -1701,11 +1701,11 @@ export const BOSSES = {
     stages: 3,                            // the stage system (CP2 dissolve-swaps the sub-rigs)
     stagesBuilt: 3,                       // how many stage sub-rigs exist: 1 eclipse-eye · 2 seraph · 3 the unveiling (star-eye + starburst + halo, wings mantled). Drives the dev stage-jump selector.
     grazeForm: 'medley',                  // §5i.B APEX graze — quotes the roster's graze forms (CP2)
-    // §5i.D per-stage graze quote (phaseIdx-indexed; grazeFormNow() dispatches on it).
-    // PARTIAL map during the staged rollout — stage 1 quotes KARNVOW's stare-down
-    // (holdFlinch: bullet-free, setpiece-free, the ONLY continuous form that survives the
-    // Apex's deliberately-sparse rests). Stages 2/3 stay null (status-quo silence) until
-    // their PRs wire orbitAnnulus (the Ophanim wheel) + shrinkDisc (the toll-wall).
+    // §5i.D per-stage graze quote (phaseIdx-indexed; grazeFormNow() dispatches on it). The
+    // COMPLETE medley — one stage each of KARNVOW's stare-down (holdFlinch: bullet-free,
+    // survives the Apex's deliberately-sparse stage-1 rests), EITHERWING's wheel (orbitAnnulus,
+    // hosted on the figureEight below), and KNELLGRAVE's toll-wall (shrinkDisc, off the
+    // stage-3 spiral). A literal greatest-hits medley across the three forms.
     grazeMedley: ['holdFlinch', 'orbitAnnulus', 'shrinkDisc'],
     // §5i.D stage-2 (the Ophanim) HOSTS EITHERWING's figure-eight: the wheel band draws
     // about the live pose, a full unbroken lap pays the jackpot. `recur:12` re-arms it
@@ -1722,8 +1722,10 @@ export const BOSSES = {
     // Decision-C gate overrides (§7b sanctioned): ~20 eyes are many small bright points
     // (G1 assumes ONE focal); the wheels frame-fill (G4). Cited to the registry sanction.
     gate: { eyeCluster: true, frameFill: true },
-    // PHASES = the 3 stages. PLACEHOLDER medley (zero new attack ids); CP2 wires the
-    // real per-stage roster quote. amberdiet: every phase carries an amber carrier.
+    // PHASES = the 3 stages. The graze medley is wired via grazeMedley (above); these
+    // attack lists use existing ids only (zero new) and feed each stage's quoted form —
+    // stage 2's movingGap feeds gapThread, stage 3's spiral arms the shrinkDisc toll-wall.
+    // amberdiet: every phase carries an amber carrier.
     phases: [
       { atFrac: 1.00, cadence: [1.6, 2.4], attacks: ['aimed', 'fan'] },                        // STAGE 1 — the second sun watches
       { atFrac: 0.60, cadence: [1.2, 1.8], attacks: ['fan', 'crossfire', 'movingGap', 'iris'] }, // STAGE 2 — the Ophanim medley
