@@ -143,7 +143,9 @@ const fragmentShader = /* glsl */`
     vec3 fogCol = mix(fogColor, fogFarColor, fogF);
     // N8 PR B sunward inscatter: brighten the fog toward the sun (matches the
     // prop chunk's pow(...,6.0)). +0 exactly when uAtmosInscatter is 0 → shipped.
-    float atmSun = pow(clamp(dot(normalize(vWorldPos - cameraPosition), uAtmosSunDir), 0.0, 1.0), 6.0);
+    // -V is the camera->fragment dir (V = normalize(cameraPosition - vWorldPos)
+    // above) — reuse it to save a normalize on the frame's largest fill surface.
+    float atmSun = pow(clamp(dot(-V, uAtmosSunDir), 0.0, 1.0), 6.0);
     fogCol += uAtmosSunTint * (atmSun * uAtmosInscatter * fogF);
     col = mix(col, fogCol, fogF);
 
