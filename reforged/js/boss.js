@@ -4865,14 +4865,22 @@ on('lockPaint', (p) => {
       reckoningDone = true;
       model?.allSnap?.(1.7);   // hold the total stare longer than the idle snap — the earned reveal
       // A capture-safe hold so the eye-snap screenshot lands (the "players only screenshot when safe"
-      // law): wipe queued sub-volleys + push the next telegraph out (the phase-transition-hold idiom).
+      // law): wipe queued sub-volleys, KILL any in-flight wind-up (an armed chargeT fires when it
+      // expires regardless of attackTimer — the weftMend/thread-stagger idiom), and push the next
+      // telegraph out past the 1.7s stare (1.8 > 1.7 so nothing re-arms mid-reveal) — §CP2 finding 2.
       pending.length = 0;
-      attackTimer = Math.max(attackTimer, 1.6);
+      if (chargeT > 0) { chargeT = 0; model.setCharge?.(0); model.setAttackTell?.(null); }
+      attackTimer = Math.max(attackTimer, 1.8);
       ui.bossNote?.('✦ THE RECKONING ✦', 'EVERY VERDICT ANSWERS — THE LANCE WILL BURN', 'gold', 2.8);
       emit('reckoning', { relics: reckoningBranded.size });
-    } else if (!saveData.flags.reckoningTaught) {
-      saveData.flags.reckoningTaught = true; persist();
-      ui.bossNote?.('✦ A RELIC ANSWERS ✦', `BRAND ALL FIVE — THE VERDICT WILL BURN (${reckoningBranded.size}/5)`, 'gold', 2.4);
+    } else {
+      // Mid-collection progress on EVERY brand (§CP2 finding 5 — the flag-gated note only ever fired
+      // once, so brands 2–4 read only from the relic glow). The fuller stake line rides the first brand.
+      const firstBrand = !saveData.flags.reckoningTaught;
+      if (firstBrand) { saveData.flags.reckoningTaught = true; persist(); }
+      ui.bossNote?.('✦ A RELIC ANSWERS ✦',
+        firstBrand ? `BRAND ALL FIVE — THE VERDICT WILL BURN (${reckoningBranded.size}/5)` : `THE RECKONING GATHERS (${reckoningBranded.size}/5)`,
+        'gold', firstBrand ? 2.4 : 1.4);
     }
   }
 });

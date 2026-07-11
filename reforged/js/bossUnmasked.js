@@ -556,7 +556,13 @@ export function buildUnmasked(def, quality = 1) {
     return m;
   };
   // Per-relic minimal trophy silhouette (recognizable at the reliquary, detail-tier near centre).
-  const buildRelic = (spec) => {
+  // §3-LAW-8 SANCTIONED EXCEPTION (§CP2 finding 3): satellites normally stay dark (emissive ≤0.25),
+  // but the five relics are the RECKONING's COLLECTIBLES — they must self-present as findable trophies
+  // precisely because they are shimmerExclude'd from the organ pick-menu (else stage 2's 12 paintables
+  // starve the 8-slot pool). Kept SMALL, NON-additive (no overdraw), and dim enough that the great eye
+  // stays the one focal; the owner judges the bulb-field risk on the preview. Their palettes are the
+  // source bosses' (attribution), all clear of the reserved role colours (danger magenta, parry amber).
+  const buildRelic = (spec, idx) => {
     const g = new THREE.Group();
     g.name = spec.name;
     g.position.set(...spec.pos);
@@ -586,9 +592,11 @@ export function buildUnmasked(def, quality = 1) {
     }
     g.add(shape); g.add(accent);
     stage2.add(g);
-    return { name: spec.name, group: g, glow, palette: new THREE.Color(spec.palette), baseHot: 0.55, flash: 0, branded: false, phase: weN + spec.pos[0] };
+    // baseHot 0.45 (a dim trophy glow, not a headlight); phase = the relic index so the five pulses
+    // stagger cleanly (§CP2 finding 6 — a frozen weN made two pairs nearly sync).
+    return { name: spec.name, group: g, glow, palette: new THREE.Color(spec.palette), baseHot: 0.45, flash: 0, branded: false, phase: idx * 1.3 };
   };
-  const relics = relicSpecs.map(buildRelic);
+  const relics = relicSpecs.map((spec, i) => buildRelic(spec, i));
 
   // ── wingRootL/R — the STAGE 3 relic-root paint anchors (§5b "wired to the wing-roots"). Empties
   // on `stage2` (which stays visible in stage 3 — the mantled seraph) just off the central knot,

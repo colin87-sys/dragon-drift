@@ -40,7 +40,9 @@ const preBurn = await page.evaluate(async (ev) => { eval(ev); await new Promise(
 check(`PRE-reckoning a perfect on-tell release earns NO burn — the finale burn is LOCKED (active ${preBurn.active})`,
   preBurn.active === 0);
 
-// (2) THE COLLECTION: a non-relic paint must NOT count; the five relics complete it; dedup-safe.
+// (2) THE COLLECTION: a non-relic paint must NOT count; four relics advance it; dedup-safe. (The
+// fifth is branded in step (2b) below, timed to land the reveal — so we can assert the capture-safe
+// hold.)
 const collect = await page.evaluate(async () => {
   const steps = [];
   window.__dd.emit('lockPaint', { part: 'wingEye0' });          // a non-relic paint — must NOT advance
@@ -49,19 +51,34 @@ const collect = await page.evaluate(async () => {
     window.__dd.emit('lockPaint', { part: relic });             // relicHorn twice — the set dedups
     steps.push(window.__dd.bossReckoning());
   }
-  window.__dd.emit('lockPaint', { part: 'relicShard' });         // the fifth distinct relic → completes
-  await new Promise((r) => setTimeout(r, 60));
-  steps.push(window.__dd.bossReckoning());
   return steps;
 });
-// steps: [0]=wingEye0, [1]=horn, [2]=horn(dup), [3]=blade, [4]=link, [5]=spool, [6]=shard
+// steps: [0]=wingEye0, [1]=horn, [2]=horn(dup), [3]=blade, [4]=link, [5]=spool
 check(`a NON-relic paint (wingEye0) never advances the reckoning (branded ${collect[0].branded.length})`, collect[0].branded.length === 0);
 check(`branding relicHorn TWICE counts ONCE — the set dedups (branded ${collect[1].branded.length} then ${collect[2].branded.length} after the dup)`,
   collect[1].branded.length === 1 && collect[2].branded.length === 1);
 check(`a distinct second relic (blade) advances to 2 (branded ${collect[3].branded.length})`, collect[3].branded.length === 2);
-check(`branding all five distinct relics COMPLETES the reckoning (branded ${collect[6].branded.length}/5, done ${collect[6].done})`,
-  collect[6].branded.length === 5 && collect[6].done === true);
+check(`four distinct relics banked, reckoning still incomplete (branded ${collect[5].branded.length}/5, done ${collect[5].done})`,
+  collect[5].branded.length === 4 && collect[5].done === false);
 
+// (2b) THE CAPTURE-SAFE REVEAL (§CP2 finding 2): complete the reckoning WHILE the boss is mid-wind-up,
+// then assert the completion KILLED the in-flight charge — an armed telegraph fires when it expires
+// regardless of attackTimer, so a volley would otherwise land on the player mid-screenshot. We poll for
+// a live charge (the boss telegraphs every ~2s), brand the fifth relic the instant we catch one, and
+// confirm the wind-up was cancelled + the reckoning completed.
+const reveal = await page.evaluate(async () => {
+  let armed = false;
+  for (let i = 0; i < 250; i++) {   // up to ~7.5s — several telegraph cycles
+    if (window.__dd.bossState()?.charging) { armed = true; window.__dd.emit('lockPaint', { part: 'relicShard' }); break; }
+    await new Promise((r) => setTimeout(r, 30));
+  }
+  if (!armed) window.__dd.emit('lockPaint', { part: 'relicShard' });   // fallback: complete anyway
+  await new Promise((r) => setTimeout(r, 50));
+  return { armed, charging: window.__dd.bossState()?.charging, r: window.__dd.bossReckoning() };
+});
+check(`the reckoning completes (branded ${reveal.r.branded.length}/5, done ${reveal.r.done})`, reveal.r.branded.length === 5 && reveal.r.done === true);
+check(`the completion KILLS the in-flight wind-up so no volley fires into the reveal (caught a charge: ${reveal.armed}; charging after: ${reveal.charging})`,
+  reveal.armed ? reveal.charging === false : true);
 // (3) POST-RECKONING: the SAME perfect on-tell release now BURNS — pending = 0.20 × volleyTotal 20 = 4.0.
 // Same input, opposite outcome: that IS the gate.
 const postBurn = await page.evaluate(async (ev) => { eval(ev); await new Promise((r) => setTimeout(r, 80)); return { burns: window.__dd.bossBurns(), hp: window.__dd.bossState().hp }; }, perfectVolley);
