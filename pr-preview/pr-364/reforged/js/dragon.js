@@ -128,6 +128,7 @@ let trailSprites = [];
 let boostTrailSprites = [];
 let emberMotes = [];   // Phoenix ember-feathers / Sovereign arcane surge motes
 let moteTimer = 0;
+let emberEmitters = null;   // optional trailing-edge/tail FX emit anchors (phoenixReforged) → shed fire off the length, not one root point
 let moteIdx = 0;
 let wingMotes = [];    // cyan wingtip wisps (apex Obsidian — def.model.wingParticleRate)
 let wingMoteTimer = 0;
@@ -198,6 +199,7 @@ export function createDragon(scene, def, riderDef) {
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
+  emberEmitters = result.parts.emberEmitters || null;
   spineMats = result.materials.spineMats || [];
 
   // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
@@ -294,7 +296,7 @@ export function createDragon(scene, def, riderDef) {
   emberMotes = [];
   if (def.archetype === 'phoenix' || def.surgeMotes) {
     const moteTex = makeGlowTexture('255,255,255');
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i < 44; i++) {   // a touch larger so trailing-edge emitters (phoenixReforged) can shed a continuous fire without starving the pool
       const s = new THREE.Sprite(new THREE.SpriteMaterial({
         map: moteTex, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false,
@@ -1336,8 +1338,9 @@ export function updateDragon(dt, player, time) {
       moteTimer = isPhx ? Math.max(0.05, (player.feverActive ? 0.07 : player.boosting ? 0.08 : 0.18) - fxLvl * 0.07) : 0.045;
       const s = emberMotes.find(s => !s.visible);
       if (s) {
-        const src = isPhx ? tailSegs[Math.floor(tailSegs.length * 0.6)]
-          : tailSegs[Math.floor(Math.random() * tailSegs.length)];
+        const src = emberEmitters ? emberEmitters[moteIdx++ % emberEmitters.length]
+          : isPhx ? tailSegs[Math.floor(tailSegs.length * 0.6)]
+            : tailSegs[Math.floor(Math.random() * tailSegs.length)];
         src.getWorldPosition(tmpV);
         s.visible = true;
         s.userData.life = 1;

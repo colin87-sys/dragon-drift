@@ -194,6 +194,8 @@ function flameFeather(base, dir, side, len, wid, curve, matRamp, curl = 0, opts 
   const SEG = opts.seg ?? 4;       // ≥5 renders the sin belly as a real CURVE (not a piecewise spear)
   const tipW = opts.tipW ?? 0;     // >0 → a rounded flame-TONGUE lobe of width ~tipW·wid (kills the needle pike)
   const flick = opts.flick ?? 0;   // signed lateral S-jog of the last 30% → tips diverge, not parallel spears
+  const wave = opts.wave ?? null;  // {amp,cycles,phase} → a lateral SINE undulation (root-anchored) → not arrow-straight
+  const flare = opts.flare ?? 0;   // >0 → the tip breathes OUTWARD (along Nn) past 70% instead of pinching to a point
   const g = new THREE.Group();
   // width. tipW==0 → the classic needle taper (byte-identical default: mane/flank untouched). tipW>0 →
   // a leaf/tongue: lobe-width tipW·wid at root AND tip, belly to wid at ~40% → a flame tongue, not a spike.
@@ -205,8 +207,10 @@ function flameFeather(base, dir, side, len, wid, curve, matRamp, curl = 0, opts 
   const ctr = (u) => {
     const bow = Math.sin(Math.PI * u) * curve;
     const cu = u > 0.65 ? curl * Math.pow((u - 0.65) / 0.35, 1.4) : 0;
+    const fr = flare && u > 0.70 ? flare * len * Math.pow((u - 0.70) / 0.30, 2) : 0;
     const fl = flick && u > 0.70 ? flick * len * Math.pow((u - 0.70) / 0.30, 1.5) : 0;
-    return B.clone().addScaledVector(D, len * u).addScaledVector(Nn, bow + cu).addScaledVector(S, fl);
+    const wv = wave ? wave.amp * len * Math.sin(2 * Math.PI * wave.cycles * u + (wave.phase || 0)) * Math.pow(u, 1.5) : 0;
+    return B.clone().addScaledVector(D, len * u).addScaledVector(Nn, bow + cu + fr).addScaledVector(S, fl + wv);
   };
   const mat = (u) => matRamp[Math.min(matRamp.length - 1, Math.floor(u * matRamp.length))];
   for (let i = 0; i < SEG; i++) {
@@ -263,6 +267,7 @@ function flameRank(n, rootAt, dirAt, side, lenAt, rampAt, opts = {}) {
 function flamePlume(n, base, axis, opts = {}) {
   const { rx = 0.26, ryUp = 0.30, ryDn = 0.14, arcDeg = 310, gatherK = 0.75, baseLen = 1,
     twist = 0.08, curve = 0.16, curl = 0.10, tipW = 0.26, seg = 6, flickAmp = 0.05,
+    clumpAmp = 0, waveAmp = 0, waveCycles = 1.2, flare = 0,
     lenAt = () => 1, widAt = () => 0.4, rampAt = () => [] } = opts;
   const B = new THREE.Vector3(base[0], base[1], base[2]);
   const Ax = new THREE.Vector3(axis[0], axis[1], axis[2]).normalize();
@@ -275,17 +280,21 @@ function flamePlume(n, base, axis, opts = {}) {
   const arc = arcDeg * Math.PI / 180;
   for (let i = 0; i < n; i++) {
     const frac = n > 1 ? i / (n - 1) : 0.5;
-    const phi = (frac - 0.5) * arc;                 // −arc/2 … +arc/2, 0 = crown (top)
+    let phi = (frac - 0.5) * arc;                   // −arc/2 … +arc/2, 0 = crown (top)
+    if (clumpAmp) phi += clumpAmp * Math.sin(2.6 * phi);   // clump/part the even spacing — ODD in φ → stays mirror-symmetric
     const c = Math.cos(phi), s = Math.sin(phi);
+    const bc = 0.35 + 0.65 * Math.max(0, c);        // belly clamp: 1 at crown → 0.35 at belly (the corridor guard)
     const ry = c >= 0 ? ryUp : ryDn;
     const ringPt = B.clone().addScaledVector(right, rx * s).addScaledVector(up, ry * c);
     const radial = new THREE.Vector3().addScaledVector(right, rx * s).addScaledVector(up, ry * c).normalize();
     const tangent = new THREE.Vector3().crossVectors(Ax, radial).normalize();
     const dir = gather.clone().sub(ringPt).normalize().addScaledVector(tangent, twist).normalize();
     const side = tangent.clone().negate();          // Nn = cross(dir,side) points ~radially OUTWARD
-    const cv = curve * (0.35 + 0.65 * Math.max(0, c));   // outward bow clamped in the belly → corridor guard
+    const cv = curve * bc;                           // outward bow clamped in the belly → corridor guard
     const flick = flickAmp * (s >= 0 ? 1 : -1);          // MIRROR-symmetric (by side, not index) → the plume reads balanced in rear-chase
-    const f = flameFeather(A(ringPt), A(dir), A(side), lenAt(c), widAt(c), cv, rampAt(c), curl, { seg, tipW, flick });
+    const wave = waveAmp ? { amp: waveAmp * bc, cycles: waveCycles, phase: s >= 0 ? 0 : Math.PI } : null;   // lateral undulation, belly-clamped, L/R mirrored
+    const f = flameFeather(A(ringPt), A(dir), A(side), lenAt(c), widAt(c), cv, rampAt(c), curl,
+      { seg, tipW, flick, wave, flare: flare * bc });
     group.add(f.group);
     tips.push(f.tip);
   }
@@ -745,6 +754,7 @@ function buildOneSunWing(M, model) {
   // not spaghetti-wire; tips cool to the pink-safe red-orange crimson.
   const rampTrail = M.hotRibbon;   // same near-pure-emissive fire → the streamers never pink under the cool rim
   const nStream = Math.max(2, Math.min(3, Math.round(secN * 0.5)));
+  const emberTips = [];            // trailing-edge FX emit anchors (fire sheds off these in the rig)
   for (let i = 0; i < nStream; i++) {
     const u = nStream > 1 ? i / (nStream - 1) : 0.5;
     const t = 0.44 + u * 0.44, l = L(t), cc = chord(t);
@@ -752,9 +762,12 @@ function buildOneSunWing(M, model) {
     const wid = (0.38 - 0.06 * u) * ws;                                  // BROAD (all of them)
     const dir = [0.22 + 0.40 * u, 0.06, 1];
     const base = [l[0], l[1] + camber(0.66) * cc, l[2] + 0.66 * cc];     // rooted INSIDE the chord
-    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.28, rampTrail, 0.20 * ws,
-      { seg: 6, tipW: 0.30, flick: 0.05 * ((i % 2) ? 1 : -1) }).group);
+    const f = flameFeather(base, dir, [1, 0, 0], len, wid, 0.28, rampTrail, 0.20 * ws,
+      { seg: 6, tipW: 0.30, flick: 0.05 * ((i % 2) ? 1 : -1) });
+    wg.add(f.group);
+    emberTips.push(f.tip);
   }
+  wg.userData.emberTips = emberTips;
 
   // ── LEADING LICKS — 3 short hot licks lifting off the CURVED leading edge (flame variation on the
   // lead, owner's ask), so the leading edge reads as living fire rather than a hard line.
@@ -792,7 +805,7 @@ function buildSunfeatherWings(def, model, attach, _giM) {
   const group = new THREE.Group();
   const M = sunhawkMats(def, model.glowLevel ?? 1, model.igniteStage);
   const hs = 3.3 * (model.wingScale ?? 1);
-  const pivots = {}, wingElements = [];
+  const pivots = {}, wingElements = [], emberEmitters = [];
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
     const pivot = new THREE.Group();
@@ -815,8 +828,14 @@ function buildSunfeatherWings(def, model, attach, _giM) {
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
     pivots['tipMarker' + s] = marker;
     wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * ot[0], root.y + ot[1], root.z + ot[2]], length: hs, tipObj: marker });
+    // TRAILING-EDGE FX EMITTERS — markers at the trailing-streamer tips (in the mid group, so they
+    // ride the flap pose). The rig sheds ember-fire off these → "burning trailing fire" off the wings.
+    for (const et of (oneWing.userData.emberTips || [])) {
+      const em = new THREE.Object3D(); em.position.set(et[0], et[1], et[2]); mid.add(em);
+      emberEmitters.push(em);
+    }
   }
-  return { group, spineMats: [M.gold, M.roseGold, M.orange], wingMat: M.ivory, parts: { ...pivots, wingElements } };
+  return { group, spineMats: [M.gold, M.roseGold, M.orange], wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters } };
 }
 registerWings('sunfeather', buildSunfeatherWings);
 
@@ -887,17 +906,61 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // point with a helical twist → a teardrop that swells (~30%), waists (~75%), tapers to a point.
   // Crown longest+widest, belly shortest with its outward bow clamped ≈0 (corridor guard). Broad
   // faces on the moderate ember ramp (won't bloom cream).
-  const nSheaf = Math.max(5, Math.min(nRib + 4, 9));
-  const sheaf = flamePlume(nSheaf, [0, mouthY, mouthZ - 0.02], axisDir,
-    { rx: 0.26 * rk, ryUp: 0.30 * rk, ryDn: 0.14 * rk, arcDeg: 292, gatherK: 0.75, baseLen,
-      twist: 0.03, curve: 0.16, curl: 0.10, tipW: 0.26, seg: 6, flickAmp: 0.05,
-      lenAt: (c) => baseLen * (0.42 + 0.46 * Math.max(0, c)),
-      widAt: (c) => (0.34 + 0.22 * Math.max(0, c)) * wf,
-      rampAt: () => ramp4 });
-  group.add(sheaf.group);
-  // AXIAL CORE — the dominant hot comet head down the centre of the hollow cone.
-  group.add(flameFeather([0, mouthY, mouthZ - 0.06], axisDir, [1, 0, 0.05], baseLen, 0.58 * wf,
-    0.05, coreRamp, 0.12, { seg: 6, tipW: 0.30 }).group);
+  // C1: BLOOM tier — short broad tongues carrying the near-body VOLUME on the ring, with CLUMPED
+  // (uneven) spacing so it's not a picket fence wrapped in a circle, and a gentle wave. Gathers early
+  // (0.55) so it stays the near-body swell; the long reach is left to the streamer tier.
+  const nBloom = Math.max(4, Math.min(nRib + 3, 6));
+  group.add(flamePlume(nBloom, [0, mouthY, mouthZ - 0.02], axisDir,
+    { rx: 0.26 * rk, ryUp: 0.30 * rk, ryDn: 0.14 * rk, arcDeg: 300, gatherK: 0.55, baseLen,
+      twist: 0.06, curve: 0.16, curl: 0.10, tipW: 0.30, seg: 5, flickAmp: 0.05,
+      clumpAmp: 0.18, waveAmp: 0.03, waveCycles: 1.0,
+      lenAt: (c) => baseLen * (0.30 + 0.16 * Math.max(0, c)) * (Math.cos(6 * c) > 0 ? 1.12 : 0.9),  // two alternating length families
+      widAt: (c) => (0.34 + 0.20 * Math.max(0, c)) * wf,
+      rampAt: () => ramp4 }).group);
+
+  // C2: STREAMER tier — past the waist the comet condenses into a FEW long licks: a crown ribbon + a
+  // mirrored pair, each WAVED (a visible S in planform), FLARING open at the tip (not pinched), each
+  // sprouting an offshoot tendril → a flowing comet, NOT a radial duster of equal bristles. Built on
+  // the same axis frame; all in the crown sector so wave+flare stay above the corridor floor.
+  const streamTips = [];           // long-streamer tips → trailing-fire FX emit anchors
+  {
+    const Ax = new THREE.Vector3(axisDir[0], axisDir[1], axisDir[2]).normalize();
+    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), Ax).normalize();
+    const up = new THREE.Vector3().crossVectors(Ax, right).normalize();
+    const Bpt = new THREE.Vector3(0, mouthY, mouthZ - 0.02);
+    const gather = Bpt.clone().addScaledVector(Ax, 0.80 * baseLen);
+    const rx = 0.26 * rk, ryU = 0.30 * rk;
+    const A = (v) => [v.x, v.y, v.z];
+    const phis = nRib >= 3 ? [0, 0.45, -0.45] : [0];
+    phis.forEach((phi, k) => {
+      const c = Math.cos(phi), s = Math.sin(phi), sgn = s >= 0 ? 1 : -1;
+      const ringPt = Bpt.clone().addScaledVector(right, rx * s).addScaledVector(up, ryU * c);
+      const radial = new THREE.Vector3().addScaledVector(right, rx * s).addScaledVector(up, ryU * c).normalize();
+      const tangent = new THREE.Vector3().crossVectors(Ax, radial).normalize();
+      const dir = gather.clone().sub(ringPt).normalize().addScaledVector(tangent, 0.08).normalize();
+      const side = tangent.clone().negate();
+      const Nn = new THREE.Vector3().crossVectors(dir, side).normalize();
+      const len = baseLen * (k === 0 ? 1.05 : 0.85), wid = 0.40 * wf;
+      const sf = flameFeather(A(ringPt), A(dir), A(side), len, wid, 0.16, ramp4, 0.10,
+        { seg: 6, tipW: 0.24, flick: 0.05 * sgn, flare: 0.10, wave: { amp: 0.045, cycles: 1.25, phase: sgn > 0 ? 0 : Math.PI } });
+      group.add(sf.group);
+      streamTips.push(sf.tip);
+      // offshoot tendril(s) branching off the streamer at u≈0.52 (crown gets a mirrored pair). Gated.
+      if (lift > 0.6) {
+        const bp = ringPt.clone().addScaledVector(dir, len * 0.52).addScaledVector(Nn, 0.14);
+        (k === 0 ? [1, -1] : [sgn]).forEach((td) => {
+          const tdir = dir.clone().addScaledVector(tangent, 0.55 * td).normalize();
+          group.add(flameFeather(A(bp), A(tdir), A(side), len * 0.22, wid * 0.5, 0.12,
+            [ramp4[1], ramp4[2], ramp4[3]], 0.12, { seg: 4, tipW: 0.16 }).group);
+        });
+      }
+    });
+  }
+  // AXIAL CORE — the dominant hot comet head down the centre of the hollow cone (a whisper of wave).
+  const coreF = flameFeather([0, mouthY, mouthZ - 0.06], axisDir, [1, 0, 0.05], baseLen, 0.56 * wf,
+    0.05, coreRamp, 0.12, { seg: 6, tipW: 0.30, wave: { amp: 0.02, cycles: 1.0, phase: 0 } });
+  group.add(coreF.group);
+  streamTips.push(coreF.tip);
 
   // ── D: CREST PAIR — two ribbons rising off the dorsal tail-root line, giving the tail HEIGHT at the
   // body so rear-chase reads a TALL silhouette (not a wide one). Behind + below the wing-streamer band
@@ -920,7 +983,17 @@ function buildSunfireTrail(def, model, _mats, anchor) {
     group.add(flameFeather([cx, cyw, az], [Math.sin(phi) * 0.4, 0.15 + Math.cos(phi) * 0.2, 1], [1, 0, 0.2],
       (0.9 + 0.4 * (i % 2)), 0.08, 0.14, M.hotRibbon, 0.12, { seg: 5, tipW: 0.14 }).group);
   }
-  return { group, segs, tailFins: null, accentMats: [M.goldfire, M.flame, M.crimson, M.orange] };
+  // TRAILING-FIRE FX EMITTERS — markers at the streamer + core tips (and the throat) so the rig
+  // sheds ember-fire off the length of the tail (not just its root). Live in the tail group → carried
+  // by any tail sway.
+  const emberEmitters = [];
+  for (const tp of streamTips) {
+    const em = new THREE.Object3D(); em.position.set(tp[0], tp[1], tp[2]); group.add(em); emberEmitters.push(em);
+  }
+  { const em = new THREE.Object3D(); em.position.set(0, mouthY, mouthZ); group.add(em); emberEmitters.push(em); }
+  // accentMats = the tail's OWN fire materials → they join spineMats so Rebirth Surge flares the tail
+  // with the rest of the body (they were previously left out, so the tail didn't blaze on Surge).
+  return { group, segs, tailFins: null, emberEmitters, accentMats: [bodyEmber, ...ramp4, ...coreRamp] };
 }
 registerTail('sunfireTrail', buildSunfireTrail);
 
