@@ -913,11 +913,13 @@ export function updateDragon(dt, player, time) {
     // tight/authoritative. tailLagScale 0.12 ≈ current → multiplier; undefined ⇒ ×1.
     const tailLag = activeDef.model.tailLagScale != null ? activeDef.model.tailLagScale / 0.12 : 1;
     const coilAmp = (0.17 + 0.06 * speedNorm) * cruise * tailLag;   // grows with speed; faded out on a hard bank
+    const undA = activeDef.model.tailUndulateX ?? 0;   // per-joint VERTICAL undulation (undefined ⇒ 0 ⇒ every other dragon identical); up-weighted bias keeps it out of the floor
     for (let i = 0; i < nTail; i++) {
       const lock = (i + 1) / nTail;                        // root subtle → tip full (per-segment)
       const coil = Math.sin(time * coilRate - i * 0.6) * coilAmp * lock;  // azure-style lateral coil
       const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;    // hard-bank rudder
-      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, climbAmount * 0.08 * lock + tWhip * lock, lam, dt);
+      const undX = undA * lock * (Math.sin(time * 3.2 - i * 0.7 + 0.9) - 0.35);   // vertical ripple; different rate than the lateral coil → beats organically
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, climbAmount * 0.08 * lock + tWhip * lock + undX, lam, dt);
       tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder + coil, lam, dt);
       tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -coil * 0.4, 10, dt);   // slight bank into the coil (like azure)
     }
