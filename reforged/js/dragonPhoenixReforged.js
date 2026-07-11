@@ -464,24 +464,28 @@ function buildSunhawkCrownHead(def, model, _mats) {
   const spineMats = [M.gold, M.roseGold];
   const hs = model.headScale ?? 1;
 
-  // Lofted ivory wedge skull (points −Z) — flat brow → tapered crown, NOT a bare sphere.
+  // Lofted ivory wedge skull (points −Z) — flat brow → a raptor muzzle that TAPERS to a fine snout
+  // (not the blunt boxy muzzle-block that flirted with an ungulate read): the cheek/muzzle rings are
+  // narrowed and a fine snout-tip ring carries the face to a point, seating the hooked beak.
   const skull = [
     { z: 0.24, rx: 0.19 * hs, ry: 0.20 * hs, cy: 0.02 },   // occiput
     { z: -0.02, rx: 0.22 * hs, ry: 0.22 * hs, cy: 0.03 },  // brow (widest)
-    { z: -0.28, rx: 0.15 * hs, ry: 0.14 * hs, cy: -0.02 }, // cheek
-    { z: -0.48, rx: 0.09 * hs, ry: 0.085 * hs, cy: -0.05 },// muzzle base
+    { z: -0.28, rx: 0.13 * hs, ry: 0.125 * hs, cy: -0.02 },// cheek (narrowed)
+    { z: -0.46, rx: 0.075 * hs, ry: 0.065 * hs, cy: -0.05 },// muzzle (tapering)
+    { z: -0.60, rx: 0.032 * hs, ry: 0.030 * hs, cy: -0.075 },// fine snout tip → raptor point
   ];
   group.add(loftRings(skull, M.ivory, seg(7)));
-  const headLength = 0.9 * hs;
+  const headLength = 1.0 * hs;
 
-  // Short HOOKED gold beak — upper hooks over lower (two beveled facets), regal raptor.
-  const upper = spike(0.26 * hs, 0.10 * hs, 0.006, M.gold, 6);
-  upper.rotation.x = Math.PI / 2 + 0.32;   // points −Z, hooks down
-  upper.position.set(0, -0.01 * hs, -0.52 * hs);
+  // Short HOOKED gold beak — upper hooks over lower (two beveled facets), regal raptor. Seated at the
+  // new fine snout tip so the gold beak reads as the continuation of a tapering raptor face.
+  const upper = spike(0.28 * hs, 0.075 * hs, 0.005, M.gold, 6);
+  upper.rotation.x = Math.PI / 2 + 0.34;   // points −Z, hooks down
+  upper.position.set(0, -0.02 * hs, -0.60 * hs);
   group.add(upper);
-  const lower = spike(0.16 * hs, 0.07 * hs, 0.01, M.gold, 5);
+  const lower = spike(0.15 * hs, 0.05 * hs, 0.008, M.gold, 5);
   lower.rotation.x = Math.PI / 2 + 0.12;
-  lower.position.set(0, -0.08 * hs, -0.48 * hs);
+  lower.position.set(0, -0.09 * hs, -0.56 * hs);
   group.add(lower);
 
   // Warm gold EYES — the brightest facial points bar the collar, deep-set under the brow. A small
@@ -577,9 +581,12 @@ function buildOneSunWing(M, model) {
   const mMat = (e) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: e, emissiveIntensity: memI, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = e; m.userData.baseIntensity = memI; return m; };
   // saturated ORANGE stops (not pale gold) so the broad panels read as rich fire; the white-gold heat
   // is reserved for the thin feather roots, which can bloom bright without turning a broad face cream.
-  const memGold = mMat(0xf59020), memOrange = mMat(0xe86614), memDeep = mMat(0xd6460c);
-  const memMat = (t, f) => (f < 0.45 ? (t < 0.32 ? memGold : memOrange)
-    : (t < 0.48 ? memOrange : memDeep));
+  const memHot = mMat(0xffb63a), memGold = mMat(0xf59020), memOrange = mMat(0xe86614), memDeep = mMat(0xd6460c);
+  // FOUR value bands across span×chord (not one flat field): a hot inner-root band → gold → orange →
+  // deep-orange, so even at 4× zoom the membrane reads as graded fire, not a uniform pale quad.
+  const memMat = (t, f) => (f < 0.45
+    ? (t < 0.16 ? memHot : t < 0.34 ? memGold : memOrange)
+    : (t < 0.20 ? memGold : t < 0.44 ? memOrange : memDeep));
   for (let si = 0; si < memTs.length - 1; si++) {
     const t0 = memTs[si], t1 = memTs[si + 1];
     for (let fi = 0; fi < memFs.length - 1; fi++) {
