@@ -17,11 +17,13 @@ import * as THREE from 'three';
 const COLOR_KEYS = [
   'skyTop', 'skyMid', 'skyHorizon', 'sunGlow', 'fogColor', 'fogFarColor',
   'lightSun', 'hemiSky', 'hemiGround', 'waterDeep', 'waterShallow', 'ambColor', 'faunaColor',
+  'cloudLit', 'cloudShadow',   // N9 sky-cloud tints (biome graphics stream) — the arena owns them so biome clouds can't drift through the void/heaven
 ];
 const SCALAR_KEYS = [
   'fogNear', 'fogFar', 'fogFarMix', 'lightSunI', 'waveAmp',
   'ambFall', 'ambSway', 'ambSize', 'ambOpacity', 'faunaScale', 'faunaFlap',
   'starMix', 'whaleMix', 'flybyMix',
+  'atmosHeightK', 'atmosInscatter', 'cloudAmount',   // N8 atmosphere + N9 cloud coverage — arena zeroes them (a clean authored sky, no biome clouds/scatter leaking in)
 ];
 export const ARENA_ENV_KEYS = [...COLOR_KEYS, ...SCALAR_KEYS];
 
@@ -38,6 +40,7 @@ export const VOID_HEX = {
   ambColor: 0xcfc2ee, ambFall: -0.45, ambSway: 0.4, ambSize: 0.4, ambOpacity: 0.9,
   faunaColor: 0xcfc2ee, faunaScale: 0, faunaFlap: 0,
   starMix: 1, whaleMix: 0, flybyMix: 0,
+  cloudAmount: 0, cloudLit: 0x0d0618, cloudShadow: 0x050208, atmosHeightK: 0, atmosInscatter: 0,   // no biome clouds/scatter in the hollow
 };
 
 // THE FLOOD — the S1→S2 crack mid-palette: the hollow LEAKING through the reopened tear. Overexpose
@@ -53,6 +56,7 @@ export const FLOOD_HEX = {
   ambColor: 0xffffff, ambFall: 0, ambSway: 0.5, ambSize: 0.4, ambOpacity: 0.6,
   faunaColor: 0xffffff, faunaScale: 0, faunaFlap: 0,
   starMix: 0, whaleMix: 0, flybyMix: 0,
+  cloudAmount: 0, cloudLit: 0xe8dcff, cloudShadow: 0xcfc2f2, atmosHeightK: 0, atmosInscatter: 0,
 };
 
 // THE UNVEILED HEAVEN (PR-B) — "What the Sky Was a Mask Of." The finale's stage 3 opens from the void
@@ -70,6 +74,7 @@ export const HEAVEN_HEX = {
   ambColor: 0xffe9b8, ambFall: 0.5, ambSway: 0.25, ambSize: 0.55, ambOpacity: 0.85,     // GOLD LIGHT-RAIN (the mote pool re-skinned — zero new draws)
   faunaColor: 0xffe9b8, faunaScale: 0, faunaFlap: 0,
   starMix: 0, whaleMix: 0, flybyMix: 0,
+  cloudAmount: 0, cloudLit: 0xd9c79a, cloudShadow: 0x9a8a68, atmosHeightK: 0, atmosInscatter: 0,   // clean gold sky — the heaven's own light-rain, not biome clouds
 };
 
 // THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst
@@ -83,6 +88,7 @@ export const GOLD_FLOOD_HEX = {
   ambColor: 0xffffff, ambFall: 0.2, ambSway: 0.3, ambSize: 0.45, ambOpacity: 0.7,
   faunaColor: 0xffffff, faunaScale: 0, faunaFlap: 0,
   starMix: 0, whaleMix: 0, flybyMix: 0,
+  cloudAmount: 0, cloudLit: 0xfff0c8, cloudShadow: 0xc0a878, atmosHeightK: 0, atmosInscatter: 0,
 };
 
 // The void's bullet-band override: the default dark band 0x8f0a3c (L .164) FAILS all four void

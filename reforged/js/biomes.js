@@ -44,7 +44,9 @@ export const BIOMES = [
     name: 'SUNKEN SANCTUARY',
     keyShift: 0,
     stars: 0.15,
-    sky: { top: C(0x0d1f3c), mid: C(0x1e4060), horizon: C(0xe8a040), sun: C(0xffd080) },
+    sky: { top: C(0x0d1f3c), mid: C(0x1e4060), horizon: C(0xe8a040), sun: C(0xffd080),
+      // N9 clouds: warm dusk cumulus — sunlit tops, cool blue-grey undersides.
+      cloud: { amount: 0.85, lit: C(0xffe4b8), shadow: C(0x1e2c46) } },
     fog: { color: C(0x1a3050), near: 75, far: 400 },
     light: { sun: C(0xff9a40), sunI: 1.5, hemiSky: C(0x7ab0d8), hemiGround: C(0x1a3828) },
     water: { deep: C(0x061828), shallow: C(0x1a5a6a), waveAmp: 1.0 },
@@ -63,7 +65,9 @@ export const BIOMES = [
     name: 'AMBER WASTES',
     keyShift: 2,
     stars: 0,
-    sky: { top: C(0x6a3820), mid: C(0xd08040), horizon: C(0xffcf96), sun: C(0xfff0c0) },
+    sky: { top: C(0x6a3820), mid: C(0xd08040), horizon: C(0xffcf96), sun: C(0xfff0c0),
+      // N9 clouds: bright high-noon desert cumulus — the brightest sky in the cycle.
+      cloud: { amount: 0.9, lit: C(0xfff6e2), shadow: C(0xbe8f5e) } },
     fog: { color: C(0xeaaf80), near: 60, far: 330 },
     light: { sun: C(0xffc88a), sunI: 2.0, hemiSky: C(0xe8c8a8), hemiGround: C(0x6a4a30) },
     water: { deep: C(0x3a3214), shallow: C(0x9a7a3a), waveAmp: 0.7 },
@@ -86,6 +90,9 @@ export const BIOMES = [
     water: { deep: C(0x122a4a), shallow: C(0x3a6a9a), waveAmp: 0.3 },
     ambient: { color: C(0xffffff), fall: 3.5, sway: 0.6, size: 0.4, opacity: 0.75 },
     fauna: { color: C(0xe8f4ff), scale: 0.85, flap: 1.3 }, // petrel pair: tight, fast flap
+    // N8 atmosphere: the low cold sun sits right on the horizon — strong sunward
+    // inscatter so the haze glows toward it (OPTIONAL; 0 on every other biome).
+    atmos: { inscatter: 0.7 },
     props: ['crystal', 'crystalSmall'],
     matIndex: 2, // ice
   },
@@ -99,6 +106,9 @@ export const BIOMES = [
     // Dual-fog far color (§5.2): near props hold the ember-red fog while the
     // far field sinks toward near-black scorched dark — the caldera reads DEEP.
     fogFarColor: C(0x1c0a08),
+    // N8 atmosphere: dense ember fog pools near the lava and thins with altitude
+    // (height fog) — climbing out of the caldera clears the air (OPTIONAL).
+    atmos: { heightK: 0.045 },
     light: { sun: C(0xff9a50), sunI: 1.6, hemiSky: C(0x8a5040), hemiGround: C(0x301010) },
     water: { deep: C(0x2a0a08), shallow: C(0xc84818), waveAmp: 0.55 },
     ambient: { color: C(0xff9a40), fall: -2.2, sway: 1.4, size: 0.36, opacity: 0.9 },
@@ -184,6 +194,13 @@ const env = {
   ambColor: new THREE.Color(), ambFall: 1, ambSway: 1, ambSize: 0.4, ambOpacity: 0.75,
   faunaColor: new THREE.Color(), faunaScale: 1, faunaFlap: 1,
   starMix: 0, whaleMix: 0, flybyMix: 0,
+  // N8 atmosphere channels (OPTIONAL per biome; 0 everywhere by default so the
+  // fog is byte-identical). heightK = thin fog with altitude; inscatter = sunward
+  // brightening. Consumed by atmosphere.js via applyAtmosphere(env).
+  atmosHeightK: 0, atmosInscatter: 0,
+  // N9 sky clouds (OPTIONAL per biome; amount 0 = no clouds → shipped gradient).
+  // Consumed by skyClouds.js via applySkyClouds(env).
+  cloudAmount: 0, cloudLit: new THREE.Color(), cloudShadow: new THREE.Color(),
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -219,5 +236,13 @@ export function computeEnv(dist) {
   env.starMix = lerp(a.stars || 0, b.stars || 0, t);
   env.whaleMix = lerp(a.whale || 0, b.whale || 0, t);
   env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, t);
+  // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
+  env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, t);
+  env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, t);
+  // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
+  // fall back to the biome's sky mid/top so a cloudy↔clear seam lerps sane hues.
+  env.cloudAmount = lerp(a.sky.cloud?.amount || 0, b.sky.cloud?.amount || 0, t);
+  env.cloudLit.lerpColors(a.sky.cloud?.lit ?? a.sky.top, b.sky.cloud?.lit ?? b.sky.top, t);
+  env.cloudShadow.lerpColors(a.sky.cloud?.shadow ?? a.sky.mid, b.sky.cloud?.shadow ?? b.sky.mid, t);
   return env;
 }

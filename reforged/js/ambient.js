@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
+import { bindAtmosphere } from './atmosphere.js';
 
 // Atmosphere particles wrapped around the camera — snow in Frozen Reach,
 // leaves in the Sanctuary, dust in the Wastes, RISING embers in the Caldera,
@@ -46,14 +47,15 @@ export function createAmbient(scene) {
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   points = new THREE.Points(
     geo,
-    new THREE.PointsMaterial({
+    // N8 PR B: motes join the atmosphere (Points run the fog chunk); identity off.
+    bindAtmosphere(new THREE.PointsMaterial({
       size: 0.4,
       map: makeGlowTexture('255,255,255'),
       transparent: true,
       opacity: 0.75,
       depthWrite: false,
       color: 0xffffff,
-    })
+    }))
   );
   points.frustumCulled = false;
   scene.add(points);
@@ -64,7 +66,7 @@ export function createAmbient(scene) {
   wing.scale(1, 0.16, 0.55);
   birds = new THREE.InstancedMesh(
     wing,
-    new THREE.MeshBasicMaterial({ color: 0x2a2438, fog: true }),
+    bindAtmosphere(new THREE.MeshBasicMaterial({ color: 0x2a2438, fog: true })),
     BIRD_COUNT
   );
   birds.frustumCulled = false;
@@ -83,7 +85,7 @@ export function createAmbient(scene) {
   // Foreground flyby: single gull crossing high over the lane (biome 0 only).
   flyby = new THREE.InstancedMesh(
     wing,
-    new THREE.MeshBasicMaterial({ color: 0xd0c8e8, fog: true, transparent: true, opacity: 0 }),
+    bindAtmosphere(new THREE.MeshBasicMaterial({ color: 0xd0c8e8, fog: true, transparent: true, opacity: 0 })),
     1
   );
   flyby.frustumCulled = false;
@@ -94,9 +96,9 @@ export function createAmbient(scene) {
   // Sky whale: a single colossal silhouette far beyond the course, only
   // visible in the Astral Shallows (opacity follows env.whaleMix). Cheap:
   // one fogged basic material, four meshes, slow drift.
-  const whaleMat = new THREE.MeshBasicMaterial({
+  const whaleMat = bindAtmosphere(new THREE.MeshBasicMaterial({
     color: 0x46467e, fog: true, transparent: true, opacity: 0,
-  });
+  }));
   whale = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(3.2, 14, 6, 10), whaleMat);
   body.rotation.y = Math.PI / 2;

@@ -47,6 +47,7 @@ async function runAim(spec) {
         muted: !!spec.muted,
         emittersLive: f.live !== false,
         exposureWindow: !!f.exposure,
+        hudSuppressed: !!f.hudSuppressed,   // stage-transition cinematic gate (hide the reticle)
         damageBoss, flashPart() {},
       };
       const n = f.n ?? 1;
@@ -112,6 +113,20 @@ check('T1.6 still needs the full dwell time (0.30s → not held)', t16b.d.aimHel
 // reticle boss-skin (hudState.active stays false), so the layer is fully inert.
 const t15 = await runAim({ candidates: [], frames: [{ dt: 0.06, n: 8, px: 0, live: true }] });
 check('T1.5 no candidates → reticle never activates (coexist)', t15.hud.active === false && t15.d.aimHeld === false);
+
+// T1.6 (stage-transition cinematic) — with a LIVE organ in the cone, ctx.hudSuppressed hides the
+// reticle (hud.active false) so the lance frame can't photobomb the all-eyes-snap; clearing the
+// flag re-activates it next frame (locks/pips are untouched — this gates only the draw).
+const tRetSup = await runAim({ frames: [
+  { dt: 0.06, n: 8, px: 0, live: true },                       // acquire the organ → active
+  { dt: 0.06, n: 1, px: 0, live: true, hudSuppressed: true },  // the beat suppresses the reticle
+] });
+check('T1.6 hudSuppressed hides the reticle during the transition (organ still tracked)', tRetSup.hud.active === false && tRetSup.hud.hasOrgan === true);
+const tRetSupB = await runAim({ frames: [
+  { dt: 0.06, n: 8, px: 0, live: true, hudSuppressed: true },  // suppressed while acquiring
+  { dt: 0.06, n: 1, px: 0, live: true },                       // beat over → reticle returns
+] });
+check('T1.6b the reticle returns the frame after the beat ends', tRetSupB.hud.active === true);
 
 // T1.7 — the juice hooks: dwell progress (0..1) drives the reticle "closing in",
 // and the aimLock (green-snap) event fires EXACTLY ONCE per lock (drives pop+chime).

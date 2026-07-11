@@ -398,6 +398,87 @@ if (!cp1) {
   ok(cc[0] > cc[1] && cc[1] > cc[2] && cc[2] > cc[3], `${key}: crust seals at f0, opens toward apex (${cc.join('>')})`);
 }
 
+// ── PHOENIX ASCENDANT — REFORGED (SSSR premium, 4 forms) — the SUNHAWK white-gold coronation
+// ladder ("Reborn in fire") + THE VISIBILITY LAW. A scaffold glow-up of the shipped `phoenix`:
+// a lofted keeled body (the sphere is dead), deep-chord organized-rank feather wings, a swept-
+// UP-and-aft sun-pennant (the old down-hanging fishbone is gone → corridor clear), and a withheld
+// SUN-GORGET collar. Asserts the ladder confers hardware rung by rung (igniteStage 0→3, the keel
+// prow / neck arch / collar / fingers / pennant arriving on schedule), the NO-CURL wing tell (the
+// wing sweeps AFT), and the Lower-Frame Clearance law (no wide mass in { y<0.30, z>0.85 }). Carries
+// the design-agnostic asserts but INVERTS the dark-body doctrine (this is a LIGHT body — no dark
+// numeric ceiling inherited).
+if (!cp1) {
+  const key = 'phoenixReforged';
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  const per = [];
+  for (let f = 0; f <= maxT; f++) {
+    const def = ascendedDef(DRAGONS[key], f, 0);
+    const { group, parts } = buildDragonModel(def, {});
+    const scale = def.model.scale || 1;
+    group.updateMatrixWorld(true);
+    setFlapDebugPose(parts, def.model, 'glide');
+    group.updateMatrixWorld(true);
+    let tris = 0, nan = 0;
+    // VISIBILITY corridor { y<spineY, z>hipZ } in de-scaled model space (glide pose). This is a
+    // LIGHT body sculpt: the body mid rides ~0.45, the pennant lifts to ~0.50 — the lower-aft
+    // corridor must stay clear (the fishbone-tail fix is structural, not tuned).
+    const spineY = 0.30, hipZ = 0.85;
+    let cMaxX = 0, cxMin = Infinity, cxMax = -Infinity, cyMin = Infinity;
+    const P = new THREE.Vector3();
+    group.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      const p = o.geometry.attributes.position; if (!p) return;
+      tris += p.index ? p.index.count / 3 : p.count / 3;
+      for (let i = 0; i < p.count; i++) {
+        P.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+        if (!Number.isFinite(P.x) || !Number.isFinite(P.y) || !Number.isFinite(P.z)) { nan++; continue; }
+        const x = P.x / scale, y = P.y / scale, z = P.z / scale;
+        if (y < spineY && z > hipZ) { cMaxX = Math.max(cMaxX, Math.abs(x)); cxMin = Math.min(cxMin, x); cxMax = Math.max(cxMax, x); cyMin = Math.min(cyMin, y); }
+      }
+    });
+    const footprint = cxMax > cxMin ? (cxMax - cxMin) * (spineY - cyMin) : 0;
+    per.push({ m: def.model, parts, tris: Math.round(tris), nan, cMaxX, footprint });
+  }
+  for (let f = 0; f <= maxT; f++) {
+    ok(per[f].nan === 0, `${key} f${f}: no NaN vertices (${per[f].nan})`);   // the invisible-vertex guard
+    ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
+    ok(!!per[f].parts.spinePoints && per[f].parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
+    ok(!!per[f].parts.wingElements && per[f].parts.wingElements.length === 2, `${key} f${f}: 2 wingElements published`);
+    ok(!!per[f].parts.motifAnchor, `${key} f${f}: motifAnchor published`);
+    ok(per[f].cMaxX <= 0.6, `${key} f${f}: corridor max|x| ${per[f].cMaxX.toFixed(2)} ≤ 0.6 (no wide lower-aft mass)`);
+    ok(per[f].footprint <= 1.3, `${key} f${f}: corridor frontal footprint ${per[f].footprint.toFixed(2)} ≤ 1.3`);
+    // NO-CURL structural tell (§3): the wing sweeps clearly AFT (tip z well behind the root) — a
+    // curled-forward/up tip would violate this. The aft-down droop lives in the finger geometry.
+    for (const e of per[f].parts.wingElements) ok(e.tip[2] > e.root[2] + 0.3, `${key} f${f}: wing sweeps aft (no forward curl)`);
+  }
+  // tris monotonic — every rung bolts on hardware (wings/collar/pennant), not just brightness.
+  ok(per[0].tris < per[1].tris && per[1].tris < per[2].tris && per[2].tris < per[3].tris,
+    `${key}: tris monotonic across the 4 forms (${per.map((p) => p.tris).join(' < ')})`);
+  // ignition ramp 0→3 (the growth currency: dark chick → white-gold divine firebird).
+  const ig = per.map((p) => p.m.igniteStage ?? 3);
+  ok(ig[0] === 0 && ig[0] < ig[1] && ig[1] < ig[2] && ig[2] < ig[3], `${key}: igniteStage monotonic 0→3 (${ig.join('→')})`);
+  // the KEEL prow + NECK arch grow each rung (the sculpt earns its firebird form, not scale).
+  const kd = per.map((p) => p.m.keelDepth ?? 1), na = per.map((p) => p.m.neckArch ?? 1);
+  ok(kd[0] < kd[1] && kd[1] < kd[2] && kd[2] < kd[3], `${key}: keel prow monotonic (${kd.join('→')})`);
+  ok(na[0] < na[1] && na[1] < na[2] && na[2] < na[3], `${key}: neck arch monotonic (${na.join('→')})`);
+  // the SUN-GORGET collar (the withheld regalia) is bare at the whelp then BLOOMS rung by rung.
+  const cf = per.map((p) => p.m.collarFan ?? 1);
+  ok(cf[0] === 0 && cf[0] < cf[1] && cf[1] < cf[2] && cf[2] < cf[3], `${key}: sun-gorget collar withheld at f0 then blooms (${cf.join('→')})`);
+  // the emarginated PRIMARY FINGERS + the fan-split grow (2 blunt → 5 fingered).
+  const pf = per.map((p) => p.m.primaryFingers ?? 5), fs = per.map((p) => p.m.fingerSplit ?? 1);
+  ok(pf[0] < pf[1] && pf[1] < pf[2] && pf[2] < pf[3], `${key}: primary fingers 2→5 monotonic (${pf.join('→')})`);
+  ok(fs[0] === 0 && fs[0] < fs[1] && fs[1] < fs[2] && fs[2] < fs[3], `${key}: finger emargination 0→1 monotonic (${fs.join('→')})`);
+  // the covert/secondary ranks + the crown fan grow (organized richness ramps).
+  const cv = per.map((p) => p.m.covertRank ?? 7), cr = per.map((p) => p.m.crownFan ?? 5);
+  ok(cv[0] < cv[1] && cv[1] < cv[2] && cv[2] < cv[3], `${key}: covert rank grows each rung (${cv.join('→')})`);
+  ok(cr[0] < cr[1] && cr[1] < cr[2] && cr[2] < cr[3], `${key}: crown fan grows each rung (${cr.join('→')})`);
+  // the sun-PENNANT ribbons + lift grow (the swept-up-aft tail earns its comet drape).
+  const pr = per.map((p) => p.m.pennantRibbons ?? 5), pl = per.map((p) => p.m.pennantLift ?? 1);
+  ok(pr[0] < pr[1] && pr[1] < pr[2] && pr[2] < pr[3], `${key}: pennant ribbons 1→5 monotonic (${pr.join('→')})`);
+  ok(pl[0] < pl[1] && pl[1] < pl[2] && pl[2] < pl[3], `${key}: pennant lift (up-aft) monotonic (${pl.join('→')})`);
+}
+
 
 console.log(`\nStarter geometry asserts (§7)${cp1 ? ' — CP1 (apex bands)' : ''}: ${pass} passed, ${fail} failed.`);
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }

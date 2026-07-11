@@ -161,10 +161,12 @@ export function buildUnmasked(def, quality = 1) {
       const nx = Math.cos(ang) * r, ny = Math.sin(ang) * r, nb = Math.max(0, 1 - r / DISC_R);
       const dx = nx - px, dy = ny - py, dl = Math.hypot(dx, dy) || 1;
       const ox = -dy / dl, oy = dx / dl;                            // unit perpendicular to the segment
-      const wp = 0.03 + 0.14 * pb, wn = 0.03 + 0.14 * nb;           // half-width tapers with brightness
-      crackPos.push(px + ox * wp, py + oy * wp, DISC_Z + 0.06, px - ox * wp, py - oy * wp, DISC_Z + 0.06,
-        nx + ox * wn, ny + oy * wn, DISC_Z + 0.06, nx - ox * wn, ny - oy * wn, DISC_Z + 0.06);
-      for (const b of [pb, pb, nb, nb]) crackCol.push(crackHot.r * b, crackHot.g * b, crackHot.b * b);
+      const wp = 0.05 + 0.10 * (1 - pb), wn = 0.05 + 0.10 * (1 - nb);   // fatter toward the VISIBLE rim (inverted — the roots hide behind the eye)
+      crackPos.push(px + ox * wp, py + oy * wp, DISC_Z + 0.22, px - ox * wp, py - oy * wp, DISC_Z + 0.22,
+        nx + ox * wn, ny + oy * wn, DISC_Z + 0.22, nx - ox * wn, ny - oy * wn, DISC_Z + 0.22);
+      // INVERTED brightness: HOT where the crack reaches the exposed rim/lune (r→DISC_R), dark at
+      // the root behind the eye — so the light that survives to the visible band is the bright end.
+      for (const b of [pb, pb, nb, nb]) { const rb = 1 - b; crackCol.push(crackHot.r * rb, crackHot.g * rb, crackHot.b * rb); }
       crackIdx.push(cv, cv + 1, cv + 2, cv + 1, cv + 3, cv + 2);
       cv += 4;
       px = nx; py = ny; pb = nb;
@@ -188,6 +190,103 @@ export function buildUnmasked(def, quality = 1) {
   crackSeamL.name = 'crackSeamL'; crackSeamL.position.set(-1.85, 0.55, DISC_Z + 0.06); stage1.add(crackSeamL);
   const crackSeamR = new THREE.Object3D();
   crackSeamR.name = 'crackSeamR'; crackSeamR.position.set(1.85, 0.55, DISC_Z + 0.06); stage1.add(crackSeamR);
+
+  // ── THE HERO SCLERA-FISSURE (S1→S2, the owner's literal complaint: "a crack in the EYE") ──
+  // A single jagged fault that splits ACROSS the great white eye — not hidden on the disc rim.
+  // Rendering physics the shipped cracks ignored: additive light is INVISIBLE on the HDR-white
+  // sclera, so over the eye the crack must be a DARK opaque core (dark-on-white reads); over the
+  // black disc that core vanishes and a wider GOLD additive underglow carries it (light-on-black).
+  // Two co-located strips give both for ~2 draws. Rides `stage1` (collapses with the mask); driven
+  // to opacity 0 at rest → the eye is byte-identical until the crack drives it. Authored polyline
+  // (§3.6 asymmetric reveal-scar), not random — determinism-free (consumes no RNG stream). ──
+  const fissurePath = [
+    [-4.2, -2.7], [-2.7, -1.6], [-1.3, -0.5], [0.2, 0.6], [1.6, 1.5], [3.0, 2.3], [4.1, 3.0],
+  ];
+  const buildFissure = (halfBase, halfMid, z) => {
+    const pos = [], idx = []; let vc = 0; const N = fissurePath.length;
+    for (let i = 0; i < N - 1; i++) {
+      const [ax, ay] = fissurePath[i], [bx, by] = fissurePath[i + 1];
+      const ta = i / (N - 1), tb = (i + 1) / (N - 1);
+      const wa = halfBase + (halfMid - halfBase) * Math.sin(ta * Math.PI);   // widest mid-span (over the eye)
+      const wb = halfBase + (halfMid - halfBase) * Math.sin(tb * Math.PI);
+      const dx = bx - ax, dy = by - ay, dl = Math.hypot(dx, dy) || 1;
+      const ox = -dy / dl, oy = dx / dl;
+      pos.push(ax + ox * wa, ay + oy * wa, z, ax - ox * wa, ay - oy * wa, z,
+        bx + ox * wb, by + oy * wb, z, bx - ox * wb, by - oy * wb, z);
+      idx.push(vc, vc + 1, vc + 2, vc + 1, vc + 3, vc + 2); vc += 4;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    return g;
+  };
+  const fissureGlowMat = track(new THREE.MeshBasicMaterial({ color: crackHot, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  fissureGlowMat.toneMapped = false;
+  const fissureDarkMat = track(new THREE.MeshBasicMaterial({ color: 0x040302, transparent: true, opacity: 0, depthWrite: false }));
+  fissureDarkMat.toneMapped = false;
+  const fissureGlow = new THREE.Mesh(buildFissure(0.16, 0.52, EYE_Z + 0.95), fissureGlowMat);   // z 1.35 — a WIDE gold bleed on the black disc (bold at fight distance)
+  fissureGlow.name = 'heroFissureGlow';
+  const fissureDark = new THREE.Mesh(buildFissure(0.09, 0.30, EYE_Z + 1.05), fissureDarkMat);    // z 1.45 — in FRONT of the eye front-face (~1.3): a BOLD dark split across the sclera
+  fissureDark.name = 'heroFissure';
+  // A SECOND forked branch off the main fault (a crack SPLINTERS, not one clean line) — a shorter
+  // diagonal crossing the eye the other way, so the read is unmistakably "the eye is cracking".
+  const branchPath = [[-0.6, 2.4], [-0.2, 1.0], [0.4, -0.2], [1.1, -1.6], [1.8, -2.9]];
+  const buildBranch = (hw, z) => {
+    const pos = [], idx = []; let vc = 0;
+    for (let i = 0; i < branchPath.length - 1; i++) {
+      const [ax, ay] = branchPath[i], [bx, by] = branchPath[i + 1];
+      const t = 1 - i / (branchPath.length - 1), w = hw * (0.35 + 0.65 * t);   // widest at the root, tapering to the tip
+      const dx = bx - ax, dy = by - ay, dl = Math.hypot(dx, dy) || 1, ox = -dy / dl * w, oy = dx / dl * w;
+      pos.push(ax + ox, ay + oy, z, ax - ox, ay - oy, z, bx + ox, by + oy, z, bx - ox, by - oy, z);
+      idx.push(vc, vc + 1, vc + 2, vc + 1, vc + 3, vc + 2); vc += 4;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); return g;
+  };
+  const branchGlow = new THREE.Mesh(buildBranch(0.34, EYE_Z + 0.95), fissureGlowMat);
+  const branchDark = new THREE.Mesh(buildBranch(0.20, EYE_Z + 1.05), fissureDarkMat);
+  stage1.add(fissureGlow); stage1.add(fissureDark); stage1.add(branchGlow); stage1.add(branchDark);
+
+  // ── THE SHATTER BACKLIGHT (S1→S2): at the shatter, white light FLOODS from behind the
+  // silhouette — ONE bounded additive disc STRICTLY behind the silhouette plane (§2: backlight
+  // discs behind the plane are lawful; bloom does the flooding, never a screen-filling plane).
+  // Radial vertex-colour falloff (hot core → black rim → no hard edge). Parented to `rig` (not
+  // stage1 which collapses, not stage2 which blooms); hidden + opacity-scaled off at rest. ──
+  const backSeg = lowQ ? 40 : 72;
+  const backPos = [0, 0, 0], backCol = [1, 1, 1], backIdx = [];
+  for (let i = 0; i <= backSeg; i++) {
+    const a = (i / backSeg) * TAU;
+    backPos.push(Math.cos(a) * DISC_R * 1.45, Math.sin(a) * DISC_R * 1.45, 0);
+    backCol.push(0, 0, 0);
+  }
+  for (let i = 1; i <= backSeg; i++) backIdx.push(0, i, i + 1);
+  const backGeo = new THREE.BufferGeometry();
+  backGeo.setAttribute('position', new THREE.Float32BufferAttribute(backPos, 3));
+  backGeo.setAttribute('color', new THREE.Float32BufferAttribute(backCol, 3));
+  backGeo.setIndex(backIdx);
+  const backMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  backMat.toneMapped = false; backMat.color.setScalar(0);
+  const backlight = new THREE.Mesh(backGeo, backMat);
+  backlight.name = 'shatterBacklight';
+  backlight.position.set(0, 0, -1.2); backlight.visible = false;
+  rig.add(backlight);
+
+  // ── SHATTER SHARDS (S1→S2): a dozen dark disc-fragments fling radially in-plane at the
+  // shatter, silhouetted against the backlight (opaque near-black → overdraw-free, unlike an
+  // additive chip). Parented to `rig`; a PRIVATE seed keeps the main `rnd` stream untouched (the
+  // seraph stays byte-identical). Driven as a pure function of the morph in setStageMorph. ──
+  const shrnd = mulberry32(0x51a2d0f);
+  const NSHARD = lowQ ? 10 : 16;
+  const shardMat = track(new THREE.MeshStandardMaterial({ color: 0x060507, roughness: 1.0, metalness: 0.0, flatShading: true }));
+  const shardGeo = stripForMerge(new THREE.TetrahedronGeometry(0.82, 0));
+  const shards = [];
+  for (let i = 0; i < NSHARD; i++) {
+    const sh = new THREE.Mesh(shardGeo, shardMat);
+    sh.visible = false;
+    sh.userData = { ang: (i / NSHARD) * TAU + (shrnd() - 0.5) * 0.4, spin: (shrnd() - 0.5) * 6, dist: 6 + shrnd() * 6, r0: 0.8 + shrnd() * 1.4, s0: 0.6 + shrnd() * 0.7 };
+    rig.add(sh);
+    shards.push(sh);
+  }
 
   // ── THE EYE — a BIG HDR white almond that DOMINATES the disc (~0.77× disc diameter,
   // wider than the 26u lane, §5j). Named `focalEye`. The black disc is its rim. White-
@@ -444,6 +543,11 @@ export function buildUnmasked(def, quality = 1) {
   // down-and-out (−), the middle holds — so the mandorla WIDENS as the wrath gathers, then
   // settles back at rest (charge 0 → zero flare → the signed-off idle is byte-identical).
   const FLARE_SIGN = { upper: 1.0, upmid: 0.45, middle: -0.3, lower: -1.0 };
+  // S1→S2 UNFURL: the seraph blooms from a folded BUD — all wings swept near-vertical + stacked —
+  // and cascades open (upper first → lower last) with a small overshoot-settle. foldZ is the delta
+  // from each wing's shipped angle to the tight bud angle (near-vertical for its side); foldOrder
+  // sequences the cascade. At unfurlK=1 every wing returns to baseRotZ exactly (byte-identical idle).
+  const FOLD_ORDER = { upper: 0, upmid: 1, middle: 2, lower: 3 };
   const shoulders = [];
   // DE-CLUMP: no two eye SCLERAS may overlap at front-on (a figure-8 / double-pupil blob reads
   // as a rendering bug). Nudge each new eye out of any earlier eye it overlaps IN THE SAME
@@ -482,7 +586,8 @@ export function buildUnmasked(def, quality = 1) {
       pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78 }).group);   // per-wing value ladder + painted moon-rim (two tiers → the fan fingers separate)
       stage2.add(pivot);
       pivot.updateMatrix();
-      shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0) });
+      shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0),
+        foldZ: (side > 0 ? 0.12 : -0.12) - baseRotZ, foldOrder: FOLD_ORDER[P.key] ?? 2 });   // bud = near-vertical (±0.12); delta from the shipped splay
       // ONE small almond eye per wing — 4 per side, 8 total (+ central = 9). Seated OUT at the
       // wing's ELBOW / where the primary fan starts (on the leading edge) — NOT pooled at the
       // central root cord (owner r-fix). The wing-local elbow point is pushed through THIS wing's
@@ -695,7 +800,7 @@ export function buildUnmasked(def, quality = 1) {
     // Long rays BURST OUTWARD past the halo (r~3.3) so it reads as RADIANCE, not spokes inside a
     // rim (the wheel read the design forbids); alternating short rays keep the star silhouette.
     const len = (i % 2 === 0 ? 5.6 : 2.7);
-    const w = 0.11;                                     // slim rays (a sunburst, not fat blades)
+    const w = 0.16;                                     // rays with body (survive fight distance) — still a sunburst, not fat blades
     const r0 = 0.5;                                     // spikes start just outside the star-eye
     const tx = Math.cos(a) * (r0 + len), ty = Math.sin(a) * (r0 + len);
     const bax = Math.cos(a - w) * r0, bay = Math.sin(a - w) * r0;
@@ -747,21 +852,68 @@ export function buildUnmasked(def, quality = 1) {
   // over the phase seam; the studio 'morph' dial + the stage selector drive it for playtest. ──
   const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   let coronaFlare = 0;   // corona destabilises (flares) as the sun cracks, read in tickBody
+  let coronaDeath = 0;   // corona forced dark by the shatter flash (read in tickBody)
+  let crackGlowK = 0;    // crack HDR flare weight (read in tickBody for the bloom-through-strain)
+  let unfurlK = 0;       // seraph wing-unfurl weight 0(folded bud)→1(shipped splay); read in the shoulder loop
+  let eyesOpen = 0;      // 0 = eyes SHUT (dark bud) → 1 = OPEN (the reveal); read in tickBody for the snap
   let stageMorph = 0;
+  // ── THE S1→S2 CRACK is a BEAT MAP over the morph clock m (0→1 across 6.0s), not one ease:
+  // STILLING → FIRST CRACK → PROPAGATION → STRAIN → SHATTER → BUD → UNFURL → ALL-EYES-OPEN.
+  // Every visual is a PURE FUNCTION OF m (the studio dial scrubs it; endpoints m∈{0,1} stay the
+  // shipped poses byte-for-byte). The wing fold, eye-field visibility + shard fling are set HERE
+  // so scrubbing is coherent; time-based flicker/HDR flare rides tickBody off these weights. ──
+  const KM = { still: 0.167, crack0: 0.20, prop: 0.383, strain: 0.483, shatter: 0.60, bud: 0.667, eyes: 0.933 };
+  const wingEase = (u, order) => {                    // staggered cascade + overshoot; =1 at u=1 (byte-identical)
+    const t0 = order / 6 * 0.4, t1 = t0 + 0.6;         // t1 ≤ 0.8 → all wings reach ease 1 by u=0.8
+    const local = smooth(t0, t1, u);
+    return local + 0.12 * Math.sin(Math.min(1, local) * Math.PI);   // overshoot, settling to 1
+  };
   function setStageMorph(k) {
     stageMorph = Math.max(0, Math.min(1, k));
     const m = stageMorph;
-    stage1.visible = m < 0.995;
-    stage2.visible = m > 0.005;
-    // The eclipse mask (disc + corona + hood + cracks) COLLAPSES toward the centre as it opens.
-    stage1.scale.setScalar(Math.max(1e-4, 1 - smooth(0.35, 0.72, m)));
-    // The CRACKS spider across the disc — peak mid-crack, gone once the mask is consumed.
-    crackMat.opacity = Math.sin(Math.PI * Math.min(1, m / 0.72)) * 0.9;
-    // The corona FLARES as the sun destabilises, then dies with the collapse (added in tickBody).
-    coronaFlare = smooth(0.05, 0.4, m) * (1 - smooth(0.4, 0.72, m));
-    // The seraph BLOOMS out of the collapsing sun — scales up from behind the disc so it is
-    // REVEALED (occlusion, not a fade) as the mask shrinks off it. Full at k 1 (= shipped).
-    stage2.scale.setScalar(0.2 + 0.8 * smooth(0.4, 1.0, m));
+    const shatterK = smooth(KM.strain, KM.shatter, m);            // the sun strains then dies
+    const collapse = smooth(KM.shatter, KM.shatter + 0.045, m);   // the fast collapse INSIDE the flash
+    const bloom = smooth(KM.bud, KM.eyes, m);
+    stage1.visible = m < 0.995 && collapse < 0.999;
+    stage2.visible = m > KM.shatter - 0.04;
+    // STRAIN: the mask SWELLS (inhale) 1.0→1.05, then COLLAPSES to nothing inside the flash.
+    stage1.scale.setScalar(Math.max(1e-4, (1 + 0.05 * shatterK) * (1 - collapse)));
+    // THE CRACK: born at STILL, propagates to PROP, flares through STRAIN, dies at SHATTER.
+    const crackO = smooth(KM.still, KM.prop, m) * (1 - smooth(KM.shatter - 0.06, KM.shatter, m));   // HOLD the fully-cracked eye right up to the shatter (it doesn't fade early)
+    crackMat.opacity = crackO * 0.9;
+    fissureDarkMat.opacity = Math.min(1, crackO * 1.4);           // the dark split across the sclera (reads first)
+    fissureGlowMat.opacity = crackO * 0.9;                        // gold bleed on the disc
+    crackGlowK = crackO * (1 + shatterK * 1.6);                   // HDR flare weight (tickBody)
+    // CORONA destabilises through the crack, then DIES before the flash peaks.
+    coronaFlare = smooth(KM.still, KM.strain, m) * (1 - shatterK);
+    coronaDeath = shatterK;
+    // BACKLIGHT: leaks during STRAIN, FLASHES white at SHATTER, fades as the seraph blooms.
+    const back = smooth(KM.strain, KM.shatter, m) * (1 - smooth(KM.shatter + 0.06, KM.eyes, m));
+    backlight.visible = back > 0.002;
+    backMat.color.setScalar(back * 2.9);   // a BRIGHT flood — the shatter is unmistakable
+    // SHATTER SHARDS: fling radially out of the flash (pure function of m — scrub-safe, deterministic).
+    const sp = smooth(KM.shatter, KM.eyes, m);
+    for (const sh of shards) {
+      const u = sh.userData;
+      sh.visible = sp > 0.001 && sp < 0.985;
+      const rr = u.r0 + sp * u.dist;
+      sh.position.set(Math.cos(u.ang) * rr, Math.sin(u.ang) * rr, DISC_Z + 0.1);
+      const sc = u.s0 * (1 - sp * 0.85);
+      sh.scale.set(sc, sc, sc * 0.4);
+      sh.rotation.set(u.spin * sp, u.spin * 0.7 * sp, u.spin * 1.3 * sp);
+    }
+    // THE SERAPH blooms from a folded BUD (scale 0.62) and its wings UNFURL (shoulder loop).
+    stage2.scale.setScalar(0.62 + 0.38 * bloom);
+    unfurlK = bloom;
+    // THE EYES: SHUT (dark sockets on a squinted great eye) through the unfurl, then OPEN at the
+    // reveal — the all-eyes-snap lands on the flip (tickBody). socket meshes stay lit (the blind bud).
+    const open = smooth(KM.eyes - 0.03, KM.eyes + 0.02, m);
+    eyesOpen = open;
+    const lit = open > 0.5 || m >= 0.999;
+    scleraMesh.visible = irisMesh.visible = catchMesh.visible = lit;
+    greatIris.visible = greatPupil.visible = greatCatch.visible = lit;
+    for (const p of pupils) p.visible = lit;
+    greatEye.scale.set(GW, GH * (lit ? 1 : 0.12), GD);            // squint the great eye shut while the bud is blind
   }
 
   // ── THE S2→S3 UNVEILING ── the seraph's core opens: the plain focal eye gives way to the
@@ -770,16 +922,42 @@ export function buildUnmasked(def, quality = 1) {
   // stage 2's wings + eye-field stay (the SAME seraph, mantled — read in tickBody); only the
   // centre swaps. k3 0 hides stage 3 + shows the focal eye → stage 2 is byte-identical. ──
   let stage3K = 0;
+  let mantleK = 0;      // S2→S3 wing throw weight (read in the shoulder loop): 0 at rest → 1.30 throw-peak → 1.0 settled
+  let convergeK = 0;    // GATHER: the eye field turns INWARD to the core (read in the pupil loop)
+  let burstFlash = 0;   // ignition HDR flash weight (read in the stage-3 tick)
+  // THE UNVEILING is a beat map on the reversal: the seraph STOPS WATCHING (eyes converge in) →
+  // the great eye CLOSES → the wings THROW open → the shut eye-line SPLITS as the starburst
+  // IGNITES → the held stare. Pure function of k3; endpoints k3∈{0,1} are the shipped stages.
   function setStage3(k) {
     stage3K = Math.max(0, Math.min(1, k));
     const k3 = stage3K;
+    const fold    = smooth(0.02, 0.18, k3);   // GATHER: wings fold in, eyes turn inward
+    const closeK  = smooth(0.16, 0.32, k3);   // the great eye SHUTS
+    const throwK  = smooth(0.33, 0.44, k3);   // THE THROW: wings mantle open past the final span
+    const igniteK = smooth(0.44, 0.52, k3);   // IGNITION: the shut seam SPLITS into the starburst
+    const settleK = smooth(0.55, 0.88, k3);   // the overshoot decays to the held pose
     stage3.visible = k3 > 0.005;
-    stage3.scale.setScalar(0.55 + 0.45 * smooth(0, 1, k3));   // the star-eye + burst + halo bloom open
-    burstMat.opacity = smooth(0.15, 1.0, k3) * 0.95;
-    halo3Mat.opacity = smooth(0.25, 1.0, k3) * 0.7;
-    // The focal almond RECEDES as the star-eye takes the centre (crossfade by visibility at the
-    // half — the star-eye is fully bloomed by then so there is no empty-centre frame).
-    for (const e of focalParts) e.visible = k3 < 0.5;
+    // The star assembly POPS in at ignition (overshoot to 1.15, settles to 1) — the group inflate
+    // replaced by a punch so the centre detonates rather than gently scaling up.
+    stage3.scale.setScalar(1 + 0.30 * (igniteK - smooth(0.50, 0.62, k3)));
+    // STARBURST: opacity flashes in fast at ignition; rays SHOOT out (0.15→1.12) then settle to 1.
+    burstMat.opacity = smooth(0.44, 0.50, k3) * 0.95;
+    starPivot.scale.setScalar(0.15 + 0.97 * igniteK + 0.12 * igniteK * (1 - settleK));
+    burstFlash = igniteK * (1 - smooth(0.52, 0.66, k3)) * 1.6;   // the HDR flash (tickBody), 0 by the settle
+    // HALO: kindles hot BEHIND the throw (backlight for the mantle), settles to 0.7.
+    halo3Mat.opacity = smooth(0.34, 0.42, k3) * 0.7 * (1 + 0.9 * Math.max(0, throwK - settleK * 0.9));
+    // THE GREAT EYE CLOSES (the reversal), then RECEDES: hidden once it is a thin dark seam, so the
+    // split reads as the seam bursting — never an empty-centre crossfade.
+    const eyeY = 1 - 0.94 * closeK;
+    greatEye.scale.set(GW, GH * eyeY, GD);
+    greatSocket.scale.set(GW * 1.24, GH * 1.3 * eyeY, 0.5);
+    const hideFocal = k3 >= 0.44;
+    for (const e of focalParts) e.visible = !hideFocal;
+    greatCatch.visible = !hideFocal && closeK < 0.6;   // the catchlight dies first (the light going out)
+    // THE WING THROW (read in the shoulder loop): overshoot to 1.30 at the throw, settle to 1.00.
+    mantleK = -0.35 * fold + 1.65 * throwK - 0.30 * settleK;
+    // THE GATHER: the eye field abandons the player and converges on the core (dies by the throw).
+    convergeK = fold * (1 - smooth(0.30, 0.40, k3));
   }
 
   // Stage select (CP2 wires this to the phase machine; for now a debug/gate hook). A discrete
@@ -789,20 +967,46 @@ export function buildUnmasked(def, quality = 1) {
   // ── THE LIVE STAGE MACHINE (boss.js calls model.setPhase on every phase advance): the fight
   // ANIMATES the transition INTO the new phase's stage — phase 1 plays the S1→S2 CRACK, phase 2
   // plays the S2→S3 UNVEILING. `transKind` names the running transition, `transT` eases 0→1 over
-  // TRANS_DUR (advanced in tickBody). ──
-  const TRANS_DUR = 2.0;
-  let transKind = null, transT = 0;
+  // the per-kind duration (advanced in tickBody). ──
+  //
+  // A TRANSFORMATION IS A BEAT MAP, NOT AN EASE (transformation-rework 2026-07): each transition
+  // runs over its OWN duration and carries a HARNESS BEAT TABLE (camera shake / slow-mo / sfx
+  // times in seconds from beat start). The model owns the pure-function-of-transT VISUAL morph
+  // (setStageMorph / setStage3); boss.js reads `stageTransitionSpec(n)` for the durations + beat
+  // table + the reveal/throw punctuation times and fires the camera/audio. `stageTransitionDur`
+  // stays exported as a legacy truthy alias (the multi-stage flag boss.js gates on).
+  const TRANS_DURS = { crack: 6.0, unveil: 4.8 };
+  // Camera/audio beats (sfx tokens are resolved to procedural cues in boss.js — no assets).
+  const CRACK_BEATS = [
+    { t: 0.0, sfx: 'swell' },                          // STILLING — the sub-bass held breath
+    { t: 1.0, shake: 0.35, sfx: 'crack' },             // FIRST CRACK across the sclera
+    { t: 1.4, shake: 0.20, sfx: 'crack' },             // PROPAGATION jolts
+    { t: 1.8, shake: 0.20, sfx: 'crack' },
+    { t: 2.3, shake: 0.20, sfx: 'crack' },
+    { t: 2.9, sfx: 'swell' },                          // STRAIN — the choir swells
+    { t: 3.6, shake: 1.2, slowMo: 0.35, sfx: 'shatter' }, // THE SHATTER — the second sun dies
+  ];
+  const UNVEIL_BEATS = [
+    { t: 0.0, sfx: 'rumble' },                         // GATHER — it stops watching you
+  ];
+  // n = the phase index being ENTERED (setPhase(1)=crack, setPhase(2)=unveil). Pure lookup.
+  function stageTransitionSpec(n) {
+    if (n === 1) return { kind: 'crack',  dur: TRANS_DURS.crack,  revealAt: 5.6, hold: 1.6, beats: CRACK_BEATS };
+    if (n === 2) return { kind: 'unveil', dur: TRANS_DURS.unveil, revealAt: 2.1, throwAt: 1.6, hold: 0.7, beats: UNVEIL_BEATS };
+    return null;
+  }
+  let transKind = null, transT = 0, transSnapped = false;   // transSnapped latches the one reveal all-snap per transition
   let stageN = 1;
   function setDebugStage(n) {
-    transKind = null;   // a hard stage-set is a CUT — cancel any running transition (also the SKIP path)
+    transKind = null; transSnapped = false;   // a hard stage-set is a CUT — cancel any running transition (also the SKIP path)
     stageN = n;
     setStageMorph(n == null || n <= 1 ? 0 : 1);
     setStage3(n >= 3 ? 1 : 0);
   }
 
   function setPhase(n) {
-    if (n === 1) { transKind = 'crack'; transT = 0; }        // S1 → S2: the mask cracks, the seraph blooms
-    else if (n === 2) { transKind = 'unveil'; transT = 0; }  // S2 → S3: the core unveils, the wings mantle full
+    if (n === 1) { transKind = 'crack'; transT = 0; transSnapped = false; }        // S1 → S2: the mask cracks, the seraph blooms
+    else if (n === 2) { transKind = 'unveil'; transT = 0; transSnapped = false; }  // S2 → S3: the core unveils, the wings mantle full
   }
 
   // WING-DESIGN ISOLATION: strip EVERYTHING but a single wing so the wing SILHOUETTE can be
@@ -890,10 +1094,17 @@ export function buildUnmasked(def, quality = 1) {
     // drive the matching morph. The all-snap punctuates each arrival (every eye locks as the
     // new form settles — the reveal). Cleared when the transition completes. ──
     if (transKind) {
-      transT = Math.min(1, transT + dt / TRANS_DUR);
-      if (transKind === 'crack') setStageMorph(transT);
-      else if (transKind === 'unveil') setStage3(transT);
-      if (transT >= 1) { const done = transKind; transKind = null; if (done) allSnap(); }
+      transT = Math.min(1, transT + dt / (TRANS_DURS[transKind] || 2.0));
+      if (transKind === 'crack') {
+        setStageMorph(transT);
+        // THE ALL-EYES REVEAL lands ON the eyes-open flip (not at completion) — the earned stare.
+        if (eyesOpen > 0.5 && !transSnapped) { transSnapped = true; allSnap(1.9); }
+      } else if (transKind === 'unveil') {
+        setStage3(transT);
+        // THE REVEAL lands ON the starburst ignition (k3≈0.46), not at completion.
+        if (stage3K > 0.46 && !transSnapped) { transSnapped = true; allSnap(2.6); }
+      }
+      if (transT >= 1) { transKind = null; }
     }
 
     // ── Aperture (EXPRESSION): heavy-lidded rest → watching → wrath (charge lifts the
@@ -935,9 +1146,19 @@ export function buildUnmasked(def, quality = 1) {
     // ── Corona: BREATHE (never spin); brighter as the eye opens + on charge; dimmer
     // when heavy-lidded (the lidded sun is dimmer). .color scales the vertex colours. ──
     const breatheC = 0.62 + Math.sin(time * 0.6 * TAU) * 0.08 + aperture * 0.3 + charge * 0.35;
-    const cK = Math.max(0, breatheC) * (1 - dyingK) + coronaFlare * 0.9;   // + the S1→S2 crack flare (the sun destabilising)
+    // + the S1→S2 crack flare (the sun destabilising), then FORCED DARK by the shatter (coronaDeath)
+    // so the corona is dead before the backlight flash peaks (§2 additive-volume sequencing).
+    const cK = (Math.max(0, breatheC) * (1 - dyingK) + coronaFlare * 0.9) * (1 - coronaDeath);
     coronaMat.color.setScalar(cK);
-    lashMat.opacity = (0.35 + aperture * 0.35 + charge * 0.2) * (1 - dyingK);
+    lashMat.opacity = (0.35 + aperture * 0.35 + charge * 0.2) * (1 - dyingK) * (1 - coronaDeath);
+    // ── The HERO FISSURE + disc cracks flare HDR through the strain (crackGlowK): a flicker LFO
+    // ×the base weight → splitting light, not a drawn line. crackGlowK is 0 outside the crack. ──
+    if (crackGlowK > 0) {
+      const flick = 1 + Math.sin(time * 34) * 0.18 + Math.sin(time * 61) * 0.10;   // high-freq shimmer
+      const g = crackGlowK * flick;
+      crackMat.color.setScalar(Math.max(0.4, g));                                   // vertexColors carry the gold hue → scale brightness only
+      fissureGlowMat.color.copy(crackHot).multiplyScalar(Math.max(0.5, g * 1.3));   // solid-hue strip → tint by crackHot
+    }
 
     // Attendant motes: slow drift (a 2nd idle frequency).
     for (const o of orbiters) {
@@ -964,10 +1185,14 @@ export function buildUnmasked(def, quality = 1) {
       // total). charge 0 + snapK 0 → breath 1, zero flare → the signed-off idle unchanged. ──
       const breath = (1 + charge * 0.8) * (1 - snapK * 0.9);
       for (const s of shoulders) {
-        s.obj.rotation.z = s.baseRotZ
-          + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath
+        // S1→S2 UNFURL: fold the wing toward the tight bud while unfurlK<1, cascading open per
+        // foldOrder with a small overshoot; breathe is muted while folded. unfurlK=1 → fold 0 +
+        // full breathe → the shipped idle byte-identical.
+        const fold = s.foldZ * (1 - wingEase(unfurlK, s.foldOrder));
+        s.obj.rotation.z = s.baseRotZ + fold
+          + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath * (0.25 + 0.75 * unfurlK)
           + s.flareZ * charge * 0.16
-          + s.flareZ * stage3K * 0.24;   // STAGE 3: the wings MANTLE FULLY OPEN (a bigger, held flare than the charge tell)
+          + s.flareZ * mantleK * 0.34;   // STAGE 3: the wings THROW open (overshoot to 1.30 then settle to a WIDER held span than stage 2)
       }
 
       // ── WRATH TELL: the whole eye field bleeds from gold toward danger-red as the charge
@@ -976,8 +1201,9 @@ export function buildUnmasked(def, quality = 1) {
       irisMat.color.copy(IRIS_BASE).lerp(DANGER, charge * 0.5);
       catchMat.color.copy(CATCH_BASE).multiplyScalar(1 + snapK * 1.8);
 
-      // The great central eye's pupil tracks the player (the focal); constricts on charge.
-      const gk = 1 - charge * 0.3;
+      // The great central eye's pupil tracks the player (the focal); constricts on charge and on
+      // the S2→S3 GATHER (it recoils inward as the seraph stops watching you).
+      const gk = (1 - charge * 0.3) * (1 - convergeK * 0.5);
       greatPupil.position.set(gazeX * GW * 0.24, GEY + gazeY * GH * 0.2, GF + 0.08);
       greatPupil.scale.set(GW * 0.38 * gk, GH * 0.44 * gk, 0.5);
       // Each peripheral pupil tracks the player within its own sclera, sitting proud of the
@@ -987,8 +1213,11 @@ export function buildUnmasked(def, quality = 1) {
       // gazes CONVERGE to a single dead-on lock — the reveal hold (the screenshot of the game).
       for (const p of pupils) {
         const u = p.userData;
-        const tgx = gazeX + u.biasX * (1 - snapK);
-        const tgy = gazeY + u.biasY * (1 - snapK);
+        // S2→S3 GATHER: the pupil turns INWARD toward the core (−base·0.5), overriding the
+        // player-track — the field of gazes collapses to a point (the unthinkable: it looks away).
+        const cx = Math.max(-1, Math.min(1, -u.base.x * 0.5)), cy = Math.max(-1, Math.min(1, -u.base.y * 0.5));
+        const tgx = (gazeX + u.biasX * (1 - snapK)) * (1 - convergeK) + cx * convergeK;
+        const tgy = (gazeY + u.biasY * (1 - snapK)) * (1 - convergeK) + cy * convergeK;
         const k = Math.min(1, dt * ((2 + u.lag * 7) * (1 - snapK) + 30 * snapK));
         u.gx += (tgx - u.gx) * k;
         u.gy += (tgy - u.gy) * k;
@@ -1010,10 +1239,13 @@ export function buildUnmasked(def, quality = 1) {
     // Gated on stage3.visible so it costs nothing until the third form is up. ──
     if (stage3.visible) {
       starPivot.rotation.z = time * 0.06;                                  // a slow, holy drift (not a wheel)
-      const pulse = 0.85 + Math.sin(time * 0.8 * TAU) * 0.15 + charge * 0.3;
-      // ARENA (PR-B) heaven lift: ×1 at heavenK 0 (byte-identical floats). The halo/burst brighten so the
-      // radiance re-lengthens on the gold sky; the star-eye sclera + catchlights lift only when heavenK>0.
-      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse * (1 + heavenK * BURST_LIFT));
+      // Settled floor 1.0 (survives fight distance) + the S2→S3 IGNITION FLASH (HDR ×burstFlash,
+      // toneMapped off → blooms hard for ~0.6s then decays to the steady radiance).
+      const pulse = 1.0 + Math.sin(time * 0.8 * TAU) * 0.15 + charge * 0.3 + burstFlash;
+      // ARENA (PR-B) heaven lift, layered ON the ignition flash: ×1 at heavenK 0 (byte-identical floats).
+      // The halo/burst brighten so the radiance re-lengthens on the gold sky; the star-eye sclera +
+      // catchlights lift only when heavenK>0.
+      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse * (1 + heavenK * BURST_LIFT));       // wrath charge + ignition flash + heaven lift
       halo3Mat.color.copy(_c.set(def.accent)).multiplyScalar((0.8 + Math.sin(time * 0.5 * TAU) * 0.12) * (1 + heavenK * HALO_LIFT));
       if (heavenK > 0) {
         greatScleraMat.color.copy(SCLERA_BASE).multiplyScalar(1 + heavenK * SCLERA_LIFT);   // the star-eye brightens past the sky (the focal re-takes §3-law-2)
@@ -1034,7 +1266,8 @@ export function buildUnmasked(def, quality = 1) {
 
   return {
     group, muzzle, orbiters,
-    stageTransitionDur: TRANS_DUR,   // boss.js reads this to HOLD FIRE through the crack/unveiling + land the reveal beat on the eye-snap
+    stageTransitionDur: TRANS_DURS.crack,   // legacy truthy alias — the multi-stage flag boss.js gates on (see stageTransitionSpec for real per-kind durations)
+    stageTransitionSpec,                     // (n) → { dur, revealAt, throwAt?, hold, beats } for the transition INTO phase n
     setDissolve: setDissolveEmotive,
     setCharge,
     setGaze,

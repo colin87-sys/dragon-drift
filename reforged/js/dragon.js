@@ -29,6 +29,9 @@ let wingDebugLogged = false;
 let bodyFlapLift = 0;   // flap-coupled body pitch (chest lift at apex / compress on downstroke); set by the yoke solver
 
 let group = null;
+// The dragon root group (for the N6 hero-shadow silhouette pass, which renders it
+// alone on a dedicated layer). Null before createDragon / after dispose.
+export function getDragonGroup() { return group; }
 let wingYokeL = null;  // root shoulder-carrier stage (Mk II yoke wings), null otherwise
 let wingYokeR = null;
 let wingPivotL = null;
@@ -130,6 +133,7 @@ let trailSprites = [];
 let boostTrailSprites = [];
 let emberMotes = [];   // Phoenix ember-feathers / Sovereign arcane surge motes
 let moteTimer = 0;
+let emberEmitters = null;   // optional trailing-edge/tail FX emit anchors (phoenixReforged) → shed fire off the length, not one root point
 let moteIdx = 0;
 let wingMotes = [];    // cyan wingtip wisps (apex Obsidian — def.model.wingParticleRate)
 let wingMoteTimer = 0;
@@ -202,6 +206,7 @@ export function createDragon(scene, def, riderDef) {
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
+  emberEmitters = result.parts.emberEmitters || null;
   spineMats = result.materials.spineMats || [];
 
   // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
@@ -298,7 +303,7 @@ export function createDragon(scene, def, riderDef) {
   emberMotes = [];
   if (def.archetype === 'phoenix' || def.surgeMotes) {
     const moteTex = makeGlowTexture('255,255,255');
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i < 44; i++) {   // a touch larger so trailing-edge emitters (phoenixReforged) can shed a continuous fire without starving the pool
       const s = new THREE.Sprite(new THREE.SpriteMaterial({
         map: moteTex, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false,
@@ -919,11 +924,20 @@ export function updateDragon(dt, player, time) {
     // tight/authoritative. tailLagScale 0.12 ≈ current → multiplier; undefined ⇒ ×1.
     const tailLag = activeDef.model.tailLagScale != null ? activeDef.model.tailLagScale / 0.12 : 1;
     const coilAmp = (0.17 + 0.06 * speedNorm) * cruise * tailLag;   // grows with speed; faded out on a hard bank
+    const undA = activeDef.model.tailUndulateX ?? 0;   // per-joint VERTICAL undulation amplitude (undefined ⇒ 0 ⇒ every other dragon identical)
+    // On a NESTED tail chain the per-joint rudder COMPOUNDS (world tip ≈ Σ locals ≈ 2.5× the base on a
+    // 4-joint tail), which over-curls into a J-hook. tailRudderScale trims it back to a graceful arc
+    // (undefined ⇒ ×1 ⇒ single-joint dragons unchanged).
+    const rudderScale = activeDef.model.tailRudderScale ?? 1;
     for (let i = 0; i < nTail; i++) {
       const lock = (i + 1) / nTail;                        // root subtle → tip full (per-segment)
       const coil = Math.sin(time * coilRate - i * 0.6) * coilAmp * lock;  // azure-style lateral coil
-      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;    // hard-bank rudder
-      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, climbAmount * 0.08 * lock + tWhip * lock, lam, dt);
+      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard * rudderScale;    // hard-bank rudder (trimmed for compounding chains)
+      // A genuine phase-lagged VERTICAL travelling wave (the axis the rear-chase camera actually reads),
+      // slower than the lateral coil so they beat organically; faded by `cruise` so a hard-bank tail that
+      // is yaw-swung into |x| can't simultaneously dip DOWN into the low-aft corridor.
+      const undX = undA * lock * cruise * (Math.sin(time * 2.4 - i * 0.7 + 0.5) - 0.20);
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, climbAmount * 0.08 * lock + tWhip * lock + undX, lam, dt);
       tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder + coil, lam, dt);
       tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -coil * 0.4, 10, dt);   // slight bank into the coil (like azure)
     }
@@ -1358,8 +1372,9 @@ export function updateDragon(dt, player, time) {
       moteTimer = isPhx ? Math.max(0.05, (player.feverActive ? 0.07 : player.boosting ? 0.08 : 0.18) - fxLvl * 0.07) : 0.045;
       const s = emberMotes.find(s => !s.visible);
       if (s) {
-        const src = isPhx ? tailSegs[Math.floor(tailSegs.length * 0.6)]
-          : tailSegs[Math.floor(Math.random() * tailSegs.length)];
+        const src = emberEmitters ? emberEmitters[moteIdx++ % emberEmitters.length]
+          : isPhx ? tailSegs[Math.floor(tailSegs.length * 0.6)]
+            : tailSegs[Math.floor(Math.random() * tailSegs.length)];
         src.getWorldPosition(tmpV);
         s.visible = true;
         s.userData.life = 1;

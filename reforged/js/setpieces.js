@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import { BIOMES } from './biomes.js';
+import { bindAtmosphere } from './atmosphere.js';
+
+// N8 PR B: the gateway arches + mid-biome mega-arches are the most visible fogged
+// structures down the lane — bind them into the atmosphere so they sink into the
+// height fog + catch inscatter like the props/gates around them. Identity off.
 
 // Dramatic flyable structures: gateway arches at every biome boundary and a
 // mega-arch at each biome midpoint. Built per-trigger from primitives and
@@ -16,25 +21,25 @@ const PALETTES = [
 
 function stoneMat(biomeIdx) {
   const p = PALETTES[biomeIdx % PALETTES.length];
-  return new THREE.MeshStandardMaterial({
+  return bindAtmosphere(new THREE.MeshStandardMaterial({
     color: p.stone, flatShading: true, roughness: 0.65,
     emissive: p.stone, emissiveIntensity: 0.06,
-  });
+  }));
 }
 
 function accentMat(biomeIdx) {
   const p = PALETTES[biomeIdx % PALETTES.length];
-  return new THREE.MeshStandardMaterial({
+  return bindAtmosphere(new THREE.MeshStandardMaterial({
     color: p.accent, flatShading: true, roughness: 0.45, metalness: 0.3,
     emissive: p.accent, emissiveIntensity: 0.12,
-  });
+  }));
 }
 
 function glowMat(biomeIdx) {
   const p = PALETTES[biomeIdx % PALETTES.length];
-  return new THREE.MeshStandardMaterial({
+  return bindAtmosphere(new THREE.MeshStandardMaterial({
     color: p.glow, emissive: p.glow, emissiveIntensity: 1.4,
-  });
+  }));
 }
 
 // Gateway: two flanking towers + a spanning lintel you fly under, with a

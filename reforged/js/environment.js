@@ -7,6 +7,19 @@ import { applyArenaSkin } from './arenaSkin.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { damp } from './util.js';
+import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
+import { bakeAO, aoUniform, setPropAO } from './propAO.js';
+import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
+import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
+
+// Re-export the sky-IBL + prop-AO + atmosphere + sky-cloud controls so main.js
+// drives them through environment.
+export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
+
+// N8: the fog-chunk override MUST run before any material compiles. Installing at
+// module load (before createEnvironment builds the prop materials) guarantees it;
+// idempotent, so main.js's explicit boot call is a harmless belt-and-braces.
+installAtmosphere();
 
 // Sky dome, lighting, and the prop bands lining the course. Endless: prop
 // instances are recycled — anything behind the player leapfrogs ahead with
@@ -29,6 +42,9 @@ let skyDim = 0;  // EMBERTIDE sky-replacement: 0 = the real dome; 1 = fully fade
 let arenaPropsGate = false;
 export function debugArenaProps() { return arenaPropsGate; }
 export function debugSkyDim() { return skyDim; }   // proves the EMBERTIDE sky channel stayed 0 under the arena (disjointness)
+let cloudSunCover = 0; // N9: damped cloud coverage over the sun → eases god-ray intensity
+// N9: main.js reads this each frame to fade god-ray shafts as clouds cross the sun.
+export function getCloudSunCover() { return cloudSunCover; }
 // setSkyFade(k): the sky-replacement crossfade hook ("one sky, never two"). boss.js ramps this to 1 while
 // a `def.skyReplace` boss (EMBERTIDE) owns the sky, back to 0 otherwise. Dims the dome shader toward black
 // and hides the mesh entirely at k≈1 (draw replaced, not stacked → overdraw flat). Inert (0) otherwise.
@@ -43,6 +59,7 @@ const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 // is applied in <project_vertex>, so world position is derived right after it).
 const PROP_NOISE_HEAD = /* glsl */`
   varying vec3 vPropWPos;
+  uniform float uAO; varying float vAO;
   float _hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
   float _vnoise(vec3 x){
     vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
@@ -55,9 +72,12 @@ const PROP_NOISE_HEAD = /* glsl */`
 
 function addPropDetail(mat) {
   mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
+    assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
     shader.vertexShader = shader.vertexShader
-      .replace('void main() {', 'varying vec3 vPropWPos;\nvoid main() {')
+      .replace('void main() {', 'varying vec3 vPropWPos;\nattribute float aoBake;\nvarying float vAO;\nvoid main() {')
       .replace('#include <project_vertex>', `#include <project_vertex>
+        vAO = aoBake;
         #ifdef USE_INSTANCING
           vPropWPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
         #else
@@ -67,7 +87,8 @@ function addPropDetail(mat) {
       .replace('void main() {', PROP_NOISE_HEAD)
       .replace('#include <color_fragment>', `#include <color_fragment>
         float _pn = _vnoise(vPropWPos * 0.5) * 0.6 + _vnoise(vPropWPos * 1.7) * 0.4;
-        diffuseColor.rgb *= 0.86 + 0.26 * _pn;`)
+        diffuseColor.rgb *= 0.86 + 0.26 * _pn;
+        diffuseColor.rgb *= mix(1.0, vAO, uAO);   // N15 baked AO (gated; identity at uAO=0)`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;`);
   };
@@ -126,7 +147,9 @@ function mergeParts(parts, biomeIdx) {
     geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
     mats.push(m === 0 ? propMats.primary[biomeIdx] : propMats.accent[biomeIdx]);
   }
-  return { geometry: mergeGeometries(geos, true), materials: mats };
+  const geometry = mergeGeometries(geos, true);
+  bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
+  return { geometry, materials: mats };
 }
 
 const ARCHETYPES = {
@@ -286,6 +309,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.fog = new THREE.Fog(0xf2c694, 85, 430);
 
   // --- Sky dome: biome-lerped gradient with a low sun ahead of the player.
+  // ⚠ This gradient is ported to JS in skyProbe.js `skyColorAt` (the N5 sky-IBL
+  // probe samples it for ambient light). If you change the band math / sun glow
+  // below, update skyColorAt AND tests/skyprobe.mjs together or the ambient drifts.
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -305,6 +331,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       fogFarColor: { value: new THREE.Color(0x57221a) },
       fogFarMix: { value: 0 },
       time: { value: 0 },
+      ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
     },
     vertexShader: `
       varying vec3 vDir;
@@ -316,6 +343,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       varying vec3 vDir;
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, starMix, fogFarMix, time, dimMix;
+      ${CLOUD_HEAD}
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
@@ -328,10 +356,13 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // sink it toward fogFarColor. Branchless: fogFarMix is 0 in biomes
         // without a fogFarColor, leaving the gradient byte-identical.
         col = mix(col, fogFarColor, fogFarMix * (1.0 - smoothstep(0.0, 0.15, h)));
+        ${CLOUD_BODY}
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
         // blowing out the centre of the screen and washing out contrast.
-        col += sunGlow * (pow(s, 900.0) * 0.7 + pow(s, 10.0) * 0.16);
+        // N9: a cloud covering this pixel occludes the disc (cCov=0 when clouds off
+        // → shipped). The halo stays so clouds still glow near the sun.
+        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) + pow(s, 10.0) * 0.16);
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);
@@ -358,6 +389,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   });
   sky = new THREE.Mesh(new THREE.SphereGeometry(800, 24, 16), skyMat);
   sky.frustumCulled = false;
+  // N9 (ADJUST-3): the camera-locked dome sorts to z~0 and would draw FIRST, so
+  // every sky pixel shades then gets overdrawn. renderOrder=1 draws it after the
+  // opaque world → early-z rejects occluded sky pixels (depthWrite already false,
+  // depthTest true). This is the perf offset that pays for the cloud FBM.
+  sky.renderOrder = 1;
   scene.add(sky);
 
   // --- Lighting: warm sun ahead, biome-tinted bounce.
@@ -366,6 +402,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.add(sun, sun.target);
   hemi = new THREE.HemisphereLight(0xbfdcff, 0x2e5448, 0.8);
   scene.add(hemi);
+  initSkyProbe(scene, hemi); // N5 sky-IBL probe (dormant until enabled)
 
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
@@ -380,6 +417,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
 function makeBand(scene, def) {
   const perSide = Math.ceil(WALL_WINDOW / def.step);
   const { geometry, materials } = def.build();
+  // N15 guard: prop materials sample `aoBake`; a build path that skips mergeParts()
+  // (or geometry with no normals) would leave it undefined → 0 → BLACK props when the
+  // toggle is on. Unreachable today (all builds route through mergeParts), but cheap
+  // insurance against a future prop path.
+  if (!geometry.getAttribute('aoBake')) console.warn('[env] prop geometry missing aoBake — props will darken to black under PROP SHADING');
   const mesh = new THREE.InstancedMesh(geometry, materials, perSide * 2);
   mesh.frustumCulled = false;
   const band = { mesh, data: [], step: def.step, def };
@@ -492,6 +534,7 @@ export function resetEnvironment(seed) {
   for (const band of bands) reseedBand(band);
   feverMix = 0;
   bossMix = 0;
+  cloudSunCover = 0; // N9: don't carry a cloud's sun-occlusion across a restart
 }
 
 // The sky-dome mesh — the god-ray occlusion mask hides it to paint the open-sky
@@ -529,6 +572,12 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sceneRef.fog.far = env.fogFar;
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
+  applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
+  applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
+  // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down
+  // as a cloud drifts across it (rather than strobe). main.js reads getCloudSunCover().
+  cloudSunCover = damp(cloudSunCover, sunCloudCover(env, su.sunDir.value, playerDist, time), 3, dt);
+  updateSkyProbe(env, su.sunDir.value); // N5: reproject the (lerped) sky into the probe
   sun.color.copy(env.lightSun);
   sun.intensity = env.lightSunI;
   hemi.color.copy(env.hemiSky);
