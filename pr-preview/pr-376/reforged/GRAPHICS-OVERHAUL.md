@@ -458,7 +458,12 @@ marginal cost — no `applyQuality` entry needed; state so in the PR for the Gat
     `InstancedBufferGeometry` reads them → ≤150 spark draws collapse to 1 (241→188 at tier2). Parity verified vs
     the vendored sprite shader incl. the tier2 tonemapping/colorspace tail; `tests/particlebatch.mjs` (6/6),
     `tools/pfxshot.mjs` (tier0+tier2 look A/B). Fog = documented deviation (near-field bursts unaffected).
-    **Pending owner:** the N3 tone-map default flip + the N4 batch default flip (both need a motion judgment).
+  - **✓ Landed (#376) — Graphics settings menu + N5 sky-IBL + N6 hero shadow.** A Settings "Graphics" section
+    (COLOUR GRADE / SKY LIGHTING / DRAGON SHADOW / SMOOTH GRADIENTS / FAST PARTICLES) is the home every feature
+    plugs a toggle into (defaults = shipped look). **N5** projects the sky into an SH LightProbe (the sky lights
+    the world); **N6** casts the dragon's real top-down silhouette on the water (`isMesh`-only mask, tier2→blob).
+    All off/neutral by default. **Pending owner (taste calls):** tone-map → Neutral default, sky-IBL strength +
+    default, dragon-shadow default, fast-particles default — all flippable in Settings on the preview.
 - **Phase 1 — Hero look (Azure):** N5 rung 1 → N6 → N7 → N5 rung 2 → **N14 (shading AA, where the artifact now
   peaks)**. Hero-first, judged on Azure in the shop scene + chase cam. Exit: the "bank across the sun" shot approved.
 - **Phase 2 — World & atmosphere:** **N15 (prop AO, opener)** → N8 → N9 (Sanctuary hero biome) → N10 (a/b/c
@@ -542,3 +547,4 @@ One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable 
 | #373 Phase 0 | N3 tonemap scaffold | 5.5→SHIP | REVISE→fixed | Gate caught: vendored `OutputPass` had no `CustomToneMapping` branch → `?tm=neutral` was untonemapped on tier0/1. Patched `OutputPass.js`+`OutputShader.js`, reshot montage at pinned tier0, restamped `sw.js`, fixed idempotence test |
 | #376 N4 | N4 ParticleBatch | 7.5→SHIP | REVISE→fixed | Billboard/blend parity verified vs vendored sprite shader; 150 draws→1. Gate caught: `BATCH_FRAG` lacked `tonemapping`/`colorspace` chunks → tier2 (direct-to-screen) sparks skipped ACES+sRGB, read ~25-35% dimmer. Added the two includes (auto-gated per render target); `pfxshot` now shoots tier0+tier2. Fog left as documented deviation (near-field bursts unaffected) |
 | #376 N5 | N5 sky-IBL rung 1 | 7→SHIP | REVISE→fixed | SH **radiance** convention + `4π/N` weight independently verified correct. Gate caught: Fibonacci lattice double-weighted the poles → spurious −0.057 band-2 in a constant sky. Fixed `(i+0.5)/n`; added the spec's `tests/skyprobe.mjs` (5/5, catches it); rebalanced `PROBE_INTENSITY` 1.15→0.62 (was ~3× shipped red ambient / read as an exposure shift); drift-guard comment + lesson. Surge/EMBERTIDE sky states = documented deviation |
+| #376 N6 | N6 hero shadow | 7→SHIP | REVISE→fixed | UV 1:1 mapping + save/restore + layer topology independently verified clean. Gate caught: mask traverse enabled layer 2 on the dragon's **Sprites** → under the white override they lose billboard+opacity and stamp white slabs into the mask *on pitch* (invisible at level flight). Fixed to `isMesh`-only (+ `spriteLeak()` regression guard); wired the tier2→blob fallback (`silActive`); `FIT` 9→7. Deviations recorded: top-down (not SUN_DIR), no sun-offset, `shadowshot` tool deferred |

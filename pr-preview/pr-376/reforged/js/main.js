@@ -24,7 +24,7 @@ import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LAN
 import { lanceWyrm } from './sfxLance2.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setDither } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
-import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL } from './contactShadow.js';
+import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
@@ -311,7 +311,7 @@ if (urlParams.has('debug')) {
       drawCalls: () => renderer.info.render.calls,
     },
     // N6 hero-shadow seams: silhouette on/off + the RT coverage (proves the pass ran).
-    shadow: { on: contactShadowSilhouette, coverage: () => heroShadowCoverage(renderer), maskURL: () => heroShadowMaskURL(renderer) },
+    shadow: { on: contactShadowSilhouette, coverage: () => heroShadowCoverage(renderer), maskURL: () => heroShadowMaskURL(renderer), spriteLeak: heroShadowSpriteLeak },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
     // Push the boss schedule out of the way (or restore it) so a stretch of

@@ -20,7 +20,7 @@ async function run(shadow) {
   await page.click('#btn-start').catch(() => {});
   await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.distance >= 25, { timeout: 15000 }).catch(() => {});
   await page.waitForTimeout(200);
-  const r = await page.evaluate(() => ({ on: window.__dd.shadow.on(), coverage: window.__dd.shadow.coverage() }));
+  const r = await page.evaluate(() => ({ on: window.__dd.shadow.on(), coverage: window.__dd.shadow.coverage(), leak: window.__dd.shadow.spriteLeak() }));
   await done();
   return { ...r, errors: errors.length };
 }
@@ -30,6 +30,9 @@ const off = await run(false);
 
 check('?shadow: silhouette mode active', on.on === true);
 check(`?shadow: dragon renders into the RT (coverage ${on.coverage.toFixed(4)} in [0.01, 0.6])`, on.coverage > 0.01 && on.coverage < 0.6);
+// The dragon's aura/glow Sprites must NOT be on the shadow layer — under the white
+// override they'd stamp fat white slabs into the mask as the dragon pitches.
+check('?shadow: no Sprites leaked onto the shadow layer (pitch-pollution guard)', on.leak === 0);
 check('?shadow: no console errors', on.errors === 0);
 check('default: silhouette OFF (shipped blob fallback)', off.on === false);
 check('default: RT not rendered (coverage ~0)', off.coverage <= 0.001);

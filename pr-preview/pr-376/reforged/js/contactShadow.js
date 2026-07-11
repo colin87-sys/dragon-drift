@@ -22,11 +22,13 @@ const _pos = new THREE.Vector3();
 // camera's view). Wingbeats show in the shadow. Reuses the god-ray "render a tiny
 // aux pass" pattern. OFF by default → the blob above is the shipped fallback.
 const SHADOW_LAYER = 2;
-const FIT = 9.0;         // ortho half-extent (world units) — covers the wingspan
+const FIT = 7.0;         // ortho half-extent (world units) — snug to the wingspan so the dragon fills the mask
 const RT_SIZE = 128;
 let silRT = null, shadowCam = null, whiteMat = null, blobMat = null, silMat = null;
 let silhouette = false;
-const _tmpMask = { v: 0 };
+// Silhouette runs at tier0/1 only; tier2 (quality 0.35) falls back to the shipped
+// blob per the N6 tier ladder (the 128² aux pass isn't worth it on the weakest tier).
+const silActive = () => silhouette && quality > 0.4;
 
 // Ground projection of the sun direction (where the shadow is pushed): opposite
 // the sun's horizontal bearing, normalized in xz.
@@ -114,24 +116,26 @@ export function initContactShadow(scene) {
   });
 }
 
-// Toggle the silhouette shadow. ON swaps the plane to the RT-sampling material;
-// OFF restores the shipped radial blob.
+// Toggle the silhouette shadow. Just sets the flag; updateContactShadow swaps the
+// plane material each frame based on silActive() (so a tier drop to tier2 also
+// cleanly reverts to the blob).
 export function setContactShadowSilhouette(on) {
   silhouette = !!on && !!silRT;
-  if (mesh) {
-    mesh.material = silhouette ? silMat : blobMat;
-    mesh.material.uniforms.uOpacity.value = 0; // avoid a pop on swap
-  }
 }
 
 // Render the dragon-only top-down silhouette into the RT. Call once per frame,
 // before the composer, only while the silhouette shadow is active (like the
 // god-ray mask). Cheap: one small pass, ~a few thousand tris, black/white.
 export function renderHeroShadow(renderer) {
-  if (!silhouette || !silRT) return;
+  if (!silActive() || !silRT) return;
   const dragon = getDragonGroup();
   if (!dragon) return;
-  dragon.traverse((o) => o.layers.enable(SHADOW_LAYER)); // idempotent; survives rebuilds
+  // MESHES ONLY. Under the white overrideMaterial a THREE.Sprite loses its
+  // billboard + opacity and renders as a solid white quad fixed in the dragon's
+  // local XY plane — edge-on at level flight, but it projects a fat white SLAB
+  // into the mask as the dragon pitches (aura is 9×9). Same class of sprite
+  // pollution godrays.js excludes via layer 0. (isMesh covers SkinnedMesh.)
+  dragon.traverse((o) => { if (o.isMesh) o.layers.enable(SHADOW_LAYER); }); // idempotent; survives rebuilds
   // Frame the cam straight down over the dragon's ground point.
   const gx = dragon.position.x, gz = dragon.position.z;
   shadowCam.position.set(gx, 60, gz);
@@ -165,16 +169,21 @@ export function updateContactShadow(dt, player) {
   // Altitude 0..~22 → 0..1. Strong+tight near the deck, wide+faint up high.
   const hi = THREE.MathUtils.clamp((alt - 2.0) / 20.0, 0, 1);
   const qFade = THREE.MathUtils.clamp((quality - 0.2) / 0.4, 0, 1); // tier2 dims out
+
+  // Swap the plane material to match the active mode (handles a live tier drop to
+  // tier2 → blob, so the plane never samples a frozen stale mask).
+  const wantMat = silActive() ? silMat : blobMat;
+  if (mesh.material !== wantMat) { mesh.material = wantMat; wantMat.uniforms.uOpacity.value = 0; }
   const u = mesh.material.uniforms.uOpacity;
 
-  if (silhouette) {
+  if (mesh.material === silMat) {
     // Silhouette: the plane exactly covers the ortho footprint (2·FIT), centred
     // under the dragon, so uv samples the mask 1:1. Altitude → fainter + softer.
     mesh.position.x = player.position.x;
     mesh.position.z = player.position.z;
     mesh.scale.set(FIT * 2, FIT * 2, 1);
     mesh.material.uniforms.uSoft.value = 0.004 + hi * 0.02; // blur out as it lifts
-    const target = (0.5 * (1.0 - hi * 0.55)) * qFade;
+    const target = (0.55 * (1.0 - hi * 0.5)) * qFade;
     u.value += (target - u.value) * Math.min(dt * 8, 1);
     return;
   }
@@ -209,6 +218,16 @@ export function heroShadowCoverage(renderer) {
 }
 
 export function contactShadowSilhouette() { return silhouette; }
+
+// Regression guard: count dragon Sprites that leaked onto the shadow layer (they
+// must NOT — they'd stamp white slabs into the mask under the override). 0 = clean.
+export function heroShadowSpriteLeak() {
+  const d = getDragonGroup();
+  if (!d) return -1;
+  let n = 0;
+  d.traverse((o) => { if (o.isSprite && (o.layers.mask & (1 << SHADOW_LAYER))) n++; });
+  return n;
+}
 
 // Debug: the silhouette RT as a PNG data URL (GL is bottom-up, so flip). Lets a
 // tool show the actual dragon-shaped mask.
