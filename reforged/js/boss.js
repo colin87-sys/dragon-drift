@@ -1479,20 +1479,44 @@ function beamAimPart(player) {
 // advanced, so a shielded burst's fork clamps against the NEW phase (the exposed
 // organs' pool), never the sealed one. brandLoose rides the exhale via the lockVolley
 // listener (source 'fork'). No banked pips → a silent no-op (the common ready tap).
+// §5i.C rung 12 — the ghost-frame break (ONEWING). One body for the production 4th-parry path AND
+// the ?debug seam. HONEST SACRIFICE: the break kills the lance too — drops both frame dwell organs'
+// banked pips AND the eye's echo anchor (no more frame → no more echo), so the lance goes to
+// near-zero for the rest of the fight (the either/or the trade promises; lockPartDead/lockCandidates
+// then keep the reticle off the fallen frame).
+function breakGhostFrame(player) {
+  ghostFrameBroken = true;
+  model?.breakFrame?.();
+  dropLockPart('frameGroup'); dropLockPart('frameRoot'); if (def.echoTarget) dropLockPart(def.echoTarget);
+  ventSpraySoak(player);
+  ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
+  cameraCtl.shake?.(1.2); sfx.milestone?.();
+  emit('bossFrameBreak', {});
+}
+
 function surgeForkLances(player) {
   const locks = consumeAllLocks();
   if (!locks.length) return;
-  let pips = 0;
-  for (const lk of locks) pips += lk.stacks;
-  const dmgEach = lanceDmgEach(pips, currentPhaseHp());
+  // §5i.C rung 12 (§CP2-D1): the Surge fork is the THIRD lance release path — it MUST halve GHOST
+  // pips too, or banked echoes convert to FULL strength here (the honest releaseVolley halves them).
+  // Mirror it: price the ROI clamp on effective pips (real + echoMult·ghost), strike ghosts at half.
+  // Non-echo bosses carry no ghost stacks ⇒ effPips===pips and every line is byte-identical.
+  const echoMult = CONFIG.LOCK.scarBurn?.echoDmgMult ?? 0.5;
+  let realPips = 0, ghostPips = 0;
+  for (const lk of locks) { if (lk.ghost) ghostPips += lk.stacks; else realPips += lk.stacks; }
+  const pips = realPips + ghostPips;
+  const effPips = realPips + echoMult * ghostPips;
+  const dmgEach = lanceDmgEach(effPips, currentPhaseHp());
+  const ghostDmg = dmgEach * echoMult;
   // The fork is never beat-held (it rides the Surge-break's own beat), so its
   // launch IS its commit — lockLaunch fires here, in step with the lances (PR9).
   const cap = CONFIG.LOCK.capByTier[def?.tier ?? 1] ?? 0;
   const full = cap > 0 && pips >= cap;
   emit('lockLaunch', { count: pips, full, source: 'fork' });
   let i = 0;
-  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips, full, true);
-  emit('lockVolley', { count: pips, source: 'fork', dmgEach, delay: 0, full });
+  for (const lk of locks) { const d = lk.ghost ? ghostDmg : dmgEach; for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, d, i++, pips, full, true); }
+  const volleyTotal = realPips * dmgEach + ghostPips * ghostDmg;
+  emit('lockVolley', { count: pips, paintedCount: realPips, source: 'fork', dmgEach, volleyTotal, delay: 0, full });
 }
 
 // PR-B (C1, revised): the beat-aligned INHALE length. PR9 held the committed
@@ -2893,22 +2917,18 @@ export function updateBoss(dt, player, time, camera) {
           // the dead half apart BREAKS the fused frame — the ghost volley stops, the tempo
           // ENRAGES, and the break vents a 2× spray-soak graze beat. Surge reflects don't
           // count (§5i.C law 4). Def-gated; inert for every other boss.
-          if (def.ghostHalf && !surge && !ghostFrameBroken && r.snapParts.includes('frameGroup')) {
+          // §CP2-D3: never advance the frame-break DURING the fake death — a straggler ghost amber
+          // parried mid-lie would break the frame over the FELLED beat (enrage bullets from a "dead"
+          // boss, the sealed banked pips deleted, the forfeit path bypassed). The lie is sealed.
+          if (def.ghostHalf && !surge && !ghostFrameBroken && felledLieT <= 0 && r.snapParts.includes('frameGroup')) {
             model?.hurt?.(0.5);   // the stagger recoil on each parried ghost bullet
             ghostFrameHits++;
             if (ghostFrameHits >= GHOST_FRAME_HITS) {
-              ghostFrameBroken = true;
-              model?.breakFrame?.();
-              // §5i.C rung 12 HONEST SACRIFICE: the break kills the lance too — drop both frame dwell
-              // organs' banked pips AND the eye's echo anchor (no more frame → no more echo). The
-              // lance goes to near-zero for the rest of the fight: the either/or the trade promises.
-              dropLockPart('frameGroup'); dropLockPart('frameRoot'); dropLockPart(def.echoTarget);
-              ventSpraySoak(player);
-              ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
-              cameraCtl.shake?.(1.2); sfx.milestone?.();
-              emit('bossFrameBreak', {});
+              breakGhostFrame(player);
             } else {
-              ui.bossNote?.(`✦ GHOST STAGGER — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, 'PARRY THE DEAD HALF APART', 'gold', 1.1);
+              // §CP2-D2: name the stake — breaking the frame is the "honest sacrifice" and ENDS the
+              // lance (the frame is the echo anchor). A defensive player parrying to break should know.
+              ui.bossNote?.(`✦ GHOST STAGGER — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, def.echoTarget ? 'BREAK IT AND YOUR LANCE ENDS' : 'PARRY THE DEAD HALF APART', 'gold', 1.1);
             }
           }
         }
@@ -4464,7 +4484,11 @@ function fireRiderShot(player) {
 function lockCandidates() {
   if (!def) return [];
   const out = [];
-  if (def.lockParts) for (const lp of def.lockParts) out.push(lp.part);
+  // §CP2-D4: filter DEAD lockParts here too, not only in paintableParts — ONEWING is the first boss
+  // whose ENTIRE candidate set can die (frame-break, no virtual organ), and the aim layer reads THIS
+  // list. Without the filter the reticle stays live on the broken frame (parked at its fall pose,
+  // still resolving with visible=false), can green, and holds the rider chip-rate bonus on a corpse.
+  if (def.lockParts) for (const lp of def.lockParts) if (!lockPartDead(lp.part)) out.push(lp.part);
   if (def.virtualLockOrgan) out.push(def.virtualLockOrgan);
   return out;
 }
@@ -4762,7 +4786,10 @@ on('lockPaint', (p) => {
   // not a stack or a refresh) echoes a half-strength GHOST pip onto the living eye — "mark the dead
   // half, the living half answers." Two frame organs → up to echoMax(2) ghosts ("pips arrive in
   // pairs"). grantEchoPip enforces the cap + never stacks onto a real pip. Inert for every other def.
-  if (p && def?.echoOrgans && def?.echoTarget && !p.stacked && !p.refreshed && def.echoOrgans.includes(p.part)
+  // §CP2-D2: a PARRY-SNAP paint (p.snap) does NOT echo — a snap costs no dwell time, and the deleter
+  // model prices echoes against DWELL-painted frame marks; letting a free snap also grant a free
+  // ghost would double-free the razor P5 margin. The snap still paints the frame (a real pip).
+  if (p && def?.echoOrgans && def?.echoTarget && !p.stacked && !p.refreshed && !p.snap && def.echoOrgans.includes(p.part)
       && grantEchoPip(def.echoTarget, def.echoMax ?? Infinity)) {
     if (model && model.partWorldPos) {   // a brief connecting pulse so the frame→eye pairing reads
       const a = model.partWorldPos(p.part, _brandPopV);
@@ -5342,6 +5369,23 @@ export function debugRestitch() {
   if (!active || !model?.restitchWeb) return false;
   model.restitchWeb();
   return true;
+}
+// §5i.C rung 12 test seams: force the ghost-frame break (the honest sacrifice), force the fake
+// death (the paint seal), and read the lance state (pips + ghost count + lockDeflected).
+export function debugBreakFrame(player) {
+  if (!active || !def?.ghostHalf || ghostFrameBroken) return false;
+  breakGhostFrame(player);
+  return true;
+}
+export function debugFelledLie(player) {
+  if (!active || !def?.felledLie) return false;
+  triggerFelledLie(player);
+  return true;
+}
+export function debugLanceState() {
+  const locks = lockHudState().locks || [];
+  return { pips: lockCount(), parts: lockPaintedParts(), ghosts: locks.filter((l) => l.ghost).length,
+    deflected: lockDeflected(), candidates: lockCandidates(), paintables: paintableParts() };
 }
 
 export function debugCrackPane(i) {

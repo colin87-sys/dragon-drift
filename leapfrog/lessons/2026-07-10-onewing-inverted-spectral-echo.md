@@ -54,3 +54,32 @@ voided with a shieldPing (the one-deflect-rule violation the burn ticks already 
 `def.echoOrgans` unguarded → the lock UNIT test (fabricated ctx, no boss) threw `Cannot read
 echoOrgans of null`. Same trap the Codex reviewer caught on the mend hook. Any `on(...)` listener
 that can fire with no active boss must optional-chain `def`.
+
+**What the CP2 diff critic caught (all folded before ship):**
+- **A new damage rule must be taught to ALL release paths, not just the one you edited.** The echo
+  halving lived in `releaseVolley`, but the lance has THREE release paths — and the **Surge fork**
+  (`surgeForkLances`, via `consumeAllLocks`) priced every pip flat, so banked ghosts fired at FULL
+  strength there (+26% vs the honest path; a strict "Surge your ghosts" incentive nobody designed).
+  `consumeAllLocks` even stripped `lk.ghost` from its return. Fix: carry `ghost` through, mirror the
+  effPips/ghostDmg math in the fork. **When you add a per-pip property, grep every consumer of the
+  pip list** (`releaseVolley`, `surgeForkLances`, `consumeAllLocks`, the burn seam).
+- **Free + free = too free: exclude parry-snap from the echo.** A perfect-parry snap paints the
+  frame for ZERO dwell; letting it ALSO grant a ghost double-frees the razor P5 margin (the deleter
+  model prices echoes against *dwell* marks). Gate the echo on `!p.snap`. The snap still paints a
+  real pip — it just doesn't echo.
+- **A terminal state must be gated against the sealed windows AND telegraphed.** The 4-parry
+  frame-break ran during the `felledLie` fake death (enrage bullets from a "dead" boss, sealed pips
+  deleted, forfeit path bypassed) — gate the bank on `felledLieT <= 0`. And a defensive player
+  parrying ghost ambers (which also HEALS) was silently forfeiting the whole lance rung — the
+  "GHOST STAGGER n/4" note now names the stake ("BREAK IT AND YOUR LANCE ENDS").
+- **Filter dead organs in BOTH the aim list and the paint list.** `lockPartDead` was wired into
+  `paintableParts` but not `lockCandidates` — and ONEWING is the first boss whose ENTIRE candidate
+  set can die (frame-break, no virtual organ), so the reticle stayed live on the fallen frame
+  (resolving with `visible=false`), could green, and held the rider chip-rate bonus on a corpse.
+- **Reasoned ≠ verified — the couplings that shipped untested were exactly where the bugs were.**
+  D3/D4 lived in the frame-break + felledLie paths the first pass only *reasoned* about. Extracting
+  the break into one `breakGhostFrame` body + three debug seams (`bossBreakFrame`/`bossFelledLie`/
+  `bossLanceState`) made the honest-sacrifice and the seal testable end-to-end (`onewingbreak.mjs`).
+- **Hand-synced model/runtime constants need a cross-assert.** `echoPips` (model) and `echoMax`
+  (runtime) are the same number in two files; a drift makes the deleter gate under-model the
+  exploit. One assert in `lockdps.mjs` binds them.

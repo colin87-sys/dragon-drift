@@ -372,7 +372,7 @@ export const CONFIG = {
       fracBySlot: {         // per-boss burn fraction of the (already ROI-clamped) volley
         knellgrave: 0.25,   // WE opener — gentle
         weftwitch: 0.30,    // WE mid — her music is LIVE, so the perfect release is the normal on-beat tap (no toll-clock analog)
-        onewing: 0.30,      // WE late (rung 12) — the RUBATO's held wind-ups are the on-tell windows; burn on REAL pips only (ghosts never earn it). 0.30 not 0.35: at 0.35 the P5 full-release edged the deleter line to exactly 1.00 — the SPECTRAL ECHO is ONEWING's escalation, not the burn (lockdps margins)
+        onewing: 0.30,      // WE late (rung 12) — burn on REAL pips only (ghosts never earn it). ONEWING has LIVE music, so the perfect on-tell release is the normal on-BEAT tap (generic beat clock, not a toll/wind-up analog). 0.30 not 0.35: at 0.35 the P5 full-release edged the deleter line to exactly 1.00 — the SPECTRAL ECHO is ONEWING's escalation, not the burn (lockdps margins)
         // embertide: 0 (beam fork), unmasked: 0.20 — later PRs
       },
     },

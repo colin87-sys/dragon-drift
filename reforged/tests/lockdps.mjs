@@ -129,6 +129,11 @@ assert(weft.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
 const onew = economies.find((e) => e.id === 'onewing');
 assert(onew && onew.lanceCapable && onew.burnFrac === 0.30, `ONEWING is lance-capable + burn-wired at exactly 0.30 (frac ${onew?.burnFrac})`);
 assert(onew.peakCap === 6, `ONEWING fills the tier-4 cap to 6 (4 dwell + 2 ghost) — peakCap ${onew?.peakCap}`);
+// §CP2-D6: echoPips (the model's ghost count) and echoMax (the runtime ghost cap on the eye) are
+// hand-synced duplicates — a drift makes the deleter gate UNDER-model the exploit (the dead-invariant
+// trap). Assert they stay equal so the economy the gate certifies is the one the game actually runs.
+assert(BOSSES.onewing.echoPips === BOSSES.onewing.echoMax,
+  `ONEWING echoPips (model ${BOSSES.onewing.echoPips}) === echoMax (runtime ${BOSSES.onewing.echoMax}) — a drift under-models the exploit`);
 assert(onew.phases.some((p) => p.burn > 0), 'ONEWING phases actually earn a burn on a full on-tell release (real pips)');
 assert(onew.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
   `ONEWING is never a phase-deleter incl. the free-ghost DPS (TTKs ${onew.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${onew.phases.map((p) => p.cardTimer).join('/')})`);

@@ -668,7 +668,7 @@ export function paintFromParry(part) {
 }
 // PR3 (Surge fork): hand every painted pip to the unleash and clear — no volley here.
 export function consumeAllLocks() {
-  const out = S.locks.map((lk) => ({ part: lk.part, stacks: lk.stacks }));
+  const out = S.locks.map((lk) => ({ part: lk.part, stacks: lk.stacks, ghost: !!lk.ghost }));  // §5i.C rung 12: carry ghost so the Surge fork can halve echo pips like releaseVolley
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0;
   return out;
 }
@@ -692,7 +692,7 @@ export function dropLockPart(part) {
 // ghost cap, or (defensively) an entry for `part` exists that is NOT a ghost — never stack onto a
 // real paint. Returns true iff a ghost pip was laid (so the caller can play the tether pulse once).
 export function grantEchoPip(part, ghostMax = Infinity) {
-  if (!part || (S.cap > 0 && totalPips() >= S.cap)) return false;
+  if (!part || totalPips() >= S.cap) return false;   // no cap (0) ⇒ no echo; else never past the cap
   const lk = S.locks.find((l) => l.part === part);
   if (lk) {
     if (!lk.ghost || lk.stacks >= ghostMax) return false;

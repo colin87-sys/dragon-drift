@@ -53,11 +53,13 @@ for (const [key, label] of [['frame', 'frameGroup (upper)'], ['root', 'frameRoot
     e && e.maxY <= LANE_MAX_Y && e.minY >= LANE_MIN_Y);
 }
 
-// The living eye is ABOVE the aim ceiling by design — this is WHY it's an echo (granted) target,
-// never a dwell organ. If a comfort dial ever dragged it into the lane, the inverted design's
-// premise would be broken (a paintable eye + a granted echo on it = double-count).
+// The living eye is well ABOVE the lane — a DOCUMENTATION check (not a correctness guard: the eye is
+// structurally unpaintable regardless of Y, since it's not in lockParts and onewing has no
+// virtualLockOrgan, so lockCandidates can never surface it). It records WHY the design inverted: the
+// focal organ of a scale-1.9 below-boss sits out of the aim lane, so it's the granted echo TARGET,
+// never a dwell source. (The true paintable ceiling is laneMaxY + coneXY ≈ 24.6; 22 is a safe floor.)
 const eye = env('eye');
-check(`onewingEye stays ABOVE the aim ceiling — echo TARGET only, never dwell-paintable (minY ${eye ? eye.minY.toFixed(1) : '?'} > ${LANE_MAX_Y})`,
+check(`onewingEye stays out of the aim lane — the echo TARGET, never a dwell organ (minY ${eye ? eye.minY.toFixed(1) : '?'} > ${LANE_MAX_Y})`,
   eye && eye.minY > LANE_MAX_Y);
 
 check('no console errors through the onewing organ run', errors.length === 0) || console.error(errors.join('\n'));
