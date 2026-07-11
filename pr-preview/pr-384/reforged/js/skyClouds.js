@@ -31,33 +31,44 @@ export const CLOUD_HEAD = /* glsl */`
                mix(_cHash(i+vec2(0.0,1.0)), _cHash(i+vec2(1.0,1.0)), f.x), f.y);
   }
   float _cFbm(vec2 p){
-    float a = 0.5, s = 0.0;
+    float a = 0.5, s = 0.0, norm = 0.0;
     for (int i = 0; i < 4; i++){
       if (i >= uCloudOctaves) break;
-      s += a * _cvNoise(p); p *= 2.03; a *= 0.5;
+      s += a * _cvNoise(p); norm += a; p *= 2.03; a *= 0.5;
     }
-    return s;
+    return s / norm;   // normalized to [0,1] so cloud cores can saturate (any octave count)
   }`;
 
 // GLSL spliced INTO main(), after the dual-fog sink and BEFORE the sun disc (so the
 // disc peeks through gaps). `d` = normalized view dir, `h` = clamp(d.y), `sunDir`,
 // `sunGlow` are already in scope.
 export const CLOUD_BODY = /* glsl */`
+        float cCov = 0.0; // coverage over THIS pixel (0 when off) — read by the sun disc below
         if (uCloudAmount > 0.0001) {
           // Cylindrical projection of the view dir onto the cloud plane; drift with
           // time + world parallax (dome is camera-locked, so motion is authored).
+          // NOTE: atan(d.z,d.x) is NOT periodic → a hard FBM seam at azimuth ±X,
+          // ~90 deg off the flight axis (outside normal framing). Gate-3: wrap it.
           vec2 cuv = vec2(atan(d.z, d.x) * 0.6, d.y * 2.1) + vec2(time * 0.006 + uCloudDrift, 0.0);
-          vec2 warp = uCloudWarp * 0.32 * vec2(_cFbm(cuv * 1.3 + 11.3), _cFbm(cuv * 1.3 + 47.7));
-          float n = _cFbm(cuv * 1.7 + warp);
+          vec2 warp = uCloudWarp * 0.35 * vec2(_cFbm(cuv * 1.3 + 11.3), _cFbm(cuv * 1.3 + 47.7));
+          float n = _cFbm(cuv * 1.7 + warp);          // [0,1] normalized density
           // Band-shape: clouds live in a mid-sky band, faded to 0 by h~0.7 so the
           // cylindrical zenith singularity never shows.
-          float band = smoothstep(0.03, 0.24, h) * (1.0 - smoothstep(0.46, 0.72, h));
-          float cov = smoothstep(0.48, 0.92, n) * band * uCloudAmount;
-          // Silver lining (most of the beauty): brighten cloud toward the sun.
-          float lit = clamp(n * 1.35, 0.0, 1.0);
-          float sunEdge = pow(max(dot(d, normalize(sunDir)), 0.0), 3.0);
-          vec3 cloudCol = mix(uCloudShadow, uCloudLit, lit) + sunGlow * (sunEdge * 0.7);
-          col = mix(col, cloudCol, cov);
+          float band = smoothstep(0.03, 0.22, h) * (1.0 - smoothstep(0.48, 0.72, h));
+          // Coverage saturates: cloud CORES read solid, edges feather.
+          float shape = smoothstep(0.40, 0.72, n);
+          cCov = shape * band * uCloudAmount;
+          // Two-tone sculpting: a second, higher-frequency read varies lit vs shadow
+          // ACROSS the cloud so it reads as form, not a flat wash.
+          float form = _cvNoise(cuv * 2.7 + 8.0);
+          float lit = clamp(smoothstep(0.30, 0.78, n) * 0.55 + smoothstep(0.35, 0.72, form) * 0.45, 0.0, 1.0);
+          vec3 cloudCol = mix(uCloudShadow, uCloudLit, lit);
+          // Silver lining (the beauty): sun-facing cloud edges catch the sun glow —
+          // strongest where coverage is partial (the rim), toward the sun.
+          float sunEdge = pow(max(dot(d, normalize(sunDir)), 0.0), 2.2);
+          float rim = shape * (1.0 - shape) * 4.0;   // peaks at cloud edges
+          cloudCol += sunGlow * (sunEdge * (0.4 + 0.8 * rim));
+          col = mix(col, cloudCol, cCov);
         }`;
 
 export const cloudUniforms = {
@@ -105,9 +116,9 @@ function jvNoise(x, y) {
   return (a + (b - a) * fx) * (1 - fy) + (c + (e - c) * fx) * fy;
 }
 export function jFbm(x, y, octaves) {
-  let amp = 0.5, s = 0, px = x, py = y;
-  for (let i = 0; i < octaves; i++) { s += amp * jvNoise(px, py); px *= 2.03; py *= 2.03; amp *= 0.5; }
-  return s;
+  let amp = 0.5, s = 0, norm = 0, px = x, py = y;
+  for (let i = 0; i < octaves; i++) { s += amp * jvNoise(px, py); norm += amp; px *= 2.03; py *= 2.03; amp *= 0.5; }
+  return s / norm; // normalized [0,1] — parity with the GLSL _cFbm
 }
 export function sunCloudCover(env, sunDir, playerDist, time) {
   if (!enabled || tier >= 2 || !(env.cloudAmount > 0)) return 0;
@@ -116,8 +127,8 @@ export function sunCloudCover(env, sunDir, playerDist, time) {
   const cy = sunDir.y * 2.1;
   const n = jFbm(cx * 1.7, cy * 1.7, cloudUniforms.uCloudOctaves.value);
   const h = Math.max(0, Math.min(1, sunDir.y));
-  const band = smoothstep01(0.03, 0.24, h) * (1 - smoothstep01(0.46, 0.72, h));
-  const cov = smoothstep01(0.48, 0.92, n) * band * env.cloudAmount;
+  const band = smoothstep01(0.03, 0.22, h) * (1 - smoothstep01(0.48, 0.72, h));
+  const cov = smoothstep01(0.40, 0.72, n) * band * env.cloudAmount;
   return Math.max(0, Math.min(1, cov));
 }
 function smoothstep01(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }

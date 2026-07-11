@@ -352,7 +352,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
         // blowing out the centre of the screen and washing out contrast.
-        col += sunGlow * (pow(s, 900.0) * 0.7 + pow(s, 10.0) * 0.16);
+        // N9: a cloud covering this pixel occludes the disc (cCov=0 when clouds off
+        // → shipped). The halo stays so clouds still glow near the sun.
+        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) + pow(s, 10.0) * 0.16);
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);
@@ -523,6 +525,7 @@ export function resetEnvironment(seed) {
   for (const band of bands) reseedBand(band);
   feverMix = 0;
   bossMix = 0;
+  cloudSunCover = 0; // N9: don't carry a cloud's sun-occlusion across a restart
 }
 
 // The sky-dome mesh — the god-ray occlusion mask hides it to paint the open-sky
