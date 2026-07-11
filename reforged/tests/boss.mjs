@@ -4116,19 +4116,29 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
 
   // --- HOLLOWGATE "THE WALLS CONVERGE": the iris fires waves that converge inward, with an occupiable safe lane ---
   {
-    // Occupiable safe lane: a player holding the aperture-bottom lane is NEVER hit by the iris.
+    // Occupiable safe lane — GEOMETRIC, not health-based: the boss suite never ticks the collision
+    // invuln decrementer, so a `game.health` assert freezes VACUOUS after the 4th registered hit (it
+    // would pass even against a solid wall aimed at the player — Fable post-build F1). Instead assert
+    // NO slow iris bullet (|vrel|<=14, reflectable) ever crosses the player's plane within the hit
+    // radius of a lane-holder — the sealed-gap law directly, immune to the invuln freeze + the fast
+    // pre-window murmur (|vrel|~25, a separate rel>15-warned read).
     const p = armAt('hollowgate');
     p.position.x = 0; p.position.y = 8;   // the bottom lane — the gap seeds at this angle each wave
     boss.debugRunSetpiece('archPass');
-    const h0 = game.health;
+    const hitR = CONFIG.BOSS.bulletRadius + CONFIG.playerRadius * CONFIG.BOSS.bulletHitScale;   // 1.294
+    let minCross = Infinity;
     for (let i = 0; i < 60 * 7; i++) {
       boss.debugClearShield();
       boss.updateBoss(1 / 60, p, 3 + i / 60);
+      for (const b of bullets.debugActiveBullets()) {
+        if (b.owner !== 'boss' || !b.reflectable || Math.abs(b.vrel) > 14) continue;   // iris kinematics only
+        if (Math.abs(b.rel) < 1.0) minCross = Math.min(minCross, Math.hypot(b.x - p.position.x, b.y - p.position.y));
+      }
       if (!boss.bossDebugState().setpiece && boss.bossDebugState().archWaveN > 0) break;   // pass ended
     }
     const stH = boss.bossDebugState();
     assert(stH.archWaveN >= 2, `HOLLOWGATE iris: the fly-through fires >=2 converging waves (${stH.archWaveN})`);
-    assert(game.health >= h0 - 1e-6, `HOLLOWGATE iris: a player holding the sealed open lane is NEVER hit (lost ${(h0 - game.health).toFixed(2)})`);
+    assert(minCross !== Infinity && minCross > hitR, `HOLLOWGATE iris: a lane-holder is NEVER hit — slow iris bullets cross the plane clear of the sealed lane (closest ${minCross === Infinity ? 'none seen' : minCross.toFixed(2)} > hitR ${hitR.toFixed(2)})`);
     boss.resetBoss();
     // Converge inward: re-drive, capture the iris bullets, assert each moves toward the aperture axis (x → poseX).
     const p2 = armAt('hollowgate'); p2.position.x = 0; p2.position.y = 8;
@@ -4147,10 +4157,11 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     }
     assert(converge > 0 && converge > diverge * 3, `HOLLOWGATE iris: the walls CONVERGE inward toward the aperture axis (converge ${converge} >> diverge ${diverge}; the minority are bullets that reached the iris floor and exited)`);
     boss.resetBoss();
-    // Coexist: no other boss fires the iris.
+    // Coexist: no other boss fires the iris — even while running its OWN moving setpiece.
     const p3 = armAt('marrowcoil');
-    for (let i = 0; i < 60 * 3; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p3, 2 + i / 60); }
-    assertEq(boss.bossDebugState().archWaveN, 0, 'HOLLOWGATE iris coexist: marrowcoil never fires an arch wave');
+    boss.debugRunSetpiece('ribThread');
+    for (let i = 0; i < 60 * 4; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p3, 2 + i / 60); }
+    assertEq(boss.bossDebugState().archWaveN, 0, 'HOLLOWGATE iris coexist: marrowcoil never fires an arch wave (even mid-setpiece)');
     boss.resetBoss();
   }
 

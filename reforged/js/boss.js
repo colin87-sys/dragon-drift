@@ -139,7 +139,7 @@ let cineYaw = null;            // null = normal facing; else a scripted world-ya
 let cineRoll = 0;              // scripted bank (rotation.z) — a setpiece path may return `roll`; 0 = level (L155)
 let ribEmitT = 0;             // sub-cadence accumulator for the ribThread rib-bullet emit (L155)
 let archEmitT = 0;            // §ENG-HC sub-cadence accumulator for the archPass converging-iris waves
-let archWaveN = 0;           // §ENG-HC waves fired this fly-through (gate counter)
+let archWaveN = 0;           // §ENG-HC iris waves fired this ENCOUNTER (cumulative — drives the per-wave glint rotation + the gate; reset per encounter/teardown)
 let archHinted = false;      // §ENG-HC the "hold the open lane" teach, once per fight
 let headShotT = 0;            // sub-cadence for the L155 flank head-turn mouth shots
 // Fight-phase group x/y smoothing (seeded at enterFight from the entrance-end pose). Absorbs the
@@ -824,7 +824,7 @@ function clearSetpiece() {
   setpieceDef = null;
   cineYaw = null;   // hand facing/banking back to placeGroup's face-player default (L155) —
   cineRoll = 0;     // covers both normal completion (k≥1) and the mid-beat shield abort
-  ribEmitT = 0; headShotT = 0;   // reset the sub-cadences for the next pass
+  ribEmitT = 0; headShotT = 0; archEmitT = 0;   // reset the sub-cadences for the next pass (§ENG-HC parity — a shield-aborted archPass must not leak accumulator)
   model?.setHeadLook?.(0);   // release the L155 head-turn so an aborted beat never leaves the head cranked
 }
 // Resolve the setpiece armed on entering `idx` (per-phase array first, then the
@@ -2616,12 +2616,14 @@ export function updateBoss(dt, player, time, camera) {
         // ring (the onewing tinted-core grammar: "this fight's parry object"), lobbed LARGE —
         // color/core/size only, NEVER a part tag (karnvow has lockParts + no emitOrigins → any
         // string here would brand a phantom trophy organ, §ENG-EW).
-        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, true, null, 1.45, def.accent ?? null, emitOrigin.rel);
-        tmp.set(emitOrigin.x, emitOrigin.y, -(player.dist + emitOrigin.rel));
-        burst(tmp, def.accent ?? 0xffc23c, { count: 7, speed: 12, size: 0.8, life: 0.35 });   // the ball's birth cue, AT the ball
-        if (!riposteNoted) { riposteNoted = true; ui.bossNote?.('⚔ RIPOSTE ⚔', 'IT PARRIED YOUR PARRY — VOLLEY THE COLD-EYED AMBER BACK', 'gold', 2.4); }
-        emit('bossRiposteReturn', { rally: rallyN });   // gate surface (bossNote is a headless no-op)
-        rallyWindowT = RALLY_WINDOW;   // §ENG-KV C.1: the return is in flight — a parry inside RALLY_WINDOW answers it
+        const retBall = emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, true, null, 1.45, def.accent ?? null, emitOrigin.rel);
+        if (retBall) {   // §ENG-KV: only ring the teach/flash/window if the ball actually spawned (pool cap → null; don't burn the once-per-fight prompt ball-less)
+          tmp.set(emitOrigin.x, emitOrigin.y, -(player.dist + emitOrigin.rel));
+          burst(tmp, def.accent ?? 0xffc23c, { count: 7, speed: 12, size: 0.8, life: 0.35 });   // the ball's birth cue, AT the ball
+          if (!riposteNoted) { riposteNoted = true; ui.bossNote?.('⚔ RIPOSTE ⚔', 'IT PARRIED YOUR PARRY — VOLLEY THE COLD-EYED AMBER BACK', 'gold', 2.4); }
+          emit('bossRiposteReturn', { rally: rallyN });   // gate surface (bossNote is a headless no-op)
+          rallyWindowT = RALLY_WINDOW;   // §ENG-KV C.1: the return is in flight — a parry inside RALLY_WINDOW answers it
+        } else { riposteReturnT = 0.1; }   // pool saturated — retry the return next frame
       }
     }
     // §ENG-KV C.1 rally timers (plain module decrements — inert at 0 for every non-reflectRiposte def):
@@ -3973,13 +3975,13 @@ function emitArchConverge(player) {
   const theta = (Math.hypot(pdx, pdy) < 1.2)
     ? (moving ? Math.atan2(player.velocity.y, player.velocity.x) : -Math.PI / 2)
     : Math.atan2(pdy, pdx);
-  const GAP_HALF = 0.7, RIM = 12, phase = archWaveN * 0.35, T = 1.15;
+    const GAP_HALF = 0.8, RIM = 12, wavePhase = archWaveN * 0.35, T = 1.15;   // GAP_HALF 0.8 (was 0.7) → ≥~0.3u lane clearance vs the ~0.1u at 0.7; `wavePhase` NOT `phase` (the module `phase` is the fight state)
   for (let i = 0; i < RIM; i++) {
-    const ang = phase + (i / RIM) * Math.PI * 2;
+    const ang = wavePhase + (i / RIM) * Math.PI * 2;
     const d = Math.abs(((ang - theta + Math.PI) % (Math.PI * 2)) - Math.PI);   // angular distance to the safe sector centre
-    if (d < GAP_HALF) continue;                                                // the open lane — no wall here (sealed now, honoured at fire)
+    if (d < GAP_HALF) continue;                                                // the open lane — no wall at this angle (sealed now, honoured at fire)
     const rx = Cx + Math.cos(ang) * a, ry = Cy + Math.sin(ang) * b;            // the doomed rim point
-    const tx = Cx + Math.cos(ang) * 2.2, ty = Cy + Math.sin(ang) * 2.5;        // the iris floor (bullet stops here — never crosses into the gap sector)
+    const tx = Cx + Math.cos(ang) * 2.2, ty = Cy + Math.sin(ang) * 2.5;        // the iris FLOOR: the bullet's sealed position at the plane-crossing frame (vrel=−Crel/T time-locks it here as rel→0 — the honesty invariant; the bullet keeps flying PAST after, but only the rel==0 frame resolves a hit, bossBullets crossing law). NEVER edit vrel/T on one side only.
     tmp.set(rx, ry, -(player.dist + Crel));
     burst(tmp, 0xe09a3e, { count: 3, speed: 4, size: 0.5, life: 0.4 });        // the stained-gold glint telegraph (never danger magenta)
     pending.push({ t: 0.45, fire: () => emitBoss(rx, ry, (tx - rx) / T, (ty - ry) / T, -Crel / T, true, null, 1, null, Crel, null) });
