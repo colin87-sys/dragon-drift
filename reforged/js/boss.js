@@ -1648,6 +1648,20 @@ export function bossArenaMix() {
 export function bossArenaFade() {
   return (!active && exhaleT > 0) ? ss01(exhaleT / ARENA_EXHALE_DUR) : 1;
 }
+// THE EXHALE TICK — runs in EVERY non-paused state (called from main.js beside updateEnvironment). The
+// live fight drives the arena in updateBoss's per-frame block, but updateBoss is playing-gated and the
+// finale/rush kill flips straight to 'gameover' (endEncounter → rushClear/settleRun), where updateBoss
+// never runs again — so WITHOUT this the exhale would freeze mid-blend and strand the heaven sky + the
+// hidden prop bands behind the recap until the next hard reset (the CP2/Codex blocker). Decays exhaleT
+// and re-derives the god-ray flags off the fading mix so the shafts ease out WITH the sky; on the last
+// frame it settles them clean. Inert when active (updateBoss owns it) or when no exhale is pending.
+export function updateArenaExhale(dt) {
+  if (active || exhaleT <= 0) return;
+  exhaleT = Math.max(0, exhaleT - dt);
+  const mix = bossArenaMix(), fade = bossArenaFade();
+  game.bossVoidSky = exhaleT > 0 && mix > 0.5 && mix < RAY_ON;
+  game.bossHeavenRays = exhaleT > 0 ? Math.max(0, Math.min(1, (mix - RAY_ON) / (2 - RAY_ON))) * fade : 0;
+}
 
 // ---- Encounter lifecycle ----------------------------------------------------
 
@@ -2241,7 +2255,8 @@ export function updateBoss(dt, player, time, camera) {
     arenaBandApplied = true;   // resolveBand order is [light, dark, mid] — slot 1 is dark (the void lift persists into the heaven — it passes both)
     activeBand = [activeBand[0], { c: VOID_BULLETS.dark, s: activeBand[1].s }, activeBand[2]];
   }
-  if (exhaleT > 0) exhaleT = Math.max(0, exhaleT - dt);   // decay the FELLED exhale (runs before the !active return below)
+  // (the FELLED exhale decays in updateArenaExhale, called from main.js in ALL states — updateBoss is
+  // playing-gated, but the finale/rush kill flips straight to gameover, where this block never runs)
   // THE S3 FOCAL LIFT drive (PR-B): the boss's light LEADS the world — full by the gold-flood peak (mix
   // 1+T0=1.45), so the burst igniting reads as the CAUSE of the heaven arriving. Inert off the heaven.
   if (active && model) model.setArenaHeaven?.(ss01((arenaMixNow - 1) / 0.45));

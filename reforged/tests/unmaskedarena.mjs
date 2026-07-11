@@ -184,17 +184,28 @@ for (const [w, name] of [[heaven.wingRootL, 'wingRootL'], [heaven.wingRootR, 'wi
 
 // THE FAIRNESS PROBE (identity-audit F-1b, merge-blocking) — RECONCILED against the shipped lit-gold
 // palette. The audit's original form (p95 ≤ 0.75 over x25-75%/y30-85%) is STRUCTURALLY unsatisfiable by
-// an authored "lit HOLY" heaven: the sky-only floor (god-rays off) measures p95 ≈ 0.87 in that band,
+// an authored "lit HOLY" heaven: the sky-only floor (god-rays OFF) measures p95 ≈ 0.87 in that band,
 // because it spans the intended-bright gold SKY above the waterline — the identity, not a fairness bug.
-// bulletcontrast.mjs already certifies every bullet colour stays legible against that gold sky/fog via
-// the layered read, so the sky's brightness is not the parry concern. The parry concern is the CORRIDOR
-// the player actually dodges in: the near-mid water play-field BELOW the horizon (y 55-90%, x 20-80%),
-// where the boss's fire converges on the ship. We gate that corridor at p90 ≤ 0.75 (not p95): the
-// corridor's top ~5% is a thin, wave-animated specular sun-glint column on the water — a legitimate holy
-// reflection, frame-to-frame noisy, and NOT a broad blinding field; p90 captures the broad-area
-// brightness that "blinding" actually means, guaranteeing ≥90% of the parry corridor sits below the
-// cliff. (CP2: this region+metric change from the audit's literal form is the key judgment call — the
-// palette was ALSO tempered here, image-verified "lit not blinding", so the corridor clears with margin.)
+//
+// Why 0.75 is the RIGHT number (not arbitrary): it is EXACTLY the layered-read validity ceiling. Every
+// bullet carries a dark outline (L≈0.03) + a white core (L 1.0); bulletcontrast.mjs's layeredOk holds
+// while the background sits in [0.28, 0.75] (CORE_L − bg ≥ 0.25 fails above 0.75). So a corridor kept
+// ≤ 0.75 guarantees EVERY bullet colour — including the light ones (amber .774 / cyan .777 / band-light
+// .830) — reads there via the layered edge. That is the parry-critical guarantee, and the corridor is
+// where the boss's fire converges on the ship: the near-mid water play-field BELOW the horizon (y 55-90%,
+// x 20-80%). We gate it at p90 (not p95): the corridor's top ~5% is a thin wave-animated specular sun-
+// glint on the water — a legitimate holy reflection, frame-to-frame noisy, NOT a broad blinding field;
+// p90 captures the broad-area brightness "blinding" means, guaranteeing ≥90% of the corridor stays inside
+// the layered-read window. (CP2: this region+metric change from the audit's literal form is the key
+// judgment call — the palette was ALSO tempered, image-verified "lit not blinding".)
+//
+// The bright SKY BAND above the waterline (> 0.75) is where the layered read lapses for the three LIGHT
+// role-colours — but that is the AMBER WASTES regime, a SHIPPED, owner-accepted precedent (a bright-gold
+// biome whose horizon L≈0.84 already carries amber/cyan as documented bulletcontrast exceptions). There
+// it is fair because the boss's own DARK SERAPH silhouette fills that band (the arena is built so the
+// dark figure IS the sky), backing the light bullets in the zone they spawn from; the dark/danger/mid
+// colours read against the bright sky trivially. The sky-band probe below only bounds it against a
+// blinding-WHITE blowout (a future palette/bloom edit) — the corridor probe is the parry authority.
 const shot = await page.screenshot();
 const { w: iw, h: ih, rgba } = decodePNG(shot);
 const lums = [];
@@ -207,6 +218,22 @@ for (let y = Math.floor(ih * 0.55); y < ih * 0.90; y += 2) {
 lums.sort((a, b) => a - b);
 const p90 = lums[Math.floor(lums.length * 0.90)];
 check(p90 <= 0.75, `the heaven's parry corridor stays parry-legible (p90 luminance ${p90.toFixed(3)} ≤ 0.75 — the lit-gold backdrop never floods the dodge zone)`);
+
+// SKY-BAND CEILING (CP2 finding-2): the bright sky band above the waterline (y 30-55%) is lit-by-design
+// (the "holy" identity) and NOT parry-critical (the corridor probe is), but it must never blow to a
+// blinding WHITE field — a future palette/bloom/god-ray edit that pushes it there would wash even the
+// dark-outline read and drown the boss silhouette. Gate p95 ≤ 0.90 (ships ≈ 0.87): the sun-disc core
+// behind the boss may clip, but ≥95% of the band stays below pure white. Merge-blocking against a blowout.
+const skyLums = [];
+for (let y = Math.floor(ih * 0.30); y < ih * 0.55; y += 2) {
+  for (let x = Math.floor(iw * 0.15); x < iw * 0.85; x += 2) {
+    const d = (y * iw + x) * 4;
+    skyLums.push((0.2126 * rgba[d] + 0.7152 * rgba[d + 1] + 0.0722 * rgba[d + 2]) / 255);
+  }
+}
+skyLums.sort((a, b) => a - b);
+const skyP95 = skyLums[Math.floor(skyLums.length * 0.95)];
+check(skyP95 <= 0.90, `the heaven's sky band is lit but not blinding-WHITE (p95 luminance ${skyP95.toFixed(3)} ≤ 0.90 — the gold holy backdrop, never a white-out)`);
 
 // The focal lift REVERTS off the heaven (byte-identity): reset → fresh S2 pin → lift.k 0, sclera restored.
 const liftOff = await page.evaluate(async () => {
@@ -232,13 +259,18 @@ const exhale = await page.evaluate(async () => {
   // returns 1+ss01(0)=1.0 (rAF-throttled), so poll on the derived rays like the heaven block, not mix alone.
   let s2; for (let i = 0; i < 60; i++) { await new Promise((r) => setTimeout(r, 50)); s2 = window.__dd.bossArenaState(); if (s2.mix >= 1.99 && s2.heavenRays > 0.9) break; }
   window.__dd.bossFell();
+  window.__dd.forceGameOver();   // the finale/rush kill jumps STRAIGHT to gameover → updateBoss stops. The exhale must decay in updateArenaExhale (all-states) or it strands (CP2/Codex BLOCKER).
   const samples = [];
-  for (let i = 0; i < 12; i++) { await new Promise((r) => setTimeout(r, 120)); const s = window.__dd.bossArenaState(); samples.push({ mix: s.mix, fade: s.fade }); }
+  for (let i = 0; i < 28; i++) { await new Promise((r) => setTimeout(r, 120)); const s = window.__dd.bossArenaState(); samples.push({ mix: s.mix, fade: s.fade }); }
   return samples;
 });
 const heldMix = exhale.every((s) => s.mix >= 1.99 || s.mix === 0);   // holds at 2, then snaps to 0 at exhale end
 const fadeFell = exhale[0].fade > exhale[Math.min(5, exhale.length - 1)].fade;
 check(heldMix && fadeFell, `the natural-kill EXHALE holds the mix + fades (never runs the curve backwards) — mix ${exhale.map((s) => s.mix.toFixed(1)).join('→')}, fade ${exhale[0].fade.toFixed(2)}→${exhale[exhale.length - 1].fade.toFixed(2)}`);
+// THE BLOCKER LOCK: the exhale must COMPLETE while parked in 'gameover' (updateBoss dead the whole time)
+// — mix reaches 0 (fully dissolved to biome) by the end. Before the fix this froze at 2 forever.
+const fullyExhaled = exhale[exhale.length - 1].mix === 0 && exhale[exhale.length - 1].fade === 1;
+check(fullyExhaled, `the exhale DECAYS to biome while parked in gameover (updateBoss dead) — final mix ${exhale[exhale.length - 1].mix.toFixed(1)}, fade ${exhale[exhale.length - 1].fade.toFixed(2)} (the finale-kill strand blocker)`);
 
 check(errors.length === 0, 'no console errors through the arena run') || console.error(errors.slice(0, 5).join('\n'));
 await done();

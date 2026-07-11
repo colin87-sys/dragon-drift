@@ -503,8 +503,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // ARENA (PR-A/B) prop gate: hide the biome prop bands once the arena owns the sky (the flood peak
   // ~0.45 masks the pop). Re-evaluate ALL bands on the edge BEFORE the recycle loop, so this frame's
   // recycles already respect the gate. Restore is self-healing: any teardown → arenaMix 0 → gate false →
-  // next frame reseats. The props also RETURN mid-exhale (fade < 0.5), masked by the surge wash.
-  const hideProps = arenaMix >= 0.45 && arenaFade >= 0.5;
+  // next frame reseats. The props RETURN only at the tail of the exhale (fade < 0.15, sky already ≈ biome)
+  // — the death burst is long over by fade 0.5, so an earlier return would pop props into a half-heaven
+  // sky (CP2 finding-5).
+  const hideProps = arenaMix >= 0.45 && arenaFade >= 0.15;
   if (hideProps !== arenaPropsGate) {
     arenaPropsGate = hideProps;
     for (const band of bands) updateBandVisibility(band);

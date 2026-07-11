@@ -50,6 +50,20 @@ robust to the arena's own animated highlights — not the whole frame at p95. Ga
 backdrop is gating the identity; move the region and the percentile to the actual threat, and keep the
 per-bullet contrast test as the independent cross-check.**
 
+**The exhale re-opened the exact trap the stateless getter closed — a stateful countdown that only ticks
+in the playing-gated loop (CP2 + Codex both caught it, independently).** PR-A's law was "derive the arena,
+don't accumulate it," because `updateEnvironment` runs in every state while `updateBoss` is playing-gated.
+The exhale needed ONE piece of state (`exhaleT`, so the fade can outlive the fight), and I decayed it
+inside `updateBoss` — which silently re-introduced the whole trap: the finale/rush kill flips `game.state`
+straight to `'gameover'` (via `endEncounter → rushClear/settleRun`), `updateBoss` never runs again, so
+`exhaleT` FREEZES and the half-blended heaven + hidden prop bands strand behind the recap until the next
+hard reset. Fix: decay it in `updateArenaExhale(dt)`, called from `main.js` beside `updateEnvironment` in
+the all-states (`!== 'paused'`) block — the same path the stateless getter already relied on. **If a
+feature is deliberately stateless because one update path is state-gated and another isn't, the ONE bit of
+state you're forced to add must tick on the NON-gated path too — decaying it in the gated loop quietly
+rebuilds the bug you designed the statelessness to avoid.** (Two independent reviewers — a Fable CP2 pass
+and the repo's Codex bot — flagged the same line before merge; the checkpoint-critic gate earns its keep.)
+
 **Two headless determinism traps the exhale/heaven tests hit (both PR-A nuances, sharper here).** (a) The
 stateless getter reads `1+ss01(stageBeatT/dur)` for a phase-2 beat; when that beat is mid-crawl (rAF-
 throttled) `stageBeatT≈0` so it returns exactly **1.0** — the surge-tap SKIP snaps it (and ENDS the beat,

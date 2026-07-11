@@ -98,6 +98,13 @@ for (const biome of BIOMES) {
   }
 }
 
+// NOTE (CP2 finding-2): this is a byte-space AUTHORING gate — it reads the authored palette hexes, which
+// the RENDERED frame lifts (bloom + tone-map + the god-ray swell) by ≈+0.15 for THE UNVEILED HEAVEN. So a
+// PASS here certifies the authoring sits in the layered-read window, NOT that the lit rendered sky reads
+// for every colour — the heaven's bright sky band is the AMBER WASTES regime (light role-colours lean on
+// the dark boss silhouette there). The RENDERED authority for the heaven is the fairness probe in
+// tests/unmaskedarena.mjs: the parry corridor gated ≤ 0.75 (= the layered-read ceiling, where every
+// bullet reads) + the sky-band blinding-white ceiling. Keep both.
 // THE UNMASKED arena backgrounds (arenaSkin.js): the same six role colours must read against each
 // arena's fog + horizon, with the arena's own band override applied (the void's dark:0xa84167 lift —
 // the default 0x8f0a3c FAILS the void, so this row is what makes the §4 build-order fix merge-blocking
