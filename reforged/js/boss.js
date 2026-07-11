@@ -2032,7 +2032,7 @@ function enterFight() {
     // graze-form var (not just the entered form's) — a stale beamHeld/orbAcc/discR from the
     // form we left would otherwise cash into the next stage's meter. Keyed on the raw
     // 'medley' label (grazeFormNow() never returns 'medley'); inert for every static form.
-    if (def.grazeForm === 'medley') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdTier = 0; holdFlinchCd = 0; holdFlinchPay = 1; orbAcc = 0; orbPrevTh = null; discDur = 0; discR = 0; discTollN = 0; discCd = 0; }
+    if (def.grazeForm === 'medley') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdTier = 0; holdFlinchCd = 0; holdFlinchPay = 1; orbAcc = 0; orbPrevTh = null; orbLaps = 0; discDur = 0; discR = 0; discTollN = 0; discCd = 0; }
     // A dev stage-pick of S2/S3 (debugStagePin > 1) opens WITH the transition INTO that form:
     // the boss arrived as the PREVIOUS form (spawn hook), now play the crack/unveiling as a
     // SKIPPABLE intro. setPhase(target) animates into `phaseIdx`'s stage; the beat holds fire +
@@ -3777,7 +3777,7 @@ function breakShield(player) {
     // than the one just left — grazeFormNow()==='holdFlinch' above only catches a same-form
     // seam. Wipe every graze-form var so no stale meter (beamHeld/orbAcc/discR) leaks across
     // the stage change. Raw-label keyed (never 'medley' from grazeFormNow); inert otherwise.
-    if (def.grazeForm === 'medley') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdTier = 0; orbAcc = 0; orbPrevTh = null; discDur = 0; discR = 0; discTollN = 0; discCd = 0; }
+    if (def.grazeForm === 'medley') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdTier = 0; orbAcc = 0; orbPrevTh = null; orbLaps = 0; discDur = 0; discR = 0; discTollN = 0; discCd = 0; }
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
     if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) {

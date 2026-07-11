@@ -4230,6 +4230,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   // verbatim (the swap changed zero behaviour for the shipped roster). Two distinct forms.
   const staticPass = (name) => {
     boss.resetBoss();
+    boss.setBossDebugPhase(1);   // clear the debugPhaseJump left by driveStare(3) (it survives resetBoss) so this opens at phase 0
     game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
     const p = makePlayer();
     boss.forceBoss(p, BOSS_ORDER.indexOf(name));
