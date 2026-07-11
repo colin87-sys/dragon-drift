@@ -28,16 +28,27 @@ one boss.js gate. The owner confirmed the default stage→form mapping ("go with
    DATA (which stage's attack list can trigger it) rather than by a runtime phase check — but you must
    PROVE the data scoping in the gate, because the flag itself lies about being global.*
 
-**The gotcha PR-2 existed to fix — the beat-farm leak (drift-check design flaw (a)).** A multi-form
-boss freezes its hosted setpiece at k=0 during the **fire-free stage-transition cinematic** (the mask
-cracks, ~2.7s of no bullets). But the orbit `live` gate was `setpieceT >= 0 && id==='figureEight'` —
-**true during the freeze.** The band would draw, and a player circling the *parked, harmless* boss
-would bank ticks and a free lap with zero threat: a graze farm handed out during a cutscene. Fix: one
-conjunct, `&& stageBeatT < 0`. It is **identity for eitherwing** (no `model.stageTransitionDur` →
-`stageBeatT` is permanently −1), so the shipped wheel boss is byte-unchanged; it only bites the medley
-Apex, whose transition beat is real. *Reusable law: any continuous-graze band that arms on a setpiece
-must also gate on "not mid-transition-beat" for a multi-form boss — a frozen setpiece is still
-`setpieceT >= 0`, and a cinematic with no threat is exactly where a farm hides.*
+**The gotcha PR-2 existed to fix — the beat-farm leak (drift-check design flaw (a)), and the
+TWO-PART guard the post-build Fable caught me half-building.** A multi-form boss arms the **next**
+stage's setpiece **at the seam** — in the same `breakShield` call that begins the ~2.7s fire-free
+mask-crack cinematic. Two independent things then go wrong if unguarded:
+1. **The clock keeps ticking.** The setpiece drive gates only on `setpieceT >= 0 && !shielded` — so
+   the boss flies **⅓ of its figure-eight DURING the crack**, sliding along the lemniscate while the
+   mask is supposed to be shattering in place. The drift-check specified a "setpiece-tick one-liner"
+   for exactly this; I missed it on the first build and shipped the band-guard only. Fix: `if
+   (stageBeatT < 0) setpieceT += dt;` — the clock **freezes at k=0 = station** through the beat.
+2. **The band stays lit.** The orbit `live` gate was `setpieceT >= 0 && id==='figureEight'` — **true
+   during the beat** even with the clock frozen. A player circling the station-held boss would bank
+   ticks + a free lap with zero threat: a graze farm handed out during a cutscene. Fix: `&&
+   stageBeatT < 0` on `live` — darken the band too.
+Both conjuncts are **identity for eitherwing** (no `model.stageTransitionDur` → `stageBeatT`
+permanently −1), so the shipped wheel boss is byte-unchanged; they bite only the medley Apex.
+*Reusable law: a hosted setpiece + a graze band on a MULTI-FORM boss needs BOTH gates — freeze the
+setpiece CLOCK so the body holds station through the transition beat, AND darken the band so it can't
+be farmed if circled. A "frozen cinematic" is a lie until the setpiece clock actually stops; the
+band-darkening alone hides the farm but still lets the boss drift visibly through its own morph. The
+post-build adversarial pass earned its keep here — the green gate passed with only half the guard,
+because "no farm" and "holds station" are DIFFERENT properties and only the first had a test.*
 
 **The honest gate (three new non-vacuous proofs).** Exposed `stageBeat: stageBeatT >= 0` as a test
 seam, then:
@@ -45,12 +56,15 @@ seam, then:
   a lap jackpot. And **parked dead-centre earns zero** (the anti-farm floor — you must fly it).
 - **No stare-leak**: the parked stage-2 stare pays zero holdTier/holdFlinch (the stage-1 quote does
   not bleed through — `grazeFormNow()` returns `orbitAnnulus`, so the holdFlinch branch never enters).
-- **Beat-farm guard**: force the transition beat (`setBossDebugPhase(2)+setBossDebugStage(2)` arms it),
-  circle the band, and assert the band stays **dark** and banks **zero** ticks *for every frame the
-  beat is active*. Boundary handling: a tick is attributed to the beat only if `stageBeat` is true both
-  **before and after** the update — the frame the beat ends mid-update, orbit legitimately goes live,
-  and that post-beat tick is not a farm. Proven non-vacuous: removing `&& stageBeatT < 0` leaks **7**
-  ticks; commenting `gapThread: true` drops the row count to **0**.
+- **Beat-farm guard (both properties)**: force the transition beat (`setBossDebugPhase(2)+
+  setBossDebugStage(2)` arms it), circle the band, and assert (a) the band stays **dark** and banks
+  **zero** ticks *for every frame the beat is active*, AND (b) the pose **drifts < 0.5m** across the
+  whole beat (the clock-freeze holds station — not flying the eight). Boundary handling: a tick is
+  attributed to the beat only if `stageBeat` is true both **before and after** the update — the frame
+  the beat ends mid-update, orbit legitimately goes live, and that post-beat tick is not a farm.
+  Proven non-vacuous by mutation: removing `&& stageBeatT < 0` on `live` leaks **7** ticks; removing
+  the clock-freeze drifts the boss **4.12m** through the beat; commenting `gapThread: true` drops the
+  row count to **0**.
 
 **Verify.** `tests/boss.mjs` **126** green, deterministic across repeated runs; `bossboot` green. The
 unmasked lifecycle test now exercises the setpiece legs (a def gaining `setpieces` flips off the

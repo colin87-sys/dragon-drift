@@ -4274,12 +4274,17 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     boss.debugForceFight(p);
     boss.debugRunSetpiece('figureEight');   // arm the eight UNDER the beat
     let sawBeat = false, activeDuringBeat = false, ticksDuringBeat = 0, phi = 0;
+    let beatPoseX = null, beatPoseY = null, maxStationDrift = 0;
     for (let i = 0; i < 240; i++) {
       const st = boss.bossDebugState();
       const inBeat = st.stageBeat;
       if (inBeat) {
         sawBeat = true;
         if (st.orbActive) activeDuringBeat = true;
+        // The eight's clock is frozen through the beat → the boss HOLDS station (figureEight(0)).
+        // Track how far the pose drifts across the beat: it must stay put (no flying the eight).
+        if (beatPoseX == null) { beatPoseX = st.poseX; beatPoseY = st.poseY; }
+        maxStationDrift = Math.max(maxStationDrift, Math.hypot(st.poseX - beatPoseX, st.poseY - beatPoseY));
         phi += 3.0 * (1 / 60);
         const r = st.orbR.in + st.orbR.wall / 2;
         p.position.x = st.poseX + r * Math.cos(phi);
@@ -4295,6 +4300,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(sawBeat, 'beat-farm guard: the stage-2 transition beat actually ran (guard: the anti-farm assert is not vacuous)');
     assert(!activeDuringBeat, 'beat-farm guard: the orbit band stays DARK during the frozen crack cinematic (stageBeatT ≥ 0)');
     assertEq(ticksDuringBeat, 0, 'beat-farm guard: circling the parked boss during the beat banks ZERO orbit ticks');
+    assert(maxStationDrift < 0.5, `beat-farm guard: the hosted eight is FROZEN at station through the beat — the boss holds still, not flying ⅓ of the eight during the crack (drift ${maxStationDrift.toFixed(2)}m)`);
   }
 
   // (2d) STAGE 2 also QUOTES MARROWCOIL's gapThread. It's a def-level flag but STAGE-SCOPED

@@ -2454,7 +2454,12 @@ export function updateBoss(dt, player, time, camera) {
       // Scripted station-leave beat (def-gated; see SETPIECE_PATHS). Attacks +
       // rider fire were held past its duration when it armed, and pending was
       // wiped by the shield break that armed it — a quiet, capture-safe pass.
-      setpieceT += dt;
+      // §5i.D: FREEZE the clock through a stage-transition beat (UNMASKED's mask-crack
+      // cinematic) — a multi-form boss arms the next stage's setpiece AT the seam, so
+      // without this the boss would fly ⅓ of its figure-eight DURING the crack. Held at
+      // k=0 = station (figureEight(0) is station). Identity for single-form bosses
+      // (stageBeatT ≡ −1) — the ONLY boss with both setpieces and a stage beat is the Apex.
+      if (stageBeatT < 0) setpieceT += dt;
       const k = Math.min(setpieceT / setpieceDef.dur, 1);
       const p = SETPIECE_PATHS[setpieceDef.id](k);
       pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
@@ -3110,10 +3115,11 @@ export function updateBoss(dt, player, time, camera) {
     // θ accrues in-band ONLY (a dead-centre wiggle can't farm laps). One grazeForm per
     // boss; defs without grazeForm==='orbitAnnulus' are inert. ----
     if (grazeFormNow() === 'orbitAnnulus') {
-      // §5i.D beat-farm guard: a MEDLEY boss (UNMASKED) freezes the hosted eight at k=0
-      // during the fire-free stage-transition cinematic (stageBeatT ≥ 0) — the band would
-      // otherwise draw and a player circling the PARKED boss would bank ticks + a free lap
-      // with zero threat. Identity for eitherwing (stageBeatT is permanently −1).
+      // §5i.D beat-farm guard: a MEDLEY boss (UNMASKED) holds the hosted eight AT STATION
+      // through the fire-free stage-transition cinematic (the setpiece clock is frozen at
+      // k=0 above while stageBeatT ≥ 0). Darken the band too, so even a player who circles
+      // the station-held boss during the crack banks no ticks + no free lap. Identity for
+      // eitherwing (stageBeatT is permanently −1 → this conjunct is always true).
       const live = setpieceT >= 0 && setpieceDef?.id === 'figureEight' && stageBeatT < 0;
       if (live) {
         const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
