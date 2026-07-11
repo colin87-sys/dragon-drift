@@ -155,7 +155,10 @@ banding-regression gate; extend `tests/composer.mjs` to assert the dither term i
 **Goal:** stop leaving free performance/correctness on the table at renderer construction (`main.js:74-78`).
 **Technique:** `new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance', stencil:false })`;
 `renderer.outputColorSpace = THREE.SRGBColorSpace` (explicit — it's the r160 default, but it's the documentation
-seam every future colorspace change starts from). **AA matrix decision (make it explicit, then stop):** tier0/1
+seam every future colorspace change starts from). **DEVIATION (shipped in #373): `stencil:false` was NOT
+applied** — the vendored `OutputPass` clears stencil (`autoClearStencil`) and three itself flip-flopped this
+default; the win is a sliver of buffer memory and the risk on a shipped game is nonzero, so it's deliberately
+skipped. Don't "fix" it back without measuring. **AA matrix decision (make it explicit, then stop):** tier0/1
 = 4×MSAA on the composer's HalfFloat RT (keep — cheap on tile-based mobile GPUs); tier2 = FXAA (folded into N12,
 only when `pixelRatio===1`). Explicitly **reject TAA** (no motion vectors; ghosting on the fast chase cam) and
 **SMAA** (LUT-heavy for marginal gain over 4×MSAA). Surface `renderer.info.render.calls` in the `?debug=perf`
@@ -445,6 +448,12 @@ marginal cost — no `applyQuality` entry needed; state so in the PR for the Gat
   initiative starts until it passes.
 - **Phase 0 — Foundations & free wins (do first):** N2 → N1 → N3 scaffolding → N3 decision → N4. Nothing changes
   the shipped look without a flag. Exit: banding gate green, <100 draw calls, tone-map montage approved.
+  - **✓ Landed (this branch):** **N2** (`powerPreference:'high-performance'` + explicit `outputColorSpace`;
+    `stencil:false` deferred), **N1** grading-pass dither (`?dither=0` kill switch; tier2 sky/water copies
+    deferred), **N3 scaffolding** (`toneMap.js` Neutral chunk-override + a `CustomToneMapping` branch patched into
+    the vendored `OutputPass`/`OutputShader` so `?tm=neutral` actually tonemaps the composed path; `?tm=aces|agx|neutral`, default ACES).
+    Verified: `tests/graphicsfoundation.mjs` (20/20), `tools/bandshot.mjs` (banding gate), `tools/tonemapshots.mjs`
+    (A/B montage). **Pending owner:** the N3 tone-map decision (judge the montage), then N4 (ParticleBatch).
 - **Phase 1 — Hero look (Azure):** N5 rung 1 → N6 → N7 → N5 rung 2 → **N14 (shading AA, where the artifact now
   peaks)**. Hero-first, judged on Azure in the shop scene + chase cam. Exit: the "bank across the sun" shot approved.
 - **Phase 2 — World & atmosphere:** **N15 (prop AO, opener)** → N8 → N9 (Sanctuary hero biome) → N10 (a/b/c
@@ -511,4 +520,6 @@ One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable 
 
 | PR / Phase | Initiative | Fable score | Verdict | Notes |
 |------------|-----------|-------------|---------|-------|
-| — | (rows appended as PRs/phases clear their gate) | — | — | — |
+| #373 Phase 0 | N2 renderer contract | 9/10 | SHIP | `stencil:false` skip justified (EffectComposer clears stencil); recorded deviation |
+| #373 Phase 0 | N1 gradient dither | 8.5/10 | SHIP | placement/amplitude verified; `?dither=0` = exact identity; tier2 sky/water copies deferred; gate margin added |
+| #373 Phase 0 | N3 tonemap scaffold | 5.5→SHIP | REVISE→fixed | Gate caught: vendored `OutputPass` had no `CustomToneMapping` branch → `?tm=neutral` was untonemapped on tier0/1. Patched `OutputPass.js`+`OutputShader.js`, reshot montage at pinned tier0, restamped `sw.js`, fixed idempotence test |

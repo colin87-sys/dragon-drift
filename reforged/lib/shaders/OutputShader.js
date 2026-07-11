@@ -64,6 +64,10 @@ const OutputShader = {
 
 				gl_FragColor.rgb = AgXToneMapping( gl_FragColor.rgb );
 
+			#elif defined( CUSTOM_TONE_MAPPING )
+
+				gl_FragColor.rgb = CustomToneMapping( gl_FragColor.rgb );
+
 			#endif
 
 			// color space

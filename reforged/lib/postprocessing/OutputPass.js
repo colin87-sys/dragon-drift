@@ -7,6 +7,7 @@ import {
 	CineonToneMapping,
 	AgXToneMapping,
 	ACESFilmicToneMapping,
+	CustomToneMapping,
 	SRGBTransfer
 } from 'three';
 import { Pass, FullScreenQuad } from './Pass.js';
@@ -61,6 +62,10 @@ class OutputPass extends Pass {
 			else if ( this._toneMapping === CineonToneMapping ) this.material.defines.CINEON_TONE_MAPPING = '';
 			else if ( this._toneMapping === ACESFilmicToneMapping ) this.material.defines.ACES_FILMIC_TONE_MAPPING = '';
 			else if ( this._toneMapping === AgXToneMapping ) this.material.defines.AGX_TONE_MAPPING = '';
+			// Dragon Drift (graphics N3): CustomToneMapping carries our Khronos PBR
+			// Neutral (js/toneMap.js). Stock r160 OutputPass omits this branch, so
+			// ?tm=neutral produced UNTONEMAPPED output on the composed path — wire it.
+			else if ( this._toneMapping === CustomToneMapping ) this.material.defines.CUSTOM_TONE_MAPPING = '';
 
 			this.material.needsUpdate = true;
 
