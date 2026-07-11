@@ -26,7 +26,7 @@ import {
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
-  lanceDmgEach, paintFromParry, dropLockPart, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
+  lanceDmgEach, paintFromParry, dropLockPart, grantEchoPip, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
 import { makeGlowTexture } from './util.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
@@ -1037,7 +1037,7 @@ function beginCard(idx) {
   cardHits0 = game.bossHitsTakenRun;
   cardExpired = false;
   tollChainN = 0; tollChainAt = -10;   // §ENG-C3: the rhythm chain is per-card (beginCard bypassed by debugForceCard — tests reset via resetBoss per arm)
-  if (activeCard.survival) { resolveK = 0; resolveNoted = 0; }   // §ENG-LT: the resolve meter is fresh per survival-card arm (the live path + the ?bossPhase jump both route here)
+  if (activeCard.survival) { resolveK = 0; resolveNoted = 0; beamDuelT = 0; }   // §ENG-LT: fresh resolve meter per survival arm. §CP2-D2 (rung 13): also KILL any live beam duel — a duel (and its lance-extended window) must NOT carry its forced drift-shove into a survival card (esp. EMBERTIDE Horizon Break, whose shadow-ride pocket the shove would fight)
   // Small lower-right title card (§5f) — the reveal card owns the lower-third;
   // the spell card names the pattern without covering it.
   ui.bossCard?.(activeCard.name, def.accent, !!activeCard.dread);
@@ -1485,20 +1485,69 @@ function beamAimPart(player) {
 // advanced, so a shielded burst's fork clamps against the NEW phase (the exposed
 // organs' pool), never the sealed one. brandLoose rides the exhale via the lockVolley
 // listener (source 'fork'). No banked pips → a silent no-op (the common ready tap).
+// §5i.C rung 12 — the ghost-frame break (ONEWING). One body for the production 4th-parry path AND
+// the ?debug seam. HONEST SACRIFICE: the break kills the lance too — drops both frame dwell organs'
+// banked pips AND the eye's echo anchor (no more frame → no more echo), so the lance goes to
+// near-zero for the rest of the fight (the either/or the trade promises; lockPartDead/lockCandidates
+// then keep the reticle off the fallen frame).
+function breakGhostFrame(player) {
+  ghostFrameBroken = true;
+  model?.breakFrame?.();
+  dropLockPart('frameGroup'); dropLockPart('frameRoot'); if (def.echoTarget) dropLockPart(def.echoTarget);
+  ventSpraySoak(player);
+  ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
+  cameraCtl.shake?.(1.2); sfx.milestone?.();
+  emit('bossFrameBreak', {});
+}
+
 function surgeForkLances(player) {
+  // §CP2-D2 (rung 13): a fork into a SEALED window would arrive VOIDED — every pip wasted, breaking
+  // the one-deflect "no lance is ever silently wasted" law. The flagship EMBERTIDE play (bank a full
+  // set at the P4 floor, tap) routes strikeSurge → breakShield (which arms the P5 Horizon Break
+  // survival card → lockDeflected true) → HERE. Keep the banked set (it resumes ashen after the seal),
+  // exactly like the manual loose's deflect path. Inert off a sealed window (every normal fork).
+  if (lockDeflected()) { if (lockCount()) emit('lockSealed', { count: lockCount() }); return; }
   const locks = consumeAllLocks();
   if (!locks.length) return;
-  let pips = 0;
-  for (const lk of locks) pips += lk.stacks;
-  const dmgEach = lanceDmgEach(pips, currentPhaseHp());
+  // §5i.C rung 12 (§CP2-D1): the Surge fork is the THIRD lance release path — it MUST halve GHOST
+  // pips too, or banked echoes convert to FULL strength here (the honest releaseVolley halves them).
+  // Mirror it: price the ROI clamp on effective pips (real + echoMult·ghost), strike ghosts at half.
+  // Non-echo bosses carry no ghost stacks ⇒ effPips===pips and every line is byte-identical.
+  const echoMult = CONFIG.LOCK.scarBurn?.echoDmgMult ?? 0.5;
+  let realPips = 0, ghostPips = 0;
+  for (const lk of locks) { if (lk.ghost) ghostPips += lk.stacks; else realPips += lk.stacks; }
+  const pips = realPips + ghostPips;
+  const effPips = realPips + echoMult * ghostPips;
+  const dmgEach = lanceDmgEach(effPips, currentPhaseHp());
+  const ghostDmg = dmgEach * echoMult;
   // The fork is never beat-held (it rides the Surge-break's own beat), so its
   // launch IS its commit — lockLaunch fires here, in step with the lances (PR9).
   const cap = CONFIG.LOCK.capByTier[def?.tier ?? 1] ?? 0;
   const full = cap > 0 && pips >= cap;
   emit('lockLaunch', { count: pips, full, source: 'fork' });
   let i = 0;
-  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips, full, true);
-  emit('lockVolley', { count: pips, source: 'fork', dmgEach, delay: 0, full });
+  for (const lk of locks) { const d = lk.ghost ? ghostDmg : dmgEach; for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, d, i++, pips, full, true); }
+  const volleyTotal = realPips * dmgEach + ghostPips * ghostDmg;
+  emit('lockVolley', { count: pips, paintedCount: realPips, source: 'fork', dmgEach, volleyTotal, delay: 0, full });
+  // §5i.C rung 13 — THE FORK IS A WEAPON (EMBERTIDE): pips forked WHILE THE BEAM DUEL IS ARMED each
+  // extend the duel window (+beamDuelExtendPerPip/pip; 6 ≈ +2.1s). The banked brands are ammunition
+  // for the fight's signature Surge mechanic — the fork still does its clamped damage (above) AND buys
+  // duel time (additive). Adds ZERO damage, so it's invisible to the balance model (ED-8: the lance
+  // FEEDS the Surge duel, never replaces it). Inert unless a duel is live on a beamDuel boss.
+  if (def?.beamDuel && beamDuelT > 0 && pips > 0) {
+    const ext = pips * (def.beamDuelExtendPerPip ?? 0);
+    if (ext > 0) {
+      // §CP2-D3: clamp the extended window — nothing structural else bounds it (a re-fork is only
+      // economy-gated), and an unbounded duel just prolongs the forced drift-shove. Cap at ~2× base.
+      const before = beamDuelT;
+      beamDuelT = Math.min(beamDuelT + ext, (def.beamDuelDur ?? 3.6) * 2);
+      const applied = beamDuelT - before;
+      if (applied > 0.01) {
+        ui.bossNote?.('✦ THE FORK FEEDS THE BEAM ✦', `+${applied.toFixed(1)}s — HOLD THE CENTER`, 'gold', 1.6);
+        emit('beamDuelExtend', { pips, ext: applied });
+      }
+    }
+  }
 }
 
 // PR-B (C1, revised): the beat-aligned INHALE length. PR9 held the committed
@@ -2696,9 +2745,16 @@ export function updateBoss(dt, player, time, camera) {
       // inaudible grid is meaningless there; a plain capFuse keeps the cap release
       // honest (the resonant bonus is the player's MANUAL on-toll tap, not the auto).
       beatFuseDur: def.musicDies ? 0 : beatAlignedFuse(),
+      // §5i.C rung 12: the SPECTRAL echo's damage multiplier — ghost pips (ONEWING's granted eye
+      // echoes) strike at this fraction and price the ROI clamp by it. Inert unless ghost pips exist.
+      echoDmgMult: CONFIG.LOCK.scarBurn?.echoDmgMult ?? 0.5,
     };
     _lastBeatOn = lockCtx.beatOn;
     updateLockLayer(dt, player, lockCtx);
+    // §5i.C rung 13 (EMBERTIDE): drive the dark-halo brand on the sky-face from the PAINTED in-lane
+    // proxies — you aim the lane-anchor, the mapped face feature lights. Def-agnostic (only the
+    // embertide model implements setBrandedFeatures); a no-op for every other boss.
+    model.setBrandedFeatures?.(lockPaintedParts());
     updateBurns(dt);
     driveAimTeach(dt, lockCtx);
     driveLockTeach(dt, lockCtx);
@@ -2928,19 +2984,21 @@ export function updateBoss(dt, player, time, camera) {
           // the dead half apart BREAKS the fused frame — the ghost volley stops, the tempo
           // ENRAGES, and the break vents a 2× spray-soak graze beat. Surge reflects don't
           // count (§5i.C law 4). Def-gated; inert for every other boss.
-          if (def.ghostHalf && !surge && !ghostFrameBroken && r.snapParts.includes('frameGroup')) {
+          // §CP2-D3: never advance the frame-break DURING the fake death — a straggler ghost amber
+          // parried mid-lie would break the frame over the FELLED beat (enrage bullets from a "dead"
+          // boss, the sealed banked pips deleted, the forfeit path bypassed). The lie is sealed.
+          if (def.ghostHalf && !surge && !ghostFrameBroken && felledLieT <= 0 && r.snapParts.includes('frameGroup')) {
             model?.hurt?.(0.5);   // the stagger recoil on each parried ghost bullet
             ghostFrameHits++;
             if (ghostFrameHits >= GHOST_FRAME_HITS) {
-              ghostFrameBroken = true;
-              model?.breakFrame?.();
-              ventSpraySoak(player);
-              ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
-              cameraCtl.shake?.(1.2); sfx.milestone?.();
-              emit('bossFrameBreak', {});
+              breakGhostFrame(player);
             } else {
               cameraCtl.shake?.(0.35);   // the frame takes the hit — felt, not just read
-              ui.bossNote?.(`✦ THE FRAME CRACKS — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, 'PERFECT-PARRY THE PALE AMBERS AGAIN', 'gold', 1.1);
+              // §ENG-OW-teach + §CP2-D2: the per-hit "THE FRAME CRACKS N/4" beat (the owner's
+              // "how do you break frame?" fix) AND name the stake — breaking the frame is the
+              // "honest sacrifice" that ENDS the lance (the frame is the echo anchor), so an
+              // echoTarget boss warns the defensive parrier; else teach the perfect-parry loop.
+              ui.bossNote?.(`✦ THE FRAME CRACKS — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, def.echoTarget ? 'BREAK IT AND YOUR LANCE ENDS' : 'PERFECT-PARRY THE PALE AMBERS AGAIN', 'gold', 1.1);
               emit('bossGhostStagger', { hits: ghostFrameHits });
             }
           } else if (def.ghostHalf && !surge && !ghostFrameBroken && !ghostPerfectHinted
@@ -4576,8 +4634,15 @@ function fireRiderShot(player) {
 function lockCandidates() {
   if (!def) return [];
   const out = [];
-  if (def.lockParts) for (const lp of def.lockParts) out.push(lp.part);
-  if (def.virtualLockOrgan) out.push(def.virtualLockOrgan);
+  // §CP2-D4: filter DEAD lockParts here too, not only in paintableParts — ONEWING is the first boss
+  // whose ENTIRE candidate set can die (frame-break, no virtual organ), and the aim layer reads THIS
+  // list. Without the filter the reticle stays live on the broken frame (parked at its fall pose,
+  // still resolving with visible=false), can green, and holds the rider chip-rate bonus on a corpse.
+  // §CP2-D1: the aim layer must ALSO drop the crush-sealed high organs (paintableParts alone leaves
+  // the V1 aim-line + reticle leading to an organ the clamped player can't reach during the crush).
+  const crushSealed = def.crushSealOrgans && crushHoldT > 0;
+  if (def.lockParts) for (const lp of def.lockParts) if (!lockPartDead(lp.part) && !(crushSealed && def.crushSealOrgans.includes(lp.part))) out.push(lp.part);
+  if (def.virtualLockOrgan && !(crushSealed && def.crushSealOrgans.includes(def.virtualLockOrgan))) out.push(def.virtualLockOrgan);
   return out;
 }
 
@@ -4592,6 +4657,11 @@ function lockCandidates() {
 // def that adds an invulnerable state must be reachable from here.
 function lockDeflected() {
   if (shielded) return true;
+  // §5i.C rung 12 (ONEWING felledLie): while the fake death plays the boss is SEALED — painting,
+  // decay + the cap fuse freeze (pips wait, ashen, never wasted) and resume on felledRevive. Without
+  // this the player lances a boss playing dead and every lance is voided with a shieldPing (the
+  // ONE-DEFLECT-RULE violation the burn ticks already avoid via this same predicate). Inert off onewing.
+  if (felledLieT > 0) return true;
   if (def.condenseInvuln && model.condenseLive && model.condenseLive() < 0.45) return true;   // swarm scattered
   // NB the eye-weak-point lid-down is NO LONGER a whole-layer seal (owner playtest:
   // "while the eye's down I can't tag ANYTHING, not even the shackles, for ages").
@@ -4717,6 +4787,10 @@ function lockPartDead(part) {
   if (def.destructibleRibs && part.startsWith('ribPivot')) {   // §ENG-E: a cracked rib leaves the paintable set
     return !(model.ribAlive?.(ribTagToIdx(part)) ?? true);
   }
+  // §5i.C rung 12 (ONEWING): breaking the fused ghost-frame kills BOTH frame dwell organs (frameRoot
+  // is a frameGroup child that falls with it) — the honest-sacrifice trade. The nodes still resolve
+  // (frameGroup.visible=false), so without this the reticle would lead to a frame that fell off.
+  if (def.ghostHalf && ghostFrameBroken && (part === 'frameGroup' || part === 'frameRoot')) return true;
   return false;
 }
 
@@ -4732,13 +4806,21 @@ function paintableParts() {
   // palms rejoin as the recoil settles. Def-gated (recoilOrgans) + model-gated (handsFlung); inert
   // for every other boss and whenever the hands are home.
   const recoilSealed = def.recoilOrgans && model.handsFlung && model.handsFlung();
+  // §CP2-D1 CRUSH SEAL (EMBERTIDE): while the sky CRUSHES the lane (def.skyCrush → the player is
+  // clamped to bossArenaHY ~13.4 for ~10s/phase), the HIGH organs (the eyes ~y19, the crest ~y19)
+  // are out of the acquire cone — leading the reticle to them strands the player against the invisible
+  // ceiling with dwell that never accrues. Seal them for the crush; the low mouth stays the anchor.
+  // A REAL fair window (the crush is a genuine open/close state — unlike the dropped surfacing gate).
+  const crushSealed = def.crushSealOrgans && crushHoldT > 0;
   const out = [];
   for (const lp of def.lockParts) {
     if (eyeSealed && lp.part === def.eyeOrgan) continue;
     if (recoilSealed && def.recoilOrgans.includes(lp.part)) continue;
+    if (crushSealed && def.crushSealOrgans.includes(lp.part)) continue;
     if ((!lp.phases || lp.phases.includes(phaseIdx)) && !lockPartDead(lp.part)) out.push(lp.part);
   }
-  if (def.virtualLockOrgan && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
+  if (def.virtualLockOrgan && !(crushSealed && def.crushSealOrgans.includes(def.virtualLockOrgan))
+      && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
   return out;
 }
 
@@ -4861,6 +4943,26 @@ on('lockPaint', (p) => {
     saveData.flags.snapTaught = true; persist();
     ui.bossNote?.('THE MARK ANSWERS THE PARRY', '', 'gold', 1.8);
   }
+  // §5i.C rung 12 SPECTRAL ECHO (ONEWING): the FIRST mark on each fused-frame organ (a FRESH paint —
+  // not a stack or a refresh) echoes a half-strength GHOST pip onto the living eye — "mark the dead
+  // half, the living half answers." Two frame organs → up to echoMax(2) ghosts ("pips arrive in
+  // pairs"). grantEchoPip enforces the cap + never stacks onto a real pip. Inert for every other def.
+  // §CP2-D2: a PARRY-SNAP paint (p.snap) does NOT echo — a snap costs no dwell time, and the deleter
+  // model prices echoes against DWELL-painted frame marks; letting a free snap also grant a free
+  // ghost would double-free the razor P5 margin. The snap still paints the frame (a real pip).
+  if (p && def?.echoOrgans && def?.echoTarget && !p.stacked && !p.refreshed && !p.snap && def.echoOrgans.includes(p.part)
+      && grantEchoPip(def.echoTarget, def.echoMax ?? Infinity)) {
+    if (model && model.partWorldPos) {   // a brief connecting pulse so the frame→eye pairing reads
+      const a = model.partWorldPos(p.part, _brandPopV);
+      if (a) burst(a, 0xbfa9d6, { count: 6, speed: 8, size: 0.6, life: 0.4 });
+      const b = model.partWorldPos(def.echoTarget, _brandPopV);
+      if (b) burst(b, 0xd8c8f0, { count: 9, speed: 6, size: 0.7, life: 0.55 });
+    }
+    if (!saveData.flags.echoTaught) {
+      saveData.flags.echoTaught = true; persist();
+      ui.bossNote?.('✦ THE DEAD TWIN ANSWERS ✦', 'MARK ITS FRAME — THE LIVING EYE ECHOES (HALF-STRIKE)', 'gold', 2.8);
+    }
+  }
 });
 on('lockVolley', (p) => {
   if (p && p.source === 'cap' && !saveData.flags.lockCapSeen) {
@@ -4877,16 +4979,21 @@ on('lockVolley', (p) => {
   // SCAR-BURN (§4b): an ON-TELL (perfect) manual release of ≥ burnFloor pips on a
   // tier ≥ minTier boss leaves a burning brand — an extra `frac × volleyTotal` paid
   // over `dur` as scheduled DOT ticks. The cap auto-release (source 'cap') never has
-  // p.perfect, so it never burns (the safe fallback). `dmgEach` is already the
-  // ROI-clamped per-lance figure, so `count × dmgEach` is the clamped volley total.
+  // p.perfect, so it never burns (the safe fallback).
+  // §5i.C rung 12: a SPECTRAL echo (ghost pip) never EARNS a burn — the floor is checked against
+  // paintedCount (REAL pips only) so ghosts can't cross burnFloor for free, and the burn base is the
+  // true volleyTotal (real + half-ghost). For a non-echo boss paintedCount===count and
+  // volleyTotal===count×dmgEach, so this is identical to the pre-echo arithmetic.
   const sb = CONFIG.LOCK.scarBurn;
   const frac = sb && (def?.tier ?? 1) >= sb.minTier ? (sb.fracBySlot?.[def.id] ?? 0) : 0;
-  if (p && p.perfect && frac > 0 && p.count >= sb.burnFloor && p.dmgEach > 0 && !labPacifist) {
-    const total = frac * p.count * p.dmgEach;
+  const paintedCount = p?.paintedCount ?? p?.count ?? 0;
+  const volleyTotal = p?.volleyTotal ?? ((p?.count ?? 0) * (p?.dmgEach ?? 0));
+  if (p && p.perfect && frac > 0 && paintedCount >= sb.burnFloor && volleyTotal > 0 && !labPacifist) {
+    const total = frac * volleyTotal;
     const interval = sb.tickInterval ?? 0.3;
     const nTicks = Math.max(1, Math.round(sb.dur / interval));
     burns.push({ tick: total / nTicks, ticksLeft: nTicks, interval, tAcc: 0 });
-    emit('lockBurn', { total, dur: sb.dur, count: p.count });
+    emit('lockBurn', { total, dur: sb.dur, count: paintedCount });
   }
   // §5i.C THE VOLLEY TEARS, SHE MENDS (WEFTWITCH rung 11 rule): a DELIBERATE ≥burnFloor-pip
   // release (a manual tap or the cap auto-loose — NEVER a decay fizzle or the Surge 'fork')
@@ -5426,6 +5533,23 @@ export function debugRestitch() {
   model.restitchWeb();
   return true;
 }
+// §5i.C rung 12 test seams: force the ghost-frame break (the honest sacrifice), force the fake
+// death (the paint seal), and read the lance state (pips + ghost count + lockDeflected).
+export function debugBreakFrame(player) {
+  if (!active || !def?.ghostHalf || ghostFrameBroken) return false;
+  breakGhostFrame(player);
+  return true;
+}
+export function debugFelledLie(player) {
+  if (!active || !def?.felledLie) return false;
+  triggerFelledLie(player);
+  return true;
+}
+export function debugLanceState() {
+  const locks = lockHudState().locks || [];
+  return { pips: lockCount(), parts: lockPaintedParts(), ghosts: locks.filter((l) => l.ghost).length,
+    deflected: lockDeflected(), candidates: lockCandidates(), paintables: paintableParts() };
+}
 
 export function debugCrackPane(i) {
   if (!active || !model?.crackPane) return false;
@@ -5518,6 +5642,19 @@ export function debugStrikeSurge() {
   strikeSurge(lastPlayer);
   return true;
 }
+// §5i.C rung 13 test seams: arm the beam duel + read its remaining window (so the fork-extend rule
+// is testable without flying the Surge meter to 50% and holding lane-center headless).
+export function debugArmBeamDuel(t = 3.6) { if (!active || !def?.beamDuel) return false; beamDuelT = t; beamDuelHeld = 0; beamDuelTick = 0; return true; }   // §CP2-D4: reset held/tick like the real arm (boss.js:3204) so a seam-armed duel isn't stale
+export function debugBeamDuelT() { return beamDuelT; }
+// §CP2-D1/D2 rung 13 test seams: force/clear the sky-crush (the high-organ seal window), and read
+// the crush state + the survival-seal state (so the crush-seal + the P4→P5 sealed-fork are testable).
+export function debugCrush(on = true) {
+  if (!active || !def?.skyCrush) return false;
+  crushHoldT = on ? (def.skyCrush.hold ?? 10) : 0;
+  arenaTargetHY = on ? (def.skyCrush.hy ?? 14) : CONFIG.laneMaxY;
+  return true;
+}
+export function debugCrushOn() { return crushHoldT > 0; }
 export function debugRaiseShield() {
   if (phase !== 'fight') return false;
   shielded = true;
