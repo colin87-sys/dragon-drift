@@ -12,6 +12,7 @@ import { register } from 'node:module';
 register('../tools/three-resolver.mjs', import.meta.url);
 import { assert } from './shim.mjs';
 const { BIOMES } = await import('../js/biomes.js');
+const { ARENA_CONTRAST } = await import('../js/arenaSkin.js');   // THE UNMASKED arena backgrounds + their band overrides
 
 let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
@@ -94,6 +95,26 @@ for (const biome of BIOMES) {
       else { status = 'FAIL'; hardFails++; }
     }
     rows.push({ biome: biome.name, name, hex, cL, fogL, horL, okFog, okHor, status });
+  }
+}
+
+// THE UNMASKED arena backgrounds (arenaSkin.js): the same six role colours must read against each
+// arena's fog + horizon, with the arena's own band override applied (the void's dark:0xa84167 lift —
+// the default 0x8f0a3c FAILS the void, so this row is what makes the §4 build-order fix merge-blocking
+// on any future arena-palette diff). Zero new KNOWN_EXCEPTIONS: every colour must pass both.
+for (const arena of ARENA_CONTRAST) {
+  const band = { ...DEFAULT_BAND, ...(arena.bullets || {}) };
+  const colours = [
+    ['danger', DANGER], ['band-light', band.light], ['band-mid', band.mid], ['band-dark', band.dark],
+    ['reflect-amber', REFLECT_AMBER], ['reflected-cyan', REFLECTED_CYAN],
+  ];
+  const fogL = lum(arena.fog), horL = lum(arena.horizon);
+  for (const [name, hex] of colours) {
+    const cL = lum(hex);
+    const okFog = passBg(cL, fogL), okHor = passBg(cL, horL);
+    const status = (okFog && okHor) ? 'PASS' : 'FAIL';
+    if (status === 'FAIL') hardFails++;
+    rows.push({ biome: arena.name, name, hex, cL, fogL, horL, okFog, okHor, status });
   }
 }
 

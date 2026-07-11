@@ -159,6 +159,9 @@ const KICK_PRESETS = {
   // tier-0 enhancement layered over the tier-independent DOM #jade-flash). No-op
   // at tier2/unsupported, which is why the DOM flash carries the guaranteed read.
   wispFinale:       { flashFrames: 1, bloom: 0.28, lift: 0.26 },
+  // ARENA (PR-A): the S1→S2 crack FLOOD — a 1-frame overexpose punch as the tear reopens and the
+  // hollow leaks through, before the palette drains into the void (caps: bloom ≤ 0.36 / lift ≤ 0.6).
+  arenaFlood:       { flashFrames: 1, bloom: 0.30, lift: 0.40 },
 };
 
 export function kick(name) {
@@ -376,7 +379,7 @@ export function renderPostFX() {
     // dome with a bright field and has no discrete sun, so god-ray shafts read as a
     // rectangular light-source artifact. Restore the pass state after compositing.
     const _grWant = postfx.godRayPass ? postfx.godRayPass.enabled : false;
-    if (postfx.godRayPass && game.embertideSky) postfx.godRayPass.enabled = false;
+    if (postfx.godRayPass && (game.embertideSky || game.bossVoidSky)) postfx.godRayPass.enabled = false;   // ARENA (PR-A): the void has no sun → no shafts
     if (postfx.godRayPass && postfx.godRayPass.enabled) renderGodRayMask();
     postfx.composer.render();
     if (postfx.godRayPass) postfx.godRayPass.enabled = _grWant;
