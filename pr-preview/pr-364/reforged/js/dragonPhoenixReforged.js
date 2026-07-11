@@ -284,7 +284,7 @@ function flamePlume(n, base, axis, opts = {}) {
     const dir = gather.clone().sub(ringPt).normalize().addScaledVector(tangent, twist).normalize();
     const side = tangent.clone().negate();          // Nn = cross(dir,side) points ~radially OUTWARD
     const cv = curve * (0.35 + 0.65 * Math.max(0, c));   // outward bow clamped in the belly → corridor guard
-    const flick = flickAmp * (i % 2 ? 1 : -1);
+    const flick = flickAmp * (s >= 0 ? 1 : -1);          // MIRROR-symmetric (by side, not index) → the plume reads balanced in rear-chase
     const f = flameFeather(A(ringPt), A(dir), A(side), lenAt(c), widAt(c), cv, rampAt(c), curl, { seg, tipW, flick });
     group.add(f.group);
     tips.push(f.tip);
@@ -868,8 +868,8 @@ function buildSunfireTrail(def, model, _mats, anchor) {
     { z: mouthZ, rx: 0.27 * rk, ry: 0.18 * rk, cy: mouthY },
   ];
   group.add(loftRings(coneRings, bodyEmber, seg(9), false));
-  const throat = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * rk, 0), tMat(0xffe0a0));
-  throat.position.set(0, mouthY, mouthZ - 0.03); throat.scale.set(1, 1.1, 1.4);   // white-hot throat the rear camera looks INTO
+  const throat = new THREE.Mesh(new THREE.OctahedronGeometry(0.14 * rk, 0), tMat(0xffe0a0));
+  throat.position.set(0, mouthY, mouthZ - 0.02); throat.scale.set(1.3, 1.3, 0.8);   // white-hot throat DISC the rear camera looks INTO (wider + flatter → reads round, not a sliver)
   group.add(throat);
 
   // ── B: RADIAL RUFF — short flame-tongues around the cone MOUTH (a shuttlecock collar) → the
@@ -877,8 +877,8 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   {
     const nR = Math.max(6, Math.min(nRib + 3, 8));
     const ruff = flamePlume(nR, [0, mouthY, mouthZ], axisDir,
-      { rx: 0.26 * rk, ryUp: 0.22 * rk, ryDn: 0.16 * rk, arcDeg: 300, gatherK: 0.5, baseLen,
-        twist: 0.05, curve: 0.10, curl: 0.06, tipW: 0.30, seg: 5, flickAmp: 0.05,
+      { rx: 0.26 * rk, ryUp: 0.22 * rk, ryDn: 0.16 * rk, arcDeg: 286, gatherK: 0.5, baseLen,
+        twist: 0.02, curve: 0.10, curl: 0.06, tipW: 0.30, seg: 5, flickAmp: 0.05,
         lenAt: () => 0.8 * wf, widAt: () => 0.30 * wf, rampAt: () => covRamp });
     group.add(ruff.group);
   }
@@ -889,8 +889,8 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // faces on the moderate ember ramp (won't bloom cream).
   const nSheaf = Math.max(5, Math.min(nRib + 4, 9));
   const sheaf = flamePlume(nSheaf, [0, mouthY, mouthZ - 0.02], axisDir,
-    { rx: 0.26 * rk, ryUp: 0.30 * rk, ryDn: 0.14 * rk, arcDeg: 310, gatherK: 0.75, baseLen,
-      twist: 0.08, curve: 0.16, curl: 0.10, tipW: 0.26, seg: 6, flickAmp: 0.05,
+    { rx: 0.26 * rk, ryUp: 0.30 * rk, ryDn: 0.14 * rk, arcDeg: 292, gatherK: 0.75, baseLen,
+      twist: 0.03, curve: 0.16, curl: 0.10, tipW: 0.26, seg: 6, flickAmp: 0.05,
       lenAt: (c) => baseLen * (0.42 + 0.46 * Math.max(0, c)),
       widAt: (c) => (0.34 + 0.22 * Math.max(0, c)) * wf,
       rampAt: () => ramp4 });
@@ -913,7 +913,7 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // ── HELICAL WISPS — 4 fine sparks shearing off the rotating cone at 90° increments up the axis (the
   // motion cue that reads the volute as a VOLUME). Thin → pure hotRibbon, never bloom.
   for (let i = 0; i < 4; i++) {
-    const u = 0.25 + i * 0.2, phi = i * Math.PI / 2;
+    const u = 0.25 + i * 0.2, phi = (i - 1.5) * 0.6;   // −0.9…0.9 rad → UPPER hemisphere + symmetric (no low-left detached spark)
     const az = mouthZ + u * baseLen * 0.99, ay = mouthY + u * baseLen * 0.10;
     const cx = Math.sin(phi) * 0.26 * rk * 1.1;
     const cyw = ay + Math.cos(phi) * 0.26 * rk * 0.9;
