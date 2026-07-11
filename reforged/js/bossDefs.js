@@ -480,8 +480,8 @@ export const BOSSES = {
     // centre from the live group pose at runtime (boss.js grazeForm cluster).
     grazeForm: 'orbitAnnulus',
     setpieces: [
-      { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true },                // P2: the pair leaves station, laces the eight
-      { id: 'figureEight', atPhase: 2, dur: 7.0, moving: true, dread: true },   // P3: desperation keeps moving (Both Halves at Once)
+      { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true, recur: 10 },              // P2: the pair leaves station, laces the eight (recur → the wheel re-offers ~2×/phase, not dead after one lap; the shipped recur primitive, Ashtalon precedent)
+      { id: 'figureEight', atPhase: 2, dur: 7.0, moving: true, dread: true, recur: 8 },  // P3: desperation keeps moving (Both Halves at Once) — a tighter dread cycle
     ],
     // §ENG-A: crossfire fires from the two twins' LIVE lemniscate positions (not the
     // hardcoded ±10 lane posts) — the twins ARE the ±10 flank emitters (§5b slot brief),
@@ -1356,7 +1356,7 @@ export const BOSSES = {
     // flank and cuts ACROSS your lane at rel ~8 (the L140 proximity near-pass),
     // firing the whole way.
     setpieces: [
-      { id: 'flankCutIn', atPhase: 1, dur: 6.0, moving: true },
+      { id: 'flankCutIn', atPhase: 1, dur: 6.0, moving: true, recur: 9 },   // recur → the flank cut-in re-offers ~2×/phase (the shipped recur primitive; the duelist keeps repositioning, not one cut then station)
       // §5f the DREAD beat, AUTHORED (the grandeur redo's #1 lift — the audit's
       // "a lore-quote with zero authored visual"): at P3 entry the duelist RISES
       // over your lane and the lance WRITES the verdict at screen scale in

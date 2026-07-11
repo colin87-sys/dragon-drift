@@ -4413,4 +4413,45 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('§5i.D UNMASKED MEDLEY (PR-3, complete): stage 1 pays holdFlinch, stage 2 pays orbitAnnulus (flown) + gapThread + beat-farm guard, stage 3 pays shrinkDisc (spiral toll-wall off anchorX); no cross-stage leak, dispatcher bit-identical for static defs ✓');
 }
 
+// §RECUR-RIDERS — the recur primitive (shipped on ASHTALON's stoop + the UNMASKED's eight) now
+// rides EITHERWING's figure-eight + KARNVOW's flank cut-in, so those signature setpieces re-offer
+// within a phase instead of playing once and going dead. The re-arm path is generic (the else-arm
+// station-keep ticks setpieceRecurCd when idle + unshielded); a def WITHOUT recur still never re-arms.
+{
+  const countRearms = (name, phase, secs) => {
+    boss.resetBoss();
+    boss.setBossDebugPhase(phase);
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf(name));
+    boss.debugForceFight(p);
+    let arms = 0, everArmed = boss.bossDebugState().setpiece, prev = everArmed;   // the initial arm is already true — count only fresh re-arm edges
+    const N = Math.round(secs * 60);
+    for (let i = 0; i < N; i++) {
+      boss.debugClearShield();   // the park never damages the boss, so hp stays full + unshielded; this only guards a stray floor-shield, not a cover-up (recur needs !shielded, which live play satisfies)
+      boss.updateBoss(1 / 60, p, 2 + i / 60);
+      const now = boss.bossDebugState().setpiece;
+      if (now) everArmed = true;
+      if (now && !prev) arms++;   // false→true edge = a fresh setpiece re-armed
+      prev = now;
+    }
+    boss.setBossDebugPhase(1); boss.resetBoss();   // HAZARD: debugPhaseJump survives resetBoss — clear it
+    return { arms, everArmed };
+  };
+
+  // EITHERWING's figure-eight re-arms in the DREAD phase (P3, recur:8, dur:7 → ~15s cycle).
+  const ew = countRearms('eitherwing', 3, 48);
+  assert(ew.arms >= 2, `RECUR-RIDERS: EITHERWING's figure-eight RE-ARMS in P3 (${ew.arms} re-arms in 48s — recur:8)`);
+  // KARNVOW's flank cut-in re-arms in its setpiece phase (P2, recur:9, dur:6 → ~15s cycle).
+  const kv = countRearms('karnvow', 2, 48);
+  assert(kv.arms >= 2, `RECUR-RIDERS: KARNVOW's flank cut-in RE-ARMS in P2 (${kv.arms} re-arms in 48s — recur:9)`);
+
+  // Coexist: a setpiece boss with NO recur (MARROWCOIL's ribThread) plays ONCE and never re-arms.
+  const mc = countRearms('marrowcoil', 2, 48);
+  assert(mc.everArmed, 'RECUR-RIDERS coexist: MARROWCOIL DID arm its setpiece (guard: the 0-re-arms below is not vacuous)');
+  assertEq(mc.arms, 0, `RECUR-RIDERS coexist: MARROWCOIL's no-recur setpiece never re-arms (${mc.arms} re-arms — recur is strictly opt-in)`);
+
+  ok('§RECUR-RIDERS: EITHERWING figure-eight + KARNVOW flank cut-in re-offer within a phase (recur); a no-recur setpiece (MARROWCOIL) never re-arms ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);
