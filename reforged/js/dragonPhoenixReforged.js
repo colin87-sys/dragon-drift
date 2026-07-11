@@ -560,7 +560,7 @@ function buildOneSunWing(M, model) {
   // leading EDGE of a burning wing, not a dark box-bar. Tapers to nothing by mid-span.
   const ridgeTs = [0, 0.16, 0.34, 0.52], ridgeR = [0.055, 0.045, 0.032, 0.016];
   const ridgeRings = ridgeTs.map((t, i) => { const l = L(t); return { z: l[2], rx: ridgeR[i] * ws, ry: ridgeR[i] * 1.4 * ws, cy: l[1], cx: l[0] }; });
-  wg.add(loftRings(ridgeRings, M.goldfire, seg(5), false));
+  wg.add(loftRings(ridgeRings, M.hotRibbon[0], seg(5), false));   // pure-emissive hot gold (pink-proof, like the rest of the fire)
 
   // ── INNER FIRE MEMBRANE — the glowing web backing the inner+mid wing (span 0→0.62), with a REAL
   // 2-D heat GRADIENT (hot goldfire at the leading root → flame → crimson at the outboard trailing
@@ -569,11 +569,17 @@ function buildOneSunWing(M, model) {
   // no bald panel/streamer SEAM (the critic's "two disconnected objects").
   const memTs = [0, 0.15, 0.32, 0.48, 0.62];
   const memFs = [0, 0.45, 0.9];
-  // Hot at the leading root, cooling outboard — but the coolest cell uses the pure-EMISSIVE deep-
-  // orange (hotRibbon[2]), never a LIT crimson: a broad lit-crimson membrane facet is exactly what
-  // the cool rim pinks (the recurring veto), so the whole membrane is now pink-proof.
-  const memMat = (t, f) => (f < 0.45 ? (t < 0.32 ? M.goldfire : M.flame)
-    : (t < 0.48 ? M.flame : M.hotRibbon[2]));
+  // The WHOLE membrane is pure-emissive (pink-proof: no lit diffuse for the cool rim to pull rose —
+  // the last lit goldfire/flame here were the stage-gated rose WEDGE the critic pixel-traced at the
+  // wing root). But at a MODERATE intensity, NOT the hot thin-feather ribbon level: a broad face at
+  // ribbon intensity blooms to pale cream, so these read as solid ORANGE fire instead.
+  const memI = (0.7 + 0.16 * (M.stage ?? 3)) * (M.glow ?? 1);
+  const mMat = (e) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: e, emissiveIntensity: memI, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = e; m.userData.baseIntensity = memI; return m; };
+  // saturated ORANGE stops (not pale gold) so the broad panels read as rich fire; the white-gold heat
+  // is reserved for the thin feather roots, which can bloom bright without turning a broad face cream.
+  const memGold = mMat(0xf59020), memOrange = mMat(0xe86614), memDeep = mMat(0xd6460c);
+  const memMat = (t, f) => (f < 0.45 ? (t < 0.32 ? memGold : memOrange)
+    : (t < 0.48 ? memOrange : memDeep));
   for (let si = 0; si < memTs.length - 1; si++) {
     const t0 = memTs[si], t1 = memTs[si + 1];
     for (let fi = 0; fi < memFs.length - 1; fi++) {
