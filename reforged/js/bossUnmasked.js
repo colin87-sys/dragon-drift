@@ -178,6 +178,17 @@ export function buildUnmasked(def, quality = 1) {
   cracks.name = 'crackSeams';
   stage1.add(cracks);
 
+  // ── LANCE ORGANS (rung 14): the two paintable WOUND anchors on the crack seams (§lance CP1).
+  // Empty Object3Ds seated at INNER crack-fork points (r≈1.9, well inside the DISC_R·0.98≈4.6 rim)
+  // so at scale 2.4 they stay comfort-legal — world |x|≤~9.4, y≈14 across the station sway (the
+  // rim tips at r 4.3 would fly the reticle to |x|>10.4). They ride `stage1`, so they collapse away
+  // with the mask at the S1→S2 crack (phase-gated to [0] in the def; painted only in stage 1). The
+  // brand pop + shimmer render on them; the cracks read as the wound the lance splits wider. ──
+  const crackSeamL = new THREE.Object3D();
+  crackSeamL.name = 'crackSeamL'; crackSeamL.position.set(-1.85, 0.55, DISC_Z + 0.06); stage1.add(crackSeamL);
+  const crackSeamR = new THREE.Object3D();
+  crackSeamR.name = 'crackSeamR'; crackSeamR.position.set(1.85, 0.55, DISC_Z + 0.06); stage1.add(crackSeamR);
+
   // ── THE EYE — a BIG HDR white almond that DOMINATES the disc (~0.77× disc diameter,
   // wider than the 26u lane, §5j). Named `focalEye`. The black disc is its rim. White-
   // hot, toneMapped=false ×HOT so it blooms. ──
@@ -493,6 +504,102 @@ export function buildUnmasked(def, quality = 1) {
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // STAGE 2 LANCE ORGANS (rung 14) — SIX CURATED WATCHER EYES + FIVE RELICS + wingRoots.
+  // §lance CP1: the eight VISIBLE wing eyes sit at the wing ELBOWS (wing-local (0.7,3.5)),
+  // which at scale 2.4 land OUT of the comfort lane (upper pair world-Y ~28; lower/middle
+  // |x|>10.4 even at zero sway) — the ONEWING out-of-lane trap across a whole organ family.
+  // The fix is AUTHORING, not curation: six NEW inner-covert eyes at comfort-legal stage2-local
+  // seeds (three mirror pairs), parented to `stage2` DIRECTLY (not the wing pivots — a pivot child
+  // would drift off its eye under the breath/mantle-flare). Verified world worst-case (station
+  // sway ±5.2, roll-wobble y→x coupling): |x|≤~9.5, y 11.4..19.3 — all inside 10.4 / 22. They ride
+  // the all-snap for free (eyePlace registers each pupil in `pupils[]`). ──
+  const wingEyeSeeds = [
+    { x: 1.57, y: 2.27, lid: 0.0 },   // upper pair
+    { x: 1.72, y: 0.56, lid: 0.0 },   // middle pair
+    { x: 1.65, y: -0.33, lid: 0.30 }, // lower pair (a squint — the field varies)
+  ];
+  const wingEyeAnchors = [];
+  let weN = 0;
+  for (const seed of wingEyeSeeds) {
+    for (const side of [1, -1]) {
+      const p = new THREE.Vector3(side * seed.x, seed.y, 0.72);   // just proud of the wing membrane (z≈0.7 like the elbow eyes)
+      eyePlace(p, 0.30, seed.lid);   // a curated watcher eye — a hair larger than the elbow eyes so the six read
+      const a = new THREE.Object3D();
+      a.name = `wingEye${weN}`;
+      a.position.copy(p);
+      stage2.add(a);
+      wingEyeAnchors.push(a);
+      weN++;
+    }
+  }
+
+  // ── THE FIVE RELICS — every earlier scar worn as a trophy, wired at the reliquary knot below
+  // the great eye (the KARNVOW trophy lesson; §5b row 14 "every prior scar worn as a relic").
+  // Small dark trophies with the SOURCE boss's palette in emissive only (§3 law 8 — satellites
+  // stay dark; the palette is the attribution, not a bulb). They are comfort-trivial (clustered at
+  // stage2-local |x|≤1.8, y∈[−1.9,−0.2] → world well inside the lane). Paintable lockParts (phase
+  // [1]); branding one flashes its palette (setBrandedRelics / the RECKONING). Their names ARE the
+  // partWorldPos anchors — no separate empty. NON-destructible (they are anchors, not cracking
+  // organs) so THE RECKONING can never be locked out by a relic dying unbranded (§CP1 finding 2).
+  const relicSpecs = [
+    { name: 'relicHorn',  boss: 'VOIDMAW',    palette: 0x9a6cff, pos: [-1.45, -1.15, 0.5] },  // the broken horn (violet)
+    { name: 'relicBlade', boss: 'ASHTALON',   palette: 0xff6a30, pos: [1.45, -1.15, 0.5] },   // the snapped scythe-blade (ember)
+    { name: 'relicLink',  boss: 'BRINEHOLM',  palette: 0x6fd0c0, pos: [-1.75, -0.15, 0.45] }, // the chain link (abalone)
+    { name: 'relicSpool', boss: 'WEFTWITCH',  palette: 0xe6d79a, pos: [1.75, -0.15, 0.45] },  // the thread spool (pale gold)
+    { name: 'relicShard', boss: 'KNELLGRAVE', palette: 0xd8862e, pos: [0.0, -1.85, 0.55] },   // the bell shard (patina copper)
+  ];
+  const relicBodyMat = () => track(new THREE.MeshStandardMaterial({ color: 0x0d0c10, roughness: 1.0, metalness: 0.0, flatShading: true }));
+  const relicGlowMat = (palette) => {
+    const m = track(new THREE.MeshBasicMaterial({ color: new THREE.Color(palette) }));
+    m.toneMapped = false;
+    return m;
+  };
+  // Per-relic minimal trophy silhouette (recognizable at the reliquary, detail-tier near centre).
+  const buildRelic = (spec) => {
+    const g = new THREE.Group();
+    g.name = spec.name;
+    g.position.set(...spec.pos);
+    const body = relicBodyMat();
+    const glow = relicGlowMat(spec.palette);
+    let shape, accent;
+    if (spec.name === 'relicHorn') {           // a curved broken horn
+      shape = new THREE.Mesh(stripForMerge(new THREE.ConeGeometry(0.16, 0.7, lowQ ? 5 : 7)), body);
+      shape.rotation.z = 0.5; shape.scale.set(1, 1, 0.7);
+      accent = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), glow); accent.position.set(0.08, 0.34, 0.06);   // the ember at the break
+    } else if (spec.name === 'relicBlade') {   // a thin snapped scythe-blade
+      shape = new THREE.Mesh(stripForMerge(new THREE.ConeGeometry(0.13, 0.72, 3)), body);
+      shape.rotation.z = -0.9; shape.scale.set(0.5, 1, 0.32);
+      accent = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.02), glow); accent.rotation.z = -0.9; accent.position.set(0, 0.02, 0.08);  // the molten edge-slit
+    } else if (spec.name === 'relicLink') {    // a chain link
+      shape = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, lowQ ? 5 : 7, lowQ ? 10 : 14), body);
+      shape.scale.set(0.8, 1, 0.5);
+      accent = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.03, 6, lowQ ? 10 : 14), glow); accent.scale.set(0.8, 1, 0.5);
+    } else if (spec.name === 'relicSpool') {   // a thread spool
+      shape = new THREE.Mesh(stripForMerge(new THREE.CylinderGeometry(0.14, 0.14, 0.34, lowQ ? 7 : 10)), body);
+      shape.scale.set(1, 1, 0.7);
+      accent = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.06, lowQ ? 7 : 10), glow); accent.scale.set(1, 1, 0.7);  // the wound thread band
+    } else {                                    // relicShard — a jagged bell shard
+      shape = new THREE.Mesh(stripForMerge(new THREE.TetrahedronGeometry(0.32, 0)), body);
+      shape.scale.set(0.8, 1.1, 0.4); shape.rotation.set(0.4, 0.6, 0.3);
+      accent = new THREE.Mesh(new THREE.TetrahedronGeometry(0.13, 0), glow); accent.position.set(0.04, 0.08, 0.1);   // the candle-glint through the crack
+    }
+    g.add(shape); g.add(accent);
+    stage2.add(g);
+    return { name: spec.name, group: g, glow, palette: new THREE.Color(spec.palette), baseHot: 0.55, flash: 0, branded: false, phase: weN + spec.pos[0] };
+  };
+  const relics = relicSpecs.map(buildRelic);
+
+  // ── wingRootL/R — the STAGE 3 relic-root paint anchors (§5b "wired to the wing-roots"). Empties
+  // on `stage2` (which stays visible in stage 3 — the mantled seraph) just off the central knot,
+  // comfort-trivial. They are the stage-3 dwell organs (phase-gated [2]); the star-eye / halo stay
+  // PURE PRESENTATION (they sit at the centre, coincident with the virtual focalEye aim anchor —
+  // painting them would double a target on one pixel; §CP1 finding 7). ──
+  const wingRootL = new THREE.Object3D();
+  wingRootL.name = 'wingRootL'; wingRootL.position.set(-1.25, -0.55, 0.2); stage2.add(wingRootL);
+  const wingRootR = new THREE.Object3D();
+  wingRootR.name = 'wingRootR'; wingRootR.position.set(1.25, -0.55, 0.2); stage2.add(wingRootR);
+
   // ── THE KNOT (the body) — a small, dark, flattened core at the convergence, HALF-BURIED behind
   // the eight wing roots (owner r-spec): it fills the tight central knot so no sky shows between
   // the roots and gives the wings a body to spring from. Small (radius ~0.9), dark — NOT a big orb.
@@ -725,7 +832,21 @@ export function buildUnmasked(def, quality = 1) {
   // the catchlights flare hot, and the wings freeze mid-breath — a held, total stare. Triggered
   // by the fight machine (CP2) at the phase turn; `snapT` is the hold, `snapK` the eased weight.
   let snapT = 0, snapK = 0;
-  function allSnap() { snapT = 0.8; saccadeT = 0; }
+  function allSnap(hold = 0.8) { snapT = Math.max(snapT, hold); saccadeT = 0; }
+
+  // ── THE RECKONING relic presentation (rung 14): an UNBRANDED relic breathes a dim palette pulse
+  // (the "brand me" read — they are the reliquary's collectibles); branding one FLASHES its source
+  // boss's palette hot (the attribution beat) then settles to a steady claimed glow. Driven by
+  // setBrandedRelics(list) from boss.js's lockPaint listener (the setBrandedFeatures precedent).
+  // Pure presentation — the gameplay is the paint/RECKONING flag in boss.js. ──
+  function setBrandedRelics(branded) {
+    if (!branded) return;
+    for (const r of relics) {
+      const on = branded.includes(r.name);
+      if (on && !r.branded) r.flash = 1;   // just took the brand → flare its palette
+      r.branded = on;
+    }
+  }
 
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
   function setGaze(nx, ny) { gazeTX = Math.max(-1, Math.min(1, nx)); gazeTY = Math.max(-1, Math.min(1, ny)); }
@@ -854,6 +975,15 @@ export function buildUnmasked(def, quality = 1) {
         u.gy += (tgy - u.gy) * k;
         p.position.set(u.base.x + u.gx * u.size * 0.4, u.base.y + u.gy * u.size * 0.4 * (u.openF || 1), u.base.z + u.size * 0.62);
       }
+
+      // ── THE RELICS: an unbranded relic breathes a dim palette pulse (collectible); a fresh brand
+      // FLASHES its palette hot then decays to a steady claimed glow (the attribution beat). ──
+      for (const r of relics) {
+        if (r.flash > 0) r.flash = Math.max(0, r.flash - dt * 1.6);
+        const pulse = r.branded ? 1.1 : (0.75 + Math.sin(time * 1.4 * TAU + r.phase) * 0.35);   // branded = steady; unbranded = a "brand me" breath
+        const hot = r.baseHot * pulse + r.flash * 2.2;   // the flash rides on top
+        r.glow.color.copy(r.palette).multiplyScalar(hot);
+      }
     }
 
     // ── STAGE 3 — THE UNVEILING: the STARBURST slowly turns + pulses (radiance, never a spin-
@@ -883,6 +1013,7 @@ export function buildUnmasked(def, quality = 1) {
     setGaze,
     notice,
     allSnap,
+    setBrandedRelics,
     setDebugStage,
     setStageMorph,
     setStage3,

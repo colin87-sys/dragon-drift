@@ -1720,10 +1720,35 @@ export const BOSSES = {
     hpMax: 240,                           // §5b Apex — PER-FORM health (multi-form boss, formLifebars): each of the 3 forms is fought from a FULL bar to 0, so the effective total is ~3×240=720 (a ~3.5-min apex fight). TUNE for length.
     formLifebars: true,                   // MULTI-FORM boss: each phase is its OWN full health bar. A form is "defeated" at 0 hp → shield → Surge through → the bar REFILLS full + the next form's transition plays. Only the LAST form's defeat is death. (THE UNMASKED: eclipse → seraph → unveiling, three full fights.)
     archetype: 'unmasked',                // dispatch → bossUnmasked.js (bossModel.js)
-    // The pupil (STAGE 1) / the veiled core (STAGE 3) is the aim anchor; the ~20 eyes
-    // (STAGE 2) become per-eye lock parts at CP2. V1: the always-watching focal eye.
+    // The pupil (STAGE 1) / the veiled core (STAGE 3) is the aim anchor; the six curated
+    // watcher eyes + five relics (STAGE 2) are the paint organs. V1: the always-watching
+    // focal eye (collapses to the rig centre in stages 2/3 — coincident with greatEye/starEye).
     virtualLockOrgan: 'focalEye',
     muzzle: 'focalEye',                   // stage-1 bullets originate at the eye that watches
+    // ── LANCE ORGANS (rung 14, the finale) — the tested vocabulary at full size. Phase-gated per
+    // STAGE (the shipped BRINEHOLM seam): stage 1 the two crack-seam wounds; stage 2 the six curated
+    // watcher eyes + the five reliquary relics (THE RECKONING targets); stage 3 the two wing-roots.
+    // Every organ lives on `group` (approachFrom 'ahead' — NOT skyReplace, no reparent) and is
+    // authored comfort-legal at scale 2.4 (§lance CP1: |x|≤10.4, y≤22 across the sway). Each stage
+    // reaches the tier-5 cap of 6 (S1 2+virtual ×2; S2 11+virtual → 6; S3 2+virtual ×2). Eyes are
+    // ordered FIRST so the 8-slot shimmer pool covers them; the relics carry their OWN trophy glow
+    // (shimmerExclude) so the pick-menu never starves the collection targets (§CP1 finding 5).
+    lockParts: [
+      { part: 'crackSeamL', phases: [0] }, { part: 'crackSeamR', phases: [0] },
+      { part: 'wingEye0', phases: [1] }, { part: 'wingEye1', phases: [1] }, { part: 'wingEye2', phases: [1] },
+      { part: 'wingEye3', phases: [1] }, { part: 'wingEye4', phases: [1] }, { part: 'wingEye5', phases: [1] },
+      { part: 'relicHorn', phases: [1] }, { part: 'relicBlade', phases: [1] }, { part: 'relicLink', phases: [1] },
+      { part: 'relicSpool', phases: [1] }, { part: 'relicShard', phases: [1] },
+      { part: 'wingRootL', phases: [2] }, { part: 'wingRootR', phases: [2] },
+    ],
+    // THE RECKONING (§5b/§8D): brand all FIVE relics at least once (stage 2) → the finale burn
+    // UNLOCKS (stage 3 on-tell releases go from no burn to scarBurn.fracBySlot.unmasked 0.20), and
+    // every eye snaps to the player — the reveal-hold screenshot. burnGate 'reckoning' keeps the burn
+    // LOCKED until the collection completes (boss.js). shimmerExclude keeps the relics off the
+    // organ-shimmer pool (they self-present as glowing trophies).
+    reckoningRelics: ['relicHorn', 'relicBlade', 'relicLink', 'relicSpool', 'relicShard'],
+    burnGate: 'reckoning',
+    shimmerExclude: ['relicHorn', 'relicBlade', 'relicLink', 'relicSpool', 'relicShard'],
     accent: 0xf0e0a0,                     // gold rails/relics (identity accent, emissive only)
     glow: 0xffffff,                       // white corona — the reserved glow-shape (from slot 1)
     bulletColor: 0xff2b6a,                // danger magenta (role colour, never per-boss)
