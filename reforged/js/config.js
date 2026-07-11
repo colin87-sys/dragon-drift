@@ -184,6 +184,19 @@ export const CONFIG = {
                             // anchor must chase the organ's centre of motion, not its animation
                             // frame — a raw anchor jitter-breaks locks by construction
     linger: 0.6,            // TUNE(0.4–0.8) — aim-line persistence after leaving the cone
+    relockMemoryS: 4.0,     // TUNE(2–6) — SOUND-ONLY window after a held line lets go: re-grabbing
+                            // that same organ within it is a "warm" re-acquire (hum suppressed,
+                            // lockOn downgraded to a tick — the weave-away-and-back nag fix).
+                            // Matched to `decay` (a set stays warm as long as its brands live).
+    relockWarmFrac: 0.4,    // TUNE(0–0.6; 0 = off) — GAMEPLAY (owner sign-off, granted): a warm
+                            // re-acquire seeds this fraction of the EFFECTIVE dwell need, so weaving
+                            // away to DODGE and back costs less than a fresh lock — the attention-
+                            // economics fix: dodging no longer taxes the lock. The seed is scaled by
+                            // the focus multiplier in lockLayer.js (always `frac` of what you'd owe),
+                            // so a focused re-grab is a true 40% discount (~8 frames), NOT the old
+                            // ~4-frame snap, and the whole range is safe (seed < need for any frac<1
+                            // — no same-frame-lock cliff). First acquisition still pays full dwell;
+                            // volley total stays ROI-clamped (volleyRoiFrac). 0 = inert (sound-only).
     paintHopGrace: 0.8,     // TUNE(0.5–1.2) — after a paint the aim RELEASES and the painted
                             // organ can't re-acquire for this long, so the reticle decisively
                             // HOPS to the next unpainted organ (owner playtest: hovering the
@@ -222,6 +235,12 @@ export const CONFIG = {
     lanceHomeBlend: 0.15,   // TUNE(0.10–0.25) — steer-gain ramp-in after engage (no elbow)
     lanceSteerGain: 9,      // TUNE(6–12) — arrive gain once engaged (pre-wisp inline was 5)
     lanceCurlRate: 3.2,     // TUNE(2.0–5.0) — rad/s velocity rotation during the arc; sign = i parity
+    // THE LUNGE (PR-C, owner's idea): wisps EMERGE lazily then ACCELERATE onto
+    // their brand — vrel follows a linear profile p(u) = p0→p1 over the flight.
+    // LAW: (p0+p1)/2 === 1 (∫p = 1) so the wisp lands on the IDENTICAL arrival
+    // frame as constant speed (L186; enforced by a position-tracking controller
+    // in bossBullets — exact under any dt; T-W2/T-W8 are the wall). null = off.
+    lungeProfile: [0.4, 1.6],
     // WISP LIGHT-RIBBONS (PR4b — owner: the volley was lost in the bullet sea).
     // The silhouette law: the volley must be the ONLY LINE-class shape among the
     // enemy's dot-class bullets (Panzer Dragoon's homing lasers are persistent
@@ -230,13 +249,20 @@ export const CONFIG = {
     ribbonRings: 22,        // LAW — position-history samples per wisp ribbon (~0.37s of path)
     ribbonHalfWMax: 0.26,   // TUNE(0.18–0.34) — head half-width; THIN is the overdraw law
                             // (a thin strip is near-line/exempt; bloom carries the glow)
-    ribbonHot: 1.6,         // TUNE(1.2–2.4) — ribbon HDR colour scale (mild bloom, toneMapped off)
+    ribbonHot: 2.0,         // TUNE(1.2–2.4) — ribbon HDR colour scale (mild bloom, toneMapped off).
+                            // Bumped 1.6→2.0: with the head white-wash cut (bossBullets), the
+                            // JADE ribbon now carries the wisp's colour identity (owner: "bland
+                            // white comets, needs pazzazz") — a hotter jade tail, thin strip so
+                            // no extra draw AREA (the overdraw law is area, not intensity)
     headHot: 3.5,           // TUNE(2.5–6) — hot-head HDR scale (the EYE_HOT idiom: the head is
                             // the brightest pixel in its neighbourhood; toneMapped bullets can't compete)
     ribbonFade: 0.35,       // TUNE(0.25–0.6) — tail-first afterimage drain after arrival
-    wobbleAmp: 0.55,        // TUNE(0–0.9) — homing snake-wobble (m); DECAYS to 0 before arrival
-                            // so the landing law is untouched (T-W2 is the wall)
-    wobbleHz: 2.6,          // TUNE(1.5–4) — snake frequency; phase = volley slot
+    wobbleAmp: 0.85,        // TUNE(0–0.9) — homing snake-wobble (m); DECAYS to 0 before arrival
+                            // so the landing law is untouched (T-W2 is the wall). Bumped
+                            // 0.55→0.85 (owner: "increase weave" — read the wisps as a
+                            // predator snaking onto its prey); LAW: < bossHitRadius/4 (1.05)
+    wobbleHz: 3.0,          // TUNE(1.5–4) — snake frequency; phase = volley slot (bumped for
+                            // a tighter, more urgent weave to pair with the wider amplitude)
     impactStaggerMs: 40,    // LAW — plural-impact PRESENTATION spacing (damage stays same-frame;
                             // the drum-roll is FX + the lockStrike arpeggio only)
     // ORGAN SHIMMER (PR6, owner design; boosted — owner playtest "let me PICK my
@@ -261,6 +287,56 @@ export const CONFIG = {
     // V3.E1
     beatWindow: 0.12,       // LAW — ± seconds on getBeatClock()
     beatMult: 1.25,         // LAW — volleys ONLY, never the Surge beam/break
+    // UNLEASH PHRASE — BEAT-ALIGNED INHALE (C1, revised in PR-B). The CAP
+    // auto-release lands its drop on the song's beat by STRETCHING the inhale to
+    // end a void before the beat, then firing immediately (no dead post-fuse hold
+    // — the PR9 version of that read as lag; owner playtest). LAW (PR9.1): a
+    // MANUAL tap is NEVER delayed — the tap is the player's timing and the E1
+    // on-beat bonus is the skill expression; a manual volley's impact roll only
+    // snaps to the grid when the tap was PERFECT ("on the beat" is earned). The
+    // only behavior-adjacent change: the cap fuse LENGTH flexes ±½ beat and the
+    // launch carries the void delay; headless (no clock) → plain capFuse, D=0,
+    // byte-identical (T-E2). tap/decay/fork: never delayed.
+    releaseQuant: true,     // LAW gate — false = verbatim v1 (plain capFuse, no align)
+    releaseGapMs: 60,       // TUNE(40–80) — the riser's silence VOID before the
+                            // drop, and the cap launch delay that lands it on the beat
+    // THE VISIBLE INHALE (PR-C): the rear-cam charge telegraph while the cap
+    // fuse burns — torso arch + wing mantle + jade gather, all driven by fuse01
+    // and byte-inert at 0 (the L245 endpoint law).
+    inhaleArch: 0.38,       // TUNE(0.2–0.6) — whole-body rear-up at full breath (rad)
+    inhaleFlapCalm: 0.6,    // TUNE(0.3–0.8) — flap-rate cut at full breath (wings hold)
+    gatherRateHz: 10,       // TUNE(4–12) — gather spark pulses per second (bumped 8→10 so
+                            // the convergence reads as a continuous stream, not a stutter)
+    gatherCountBase: 4,     // TUNE(1–4) — sparks per pulse ≈ base·pips/2 (6 pips = a storm).
+                            // Bumped 2→4 (owner: "can't see much noticeable jade sparks gather")
+    // The INHALE riser (C3 — riser→gap→drop, replacing the plain swell): an
+    // uplifter bed + sub + an accelerating tick-ratchet whose speed scales
+    // SUPER-linearly with the pip count (C4 — a 6-set must not sound like 2×3).
+    riserTickBase: 7,       // TUNE(5–10) — ratchet ticks/s at n=3, ramp start
+    riserTickPowN: 1.6,     // TUNE(1.2–2.2) — super-linear n exponent on the rate
+    riserMaxHoldS: 1.6,     // LAW — plateau ceiling past the fuse (deflect mid-
+                            // fuse etc.); the riser self-fades after this so a
+                            // stalled release can never strand a drone
+    // The IMPACT RUN (C5): strikes climb the LIVE chord (plucks + detonation
+    // pops — PR-C), and the run lands as an accelerando roll instead of an even
+    // 40ms stagger. The finale is an N-scaled DETONATION (sized by the riser's
+    // pow(n/3, riserTickPowN) class knob — no chord, no held voices).
+    // Presentation only — damage stays on the arrival frame (L186).
+    rollAccel: 0.8,         // TUNE(0.65–0.95) — impact-gap shrink factor per k
+    rollMaxS: 0.6,          // LAW — total presentation-roll span ceiling (organ
+                            // flash fires on the true arrival frame; past this
+                            // the spark/sound drift reads as desync)
+    impactDuckAmt: 0.18,    // TUNE(0–0.3; 0 = off) — per-strike music duck via
+                            // the pumpGain sidechain node (the L191-safe lane)
+    // v3 wisp-impact "destructiveness" (owner: the per-hit landing sounded like a
+    // tuned drum roll, not ordnance breaking a target). Added a waveshaped broadband
+    // crunch + in-key saw grit + a debris/scorch tail to brandStrike; these tune it.
+    strikeCrunchVol: 0.07,  // TUNE(0–0.12) — saturated broadband CRUNCH front level (the main "bite")
+    strikeGritDrive: 0.65,  // TUNE(0.4–0.9) — soft-sat drive on the impact grit (>0.8 reads as artifact, not violence)
+    strikeDebrisVol: 0.028, // TUNE(0–0.05) — per-hit falling-shard / ember-sizzle debris-tail level
+    lanceHoldAmt: 0.32,     // TUNE(0.2–0.45) — Wyrm profile's ONE-per-volley sustained sidechain
+                            // hold (deeper than impactDuckAmt: a held hole earns more depth than the
+                            // per-hit flutter, and must out-dip the groove's own kick pump)
     // V4
     snapPerVolley: 1,       // LAW — max V4 paints per amber volley; 0 during fever (LAW)
     // V5
@@ -268,10 +344,43 @@ export const CONFIG = {
     focusDwellMult: 0.5,    // LAW
     // score (embers NEVER)
     paintScore: 10, lanceHitScore: 15, perfectReleaseScore: 150,  // LAW: parry stays score-premier
+    // LENS (intervention 3a) — reticle YIELD: while a boss bullet is closing to within
+    // `tti` seconds of the player's lane, the aim chrome's GLOW eases back so the threat
+    // is the loudest thing at the point of gaze. Presentation only (read by reticle.js
+    // under ?lens=2; inert otherwise) — the lock state machine never sees it, and the
+    // lock border / dwell fill are never dimmed. tti: 0 disables the yield entirely.
+    reticleYield: { tti: 0.9 },
+    // SCAR-BURN (docs/lance-progression-redesign.md §4b; owner sign-off 2026-07-10)
+    // — the endgame's earned escalation. A deliberate ON-TELL manual release (the
+    // volley's `perfect` flag: source 'tap' AND ctx.beatOn on the boss's OWN tell —
+    // KNELLGRAVE's toll) of >= `burnFloor` painted pips, on a tier >= `minTier` boss,
+    // leaves a burning brand: an EXTRA `frac × volleyTotal` paid over `dur` seconds as
+    // scheduled DOT ticks. The cap AUTO-release NEVER burns (the safe fallback); a
+    // non-tell tap is today's plain volley. Homed in boss.js (a `burns[]` list off the
+    // lockVolley event) — NOT lockLayer (that module owns no game state); ticks pause
+    // while deflected and CANCEL on phase-transition (the shield-BREAK at breakShield)
+    // + fight teardown. Kind 'lockburn' accrues NO part-crack hits and charges NO
+    // meters. Byte-inert below minTier and when frac is 0/absent (tiers 1-3 unchanged).
+    // `fracBySlot` ramps by boss (gentle openers; the finale is retuned to ~1/3, §8D).
+    // echoDmgMult is the ONEWING spectral-echo dial (later PR), parked with the family.
+    scarBurn: {
+      minTier: 4,           // LAW — tiers 1-3 byte-identical (no burn)
+      burnFloor: 3,         // LAW — min painted pips in the release to earn a burn
+      dur: 3.0,             // TUNE(2.0-4.0) — burn lifetime (seconds)
+      tickInterval: 0.3,    // TUNE(0.2-0.5) — seconds between burn DOT ticks
+      echoDmgMult: 0.5,     // ONEWING spectral echo-pip damage (rung 12): a ghost pip strikes at ×0.5 and prices the ROI clamp by 0.5
+      fracBySlot: {         // per-boss burn fraction of the (already ROI-clamped) volley
+        knellgrave: 0.25,   // WE opener — gentle
+        weftwitch: 0.30,    // WE mid — her music is LIVE, so the perfect release is the normal on-beat tap (no toll-clock analog)
+        onewing: 0.30,      // WE late (rung 12) — burn on REAL pips only (ghosts never earn it). ONEWING has LIVE music, so the perfect on-tell release is the normal on-BEAT tap (generic beat clock, not a toll/wind-up analog). 0.30 not 0.35: at 0.35 the P5 full-release edged the deleter line to exactly 1.00 — the SPECTRAL ECHO is ONEWING's escalation, not the burn (lockdps margins)
+        // embertide: 0 (beam fork), unmasked: 0.20 — later PRs
+      },
+    },
   },
 
   BOSS: {
     firstAt: 2500,          // metres: earliest a boss can appear
+    threadScore: 75,        // §5i.B THREAD-THE-GAP base score per cleanly-threaded wall row (×edge/late/chain)
     interval: 3200,         // metres between encounters
     intervalJitter: 900,
     settleGap: 30,          // metres ahead the boss holds (player-relative frame)
@@ -293,6 +402,15 @@ export const CONFIG = {
     bulletRadius: 0.55,
     spawnRampT: 0.12,       // seconds a bullet takes to grow from a point to full size at spawn
                             // (kills the "materialises from nowhere" pop up close — L148)
+    // Imminent-bullet FLARE window (the time-to-impact depth cue in bossBullets.js).
+    // Shipped: heat-only over the last flareTti seconds. The LENS overhaul (?lens=2)
+    // widens the window to flareTtiLens AND adds a size POP (flareSizeK, the fraction
+    // the disc grows at full flare) so "which hits me first" is a size+heat read at
+    // the exact moment it matters — the Enter-the-Gungeon "big fair bullet" lesson.
+    // The visual grows BEYOND the hitbox (s.r untouched), so the mismatch is forgiving.
+    flareTti: 0.3,          // shipped window (s); LENS is inert unless ?lens=2
+    flareTtiLens: 0.45,     // widened window under ?lens=2
+    flareSizeK: 0.35,       // disc grows ×(1 + this*flare) under ?lens=2; 0 ⇒ shipped size
     bulletHitScale: 0.62,   // effective player hit radius = playerRadius × this (forgiving)
     bulletSpeed: 28,        // closing speed (m/s) → reaction window ≈ settleGap/speed ≈ 1.07s
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
@@ -379,6 +497,9 @@ export const CONFIG = {
       death:            { hitstop: 0,  kick: 'death' }, // sustained grade over the freeze
       wispVolley:       { hitstop: 45, kick: 'surgeStart' }, // brand loose: the release beat
                         // (RELEASE only — never hitstop the impacts amid dense bullets)
+      wispFinale:       { hitstop: 90, kick: 'wispFinale' }, // PR-B: the reserved lance CLIMAX —
+                        // the SECOND authorized lance hitstop (full volleys only); it lands ~0.6s
+                        // after the release beat, well past the 180ms cooldown. Sells the "impact".
     },
   },
 };

@@ -3,6 +3,7 @@
 // Layer unlock order: bass+melody always → arpeggio on boost →
 // high-lead on combo≥2 → percussion on combo≥3 → fever sparkle on surge.
 
+import { CONFIG } from './config.js';
 import { saveData, persist } from './save.js';
 import { TRACKS } from './tracks.js';
 import { mulberry32 } from './util.js';
@@ -20,6 +21,54 @@ export { TRACKS };
 const AUDIO_V2 = (() => {
   try { return !/[?&]audio=v1(&|$)/.test(window.location.search); } catch { return true; }
 })();
+// Unleash-phrase rollout flag (PR9): ON by default; `?unleash=v1` restores the
+// shipped brand phrase (immediate release, swell inhale, pentatonic strikes, no
+// finale) — the A/B escape hatch for judging the reward rebuild on the preview.
+// Gates BOTH the new synth bodies below and the beat-hold (boss.js consults it).
+export const UNLEASH_V2 = (() => {
+  try { return !/[?&]unleash=v1(&|$)/.test(window.location.search); } catch { return true; }
+})();
+// Lance core-loop audio rollout flag (v3): ON by default; `?lance=v2` restores the
+// shipped lance sounds — the full lockOn chime on every re-lock, the un-deadzoned
+// dwell hum, and the shipped brandLoose/brandStrike/brandSet/brandFinale bodies.
+// The A/B escape hatch for judging the acquire→paint→release→impact overhaul on the
+// PR preview. (The lockLayer re-lock-memory state ships un-gated — it's inert data
+// until a consumer reads it; this flag gates only the SOUND behaviour.)
+export const LANCE_V3 = (() => {
+  try { return !/[?&]lance=v2(&|$)/.test(window.location.search); } catch { return true; }
+})();
+// LANCE SOUND PROFILE (the ground-up A/B overhaul). 'classic' = the current lance
+// bodies in the `sfx` object below (unchanged); 'wyrm' = the parallel "quiet hands,
+// loud world" engine in sfxLance2.js (the boss-body resonator impacts). This pass
+// only diverts brandStrike/brandFinale; every other event still plays the classic
+// body under both profiles. Initialised from `?lancesfx=wyrm` (the deterministic
+// selector, e.g. for an offline render) else the saved choice; flipped at runtime
+// by setLanceProfile (settings / the Shift+L A/B hotkey) so the two can be compared
+// mid-fight without a reload. Nothing classic is deleted or changed.
+let lanceProfile = (() => {
+  try { const m = /[?&]lancesfx=(wyrm|classic)/.exec(window.location.search); if (m) return m[1]; } catch { /* no window */ }
+  return saveData.audio.lanceProfile === 'wyrm' ? 'wyrm' : 'classic';
+})();
+export function getLanceProfile() { return lanceProfile; }
+export function setLanceProfile(name) {
+  lanceProfile = name === 'wyrm' ? 'wyrm' : 'classic';
+  saveData.audio.lanceProfile = lanceProfile;
+  persist();
+  // Switch hygiene: silence the OUTGOING profile's classic looping voices AND
+  // release any in-flight wyrm roll-duck, so a mid-fight flip never strands a hum,
+  // a riser, or a sidechain hole with no roll to cover.
+  try { sfx.dwellHum(0); sfx.brandRiserCancel?.(); releaseLanceDuck(); } catch { /* pre-init */ }
+  return lanceProfile;
+}
+export function toggleLanceProfile() { return setLanceProfile(lanceProfile === 'wyrm' ? 'classic' : 'wyrm'); }
+// Internals kit for the parallel wyrm engine (sfxLance2.js) — a one-directional
+// export (sfxLance2 imports this; sfx.js never imports sfxLance2, so no cycle: the
+// call-site dispatch lives in main.js). Live bindings (sfxBus, the ctx) are exposed
+// as accessors because they're (re)assigned when the graph is built.
+export const _sfxKit = {
+  getCtx, sfxBus: () => sfxBus, tone, noiseWhoosh, gritBurst,
+  getNoiseBuffer, makeDriveCurve, foldToBand, duckHold, getHarmony,
+};
 let limiterActive = false;   // worklet limiter engaged (false = shipped chain)
 let audioUnderruns = 0;      // audio-thread stall beacons from the limiter worklet
 // Debug readout (audio-thread health is invisible to fps meters).
@@ -527,6 +576,22 @@ function inKey(freq) {
   return h ? snapToChord(freq, h.chord) : freq;
 }
 
+// Octave-fold a frequency into [lo, hi] — for pitching a LOW body (a sub boom, a
+// bass launch note) to a chord tone without it snapping octaves away into the
+// wrong register. `snapToChord`/`chordLadder` pick the nearest chord pitch class;
+// this then walks it by octaves back into the band the sound wants to live in.
+// Returns `f` unchanged if it already sits in-band (or the band is degenerate).
+function foldToBand(f, lo, hi) {
+  // Number.isFinite guards the +Infinity hang (Infinity * 0.5 === Infinity loops
+  // forever) — unreachable with current static track data, but one bad chord entry
+  // away from a main-thread freeze, so it's a cheap belt.
+  if (!Number.isFinite(f) || !(f > 0) || !(lo > 0) || !(hi > lo)) return f;
+  let x = f;
+  while (x > hi) x *= 0.5;
+  while (x < lo) x *= 2;
+  return x > hi ? hi : x;   // clamp the pathological case (band < 1 octave wide)
+}
+
 // Delay (seconds) to the next 16th of the live beat grid — for the *musical*
 // tail of reward sounds only, never input acknowledgment. 0 when music is off.
 function toGrid16() {
@@ -548,7 +613,7 @@ function getNoiseBuffer(a) {
 }
 
 // Filtered noise burst (whooshes, impacts).
-function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, delay = 0 }) {
+function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, delay = 0, dest = null }) {
   const a = getCtx();
   if (!a) return;
   const t0 = a.currentTime + delay;
@@ -562,13 +627,43 @@ function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, d
   const g = a.createGain();
   g.gain.setValueAtTime(vol, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  src.connect(bp).connect(g).connect(sfxBus);
+  src.connect(bp).connect(g).connect(dest || sfxBus);
+  src.start(t0);
+  src.stop(t0 + dur + 0.05);
+}
+
+// Saturated noise burst = noiseWhoosh with a WaveShaper (soft-sat drive) inserted
+// before the gain. The shaper generates intermodulation products from the noise,
+// turning a smooth "swish" into a broadband CRUNCH — the nonlinear, spectrally
+// jagged energy the ear reads as "material failing" (a filtered whoosh has none of
+// it, which is why the shipped per-hit impact read as a drum tick, not destruction).
+// `drive` MUST be one of a small set of literals (makeDriveCurve caches by
+// amount.toFixed(2)); per-voice shaper (never a shared one on sfxBus — simultaneous
+// hits would intermodulate the whole mix to fuzz). Deterministic: seeded noise only.
+function gritBurst({ from = 3000, to = 800, dur = 0.05, vol = 0.08, q = 0.8, drive = 0.65, delay = 0, dest = null }) {
+  const a = getCtx();
+  if (!a) return;
+  const t0 = a.currentTime + delay;
+  const src = a.createBufferSource();
+  src.buffer = getNoiseBuffer(a);
+  const bp = a.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.Q.value = q;
+  bp.frequency.setValueAtTime(from, t0);
+  bp.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  const shaper = a.createWaveShaper();
+  shaper.curve = makeDriveCurve(drive);
+  shaper.oversample = '2x';
+  const g = a.createGain();
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(bp).connect(shaper).connect(g).connect(dest || sfxBus);
   src.start(t0);
   src.stop(t0 + dur + 0.05);
 }
 
 // --- SFX helpers ---
-function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay = 0 }) {
+function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay = 0, dest = null }) {
   const a = getCtx();
   if (!a) return;
   const t0 = a.currentTime + delay;
@@ -579,7 +674,7 @@ function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay
   if (end) osc.frequency.exponentialRampToValueAtTime(Math.max(end, 1), t0 + dur);
   g.gain.setValueAtTime(vol, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  osc.connect(g).connect(sfxBus);
+  osc.connect(g).connect(dest || sfxBus);   // dest lets a profile route through its own submix (byte-identical when omitted)
   osc.start(t0);
   osc.stop(t0 + dur + 0.05);
 }
@@ -590,6 +685,27 @@ function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay
 let surgeReadyNodes = null;
 let surgeCrackleNodes = null;
 let dwellHumNodes = null;   // V5/PR7: the LANCE dwell "closing-in" hum (frequency tracks progress)
+// PR9 UNLEASH PHRASE state — the INHALE riser handle. All AudioContext-time
+// scheduled, zero RNG. (PR-C: the held-voice chord machinery that used to live
+// here was DELETED with the chord ring-out — owner: "the chord will be annoying
+// to hear consistently"; the finale is now an N-scaled DETONATION, and the whole
+// hanging-drone bug family died with the voices.)
+let brandRiserNodes = null; // { out, sources } — one live riser at a time
+let detSeq = 0;             // PR-C: per-finale counter — deterministic instance
+                            // variation (successive volleys aren't clones), no RNG
+
+// Stepped param ramp: many small setValueAtTime points instead of one long
+// exponentialRamp, so brandRiserRelease can cancelScheduledValues(tStop) and the
+// param HOLDS its last-reached value (the "rise stops" arrival cue) instead of
+// snapping back to the ramp's start — the classic cancel-mid-ramp gotcha, dodged
+// without relying on cancelAndHoldAtTime support.
+function stepRamp(param, t0, dur, from, to, exp = true, steps = 24) {
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    const v = exp ? from * Math.pow(to / from, u) : from + (to - from) * u;
+    param.setValueAtTime(v, t0 + dur * u);
+  }
+}
 
 export const sfx = {
   // Glassy ice-bell pluck: pure fundamental + bright inharmonic partial
@@ -795,7 +911,12 @@ export const sfx = {
   dwellHum(d = 0) {
     const a = getCtx();
     if (!a || !sfxBus) return;
-    if (d <= 0.001) {   // stop
+    // v3 deadzone gain (silent below d≈0.12, full by d≈0.37). Computed up front so a
+    // glancing brush that never clears the deadzone is treated as a STOP — it tears
+    // down any live nodes but never BUILDS oscillators just to run them at zero gain
+    // (node churn on the weak-mobile target). v2: floor01 = 1 (unchanged behaviour).
+    const floor01 = LANCE_V3 ? Math.max(0, Math.min(1, (d - 0.12) / 0.25)) : 1;
+    if (d <= 0.001 || floor01 <= 0) {   // stop (below the audible deadzone)
       const n = dwellHumNodes; dwellHumNodes = null;
       if (!n) return;
       n.out.gain.setTargetAtTime(0.0001, a.currentTime, 0.05);
@@ -809,7 +930,7 @@ export const sfx = {
       const oscs = [];
       for (const [type, mul, vol] of [['triangle', 1, 0.6], ['sine', 2, 0.22]]) {
         const o = a.createOscillator();
-        o.type = type; o.frequency.value = 200 * mul;
+        o.type = type; o.frequency.value = 300 * mul;
         const g = a.createGain(); g.gain.value = vol;
         o.connect(g).connect(out);
         o.start();
@@ -817,21 +938,31 @@ export const sfx = {
       }
       dwellHumNodes = { oscs, out };
     }
-    // Track: pitch rises 200→620Hz, gain swells with progress — both eased so a
-    // draining dwell (L177) glides back down instead of stepping.
-    const n = dwellHumNodes, t = a.currentTime, f = 200 + 420 * Math.min(1, d);
-    for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(f * mul, t, 0.05);
-    n.out.gain.setTargetAtTime(0.022 * (0.35 + 0.65 * d), t, 0.05);
+    // Track: a SMALL pitch rise + gain swell with progress. The old 200→620Hz
+    // glissando swooped up-and-down in the vocal range every re-acquire and read
+    // as "monkey breathing" (owner) — a big swoop is a voice. Shrunk to a quiet
+    // 300→430Hz nudge (a faint "closing-in" presence, not a swoop) at ~40% the
+    // volume; the reticle fill + lockOn chime carry the real feedback.
+    // v3: a DEADZONE at the bottom (silent below d≈0.12, full by d≈0.37) so merely
+    // BRUSHING an organ no longer instantly drones, and a longer gain time-constant
+    // (0.12) turns the onset into a fade instead of a swell-attack — the two things
+    // that made the acquire hum feel naggy on every glancing pass.
+    const n = dwellHumNodes, t = a.currentTime, f = 300 + 130 * Math.min(1, d);
+    const tc = LANCE_V3 ? 0.12 : 0.05;
+    for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(f * mul, t, tc);
+    n.out.gain.setTargetAtTime(0.009 * (0.4 + 0.6 * d) * floor01, t, tc);
   },
   // RELEASE DUCK (PR7): a deliberate volley loose briefly dips the MUSIC bus so
   // the exhale owns the moment (the Rez sidechain). Music only — the exhale
   // itself routes through sfxBus, and the kick sidechain lives on its own
   // pumpGain node, so musicBus.gain is free for this transient automation. The
   // restore target is musicTarget() so it respects mute/volume.
-  volleyDuck() {
+  // PR9: `delay` anchors the duck under the beat-held DROP, not the commit —
+  // still the ONE musicBus.gain automation (L191: never add a second writer).
+  volleyDuck(delay = 0) {
     const a = getCtx();
     if (!a || !musicBus) return;
-    const t = a.currentTime, base = musicTarget();
+    const t = a.currentTime + (UNLEASH_V2 ? Math.max(0, delay) : 0), base = musicTarget();
     musicBus.gain.cancelScheduledValues(t);
     musicBus.gain.setValueAtTime(base * 0.55, t);
     musicBus.gain.setTargetAtTime(base, t + 0.18, 0.12);
@@ -1091,7 +1222,15 @@ export const sfx = {
   // Aim-line LOCK acquired (V1): a crisp two-note "got it" blip + a tiny sparkle,
   // so a green snap is AUDIBLE, not just visual. Short + light — it can fire often
   // (every time a held line locks), so it stays out of the way of the music.
-  lockOn() {
+  // v3 (owner: the weave-away-and-back re-chime was grating): a RE-LOCK — re-grabbing
+  // the organ a held line just let go of — plays only a single quiet re-latch TICK;
+  // the reticle's green snap carries the "you're back on it". A genuine FIRST lock
+  // still gets the full 3-tone chime.
+  lockOn(relock = false) {
+    if (LANCE_V3 && relock) {
+      tone({ freq: 1110, dur: 0.045, type: 'triangle', vol: 0.035 });   // the re-latch tick
+      return;
+    }
     tone({ freq: 740, dur: 0.06, type: 'triangle', vol: 0.07 });
     tone({ freq: 1110, end: 1480, dur: 0.12, type: 'square', vol: 0.055, delay: 0.05 });
     tone({ freq: 2220, dur: 0.05, type: 'sine', vol: 0.03, delay: 0.1 });
@@ -1107,7 +1246,12 @@ export const sfx = {
   // brand already set (1st low, 3rd bright), a shimmer octave answering, and a
   // tiny sub tick so the paint lands with WEIGHT, not just brightness.
   brandSet(count = 1) {
-    const f = 560 * (1 + 0.18 * (count - 1));
+    // v3: each successive paint climbs the LIVE CHORD (the same key-aware ladder the
+    // strikes + finale now ride), so acquire→paint→release→impact is one harmonic
+    // sentence — not a fixed-ratio rise that fights the station's chord. Fixed
+    // 560·(1+0.18·k) fallback preserves the shipped pitch when music is off (headless).
+    let f = 560 * (1 + 0.18 * (count - 1));
+    if (LANCE_V3) { const h = getHarmony(); if (h) f = chordLadder(560, h.chord, count - 1); }
     noiseWhoosh({ from: 800, to: 2400, dur: 0.12, vol: 0.05, q: 1.8 });      // the kindle sizzle
     tone({ freq: f, end: f * 1.4, dur: 0.14, type: 'triangle', vol: 0.06 }); // rune-hum
     tone({ freq: f * 1.007, end: f * 1.41, dur: 0.14, type: 'triangle', vol: 0.045 }); // detune body
@@ -1116,12 +1260,112 @@ export const sfx = {
     tone({ freq: 140, end: 90, dur: 0.06, type: 'sine', vol: 0.05 });        // sub tick (weight)
   },
   // The set completes: a quick low→high arpeggio (each brand answers), then the
-  // dragon DRAWS BREATH — the rising inhale IS the cap fuse made audible.
-  brandCap() {
+  // dragon DRAWS BREATH. v2 (PR9/C3): the breath is a true RISER — an uplifter
+  // bed + sub + an accelerating tick-ratchet that STOPS at the release and
+  // leaves a silence void before the drop (brandRiserRelease). v1: the shipped
+  // plain 0.8s swell.
+  brandCap(n = 0, fuseDur = 0) {
     tone({ freq: 660, dur: 0.08, type: 'triangle', vol: 0.06 });
     tone({ freq: 880, dur: 0.08, type: 'triangle', vol: 0.06, delay: 0.07 });
     tone({ freq: 1175, dur: 0.1, type: 'triangle', vol: 0.065, delay: 0.14 });
-    tone({ freq: 280, end: 860, dur: 0.8, type: 'sine', vol: 0.05, delay: 0.2 });
+    if (!UNLEASH_V2) {
+      tone({ freq: 280, end: 860, dur: 0.8, type: 'sine', vol: 0.05, delay: 0.2 });
+      return;
+    }
+    // PR-B: the riser rises across the BEAT-ALIGNED fuse (the inhale that ends on
+    // the beat), so it peaks exactly at the drop — no plateau, no dead wait.
+    sfx.brandRiserStart(n || 3, fuseDur);
+  },
+  // PR9/C3 — the INHALE riser. Three voices on one output gain, every parameter
+  // step-scheduled on the AudioContext clock (stepRamp — cancellable without
+  // ramp snap-back, zero setTimeout, zero RNG): (1) a bandpass-noise uplifter
+  // sweeping 400 Hz → an n-scaled ceiling, (2) a sub uplifter 45→110 Hz, (3) a
+  // tick-ratchet accelerating over the fuse then holding at max rate — the rate
+  // and ceiling scale SUPER-linearly with n (C4: a 6-set is a different class of
+  // sound, not 2× the notes). Past riserMaxHoldS the whole thing self-fades
+  // (deflect can stall a release forever; a riser must never become a drone).
+  brandRiserStart(n = 3, fuseDur = 0) {
+    const a = getCtx();
+    if (!a || !sfxBus || !UNLEASH_V2) return;
+    sfx.brandRiserCancel();
+    const L = CONFIG.LOCK;
+    const t0 = a.currentTime;
+    const T = fuseDur > 0 ? fuseDur : L.capFuse;           // the audible fuse = the ramp (beat-aligned)
+    const nn = Math.max(1, n);
+    const big = Math.pow(nn / 3, L.riserTickPowN);         // the super-linear n factor
+    const out = a.createGain();
+    out.gain.setValueAtTime(0.0001, t0);
+    stepRamp(out.gain, t0, T, 0.003, Math.min(0.09, 0.04 + 0.012 * (nn - 3)), true);
+    out.gain.setTargetAtTime(0.0001, t0 + T + L.riserMaxHoldS, 0.15);  // the self-fade watchdog
+    out.connect(sfxBus);
+    const sources = [];
+    // (1) the uplifter bed
+    const src = a.createBufferSource();
+    src.buffer = getNoiseBuffer(a);
+    src.loop = true;
+    const bp = a.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 2.4;
+    stepRamp(bp.frequency, t0, T, 400, Math.min(7000, 2600 + 750 * nn), true);
+    src.connect(bp).connect(out);
+    src.start(t0);
+    sources.push(src);
+    // (2) the sub uplifter — the pitch-rise the body feels
+    const sub = a.createOscillator();
+    sub.type = 'sine';
+    stepRamp(sub.frequency, t0, T, 45, 110, false);
+    const subG = a.createGain(); subG.gain.value = 0.9;
+    sub.connect(subG).connect(out);
+    sub.start(t0);
+    sources.push(sub);
+    // (3) the tick-ratchet: one square osc gated by a scheduled gain comb —
+    // tick rate accelerates ×3 across the fuse, then holds at max (the plateau
+    // keeps motion through any beat-hold — L209: a beat needs MOTION).
+    const tick = a.createOscillator();
+    tick.type = 'square';
+    stepRamp(tick.frequency, t0, T, 1300, 2600, true, 12);
+    const tickG = a.createGain();
+    tickG.gain.setValueAtTime(0.0001, t0);
+    const rate0 = L.riserTickBase * big;
+    let tk = 0;
+    for (let i = 0; i < 160 && tk < T + L.riserMaxHoldS; i++) {
+      tickG.gain.setValueAtTime(0.5, t0 + tk);
+      tickG.gain.setTargetAtTime(0.0001, t0 + tk + 0.004, 0.007);
+      tk += 1 / (rate0 * (1 + 2 * Math.min(1, tk / T)));
+    }
+    tick.connect(tickG).connect(out);
+    tick.start(t0);
+    sources.push(tick);
+    const stopAt = t0 + T + L.riserMaxHoldS + 1.0;
+    for (const s of sources) { try { s.stop(stopAt); } catch {} }
+    brandRiserNodes = { out, sources };
+  },
+  // The release seam (PR9/C3): freeze every rising parameter at t_rel − gap (the
+  // ear's "arrival" cue — the rise STOPS) and cut the gain — the silence VOID
+  // that makes the drop land. `delaySec` = the beat-hold D from lockVolley;
+  // no-op when no riser is live (manual tap mid-set, v1, decay).
+  brandRiserRelease(delaySec = 0, gapSec = 0.06) {
+    const a = getCtx();
+    const nds = brandRiserNodes;
+    brandRiserNodes = null;
+    if (!a || !nds) return;
+    const tStop = Math.max(a.currentTime, a.currentTime + delaySec - gapSec);
+    for (const s of nds.sources) { try { s.stop(tStop + 0.08); } catch {} }
+    const g = nds.out.gain;
+    g.cancelScheduledValues(tStop);   // stepped points before tStop survive = the freeze
+    g.setTargetAtTime(0.0001, tStop, 0.006);
+  },
+  // Teardown for every non-release exit (locks stripped, sealed tap, fight end):
+  // fast fade, no void, no drop. The scheduled self-fade watchdog covers exits
+  // with no event at all (death mid-fuse).
+  brandRiserCancel() {
+    const a = getCtx();
+    const nds = brandRiserNodes;
+    brandRiserNodes = null;
+    if (!a || !nds) return;
+    const t = a.currentTime;
+    nds.out.gain.cancelScheduledValues(t);
+    nds.out.gain.setTargetAtTime(0.0001, t, 0.05);
+    for (const s of nds.sources) { try { s.stop(t + 0.4); } catch {} }
   },
   // The exhale (PR4b — the release with WEIGHT; owner: "sound is underwhelming").
   // The research-backed gesture: a bass THUMP anchors the moment, the whoosh
@@ -1129,25 +1373,192 @@ export const sfx = {
   // faint detuned chirps smear the release so the volley audibly sounds PLURAL.
   // The per-hit reward moved to brandStrike (the impact arpeggio) — the release
   // is the exhale, the landings are the drum-roll.
-  brandLoose(n = 3) {
-    tone({ freq: 100, end: 40, dur: 0.09, type: 'sine', vol: 0.14 });          // the thump (weight)
-    noiseWhoosh({ from: 400, to: 4000, dur: 0.36, vol: 0.11, q: 1.4 });        // breath sweeping UP + out
-    tone({ freq: 900, end: 220, dur: 0.34, type: 'sawtooth', vol: 0.045 });    // the body sweep, under it
-    for (let i = 0; i < Math.min(n, 6); i++) {
-      tone({ freq: 620 + i * 47, end: 1500 + i * 180, dur: 0.12, type: 'sawtooth',
-        vol: 0.028, delay: 0.02 + i * 0.018 });   // detuned launch chirps (plurality)
+  // v2 (PR9): THE DROP. Everything schedules at `delay` (the beat-hold D from
+  // lockVolley) so the hit lands ON the song's grid, and the layered big-hit
+  // recipe fills what the shipped body lacked: a 5ms noise CLICK (the "contact"
+  // attack), a SUB-DROP whose falling pitch-envelope IS the punch, and an air
+  // layer on top. A FULL set drops heavier (C4).
+  brandLoose(n = 3, delay = 0, full = false) {
+    const d = UNLEASH_V2 ? Math.max(0, delay) : 0;
+    if (!LANCE_V3) {
+      // Shipped body (verbatim — the ?lance=v2 arm reproduces this exactly).
+      tone({ freq: 100, end: 40, dur: 0.09, type: 'sine', vol: 0.14, delay: d }); // the thump (weight)
+      noiseWhoosh({ from: 400, to: 4000, dur: 0.36, vol: 0.11, q: 1.4, delay: d }); // breath sweeping UP + out
+      tone({ freq: 900, end: 220, dur: 0.34, type: 'sawtooth', vol: 0.045, delay: d }); // the body sweep, under it
+      for (let i = 0; i < Math.min(n, 6); i++) {
+        tone({ freq: 620 + i * 47, end: 1500 + i * 180, dur: 0.12, type: 'sawtooth',
+          vol: 0.028, delay: d + 0.02 + i * 0.018 });   // detuned launch chirps (plurality)
+      }
+      if (!UNLEASH_V2) return;
+      noiseWhoosh({ from: 5200, to: 5000, dur: 0.014, vol: 0.1, q: 0.4, delay: d });  // the 5ms contact CLICK
+      tone({ freq: 120, end: 45, dur: 0.3, type: 'sine', vol: full ? 0.16 : 0.11, delay: d }); // the SUB-DROP
+      noiseWhoosh({ from: 5500, to: 9000, dur: 0.22, vol: full ? 0.05 : 0.03, q: 0.5, delay: d + 0.01 }); // air
+      return;
     }
+    // v3 THE DROP — rebuilt around the emberwyrm-thwack family the owner liked and
+    // stripped of the "cheap synth" layers (the two phasey subs merged into one
+    // falling-pitch punch; the sawtooth laser body-sweep DELETED; the sawtooth
+    // chirps replaced by physical "thwp-thwp" ejection puffs). Owns the per-volley
+    // variety seed (detSeq) so the strikes + finale after it share one instance.
+    detSeq = (detSeq + 1) % 1000;
+    const vw = 1 + ((detSeq * 7) % 5 - 2) * 0.003;   // ±0.6% per-volley pitch walk (shared by strikes)
+    noiseWhoosh({ from: 6000, to: 2000, dur: 0.016, vol: 0.13, q: 0.4, delay: d });        // contact CRACK (thwack front)
+    tone({ freq: 145 * vw, end: 38, dur: 0.22, type: 'sine', vol: full ? 0.2 : 0.16, delay: d }); // ONE sub — falling pitch IS the punch
+    noiseWhoosh({ from: 1100, to: 240, dur: 0.09, vol: 0.1, q: 1.1, delay: d });            // body THWACK (emberwyrm-eject DNA)
+    for (let i = 0; i < Math.min(n, 6); i++) {
+      noiseWhoosh({ from: 1200 + i * 180, to: 500, dur: 0.045, vol: 0.035, q: 1.6,
+        delay: d + 0.015 + i * 0.022 });   // "thwp-thwp-thwp" — the wisps physically leaving (plurality)
+    }
+    noiseWhoosh({ from: 400, to: 2600, dur: 0.18, vol: 0.06, q: 1.4, delay: d });           // breath sweeping up + out
+    noiseWhoosh({ from: 5500, to: 8500, dur: 0.12, vol: full ? 0.05 : 0.035, q: 0.5, delay: d + 0.01 }); // air whip
+    // One IN-KEY launch note (tonal identity, not a jingle) — the low body resolves
+    // into the station chord. Fixed 196 Hz fallback keeps headless renders determinate.
+    const h = getHarmony();
+    const root = h ? foldToBand(h.chord[0], 165, 330) : 196;
+    tone({ freq: root * vw, end: root * 0.99, dur: 0.12, type: 'triangle', vol: 0.05, delay: d + 0.01 });
   },
   // A wisp finds its brand — one note of the impact ARPEGGIO (k = position in the
   // drum-roll): a short pluck stepping UP a pentatonic, so N landings play an
   // ascending riff and a bigger volley is intrinsically more rewarding (the Rez
   // lesson). Deterministic micro-detune from k — organic, zero RNG.
-  brandStrike(k = 0) {
+  // v2: the run climbs the LIVE CHORD (getHarmony + chordLadder — the key-aware
+  // ladder ember/perfect already ride) so N landings are an arpeggio IN the song.
+  // PR-C (owner: plucks + pops): each strike also lands a small DETONATION POP —
+  // a 12ms crack + a tiny sub knock under the pluck — so the roll reads as
+  // ordnance AND melody; no held voices (the chord machinery is gone).
+  brandStrike(k = 0, n = 1, full = false) {
     const PENTA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2];   // major pentatonic ratios
-    const f = 660 * PENTA[k % PENTA.length] * (k >= PENTA.length ? 2 : 1) * (1 + ((k * 7) % 5 - 2) * 0.002);
+    const det = 1 + ((k * 7) % 5 - 2) * 0.002;          // deterministic micro-detune (kept)
+    let f = 660 * PENTA[k % PENTA.length] * (k >= PENTA.length ? 2 : 1) * det;
+    if (UNLEASH_V2) {
+      const h = getHarmony();
+      if (h) f = chordLadder(660, h.chord, k) * det;
+    }
+    if (LANCE_V3) {
+      // v3 DESTRUCTIVE IMPACT (owner: the per-hit landing "sounds like drums — no
+      // impact, no destructiveness"). Diagnosis: the shipped v3 per-hit was a clean
+      // harmonic pluck + a smooth band-limited tick — periodic + filtered + no
+      // nonlinear energy + no aftermath ⇒ the ear's only category is "tuned drum."
+      // Fix (additive): the pitched pluck drops to a background TINT under a
+      // broadband waveshaped CRUNCH + an in-key saw GRIT + a THUD (mass) + a
+      // debris/scorch TAIL — the broadband/nonlinear/aftermath signature that reads
+      // as ordnance breaking a target. The chord-ladder ascent survives on SPECTRAL
+      // spacing (nothing else harmonic in 600–1600 Hz), not loudness. The roll
+      // CRESCENDOS (heavier + crunchier as k rises) so it builds, not machine-guns,
+      // and hands off UP into brandFinale. All variety is k/detSeq — zero RNG.
+      const L = CONFIG.LOCK;
+      const vw = 1 + ((detSeq * 7) % 5 - 2) * 0.003;   // per-volley pitch walk (seeded in brandLoose)
+      const fk = f * vw;
+      const kk = Math.min(k, 5);                        // crescendo ramp, clamped at the 6-hit cap
+      const a = getCtx();
+      if (!a) return;
+      // (1) CRUNCH — the saturated broadband front (the "material failing" bite);
+      //     center falls + level rises as the roll lands.
+      gritBurst({ from: 4200 - kk * 180, to: 1100, dur: 0.045,
+        vol: Math.min(0.12, L.strikeCrunchVol + kk * 0.008), q: 0.8, drive: [0.5, 0.65, 0.8][k % 3] });
+      // (2) GRIT body — a short saw through the same soft-sat, pitched by octave-
+      //     folding the chord note (destructive AND in key). Inlined, not tone(), so
+      //     the shared tone() path stays byte-identical for the ?lance=v2 arm.
+      const gf = foldToBand(fk, 80, 160);
+      const ts = a.currentTime;   // snapshot once (currentTime advances per render quantum — one anchor for the whole voice)
+      const saw = a.createOscillator(); saw.type = 'sawtooth';
+      saw.frequency.setValueAtTime(gf, ts);
+      saw.frequency.exponentialRampToValueAtTime(Math.max(1, gf * 0.45), ts + 0.08);
+      const sh = a.createWaveShaper(); sh.curve = makeDriveCurve(L.strikeGritDrive); sh.oversample = '2x';
+      const sg = a.createGain();
+      sg.gain.setValueAtTime(0.045, ts);
+      sg.gain.exponentialRampToValueAtTime(0.0001, ts + 0.08);
+      saw.connect(sh).connect(sg).connect(sfxBus);
+      saw.start(ts); saw.stop(ts + 0.13);
+      // (3) THUD — mass. Longer + deeper than the old kick-ish sub knock, rising with k.
+      tone({ freq: (110 + k * 7) * det, end: 40, dur: 0.1, type: 'sine', vol: 0.07 + kk * 0.007 });
+      // (4) DEBRIS / SCORCH tail — ONE micro-event per hit, alternating by parity so
+      //     6 hits build a stochastic debris cloud, not white mush. Delay jitter is
+      //     detSeq+k arithmetic (zero RNG).
+      const dj = ((detSeq * 13 + k * 7) % 3) * 0.007;
+      if (k % 2 === 0) {
+        const fs = (2400 + k * 160) * vw;
+        tone({ freq: fs, end: fs * 0.6, dur: 0.06, type: 'triangle', vol: L.strikeDebrisVol, delay: 0.022 + dj }); // falling shard
+      } else {
+        noiseWhoosh({ from: 3600, to: 1600, dur: 0.055, vol: L.strikeDebrisVol * 0.9, q: 2.4, delay: 0.02 + dj });  // ember sizzle (scorch)
+      }
+      // (5) CONTACT crack — the 12ms sharp leading EDGE glued onto the crunch.
+      noiseWhoosh({ from: 3200, to: 900, dur: 0.012, vol: 0.045, q: 0.5 });
+      // (6) PLUCK — the chord climb, now a background TINT (survives on spectral
+      //     spacing at lower level); ember burst = mid-glue between crunch + sizzle.
+      tone({ freq: fk, end: fk * 0.985, dur: 0.07, type: 'triangle', vol: 0.035 });
+      if (k % 2 === 0) tone({ freq: fk * 2, dur: 0.05, type: 'sine', vol: 0.02, delay: 0.005 }); // sparkle, every other hit
+      noiseWhoosh({ from: 2600, to: 900, dur: 0.07, vol: 0.03, q: (detSeq % 2) ? 1.6 : 2.2 });    // ember burst (mid glue)
+      pumpDuck(pumpGain, CONFIG.LOCK.impactDuckAmt, a.currentTime);   // one sustained duck carves the spectral hole
+      return;
+    }
     tone({ freq: f, end: f * 0.985, dur: 0.09, type: 'triangle', vol: 0.075 });
     tone({ freq: f * 2, dur: 0.05, type: 'sine', vol: 0.035, delay: 0.005 });  // sparkle octave
     noiseWhoosh({ from: 2600, to: 900, dur: 0.07, vol: 0.03, q: 2.2 });        // the ember burst
+    if (!UNLEASH_V2) return;
+    const a = getCtx();
+    if (!a) return;
+    // The pop: contact crack + sub knock, pitch/level walked by k (det idiom).
+    noiseWhoosh({ from: 3200, to: 900, dur: 0.012, vol: 0.05, q: 0.5 });
+    tone({ freq: (150 + k * 6) * det, end: 50, dur: 0.07, type: 'sine', vol: 0.05 });
+    pumpDuck(pumpGain, CONFIG.LOCK.impactDuckAmt, a.currentTime);   // the roll pumps the music
+  },
+  // PR-C — THE RESERVED FINALE is a DETONATION (owner: the chord ring-out was
+  // "annoying to hear consistently"; keep the thwack — "sounds like ejecting
+  // emberwyrms"). The impact FRONT stays verbatim; behind it a detonation sized
+  // super-linearly by pip count via the riser's own class knob
+  // big = pow(n/3, riserTickPowN): 3-pip = a firm boom, 6-pip = the big one —
+  // deep double-boom + parity-detuned falling DEBRIS + a crackle tail, so a max
+  // volley audibly SHATTERS, not just booms. Instance variation is a module
+  // counter (detSeq) walked through the det idiom — deterministic, never cloned.
+  brandFinale(n = 3, full = false) {
+    if (!UNLEASH_V2) return;
+    const a = getCtx();
+    if (!a) return;
+    const t0 = a.currentTime;
+    const L = CONFIG.LOCK;
+    const big = Math.pow(Math.max(1, n) / 3, L.riserTickPowN);   // 3→1.0, 6→~3.0
+    if (!LANCE_V3) detSeq = (detSeq + 1) % 1000;                 // v3: brandLoose owns the counter (one seed per volley)
+    const v = 1 + ((detSeq * 7) % 5 - 2) * 0.004;                // ±0.8% pitch walk per volley
+    const tj = ((detSeq * 13) % 4) * 0.008;                      // 0-24ms debris timing walk
+    // v3: pitch the BOOM into the live key so the detonation RESOLVES into the track
+    // (the Rez payoff-resolution move — without any sustained ring-out, which was
+    // rejected). Octave-folded into the sub band so it never snaps up an octave.
+    // Fixed 90 Hz (shipped) when music is off / v2.
+    let boom = 90 * v;
+    if (LANCE_V3) { const h = getHarmony(); if (h) boom = foldToBand(h.chord[0], 55, 110) * v; }
+    // v3: one saturated CRUNCH at the front so the finale speaks the same nonlinear
+    // language the buffed per-hits now do — else the (all-clean-layer) climax could
+    // read as LESS violent than the crunchy strikes despite being louder (timbre
+    // inversion). Strictly bigger than a per-hit crunch (vol/band/drive all up).
+    if (LANCE_V3) gritBurst({ from: 3600, to: 700, dur: 0.07, vol: 0.13 * (full ? 1.15 : 1), q: 0.7, drive: 0.8 });
+    // IMPACT FRONT (kept verbatim — the emberwyrm-eject thwack family):
+    noiseWhoosh({ from: 8000, to: 2600, dur: 0.018, vol: 0.17, q: 0.4 });            // the CONTACT crack
+    tone({ freq: 190 * v, end: 46, dur: 0.16, type: 'sine', vol: full ? 0.2 : 0.14 }); // SUB-THUD — falling pitch IS the punch
+    tone({ freq: 150 * v, end: 52, dur: 0.11, type: 'sawtooth', vol: full ? 0.07 : 0.045 }); // grit
+    noiseWhoosh({ from: 1100, to: 240, dur: 0.08, vol: 0.09, q: 1.1 });              // body THWACK
+    // THE DETONATION (replaces the chord ring-out) — sized by big:
+    tone({ freq: boom, end: Math.max(28, 60 - 12 * big), dur: 0.5 + 0.15 * big,
+      type: 'sine', vol: Math.min(0.2, 0.1 + 0.05 * big) });                          // the BOOM body
+    if (n >= 5) {
+      // the heavy low pair (bossDefeat's loudest boom) — the "different class" at max
+      noiseWhoosh({ from: 220, to: 40, dur: 0.55, vol: 0.16, q: 0.8, delay: 0.015 });
+      tone({ freq: LANCE_V3 ? boom * (88 / 90) : 88 * v, end: 58, dur: 0.7, type: 'sine', vol: 0.11, delay: 0.02 }); // v3: tracks the folded boom; v2: shipped 88·v EXACTLY (boom·88/90 drifts 1 ULP)
+    }
+    // DEBRIS — parity-detuned falling shards (shieldShatter idiom), count = min(n,6):
+    for (let i = 0; i < Math.min(n, 6); i++) {
+      const fs = (1900 + i * 137 * ((i % 2) ? 1 : 1.5)) * v;
+      tone({ freq: fs, end: fs * 0.55, dur: 0.14, type: 'triangle', vol: 0.05,
+        delay: 0.03 + i * 0.028 + tj });
+    }
+    if (full) {
+      // crackle tail — fireworks rubble, k-indexed offsets:
+      for (let i = 0; i < 4; i++) {
+        noiseWhoosh({ from: 2600 - i * 300, to: 900, dur: 0.03 + (i % 2) * 0.02,
+          vol: 0.045, q: 1.6, delay: 0.06 + i * 0.05 + tj });
+      }
+      pumpDuck(pumpGain, Math.min(0.34, L.impactDuckAmt * 1.7), t0);
+    }
   },
   // A lone brand ashing off (decay release) — deliberately lesser than the exhale.
   brandFizzle() {
@@ -1645,11 +2056,42 @@ function buildMusicGraph(a, tr, env, buses, { v2 = AUDIO_V2 } = {}) {
 // Sidechain pump: duck the musical bus on the main kick, then let it breathe
 // back up — the pumping "sssh-WAH" the dance stations live on. Shared by the
 // synthesized kick and the baked-buffer fast path.
+// While the Wyrm roll-duck OWNS pumpGain (a flat hold across the whole volley),
+// the music scheduler's per-kick pumpDuck must NOT cancel/overwrite it — otherwise
+// the first kick collapses the sustained hole back to per-beat flutter. Time-
+// multiplex the single writer: kicks scheduled inside the hold window are skipped
+// (the lance owns the sidechain for those ~0.3–0.9s), then resume automatically.
+let lanceDuckUntil = 0;
 function pumpDuck(pumpGain, pumpAmt, absTime) {
   if (!pumpGain || !(pumpAmt > 0.001)) return;
+  if (absTime < lanceDuckUntil) return;   // the lance roll-duck holds the node — don't clobber it
   pumpGain.gain.cancelScheduledValues(absTime);
   pumpGain.gain.setValueAtTime(1 - pumpAmt, absTime);
   pumpGain.gain.setTargetAtTime(1, absTime + 0.001, 0.07);
+}
+
+// SUSTAINED duck (the Wyrm profile's "one hole for the whole roll" — replaces the
+// per-hit pump flutter): dip the sidechain to 1-amt NOW and HOLD it flat for
+// holdSec, then breathe back. `lanceDuckUntil` fences the kick sidechain out of the
+// hold window so the hole actually survives (see pumpDuck).
+function duckHold(amt, holdSec = 0.35) {
+  const a = getCtx();
+  if (!a || !pumpGain || !(amt > 0.001)) return;
+  const t = a.currentTime, hold = Math.max(0, holdSec);
+  lanceDuckUntil = t + hold;
+  pumpGain.gain.cancelScheduledValues(t);
+  pumpGain.gain.setValueAtTime(1 - amt, t);
+  pumpGain.gain.setValueAtTime(1 - amt, t + hold);   // hold flat across the roll
+  pumpGain.gain.setTargetAtTime(1, t + hold + 0.001, 0.12);
+}
+// Release the lance hold early (profile switch mid-roll) so kicks resume + the node
+// breathes back instead of sitting ducked with no roll to cover.
+function releaseLanceDuck() {
+  const a = getCtx();
+  if (!a || !pumpGain) return;
+  lanceDuckUntil = 0;
+  pumpGain.gain.cancelScheduledValues(a.currentTime);
+  pumpGain.gain.setTargetAtTime(1, a.currentTime, 0.08);
 }
 
 // --- Baked drum kits --------------------------------------------------------

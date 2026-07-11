@@ -146,7 +146,9 @@ export function setFlapDebugPose(parts, model, state) {
   }
   if (pl) {
     pl.rotation.z = rootFlap + turnBias - rollFold;
-    pl.rotation.x = 0.14 - feather * 0.18 + climbBias;
+    // feather = fore-aft PITCH (rotation.x): SAME sign both wings under scale.x=-1 (the mirror
+    // doesn't flip rotation.x's sense). Matches the live-flight fix in dragon.js.
+    pl.rotation.x = 0.14 + feather * 0.18 + climbBias;
     pl.rotation.y = 0.18 + turnBias * 0.8;
   }
   if (tr) {
@@ -154,11 +156,55 @@ export function setFlapDebugPose(parts, model, state) {
     tr.rotation.x = -0.12 + feather * 0.16;
   }
   if (tl) {
-    tl.rotation.z = -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45;
-    tl.rotation.x = -0.12 - feather * 0.16;
+    // BOTH tips on the ONE tipLag clock (mirror sign) — not a separate sin(phase+1.18) that
+    // folded the L tip a beat off the R (the off-beat asymmetry). Matches dragon.js.
+    tl.rotation.z = -tipLag * 0.28 + turnBias * 0.45;
+    tl.rotation.x = -0.12 + feather * 0.16;
   }
+  // CP3.3 spire counter (Solar) — parity with dragon.js so studio/flapstrip captures show the STABILISED
+  // spire, not the fully-swept one (else the acceptance strip is a false negative). Opposite L/R signs.
+  const spireStab = model.spireStabilize ?? 0;
+  if (parts.carpalSpireR) parts.carpalSpireR.rotation.z =  spireStab * Math.sin(phase) * flapAmp;
+  if (parts.carpalSpireL) parts.carpalSpireL.rotation.z = -spireStab * Math.sin(phase) * flapAmp;
   poseBladePivots(parts, state);
+  poseLobePivots(parts, state);
   return r;
+}
+
+// Per-lobe FURL pivots (JADE's silk-fin fan, parts.wingLobePivotsL/R). The base wing
+// pivot swings the whole fan; this collapses the individual koi lobes together like a
+// folding FAN. In FOLD: swing the whole fan hard back along the flank (the roots draw
+// inboard so the span contracts past 0.7×) AND cancel each lobe's rest rake so they
+// stack together (the fan closes); glide/bank keep the tall spread fan. A rig without
+// lobe pivots (azure/ember) skips this untouched.
+export function poseLobePivots(parts, state) {
+  if (!parts.wingLobePivotsL && !parts.wingLobePivotsR) return;
+  if (state === 'fold') {
+    // Swing the WHOLE fan back along the flank (~80°) so the lobe roots draw inboard and
+    // the span contracts — a folding fan closes toward its pivot. Roll it down onto the
+    // flank so the folded silhouette sits low (not a raised V).
+    for (const [pv, s] of [[parts.wingPivotR, 1], [parts.wingPivotL, -1]]) {
+      if (pv) pv.rotation.set(0.12, s * 1.92, s * -0.42);
+    }
+    for (const [tip, s] of [[parts.wingTipR, 1], [parts.wingTipL, -1]]) {
+      if (tip) tip.rotation.set(0, s * 0.25, s * -0.1);   // the rear-lobe carrier tucks in with the fan
+    }
+  }
+  for (const arr of [parts.wingLobePivotsR, parts.wingLobePivotsL]) {
+    if (!arr) continue;
+    const n = Math.max(1, arr.length - 1);
+    for (const b of arr) {
+      const t = b.pivot; if (!t) continue;
+      const fr = b.idx / n;
+      if (state === 'fold') {
+        // cancel rest rake AND yaw each lobe hard inboard so the fan shuts across the
+        // flank and the tips draw toward the midline (span contracts past 0.7×).
+        t.rotation.set(0, -(b.restY ?? 0) - b.side * (0.55 + 0.25 * fr), -(b.restZ ?? 0) * 0.5);
+      } else {
+        t.rotation.set(0, 0, 0);
+      }
+    }
+  }
 }
 
 // Per-blade lag pivots (AZURE's blade-feather comb, parts.wingBladePivotsL/R). The base

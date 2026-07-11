@@ -38,7 +38,8 @@ const S = {
   _wasHeld: false,   // edge-detect for the aimLock (green snap) event
   // V2 LANCE-PAINT (PR2)
   locks: [],         // painted pips, oldest first: [{ part, stacks, age }]
-  capFuseT: 0,       // time at/above cap — auto-release after L.capFuse (a beat is catchable)
+  capFuseT: 0,       // time at/above cap — auto-release after capFuseDur (a beat is catchable)
+  capFuseDur: 0,     // PR-B: beat-aligned inhale length captured at the cap edge (0 = unaligned)
   refreshT: 0,       // held re-dwell clock toward L.refreshDwell (refresh / stack)
   lanceQ: [],        // staggered launches: [{ part, dmg, t }] — held while deflected
   cap: 0,            // last ctx.cap (published to the HUD)
@@ -51,6 +52,21 @@ const S = {
   looseReq: false,   // V3 MANUAL LOOSE (PR3): a not-ready tap requested a volley; the
                      // state machine consumes it next step (releaseVolley needs ctx.phaseHp)
   dwellNeed: 0,      // V5 (PR5): this frame's effective dwell threshold (halved while FOCUS held)
+  // RE-LOCK MEMORY (lance audio v3): a PER-PART map of organ name → remaining
+  // seconds. A HELD line letting go arms its organ; re-grabbing ANY armed organ
+  // within the window is a "warm" re-acquire — the sound layer suppresses the dwell
+  // hum + downgrades the lockOn chime to a single tick (owner: the weave-away-and-back
+  // loop re-firing the full hum-swell + chime was grating). Per-part (not a single
+  // slot) so an A→B→A→B rotation between two organs stays warm on EVERY hop, not just
+  // a strict same-organ out-and-back. Armed ONLY on a held release (releaseAim), so an
+  // interrupted first acquire still earns its full chime. Pure sound state — no
+  // gameplay effect unless CONFIG.LOCK.relockWarmFrac > 0 (owner-gated, default 0).
+  reLock: {},
+  // Latched ONCE on the acquisition frame: is the current aim a warm re-grab? The
+  // chime (aimLock edge) and the hum (lockHudState.relock) both read this latch, so
+  // they agree even if the memory window expires mid-dwell (display == logic — a
+  // half-suppressed hum then a full chime was the unlatched failure).
+  aimWarm: false,
 };
 
 const _w = new THREE.Vector3();       // scratch for partWorldPos
@@ -61,10 +77,11 @@ export function initLockLayer() {
   S.muted = false; S.hudPart = null; S.hasOrgan = false; S.fightRunning = false;
   S.anchorPart = null; S.ax = 0; S.ay = 0; S.az = 0;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
-  S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
+  S.locks.length = 0; S.capFuseT = 0; S.capFuseDur = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.cap = 0; S.deflected = false;
   S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
+  S.reLock = {}; S.aimWarm = false;
 }
 
 // Reset transient aim + paint state. SILENT by design for every reason
@@ -74,9 +91,10 @@ export function clearLocks(_reason) {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
   S.anchorPart = null;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
-  S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
+  S.locks.length = 0; S.capFuseT = 0; S.capFuseDur = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.hopPart = null; S.hopT = 0; S.paintCd = 0;
   S.looseReq = false;
+  S.reLock = {}; S.aimWarm = false;
   // Leaving a fight must drop fightRunning too — else the flag survives into the
   // NEXT boss's entrance cinematic (updateLockLayer only runs in phase 'fight', so
   // it can't refresh a stale true), and lockHudState().active stays true → the
@@ -110,7 +128,11 @@ function coneCandidate(player, ctx) {
 }
 
 function releaseAim() {
-  S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
+  // A HELD line letting go arms the re-lock window on that organ (the "I just had
+  // this, don't re-announce it" memory). A never-held drop (acquire interrupted
+  // mid-dwell) does NOT arm it — that organ still owes its first full chime.
+  if (S.aimHeld && S.aimPart) S.reLock[S.aimPart] = L.relockMemoryS;
+  S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0; S.aimWarm = false;
 }
 
 // A fresh brand (a new pip OR a stack) refreshes the WHOLE banked set's decay
@@ -152,6 +174,7 @@ export function updateLockLayer(dt, player, ctx) {
   const px = player.position.x, py = player.position.y;
   if (S.hopT > 0) { S.hopT -= dt; if (S.hopT <= 0) S.hopPart = null; }
   if (S.paintCd > 0) S.paintCd -= dt;
+  for (const p in S.reLock) { const r = S.reLock[p] - dt; if (r > 0) S.reLock[p] = r; else delete S.reLock[p]; }
 
   // ---- V1 aim: acquire (tight cone) / hold (retention cone + drain) — L177 ----
   if (!S.aimPart) {
@@ -186,6 +209,26 @@ export function updateLockLayer(dt, player, ctx) {
       S.offT = 0;
       // The acquisition frame counts, at FULL rate (no quiet penalty on aiming — NB above).
       S.aimDwell = Math.min(dt, L.dwellTime);
+      // WARM latch: is this organ one a held line recently let go of? Decided ONCE
+      // here so the hum + chime agree for the whole re-acquire (display == logic).
+      S.aimWarm = S.reLock[hit] > 0;
+      // WARM RE-ACQUIRE (owner-gated): a warm re-grab seeds partial dwell, so weaving
+      // away to DODGE and back doesn't pay the full dwell again. The seed scales by the
+      // SAME focus multiplier the completion threshold uses (S.dwellNeed below), so it's
+      // always `relockWarmFrac` of what you'd actually OWE — not of the cold need. This
+      // fixes the focus×warm units mismatch that otherwise collapsed a FOCUSED re-grab to
+      // ~4 frames (seed 0.14 against a halved 0.175 need = an 80% discount); now it's a true
+      // 40%-of-need discount in every focus state — a focused warm lock takes ~8 frames vs the
+      // old ~4, and the un-focused re-grab is byte-identical (seed 0.14). It also keeps the
+      // WHOLE relockWarmFrac range safe (seed = need×frac < need for any frac < 1, so no
+      // same-frame-lock cliff at frac ≥ focusDwellMult). NB: arming focus MID-dwell after an
+      // un-focused warm grab can still finish in ~4 frames — that's the shipped V5
+      // arm-over-partial-progress rule (threshold scales, earned progress kept), not this seed,
+      // and it's rare + player-favourable. relockWarmFrac 0 = inert.
+      if (L.relockWarmFrac > 0 && S.aimWarm) {
+        const need = L.dwellTime * (ctx.focusHeld ? L.focusDwellMult : 1);
+        S.aimDwell = Math.max(S.aimDwell, need * L.relockWarmFrac);
+      }
     }
   } else {
     // TRACKING — once a dwell is accruing/held, the wider RETENTION cone applies,
@@ -227,7 +270,12 @@ export function updateLockLayer(dt, player, ctx) {
   // playtest: a bright green 'locked' on a sealed boss reads as a broken lock).
   const held = S.aimHeld && !S.muted && !ctx.deflected;
   const justLocked = held && !S._wasHeld;
-  if (justLocked) emit('aimLock', { part: S.aimPart });
+  if (justLocked) {
+    // relock (the latched warm flag) = this is an organ a held line recently let go
+    // of, within the memory window (the weave-away-and-back re-grab). The sound layer
+    // reads it to stay quiet instead of re-announcing a lock the player never lost.
+    emit('aimLock', { part: S.aimPart, relock: S.aimWarm });
+  }
   S._wasHeld = held;
 
   // ---- V2 LANCE-PAINT (PR2) ----------------------------------------------------
@@ -305,14 +353,21 @@ export function updateLockLayer(dt, player, ctx) {
   // one-shot 'lockCap' — the DRAWN BREATH: the fuse is diegetic (the dragon
   // inhales), so the sound/visual tell IS the timer the player reads.
   const atCap = S.cap > 0 && totalPips() >= S.cap;
-  if (atCap && !S._atCap && !ctx.deflected) emit('lockCap', { count: totalPips() });
+  if (atCap && !S._atCap && !ctx.deflected) {
+    // PR-B: capture the BEAT-ALIGNED inhale length at the cap edge (boss.js folds
+    // the beat-lock into the fuse so the auto-release fires the instant the breath
+    // completes — no dead post-fuse hold). 0 = unaligned (headless / music off) →
+    // plain capFuse + no void, so the launch frame stays byte-verbatim.
+    S.capFuseDur = ctx.beatFuseDur > 0 ? ctx.beatFuseDur : 0;
+    emit('lockCap', { count: totalPips(), fuseDur: S.capFuseDur || L.capFuse });
+  }
   S._atCap = atCap;
   if (S.locks.length && !ctx.deflected) {
     for (const lk of S.locks) lk.age += dt;
     if (S.locks[0].age >= L.decay) releaseVolley(ctx, 'decay');   // oldest first (push order)
     else if (atCap) {
       S.capFuseT += dt;
-      if (S.capFuseT >= L.capFuse) releaseVolley(ctx, 'cap');
+      if (S.capFuseT >= (S.capFuseDur || L.capFuse)) releaseVolley(ctx, 'cap');
     } else S.capFuseT = 0;
   }
   // V3 MANUAL LOOSE (PR3): the player's DELIBERATE volley. A not-ready tap with pips
@@ -333,7 +388,11 @@ export function updateLockLayer(dt, player, ctx) {
     for (const q of S.lanceQ) q.t -= dt;
     while (S.lanceQ.length && S.lanceQ[0].t <= 0) {
       const q = S.lanceQ.shift();
-      ctx.fireLance?.(q.part, q.dmg, q.i, q.n);   // (i, n) = the wisp's authored fan bearing
+      // THE LAUNCH FRAME (PR9): the first wisp leaving IS the release the eye
+      // sees — muzzle flash / juice / haptics anchor here. lockVolley marks the
+      // COMMIT, which the void delay (D) separates from this by ~releaseGapMs.
+      if (q.i === 0) emit('lockLaunch', { count: q.n, full: !!q.full, source: q.source || 'cap' });
+      ctx.fireLance?.(q.part, q.dmg, q.i, q.n, q.full, q.snap);   // (i, n) = the wisp's authored fan bearing
     }
   }
 
@@ -453,6 +512,9 @@ export function lockHudState() {
     muted: S.muted,
     aimHeld: S.aimHeld && !S.muted && !S.deflected,   // sealed → never shown green
     dwell: Math.max(0, Math.min(1, S.aimDwell / (S.dwellNeed || L.dwellTime))),  // 0..1 acquisition progress (focus-aware)
+    // The current aim organ is a warm re-grab (the latched flag) — the dwell-hum
+    // drive reads this to stay silent on the weave-back re-acquire.
+    relock: S.aimPart != null && S.aimWarm,
     hasOrgan: S.hasOrgan,
     aimPart: S.hudPart,
     x: _hud.x, y: _hud.y, z: _hud.z,
@@ -460,13 +522,19 @@ export function lockHudState() {
     pips: totalPips(),
     ashen: S.deflected,
     blink: S.locks.length > 0 && !S.deflected && S.locks[0].age > L.decay - 1.0,
+    // The inhale: pips swell as the breath draws. Denominator is the ACTUAL
+    // (beat-aligned) fuse length so the visual completes EXACTLY when the volley
+    // fires (display == logic — L177/L180.1); headless (capFuseDur 0) → capFuse,
+    // unchanged. Codex review: a short aligned inhale otherwise fired before the
+    // swell reached full, a long one sat maxed early.
     fuse01: (S.cap > 0 && totalPips() >= S.cap && !S.deflected)
-      ? Math.min(1, S.capFuseT / L.capFuse) : 0,   // the inhale: pips swell as the breath draws
+      ? Math.min(1, S.capFuseT / (S.capFuseDur || L.capFuse)) : 0,
     // Per-lock marker anchors: live world pos + remaining life (1 → fresh, 0 → gone).
     locks: S.locks.map((lk) => ({
       x: lk.x ?? 0, y: lk.y ?? 0, z: lk.z ?? 0,
       life: Math.max(0, 1 - lk.age / L.decay),
       stacks: lk.stacks,
+      ghost: !!lk.ghost,   // §5i.C rung 12: a granted spectral echo pip — the reticle draws it ghost-pale
       blink: !S.deflected && lk.age > L.decay - 1.0,
     })),
   };
@@ -509,14 +577,43 @@ function releaseVolley(ctx, source) {
   const pips = totalPips();
   if (!pips) return;
   const onBeat = source === 'tap' && !!ctx.beatOn;
-  const dmgEach = lanceDmgEach(pips, ctx.phaseHp, onBeat ? L.beatMult : 1);
+  // §5i.C rung 12 SPECTRAL ECHO: a GHOST pip (lk.ghost — granted on ONEWING's living eye) strikes at
+  // echoDmgMult and fills the ROI clamp only by that fraction, so the clamp is priced on EFFECTIVE
+  // pips (real + echoMult × ghost). A non-echo boss has no ghost stacks ⇒ effPips === pips and every
+  // line below is byte-identical to the pre-echo path.
+  const echoMult = ctx.echoDmgMult ?? 0.5;
+  let realPips = 0, ghostPips = 0;
+  for (const lk of S.locks) { if (lk.ghost) ghostPips += lk.stacks; else realPips += lk.stacks; }
+  const effPips = realPips + echoMult * ghostPips;
+  const dmgEach = lanceDmgEach(effPips, ctx.phaseHp, onBeat ? L.beatMult : 1);
+  const ghostDmg = dmgEach * echoMult;
+  // BEAT-ALIGNED RELEASE (PR-B/C1, revised): the beat-lock now lives in the FUSE
+  // (the inhale ends a void before the beat), so D is just that VOID — the cap
+  // auto-release fires the instant the breath completes, silence for the gap,
+  // then the drop lands ON the beat. No dead hold (the PR9 post-fuse wait that
+  // read as lag is gone). A manual tap is NEVER delayed (LAW — the tap IS the
+  // player's timing; the E1 on-beat bonus is the skill expression). Headless /
+  // gate off → releaseGapMs is a harmless ~60ms; tap/decay/fork fire immediately.
+  const D = source === 'cap' && S.capFuseDur > 0 ? L.releaseGapMs / 1000 : 0;
+  const full = S.cap > 0 && pips >= S.cap;
+  // SNAP eligibility for the impact-roll grid (PR9.1): the game's own releases
+  // (cap) land their strikes ON the grid automatically; a MANUAL volley earns
+  // it only via a PERFECT (on-beat) tap — "on the beat" is the reward, not a
+  // freebie. decay never snaps (the fizzle stays lesser).
+  const snap = source === 'cap' || onBeat;
   let i = 0;
   for (const lk of S.locks) {
+    const d = lk.ghost ? ghostDmg : dmgEach;
     for (let s = 0; s < lk.stacks; s++) {
-      S.lanceQ.push({ part: lk.part, dmg: dmgEach, t: i * (L.lanceStaggerMs / 1000), i: i++, n: pips });
+      S.lanceQ.push({ part: lk.part, dmg: d, ghost: !!lk.ghost, t: D + i * (L.lanceStaggerMs / 1000),
+        i: i++, n: pips, full, source, snap });
     }
   }
-  emit('lockVolley', { count: pips, source, dmgEach, perfect: onBeat });
+  // paintedCount (REAL pips only) gates burnFloor + the burn base — a ghost never earns a burn;
+  // volleyTotal is the true summed yield (real + half-ghost). For a non-echo boss both collapse to
+  // the pre-echo values (paintedCount === count, volleyTotal === count × dmgEach).
+  const volleyTotal = realPips * dmgEach + ghostPips * ghostDmg;
+  emit('lockVolley', { count: pips, paintedCount: realPips, source, dmgEach, volleyTotal, perfect: onBeat, delay: D, full });
   S.locks.length = 0;
   S.capFuseT = 0;
   S.refreshT = 0;
@@ -571,7 +668,7 @@ export function paintFromParry(part) {
 }
 // PR3 (Surge fork): hand every painted pip to the unleash and clear — no volley here.
 export function consumeAllLocks() {
-  const out = S.locks.map((lk) => ({ part: lk.part, stacks: lk.stacks }));
+  const out = S.locks.map((lk) => ({ part: lk.part, stacks: lk.stacks, ghost: !!lk.ghost }));  // §5i.C rung 12: carry ghost so the Surge fork can halve echo pips like releaseVolley
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0;
   return out;
 }
@@ -584,6 +681,25 @@ export function dropLockPart(part) {
   if (i < 0) return false;
   S.locks.splice(i, 1);
   S.capFuseT = 0;
+  return true;
+}
+
+// §5i.C rung 12 (ONEWING SPECTRAL ECHO): grant a half-strength GHOST pip on `part` — the living
+// eye, which is NEVER a dwell organ (world-Y above the aim ceiling), so a ghost entry there is
+// ALWAYS pure-ghost: no real/ghost stack mixing, so a boolean `lk.ghost` is safe (the ledger's
+// one-entry-per-part invariant holds). Counts toward the pip cap (echoes reach FULL faster) but
+// releases at echoDmgMult and never toward burnFloor. No-op if the set is at cap, the eye is at its
+// ghost cap, or (defensively) an entry for `part` exists that is NOT a ghost — never stack onto a
+// real paint. Returns true iff a ghost pip was laid (so the caller can play the tether pulse once).
+export function grantEchoPip(part, ghostMax = Infinity) {
+  if (!part || totalPips() >= S.cap) return false;   // no cap (0) ⇒ no echo; else never past the cap
+  const lk = S.locks.find((l) => l.part === part);
+  if (lk) {
+    if (!lk.ghost || lk.stacks >= ghostMax) return false;
+    lk.stacks++;
+  } else {
+    S.locks.push({ part, stacks: 1, age: 0, ghost: true });
+  }
   return true;
 }
 

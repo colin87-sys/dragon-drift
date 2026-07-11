@@ -1,15 +1,20 @@
 # Dragon Drift — Leapfrog Studios
 
-**Before doing anything, read [`LEAPFROG.md`](./LEAPFROG.md).** It is this studio's
-playbook and append-only **lessons ledger** — the accumulated state of the art for
-this repo, written so each session starts from everything the last one learned and
-**leapfrogs from there** (`leapfrog^leapfrog`).
+**Before doing anything, read [`LEAPFROG.md`](./LEAPFROG.md)** (the frozen playbook +
+historical lessons archive) **and skim [`leapfrog/lessons/`](./leapfrog/lessons/)** for
+the newest lessons. Together they are the accumulated state of the art for this repo,
+written so each session starts from everything the last one learned and **leapfrogs from
+there** (`leapfrog^leapfrog`). (`node tools/build-ledger.mjs` assembles both into one
+scroll.)
 
 Then follow THE RULE in that file:
 
-1. **Read `LEAPFROG.md` first.**
-2. **After every meaningful change, append a lesson** to its ledger (what we did, what
-   we learned, the gotcha, the reusable pattern).
+1. **Read `LEAPFROG.md` + `leapfrog/lessons/` first.**
+2. **After every meaningful change, add a lesson as a NEW FILE**
+   `leapfrog/lessons/<YYYY-MM-DD>-<slug>.md` (what we did, what we learned, the gotcha,
+   the reusable pattern, what it unlocks). ⚠ Do NOT append to `LEAPFROG.md` and do NOT
+   use a sequential `L###` number — one file per lesson is what keeps parallel chats from
+   colliding on the ledger. See [`leapfrog/lessons/README.md`](./leapfrog/lessons/README.md).
 3. **Build systems, not one-offs.** Coexist → prove on a hero → migrate; never break
    the shipped roster.
 4. **Verify before claiming** (headless tests + `tricount` + `tiershots`); the human

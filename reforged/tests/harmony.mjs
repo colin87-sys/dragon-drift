@@ -1,5 +1,5 @@
 // Unit-checks the pure harmony helpers. Run with: node tests/harmony.mjs
-import { snapToChord, chordLadder, nextGridDelay } from '../js/harmony.js';
+import { snapToChord, chordLadder, nextGridDelay, tonicOf } from '../js/harmony.js';
 
 let pass = 0, fail = 0;
 function check(label, ok) {
@@ -43,6 +43,15 @@ check('16th grid delay', Math.abs(nextGridDelay(clock, 4) - 0.1) < 1e-9);
 // On-the-grid (within 30ms) → 0.
 check('near-grid plays now', nextGridDelay({ beatLen: 0.5, phase: 0.49 }, 4) === 0);
 check('exactly on grid plays now', nextGridDelay({ beatLen: 0.5, phase: 0.5 }, 4) === 0);
+
+// T-H4 — tonicOf (PR9): the chord's root = the LOWEST tone of the arp cycle
+// (tracks.js voices the root at the bottom); degenerate chords → 0 so callers
+// keep their fixed pitch (the null-oracle contract).
+check('tonicOf(Am voicing) = A3 (the lowest tone)', tonicOf(Am) === 220);
+check('tonicOf is order-blind', tonicOf([329.63, 220, 261.63]) === 220);
+check('tonicOf skips non-positive junk', tonicOf([0, -5, 330, 220]) === 220);
+check('tonicOf(empty) → 0', tonicOf([]) === 0);
+check('tonicOf(null) → 0', tonicOf(null) === 0);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

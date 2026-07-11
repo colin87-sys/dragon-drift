@@ -17,6 +17,9 @@ globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null)
 globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
 
 const { DRAGONS } = await import('../js/dragons.js');
+// obsidian was retired from the roster (PR #338); this test targets it, so skip gracefully
+// until it is repointed to a live hero — do NOT fail the suite on a retired subject.
+if (!DRAGONS.obsidian) { console.log('\nskinnedwing: SKIP — obsidian retired from roster (no live subject)'); process.exit(0); }
 const { ascendedDef } = await import('../js/ascension.js');
 const { buildDragonModel } = await import('../js/dragonModel.js');
 

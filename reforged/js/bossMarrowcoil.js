@@ -655,9 +655,25 @@ export function buildBoneCoil(def, quality = 1) {
       pivot.position.set(sx * Math.cos(ROOT_TH) * R, ribHang(R) + Math.sin(ROOT_TH) * R, 0);   // AT the root, on the host vertebra
       vertNodes[RIB_V0 + h].node.add(pivot);
       pivot.add(new THREE.Mesh(makeRib(R, sx, spanFrac, 0.4, h === 1 || h === 2), ribVertMat));   // mid pairs carry the aperture ticks (r15 #5b)
-      ribPivots.push({ pivot, idx: h, sx, R });
+      ribPivots.push({ pivot, idx: h, sx, R, ci: h * 2 + (sx < 0 ? 0 : 1) });   // ci = §ENG-E canonical rib index (L0=0,R0=1,L1=2,…)
     }
   }
+  // §ENG-E ORGAN BREAK: cracked ribs (canonical index ci) go dark + frozen; their
+  // amber volley and constrict arc are deleted for the rest of the fight. Resets with
+  // the per-fight model rebuild (like crackedPanes). API mirrors the pane crack API.
+  const crackedRibs = new Set();
+  const crackRib = (i) => {
+    const rb = ribPivots.find((r) => r.ci === i);
+    if (!rb || crackedRibs.has(i)) return false;   // idempotent-false
+    crackedRibs.add(i);
+    rb.pivot.visible = false;   // the arc is GONE — a hole in the cage (no debris, §E scope)
+    return true;
+  };
+  const ribAlive = (i) => i >= 0 && i < 10 && !crackedRibs.has(i);
+  const liveRibs = () => { const o = []; for (let i = 0; i < 10; i++) if (!crackedRibs.has(i)) o.push(i); return o; };
+  const ribCount = () => 10;
+  const crackedRibCount = () => crackedRibs.size;
+
   // D2 — THE SCAR: the snapped left rib #3. A jagged 3-vertex break face at the
   // stub end, the floating 0.6u orphan fragment below the break, and a COLD
   // marrow seam (0x8fd0ff, dim ×0.5 — satellite law §3.8) along the break face.
@@ -965,6 +981,7 @@ export function buildBoneCoil(def, quality = 1) {
     // (the pivots ARE the roots). thread mode flares slightly open; a flinch
     // flexes the cage; death lets the ribs sag outward.
     for (const rb of ribPivots) {
+      if (crackedRibs.has(rb.ci)) continue;   // §ENG-E: a cracked rib is hidden + frozen — a permanent hole in the closing cage
       const j = rb.idx;
       const breathe = Math.sin(time * 1.1 + j * 0.7 + (rb.sx < 0 ? 0.4 : 0)) * 0.02;
       let rot;   // inward-positive target, applied as -sx * rot on the pivot z
@@ -1003,6 +1020,7 @@ export function buildBoneCoil(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece,
+    crackRib, ribAlive, liveRibs, ribCount, crackedRibCount,   // §ENG-E ORGAN BREAK
     setGaze, setHeadLook, notice,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,

@@ -118,6 +118,45 @@ export function rollWake(pos, dir = 1, count = 4) {
 // light-ribbons in bossBullets.js, the Panzer-Dragoon silhouette; keeping both
 // over-glowed the additive budget.)
 
+// PR-C THE GATHER: charge sparks racing INWARD to the lance launch shoulder —
+// the exhale muzzle burst fires from this exact point, so the inhale visibly
+// FEEDS the release. Sparks spawn on a shell around `center` with an inward
+// velBias (the one motion the public burst() can't do), zero gravity, stretched
+// along their velocity so they read as streaks converging; short life ≈ the
+// travel time, so they arrive and wink out AT the point. Called per-frame-ish
+// (throttled by the caller) while the fuse burns; count scales with pip count
+// (a 6-set gathers a storm, a 3-set a trickle). Pool/quality-gated like all
+// sprites; callers skip entirely below quality 0.5 (garnish law).
+const gatherV = new THREE.Vector3();
+export function gatherPulse(center, tint, count = 2, k01 = 1) {
+  if (quality < 0.5) return;
+  const n = Math.round(count * quality) || 1;
+  for (let i = 0; i < n; i++) {
+    // random point on a WIDER shell (biased to the camera-visible upper half).
+    // Owner: "can't see much noticeable jade sparks gather" from the rear chase
+    // cam — a small jade spark camouflages against the jade wing glow the inhale
+    // now adds. Fix: spawn farther out + stretch harder so each spark is a long
+    // INWARD STREAK (motion reads where a static dot doesn't), and make it bigger.
+    const a = Math.random() * Math.PI * 2;
+    const r = 2.0 + Math.random() * 1.2;
+    gatherV.set(Math.cos(a) * r, Math.abs(Math.sin(a)) * r * 0.85 - 0.2, (Math.random() - 0.5) * 1.4);
+    const p = gatherV.clone().add(center);
+    // inward bias: fly from the shell INTO the center, faster as the fuse peaks
+    gatherV.multiplyScalar(-(3.4 + 4.0 * k01));
+    // every 3rd spark is white-hot — the LUMINANCE that cuts through the jade
+    // wing glow (L195: the coloured layer is tinted, the anchor stays white);
+    // the rest carry the jade tint so the charge still reads as the lance colour.
+    const hot = (i % 3) === 0;
+    spawn(p, hot ? 0xeafff6 : tint, { speed: 0.6, size: hot ? 0.62 : 0.55, life: 0.32,
+      velBias: gatherV.clone(), drag: 0.4, gravityScale: 0, stretch: 3.0 });
+  }
+  // SWELLING white-hot convergence core at the launch shoulder — the ONE bright
+  // element that reads against the jade wing glow from behind. Its size grows
+  // with the fuse (k01): a small ember early, a bright bloom at cap, so the
+  // charge visibly INTENSIFIES toward the release (drag pins it in place).
+  spawn(center, 0xeafff6, { speed: 0.4, size: 0.34 + 0.6 * k01, life: 0.18, gravityScale: 0, drag: 2.5 });
+}
+
 // Wisp impact — accent sparks + fast white-hot pips; the small shockwave ring only
 // when the caller says so (the FIRST strike of an impact drum-roll window) so a
 // 6-pip Surge fork over the shield-shatter never stacks large additive volumes.

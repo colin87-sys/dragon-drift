@@ -89,11 +89,13 @@ measurable ones, the gate (§8) judges the rest in pixels.
    |---|---|---|---|
    | azure | `0xd9b36a` gold | ~39° | DIFFUSE tip-paint ONLY — zero accent emissive on wings |
    | ember | `0xff8b2a` lava | ~27° | ICONIC FLAME — a BOLD warm-orange body + light cream belly; lava emissive on the ray tubes + collar + a lit spine/tail + glow-seams (human art-direction, "think Charizard"; supersedes the old near-black/emissive-only spec). Wing MEMBRANE stays dark-warm so the glowing rays read AS fire through it |
-   | jade  | `0xeafff4` cool pearl | ~149° | rim gradient + pearl glow — iridescent-cold, never warm |
+   | jade  | `0xd6ffe9` mint-pearl | ~149° | ICONIC GREEN — a VIVID mid-value jade/emerald body (jade-gemstone bright on the midtones, NOT near-black moss) + pale mint belly; MINT-pearl (green-leaning) rim gradient + the ONE pearl bloom; fins green-family gradients (deep-emerald leading rays → pale jade tips). Even the bloom reads GREEN (human art-direction; supersedes the too-dark §5d starting hexes). Broad body masses stay shaded/material-real — saturation lives in the accents/fins/gradients |
    Azure (COOL body, diffuse gold tips) and ember (WARM flame body) are 12° apart
    in HUE but opposite in value/temperature — that separation is the read. §7
    still asserts ember's wing membrane stays dark (the glowing rays carry the fire,
-   not a toy-bright sheet).
+   not a toy-bright sheet). Jade completes the trio as the GREEN read: a stranger's
+   one-word read of every jade frame must be GREEN at gameplay distance (the gate
+   judges greenness-at-distance as part of color/rim beauty).
 10. **Life over symmetry.** Perfect L/R pose symmetry in idle reads dead —
     the flap rig's phase/lag already breaks it; keep it. NO scar law for
     player dragons: distinctness comes from design, never from damage.
@@ -215,8 +217,8 @@ change them.
 | Body plan | compact avian glider: short body, deep keel chest, long swept wings | stocky broad wyrm: heavy squared shoulders, thick neck, short powerful tail | long sinuous serpent: body IS the silhouette, tall elegant fin fans |
 | Silhouette primitive | △ swept arrow/dart | □ anvil/block masses | ○ flowing S-ribbon |
 | Wing architecture (HERO) | **swept blade-feather comb** (§3 col 1): stiff falcon PRIMARIES, straight taut leading edges (`feather` lineage + ASHTALON comb lessons — CONSTRUCTION only: separation/z-stagger/value-tiers/taper. Do NOT copy its scythe SHAPE language: no hooked crescents, no villain silhouette — azure's blades are straight-edged falcon feathers, a hero read) | **broad-chord ember membrane** (§3 col 2): gapped finger rays through dark membrane (`skinnedMembrane`/`nightFuryWings` lineage) | **silk fin sails** (§3 col 3): tall overlapping koi-fin lobes + trailing streamers (`seraphWing` chord logic + `sideFins`; `plume` TAIL builder is streamer INSPIRATION only) |
-| Motif (fixed anchor, blooms 0.3→0.6→1.0) | **brow crest** (head, gold-tipped): single feather-nub → 3-blade swept crest fan | **forge collar** (nape/wing-root yoke — rear-visible): two dull coals between the wing roots → glowing collar arc → blazing yoke with 6-spike corona | **chin pearl** (jaw) + lockstep rear carrier: pearl bead → held pearl → luminous river-pearl cradled by whiskers, with a pearl rim gradient on the rear lobe tips + tail-veil edge blooming in step |
-| Accent (law 9 table) | gold `0xd9b36a`, diffuse tips only | lava `0xff8b2a` on a BOLD warm FLAME body + cream belly (iconic-flame, §5d) | cool pearl `0xeafff4`, rim/pearl |
+| Motif (fixed anchor, blooms 0.3→0.6→1.0) | **brow crest** (head, gold-tipped): single feather-nub → 3-blade swept crest fan | **forge collar** (nape/wing-root yoke — rear-visible): two dull coals between the wing roots → glowing collar arc → blazing yoke with 6-spike corona | **chin pearl** (jaw) + lockstep rear carrier: pearl bead → held pearl → luminous river-pearl cradled by whiskers, with a mint-pearl rim gradient on the rear lobe tips + tail-veil edge blooming in step |
+| Accent (law 9 table) | gold `0xd9b36a`, diffuse tips only | lava `0xff8b2a` on a BOLD warm FLAME body + cream belly (iconic-flame, §5d) | mint-pearl `0xd6ffe9` (green-leaning) on a VIVID jade body + green-gradient fins (iconic-green, §5d) |
 | Eye character | bright, alert, round→keen | small, hot, deep-set | calm, long, painterly |
 | Stats/fx (unchanged) | 1.0 across; aura `142,213,255` | speed 1.04, handling 1.06, drain 0.95, regen 1.05; aura `255,139,42` | speed 1.07, handling 1.11, drain 0.9, regen 1.1; aura `121,226,183` |
 
@@ -360,11 +362,34 @@ warm orange), belly cream `0xf7dca6`→`0xf2ce92`→`0xf0c888`, warm dark-red me
   anchor).
 
 ### JADE — "Jade Serpent" (slot C) — branch `claude/jade-rebuild`
+**PALETTE DIRECTION: ICONIC GREEN (human art-direction — same authority as ember's
+iconic-flame pivot, PR #237).** This SUPERSEDES the too-dark starting hexes below
+(the near-black `0x123026` moss body). Jade is THE green starter of the new trio
+(the old starters, `cinderwing` and the alt starters are being retired) — a
+stranger's one-word read of EVERY frame must be GREEN. Lift the body to a VIVID
+mid-value jade/emerald (jade-gemstone: bright and saturated on the MIDTONES, NOT
+near-black moss); keep a darker deep-jade tier for the value ramp and the pale mint
+belly for contrast. The pearl AND its lockstep rim carrier are MINT-pearl
+(green-leaning, inside the §7 cool ~149° accent band) not pure white, so even the
+bloom reads green. Fins are green-family gradients (deep-emerald leading rays → pale
+jade tips). Stay inside the laws: ≤3 base diffuse hues, ONE bloom, TOY-COLOR still
+applies — saturation lives in the accents/fins/gradients, the broad body masses stay
+shaded and material-real (like ember's orange). The GEOMETRY (serpent body, silk-fin
+lobes, whisker+pearl head, veil tail) is unchanged — only the palette. Approved hexes
+(value down + saturation up across forms per §4): body ramp `0x3cb883`→`0x28a06b`→
+`0x178a54` (light→rich, vivid jade), deep-jade shadow/value tier `0x0d5c3a`, pale
+mint belly `0xdaf7e6`, mint-pearl bloom + rim carrier `0xd6ffe9`, fin gradient
+deep-emerald `0x116b45` → mid `0x2f9e77` → pale-jade tip `0x9ff0c8`, pale-green scales
+`0x8fe0be` / horn `0xc7ebcf`, calm green eye `0x8ff0c2`. When in doubt between
+"tasteful dark jade" and "unmistakably green," choose GREEN — the gate judges
+greenness-at-gameplay-distance as part of color/rim beauty.
 - **Torso** `serpent` (or `crystalSerpent` spine logic for the coil): the
   BODY is the hero silhouette — long S line of action enforced in idle
   (`neckSegments` 7→9, `tailSegments` 10→13 across forms; hatchling body
-  length ≥1.35× the other two hatchlings — the tier-0 key). Jade body
-  `0x123026` family, belly `0xe8ffd0` kept.
+  length ≥1.35× the other two hatchlings — the tier-0 key). Body the VIVID
+  jade ramp above (`0x3cb883`→`0x28a06b`→`0x178a54`, NOT the near-black
+  `0x123026` family), deep-jade `0x0d5c3a` shadow tier, pale mint belly
+  `0xdaf7e6`.
 - **Wings (hero)**: new builder `silkFinWings` per §3 col 3. NOT a bat wing:
   3 lobes (forms 0–1) → 4 lobes (apex) per side, tall koi fans tilted ≥40°
   above horizontal, each lobe an independently cambered petal with a darker
@@ -372,18 +397,21 @@ warm orange), belly cream `0xf7dca6`→`0xf2ce92`→`0xf0c888`, warm dark-red me
   (depth ≥0.3× lobe length); trailing streamers off the rear lobe ≥0.6× body
   length at apex. OVERDRAW LAW: only the rear-most lobe + streamers are truly
   translucent; forward lobes are OPAQUE with vertex-color tip gradients +
-  `applyFresnelRim` faking the silk; alpha overlap ≤2 layers per pixel,
-  overlap regions ≤30% of lobe area. Span 0.9–1.2× → 1.8–2.1× → 2.2–2.5×
+  `applyFresnelRim` faking the silk. Fin gradients are GREEN-family per lobe:
+  deep-emerald leading ray `0x116b45` → mid `0x2f9e77` → pale-jade tip
+  `0x9ff0c8` (the rear lobe + streamer tips carry the mint-pearl rim); alpha
+  overlap ≤2 layers per pixel, overlap regions ≤30% of lobe area. Span 0.9–1.2× → 1.8–2.1× → 2.2–2.5×
   (sheet-sanctioned; the serpent reads as reach, the fins carry the beauty).
   Motion: direct `wingPivotL/R` + per-lobe furl pivots (fan-fold).
 - **Head** `draconic` slim variant (`snoutType`/`headScale` per form);
   whiskers (`whiskerFins`) from form 1, taper law applies; calm long eyes.
 - **MOTIF — chin pearl + rear carrier**: pearl bead → held pearl → luminous
-  river-pearl cradled by whisker curls (soft `0xeafff4`, the line's ONE
-  bloom), judged in the turntable face crop. Because the jaw is invisible
-  from the chase camera (§1), a LOCKSTEP carrier blooms with it: pearl-hued
-  rim gradient on the rear lobe tips + tail-veil edge at 0.3→0.6→1.0 — this
-  is what the rear-chase gate judges.
+  river-pearl cradled by whisker curls (mint-pearl `0xd6ffe9`, green-leaning,
+  the line's ONE bloom), judged in the turntable face crop. Because the jaw is
+  invisible from the chase camera (§1), a LOCKSTEP carrier blooms with it:
+  mint-pearl rim gradient on the rear lobe tips + tail-veil edge at
+  0.3→0.6→1.0 — this is what the rear-chase gate judges. Even this bloom reads
+  GREEN, never white (ICONIC GREEN direction above).
 - **Tail**: builder `clean`, `tailStyle` simple → simple → finned, with the
   apex fin read as a flowing veil echoing the wing lobes (streamer geometry
   from the wing builder's kit; `plume` remains a tail-builder REFERENCE for
@@ -392,8 +420,8 @@ warm orange), belly cream `0xf7dca6`→`0xf2ce92`→`0xf0c888`, warm dark-red me
   than its siblings so the serpent hint survives), big calm eyes, 3 fin-bud
   lobes BUILT (≥2 visible in silhouette — the tier-0 key; matches the §3
   3/3/4 count and the §7 assert), pearl bead; 1 = body lengthens, lobes unfurl, whiskers
-  bud; 2 = full S-ribbon glory, 4 lobes + streamers, veil tail, pearl + rim
-  carrier radiant.
+  bud; 2 = full S-ribbon glory, 4 lobes + streamers, veil tail, mint-pearl +
+  rim carrier radiant (bloom still reads GREEN), body at the richest vivid jade.
 - Tri targets: ~2.3k / ~3.9k / ~5.4k. Engine needs hit here: fin-lobe wing
   builder + overdraw spot-check; pearl motif socket + lockstep rim carrier.
 
@@ -501,7 +529,10 @@ the §4 defaults, via a small per-dragon spec table in the test:
   accent-hued emissive on wings; ember [ICONIC FLAME]: the wing MEMBRANE diffuse
   stays dark-warm — L≤0.22 — so the glowing rays carry the fire, not a toy-bright
   sheet [the old "no warm accent diffuse on the body" rule is retired — the body
-  is now bold warm flame]; jade: accent cool, ~149°±20°).
+  is now bold warm flame]; jade [ICONIC GREEN]: accent cool green ~149°±20°, AND
+  the body diffuse reads as VIVID mid-value jade (unmistakably green at a glance,
+  NOT near-black moss) — saturation carried in the accents/fins, broad masses
+  material-real; the mint-pearl bloom stays green-leaning inside the ~149° band).
 
 ## §8 The gate protocol (aesthetics gate — the reason this rebuild exists)
 

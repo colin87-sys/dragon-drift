@@ -61,6 +61,17 @@ export function chordLadder(baseFreq, chordFreqs, step) {
   return Math.pow(2, Math.floor(Math.log2(baseFreq)) + targetPc);
 }
 
+// The chord's tonic: the LOWEST tone of the bar's arp cycle. The station arps
+// voice the root at the bottom (tracks.js convention), so "lowest = root" is
+// the pure, data-driven read — the V→I home the lance finale resolves to (PR9).
+// 0 when the chord is empty (null-oracle callers keep their fixed pitch).
+export function tonicOf(chordFreqs) {
+  if (!chordFreqs || !chordFreqs.length) return 0;
+  let m = Infinity;
+  for (const f of chordFreqs) if (f > 0 && f < m) m = f;
+  return Number.isFinite(m) ? m : 0;
+}
+
 // Beat-grid quantization delay: seconds until the next 1/`subdiv` note given a
 // beat clock ({beatLen, phase}) — or 0 (play NOW) when the clock is null.
 // Never quantize input acknowledgment; only the *musical* tail of a sound.

@@ -17,22 +17,23 @@ import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObs
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
-import { setDragonQuality, setDragonLook } from './dragon.js';
+import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
-import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth } from './sfx.js';
+import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
+import { lanceWyrm } from './sfxLance2.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
-import { burst, rollWake } from './particles.js';
+import { burst, rollWake, gatherPulse } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugLoose, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -243,6 +244,12 @@ if (urlParams.has('bossIdx')) {
 if (urlParams.has('bossPhase')) {
   setBossDebugPhase(parseInt(urlParams.get('bossPhase'), 10));
 }
+// ?bossStage=N (1-based) pins the visible STAGE sub-rig of a multi-stage boss (THE UNMASKED:
+// 1 eclipse-eye / 2 seraph / 3 unveiling) so a stage is playtestable in a live fight without
+// the CP2 dissolve-swap (e.g. ?boss&bossIdx=13&bossStage=2 = fight into the seraph).
+if (urlParams.has('bossStage')) {
+  setBossDebugStage(parseInt(urlParams.get('bossStage'), 10));
+}
 // Playtest: ?parry widens the PERFECT-parry window so the V4 snap-brand is
 // testable without frame-tight timing. Bare ?parry = the whole reflect window
 // (EVERY parry is perfect); ?parry=<rel> sets the perfect rel in world-units
@@ -250,6 +257,18 @@ if (urlParams.has('bossPhase')) {
 if (urlParams.has('parry')) {
   const v = parseFloat(urlParams.get('parry'));
   setDebugPerfectParryRel(Number.isFinite(v) && v > 0 ? v : CONFIG.BOSS.reflectWindow);
+}
+
+// Playtest: ?lab[=bossKey] — THE LANCE LAB, a pacifist practice range for the
+// unleash phrase. The boss (default hollowgate: 5 static spread panes) spawns
+// shortly after takeoff, never attacks, never takes damage (paint → unleash →
+// repaint forever), and the pip cap is forced to 6 so the FULL-cap cadence is
+// testable. Painting is pre-unlocked so a cold save can brand from fight one.
+// URL-only, never persisted beyond the lockUnlocked flag any lockParts fight
+// would set anyway.
+if (urlParams.has('lab')) {
+  setBossLab(urlParams.get('lab') || '');
+  saveData.flags.lockUnlocked = true;
 }
 
 // Debug: force Dragon Surge for visual verification
@@ -279,6 +298,10 @@ if (urlParams.has('debug')) {
     // PR3 lock-fork test seams (headless-deterministic): bank pips, read the aimed-beam
     // part pick against a flight line, fire the Surge climax synchronously.
     bossBankLocks: (n) => debugBankLocks(n),
+    // SCAR-BURN seams: the resonant window, live burn state, and a manual loose.
+    bossBeatOn: () => debugBeatOn(),
+    bossBurns: () => debugBurns(),
+    bossLoose: () => debugLoose(),
     bossBeamAimPart: (px, py) => debugBeamAimPart(px, py),
     bossLockCandidates: () => debugLockCandidates(),
     bossPartWorldPos: (part) => debugPartWorldPos(part),
@@ -306,6 +329,14 @@ if (urlParams.has('debug')) {
     bossCrackPane: (i) => debugCrackPane(i),
     bossThreadCut: () => debugThreadCut(player),
     bossRestitch: () => debugRestitch(),
+    bossBreakFrame: () => debugBreakFrame(player),   // §5i.C rung 12: force the ghost-frame break (honest sacrifice)
+    bossFelledLie: () => debugFelledLie(player),      // §5i.C rung 12: force the fake death (paint seal)
+    bossLanceState: () => debugLanceState(),          // §5i.C rung 12: pips / ghosts / deflected / candidates / paintables
+    bossArmBeamDuel: (t) => debugArmBeamDuel(t),      // §5i.C rung 13: arm the beam duel (fork-extend test)
+    bossBeamDuelT: () => debugBeamDuelT(),            // §5i.C rung 13: read the duel window remaining
+    bossCrush: (on) => debugCrush(on),                // §CP2-D1: force/clear the sky-crush (high-organ seal test)
+    bossCrushOn: () => debugCrushOn(),                // §CP2-D1: read the crush state
+    bossSetPhase: (n) => setBossDebugPhase(n),        // §CP2-D2: fast-forward to a phase (P5 survival-seal test); call before bossForceFight
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;
@@ -336,9 +367,19 @@ if (cleanShot) {
   document.head.appendChild(s);
 }
 
-// Perf overlay (?debug=perf): fps / draw calls / quality tier
+// Perf overlay (?debug=perf): fps / draw calls / quality tier, plus a per-RUN
+// WORST-FRAME tracker (min fps + the draws/tris at that frame + p95 frame time).
+// The live average hides the split-second dips that make a fight FEEL janky and
+// that added overdraw deepens (L124) — the worst-frame line is the budget the
+// premium fx must respect. All state + work is gated behind perfEl (this flag),
+// so with the flag off the game is byte-identical.
 let perfEl = null;
 let perfTimer = 0;
+let perfMinFps = Infinity, perfWorstCalls = 0, perfWorstTris = 0;
+const PERF_RING = 600;               // ~10s of frames @60 for the p95 window
+const perfFrames = [];               // recent frame times (ms), ring buffer
+let perfRingCursor = 0;
+const resetPerfPeaks = () => { perfMinFps = Infinity; perfWorstCalls = 0; perfWorstTris = 0; perfFrames.length = 0; perfRingCursor = 0; };
 if (urlParams.get('debug') === 'perf') {
   renderer.info.autoReset = false; // accumulate across all composer passes
   perfEl = document.createElement('div');
@@ -346,6 +387,7 @@ if (urlParams.get('debug') === 'perf') {
     'position:fixed;left:8px;top:8px;z-index:99;font:12px monospace;color:#8aff9a;' +
     'background:rgba(0,0,0,0.55);padding:6px 9px;border-radius:6px;pointer-events:none;white-space:pre';
   document.body.appendChild(perfEl);
+  on('runStart', resetPerfPeaks);   // worst-frame is per-RUN, so each fight reads clean
 }
 
 initInput();
@@ -369,11 +411,11 @@ on('bossToll', () => kick('bossToll'));
 // THE LANCE V1 juice: a crisp chime the instant the aim-line locks onto a boss
 // organ (paired with the reticle's green snap), and a soft tick on each crack-tick
 // the held line chips in a lull — so "you're doing the right thing" is audible.
-on('aimLock', () => sfx.lockOn?.());
+on('aimLock', (p) => sfx.lockOn?.(!!(p && p.relock)));
 // HUNTER'S BRAND sound phrase: set (per paint, rising) → inhale (cap fuse) →
 // exhale (cap volley) / fizzle (a lone brand ashing off on decay).
 on('lockPaint', (p) => sfx.brandSet?.((p && p.count) || 1));
-on('lockCap', () => sfx.brandCap?.());
+on('lockCap', (p) => sfx.brandCap?.((p && p.count) || 0, (p && p.fuseDur) || 0));
 // A DELIBERATE loose sounds the full exhale — the cap auto-volley, the PR3 manual
 // tap-loose, and the Surge fork are all the player's earned release (brandLoose); only
 // a lone brand ashing off on decay is the lesser fizzle. PR4b RELEASE PUNCTUATION:
@@ -381,24 +423,99 @@ on('lockCap', () => sfx.brandCap?.());
 // release ONLY, never the impacts amid dense bullets) and a jade muzzle flash off
 // the dragon's launch shoulder, so the moment reads even in peripheral vision.
 const _muzzleV = new THREE.Vector3();
+// PR-C: gather-pulse throttle + a cached reduced-motion read (the camera pinch
+// is motion; the pose/glow/sparks still carry the inhale for those users).
+let gatherT = 0;
+const REDUCE_MOTION = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+// PR9: lockVolley = the COMMIT (audio schedules against the beat-hold `delay`);
+// lockLaunch = the frame the first wisp actually leaves (the eye's release —
+// the muzzle flash + juice anchor THERE, after any beat-hold, so sight and
+// sound land together on the song's grid).
 on('lockVolley', (p) => {
   if (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')) {
-    sfx.brandLoose?.(p.count);
-    sfx.volleyDuck?.();   // PR7: dip the music ~200ms so the exhale owns the moment
-    juiceEvent('wispVolley');
-    _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
-    burst(_muzzleV, wispTint(), { count: 10, speed: 12, size: 0.8, life: 0.35 });   // accent (jade default, PR8)
-    burst(_muzzleV, 0xeafff6, { count: 4, speed: 18, size: 0.5, life: 0.25 });      // white anchor stays white
+    const d = p.delay || 0;
+    const wyrm = getLanceProfile() === 'wyrm';
+    sfx.brandRiserRelease?.(d, CONFIG.LOCK.releaseGapMs / 1000);   // rise STOPS → the void (inhale is classic under both)
+    // The LOOSE sound forks by profile: wyrm plays a lean dry snap ("quiet hands"),
+    // classic plays the full launch. The music-bus volleyDuck fires under both.
+    (wyrm ? lanceWyrm : sfx).brandLoose?.(p.count, d, !!p.full);
+    sfx.volleyDuck?.(d);   // PR7: dip the music ~200ms so the exhale owns the moment
   } else {
+    sfx.brandRiserCancel?.();   // decay fizzle: no drop, no void — just let the riser go
     sfx.brandFizzle?.();
   }
 });
+on('lockLaunch', (p) => {
+  if (!p || p.source === 'decay') return;
+  juiceEvent('wispVolley');
+  _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
+  burst(_muzzleV, wispTint(), { count: 10, speed: 12, size: 0.8, life: 0.35 });   // accent (jade default, PR8)
+  burst(_muzzleV, 0xeafff6, { count: 4, speed: 18, size: 0.5, life: 0.25 });      // white anchor stays white
+});
 // PR4b: each wisp landing plays a note of the impact ARPEGGIO (k = position in
 // the drum-roll window) — N locks land as an ascending riff, not one boom.
-on('lockStrike', (p) => sfx.brandStrike?.((p && p.k) || 0));
+// PR9: the tagged FINALE lands the reserved close (tonic + cadence) instead.
+// PR-B: the reserved CLIMAX (a FULL volley's last hit) gets the PHYSICAL punch so
+// it reads as impact, not just sound — a 90ms hitstop (the game freezes on the
+// hit), a jade DOM screen-flash, and a camera lurch. The camera punch is motion,
+// so it's gated on reduced-motion; the hitstop + flash-gate live in juice/ui.
+on('lockStrike', (p) => {
+  // A/B profile dispatch: 'wyrm' routes the IMPACT + FINALE to the boss-body
+  // resonator engine (sfxLance2); everything else (juice, flash, camera) is
+  // profile-agnostic. 'classic' is the shipped path, byte-identical.
+  const eng = getLanceProfile() === 'wyrm' ? lanceWyrm : sfx;
+  if (p && p.finale) {
+    eng.brandFinale?.(p.n || 0, !!p.full);
+    if (p.full) {
+      juiceEvent('wispFinale');   // 90ms hitstop + the jade postfx kick
+      ui.lanceFlash?.();          // jade screen-flash (reduced-motion gated inside)
+      if (!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+        cameraCtl.punchKick?.();  // the camera lurch — motion, so reduce-motion skips it
+      }
+    }
+  } else eng.brandStrike?.((p && p.k) || 0, (p && p.n) || 1, !!(p && p.full));
+});
+// Wyrm profile: seed the boss-body resonator on each fight (both profiles call
+// setBoss so a mid-fight flip to wyrm lazy-starts the right body) and tear it
+// down when the fight ends.
+on('bossStart', (p) => lanceWyrm.setBoss(p && p.id));
+on('bossEnd', () => lanceWyrm.bossVoiceEnd());
+// A/B HOTKEY (Shift+L): flip the lance sound profile mid-fight — the only way to
+// judge "satisfying vs annoying" is to switch inside the same volley cadence
+// without losing fight state (a URL reload can't). Self-contained toast so it has
+// no coupling to the HUD internals. Toggling away from wyrm tears its resonator
+// down so a stale body never rings under the classic path.
+let _lanceToastEl = null;
+function _lanceToast(msg) {
+  if (!_lanceToastEl) {
+    _lanceToastEl = document.createElement('div');
+    _lanceToastEl.style.cssText =
+      'position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:120;' +
+      'font:600 15px system-ui,sans-serif;color:#eafff6;background:rgba(8,20,16,0.82);' +
+      'padding:8px 16px;border-radius:8px;pointer-events:none;transition:opacity .3s;letter-spacing:.02em';
+    document.body.appendChild(_lanceToastEl);
+  }
+  _lanceToastEl.textContent = msg;
+  _lanceToastEl.style.opacity = '1';
+  clearTimeout(_lanceToastEl._t);
+  _lanceToastEl._t = setTimeout(() => { if (_lanceToastEl) _lanceToastEl.style.opacity = '0'; }, 1400);
+}
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyL' && e.shiftKey && !e.repeat) {
+    if (getLanceProfile() === 'wyrm') lanceWyrm.bossVoiceEnd();   // stand the resonator down before leaving wyrm
+    const p = toggleLanceProfile();
+    _lanceToast('Lance SFX: ' + (p === 'wyrm' ? 'WYRM (boss-body)' : 'CLASSIC'));
+  }
+});
 // PR3: loosing onto a SEALED boss can't take — a soft muffled thunk names the miss;
 // the pips are kept (the lock layer never wastes them), the reticle row shakes once.
-on('lockSealed', () => sfx.brandSeal?.());
+// PR9: a live riser stands down on any non-release exit (the watchdog self-fade
+// covers the event-less exits — death/transition mid-fuse).
+// (PR-C: the chord-voice flush that lived here died with the chord machinery —
+// the finale is a one-shot detonation now, nothing sustains to strand.)
+on('lockSealed', () => { sfx.brandRiserCancel?.(); sfx.brandSeal?.(); });
+on('lockLost', () => sfx.brandRiserCancel?.());
+on('bossEnd', () => sfx.brandRiserCancel?.());
 on('lockTick', () => sfx.lockTick?.());
 // Boss over → resume the course FRESH from here (the arena stretch was suppressed;
 // without this the world is blank until the player catches up to the old cursor).
@@ -449,7 +566,14 @@ ui.init({
   onStart: (mode) => startGame(mode),
   rushUnlocked: () => rushUnlocked(),   // gate the BOSS RUSH rail entry (beaten a boss / dev)
   rushInfo: () => rushRosterInfo(),     // roster + best time for the pre-launch panel
-  onStartRush: (only) => { rushOnlyBoss = only || null; startGame('rush'); },  // pick one boss (or all)
+  onStartRush: (only, stage) => {
+    rushOnlyBoss = only || null;
+    // Dev stage-jump (rush picker, ?dev): pin which STAGE sub-rig a multi-stage boss shows,
+    // so THE UNMASKED's stage 2 (seraph) / 3 (unveiling) are playtestable in a live fight.
+    // stage 1 (or unset) → the boss's default. Set fresh per launch so no stale pin leaks.
+    setBossDebugStage(stage || 1);
+    startGame('rush');
+  },  // pick one boss (or all), optionally pinned to a stage
   onEquipDragon: () => {
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
@@ -1090,7 +1214,7 @@ function tick() {
     spawnAhead();
 
     updateCollision(dt, player);
-    updateBoss(dt, player, clock.getElapsedTime());
+    updateBoss(dt, player, clock.getElapsedTime(), camera);
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
     updateEmbers(dt, player, clock.getElapsedTime());
@@ -1237,6 +1361,24 @@ function tick() {
       const yaw = Math.max(-0.7, Math.min(0.7, Math.atan2(-dx, -dz)));                     // face the boss, clamped
       setDragonLook(win > 0 ? yaw * win : null);
     } else setDragonLook(null);
+    // PR-C THE VISIBLE INHALE: feed the lance cap-fuse progress into the dragon
+    // rig BEFORE updateDragon (torso arch + wing mantle + jade glow), pulse the
+    // gather sparks into the launch shoulder (the exact point the exhale muzzle
+    // burst fires from), and pinch the camera. lockHudState is read here and
+    // reused below for the dwell hum. Off (0) outside a fight / when sealed /
+    // in v1 — the rig's inhale channel is byte-inert at 0.
+    const lh = (game.inBoss && game.state === 'playing') ? lockHudState() : null;
+    const fuse01 = UNLEASH_V2 && lh && lh.active && !lh.ashen ? (lh.fuse01 || 0) : 0;
+    setDragonInhale(fuse01);
+    cameraCtl.setInhale?.(REDUCE_MOTION ? 0 : fuse01);
+    if (fuse01 > 0) {
+      gatherT -= dt;
+      if (gatherT <= 0) {
+        gatherT = 1 / (CONFIG.LOCK.gatherRateHz ?? 8);
+        _muzzleV.set(player.position.x - 0.6, player.position.y + 0.4, -player.dist);
+        gatherPulse(_muzzleV, wispTint(), (CONFIG.LOCK.gatherCountBase ?? 2) * Math.max(1, lh.pips || 0) / 2, fuse01);
+      }
+    }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
@@ -1244,14 +1386,18 @@ function tick() {
     updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
+    syncSkyRig(camera);   // EMBERTIDE-as-sky: re-centre the dome on the camera AFTER it settles (no seam)
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
     // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
     // not reticle.js — the reticle early-returns when disabled, and this cue's
     // whole job is the no-reticle acquire loop. Silences on lock (aimHeld → the
     // chime), on sealed/muted, and on any non-fight/paused frame (0 stops it).
-    const lh = (game.inBoss && game.state === 'playing') ? lockHudState() : null;
-    sfx.dwellHum?.(lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted ? lh.dwell : 0);
+    // v3: a warm re-grab (lh.relock — the organ a held line just let go of) drives
+    // the hum to 0, so weaving away and back is a SILENT re-acquire — the reticle
+    // fill is the only progress channel there (owner: the re-firing hum was grating).
+    const humOn = lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted && !(LANCE_V3 && lh.relock);
+    sfx.dwellHum?.(humOn ? lh.dwell : 0);   // (lh read above, pre-updateDragon)
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget());
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
@@ -1289,14 +1435,34 @@ function tick() {
   renderPostFX();
 
   if (perfEl) {
+    // Per-frame worst-case capture (rawDt is clamped to 0.05 = a 20fps floor, so a
+    // backgrounded/stalled frame can't poison the min). rawDt==0 while paused.
+    if (rawDt > 0) {
+      const instFps = 1 / rawDt;
+      const ms = rawDt * 1000;
+      if (perfFrames.length < PERF_RING) perfFrames.push(ms);
+      else { perfFrames[perfRingCursor] = ms; perfRingCursor = (perfRingCursor + 1) % PERF_RING; }
+      if (instFps < perfMinFps) {   // new worst frame → snapshot its draws/tris
+        perfMinFps = instFps;
+        perfWorstCalls = renderer.info.render.calls;
+        perfWorstTris = renderer.info.render.triangles;
+      }
+    }
     perfTimer -= rawDt;
     if (perfTimer <= 0) {
       perfTimer = 0.5;
+      let p95 = 0;
+      if (perfFrames.length) {
+        const sorted = perfFrames.slice().sort((a, b) => a - b);
+        p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+      }
       perfEl.textContent =
         `fps   ${fpsAvg.toFixed(0)}\n` +
         `calls ${renderer.info.render.calls}\n` +
         `tris  ${(renderer.info.render.triangles / 1000).toFixed(0)}k\n` +
-        `tier  ${qualityTier}`;
+        `tier  ${qualityTier}\n` +
+        `min   ${perfMinFps === Infinity ? '—' : perfMinFps.toFixed(0)}fps @${perfWorstCalls}c/${(perfWorstTris / 1000).toFixed(0)}k\n` +
+        `p95   ${p95.toFixed(1)}ms`;
     }
     renderer.info.reset();
   }

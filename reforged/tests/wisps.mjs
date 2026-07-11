@@ -40,7 +40,7 @@ const player = { position: new THREE.Vector3(0, 8, 0), dist: 0, rollInvuln: 0 };
 // Spawn one wisp with fireLanceAt's EXACT recipe (boss.js) — slot i of an n-volley
 // at target (tx, ty, targetRel). Kept in lockstep with the live spawner by T-W1's
 // integration half (tests/lock.mjs reads the REAL strikeSurge spawns).
-function spawnWisp(i, tx, ty, targetRel) {
+function spawnWisp(i, tx, ty, targetRel, volley = null) {
   const a = L.lanceFanDeg[i % L.lanceFanDeg.length] * (Math.PI / 180);
   return bullets.spawnBossBullet({
     owner: 'lance', x: player.position.x - 0.6, y: player.position.y + 0.4, rel: 1.5,
@@ -49,6 +49,9 @@ function spawnWisp(i, tx, ty, targetRel) {
     color: 0x50ffaa, coreColor: 0xeafff6, dmg: 2, r: 0.5, life: 4, part: 'organ' + i,
     homeDelay: L.lanceHomeDelay,
     curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,
+    // PR9 presentation tags (finale detect) — null = the legacy untagged spawn,
+    // which the older tests use on purpose (partial/untagged = shipped behavior).
+    ...(volley ? { volleyN: volley.n, volleyFull: volley.full, volleyFirst: i === 0 } : {}),
   });
 }
 
@@ -297,6 +300,48 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   ok('T-F1 focus halves the dwell threshold; HUD fill matches; arm-gap LAW holds');
 }
 
+// --- T-F2 — WARM re-lock seed is FOCUS-AWARE (dodge-and-reengage, no snap) -----
+// Guards the focus×warm units fix: a warm re-grab seeds relockWarmFrac of the
+// EFFECTIVE (focus-scaled) need, so the fill starts at the SAME 40% in every focus
+// state and can never same-frame lock. A regression to the old `dwellTime×frac` seed
+// would make the FOCUSED warm fill jump in at 80% (and re-open the frac≥0.5 cliff) —
+// caught here, where no other gate would notice.
+{
+  const ORGANS = { A: { x: 0, y: 0, z: 0 } };
+  const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
+  const mkCtx = (focus) => ({
+    fightRunning: true, model, candidates: ['A'], muted: false, emittersLive: true,
+    exposureWindow: false, damageBoss() {}, flashPart() {}, tier: 2, cap: 3,
+    deflected: false, phaseHp: 100, paintUnlocked: false, paintables: ['A'],
+    amberVenting: () => false, fireLance() {}, focusHeld: focus,
+  });
+  const IN = { position: { x: 0, y: 0 } }, OFF = { position: { x: 20, y: 0 } };
+  const savedFrac = L.relockWarmFrac;
+  // Establish a held lock (arms the per-organ warm latch), weave OFF past `linger`
+  // to release, then weave back ONE frame — the warm re-grab acquisition frame.
+  const warmRegrab = (focus, frac) => {
+    L.relockWarmFrac = frac;
+    lock.initLockLayer();
+    for (let f = 0; f < 20; f++) lock.updateLockLayer(0.03, IN, mkCtx(focus));   // hold → lock (arms reLock)
+    for (let f = 0; f < 30; f++) lock.updateLockLayer(0.03, OFF, mkCtx(focus));  // fly off → releaseAim (0.9s < relockMemoryS)
+    lock.updateLockLayer(0.03, IN, mkCtx(focus));                                // weave back: the warm re-grab
+    const h = lock.lockHudState();
+    return { dwell: h.dwell, relock: h.relock, held: lock.lockAimHeld() };
+  };
+  const warmNo = warmRegrab(false, 0.4);
+  const warmFoc = warmRegrab(true, 0.4);
+  assert(warmNo.relock === true && warmFoc.relock === true, 'T-F2: the re-grab is a WARM re-acquire (per-organ latch)');
+  assert(Math.abs(warmNo.dwell - 0.4) < 0.06, `T-F2: un-focused warm seeds ~40% of need (${warmNo.dwell.toFixed(3)})`);
+  // THE FIX: focused warm also seeds ~40% (not the old 80% snap).
+  assert(Math.abs(warmFoc.dwell - 0.4) < 0.06, `T-F2: FOCUSED warm seeds ~40% of need too, not 80% (${warmFoc.dwell.toFixed(3)})`);
+  assert(warmNo.held === false && warmFoc.held === false, 'T-F2: a warm re-grab never same-frame locks at frac 0.4');
+  // Cliff guard: even at the top of the sane range, seed = need×frac < need → no instant lock.
+  const cliff = warmRegrab(true, 0.99);
+  assert(cliff.held === false, `T-F2: no same-frame lock even at frac 0.99 focused (dwell ${cliff.dwell.toFixed(3)})`);
+  L.relockWarmFrac = savedFrac;
+  ok('T-F2 warm re-lock seed is focus-aware: ~40% fill in every state, no same-frame cliff');
+}
+
 // --- T-E1 — perfect release: a MANUAL loose on the beat (PR5) ------------------
 {
   const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 10, y: 0, z: 0 } };
@@ -333,6 +378,169 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   assert(Math.abs(clamped.lances[0] - (L.volleyRoiFrac * 30) / 2) < 1e-6,
     `the ROI clamp is ABSOLUTE: on-beat at 30hp phase still lands ${clamped.lances[0]} (≤ 10% law)`);
   ok('T-E1 beat release: tap-only, ×beatMult inside the ROI clamp, auto releases exempt');
+}
+
+// --- T-E2 — BEAT-ALIGNED INHALE (PR-B/C1 revised + the PR9.1 skill LAW) --------
+// The beat-lock now lives in the FUSE: a ctx `beatFuseDur` sets the inhale length
+// (it ends on the beat), then the cap auto-release fires IMMEDIATELY + a small
+// void (D = releaseGapMs) — no dead post-fuse hold (which read as lag). So a
+// SHORTER aligned fuse fires SOONER than the plain capFuse, and the drop delay is
+// just the void. A ctx WITHOUT the field (headless / music off / v1) → plain
+// capFuse, delay 0, byte-verbatim. A MANUAL tap is NEVER delayed (the tap is the
+// player's timing); an on-beat PERFECT tap earns the impact-roll grid-snap.
+{
+  const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 10, y: 0, z: 0 } };
+  const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
+  const DTL = 0.06;
+  const gap = CONFIG.LOCK.releaseGapMs / 1000;
+  const run = (grid, viaTap) => {
+    lock.initLockLayer();
+    const launches = [], volleys = [], launchEvts = [];
+    let frame = 0, fireFrame = -1;
+    on('lockVolley', (p) => { if (p && p.count === 2 && fireFrame < 0) fireFrame = frame; volleys.push(p); });
+    on('lockLaunch', (p) => launchEvts.push({ ...p, frame }));
+    const mkCtx = () => ({
+      fightRunning: true, model, candidates: ['A', 'B'], muted: false, emittersLive: true,
+      exposureWindow: false, damageBoss() {}, flashPart() {}, tier: 2, cap: 2,
+      deflected: false, phaseHp: 100, paintUnlocked: true, paintables: ['A', 'B'],
+      amberVenting: () => false,
+      fireLance: (part, dmg, i, nn, full, snap) => launches.push({ frame, i, full, snap }),
+      ...grid,
+    });
+    const step = (px, frames) => { const p = { position: { x: px, y: 0 } };
+      for (let f = 0; f < frames; f++) { frame++; lock.updateLockLayer(DTL, p, mkCtx()); } };
+    step(0, 20); step(10, 20);                    // paint A then B (cap 2)
+    if (viaTap) { lock.requestLoose(); step(10, 20); }
+    else step(10, 50);                            // the cap fuse auto-releases
+    return { launches: launches.slice(0, 2), launchEvt: launchEvts[0],
+      volley: volleys.find((v) => v && v.count === 2), fireFrame };
+  };
+  // A short aligned fuse (0.5s) fires SOONER than the plain 1.0s capFuse — the
+  // beat-lock stretched the inhale, not a dead wait after it (the lag fix).
+  const aligned = run({ beatFuseDur: 0.5 }, false);
+  const plain = run({}, false);                       // no field = plain capFuse, verbatim
+  assert(Math.abs(aligned.volley.delay - gap) < 1e-9, 'aligned cap: delay = the VOID (releaseGapMs), not a long hold');
+  assertEq(plain.volley.delay, 0, 'no beatFuseDur (headless) → delay 0, byte-verbatim');
+  assert(aligned.fireFrame < plain.fireFrame,
+    `the 0.5s aligned fuse fires SOONER than the plain 1.0s fuse (${aligned.fireFrame} < ${plain.fireFrame}) — no dead post-fuse hold`);
+  assert(aligned.volley.full === true && plain.volley.full === true, 'cap-2 with 2 pips is a FULL volley');
+  assert(aligned.launchEvt && aligned.launchEvt.full === true && aligned.launchEvt.count === 2,
+    'lockLaunch fires with {count, full}');
+  assert(aligned.launches[0].snap === true, 'a cap auto-release is snap-eligible (the game timed it)');
+  // PR9.1 skill LAW: a MANUAL tap is NEVER delayed. Use a long fuse so the cap
+  // can't auto-fire before the tap is injected.
+  const tap = run({ beatFuseDur: 2.0 }, true);
+  assertEq(tap.volley.delay, 0, 'manual tap: delay 0 ALWAYS — the tap is the player\'s timing');
+  assert(tap.launches[0].snap === false, 'an off-beat manual volley never snaps the impact roll');
+  assert(tap.launches[0].full === true, 'fireLance threads full through the queue');
+  const perfectTap = run({ beatFuseDur: 2.0, beatOn: true }, true);
+  assertEq(perfectTap.volley.delay, 0, 'a perfect tap is still never delayed');
+  assert(perfectTap.volley.perfect === true && perfectTap.launches[0].snap === true,
+    'a PERFECT tap earns the on-grid impact roll (the reward, not a freebie)');
+  ok('T-E2 beat-aligned inhale: aligned fuse fires sooner (no lag), taps instant, snap earned by perfect');
+}
+
+// --- T-W7b — impact-roll FALLBACK: no beat clock → the shipped 40ms stagger ----
+// Headless has no music, so the accelerando path must be dormant: the queue's
+// scheduled offsets are EXACTLY k × impactStaggerMs (T-W7 proved order/spread;
+// this pins the arithmetic so the musical path can never leak into CI).
+{
+  for (let i = 0; i < 3; i++) spawnWisp(i, 0, 13, 28.5, { n: 3, full: false });
+  // Slot 0 (t=0) fires inside the SAME update that queues it — snapshot the
+  // survivors (k1, k2) on the arrival frame and pin their scheduled offsets.
+  let queued = null;
+  for (let f = 0; f < 90 && !queued; f++) {
+    bullets.updateBossBullets(DT, player);
+    const q = bullets.debugWispRibbons().impactQueue;
+    if (q.length) queued = q;
+  }
+  assert(queued && queued.length === 2 && queued[0].k === 1 && queued[1].k === 2,
+    'arrival frame: k0 fired immediately, k1/k2 queued');
+  for (const q of queued) {
+    const want = q.k * (L.impactStaggerMs / 1000) - DT;   // one decrement on the arrival frame
+    assert(Math.abs(q.t - want) < 1e-9,
+      `no-clock slot ${q.k} scheduled at k×impactStaggerMs (${q.t.toFixed(4)} vs ${want.toFixed(4)})`);
+  }
+  ok('T-W7b no beat clock → impact roll is the shipped 40ms stagger, verbatim');
+  bullets.resetBossBullets();
+}
+
+// --- T-W7c — the RESERVED FINALE tag (PR9/C2): full volleys only, last only ----
+// A FULL volley's last arrival carries finale:true on its lockStrike (and owns
+// the one ring INSTEAD of k0 — asserted via the queue tags); a partial volley
+// never tags a finale, and untagged legacy spawns (T-W2/W7) never did.
+{
+  const strikes = [];
+  on('lockStrike', (e) => strikes.push(e));
+  const runVolley = (count, full) => {
+    strikes.length = 0;
+    for (let i = 0; i < count; i++) spawnWisp(i, (i % 3 - 1) * 6, 13, 28.5, { n: count, full });
+    for (let f = 0; f < 120 && strikes.length < count; f++) bullets.updateBossBullets(DT, player);
+    bullets.resetBossBullets();
+    return strikes.slice();
+  };
+  const fullRun = runVolley(6, true);
+  assertEq(fullRun.length, 6, 'full-6: six strikes landed');
+  assertEq(fullRun.filter((s) => s.finale).length, 1, 'full-6: exactly ONE finale');
+  assert(fullRun[fullRun.length - 1].finale === true, 'the finale is the LAST strike');
+  assert(fullRun.every((s) => s.n === 6 && s.full === true), 'strikes carry {n, full} for the sfx phrase');
+  const partial = runVolley(3, false);
+  assertEq(partial.filter((s) => s.finale).length, 0, 'partial-3: no finale, no cadence');
+  ok('T-W7c finale tag: full-6 → one finale (last); partial → none');
+}
+
+// --- T-W8 — THE LUNGE invariance sweep (PR-C) ----------------------------------
+// The lunge profile (emerge slow → accelerate) must land every wisp on the
+// IDENTICAL frame constant speed would (the L186 arrival-frame law), for any
+// profile that averages 1, any target depth, any frame rate — and rel must
+// climb monotonically (the controller never reverses).
+{
+  const saved = L.lungeProfile;
+  assert(Array.isArray(saved) && Math.abs((saved[0] + saved[1]) / 2 - 1) < 1e-9,
+    `lungeProfile LAW: (p0+p1)/2 === 1 (got [${saved}])`);
+  let hits = 0, collecting = false;
+  on('bossDamage', (e) => { if (collecting && e.kind === 'lance') hits++; });
+  const arrivalFrame = (prof, targetRel, dt, ty = 13) => {
+    L.lungeProfile = prof;
+    bullets.resetBossBullets();
+    spawnWisp(2, 0, ty, targetRel);   // slot 2 = a mild bearing
+    collecting = true; hits = 0;
+    let frame = 0, prevRel = -Infinity;
+    while (frame < 400 && hits < 1) {
+      frame++;
+      bullets.updateBossBullets(dt, player);
+      const w = bullets.debugActiveBullets().find((b) => b.owner === 'lance');
+      if (w) {
+        assert(w.rel >= prevRel - 1e-9, `rel climbs monotonically (${w.rel} after ${prevRel})`);
+        prevRel = w.rel;
+      }
+    }
+    collecting = false;
+    bullets.resetBossBullets();
+    return frame;
+  };
+  for (const targetRel of [20, 28.5, 34]) {
+    for (const dt of [1 / 60, 1 / 50, 1 / 144]) {
+      const ref = arrivalFrame(null, targetRel, dt);            // constant speed
+      for (const prof of [saved, [0.7, 1.3]]) {
+        const got = arrivalFrame(prof, targetRel, dt);
+        assertEq(got, ref,
+          `lunge [${prof}] @ rel ${targetRel}, dt 1/${Math.round(1 / dt)} lands on the constant-speed frame (${ref})`);
+      }
+    }
+  }
+  // The Codex cell: the nearest-organ clamp (targetRel 4 → a 2.5m flight,
+  // SHORTER than one 20fps frame) — constant speed arrives on frame 1; the
+  // profile must too (this is exactly where the set-vrel-for-next-step form
+  // was one frame late). Target y sits by the spawn so the landing test hits.
+  {
+    const ref = arrivalFrame(null, 4, 1 / 20, 9);
+    const got = arrivalFrame(saved, 4, 1 / 20, 9);
+    assertEq(got, ref, `sub-frame flight (rel 4 @ 20fps) arrives with constant speed (frame ${ref})`);
+    assertEq(ref, 1, 'the sub-frame flight really is a frame-1 arrival (the cell is honest)');
+  }
+  L.lungeProfile = saved;
+  ok('T-W8 lunge invariance: 3 depths × 3 dts × 2 profiles + the sub-frame cell == constant-speed arrival');
 }
 
 console.log(`\n${n} wisp checks passed.`);
