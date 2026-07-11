@@ -35,6 +35,16 @@ Phoenix** — a real, visible narrowing that stays 100% falcon and keeps every a
 it is an owner-gated identity change (relax the floor) or a silhouette change (add gull dihedral →
 drifts toward firebird), not a free tuning move.
 
+**Follow-up (r2): the identity floor is the OWNER's to override, and the studio frame lies about size.**
+The first pass stopped at the falcon floor (span:body 1.65, 1.23× Phoenix) — and in-flight the owner still
+read it "way too long." Two corrections: (1) **A doctrine floor is a guess; the owner's eye is the
+arbiter.** When the owner directs it past the spec, rescale the whole ladder (×0.56 here → apex bladeSpan
+6.5, span:body ~1.16) and **retune the test band + document it as owner-directed**, rather than treating
+the floor as immovable. (2) **`dragonstudio` glide tiles AUTO-FRAME to fit the model, so a shorter-winged
+dragon just gets zoomed in — the wings still look like they fill the frame.** Do NOT judge the size fix
+there. Judge it in the FIXED chase cam (`silhouette.mjs rear`, standard frame): azure went 100% (clipping)
+→ **74% wide**, next to Phoenix's **69%** — the real parity read the auto-framed studio tile hides.
+
 **Reusable rules.**
 - **Wingspan has two independent levers: the span dial (geometric reach) and the wing dihedral/projection
   (how much of that reach lands on the chase-cam x-axis).** A "too wide" complaint can be driven by
