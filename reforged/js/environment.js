@@ -387,6 +387,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
 function makeBand(scene, def) {
   const perSide = Math.ceil(WALL_WINDOW / def.step);
   const { geometry, materials } = def.build();
+  // N15 guard: prop materials sample `aoBake`; a build path that skips mergeParts()
+  // (or geometry with no normals) would leave it undefined → 0 → BLACK props when the
+  // toggle is on. Unreachable today (all builds route through mergeParts), but cheap
+  // insurance against a future prop path.
+  if (!geometry.getAttribute('aoBake')) console.warn('[env] prop geometry missing aoBake — props will darken to black under PROP SHADING');
   const mesh = new THREE.InstancedMesh(geometry, materials, perSide * 2);
   mesh.frustumCulled = false;
   const band = { mesh, data: [], step: def.step, def };

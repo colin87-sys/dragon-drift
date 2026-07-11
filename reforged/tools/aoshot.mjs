@@ -1,4 +1,4 @@
-// iblshot.mjs — N15 prop-AO A/B (GRAPHICS-OVERHAUL.md).
+// aoshot.mjs — N15 prop-AO A/B (GRAPHICS-OVERHAUL.md).
 // Same seeded frozen frame with prop-AO OFF and ON (?ao), so the
 // owner can judge whether the props feel more grounded.
 //   node tools/aoshot.mjs  →  /tmp/ao-off.png, /tmp/ao-on.png, /tmp/ao-montage.png
@@ -26,8 +26,8 @@ const save = `localStorage.setItem('dragonDriftSave', JSON.stringify({
   settings: { reticle: false, slowMo: true, qualityOverride: 0 },
 }))`;
 
-async function capture(ibl) {
-  const query = `?debug&cleanshot&seed=73101${ibl ? '&ao' : ''}`;
+async function capture(ao) {
+  const query = `?debug&cleanshot&seed=73101${ao ? '&ao' : ''}`;
   const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 2, initScript: save });
   await page.click('#btn-start').catch(() => {});
   await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.distance >= 30, { timeout: 18000 }).catch(() => {});
