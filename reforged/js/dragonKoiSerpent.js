@@ -122,29 +122,42 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   // silhouette-safe; it reads on side / rear-¾ and flickers into view as the tail sweeps.
   // Height clamped ≤ the forward girth (leadR). Both windings so the single-sided body
   // material shows it from either flank. GREEN body/belly ramp only — zero new emissive.
-  const veilTail = model.veilTail ?? 0;
-  if (veilTail > 0) {
-    const vStartT = 0.5;                         // veil covers the rear ~50% of the body
-    const maxH = leadR * 1.15 * veilTail;        // bold-ish flare that stays sil-safe (the apex's yawed pose shows a taller median fin at rear, so keep height modest); reads on side / rear-¾ and as the tail whips
-    const nVeil = new THREE.Vector3(1, 0, 0);    // median fin faces sideways
-    const baseD = [], edgeD = [], baseV = [], edgeV = [];
-    // Tie the caudal fin to the SILK-FIN ray language: deep-emerald ROOT (at the tube) →
-    // pale-jade SILK EDGE, matching the veil-fins' deep-leading → pale-tip gradient, so it
-    // reads as the same silk, not a separate darker material.
+  // ── MOON-TAIL (CP3 glow-up) — the "Koi Lyre" silhouette ──────────────────────────────
+  // The tall fan-V above is now ANSWERED below by a veiltail CRESCENT: a modest median
+  // dorsal RIDGE + TWIN ventral lobes canted ±out so they splay down-and-out INTO the rear
+  // silhouette (the owner relaxed the frozen-outline rule for this pass). All of it lives in
+  // THIS tube geometry, emitted before `vcount`, so every lobe WHIPS laterally with the body
+  // wave for free — at rear-chase the lower crescents visibly swim. Deep-emerald root → pale-
+  // jade silk edge (the fin-ray language), both windings for the single-sided body material.
+  const moonTail = model.moonTail ?? model.veilTail ?? 0;
+  if (moonTail > 0) {
+    const vStartT = 0.5;                         // moon-tail spans the rear ~50% of the body
+    const maxH = leadR * 1.35 * moonTail;
+    const cant = 0.9;                            // ~52° off vertical → twin lobes splay down-and-out
+    const sinC = Math.sin(cant), cosC = Math.cos(cant);
     const cPale = new THREE.Color(cRim);         // apexSeam pale-jade (the fin-tip silk hue)
-    const cRoot = colBody.clone().lerp(colShadow, 0.6), cEdgeD = colBody.clone().lerp(cPale, 0.72), cEdgeV = colShadow.clone().lerp(colBelly, 0.7);
+    const cRoot = colBody.clone().lerp(colShadow, 0.55), cEdge = colBody.clone().lerp(cPale, 0.78);
+    const baseD = [], edgeD = [], rootL = [], edgeL = [], rootR = [], edgeR = [];
     for (let i = 0; i < N; i++) {
       const t = N > 1 ? i / (N - 1) : 0;
-      if (t < vStartT) { baseD.push(-1); edgeD.push(-1); baseV.push(-1); edgeV.push(-1); continue; }
-      const along = (t - vStartT) / (1 - vStartT);                         // 0 at veil start → 1 at tail tip
-      const flare = Math.sin(Math.min(1, Math.pow(along, 0.6)) * Math.PI * 0.9);   // rise → peak near the tail → soft taper
-      const wob = 1 + 0.12 * Math.sin(along * Math.PI * 3.0);              // gentle scalloped trailing edge (flowing veil, not a straight fence)
-      const cy = yAt(t), cz = zzOf(i), rH = radii[i] * OVAL_H;
-      const hD = maxH * flare * wob, hV = maxH * 0.72 * flare * wob;
-      baseD.push(positions.length / 3); positions.push(0, cy + rH, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cRoot.r, cRoot.g, cRoot.b);
-      edgeD.push(positions.length / 3); positions.push(0, cy + rH + hD, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cEdgeD.r, cEdgeD.g, cEdgeD.b);
-      baseV.push(positions.length / 3); positions.push(0, cy - rH, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cRoot.r, cRoot.g, cRoot.b);
-      edgeV.push(positions.length / 3); positions.push(0, cy - rH - hV, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cEdgeV.r, cEdgeV.g, cEdgeV.b);
+      if (t < vStartT) { baseD.push(-1); edgeD.push(-1); rootL.push(-1); edgeL.push(-1); rootR.push(-1); edgeR.push(-1); continue; }
+      const along = (t - vStartT) / (1 - vStartT);                         // 0 at moon-tail start → 1 at tail tip
+      const flare = Math.sin(Math.min(1, Math.pow(along, 0.5)) * Math.PI * 0.96);   // crescent envelope: swells past mid, sweeps to a point
+      const wob = 1 + 0.14 * Math.sin(along * Math.PI * 2.6);              // scalloped trailing edge (a flowing veiltail, not a fence)
+      const cy = yAt(t), cz = zzOf(i), rW = radii[i] * OVAL_W, rH = radii[i] * OVAL_H;
+      // dorsal median ridge (modest — the tail's top edge)
+      const hD = maxH * 0.5 * flare * wob;
+      baseD.push(positions.length / 3); positions.push(0, cy + rH, cz); normals.push(0, 1, 0); colors.push(cRoot.r, cRoot.g, cRoot.b);
+      edgeD.push(positions.length / 3); positions.push(0, cy + rH + hD, cz); normals.push(0, 1, 0); colors.push(cEdge.r, cEdge.g, cEdge.b);
+      // twin ventral crescent lobes, canted ±out (the veiltail that shows in silhouette)
+      const hL = maxH * 1.15 * flare * wob;
+      for (const s of [-1, 1]) {
+        const xr = s * rW * 0.32, yr = cy - rH * 0.7;
+        const xe = xr + s * hL * sinC, ye = yr - hL * cosC;
+        const root = s < 0 ? rootL : rootR, edge = s < 0 ? edgeL : edgeR;
+        root.push(positions.length / 3); positions.push(xr, yr, cz); normals.push(cosC, s * sinC, 0); colors.push(cRoot.r, cRoot.g, cRoot.b);
+        edge.push(positions.length / 3); positions.push(xe, ye, cz); normals.push(cosC, s * sinC, 0); colors.push(cEdge.r, cEdge.g, cEdge.b);
+      }
     }
     const stripBoth = (bArr, eArr) => {
       for (let i = 0; i < N - 1; i++) {
@@ -155,7 +168,34 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
       }
     };
     stripBoth(baseD, edgeD);
-    stripBoth(baseV, edgeV);
+    stripBoth(rootL, edgeL);
+    stripBoth(rootR, edgeR);
+  }
+
+  // GLOW-UP: LATERAL PEARL-LINE — 5 (hard cap) LARGE diamond scutes down the rear dorsal
+  // midline, the koi lateral line as caught pearl-light. Emitted INTO the tube geo so they
+  // ride the wave, but drawn with a SECOND material (bright mint emissive) via a geometry
+  // GROUP, so they GLOW while the body stays matte. Few + large — no sub-8px zipper (the f2
+  // dorsal-ridge sawtooth failure is on record). Apex-only (gated on pearlLine).
+  const pearlLine = model.pearlLine ?? 0;
+  const bodyIdxCount = indices.length;
+  if (pearlLine > 0) {
+    const cScute = new THREE.Color(0xbdf5d0);
+    for (let k = 0; k < 5; k++) {
+      const t = 0.46 + k * 0.07;
+      const i = Math.min(N - 1, Math.max(0, Math.round(t * (N - 1))));
+      const cy = yAt(t), cz = zzOf(i), topY = cy + radii[i] * OVAL_H;
+      const dl = 0.14 * scale, dw = 0.09 * scale, dh = 0.12 * scale;
+      const base = positions.length / 3;
+      positions.push(0, topY + dh, cz); normals.push(0, 1, 0);                 // apex
+      positions.push(0, topY, cz - dl); normals.push(0, 0.7, -0.7);            // fore
+      positions.push(0, topY, cz + dl); normals.push(0, 0.7, 0.7);            // aft
+      positions.push(-dw, topY + dh * 0.3, cz); normals.push(-0.9, 0.4, 0);   // left
+      positions.push(dw, topY + dh * 0.3, cz); normals.push(0.9, 0.4, 0);     // right
+      for (let q = 0; q < 5; q++) colors.push(cScute.r, cScute.g, cScute.b);
+      const A = base, F = base + 1, B = base + 2, L = base + 3, R = base + 4;
+      indices.push(A, F, R, A, R, B, A, B, L, A, L, F);                        // 4 side tris (base sits on the tube)
+    }
   }
 
   const geo = new THREE.BufferGeometry();
@@ -163,6 +203,7 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.setIndex(indices);
+  if (pearlLine > 0) { geo.addGroup(0, bodyIdxCount, 0); geo.addGroup(bodyIdxCount, indices.length - bodyIdxCount, 1); }
 
   // Jade hide material — vivid mid-value body, mint belly, a green emissive floor + fresnel
   // rim so it HOLDS jade when the cool studio fill backlights it (never near-black/teal).
@@ -176,7 +217,12 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   bodyMat.userData.baseEmissive = cBody;
   bodyMat.userData.baseIntensity = model.bodyGlow ?? 0.10;
 
-  const body = new THREE.Mesh(geo, bodyMat);
+  // GLOW-UP: the pearl-line scutes' bright mint emissive (group 1). Pushed to spineMats so
+  // Surge flares it; bloom-safe (opaque, saturated ~150° mint, value below white).
+  const scuteMat = pearlLine > 0 ? new THREE.MeshStandardMaterial({ color: 0x1f8a5c, emissive: 0x6ee8b0, emissiveIntensity: 0.9, roughness: 0.4, metalness: 0.0 }) : null;
+  if (scuteMat) { scuteMat.userData.baseEmissive = 0x6ee8b0; scuteMat.userData.baseIntensity = 0.9; spineMats.push(scuteMat); }
+
+  const body = new THREE.Mesh(geo, scuteMat ? [bodyMat, scuteMat] : bodyMat);
   body.frustumCulled = false;   // the CPU wave swings verts past the static bounds
   group.add(body);
 
@@ -199,6 +245,7 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     ampY: (model.bodyWaveAmpY ?? 0.16) * (model.bodyWaveAmp ?? 0.7) * scale,
     freq: model.bodyWaveFreq ?? 1.0,
     baseSpeed: model.bodyWaveSpeed ?? 3.4,
+    breath: model.waveBreath ?? 0,   // GLOW-UP: slow breathing meander — the S periodically deepens like a koi coasting
     phase: 0, spd: 0,
   };
 

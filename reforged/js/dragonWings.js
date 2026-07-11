@@ -1494,6 +1494,16 @@ function buildSilkFinWings(def, model, attach, giM) {
   applyFresnelRim(finMatRear, cRim);
   spineMats.push(finMat, finMatRear);
 
+  // GLOW-UP: fin-tip DEW GEMS — one small stretched octahedron riding each lobe's tipObj,
+  // a jeweled mint bead of pearl-light caught on the silk. Opaque saturated emissive (bloom-
+  // safe), in spineMats so Surge flares it; the dragon.js shimmer tick pulses it phase-lagged
+  // behind the pearl so the light visibly TRAVELS pearl → tips. Apex-only (gated on tipGems).
+  const gemOn = rayRelief > 0 && (model.tipGems ?? 0) > 0;
+  const cGem = model.tipGemColor ?? 0x35d69a;   // SATURATED mint (~152°, value ~0.84) → blooms in its OWN colour, never blows white (the pearl stays the only near-white)
+  const tipGemMat = gemOn ? new THREE.MeshStandardMaterial({ color: 0x1f8a5c, emissive: cGem, emissiveIntensity: 0.85, roughness: 0.32, metalness: 0.0 }) : null;
+  if (tipGemMat) { tipGemMat.userData.baseEmissive = cGem; tipGemMat.userData.baseIntensity = 0.85; spineMats.push(tipGemMat); }
+  const gemGeo = () => { const g = new THREE.OctahedronGeometry(0.17 * ws, 0); g.scale(1.7, 0.85, 0.85); return g; };   // one LARGE dew-drop per fin (few + large, not confetti)
+
   // A cambered koi-fin PETAL in the lobe plane: length +X, chord in Z (leading −Z,
   // trailing +Z), tapering to a forked/notched TIP. Painted leading-ray-dark → mid →
   // pale-tip along the length, with a green leading stripe. `rimAmt`>0 blends the
@@ -1623,6 +1633,9 @@ function buildSilkFinWings(def, model, attach, giM) {
       const tipObj = new THREE.Object3D();
       tipObj.position.set(len * side, 0, 0);
       furl.add(tipObj);
+      // GLOW-UP: ONE dew gem rides the tallest lobe's tip per fin (i===1) — a single jeweled
+      // bead of pearl-light at each fin crest, not a confetti row (few + large, bloom-safe).
+      if (tipGemMat && i === 1) { const gem = new THREE.Mesh(gemGeo(), tipGemMat); gem.position.set(len * side, camber * 0.4, 0); furl.add(gem); }
       (isRear ? wingTip : pivot).add(rest);
       lobePivots.push({ pivot: furl, idx: i, side, restY: rest.rotation.y, restZ: rest.rotation.z, restGroup: rest });
 
@@ -1630,8 +1643,8 @@ function buildSilkFinWings(def, model, attach, giM) {
       // BACKWARD (+z, toward the tail) and droop — a flowing river-veil, NOT side spikes.
       // Rooted on the wingTip near the rear lobe, OUTSIDE the lobe's rake/tilt rotation.
       if (isRear && streamerLen > 0.1) {
-        for (let s = 0; s < 2; s++) {
-          const sl = streamerLen * (1 - s * 0.2);
+        for (let s = 0; s < (model.streamerCount ?? 2); s++) {   // GLOW-UP: a 3rd staggered ribbon reads as continuous river-current
+          const sl = streamerLen * (1 - s * 0.16);
           // per-side + per-streamer PHASE breaks the dead L/R mirror (gate r1 dir 12: the
           // pair read as a perfect heart from behind) — the veils flow independently.
           const strip = new THREE.Mesh(streamerGeo(sl, 0.88 * ws, side * 0.8 + s * 0.5), finMatRear);   // BROAD veil ribbon → reads as mass, not hairline wire, in the rear fill (gate rework r4 dir 1)
@@ -1707,6 +1720,7 @@ function buildSilkFinWings(def, model, attach, giM) {
       wingElements,
       motifAnchor: pearl ? pearl.motifAnchor : null,
       pearlMat: pearl ? pearl.pearlMat : null,   // CP3: the ONE bloom breathes with the swim (dragon.js bodyWave tick)
+      tipGemMat,                                  // GLOW-UP: fin-tip dew gems — shimmer travels here from the pearl (phase-lagged)
     },
     wingMat: finMat,
     spineMats,

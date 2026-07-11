@@ -269,6 +269,7 @@ export const DRAGONS = {
         spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
         lobeCount: 3, lobeSpan: 4.2, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        moonTail: 0.35,                    // GLOW-UP f1 pre-echo: two small budding tail-flicks, so ascension reads bud → full veiltail bloom (no gems/scutes/motes yet — those are apex-exclusive)
         tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
         colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
           wingEmissive: 0x8ff0c2, scales: 0x8fe0be, horn: 0xc7ebcf,
@@ -281,9 +282,12 @@ export const DRAGONS = {
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
         bodyGirth: 0.52, bodyLength: 1.2,   // LONG, slim S-ribbon apex (the koi at full length)
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
-        lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
+        lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 2,
         rayRelief: 1.0,                    // CP3 apex-only: the silk-fin sails become LITERAL rayed koi veil-fins (3 fluted rays/blade). The lower forms keep smooth blades so ascension visibly confers the rays.
-        veilTail: 1.0,                     // CP3 apex-only: the documented "veil (finned) tail" made LITERAL — a median caudal fin flaring over the rear tube that whips with the body wave (edge-on to rear-chase → silhouette-safe).
+        moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
+        tipGems: 1, pearlLine: 1, riverMotes: 1,   // GLOW-UP apex: pearl-light hierarchy — fin-tip dew gems, a 5-scute lateral pearl-line, drifting river-spray motes (all bloom-safe opaque mint emissive).
+        lobeFlareBoost: 1.25, bodyWaveAmp: 0.9, waveBreath: 0.12,   // GLOW-UP motion: fan blooms harder on boost, a deeper swim, a slow breathing meander.
+        streamerCount: 3,                  // GLOW-UP: a third staggered streamer pair reads as continuous river-current
         tailStyle: 'simple', ridgeCount: 0, spineGlow: 0.3,   // NO dorsal ridge row (it read as a white sawtooth zipper — gate rework r3 dir 5); smooth koi back
         colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,
           wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,

@@ -73,7 +73,7 @@ const SPECS = {
     architecture: 'silk fin lobes',
     wingElements: [3, 3, 4],                     // §3 col 3: 3 lobes (forms 0–1) → 4 lobes (apex) — per-form count
     separation: 'notch',                         // §3 jade metric: overlap permitted; tip NOTCHES separate (depth ≥0.3× lobe len), NOT planform root gaps
-    triTargets: [2550, 3680, 4200],              // §5d ~targets (the koiSerpent is ONE swept tube bent by a vertex-shader wave — very cheap; the undulation is free in the shader, so the body geometry is lean)
+    triTargets: [2550, 3680, 5200],              // §5d ~targets. Apex bumped for the GLOW-UP spend (the "Jade Ascendant" pass: moon-tail veiltail + rayed fins + dew gems + pearl-line + triple streamers), still well under the 6000/form ceiling. The koiSerpent body itself stays a lean vertex-wave tube.
     // head:body — §4 jade bands (long serpent: 1:2.8–3.2 / 1:4.5–5.5 / 1:7.5–9.5).
     headBody: [[2.8, 3.2], [4.5, 5.5], [7.5, 9.5]],
     // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled UP to 0.32

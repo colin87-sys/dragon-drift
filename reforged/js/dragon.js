@@ -63,6 +63,7 @@ let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
 let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniforms,baseSpeed})
 let jadePearlMat = null;  // jade river-pearl material — the ONE bloom, breathes with the swim (CP3)
+let jadeTipGemMat = null; // jade fin-tip dew gems — pearl-light travels here, phase-lagged (glow-up)
 let tailOrbiters = null;  // orbiting tail shards / ring fragments
 
 // Materials animated at runtime (boost glow / fever tint)
@@ -195,6 +196,7 @@ export function createDragon(scene, def, riderDef) {
   bodySegs = result.parts.bodySegs || null;
   bodyWave = result.parts.bodyWave || null;   // koiSerpent travelling-wave uniform (jade)
   jadePearlMat = result.parts.pearlMat || null;   // jade river-pearl — breathes with the swim (CP3)
+  jadeTipGemMat = result.parts.tipGemMat || null; // jade fin-tip dew gems — shimmer travels here (glow-up)
   tailOrbiters = result.parts.tailOrbiters || null;
   glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
@@ -960,10 +962,11 @@ export function updateDragon(dt, player, time) {
     bodyWave.phase += dt * bodyWave.baseSpeed * (0.6 + bodyWave.spd * 0.7);
     const arr = bodyWave.geo.attributes.position.array;
     const { baseX, baseY, spineZ, ramp, amp, ampY, freq, phase, count } = bodyWave;
+    const breathMul = 1 + (bodyWave.breath || 0) * Math.sin(phase * 0.21);   // GLOW-UP: slow breathing meander — the S periodically deepens like a koi coasting
     for (let v = 0; v < count; v++) {
       const ph = freq * spineZ[v] + phase;
-      arr[v * 3] = baseX[v] + amp * ramp[v] * Math.sin(ph);
-      arr[v * 3 + 1] = baseY[v] + ampY * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+      arr[v * 3] = baseX[v] + amp * breathMul * ramp[v] * Math.sin(ph);
+      arr[v * 3 + 1] = baseY[v] + ampY * breathMul * ramp[v] * Math.sin(ph * 0.9 + 0.4);
     }
     bodyWave.geo.attributes.position.needsUpdate = true;
     // CP3: the river-pearl (the ONE bloom) BREATHES with the swim — a gentle ±14% emissive
@@ -972,6 +975,12 @@ export function updateDragon(dt, player, time) {
     if (jadePearlMat && !player.feverActive) {
       const pb = jadePearlMat.userData.baseIntensity ?? 0.55;
       jadePearlMat.emissiveIntensity = pb * (1 + 0.14 * Math.sin(bodyWave.phase * 0.5));
+    }
+    // GLOW-UP: pearl-light TRAVELS out to the fin-tip dew gems — same wave phase, LAGGED,
+    // so the shimmer visibly runs pearl → tips (sells the "lit by its own pearl" concept).
+    if (jadeTipGemMat && !player.feverActive) {
+      const gb = jadeTipGemMat.userData.baseIntensity ?? 1.2;
+      jadeTipGemMat.emissiveIntensity = gb * (1 + 0.28 * Math.sin(bodyWave.phase * 0.5 - 0.9));
     }
   }
   // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each
