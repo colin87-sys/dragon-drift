@@ -950,8 +950,8 @@ function buildSunfireTrail(def, model, _mats, anchor) {
         const bp = ringPt.clone().addScaledVector(dir, len * 0.52).addScaledVector(Nn, 0.14);
         (k === 0 ? [1, -1] : [sgn]).forEach((td) => {
           const tdir = dir.clone().addScaledVector(tangent, 0.55 * td).normalize();
-          group.add(flameFeather(A(bp), A(tdir), A(side), len * 0.22, wid * 0.5, 0.12,
-            [ramp4[1], ramp4[2], ramp4[3]], 0.12, { seg: 4, tipW: 0.16 }).group);
+          group.add(flameFeather(A(bp), A(tdir), A(side), len * 0.24, wid * 0.5, 0.16,
+            [ramp4[1], ramp4[2], ramp4[3]], 0.14, { seg: 5, tipW: 0.22, wave: { amp: 0.05, cycles: 0.75, phase: td > 0 ? 0 : Math.PI } }).group);
         });
       }
     });
@@ -981,7 +981,7 @@ function buildSunfireTrail(def, model, _mats, anchor) {
     const cx = Math.sin(phi) * 0.26 * rk * 1.1;
     const cyw = ay + Math.cos(phi) * 0.26 * rk * 0.9;
     group.add(flameFeather([cx, cyw, az], [Math.sin(phi) * 0.4, 0.15 + Math.cos(phi) * 0.2, 1], [1, 0, 0.2],
-      (0.9 + 0.4 * (i % 2)), 0.08, 0.14, M.hotRibbon, 0.12, { seg: 5, tipW: 0.14 }).group);
+      (0.6 + 0.3 * (i % 2)), 0.08, 0.14, M.hotRibbon, 0.12, { seg: 5, tipW: 0.20 }).group);   // shorter + a lobe tip → sparks that don't read as a floating pale needle
   }
   // TRAILING-FIRE FX EMITTERS — markers at the streamer + core tips (and the throat) so the rig
   // sheds ember-fire off the length of the tail (not just its root). Live in the tail group → carried
