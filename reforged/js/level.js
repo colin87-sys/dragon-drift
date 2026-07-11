@@ -673,11 +673,17 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     const left = CANYON_FORCE ? hi : lo + Math.floor(canyonRnd() * (hi - lo + 1));
     out.canyonStarts.push(ring.dist - 40);
     // The ribcage tunnel sweeps laterally to fake the body's curve; pick the side
-    // it starts on per run. gateFrom = start of the gate-suppression window: the
-    // canyon start marker (ring.dist - 40) pulled back by the ENTRY buffer so no
-    // crystal wall sits in the approach right before the mouth.
+    // it starts on per run. gateFrom = start of the gate-suppression window, pulled
+    // back by the ENTRY buffer so no crystal wall sits in the approach before the
+    // mouth. Anchor it to the SCHEDULED mouth (nextCanyonAt), not the realized start
+    // ring — the run begins on the first eligible ring >= nextCanyonAt, which can
+    // overshoot by a hop, and window (b) (the idle pre-emptive window) already
+    // anchors to nextCanyonAt. Anchoring here to ring.dist instead would leave a
+    // [nextCanyonAt-…, ring.dist-…) gap that the idle window suppresses but the
+    // active-run window doesn't — making suppression depend on ensure() granularity.
+    // (ring.dist >= nextCanyonAt at start, so Math.min picks nextCanyonAt.)
     return { type, left, idx: 0, total: left, swaySign: canyonRnd() < 0.5 ? -1 : 1,
-             gateFrom: ring.dist - 40 - CONFIG.canyonEntryBuffer };
+             gateFrom: Math.min(ring.dist, nextCanyonAt) - 40 - CONFIG.canyonEntryBuffer };
   }
 
   // Pick the geometry "kind" for this segment from the run type + its position in

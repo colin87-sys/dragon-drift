@@ -1,43 +1,64 @@
 // Per-frame regression: real play generates ~one waypoint per ensure() call, so
-// canyon segment neighbour data (prevX/nextX/span) must come from PERSISTENT
-// generator state, not chunk-local vars. Walks ensure() in 2m steps like play and
-// proves the emitted segment stream is IDENTICAL to a coarse 900m-chunk walk —
-// the strongest guard that neighbour smoothing no longer depends on ensure() step
-// size (it did, before delayed emission: nextX was only set when two canyon rings
-// shared a chunk).
+// canyon segment neighbour data (prevX/nextX/span) AND gate suppression must come
+// from PERSISTENT generator state, not chunk-local vars. We prove the emitted
+// stream is IDENTICAL between a 2m-step (per-frame) walk and a coarse 900m-chunk
+// walk — the strongest guard that the overlay no longer depends on ensure() step
+// size (it did, before: segment nextX was only set when two canyon rings shared a
+// chunk; gate suppression scanned only the current chunk).
+//
+// Swept across MANY seeds on purpose: the window-anchoring asymmetry that this
+// guards is seed-dependent (a gate only leaks when a canyon's realized start ring
+// overshoots its scheduled mouth AND a gate sits in that overshoot gap). Seed 1337
+// alone happens to be clean — a single-seed test gave false confidence.
 import { boot, check } from './browser.mjs';
 
-const { page, done } = await boot();
-const result = await page.evaluate(async () => {
-  const { createLevelGen } = await import('./js/level.js');
-  const walk = (step) => {
-    const gen = createLevelGen(1337);
-    const segs = [], starts = [], ends = [], suppress = [];
-    for (let d = step; d <= 9000; d += step) {
-      if (gen.generatedUntil >= d) continue;   // mirror main.js spawnAhead guard
-      const out = gen.ensure(d);
-      segs.push(...out.canyonSegments);
-      starts.push(...out.canyonStarts);
-      ends.push(...out.canyonEnds);
-      suppress.push(...out.canyonGateSuppress);
-    }
-    return { segs, starts, ends, suppress };
-  };
-  return { frame: walk(2), chunky: walk(900) }; // both end EXACTLY at 9000
+const SEEDS = [1337, 8, 9, 14, 15, 52, 99999, 424242, 271828, 31415, 161803, 2718];
+
+const result = await boot().then(async ({ page, done }) => {
+  const r = await page.evaluate(async (seeds) => {
+    const { createLevelGen } = await import('./js/level.js');
+    const walk = (seed, step) => {
+      const gen = createLevelGen(seed);
+      const segs = [], starts = [], ends = [], suppress = [];
+      for (let d = step; d <= 9000; d += step) {
+        if (gen.generatedUntil >= d) continue;   // mirror main.js spawnAhead guard
+        const out = gen.ensure(d);
+        segs.push(...out.canyonSegments);
+        starts.push(...out.canyonStarts);
+        ends.push(...out.canyonEnds);
+        suppress.push(...out.canyonGateSuppress);
+      }
+      return { segs, starts, ends, suppress };
+    };
+    const sortNum = (xs) => [...xs].sort((p, q) => p - q);
+    const perSeed = seeds.map((seed) => {
+      const frame = walk(seed, 2), chunky = walk(seed, 900);
+      return {
+        seed,
+        segsEqual: JSON.stringify(frame.segs) === JSON.stringify(chunky.segs),
+        suppressEqual:
+          JSON.stringify(sortNum(frame.suppress)) === JSON.stringify(sortNum(chunky.suppress)),
+        frame,
+      };
+    });
+    return { perSeed };
+  }, SEEDS);
+  await done();
+  return r;
 });
 
-const { segs } = result.frame;
+// Structural checks on the representative seed (1337).
+const rep = result.perSeed.find((s) => s.seed === 1337).frame;
+const { segs } = rep;
 check('canyons emit under per-frame generation', segs.length >= 8);
 // Every non-final segment knows its REAL next neighbour (runIdx is 0..runTotal-1).
 check('every non-final segment has nextX',
   segs.every((s) => s.runIdx === s.runTotal - 1 || s.nextX !== undefined));
-
 // Seam continuity: consecutive emitted segments in the same run chain exactly — the
 // held segment's nextX/nextY/spanFwd are backfilled from the following segment by
-// construction. (Note: a canyon can bridge a gauntlet corridor, so consecutive
-// SEGMENTS aren't always consecutive RINGS — spanFwd spans that gap, while the
-// backward `span` measures to the nearest ring by design. So we assert the forward
-// chain, not backward `span`.)
+// construction. (A canyon can bridge a gauntlet corridor, so consecutive SEGMENTS
+// aren't always consecutive RINGS — spanFwd spans that gap; the backward `span`
+// measures to the nearest ring by design. So we assert the forward chain.)
 let chained = true, spans = true;
 for (let i = 1; i < segs.length; i++) {
   const a = segs[i - 1], b = segs[i];
@@ -47,17 +68,15 @@ for (let i = 1; i < segs.length; i++) {
 }
 check('seam-to-seam corridor centres chain exactly', chained);
 check('spanFwd matches the real distance to the next segment', spans);
-check('segment stream is identical at per-frame and chunked granularity',
-  JSON.stringify(result.frame.segs) === JSON.stringify(result.chunky.segs));
-// Gate suppression must ALSO be granularity-invariant — it was the one live hole
-// PR-1 closed (per-frame emitted 0 suppressed gates, chunked emitted several).
-// Compare as SORTED sets: a gate can be suppressed in a different-indexed chunk at
-// each granularity, but the SET of suppressed dists must match.
-const sortNum = (xs) => [...xs].sort((p, q) => p - q);
-check('gate suppression is identical at per-frame and chunked granularity',
-  JSON.stringify(sortNum(result.frame.suppress)) === JSON.stringify(sortNum(result.chunky.suppress)));
 check('gate suppression actually fires under per-frame generation',
-  result.frame.suppress.length >= 1);
+  rep.suppress.length >= 1);
 
-console.log(`  (per-frame segments: ${segs.length}, runs: ${result.frame.starts.length}, suppressed gates: ${result.frame.suppress.length})`);
-await done();
+// The granularity-invariance guard, across every swept seed.
+const segMiss = result.perSeed.filter((s) => !s.segsEqual).map((s) => s.seed);
+const supMiss = result.perSeed.filter((s) => !s.suppressEqual).map((s) => s.seed);
+check(`segment stream identical per-frame vs chunked (${SEEDS.length} seeds)`,
+  segMiss.length === 0) || console.error('  segment mismatch seeds:', segMiss);
+check(`gate suppression identical per-frame vs chunked (${SEEDS.length} seeds)`,
+  supMiss.length === 0) || console.error('  suppression mismatch seeds:', supMiss);
+
+console.log(`  (rep seed 1337: ${segs.length} segments, ${rep.suppress.length} suppressed gates; swept ${SEEDS.length} seeds)`);

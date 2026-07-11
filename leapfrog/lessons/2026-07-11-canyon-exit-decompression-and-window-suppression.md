@@ -32,7 +32,17 @@ granularity, and the frame≡chunk test (`canyonframe.mjs` now compares `canyonG
 too) proves it. The subtlety that makes (c) granularity-exact: use the *entry* cursor for the
 blanket `[0, …]` window and a separate per-call `runWindows` list for runs that complete
 inside the chunk — using the end-of-call cursor for the whole chunk would over-suppress a
-chunk that both starts and ends a run.
+chunk that both starts and ends a run. **The other anchoring trap (caught by an adversarial
+60-seed sweep, missed by the single-seed test): every window that names the same feature
+must anchor to the same reference point.** The active-run window's `gateFrom` first anchored
+to the *realized* start ring (`ring.dist`), while the idle pre-emptive window anchored to
+the *scheduled* mouth (`nextCanyonAt`) — and the run starts on the first eligible ring `≥
+nextCanyonAt`, which overshoots by a hop. A gate in that overshoot gap was suppressed
+per-frame but missed in chunked play → the invariance was false for ~25% of seeds (seed 1337
+happened to be clean). Fix: anchor `gateFrom` to `min(ring.dist, nextCanyonAt)` too. The
+meta-lesson: **a single-seed granularity test gives false confidence for a seed-dependent
+invariant — sweep many seeds** (the hardened `canyonframe.mjs` sweeps 12, including the
+sweep's known-mismatching seeds).
 
 **→ Leapfrog.** The window-suppression machinery generalizes directly to **biome hazards**
 (§5.3): the same three-window pattern can keep vents/spouts/strikes out of a canyon or a
