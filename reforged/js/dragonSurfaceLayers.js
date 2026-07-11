@@ -60,22 +60,26 @@ registerSurfaceLayer('spineGlowLine', ({ def, model, attach, gi }) => {
 registerSurfaceLayer('scuteSeam', ({ def, model, attach, gi }) => {
   const meshes = [], flareMats = [];
   const g = model.spineGlow ?? 0.2;
-  const seamEmis = def.seamEmissive ?? 0x35b9ff;   // sat≈0.79 — blooms to the 0x8ed5ff ice read, stays cyan under ACES
+  // DEEP diffuse + a VIVID saturated emissive so the lit line reads as CONFIDENT CYAN dead-astern
+  // (a light diffuse washed the seam to pale specular at sat~0.25; the low-R saturated emissive blooms
+  // cyan, never white, under ACES+UnrealBloom — fixes the near-white/washout the checkpoint gate flagged).
+  const seamEmis = def.seamEmissive ?? 0x1ea6e8;   // R30 — stays blue-cyan even bloomed
   const mat = new THREE.MeshStandardMaterial({
-    color: def.seamDiffuse ?? 0x8ed5ff, emissive: seamEmis,
-    emissiveIntensity: (1.15 + g * 0.9) * gi, roughness: 0.3, metalness: 0.2, flatShading: true,
+    color: def.seamDiffuse ?? 0x0b3550, emissive: seamEmis,
+    emissiveIntensity: (1.7 + g * 1.1) * gi, roughness: 0.3, metalness: 0.15, flatShading: true,
   });
   mat.userData.baseEmissive = seamEmis;
-  mat.userData.baseIntensity = (1.15 + g * 0.9) * gi;
+  mat.userData.baseIntensity = (1.7 + g * 1.1) * gi;
   flareMats.push(mat);
-  const z0 = -1.8, z1 = 1.6, N = 16, w = 0.06, h = 0.13;
+  const z0 = -1.8, z1 = 1.6, N = 16, w = 0.06, h = 0.14;
   const verts = [], idx = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N;
     const z = z0 + t * (z1 - z0);
     const top = attach.keelTopAt(z);
-    const taper = Math.sin(Math.min(1, Math.min(t, 1 - t) * 4) * Math.PI / 2);   // 0 at the ends → 1 mid-back
-    const ww = w * (0.35 + 0.65 * taper), hh = h * (0.35 + 0.65 * taper);
+    const fadeIn = Math.sin(Math.min(1, t * 4) * Math.PI / 2);   // fade in at the FRONT only
+    const rearBias = 0.7 + 0.5 * t;                              // TALLER toward the rear (nearest the chase cam)
+    const ww = w * (0.5 + 0.5 * fadeIn), hh = h * fadeIn * rearBias;
     verts.push(-ww, top, z, 0, top + hh, z, ww, top, z);    // baseL · apex · baseR
   }
   for (let i = 0; i < N; i++) {
