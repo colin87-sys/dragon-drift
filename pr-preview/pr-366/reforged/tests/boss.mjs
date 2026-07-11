@@ -4116,19 +4116,29 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
 
   // --- HOLLOWGATE "THE WALLS CONVERGE": the iris fires waves that converge inward, with an occupiable safe lane ---
   {
-    // Occupiable safe lane: a player holding the aperture-bottom lane is NEVER hit by the iris.
+    // Occupiable safe lane — GEOMETRIC, not health-based: the boss suite never ticks the collision
+    // invuln decrementer, so a `game.health` assert freezes VACUOUS after the 4th registered hit (it
+    // would pass even against a solid wall aimed at the player — Fable post-build F1). Instead assert
+    // NO slow iris bullet (|vrel|<=14, reflectable) ever crosses the player's plane within the hit
+    // radius of a lane-holder — the sealed-gap law directly, immune to the invuln freeze + the fast
+    // pre-window murmur (|vrel|~25, a separate rel>15-warned read).
     const p = armAt('hollowgate');
     p.position.x = 0; p.position.y = 8;   // the bottom lane — the gap seeds at this angle each wave
     boss.debugRunSetpiece('archPass');
-    const h0 = game.health;
+    const hitR = CONFIG.BOSS.bulletRadius + CONFIG.playerRadius * CONFIG.BOSS.bulletHitScale;   // 1.294
+    let minCross = Infinity;
     for (let i = 0; i < 60 * 7; i++) {
       boss.debugClearShield();
       boss.updateBoss(1 / 60, p, 3 + i / 60);
+      for (const b of bullets.debugActiveBullets()) {
+        if (b.owner !== 'boss' || !b.reflectable || Math.abs(b.vrel) > 14) continue;   // iris kinematics only
+        if (Math.abs(b.rel) < 1.0) minCross = Math.min(minCross, Math.hypot(b.x - p.position.x, b.y - p.position.y));
+      }
       if (!boss.bossDebugState().setpiece && boss.bossDebugState().archWaveN > 0) break;   // pass ended
     }
     const stH = boss.bossDebugState();
     assert(stH.archWaveN >= 2, `HOLLOWGATE iris: the fly-through fires >=2 converging waves (${stH.archWaveN})`);
-    assert(game.health >= h0 - 1e-6, `HOLLOWGATE iris: a player holding the sealed open lane is NEVER hit (lost ${(h0 - game.health).toFixed(2)})`);
+    assert(minCross !== Infinity && minCross > hitR, `HOLLOWGATE iris: a lane-holder is NEVER hit — slow iris bullets cross the plane clear of the sealed lane (closest ${minCross === Infinity ? 'none seen' : minCross.toFixed(2)} > hitR ${hitR.toFixed(2)})`);
     boss.resetBoss();
     // Converge inward: re-drive, capture the iris bullets, assert each moves toward the aperture axis (x → poseX).
     const p2 = armAt('hollowgate'); p2.position.x = 0; p2.position.y = 8;
@@ -4147,14 +4157,244 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     }
     assert(converge > 0 && converge > diverge * 3, `HOLLOWGATE iris: the walls CONVERGE inward toward the aperture axis (converge ${converge} >> diverge ${diverge}; the minority are bullets that reached the iris floor and exited)`);
     boss.resetBoss();
-    // Coexist: no other boss fires the iris.
+    // Coexist: no other boss fires the iris — even while running its OWN moving setpiece.
     const p3 = armAt('marrowcoil');
-    for (let i = 0; i < 60 * 3; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p3, 2 + i / 60); }
-    assertEq(boss.bossDebugState().archWaveN, 0, 'HOLLOWGATE iris coexist: marrowcoil never fires an arch wave');
+    boss.debugRunSetpiece('ribThread');
+    for (let i = 0; i < 60 * 4; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p3, 2 + i / 60); }
+    assertEq(boss.bossDebugState().archWaveN, 0, 'HOLLOWGATE iris coexist: marrowcoil never fires an arch wave (even mid-setpiece)');
     boss.resetBoss();
   }
 
   ok('BATCH-3 (feel fixes): Karnvow return is DISTINCT + tag-free, Eitherwing outer pips clear the wall (sway-aware), Hollowgate iris converges with an occupiable safe lane (coexist inert) ✓');
+}
+
+// §5i.D — THE UNMASKED medley dispatcher (Part D, PR-1). The Apex's grazeForm:'medley'
+// QUOTES a shipped graze form per stage via grazeFormNow(). This gate proves: (1) stage 1
+// actually pays KARNVOW's holdFlinch (a live stare-down, not just a label read); (2) the
+// UNQUOTED stages 2/3 are inert (medleyForm null, zero stare payout — no leak); (3) the
+// dispatcher is BIT-IDENTICAL for static (non-medley) defs (karnvow/ashtalon read their
+// own grazeForm verbatim). The multi-form refill economy is covered by the lifecycle gate.
+{
+  let mTierN = 0, mFlinchN = 0, mOrbN = 0, mLapN = 0;
+  on('holdTier', () => { mTierN++; });
+  on('holdFlinch', () => { mFlinchN++; });
+  on('orbGraze', () => { mOrbN++; });
+  on('orbitLap', (e) => { mLapN = Math.max(mLapN, e.laps); });
+
+  // Drive the UNMASKED at a pinned stage with the player PARKED in the stare-down line
+  // (snapped to the boss pose every frame so |Δx|<5 |Δy|<7 always holds), banking hold
+  // time. Kept un-shielded so the stare-down can arm; the player never damages the boss,
+  // so it never defeats/refills — a clean single-stage window. Returns the observed forms +
+  // the payout counts, and the phaseIdx actually reached (the non-vacuous guard). Parking at
+  // the pose CENTRE also proves the anti-farm floor: dead-centre earns no orbit tick either.
+  const driveStare = (phase, secs) => {
+    mTierN = 0; mFlinchN = 0; mOrbN = 0; mLapN = 0;
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.setBossDebugPhase(phase);
+    boss.forceBoss(p, BOSS_ORDER.indexOf('unmasked'));
+    boss.debugForceFight(p);
+    const forms = new Set();
+    let phaseSeen = -1;
+    const N = Math.round(secs * 60);
+    for (let i = 0; i < N; i++) {
+      boss.debugClearShield();
+      const st = boss.bossDebugState();
+      p.position.x = st.poseX; p.position.y = st.poseY;   // park IN the threat line (orbit centre → out of band)
+      forms.add(st.medleyForm);
+      phaseSeen = st.phaseIdx;
+      boss.updateBoss(1 / 60, p, 2 + i / 60);
+    }
+    return { forms: [...forms], tierN: mTierN, flinchN: mFlinchN, orbN: mOrbN, phaseIdx: phaseSeen };
+  };
+
+  // (1) STAGE 1 quotes holdFlinch — and PAYS. A parked stare banks the ramp to the flinch.
+  const s1 = driveStare(1, 6);
+  assertEq(s1.phaseIdx, 0, 'medley drive stage 1 lands at phaseIdx 0 (guard: the payout test is not measuring the wrong stage)');
+  assert(s1.forms.length === 1 && s1.forms[0] === 'holdFlinch',
+    `stage 1 medleyForm is 'holdFlinch' throughout (saw ${JSON.stringify(s1.forms)})`);
+  assert(s1.tierN >= 3, `stage 1 stare-down banks the ramp (holdTier fired ${s1.tierN}× — tiers 1/2/3)`);
+  assert(s1.flinchN >= 1, `stage 1 stare-down PAYS the flinch (holdFlinch ${s1.flinchN}× — the quote is live, not a dead label)`);
+
+  // (2) STAGE 2 quotes orbitAnnulus (EITHERWING's wheel). The PARKED stare must NOT leak the
+  // stage-1 quote — grazeFormNow()==='orbitAnnulus', so the holdFlinch branch never enters
+  // (zero tier/flinch), and parking dead-centre earns zero orbit ticks (anti-farm floor).
+  const s2 = driveStare(2, 6);
+  assertEq(s2.phaseIdx, 1, 'medley drive stage 2 lands at phaseIdx 1 (guard)');
+  assert(s2.forms.length === 1 && s2.forms[0] === 'orbitAnnulus',
+    `stage 2 medleyForm is 'orbitAnnulus' throughout (saw ${JSON.stringify(s2.forms)})`);
+  assertEq(s2.tierN, 0, 'stage 2 pays NO stare tier (the stage-1 holdFlinch quote does NOT leak into stage 2)');
+  assertEq(s2.flinchN, 0, 'stage 2 pays NO flinch (no holdFlinch leak)');
+  assertEq(s2.orbN, 0, 'stage 2 parked dead-centre earns NO orbit tick (anti-farm floor — you must fly the band)');
+
+  // (2b) STAGE 2 orbit PAYS when flown: run the hosted figure-eight and co-rotate in the
+  // band → graze ticks + a full unbroken lap jackpot. This is the live proof the quote works.
+  {
+    mOrbN = 0; mLapN = 0;
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.setBossDebugPhase(2);
+    boss.forceBoss(p, BOSS_ORDER.indexOf('unmasked'));
+    boss.debugForceFight(p);
+    assertEq(boss.bossDebugState().phaseIdx, 1, 'stage-2 orbit drive lands at phaseIdx 1 (guard)');
+    assertEq(boss.bossDebugState().medleyForm, 'orbitAnnulus', 'stage-2 orbit drive: the quote is orbitAnnulus (guard)');
+    boss.debugRunSetpiece('figureEight');
+    for (let s = 0; s < 2; s++) { const st = boss.bossDebugState(); p.position.x = st.poseX; p.position.y = st.poseY; boss.updateBoss(1 / 60, p, 2.9 + s / 60); }
+    let sawActive = false, phi = 0;
+    for (let i = 0; i < 600; i++) {
+      boss.debugClearShield();
+      const st = boss.bossDebugState();
+      if (st.orbActive) {
+        sawActive = true;
+        phi += 3.0 * (1 / 60);   // ~a lap every 2.1s, inside the 8s window
+        const r = st.orbR.in + st.orbR.wall / 2;
+        p.position.x = st.poseX + r * Math.cos(phi);
+        p.position.y = st.poseY + r * Math.sin(phi);
+      }
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+    }
+    assert(sawActive, 'stage-2 orbit band goes live during the hosted figure-eight');
+    assert(mOrbN > 0, `stage-2 orbitAnnulus PAYS: co-rotating in the band banks graze ticks (${mOrbN} orbGraze) — the quote is live`);
+    assert(mLapN >= 1, `stage-2 orbitAnnulus PAYS the lap jackpot (laps=${mLapN})`);
+  }
+
+  // (2c) BEAT-FARM GUARD (§5i.D): during the frozen stage-transition cinematic the eight is
+  // parked at k=0 — the band must NOT go live, or a player circling the parked boss would
+  // farm ticks + a free lap with zero threat. Force the transition beat (debugStage>1 +
+  // debugPhase>1 arms it) and co-rotate: orbActive must stay false, zero ticks, for the beat.
+  {
+    mOrbN = 0;
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.setBossDebugPhase(2); boss.setBossDebugStage(2);   // open stage 2 THROUGH its transition beat
+    boss.forceBoss(p, BOSS_ORDER.indexOf('unmasked'));
+    boss.debugForceFight(p);
+    boss.debugRunSetpiece('figureEight');   // arm the eight UNDER the beat
+    let sawBeat = false, activeDuringBeat = false, ticksDuringBeat = 0, phi = 0;
+    let beatPoseX = null, beatPoseY = null, maxStationDrift = 0;
+    for (let i = 0; i < 240; i++) {
+      const st = boss.bossDebugState();
+      const inBeat = st.stageBeat;
+      if (inBeat) {
+        sawBeat = true;
+        if (st.orbActive) activeDuringBeat = true;
+        // The eight's clock is frozen through the beat → the boss HOLDS station (figureEight(0)).
+        // Track how far the pose drifts across the beat: it must stay put (no flying the eight).
+        if (beatPoseX == null) { beatPoseX = st.poseX; beatPoseY = st.poseY; }
+        maxStationDrift = Math.max(maxStationDrift, Math.hypot(st.poseX - beatPoseX, st.poseY - beatPoseY));
+        phi += 3.0 * (1 / 60);
+        const r = st.orbR.in + st.orbR.wall / 2;
+        p.position.x = st.poseX + r * Math.cos(phi);
+        p.position.y = st.poseY + r * Math.sin(phi);
+      }
+      const before = mOrbN;
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      // Attribute a tick to the beat only if the beat was active BOTH before AND after the
+      // update — the frame the beat ENDS mid-update, orbit legitimately goes live (that tick
+      // is post-beat, not a farm). This excludes the boundary artifact, not a real leak.
+      if (inBeat && boss.bossDebugState().stageBeat) ticksDuringBeat += (mOrbN - before);
+    }
+    assert(sawBeat, 'beat-farm guard: the stage-2 transition beat actually ran (guard: the anti-farm assert is not vacuous)');
+    assert(!activeDuringBeat, 'beat-farm guard: the orbit band stays DARK during the frozen crack cinematic (stageBeatT ≥ 0)');
+    assertEq(ticksDuringBeat, 0, 'beat-farm guard: circling the parked boss during the beat banks ZERO orbit ticks');
+    assert(maxStationDrift < 0.5, `beat-farm guard: the hosted eight is FROZEN at station through the beat — the boss holds still, not flying ⅓ of the eight during the crack (drift ${maxStationDrift.toFixed(2)}m)`);
+  }
+
+  // (2d) STAGE 2 also QUOTES MARROWCOIL's gapThread. It's a def-level flag but STAGE-SCOPED
+  // by construction: only stage 2's attack list carries a wall attack, so rows only ever
+  // register there. Prove BOTH: (i) the static scoping (only stage 2 has a wall attack), and
+  // (ii) live — firing the stage-2 wall attack under the flag registers a scorable row.
+  {
+    const WALL = new Set(['movingGap', 'curtain', 'crestfall', 'geyser']);
+    const wallByStage = BOSSES.unmasked.phases.map((ph) => ph.attacks.some((a) => WALL.has(a)));
+    assert(!wallByStage[0] && wallByStage[1] && !wallByStage[2],
+      `gapThread is stage-scoped: only stage 2 carries a wall attack (${JSON.stringify(wallByStage)})`);
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.setBossDebugPhase(2);
+    boss.forceBoss(p, BOSS_ORDER.indexOf('unmasked'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, 2 + i / 60); }
+    bullets.resetBossBullets?.();
+    boss.debugEmitAttack('movingGap', p);
+    assert(boss.bossDebugState().gapThreadRows.length > 0,
+      `stage-2 gapThread is live: firing the wall attack under def.gapThread registers a scorable row (${boss.bossDebugState().gapThreadRows.length})`);
+  }
+
+  // (3) STAGE 3 quotes shrinkDisc (KNELLGRAVE's toll-wall), wired via the iris→spiral swap.
+  // The parked stare must NOT leak the stage-1 quote (grazeFormNow()==='shrinkDisc', so the
+  // holdFlinch branch never enters). Then the LIVE proof: a spiral toll opens a disc pocket
+  // (off the player-lane anchorX fallback — no bell/organ, the unmasked declares none), and
+  // riding the growing RIM pays escalating graze ticks.
+  {
+    const s3 = driveStare(3, 6);
+    assertEq(s3.phaseIdx, 2, 'medley drive stage 3 lands at phaseIdx 2 (guard)');
+    assert(s3.forms.length === 1 && s3.forms[0] === 'shrinkDisc',
+      `stage 3 medleyForm is 'shrinkDisc' throughout (saw ${JSON.stringify(s3.forms)})`);
+    assertEq(s3.tierN, 0, 'stage 3 pays NO stare tier (the stage-1 holdFlinch quote does NOT leak into stage 3)');
+    assertEq(s3.flinchN, 0, 'stage 3 pays NO flinch (no holdFlinch leak)');
+    assertEq(s3.orbN, 0, 'stage 3 pays NO orbit tick (the stage-2 orbitAnnulus quote does NOT leak into stage 3)');
+
+    // The iris→spiral swap MUST hit BOTH the attacks list AND the rhythm phrase — the phrase
+    // machine fires phrase ids DIRECTLY, so swapping only attacks[] would leave iris firing in
+    // LIVE play and the disc would never arm (the debugEmitAttack ride below bypasses the phrase,
+    // so this static assert is what actually guards the drift-check's "swap both" requirement).
+    const s3attacks = BOSSES.unmasked.phases[2].attacks;
+    const s3phrase = BOSSES.unmasked.rhythm.phases[2].phrase.map((s) => s.attack);
+    assert(s3attacks.includes('spiral') && !s3attacks.includes('iris'), `stage 3 attacks list: iris→spiral (${JSON.stringify(s3attacks)})`);
+    assert(s3phrase.includes('spiral') && !s3phrase.includes('iris'), `stage 3 rhythm phrase: iris→spiral — the phrase machine fires ids directly (${JSON.stringify(s3phrase)})`);
+    assert(BOSSES.unmasked.phases[1].attacks.includes('iris'), "stage 2's iris is UNTOUCHED — only stage 3 swapped (double-gated: disc arms in the spiral branch AND grazeFormNow is orbitAnnulus in stage 2)");
+
+    // LIVE: a spiral toll arms the pocket + riding the rim pays.
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.setBossDebugPhase(3);
+    boss.forceBoss(p, BOSS_ORDER.indexOf('unmasked'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, 2 + i / 60); }
+    assertEq(boss.bossDebugState().phaseIdx, 2, 'stage-3 disc drive lands at phaseIdx 2 (guard)');
+    assertEq(boss.bossDebugState().medleyForm, 'shrinkDisc', 'stage-3 disc drive: the quote is shrinkDisc (guard)');
+    assert(boss.bossDebugState().discActive === false, 'stage-3 shrinkDisc: no pocket before the spiral toll');
+    let pockets = 0; on('discPocket', () => { pockets++; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);   // a spiral toll arms the wall
+    const d0 = boss.bossDebugState();
+    assert(d0.discActive && d0.discTollN === 1 && pockets >= 1,
+      `stage-3 shrinkDisc: a spiral toll opens a disc pocket off the anchorX fallback (active=${d0.discActive}, toll=${d0.discTollN})`);
+    let discTicks = 0; on('discGraze', () => { discTicks++; });
+    for (let i = 0; i < 200; i++) {
+      boss.debugClearShield();
+      const st = boss.bossDebugState();
+      if (st.discActive) { p.position.x = st.discX; p.position.y = st.discY - st.discR * (1 - st.discGeom.wallFrac / 2); }   // ride the lower rim as it grows
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (!boss.bossDebugState().discActive && discTicks > 0) break;
+    }
+    assert(discTicks > 0, `stage-3 shrinkDisc PAYS: riding the toll-wall rim banks graze ticks (${discTicks} discGraze) — the quote is live`);
+    boss.resetBoss();
+  }
+
+  // (3) BIT-IDENTICAL for static defs: a non-medley boss's medleyForm === its own grazeForm
+  // verbatim (the swap changed zero behaviour for the shipped roster). Two distinct forms.
+  const staticPass = (name) => {
+    boss.resetBoss();
+    boss.setBossDebugPhase(1); boss.setBossDebugStage(1);   // clear the debugPhaseJump/debugStagePin left by the medley drives (they survive resetBoss) so this opens at phase 0, stage 1
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf(name));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, 2 + i / 60); }
+    return boss.bossDebugState().medleyForm;
+  };
+  assertEq(staticPass('karnvow'), BOSSES.karnvow.grazeForm, "karnvow (static holdFlinch) reads its own grazeForm — dispatcher bit-identical");
+  assertEq(staticPass('ashtalon'), BOSSES.ashtalon.grazeForm, "ashtalon (static slipstream) reads its own grazeForm — dispatcher bit-identical");
+  assert(staticPass('voidmaw') == null, 'voidmaw (no grazeForm) reads null — dispatcher null-safe passthrough');
+
+  boss.resetBoss(); boss.setBossDebugPhase(1); boss.setBossDebugStage(1);   // HAZARD: debugPhaseJump/debugStagePin survive resetBoss — clear them for later blocks
+  ok('§5i.D UNMASKED MEDLEY (PR-3, complete): stage 1 pays holdFlinch, stage 2 pays orbitAnnulus (flown) + gapThread + beat-farm guard, stage 3 pays shrinkDisc (spiral toll-wall off anchorX); no cross-stage leak, dispatcher bit-identical for static defs ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);
