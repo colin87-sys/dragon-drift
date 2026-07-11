@@ -826,13 +826,18 @@ function buildBladeFeatherWings(def, model, attach, giM) {
         verts.push(x, y, z);
         c.copy(cb).lerp(ct, t * t);
         c.lerp(cTrail, Math.max(0, cf - 0.5) * 0.7);   // trailing half deepens → visible chord structure (dir 6)
-        // Falcon barring (main blades only, not coverts): two wide chevron cross-bars in the
-        // outer-mid span, before the gold tip. A soft-edged darken so it reads as plumage, not paint.
-        if (bar && barAmt > 0 && t > 0.30 && t < 0.86) {
+        // Falcon barring (main blades only, not coverts): two CRISP chevron cross-bars on the
+        // OUTBOARD LIGHTER half of the blade (where the navy has sky to bite into — bars on the
+        // dark inboard base are wasted), before the gold tip. Hard flat core + short ramp so the
+        // bars read as deliberate plumage bands, not airbrushed smudges (crisp poly-aligned look).
+        if (bar && barAmt > 0 && t > 0.42 && t < 0.86) {
           const chev = t - Math.abs(cf - 0.5) * 0.10;   // V pointing toward the tip
           let b = 0;
-          for (const bc of [0.46, 0.70]) b = Math.max(b, 1 - Math.min(1, Math.abs(chev - bc) / 0.09));
-          c.lerp(cBar, barAmt * b * 0.85);
+          for (const bc of [0.57, 0.77]) {
+            const d = Math.abs(chev - bc);
+            b = Math.max(b, d < 0.052 ? 1 : Math.max(0, 1 - (d - 0.052) / 0.03));   // flat core + short ramp = crisp edge
+          }
+          c.lerp(cBar, barAmt * b * 0.92);
         }
         // Gold DIFFUSE tip-paint confined to the outer ~12% with a CRISP boundary (gate r4
         // dir 7: law-9 tips only — no gradient wash down a third of the blade).
