@@ -519,8 +519,9 @@ function writeMatrix(band, i, d) {
 function updateBandVisibility(band) {
   band.mesh.visible = !arenaPropsGate && band.data.some(
     (d) => band.def.biomes.includes(biomeIndexAt(Math.max(d.dist, 0))));
-  // N10c: foam draws only where props draw, foam is on, and tier ≤ 1.
-  band.foam.visible = foamVisible(band.mesh.visible);
+  // N10c: foam draws only where props draw, foam is on, tier ≤ 1, and the archetype
+  // opts in (archruin/slab foam is always parked — don't issue the degenerate draw).
+  band.foam.visible = foamVisible(band.mesh.visible) && band.def.foam !== false;
 }
 
 function recycleBand(band, playerDist) {

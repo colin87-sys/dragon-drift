@@ -54,14 +54,18 @@ const foamMaterial = new THREE.ShaderMaterial({
     varying float vFogDepth;
     float _fhash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main() {
-      // Radial band: peak mid-ring, feather to the inner + outer edges.
-      float band = smoothstep(${INNER.toFixed(2)}, 0.76, vRadius) * (1.0 - smoothstep(0.84, 1.0, vRadius));
+      // Radial band: broad, peaking just inside the outer edge, feathering both ways.
+      float band = smoothstep(${INNER.toFixed(2)}, 0.80, vRadius) * (1.0 - smoothstep(0.90, 1.0, vRadius));
       // Broken, time-pulsed edge in WORLD cells (props are absolute world-z) — the
-      // same hash idiom the water's crest foam uses, so they read as one system.
-      float brk = _fhash(floor(vWPos.xz * 3.0) + floor(time * 1.6));
-      float foam = band * smoothstep(0.35, 1.0, brk);
+      // same hash idiom the water's crest foam uses, so they read as one system. Two
+      // scales of break so the ring tears at both coarse + fine cells (reads as churn).
+      float brkC = _fhash(floor(vWPos.xz * 3.0) + floor(time * 1.6));
+      float brkF = _fhash(floor(vWPos.xz * 7.0) + floor(time * 1.6) * 1.7);
+      float brk = smoothstep(0.25, 0.85, brkC) * (0.55 + 0.45 * brkF);
+      float foam = band * brk;
       float fog = 1.0 - smoothstep(fogNear, fogFar, vFogDepth); // die into the haze
-      gl_FragColor = vec4(vec3(0.82, 0.92, 1.0), foam * fog * 0.6);
+      // Bright, near-opaque churn (was a faint 0.6 veil that barely read at distance).
+      gl_FragColor = vec4(vec3(0.90, 0.96, 1.0), foam * fog * 0.95);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`,
