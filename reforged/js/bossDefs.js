@@ -991,6 +991,16 @@ export const BOSSES = {
     // cleared before the first bullet can exist (boss.js owns both edges).
     hudSew: true,
     scale: 1.3,               // medium bust — presence is the WEB, not the body mass (L141); TUNE in studio
+    // §COMFORT (owner playtest: "the hand locks are WAY too close to the border"): she has no
+    // holdSway override, so she rode the roster-DEFAULT ±5.0 station strafe (boss.js:2522) — a
+    // dominant term throwing her ±HAND_X palms toward the ±13 kill wall. A LOOM is anchored to its
+    // web (off-screen arena anchors); it shouldn't strafe (the BRINEHOLM "an island shouldn't
+    // strafe" precedent). Calm the strafe AND the idle yaw-wobble (idleWobble) — the wobble projects
+    // her far-forward hands (HAND_Z 4.6) ~±0.7 world toward the wall. Together these keep the palms
+    // inside the 10.4 comfort band at the chase-equilibrium worst case. Idle life stays on bustPivot bob.
+    holdSway: { amp: 0.5, freq: 0.5 },
+    idleWobble: 0.3,          // calm the ±0.12 placeGroup yaw wobble to ±0.036 (anchored loom, not a flying dragon)
+    recoilOrgans: ['palmL', 'palmR'],   // §COMFORT-D2: dropped from the paint set while the thread-cut recoil flings the hands toward the wall (model.handsFlung) — loomHeart stays the strike-window anchor
     // §5i CANCEL-CONVERT MOTE HARVEST: a cut thread blooms into falling surge-motes;
     // steer the bloom to harvest (offered once per phase). Def-gated (reuses slot 6's
     // continuous-graze detector); shipped bosses inert.
