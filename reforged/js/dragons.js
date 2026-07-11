@@ -536,6 +536,9 @@ export const DRAGONS = {
       // Wing (scallopCrescentWings) apex reference dials; forms dial each rung.
       scallopLobes: 4, dihedral: 13, glideRake: 1.0, edgeBand: 1,
       constellations: 8, wingCreases: 1, cowlPlates: 1,
+      // Head (vesperCatHead) + tail (splitFanTail) apex reference dials.
+      earFinPairs: 3, eyeAlmond: 1.0,
+      splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
     },
     // I1 ladder (torso-chine increment): body value DECREASES up the rungs; the
     // wing/head/tail dials are placeholders until I2/I3. The full knapping ladder
@@ -543,23 +546,27 @@ export const DRAGONS = {
     forms: [
       { spanScale: 0.70, glowLevel: 0.25, eyeScale: 1.30, headScale: 1.25, igniteStage: 0,
         scallopLobes: 2, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
-        colors: { body: 0x111522, belly: 0x1f2942, wingOuter: 0x111522, eye: 0x96d62a } },
+        earFinPairs: 1, eyeAlmond: 0, splitFan: 0, tailFinSpread: 0, tailStretch: 1.0, tailRudder: 0,
+        colors: { body: 0x111522, belly: 0x1f2942, wingOuter: 0x111522, eye: 0x54c81e } },
       { spanScale: 0.82, glowLevel: 0.50, eyeScale: 1.05, headScale: 1.12, igniteStage: 1,
         scallopLobes: 3, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
-        colors: { body: 0x0d111b, belly: 0x1c2338, wingOuter: 0x0d111b, eye: 0xa6de3f } },
+        earFinPairs: 2, eyeAlmond: 0.4, splitFan: 1, tailFinSpread: 0, tailStretch: 1.0, tailRudder: 0,
+        colors: { body: 0x0d111b, belly: 0x1c2338, wingOuter: 0x0d111b, eye: 0x5cd41e } },
       { spanScale: 0.92, glowLevel: 0.75, eyeScale: 0.90, headScale: 1.05, igniteStage: 2,
         scallopLobes: 4, glideRake: 0.5, constellations: 5, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
-        colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0xafe24f } },
+        earFinPairs: 2, eyeAlmond: 0.7, splitFan: 2, tailFinSpread: 1.0, tailStretch: 1.0, tailRudder: 0,
+        colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0x62dc22 } },
       { spanScale: 1.00, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
         scallopLobes: 4, glideRake: 1.0, constellations: 8, wingCreases: 1, cowlPlates: 1, edgeBand: 1,
-        colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0xb6e85a } },
+        earFinPairs: 3, eyeAlmond: 1.0, splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
+        colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0x6ae62a } },
     ],
     fx: { auraColor: '40,72,150', auraIdle: 0.03, sparkle: false },
     hasStyle: true,   // keep the cold ion-blue trail in Surge (never warmed to white)
     body: 0x070a11, belly: 0x1a2234,
     wingInner: 0x0a0e17, wingOuter: 0x070a11,
-    eye: 0x96d62a,
-    apexEye: 0xb6e85a, apexSeam: 0x2050e8, coreGlow: 0x2050e8, surgeHi: 0x4d86ff,
+    eye: 0x54c81e,
+    apexEye: 0x6ae62a, apexSeam: 0x2050e8, coreGlow: 0x2050e8, surgeHi: 0x4d86ff,
     trail: 0x24427a, boostTrail: 0x3d63c8,
   },
 

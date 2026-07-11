@@ -374,10 +374,11 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
 function sweepOf() { return 0.30; }
 registerWings('scallopCrescentWings', buildScallopCrescentWings);
 
-// ── HEAD: 'vesperCatHead' (I1 PLACEHOLDER) ────────────────────────────────────
-// A blunt dark faceted cat-wedge + the acid-green cat eyes (the ONE always-on
-// accent — the single deliberate carry-over from the retired identity). The full
-// ear-fin nubs + almond eye ladder land in I3.
+// ── HEAD: 'vesperCatHead' ─────────────────────────────────────────────────────
+// A blunt faceted CAT-WEDGE (short muzzle, broad brow, NO horns). The eyes are the
+// face's whole budget — the roster's LARGEST apex eye, acid-green, laddering round
+// kitten → almond. Ear-fin nubs (pairs by the ladder) cant ~±10° off-sagittal so
+// they read as the top-centre silhouette punctuation from the chase cam.
 function buildVesperCatHead(def, model, mats) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
@@ -385,7 +386,9 @@ function buildVesperCatHead(def, model, mats) {
   const hs = model.headScale ?? 1;
   const eyeMat = mats.eyeMat;
 
-  // Blunt cat-wedge: short muzzle, broad brow, pointing −Z.
+  // Blunt cat-wedge: broad brow, short muzzle, pointing −Z (~12 big facets via the
+  // chined loft). Value-banded like the torso so the wedge reads knapped.
+  const bandMat = (k) => (k === 1 || k === 2) ? M.dorsalFacet : (k >= 4) ? M.belly : M.bodyFlat;
   const skull = [
     { z: 0.34, rx: 0.26 * hs, ry: 0.28 * hs, cy: 0.02 },   // occiput
     { z: -0.02, rx: 0.32 * hs, ry: 0.30 * hs, cy: 0.03 },  // brow (widest)
@@ -393,15 +396,40 @@ function buildVesperCatHead(def, model, mats) {
     { z: -0.74, rx: 0.13 * hs, ry: 0.13 * hs, cy: -0.06 }, // short muzzle
     { z: -0.94, rx: 0.06 * hs, ry: 0.06 * hs, cy: -0.08 }, // muzzle tip
   ];
-  group.add(knapLoft(skull, CHINE_PROFILE, M.bodyFlat));
+  group.add(knapLoft(skull, CHINE_PROFILE, bandMat));
   const headLength = 1.3 * hs;
 
-  // Big acid-green cat eyes — the largest eye on the roster (ladder lands in I3).
-  const es = model.eyeScale ?? 1;
+  // EAR-FIN NUBS — clean swept knapped fin-blades on the occiput (cat-ear read), pairs
+  // by the ladder (1→3): the FRONT pair dominant, later pairs a smaller fin-crest so
+  // they never crowd into a spiky fringe. Each is ONE bold canted flat blade — its base
+  // offset in z tilts the face ~±12° off-sagittal so it reads from behind (the
+  // top-centre silhouette punctuation), NOT a horn.
+  const pairs = Math.round(model.earFinPairs ?? 1);
+  for (let p = 0; p < pairs; p++) {
+    const z0 = 0.18 * hs - p * 0.16 * hs;             // front pair = the "ears", later pairs a small crest
+    const sc = 1 - 0.30 * p;
+    const h = 0.20 * hs * sc, wide = 0.20 * hs * sc;  // SHORT + BROAD (an ear-flake, not a needle)
+    for (const side of [1, -1]) {
+      const bx = side * 0.12 * hs, by = 0.15 * hs;
+      const baseF = [bx - side * 0.02 * hs, by, z0 - wide * 0.5];       // front base
+      const baseB = [bx + side * 0.11 * hs * sc, by - 0.03 * hs, z0 + wide * 0.5];  // back-outer base (wide span → the ±12° cant)
+      const tip = [bx + side * 0.07 * hs * sc, by + h, z0 - wide * 0.1]; // moderate up + out, swept slightly forward like a cat ear
+      group.add(flatTriMesh([[baseF, tip, baseB]], M.dorsalFacet));
+    }
+  }
+
+  // BIG acid-green cat eyes — round kitten (f0) → almond (f3): eyeScale drives size,
+  // eyeAlmond drives the elongation (round 1.2×1.1 → almond 1.75×0.58). Set HIGH on the
+  // BROW plane (not low on the muzzle) and CONVERGED forward so both almonds face the
+  // camera and OWN the face-front money shot (Fable I3 gate, issue 1).
+  const es = model.eyeScale ?? 1, alm = model.eyeAlmond ?? 1;
+  const sx = 1.2 + 0.55 * alm, sy = 1.1 - 0.52 * alm;
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.12 * hs * es, 0), eyeMat);
-    eye.position.set(side * 0.22 * hs, 0.06 * hs, -0.26 * hs);
-    eye.scale.set(1.5, 0.85, 1);
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.172 * hs * es, 0), eyeMat);   // roster's LARGEST eye (identity claim, §6)
+    eye.position.set(side * 0.19 * hs, 0.14 * hs, -0.15 * hs);   // high on the brow, forward
+    eye.scale.set(sx, sy, 1);
+    eye.rotation.y = side * 0.28;          // converge toward the front (face the camera)
+    eye.rotation.z = -side * 0.18 * alm;   // almond tilt (outer corner lifts) as it narrows
     group.add(eye);
   }
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.18 * hs, 0.30 * hs); group.add(motifAnchor);
@@ -409,21 +437,85 @@ function buildVesperCatHead(def, model, mats) {
 }
 registerHead('vesperCatHead', buildVesperCatHead);
 
-// ── TAIL: 'splitFanTail' (I1 PLACEHOLDER) ─────────────────────────────────────
-// A long thin CHINED stem tapering to a nub. The twin split fan-fins + port-fin
-// white-constellation nod (NO red prosthetic) land in I3.
+// ── TAIL: 'splitFanTail' ──────────────────────────────────────────────────────
+// A long thin CHINED stem closing in TWIN split fan-fins — each fin knapped petals
+// pitched ~+15° toward the chase lens (the cant law). The signature nod to the
+// Night-Fury "one fin is different" read is an ASYMMETRY OF MARKING (NO red
+// prosthetic): the PORT fin alone carries a white-speckle constellation.
 function buildSplitFanTail(def, model, mats, anchor) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
   const M = vesperMats(def, glow, model.igniteStage);
   const a = anchor ?? { y: 0.13, z: 2.08 };
-  const T = (model.tailLength ?? 1) * 2.8;
-  const nSeg = 7;
+  const stretch = model.tailStretch ?? 1;
+  const T = (model.tailLength ?? 1) * 2.8 * stretch;
+  const nSeg = Math.round(model.tailSegments ?? 7);
   const rAt = (t) => 0.13 * Math.pow(1 - t * 0.94, 0.7) + 0.01;
   const curveY = (t) => -0.06 * T * Math.sin(Math.PI * t * 0.9);
   const stem = [];
   for (let i = 0; i <= nSeg; i++) { const t = i / nSeg; stem.push({ z: a.z + t * T, rx: rAt(t), ry: rAt(t), cy: a.y + curveY(t) }); }
-  group.add(knapLoft(stem, CHINE_PROFILE, M.bodyFlat, false));
+  const bandMat = (k) => (k === 1 || k === 2) ? M.dorsalFacet : (k >= 4) ? M.belly : M.bodyFlat;
+  group.add(knapLoft(stem, CHINE_PROFILE, bandMat, false));
+
+  const tip = stem[nSeg];   // {z, cy, ...}
+  const tx = 0, ty = tip.cy, tz = tip.z;
+  const spread = model.tailFinSpread ?? 0;
+  const splitFan = Math.round(model.splitFan ?? 0);   // 0 spade nub · 1 twin nubs · 2 split fan
+  const speckle = M.speckle;
+
+  if (splitFan <= 0) {
+    // f0 — a small spade nub (a single flat knapped spade closing the stem).
+    group.add(flatTriMesh([
+      [[tx, ty + 0.05, tz], [tx - 0.10, ty, tz + 0.12], [tx + 0.10, ty, tz + 0.12]],
+      [[tx - 0.10, ty, tz + 0.12], [tx, ty - 0.03, tz + 0.30], [tx + 0.10, ty, tz + 0.12]],
+    ], M.bodyFlat));
+  } else if (splitFan === 1) {
+    // f1 — twin nubs (the split begins): two small angled spade nubs.
+    for (const side of [1, -1]) {
+      const nx = side * 0.07;
+      group.add(flatTriMesh([
+        [[nx, ty + 0.04, tz], [nx + side * 0.10, ty, tz + 0.10], [nx, ty - 0.02, tz + 0.26]],
+      ], M.bodyFlat));
+    }
+  } else {
+    // f2/f3 — TWIN SPLIT FAN-FINS: each fin = 3 knapped petals splayed by `spread`,
+    // faces pitched ~+15° toward the chase lens (the cant law) so the bright rim (seam,
+    // wired in I4) catches the rear cam. Port (side −1) carries the constellation nod.
+    for (const side of [1, -1]) {
+      const petals = 3;
+      // Separate the port + starboard clusters with a visible GAP so the TWIN read is
+      // legible (not one symmetric spray) — the anti-fray + twin fix share this (Fable
+      // I3 gate, issue 3).
+      const rootX = side * 0.13, rootZ = tz;
+      for (let p = 0; p < petals; p++) {
+        const ang = side * (0.20 + 0.40 * (p / (petals - 1))) * spread;   // fan splay (from the cluster)
+        const len = (0.46 - 0.04 * p) * (0.7 + 0.5 * spread);
+        const px = rootX + Math.sin(ang) * (0.14 + 0.30 * spread), pz = rootZ + Math.cos(ang) * (0.12 + len);
+        const lift = ty + 0.13 + 0.045 * p;                         // pitched +15° up-back toward the lens
+        // BROAD knapped-diamond petal (a leaf, not a quill): a wide root + a wide mid so
+        // it reads solid + faceted from the chase cam, never a frayed brush.
+        const wIn = 0.055, wMid = 0.10 + 0.02 * p;
+        const rIn = [rootX - side * wIn, ty, rootZ + 0.04];
+        const rOut = [rootX + side * wIn, ty - 0.01, rootZ + 0.10];
+        const tipIn = [px - side * wMid, lift, pz - 0.04];
+        const tipOut = [px + side * wMid, lift - 0.02, pz + 0.03];
+        group.add(flatTriMesh([[rIn, tipIn, tipOut], [rIn, tipOut, rOut]], p % 2 ? M.dorsalFacet : M.bodyFlat));
+        // PORT-FIN CONSTELLATION (asymmetry nod) — diffuse flecks on the port fin only.
+        // Zero-tri-cost identity: fresh + legally clean (NO red prosthetic).
+        if (side === -1) {
+          const fx = (rIn[0] + tipIn[0]) / 2, fy = (rIn[1] + tipIn[1]) / 2 + 0.02, fz = (rIn[2] + tipIn[2]) / 2;
+          const r = 0.035;
+          group.add(flatTriMesh([[[fx - r, fy, fz], [fx + r, fy + 0.004, fz - r * 0.3], [fx, fy, fz + r]]], speckle));
+        }
+      }
+    }
+    // f3 — a central RUDDER facet between the fins (the finished-blade tail closer).
+    if ((model.tailRudder ?? 0) > 0) {
+      group.add(flatTriMesh([
+        [[0, ty + 0.02, tz], [0, ty + 0.30, tz + 0.10], [0, ty - 0.02, tz + 0.40]],
+      ], M.dorsalFacet));
+    }
+  }
   return { group, segs: [], accentMats: [] };
 }
 registerTail('splitFanTail', buildSplitFanTail);
