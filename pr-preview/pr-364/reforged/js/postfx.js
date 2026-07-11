@@ -26,6 +26,7 @@ const GradingShader = {
     aberration: { value: 0.0 },    // chromatic aberration strength
     lift: { value: 0.0 },          // fever warm-glow pulse
     liftTint: { value: new THREE.Vector3(0.10, 0.03, 0.08) }, // wash hue (magenta default)
+    uDither: { value: 1.0 },       // N1: 1 = dither ON (kill with ?dither=0), 0 = shipped
   },
   vertexShader: /* glsl */`
     varying vec2 vUv;
@@ -42,6 +43,7 @@ const GradingShader = {
     uniform float aberration;
     uniform float lift;
     uniform vec3 liftTint;
+    uniform float uDither;
     varying vec2 vUv;
     void main() {
       vec2 d = vUv - 0.5;
@@ -64,6 +66,12 @@ const GradingShader = {
       col += liftTint * lift * (1.0 - r2 * 1.6);
       // Vignette
       col *= 1.0 - vignette * smoothstep(0.18, 0.95, r2 * 2.4);
+      // N1 — dither the last step before the 8-bit write (Jimenez interleaved
+      // gradient noise, ±0.5 LSB): kills banding on the big smooth sky/fog/water
+      // gradients. Cheap (~4 ALU); covers tier0/1 (the composed path). ?dither=0
+      // zeroes uDither for a clean A/B.
+      float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+      col += (ign - 0.5) * (1.0 / 255.0) * uDither;
       gl_FragColor = vec4(col, 1.0);
     }`,
 };
@@ -253,6 +261,12 @@ export function setPostSize(w, h) {
 export function setPostPixelRatio(r) {
   postfx._pixelRatio = r;
   applySize();
+}
+
+// N1 — toggle the grading-pass dither (default on). ?dither=0 turns it off for a
+// clean before/after A/B; the shipped look is dither ON.
+export function setDither(on) {
+  if (postfx.gradingPass) postfx.gradingPass.uniforms.uDither.value = on ? 1.0 : 0.0;
 }
 
 // Tier 0: full bloom at half res + CA. Tier 1: lighter bloom at quarter res,

@@ -65,7 +65,7 @@ export const DRAGONS = {
           apexSeam: 0x9cbcd6, eye: 0x8ec6ee, coreGlow: 0x9cc0dc } },
       // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
       // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
-      { wingScale: 0.9, bladeSpan: 4.1, bladeCount: 5, bladeDetail: 0.92,   // FALCON-COMPACT (owner CP3): 7.3→4.1 (ladder ×0.56)
+      { wingScale: 0.9, bladeSpan: 4.1, bladeCount: 5, bladeDetail: 0.92, bladeBarring: 0.5,   // FALCON-COMPACT (owner CP3): 7.3→4.1 (ladder ×0.56); bladeBarring 0.5 = the barring begins (gated: none at f0 → half at f1 → full at apex)
         spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
         keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
         crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,   // CP2 r3 dir 3: mute crest gold to body-hue + seat the sprouts into the crown (0.13 = as deep as the §7 motif-invariance drift cap allows) so they root rather than hover
@@ -78,7 +78,7 @@ export const DRAGONS = {
       // Radiant apex (form 2) — proud upright S, keen almond eyes, high-aspect
       // comb, 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 6.5, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // FALCON-COMPACT (owner CP3 r2): span reined 11.6 → 6.5 (a 9.4 first pass still read "way too long" in-flight vs Phoenix). Apex chase-cam width now ≈ Phoenix parity (1.06×, a hair of falcon margin); world-span 16.3→~8.8, span:body ~1.16. This drops below the old §5d falcon floor (1.6) — an OWNER-DIRECTED override of that doctrine guess; the swept blade-comb identity is kept, just at falcon-stoop reach. Blade length adds no tris; denser neck fuses the segment grooves
+      { wingScale: 1.0, bladeSpan: 6.5, bladeCount: 5, bladeDetail: 1.0, bladeBarring: 1.0, neckBlend: 1.45,   // OPTIMIZE+PIZZAZZ (owner): bladeDetail 1.45→1.0 reclaims ~1024 tris (the compacted blades were over-tessellated for their new size, ~sub-8px), and bladeBarring 1.0 paints FREE falcon cross-bars on the primaries (the headline identity gain). FALCON-COMPACT (owner CP3 r2): span reined 11.6 → 6.5 (a 9.4 first pass still read "way too long" in-flight vs Phoenix). Apex chase-cam width now ≈ Phoenix parity (1.06×, a hair of falcon margin); world-span 16.3→~8.8, span:body ~1.16. This drops below the old §5d falcon floor (1.6) — an OWNER-DIRECTED override of that doctrine guess; the swept blade-comb identity is kept, just at falcon-stoop reach. Blade length adds no tris; denser neck fuses the segment grooves
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
         // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
         // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
@@ -87,10 +87,10 @@ export const DRAGONS = {
         bladeChord: 0.133, bladeStagger: 0.28, bladeRake: -1,   // approved apex chord + deep stagger + the FANNED per-blade rake formula (sentinel -1) for the hero planform slits (f0 welded them at 0.28/0.14/0.015)
         crestGoldAmount: 1, crestSeat: 0,   // full gold crest at its approved height (f1 muted+sank it)
         wingTipGoldAmount: 1,            // full gold swallow-banner tips (f0/f1 restrained them)
-        tailPlates: true,               // apex keeps its dorsal tail ridge (f0 turned it off)
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body
-        ridgeCount: 7, spineGlow: 0.2, dorsal: true,
+        bannerSpread: 0.74, bannerLength: 2.15, bannerNotch: 0.85, bannerCoverts: true, tailTerminus: true, tailSeam: true, tailPlates: false,   // REAR-CHASE SPECTACLE (owner S3 + critic addition): amplify the gold swallow-banner ~25% + a gold fork-root covert pair; carry the dorsal ice seam over the TAIL-CONE ridge (tailSeam — the strip that dominates the chase frame; replaces the drill-bit cones tailPlates drew) and cap it with a cyan TERMINUS STUD at the fork — the night read becomes "cyan spine → cyan tail-light → gold swallow". Apex-only
+        ridgeCount: 7, spineGlow: 0.2, dorsal: true, scuteSeam: true, facetShoulders: true,   // REAR-CHASE SPECTACLE (owner S2+S6): one continuous ice seam down the keel (replaces the sub-8px cone zipper) — the apex's earned "spine of light", dead-centre of the play view; + faceted gold-tipped scapular coverts replacing the smooth shoulder balls at the wing roots. Apex-only (f0/f1 stay dark/round)
         colors: { body: 0x27435f, belly: 0xcfe6ff, wingInner: 0xb0cbe6, wingOuter: 0x466685,   // body lifted 0x1c3048→0x27435f (fable gate: the apex crushed to a black silhouette in dark skies); still clearly the deepest of the ladder
           wingEmissive: 0x466685, scales: 0x9db8d4, horn: 0xbcd9f0,
           apexSeam: 0x8ed5ff, eye: 0xcfe8ff, coreGlow: 0x8ed5ff } },
@@ -682,10 +682,13 @@ export const DRAGONS = {
       // FEATHER-WING ranks (the hero) + the emargination/rim + regalia dials, apex reference:
       covertRank: 7, secondaryRank: 6, primaryFingers: 5, fingerSplit: 1.0, roseGoldEdge: 1.0,
       collarFan: 1.0, pennantLift: 1.0, pennantRibbons: 5,
-      // The tail is a single rigid volute rooted at the tail-anchor pivot; tailWhip makes the rig
-      // COIL it at cruise + RUDDER it into banks → it swings INTO the rear-chase view on turns (the
-      // presence fix). tailLagScale tightens the coil (Eternal = authoritative, not a loose whip).
-      tailWhip: true, tailLagScale: 0.09,
+      // The tail hangs off a 4-joint chain; tailWhip makes the rig COIL it at cruise (a travelling
+      // S-wave down the joints) + RUDDER it into banks. tailLagScale sets the cruise coil amplitude
+      // (0.13 → a clearly-visible travelling lateral tip wave). tailUndulateX drives a genuine
+      // phase-lagged VERTICAL travelling wave (the axis the rear-chase camera reads — the key fluidity
+      // dial); tailRudderScale trims the compounding turn-curl on the chain to a graceful arc (not a
+      // J-hook).
+      tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.26, tailRudderScale: 0.5,
     },
     forms: [
       // f0 EMBER HATCHLING — a warm charcoal chick: proud STUB keel, big head, ember crest,

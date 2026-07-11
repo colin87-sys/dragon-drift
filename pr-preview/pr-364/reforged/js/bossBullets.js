@@ -601,7 +601,7 @@ export function debugActiveBullets() {
   const out = [];
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
-    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable, part: s.part, color: s.color, coreColor: s.coreColor, tx: s.tx, ty: s.ty, targetRel: s.targetRel, aimPart: s.aimPart });
+    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable, part: s.part, color: s.color, coreColor: s.coreColor, r: s.r, vrel: s.vrel, tx: s.tx, ty: s.ty, targetRel: s.targetRel, aimPart: s.aimPart });
   }
   return out;
 }

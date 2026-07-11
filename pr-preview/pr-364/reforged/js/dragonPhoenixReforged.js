@@ -720,6 +720,20 @@ function buildOneSunWing(M, model) {
       : [M.hotRibbon[1], M.hotRibbon[1], M.hotRibbon[2], M.hotRibbon[2]];
   const lenFam = [1.28, 0.82, 1.06];   // 3 interleaved length classes → broken rhythm
   const nMain = Math.max(5, Math.min(8, Math.round(secN + 1)));
+  // ── PER-BLADE FLUTTER PIVOTS (wing fluidity) — each long primary is wrapped in a Group hinged at
+  // its ROOT so the rig's blade-lag comb (nullable wingBladePivotsR/L) can ripple them a beat behind
+  // the flap, deepening outboard. The feather group is offset by −base so the WORLD rest pose is
+  // byte-identical (pivot@base + group@−base + verts@base+off = base+off); only rotation.z animates.
+  const bladePivots = [];
+  const bladeWrap = (grp, base) => {
+    const p = new THREE.Group();
+    p.name = 'sunBladePivot';
+    p.position.set(base[0], base[1], base[2]);
+    grp.position.set(-base[0], -base[1], -base[2]);
+    p.add(grp);
+    wg.add(p);
+    bladePivots.push(p);
+  };
   // LAYER 1 — the long primary flame-tongues (rooted f≈0.30). Lobe tips (tipW) + curved segs + an
   // alternating terminal flick → licking flame, not parallel spears. Wid floor raised so bellies OVERLAP.
   for (let i = 0; i < nMain; i++) {
@@ -731,8 +745,8 @@ function buildOneSunWing(M, model) {
     const dir = [0.16 + 0.40 * u + 0.08 * ((i % 2) ? 1 : -0.4), -0.02 - 0.05 * u, 1];   // inner near-parallel, splay grows outboard
     const curve = 0.11 + 0.09 * u + 0.03 * (i % 2);
     const base = [l[0], l[1] + camber(0.34) * cc + 0.02, l[2] + 0.34 * cc];
-    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, curve, mainRamp(u), 0.05 * ws,
-      { seg: 5, tipW: 0.25, flick: 0.06 * ((i % 2) ? 1 : -1) }).group);
+    bladeWrap(flameFeather(base, dir, [1, 0, 0], len, wid, curve, mainRamp(u), 0.05 * ws,
+      { seg: 5, tipW: 0.25, flick: 0.06 * ((i % 2) ? 1 : -1) }).group, base);
   }
   // LAYER 2 — a shorter overlapping rank at HALF-PHASE span offsets (rooted f≈0.45, lifted above
   // layer 1), so every gap between two long feathers is roofed by a shorter lobe → the trailing edge
@@ -798,6 +812,7 @@ function buildOneSunWing(M, model) {
     tips.push([carpal[0] + dir[0] * len, carpal[1] + dir[1] * len, carpal[2] + dir[2] * len]);
   }
   wg.userData.outerTip = tips[nFing - 1];
+  wg.userData.bladePivots = bladePivots;   // per-blade flutter hinges (rig ripples them)
   return wg;
 }
 
@@ -806,6 +821,7 @@ function buildSunfeatherWings(def, model, attach, _giM) {
   const M = sunhawkMats(def, model.glowLevel ?? 1, model.igniteStage);
   const hs = 3.3 * (model.wingScale ?? 1);
   const pivots = {}, wingElements = [], emberEmitters = [];
+  let wingBladePivotsR = null, wingBladePivotsL = null;
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
     const pivot = new THREE.Group();
@@ -834,8 +850,13 @@ function buildSunfeatherWings(def, model, attach, _giM) {
       const em = new THREE.Object3D(); em.position.set(et[0], et[1], et[2]); mid.add(em);
       emberEmitters.push(em);
     }
+    // Per-blade flutter hinges → rig's nullable wingBladePivotsR/L comb (blade-lag deepening outboard).
+    // side:1 for BOTH wings — the L wing is already scale.x=−1 mirrored, so identical rotation.z on both
+    // reads symmetric (passing the −1 loop side would double-flip → the apex asymmetry the probe caught).
+    const bp = (oneWing.userData.bladePivots || []).map((pivot, idx) => ({ pivot, idx, side: 1 }));
+    if (s === 'R') wingBladePivotsR = bp; else wingBladePivotsL = bp;
   }
-  return { group, spineMats: [M.gold, M.roseGold, M.orange], wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters } };
+  return { group, spineMats: [M.gold, M.roseGold, M.orange], wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
 }
 registerWings('sunfeather', buildSunfeatherWings);
 
@@ -886,6 +907,38 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   const mouthY = a.y + 0.05, mouthZ = a.z + 0.26;
   const axisDir = [0, 0.30, 1];             // the axis CLIMBS ~17° → halves the down-screen sink so the tail rises out of the sun-glare column in rear-chase (corridor-safe: up is free)
 
+  // ── FLUIDITY CHAIN — the tail hangs off a 4-JOINT nested chain instead of one rigid pivot, so the
+  // rig's per-segment coil (sin(t·rate − i·0.6)·lock) makes a travelling S-WAVE ripple down its length
+  // (owner: "needs more joints for fluidity"). Geometry is DISTRIBUTED across the joints by axial reach
+  // (quad-binning): near-body volute on the root, the long streamers/core/tips on the outer joints so
+  // they WHIP. At rest all joints are unrotated and every quad sits at its exact old world position →
+  // the approved static look is byte-identical.
+  const axHat = new THREE.Vector3(axisDir[0], axisDir[1], axisDir[2]).normalize();
+  const mouthV = new THREE.Vector3(0, mouthY, mouthZ);
+  const jFrac = [0, 0.30, 0.55, 0.78];                                  // axial reach of each joint (fraction of baseLen from the mouth)
+  const jPos = jFrac.map((f) => mouthV.clone().addScaledVector(axHat, f * baseLen));   // cumulative joint positions (pivot-local); jPos[0]≈mouth
+  const seg1 = new THREE.Group(), seg2 = new THREE.Group(), seg3 = new THREE.Group();
+  seg1.position.copy(jPos[1]).sub(jPos[0]); seg2.position.copy(jPos[2]).sub(jPos[1]); seg3.position.copy(jPos[3]).sub(jPos[2]);
+  pivot.add(seg1); seg1.add(seg2); seg2.add(seg3);
+  const chain = [pivot, seg1, seg2, seg3];
+  const cumOff = [new THREE.Vector3(0, 0, 0), jPos[1].clone().sub(jPos[0]), jPos[2].clone().sub(jPos[0]), jPos[3].clone().sub(jPos[0])];
+  for (const s of chain) s.isBone = true;   // preview-tick tear guard: the shop tick position-writes non-bone tail segs → mark bone so BOTH ticks drive by ROTATION only
+  segs.length = 0; segs.push(...chain);
+  // bin one point (pivot-local) to its joint index by axial reach
+  const jIdxOf = (p) => { const u = p.clone().sub(mouthV).dot(axHat); return u < jFrac[1] * baseLen ? 0 : u < jFrac[2] * baseLen ? 1 : u < jFrac[3] * baseLen ? 2 : 3; };
+  // re-parent every quad-mesh of a built fire group onto the joint whose axial span it falls in
+  // (rest-pose position compensated so world stays put). Whole non-binned elements stay on the root.
+  const addBinned = (g) => {
+    const meshes = []; g.traverse((o) => { if (o.isMesh) meshes.push(o); });
+    for (const mesh of meshes) {
+      mesh.geometry.computeBoundingBox();
+      const c = mesh.geometry.boundingBox.getCenter(new THREE.Vector3());
+      const k = jIdxOf(c);
+      chain[k].add(mesh);                       // re-parents (geometry verts unchanged)
+      mesh.position.copy(cumOff[k]).multiplyScalar(-1);
+    }
+  };
+
   // ── A: ROOT CONE — a real lofted SOLID at the tail-root, so the rear-chase camera (looking straight
   // into the tail) sees a ROUND glowing NOZZLE, not a flat shelf. Mouth bottom y≈0.36 (corridor margin).
   const coneRings = [
@@ -917,7 +970,7 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // (uneven) spacing so it's not a picket fence wrapped in a circle, and a gentle wave. Gathers early
   // (0.55) so it stays the near-body swell; the long reach is left to the streamer tier.
   const nBloom = Math.max(4, Math.min(nRib + 3, 6));
-  pivot.add(flamePlume(nBloom, [0, mouthY, mouthZ - 0.02], axisDir,
+  addBinned(flamePlume(nBloom, [0, mouthY, mouthZ - 0.02], axisDir,
     { rx: 0.29 * rk, ryUp: 0.33 * rk, ryDn: 0.14 * rk, arcDeg: 300, gatherK: 0.55, baseLen,
       twist: 0.06, curve: 0.16, curl: 0.10, tipW: 0.30, seg: 5, flickAmp: 0.05,
       clumpAmp: 0.18, waveAmp: 0.03, waveCycles: 1.0,
@@ -950,23 +1003,23 @@ function buildSunfireTrail(def, model, _mats, anchor) {
       const len = baseLen * (k === 0 ? 1.05 : 0.85), wid = 0.40 * wf;
       const sf = flameFeather(A(ringPt), A(dir), A(side), len, wid, 0.16, ramp4, 0.10,
         { seg: 6, tipW: 0.24, flick: 0.05 * sgn, flare: 0.10, wave: { amp: 0.045, cycles: 1.25, phase: sgn > 0 ? 0 : Math.PI } });
-      pivot.add(sf.group);
+      addBinned(sf.group);
       streamTips.push(sf.tip);
       // offshoot tendril(s) branching off the streamer at u≈0.52 (crown gets a mirrored pair). Gated.
       if (lift > 0.6) {
         const bp = ringPt.clone().addScaledVector(dir, len * 0.52).addScaledVector(Nn, 0.14);
         (k === 0 ? [1, -1] : [sgn]).forEach((td) => {
           const tdir = dir.clone().addScaledVector(tangent, 0.55 * td).normalize();
-          pivot.add(flameFeather(A(bp), A(tdir), A(side), len * 0.24, wid * 0.5, 0.16,
+          addBinned(flameFeather(A(bp), A(tdir), A(side), len * 0.24, wid * 0.5, 0.16,
             [ramp4[1], ramp4[2], ramp4[3]], 0.14, { seg: 5, tipW: 0.22, wave: { amp: 0.05, cycles: 0.75, phase: td > 0 ? 0 : Math.PI } }).group);
         });
       }
     });
   }
   // AXIAL CORE — the dominant hot comet head down the centre of the hollow cone (a whisper of wave).
-  const coreF = flameFeather([0, mouthY, mouthZ - 0.06], axisDir, [1, 0, 0.05], baseLen, 0.56 * wf,
-    0.05, coreRamp, 0.12, { seg: 6, tipW: 0.30, wave: { amp: 0.02, cycles: 1.0, phase: 0 } });
-  pivot.add(coreF.group);
+  const coreF = flameFeather([0, mouthY, mouthZ - 0.06], axisDir, [1, 0, 0.05], baseLen, 0.36 * wf,
+    0.05, coreRamp, 0.14, { seg: 7, tipW: 0.12, wave: { amp: 0.06, cycles: 1.15, phase: 0 } });
+  addBinned(coreF.group);
   streamTips.push(coreF.tip);
 
   // ── D: CREST FAN — three thin ribbons rising STEEPLY off the dorsal tail-root, so the tail projects
@@ -976,14 +1029,20 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // the wing streamers (x≥1.9, z<0.9), no merge. Base y 0.10-rel (0.60 world) → corridor-irrelevant.
   if (lift > 0.35) {
     const cl = 0.7 + 0.3 * lift;
-    // [x, z, dirX, dirY, len, wid]
-    for (const [cx, cz, dx, dy, ln, wd] of [
-      [0, a.z - 0.02, 0, 0.88, 2.6, 0.22],
-      [0.10, a.z - 0.08, 0.22, 0.80, 2.2, 0.18],
-      [-0.10, a.z - 0.08, -0.22, 0.80, 2.2, 0.18],
-    ]) {
-      pivot.add(flameFeather([cx, a.y + 0.10, cz], [dx, dy, 1], [1, 0, 0], ln * cl, wd * wf,
-        0.14, M.hotRibbon, 0.22, { seg: 6, tipW: 0.20, wave: { amp: 0.03, cycles: 0.9, phase: cx >= 0 ? 0 : Math.PI } }).group);
+    // A FAN of thin flame LICKS (a fiery crown), NOT one broad ribbon — a single swept ribbon turns
+    // its broad face to the rear camera and reads as a slab/smokestack. Five thin licks spread in x,
+    // tallest at the centre, each TAPERING to a point + SWEEPING aft → from behind it reads as spread
+    // FIRE with gaps between the licks, not a plank. Pale-hot root → deep-ember tip = the body gradient.
+    const crestRamp = [tMat(0xffe6b0), tMat(0xffce6a), tMat(0xffa030), tMat(0xf26414)];
+    const crestN = 5;
+    for (let i = 0; i < crestN; i++) {
+      const u = i / (crestN - 1) - 0.5;               // −0.5 … 0.5
+      const cen = 1 - Math.abs(u) * 2;                // 1 centre → 0 edge
+      const cx = u * 0.92;                            // spread WIDE (±0.46) → clear dark GAPS between licks (a fiery crown, not a packed slab). Still centreline; wings at x≥1.9.
+      const ln = (1.0 + 0.7 * cen) * cl;              // MODEST height (was a dominant mass) + jagged (centre tallest)
+      const wd = (0.10 + 0.05 * cen) * wf;            // thin, fore-aft width → edge-on from the rear camera
+      pivot.add(flameFeather([cx, a.y + 0.10, a.z - 0.05], [u * 0.5, 0.86, 0.82], [0, 0, 1], ln, wd,
+        0.10, crestRamp, -0.20, { seg: 6, tipW: 0.05, wave: { amp: 0.05, cycles: 0.8, phase: u >= 0 ? 0 : Math.PI } }).group);
     }
   }
 
@@ -994,7 +1053,7 @@ function buildSunfireTrail(def, model, _mats, anchor) {
     const az = mouthZ + u * baseLen * 0.99, ay = mouthY + u * baseLen * 0.10;
     const cx = Math.sin(phi) * 0.26 * rk * 1.1;
     const cyw = ay + Math.cos(phi) * 0.26 * rk * 0.9;
-    pivot.add(flameFeather([cx, cyw, az], [Math.sin(phi) * 0.4, 0.15 + Math.cos(phi) * 0.2, 1], [1, 0, 0.2],
+    addBinned(flameFeather([cx, cyw, az], [Math.sin(phi) * 0.4, 0.15 + Math.cos(phi) * 0.2, 1], [1, 0, 0.2],
       (0.6 + 0.3 * (i % 2)), 0.08, 0.14, M.hotRibbon, 0.12, { seg: 5, tipW: 0.20 }).group);   // shorter + a lobe tip → sparks that don't read as a floating pale needle
   }
   // TRAILING-FIRE FX EMITTERS — markers at the streamer + core tips (and the throat) so the rig
@@ -1002,7 +1061,8 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // by any tail sway.
   const emberEmitters = [];
   for (const tp of streamTips) {
-    const em = new THREE.Object3D(); em.position.set(tp[0], tp[1], tp[2]); pivot.add(em); emberEmitters.push(em);
+    const p = new THREE.Vector3(tp[0], tp[1], tp[2]); const k = jIdxOf(p);   // ride the whipping joint the tip belongs to
+    const em = new THREE.Object3D(); em.position.copy(p).sub(cumOff[k]); chain[k].add(em); emberEmitters.push(em);
   }
   { const em = new THREE.Object3D(); em.position.set(0, mouthY, mouthZ); pivot.add(em); emberEmitters.push(em); }
   // accentMats = the tail's OWN fire materials → they join spineMats so Rebirth Surge flares the tail

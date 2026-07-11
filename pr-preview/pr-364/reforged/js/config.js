@@ -373,7 +373,8 @@ export const CONFIG = {
         knellgrave: 0.25,   // WE opener — gentle
         weftwitch: 0.30,    // WE mid — her music is LIVE, so the perfect release is the normal on-beat tap (no toll-clock analog)
         onewing: 0.30,      // WE late (rung 12) — burn on REAL pips only (ghosts never earn it). ONEWING has LIVE music, so the perfect on-tell release is the normal on-BEAT tap (generic beat clock, not a toll/wind-up analog). 0.30 not 0.35: at 0.35 the P5 full-release edged the deleter line to exactly 1.00 — the SPECTRAL ECHO is ONEWING's escalation, not the burn (lockdps margins)
-        // embertide: 0 (beam fork), unmasked: 0.20 — later PRs
+        // embertide: 0 (beam fork — no burn, its escalation is the fork-extend)
+        unmasked: 0.20,     // APEX (rung 14, §8D) — RECKONING-GATED: the finale burn stays LOCKED until all five relics are branded (def.burnGate 'reckoning' → boss.js zeroes the frac until reckoningDone). 0.20 lands ~31.5% of clear pace (~1/3, the owner's target); the formLifebars 240-HP form-bars make its absolute volley numbers the biggest in the game without a dominating share. The RECKONING is the escalation, not the burn dial.
       },
     },
   },
