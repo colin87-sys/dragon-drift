@@ -660,7 +660,7 @@ export const DRAGONS = {
     rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
     accentHue: 0xffcf6a,   // §9 law-9 carrier: solar gold
     archetype: 'phoenix',  // RIG flag only (warm ember motes + Rebirth fire-trails); explicit parts override the recipe
-    parts: { torso: 'sunhawk', wings: 'sunfeather', tail: 'plume', head: 'sunhawkCrown', surface: { shader: [] } },
+    parts: { torso: 'sunhawk', wings: 'sunfeather', tail: 'sunpennant', head: 'sunhawkCrown', surface: { shader: [] } },
     stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
     hasStyle: true,        // keep its own white-gold trail colour even in Surge
     feverWing: 0xffe6a8, feverEye: 0xfff2c8,
