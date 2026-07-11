@@ -662,7 +662,7 @@ export const DRAGONS = {
   // NOTE: CP1 wings/tail ride along as the shipped `feather`/`plume` (regression only) — the
   // bespoke `sunfeather`/`sunpennant` land at CP2/CP3.
   phoenixReforged: {
-    name: 'Phoenix Ascendant',
+    name: 'Phoenix Ascendant (Reforged)',   // distinct from the shipped `phoenix` so the shop/inspect UI lets the owner pick old-vs-reforged by label
     lanceTint: 0xffcf6a, lanceRune: 'sunhawk',   // Eternal wisp: solar gold (distinct from phoenix 0xff7a1a / molten 0xff5410)
     title: 'Reborn in fire',
     rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
