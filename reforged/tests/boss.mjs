@@ -424,12 +424,16 @@ for (const key of BOSS_ORDER) {
   assert(!s1.visible && s2.visible, 'morph 1 = the seraph (stage 2 only)');
   assert(Math.abs(s2.scale.x - 1) < 1e-6, `morph 1 = the seraph at full scale (${s2.scale.x})`);
   assert(cracks.material.opacity < 0.001, 'morph 1 = no crack seams');
-  // mid-morph → BOTH rigs live, cracks lit, the mask collapsing while the seraph blooms.
+  // BEAT MAP (crack→shatter→bud→unfurl): mid-CRACK (m 0.5) the eclipse is still whole and the
+  // hero crack is LIT; post-SHATTER (m 0.8) the mask is gone and the seraph BUD is unfurling.
   um.setStageMorph(0.5);
-  assert(s1.visible && s2.visible, 'mid-morph both rigs live (the mask collapses as the seraph blooms)');
-  assert(cracks.material.opacity > 0.1, `mid-morph the crack seams are lit (${cracks.material.opacity.toFixed(2)})`);
-  assert(s1.scale.x < 1, `mid-morph the eclipse mask is collapsing (scale ${s1.scale.x.toFixed(2)} < 1)`);
-  assert(s2.scale.x > 0.15 && s2.scale.x < 1, `mid-morph the seraph is blooming (scale ${s2.scale.x.toFixed(2)} between)`);
+  assert(s1.visible, 'mid-crack the eclipse is still whole (it strains before it shatters)');
+  assert(cracks.material.opacity > 0.1, `mid-crack the crack seams are lit (${cracks.material.opacity.toFixed(2)})`);
+  const fissure = findAllByName(um.group, 'heroFissure')[0];
+  assert(fissure && fissure.material.opacity > 0.1, `mid-crack the hero sclera-fissure is lit (${fissure?.material.opacity.toFixed(2)})`);
+  um.setStageMorph(0.8);
+  assert(!s1.visible && s2.visible, 'post-shatter the mask is gone and the seraph is up');
+  assert(s2.scale.x > 0.15 && s2.scale.x < 1, `post-shatter the seraph bud is unfurling (scale ${s2.scale.x.toFixed(2)} between)`);
   // The stage selector still works: setDebugStage maps to the morph endpoints.
   um.setDebugStage(1); assert(s1.visible && !s2.visible, 'setDebugStage(1) → the eclipse (morph 0)');
   um.setDebugStage(2); assert(!s1.visible && s2.visible && Math.abs(s2.scale.x - 1) < 1e-6, 'setDebugStage(2) → the seraph at full scale (morph 1)');
@@ -477,11 +481,12 @@ for (const key of BOSS_ORDER) {
   const s3 = findAllByName(um.group, 'stage3Rig')[0];
   um.setDebugStage(1);
   assert(s1.visible && !s2.visible && !s3.visible, 'the stage machine starts at the eclipse (stage 1)');
-  // Phase advance → 1: the CRACK animates (mid-way BOTH rigs live; then it settles on the seraph).
+  // Phase advance → 1: the CRACK animates (the eclipse strains + cracks for ~3s before it shatters
+  // and the seraph is revealed) — proving it's a live beat map, not a snap.
   um.setPhase(1);
-  um.tick(0.1, 0.1);
-  assert(s1.visible && s2.visible, 'phase→1 mid-crack: both the eclipse and the seraph are live (animating, not a snap)');
-  for (let i = 0; i < 70; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past the crack duration (6.0s — the beat-mapped transition)
+  for (let i = 0; i < 12; i++) um.tick(0.1, 0.1 + i * 0.1);   // ~1.2s in: still mid-crack
+  assert(s1.visible && !s2.visible, 'phase→1 mid-crack: the eclipse is still whole + cracking (not a snap)');
+  for (let i = 0; i < 70; i++) um.tick(0.1, 1.4 + i * 0.1);   // run past the crack duration (6.0s — the beat-mapped transition)
   assert(!s1.visible && s2.visible && !s3.visible, 'phase→1 settles on the seraph (stage 2)');
   // Phase advance → 2: the UNVEILING animates the third-form core in (the wings are kept).
   um.setPhase(2);
