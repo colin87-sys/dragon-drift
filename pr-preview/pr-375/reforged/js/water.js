@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Reflector } from '../lib/objects/Reflector.js';
 import { SUN_DIR } from './biomes.js';
+import { atmosUniforms } from './atmosphere.js';
 
 // Endless water plane that replaces the snow floor. One GLSL source, two
 // variants: USE_REFLECTION samples a Reflector render target (tier 0); the
@@ -12,6 +13,8 @@ import { SUN_DIR } from './biomes.js';
 let water = null;          // current mesh (Reflector or plain Mesh)
 let sceneRef = null;
 let reflective = false;
+let swellOn = false;        // N10a: whether the surface geometry is subdivided + displaced
+let geomTier = 0;           // N10a: subdivision LOD (0 densest, 2 flat)
 
 const SIZE_W = 520;
 const SIZE_L = 1700;
@@ -19,6 +22,7 @@ const SIZE_L = 1700;
 const sharedUniforms = {
   time: { value: 0 },
   waveAmp: { value: 1.0 },
+  uSwellAmp: { value: 0 }, // N10a: 0 = flat plane (shipped); 1 = swell displacement on
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -36,17 +40,34 @@ const sharedUniforms = {
   fogFar: { value: 380 },
 };
 
+// N10a — the long ROLLING SWELL that physically displaces the surface geometry
+// (the "living horizon"). ONE definition drives the vertex GLSL AND the JS port
+// (waterSurfaceHeight) so they can never drift — the contact shadow rides the exact
+// height the GPU draws. Deviation from the roadmap's "same wave() octaves": only the
+// long swell (λ≈105m) is displaced; the 3 short shading octaves (λ 3.7–12.6m) are
+// below the vertex-grid Nyquist and would crawl, so they stay fragment-only (normals).
+export const SWELL = { dirx: 0.723, dirz: 0.691, freq: 0.06, amp: 0.6, speed: 0.28 };
+
 const vertexShader = /* glsl */`
+  uniform float time, waveAmp, uSwellAmp;
   varying vec3 vWorldPos;
   #ifdef USE_REFLECTION
     uniform mat4 textureMatrix;
     varying vec4 vUvProj;
   #endif
+  float _swellH(vec2 p) {
+    return waveAmp * ${SWELL.amp} * sin(dot(p, vec2(${SWELL.dirx}, ${SWELL.dirz})) * ${SWELL.freq} + time * ${SWELL.speed});
+  }
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
-    vWorldPos = wp.xyz;
+    float h = uSwellAmp * _swellH(wp.xz);   // 0 exactly when off → shipped flat plane
+    wp.y += h;
+    vWorldPos = wp.xyz;                       // AFTER displacement (fresnel/V/fog use the true point)
     #ifdef USE_REFLECTION
-      vUvProj = textureMatrix * vec4(position, 1.0);
+      // A3: sample the reflection at the DISPLACED surface point, else reflections
+      // swim against the swell. Plane is rotated -PI/2 (pure rotation): feeding h as
+      // the local-z of the projection sample maps to the same world +y as wp.y += h.
+      vUvProj = textureMatrix * vec4(position.xy, h, 1.0);
     #endif
     gl_Position = projectionMatrix * viewMatrix * wp;
   }`;
@@ -56,6 +77,11 @@ const fragmentShader = /* glsl */`
   uniform float time, waveAmp;
   uniform vec3 deepColor, shallowColor, sunDir, sunColor, horizonColor, zenithColor, fogColor, fogFarColor;
   uniform float fogNear, fogFar;
+  // N8 PR B: shared atmosphere uniforms (0 = shipped). The water is the largest
+  // fogged surface — it joins the sunward inscatter. World-space sun dir so it is
+  // correct in the mirror; identity when uAtmosInscatter is 0.
+  uniform vec3 uAtmosSunDir, uAtmosSunTint;
+  uniform float uAtmosInscatter;
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -134,7 +160,14 @@ const fragmentShader = /* glsl */`
     // exactly the old single-color fog.
     float dist = length(vWorldPos - cameraPosition);
     float fogF = smoothstep(fogNear, fogFar, dist);
-    col = mix(col, mix(fogColor, fogFarColor, fogF), fogF);
+    vec3 fogCol = mix(fogColor, fogFarColor, fogF);
+    // N8 PR B sunward inscatter: brighten the fog toward the sun (matches the
+    // prop chunk's pow(...,6.0)). +0 exactly when uAtmosInscatter is 0 → shipped.
+    // -V is the camera->fragment dir (V = normalize(cameraPosition - vWorldPos)
+    // above) — reuse it to save a normalize on the frame's largest fill surface.
+    float atmSun = pow(clamp(dot(-V, uAtmosSunDir), 0.0, 1.0), 6.0);
+    fogCol += uAtmosSunTint * (atmSun * uAtmosInscatter * fogF);
+    col = mix(col, fogCol, fogF);
 
     gl_FragColor = vec4(col, 1.0);
     // These chunks are render-target aware in r160: the renderer forces
@@ -144,6 +177,16 @@ const fragmentShader = /* glsl */`
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }`;
+
+// N10a: one geometry factory. Flat single quad (today's exact geometry) when swell
+// is off or on tier2 → byte-identical shipped surface; subdivided when swell is on
+// (uniform grid: tier0 96×160 ≈ 30k tris one draw, tier1 48×80). frustumCulled is
+// disabled on the mesh, so the flat bounding sphere is fine for the displaced grid.
+function makeWaterGeometry() {
+  if (!swellOn || geomTier >= 2) return new THREE.PlaneGeometry(SIZE_W, SIZE_L);
+  const [xs, zs] = geomTier === 0 ? [96, 160] : [48, 80];
+  return new THREE.PlaneGeometry(SIZE_W, SIZE_L, xs, zs);
+}
 
 function buildReflective() {
   const shader = {
@@ -159,7 +202,7 @@ function buildReflective() {
   };
   // Tier 0 is the only reflective tier, so the hero mirror can afford a sharper
   // render target — 768² keeps reflected props/dragon crisp instead of mushy.
-  const mesh = new Reflector(new THREE.PlaneGeometry(SIZE_W, SIZE_L), {
+  const mesh = new Reflector(makeWaterGeometry(), {
     shader,
     textureWidth: 768,
     textureHeight: 768,
@@ -193,36 +236,72 @@ function buildCheap() {
     vertexShader,
     fragmentShader,
   });
-  return new THREE.Mesh(new THREE.PlaneGeometry(SIZE_W, SIZE_L), mat);
+  return new THREE.Mesh(makeWaterGeometry(), mat);
+}
+
+function spawnWater() {
+  water = reflective ? buildReflective() : buildCheap();
+  // N8 PR B: attach the SHARED atmosphere uniform objects by reference on the
+  // CONSTRUCTED material — after buildCheap's clone AND the Reflector's own second
+  // internal UniformsUtils.clone. Deliberately NOT in sharedUniforms (that gets cloned).
+  Object.assign(water.material.uniforms, atmosUniforms);
+  water.material.uniforms.uSwellAmp.value = swellOn ? 1 : 0; // 0 keeps the flat plane exact
+  water.rotation.x = -Math.PI / 2;
+  water.position.y = 0;
+  water.frustumCulled = false;
+  sceneRef.add(water);
+}
+
+// One rebuild seam (A5) keyed on the current {reflective, swellOn, geomTier} state,
+// carrying the live tint/fog through sharedUniforms. Called on first create and on
+// every reflective / swell / LOD boundary crossing (all rare — quality hysteresis).
+function rebuildWater() {
+  if (!sceneRef) return;
+  const old = water;
+  if (old) {
+    const u = old.material.uniforms;
+    for (const k of Object.keys(sharedUniforms)) {
+      const sv = sharedUniforms[k].value;
+      if (sv && sv.copy) sv.copy(u[k].value);
+      else sharedUniforms[k].value = u[k].value;
+    }
+    sceneRef.remove(old);
+    if (old.dispose) old.dispose();
+    else old.material.dispose();
+    old.geometry.dispose();
+  }
+  spawnWater();
 }
 
 export function createWater(scene, useReflection) {
   sceneRef = scene;
   reflective = useReflection;
-  water = useReflection ? buildReflective() : buildCheap();
-  water.rotation.x = -Math.PI / 2;
-  water.position.y = 0;
-  water.frustumCulled = false;
-  scene.add(water);
+  rebuildWater();
 }
 
-// Rebuild on tier boundary crossings (rare; hysteresis in the quality system
-// keeps this from thrashing).
+// Reflective↔cheap tier crossing (rare; quality hysteresis prevents thrashing).
 export function setWaterReflective(useReflection) {
   if (!sceneRef || useReflection === reflective) return;
-  const old = water;
-  // Carry current tint into the rebuild.
-  const u = old.material.uniforms;
-  for (const k of Object.keys(sharedUniforms)) {
-    const sv = sharedUniforms[k].value;
-    if (sv && sv.copy) sv.copy(u[k].value);
-    else sharedUniforms[k].value = u[k].value;
-  }
-  sceneRef.remove(old);
-  if (old.dispose) old.dispose();
-  else old.material.dispose();
-  old.geometry.dispose();
-  createWater(sceneRef, useReflection);
+  reflective = useReflection;
+  rebuildWater();
+}
+
+// N10a: the SWELL toggle (Settings / ?swell). Rebuilds to the subdivided (on) or
+// flat (off) geometry; off is byte-identical to the shipped water (1×1 + uSwellAmp=0).
+export function setWaterSwell(on) {
+  on = !!on;
+  if (on === swellOn) return;
+  swellOn = on;
+  rebuildWater();
+}
+
+// N10a: subdivision LOD from applyQuality. Rebuilds only when the geometry would
+// actually change (swell on, and a real tier boundary — not flat↔flat at tier2).
+export function setWaterSwellQuality(tier) {
+  if (tier === geomTier) return;
+  const wasFlat = geomTier >= 2, nowFlat = tier >= 2;
+  geomTier = tier;
+  if (swellOn && !(wasFlat && nowFlat)) rebuildWater();
 }
 
 export function updateWater(dt, playerDist, time, fog) {
@@ -230,11 +309,23 @@ export function updateWater(dt, playerDist, time, fog) {
   water.position.z = -playerDist - 250;
   const u = water.material.uniforms;
   u.time.value = time;
+  u.uSwellAmp.value = swellOn ? 1 : 0; // belt-and-braces after any rebuild
   if (fog) {
     u.fogColor.value.copy(fog.color);
     u.fogNear.value = fog.near;
     u.fogFar.value = fog.far;
   }
+}
+
+// N10a — the JS port of the vertex swell (the SAME SWELL constant), evaluated at a
+// world (x,z) with the material's live time + waveAmp. The contact-shadow plane
+// rides this so it sits ON the crests instead of clipping through them. Returns 0
+// when swell is off or water absent → the shadow stays at its shipped height.
+export function waterSurfaceHeight(x, z) {
+  if (!swellOn || !water) return 0;
+  const u = water.material.uniforms;
+  return u.waveAmp.value * SWELL.amp *
+    Math.sin((x * SWELL.dirx + z * SWELL.dirz) * SWELL.freq + u.time.value * SWELL.speed);
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.

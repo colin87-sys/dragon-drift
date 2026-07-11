@@ -25,6 +25,7 @@ const S = {
   muted: false,      // def.lockMuted — reticle ashen, no V1 rate bonus (slot 13)
   hudPart: null,     // the organ the reticle should point at (aim organ, else primary)
   hasOrgan: false,   // hudPart resolved to a live world position this frame
+  hudSuppressed: false,  // the lance reticle is hidden this frame (the stage-transition cinematic — it must not photobomb the all-eyes-snap screenshot; the entrance-suppression precedent, ctx.hudSuppressed)
   // The SMOOTHED ANCHOR (L177): an EMA low-pass of the tracked organ's world position.
   // The reticle draws it, the rider aims at it, and retention tests against it — so the
   // marker the player chases IS the point that locks, and idle-animation jitter (§3 law 7:
@@ -74,7 +75,7 @@ const _hud = new THREE.Vector3();      // the published HUD world position
 
 export function initLockLayer() {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
-  S.muted = false; S.hudPart = null; S.hasOrgan = false; S.fightRunning = false;
+  S.muted = false; S.hudPart = null; S.hasOrgan = false; S.fightRunning = false; S.hudSuppressed = false;
   S.anchorPart = null; S.ax = 0; S.ay = 0; S.az = 0;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0; S.capFuseT = 0; S.capFuseDur = 0; S.refreshT = 0; S.lanceQ.length = 0;
@@ -165,6 +166,7 @@ function paintHop(part) {
 export function updateLockLayer(dt, player, ctx) {
   S.fightRunning = !!ctx.fightRunning;
   S.muted = !!ctx.muted;
+  S.hudSuppressed = !!ctx.hudSuppressed;   // hide the reticle during the stage-transition cinematic (locks/pips untouched)
   if (!S.fightRunning) { clearLocks('idle'); refreshHud(ctx, dt, player); return; }
 
   // Resolve + smooth the tracked/display organ FIRST: the anchor the reticle draws
@@ -508,7 +510,7 @@ function refreshHud(ctx, dt, player) {
 // audit F9: the final-second blink is never ascension-gated).
 export function lockHudState() {
   return {
-    active: S.fightRunning && S.hasOrgan,
+    active: S.fightRunning && S.hasOrgan && !S.hudSuppressed,
     muted: S.muted,
     aimHeld: S.aimHeld && !S.muted && !S.deflected,   // sealed → never shown green
     dwell: Math.max(0, Math.min(1, S.aimDwell / (S.dwellNeed || L.dwellTime))),  // 0..1 acquisition progress (focus-aware)

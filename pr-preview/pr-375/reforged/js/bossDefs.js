@@ -1756,6 +1756,7 @@ export const BOSSES = {
     approachFrom: 'ahead',                // CP2 upgrades to the secondSun.handoff() landmark approach
     scale: 2.4,                           // sky-scale — the disc hangs huge above the lane (TUNE in studio)
     stages: 3,                            // the stage system (CP2 dissolve-swaps the sub-rigs)
+    arenaStates: true,                    // ARENA transformation (arenaSkin.js): S1 ordinary sky → S2+ THE HOLLOW BEHIND THE SKY (the void). PR-A holds the void through S3; PR-B adds the S3 heaven. Value-space env override, no rig reparent.
     stagesBuilt: 3,                       // how many stage sub-rigs exist: 1 eclipse-eye · 2 seraph · 3 the unveiling (star-eye + starburst + halo, wings mantled). Drives the dev stage-jump selector.
     grazeForm: 'medley',                  // §5i.B APEX graze — quotes the roster's graze forms (CP2)
     // §5i.D per-stage graze quote (phaseIdx-indexed; grazeFormNow() dispatches on it). The

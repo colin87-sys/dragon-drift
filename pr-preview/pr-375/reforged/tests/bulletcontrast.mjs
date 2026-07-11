@@ -12,6 +12,7 @@ import { register } from 'node:module';
 register('../tools/three-resolver.mjs', import.meta.url);
 import { assert } from './shim.mjs';
 const { BIOMES } = await import('../js/biomes.js');
+const { ARENA_CONTRAST } = await import('../js/arenaSkin.js');   // THE UNMASKED arena backgrounds + their band overrides
 
 let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
@@ -94,6 +95,39 @@ for (const biome of BIOMES) {
       else { status = 'FAIL'; hardFails++; }
     }
     rows.push({ biome: biome.name, name, hex, cL, fogL, horL, okFog, okHor, status });
+  }
+}
+
+// NOTE (CP2 finding-2): this is a byte-space AUTHORING gate — it reads the authored palette hexes, which
+// the RENDERED frame lifts (bloom + tone-map + the god-ray swell) by ≈+0.15 for THE UNVEILED HEAVEN. So a
+// PASS here certifies the authoring sits in the layered-read window, NOT that the lit rendered sky reads
+// for every colour — the heaven's bright sky band is the AMBER WASTES regime (light role-colours lean on
+// the dark boss silhouette there). The RENDERED authority for the heaven is the fairness probe in
+// tests/unmaskedarena.mjs: the parry corridor gated ≤ 0.75 (= the layered-read ceiling, where every
+// bullet reads) + the sky-band blinding-white ceiling. Keep both.
+// THE UNMASKED arena backgrounds (arenaSkin.js): the same six role colours must read against each
+// arena's fog + horizon, with the arena's own band override applied (the void's dark:0xa84167 lift —
+// the default 0x8f0a3c FAILS the void, so this row is what makes the §4 build-order fix merge-blocking
+// on any future arena-palette diff). Zero new KNOWN_EXCEPTIONS: every colour must pass both.
+for (const arena of ARENA_CONTRAST) {
+  const fogL = lum(arena.fog), horL = lum(arena.horizon);
+  // §CP2 M2: the arena's dark-band latch swaps ONLY the dark slot — the source biome's light/mid
+  // overrides SURVIVE into the void. So test every biome×void band merge the game can actually render
+  // (band = default ← the source biome ← the arena's dark lift), not just default+arena. Passes today
+  // with wide margins, but this closes the hole so the gate stays merge-blocking on any future edit.
+  for (const biome of BIOMES) {
+    const band = { ...DEFAULT_BAND, ...(biome.bullets || {}), ...(arena.bullets || {}) };
+    const colours = [
+      ['danger', DANGER], ['band-light', band.light], ['band-mid', band.mid], ['band-dark', band.dark],
+      ['reflect-amber', REFLECT_AMBER], ['reflected-cyan', REFLECTED_CYAN],
+    ];
+    for (const [name, hex] of colours) {
+      const cL = lum(hex);
+      const okFog = passBg(cL, fogL), okHor = passBg(cL, horL);
+      const status = (okFog && okHor) ? 'PASS' : 'FAIL';
+      if (status === 'FAIL') hardFails++;
+      rows.push({ biome: `${arena.name} ← ${biome.name}`, name, hex, cL, fogL, horL, okFog, okHor, status });
+    }
   }
 }
 

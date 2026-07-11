@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -16,25 +16,25 @@ import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './
 import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
-import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
+import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
 import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setDither } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
-import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
+import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater } from './water.js';
-import { burst, rollWake, gatherPulse } from './particles.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality } from './water.js';
+import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -102,8 +102,15 @@ window.addEventListener('resize', () => {
 const urlParams = new URLSearchParams(window.location.search);
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
-if (urlParams.has('tm')) setToneMap(renderer, urlParams.get('tm'));
-if (urlParams.get('dither') === '0') setDither(false);
+// Graphics effects: apply the player's saved Settings choices; a URL flag (?tm=,
+// ?dither=0, ?pfx=batch) overrides for testing. Defaults (dither on, ACES, batch
+// off) reproduce the shipped look exactly.
+const gfxPref = saveData.settings;
+const tmMode = urlParams.get('tm') || gfxPref.toneMap;
+if (tmMode) setToneMap(renderer, tmMode);
+if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
+// N4 instanced spark backend (150 draws → 1). Must be set before initParticles.
+if (urlParams.get('pfx') === 'batch' || gfxPref.particleBatch === true) setParticleBackend('batch');
 const challengeSeedParam = parseInt(urlParams.get('seed'), 10);
 const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam > 0
   ? challengeSeedParam : null;
@@ -152,10 +159,24 @@ function applyWispCosmetic() {
   setMarkRune(lanceRuneFor(ed, fl));
 }
 createEnvironment(scene, runSeed);
+// N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
+if (urlParams.has('ibl') || gfxPref.skyIbl === true) setSkyProbeEnabled(true);
 setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0)
 createWater(scene, true); // real reflection by default; tiers downgrade it
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
+// N6 hero shadow: apply the saved toggle (the RT exists now); ?shadow forces on.
+if (urlParams.has('shadow') || gfxPref.heroShadow === true) setContactShadowSilhouette(true);
+// N15 prop AO: apply the saved toggle; ?ao forces on.
+if (urlParams.has('ao') || gfxPref.propAO === true) setPropAO(true);
+// N8 atmosphere: apply the saved toggle; ?atmos forces on.
+if (urlParams.has('atmos') || gfxPref.atmosphere === true) setAtmosphereEnabled(true);
+// N9 sky clouds: apply the saved toggle; ?clouds forces on.
+if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(true);
+// N10a water swell: apply the saved toggle; ?swell forces on. Runs after createWater,
+// so it rebuilds the (already-built) mesh subdivided; it precedes applyQuality, which
+// then sets the LOD tier. geomTier defaults 0, so ?swell boots subdivided at tier0.
+if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -292,6 +313,15 @@ if (urlParams.has('debug')) {
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
     audioHealth: () => getAudioHealth(),
     postfx: { setPostTier, kick, kickState, handle: postfx },
+    // N4 ParticleBatch seams: fire a burst at a fixed world point in view, and read
+    // the backend/visible count + live draw-call total (for the pfx A/B tool + test).
+    pfx: {
+      stats: particleStats,
+      burst: (n = 60) => burst(camera.localToWorld(new THREE.Vector3(0, 0, -30)), 0xffe0a0, { count: n, speed: 12, size: 1.0, life: 1.2 }),
+      drawCalls: () => renderer.info.render.calls,
+    },
+    // N6 hero-shadow seams: silhouette on/off + the RT coverage (proves the pass ran).
+    shadow: { on: contactShadowSilhouette, coverage: () => heroShadowCoverage(renderer), maskURL: () => heroShadowMaskURL(renderer), spriteLeak: heroShadowSpriteLeak },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
     // Push the boss schedule out of the way (or restore it) so a stretch of
@@ -350,6 +380,19 @@ if (urlParams.has('debug')) {
     bossSetPhase: (n) => setBossDebugPhase(n),        // §CP2-D2: fast-forward to a phase (P5 survival-seal test); call before bossForceFight
     bossSetStage: (n) => setBossDebugStage(n),        // rung 14: pin/re-pin the visible STAGE sub-rig of THE UNMASKED (live organ-comfort test)
     bossReckoning: () => debugReckoning(),            // rung 14: THE RECKONING relic-collection + burn-unlock state (unmaskedreckoning.mjs)
+    bossArenaState: () => ({                           // arena PR-A/B: the arena state (unmaskedarena.mjs + the organ×arena conjunction)
+      mix: bossArenaMix(),                             // 0 → 1 (void, the crack) → 2 (heaven, the unveiling)
+      kind: (m => m <= 0 ? 'none' : m <= 1 ? 'void' : 'heaven')(bossArenaMix()),
+      fade: bossArenaFade(),                           // 1 in-fight · <1 during the natural-kill exhale
+      voidSky: !!game.bossVoidSky,                     // god-ray suppression flag (void window: 0.5..1.6)
+      heavenRays: game.bossHeavenRays || 0,            // the heaven god-ray swell signal (0..1)
+      propBandsHidden: debugArenaProps(),              // F1: the biome prop bands are dark while the arena owns the sky
+      skyDim: debugSkyDim(),                           // proves the EMBERTIDE sky-replace channel stayed 0 (disjointness)
+      bandDark: bossDebugState()?.bandDark,            // the active dark bullet band (the certified lift at the reveal)
+      lift: bossDebugModelLift(),                      // PR-B: the S3 focal-lift state ({k, sclera}) — byte-identity off-heaven
+    }),
+    bossFell: () => debugFell(),                       // PR-B: force the natural-kill teardown (the only way to exercise the exhale headless)
+    forceGameOver: () => { game.state = 'gameover'; },  // PR-B test seam: park the loop in 'gameover' (updateBoss stops) to prove the exhale still decays there (the CP2/Codex blocker: the finale kill jumps straight to gameover)
     bossReset: () => resetBoss(),                      // rung 14: the HARD teardown (game-over / new-run path) — proves the reckoning latch doesn't leak the burn across runs
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
@@ -618,6 +661,19 @@ ui.init({
     return false;
   },
   onQualityChange: (v) => { if (v !== null) applyQuality(v); },
+  // Graphics-effects toggles from Settings. Tone-map + dither apply live (three
+  // recompiles on toneMapping change); particle-batch needs a re-init so Settings
+  // reloads for that one (like DEV mode).
+  onGraphicsChange: (kind, value) => {
+    if (kind === 'toneMap') setToneMap(renderer, value);
+    else if (kind === 'dither') setDither(value);
+    else if (kind === 'skyIbl') setSkyProbeEnabled(value);
+    else if (kind === 'heroShadow') setContactShadowSilhouette(value);
+    else if (kind === 'propAO') setPropAO(value);
+    else if (kind === 'atmosphere') setAtmosphereEnabled(value);
+    else if (kind === 'skyClouds') setSkyCloudsEnabled(value);
+    else if (kind === 'waterSwell') setWaterSwell(value);
+  },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
   // feedback; AUTO drift between runs is handled by updateModelDetail's gate.
@@ -1117,7 +1173,10 @@ function applyQuality(tier) {
   setPostTier(tier);
   setPostPixelRatio(PIXEL_RATIOS[tier]);
   setWaterReflective(tier === 0);
+  setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
   setAmbientQuality(QUALITY_SCALARS[tier]);
+  setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
+  setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
 }
 
 function updateQuality(dt) {
@@ -1412,7 +1471,8 @@ function tick() {
     // fill is the only progress channel there (owner: the re-firing hum was grating).
     const humOn = lh && lh.active && !lh.aimHeld && !lh.ashen && !lh.muted && !(LANCE_V3 && lh.relock);
     sfx.dwellHum?.(humOn ? lh.dwell : 0);   // (lh read above, pre-updateDragon)
-    updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget());
+    updateArenaExhale(dt);   // ARENA (PR-B): decay the natural-kill exhale in ALL states — the finale/rush kill jumps straight to 'gameover' where updateBoss is dead, so the fade must run here or the sky strands
+    updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget(), bossArenaMix(), bossArenaFade());
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
 
@@ -1423,11 +1483,15 @@ function tick() {
     const sunFacing = _camFwd.dot(SUN_DIR);
     if (sunFacing > 0.05) {
       _sunProj.copy(SUN_DIR).add(camera.position).project(camera);
+      // N9: ease the shafts down as clouds drift across the sun (damped in env;
+      // getCloudSunCover() is 0 when clouds are off → shipped intensity).
+      const cloudGate = 1 - 0.75 * getCloudSunCover();
       setGodRaySun(_sunProj.x * 0.5 + 0.5, _sunProj.y * 0.5 + 0.5,
-        Math.min(sunFacing, 1) * 0.6);
+        Math.min(sunFacing, 1) * 0.6 * cloudGate);
     } else {
       setGodRaySun(0.5, 0.8, 0);
     }
+    setGodRayBoost(game.bossHeavenRays || 0);   // ARENA (PR-B): THE UNVEILED HEAVEN swells the shafts (hard-capped; the fairness probe is the authority)
 
     // Skimming the water kicks up spray (throttled, gameplay only).
     if (game.state === 'playing' && player.position.y < 3.6) {
@@ -1446,6 +1510,7 @@ function tick() {
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget());
+  renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 
   if (perfEl) {

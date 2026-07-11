@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = 'f88ab0000aa8';                          // STAMP:VERSION
+const VERSION = 'd9f0a26c3724';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './css/style.css',
@@ -20,7 +20,9 @@ const ASSETS = [
   './js/ambient.js',
   './js/analytics.js',
   './js/angelWing.js',
+  './js/arenaSkin.js',
   './js/ascension.js',
+  './js/atmosphere.js',
   './js/biomeBoss.js',
   './js/biomes.js',
   './js/boss.js',
@@ -69,6 +71,7 @@ const ASSETS = [
   './js/dragonOrganism.js',
   './js/dragonParts.js',
   './js/dragonPhoenixMolten.js',
+  './js/dragonPhoenixReforged.js',
   './js/dragonRecipe.js',
   './js/dragonSeraph.js',
   './js/dragonSeraphBody.js',
@@ -117,6 +120,7 @@ const ASSETS = [
   './js/postfx.js',
   './js/powerups.js',
   './js/preview.js',
+  './js/propAO.js',
   './js/recap.js',
   './js/records.js',
   './js/reticle.js',
@@ -133,6 +137,8 @@ const ASSETS = [
   './js/sfxLoudness.js',
   './js/sfxRender.js',
   './js/showcaseBackdrop.js',
+  './js/skyClouds.js',
+  './js/skyProbe.js',
   './js/splash.js',
   './js/surface.js',
   './js/titles.js',

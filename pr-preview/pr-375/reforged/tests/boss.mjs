@@ -424,12 +424,16 @@ for (const key of BOSS_ORDER) {
   assert(!s1.visible && s2.visible, 'morph 1 = the seraph (stage 2 only)');
   assert(Math.abs(s2.scale.x - 1) < 1e-6, `morph 1 = the seraph at full scale (${s2.scale.x})`);
   assert(cracks.material.opacity < 0.001, 'morph 1 = no crack seams');
-  // mid-morph → BOTH rigs live, cracks lit, the mask collapsing while the seraph blooms.
+  // BEAT MAP (crack→shatter→bud→unfurl): mid-CRACK (m 0.5) the eclipse is still whole and the
+  // hero crack is LIT; post-SHATTER (m 0.8) the mask is gone and the seraph BUD is unfurling.
   um.setStageMorph(0.5);
-  assert(s1.visible && s2.visible, 'mid-morph both rigs live (the mask collapses as the seraph blooms)');
-  assert(cracks.material.opacity > 0.1, `mid-morph the crack seams are lit (${cracks.material.opacity.toFixed(2)})`);
-  assert(s1.scale.x < 1, `mid-morph the eclipse mask is collapsing (scale ${s1.scale.x.toFixed(2)} < 1)`);
-  assert(s2.scale.x > 0.15 && s2.scale.x < 1, `mid-morph the seraph is blooming (scale ${s2.scale.x.toFixed(2)} between)`);
+  assert(s1.visible, 'mid-crack the eclipse is still whole (it strains before it shatters)');
+  assert(cracks.material.opacity > 0.1, `mid-crack the crack seams are lit (${cracks.material.opacity.toFixed(2)})`);
+  const fissure = findAllByName(um.group, 'heroFissure')[0];
+  assert(fissure && fissure.material.opacity > 0.1, `mid-crack the hero sclera-fissure is lit (${fissure?.material.opacity.toFixed(2)})`);
+  um.setStageMorph(0.8);
+  assert(!s1.visible && s2.visible, 'post-shatter the mask is gone and the seraph is up');
+  assert(s2.scale.x > 0.15 && s2.scale.x < 1, `post-shatter the seraph bud is unfurling (scale ${s2.scale.x.toFixed(2)} between)`);
   // The stage selector still works: setDebugStage maps to the morph endpoints.
   um.setDebugStage(1); assert(s1.visible && !s2.visible, 'setDebugStage(1) → the eclipse (morph 0)');
   um.setDebugStage(2); assert(!s1.visible && s2.visible && Math.abs(s2.scale.x - 1) < 1e-6, 'setDebugStage(2) → the seraph at full scale (morph 1)');
@@ -463,6 +467,17 @@ for (const key of BOSS_ORDER) {
   um.setDebugStage(2); um.tick(0, 5.0); const z2 = upR.rotation.z;
   um.setDebugStage(3); um.tick(0, 5.0); const z3 = upR.rotation.z;
   assert(z3 > z2 + 0.1, `stage 3 MANTLES the wings fully open (upper wing ${z2.toFixed(2)} → ${z3.toFixed(2)})`);
+  // BEAT MAP (gather → close → throw → ignite → settle): the unveiling is phrased, not one ease.
+  // mid-CLOSE (k3 0.30): the great eye is still shown but SHUT to a seam (scale.y crushed).
+  um.setStage3(0.30);
+  assert(focal.visible && focal.scale.y < 0.5 * 0.62, `mid-unveil the great eye is closing to a seam (scale.y ${focal.scale.y.toFixed(3)})`);
+  // THE THROW (k3 0.42): the wings overshoot PAST their settled span before the ignition.
+  um.setStage3(0.42); um.tick(0, 5.0); const zThrow = upR.rotation.z;
+  um.setStage3(1.0); um.tick(0, 5.0); const zSettle = upR.rotation.z;
+  assert(zThrow > zSettle + 0.03, `the wings THROW past the settled span then settle (throw ${zThrow.toFixed(2)} > settled ${zSettle.toFixed(2)})`);
+  // IGNITION (k3 0.50): the focal eye has retired and the starburst has flashed in.
+  um.setStage3(0.50);
+  assert(!focal.visible && burst.children[0].material.opacity > 0.4, `ignition retires the focal eye + the starburst flashes in (burst ${burst.children[0].material.opacity.toFixed(2)})`);
   um.dispose();
   ok('unmasked STAGE 3 UNVEILING: star-eye + starburst + halo unveil, the focal eye retires, and the SAME seraph wings mantle fully open');
 }
@@ -477,15 +492,16 @@ for (const key of BOSS_ORDER) {
   const s3 = findAllByName(um.group, 'stage3Rig')[0];
   um.setDebugStage(1);
   assert(s1.visible && !s2.visible && !s3.visible, 'the stage machine starts at the eclipse (stage 1)');
-  // Phase advance → 1: the CRACK animates (mid-way BOTH rigs live; then it settles on the seraph).
+  // Phase advance → 1: the CRACK animates (the eclipse strains + cracks for ~3s before it shatters
+  // and the seraph is revealed) — proving it's a live beat map, not a snap.
   um.setPhase(1);
-  um.tick(0.1, 0.1);
-  assert(s1.visible && s2.visible, 'phase→1 mid-crack: both the eclipse and the seraph are live (animating, not a snap)');
-  for (let i = 0; i < 30; i++) um.tick(0.1, 0.2 + i * 0.1);   // run past TRANS_DUR
+  for (let i = 0; i < 12; i++) um.tick(0.1, 0.1 + i * 0.1);   // ~1.2s in: still mid-crack
+  assert(s1.visible && !s2.visible, 'phase→1 mid-crack: the eclipse is still whole + cracking (not a snap)');
+  for (let i = 0; i < 70; i++) um.tick(0.1, 1.4 + i * 0.1);   // run past the crack duration (6.0s — the beat-mapped transition)
   assert(!s1.visible && s2.visible && !s3.visible, 'phase→1 settles on the seraph (stage 2)');
   // Phase advance → 2: the UNVEILING animates the third-form core in (the wings are kept).
   um.setPhase(2);
-  for (let i = 0; i < 30; i++) um.tick(0.1, 4 + i * 0.1);
+  for (let i = 0; i < 60; i++) um.tick(0.1, 4 + i * 0.1);   // run past the unveil duration (4.8s)
   assert(s3.visible && s2.visible, 'phase→2 settles on the unveiling (stage 3 core up, the seraph wings kept)');
   // The transition BEAT contract: the model exposes its transition duration so boss.js can hold
   // fire through the crack/unveiling and land the all-eyes reveal (camera + slow-mo) on the eye-snap.

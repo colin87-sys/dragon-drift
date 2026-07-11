@@ -49,7 +49,7 @@ const main = read('js/main.js');
 check('N2: powerPreference high-performance', main.includes("powerPreference: 'high-performance'"));
 check('N2: explicit outputColorSpace = SRGB', main.includes('renderer.outputColorSpace = THREE.SRGBColorSpace'));
 check('N3: installNeutralToneMap() called before renderer', main.indexOf('installNeutralToneMap()') > 0 && main.indexOf('installNeutralToneMap()') < main.indexOf('new THREE.WebGLRenderer'));
-check('N3: ?tm= wired', /urlParams\.has\('tm'\)/.test(main) && main.includes('setToneMap(renderer'));
+check('N3: ?tm= wired', /urlParams\.get\('tm'\)/.test(main) && main.includes('setToneMap(renderer'));
 check('N1: ?dither=0 wired', /urlParams\.get\('dither'\)\s*===\s*'0'/.test(main) && main.includes('setDither(false)'));
 
 // --- N3: the composed path (OutputPass) must actually apply CustomToneMapping,
