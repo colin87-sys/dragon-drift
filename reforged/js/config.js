@@ -368,11 +368,12 @@ export const CONFIG = {
       burnFloor: 3,         // LAW — min painted pips in the release to earn a burn
       dur: 3.0,             // TUNE(2.0-4.0) — burn lifetime (seconds)
       tickInterval: 0.3,    // TUNE(0.2-0.5) — seconds between burn DOT ticks
-      echoDmgMult: 0.5,     // ONEWING spectral echo-pip damage (later PR; unused here)
+      echoDmgMult: 0.5,     // ONEWING spectral echo-pip damage (rung 12): a ghost pip strikes at ×0.5 and prices the ROI clamp by 0.5
       fracBySlot: {         // per-boss burn fraction of the (already ROI-clamped) volley
         knellgrave: 0.25,   // WE opener — gentle
         weftwitch: 0.30,    // WE mid — her music is LIVE, so the perfect release is the normal on-beat tap (no toll-clock analog)
-        // onewing: 0.35, embertide: 0 (beam fork), unmasked: 0.20 — later PRs
+        onewing: 0.30,      // WE late (rung 12) — burn on REAL pips only (ghosts never earn it). ONEWING has LIVE music, so the perfect on-tell release is the normal on-BEAT tap (generic beat clock, not a toll/wind-up analog). 0.30 not 0.35: at 0.35 the P5 full-release edged the deleter line to exactly 1.00 — the SPECTRAL ECHO is ONEWING's escalation, not the burn (lockdps margins)
+        // embertide: 0 (beam fork), unmasked: 0.20 — later PRs
       },
     },
   },

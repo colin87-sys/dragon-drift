@@ -317,7 +317,11 @@ payoff.* The player painted this exact eye at rung 5.
   ITS FRAME" on the first echo, and "ONLY THE FIRST MARK ECHOES" the instant a
   second mark does not echo (new `saveData.flags.echoTaught` gate alongside
   `lockTaught`/`snapTaught`).
-- **Utility math:** spans ~119/119/119/97/86 → clamped volley ≈ 10%, +burn ~15% on
+- **Utility math (CORRECTED against the live def — the old ~119/119/119/97/86 was stale;
+  P2's atFrac moved 0.78→0.86, so P1 is a thin 76-HP phase):** spans **76/162/119/97/86**,
+  deleter margins **1.13 / 1.94 / 1.42 / 1.11 / 1.04** (burnFrac 0.30; the echo, not the burn,
+  is the escalation — at 0.35 the P5 full-release hit exactly 1.00). ⚠ P5/P4/P1 owner-playtest GO.
+  Old note: spans ~119/119/119/97/86 → clamped volley ≈ 10%, +burn ~15% on
   a full on-tell set; echoes reach cap faster but at half strength, so the phase
   stays above its card timer (§8C). From 0% today.
 
@@ -591,12 +595,18 @@ boss's balance moves except where this doc says so.
 
 > **LIVE STATUS (2026-07-10).** PR0 ✅. PR2a (KNELLGRAVE organs) ✅ merged #349.
 > PR2b/PR3 (KNELLGRAVE resonant on-toll release + SCAR-BURN + PR2a blocker fixes)
-> ✅ merged #355. PR4a (WEFTWITCH organs + SCAR-BURN) ✅ merged #356. **NOW BUILDING:
-> PR4b — WEFTWITCH's "THE VOLLEY TEARS, SHE MENDS" rule (⚠ P5 owner-playtest GO gate).**
-> V4 parry-snap → PR4c (deferred). Then ONEWING (rung 12 — the spectral echo-pip, a
-> new lockLayer kernel; CP1 pre-audit done: brand the DEAD frame, the echo marks the
-> out-of-lane living eye — "invert" option; + the felled-lie deflect fix + frame-break
-> wiring). Then PR5 →
+> ✅ merged #355. PR4a (WEFTWITCH organs + SCAR-BURN) ✅ merged #356. PR4b
+> (WEFTWITCH's "THE VOLLEY TEARS, SHE MENDS" rule) ✅ merged #360. Lock-organ COMFORT
+> pass (WEFTWITCH palms + placeGroup wander/wobble dials; the new 10.4 comfort LAW —
+> "reachable ≠ comfortable") ✅ #363 (owner-playtested GOOD). **NOW BUILDING: ONEWING
+> (rung 12) — the INVERTED spectral echo: dwell the DEAD frame (`frameGroup` +
+> `frameRoot`), the FIRST mark on each grants a half-strength GHOST pip on the
+> out-of-lane living eye (`echoTarget`), "pips arrive in pairs" (2 ghosts, cap→6).
+> Owner picks: 2 ghosts + HONEST SACRIFICE (frame-break drops both frame organs + the
+> echo anchor → lance to near-zero). Comfort dials (holdSway/idleWobble/wanderAmp) +
+> the felled-lie deflect fix + the lockdpsCore ECHO term (free ghosts raise DPS) +
+> burnFrac 0.30 (P5 1.04; ⚠ owner-playtest GO gate). CP2 diff critic pending.**
+> V4 WEFTWITCH parry-snap → PR4c (deferred). Then PR5 →
 > PR6 EMBERTIDE → PR7 THE UNMASKED → PR8 mid-ladder polish → PR9 elemental loadout.
 > **Standing process: every rung gets a CP1 pre-audit + a CP2 diff critic (owner
 > directive); the human owner is the final gate on any damage LAW.**

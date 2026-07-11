@@ -519,6 +519,19 @@ export function buildOnewing(def, quality = 1) {
     frameGroup.add(frameDetail);
   }
 
+  // §5i.C rung 12 — THE SEVERED ROOT: a low brand anchor at the kite's bottom vertex (where the
+  // dead twin's bead-thread was cut free). The frame's SECOND dwell lock organ — `frameGroup` is
+  // the upper one (world-Y ~18), this sits low (world-Y ~12) so both clear the aim ceiling. A CHILD
+  // of frameGroup, so it falls away with the frame on the ghost-break (the honest-sacrifice trade).
+  const frameRoot = new THREE.Group();
+  frameRoot.name = 'frameRoot';
+  frameRoot.position.set(0, -KBOT + 0.25, 0.12);
+  if (!lowQ) {
+    const rootKnot = new THREE.Mesh(strip(new THREE.OctahedronGeometry(0.3, 1)), frameRimMat);
+    rootKnot.name = 'frameRootKnot'; frameRoot.add(rootKnot);
+  }
+  frameGroup.add(frameRoot);
+
   // ==================================================================
   // THE ONE EYE — EITHERWING's eye rig, GRIEF-DIMMED. A bright RING (sclera) around a
   // wide dark PUPIL + an ultra-hot catchlight GLINT that alone carries the focal peak,
@@ -727,8 +740,13 @@ export function buildOnewing(def, quality = 1) {
     // chain) follow the visual body. Amplitude at KARNVOW's ceiling (±~3.5 local), tuned
     // LOUD for the FIGHT FRAME — the studio close-up lies. ===
     const sag = Math.sin(time * 0.9) * 0.5 + 0.5;              // the rubato breath (grief arrhythmia)
-    const driftX = (Math.sin(locoT * 0.41) * 2.2 + Math.sin(locoT * 0.17 + 1.3) * 1.5 + 0.6) * alive;
-    const driftY = (Math.sin(locoT * 0.53 + 0.7) * 1.0 + Math.sin(locoT * 0.29) * 0.7 - sag * 0.5) * alive;
+    // §COMFORT (rung 12): the wander is def-scalable. Its ±4.3 rig-local X × scale 1.9 ≈ ±8.2 WORLD
+    // is the dominant term throwing the lance organs (the fused frame) toward the ±13 kill wall —
+    // untouched by holdSway/idleWobble (which only calm the station + rotation). Calm it so the frame
+    // sits in the 10.4 comfort band; default 1 = byte-identical for a wander with no lance organs.
+    const wA = def.wanderAmp ?? 1;
+    const driftX = (Math.sin(locoT * 0.41) * 2.2 + Math.sin(locoT * 0.17 + 1.3) * 1.5 + 0.6) * alive * wA;
+    const driftY = (Math.sin(locoT * 0.53 + 0.7) * 1.0 + Math.sin(locoT * 0.29) * 0.7 - sag * 0.5) * alive * wA;
     rig.position.x = driftX;
     rig.position.y = driftY - dyingK * 4.0 - felledK * 1.6;    // sinks as it dies (fake death sags partway)
     const vXraw = (rig.position.x - lastLX) / Math.max(dt, 1e-4);

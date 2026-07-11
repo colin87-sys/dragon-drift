@@ -1599,6 +1599,27 @@ export const BOSSES = {
     // 'spraySoak' has no consumer yet (CP2), so it is inert for every boss now.
     grazeForm: 'spraySoak',
     scale: 1.9,                  // TUNE in studio: size the vast wing to ≥26 on-screen units (×2.2 of the r9 6.2 body is the FLOOR, not the target — §2.1/L141)
+    // §COMFORT (rung 12): make the fused-frame lock organs comfortably acquirable, not pinned to the
+    // ±13 kill wall. Three dials, each the shipped precedent: calm the ±5 station strafe (holdSway,
+    // WEFTWITCH/BRINEHOLM), the ±0.12 idle yaw/roll wobble that projects the frame's z-offset sideways
+    // (idleWobble, WEFTWITCH), and — the dominant term for this boss — the model's own ±8 world lateral
+    // WANDER (wanderAmp, bossOnewing.js driftX). Together the frame sits in the 10.4 band (organ test).
+    holdSway: { amp: 0.5, freq: 0.5 },
+    idleWobble: 0.3,
+    wanderAmp: 0.55,
+    // §5i.C rung 12 — THE INVERTED SPECTRAL ECHO. Dwell-paint the dead twin's fused FRAME (two
+    // organs: the frame + its low severed root); the living EYE is above the aim ceiling (organ
+    // test) so it can never be dwell-painted — instead the FIRST mark on each frame organ echoes a
+    // GRANTED half-strength GHOST pip onto it (echoTarget), "pips arrive in pairs" (echoMax 2). The
+    // ghost strikes at scarBurn.echoDmgMult, fills the cap faster, but earns NO burn. Breaking the
+    // fused frame (ghostHalf, 4 parries) drops BOTH frame organs (frameRoot is a frameGroup child)
+    // AND the echo anchor → the lance goes to near-zero: the honest either/or (keep the ghost for
+    // lance DPS, or break it for tempo relief). Reachable: 2 frame×2 stacks + 2 ghost = 6 = tier cap.
+    lockParts: [{ part: 'frameGroup' }, { part: 'frameRoot' }],
+    echoTarget: 'onewingEye',            // the granted ghost pip lands here (aim-free, homed)
+    echoOrgans: ['frameGroup', 'frameRoot'],  // a fresh mark on either echoes once
+    echoMax: 2,                          // ≤2 ghosts on the eye — "pips arrive in pairs"
+    echoPips: 2,                         // lockdpsCore: the granted ghost count (half-damage) for the economy model
     // §7b MOVING boss (L194): ONEWING wanders its lane (the fluidity primitive), so it
     // slides off its own capture mask between bossgate's two round-trips (the G1 focal
     // flake). `freeze` samples the geometry mask + the screenshot at ONE pose — additive,
