@@ -172,38 +172,18 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     stripBoth(rootR, edgeR);
   }
 
-  // GLOW-UP: LATERAL PEARL-LINE — 5 (hard cap) LARGE diamond scutes down the rear dorsal
-  // midline, the koi lateral line as caught pearl-light. Emitted INTO the tube geo so they
-  // ride the wave, but drawn with a SECOND material (bright mint emissive) via a geometry
-  // GROUP, so they GLOW while the body stays matte. Few + large — no sub-8px zipper (the f2
-  // dorsal-ridge sawtooth failure is on record). Apex-only (gated on pearlLine).
-  const pearlLine = model.pearlLine ?? 0;
-  const bodyIdxCount = indices.length;
-  if (pearlLine > 0) {
-    const cScute = new THREE.Color(0xbdf5d0);
-    for (let k = 0; k < 5; k++) {
-      const t = 0.46 + k * 0.07;
-      const i = Math.min(N - 1, Math.max(0, Math.round(t * (N - 1))));
-      const cy = yAt(t), cz = zzOf(i), topY = cy + radii[i] * OVAL_H;
-      const dl = 0.14 * scale, dw = 0.09 * scale, dh = 0.12 * scale;
-      const base = positions.length / 3;
-      positions.push(0, topY + dh, cz); normals.push(0, 1, 0);                 // apex
-      positions.push(0, topY, cz - dl); normals.push(0, 0.7, -0.7);            // fore
-      positions.push(0, topY, cz + dl); normals.push(0, 0.7, 0.7);            // aft
-      positions.push(-dw, topY + dh * 0.3, cz); normals.push(-0.9, 0.4, 0);   // left
-      positions.push(dw, topY + dh * 0.3, cz); normals.push(0.9, 0.4, 0);     // right
-      for (let q = 0; q < 5; q++) colors.push(cScute.r, cScute.g, cScute.b);
-      const A = base, F = base + 1, B = base + 2, L = base + 3, R = base + 4;
-      indices.push(A, F, R, A, R, B, A, B, L, A, L, F);                        // 4 side tris (base sits on the tube)
-    }
-  }
+  // NOTE: the "lateral pearl-line" glow-scutes were removed. They required a SECOND material
+  // (a geometry group) on the body mesh, which makes mesh.material an ARRAY — and every
+  // procedural dispose path (`preview.js`, `dragon.js`) assumes a SINGLE material and calls
+  // `o.material.dispose()`, which throws on an array (it broke shop equip + close). Keeping
+  // the koi body single-material matches every existing assumption; the pearl-light read is
+  // carried by the pearl + the fin-tip dew gems instead. (They barely read from behind anyway.)
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.setIndex(indices);
-  if (pearlLine > 0) { geo.addGroup(0, bodyIdxCount, 0); geo.addGroup(bodyIdxCount, indices.length - bodyIdxCount, 1); }
 
   // Jade hide material — vivid mid-value body, mint belly, a green emissive floor + fresnel
   // rim so it HOLDS jade when the cool studio fill backlights it (never near-black/teal).
@@ -217,12 +197,7 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
   bodyMat.userData.baseEmissive = cBody;
   bodyMat.userData.baseIntensity = model.bodyGlow ?? 0.10;
 
-  // GLOW-UP: the pearl-line scutes' bright mint emissive (group 1). Pushed to spineMats so
-  // Surge flares it; bloom-safe (opaque, saturated ~150° mint, value below white).
-  const scuteMat = pearlLine > 0 ? new THREE.MeshStandardMaterial({ color: 0x1f8a5c, emissive: 0x6ee8b0, emissiveIntensity: 0.9, roughness: 0.4, metalness: 0.0 }) : null;
-  if (scuteMat) { scuteMat.userData.baseEmissive = 0x6ee8b0; scuteMat.userData.baseIntensity = 0.9; spineMats.push(scuteMat); }
-
-  const body = new THREE.Mesh(geo, scuteMat ? [bodyMat, scuteMat] : bodyMat);
+  const body = new THREE.Mesh(geo, bodyMat);
   body.frustumCulled = false;   // the CPU wave swings verts past the static bounds
   group.add(body);
 
