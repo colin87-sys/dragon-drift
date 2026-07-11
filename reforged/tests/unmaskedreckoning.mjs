@@ -82,6 +82,14 @@ const drain = await page.evaluate(async () => {
 check(`the finale burn drains its counter (${pendA.toFixed(2)} → ${drain.pending.toFixed(2)}) and reduces boss hp (${hpA.toFixed(1)} → ${drain.hp.toFixed(1)})`,
   drain.pending < pendA && drain.hp < hpA);
 
+// (4) THE RESET LEAK (§CP2 self-catch): a game-over mid-fight (resetBoss — the HARD teardown, distinct
+// from the boss-defeat endEncounter) must NOT leak the unlocked burn into the next unmasked run. burns
+// is cleared on BOTH teardown paths; the reckoning latch must be too, or a death-after-collection would
+// hand the next finale a free burn from relic #0.
+const afterReset = await page.evaluate(() => { window.__dd.bossReset(); return window.__dd.bossReckoning(); });
+check(`a hard teardown (game-over path) RESETS the reckoning latch — no burn leaks to the next run (branded ${afterReset.branded.length}, done ${afterReset.done})`,
+  afterReset.branded.length === 0 && afterReset.done === false);
+
 check('no console errors through the reckoning run', errors.length === 0) || console.error(errors.slice(0, 5).join('\n'));
 console.log(process.exitCode ? '\nunmasked RECKONING verification FAILED.' : '\nunmasked RECKONING verification passed.');
 await done();

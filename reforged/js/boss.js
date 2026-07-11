@@ -5266,6 +5266,7 @@ export function resetBoss() {
   clearSetpiece();
   clearLocks('death');   // THE LANCE layer: drop aim/lock state on a hard teardown
   burns.length = 0; lastRealTollAt = -10; lastTollGap = 1.2; tollChainN = 0; tollChainAt = -10;   // SCAR-BURN: drop burn state + toll clock + §ENG-C3 chain on teardown
+  reckoningBranded.clear(); reckoningDone = false;   // THE RECKONING (rung 14): a game-over mid-fight must NOT leak the unlocked finale burn into the next unmasked run (mirrors the endEncounter reset — like burns, this is reset on BOTH teardown paths)
   musicRestore();        // §5f: a hard teardown never strands the run in silence (idempotent)
   removeSeed();   // §5e: no stale horizon silhouette across a run teardown
   // Release the cinematic entrance if we tore down mid-flythrough (game over during

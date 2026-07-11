@@ -339,6 +339,7 @@ if (urlParams.has('debug')) {
     bossSetPhase: (n) => setBossDebugPhase(n),        // §CP2-D2: fast-forward to a phase (P5 survival-seal test); call before bossForceFight
     bossSetStage: (n) => setBossDebugStage(n),        // rung 14: pin/re-pin the visible STAGE sub-rig of THE UNMASKED (live organ-comfort test)
     bossReckoning: () => debugReckoning(),            // rung 14: THE RECKONING relic-collection + burn-unlock state (unmaskedreckoning.mjs)
+    bossReset: () => resetBoss(),                      // rung 14: the HARD teardown (game-over / new-run path) — proves the reckoning latch doesn't leak the burn across runs
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;
