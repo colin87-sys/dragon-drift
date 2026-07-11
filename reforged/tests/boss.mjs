@@ -467,6 +467,17 @@ for (const key of BOSS_ORDER) {
   um.setDebugStage(2); um.tick(0, 5.0); const z2 = upR.rotation.z;
   um.setDebugStage(3); um.tick(0, 5.0); const z3 = upR.rotation.z;
   assert(z3 > z2 + 0.1, `stage 3 MANTLES the wings fully open (upper wing ${z2.toFixed(2)} → ${z3.toFixed(2)})`);
+  // BEAT MAP (gather → close → throw → ignite → settle): the unveiling is phrased, not one ease.
+  // mid-CLOSE (k3 0.30): the great eye is still shown but SHUT to a seam (scale.y crushed).
+  um.setStage3(0.30);
+  assert(focal.visible && focal.scale.y < 0.5 * 0.62, `mid-unveil the great eye is closing to a seam (scale.y ${focal.scale.y.toFixed(3)})`);
+  // THE THROW (k3 0.42): the wings overshoot PAST their settled span before the ignition.
+  um.setStage3(0.42); um.tick(0, 5.0); const zThrow = upR.rotation.z;
+  um.setStage3(1.0); um.tick(0, 5.0); const zSettle = upR.rotation.z;
+  assert(zThrow > zSettle + 0.03, `the wings THROW past the settled span then settle (throw ${zThrow.toFixed(2)} > settled ${zSettle.toFixed(2)})`);
+  // IGNITION (k3 0.50): the focal eye has retired and the starburst has flashed in.
+  um.setStage3(0.50);
+  assert(!focal.visible && burst.children[0].material.opacity > 0.4, `ignition retires the focal eye + the starburst flashes in (burst ${burst.children[0].material.opacity.toFixed(2)})`);
   um.dispose();
   ok('unmasked STAGE 3 UNVEILING: star-eye + starburst + halo unveil, the focal eye retires, and the SAME seraph wings mantle fully open');
 }

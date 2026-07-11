@@ -783,7 +783,7 @@ export function buildUnmasked(def, quality = 1) {
     // Long rays BURST OUTWARD past the halo (r~3.3) so it reads as RADIANCE, not spokes inside a
     // rim (the wheel read the design forbids); alternating short rays keep the star silhouette.
     const len = (i % 2 === 0 ? 5.6 : 2.7);
-    const w = 0.11;                                     // slim rays (a sunburst, not fat blades)
+    const w = 0.16;                                     // rays with body (survive fight distance) — still a sunburst, not fat blades
     const r0 = 0.5;                                     // spikes start just outside the star-eye
     const tx = Math.cos(a) * (r0 + len), ty = Math.sin(a) * (r0 + len);
     const bax = Math.cos(a - w) * r0, bay = Math.sin(a - w) * r0;
@@ -905,16 +905,42 @@ export function buildUnmasked(def, quality = 1) {
   // stage 2's wings + eye-field stay (the SAME seraph, mantled — read in tickBody); only the
   // centre swaps. k3 0 hides stage 3 + shows the focal eye → stage 2 is byte-identical. ──
   let stage3K = 0;
+  let mantleK = 0;      // S2→S3 wing throw weight (read in the shoulder loop): 0 at rest → 1.30 throw-peak → 1.0 settled
+  let convergeK = 0;    // GATHER: the eye field turns INWARD to the core (read in the pupil loop)
+  let burstFlash = 0;   // ignition HDR flash weight (read in the stage-3 tick)
+  // THE UNVEILING is a beat map on the reversal: the seraph STOPS WATCHING (eyes converge in) →
+  // the great eye CLOSES → the wings THROW open → the shut eye-line SPLITS as the starburst
+  // IGNITES → the held stare. Pure function of k3; endpoints k3∈{0,1} are the shipped stages.
   function setStage3(k) {
     stage3K = Math.max(0, Math.min(1, k));
     const k3 = stage3K;
+    const fold    = smooth(0.02, 0.18, k3);   // GATHER: wings fold in, eyes turn inward
+    const closeK  = smooth(0.16, 0.32, k3);   // the great eye SHUTS
+    const throwK  = smooth(0.33, 0.44, k3);   // THE THROW: wings mantle open past the final span
+    const igniteK = smooth(0.44, 0.52, k3);   // IGNITION: the shut seam SPLITS into the starburst
+    const settleK = smooth(0.55, 0.88, k3);   // the overshoot decays to the held pose
     stage3.visible = k3 > 0.005;
-    stage3.scale.setScalar(0.55 + 0.45 * smooth(0, 1, k3));   // the star-eye + burst + halo bloom open
-    burstMat.opacity = smooth(0.15, 1.0, k3) * 0.95;
-    halo3Mat.opacity = smooth(0.25, 1.0, k3) * 0.7;
-    // The focal almond RECEDES as the star-eye takes the centre (crossfade by visibility at the
-    // half — the star-eye is fully bloomed by then so there is no empty-centre frame).
-    for (const e of focalParts) e.visible = k3 < 0.5;
+    // The star assembly POPS in at ignition (overshoot to 1.15, settles to 1) — the group inflate
+    // replaced by a punch so the centre detonates rather than gently scaling up.
+    stage3.scale.setScalar(1 + 0.30 * (igniteK - smooth(0.50, 0.62, k3)));
+    // STARBURST: opacity flashes in fast at ignition; rays SHOOT out (0.15→1.12) then settle to 1.
+    burstMat.opacity = smooth(0.44, 0.50, k3) * 0.95;
+    starPivot.scale.setScalar(0.15 + 0.97 * igniteK + 0.12 * igniteK * (1 - settleK));
+    burstFlash = igniteK * (1 - smooth(0.52, 0.66, k3)) * 1.6;   // the HDR flash (tickBody), 0 by the settle
+    // HALO: kindles hot BEHIND the throw (backlight for the mantle), settles to 0.7.
+    halo3Mat.opacity = smooth(0.34, 0.42, k3) * 0.7 * (1 + 0.9 * Math.max(0, throwK - settleK * 0.9));
+    // THE GREAT EYE CLOSES (the reversal), then RECEDES: hidden once it is a thin dark seam, so the
+    // split reads as the seam bursting — never an empty-centre crossfade.
+    const eyeY = 1 - 0.94 * closeK;
+    greatEye.scale.set(GW, GH * eyeY, GD);
+    greatSocket.scale.set(GW * 1.24, GH * 1.3 * eyeY, 0.5);
+    const hideFocal = k3 >= 0.44;
+    for (const e of focalParts) e.visible = !hideFocal;
+    greatCatch.visible = !hideFocal && closeK < 0.6;   // the catchlight dies first (the light going out)
+    // THE WING THROW (read in the shoulder loop): overshoot to 1.30 at the throw, settle to 1.00.
+    mantleK = -0.35 * fold + 1.65 * throwK - 0.30 * settleK;
+    // THE GATHER: the eye field abandons the player and converges on the core (dies by the throw).
+    convergeK = fold * (1 - smooth(0.30, 0.40, k3));
   }
 
   // Stage select (CP2 wires this to the phase machine; for now a debug/gate hook). A discrete
@@ -1138,7 +1164,7 @@ export function buildUnmasked(def, quality = 1) {
         s.obj.rotation.z = s.baseRotZ + fold
           + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath * (0.25 + 0.75 * unfurlK)
           + s.flareZ * charge * 0.16
-          + s.flareZ * stage3K * 0.24;   // STAGE 3: the wings MANTLE FULLY OPEN (a bigger, held flare than the charge tell)
+          + s.flareZ * mantleK * 0.34;   // STAGE 3: the wings THROW open (overshoot to 1.30 then settle to a WIDER held span than stage 2)
       }
 
       // ── WRATH TELL: the whole eye field bleeds from gold toward danger-red as the charge
@@ -1147,8 +1173,9 @@ export function buildUnmasked(def, quality = 1) {
       irisMat.color.copy(IRIS_BASE).lerp(DANGER, charge * 0.5);
       catchMat.color.copy(CATCH_BASE).multiplyScalar(1 + snapK * 1.8);
 
-      // The great central eye's pupil tracks the player (the focal); constricts on charge.
-      const gk = 1 - charge * 0.3;
+      // The great central eye's pupil tracks the player (the focal); constricts on charge and on
+      // the S2→S3 GATHER (it recoils inward as the seraph stops watching you).
+      const gk = (1 - charge * 0.3) * (1 - convergeK * 0.5);
       greatPupil.position.set(gazeX * GW * 0.24, GEY + gazeY * GH * 0.2, GF + 0.08);
       greatPupil.scale.set(GW * 0.38 * gk, GH * 0.44 * gk, 0.5);
       // Each peripheral pupil tracks the player within its own sclera, sitting proud of the
@@ -1158,8 +1185,11 @@ export function buildUnmasked(def, quality = 1) {
       // gazes CONVERGE to a single dead-on lock — the reveal hold (the screenshot of the game).
       for (const p of pupils) {
         const u = p.userData;
-        const tgx = gazeX + u.biasX * (1 - snapK);
-        const tgy = gazeY + u.biasY * (1 - snapK);
+        // S2→S3 GATHER: the pupil turns INWARD toward the core (−base·0.5), overriding the
+        // player-track — the field of gazes collapses to a point (the unthinkable: it looks away).
+        const cx = Math.max(-1, Math.min(1, -u.base.x * 0.5)), cy = Math.max(-1, Math.min(1, -u.base.y * 0.5));
+        const tgx = (gazeX + u.biasX * (1 - snapK)) * (1 - convergeK) + cx * convergeK;
+        const tgy = (gazeY + u.biasY * (1 - snapK)) * (1 - convergeK) + cy * convergeK;
         const k = Math.min(1, dt * ((2 + u.lag * 7) * (1 - snapK) + 30 * snapK));
         u.gx += (tgx - u.gx) * k;
         u.gy += (tgy - u.gy) * k;
@@ -1181,8 +1211,10 @@ export function buildUnmasked(def, quality = 1) {
     // Gated on stage3.visible so it costs nothing until the third form is up. ──
     if (stage3.visible) {
       starPivot.rotation.z = time * 0.06;                                  // a slow, holy drift (not a wheel)
-      const pulse = 0.85 + Math.sin(time * 0.8 * TAU) * 0.15 + charge * 0.3;
-      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse);       // the rays breathe hotter on charge (wrath)
+      // Settled floor 1.0 (survives fight distance) + the S2→S3 IGNITION FLASH (HDR ×burstFlash,
+      // toneMapped off → blooms hard for ~0.6s then decays to the steady radiance).
+      const pulse = 1.0 + Math.sin(time * 0.8 * TAU) * 0.15 + charge * 0.3 + burstFlash;
+      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse);       // the rays breathe hotter on charge (wrath) + flash on ignition
       halo3Mat.color.copy(_c.set(def.accent)).multiplyScalar(0.8 + Math.sin(time * 0.5 * TAU) * 0.12);
       starPupil.position.set(gazeX * SW * 0.3, gazeY * SH * 0.28, SD + 0.1);
       const sk = 1 - charge * 0.3;                                          // constrict on charge (the star-eye shares the wrath tell)
