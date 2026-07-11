@@ -1701,6 +1701,12 @@ export const BOSSES = {
     stages: 3,                            // the stage system (CP2 dissolve-swaps the sub-rigs)
     stagesBuilt: 3,                       // how many stage sub-rigs exist: 1 eclipse-eye · 2 seraph · 3 the unveiling (star-eye + starburst + halo, wings mantled). Drives the dev stage-jump selector.
     grazeForm: 'medley',                  // §5i.B APEX graze — quotes the roster's graze forms (CP2)
+    // §5i.D per-stage graze quote (phaseIdx-indexed; grazeFormNow() dispatches on it).
+    // PARTIAL map during the staged rollout — stage 1 quotes KARNVOW's stare-down
+    // (holdFlinch: bullet-free, setpiece-free, the ONLY continuous form that survives the
+    // Apex's deliberately-sparse rests). Stages 2/3 stay null (status-quo silence) until
+    // their PRs wire orbitAnnulus (the Ophanim wheel) + shrinkDisc (the toll-wall).
+    grazeMedley: ['holdFlinch', null, null],
     // Decision-C gate overrides (§7b sanctioned): ~20 eyes are many small bright points
     // (G1 assumes ONE focal); the wheels frame-fill (G4). Cited to the registry sanction.
     gate: { eyeCluster: true, frameFill: true },

@@ -4168,4 +4168,81 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   ok('BATCH-3 (feel fixes): Karnvow return is DISTINCT + tag-free, Eitherwing outer pips clear the wall (sway-aware), Hollowgate iris converges with an occupiable safe lane (coexist inert) ✓');
 }
 
+// §5i.D — THE UNMASKED medley dispatcher (Part D, PR-1). The Apex's grazeForm:'medley'
+// QUOTES a shipped graze form per stage via grazeFormNow(). This gate proves: (1) stage 1
+// actually pays KARNVOW's holdFlinch (a live stare-down, not just a label read); (2) the
+// UNQUOTED stages 2/3 are inert (medleyForm null, zero stare payout — no leak); (3) the
+// dispatcher is BIT-IDENTICAL for static (non-medley) defs (karnvow/ashtalon read their
+// own grazeForm verbatim). The multi-form refill economy is covered by the lifecycle gate.
+{
+  let mTierN = 0, mFlinchN = 0;
+  on('holdTier', () => { mTierN++; });
+  on('holdFlinch', () => { mFlinchN++; });
+
+  // Drive the UNMASKED at a pinned stage with the player PARKED in the stare-down line
+  // (snapped to the boss pose every frame so |Δx|<5 |Δy|<7 always holds), banking hold
+  // time. Kept un-shielded so the stare-down can arm; the player never damages the boss,
+  // so it never defeats/refills — a clean single-stage window. Returns the observed forms +
+  // the stare-down payout counts, and the phaseIdx actually reached (the non-vacuous guard).
+  const driveStare = (phase, secs) => {
+    mTierN = 0; mFlinchN = 0;
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.setBossDebugPhase(phase);
+    boss.forceBoss(p, BOSS_ORDER.indexOf('unmasked'));
+    boss.debugForceFight(p);
+    const forms = new Set();
+    let phaseSeen = -1;
+    const N = Math.round(secs * 60);
+    for (let i = 0; i < N; i++) {
+      boss.debugClearShield();
+      const st = boss.bossDebugState();
+      p.position.x = st.poseX; p.position.y = st.poseY;   // park IN the threat line
+      forms.add(st.medleyForm);
+      phaseSeen = st.phaseIdx;
+      boss.updateBoss(1 / 60, p, 2 + i / 60);
+    }
+    return { forms: [...forms], tierN: mTierN, flinchN: mFlinchN, phaseIdx: phaseSeen };
+  };
+
+  // (1) STAGE 1 quotes holdFlinch — and PAYS. A parked stare banks the ramp to the flinch.
+  const s1 = driveStare(1, 6);
+  assertEq(s1.phaseIdx, 0, 'medley drive stage 1 lands at phaseIdx 0 (guard: the payout test is not measuring the wrong stage)');
+  assert(s1.forms.length === 1 && s1.forms[0] === 'holdFlinch',
+    `stage 1 medleyForm is 'holdFlinch' throughout (saw ${JSON.stringify(s1.forms)})`);
+  assert(s1.tierN >= 3, `stage 1 stare-down banks the ramp (holdTier fired ${s1.tierN}× — tiers 1/2/3)`);
+  assert(s1.flinchN >= 1, `stage 1 stare-down PAYS the flinch (holdFlinch ${s1.flinchN}× — the quote is live, not a dead label)`);
+
+  // (2) UNQUOTED stages 2/3 are inert: medleyForm null, and the identical parked stare
+  // earns NOTHING (grazeFormNow() !== 'holdFlinch' → the branch never enters). This is the
+  // proof the partial map doesn't leak the stage-1 quote into stages that aren't wired yet.
+  for (const [phase, idx] of [[2, 1], [3, 2]]) {
+    const s = driveStare(phase, 6);
+    assertEq(s.phaseIdx, idx, `medley drive stage ${phase} lands at phaseIdx ${idx} (guard)`);
+    assert(s.forms.length === 1 && s.forms[0] == null,
+      `stage ${phase} is UNQUOTED: medleyForm null throughout (saw ${JSON.stringify(s.forms)})`);
+    assertEq(s.tierN, 0, `stage ${phase} pays NO stare tier (unquoted — no holdFlinch leak)`);
+    assertEq(s.flinchN, 0, `stage ${phase} pays NO flinch (unquoted)`);
+  }
+
+  // (3) BIT-IDENTICAL for static defs: a non-medley boss's medleyForm === its own grazeForm
+  // verbatim (the swap changed zero behaviour for the shipped roster). Two distinct forms.
+  const staticPass = (name) => {
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.forceBoss(p, BOSS_ORDER.indexOf(name));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, 2 + i / 60); }
+    return boss.bossDebugState().medleyForm;
+  };
+  assertEq(staticPass('karnvow'), BOSSES.karnvow.grazeForm, "karnvow (static holdFlinch) reads its own grazeForm — dispatcher bit-identical");
+  assertEq(staticPass('ashtalon'), BOSSES.ashtalon.grazeForm, "ashtalon (static slipstream) reads its own grazeForm — dispatcher bit-identical");
+  assert(staticPass('voidmaw') == null, 'voidmaw (no grazeForm) reads null — dispatcher null-safe passthrough');
+
+  boss.resetBoss(); boss.setBossDebugPhase(1);   // HAZARD: debugPhaseJump survives resetBoss — clear it for later blocks
+  ok('§5i.D UNMASKED MEDLEY (PR-1): stage 1 QUOTES + pays holdFlinch (live stare-down), stages 2/3 unquoted-inert (no leak), dispatcher bit-identical for static defs (karnvow/ashtalon/voidmaw) ✓');
+}
+
 console.log(`\n${n} boss checks passed.`);

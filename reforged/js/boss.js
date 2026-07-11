@@ -866,7 +866,7 @@ const SWARM_ATTACK_FORM = {
 // while condensed). A parry-STAGGER locks it condensed (the exposed bonus window). Def-
 // gated on `condenseInvuln`; a model without setCondense (every other archetype) no-ops.
 function driveSwarm(dt, player) {
-  if (!def || (!def.condenseInvuln && def.grazeForm !== 'absorbColor') || !model || !model.setCondense) return;
+  if (!def || (!def.condenseInvuln && grazeFormNow() !== 'absorbColor') || !model || !model.setCondense) return;
   if (staggerT > 0) staggerT = Math.max(0, staggerT - dt);
   if (phase !== 'fight') { swarmScattered = false; return; }   // entrance/approach/death own the form
   if (debugSetpiecePin) { swarmScattered = false; return; }    // a capture pin owns the model (don't fight it)
@@ -889,7 +889,7 @@ function driveSwarm(dt, player) {
 
   // §5i.B ABSORB-A-COLOR: while CONDENSED and firing, the swarm SHEDS surge-pink motes
   // (braided into the magenta stream) that drift toward the player's lane to be soaked.
-  if (def.grazeForm === 'absorbColor' && soakList.length < SOAK_MAX) {
+  if (grazeFormNow() === 'absorbColor' && soakList.length < SOAK_MAX) {
     soakShed -= dt;
     if (soakShed <= 0 && (chargeT > 0 || pending.length > 0 || staggerT > 0)) {
       soakShed = 0.5 + Math.random() * 0.5;
@@ -960,7 +960,7 @@ function triggerThreadCut(player) {
   model.setThreadStrain?.(0);       // the banked strain releases with the snap
   sfx.needlePull?.();               // the thread tears free
   let bloomed = 0;
-  if (def.grazeForm === 'moteHarvest' && !harvestOffered) {
+  if (grazeFormNow() === 'moteHarvest' && !harvestOffered) {
     harvestOffered = true;          // once per phase (reset at the phase seam)
     bloomed = bloomHarvestMotes(player);
     ui.bossNote?.('✦ THREAD CUT — HARVEST THE BLOOM ✦', 'STEER THROUGH THE FALLING MOTES', 'gold', 2.4);
@@ -2026,8 +2026,13 @@ function enterFight() {
     rhythmRest = null;
     beginCard(phaseIdx);
     armSetpieceForPhase(phaseIdx);
-    if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdFlinchCd = 0; holdFlinchPay = 1; }
-    if (def.grazeForm === 'shrinkDisc') { discDur = 0; discR = 0; discTollN = 0; discCd = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // §5i.B: a phase advance re-offers a generous first pocket
+    if (grazeFormNow() === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdFlinchCd = 0; holdFlinchPay = 1; }
+    if (grazeFormNow() === 'shrinkDisc') { discDur = 0; discR = 0; discTollN = 0; discCd = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // §5i.B: a phase advance re-offers a generous first pocket
+    // §5i.D MEDLEY seam reset: a medley stage-jump changes the QUOTED form, so wipe EVERY
+    // graze-form var (not just the entered form's) — a stale beamHeld/orbAcc/discR from the
+    // form we left would otherwise cash into the next stage's meter. Keyed on the raw
+    // 'medley' label (grazeFormNow() never returns 'medley'); inert for every static form.
+    if (def.grazeForm === 'medley') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdTier = 0; holdFlinchCd = 0; holdFlinchPay = 1; orbAcc = 0; orbPrevTh = null; discDur = 0; discR = 0; discTollN = 0; discCd = 0; }
     // A dev stage-pick of S2/S3 (debugStagePin > 1) opens WITH the transition INTO that form:
     // the boss arrived as the PREVIOUS form (spawn hook), now play the crack/unveiling as a
     // SKIPPABLE intro. setPhase(target) animates into `phaseIdx`'s stage; the beat holds fire +
@@ -2952,7 +2957,7 @@ export function updateBoss(dt, player, time, camera) {
     updateGapThreadRows(dt, player);
 
     // ---- §5i.B RIDE-THE-BEAM-EDGE (def-gated continuous graze) ----
-    if (def.grazeForm === 'beamEdge') {
+    if (grazeFormNow() === 'beamEdge') {
       if (beamContact(player, 7)) {
         beamGrace = 0.3;                                   // bridge the gaps between a radial's bullets
         beamHeld += dt;
@@ -2974,7 +2979,7 @@ export function updateBoss(dt, player, time, camera) {
     // falling bullets banks Surge (the §5d "skim the crest edge" anatomy). Reuses the
     // slot-6 continuous-graze detector + the beamHeld/beamTick/beamGrace ramp verbatim
     // (one grazeForm per boss); shipped bosses without grazeForm==='tideEdge' are inert. ----
-    if (def.grazeForm === 'tideEdge') {
+    if (grazeFormNow() === 'tideEdge') {
       if (beamContact(player, 7)) {
         beamGrace = 0.3;                                   // bridge the gaps between crest bullets
         beamHeld += dt;
@@ -2994,7 +2999,7 @@ export function updateBoss(dt, player, time, camera) {
     // ---- §5i.B SHADOW-RIDE (BRINEHOLM's Calamities graze, def-gated) — ride the
     // leviathan's LEE (the shadow under its bulk) to bank Surge; the risk is the
     // geysers that erupt there. Same tick economy as beamEdge (one grazeForm/boss). ----
-    if (def.grazeForm === 'shadowRide') {
+    if (grazeFormNow() === 'shadowRide') {
       const halfW = 9 * (def.scale ?? 1);
       const inLee = Math.abs(player.position.x - pose.x) < halfW * 0.55   // centred under the head
         && player.position.y < pose.y - 2                                 // beneath the maw
@@ -3014,7 +3019,7 @@ export function updateBoss(dt, player, time, camera) {
     // FLINCHES (the amber cross-flick) and pays out big. Offered ONCE per phase.
     // Reuses the beamHeld/beamGrace ramp plumbing (one grazeForm per boss). ----
     if (holdFlinchCd > 0) holdFlinchCd -= dt;   // §ENG-KV C.2: stare-down cooldown ticks (inert for non-holdFlinch defs)
-    if (def.grazeForm === 'holdFlinch' && holdFlinchCd <= 0 && !shielded && setpieceT < 0) {
+    if (grazeFormNow() === 'holdFlinch' && holdFlinchCd <= 0 && !shielded && setpieceT < 0) {
       const inLine = Math.abs(player.position.x - pose.x) < 5
         && Math.abs(player.position.y - pose.y) < 7
         && Math.abs(pose.rel - B.settleGap) < 24;
@@ -3053,7 +3058,7 @@ export function updateBoss(dt, player, time, camera) {
     // The pocket punishes NOTHING (no damage / no push-out) — the real threat is the
     // dive-stream bullets outside it. One grazeForm per boss; defs without
     // grazeForm==='slipstream' never enter this branch (inert). ----
-    if (def.grazeForm === 'slipstream') {
+    if (grazeFormNow() === 'slipstream') {
       const stoopK = (setpieceT >= 0 && setpieceDef?.id === 'stoopingStrike')
         ? setpieceT / setpieceDef.dur : -1;
       const live = stoopK >= SLIP_K_ON;
@@ -3104,7 +3109,7 @@ export function updateBoss(dt, player, time, camera) {
     // pulse. The band punishes NOTHING; the threat stays the twins' converging volleys.
     // θ accrues in-band ONLY (a dead-centre wiggle can't farm laps). One grazeForm per
     // boss; defs without grazeForm==='orbitAnnulus' are inert. ----
-    if (def.grazeForm === 'orbitAnnulus') {
+    if (grazeFormNow() === 'orbitAnnulus') {
       const live = setpieceT >= 0 && setpieceDef?.id === 'figureEight';
       if (live) {
         const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
@@ -3152,7 +3157,7 @@ export function updateBoss(dt, player, time, camera) {
     // (bail: one step INWARD, always safe, or thread out through the wall). The form
     // punishes NOTHING — the threat stays the spiral bullets. One grazeForm per boss;
     // defs without grazeForm==='shrinkDisc' are inert. (§ENG-H toll flip.) ----
-    if (def.grazeForm === 'shrinkDisc') {
+    if (grazeFormNow() === 'shrinkDisc') {
       if (discCd > 0) discCd = Math.max(0, discCd - dt);         // the arm cooldown ticks down every frame
       const ride = discRideMode();                              // §ENG-LT: the one survival ride where the graze stays live
       if (ride && !resolveHinted) {                             // one-shot teach (the swarm/eye-deflect-hint precedent)
@@ -3549,8 +3554,21 @@ function orbitLapJackpot(player) {
   emit('orbitLap', { laps: orbLaps, held: beamHeld });
 }
 
+// §5i.D THE MEDLEY DISPATCHER (UNMASKED, the Apex capstone): a `grazeForm: 'medley'`
+// boss quotes a DIFFERENT shipped graze form per stage, mapped by `def.grazeMedley`
+// (phaseIdx-indexed). Every graze-form read in this file goes through here so a single
+// dispatcher decides "what surge form is live RIGHT NOW"; non-medley defs read their
+// static `def.grazeForm` verbatim (bit-identical). Null-safe on `def` — three callers
+// (gapThreadActive, discRideMode's guard, bossDebugState polled outside a fight) tolerate
+// a null def today, so the helper must too. Falls to null when a stage has no quote yet
+// (partial map during the staged rollout) → no graze branch matches → status-quo silence.
+function grazeFormNow() {
+  const f = def?.grazeForm;
+  return f === 'medley' ? (def.grazeMedley?.[phaseIdx] ?? null) : f;
+}
+
 // §5i.B THREAD-THE-GAP (ENG-G): the fire-time ledger + crossing walker + award.
-function gapThreadActive() { return def?.grazeForm === 'threadTheGap' || def?.gapThread === true; }
+function gapThreadActive() { return grazeFormNow() === 'threadTheGap' || def?.gapThread === true; }
 // Record a wall row at its fire closure — the SAME gap the bullets use, so the scorer can never
 // disagree with the wall. Snapshots pose.rel (emitBoss's default birth depth) + the hit watermark.
 function noteGapThreadRow(gapX, halfW, yLo, yHi, vy, vrel) {
@@ -3619,7 +3637,7 @@ function armDiscPocket(cx, cy, dur, r1) {
 // the shipped setpieceT<0 purity. (Reverses the ENG-C7/ENG-H "survival ride stays pure dodge"
 // decision, scoped to knellgrave's survival ride only — owner playtest call.)
 function discRideMode() {
-  return !!(def && def.grazeForm === 'shrinkDisc' && def.survivalResolve
+  return !!(grazeFormNow() === 'shrinkDisc' && def.survivalResolve
     && setpieceT >= 0 && setpieceDef && setpieceDef.id === def.survivalResolve.setpiece);
 }
 
@@ -3670,7 +3688,7 @@ function activateSurge(player) {
   // §5f C.2b "surge INTO the dive gap": releasing Surge while RIDING the stoop's
   // slipstream pocket (≥0.8s unbroken) EXPOSES the hunter — an amplified chip window.
   // Once per stoop (slipExposeUsed); the surge beam itself lands amplified via damageBoss.
-  if (def?.grazeForm === 'slipstream' && !slipExposeUsed && slipRideT >= 0.8) {
+  if (grazeFormNow() === 'slipstream' && !slipExposeUsed && slipRideT >= 0.8) {
     slipExposeUsed = true; slipExposeT = 2.5;
     ui.bossNote?.('✦ INTO THE DIVE GAP ✦', 'THE HUNTER IS EXPOSED', 'gold', 2.4);
     model.flash?.(0.8); sfx.milestone?.();
@@ -3754,7 +3772,12 @@ function breakShield(player) {
     riposteCd = 0; rallyN = 0; rallyWindowT = 0; rallyAnswerT = 0; riposteReturnMult = 0.62;
     holdFlinchCd = 0; holdFlinchPay = 1; holdTier = 0;
     staggerT = 0;   // §ENG-C3 FIX: a chain completion that raised THIS floor-shield froze staggerT under it — clear it at the seam so the next phase can't open with free scheduling silence
-    if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; }
+    if (grazeFormNow() === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; }
+    // §5i.D MEDLEY seam reset (live break): the entered stage may quote a DIFFERENT form
+    // than the one just left — grazeFormNow()==='holdFlinch' above only catches a same-form
+    // seam. Wipe every graze-form var so no stale meter (beamHeld/orbAcc/discR) leaks across
+    // the stage change. Raw-label keyed (never 'medley' from grazeFormNow); inert otherwise.
+    if (def.grazeForm === 'medley') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdTier = 0; orbAcc = 0; orbPrevTh = null; discDur = 0; discR = 0; discTollN = 0; discCd = 0; }
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
     if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) {
@@ -4192,7 +4215,7 @@ function executeAttack(id, player) {
     // radius at that crossing (SPIRAL_OUT_SPD·dur). Gated off during setpieces/shield/cd —
     // EXCEPT the one §ENG-LT ride (The Last Toll), where it arms off the TOLL CADENCE instead.
     const ride = discRideMode();
-    if (def?.grazeForm === 'shrinkDisc' && !shielded && (ride || ((setpieceT < 0 || setpieceDef?.id === 'pendulumSweep') && discCd <= 0))) {   // §ENG-C2: the sweeping bell tolls too — arm off the NORMAL srel math under the shipped discCd (disjunct INSIDE the cd conjunct so the peal law still holds)
+    if (grazeFormNow() === 'shrinkDisc' && !shielded && (ride || ((setpieceT < 0 || setpieceDef?.id === 'pendulumSweep') && discCd <= 0))) {   // §ENG-C2: the sweeping bell tolls too — arm off the NORMAL srel math under the shipped discCd (disjunct INSIDE the cd conjunct so the peal law still holds)
       discTollN++;
       if (ride) {
         // §ENG-LT RIDE MODE: overhead the mouth's rel is degenerate/behind-plane (srel/slow
@@ -5513,16 +5536,16 @@ export function bossDebugState() {
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
   // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
-  const slipActive = def?.grazeForm === 'slipstream' && setpieceT >= 0
+  const slipActive = grazeFormNow() === 'slipstream' && setpieceT >= 0
     && setpieceDef?.id === 'stoopingStrike' && (setpieceT / (setpieceDef?.dur || 1)) >= SLIP_K_ON;
-  const orbActive = def?.grazeForm === 'orbitAnnulus' && setpieceT >= 0 && setpieceDef?.id === 'figureEight';
-  const discActive = def?.grazeForm === 'shrinkDisc' && discDur > 0;
+  const orbActive = grazeFormNow() === 'orbitAnnulus' && setpieceT >= 0 && setpieceDef?.id === 'figureEight';
+  const discActive = grazeFormNow() === 'shrinkDisc' && discDur > 0;
   const gapThreadDbg = gapThreadRows.map((r) => ({ gapX: r.gapX, halfW: r.halfW, rel: r.rel }));
   // §ENG-EW holder-stagger debug (the slip/orb field precedent): the banked parries + the
   // live possession/drop, so the crop tool + gate can read the eye-drop state.
   const hs = model?.holdState?.();
   const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
-  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, archWaveN, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, medleyForm: grazeFormNow(), slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, archWaveN, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
