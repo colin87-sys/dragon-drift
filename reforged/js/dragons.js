@@ -672,6 +672,10 @@ export const DRAGONS = {
     stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
     hasStyle: true,        // keep its own white-gold trail colour even in Surge
     feverWing: 0xffe6a8, feverEye: 0xfff2c8,
+    // Surge highlight = a HOT GOLD (not the near-white 0xfff8e8 default) so the wing/body fire flares
+    // toward INCANDESCENT GOLD-FIRE, not a washed white slab — consistent with this dragon's warm-gold
+    // feverWing/feverWash Rebirth identity, and it lets the wings glow bright while staying fire-hued.
+    surgeHi: 0xff9e2e,
     feverWash: [0.058, 0.043, 0.014],   // Rebirth screen wash: warm gold, kept low so it never overexposes the frame
     // Base model holds APEX reference dials; each form dials the ladder (cumulative).
     model: {

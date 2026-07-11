@@ -120,6 +120,22 @@ function sunhawkMats(def, glow, stage) {
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0xfff2c8, emissive: eyeCol, emissiveIntensity: (1.1 + 0.3 * st) * g, flatShading: true, roughness: 0.28 });
   eyeMat.userData.baseEmissive = eyeCol; eyeMat.userData.baseIntensity = eyeMat.emissiveIntensity;
 
+  // ── SURGE FLARE WEIGHTS ("Rebirth Ignition" composition) — scale each mat's Surge-delta so the
+  // WINGS read as the hero (majority lights up, tip-hot → pours into the ember trail) while the BODY
+  // reads as bright ACCENT strokes over a warm field, not a detonating slab. A weight only bites on the
+  // mats a part actually PUBLISHES into spineMats (torso publishes its palette; wings publish hotRibbon +
+  // membrane below), so these role-weights ride the right instances without a per-part switch. The heart
+  // core is OUT of spineMats → it stays the single hottest apex point untouched.
+  const flareW = (m, c, i) => { m.userData.flareColorWeight = c; m.userData.flareIntensityWeight = i; };
+  //          material          COLOUR→surgeHi   INTENSITY gain
+  flareW(ivory,    0.35, 0.28);   // body FIELD: warms + lifts as an accent, no longer a detonating slab
+  flareW(goldfire, 0.7,  0.5);    // hot feather-roots pop as bright accents
+  flareW(flame,    0.5,  0.4);
+  flareW(crimson,  0.4,  0.35);
+  flareW(gold,     0.9,  0.7); flareW(roseGold, 0.9, 0.7); flareW(orange, 0.85, 0.6);   // ridge/collar/hems = bright gold strokes
+  // Wing feather/streamer fire (hotRibbon) is ALREADY at the bloom ceiling (base ~2.0) → hot-shift the
+  // COLOUR toward gold (tip-hottest) but keep the intensity gain SMALL so it hot-tips instead of white-out.
+  flareW(hotRibbon[0], 0.45, 0.05); flareW(hotRibbon[1], 0.6, 0.08); flareW(hotRibbon[2], 0.8, 0.12);
   return { ivory, goldfire, flame, crimson, garnet, emberShadow, emberBelly, bronze, gold, roseGold, orange, heart, eyeMat, hotRibbon, stage: st, glow: g };
 }
 
@@ -675,6 +691,18 @@ function buildOneSunWing(M, model) {
   const memI = (0.7 + 0.16 * (M.stage ?? 3)) * (M.glow ?? 1);
   const mMat = (e) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: e, emissiveIntensity: memI, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = e; m.userData.baseIntensity = memI; return m; };
   const memHot = mMat(0xffb63a), memGold = mMat(0xf59020), memOrange = mMat(0xe86614), memDeep = mMat(0xd6460c);
+  // Surge flare weights for the broad membrane panels: kept BELOW full so a big face doesn't cream-out to
+  // a pale slab — the white-gold COLOUR convergence (the lerp clamps near 1) carries the "majority of the
+  // wing glows" read, while raw intensity gain stays on the thin feather/streamer layer. Tip-hotter
+  // (memDeep at the outboard-trailing corner runs hottest) so the panel pours into the ember trail.
+  // The broad membrane carries the "majority of the wing glows" read via strong COLOUR convergence to the
+  // gold surgeHi (tip-hotter outboard) while INTENSITY stays low so a big face never blooms to a white slab.
+  const memFlareW = (m, c, i) => { m.userData.flareColorWeight = c; m.userData.flareIntensityWeight = i; };
+  // INTENSITY held UNIFORMLY LOW so no panel crosses the tone-map/bloom knee (which whites-out the
+  // outboard tips exactly where the gold should peak); the COLOUR ramp (0.5→0.95 outboard) alone carries
+  // the tip-hot gold gradient. This is the discipline the split-channel bought.
+  memFlareW(memHot, 0.5, 0.14); memFlareW(memGold, 0.65, 0.17); memFlareW(memOrange, 0.8, 0.2); memFlareW(memDeep, 0.95, 0.24);
+  wg.userData.flareMats = [memHot, memGold, memOrange, memDeep];   // published into the wing's spineMats so Surge ignites the membrane (they're locals otherwise)
   // DIAGONAL heat coordinate (not axis-aligned rectangles — the "basic panel/plates" read): a hot
   // inner-leading corner cooling toward the outboard-trailing corner, with a slight wave so the bands
   // aren't ruler-straight. Banded into the same 4 stops.
@@ -830,6 +858,7 @@ function buildSunfeatherWings(def, model, attach, _giM) {
   const hs = 3.3 * (model.wingScale ?? 1);
   const pivots = {}, wingElements = [], emberEmitters = [];
   let wingBladePivotsR = null, wingBladePivotsL = null;
+  const memFlareMats = [];   // per-side membrane mats (locals in buildOneSunWing) → published so Surge ignites the wing panels
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
     const pivot = new THREE.Group();
@@ -863,8 +892,14 @@ function buildSunfeatherWings(def, model, attach, _giM) {
     // reads symmetric (passing the −1 loop side would double-flip → the apex asymmetry the probe caught).
     const bp = (oneWing.userData.bladePivots || []).map((pivot, idx) => ({ pivot, idx, side: 1 }));
     if (s === 'R') wingBladePivotsR = bp; else wingBladePivotsL = bp;
+    for (const fm of (oneWing.userData.flareMats || [])) memFlareMats.push(fm);
   }
-  return { group, spineMats: [M.gold, M.roseGold, M.orange], wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
+  // Publish the wing's DOMINANT fire surfaces into spineMats so Surge ignites the WINGS (the hero of the
+  // Rebirth composition), not just the body. hotRibbon (M is shared across both wings → tag once, covers
+  // both) drives the feathers/streamers/ridge/licks/sheaths; memFlareMats are the per-side membrane
+  // panels. Their per-mat flareWeights (set in sunhawkMats / buildOneSunWing) keep it tip-hot + bloom-safe.
+  const spineMats = [M.gold, M.roseGold, M.orange, ...M.hotRibbon, ...memFlareMats];
+  return { group, spineMats, wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
 }
 registerWings('sunfeather', buildSunfeatherWings);
 

@@ -1116,9 +1116,17 @@ export function updateDragon(dt, player, time) {
   if (surgeMix > 0.002 || ignite > 0.002) {
     _surgeHi.setHex(activeDef.surgeHi || 0xfff8e8); // white-gold default; cool per dragon
     for (const m of spineMats) {
+      // Per-mat flare WEIGHTS (Surge composition), split into two independent channels so a broad face
+      // can shift HUE toward surgeHi (read as "glowing") WITHOUT gaining intensity (which would bloom it
+      // to a white slab), while a thin already-bright fire ribbon can hold its intensity flat and just
+      // hot-shift its tip. `flareColorWeight` scales the colour lerp; `flareIntensityWeight` scales the
+      // intensity gain; both fall back to the scalar `flareWeight`, then to 1 (⇒ every other dragon
+      // arithmetically identical). This is how the phoenix reads wings-as-hero / body-as-accent on Surge.
+      const wc = m.userData.flareColorWeight ?? m.userData.flareWeight ?? 1;
+      const wi = m.userData.flareIntensityWeight ?? m.userData.flareWeight ?? 1;
       _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
-      m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, surgeMix * 0.85 + ignite * 0.4));
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + (surgeMix * 0.9 + ignite * 1.6) * sgm);
+      m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, (surgeMix * 0.85 + ignite * 0.4) * wc));
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + (surgeMix * 0.9 + ignite * 1.6) * sgm * wi);
     }
   } else {
     for (const m of spineMats) {
