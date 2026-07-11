@@ -1706,7 +1706,7 @@ export const BOSSES = {
     // (holdFlinch: bullet-free, setpiece-free, the ONLY continuous form that survives the
     // Apex's deliberately-sparse rests). Stages 2/3 stay null (status-quo silence) until
     // their PRs wire orbitAnnulus (the Ophanim wheel) + shrinkDisc (the toll-wall).
-    grazeMedley: ['holdFlinch', 'orbitAnnulus', null],
+    grazeMedley: ['holdFlinch', 'orbitAnnulus', 'shrinkDisc'],
     // §5i.D stage-2 (the Ophanim) HOSTS EITHERWING's figure-eight: the wheel band draws
     // about the live pose, a full unbroken lap pays the jackpot. `recur:12` re-arms it
     // through the full 240-hp bar (one 8s eight would be dead ~90% of a stage — the
@@ -1727,7 +1727,7 @@ export const BOSSES = {
     phases: [
       { atFrac: 1.00, cadence: [1.6, 2.4], attacks: ['aimed', 'fan'] },                        // STAGE 1 — the second sun watches
       { atFrac: 0.60, cadence: [1.2, 1.8], attacks: ['fan', 'crossfire', 'movingGap', 'iris'] }, // STAGE 2 — the Ophanim medley
-      { atFrac: 0.30, cadence: [1.1, 1.6], attacks: ['crossfire', 'stream', 'fan', 'iris'] },     // STAGE 3 — the unveiling (dread)
+      { atFrac: 0.30, cadence: [1.1, 1.6], attacks: ['crossfire', 'stream', 'fan', 'spiral'] },   // STAGE 3 — the unveiling: iris→spiral (§5i.D quotes KNELLGRAVE's shrinkDisc — the toll-wall arms off the spiral)
     ],
     // Spell cards (1:1 with phases; dread LAST). Names are placeholders in the honest
     // re-struck STAGE grammar; CP2 restrikes them per §5f (+ the one-frame VOIDMAW glitch).
@@ -1768,7 +1768,7 @@ export const BOSSES = {
             { kind: 'burst',   attack: 'crossfire', count: 2, gap: 0.95 },
             { kind: 'sustain', attack: 'stream',    beats: 2, gap: 1.05 },
             { kind: 'burst',   attack: 'fan',       count: 2, gap: 0.9 },
-            { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.9 },
+            { kind: 'burst',   attack: 'spiral',    count: 2, gap: 0.9 },   // §5i.D iris→spiral: the phrase machine fires ids directly, so the swap must hit HERE too (not just phases[].attacks) or the disc never arms
           ],
           restLo: 1.2, restHi: 2.5, restDist: 'decaying',
         },

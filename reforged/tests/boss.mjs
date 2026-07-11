@@ -4325,14 +4325,56 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
       `stage-2 gapThread is live: firing the wall attack under def.gapThread registers a scorable row (${boss.bossDebugState().gapThreadRows.length})`);
   }
 
-  // (3) STAGE 3 is still UNQUOTED (PR-2): medleyForm null, and the parked stare earns nothing.
+  // (3) STAGE 3 quotes shrinkDisc (KNELLGRAVE's toll-wall), wired via the iris→spiral swap.
+  // The parked stare must NOT leak the stage-1 quote (grazeFormNow()==='shrinkDisc', so the
+  // holdFlinch branch never enters). Then the LIVE proof: a spiral toll opens a disc pocket
+  // (off the player-lane anchorX fallback — no bell/organ, the unmasked declares none), and
+  // riding the growing RIM pays escalating graze ticks.
   {
     const s3 = driveStare(3, 6);
     assertEq(s3.phaseIdx, 2, 'medley drive stage 3 lands at phaseIdx 2 (guard)');
-    assert(s3.forms.length === 1 && s3.forms[0] == null,
-      `stage 3 is UNQUOTED: medleyForm null throughout (saw ${JSON.stringify(s3.forms)})`);
-    assertEq(s3.tierN, 0, 'stage 3 pays NO stare tier (unquoted — no holdFlinch leak)');
-    assertEq(s3.flinchN, 0, 'stage 3 pays NO flinch (unquoted)');
+    assert(s3.forms.length === 1 && s3.forms[0] === 'shrinkDisc',
+      `stage 3 medleyForm is 'shrinkDisc' throughout (saw ${JSON.stringify(s3.forms)})`);
+    assertEq(s3.tierN, 0, 'stage 3 pays NO stare tier (the stage-1 holdFlinch quote does NOT leak into stage 3)');
+    assertEq(s3.flinchN, 0, 'stage 3 pays NO flinch (no holdFlinch leak)');
+    assertEq(s3.orbN, 0, 'stage 3 pays NO orbit tick (the stage-2 orbitAnnulus quote does NOT leak into stage 3)');
+
+    // The iris→spiral swap MUST hit BOTH the attacks list AND the rhythm phrase — the phrase
+    // machine fires phrase ids DIRECTLY, so swapping only attacks[] would leave iris firing in
+    // LIVE play and the disc would never arm (the debugEmitAttack ride below bypasses the phrase,
+    // so this static assert is what actually guards the drift-check's "swap both" requirement).
+    const s3attacks = BOSSES.unmasked.phases[2].attacks;
+    const s3phrase = BOSSES.unmasked.rhythm.phases[2].phrase.map((s) => s.attack);
+    assert(s3attacks.includes('spiral') && !s3attacks.includes('iris'), `stage 3 attacks list: iris→spiral (${JSON.stringify(s3attacks)})`);
+    assert(s3phrase.includes('spiral') && !s3phrase.includes('iris'), `stage 3 rhythm phrase: iris→spiral — the phrase machine fires ids directly (${JSON.stringify(s3phrase)})`);
+    assert(BOSSES.unmasked.phases[1].attacks.includes('iris'), "stage 2's iris is UNTOUCHED — only stage 3 swapped (double-gated: disc arms in the spiral branch AND grazeFormNow is orbitAnnulus in stage 2)");
+
+    // LIVE: a spiral toll arms the pocket + riding the rim pays.
+    boss.resetBoss();
+    game.inBoss = false; game.reset(); game.state = 'playing'; game.health = 1e9;
+    const p = makePlayer();
+    boss.setBossDebugPhase(3);
+    boss.forceBoss(p, BOSS_ORDER.indexOf('unmasked'));
+    boss.debugForceFight(p);
+    for (let i = 0; i < 6; i++) { boss.debugClearShield(); boss.updateBoss(1 / 60, p, 2 + i / 60); }
+    assertEq(boss.bossDebugState().phaseIdx, 2, 'stage-3 disc drive lands at phaseIdx 2 (guard)');
+    assertEq(boss.bossDebugState().medleyForm, 'shrinkDisc', 'stage-3 disc drive: the quote is shrinkDisc (guard)');
+    assert(boss.bossDebugState().discActive === false, 'stage-3 shrinkDisc: no pocket before the spiral toll');
+    let pockets = 0; on('discPocket', () => { pockets++; });
+    bullets.resetBossBullets(); boss.debugEmitAttack('spiral', p, 1);   // a spiral toll arms the wall
+    const d0 = boss.bossDebugState();
+    assert(d0.discActive && d0.discTollN === 1 && pockets >= 1,
+      `stage-3 shrinkDisc: a spiral toll opens a disc pocket off the anchorX fallback (active=${d0.discActive}, toll=${d0.discTollN})`);
+    let discTicks = 0; on('discGraze', () => { discTicks++; });
+    for (let i = 0; i < 200; i++) {
+      boss.debugClearShield();
+      const st = boss.bossDebugState();
+      if (st.discActive) { p.position.x = st.discX; p.position.y = st.discY - st.discR * (1 - st.discGeom.wallFrac / 2); }   // ride the lower rim as it grows
+      boss.updateBoss(1 / 60, p, 3 + i / 60);
+      if (!boss.bossDebugState().discActive && discTicks > 0) break;
+    }
+    assert(discTicks > 0, `stage-3 shrinkDisc PAYS: riding the toll-wall rim banks graze ticks (${discTicks} discGraze) — the quote is live`);
+    boss.resetBoss();
   }
 
   // (3) BIT-IDENTICAL for static defs: a non-medley boss's medleyForm === its own grazeForm
@@ -4352,7 +4394,7 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assert(staticPass('voidmaw') == null, 'voidmaw (no grazeForm) reads null — dispatcher null-safe passthrough');
 
   boss.resetBoss(); boss.setBossDebugPhase(1); boss.setBossDebugStage(1);   // HAZARD: debugPhaseJump/debugStagePin survive resetBoss — clear them for later blocks
-  ok('§5i.D UNMASKED MEDLEY (PR-2): stage 1 pays holdFlinch, stage 2 pays orbitAnnulus (flown, not parked) + no stare-leak + beat-farm guard, stage 3 unquoted-inert, dispatcher bit-identical for static defs ✓');
+  ok('§5i.D UNMASKED MEDLEY (PR-3, complete): stage 1 pays holdFlinch, stage 2 pays orbitAnnulus (flown) + gapThread + beat-farm guard, stage 3 pays shrinkDisc (spiral toll-wall off anchorX); no cross-stage leak, dispatcher bit-identical for static defs ✓');
 }
 
 console.log(`\n${n} boss checks passed.`);
