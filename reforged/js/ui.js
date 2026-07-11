@@ -1770,6 +1770,11 @@ export const ui = {
           ${gfxToggle('heroShadow')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">PROP SHADING</div>
+          <p class="sub">Grounds the world props with soft baked shadow at their bases &amp; undersides. (Experimental.)</p>
+          ${gfxToggle('propAO')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">SMOOTH GRADIENTS</div>
           <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
           ${gfxToggle('dither')}

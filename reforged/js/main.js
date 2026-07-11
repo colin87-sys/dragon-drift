@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, setSkyProbeEnabled } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, setSkyProbeEnabled, setPropAO } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -167,6 +167,8 @@ createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
 // N6 hero shadow: apply the saved toggle (the RT exists now); ?shadow forces on.
 if (urlParams.has('shadow') || gfxPref.heroShadow === true) setContactShadowSilhouette(true);
+// N15 prop AO: apply the saved toggle; ?ao forces on.
+if (urlParams.has('ao') || gfxPref.propAO === true) setPropAO(true);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -646,6 +648,7 @@ ui.init({
     else if (kind === 'dither') setDither(value);
     else if (kind === 'skyIbl') setSkyProbeEnabled(value);
     else if (kind === 'heroShadow') setContactShadowSilhouette(value);
+    else if (kind === 'propAO') setPropAO(value);
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
