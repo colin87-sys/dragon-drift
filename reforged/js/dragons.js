@@ -53,7 +53,7 @@ export const DRAGONS = {
     forms: [
       // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
       // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
-      { wingScale: 0.72, bladeSpan: 5.4, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
+      { wingScale: 0.72, bladeSpan: 3.0, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // FALCON-COMPACT (owner CP3): whole span ladder rescaled ×0.56 (5.4→3.0) to hold the growth arc while the apex lands at Phoenix parity. CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
         spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,   // CP2 dir 1: SHORT button muzzle; headScale 1.3 keeps the BIG cute head; eyeScale 1.25 opens a nose-bridge GAP between the eyes (1.45 merged them into a figure-8) — still the ladder's biggest eyes (> f1's 1.02) and in the [0.3,0.45] band
         keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
         crestBlades: 1, crestScale: 0.7, crestGoldAmount: 0.1,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), body-hued (no gold on the baby), not a wire feeler
@@ -65,7 +65,7 @@ export const DRAGONS = {
           apexSeam: 0x9cbcd6, eye: 0x8ec6ee, coreGlow: 0x9cc0dc } },
       // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
       // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
-      { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
+      { wingScale: 0.9, bladeSpan: 4.1, bladeCount: 5, bladeDetail: 0.92, bladeBarring: 0.5,   // FALCON-COMPACT (owner CP3): 7.3→4.1 (ladder ×0.56); bladeBarring 0.5 = the barring begins (gated: none at f0 → half at f1 → full at apex)
         spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
         keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
         crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,   // CP2 r3 dir 3: mute crest gold to body-hue + seat the sprouts into the crown (0.13 = as deep as the §7 motif-invariance drift cap allows) so they root rather than hover
@@ -75,10 +75,10 @@ export const DRAGONS = {
         colors: { body: 0x496d99, belly: 0xd4e9ff, wingInner: 0xc6dff0, wingOuter: 0x6f90b4,   // CP2 r2 dir 4: a true MID value (was 0x33517a, near-apex-deep) — the ramp now reads pale f0 → mid f1 → deep f2
           wingEmissive: 0x5f7f9c, scales: 0xb2cee6, horn: 0xb6cfe4,
           apexSeam: 0x9cc0dc, eye: 0xbfe2fb, coreGlow: 0x86bce4 } },
-      // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
-      // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
+      // Radiant apex (form 2) — proud upright S, keen almond eyes, high-aspect
+      // comb, 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 11.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
+      { wingScale: 1.0, bladeSpan: 6.5, bladeCount: 5, bladeDetail: 1.0, bladeBarring: 1.0, neckBlend: 1.45,   // OPTIMIZE+PIZZAZZ (owner): bladeDetail 1.45→1.0 reclaims ~1024 tris (the compacted blades were over-tessellated for their new size, ~sub-8px), and bladeBarring 1.0 paints FREE falcon cross-bars on the primaries (the headline identity gain). FALCON-COMPACT (owner CP3 r2): span reined 11.6 → 6.5 (a 9.4 first pass still read "way too long" in-flight vs Phoenix). Apex chase-cam width now ≈ Phoenix parity (1.06×, a hair of falcon margin); world-span 16.3→~8.8, span:body ~1.16. This drops below the old §5d falcon floor (1.6) — an OWNER-DIRECTED override of that doctrine guess; the swept blade-comb identity is kept, just at falcon-stoop reach. Blade length adds no tris; denser neck fuses the segment grooves
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
         // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
         // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
@@ -87,10 +87,10 @@ export const DRAGONS = {
         bladeChord: 0.133, bladeStagger: 0.28, bladeRake: -1,   // approved apex chord + deep stagger + the FANNED per-blade rake formula (sentinel -1) for the hero planform slits (f0 welded them at 0.28/0.14/0.015)
         crestGoldAmount: 1, crestSeat: 0,   // full gold crest at its approved height (f1 muted+sank it)
         wingTipGoldAmount: 1,            // full gold swallow-banner tips (f0/f1 restrained them)
-        tailPlates: true,               // apex keeps its dorsal tail ridge (f0 turned it off)
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body
-        ridgeCount: 7, spineGlow: 0.2, dorsal: true,
+        bannerSpread: 0.74, bannerLength: 2.15, bannerNotch: 0.85, bannerCoverts: true, tailTerminus: true, tailSeam: true, tailPlates: false,   // REAR-CHASE SPECTACLE (owner S3 + critic addition): amplify the gold swallow-banner ~25% + a gold fork-root covert pair; carry the dorsal ice seam over the TAIL-CONE ridge (tailSeam — the strip that dominates the chase frame; replaces the drill-bit cones tailPlates drew) and cap it with a cyan TERMINUS STUD at the fork — the night read becomes "cyan spine → cyan tail-light → gold swallow". Apex-only
+        ridgeCount: 7, spineGlow: 0.2, dorsal: true, scuteSeam: true, facetShoulders: true,   // REAR-CHASE SPECTACLE (owner S2+S6): one continuous ice seam down the keel (replaces the sub-8px cone zipper) — the apex's earned "spine of light", dead-centre of the play view; + faceted gold-tipped scapular coverts replacing the smooth shoulder balls at the wing roots. Apex-only (f0/f1 stay dark/round)
         colors: { body: 0x27435f, belly: 0xcfe6ff, wingInner: 0xb0cbe6, wingOuter: 0x466685,   // body lifted 0x1c3048→0x27435f (fable gate: the apex crushed to a black silhouette in dark skies); still clearly the deepest of the ladder
           wingEmissive: 0x466685, scales: 0x9db8d4, horn: 0xbcd9f0,
           apexSeam: 0x8ed5ff, eye: 0xcfe8ff, coreGlow: 0x8ed5ff } },
@@ -257,6 +257,7 @@ export const DRAGONS = {
         spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
         tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
         lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
+        moonTail: 0.15,                    // GLOW-UP ladder: the tiniest veiltail NUB on the pup, so the tail grows pup-nub → bud → full veiltail across the three forms (same dragon growing, not a leap)
         tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
         colors: { body: 0x3cb883, belly: 0xdaf7e6, wingInner: 0x3aa578, wingOuter: 0x157a4e,
           wingEmissive: 0x9ff0c8, scales: 0x9fe6c4, horn: 0xcfe8c0,
@@ -268,7 +269,9 @@ export const DRAGONS = {
         bodyGirth: 0.58, bodyLength: 1.35,   // lengthening river-serpent
         spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
         tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
-        lobeCount: 3, lobeSpan: 4.2, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        lobeCount: 3, lobeSpan: 4.6, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        moonTail: 0.55,                    // GLOW-UP ladder: the veiltail clearly BUDS (bigger than the pup nub), midway to the apex bloom
+        rayRelief: 0.5,                    // GLOW-UP ladder: the silk STARTS to ray at Kindled ("lobes unfurl") — a partial pre-echo of the apex's full koi-fin rays, so f1 reads as the adolescent stage of the SAME rayed silk, not a plain smaller dragon. (Dew gems stay apex-exclusive — the coronation reward.)
         tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
         colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
           wingEmissive: 0x8ff0c2, scales: 0x8fe0be, horn: 0xc7ebcf,
@@ -281,7 +284,12 @@ export const DRAGONS = {
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
         bodyGirth: 0.52, bodyLength: 1.2,   // LONG, slim S-ribbon apex (the koi at full length)
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
-        lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
+        lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 9.5, pearlStage: 2,
+        rayRelief: 1.0,                    // CP3 apex-only: the silk-fin sails become LITERAL rayed koi veil-fins (3 fluted rays/blade). The lower forms keep smooth blades so ascension visibly confers the rays.
+        moonTail: 1.0,                     // GLOW-UP apex: the "Koi Lyre" — twin canted veiltail crescents answer the fan-V below, splaying into the rear silhouette + whipping with the wave.
+        tipGems: 1,                        // GLOW-UP apex: pearl-light hierarchy — fin-tip dew gems (bloom-safe opaque mint emissive; the pearl stays the hero bloom).
+        lobeFlareBoost: 1.25, bodyWaveAmp: 0.9, waveBreath: 0.12,   // GLOW-UP motion: fan blooms harder on boost, a deeper swim, a slow breathing meander.
+        streamerCount: 3,                  // GLOW-UP: a third staggered streamer pair reads as continuous river-current
         tailStyle: 'simple', ridgeCount: 0, spineGlow: 0.3,   // NO dorsal ridge row (it read as a white sawtooth zipper — gate rework r3 dir 5); smooth koi back
         colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,
           wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,

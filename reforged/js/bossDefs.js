@@ -463,6 +463,7 @@ export const BOSSES = {
     approachFrom: 'sides',    // BOTH SIDES at once (§5e new branch): the twins arrive from both flanks
     entrance: 'batonCross',   // §5j THE BATON CROSS: twins bracket the dragon, the eye crosses right→left, then scissor into the fight (falls back to the 'sides' approach if the script is absent)
     scale: 1.55,              // COLOSSUS — REACH PASS (r8): 1.35→1.55, crossing span ≈ 23u (ASHTALON-class reach)
+    holdSway: { amp: 1.6, freq: 0.5 },   // §ENG-EW-margin (BRINEHOLM precedent): calm the ±5.0 default station sway so acquiring an OUTER pip at the orbit reversal doesn't force the player a dodge-flick from the ±13 kill wall. 1.6 < retentionConeXY 4.0 → a held lock never drops from sway. The REACH presence lives in ORBIT_R, untouched.
     grazeBaitR: 4.0,          // WIDER shield graze-ring (default 3.6) — the r9 body reads big, so the
                               // fixed ring felt tight to thread; 4.0 stays ≤ grazeR (≈4.15) so it still fully skims
     hpMax: 330,               // Tier 2 band (260–330); slot-5 PEAK sits at the top (the sawtooth crest)
@@ -991,6 +992,16 @@ export const BOSSES = {
     // cleared before the first bullet can exist (boss.js owns both edges).
     hudSew: true,
     scale: 1.3,               // medium bust — presence is the WEB, not the body mass (L141); TUNE in studio
+    // §COMFORT (owner playtest: "the hand locks are WAY too close to the border"): she has no
+    // holdSway override, so she rode the roster-DEFAULT ±5.0 station strafe (boss.js:2522) — a
+    // dominant term throwing her ±HAND_X palms toward the ±13 kill wall. A LOOM is anchored to its
+    // web (off-screen arena anchors); it shouldn't strafe (the BRINEHOLM "an island shouldn't
+    // strafe" precedent). Calm the strafe AND the idle yaw-wobble (idleWobble) — the wobble projects
+    // her far-forward hands (HAND_Z 4.6) ~±0.7 world toward the wall. Together these keep the palms
+    // inside the 10.4 comfort band at the chase-equilibrium worst case. Idle life stays on bustPivot bob.
+    holdSway: { amp: 0.5, freq: 0.5 },
+    idleWobble: 0.3,          // calm the ±0.12 placeGroup yaw wobble to ±0.036 (anchored loom, not a flying dragon)
+    recoilOrgans: ['palmL', 'palmR'],   // §COMFORT-D2: dropped from the paint set while the thread-cut recoil flings the hands toward the wall (model.handsFlung) — loomHeart stays the strike-window anchor
     // §5i CANCEL-CONVERT MOTE HARVEST: a cut thread blooms into falling surge-motes;
     // steer the bloom to harvest (offered once per phase). Def-gated (reuses slot 6's
     // continuous-graze detector); shipped bosses inert.
@@ -1459,6 +1470,17 @@ export const BOSSES = {
     // edge, ride the moving face-shadow pocket; offered once per phase. Def-gated; shipped bosses inert.
     grazeForm: 'tideEdge',
     beamDuel: true,                  // §5i.C the Surge≥50% mechanic (fire INTO the crest; hold lane-center against the drift). Def-gated; shipped bosses inert.
+    // §5i.C rung 13 — LANCE organs (CP1 re-spec). The dark face reliefs (eyeHollow0/1, mouthNotch)
+    // live on the camera-locked, skyReplace-reparented `rig` — unaimable (world-Y 150+) and even
+    // unresolvable by partWorldPos. So the AIM targets are STATION-SPACE proxies on `group` (in-lane,
+    // comfort-legal), and the model draws the dark-halo brand ON the mapped sky-face node
+    // (setBrandedFeatures, boss.js drives it from lockPaintedParts). No surfaceOrgans gate — the face
+    // never submerges mid-fight, so a gate would be dead code; organs live, gated by the normal
+    // danger/deflect windows. NO scar-burn (config: the FORK-EXTEND is 13's escalation, not a burn).
+    lockParts: [{ part: 'eyeMarkL' }, { part: 'eyeMarkR' }, { part: 'mouthMark' }],
+    virtualLockOrgan: 'crestPivot',   // V1 anchor = the muzzle/crest (on `group`, comfort-legal ~5/19.8); NOT faceRig (Y~110)
+    crushSealOrgans: ['eyeMarkL', 'eyeMarkR', 'crestPivot'],   // §CP2-D1: the HIGH organs leave the aim/paint set while the sky-crush clamps the player low (~10s/phase) — they're out of reach then; the low mouth stays the crush anchor. A REAL fair window (the crush opens/closes)
+    beamDuelExtendPerPip: 0.35,       // §5i.C rung 13 THE FORK IS A WEAPON: each pip forked while the duel is armed extends its window by this (6 pips ≈ +2.1s)
     // CRESCENDO SETS (Stormrend's 'crescendo' ramp QUOTED in repeating wave-SETS, each cut harder — the
     // designed echo). Fill apex: curtain/iris/movingGap at the fairness-floored cadence. BEAM DUEL is 13's
     // SURGE mechanic (fire INTO the crest at Surge ≥50%) — NOT a parry read (audit ED-8: it sits in the Surge
@@ -1589,6 +1611,27 @@ export const BOSSES = {
     // 'spraySoak' has no consumer yet (CP2), so it is inert for every boss now.
     grazeForm: 'spraySoak',
     scale: 1.9,                  // TUNE in studio: size the vast wing to ≥26 on-screen units (×2.2 of the r9 6.2 body is the FLOOR, not the target — §2.1/L141)
+    // §COMFORT (rung 12): make the fused-frame lock organs comfortably acquirable, not pinned to the
+    // ±13 kill wall. Three dials, each the shipped precedent: calm the ±5 station strafe (holdSway,
+    // WEFTWITCH/BRINEHOLM), the ±0.12 idle yaw/roll wobble that projects the frame's z-offset sideways
+    // (idleWobble, WEFTWITCH), and — the dominant term for this boss — the model's own ±8 world lateral
+    // WANDER (wanderAmp, bossOnewing.js driftX). Together the frame sits in the 10.4 band (organ test).
+    holdSway: { amp: 0.5, freq: 0.5 },
+    idleWobble: 0.3,
+    wanderAmp: 0.55,
+    // §5i.C rung 12 — THE INVERTED SPECTRAL ECHO. Dwell-paint the dead twin's fused FRAME (two
+    // organs: the frame + its low severed root); the living EYE is above the aim ceiling (organ
+    // test) so it can never be dwell-painted — instead the FIRST mark on each frame organ echoes a
+    // GRANTED half-strength GHOST pip onto it (echoTarget), "pips arrive in pairs" (echoMax 2). The
+    // ghost strikes at scarBurn.echoDmgMult, fills the cap faster, but earns NO burn. Breaking the
+    // fused frame (ghostHalf, 4 parries) drops BOTH frame organs (frameRoot is a frameGroup child)
+    // AND the echo anchor → the lance goes to near-zero: the honest either/or (keep the ghost for
+    // lance DPS, or break it for tempo relief). Reachable: 2 frame×2 stacks + 2 ghost = 6 = tier cap.
+    lockParts: [{ part: 'frameGroup' }, { part: 'frameRoot' }],
+    echoTarget: 'onewingEye',            // the granted ghost pip lands here (aim-free, homed)
+    echoOrgans: ['frameGroup', 'frameRoot'],  // a fresh mark on either echoes once
+    echoMax: 2,                          // ≤2 ghosts on the eye — "pips arrive in pairs"
+    echoPips: 2,                         // lockdpsCore: the granted ghost count (half-damage) for the economy model
     // §7b MOVING boss (L194): ONEWING wanders its lane (the fluidity primitive), so it
     // slides off its own capture mask between bossgate's two round-trips (the G1 focal
     // flake). `freeze` samples the geometry mask + the screenshot at ONE pose — additive,
@@ -1664,11 +1707,11 @@ export const BOSSES = {
   // 3 STAGES that dissolve-swap between sub-rigs (STAGE 1 second-sun/eclipse-eye →
   // STAGE 2 Ophanim wheels-of-eyes → STAGE 3 the unveiling). Builder: bossUnmasked.js
   // (archetype 'unmasked'). STAGED BUILD: the builder renders STAGE 1 first; stages
-  // 2/3, THE MEDLEY (real card-quoting by stable id), STAR PIPS, the destructible
-  // relics, the verb-shift surge-chase, and the second-sun landmark + handoff() are
-  // CP2 integration (after every stage is owner-signed-off). This def is valid + inert
-  // now: phases/cards/rhythm below are a schema-valid PLACEHOLDER medley (existing
-  // attack ids only, zero new) that CP2 replaces with the real roster quote.
+  // 2/3, STAR PIPS, the destructible relics, the verb-shift surge-chase, and the
+  // second-sun landmark + handoff() are CP2 integration (after every stage is
+  // owner-signed-off). The §5i.D GRAZE MEDLEY is LIVE (grazeMedley below quotes
+  // holdFlinch/orbitAnnulus/shrinkDisc per stage via grazeFormNow()); the phases/cards
+  // still use existing attack ids only (zero new), which CP2 restrikes visually.
   unmasked: {
     id: 'unmasked',
     name: 'THE UNMASKED',                 // 12 chars (title-card budget ≤12)
@@ -1678,10 +1721,35 @@ export const BOSSES = {
     hpMax: 240,                           // §5b Apex — PER-FORM health (multi-form boss, formLifebars): each of the 3 forms is fought from a FULL bar to 0, so the effective total is ~3×240=720 (a ~3.5-min apex fight). TUNE for length.
     formLifebars: true,                   // MULTI-FORM boss: each phase is its OWN full health bar. A form is "defeated" at 0 hp → shield → Surge through → the bar REFILLS full + the next form's transition plays. Only the LAST form's defeat is death. (THE UNMASKED: eclipse → seraph → unveiling, three full fights.)
     archetype: 'unmasked',                // dispatch → bossUnmasked.js (bossModel.js)
-    // The pupil (STAGE 1) / the veiled core (STAGE 3) is the aim anchor; the ~20 eyes
-    // (STAGE 2) become per-eye lock parts at CP2. V1: the always-watching focal eye.
+    // The pupil (STAGE 1) / the veiled core (STAGE 3) is the aim anchor; the six curated
+    // watcher eyes + five relics (STAGE 2) are the paint organs. V1: the always-watching
+    // focal eye (collapses to the rig centre in stages 2/3 — coincident with greatEye/starEye).
     virtualLockOrgan: 'focalEye',
     muzzle: 'focalEye',                   // stage-1 bullets originate at the eye that watches
+    // ── LANCE ORGANS (rung 14, the finale) — the tested vocabulary at full size. Phase-gated per
+    // STAGE (the shipped BRINEHOLM seam): stage 1 the two crack-seam wounds; stage 2 the six curated
+    // watcher eyes + the five reliquary relics (THE RECKONING targets); stage 3 the two wing-roots.
+    // Every organ lives on `group` (approachFrom 'ahead' — NOT skyReplace, no reparent) and is
+    // authored comfort-legal at scale 2.4 (§lance CP1: |x|≤10.4, y≤22 across the sway). Each stage
+    // reaches the tier-5 cap of 6 (S1 2+virtual ×2; S2 11+virtual → 6; S3 2+virtual ×2). Eyes are
+    // ordered FIRST so the 8-slot shimmer pool covers them; the relics carry their OWN trophy glow
+    // (shimmerExclude) so the pick-menu never starves the collection targets (§CP1 finding 5).
+    lockParts: [
+      { part: 'crackSeamL', phases: [0] }, { part: 'crackSeamR', phases: [0] },
+      { part: 'wingEye0', phases: [1] }, { part: 'wingEye1', phases: [1] }, { part: 'wingEye2', phases: [1] },
+      { part: 'wingEye3', phases: [1] }, { part: 'wingEye4', phases: [1] }, { part: 'wingEye5', phases: [1] },
+      { part: 'relicHorn', phases: [1] }, { part: 'relicBlade', phases: [1] }, { part: 'relicLink', phases: [1] },
+      { part: 'relicSpool', phases: [1] }, { part: 'relicShard', phases: [1] },
+      { part: 'wingRootL', phases: [2] }, { part: 'wingRootR', phases: [2] },
+    ],
+    // THE RECKONING (§5b/§8D): brand all FIVE relics at least once (stage 2) → the finale burn
+    // UNLOCKS (stage 3 on-tell releases go from no burn to scarBurn.fracBySlot.unmasked 0.20), and
+    // every eye snaps to the player — the reveal-hold screenshot. burnGate 'reckoning' keeps the burn
+    // LOCKED until the collection completes (boss.js). shimmerExclude keeps the relics off the
+    // organ-shimmer pool (they self-present as glowing trophies).
+    reckoningRelics: ['relicHorn', 'relicBlade', 'relicLink', 'relicSpool', 'relicShard'],
+    burnGate: 'reckoning',
+    shimmerExclude: ['relicHorn', 'relicBlade', 'relicLink', 'relicSpool', 'relicShard'],
     accent: 0xf0e0a0,                     // gold rails/relics (identity accent, emissive only)
     glow: 0xffffff,                       // white corona — the reserved glow-shape (from slot 1)
     bulletColor: 0xff2b6a,                // danger magenta (role colour, never per-boss)
@@ -1690,15 +1758,35 @@ export const BOSSES = {
     stages: 3,                            // the stage system (CP2 dissolve-swaps the sub-rigs)
     stagesBuilt: 3,                       // how many stage sub-rigs exist: 1 eclipse-eye · 2 seraph · 3 the unveiling (star-eye + starburst + halo, wings mantled). Drives the dev stage-jump selector.
     grazeForm: 'medley',                  // §5i.B APEX graze — quotes the roster's graze forms (CP2)
+    // §5i.D per-stage graze quote (phaseIdx-indexed; grazeFormNow() dispatches on it). The
+    // COMPLETE medley — one stage each of KARNVOW's stare-down (holdFlinch: bullet-free,
+    // survives the Apex's deliberately-sparse stage-1 rests), EITHERWING's wheel (orbitAnnulus,
+    // hosted on the figureEight below), and KNELLGRAVE's toll-wall (shrinkDisc, off the
+    // stage-3 spiral). A literal greatest-hits medley across the three forms.
+    grazeMedley: ['holdFlinch', 'orbitAnnulus', 'shrinkDisc'],
+    // §5i.D stage-2 (the Ophanim) HOSTS EITHERWING's figure-eight: the wheel band draws
+    // about the live pose, a full unbroken lap pays the jackpot. `recur:12` re-arms it
+    // through the full 240-hp bar (one 8s eight would be dead ~90% of a stage — the
+    // eitherwing entries served ⅓-bar phases without recur). moving:true so it fires while
+    // travelling. setpieceForPhase(1) → this entry; stages 1/3 return null (stage-scoped).
+    setpieces: [
+      { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true, recur: 12 },
+    ],
+    // §5i.D stage-2 also QUOTES MARROWCOIL's thread-the-gap: a clean crossing of a moving
+    // wall's gap scores. Def-level flag, but STAGE-SCOPED by construction — only stage 2's
+    // attack list carries a wall attack (movingGap), so rows only ever register there.
+    gapThread: true,
     // Decision-C gate overrides (§7b sanctioned): ~20 eyes are many small bright points
     // (G1 assumes ONE focal); the wheels frame-fill (G4). Cited to the registry sanction.
     gate: { eyeCluster: true, frameFill: true },
-    // PHASES = the 3 stages. PLACEHOLDER medley (zero new attack ids); CP2 wires the
-    // real per-stage roster quote. amberdiet: every phase carries an amber carrier.
+    // PHASES = the 3 stages. The graze medley is wired via grazeMedley (above); these
+    // attack lists use existing ids only (zero new) and feed each stage's quoted form —
+    // stage 2's movingGap feeds gapThread, stage 3's spiral arms the shrinkDisc toll-wall.
+    // amberdiet: every phase carries an amber carrier.
     phases: [
       { atFrac: 1.00, cadence: [1.6, 2.4], attacks: ['aimed', 'fan'] },                        // STAGE 1 — the second sun watches
       { atFrac: 0.60, cadence: [1.2, 1.8], attacks: ['fan', 'crossfire', 'movingGap', 'iris'] }, // STAGE 2 — the Ophanim medley
-      { atFrac: 0.30, cadence: [1.1, 1.6], attacks: ['crossfire', 'stream', 'fan', 'iris'] },     // STAGE 3 — the unveiling (dread)
+      { atFrac: 0.30, cadence: [1.1, 1.6], attacks: ['crossfire', 'stream', 'fan', 'spiral'] },   // STAGE 3 — the unveiling: iris→spiral (§5i.D quotes KNELLGRAVE's shrinkDisc — the toll-wall arms off the spiral)
     ],
     // Spell cards (1:1 with phases; dread LAST). Names are placeholders in the honest
     // re-struck STAGE grammar; CP2 restrikes them per §5f (+ the one-frame VOIDMAW glitch).
@@ -1739,7 +1827,7 @@ export const BOSSES = {
             { kind: 'burst',   attack: 'crossfire', count: 2, gap: 0.95 },
             { kind: 'sustain', attack: 'stream',    beats: 2, gap: 1.05 },
             { kind: 'burst',   attack: 'fan',       count: 2, gap: 0.9 },
-            { kind: 'burst',   attack: 'iris',      count: 2, gap: 0.9 },
+            { kind: 'burst',   attack: 'spiral',    count: 2, gap: 0.9 },   // §5i.D iris→spiral: the phrase machine fires ids directly, so the swap must hit HERE too (not just phases[].attacks) or the disc never arms
           ],
           restLo: 1.2, restHi: 2.5, restDist: 'decaying',
         },

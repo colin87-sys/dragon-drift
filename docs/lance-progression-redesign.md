@@ -317,7 +317,11 @@ payoff.* The player painted this exact eye at rung 5.
   ITS FRAME" on the first echo, and "ONLY THE FIRST MARK ECHOES" the instant a
   second mark does not echo (new `saveData.flags.echoTaught` gate alongside
   `lockTaught`/`snapTaught`).
-- **Utility math:** spans ~119/119/119/97/86 → clamped volley ≈ 10%, +burn ~15% on
+- **Utility math (CORRECTED against the live def — the old ~119/119/119/97/86 was stale;
+  P2's atFrac moved 0.78→0.86, so P1 is a thin 76-HP phase):** spans **76/162/119/97/86**,
+  deleter margins **1.13 / 1.94 / 1.42 / 1.11 / 1.04** (burnFrac 0.30; the echo, not the burn,
+  is the escalation — at 0.35 the P5 full-release hit exactly 1.00). ⚠ P5/P4/P1 owner-playtest GO.
+  Old note: spans ~119/119/119/97/86 → clamped volley ≈ 10%, +burn ~15% on
   a full on-tell set; echoes reach cap faster but at half strength, so the phase
   stays above its card timer (§8C). From 0% today.
 
@@ -338,11 +342,17 @@ darkness; feed the beam.* Formally retires the stale "slot 13 lockMuted" intent.
   the BEAM DUEL is armed (Surge ≥50%, `beamDuel`) each extend the duel window
   (+0.35s/pip; 6 pips ≈ +2.1s) — the banked brands are ammunition for the fight's
   signature mechanic. The lance's job on 13: bank a full set BEFORE the crest
-  rises, then choose — loose the volley into the face (chip + burn) or fork it
-  into the beam (spectacle + duel time). Boundary honesty (audit ED-8): the beam
-  duel remains a SURGE mechanic; the lance feeds it, never replaces it.
-- **Utility math:** spans ~110/121/121/110/88 → clamped volley ≈ 10%, +burn 15%;
-  or the fork conversion. P5 (Horizon Break) is survival — sealed, honest zero.
+  rises, then choose — loose the volley into the face (clamped ~10% chip, NO burn)
+  or fork it into the beam (spectacle + duel time). Boundary honesty (audit ED-8):
+  the beam duel remains a SURGE mechanic; the lance feeds it, never replaces it.
+  (CP1 correction: NO burn — config is right, the "chip + burn" wording above was
+  stale; the fork-extend IS 13's escalation, as ONEWING's echo was 12's. And the
+  organs are STATION-SPACE proxies, not the sky-face nodes — skyReplace reparents
+  the rig out of partWorldPos's reach and the face sits at world-Y 150+; §CP1.)
+- **Utility math:** spans 110/121/121/110/88 (verified live) → clamped volley ≈ 10%,
+  no burn; the fork-extend adds duel TIME not damage (invisible to lockdpsCore).
+  Deleter margins 1.6-2.3 (comfortable). P5 (Horizon Break) is survival — sealed,
+  honest zero (the survival card → lockDeflected; the duel refuses to arm there).
 
 ### Band 5 — THE APEX: the lance's showcase
 
@@ -591,13 +601,29 @@ boss's balance moves except where this doc says so.
 
 > **LIVE STATUS (2026-07-10).** PR0 ✅. PR2a (KNELLGRAVE organs) ✅ merged #349.
 > PR2b/PR3 (KNELLGRAVE resonant on-toll release + SCAR-BURN + PR2a blocker fixes)
-> ✅ merged #355. PR4a (WEFTWITCH organs + SCAR-BURN) ✅ merged #356. **NOW BUILDING:
-> PR4b — WEFTWITCH's "THE VOLLEY TEARS, SHE MENDS" rule (⚠ P5 owner-playtest GO gate).**
-> V4 parry-snap → PR4c (deferred). Then ONEWING (rung 12 — the spectral echo-pip, a
-> new lockLayer kernel; CP1 pre-audit done: brand the DEAD frame, the echo marks the
-> out-of-lane living eye — "invert" option; + the felled-lie deflect fix + frame-break
-> wiring). Then PR5 →
-> PR6 EMBERTIDE → PR7 THE UNMASKED → PR8 mid-ladder polish → PR9 elemental loadout.
+> ✅ merged #355. PR4a (WEFTWITCH organs + SCAR-BURN) ✅ merged #356. PR4b
+> (WEFTWITCH's "THE VOLLEY TEARS, SHE MENDS" rule) ✅ merged #360. Lock-organ COMFORT
+> pass (WEFTWITCH palms + placeGroup wander/wobble dials; the new 10.4 comfort LAW —
+> "reachable ≠ comfortable") ✅ #363 (owner-playtested GOOD). **NOW BUILDING: ONEWING
+> (rung 12) — the INVERTED spectral echo: dwell the DEAD frame (`frameGroup` +
+> `frameRoot`), the FIRST mark on each grants a half-strength GHOST pip on the
+> out-of-lane living eye (`echoTarget`), "pips arrive in pairs" (2 ghosts, cap→6).
+> Owner picks: 2 ghosts + HONEST SACRIFICE. ✅ merged #365 (CP2-cleared: Surge-fork
+> ghost-halving, parry-snap exclusion, felled-break gate, candidate delist). **NOW
+> BUILDING: EMBERTIDE (rung 13) — the beam duel.** CP1 RE-SPEC (plan unbuildable):
+> EMBERTIDE is `skyReplace`, so enterFight REPARENTS the rig → `partWorldPos` returns
+> null for every face node (silently-dead lance), and the sky-face sits at world-Y
+> 150+/|x| 90-420 (camera-locked, no dial reaches it). BUILD: 3 STATION-SPACE proxy
+> organs on `group` (`eyeMarkL/R`, `mouthMark`, in-lane/comfort-legal) + `crestPivot`
+> V1 anchor; the model draws the dark-halo brand ON the sky-face node
+> (`setBrandedFeatures`). DROP the surfacing-gate (face never submerges → dead code).
+> The ONE rule — THE FORK IS A WEAPON: pips forked while the beam duel is armed extend
+> it (+0.35s/pip; adds TIME not damage → invisible to lockdpsCore). NO burn (config
+> right, doc line stale — the fork-extend is 13's escalation). Tests DRIVE the
+> post-reparent live fight (a naive test greens on a dead lance). ⚠ owner-playtest:
+> the aim-in-lane/brand-on-face read + the auto-armed duel timing. CP2 diff critic pending.**
+> V4 WEFTWITCH parry-snap → PR4c (deferred). Then
+> PR7 THE UNMASKED → PR8 mid-ladder polish → PR9 elemental loadout.
 > **Standing process: every rung gets a CP1 pre-audit + a CP2 diff critic (owner
 > directive); the human owner is the final gate on any damage LAW.**
 > **Learned in PR2a (a reachability LAW for every remaining boss): an organ is

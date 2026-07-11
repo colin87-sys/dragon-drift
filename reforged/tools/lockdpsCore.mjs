@@ -10,9 +10,17 @@
 
 // The HP span of each phase = (thisPhase.atFrac − nextPhase.atFrac) × hpMax.
 // Mirrors currentPhaseHp() in boss.js (the input lanceDmgEach clamps against).
+// ── MULTI-FORM (def.formLifebars): each phase is its OWN full hpMax bar (the form
+// refills to full at each transition — boss.js currentPhaseHp() returns hpMax, :4557),
+// NOT an atFrac slice of one shared bar. So every span IS hpMax. Without this the model
+// under-states the finale's form HP ([96,72,72] vs [240,240,240]), corrupting its ROI
+// ceiling AND the not-a-phase-deleter TTK — the exact clamp-never-bites property the
+// APEX leans on. THE UNMASKED is the only formLifebars boss, so every other row is
+// byte-identical (§rung14 CP1).
 export function phaseSpans(def) {
   const phases = def.phases || [];
   const hpMax = def.hpMax || 0;
+  if (def.formLifebars) return phases.map(() => Math.max(1, hpMax));
   return phases.map((p, i) => {
     const cur = p.atFrac ?? 1;
     const next = phases[i + 1]?.atFrac ?? 0;
@@ -89,29 +97,42 @@ export function bossEconomy(def, LOCK, lanceDmgEach) {
   const beatMult = LOCK.beatMult;
   const burnFrac = scarFrac(def, LOCK);
   const burnFloor = LOCK.scarBurn?.burnFloor ?? Infinity;
+    // §5i.C rung 12 SPECTRAL ECHO (ONEWING): granted GHOST pips (def.echoPips) are added ON TOP of
+    // the dwell cap — they cost NO dwell time (a frame paint grants them free) but strike at echoMult
+    // (config). So the economy prices EFFECTIVE pips for damage (dwell + echoMult × ghost) while the
+    // deleter DPS charges TIME for real dwell pips only. echoPips 0 ⇒ every line collapses to the
+    // pre-echo arithmetic (byte-identical for every other boss).
+  const echoPips = def.echoPips || 0;
+  const echoMult = LOCK.scarBurn?.echoDmgMult ?? 0.5;
   const spans = phaseSpans(def);
   const phases = spans.map((phaseHp, i) => {
-    const capPips = lanceCapable ? reachableCap(def, LOCK, i).capPips : 0;
+    const dwellCap = lanceCapable ? reachableCap(def, LOCK, i).capPips : 0;
     const nTargets = lanceCapable ? phaseTargets(def, i) : 0;
-    const each = lanceDmgEach(capPips, phaseHp, 1);
-    const eachBeat = lanceDmgEach(capPips, phaseHp, beatMult);
-    const volley = capPips * each;
-    const volleyBeat = capPips * eachBeat;
+    const gCap = dwellCap > 0 ? Math.max(0, Math.min(echoPips, tierCap - dwellCap)) : 0;  // ghosts that fit under the tier cap
+    const capPips = dwellCap + gCap;                    // TOTAL pips banked (dwell + ghost) — fills the cap
+    const effPips = dwellCap + echoMult * gCap;         // EFFECTIVE damage pips (ghosts at half)
+    const each = lanceDmgEach(effPips, phaseHp, 1);
+    const eachBeat = lanceDmgEach(effPips, phaseHp, beatMult);
+    const volley = effPips * each;
+    const volleyBeat = effPips * eachBeat;
     const roiCeil = roiFrac * phaseHp;
     const clamped = capPips > 0 && volley >= roiCeil - 1e-9;
     const pct = phaseHp > 0 ? volley / phaseHp : 0;
     const toClear = volley > 0 ? Math.ceil(phaseHp / volley) : Infinity;
-    // SCAR-BURN: a PERFECT on-tell full-cap release burns `burnFrac × volleyBeat` extra
-    // over dur (the burn scales the already-ROI-clamped beat volley). totalRelease is
-    // the full earned yield of one perfect full release.
-    const burn = capPips >= burnFloor ? burnFrac * volleyBeat : 0;
+    // SCAR-BURN: a PERFECT on-tell full-cap release burns `burnFrac × volleyBeat` extra over dur
+    // (the burn scales the already-ROI-clamped beat volley; a ghost never earns it — floor on the
+    // REAL dwell pips). totalRelease is the full earned yield of one perfect full release.
+    const burn = dwellCap >= burnFloor ? burnFrac * volleyBeat : 0;
     const totalRelease = volleyBeat + burn;
-    // NOT-A-PHASE-DELETER (§8C): the exploit-optimal SUSTAINED on-tell DPS — max over
-    // release sizes k of (volley(k)+burn(k)) / (k · REALISTIC_PER_PIP). A phase is
-    // "deletable" if the lance ALONE would clear its HP faster than the card timer.
+    // NOT-A-PHASE-DELETER (§8C): the exploit-optimal SUSTAINED on-tell DPS — max over REAL release
+    // sizes k of (effVolley(k)+burn(k)) / (k · REALISTIC_PER_PIP). Ghosts (g, free) ride along at
+    // half but cost no time, so they RAISE the DPS beyond their pip count — the term the model must
+    // see or the deleter gate passes vacuously (the SCAR-BURN dead-invariant trap).
     let worstDps = 0;
-    for (let k = 1; k <= capPips; k++) {
-      const vB = k * lanceDmgEach(k, phaseHp, beatMult);
+    for (let k = 1; k <= dwellCap; k++) {
+      const g = gCap > 0 ? Math.min(gCap, k) : 0;     // ~1 free ghost per fresh frame organ painted
+      const effK = k + echoMult * g;
+      const vB = effK * lanceDmgEach(effK, phaseHp, beatMult);
       const bn = k >= burnFloor ? burnFrac * vB : 0;
       const dps = (vB + bn) / (k * REALISTIC_PER_PIP);
       if (dps > worstDps) worstDps = dps;

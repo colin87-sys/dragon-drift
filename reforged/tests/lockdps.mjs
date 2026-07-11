@@ -122,10 +122,61 @@ assert(weft && weft.lanceCapable && weft.burnFrac === 0.30, `WEFTWITCH is lance-
 assert(weft.phases.some((p) => p.burn > 0), 'WEFTWITCH phases actually earn a burn on a full on-beat release');
 assert(weft.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
   `WEFTWITCH is never a phase-deleter (TTKs ${weft.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${weft.phases.map((p) => p.cardTimer).join('/')})`);
+// ONEWING (§5i rung 12) — lance-capable via the INVERTED SPECTRAL ECHO: dwell-paint the fused frame
+// (2 organs × stackMax 2 = 4), each first mark grants a half-damage GHOST pip on the eye (echoPips 2)
+// → the cap fills to 6, but the ghosts strike at echoDmgMult so the effective volley is < 6 pips. The
+// echo term must be SEEN by the deleter model (free ghosts raise DPS) or the gate passes vacuously.
+const onew = economies.find((e) => e.id === 'onewing');
+assert(onew && onew.lanceCapable && onew.burnFrac === 0.30, `ONEWING is lance-capable + burn-wired at exactly 0.30 (frac ${onew?.burnFrac})`);
+assert(onew.peakCap === 6, `ONEWING fills the tier-4 cap to 6 (4 dwell + 2 ghost) — peakCap ${onew?.peakCap}`);
+// §CP2-D6: echoPips (the model's ghost count) and echoMax (the runtime ghost cap on the eye) are
+// hand-synced duplicates — a drift makes the deleter gate UNDER-model the exploit (the dead-invariant
+// trap). Assert they stay equal so the economy the gate certifies is the one the game actually runs.
+assert(BOSSES.onewing.echoPips === BOSSES.onewing.echoMax,
+  `ONEWING echoPips (model ${BOSSES.onewing.echoPips}) === echoMax (runtime ${BOSSES.onewing.echoMax}) — a drift under-models the exploit`);
+assert(onew.phases.some((p) => p.burn > 0), 'ONEWING phases actually earn a burn on a full on-tell release (real pips)');
+assert(onew.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `ONEWING is never a phase-deleter incl. the free-ghost DPS (TTKs ${onew.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${onew.phases.map((p) => p.cardTimer).join('/')})`);
+// EMBERTIDE (§5i rung 13) — lance-capable via STATION-SPACE proxies, but NO burn: its escalation is
+// the fork-is-a-weapon (forked pips extend the beam duel — a Surge mechanic that adds duel TIME, not
+// damage, so it's invisible to this model). Confirm the fork-extend dial is wired and the burn stays 0.
+const embr = economies.find((e) => e.id === 'embertide');
+assert(embr && embr.lanceCapable && embr.burnFrac === 0, `EMBERTIDE is lance-capable but earns NO burn (frac ${embr?.burnFrac}) — the fork-extend is its escalation`);
+assert(embr.peakCap === 6, `EMBERTIDE reaches the tier-4 cap 6 (3 proxies + crest V1 × stackMax) — peakCap ${embr?.peakCap}`);
+assert(BOSSES.embertide.beamDuelExtendPerPip > 0, `EMBERTIDE's fork-extend dial is wired (+${BOSSES.embertide.beamDuelExtendPerPip}s/pip)`);
+assert(embr.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `EMBERTIDE is never a phase-deleter (TTKs ${embr.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${embr.phases.map((p) => p.cardTimer).join('/')})`);
+// THE UNMASKED (§5i rung 14, the APEX finale) — lance-capable across THREE STAGES, each its OWN full
+// 240-HP form bar (formLifebars). The phaseSpans fix (each form = full hpMax, not an atFrac slice) is
+// load-bearing: without it the model reads [96,72,72], mis-prices the ROI ceiling AND falsely fires
+// the not-a-phase-deleter gate on stage 3 (TTK 33.8 < timer 34). With it, all three forms hit the
+// tier-5 cap of 6, the clamp never bites (beat volley 15 < ROI ceil 24), and the burn (RECKONING-
+// gated at runtime, priced in ALL phases here — strictly conservative) never deletes a phase.
+const unm = economies.find((e) => e.id === 'unmasked');
+assert(unm && unm.lanceCapable && unm.burnFrac === 0.20, `THE UNMASKED is lance-capable + burn-wired at exactly 0.20 (frac ${unm?.burnFrac}) — the §8D ~1/3 finale`);
+assert(unm.tier === 5 && BOSSES.unmasked.formLifebars === true, `THE UNMASKED is the tier-5 formLifebars APEX (tier ${unm.tier}, formLifebars ${BOSSES.unmasked.formLifebars})`);
+// formLifebars ⇒ every phase is a full hpMax bar (the phaseSpans fix mirrors boss.js currentPhaseHp).
+assert(unm.phases.every((p) => p.phaseHp === BOSSES.unmasked.hpMax),
+  `each UNMASKED form is a full ${BOSSES.unmasked.hpMax}-HP bar, not an atFrac slice (got ${unm.phases.map((p) => p.phaseHp).join('/')}) — the formLifebars phaseSpans fix`);
+// Every stage reaches the tier-5 cap of 6 (S1 crackL/R+virtual ×2; S2 six eyes + five relics + virtual;
+// S3 wingRootL/R+virtual ×2) — the REACHABILITY law (feasibility §7) holds in ALL THREE forms.
+assert(unm.peakCap === 6 && unm.phases.every((p) => p.capPips === 6),
+  `THE UNMASKED reaches the tier-5 cap 6 in ALL three forms (caps ${unm.phases.map((p) => p.capPips).join('/')})`);
+// The clamp NEVER bites at the finale (the §4d clamp-free crescendo): the beat volley stays under the
+// ROI ceiling in every form, so the lance is purely skill-limited, not clamp-limited.
+assert(unm.phases.every((p) => p.volleyBeat < p.roiCeil - 1e-9),
+  `THE UNMASKED clamp never bites — beat volley < ROI ceil in every form (${unm.phases.map((p) => `${p.volleyBeat.toFixed(0)}<${p.roiCeil.toFixed(0)}`).join(', ')})`);
+assert(unm.phases.some((p) => p.burn > 0), 'THE UNMASKED forms earn a burn on a full on-tell release (RECKONING unlocks it at runtime)');
+// The not-a-phase-deleter margins are comfortable in every form (~4.2/3.6/3.2× the card timer) — the
+// finale's ~1/3 share is spectacle + absolute size, never a dominating clear.
+assert(unm.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `THE UNMASKED is never a phase-deleter (TTKs ${unm.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${unm.phases.map((p) => p.cardTimer).join('/')})`);
+const unmMargins = unm.phases.map((p) => p.deleterTtk / p.cardTimer);
+assert(unmMargins.every((m) => m > 3.0), `THE UNMASKED deleter margins stay > 3× (${unmMargins.map((m) => m.toFixed(2)).join('/')}) — the CP1-verified 4.15/3.60/3.18`);
 // Tiers 1-3 (and un-keyed bosses) carry NO burn — the mid-game is byte-identical.
 assert(economies.filter((e) => e.tier < CONFIG.LOCK.scarBurn.minTier).every((e) => e.burnFrac === 0),
   'no boss below scarBurn.minTier earns a burn (tiers 1-3 unchanged)');
-ok(`SCAR-BURN wired on KNELLGRAVE (${knell.burnFrac}) + WEFTWITCH (${weft.burnFrac}), never phase-deleters, tiers 1-3 burn-free`);
+ok(`SCAR-BURN wired on KNELLGRAVE (${knell.burnFrac}) + WEFTWITCH (${weft.burnFrac}) + ONEWING (${onew.burnFrac}) + THE UNMASKED (${unm.burnFrac}, RECKONING-gated), never phase-deleters, tiers 1-3 burn-free`);
 
 // --- Roster coverage --------------------------------------------------------
 assertEq(economies.length, BOSS_ORDER.length, 'one economy row per boss in BOSS_ORDER');

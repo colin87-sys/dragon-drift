@@ -43,12 +43,15 @@ const SPECS = {
     triTargets: [2400, 3800, 5200],             // §5d ~targets (draconic-head floor lifts the hatchling; see PR)
     headBody: [[2.0, 2.6], [3.0, 4.2], [4.8, 6.0]],   // §4 head:body (1:X)
     eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.14, 0.32]], // §4 eye diameter : head length. f2 ceiling RECONCILED 0.185→0.32: the honest gate read the apex "blind head-on" at the smaller sizes; eyeScale 0.95 (~0.29) keeps the keen eye the ladder's smallest but readable at the confrontation angle (L147: reconcile the proxy to what the eye measures)
-    // wingspan : body — RECONCILED to the VISUAL nose-to-tail reference (see measure()'s
-    // visualBodyLen), matching what the §8 gate measures off the top-planform. The old
-    // [1.4,1.7]/[2.0,2.3]/[2.8,3.2] were against the spine-polyline z-range, which under-reads
-    // the body (it excludes the snout + the long forked tail-banner) and so read ~1.4× higher
-    // than the eye does. Bands retuned to the visual metric (ember/jade retune when they build).
-    spanBody: [[0.7, 1.05], [1.1, 1.6], [1.6, 2.5]],
+    // wingspan : body — measured against the VISUAL nose-to-tail reference (see measure()'s
+    // visualBodyLen), matching what the §8 gate measures off the top-planform.
+    // OWNER-DIRECTED COMPACTION (CP3): the apex read "way too long" in-flight next to Phoenix
+    // Ascendant, so the whole bladeSpan ladder was rescaled ×0.56 (11.6→6.5 at the apex) until
+    // the apex chase-cam width sits at Phoenix parity. That drops the apex span:body from the old
+    // 1.6+ "falcon floor" to ~1.16 — the owner overriding that §5d floor as a doctrine guess; the
+    // swept blade-comb identity is kept, just at falcon-stoop reach. Bands retuned to the compact
+    // ladder (still monotonic-increasing across forms; the §7 monotonic assert below still guards it).
+    spanBody: [[0.35, 0.62], [0.6, 0.95], [0.95, 1.45]],
     accentHue: 39,                              // gold ~39°
     carrier: 'diffuse',                         // azure: NO accent-hued emissive on the wing
   },
@@ -73,7 +76,7 @@ const SPECS = {
     architecture: 'silk fin lobes',
     wingElements: [3, 3, 4],                     // §3 col 3: 3 lobes (forms 0–1) → 4 lobes (apex) — per-form count
     separation: 'notch',                         // §3 jade metric: overlap permitted; tip NOTCHES separate (depth ≥0.3× lobe len), NOT planform root gaps
-    triTargets: [2550, 3680, 4200],              // §5d ~targets (the koiSerpent is ONE swept tube bent by a vertex-shader wave — very cheap; the undulation is free in the shader, so the body geometry is lean)
+    triTargets: [2550, 3680, 5200],              // §5d ~targets. Apex bumped for the GLOW-UP spend (the "Jade Ascendant" pass: moon-tail veiltail + rayed fins + dew gems + pearl-line + triple streamers), still well under the 6000/form ceiling. The koiSerpent body itself stays a lean vertex-wave tube.
     // head:body — §4 jade bands (long serpent: 1:2.8–3.2 / 1:4.5–5.5 / 1:7.5–9.5).
     headBody: [[2.8, 3.2], [4.5, 5.5], [7.5, 9.5]],
     // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled UP to 0.32

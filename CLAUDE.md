@@ -33,3 +33,13 @@ read the whole ledger for it).
 8-biome lineup, the identity system (hazard + verb + anchor boss per biome), the
 boss↔biome coupling, the determinism-safe hazard-injection pattern, and the
 increment-by-increment rollout.
+
+**Designing or touching GRAPHICS / rendering?** (renderer, post-FX, lighting, shadows,
+sky, water, fog, materials/surface shaders, particles) Read
+[`reforged/GRAPHICS-OVERHAUL.md`](./reforged/GRAPHICS-OVERHAUL.md) first — the overhaul
+roadmap toward a 9–10/10 look: the ranked initiative backlog, the Fable Quality-Gate
+protocol (a high-effort Fable spawn kicks off the work and gates every PR + phase), the
+branching strategy, and the hero (**Azure Drake**). Graphics **lessons follow THE RULE like
+everything else** — a NEW FILE in [`leapfrog/lessons/`](./leapfrog/lessons/) with a
+`graphics-` slug (the one-file-per-lesson convention already keeps parallel streams
+conflict-free); the graphics Gate Log lives in `GRAPHICS-OVERHAUL.md`.

@@ -295,6 +295,7 @@ function renderMarks(hud) {
     m.classList.toggle('ashen', !!hud.ashen);
     m.classList.toggle('blink', !!lk.blink);
     m.classList.toggle('stacked', (lk.stacks || 1) > 1);
+    m.classList.toggle('ghost', !!lk.ghost);   // §5i.C rung 12: the granted spectral echo pip renders pale/dashed
     m.style.setProperty('--life', Math.max(0, Math.min(1, lk.life)).toFixed(3));
     // Position via CSS vars so the kindle animation (which owns transform for
     // 0.35s) composes with the screen placement instead of fighting it.
