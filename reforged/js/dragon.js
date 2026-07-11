@@ -62,6 +62,8 @@ let tailFins = [];        // apex deployable tail-fin groups (empty for every ot
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
 let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniforms,baseSpeed})
+let jadePearlMat = null;  // jade river-pearl material — the ONE bloom, breathes with the swim (CP3)
+let jadeTipGemMat = null; // jade fin-tip dew gems — pearl-light travels here, phase-lagged (glow-up)
 let tailOrbiters = null;  // orbiting tail shards / ring fragments
 
 // Materials animated at runtime (boost glow / fever tint)
@@ -193,6 +195,8 @@ export function createDragon(scene, def, riderDef) {
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
   bodyWave = result.parts.bodyWave || null;   // koiSerpent travelling-wave uniform (jade)
+  jadePearlMat = result.parts.pearlMat || null;   // jade river-pearl — breathes with the swim (CP3)
+  jadeTipGemMat = result.parts.tipGemMat || null; // jade fin-tip dew gems — shimmer travels here (glow-up)
   tailOrbiters = result.parts.tailOrbiters || null;
   glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
@@ -773,6 +777,10 @@ export function updateDragon(dt, player, time) {
     const lLag = activeDef.model.lobeBeatLag ?? 0.85;      // BIG inboard→outboard lag so each lobe sits at its OWN angle → the 3 read as SEPARATE parts (not a merged 2)
     const lSpread = activeDef.model.lobeBeatSpread ?? 0.22; // static extra fan so the lobes never close INTO each other
     const lFlow = activeDef.model.lobeBeatFlow ?? 0.2;    // slow trailing sway, strongest on the REAR lobe → the back of the fan FLOWS (less stiff)
+    // CP3 motion: the silk fan BLOOMS OPEN under power (boost/surge) — the outer lobes fan
+    // wider + lift, so a boost reads as the koi flaring its fins. Cheap, high-visibility
+    // motion off the EXISTING poser; jade-only (this whole block is gated on the lobe pivots).
+    const flareOpen = (boost01 * 0.55 + surge01 * 0.85) * (activeDef.model.lobeFlareBoost ?? 1);
     for (const arr of [wingLobePivotsR, wingLobePivotsL]) {
       if (!arr) continue;
       const n = Math.max(1, arr.length - 1);
@@ -784,8 +792,8 @@ export function updateDragon(dt, player, time) {
         // the lobes stay separated, then the beat + a slow rear-weighted flow ride on top.
         const beat = Math.sin(lp) * lAmp * (0.5 + 0.7 * fr);    // outer lobes swing widest
         const flow = Math.sin(lp * 0.5 + 1.2) * lFlow * fr;     // lazy trailing sway → flowy rear
-        t.rotation.y = damp(t.rotation.y, -b.side * (lSpread * fr + beat + flow), 9, dt);
-        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * lAmp * 0.3 + Math.sin(lp * 0.5) * lFlow * fr, 9, dt);
+        t.rotation.y = damp(t.rotation.y, -b.side * (lSpread * fr * (1 + flareOpen) + beat + flow), 9, dt);
+        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * lAmp * 0.3 + Math.sin(lp * 0.5) * lFlow * fr + flareOpen * 0.16 * fr, 9, dt);
       }
     }
   } else {
@@ -954,12 +962,26 @@ export function updateDragon(dt, player, time) {
     bodyWave.phase += dt * bodyWave.baseSpeed * (0.6 + bodyWave.spd * 0.7);
     const arr = bodyWave.geo.attributes.position.array;
     const { baseX, baseY, spineZ, ramp, amp, ampY, freq, phase, count } = bodyWave;
+    const breathMul = 1 + (bodyWave.breath || 0) * Math.sin(phase * 0.21);   // GLOW-UP: slow breathing meander — the S periodically deepens like a koi coasting
     for (let v = 0; v < count; v++) {
       const ph = freq * spineZ[v] + phase;
-      arr[v * 3] = baseX[v] + amp * ramp[v] * Math.sin(ph);
-      arr[v * 3 + 1] = baseY[v] + ampY * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+      arr[v * 3] = baseX[v] + amp * breathMul * ramp[v] * Math.sin(ph);
+      arr[v * 3 + 1] = baseY[v] + ampY * breathMul * ramp[v] * Math.sin(ph * 0.9 + 0.4);
     }
     bodyWave.geo.attributes.position.needsUpdate = true;
+    // CP3: the river-pearl (the ONE bloom) BREATHES with the swim — a gentle ±14% emissive
+    // pulse keyed to the same wave phase, so the bloom feels alive without a new drawable.
+    // Skipped during Surge (the spineMats flare owns the pearl then). Base + hue from userData.
+    if (jadePearlMat && !player.feverActive) {
+      const pb = jadePearlMat.userData.baseIntensity ?? 0.55;
+      jadePearlMat.emissiveIntensity = pb * (1 + 0.14 * Math.sin(bodyWave.phase * 0.5));
+    }
+    // GLOW-UP: pearl-light TRAVELS out to the fin-tip dew gems — same wave phase, LAGGED,
+    // so the shimmer visibly runs pearl → tips (sells the "lit by its own pearl" concept).
+    if (jadeTipGemMat && !player.feverActive) {
+      const gb = jadeTipGemMat.userData.baseIntensity ?? 1.2;
+      jadeTipGemMat.emissiveIntensity = gb * (1 + 0.28 * Math.sin(bodyWave.phase * 0.5 - 0.9));
+    }
   }
   // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each
   // plate behind trails with a phase lag, so the chain slithers in zero-g; turning
