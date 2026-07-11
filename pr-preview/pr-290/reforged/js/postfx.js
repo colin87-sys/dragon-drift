@@ -147,6 +147,10 @@ const KICK_PRESETS = {
   // a bloom breath + a vignette squeeze that decays with the ring. The toll is the
   // loudest thing on screen precisely because the music is dead.
   bossToll:         { bloom: 0.16, vig: 0.12 },
+  // PR-B: the reserved lance CLIMAX — a 1-frame jade-bright bloom+lift punch (the
+  // tier-0 enhancement layered over the tier-independent DOM #jade-flash). No-op
+  // at tier2/unsupported, which is why the DOM flash carries the guaranteed read.
+  wispFinale:       { flashFrames: 1, bloom: 0.28, lift: 0.26 },
 };
 
 export function kick(name) {

@@ -53,7 +53,7 @@ export const DRAGONS = {
     forms: [
       // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
       // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
-      { wingScale: 0.72, bladeSpan: 5.4, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
+      { wingScale: 0.72, bladeSpan: 3.0, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // FALCON-COMPACT (owner CP3): whole span ladder rescaled ×0.56 (5.4→3.0) to hold the growth arc while the apex lands at Phoenix parity. CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
         spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,   // CP2 dir 1: SHORT button muzzle; headScale 1.3 keeps the BIG cute head; eyeScale 1.25 opens a nose-bridge GAP between the eyes (1.45 merged them into a figure-8) — still the ladder's biggest eyes (> f1's 1.02) and in the [0.3,0.45] band
         keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
         crestBlades: 1, crestScale: 0.7, crestGoldAmount: 0.1,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), body-hued (no gold on the baby), not a wire feeler
@@ -65,7 +65,7 @@ export const DRAGONS = {
           apexSeam: 0x9cbcd6, eye: 0x8ec6ee, coreGlow: 0x9cc0dc } },
       // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
       // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
-      { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
+      { wingScale: 0.9, bladeSpan: 4.1, bladeCount: 5, bladeDetail: 0.92,   // FALCON-COMPACT (owner CP3): 7.3→4.1 (ladder ×0.56)
         spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
         keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
         crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,   // CP2 r3 dir 3: mute crest gold to body-hue + seat the sprouts into the crown (0.13 = as deep as the §7 motif-invariance drift cap allows) so they root rather than hover
@@ -75,10 +75,10 @@ export const DRAGONS = {
         colors: { body: 0x496d99, belly: 0xd4e9ff, wingInner: 0xc6dff0, wingOuter: 0x6f90b4,   // CP2 r2 dir 4: a true MID value (was 0x33517a, near-apex-deep) — the ramp now reads pale f0 → mid f1 → deep f2
           wingEmissive: 0x5f7f9c, scales: 0xb2cee6, horn: 0xb6cfe4,
           apexSeam: 0x9cc0dc, eye: 0xbfe2fb, coreGlow: 0x86bce4 } },
-      // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
-      // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
+      // Radiant apex (form 2) — proud upright S, keen almond eyes, high-aspect
+      // comb, 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 11.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
+      { wingScale: 1.0, bladeSpan: 6.5, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // FALCON-COMPACT (owner CP3 r2): span reined 11.6 → 6.5 (a 9.4 first pass still read "way too long" in-flight vs Phoenix). Apex chase-cam width now ≈ Phoenix parity (1.06×, a hair of falcon margin); world-span 16.3→~8.8, span:body ~1.16. This drops below the old §5d falcon floor (1.6) — an OWNER-DIRECTED override of that doctrine guess; the swept blade-comb identity is kept, just at falcon-stoop reach. Blade length adds no tris; denser neck fuses the segment grooves
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
         // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
         // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
@@ -198,210 +198,108 @@ export const DRAGONS = {
     rarity: 'SR',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 1200,
-    // A serpentine EASTERN river-dragon: the SMALLEST wings of the roster on a
-    // long sinuous body — long neck, long flowing tail, trailing whiskers. Its
-    // silhouette is read by the body, not the wings. Jade → bright emerald.
+    accentHue: 0xd6ffe9,   // mint-pearl accent (~148°) — the ICONIC GREEN rim/pearl carrier (human art-direction, DRAGON-DESIGN §5d)
+    // JADE Serpent — an ICONIC GREEN river-dragon (human art-direction). A long
+    // sinuous EASTERN koi/serpent: the BODY is the hero silhouette (S line of
+    // action), the SILK-FIN sails carry the beauty. A stranger's one-word read of
+    // every frame is GREEN — a VIVID mid-value jade body (NOT near-black moss), a
+    // pale mint belly, green-family fin gradients (deep-emerald ray → pale jade
+    // tip), and a MINT-pearl chin-pearl bloom whose lockstep rim carrier lights the
+    // rear fin tips. Restrained — NO premium glow-seams/veins (law 12); the pearl
+    // is the ONE bloom.
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
+    parts: { torso: 'koiSerpent', wings: 'silkFinWings', head: 'draconic', tail: 'none' },
     model: {
-      scale: 1.0, wingScale: 0.82, tailSegments: 11, neckSegments: 7,
-      hornLen: 0.9, hornPairs: 1, ridgeCount: 14,
-      flapBias: 1.05, flapAmp: 0.82, // serpent wings, smoothed/fuller toward the Phoenix feel
+      scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
+      // ── UNDULATING KOI BODY (koiSerpent) ──────────────────────────────────────
+      // The body is ONE smooth swept tube bent every frame by a travelling-wave vertex
+      // shader (dragon.js parts.bodyWave) — a real swimming S, NOT the bead-chain of
+      // stacked spheres that read as an "astral worm." The tail is the tapering rear of
+      // this same tube (parts.tail:'none'), continuous by construction.
+      bodyGirth: 0.6, bodyLength: 1.0, bodyRadial: 13, bodyGlow: 0.10, bodyRim: 0.32, bodyShadowColor: 0x0d5c3a,
+      bodyOvalW: 1.14, bodyOvalH: 0.9,   // koi cross-section (wider than tall)
+      bodyWaveAmp: 0.8,                   // lateral swim amplitude (0 at the head → full at the tail); CPU-flexed each frame
+      bodyWaveFreq: 1.0,                  // ~1.3 wavelengths along the body → a graceful single-S, not a wriggle
+      bodyWaveSpeed: 3.2,                 // cruise wave rate (dragon.js eases it up with speed)
+      bodyArcY: 0.14,                     // resting vertical S (line-of-action)
+      // silk-fin fans beat SYMMETRICALLY in flight (dragon.js): the N lobes fire L_i↔R_i
+      // together with a small inboard→outboard lag (a living koi-fin beat, both fans in sync).
+      lobeBeatAmp: 0.3, lobeBeatLag: 0.5,
+      // FACE — the original lofted KOI head (human note: "show me the original koi face
+      // again"): a slim, browed, tapered-snout eastern-serpent shell with the living cuteEye.
+      headArchetype: 'softStealth',
+      headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
+      skullType: 'koiSkull',             // the lofted koi/eastern-serpent head shell (slim, browed, tapered snout)
+      cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight
+      whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
+      neckBlend: 1.4,                    // slim river-serpent neck so the head sits proud on the smooth tube
+      // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
+      lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
+      lobeNotch: 0.52, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
+      finGlow: 0.6,                      // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
+      finRimColor: 0xbdf5d0,             // GREENER mint-pearl rim (the 0xd6ffe9 pearl read cyan-teal at grazing angles) — still green-leaning, in the ~149° band
+      spineGlow: 0.3,
+      flapBias: 1.05, flapAmp: 0.7,      // slow, sinuous river-wind beat
     },
-    // Small, narrow wings — secondary to the long serpentine body.
-    wingForms: [
-      { tips: [[3.40, 0.24], [2.60, -0.36], [1.60, -0.58]],
-        lead: [2.10, 0.36], scallop: 0.16, flame: false,
-        arc: { bow: 0.45, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
-      { tips: [[3.80, 0.28], [3.00, -0.40], [1.95, -0.70], [1.10, -0.74]],
-        lead: [2.50, 0.44], scallop: 0.26, flame: false,
-        arc: { bow: 0.50, hump: 0.35, humpAt: 0.55, hook: 0.16 } },
-      { tips: [[4.10, 0.30], [3.30, -0.44], [2.20, -0.82], [1.25, -0.88]],
-        lead: [2.75, 0.50], scallop: 0.36, flame: false,
-        arc: { bow: 0.55, hump: 0.60, humpAt: 0.57, hook: 0.26 } },
-      { tips: [[4.35, 0.34], [3.55, -0.46], [2.45, -0.88], [1.40, -0.92], [0.80, -0.78]],
-        lead: [2.95, 0.56], scallop: 0.38, flame: false,
-        arc: { bow: 0.60, hump: 0.85, humpAt: 0.58, hook: 0.40 } },
-    ],
-    // Three forms (starter caps at SSR / tier 2): a bare river-whelp → horns +
-    // back ridges sprout, body lengthens → the SSR apex (longer body + neck,
-    // finned tail, whiskers, crest + soft spine-glow). Restrained — no premium seams.
+    // Three visible forms (starter caps at SSR / tier 2): a chubby LONG river-pup
+    // (3 fin-bud lobes, pearl bead, big calm round eyes) → body lengthens, lobes
+    // unfurl, whiskers + ear-fins bud, pearl held → the S-ribbon apex (4 lobes +
+    // trailing streamers, veil tail, radiant mint-pearl). Forms differ in
+    // PROPORTION + FEATURES, never same-dragon-bigger. Value ramps DOWN + saturation
+    // UP across forms on a held jade hue (law 9); the mint-pearl is the ONE bloom.
     forms: [
-      // Hatchling — bare river-whelp: no horns, no back ridges, no whiskers.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 0,
-        spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0,
-        colors: { body: 0x16302a, wingInner: 0x2a7a5e, wingOuter: 0x1d4c43,
-          wingEmissive: 0x2f8a66, scales: 0x5e9080, horn: 0x88a890,
-          apexSeam: 0x3a6a56, eye: 0x6aa88c, coreGlow: 0x3aa078 } },
-      // Kindled — horns + back ridges sprout, wings broaden, clearer jade-green.
-      { wingForm: 1, tailStyle: 'simple', tailSegments: 8, ridgeCount: 12,
-        spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0.9,
-        colors: { body: 0x143028, wingInner: 0x3bcb8e, wingOuter: 0x255d50,
-          wingEmissive: 0x3bcb8e, scales: 0x8fd9bc, horn: 0xa8c4a0,
-          apexSeam: 0x3bcb8e, eye: 0x79e2b7, coreGlow: 0x3bcb8e } },
-      // Radiant = the SSR apex: longer body + neck, finned tail, whiskers, crest
-      // + soft spine-glow — bright emerald, NO premium glow-seams/veins.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 10, ridgeCount: 14,
-        spineGlow: 0.3, whiskers: true, neckSegments: 7, crest: 1,
-        colors: { body: 0x123026, wingInner: 0x79e2b7, wingOuter: 0x1f9e77,
-          wingEmissive: 0x79e2b7, scales: 0xbdf3dc, horn: 0xcfe8c0,
-          apexSeam: 0x79e2b7, eye: 0xbdf3dc, coreGlow: 0x79e2b7 } },
+      // Hatchling (form 0) — chubby LONG river-pup: big round low-set calm eyes,
+      // near-flat snout, 3 fin-bud lobes (≥2 visible — the tier-0 key), pearl bead,
+      // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
+      { headScale: 1.32, snoutScale: 0.55, eyeScale: 1.35, eyeShape: 0.0,
+        neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
+        bodyGirth: 0.66, bodyLength: 1.7,   // chubby river-pup: still a long koi, but its BIG head makes it read short (head:body ~3)
+        spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
+        tailArc: 0.14, tailYaw: 0.12, neckBlend: 1.6, tailGirth: 1.15,   // slim, barely-curled whelp tail (no edge-on wire hook; the veil BLOOMS later — gate CP2 dir 3/4)
+        lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
+        tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
+        colors: { body: 0x3cb883, belly: 0xdaf7e6, wingInner: 0x3aa578, wingOuter: 0x157a4e,
+          wingEmissive: 0x9ff0c8, scales: 0x9fe6c4, horn: 0xcfe8c0,
+          apexSeam: 0xbdf3dc, eye: 0x8ff0c2, coreGlow: 0x6ad0a0 } },
+      // Adolescent (form 1) — body lengthens, lobes unfurl, whiskers + ear-fins bud,
+      // eyes narrow, snout projects, the pearl is HELD (glowing). MID value.
+      { headScale: 0.85, snoutScale: 0.68, eyeScale: 0.98, eyeShape: 0.5,
+        neckSegments: 7, tailSegments: 10, whiskerFins: true,
+        bodyGirth: 0.58, bodyLength: 1.35,   // lengthening river-serpent
+        spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
+        tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
+        lobeCount: 3, lobeSpan: 4.2, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
+        colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
+          wingEmissive: 0x8ff0c2, scales: 0x8fe0be, horn: 0xc7ebcf,
+          apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x4fc191 } },
+      // Radiant apex (form 2) — the S-ribbon: proud upright S posture, keen long
+      // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
+      // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
+      // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
+      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.78,
+        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
+        bodyGirth: 0.52, bodyLength: 1.2,   // LONG, slim S-ribbon apex (the koi at full length)
+        spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
+        lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
+        tailStyle: 'simple', ridgeCount: 0, spineGlow: 0.3,   // NO dorsal ridge row (it read as a white sawtooth zipper — gate rework r3 dir 5); smooth koi back
+        colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,
+          wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,
+          apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x3aa078 } },
     ],
     fx: { auraColor: '121,226,183', auraIdle: 0.0, sparkle: false },
-    body: 0x102a22, belly: 0xe8ffd0, scales: 0xbdf3dc, horn: 0xcfe8c0,
-    wingInner: 0x79e2b7, wingOuter: 0x1f9e77, wingEmissive: 0x3bcb8e,
-    apexEye: 0xbdf3dc, apexSeam: 0x79e2b7, coreGlow: 0x79e2b7, surgeHi: 0xeafff4,
-    eye: 0x79e2b7, trail: 0x79e2b7, boostTrail: 0x3bcb8e,
+    // ICONIC GREEN hide — a VIVID mid-value jade body (was near-black moss), pale mint belly.
+    bodyRoughness: 0.5, bodyMetalness: 0.02, bodyEnvIntensity: 0.55,
+    scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
+    eyeEmissiveI: 1.5,                      // calm painterly eye — not blown to a white googly blob under ACES
+    bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
+    eyeSclera: 0xbfe6cf, eyeIris: 0x8ff0c2, eyeIrisKeen: 0xbdf3dc, eyeBallEmissive: 0x3fb87e, eyeBallEmissiveI: 1.4,   // calm luminous GREEN almond (top-level def — the head reads c.def.*, NOT model.*); bright iris + glow so the EYE is the brightest facial point at turntable distance (§4 charisma; CP2 polish)
+    body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,
+    wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
+    apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,
+    eye: 0x8ff0c2, trail: 0x3fc48f, boostTrail: 0x9ff0c8,
   },
 
-  obsidian: {
-    name: 'Obsidian Shade',
-    title: 'Night given wings',
-    // Eternal wisp cosmetic (PR8): acid-lime, honouring the Night Fury eyes. The
-    // white wisp core/head stays white (bullet legibility, L102/L121) — tint only
-    // recolours the coloured layer; damage is unaffected. Gated on formLevel>=3.
-    lanceTint: 0x9bff3a, lanceRune: 'nightEye',
-    rarity: 'SSR',
-    maxRarity: 'SSSR',
-    cost: 2200,
-    // House-style draconic head: the Soft Stealth archetype — rounded wedge skull,
-    // short blunt snout, large intelligent catlike eyes, swept-back ear-fins, cyan
-    // rear glow. Intelligent, stealthy, fast (NOT regal or spiky).
-    parts: {
-      // UNIFIED SKINNED HULL — body+wings as ONE continuous procedural skin (L23/L24).
-      // Rollback: torso:'sweptLoftSkinned', wings:'skinnedMembraneBridge' (both kept
-      // registered + tested for a two-string revert).
-      torso: 'unifiedHullTorso', head: 'draconic', wings: 'unifiedHull', tail: 'sweptTail',
-      surface: { shader: ['cellularScales', 'iridescence'] },
-      // Apex-dramatic SCALE RELIEF (the shingle system): overlapping dark cupped
-      // plates on the FLANKS (arriving at Radiant, fuller at Eternal) + a denser
-      // SHOULDER MANTLE at Eternal only — so ascension visibly "armors up". Kept
-      // off the dorsal crest so the smooth back + cyan chevron line stays the read;
-      // each plate carries a faint cyan edge that flares on Night Surge (edge:true →
-      // spineMats). Counts are per-form [H,K,R,E] and seg()-scaled per device tier.
-      shingle: [
-        { count: [0, 0, 10, 14], zRange: [-1.55, 1.1], len: 0.34, wid: 0.2, cup: 0.3, tilt: 0.42, yLift: 0.42, edge: true },
-        { count: [0, 0, 0, 8], zRange: [-1.1, -0.4], len: 0.4, wid: 0.26, cup: 0.36, tilt: 0.52, yLift: 0.6, cardRows: 2, edge: true },
-      ],
-    },
-    // NIGHT FURY: matte jet-black, sleek and cat-like (a Toothless-class night drake).
-    // A smooth hornless head with ear-frills + acid-GREEN eyes, a SMOOTH unlit back,
-    // matte bat-wings, and a slim continuous swept tail ending in TWIN splayed fan-fins.
-    // Plasma blue is held back for the Night-Surge moment ONLY — in cruise it reads
-    // pure black (no cyan chevron lines, no glowing wing seams), never a lit panel.
-    //
-    // 4-FORM SILHOUETTE PROGRESSION (Radiant = 100% baseline). Every form is
-    // authored from named constants so the rear read is unmistakable and the
-    // apex is obviously superior (not just a wider/brighter Radiant):
-    //   bodyScale     overall size (group scale, vs Radiant)
-    //   bodyStretch   after-body LENGTH only (longer, not bulkier; apex)
-    //   wingSpan      wing width (× bodyScale = on-screen wingspan)
-    //   wingChord     wing front-to-back depth
-    //   tailLength    tail length (× bodyScale)
-    //   tailFinScale  tail-fin / stabilizer size      tailFinSpread  stabilizer splay
-    //   dorsalGlowCount  cyan chevrons down the back   spineGlow  glow geometry ramp
-    //   glowIntensity emissive multiplier (apex > 1)   particleRate trail density
-    //   wingOpacity   membrane translucency            previewScale showcase framing
-    //   surgeGlowMultiplier  apex Surge flare boost     wingParticleRate  wingtip wisp rate
-    // Progressive drama target — Hatchling 25% · Kindled 45% · Radiant 70% ·
-    // Eternal 100%.
-    stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
-    model: {
-      scale: 0.86, wingScale: 1.07, tailSegments: 9, neckSegments: 5,
-      ridgeCount: 0, // smooth back (cyan chevrons via dorsalGlowCount, not ridges)
-      wingRootScale: 1.5, wingSSS: true, // thick Night-Fury wing root + backlit-membrane subsurface
-      shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 }, // broader shoulders + wing root raised/forward
-      riderSocket: { x: 0, y: 0.92, z: -0.45 }, // nestle the rider low between the shoulders, behind the head
-      // Soft Stealth draconic head — large catlike eyes, compact, cyan-lit ear-fins.
-      headArchetype: 'softStealth', headScale: 1.18, eyeScale: 1.32, rearGlowIntensity: 0.4,
-      flapBias: 1.08, flapAmp: 0.82, // quick, agile, low-profile beat
-    },
-    // Narrow, swept-back, low-arc wings (vs Solar's wide flared flame wings); the
-    // span/chord grow via wingSpan/wingChord per form, not just the finger count.
-    // Night Fury wings: BROAD rounded bat-paddles with a deeply-scalloped, fanned
-    // trailing edge (pronounced finger-points) and a softened elbow — not the old
-    // narrow swept blade. scallop = the fanned webs; tips = the trailing fingers.
-    wingForms: [
-      { tips: [[4.20, 0.10], [3.35, -0.78], [2.10, -1.06]],
-        lead: [2.85, 0.40], scallop: 0.22, rootChord: 0.50, flame: false,
-        arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.08 } },
-      { tips: [[4.70, 0.12], [3.85, -0.86], [2.55, -1.24], [1.45, -1.18]],
-        lead: [3.20, 0.46], scallop: 0.28, rootChord: 0.62, flame: false,
-        arc: { bow: 0.65, hump: 0.24, humpAt: 0.56, hook: 0.12 } },
-      { tips: [[5.05, 0.16], [4.20, -0.92], [3.05, -1.34], [1.95, -1.34], [1.05, -1.18]],
-        lead: [3.50, 0.54], scallop: 0.34, rootChord: 0.74, flame: false,
-        arc: { bow: 0.75, hump: 0.38, humpAt: 0.58, hook: 0.18 } },
-      { tips: [[5.50, 0.22], [4.70, -0.92], [3.55, -1.42], [2.45, -1.48], [1.45, -1.40], [0.80, -1.18]],
-        lead: [3.85, 0.64], scallop: 0.40, rootChord: 0.85, flame: false,
-        arc: { bow: 0.92, hump: 0.52, humpAt: 0.60, hook: 0.30 } },
-    ],
-    forms: [
-      // ── HATCHLING (T0) ── tiny smooth night dart, plasma dormant. No chevrons,
-      // a tapered stem + small dark spade tip, stubby wings, dim grey-cyan. ~25%.
-      { wingForm: 0, tailStyle: 'nightfury',
-        bodyScale: 0.65, wingSpan: 0.85, wingChord: 1.40, tailLength: 0.80,
-        tailFinScale: 0.5, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
-        spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
-        wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
-        eyeScale: 1.35, neckSegments: 5,
-        colors: { body: 0x0a0d12, wingInner: 0x141c28, wingOuter: 0x0c1118,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x18202c, horn: 0x2a3848,
-          eye: 0x6f9a28, apexSeam: 0x161e28, coreGlow: 0x1a2c3c } },
-      // ── KINDLED (T1) ── electric-cyan plasma ignites: ear frills, a faint
-      // chevron line continuing onto the tail, and the first SPLIT tail-fin
-      // identity (two flared finlets + side-fin hints). Drama ≈ 45%.
-      { wingForm: 1, tailStyle: 'nightfury', earTendrils: true,
-        bodyScale: 0.82, wingSpan: 0.95, wingChord: 1.55, tailLength: 0.90,
-        tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
-        spineGlow: 0.45, glowIntensity: 0.55, particleRate: 0.55,
-        wingOpacity: 0.92, wingPanelGlow: 0.12, previewScale: 0.88,
-        eyeScale: 1.32,
-        colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1622,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x223044, horn: 0x33506a,
-          eye: 0x96d62a, apexSeam: 0x161e28, coreGlow: 0x1d3548 } },
-      // ── RADIANT (T2 · 100% baseline) ── full body, a proper stealth-RUDDER tail
-      // (two swept layered fins + central rudder), an 8-chevron body line + 6 tail
-      // segments, cyan-edged wings, plasma veins + glow seams. Looks good — but the
-      // Eternal must read as obviously beyond it. Drama 70%.
-      { wingForm: 2, tailStyle: 'nightfury', earTendrils: true, hipFins: true,
-        bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.70, tailLength: 1.00,
-        tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 0, tailGlowSegs: 0,
-        spineGlow: 0.75, glowIntensity: 1.00, particleRate: 1.00,
-        wingOpacity: 0.90, wingPanelGlow: 0.14, previewScale: 1.00,
-        wingVeins: false, glowSeams: false, wingEdgeGlow: false,
-        colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1828,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x273052, horn: 0x3a5a78,
-          eye: 0x96d62a, apexSeam: 0x161e28, coreGlow: 0x1d3548 } },
-      // ── ETERNAL (T3 · the apex) ── the dramatic rear-silhouette change: markedly
-      // bigger, wider deeper wings with wingtip winglets, an 11-chevron body line
-      // flowing into 10 tail segments, subtle hip fins, and the signature apex
-      // stealth-tail ASSEMBLY — two large swept layered stabilizers (anhedral) +
-      // micro support fins + a tall central rudder on a long stem. Drama 100%.
-      { wingForm: 3, tailStyle: 'nightfury', earTendrils: true,
-        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.90, tailLength: 1.06,
-        tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 0, tailGlowSegs: 0,
-        tailRootCollar: true, tailDorsalLink: false,
-        spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
-        wingOpacity: 0.90, wingPanelGlow: 0.16, previewScale: 1.12,
-        surgeGlowMultiplier: 1.3, wingParticleRate: 0.6,
-        wingVeins: false, glowSeams: false, wingEdgeGlow: false,
-        hipFins: true,
-        colors: { wingMembraneEmissive: 0x202b3c } },
-    ],
-    fx: { auraColor: '50,110,140', auraIdle: 0.0, sparkle: false },
-    previewAccent: 0x2e5a6a, // dim plasma-teal showcase spotlight (matte Night Fury reads black)
-    // Night Surge: a COOL plasma overdrive — the dark shell stays dark while the
-    // wing edges, chevrons, seams and tail rims blaze electric CYAN (never the
-    // default hot magenta, which would shatter the stealth identity). hasStyle
-    // keeps its cyan trails in Surge; surgeMotes breathes cool plasma motes; the
-    // screen wash is a gentle cyan, kept low so it never overexposes the frame.
-    hasStyle: true, surgeMotes: true,
-    feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
-    body: 0x0a0d12, belly: 0x111827, scales: 0x273052, horn: 0x3a5a78,
-    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x0d1219,
-    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x2c3a44,
-    apexEye: 0xb6e85a, apexSeam: 0x161e28, coreGlow: 0x1d3548, surgeHi: 0x9fd8ff,
-    eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
-  },
 
   // ── OBSIDIAN SHADE II — the CLEAN-SHEET one-skin organism ─────────────────
   // A full CLONE of `obsidian` (same stats/forms/colours/shaders/shingle), but on
@@ -411,129 +309,6 @@ export const DRAGONS = {
   // the v1 unifiedHull weld (which retrofitted onto Obsidian's legacy body). It ADDS
   // a creature; it does not touch `obsidian`. Head/tail are reused at anchors for now
   // (Increment 2b/2c will grow them from the hull).
-  obsidian2: {
-    name: 'Obsidian Shade II',
-    lanceTint: 0x5cc8ff, lanceRune: 'nightFang',   // Eternal wisp: cold plasma-blue (PR8)
-    title: 'one skin, nose to tail',
-    // Body FINISH (obsidian2-only): matte organic hide. Kill the polished-metal read:
-    // metalness 0, very rough, and LOW envMapIntensity (the smooth dark body was
-    // mirroring the bright sky). Bigger scales (scaleSize) + strong relief so the
-    // micro-relief resolves at chase-cam distance, not just up close. additive/
-    // nullable → roster-safe.
-    bodyMetalness: 0.0, bodyRoughness: 0.82, bodyEnvIntensity: 0.18, scaleSize: 3.0, scaleRelief: 0.9,
-    rarity: 'SSR',
-    maxRarity: 'SSSR',
-    cost: 2200,
-    parts: {
-      // CLEAN-SHEET ORGANISM HULL — body+wings as ONE continuous procedural skin,
-      // generated from the creature's OWN profile (decoupled from the roster).
-      torso: 'organismTorso', head: 'draconic', wings: 'organismWings', tail: 'sweptTail',
-      // v2 normal-detail scales only — the relief reads as living hide. Iridescence
-      // dropped: its oily view-angle hue-sweep read as pearlescent/metallic on the
-      // dark stealth body (kept on the other dragons).
-      // NIGHT FURY (L31): NO shingle — the chunky cupped flank plates read as the
-      // metallic bolt-on attachments the human wants gone; the scale now comes from
-      // the WHOLE-creature shader (cellularScalesNormal) reaching body/neck/head/
-      // arms AND the tail (model.scaleTail). Removing them also DROPS tris.
-      surface: { shader: ['cellularScalesNormal'] },
-    },
-    stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
-    model: {
-      // B3 (L31): wingScale 1.07→0.9 so the wingspan reads ~2-2.5× body length, not
-      // a huge sail (the Eternal per-form tips are tightened below to match).
-      scale: 0.86, wingScale: 0.9, tailSegments: 9, neckSegments: 5,
-      ridgeCount: 0,
-      wingRootScale: 1.5, wingSSS: true,
-      shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
-      riderSocket: { x: 0, y: 0.92, z: -0.45 },
-      headArchetype: 'softStealth', headScale: 1.18, eyeScale: 1.32, rearGlowIntensity: 0.4,
-      flapBias: 1.08, flapAmp: 0.82,
-      // WHOLE-CREATURE SHADER SCALE (L31): the swept tail's stemMat is a SEPARATE
-      // matte material with no surface shader → the pebbly relief stopped at the
-      // hips. scaleTail opts the tail tube into the SAME cellularScalesNormal relief
-      // + matte finish as the body, so the scale reads nose-to-tail. obsidian v1 does
-      // NOT set this → its tail is byte-identical/untouched.
-      scaleTail: true,
-    },
-    // B3 (L31): the wing OUTLINE tips, tightened so the wingspan reads ~2-2.5× body
-    // length, not a huge sail — most aggressively on the apex (Eternal, was span 5.50
-    // → 4.55). Paired with model.wingScale 1.07→0.9. scallop tips (the pointy
-    // trailing-edge points the finger spars now fan to) kept so the fanned web read
-    // survives.
-    wingForms: [
-      { tips: [[3.70, 0.10], [2.95, -0.78], [1.90, -1.06]],
-        lead: [2.55, 0.40], scallop: 0.22, rootChord: 0.50, flame: false,
-        arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.08 } },
-      { tips: [[4.05, 0.12], [3.35, -0.86], [2.25, -1.24], [1.30, -1.18]],
-        lead: [2.80, 0.46], scallop: 0.28, rootChord: 0.62, flame: false,
-        arc: { bow: 0.65, hump: 0.24, humpAt: 0.56, hook: 0.12 } },
-      { tips: [[4.30, 0.16], [3.60, -0.92], [2.60, -1.34], [1.70, -1.34], [0.95, -1.18]],
-        lead: [3.00, 0.54], scallop: 0.34, rootChord: 0.74, flame: false,
-        arc: { bow: 0.75, hump: 0.38, humpAt: 0.58, hook: 0.18 } },
-      { tips: [[4.55, 0.22], [3.85, -0.92], [2.95, -1.42], [2.05, -1.48], [1.25, -1.40], [0.70, -1.18]],
-        lead: [3.20, 0.64], scallop: 0.40, rootChord: 0.85, flame: false,
-        arc: { bow: 0.92, hump: 0.52, humpAt: 0.60, hook: 0.30 } },
-    ],
-    forms: [
-      // L31 — SLEEK MATTE NIGHT FURY: all idle glows OFF (spineGlow:0 every form →
-      // no dorsal glow cones; coreGlow dropped → no idle core sprite; the cyan is
-      // held back for Night Surge via feverWing/feverEye only). Palette re-hued to a
-      // desaturated dark MIDNIGHT BLUE-BLACK (body/belly/scales/horn in 0x0a0f1c–
-      // 0x16223c) so horns + finger struts read as subtle dark structure, not lighter
-      // attachments. Eyes stay acid-GREEN; wing-membrane colours unchanged.
-      { wingForm: 0, tailStyle: 'nightfury',
-        bodyScale: 0.65, wingSpan: 0.85, wingChord: 1.40, tailLength: 0.80,
-        tailFinScale: 0.5, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
-        spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
-        wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
-        eyeScale: 1.35, neckSegments: 5,
-        colors: { body: 0x0a0f1c, wingInner: 0x141c28, wingOuter: 0x0c1118,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x121a2e, horn: 0x101a2c,
-          eye: 0x6f9a28, apexSeam: 0x131a2c } },
-      { wingForm: 1, tailStyle: 'nightfury', earTendrils: true,
-        bodyScale: 0.82, wingSpan: 0.95, wingChord: 1.55, tailLength: 0.90,
-        tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
-        spineGlow: 0, glowIntensity: 0.55, particleRate: 0.55,
-        wingOpacity: 0.92, wingPanelGlow: 0.12, previewScale: 0.88,
-        eyeScale: 1.32,
-        colors: { body: 0x0b1020, wingInner: 0x182334, wingOuter: 0x0e1622,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x141e36, horn: 0x121c32,
-          eye: 0x96d62a, apexSeam: 0x131a2c } },
-      { wingForm: 2, tailStyle: 'nightfury', earTendrils: true, hipFins: true,
-        bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.70, tailLength: 1.00,
-        tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 0, tailGlowSegs: 0,
-        spineGlow: 0, glowIntensity: 1.00, particleRate: 1.00,
-        wingOpacity: 0.90, wingPanelGlow: 0.14, previewScale: 1.00,
-        wingVeins: false, glowSeams: false, wingEdgeGlow: false,
-        colors: { body: 0x0c1222, wingInner: 0x182334, wingOuter: 0x0e1828,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x16223c, horn: 0x141d30,
-          eye: 0x96d62a, apexSeam: 0x131a2c } },
-      { wingForm: 3, tailStyle: 'nightfury', earTendrils: true,
-        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.90, tailLength: 1.06,
-        tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 0, tailGlowSegs: 0,
-        tailRootCollar: true, tailDorsalLink: false,
-        spineGlow: 0, glowIntensity: 1.30, particleRate: 1.80,
-        wingOpacity: 0.90, wingPanelGlow: 0.16, previewScale: 1.12,
-        surgeGlowMultiplier: 1.3, wingParticleRate: 0.6,
-        wingVeins: false, glowSeams: false, wingEdgeGlow: false,
-        hipFins: true,
-        colors: { wingMembraneEmissive: 0x202b3c } },
-    ],
-    fx: { auraColor: '50,110,140', auraIdle: 0.0, sparkle: false },
-    previewAccent: 0x2e5a6a,
-    hasStyle: true, surgeMotes: true,
-    feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
-    // L31 dark MIDNIGHT BLUE-BLACK base palette (desaturated, matte). body/belly/
-    // scales/horn live in 0x0a0f1c–0x16223c so the whole creature reads sleek black-
-    // blue, horns + finger struts subtle dark structure. coreGlow DROPPED (no idle
-    // core sprite — `if (!coreGlow && def.coreGlow)` in dragonModel.js is now false);
-    // the cyan is held for Night Surge via feverWing/feverEye. Eyes stay acid-GREEN.
-    body: 0x0a0f1c, belly: 0x0e1424, scales: 0x16223c, horn: 0x141d30,
-    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x0d1219,
-    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x1a2636,
-    apexEye: 0xb6e85a, apexSeam: 0x131a2c, surgeHi: 0x9fd8ff,
-    eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
-  },
 
   // ── TOOTHLESS — Night Fury collab skin ──────────────────────────────────────
   // The FRESH-take hull (LEAPFROG L32): a sleek matte-black Night Fury on the
@@ -543,112 +318,6 @@ export const DRAGONS = {
   // I2/I3 as hull-grown continuous extensions — no legacy bolted parts are shown.
   // Anatomy (body profile in dragonNightFury.js; wing outline below) is authored to
   // the Toothless reference imagery, to be verified on the chase-cam preview.
-  toothless: {
-    name: 'Toothless',
-    lanceTint: 0x9b6bff, lanceRune: 'plasmaBolt',   // Eternal wisp: violet plasma bolt (PR8)
-    title: 'Night Fury',
-    // Matte organic hide (the L29/L30 finish kit): metalness 0, very rough, LOW
-    // envMapIntensity (a smooth dark body mirrors the bright sky → reads metal).
-    // Bigger scales + strong relief so the micro-relief resolves at chase-cam
-    // distance. Additive/nullable → roster-safe.
-    bodyMetalness: 0.0, bodyRoughness: 0.88, bodyEnvIntensity: 0.05, scaleSize: 3.0, scaleRelief: 0.9,
-    // matte BLACK hide: the white wash on the dorsal was the bright SKY reflecting (env) +
-    // the warm fresnel rim. Env dropped 0.16→0.05 and the body rim fully OFF (0). Wings/spine
-    // keep their rim so the membrane still reads against the sky.
-    rimBodyMul: 0.0,
-    rarity: 'SSR',
-    maxRarity: 'SSSR',
-    cost: 2600,
-    parts: {
-      // SMOOTH HULL — body+wings as ONE continuous procedural skin on the
-      // longitudinal-spline loft. head/tail OFF this increment (grown from the hull
-      // in I2/I3). One v2 normal-detail shader carries the living-hide scale.
-      torso: 'nightFuryTorso', head: 'none', wings: 'nightFuryWings', tail: 'none',
-      surface: { shader: ['cellularScalesNormal'] },
-    },
-    stats: { speed: 1.12, handling: 1.18, drain: 0.82, regen: 1.2 },
-    model: {
-      scale: 0.86, wingScale: 0.9, tailSegments: 9, neckSegments: 5,
-      ridgeCount: 0,
-      wingRootScale: 1.4, wingSSS: true,
-      shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
-      riderSocket: { x: 0, y: 0.92, z: -0.45 },
-      flapBias: 1.08, flapAmp: 0.82,
-      // Night-Fury wing anatomy (dragonNightFury knobs): the wrist auto-aligns to the
-      // INNERMOST scallop tip (no wingWristSpan override) so the 5 fingers fan from the
-      // first scallop out to the wing edge; the arm sweeps FORWARD to the leading edge
-      // (wingArmLeadChord); the spokes CURVE outward as they fan (wingFingerSplay) with a
-      // small chord bow (wingFingerCurve); struts bulge as raised top-view ridges.
-      // wrist pulled medial OF the innermost scallop (wingWristMedial) → fingers fan harder.
-      // Frame hierarchy: arm(0.115) > forearm(0.10) > leading frame spar(0.085) > struts(0.058).
-      wingArmLeadChord: 0.38, wingWristMedial: 0.84,
-      // arm(0.115) > forearm/wrist(0.09) > leading finger tapers wrist→tip to ≈ strut(0.058)→thin.
-      wingArmRadius: 0.115, wingForearmRadius: 0.09, wingFrameTipRadius: 0.013,
-      wingFingerCurve: 0.14, wingFingerSplay: 0.18, wingFingerBulge: 0.06, wingFingerRadius: 0.058,
-      // tail-whip + body-whip: the WHOLE body undulates VERTICALLY with the wingbeat and
-      // the tail trails in a vertical wave; the tail curves sideways only when banking
-      // (rudder). Bone chains reweight the loft; gated + nullable (roster byte-identical).
-      tailSteer: true, tailWhip: true, bodyWhip: true,
-    },
-    // TOOTHLESS WING OUTLINE — a broad bat wing with FIVE finger struts (a finger to
-    // every tip via dragonNightFury#buildFingers). tips: [x span, y chord], far tip
-    // first; the trailing edge scallops between consecutive tips. The outermost finger
-    // (tips[0]) rides the wing's outer/leading edge; the inner four fan back across the
-    // chord to the scalloped trailing edge. Authored to the reference (5 spokes, wrist
-    // forward); tune the sweep on the preview.
-    // GULL-WING glide arc: a small elbow rise (hump) with NEGATIVE bow so the wingtips DROOP
-    // below the shoulders — the graceful gliding-dragon read, and it stops the chase cam from
-    // seeing the wing's top/under surface (reads edge-on). Chord depth kept (not a ribbon).
-    wingForms: [
-      { tips: [[3.70, 0.30], [3.20, -0.40], [2.55, -0.78], [1.85, -0.98], [1.10, -0.92]],
-        lead: [2.55, 0.46], scallop: 0.20, rootChord: 0.50, flame: false,
-        arc: { bow: -0.10, hump: 0.06, humpAt: 0.55, hook: 0.0 } },
-      { tips: [[4.05, 0.34], [3.50, -0.52], [2.80, -1.00], [2.00, -1.22], [1.15, -1.12]],
-        lead: [2.80, 0.52], scallop: 0.24, rootChord: 0.62, flame: false,
-        arc: { bow: -0.12, hump: 0.14, humpAt: 0.52, hook: 0.0 } },
-      { tips: [[4.35, 0.38], [3.78, -0.58], [3.02, -1.12], [2.15, -1.36], [1.25, -1.26]],
-        lead: [3.00, 0.58], scallop: 0.28, rootChord: 0.74, flame: false,
-        arc: { bow: -0.14, hump: 0.20, humpAt: 0.52, hook: 0.0 } },
-      { tips: [[4.65, 0.42], [4.05, -0.62], [3.25, -1.20], [2.32, -1.46], [1.35, -1.36]],
-        lead: [3.20, 0.66], scallop: 0.32, rootChord: 0.85, flame: false,
-        arc: { bow: -0.16, hump: 0.26, humpAt: 0.54, hook: 0.0 } },
-    ],
-    forms: [
-      // Sleek matte Night Fury: all idle glows OFF (spineGlow 0; no coreGlow). Dark
-      // midnight blue-black palette, acid-GREEN eyes; the cyan is held for Surge.
-      { wingForm: 0, bodyScale: 0.70, wingSpan: 0.85, wingChord: 1.35,
-        spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
-        wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.78, eyeScale: 1.35,
-        colors: { body: 0x0a0f1c, wingInner: 0x141c28, wingOuter: 0x0c1118,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x121a2e, horn: 0x101a2c,
-          eye: 0x6f9a28, apexSeam: 0x131a2c } },
-      { wingForm: 1, bodyScale: 0.85, wingSpan: 0.95, wingChord: 1.50,
-        spineGlow: 0, glowIntensity: 0.55, particleRate: 0.55,
-        wingOpacity: 0.92, wingPanelGlow: 0.12, previewScale: 0.9, eyeScale: 1.32,
-        colors: { body: 0x0b1020, wingInner: 0x182334, wingOuter: 0x0e1622,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x141e36, horn: 0x121c32,
-          eye: 0x96d62a, apexSeam: 0x131a2c } },
-      { wingForm: 2, bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.65,
-        spineGlow: 0, glowIntensity: 1.00, particleRate: 1.00,
-        wingOpacity: 0.90, wingPanelGlow: 0.14, previewScale: 1.00,
-        colors: { body: 0x0c1222, wingInner: 0x182334, wingOuter: 0x0e1828,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x16223c, horn: 0x141d30,
-          eye: 0x96d62a, apexSeam: 0x131a2c } },
-      { wingForm: 3, bodyScale: 1.10, bodyStretch: 1.15, wingSpan: 1.08, wingChord: 1.80,
-        spineGlow: 0, glowIntensity: 1.30, particleRate: 1.80,
-        wingOpacity: 0.90, wingPanelGlow: 0.16, previewScale: 1.12,
-        colors: { wingMembraneEmissive: 0x202b3c } },
-    ],
-    fx: { auraColor: '50,110,140', auraIdle: 0.0, sparkle: false },
-    previewAccent: 0x2e5a6a,
-    hasStyle: true, surgeMotes: true,
-    feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
-    body: 0x0a0f1c, belly: 0x0e1424, scales: 0x16223c, horn: 0x141d30,
-    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x0d1219,
-    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x1a2636,
-    apexEye: 0xb6e85a, apexSeam: 0x131a2c, surgeHi: 0x9fd8ff,
-    eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
-  },
 
   pearl: {
     name: 'Pearl Seraph',
@@ -744,54 +413,82 @@ export const DRAGONS = {
     rarity: 'SSSR',
     maxRarity: 'SSSR',
     cost: 5000,
-    parts: { surface: { shader: ['cellularScales', 'iridescence'] } },
-    // A regal ECLIPSE dragon — the dark, cool-toned counterpoint to the Phoenix's
-    // white-gold solar fire: a midnight-indigo body, antique-gold crown + spine,
-    // dark burnt-crimson wings and blue-violet/cyan eclipse energy. Predatory and
-    // royal, NOT a bright flame-wyvern. Each form is a distinct rear-view
-    // silhouette (see the per-form wingForm / tailStyle / spineGlow ramp below).
+    accentHue: 0xb784ff,   // §9 law-9 carrier: eclipse-violet, emissive-only on the 10%
+    // ECLIPSE DRAGON-KING (Bahamut) redesign — a FRESH, low-poly, HORIZONTAL king-dragon
+    // (see SOLAR-ECLIPSE-BUILDSHEET.md): lance-vault wings + eclipse-sigil motif (brow
+    // star-gem + rear corona mantle) + cuirass keel-ridge + scepter tail. All geometry
+    // authored fresh (no shipped builder look reused). iridescence dropped (matte "arcane
+    // light in darkness"); cellularScales kept. Palette held (already Bahamut-aligned).
+    parts: { torso: 'regnalKeelTorso', wings: 'lanceVaultWings', head: 'eclipseCrownHead', tail: 'scepterWhipTail', surface: { shader: [] } },
     stats: { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 },
-    // Base model holds the APEX reference proportions; each form dials the
-    // per-stage silhouette. Cumulative: later forms override earlier keys.
+    // Base model holds APEX reference dials; each form dials the per-stage silhouette
+    // (cumulative — later forms override earlier keys). Sovereign dials: vaultFingers,
+    // pikeCount, dihedral, spanScale, keelShields, coronaValleys, crownHorns, starGemBloom,
+    // crescentBloom, tailFins, glowLevel, tuskScale, eyeScale, headScale.
     model: {
-      scale: 1.22, wingScale: 1.3, tailSegments: 9, neckSegments: 6,
-      hornLen: 1.7, hornPairs: 2, ridgeCount: 16,
-      flapBias: 0.85, flapAmp: 0.72, // gliding majesty, a fuller stroke toward the Phoenix feel
+      scale: 1.2, tailSegments: 9, neckSegments: 6, flapBias: 0.85, flapAmp: 0.72,
+      tailLagScale: 0.055,   // GENTLE idle tail coil (azure-style, subtle) — a soft trailing drift, not a snake
+
+      vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.06, keelShields: 5,
+      coronaValleys: 5, crownHorns: 4, starGemBloom: 1.0, crescentBloom: 1.0, tailFins: 4,
+      glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 2.1, tailLength: 1.3,
+      // CP2 spectacle ladder (apex reference; forms dial each rung — see forms[] below):
+      igniteStage: 3, archRise: 1.0, carpalLance: 2.6, pinionSlots: 2, tailRise: 1.0,
+      napeStar: 1, coronaRing: 1, sparTipHeat: 1,
+      // CP3 "Coronation Spend" ladder (spectacle headroom; apex reference):
+      spireTier: 2, coronaGrand: 1, cuirassPlate: 1, rearCirclet: 1, orderStar: 1, pauldrons: 1,
+      buttress: 2, vaultSculpt: 1, scepterOrb: 1,
+      spireStabilize: 0.85,   // CP3.3: counter-rotate the carpal spires against the flap so they don't scissor the forward view (0 = fully ride the flap)
     },
     forms: [
-      // FORM 1 — Duskling: small, clean, dark-navy body + muted bronze, subdued
-      // dark-crimson wings, a faint blue-violet core. Cleanest readability.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
-        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.0, neckSegments: 5,
+      // HATCHLING (0) — round princeling, LINEAR glide (no arch), no mantle/gem/corona: a bare
+      // whelp so the coronation ladder has somewhere to climb FROM. igniteStage 0 (all emissives dark).
+      { vaultFingers: 3, pikeCount: 1, dihedral: 10, spanScale: 0.68, keelShields: 2,
+        coronaValleys: 0, crownHorns: 0, starGemBloom: 0, crescentBloom: 0.1, tailFins: 1,
+        glowLevel: 0.25, tuskScale: 0, eyeScale: 1.4, headScale: 1.3, hornLen: 0.9, tailSegments: 5,
+        igniteStage: 0, archRise: 0, carpalLance: 0, pinionSlots: 0, tailRise: 0, napeStar: 0,
+        coronaRing: 0, sparTipHeat: 0,
+        spireTier: 0, coronaGrand: 0, cuirassPlate: 0, rearCirclet: 0, orderStar: 0, pauldrons: 0, buttress: 0, vaultSculpt: 0, scepterOrb: 0,
         colors: { body: 0x0d1018, wingInner: 0x6e2418, wingOuter: 0x4a160e,
           wingEmissive: 0x5a1c10, scales: 0x7a6038, horn: 0x9a7c4a,
-          apexSeam: 0x5a5c8a, eye: 0xc8a868, coreGlow: 0xb784ff } },
-      // FORM 2 — Eclipse Drake: deep-indigo body, dark copper→crimson wings,
-      // antique-gold spine, a stronger blue-violet core.
-      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 12,
-        spineGlow: 0.34, crest: 1, dorsal: true, hornLen: 1.25,
+          apexSeam: 0x8a6fb0, eye: 0xc8a868, coreGlow: 0xb784ff } },
+      // KINDLED (1) — squire-drake: neck lengthens, horns sweep, first pikes, the wing begins to ARCH
+      // (archRise 0.35), the brow gem KINDLES (bloom 0.5, igniteStage 1). No mantle/corona/nape yet.
+      { vaultFingers: 4, pikeCount: 2, dihedral: 14, spanScale: 0.82, keelShields: 3,
+        coronaValleys: 0, crownHorns: 2, starGemBloom: 0.5, crescentBloom: 0.4, tailFins: 2,
+        glowLevel: 0.5, tuskScale: 0, eyeScale: 1.1, headScale: 1.15, hornLen: 1.25, tailSegments: 7,
+        igniteStage: 1, archRise: 0.35, carpalLance: 0.8, pinionSlots: 0, tailRise: 0.4, napeStar: 0,
+        coronaRing: 0, sparTipHeat: 0,
+        spireTier: 0, coronaGrand: 0, cuirassPlate: 0, rearCirclet: 0, orderStar: 0, pauldrons: 0, buttress: 0, vaultSculpt: 1, scepterOrb: 0,
         colors: { body: 0x0c1322, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a2414, scales: 0xa88a48, horn: 0xc09a54,
           apexSeam: 0xb784ff, eye: 0xe0bc78, coreGlow: 0xb784ff } },
-      // FORM 3 — Royal Eclipse Dragon: obsidian-indigo body, antique-gold spine
-      // plates, dark-crimson wings with blue-violet veins, electric core.
-      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
-        spineGlow: 0.7, wingVeins: true, glowSeams: true,
-        crest: 2, hornPairs: 2, hornLen: 1.5, tusks: true, neckSegments: 6,
+      // RADIANT (2) — crowned king-apparent: tusks, coronet-into-crown, the MANTLE collar arrives
+      // (valleys 4) with its nape-star, wing veins + membrane embers light (igniteStage 2), the arch
+      // deepens (0.7) with a fuller carpal lance + first pinion slot. No corona ring / spar heat yet.
+      { vaultFingers: 4, pikeCount: 2, dihedral: 18, spanScale: 0.92, keelShields: 4,
+        coronaValleys: 4, crownHorns: 3, starGemBloom: 0.75, crescentBloom: 0.6, tailFins: 3,
+        glowLevel: 0.75, tuskScale: 0.7, eyeScale: 0.85, headScale: 1.05, hornLen: 1.5, tailSegments: 8,
+        igniteStage: 2, archRise: 0.7, carpalLance: 1.8, pinionSlots: 1, tailRise: 0.7, napeStar: 0.6,
+        coronaRing: 0, sparTipHeat: 0,
+        spireTier: 1, coronaGrand: 0, cuirassPlate: 1, rearCirclet: 1, orderStar: 1, pauldrons: 1, buttress: 1, vaultSculpt: 1, scepterOrb: 0,
         colors: { body: 0x0a1020, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xd8b25a,
           apexSeam: 0xb784ff, eye: 0xecd090, coreGlow: 0xb784ff } },
-      // FORM 4 — SOVEREIGN (Royal Eclipse): midnight body, antique-gold crown +
-      // spine, dark burnt-crimson wings, blue-violet core/halo, pale electric-blue
-      // eyes. Dark, regal, legendary — the cool counterpoint to the Phoenix.
-      { wingForm: 3, tailStyle: 'comet', tailSegments: 9, ridgeCount: 16,
-        spineGlow: 1.0, wingVeins: true, glowSeams: true,
-        backCrest: true, auraHalo: true, crest: 3, hornLen: 1.7,
+      // ETERNAL (3) — the Eclipse Dragon-King: full CATHEDRAL ARCH (twin blazing carpal spires over
+      // the crowned head), fingered pinion tips, rising banner tail, eclipse-corona ring, white-hot
+      // spar tips. Every emissive at full ignition (stage 3). The headline apex — worth the grind.
+      { vaultFingers: 5, pikeCount: 3, dihedral: 20, spanScale: 1.06, keelShields: 5,
+        coronaValleys: 5, crownHorns: 4, starGemBloom: 1.0, crescentBloom: 1.0, tailFins: 4,
+        glowLevel: 1.0, tuskScale: 0.9, eyeScale: 0.65, headScale: 1.0, hornLen: 2.1, tailSegments: 9,
+        tailLength: 1.3, igniteStage: 3, archRise: 1.0, carpalLance: 2.6, pinionSlots: 2, tailRise: 1.0,
+        napeStar: 1, coronaRing: 1, sparTipHeat: 1,
+        spireTier: 2, coronaGrand: 1, cuirassPlate: 1, rearCirclet: 1, orderStar: 1, pauldrons: 2, buttress: 2, vaultSculpt: 1, scepterOrb: 1,
         colors: { body: 0x080b14, wingInner: 0x9c2233, wingOuter: 0x5a160e,
           wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xddc070,
           apexSeam: 0xb784ff, eye: 0xf4e2a8, coreGlow: 0xb784ff } },
     ],
-    fx: { auraColor: '122,92,255', auraIdle: 0.0, sparkle: false },
+    fx: { auraColor: '122,92,255', auraIdle: 0.03, sparkle: false },
     // Eclipse Surge: a premium COOL ARCANE transformation — the obsidian shell
     // stays dark while spine, seams, wing veins and core blaze blue-violet /
     // cyan / indigo (surgeHi lavender, never white-hot or magenta). hasStyle keeps
@@ -872,168 +569,93 @@ export const DRAGONS = {
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 
+  // ── MOLTEN PHOENIX — "a phoenix of living magma" (PHOENIX-MOLTEN-BUILDSHEET.md).
+  // A FRESH premium apex built on the CALDERA system (dragonPhoenixMolten.js):
+  // glowing T2-magma body under a dark T4-crust plate FIELD, a T1-sungold spine
+  // fissure, and the MOLTEN HEART caldera on the breast (T1 glow-pool + T0
+  // whiteheart core). Coexists with the shipped `phoenix` (byte-identical) so the
+  // owner can compare old-vs-new. NOT the retired coal empress — every form is
+  // re-derived from the molten identity (crust holds the line, fire holds the
+  // night). `archetype: 'phoenix'` is kept only as a RIG flag (warm ember motes +
+  // constant Rebirth-Surge wingtip fire), not a model path (explicit parts win).
+  // Wings are the ride-along `feather` at CP1; `pyreFanWings` land at CP2.
+  phoenixMolten: {
+    name: 'Molten Phoenix',
+    lanceTint: 0xff5410, lanceRune: 'moltenCore',   // Eternal wisp: molten-core orange (distinct from phoenix 0xff7a1a)
+    title: 'She is the fire',
+    rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
+    accentHue: 0xff6a14,   // §9 law-9 carrier: magma orange
+    archetype: 'phoenix',  // RIG flag only (warm surge motes + Rebirth fire-trails); explicit parts override the recipe
+    parts: { torso: 'moltenPhoenixTorso', wings: 'pyreFanWings', head: 'calderaCrestHead', tail: 'emberWhipTail', surface: { shader: [] } },
+    stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
+    hasStyle: true,        // keep its own molten trail colour even in Surge
+    feverWing: 0xffd9a0, feverEye: 0xffe8c0,
+    feverWash: [0.058, 0.038, 0.012],   // Rebirth screen wash: warm magma-gold, kept low so it never overexposes the frame
+    // Base model holds APEX reference dials; each form dials the ladder (cumulative).
+    model: {
+      scale: 1.18, tailSegments: 7, flapBias: 0.9, flapAmp: 0.92,
+      // CALDERA body ladder (apex reference — see forms[] for the per-rung schedule):
+      igniteStage: 3, glowLevel: 1.0, heartScale: 1.0, crustCoverage: 0.7,
+      crestFan: 5, crestLen: 1.0, headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, spineGlow: 1.0,
+      tailFins: 4, tailLength: 1.0,
+      // PYRE-FAN wing ladder: span/chord/upturn grow, the primary rank + dominant
+      // pinion + slots + hem-fire arrive rung by rung (each form ADDS wing hardware).
+      spanScale: 1.0, chordScale: 1.0, upturn: 1.0, hemFire: 1.0,
+      primaries: 7, pinionSlots: 3, pinionDom: 1, secondaries: 10, alula: 1,
+    },
+    forms: [
+      // f0 DORMANT HATCHLING — crusted-over magma, unbroken; faint RED cracks the
+      // only tell. Wings a short bare crust fan (no fire-primaries, no hem-fire).
+      { igniteStage: 0, glowLevel: 0.25, heartScale: 0, crustCoverage: 1.0,
+        crestFan: 0, crestLen: 0.5, headScale: 1.3, eyeScale: 1.3, torsoScale: 0.82, spineGlow: 0,
+        spanScale: 0.72, chordScale: 0.75, upturn: 0, hemFire: 0, primaries: 0, pinionSlots: 0, pinionDom: 0, secondaries: 6, alula: 0, tailFins: 1,
+        colors: { body: 0x1c0d0a, magma: 0x5e2410, sungold: 0xe0480e, lavaDeep: 0x3a1408,
+          coreGlow: 0xff8030, apexSeam: 0xe0480e, eye: 0xc85a1e } },
+      // f1 FRACTURING — the crust cracks; fissures glow SUNGOLD, the heart rim forms,
+      // first 3 fire-primaries + hem-fire kindle, the wing begins to arch (upturn 0.3).
+      { igniteStage: 1, glowLevel: 0.5, heartScale: 0.5, crustCoverage: 0.92,
+        crestFan: 2, crestLen: 0.7, headScale: 1.15, eyeScale: 1.05, torsoScale: 0.9, spineGlow: 0.35,
+        spanScale: 0.85, chordScale: 0.85, upturn: 0.3, hemFire: 0.35, primaries: 3, pinionSlots: 0, pinionDom: 0, secondaries: 8, alula: 1, tailFins: 2,
+        colors: { body: 0x22100c, magma: 0x7a2e10, sungold: 0xffab34, lavaDeep: 0x4e1808,
+          coreGlow: 0xffa040, apexSeam: 0xffab34, eye: 0xffb84a } },
+      // f2 MOLTEN DANCER — half the plates run molten, the MOLTEN HEART OPENS, the
+      // eruption crest arrives, 5 primaries with the outboard slots opening.
+      { igniteStage: 2, glowLevel: 0.75, heartScale: 0.85, crustCoverage: 0.8,
+        crestFan: 3, crestLen: 0.85, headScale: 1.05, eyeScale: 0.85, torsoScale: 0.95, spineGlow: 0.7,
+        spanScale: 0.93, chordScale: 0.93, upturn: 0.6, hemFire: 0.7, primaries: 5, pinionSlots: 2, pinionDom: 0, secondaries: 10, alula: 1, tailFins: 3,
+        colors: { body: 0x261210, magma: 0x8f3410, sungold: 0xffb32a, lavaDeep: 0x5e1c0c,
+          coreGlow: 0xffb060, apexSeam: 0xffb32a, eye: 0xffc85a } },
+      // f3 THE MOLTEN EMPRESS — living magma: full crust-crack field, the whiteheart
+      // core ignites, the full 7-blade pyre-fan with the DOMINANT PINION + T0 stroke.
+      { igniteStage: 3, glowLevel: 1.0, heartScale: 1.0, crustCoverage: 0.7,
+        crestFan: 5, crestLen: 1.0, headScale: 1.0, eyeScale: 0.7, torsoScale: 1.0, spineGlow: 1.0,
+        spanScale: 1.0, chordScale: 1.0, upturn: 1.0, hemFire: 1.0, primaries: 7, pinionSlots: 3, pinionDom: 1, secondaries: 10, alula: 1, tailFins: 4,
+        colors: { body: 0x261210, magma: 0x9a3a12, sungold: 0xffb84a, lavaDeep: 0x5e1c0c,
+          coreGlow: 0xffc46a, apexSeam: 0xffb84a, eye: 0xffd98a } },
+    ],
+    fx: { auraColor: '255,140,60', auraIdle: 0.0, sparkle: false },
+    // Top-level fallbacks (≈ the apex Molten Empress, for any raw render).
+    body: 0x261210, belly: 0x3a1408, magma: 0x9a3a12, sungold: 0xffb84a, lavaDeep: 0x5e1c0c,
+    scales: 0xffb84a, horn: 0x8f3410,
+    featherIn: 0xff7a1a, featherOut: 0x9a3a12, featherEdge: 0xffb84a, featherHi: 0xffe8c0,
+    wingInner: 0xff7a1a, wingOuter: 0x9a3a12, wingEmissive: 0xff6a14,
+    apexEye: 0xffe8c0, apexSeam: 0xffb84a, coreGlow: 0xffc46a, surgeHi: 0xffe8c0,
+    aura: 0xffb060, eye: 0xffd98a, trail: 0xff6a14, boostTrail: 0xffc46a,
+  },
+
+
+
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
   // energy bands, lateral astral fin-vanes, a regal mask head + a celestial saddle,
   // that slithers HORIZONTALLY (low + readable, §0.5) and tapers into a streaming
   // comet wake. A fully NON-standard body plan — built entirely from composable
   // parts (crystalSerpent / sideFins / cometWake / celestialMask).
-  astralWyrm: {
-    name: 'Astral Wyrm',
-    lanceTint: 0x5a6cff, lanceRune: 'astralStar',   // Eternal wisp: astral indigo (PR8)
-    title: 'Emperor of the Star Current',
-    rarity: 'SSR', maxRarity: 'SSSR', cost: 4200,
-    parts: { torso: 'crystalSerpent', wings: 'sideFins', tail: 'cometWake', head: 'celestialMask' },
-    stats: { speed: 1.13, handling: 1.24, drain: 0.82, regen: 1.18 },
-    model: {
-      scale: 1.08, wingScale: 1.12, neckSegments: 3, ridgeCount: 0,
-      flapBias: 0.45, flapAmp: 0.28,             // tiny beat → the fins flex, never flap
-      segmentTaper: 0.93, segmentSway: 0.26, segmentBob: 0.05, segmentLag: 0.16,
-      sideFinSweep: 0.72, sideFinFlex: 0.18,
-    },
-    forms: [
-      // Star-Larva — a short slender serpent, one fin pair, a short comet wisp, a bare mask.
-      { segmentCount: 6, sideFinPairs: 1, cometWisps: 2,
-        crown: 0, maskTier: 0, spineGlow: 0.08, coreIntensity: 0.15,
-        bodyScale: 0.78, wingSpan: 0.62, tailLength: 0.55,
-        colors: { body: 0x151a35, belly: 0x6f78aa, scales: 0x4d5ad8, horn: 0x9aa6dd,
-          wingInner: 0x242a64, wingOuter: 0x0d1029, wingEmissive: 0x405cff,
-          eye: 0x9eeaff, apexSeam: 0x5566ff, coreGlow: 0x405cff, surgeHi: 0xbfd7ff,
-          trail: 0x5268ff, boostTrail: 0x84eaff } },
-      // Comet Wyrm — a longer body, a bigger wing pair, a fuller comet wake, the first crown.
-      { segmentCount: 9, sideFinPairs: 1, cometWisps: 3,
-        crown: 0.35, maskTier: 1, spineGlow: 0.18, coreIntensity: 0.28,
-        bodyScale: 0.92, wingSpan: 0.84, tailLength: 0.78,
-        colors: { body: 0x12183a, belly: 0x8795d8, scales: 0x6172ff, horn: 0xb6c2f2,
-          wingInner: 0x293177, wingOuter: 0x0b0f2a, wingEmissive: 0x5bcfff,
-          eye: 0xb8f3ff, apexSeam: 0x7084ff, coreGlow: 0x5bcfff, surgeHi: 0xd8e8ff,
-          trail: 0x6888ff, boostTrail: 0x91f3ff } },
-      // Astral Serpent — a long body, a wide wing pair, a long comet wake, fuller crown.
-      { segmentCount: 12, sideFinPairs: 1, cometWisps: 4,
-        crown: 0.7, maskTier: 2, spineGlow: 0.34, coreIntensity: 0.48,
-        bodyScale: 1.04, wingSpan: 1.08, tailLength: 1.0,
-        colors: { body: 0x101632, belly: 0xaab8f4, scales: 0x7f8cff, horn: 0xd0dcff,
-          wingInner: 0x2d378a, wingOuter: 0x090d24, wingEmissive: 0x7ee8ff,
-          eye: 0xcff8ff, apexSeam: 0x8e76ff, coreGlow: 0x7ee8ff, surgeHi: 0xeaf4ff,
-          trail: 0x7e9cff, boostTrail: 0x9df4ff } },
-      // Galaxy Emperor — a long sweeping body, broad sweeping wings, a sweeping comet wake, emperor mask.
-      { segmentCount: 15, sideFinPairs: 1, cometWisps: 6,
-        crown: 1.0, maskTier: 3, spineGlow: 0.58, coreIntensity: 0.72,
-        bodyScale: 1.16, wingSpan: 1.28, tailLength: 1.22,
-        colors: { body: 0x090d24, belly: 0xdce6ff, scales: 0x9d7cff, horn: 0xf2f6ff,
-          wingInner: 0x3440a0, wingOuter: 0x050719, wingEmissive: 0x9df4ff,
-          eye: 0xffffff, apexEye: 0xffffff, apexSeam: 0xb28cff, coreGlow: 0x9df4ff,
-          surgeHi: 0xf4fbff, trail: 0x9d7cff, boostTrail: 0xb8f8ff } },
-    ],
-    fx: { auraColor: '126,180,255', auraIdle: 0.1, sparkle: true },
-    previewAccent: 0x7e9cff,
-    // Cool astral Surge (lavender/cyan, never fiery).
-    hasStyle: true, surgeMotes: true,
-    feverWing: 0x8ea6ff, feverEye: 0xffffff, feverWash: [0.03, 0.04, 0.09],
-    body: 0x101632, belly: 0xbcc9ff, scales: 0x7f8cff, horn: 0xdce6ff,
-    wingInner: 0x273078, wingOuter: 0x090d24, wingEmissive: 0x7ee8ff,
-    eye: 0xcff8ff, apexEye: 0xffffff, apexSeam: 0x9d7cff, coreGlow: 0x7ee8ff,
-    surgeHi: 0xf4fbff, trail: 0x7e9cff, boostTrail: 0x9df4ff,
-  },
 
   // ── STARTER: FIRE — "Cinderwing", the flame-tailed raptor ─────────────────
   // Hull dragon (data-driven Night-Fury kernel). Lean ARCHED body + clean swept
   // DELTA wings (scallop≈0, flame:false → NOT Ember's jagged flame wing) + a long
   // whip tail tipped with a glowing FLAME BULB (the Charizard read). 3 forms, SSR
   // cap. Radiant restrained (glow ≤1.0, no glowSeams) so it stays below Eternals.
-  fire: {
-    name: 'Cinderwing',
-    title: 'The Flame-Tailed Raptor',
-    bodyMetalness: 0.0, bodyRoughness: 0.82, bodyEnvIntensity: 0.06, scaleSize: 3.2, scaleRelief: 0.7,
-    rimBodyMul: 0.6,
-    rarity: 'SR', maxRarity: 'SSR', cost: 800,
-    parts: {
-      torso: 'hullTorso', head: 'none', wings: 'hullWings', tail: 'none',
-      surface: { shader: ['cellularScalesNormal'] },
-    },
-    hull: {
-      profile: FIRE_PROFILE, section: { ex: 2.0 }, sectionN: 20,
-      knobs: { eyes: true, eyeZ: -2.42, eyeX: 0.24, dorsalZRange: [-2.6, 4.0], chestBand: [-1.30, 0.90], seamDorsal: 0.87 },
-      tailBulb: { r: 0.16, z: 4.2, color: 0xff6a1e, innerColor: 0xffd24a, emissiveIntensity: 1.2, yLift: 0.02 },
-    },
-    stats: { speed: 1.05, handling: 1.04, drain: 1.0, regen: 1.0 },
-    // Base wing knobs: anatomical taper arm > forearm > finger (L39). The GRACE levers
-    // (wristMedial / fingerSplay / fingerCurve) are authored PER FORM below — loose stubby
-    // baby fan → tight elegant adult fan (improving on Toothless: more medial, more splay).
-    model: {
-      scale: 0.94, wingScale: 0.86, tailSegments: 0, neckSegments: 0, ridgeCount: 0,
-      wingRootScale: 1.15, shoulderWidthScale: 1.1, wingRootOffset: { y: 0.04, z: -0.08 },
-      riderSocket: { x: 0, y: 0.8, z: -0.4 },
-      flapBias: 1.05, flapAmp: 0.95,
-      wingArmLeadChord: 0.40,
-      wingArmRadius: 0.105, wingForearmRadius: 0.072, wingFrameTipRadius: 0.011, wingFingerRadius: 0.05,
-      tailWhip: true, bodyWhip: true, tailSteer: true,
-      spineFwdZ: [-1.5, -2.4], spineHipZ: 1.10,
-      tailBoneZ: [1.55, 2.45, 3.30, 4.05],
-    },
-    // BROAD FANNED dragon wing (not a thin delta): moderate SPAN (narrower than Toothless)
-    // but DEEP chord + 5 fanned fingers with real scalloped webs, a strong elbow (arc.hump)
-    // and a fire-raked hook. Fuller + more elegant than Toothless, not wider. The trailing
-    // finger carries the back edge; the medial wrist (per form) fans the fingers convex.
-    wingForms: [
-      // GULL-WING glide arc: small elbow rise + NEGATIVE bow → wingtips DROOP (graceful glide,
-      // reads edge-on from the chase cam, no top/under-surface flash). Deep chord kept.
-      // F0 hatchling — small but ROUNDED baby wing (4 short fingers, soft trailing fan).
-      { tips: [[2.40, 0.26], [1.90, -0.50], [1.25, -0.70], [0.70, -0.60]],
-        lead: [1.70, 0.42], scallop: 0.14, rootChord: 0.40, flame: false,
-        arc: { bow: -0.08, hump: 0.06, humpAt: 0.56, hook: 0.0 } },
-      // F1 kindled — a real fanned wing emerges, elbow appears, 5 fingers.
-      { tips: [[3.40, 0.34], [2.85, -0.55], [2.10, -1.00], [1.30, -1.15], [0.70, -0.95]],
-        lead: [2.40, 0.56], scallop: 0.20, rootChord: 0.56, flame: false,
-        arc: { bow: -0.12, hump: 0.16, humpAt: 0.54, hook: 0.0 } },
-      // F2 radiant — full broad fanned wing: deep chord, gull-wing droop, modest elbow.
-      { tips: [[4.00, 0.42], [3.40, -0.55], [2.60, -1.05], [1.75, -1.30], [0.95, -1.12]],
-        lead: [2.90, 0.66], scallop: 0.26, rootChord: 0.70, flame: false,
-        arc: { bow: -0.15, hump: 0.22, humpAt: 0.55, hook: 0.0 } },
-    ],
-    forms: [
-      // F0 HATCHLING — chibi: big round head-DOME (headBulge) + chubby round body (hullSection
-      // ex high) + stubby wings + big low eyes + pupil. tiny, low-arched. ember nub, no flame.
-      { wingForm: 0, bodyScale: 0.60, wingSpan: 0.74, wingChord: 1.20,
-        hullSection: { ex: 2.7, flatTop: 1.05 }, headBulge: 1.30, spineArch: 0.70,
-        eyeScale: 1.55, eyeYOffset: -0.05, eyePupil: true,
-        wingWristMedial: 0.78, wingFingerSplay: 0.12, wingFingerCurve: 0.08, wingFingerBulge: 0.03,
-        spineGlow: 0, glowIntensity: 0.3, particleRate: 0.22,
-        wingOpacity: 0.92, wingPanelGlow: 0.08, previewScale: 0.78,
-        hullDorsalNubs: false, tailBulbGlow: 0.12, tailBulbScale: 0.50,
-        colors: { body: 0x2a1410, belly: 0x3a201a, scales: 0x4a241a, horn: 0x3a1f16,
-          wingInner: 0x4a2014, wingOuter: 0x281008, wingEmissive: 0x5a2410,
-          wingMembraneEmissive: 0x331810, eye: 0xffc878, apexSeam: 0x6a2c14 } },
-      // F1 KINDLED — slimming, the wing fans more, a small elbow, first warmth.
-      { wingForm: 1, bodyScale: 0.82, wingSpan: 0.92, wingChord: 1.40,
-        hullSection: { ex: 2.2 }, headBulge: 1.12, spineArch: 0.92,
-        eyeScale: 1.25, eyeYOffset: -0.02, eyePupil: true,
-        wingWristMedial: 0.66, wingFingerSplay: 0.24, wingFingerCurve: 0.17, wingFingerBulge: 0.05,
-        spineGlow: 0.14, glowIntensity: 0.55, particleRate: 0.55,
-        wingOpacity: 0.9, wingPanelGlow: 0.12, previewScale: 0.92,
-        hullDorsalNubs: false, tailBulbGlow: 0.6, tailBulbScale: 0.82,
-        colors: { body: 0x331212, belly: 0x4a1c18, scales: 0x6a2a1c, horn: 0x4a2018,
-          wingInner: 0x702a16, wingOuter: 0x30120a, wingEmissive: 0xa8421a,
-          wingMembraneEmissive: 0x4e1f10, eye: 0xffc860, apexSeam: 0x9a3818 } },
-      // F2 RADIANT — SHORT ARM / very MEDIAL wrist (0.56) so the fingers + leading frame FLARE
-      // OUT in a big convex curve (the human's ideal). Deep chord, posed S-curve (spineArch 1.15).
-      { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.55,
-        hullSection: { ex: 1.9, flatTop: 0.95 }, headBulge: 1.0, spineArch: 1.15,
-        eyeScale: 1.0, eyeYOffset: 0.0, eyePupil: true,
-        wingWristMedial: 0.56, wingFingerSplay: 0.32, wingFingerCurve: 0.24, wingFingerBulge: 0.06,
-        spineGlow: 0.30, glowIntensity: 0.95, particleRate: 0.9,
-        wingOpacity: 0.9, wingPanelGlow: 0.16, previewScale: 1.0,
-        hullDorsalNubs: false, tailBulbGlow: 1.15, tailBulbScale: 1.0,
-        colors: { body: 0x3e1414, belly: 0x5a201a, scales: 0x8e3420, horn: 0x5a2418,
-          wingInner: 0x9c3618, wingOuter: 0x3a120c, wingEmissive: 0xff6a22,
-          wingMembraneEmissive: 0x6e2812, eye: 0xffd060, apexSeam: 0xd6521e } },
-    ],
-    fx: { auraColor: '200,90,40', auraIdle: 0.0, sparkle: false },
-    previewAccent: 0xff6a20,
-    body: 0x3a1216, belly: 0x5a201a, scales: 0x8a3420, horn: 0x5a2418,
-    wingInner: 0x9a3618, wingOuter: 0x3e140c, wingEmissive: 0xff6a20,
-    wingMembraneEmissive: 0x7a2a12, apexSeam: 0xd6521e,
-    eye: 0xffd05a, trail: 0xff6a20, boostTrail: 0xffb24a,
-  },
 
   // ── STARTER: WATER — "Tidewing", the manta ────────────────────────────────
   // Hull dragon. FLAT + WIDE manta body, huge TRIANGULAR pectoral fin-wings
@@ -1041,149 +663,12 @@ export const DRAGONS = {
   // HORIZONTAL fluke. Soft teal bio-luminescence: rounded dorsal fin-bumps, a
   // translucent glowing membrane edge (wingSSS), teal spine-line. Enriched so its
   // Radiant is not plain, but kept SOFT + low-saturation (below future Eternals).
-  water: {
-    name: 'Tidewing',
-    title: 'The Deepwater Manta',
-    bodyMetalness: 0.0, bodyRoughness: 0.74, bodyEnvIntensity: 0.08, scaleSize: 3.4, scaleRelief: 0.55,
-    rimBodyMul: 0.5,
-    rarity: 'R', maxRarity: 'SSR', cost: 0,
-    parts: {
-      torso: 'hullTorso', head: 'none', wings: 'hullWings', tail: 'none',
-      surface: { shader: ['cellularScalesNormal'] },
-    },
-    hull: {
-      profile: WATER_PROFILE, section: { ex: 1.6, flatTop: 0.55, flatBot: 0.6 }, sectionN: 20,
-      knobs: { eyes: true, eyeZ: -3.2, chestBand: [-1.30, 0.80], seamHalf: 0.7,
-        dorsalRound: 1, dorsalZRange: [-2.6, 3.0] },
-      tailFluke: { z: 4.0, scale: 1.0, yLift: 0.02 },
-    },
-    stats: { speed: 1.0, handling: 1.06, drain: 1.0, regen: 1.06 },
-    model: {
-      scale: 0.96, wingScale: 1.12, tailSegments: 0, neckSegments: 0, ridgeCount: 0,
-      wingRootScale: 1.3, shoulderWidthScale: 1.15, wingRootOffset: { y: 0.0, z: -0.05 },
-      riderSocket: { x: 0, y: 0.66, z: -0.35 },
-      flapBias: 0.78, flapAmp: 1.05,
-      wingArmLeadChord: 0.18, wingWristMedial: 1.0,
-      wingArmRadius: 0.10, wingForearmRadius: 0.08, wingFrameTipRadius: 0.012,
-      wingFingerCurve: 0.0, wingFingerSplay: 0.05, wingFingerBulge: 0.02, wingFingerRadius: 0.04,
-      wingSSS: true, wingBillow: 0.16,
-      tailWhip: true, bodyWhip: true, tailSteer: true,
-      tailBoneZ: [1.45, 2.30, 3.10, 3.85],
-    },
-    wingForms: [
-      { tips: [[3.80, 0.34], [2.55, -0.74], [1.30, -0.86]],
-        lead: [2.50, 0.48], scallop: 0.02, rootChord: 0.55, flame: false,
-        arc: { bow: 0.32, hump: 0.0, humpAt: 0.6, hook: 0.0 } },
-      { tips: [[4.90, 0.40], [3.30, -0.92], [1.65, -1.05]],
-        lead: [3.20, 0.56], scallop: 0.02, rootChord: 0.66, flame: false,
-        arc: { bow: 0.38, hump: 0.0, humpAt: 0.6, hook: 0.0 } },
-      { tips: [[5.70, 0.46], [3.85, -1.06], [1.95, -1.22]],
-        lead: [3.70, 0.62], scallop: 0.02, rootChord: 0.76, flame: false,
-        arc: { bow: 0.42, hump: 0.0, humpAt: 0.6, hook: 0.0 } },
-    ],
-    forms: [
-      { wingForm: 0, bodyScale: 0.74, wingSpan: 0.9, wingChord: 1.15,
-        spineGlow: 0, glowIntensity: 0.35, particleRate: 0.3,
-        wingOpacity: 0.9, wingPanelGlow: 0.1, previewScale: 0.82, eyeScale: 1.3,
-        hullDorsalNubs: false,
-        colors: { body: 0x10303a, belly: 0x163e46, scales: 0x174450, horn: 0x123440,
-          wingInner: 0x1d5566, wingOuter: 0x0e2630, wingEmissive: 0x16424f,
-          wingMembraneEmissive: 0x103040, eye: 0x6fd8d0, apexSeam: 0x1a4a55 } },
-      { wingForm: 1, bodyScale: 0.9, wingSpan: 0.96, wingChord: 1.2,
-        spineGlow: 0.12, glowIntensity: 0.6, particleRate: 0.6,
-        wingOpacity: 0.9, wingPanelGlow: 0.14, previewScale: 0.94, eyeScale: 1.25,
-        hullDorsalNubs: true,
-        colors: { body: 0x113844, belly: 0x184650, scales: 0x1a5160, horn: 0x143c4a,
-          wingInner: 0x256476, wingOuter: 0x102b36, wingEmissive: 0x1f5e6e,
-          wingMembraneEmissive: 0x165060, eye: 0x86e6dd, apexSeam: 0x2a6878 } },
-      { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.25,
-        spineGlow: 0.25, glowIntensity: 1.0, particleRate: 1.0,
-        wingOpacity: 0.88, wingPanelGlow: 0.2, previewScale: 1.0,
-        hullDorsalNubs: true, wingMembraneSSS: 0x2a8a92,
-        colors: { body: 0x123e4c, belly: 0x1b505c, scales: 0x1d5e70, horn: 0x16424f,
-          wingInner: 0x2c7488, wingOuter: 0x113040, wingEmissive: 0x2f8a98,
-          wingMembraneEmissive: 0x1d6a78, eye: 0x9ff0e6, apexSeam: 0x34809a } },
-    ],
-    fx: { auraColor: '79,232,223', auraIdle: 0.0, sparkle: false },
-    previewAccent: 0x2f8a98,
-    body: 0x123e4c, belly: 0x1b505c, scales: 0x1d5e70, horn: 0x16424f,
-    wingInner: 0x2c7488, wingOuter: 0x113040, wingEmissive: 0x2f8a98,
-    wingMembraneEmissive: 0x1d6a78, apexSeam: 0x34809a, wingMembraneSSS: 0x2a8a92,
-    eye: 0x9ff0e6, trail: 0x2f8a98, boostTrail: 0x7fe8df,
-  },
 
   // ── STARTER: EARTH — "Cragmaw", the plated cragback ───────────────────────
   // Hull dragon. HEAVY broad tank body with a tall plated back (stone shingle run),
   // short broad leathery wings, and a stone CLUB tail (grown from the loft — the
   // rear stations swell back up). Opaque rough rock, warm amber crack-glow at
   // Radiant. Grounded mineral read; nothing else on the roster is a heavy club-tail.
-  earth: {
-    name: 'Cragmaw',
-    title: 'The Plated Cragback',
-    bodyMetalness: 0.0, bodyRoughness: 0.95, bodyEnvIntensity: 0.04, scaleSize: 2.6, scaleRelief: 1.0,
-    rimBodyMul: 0.4,
-    rarity: 'SR', maxRarity: 'SSR', cost: 1200,
-    parts: {
-      torso: 'hullTorso', head: 'none', wings: 'hullWings', tail: 'none',
-      surface: { shader: ['cellularScalesNormal'] },
-      shingle: [
-        { count: [0, 4, 9], zRange: [-1.7, 1.5], len: 0.42, wid: 0.3, cup: 0.34, tilt: 0.4, yLift: 0.5, edge: true },
-      ],
-    },
-    hull: {
-      profile: EARTH_PROFILE, section: { ex: 2.6, flatTop: 1.0 }, sectionN: 20,
-      knobs: { eyes: true, eyeZ: -3.25, chestBand: [-1.35, 0.85] },
-    },
-    stats: { speed: 1.0, handling: 1.0, drain: 1.04, regen: 1.02 },
-    model: {
-      scale: 1.02, wingScale: 0.82, tailSegments: 0, neckSegments: 0, ridgeCount: 0,
-      wingRootScale: 1.3, shoulderWidthScale: 1.2, wingRootOffset: { y: 0.05, z: -0.06 },
-      riderSocket: { x: 0, y: 0.92, z: -0.4 },
-      flapBias: 1.1, flapAmp: 0.78,
-      wingArmLeadChord: 0.3, wingWristMedial: 0.95,
-      wingArmRadius: 0.13, wingForearmRadius: 0.1, wingFrameTipRadius: 0.018,
-      wingFingerCurve: 0.08, wingFingerSplay: 0.12, wingFingerBulge: 0.07, wingFingerRadius: 0.07,
-      tailWhip: true, bodyWhip: true, tailSteer: true,
-      tailBoneZ: [1.40, 2.20, 3.00, 3.70],
-    },
-    wingForms: [
-      { tips: [[3.10, 0.32], [2.35, -0.46], [1.55, -0.64], [0.85, -0.6]],
-        lead: [2.05, 0.5], scallop: 0.14, rootChord: 0.5, flame: false,
-        arc: { bow: 0.4, hump: 0.0, humpAt: 0.6, hook: 0.05 } },
-      { tips: [[3.70, 0.36], [2.85, -0.54], [1.9, -0.78], [1.0, -0.74]],
-        lead: [2.45, 0.56], scallop: 0.16, rootChord: 0.58, flame: false,
-        arc: { bow: 0.45, hump: 0.15, humpAt: 0.55, hook: 0.08 } },
-      { tips: [[4.20, 0.4], [3.25, -0.6], [2.2, -0.9], [1.15, -0.86]],
-        lead: [2.75, 0.62], scallop: 0.18, rootChord: 0.66, flame: false,
-        arc: { bow: 0.5, hump: 0.3, humpAt: 0.56, hook: 0.12 } },
-    ],
-    forms: [
-      { wingForm: 0, bodyScale: 0.76, wingSpan: 0.85, wingChord: 1.0,
-        spineGlow: 0, glowIntensity: 0.3, particleRate: 0.25,
-        wingOpacity: 0.96, wingPanelGlow: 0.04, previewScale: 0.84, eyeScale: 1.2,
-        colors: { body: 0x2c2820, belly: 0x353024, scales: 0x423a2a, horn: 0x4a4030,
-          wingInner: 0x3a3326, wingOuter: 0x231f18, wingEmissive: 0x2a2418,
-          wingMembraneEmissive: 0x241f16, eye: 0xc8a850, apexSeam: 0x6e5a2a } },
-      { wingForm: 1, bodyScale: 0.9, wingSpan: 0.93, wingChord: 1.05,
-        spineGlow: 0.12, glowIntensity: 0.55, particleRate: 0.5,
-        wingOpacity: 0.96, wingPanelGlow: 0.06, previewScale: 0.95, eyeScale: 1.15,
-        colors: { body: 0x322c22, belly: 0x3e3628, scales: 0x4e4430, horn: 0x564a36,
-          wingInner: 0x443a2a, wingOuter: 0x29241b, wingEmissive: 0x6e4a1e,
-          wingMembraneEmissive: 0x2c2519, eye: 0xd8b058, apexSeam: 0xc8861e } },
-      { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.1,
-        spineGlow: 0.26, glowIntensity: 0.95, particleRate: 0.9,
-        wingOpacity: 0.96, wingPanelGlow: 0.08, previewScale: 1.0,
-        colors: { body: 0x383024, belly: 0x463c2c, scales: 0x5a4e36, horn: 0x60543e,
-          wingInner: 0x4e4230, wingOuter: 0x2c261c, wingEmissive: 0xc8861e,
-          wingMembraneEmissive: 0x302819, eye: 0xe6c068, apexSeam: 0xe09a26 } },
-    ],
-    fx: { auraColor: '200,150,60', auraIdle: 0.0, sparkle: false },
-    previewAccent: 0xc8861e,
-    body: 0x383024, belly: 0x463c2c, scales: 0x5a4e36, horn: 0x60543e,
-    wingInner: 0x4e4230, wingOuter: 0x2c261c, wingEmissive: 0xc8861e,
-    wingMembraneEmissive: 0x302819, apexSeam: 0xe09a26,
-    eye: 0xe6c068, trail: 0xc8861e, boostTrail: 0xe6c068,
-  },
 
   // AURUM TORO — a Lamborghini-Aventador-as-dragon, and the HERO that proves the
   // new FACETED ("hard-edge / automotive") part family (dragonFaceted.js): a
@@ -1384,44 +869,6 @@ export const DRAGONS = {
   //   The GLB is the REAL Higgsfield body now: a textured, wingless storm-serpent
   //   from image_to_3D (job c608693e, ~31k tris, single mesh, no rig). Retune the
   //   glb.{scale,rotY,shoulder} placement on the PR preview — no code change.
-  thundercoil: {
-    name: 'Thundercoil Ampithere',
-    title: 'A storm given a spine',
-    rarity: 'SSR',
-    maxRarity: 'SSR',
-    cost: 0,                 // free so the experiment is one tap to equip + test
-    assetBacked: true,
-    meshUrl: './assets/models/thundercoil.glb',
-    // UNIFIED WINGED MESH: one fused GLB (body + head + wings) from the cel-shaded
-    // hero concept (Higgsfield job d01ab50b). Native pose stands vertical — spine
-    // along +Y (head +Y → tail −Y), wingspan ±X, and dorsal −Z / belly +Z. Facing is
-    // MEASURED, not guessed: rotX = −π/2 lays native +Y/−Y level (head −Z, tail +Z at
-    // equal height) to match the procedural roster (azure: head [0,+0.31,−1.91] /
-    // tail [0,+0.2,+2.11]); rotY = π then rolls 180° about the spine so the DORSAL
-    // faces up — the bare −π/2 left the belly up. `fusedWings` retires the authored/
-    // separate wings (the mesh carries its own) and turns on the shader wing-flap
-    // deform; `rim` defaults add a fresnel edge + fill so the PBR mesh isn't a black
-    // silhouette when backlit. Retune on the PR preview.
-    glb: { scale: 3.9, rotY: Math.PI, rotX: -1.5708, rotZ: 0, shoulder: [0.3, 0.2, -0.4], riderAt: [0, 0.9, 0.2],
-      fusedWings: true,
-      // Procedural body slither: traveling lateral spine wave (local units; amp ramps head→tail).
-      slither: { amp: 0.10, freq: 8.0, speed: 4.0 },
-      // Shader wing-flap: verts wide in X (|localX|>hingeX) AND in the front/shoulder band
-      // (native spine Y > minS) rotate about a fore-aft hinge by amp·sin(phase), symmetric.
-      // minS keeps the coiled TAIL (low Y, but it swings wide in X) out of the wingbeat.
-      wing: { hingeX: 0.28, minS: -0.15, amp: 0.55 } },
-    stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
-    model: {
-      scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,
-      flapBias: 1.05, flapAmp: 1.0, spineGlow: 0,
-    },
-    // Storm palette: charcoal/navy hide, pale-silver underbelly, electric blue-white accents.
-    fx: { auraColor: '120,200,255', auraIdle: 0.05, sparkle: false },
-    body: 0x232838, belly: 0xb9c4d6, scales: 0x2c3346, horn: 0x9fc4ff,
-    wingInner: 0x33405c, wingOuter: 0x161a26, wingEmissive: 0x8ec8ff,
-    apexEye: 0xd6ecff, apexSeam: 0x8ec8ff, coreGlow: 0x7ab8ff, surgeHi: 0xeaf4ff,
-    eye: 0xbfe2ff, trail: 0x8ec8ff, boostTrail: 0x5aa0ff,
-  },
 
   // ── VERDANT PRISMWING — the first FULL GLB-auto-rig hero (LEAPFROG L108) ───
   // Mesh: Higgsfield multi_image_to_3d job 92f1ae55 from the human-approved
@@ -1433,52 +880,6 @@ export const DRAGONS = {
   // skeleton at load and the SHIPPED flapWing/spine-whip/tail drive animates it
   // (no baked clips, no shader hinge). rig knobs are measured defaults —
   // override here only if the preview shows a mask/placement miss.
-  verdant: {
-    name: 'Verdant Prismwing',
-    title: 'Cut from living crystal',
-    rarity: 'SSR',
-    maxRarity: 'SSR',
-    cost: 0,                 // free while the pipeline is judged; price at sign-off
-    assetBacked: true,
-    meshUrl: './assets/models/verdant.glb',
-    glb: {
-      scale: 6.5, rotY: Math.PI, rotX: 0, rotZ: 0, riderAt: [0, 0.7, 0.1],
-      rigMode: 'skinned',
-      // VISION-MARKED joints (Claude on tools/rigshots.mjs renders
-      // rigshot-verdant-{top,side}.png — the "Claude is the tagger" pipeline,
-      // replacing both the manual glbtagger and the window heuristics).
-      // Verified by the headless probe: partitions wing 5562 / chest 2969 /
-      // neckHead 1938 / hipTail 2296; wingtip moves 2.69 on a 0.4 rad flap;
-      // MAX MEMBRANE EDGE STRETCH 2.48 at a hard flap extreme (v1's window
-      // weights measured 70.9 — the wing-smudge fix, quantified). The tail is
-      // a marked POLYLINE because this mesh's tail curls sideways.
-      rig: {
-        tailN: 4, smoothIters: 24,
-        joints: {
-          shoulder: [0.75, -0.9, -3.25], elbow: [1.6, 0.6, -3.6], wrist: [2.5, 2.1, -3.9],
-          tip: [4.75, 1.0, -1.1],
-          fingers: [[4.65, 0.4, 1.4], [3.35, 0.1, 2.05], [2.2, -0.1, 2.3]],
-          neck: [0, -1.4, -3.9], head: [0, -1.2, -5.0],
-          hip: [0, -1.9, 1.8],
-          tail: [[0, -1.5, 3.0], [0, -1.25, 4.0], [0, -1.05, 5.0], [0, -0.85, 6.05]],
-          chest: [0, -2.1, -1.5], chestZ: [-3.0, 0.6], wingZ: [-4.2, 2.4],
-        },
-      },
-      rim: { intensity: 0.45, fillIntensity: 0.22 },
-    },
-    stats: { speed: 1.04, handling: 1.12, drain: 0.96, regen: 1.05 },  // agile forest spirit
-    model: {
-      scale: 1.0, flapBias: 0.95, flapAmp: 1.0, spineGlow: 0,
-      tailWhip: true,          // REQUIRED: bone-chain tail is rotation-driven
-      flapProfile: { lagElbow: 0.24, lagWrist: 1.0, elbowAmp: 0.3, foldAmp: 0.3 },
-    },
-    // Canopy palette: teal-green hide, gold chest, crystal-mint accents.
-    fx: { auraColor: '120,255,200', auraIdle: 0.05, sparkle: false },
-    body: 0x1e7a5e, belly: 0xd9a83a, scales: 0x14543f, horn: 0xbfe8ff,
-    wingInner: 0x1d4a3a, wingOuter: 0x0f2c22, wingEmissive: 0x66d9a8,
-    apexEye: 0xe8c86a, apexSeam: 0x9fe8d8, coreGlow: 0x66ffc8, surgeHi: 0xeafff4,
-    eye: 0xe8c86a, trail: 0x66d9a8, boostTrail: 0x2fb98a,
-  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

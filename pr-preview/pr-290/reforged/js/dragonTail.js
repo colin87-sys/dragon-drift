@@ -146,7 +146,10 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   // base ≈ hip width so the tail flows out cleanly. The stealth stem keeps a
   // FULLER taper (thicker toward the fins) so the long apex stem reads as a
   // substantial tail-boom the stabilizers root into, not a thin whip.
-  const baseR = 0.27, tipR = smoothStem ? 0.095 : 0.05;
+  // tailGirth (additive, default 1): fatten the whole tail so the serpent RIBBON reads as
+  // a substantial body mass in the rear-chase silhouette (jade, gate r6 dir 1), not a thin whip.
+  const girth = model.tailGirth ?? 1;
+  const baseR = 0.27 * girth, tipR = (smoothStem ? 0.095 : 0.05) * girth;
   const spacing = len / (N - 1);
   const segLen = spacing * 2.4;            // big overlap → seamless even when coiling
 
@@ -215,6 +218,16 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     return plate;
   }
 
+  // tailArc / tailYaw (additive, default 0 → byte-identical): an idle CURVE baked into
+  // the segment rest positions so the tail COUNTER-ARCS (a koi/serpent S, not a straight
+  // whip — jade §5d, gate r1 dir 1). tailArc lifts the chain in +y with a rising curve +
+  // a tip flick; tailYaw sweeps it laterally to continue the body's lateral S.
+  const tailArc = model.tailArc ?? 0;
+  const tailYaw = model.tailYaw ?? 0;
+  const arcF = (f) => len * (tailArc * (0.32 * f + 0.42 * f * f) + tailArc * 0.16 * Math.sin(f * Math.PI * 1.6));
+  const yawF = (f) => len * tailYaw * (0.4 * f - 0.28 * Math.sin(f * Math.PI * 1.4));
+  const arcAt = (i) => arcF(i / (N - 1));
+  const yawAt = (i) => yawF(i / (N - 1));
   // Shaft segments. Each is its own group at a fixed z; the rig sways x/y so the
   // chain coils, with the root (segs[0]) held at the hip.
   for (let i = 0; i < N; i++) {
@@ -225,7 +238,13 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     // existing coil writes the same .position/.rotation on these handles, now bending
     // a seamless surface. Default (Group + per-segment frustum) is byte-identical.
     const seg = swept ? new THREE.Bone() : new THREE.Group();
-    seg.position.set(0, 0, i * spacing);
+    seg.position.set(yawAt(i), arcAt(i), i * spacing);
+    if ((tailArc || tailYaw) && !swept) {                    // pitch/yaw the frustum to follow the curve tangent (no staircase)
+      const dydz = (arcAt(Math.min(N - 1, i + 1)) - arcAt(Math.max(0, i - 1))) / (2 * spacing);
+      const dxdz = (yawAt(Math.min(N - 1, i + 1)) - yawAt(Math.max(0, i - 1))) / (2 * spacing);
+      seg.rotation.x = -Math.atan(dydz);
+      seg.rotation.y = Math.atan(dxdz);
+    }
     if (!swept) {
       const frustum = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, lod(8)), bodyMat);
       frustum.rotation.x = Math.PI / 2;
@@ -285,9 +304,15 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     segs[0].add(chev);
   }
 
-  // Tip ornament — the final coiling segment, overlapping the shaft end.
+  // Tip ornament — the final coiling segment, overlapping the shaft end. Sits on the
+  // ARCED centreline (matches the last shaft segment) + follows the tangent, so it never
+  // detaches from a curved tail (the floating-fragment law-1 fail, gate rework r2 dir 1).
   const tip = new THREE.Group();
-  tip.position.set(0, 0, (N - 1) * spacing);
+  tip.position.set(yawAt(N - 1), arcAt(N - 1), (N - 1) * spacing);
+  if (tailArc || tailYaw) {
+    const dydz = (arcAt(N - 1) - arcAt(N - 2)) / spacing, dxdz = (yawAt(N - 1) - yawAt(N - 2)) / spacing;
+    tip.rotation.x = -Math.atan(dydz); tip.rotation.y = Math.atan(dxdz);
+  }
   if (style === 'comet') {
     const forkGeo = new THREE.ShapeGeometry(buildForkShape(0.46, 1.5, 0.85));
     forkGeo.rotateX(Math.PI / 2);
@@ -542,10 +567,14 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   if (swept) {
     const bones = segs.slice(0, N);                  // the 7 shaft bones (tip excluded)
     const M = (N - 1) * 2 + 1;                       // longitudinal stations (smooth bend)
-    const tEnd = Math.max(tipR, 0.13);               // fuller tail end — not a thin pale rod
+    const tEnd = Math.max(tipR, 0.06 * girth);       // taper to a THIN tip (≤0.2× base, law 4) so the fattened tail still reads tapering, not a sausage (gate r6 dir 5)
     // Dark MATTE stem material so the tail integrates with the black body instead of
     // reading as a lit grey cylinder (no metallic sheen, high roughness).
     const stemMat = new THREE.MeshStandardMaterial({ color: def.body, roughness: 0.85, metalness: 0.04 });
+    // tailGlow (additive, default off): a faint body-hued emissive floor so a matte tail
+    // never reads near-black / detached from the body under cool studio light (jade, gate
+    // rework r3 dir 1). Keeps the tail inside the body's value family.
+    if (model.tailGlow) { stemMat.emissive.set(def.wingInner ?? def.body); stemMat.emissiveIntensity = 0.16; stemMat.roughness = def.bodyRoughness ?? 0.6; stemMat.envMapIntensity = 0.2; }
     // WHOLE-CREATURE SHADER SCALE (L31, obsidian2-only, gated): the swept tail's stem
     // is a SEPARATE matte material with NO surface shader, so the body's pebbly relief
     // stopped at the hips. When the creature opts in (model.scaleTail) AND declares a
@@ -564,7 +593,9 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     const centre = [], radii = [], skin = [];
     for (let s = 0; s < M; s++) {
       const z = (s / (M - 1)) * len;
-      centre.push({ x: 0, y: 0, z });
+      // build the tube along the ARCED centreline (matches the bones) so a curved
+      // idle tail is ONE seamless surface — no frustum-joint gaps (gate r3 dir 3).
+      centre.push({ x: yawF(z / len), y: arcF(z / len), z });
       radii.push(baseR + (tEnd - baseR) * (z / len));
       const t = z / spacing, i0 = Math.min(N - 1, Math.floor(t)), i1 = Math.min(N - 1, i0 + 1), f = t - i0;
       skin.push({ si: [i0, i1, 0, 0], sw: [1 - f, f, 0, 0] });

@@ -63,13 +63,15 @@ for (const e of economies) {
   assert(e.lanceCapable === (e.peakCap > 0), `${e.id}: lanceCapable iff any phase is paintable`);
 }
 // A boss with a virtualLockOrgan but NO lockParts is V1-aim-only → lance inert
-// (boss.js paintableParts returns null there). KARNVOW + ASHTALON are exactly
-// this on master; the tier-1 Sentinels are inert via a 0 tier cap.
+// (boss.js paintableParts returns null there). ASHTALON is exactly this; the
+// tier-1 Sentinels are inert via a 0 tier cap. (KARNVOW WAS this until CP2 gave
+// it 5 trophy-charm lockParts — it's now lance-capable, peakCap 5. KNELLGRAVE
+// likewise gained wound+bind lockParts — the endgame ladder, §5i rung 10.)
 const inert = economies.filter((e) => !e.lanceCapable);
 assert(inert.every((e) => e.peakCap === 0 && e.reason), 'every lance-inert boss carries a 0 cap + a reason');
 const noTargets = inert.filter((e) => e.reason.includes('no paint targets')).map((e) => e.id);
-assert(noTargets.includes('karnvow') && noTargets.includes('ashtalon'),
-  'KARNVOW + ASHTALON are lance-inert for want of paint targets (virtualLockOrgan is V1-aim-only)');
+assert(noTargets.includes('ashtalon') && !noTargets.includes('karnvow'),
+  'ASHTALON is lance-inert for want of paint targets (V1-aim-only); KARNVOW gained trophy-charm lockParts in CP2 and is now lance-capable');
 // A boss capped BELOW its tier by too few organs is modelled (THRUMSWARM: 1
 // organ × stackMax ⇒ 2, not the tier-3 five).
 const thrum = economies.find((e) => e.id === 'thrumswarm');
@@ -98,6 +100,56 @@ for (const e of economies) {
     `${e.id}: pure-lance TTK estimate ${e.lanceTtk.toFixed(0)}s in band (30–600)`);
 }
 ok('per-boss pure-lance clear volleys + TTK estimate sit in the sane band');
+
+// --- SCAR-BURN (§4b) --------------------------------------------------------
+// The burn bound / total-release ceiling / not-a-phase-deleter / frac laws are all
+// enforced via invariantBreaches above; these assert the burn is actually WIRED (a
+// regression that drops the scarBurn config or its minTier gate is caught here).
+const knell = economies.find((e) => e.id === 'knellgrave');
+assert(knell && knell.burnFrac === 0.25, `KNELLGRAVE SCAR-BURN frac is exactly 0.25 (got ${knell?.burnFrac}) — a silent drift is caught here`);
+assert(knell.phases.some((p) => p.burn > 0), 'KNELLGRAVE phases actually earn a burn on a full on-tell release');
+// The not-a-phase-deleter check must NOT pass vacuously: card timers must actually
+// resolve (§CP2 BLOCKER-1 — a `titleCards` typo silently nulled every timer, so the
+// check below never evaluated a real number).
+assert(knell.phases.every((p) => p.cardTimer != null),
+  `KNELLGRAVE card timers resolve for the not-a-phase-deleter check (got ${knell.phases.map((p) => p.cardTimer).join('/')})`);
+assert(knell.phases.every((p) => !p.phaseDeletable),
+  `KNELLGRAVE is never a phase-deleter (TTKs ${knell.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${knell.phases.map((p) => p.cardTimer).join('/')})`);
+// WEFTWITCH (§5i rung 11) — lance-capable, burn-wired, never a phase-deleter (her P5 is
+// the thinnest endgame margin ~1.08 — a named GO gate; the invariant certifies ≥1.0).
+const weft = economies.find((e) => e.id === 'weftwitch');
+assert(weft && weft.lanceCapable && weft.burnFrac === 0.30, `WEFTWITCH is lance-capable + burn-wired at exactly 0.30 (frac ${weft?.burnFrac})`);
+assert(weft.phases.some((p) => p.burn > 0), 'WEFTWITCH phases actually earn a burn on a full on-beat release');
+assert(weft.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `WEFTWITCH is never a phase-deleter (TTKs ${weft.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${weft.phases.map((p) => p.cardTimer).join('/')})`);
+// ONEWING (§5i rung 12) — lance-capable via the INVERTED SPECTRAL ECHO: dwell-paint the fused frame
+// (2 organs × stackMax 2 = 4), each first mark grants a half-damage GHOST pip on the eye (echoPips 2)
+// → the cap fills to 6, but the ghosts strike at echoDmgMult so the effective volley is < 6 pips. The
+// echo term must be SEEN by the deleter model (free ghosts raise DPS) or the gate passes vacuously.
+const onew = economies.find((e) => e.id === 'onewing');
+assert(onew && onew.lanceCapable && onew.burnFrac === 0.30, `ONEWING is lance-capable + burn-wired at exactly 0.30 (frac ${onew?.burnFrac})`);
+assert(onew.peakCap === 6, `ONEWING fills the tier-4 cap to 6 (4 dwell + 2 ghost) — peakCap ${onew?.peakCap}`);
+// §CP2-D6: echoPips (the model's ghost count) and echoMax (the runtime ghost cap on the eye) are
+// hand-synced duplicates — a drift makes the deleter gate UNDER-model the exploit (the dead-invariant
+// trap). Assert they stay equal so the economy the gate certifies is the one the game actually runs.
+assert(BOSSES.onewing.echoPips === BOSSES.onewing.echoMax,
+  `ONEWING echoPips (model ${BOSSES.onewing.echoPips}) === echoMax (runtime ${BOSSES.onewing.echoMax}) — a drift under-models the exploit`);
+assert(onew.phases.some((p) => p.burn > 0), 'ONEWING phases actually earn a burn on a full on-tell release (real pips)');
+assert(onew.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `ONEWING is never a phase-deleter incl. the free-ghost DPS (TTKs ${onew.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${onew.phases.map((p) => p.cardTimer).join('/')})`);
+// EMBERTIDE (§5i rung 13) — lance-capable via STATION-SPACE proxies, but NO burn: its escalation is
+// the fork-is-a-weapon (forked pips extend the beam duel — a Surge mechanic that adds duel TIME, not
+// damage, so it's invisible to this model). Confirm the fork-extend dial is wired and the burn stays 0.
+const embr = economies.find((e) => e.id === 'embertide');
+assert(embr && embr.lanceCapable && embr.burnFrac === 0, `EMBERTIDE is lance-capable but earns NO burn (frac ${embr?.burnFrac}) — the fork-extend is its escalation`);
+assert(embr.peakCap === 6, `EMBERTIDE reaches the tier-4 cap 6 (3 proxies + crest V1 × stackMax) — peakCap ${embr?.peakCap}`);
+assert(BOSSES.embertide.beamDuelExtendPerPip > 0, `EMBERTIDE's fork-extend dial is wired (+${BOSSES.embertide.beamDuelExtendPerPip}s/pip)`);
+assert(embr.phases.every((p) => p.cardTimer != null && !p.phaseDeletable),
+  `EMBERTIDE is never a phase-deleter (TTKs ${embr.phases.map((p) => p.deleterTtk.toFixed(0)).join('/')} vs timers ${embr.phases.map((p) => p.cardTimer).join('/')})`);
+// Tiers 1-3 (and un-keyed bosses) carry NO burn — the mid-game is byte-identical.
+assert(economies.filter((e) => e.tier < CONFIG.LOCK.scarBurn.minTier).every((e) => e.burnFrac === 0),
+  'no boss below scarBurn.minTier earns a burn (tiers 1-3 unchanged)');
+ok(`SCAR-BURN wired on KNELLGRAVE (${knell.burnFrac}) + WEFTWITCH (${weft.burnFrac}) + ONEWING (${onew.burnFrac}), never phase-deleters, tiers 1-3 burn-free`);
 
 // --- Roster coverage --------------------------------------------------------
 assertEq(economies.length, BOSS_ORDER.length, 'one economy row per boss in BOSS_ORDER');

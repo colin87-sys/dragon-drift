@@ -5,8 +5,10 @@ inside the hard constraints — **vanilla Three.js r160, no build step, 100% pro
 60fps on weak mobile.** Reference bar: Alto's Odyssey / Sky: Children of the Light, in a browser.
 
 > **This is the single source of truth for the graphics overhaul.** Read it before any graphics/rendering PR.
-> Lessons + gate history are appended to [`GRAPHICS-LEDGER.md`](./GRAPHICS-LEDGER.md) (NOT `LEAPFROG.md` — that
-> keeps the graphics stream from tail-conflicting with the boss/creature stream).
+> Graphics **lessons follow THE RULE** — one NEW FILE per lesson in [`leapfrog/lessons/`](../leapfrog/lessons/)
+> with a **`graphics-` slug** (e.g. `2026-07-11-graphics-dither-kills-sky-banding.md`), never a single append-only
+> ledger (the repo's one-file-per-lesson convention is already conflict-free by construction). The **Gate Log**
+> lives at the bottom of this doc.
 
 ---
 
@@ -14,8 +16,8 @@ inside the hard constraints — **vanilla Three.js r160, no build step, 100% pro
 
 - Stay **surgical**: one initiative per PR, coexist behind a flag, prove on the hero (**Azure Drake**), migrate,
   never break the shipped roster or look.
-- **Every PR passes a Fable Quality Gate before merge** (see below). After each merge, append a lesson to
-  `GRAPHICS-LEDGER.md` and add a Gate Log row.
+- **Every PR passes a Fable Quality Gate before merge** (see below). After each merge, add a lesson as a new
+  `leapfrog/lessons/graphics-…` file and add a Gate Log row (bottom of this doc).
 - All work lands on the **graphics integration branch** and merges to `master` only at phase boundaries — see
   *Branching & conflict isolation*.
 
@@ -31,33 +33,42 @@ transmission on a membrane-winged dragon (ember/obsidian) before any roster migr
 
 ## Fable Quality-Gate Protocol *(the governance layer that keeps this at 9–10)*
 
-Every initiative is bracketed by **Fable-model agent checkpoints** (spawn `Agent(subagent_type: review or plan,
-model: "fable")` at high effort). Because there is no WebGL in CI, visual assessment is done from the
+Quality is enforced by a **4-gate ladder, and every gate is an actual spawn of a high-effort Fable-model agent**
+— `Agent(subagent_type: plan or review, model: "fable")`, instructed for **maximum thoroughness / high effort**
+(not a passive checklist a human ticks). Because there is no WebGL in CI, visual assessment is done from the
 **screenshot/montage artifacts** each initiative's tools emit (`bandshot` / `tonemapshots` / `skyshot` /
 `gameshots` / `tiershots`) — Fable reads the PNGs; the **human still judges *motion* on the live PR preview.**
 
-1. **Pre-build design checkpoint** *(lightweight; skip for trivial PRs like N2)* — Fable confirms the concrete
-   approach matches this doc **before** code, catching technique drift early.
-2. **Pre-merge quality gate** *(mandatory, blocking)* — Fable is given: this doc, the initiative's spec, the PR
-   diff, and the verification artifacts, and returns a structured verdict:
-   - **Plan-adherence checklist — ALL must pass:**
-     - [ ] Scope matches the initiative (no creep into another initiative).
-     - [ ] Technique matches this doc, **or** a documented, justified deviation is recorded.
-     - [ ] Coexistence flag present — the shipped look is **byte-identical when the flag is off**.
-     - [ ] Zero-default identity proven where claimed (uniform-zero ⇒ shipped frame).
-     - [ ] Tier degradation wired into `main.js applyQuality` (every full-screen add has a tier off-switch).
-     - [ ] Headless verification present and green (new test/tool + existing suite).
-     - [ ] Lesson appended to `GRAPHICS-LEDGER.md`.
-   - **Quality score /10** toward the 9–10 bar, judged from the artifacts; sub-target scores get **specific,
-     actionable deltas** (not vibes).
-   - **Regression check:** shipped roster/look unbroken (off-path visual diff; `bulletcontrast.mjs` when the
-     change touches color/fog/tone).
-   - **Verdict: `SHIP` / `REVISE(<fixes>)` / `RETHINK(<the technique isn't reaching the bar>)`.**
-3. **Merge rule:** a PR merges only on **`SHIP`** with **score ≥ 8** and a fully-passed adherence checklist.
-4. **Phase-boundary review:** at each phase end, a Fable **phase-review** judges the *compound* result (the
-   6-biome `gameshots` montage + the Azure hero shot) against the **9–10** bar before the next phase begins.
-5. **Gate Log:** every verdict (score + checklist + deltas) is summarized in the Gate Log table in
-   `GRAPHICS-LEDGER.md`, so future sessions see the quality history at a glance.
+- **Gate 0 — Kickoff (ONCE, before any code is written).** Spawn a high-effort Fable agent to review that the
+  branch is synced with `master`, the roadmap + prototype ordering are sound, and the first initiative's approach
+  is right. It returns **`GREENLIGHT`** or a **blocking list**. **No initiative starts until it greenlights.**
+  Re-run Gate 0 if the plan is materially revised.
+- **Gate 1 — Pre-build design check (before EACH initiative's code). MANDATORY.** Spawn a high-effort Fable
+  agent; it confirms the concrete approach matches this doc and the initiative is correctly scoped / flagged /
+  tiered **before** code, catching technique drift early → **`APPROVED`** / **`ADJUST(<changes>)`**. Only a purely
+  mechanical PR (e.g. an N2 one-liner) may downgrade this to a note in the PR body, and only if Gate 2 still runs.
+- **Gate 2 — Pre-merge quality gate (after building, BLOCKING).** Spawn a high-effort Fable agent with this doc,
+  the initiative's spec, the PR diff, and the verification artifacts → a structured verdict:
+  - **Plan-adherence checklist — ALL must pass:**
+    - [ ] Scope matches the initiative (no creep into another initiative).
+    - [ ] Technique matches this doc, **or** a documented, justified deviation is recorded.
+    - [ ] Coexistence flag present — the shipped look is **byte-identical when the flag is off**.
+    - [ ] Zero-default identity proven where claimed (uniform-zero ⇒ shipped frame).
+    - [ ] Tier degradation wired into `main.js applyQuality` (every full-screen add has a tier off-switch).
+    - [ ] Headless verification present and green (new test/tool + existing suite).
+    - [ ] Lesson added as a new `leapfrog/lessons/graphics-…` file.
+  - **Quality score /10** toward the 9–10 bar, judged from the artifacts; sub-target scores get **specific,
+    actionable deltas** (not vibes).
+  - **Regression check:** shipped roster/look unbroken (off-path visual diff; `bulletcontrast.mjs` when the
+    change touches color/fog/tone).
+  - **Verdict: `SHIP` / `REVISE(<fixes>)` / `RETHINK(<the technique isn't reaching the bar>)`.**
+  - **Merge rule:** a PR merges only on **`SHIP`** with **score ≥ 8** and a fully-passed adherence checklist.
+- **Gate 3 — Phase-boundary review (after each phase, before the next).** Spawn a high-effort Fable phase-review
+  to judge the *compound* result (the 6-biome `gameshots` montage + the Azure hero shot) against the **9–10** bar
+  before the next phase — and before the graphics→`master` phase merge.
+
+**Gate Log:** every Gate 2/3 verdict (score + checklist + deltas) is recorded in the PR body and summarized in
+the Gate Log table at the bottom of this doc, so future sessions see the quality history at a glance.
 
 ---
 
@@ -65,13 +76,15 @@ model: "fable")` at high effort). Because there is no WebGL in CI, visual assess
 
 The owner runs a heavy boss/creature PR stream to `master`. To keep graphics from conflicting with it:
 
-**Same repo, isolated integration branch + separate ledger — NOT a fork/clone.** (A fork drifts from `master`
-on every boss merge and concentrates all conflict pain into one huge terminal re-integration, and forks the
-Pages deploy / `sw.js` versioning / tests / tooling.)
+**Same repo, isolated integration branch — NOT a fork/clone.** (A fork drifts from `master` on every boss merge
+and concentrates all conflict pain into one huge terminal re-integration, and forks the Pages deploy / `sw.js`
+versioning / tests / tooling.)
 
 Conflict sources and their fixes:
-1. **`LEAPFROG.md` tail-append (the ~80% source)** → **separate `GRAPHICS-LEDGER.md`.** Graphics lessons never
-   touch the file boss PRs append to. Highest-leverage fix.
+1. **Ledger appends — already solved by the repo.** The repo uses a **one-file-per-lesson** convention
+   (`leapfrog/lessons/<date>-<slug>.md`, assembled by `tools/build-ledger.mjs`); two chats never touch the same
+   file, so lessons never conflict. Graphics just uses a **`graphics-` slug prefix** to stay grouped/discoverable.
+   (No separate ledger file — that would reintroduce the append-collision the convention exists to prevent.)
 2. **`main.js`** (renderer construction, `applyQuality`, the `renderPostFX` call in `tick`) — boss work edits
    `tick` too. Land all graphics `main.js` edits **early (Phase 0)** in tight, separated regions; later
    initiatives add code in NEW files and only *reference* `main.js` hooks.
@@ -362,6 +375,8 @@ New `weather.js`, per-biome opt-in, Frozen Reach hero. **Tiers:** 4000 / 1600 / 
 
 ## Sequenced roadmap
 
+- **Gate 0 — Kickoff (before Phase 0):** high-effort Fable greenlight on the synced branch + approach; no
+  initiative starts until it passes.
 - **Phase 0 — Foundations & free wins (do first):** N2 → N1 → N3 scaffolding → N3 decision → N4. Nothing changes
   the shipped look without a flag. Exit: banding gate green, <100 draw calls, tone-map montage approved.
 - **Phase 1 — Hero look (Azure):** N5 rung 1 → N6 → N7 → N5 rung 2. Hero-first, judged on Azure in the shop
@@ -403,3 +418,13 @@ run local/on-demand; only math + plumbing tests gate CI).
    reuses; produces the ACES/AgX/Neutral montage for the one taste decision.
 3. **Sun-silhouette shadow RT** — de-risks N6 and prices "what a tiny aux pass actually costs" for the whole
    roadmap (informs N9's mask change + N10's reflection work).
+
+---
+
+## Gate Log
+
+One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable review. Append as work lands.
+
+| PR / Phase | Initiative | Fable score | Verdict | Notes |
+|------------|-----------|-------------|---------|-------|
+| — | (rows appended as PRs/phases clear their gate) | — | — | — |

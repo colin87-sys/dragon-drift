@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
-import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll } from './sfx.js';
+import { sfx, setSlowMo, getBeatClock, musicKill, musicRestore, bellToll, UNLEASH_V2 } from './sfx.js';
+import { nextGridDelay } from './harmony.js';
 import { input, focusHeldNow } from './input.js';
 import { cameraCtl } from './cameraController.js';
-import { burst } from './particles.js';
+import { burst, gateThreadBurst } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { bulletGraze } from './collision.js';
@@ -25,7 +26,7 @@ import {
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
   lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
-  lanceDmgEach, paintFromParry, dropLockPart, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
+  lanceDmgEach, paintFromParry, dropLockPart, grantEchoPip, lockPaintedParts, lockHudState, __testBank } from './lockLayer.js';
 import { makeGlowTexture } from './util.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
@@ -48,6 +49,7 @@ let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER
 let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
 let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
 let debugPhaseJump = null;     // ?bossPhase=N (1-based): open the fight fast-forwarded to phase N
+let debugStagePin = null;      // dev stage-jump: pin a multi-stage boss's visible STAGE sub-rig (THE UNMASKED 1/2/3)
 let debugEntrancePin = null;   // capture hook: 0..1 holds an ENTRANCE_SCRIPTS pose (the Baton Cross) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
@@ -89,10 +91,15 @@ export function rushRosterInfo() {
       id: k, name: BOSSES[k].name, title: BOSSES[k].title,
       accent: BOSSES[k].accent, glow: BOSSES[k].glow,
       unlocked: devAll || beaten.includes(k),
+      // How many STAGE sub-rigs this boss has built (>1 = multi-stage, drives the dev
+      // stage-jump selector). Single-stage bosses report 1 and never offer a stage pick.
+      stagesBuilt: BOSSES[k].stagesBuilt || (BOSSES[k].stages && BOSSES[k].stages > 1 ? BOSSES[k].stages : 1),
     })),
     unlockedCount: rushRoster().length,
     bestClearMs: saveData.bossRush?.bestClearMs || 0,
     cleared: saveData.bossRush?.cleared || 0,
+    // Dev seam (?dev / ?rush=all): expose the stage-jump selector for quick playtesting.
+    devAll,
   };
 }
 
@@ -177,6 +184,11 @@ const GHOST_FRAME_HITS = 4;   // perfect parries of the ghost half to dismantle 
 let ghostFrameHits = 0;
 let soakT = 0;                // the 2× spray-soak graze window (from the frame-break vent)
 const SPRAY_SOAK_BONUS = 2;   // the graze-meter reward for soaking the frame-break vent (§5i.B)
+// §BOSS-FEEL §3 C.1 "THE DOOR OPENS" (HOLLOWGATE, def.destructiblePanes only): set once
+// when the LAST rose pane breaks — the fully-unmade window is a terminal state and the bare
+// hub is a WEAK POINT (damageBoss 1.5×). Only the pane PART_SYS row / debugCrackPane can
+// ever arm it (def-gated by construction); inert for every other def.
+let breached = false;
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
@@ -223,6 +235,8 @@ let shielded = false;          // at a phase floor the boss shields — only Sur
 // leave activeCard null and the whole system is inert (coexist rule).
 let activeCard = null;
 let cardTimer = 0;             // seconds remaining in the current card's window (display / survival seal)
+let horizonPocketX = null;     // EMBERTIDE Horizon-Break: the moving face-shadow safe pocket's lane X (null = card inactive)
+let hbReleased = false;        // Horizon-Break released the X-constrict → restore it (edge-triggered) when the card ends
 let cardHits0 = 0;            // game.bossHitsTakenRun at card start (capture = no new hits by card end)
 let cardExpired = false;      // the display timer ran out before the phase was cleared → capture downgrades to SURVIVED (never blocks progress)
 let baitTimer = 0;             // cadence for the shielded graze-bait flood
@@ -237,6 +251,22 @@ let bulletColor = 0xff2b6a;    // magenta = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
+// SCAR-BURN (§4b): active DOT burns from perfect on-tell releases. Each entry ticks
+// `tick` damage every `interval`s while !lockDeflected() (pause on transient seal),
+// and is CLEARED on phase-transition / teardown (never leaked across a phase pool).
+let burns = [];
+let _lastBeatOn = false;       // stashed ctx.beatOn (debug seam: observe the resonant window)
+// The last REAL toll time (the musicDies attack-release toll — bell + ring + shake):
+// the resonant-release beat edge KNELLGRAVE's ctx.beatOn keys to (the inaudible music
+// grid stays live under musicKill, so the generic beatOn is a coin-flip here — §CP1).
+let lastRealTollAt = -10;
+let lastTollGap = 1.2;         // §ENG-C3: gap between the last two real tolls — the knell's live period (the ghost-beat metronome)
+// LENS (intervention 3b): the live telegraph wind-up as 0→1, for the reticle's
+// "danger-at-the-gaze" chevrons. Derived (not a second stored copy), so it can never
+// drift from model.setCharge; 0 whenever nothing is winding up. Read by reticle.js.
+export function bossCharge01() {
+  return chargeDur > 0 && chargeT > 0 ? Math.max(0, Math.min(1, 1 - chargeT / chargeDur)) : 0;
+}
 // §5i RHYTHM: the phrase machine for defs with a `rhythm` block (bossRhythm.js).
 // null for a def without one → the legacy uniform cadence roll (coexist rule).
 // `rhythmRest` stashes the rest the machine returned alongside the picked attack,
@@ -244,7 +274,7 @@ let curAttack = null;          // the attack being telegraphed
 let rhythm = null;
 let rhythmRest = null;
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
-const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave']);
+const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave', 'crestfall', 'geyser']);
 // Def-gated SETPIECE (the ONE deliberate exception to "a new boss needs zero
 // controller changes" — BOSS-DESIGN.md §5's Tier 2 "the fight moves" clause
 // requires a station-leave beat, and station-keeping lives here). A def opts in
@@ -255,6 +285,7 @@ const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'strea
 // byte-unchanged (the lifecycle test asserts the shipped two never see one).
 let setpieceT = -1;            // <0 idle · ≥0 seconds into the active setpiece
 let setpieceDef = null;
+let setpieceRecurCd = 0;       // §BOSS-FEEL §1 C.1: countdown (s) to the next re-arm of a `recur` setpiece; reset on every arm, ticks only while idle + unshielded
 // §5b/§5d slot 7 (THRUMSWARM): the swarm's condense/scatter cycle is the PRESSURE-
 // OSTINATO puzzle read — CONDENSED = vulnerable + firing, SCATTERED = invulnerable
 // (chip only lands while condensed, the turn-taking tell). Def-gated on
@@ -262,10 +293,24 @@ let setpieceDef = null;
 let staggerT = 0;             // >0 = the queen is STAGGERED (parry job): the swarm is LOCKED condensed (exposed)
 let staggerHits = 0;         // amber-volley parries banked toward the next stagger (SCATTER-STAGGER, §5i.C)
 let threadCutHits = 0;       // amber parries banked toward the next THREAD-CUT (WEFTWITCH §5i.C, CP2)
+let tollChainN = 0;          // §ENG-C3: on-beat parries banked toward the rhythm chain
+let tollChainAt = -10;       // §ENG-C3: timestamp of the last banked on-beat parry
 const THREAD_CUT_HITS = 3;   // parries to cut the thread (tunable — drop to 2 if it plays grindy)
+let holderPrevTarget = null; // §ENG-EW: last-seen eitherwing holdTarget — a flip = the baton passed (the mid-possession reset edge; null = fresh encounter)
 let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
 let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
 let eyeDeflectHinted = false;    // one-shot "submerged = untouchable" hint per encounter (BRINEHOLM)
+// EMBERTIDE BEAM DUEL (§5i.C, def.beamDuel) — the Surge≥50% mechanic: a beam locks and a
+// sideways drift shoves you off the crest line; hold lane-center to win. Inert otherwise.
+let beamDuelT = 0;               // >0 = a duel is live (seconds remaining)
+let beamDuelSide = 1;            // which way the drift shoves this duel
+let beamDuelHeld = 0;            // accrued seconds held at lane-center (win threshold)
+let beamDuelTick = 0;            // graze-payout tick while centered
+let beamDuelCd = 8;              // cooldown between duels
+let beamDuelMesh = null, beamDuelMat = null;   // the locked beam (crest → ship)
+let slipBandMesh = null, slipBandMat = null;   // §5i.B SLIPSTREAM: the drawn surge-pink wake annulus (built once, hidden)
+let orbBandMesh = null, orbBandMat = null;     // §5i.B ORBIT ANNULUS: the drawn surge-pink orbit band (built once, hidden)
+let discBandMesh = null, discBandMat = null;   // §5i.B SHRINKING SAFE DISC: the drawn surge-pink toll pocket (unit ring, scaled)
 let condHold = 0;            // seconds the swarm stays CONDENSED past its last shot (bridges the ostinato)
 // §5i.B ABSORB-A-COLOR (THRUMSWARM's Calamities graze, def-gated `grazeForm:'absorbColor'`):
 // the swarm SHEDS surge-pink motes braided into the magenta stream; weaving in and SOAKing
@@ -275,6 +320,7 @@ let condHold = 0;            // seconds the swarm stays CONDENSED past its last 
 // other archetype (no grazeForm, no shed).
 let soakMotes = null;        // the THREE.Points object (one additive draw)
 let harvestOffered = false;  // §5i moteHarvest (slot 11): the once-per-phase bloom spent-flag
+let mendOffered = false;     // §5i.C slot 11 THE VOLLEY TEARS, SHE MENDS: once-per-phase mend-window spent-flag
 let soakPos = null;          // its position attribute buffer
 const soakList = [];         // active pink motes {x,y,rel,vx,vy,vrel,ttl}
 const SOAK_MAX = 20;         // hard cap on-screen (one Points draw regardless of count); the harvest bloom wants density
@@ -297,14 +343,89 @@ let wingsPath = null;        // snapshot of poseRing taken when Your Own Wings a
 let entranceFlareAt = null;    // §5j stat-taunt: fire model.flareCharm at this entrance-u
 let entranceFlareId = null;    // ...with this top-killer boss id (null = fresh save, hook-only beat)
 let holdBreakerT = 0;          // §5f the ONE hold-breaker: countdown to the reveal-hold shot
-let riposteUsed = false;       // §5i.C reflect-once riposte: one per phase
+let riposteCd = 0;             // §ENG-KV C.1: riposte cooldown (s) — the duelist answers reflects ALL fight (was once-per-phase riposteUsed)
 let riposteNoted = false;      // the teach-note fires once per fight
 let riposteReturnT = 0;        // the parried shot comes BACK a beat after the swat
+let riposteReturnMult = 0.62;  // §ENG-KV C.1: return-speed mult (escalates ×1.15 per rally exchange)
+let rallyN = 0;                // §ENG-KV C.1: completed rally exchanges (0 = no rally live)
+let rallyWindowT = 0;          // §ENG-KV C.1: >0 = the return is in flight; a parry inside counts as the rally answer
+let rallyAnswerT = 0;          // §ENG-KV C.1: >0 = the answered re-reflect is inbound; its arrival continues the rally
+const RIPOSTE_CD = 7;          // §ENG-KV C.1 audit default — cooldown between fresh riposte offers
+const RALLY_WINDOW = 2.6;      // §ENG-KV C.1 > slowest return flight (~1.72s) + roll margin
+const RALLY_ANSWER_TTL = 1.2;  // §ENG-KV C.1 > the re-reflect's flight back (~0.58s) + margin
+const RALLY_MAX = 3;           // §ENG-KV C.1 exchange 3 ends in the flinch (caps the speed ladder)
+const RALLY_STEP = 1.15;       // §ENG-KV C.1 ~15% faster per exchange
 let holdTier = 0;              // §5i.B hold-until-flinch: the current stare-down tier
-let holdFlinchDone = false;    // offered once per phase
+let holdFlinchCd = 0;          // §ENG-KV C.2: stare-down on a cooldown (was once-per-phase holdFlinchDone)
+let holdFlinchPay = 1;         // §ENG-KV C.2: payout multiplier — halves per repeat within a phase (ROI cap, §5i.C.5)
+const HOLDFLINCH_CD = 10;      // §ENG-KV C.2 stare-down cooldown (s)
 let beamHeld = 0;              // seconds of unbroken beam contact (the ramp)
 let beamTick = 0;              // countdown to the next tick payout
 let beamGrace = 0;             // seconds of contact-loss tolerated before reset
+// §5i.B SLIPSTREAM (ASHTALON's Colossi graze, C.2b) — ride the stoop's WAKE pocket.
+let slipRideT = 0;            // seconds riding the stoop's wake pocket (grace-bridged)
+let slipExposeT = 0;          // >0 = the "surge INTO the dive gap" exposure window (amplified chip)
+let slipExposeUsed = false;   // armed once per stoop (re-offered when a stoop arms)
+let slipX = 0, slipY = 0;     // the pocket centre (lagged follower of the dive pose)
+let slipWasLive = false;      // edge-detect the pocket arming (snap follower on the first live frame)
+const SLIP_R_IN = 3.2;        // safe-core radius (inside = riding, UNPAID — annulus not radius)
+const SLIP_WALL = 1.5;        // the edge-wall band; graze ticks live in [R_IN, R_IN+WALL)
+const SLIP_FOLLOW = 4;        // 1/s follower rate — the wake lag (~2.4u at full dive speed)
+const SLIP_K_ON = 0.42;       // pocket LIVE from the dive knee to path end (k in [0.42, 1])
+const SLIP_Y_MIN = 4, SLIP_Y_MAX = 14;   // centre clamp — capped to the LANE HEART so the wake is surfable from cruise altitude the MOMENT it opens (the 18 cap parked it in a ceiling sliver depth-fused with the far diving boss; §ENG-D-R reachability, probe-gated)
+// §5i.B ORBIT ANNULUS (EITHERWING's Colossi graze, C.4) — fly the figure-eight WITH them.
+let orbAcc = 0;               // unwrapped Δθ accumulator (radians) while band contact is unbroken
+let orbPrevTh = null;         // last frame's atan2 about the pose centre (null = no contact yet)
+let orbLaps = 0;              // laps completed THIS setpiece (debug/ceremony)
+const ORB_R_IN = 3.6;         // safe-core radius — inside is UNPAID + no lap progress (annulus not radius)
+const ORB_WALL = 1.5;         // the band; ticks + θ accrual live in [R_IN, R_IN+WALL)
+// §5i.B TOLL-WALL DISC (KNELLGRAVE's WE graze, C.7-proper) — the bell's spiral toll
+// radiates an EXPANDING ring-wall; ride its rim from inside, bail before it crosses.
+// (Pre-C.7 this was the iris's SHRINKING safe middle; the toll flip inverted it —
+// §ENG-H. The label `shrinkDisc` is kept; its meaning is now the wall's TIME shrinking.)
+let discAge = 0, discDur = 0; // pocket clock: age counts up; dur 0 = no pocket
+let discR = 0, discR1 = 0;    // live drawn radius (GROWS 0 → discR1); this toll's TERMINAL wavefront radius (where the wall crosses the player plane)
+let discX = 0, discY = 0;     // pocket centre — the spiral toll's origin (the swinging bellMouth)
+let discTollN = 0;            // pocket-opening tolls THIS PHASE (the emit-payload + re-offer accounting key)
+const SPIRAL_OUT_SPD = 9;     // the spiral bullets' outward lateral speed — the wavefront radius is SPIRAL_OUT_SPD·t, so drawn == wavefront is a construction identity (§ENG-H §3b)
+const DISC_WALL_FRAC = 0.30;  // the paid rim = [R·(1−frac), R) — PROPORTIONAL (unit-ring scale)
+const RIDE_POCKET_DUR = 1.8;  // §ENG-LT: The Last Toll ride pockets are driven off the TOLL CADENCE, not srel/slow (degenerate overhead — the mouth's rel is behind/at the plane); r1 = SPIRAL_OUT_SPD·dur, drawn == the wavefront's plane-projected radius (9·t, invariant of rel)
+// §ENG-LT SURVIVAL RESOLVE (def.survivalResolve — knellgrave-only): active play during the
+// survival seal fills a meter; full = the seal breaks EARLY + the bell staggers. A SECOND,
+// FASTER resolution — the outlast timer path is untouched (a dodge-only player still wins).
+let resolveK = 0;             // 0..1 across the live survival card
+let resolveNoted = 0;         // thirds announced (the visible-progress law — the thread-cut CP2 / holder-stagger n/3 grammar)
+let resolveHinted = false;    // one-shot ride teach (§2e)
+const RESOLVE_GRAZE  = 0.02;  // per discGraze tick on the ride wall
+const RESOLVE_PARRY  = 0.10;  // per parried ROLL of the seal-era aimed ambers
+const RHYTHM_PARRY_WINDOW = 0.25;  // §ENG-C3 on-beat tolerance vs the ghost beat. NOT CONFIG.LOCK.beatWindow (0.12): parry placement slop ≈ 0.16s and measured arrivals sit 0.13–0.22s off the toll — 0.12 is unhittable. Preview dial 0.20–0.30.
+const RHYTHM_CHAIN_TIMEOUT = 2.4;  // §ENG-C3 a gap between banks longer than this = a chain amber got through (intra-burst arrivals are ≤~1.13s apart; the next burst is ~5.5s away)
+const RHYTHM_CHAIN_DMG = 12;       // §ENG-C3 the completion chunk (≈2.5% of 480 — between a surge beam 14 and the parry returns)
+const RESOLVE_STRIKE = 0.055; // per scoped clapper strike through the seal
+const CLAPPER_HIT_R = 6.0;    // §ENG-LT: a rider chip's LANDING point must fall within this of clapperHead (the scope fence — a pattern landing elsewhere can't feed)
+const CLAPPER_NEAR = 7.0;     // §ENG-LT: the PLAYER must be within this of clapperHead (the skill gate — "dart under the bell"). NB since PR2a KNELLGRAVE HAS lockParts, so the clapper seam requires a POSE-CENTRE chip (e.part==null, §CP2) — a lock-retargeted chip can't turn this proximity gate into a resolve turret
+const _wpV = new THREE.Vector3();   // scratch for the clapper weak-part world resolve
+let discCd = 0;               // §5i.B: arm cooldown — pockets don't stack every toll (less frequent, less busy)
+// §5i.B GRAZE REWARD BANDS — shared look for slipstream/orbit/disc so the three read as ONE
+// consistent "fly into this to be rewarded" ring. A LIGHTER, less-saturated reward pink than the
+// deep danger-magenta bullets (0xff2b6a) so a reward never reads as a threat (⚠ #1 preview tunable).
+const GRAZE_BAND_COLOR = 0xff8ce6;   // soft reward pink (sat ~0.45 vs danger's ~0.69 — a distinct, calmer read)
+const GRAZE_BAND_BASE = 0.4;         // opacity floor while live — bumped so even the small orbit ring is legible
+const GRAZE_BAND_RAMP = 0.32;        // + up to this as the graze ramp climbs (the payout is SEEN building)
+// §5i.B THREAD-THE-GAP (MARROWCOIL's Colossi scorer, ENG-G) — reward flying cleanly through a
+// wall attack's authored safe gap. A DISCRETE per-row award at the crossing frame (NOT a tick
+// form — the other half of the dedup law), keyed on a fire-time row ledger. `gapThread`-prefixed
+// (the "thread" namespace is crowded: threadCut/ribThread/threadGate).
+let gapThreadRows = [];              // { gapX, halfW, yLo, yHi, vy, rel, vrel, age, hits0, inGapT }
+let gapThreadStreak = 0;             // consecutive clean threads (chain multiplier); caps at GAP_THREAD_CAP
+let gapThreadLastT = -1e9;           // fightNow of the last award (the chain window)
+let gapThreadHitsMark = 0;           // bossHitsTakenRun watermark — any bullet hit breaks the chain
+const GAP_THREAD_LATE_S = 1.2;       // in-gap dwell at/under which "late commit" pays full (brave > camper)
+const GAP_THREAD_CHAIN_K = 0.25;     // chain bonus per streak step
+const GAP_THREAD_CAP = 9;            // streak cap (chain ≤ ×3.25)
+const GAP_THREAD_CHAIN_S = 6.0;      // seconds of idle before the chain lapses
+const GAP_THREAD_WATCH_REL = 8;      // start banking the lateness clock inside this depth
+const GAP_THREAD_YPAD = 2.2;         // vertical tolerance — the "wall actually swept your height" test
 let eyeHold = 0;              // §5f slot 8: seconds to KEEP the eye submerged after a strike (so the heavy lid actually closes)
 let lastPlayer = null;       // the player from the last updateBoss (for event-driven mote spawns with no player arg)
 // NO-HIT ADRENALINE LADDER (§5i.B meta spine, global — lands with slot 6).
@@ -432,6 +553,27 @@ const SETPIECE_PATHS = {
     }
     const t = easeInOut((k - 0.82) / 0.18);
     return { x: 0, y: LOW_Y + (HIGH_Y - LOW_Y) * t, rel: NEAR + (B.settleGap - NEAR) * t };
+  },
+  // KNELLGRAVE — PENDULUM SWEEP (§5c WE "pendulum sweeps across the lane"; C.7 ENG-H):
+  // three widening arcs about an unseen yoke far above the frame — the lastToll grammar
+  // turned sideways. A real pendulum read: lowest + nearest + fastest mid-crossing, high
+  // + far + slow at the extremes (x and the y/rel dip phase-locked through arc = 1 − ph²).
+  // MOVING — the P4 kit keeps firing: stream pours from the crossing bellMouth (emitOrigins,
+  // per tick), movingGap's safe lane LOCKS opposite the bob (gapAnchor scale, §ENG-B), aimed
+  // rides the muzzle (resolveEmitOrigin). Counter-verb: READ THE SWING — be where the bell
+  // is not; the mirrored lane says where that is. NO dread flag (the skyOpen ratchet is the
+  // Last Toll's alone); the swing-widen comes from the model's sweepK hook instead.
+  pendulumSweep(k) {
+    const B = CONFIG.BOSS;
+    const env = k < 0.30 ? easeInOut(k / 0.30) : k > 0.86 ? easeInOut((1 - k) / 0.14) : 1;
+    const ph = Math.sin(k * Math.PI * 6);   // three full arcs = six lane-crossings
+    const arc = (1 - ph * ph) * env;        // 0 at the extremes → 1 at each bob nadir
+    return {
+      x: ph * 14 * env,                     // the ±14 sweep — off-lane at the extremes (the §5c WE contract)
+      y: 20 - 9 * arc,                      // yoke-high 20 at the ends → 11 crossing (mouth ≈ 12.6, mid-band)
+      rel: B.settleGap - 18 * arc,          // 30 → ~12 at each nadir (the crossing comes AT you; ≥12 keeps ~0.55s flight)
+      roll: -ph * 0.16 * env,               // hangs INTO the arc (the chain points at the unseen yoke)
+    };
   },
   // The crossing pass: sweep out wide, rise, close in, and drift straight
   // across the lane OVER the player (hands spread via model.setSetpiece) —
@@ -692,6 +834,9 @@ function armSetpieceForPhase(idx) {
   if (!sp || !SETPIECE_PATHS[sp.id]) return;
   setpieceDef = sp;
   setpieceT = 0;
+  setpieceRecurCd = sp.recur || 0;   // §BOSS-FEEL C.1: every arm re-primes the recurrence clock (undefined → 0 → inert)
+  if (sp.id === 'stoopingStrike') { slipExposeUsed = false; slipRideT = 0; }   // §5i.B SLIPSTREAM: re-offer the exposure per stoop (inert otherwise)
+  if (sp.id === 'figureEight') { orbAcc = 0; orbPrevTh = null; orbLaps = 0; }   // §5i.B ORBIT ANNULUS: fresh accumulator per eight (inert otherwise)
   // §5e/§5f Your Own Wings: snapshot the player's recorded flight path NOW so the copy
   // replays exactly what they just flew (capped to fairness in the path fn).
   if (sp.id === 'yourWings') wingsPath = poseRing.slice(-70);
@@ -726,7 +871,7 @@ function driveSwarm(dt, player) {
   // invulnerable micro-pauses (the turn-taking tell), not a half-fight gate. A parry-stagger
   // locks it condensed. SCATTERED = chip does nothing (the puzzle read).
   const firing = chargeT > 0 || pending.length > 0 || staggerT > 0;
-  if (firing) condHold = 1.1;                     // stay exposed ~1.1s past the last shot
+  if (firing) condHold = 0.4;                     // §BOSS-FEEL-AUDIT: 1.1→0.4 — at 1.1s no authored rest (≤0.85s) ever opened a scatter, so the swarm was PERMANENTLY condensed and the whole condense/scatter puzzle read (+ the stagger reward) was inert; 0.4 lets the hi-end phrase rests open a real micro-pause
   else condHold = Math.max(0, condHold - dt);
   if (firing || condHold > 0) {
     if (firing) model.setFormation(SWARM_ATTACK_FORM[curAttack] || 'ring');
@@ -819,6 +964,22 @@ function triggerThreadCut(player) {
   emit('threadCut', { cleared: cut, bloomed });
 }
 
+// §5i.C ORGAN-BREAK REUSE (EITHERWING, §5b slot 5): the holder-stagger payoff. Three
+// perfect parries of the eye-HOLDER's amber mid-possession STAGGER the handoff — the eye
+// UNSEATS and DROPS to the thread midpoint for a 2.5s strike window (the shared staggerT
+// var, the thrumswarm/weftwitch precedent). NOT applyPartBreak: nothing dies, no brand
+// drops, no index — the stagger is a timer + a model pose, so it borrows SCATTER-STAGGER's
+// shape, not the part-death ceremony.
+function staggerHolder(player) {
+  partParries.delete(HOLDER_KEY);
+  staggerT = 2.5;                                  // the shared window var (thrumswarm/weftwitch precedent)
+  model.dropEye?.(2.5);                            // the model beat: the eye UNSEATS and falls to the thread midpoint (bossEitherwing.js)
+  if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }   // the wind-up dies with the drop
+  ui.bossNote?.('✦ THE HANDOFF STAGGERS ✦', 'THE EYE DROPS — STRIKE IT', 'gold', 2.4);
+  sfx.milestone?.(); cameraCtl.shake?.(0.8); model.hurt?.(0.6);
+  emit('bossEyeDrop', {});
+}
+
 // Move the soak motes; a mote within soak radius of the player is ABSORBED (bulletGraze →
 // Surge). Expire on ttl or once well past the player. Writes the Points buffer + visibility.
 function updateSoakMotes(dt, player) {
@@ -869,6 +1030,8 @@ function beginCard(idx) {
   cardTimer = activeCard.timer ?? 24;
   cardHits0 = game.bossHitsTakenRun;
   cardExpired = false;
+  tollChainN = 0; tollChainAt = -10;   // §ENG-C3: the rhythm chain is per-card (beginCard bypassed by debugForceCard — tests reset via resetBoss per arm)
+  if (activeCard.survival) { resolveK = 0; resolveNoted = 0; beamDuelT = 0; }   // §ENG-LT: fresh resolve meter per survival arm. §CP2-D2 (rung 13): also KILL any live beam duel — a duel (and its lance-extended window) must NOT carry its forced drift-shove into a survival card (esp. EMBERTIDE Horizon Break, whose shadow-ride pocket the shove would fight)
   // Small lower-right title card (§5f) — the reveal card owns the lower-third;
   // the spell card names the pattern without covering it.
   ui.bossCard?.(activeCard.name, def.accent, !!activeCard.dread);
@@ -892,7 +1055,29 @@ function endCard() {
 const CONSTRICT_HW = 6.5;      // showpiece arena half-width (lab-proven value)
 let arenaHW = CONFIG.laneHalfWidth;
 let arenaTargetHW = CONFIG.laneHalfWidth;
-let wallL = null, wallR = null, wallMat = null;   // translucent storm walls
+let wallL = null, wallR = null, wallMat = null;   // translucent storm walls (they take def.accent per fight)
+let wallMatEmber = null;   // EMBERTIDE-only: dark, soft-edged multiply shadow walls (assigned per-fight)
+// VERTICAL squeeze (CP2-A, EMBERTIDE "the sky crushes the lane" — def.skyCrush): the
+// same target+ease+publish+clamp grammar as arenaHW, on the Y ceiling. The FLOOR is
+// never raised (skimming is a core verb — a floor clamp would kill skims); the model's
+// own crush strips carry the floor VISUAL. Inert (Infinity) for every other boss.
+let arenaHY = CONFIG.laneMaxY;
+let arenaTargetHY = CONFIG.laneMaxY;
+let crushFired = false, crushT = 0, crushBoxT = 0, crushHoldT = 0;   // per-phase wave trigger + hold + the letterbox pulse timer
+// THE STAGE-TRANSITION BEAT (multi-stage bosses w/ model.stageTransitionDur — THE UNMASKED):
+// the crack/unveiling plays FIRE-FREE, then the all-eyes REVEAL snaps as a punctuated beat
+// (camera punch + a beat of slow-mo + the form's name) before the new stage's attacks open.
+// stageBeatT counts up while the beat runs (-1 = inactive); revealed = the reveal has landed.
+let stageBeatT = -1, stageBeatDur = 0, stageBeatRevealed = true, stageBeatSkippable = false;
+const STAGE_REVEAL_HOLD = 0.7;   // the "screenshot" beat held after the eyes lock, before fire resumes
+// Start the transition beat (fire-free morph → the all-eyes reveal). `skippable` = the INTRO
+// transition (dev stage-pick S2/S3): a tap fast-forwards it. Mid-fight advances aren't skippable.
+function beginStageBeat(skippable) {
+  const d = model.stageTransitionDur;
+  if (!d) return;
+  stageBeatT = 0; stageBeatDur = d; stageBeatRevealed = false; stageBeatSkippable = !!skippable;
+  attackTimer = Math.max(attackTimer, d + STAGE_REVEAL_HOLD);
+}
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
 // so overlapping/concentric waves read apart even for colour-blind players — and
@@ -983,6 +1168,26 @@ export function initBoss(sc) {
     blending: THREE.AdditiveBlending, depthWrite: false,
   });
   const wallGeo = new THREE.PlaneGeometry(90, CONFIG.laneMaxY + 8);
+  // EMBERTIDE re-skin: instead of a glowing additive panel (off-language for a
+  // darkness-in-light boss, and the hard rectangle read as janky — owner catch), his
+  // walls are the sky's DARKNESS pressing in — a MULTIPLY shadow feathered to no-effect
+  // at every edge (uv-based, so no hard rectangle) that deepens with uCloseK as the lane
+  // closes. Multiply + raw ShaderMaterial (not ACES-mapped → the factor reaches the
+  // blender raw, the L228 law). Assigned to wallL/wallR only on EMBERTIDE fights; every
+  // other boss keeps the additive storm wallMat byte-identical (coexist).
+  wallMatEmber = new THREE.ShaderMaterial({
+    uniforms: { uCloseK: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `precision mediump float; varying vec2 vUv; uniform float uCloseK;
+      void main(){
+        vec2 p = vUv * 2.0 - 1.0;
+        float fx = 1.0 - smoothstep(0.45, 1.0, abs(p.x));   // soft depth ends
+        float fy = 1.0 - smoothstep(0.35, 1.0, abs(p.y));   // soft top/bottom (no hard line)
+        float dark = fx * fy * clamp(uCloseK, 0.0, 1.0) * 0.85;
+        gl_FragColor = vec4(vec3(1.0 - dark), 1.0);          // 1 = no effect, →0.15 = deep shadow
+      }`,
+    blending: THREE.MultiplyBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false,
+  });
   wallL = new THREE.Mesh(wallGeo, wallMat);
   wallR = new THREE.Mesh(wallGeo, wallMat);
   wallL.rotation.y = Math.PI / 2;
@@ -990,6 +1195,78 @@ export function initBoss(sc) {
   wallL.renderOrder = wallR.renderOrder = TIERS.arenaWall;
   wallL.visible = wallR.visible = false;
   scene.add(wallL); scene.add(wallR);
+
+  // EMBERTIDE BEAM DUEL beam: a bright additive shaft locked from the crest to the ship
+  // during a duel (built once, hidden; only ever shown for def.beamDuel). Unit cylinder
+  // aligned to +Z so it can be stretched between the two live points each frame.
+  {
+    const bg = new THREE.CylinderGeometry(0.34, 0.34, 1, 8, 1, true);
+    bg.rotateX(Math.PI / 2);   // length now runs along local +Z
+    beamDuelMat = new THREE.MeshBasicMaterial({
+      color: 0xff9a6e, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
+    });
+    beamDuelMesh = new THREE.Mesh(bg, beamDuelMat);
+    beamDuelMesh.name = 'beamDuel';
+    beamDuelMesh.renderOrder = TIERS.arenaWall;
+    beamDuelMesh.frustumCulled = false;
+    beamDuelMesh.visible = false;
+    scene.add(beamDuelMesh);
+  }
+
+  // §5i.B SLIPSTREAM band (ASHTALON, def.grazeForm==='slipstream'): a surge-pink annulus
+  // drawn at the wake pocket so the rail-depth read is legible (built once, hidden; only
+  // ever shown while the stoop's pocket is live). Surge-pink 0xff4fd0 is the shipped reward
+  // hue (the surge burst); renderOrder below bullets so bullets always read on top.
+  {
+    const rg = new THREE.RingGeometry(SLIP_R_IN, SLIP_R_IN + SLIP_WALL, 40);
+    slipBandMat = new THREE.MeshBasicMaterial({
+      color: GRAZE_BAND_COLOR, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
+    });
+    slipBandMesh = new THREE.Mesh(rg, slipBandMat);
+    slipBandMesh.name = 'slipBand';
+    slipBandMesh.renderOrder = TIERS.arenaWall;
+    slipBandMesh.frustumCulled = false;
+    slipBandMesh.visible = false;
+    scene.add(slipBandMesh);
+  }
+
+  // §5i.B ORBIT ANNULUS band (EITHERWING, def.grazeForm==='orbitAnnulus'): a second
+  // surge-pink annulus with its OWN baked radii (3.6–5.1 — a shared mesh could only
+  // uniform-scale, which preserves the ratio not the wall width, so the drawn band would
+  // lie about the paid band). Built once, hidden; only ever shown while the eight runs.
+  {
+    const rg = new THREE.RingGeometry(ORB_R_IN, ORB_R_IN + ORB_WALL, 40);
+    orbBandMat = new THREE.MeshBasicMaterial({
+      color: GRAZE_BAND_COLOR, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
+    });
+    orbBandMesh = new THREE.Mesh(rg, orbBandMat);
+    orbBandMesh.name = 'orbBand';
+    orbBandMesh.renderOrder = TIERS.arenaWall;
+    orbBandMesh.frustumCulled = false;
+    orbBandMesh.visible = false;
+    scene.add(orbBandMesh);
+  }
+
+  // §5i.B SHRINKING SAFE DISC band (KNELLGRAVE, def.grazeForm==='shrinkDisc'): a UNIT ring
+  // (inner = 1−wallFrac) uniformly scaled to the live pocket radius per frame. The paid rim
+  // is DEFINED as a ratio [R·(1−frac), R), so a scaled unit ring draws exactly the paid band
+  // at every radius — drawn == paid is a construction identity, zero geometry churn.
+  {
+    const rg = new THREE.RingGeometry(1 - DISC_WALL_FRAC, 1, 48);
+    discBandMat = new THREE.MeshBasicMaterial({
+      color: GRAZE_BAND_COLOR, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
+    });
+    discBandMesh = new THREE.Mesh(rg, discBandMat);
+    discBandMesh.name = 'discBand';
+    discBandMesh.renderOrder = TIERS.arenaWall;
+    discBandMesh.frustumCulled = false;
+    discBandMesh.visible = false;
+    scene.add(discBandMesh);
+  }
 
   // §5i.B ABSORB-A-COLOR soak motes: ONE additive Points cloud (surge-pink), parked
   // off-screen until a swarm boss sheds into it. One draw, one additive volume.
@@ -1202,15 +1479,91 @@ function beamAimPart(player) {
 // advanced, so a shielded burst's fork clamps against the NEW phase (the exposed
 // organs' pool), never the sealed one. brandLoose rides the exhale via the lockVolley
 // listener (source 'fork'). No banked pips → a silent no-op (the common ready tap).
+// §5i.C rung 12 — the ghost-frame break (ONEWING). One body for the production 4th-parry path AND
+// the ?debug seam. HONEST SACRIFICE: the break kills the lance too — drops both frame dwell organs'
+// banked pips AND the eye's echo anchor (no more frame → no more echo), so the lance goes to
+// near-zero for the rest of the fight (the either/or the trade promises; lockPartDead/lockCandidates
+// then keep the reticle off the fallen frame).
+function breakGhostFrame(player) {
+  ghostFrameBroken = true;
+  model?.breakFrame?.();
+  dropLockPart('frameGroup'); dropLockPart('frameRoot'); if (def.echoTarget) dropLockPart(def.echoTarget);
+  ventSpraySoak(player);
+  ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
+  cameraCtl.shake?.(1.2); sfx.milestone?.();
+  emit('bossFrameBreak', {});
+}
+
 function surgeForkLances(player) {
+  // §CP2-D2 (rung 13): a fork into a SEALED window would arrive VOIDED — every pip wasted, breaking
+  // the one-deflect "no lance is ever silently wasted" law. The flagship EMBERTIDE play (bank a full
+  // set at the P4 floor, tap) routes strikeSurge → breakShield (which arms the P5 Horizon Break
+  // survival card → lockDeflected true) → HERE. Keep the banked set (it resumes ashen after the seal),
+  // exactly like the manual loose's deflect path. Inert off a sealed window (every normal fork).
+  if (lockDeflected()) { if (lockCount()) emit('lockSealed', { count: lockCount() }); return; }
   const locks = consumeAllLocks();
   if (!locks.length) return;
-  let pips = 0;
-  for (const lk of locks) pips += lk.stacks;
-  const dmgEach = lanceDmgEach(pips, currentPhaseHp());
+  // §5i.C rung 12 (§CP2-D1): the Surge fork is the THIRD lance release path — it MUST halve GHOST
+  // pips too, or banked echoes convert to FULL strength here (the honest releaseVolley halves them).
+  // Mirror it: price the ROI clamp on effective pips (real + echoMult·ghost), strike ghosts at half.
+  // Non-echo bosses carry no ghost stacks ⇒ effPips===pips and every line is byte-identical.
+  const echoMult = CONFIG.LOCK.scarBurn?.echoDmgMult ?? 0.5;
+  let realPips = 0, ghostPips = 0;
+  for (const lk of locks) { if (lk.ghost) ghostPips += lk.stacks; else realPips += lk.stacks; }
+  const pips = realPips + ghostPips;
+  const effPips = realPips + echoMult * ghostPips;
+  const dmgEach = lanceDmgEach(effPips, currentPhaseHp());
+  const ghostDmg = dmgEach * echoMult;
+  // The fork is never beat-held (it rides the Surge-break's own beat), so its
+  // launch IS its commit — lockLaunch fires here, in step with the lances (PR9).
+  const cap = CONFIG.LOCK.capByTier[def?.tier ?? 1] ?? 0;
+  const full = cap > 0 && pips >= cap;
+  emit('lockLaunch', { count: pips, full, source: 'fork' });
   let i = 0;
-  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach, i++, pips);
-  emit('lockVolley', { count: pips, source: 'fork', dmgEach });
+  for (const lk of locks) { const d = lk.ghost ? ghostDmg : dmgEach; for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, d, i++, pips, full, true); }
+  const volleyTotal = realPips * dmgEach + ghostPips * ghostDmg;
+  emit('lockVolley', { count: pips, paintedCount: realPips, source: 'fork', dmgEach, volleyTotal, delay: 0, full });
+  // §5i.C rung 13 — THE FORK IS A WEAPON (EMBERTIDE): pips forked WHILE THE BEAM DUEL IS ARMED each
+  // extend the duel window (+beamDuelExtendPerPip/pip; 6 ≈ +2.1s). The banked brands are ammunition
+  // for the fight's signature Surge mechanic — the fork still does its clamped damage (above) AND buys
+  // duel time (additive). Adds ZERO damage, so it's invisible to the balance model (ED-8: the lance
+  // FEEDS the Surge duel, never replaces it). Inert unless a duel is live on a beamDuel boss.
+  if (def?.beamDuel && beamDuelT > 0 && pips > 0) {
+    const ext = pips * (def.beamDuelExtendPerPip ?? 0);
+    if (ext > 0) {
+      // §CP2-D3: clamp the extended window — nothing structural else bounds it (a re-fork is only
+      // economy-gated), and an unbounded duel just prolongs the forced drift-shove. Cap at ~2× base.
+      const before = beamDuelT;
+      beamDuelT = Math.min(beamDuelT + ext, (def.beamDuelDur ?? 3.6) * 2);
+      const applied = beamDuelT - before;
+      if (applied > 0.01) {
+        ui.bossNote?.('✦ THE FORK FEEDS THE BEAM ✦', `+${applied.toFixed(1)}s — HOLD THE CENTER`, 'gold', 1.6);
+        emit('beamDuelExtend', { pips, ext: applied });
+      }
+    }
+  }
+}
+
+// PR-B (C1, revised): the beat-aligned INHALE length. PR9 held the committed
+// volley AFTER the fuse to land it on the beat — but that post-fuse wait read as
+// LAG (owner playtest: "auto fire feels like there's a delay before it fires").
+// The fix folds the beat-lock INTO the fuse: the inhale STRETCHES so it ends one
+// `releaseGapMs` void before the music beat NEAREST the nominal capFuse, then the
+// drop fires the instant the breath completes (D = the void only). No dead hold —
+// the whole wait is the rising riser, and the drop still lands ON the beat. Null
+// clock / gate off → the plain capFuse (headless byte-identical, T-E2).
+function beatAlignedFuse() {
+  const L = CONFIG.LOCK;
+  if (!L.releaseQuant || !UNLEASH_V2) return 0;   // 0 = "no alignment" → lock layer uses plain capFuse, D=0
+  const bc = getBeatClock();
+  if (!bc || !(bc.beatLen > 0)) return 0;
+  const gap = L.releaseGapMs / 1000;
+  const target = L.capFuse + gap;   // want (inhale + void) to land on a beat near capFuse
+  let k = Math.round((target - bc.toNextBeat) / bc.beatLen);
+  if (k < 0) k = 0;
+  let beatAt = bc.toNextBeat + k * bc.beatLen;
+  while (beatAt - gap < 0.6) beatAt += bc.beatLen;   // keep the inhale ≥0.6s of runway
+  return beatAt - gap;
 }
 
 // Pink aura + crackling lightning on the dragon while Surge is active.
@@ -1282,7 +1635,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
-  activeCard = null; cardTimer = 0;   // spell-card state resets per encounter
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }   // spell-card state resets per encounter
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   activeBand = resolveBand(biomeIndexAt(player.dist));
@@ -1296,20 +1649,37 @@ export function startBossEncounter(player, defOverride) {
   rhythmRest = null;
   perfectHealsUsed = 0;   // §5i C: the perfect-parry heal cap resets each fight
   partHits.clear();       // §5f: per-part crack counters reset per encounter (panes + shackles)
+  partParries.clear();    // §ENG-E: rib parry-ledger resets per encounter (model cracked state resets via the per-fight rebuild)
   // §5i.B: beam-edge ramp + adrenaline ladder reset per encounter (rung-0 = neutral).
   beamHeld = 0; beamTick = 0; beamGrace = 0;
+  slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM ramp/exposure reset
+  setpieceRecurCd = 0;   // §BOSS-FEEL C.1: the recurrence clock is fresh per encounter
+  orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS accumulator reset
+  discAge = 0; discDur = 0; discR = 0; discR1 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC reset
+  gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP reset
   // CP2 (KARNVOW, all def-gated — inert for every other def): the stat-taunt charm
   // flare, the reveal-hold breaker shot, the reflect-once riposte, hold-until-flinch.
   entranceFlareAt = null; entranceFlareId = null;
-  holdBreakerT = 0; riposteUsed = false; riposteNoted = false; riposteReturnT = 0;
-  holdTier = 0; holdFlinchDone = false;
+  holdBreakerT = 0; riposteCd = 0; riposteNoted = false; riposteReturnT = 0; riposteReturnMult = 0.62; rallyN = 0; rallyWindowT = 0; rallyAnswerT = 0;
+  holdTier = 0; holdFlinchCd = 0; holdFlinchPay = 1;
   adrenT = 0; adrenRung = 0; adrenHits0 = game.bossHitsTakenRun; adrenPing = 0;
   setGrazeBonus(1); game.adrenGainMult = 1;
-  // Fresh fight = full-width arena; the walls take the boss's accent colour.
+  // Fresh fight = full-width arena; the walls take the boss's accent colour (or, for
+  // EMBERTIDE, the dark shadow re-skin — swap the material and reset it, so a fight
+  // AFTER an EMBERTIDE fight restores the additive storm wall).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
-  if (wallMat) wallMat.color.setHex(def.accent ?? 0x35e0ff);
+  if (wallL) {
+    const ember = def.id === 'embertide' && wallMatEmber;
+    wallL.material = wallR.material = ember ? wallMatEmber : wallMat;
+    if (ember) wallMatEmber.uniforms.uCloseK.value = 0;
+    else wallMat.color.setHex(def.accent ?? 0x35e0ff);
+  }
   if (def.constrictPhase === 0) arenaTargetHW = CONSTRICT_HW;   // constrict from the opener
+  // Fresh fight = full-height sky; the crush (def.skyCrush) re-arms per encounter.
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false;
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -1318,13 +1688,27 @@ export function startBossEncounter(player, defOverride) {
   // EMBERTIDE-as-sky: reparent the VISUAL rig (dome + face) out of `group` to the scene so it can be
   // camera-POSITION-locked (the sky) while `group` (HP bar / shield / crestPivot emitter) stays at the
   // world station via placeGroup — gameplay origins unchanged. Inert for every non-skyReplace boss.
-  if (def.skyReplace && model.rig) { scene.add(model.rig); if (_bossCam) model.rig.position.copy(_bossCam.position); }
+  if (def.skyReplace && model.rig) {
+    scene.add(model.rig);
+    if (_bossCam) model.rig.position.copy(_bossCam.position);
+    // §5j stage *The Sky Comes Loose* from the SPAWN (not the script start): the rig
+    // bypasses the group's warn-hide (it IS the sky), so without this the fully-arrived
+    // face would pop visible through warn and then snap submerged when the script began.
+    // Staged 0 = ember-seed dome + submerged face; the entrance clock drives 0→1.
+    if (def.entrance) model.setEntrance?.(0);
+  }
   // Arena environment feed (optional model hook, the setGaze?.() pattern): the water
   // surface is the world-constant plane y=0 in every biome (water.js:204). A model
   // that reacts to it (WEFTWITCH clips its arena web at the surface) opts in by
   // exposing setWaterPlane; every other boss is inert. Fed only here — never in the
   // studio/tests — so the isolated captures stay byte-identical.
   model.setWaterPlane?.(0);
+
+  // Dev stage-jump (rush picker / ?bossStage): a pick of S2/S3 opens WITH the transition INTO
+  // that form as an intro — the boss appears as the PREVIOUS form here (during warn/approach),
+  // then plays the crack/unveiling at fight start (see enterFight below), skippable by tap. The
+  // phase is fast-forwarded alongside (setBossDebugStage). Inert on single-stage bosses.
+  if (debugStagePin != null) model.setDebugStage?.(debugStagePin - 1);
 
   // Approach choreography (§5e): from behind (overtake up and over), the side,
   // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),
@@ -1367,6 +1751,14 @@ export function startBossEncounter(player, defOverride) {
     start.rel = B.settleGap + 10;
     start.x = 0;
     start.y = B.fightHeight;
+  } else if (def.approachFrom === 'horizon') {
+    // THE WHOLE HORIZON (§5b/§5d slot 13, EMBERTIDE): the boss IS the sky — the visual
+    // is the camera-locked dome (skyReplace), so the "approach" only walks the gameplay
+    // STATION in from far up the lane (the HOLLOWGATE far-ahead close; the §5j script
+    // *The Sky Comes Loose* owns the pacing). Banner dir maps to 'top' below.
+    start.rel = 150;
+    start.x = 0;
+    start.y = B.fightHeight;
   } else {
     start.rel = -12;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
@@ -1382,11 +1774,13 @@ export function startBossEncounter(player, defOverride) {
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
-  threadCutHits = 0; harvestOffered = false;   // §5i.C slot 11 thread-cut + harvest state
+  resolveK = 0; resolveNoted = 0; resolveHinted = false;   // §ENG-LT: the survival-resolve meter is fresh per encounter
+  holderPrevTarget = null;   // §ENG-EW: the holder-stagger baton edge is fresh per encounter (partParries.clear() above covers HOLDER_KEY)
+  threadCutHits = 0; harvestOffered = false; mendOffered = false;   // §5i.C slot 11 thread-cut + harvest + mend state
   eyeDeflectHinted = false; eyeHold = 0;   // §5f slot 8: reset the "submerged = untouchable" hint + the eye-down hold
   condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
-  felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0;   // §5f the lie is fresh (once) + the frame intact per encounter
+  felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0; breached = false;   // §5f the lie is fresh (once) + the frame intact + the door unbreached per encounter
 
   phase = 'warn';
   warnT = B.warnTime;
@@ -1400,7 +1794,7 @@ export function startBossEncounter(player, defOverride) {
   // clears as the boss flies in — anchored WHERE it emerges. 'side' → left/right;
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
-    : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
+    : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense' || def.approachFrom === 'horizon') ? 'top' : 'bottom';
   // §5j THE ARRIVAL-GRAMMAR BREAK (slot 12 ONEWING, def.noWarn): the DANGER banner is
   // SUPPRESSED here and fires WITH the eruption (enterFight) instead of before it — no
   // warning until it erupts. A skipper still gets it (fired at enterFight regardless).
@@ -1443,8 +1837,19 @@ export function inBossRush() { return rushMode; }
 function endEncounter(player) {
   clearSetpiece();
   clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
+  burns.length = 0; lastRealTollAt = -10; lastTollGap = 1.2; tollChainN = 0; tollChainAt = -10;   // SCAR-BURN + toll clock + §ENG-C3 chain never outlive the fight (§CP1 B-2 / §CP2 NIT-8)
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
+  slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
+  setpieceRecurCd = 0;   // §BOSS-FEEL C.1: the recurrence clock never outlives the fight
+  orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS: never outlives the fight
+  discAge = 0; discDur = 0; discR = 0; discR1 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC: never outlives the fight
+  resolveK = 0; resolveNoted = 0;   // §ENG-LT: the resolve meter never outlives the fight
+  breached = false;   // §BOSS-FEEL C.1: the breach never outlives the fight
+  gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP: never outlives the fight
+  if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }    // a fight torn down mid-stoop must not strand the ring
+  if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
+  if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
   if (model && model.rig && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky: pull the reparented dome
   // EMBERTIDE-as-sky: HARD-restore the real dome the instant the fight ends. The
   // updateBoss fade-back (active→0) only runs while state==='playing'; a Boss-Rush-final
@@ -1459,13 +1864,18 @@ function endEncounter(player) {
   phase = 'idle';
   game.inBoss = false;
   activeBand = BAND;
-  // The arena is NEVER left narrowed past a fight (unconditional restore).
+  // The arena is NEVER left narrowed past a fight (unconditional restore) — the sky
+  // ceiling included (the crush clamp + letterbox must not outlive the encounter).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
-  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false;
+  ui.letterbox?.(false);
+  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
-  activeCard = null; cardTimer = 0;
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
   ui.bossCardClear?.();         // clear the spell-card readout past the fight
   // Carry Dragon Surge OUT of the fight so the player keeps the hyper into the
   // grace band (the kill earns it) — the normal fever visuals take over there.
@@ -1503,6 +1913,8 @@ function startDeath(player) {
   clearSetpiece();
   reticleTarget = 0;            // focus circle draws off as the boss disintegrates
   arenaTargetHW = CONFIG.laneHalfWidth;   // storm walls glide out with the dissolve
+  arenaTargetHY = CONFIG.laneMaxY;        // the sky ceiling lifts with it (the crush releases in death)
+  if (crushBoxT > 0) { crushBoxT = 0; ui.letterbox?.(false); }
   resetBossBullets();
   game.bossesDefeatedRun++;
   const bonus = Math.round(B.defeatScore * game.scoreMult);
@@ -1605,6 +2017,8 @@ function enterFight() {
     saveData.flags.lockUnlocked = true;
     persist();
   }
+  // LANCE LAB: name the range once per fight so the preview reads as intended.
+  if (labPacifist) ui.bossNote?.('✦ LANCE LAB ✦', 'PAINT AND UNLEASH — IT WON\'T FIGHT BACK', 'gold', 3.2);
   poseSX = pose.x; poseSY = pose.y; poseSmooth = true;   // seed the group x/y smoother from the entrance-end pose (no handoff jump)
   if (cineYaw != null) fightWobbleT = 0;   // released from a scripted entrance → ease the yaw/roll wobble in from its settled facing (no snap)
   entranceId = null;                  // the scripted entrance is done
@@ -1646,12 +2060,25 @@ function enterFight() {
   if (debugPhaseJump != null && debugPhaseJump > 0) {
     const target = Math.min(debugPhaseJump, def.phases.length - 1);
     phaseIdx = target;
-    hp = Math.min(hpMax, ((def.phases[target + 1]?.atFrac ?? 0) + 0.05) * hpMax + 1);
+    // A multi-form boss starts the picked form at FULL health (its own bar); else park just
+    // above the target phase's floor so that phase plays out normally from there.
+    hp = def.formLifebars ? hpMax : Math.min(hpMax, ((def.phases[target + 1]?.atFrac ?? 0) + 0.05) * hpMax + 1);
     rhythm?.reset();
     rhythmRest = null;
     beginCard(phaseIdx);
     armSetpieceForPhase(phaseIdx);
-    if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdFlinchDone = false; }
+    if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; holdFlinchCd = 0; holdFlinchPay = 1; }
+    if (def.grazeForm === 'shrinkDisc') { discDur = 0; discR = 0; discTollN = 0; discCd = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // §5i.B: a phase advance re-offers a generous first pocket
+    // A dev stage-pick of S2/S3 (debugStagePin > 1) opens WITH the transition INTO that form:
+    // the boss arrived as the PREVIOUS form (spawn hook), now play the crack/unveiling as a
+    // SKIPPABLE intro. setPhase(target) animates into `phaseIdx`'s stage; the beat holds fire +
+    // lands the reveal. `input.surgeTap` fast-forwards it (handled in the beat block).
+    if (debugStagePin != null && debugStagePin > 1 && model.stageTransitionDur) {
+      model.setPhase?.(target);
+      beginStageBeat(true);
+      input.surgeTap = false;   // drop the tap that launched the fight so it can't instantly self-skip
+      ui.bossNote?.('▶  TAP TO SKIP', 'the form-change', 'gold', model.stageTransitionDur + STAGE_REVEAL_HOLD);
+    }
   }
 }
 
@@ -1785,6 +2212,17 @@ export function updateBoss(dt, player, time, camera) {
     reticle.position.set(player.position.x, player.position.y, -player.dist);
   }
 
+  // HORIZON-BREAK opens the WHOLE frame: the X-constriction RELEASES during the card so
+  // the tide crests full-width and the face-shadow pocket (which sweeps to ±8) is
+  // reachable — the survival gauntlet is the whole frame, not the pinched lane. When the
+  // card ends we RE-APPLY the constrictPhase target (P5 ≥ constrictPhase), so the rest of
+  // the final phase returns to the pinched arena the def describes (edge-triggered so it
+  // doesn't fight the normal constrict flow every frame).
+  if (activeCard && activeCard.id === 'embertide_horizonbreak') { arenaTargetHW = CONFIG.laneHalfWidth; hbReleased = true; }
+  else if (hbReleased) {
+    hbReleased = false;
+    if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) arenaTargetHW = CONSTRICT_HW;
+  }
   // Arena constriction: ease the live half-width toward its target, publish it
   // for the player clamp (null = full lane, nothing to clamp), and slide the
   // translucent storm walls with it. Restored unconditionally by endEncounter.
@@ -1793,15 +2231,81 @@ export function updateBoss(dt, player, time, camera) {
   game.bossArenaHW = narrowed ? arenaHW : null;
   if (wallL) {
     wallL.visible = wallR.visible = narrowed;
+    const emberWalls = wallL.material === wallMatEmber;
     if (narrowed) {
       const wy = (CONFIG.laneMinY + CONFIG.laneMaxY) / 2;
       const wz = -(player.dist + 22);
       wallL.position.set(-arenaHW, wy, wz);
       wallR.position.set(arenaHW, wy, wz);
-      // Fade with how far the walls have come in; a soft pulse keeps them alive.
       const closeK = (CONFIG.laneHalfWidth - arenaHW) / (CONFIG.laneHalfWidth - CONSTRICT_HW);
-      wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
-    } else { wallMat.opacity = 0; }
+      // EMBERTIDE: the darkness deepens as it presses in (no glow, no pulse). Others:
+      // fade the additive storm wall with how far it has come in, a soft pulse alive.
+      if (emberWalls) wallMatEmber.uniforms.uCloseK.value = Math.min(1, closeK);
+      else wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
+    } else if (emberWalls) { wallMatEmber.uniforms.uCloseK.value = 0; }
+    else { wallMat.opacity = 0; }
+  }
+  // THE SKY CRUSHES THE LANE (CP2-A, def.skyCrush — EMBERTIDE's vertical squeeze):
+  // a WAVE, not a mode (owner catch: a persistent clamp read as "I can't go as high
+  // as usual" — a permanent nerf, not a beat). The ceiling clamp descends (player.js
+  // Y-clamp mirrors the X walls), the strips + letterbox pinch, the clamp HOLDS for
+  // ~10s, then the sky EBBS — full height returns. It re-crashes once per PHASE
+  // (armed at each seam), so every crescendo set gets its crush-and-release breath.
+  // Inert for every def without skyCrush.
+  if (def.skyCrush && phase === 'fight' && !crushFired) {
+    crushT += dt;
+    if (crushT >= (def.skyCrush.delay ?? 5)) {
+      crushFired = true;
+      crushHoldT = def.skyCrush.hold ?? 10;
+      arenaTargetHY = def.skyCrush.hy ?? 14;
+      model.setCrush?.(1);
+      ui.letterbox?.(true);
+      crushBoxT = 3.5;
+      ui.bossNote?.('☀  THE SKY CRUSHES THE LANE  ☀', def.name, 'gold', 2.6);
+      cameraCtl.shake?.(1.0);
+      sfx.phase?.(true, 1);
+    }
+  }
+  if (crushBoxT > 0) { crushBoxT -= dt; if (crushBoxT <= 0) ui.letterbox?.(false); }
+  if (crushHoldT > 0 && phase === 'fight') {
+    crushHoldT -= dt;
+    if (crushHoldT <= 0) {   // THE EBB — the sky lifts, the strips retreat
+      arenaTargetHY = CONFIG.laneMaxY;
+      model.setCrush?.(0);
+      ui.bossNote?.('～  THE TIDE EBBS  ～', def.name, 'gold', 1.8);
+    }
+  }
+  arenaHY += (arenaTargetHY - arenaHY) * Math.min(dt * 1.6, 1);
+  game.bossArenaHY = arenaHY < CONFIG.laneMaxY - 0.3 ? arenaHY : null;
+
+  // ── THE STAGE-TRANSITION BEAT (THE UNMASKED): advance the fire-free crack/unveiling, then
+  // land the all-eyes REVEAL as a punctuation the instant the new form settles — a camera punch,
+  // a beat of slow-mo (the "screenshot" hold), and the form's name (deferred here from the
+  // shield-break so it reads ON the eye-snap). Fire stays held (attackTimer, set in breakShield)
+  // through the reveal hold; the model owns the visual morph + the eye-snap itself. ──
+  if (stageBeatT >= 0 && phase === 'fight') {
+    // TAP TO SKIP (the intro transition only): a tap fast-forwards the crack/unveiling — snap the
+    // model straight to the target form (setDebugStage cancels the running morph), end the beat,
+    // and hand over the fight after a short grace.
+    if (stageBeatSkippable && input.surgeTap) {
+      input.surgeTap = false;
+      if (debugStagePin != null) model.setDebugStage?.(debugStagePin);
+      stageBeatT = -1; stageBeatSkippable = false;
+      attackTimer = Math.min(attackTimer, 0.6);
+      ui.bossNoteClear?.();
+    }
+  }
+  if (stageBeatT >= 0 && phase === 'fight') {
+    stageBeatT += dt;
+    if (!stageBeatRevealed && stageBeatT >= stageBeatDur) {
+      stageBeatRevealed = true;
+      cameraCtl.shake?.(1.5);
+      game.slowMoTimer = Math.max(game.slowMoTimer, 0.9); setSlowMo(true);   // reuse the near-death dilation channel (main.js reads it)
+      const stageName = def.phases[phaseIdx]?.name || def.name;
+      ui.bossNote?.(stageName, def.epithet || def.name, 'phase', 2.8);
+      sfx.milestone?.();
+    }
+    if (stageBeatT >= stageBeatDur + STAGE_REVEAL_HOLD) stageBeatT = -1;   // beat done — the new stage's attacks may open
   }
 
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
@@ -1879,6 +2383,9 @@ export function updateBoss(dt, player, time, camera) {
       // music DIES ON the warn-end toll and stays dead for the whole fight (skip
       // must NOT restore it; the defeat fanfare / resetBoss bring it back). From
       // here the accelerating toll is the only clock — silence as dread.
+      // NB this warn-end toll deliberately does NOT set lastRealTollAt (§CP2 NIT-10): it
+      // fires before the fight loop runs a lock ctx, so it can't (and shouldn't) open a
+      // resonant window — only the in-fight attack tolls (boss.js §musicDies block) feed it.
       if (def.musicDies) { musicKill(); bellToll(1); model?.tollNow?.(time); }
       // §5j: a def opts into a scripted pre-fight cinematic via `def.entrance` (an
       // ENTRANCE_SCRIPTS id); the legacy `cinematicEntrance` flag maps to ASHTALON's
@@ -2030,9 +2537,30 @@ export function updateBoss(dt, player, time, camera) {
           model.setHeadLook?.(0);
         }
       }
+      // §ENG-E §4a: during the CLOSING RIBS dread hold, each live rib STRAINS one slow
+      // amber (the parry read that makes ORGAN BREAK pay into the dread). Own cadence via
+      // ribEmitT (ribThread and closingRibs never overlap). Def-gated; marrowcoil-only.
+      if (setpieceDef.id === 'closingRibs' && def.destructibleRibs) {
+        if (k >= 0.22 && k <= 0.8) {
+          ribEmitT += dt;
+          if (ribEmitT >= 0.55) { ribEmitT = 0; emitRibStrain(player); }
+        }
+      }
       if (k >= 1) clearSetpiece();
     } else {
       if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly
+      // §BOSS-FEEL §1 C.1 RECURRING SETPIECE (def-gated `recur`, seconds of quiet between
+      // runs): only a def entry carrying `recur` ever re-arms — every other entry omits it →
+      // undefined → this block no-ops (coexist). Reuses the same armSetpieceForPhase path a
+      // live phase entry takes (per-stoop slip re-offer included), so an ill-timed shield
+      // abort also gets its stoop BACK once the shield drops.
+      if (!shielded) {
+        const rsp = setpieceForPhase(phaseIdx);
+        if (rsp?.recur && SETPIECE_PATHS[rsp.id]) {
+          setpieceRecurCd -= dt;
+          if (setpieceRecurCd <= 0) armSetpieceForPhase(phaseIdx);
+        }
+      }
       // Hold station ahead and "fly backward"; gentle strafe/bob keeps it alive.
       // Sway amplitude/speed are def-tunable so a TUTORIAL boss (slot 1) can drift
       // slowly enough that its face stays inside the V1 aim cone long enough to
@@ -2099,7 +2627,8 @@ export function updateBoss(dt, player, time, camera) {
 
     // §5f the HOLD-BREAKER shot (armed by enterFight on a def.holdBreaker boss):
     // one slow, survivable, PARRYABLE amber lobbed into the reveal hold.
-    if (holdBreakerT > 0) {
+    // (The ONE fire not behind attackTimer — the LANCE LAB gates it too.)
+    if (holdBreakerT > 0 && !labPacifist) {
       holdBreakerT -= dt;
       if (holdBreakerT <= 0) {
         const slow = B.bulletSpeed * 0.5;
@@ -2112,11 +2641,16 @@ export function updateBoss(dt, player, time, camera) {
     if (riposteReturnT > 0) {
       riposteReturnT -= dt;
       if (riposteReturnT <= 0) {
-        const slow = B.bulletSpeed * 0.62;
+        const slow = B.bulletSpeed * riposteReturnMult;
         const v = aimVel(player.position.x, player.position.y, slow);
         emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, true, null, 1.1, null, emitOrigin.rel);
+        rallyWindowT = RALLY_WINDOW;   // §ENG-KV C.1: the return is in flight — a parry inside RALLY_WINDOW answers it
       }
     }
+    // §ENG-KV C.1 rally timers (plain module decrements — inert at 0 for every non-reflectRiposte def):
+    if (riposteCd > 0) riposteCd -= dt;
+    if (rallyWindowT > 0) { rallyWindowT -= dt; if (rallyWindowT <= 0 && rallyAnswerT <= 0) { rallyN = 0; riposteReturnMult = 0.62; } }   // return un-answered → initiative lost
+    if (rallyAnswerT > 0) { rallyAnswerT -= dt; if (rallyAnswerT <= 0) { rallyN = 0; riposteReturnMult = 0.62; } }                        // answer never arrived (a shield ate it) → rally dies
 
     // THE LANCE layer (V1 aim-line). Build the per-frame ctx and step the state
     // machine BEFORE the rider fires, so a held line retargets THIS frame's shot.
@@ -2135,27 +2669,55 @@ export function updateBoss(dt, player, time, camera) {
       flashPart: () => model.flash?.(0.15),
       // V2 LANCE-PAINT (SOP §II.5): the paint machine's per-frame world view.
       tier: def.tier ?? 1,
-      cap: CONFIG.LOCK.capByTier[def.tier ?? 1] ?? 0,
+      // LANCE LAB: force the max cap so the FULL-6 cadence/finale is testable
+      // (5 organs + one tier-3 stack reaches 6; damage is frozen in the lab, so
+      // no balance surface). Live game: the shipped tier ladder, untouched.
+      cap: labPacifist ? 6 : (CONFIG.LOCK.capByTier[def.tier ?? 1] ?? 0),
       deflected: lockDeflected(),
       phaseHp: currentPhaseHp(),
       paintUnlocked: !!saveData.flags.lockUnlocked,
       paintables: paintableParts(),
       amberVenting: (part) => (amberVent.get(part) ?? -1) > fightNow,
-      fireLance: (part, dmg, i, n) => fireLanceAt(player, part, dmg, i, n),
+      fireLance: (part, dmg, i, n, full, snap) => fireLanceAt(player, part, dmg, i, n, full, snap),
       // V5 FOCUS (PR5): the deliberate hold (2nd finger past focusArmMs / F) —
       // halves the effective dwell in the lock layer. Level-read every frame.
       focusHeld: focusHeldNow(),
-      // V3.E1 (PR5): true when NOW is within ±beatWindow of a music-beat edge —
-      // a manual loose on the beat is a PERFECT RELEASE (volleys only, the LAW).
-      // getBeatClock() is null when music is off/headless → simply never perfect.
+      // V3.E1 (PR5): true when NOW is within ±beatWindow of a beat edge — a manual
+      // loose on the beat is a PERFECT RELEASE (volleys only, the LAW).
+      // §CP1 RESONANT RELEASE: on a `musicDies` boss (KNELLGRAVE) the music BUS is
+      // muted but the beat SCHEDULER keeps running, so the generic getBeatClock edge
+      // is a silent, illegible coin-flip. The honest beat here is the boss's own
+      // TOLL (bell + ring + shake) — leading: the toll fires when chargeT hits 0, so
+      // the window opens as chargeT enters ±beatWindow; trailing: within beatWindow
+      // of the last real toll. The player hears/sees/anticipates THIS edge.
       beatOn: (() => {
+        if (def.musicDies) {
+          return (chargeT > 0 && chargeT <= CONFIG.LOCK.beatWindow)
+            || (time - lastRealTollAt <= CONFIG.LOCK.beatWindow);
+        }
         const bc = getBeatClock();
         if (!bc) return false;
         const toEdge = Math.min(bc.phase * bc.beatLen, bc.toNextBeat);
         return toEdge <= CONFIG.LOCK.beatWindow;
       })(),
+      // PR-B BEAT-ALIGNED INHALE (C1, revised): the cap fuse STRETCHES to end a
+      // void before the beat, then fires immediately — no post-fuse lag. Captured
+      // by the lock layer at the cap edge; null clock / gate off → plain capFuse.
+      // §CP1: SUPPRESSED on musicDies — aligning the auto-release inhale to the
+      // inaudible grid is meaningless there; a plain capFuse keeps the cap release
+      // honest (the resonant bonus is the player's MANUAL on-toll tap, not the auto).
+      beatFuseDur: def.musicDies ? 0 : beatAlignedFuse(),
+      // §5i.C rung 12: the SPECTRAL echo's damage multiplier — ghost pips (ONEWING's granted eye
+      // echoes) strike at this fraction and price the ROI clamp by it. Inert unless ghost pips exist.
+      echoDmgMult: CONFIG.LOCK.scarBurn?.echoDmgMult ?? 0.5,
     };
+    _lastBeatOn = lockCtx.beatOn;
     updateLockLayer(dt, player, lockCtx);
+    // §5i.C rung 13 (EMBERTIDE): drive the dark-halo brand on the sky-face from the PAINTED in-lane
+    // proxies — you aim the lane-anchor, the mapped face feature lights. Def-agnostic (only the
+    // embertide model implements setBrandedFeatures); a no-op for every other boss.
+    model.setBrandedFeatures?.(lockPaintedParts());
+    updateBurns(dt);
     driveAimTeach(dt, lockCtx);
     driveLockTeach(dt, lockCtx);
     driveSnapTeach(dt, lockCtx);
@@ -2181,11 +2743,23 @@ export function updateBoss(dt, player, time, camera) {
     // (more damage). Announce + ring the parry chime once per roll (streak climbs).
     if (player.rollInvuln > 0) {
       // In Surge, EVERY bullet is reflectable (not just the amber ones).
-      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge, adrenRung >= 4 ? 1.3 : 1);   // R4 parry burst
+      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge, adrenRung >= 4 ? 1.3 : 1, resolveReflectTargets(player));   // R4 parry burst; §ENG-A-R targets = per-def reflect anchors (null = shipped centre aim)
       if (r.total > 0) {
         tmp.set(player.position.x, player.position.y, -player.dist);
         burst(tmp, r.perfect > 0 ? 0xaef0ff : 0x66ddff, { count: 7, speed: 16, size: 0.85, life: 0.4 });
         cameraCtl.shake?.(r.perfect > 0 ? 0.5 : 0.3);
+        // §ENG-KV C.1 THE RALLY ANSWER — TIME-WINDOW detection, ZERO bullet tag (the ENG-EW
+        // paint hazard: karnvow has lockParts + no emitOrigins, so any string tag on the return
+        // would short-circuit the paint guard and brand a phantom organ). Any parry landed while
+        // the riposte return is in flight answers it. Surge reflects don't count (§5i.C law 4).
+        if (def.reflectRiposte && rallyWindowT > 0 && !surge) {
+          rallyWindowT = 0;
+          rallyAnswerT = RALLY_ANSWER_TTL;
+          const exch = rallyN + 1;                                          // 1-based exchange being answered
+          game.score += Math.round(CONFIG.BOSS.parryScore * exch * game.scoreMult);   // rising score, on top of the normal parry pay below
+          ui.bossNote?.(`⚔ RALLY ×${exch} ⚔`, exch >= RALLY_MAX ? 'BREAK IT' : 'IT WILL ANSWER FASTER', 'gold', 1.2);
+          emit('bossRallyAnswer', { exchange: exch });
+        }
         if (!rollParried) {
           rollParried = true;
           const perfect = r.perfect > 0;
@@ -2208,6 +2782,103 @@ export function updateBoss(dt, player, time, camera) {
           ui.parryPopup?.(pts, perfect, streak);
           sfx.parry?.(perfect, streak);
           emit('bossReflect', { perfect, streak });
+          // §5i.C ORGAN BREAK (MARROWCOIL — the Colossi parry DEBUT, §5b slot 4): a
+          // PERFECT parry of a rib's amber banks toward THAT rib's crack; at
+          // RIB_BREAK_PARRIES the rib CRACKS and its volley + constrict arc are deleted
+          // for the fight (parry as sculptor). Surge reflects don't count (§5i.C law 4 —
+          // free-for-all, not the amber read). Above the snap-paint loop so a crack lands
+          // before paintFromParry's liveness guard. Def-gated; inert for every other boss.
+          if (def.destructibleRibs && !surge && r.snapParts.length) {
+            for (const tag of r.snapParts) {
+              const ridx = ribTagToIdx(tag);
+              if (ridx < 0 || !(model.ribAlive?.(ridx) ?? false)) continue;   // over-crack guard
+              const nn = (partParries.get(tag) ?? 0) + 1;
+              partParries.set(tag, nn);
+              if (nn >= RIB_BREAK_PARRIES) breakRib(ridx);
+              else {
+                model.hurt?.(0.4);   // a visible recoil per banked parry (safe no-op if absent)
+                ui.bossNote?.(`✦ RIB CRACKING — ${nn}/${RIB_BREAK_PARRIES} ✦`, 'PARRY ITS AMBER AGAIN', 'gold', 1.1);
+              }
+            }
+          }
+          // §5i.C ORGAN-BREAK REUSE (EITHERWING, §5b slot 5): a PERFECT parry of the
+          // HOLDER's amber — the eitherMuzzle volley (aimed/stream) OR the holder twin's
+          // half of the crossfire — banks toward the stagger. At 3 mid-possession the
+          // handoff STAGGERS and the eye DROPS to the thread midpoint (a 2.5s strike
+          // window). The bank dies with the baton (below, beside eyeWeakPoint). Surge
+          // reflects don't count (§5i.C law 4). Perfect-only (snapParts is). staggerT<=0
+          // stops banking DURING the window (no chained re-stagger off the dropped eye's
+          // leftover ambers). Above the V4 snap loop (consume before paint). Def-gated; inert.
+          if (def.holderStagger && !surge && staggerT <= 0 && r.snapParts.length && model.holdState) {
+            const holderName = model.holdState().target < 0.5 ? 'eitherTwinA' : 'eitherTwinB';
+            if (r.snapParts.includes('eitherMuzzle') || r.snapParts.includes(holderName)) {
+              const n = (partParries.get(HOLDER_KEY) ?? 0) + 1;   // +1 per ROLL (snapParts deduped, the consumer latched by rollParried) — a mixed muzzle+twin burst collapses to +1
+              partParries.set(HOLDER_KEY, n);
+              if (n >= HOLDER_STAGGER_PARRIES) staggerHolder(player);
+              else {
+                model.hurt?.(0.4);   // the HOLDER recoils (bossEitherwing hurt() sets painTwin to the holder), the seeker darts protectively
+                ui.bossNote?.(`✦ THE HOLDER FALTERS — ${n}/${HOLDER_STAGGER_PARRIES} ✦`, 'PARRY ITS VOLLEY AGAIN', 'gold', 1.1);
+              }
+            }
+          }
+          // §ENG-LT: parrying the seal-era `aimed` ambers (P5 fires live amber through the
+          // survival seal) feeds RESOLVE — +1 per ROLL (the rollParried latch; perfect not
+          // required: the survival exam is dodge-first, parry is a bonus feed). Surge reflects
+          // don't count (§5i.C law 4). Reads r.total, NEVER snapParts — knellgrave ambers are
+          // untagged and stay untagged (§ENG-LT: knellgrave is an `emitOrigins` def, so V4
+          // parry-snaps are scoped to its real lockParts and its ambers carry at most a
+          // 'bellMouth' tag — never a phantom paint, even though PR2a added bind/wound lockParts).
+          if (def.survivalResolve && !surge && activeCard && activeCard.survival && r.total > 0) {
+            feedResolve(RESOLVE_PARRY);
+          }
+          // §ENG-C3 RHYTHM-PARRY CHAIN (KNELLGRAVE §5b row 10 — the §5i.C WE parry DEBUT, the
+          // 8th def-gated reflect sibling): during the rhythmParry card, a parried ROLL of the
+          // aimed chain (+1 per roll — this whole block is inside the rollParried latch; ambers
+          // arrive ~1.1s apart so one roll can't span two) banks IFF it lands ON the knell's
+          // beat. ON-BEAT = within RHYTHM_PARRY_WINDOW of the nearest MULTIPLE of the live toll
+          // period (the GHOST BEAT — the 4th amber's own stroke never rings since the burst is
+          // the phrase tail, so the metronome extrapolates; a naive nearest-toll window is
+          // structurally unhittable, measured pre-build). Perfect NOT required (the rhythm IS
+          // the skill — the survivalResolve r.total precedent; knellgrave ambers are untagged).
+          // Surge reflects don't count (§5i.C law 4). staggerT<=0 stops banking DURING a window
+          // (no chained re-fill). An off-beat parry or a >timeout bank gap RESETS the chain.
+          // Completion pays a chunk + the 2.5s bell stagger (the shared staggerT, consumed at
+          // the survivalResolve scheduling branch). Def-gated + card-gated; inert for all else.
+          if (def.rhythmParry && !surge && staggerT <= 0
+              && activeCard && activeCard.id === def.rhythmParry.card && r.total > 0) {
+            if (tollChainN > 0 && time - tollChainAt > RHYTHM_CHAIN_TIMEOUT) tollChainN = 0;   // a missed amber broke the chain
+            const since = time - lastRealTollAt;
+            const ghost = Math.abs(since - Math.round(since / lastTollGap) * lastTollGap);
+            // §ENG-C3 KNOWN FRAGILITY (preview-judged, deferred): at a BURST HEAD `lastTollGap`
+            // still holds the stale spiral→aimed transition gap, so the 1st chain amber banks
+            // only if parried AFTER its own toll rings (the "on the beat" read) — a parry landed
+            // early (within reflectWindow, before the toll) evaluates against the stale gap and
+            // silently no-banks, capping that burst at 3/4. Arguably by-design ("on the bell's
+            // beat" = after it tolls); if a preview says it reads unfair, accept the parry against
+            // the IMMINENT release too (chargeT is the wind-up) — a mechanic change the owner should feel-check.
+            if (lastRealTollAt > 0 && ghost <= RHYTHM_PARRY_WINDOW) {
+              tollChainN++; tollChainAt = time;
+              const need = def.rhythmParry.chain ?? 4;
+              if (tollChainN >= need) {
+                tollChainN = 0;
+                damageBoss(RHYTHM_CHAIN_DMG, 'player');                   // the chunk (may raise the floor shield — shipped semantics; the window then freezes under it, the ENG-LT law)
+                staggerT = 2.5;                                           // the shared scheduling-silence window (consumed at the def.survivalResolve branch)
+                if (chargeT > 0) { chargeT = 0; model.setCharge?.(0); model.setAttackTell?.(null); }
+                model.hurt?.(1.0); model.flash?.(0.9);                    // the bell RINGS its own stagger (breakSurvivalSeal grammar)
+                bellToll(0.5, 0.6);                                       // a diegetic answering toll — never the deflect ping
+                cameraCtl.shake?.(1.0);
+                sfx.milestone?.();
+                ui.bossNote?.('✦ THE KNELL ANSWERS — STRIKE ✦', 'THE CHAIN RANG ON ITS BEAT', 'gold', 2.4);
+                emit('bossTollChain', {});
+              } else {
+                model.hurt?.(0.4);                                        // a visible recoil per bank (sibling grammar)
+                ui.bossNote?.(`✦ ON THE TOLL — ${tollChainN}/${def.rhythmParry.chain ?? 4} ✦`, 'PARRY THE CHAIN ON THE BELL\'S BEAT', 'gold', 1.1);
+              }
+            } else if (tollChainN > 0) {
+              tollChainN = 0;
+              ui.bossNote?.('✦ OFF THE TOLL — THE CHAIN BREAKS ✦', 'ROLL ON THE BELL\'S BEAT', 'gold', 1.1);
+            }
+          }
           // V4 LOCK-SNAP (PR4, owner-ruled PERFECT-ONLY): a perfect parry of a
           // part-tagged amber snaps a brand onto the organ that FIRED it — the
           // C3 answer (a venting organ can't be dwell-painted; the parry is its
@@ -2224,7 +2895,13 @@ export function updateBoss(dt, player, time, camera) {
               // string organ name here; paintFromParry type-guards the rest.
               let tag = r.snapParts[sp];
               if (typeof tag === 'number' && def.destructiblePanes) tag = 'rosePane' + tag;
-              if (typeof tag === 'string' && !lockPartDead(tag)) paintFromParry(tag);
+              // §ENG-EW hazard guard: an emit-tagged def (eitherwing) now carries its bullets'
+              // SOURCE names (eitherMuzzle/eitherTwinA/B) — which paintFromParry would brand as
+              // phantom lock organs (it accepts any string; lockPartDead doesn't know them). Scope
+              // the paint to real lockParts for such defs. Un-emitOrigins defs short-circuit to
+              // shipped behavior (marrowcoil ribs, hollowgate panes, karnvow — all unchanged).
+              if (typeof tag === 'string' && !lockPartDead(tag) &&
+                  (!def.emitOrigins || def.lockParts.some((lp) => lp.part === tag))) paintFromParry(tag);
             }
           }
           // §5i.C SCATTER-STAGGER (THRUMSWARM's parry job): parry the queen's amber-eye
@@ -2245,7 +2922,11 @@ export function updateBoss(dt, player, time, camera) {
           // (every in-flight amber deletes + the queued sub-volleys drop) and the
           // loom is STILLED for a 2.5s strike window (parry ACCELERATES, §5i.C
           // law 4). Surge reflects don't count (not the amber read).
-          if (def.threadCut && !surge) {
+          // §CP1 PR4b: NO banking DURING a stagger window (staggerT>0) — the holderStagger
+          // precedent (2698). Since THE VOLLEY TEARS/SHE MENDS keeps live ambers inside its
+          // 2.5s window (unlike thread-cut, which deletes them), parries would otherwise chain
+          // a thread-cut ON TOP of a mend → ~5s of stacked stillness on her thinnest phase.
+          if (def.threadCut && !surge && staggerT <= 0) {
             threadCutHits++;
             if (threadCutHits >= THREAD_CUT_HITS) { threadCutHits = 0; triggerThreadCut(player); }
             else {
@@ -2255,24 +2936,28 @@ export function updateBoss(dt, player, time, camera) {
               sfx.stitchPluck?.(threadCutHits);
               ui.bossNote?.(`✦ THREAD FRAYING — ${threadCutHits}/${THREAD_CUT_HITS} ✦`, 'PARRY AGAIN TO CUT IT', 'gold', 1.1);
             }
+          } else if (def.threadCut && !surge && staggerT > 0) {
+            // §CP2 SF-5: a parry lands DURING a mend window (the thread won't fray while she
+            // weaves) — say so, else the fray counter reads as broken (the deflect is silent).
+            ui.bossNote?.('✦ THE THREAD WON’T FRAY WHILE SHE MENDS ✦', 'BRAND HER — DON’T PARRY', 'gold', 1.0);
           }
           // §5i.C GHOST-HALF PARRY → STAGGER + FRAME-BREAK (ONEWING, registry row 12): a
           // PERFECT parry of a ghost bullet (part 'frameGroup') STAGGERS it, and parrying
           // the dead half apart BREAKS the fused frame — the ghost volley stops, the tempo
           // ENRAGES, and the break vents a 2× spray-soak graze beat. Surge reflects don't
           // count (§5i.C law 4). Def-gated; inert for every other boss.
-          if (def.ghostHalf && !surge && !ghostFrameBroken && r.snapParts.includes('frameGroup')) {
+          // §CP2-D3: never advance the frame-break DURING the fake death — a straggler ghost amber
+          // parried mid-lie would break the frame over the FELLED beat (enrage bullets from a "dead"
+          // boss, the sealed banked pips deleted, the forfeit path bypassed). The lie is sealed.
+          if (def.ghostHalf && !surge && !ghostFrameBroken && felledLieT <= 0 && r.snapParts.includes('frameGroup')) {
             model?.hurt?.(0.5);   // the stagger recoil on each parried ghost bullet
             ghostFrameHits++;
             if (ghostFrameHits >= GHOST_FRAME_HITS) {
-              ghostFrameBroken = true;
-              model?.breakFrame?.();
-              ventSpraySoak(player);
-              ui.bossNote?.('✦ THE FRAME BREAKS — IT ENRAGES ✦', 'THE GHOST HALF IS GONE', 'gold', 2.6);
-              cameraCtl.shake?.(1.2); sfx.milestone?.();
-              emit('bossFrameBreak', {});
+              breakGhostFrame(player);
             } else {
-              ui.bossNote?.(`✦ GHOST STAGGER — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, 'PARRY THE DEAD HALF APART', 'gold', 1.1);
+              // §CP2-D2: name the stake — breaking the frame is the "honest sacrifice" and ENDS the
+              // lance (the frame is the echo anchor). A defensive player parrying to break should know.
+              ui.bossNote?.(`✦ GHOST STAGGER — ${ghostFrameHits}/${GHOST_FRAME_HITS} ✦`, def.echoTarget ? 'BREAK IT AND YOUR LANCE ENDS' : 'PARRY THE DEAD HALF APART', 'gold', 1.1);
             }
           }
         }
@@ -2280,6 +2965,9 @@ export function updateBoss(dt, player, time, camera) {
     } else {
       rollParried = false;
     }
+
+    // ---- §5i.B THREAD-THE-GAP (def-gated discrete scorer; inert unless the ledger has rows) ----
+    updateGapThreadRows(dt, player);
 
     // ---- §5i.B RIDE-THE-BEAM-EDGE (def-gated continuous graze) ----
     if (def.grazeForm === 'beamEdge') {
@@ -2296,6 +2984,28 @@ export function updateBoss(dt, player, time, camera) {
         beamGrace -= dt;                                   // grace: contact briefly lost, ramp holds
       } else {
         beamHeld = 0; beamTick = 0;                        // contact broken → the ramp resets
+      }
+    }
+
+    // ---- §5i TIDE-EDGE (EMBERTIDE's World-Enders graze, def-gated) — skim the CREST
+    // EDGE: the tide crests the whole frame, and riding the graze annulus of its
+    // falling bullets banks Surge (the §5d "skim the crest edge" anatomy). Reuses the
+    // slot-6 continuous-graze detector + the beamHeld/beamTick/beamGrace ramp verbatim
+    // (one grazeForm per boss); shipped bosses without grazeForm==='tideEdge' are inert. ----
+    if (def.grazeForm === 'tideEdge') {
+      if (beamContact(player, 7)) {
+        beamGrace = 0.3;                                   // bridge the gaps between crest bullets
+        beamHeld += dt;
+        beamTick -= dt;
+        if (beamTick <= 0) {
+          bulletGraze(player);                             // the payout rides the normal graze economy
+          emit('tideGraze', { held: beamHeld });
+          beamTick = Math.max(0.18, 0.5 - beamHeld * 0.07);   // longer skim → faster ticks (the ramp)
+        }
+      } else if (beamGrace > 0) {
+        beamGrace -= dt;                                   // grace: crest edge briefly lost, ramp holds
+      } else {
+        beamHeld = 0; beamTick = 0;                        // skim broken → the ramp resets
       }
     }
 
@@ -2321,7 +3031,8 @@ export function updateBoss(dt, player, time, camera) {
     // each tier crossing paying a graze burst; the THIRD tier ends it — the hunter
     // FLINCHES (the amber cross-flick) and pays out big. Offered ONCE per phase.
     // Reuses the beamHeld/beamGrace ramp plumbing (one grazeForm per boss). ----
-    if (def.grazeForm === 'holdFlinch' && !holdFlinchDone && !shielded && setpieceT < 0) {
+    if (holdFlinchCd > 0) holdFlinchCd -= dt;   // §ENG-KV C.2: stare-down cooldown ticks (inert for non-holdFlinch defs)
+    if (def.grazeForm === 'holdFlinch' && holdFlinchCd <= 0 && !shielded && setpieceT < 0) {
       const inLine = Math.abs(player.position.x - pose.x) < 5
         && Math.abs(player.position.y - pose.y) < 7
         && Math.abs(pose.rel - B.settleGap) < 24;
@@ -2330,23 +3041,233 @@ export function updateBoss(dt, player, time, camera) {
         const tier = beamHeld > 3.4 ? 3 : beamHeld > 2.2 ? 2 : beamHeld > 1.1 ? 1 : 0;
         if (tier > holdTier) {
           holdTier = tier;
-          for (let i = 0; i <= tier; i++) bulletGraze(player);   // escalating tier payout
+          const tn = Math.max(1, Math.round((tier + 1) * holdFlinchPay));   // §ENG-KV C.2: tier payout scaled by the ROI multiplier
+          for (let i = 0; i < tn; i++) bulletGraze(player);
           sfx.graze?.(14 + tier * 8);
           model.flash(0.15 + tier * 0.1);
-          emit('holdTier', { tier });
+          emit('holdTier', { tier, pay: tn });
           if (tier >= 3) {
-            // THE FLINCH — the stare-down breaks: the amber cross-flick, the big
-            // payout, and the offer closes until the next phase.
-            holdFlinchDone = true;
+            // THE FLINCH — the stare-down breaks: the amber cross-flick, the big payout, and
+            // the offer goes on a §ENG-KV C.2 cooldown (was once-per-phase), the reward halving
+            // per repeat within the phase (ROI cap §5i.C.5) so it never becomes a farm.
+            holdFlinchCd = HOLDFLINCH_CD;
             model.riposte?.();
-            for (let i = 0; i < 4; i++) bulletGraze(player);
+            const fn = Math.max(1, Math.round(4 * holdFlinchPay));
+            for (let i = 0; i < fn; i++) bulletGraze(player);
             ui.bossNote?.('IT FLINCHED', 'THE STARE-DOWN PAYS OUT', 'gold', 1.8);
-            emit('holdFlinch', {});
+            holdFlinchPay *= 0.5;   // decay AFTER paying — the next flinch this phase pays half
+            emit('holdFlinch', { pay: fn });
             beamHeld = 0; holdTier = 0;
           }
         }
       } else if (beamGrace > 0) { beamGrace -= dt; }
       else { beamHeld = 0; holdTier = 0; }
+    }
+
+    // ---- §5i.B SLIPSTREAM (ASHTALON's Colossi graze, C.2b, def-gated) — ride the
+    // stoop's WAKE: a drawn moving safe pocket trailing the dive line; its edge-walls
+    // are the graze goldmine (ramping ticks — the beamEdge economy verbatim). Riding
+    // ≥0.8s arms the §5f answer: a Surge release inside grants the exposure window.
+    // The pocket punishes NOTHING (no damage / no push-out) — the real threat is the
+    // dive-stream bullets outside it. One grazeForm per boss; defs without
+    // grazeForm==='slipstream' never enter this branch (inert). ----
+    if (def.grazeForm === 'slipstream') {
+      const stoopK = (setpieceT >= 0 && setpieceDef?.id === 'stoopingStrike')
+        ? setpieceT / setpieceDef.dur : -1;
+      const live = stoopK >= SLIP_K_ON;
+      const holdTell = stoopK >= 0.2;                             // §ENG-D-R the PADDLE-OUT: the tell rides the climb BEFORE the pocket opens
+      if (live) {
+        const cx = Math.max(-(arenaHW - SLIP_R_IN - SLIP_WALL), Math.min(arenaHW - SLIP_R_IN - SLIP_WALL, pose.x));
+        const cy = Math.max(SLIP_Y_MIN, Math.min(SLIP_Y_MAX, pose.y));
+        if (!slipWasLive) { slipX = cx; slipY = cy; }              // snap the follower on arm (no sweep-in from stale)
+        slipX += (cx - slipX) * Math.min(1, dt * SLIP_FOLLOW);     // the wake lags the dive line
+        slipY += (cy - slipY) * Math.min(1, dt * SLIP_FOLLOW);
+        const dx = player.position.x - slipX, dy = player.position.y - slipY;
+        const d2 = dx * dx + dy * dy, rOut = SLIP_R_IN + SLIP_WALL;
+        if (d2 < rOut * rOut) {
+          beamGrace = 0.3; slipRideT += dt;                        // riding (core or wall) keeps the timer alive
+          if (d2 >= SLIP_R_IN * SLIP_R_IN) {                       // the WALL — annulus, not radius (dead-centre is unpaid)
+            beamHeld += dt; beamTick -= dt;
+            if (beamTick <= 0) {
+              bulletGraze(player);                                 // the payout rides the normal graze economy
+              emit('slipGraze', { held: beamHeld, ride: slipRideT });
+              beamTick = Math.max(0.18, 0.5 - beamHeld * 0.07);    // the beamEdge ramp verbatim
+            }
+          }
+        } else if (beamGrace > 0) { beamGrace -= dt; }             // a wing-flick across the wall doesn't reset
+        else { beamHeld = 0; beamTick = 0; slipRideT = 0; }        // real exit → ramp AND ride timer reset
+      } else {
+        beamHeld = 0; beamTick = 0; beamGrace = 0; slipRideT = 0;
+        if (holdTell) {                                            // §ENG-D-R the pre-tell ring HONESTLY marks where the pocket will open (clamped to the lane heart), so you paddle out during the dread climb — also fixes the stale-(0,0) first-stoop tell (slipX/slipY were never reset)
+          slipX = Math.max(-(arenaHW - SLIP_R_IN - SLIP_WALL), Math.min(arenaHW - SLIP_R_IN - SLIP_WALL, pose.x));
+          slipY = Math.max(SLIP_Y_MIN, Math.min(SLIP_Y_MAX, pose.y));
+        }
+      }
+      slipWasLive = live;
+      if (slipExposeT > 0) slipExposeT = Math.max(0, slipExposeT - dt);
+      // Drive the drawn band: at the player plane, brighter as the ramp climbs (the
+      // payout is SEEN ramping); a faint pre-tell during the HOLD; hidden when not live.
+      if (slipBandMesh) {
+        const tgt = live ? GRAZE_BAND_BASE + Math.min(GRAZE_BAND_RAMP, beamHeld * 0.06) : (holdTell ? 0.14 : 0);
+        slipBandMat.opacity += (tgt - slipBandMat.opacity) * Math.min(1, dt * 6);
+        slipBandMesh.visible = slipBandMat.opacity > 0.02;
+        if (slipBandMesh.visible) slipBandMesh.position.set(slipX, slipY, -(player.dist + 4));
+      }
+    }
+
+    // ---- §5i.B ORBIT ANNULUS (EITHERWING's Colossi graze, C.4, def-gated) — co-rotate
+    // with the twins' figure-eight inside a drawn band about the group centre. In-band
+    // contact pays ramping ticks (the beamEdge economy verbatim); a full UNBROKEN lap
+    // (|unwrapped Δθ| ≥ 2π) is the discrete jackpot: +1 adrenaline rung + an i-frame
+    // pulse. The band punishes NOTHING; the threat stays the twins' converging volleys.
+    // θ accrues in-band ONLY (a dead-centre wiggle can't farm laps). One grazeForm per
+    // boss; defs without grazeForm==='orbitAnnulus' are inert. ----
+    if (def.grazeForm === 'orbitAnnulus') {
+      const live = setpieceT >= 0 && setpieceDef?.id === 'figureEight';
+      if (live) {
+        const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+        const d2 = dx * dx + dy * dy, rOut = ORB_R_IN + ORB_WALL;
+        const inBand = d2 >= ORB_R_IN * ORB_R_IN && d2 < rOut * rOut;
+        if (inBand || beamGrace > 0) {
+          const th = Math.atan2(dy, dx);
+          if (orbPrevTh != null) {
+            let dTh = th - orbPrevTh;
+            dTh -= Math.round(dTh / (Math.PI * 2)) * Math.PI * 2;   // wrap to (−π, π]
+            orbAcc += dTh;                                          // unwrapped accumulator
+            if (Math.abs(orbAcc) >= Math.PI * 2) {                  // ---- THE LAP ----
+              orbAcc -= Math.sign(orbAcc) * Math.PI * 2;            // keep the remainder (laps chain)
+              orbLaps++;
+              orbitLapJackpot(player);
+            }
+          }
+          orbPrevTh = th;
+        }
+        if (inBand) {
+          beamGrace = 0.3;                                          // bridge a wing-flick across the wall
+          beamHeld += dt; beamTick -= dt;
+          if (beamTick <= 0) {
+            bulletGraze(player);                                    // ticks ride the graze economy
+            emit('orbGraze', { held: beamHeld, acc: orbAcc });
+            beamTick = Math.max(0.18, 0.5 - beamHeld * 0.07);       // the beamEdge ramp verbatim
+          }
+        } else if (beamGrace > 0) { beamGrace -= dt; }
+        else { beamHeld = 0; beamTick = 0; orbAcc = 0; orbPrevTh = null; }   // real break → lap progress dies
+      } else { beamHeld = 0; beamTick = 0; beamGrace = 0; orbAcc = 0; orbPrevTh = null; }
+      // Drive the drawn band: centre at the live pose, player plane; brighter as the ramp climbs.
+      if (orbBandMesh) {
+        const tgt = live ? GRAZE_BAND_BASE + Math.min(GRAZE_BAND_RAMP, beamHeld * 0.06) : 0;
+        orbBandMat.opacity += (tgt - orbBandMat.opacity) * Math.min(1, dt * 6);
+        orbBandMesh.visible = orbBandMat.opacity > 0.02;
+        if (orbBandMesh.visible) orbBandMesh.position.set(pose.x, pose.y, -(player.dist + 4));
+      }
+    }
+
+    // ---- §5i.B TOLL-WALL DISC (KNELLGRAVE's World-Ender graze, C.7-proper, def-gated) —
+    // each SPIRAL toll radiates an EXPANDING ring-wall from the bell mouth: a drawn disc
+    // GROWS from 0 out to the wavefront's crossing radius. Riding the RIM from inside
+    // (annulus, not radius — the dead centre stays safe but UNPAID) pays ticks that
+    // ESCALATE as the crossing nears; the pocket DIES on the beat the wall reaches you
+    // (bail: one step INWARD, always safe, or thread out through the wall). The form
+    // punishes NOTHING — the threat stays the spiral bullets. One grazeForm per boss;
+    // defs without grazeForm==='shrinkDisc' are inert. (§ENG-H toll flip.) ----
+    if (def.grazeForm === 'shrinkDisc') {
+      if (discCd > 0) discCd = Math.max(0, discCd - dt);         // the arm cooldown ticks down every frame
+      const ride = discRideMode();                              // §ENG-LT: the one survival ride where the graze stays live
+      if (ride && !resolveHinted) {                             // one-shot teach (the swarm/eye-deflect-hint precedent)
+        resolveHinted = true;
+        ui.bossNote?.('✦ THE PRISONER STRAINS — THE SEAL CAN BREAK ✦', 'RIDE THE TOLL RIMS · STRIKE THE CLAPPER', 'gold', 3.2);
+      }
+      const live = discDur > 0 && !shielded && (setpieceT < 0 || ride || setpieceDef?.id === 'pendulumSweep');   // §ENG-LT ride + §ENG-C2 sweep keep the pocket live; every OTHER setpiece keeps the shipped setpieceT<0 discipline
+      if (live) {
+        discAge += dt;
+        if (discAge >= discDur) { discDur = 0; discR = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // THE LAST BEAT (the wall reaches the plane)
+        else {
+          discR = discR1 * (discAge / discDur);                 // the GROWTH (linear from 0 — drawn == the SPIRAL_OUT_SPD·t wavefront)
+          const dx = player.position.x - discX, dy = player.position.y - discY;
+          const d2 = dx * dx + dy * dy, rIn = discR * (1 - DISC_WALL_FRAC);
+          if (d2 < discR * discR) {
+            beamGrace = 0.3;                                    // a flick across the rim doesn't reset
+            if (d2 >= rIn * rIn) {                              // the RIM — annulus, not radius
+              beamHeld += dt; beamTick -= dt;
+              if (beamTick <= 0) {
+                bulletGraze(player);                            // the payout rides the graze economy
+                emit('discGraze', { r: discR, held: beamHeld, toll: discTollN });
+                if (ride && activeCard && activeCard.survival) feedResolve(RESOLVE_GRAZE);   // §ENG-LT: riding the ride wall feeds the resolve meter (post-break it pays graze only)
+                beamTick = Math.max(0.14, (discDur - discAge) * 0.30 - beamHeld * 0.03);   // ESCALATING: interval ∝ TIME-TO-CROSSING (richest as the wall lands)
+              }
+            }
+          } else if (beamGrace > 0) { beamGrace -= dt; }
+          else { beamHeld = 0; beamTick = 0; }                  // real exit → the ramp resets (pocket stays)
+        }
+      } else if (discDur > 0) { discDur = 0; discR = 0; beamHeld = 0; beamTick = 0; beamGrace = 0; }   // shield or a non-ride, non-sweep setpiece rose mid-pocket (the purity gate for every OTHER setpiece — §ENG-C2 exempts pendulumSweep)
+      // Drive the drawn band — a UNIT ring uniformly scaled to the live radius.
+      if (discBandMesh) {
+        const tgt = discR > 0 ? GRAZE_BAND_BASE + Math.min(GRAZE_BAND_RAMP, beamHeld * 0.06) : 0;
+        discBandMat.opacity += (tgt - discBandMat.opacity) * Math.min(1, dt * 6);
+        discBandMesh.visible = discBandMat.opacity > 0.02;
+        if (discBandMesh.visible) {
+          discBandMesh.position.set(discX, discY, -(player.dist + 4));
+          discBandMesh.scale.setScalar(Math.max(discR, 0.001));
+        }
+      }
+    }
+
+    // ---- §5i.C BEAM DUEL (EMBERTIDE's SURGE mechanic, def-gated) — at Surge ≥50% the
+    // tide LOCKS a beam on you: a sideways DRIFT tries to shove you off the crest line
+    // while you HOLD lane-center (fire INTO the crest). Hold long enough and the duel is
+    // WON — a Surge payout + the crest recoils. NOT a parry (audit ED-8: it lives in the
+    // Surge ladder; the amber floor is served by the crossfire/stream carriers). ----
+    if (def.beamDuel) {
+      beamDuelCd -= dt;
+      const surgeFrac = game.feverThreshold > 0 ? game.consecutiveRings / game.feverThreshold : 0;
+      if (beamDuelT <= 0) {
+        // idle → arm when the meter is ≥50% (Surge not already unleashed) + off cooldown.
+        // §BOSS-FEEL-AUDIT: never arm during a survival card — the duel's forced drift + hold-
+        // centre demand fights the horizonbreak shadow-ride's sweeping ±8 pocket, shoving the
+        // player out of the ONE safe lane the card requires.
+        if (!game.feverActive && surgeFrac >= 0.5 && beamDuelCd <= 0 && !(activeCard && activeCard.survival)) {
+          beamDuelT = 3.6; beamDuelHeld = 0; beamDuelTick = 0;
+          beamDuelSide = Math.random() < 0.5 ? 1 : -1;
+          ui.bossNote?.('BEAM DUEL', 'HOLD CENTER — FIRE INTO THE CREST', 'gold', 1.8);
+          model.flash?.(0.5); sfx.phase?.(true, 1);
+        }
+      } else {
+        beamDuelT -= dt;
+        // THE DRIFT — an oscillating sideways shove (amplitude < lateralSpeed 24 so it is
+        // fightable); the player counters with steering to hold the crest line.
+        player.position.x += beamDuelSide * (9 + Math.sin(time * 2.2) * 5) * dt;
+        const centered = Math.abs(player.position.x) < 3.2;
+        if (centered) {
+          beamDuelHeld += dt;
+          beamDuelTick -= dt;
+          if (beamDuelTick <= 0) { bulletGraze(player); emit('beamDuelHold', { held: beamDuelHeld }); beamDuelTick = 0.3; }
+        }
+        if (beamDuelT <= 0) {
+          if (beamDuelHeld >= 1.8) {   // held the crest line long enough → the duel is won
+            for (let i = 0; i < 6; i++) bulletGraze(player);
+            model.flash(0.85); sfx.graze?.(40);
+            ui.bossNote?.('DUEL WON', 'THE CREST RECOILS', 'gold', 1.8);
+            emit('beamDuelWon', { held: beamDuelHeld });
+          } else {
+            ui.bossNote?.('THE DRIFT TOOK YOU', '', 'red', 1.1);
+            emit('beamDuelLost', {});
+          }
+          beamDuelCd = 10;   // a breather before the tide can lock again
+        }
+      }
+      // Drive the locked beam: brighter while you hold center, stretched crest → ship.
+      if (beamDuelMesh) {
+        const tgt = beamDuelT > 0 ? (Math.abs(player.position.x) < 3.2 ? 0.85 : 0.4) : 0;
+        beamDuelMat.opacity += (tgt - beamDuelMat.opacity) * Math.min(1, dt * 6);
+        beamDuelMesh.visible = beamDuelMat.opacity > 0.02;
+        if (beamDuelMesh.visible) {
+          const cx = 0, cy = B.fightHeight + 7, cz = -(player.dist + pose.rel);   // the crest
+          const sx = player.position.x, sy = player.position.y, sz = -player.dist; // the ship
+          beamDuelMesh.position.set((cx + sx) / 2, (cy + sy) / 2, (cz + sz) / 2);
+          beamDuelMesh.lookAt(sx, sy, sz);
+          beamDuelMesh.scale.set(1, 1, Math.hypot(sx - cx, sy - cy, sz - cz));
+        }
+      }
     }
 
     // ---- NO-HIT ADRENALINE LADDER (global §5i.B meta spine) ----
@@ -2408,6 +3329,22 @@ export function updateBoss(dt, player, time, camera) {
       model.setEyeUp((chargeT > 0 || eyeHold > 0) ? 0 : 1);
     }
 
+    // §ENG-EW §5b slot-5 "mid-possession": the banked holder parries belong to THIS
+    // possession — a baton pass (holdTarget flip) costs the count. §BOSS-FEEL-AUDIT: a pass
+    // now DECAYS the bank by one instead of wiping it (with the shipped strict wipe + the ~3s
+    // baton, 3 parries could never accumulate) — mid-possession pressure survives, cross-
+    // possession mastery accumulates slowly, and "THE COUNT FADES" becomes literally true.
+    if (def.holderStagger && model.holdState) {
+      const t = model.holdState().target;
+      const bank = partParries.get(HOLDER_KEY) ?? 0;
+      if (holderPrevTarget != null && t !== holderPrevTarget && bank > 0) {
+        if (bank <= 1) partParries.delete(HOLDER_KEY);
+        else partParries.set(HOLDER_KEY, bank - 1);
+        ui.bossNote?.('THE EYE PASSES — THE COUNT FADES', '', 'gold', 0.9);
+      }
+      holderPrevTarget = t;
+    }
+
     if (shielded) {
       // Armour is up: the boss FLOODS graze-bait — dense rings streaming close past
       // you with a threadable lane. Weaving them tight is how you charge the Surge
@@ -2433,6 +3370,23 @@ export function updateBoss(dt, player, time, camera) {
       // staggerT is consumed in driveSwarm instead — LOCKED condensed.)
       staggerT = Math.max(0, staggerT - dt);
       if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
+    } else if (def.holderStagger && staggerT > 0) {
+      // §ENG-EW §5b slot-5 window (EITHERWING): NOBODY holds the eye — no wind-up arms,
+      // nothing new schedules (the eye is on the floor at the thread midpoint). In-flight
+      // bullets + already-queued pending sub-volleys still land (deleting in-flight is
+      // THREAD-CUT's verb, not ours). `if (shielded)` precedes us, so a shield freezes
+      // the window rather than double-spending it. The bonus = 2.5s of scheduling silence
+      // (free rider-chip + gun uptime) + the parked eyeRig lock organ at the midpoint.
+      staggerT = Math.max(0, staggerT - dt);
+      if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
+    } else if (def.survivalResolve && staggerT > 0) {
+      // §ENG-LT: the staggered bell (its survival seal broken early) schedules nothing for
+      // 2.5s — free chip + gun uptime directly under the gaping mouth (rider aims the pose
+      // centre at rel≈3; lances re-arm the instant the card nulls — lockDeflected's seal clause
+      // released). In-flight + queued pending still land; `if (shielded)` precedes, so a shield
+      // freezes the window rather than double-spending it.
+      staggerT = Math.max(0, staggerT - dt);
+      if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
     } else if (chargeT > 0) {
       // Telegraph wind-up: the boss charges (maw flares red), THEN releases.
       chargeT -= dt;
@@ -2454,6 +3408,8 @@ export function updateBoss(dt, player, time, camera) {
           model.tollNow?.(time);
           cameraCtl.shake?.(0.16 + w * 0.2);
           emit('bossToll', { k: w });
+          if (lastRealTollAt > 0) lastTollGap = Math.min(2.4, Math.max(0.5, time - lastRealTollAt));   // §ENG-C3: the live toll period (clamped sane), the ghost-beat metronome
+          lastRealTollAt = time;   // SCAR-BURN: the resonant-release beat edge (§CP1)
         }
         executeAttack(curAttack, player);
         emitGhostHalf(player);   // §5f the dead twin's parryable half, from the frame (def.ghostHalf; inert otherwise)
@@ -2473,6 +3429,11 @@ export function updateBoss(dt, player, time, camera) {
       }
     } else if (pending.length === 0) {
       // Idle between attacks → count down, then begin telegraphing the next one.
+      // LANCE LAB: the range target never attacks — pin the idle clock high so
+      // the telegraph never arms (chargeT is only ever armed inside this branch,
+      // and pending[] only fills from executeAttack, so ALL fire stops here).
+      // Keeping attackTimer > 0 also holds the exposure window open.
+      if (labPacifist) attackTimer = Math.max(attackTimer, 5);
       attackTimer -= dt;
       if (attackTimer <= 0) {
         const ph = def.phases[phaseIdx];
@@ -2487,6 +3448,11 @@ export function updateBoss(dt, player, time, camera) {
         } else {
           curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
         }
+        // HORIZON-BREAK: the survival card is a pure crest gauntlet — override whatever
+        // the phrase picked to the frame-wide CRESTFALL (its gap locks to the moving
+        // face-shadow pocket, below). Gated on the card id; the design amber floor is
+        // still satisfied by P5 declaring crossfire (survival exemption, §5i.C).
+        if (activeCard && activeCard.id === 'embertide_horizonbreak') curAttack = 'crestfall';
         chargeDur = curAttack === 'curtain' ? B.telegraphWall
           : (SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant);
         chargeT = chargeDur;
@@ -2537,7 +3503,12 @@ function placeGroup(player, time, dt) {
     // settled square facing (cineYaw≈0) to the full sin-wobble in one frame (L150). Full within ~0.6s.
     fightWobbleT += dt || 0.016;
     const w = Math.min(1, fightWobbleT / 0.6);
-    group.rotation.set(0, Math.sin(time * 0.5) * 0.12 * w, Math.sin(time * 0.9) * 0.08 * w);
+    // §COMFORT: the idle menacing yaw/roll wobble is def-scalable. A flying dragon wobbles;
+    // an ANCHORED loom (WEFTWITCH) shouldn't — and her ±0.12 yaw projects her far-forward
+    // hand organs (HAND_Z 4.6) ~±0.7 world-X toward the ±13 kill wall (the term the palm-comfort
+    // audit missed). Default 1 = byte-identical for every existing boss (coexist no-op).
+    const wob = def.idleWobble ?? 1;
+    group.rotation.set(0, Math.sin(time * 0.5) * 0.12 * w * wob, Math.sin(time * 0.9) * 0.08 * w * wob);
   }
   // GAZE FEED (optional model hook): normalized offset of the player relative to
   // the boss's facing axis, in WORLD axes — placeGroup keeps rotation near-
@@ -2546,10 +3517,21 @@ function placeGroup(player, time, dt) {
   // during the flythrough (updateFlythrough drives the tracking gaze itself), and
   // whenever cineYaw owns facing (L155): at a scripted yaw — the back-turned pass
   // especially — world≈local inverts, so a naive feed would track backwards.
-  if (phase !== 'warn' && phase !== 'flythrough' && cineYaw == null) {
-    const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
-    const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
-    model.setGaze?.(nx, ny);
+  // EMBERTIDE HORIZON-BREAK (CP2-B, the survival dread): the tide crests the WHOLE
+  // frame and the only safe pocket is the FACE's cast shadow. During the card the face
+  // LOOKS AROUND on a slow autonomous sweep (it stops tracking you), and its shadow —
+  // the moving safe pocket — is where the crest leaves a gap. You must RIDE the shadow.
+  if (activeCard && activeCard.id === 'embertide_horizonbreak' && phase === 'fight') {
+    const sweep = Math.sin(time * 0.32);                 // the slow gaze drift (chase it)
+    horizonPocketX = sweep * 8;                          // the face-shadow's lane X
+    model.setGaze?.(sweep, -0.15);                       // the face looks along its shadow
+  } else {
+    horizonPocketX = null;
+    if (phase !== 'warn' && phase !== 'flythrough' && cineYaw == null) {
+      const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
+      const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
+      model.setGaze?.(nx, ny);
+    }
   }
   // EMBERTIDE-as-sky: the camera-POSITION-lock does NOT happen here — placeGroup runs inside
   // updateBoss (main.js:1093), BEFORE cameraCtl.update (main.js:1246) moves the camera, so locking
@@ -2573,6 +3555,123 @@ export function syncSkyRig(cam) {
 
 // Unleash Dragon Surge: the hyper (all-reflect + double rider, see updateBoss)
 // AND the shield-breaker. Charged by grazing; fired by the player (Space / tap).
+// §5i.B ORBIT ANNULUS lap jackpot ("+1 level + i-frame pulse") — paid entirely through
+// shipped seams. The rung advance rides the NO-HIT ADRENALINE LADDER's own ceremony:
+// fast-forward the no-hit clock to the next threshold, and the ladder block (same fight
+// tick, below the grazeForm cluster) converts it to a rung with its bossNote/sfx/emit.
+function orbitLapJackpot(player) {
+  if (adrenRung < 5) adrenT = Math.max(adrenT, ADREN_RUNGS[adrenRung]);
+  player.rollInvuln = Math.max(player.rollInvuln, CONFIG.rollInvuln);   // the shipped i-frame field (0.5s), non-stacking
+  ui.bossNote?.('◎ FULL ORBIT ◎', 'FLY THE EIGHT — UNTOUCHABLE', 'gold', 2.0);
+  model.flash?.(0.6); sfx.milestone?.();
+  emit('orbitLap', { laps: orbLaps, held: beamHeld });
+}
+
+// §5i.B THREAD-THE-GAP (ENG-G): the fire-time ledger + crossing walker + award.
+function gapThreadActive() { return def?.grazeForm === 'threadTheGap' || def?.gapThread === true; }
+// Record a wall row at its fire closure — the SAME gap the bullets use, so the scorer can never
+// disagree with the wall. Snapshots pose.rel (emitBoss's default birth depth) + the hit watermark.
+function noteGapThreadRow(gapX, halfW, yLo, yHi, vy, vrel) {
+  if (!gapThreadActive()) return;
+  gapThreadRows.push({ gapX, halfW, yLo, yHi, vy, rel: pose.rel, vrel, age: 0, hits0: game.bossHitsTakenRun, inGapT: 0 });
+}
+function gapThreadAward(player, row) {
+  const px = player.position.x;
+  const clearance = row.halfW - Math.abs(px - row.gapX);
+  const edge = Math.max(0, Math.min(1, 1 - clearance / row.halfW));   // 0 dead-centre → 1 kissing the wall
+  const late = Math.max(0, Math.min(1, 1 - row.inGapT / GAP_THREAD_LATE_S));   // 1 = last-instant commit
+  const chain = 1 + GAP_THREAD_CHAIN_K * Math.min(gapThreadStreak, GAP_THREAD_CAP);   // streak BEFORE this thread
+  const points = Math.round((CONFIG.BOSS.threadScore ?? 75) * (1 + 0.5 * edge + 0.5 * late) * chain
+    * game.combo * game.scoreMult);
+  game.score += points;
+  gapThreadStreak++;
+  gapThreadLastT = fightNow;
+  ui.threadPopup?.(points, gapThreadStreak);
+  gateThreadBurst(player.position);
+  sfx.gate?.();
+  if (gapThreadStreak === 3 || gapThreadStreak === 6) ui.bossNote?.(`✦ THREADED ×${gapThreadStreak} ✦`, 'STAY IN THE GAP', 'gold', 1.6);
+  const feeds = 1 + (edge > 0.5 ? 1 : 0);   // the surge-bank feed (holdFlinch precedent — SEEN in the gem HUD)
+  for (let i = 0; i < feeds; i++) bulletGraze(player);
+  emit('gapThread', { streak: gapThreadStreak, edge, late, points });
+}
+// Walk the ledger once per fight tick: integrate each row's depth, bank its lateness clock while
+// it's inbound + in-gap, and resolve it ONCE at its crossing frame (in-gap ∧ exposed ∧ clean).
+function updateGapThreadRows(dt, player) {
+  if (!gapThreadActive()) { if (gapThreadRows.length) gapThreadRows.length = 0; return; }
+  if (game.bossHitsTakenRun !== gapThreadHitsMark) { gapThreadStreak = 0; gapThreadHitsMark = game.bossHitsTakenRun; }
+  if (fightNow - gapThreadLastT > GAP_THREAD_CHAIN_S) gapThreadStreak = 0;
+  const px = player.position.x, py = player.position.y;
+  for (let i = gapThreadRows.length - 1; i >= 0; i--) {
+    const row = gapThreadRows[i];
+    const prevRel = row.rel;
+    row.rel += row.vrel * dt; row.age += dt;
+    if (row.rel > 0 && row.rel <= GAP_THREAD_WATCH_REL && Math.abs(px - row.gapX) < row.halfW) row.inGapT += dt;
+    if (prevRel > 0 && row.rel <= 0) {   // THE CROSSING FRAME — one verdict per row, ever
+      const clean = game.bossHitsTakenRun === row.hits0;
+      const inGap = Math.abs(px - row.gapX) < row.halfW;
+      const yNow = row.vy * row.age;
+      const exposed = py >= row.yLo + yNow - GAP_THREAD_YPAD && py <= row.yHi + yNow + GAP_THREAD_YPAD;
+      if (clean && inGap && exposed) gapThreadAward(player, row);
+      gapThreadRows.splice(i, 1);
+    } else if (row.rel < -2 || row.age > 12) {
+      gapThreadRows.splice(i, 1);   // safety cull
+    }
+  }
+}
+
+// §5i.B SHRINKING SAFE DISC (C.7): open a toll-ring pocket at the iris volley's baked centre.
+// A named helper so C.7-proper (iris→bellMouth spiral) re-arms from ONE call site, not a redesign.
+// §ENG-H: arm a TOLL-WALL pocket at the spiral toll's origin (the bell mouth). The wall
+// GROWS from 0 out to r1 (the wavefront's crossing radius = SPIRAL_OUT_SPD · dur) over
+// `dur` seconds, so drawn == wavefront by construction. discR starts at 0 (there is no
+// start radius any more — the shrink schedule is retired, §ENG-H §3b).
+function armDiscPocket(cx, cy, dur, r1) {
+  discX = cx; discY = cy; discAge = 0; discDur = dur;
+  discR1 = Math.max(r1, 3); discR = 0;
+  emit('discPocket', { toll: discTollN, r1: discR1 });
+}
+
+// §ENG-LT RIDE MODE: the ONE survival ride where the toll-wall graze stays live. Triple-gated —
+// the label (grazeForm), the def opt-in (survivalResolve), and the setpiece IDENTITY (only
+// knellgrave's def names 'lastToll') — so every other setpiece/def, incl. pendulumSweep, keeps
+// the shipped setpieceT<0 purity. (Reverses the ENG-C7/ENG-H "survival ride stays pure dodge"
+// decision, scoped to knellgrave's survival ride only — owner playtest call.)
+function discRideMode() {
+  return !!(def && def.grazeForm === 'shrinkDisc' && def.survivalResolve
+    && setpieceT >= 0 && setpieceDef && setpieceDef.id === def.survivalResolve.setpiece);
+}
+
+// §ENG-LT: active play during the seal fills the resolve meter; each third is SEEN (the bell
+// shivers), and a full meter breaks the seal early. Def + survival-card gated; inert otherwise.
+function feedResolve(amt) {
+  if (!def?.survivalResolve || !(activeCard && activeCard.survival) || resolveK >= 1) return;
+  resolveK = Math.min(1, resolveK + amt);
+  emit('bossResolve', { k: resolveK });
+  const third = Math.floor(resolveK * 3);
+  if (third > resolveNoted && resolveK < 1) {
+    resolveNoted = third;
+    ui.bossNote?.(`✦ THE BELL FALTERS — ${third}/3 ✦`, 'RIDE THE TOLLS · STRIKE THE CLAPPER', 'gold', 1.1);
+    model.hurt?.(0.3);   // the bell shivers at each third (ringKick — pre-built feedback)
+  }
+  if (resolveK >= 1) breakSurvivalSeal();
+}
+
+// §ENG-LT: the payoff beat. Resolve the card through the SAME hook the outlast path uses
+// (endCard — an early HITLESS break IS a capture, deliberately: mastery shortens the exam AND
+// banks the card), then STAGGER the bell (2.5s of scheduling silence — the shared staggerT
+// grammar, a 4th def-gated consumer) so chip lands under the gaping mouth. The ride setpiece
+// keeps running: the sky-tear reveal is dreadK's (setpiece-driven), not the card's.
+function breakSurvivalSeal() {
+  endCard();
+  staggerT = 2.5;
+  if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
+  model.hurt?.(1.0); model.flash?.(1.0);          // the bell RINGS its own stagger
+  cameraCtl.shake?.(1.2);
+  sfx.shieldShatter?.();
+  ui.bossNote?.('✦ THE SEAL BREAKS ✦', 'THE BELL STAGGERS — STRIKE', 'gold', 2.4);
+  emit('bossSealBreak', { early: true });
+}
+
 function activateSurge(player) {
   game.feverActive = true;
   game.feverTimer = CONFIG.feverDuration;
@@ -2586,6 +3685,15 @@ function activateSurge(player) {
   wasReady = false;
   cameraCtl.shake?.(0.5);
   emit('surge');
+  // §5f C.2b "surge INTO the dive gap": releasing Surge while RIDING the stoop's
+  // slipstream pocket (≥0.8s unbroken) EXPOSES the hunter — an amplified chip window.
+  // Once per stoop (slipExposeUsed); the surge beam itself lands amplified via damageBoss.
+  if (def?.grazeForm === 'slipstream' && !slipExposeUsed && slipRideT >= 0.8) {
+    slipExposeUsed = true; slipExposeT = 2.5;
+    ui.bossNote?.('✦ INTO THE DIVE GAP ✦', 'THE HUNTER IS EXPOSED', 'gold', 2.4);
+    model.flash?.(0.8); sfx.milestone?.();
+    emit('slipExposed', { ride: slipRideT });
+  }
   // Kick off the mouth-beam cinematic: a charge wind-up, then the beam strikes and
   // bursts the shield (breakShield fires at the moment of impact, not now).
   surgeSeq = { phase: 'charge', t: 0 };
@@ -2596,6 +3704,11 @@ function activateSurge(player) {
 // can't push past a phase floor.
 function breakShield(player) {
   shielded = false;
+  burns.length = 0;               // SCAR-BURN: cancel at the phase seam (§CP1 B-2 — never leak into the next phase's pool)
+  staggerT = 0;                   // §CP2 SF-4: a stagger/mend window never LEAKS across a phase seam — the leftover
+                                  // silence + the staggerT<=0 lockout (blocking a fresh mend AND thread-cut banking)
+                                  // would otherwise bleed into the new phase (crossing the floor inside a mend is the
+                                  // incentivized burst play). A fresh phase starts clean (also fixes the pre-existing thread-cut leak).
   model.shatterShield?.();        // the bubble breaks into flying shards
   model.setShieldVisible?.(false);
   model.flash(1.0);
@@ -2611,22 +3724,33 @@ function breakShield(player) {
   // new phase's first attack can telegraph.
   pending.length = 0;
   attackTimer = Math.max(attackTimer, 1.6);
+  // A MULTI-STAGE boss (THE UNMASKED) plays its form-change as a CINEMATIC BEAT: hold fire
+  // for the whole crack/unveiling (model.stageTransitionDur) PLUS a reveal hold, so the eyes
+  // snap to you before the new stage opens up. The reveal emphasis fires at the arrival below.
+  if (model.stageTransitionDur && def.phases[phaseIdx + 1]) beginStageBeat(false);   // mid-fight advance — not skippable
   // The surviving-the-phase card resolves the instant its shield bursts: capture
   // if the whole card was hitless. The next phase's card arms right after.
   endCard();
   const next = def.phases[phaseIdx + 1];
   if (next) {
     phaseIdx++;
+    // MULTI-FORM boss (def.formLifebars): the defeated form's bar REFILLS to full for the next
+    // form — you fought that form to 0, now the next one arrives at full health. The transition
+    // beat (below) covers the refill. (Non-form bosses keep hp parked at the phase floor.)
+    if (def.formLifebars) { hp = hpMax; model.setHealth(hp / hpMax); hpRevealT = HP_REVEAL; }
     // §5i: restart the phrase state at the phase seam (crescendo re-ramps per
     // card; the ambush/wall cluster restarts clean) — the amber-floor clock is
     // kept continuous across the transition inside the machine.
     rhythm?.reset();
     rhythmRest = null;
     beginCard(phaseIdx);
-    model.setPhase?.(phaseIdx);   // optional damage-state hook (KARNVOW's cloak tears; others ignore)
-    ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
+    model.setPhase?.(phaseIdx);   // optional damage-state hook (KARNVOW's cloak tears; THE UNMASKED animates its stage transition; others ignore)
+    // The PHASE announcement: for a stage-transition boss it's DEFERRED to the reveal (it lands
+    // ON the eye-snap, not at the shield-burst 2s earlier); every other boss announces now.
+    if (!model.stageTransitionDur) ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
     harvestOffered = false;   // §5i moteHarvest: a fresh phase re-offers the bloom
+    mendOffered = false;      // §5i.C: a fresh phase re-offers the tear/mend window
     // §5b the arena-mender: each phase seam TEARS a sector of her web and she
     // visibly re-weaves it (optional model hook — only the weftwitch has one).
     model.restitchWeb?.();
@@ -2645,8 +3769,9 @@ function breakShield(player) {
     // beamHeld, so banked hold time would cash instant tiers after the break).
     // Gated on the grazeForm so beamEdge/shadowRide bosses keep their ramp
     // semantics byte-identical.
-    riposteUsed = false;
-    holdFlinchDone = false; holdTier = 0;
+    riposteCd = 0; rallyN = 0; rallyWindowT = 0; rallyAnswerT = 0; riposteReturnMult = 0.62;
+    holdFlinchCd = 0; holdFlinchPay = 1; holdTier = 0;
+    staggerT = 0;   // §ENG-C3 FIX: a chain completion that raised THIS floor-shield froze staggerT under it — clear it at the seam so the next phase can't open with free scheduling silence
     if (def.grazeForm === 'holdFlinch') { beamHeld = 0; beamTick = 0; beamGrace = 0; }
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
@@ -2654,6 +3779,16 @@ function breakShield(player) {
       arenaTargetHW = CONSTRICT_HW;
       ui.bossNote?.('⛈  THE ARENA NARROWS  ⛈', def.name, 'gold', 2.6);
       cameraCtl.shake?.(0.8);
+    }
+    // THE LOOM (CP2-A, optional model hook — only EMBERTIDE implements): each phase
+    // the face surfaces closer/larger (0→1 across the fight; the model eases + caps it).
+    model.setLoom?.(phaseIdx / Math.max(1, (def.phases?.length ?? 1) - 1));
+    // THE CRUSH re-arms at every phase seam (a wave per crescendo set — crush, hold,
+    // ebb; never a permanent ceiling). ~1.5s into the new phase. Inert without skyCrush.
+    if (def.skyCrush) {
+      crushFired = false;
+      crushT = (def.skyCrush.delay ?? 5) - 1.5;
+      crushHoldT = 0;
     }
   } else if (def.felledLie && !felledLieUsed && !ghostFrameBroken) {
     triggerFelledLie(player);   // §5f the LIE: fake death now, ≤35% returns within ≤2s (once)
@@ -2715,12 +3850,79 @@ function resolveEmitOrigin(player) {
   else { emitOrigin.x = pose.x; emitOrigin.y = pose.y; emitOrigin.rel = pose.rel; }
 }
 
-// Solve the lateral velocity that puts a bullet on a target point as it closes,
-// FROM the current emitter origin (head, or pose centre when un-opted).
-function aimVel(targetX, targetY, closing) {
-  const t = Math.max(emitOrigin.rel / closing, 0.05);
-  return { vx: (targetX - emitOrigin.x) / t, vy: (targetY - emitOrigin.y) / t };
+// ENG-A per-organ emit: resolve an attack id's def-declared emitter parts to live
+// origins in the bullet frame. Returns null when the def doesn't opt this id in
+// (→ caller takes the shipped path, byte-identical) or when NO declared part is
+// resolvable/ahead (→ caller SKIPS the volley — never fall back to posts nobody
+// occupies; that is the defect this seam removes). World→bullet frame exactly as
+// resolveEmitOrigin: (wx,wy,wz) → { x, y, rel: -wz - player.dist }.
+const _emoV = new THREE.Vector3();
+function resolveEmitOrigins(id, player) {
+  const names = def?.emitOrigins?.[id];
+  if (!names || !model?.partWorldPos) return null;   // un-opted → shipped path
+  const out = [];
+  for (const name of names) {
+    const w = model.partWorldPos(name, _emoV);
+    if (!w) continue;
+    const rel = -w.z - player.dist;
+    if (rel <= 0.5) continue;   // behind/at the plane → would fly away (emitRibBullets guard)
+    out.push({ x: w.x, y: w.y, rel, part: name });   // §ENG-EW: carry the source-organ TAG (the resolveReflectTargets precedent) so a perfect parry is attributable (holder-stagger)
+  }
+  return out;   // possibly [] — opted-in but nothing ahead → SKIP, don't post-fire
 }
+
+// §ENG-A-R: resolve the def's reflect-target parts to live bullet-frame anchors, so a
+// swatted bullet lands ON a hittable organ (roll-directed) instead of the hollow centre.
+// Mirrors resolveEmitOrigins' world→frame conversion + rel<=0.5 (behind-plane) skip. The
+// ONE semantic flip: an empty result returns null → the caller falls back to the boss
+// CENTRE (a reflect must always go somewhere — never SKIP like emit). Un-opted defs
+// (no def.reflectTargets) return null → shipped centre aim, byte-identical.
+const _rtV = new THREE.Vector3();
+function resolveReflectTargets(player) {
+  const names = def?.reflectTargets;
+  if (!names || !model?.partWorldPos) return null;
+  const out = [];
+  for (const name of names) {
+    const w = model.partWorldPos(name, _rtV);
+    if (!w) continue;
+    const rel = -w.z - player.dist;
+    if (rel <= 0.5) continue;   // behind/at the plane → would fly away
+    out.push({ x: w.x, y: w.y, rel, part: name });
+  }
+  return out.length ? out : null;   // empty → null → centre (never-whiff, unlike emit's SKIP)
+}
+
+// §ENG-B: resolve a def-authored gap anchor for attack id → a lane X, or null (null = take
+// the shipped player-derived placement, byte-identical). Card-gated specs (the horizonPocketX
+// precedent, generalized) are inert outside their card. On failure it falls back to null →
+// the shipped placement (never a gapless wall — the resolveReflectTargets never-whiff flip,
+// not emit's SKIP). Returns UNCLAMPED — each read point pushes it through its own shipped clamp.
+const _gapV = new THREE.Vector3();
+function resolveGapAnchor(id) {
+  const spec = def?.gapAnchor?.[id];
+  if (!spec) return null;                                       // un-opted
+  if (spec.card && activeCard?.id !== spec.card) return null;   // card-gated, card not live
+  let x = null;
+  if (spec.part && model?.partWorldPos) {
+    const w = model.partWorldPos(spec.part, _gapV);
+    if (w) x = w.x;                                             // live world-x of the organ
+  }
+  if (x == null && typeof spec.x === 'number') x = spec.x;      // fixed-x author / part fallback
+  if (x == null) return null;                                   // nothing resolvable → shipped
+  // §ENG-H: `scale` (multiplicative, applied before `offset`) lets a lane MIRROR an organ
+  // instead of tracking it — knellgrave's movingGap gap sits opposite the swinging bell
+  // (scale −0.36). Default 1 → every shipped descriptor is byte-identical.
+  return x * (spec.scale ?? 1) + (spec.offset ?? 0);
+}
+
+// Solve the lateral velocity that puts a bullet on a target point as it closes,
+// FROM an arbitrary origin o = {x, y, rel} (per-emitter time-to-impact, §5e).
+function aimVelFrom(o, targetX, targetY, closing) {
+  const t = Math.max(o.rel / closing, 0.05);
+  return { vx: (targetX - o.x) / t, vy: (targetY - o.y) / t };
+}
+// FROM the current emitter origin (head, or pose centre when un-opted).
+function aimVel(targetX, targetY, closing) { return aimVelFrom(emitOrigin, targetX, targetY, closing); }
 
 // THREAD-THE-GAP rib emit (L155): during the fly-through pass, a few SLOW, reflectable
 // AMBER bullets spawn from INSIDE the ribcage (rib-pivot parts) and CONVERGE toward the
@@ -2735,6 +3937,7 @@ function emitRibBullets(player) {
   const T = 0.9;   // convergence time — slow (a rib ~4u out closes at ~4u/0.9s ≈ fair)
   const cx = pose.x, cy = pose.y, crel = pose.rel;   // spine centre in the bullet frame
   for (const name of RIB_EMITTERS) {
+    if (def.destructibleRibs && !(model.ribAlive?.(ribTagToIdx(name)) ?? true)) continue;   // §ENG-E: a cracked rib fires nothing (its volley is deleted)
     const w = model.partWorldPos(name, _ribV);
     if (!w) continue;
     const rx = w.x, ry = w.y, rrel = -w.z - player.dist;
@@ -2746,6 +3949,26 @@ function emitRibBullets(player) {
     emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel, name);
     // C3: an amber-CARRYING organ is dwell-exempt while its volley is in flight —
     // parry (V4) is the only sanctioned way to paint a venting organ.
+    amberVent.set(name, fightNow + 2.2);
+  }
+}
+
+// §ENG-E ORGAN-BREAK reachability (§4a): during the closingRibs DREAD hold, each LIVE
+// emitter rib strains and fires ONE slow amber aimed at the player — the parry read that
+// makes breaking a rib pay INTO the dread (the plan's "rib-slam ambers", which don't exist
+// at station). Unlike emitRibBullets' spine-convergence (vrel≈0 when the boss holds at
+// rel 13 → bullets hover), this closes NORMALLY toward the player. Def-gated; deterministic.
+function emitRibStrain(player) {
+  if (!(model && model.partWorldPos)) return;
+  const px = player.position.x, py = player.position.y, closing = B.bulletSpeed * 0.8;
+  for (const name of RIB_EMITTERS) {
+    if (!(model.ribAlive?.(ribTagToIdx(name)) ?? true)) continue;   // dead ribs don't strain
+    const w = model.partWorldPos(name, _ribV);
+    if (!w) continue;
+    const rx = w.x, ry = w.y, rrel = -w.z - player.dist;
+    if (rrel <= 0.5) continue;
+    const v = aimVelFrom({ x: rx, y: ry, rel: rrel }, px, py, closing);
+    emitBoss(rx, ry, v.vx, v.vy, -closing, true, null, 1, null, rrel, name);
     amberVent.set(name, fightNow + 2.2);
   }
 }
@@ -2852,7 +4075,10 @@ function executeAttack(id, player) {
   // parrying a pane's amber cracks it (PANE BREAK). Cracked panes drop their arm.
   if (def?.destructiblePanes && model?.livePanes) {
     if (id === 'spiral') { spiralPhase += 0.5; if (firePaneRadial(player, spiralPhase)) return; }
-    else if (id === 'spiralStream') {
+    // §BOSS-FEEL-AUDIT (BUG): guard on live panes like `spiral` does — with 0 live panes this
+    // queued 9 no-op firePaneRadial closures and returned SILENT (P4's dread lead = three empty
+    // volleys). Empty window now falls through to the generic spiralStream branch below.
+    else if (id === 'spiralStream' && model.livePanes().length) {
       const steps = quality < 0.75 ? 6 : 9;
       for (let k = 0; k < steps; k++) pending.push({ t: k * 0.16, fire: () => firePaneRadial(player, spiralPhase + k * 0.4) });
       spiralPhase += steps * 0.4;
@@ -2887,9 +4113,27 @@ function executeAttack(id, player) {
       );
       sfx.stitchPluck?.();
     } else if (def?.threadCut) { sfx.stitchPluck?.(); }   // def/model null on the headless debugEmitAttack flush
-    for (let i = -1; i <= 1; i++) {
-      const v = aimVel(px + i * 1.6, py, closing);
-      emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
+    // ENG-A: def-gated per-organ origins (dormant until a def opts `aimed` in — the
+    // C.4 holder volley from both twins). Un-opted → the shipped 3-bullet loop below.
+    const origins = resolveEmitOrigins('aimed', player);
+    // §ENG-12 C.1 GRIEF TRANSFERENCE (ONEWING): once the fused frame is broken, the
+    // dodge-mirror moves INTO the living wing — the aimed volley solves on mirrorAim
+    // (the dead twin's read) instead of the live player, and drops its amber: magenta,
+    // unparryable, a pure dodge-read. The conjunction is onewing-only by construction
+    // (def.ghostHalf is onewing's alone; ghostFrameBroken only arms under it). When
+    // mir === null the literals below are byte-identical to the shipped emit.
+    const mir = (def?.ghostHalf && ghostFrameBroken) ? mirrorAim(player) : null;
+    const ax = mir ? mir.x : px, ay = mir ? mir.y : py;
+    if (origins) {
+      for (const o of origins) for (let i = -1; i <= 1; i++) {
+        const v = aimVelFrom(o, px + i * 1.6, py, closing);
+        emitBoss(o.x, o.y, v.vx, v.vy, -closing, true, null, 1, null, o.rel, o.part);   // §ENG-EW: tag the holder muzzle's amber (eitherMuzzle)
+      }
+    } else {
+      for (let i = -1; i <= 1; i++) {
+        const v = aimVel(ax + i * 1.6, ay, closing);
+        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, !mir, null, 1, null, emitOrigin.rel);
+      }
     }
   } else if (id === 'fan') {
     const n = quality < 0.75 ? 5 : 7;
@@ -2900,12 +4144,44 @@ function executeAttack(id, player) {
     }
   } else if (id === 'spiral') {
     // Instant radial burst: bullets fly OUTWARD from the boss as they close.
+    // §C.7 (§ENG-H): a def may opt the radial's origin onto an organ (emitOrigins.spiral)
+    // — the toll radiates FROM the bell. NEVER-WHIFF fallback (resolveReflectTargets'
+    // semantics, NOT ENG-A's SKIP): the def.musicDies toll block rang the bell on this same
+    // frame, so a bullet-less toll would break audio-fairness — an unresolvable organ falls
+    // back to emitOrigin (def.muzzle, pose-backed), never a skipped volley. Un-opted defs
+    // take anchorX, byte-identical. (One declared origin → os[0]; knellgrave declares
+    // exactly one bellMouth, so the bullet count never multiplies.)
+    const os = resolveEmitOrigins('spiral', player);
+    const o = os ? (os[0] ?? { x: emitOrigin.x, y: emitOrigin.y, rel: emitOrigin.rel }) : null;
+    const scx = o ? o.x : anchorX, scy = o ? o.y : B.fightHeight, srel = o ? o.rel : pose.rel;
     const n = quality < 0.75 ? 8 : 11;
     spiralPhase += 0.6;
     const slow = closing * 0.78;
+    // §5i.B TOLL-WALL arm — MOVED here from the iris branch (§ENG-H toll flip): the wall
+    // GROWS from the bell mouth. dur = time-to-crossing (srel/slow); r1 = the wavefront's
+    // radius at that crossing (SPIRAL_OUT_SPD·dur). Gated off during setpieces/shield/cd —
+    // EXCEPT the one §ENG-LT ride (The Last Toll), where it arms off the TOLL CADENCE instead.
+    const ride = discRideMode();
+    if (def?.grazeForm === 'shrinkDisc' && !shielded && (ride || ((setpieceT < 0 || setpieceDef?.id === 'pendulumSweep') && discCd <= 0))) {   // §ENG-C2: the sweeping bell tolls too — arm off the NORMAL srel math under the shipped discCd (disjunct INSIDE the cd conjunct so the peal law still holds)
+      discTollN++;
+      if (ride) {
+        // §ENG-LT RIDE MODE: overhead the mouth's rel is degenerate/behind-plane (srel/slow
+        // ≈ 0.05–0.2s — the ENG-C7 gate's own reason), so the pocket rides the TOLL CADENCE:
+        // dur = RIDE_POCKET_DUR, r1 = SPIRAL_OUT_SPD·dur. The drawn ring stays the wavefront's
+        // PLANE-PROJECTED radius (9·t regardless of rel — the honesty identity survives
+        // overhead). REPLACE-ON-ARM: a fresh toll supersedes the live pocket (its plane threat
+        // spent ~0.1s after its toll) — pockets tighten as the knell accelerates. discCd is
+        // neither consulted nor set (the accelerating knell outruns 1.6s; the peal law is P3/station-scoped).
+        armDiscPocket(scx, scy, RIDE_POCKET_DUR, SPIRAL_OUT_SPD * RIDE_POCKET_DUR);
+      } else {
+        discCd = 1.6;   // §5i.B: a breather between pockets — one wall at a time (the Cracked Peal's 2nd toll can't double-arm, §ENG-H)
+        armDiscPocket(scx, scy, srel / slow, SPIRAL_OUT_SPD * (srel / slow));
+      }
+    }
     for (let i = 0; i < n; i++) {
       const a = spiralPhase + (i / n) * Math.PI * 2;
-      emitBoss(anchorX, B.fightHeight, Math.cos(a) * 9, Math.sin(a) * 9, -slow);
+      if (o) emitBoss(scx, scy, Math.cos(a) * SPIRAL_OUT_SPD, Math.sin(a) * SPIRAL_OUT_SPD, -slow, false, null, 1, null, srel);
+      else   emitBoss(anchorX, B.fightHeight, Math.cos(a) * SPIRAL_OUT_SPD, Math.sin(a) * SPIRAL_OUT_SPD, -slow);
     }
   } else if (id === 'tunnel') {
     // A succession of bullet-RINGS rushing at you — a glowing tube to fly down,
@@ -2947,17 +4223,21 @@ function executeAttack(id, player) {
     const stepY = quality < 0.75 ? 4.6 : 3.4;
     // Gap sits toward your opposite side (commit early) but not all the way across —
     // 5.5m, not 7m, so the traversal is fair to read + fly in the reaction window.
-    const gap = Math.max(-hw + slot, Math.min(hw - slot, -Math.sign(player.position.x || 1) * 5.5));
+    // §ENG-B: an authored anchor (e.g. an organ's live x) LOCKS the lane; null = shipped player-sign.
+    const ax = resolveGapAnchor('curtain');
+    const gap = Math.max(-hw + slot, Math.min(hw - slot, ax != null ? ax : -Math.sign(player.position.x || 1) * 5.5));
     // Slower close than the aimed/fan shots: a full wall must be READ (find the gap)
     // AND traversed, so it needs a longer reaction window than a bullet you sidestep.
     const slow = closing * 0.66;
     const b = activeBand[bandIdx++ % activeBand.length];
+    let spawned = 0;
     for (let x = -hw; x <= hw; x += stepX) {
       if (Math.abs(x - gap) < slot) continue;
       for (let y = CONFIG.laneMinY + 2.5; y <= CONFIG.laneMaxY - 2; y += stepY) {
-        emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
+        if (emitBoss(x, y, 0, 0, -slow, false, b.c, b.s)) spawned++;
       }
     }
+    if (spawned) noteGapThreadRow(gap, slot, CONFIG.laneMinY + 2.5, CONFIG.laneMaxY - 2, 0, -slow);   // §ENG-G: only score a row that actually materialised (pool cap can clip it)
   } else if (id === 'movingGap') {
     // MOVING-GAP WALL — timed rows (two y-bands each) whose safe gap SLIDES
     // sideways between rows: you can't pre-camp the gap, you track it in time.
@@ -2967,19 +4247,100 @@ function executeAttack(id, player) {
     const g0 = Math.max(-6, Math.min(6, player.position.x));
     const slow = closing * 0.9;
     for (let k = 0; k < rows; k++) {
-      const gap = Math.max(-9, Math.min(9, g0 + dir * 2.6 * k));
       const b = activeBand[k % activeBand.length];
       pending.push({ t: k * 0.3, fire: () => {
+        // §ENG-B: an authored anchor LOCKS the lane (re-resolved live per row — a moving
+        // organ tracks); un-opted keeps the shipped slide from the player-seeded g0.
+        const ax = resolveGapAnchor('movingGap');
+        const gap = Math.max(-9, Math.min(9, ax != null ? ax : g0 + dir * 2.6 * k));
         const hw = Math.min(12, arenaHW - 1), sx = (hw * 2) / n;
         // Bands track the player's LIVE height so the wall can't be out-CLIMBED —
         // flying high/low just keeps you sandwiched; the moving X gap is the answer.
         const cy = Math.max(CONFIG.laneMinY + 3, Math.min(CONFIG.laneMaxY - 3, player.position.y));
+        let spawned = 0;
         for (let x = -hw; x <= hw; x += sx) {
           if (Math.abs(x - gap) < 2.6) continue;
           for (const y of [cy - 2.4, cy + 2.4]) {
-            emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
+            if (emitBoss(x, y, 0, 0, -slow, false, b.c, b.s)) spawned++;
           }
         }
+        if (spawned) noteGapThreadRow(gap, 2.6, cy - 2.4, cy + 2.4, 0, -slow);   // §ENG-G: score only a materialised row
+      } });
+    }
+  } else if (id === 'crestfall') {
+    // CRESTFALL (CP2-B, EMBERTIDE's full-frame emitter) — THE TIDE CRESTS THE WHOLE
+    // FRAME: full-width rows pour from the crest line high above the lane and BREAK
+    // downward into it in sequence, a generous safe gap sliding sideways between rows
+    // (you track it in time, like movingGap, but the sheet also falls — the crest is
+    // the emitter, §5f law 7). EMBERTIDE-only (listed in its phases); every other boss
+    // never selects it. The amber floor is held by the phase's crossfire/stream carrier
+    // (bossRhythm amberSwap forces one when the 12s window is about to lapse).
+    const rows = quality < 0.75 ? 4 : 5;
+    const slow = closing * 0.6;
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const g0 = Math.max(-6, Math.min(6, player.position.x));
+    for (let k = 0; k < rows; k++) {
+      const b = activeBand[k % activeBand.length];
+      pending.push({ t: k * 0.32, fire: () => {
+        const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
+        // Normal crest: the safe gap SLIDES between rows (track it in time). During
+        // HORIZON-BREAK it instead LOCKS to the live face-shadow pocket (horizonPocketX,
+        // which sweeps as the face looks around) — so you ride the shadow, not a rhythm.
+        const gapC = horizonPocketX != null ? horizonPocketX : (g0 + dir * 2.5 * k);
+        const gap = Math.max(-hw + 3.4, Math.min(hw - 3.4, gapC));
+        const topY = CONFIG.laneMaxY + 3;          // spawn AT the crest, above the frame top
+        let spawned = 0;
+        for (let x = -hw; x <= hw; x += stepX) {
+          if (Math.abs(x - gap) < 3.4) continue;   // the safe pocket (generous — a full frame)
+          if (emitBoss(x, topY, 0, -5.5, -slow, false, b.c, b.s)) spawned++;   // breaks DOWNWARD (vy) + closes (vrel)
+        }
+        if (spawned) noteGapThreadRow(gap, 3.4, topY, topY, -5.5, -slow);   // §ENG-G: score only a materialised row (a falling line)
+      } });
+    }
+  } else if (id === 'geyser') {
+    // GEYSER (ENG-C — the Calamities band's ONE new attack id, §5b; BRINEHOLM-only,
+    // crestfall's deliberate bottom-up MIRROR across the 8/13 value-inversion axis).
+    // THE FLOOR ERUPTS: full-width rows are born BELOW the frame (CONFIG.laneMinY - 3
+    // = -0.5, safely inside the -16 cull floor bossBullets.js widened for exactly this
+    // §5e need) and erupt UPWARD (vy > 0) while closing (vrel); the safe gap SLIDES
+    // between rows like movingGap's. FAIRNESS (§5i.B drawn-in-world): ONE BEAT before
+    // each row, spray plumes flash at the foot of every DOOMED column — the gap column
+    // stays dark — so each eruption is read on the water line, never an unreadable wall.
+    const rows = quality < 0.75 ? 4 : 5;                  // crestfall's dials, verbatim
+    const slow = closing * 0.6;
+    const dir = Math.random() < 0.5 ? 1 : -1;             // slide direction only (crestfall/movingGap precedent)
+    const g0 = Math.max(-6, Math.min(6, player.position.x));
+    const BEAT = 0.32;                                    // crestfall's row step doubles as the plume lead
+    for (let k = 0; k < rows; k++) {
+      const b = activeBand[k % activeBand.length];
+      let gapX = null;   // sealed at PLUME time; the eruption REUSES it (the telegraph can never lie)
+      const solveGap = () => {
+        const hw = Math.min(12, arenaHW - 1);
+        // §ENG-B: a def-authored anchor (e.g. the submerged head's live x during the
+        // Sounding — the lee pocket) LOCKS the lane; resolved at plume time so plume and
+        // eruption always agree. Un-opted (ENG-C ships no opt) → the player-seeded slide.
+        const ax = resolveGapAnchor('geyser');
+        return Math.max(-hw + 3.4, Math.min(hw - 3.4, ax != null ? ax : g0 + dir * 2.5 * k));
+      };
+      pending.push({ t: k * BEAT, fire: () => {           // the PLUME beat — zero bullets
+        gapX = solveGap();
+        const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
+        for (let x = -hw; x <= hw; x += stepX) {
+          if (Math.abs(x - gapX) < 3.4) continue;         // the safe column shows NO plume
+          tmp.set(x, CONFIG.laneMinY - 0.3, -(player.dist + pose.rel));
+          burst(tmp, def?.accent ?? 0x3ad0b0, { count: 5, speed: 8, size: 0.8, life: 0.45 });
+        }
+      } });
+      pending.push({ t: k * BEAT + BEAT, fire: () => {    // the ERUPTION, one beat later
+        const gap = gapX != null ? gapX : solveGap();     // defensive — never a gapless wall
+        const hw = Math.min(12, arenaHW - 1), stepX = quality < 0.75 ? 3.0 : 2.3;
+        const footY = CONFIG.laneMinY - 3;                // BELOW the frame (world y -0.5)
+        let spawned = 0;
+        for (let x = -hw; x <= hw; x += stepX) {
+          if (Math.abs(x - gap) < 3.4) continue;          // crestfall's safe slot, mirrored
+          if (emitBoss(x, footY, 0, 5.5, -slow, false, b.c, b.s)) spawned++;   // ERUPTS upward (+vy) + closes (vrel)
+        }
+        if (spawned) noteGapThreadRow(gap, 3.4, footY, footY, 5.5, -slow);   // §ENG-G: score only a materialised row (a rising line; eruption beat only)
       } });
     }
   } else if (id === 'iris') {
@@ -2990,7 +4351,13 @@ function executeAttack(id, player) {
     const rad = 10, contract = 0.62;
     const slow = closing * 0.8;
     const inSpd = (rad * contract) / (pose.rel / slow);   // arrives at rad×(1−contract) ≈ 3.8
-    const cx = anchorX, cy = B.fightHeight;
+    // §ENG-B: an authored ring centre (e.g. the storm's eye) — clamped to iris's own ±8
+    // envelope; resolved ONCE here (not per-ring) so the volley's rings stay concentric.
+    const gax = resolveGapAnchor('iris');
+    const cx = gax != null ? Math.max(-8, Math.min(8, gax)) : anchorX, cy = B.fightHeight;
+    // (§ENG-H: the shrinkDisc pocket arm MOVED from here to the `spiral` branch — the toll
+    // now radiates an EXPANDING wall from the bell mouth, not a shrinking iris middle. This
+    // branch is stash-free for every def; the gapAnchor iris read above is unchanged.)
     for (let k = 0; k < rings; k++) {
       const b = activeBand[k % activeBand.length];
       pending.push({ t: k * 0.4, fire: () => {
@@ -3012,8 +4379,19 @@ function executeAttack(id, player) {
     for (let k = 0; k < ticks; k++) {
       const amber = (k % 4) === 3;   // amber tip every 4th tick (the parry beat)
       pending.push({ t: k * 0.14, fire: () => {
-        const v = aimVel(player.position.x, player.position.y, slow);
-        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, amber, null, 1, null, emitOrigin.rel);
+        // ENG-A: re-resolve per tick (the twins move between ticks). Un-opted →
+        // the shipped single-origin hose. An opted 2-origin stream fires 2 bullets
+        // per tick (2 ambers on the amber tick — a richer parry beat for that def).
+        const origins = resolveEmitOrigins('stream', player);
+        if (origins) {
+          for (const o of origins) {
+            const v = aimVelFrom(o, player.position.x, player.position.y, slow);
+            emitBoss(o.x, o.y, v.vx, v.vy, -slow, amber, null, 1, null, o.rel, o.part);   // §ENG-EW: tag the holder muzzle's amber (eitherMuzzle)
+          }
+        } else {
+          const v = aimVel(player.position.x, player.position.y, slow);
+          emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, amber, null, 1, null, emitOrigin.rel);
+        }
       } });
     }
   } else if (id === 'secondWave') {
@@ -3040,11 +4418,26 @@ function executeAttack(id, player) {
     // flee direction is clean. Precision shots → REFLECTABLE (amber): parry fuel.
     const each = quality < 0.75 ? 4 : 5;
     const slow = closing * 0.95;
-    for (const ex of [-10, 10]) {
-      for (let i = 0; i < each; i++) {
-        const off = (i / (each - 1) - 0.5) * 5;
-        const t = Math.max(pose.rel / slow, 0.05);
-        emitBoss(ex, pose.y, (px + off - ex) / t, (py - pose.y) / t, -slow, true);
+    // ENG-A: def-gated per-organ origins (eitherwing: the two twins fire the
+    // converging spreads from their live lemniscate positions). Un-opted defs take
+    // the shipped ±10 posts below, byte-identical. [] (all twins behind the plane)
+    // → the volley goes SILENT rather than resurrect posts nobody occupies.
+    const origins = resolveEmitOrigins('crossfire', player);
+    if (origins) {
+      for (const o of origins) {
+        for (let i = 0; i < each; i++) {
+          const off = (i / (each - 1) - 0.5) * 5;
+          const t = Math.max(o.rel / slow, 0.05);   // per-emitter time-to-impact (§5e)
+          emitBoss(o.x, o.y, (px + off - o.x) / t, (py - o.y) / t, -slow, true, null, 1, null, o.rel, o.part);   // §ENG-EW: tag the firing twin's amber (eitherTwinA/B)
+        }
+      }
+    } else {
+      for (const ex of [-10, 10]) {
+        for (let i = 0; i < each; i++) {
+          const off = (i / (each - 1) - 0.5) * 5;
+          const t = Math.max(pose.rel / slow, 0.05);
+          emitBoss(ex, pose.y, (px + off - ex) / t, (py - pose.y) / t, -slow, true);
+        }
       }
     }
   }
@@ -3085,7 +4478,9 @@ function fireRing(cx, cy, radius, m, vrel, color, sizeMult = 1, coreColor = null
 // if reflectable, otherwise the boss's magenta danger colour. `coreColor` overrides
 // the white "hot disc" centre — ONLY graze-bait passes one (the dark "donut" read).
 function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1, coreColor = null, originRel = null, part = null) {
-  spawnBossBullet({
+  // Returns the spawned bullet, or null if the pool was saturated (visibleCap) — callers that
+  // need to know a column actually materialised (§ENG-G thread ledger) read this.
+  return spawnBossBullet({
     owner: 'boss', x, y, rel: originRel ?? pose.rel,
     vx, vy, vrel, color: color ?? (reflectable ? REFLECT_COLOR : bulletColor), reflectable,
     dmg: B.bulletDamage, r: B.bulletRadius * sizeMult, life: 6,
@@ -3118,8 +4513,15 @@ function fireRiderShot(player) {
 function lockCandidates() {
   if (!def) return [];
   const out = [];
-  if (def.lockParts) for (const lp of def.lockParts) out.push(lp.part);
-  if (def.virtualLockOrgan) out.push(def.virtualLockOrgan);
+  // §CP2-D4: filter DEAD lockParts here too, not only in paintableParts — ONEWING is the first boss
+  // whose ENTIRE candidate set can die (frame-break, no virtual organ), and the aim layer reads THIS
+  // list. Without the filter the reticle stays live on the broken frame (parked at its fall pose,
+  // still resolving with visible=false), can green, and holds the rider chip-rate bonus on a corpse.
+  // §CP2-D1: the aim layer must ALSO drop the crush-sealed high organs (paintableParts alone leaves
+  // the V1 aim-line + reticle leading to an organ the clamped player can't reach during the crush).
+  const crushSealed = def.crushSealOrgans && crushHoldT > 0;
+  if (def.lockParts) for (const lp of def.lockParts) if (!lockPartDead(lp.part) && !(crushSealed && def.crushSealOrgans.includes(lp.part))) out.push(lp.part);
+  if (def.virtualLockOrgan && !(crushSealed && def.crushSealOrgans.includes(def.virtualLockOrgan))) out.push(def.virtualLockOrgan);
   return out;
 }
 
@@ -3134,6 +4536,11 @@ function lockCandidates() {
 // def that adds an invulnerable state must be reachable from here.
 function lockDeflected() {
   if (shielded) return true;
+  // §5i.C rung 12 (ONEWING felledLie): while the fake death plays the boss is SEALED — painting,
+  // decay + the cap fuse freeze (pips wait, ashen, never wasted) and resume on felledRevive. Without
+  // this the player lances a boss playing dead and every lance is voided with a shieldPing (the
+  // ONE-DEFLECT-RULE violation the burn ticks already avoid via this same predicate). Inert off onewing.
+  if (felledLieT > 0) return true;
   if (def.condenseInvuln && model.condenseLive && model.condenseLive() < 0.45) return true;   // swarm scattered
   // NB the eye-weak-point lid-down is NO LONGER a whole-layer seal (owner playtest:
   // "while the eye's down I can't tag ANYTHING, not even the shackles, for ages").
@@ -3147,6 +4554,7 @@ function lockDeflected() {
 // The current phase's hp span (hpMax × its atFrac slice) — the base of the per-volley
 // ROI clamp (volley total ≤ volleyRoiFrac × this, enforced in lockLayer at release).
 function currentPhaseHp() {
+  if (def.formLifebars) return hpMax;   // each form is its own full bar
   const cur = def.phases[phaseIdx]?.atFrac ?? 1;
   const next = def.phases[phaseIdx + 1]?.atFrac ?? 0;
   return Math.max(1, (cur - next) * hpMax);
@@ -3255,6 +4663,13 @@ function lockPartDead(part) {
   if (def.destructibleShackles && part.startsWith('shacklePost')) {
     return !!model.shackleBroken?.(+part.slice(11));
   }
+  if (def.destructibleRibs && part.startsWith('ribPivot')) {   // §ENG-E: a cracked rib leaves the paintable set
+    return !(model.ribAlive?.(ribTagToIdx(part)) ?? true);
+  }
+  // §5i.C rung 12 (ONEWING): breaking the fused ghost-frame kills BOTH frame dwell organs (frameRoot
+  // is a frameGroup child that falls with it) — the honest-sacrifice trade. The nodes still resolve
+  // (frameGroup.visible=false), so without this the reticle would lead to a frame that fell off.
+  if (def.ghostHalf && ghostFrameBroken && (part === 'frameGroup' || part === 'frameRoot')) return true;
   return false;
 }
 
@@ -3264,12 +4679,27 @@ function paintableParts() {
   // it's submerged — so the shackles stay brandable through the down windows and the
   // eye itself waits for its surface. It rejoins the instant it surfaces.
   const eyeSealed = def.eyeWeakPoint && def.eyeOrgan && model.eyeIsUp && !model.eyeIsUp();
+  // §COMFORT-D2 RECOIL SEAL (WEFTWITCH): while the thread-cut throws her hands APART (they swing
+  // toward the ±13 kill wall during the strike window), the flung palms LEAVE the paint set — so
+  // the intended target is the central loomHeart anchor, never a palm lured out to the wall. The
+  // palms rejoin as the recoil settles. Def-gated (recoilOrgans) + model-gated (handsFlung); inert
+  // for every other boss and whenever the hands are home.
+  const recoilSealed = def.recoilOrgans && model.handsFlung && model.handsFlung();
+  // §CP2-D1 CRUSH SEAL (EMBERTIDE): while the sky CRUSHES the lane (def.skyCrush → the player is
+  // clamped to bossArenaHY ~13.4 for ~10s/phase), the HIGH organs (the eyes ~y19, the crest ~y19)
+  // are out of the acquire cone — leading the reticle to them strands the player against the invisible
+  // ceiling with dwell that never accrues. Seal them for the crush; the low mouth stays the anchor.
+  // A REAL fair window (the crush is a genuine open/close state — unlike the dropped surfacing gate).
+  const crushSealed = def.crushSealOrgans && crushHoldT > 0;
   const out = [];
   for (const lp of def.lockParts) {
     if (eyeSealed && lp.part === def.eyeOrgan) continue;
+    if (recoilSealed && def.recoilOrgans.includes(lp.part)) continue;
+    if (crushSealed && def.crushSealOrgans.includes(lp.part)) continue;
     if ((!lp.phases || lp.phases.includes(phaseIdx)) && !lockPartDead(lp.part)) out.push(lp.part);
   }
-  if (def.virtualLockOrgan && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
+  if (def.virtualLockOrgan && !(crushSealed && def.crushSealOrgans.includes(def.virtualLockOrgan))
+      && !out.includes(def.virtualLockOrgan)) out.push(def.virtualLockOrgan);
   return out;
 }
 
@@ -3282,7 +4712,7 @@ function paintableParts() {
 // off-shoulder (the rider fires from +0.6; wisps leave from −0.6). `vrel` is the
 // plain bossSpeed — the arrival FRAME is identical to the pre-wisp straight lance.
 const _lanceV = new THREE.Vector3();
-function fireLanceAt(player, part, dmg, i = 0, n = 1) {
+function fireLanceAt(player, part, dmg, i = 0, n = 1, full = false, snap = false) {
   const w = model && model.partWorldPos ? model.partWorldPos(part, _lanceV) : null;
   const tx = w ? w.x : pose.x, ty = w ? w.y : pose.y;
   const trel = w ? Math.max(-w.z - player.dist, 4) : pose.rel;
@@ -3296,6 +4726,8 @@ function fireLanceAt(player, part, dmg, i = 0, n = 1) {
     color: lanceTint, coreColor: 0xeafff6, dmg, r: 0.5, life: 4, part,
     homeDelay: L.lanceHomeDelay,
     curl: (i % 2 ? -1 : 1) * L.lanceCurlRate,   // deterministic: slot parity, no RNG
+    volleyN: n, volleyFull: full, volleyFirst: i === 0,   // PR9 presentation tags (finale detect)
+    volleySnap: snap,   // PR9.1: impact-roll grid eligibility (cap/fork auto, or an EARNED perfect tap)
   });
 }
 
@@ -3390,6 +4822,26 @@ on('lockPaint', (p) => {
     saveData.flags.snapTaught = true; persist();
     ui.bossNote?.('THE MARK ANSWERS THE PARRY', '', 'gold', 1.8);
   }
+  // §5i.C rung 12 SPECTRAL ECHO (ONEWING): the FIRST mark on each fused-frame organ (a FRESH paint —
+  // not a stack or a refresh) echoes a half-strength GHOST pip onto the living eye — "mark the dead
+  // half, the living half answers." Two frame organs → up to echoMax(2) ghosts ("pips arrive in
+  // pairs"). grantEchoPip enforces the cap + never stacks onto a real pip. Inert for every other def.
+  // §CP2-D2: a PARRY-SNAP paint (p.snap) does NOT echo — a snap costs no dwell time, and the deleter
+  // model prices echoes against DWELL-painted frame marks; letting a free snap also grant a free
+  // ghost would double-free the razor P5 margin. The snap still paints the frame (a real pip).
+  if (p && def?.echoOrgans && def?.echoTarget && !p.stacked && !p.refreshed && !p.snap && def.echoOrgans.includes(p.part)
+      && grantEchoPip(def.echoTarget, def.echoMax ?? Infinity)) {
+    if (model && model.partWorldPos) {   // a brief connecting pulse so the frame→eye pairing reads
+      const a = model.partWorldPos(p.part, _brandPopV);
+      if (a) burst(a, 0xbfa9d6, { count: 6, speed: 8, size: 0.6, life: 0.4 });
+      const b = model.partWorldPos(def.echoTarget, _brandPopV);
+      if (b) burst(b, 0xd8c8f0, { count: 9, speed: 6, size: 0.7, life: 0.55 });
+    }
+    if (!saveData.flags.echoTaught) {
+      saveData.flags.echoTaught = true; persist();
+      ui.bossNote?.('✦ THE DEAD TWIN ANSWERS ✦', 'MARK ITS FRAME — THE LIVING EYE ECHOES (HALF-STRIKE)', 'gold', 2.8);
+    }
+  }
 });
 on('lockVolley', (p) => {
   if (p && p.source === 'cap' && !saveData.flags.lockCapSeen) {
@@ -3403,7 +4855,72 @@ on('lockVolley', (p) => {
     game.score += pts;
     ui.bossNote?.('♪ ON THE BEAT ♪', `+${pts}`, 'gold', 1.6);
   }
+  // SCAR-BURN (§4b): an ON-TELL (perfect) manual release of ≥ burnFloor pips on a
+  // tier ≥ minTier boss leaves a burning brand — an extra `frac × volleyTotal` paid
+  // over `dur` as scheduled DOT ticks. The cap auto-release (source 'cap') never has
+  // p.perfect, so it never burns (the safe fallback).
+  // §5i.C rung 12: a SPECTRAL echo (ghost pip) never EARNS a burn — the floor is checked against
+  // paintedCount (REAL pips only) so ghosts can't cross burnFloor for free, and the burn base is the
+  // true volleyTotal (real + half-ghost). For a non-echo boss paintedCount===count and
+  // volleyTotal===count×dmgEach, so this is identical to the pre-echo arithmetic.
+  const sb = CONFIG.LOCK.scarBurn;
+  const frac = sb && (def?.tier ?? 1) >= sb.minTier ? (sb.fracBySlot?.[def.id] ?? 0) : 0;
+  const paintedCount = p?.paintedCount ?? p?.count ?? 0;
+  const volleyTotal = p?.volleyTotal ?? ((p?.count ?? 0) * (p?.dmgEach ?? 0));
+  if (p && p.perfect && frac > 0 && paintedCount >= sb.burnFloor && volleyTotal > 0 && !labPacifist) {
+    const total = frac * volleyTotal;
+    const interval = sb.tickInterval ?? 0.3;
+    const nTicks = Math.max(1, Math.round(sb.dur / interval));
+    burns.push({ tick: total / nTicks, ticksLeft: nTicks, interval, tAcc: 0 });
+    emit('lockBurn', { total, dur: sb.dur, count: paintedCount });
+  }
+  // §5i.C THE VOLLEY TEARS, SHE MENDS (WEFTWITCH rung 11 rule): a DELIBERATE ≥burnFloor-pip
+  // release (a manual tap or the cap auto-loose — NEVER a decay fizzle or the Surge 'fork')
+  // TEARS a web sector and forces her to MEND it: a 2.5s mid-phase scheduling-silence window
+  // (the shared `staggerT` the `def.threadCut` consumer already drains — §3186). ONCE per
+  // phase. Unlike the THREAD-CUT stagger it does NOT delete in-flight ambers (that stays
+  // parry's verb) — but it WIPES queued `pending` sub-volleys so the window is actually quiet
+  // (the breakShield precedent). Her hands keep weaving (moving organs — NO stillness freeze),
+  // so the reliable paint is the loomHeart anchor, not a free 6-cap buffet (§CP1 PR4b). The
+  // cosmetic restitch runs ~3.4s (a slight visual tail past the 2.5s window — acceptable).
+  if (def?.threadCut && !mendOffered && (p?.source === 'tap' || p?.source === 'cap')
+      && p.count >= (sb?.burnFloor ?? 3) && phase === 'fight' && !shielded && staggerT <= 0 && !labPacifist) {
+    mendOffered = true;
+    staggerT = 2.5;
+    pending.length = 0;
+    model.restitchWeb?.();
+    if (chargeT > 0) { chargeT = 0; model.setCharge(0); model.setAttackTell?.(null); }
+    ui.bossNote?.('✦ YOU TORE THE WEB — SHE MENDS ✦', 'BRAND WHILE SHE WEAVES', 'gold', 1.6);
+    emit('weftMend', {});
+  }
 });
+
+// Tick the active SCAR-BURN DOTs. PAUSES entirely while lockDeflected() (shield /
+// survival seal / scattered) — a sealed boss eats no burn and the ticks resume on
+// the break (never spam the shieldPing, never lose damage — §CP1). Damage is routed
+// through damageBoss with kind 'lockburn' and NO `e`, so routePartDamage never runs:
+// a burn accrues zero part-crack hits and charges no meters. Burns are CLEARED (not
+// paused) on a phase transition / teardown so P(n)-priced ticks never leak into
+// P(n+1)'s pool (§CP1 B-2).
+function updateBurns(dt) {
+  if (!burns.length) return;
+  if (lockDeflected()) return;   // pause; the entries persist, tAcc frozen
+  for (let i = burns.length - 1; i >= 0; i--) {
+    const b = burns[i];
+    b.tAcc += dt;
+    // Re-check lockDeflected() PER TICK (§CP2 SHOULD-FIX-6): a burn tick can push hp to
+    // the phase floor and raise the shield mid-frame — sibling ticks must then stop, not
+    // ping the freshly-raised shield (the seal would eat + lose them, spamming shieldPing).
+    while (b.tAcc >= b.interval && b.ticksLeft > 0 && !lockDeflected()) {
+      b.tAcc -= b.interval;
+      b.ticksLeft--;
+      damageBoss(b.tick, 'lockburn');   // no `e` → no crack accounting, no meters
+      model.flash?.(0.08);
+      emit('lockBurnTick', {});
+    }
+    if (b.ticksLeft <= 0) burns.splice(i, 1);
+  }
+}
 
 function driveAimTeach(dt, ctx) {
   if (!def || !def.virtualLockOrgan || saveData.flags.aimTaught) return;
@@ -3433,6 +4950,15 @@ function driveAimTeach(dt, ctx) {
 // Each entry names the def flag + the model's own hit-test/crack/alive/live hooks
 // so the routing is part-agnostic; a boss without the flag/hooks never enters it.
 const PART_CRACK_HITS = 3;
+// §ENG-E ORGAN BREAK (MARROWCOIL): the ribs are the ONLY parry-fed PART_SYS row — its
+// counter is the `partParries` ledger (perfect parries at the roll), NEVER routePartDamage's
+// shot ledger. `counter:'parry'` makes routePartDamage skip it (belt); it declares no `hit`
+// hook, so the landing-point fallback can never route to it (suspenders) — the single-ledger
+// law (a parry can't double-book across two counters). This is the diff from HOLLOWGATE's
+// panes: panes are edited by gunfire+parry; ribs are parry-only.
+const RIB_SYS = { flag: 'destructibleRibs', crack: 'crackRib', alive: 'ribAlive', live: 'liveRibs',
+  key: 'rib', note: ['✦ RIB CRACKED ✦', 'ITS VOLLEY IS SILENCED'], event: 'bossRibBreak',
+  counter: 'parry', lockName: (i) => 'ribPivot' + (i % 2 ? 'R' : 'L') + (i >> 1) };
 const PART_SYS = [
   { flag: 'destructiblePanes', crack: 'crackPane', hit: 'paneHitTest', alive: 'paneAlive', live: 'livePanes',
     key: 'pane', note: ['✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED'], event: 'bossPaneBreak',
@@ -3442,11 +4968,65 @@ const PART_SYS = [
   { flag: 'destructibleShackles', crack: 'crackShackle', hit: 'shackleHitTest', broken: 'shackleBroken', live: 'liveShackles',
     key: 'shackle', note: ['✦ SHACKLE SNAPPED ✦', 'FREED EARLY — IT EASES'], event: 'bossShackleBreak', spray: true,
     lockName: (i) => 'shacklePost' + i },
+  RIB_SYS,
 ];
 const partHits = new Map();          // "key:idx" → accumulated counted hits (reset per encounter)
+// §ENG-E: the PARRY-side per-part ledger (distinct from partHits = shot damage). Keyed by
+// the amber's source-part TAG STRING ('ribPivotL1'), fed from reflectBossBullets' snapParts
+// (perfect-only, deduped per roll). Generic for later reuses (C.4 holder, C.6 gems).
+const RIB_BREAK_PARRIES = 3;         // N (§5b "N×") — the roster's canonical 3 (panes/stagger/holder)
+const HOLDER_STAGGER_PARRIES = 3;    // §5b slot 5 verbatim "3× mid-possession" — the roster's canonical 3, reused on EITHERWING's eye-holder
+const HOLDER_KEY = 'eitherHolder';   // the partParries key for the holder-stagger bank (synthetic — the POSSESSION, not a node)
+const partParries = new Map();       // part-tag → banked PERFECT parries
+// Rib tag ('ribPivotL3') → canonical index (L0=0,R0=1,L1=2,…); -1 for non-rib/unknown tags.
+function ribTagToIdx(tag) {
+  const m = /^ribPivot([LR])([0-4])$/.exec(tag || '');
+  return m ? (+m[2]) * 2 + (m[1] === 'L' ? 0 : 1) : -1;
+}
+// Crack a rib from the parry path: unconditional crack (parry jobs never gate on hp state),
+// then the shared ceremony + a +6 bonus chip routed through damageBoss (a shield may eat it).
+function breakRib(idx) {
+  if (!model.crackRib?.(idx)) return;   // idempotent (crackPane precedent)
+  const bonus = applyPartBreak(RIB_SYS, idx);
+  damageBoss(bonus, 'rider');
+}
+// The crack ceremony, shared by the shot path (routePartDamage) and the parry path
+// (breakRib) so both fire an identical break. Returns the +6 bonus chip. The CRACK
+// itself is done by the caller (in the threshold `if`) — this is the after-effects only.
+function applyPartBreak(sys, idx) {
+  sfx.shieldShatter?.();
+  if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
+  cameraCtl.shake?.(0.6);
+  ui.bossNote?.(sys.note[0], sys.note[1], 'gold', 2.2);
+  const left = model[sys.live]?.().length ?? 0;
+  emit(sys.event, { [sys.key]: idx, left });
+  // §BOSS-FEEL §3 C.1: the LAST pane arms the breach — pane row only (key gate), and the
+  // pane row is itself def-gated (routePartDamage checks def.destructiblePanes before
+  // entering; breakRib passes RIB_SYS explicitly) → HOLLOWGATE-only by construction.
+  if (sys.key === 'pane' && left === 0) armBreach();
+  // PR6: a destroyed sub-part can't keep a brand — drop any pip on it (silent; the
+  // shatter IS the feedback) so no mark sits on a corpse and no lance flies at one.
+  if (sys.lockName) dropLockPart(sys.lockName(idx));
+  if (sys.spray) ventSprayBeat();   // §5i.B the freed post vents a 2× pink SPRAY-SOAK graze beat
+  return 6;                         // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
+}
+// §BOSS-FEEL §3 C.1 THE DOOR OPENS (reward loop 1 ONLY — owner-locked scope): break all
+// eight panes and the Door That Prays finally opens — the bare hub takes 1.5× (damageBoss).
+// Arms once; ceremony is the shipped state-flip vocabulary (the ONEWING frame-break
+// precedent, NOT a second shieldShatter — the 8th pane's own applyPartBreak ceremony has
+// just fired shieldShatter+shake in this same call). NO new mesh/additive volume (§2 law).
+function armBreach() {
+  if (breached) return;
+  breached = true;
+  sfx.milestone?.();
+  cameraCtl.shake?.(1.2);
+  ui.bossNote?.('✦ THE DOOR OPENS ✦', 'THE THRESHOLD IS BARE', 'gold', 3.0);
+  emit('bossBreach', {});
+}
 function routePartDamage(e) {
   for (const sys of PART_SYS) {
     if (!def?.[sys.flag] || !model?.[sys.crack]) continue;
+    if (sys.counter === 'parry') continue;   // §ENG-E: parry-fed rows (ribs) never route on shot/arrival — the partParries ledger owns them
     let idx = (typeof e.part === 'number') ? e.part : -1;
     // Fallback routing by landing point (boss-local frame: world x/y minus the
     // group origin at pose) — rider chips aimed at the centre miss the part by
@@ -3462,19 +5042,7 @@ function routePartDamage(e) {
     const mk = `${sys.key}:${idx}`;
     const n = (partHits.get(mk) ?? 0) + w;
     partHits.set(mk, n);
-    if (n >= PART_CRACK_HITS && model[sys.crack](idx)) {
-      sfx.shieldShatter?.();
-      if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
-      cameraCtl.shake?.(0.6);
-      ui.bossNote?.(sys.note[0], sys.note[1], 'gold', 2.2);
-      emit(sys.event, { [sys.key]: idx, left: model[sys.live]?.().length ?? 0 });
-      // PR6: a destroyed sub-part can't keep a brand — drop any pip on it
-      // (silent; the shatter IS the feedback) so no mark sits on a corpse and
-      // no lance flies at one. The liveness filter keeps it out of re-acquire.
-      if (sys.lockName) dropLockPart(sys.lockName(idx));
-      if (sys.spray) ventSprayBeat();   // §5i.B the freed post vents a 2× pink SPRAY-SOAK graze beat
-      return 6;                        // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
-    }
+    if (n >= PART_CRACK_HITS && model[sys.crack](idx)) return applyPartBreak(sys, idx);
     return 0;
   }
   return 0;
@@ -3498,11 +5066,43 @@ function ventSprayBeat() {
 
 function damageBoss(amount, kind, e = null) {
   if (phase !== 'fight') return;
+  // LANCE LAB: the range target is an anvil — flash so a landed strike still
+  // visibly answers, but NO state ever changes: hp frozen (never reaches a
+  // shield floor → lockDeflected stays false → painting always live), no organ
+  // cracks (routePartDamage skipped → brands never drop), no riposte return,
+  // no death. This one early-return IS the repeat-volley mechanism.
+  if (labPacifist) { model?.flash?.(0.3); return; }
+  // §ENG-LT THE CLAPPER SEAM (def.survivalResolve.weakPart — knellgrave-only): during the
+  // survival seal the bound clapper is the ONE thing that answers a hit. Scoped FIVE ways so
+  // the seal never leaks: (1) only while the seal runs; (2) RIDER chip only — 'player' returns
+  // stay the parry economy's (§3c, no double-dip), 'surge' stays fully sealed, 'lance' never
+  // flies (lockDeflected); (3) the chip must be POSE-CENTRE aimed (`e.part == null`) — a
+  // LOCK-RETARGETED chip (tagged `e.part` by fireRiderShot) is excluded, so holding a bind/wound
+  // lock through the seal can't turn the rider into a resolve turret (the §CP2 PR2a leak fix —
+  // KNELLGRAVE gained lockParts, falsifying the old "always pose-centre" assumption this seam
+  // rested on); (4) the LANDING point within CLAPPER_HIT_R of the part's live world x/y;
+  // (5) the PLAYER within CLAPPER_NEAR of it — proximity is the "dart under the bell" verb. NO
+  // hp moves — the fairness hatch stays intact; the strike feeds RESOLVE and the bell RINGS (a
+  // diegetic answering toll, NOT the deflect ping). Above the seal so it wins the frame.
+  if (activeCard && activeCard.survival && def.survivalResolve?.weakPart
+      && kind === 'rider' && e && e.x != null && e.y != null && e.part == null && lastPlayer) {
+    const w = model?.partWorldPos?.(def.survivalResolve.weakPart, _wpV);
+    if (w
+        && Math.hypot(e.x - w.x, e.y - w.y) <= CLAPPER_HIT_R
+        && Math.hypot(lastPlayer.position.x - w.x, lastPlayer.position.y - w.y) <= CLAPPER_NEAR) {
+      model.hurt?.(0.5);        // the bell RINGS the strike (ringKick + painT — the §4b FLINCH carrier)
+      bellToll(0.3, 0.35);      // a quiet answering toll — diegetic, unmistakably NOT the deflect ping
+      emit('bossClapperHit', {});
+      feedResolve(RESOLVE_STRIKE);
+      return;                   // consumed — never falls through to the seal's flash/ping
+    }
+  }
   // §5f SURVIVAL-CARD SEAL (slot 10 debut — The Last Toll): while a `survival` card
   // runs, the boss is SEALED — all damage deflects and the UNFILLABLE BAR is the tell
   // (§5f's exact grammar). No bubble: the tolls keep firing (a pure-dodge exam) and
   // the dread setpiece runs. Outlasting the timer resolves the card (see the card
-  // timeout); lances already deflect via lockDeflected.
+  // timeout); lances already deflect via lockDeflected. §ENG-LT: the clapper seam above
+  // is the one scoped exception; SURVIVAL RESOLVE can break this seal EARLY (feedResolve).
   if (activeCard && activeCard.survival) { model?.flash?.(0.12); sfx.shieldPing?.(); return; }
   // §5f the LYING FELLED window: the boss is faking death — no chip lands until the
   // truth reveals (the returning bar). Inert for every other def (felledLieT stays 0).
@@ -3521,16 +5121,38 @@ function damageBoss(amount, kind, e = null) {
   // the shot comes BACK as a slow parryable amber — re-reflect it (the C1 seed of
   // the tennis exchange; the full rally + reflect-only seal stays deferred C2 scope).
   // Surge ('surge') and gun chip ('lance'/'rider') are untouched.
-  if (def.reflectRiposte && kind === 'player' && !riposteUsed
+  if (def.reflectRiposte && kind === 'player'
       && phaseIdx >= (def.reflectRiposte.fromPhase ?? 0)) {
-    riposteUsed = true;
-    model.riposte?.();
-    riposteReturnT = 0.22;
-    sfx.shieldPing?.();
-    if (group) burst(group.position, 0xffc23c, { count: 10, speed: 14, size: 0.9, life: 0.4 });
-    if (!riposteNoted) { riposteNoted = true; ui.bossNote?.('⚔ RIPOSTE ⚔', 'IT PARRIED YOUR PARRY — SWAT IT BACK', 'gold', 2.2); }
-    emit('bossRiposte', { phase: phaseIdx });
-    return;
+    if (rallyAnswerT > 0) {                       // §ENG-KV C.1 RALLY CONTINUATION: the answered return arrives
+      rallyAnswerT = 0; rallyN++;
+      if (rallyN >= RALLY_MAX) {                  // exchange 3 — INITIATIVE WON: the flinch ceremony, then the hit LANDS
+        model.riposte?.();
+        if (lastPlayer) for (let i = 0; i < 4; i++) bulletGraze(lastPlayer);   // damageBoss has no `player` param — use the module-stored player
+        ui.bossNote?.('IT FLINCHED', 'THE RALLY IS YOURS', 'gold', 1.8);
+        emit('bossRallyFlinch', { exchanges: rallyN });
+        rallyN = 0; rallyWindowT = 0; riposteReturnMult = 0.62; riposteCd = RIPOSTE_CD;
+        // NO return — the duelist failed to parry, so this hit falls through to the normal chip.
+      } else {                                    // exchanges 1–2: the faster answer
+        model.riposte?.();
+        riposteReturnT = 0.22;
+        riposteReturnMult = 0.62 * Math.pow(RALLY_STEP, rallyN);   // 0.713, then 0.820
+        riposteCd = RIPOSTE_CD;   // §ENG-KV FIX: keep the cd HOT through a live rally — a rally can outlive 7s (late answers), and a stale cd would let a stray player-kind landing enter the FRESH branch and WIPE rallyN mid-rally
+        sfx.shieldPing?.();
+        if (group) burst(group.position, 0xffc23c, { count: 10, speed: 14, size: 0.9, life: 0.4 });
+        emit('bossRiposte', { phase: phaseIdx, rally: rallyN });
+        return;
+      }
+    } else if (riposteCd <= 0) {                  // FRESH riposte (the shipped body, cd-gated)
+      riposteCd = RIPOSTE_CD;
+      rallyN = 0; riposteReturnMult = 0.62;
+      model.riposte?.();
+      riposteReturnT = 0.22;
+      sfx.shieldPing?.();
+      if (group) burst(group.position, 0xffc23c, { count: 10, speed: 14, size: 0.9, life: 0.4 });
+      if (!riposteNoted) { riposteNoted = true; ui.bossNote?.('⚔ RIPOSTE ⚔', 'IT PARRIED YOUR PARRY — SWAT IT BACK', 'gold', 2.2); }
+      emit('bossRiposte', { phase: phaseIdx, rally: 0 });
+      return;
+    }
   }
   // §5d slot 7 (THRUMSWARM): CHIP only lands while the swarm is CONDENSED. Scattered =
   // invulnerable (the turn-taking tell) — the hit sparks off the dispersed cloud with no
@@ -3563,6 +5185,8 @@ function damageBoss(amount, kind, e = null) {
   // the desperate last stand resolves fast, not a slog through the returned bar. Only
   // ever set post-lie (def.felledLie); byte-identical for every other def.
   if (crippled) amount *= 2.4;
+  if (breached) amount *= 1.5;   // §BOSS-FEEL C.1: the bare hub is a WEAK POINT (only ever set for destructiblePanes defs — HOLLOWGATE)
+  if (slipExposeT > 0) amount *= 2;   // §5f C.2b SLIPSTREAM exposure window (only ever set for grazeForm==='slipstream' defs)
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash
@@ -3578,7 +5202,9 @@ function damageBoss(amount, kind, e = null) {
   }
   // Reached the phase floor → raise the shield. Chip/reflect can't push past it;
   // the player must charge Surge (by grazing) and unleash it to burst through.
-  const floor = def.phases[phaseIdx + 1]?.atFrac ?? 0;
+  // MULTI-FORM boss (def.formLifebars): every form is fought to 0 (its own full bar), so the
+  // floor is 0 for all forms — the shield raises when the FORM is depleted, not at an atFrac.
+  const floor = def.formLifebars ? 0 : (def.phases[phaseIdx + 1]?.atFrac ?? 0);
   if (hp / hpMax <= floor + 1e-4) {
     shielded = true;
     hp = Math.max(hp, floor * hpMax);
@@ -3600,6 +5226,7 @@ function damageBoss(amount, kind, e = null) {
 export function resetBoss() {
   clearSetpiece();
   clearLocks('death');   // THE LANCE layer: drop aim/lock state on a hard teardown
+  burns.length = 0; lastRealTollAt = -10; lastTollGap = 1.2; tollChainN = 0; tollChainAt = -10;   // SCAR-BURN: drop burn state + toll clock + §ENG-C3 chain on teardown
   musicRestore();        // §5f: a hard teardown never strands the run in silence (idempotent)
   removeSeed();   // §5e: no stale horizon silhouette across a run teardown
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
@@ -3613,7 +5240,7 @@ export function resetBoss() {
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
-  activeCard = null; cardTimer = 0;
+  activeCard = null; cardTimer = 0; horizonPocketX = null; beamDuelT = 0; beamDuelCd = 8; hbReleased = false; if (beamDuelMesh) { beamDuelMesh.visible = false; beamDuelMat.opacity = 0; }
   ui.bossCardClear?.();
   if (model && model.rig && scene && model.rig.parent === scene) scene.remove(model.rig);   // EMBERTIDE-as-sky dome
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
@@ -3624,7 +5251,7 @@ export function resetBoss() {
   phase = 'idle';
   group = null; model = null; def = null;
   pendingDeath = false;
-  felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0;   // §5f teardown never strands the lie/frame state
+  felledLieUsed = false; felledLieT = 0; crippled = false; ghostFrameBroken = false; ghostFrameHits = 0; soakT = 0; breached = false;   // §5f teardown never strands the lie/frame state (+ the door)
   noWarnDir = null; noWarnFired = false;                     // §5j fresh deferred-banner state per encounter
   rollParried = false;
   shielded = false;
@@ -3651,10 +5278,23 @@ export function resetBoss() {
   // §5i.B: neutralise the ladder's published effects on teardown (coexist floor).
   setGrazeBonus(1); game.adrenGainMult = 1;
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
+  slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM teardown
+  setpieceRecurCd = 0;   // §BOSS-FEEL C.1: recurrence clock teardown
+  orbAcc = 0; orbPrevTh = null; orbLaps = 0;   // §5i.B ORBIT ANNULUS teardown
+  discAge = 0; discDur = 0; discR = 0; discR1 = 0; discTollN = 0; discCd = 0;   // §5i.B SHRINKING SAFE DISC teardown
+  resolveK = 0; resolveNoted = 0;   // §ENG-LT: resolve meter teardown
+  gapThreadRows.length = 0; gapThreadStreak = 0; gapThreadLastT = -1e9; gapThreadHitsMark = 0;   // §5i.B THREAD-THE-GAP teardown
+  if (slipBandMesh) { slipBandMat.opacity = 0; slipBandMesh.visible = false; }
+  if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
+  if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
   activeBand = BAND;
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
-  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
+  arenaHY = arenaTargetHY = CONFIG.laneMaxY;
+  game.bossArenaHY = null;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false;
+  ui.letterbox?.(false);
+  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
   // encounter snaps to the fixed biome offset (§5h — nearest rung to firstAt).
   nextBossDist = debugFirstAt ?? snapBossDist(B.firstAt - CONFIG.biomeLength * 0.35);
@@ -3686,8 +5326,42 @@ export function setBossDebugPhase(n) {
   debugPhaseJump = Number.isFinite(n) && n > 1 ? n - 1 : null;
 }
 
+// Dev stage-jump: pin the visible STAGE sub-rig of a multi-stage boss (THE UNMASKED). Set
+// FRESH on every launch (the rush picker passes 1 for a normal start) so a stale pick doesn't
+// leak into the next run. Applied at spawn (after the model is built) and live if a boss is
+// already active. Stage 1 (or unset) → the boss's default; 2/3 → the seraph / the unveiling.
+// Dev stage-jump (rush picker / ?bossStage): pick the STARTING stage of a multi-stage boss.
+// The fight then PROGRESSES from there — start at stage 1 and play the transitions live as the
+// phases advance (owner: "start at S1, kill the first form, continue to see the transition"),
+// or jump straight into stage 2/3. So a stage pick sets BOTH the initial visible rig AND the
+// starting phase (its HP fast-forward): stage N ↔ phase N-1. The per-phase transition itself is
+// animated by the boss (model.setPhase) at each live advance — NOT pinned here.
+export function setBossDebugStage(n) {
+  const s = Number.isFinite(n) && n >= 1 ? n : 1;
+  debugStagePin = s > 1 ? s : null;        // spawn: the initial visible stage (stage 1 = the default)
+  debugPhaseJump = s > 1 ? s - 1 : null;   // spawn: start the fight at that stage's phase (HP parked there)
+  if (active && model?.setDebugStage) model.setDebugStage(s);   // live re-pin (studio/debug only)
+}
+
 export function setBossDebugDefIdx(k) {
   debugDefIdx = k;
+}
+
+// LANCE LAB (?lab[=bossKey], owner playtest range for the unleash phrase): the
+// chosen boss spawns shortly after takeoff with its organs fully brandable but
+// it NEVER attacks and NEVER takes damage — hp frozen means no shield floors,
+// no organ cracks, no riposte, no death: paint → unleash → repaint forever.
+// Default target HOLLOWGATE (5 spread rose panes on a static ahead-holding
+// window — the calmest range); the lab also forces the pip cap to 6 so the
+// FULL-cap cadence/finale is testable (no stock boss is tier ≥4 + paintable).
+// Every labPacifist gate below is inert without the param (coexist law).
+let labPacifist = false;
+export function setBossLab(key) {
+  const k = String(key || 'hollowgate').toLowerCase();
+  const idx = BOSS_ORDER.indexOf(k);
+  setBossDebugDefIdx(idx >= 0 ? idx : BOSS_ORDER.indexOf('hollowgate'));
+  setBossDebugFirstAt(180);
+  labPacifist = true;
 }
 
 // Capture hook (bosscrop): pin the charge/mantle pose at `level` (0..1) so a still
@@ -3736,6 +5410,23 @@ export function debugRestitch() {
   model.restitchWeb();
   return true;
 }
+// §5i.C rung 12 test seams: force the ghost-frame break (the honest sacrifice), force the fake
+// death (the paint seal), and read the lance state (pips + ghost count + lockDeflected).
+export function debugBreakFrame(player) {
+  if (!active || !def?.ghostHalf || ghostFrameBroken) return false;
+  breakGhostFrame(player);
+  return true;
+}
+export function debugFelledLie(player) {
+  if (!active || !def?.felledLie) return false;
+  triggerFelledLie(player);
+  return true;
+}
+export function debugLanceState() {
+  const locks = lockHudState().locks || [];
+  return { pips: lockCount(), parts: lockPaintedParts(), ghosts: locks.filter((l) => l.ghost).length,
+    deflected: lockDeflected(), candidates: lockCandidates(), paintables: paintableParts() };
+}
 
 export function debugCrackPane(i) {
   if (!active || !model?.crackPane) return false;
@@ -3743,7 +5434,17 @@ export function debugCrackPane(i) {
   // Mirror the production crack branch (routePartDamage): a destroyed pane
   // drops its brand too, so the debug seam observes the same behaviour.
   if (ok) dropLockPart('rosePane' + i);
+  if (ok && def?.destructiblePanes && !(model.livePanes?.().length)) armBreach();   // §BOSS-FEEL C.1: mirror the production terminal break (debugCrackPane bypasses applyPartBreak)
   return ok;
+}
+
+// §ENG-E capture hook: crack a rib live (mirrors debugCrackPane) so preview/tiershots
+// can show a broken cage without driving parries. Fires the same ceremony as a real break.
+export function debugCrackRib(i) {
+  if (!active || !model?.crackRib) return false;
+  if (!model.ribAlive?.(i)) return false;
+  breakRib(i);
+  return !model.ribAlive?.(i);
 }
 
 // Capture hook (?debug): arm a named setpiece LIVE from the current fight so a tool can
@@ -3757,6 +5458,9 @@ export function debugRunSetpiece(id) {
   if (!SETPIECE_PATHS[sp.id]) return;
   setpieceDef = sp;
   setpieceT = 0;
+  setpieceRecurCd = sp.recur || 0;   // §BOSS-FEEL C.1: recurrence parity with the live arm path
+  if (sp.id === 'stoopingStrike') { slipExposeUsed = false; slipRideT = 0; }   // §5i.B SLIPSTREAM: re-offer per stoop (test seam parity)
+  if (sp.id === 'figureEight') { orbAcc = 0; orbPrevTh = null; orbLaps = 0; }   // §5i.B ORBIT ANNULUS: fresh accumulator per eight (test seam parity)
   if (!sp.moving) { attackTimer = Math.max(attackTimer, sp.dur + 1.2); riderTimer = Math.max(riderTimer, sp.dur); }
 }
 
@@ -3779,6 +5483,13 @@ export function debugForceFight(player) {
 // PR3 test seams (headless, deterministic — no flaky rAF-throttled dwell/charge):
 // bank pips directly, read the aimed-beam part pick, and fire the Surge climax
 // synchronously. Only touch live state when a fight is running.
+// §ENG-B test seam: arm/clear a def card without driving hp (cards otherwise arm at hp
+// fractions, so the card-gated gapAnchor is untestable headlessly). Returns whether it armed.
+export function debugForceCard(id) {
+  const c = (id && def?.cards?.find((cc) => cc.id === id)) || null;
+  activeCard = c; cardTimer = c ? (c.timer ?? 24) : 0;
+  return !!c;
+}
 export function debugBankLocks(n = 2) {
   const cands = lockCandidates();
   if (!cands.length) return 0;
@@ -3789,6 +5500,15 @@ export function debugBankLocks(n = 2) {
 export function debugBeamAimPart(px = 0, py = 0) {
   return beamAimPart({ position: { x: px, y: py } })?.part ?? null;
 }
+// SCAR-BURN test seams (headless): observe the resonant window (`beatOn`), the live
+// burn state, and request a manual loose (the perfect-release path when beatOn).
+export function debugBeatOn() { return _lastBeatOn; }
+export function debugBurns() {
+  let pending = 0;
+  for (const b of burns) pending += b.tick * b.ticksLeft;
+  return { active: burns.length, pending };
+}
+export function debugLoose() { requestLoose(); }
 export function debugLockCandidates() { return lockCandidates(); }
 export function debugPartWorldPos(part) {
   const w = model && model.partWorldPos ? model.partWorldPos(part, _beamV) : null;
@@ -3799,23 +5519,57 @@ export function debugStrikeSurge() {
   strikeSurge(lastPlayer);
   return true;
 }
+// §5i.C rung 13 test seams: arm the beam duel + read its remaining window (so the fork-extend rule
+// is testable without flying the Surge meter to 50% and holding lane-center headless).
+export function debugArmBeamDuel(t = 3.6) { if (!active || !def?.beamDuel) return false; beamDuelT = t; beamDuelHeld = 0; beamDuelTick = 0; return true; }   // §CP2-D4: reset held/tick like the real arm (boss.js:3204) so a seam-armed duel isn't stale
+export function debugBeamDuelT() { return beamDuelT; }
+// §CP2-D1/D2 rung 13 test seams: force/clear the sky-crush (the high-organ seal window), and read
+// the crush state + the survival-seal state (so the crush-seal + the P4→P5 sealed-fork are testable).
+export function debugCrush(on = true) {
+  if (!active || !def?.skyCrush) return false;
+  crushHoldT = on ? (def.skyCrush.hold ?? 10) : 0;
+  arenaTargetHY = on ? (def.skyCrush.hy ?? 14) : CONFIG.laneMaxY;
+  return true;
+}
+export function debugCrushOn() { return crushHoldT > 0; }
 export function debugRaiseShield() {
   if (phase !== 'fight') return false;
   shielded = true;
   model?.setShieldVisible?.(true);
   return true;
 }
+// Test seam: drop the phase-floor/DPS-gate shield so a headless sim can exercise the
+// unshielded station-keeping loop (e.g. the §BOSS-FEEL recur cadence) without driving a
+// live Surge break. Orthogonal to the mechanic under test; never wired into gameplay.
+export function debugClearShield() {
+  shielded = false;
+  model?.setShieldVisible?.(false);
+  return true;
+}
 // PR6 test seams: the live paintable set (liveness-filtered) + shimmer state.
 export function debugPaintables() { return paintableParts(); }
+export function debugReflectTargets(player) { return resolveReflectTargets(player); }
 export function debugShimmerCount() { return shimmers.filter((s) => s.visible).length; }
 export function debugTetherCount() { return tether && tether.visible ? tether.geometry.drawRange.count / 2 : 0; }
+// §ENG-EW test seam: pin the live eitherwing eye-holder (0 = twinA holds, 1 = twinB, null = release)
+// so the holder-stagger gate can drive a deterministic possession + baton flip. No-op off eitherwing.
+export function debugSetHandoff(t) { model?.setDebugHandoff?.(t); }
 
 export function bossDebugState() {
   // chargeLevel: 0 at the start of a wind-up → 1 at full contraction (mirrors the
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
   // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
   const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT };
+  const slipActive = def?.grazeForm === 'slipstream' && setpieceT >= 0
+    && setpieceDef?.id === 'stoopingStrike' && (setpieceT / (setpieceDef?.dur || 1)) >= SLIP_K_ON;
+  const orbActive = def?.grazeForm === 'orbitAnnulus' && setpieceT >= 0 && setpieceDef?.id === 'figureEight';
+  const discActive = def?.grazeForm === 'shrinkDisc' && discDur > 0;
+  const gapThreadDbg = gapThreadRows.map((r) => ({ gapX: r.gapX, halfW: r.halfW, rel: r.rel }));
+  // §ENG-EW holder-stagger debug (the slip/orb field precedent): the banked parries + the
+  // live possession/drop, so the crop tool + gate can read the eye-drop state.
+  const hs = model?.holdState?.();
+  const holderParries = def?.holderStagger ? (partParries.get(HOLDER_KEY) ?? 0) : 0;
+  return { active, phase, id: def?.id ?? null, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel, ghostFrameBroken, ghostFrameHits, soakT, breached, stagePin: debugStagePin, slipActive, slipX, slipY, slipRideT, slipExposeT, slipR: { in: SLIP_R_IN, wall: SLIP_WALL }, orbActive, orbAcc, orbLaps, orbR: { in: ORB_R_IN, wall: ORB_WALL }, discActive, discX, discY, discR, discR1, discTollN, discGeom: { outSpd: SPIRAL_OUT_SPD, wallFrac: DISC_WALL_FRAC }, discRide: discRideMode(), resolveK, tollChainN, tollAt: lastRealTollAt, tollGap: lastTollGap, staggerT, mendOffered, pendingN: pending.length, gapThreadStreak, gapThreadRows: gapThreadDbg, holderParries, holdTarget: hs ? hs.target : null, eyeDrop: hs ? hs.drop : 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

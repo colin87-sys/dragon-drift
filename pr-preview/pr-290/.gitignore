@@ -9,3 +9,6 @@ tests/gambit.mjs
 
 # Boss design-review capture crops (checkpoint gate artifacts; not shipped)
 reforged-captures/
+
+# Derived combined ledger view (tools/build-ledger.mjs)
+leapfrog/LEDGER.md

@@ -200,6 +200,70 @@ function buildSmoothForgeSkull(c) {
   c.snoutTipZ = -1.55 * sc;
 }
 
+// KOI / eastern-serpent head — ONE lofted Catmull shell (the smoothForgeSkull pattern,
+// L165), shaped SLIM + ELONGATED for jade: a rounded braincase → a defined BROW ridge
+// over the eyes → a soft stop → a full but tapering snout to a rounded nose. No ellipsoid
+// stack, no bead-chain — a sleek river-dragon head instead of a caterpillar blob.
+function buildKoiSkull(c) {
+  const sc = c.cfg.snoutScale ?? 1;
+  const st = [
+    [ 0.60, 0.09, 0.10,  0.00],   // nape cap → flows into the neck
+    [ 0.36, 0.28, 0.30,  0.02],   // nape blend
+    [ 0.10, 0.37, 0.41,  0.05],   // rounded braincase (taller than wide — slim)
+    [-0.12, 0.40, 0.45,  0.08],   // BROW shelf — widest+tallest, overhangs the eyes (eastern brow)
+    [-0.34, 0.36, 0.35, -0.01],   // eye zone — dips after the brow (the "stop")
+    [-0.58, 0.34, 0.30, -0.05],   // cheek
+    [-0.84 * sc, 0.32, 0.28, -0.08],   // snout base (full/broad — koi)
+    [-1.12 * sc, 0.28, 0.25, -0.11],   // muzzle
+    [-1.38 * sc, 0.24, 0.22, -0.13],   // pre-nose (broad rounded)
+    [-1.56 * sc, 0.17, 0.16, -0.15],   // rounded nose
+    [-1.66 * sc, 0.08, 0.08, -0.155],  // nose pad
+    [-1.72 * sc, 0.02, 0.02, -0.156],  // cap near-closed
+  ];
+  const catmull = (p0, p1, p2, p3, t) => {
+    const t2 = t * t, t3 = t2 * t;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  };
+  const SUB = 2, rings = [];
+  for (let s = 0; s < st.length - 1; s++) {
+    const a = st[Math.max(0, s - 1)], b = st[s], cc = st[s + 1], d = st[Math.min(st.length - 1, s + 2)];
+    for (let u = 0; u < SUB; u++) { const t = u / SUB;
+      rings.push([catmull(a[0], b[0], cc[0], d[0], t), catmull(a[1], b[1], cc[1], d[1], t), catmull(a[2], b[2], cc[2], d[2], t), catmull(a[3], b[3], cc[3], d[3], t)]); }
+  }
+  rings.push(st[st.length - 1]);
+  const crownC = c.mats.bodyMat.color.clone().multiplyScalar(1.95);  // LIFT the head dorsal into mid-jade so the apex face never falls to near-black (gate rework dir 8 + CP2 polish)
+  const bodyC = c.mats.bodyMat.color.clone();
+  const snoutC = bodyC.clone().multiplyScalar(0.72);          // a darker value step over the muzzle (law 11 tier)
+  const jawC = bodyC.clone().multiplyScalar(1.25);            // jaw a LIGHT-JADE step (was the pale belly, which read slate-blue in shadow — CP2 polish); stays in the green family
+  const M = seg(14), verts = [], cols = [], idx = [], col = new THREE.Color();
+  for (const [z, w, h, yc] of rings) {
+    for (let k = 0; k < M; k++) {
+      const a = (k / M) * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a);
+      const keel = 1 + 0.05 * sn, yy = yc + h * sn * keel;
+      verts.push(w * cs, yy, z);
+      col.copy(bodyC);
+      if (sn > 0) col.lerp(crownC, sn * 0.75);                 // dorsal crown lift (the sunlit top reads mid-jade, not black)
+      if (z < -0.72 * sc) col.copy(snoutC);                    // muzzle darker tier
+      if (z < -0.42 * sc && sn < -0.12) col.copy(jawC);        // jaw underside = pale mint
+      cols.push(col.r, col.g, col.b);
+    }
+  }
+  for (let s = 0; s < rings.length - 1; s++) for (let k = 0; k < M; k++) {
+    const a = s * M + k, b = s * M + (k + 1) % M, cc = (s + 1) * M + k, d = (s + 1) * M + (k + 1) % M;
+    idx.push(a, cc, b, b, cc, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  const shellMat = c.mats.bodyMat.clone();
+  shellMat.side = THREE.DoubleSide; shellMat.vertexColors = true; shellMat.color.set(0xffffff);
+  c.head.add(new THREE.Mesh(g, shellMat));
+  c.hx = 0.38; c.hy = 0.36; c.hz = 0.52;
+  c.faceZ = -0.30; c.faceR = 0.38;
+  c.snoutTipZ = -1.75 * sc;
+}
+
 // ── SKULL ─────────────────────────────────────────────────────────────────── // one clean rounded cranium (length > width > height); the cone muzzle continues it
 const R = 0.62;               // base cranium radius (before headScale)
 // Per-skull proportions [width, height, length scale] + brow bulge + cheek bevel.
@@ -211,13 +275,18 @@ const SKULL_DIMS = {
 };
 function buildSkull(c) {
   const d = c.dim, m = c.mats.bodyMat;
+  // headStretch / headNarrow (additive, default 1 → byte-identical): elongate + narrow
+  // the cranium into a slim wedge instead of a round ball — the eastern-serpent read
+  // (jade, gate r3 dir 5: "blob-pile" → a sleek tapered head).
+  const csz = d.csz * (c.model.headStretch ?? 1);
+  const csx = d.csx * (c.model.headNarrow ?? 1);
   // ONE smooth rounded cranium — slightly elongated. Keeping the core to a few,
   // well-matched forms (cranium + cone muzzle + jaw) is what reads as a sleek
   // wedge instead of a lumpy ball-chain.
-  c.head.add(ellipsoid(m, R, d.csx, d.csy, d.csz, 0, 0, R * 0.14, 14));
-  c.faceZ = R * 0.14 - R * d.csz;            // front of the cranium (muzzle anchor)
-  c.faceR = R * d.csx;                        // half-width there
-  c.hx = R * d.csx; c.hy = R * d.csy; c.hz = R * d.csz;
+  c.head.add(ellipsoid(m, R, csx, d.csy, csz, 0, 0, R * 0.14, 14));
+  c.faceZ = R * 0.14 - R * csz;              // front of the cranium (muzzle anchor)
+  c.faceR = R * csx;                          // half-width there
+  c.hx = R * csx; c.hy = R * d.csy; c.hz = R * csz;
   // Subtle brow ridge bulges over the eyes — the intelligent read (low + small).
   if (d.brow > 0) for (const s of [-1, 1]) {
     c.head.add(ellipsoid(m, R * 0.24 * d.brow, 1.0, 0.62, 1.15, s * c.faceR * 0.5, c.hy * 0.34, c.faceZ + c.faceR * 0.34, 8));
@@ -454,7 +523,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // any thin gap). Only the LIDS stay as caps — their 10–12% gaps exceed the sag.
   const cuteBallMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.32, metalness: 0.02,
-        emissive: 0x1a3652, emissiveIntensity: 0.5 }) : null;   // soft self-light so the iris stays luminous in shade (an unlit lower hemisphere read as black beads)
+        emissive: c.def.eyeBallEmissive ?? 0x1a3652, emissiveIntensity: c.def.eyeBallEmissiveI ?? 0.5 }) : null;   // soft self-light (def-overridable hue + intensity: azure blue default; jade greens + brightens it so the eye reads as a live GREEN almond, the brightest facial point)
   const cutePupilMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0x0a1622, roughness: 0.4, metalness: 0.02, side: THREE.DoubleSide }) : null;
   const cuteGlintMat = c.cfg.cuteEye
@@ -465,11 +534,16 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // The socketed ball inherits that proven proud anchor (up + forward onto the visible
     // front planes — eyes parked at the dome's silhouette edge read as specks); every other
     // skull keeps the zone anchor (the default eye keeps its shipped position byte-identical).
-    const oneShellEye = c.cfg.cuteEye && c.cfg.skullType === 'smoothWedgeSkull';
+    const oneShellEye = c.cfg.cuteEye && (c.cfg.skullType === 'smoothWedgeSkull' || c.cfg.skullType === 'koiSkull');
+    const koi = c.cfg.skullType === 'koiSkull';
     const kYaw = Math.PI - s * 0.62, kN = new THREE.Vector3(Math.sin(kYaw), 0, Math.cos(kYaw));
+    // KOI: seat the ball less lateral + HIGHER + SUNK into the shell (push ~½) so the big
+    // hatchling eyes don't bulge wider than the skull (GOOGLY, gate CP2 dir 2); the head
+    // silhouette owns them. smoothWedge (ember) keeps its tuned proud seat.
     const ecA = oneShellEye
-      ? new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34)   // PROUD on the wedge cheek — the one-shell smoothWedge SWALLOWS a flush/inboard eye (L147); the head-on read is carried by the forward-converged pupil, not by moving the ball inboard
-          .addScaledVector(kN, 0.15 + rr * 0.35)
+      ? (koi
+          ? new THREE.Vector3(s * c.hx * 0.52, c.hy * 0.42, c.faceZ - c.faceR * 0.24).addScaledVector(kN, 0.02 + rr * 0.12)
+          : new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34).addScaledVector(kN, 0.15 + rr * 0.35))
       : new THREE.Vector3(s * x, yset, z);
     if (c.cfg.cuteEye) {
       // THE CUTE EYE, final architecture: ONE VERTEX-PAINTED BALL + a glint + cap lids.
@@ -497,8 +571,10 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // hid the apex pupil behind the nose-side rim from ¾/profile (gate fable-r6: "bright
       // blank doll orb"). Forward-outward shows a dark pupil crescent at ¾ AND profile.
       const gazeAxis = new THREE.Vector3(s * (-0.06 + es * es * 0.32), 0.05, -1).normalize();
-      const cS = new THREE.Color(0xbfd8ec);
-      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0xbfe8ff), es * 0.9);   // keen forms brighten the iris hard toward pale-ice so the lateral apex eyes POP against the deep navy wedge head-on (dark apex went murky/blind)
+      // iris/sclera hues are def-overridable (default = azure's blue, byte-identical): a
+      // green dragon (jade) sets a jade iris so the eye reads GREEN, not off-palette blue.
+      const cS = new THREE.Color(c.def.eyeSclera ?? 0xbfd8ec);
+      const cI = new THREE.Color(c.def.eyeIris ?? 0x4198e2).lerp(new THREE.Color(c.def.eyeIrisKeen ?? 0xbfe8ff), es * 0.9);   // keen forms brighten the iris toward the keen hue so the lateral apex eyes POP head-on
       const V = new THREE.Vector3(); const cols = []; const CT = new THREE.Color();
       const band = (ang, a, b) => Math.min(1, Math.max(0, (ang - a) / (b - a)));
       for (let i = 0; i < pos.count; i++) {
@@ -687,13 +763,44 @@ function glowSpineCrest(c) { rearCrest(c, { count: 3, glow: true, height: 0.24 }
 function crownRearCrest(c) { rearCrest(c, { count: 3, glow: c.cfg.rearGlowIntensity > 0.3, height: 0.28 }); }
 
 // ── SIGNATURE ADD-ONS (preserve per-species identity) ────────────────────────
-function whiskerFins(c) {                          // Jade — calm mystical
-  for (const [sx, ang] of [[-0.5, 0.26], [0.5, -0.26], [-0.4, 0.48], [0.4, -0.48]]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.004, 0.66, seg(4)), c.mats.scalesMat);
-    w.rotation.set(Math.PI / 2 + 0.12, 0, ang);
-    w.position.set(sx * c.hx, -c.hy * 0.18, c.snoutTipZ + 0.1);
+function whiskerFins(c) {                          // Jade — calm mystical: 2 CURVED tapering barbels per side
+  // an S-flow barbel: roots at the snout, sweeps BACK (+z) + out (x) with a gentle
+  // dip-then-flick (−y→+y), tapering to a point (tip ≤0.2× base — law 4). Two per side,
+  // distinct lengths (×0.8 step), no straight parallel needles (gate r3 dir 6).
+  const mkWhisker = (sx, L, baseR, spread) => {
+    const pts = [];
+    for (let i = 0; i <= 6; i++) {
+      const t = i / 6;
+      pts.push(new THREE.Vector3(
+        sx * spread * (0.28 + 0.72 * t),          // sweep smoothly OUT (no sin bow → no fish-hook loop)
+        -0.12 * L - 0.42 * L * Math.pow(t, 1.15), // start BELOW the jaw + droop DOWN hard so it hangs under the head, never skewers through the hull (gate rework r3 dir 6)
+        t * L * 0.82));                           // trail back past the jaw
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const RINGS = seg(10), RAD = seg(4), verts = [], idx = [];
+    const sd = new THREE.Vector3(), ud = new THREE.Vector3();
+    for (let s = 0; s <= RINGS; s++) {
+      const u = s / RINGS, p = curve.getPoint(u), tan = curve.getTangent(u);
+      const up = Math.abs(tan.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+      sd.crossVectors(tan, up).normalize(); ud.crossVectors(sd, tan).normalize();
+      const r = baseR * (1 - Math.pow(u, 0.8));
+      for (let k = 0; k < RAD; k++) {
+        const a = (k / RAD) * Math.PI * 2, cx = Math.cos(a), cy = Math.sin(a);
+        verts.push(p.x + (sd.x * cx + ud.x * cy) * r, p.y + (sd.y * cx + ud.y * cy) * r, p.z + (sd.z * cx + ud.z * cy) * r);
+      }
+    }
+    for (let s = 0; s < RINGS; s++) for (let k = 0; k < RAD; k++) {
+      const p0 = s * RAD + k, q0 = s * RAD + (k + 1) % RAD, p1 = (s + 1) * RAD + k, q1 = (s + 1) * RAD + (k + 1) % RAD;
+      idx.push(p0, p1, q0, q0, p1, q1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    const w = new THREE.Mesh(g, c.mats.scalesMat);
+    w.position.set(sx * c.hx * 0.55, -c.hy * 0.3, c.snoutTipZ + 0.12);   // root LOW on the jaw so the barbel hangs under the head
     c.head.add(w);
-  }
+  };
+  for (const sx of [-1, 1]) { mkWhisker(sx, 1.0, 0.022, 0.55); mkWhisker(sx, 0.8, 0.017, 0.34); }
 }
 // BROW-CREST MOTIF (AZURE §5d) — a swept feather-crest fanning back off the brow,
 // gold-tipped (DIFFUSE tip-paint, law-9 carrier — no emissive on the accent). The
@@ -790,8 +897,8 @@ function tuskJaw(c) {                               // Solar / Sovereign
 }
 
 // ── module registry + archetypes ─────────────────────────────────────────────
-const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull, smoothWedgeSkull: buildSmoothWedgeSkull, smoothForgeSkull: buildSmoothForgeSkull };
-const ONE_SHELL_SKULLS = new Set(['smoothWedgeSkull', 'smoothForgeSkull']);   // whole-head lofts → skip the separate snout/jaw modules
+const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull, smoothWedgeSkull: buildSmoothWedgeSkull, smoothForgeSkull: buildSmoothForgeSkull, koiSkull: buildKoiSkull };
+const ONE_SHELL_SKULLS = new Set(['smoothWedgeSkull', 'smoothForgeSkull', 'koiSkull']);   // whole-head lofts → skip the separate snout/jaw modules
 const SNOUTS = { shortBluntSnout, mediumBluntSnout, taperedPredatorSnout };
 const EYES   = { largeSoftEyeZone, mediumAlertEyeZone, narrowRegalEyeZone };
 const BROWS  = { softBrow, alertBrow, commandingBrow };

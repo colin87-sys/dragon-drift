@@ -15,6 +15,16 @@ let shakeMag = 0;
 let boostKickT = 0;
 const BOOST_KICK_DUR = 0.35;
 
+// Finale punch (PR-B): a sharp forward lurch on the reserved lance-climax hit —
+// the camera physically reacts so the finale reads as IMPACT, not just sound.
+let punchKickT = 0;
+const PUNCH_KICK_DUR = 0.28;
+
+// Inhale pinch (PR-C): a LEVEL channel (not an impulse) — the frame leans in
+// with the drawn breath (FOV −2, slight dolly), released the instant the volley
+// fires. Fed per-frame from main.js (0 outside a lance fuse / reduced-motion).
+let inhaleLevel = 0;
+
 // Roll kick: short camera lean in the roll direction + FOV bump
 let rollKickT = 0;
 let rollKickDir = 0;
@@ -69,9 +79,9 @@ export const cameraCtl = {
 
   init(cam, player) {
     camera = cam;
-    smoothPos.set(player.position.x, player.position.y + 3.2, player.position.z + 11);
+    smoothPos.set(player.position.x, player.position.y + 4.6, player.position.z + 13.2);   // match the raised chase pose
     camera.position.copy(smoothPos);
-    camera.lookAt(player.position.x, player.position.y, player.position.z - 16);
+    camera.lookAt(player.position.x, player.position.y + 0.5, player.position.z - 16);
     deathOn = false;
     deathT = 0;
     gateKickT = 0;
@@ -86,6 +96,14 @@ export const cameraCtl = {
 
   boostKick() {
     boostKickT = BOOST_KICK_DUR;
+  },
+
+  punchKick() {
+    punchKickT = PUNCH_KICK_DUR;
+  },
+
+  setInhale(x) {
+    inhaleLevel = Math.max(0, Math.min(1, x || 0));
   },
 
   rollKick(dir) {
@@ -225,8 +243,11 @@ export const cameraCtl = {
     // A touch further back + higher than before so the (now larger) dragon sits
     // lower in frame and more of the path ahead stays visible. A canyon pulls it
     // ~1.6 closer so the chase cam rides clear of the flanking rock.
-    const targetBack = (player.feverActive ? 7.2 : player.boosting ? 8.8 : 12.3) - canyonW * 1.6;
-    const targetHeight = player.feverActive ? 2.5 : player.boosting ? 3.0 : 3.6;
+    const targetBack = (player.feverActive ? 7.2 : player.boosting ? 8.8 : 13.2) - canyonW * 1.6;
+    // Raised + steepened (visibility fix): a deeper look-down puts the dragon LOWER in frame so the
+    // path ahead opens ABOVE it, instead of the dragon sitting on the horizon band where obstacles are.
+    // All three states scaled together so entering boost/fever doesn't read as a camera dive.
+    const targetHeight = player.feverActive ? 3.2 : player.boosting ? 3.9 : 4.6;
     const dx = player.position.x * 0.9;
     smoothPos.x = damp(smoothPos.x, dx,                    4.5, dt);
     smoothPos.y = damp(smoothPos.y, player.position.y + targetHeight, player.boosting ? 6.5 : 4.5, dt);
@@ -240,6 +261,15 @@ export const cameraCtl = {
       // Push back on start, then settle — gives "punch" feel
       camera.position.z -= Math.sin(k * Math.PI) * 1.4;
       camera.position.y -= Math.sin(k * Math.PI) * 0.25;
+    }
+
+    // Finale punch (PR-B): a snappy forward lurch + slight rise on the lance
+    // climax — modelled on boostKick's sin envelope, applied after the chase solve.
+    if (punchKickT > 0) {
+      punchKickT -= dt;
+      const e = Math.sin((punchKickT / PUNCH_KICK_DUR) * Math.PI);
+      camera.position.z -= e * 1.1;
+      camera.position.y += e * 0.12;
     }
 
     // Gate kick: boost kick's little sibling — threading should *tug*
@@ -265,8 +295,9 @@ export const cameraCtl = {
       camera.position.y += (Math.random() * 2 - 1) * k;
     }
 
-    // Aim a little higher (toward the path) so the dragon drops lower in frame.
-    lookTarget.set(player.position.x, player.position.y + 1.0 + speedNorm * 0.25, player.position.z - 16);
+    // Aim the axis further DOWN toward the path (0.5, was 1.0) so the dragon drops lower in frame and
+    // the forward obstacle field reads above its silhouette.
+    lookTarget.set(player.position.x, player.position.y + 0.5 + speedNorm * 0.25, player.position.z - 16);
     camera.lookAt(lookTarget);
 
     // Rear-view overtake beat (ASHTALON §5f): swing AHEAD of and above the dragon
@@ -292,6 +323,10 @@ export const cameraCtl = {
       camera.rotateZ(rollKickDir * 0.16 * Math.sin(k * Math.PI));
     }
 
+    // Inhale pinch (PR-C): lean in with the drawn breath — a small dolly here
+    // (after the chase solve, like the kicks) + the FOV squeeze below.
+    if (inhaleLevel > 0.001) camera.position.z -= inhaleLevel * 0.3;
+
     // FOV: base 72, boost → 90, fever → 94 (wider = more intense)
     let targetFov = 72;
     if (player.speedActive) targetFov = 82;
@@ -299,6 +334,7 @@ export const cameraCtl = {
     if (player.feverActive) targetFov = 90;
     if (rollKickT > 0) targetFov += 4;
     targetFov += canyonW * 6; // wider peripheral read while threading rock
+    targetFov -= inhaleLevel * 2; // PR-C: the inhale pinch (narrow = held breath)
     if (Math.abs(camera.fov - targetFov) > 0.1) {
       camera.fov = damp(camera.fov, targetFov, player.boosting ? 5 : 3, dt);
       camera.updateProjectionMatrix();

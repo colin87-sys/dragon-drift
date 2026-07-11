@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
 import { damp, makeGlowTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
@@ -34,12 +35,16 @@ let wingPivotL = null;
 let wingPivotR = null;
 let wingMidL = null;  // middle joint of the 3-segment articulated wing (Mk II), null otherwise
 let wingMidR = null;
+let carpalSpireL = null;  // Solar CP3.3: flap-decoupled carpal spire groups (counter-rotated against the beat), null otherwise
+let carpalSpireR = null;
 let wingTipL = null;  // secondary fold joint for 2-segment wing
 let wingTipR = null;
 let wingPivot2L = null;
 let wingPivot2R = null;
 let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
 let wingRigR = null;
+let wingLobePivotsL = null;  // jade silk-fin per-lobe furl pivots ({pivot,idx,side}), null otherwise
+let wingLobePivotsR = null;
 let wingBladePivotsL = null;  // blade-feather comb per-blade lag pivots, null otherwise
 let wingBladePivotsR = null;
 let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
@@ -56,6 +61,7 @@ let vySmooth = 0;         // lagged vertical velocity → vertJerk drives the sp
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
+let bodyWave = null;      // koiSerpent shader travelling-wave uniform ({uniforms,baseSpeed})
 let tailOrbiters = null;  // orbiting tail shards / ring fragments
 
 // Materials animated at runtime (boost glow / fever tint)
@@ -80,6 +86,17 @@ let quality = 1;
 let lookYaw = null;
 export function setDragonLook(yaw) { lookYaw = yaw; }
 
+// PR-C THE VISIBLE INHALE: 0..1 charge amount fed per-frame from main.js
+// (lockHudState().fuse01 while the lance cap fuse burns — the setDragonLook
+// pattern). Drives the rear-cam telegraph: torso ARCH + wing MANTLE + jade glow.
+// LAW: at 0 every injected term below is exactly 0 → pose/glow byte-identical
+// (the L245 endpoint law; the wingflap/flapcheck suites never set it, so they
+// prove the endpoint).
+let inhaleTarget = 0;
+let inhale01 = 0;
+const _jadeGlow = new THREE.Color(0x50ffaa);
+export function setDragonInhale(x) { inhaleTarget = Math.max(0, Math.min(1, x || 0)); }
+
 export function setDragonQuality(q) {
   quality = q;
 }
@@ -99,6 +116,7 @@ let riderGroup = null;
 let scarfMesh = null;
 let riderGlow = null;     // glow sprite behind the rider (premium riders)
 let riderOrbiters = [];   // orbiting shards (Void Oracle) animated each frame
+let coronaSpin = null;    // Solar CP3 eclipse-corona ring — slow in-plane rotation (the eclipse crawls)
 const PONY_LEN = 0.24;
 let ponySegs = 10;
 let ponyPoints = [];
@@ -156,19 +174,25 @@ export function createDragon(scene, def, riderDef) {
   setActiveDetail(modelDetail);
   const result = buildDragonModel(def);
   group = result.group;
+  coronaSpin = group.getObjectByName('eclipseCorona') || null;   // Solar CP3: cache the eclipse ring for the crawl
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
   wingMidL = result.parts.wingMidL || null;
   wingMidR = result.parts.wingMidR || null;
+  carpalSpireL = result.parts.carpalSpireL || null;
+  carpalSpireR = result.parts.carpalSpireR || null;
   wingYokeL = result.parts.wingYokeL || null;
   wingYokeR = result.parts.wingYokeR || null;
   wingRigL = result.parts.wingRigL || null;
   wingRigR = result.parts.wingRigR || null;
   wingBladePivotsL = result.parts.wingBladePivotsL || null;
   wingBladePivotsR = result.parts.wingBladePivotsR || null;
+  wingLobePivotsL = result.parts.wingLobePivotsL || null;
+  wingLobePivotsR = result.parts.wingLobePivotsR || null;
   tailFins = result.parts.tailFins || [];
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
+  bodyWave = result.parts.bodyWave || null;   // koiSerpent travelling-wave uniform (jade)
   tailOrbiters = result.parts.tailOrbiters || null;
   glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
@@ -381,7 +405,10 @@ export function disposeDragon() {
   wingYokeR = null;
   wingMidL = null;
   wingMidR = null;
+  carpalSpireL = null;
+  carpalSpireR = null;
   bodySegs = null;
+  bodyWave = null;
   tailOrbiters = null;
   ponyMeshes = [];
   trailSprites = [];
@@ -458,6 +485,10 @@ export function updateDragon(dt, player, time) {
     player.position.z
   );
 
+  // Solar CP3 — the ECLIPSE CRAWLS: the corona rose-window rotates slowly in its own plane (boost
+  // quickens it, Surge flares it). In-plane local-Z spin, so the forward tilt is preserved. Cheap.
+  if (coronaSpin) coronaSpin.rotateZ(dt * (player.feverActive ? 0.5 : player.boosting ? 0.28 : 0.15));
+
   // Asset-backed (GLB) baked-clip flap, if present. The reactive wing flap still
   // runs through the wingRig path below; this only ticks a skinned GLB's own clip.
   if (glbAnim && glbAnim.mixer) glbAnim.mixer.update(dt);
@@ -514,6 +545,10 @@ export function updateDragon(dt, player, time) {
   const vertJerk = Math.max(-16, Math.min(16, vy - vySmooth));
   surge01 = damp(surge01, player.feverActive ? 1 : 0, 3.5, dt);
   boost01 = damp(boost01, player.speedActive ? 1 : 0, 5, dt);
+  // PR-C: the inhale eases in with the fuse and SNAPS down at release (damp 8 ≈
+  // 0.12s) — the wings drop out of the mantle into the launch frame.
+  inhale01 = damp(inhale01, inhaleTarget, 8, dt);
+  if (inhaleTarget <= 0 && inhale01 < 0.001) inhale01 = 0;
   if (prevSpeedActive && !player.speedActive) decel01 = 1;      // RELEASE → air-brake spike
   prevSpeedActive = !!player.speedActive;
   decel01 = damp(decel01, 0, 2.2, dt);                          // …eased out smoothly
@@ -522,7 +557,10 @@ export function updateDragon(dt, player, time) {
   // POSTURE pitch: nose-DOWN in dive, nose-UP in climb, relax on decel. Surge no longer
   // pitches the nose down — it was flashing the ventral (belly) of the body+wings from the
   // chase cam during Dragon Surge (user note). The big deliberate poses stay on DIVE/CLIMB.
-  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.02 + decel01 * 0.05;
+  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.02 + decel01 * 0.05
+    // PR-C INHALE ARCH: the torso visibly rears up as the breath draws (the
+    // owner's rear-cam telegraph — nose-up reads down the dragon's back).
+    + inhale01 * (CONFIG.LOCK.inhaleArch ?? 0.38);
 
   // Surge/boost bank DEEPER + SNAPPIER (carves like a fighter jet).
   const bankFactor = 0.035 + speedNorm * 0.015;   // RESET to the original body-roll (was over-banking)
@@ -575,12 +613,18 @@ export function updateDragon(dt, player, time) {
   // Wing flap: articulated cascade with speed/turn asymmetry + the blend layers (above).
   const feverBoost = player.feverActive ? 1.3 : 1;
   // FREQUENCY: boost/surge faster, a DIVE glides (slower/paused), decel eases back to normal.
+  // PR-C WING MANTLE: as the inhale draws, the beat slows and the stroke
+  // shrinks while the baseline rides HIGH (rootFlap below) — the wings sweep up,
+  // hold open, and near-freeze: "drawing breath," the strongest rear silhouette.
+  // inhale01=0 → all identity (byte-identical, the coexist endpoint).
+  const inhaleCalm = 1 - (CONFIG.LOCK.inhaleFlapCalm ?? 0.6) * inhale01;
   const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias
     * formSpeed(activeDef.model) * (activeDef.model.flapFreqScale ?? 1)
-    * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01);
+    * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01) * inhaleCalm;
   // AMPLITUDE: dive tucks to a glide (small), climb + decel open broad to catch air.
   const flapAmp = (player.speedActive ? 0.7 : 0.52) * (activeDef.model.flapAmp ?? 1)
-    * (1 - 0.7 * diveAmount) * (1 + 0.3 * climbAmount) * (1 + 0.25 * decel01);
+    * (1 - 0.7 * diveAmount) * (1 + 0.3 * climbAmount) * (1 + 0.25 * decel01)
+    * (1 - 0.45 * inhale01);
   const turnBias = Math.max(-0.28, Math.min(0.28, player.velocity.x * 0.018));
   const climbBias = Math.max(-0.18, Math.min(0.18, player.velocity.y * 0.015));
   // INTEGRATE the beat clock — `flapSpeed` varies every frame (dive/decel/boost blends), so
@@ -592,7 +636,9 @@ export function updateDragon(dt, player, time) {
   // phase-coupled head wobble / secondary wings below — hold ONE reproducible pose.
   if (WING_DEBUG) flapPhase = resolveWingDebug(WING_DEBUG, activeDef.model.flap).phase;
   const phase = flapPhase;
-  const rootFlap = Math.sin(phase) * flapAmp + 0.1;
+  // Mantle bias: NEGATIVE rootFlap = wings up (the apex convention), so the
+  // inhale rides the whole stroke high — a held high-V.
+  const rootFlap = Math.sin(phase) * flapAmp + 0.1 - inhale01 * 0.55;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
   if (WING_DEBUG) {
@@ -600,7 +646,8 @@ export function updateDragon(dt, player, time) {
     // whichever motion path it rides — so the starters (basic direct-pivot) freeze exactly
     // like the yoke dragons always could, and the studio captures the identical pose.
     setFlapDebugPose({ wingRigL, wingRigR, wingYokeL, wingYokeR, wingPivotL, wingPivotR,
-      wingMidL, wingMidR, wingTipL, wingTipR, wingBladePivotsL, wingBladePivotsR }, activeDef.model, WING_DEBUG);
+      wingMidL, wingMidR, wingTipL, wingTipR, wingBladePivotsL, wingBladePivotsR,
+      carpalSpireL, carpalSpireR }, activeDef.model, WING_DEBUG);
     if (!wingDebugLogged) {
       // Prove gameplay reaches the harness pose: log the resolved state + (for yoke rigs) the
       // wing chain's elevation in the DRAGON'S OWN frame (independent of body bank/pitch).
@@ -711,19 +758,62 @@ export function updateDragon(dt, player, time) {
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
+  } else if (wingLobePivotsL || wingLobePivotsR) {
+    // ── JADE silk-fin fans — a fully SYMMETRIC koi beat ──────────────────────────────
+    // The user's ask: the N lobes per side beat so L1↔R1, L2↔R2, L3↔R3 fire TOGETHER.
+    // The whole fan tilts with the wingbeat as a clean MIRROR (both fans up/down together),
+    // and each lobe beats on the SAME phase for its L and R twin (side only flips the spread
+    // direction so both fans open outward together), with a small inboard→outboard lag for a
+    // living fin. NO asymmetric wingTip phase (that was the "beating asymmetrical" read).
+    wingPivotR.rotation.set(0.12 + climbBias, -0.12 + turnBias * 0.8, -rootFlap + turnBias + rollFold);
+    wingPivotL.rotation.set(0.12 + climbBias,  0.12 + turnBias * 0.8,  rootFlap + turnBias - rollFold);
+    if (wingTipR) wingTipR.rotation.set(0, 0, 0);   // rear-lobe carrier rides the fan (no independent asymmetric wobble)
+    if (wingTipL) wingTipL.rotation.set(0, 0, 0);
+    const lAmp = activeDef.model.lobeBeatAmp ?? 0.26;
+    const lLag = activeDef.model.lobeBeatLag ?? 0.85;      // BIG inboard→outboard lag so each lobe sits at its OWN angle → the 3 read as SEPARATE parts (not a merged 2)
+    const lSpread = activeDef.model.lobeBeatSpread ?? 0.22; // static extra fan so the lobes never close INTO each other
+    const lFlow = activeDef.model.lobeBeatFlow ?? 0.2;    // slow trailing sway, strongest on the REAR lobe → the back of the fan FLOWS (less stiff)
+    for (const arr of [wingLobePivotsR, wingLobePivotsL]) {
+      if (!arr) continue;
+      const n = Math.max(1, arr.length - 1);
+      for (const b of arr) {
+        const t = b.pivot; if (!t) continue;
+        const fr = b.idx / n;                                   // 0 inner → 1 outer/rear
+        const lp = phase - fr * lLag;                           // SAME lp for L_i and R_i → they beat together
+        // OPEN direction = -side (matches the rest rake); bias the fan OPEN (static spread) so
+        // the lobes stay separated, then the beat + a slow rear-weighted flow ride on top.
+        const beat = Math.sin(lp) * lAmp * (0.5 + 0.7 * fr);    // outer lobes swing widest
+        const flow = Math.sin(lp * 0.5 + 1.2) * lFlow * fr;     // lazy trailing sway → flowy rear
+        t.rotation.y = damp(t.rotation.y, -b.side * (lSpread * fr + beat + flow), 9, dt);
+        t.rotation.z = damp(t.rotation.z, Math.cos(lp) * lAmp * 0.3 + Math.sin(lp * 0.5) * lFlow * fr, 9, dt);
+      }
+    }
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
+    // CP3.3 — counter-rotate the decoupled carpal spires against the flap beat (Solar) so their bright
+    // tips don't scissor across the forward view each upstroke. Cancel ONLY the sinusoid (sin·flapAmp),
+    // not the mantle bias / turnBias / rollFold — the spires still lean into turns and ride the inhale
+    // raise. Opposite L/R signs mirror the pivots' −rootFlap/+rootFlap, so the pair stays symmetric.
+    const spireStab = activeDef.model.spireStabilize ?? 0;
+    if (carpalSpireR) carpalSpireR.rotation.z = damp(carpalSpireR.rotation.z,  spireStab * Math.sin(phase) * flapAmp, 14, dt);
+    if (carpalSpireL) carpalSpireL.rotation.z = damp(carpalSpireL.rotation.z, -spireStab * Math.sin(phase) * flapAmp, 14, dt);
+    // FEATHER = a fore-aft PITCH (rotation.x). Under the L wing's scale.x=-1 mirror, rotation.x
+    // does NOT flip sense (it moves the chord in Y identically on both wings), so a SYMMETRIC
+    // feather needs the SAME sign L/R — the old ±feather was an antisymmetric roll-twist that made
+    // the pair beat off-square every stroke (the "wings aren't symmetric" bug). climb bias stays
+    // shared (a pitch input, symmetric).
     wingPivotR.rotation.x = damp(wingPivotR.rotation.x, 0.14 + feather * 0.18 + climbBias, 10, dt);
-    wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 - feather * 0.18 + climbBias, 10, dt);
+    wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 + feather * 0.18 + climbBias, 10, dt);
     wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
     wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
-    // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke, with a
-    // small delay between wings so the silhouette feels less mechanical.
-    wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
-    wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
+    // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke. BOTH tips ride the ONE
+    // tipLag clock (mirror sign) — the old L branch ran a DIFFERENT phase (sin(phase+1.18) vs the
+    // R tipLag sin(phase+0.95)), so the tips folded a beat apart: the visible off-beat asymmetry.
+    wingTipR.rotation.z = damp(wingTipR.rotation.z,  tipLag * 0.28 + turnBias * 0.45, 12, dt);
+    wingTipL.rotation.z = damp(wingTipL.rotation.z, -tipLag * 0.28 + turnBias * 0.45, 12, dt);
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
-    wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+    wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 + feather * 0.16, 10, dt);
   }
   // Per-blade LAG (blade-feather comb): each feather trails the beat a beat behind
   // (ASHTALON covert pattern), the lag deepening outward. Additive + nullable.
@@ -779,14 +869,16 @@ export function updateDragon(dt, player, time) {
         // body LIFT wave (a beat AFTER the downstroke) + the vertical WHIP (the rear trails the
         // chest when the body changes vertical direction). CLIMB drops the hips (counterweight).
         const wave = 0.15 * sp * calm * flapSurge(phase - 0.6);
-        b.rotation.x = damp(b.rotation.x, wave + climbAmount * 0.16 + vWhip, 9 + 4 * aero01, dt);
+        // PR-C: hips drop slightly under the inhale — the counterweight that makes the chest RISE.
+        b.rotation.x = damp(b.rotation.x, wave + climbAmount * 0.16 + vWhip - inhale01 * 0.1, 9 + 4 * aero01, dt);
         b.rotation.y = damp(b.rotation.y, turnBias * 0.35 * bankHard, 6, dt);   // hips drift into a HARD turn (eased)
       } else if (role === 'neck') {
         // FIRM neck: faint bob/breathe, near-STILL under streamline/fever (calmHN). Leads the
         // turn only on a hard bank (eased); shares a little of the vertical body-whip.
+        // PR-C: the inhale CRANES the neck back (chest rises) — the spine-rig arch.
         const bob = 0.022 * sp * calmHN * flapSurge(phase - 0.3) * (activeDef.model.bodyBobScale ?? 1);
         const breathe = Math.sin(time * 1.1) * 0.006 * calmHN;
-        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42 + vWhip * 0.45, 9, dt);
+        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42 + vWhip * 0.45 + inhale01 * 0.22, 9, dt);
         b.rotation.y = damp(b.rotation.y, -turnBias * 0.18 * bankHard * (1 + 0.4 * aero01), 7, dt);
       } else if (role === 'head') {
         // FIRM, composed gaze: a tiny counter to the neck, near-STILL under fever (calmHN).
@@ -852,6 +944,23 @@ export function updateDragon(dt, player, time) {
     }
   }
 
+  // koiSerpent (jade): flex the ONE tube mesh into a swimming S on the CPU — each vertex
+  // x = baseX + amp·ramp·sin(freq·z + phase), ramp 0 at the head → 1 at the tail (head leads,
+  // tail whips). Phase ACCUMULATES (never phase = speed·clock, or a boost jolts the wave) and
+  // the speed factor eases so cruise→boost quickens smoothly. ~N·K verts (one hero) = trivial.
+  if (bodyWave) {
+    const sp = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
+    bodyWave.spd = damp(bodyWave.spd ?? sp, sp, 3, dt);
+    bodyWave.phase += dt * bodyWave.baseSpeed * (0.6 + bodyWave.spd * 0.7);
+    const arr = bodyWave.geo.attributes.position.array;
+    const { baseX, baseY, spineZ, ramp, amp, ampY, freq, phase, count } = bodyWave;
+    for (let v = 0; v < count; v++) {
+      const ph = freq * spineZ[v] + phase;
+      arr[v * 3] = baseX[v] + amp * ramp[v] * Math.sin(ph);
+      arr[v * 3 + 1] = baseY[v] + ampY * ramp[v] * Math.sin(ph * 0.9 + 0.4);
+    }
+    bodyWave.geo.attributes.position.needsUpdate = true;
+  }
   // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each
   // plate behind trails with a phase lag, so the chain slithers in zero-g; turning
   // bends it (lead first, rear dragging), speed adds a faint whip.
@@ -943,11 +1052,15 @@ export function updateDragon(dt, player, time) {
 
   // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
   // old emitting ring), spiking on the ignition flourish.
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (surgeMix * 0.55 + ignite * 0.8) * sgm;
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (surgeMix * 0.55 + ignite * 0.8) * sgm
+    + inhale01 * 0.9;   // PR-C: the mantled wings GLOW as the charge draws
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
   // white-gold (def.feverWing) so its Rebirth reads celestial, not pink.
   wingMat.emissive.setHex(player.feverActive ? (activeDef.feverWing ?? 0xff44cc) : (activeDef.wingMembraneEmissive ?? activeDef.wingEmissive));
+  // PR-C: lean the glow toward lance-jade with the inhale (fever pink wins —
+  // Surge is the reserved role colour; the lerp only runs while charging).
+  if (inhale01 > 0.01 && !player.feverActive) wingMat.emissive.lerp(_jadeGlow, inhale01 * 0.6);
   // Membrane translucency by state (bones/struts keep their own opaque mats):
   // see upcoming rings through the wing — more so while boosting / surging. The
   // rest opacity is per-form (model.wingOpacity); boost/Surge drop below it so the
@@ -959,7 +1072,7 @@ export function updateDragon(dt, player, time) {
   if (coreGlow) {
     const cb = coreGlow.userData.base || 0.3;
     const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
-      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm;
+      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4;   // PR-C: interior ember charges
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
@@ -994,9 +1107,10 @@ export function updateDragon(dt, player, time) {
   eyeMat.emissive.setHex(player.feverActive ? (activeDef.feverEye ?? 0xff66ee) : activeDef.eye);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
-  const auraTarget = player.feverActive
+  const auraTarget = (player.feverActive
     ? 0.30 + Math.sin(time * 5) * 0.10   // trimmed ~40%: the big additive halo was the main "lens-flare" blob
-    : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0;
+    : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
+    + inhale01 * 0.22;   // PR-C: the halo swells with the drawn breath
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
 
   group.updateMatrixWorld(true);

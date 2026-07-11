@@ -89,6 +89,17 @@ body.app-loaded > canvas { opacity: 1; }
 #hud.cine-hold .milestone-banner,
 #hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
 
+/* LETTERBOX (CP2-A, EMBERTIDE's sky-crush re-entrance beat): two bars that ease in
+   from the frame edges and back out. Height 0 at rest so they cost nothing idle. */
+.cinebar {
+  position: fixed; left: 0; right: 0; height: 0; background: #000;
+  pointer-events: none; z-index: 40;
+  transition: height 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cinebar-top { top: 0; }
+.cinebar-bot { bottom: 0; }
+.cinebar.on { height: 9vh; }
+
 /* ============ ORNATE BOTTOM BAR (Panzer Dragoon style) ============ */
 /* ============ HUD CORNER LAYOUT (WS6) ============ */
 .hud-top-left {
@@ -507,6 +518,93 @@ body[data-qtier="2"] .hud-sew { display: none; }
 @keyframes ret-spin { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
 @keyframes ret-spin-rev { from { transform: rotate(45deg); } to { transform: rotate(-45deg); } }
 
+/* ============ LENS (?lens=2) BULLET-VS-RETICLE VISIBILITY OVERHAUL ============
+   All scoped to .lens2 + .boss, so the shipped ring/gate reticle and every non-lens
+   run are byte-identical. Three DOM/CSS interventions (see js/lensFlag.js). */
+
+/* (2) HOLLOW the boss reticle: drop the nested inner square and MASK the outer one to
+   four corner boxes — each shows an L of border = a bracket, the centre + mid-edges cut
+   to transparent. A bullet spawning on the muzzle is now born in clear pixels instead of
+   behind glowing chrome. Dwell tint, spin, breathe and every lock state still carry. */
+#reticle.lens2.boss .rsq.inner { display: none; }
+#reticle.lens2.boss .rsq {
+  --bk: 34%;                                     /* corner-bracket arm box, fraction of the side */
+  box-shadow: none;                              /* the mask (border-box) clips box-shadow away — glow moves to the ::before halo */
+  -webkit-mask:
+    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
+  mask:
+    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
+}
+/* (3a) YIELD lives here, NOT on the brackets. An UNMASKED halo behind the brackets carries
+   the whole bloom (a masked element's box-shadow never paints — it's clipped to the border
+   box). Its opacity recedes with --yield so the glow steps back under threat while the
+   bracket border + dwell fill stay at full opacity (never reads as "lock lost"). Sits behind
+   the brackets in paint order (::before is the first child). */
+#reticle.lens2.boss::before {
+  content: ''; position: absolute; inset: 12%; border-radius: 8px; pointer-events: none;
+  box-shadow: 0 0 12px 1px rgba(150, 210, 240, 0.42);
+  opacity: calc(1 - var(--yield, 0));
+}
+#reticle.lens2.boss.aiming::before { box-shadow: 0 0 14px 1px rgba(90, 255, 180, calc(0.35 + var(--dwell, 0) * 0.45)); }
+#reticle.lens2.boss.locked::before { box-shadow: 0 0 16px 2px rgba(60, 255, 160, 0.7); }
+
+/* ===== PR2 — THE SATURATION SPLIT (break the green channel) =====
+   The shipped boss reticle/pips/marks are the SAME jade (80,255,170) as the player's own
+   wisp-lance projectiles, so green means both "your aim UI" and "your bullets" — the exact
+   collision behind the readability complaint. Under Bullet Clarity we split on saturation:
+   the aiming CHROME (reticle + pip + mark BORDERS) desaturates to a pale mint-white
+   (--lock-chrome), while the banked ENERGY (pip/mark FILLS + the brand rune) stays full jade
+   (the shipped literals) because it literally becomes those wisps. Now enemy magenta vs pale-white
+   aim-UI vs saturated-jade player-energy separate on hue AND saturation AND luminance. The
+   one-shot .rsnap flash + the locked ::before halo stay jade, so the MOMENT of locking still
+   pops green — only the persistent chrome desaturates. Scoped to Bullet Clarity (opt-out
+   returns the classic all-jade reticle); the collision only exists in boss fights anyway. */
+#reticle.lens2 { --lock-chrome: 200, 248, 232; }   /* the pale mint aim-chrome; energy stays the shipped jade literals */
+/* reticle brackets: steel → mint-white with dwell (was steel → jade); locked = white-hot mint.
+   :not(.sealed) so the muted/deflected grey border (line ~510, same specificity, later source)
+   still wins when the layer is frozen — a sealed boss must NOT show a live-looking chrome. */
+#reticle.lens2.boss:not(.sealed) .rsq {
+  border-color: color-mix(in srgb, rgba(222,234,246,0.94), rgba(var(--lock-chrome),0.98) calc(var(--dwell,0) * 100%));
+}
+#reticle.lens2.boss.locked .rsq { border-color: rgba(214, 250, 238, 1); }   /* locked ⇒ never sealed (reticle.js) */
+/* pip row: BORDER = chrome (mint-white); FILL stays jade energy (untouched below). :not(.ashen)
+   so an ashen (frozen) pip keeps its grey border — this override out-specifies the ashen rule. */
+#reticle.lens2 .lockpip:not(.ashen) { border-color: rgba(var(--lock-chrome), 0.4); }
+#reticle.lens2 .lockpip.filled:not(.ashen) { border-color: rgba(var(--lock-chrome), 0.95); }
+/* organ marks (appended to #hud, class-toggled in renderMarks): BORDER + stacked outline =
+   chrome; the .fill and the .rune stroke stay jade energy (untouched). :not(.ashen) keeps a
+   frozen mark grey. */
+.lockmark.lens2:not(.ashen) { border-color: rgba(200, 248, 232, 0.85); }
+.lockmark.lens2.stacked:not(.ashen) { outline-color: rgba(200, 248, 232, 0.5); }
+
+/* (3b) TELEGRAPH-AT-THE-GAZE: four magenta danger chevrons just outside the bracket
+   frame, ramped straight off the boss wind-up (--threat 0→1) and flared outward as it
+   builds — the "incoming" cue lands where the eyes already are. Magenta = the role-locked
+   danger hue; outward MOTION + a final-instant blink keep it legible beyond colour. */
+#reticle .rchevs { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+#reticle.lens2.boss.threat .rchevs { opacity: var(--threat, 0); }   /* .boss-scoped: never leaks onto the ring/gate reticle */
+#reticle .rchevs i {
+  position: absolute; left: 50%; top: 50%; width: 0; height: 0;
+  --sz: 7px; --pt: calc(var(--sz) * 1.4);
+  /* base offset (46px) sits OUTSIDE the 45px half-frame at --threat 0, then flares further
+     out — so a chevron never appears in the muzzle zone where it could alias as a bullet. */
+  --off: calc(46px + var(--threat, 0) * 18px);
+  filter: drop-shadow(0 0 3px rgba(255, 43, 106, 0.75));
+}
+#reticle .rchevs i:nth-child(1) { /* up */    border-left: var(--sz) solid transparent; border-right: var(--sz) solid transparent; border-bottom: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateY(calc(-1 * var(--off))); }
+#reticle .rchevs i:nth-child(2) { /* right */ border-top: var(--sz) solid transparent; border-bottom: var(--sz) solid transparent; border-left: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateX(var(--off)); }
+#reticle .rchevs i:nth-child(3) { /* down */  border-left: var(--sz) solid transparent; border-right: var(--sz) solid transparent; border-top: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateY(var(--off)); }
+#reticle .rchevs i:nth-child(4) { /* left */  border-top: var(--sz) solid transparent; border-bottom: var(--sz) solid transparent; border-right: var(--pt) solid rgba(255, 43, 106, 0.95); transform: translate(-50%, -50%) translateX(calc(-1 * var(--off))); }
+/* Final-instant blink at ~2.9Hz (under the 3Hz photosensitivity guideline), soft brightness swing. */
+#reticle.lens2.threat-hot .rchevs { animation: chev-blink 0.34s steps(1) infinite; }
+@keyframes chev-blink { 0%, 100% { filter: brightness(1.45); } 50% { filter: brightness(0.7); } }
+
 /* ============ AUDIO / PAUSE BUTTON ============ */
 .audio-btns { display: none; }
 .mute-btn {
@@ -539,7 +637,11 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .vignette.lethal { background: radial-gradient(ellipse at center, rgba(255,30,30,0.25) 20%, rgba(255,20,20,0.8) 100%); }
 .blue-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(110,200,255,0.22) 0%, transparent 70%); }
 .gold-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,216,106,0.17) 0%, transparent 65%); }
+/* PR-B: the reserved lance-CLIMAX flash — jade (lance colour), brighter and
+   SNAPPIER than the gold radial so the finale reads as a hit, not a glow. */
+.jade-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(90,255,180,0.26) 0%, rgba(90,255,180,0.05) 40%, transparent 68%); }
 .flash-anim{ animation: flash 0.45s ease-out forwards; }
+.flash-fast{ animation: flash 0.16s ease-out forwards; }
 @keyframes flash { 0%{opacity:1} 100%{opacity:0} }
 
 /* Surge edge-wash — kept faint so it frames the action without fogging the screen. */
@@ -684,6 +786,17 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .rush-chip.pick:active { transform: scale(0.94); }
 .rush-lock { font-size: 9px; }
 .rush-best { font-size: 11px; color: #ffd870; margin-top: 6px; font-weight: 700; }
+/* DEV stage-jump selector (rush panel, ?dev) — a small segmented control that pins which
+   STAGE sub-rig a multi-stage boss (THE UNMASKED) opens in. Amber-tinted = a dev/debug tool. */
+.rush-stage { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
+.rush-stage-lbl { font-size: 9px; font-weight: 800; letter-spacing: 0.06em; color: #ffcf6a; opacity: 0.85; margin-right: 3px; text-transform: uppercase; }
+.rush-stage-btn { font-family: inherit; font-size: 11px; font-weight: 800; cursor: pointer;
+  min-width: 30px; padding: 3px 8px; border-radius: 6px; color: #ffd870;
+  background: rgba(255, 199, 90, 0.08); border: 1px solid rgba(255, 199, 90, 0.32);
+  transition: background .12s, transform .06s; -webkit-tap-highlight-color: transparent; }
+.rush-stage-btn:hover { background: rgba(255, 199, 90, 0.18); }
+.rush-stage-btn:active { transform: scale(0.92); }
+.rush-stage-btn.active { background: #ffcf6a; color: #241a05; border-color: #ffcf6a; }
 .daily-streak { font-size: 12px; color: #ffd86a; font-weight: 700; white-space: nowrap; }
 
 /* XP bar (game over) */
@@ -2259,6 +2372,13 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
 .lockmark.ashen { border-color: rgba(150, 160, 175, 0.7); box-shadow: none; }
 .lockmark.ashen .fill { background: rgba(150, 160, 175, 0.3); }
 .lockmark.blink { animation: lockpip-blink 0.4s steps(2, start) infinite; }
+/* §5i.C rung 12 SPECTRAL ECHO (ONEWING): a GRANTED ghost pip on the living eye — pale, cold,
+   dashed (not solid jade energy) so it reads as an ECHO, not a painted brand (rule 11: a granted
+   pip renders its OWN marker, never a phantom of a real one). */
+.lockmark.ghost:not(.ashen) { border-style: dashed; border-color: rgba(216, 200, 240, 0.75);
+  box-shadow: 0 0 8px rgba(200, 180, 235, 0.4); }
+.lockmark.ghost:not(.ashen) .fill { background: rgba(216, 200, 240, 0.22); }
+.lockmark.ghost:not(.ashen) .rune path { stroke: rgba(224, 212, 246, 0.85); }
 
 /* HUNTER'S BRAND skin: the wyrm-rune sigil on each painted organ; a jade-white
    kindle flash on paint; the pip row INHALES (swells) through the cap fuse and

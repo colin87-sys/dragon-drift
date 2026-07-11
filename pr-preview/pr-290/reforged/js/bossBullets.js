@@ -4,6 +4,9 @@ import { game } from './gameState.js';
 import { hitPlayer, bulletGraze } from './collision.js';
 import { burst, wispImpact } from './particles.js';
 import { emit } from './events.js';
+import { getBeatClock, UNLEASH_V2 } from './sfx.js';
+import { nextGridDelay } from './harmony.js';
+import { lensClarity } from './lensFlag.js';
 
 // Boss bullet pool — one InstancedMesh, recycled by the same windowed-cursor
 // pattern as embers.js (one draw call regardless of count; cheap on mobile).
@@ -21,6 +24,16 @@ import { emit } from './events.js';
 const POOL = CONFIG.BOSS.bulletPool;
 const R = CONFIG.playerRadius;
 const TIERS = CONFIG.BOSS.renderTiers;   // render-order law: nothing draws over a bullet
+
+// THREAT read for the reticle's yield cue (intervention 3a): the nearest inbound
+// boss bullet whose lateral offset falls inside ~1.5× the graze annulus, so the aim
+// chrome can recede exactly when a shot is about to reach the player's lane. Computed
+// FREE inside updateBossBullets' existing pool walk (no extra iteration) and cached
+// here; reticle.js reads it via incomingThreat(). Pure query — policy lives at the
+// caller (the beamContact precedent). minTti = Infinity when the lane is clear.
+const _threat = { minTti: Infinity, count: 0 };
+const THREAT_LAT = (R * CONFIG.BOSS.grazeScale + CONFIG.BOSS.bulletRadius) * 1.5;
+export function incomingThreat() { return _threat; }
 
 let mesh = null;       // colour body (soft round disc, per-bullet tint)
 let coreMesh = null;   // white centre (colour-blind-safe read — everyone sees the dot)
@@ -103,6 +116,7 @@ function makeSlot() {
     dmg: 0,
     reflectable: false,
     targetRel: 0, tx: 0, ty: 0,   // arrival target for boss-ward bullets
+    aimPart: null,   // §ENG-A-R: the boss part a reflected bullet was aimed at (diagnostics + ENG-E hook + gate read; the update loop never reads it)
     color: 0xffffff,
     coreColor: 0xffffff,   // white by default; graze-bait darkens it (the "donut" read)
     life: 0,
@@ -342,14 +356,44 @@ function resetWispRibbons() {
 // arpeggio note, k = position in the roll). Plural payoff reads as a drum-roll,
 // not one boom (the Rez lesson). Only the FIRST strike of a window carries the
 // small shockwave ring (the §2 additive-volume cap).
-const impactQ = [];          // { x, y, z, t, k }
+const impactQ = [];          // { x, y, z, t, k, n, full, finale }
 let impactWindowAt = -1;     // clock of the window's first arrival
 let impactWindowK = 0;
+// PR9/C5 — the BEAT-DERIVED ACCELERANDO roll: with a live beat clock the strike
+// gaps SHRINK (× rollAccel each) so the run audibly converges on the finale;
+// total span clamped to rollMaxS (damage fired on the true arrival frame — past
+// ~0.6s the spark/sound drift from the organ flash reads as desync). PR9.1
+// (owner LAW — skill expression): the window only SNAPS onto the song's next
+// 16th when the volley EARNED it (`snap` = a cap/fork auto-release, or a
+// PERFECT on-beat manual tap); an off-beat manual volley keeps the player's
+// raw timing, tempo-flavored gaps only — "on the beat" is the reward. No clock
+// (headless / music off / v1) → the shipped fixed 40ms stagger, verbatim (T-W7).
+let impactWindowMusical = false;
+let impactWindowBase = 0;    // window-relative time of slot 0 (the earned 16th snap, else 0)
+let impactWindowCum = 0;     // accumulated accelerando gaps
+let impactWindowG0 = 0;      // first gap = one 16th of the live grid
+let lanceArrivals = 0;       // arrivals of the volley in flight (finale detect)
 
-function queueWispImpact(x, y, z) {
-  if (clock - impactWindowAt > 0.15) { impactWindowAt = clock; impactWindowK = 0; }
+function queueWispImpact(x, y, z, n = 0, full = false, finale = false, snap = false) {
+  if (clock - impactWindowAt > 0.15) {
+    impactWindowAt = clock;
+    impactWindowK = 0;
+    const bc = UNLEASH_V2 ? getBeatClock() : null;
+    impactWindowMusical = !!bc;
+    impactWindowBase = bc && snap ? nextGridDelay(bc, 4) : 0;
+    impactWindowG0 = bc ? bc.beatLen / 4 : 0;
+    impactWindowCum = 0;
+  }
   const k = impactWindowK++;
-  impactQ.push({ x, y, z, t: k * (CONFIG.LOCK.impactStaggerMs / 1000), k });
+  let t;
+  if (impactWindowMusical) {
+    const rel = clock - impactWindowAt;   // how long since the window opened
+    t = Math.max(0, Math.min(impactWindowBase + impactWindowCum, CONFIG.LOCK.rollMaxS) - rel);
+    impactWindowCum += impactWindowG0 * Math.pow(CONFIG.LOCK.rollAccel, k);
+  } else {
+    t = k * (CONFIG.LOCK.impactStaggerMs / 1000);
+  }
+  impactQ.push({ x, y, z, t, k, n, full, finale });
 }
 
 function updateWispImpacts(dt) {
@@ -359,8 +403,16 @@ function updateWispImpacts(dt) {
     const q = impactQ[i];
     if (q.t > 0) continue;
     trailV.set(q.x, q.y, q.z);
-    wispImpact(trailV, q.k === 0, wispTint);
-    emit('lockStrike', { k: q.k });
+    // The ONE ring (§2 additive budget): a FULL v2 volley's ring belongs to the
+    // FINALE (the reserved climax) INSTEAD of slot 0; partial volleys keep the
+    // shipped first-strike ring. Never both. UNLEASH_V2 gate (Codex review): in
+    // ?unleash=v1 the finale doesn't exist — brandFinale is a no-op, so a tagged
+    // last impact would fall SILENT and the ring would leave slot 0. Gating the
+    // finale off in v1 routes the last impact back to brandStrike (the shipped
+    // pentatonic) and restores the first-strike ring — a true byte-for-byte A/B.
+    const v2full = UNLEASH_V2 && q.full;
+    wispImpact(trailV, v2full ? !!q.finale : q.k === 0, wispTint);
+    emit('lockStrike', { k: q.k, n: q.n, full: q.full, finale: v2full && q.finale });
     impactQ.splice(i, 1);
   }
 }
@@ -506,9 +558,29 @@ export function spawnBossBullet(opts) {
   s.color = opts.color || 0xff4488;
   s.coreColor = opts.coreColor || 0xffffff;
   s.life = opts.life || 6;
+  s.aimPart = null;   // §ENG-A-R: cleared per fresh bullet (set only when reflected onto a part)
   s.age = 0;   // reset the spawn-in ramp for this fresh bullet
   s.homeDelay = opts.homeDelay ?? 0;
   s.curl = opts.curl ?? 0;
+  // PR9: presentation-only volley tags (the finale detect + cadence flavor).
+  // A new volley's FIRST wisp resets the arrival counter — one volley is ever
+  // in flight (fuse/decay spacing), so a plain counter is the honest truth.
+  s.volleyN = opts.volleyN ?? 0;
+  s.volleyFull = !!opts.volleyFull;
+  s.volleySnap = !!opts.volleySnap;
+  if (opts.volleyFirst) lanceArrivals = 0;
+  // PR-C THE LUNGE: snapshot the constant-speed flight so the profile controller
+  // (update loop) can track the exact analytic position — arrival-frame invariant.
+  if (s.owner === 'lance') {
+    s.vrelBase = s.vrel;
+    s.lungeRel0 = s.rel;
+    s.lungeT = (s.targetRel - s.rel) / Math.max(s.vrel, 1e-6);
+    // Seed vrel at the profile's launch speed (p0) — PURELY a speed-read seed
+    // (homing tLeft / visuals) for frame 1: the position tracker overwrites rel
+    // analytically every frame, so this can never move the arrival frame.
+    const lp = CONFIG.LOCK.lungeProfile;
+    if (lp && s.lungeT > 0) s.vrel = s.vrelBase * lp[0];
+  }
   // A fresh wisp tows a light-ribbon (silently none when the pool is busy —
   // presentation only, never gameplay). fxQuality ≤ 0.3 skips ribbons entirely
   // (the hot instanced head + impact bursts still carry the read on potatoes).
@@ -529,7 +601,7 @@ export function debugActiveBullets() {
   const out = [];
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
-    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable, part: s.part, coreColor: s.coreColor });
+    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age, reflectable: s.reflectable, part: s.part, color: s.color, coreColor: s.coreColor, tx: s.tx, ty: s.ty, targetRel: s.targetRel, aimPart: s.aimPart });
   }
   return out;
 }
@@ -545,6 +617,9 @@ export function debugWispRibbons() {
       hx: r.n ? r.pts[(r.n - 1) * 3] : 0, hy: r.n ? r.pts[(r.n - 1) * 3 + 1] : 0,
     })),
     impactQ: impactQ.length,
+    // PR9 (additive): the queue's live schedule — T-W7b/c assert the fallback
+    // spacing and the finale tag without frame-counting fragility.
+    impactQueue: impactQ.map((q) => ({ t: q.t, k: q.k, n: q.n, full: !!q.full, finale: !!q.finale })),
   };
 }
 
@@ -562,6 +637,13 @@ export function updateBossBullets(dt, player) {
   const px = player.position.x;
   const py = player.position.y;
   const bossR = CONFIG.BOSS.bossHitRadius;
+  let threatMin = Infinity, threatCount = 0;   // reticle-yield read, rebuilt this frame
+  // LENS imminent-bullet legibility knobs, resolved per-frame from the Bullet Clarity
+  // setting. OFF ⇒ the shipped heat-only flare over CONFIG.BOSS.flareTti, FLARE_SIZE_K 0
+  // ⇒ flarePop === 1 (byte-identical size + flare window).
+  const clarity = lensClarity();
+  const FLARE_TTI = clarity ? CONFIG.BOSS.flareTtiLens : CONFIG.BOSS.flareTti;
+  const FLARE_SIZE_K = clarity ? CONFIG.BOSS.flareSizeK : 0;
 
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
@@ -579,10 +661,21 @@ export function updateBossBullets(dt, player) {
     // you FIRST flares first — "which hits me" is a colour read. A reflectable
     // bullet flares bright the instant it enters the parry window (the parry cue).
     let flare = 0;
+    let ttiFlare = 0;   // LENS size-pop drives off THIS (pure time-to-impact), never the
+                        // parry pulse below — else every reflectable bullet (and EVERY
+                        // bullet in Surge) would throb its size at ~3.5Hz (the "loom" we killed).
     let breathe = 1;
     if (s.owner === 'boss' && s.rel > 0) {
       const tti = s.rel / Math.max(Math.abs(s.vrel), 1);
-      if (tti < 0.3) flare = 1 - tti / 0.3;
+      if (tti < FLARE_TTI) { flare = 1 - tti / FLARE_TTI; ttiFlare = flare; }
+      // THREAT read (3a): a bullet heading into the player's lane and closing soon.
+      if (tti < 1.5) {
+        const ldx = s.x - px, ldy = s.y - py;
+        if (ldx * ldx + ldy * ldy < THREAT_LAT * THREAT_LAT) {
+          threatCount++;
+          if (tti < threatMin) threatMin = tti;
+        }
+      }
       // In Surge every bullet is parryable, so every bullet flares in the window.
       const parryable = s.reflectable || game.feverActive;
       if (parryable && s.rel <= CONFIG.BOSS.reflectWindow) {
@@ -593,8 +686,14 @@ export function updateBossBullets(dt, player) {
       // per pool slot so a volley shimmers, never strobes in unison. Render-side only
       // (s.r and every gameplay field untouched — the arrival law can't drift).
       const pulse = Math.sin(clock * 16 + i * 2.4);
-      flare = 0.2 + 0.18 * pulse;
-      breathe = 1 + 0.1 * pulse;
+      // PR-D: LESS constant white-wash (0.2→0.08) so the JADE body reads instead
+      // of a bland white comet (owner) — the white core + hot head still anchor it.
+      // ACQUIRE FLASH: a bright lock-on SPIKE + size pop the instant homing engages
+      // (age crosses homeDelay) — the wisp's "eyes catch the target", decays ~0.3s.
+      const acq = s.homeDelay > 0 && s.age >= s.homeDelay
+        ? Math.max(0, 1 - (s.age - s.homeDelay) / 0.3) : 0;
+      flare = 0.08 + 0.14 * pulse + 0.7 * acq * acq;
+      breathe = 1 + 0.1 * pulse + 0.55 * acq;
     }
 
     // Successive-ring depth ordering: a far-out bullet fogs dim, a boss bullet
@@ -614,7 +713,12 @@ export function updateBossBullets(dt, player) {
     const grow = s.age < CONFIG.BOSS.spawnRampT
       ? (t => t * (2 - t))(Math.max(0, Math.min(1, s.age / CONFIG.BOSS.spawnRampT)))
       : 1;
-    const drawScale = shrink * grow;
+    // LENS size POP (intervention 1): an imminent boss bullet grows with its flare so
+    // "which hits me first" is a size read too, not heat alone. Boss-only, and only
+    // beyond the shipped visual (FLARE_SIZE_K is 0 unless ?lens=2). s.r — the hitbox —
+    // is untouched, so the extra size is purely forgiving.
+    const flarePop = (s.owner === 'boss' && FLARE_SIZE_K) ? 1 + FLARE_SIZE_K * ttiFlare : 1;
+    const drawScale = shrink * grow * flarePop;
 
     // Round camera-facing bullet: a soft colour BODY with a WHITE CENTRE on top,
     // plus a ground shadow (all off one slot). No spin — the disc is radial.
@@ -635,7 +739,7 @@ export function updateBossBullets(dt, player) {
       outlineMesh.setMatrixAt(i, HIDDEN);   // hidden the instant it crosses (near-field only)
       shadowMesh.setMatrixAt(i, HIDDEN);
     } else {
-      m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 3.1 * grow));   // outline ring (under the body)
+      m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 3.1 * grow * flarePop));   // outline ring (under the body; grows with the LENS flare pop)
       outlineMesh.setMatrixAt(i, m4);
       outlineColV.copy(OUTLINE_TINT).lerp(OUTLINE_FOG, far * 0.5);
       outlineMesh.setColorAt(i, outlineColV);
@@ -701,6 +805,27 @@ export function updateBossBullets(dt, player) {
           s.vx += ((s.tx + wob - s.x) / tLeft - s.vx) * k;
           s.vy += ((s.ty - wob * 0.6 - s.y) / tLeft - s.vy) * k;
         }
+        // PR-C THE LUNGE (owner's idea): the wisp EMERGES lazily then ACCELERATES
+        // onto its brand — depth follows the linear profile p(u)=p0→p1 over the
+        // flight. ARRIVAL-FRAME LAW (L186) held by LITERAL position tracking:
+        // rel is SET to the profile's exact analytic position every frame —
+        // relExact(t) = rel0 + base·T·(p0·u + (p1−p0)·u²/2), u = t/T, with
+        // constant-speed continuation past T. relExact < the constant-speed
+        // line strictly before T and equals it at/after T, and this branch runs
+        // BEFORE the arrival check below — so the first frame where rel ≥
+        // targetRel is IDENTICAL for every dt, INCLUDING a flight shorter than
+        // one frame (the nearest-organ clamp at low FPS — the Codex catch that
+        // killed the earlier set-vrel-for-next-step form, whose correction
+        // always arrived one frame late there). vrel carries the instantaneous
+        // profile speed for the homing tLeft read. null → skip (byte-verbatim).
+        const prof = L.lungeProfile;
+        if (prof && s.lungeT > 0) {
+          const T = s.lungeT, base = s.vrelBase;
+          const u = Math.min(1, s.age / T);
+          s.rel = s.lungeRel0 + base * T * (prof[0] * u + (prof[1] - prof[0]) * u * u * 0.5)
+            + base * Math.max(0, s.age - T);
+          s.vrel = base * (prof[0] + (prof[1] - prof[0]) * u);
+        }
         // Tow the light-ribbon: push this frame's world position into the
         // ribbon's sliding window (the strip rebuild happens once per frame in
         // updateWispRibbons — the trail IS the wisp's flight history).
@@ -720,7 +845,12 @@ export function updateBossBullets(dt, player) {
         // + lockStrike arpeggio; damage above stayed same-frame — the LAW), and
         // the ribbon freezes its head at the impact point and drains tail-first.
         if (s.owner === 'lance') {
-          queueWispImpact(s.x, s.y, -(player.dist + s.rel));
+          lanceArrivals++;
+          // The volley's LAST arrival is the FINALE (full sets only — a whiffed
+          // wisp leaves the count short and the cadence simply never fires; the
+          // held voices self-release on their watchdog).
+          queueWispImpact(s.x, s.y, -(player.dist + s.rel), s.volleyN, s.volleyFull,
+            s.volleyFull && lanceArrivals >= (s.volleyN || Infinity), s.volleySnap);
           ribbonRelease(s.ribbonIdx);
           s.ribbonIdx = -1;
         }
@@ -731,6 +861,8 @@ export function updateBossBullets(dt, player) {
       }
     }
   }
+  _threat.minTti = threatMin;   // publish this frame's reticle-yield read (3a)
+  _threat.count = threatCount;
   mesh.instanceMatrix.needsUpdate = true;
   coreMesh.instanceMatrix.needsUpdate = true;
   outlineMesh.instanceMatrix.needsUpdate = true;
@@ -752,7 +884,12 @@ export function updateBossBullets(dt, player) {
 let debugPerfectRel = null;
 export function setDebugPerfectParryRel(v) { debugPerfectRel = v; }
 
-export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1) {
+// §ENG-A-R: a candidate part counts as being on the roll-favored SIDE only when its x
+// clears the boss centre by this margin — so a centre-line anchor (e.g. the skull, x≈0)
+// belongs to neither side and stays the nearest-anywhere fallback, never a directional pick.
+const REFLECT_SIDE_EPS = 0.5;
+
+export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1, targets = null) {
   let total = 0, perfect = 0;
   let snapParts = null;   // V4 (PR4): source-part tags of PERFECTLY parried ambers
   for (let i = 0; i < POOL; i++) {
@@ -763,14 +900,29 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     const dx = s.x - player.position.x, dy = s.y - player.position.y;
     if (dx * dx + dy * dy > 9) continue;            // must be near the player to swat
     const isPerfect = s.rel <= (debugPerfectRel ?? CONFIG.BOSS.perfectParryRel);
+    // §ENG-A-R target pick: roll-favored side first, else nearest-anywhere, else the
+    // boss centre (never a whiff). `targets` null (un-opted def) → the shipped centre aim.
+    let tx = bossX, ty = bossY, trel = settleGap, aimPart = null;
+    if (targets) {
+      const dir = player.lastRollDir || 0;          // ±1; 0/absent = unbiased
+      let best = null, bestD = Infinity, side = null, sideD = Infinity;
+      for (const c of targets) {
+        const ddx = c.x - s.x, ddy = c.y - s.y, d2 = ddx * ddx + ddy * ddy;
+        if (d2 < bestD) { bestD = d2; best = c; }
+        if (dir && (c.x - bossX) * dir > REFLECT_SIDE_EPS && d2 < sideD) { sideD = d2; side = c; }
+      }
+      const pick = side || best;                    // auto-snap: favored side, else anywhere
+      if (pick) { tx = pick.x; ty = pick.y; trel = Math.max(pick.rel, 4); aimPart = pick.part; }
+    }
     // Flip it back at the boss.
     s.owner = 'player';
-    s.targetRel = settleGap;
-    s.tx = bossX; s.ty = bossY;
+    s.targetRel = trel;
+    s.tx = tx; s.ty = ty;
+    s.aimPart = aimPart;
     s.vrel = CONFIG.BOSS.bossSpeed;
-    const t = Math.max((settleGap - s.rel) / CONFIG.BOSS.bossSpeed, 0.05);
-    s.vx = (bossX - s.x) / t;
-    s.vy = (bossY - s.y) / t;
+    const t = Math.max((trel - s.rel) / CONFIG.BOSS.bossSpeed, 0.05);
+    s.vx = (tx - s.x) / t;
+    s.vy = (ty - s.y) / t;
     s.color = isPerfect ? 0xaef0ff : 0x66ddff;      // perfect = brighter
     const mult = (isPerfect ? CONFIG.BOSS.reflectPerfectMult : CONFIG.BOSS.reflectDamageMult) * dmgBonus;   // dmgBonus: adrenaline R4 (default 1)
     s.dmg = (s.dmg > 0 ? s.dmg : 5) * mult;
@@ -845,6 +997,7 @@ export function beamContact(player, depthHi = 7) {
 export function bossBulletCount() { return activeCount(); }
 
 export function resetBossBullets() {
+  _threat.minTti = Infinity; _threat.count = 0;   // clear the reticle-yield read between fights (robust to future reorder)
   for (let i = 0; i < POOL; i++) {
     if (slots[i]) slots[i].active = false;
     if (mesh) mesh.setMatrixAt(i, HIDDEN);

@@ -214,13 +214,19 @@ save compat for the detail setting (`modelDetail` deep-merge default, no migrati
 
 ## THE RULE (do this every time)
 
-1. **Read this file first.** It is the accumulated state of the art for this repo.
-2. **After every meaningful change, append a ledger entry — and don't stop at the
-   lesson. Interrogate it.** A recorded lesson is dead weight; the leapfrog only
-   happens when you *brainstorm what it means for the future*. Every entry MUST answer:
-   what did we learn → **how do we systematize the problem and the solution** → **what
-   does this unlock / what's the next innovation it points to.** No forward-looking
-   reflection = no leapfrog. (See the entry template below.)
+1. **Read this file first** (the frozen L1–L256 archive), **then skim
+   `leapfrog/lessons/`** for the newest lessons. It is the accumulated state of the art
+   for this repo. (`node tools/build-ledger.mjs` assembles both into one scroll if you
+   want it.)
+2. **After every meaningful change, add a lesson — as a NEW FILE, not an append here.**
+   Create `leapfrog/lessons/<YYYY-MM-DD>-<slug>.md` (see that folder's README). ⚠ Do NOT
+   append to THIS file and do NOT hand-pick a sequential `L###` number — that shared
+   write is what made every parallel chat collide on the ledger. One file per lesson =
+   two sessions never conflict. And don't stop at the lesson — **interrogate it.** A
+   recorded lesson is dead weight; the leapfrog only happens when you *brainstorm what it
+   means for the future*: what did we learn → **how do we systematize the problem and the
+   solution** → **what does this unlock / what's the next innovation it points to.** No
+   forward-looking reflection = no leapfrog. (See the template below.)
 3. **Build systems, not one-offs.** If a fix can become a reusable, tested,
    documented system, make it one. The next creature/feature should be *cheaper and
    better* than the last. If it can't be expressed as a system, it isn't done.
@@ -230,17 +236,21 @@ save compat for the detail setting (`modelDetail` deep-merge default, no migrati
    `tiershots` (real-WebGL compile check); the *human* judges motion/feel on the PR
    preview — our headless tools can't see animation or folded-pose seams.
 
-### Ledger entry template (copy this for every entry)
+### Ledger entry template (copy into a NEW file `leapfrog/lessons/<YYYY-MM-DD>-<slug>.md`)
 
 ```
-### L# — <short title>
-**Did / learned:** what we changed and the concrete lesson/gotcha.
-**→ Systematize:** how the PROBLEM generalises (where else does it lurk?) and how the
+# <YYYY-MM-DD> — <short title>
+**Did / learned.** what we changed and the concrete lesson/gotcha.
+**→ Systematize.** how the PROBLEM generalises (where else does it lurk?) and how the
   SOLUTION becomes a reusable system/pattern/test — so this class of bug/feature is
   solved once, forever.
-**→ Leapfrog (innovate):** what this unlocks. The next idea it points to, the bigger
-  capability it makes cheap, the thing we should now attempt *because* of this lesson.
+**→ Leapfrog.** what this unlocks. The next idea it points to, the bigger capability it
+  makes cheap, the thing we should now attempt *because* of this lesson.
 ```
+
+No sequential number — the date+slug filename is the id, and it's unique per chat, so
+parallel sessions never collide. Cross-references to the frozen archive still use its old
+`L###` labels.
 
 The `→ Leapfrog` line is the whole point: it is where one session hands the next a
 *running start* instead of a transcript.
@@ -8595,3 +8605,714 @@ the flag (rawDt is already clamped to 0.05 = a 20fps floor so a backgrounded fra
 byte-identical with the flag off (appshell + smoke green, no console errors; blueprint + tricount green). Lesson: a
 synthetic stress proves the DEVICE'S headroom at a load LEVEL; only the live frame proves the GAME holds — and for an
 overdraw-bound frame, average fps lies, the p95 dip is the budget, so instrument the WORST frame before spending more fill.
+### L226 — CP2-A "the fight goes bland": an owner's spectacle brainstorm usually maps onto the brief's own unbuilt spec — inventory BOTH before designing anything new, and re-express off-language ideas in the boss's own language
+
+**Did / learned.** Post-ship the owner called EMBERTIDE "a cool concept that gets bland quick" and brainstormed: a better intro, the boss growing, HANDS pressing in from the arena sides (à la Stormrend), per-attack facial expressions, "use the space." Before designing, we inventoried (a) the brief's CP2 spec and (b) the engine's reusable spectacle machinery — and the owner's list mapped ~1:1 onto specced-but-unbuilt items: the intro = the §5j *The Sky Comes Loose* entrance (specced, never built — the def had silently fallen to the default behind-approach); "push the space in" = the specced vertical squeeze + letterbox; "expressions" = the `setAttackTell` hook four bosses already implement. Only "hands" was OFF-language (palm-hands are CRAGHOLD's retired signature; WEFTWITCH wears hands too) — re-expressed in EMBERTIDE's language as THE TIDE CRUSH: the sky's ceiling of light descends (new Y-clamp), the tide-line swells, the letterbox pinches, and the P3 X storm-walls (shipped engine, walls already wear `def.accent` → vermilion) press in from the flanks. The intent (space crushing in) survives; the borrowed limb doesn't.
+
+**The build (all def-gated, coexist-proven by the lifecycle contracts):**
+- **Entrance:** `skyComesLoose` script (ONEWING's script grammar: path/gaze/camera/slowWindow/onFrame) + the model's `setEntrance(u)` — ember-seed dome → the face RISES through the horizon (BRINEHOLM's rise at sky scale) → the hollows tear open ONE AT A TIME → settle on the dragon (the notice fires on the tear edge, model-side). ⚠ skyReplace gotcha: the rig bypasses the group's warn-hide (it IS the sky), so the model must be STAGED (`setEntrance(0)`) at SPAWN, not at script start — else the arrived face pops visible through warn and snaps submerged when the script begins.
+- **Y-squeeze engine:** `arenaHY`/`arenaTargetHY` mirrors the X grammar exactly (target + eased publish `game.bossArenaHY` + a firm damage-free clamp in player.js). CEILING ONLY — never raise the floor: skimming is a core verb and a floor clamp would kill skims; the model's `crushFloor` strip carries the floor VISUAL. The letterbox is a PULSE (in ~3.5s, back out), not a mode; the clamp persists.
+- **THE LOOM:** per-phase face growth via `setLoom(phaseIdx/(n-1))` on the existing phase-seam block — the "never fits" law binds the FIELD, not the FACE, so the face may grow; capped +50% (KNELLGRAVE's capped escalation-growth pattern) so it stays IN the sky.
+- **Expressions:** `TELL_FAMILY` maps attack ids → NARROW (aimed glare: hollows squint, brow drops) / FLARE (fan: hollows widen) / TEAR (walls: the mouth rips wide) / SKEW (crossfire: the face tilts, brow cocks). The pose strength RIDES THE CHARGE ENVELOPE boss.js already drives — zero new state machines, the pose telegraphs the wind-up and releases itself on the fire.
+
+**Gotcha.** ui helpers that lazily create DOM must be SHIM-SAFE: the headless suite's stub elements lack `classList.toggle`, so `ui.letterbox` feature-detects before toggling (the boss.mjs drive calls it via the real teardown path).
+
+**→ Systematize.** When the owner says a shipped boss is "bland": FIRST diff their asks against the brief's unbuilt spec + the engine inventory (setpieces, entrance scripts, constrict, setAttackTell, sub-part growth) — most asks are already designed and just unwired. For an off-language ask, keep the INTENT and translate the FORM into the boss's own identity language. And every new arena-shaping global (`bossArenaHY`) gets the same triple contract the X one has: published during the fight for the opted-in def, NEVER published for any other def, ALWAYS restored on teardown — asserted per-boss in the lifecycle loop.
+
+**→ Leapfrog.** Verified: `boss.mjs` 96 (new CP2-A block: entrance stages/arrives, LOOM grows capped, crush strips close, tell families pose + release; per-boss crush contracts), `defs` 17, `entrance.mjs` 9 (ONEWING golden untouched), `bossboot` green. CP2-B (the mechanics: full-frame emitter rows, BEAM DUEL, Horizon-Break, TIDE-EDGE) is the next PR after the owner's feel-check on this one.
+
+### L227 — A multiply-blended "soft shadow" plane against an HDR sky reads as a translucent PANE wherever its feather is a few % from 1.0 — bloom amplifies it; binary-search the mesh, then tighten the feather where it faces OPEN SKY
+
+**Did / learned.** The CP2-A entrance exposed a hard-edged translucent rectangle floating over the horizon while the face surfaced. Two wrong theories first (the rim vertex-tint ≠ exactly 1.0 — a real bug, fixed, but only 1.5–3.5%; then the HP-bar plate — hidden until reveal). The decisive move was EMPIRICAL: freeze the game at the artifact moment (`game.state='paused'`), hide candidate meshes one at a time in-page, screenshot each — `faceRelief` (the base head-shadow multiply plane) alone removed it. Root cause: its feather (`smoothstep(d, 0.42, 1.12)`) only reaches "no effect" OUTSIDE the quad's inscribed ellipse, so a wide 2–15% multiply halo covers most of the quad; against the flat CP1 field behind the face it was invisible, but hanging in OPEN HDR sky (toneMapped:false, blooming) even a few % of dimming modulates the bloom enough to read as a crisp desaturated pane with the feather's end as its "edge." Fix: the CROWN-side feather tightens (`ry` 16→12.5 above centre, end at d=1.0, `f^0.7` gamma so it rises to no-effect fast) — the halo hugs the head; the jaw keeps the luxurious dissolve into the tide. Related: the crush strips got the same treatment structurally — a TALL strip whose far edge lives off-frame has only its blazing inner edge visible (no slab line against the dome), instead of trying to colour-match a short strip's outer edge to a spatially-varying dome.
+
+**→ Systematize.** (1) Any multiply/translucent plane that can face OPEN HDR SKY must reach EXACTLY 1.0 (every channel) well inside its quad, and get there fast (gamma the feather) — validate at the value level, not by eyeballing the happy-path frame. (2) For artifact hunts: pause the live scene at the artifact and binary-search visibility in-page — minutes, versus theorizing over blend equations. (3) For frame-wide light strips: make the geometry extend past the frame so only the designed edge can ever be seen.
+
+**→ Leapfrog.** Verified by the paired probe shots (baseline pane / `faceRelief` hidden → clean) + the re-captured entrance beats; `boss.mjs` 96 stays green (the face read asserts are value-based, not halo-based).
+
+### L228 — THE REAL pane mechanism (corrects L227): `toneMapped:true` on a MultiplyBlending material runs ACES on the FACTOR itself — ACES(1.0)≈0.76, so every "no-effect" multiply quad dims its whole rectangle ~15%
+
+**Did / learned.** The owner zoomed into the face and saw it as a collage of translucent SQUARES — one per multiply shadow quad. L227's "residual that defies the blend equation" now has its true mechanism: the blend IS pure `gl.blendFunc(ZERO, SRC_COLOR)` (read from lib/three.module.js), but the SRC isn't what the vertex colours say — **with `material.toneMapped: true` (the default), three.js applies the ACES tone-mapping chunk to the fragment output BEFORE blending, and `ACESFilmicToneMapping(1.0)` saturates at ~0.76** (the fitted RRT/ODT curve never reaches 1). So a multiply factor of exactly 1.0 became ×0.76 — every quad dimmed its ENTIRE rectangle, which is why no amount of rim-value discipline (exact-1.0 channels, collapse, tint decay) ever killed the pane, and why each mass plane read as its own tile. Proven empirically: flipping `material.toneMapped=false` in-page erased the pane instantly and completely.
+
+**The fix (two layers, both shipped):**
+1. **`toneMapped: false` on every MULTIPLY material.** The factor passes RAW to the blend: 1.0 = exact identity = invisible, mathematically. (The HDR dome/motes/strips already had it for the opposite reason — to keep HDR ABOVE 1. A multiply factor needs it to keep 1 AT 1.)
+2. **One merged shadow FIELD instead of stacked quads** (done first, for the interior tiles): the base wash + all 9 relief masses baked into a single geometry's vertex colours as the analytic PRODUCT of every layer — no inter-layer boundaries by construction, warm tint scaled by darkness so every channel is exactly 1.0 where the shadow ends. The named mass pivots stay as empty animation/organ nodes (tests + the charge tell unchanged).
+
+**Gotcha — the debugging trap that cost hours:** the artifact was ATTRIBUTED to vertex data (rim tints, feather reach), then geometry (collapsed-vert stacking), then "an impossible GPU residual" — because each fix changed the picture slightly (those were real-but-minor contributors) while the dominant term (ACES on the factor) was invariant. The unlock was the pair of decisive experiments: render the AGREED commit in the same harness (proved the pane was always there), and A/B one material flag in-page on the live scene (proved the mechanism in one frame). When a rendering artifact survives a "mathematically certain" data fix, STOP iterating values and A/B the MATERIAL FLAGS (toneMapped, fog, dithering, colour-space) one at a time in-page — the shader chunks they toggle run between "your data" and "the blend".
+
+**→ Systematize.** LAW: every MultiplyBlending material MUST set `toneMapped: false` (the factor must reach the blender raw). And prefer ONE analytic product field over stacked multiply quads for layered soft shadows — fewer draws, zero seams, one condense/fade target.
+
+**→ Leapfrog.** Verified: the in-page toneMapped A/B (pane present ↔ gone), `boss.mjs` 96 green (20,100 tris / 91% budget, 30 draws — the merge dropped 9 shadow draws), the merged field + raw factors read DEEPER than the old ACES-crushed values (the owner's "washed out" note self-resolves). The face now dissolves into the sky with zero readable boundary at any zoom — the L219 figure-ground ideal, finally exact.
+
+### L229 — A flat PLANE that carries alpha, drawn over a CURVED camera-locked dome, is a horizontal SEAM by construction — its edge (any edge that carries non-zero alpha) reads as a "rectangular line"; no feathering or tessellation removes a geometry edge, so RETIRE the plane and put the effect on the dome's own colour
+
+**Did / learned.** The CP2-A crush beat used two "descending light-band" planes (`crushCeil`/`crushFloor`) parked off-frame, sliding their blazing inner edge in to pinch the sky. The owner flagged, THREE times, a "weird rectangular horizontal line in the sky" during the crush. Four fixes failed in sequence, each disproved by an independent Fable checkpoint: (1) opaque→**alpha-faded** (itemSize-4 vertex colours, USE_COLOR_ALPHA) — line persisted; (2) the alpha was a **sum of two smoothsteps** → a constant-alpha PLATEAU mid-strip (a uniform-tint band whose onset the eye locks onto) → replaced with **one monotonic power-smoothstep** — line persisted; (3) suspected a **Mach-band crease** from coarse vertical tessellation (6 rows, Gouraud-interpolated) → bumped to 96 rows, width 1 — line persisted, unchanged. The persistence THROUGH a tessellation change was the tell: it was never a shading artifact. A **controlled ON/OFF blue-channel scan** (freeze at crush, screenshot strips-on, hide strips, screenshot again, per-row R/G/B average across clear-sky columns) settled it in one shot: with strips ON the blue channel STEPPED 79→89 at the exact seam row; with strips OFF that row was flat. It was the strip's **hot-crest geometry edge** (alpha ~0.8) — a hard plane boundary — landing in frame. A flat plane's edge over a spherically-mapped dome can never colour-match both sides, so wherever an alpha-carrying edge enters frame it is a seam, full stop.
+
+**The fix (shipped, PR #293):** retire the band-plane visual entirely. The space physically closing is already carried, seamlessly, by the CSS letterbox bars (`ui.js`) + the lane Y-clamp (`player.js`). The sky's own crush contribution is now a **uniform dome DIM** — one global `domeMat.color.multiplyScalar(1 - crushE*0.16)` — which has NO geometry and NO elevation edge, so it physically cannot draw a line ("the light recedes as it crushes in"). The `crushCeil`/`crushFloor` organs stay named in the graph (roster/tests) but `visible` is forced false forever.
+
+**Gotcha — luma scans are BLIND to hue seams.** The seam was primarily a BLUE-channel/hue step (~+10 B, only ~+1.7 luma via the 0.114 blue weight), so a luma row-average with a 2.5 threshold reported "smooth" while the Fable eye (and a per-CHANNEL scan) saw a ruler-straight line. When a human/vision-model flags a seam a luma scan misses, scan R/G/B SEPARATELY. And when the owner names the same defect 3×, stop iterating the clever-fix and remove the offending element — a decorative beat isn't worth a recurring artifact when two other systems already carry its intent.
+
+**→ Systematize.** LAW: do not draw a flat, alpha-carrying plane in front of the camera-locked sky dome to make a sky effect — put the effect on the dome's own vertex colours / a uniform material multiply (no edge is possible). For seam hunts: (1) controlled ON/OFF capture of the suspected object with the frame frozen; (2) per-CHANNEL row-average across clear regions, not luma; (3) an independent Fable checkpoint is the arbiter of "does a human see a line," not the luma delta.
+
+**→ Leapfrog.** Verified: controlled ON/OFF blue-scan (step present ↔ gone), the final Fable checkpoint CLEAN at high confidence (face still soft rimless negative-relief; the last candidate step decomposed to a single bullet orb), `boss.mjs` 96 green (the TIDE CRUSH check now asserts the strips stay hidden and the dome dims at a fixed sample phase). The shield-over-face reparent (kit shield Group + shatter shards onto a scaled `faceWard` on `faceRig`) shipped alongside in #288 and passed its own checkpoint (the ward wraps the head, not the station).
+
+### L230 — When a boss feature will be SCALED UP, feather in the FRAGMENT shader, not vertex colours; and re-skin a shared showpiece via an archetype-gated material swap (never a fork of the shared geometry/logic)
+
+**Did / learned.** After EMBERTIDE tripled in size, two things the owner flagged on-phone:
+1. **The eye/mouth tears read as PIXELATED.** They feathered a radial `smoothstep` baked into a coarse
+   `PlaneGeometry(w,h,16,12)` **vertex-colour** grid — Gouraud-interpolated between verts. Smooth at 1×,
+   but 3× magnified the between-vertex facets into visible stair-steps. Bumping tessellation enough to
+   hide it would have cost thousands of tris (over the face budget). Fix: move the exact same
+   `smoothstep(uCoreK, 1.0, length(vUv*2-1))` into a **fragment shader** (a tiny `ShaderMaterial`), so the
+   feather is **resolution-independent** at any scale AND the quad drops to `1×1` (2 tris) — a NET tri
+   SAVING. A raw ShaderMaterial isn't ACES tone-mapped, so the multiply factor reaches the blender raw
+   (the L228 law is satisfied for free; set `toneMapped:false` for intent). Animated by scaling the
+   pivots still works because the shader keys off `vUv` (scale-invariant).
+2. **The lane-constriction side-walls read as janky** — EMBERTIDE reused the SHARED additive "storm walls"
+   (glowing, `def.accent`-tinted, hard rectangular). Fix WITHOUT forking the shared system: build a second
+   material (`wallMatEmber` — a MULTIPLY `ShaderMaterial` that feathers by `vUv` so there's NO hard edge,
+   darkening via a `uCloseK` uniform), and at fight-start ASSIGN it to the shared `wallL/wallR` meshes only
+   when `def.id === 'embertide'`; every other boss gets the additive `wallMat` byte-identical. The shared
+   `wallGeo`, positions, slide/visible logic all stay one implementation — only the *material* is swapped,
+   gated, and restored each fight. Coexist with zero duplicated logic.
+
+**Gotcha.** An edge-on vertical plane at the lane edge projects to little screen area, so a MULTIPLY wall
+darkens less than an ADDITIVE one glows at the same geometry — but it was still plainly visible (the owner
+saw the additive version at the SAME geometry), and the Fable arbiter rated the dark version's intensity
+"strong," so no boost was needed. Confirm read with the checkpoint, don't pre-boost on a hunch.
+
+**→ Systematize.** (1) If a feathered/gradient mesh will EVER be scaled up, compute the gradient per-FRAGMENT
+(UV-space smoothstep in a ShaderMaterial), never per-vertex — vertex-colour feathers are a resolution trap.
+(2) To re-skin a SHARED showpiece for one boss, swap the MATERIAL on the shared meshes behind an archetype/
+id gate and restore it each fight — never fork the shared geometry or update logic (that's how coexist rots).
+
+**→ Leapfrog.** Verified: independent Fable checkpoint MATCH on both — eyes/mouth smooth rimless negative-
+relief with zero blockiness; side-walls dark soft-edged shadow pressing in, no glowing panels/seams, "strong"
+intensity; `boss.mjs` 96 green (storm-wall bosses untouched); tear change is net-negative tris.
+
+### L231 — CP2-B mechanics pass: `amberSwap` makes new non-amber attacks free; gate set-pieces on the card/archetype id; a Surge mechanic reads the ring/fever meter, not a bespoke bank
+
+**Did / learned.** Wired EMBERTIDE's four deferred CP2-B mechanics, each coexist-safe (def-gated; every shipped boss inert), `boss.mjs` 96 green throughout:
+1. **TIDE-EDGE graze** — `grazeForm:'tideEdge'` shipped *declared-but-dead* (no controller branch). Wired beside `beamEdge`, reusing `beamContact` + the `beamHeld/beamTick/beamGrace` ramp verbatim. (Guard idea: a declared-but-unwired `grazeForm` is a de-lie — but a universal test guard is brittle because forms dispatch from both `boss.js` AND the model files; don't hardcode a handler set.)
+2. **CRESTFALL full-frame emitter** — a NEW attack id. The friction of a new id is small IF you know: (a) add it to the `boss.mjs` attack-id whitelist, (b) add to `SUSTAINED` if it uses `pending[]`, (c) the **amber floor cannot break** — `bossRhythm.amberSwap` forces a crossfire/stream carrier whenever the 12s window lapses, so a non-amber attack added to a phase that keeps its carrier is always safe. `simulatePhase` treats unknown ids generically (no registration needed).
+3. **HORIZON-BREAK survival** — the generic survival seal (`activeCard.survival` → boss invincible + outlast the timer) already existed; the set-piece is layered by gating on the **card id**: force `curAttack='crestfall'`, **release the constriction** so the crest fills the whole frame, and drive an autonomous gaze sweep whose lane-X becomes the crest's locked safe-gap (the moving face-shadow pocket). Balance gotcha: at a constrict phase the crest was pinched thin and its gap nearly filled the lane — *open the frame* for a "whole-frame crests" survival.
+4. **BEAM DUEL** — a Surge mechanic reads the SHARED meter (`consecutiveRings / feverThreshold ≥ 0.5`, `!feverActive`), not a new bank; it alters player control by adding an oscillating lateral push to `player.position.x` (amplitude < `lateralSpeed` so it stays fightable), pays out via `bulletGraze`, and draws a named additive beam mesh stretched crest→ship each frame. NOT a parry (audit ED-8) — the amber floor stays served by the existing carriers.
+
+**→ Systematize.** (1) Adding a boss attack: whitelist + SUSTAINED + trust `amberSwap` for the floor. (2) Build a survival/Surge set-piece as an override GATED on the card/archetype/def id over the shared scheduler + arena + gaze — never a fork. (3) A "Surge ≥ N%" mechanic reads the ring/fever meter; a control-altering mechanic nudges `player.position.x` with amplitude < `lateralSpeed` and resets all its state on fight-start AND teardown.
+
+**→ Leapfrog.** Verified in-game per increment (tide-edge skim; full-frame crest row; the P5 whole-frame crest with a sweeping safe pocket; the beam locking ship→crest with the HOLD-CENTER banner). PR #299, four commits. Owner feel-check on the preview is the exit gate; balance (crest density, drift strength, duel cadence) is deliberately conservative and tunable on their note.
+
+---
+
+## L232 — JADE "ICONIC GREEN" direction formalized (pre-slot-C art-direction, mirrors ember PR #237)
+
+**What we did.** Human locked an ICONIC GREEN art-direction for jade — same authority as ember's
+iconic-flame pivot (PR #237): jade is THE green starter of the new trio (old/cinderwing/alt starters
+retiring), and a stranger's one-word read of every frame must be GREEN. The §5d starting hexes were
+too dark (near-black moss `0x123026` body). Formalized it in `DRAGON-DESIGN.md` ONLY (no code recolor
+yet — the actual paint is the gated slot-C build, exactly as ember's direction commit `1770f9d` touched
+only the doc + a test comment and the recolor came in the later gated `flame r1/r2` rounds):
+- **§2 law-9 accent table + §5 registry**: jade accent `0xeafff4` cool pearl → `0xd6ffe9` **mint-pearl**
+  (green-leaning, still inside the §7 ~149° cool band so the accentHue ±20° assert stays valid); carrier
+  text rewritten to a VIVID mid-value jade body + pale mint belly + green-family fin gradients.
+- **§5d jade sheet**: added a `PALETTE DIRECTION: ICONIC GREEN` block (the ember-block pattern) with
+  approved hexes — body ramp `0x3cb883`→`0x28a06b`→`0x178a54` (light→rich; value DOWN + saturation UP
+  per §4), deep-jade shadow tier `0x0d5c3a`, pale mint belly `0xdaf7e6`, mint-pearl bloom/rim `0xd6ffe9`,
+  fin gradient `0x116b45`→`0x2f9e77`→`0x9ff0c8`, scales `0x8fe0be`/horn `0xc7ebcf`/eye `0x8ff0c2`.
+- **§7 palette carrier**: jade clause now asserts the body diffuse reads VIVID mid-value jade (green at a
+  glance, NOT near-black) with saturation carried in accents/fins; gate judges greenness-at-distance.
+
+**Learned / reusable.** (1) **Design the palette in HSL before writing hexes.** A quick `hsl()` script
+showed the current body ramp is H160–166 **L13–14** (near-black — that IS the "too dark" bug in numbers);
+the new ramp holds H152–154 at **L32–48** (unmistakably green midtones) with saturation ramping 51→60→71
+and value 48→39→32 — i.e. §4's "value down, saturation up" satisfied WITHOUT going dark, because the whole
+band sits at mid-lightness. Verify hue AND lightness, not vibes. (2) **Keep the accent inside the registered
+band when re-tinting.** Mint-pearl `0xd6ffe9` computes to H148 — still within `accentHue 149°±20°`, so no
+test/`def.accentHue` change is needed; had I pushed the pearl toward pure white or cyan it would have broken
+the §7 assert the moment jade joins SPECS. (3) **The direction-vs-build split is the process.** Ember's
+`1770f9d` proved the pattern: formalize the human art-direction in the doc (approved hexes recorded) as a
+clean doc-only commit, THEN paint it through the gated slot rounds where the fable gate — not the builder —
+judges greenness. Jade is not yet in `tests/starters.mjs` SPECS ("joins in its slot"), so this commit is
+doc-only; roster gates stay green untouched (blueprint 4/4, starters 120/0, tricount 0 over budget).
+(4) **When in doubt, choose GREEN** — the sheet now instructs the gate to treat greenness-at-gameplay-
+distance as part of color/rim beauty, so "tasteful dark jade" is a FAIL, not a safe hedge.
+
+---
+
+## L233 — JADE slot C CP1: silkFinWings + serpent + the ICONIC GREEN build (gate r1 FAIL → r2 in progress)
+
+**What we did.** Built the jade "Jade Serpent" starter to the §5d sheet on the merged ember base — new
+self-registered wing builder `silkFinWings` (§3 col 3: 3→4 tall koi fin-lobes, forked/notched tips = the
+jade separation metric, green gradients, mint-pearl rim carrier + trailing streamers), `buildRiverPearl`
+motif socket (the ONE bloom), the serpent torso + softStealth draconic head, and the full ICONIC GREEN
+palette across 3 forms. All headless gates green (starters --cp1 163/0, blueprint 4/4, tricount 0 over
+budget; jade 2986/4028/5084 tris). Then a fresh `fable` gate FAILed CP1 at avg 2.25 with 14 directives;
+applied the structural ones as r2.
+
+**Reusable engine dials landed (all additive, default-off → roster byte-identical):**
+- **`model.spineYaw`** (torso): a LATERAL top-view S (offsets loft x + neck x + headBase x by a sine along
+  z). The serpent read needs BOTH the existing vertical `spineCurl` AND this lateral S — jade set neither
+  at first and the gate's #1 FAIL was STRAIGHT SPINE. **Jade never setting `spineCurl` was the bug** — the
+  dial existed (ember used it) but a straight body is the default; a serpent MUST dial both.
+- **`def.scaleEmissive`/`scaleEmissiveI`, `def.eyeEmissiveI`, `def.bellyEmissive`/`bellyEmissiveI`**
+  (dragonModel materials): the shared `scalesMat` has a HARDCODED cyan emissive (L164) that lit jade's
+  scutes/**whiskers**/ridges steel-blue, `eyeMat` emissive 2.2 blew the eye to a white googly blob, and the
+  pale `bellyMat` desaturated to slate-blue in shadow under ACES. All three are now def-overridable; jade
+  tints them green/calm. **On a saturated-identity dragon, audit EVERY shared material for an off-hue
+  hardcode — cyan on green is as jarring as the L164 cyan on ember's warm.**
+
+**The wing lessons (gate-driven):**
+- **Bake the L/R mirror into the geometry (negate x + REVERSE winding), never `mesh.scale.x = -1`.** A
+  negative scale flips the normals, so one koi fin lit sage-green and its mirror lit blue-teal (gate r1
+  dir 7). Reversing the index winding makes `computeVertexNormals` point outward on both sides → identical
+  green. This will recur for any mirrored vertex-coloured wing.
+- **A "darker leading ray" is a WELDED vertex-colour stripe + a raised leading rib, not a separate bone.**
+  The first pass added a matte spar bone per lobe; from behind they read as floating black rods overshooting
+  the silk (gate r1 dir 6). Deleting the bones and lifting the leading edge into a camber rib + darkening the
+  leading vertices reads as integrated relief with zero overshoot.
+- **Notch profile `sin^0.85` (wide mouth) survives the rear black-fill; the earlier spiky read was the
+  floating rods, not the notch.** Depth ≥0.3× lobe length is the §3 jade metric (published as
+  `wingElements[].notchDepth`); the test branches on `spec.separation==='notch'` (jade overlaps, so the
+  azure/ember planform-gap assert is wrong for it).
+- **Fan-fold furl:** jade rides direct `wingPivotL/R` + per-lobe `wingLobePivotsL/R`; a new `poseLobePivots`
+  (wingDebugPose) swings the fan back + yaws each lobe inboard so a fold contracts span past 0.72×. GOTCHA:
+  the model orchestrator WHITELISTS which `parts.*` keys it forwards — `wingLobePivotsL/R` were silently
+  dropped (the fold looked broken, contraction stuck at 0.74) until threaded through both forward blocks.
+
+**Test-metric reconciliation.** §3's jade "span:body 2.2–2.5×" is against the CORE body, but the §7 test
+measures against the full nose-to-tail serpent length (huge denominator) → the reconciled band is ~0.28–0.46.
+The r1 gate still called the fans BACKPACK at that band, so the fans were grown ~1.5× (lobeSpan 4→6). When a
+sheet ratio and the built-geometry metric diverge, the GATE's pixel read wins — grow until it reads as the
+hero, and document the band divergence (as azure/ember did).
+
+**Open (gate r1 residual → next rounds, CP2-class):** the HEAD is the battleground (ember's CP2 pattern) —
+round frog-ball skull, blank pale eyes (need iris+pupil), the chin pearl barely reads in the face crop, jaw
+still drifts blue; the beaded neck needs a smooth loft; streamers still mirror into a "heart" (need the
+rig's phase/lag to break L/R); the tail-whip is straight (the tail MODULE needs its own arc — the torso
+`spineCurl` doesn't reach it). CP1 body+wings are close; the face + neck + tail are the next climb.
+
+---
+
+## L234 — JADE "Jade Serpent" CP1 PASS (apex, avg 4.125) — the structural-rework turning point
+
+Slot C (jade) cleared the CP1 apex gate at **avg 4.125, no axis ≤2** (line-of-action 5.0, silk-fin
+4.5, greenness 4.5, silhouette/wing/taper 4.0) after a long climb: **2.0 → 2.75 → 3.2 → 3.81 → 4.125**.
+The gate called the side black-fill "the best starter silhouette this rebuild has produced — poster-grade."
+
+**The turning point was a STRUCTURAL rework, not more parameter tuning.** The build plateaued at ~2.1–2.25
+for four gate rounds while I tweaked dials (fin spread, notch depth, emissive floors). Every round the gate
+found the same read-level failures — "moth on a stick," "caterpillar head," a stubborn L/R teal. The score
+only started climbing when I stopped tuning and rebuilt the two things that were wrong at the ARCHITECTURE
+level:
+- **`buildKoiSkull` — a NEW lofted Catmull head shell** (the ember `buildSmoothForgeSkull` pattern, L165)
+  shaped slim + elongated (rounded braincase → brow ridge → tapered snout). This replaced softStealth's
+  round ellipsoid, which no amount of `headStretch`/`headNarrow` dialing could de-blob. Registered in
+  `SKULLS` + `ONE_SHELL_SKULLS` + the proud-eye set; routed via `model.skullType`. **Instantly** moved
+  color→4 and earned "a real hull, not the old ellipsoid blob."
+- **Reshaping the `silkFinWings` petal** from a pointed leaf/moth blade to a broad koi ray, then — after
+  the gate flagged the over-broad version as a "MITTEN balloon" — to a MODERATE chord (4 distinct lobes,
+  ~40% narrower, spread so tips separate). The sweet spot between "spiky slivers" and "merged mitten" is
+  narrow and only findable against the gate, one step at a time.
+
+**The lesson (compounding L164/L165):** when a harsh gate's score is FLAT across 3–4 rounds and it keeps
+re-citing the same read ("wrong noun," "blob," "moth"), the defect is ARCHITECTURAL, not parametric — stop
+turning dials and rebuild the offending part. The ellipsoid-stack skull and the pointed-petal fin were both
+dead ends that tuning could not save; a lofted shell and a reshaped blade broke the plateau in two rounds.
+
+**Reusable engine dials landed this slot (all additive, default-off → roster byte-identical):**
+`model.spineYaw` (torso lateral-S), `model.tailArc`/`tailYaw` (clean-tail idle curve, also curves the
+sweptTail centreline + welds the tip onto the curve), `model.tailGirth` (fat serpent ribbon),
+`model.tailGlow` (green tail emissive floor), `model.headStretch`/`headNarrow` (skull elongation),
+`model.skullType: 'koiSkull'`, `model.neckBlend` (already existed; pushed to 3.7 to de-caterpillar),
+`def.scaleEmissive`/`eyeEmissiveI`/`bellyEmissive`/`eyeSclera`/`eyeIris`/`eyeIrisKeen`/`eyeBallEmissive`
+(kill off-palette cyan/blue on a green dragon — the L164 gotcha generalized), `model.finGlow`/`finRimColor`
+(green emissive floor + greener rim so the shadowed wing holds jade under the cool studio key light).
+
+**Gotchas.** (1) A negative `mesh.scale.x` mirror flips the normals → one koi fin lit sage, its mirror
+teal; bake the mirror into geometry (negate x + REVERSE winding) instead. (2) The persistent L/R "teal"
+was ultimately DIRECTIONAL STUDIO LIGHT (the fin facing the cool fill reads teal) + the pale-cyan mint rim
+at grazing angles + transparency depth-sort — layered causes; the fix was a green emissive FLOOR + a greener
+rim + opaque rear lobe, and accepting it may read differently on warm game skies (the human is the merge
+judge, §8). (3) When you offset tail SEGMENTS by an arc, every later-added element (the tip cone, fins) must
+be placed on the SAME arced centreline + tangent or it detaches (a hard §2.1 one-component fail). (4) The
+head reads `c.def.*`, not `c.def.model.*` — eye/scale colour overrides must be TOP-LEVEL def fields.
+
+**Open (gate's non-blocking polish notes → fold into CP2):** brighten the iris toward `0x8ff0c2` + widen
+the almond so the eye (not the pearl spill) is the brightest facial point at turntable distance; soften the
+front/¾ neck-segment beading (side is smooth); +5–8° fan camber so the dead-astern chase presents more silk;
+lift the tail-veil's darkest field toward `0x116b45`. Next: **CP2** — tune forms 0–1 to their §4 bands +
+the growth arc, then the ladder + face-per-form + silhouette triptych + trio frame + a fresh CP2 gate.
+
+---
+
+## L235 — Gotcha: a PR opened via the API/MCP token does NOT fire the `pull_request` preview build
+
+**Symptom.** Created PR #268 for the jade slot via `mcp__github__create_pull_request`, handed the human the
+canonical preview URL (`…/pr-preview/pr-268/`) — it 404'd. The `gh-pages` branch had `pr-134`…`pr-267` but
+no `pr-268` folder, and **zero** workflow runs existed for the branch.
+
+**Cause.** GitHub suppresses `on: pull_request` workflow triggers for PRs whose `opened` event was produced
+by a bot/app/`GITHUB_TOKEN` (anti-recursion). Our `pr-preview.yml` triggers only on `pull_request`
+(opened/synchronize/reopened/closed) with no `workflow_dispatch`, so an API-opened PR never builds a preview
+and never comments the link.
+
+**Fix / reusable pattern.** Push a commit to the head branch — that emits a `synchronize` event attributed
+to the pusher (not the token), which DOES fire the build and lands `pr-<N>/` on `gh-pages`. A one-line
+ledger append (this entry) is the natural carrier; an `--allow-empty` commit also works since `synchronize`
+only needs the head SHA to move. The preview URL is correct as-is — it just needs a real run behind it. (The
+sandbox itself can't verify the page: the egress policy 403s `*.github.io` at the proxy, so trust the
+Actions "PR Preview" + "Deploy Pages" green as the build proof, and let the human load the URL.)
+
+---
+
+## L236 — The gate can't see motion: a serpent that "passed" was dead-stiff in-game
+
+**Human verdict on the CP2-passed jade (in-game, PR #268 preview):** *"the body is disjointed and
+stiff… it's meant to be a serpent but it doesn't even move… the tail is thick and disjointed from the
+body. How did fable even pass this?"*
+
+**Why it passed the gate anyway.** §8 Fable judges STILL turntable/tiershots — there is no WebGL in CI,
+so **motion is structurally invisible to the gate**. A dragon can score 4.25 on frozen beauty and be
+lifeless the instant it flies. The human is the ONLY judge of motion/feel (this is why §8 defers the merge
+call to them) — treat a gate PASS as "the stills hold," never "it moves."
+
+**Root cause (architectural, not a tuning miss).** Jade was built on the `serpent` LOFT torso — ONE rigid
+mesh that emits no spine segments, so nothing in the rig can bend it — with the fat `sweptTail` bolted on as
+a SECOND mesh (the visible seam = "disjointed tail"). The only procedural bodies that actually undulate are
+the **segmented** ones: a torso that publishes `parts.bodySegs` (overlapping section Groups) gets the
+shipped lead-first travelling wave for free (dragon.js ~L858: `position.x = sin(time·k − i·lag)·sway·ramp`,
+ramp `0.18+0.95·tt` so the tail whips widest; group roll auto-softens to 0.4 when `bodySegs` present so the
+snake-bend reads instead of a plane-bank).
+
+**The fix — `dragonKoiSerpent.js` (`koiSerpent` torso).** A continuous chain of heavily-overlapping smooth
+jade sections (koi girth profile: plump front third → fine tail), vertex-painted value ramp + mint belly,
+publishing `bodySegs`. **The tail is the tapering REAR of this same chain** (`parts.tail:'none'`) — so it
+can never detach, and "thickness" is just the taper curve, not a bolted girth knob. Wings (the human's
+loved hero) + the koiSkull head are untouched — they mount at the front and LEAD while the body trails.
+
+**Gotchas that the §7 asserts caught (all real, all fixed):**
+1. **Length is pinned by head:body, not by feel.** Jade is the LONG archetype (apex body 7.5–9.5× the head
+   vs a winged dragon's ~5×) — but the ratio climbs mostly because the HEAD shrinks across forms (2.07→0.98),
+   the absolute body length barely grows (~6→8). Calibrate the section count against the head length, per form.
+2. **Pin the frame at the SHOULDER, not the chain midpoint.** A centre pin drifts every mount (head, wing
+   root, chin-pearl) as the body lengthens → the §7 motif-invariance assert fails (drift 0.67/1.25). Pinning a
+   fixed arc-distance behind the head keeps the front anchors form-invariant; only the tail extends backward.
+3. **Bake a resting vertical S** (neck up / mid dip / tail up) into the base Y or the §6.4 line-of-action has
+   zero inflection (a straight rod). The runtime wave adds to `userData.baseY`, so the still pose keeps the S.
+4. **spanBody bands are architecture-specific.** Moving loft→chain legitimately re-based wingspan:body;
+   reconcile the band to the new (correct) body rather than shrinking the beloved wings to fit an old number.
+
+**Reusable:** the segmented-body + `bodySegs` path is the ONLY procedural route to real undulation — reach
+for it (not a loft) whenever the creature must *swim/slither*, and fold the tail into the chain so it's
+continuous by construction. Verify motion on the PR preview every time; the headless suite proves geometry,
+never life.
+
+---
+
+## L237 — Human motion notes on the koiSerpent (iterating what the gate can't see)
+
+Second in-game pass (PR #268 preview), three notes — all motion/read issues invisible to §8:
+
+1. **"Looks like the astral-worm body, which I hated — creepy."** The overlapping-SPHERE chain I
+   borrowed from crystalSerpent reads as a string of beads / a caterpillar. **Fix without losing the
+   working `bodySegs` undulation:** a `segDensity` dial that packs MANY more, smaller, heavily-overlapped
+   sections at the SAME total length (N×SPACE held constant, so the §4 head:body bands are untouched) +
+   near-round cross-sections (drop the elongated/bulbous per-segment scale). Dense heavy overlap = the
+   silhouette is a smooth continuous tube, not distinct beads. The bead-chain "worm" pop comes from
+   VISIBLE segment waisting — kill it with overlap + roundness, not fewer segments.
+2. **"Shouldn't the wings flap together?"** dragon.js never animated jade's silk-fin LOBES at all (only
+   the whole-fan pivot tilted, and the tip used an asymmetric L/R phase). Added a SYMMETRIC per-lobe
+   ripple (both fans open together, per-lobe lag down the fan → a travelling koi-fin breath), keyed on
+   `parts.wingLobePivotsL/R` so it's jade-only (every other dragon byte-identical). The furl group is the
+   animation child; the static rake lives on its parent `rest` group, so the ripple composes cleanly.
+3. **"Needs more fluidity / more lag."** Bumped `segmentLag` 0.16→0.30 (the tail trails the head further
+   → a longer, more fluid travelling wave) and the density gives the wave finer samples.
+
+**Reusable:** when the human says "creepy worm," the lever is smoothness of the SKIN silhouette (overlap +
+round sections), not the motion mechanism — keep the `bodySegs` wave, change what it's wrapped in. And a
+per-part symmetric ripple keyed on a nullable parts handle is the clean way to add creature-specific
+in-flight motion without forking the shared wing code.
+
+---
+
+## L238 — "3 worms next to each other": stacked spheres NEVER read as a smooth serpent
+
+Third in-game pass: the dense sphere-chain (L237) read as parallel lumpy columns — *"wtf did you
+create? it's now 3 worms next to each other. the body needs a rework bro."* Low-poly sphere
+cross-sections + stacked overlap = visible longitudinal ridges + bead waisting, from the one view that
+matters (rear-chase, looking down the body). **Density tuning cannot fix a bead-chain — the topology is
+the problem.**
+
+**The real fix (v3): ONE swept TUBE bent by a travelling-wave VERTEX SHADER.** `dragonKoiSerpent.js`
+now lofts N rings × K radial verts into a single continuous mesh (head→fine-tail, capped), and bends it
+every frame in the vertex stage: `transformed.x += amp · ramp · sin(freq·z + uTime)`, ramp 0 at the head →
+1 at the tail (head leads, tail whips). No segments, no beads, physically cannot read as separate worms.
+The tail is the tapering rear of the same tube (continuous by construction). dragon.js ticks
+`parts.bodyWave.uniforms.uTime` (accumulated, speed-eased — never `phase = speed·clock`, or a boost jolts
+the wave). ~4.2k tris at apex (the undulation is free in the shader), well under budget.
+
+**Shader-plumbing gotchas:**
+- `composeSurface` (the surface-shader patch system) wraps each patch uniform FRESH per compile
+  (`shader.uniforms[name] = { value }`), so an externally-ticked uniform can't reach it. For a live-ticked
+  uniform you must own the `onBeforeCompile` and assign the SHARED uniform object
+  (`shader.uniforms.uTime = myU.uTime`) — the `attachBodyDeform` pattern. So the wave + the fresnel rim had
+  to live in ONE hand-rolled `onBeforeCompile` (vertex wave + fragment rim at the `<begin_vertex>` /
+  `<emissivemap_fragment>` seams), not `applyFresnelRim`.
+- Forward the uniform through BOTH parts blocks in dragonModel (the early winged-return AND the main
+  return) or it's silently null and the body sits dead-stiff again.
+- The shader only compiles under real WebGL — CI can't catch a GLSL typo. Mirror an already-shipping patch's
+  exact seams/vars (`position`, `transformed`, `normal`, `vViewPosition`) and the human's the compile oracle.
+
+**Face:** per the human, dropped the bespoke `koiSkull` for azure's head fitted to jade — `softStealth`
+draconic + `cuteEye` + `taperedPredatorSnout` + brow + slim `neckBlend`, in jade green. Reuse a proven,
+liked head over a bespoke one when the human points at it.
+
+**Wings:** "still beating asymmetrical" — carried the symmetric lobe ripple from L237 (jade-only, keyed on
+`wingLobePivotsL/R`); if it still reads off, the shared basic-direct branch's asymmetric wingTip phase
+(sin(φ+0.95) vs sin(φ+1.18)) is the next suspect to fold into a jade-symmetric branch.
+
+---
+
+## L239 — Motion you can't test headless will bite you: move the wave to the CPU
+
+The swept-tube body (L238) shipped STATIC in-game — "no motion on the body, it's sitting still." The
+travelling wave lived in an `onBeforeCompile` vertex shader whose uniform dragon.js ticked; the wiring read
+correct (shared-uniform pattern, parts.bodyWave non-null, onBeforeCompile not overwritten) but it never
+animated, and **CI cannot compile GLSL** so I had no way to see why before shipping it to the human twice.
+
+**Fix: do the undulation on the CPU.** koiSerpent now stores per-vertex baseX/baseY, spine-z, and a
+head→tail ramp; dragon.js rewrites `position.x = baseX + amp·ramp·sin(freq·z + phase)` each frame and sets
+`needsUpdate`. ~314 verts for one hero dragon = trivial. Crucially it is **deterministic + headless-testable**:
+a 30-line node test drove the tick and asserted the tail x swings ~0.9 units while the head barely moves —
+proof of a real travelling wave BEFORE deploying. `body.frustumCulled = false` (the swing exceeds the
+static bounds). Normals aren't recomputed (cheap, subtle shear — same tradeoff the shader made).
+
+**The rule:** if a change's whole point is MOTION and the mechanism can't be exercised in CI (a shader
+uniform, a GPU deform), prefer a CPU path you can unit-test, or you're shipping blind to the human as your
+only oracle — expensive when each round is a deploy + a human test. Verify motion headless when you can.
+
+**Also this round (human notes):** reverted the face to the original lofted `koiSkull` (they preferred it
+to the azure-head graft — reuse-a-liked-thing cuts both ways). And gave jade a DEDICATED symmetric wing
+branch: the N silk lobes beat L_i↔R_i on the SAME phase (side only flips the spread), killing the shared
+basic-direct branch's asymmetric wingTip phase (sin(φ+0.95) vs sin(φ+1.18)) that read as "beating
+asymmetrical." Keyed on `wingLobePivotsL/R` → jade-only, roster untouched.
+
+---
+
+## L240 — Silk-fan tuning: a beat that ADDS to the rest rake closes the fan
+
+Human on the symmetric fans (good — "wings together", body "swims with a real S, looks great, simple and
+elegant"): but "the wings had 3 separate parts per side, I only see 2 now" + "the back part could be more
+flowy, reads a bit stiff."
+
+**Cause of 3→2:** the lobe beat set `rotation.y = side·beat`, but the lobes' rest RAKE already fans them
+via `side·-(rake)` — so the positive term rotated lobes BACK toward centre, merging adjacent ones. Two
+fixes: (1) bias the animation in the OPEN direction (`-side`) with a static `lSpread·fr` fan so lobes never
+close into each other, and (2) a BIG inboard→outboard phase lag (0.85) so each lobe sits at its own angle
+at any instant → they read as separate parts even mid-beat. **Flow:** a slow rear-weighted sway
+(`sin(lp·0.5)·flow·fr`, strongest at the rearmost lobe — which rides the wingTip carrier) undulates the
+trailing edge so the back of the fan flows instead of reading as a rigid paddle.
+
+Reusable: when animating fanned/raked elements, know the sign of the REST spread and bias the animation to
+ADD to it (open), never oscillate symmetrically about it — symmetric oscillation collapses the fan on the
+closing half. Stagger by phase-lag to keep parts individually legible.
+
+### L241 — Match a reference EMBLEM: a swept wing points ~60° off its shoulder rotation (fill the lower hemisphere or it's a palm tree); re-voice the shared wing with a `blade` knob, not a fork
+
+**Did / learned.** BOSS 14 stage-2 design-B: rebuild the SERAPH as a bilaterally-symmetric eyed-wing EMBLEM to match an owner reference (a radial six/ten-wing rosette, small almond central eye + radiant starburst, a ring of root eyes). Assembled from the merged `buildAngelWing` (do NOT rebuild the wing); the whole fight was ARRANGEMENT + a light re-voice. Fable-gated against the reference image three times: 3.5 → 6 → **7.5 PASS**.
+1. **The wing-body-sweep gotcha (the palm-tree trap).** `buildAngelWing` sweeps its feathers UP-and-out from the shoulder, so the wing BODY points ~60° CCW off the shoulder's `rotation.z`. Feather direction φ ≈ 60° + rotZ·57°. Naive "down-and-out" pairs at rotZ −1.2 (which *feels* downward) actually point φ≈−9° — near-HORIZONTAL. Result: every wing sat in the UPPER hemisphere, mass towered above the eye, and the stranger test read "palm tree / fern with a bug at its foot" every time. Fix: to hang wings BELOW the eye you need rotZ ≈ −1.8…−2.4 (φ ≈ −40…−75). Once the lower hemisphere filled and the bottom pair was the LONGEST (tips reaching further below the eye than the top reaches above), the palm read broke and the eye finally read as the *centre* of a rosette, not the base of a tuft.
+2. **Re-voice the shared wing with a knob, not a fork.** Fable wanted straight sharp feather-BLADES, not rounded fronds — but the wing is the owner's signed-off winglab hero. Added a `blade` (0..1) param to `buildAngelWing` (straighter spine bow, harder distal taper, collapsed dome→point, slimmer) that defaults to **0 = hero byte-for-byte unchanged**; the boss passes 0.78. Same pattern as the earlier `material` override and continuous `curveSegments`: extend the shared builder with a defaulted knob; never copy it.
+3. **The core motif = the identity.** Small almond eye (pale sclera / gold iris / dark pupil — a real eye, not a black bead) + a bold gold STARBURST (tone-mapped OFF, the loudest thing) + the 6 root eyes ringed WIDE around it. This scored 8/10 alone and is what carries the read.
+4. **Tri lever for a fleet of wings.** 10 boss wings blew tier-5; the real lever at low quality is FEATHER-OUTLINE SAMPLE COUNT (`nSamp`, quality-scaled), not `curveSegments` (which floors out). 23.6k q1 / 16.5k q0.5.
+
+**Gotcha.** The boss is HUGE at the real fight distance (rel 30, def.scale 2.4) — the auto-fit "studio" wide shot is a view the player never sees at rest; the DARK core close-up IS the in-game object. Iterate the core to a pass and treat the wide-shot silhouette as secondary — Fable itself called the wide-view residuals "tenths" and named diminishing returns. Don't burn rounds polishing a frame the game doesn't show.
+
+**→ Systematize.** (1) Placing a built-to-sweep wing/limb by rotation: compute where its BODY points (rotation + the builder's intrinsic sweep), not where the shoulder rotates — to fill a hemisphere the rotation must overshoot by the sweep angle. (2) A reference-MATCH task is a Fable loop: pass the critic BOTH the reference image and the render, run the literal stranger test, apply its ONE ranked fix, re-gate — it converged in 3 passes. (3) Re-voicing a shared showpiece = a defaulted knob on the shared builder (0 = shipped hero unchanged), never a fork. (4) For a boss seen front-on at fight range, the DARK core close-up is the deliverable to gate; the auto-fit contact sheet is a diagnostic, not the target.
+
+**→ Leapfrog.** Verified: `boss.mjs` 102 green (q1 23.6k / q0.5 16.5k under the tier-5 ceiling; winglab hero untouched by `blade:0`); independent Fable arbiter PASS 7.5/10 against the reference, front stranger read "winged/angel emblem" (no longer vegetation), dark-core framing 8/10 "a legible seraph emblem." Design A (dense rising mass, Fable 8.5) untouched and still on hold — the A/B is now two rendered, gated options for the owner. Deferred: S2 charge/animation states, the S1→S2 crack transition, Stage 3 ("the eye is the veil"), CP2 integration.
+
+### L242 — When the owner sends a precise arrangement spec, BUILD THE SPEC (don't re-litigate): bilateral 4-wings-per-side card-fan from a tight knot, one eye per wing root
+
+**Did / learned.** BOSS 14 stage-2, design-B r-spec: the owner replaced the radial rosette with an exact bilateral arrangement — **8 wings (4 per side)**, a mirrored card-fan graduated near-vertical→drooping (φ ≈ 78°/45°/12°/−20° per side), ALL rooted in ONE tight central **knot** (radius ≈1 vs ~10u wingspan) that IS the body (small, dark, half-buried), a SMALL central **star-eye** (~1/12 wingspan) wrapped in a ~10-spike starburst, and **one almond eye per wing root** (8 + central = 9, a couple half-lidded), placed just outboard of the knot marching UP each fan — NOT pooled at the bottom. Implemented verbatim; 102 green, 21.1k q1 / 14.4k q0.5 (8 wings is lighter than 10).
+1. **A precise spec is a build order, not a prompt to Fable-loop.** The prior design was a many-round critic loop; this one the owner had already resolved on paper. Fastest path = translate each numbered clause to a parameter and render once to verify, not re-explore.
+2. **The φ ≈ 60° + rotZ·57° mapping (L232) is the workhorse.** Owner gave outbound angles from horizontal; converting φ→rotZ = (φ−60)/57 placed all eight wings first try. Keep that constant handy — every wing-placement task uses it.
+3. **Tight-knot convergence = a short VERTICAL shoulder-stack, not a shared point and not a spread ring.** Each `off` is (small x, graduated y) inside radius ~1 (wing 4 lowest → wing 1 highest); a per-wing z-stagger ~0.15 (upper nearest) makes the fan read LAYERED (near occludes far), not flat-splayed. A hand of cards, not a starburst of spokes.
+4. **Almond eyes + half-lid, cheaply.** Flatter/wider sclera scale (1.4, 0.72) reads as a lens not a bead; a half-lid is just a socket-dark capping ellipsoid seated proud over the top `lid` fraction, pushed into the merged socket geometry (no extra draw). Vary a couple per field so the eyes look alive.
+5. **8 wings passed the existing test unchanged** — it asserts upper/middle/lower R/L *exist* (not "only six"), so keeping those three key names among the four (upper/upmid/middle/lower) kept the bilateral-mirror gate valid; only the count/message were widened.
+
+**Gotcha.** `bossstudio`/`boss.mjs` must run from `reforged/` — a container restart reset the Bash cwd to the repo root and the test threw MODULE_NOT_FOUND until re-`cd`'d. Cheap to hit after any restart.
+
+**→ Systematize.** (1) Owner sends numbered geometry → map clause→param, render once, verify against the clauses; reserve the Fable loop for open-ended "match this vibe" tasks. (2) Converging roots into a "body" = a short vertical shoulder-stack inside a small radius + z-stagger for layering, plus a small dark knot mesh to kill center sky-gaps — not a single pivot. (3) Almond/half-lid eyes are a flattened-sclera scale + an optional socket-dark cap ellipsoid merged into the socket pass.
+
+**→ Leapfrog.** Verified: `boss.mjs` 102 green, budgets clear (21.1k/14.4k under tier-5), winglab hero untouched (`blade` defaulted). Dark core close-up reads as a great winged being with a radiant star-eye at its breast ringed by watching eyes — the biblically-accurate seraph. Posted white full + dark core crops for owner sign-off. Design A still on hold. Deferred unchanged: S2 charge/animation, S1→S2 crack, Stage 3, CP2.
+
+### L243 — Ship the owner a live TUNER when a look needs many rounds; and re-voice a shared builder with DEFAULTED knobs, never a fork
+
+**Did / learned.** BOSS 14 stage-2 (the SERAPH) reached sign-off. After ~18 render-iterate rounds on the 8-wing card-fan by hand + Fable, the fastest path became **building the owner two browser tools** that write code back:
+- `reforged/wingtuner.html` — arranges the 8 wings (one side, mirrored): per-wing angle/rootX/rootY/size/depth, a copy box emitting the exact `WING_PAIRS`.
+- `reforged/wingshaper.html` — reshapes the wing itself: arm length/width/curve/elbow, root width, primary length/peak/width/curve/splay, blade↔frond, secondaries, coverts — a copy box emitting the `shape` object.
+Both load three + `buildAngelWing` exactly like `winglab.html` (importmap → `./lib/three.module.js`), served by the PR preview at `.../pr-preview/pr-<n>/reforged/<tool>.html`. The owner tunes on their phone and pastes the code back; I drop it into the boss. This collapsed the feedback loop from a round-trip-per-tweak to owner-drives-directly.
+1. **Every wing-shape knob is a DEFAULTED transform over the existing layout, so `shape = {}` reproduces the shipped wing byte-for-byte** (boss stayed 21082 tris, winglab hero untouched, 102 green through ~10 knob additions). Pattern: keep the explicit hand-authored feather/covert arrays as the BASE; knobs multiply/rotate/offset them (`armLen` shifts the wrist up the arm; `bend` swings the hand about the wrist; `armBow`+`elbow` bend the covert *bone* into a quadratic the coverts+under-lens ride — armBow 0 = control-on-chord = a straight line = unchanged; `rootWidth` gives the under-lens a flat bottom edge + splays the covert bases so the root isn't a toothpick). Same family as the earlier `material`/`blade`/`nSamp` knobs. NEVER copy the builder.
+2. **Place a decoration on a transformed part by pushing a PART-LOCAL point through that part's own transform** — don't hand-tune world offsets that break when the arrangement moves. The wing-root eyes now sit at each wing's ELBOW by taking a wing-local elbow point `(0.7, 3.5)` and applying the wing's own `scale → rotate(baseRotZ) → +off`; every eye rides its wing and survives re-tuning for free.
+3. **Mobile tool layout: pin the 3D view with `position:fixed; top:0` and offset the panel with `margin-top`** — `position:sticky` inside the flex column did NOT hold (the view scrolled away); fixed + page-scroll keeps the model visible while the controls scroll under it. Stack via a `@media (max-width:860px)` query; desktop stays the side-by-side flex row.
+4. **Reserve motifs for later stages instead of deleting them.** Owner's final calls: stage-2 central eye = the ORIGINAL focal almond (sized up to CAP the wing-root convergence so the pinch hides behind it; all wings at z<0, eye at z≥0); the small-almond **star-eye + gold starburst** and the **halo** are removed from S2 and reserved (in code comments) for the third form. Keep the code, move the moment.
+
+**Gotcha.** Backticks in a `git commit -m "..."` body trigger shell command-substitution and silently drop words (`` `shape` `` → blank). Keep commit messages backtick-free. Also: `bossstudio`/`boss.mjs` must run from `reforged/`; a container restart resets the Bash cwd.
+
+**→ Systematize.** (1) A look that needs >~5 subjective rounds → build a live tuner that emits paste-ready code; the owner's hands beat your render loop. (2) Extend a shared showpiece builder with `opts`/`shape` knobs that DEFAULT to the shipped output (verify by unchanged tri count + green tests); never fork it. (3) Anchor decorations to part-local points pushed through the part's transform, not world coords. (4) Mobile: `position:fixed` the canvas, not `sticky`. (5) "Remove X" from an early stage often means "reserve X for a later stage" — comment it, don't delete the idea.
+
+**→ Leapfrog.** Stage-2 SERAPH signed off: 8-wing bilateral card-fan (top pair eased down), one eye per wing at its elbow + the focal almond capping the centre, near-black feathers, no halo/starburst (both reserved for S3). `boss.mjs` 102 green, 21082 tris q1. Two reusable tuning tools now live in the repo for any future wing work. Deferred next: S2 charge/animation states, the S1→S2 crack transition, Stage 3 (the unveiling — where the star-eye + halo land), CP2 integration.
+
+### L244 — A dark being on a dark sky reads by PAINTED value, not a real light; and a shared builder's second rim tier is one more defaulted knob
+
+**Did / learned.** BOSS 14 stage-2 (the SERAPH) polish pass. The owner's design question — *"the stage is dark and the angel is dark, so how do you SEE it?"* — has a hard constraint behind it: the boss is seen FRONT-ON with the sun AHEAD, so it's a silhouette (front unlit), and a real back/rim light CANNOT rim near-flat feather cards facing the camera (N·L ≈ 0 on a card whose normal points at you). So visibility has to be PAINTED into material VALUES, not lit:
+- **Per-wing value ladder** (`LADDER`, upper 0x484852 → lower 0x30303a): the eight near-black wings shared one flat colour and read as ONE blob (the z-stagger was invisible). Stepping each wing's base value by depth fakes atmospheric separation so the shingled fan reads.
+- **A painted moon-rim** (`rimMaterial`, cool steel 0x5b6472) on the FLIGHT FEATHERS only (outer fan / leading edge): draws the silhouette + feather edges on a dark sky without any real light.
+- **A second, DARKER rim tier** (`rimMaterialB` 0x474e5a) for the ALTERNATE primary + the secondary rank: makes the outer-fan fingers separate into individual overlapping feathers instead of one lit sheet (Fable interior-feather-rank note). Confirmed on both the dark sky AND the white pure-silhouette check — the alternating banding is visible at fight distance (rel 30).
+
+The two Fable polish items closed this pass: **removed the placeholder gold relic quill-glints** (additive `LineSegments` near centre that read as stray hairline slivers — reserved for CP2, comment kept), and the `rimMaterialB` interior shading above.
+
+1. **`rimMaterialB` is another DEFAULTED knob, not a fork.** `const rmatB = (hex) => rimMaterialB || rmat(hex)` — with no second rim it falls back to the first rim (current behaviour), so `buildAngelWing` is byte-for-byte unchanged when the arg is absent (winglab hero untouched, tri count unchanged — material-only). Same family as `material`/`rimMaterial`/`blade`/`shape`. The whole wing builder is now a stack of fall-through material tiers.
+2. **Removing a placeholder that's referenced elsewhere leaves a landmine.** Deleting the `relics` block left `relics` in the `nonWing` visibility array → a ReferenceError that only throws at runtime (the tests that build the boss caught it). When you cut a `const`, grep its name before moving on.
+
+**Gotcha.** A real `DirectionalLight` rim is the instinct and it's WRONG here: a flat card facing the camera has N·L ≈ 0 for any light behind it, so it stays black. On a front-lit-is-silhouette boss, rims are VALUES you author into the material, not lights you add to the scene. (And material-only changes don't move the tri count — don't expect `tricount` to reflect them; judge them in a render.)
+
+**→ Systematize.** (1) For a dark subject on a dark sky seen as a silhouette: separate it by a per-part VALUE LADDER + a PAINTED lighter rim on the leading edges + a second darker interior tier for rank separation — never a real back-light on camera-facing cards. (2) Every new material distinction on a shared builder = one more `x || fallback` knob that defaults to the shipped look; verify by unchanged tris + green tests, judge the look in a render. (3) After deleting a `const`, grep its identifier for dangling references.
+
+**→ Leapfrog.** Stage-2 SERAPH visibility solved by paint, not light: value ladder + two-tier moon-rim; relics slivers gone. `boss.mjs` 102 green, tris unchanged (material-only), winglab hero untouched. Rendered dark + white fight-distance frames (rel 30) for owner assess. Deferred unchanged: S2 charge/animation, S1→S2 crack, Stage 3 (star-eye + halo land there), CP2 (real relics + medley).
+
+### L245 — Animate a static hero pose with EASED-WEIGHT state crossfades layered over the signed-off rest, so charge 0 / snap off is byte-identical; the all-snap is a bias→0 + lag→∞ convergence
+
+**Did / learned.** BOSS 14 stage-2 (the SERAPH) came alive: three §4b tells added to the shipped geometry WITHOUT touching a vertex — the CHARGE mantle-flare, the WRATH eye-reddening, and THE ALL-SNAP reveal ("every eye across the wings snaps to the player at once" — the brief's named screenshot-of-the-game). Every tell is a term ADDED to the resting pose that vanishes at its neutral value, so the owner-signed idle renders byte-for-byte identical (verified: `cmp` idle-frame == the merged baseline; 103 green, tris unchanged — animation is geometry-free).
+1. **The all-snap = crossfade each eye's tracking params, not its position.** The eye field already tracked the player on per-eye `lag` + a resting `bias` (so ~9 eyes look every which way). The snap is one eased scalar `snapK` (fast in dt·22, soft out dt·7) that crossfades `bias → bias·(1−snapK)` and `lag → 30·snapK` — so at snapK 1 every eye drops its wander and locks near-instantly to the SAME gaze. The field converges to one stare; releasing eases it back to wander. Testable headlessly: σ(gx) across the field COLLAPSES on snap and the mean rides onto the player — no pixels needed.
+2. **A "mantle-flare" is a per-part signed rotation added to the rest angle, mirrored by ×side.** Each wing got a build-time `flareZ = side · FLARE_SIGN[key]` (upper +1 lifts toward vertical, lower −1 sweeps down-and-out, middle holds); the tick adds `flareZ · charge · 0.16`. The fan OPENS as wrath gathers and settles at charge 0. Storing the signed constant at build time (where `side` is in scope) kept the tick a clean one-liner and the left/right mirror automatic.
+3. **One shared material = one wrath lerp for the whole field.** `irisMat` paints BOTH the ~9 peripheral irises and the great iris, `catchMat` every catchlight — so `irisMat.color.copy(BASE).lerp(DANGER, charge·0.5)` reddens the entire eye field as ONE being (and the snap flares `catchMat` hot the same way). Capture the base colour ONCE (`clone()` at animation-setup) so the lerp returns to the signed value exactly. This is why sharing the eye materials across the field (L234) pays off twice.
+4. **Add a render dial the same shape as the existing ones.** The studio fires the snap via a `snap: <t>` dial modelled exactly on `noticeAt` (fire when `t` crosses it, render a beat later so the ease has settled) — new spectacle states cost one dial + one `s2snap` entry, no bespoke plumbing.
+
+**Gotcha.** The stage-2 tick only runs inside `if (stage2.visible)`, so a headless behaviour test must call `setDebugStage(2)` before ticking or the eye field never updates (the geometry-only tests above never tick, so they didn't need it). Also: to isolate a charge delta from the shared breath-sine, compare at the SAME `time` with `tick(0, T)` — dt 0 freezes the eases so only the charge term moves.
+
+**→ Systematize.** (1) To bring a static signed-off pose to life without risking the sign-off: express every state as a term added over the rest that is ZERO at neutral (charge 0, snapK 0), then prove idle byte-identical (`cmp` the frame + unchanged tris). (2) A "snap all attention to X" beat = crossfade the per-agent lag→instant and bias→0 with one eased weight; it's headless-testable as a variance collapse. (3) Signed per-part motion constants (`side · SIGN[key]`) computed at build time keep mirrored-rig ticks trivial. (4) A field that shares one material animates its whole mood in one lerp — another reason to merge/share (L234). (5) New spectacle render = a dial shaped like the existing telegraph dials, never bespoke.
+
+**→ Leapfrog.** Stage-2 SERAPH now has GAZE (per-eye wander) · CHARGE (mantle-flare + pupil constrict) · WRATH (field reddens) · the ALL-SNAP reveal · FLINCH (skitter via gaze). `boss.mjs` 103 green (+1: the flare + snap-convergence gate), idle byte-identical, tris unchanged. `allSnap()` exposed on the model for CP2 to fire at the phase turn. Deferred unchanged: the S1→S2 crack transition, Stage 3 (the unveiling — star-eye + halo), CP2 (real medley + destructible relics + wiring the snap to the fight machine).
+
+### L246 — "Playtest the different stages" means the STAGE sub-rigs, not the HP/shield phases — read the boss's own vocabulary before wiring a selector
+
+**Did / learned.** Owner asked for a way to "select different phases in the gauntlet to quickly playtest." I first wired it to `setBossDebugPhase` (the HP/shield-break fast-forward every boss has) — WRONG. For a MULTI-STAGE boss (THE UNMASKED: eclipse-eye → seraph → the unveiling) the meaningful unit is the STAGE sub-rig (`stage1Rig`/`stage2Rig`, dissolve-swapped by CP2), a totally different axis from the per-fight HP phases. The owner wanted to drop into stage 2 (the seraph) and see/fight it. Undid the phase version (kept it non-destructive: `git revert` the pushed commit, rebuild, then `git reset --soft` to collapse to one clean commit — a `--hard` reset on a branch with uncommitted work is correctly blocked) and rebuilt against the right seam: `model.setDebugStage(n)`.
+1. **The right seam already existed — `setDebugStage` (used by the studio to render stage 2) + `def.stages`.** The build was: a module `debugStagePin` applied once at spawn (`model.setDebugStage?.(pin)` — inert on single-stage bosses that expose no such method), a `?bossStage=N` URL param mirroring `?bossPhase`, and threading a stage through `onStartRush(only, stage)`. No new stage logic.
+2. **Offer only the stages that are BUILT.** `def.stages` is the design intent (3) but only 2 rigs exist; a naive S3 button → a black screen (both rigs hidden). Added `def.stagesBuilt: 2` (bump when stage 3 lands); the selector shows S1..stagesBuilt. Honest and self-documenting.
+3. **Gate + LABEL the selector by the data, not a hardcode.** It renders only when `devAll` AND some unlocked boss has `stagesBuilt>1`, and when exactly one such boss is unlocked it names it ("DEV · THE UNMASKED STAGE"). Only the unmasked is multi-stage, so the selector auto-scopes to it without a boss-specific branch.
+4. **Verify the seam LIVE, not just the flag.** The UI test checks `bossState().stagePin===2` cheaply (no slow warn/approach). A separate live check forced the spawn (`__dd.spawnBoss()`) and read the scene graph: `stage1Rig.visible=false, stage2Rig.visible=true` — proving the pin actually swaps the visible rig in a real fight, the exact thing the owner will do.
+
+**Gotcha.** A boss doesn't spawn the instant a rush launches (the player flies to `nextBossDist` first), so a headless check that traverses for `stage2Rig` must FORCE the spawn (`spawnBoss`/`forceBoss`) or it times out — `game.state==='playing'` is true long before the boss model exists. And distinguish the two debug axes forever: `setBossDebugPhase` = HP fast-forward (shield/card phase), `setBossDebugStage` = which geometry sub-rig is visible (multi-stage bosses only).
+
+**→ Systematize.** (1) When an ask uses a word the codebase overloads ("phase" = HP-break here, but the owner meant "stage" = sub-rig), map it to the boss's OWN vocabulary before building — a multi-stage boss has BOTH axes and they're unrelated. (2) A stage/phase playtest jump = pin the existing debug seam (`setDebugStage`) at spawn, threaded through the launch handler, defaulting to the shipped behaviour. (3) Only offer options that are BUILT (`stagesBuilt`), gated + labelled off the data layer. (4) Prove a visibility/geometry pin by reading the scene graph after forcing the spawn, not just the armed flag.
+
+**→ Leapfrog.** Boss-rush picker now has a dev STAGE-jump selector (S1..built, dev-only, auto-labelled THE UNMASKED) — arm a stage, tap the boss, fight straight into that sub-rig (stage 2 the seraph verified live). `?bossStage=N` mirrors it for URL launches. `bossrushui.mjs` +4 checks (dev-gating, arm/active, launch, live stagePin), `boss.mjs` 103 / `bossrush.mjs` 3 / `defs.mjs` 17 green; non-dev roster byte-unchanged. Bump `stagesBuilt`→3 when stage 3 lands.
+### L247 — A stage-morph transition = each rig scales as a WHOLE (no per-part detachment); drive it with one eased k that returns both endpoints byte-identical; glowing "cracks" are tapered QUADS, not LineSegments; and geometry that consumes the seeded RNG shifts everything built after it
+
+**Did / learned.** BOSS 14 S1→S2 CRACK transition: the eclipse mask cracks open and the seraph blooms out of the collapsing sun. One eased driver `setStageMorph(k)` (k 0 = the second sun → k 1 = the seraph); CP2 drives it over the phase seam, the studio `morph` dial + the stage selector drive it for playtest.
+1. **Morph whole RIGS, not parts, to stay coherent.** The elbow eyes are baked at full-open positions (merged static meshes for draw-call economy) — any per-wing pose morph detaches them. So the transition scales each sub-rig as a UNIT: `stage1` (disc+corona+hood+cracks) COLLAPSES toward centre (`stage1.scale` 1→0), `stage2` (wings+eyes+knot) BLOOMS up from behind it (`stage2.scale` 0.2→1). The seraph is REVEALED by occlusion (it grows out from behind the shrinking disc), no opacity fade needed — and every eye rides its group, so nothing detaches.
+2. **One eased k, both endpoints byte-identical.** `smooth()` (smoothstep) gates each channel on its own sub-window (collapse 0.35–0.72, crack sin-pulse over 0–0.72, bloom 0.4–1.0). At k 0 and k 1 every driven value lands exactly on the shipped pose (collapse 1/0, crack opacity 0, bloom scale 1) — verified by `cmp` on both endpoint frames. `setDebugStage(1/2)` just calls `setStageMorph(0/1)`, so the stage selector is a hard-cut special case of the same driver (one code path).
+3. **A glowing "crack" is a tapered additive QUAD ribbon, never `LineSegments`.** WebGL draws lines at a fixed 1px regardless of `linewidth`, so line-based cracks are invisible hairlines at fight distance. Rebuilt each bolt segment as a 2-tri ribbon whose half-width tapers with brightness (wide+hot at the core → thin+dark at the rim); additive vertex-colour then reads it as splitting light. (Same lesson as any "energy line" at distance — give it width as geometry.)
+4. **Seeded geometry MUST use a private RNG stream or it silently moves everything built after it.** The crack jitter first used the shared `rnd` (mulberry32) — which shifted every subsequent seeded draw (the stage-2 pupil biases, the scar), so merely ADDING the cracks moved the shipped seraph (caught by an endpoint `cmp` diff, not the tests). Fix: a private `mulberry32(seed)` for the cracks. Any new seeded feature inserted mid-build needs its own stream (or must go strictly last).
+
+**Gotcha.** The endpoint `cmp` is the check that catches determinism drift — the unit tests passed the whole time (they don't assert exact pupil rest positions). Always diff a frame you claim is "byte-identical," don't just eyeball it. And the corona flare is written in `tickBody` (which recomputes the corona colour every frame), so the morph stores `coronaFlare` and tickBody ADDS it — setting it in `setStageMorph` alone would be stomped next tick.
+
+**→ Systematize.** (1) A multi-form boss transition = scale/blend whole sub-rigs, not parts, so baked decorations don't detach; reveal by occlusion where you can. (2) Drive it with ONE eased scalar whose per-channel smoothstep windows all resolve to the shipped pose at k 0 and k 1; make the discrete stage-set a special case of it. (3) Any glowing thin line seen at distance is a tapered additive quad, not a GL line. (4) Any seeded geometry added mid-build gets its OWN RNG stream; prove endpoints byte-identical with `cmp`, since the unit tests won't catch RNG drift. (5) Values a per-frame tick owns must be ADDED there, not set once.
+
+**→ Leapfrog.** S1→S2 CRACK transition shipped: `setStageMorph(k)` (exposed for CP2), studio `morph` dial + `s12crackA/B/C` filmstrip states, `boss.mjs` 104 green (+1 gate), idle + s2idle both byte-identical (`cmp`), tris unchanged-in-budget. Reads at fight distance as the mask fracturing (bold gold-white cracks) → collapsing while the seraph bursts out → full seraph. Deferred: Stage 3 (the unveiling — star-eye + halo; bump `stagesBuilt`→3), CP2 (wire `setStageMorph` to the phase seam + the real medley + relics + trigger the all-snap).
+## L248 — UNLEASH PHRASE PR-A: beat-lock via the queue you already have; presentation clocks are free, damage clocks are LAW; a riser must be built cancellable (stepped points, not one long ramp)
+
+**Did / learned.** Rebuilt the lance unleash's AUDIO STRUCTURE (research C1/C2/C3 — genre convergence: RayForce→Panzer→Rez): the release now lands ON the song's beat, the inhale is a true riser→void→DROP, the impact run climbs the LIVE chord leaving held voices, and a FULL set reserves a FINALE that resolves the stack as a tonic cadence. All behind `?unleash=v1` (the `AUDIO_V2` gate pattern). What generalizes:
+1. **Beat-lock = one added delay in an existing queue.** `releaseVolley` already staggers launches through `lanceQ` (held while deflected); quantizing the whole volley onto the grid is `t: D + i×stagger` where boss.js computes D (`releaseQuantDelay`: gate → `getBeatClock` → `nextGridDelay`, roll-forward under `releaseMinLeadMs`, ceiling `releaseQuantMaxS` → next-8th fallback). COMMIT stays immediate (locks cleared, `lockVolley{delay,full}` fired) so a held volley can never be stripped/re-clamped — fairness by construction, and headless ctx carries no grid fields → D=0 → shipped frames verbatim (T-E2). New `lockLaunch` event = the frame the first wisp leaves; muzzle/juice moved there so sight and sound land together.
+2. **Two-clock law, exploited on purpose.** Damage stays on the arrival frame (L186); the impact PRESENTATION queue re-times freely: with a live clock the window opens on the next 16th and gaps shrink ×`rollAccel` (the accelerando roll, clamped `rollMaxS` 0.6s so spark/sound never drift visibly from the organ flash); no clock → the shipped 40ms stagger byte-verbatim (T-W7b). The finale = the volley's LAST arrival (a plain per-volley arrival counter — a whiff simply never fires the cadence and the voices self-release). The ONE ring moves to the finale INSTEAD of k0 on full sets (§2 additive budget, never both).
+3. **Build risers cancellable or they'll lie.** A riser that must STOP exactly at a release you don't know the time of yet cannot be one long `exponentialRamp` — `cancelScheduledValues` mid-ramp snaps the param to the ramp's START (the classic gotcha) and `cancelAndHoldAtTime` isn't universal. Schedule STEPPED `setValueAtTime` points (`stepRamp`): cancel keeps every point before tStop → the rise freezes exactly where it was (the ear's "arrival" cue), then gain-cut = the 40–80ms VOID before the drop. Every long-lived voice needs TWO exits: the event teardown (`brandRiserCancel` on lockLost/lockSealed/bossEnd) AND a scheduled self-fade watchdog (`riserMaxHoldS`, `voiceMaxHoldS`) for event-less exits (death mid-fuse, boss dies mid-roll) — a reward sound that can strand as a drone is worse than no sound.
+4. **Key-awareness was one function call away.** `brandStrike` was the last pitched reward still key-blind; routing through `getHarmony`+`chordLadder` (the ember/perfect lane) with the shipped pentatonic as the null-oracle fallback keeps CI deterministic and makes the run read as ARRANGEMENT. The finale's home note = `tonicOf(chord)` (lowest arp tone — tracks.js voices the root at the bottom), octave-lifted above the run. Held voices sum on a lance chord bus → sfxBus with a small feedback-delay glue — NEVER the music convolver (its return re-enters musicBus and inherits music mute).
+5. **Duck discipline (L191 held).** The release duck stays the ONE musicBus.gain automation (now anchored at the beat-held drop time); the per-strike pump rides `pumpDuck` on the dedicated `pumpGain` node.
+
+**Gotchas banked.** `boss.mjs` lifecycle kill-times are RUN-TO-RUN random (the `~Xs` lines) — the byte-stability gate is "every OTHER line identical + wisps.mjs byte-stable", not a naive full diff. `lockdps.mjs` was already red on master (KARNVOW/ASHTALON gained paint targets — the Jade Serpent merge #268 era), flagged to the owner, not touched here. The ledger max was L240 under a `##` heading while `###` grep said L231 — grep BOTH heading depths before claiming a number. (Renumbered TWICE in review: #303 took L241–L246, then #304 took L247 — mine landed at L248/L249, the L179/L180 collision law: check the max at COMMIT time, not author time.)
+
+**→ Leapfrog.** PR-B (the finale's time/screen punctuation: slow-mo dip → snap-back + hitstop + jade DOM flash + camera punch + haptics) and PR-C (the arrival-safe wisp LUNGE + super-linear inhale + gather) are specced in the approved fable plan — the seams (`lockLaunch`/`lockStrike{finale}` events, `full` flags, `rawDt`) were laid in THIS PR so B/C are listeners + one profile function, no re-plumbing.
+
+## L249 — Skill-expression LAW: never auto-snap what the player's timing earns; a playtest LAB is two gated lines when damage is the root of all state change; and a flag-gated A/B must gate BOTH the audio AND the visual it swaps
+
+**Did / learned.** Same-branch follow-ups to PR-A (#302), owner- and review-driven:
+1. **The beat-lock correction (PR9.1).** The owner caught PR-A quantizing MANUAL taps to the next 16th and vetoed it: *the tap is the player's timing; the E1 on-beat bonus is the skill expression — auto-snapping a manual volley erases it.* The refined law: **the game's own releases get full musicality automatically** (cap auto-release: beat-held launch + grid-snapped impact roll; the fork rides the Surge break, snapped), but **a manual volley's on-grid landing must be EARNED by a PERFECT tap** — `snap = source==='cap' || onBeat` threaded lanceQ→fireLanceAt→wisp slot→impact window; off-beat manual keeps raw timing + tempo-flavored accelerando only. Generalizes: when adding juice that "helps" timing, ask WHO owned that timing — auto-assist on a player-owned beat devalues the skill loop it decorates.
+2. **THE LANCE LAB (`?lab[=bossKey]`).** A pacifist practice range needed exactly TWO flag-gated lines because of two structural facts: (a) `chargeT` is armed in ONE place (inside the `attackTimer<=0` branch) and `pending[]` fills only from `executeAttack` — so pinning `attackTimer` high stops ALL fire (plus one gate for the `holdBreaker` shot, the lone exception); (b) **`damageBoss` is the root of all boss state change** — one early-return (with a `model.flash` so strikes still answer) freezes hp → no shield floors → `lockDeflected` stays false → no organ cracks → no riposte → no death → **repeat volleys forever with zero reset machinery**. Plus a lab-only `cap: 6` override in the lockCtx (no stock boss is tier ≥4 AND paintable — capByTier tops paintable bosses at 5; 5 organs + one tier-3 stack reaches 6). Entry rides the EXISTING debug seams (`setBossDebugDefIdx` + `setBossDebugFirstAt(180)`) — the lab setter is 6 lines.
+3. **A flag-gated A/B must gate the WHOLE swap (Codex catch).** `?unleash=v1` restores the shipped phrase — but the v2 FINALE tag was computed in `bossBullets` regardless of the flag, so in v1 the last impact of a full volley routed to `brandFinale` (a no-op when `!UNLEASH_V2`) and fell SILENT, and its ring left slot 0. The fix gates the finale at its point of use (`v2full = UNLEASH_V2 && q.full`): in v1 the last impact falls back to `brandStrike` (the shipped pentatonic) and the ring returns to slot 0. Lesson: when a flag swaps a behavior, audit EVERY consumer of that behavior's tag — a v2-only marker leaking into the v1 path is a silent regression the A/B is supposed to prevent.
+
+**Gotchas banked.** (1) Test-battery suites bind a shared server/save — running suites CONCURRENTLY (or stashing the tree mid-run) fabricates failures; the honest sweep is sequential on a still tree, and a "new" failure must be re-run alone + baselined on a detached master checkout before believing it (9 more suites turned out pre-broken on master: celebrate/feats/nightfury/organism/return-triggers/save-migration/save-purchases/stamina/unifiedhull, joining lockdps/badges). (2) `setBossLab` is deliberately one-way (URL-scoped per page load) — so the COEXIST test must run BEFORE the lab test in the same process. (3) `bossDebugState` grew an `id` field (additive) — the cheap way for harnesses to assert "which def is this" without new seams (merged cleanly beside #303's `stagePin`).
+
+**→ Leapfrog.** The lab ships on the PR-A branch so the #302 preview carries its own range: `index.html?lab` → HOLLOWGATE (5 static panes), `?lab=karnvow` (moving charms). PR-B's dip/finale and PR-C's lunge get judged in the lab first, then in live fights.
+
+### L250 — A later multi-stage form REUSES the earlier rig (pose it, don't duplicate it) — the tri budget forbids a third wing set; add only the cheap central motifs, gated so the earlier stages stay byte-identical
+
+**Did / learned.** BOSS 14 STAGE 3 — the unveiling (the third/final form): the seraph's wings MANTLE FULLY OPEN and the veiled core opens — the plain focal almond gives way to the reserved STAR-EYE wrapped in a radiant GOLD STARBURST, with a saint's HALO behind. The design said "the wings mantle fully open AND the core unveils" — i.e. the SAME seraph, mantled, not a new body. Measured first: stage1+stage2 already sit at ~20.7k of the 30k tier-5 ceiling, so a third 8-wing set (~12k) would blow it. So stage 3 REUSES stage 2's wings + eye-field and adds only ~770 tris of central motifs (halo ring + starburst tris + a small almond), swapping the focal eye for the star-eye. Total 21.5k, comfortably in budget.
+1. **Reuse-by-pose, not duplicate.** `setStage3(k3)` shows `stage3Rig` (star-eye+burst+halo), HIDES the stage-2 focal eye, and — in the shared wing tick — adds `flareZ · k3 · 0.24` so the SAME wings mantle wider (reusing the L245 signed per-wing flare constant). Stage 2 and stage 3 share one wing set; only the centre swaps. This is the general move for any "final form" of an existing silhouette: pose + re-dress the rig you have.
+2. **Gate every addition so earlier stages stay byte-identical.** stage3Rig starts hidden, its materials at opacity 0; at k3 0 the focal eye shows and the mantle term is 0 → stage 2 renders byte-for-byte unchanged (verified `cmp` on both idle and s2idle). And the stage-3 tick is wrapped in `if (stage3.visible)` so it costs nothing until the third form is up. `setDebugStage(n)` composes the two drivers: 1→(morph 0), 2→(morph 1, s3 0), 3→(morph 1, s3 1).
+3. **Reserved motifs, finally placed — mind the test that enforced their absence.** The star-eye + starburst + halo were reserved in code comments since the seraph sign-off; stage 3 is where they land. The stage-2 test asserted "NO halo" — now the halo EXISTS (in stage3Rig), so the assertion changed from "no halo node" to "the halo rides stage3Rig and is not VISIBLE at stage 2." When you finally build a reserved motif, update the guard that proved it was absent.
+4. **A halo ring + radial spikes reads as a WHEEL — burst the rays OUT past the rim.** The first starburst sat inside the halo → a spoked-wheel silhouette (the exact machine read the design forbids). Fix: alternating LONG rays that extend well past the halo (radiance bursting through the nimbus) + short inner rays for the star points; slim, additive, hot-core→dark-tip. Rays that escape the ring read as light; rays contained by it read as spokes.
+
+**Gotcha.** The stage-3 motifs use NO seeded `rnd()` (deterministic angles), so unlike the crack seams (L247) they didn't perturb the stage-2 pupil biases — but I checked with `cmp` anyway, which is the rule now: any additive geometry, prove the earlier frames unchanged, because the unit tests won't catch RNG drift.
+
+**→ Systematize.** (1) A later form of an existing creature = pose + re-dress the SAME rig, never a duplicate — measure the budget first, it usually forbids duplication outright. (2) Compose stage drivers (`setStageMorph`, `setStage3`) so the discrete `setDebugStage` is just endpoint calls; gate every new rig hidden + opacity-0 so prior stages stay byte-identical (`cmp`-verified). (3) Placing a long-reserved motif means updating whatever test asserted its absence. (4) Concentric ring + radial lines = a wheel; make radial light ESCAPE the ring to read as radiance.
+
+**→ Leapfrog.** STAGE 3 shipped: `setStage3(k3)` (exposed for CP2), studio `s3idle`/`s3charge` states, `stagesBuilt`→3 (the stage selector now offers S1/S2/S3). `boss.mjs` 105 green (+1), stage 1 + stage 2 both byte-identical (`cmp`), 21.5k tris in the 30k tier-5 budget. Reads at fight distance as the dark seraph opening into a radiant, gold-crowned apex — wings towering, halo + sunburst blazing, every eye reddening on charge. THE UNMASKED now has all three stage forms + both transitions (S1→S2 built; S2→S3 = `setStage3`) + the stage selector. Deferred: CP2 (wire the drivers + all-snap to the live phase machine, the real medley, destructible relics).
+
+### L251 — Wire a multi-stage boss's transitions to the EXISTING phase seam (`model.setPhase`), not a new machine; and a stage PICK sets the STARTING stage+phase so the fight plays the transitions forward
+
+**Did / learned.** BOSS 14: made the fight actually PROGRESS through the three forms so the S1→S2 crack and S2→S3 unveiling play LIVE (owner: "start at S1, kill the first form, continue to see the transition"). The transitions were already built (`setStageMorph`, `setStage3`) but only drivable from the studio/selector — a static pin. Two small wires connected them to the live fight:
+1. **Reuse the phase seam the engine already fires.** `boss.js` calls `model.setPhase?.(phaseIdx)` on every phase advance (the shield-break → Surge-through path, line 2868 — "optional damage-state hook, others ignore"). The unmasked now implements `setPhase(n)`: n 1 → animate the crack, n 2 → animate the unveiling. A `transKind`/`transT` eased in tickBody over `TRANS_DUR`, driving `setStageMorph`/`setStage3`; the all-snap punctuates each arrival. NO new phase machine — the boss's HP phases ARE the stages (def.phases 1.0/0.6/0.3 = the three forms), and the existing shield-surge gate is the "kill this form, advance" beat.
+2. **A stage PICK = the starting stage AND its phase, not a visual pin.** The rush stage selector's `setBossDebugStage(n)` changed from pinning the visible rig to setting `debugStagePin=n` (initial visible stage) + `debugPhaseJump=n-1` (start the fight at that stage's phase, HP parked there). So S1 = start at the eclipse and play both transitions forward as you fight; S2/S3 = start mid-way. The per-transition ANIMATION stays owned by `setPhase` at each live advance — spawn sets the initial stage instantly (no spurious crack when you start at S2).
+3. **The transition is time-based, so the model unit test (tick-driven) is the real proof — a passive-wait browser check is throttled.** Headless Chromium throttles RAF for the un-focused game page, so `waitForTimeout(2.6s)` accumulated <2s of game time and the transition looked "stuck" mid-morph. Pumping RAF explicitly (`for(...) await new Promise(r=>requestAnimationFrame(r))`) let game-time accrue and stage 1 collapsed to scale 0 as expected. The tick-based `boss.mjs` test (30×`tick(0.1)` → stage 1 hides) is the authoritative check; the browser test only needs to prove the WIRING (phaseIdx advances + the transition STARTS), not run it to completion under a throttled clock.
+
+**Gotcha.** `model.setPhase` fires only on a genuine advance (`phaseIdx++` in breakShield), NOT when `debugPhaseJump` sets `phaseIdx` directly at spawn — so starting at stage 2 shows stage 2 instantly (via the spawn `setDebugStage`) with no crack animation, which is correct. If a future boss needs a transition ON the spawn-jump too, it must call it explicitly from the jump block.
+
+**→ Systematize.** (1) Before building a state machine for a boss, look for the seam the engine ALREADY fires at the moment you care about (`setPhase`, `setCharge`, `notice`, …) and hook it — the phase/stage coupling is almost always already there as an optional model hook. (2) Map the visual stages onto the existing HP phases rather than inventing a parallel progression. (3) A "start here" debug pick should set BOTH the visual state and the matching gameplay phase, and let the live machine animate forward — don't freeze the visual. (4) For time-based behaviour, trust the deterministic tick test; a headless browser's RAF is throttled, so use it only to prove event wiring, or pump RAF by hand when you must observe an animation.
+
+**→ Leapfrog.** THE UNMASKED now fights through all three forms live: eclipse → (surge the shield) → CRACK → seraph → (surge) → UNVEILING → the third form, each transition animated by `model.setPhase` at the phase seam; the stage selector picks the starting form. `boss.mjs` 106 green (+1: the live stage machine), stages 1/2 still byte-identical, 21.5k tris. End-to-end verified in a browser (phase advances drive the stage rigs; RAF-pumped, stage 1 collapses to 0). Deferred (the rest of CP2): the real per-stage MEDLEY (attack rosters per form), destructible relics, and tuning the transition duration/fire-hold to feel.
+
+### L252 — Make a form-change LAND as a beat: hold fire for the transition's own duration + a reveal hold, defer the announcement onto the punctuation, and reuse the existing slow-mo channel — model owns the visual, boss.js owns the fire/feel
+
+**Did / learned.** BOSS 14: turned each live stage transition (L251) from "a morph that happens while the boss keeps shooting" into a CINEMATIC BEAT — the crack/unveiling plays FIRE-FREE, then the all-eyes REVEAL snaps as a punctuation (camera punch + a beat of slow-mo + the form's name) before the new stage opens up. The screenshot-of-the-game moment finally reads.
+1. **Split the beat by ownership: the model owns the VISUAL, boss.js owns FIRE + FEEL.** The model already animates the morph and fires its own all-snap at arrival (L245/L251). boss.js adds what only it can: holding fire and the game-feel emphasis. The seam is one exposed constant — the model publishes `stageTransitionDur`; boss.js reads it in `breakShield` to size the hold (`attackTimer ≥ dur + REVEAL_HOLD`) and to time the emphasis. No duplicated timeline, no model reaching into camera/time-scale, no boss.js knowing the morph internals.
+2. **Hold fire for the transition's OWN duration, not a guessed constant.** The old phase seam parked `attackTimer` at a flat 1.6s — shorter than the 2.0s morph, so attacks reopened while the form was still assembling. Reading the real duration + a `STAGE_REVEAL_HOLD` (0.7s "screenshot" beat) guarantees the eyes lock BEFORE the next volley, every time, and it auto-tracks if the morph duration changes.
+3. **Defer the announcement onto the punctuation.** The shipped `ui.bossNote('PHASE N')` fired at the shield-burst — 2s before the form actually revealed. Gating it (`if (!model.stageTransitionDur)`) and re-firing the form's NAME at the arrival lands the words ON the eye-snap, where the beat is. General move: an announcement should fire at the moment it describes, not at the mechanical trigger that will eventually cause it.
+4. **Reuse the game's ONE time-scale channel, don't invent a second.** Slow-mo = `game.slowMoTimer = max(…, 0.9); setSlowMo(true)` — the exact near-death/kill dilation channel main.js already reads every tick (L191-style: one automation owner). A bespoke second time system would fight it.
+
+**Gotcha.** Headless RAF throttling makes a passive-wait browser check under-sample a ~2s beat (L249) — verify the emphasis by PUMPING RAF (`for(...) await requestAnimationFrame`) and sampling `game.slowMoTimer`, which spikes at the arrival then decays; a coarse sample catches it mid-decay (0.3, not the 0.9 peak) but still proves it fired. The tick-based model test proves the morph; the browser proves the boss.js wiring. Reset the beat state (`stageBeatT=-1`) at EVERY encounter-reset site (there are three in boss.js — grep the sibling `crushFired` reset and co-locate) or a stale beat leaks into the next fight.
+
+**→ Systematize.** (1) A dramatic state change becomes a BEAT when you (a) suppress the ambient system (fire) for its real duration + a hold, (b) punctuate the arrival with camera/time/sound, (c) move the announcement onto the punctuation. (2) Split model-vs-controller by capability: visual/geometry in the model, fire/camera/time/UI in boss.js, bridged by ONE published constant, never cross-reaching. (3) Size holds off the owning system's real duration, not a magic number. (4) Reuse the single time-scale/duck channel the game already owns.
+
+**→ Leapfrog.** THE UNMASKED's form-changes now land: shield-burst → fire-free crack/unveiling → all-eyes REVEAL (camera punch + 0.9s slow-mo + the form's name) → the new stage opens. `boss.mjs` 106 green (+1: the `stageTransitionDur` contract), gated on `model.stageTransitionDur` so every other boss is byte-unchanged. End-to-end verified in a browser (slow-mo spikes at the arrival; fire held via attackTimer). Remaining CP2: destructible relics, the real roster-quote medley, transition-duration feel-tuning.
+
+### L253 — Mirror-frame symmetry has TWO different sign rules depending on WHERE the mirror lives in the chain; a shared wing poser had both, wrong, on the same rig
+Continuing the SOLAR ECLIPSE premium redesign. The owner reported two flight defects: a SEE-THROUGH body and wings "always a bit off beat… not flapping symmetrically… the animation you stole this from needs to be corrected itself." Both were real; both hid from the pinned studio captures.
+
+**Hollow body — inconsistent loft winding, not a missing DoubleSide alone.** `loftRings()` wound the TUBE quads with inward-pointing normals (verified: the cross product of an adjacent-ring quad points −X on the +X side) while the end-CAPS wound outward — so with a single-sided `bodyFlat` the outer shell was back-face-culled and you saw straight through to the far interior wall. Fix = flip the tube winding to outward (consistent with the caps) AND set `bodyFlat` `side: THREE.DoubleSide` as insurance for the open-ended neck/tail tubes and the stray fairing tris. Either alone is fragile; together the king reads solid from every chase angle (confirmed on the studio crop/glide sheets).
+
+**Wings — the mirror sign rule is NOT uniform down the chain.** The shared direct-pivot poser (`wingDebugPose.js` + the `dragon.js` live else-branch, ridden by azure/ember/jade AND the shop preview AND solar) fed the LEFT wing sign-flipped values on every axis, assuming "mirror = negate everything." That is only right for axes that ANTI-commute with the reflection. Under a sagittal reflection `M=diag(-1,1,1)`: `rotation.z` and `.y` flip sign (they anti-commute with M), but `rotation.x` is a fore-aft PITCH that COMMUTES with M (`M·Rx·M = Rx`) → it must be the SAME sign on both wings. The old `±feather` on `.x` was therefore an antisymmetric roll-twist that split the beat every stroke — the "off-beat" the owner saw. Second bug: the L wingtip ran a DIFFERENT phase clock (`sin(phase+1.18)`) than R's `tipLag=sin(phase+0.95)` — a deliberate "less mechanical" desync that reads as broken on a regal premium. Fixes: `.x` feather SAME sign L/R (pivot + tip); L tip on the ONE `tipLag` clock (mirror sign).
+
+**The subtler trap — WHERE the mirror sits changes the rule again.** Solar builds its wings with `scale.x=-1` on the PIVOT over canonical geometry (azure et al. bake `*side` into the verts, no group scale). When the mirror is a group scale at the pivot, everything BELOW it lives in the already-mirrored frame, so mid/tip need IDENTICAL (not conjugated) local rotations, while the pivot itself needs the conjugate. For the bake-mirrored rigs, pivot AND tip both need the conjugate. One shared poser can't state both — but it doesn't have to here: solar's tip is an EMPTY non-rendering handle (geometry is parented to `mid`), so its tip-rotation is invisible, and the fixes that matter (pivot `.x` same-sign, which IS conjugate-correct for both rig types) land solar's visible geometry dead-symmetric.
+
+**Verify — a world-point probe is rig-convention-dependent and will lie; gather actual vertices.** First probe transformed a fixed canonical point through each wing group's world matrix — passed solar (scale-mirror) but FALSELY failed azure (bake-mirror: a fixed local point maps to +x on BOTH sides, not mirrored). The honest, rig-agnostic test: pose the rig, traverse each wing subtree's REAL vertices to world space, and compare the left cloud's centroid + Y-band to the reflection of the right's. New `tools/wingsymprobe.mjs` does this across all straight-flight wing states; solar/azure/ember/jade all pass ≤0.002 after the fix (was >1.6 on the tip). Regressions green: flapcheck/wingflap/skinnedwing/starters/smoke("no errors during flight")/defs, tricount 1063–1646 across solar's four forms.
+
+**→ Systematize.** (1) For a faceted loft, wind the tube AND caps the same way (outward) and prove it — an inward tube under a single-sided material is invisible until a dark-sky chase. (2) When mirroring a pose, classify each rotation axis by whether it commutes with the reflection: perpendicular-to-mirror pitch (`.x` here) = SAME sign; in-mirror-plane roll/yaw (`.z`/`.y`) = FLIP. (3) Know WHERE the mirror lives: a group `scale=-1` mirrors everything below it once (children identical); baked `*side` geometry needs each node conjugated. (4) Never trust a fixed-local-point symmetry probe across rigs — measure real world-space vertices.
+
+### L254 — A "jump to stage N" pick can OPEN with the transition INTO it: spawn as the previous form, animate at fight-start, and make the intro skippable via the SAME input.surgeTap the entrances use
+
+**Did / learned.** Owner: picking S2/S3 in the rush stage-selector should open by PLAYING the transition into that form (watch the crack, then fight the seraph), and it should be tap-skippable. Previously a pick snapped the visual straight to the target form. Turned it into a proper intro:
+1. **Spawn as the PREVIOUS form, animate at fight-start.** The spawn hook now sets the visible stage to `debugStagePin - 1` (the boss arrives as the eclipse for an S2 pick), and the fight-start block (`enterFight`, right after the existing `debugPhaseJump` fast-forward) fires `model.setPhase(target)` + `beginStageBeat(true)` — so the crack/unveiling plays as the fight opens, fire held, reveal landing on the eye-snap. The gameplay phase is already `target` (the fast-forward set it), so the visual catches up to the phase via the animation. Lore bonus: the boss always appearing as the second sun first is exactly right.
+2. **Reuse the ONE tap-to-skip signal.** The entrance driver skips on `input.surgeTap`; the intro beat does the same — on tap, `model.setDebugStage(target)` (a hard cut that CANCELS the running morph — I made `setDebugStage` clear `transKind`) + end the beat + short attack grace. Drop the launching tap first (`input.surgeTap = false` at intro start) or the fight-start tap self-skips it instantly. Mid-fight `breakShield` transitions pass `skippable:false`, so a player mashing fire mid-combat can't cut a form-change short — only the intro is skippable.
+3. **Factor the beat-start once it has two callers.** `beginStageBeat(skippable)` (dur from `model.stageTransitionDur`, hold fire, set the skippable flag) is now called from both `breakShield` (mid-fight, non-skippable) and the intro (skippable). One definition, two intents via the flag — no copy-paste of the fire-hold math.
+
+**Gotcha.** `setDebugStage` referencing `transKind` which is declared just below it works (closure + runtime-call-after-init), but I moved the `transKind` declaration ABOVE `setDebugStage` anyway so the read-order is obvious and TDZ can't bite a future refactor. Also: a hard stage CUT must cancel the morph or the next tick's `setStageMorph(transT)` overwrites the snap — the skip looked like it did nothing until `setDebugStage` cleared `transKind`.
+
+**→ Systematize.** (1) "Jump to state N" and "play the transition into N" are one feature: spawn in N-1, animate into N at the activation seam, keep the gameplay phase at N. (2) Any cinematic the player might have seen must be skippable on the shared skip signal (`input.surgeTap`), and the skip is a hard CUT that cancels the running animation. (3) Consume the activating input before arming a skip-on-input, or it self-triggers. (4) The moment a beat/animation-start has two callers, factor it — the flag that differs (skippable) is the whole reason to share it.
+
+**→ Leapfrog.** Rush stage-pick now OPENS with the transition: S2 → the boss arrives as the eclipse, cracks into the seraph as the fight begins; S3 → arrives as the seraph, unveils; both tap-to-skip (a "▶ TAP TO SKIP" hint shows, replaced by the form name on the reveal). S1 = the full fight from the top (unchanged). `boss.mjs` 106 green (+1: the skip cancels the morph), every other boss byte-unchanged. Browser-verified: S2 shows the eclipse at fight-start then animates to the seraph; a tap snaps it. Remaining CP2: destructible relics, the real roster-quote medley, feel-tuning.
+## L255 — PR-B "make the finale HIT": fold the beat-lock INTO the fuse (a post-action wait reads as lag; a stretched-but-moving one doesn't); a sustained voice needs a release on EVERY path or it drones; impact = a hard front + the chord as decay, and a screen that reacts
+
+**Did / learned.** Owner playtest of PR-A drove three fixes, shipped together as "make the finale hit + kill the lag" (all behind `?unleash=v1`):
+1. **The auto-fire "lag" was a post-action dead wait — fold the alignment INTO the action.** PR-A beat-locked the cap auto-release by HOLDING the committed volley up to ~0.8s AFTER the 1s inhale finished (a motionless riser plateau). That read as input lag. Fix: move the beat-lock into the FUSE — `beatAlignedFuse()` stretches the inhale so it ENDS a void before the nearest beat, then fires immediately (D = just the ~60ms void). Total auto-fire time dropped from up to ~1.8s to ~1.0s, and the whole wait is now RISING motion (L209 again: a wait needs motion). The generalizable law: never make the player wait AFTER the thing they're waiting for is ready — bake the timing into the build-up. (Bonus: this dissolved the Codex deflect-desync edge — there's no long post-commit hold left for a shield to interpose in.)
+2. **A sustained voice must have a release on EVERY exit path, or it drones (owner: "the chord rings extended/glitchy, esp. around a shield/phase transition").** `brandStrike` started a 2.5s held voice on EVERY impact, but only a FULL volley's finale (`lanceChordRelease`) released them cleanly — so a PARTIAL volley (or a full one interrupted mid-flight by a shield/phase change) left voices ringing to the watchdog. Three-part fix: (a) hold voices ONLY on full volleys (the finale is what resolves them; partial = dry plucks — which is also the intended class split); (b) shorten the watchdog 2.5→1.1s with a FAST fade (safety net, not the normal path); (c) `brandChordCancel()` flushes voices on every interruption seam (lockSealed/lockLost/bossEnd), same as the riser. Lesson: a resource with a "clean release" path needs a bounded fallback release on ALL other paths (the watchdog) AND an explicit flush on known interruptions — three layers, because the clean path is the one that DOESN'T fire in the bug.
+3. **"Airy chord ≠ impact": a hit is a hard FRONT, the chord is what it decays INTO; and the screen must physically react.** The finale was mostly the pretty resolved chord = "feels like music, not impact." Fix: front-load a contact CRACK (18ms noise) + a pitch-drop SUB-THUD (the falling pitch IS the punch) + a body THWACK, and demote the tonic/chord to a quieter, slightly-delayed RING-OUT. Plus the physical half: a 90ms finale hitstop (the SECOND authorized lance hitstop, full-only — L187's release-only rule gets one deliberate climax exception, not per-impact), a snappy jade DOM screen-flash (tier-independent; the postfx bloom kick is the tier-0 enhancement), and a `cameraCtl.punchKick()` lurch (reduced-motion gated). The physical freeze+lurch sells "landed" more than any sound — the airy feeling was partly that NOTHING on screen reacted.
+
+**Gotchas banked.** (1) Restart the branch from master after a merge (the #302 rule) — master kept moving through #303–#308; my ledger renumbered TWICE more (L252→L255). (2) A short beat-aligned fuse broke T-E2's timing (the cap auto-fired before the test could inject a manual tap) — the new assertion proves the aligned fuse fires SOONER than the plain capFuse (the lag fix, directly) and uses a long fuse for the tap sub-tests. (3) Codex caught two real ones: the HUD inhale-swell `fuse01` still divided by the fixed `capFuse` (display≠logic on an aligned fuse — fixed to the aligned denominator, headless byte-unchanged); and the `wispFinale` juice assertion armed the hitstop in one `page.evaluate` and read it in a LATER one, so the loop decremented the 90ms freeze between round-trips (arm+read in ONE evaluate). (4) Removed now-dead config (`releaseQuantMaxS`/`releaseMinLeadMs`) — grep tests/tools before deleting a config key.
+
+**→ Leapfrog.** Verified: wisps 14, lab 2, lock, boss.mjs 106 green; loudshots baseline gates pass (lance SFX aren't in the station render, but the synths stay Math.random-free so render==live holds). Deferred from the original PR-B: the slow-mo Witch-Time DIP through the roll and haptics — held back deliberately (a slow-mo dip is tonally opposite to the "sharp impact" the owner asked for; the hitstop already gives the freeze). Judge the hit in the lab first, then decide if the dip earns a place.
+
+### L256 — A multi-form boss where each form is its OWN full lifebar = one def flag over the existing shield/phase machine (floor→0, refill on advance); size the per-form HP to the sim window or the kill test starves
+
+**Did / learned.** Owner played THE UNMASKED and hit a design mismatch: the 3 forms were mapped 1:1 onto the 3 HP PHASES (thresholds at 100/60/30%), so a form flipped at the FIRST shield (60%) — "reaching 1st shield then move onto 2nd form," not "fight the whole form, THEN it changes." Wanted: each form is its own FULL health bar (a classic multi-form boss — deplete the eclipse to 0, crack into the seraph at full HP, unveil at full HP, then die). Built it as ONE def-gated flag over the existing per-phase shield machine — no new health system:
+1. **`def.formLifebars`: the shield floor becomes 0 for every form.** The shield-raise already fires at `hp/hpMax ≤ (next phase's atFrac)`; for a form-lifebar boss the floor is 0, so each form is fought to empty before it shields (the form is "defeated"). One ternary in `damageBoss`.
+2. **Refill on advance.** `breakShield` already advances `phaseIdx` when a next phase exists; add `if (def.formLifebars) { hp = hpMax; setHealth(1); hpRevealT = HP_REVEAL; }` so the next form arrives at a FULL bar (the transition beat covers the refill). Death still only on the last form (no next phase → the existing `pendingDeath`). `currentPhaseHp` → `hpMax` (each form is the whole bar); the dev stage-jump parks the picked form at `hpMax` not an atFrac. That's the entire mechanic — 4 gated touch-points, every other boss byte-unchanged.
+3. **hpMax is now PER-FORM, so the effective total is ×forms — size it to the kill-sim window.** The kill test drives every boss to death in a fixed frame window (`60*200` = 200s) and asserts `surges≥3` + `killed`. At the sim's chip rate (~1%/s ⇒ a full 240-HP form ≈ 80s), three forms ≈ 214s > 200s, so the boss only reached form 2 → **got 1 surge, not 3, and never died** (a real test failure, not flakiness). Fix = widen THAT loop's window to `60*340` (early-exit on kill keeps it free for single-bar bosses). Lesson: when you multiply a boss's effective HP, the fixed-window kill sims starve — extend the window that drives it, and pick per-form HP against both feel AND that ceiling.
+
+**Gotcha.** After a `perl`/temp-log edit to a test, I restored it with `git checkout tests/boss.mjs` — which ALSO reverted the real window change I'd made in the same file. Re-verify a file's intended edits survived after any checkout/stash you did for debugging. And to instrument a boss economy, don't rebuild the DOM/canvas shim in a scratch script (it throws on `document.createElement`) — inject a temp `console.error` into the real test's drive loop and grep it out; far faster than replicating the harness.
+
+**→ Systematize.** (1) "Each form is its own fight/lifebar" ≠ a new health system — it's floor→0 + refill-on-advance + last-form-only-death, gated on a def flag, riding the shield/phase machine you have. (2) Any change that scales a boss's effective HP must be checked against the fixed-window kill/lifecycle sims; widen the driving loop or the kill starves and mis-reports as a surge/economy failure. (3) Per-form HP is a feel knob AND a test-window constraint — set both together. (4) A `git checkout <file>` for debug-cleanup reverts your real edits in that file too; re-grep for them.
+
+**→ Leapfrog.** THE UNMASKED is now a true 3-form boss: eclipse 100→0 → CRACK → seraph 100→0 → UNVEIL → unveiling 100→0 → death, each a full 240-HP bar (~3.5-min apex; `hpMax` per-form is one-line tunable). `boss.mjs` 106 green (lifecycle slays at ~213.8s through all three forms; +a `sawRefill` assertion proving the bar refills per form), bossrush/rush-UI/defs green, every other boss byte-unchanged. Verified the per-form timeline (100→~0→refill ×3). Deferred/next: the boss's attacks are the game's PLACEHOLDER patterns (real per-stage medley pending) + stage 1 is deliberately sparse (feels empty — worth densifying); the per-stage BIOME/arena change ("sensory repossession") was PROPOSED but never built.
+
+## L257 — Attack-pattern audit: a dread is only real if its GEOMETRY (not its card name) delivers the counter-verb; grep the code, not the doc, for "same-set + faster" and orphaned state fields
+
+**Did / learned.** Owner asked for an adversarial audit + rework of every boss's attack patterns (are several boring? is every dread real? does fun/challenge ramp?), a per-boss rework spec, and the Boss-14 medley quote map. Ran it as a targeted read (BOSS-DESIGN §§5b/5c/5f/5g/5h/5i + `bossDefs.js` phase sets + `boss.js` pattern geometry + the existing `BOSS-AUDIT-REPORT.md`) → one high-effort Fable design agent → `reforged/boss-context/ATTACK-REWORK-PLAN.md` (design-doc only, zero code touched). The audit's load-bearing findings, banked so a builder session doesn't re-derive them:
+
+1. **"Is the dread REAL?" is answered in `boss.js`, not in the card name.** Six of thirteen dreads are named lies at the geometry layer: STORMREND's *Heart of the Storm* = P2 set + `iris` + faster (an additive unlock, not a §5f twist); EITHERWING's *Both Halves at Once* headline "simultaneous mirrored crossfire" is just what `crossfire` does for EVERY boss (fixed `[-10,10]` emit x, ignoring the twins' live lemniscate positions) — a §5f-law-7 violation *dressed as compliance*; BRINEHOLM's *Sounding* ("the floor erupts in geyser curtains") fires the identical multiset to HOLLOWGATE's P4 and no bullet in the codebase travels upward; KARNVOW's *Voidmaw's Verdict* quotes boss-1's P3 verbatim answered by the same tutorial dodge (the quote makes the fight EASIER than its own P2); WEFTWITCH's "read which lane her hands never touched" is a lie because `curtain`'s gap is placed by `-Math.sign(player.position.x)` — the hands tell you nothing.
+2. **A bug hid behind a dread name.** EMBERTIDE's *Horizon Break* sets `horizonPocketX` (the moving face-shadow safe pocket), but the ONLY consumer of that field is `crestfall` — and `crestfall` is **not in P5's attack list**. So the survival card's whole fiction (ride the shadow) is unwired: obeying it flies you into `curtain` segments placed by your own x. An orphaned state field written but never read is the tell — grep every `def`-set field for its reader.
+3. **The escalation curve's designed peaks (slots 5/9/13) were its actual weak points, and challenge peaked two slots early at 7** (P4 cadence `[1.05,1.4]` undercuts the 1.2 Calamities floor and out-paces 9–11/13). Three fights share a byte-identical `['aimed','fan']` opener (4/6/7). Two consecutive quantized-grid *reading* fights at 10→11 violate the §5i adjacent-attention-type law. None of this is visible from the doc — only from the numeric dials in `bossDefs.js`.
+4. **Reworks compose the existing vocabulary + ship the ALREADY-ALLOCATED mechanics** (ORGAN BREAK, SLIPSTREAM, ORBIT ANNULUS, TENNIS RALLY, etc. — designed in §5i, flagged unshipped by the audit) rather than inventing. Exactly ONE new attack id was justified across all 13 + the Apex: `geyser` (crestfall's bottom-up mirror) at BRINEHOLM, because "erupts from below" is unreachable by composition and slot 8 IS the below-approach boss — and the Calamities id-budget slot was still unspent. Boss 14 stays zero-new-id: its unique beats are reroutes/timing on `stream`/`curtain`.
+5. **Credit what the code already fixed.** ASHTALON P3 amber (the §5i hotfix) and STORMREND's cards+dread both shipped since the audit report — don't rework what's green. Cross-check code state before repeating a stale doc/audit finding.
+
+**→ Systematize.** (1) To judge a dread, trace its pattern function's emit origin + gap-placement + velocity sign in `boss.js` and ask "does the geometry force the named non-default counter-verb?" — the card name and the def comment both lie. (2) Grep every field a card sets (`horizonPocketX`, `wingsPath`, `mercy`) for its READER; a written-but-unread field is a dead mechanic. (3) "same multiset + tighter cadence" between P(n) and P(n+1) is an additive unlock, not a twist — flag it. (4) Reused patterns whose IDENTITY claim is positional (twin-origin crossfire, coil-centred iris, bell-radiating spiral) need the emitter reroute (`partWorldPos`/pane-radial seam), not a new id. (5) Prefer shipping allocated-but-unbuilt mechanics over inventing; spend a new-id-budget slot only when the fantasy is unreachable by composition AND the slot owns that fantasy.
+
+**→ Leapfrog.** `reforged/boss-context/ATTACK-REWORK-PLAN.md` (877 lines) now holds: a 13-boss TL;DR verdict table (2 DULL: 9/10 · 7 NEEDS-WORK: 2/3/4/5/8/11/13 · 4 SOLID: 1/6/7/12, each with "is the dread real?"), the escalation curve with attention-type adjacency findings, nine build-table reworks (move | organ | shape | verb | amber | rhythm role + a named dread spec + a uniqueness diff each), and the Boss-14 per-stage quote map (S1→1-4, S2→5-8+Parallax Regard+the reflect-only seal, S3→9-13+the surge-chase, plus the *Every Verdict at Once* assembly with the five relic→component deletions capped so it never thins below 8 components). One new attack id spent (`geyser`, Calamities). Builder sessions take reworks one boss at a time (coexist→prove→migrate); nothing in the live roster is touched by the doc.
+
+## L258 — "Is this plan buildable by any chat?" is answered by grepping the CODE for each allocated mechanic, not by re-reading the design doc; most "ship the allocated X" lines hide an unbuilt engine seam
+**Did / learned.** After the attack-rework plan (L257) merged, the owner asked the real question — is it detailed enough that any fresh chat can implement each rework? Answer via a second Fable high-effort pass that re-verified every plan claim against live `reforged/js` + `reforged/tests`, appended as PART E (E.0–E.4) to `ATTACK-REWORK-PLAN.md`. The findings generalize:
+
+1. **A design doc rots against the code between write and build — six of the plan's "allocated/unshipped" claims were already stale.** `moteHarvest` (WEFTWITCH) and `shadowRide` (BRINEHOLM) graze detectors are SHIPPED; the bullet cull floor is already widened to −16; `shrinkDisc`/`medley` grazeForm labels already sit on defs with NO engine branch (half-wired); a "free reroute" (`spiral` from `bellMouth`) is actually engine work because base `spiral` emits from the player-side `anchorX`, not `def.muzzle`. Lesson: before quoting a doc's "just ship the allocated mechanic," grep the def for the flag AND grep boss.js for the branch that consumes it — a def label with no consumer is the most common lie.
+2. **"Compose from existing vocabulary / existing plumbing" systematically understates state machines.** The three deepest gaps were all sold as small: ORGAN BREAK (C.3) needs parry-per-part attribution that doesn't exist (`partHits` counts SHOTS; the only parry counter is Onewing-global `GHOST_FRAME_HITS`) + a rib→gap-x mapping that must still clear the laneSafe ≥2.2 fill gate + undefined deletion semantics + an unwritten scoring formula; the rally (C.6) is a full looping-orb state machine (`riposteReturnT` is one-shot) + a card-scoped gun-seal primitive that doesn't exist (`lockMuted` is lance-only) + a "violet-amber" that collides with the GLOBAL fixed-role-colour law (`REFLECT_AMBER` pinned; no bulletcontrast row); the hand-telegraph (C.8) is a new pre-telegraph information channel (gap decided a beat EARLY, but `executeAttack` decides at fire time) + lane-column quantization (curtain is continuous-x) + a model choreography API (`setCharge` is a scalar). The tell for "this is a seam, not a tweak": the sentence contains a verb like *reroute/wire/ship* over a noun that has no primitive yet.
+3. **The buildability answer is a split, not a yes/no.** FULLY SPEC'D today: C.9 (2 def lines — item 2 was a no-op, crestfall rows are quality-gated with no per-def dial), B-3 dials, C.2a/C.3a/C.1a openers, and (with care) C.5 geyser. Everything else = SPLIT (def half ships; dread half waits on a seam) or NEEDS SEAM. So the build queue is: defect fix → def-data reworks → eight small def-gated ENGINE-SEAM PRs (each proven on ONE hero) → Tier-1 boss PRs in slot order → Part D last.
+4. **Real gate names beat paraphrases, and they live in `reforged/`, not repo-root.** `reforged/tests/boss.mjs` (tri/TIER_BUDGETS · telegraph "setCharge must MOVE geometry" · amberdiet with `AMBER_CARRIERS={aimed,fan,crossfire,stream}` · rhythmprint `KS_FLOOR=0.20` · §3e emission ≤55@q0.7 + laneSafe ≥2.2 · lifecycle), `reforged/tools/bossgate.mjs` G1–G7 (+`--studio`), `reforged/tests/bulletcontrast.mjs` (there is NO "role-pair distance" gate — don't cite one). No automated gate exists for dread-set (B-4) or opener (B-2) collisions or counter-verb geometry — those are POST-BUILD checkpoint duties by construction.
+
+**→ Systematize.** (1) To judge "can a fresh chat build this?", grep the code for each named mechanic's flag AND its consumer; a label without a branch, or a one-shot timer where a loop is implied, is an unbuilt seam regardless of how the doc phrases it. (2) Bracket every non-trivial boss build with two fresh Fable high-effort checkpoints: PRE-BUILD re-reads live code + AUTHORS any NEEDS-SEAM design (exact def edits, the engine wiring, which asserts to ADD) and emits a drift report; POST-BUILD adversarially verifies the GEOMETRY forces the named counter-verb (trace emit-origin/gap/velocity in the diff — distrust card names, trust coordinates), plus distinctness/diet/byte-invariant/no-new-collision. (3) Prove each engine seam on ONE hero boss before its other consumers land (coexist→prove→migrate); def-gate it so every other boss stays byte-identical. (4) A merged PR after your branch merges is FINISHED — restart the same-named branch from fresh master for follow-up work; the follow-up is a NEW PR.
+
+**→ Leapfrog.** PART E now makes `ATTACK-REWORK-PLAN.md` a buildable program, not just a design: E.0 ground truth + 6 code-corrections, E.1 build queue (5 Tier-0 def PRs + 8 ENG seams + 8 Tier-1 boss PRs + Part D), E.2 spec-completeness ledger (the honest per-rework FULLY/SPLIT/NEEDS-SEAM verdict + the named missing seam), E.3 per-rework real-gate checklist, E.4 the reusable two-checkpoint protocol. Next: build #1 = the EMBERTIDE defect fix (C.9a) through the POST-only checkpoint (2 def lines). Design-doc only; no runtime touched.
+
+## L259 — Build #1 (EMBERTIDE C.9a): the checkpoint protocol's first live run caught the plan's flagship "bug" as a FALSE POSITIVE — an audit defect must be re-checked against the runtime `curAttack` override path, not just def arrays + the pattern fn
+**Did / learned.** First build off the attack-rework plan (L257/L258): ATTACK-REWORK-PLAN.md C.9/A.13 called EMBERTIDE's *Horizon Break* its one "bug-level" find — `crestfall` (sole consumer of the moving face-shadow pocket `horizonPocketX`) is absent from P5's `attacks[]`, so "the player who obeys the card flies into curtain segments." Ran the PRE-BUILD drift-check (a read-only sweep of the LIVE code the fix would touch) before writing a line. It disproved the claim: `boss.js` force-selects crestfall for the whole card — `if (activeCard && activeCard.id === 'embertide_horizonbreak') curAttack = 'crestfall';` (commit `81cabf2`, present in the exact code the audit read). So `horizonPocketX` already governs the live rows; the shadow-ride dread works in the shipped game. The design agent read past the override. The "defect" evaporated on turn one — direct proof of why the plan needs Fable checkpoints at build boundaries.
+
+**What actually shipped (owner chose "P2 fix + correct plan"):** two things + a doc correction.
+1. **The one genuine change — the P2 dread-set collision.** WEFTWITCH P5 dread `{curtain,movingGap,crossfire,aimed}` ⊇ EMBERTIDE P2 `{curtain,movingGap,crossfire}`. Swap `movingGap → secondWave` (the "returning gust" read). CRITICAL: the swap had to be made in BOTH the `attacks[]` array AND the P2 `rhythm.phases[].phrase` measure — because the phrase machine (`bossRhythm.js` `nextStep`) emits `measure.attack`, NOT `attacks[]`. An attacks-only edit (what the doc literally said) would have left `movingGap` still firing — a silent no-op. `attacks[]` feeds the gates (amberdiet `hasAmberCarrier`) + the amber-swap fallback; the phrase feeds emission. Know which array drives what.
+2. **P5 honesty (cosmetic).** The override forces crestfall, so P5's listed `['curtain','movingGap','crossfire']` never fire. Aligned `attacks[] → ['crestfall','crossfire']` and renamed the P5 phrase bursts to crestfall — rename-only (count/gap/rest untouched) so rhythmprint stays byte-identical; `crossfire` kept as the amberdiet carrier. Zero gameplay change; the def now tells the truth.
+3. **Corrected the merged plan + this ledger:** A.13, C.9, the TL;DR row, and the Part E cross-refs (E.0.8, E.1/E.2/E.4) now record the false positive instead of the phantom bug.
+
+**Gotchas banked.** (1) `bossgate embertide` FAILS in this headless sandbox (G1 minLuma 255, G3/G4 NaN, G5 0.0%, "no shield captured") — proved PRE-EXISTING by stashing my change and re-running (identical failure) + a clean PASS on unchanged `voidmaw`: it's the `frameFill`/`skyReplace`/`inverted` boss producing an all-white capture, orthogonal to a def `attacks[]` change. The authoritative gates for a def-data change are the headless `tests/boss.mjs` (106 green — amberdiet/rhythmprint/lifecycle/laneSafe/known-attack) + `bossboot.mjs` (real-engine smoke, no console errors); the human judges visuals on the PR preview. (2) A rename inside a phrase is rhythmprint-safe (the print is over REST values, id-agnostic) — but changing measure COUNT/gap/rest is not; keep structure to keep the fingerprint. (3) Restart the branch from fresh master for follow-up after a merge — master moved 3× (#309/#310/#311/#315) during this arc; each restart re-checks drift.
+
+**→ Systematize.** (1) Before implementing any audit "defect," run a PRE-BUILD drift-check that traces the RUNTIME selection/override path (`curAttack = …` gates) — a card-gated override can make the def array irrelevant to what fires; a "bug" in the arrays may already be handled in code. (2) When a boss has a `rhythm` block, the PHRASE (`measure.attack`) drives emission, not `attacks[]`; edit both or your "fix" is a no-op. (3) A visual gate that fails on a `frameFill`/`inverted` boss in a headless env is a capture limitation, not a regression — prove it (stash + control boss) rather than chasing it; lean on the headless functional gates + the human preview. (4) Even a "trivial" def-data rework earns its PRE-BUILD pass — the cheapest one here is the one that caught the plan being wrong.
+
+**→ Leapfrog.** EMBERTIDE ships honest: P2 fires `secondWave` (collision with WEFTWITCH dissolved), P5 def reflects the crestfall override, the dread confirmed working as shipped. `tests/boss.mjs` 106 green, `bossboot.mjs` green, byte-invariant (only the embertide def block touched; every other boss identical). The plan + ledger now carry the corrected finding. Next build candidates are the Tier-0 def-data reworks (C.2a/C.3a/C.1a/B-3), each through its own PRE-BUILD checkpoint — expect more drift like this.
+
+## L260 — Build #2 (ASHTALON C.2a): a clean Tier-0 id swap with NO drift — the counter-case to L259; the phrase-AND-attacks discipline is now routine, and the swap improved the amber diet for free
+**Did / learned.** Second build off the plan (after C.9a/L259): ASHTALON P3 `spiralStream → fan` — drop the off-brand station-keeping turret fill from the pursuer (its kit is "fast but sparse", pursuit-shaped). PRE-BUILD drift-check: the plan's C.2a claim (P3 `['stream','spiralStream','secondWave']` → `['stream','fan','secondWave']`) matched the LIVE def exactly — **no drift, no false positive.** The counter-case to L259: the checkpoint isn't only for catching errors; a clean pass is a real result (it confirms the plan entry was accurate and the swap is safe to ship). Applied the L259 discipline by reflex: swapped `spiralStream → fan` in BOTH the P3 `attacks[]` AND the P3 `rhythm.phases[2].phrase` burst (count/gap kept → rhythmprint byte-identical). Bonus the plan didn't flag: `fan` is an amber carrier, so P3 now has TWO carriers (`stream` + `fan`) instead of one — the amber diet strictly improved.
+
+**Verify.** `tests/boss.mjs` 106 green (amberdiet/rhythmprint/lifecycle), `bossboot.mjs` green, geometry trace: P3 emits `fan/secondWave/stream`, `spiralStream present? false`. Byte-invariant (only ashtalon P3 attacks + phrase). `spiralStream` leaves the ashtalon def entirely (only comment mentions remain).
+
+**→ Systematize.** (1) A "clean" PRE-BUILD checkpoint (no drift) is a valid, valuable outcome — record it, don't treat the absence of a bug as a wasted pass. (2) Every attacks-array edit on a boss with a `rhythm` block is a TWO-site edit (array + phrase) — this is now reflex, not a special case. (3) When swapping an id, check whether the new id changes the amber-carrier count (`AMBER_CARRIERS = {aimed,fan,crossfire,stream}`) — a swap into/out of that set silently moves the diet; here it helped, but it could hurt. (4) A trace-via-stdin (`node --input-type=module <<EOF ... import './js/…'`) resolves relative imports from cwd; running the same script as a file resolves them from the script's dir — use stdin from `reforged/`.
+
+**→ Leapfrog.** ASHTALON P3 is now sparse-pursuit (stream/fan/secondWave), no turret fill, two amber carriers. C.2a marked SHIPPED in Part E. Remaining Tier-0 def-data reworks: C.3a (MARROWCOIL opener, kills the triple `['aimed','fan']` collision), C.1a (STORMREND teach fix), B-3 (THRUMSWARM cadence lift) — each through its own PRE-BUILD checkpoint. C.2b (the SLIPSTREAM graze form) stays deferred behind the ENG-D seam.
+
+## L261 — Build #3 (MARROWCOIL C.3a): the POST-BUILD collision scan caught the plan UNDERCOUNTING — an "identical openers" audit that eyeballs def arrays misses order-variants and the Apex's quoting stage
+**Did / learned.** Third Tier-0 build: MARROWCOIL's P1 opener was `['aimed','fan']` — byte-identical to other bosses' openers (§B-2) and, worse, its comment claimed "read the bone rings" while firing no rings. Swapped P1 `fan → iris` (the contracting coil rings — the opener finally IS rings) and relocated `fan` to P2. Applied the two-site discipline (L259/L260): the swap hit BOTH `attacks[]` AND the phrase; relocating fan to P2 ADDED a phrase measure, which moves rhythmprint — so this was the first build where I had to prove the print re-cleared (it did: min KS 0.26 @ ashtalon/onewing, MARROWCOIL still distinct vs all).
+
+**The POST-BUILD find — the plan undercounted the collision.** B-2 named THREE bosses on `['aimed','fan']` (Marrowcoil/Hollowgate/Thrumswarm). The post-build opener scan across all defs showed FOUR: **UNMASKED stage-1 also opens `['aimed','fan']`** — the audit missed it (the Apex boss's stage-1 phase reads like a normal P1 in the def). So the cluster was a QUAD; C.3a reduces it to a triple (Hollowgate/Thrumswarm/Unmasked), which the plan's own rationale already accepts (Hollowgate's verse identity, Thrumswarm's `SWARM_ATTACK_FORM` delivery, Unmasked's medley-quote). Second catch: MARROWCOIL's new `['aimed','iris']` is the SAME MULTISET as KNELLGRAVE's `['iris','aimed']` — but byte-strings differ, slots 4/10 are non-adjacent, and their rhythm signatures + rhythmprint keep them distinct → accepted per the "no ADJACENT repeat" standard. Recorded both in the plan (B-2 corrected, C.3a row).
+
+**Pattern across three builds:** every PRE/POST checkpoint has found the plan slightly wrong about CODE — C.9a a phantom bug (override missed), C.2a nothing (clean), C.3a an undercount + an unlisted Apex opener. The plan is a good map with imprecise coordinates; the checkpoints are load-bearing, not ceremony.
+
+**Verify.** `tests/boss.mjs` 106 green (amberdiet all 14, rhythmprint min KS 0.26), `bossboot.mjs` green, geometry trace: P1 emits `aimed,iris` (no fan); P2 emits `crossfire,fan,iris,stream`. Byte-invariant (only the marrowcoil P1/P2 attacks + phrases). No new BYTE-identical opener; the one multiset adjacency is non-adjacent + rhythm-distinct.
+
+**→ Systematize.** (1) An "identical X" audit finding needs a WHOLE-ROSTER scan at build time — the design pass eyeballs a few defs and undercounts; multi-form/Apex phases hide in the same schema and get skipped. (2) Collision has two metrics — byte-identical (order-sensitive) vs multiset (order-free); state which one the standard uses (here: byte + adjacency), because a swap can trade a byte-collision for a multiset one. (3) Relocating an attack that ADDS a phrase measure moves rhythmprint — re-run it and read the min-KS pair; a rename/swap that KEEPS structure does not. (4) Three builds in, the checkpoint has never been wasted — treat "run the scan/trace" as mandatory, not optional, even for a "trivial" opener swap.
+
+**→ Leapfrog.** MARROWCOIL opens on rings now (aimed hose + iris rings), fan preserved in P2, off the (actually-quadruple) `['aimed','fan']` collision; the plan's B-2 count corrected. C.3a SHIPPED in Part E. Remaining Tier-0: C.1a (STORMREND teach fix — move iris/secondWave to P2), B-3 (THRUMSWARM cadence lift). Then the Tier-1 engine-seam reworks.
+
+## L262 — Build #4 (STORMREND C.1a): a teach-before-test fix on a 3-phase boss is ENTANGLED with the dread rework — you can fix the teach cleanly only by accepting an interim density note, because the taught mechanic IS the dread's one escalation element
+**Did / learned.** Fourth Tier-0 build: STORMREND's `iris` first appeared in P3 (the dread) — a §5f law-4 teach-before-test violation. Fix: introduce `iris` in P2 as a slow teach form (gap 0.65 vs P3's tight 0.55) + add `secondWave` (returning gust). But the drift-check surfaced a genuine design tension a "just move iris to P2" one-liner hides: STORMREND has only 3 phases and `iris` was P3's SOLE escalation over P2 (P2 was fan/movingGap, P3 added iris). So:
+- Moving iris to P2 alone → P2 and P3 share {fan,movingGap,iris}, and P3 stops introducing anything (pure "same+tighter"). For a CRESCENDO boss that's arguably on-signature, but it strips P3's identity.
+- Adding secondWave to P2 too → P2 (4 attacks) > P3 (3), a mild density INVERSION (P2 busier than the dread).
+Neither is perfect because the teach fix is entangled with the DREAD rework (C.1b: P3's dread becomes the eye-corridor iris-CHAIN, which restores the escalation — but that needs the ENG-B authored-gap seam, deferred). Chose the plan-faithful Option A (iris slow + secondWave in P2), keeping P2 DISTINCT from P3 via secondWave, and documented the interim inversion + its resolution (C.1b) in the def comment, the plan's C.1a row, and here. The honest intermediate beats a clean-looking edit that quietly makes the dread weaker.
+
+**Verify.** `tests/boss.mjs` 106 green — critically rhythmprint re-cleared (min KS 0.26 @ ashtalon/onewing) after P2's phrase grew 2→4 measures; amberdiet green (fan carries P2). `bossboot.mjs` green. Trace: P2 emits fan/iris/movingGap/secondWave (iris now TAUGHT), P3 emits fan/iris/movingGap (iris now TESTED). Byte-invariant (only STORMREND P2 attacks + phrase).
+
+**→ Systematize.** (1) On a short-phase boss (3 phases), moving a mechanic earlier for teach-before-test can strip the dread's only escalation — check whether the mechanic you're relocating IS the phase's identity before treating the move as free. (2) When the clean fix is entangled with a deferred rework, ship the honest interim and DOCUMENT the inversion + what resolves it, rather than forcing a fake-clean edit. (3) Any phrase-length change (adding measures) moves rhythmprint — re-read the min-KS pair every time (4 builds in, this is the recurring gate to watch for def-data that touches phrases). (4) A CRESCENDO boss's "same attacks, tighter" P2→P3 is on-signature, NOT the "same+faster" anti-pattern — the anti-pattern critique is about the DREAD needing a counterintuitive twist (its own rework), not about phase-to-phase attack overlap.
+
+**→ Leapfrog.** STORMREND now teaches iris in P2 before testing it in the P3 dread; secondWave keeps P2 distinct. Law-4 satisfied for the interim; the full crescendo escalation returns with C.1b (ENG-B). C.1a SHIPPED in Part E. Remaining Tier-0: B-3 (THRUMSWARM cadence lift — the LAST pure def-data one). After that, only the Tier-1 engine-seam reworks remain.
+
+## L263 — Build #5 (THRUMSWARM B-3): a cadence "fix" on a phrase-machine boss is DOCUMENTARY — `cadence` is fallback-only (boss.js:2791), so lifting it aligns the def with the band floor but does NOT change felt pacing; verify that claim with the lifecycle kill-time
+**Did / learned.** Fifth and LAST Tier-0 build: the audit (B-3) flagged THRUMSWARM's cadence ladder as inverted — P4 `[1.05,1.4]` undercut the 1.2 Calamities floor and out-paced later World-Ender bosses on paper. The PRE-BUILD drift-check answered the load-bearing question BEFORE editing: does `cadence` even drive pacing for a boss with a `rhythm` block? `boss.js:2791`: `attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence...)) * ...` — the phrase machine's `rhythmRest` WINS; `cadence` is only the fallback (phase-seam first pick / no-rhythm bosses). So THRUMSWARM's live pacing is set by its PRESSURE-OSTINATO phrase, and the "inversion" existed only in the vestigial `cadence` field. B-3 is therefore a def-consistency fix (align the field to the 1.2 band floor), NOT a difficulty change — exactly what the plan's own verifier note predicted. Lifted the lower bounds of all three sub-floor phases (P2/P3/P4) to 1.2, kept the uppers (escalation `1.5>1.45>1.4` preserved); extended beyond the plan's stated P3/P4 to include P2 (`1.15`) for full floor-consistency.
+
+**Verify — proved the "no pacing change" claim, didn't just assert it.** `tests/boss.mjs` 106 green; rhythmprint UNCHANGED (min KS 0.26 — cadence isn't in the rhythm block, so the fingerprint can't move); amberdiet green; **THRUMSWARM lifecycle kill ~107.0s → ~107.5s** — essentially identical, the empirical confirmation that cadence is fallback-only and the edit is documentary. `bossboot.mjs` green. Byte-invariant (only 3 THRUMSWARM cadence arrays).
+
+**→ Systematize.** (1) Before "fixing a cadence/dial," check whether the field is even LIVE for that boss — a phrase-machine boss reads `rhythmRest`, not `cadence` (boss.js:2791); the dial may be vestigial. (2) When a change is claimed to be feel-neutral, prove it with a metric (here: the lifecycle kill-time delta ~0.5s), don't just assert it. (3) A band-floor/consistency fix is worth shipping even when it's not felt — it aligns the def with the contract and any future field-reading gate, and removes a documented inversion — but LABEL it as consistency, not difficulty, so nobody thinks the fight got harder. (4) Fixing one flagged instance (P3/P4), scan for siblings (P2 also undercut) — apply the principle completely.
+
+**→ Leapfrog.** THRUMSWARM's cadence field now honors the 1.2 Calamities floor across all phases; the paper inversion is gone; live pacing (PRESSURE OSTINATO) untouched. B-3 SHIPPED. **ALL FIVE Tier-0 def-data reworks are now built** (C.9a, C.2a, C.3a, C.1a, B-3 — each caught a different flavor of plan/code mismatch: phantom bug, clean, undercount, entanglement, vestigial-field). What remains is Tier-1: the engine-seam reworks (per-organ emit ENG-A, geyser ENG-C, the graze/parry detectors ENG-D/E/F/G, pendulum ENG-H) — each a small engine PR proven on one hero, then its boss PR. Those are real content, not def tweaks; they need the PRE-BUILD checkpoint to AUTHOR the seam (E.2 NEEDS-SEAM rows), and are a natural place to pause the sweep and re-decide scope with the owner.

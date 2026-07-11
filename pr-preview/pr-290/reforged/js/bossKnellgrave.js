@@ -605,6 +605,20 @@ export function buildKnellgrave(def, quality = 1) {
   ember.position.x = SPINE_X;
   emberMat.side = THREE.DoubleSide;
   bellGroup.add(ember);
+  // LANCE V1 focal + 3rd paint organ: a byte-neutral named empty at the front-left
+  // LIP-BITE RIM — the WOUND, the lit crack/candle-mouth the toll escapes from (the
+  // one HDR focal reads here). Placed on the RIM (x −2.5 toward the front-left bite,
+  // z 4.5 out at the lip radius), NOT (a) at the slit's high centroid (~y32, above the
+  // aim ceiling) and NOT (b) buried in the dead-black mouth interior over the bound
+  // clapper's HEAD (the §CP2 fix — a brand there read as marking the prisoner's face
+  // and lost the candle fiction). Local y −8.5 keeps its world y in the flight lane
+  // (laneMaxY 22) across the swing; the lateral offset clears the head by ≥3 world
+  // units. knellorgans.mjs samples a FULL swing period (+ driven charge/dread) and
+  // asserts the real MAX. partWorldPos resolves it live.
+  const wound = new THREE.Object3D();
+  wound.name = 'knellWound';
+  wound.position.set(-2.5, -8.5, 4.5);
+  bellGroup.add(wound);
 
   // ---- SPREADING FRACTURES — the readable per-phase damage on the FRONT FACE. As the ruin
   // climbs, NEW glowing cracks light up ONE PER PHASE, webbing out from the candle-slit across
@@ -710,6 +724,14 @@ export function buildKnellgrave(def, quality = 1) {
     const cuffChain = [];
     for (let c = 0; c < 2; c++) { const lk = strip(new THREE.TorusGeometry(0.18, 0.07, 4, 8)); if (c % 2) lk.rotateX(Math.PI / 2); lk.translate(0, -2.55 - c * 0.4, 0); cuffChain.push(lk); }
     armPivot.add(new THREE.Mesh(mergeK(cuffChain, `cuffChain${sx}`), ironMat));
+    // LANCE restraint organ (V2): a byte-neutral named empty AT the wrist cuff — the
+    // brandable BINDING (the restraint you strike, distinct from the honorably
+    // unpaintable prisoner FIGURE). Rides the arm strain via armPivot; partWorldPos
+    // resolves it live. Named knellBindL / knellBindR (mirror of the arm side).
+    const bindAnchor = new THREE.Object3D();
+    bindAnchor.name = `knellBind${sx > 0 ? 'R' : 'L'}`;
+    bindAnchor.position.set(0, -2.25, 0);   // the cuff torus position
+    armPivot.add(bindAnchor);
     clapperPivot.add(armPivot);
     armPivots.push({ pivot: armPivot, sx, restZ: sx * 0.32 });
   }
@@ -833,7 +855,11 @@ export function buildKnellgrave(def, quality = 1) {
   // ==================================================================
   let charge = 0; function setCharge(k) { charge = clamp01(k); }
   let tell = null; function setAttackTell(id) { tell = id || null; }
-  let setpieceK = 0, dreadK = 0; function setSetpiece(k, sdef) { setpieceK = clamp01(k); dreadK = (sdef && sdef.dread) ? setpieceK : 0; }
+  // §ENG-H: the PENDULUM SWEEP widens the swing WITHOUT the dread flag (the flag would fire
+  // the Last Toll's one-way skyOpen reveal two cards early). The model keys on sdef.id (the
+  // MARROWCOIL fly-through-vs-dread precedent) so the sweep drives its own amplitude.
+  let setpieceK = 0, dreadK = 0, sweepK = 0;
+  function setSetpiece(k, sdef) { setpieceK = clamp01(k); dreadK = (sdef && sdef.dread) ? setpieceK : 0; sweepK = (sdef && sdef.id === 'pendulumSweep') ? setpieceK : 0; }
   // THE RUIN LADDER (§5 escalation — "the bell OPENS across the fight"): ruinK = 1−hp,
   // fed by the controller's setHealth every frame. Phase by phase the crack gapes wider
   // (a thin line → a flood by the final card), the sprung plates lift, the suspended
@@ -920,8 +946,10 @@ export function buildKnellgrave(def, quality = 1) {
     painEase += (Math.max(0, painT) - painEase) * Math.min(1, dt * 9);
     ringKick *= Math.max(0, 1 - dt * 3);
     const noticeK = noticeT > 0 ? clamp01(noticeT / 1.0) : 0;
-    // amplitude: base sway + charge-widened arc + dread (the Last Toll swings hardest)
-    const ampTarget = 0.10 + charge * 0.16 + dreadK * 0.10;
+    // amplitude: base sway + charge-widened arc + dread (the Last Toll swings hardest) +
+    // §ENG-H the PENDULUM SWEEP's own widen (the silhouette telegraph doing its job at
+    // setpiece scale — the bell visibly SWINGS across the lane, not just translates).
+    const ampTarget = 0.10 + charge * 0.16 + dreadK * 0.10 + sweepK * 0.30;
     swingA += (ampTarget - swingA) * Math.min(1, dt * 2.5);
     const swing = Math.sin(time * 0.85) * swingA + Math.sin(time * 0.37 + 1.1) * swingA * 0.35;
     if (entranceU == null) {
