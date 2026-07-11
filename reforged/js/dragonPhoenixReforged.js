@@ -185,21 +185,28 @@ function kiteFeather(base, dir, side, len, wid, lift, vaneMat, rootMat, rimMat =
 // lick) with an optional graceful terminal `curl` (aft-up only). `matRamp` = [root,mid,tip]
 // materials assigned per segment → the ribbon HUE-RAMPS root-hot → tip-cool (goldfire→flame→
 // crimson) — THIS is what makes it read as fire. Returns { group, tip } (tip for an FX marker).
-function flameFeather(base, dir, side, len, wid, curve, matRamp, curl = 0) {
+function flameFeather(base, dir, side, len, wid, curve, matRamp, curl = 0, opts = {}) {
   const B = new THREE.Vector3(base[0], base[1], base[2]);
   const D = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
   const S = new THREE.Vector3(side[0], side[1], side[2]).normalize();
   const Nn = new THREE.Vector3().crossVectors(D, S).normalize();
   const A = (v) => [v.x, v.y, v.z];
-  const SEG = 4;
+  const SEG = opts.seg ?? 4;       // ≥5 renders the sin belly as a real CURVE (not a piecewise spear)
+  const tipW = opts.tipW ?? 0;     // >0 → a rounded flame-TONGUE lobe of width ~tipW·wid (kills the needle pike)
+  const flick = opts.flick ?? 0;   // signed lateral S-jog of the last 30% → tips diverge, not parallel spears
   const g = new THREE.Group();
-  // width: narrow (not zero) root → belly ~30% → fine point (a graceful flame line)
-  const wAt = (u) => wid * (0.30 + 0.70 * Math.sin(Math.PI * Math.min(u * 1.15, 1))) * Math.pow(1 - u, 0.5);
-  // centreline: straight run + a gentle S bow along the normal + a terminal curl (aft-up)
+  // width. tipW==0 → the classic needle taper (byte-identical default: mane/flank untouched). tipW>0 →
+  // a leaf/tongue: lobe-width tipW·wid at root AND tip, belly to wid at ~40% → a flame tongue, not a spike.
+  const wAt = (u) => tipW > 0
+    ? wid * (tipW + (1 - tipW) * Math.sin(Math.PI * Math.min(u * 1.08, 1)))
+    : wid * (0.30 + 0.70 * Math.sin(Math.PI * Math.min(u * 1.15, 1))) * Math.pow(1 - u, 0.5);
+  // centreline: straight run + a gentle S bow along the normal + a terminal curl (aft-up) + an
+  // optional terminal lateral FLICK so a rank's tips splay organically instead of aiming in parallel.
   const ctr = (u) => {
     const bow = Math.sin(Math.PI * u) * curve;
     const cu = u > 0.65 ? curl * Math.pow((u - 0.65) / 0.35, 1.4) : 0;
-    return B.clone().addScaledVector(D, len * u).addScaledVector(Nn, bow + cu);
+    const fl = flick && u > 0.70 ? flick * len * Math.pow((u - 0.70) / 0.30, 1.5) : 0;
+    return B.clone().addScaledVector(D, len * u).addScaledVector(Nn, bow + cu).addScaledVector(S, fl);
   };
   const mat = (u) => matRamp[Math.min(matRamp.length - 1, Math.floor(u * matRamp.length))];
   for (let i = 0; i < SEG; i++) {
@@ -211,7 +218,40 @@ function flameFeather(base, dir, side, len, wid, curve, matRamp, curl = 0) {
     const cr0 = c0.clone().addScaledVector(Nn, 0.03 * wid), cr1 = c1.clone().addScaledVector(Nn, 0.03 * wid);
     g.add(flatTriMesh([[A(l0), A(l1), A(cr1)], [A(l0), A(cr1), A(cr0)], [A(cr0), A(cr1), A(r1)], [A(cr0), A(r1), A(r0)]], mat(um)));
   }
+  // rounded flame-tongue LOBE cap (only when tipW>0): a SHORT wide nub closes the tip → a licked lobe.
+  if (tipW > 0) {
+    const cc = ctr(1), w1 = wAt(1);
+    const cl = cc.clone().addScaledVector(S, -w1 / 2), cr = cc.clone().addScaledVector(S, w1 / 2);
+    const apex = cc.clone().addScaledVector(D, 0.5 * w1).addScaledVector(Nn, 0.04 * wid);
+    g.add(flatTriMesh([[A(cl), A(apex), A(cr)]], mat(0.99)));
+  }
   return { group: g, tip: A(ctr(1)) };
+}
+
+// ── A FLAME RANK — a SHINGLED row of flame-tongues along a root curve u∈[0,1]. The overlap is
+// guaranteed BY CONSTRUCTION: each tongue's width = local root spacing / (1−ovl), so adjacent lobes
+// interleave into a CONTINUOUS fiery vane (no sky between them, no separated pikes) — the ≥55%-overlap
+// shingle contract banked for kite-feathers, now in ONE place. Deterministic: flick alternates by index
+// (no RNG → wing symmetry stays Δ0). rootAt(u)/dirAt(u)→[x,y,z]; lenAt(u)→n; rampAt(u)→[mats].
+function flameRank(n, rootAt, dirAt, side, lenAt, rampAt, opts = {}) {
+  const { ovl = 0.55, curve = 0.12, curl = 0.05, flickAmp = 0.05, lift = 0, seg = 5, tipW = 0.26 } = opts;
+  const group = new THREE.Group();
+  const tips = [];
+  const V = (p) => new THREE.Vector3(p[0], p[1], p[2]);
+  const step = n > 1 ? 1 / (n - 1) : 1;
+  for (let i = 0; i < n; i++) {
+    const u = n > 1 ? i / (n - 1) : 0.5;
+    const base = rootAt(u);
+    const uNb = u + step <= 1 ? u + step : u - step;               // nearest neighbour root
+    const spacing = n > 1 ? V(rootAt(u)).distanceTo(V(rootAt(uNb))) : 0.3;
+    const w = Math.max(0.04, spacing / (1 - ovl));                 // width → ovl overlap with the neighbour
+    const bp = [base[0], base[1] + lift, base[2]];
+    const flick = flickAmp * (i % 2 ? 1 : -1);
+    const f = flameFeather(bp, dirAt(u), side, lenAt(u), w, curve, rampAt(u), curl, { seg, tipW, flick });
+    group.add(f.group);
+    tips.push(f.tip);
+  }
+  return { group, tips };
 }
 
 // ── TORSO: 'sunhawk' → 'sunhawkKeelTorso' ────────────────────────────────────────
@@ -571,22 +611,22 @@ function buildOneSunWing(M, model) {
   // corner) so the inner wing is not the "single flat matte-yellow value" the critic saw. Top vane +
   // bottom skin (thickness = the anti-plank). It runs OUT to 0.62 so it overlaps the feather roots →
   // no bald panel/streamer SEAM (the critic's "two disconnected objects").
-  const memTs = [0, 0.15, 0.32, 0.48, 0.62];
-  const memFs = [0, 0.45, 0.9];
-  // The WHOLE membrane is pure-emissive (pink-proof: no lit diffuse for the cool rim to pull rose —
-  // the last lit goldfire/flame here were the stage-gated rose WEDGE the critic pixel-traced at the
-  // wing root). But at a MODERATE intensity, NOT the hot thin-feather ribbon level: a broad face at
-  // ribbon intensity blooms to pale cream, so these read as solid ORANGE fire instead.
+  const HEM = 0.78;                                  // membrane trailing hem pulled IN (was 0.90) → the covert lobes become the scalloped edge
+  const memTs = [0, 0.12, 0.24, 0.37, 0.50, 0.62];   // 6 span stations (was 5) — finer heat sweep
+  const memFs = [0, 0.28, 0.52, HEM];                // 4 chord stations (was 3)
+  // The WHOLE membrane is pure-emissive (pink-proof: no lit diffuse for the cool rim to pull rose).
+  // At a MODERATE intensity, NOT the hot thin-feather ribbon level (a broad face at ribbon intensity
+  // blooms to pale cream), so these read as solid ORANGE fire.
   const memI = (0.7 + 0.16 * (M.stage ?? 3)) * (M.glow ?? 1);
   const mMat = (e) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: e, emissiveIntensity: memI, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = e; m.userData.baseIntensity = memI; return m; };
-  // saturated ORANGE stops (not pale gold) so the broad panels read as rich fire; the white-gold heat
-  // is reserved for the thin feather roots, which can bloom bright without turning a broad face cream.
   const memHot = mMat(0xffb63a), memGold = mMat(0xf59020), memOrange = mMat(0xe86614), memDeep = mMat(0xd6460c);
-  // FOUR value bands across span×chord (not one flat field): a hot inner-root band → gold → orange →
-  // deep-orange, so even at 4× zoom the membrane reads as graded fire, not a uniform pale quad.
-  const memMat = (t, f) => (f < 0.45
-    ? (t < 0.16 ? memHot : t < 0.34 ? memGold : memOrange)
-    : (t < 0.20 ? memGold : t < 0.44 ? memOrange : memDeep));
+  // DIAGONAL heat coordinate (not axis-aligned rectangles — the "basic panel/plates" read): a hot
+  // inner-leading corner cooling toward the outboard-trailing corner, with a slight wave so the bands
+  // aren't ruler-straight. Banded into the same 4 stops.
+  const memMat = (t, f) => {
+    const h = 0.55 * (f / HEM) + 0.5 * t + 0.06 * Math.sin(3.2 * t);
+    return h < 0.20 ? memHot : h < 0.42 ? memGold : h < 0.64 ? memOrange : memDeep;
+  };
   for (let si = 0; si < memTs.length - 1; si++) {
     const t0 = memTs[si], t1 = memTs[si + 1];
     for (let fi = 0; fi < memFs.length - 1; fi++) {
@@ -596,30 +636,67 @@ function buildOneSunWing(M, model) {
       wg.add(flatTriMesh([[BOT(t0, f0), BOT(t1, f1), BOT(t1, f0)], [BOT(t0, f0), BOT(t0, f1), BOT(t1, f1)]], mm));
     }
   }
+  // OUTBOARD DISSOLVE — a thin deep-orange wedge carrying the panel from t=0.62 out to 0.80 with the
+  // chord shrinking to ~0.3×, so the membrane TAPERS into the feather zone instead of ending on a cut.
+  for (const [t0, t1, c0, c1] of [[0.62, 0.71, HEM, 0.55], [0.71, 0.80, 0.55, 0.30]]) {
+    wg.add(flatTriMesh([[TOP(t0, 0), TOP(t1, 0), TOP(t1, c1)], [TOP(t0, 0), TOP(t1, c1), TOP(t0, c0)]], memDeep));
+    wg.add(flatTriMesh([[BOT(t0, 0), BOT(t1, c1), BOT(t1, 0)], [BOT(t0, 0), BOT(t0, c0), BOT(t1, c1)]], memDeep));
+  }
+
+  // ── COVERT RANK — a SHINGLED row of short broad flame-tongues rooted just inside the hem (f≈0.62)
+  // and overhanging it, so the membrane's trailing edge becomes a SCALLOPED FLAME hem (no straight
+  // cut line anywhere) and the panel dissolves into the feather layer. Segment-0 material = the
+  // membrane it roots on → the roots vanish into the substrate, only the free lobes read as flame.
+  {
+    const cov = flameRank(covertN,
+      (u) => { const t = 0.05 + u * 0.66; return TOP(t, 0.62); },
+      (u) => [0.14 + 0.30 * u, -0.03, 1],
+      [1, 0, 0],
+      (u) => (0.5 + 0.12 * Math.sin(Math.PI * u)) * chord(0.05 + u * 0.66),
+      (u) => { const t = 0.05 + u * 0.66; return [memMat(t, 0.62), M.hotRibbon[0], M.hotRibbon[1]]; },
+      { ovl: 0.55, lift: 0.04, tipW: 0.28, seg: 5, curve: 0.10, curl: 0.05, flickAmp: 0.05 });
+    wg.add(cov.group);
+  }
 
   // ── MAIN FIRE-FEATHERS — the wing surface BUILT AS FIRE. The critic's picket-fence cure: THREE
   // length families (±40%), VARIED pitch + width per feather, and — the key — EVERY feather ramps
   // from a WHITE/GOLD-HOT root to a DEEP-RED tip (not the identical tricolour band on every spear),
   // so the bands land at different places along different-length feathers → combustion, not a fence.
   // Roots sit OVER the membrane (f≈0.34) so covert-over-streamer overlap blends feather into panel.
+  // per-span hot→cool ramp, 4-stop, pure-emissive hotRibbon (pink-proof + glows in the dark). Innermost
+  // hottest, outermost cools to deep-orange. Used by BOTH main layers.
+  const mainRamp = (u) => u < 0.30 ? [M.hotRibbon[0], M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[1]]
+    : u < 0.62 ? [M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[1], M.hotRibbon[2]]
+      : [M.hotRibbon[1], M.hotRibbon[1], M.hotRibbon[2], M.hotRibbon[2]];
   const lenFam = [1.28, 0.82, 1.06];   // 3 interleaved length classes → broken rhythm
   const nMain = Math.max(5, Math.min(8, Math.round(secN + 1)));
+  // LAYER 1 — the long primary flame-tongues (rooted f≈0.30). Lobe tips (tipW) + curved segs + an
+  // alternating terminal flick → licking flame, not parallel spears. Wid floor raised so bellies OVERLAP.
   for (let i = 0; i < nMain; i++) {
     const u = nMain > 1 ? i / (nMain - 1) : 0.5;
     const t = 0.08 + u * 0.84 + 0.02 * Math.sin(i * 1.7), l = L(t), cc = chord(t);
     const fam = lenFam[i % 3];
     const len = (0.9 + 0.9 * Math.sin(Math.PI * Math.min(u * 1.05, 1))) * cc * fam;
-    const wid = (0.32 + 0.24 * Math.sin(Math.PI * u)) * cc * (0.8 + 0.4 * ((i % 2) ? 1 : 0));
-    const dir = [0.18 + 0.46 * u + 0.10 * ((i % 2) ? 1 : -0.4), -0.02 - 0.05 * u, 1];   // varied pitch → no lockstep
+    const wid = (0.42 + 0.22 * Math.sin(Math.PI * u)) * cc * (0.9 + 0.25 * ((i % 2) ? 1 : 0));
+    const dir = [0.16 + 0.40 * u + 0.08 * ((i % 2) ? 1 : -0.4), -0.02 - 0.05 * u, 1];   // inner near-parallel, splay grows outboard
     const curve = 0.11 + 0.09 * u + 0.03 * (i % 2);
-    // per-feather hot→cool ramp, ENTIRELY pure-emissive hotRibbon (gold→orange→deep-orange): the
-    // whole flame-feather layer is now pink-proof (no lit goldfire/flame facet left for the cool rim
-    // to pull rose) AND self-lit so it glows in the dark chase view. Innermost hottest, outermost cool.
-    const ramp = u < 0.30 ? [M.hotRibbon[0], M.hotRibbon[0], M.hotRibbon[1]]
-      : u < 0.62 ? [M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[2]]
-        : [M.hotRibbon[1], M.hotRibbon[2], M.hotRibbon[2]];
-    const base = [l[0], l[1] + camber(0.34) * cc + 0.03, l[2] + 0.34 * cc];
-    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, curve, ramp, 0.05 * ws).group);
+    const base = [l[0], l[1] + camber(0.34) * cc + 0.02, l[2] + 0.34 * cc];
+    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, curve, mainRamp(u), 0.05 * ws,
+      { seg: 5, tipW: 0.25, flick: 0.06 * ((i % 2) ? 1 : -1) }).group);
+  }
+  // LAYER 2 — a shorter overlapping rank at HALF-PHASE span offsets (rooted f≈0.45, lifted above
+  // layer 1), so every gap between two long feathers is roofed by a shorter lobe → the trailing edge
+  // reads as ONE continuous long/short flickering flame vane, never sky-between-teeth.
+  const nMain2 = Math.max(4, nMain - 1);
+  for (let i = 0; i < nMain2; i++) {
+    const u = (i + 0.5) / nMain2;                 // half-phase vs layer 1
+    const t = 0.10 + u * 0.78, l = L(t), cc = chord(t);
+    const len = (0.55 + 0.45 * Math.sin(Math.PI * Math.min(u * 1.05, 1))) * cc * 0.82;
+    const wid = (0.40 + 0.18 * Math.sin(Math.PI * u)) * cc;
+    const dir = [0.18 + 0.40 * u, -0.02 - 0.04 * u, 1];
+    const base = [l[0], l[1] + camber(0.45) * cc + 0.05, l[2] + 0.45 * cc];
+    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.10 + 0.08 * u, mainRamp(u), 0.04 * ws,
+      { seg: 5, tipW: 0.28, flick: 0.05 * ((i % 2) ? -1 : 1) }).group);
   }
 
   // ── TRAILING STREAMERS — 3 BROAD flowing ribbons rooted INBOARD of the trailing edge (f≈0.66, so
@@ -634,7 +711,8 @@ function buildOneSunWing(M, model) {
     const wid = (0.38 - 0.06 * u) * ws;                                  // BROAD (all of them)
     const dir = [0.22 + 0.40 * u, 0.06, 1];
     const base = [l[0], l[1] + camber(0.66) * cc, l[2] + 0.66 * cc];     // rooted INSIDE the chord
-    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.28, rampTrail, 0.20 * ws).group);
+    wg.add(flameFeather(base, dir, [1, 0, 0], len, wid, 0.28, rampTrail, 0.20 * ws,
+      { seg: 6, tipW: 0.30, flick: 0.05 * ((i % 2) ? 1 : -1) }).group);
   }
 
   // ── LEADING LICKS — 3 short hot licks lifting off the CURVED leading edge (flame variation on the
@@ -658,6 +736,10 @@ function buildOneSunWing(M, model) {
     const len = (1.0 + 0.5 * Math.sin(Math.PI * u)) * ws;
     const wid = (0.24 - 0.07 * Math.abs(u - 0.5) * 2) * ws;
     wg.add(kiteFeather([carpal[0], carpal[1], carpal[2]], dir, side, len, wid, 0.06, M.gold, M.bronze, M.roseGold));
+    // FLAME SHEATH over the gold finger (same aim, shorter + broader) → the gold spine reads as bone
+    // INSIDE flame, folding the last separate spike family into the fiery vane.
+    wg.add(flameFeather([carpal[0], carpal[1], carpal[2]], dir, side, len * 0.82, wid * 1.35, 0.06,
+      [M.hotRibbon[0], M.hotRibbon[1], M.hotRibbon[2]], 0.03, { seg: 5, tipW: 0.26, flick: 0.04 * ((i % 2) ? 1 : -1) }).group);
     tips.push([carpal[0] + dir[0] * len, carpal[1] + dir[1] * len, carpal[2] + dir[2] * len]);
   }
   wg.userData.outerTip = tips[nFing - 1];
@@ -722,25 +804,58 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // orange), not the pale cream silk they became when they bloomed the hot-gold wing ribbon white.
   const tI = (0.85 + 0.2 * (M.stage ?? 3)) * (M.glow ?? 1);
   const tMat = (emis) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: emis, emissiveIntensity: tI, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = emis; m.userData.baseIntensity = m.emissiveIntensity; return m; };
-  const ramp = [tMat(0xffa838), tMat(0xf26a16), tMat(0xdc470c)];   // warm gold-orange → ember → deep-orange (reads as fire, never cream)
-  // A LAYERED drape: one dominant broad centre ribbon + finer flanking ribbons at graded lengths,
-  // all streaming AFT and settling low → reads as one graceful comet with inner structure, not a fan.
-  const nDraw = Math.min(Math.max(nRib, 3), 5);
-  for (let i = 0; i < nDraw; i++) {
-    const u = nDraw > 1 ? (i / (nDraw - 1)) - 0.5 : 0;   // −0.5 … 0.5 across the drape
-    const cen = 1 - Math.abs(u) * 2;                     // 1 at centre → 0 at edges
-    const rlen = baseLen * (0.48 + 0.52 * Math.pow(Math.max(cen, 0), 1.2));
-    // Stream aft (+z dominant) and LEVEL — the drape sits at body height (y≈0.44), a distinct LOWER
-    // band than the wing streamers (which lift up-aft off the shoulders to y>0.7), and central in x
-    // (the wings flank it) → reads as its OWN comet. A gentle downward belly + a soft terminal lick
-    // give the hanging-drape grace while staying WELL clear of the {y<0.30} corridor over its length.
-    const dir = [u * 0.30, 0.0, 1.0];
-    const side = [1, 0, 0.15 * u];
-    const wid = (0.26 + 0.52 * Math.max(cen, 0)) * (0.74 + 0.26 * lift);   // broader → the tip stays a solid ribbon, never a subpixel sliver
-    const curve = -0.09 - 0.05 * (1 - cen);             // a gentle DOWNWARD belly (a hanging drape)
-    const curl = 0.16;                                  // soft terminal lick (kept small → stays clear of the wings)
-    const base = [u * 0.08, a.y - 0.05 * Math.abs(u), a.z + 0.04 * (1 - cen)];
-    group.add(flameFeather(base, dir, side, rlen, wid, curve, ramp, curl).group);
+  const bodyEmber = tMat(0xd9741a);   // ≈ the body-field hue — for the covert-fan roots so the train grows OUT of the body
+  const ramp4 = [bodyEmber, tMat(0xffa838), tMat(0xf26a16), tMat(0xdc470c)];   // 4-stop: body → gold-orange → ember → deep-orange
+  const covRamp = [bodyEmber, tMat(0xffa838), tMat(0xf58a20)];
+  const wf = (0.8 + 0.2 * lift);      // global width scale by lift
+
+  // ── ROOT COVERT FAN — short broad shingled tongues over the anchor, roots on the body-ember hue,
+  // so the comet-train GROWS out of the body instead of sprouting from a bare point.
+  {
+    const cov = flameRank(Math.max(4, Math.min(nRib + 1, 6)),
+      (u) => [(u - 0.5) * 0.62, a.y + 0.03, a.z - 0.06],
+      (u) => [(u - 0.5) * 0.55, 0.02, 1],
+      [1, 0, 0],
+      (u) => 0.75 + 0.35 * Math.sin(Math.PI * u),
+      () => covRamp,
+      { ovl: 0.6, lift: 0.02, tipW: 0.30, seg: 5, curve: 0.06, curl: 0.05, flickAmp: 0.05 });
+    group.add(cov.group);
+  }
+
+  // ── TWO-TIER COMET-TRAIN — a dominant centre comet + graded flanks in an UPPER tier and an
+  // interleaved LOWER tier spread wider in x → a braided volume with real planform width, not a
+  // lone spike + parallel slivers. All stream LEVEL (dir.y=0) with a gentle downward belly + soft
+  // terminal lick + alternating flick, staying clear of the {y<0.30} corridor over their length.
+  // [u, lenK, widK, dirX, baseX, dy, seg]
+  const specs = [
+    [0.00, 1.00, 0.82, 0.00, 0.00, 0.06, 6],   // A — the comet head (dominant)
+    [0.30, 0.80, 0.56, 0.22, 0.06, 0.06, 6],   // A upper flanks
+    [-0.30, 0.80, 0.56, -0.22, -0.06, 0.06, 6],
+    [0.15, 0.70, 0.44, 0.28, 0.10, -0.06, 5],  // B lower braid (wider splay)
+    [-0.15, 0.70, 0.44, -0.28, -0.10, -0.06, 5],
+    [0.45, 0.56, 0.42, 0.40, 0.22, -0.05, 5],
+    [-0.45, 0.56, 0.42, -0.40, -0.22, -0.05, 5],
+  ];
+  specs.forEach(([u, lenK, widK, dirX, baseX, dy, seg], i) => {
+    const rlen = baseLen * lenK;
+    const dir = [dirX, 0.0, 1.0];
+    const side = [1, 0, 0.12 * u];
+    const wid = widK * wf;
+    const base = [baseX, a.y + dy - 0.02 * Math.abs(u), a.z + 0.03];
+    group.add(flameFeather(base, dir, side, rlen, wid, -0.09, ramp4, 0.16,
+      { seg, tipW: 0.28, flick: 0.05 * ((i % 2) ? 1 : -1) }).group);
+  });
+
+  // ── FILAMENT WISPS — 4 fine sparks shearing off the centre comet's flanks (thin → pure hotRibbon
+  // glow, never bloom). Positions computed off the centre ribbon's own centreline (deterministic).
+  for (let i = 0; i < 4; i++) {
+    const along = i < 2 ? 0.32 : 0.56;
+    const sgn = (i % 2) ? 1 : -1;
+    const cz = a.z + 0.03 + baseLen * along;
+    const cy = a.y + 0.06 - 0.09 * Math.sin(Math.PI * along);
+    const cx = sgn * 0.82 * wf * 0.5;
+    group.add(flameFeather([cx, cy, cz], [sgn * 0.5, 0.12, 1], [1, 0, 0.2],
+      (1.1 + 0.6 * (i % 2)), 0.09, 0.14, M.hotRibbon, 0.12, { seg: 5 }).group);
   }
   return { group, segs, tailFins: null, accentMats: [M.goldfire, M.flame, M.crimson, M.orange] };
 }
