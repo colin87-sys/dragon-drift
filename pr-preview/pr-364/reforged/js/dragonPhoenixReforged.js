@@ -521,7 +521,15 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
     riderSocket: { x: 0, y: 0.74, z: -0.35 },
     motifAnchor,
   };
-  return { group, attach, spinePoints, spineMats, mats: { bodyMat: M.ivory, eyeMat: M.eyeMat }, coreGlow };
+  // The rig unconditionally drives `mats.bodyMat.emissiveIntensity` toward a GENERIC body-glow target
+  // (0.12 cruise / 0.35 fever, 0 on reset) every frame — and that write lands AFTER the spineMats
+  // restore loop. If bodyMat were `M.ivory` (the body FIRE field, base up to 1.5, also in spineMats),
+  // that generic write would clamp the "whole creature burns" glow down to 0.12 in gameplay even though
+  // the static preview looks correct. So hand the rig an INERT control material (attached to no
+  // geometry): the drive/reset writes there harmlessly, and `ivory` keeps its per-form fire intensity
+  // via spineMats. bodyControl exists only to absorb the rig's body-glow write.
+  const bodyControl = new THREE.MeshStandardMaterial();
+  return { group, attach, spinePoints, spineMats, mats: { bodyMat: bodyControl, eyeMat: M.eyeMat }, coreGlow };
 }
 registerTorso('sunhawk', buildSunhawkKeelTorso);
 

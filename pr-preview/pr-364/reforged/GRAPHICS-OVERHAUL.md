@@ -452,8 +452,44 @@ marginal cost — no `applyQuality` entry needed; state so in the PR for the Gat
     `stencil:false` deferred), **N1** grading-pass dither (`?dither=0` kill switch; tier2 sky/water copies
     deferred), **N3 scaffolding** (`toneMap.js` Neutral chunk-override + a `CustomToneMapping` branch patched into
     the vendored `OutputPass`/`OutputShader` so `?tm=neutral` actually tonemaps the composed path; `?tm=aces|agx|neutral`, default ACES).
-    Verified: `tests/graphicsfoundation.mjs` (20/20), `tools/bandshot.mjs` (banding gate), `tools/tonemapshots.mjs`
-    (A/B montage). **Pending owner:** the N3 tone-map decision (judge the montage), then N4 (ParticleBatch).
+    Verified: `tests/graphicsfoundation.mjs` (23/23), `tools/bandshot.mjs` (banding gate), `tools/tonemapshots.mjs`
+    (A/B montage). Merged as #373.
+  - **✓ Landed (#376):** **N4 ParticleBatch** (`?pfx=batch`, default OFF): 320 Sprites kept as state, one
+    `InstancedBufferGeometry` reads them → ≤150 spark draws collapse to 1 (241→188 at tier2). Parity verified vs
+    the vendored sprite shader incl. the tier2 tonemapping/colorspace tail; `tests/particlebatch.mjs` (6/6),
+    `tools/pfxshot.mjs` (tier0+tier2 look A/B). Fog = documented deviation (near-field bursts unaffected).
+  - **✓ Landed (#376) — Graphics settings menu + N5 sky-IBL + N6 hero shadow.** A Settings "Graphics" section
+    (COLOUR GRADE / SKY LIGHTING / DRAGON SHADOW / SMOOTH GRADIENTS / FAST PARTICLES) is the home every feature
+    plugs a toggle into (defaults = shipped look). **N5** projects the sky into an SH LightProbe (the sky lights
+    the world); **N6** casts the dragon's real top-down silhouette on the water (`isMesh`-only mask, tier2→blob).
+    All off/neutral by default. **Pending owner (taste calls):** tone-map → Neutral default, sky-IBL strength +
+    default, dragon-shadow default, fast-particles default — all flippable in Settings on the preview.
+  - **✓ Landed — N15 prop AO (PROP SHADING toggle, default OFF).** Boot-baked per-vertex AO (`propAO.js`
+    `bakeAO`: height²-base + down-facing-normal terms → `aoBake` attribute) grounds the course props (dark
+    bases + undersides). Zero per-frame cost (baked data + one `mix` per prop fragment); gated by a shared
+    `uAO` uniform (0 = shipped, IEEE-exact identity), so no `applyQuality` entry is needed. **Deviation from
+    the doc's `vertexColors:true` sketch:** ships as a custom `aoBake` attribute + gated shader multiply
+    instead — strictly better (live uniform toggle; keeps AO off the `instanceColor` biome-tint channel).
+    Verified: `tests/propao.mjs` (8/8), `tools/aoshot.mjs` A/B montage.
+  - **✓ Landed — N8 atmosphere PR A (ATMOSPHERE toggle, default OFF).** The four fog `ShaderChunk`s are
+    overridden once at boot (`atmosphere.js`) so every fogged material shares one aerial-perspective fog —
+    height fog (denser near water), sunward inscatter (world-space `SUN_DIR`, correct in the Reflector), dual
+    near→far color — all behind zero-default uniforms (byte-identical when off; the overridden `fog_fragment`
+    collapses to stock linear fog at 0). Props + the solid **obstacle bodies (rock gates)** are bound; biome
+    `atmos:{heightK,inscatter}` drives it (Emberfall height fog, Frozen Reach inscatter). tier2 drops
+    heightK/inscatter. Verified: `tests/atmosphere.mjs` (21/21, incl. a rotated-camera vertex-math test vs
+    Matrix4 truth), `?atmos` boots clean incl. sprites, `tools/atmosshot.mjs` A/B (+ banked frame).
+    **PR B (next):** retire the sky/water hand-rolled dual-fog into these uniforms and bind the remaining
+    fogged families (ambient/creatures/bosses) — closes the documented coherence gap.
+  - **✓ Landed — N8 atmosphere PR B (same ATMOSPHERE toggle; vista-wide).** The largest fogged surfaces join
+    the atmosphere: the **water** gains sunward inscatter (Frozen Reach's low sun glows a lane across it —
+    the vista payoff PR A couldn't reach, since water is a custom shader the chunk override can't touch); the
+    **ambient** motes/birds/whale + the **setpieces** gateway/mega arches are bound. Identity when off. Note
+    the roadmap-text deviation: PR B adds inscatter *alongside* the water's dual-fog (full "retire" is unsafe —
+    the water far-mix has no off-gate, and the sky fragment is JS-ported in `skyProbe.js`); the sky is left
+    untouched. Verified: `tests/atmosphere.mjs` 25/25 (water identity + double-clone reattach), tier0
+    reflective-water `?atmos` boot clean. **PR C:** dragon/boss surface shaders (need a real
+    `customProgramCacheKey` before chaining heterogeneous patches) + `particles.js`.
 - **Phase 1 — Hero look (Azure):** N5 rung 1 → N6 → N7 → N5 rung 2 → **N14 (shading AA, where the artifact now
   peaks)**. Hero-first, judged on Azure in the shop scene + chase cam. Exit: the "bank across the sun" shot approved.
 - **Phase 2 — World & atmosphere:** **N15 (prop AO, opener)** → N8 → N9 (Sanctuary hero biome) → N10 (a/b/c
@@ -514,6 +550,18 @@ run local/on-demand; only math + plumbing tests gate CI).
 
 ---
 
+## Discovered backlog *(found while building)*
+
+- **N16 — Environment prop art pass.** Turning on N5 sky-IBL made it obvious that the world props (the pillars /
+  ruins / obstacle geometry) are low-effort placeholders — flat, blocky, thin materials that "hid" under the old
+  flat ambient and now read as cheap once the sky actually lights them. **Good lighting exposes weak assets.**
+  N15's baked vertex AO helps ground them cheaply, but they want real work: better silhouettes/geometry, surface
+  shader treatment (the prop-detail noise + N8 atmosphere binding), and per-biome material identity. Bigger than a
+  shader initiative — schedule it in Phase 2/3 alongside the world work, and treat every lighting upgrade (N5/N7)
+  as raising the bar the props must meet. (Owner-flagged, 2026-07-11.)
+
+---
+
 ## Gate Log
 
 One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable review. Append as work lands.
@@ -523,3 +571,9 @@ One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable 
 | #373 Phase 0 | N2 renderer contract | 9/10 | SHIP | `stencil:false` skip justified (EffectComposer clears stencil); recorded deviation |
 | #373 Phase 0 | N1 gradient dither | 8.5/10 | SHIP | placement/amplitude verified; `?dither=0` = exact identity; tier2 sky/water copies deferred; gate margin added |
 | #373 Phase 0 | N3 tonemap scaffold | 5.5→SHIP | REVISE→fixed | Gate caught: vendored `OutputPass` had no `CustomToneMapping` branch → `?tm=neutral` was untonemapped on tier0/1. Patched `OutputPass.js`+`OutputShader.js`, reshot montage at pinned tier0, restamped `sw.js`, fixed idempotence test |
+| #376 N4 | N4 ParticleBatch | 7.5→SHIP | REVISE→fixed | Billboard/blend parity verified vs vendored sprite shader; 150 draws→1. Gate caught: `BATCH_FRAG` lacked `tonemapping`/`colorspace` chunks → tier2 (direct-to-screen) sparks skipped ACES+sRGB, read ~25-35% dimmer. Added the two includes (auto-gated per render target); `pfxshot` now shoots tier0+tier2. Fog left as documented deviation (near-field bursts unaffected) |
+| #376 N5 | N5 sky-IBL rung 1 | 7→SHIP | REVISE→fixed | SH **radiance** convention + `4π/N` weight independently verified correct. Gate caught: Fibonacci lattice double-weighted the poles → spurious −0.057 band-2 in a constant sky. Fixed `(i+0.5)/n`; added the spec's `tests/skyprobe.mjs` (5/5, catches it); rebalanced `PROBE_INTENSITY` 1.15→0.62 (was ~3× shipped red ambient / read as an exposure shift); drift-guard comment + lesson. Surge/EMBERTIDE sky states = documented deviation |
+| #376 N6 | N6 hero shadow | 7→SHIP | REVISE→fixed | UV 1:1 mapping + save/restore + layer topology independently verified clean. Gate caught: mask traverse enabled layer 2 on the dragon's **Sprites** → under the white override they lose billboard+opacity and stamp white slabs into the mask *on pitch* (invisible at level flight). Fixed to `isMesh`-only (+ `spriteLeak()` regression guard); wired the tier2→blob fallback (`silActive`); `FIT` 9→7. Deviations recorded: top-down (not SUN_DIR), no sun-offset, `shadowshot` tool deferred |
+| N8 (PR B) | N8 atmosphere: water + families | 8.5/10 | SHIP | Gate-1 GREENLIGHT+4 adjusts (water inscatter-ONLY not height; do NOT consolidate far-color — water's far-mix has no off-gate so it'd break OFF identity; leave the sky — already coherent + JS-ported in skyProbe; add the setpieces arches). Gate-2 independently verified: water +0 identity (test-ported), reattach survives buildCheap's clone AND the Reflector's 2nd internal clone AND tier rebuild (reference-equality test), mirror uses the main camera (Reflector self-hides), cache partition holds (homogeneous assignAtmos patch). No blocking bug. Applied the `-V` reuse perf nit. **Deviation from the roadmap N8 text:** PR B adds inscatter *alongside* the water/sky dual-fog rather than "retiring" it — full retire is unsafe (OFF-identity + skyProbe blast radius). Bosses/dragon + particles.js = PR C |
+| N8 (PR A) | N8 atmosphere | 7→SHIP | REVISE→fixed | Gate-1 (pre-build) caught 3 compile hazards before code (vViewPosition duplicate/absent; sprite has no `transformed`; view-space sun wrong in the Reflector) — all built in. Gate-2 caught a real **vertex** bug: the world reconstruction used row-dots = `mat3(viewMatrix)·mv` (FORWARD rotation) not `transpose(mat3)·mv` (inverse) — invisible in axis-aligned chase frames, wrong under pitch/roll + in the mirror. Fixed to `(vec4(mv,0)*viewMatrix).xyz`; added a rotated-camera vertex-math test vs Matrix4 truth (21/21). Also: bound the obstacle bodies (rock gates) for visibility+coherence; corrected the coverage claim (props+obstacles bound, rest = PR B); FOG_EXP2 branch preserved; zero-uniform identity byte-exact. Deviations: sky/water dual-fog + remaining fogged families = PR B (chainBeforeCompile needs a real cacheKey there) |
+| N15 | N15 prop AO | 8/10 | SHIP | No blocking bug — the black-prop risk (missing `aoBake`→0→black at `uAO=1`) verified unreachable: `propMats` is module-local and every archetype build routes through `mergeParts`→`bakeAO`. Off path IEEE-exact identity (`mix(1.0,vAO,0)=1.0`). Deviation recorded: custom `aoBake` attribute + `uAO` gate instead of the doc's `vertexColors:true`. Follow-ups landed: fixed a **pre-existing** red foundation gate (`graphicsfoundation.mjs` stale `?tm=` `.has`→`.get`, from #376), added a dev guard in `makeBand`, fixed `aoshot` naming residue. Deltas noted for later: frame-lock the A/B; shoot a Lumen Mire night montage before any default-ON |

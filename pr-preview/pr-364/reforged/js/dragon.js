@@ -29,6 +29,9 @@ let wingDebugLogged = false;
 let bodyFlapLift = 0;   // flap-coupled body pitch (chest lift at apex / compress on downstroke); set by the yoke solver
 
 let group = null;
+// The dragon root group (for the N6 hero-shadow silhouette pass, which renders it
+// alone on a dedicated layer). Null before createDragon / after dispose.
+export function getDragonGroup() { return group; }
 let wingYokeL = null;  // root shoulder-carrier stage (Mk II yoke wings), null otherwise
 let wingYokeR = null;
 let wingPivotL = null;

@@ -1080,15 +1080,26 @@ let crushFired = false, crushT = 0, crushBoxT = 0, crushHoldT = 0;   // per-phas
 // the crack/unveiling plays FIRE-FREE, then the all-eyes REVEAL snaps as a punctuated beat
 // (camera punch + a beat of slow-mo + the form's name) before the new stage's attacks open.
 // stageBeatT counts up while the beat runs (-1 = inactive); revealed = the reveal has landed.
+// A TRANSFORMATION IS A BEAT MAP (transformation-rework 2026-07): the model owns the visual
+// morph + exports `stageTransitionSpec(n)` = { dur, revealAt, throwAt?, hold, beats }; the
+// harness fires the beats' camera/audio, lands the reveal punch at revealAt, and the throw kick
+// at throwAt, then holds the screenshot for `hold` seconds.
 let stageBeatT = -1, stageBeatDur = 0, stageBeatRevealed = true, stageBeatSkippable = false;
-const STAGE_REVEAL_HOLD = 0.7;   // the "screenshot" beat held after the eyes lock, before fire resumes
+let stageBeatRevealAt = 0, stageBeatThrowAt = -1, stageBeatThrowFired = false, stageBeatHold = 0;
+let stageBeatBeats = null, stageBeatBeatIdx = 0;
+const STAGE_REVEAL_HOLD = 1.6;   // the "screenshot" beat held after the eyes lock, before fire resumes (spec.hold overrides per-transition)
 // Start the transition beat (fire-free morph → the all-eyes reveal). `skippable` = the INTRO
 // transition (dev stage-pick S2/S3): a tap fast-forwards it. Mid-fight advances aren't skippable.
-function beginStageBeat(skippable) {
-  const d = model.stageTransitionDur;
-  if (!d) return;
-  stageBeatT = 0; stageBeatDur = d; stageBeatRevealed = false; stageBeatSkippable = !!skippable;
-  attackTimer = Math.max(attackTimer, d + STAGE_REVEAL_HOLD);
+// `targetPhase` = the phase index being ENTERED (1 = crack, 2 = unveil) → picks the spec.
+function beginStageBeat(skippable, targetPhase) {
+  const spec = model.stageTransitionSpec?.(targetPhase) ?? (model.stageTransitionDur ? { dur: model.stageTransitionDur } : null);
+  if (!spec) return;
+  stageBeatT = 0; stageBeatDur = spec.dur; stageBeatRevealed = false; stageBeatSkippable = !!skippable;
+  stageBeatRevealAt = spec.revealAt ?? spec.dur;
+  stageBeatThrowAt = spec.throwAt ?? -1; stageBeatThrowFired = false;
+  stageBeatHold = spec.hold ?? STAGE_REVEAL_HOLD;
+  stageBeatBeats = spec.beats || null; stageBeatBeatIdx = 0;
+  attackTimer = Math.max(attackTimer, spec.dur + stageBeatHold);
 }
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
@@ -1691,7 +1702,7 @@ export function startBossEncounter(player, defOverride) {
   // Fresh fight = full-height sky; the crush (def.skyCrush) re-arms per encounter.
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false; stageBeatThrowFired = false; stageBeatBeats = null; stageBeatBeatIdx = 0;
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -1885,7 +1896,7 @@ function endEncounter(player) {
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false; stageBeatThrowFired = false; stageBeatBeats = null; stageBeatBeatIdx = 0;
   ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
@@ -2095,9 +2106,9 @@ function enterFight() {
     // lands the reveal. `input.surgeTap` fast-forwards it (handled in the beat block).
     if (debugStagePin != null && debugStagePin > 1 && model.stageTransitionDur) {
       model.setPhase?.(target);
-      beginStageBeat(true);
+      beginStageBeat(true, target);
       input.surgeTap = false;   // drop the tap that launched the fight so it can't instantly self-skip
-      ui.bossNote?.('▶  TAP TO SKIP', 'the form-change', 'gold', model.stageTransitionDur + STAGE_REVEAL_HOLD);
+      ui.bossNote?.('▶  TAP TO SKIP', 'the form-change', 'gold', stageBeatDur + stageBeatHold);
     }
   }
 }
@@ -2317,15 +2328,39 @@ export function updateBoss(dt, player, time, camera) {
   }
   if (stageBeatT >= 0 && phase === 'fight') {
     stageBeatT += dt;
-    if (!stageBeatRevealed && stageBeatT >= stageBeatDur) {
+    // ── Fire the model-authored beat table (camera shake / slow-mo / sfx) as the clock crosses
+    // each beat time. Both clocks advance by the same dt → they can't drift under slow-mo. ──
+    if (stageBeatBeats) {
+      while (stageBeatBeatIdx < stageBeatBeats.length && stageBeatT >= stageBeatBeats[stageBeatBeatIdx].t) {
+        const b = stageBeatBeats[stageBeatBeatIdx++];
+        if (b.shake) cameraCtl.shake?.(b.shake);
+        if (b.slowMo) { game.slowMoTimer = Math.max(game.slowMoTimer, b.slowMo); setSlowMo(true); }
+        if (b.sfx === 'shatter') sfx.shieldShatter?.();
+        else if (b.sfx === 'phase') sfx.phase?.(true, 2);
+        else if (b.sfx) sfx.phase?.(true, 1);   // 'swell' / 'rumble' / 'crack' → the procedural phase cue (no bespoke asset)
+      }
+    }
+    // ── The THROW kick (unveil): a one-shot camera punch as the wings mantle open, BEFORE the
+    // ignition reveal. ──
+    if (stageBeatThrowAt >= 0 && !stageBeatThrowFired && stageBeatT >= stageBeatThrowAt) {
+      stageBeatThrowFired = true;
+      cameraCtl.shake?.(0.8); sfx.phase?.(true, 2);
+    }
+    // ── THE REVEAL (all eyes snap to you): the earned punch — camera + slow-mo dilating the
+    // ignition, the real stage-card name, a milestone sting, and a gold particle spray at the
+    // boss centre (the money frame). Lands at revealAt, not at the morph's end. ──
+    if (!stageBeatRevealed && stageBeatT >= stageBeatRevealAt) {
       stageBeatRevealed = true;
       cameraCtl.shake?.(1.5);
       game.slowMoTimer = Math.max(game.slowMoTimer, 0.9); setSlowMo(true);   // reuse the near-death dilation channel (main.js reads it)
-      const stageName = def.phases[phaseIdx]?.name || def.name;
+      const stageName = def.cards?.[phaseIdx]?.name || def.name;   // the real stage title (def.phases[] carry no name → was showing the generic boss name)
       ui.bossNote?.(stageName, def.epithet || def.name, 'phase', 2.8);
       sfx.milestone?.();
+      tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+      burst(tmp, def.accent ?? 0xf0e0a0, { count: 20, speed: 16, size: 1.1, life: 0.8 });
+      burst(tmp, 0xffffff, { count: 14, speed: 22, size: 0.9, life: 0.6 });
     }
-    if (stageBeatT >= stageBeatDur + STAGE_REVEAL_HOLD) stageBeatT = -1;   // beat done — the new stage's attacks may open
+    if (stageBeatT >= stageBeatDur + stageBeatHold) stageBeatT = -1;   // beat done — the new stage's attacks may open
   }
 
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
@@ -2612,7 +2647,9 @@ export function updateBoss(dt, player, time, camera) {
     // hatch, so a weaker player is never hard-walled); a normal card flags
     // `cardExpired` so the eventual result is SURVIVED not CAPTURE — but the phase
     // continues and progress is never blocked.
-    if (activeCard && cardTimer > 0) {
+    // The capture clock FREEZES during a stage-transition beat (the fire-free cinematic must
+    // not tax the card's survival window — the transformation is not the player's time to spend).
+    if (activeCard && cardTimer > 0 && stageBeatT < 0) {
       cardTimer = Math.max(0, cardTimer - dt);
       ui.bossCardTimer?.(cardTimer, activeCard.timer ?? 24);
       if (cardTimer <= 0) {
@@ -2705,6 +2742,10 @@ export function updateBoss(dt, player, time, camera) {
     fightNow = time;
     const lockCtx = {
       fightRunning: true,
+      // Hide the lance reticle through the stage-transition cinematic (THE UNMASKED): the
+      // rounded-square lock-on frame must not sit in the middle of the all-eyes-snap screenshot.
+      // Locks/pips are untouched — only the reticle draw is gated (the entrance-suppression idiom).
+      hudSuppressed: stageBeatT >= 0,
       model,
       candidates: lockCandidates(),
       muted: !!def.lockMuted,
@@ -3802,7 +3843,7 @@ function breakShield(player) {
   // A MULTI-STAGE boss (THE UNMASKED) plays its form-change as a CINEMATIC BEAT: hold fire
   // for the whole crack/unveiling (model.stageTransitionDur) PLUS a reveal hold, so the eyes
   // snap to you before the new stage opens up. The reveal emphasis fires at the arrival below.
-  if (model.stageTransitionDur && def.phases[phaseIdx + 1]) beginStageBeat(false);   // mid-fight advance — not skippable
+  if (model.stageTransitionDur && def.phases[phaseIdx + 1]) beginStageBeat(false, phaseIdx + 1);   // mid-fight advance — not skippable (target = the phase we're entering)
   // The surviving-the-phase card resolves the instant its shield bursts: capture
   // if the whole card was hitless. The next phase's card arms right after.
   endCard();
@@ -5463,7 +5504,7 @@ export function resetBoss() {
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
   game.bossArenaHY = null;
-  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false;
+  crushFired = false; crushT = 0; crushBoxT = 0; crushHoldT = 0; stageBeatT = -1; stageBeatRevealed = true; stageBeatSkippable = false; stageBeatThrowFired = false; stageBeatBeats = null; stageBeatBeatIdx = 0;
   ui.letterbox?.(false);
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; if (wallMatEmber) wallMatEmber.uniforms.uCloseK.value = 0; }
   // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
