@@ -674,6 +674,10 @@ export const DRAGONS = {
       // FEATHER-WING ranks (the hero) + the emargination/rim + regalia dials, apex reference:
       covertRank: 7, secondaryRank: 6, primaryFingers: 5, fingerSplit: 1.0, roseGoldEdge: 1.0,
       collarFan: 1.0, pennantLift: 1.0, pennantRibbons: 5,
+      // The tail is a single rigid volute rooted at the tail-anchor pivot; tailWhip makes the rig
+      // COIL it at cruise + RUDDER it into banks → it swings INTO the rear-chase view on turns (the
+      // presence fix). tailLagScale tightens the coil (Eternal = authoritative, not a loose whip).
+      tailWhip: true, tailLagScale: 0.09,
     },
     forms: [
       // f0 EMBER HATCHLING — a warm charcoal chick: proud STUB keel, big head, ember crest,
