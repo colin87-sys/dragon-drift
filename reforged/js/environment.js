@@ -6,6 +6,18 @@ import { biomeIndexAt, computeEnv } from './biomes.js';
 import { setWaterTint } from './water.js';
 import { createAmbient, updateAmbient } from './ambient.js';
 import { damp } from './util.js';
+import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } from './skyProbe.js';
+import { bakeAO, aoUniform, setPropAO } from './propAO.js';
+import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
+
+// Re-export the sky-IBL + prop-AO + atmosphere controls so main.js drives them
+// through environment.
+export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled };
+
+// N8: the fog-chunk override MUST run before any material compiles. Installing at
+// module load (before createEnvironment builds the prop materials) guarantees it;
+// idempotent, so main.js's explicit boot call is a harmless belt-and-braces.
+installAtmosphere();
 
 // Sky dome, lighting, and the prop bands lining the course. Endless: prop
 // instances are recycled — anything behind the player leapfrogs ahead with
@@ -35,6 +47,7 @@ const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 // is applied in <project_vertex>, so world position is derived right after it).
 const PROP_NOISE_HEAD = /* glsl */`
   varying vec3 vPropWPos;
+  uniform float uAO; varying float vAO;
   float _hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
   float _vnoise(vec3 x){
     vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
@@ -47,9 +60,12 @@ const PROP_NOISE_HEAD = /* glsl */`
 
 function addPropDetail(mat) {
   mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
+    assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
     shader.vertexShader = shader.vertexShader
-      .replace('void main() {', 'varying vec3 vPropWPos;\nvoid main() {')
+      .replace('void main() {', 'varying vec3 vPropWPos;\nattribute float aoBake;\nvarying float vAO;\nvoid main() {')
       .replace('#include <project_vertex>', `#include <project_vertex>
+        vAO = aoBake;
         #ifdef USE_INSTANCING
           vPropWPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
         #else
@@ -59,7 +75,8 @@ function addPropDetail(mat) {
       .replace('void main() {', PROP_NOISE_HEAD)
       .replace('#include <color_fragment>', `#include <color_fragment>
         float _pn = _vnoise(vPropWPos * 0.5) * 0.6 + _vnoise(vPropWPos * 1.7) * 0.4;
-        diffuseColor.rgb *= 0.86 + 0.26 * _pn;`)
+        diffuseColor.rgb *= 0.86 + 0.26 * _pn;
+        diffuseColor.rgb *= mix(1.0, vAO, uAO);   // N15 baked AO (gated; identity at uAO=0)`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;`);
   };
@@ -118,7 +135,9 @@ function mergeParts(parts, biomeIdx) {
     geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
     mats.push(m === 0 ? propMats.primary[biomeIdx] : propMats.accent[biomeIdx]);
   }
-  return { geometry: mergeGeometries(geos, true), materials: mats };
+  const geometry = mergeGeometries(geos, true);
+  bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
+  return { geometry, materials: mats };
 }
 
 const ARCHETYPES = {
@@ -278,6 +297,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.fog = new THREE.Fog(0xf2c694, 85, 430);
 
   // --- Sky dome: biome-lerped gradient with a low sun ahead of the player.
+  // ⚠ This gradient is ported to JS in skyProbe.js `skyColorAt` (the N5 sky-IBL
+  // probe samples it for ambient light). If you change the band math / sun glow
+  // below, update skyColorAt AND tests/skyprobe.mjs together or the ambient drifts.
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -358,6 +380,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   scene.add(sun, sun.target);
   hemi = new THREE.HemisphereLight(0xbfdcff, 0x2e5448, 0.8);
   scene.add(hemi);
+  initSkyProbe(scene, hemi); // N5 sky-IBL probe (dormant until enabled)
 
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
@@ -372,6 +395,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
 function makeBand(scene, def) {
   const perSide = Math.ceil(WALL_WINDOW / def.step);
   const { geometry, materials } = def.build();
+  // N15 guard: prop materials sample `aoBake`; a build path that skips mergeParts()
+  // (or geometry with no normals) would leave it undefined → 0 → BLACK props when the
+  // toggle is on. Unreachable today (all builds route through mergeParts), but cheap
+  // insurance against a future prop path.
+  if (!geometry.getAttribute('aoBake')) console.warn('[env] prop geometry missing aoBake — props will darken to black under PROP SHADING');
   const mesh = new THREE.InstancedMesh(geometry, materials, perSide * 2);
   mesh.frustumCulled = false;
   const band = { mesh, data: [], step: def.step, def };
@@ -505,6 +533,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sceneRef.fog.far = env.fogFar;
   su.fogFarColor.value.copy(env.fogFarColor);
   su.fogFarMix.value = env.fogFarMix;
+  applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
+  updateSkyProbe(env, su.sunDir.value); // N5: reproject the (lerped) sky into the probe
   sun.color.copy(env.lightSun);
   sun.intensity = env.lightSunI;
   hemi.color.copy(env.hemiSky);

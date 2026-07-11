@@ -30,6 +30,124 @@ export function setParticleQuality(q) {
   quality = q;
 }
 
+// --- ParticleBatch backend (opt-in via ?pfx=batch) -------------------------
+// Collapses the ≤150 per-sprite spark draw calls into ONE InstancedBufferGeometry
+// draw. The 320 Sprite objects are kept as the STATE (every spawn/update math path
+// is reused verbatim → pixel parity by construction); the instanced mesh just reads
+// their transforms each frame. OFF by default: when off, the shipped sprite path is
+// byte-for-byte unchanged. Only the SPARK pool is batched — the 8 shockwave sprites
+// (ring/rect, ≤8 draws) stay as-is.
+let useBatch = false;
+let batchMesh = null;
+let iPos, iScale, iRot, iColor, iOpacity;
+
+// Call BEFORE initParticles. 'batch' selects the instanced backend.
+export function setParticleBackend(mode) { useBatch = (mode === 'batch'); }
+
+export function particleStats() {
+  return { visible: visibleCount, backend: useBatch ? 'batch' : 'sprite', batched: !!batchMesh };
+}
+
+const BATCH_VERT = /* glsl */`
+  attribute vec3 iPos;
+  attribute vec2 iScale;
+  attribute float iRot;
+  attribute vec3 iColor;
+  attribute float iOpacity;
+  varying vec2 vUv;
+  varying vec3 vColor;
+  varying float vOpacity;
+  void main() {
+    vUv = uv;
+    vColor = iColor;
+    vOpacity = iOpacity;
+    // Billboard exactly like THREE.Sprite: scale + screen-space rotate the unit
+    // quad, then offset in VIEW space (camera-facing, perspective size-attenuated).
+    vec2 aligned = position.xy * iScale;
+    float c = cos(iRot), s = sin(iRot);
+    vec2 rot = vec2(c * aligned.x - s * aligned.y, s * aligned.x + c * aligned.y);
+    vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
+    mv.xy += rot;
+    gl_Position = projectionMatrix * mv;
+  }`;
+
+const BATCH_FRAG = /* glsl */`
+  uniform sampler2D map;
+  varying vec2 vUv;
+  varying vec3 vColor;
+  varying float vOpacity;
+  void main() {
+    vec4 t = texture2D(map, vUv);
+    // Matches SpriteMaterial: rgb = color * texel.rgb, a = opacity * texel.a,
+    // under AdditiveBlending (SrcAlpha, One).
+    gl_FragColor = vec4(vColor * t.rgb, vOpacity * t.a);
+    // CRITICAL for tier2 parity: SpriteMaterial ends with these chunks. three
+    // injects the toneMapping()/linearToOutputTexel() functions + defines into a
+    // (non-raw) ShaderMaterial and GATES them on the render target — so both are
+    // NO-OPS at tier0/1 (sprites + batch render into the linear HDR RT) and apply
+    // ACES(0.92) + sRGB at tier2 (direct-to-screen). Without them the batch sparks
+    // skip tone mapping on weak devices and read ~25-35% dimmer / harder-edged.
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }`;
+
+function initBatch() {
+  const plane = new THREE.PlaneGeometry(1, 1); // position.xy in [-0.5,0.5], uv [0,1]
+  const geo = new THREE.InstancedBufferGeometry();
+  geo.index = plane.index;
+  geo.setAttribute('position', plane.getAttribute('position'));
+  geo.setAttribute('uv', plane.getAttribute('uv'));
+  geo.instanceCount = POOL;
+  // Rewritten every frame (writeBatch) → DynamicDrawUsage is the correct hint.
+  iPos = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3).setUsage(THREE.DynamicDrawUsage);
+  iScale = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 2), 2).setUsage(THREE.DynamicDrawUsage);
+  iRot = new THREE.InstancedBufferAttribute(new Float32Array(POOL), 1).setUsage(THREE.DynamicDrawUsage);
+  iColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3).setUsage(THREE.DynamicDrawUsage);
+  iOpacity = new THREE.InstancedBufferAttribute(new Float32Array(POOL), 1).setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('iPos', iPos);
+  geo.setAttribute('iScale', iScale);
+  geo.setAttribute('iRot', iRot);
+  geo.setAttribute('iColor', iColor);
+  geo.setAttribute('iOpacity', iOpacity);
+  // DEVIATION from SpriteMaterial: no scene fog. SpriteMaterial has fog:true, so
+  // sparks beyond the fog near-plane (85u) mix toward the fog colour. Celebration
+  // bursts are near-field (rings/gates/phases/rolls fire AT the dragon, fogFactor≈0),
+  // so this is imperceptible for the hero cases; only FAR bursts (e.g. a boss death
+  // burst at distance) differ. Left out deliberately — ShaderMaterial fog-uniform
+  // refresh over the per-frame biome fog lerp is fiddly; add it (fog:true +
+  // UniformsLib.fog + the fog chunks) if/when the batch default is flipped ON.
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: tex } },
+    vertexShader: BATCH_VERT, fragmentShader: BATCH_FRAG,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  batchMesh = new THREE.Mesh(geo, mat);
+  batchMesh.frustumCulled = false;
+  batchMesh.layers.set(1); // excluded from the water reflection pass, like the sprites
+  batchMesh.renderOrder = 5;
+  scene.add(batchMesh);
+}
+
+// Sync the sprite-held state into the instance attributes (once per frame).
+function writeBatch() {
+  const pa = iPos.array, sa = iScale.array, ra = iRot.array, ca = iColor.array, oa = iOpacity.array;
+  for (let i = 0; i < POOL; i++) {
+    const sp = sprites[i];
+    if (sp.visible) {
+      pa[i * 3] = sp.position.x; pa[i * 3 + 1] = sp.position.y; pa[i * 3 + 2] = sp.position.z;
+      sa[i * 2] = sp.scale.x; sa[i * 2 + 1] = sp.scale.y;
+      ra[i] = sp.material.rotation;
+      const col = sp.material.color;
+      ca[i * 3] = col.r; ca[i * 3 + 1] = col.g; ca[i * 3 + 2] = col.b;
+      oa[i] = sp.material.opacity;
+    } else {
+      oa[i] = 0; sa[i * 2] = 0; sa[i * 2 + 1] = 0; // collapsed + invisible
+    }
+  }
+  iPos.needsUpdate = true; iScale.needsUpdate = true; iRot.needsUpdate = true;
+  iColor.needsUpdate = true; iOpacity.needsUpdate = true;
+}
+
 export function initParticles(s) {
   scene = s;
   tex = makeGlowTexture('255,255,255');
@@ -44,9 +162,12 @@ export function initParticles(s) {
       life: 0, decay: 1, size: 1, vel: new THREE.Vector3(),
       gravityScale: 1, drag: 1, stretch: 1,
     };
-    scene.add(sp);
+    // In batch mode the spark sprites are STATE only — not scene children (the
+    // instanced mesh renders them), so they never emit a per-sprite draw call.
+    if (!useBatch) scene.add(sp);
     sprites.push(sp);
   }
+  if (useBatch) initBatch();
   const ringTex = makeRingTexture();
   const rectTex = makeRectTexture();
   for (let i = 0; i < SHOCK_POOL; i++) {
@@ -295,6 +416,8 @@ export function updateParticles(dt, camera) {
     sp.scale.set(sc, sc * (u.aspect || 1), 1);
     sp.material.opacity = u.life * 0.85;
   }
+
+  if (useBatch && batchMesh) writeBatch(); // push the sprite-held spark state to the instanced draw
 }
 
 export function resetParticles() {
@@ -307,4 +430,5 @@ export function resetParticles() {
     sp.material.opacity = 0;
   }
   visibleCount = 0;
+  if (useBatch && batchMesh) writeBatch(); // clear the instanced draw too
 }

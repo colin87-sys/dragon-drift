@@ -1737,11 +1737,57 @@ export const ui = {
           <button class="seg-btn${on ? ' sel' : ''}" data-assist="${id}" data-val="1">ON</button>
           <button class="seg-btn${on ? '' : ' sel'}" data-assist="${id}" data-val="0">OFF — SCORE +${bonusPct}%</button>
         </div>`;
+      // Graphics-effects controls (GRAPHICS-OVERHAUL.md): a colour-grade pick + on/off
+      // toggles. Every new graphics feature adds its control here.
+      const tmVal = saveData.settings.toneMap || 'aces';
+      const tmSeg = (val, label) => `<button class="seg-btn${tmVal === val ? ' sel' : ''}" data-tm="${val}">${label}</button>`;
+      const gfxToggle = (id) => {
+        const on = !!saveData.settings[id];
+        return `<div class="seg-row">
+          <button class="seg-btn${on ? ' sel' : ''}" data-gfx="${id}" data-val="1">ON</button>
+          <button class="seg-btn${on ? '' : ' sel'}" data-gfx="${id}" data-val="0">OFF</button>
+        </div>`;
+      };
       html = `
         <h1>SETTINGS</h1>
         <div class="settings-group">
           <div class="settings-label">GRAPHICS QUALITY</div>
           <div class="seg-row">${seg(null, 'AUTO')}${seg(0, 'HIGH')}${seg(1, 'MEDIUM')}${seg(2, 'LOW')}</div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">COLOUR GRADE</div>
+          <p class="sub">Overall colour look. VIVID keeps golds &amp; neons richer; SOFT is muted.</p>
+          <div class="seg-row">${tmSeg('aces', 'CLASSIC')}${tmSeg('agx', 'SOFT')}${tmSeg('neutral', 'VIVID')}</div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">SKY LIGHTING</div>
+          <p class="sub">The sky lights the world — objects pick up its colour as biomes change. (Experimental.)</p>
+          ${gfxToggle('skyIbl')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">DRAGON SHADOW</div>
+          <p class="sub">Casts the dragon's real silhouette on the water — you can see the wings beat. (Experimental.)</p>
+          ${gfxToggle('heroShadow')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">PROP SHADING</div>
+          <p class="sub">Grounds the world props with soft baked shadow at their bases &amp; undersides. (Experimental.)</p>
+          ${gfxToggle('propAO')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">ATMOSPHERE</div>
+          <p class="sub">Aerial haze — fog pools low &amp; glows toward the sun. Deepest in Emberfall &amp; the Frozen Reach. (Experimental.)</p>
+          ${gfxToggle('atmosphere')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">SMOOTH GRADIENTS</div>
+          <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
+          ${gfxToggle('dither')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">FAST PARTICLES</div>
+          <p class="sub">Lighter spark/burst effects for weaker devices — looks the same. Reloads to apply.</p>
+          ${gfxToggle('particleBatch')}
         </div>
         <div class="settings-group">
           <div class="settings-label">MODEL DETAIL</div>
@@ -2627,6 +2673,30 @@ function wireScreenButtons(type) {
       btn.onclick = stop(() => {
         saveData.settings[btn.dataset.assist] = btn.dataset.val === '1';
         persist();
+        ui.showScreen('settings');
+      });
+    }
+    // Graphics: colour-grade pick (applies live — three recompiles on toneMapping change).
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-tm]')) {
+      btn.onclick = stop(() => {
+        if (btn.dataset.tm === (saveData.settings.toneMap || 'aces')) return;
+        saveData.settings.toneMap = btn.dataset.tm;
+        persist();
+        handlers.onGraphicsChange && handlers.onGraphicsChange('toneMap', btn.dataset.tm);
+        ui.showScreen('settings');
+      });
+    }
+    // Graphics on/off toggles. dither applies live; particleBatch re-inits the pool,
+    // so (like DEV mode) it persists + reloads.
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-gfx]')) {
+      btn.onclick = stop(() => {
+        const id = btn.dataset.gfx;
+        const on = btn.dataset.val === '1';
+        if (on === !!saveData.settings[id]) return;
+        saveData.settings[id] = on;
+        if (id === 'particleBatch') { unfreezeSaves(); persistNow(); location.reload(); return; }
+        persist();
+        handlers.onGraphicsChange && handlers.onGraphicsChange(id, on);
         ui.showScreen('settings');
       });
     }
