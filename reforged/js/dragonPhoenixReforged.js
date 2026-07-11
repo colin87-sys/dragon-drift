@@ -454,32 +454,39 @@ function buildOneSunWing(M, model) {
   const armRings = armTs.map((t, i) => { const l = L(t); return { z: l[2], rx: armR[i] * ws, ry: armR[i] * 1.15 * ws, cy: l[1], cx: l[0] }; });
   wg.add(loftRings(armRings, M.gold, seg(6), false));
 
-  // ── THE THICK CAMBERED WEB — an ivory VANE top over a warm BRONZE belly (two-value by
-  // construction: a lit ivory back / a warm bronze underside), sealed at the trailing edge
-  // by a rose-gold rim. A curved solid — never a flat cold plank edge-on, and the belly is
-  // WARM, not the cold charcoal the critic flagged.
-  const memTs = [0, 0.12, 0.24, 0.36, 0.48, 0.60, 0.70];
+  // ── THE UNDERWING — a warm BRONZE belly sealing the underside (the warm underwing) + a
+  // rose-gold trailing rim. There is NO smooth ivory TOP sheet: the entire upper surface IS
+  // the layered feathers (below) — the crafted plumage is what you SEE, never hidden under a
+  // flat paper-plane web (the owner's note). The belly just backs the gaps between feathers.
+  const memTs = [0, 0.14, 0.28, 0.42, 0.56, 0.70];
   for (let i = 0; i < memTs.length - 1; i++) {
     const t0 = memTs[i], t1 = memTs[i + 1];
-    wg.add(flatTriMesh([[TOP(t0, 0), TOP(t1, 0), TOP(t1, 1)], [TOP(t0, 0), TOP(t1, 1), TOP(t0, 1)]], M.ivory));    // ivory vane top
     wg.add(flatTriMesh([[BOT(t0, 0), BOT(t1, 1), BOT(t1, 0)], [BOT(t0, 0), BOT(t0, 1), BOT(t1, 1)]], M.bronze));   // bronze belly
-    wg.add(flatTriMesh([[TOP(t0, 1), TOP(t1, 1), BOT(t1, 1)], [TOP(t0, 1), BOT(t1, 1), BOT(t0, 1)]], rose > 0 ? M.roseGold : M.bronze));  // trailing-edge seal
+    wg.add(flatTriMesh([[TOP(t0, 1), TOP(t1, 1), BOT(t1, 1)], [TOP(t0, 1), BOT(t1, 1), BOT(t0, 1)]], rose > 0 ? M.roseGold : M.bronze));  // trailing rim
   }
 
-  // ── (1) COVERTS + (2) SECONDARIES — BROAD ROUNDED feathers shingled at ~55% overlap so
-  // each vane laps over the next (only a thin BRONZE shadow line shows between them — a
-  // ~2-tier value step, NOT the black V-gaps / toothy sawtooth the critic flagged). Warm
-  // bronze roots, not near-black. Seated on the dorsal (top) face.
-  const shingleRank = (n, tA, tB, seat, lenK, widK, vaneOuter) => {
-    for (let i = 0; i < n; i++) {
-      const t = tA + (n > 1 ? i / (n - 1) : 0) * (tB - tA), l = L(t), c = chord(t);
-      const base = [l[0], l[1] + camber(seat) * c - 0.01, l[2] + seat * c];
-      const vane = (vaneOuter && i > n * 0.6) ? M.gold : M.ivory;
-      wg.add(kiteFeather(base, [0.20, -0.05, 1], [1, 0, 0], lenK * c, widK * c, 0.05, vane, M.bronze));
+  // ── THE FEATHERED UPPER SURFACE — overlapping SHINGLED feather rows that TILE the whole
+  // upper wing (leading→trailing × root→tip). Each row sits PROUD of + overlaps the row behind
+  // it like roof shingles, scalloping toward the trailing edge → the visible surface is
+  // crafted plumage, not a flat sheet. Bright ivory/gold vanes, warm bronze roots hidden in
+  // the overlap (only a thin shadow line shows), a rose-gold rim on the trailing rows. Density
+  // scales with the covert/secondary ladder dials so the plumage thickens rung by rung.
+  const rows = 4;
+  const density = Math.max(3, Math.round((covertN + secN) / 2) + 1);
+  for (let r = 0; r < rows; r++) {
+    const seatF = 0.08 + r * (0.70 / (rows - 1));           // chord seat 0.08 → 0.78
+    const nCol = Math.max(3, Math.round(density * (1.25 - 0.14 * r)));
+    for (let ccol = 0; ccol < nCol; ccol++) {
+      const t = 0.03 + (nCol > 1 ? ccol / (nCol - 1) : 0) * 0.72, l = L(t), cc = chord(t);
+      const lift = 0.03 + 0.016 * (rows - r);               // front rows sit higher → overlap the row behind
+      const base = [l[0], l[1] + camber(seatF) * cc + lift, l[2] + seatF * cc];
+      const dir = [0.10, -0.02, 1];                          // feathers stream AFT (shingle over the next row)
+      const len = 0.50 * cc, wid = 0.46 * cc;                // len > row pitch, wid > col pitch → real overlap
+      const vane = r === rows - 1 ? M.gold : M.ivory;        // gilt trailing row
+      const rim = r >= rows - 2 && rose > 0 ? M.roseGold : null;
+      wg.add(kiteFeather(base, dir, [1, 0, 0], len, wid, 0.05, vane, M.bronze, rim));
     }
-  };
-  shingleRank(covertN, 0.04, 0.46, 0.30, 0.52, 0.44);      // coverts (inner third, broad, big overlap)
-  shingleRank(secN, 0.12, 0.70, 0.52, 0.68, 0.48, true);   // secondaries (mid-chord, ivory→gold)
+  }
 
   // ── (3) PRIMARY FINGERS — BROAD emarginated eagle fingers fanning from the carpal, a
   // central DOMINANT ×1.5, FAT vanes lying IN the wing plane (not needles). The fan opens
@@ -550,17 +557,22 @@ function buildSunpennantTail(def, model, _mats, anchor) {
   const segs = [group];
   if (nRib <= 0) return { group, segs, tailFins: null, accentMats: [M.gold, M.roseGold] };
 
-  const baseLen = 1.7 + 0.7 * lift;   // apex total pennant length ~2.4 (compact, not a fishbone)
+  // A flowing TRAIL OF FIRE (owner call): longer streaming ribbons that rake aft + up and
+  // taper to a comet point — the warm outer lengths + the phoenix-archetype Rebirth fire-trails
+  // read it as a trail of fire, not a compact fan. Kept raking UP-aft so it streams behind her
+  // (out of the lower-centre course), never a static droop.
+  const baseLen = 2.4 + 1.3 * lift;   // apex total pennant length ~3.7 (streaming, not a stub)
   for (let i = 0; i < nRib; i++) {
     const u = nRib > 1 ? (i / (nRib - 1)) - 0.5 : 0;   // −0.5 … 0.5 across the drape
-    const rlen = baseLen * (0.62 + 0.38 * (1 - Math.abs(u) * 2));   // CENTRE ribbon longest (comet point)
-    // RAKE UP-AND-AFT (never down): +z aft + a real +y lift → the pennant rides the sky zone.
-    const dir = [u * 0.42, 0.28 + 0.45 * lift, 1.0];   // less splay → a gathered comet-drape, not a spear
+    const rlen = baseLen * (0.55 + 0.45 * (1 - Math.abs(u) * 2));   // CENTRE ribbon longest (comet point)
+    // rake AFT + a real +y lift so the trail streams behind + above (never a lower-centre droop).
+    const dir = [u * 0.40, 0.20 + 0.34 * lift, 1.0];
     const side = [1, 0, 0];   // broad flat vane, width spread horizontally
-    const wid = 0.40 * (1 - 0.24 * Math.abs(u) * 2);   // broader ribbons that overlap into one drape
+    const wid = 0.42 * (1 - 0.28 * Math.abs(u) * 2);   // broad ribbons overlapping into one flowing drape
     const base = [u * 0.10, a.y, a.z];                 // gathered roots (close together at the anchor)
-    const vane = Math.abs(u) < 0.25 ? M.ivory : M.gold;
-    group.add(kiteFeather(base, dir, side, rlen, wid, 0.06, vane, M.emberShadow, M.roseGold));
+    // hue streams from gold roots → warm crimson-orange tips (the fire read); a burning hem rim.
+    const vane = Math.abs(u) < 0.28 ? M.ivory : M.gold;
+    group.add(kiteFeather(base, dir, side, rlen, wid, 0.06, vane, M.emberShadow, M.orange));
   }
   return { group, segs, tailFins: null, accentMats: [M.gold, M.roseGold, M.orange] };
 }
