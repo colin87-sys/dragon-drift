@@ -61,11 +61,14 @@ const foamMaterial = new THREE.ShaderMaterial({
       // scales of break so the ring tears at both coarse + fine cells (reads as churn).
       float brkC = _fhash(floor(vWPos.xz * 3.0) + floor(time * 1.6));
       float brkF = _fhash(floor(vWPos.xz * 7.0) + floor(time * 1.6) * 1.7);
-      float brk = smoothstep(0.25, 0.85, brkC) * (0.55 + 0.45 * brkF);
+      // Always-visible churn: a solid ring at half strength (a diagnostic solid ring
+      // confirmed the size + placement land perfectly — only intensity failed against
+      // the busy water) + a broken, pulsing top half so it still tears like foam
+      // rather than reading as a plastic band.
+      float brk = 0.5 + 0.5 * smoothstep(0.2, 0.85, brkC) * (0.6 + 0.4 * brkF);
       float foam = band * brk;
       float fog = 1.0 - smoothstep(fogNear, fogFar, vFogDepth); // die into the haze
-      // Bright, near-opaque churn (was a faint 0.6 veil that barely read at distance).
-      gl_FragColor = vec4(vec3(0.90, 0.96, 1.0), foam * fog * 0.95);
+      gl_FragColor = vec4(vec3(0.95, 0.98, 1.0), foam * fog);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`,
