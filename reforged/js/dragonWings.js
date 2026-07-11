@@ -1457,6 +1457,14 @@ function buildSilkFinWings(def, model, attach, giM) {
   const detail = model.lobeDetail ?? 1;
   const rimCarrier = model.rimCarrier ?? 1;              // mint-pearl rear-carrier bloom (0.3→0.6→1.0 across forms — the lockstep carrier)
   const streamerLen = (model.streamerLen ?? 0) * ws;    // trailing streamers off the rear lobe (apex only)
+  // CP3 SPECTACLE HEADROOM SPEND (headline): make the silk-fin sails LITERAL rayed koi
+  // veil-fins. rayRelief 0/…/1 flutes each smooth blade into 3 raised koi-fin RAYS
+  // running root→tip with sagging web troughs between (the existing leading rib becomes
+  // ray #1). Pure INTERIOR relief — displaced along the blade normal, tapered to zero at
+  // every outline edge (leading/trailing chord + tip notch + root), so the loved rear
+  // SILHOUETTE is untouched. 3 rays is the density-law cap (~8–10px bands at 250px chase);
+  // ≥4 = micro-mud. Higher chord res only when lit so the low forms stay tri-cheap.
+  const rayRelief = Math.max(0, model.rayRelief ?? 0);
 
   // ── GREEN-family palette (ICONIC GREEN §5d) ──────────────────────────────────
   const cLead = model.finLeadColor ?? def.wingOuter ?? 0x116b45;   // deep-emerald leading ray (darkest tier)
@@ -1491,7 +1499,10 @@ function buildSilkFinWings(def, model, attach, giM) {
   // pale-tip along the length, with a green leading stripe. `rimAmt`>0 blends the
   // mint-pearl rim into the outer tip (the rear-carrier lobe).
   function petalGeo(L, wRoot, rimAmt, side) {
-    const nX = seg(Math.max(4, Math.round(8 * detail))), nZ = seg(Math.max(3, Math.round(5 * detail)));
+    const nX = seg(Math.max(4, Math.round(8 * detail)));
+    // Flute the chord finer ONLY when the rays are lit (apex): 3 crests + web troughs need
+    // ~11 chord samples to resolve; the low forms keep the cheap 5-sample smooth blade.
+    const nZ = seg(rayRelief > 0 ? Math.max(11, Math.round(5 * detail)) : Math.max(3, Math.round(5 * detail)));
     const verts = [], cols = [], idx = [];
     const cL = new THREE.Color(cLead), cM = new THREE.Color(cMid), cT = new THREE.Color(cTip), cR = new THREE.Color(cRim), c = new THREE.Color();
     for (let i = 0; i <= nX; i++) {
@@ -1514,8 +1525,25 @@ function buildSilkFinWings(def, model, attach, giM) {
         // so the "darker leading ray" reads as integrated relief, not a floating rod
         // (gate r1 dir 6 — the separate ray bone is gone).
         const rib = Math.max(0, 0.5 - cf) * 2;                 // 1 at leading edge → 0 by mid-chord
-        const y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI))
+        let y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI))
                 + camber * 0.5 * rib * rib * Math.sin(u * Math.PI);
+        // CP3 flutes: 3 koi-fin RAYS as raised crests root→tip with web troughs between
+        // (ray #1 = the leading rib). Displaced along the blade normal (+y) and FADED to
+        // zero at the chord edges (edgeFade) + root/tip (lenFade) so the boundary verts —
+        // the silhouette outline — never move; only the blade interior corrugates.
+        let crest = 0;
+        if (rayRelief > 0) {
+          let ray = 0;
+          for (let r = 0; r < 3; r++) { const d = (cf - (0.16 + r * 0.30)) / 0.11; ray += Math.exp(-d * d); }
+          ray = Math.min(1, ray);                              // 1 on a ray crest → ~0 in the web between
+          const edgeFade = Math.min(1, Math.min(cf, 1 - cf) / 0.14);        // pin the leading/trailing outline
+          const lenFade = Math.sin(Math.max(0, Math.min(1, uu)) * Math.PI);  // 0 at root + tip → rays fade before the notch
+          // CARVE the webs INWARD only (crests stay AT the smooth-blade surface) so the
+          // outline never grows — the ray crests are the original silhouette envelope, the
+          // webs between them recede into shadow. This is what keeps the sil-rear identical.
+          y -= rayRelief * camber * 0.95 * (1 - ray) * edgeFade * lenFade;
+          crest = ray * edgeFade * lenFade;                    // ray-crest mask → the value banding below
+        }
         verts.push(x, y, z);
         // value tiers along the chord (law 11): a deep-emerald leading RAY → bright mid
         // body → a darker trailing step, so each lobe reads DIMENSIONAL, not a flat
@@ -1525,6 +1553,7 @@ function buildSilkFinWings(def, model, attach, giM) {
         const lead = Math.pow(Math.max(0, 1 - cf * 2.0), 1.05); // strong wide leading-ray band → 0 by ~mid-chord
         c.lerp(cL, lead * 0.98);                               // strong deep-emerald leading RAY at FULL contrast (gate rework r4 dir 3 — each lobe reads separately, not one leaf)
         if (cf > 0.74) c.lerp(cL, (cf - 0.74) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
+        if (crest > 0) c.lerp(cL, crest * rayRelief * 0.42);   // CP3: deep-emerald banding down each raised ray → the flutes read dimensional, not smooth
         if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
         cols.push(c.r, c.g, c.b);
       }
@@ -1618,8 +1647,14 @@ function buildSilkFinWings(def, model, attach, giM) {
   // point (10-20% of root), held GREEN with the mint-pearl only at the last ~15% of the
   // tip — a flowing silk veil, not wire wreckage (gate rework r2 dir 2).
   function streamerGeo(L, w, phase = 0) {
+    // CP3: at apex the flat 2-vert tape becomes a 4-vert FOLDED silk band — a lengthwise
+    // crease dips the centre (yFold) with a light/dark value seam, so the "flowing
+    // river-veil" reads as folded silk catching light, not flat sticker-tape. Same span
+    // (w) + same spline (xw) + same length → planform/silhouette unchanged. Off the apex
+    // the streamers don't exist (streamerLen 0/0/7.5), so the widen is inherently gated.
+    const nW = rayRelief > 0 ? 3 : 1;                        // 4 width-verts (folded) vs the 2-vert tape
     const nZ = seg(11), verts = [], cols = [], idx = [];
-    const cM = new THREE.Color(cMid), cT = new THREE.Color(cTip), cR = new THREE.Color(cRim), c = new THREE.Color();
+    const cM = new THREE.Color(cMid), cT = new THREE.Color(cTip), cR = new THREE.Color(cRim), cLc = new THREE.Color(cLead), c = new THREE.Color();
     const bend = 0.14 + 0.05 * phase;                        // per-streamer curvature (breaks the L/R mirror without kinks)
     for (let i = 0; i <= nZ; i++) {
       const t = i / nZ;
@@ -1627,14 +1662,18 @@ function buildSilkFinWings(def, model, attach, giM) {
       const hw = w * 0.5 * Math.pow(1 - t, 1.1) + 0.004;    // smooth monotonic taper to a fine point
       const xw = Math.sin(t * Math.PI * 0.9) * bend * L;    // ONE gentle hump (single inflection), no zigzag
       const yd = -Math.pow(t, 1.4) * 0.1 * L;               // very gentle droop — trails aft behind the dragon
-      for (let j = 0; j <= 1; j++) {
-        verts.push(xw + (j - 0.5) * 2 * hw, yd, z);
+      for (let j = 0; j <= nW; j++) {
+        const wf = nW > 0 ? j / nW - 0.5 : 0;                // -0.5..+0.5 across the band width
+        const yFold = -Math.cos(wf * Math.PI) * hw * 0.08 * (nW > 1 ? 1 : 0);  // whisper of a centre crease — enough to bend normals into a light-catch fold, small enough to leave the streamer's rear-silhouette width intact
+        verts.push(xw + wf * 2 * hw, yd + yFold, z);
         c.copy(cM).lerp(cT, t * 0.6);                        // held in the green band (mid → pale-jade)
+        if (nW > 1) c.lerp(cLc, (1 - Math.abs(wf) * 2) * 0.22);   // deeper-jade seam down the crease valley → the fold reads
         if (t > 0.85) c.lerp(cR, (t - 0.85) / 0.15);         // mint-pearl only at the last ~15% of the tip
         cols.push(c.r, c.g, c.b);
       }
     }
-    for (let i = 0; i < nZ; i++) { const a = i * 2, b = a + 1, d = a + 2, e = a + 3; idx.push(a, d, b, b, d, e); }
+    const SW = nW + 1;
+    for (let i = 0; i < nZ; i++) for (let j = 0; j < nW; j++) { const a = i * SW + j, b = a + 1, d = a + SW, e = d + 1; idx.push(a, d, b, b, d, e); }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));

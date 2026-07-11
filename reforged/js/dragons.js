@@ -282,6 +282,8 @@ export const DRAGONS = {
         bodyGirth: 0.52, bodyLength: 1.2,   // LONG, slim S-ribbon apex (the koi at full length)
         spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
+        rayRelief: 1.0,                    // CP3 apex-only: the silk-fin sails become LITERAL rayed koi veil-fins (3 fluted rays/blade). The lower forms keep smooth blades so ascension visibly confers the rays.
+        veilTail: 1.0,                     // CP3 apex-only: the documented "veil (finned) tail" made LITERAL — a median caudal fin flaring over the rear tube that whips with the body wave (edge-on to rear-chase → silhouette-safe).
         tailStyle: 'simple', ridgeCount: 0, spineGlow: 0.3,   // NO dorsal ridge row (it read as a white sawtooth zipper — gate rework r3 dir 5); smooth koi back
         colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,
           wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,

@@ -115,6 +115,45 @@ function buildKoiSerpentTorso(def, model, _bodyMat) {
     indices.push(tailIdx, ringBase[N - 1] + j, ringBase[N - 1] + j2);      // tail fan
   }
 
+  // ── CAUDAL RIVER-VEIL (CP3 apex) — the documented "veil (finned) tail" made LITERAL ──
+  // A MEDIAN (sagittal-plane) dorsal+ventral fin flaring over the rear tube. It lives in
+  // THIS SAME geometry, so its verts join the bodyWave arrays below and WHIP with the tail
+  // for free (zero new tick). Being in the x=0 plane it is EDGE-ON to the rear-chase cam →
+  // silhouette-safe; it reads on side / rear-¾ and flickers into view as the tail sweeps.
+  // Height clamped ≤ the forward girth (leadR). Both windings so the single-sided body
+  // material shows it from either flank. GREEN body/belly ramp only — zero new emissive.
+  const veilTail = model.veilTail ?? 0;
+  if (veilTail > 0) {
+    const vStartT = 0.55;                        // veil covers the rear ~45% of the body
+    const maxH = leadR * 0.9 * veilTail;         // ≤ forward girth → sil-safe
+    const nVeil = new THREE.Vector3(1, 0, 0);    // median fin faces sideways
+    const baseD = [], edgeD = [], baseV = [], edgeV = [];
+    const cDeep = colBody.clone().lerp(colShadow, 0.6), cVent = colShadow.clone().lerp(colBelly, 0.5);
+    for (let i = 0; i < N; i++) {
+      const t = N > 1 ? i / (N - 1) : 0;
+      if (t < vStartT) { baseD.push(-1); edgeD.push(-1); baseV.push(-1); edgeV.push(-1); continue; }
+      const along = (t - vStartT) / (1 - vStartT);                         // 0 at veil start → 1 at tail tip
+      const flare = Math.sin(Math.min(1, Math.pow(along, 0.6)) * Math.PI * 0.9);   // rise → peak near the tail → soft taper
+      const wob = 1 + 0.12 * Math.sin(along * Math.PI * 3.0);              // gentle scalloped trailing edge (flowing veil, not a straight fence)
+      const cy = yAt(t), cz = zzOf(i), rH = radii[i] * OVAL_H;
+      const hD = maxH * flare * wob, hV = maxH * 0.72 * flare * wob;
+      baseD.push(positions.length / 3); positions.push(0, cy + rH, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(colBody.r, colBody.g, colBody.b);
+      edgeD.push(positions.length / 3); positions.push(0, cy + rH + hD, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cDeep.r, cDeep.g, cDeep.b);
+      baseV.push(positions.length / 3); positions.push(0, cy - rH, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(colShadow.r, colShadow.g, colShadow.b);
+      edgeV.push(positions.length / 3); positions.push(0, cy - rH - hV, cz); normals.push(nVeil.x, nVeil.y, nVeil.z); colors.push(cVent.r, cVent.g, cVent.b);
+    }
+    const stripBoth = (bArr, eArr) => {
+      for (let i = 0; i < N - 1; i++) {
+        if (bArr[i] < 0 || bArr[i + 1] < 0) continue;
+        const a = bArr[i], b = eArr[i], c = bArr[i + 1], d = eArr[i + 1];
+        indices.push(a, b, d, a, d, c);          // front winding
+        indices.push(a, d, b, a, c, d);          // back winding (shows from the other flank)
+      }
+    };
+    stripBoth(baseD, edgeD);
+    stripBoth(baseV, edgeV);
+  }
+
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
