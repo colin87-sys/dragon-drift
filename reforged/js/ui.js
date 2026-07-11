@@ -1760,6 +1760,11 @@ export const ui = {
           <div class="seg-row">${tmSeg('aces', 'CLASSIC')}${tmSeg('agx', 'SOFT')}${tmSeg('neutral', 'VIVID')}</div>
         </div>
         <div class="settings-group">
+          <div class="settings-label">SKY LIGHTING</div>
+          <p class="sub">The sky lights the world — objects pick up its colour as biomes change. (Experimental.)</p>
+          ${gfxToggle('skyIbl')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">SMOOTH GRADIENTS</div>
           <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
           ${gfxToggle('dither')}

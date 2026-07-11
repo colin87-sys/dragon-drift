@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, setSkyProbeEnabled } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -159,6 +159,8 @@ function applyWispCosmetic() {
   setMarkRune(lanceRuneFor(ed, fl));
 }
 createEnvironment(scene, runSeed);
+// N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
+if (urlParams.has('ibl') || gfxPref.skyIbl === true) setSkyProbeEnabled(true);
 setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0)
 createWater(scene, true); // real reflection by default; tiers downgrade it
 createDragon(scene, equippedDragon(), equippedRider());
@@ -638,6 +640,7 @@ ui.init({
   onGraphicsChange: (kind, value) => {
     if (kind === 'toneMap') setToneMap(renderer, value);
     else if (kind === 'dither') setDither(value);
+    else if (kind === 'skyIbl') setSkyProbeEnabled(value);
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant

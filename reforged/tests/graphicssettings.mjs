@@ -30,6 +30,18 @@ await page.waitForTimeout(120);
 check('dither OFF applied live (uDither = 0)', await page.evaluate(() => window.__dd.postfx.handle.gradingPass.uniforms.uDither.value) === 0);
 check('dither persisted (saveData.settings.dither = false)', await page.evaluate(() => window.__dd.save.settings.dither) === false);
 
+// SKY LIGHTING (N5 sky-IBL): toggling ON adds the light probe + drops the hemi to fill.
+check('SKY LIGHTING toggle renders, default OFF', await page.$eval('.seg-btn[data-gfx="skyIbl"][data-val="0"]', (b) => b.classList.contains('sel')));
+await page.click('.seg-btn[data-gfx="skyIbl"][data-val="1"]');
+await page.waitForTimeout(120);
+const ibl = await page.evaluate(() => {
+  let probe = null, hemi = null;
+  window.__dd.scene.traverse((o) => { if (o.isLightProbe) probe = o; if (o.isHemisphereLight) hemi = o; });
+  return { probeI: probe && probe.intensity, hemiI: hemi && hemi.intensity, saved: window.__dd.save.settings.skyIbl };
+});
+check('SKY LIGHTING on: probe active + hemi dropped to fill', ibl.probeI > 0 && ibl.hemiI < 0.5);
+check('SKY LIGHTING persisted', ibl.saved === true);
+
 // Back to CLASSIC restores ACES exposure live.
 await page.click('.seg-btn[data-tm="aces"]');
 await page.waitForTimeout(120);

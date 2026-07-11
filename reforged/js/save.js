@@ -29,8 +29,8 @@ const DEFAULTS = {
   },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
   settings: { qualityOverride: null, modelDetail: null, reticle: true, slowMo: true, glideAssist: false, mouseSteer: true, bulletClarity: true, dev: false,
-    // Graphics effects (defaults = the shipped look): dither ON, ACES colour grade, fast-particles OFF.
-    dither: true, toneMap: 'aces', particleBatch: false },
+    // Graphics effects (defaults = the shipped look): dither ON, ACES colour grade, fast-particles OFF, sky-IBL OFF.
+    dither: true, toneMap: 'aces', particleBatch: false, skyIbl: false },
   embers: 0,
   xp: 0,
   level: 1,
