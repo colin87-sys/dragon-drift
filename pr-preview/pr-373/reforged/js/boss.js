@@ -261,6 +261,12 @@ let curAttack = null;          // the attack being telegraphed
 // `tick` damage every `interval`s while !lockDeflected() (pause on transient seal),
 // and is CLEARED on phase-transition / teardown (never leaked across a phase pool).
 let burns = [];
+// THE RECKONING (§5b/§8D, THE UNMASKED rung 14): the set of relic organs branded at least once this
+// fight, and the completion latch. Branding all five (stage 2) UNLOCKS the finale burn (def.burnGate
+// 'reckoning' → the scarBurn frac stays 0 until reckoningDone) and fires the eye-snap reveal. Reset
+// per fight (endEncounter) — a leaked latch would carry the burn into the next unmasked encounter.
+let reckoningBranded = new Set();
+let reckoningDone = false;
 let _lastBeatOn = false;       // stashed ctx.beatOn (debug seam: observe the resonant window)
 // The last REAL toll time (the musicDies attack-release toll — bell + ring + shake):
 // the resonant-release beat edge KNELLGRAVE's ctx.beatOn keys to (the inaudible music
@@ -1846,6 +1852,7 @@ function endEncounter(player) {
   clearSetpiece();
   clearLocks('transition');   // THE LANCE layer never outlives the fight (silent — audit)
   burns.length = 0; lastRealTollAt = -10; lastTollGap = 1.2; tollChainN = 0; tollChainAt = -10;   // SCAR-BURN + toll clock + §ENG-C3 chain never outlive the fight (§CP1 B-2 / §CP2 NIT-8)
+  reckoningBranded.clear(); reckoningDone = false;   // THE RECKONING (rung 14): the relic collection + burn-unlock latch never outlives the fight
   setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   slipRideT = 0; slipExposeT = 0; slipExposeUsed = false; slipWasLive = false;   // §5i.B SLIPSTREAM: never outlives the fight
@@ -4711,6 +4718,10 @@ function updateShimmer(time, ctx) {
     for (const part of ctx.paintables) {
       if (used >= SHIMMER_POOL) break;
       if (painted.includes(part)) continue;
+      // §CP1 finding 5 (THE UNMASKED): the relics carry their OWN trophy glow (model-side), so they
+      // stay OFF the organ-shimmer pool — otherwise stage 2's 12 paintables would starve the pool
+      // (8 slots) and leave some RECKONING targets unlit. The eyes + virtual anchor own the pool.
+      if (def.shimmerExclude && def.shimmerExclude.includes(part)) continue;
       if (ctx.amberVenting && ctx.amberVenting(part)) continue;
       const w = model.partWorldPos(part, _shimV);
       if (!w) continue;
@@ -4963,6 +4974,36 @@ on('lockPaint', (p) => {
       ui.bossNote?.('✦ THE DEAD TWIN ANSWERS ✦', 'MARK ITS FRAME — THE LIVING EYE ECHOES (HALF-STRIKE)', 'gold', 2.8);
     }
   }
+  // §5b/§8D THE RECKONING (THE UNMASKED rung 14): brand all FIVE relics (stage 2) → the finale burn
+  // UNLOCKS + every eye snaps to the player (the reveal-hold screenshot). A relic can only be branded
+  // in stage 2 (phase-gated [1]), so tracking every relic paint is safe regardless of the snap/stack
+  // kind (this gates unlock TIMING, not damage magnitude — unlike ONEWING's echo, a snap paint counts).
+  // Guard def? — the lock UNIT test fires lockPaint with no active boss.
+  if (p && def?.reckoningRelics?.includes(p.part) && !reckoningDone) {
+    reckoningBranded.add(p.part);
+    model?.setBrandedRelics?.([...reckoningBranded]);
+    if (reckoningBranded.size >= def.reckoningRelics.length) {
+      reckoningDone = true;
+      model?.allSnap?.(1.7);   // hold the total stare longer than the idle snap — the earned reveal
+      // A capture-safe hold so the eye-snap screenshot lands (the "players only screenshot when safe"
+      // law): wipe queued sub-volleys, KILL any in-flight wind-up (an armed chargeT fires when it
+      // expires regardless of attackTimer — the weftMend/thread-stagger idiom), and push the next
+      // telegraph out past the 1.7s stare (1.8 > 1.7 so nothing re-arms mid-reveal) — §CP2 finding 2.
+      pending.length = 0;
+      if (chargeT > 0) { chargeT = 0; model.setCharge?.(0); model.setAttackTell?.(null); }
+      attackTimer = Math.max(attackTimer, 1.8);
+      ui.bossNote?.('✦ THE RECKONING ✦', 'EVERY VERDICT ANSWERS — THE LANCE WILL BURN', 'gold', 2.8);
+      emit('reckoning', { relics: reckoningBranded.size });
+    } else {
+      // Mid-collection progress on EVERY brand (§CP2 finding 5 — the flag-gated note only ever fired
+      // once, so brands 2–4 read only from the relic glow). The fuller stake line rides the first brand.
+      const firstBrand = !saveData.flags.reckoningTaught;
+      if (firstBrand) { saveData.flags.reckoningTaught = true; persist(); }
+      ui.bossNote?.('✦ A RELIC ANSWERS ✦',
+        firstBrand ? `BRAND ALL FIVE — THE VERDICT WILL BURN (${reckoningBranded.size}/5)` : `THE RECKONING GATHERS (${reckoningBranded.size}/5)`,
+        'gold', firstBrand ? 2.4 : 1.4);
+    }
+  }
 });
 on('lockVolley', (p) => {
   if (p && p.source === 'cap' && !saveData.flags.lockCapSeen) {
@@ -4985,7 +5026,13 @@ on('lockVolley', (p) => {
   // true volleyTotal (real + half-ghost). For a non-echo boss paintedCount===count and
   // volleyTotal===count×dmgEach, so this is identical to the pre-echo arithmetic.
   const sb = CONFIG.LOCK.scarBurn;
-  const frac = sb && (def?.tier ?? 1) >= sb.minTier ? (sb.fracBySlot?.[def.id] ?? 0) : 0;
+  let frac = sb && (def?.tier ?? 1) >= sb.minTier ? (sb.fracBySlot?.[def.id] ?? 0) : 0;
+  // §5b/§8D THE RECKONING gate (THE UNMASKED): the finale burn stays LOCKED until all five relics are
+  // branded (stage 2). Until then unmasked's on-tell releases are the plain no-burn volley — the burn
+  // is the RECKONING's earned payoff, not a stage-1 freebie. Byte-inert for every other boss (no
+  // burnGate). NB the balance model (lockdpsCore) prices the burn in ALL phases — strictly conservative
+  // vs this runtime gate, so the not-a-phase-deleter invariant certifies a harder case than ships.
+  if (def?.burnGate === 'reckoning' && !reckoningDone) frac = 0;
   const paintedCount = p?.paintedCount ?? p?.count ?? 0;
   const volleyTotal = p?.volleyTotal ?? ((p?.count ?? 0) * (p?.dmgEach ?? 0));
   if (p && p.perfect && frac > 0 && paintedCount >= sb.burnFloor && volleyTotal > 0 && !labPacifist) {
@@ -5348,6 +5395,7 @@ export function resetBoss() {
   clearSetpiece();
   clearLocks('death');   // THE LANCE layer: drop aim/lock state on a hard teardown
   burns.length = 0; lastRealTollAt = -10; lastTollGap = 1.2; tollChainN = 0; tollChainAt = -10;   // SCAR-BURN: drop burn state + toll clock + §ENG-C3 chain on teardown
+  reckoningBranded.clear(); reckoningDone = false;   // THE RECKONING (rung 14): a game-over mid-fight must NOT leak the unlocked finale burn into the next unmasked run (mirrors the endEncounter reset — like burns, this is reset on BOTH teardown paths)
   musicRestore();        // §5f: a hard teardown never strands the run in silence (idempotent)
   removeSeed();   // §5e: no stale horizon silhouette across a run teardown
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
@@ -5630,6 +5678,11 @@ export function debugBurns() {
   let pending = 0;
   for (const b of burns) pending += b.tick * b.ticksLeft;
   return { active: burns.length, pending };
+}
+// THE RECKONING (rung 14) test seam: the branded-relic set, the completion latch, and how many the
+// def wants — so the collection→burn-unlock is testable end-to-end (unmaskedreckoning.mjs).
+export function debugReckoning() {
+  return { branded: [...reckoningBranded], done: reckoningDone, need: def?.reckoningRelics?.length ?? 0 };
 }
 export function debugLoose() { requestLoose(); }
 export function debugLockCandidates() { return lockCandidates(); }
