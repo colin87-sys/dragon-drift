@@ -254,6 +254,44 @@ function flameRank(n, rootAt, dirAt, side, lenAt, rampAt, opts = {}) {
   return { group, tips };
 }
 
+// ── A FLAME PLUME — a RADIAL sheaf of flame-tongues arranged around an AXIS on an upward-biased egg
+// ring, all converging on a GATHER point with a consistent-handed helical twist → a hollow CONE of
+// fire that has real 3-D volume from every camera (a teardrop that swells, waists, then tapers), not a
+// flat fan. Corridor-SAFE BY CONSTRUCTION: the outward bow is clamped toward zero in the belly sector
+// (cosφ<0) so no ribbon can bow DOWN through the floor, the arc leaves a gap at pure-bottom, and the
+// axis climbs. Callbacks receive cosφ (1=crown/top → −1=belly/bottom). Deterministic (index math).
+function flamePlume(n, base, axis, opts = {}) {
+  const { rx = 0.26, ryUp = 0.30, ryDn = 0.14, arcDeg = 310, gatherK = 0.75, baseLen = 1,
+    twist = 0.08, curve = 0.16, curl = 0.10, tipW = 0.26, seg = 6, flickAmp = 0.05,
+    lenAt = () => 1, widAt = () => 0.4, rampAt = () => [] } = opts;
+  const B = new THREE.Vector3(base[0], base[1], base[2]);
+  const Ax = new THREE.Vector3(axis[0], axis[1], axis[2]).normalize();
+  const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), Ax).normalize();  // ≈ +x
+  const up = new THREE.Vector3().crossVectors(Ax, right).normalize();                           // ≈ +y ⟂ axis (points UP → belly clamp works)
+  const gather = B.clone().addScaledVector(Ax, gatherK * baseLen);
+  const group = new THREE.Group();
+  const tips = [];
+  const A = (v) => [v.x, v.y, v.z];
+  const arc = arcDeg * Math.PI / 180;
+  for (let i = 0; i < n; i++) {
+    const frac = n > 1 ? i / (n - 1) : 0.5;
+    const phi = (frac - 0.5) * arc;                 // −arc/2 … +arc/2, 0 = crown (top)
+    const c = Math.cos(phi), s = Math.sin(phi);
+    const ry = c >= 0 ? ryUp : ryDn;
+    const ringPt = B.clone().addScaledVector(right, rx * s).addScaledVector(up, ry * c);
+    const radial = new THREE.Vector3().addScaledVector(right, rx * s).addScaledVector(up, ry * c).normalize();
+    const tangent = new THREE.Vector3().crossVectors(Ax, radial).normalize();
+    const dir = gather.clone().sub(ringPt).normalize().addScaledVector(tangent, twist).normalize();
+    const side = tangent.clone().negate();          // Nn = cross(dir,side) points ~radially OUTWARD
+    const cv = curve * (0.35 + 0.65 * Math.max(0, c));   // outward bow clamped in the belly → corridor guard
+    const flick = flickAmp * (i % 2 ? 1 : -1);
+    const f = flameFeather(A(ringPt), A(dir), A(side), lenAt(c), widAt(c), cv, rampAt(c), curl, { seg, tipW, flick });
+    group.add(f.group);
+    tips.push(f.tip);
+  }
+  return { group, tips };
+}
+
 // ── TORSO: 'sunhawk' → 'sunhawkKeelTorso' ────────────────────────────────────────
 // THE #1 FIX. A lofted, keeled, characterful firebird — NOT a sphere-chain. Forward-
 // anchored: the proud breast is the visual prow. ~8 sculpted stations (§2 table),
@@ -813,53 +851,74 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   const covRamp = [bodyEmber, tMat(0xffa838), tMat(0xf58a20)];
   const wf = (0.8 + 0.2 * lift);      // global width scale by lift
 
-  // ── ROOT COVERT FAN — short broad shingled tongues over the anchor, roots on the body-ember hue,
-  // so the comet-train GROWS out of the body instead of sprouting from a bare point.
+  // ══ THE COMET VOLUTE — a hollow, upward-biased CONE of fire around the tail axis (not a flat fan
+  // lying in the y≈0.5 plane): a glowing nozzle you look INTO from the chase camera, blooming then
+  // gathering to a comet point. Every downward degree of freedom is clamped by construction, so the
+  // {y<0.30, z>0.85} corridor law holds no matter how the dials move. ══
+  const coreRamp = [tMat(0xffbe4a), tMat(0xffa838), tMat(0xf26a16), tMat(0xdc470c)];   // hotter axial core
+  const rk = 0.8 + 0.2 * lift;              // radius/size scale by the ladder (whelp puff → apex volute)
+  const mouthY = a.y + 0.05, mouthZ = a.z + 0.26;
+  const axisDir = [0, 0.10, 1];             // the axis CLIMBS → corridor-safe + pitches faces toward the rear camera
+
+  // ── A: ROOT CONE — a real lofted SOLID at the tail-root, so the rear-chase camera (looking straight
+  // into the tail) sees a ROUND glowing NOZZLE, not a flat shelf. Mouth bottom y≈0.36 (corridor margin).
+  const coneRings = [
+    { z: a.z - 0.16, rx: 0.12, ry: 0.13, cy: a.y - 0.02 },
+    { z: a.z + 0.06, rx: 0.22 * rk, ry: 0.185 * rk, cy: a.y + 0.02 },
+    { z: mouthZ, rx: 0.27 * rk, ry: 0.18 * rk, cy: mouthY },
+  ];
+  group.add(loftRings(coneRings, bodyEmber, seg(9), false));
+  const throat = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * rk, 0), tMat(0xffe0a0));
+  throat.position.set(0, mouthY, mouthZ - 0.03); throat.scale.set(1, 1.1, 1.4);   // white-hot throat the rear camera looks INTO
+  group.add(throat);
+
+  // ── B: RADIAL RUFF — short flame-tongues around the cone MOUTH (a shuttlecock collar) → the
+  // near-body cross-section reads as a scalloped ROSETTE with internal V-notches, not a flat lump.
   {
-    const cov = flameRank(Math.max(4, Math.min(nRib + 1, 6)),
-      (u) => [(u - 0.5) * 0.62, a.y + 0.03, a.z - 0.06],
-      (u) => [(u - 0.5) * 0.55, 0.02, 1],
-      [1, 0, 0],
-      (u) => 0.75 + 0.35 * Math.sin(Math.PI * u),
-      () => covRamp,
-      { ovl: 0.6, lift: 0.02, tipW: 0.30, seg: 5, curve: 0.06, curl: 0.05, flickAmp: 0.05 });
-    group.add(cov.group);
+    const nR = Math.max(6, Math.min(nRib + 3, 8));
+    const ruff = flamePlume(nR, [0, mouthY, mouthZ], axisDir,
+      { rx: 0.26 * rk, ryUp: 0.22 * rk, ryDn: 0.16 * rk, arcDeg: 300, gatherK: 0.5, baseLen,
+        twist: 0.05, curve: 0.10, curl: 0.06, tipW: 0.30, seg: 5, flickAmp: 0.05,
+        lenAt: () => 0.8 * wf, widAt: () => 0.30 * wf, rampAt: () => covRamp });
+    group.add(ruff.group);
   }
 
-  // ── TWO-TIER COMET-TRAIN — a dominant centre comet + graded flanks in an UPPER tier and an
-  // interleaved LOWER tier spread wider in x → a braided volume with real planform width, not a
-  // lone spike + parallel slivers. All stream LEVEL (dir.y=0) with a gentle downward belly + soft
-  // terminal lick + alternating flick, staying clear of the {y<0.30} corridor over their length.
-  // [u, lenK, widK, dirX, baseX, dy, seg]
-  const specs = [
-    [0.00, 1.00, 0.82, 0.00, 0.00, 0.06, 6],   // A — the comet head (dominant)
-    [0.30, 0.80, 0.56, 0.22, 0.06, 0.06, 6],   // A upper flanks
-    [-0.30, 0.80, 0.56, -0.22, -0.06, 0.06, 6],
-    [0.15, 0.70, 0.44, 0.28, 0.10, -0.06, 5],  // B lower braid (wider splay)
-    [-0.15, 0.70, 0.44, -0.28, -0.10, -0.06, 5],
-    [0.45, 0.56, 0.42, 0.40, 0.22, -0.05, 5],
-    [-0.45, 0.56, 0.42, -0.40, -0.22, -0.05, 5],
-  ];
-  specs.forEach(([u, lenK, widK, dirX, baseX, dy, seg], i) => {
-    const rlen = baseLen * lenK;
-    const dir = [dirX, 0.0, 1.0];
-    const side = [1, 0, 0.12 * u];
-    const wid = widK * wf;
-    const base = [baseX, a.y + dy - 0.02 * Math.abs(u), a.z + 0.03];
-    group.add(flameFeather(base, dir, side, rlen, wid, -0.09, ramp4, 0.16,
-      { seg, tipW: 0.28, flick: 0.05 * ((i % 2) ? 1 : -1) }).group);
-  });
+  // ── C: PLUME SHEAF — the hollow cone: ribbons on an UPWARD-biased egg ring converging on a gather
+  // point with a helical twist → a teardrop that swells (~30%), waists (~75%), tapers to a point.
+  // Crown longest+widest, belly shortest with its outward bow clamped ≈0 (corridor guard). Broad
+  // faces on the moderate ember ramp (won't bloom cream).
+  const nSheaf = Math.max(5, Math.min(nRib + 4, 9));
+  const sheaf = flamePlume(nSheaf, [0, mouthY, mouthZ - 0.02], axisDir,
+    { rx: 0.26 * rk, ryUp: 0.30 * rk, ryDn: 0.14 * rk, arcDeg: 310, gatherK: 0.75, baseLen,
+      twist: 0.08, curve: 0.16, curl: 0.10, tipW: 0.26, seg: 6, flickAmp: 0.05,
+      lenAt: (c) => baseLen * (0.42 + 0.46 * Math.max(0, c)),
+      widAt: (c) => (0.34 + 0.22 * Math.max(0, c)) * wf,
+      rampAt: () => ramp4 });
+  group.add(sheaf.group);
+  // AXIAL CORE — the dominant hot comet head down the centre of the hollow cone.
+  group.add(flameFeather([0, mouthY, mouthZ - 0.06], axisDir, [1, 0, 0.05], baseLen, 0.58 * wf,
+    0.05, coreRamp, 0.12, { seg: 6, tipW: 0.30 }).group);
 
-  // ── FILAMENT WISPS — 4 fine sparks shearing off the centre comet's flanks (thin → pure hotRibbon
-  // glow, never bloom). Positions computed off the centre ribbon's own centreline (deterministic).
+  // ── D: CREST PAIR — two ribbons rising off the dorsal tail-root line, giving the tail HEIGHT at the
+  // body so rear-chase reads a TALL silhouette (not a wide one). Behind + below the wing-streamer band
+  // (forward at the shoulders) → never merge. Gated to fuller forms.
+  if (lift > 0.35) {
+    [[a.z - 0.06, 1.5, 0.20], [a.z + 0.10, 1.1, 0.16]].forEach(([z, ln, wd], k) => {
+      group.add(flameFeather([0, a.y + 0.10, z], [0, 0.42, 1], [1, 0, 0], ln * (0.7 + 0.3 * lift), wd * wf,
+        0.12, [tMat(0xffbe4a), tMat(0xffa838), tMat(0xf26a16)], 0.14,
+        { seg: 6, tipW: 0.20, flick: k ? 0.05 : -0.05 }).group);
+    });
+  }
+
+  // ── HELICAL WISPS — 4 fine sparks shearing off the rotating cone at 90° increments up the axis (the
+  // motion cue that reads the volute as a VOLUME). Thin → pure hotRibbon, never bloom.
   for (let i = 0; i < 4; i++) {
-    const along = i < 2 ? 0.32 : 0.56;
-    const sgn = (i % 2) ? 1 : -1;
-    const cz = a.z + 0.03 + baseLen * along;
-    const cy = a.y + 0.06 - 0.09 * Math.sin(Math.PI * along);
-    const cx = sgn * 0.82 * wf * 0.5;
-    group.add(flameFeather([cx, cy, cz], [sgn * 0.5, 0.12, 1], [1, 0, 0.2],
-      (0.9 + 0.4 * (i % 2)), 0.08, 0.14, M.hotRibbon, 0.12, { seg: 5, tipW: 0.14 }).group);   // small lobe → sparks, not needle forks
+    const u = 0.25 + i * 0.2, phi = i * Math.PI / 2;
+    const az = mouthZ + u * baseLen * 0.99, ay = mouthY + u * baseLen * 0.10;
+    const cx = Math.sin(phi) * 0.26 * rk * 1.1;
+    const cyw = ay + Math.cos(phi) * 0.26 * rk * 0.9;
+    group.add(flameFeather([cx, cyw, az], [Math.sin(phi) * 0.4, 0.15 + Math.cos(phi) * 0.2, 1], [1, 0, 0.2],
+      (0.9 + 0.4 * (i % 2)), 0.08, 0.14, M.hotRibbon, 0.12, { seg: 5, tipW: 0.14 }).group);
   }
   return { group, segs, tailFins: null, accentMats: [M.goldfire, M.flame, M.crimson, M.orange] };
 }
