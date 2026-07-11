@@ -55,12 +55,44 @@ export const FLOOD_HEX = {
   starMix: 0, whaleMix: 0, flybyMix: 0,
 };
 
+// THE UNVEILED HEAVEN (PR-B) — "What the Sky Was a Mask Of." The finale's stage 3 opens from the void
+// into a LIT, holy gold judgment-court: a cool steel-blue zenith over a molten-gold horizon (the
+// anti-sunset signal), the water a bright glassy sea, gold light-RAIN descending (the inversion of the
+// void's up-dust), the props still gone, the stars OUTSHONE. LIT, not blinding — capped at horizon
+// L≈0.744 (the ~0.75 ceiling) so the dark seraph + the amber parry bullets + white cores all read (the
+// sanctioned dark-on-light value inversion: the boss is the shadow the light throws). Contrast
+// re-derived with the gate's own lum(); the boss's S3 focal LIFTS to lead the light (bossUnmasked.js).
+export const HEAVEN_HEX = {
+  skyTop: 0x6f88ad, skyMid: 0xbe9d58, skyHorizon: 0xccaf72, sunGlow: 0xefdaad,
+  fogColor: 0xc9ae78, fogNear: 70, fogFar: 380, fogFarColor: 0xc9ae78, fogFarMix: 1,   // fogFarColor = the fog hex (never author above L.75 — the distant sky's lowest band sinks into it)
+  lightSun: 0xffefc8, lightSunI: 1.42, hemiSky: 0xcfd8e8, hemiGround: 0x8a7a58,
+  waterDeep: 0x5f7aa8, waterShallow: 0xaaa078, waveAmp: 0.5,
+  ambColor: 0xffe9b8, ambFall: 0.5, ambSway: 0.25, ambSize: 0.55, ambOpacity: 0.85,     // GOLD LIGHT-RAIN (the mote pool re-skinned — zero new draws)
+  faunaColor: 0xffe9b8, faunaScale: 0, faunaFlap: 0,
+  starMix: 0, whaleMix: 0, flybyMix: 0,
+};
+
+// THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst
+// igniting reads as the CAUSE of the heaven arriving). Warm-white gold; the pinhole-stars die inside
+// the bloom ("all that light was always behind the dark"). All TUNE (PR-C iterates the unveil feel).
+export const GOLD_FLOOD_HEX = {
+  skyTop: 0xffeecb, skyMid: 0xfff0c8, skyHorizon: 0xfff4d4, sunGlow: 0xffffff,
+  fogColor: 0xfff0c8, fogNear: 25, fogFar: 300, fogFarColor: 0xfff0c8, fogFarMix: 1,
+  lightSun: 0xfff0c8, lightSunI: 2.2, hemiSky: 0xffe8c0, hemiGround: 0xbfa070,
+  waterDeep: 0xc0a878, waterShallow: 0xffe9bf, waveAmp: 0.4,
+  ambColor: 0xffffff, ambFall: 0.2, ambSway: 0.3, ambSize: 0.45, ambOpacity: 0.7,
+  faunaColor: 0xffffff, faunaScale: 0, faunaFlap: 0,
+  starMix: 0, whaleMix: 0, flybyMix: 0,
+};
+
 // The void's bullet-band override: the default dark band 0x8f0a3c (L .164) FAILS all four void
-// backgrounds (a fairness break); Astral's certified lift 0xa84167 (biomes.js:150) passes all four.
-// Applied once at the reveal (boss.js latch). Consumed by tests/bulletcontrast.mjs.
+// backgrounds (a fairness break); Astral's certified lift 0xa84167 (biomes.js:150) passes all four —
+// AND passes both heaven backgrounds, so the PR-A latch simply PERSISTS through the heaven (no second
+// band mechanism). Applied once at the reveal (boss.js latch). Consumed by tests/bulletcontrast.mjs.
 export const VOID_BULLETS = { dark: 0xa84167 };
 export const ARENA_CONTRAST = [
   { name: 'THE HOLLOW (void arena)', fog: 0x0a0514, horizon: 0x1a0b2e, bullets: VOID_BULLETS },
+  { name: 'THE UNVEILED HEAVEN (arena)', fog: HEAVEN_HEX.fogColor, horizon: HEAVEN_HEX.skyHorizon, bullets: VOID_BULLETS },
 ];
 
 // Baked THREE.Color tables (once at module load — no per-frame allocation).
@@ -72,6 +104,9 @@ const bake = (hex) => {
 };
 const VOID = bake(VOID_HEX);
 const FLOOD = bake(FLOOD_HEX);
+const HEAVEN = bake(HEAVEN_HEX);
+const GOLDFLOOD = bake(GOLD_FLOOD_HEX);
+const BIOME = bake(VOID_HEX);   // a scratch table reused to snapshot the live biome for the exhale fade (values overwritten each call)
 
 const lerp = THREE.MathUtils.lerp;
 const T0 = 0.45;                                     // flood peak on the beat clock
@@ -87,11 +122,26 @@ const copyInto = (env, tgt) => {
 };
 
 // THE injection point (called once from environment.js updateEnvironment, on the live `env` scratch,
-// BEFORE the fan-out to sky/fog/lights/water/motes). mix 0 ⇒ zero writes ⇒ byte-identical. Past T0 the
-// live biome is copied out of the equation (copy FLOOD first), so at mix 1 the env is the VOID table
-// byte-exactly — source-independent, from any biome, across mid-fight biome-seam crossings.
-export function applyArenaSkin(env, mix) {
-  if (!(mix > 0)) return;
-  if (mix < T0) blend(env, FLOOD, sstep(mix / T0));
-  else { copyInto(env, FLOOD); blend(env, VOID, sstep((mix - T0) / (1 - T0))); }
+// BEFORE the fan-out). Mix domain 0..2: 0..1 = ordinary→FLOOD→VOID (PR-A, untouched); 1..2 =
+// VOID→GOLD-FLOOD→HEAVEN (the unveiling, same T0 grammar). `fade` 1 = full arena; fade<1 = the
+// natural-kill EXHALE — the arena dissolves STRAIGHT into the live biome sky (never runs the 0..2 curve
+// backwards, which would strobe). mix 0 OR fade 0 ⇒ zero writes ⇒ byte-identical. Past each T0 the prior
+// state is copied out of the equation, so at mix 1 the env is VOID and at mix 2 it is HEAVEN byte-exactly
+// — source-independent from any biome.
+export function applyArenaSkin(env, mix, fade = 1) {
+  if (!(mix > 0) || !(fade > 0)) return;
+  if (fade >= 1) { applyMix(env, mix); return; }   // byte-exact path (no extra lerp)
+  copyInto(BIOME, env);                             // snapshot the live biome (alloc-free)
+  applyMix(env, mix);
+  blend(env, BIOME, 1 - fade);                      // arena → the returned biome sky, directly
+}
+function applyMix(env, mix) {
+  if (mix <= 1) {                                   // PR-A branch, byte-identical
+    if (mix < T0) blend(env, FLOOD, sstep(mix / T0));
+    else { copyInto(env, FLOOD); blend(env, VOID, sstep((mix - T0) / (1 - T0))); }
+  } else {                                          // the unveiling: VOID → GOLD FLOOD → HEAVEN
+    const m = Math.min(1, mix - 1);
+    if (m < T0) { copyInto(env, VOID); blend(env, GOLDFLOOD, sstep(m / T0)); }
+    else { copyInto(env, GOLDFLOOD); blend(env, HEAVEN, sstep((m - T0) / (1 - T0))); }
+  }
 }

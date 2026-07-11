@@ -498,13 +498,13 @@ export function resetEnvironment(seed) {
 // light field while every solid occluder draws black.
 export function getSkyMesh() { return sky; }
 
-export function updateEnvironment(dt, camera, time, playerDist, feverActive = false, playerSpeed = 0, bossTarget = 0, arenaMix = 0) {
+export function updateEnvironment(dt, camera, time, playerDist, feverActive = false, playerSpeed = 0, bossTarget = 0, arenaMix = 0, arenaFade = 1) {
   sky.position.copy(camera.position);
-  // ARENA (PR-A) prop gate: hide the biome prop bands once the void owns the sky (the flood peak ~0.45
-  // masks the pop — fog.near is already crashing there). Re-evaluate ALL bands on the edge BEFORE the
-  // recycle loop, so this frame's recycles already respect the gate (a mid-void recycle can't flip a
-  // band back on). Restore is self-healing: any teardown → arenaMix 0 → gate false → next frame reseats.
-  const hideProps = arenaMix >= 0.45;
+  // ARENA (PR-A/B) prop gate: hide the biome prop bands once the arena owns the sky (the flood peak
+  // ~0.45 masks the pop). Re-evaluate ALL bands on the edge BEFORE the recycle loop, so this frame's
+  // recycles already respect the gate. Restore is self-healing: any teardown → arenaMix 0 → gate false →
+  // next frame reseats. The props also RETURN mid-exhale (fade < 0.5), masked by the surge wash.
+  const hideProps = arenaMix >= 0.45 && arenaFade >= 0.5;
   if (hideProps !== arenaPropsGate) {
     arenaPropsGate = hideProps;
     for (const band of bands) updateBandVisibility(band);
@@ -516,7 +516,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // ARENA (PR-A) — THE injection: blend the live env scratch toward the void palette (arenaSkin.js) BEFORE
   // the fan-out below, so sky uniforms, scene.fog, sun/hemi, setWaterTint AND updateAmbient all read the
   // overridden scratch. mix 0 ⇒ zero writes ⇒ byte-identical for every other boss + all flight.
-  applyArenaSkin(env, arenaMix);
+  applyArenaSkin(env, arenaMix, arenaFade);
   const su = sky.material.uniforms;
   su.topColor.value.copy(env.skyTop);
   su.midColor.value.copy(env.skyMid);

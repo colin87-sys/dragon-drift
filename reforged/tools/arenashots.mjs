@@ -1,9 +1,12 @@
-// ARENA montage (THE UNMASKED × THE HOLLOW BEHIND THE SKY, PR-A). Boots the real game, forces the
-// finale, and captures the S1 ordinary sky → the void, from multiple biome sources — the Fable Gate-2
-// judgment frames ("another dimension, NOT dimmer") + the owner's preview read. The Astral source is
-// the worst case (stars:1 makes starMix a no-op there, so the read must be carried by sun-gone +
-// fog-swallow + the mirror + the prop bands VANISHING). Correctness is gated by tests/unmaskedarena.mjs;
-// this is the VISUAL gate.
+// ARENA montage (THE UNMASKED × THE HOLLOW BEHIND THE SKY / THE UNVEILED HEAVEN, PR-A+B). Boots the real
+// game, forces the finale, and captures the full arc from multiple biome sources — the S1 ordinary sky →
+// the S2 void → the S3 heaven — the Fable Gate-2 judgment frames + the owner's preview read. The Astral
+// source is the void worst case (stars:1 makes starMix a no-op there, so the void read must be carried by
+// sun-gone + fog-swallow + the mirror + the prop bands VANISHING); the AMBER WASTES source is the heaven
+// worst case (the game's own bright-gold desert biome — the heaven must read as a DISTINCT holy gold, not
+// "the wastes with rays"). The heaven is a TOTAL value-space override (biome-independent at mix 2), so its
+// frame is near-identical across sources; we shoot it per-source anyway so the montage shows the same
+// source transformed end-to-end. Correctness is gated by tests/unmaskedarena.mjs; this is the VISUAL gate.
 //   node tools/arenashots.mjs   →   /tmp/arena-<source>-<frame>.png
 import { createRequire } from 'module';
 import { execSync } from 'child_process';
@@ -37,7 +40,7 @@ await page.waitForTimeout(600);
 // `__dd.player.dist` sets the biome the fight renders against (the cruise advances it only ~130m before
 // the capture — same biome). §CP2 H1: the earlier tool bound the distance and never used it, so every
 // frame was Sanctuary — the owner would have judged the worst case on the wrong biome.
-const SOURCES = [{ name: 'sanctuary', dist: 750 }, { name: 'astral', dist: 8250 }];
+const SOURCES = [{ name: 'sanctuary', dist: 750 }, { name: 'amber', dist: 2250 }, { name: 'astral', dist: 8250 }];
 
 for (const src of SOURCES) {
   // S1 — the ordinary sky (the mask, worn).
@@ -62,7 +65,22 @@ for (const src of SOURCES) {
   await page.evaluate((d) => { window.__dd.player.dist = d; }, src.dist);
   await page.waitForTimeout(200);
   await page.screenshot({ path: `/tmp/arena-${src.name}-2-hollow.png` });
-  console.log(`captured ${src.name} (dist ${src.dist}): mask + hollow`);
+
+  // The heaven — pin S3, snap the beat (skip), settle. Poll on the DERIVED heaven flags (mix 2 + rays
+  // swelled) like the test's heaven block, not mix alone (a phase-2 beat mid-crawl reads 1+ss01(0)=1.0).
+  // Out-wait the reveal banner so the "lit not blinding" judgment frame is clean.
+  await page.evaluate(() => window.__dd.bossReset());
+  await page.waitForTimeout(300);
+  await page.evaluate((d) => { window.__dd.player.dist = d; window.__dd.bossSetDefIdx(13); window.__dd.bossSetStage(3); window.__dd.spawnBoss(); }, src.dist);
+  await page.waitForTimeout(500);
+  await page.evaluate(() => window.__dd.bossForceFight());
+  await page.waitForTimeout(600);
+  await page.evaluate(async () => { window.__dd.input.surgeTap = true; for (let i = 0; i < 60; i++) { await new Promise((r) => setTimeout(r, 50)); const s = window.__dd.bossArenaState(); if (s.mix >= 1.99 && s.heavenRays > 0.9) break; } window.__dd.input.surgeTap = false; });
+  await page.waitForTimeout(5200);
+  await page.evaluate((d) => { window.__dd.player.dist = d; }, src.dist);
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `/tmp/arena-${src.name}-3-heaven.png` });
+  console.log(`captured ${src.name} (dist ${src.dist}): mask + hollow + heaven`);
   await page.evaluate(() => window.__dd.bossReset());
   await page.waitForTimeout(300);
 }
