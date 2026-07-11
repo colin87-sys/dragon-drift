@@ -65,7 +65,29 @@
       fold:  { pose: 'fold',  angles: BODY_ANGLES, target: 'model', fill: 0.84 },
       bank:  { pose: 'bank',  angles: BODY_ANGLES, target: 'model', fill: 0.70 },
       face:  { pose: 'glide', angles: FACE_ANGLES, target: 'head',  fill: 0.64 },
+      // SURGE: the glide pose with the Dragon-Surge emissive applied statically
+      // (replays dragon.js's surge tick for spineMats + wing/eye) so a withheld
+      // motif can be judged as a matched cruise/surge PAIR on the SAME sky.
+      surge: { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86, surge: true },
     };
+    const _sc = new THREE.Color(), _shi = new THREE.Color();
+    function applySurge(b, on) {
+      const mats = b.materials || {}, def = b.def;
+      const sgm = def.model.surgeGlowMultiplier ?? 1;
+      _shi.setHex(def.surgeHi || 0xffffff);
+      for (const m of (mats.spineMats || [])) {
+        const be = m.userData.baseEmissive ?? 0xffffff, bi = m.userData.baseIntensity ?? 1;
+        // VIZ BOOST: the studio has no UnrealBloom (the live game does), so the in-game
+        // emissiveIntensity reads dim here — boost it purely so the withheld motif is
+        // legible on the dark diagnostic tile (does NOT change the game). Lerp only
+        // partway to the pale surge peak so the diagnostic reads its ION-BLUE hue rather
+        // than clipping white at the boosted intensity.
+        if (on) { _sc.setHex(be); m.emissive.copy(_sc).lerp(_shi, 0.4); m.emissiveIntensity = bi * (1 + 0.9 * sgm) * 2.6; }
+        else { m.emissive.setHex(be); m.emissiveIntensity = bi; }
+      }
+      if (mats.wingMat) mats.wingMat.emissive.setHex(on ? (def.feverWing ?? 0x000000) : (def.wingEmissive ?? 0x000000));
+      if (mats.eyeMat) mats.eyeMat.emissive.setHex(on ? (def.feverEye ?? def.eye) : def.eye);
+    }
 
     const WING_ROOTS = ['wingYokeL','wingYokeR','wingRigL','wingRigR','wingPivotL','wingPivotR','wingPivot2L','wingPivot2R'];
     const WING_R = ['wingYokeR','wingRigR','wingPivotR','wingPivot2R'];   // one wing, for a fill-frame close-up
@@ -150,6 +172,7 @@
     window.dsRender = (o) => {
       const b = load(o.key, o.tier);
       const st = STATE[o.state] || STATE.glide;
+      applySurge(b, !!st.surge);   // light the withheld motif for the surge state; reset it otherwise
       setFlapDebugPose(b.parts || {}, b.def.model, st.pose);
       b.group.updateMatrixWorld(true);
       setBg(o.bg);
@@ -171,6 +194,7 @@
     // SINGLE (right) wing broadside; the head crop tightens onto the face.
     window.dsCrop = (o) => {
       const b = load(o.key, o.tier);
+      applySurge(b, false);   // crops are never a surge state — reset any surge mutation from a prior sheet render
       setFlapDebugPose(b.parts || {}, b.def.model, o.pose || 'glide');
       b.group.updateMatrixWorld(true);
       setBg(o.bg);
