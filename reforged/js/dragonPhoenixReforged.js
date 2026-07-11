@@ -101,9 +101,11 @@ function sunhawkMats(def, glow, stage) {
   const orange = new THREE.MeshStandardMaterial({ color: 0x4a1c06, emissive: orangeCol, emissiveIntensity: (0.6 + 0.5 * st) * g, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide });
   orange.userData.baseEmissive = orangeCol; orange.userData.baseIntensity = orange.emissiveIntensity;
 
-  // T0 WHITE-HOT — the heart core (the ≤1 near-white register). OUT of spineMats.
-  const heartEmis = [orangeCol, 0xffb060, 0xffd89a, 0xffffff][st];
-  const heartI = [0.6, 1.6, 2.6, 3.6][st] * g;
+  // T0 HOT-CORE — the heart (the hottest register). Kept an incandescent AMBER, NOT pure white, and its
+  // intensity trimmed at apex, so on Surge the chest reads as the white-HOT heart of a FIRE, not a
+  // celestial-white flashbang that blooms over the whole bird (the tacky-prototype look we're leaving).
+  const heartEmis = [orangeCol, 0xffb060, 0xffd89a, 0xffd59a][st];
+  const heartI = [0.6, 1.6, 2.4, 2.7][st] * g;
   const heart = new THREE.MeshStandardMaterial({ color: 0xffe8c0, emissive: heartEmis, emissiveIntensity: heartI, flatShading: true, roughness: 0.3, metalness: 0.05 });
 
   // HOT-RIBBON ramp — dedicated near-pure-EMISSIVE fire materials for the free-STREAMING ribbons
@@ -128,14 +130,20 @@ function sunhawkMats(def, glow, stage) {
   // core is OUT of spineMats → it stays the single hottest apex point untouched.
   const flareW = (m, c, i) => { m.userData.flareColorWeight = c; m.userData.flareIntensityWeight = i; };
   //          material          COLOUR→surgeHi   INTENSITY gain
-  flareW(ivory,    0.35, 0.28);   // body FIELD: warms + lifts as an accent, no longer a detonating slab
-  flareW(goldfire, 0.7,  0.5);    // hot feather-roots pop as bright accents
-  flareW(flame,    0.5,  0.4);
-  flareW(crimson,  0.4,  0.35);
-  flareW(gold,     0.9,  0.7); flareW(roseGold, 0.9, 0.7); flareW(orange, 0.85, 0.6);   // ridge/collar/hems = bright gold strokes
+  flareW(ivory,    0.4,  0.05);   // body FIELD: shifts hot-orange as an accent, near-flat intensity (no slab bloom)
+  flareW(goldfire, 0.6,  0.1);    // hot feather-roots shift hotter but hold intensity (already bright)
+  flareW(flame,    0.5,  0.15);
+  flareW(crimson,  0.45, 0.15);
+  flareW(gold,     0.75, 0.35); flareW(roseGold, 0.75, 0.35); flareW(orange, 0.7, 0.3);   // ridge/collar/hems = hot strokes, modest intensity
   // Wing feather/streamer fire (hotRibbon) is ALREADY at the bloom ceiling (base ~2.0) → hot-shift the
   // COLOUR toward gold (tip-hottest) but keep the intensity gain SMALL so it hot-tips instead of white-out.
-  flareW(hotRibbon[0], 0.45, 0.05); flareW(hotRibbon[1], 0.6, 0.08); flareW(hotRibbon[2], 0.8, 0.12);
+  // The wing feathers sit at the bloom ceiling at rest, so the elevated Surge-frame exposure (wash + core
+  // bloom) clips them to white. Shift them to the saturated hot-ORANGE surgeHi AND actively DIM them
+  // (negative intensity) so the broad wings stay READABLE fire instead of white sheets.
+  // hotRibbon[0] is a bright GOLD (high green) that clips to white first → shift it HARD to the saturated
+  // orange surgeHi + dim most; [2] is already deep orange (bloom-safe) → keep it vivid. Net: the wings
+  // read as INTENSE saturated fire on Surge, not white sheets.
+  flareW(hotRibbon[0], 0.85, -0.65); flareW(hotRibbon[1], 0.78, -0.5); flareW(hotRibbon[2], 0.7, -0.25);
   return { ivory, goldfire, flame, crimson, garnet, emberShadow, emberBelly, bronze, gold, roseGold, orange, heart, eyeMat, hotRibbon, stage: st, glow: g };
 }
 
@@ -484,10 +492,10 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
   let coreGlow = null;
   const lvl = 0.4 + M.stage * 0.2;
   coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlow('255,190,110'), transparent: true, opacity: 0.1 + lvl * 0.14,
+    map: makeGlow('255,150,60'), transparent: true, opacity: 0.07 + lvl * 0.08,   // warmer ORANGE + dimmer → a fire-core glow, not a white chest-explosion the Surge blooms out
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  coreGlow.scale.setScalar(0.5 + lvl * 0.5);   // tamed — was reading as a chest explosion (critic P1)
+  coreGlow.scale.setScalar(0.38 + lvl * 0.3);   // smaller footprint so the Surge spike stays a hot core, not a bloom bomb over the wings
   coreGlow.position.set(hx, hy, hz - 0.05);
   coreGlow.layers.set(1);
   coreGlow.userData.base = coreGlow.material.opacity;
@@ -701,7 +709,7 @@ function buildOneSunWing(M, model) {
   // INTENSITY held UNIFORMLY LOW so no panel crosses the tone-map/bloom knee (which whites-out the
   // outboard tips exactly where the gold should peak); the COLOUR ramp (0.5→0.95 outboard) alone carries
   // the tip-hot gold gradient. This is the discipline the split-channel bought.
-  memFlareW(memHot, 0.5, 0.14); memFlareW(memGold, 0.65, 0.17); memFlareW(memOrange, 0.8, 0.2); memFlareW(memDeep, 0.95, 0.24);
+  memFlareW(memHot, 0.7, -0.2); memFlareW(memGold, 0.8, -0.15); memFlareW(memOrange, 0.9, -0.08); memFlareW(memDeep, 1.0, 0.0);   // membrane shifts strongly to saturated orange fire, near-flat intensity → vivid glow, no white slab
   wg.userData.flareMats = [memHot, memGold, memOrange, memDeep];   // published into the wing's spineMats so Surge ignites the membrane (they're locals otherwise)
   // DIAGONAL heat coordinate (not axis-aligned rectangles — the "basic panel/plates" read): a hot
   // inner-leading corner cooling toward the outboard-trailing corner, with a slight wave so the bands

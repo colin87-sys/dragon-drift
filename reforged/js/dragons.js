@@ -675,8 +675,8 @@ export const DRAGONS = {
     // Surge highlight = a HOT GOLD (not the near-white 0xfff8e8 default) so the wing/body fire flares
     // toward INCANDESCENT GOLD-FIRE, not a washed white slab — consistent with this dragon's warm-gold
     // feverWing/feverWash Rebirth identity, and it lets the wings glow bright while staying fire-hued.
-    surgeHi: 0xff9e2e,
-    feverWash: [0.058, 0.043, 0.014],   // Rebirth screen wash: warm gold, kept low so it never overexposes the frame
+    surgeHi: 0xff6e12,
+    feverWash: [0.032, 0.024, 0.008],   // Rebirth screen wash: warm gold, kept LOW so the surge frame's exposure doesn't clip the (already-bright) fire wings to white
     // Base model holds APEX reference dials; each form dials the ladder (cumulative).
     model: {
       scale: 1.18, wingScale: 1.3, flapBias: 0.9, flapAmp: 0.92,
@@ -693,6 +693,12 @@ export const DRAGONS = {
       // dial); tailRudderScale trims the compounding turn-curl on the chain to a graceful arc (not a
       // J-hook).
       tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.26, tailRudderScale: 0.5,
+      // This dragon is ALREADY emissive fire at rest, so a full-strength Surge intensity flare just feeds
+      // the bloom until the whole bird whites out and the form vanishes. Damp the global Surge intensity
+      // HARD (core blaze, spine flare, wing glow all scale by this) so the Surge reads as the fire getting
+      // HOTTER + GOLDER (form stays readable), not a white detonation. The hue shift (flareColorWeight,
+      // not sgm-scaled) still carries the "it's glowing" read.
+      surgeGlowMultiplier: 0.5,
     },
     forms: [
       // f0 EMBER HATCHLING — a warm charcoal chick: proud STUB keel, big head, ember crest,
