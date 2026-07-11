@@ -255,6 +255,32 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     segs.push(seg);
   }
 
+  // TAIL SEAM (Azure apex) — continue the dorsal "spine of light" over the TAIL-CONE ridge, the
+  // strip that dominates the rear-chase frame (the body seam foreshortens away dead-astern). One
+  // continuous flat-faceted cyan rail riding the tapering tail top → the stud, so the night read is
+  // a real LINE into the tail, not 2-3 dots. Opaque saturated emissive (blooms cyan, not white).
+  if (model.tailSeam) {
+    const emisCol = def.seamEmissive ?? 0x1ea6e8;
+    const smat = new THREE.MeshStandardMaterial({
+      color: def.seamDiffuse ?? 0x0b3550, emissive: emisCol,
+      emissiveIntensity: (1.7 + g * 1.1) * giM, roughness: 0.3, metalness: 0.15, flatShading: true, side: THREE.DoubleSide,
+    });
+    smat.userData.baseEmissive = emisCol; smat.userData.baseIntensity = (1.7 + g * 1.1) * giM;
+    const M = 12, verts = [], idx = [];
+    for (let i = 0; i <= M; i++) {
+      const f = i / M, z = 0.15 + f * len * 0.9;
+      const r = baseR + (tipR - baseR) * (z / len);
+      const top = r * 0.9;
+      const hh = 0.14 - 0.07 * f, ww = 0.055 - 0.022 * f;
+      verts.push(-ww, top, z, 0, top + hh, z, ww, top, z);
+    }
+    for (let i = 0; i < M; i++) { const a = i * 3, b = (i + 1) * 3; idx.push(a, a + 1, b + 1, a, b + 1, b, a + 1, a + 2, b + 2, a + 1, b + 2, b + 1); }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    root.add(new THREE.Mesh(geo, smat));
+  }
+
   // Anatomical root collar (apex): a short flared fairing on the root segment that
   // reaches FORWARD into the hip region so the tail visibly grows out of the hips
   // instead of butting against them — dark body material, no cyan.
@@ -573,9 +599,9 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
       // TERMINUS STUD (the seam's "tail-light"): one flat faceted cyan diamond where the swallow
       // forks — the endpoint of the dorsal spine of light. Opaque emissive, ONE element ≥8px.
       if (model.tailTerminus) {
-        const studEmis = def.seamEmissive ?? 0x35b9ff;
-        const studMat = new THREE.MeshStandardMaterial({ color: def.seamDiffuse ?? 0x8ed5ff, emissive: studEmis, emissiveIntensity: (1.25 + g * 0.9) * giM, roughness: 0.28, metalness: 0.2, flatShading: true });
-        studMat.userData.baseEmissive = studEmis; studMat.userData.baseIntensity = (1.25 + g * 0.9) * giM;
+        const studEmis = def.seamEmissive ?? 0x1ea6e8;   // saturated cyan (deep diffuse below) so it blooms cyan, not white
+        const studMat = new THREE.MeshStandardMaterial({ color: def.seamDiffuse ?? 0x0b3550, emissive: studEmis, emissiveIntensity: (1.35 + g * 0.9) * giM, roughness: 0.28, metalness: 0.15, flatShading: true });
+        studMat.userData.baseEmissive = studEmis; studMat.userData.baseIntensity = (1.35 + g * 0.9) * giM;
         const stud = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), studMat);
         stud.scale.set(0.8, 1.0, 1.5);
         stud.position.set(0, 0.05, 0.05);
