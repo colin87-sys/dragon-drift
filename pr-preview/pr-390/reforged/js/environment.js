@@ -11,10 +11,19 @@ import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } fro
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
+import { getWaterSwellOn } from './water.js';
+import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
 
 // Re-export the sky-IBL + prop-AO + atmosphere + sky-cloud controls so main.js
 // drives them through environment.
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
+
+// N10c foam toggle/LOD: wrap the raw setters so a Settings flip / tier change
+// re-evaluates every band's foam visibility THIS frame (updateBandVisibility
+// otherwise only re-runs on a recycle, so the toggle would lag until a prop cycles).
+function refreshFoamVisibility() { for (const b of bands) updateBandVisibility(b); }
+export function setWaterFoam(on) { _setWaterFoam(on); refreshFoamVisibility(); }
+export function setWaterFoamQuality(t) { _setWaterFoamQuality(t); refreshFoamVisibility(); }
 
 // N8: the fog-chunk override MUST run before any material compiles. Installing at
 // module load (before createEnvironment builds the prop materials) guarantees it;
@@ -87,8 +96,14 @@ function addPropDetail(mat) {
       .replace('void main() {', PROP_NOISE_HEAD)
       .replace('#include <color_fragment>', `#include <color_fragment>
         float _pn = _vnoise(vPropWPos * 0.5) * 0.6 + _vnoise(vPropWPos * 1.7) * 0.4;
-        diffuseColor.rgb *= 0.86 + 0.26 * _pn;
-        diffuseColor.rgb *= mix(1.0, vAO, uAO);   // N15 baked AO (gated; identity at uAO=0)`)
+        // Weathering noise × baked AO, FLOORED. Both are multiplicative darkeners; on a
+        // hemi-only-lit face (Frozen Reach ice-cone undersides get no sun + only the dark
+        // ground term) a dark noise cell (0.86) times the AO floor (0.58) crushes to ~0.50
+        // → near-black SPOTS (owner report). The floor caps the combined darkening so the
+        // dark/bright cell contrast collapses in that zone (spots dissolve) while sunlit
+        // faces keep the full weathered look. Identity-off is exact: at uAO=0 the AO term
+        // is 1.0 and 0.86+0.26*_pn ≥ 0.86 > 0.62, so the floor never engages.
+        diffuseColor.rgb *= max((0.86 + 0.26 * _pn) * mix(1.0, vAO, uAO), 0.62);   // N15 AO + weathering (floored)`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;`);
   };
@@ -302,6 +317,19 @@ const ARCHETYPES = {
   },
 };
 
+// N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
+// prop's `d.r` (≈ the base geometry's XZ footprint radius + a small margin, so the
+// ring hugs where the prop meets the water). Thin/non-circular footprints — the
+// archruin's two legs, the slab's wall — get an ELLIPTICAL collar ({ rx, rz }) that
+// wraps the footprint instead of a round ring that would float on open water.
+const FOAM_CFG = {
+  tower: { r: 0.7 }, column: { r: 0.6 }, archruin: { rx: 0.52, rz: 0.18 }, slab: { rx: 0.48, rz: 0.16 },
+  obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
+  basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
+  spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
+};
+for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
+
 export function createEnvironment(scene, seed = CONFIG.seed) {
   sceneRef = scene;
   rnd = mulberry32(seed + 99);
@@ -424,7 +452,10 @@ function makeBand(scene, def) {
   if (!geometry.getAttribute('aoBake')) console.warn('[env] prop geometry missing aoBake — props will darken to black under PROP SHADING');
   const mesh = new THREE.InstancedMesh(geometry, materials, perSide * 2);
   mesh.frustumCulled = false;
-  const band = { mesh, data: [], step: def.step, def };
+  // N10c: sibling foam mesh, same instance count — written at the same index in
+  // writeMatrix so it recycles + parks in lockstep with the props.
+  const foam = makeFoamMesh(perSide * 2);
+  const band = { mesh, foam, data: [], step: def.step, def };
   let idx = 0;
   for (let side = -1; side <= 1; side += 2) {
     for (let i = 0; i < perSide; i++) {
@@ -434,9 +465,11 @@ function makeBand(scene, def) {
     }
   }
   mesh.instanceMatrix.needsUpdate = true;
+  foam.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   updateBandVisibility(band);
   scene.add(mesh);
+  scene.add(foam);
   return band;
 }
 
@@ -474,6 +507,9 @@ function writeMatrix(band, i, d) {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }
   band.mesh.setMatrixAt(i, m4);
+  // N10c: write the foam ring at the same index — inherits the prop's active/parked
+  // state (always written, so the toggle is a pure visibility flip, correct mid-run).
+  writeFoamMatrix(band.foam, i, d, band.def.foam, active);
   // Shared archetypes (whitelisted in >1 biome) tint per dominant biome so the
   // same mesh reads verdigris in Sanctuary and sandstone in the Wastes.
   // Single-biome archetypes never allocate instanceColor — untouched.
@@ -490,6 +526,9 @@ function writeMatrix(band, i, d) {
 function updateBandVisibility(band) {
   band.mesh.visible = !arenaPropsGate && band.data.some(
     (d) => band.def.biomes.includes(biomeIndexAt(Math.max(d.dist, 0))));
+  // N10c: foam draws only where props draw, foam is on, tier ≤ 1, and the archetype
+  // opts in (archruin/slab foam is always parked — don't issue the degenerate draw).
+  band.foam.visible = foamVisible(band.mesh.visible) && band.def.foam !== false;
 }
 
 function recycleBand(band, playerDist) {
@@ -505,6 +544,7 @@ function recycleBand(band, playerDist) {
   }
   if (changed) {
     band.mesh.instanceMatrix.needsUpdate = true;
+    band.foam.instanceMatrix.needsUpdate = true; // N10c: foam recycles in lockstep
     if (band.mesh.instanceColor) band.mesh.instanceColor.needsUpdate = true;
     // Active/parked state is baked into each instance at write time, so the
     // band's visibility can only change when instances were rewritten.
@@ -524,6 +564,7 @@ function reseedBand(band) {
     writeMatrix(band, i, d);
   }
   band.mesh.instanceMatrix.needsUpdate = true;
+  band.foam.instanceMatrix.needsUpdate = true; // N10c
   if (band.mesh.instanceColor) band.mesh.instanceColor.needsUpdate = true;
   updateBandVisibility(band);   // the restart path must re-evaluate the gate too
 }
@@ -593,6 +634,8 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     // same tint call. A COLOR — the water's fogFar uniform is a DISTANCE.
     fogFarColor: env.fogFarColor,
   });
+  // N10c: foam collars ride the same swell + fade into the same fog band.
+  updateFoam(time, env.waveAmp, getWaterSwellOn(), env.fogNear, env.fogFar);
 
   // Dragon Surge sky tint (damped so it sweeps in/out smoothly)
   feverMix = damp(feverMix, feverActive ? 1 : 0, 2.5, dt);

@@ -1795,6 +1795,11 @@ export const ui = {
           ${gfxToggle('waterDepth')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">SHORE FOAM</div>
+          <p class="sub">Broken foam collars where the waves meet the towers &amp; crystals — welds them into the sea. (Experimental.)</p>
+          ${gfxToggle('waterFoam')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">SMOOTH GRADIENTS</div>
           <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
           ${gfxToggle('dither')}

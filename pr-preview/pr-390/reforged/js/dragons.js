@@ -540,10 +540,15 @@ export const DRAGONS = {
       wristT: 0.28,   // MEDIAL carpal → short arm, long hand (bat proportion; owner note)
       edgeBand: 1, constellations: 8, cowlPlates: 1,
       // Head (vesperCatHead) + tail (splitFanTail) apex reference dials.
-      earFinPairs: 3, eyeAlmond: 1.0,
+      earFinPairs: 4, eyeAlmond: 1.0, crestBlade: 1,   // E3: swept crest (grown ear-fins + occipital blade)
       splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
+      tailPetals: 6, tailStreamers: 1,                 // E4: 6-petal fans + trailing streamers
       // CP2 body/tail richness: dorsal nub row, hip flakes, tail nubs, mid-tail fins.
       dorsalNubs: 9, haunchFlakes: 1, tailNubs: 5, tailMidFins: 1,
+      // FINISHED-BLADE spectacle (CP-E): a struck knap-plate field on the hull + a layered wing
+      // covert row + smoother membrane arcs. The single biggest density lever (parity with Solar/
+      // Phoenix). All matte/cold — geometry, not glow — so the night-drake identity survives.
+      knapPlates: 18, covertRow: 12, wingNSEG: 6,
       // The Starlit Seam (Surge-only, ion-blue). surgeGlowMultiplier lifts the seam's
       // near-zero cruise base to a blaze ONLY on the Night Surge (eyes stay out of the
       // surge arrays). seamRun/finRims/rootSpark ladder the carved circuit.
@@ -570,25 +575,29 @@ export const DRAGONS = {
       { spanScale: 0.70, glowLevel: 0.25, eyeScale: 1.30, headScale: 1.25, igniteStage: 0,
         scallopLobes: 2, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
         wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 0.9,   // whelp: a simple frantic flapper (no wrist fold yet)
+        knapPlates: 0, covertRow: 0, wingNSEG: 4, crestBlade: 0, tailPetals: 4, tailStreamers: 0,   // bare pebble
         earFinPairs: 1, eyeAlmond: 0, splitFan: 0, tailFinSpread: 0, tailStretch: 1.0, tailRudder: 0,
         seamRun: 0, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 0, haunchFlakes: 0, tailNubs: 0, tailMidFins: 0,
         colors: { body: 0x111522, belly: 0x1f2942, wingOuter: 0x111522, eye: 0x54c81e } },
       { spanScale: 0.82, glowLevel: 0.50, eyeScale: 1.05, headScale: 1.12, igniteStage: 1,
         scallopLobes: 3, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
         wingParts: 2, midAmp: 0.24, tipAmp: 0.30, glidePow: 1.2,   // kindled: the wrist fold arrives
+        knapPlates: 4, covertRow: 0, wingNSEG: 4, crestBlade: 0, tailPetals: 4, tailStreamers: 0,   // first struck plates + shoulder mass
         earFinPairs: 2, eyeAlmond: 0.4, splitFan: 1, tailFinSpread: 0, tailStretch: 1.0, tailRudder: 0,
         seamRun: 0.4, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 4, haunchFlakes: 0, tailNubs: 0, tailMidFins: 0,
         colors: { body: 0x0d111b, belly: 0x1c2338, wingOuter: 0x0d111b, eye: 0x5cd41e } },
       { spanScale: 0.92, glowLevel: 0.75, eyeScale: 0.90, headScale: 1.05, igniteStage: 2,
         scallopLobes: 4, glideRake: 0.5, constellations: 5, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
         wingParts: 3, midAmp: 0.32, tipAmp: 0.46, glidePow: 1.7,   // radiant: full cascade, calmer beat
-        earFinPairs: 2, eyeAlmond: 0.7, splitFan: 2, tailFinSpread: 1.0, tailStretch: 1.0, tailRudder: 0,
+        knapPlates: 10, covertRow: 6, wingNSEG: 6, crestBlade: 0, tailPetals: 5, tailStreamers: 0,   // split fan + covert row + crest
+        earFinPairs: 3, eyeAlmond: 0.7, splitFan: 2, tailFinSpread: 1.0, tailStretch: 1.0, tailRudder: 0,
         seamRun: 1.0, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 7, haunchFlakes: 1, tailNubs: 3, tailMidFins: 0,
         colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0x62dc22 } },
-      { spanScale: 1.00, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
+      { spanScale: 1.05, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
         scallopLobes: 5, glideRake: 1.0, constellations: 8, wingCreases: 1, cowlPlates: 1, edgeBand: 1,
         wingParts: 3, midAmp: 0.34, tipAmp: 0.65, glidePow: 2.2,   // sovereign: deep wrist fold (longer hand reads it), held-glide beat
-        earFinPairs: 3, eyeAlmond: 1.0, splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
+        knapPlates: 18, covertRow: 12, wingNSEG: 6, crestBlade: 1, tailPetals: 6, tailStreamers: 1,   // the finished blade
+        earFinPairs: 4, eyeAlmond: 1.0, splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
         seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, dorsalNubs: 9, haunchFlakes: 1, tailNubs: 5, tailMidFins: 1,
         colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0x6ae62a } },
     ],
