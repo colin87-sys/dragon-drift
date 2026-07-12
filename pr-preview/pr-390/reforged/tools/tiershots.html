@@ -83,9 +83,9 @@
       // Night-drake photography: outline near-black hulls with strong edge light on BOTH wings +
       // an ion floor bounce (brand-coherent). Gated on the dragon's own body luminance.
       const night = _lum((DRAGONS[key] && DRAGONS[key].body) ?? 0xffffff) < 0.05;
-      rimL.intensity = night ? 3.2 : 0.9;
-      kickL.intensity = night ? 2.2 : 0;
-      ionL.intensity = night ? 0.5 : 0;
+      rimL.intensity = night ? 3.8 : 0.9;
+      kickL.intensity = night ? 2.8 : 0;
+      ionL.intensity = night ? 0.6 : 0;
       const m = document.getElementById('montage');
       const PW = 310;
       const maxTier = maxTierFor(key);            // clamp: starters cap at 2 — no phantom T3 tile
