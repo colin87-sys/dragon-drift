@@ -147,6 +147,10 @@ check(engaged.water?.y === 0 && engaged.water?.dropK === 0,
   `the sea is undropped in the VOID (y ${engaged.water?.y}) — the haze-deck belongs to the heaven window`);
 check(engaged.propBandsHidden === true, 'the biome prop bands are dark in the void (F1 gate)');
 check(engaged.skyDim === 0, 'the EMBERTIDE sky channel stayed 0 under the void (disjointness)');
+// GODHEAD DETONATION P3: the gold WREATH is heaven-only — the seraph does NOT ignite in the void
+// (igniteK 0), so the S2 violet rim (voidK) owns the silhouette there. Mutual exclusivity, void side.
+check((engaged.igniteLift?.k ?? 0) === 0 && engaged.igniteLift?.glowVis === false,
+  `the seraph does NOT ignite in the VOID (igniteK ${engaged.igniteLift?.k}, aura ${engaged.igniteLift?.glowVis}) — the gold wreath is heaven-only`);
 
 // (e) BAND — the void's certified dark-band lift is live at the reveal.
 check(engaged.bandDark === 0xa84167, `the void's dark bullet band is the certified lift 0xa84167 (got 0x${engaged.bandDark?.toString(16)})`);
@@ -187,6 +191,14 @@ check(heaven.mix >= 1.99 && heaven.kind === 'heaven', `the heaven engages to mix
 check(heaven.voidSky === false && heaven.heavenRays > 0.9, `the heaven RELEASES the void's god-ray suppression and SWELLS the shafts (voidSky ${heaven.voidSky}, rays ${heaven.heavenRays?.toFixed?.(2)})`);
 check(heaven.lift && heaven.lift.k > 0.99 && heaven.lift.sclera !== 0x8f8365,
   `the S3 focal LIFTS on the gold sky (lift.k ${heaven.lift?.k?.toFixed?.(2)}, sclera 0x${heaven.lift?.sclera?.toString(16)} ≠ 0x8f8365) — not a mask on a sunset`);
+// GODHEAD DETONATION P3: THE IGNITED SERAPH engages in the settled heaven — a gold-wreathed rim
+// (self-lit emissive ≠ 0), a roiling gold-violet aura mandorla (glowVis), rising to full at mix 2.
+check(heaven.igniteLift && heaven.igniteLift.k > 0.9 && heaven.igniteLift.glowVis === true && heaven.igniteLift.rimEm !== 0,
+  `the seraph IGNITES in the heaven (igniteK ${heaven.igniteLift?.k?.toFixed?.(2)}, rimEm 0x${heaven.igniteLift?.rimEm?.toString(16)}, aura ${heaven.igniteLift?.glowVis})`);
+// MUTUAL EXCLUSIVITY (owner §3d.6): voidK and igniteK never coexist — the void rim EXHALED before
+// the gold wreath rose (voidK = 0 by mix 1.45; igniteK rises 1.45→2). Both >0 at once is a driver bug.
+check((heaven.voidLift?.k ?? 0) === 0 && heaven.igniteLift.k > 0,
+  `voidK and igniteK are mutually exclusive in the heaven (voidK ${heaven.voidLift?.k}, igniteK ${heaven.igniteLift?.k?.toFixed?.(2)})`);
 check(heaven.bandDark === 0xa84167, `the void's dark band PERSISTS through the heaven (0x${heaven.bandDark?.toString(16)})`);
 check(heaven.propBandsHidden === true && heaven.skyDim === 0, 'the props stay dark + the EMBERTIDE channel stays 0 in the heaven');
 // PR-K: THE GODHEAD STAR engages in the settled heaven — the newborn supernova heart burns far on
@@ -313,10 +325,14 @@ const liftOff = await page.evaluate(async () => {
   window.__dd.bossSetDefIdx(13); window.__dd.bossSetStage(2); window.__dd.spawnBoss();
   await new Promise((r) => setTimeout(r, 400)); window.__dd.bossForceFight();
   let s; for (let i = 0; i < 30; i++) { await new Promise((r) => setTimeout(r, 50)); s = window.__dd.bossArenaState(); if ((s.lift?.k ?? 0) === 0) break; }
-  return s.lift;
+  return { lift: s.lift, ignite: s.igniteLift };
 });
-check(liftOff && liftOff.k === 0 && liftOff.sclera === 0x8f8365,
-  `the focal lift REVERTS off the heaven — S3 byte-identical (lift.k ${liftOff?.k}, sclera 0x${liftOff?.sclera?.toString(16)})`);
+check(liftOff.lift && liftOff.lift.k === 0 && liftOff.lift.sclera === 0x8f8365,
+  `the focal lift REVERTS off the heaven — S3 byte-identical (lift.k ${liftOff.lift?.k}, sclera 0x${liftOff.lift?.sclera?.toString(16)})`);
+// GODHEAD DETONATION P3: the ignite wreath is OFF at the S2 pin — igniteK 0, aura hidden (the void
+// rim owns the silhouette here; ignite contributes nothing → byte-identical off the settled heaven).
+check(liftOff.ignite && liftOff.ignite.k === 0 && liftOff.ignite.glowVis === false,
+  `the ignited seraph is OFF at the S2 pin — no gold wreath outside the settled heaven (igniteK ${liftOff.ignite?.k}, aura ${liftOff.ignite?.glowVis})`);
 
 // THE EXHALE: fell the boss from the heaven → the mix HOLDS (never descends through the void — the
 // reverse-strobe catch) while the fade dissolves the arena back to the biome sky.
