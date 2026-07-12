@@ -197,7 +197,7 @@ function buildSeraphWing2(def, model, attach, giM) {
         const len = c * lenScale * (0.48 + 0.95 * decay);    // dominant markedly longer than the tail
         // BROAD relative to the inter-feather step → adjacent vanes overlap heavily (no sky-gap)
         const step = (tb - ta) * L / Math.max(n - 1, 1);
-        const wid = Math.max(step * 2.7, 0.56);
+        const wid = Math.max(step * 2.9, 0.60);              // heavier overlap → edge-on reads as feather bodies, no navy slat-gaps
         const dawn = i < dawnN ? dawnMat : null;
         grp.add(seraphFeather(root, dirAft, outbAt(t), len, wid, camber, plateMat, goldMat, dawn));
       }
@@ -213,12 +213,20 @@ function buildSeraphWing2(def, model, attach, giM) {
     // covert→primary gap into one continuous feathered surface.
     membrane(wingMid, J0, J1, midO, nS); membrane(wingMid, J0, J1, midO, nS, true);
     spar(wingMid, J0, J1, midO, nS);
-    rank(wingMid, J0 - 0.02, J1, seg(nSec), midO, 1.30, 0.14, 1.0, 0, memMid);
+    rank(wingMid, J0 - 0.02, J1, seg(nSec), midO, 1.30, 0.19, 1.0, 0, memMid);
     // PART C — tip/HAND (J1→1): the wrist-fold sheet — outer membrane + the DOMINANT primaries
     // (the carpal feather is the longest, decaying aft). 3 carry the withheld dawn rachis-seam.
     membrane(wingTip, J1, 1.0, tipO, nS); membrane(wingTip, J1, 1.0, tipO, nS, true);
-    spar(wingTip, J1, 0.90, tipO, nS);   // stop the gilded rail short of the tip so no bare spar-rod pokes past the feathers
-    rank(wingTip, J1, 0.99, seg(nPrim), tipO, 1.45, 0.17, 1.5, 3, memOuter);
+    spar(wingTip, J1, 0.82, tipO, nS);   // stop the gilded rail well short of the tip so no bare spar-rod pokes past the feathers
+    rank(wingTip, J1, 0.99, seg(nPrim), tipO, 1.45, 0.24, 1.5, 3, memOuter);
+    // ALULA — 2 broad coverts at the carpal/wrist leading edge, sheathing the wrist + spar tip so
+    // NO hardware breaks the feather group when the far wing is seen edge-on (the rear-¾ read).
+    for (let i = 0; i < 2; i++) {
+      const t = J1 + 0.03 + i * 0.11;
+      const root = O(front(t), tipO);
+      const dir = (() => { const v = { x: side * 0.20, y: -0.03, z: 1 }; const m = Math.hypot(v.x, v.y, v.z); return { x: v.x / m, y: v.y / m, z: v.z / m }; })();
+      wingTip.add(seraphFeather(root, dir, { x: side, y: 0, z: 0 }, chordAt(t) * 0.95, 0.62 - 0.06 * i, 0.15, memMid, goldMat, null));
+    }
     const marker = new THREE.Object3D(); const tc = O(S(1.0), tipO); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
     // ── ROOT INTEGRATION (the wing GROWS from the shoulder) ──
@@ -362,7 +370,7 @@ function buildSeraphHull2(def, model, bodyMat) {
     dome.rotation.z = s * -5 * D2R; dome.rotation.y = s * 8 * D2R; group.add(dome);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.032, seg(5), seg(14), Math.PI), mats.gold);
     rim.position.copy(dome.position); rim.rotation.x = Math.PI / 2; rim.rotation.z = s * -5 * D2R; group.add(rim);
-    const gem = gemNode(0.055, mats.gem); gem.position.set(s * (wrBase.x + 0.02), wrBase.y + 0.11, wrBase.z - 0.04); group.add(gem);
+    const gem = gemNode(0.042, mats.gem); gem.position.set(s * (wrBase.x - 0.06), wrBase.y + 0.05, wrBase.z + 0.01); group.add(gem);   // tucked inboard/low so it never pokes past the far wing in rear-¾
   }
 
   // gilded STERNUM KEEL along the curved centreline
