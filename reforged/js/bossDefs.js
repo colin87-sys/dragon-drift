@@ -1755,6 +1755,18 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,                // danger magenta (role colour, never per-boss)
     approachFrom: 'ahead',                // CP2 upgrades to the secondSun.handoff() landmark approach
     scale: 2.4,                           // sky-scale — the disc hangs huge above the lane (TUNE in studio)
+    // JUDGMENT-COURT wing clearance (owner: "boss flies higher", never a wing-angle change — the
+    // WING_PAIRS/FLARE_SIGN fan is frozen). P0 measured the mantled S3 fan's lower wingtips at world
+    // y −10.8 idle / −11.6 at the charge down-flare (per-vertex probe, boss.js debugWingMinWorldY) —
+    // the full-clearance lift (~+25) is unreachable inside the wingEye comfort ceiling (upper pair
+    // must stay < 22; it sits at ~19.5 + lift). 15 is the GATE-MAX lift (+2u ⇒ upper pair ~21.5),
+    // paired with the court's glassy sea (HEAVEN waveAmp 0.5→0.2 ≈ +0.18u) — the lower tips still
+    // meet the black-glass mirror, but 2u shallower onto a flatter, darker sea. The lane-space
+    // attack anchors (spiral/iris/graze-bait, boss.js ~4446/4461/4619/4714) deliberately stay at
+    // B.fightHeight — they are pattern CENTRES in the dodge corridor, not body decorations
+    // (audited: lifting them would push the iris/spiral envelopes toward the lane ceiling for
+    // zero fairness gain; 'aimed'/'fan'/'stream'/'crossfire' already fire from the live pose/muzzle).
+    stationY: 15,
     stages: 3,                            // the stage system (CP2 dissolve-swaps the sub-rigs)
     arenaStates: true,                    // ARENA transformation (arenaSkin.js): S1 ordinary sky → S2+ THE HOLLOW BEHIND THE SKY (the void). PR-A holds the void through S3; PR-B adds the S3 heaven. Value-space env override, no rig reparent.
     stagesBuilt: 3,                       // how many stage sub-rigs exist: 1 eclipse-eye · 2 seraph · 3 the unveiling (star-eye + starburst + halo, wings mantled). Drives the dev stage-jump selector.

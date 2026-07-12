@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SUN_DIR } from './biomes.js';
-import { waterSurfaceHeight } from './water.js';
+import { waterSurfaceHeight, getArenaDropK } from './water.js';
 
 // N10a: the contact plane sits at BASE_Y above the mean surface; with the swell on
 // it rides the local crest height so it doesn't clip through / float over waves.
@@ -174,7 +174,10 @@ export function updateContactShadow(dt, player) {
   const alt = Math.max(player.position.y, 0);
   // Altitude 0..~22 → 0..1. Strong+tight near the deck, wide+faint up high.
   const hi = THREE.MathUtils.clamp((alt - 2.0) / 20.0, 0, 1);
-  const qFade = THREE.MathUtils.clamp((quality - 0.2) / 0.4, 0, 1); // tier2 dims out
+  // ARENA (PR-K, THE FIRSTBORN SKY): the S3 heaven drops the sea ~30u to a cosmic haze-deck — a
+  // contact shadow cast onto vacuum is nonsense, so fade it with the SAME window k the water drop
+  // rides (getArenaDropK, 0 off-heaven → this multiplier is exactly 1 → byte-identical restore).
+  const qFade = THREE.MathUtils.clamp((quality - 0.2) / 0.4, 0, 1) * (1 - getArenaDropK()); // tier2 dims out; heaven haze-deck fades out
 
   // Swap the plane material to match the active mode (handles a live tier drop to
   // tier2 → blob, so the plane never samples a frozen stale mask).

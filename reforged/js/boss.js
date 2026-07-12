@@ -1943,7 +1943,7 @@ function endEncounter(player) {
   phase = 'idle';
   game.inBoss = false;
   activeBand = BAND;
-  arenaBandApplied = false; game.bossVoidSky = false; game.bossHeavenRays = 0;   // ARENA (PR-A/B): the void/heaven flags never outlive the fight (grep-both law; the stateless getter + the exhale fade restore env + prop gate). The exhale itself (captured above) rides bossArenaFade with active=false.
+  arenaBandApplied = false; game.bossVoidSky = false; game.bossArenaActive = false; game.bossHeavenRays = 0;   // ARENA (PR-A/B): the void/heaven flags never outlive the fight (grep-both law; the stateless getter + the exhale fade restore env + prop gate). The exhale itself (captured above) rides bossArenaFade with active=false.
   // The arena is NEVER left narrowed past a fight (unconditional restore) — the sky
   // ceiling included (the crush clamp + letterbox must not outlive the encounter).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
@@ -2264,6 +2264,7 @@ export function updateBoss(dt, player, time, camera) {
   // mix RAY_ON (1.6) — the heaven has a sun. Without the upper bound the heaven would inherit the void's
   // suppression and its god-ray swell (its #1 holy carrier) would never fire.
   game.bossVoidSky = arenaMixNow > 0.5 && arenaMixNow < RAY_ON;
+  game.bossArenaActive = arenaMixNow > 0;   // the transformed arena owns the sky (S2 void + S3 court) → collision.js clamps the invisible lane wall instead of killing (owner: no wall deaths in the finale arena). Cleared in BOTH teardowns (grep-both law).
   // HEAVEN god-ray SWELL signal (0..1): ramps over the last 0.4 of the unveil, full at the heaven, eases
   // out with the exhale fade. Cleared in BOTH teardowns beside bossVoidSky (grep-both law).
   game.bossHeavenRays = Math.max(0, Math.min(1, (arenaMixNow - RAY_ON) / (2 - RAY_ON))) * arenaFadeNow;
@@ -2276,6 +2277,10 @@ export function updateBoss(dt, player, time, camera) {
   // THE S3 FOCAL LIFT drive (PR-B): the boss's light LEADS the world — full by the gold-flood peak (mix
   // 1+T0=1.45), so the burst igniting reads as the CAUSE of the heaven arriving. Inert off the heaven.
   if (active && model) model.setArenaHeaven?.(ss01((arenaMixNow - 1) / 0.45));
+  // THE VOID RIM-LIGHT drive (PR-V2): the self-lit violet-silver rim + backglow rise across the void
+  // (mix 0.45→1, peaking at the settled hollow) then EXHALE through the gold flood (mix 1→1.45) so S3
+  // restores the pure dark-on-gold silhouette that already reads. Inert (0) off the void. Stateless.
+  if (active && model) model.setArenaVoid?.(ss01((arenaMixNow - 0.45) / 0.55) * (1 - ss01((arenaMixNow - 1) / 0.45)));
   if (!active) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
@@ -5589,7 +5594,7 @@ export function resetBoss() {
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
   activeBand = BAND;
-  arenaBandApplied = false; game.bossVoidSky = false; game.bossHeavenRays = 0; exhaleT = 0; exhaleMix = 0;   // ARENA (PR-A/B): hard-clear on the game-over/new-run teardown (the hard snap stands — the exhale is only for the natural kill)
+  arenaBandApplied = false; game.bossVoidSky = false; game.bossArenaActive = false; game.bossHeavenRays = 0; exhaleT = 0; exhaleMix = 0;   // ARENA (PR-A/B): hard-clear on the game-over/new-run teardown (the hard snap stands — the exhale is only for the natural kill)
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;
@@ -5819,6 +5824,29 @@ export function debugReckoning() {
 // headless) + read the model's S3 focal-lift state (the byte-identity-off-heaven proof).
 export function debugFell() { if (active && lastPlayer) endEncounter(lastPlayer); }
 export function bossDebugModelLift() { return model?.debugArenaLift?.() ?? null; }
+export function bossDebugModelVoid() { return model?.debugArenaVoid?.() ?? null; }
+// ARENA P0 (THE JUDGMENT COURT) test seam: the exact wingtip min-world-Y — transforms EVERY vertex
+// of every `wing_*` pivot subtree by its live matrixWorld and returns the lowest world Y (+ which
+// wing). Used by the S3 water-clearance measure (the stationY lift is set from this number, not
+// eyeballs) — test-only, never called in the game loop (per-vertex scan, ~8 wings × ~2k verts).
+const _wingV = new THREE.Vector3();
+export function debugWingMinWorldY() {
+  if (!model?.group) return null;
+  model.group.updateMatrixWorld(true);
+  let minY = Infinity, which = null;
+  model.group.traverse((o) => {
+    if (!o.name?.startsWith('wing_')) return;
+    o.traverse((m) => {
+      if (!m.isMesh || !m.visible || !m.geometry?.attributes?.position) return;
+      const pos = m.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        _wingV.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+        if (_wingV.y < minY) { minY = _wingV.y; which = o.name; }
+      }
+    });
+  });
+  return minY === Infinity ? null : { minY: +minY.toFixed(3), wing: which };
+}
 export function debugLoose() { requestLoose(); }
 export function debugLockCandidates() { return lockCandidates(); }
 export function debugPartWorldPos(part) {
