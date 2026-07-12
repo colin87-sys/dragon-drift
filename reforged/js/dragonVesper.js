@@ -196,29 +196,14 @@ function buildKnappedTorso(def, model, _bodyMat) {
   // seamRun ladder carves it progressively: f0 a single nape NOTCH, f1 to mid-spine,
   // f2/f3 the full spine. Seated a hair BELOW the glass-streak so it reads as a carved
   // groove between facets, not a raised rib. Pushed into spineMats (the surge tick).
+  // THE STARLIT SEAM is no longer a strip — it is the dorsal spine COMPONENTS themselves lighting up
+  // on the Night Surge (a glowing ion CORE crowning each dorsal nub — the owner's "the spine
+  // components glow, not an LED strip"). Withheld in cruise. The glow geometry rides the nub loop
+  // below; here we just register the material for the Surge tick.
   const spineMats = [];
   const seamRun = model.seamRun;
-  if (seamRun != null && seamRun >= 0) {
-    const full = body.length - 1;
-    const segCount = seamRun <= 0 ? 1 : Math.max(1, Math.round(full * Math.min(1, seamRun)));
-    // SEGMENTED · TAPERED spine circuit — the anti-"LED-strip" fix is the DASHES + the width TAPER
-    // (broken into plate-joint segments, needle→wide→needle), NOT hiding it: seat it at the ridge
-    // CREST (proud enough to read on Surge from the chase cam — a deep recess made it invisible even
-    // when lit) so the dorsal nubs flank it but don't occlude it. Withheld in cruise (near-zero base).
-    const srail = body.slice(0, segCount + 1).map(s => [0, s.cy + s.ry + 0.008, s.z]);
-    const seamT = [], gap = 0.22;
-    const hwAt = (t) => 0.020 + 0.038 * Math.sin(Math.PI * Math.min(1, t));
-    for (let i = 0; i < srail.length - 1; i++) {
-      const A = srail[i], B = srail[i + 1];
-      const a = [0, A[1] + (B[1] - A[1]) * gap * 0.5, A[2] + (B[2] - A[2]) * gap * 0.5];   // dash inset → dark gap at each station
-      const b = [0, B[1] - (B[1] - A[1]) * gap * 0.5, B[2] - (B[2] - A[2]) * gap * 0.5];
-      const wa = hwAt(i / (srail.length - 1)), wb = hwAt((i + 1) / (srail.length - 1));
-      seamT.push([[a[0] - wa, a[1], a[2]], [b[0] + wb, b[1], b[2]], [b[0] - wb, b[1], b[2]]],
-                 [[a[0] - wa, a[1], a[2]], [a[0] + wa, a[1], a[2]], [b[0] + wb, b[1], b[2]]]);
-    }
-    group.add(flatTriMesh(seamT, M.seam));
-    spineMats.push(M.seam);
-  }
+  const seamOn = seamRun != null && seamRun > 0;
+  if (seamOn) spineMats.push(M.seam);
 
   // DORSAL NUB ROW (CP2) — a nose→tail-root file of small knapped tetra nubs riding the
   // ridge (the reference's spine ridge), shrinking aft; the Starlit Seam groove threads
@@ -233,9 +218,17 @@ function buildKnappedTorso(def, model, _bodyMat) {
       return 0.3;
     };
     const nub = (x, y, z, s) => { const b0 = [x - s, y, z - s], b1 = [x + s, y, z - s], b2 = [x + s, y, z + s * 1.5], b3 = [x - s, y, z + s * 1.5], ap = [x, y + s * 1.4, z + s * 0.2]; return [[b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]]; };
-    const nubT = [], z0 = -2.55, z1 = 1.95;   // from the nape (skull) to the tail root
-    for (let i = 0; i < nubN; i++) { const t = i / Math.max(1, nubN - 1), z = z0 + (z1 - z0) * t, s = 0.055 - 0.028 * t; for (const tri of nub(0, ridgeY(z) + 0.008, z, s)) nubT.push(tri); }
+    const nubT = [], nubGlowT = [], z0 = -2.55, z1 = 1.95;   // from the nape (skull) to the tail root
+    for (let i = 0; i < nubN; i++) {
+      const t = i / Math.max(1, nubN - 1), z = z0 + (z1 - z0) * t, s = 0.055 - 0.028 * t, y = ridgeY(z) + 0.008;
+      for (const tri of nub(0, y, z, s)) nubT.push(tri);
+      // Surge GLOW CORE — a smaller ion nub crowning each spine component, its tip proud of the nub
+      // so the light reads from the chase cam. Withheld in cruise (M.seam near-zero base), blazes on
+      // the Night Surge → the spine COMPONENTS light up, discrete, never a strip.
+      if (seamOn) for (const tri of nub(0, y + s * 1.05, z, s * 0.55)) nubGlowT.push(tri);
+    }
     group.add(flatTriMesh(nubT, M.dorsalFacet));
+    if (nubGlowT.length) group.add(flatTriMesh(nubGlowT, M.seam));
   }
 
   // HAUNCH FLAKES (CP2) — a pair of knapped hip fairings at the haunch station so the
@@ -446,7 +439,7 @@ function buildOneScallopWing(M, dials) {
   // — sampled at 4 segments so it's a curved sag, NOT a sharp sawtooth-V; deepest sag
   // biased slightly aft). The bay centre drops below the finger plane so rim light pools.
   // Opaque per-bay tier; the translucent knife-edge is ONE connected rim strip (below).
-  const NSEG = dials.nseg ?? 4, trailing = [];   // 6 at f2/f3 → smoother sag arcs where the player stares
+  const NSEG = dials.nseg ?? 4, trailing = [], underGlowT = [];   // 6 at f2/f3 → smoother sag arcs where the player stares
   for (let i = 0; i < tips.length - 1; i++) {
     const Fa = tips[i], Fb = tips[i + 1];
     // Per-bay cup variance (CP-D): shallow behind the leading dominant, DEEPEST in the aft bays
@@ -462,8 +455,13 @@ function buildOneScallopWing(M, dials) {
     const fan = [[C, K, arc[0]], [C, arc[NSEG], K]];
     for (let s = 0; s < NSEG; s++) fan.push([C, arc[s], arc[s + 1]]);
     hand.add(flatTriMesh(fan, tier(i)));
+    // UNDERSIDE GLOW copy — the same bay dropped ~0.05 below the membrane, in the withheld-ion
+    // memGlow material → on the Night Surge the wing UNDERSIDE glows ion-blue (dark in cruise).
+    const dn = (p) => [p[0], p[1] - 0.05, p[2]];
+    for (const tri of fan) underGlowT.push([dn(tri[0]), dn(tri[1]), dn(tri[2])]);
     for (let s = 0; s <= NSEG; s++) if (!(i > 0 && s === 0)) trailing.push(arc[s]);   // one shared polyline
   }
+  if (underGlowT.length) hand.add(flatTriMesh(underGlowT, M.memGlow));
 
   // ── TRANSLUCENT KNIFE-EDGE — ONE connected thin band just inboard of the whole
   // scalloped trailing polyline (was per-bay shards that read as floating debris). Lifted
@@ -600,20 +598,20 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   // read as pure silhouette, so a −0.05/−0.12 boost/Surge translucency dip on them can't register.
   // (All tiers are black-emissive, so the rig's emissive drive on this one is likewise a no-op glow.)
   M.wingMat = M.memTiers[0];
-  // Knife-edge band — a SINGLE thin translucent layer (never stacked back-faces; the
-  // CP3.2 0.82² lesson). Glossier + the BRIGHTEST wing value so the scalloped rim glints as
-  // lit night-glass above even the inboard tier (the raised-rim rim-catch).
-  // WITHHELD ion-blue emissive on the knife-edge (the gate's "the Surge must blaze on the DRAGON,
-  // not the scene FX"): dark in cruise (near-zero base → the wing owns the frame by silhouette),
-  // but on the Night Surge the whole scalloped wing OUTLINE ignites ion-blue (the two-accent law
-  // sanctions the second accent blazing during Surge). Pushed into the wing's surge mats below.
-  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, 0x3b4a5e, 0.8), emissive: 0x2050e8, emissiveIntensity: 0.045, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
+  // Knife-edge band — a SINGLE thin translucent layer, the glossier BRIGHTEST wing value so the
+  // scalloped rim glints as lit night-glass (a cruise light-catch, NON-emissive — the owner wants
+  // the Surge glow on the membrane UNDERSIDE, not the edge outline).
+  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, 0x3b4a5e, 0.8), emissive: 0x000000, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
   M.edgeMat.envMapIntensity = 0.32;
-  M.edgeMat.userData.baseEmissive = 0x2050e8; M.edgeMat.userData.baseIntensity = 0.045;   // surge lerps → surgeHi
+  // MEMBRANE UNDERGLOW — a withheld ion-blue layer just under the membrane bays (built in
+  // buildOneScallopWing): dark in cruise, but on the Night Surge the wing UNDERSIDE glows ion-blue
+  // (a backlit membrane — the owner's "the only bits that glow are the underside of the membrane").
+  M.memGlow = new THREE.MeshStandardMaterial({ color: 0x0a1024, emissive: 0x2050e8, emissiveIntensity: 0.05, flatShading: true, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.72 });
+  M.memGlow.userData.baseEmissive = 0x2050e8; M.memGlow.userData.baseIntensity = 0.05;
 
   const rootSpark = (model.seamRootSpark ?? 0) > 0;   // f3: one short inset seam streak per wing root
   const wingSpineMats = [];
-  if (edgeBand) wingSpineMats.push(M.edgeMat);   // the knife-edge blazes ion-blue on Surge (withheld in cruise)
+  wingSpineMats.push(M.memGlow);   // the membrane UNDERSIDE glows ion-blue on Surge (withheld in cruise)
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
@@ -796,11 +794,17 @@ function buildSplitFanTail(def, model, mats, anchor) {
   // stem loft, binned per joint (each span flexes; shared boundary station → continuous)
   for (let j = 0; j < nChain; j++) { const i0 = jIdx(j), i1 = jIdx(j + 1); if (i1 > i0) chainAdd(stem[i0].z, knapLoft(stem.slice(i0, i1 + 1), CHINE_PROFILE, bandMat, false)); }
 
-  // TAIL-STEM NUB ROW (CP2) — the dorsal nub file continues down the tail, binned to joints.
+  // TAIL-STEM NUB ROW (CP2) — the dorsal nub file continues down the tail, binned to joints. Each nub
+  // also carries a Surge GLOW CORE (like the dorsal spine) so the tail COMPONENTS light up on Surge.
   const tailNubs = Math.round(model.tailNubs ?? 0);
+  const tailSeamOn = (model.seamRun ?? 0) >= 1;
   if (tailNubs > 0) {
     const nub = (x, y, z, s) => { const b0 = [x - s, y, z - s], b1 = [x + s, y, z - s], b2 = [x + s, y, z + s * 1.5], b3 = [x - s, y, z + s * 1.5], ap = [x, y + s * 1.4, z + s * 0.2]; return [[b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]]; };
-    for (let i = 0; i < tailNubs; i++) { const t = i / Math.max(1, tailNubs); const st = stem[Math.round(t * (nSeg - 1))]; const s = 0.05 * (1 - 0.7 * t); chainAdd(st.z, flatTriMesh(nub(0, st.cy + st.ry + 0.006, st.z, s), M.dorsalFacet)); }
+    for (let i = 0; i < tailNubs; i++) {
+      const t = i / Math.max(1, tailNubs), st = stem[Math.round(t * (nSeg - 1))], s = 0.05 * (1 - 0.7 * t), y = st.cy + st.ry + 0.006;
+      chainAdd(st.z, flatTriMesh(nub(0, y, st.z, s), M.dorsalFacet));
+      if (tailSeamOn) chainAdd(st.z, flatTriMesh(nub(0, y + s * 1.05, st.z, s * 0.55), M.seam));
+    }
   }
   // MID-TAIL FIN PAIR (CP2, decluttered CP4) — swept FLAT against the stem (raked aft, tip near the
   // stem ridge, not lifted into a second fan blade) + moved forward, so it reads as stem anatomy.
@@ -812,25 +816,12 @@ function buildSplitFanTail(def, model, mats, anchor) {
     ], M.dorsalFacet));   // SAME band both sides (symmetric)
   }
 
-  // THE STARLIT SEAM (tail stem) — the dorsal circuit continues down the tail (f2/f3:
-  // "full spine + tail stem"). WITHHELD in cruise (seam mat near-zero base); Surge-lit.
+  // THE STARLIT SEAM (tail) — NO strip: the tail's Surge circuit is carried by the tail-nub GLOW
+  // CORES (above) + the fan fin-rims (below), the discrete tail COMPONENTS lighting up. Withheld in
+  // cruise. Here we just register the material for the Surge tick.
   const accentMats = [];
   const seamRun = model.seamRun ?? 0;
   if (seamRun >= 1) {
-    // Recessed · dashed · tapered down the tail (CP-C), matching the dorsal groove: seated below the
-    // ridge crest, broken at each stem station, needling to the tail fork. Per-segment → binned to
-    // the joints so the lit groove flexes with the tail chain.
-    const srail = stem.map(s => [0, s.cy + s.ry + 0.006, s.z]);
-    const gap = 0.22, N = srail.length - 1;
-    const hwAt = (t) => 0.014 + 0.024 * Math.sin(Math.PI * Math.min(1, t));
-    for (let i = 0; i < N; i++) {
-      const A = srail[i], B = srail[i + 1];
-      const a = [0, A[1] + (B[1] - A[1]) * gap * 0.5, A[2] + (B[2] - A[2]) * gap * 0.5];
-      const b = [0, B[1] - (B[1] - A[1]) * gap * 0.5, B[2] - (B[2] - A[2]) * gap * 0.5];
-      const wa = hwAt(i / N), wb = hwAt((i + 1) / N);
-      chainAdd(A[2], flatTriMesh([[[a[0] - wa, a[1], a[2]], [b[0] + wb, b[1], b[2]], [b[0] - wb, b[1], b[2]]],
-                 [[a[0] - wa, a[1], a[2]], [a[0] + wa, a[1], a[2]], [b[0] + wb, b[1], b[2]]]], M.seam));
-    }
     accentMats.push(M.seam);
   }
   const finRims = (model.seamFinRims ?? 0) > 0;   // f3: the fan-fin rims carry the seam
