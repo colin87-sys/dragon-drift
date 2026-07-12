@@ -53,6 +53,9 @@ const sharedUniforms = {
 // height the GPU draws. Deviation from the roadmap's "same wave() octaves": only the
 // long swell (λ≈105m) is displaced; the 3 short shading octaves (λ 3.7–12.6m) are
 // below the vertex-grid Nyquist and would crawl, so they stay fragment-only (normals).
+// NOTE: these are template-interpolated into GLSL (here + propFoam.js). Keep every
+// value FRACTIONAL — an integral value (e.g. amp:1) would emit `... * 1 * sin(...)`,
+// a GLSL ES int/float type error. All current values have a decimal point.
 export const SWELL = { dirx: 0.723, dirz: 0.691, freq: 0.06, amp: 0.6, speed: 0.28 };
 
 const vertexShader = /* glsl */`
@@ -345,6 +348,10 @@ export function updateWater(dt, playerDist, time, fog) {
 // world (x,z) with the material's live time + waveAmp. The contact-shadow plane
 // rides this so it sits ON the crests instead of clipping through them. Returns 0
 // when swell is off or water absent → the shadow stays at its shipped height.
+// N10c: the foam collars ride the same swell — expose its on/off state so the foam
+// shader displaces in lockstep (waterSurfaceHeight is a per-point probe, not a flag).
+export function getWaterSwellOn() { return swellOn; }
+
 export function waterSurfaceHeight(x, z) {
   if (!swellOn || !water) return 0;
   const u = water.material.uniforms;

@@ -10,7 +10,7 @@ register('../tools/three-resolver.mjs', import.meta.url);
 const THREE = await import('three');
 const {
   CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, jFbm,
-  setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled,
+  setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled, CLOUD_PARALLAX,
 } = await import('../js/skyClouds.js');
 
 let pass = 0, fail = 0;
@@ -50,6 +50,13 @@ check('tier2 → amount forced 0 (clouds off on weak mobile)', cloudUniforms.uCl
 setSkyCloudQuality(0);
 applySkyClouds(env, 10_000_000, 5); // ~10,000 km
 check('drift wrapped into [0,1024) (no float32 shimmer)', cloudUniforms.uCloudDrift.value >= 0 && cloudUniforms.uCloudDrift.value < 1024);
+// Parallax rate is GENTLE: at cruise (~50 m/s) the world-drift must advance far
+// slower than the field spans in a second, else clouds race by (owner report).
+// applySkyClouds + sunCloudCover both read the one CLOUD_PARALLAX constant, so
+// this pins the magnitude for both. 1s of cruise ≈ 50 dist → drift ≈ 0.1.
+applySkyClouds(env, 1000, 5);
+check('cloud drift uses CLOUD_PARALLAX (no stray literal)', cloudUniforms.uCloudDrift.value === (1000 * CLOUD_PARALLAX) % 1024);
+check('parallax dialled down to gentle rate (≤ 0.004/dist)', CLOUD_PARALLAX <= 0.004);
 
 // --- 5. god-ray coupling: cover is 0 when off / tier2, in [0,1] when on --------
 const sunDir = new THREE.Vector3(-0.22, 0.1, -1).normalize();
