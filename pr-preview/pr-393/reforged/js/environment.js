@@ -11,15 +11,15 @@ import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } fro
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
-import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet } from './arenaSet.js';
+import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
 import { getWaterSwellOn } from './water.js';
 import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
 
 // Re-export the sky-IBL + prop-AO + atmosphere + sky-cloud controls so main.js
 // drives them through environment.
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
-// ARENA (PR-H1/H2): the heaven's holy-architecture set — tier switch + test seam ride through here too.
-export { setArenaSetQuality, debugArenaSet };
+// ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
+export { setArenaSetQuality, debugArenaSet, setStarMode };
 
 // N10c foam toggle/LOD: wrap the raw setters so a Settings flip / tier change
 // re-evaluates every band's foam visibility THIS frame (updateBandVisibility

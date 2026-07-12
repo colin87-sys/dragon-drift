@@ -20,9 +20,14 @@ function assistAxes(player) {
   const ty = target.gapY !== undefined ? target.gapY : target.y;
   const time = Math.max((target.dist - player.dist) / Math.max(player.speed, 1), 0.0001);
   const bonus = player.boosting ? CONFIG.boostSteeringBonus : 1;
+  // The returned axis is later multiplied by steer = bonus·canyonSlip (see update()), so
+  // the assist must divide by canyonSlip too — otherwise inside the spine slipstream the
+  // auto-fly velocity is scaled up by the slip factor and oversteers (visible wobble at
+  // 1.40). Co-scaling here keeps the intercept exact relative to the faster world.
+  const slip = player.canyonSlip || 1;
   return {
-    x: clamp((tx - player.position.x) / time / (S.lateralSpeed * bonus), -1, 1),
-    y: clamp((ty - player.position.y) / time / (S.verticalSpeed * bonus), -1, 1),
+    x: clamp((tx - player.position.x) / time / (S.lateralSpeed * bonus * slip), -1, 1),
+    y: clamp((ty - player.position.y) / time / (S.verticalSpeed * bonus * slip), -1, 1),
   };
 }
 
@@ -62,6 +67,8 @@ export const player = {
   position: new THREE.Vector3(0, 8, 0),
   velocity: new THREE.Vector2(0, 0),
   speed: CONFIG.baseSpeed,
+  canyonSlip: 1,       // spine slipstream factor (E5)
+  tunnelFxMix: 0,      // slip × local rib-wall presence — drives the speed FX (feel-v4)
   dist: 0,
   prevDist: 0,
   boosting: false,
@@ -83,6 +90,7 @@ export const player = {
     this.position.set(0, 8, 0);
     this.velocity.set(0, 0);
     this.speed = CONFIG.baseSpeed;
+    this.canyonSlip = 1;   // spine slipstream factor (E5), damped in update()
     this.dist = 0;
     this.prevDist = 0;
     this.boosting = false;
@@ -138,8 +146,15 @@ export const player = {
       axes = { x: clamp(a.x + manual.x, -1, 1), y: clamp(a.y + manual.y, -1, 1) };
     }
     const steeringBonus = this.boosting ? CONFIG.boostSteeringBonus : 1;
-    this.velocity.x = damp(this.velocity.x, axes.x * S.lateralSpeed * steeringBonus, CONFIG.moveAccel, dt);
-    this.velocity.y = damp(this.velocity.y, axes.y * S.verticalSpeed * steeringBonus, CONFIG.moveAccel, dt);
+    // Spine slipstream (E5): inside the SPINE speed tunnel the world rushes ~12% faster,
+    // and steering CO-SCALES by the same factor — so every reachability ratio (and the
+    // whole canyonflow fairness audit) stays exactly valid; the inputs feel identical
+    // relative to the faster world. Damped smoothly at the seams; 1 outside spine / in boss.
+    const slipTarget = (game.inCanyon && game.canyonRun === 'spine' && !game.inBoss) ? CONFIG.canyonSpineSlip : 1;
+    this.canyonSlip = damp(this.canyonSlip, slipTarget, CONFIG.canyonSlipEase, dt);
+    const steer = steeringBonus * this.canyonSlip;
+    this.velocity.x = damp(this.velocity.x, axes.x * S.lateralSpeed * steer, CONFIG.moveAccel, dt);
+    this.velocity.y = damp(this.velocity.y, axes.y * S.verticalSpeed * steer, CONFIG.moveAccel, dt);
     this.position.x += this.velocity.x * dt;
     this.position.y += this.velocity.y * dt;
 
@@ -186,6 +201,7 @@ export const player = {
     if (this.boosting)     targetSpeed = S.boostSpeed * ramp;
     if (this.orbTimer > 0) targetSpeed = Math.max(targetSpeed, S.orbSpeed * ramp);
     targetSpeed *= game.mods.speed; // Daily "High Winds" tailwind
+    targetSpeed *= this.canyonSlip; // spine slipstream (E5) — co-scaled with steering above
     // On-rails during the boss: hold a steady cruise so the boss (which matches
     // it and "flies backward") stays framed and bullet timing is predictable.
     if (game.inBoss) targetSpeed = CONFIG.BOSS.cruiseSpeed;

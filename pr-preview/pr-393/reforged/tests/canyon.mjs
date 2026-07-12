@@ -7,10 +7,11 @@ import { boot, check } from './browser.mjs';
 const { page, done } = await boot();
 const result = await page.evaluate(async () => {
   const { createLevelGen } = await import('./js/level.js');
+  const { CONFIG } = await import('./js/config.js');
   const run = () => {
     const gen = createLevelGen(1337);
     // walk in chunks like the game does, so multi-chunk canyons are exercised
-    const segs = [], starts = [], ends = [], orbs = [], suppress = [], gateDists = [];
+    const segs = [], starts = [], ends = [], orbs = [], suppress = [], obsDists = [], hazDists = [];
     let ringsLen = 0, obsLen = 0;
     for (let d = 800; d <= 9000; d += 800) {
       const out = gen.ensure(d);
@@ -19,15 +20,17 @@ const result = await page.evaluate(async () => {
       starts.push(...out.canyonStarts);
       ends.push(...out.canyonEnds);
       orbs.push(...out.orbs);
-      suppress.push(...out.canyonGateSuppress);
-      for (const ob of out.obstacles) if (ob.type === 'gate') gateDists.push(ob.dist);
+      suppress.push(...out.canyonObstacleSuppress);
+      for (const ob of out.obstacles) obsDists.push(ob.dist);
+      for (const h of out.hazards) hazDists.push(h.dist);
     }
-    return { segs, starts, ends, orbs, suppress, gateDists, ringsLen, obsLen };
+    return { segs, starts, ends, orbs, suppress, obsDists, hazDists, ringsLen, obsLen,
+             nextCanyonAt: gen.nextCanyonAt };
   };
   const a = run();
   createLevelGen(424242).ensure(9000); // interleave a different seed
   const b = run();
-  return { a, b };
+  return { a, b, entryBuffer: CONFIG.canyonEntryBuffer, exitBuffer: CONFIG.canyonExitBuffer };
 });
 
 const { segs, starts, ends } = result.a;
@@ -60,15 +63,28 @@ if (spineSegs.length) {
       (o) => Math.abs(o.x - s.gapX) < 1e-6 && o.dist > s.dist - 20 && o.dist <= s.dist)));
 }
 
-// Base Phase Gates inside a canyon run are suppressed (no blind crystal window
-// between rib sections) — and only ever gates, only ever inside a canyon range.
-const inCanyonRange = (d) => starts.some((s, i) => d >= s && d <= (ends[i] ?? Infinity));
-check('suppressed entries are all real gate dists',
-  result.a.suppress.every((d) => result.a.gateDists.includes(d)));
-check('suppressed gates all fall inside a canyon run',
-  result.a.suppress.every(inCanyonRange));
+// Base obstacles (gates, pillars, shards, bars) near a canyon are suppressed — no
+// spike/wall on the ring line inside the carved slot / rib tube, and none in the
+// entry approach or the exit decompression zone. The buffers widen suppression BEYOND
+// the run markers: entry is anchored to nextCanyonAt (can precede the realized start
+// by a hop + first ring + gauntlet-deferral — generous slack); exit is exact
+// (ends[i] = lastRing+40, cursor = ends[i] + exitBuffer); a trailing pre-emptive
+// window suppresses for a canyon still pending at the 9km walk end (vs nextCanyonAt).
+const ENTRY_SLACK = result.entryBuffer + 500;
+const inSuppressRange = (d) =>
+  starts.some((s, i) => d >= s.dist - ENTRY_SLACK && d <= (ends[i] ?? Infinity) + result.exitBuffer)
+  || d >= result.a.nextCanyonAt - 40 - result.entryBuffer;
+check('suppressed entries are all real obstacle dists',
+  result.a.suppress.every((d) => result.a.obsDists.includes(d)));
+check('suppressed obstacles fall inside a canyon run ± decompression buffers',
+  result.a.suppress.every(inSuppressRange));
 check('suppression is deterministic per seed',
   JSON.stringify(result.a.suppress) === JSON.stringify(result.b.suppress));
+// BUG-3: no biome hazard (geyser) survives inside a canyon run (± buffers) — an
+// undodgeable vertical column in an enclosed corridor.
+const inCanyonStrict = (d) => starts.some((s, i) => d >= s.dist && d <= (ends[i] ?? Infinity));
+check('no hazard lands inside a canyon run',
+  result.a.hazDists.every((d) => !inCanyonStrict(d)));
 
 console.log(`  (segments: ${segs.length}, runs: ${starts.length} [${[...runs].join(',')}], kinds: ${[...kinds].join(', ')})`);
 await done();

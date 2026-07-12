@@ -947,7 +947,7 @@ export function buildUnmasked(def, quality = 1) {
   // stage 2's wings + eye-field stay (the SAME seraph, mantled — read in tickBody); only the
   // centre swaps. k3 0 hides stage 3 + shows the focal eye → stage 2 is byte-identical. ──
   let stage3K = 0;
-  let mantleK = 0;      // S2→S3 wing throw weight (read in the shoulder loop): 0 at rest → 1.30 throw-peak → 1.0 settled
+  let mantleK = 0;      // S2→S3 wing throw weight (read in the shoulder loop): 0 at rest → 1.30 throw-peak → 0.20 settled (PR-K)
   let convergeK = 0;    // GATHER: the eye field turns INWARD to the core (read in the pupil loop)
   let burstFlash = 0;   // ignition HDR flash weight (read in the stage-3 tick)
   // THE UNVEILING is a beat map on the reversal: the seraph STOPS WATCHING (eyes converge in) →
@@ -979,8 +979,13 @@ export function buildUnmasked(def, quality = 1) {
     const hideFocal = k3 >= 0.44;
     for (const e of focalParts) e.visible = !hideFocal;
     greatCatch.visible = !hideFocal && closeK < 0.6;   // the catchlight dies first (the light going out)
-    // THE WING THROW (read in the shoulder loop): overshoot to 1.30 at the throw, settle to 1.00.
-    mantleK = -0.35 * fold + 1.65 * throwK - 0.30 * settleK;
+    // THE WING THROW (read in the shoulder loop): overshoot to 1.30 at the throw, then SETTLE to
+    // 0.20 (PR-K, owner-locked): the dramatic throw is kept intact (throwK/igniteK/settleK timing
+    // and the unveil beat/halo/ignition are functions of the Ks, not the settled value), but the
+    // HELD S3 pose relaxes to read near-identical to S2 at fight distance — the FIRSTBORN SKY's
+    // seraph is the same dark figure, now hanging in a born cosmos. Wing base ANGLES untouched
+    // (WING_PAIRS/FLARE_SIGN frozen) — this is a coefficient, not an angle.
+    mantleK = -0.35 * fold + 1.65 * throwK - 1.10 * settleK;
     // THE GATHER: the eye field abandons the player and converges on the core (dies by the throw).
     convergeK = fold * (1 - smooth(0.30, 0.40, k3));
   }
@@ -1238,7 +1243,7 @@ export function buildUnmasked(def, quality = 1) {
         s.obj.rotation.z = s.baseRotZ + fold
           + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath * (0.25 + 0.75 * unfurlK)
           + s.flareZ * charge * 0.16
-          + s.flareZ * mantleK * 0.34;   // STAGE 3: the wings THROW open (overshoot to 1.30 then settle to a WIDER held span than stage 2)
+          + s.flareZ * mantleK * 0.34;   // STAGE 3: the wings THROW open (overshoot to 1.30) then settle to 0.20 — the held pose reads ≈ stage 2 at fight distance (PR-K)
       }
 
       // ── WRATH TELL: the whole eye field bleeds from gold toward danger-red as the charge

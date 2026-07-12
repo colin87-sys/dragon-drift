@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -13,10 +13,11 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
+import { initSpeedStreaks, updateSpeedStreaks, resetSpeedStreaks } from './speedStreaks.js';
 import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
@@ -26,7 +27,10 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, setWaterReflFar } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn } from './water.js';
+import { waterFoamOn } from './propFoam.js';
+import { aoUniform } from './propAO.js';
+import { makePerfStats, resetPerfStats, perfFrame, perfSummary } from './perfStats.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
@@ -100,6 +104,12 @@ window.addEventListener('resize', () => {
 
 // --- Seeds: every run gets a fresh course; daily + challenge runs pin one.
 const urlParams = new URLSearchParams(window.location.search);
+// Preview convenience: ?rockrun / ?ribcage force that canyon type (level.js) AND
+// drop you straight into it — skip the tutorial, auto-launch, and warp to just
+// before the first forced canyon. For eyeballing the Sky Canyon on the PR preview.
+const PREVIEW_CANYON = urlParams.has('rockrun') ? 'rock'
+  : urlParams.has('ribcage') ? 'spine' : null;
+let previewLaunchPending = !!PREVIEW_CANYON;
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
 // Graphics effects: apply the player's saved Settings choices; a URL flag (?tm=,
@@ -122,7 +132,7 @@ if (urlParams.has('rush')) game.mode = 'rush';
 
 // A brand-new pilot's very first normal run is authored (scripted opening +
 // pinned seed) so the first ~90s is intentional, repeatable and QA-able.
-const isFirstFlight = () => game.mode === 'normal' && saveData.stats.runs === 0;
+const isFirstFlight = () => game.mode === 'normal' && saveData.stats.runs === 0 && !PREVIEW_CANYON;
 
 function seedForRun() {
   if (game.mode === 'daily') return dailySeed();
@@ -190,6 +200,7 @@ initObstacles(scene);
 initHazards(scene);
 initPowerups(scene);
 initParticles(scene);
+initSpeedStreaks(scene);
 initEmbers(scene);
 initGoldEmbers(scene);
 initBoss(scene);
@@ -230,13 +241,14 @@ function spawnAhead() {
     chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
     return;
   }
-  // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
-  // crystal window between rib sections reads unfair. Generator output is untouched
-  // (determinism-safe); we just don't spawn the flagged ones here.
-  const gateSuppress = chunk.canyonGateSuppress && chunk.canyonGateSuppress.length
-    ? new Set(chunk.canyonGateSuppress) : null;
+  // Any base obstacle (gate, pillar, shard, bar) whose dist lands inside a canyon run
+  // is skipped — an obstacle on the ring line inside the carved slot / rib tube is an
+  // undodgeable spike. Generator output is untouched (determinism-safe); we just don't
+  // spawn the flagged ones here.
+  const canyonSuppress = chunk.canyonObstacleSuppress && chunk.canyonObstacleSuppress.length
+    ? new Set(chunk.canyonObstacleSuppress) : null;
   chunk.obstacles.forEach((o) => {
-    if (gateSuppress && o.type === 'gate' && gateSuppress.has(o.dist)) return;
+    if (canyonSuppress && canyonSuppress.has(o.dist)) return;
     addObstacle(o);
   });
   chunk.orbs.forEach(addOrb);
@@ -398,9 +410,10 @@ if (urlParams.has('debug')) {
       bandDark: bossDebugState()?.bandDark,            // the active dark bullet band (the certified lift at the reveal)
       lift: bossDebugModelLift(),                      // PR-B: the S3 focal-lift state ({k, sclera}) — byte-identity off-heaven
       voidLift: bossDebugModelVoid(),                  // PR-V2: the void rim-light state ({k, rim, rimEm, glow, glowVis}) — byte-identity off-void
-      arenaSet: debugArenaSet(),                       // PR-J: the JUDGMENT COURT set ({built, visible, k, panes, tierHidden}) — hidden off-heaven
+      arenaSet: debugArenaSet(),                       // PR-K: the FIRSTBORN SKY set ({built, visible, k, mode, tierHidden}) — hidden off-heaven
+      water: { y: debugWaterY(), dropK: getArenaDropK() },   // PR-K: the haze-deck drop (y −30 in the settled heaven, 0 byte-identical off it)
     }),
-    bossWingMinY: () => debugWingMinWorldY(),           // ARENA P0 (JUDGMENT COURT): exact wingtip min-world-Y (the S3 water-clearance measure)
+    bossWingMinY: () => debugWingMinWorldY(),           // ARENA P0: exact wingtip min-world-Y (the S3 haze-deck clearance measure, PR-K)
     bossFell: () => debugFell(),                       // PR-B: force the natural-kill teardown (the only way to exercise the exhale headless)
     forceGameOver: () => { game.state = 'gameover'; },  // PR-B test seam: park the loop in 'gameover' (updateBoss stops) to prove the exhale still decays there (the CP2/Codex blocker: the finale kill jumps straight to gameover)
     bossReset: () => resetBoss(),                      // rung 14: the HARD teardown (game-over / new-run path) — proves the reckoning latch doesn't leak the burn across runs
@@ -434,28 +447,52 @@ if (cleanShot) {
   document.head.appendChild(s);
 }
 
-// Perf overlay (?debug=perf): fps / draw calls / quality tier, plus a per-RUN
-// WORST-FRAME tracker (min fps + the draws/tris at that frame + p95 frame time).
-// The live average hides the split-second dips that make a fight FEEL janky and
-// that added overdraw deepens (L124) — the worst-frame line is the budget the
-// premium fx must respect. All state + work is gated behind perfEl (this flag),
-// so with the flag off the game is byte-identical.
+// Performance HUD: an on-screen fps / frame-time / draw-count readout, plus a per-RUN
+// WORST-FRAME tracker (min fps + the draws/tris at that frame + p95 frame time) and a
+// live list of the active experimental graphics toggles — so a single screenshot
+// captures the framerate AND the config that produced it. Enabled by the PERFORMANCE
+// HUD Settings toggle OR ?debug=perf; DEFAULT OFF → perfEl stays null → the whole
+// per-frame block is skipped and renderer.info.autoReset stays at the three.js
+// default, so the shipped frame is byte-identical with zero added cost.
 let perfEl = null;
 let perfTimer = 0;
-let perfMinFps = Infinity, perfWorstCalls = 0, perfWorstTris = 0;
-const PERF_RING = 600;               // ~10s of frames @60 for the p95 window
-const perfFrames = [];               // recent frame times (ms), ring buffer
-let perfRingCursor = 0;
-const resetPerfPeaks = () => { perfMinFps = Infinity; perfWorstCalls = 0; perfWorstTris = 0; perfFrames.length = 0; perfRingCursor = 0; };
-if (urlParams.get('debug') === 'perf') {
-  renderer.info.autoReset = false; // accumulate across all composer passes
-  perfEl = document.createElement('div');
-  perfEl.style.cssText =
-    'position:fixed;left:8px;top:8px;z-index:99;font:12px monospace;color:#8aff9a;' +
-    'background:rgba(0,0,0,0.55);padding:6px 9px;border-radius:6px;pointer-events:none;white-space:pre';
-  document.body.appendChild(perfEl);
-  on('runStart', resetPerfPeaks);   // worst-frame is per-RUN, so each fight reads clean
+const perfStats = makePerfStats(600);
+// The gfx line reads each toggle's RUNTIME authority (module getter / uniform), not
+// saveData — so it's correct even when a toggle was forced via a ?flag URL param.
+const PERF_GFX = [
+  ['IBL',  skyProbeEnabled],
+  ['SHDW', contactShadowSilhouette],
+  ['AO',   () => aoUniform.value > 0],
+  ['ATMO', atmosphereEnabled],
+  ['CLD',  skyCloudsEnabled],
+  ['SWL',  getWaterSwellOn],
+  ['DPTH', getWaterDepthOn],
+  ['FOAM', waterFoamOn],
+];
+function setPerfHud(on) {
+  if (on && !perfEl) {
+    renderer.info.autoReset = false; // accumulate draw counts across all composer passes
+    perfEl = document.createElement('div');
+    perfEl.className = 'perf-hud';    // test hook
+    // Left edge, below the hearts/pause stack (top-left HUD ≈90px in portrait); clear
+    // of the top-centre distance + top-right score. pointer-events:none = never eats input.
+    perfEl.style.cssText =
+      'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 112px);z-index:99;' +
+      'font:12px monospace;color:#8aff9a;background:rgba(0,0,0,0.55);padding:6px 9px;' +
+      'border-radius:6px;pointer-events:none;white-space:pre';
+    document.body.appendChild(perfEl);
+    resetPerfStats(perfStats);
+    perfTimer = 0;
+  } else if (!on && perfEl) {
+    perfEl.remove();
+    perfEl = null;
+    renderer.info.reset();           // flush accumulation
+    renderer.info.autoReset = true;  // restore the three.js default for every other reader
+  }
 }
+on('runStart', () => resetPerfStats(perfStats)); // worst/best-frame is per-RUN (O(1) field zeroing, no render effect)
+// Boot: either path shows the HUD; default (neither) leaves it off → identity.
+if (urlParams.get('debug') === 'perf' || gfxPref.perfHud === true) setPerfHud(true);
 
 initInput();
 initTouch(renderer.domElement);
@@ -685,6 +722,7 @@ ui.init({
     else if (kind === 'waterSwell') setWaterSwell(value);
     else if (kind === 'waterDepth') setWaterDepth(value);
     else if (kind === 'waterFoam') setWaterFoam(value);
+    else if (kind === 'perfHud') setPerfHud(value); // on-screen fps/frame-time readout (no render effect)
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
@@ -903,6 +941,7 @@ function startGame(mode = 'normal') {
 let boostWasActive = false;
 let discardNextDelta = false;
 let currentBiome = 0;
+let fxEnv = 0;   // smoothed speed-tunnel FX envelope (fast attack, slow release) — feel-v5
 
 function restart(opts = {}) {
   // toMenu: reset the world but land on the START SCREEN (attract scene + rail)
@@ -918,6 +957,9 @@ function restart(opts = {}) {
   resetDragon(player);
   resetRings();
   resetObstacles();
+  resetSpeedStreaks();
+  fxEnv = 0;
+  sfx.slipstreamStop();
   resetHazards();
   resetPowerups();
   resetParticles();
@@ -1247,6 +1289,14 @@ function updateModelDetail(dt) {
 
 function tick() {
   requestAnimationFrame(tick);
+  // Preview auto-launch (?rockrun / ?ribcage): once the menu is ready, take off and
+  // warp to just before the first forced canyon so the link lands you right in it.
+  if (previewLaunchPending && game.state === 'ready') {
+    previewLaunchPending = false;
+    setBossDebugFirstAt(Infinity); // no boss interrupts while eyeballing the canyon (persists across restarts)
+    startGame('normal');
+    if (game.state === 'playing') player.dist = 250; // canyon is forced at ~340 → a short lead-in
+  }
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
   // drives every world/gameplay update.
   let rawDt = Math.min(clock.getDelta(), 0.05);
@@ -1255,6 +1305,9 @@ function tick() {
     rawDt = 0;
   }
   updateQuality(rawDt);
+  // The speed-tunnel wind only lives during active play (death/pause/menu silence it;
+  // start/exit are handled on the canyon crossings). Idempotent when already stopped.
+  if (game.state !== 'playing') sfx.slipstreamStop();
   updateModelDetail(rawDt);
 
   // Shop hero shot: hide the loose gameplay FX — collectible rings + the dragon's own
@@ -1325,10 +1378,11 @@ function tick() {
 
     // Sky Canyon boundaries: widen the chase cam through the run so the twisty
     // gaps read clearly, then restore. Counted so nested canyons stay balanced.
-    while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0]) {
-      pendingCanyonStarts.shift();
+    while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0].dist) {
+      game.canyonRun = pendingCanyonStarts.shift().run; // 'spine' | 'rock' → spine-only slipstream
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
+      if (game.canyonRun === 'spine') sfx.slipstreamStart(); // speed-tunnel wind
       // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
       // ("you're entering something ancient"). Subtle — within the juice budget.
       cameraCtl.shake(0.5);
@@ -1337,6 +1391,8 @@ function tick() {
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
       game.inCanyon = false;
+      game.canyonRun = null;
+      sfx.slipstreamStop();
       cameraCtl.setCanyon(false);
       // Exit burst: a puff of bone dust as you break out into open sky (release).
       burst(player.position, 0xe7dcc0, { count: 18, speed: 14, size: 1.0 });
@@ -1468,6 +1524,21 @@ function tick() {
     }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
+    const slipMix = Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, CONFIG.canyonSpineSlip - 1);
+    // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
+    // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
+    // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw
+    // slipMix, since you ARE still moving faster there. presence=1 inside any rib band.
+    // Keep sampling presence while the envelope is still decaying so the FX ease DOWN
+    // after slip hits zero (leaving the tunnel) instead of snapping off at the last band.
+    const wallPresence = (slipMix > 0.01 || fxEnv > 0.01) ? spineWallPresenceAt(player.dist) : 0;
+    const fxMix = slipMix * wallPresence;
+    // Smoothed envelope: fast attack (~0.3s), slow release (~0.9s) → the whole speed-FX
+    // family ramps up as you accelerate and fades gracefully leaving the tunnel, never 1/0.
+    fxEnv += (fxMix - fxEnv) * (1 - Math.exp(-(fxMix > fxEnv ? 6 : 1.8) * dt));
+    player.tunnelFxMix = fxEnv;               // streaks/postfx/ui.js all read this envelope
+    updateSpeedStreaks(player, fxEnv);
+    if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
     updateHazards(dt, player, t);
@@ -1487,7 +1558,7 @@ function tick() {
     sfx.dwellHum?.(humOn ? lh.dwell : 0);   // (lh read above, pre-updateDragon)
     updateArenaExhale(dt);   // ARENA (PR-B): decay the natural-kill exhale in ALL states — the finale/rush kill jumps straight to 'gameover' where updateBoss is dead, so the fade must run here or the sky strands
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget(), bossArenaMix(), bossArenaFade());
-    updateWater(dt, player.dist, t, scene.fog);
+    updateWater(dt, player.dist, t, scene.fog, bossArenaMix(), bossArenaFade());   // ARENA (PR-K): the FIRSTBORN SKY haze-deck drop rides the same stateless window (threaded here — water.js must not import boss.js)
     updateContactShadow(dt, player);
 
     // God-rays: project the sun to screen space and gate intensity by how
@@ -1523,39 +1594,28 @@ function tick() {
   }
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-  updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget());
+  updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
+    player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 
   if (perfEl) {
-    // Per-frame worst-case capture (rawDt is clamped to 0.05 = a 20fps floor, so a
-    // backgrounded/stalled frame can't poison the min). rawDt==0 while paused.
-    if (rawDt > 0) {
-      const instFps = 1 / rawDt;
-      const ms = rawDt * 1000;
-      if (perfFrames.length < PERF_RING) perfFrames.push(ms);
-      else { perfFrames[perfRingCursor] = ms; perfRingCursor = (perfRingCursor + 1) % PERF_RING; }
-      if (instFps < perfMinFps) {   // new worst frame → snapshot its draws/tris
-        perfMinFps = instFps;
-        perfWorstCalls = renderer.info.render.calls;
-        perfWorstTris = renderer.info.render.triangles;
-      }
-    }
+    // rawDt is clamped to 0.05 (a 20fps floor) so a backgrounded/stalled frame can't
+    // poison the min; rawDt==0 while paused (perfFrame ignores ms<=0).
+    if (rawDt > 0) perfFrame(perfStats, rawDt * 1000, renderer.info.render.calls, renderer.info.render.triangles);
     perfTimer -= rawDt;
     if (perfTimer <= 0) {
       perfTimer = 0.5;
-      let p95 = 0;
-      if (perfFrames.length) {
-        const sorted = perfFrames.slice().sort((a, b) => a - b);
-        p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
-      }
+      const s = perfSummary(perfStats);
+      const gfx = PERF_GFX.filter(([, f]) => f()).map(([n]) => n).join(' ') || '—';
+      const tone = renderer.toneMapping === THREE.AgXToneMapping ? 'soft'
+                 : renderer.toneMapping === THREE.CustomToneMapping ? 'vivid' : 'aces';
       perfEl.textContent =
-        `fps   ${fpsAvg.toFixed(0)}\n` +
-        `calls ${renderer.info.render.calls}\n` +
-        `tris  ${(renderer.info.render.triangles / 1000).toFixed(0)}k\n` +
-        `tier  ${qualityTier}\n` +
-        `min   ${perfMinFps === Infinity ? '—' : perfMinFps.toFixed(0)}fps @${perfWorstCalls}c/${(perfWorstTris / 1000).toFixed(0)}k\n` +
-        `p95   ${p95.toFixed(1)}ms`;
+        `fps   ${fpsAvg.toFixed(0)}  avg ${s.avgFps.toFixed(0)}\n` +
+        `min   ${s.minFps === Infinity ? '—' : s.minFps.toFixed(0)}fps @${s.worstCalls}c/${(s.worstTris / 1000).toFixed(0)}k\n` +
+        `max   ${s.maxFps ? s.maxFps.toFixed(0) : '—'}fps   p95 ${s.p95Ms.toFixed(1)}ms\n` +
+        `calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  tier ${qualityTier}\n` +
+        `gfx   ${gfx} · ${tone}`;
     }
     renderer.info.reset();
   }
