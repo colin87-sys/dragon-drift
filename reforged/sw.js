@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = '2115e879193f';                          // STAMP:VERSION
+const VERSION = 'b26d73b20d48';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './css/style.css',
@@ -20,6 +20,7 @@ const ASSETS = [
   './js/ambient.js',
   './js/analytics.js',
   './js/angelWing.js',
+  './js/arenaSkin.js',
   './js/ascension.js',
   './js/atmosphere.js',
   './js/biomeBoss.js',
@@ -47,6 +48,7 @@ const ASSETS = [
   './js/bossWeftwitch.js',
   './js/buildId.js',
   './js/cameraController.js',
+  './js/canyonMath.js',
   './js/collision.js',
   './js/composer.js',
   './js/config.js',
@@ -114,12 +116,14 @@ const ASSETS = [
   './js/obstacles.js',
   './js/particles.js',
   './js/pbMarker.js',
+  './js/perfStats.js',
   './js/pilotScreen.js',
   './js/player.js',
   './js/postfx.js',
   './js/powerups.js',
   './js/preview.js',
   './js/propAO.js',
+  './js/propFoam.js',
   './js/recap.js',
   './js/records.js',
   './js/reticle.js',
@@ -136,7 +140,9 @@ const ASSETS = [
   './js/sfxLoudness.js',
   './js/sfxRender.js',
   './js/showcaseBackdrop.js',
+  './js/skyClouds.js',
   './js/skyProbe.js',
+  './js/speedStreaks.js',
   './js/splash.js',
   './js/surface.js',
   './js/titles.js',

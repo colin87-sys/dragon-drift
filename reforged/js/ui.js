@@ -683,9 +683,20 @@ export const ui = {
     }
     lastShownScore = shownScore;
 
-    // Anime speed-lines: fade in with speed (boost/orb), CSS-only.
+    // Anime speed-lines: fade in with speed (boost/orb), CSS-only. Inside the spine
+    // SPEED TUNNEL (slipstream active) they ignite far earlier and drive to full for
+    // the need-for-speed rush.
     const sn = Math.min(Math.max((player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed), 0), 1);
-    const slOpacity = Math.min(Math.max((sn - 0.45) * 1.4, 0), 0.8);
+    // fxMix = slip × local rib-wall presence: it drops to 0 in a rib-free bridged gap,
+    // so the flat CSS lines fade out there (the premium world-space streaks lead) and
+    // the tunnel cap is trimmed to 0.8 so those streaks aren't drowned by CSS glare.
+    // Continuous by construction (no 1/0 seam): the tunnel layer scales by the smoothed
+    // fx envelope, so as it releases the opacity slides back to the plain speed-line
+    // formula rather than jumping between two branches at fx≈0.
+    const fx = player.tunnelFxMix || 0;
+    const outside = Math.min(Math.max((sn - 0.45) * 1.4, 0), 0.8);
+    const tunnel = Math.min(Math.max((sn - 0.15) * 1.8, 0), 0.8) * Math.min(1, fx * 2);
+    const slOpacity = Math.max(outside, tunnel);
     if (Math.abs(slOpacity - lastSpeedlines) > 0.02) {
       els.speedlines.style.opacity = slOpacity;
       lastSpeedlines = slOpacity;
@@ -1780,6 +1791,26 @@ export const ui = {
           ${gfxToggle('atmosphere')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">SKY CLOUDS</div>
+          <p class="sub">Drifting procedural clouds with sun-lit silver edges. Deepest in the Sanctuary &amp; Amber Wastes. (Experimental.)</p>
+          ${gfxToggle('skyClouds')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">OCEAN SWELL</div>
+          <p class="sub">The sea surface rolls with a real swell — a living, undulating horizon instead of a flat line. (Experimental.)</p>
+          ${gfxToggle('waterSwell')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">WATER DEPTH</div>
+          <p class="sub">The sea reads as having volume — dark in the deeps, bright where you look straight down. (Experimental.)</p>
+          ${gfxToggle('waterDepth')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">SHORE FOAM</div>
+          <p class="sub">Broken foam collars where the waves meet the towers &amp; crystals — welds them into the sea. (Experimental.)</p>
+          ${gfxToggle('waterFoam')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">SMOOTH GRADIENTS</div>
           <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
           ${gfxToggle('dither')}
@@ -1788,6 +1819,11 @@ export const ui = {
           <div class="settings-label">FAST PARTICLES</div>
           <p class="sub">Lighter spark/burst effects for weaker devices — looks the same. Reloads to apply.</p>
           ${gfxToggle('particleBatch')}
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">PERFORMANCE HUD</div>
+          <p class="sub">On-screen fps &amp; frame-time readout, plus which experimental effects are active — for testing the graphics settings. No effect on the game.</p>
+          ${gfxToggle('perfHud')}
         </div>
         <div class="settings-group">
           <div class="settings-label">MODEL DETAIL</div>

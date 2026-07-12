@@ -47,6 +47,7 @@ export const game = {
   goldEmbersRun: 0,    // golden embers caught this run
   gauntletsClearedRun: 0,
   inCanyon: false,     // inside a Sky Canyon run → vertical ceiling is active
+  canyonRun: null,     // 'spine' | 'rock' while inCanyon → spine-only slipstream (E5)
   inBoss: false,       // inside a boss encounter → hazards suppressed, boost locked
   bossArenaHW: null,   // narrowed arena half-width during a constriction showpiece (null = full lane)
   bossesDefeatedRun: 0,// bosses slain this run
@@ -131,6 +132,7 @@ export const game = {
     this.goldEmbersRun = 0;
     this.gauntletsClearedRun = 0;
     this.inCanyon = false;
+    this.canyonRun = null;
     this.inBoss = false;
     this.bossArenaHW = null;
     this.bossesDefeatedRun = 0;

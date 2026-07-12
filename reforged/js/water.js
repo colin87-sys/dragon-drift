@@ -13,6 +13,24 @@ import { atmosUniforms } from './atmosphere.js';
 let water = null;          // current mesh (Reflector or plain Mesh)
 let sceneRef = null;
 let reflective = false;
+let swellOn = false;        // N10a: whether the surface geometry is subdivided + displaced
+let geomTier = 0;           // N10a: subdivision LOD (0 densest, 2 flat)
+let depthOn = false;        // N10b: whether the Beer–Lambert depth mix is active
+// N11 — the mirror is no longer tier-0-only. tier0 keeps the crisp full-rate 768²
+// hero mirror; tier1 gets a cheaper 384² mirror rendered every OTHER frame (specular
+// changes slowly) so mid-range phones keep a reflection; tier2 stays the cheap
+// analytic quad. `halfRate` + `_parity` (bumped once per presented frame in
+// updateWater, NOT per draw) gate the skip. The far-plane clamp (below) trims the
+// mirror frustum to the fog wall on both reflective tiers.
+let mirrorRes = 768;        // N11: 768 (tier0) / 384 (tier1)
+let halfRate = false;       // N11: tier1 renders the mirror on even parity only
+let _parity = 0;            // per-presented-frame counter (updateWater)
+let reflFar = true;         // N11: mirror far-plane clamp (kill via ?reflfar=0 for A/B)
+function applyReflTier(tier) {
+  reflective = tier <= 1;
+  mirrorRes = tier === 0 ? 768 : 384;
+  halfRate = tier === 1;    // (on,res) uniquely determines this: (T,768)=t0 (T,384)=t1 (F,384)=t2
+}
 
 const SIZE_W = 520;
 const SIZE_L = 1700;
@@ -20,6 +38,13 @@ const SIZE_L = 1700;
 const sharedUniforms = {
   time: { value: 0 },
   waveAmp: { value: 1.0 },
+  uSwellAmp: { value: 0 }, // N10a: 0 = flat plane (shipped); 1 = swell displacement on
+  // N10b fake Beer–Lambert depth: uAbsorbOn 0 = shipped height-driven mix; 1 = the
+  // view-angle transmittance mix. uAbsorbK = extinction × virtual-bottom depth (one
+  // folded uniform), derived per biome in setWaterTint. Both MUST live here or they
+  // vanish on the reflective↔cheap/swell rebuild (rebuildWater carries sharedUniforms).
+  uAbsorbOn: { value: 0 },
+  uAbsorbK: { value: 0.45 },
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -37,17 +62,37 @@ const sharedUniforms = {
   fogFar: { value: 380 },
 };
 
+// N10a — the long ROLLING SWELL that physically displaces the surface geometry
+// (the "living horizon"). ONE definition drives the vertex GLSL AND the JS port
+// (waterSurfaceHeight) so they can never drift — the contact shadow rides the exact
+// height the GPU draws. Deviation from the roadmap's "same wave() octaves": only the
+// long swell (λ≈105m) is displaced; the 3 short shading octaves (λ 3.7–12.6m) are
+// below the vertex-grid Nyquist and would crawl, so they stay fragment-only (normals).
+// NOTE: these are template-interpolated into GLSL (here + propFoam.js). Keep every
+// value FRACTIONAL — an integral value (e.g. amp:1) would emit `... * 1 * sin(...)`,
+// a GLSL ES int/float type error. All current values have a decimal point.
+export const SWELL = { dirx: 0.723, dirz: 0.691, freq: 0.06, amp: 0.6, speed: 0.28 };
+
 const vertexShader = /* glsl */`
+  uniform float time, waveAmp, uSwellAmp;
   varying vec3 vWorldPos;
   #ifdef USE_REFLECTION
     uniform mat4 textureMatrix;
     varying vec4 vUvProj;
   #endif
+  float _swellH(vec2 p) {
+    return waveAmp * ${SWELL.amp} * sin(dot(p, vec2(${SWELL.dirx}, ${SWELL.dirz})) * ${SWELL.freq} + time * ${SWELL.speed});
+  }
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
-    vWorldPos = wp.xyz;
+    float h = uSwellAmp * _swellH(wp.xz);   // 0 exactly when off → shipped flat plane
+    wp.y += h;
+    vWorldPos = wp.xyz;                       // AFTER displacement (fresnel/V/fog use the true point)
     #ifdef USE_REFLECTION
-      vUvProj = textureMatrix * vec4(position, 1.0);
+      // A3: sample the reflection at the DISPLACED surface point, else reflections
+      // swim against the swell. Plane is rotated -PI/2 (pure rotation): feeding h as
+      // the local-z of the projection sample maps to the same world +y as wp.y += h.
+      vUvProj = textureMatrix * vec4(position.xy, h, 1.0);
     #endif
     gl_Position = projectionMatrix * viewMatrix * wp;
   }`;
@@ -62,6 +107,7 @@ const fragmentShader = /* glsl */`
   // correct in the mirror; identity when uAtmosInscatter is 0.
   uniform vec3 uAtmosSunDir, uAtmosSunTint;
   uniform float uAtmosInscatter;
+  uniform float uAbsorbOn, uAbsorbK; // N10b depth (0 = shipped height-driven mix)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -93,8 +139,14 @@ const fragmentShader = /* glsl */`
     float NdotV = max(dot(N, V), 0.0);
     float fresnel = 0.04 + 0.96 * pow(1.0 - NdotV, 5.0);
 
-    // Base water body: shallows pick up light at glancing wave faces.
-    vec3 base = mix(deepColor, shallowColor, clamp(0.5 + h * 1.4, 0.0, 1.0) * 0.55);
+    // Base water body: shallows pick up light at glancing wave faces (shipped mix).
+    float tH = clamp(0.5 + h * 1.4, 0.0, 1.0) * 0.55;
+    // N10b fake Beer-Lambert: trans = fraction of virtual-bottom light that survives
+    // the slant view-path (depth / V.y). Look-down -> short path -> bright shallows;
+    // glancing -> long path -> dark deeps. Gated in the mix-FACTOR domain so
+    // uAbsorbOn=0 is byte-identical to the shipped height mix.
+    float trans = exp(-uAbsorbK / max(V.y, 0.05));
+    vec3 base = mix(deepColor, shallowColor, mix(tH, trans, uAbsorbOn));
 
     vec3 refl;
     #ifdef USE_REFLECTION
@@ -158,6 +210,16 @@ const fragmentShader = /* glsl */`
     #include <colorspace_fragment>
   }`;
 
+// N10a: one geometry factory. Flat single quad (today's exact geometry) when swell
+// is off or on tier2 → byte-identical shipped surface; subdivided when swell is on
+// (uniform grid: tier0 96×160 ≈ 30k tris one draw, tier1 48×80). frustumCulled is
+// disabled on the mesh, so the flat bounding sphere is fine for the displaced grid.
+function makeWaterGeometry() {
+  if (!swellOn || geomTier >= 2) return new THREE.PlaneGeometry(SIZE_W, SIZE_L);
+  const [xs, zs] = geomTier === 0 ? [96, 160] : [48, 80];
+  return new THREE.PlaneGeometry(SIZE_W, SIZE_L, xs, zs);
+}
+
 function buildReflective() {
   const shader = {
     name: 'DragonWaterReflective',
@@ -170,12 +232,13 @@ function buildReflective() {
     vertexShader,
     fragmentShader,
   };
-  // Tier 0 is the only reflective tier, so the hero mirror can afford a sharper
-  // render target — 768² keeps reflected props/dragon crisp instead of mushy.
-  const mesh = new Reflector(new THREE.PlaneGeometry(SIZE_W, SIZE_L), {
+  // N11: tier0 = 768² (crisp hero mirror), tier1 = 384² (cheaper, the quarter-area
+  // RT + half-rate roughly quarter the mirror's per-frame cost). textureWidth is a
+  // construction-time Reflector option, so the resolution swap rides the rebuild seam.
+  const mesh = new Reflector(makeWaterGeometry(), {
     shader,
-    textureWidth: 768,
-    textureHeight: 768,
+    textureWidth: mirrorRes,
+    textureHeight: mirrorRes,
     clipBias: 0.02,
     multisample: 0,
   });
@@ -184,12 +247,31 @@ function buildReflective() {
   // Mirror pass renders gameplay layer 0 only — sprite clutter (trails,
   // particles, aura) lives on layer 1 and is excluded from the reflection.
   mesh.camera.layers.set(0);
-  // Let callers (the god-ray occlusion mask) skip the expensive mirror render
-  // when the water is being drawn purely as a black occluder.
   const origOBR = mesh.onBeforeRender;
   mesh.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+    // Callers (the god-ray occlusion mask) suspend the mirror when the water is drawn
+    // purely as a black occluder.
     if (_reflectSuspended) return;
+    // N11 half-rate (tier1): skip the mirror render on odd frames — the water keeps
+    // last frame's RT. Skipping the whole origOBR also freezes the textureMatrix,
+    // which is CORRECT: a stale texture with its matching stale matrix. (Updating the
+    // matrix on skip frames would make the reflection swim.)
+    if (halfRate && (_parity & 1)) return;
+    // N11 far-plane clamp: trim the mirror frustum to the fog wall (fogFar+50 —
+    // everything beyond is 100% fogged, so it's visually identical but a much smaller
+    // frustum to cull/draw against). The Reflector copies the MAIN camera's projection
+    // (not the mirror camera's), so clamp the incoming camera and restore it
+    // unconditionally. Read the LIVE per-material fogFar (sharedUniforms is stale
+    // between rebuilds; updateWater writes the material clone).
+    let savedFar = 0, clamped = false;
+    if (reflFar) {
+      savedFar = camera.far;
+      const ffU = this.material.uniforms.fogFar;
+      const nf = Math.min(savedFar, (ffU ? ffU.value : savedFar) + 50);
+      if (nf < savedFar) { camera.far = nf; camera.updateProjectionMatrix(); clamped = true; }
+    }
     origOBR.call(this, renderer, scene, camera, geometry, material, group);
+    if (clamped) { camera.far = savedFar; camera.updateProjectionMatrix(); }
   };
   return mesh;
 }
@@ -206,54 +288,127 @@ function buildCheap() {
     vertexShader,
     fragmentShader,
   });
-  return new THREE.Mesh(new THREE.PlaneGeometry(SIZE_W, SIZE_L), mat);
+  return new THREE.Mesh(makeWaterGeometry(), mat);
 }
 
-export function createWater(scene, useReflection) {
-  sceneRef = scene;
-  reflective = useReflection;
-  water = useReflection ? buildReflective() : buildCheap();
+function spawnWater() {
+  water = reflective ? buildReflective() : buildCheap();
   // N8 PR B: attach the SHARED atmosphere uniform objects by reference on the
   // CONSTRUCTED material — after buildCheap's clone AND the Reflector's own second
-  // internal UniformsUtils.clone. Runs on every tier rebuild (createWater is
-  // re-called by setWaterReflective), so the water always reads live atmosphere
-  // values. Deliberately NOT in sharedUniforms (that gets cloned + carry-looped).
+  // internal UniformsUtils.clone. Deliberately NOT in sharedUniforms (that gets cloned).
   Object.assign(water.material.uniforms, atmosUniforms);
+  water.material.uniforms.uSwellAmp.value = swellOn ? 1 : 0; // 0 keeps the flat plane exact
+  water.material.uniforms.uAbsorbOn.value = depthOn ? 1 : 0; // N10b: 0 keeps the shipped height mix
   water.rotation.x = -Math.PI / 2;
   water.position.y = 0;
   water.frustumCulled = false;
-  scene.add(water);
+  sceneRef.add(water);
 }
 
-// Rebuild on tier boundary crossings (rare; hysteresis in the quality system
-// keeps this from thrashing).
-export function setWaterReflective(useReflection) {
-  if (!sceneRef || useReflection === reflective) return;
+// One rebuild seam (A5) keyed on the current {reflective, swellOn, geomTier} state,
+// carrying the live tint/fog through sharedUniforms. Called on first create and on
+// every reflective / swell / LOD boundary crossing (all rare — quality hysteresis).
+function rebuildWater() {
+  if (!sceneRef) return;
   const old = water;
-  // Carry current tint into the rebuild.
-  const u = old.material.uniforms;
-  for (const k of Object.keys(sharedUniforms)) {
-    const sv = sharedUniforms[k].value;
-    if (sv && sv.copy) sv.copy(u[k].value);
-    else sharedUniforms[k].value = u[k].value;
+  if (old) {
+    const u = old.material.uniforms;
+    for (const k of Object.keys(sharedUniforms)) {
+      const sv = sharedUniforms[k].value;
+      if (sv && sv.copy) sv.copy(u[k].value);
+      else sharedUniforms[k].value = u[k].value;
+    }
+    sceneRef.remove(old);
+    if (old.dispose) old.dispose();
+    else old.material.dispose();
+    old.geometry.dispose();
   }
-  sceneRef.remove(old);
-  if (old.dispose) old.dispose();
-  else old.material.dispose();
-  old.geometry.dispose();
-  createWater(sceneRef, useReflection);
+  _parity = 0; // N11: render the fresh mirror on the next frame (never present its black initial RT)
+  spawnWater();
+}
+
+// N11: the second arg is now a quality TIER (0/1/2), not a boolean — it selects
+// reflective-on + mirror resolution + half-rate together.
+export function createWater(scene, tier) {
+  sceneRef = scene;
+  applyReflTier(tier);
+  rebuildWater();
+}
+
+// Tier crossing (rare; quality hysteresis prevents thrashing). Rebuilds only when the
+// reflective state OR the mirror resolution actually changes — a tier0↔tier1 swap is
+// both reflective, so keying on `reflective` alone would leave the mirror at the wrong
+// resolution; the `mirrorRes` half of the key catches it.
+export function setWaterReflective(tier) {
+  const wasOn = reflective, wasRes = mirrorRes;
+  applyReflTier(tier);
+  if (!sceneRef || (reflective === wasOn && mirrorRes === wasRes)) return;
+  rebuildWater();
+}
+
+// N11: mirror far-plane clamp kill-switch (?reflfar=0) for the A/B — live, no rebuild.
+export function setWaterReflFar(on) { reflFar = !!on; }
+// N11 test/debug introspection for the tier truth table (read-only snapshot).
+export function waterReflState() {
+  return { reflective, mirrorRes, halfRate, parity: _parity, reflFar,
+    isReflector: !!(water && water.isReflector) };
+}
+
+// N10a: the SWELL toggle (Settings / ?swell). Rebuilds to the subdivided (on) or
+// flat (off) geometry; off is byte-identical to the shipped water (1×1 + uSwellAmp=0).
+export function setWaterSwell(on) {
+  on = !!on;
+  if (on === swellOn) return;
+  swellOn = on;
+  rebuildWater();
+}
+
+// N10a: subdivision LOD from applyQuality. Rebuilds only when the geometry would
+// actually change (swell on, and a real tier boundary — not flat↔flat at tier2).
+export function setWaterSwellQuality(tier) {
+  if (tier === geomTier) return;
+  const wasFlat = geomTier >= 2, nowFlat = tier >= 2;
+  geomTier = tier;
+  if (swellOn && !(wasFlat && nowFlat)) rebuildWater();
+}
+
+// N10b: the WATER DEPTH toggle (Settings / ?depth). A live uniform flip — no rebuild
+// (uAbsorbOn=0 is byte-identical to the shipped height mix; runs on every tier incl.
+// the flat tier2 quad).
+export function setWaterDepth(on) {
+  depthOn = !!on;
+  if (water) water.material.uniforms.uAbsorbOn.value = depthOn ? 1 : 0;
 }
 
 export function updateWater(dt, playerDist, time, fog) {
   if (!water) return;
+  _parity++; // N11: one bump per PRESENTED frame drives the half-rate mirror parity
   water.position.z = -playerDist - 250;
   const u = water.material.uniforms;
   u.time.value = time;
+  u.uSwellAmp.value = swellOn ? 1 : 0; // belt-and-braces after any rebuild
+  u.uAbsorbOn.value = depthOn ? 1 : 0; // N10b live toggle (no rebuild needed)
   if (fog) {
     u.fogColor.value.copy(fog.color);
     u.fogNear.value = fog.near;
     u.fogFar.value = fog.far;
   }
+}
+
+// N10a — the JS port of the vertex swell (the SAME SWELL constant), evaluated at a
+// world (x,z) with the material's live time + waveAmp. The contact-shadow plane
+// rides this so it sits ON the crests instead of clipping through them. Returns 0
+// when swell is off or water absent → the shadow stays at its shipped height.
+// N10c: the foam collars ride the same swell — expose its on/off state so the foam
+// shader displaces in lockstep (waterSurfaceHeight is a per-point probe, not a flag).
+export function getWaterSwellOn() { return swellOn; }
+export function getWaterDepthOn() { return depthOn; } // perf-HUD gfx readout
+
+export function waterSurfaceHeight(x, z) {
+  if (!swellOn || !water) return 0;
+  const u = water.material.uniforms;
+  return u.waveAmp.value * SWELL.amp *
+    Math.sin((x * SWELL.dirx + z * SWELL.dirz) * SWELL.freq + u.time.value * SWELL.speed);
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
@@ -267,4 +422,15 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fog
   if (zenith) u.zenithColor.value.copy(zenith);
   if (waveAmp !== undefined) u.waveAmp.value = waveAmp;
   if (fogFarColor) u.fogFarColor.value.copy(fogFarColor);
+  // N10b: derive the extinction×depth per biome from the (lerped) deep/shallow
+  // colours — the darker the deeps read relative to the shallows, the murkier the
+  // water absorbs. No new biome fields; free biome-seam smoothness.
+  if (deep && shallow) u.uAbsorbK.value = absorbKFromColors(deep, shallow);
+}
+
+// Rec.709 relative luminance heuristic → a murkier (darker-deep) biome absorbs faster.
+const _lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+function absorbKFromColors(deep, shallow) {
+  const murk = Math.max(0, Math.min(1, 1 - _lum(deep) / Math.max(_lum(shallow), 0.02)));
+  return 0.35 + 0.5 * murk;
 }

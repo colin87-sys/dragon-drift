@@ -125,12 +125,33 @@ export const CONFIG = {
   canyonGapW: 4.4,            // half-width of the safe opening (≥ gateGapW)
   canyonGapH: 3.9,            // half-height of the safe opening (≥ gateGapH)
   canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
-  canyonSegments: [8, 11],    // a Rock Run sustains ~8-11s of enclosed canyon then opens up
-  spineSegments: [13, 16],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
+  canyonSegments: [9, 13],    // a Rock Run sustains ~9-13 gates of enclosed canyon then opens up
+                              // (longer than [8,11] so the weave+boost cadence sustains, fewer dead beats)
+  spineSegments: [15, 19],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
+                              // (longer than [13,16] so it reads as a sustained speed tunnel)
+  canyonSpineSlip: 1.40,      // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not
+                              // rock). Steering co-scales by the SAME factor so every reachability
+                              // ratio (and the whole canyonflow audit) stays exactly valid — the
+                              // world rushes faster, the inputs stay identical relative to it.
+  canyonSlipEase: 2.0,        // per-second damp rate toward the slip target (smooth in/out at seams)
+  canyonSpineSwayAmp: 2.6,    // lateral SWEEP of the rib tube between rings (0 at each ring so a
+                              // perfect stays dead-centre; peaks at the seams, sign-flips per section
+                              // → one long gentle S-curve, the racing-tunnel feel). Slope-budgeted.
   spineFinaleSegs: 6,         // the closing STRAIGHT rib tunnel — a boost in each segment (~6-8s)
   canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
   canyonIntervalJitter: 1100,
   canyonFirstAt: 900,         // earliest a canyon can begin (past the tutorial)
+  // Decompression buffers: no Phase Gate (crystal wall) in the approach just
+  // before a canyon MOUTH, nor for a stretch AFTER the exit — so bursting out of
+  // a rib finale at full boost never dumps you straight into a blind, off-line
+  // crystal wall (phase-or-crash). The exit buffer is sized so even a speed-stat
+  // dragon boosting out (orb speed ~108-125 m/s) meets the next wall in open air,
+  // in view, after boost decay has begun (carry ~170-195m + ≥90m readability).
+  canyonEntryBuffer: 120,     // metres of gate-free approach before a canyon mouth
+  canyonExitBuffer: 400,      // metres of gate-free open air after a canyon exit (400, was
+                              // 380/350: as the spine slip dial climbs (now 1.40 → boost-out
+                              // peak ~151 m/s) this keeps ~3.4s of readable open air before
+                              // the first post-exit crystal wall)
   canyonFadeNear: 1,          // dz where a rock has fully dissolved (at camera)
   canyonFadeFar: 16,          // dz where a rock is fully solid again
   // Vertical limit (active ONLY inside a canyon run): you can't climb over the
@@ -142,6 +163,19 @@ export const CONFIG = {
   canyonGapYLo: 5.5,
   canyonGapYHi: 19,
   canyonCeilingDamage: 12,    // chip on scraping the ceiling (gentle, like ground)
+  // Rock Run "carved slot" (v2): a threaded, gently-swayed single channel (like the
+  // ribcage), instead of the old teleporting double-wall slalom with overhead-arch
+  // ducks. One axis at a time — the vertical squeeze stays the 'overunder' beat.
+  canyonRockV2: true,         // false = byte-identical old stackRun geometry (rollback flip)
+  canyonSwayAmp: 6.5,         // sway CAP (m); per-half adaptive trim keeps it under the slope + lane budgets.
+                              // High so the weave is FELT — the corner can't be cut (amp > channel half-width).
+                              // 6.5 (was 5.5) gives the rock run more banking spectacle where headroom exists;
+                              // the solved lane/slope caps still trim it, so the flow audit stays green.
+  canyonPinchHalf: 4.0,       // channel half-width at the ring approach (tight so the sway amplitude
+                              // exceeds the half-width → the corner physically can't be cut)
+  canyonBreathOpen: 1.0,      // extra half-width at the seams. KEPT SMALL so the channel at the sway peak
+                              // (the seam) stays NARROWER than the sway amplitude — otherwise the slot opens
+                              // exactly where the curve turns and you can fly straight through (self-cancel).
 
   // Endless generation
   spawnAhead: 500,

@@ -224,11 +224,28 @@ export function buildUnmasked(def, quality = 1) {
   fissureGlowMat.toneMapped = false;
   const fissureDarkMat = track(new THREE.MeshBasicMaterial({ color: 0x040302, transparent: true, opacity: 0, depthWrite: false }));
   fissureDarkMat.toneMapped = false;
-  const fissureGlow = new THREE.Mesh(buildFissure(0.10, 0.34, EYE_Z + 0.95), fissureGlowMat);   // z 1.35 — gold bleed on the black disc
+  const fissureGlow = new THREE.Mesh(buildFissure(0.16, 0.52, EYE_Z + 0.95), fissureGlowMat);   // z 1.35 — a WIDE gold bleed on the black disc (bold at fight distance)
   fissureGlow.name = 'heroFissureGlow';
-  const fissureDark = new THREE.Mesh(buildFissure(0.05, 0.17, EYE_Z + 1.05), fissureDarkMat);    // z 1.45 — in FRONT of the eye front-face (~1.3): a dark split across the sclera
+  const fissureDark = new THREE.Mesh(buildFissure(0.09, 0.30, EYE_Z + 1.05), fissureDarkMat);    // z 1.45 — in FRONT of the eye front-face (~1.3): a BOLD dark split across the sclera
   fissureDark.name = 'heroFissure';
-  stage1.add(fissureGlow); stage1.add(fissureDark);
+  // A SECOND forked branch off the main fault (a crack SPLINTERS, not one clean line) — a shorter
+  // diagonal crossing the eye the other way, so the read is unmistakably "the eye is cracking".
+  const branchPath = [[-0.6, 2.4], [-0.2, 1.0], [0.4, -0.2], [1.1, -1.6], [1.8, -2.9]];
+  const buildBranch = (hw, z) => {
+    const pos = [], idx = []; let vc = 0;
+    for (let i = 0; i < branchPath.length - 1; i++) {
+      const [ax, ay] = branchPath[i], [bx, by] = branchPath[i + 1];
+      const t = 1 - i / (branchPath.length - 1), w = hw * (0.35 + 0.65 * t);   // widest at the root, tapering to the tip
+      const dx = bx - ax, dy = by - ay, dl = Math.hypot(dx, dy) || 1, ox = -dy / dl * w, oy = dx / dl * w;
+      pos.push(ax + ox, ay + oy, z, ax - ox, ay - oy, z, bx + ox, by + oy, z, bx - ox, by - oy, z);
+      idx.push(vc, vc + 1, vc + 2, vc + 1, vc + 3, vc + 2); vc += 4;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); return g;
+  };
+  const branchGlow = new THREE.Mesh(buildBranch(0.34, EYE_Z + 0.95), fissureGlowMat);
+  const branchDark = new THREE.Mesh(buildBranch(0.20, EYE_Z + 1.05), fissureDarkMat);
+  stage1.add(fissureGlow); stage1.add(fissureDark); stage1.add(branchGlow); stage1.add(branchDark);
 
   // ── THE SHATTER BACKLIGHT (S1→S2): at the shatter, white light FLOODS from behind the
   // silhouette — ONE bounded additive disc STRICTLY behind the silhouette plane (§2: backlight
@@ -239,7 +256,7 @@ export function buildUnmasked(def, quality = 1) {
   const backPos = [0, 0, 0], backCol = [1, 1, 1], backIdx = [];
   for (let i = 0; i <= backSeg; i++) {
     const a = (i / backSeg) * TAU;
-    backPos.push(Math.cos(a) * DISC_R * 1.2, Math.sin(a) * DISC_R * 1.2, 0);
+    backPos.push(Math.cos(a) * DISC_R * 1.45, Math.sin(a) * DISC_R * 1.45, 0);
     backCol.push(0, 0, 0);
   }
   for (let i = 1; i <= backSeg; i++) backIdx.push(0, i, i + 1);
@@ -259,9 +276,9 @@ export function buildUnmasked(def, quality = 1) {
   // additive chip). Parented to `rig`; a PRIVATE seed keeps the main `rnd` stream untouched (the
   // seraph stays byte-identical). Driven as a pure function of the morph in setStageMorph. ──
   const shrnd = mulberry32(0x51a2d0f);
-  const NSHARD = lowQ ? 7 : 12;
+  const NSHARD = lowQ ? 10 : 16;
   const shardMat = track(new THREE.MeshStandardMaterial({ color: 0x060507, roughness: 1.0, metalness: 0.0, flatShading: true }));
-  const shardGeo = stripForMerge(new THREE.TetrahedronGeometry(0.55, 0));
+  const shardGeo = stripForMerge(new THREE.TetrahedronGeometry(0.82, 0));
   const shards = [];
   for (let i = 0; i < NSHARD; i++) {
     const sh = new THREE.Mesh(shardGeo, shardMat);
@@ -862,7 +879,7 @@ export function buildUnmasked(def, quality = 1) {
     // STRAIN: the mask SWELLS (inhale) 1.0→1.05, then COLLAPSES to nothing inside the flash.
     stage1.scale.setScalar(Math.max(1e-4, (1 + 0.05 * shatterK) * (1 - collapse)));
     // THE CRACK: born at STILL, propagates to PROP, flares through STRAIN, dies at SHATTER.
-    const crackO = smooth(KM.still, KM.prop, m) * (1 - smooth(KM.strain + 0.02, KM.shatter, m));
+    const crackO = smooth(KM.still, KM.prop, m) * (1 - smooth(KM.shatter - 0.06, KM.shatter, m));   // HOLD the fully-cracked eye right up to the shatter (it doesn't fade early)
     crackMat.opacity = crackO * 0.9;
     fissureDarkMat.opacity = Math.min(1, crackO * 1.4);           // the dark split across the sclera (reads first)
     fissureGlowMat.opacity = crackO * 0.9;                        // gold bleed on the disc
@@ -873,7 +890,7 @@ export function buildUnmasked(def, quality = 1) {
     // BACKLIGHT: leaks during STRAIN, FLASHES white at SHATTER, fades as the seraph blooms.
     const back = smooth(KM.strain, KM.shatter, m) * (1 - smooth(KM.shatter + 0.06, KM.eyes, m));
     backlight.visible = back > 0.002;
-    backMat.color.setScalar(back * 1.9);
+    backMat.color.setScalar(back * 2.9);   // a BRIGHT flood — the shatter is unmistakable
     // SHATTER SHARDS: fling radially out of the flash (pure function of m — scrub-safe, deterministic).
     const sp = smooth(KM.shatter, KM.eyes, m);
     for (const sh of shards) {
@@ -1018,6 +1035,17 @@ export function buildUnmasked(def, quality = 1) {
   // whole field, which is the point: the eyes go wrathful as ONE being).
   const IRIS_BASE = irisMat.color.clone();
   const CATCH_BASE = catchMat.color.clone();
+  const SCLERA_BASE = greatScleraMat.color.clone();   // ARENA (PR-B): the S3 focal-lift base (the star-eye/greatEye sclera)
+
+  // ── THE ARENA HEAVEN FOCAL LIFT (PR-B, identity-audit F-2): in THE UNVEILED HEAVEN the gold sky is
+  // BRIGHTER than the shipped S3 focal (star-eye sclera L .516 < heaven horizon .744), so unlifted the
+  // finale reads as "a mask on a sunset" (owner-rejected). heavenK (driven by boss.js as the unveil
+  // completes) raises the halo/starburst/star-eye emissive so the boss's light LEADS the world — the
+  // dark seraph is the shadow the light throws, but its FOCAL still reads. heavenK 0 ⇒ byte-identical
+  // (the halo/burst multipliers are ×1; the sclera/catch writes are heavenK>0-guarded). All TUNE.
+  let heavenK = 0;
+  const SCLERA_LIFT = 0.5, HALO_LIFT = 0.6, BURST_LIFT = 0.9, CATCH_LIFT = 0.8;
+  function setArenaHeaven(k) { heavenK = Math.max(0, Math.min(1, k)); }
 
   let charge = 0;
   function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
@@ -1214,8 +1242,17 @@ export function buildUnmasked(def, quality = 1) {
       // Settled floor 1.0 (survives fight distance) + the S2→S3 IGNITION FLASH (HDR ×burstFlash,
       // toneMapped off → blooms hard for ~0.6s then decays to the steady radiance).
       const pulse = 1.0 + Math.sin(time * 0.8 * TAU) * 0.15 + charge * 0.3 + burstFlash;
-      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse);       // the rays breathe hotter on charge (wrath) + flash on ignition
-      halo3Mat.color.copy(_c.set(def.accent)).multiplyScalar(0.8 + Math.sin(time * 0.5 * TAU) * 0.12);
+      // ARENA (PR-B) heaven lift, layered ON the ignition flash: ×1 at heavenK 0 (byte-identical floats).
+      // The halo/burst brighten so the radiance re-lengthens on the gold sky; the star-eye sclera +
+      // catchlights lift only when heavenK>0.
+      burstMat.color.copy(_c.set(def.accent)).multiplyScalar(pulse * (1 + heavenK * BURST_LIFT));       // wrath charge + ignition flash + heaven lift
+      halo3Mat.color.copy(_c.set(def.accent)).multiplyScalar((0.8 + Math.sin(time * 0.5 * TAU) * 0.12) * (1 + heavenK * HALO_LIFT));
+      if (heavenK > 0) {
+        greatScleraMat.color.copy(SCLERA_BASE).multiplyScalar(1 + heavenK * SCLERA_LIFT);   // the star-eye brightens past the sky (the focal re-takes §3-law-2)
+        catchMat.color.multiplyScalar(1 + heavenK * CATCH_LIFT);                            // composes with the per-frame catch write above; the seraph's eyes are the darkness's stars
+      } else if (greatScleraMat.color.getHex() !== SCLERA_BASE.getHex()) {
+        greatScleraMat.color.copy(SCLERA_BASE);   // one-frame restore on any heaven→off edge (dev re-pin) — byte-identical off the heaven
+      }
       starPupil.position.set(gazeX * SW * 0.3, gazeY * SH * 0.28, SD + 0.1);
       const sk = 1 - charge * 0.3;                                          // constrict on charge (the star-eye shares the wrath tell)
       starPupil.scale.set(SW * 0.42 * sk, SH * 0.5 * sk, 0.4);
@@ -1237,6 +1274,8 @@ export function buildUnmasked(def, quality = 1) {
     notice,
     allSnap,
     setBrandedRelics,
+    setArenaHeaven,
+    debugArenaLift: () => ({ k: heavenK, sclera: greatScleraMat.color.getHex() }),
     setDebugStage,
     setStageMorph,
     setStage3,
