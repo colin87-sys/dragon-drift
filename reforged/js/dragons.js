@@ -671,12 +671,12 @@ export const DRAGONS = {
     parts: { torso: 'sunhawk', wings: 'sunfeather', tail: 'sunfireTrail', head: 'sunhawkCrown', surface: { shader: [] } },
     stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
     hasStyle: true,        // keep its own white-gold trail colour even in Surge
-    feverWing: 0xffe6a8, feverEye: 0xfff2c8,
+    feverWing: 0xff8428, feverEye: 0xffcf6a,
     // Surge highlight = a HOT GOLD (not the near-white 0xfff8e8 default) so the wing/body fire flares
     // toward INCANDESCENT GOLD-FIRE, not a washed white slab — consistent with this dragon's warm-gold
     // feverWing/feverWash Rebirth identity, and it lets the wings glow bright while staying fire-hued.
-    surgeHi: 0xff6e12,
-    feverWash: [0.032, 0.024, 0.008],   // Rebirth screen wash: warm gold, kept LOW so the surge frame's exposure doesn't clip the (already-bright) fire wings to white
+    surgeHi: 0xff5a0c,
+    feverWash: [0.034, 0.017, 0.004],   // Rebirth screen wash: EMBER-orange (half the green/blue) + low, so the wash reads fire and never pushes the frame toward cream/white
     // Base model holds APEX reference dials; each form dials the ladder (cumulative).
     model: {
       scale: 1.18, wingScale: 1.3, flapBias: 0.9, flapAmp: 0.92,
@@ -698,7 +698,7 @@ export const DRAGONS = {
       // HARD (core blaze, spine flare, wing glow all scale by this) so the Surge reads as the fire getting
       // HOTTER + GOLDER (form stays readable), not a white detonation. The hue shift (flareColorWeight,
       // not sgm-scaled) still carries the "it's glowing" read.
-      surgeGlowMultiplier: 0.5,
+      surgeGlowMultiplier: 0.45,
     },
     forms: [
       // f0 EMBER HATCHLING — a warm charcoal chick: proud STUB keel, big head, ember crest,

@@ -1126,10 +1126,10 @@ export function updateDragon(dt, player, time) {
       const wi = m.userData.flareIntensityWeight ?? m.userData.flareWeight ?? 1;
       _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
       m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, (surgeMix * 0.85 + ignite * 0.4) * wc));
-      // A NEGATIVE flareIntensityWeight lets an already-bloom-bright mat DIM on Surge (so it stays a
-      // readable colour instead of clipping to white); clamp the factor ≥0.05 so the ignite spike can
-      // never drive it to a negative/black intensity.
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.05, 1 + (surgeMix * 0.9 + ignite * 1.6) * sgm * wi);
+      // A NEGATIVE flareIntensityWeight lets an already-bloom-bright mat DIM on Surge (so a DENSE field of
+      // emissive faces stays saturated fire instead of the bloom summing them to white). Clamp the factor
+      // ≥0.28 so a strongly-dimmed mat holds a steady deep glow and never black-blinks on the ignite spike.
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.12, 1 + (surgeMix * 0.9 + ignite * 1.6) * sgm * wi);
     }
   } else {
     for (const m of spineMats) {
