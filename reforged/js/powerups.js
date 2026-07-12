@@ -44,10 +44,14 @@ export function updatePowerups(dt, player, time) {
       const pulse = 4.5 + Math.sin(time * 4 + o.dist) * 0.9;
       o.glow.scale.set(pulse, pulse, 1);
 
+      // Swept capture on the frame we CROSS the orb's plane (lateral-only test), like
+      // rings.js. A per-frame sphere test steps clean over a dead-centre orb at speed:
+      // spine slipstream peaks ~135 m/s, and with the engine's 20fps rawDt floor that
+      // is ~6.75m/frame — the nearest sample to the orb plane can sit 3.4m away, past
+      // the 2.8m sphere, exactly on the weak-mobile devices we target.
       const dx = player.position.x - o.x;
       const dy = player.position.y - o.mesh.position.y;
-      const dz = player.dist - o.dist;
-      if (dx * dx + dy * dy + dz * dz < 2.8 * 2.8) {
+      if (player.prevDist < o.dist && player.dist >= o.dist && dx * dx + dy * dy < 2.8 * 2.8) {
         o.collected = true;
         o.flash = 1;
         player.orbTimer = CONFIG.orbDuration;

@@ -13,10 +13,11 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
+import { initSpeedStreaks, updateSpeedStreaks, resetSpeedStreaks } from './speedStreaks.js';
 import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
@@ -103,6 +104,12 @@ window.addEventListener('resize', () => {
 
 // --- Seeds: every run gets a fresh course; daily + challenge runs pin one.
 const urlParams = new URLSearchParams(window.location.search);
+// Preview convenience: ?rockrun / ?ribcage force that canyon type (level.js) AND
+// drop you straight into it — skip the tutorial, auto-launch, and warp to just
+// before the first forced canyon. For eyeballing the Sky Canyon on the PR preview.
+const PREVIEW_CANYON = urlParams.has('rockrun') ? 'rock'
+  : urlParams.has('ribcage') ? 'spine' : null;
+let previewLaunchPending = !!PREVIEW_CANYON;
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
 // Graphics effects: apply the player's saved Settings choices; a URL flag (?tm=,
@@ -125,7 +132,7 @@ if (urlParams.has('rush')) game.mode = 'rush';
 
 // A brand-new pilot's very first normal run is authored (scripted opening +
 // pinned seed) so the first ~90s is intentional, repeatable and QA-able.
-const isFirstFlight = () => game.mode === 'normal' && saveData.stats.runs === 0;
+const isFirstFlight = () => game.mode === 'normal' && saveData.stats.runs === 0 && !PREVIEW_CANYON;
 
 function seedForRun() {
   if (game.mode === 'daily') return dailySeed();
@@ -193,6 +200,7 @@ initObstacles(scene);
 initHazards(scene);
 initPowerups(scene);
 initParticles(scene);
+initSpeedStreaks(scene);
 initEmbers(scene);
 initGoldEmbers(scene);
 initBoss(scene);
@@ -233,13 +241,14 @@ function spawnAhead() {
     chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
     return;
   }
-  // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
-  // crystal window between rib sections reads unfair. Generator output is untouched
-  // (determinism-safe); we just don't spawn the flagged ones here.
-  const gateSuppress = chunk.canyonGateSuppress && chunk.canyonGateSuppress.length
-    ? new Set(chunk.canyonGateSuppress) : null;
+  // Any base obstacle (gate, pillar, shard, bar) whose dist lands inside a canyon run
+  // is skipped — an obstacle on the ring line inside the carved slot / rib tube is an
+  // undodgeable spike. Generator output is untouched (determinism-safe); we just don't
+  // spawn the flagged ones here.
+  const canyonSuppress = chunk.canyonObstacleSuppress && chunk.canyonObstacleSuppress.length
+    ? new Set(chunk.canyonObstacleSuppress) : null;
   chunk.obstacles.forEach((o) => {
-    if (gateSuppress && o.type === 'gate' && gateSuppress.has(o.dist)) return;
+    if (canyonSuppress && canyonSuppress.has(o.dist)) return;
     addObstacle(o);
   });
   chunk.orbs.forEach(addOrb);
@@ -928,6 +937,7 @@ function startGame(mode = 'normal') {
 let boostWasActive = false;
 let discardNextDelta = false;
 let currentBiome = 0;
+let fxEnv = 0;   // smoothed speed-tunnel FX envelope (fast attack, slow release) — feel-v5
 
 function restart(opts = {}) {
   // toMenu: reset the world but land on the START SCREEN (attract scene + rail)
@@ -943,6 +953,9 @@ function restart(opts = {}) {
   resetDragon(player);
   resetRings();
   resetObstacles();
+  resetSpeedStreaks();
+  fxEnv = 0;
+  sfx.slipstreamStop();
   resetHazards();
   resetPowerups();
   resetParticles();
@@ -1271,6 +1284,14 @@ function updateModelDetail(dt) {
 
 function tick() {
   requestAnimationFrame(tick);
+  // Preview auto-launch (?rockrun / ?ribcage): once the menu is ready, take off and
+  // warp to just before the first forced canyon so the link lands you right in it.
+  if (previewLaunchPending && game.state === 'ready') {
+    previewLaunchPending = false;
+    setBossDebugFirstAt(Infinity); // no boss interrupts while eyeballing the canyon (persists across restarts)
+    startGame('normal');
+    if (game.state === 'playing') player.dist = 250; // canyon is forced at ~340 → a short lead-in
+  }
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
   // drives every world/gameplay update.
   let rawDt = Math.min(clock.getDelta(), 0.05);
@@ -1279,6 +1300,9 @@ function tick() {
     rawDt = 0;
   }
   updateQuality(rawDt);
+  // The speed-tunnel wind only lives during active play (death/pause/menu silence it;
+  // start/exit are handled on the canyon crossings). Idempotent when already stopped.
+  if (game.state !== 'playing') sfx.slipstreamStop();
   updateModelDetail(rawDt);
 
   // Shop hero shot: hide the loose gameplay FX — collectible rings + the dragon's own
@@ -1349,10 +1373,11 @@ function tick() {
 
     // Sky Canyon boundaries: widen the chase cam through the run so the twisty
     // gaps read clearly, then restore. Counted so nested canyons stay balanced.
-    while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0]) {
-      pendingCanyonStarts.shift();
+    while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0].dist) {
+      game.canyonRun = pendingCanyonStarts.shift().run; // 'spine' | 'rock' → spine-only slipstream
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
+      if (game.canyonRun === 'spine') sfx.slipstreamStart(); // speed-tunnel wind
       // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
       // ("you're entering something ancient"). Subtle — within the juice budget.
       cameraCtl.shake(0.5);
@@ -1361,6 +1386,8 @@ function tick() {
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
       game.inCanyon = false;
+      game.canyonRun = null;
+      sfx.slipstreamStop();
       cameraCtl.setCanyon(false);
       // Exit burst: a puff of bone dust as you break out into open sky (release).
       burst(player.position, 0xe7dcc0, { count: 18, speed: 14, size: 1.0 });
@@ -1492,6 +1519,21 @@ function tick() {
     }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
+    const slipMix = Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, CONFIG.canyonSpineSlip - 1);
+    // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
+    // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
+    // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw
+    // slipMix, since you ARE still moving faster there. presence=1 inside any rib band.
+    // Keep sampling presence while the envelope is still decaying so the FX ease DOWN
+    // after slip hits zero (leaving the tunnel) instead of snapping off at the last band.
+    const wallPresence = (slipMix > 0.01 || fxEnv > 0.01) ? spineWallPresenceAt(player.dist) : 0;
+    const fxMix = slipMix * wallPresence;
+    // Smoothed envelope: fast attack (~0.3s), slow release (~0.9s) → the whole speed-FX
+    // family ramps up as you accelerate and fades gracefully leaving the tunnel, never 1/0.
+    fxEnv += (fxMix - fxEnv) * (1 - Math.exp(-(fxMix > fxEnv ? 6 : 1.8) * dt));
+    player.tunnelFxMix = fxEnv;               // streaks/postfx/ui.js all read this envelope
+    updateSpeedStreaks(player, fxEnv);
+    if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
     updateHazards(dt, player, t);
@@ -1547,7 +1589,8 @@ function tick() {
   }
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-  updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget());
+  updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
+    player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 
