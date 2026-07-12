@@ -96,8 +96,14 @@ function addPropDetail(mat) {
       .replace('void main() {', PROP_NOISE_HEAD)
       .replace('#include <color_fragment>', `#include <color_fragment>
         float _pn = _vnoise(vPropWPos * 0.5) * 0.6 + _vnoise(vPropWPos * 1.7) * 0.4;
-        diffuseColor.rgb *= 0.86 + 0.26 * _pn;
-        diffuseColor.rgb *= mix(1.0, vAO, uAO);   // N15 baked AO (gated; identity at uAO=0)`)
+        // Weathering noise × baked AO, FLOORED. Both are multiplicative darkeners; on a
+        // hemi-only-lit face (Frozen Reach ice-cone undersides get no sun + only the dark
+        // ground term) a dark noise cell (0.86) times the AO floor (0.58) crushes to ~0.50
+        // → near-black SPOTS (owner report). The floor caps the combined darkening so the
+        // dark/bright cell contrast collapses in that zone (spots dissolve) while sunlit
+        // faces keep the full weathered look. Identity-off is exact: at uAO=0 the AO term
+        // is 1.0 and 0.86+0.26*_pn ≥ 0.86 > 0.62, so the floor never engages.
+        diffuseColor.rgb *= max((0.86 + 0.26 * _pn) * mix(1.0, vAO, uAO), 0.62);   // N15 AO + weathering (floored)`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance *= 0.78 + 0.44 * _pn;`);
   };
@@ -313,10 +319,11 @@ const ARCHETYPES = {
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
 // prop's `d.r` (≈ the base geometry's XZ footprint radius + a small margin, so the
-// ring hugs where the prop meets the water). `false` = opt out (thin/non-circular
-// footprints — archruin's two legs, slab's thin wall — a round collar would float).
+// ring hugs where the prop meets the water). Thin/non-circular footprints — the
+// archruin's two legs, the slab's wall — get an ELLIPTICAL collar ({ rx, rz }) that
+// wraps the footprint instead of a round ring that would float on open water.
 const FOAM_CFG = {
-  tower: { r: 0.7 }, column: { r: 0.6 }, archruin: false, slab: false,
+  tower: { r: 0.7 }, column: { r: 0.6 }, archruin: { rx: 0.52, rz: 0.18 }, slab: { rx: 0.48, rz: 0.16 },
   obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },

@@ -28,6 +28,11 @@ decomp(mesh, 0);
 check(`active foam at waterline y≈0 (${_p.y.toFixed(3)})`, Math.abs(_p.y) < 1e-6);
 check(`active foam at prop xz (x ${_p.x.toFixed(1)}, z ${_p.z.toFixed(1)})`, Math.abs(_p.x - 20) < 1e-6 && Math.abs(_p.z + 150) < 1e-6);
 check(`active foam radius = d.r * foam.r (${_s.x.toFixed(3)} == ${(3 * 0.7).toFixed(3)})`, Math.abs(_s.x - 3 * 0.7) < 1e-6 && Math.abs(_s.z - 3 * 0.7) < 1e-6);
+// Elliptical collar for thin/non-circular props (archruin/slab): { rx, rz } scale
+// the ring per-axis in the prop's own x/z so it hugs the footprint, not a circle.
+writeFoamMatrix(mesh, 0, { x: 20, dist: 150, r: 3, rotY: 0, tilt: 0 }, { rx: 0.52, rz: 0.18 }, true);
+decomp(mesh, 0);
+check(`elliptical foam: rx≠rz applied per-axis (${_s.x.toFixed(3)}×${_s.z.toFixed(3)})`, Math.abs(_s.x - 3 * 0.52) < 1e-6 && Math.abs(_s.z - 3 * 0.18) < 1e-6);
 
 // --- 3. parking lockstep: !active OR opt-out (foam:false) → buried + zero-scale --
 writeFoamMatrix(mesh, 1, d, { r: 0.7 }, false); // prop parked (wrong biome)

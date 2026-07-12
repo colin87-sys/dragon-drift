@@ -6,6 +6,8 @@ import { writeFileSync } from 'fs';
 import { boot } from '../tests/browser.mjs';
 
 const label = process.argv[2] || 'new';
+const startDist = Number(process.argv[3] || 3500); // 3500=Frozen Reach, ~250=Sanctuary
+const minDist = Number(process.argv[4] || 3200);
 const VIEW = { width: 800, height: 1000 };
 const noSW = `if (navigator.serviceWorker) { navigator.serviceWorker.register = () => Promise.resolve({}); };\n`;
 const save = noSW + `localStorage.setItem('dragonDriftSave', JSON.stringify({
@@ -24,7 +26,7 @@ await page.evaluate(() => document.querySelector('#btn-start').click());
 await page.waitForFunction(() => window.__dd && window.__dd.game && window.__dd.game.state === 'playing', { timeout: 12000 });
 await page.evaluate(() => window.__dd.noBoss(true));
 
-const info = await page.evaluate(async () => {
+const info = await page.evaluate(async ({ START, MIN }) => {
   const dd = window.__dd;
   function nearest() {
     const cam = dd.camera.position; let best = 1e9;
@@ -44,13 +46,13 @@ const info = await page.evaluate(async () => {
   // recycle Frozen crystals into the window (a few rAF per step). Only freeze once
   // we're solidly in-biome AND a tall crystal sits close in the chase view.
   for (let step = 0; step < 90; step++) {
-    dd.player.dist = 3500 + step * 12;
+    dd.player.dist = START + step * 12;
     for (let f = 0; f < 3; f++) await new Promise(r => requestAnimationFrame(r));
-    if (dd.player.dist > 3200 && nearest() < 24) { dd.game.timeScale = 0; return { dist: dd.player.dist, near: nearest() }; }
+    if (dd.player.dist > MIN && nearest() < 24) { dd.game.timeScale = 0; return { dist: dd.player.dist, near: nearest() }; }
   }
   dd.game.timeScale = 0;
   return { dist: dd.player.dist, near: nearest() };
-});
+}, { START: startDist, MIN: minDist });
 await page.waitForTimeout(350);
 // Raw CDP capture — Playwright's page.screenshot() waits on document.fonts.ready,
 // which never resolves under the SW-block stub. CDP captures the frame directly.
