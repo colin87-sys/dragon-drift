@@ -53,8 +53,9 @@ function seraphFeather(root, dirAft, outb, len, wid, camber, plate, gild, dawn) 
   const g = new THREE.Group();
   const up = { x: 0, y: 1, z: 0 };
   const N = 4;
-  // width profile: broad near the base, tapering to a ROUNDED tip (never a needle)
-  const wof = (u) => wid * (Math.pow(Math.sin(Math.PI * Math.min(u * 0.92 + 0.08, 1)), 0.55) * (1 - 0.22 * u)) + 0.02;
+  // width profile: broad near the base, holding WIDTH toward a ROUNDED paddle tip (a fanned
+  // feather, not a hanging blade) — low taper so the tip reads full, never a needle.
+  const wof = (u) => wid * (Math.pow(Math.sin(Math.PI * Math.min(u * 0.86 + 0.14, 1)), 0.42) * (1 - 0.10 * u)) + 0.03;
   const rach = [];
   for (let i = 0; i <= N; i++) {
     const u = i / N;
@@ -113,8 +114,8 @@ function buildSeraphWing2(def, model, attach, giM) {
   const dih = (model.wingDihedralDeg ?? 14) * D2R;             // chase-cam knob
   const J0 = 0.34, J1 = 0.66;                                  // pivot→mid→tip (=carpal) splits
   // primary count grows up the ladder (5→8); dominant+decay
-  const nPrim = [4, 5, 6, 7][formLevel];   // fewer, LARGER, dominant primaries
-  const nSec  = [4, 4, 5, 6][formLevel];   // secondary bridge (closes the covert→primary gap)
+  const nPrim = [3, 4, 5, 6][formLevel];   // FEWER, larger, fanned dominant primaries (a feather group, not a fringe)
+  const nSec  = [4, 4, 5, 5][formLevel];   // secondary bridge (closes the covert→primary gap)
   const nCov  = [3, 3, 4, 4][formLevel];
 
   function buildSide(side) {
@@ -182,7 +183,7 @@ function buildSeraphWing2(def, model, attach, giM) {
     // laid so each vane OVERLAPS its neighbour ~45% (shingled plumage, not a picket comb),
     // raked AFT-in-plane with only a slight droop. Camber bows every feather so light
     // breaks across it. `dawnN` dominant feathers carry the withheld dawn rachis-seam.
-    const rank = (grp, ta, tb, n, o, lenScale, camber, dawnN, plateMat) => {
+    const rank = (grp, ta, tb, n, o, lenScale, camber, fan, dawnN, plateMat) => {
       for (let i = 0; i < n; i++) {
         const f = n > 1 ? i / (n - 1) : 0;
         const t = ta + (tb - ta) * f;
@@ -190,12 +191,12 @@ function buildSeraphWing2(def, model, attach, giM) {
         const root = O(rear(t), o);
         root.y += 0.026 * i;                                 // shingle lift → overlap reads as a soft seam
         const c = chordAt(t);
-        // rake AFT in-plane with a gentle outboard splay + slight droop (no comb / no up-curl)
-        const dirAft = (() => { const v = { x: side * (0.12 + 0.14 * f), y: -0.04 - 0.03 * f, z: 1 }; const m = Math.hypot(v.x, v.y, v.z); return { x: v.x / m, y: v.y / m, z: v.z / m }; })();
-        const len = c * lenScale * (0.42 + 1.00 * decay);    // dominant markedly longer than the tail
-        // WIDE relative to the inter-feather step so adjacent vanes overlap ~45%
+        // rake AFT with an outboard FAN (tips spread like a hand-fan, `fan` scales it) + slight droop
+        const dirAft = (() => { const v = { x: side * (0.12 + 0.30 * fan * f), y: -0.04 - 0.03 * f, z: 1 }; const m = Math.hypot(v.x, v.y, v.z); return { x: v.x / m, y: v.y / m, z: v.z / m }; })();
+        const len = c * lenScale * (0.48 + 0.95 * decay);    // dominant markedly longer than the tail
+        // BROAD relative to the inter-feather step → adjacent vanes overlap heavily (no sky-gap)
         const step = (tb - ta) * L / Math.max(n - 1, 1);
-        const wid = Math.max(step * 1.9, 0.42);
+        const wid = Math.max(step * 2.7, 0.56);
         const dawn = i < dawnN ? dawnMat : null;
         grp.add(seraphFeather(root, dirAft, outbAt(t), len, wid, camber, plateMat, goldMat, dawn));
       }
@@ -206,17 +207,17 @@ function buildSeraphWing2(def, model, attach, giM) {
     // Coverts reach PAST J0 (lenScale high) so the surface is closed into the mid — no scoop-gap.
     membrane(pivot, 0.0, J0, ZERO, nS); membrane(pivot, 0.0, J0, ZERO, nS, true);
     spar(pivot, 0.0, J0, ZERO, nS);
-    rank(pivot, 0.05, J0, seg(nCov), ZERO, 1.05, 0.11, 0, memInner);
+    rank(pivot, 0.05, J0, seg(nCov), ZERO, 1.05, 0.11, 0.8, 0, memInner);
     // PART B — mid (J0→J1): the SECONDARY bridge rank — overlaps into the tip, closing the
     // covert→primary gap into one continuous feathered surface.
     membrane(wingMid, J0, J1, midO, nS); membrane(wingMid, J0, J1, midO, nS, true);
     spar(wingMid, J0, J1, midO, nS);
-    rank(wingMid, J0 - 0.02, J1, seg(nSec), midO, 1.30, 0.14, 0, memMid);
+    rank(wingMid, J0 - 0.02, J1, seg(nSec), midO, 1.30, 0.14, 1.0, 0, memMid);
     // PART C — tip/HAND (J1→1): the wrist-fold sheet — outer membrane + the DOMINANT primaries
     // (the carpal feather is the longest, decaying aft). 3 carry the withheld dawn rachis-seam.
     membrane(wingTip, J1, 1.0, tipO, nS); membrane(wingTip, J1, 1.0, tipO, nS, true);
     spar(wingTip, J1, 1.0, tipO, nS);
-    rank(wingTip, J1, 0.99, seg(nPrim), tipO, 1.62, 0.16, 3, memOuter);
+    rank(wingTip, J1, 0.99, seg(nPrim), tipO, 1.45, 0.17, 1.5, 3, memOuter);
     const marker = new THREE.Object3D(); const tc = O(S(1.0), tipO); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
     // ── ROOT INTEGRATION (the wing GROWS from the shoulder) ──
@@ -317,7 +318,7 @@ function buildSeraphHull2(def, model, bodyMat) {
 
   // LINE OF ACTION: a curved spine cy(z) — chest lifts, waist dips, hip rises — so the
   // body reads as posture, not a level tube. Every ring rides this curve.
-  const cyAt = (z) => TORSO_Y + 0.24 * Math.exp(-((z + 0.55) ** 2) / 0.30) - 0.16 * Math.exp(-((z - 0.45) ** 2) / 0.16) + 0.12 * Math.exp(-((z - 0.85) ** 2) / 0.10);
+  const cyAt = (z) => TORSO_Y + 0.29 * Math.exp(-((z + 0.55) ** 2) / 0.28) - 0.20 * Math.exp(-((z - 0.42) ** 2) / 0.15) + 0.16 * Math.exp(-((z - 0.86) ** 2) / 0.09);
   const ring = (z, rx, ry) => ({ z, rx, ry, cy: cyAt(z) });
   const hull = loftEllipse([
     ring(-1.00, 0.06, 0.07), ring(-0.82, 0.40, 0.50), ring(-0.43, 0.56, 0.66),
@@ -465,6 +466,7 @@ function buildSeraphCrownHead2(def, model, mats0) {
   let halo = null;
   if (model.halo) {
     halo = new THREE.Group(); halo.position.set(0, 0.62, 0.02);
+    halo.rotation.x = 0.30;                                 // slight tilt → reads as a ring (not an edge-on bar) from side + chase
     const R = 0.34;
     const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.038, seg(6), seg(20)), mats.holy);
     ring.rotation.x = Math.PI / 2; halo.add(ring);
