@@ -251,6 +251,35 @@ function buildKnappedTorso(def, model, _bodyMat) {
     ], M.dorsalFacet));
   }
 
+  // E1 — KNAPPED PLATE FIELD (spectacle): overlapping conchoidal flake-plates struck across the
+  // upper flanks, shoulder saddle and haunch, so the "knapping" identity is literal STRUCK
+  // GEOMETRY (it was told by value bands alone — the holistic-gate density gap). A deterministic
+  // golden-ratio scatter, each flake seated on the hull and lifted just proud along the local
+  // radius, alternating value tiers so the field reads as worked stone. Dial: knapPlates 0/4/10/18.
+  const knapPlates = Math.round(model.knapPlates ?? 0);
+  if (knapPlates > 0) {
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const stAt = (z) => { for (let i = 0; i < body.length - 1; i++) { const a = body[i], b = body[i + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z); return { rx: lerp(a.rx, b.rx, t), ry: lerp(a.ry, b.ry, t), cy: lerp(a.cy, b.cy, t) }; } } const e = body[body.length - 1]; return { rx: e.rx, ry: e.ry, cy: e.cy }; };
+    const dP = [], bP = [], sP = [];   // three value groups (dorsalFacet / bodyFlat / belly)
+    for (let i = 0; i < knapPlates; i++) {
+      const z = lerp(-1.62, 1.45, (i * 0.6180339887) % 1);
+      const st = stAt(z);
+      const sd = (i % 2) ? 1 : -1;
+      const th = 0.35 + 1.05 * ((i * 0.3547) % 1);            // 0 = dorsal top → larger = upper flank
+      const s = 0.085 + 0.055 * ((i * 0.71) % 1);
+      const lift = 0.022;
+      const nx = sd * Math.sin(th), ny = Math.cos(th);        // outward radial (approx)
+      const cx = sd * Math.sin(th) * st.rx + nx * lift, cyy = st.cy + Math.cos(th) * st.ry + ny * lift;
+      const tx = sd * Math.cos(th), ty = -Math.sin(th);       // surface tangent (flank direction)
+      const v = (a, b) => [cx + tx * a, cyy + ty * a, z + b];  // a in tangent, b in z
+      const flake = [[v(-s, -s * 0.5), v(s, -s * 0.3), v(s * 0.2, s)]];
+      (i % 3 === 0 ? dP : i % 3 === 1 ? bP : sP).push(...flake);
+    }
+    if (dP.length) group.add(flatTriMesh(dP, M.dorsalFacet));
+    if (bP.length) group.add(flatTriMesh(bP, M.bodyFlat));
+    if (sP.length) group.add(flatTriMesh(sP, M.belly));
+  }
+
   // Nape motif-anchor (the Starlit Seam seats here). Publishing it is a documented
   // crash-guard (parts read attach.motifAnchor).
   const motifAnchor = new THREE.Object3D();
@@ -450,16 +479,39 @@ function buildOneScallopWing(M, dials) {
     arm.add(flatTriMesh([[K, [K[0] + 0.02 * hs, K[1] + 0.02 * hs, K[2] - 0.02 * hs], cl], [K, cl, [K[0] - 0.03 * hs, K[1] + 0.03 * hs, K[2] + 0.02 * hs]]], M.dorsalFacet));
   }
 
-  // ── CONSTELLATIONS — diffuse moon-grey flecks near the wingtip, seated CLOSE to the
-  // membrane (was floating +0.045 → read as detached dirt; now +0.012). Scattered.
-  for (let i = 0; i < constellations; i++) {
-    const s = 0.4 + 0.5 * ((i * 0.618) % 1);
-    const along = quad(K, tips[Math.min(1, tips.length - 1)], F0, s);
-    const base = [along[0], along[1] + 0.012, along[2]];
-    const r = 0.05 + 0.028 * ((i * 0.27) % 1), rot = (i * 1.7) % (Math.PI * 2);
-    const v = (k, rad) => [base[0] + Math.cos(rot + k) * rad, base[1], base[2] + Math.sin(rot + k) * rad];
-    hand.add(flatTriMesh([[v(0, r), v(2.1, r * 0.82), v(4.2, r * 1.12)]], M.speckle));
+  // ── COVERT ROW (E2 spectacle) — a rank of short knapped flakes lapping the UPPER wing surface
+  // along the arm then out over the dominant finger, so the wing reads LAYERED (bone → covert →
+  // membrane), not one bare sheet. On `arm` inboard, on `hand` outboard so each folds correctly.
+  const covertN = dials.covertRow ?? 0;
+  if (covertN > 0) {
+    const aT = [], hT = [];
+    for (let i = 0; i < covertN; i++) {
+      const t = (i + 0.5) / covertN, onArm = t < 0.4;
+      const p = onArm ? LE((t / 0.4) * wristT) : quad(K, tips[0], F0, (t - 0.4) / 0.6);
+      const sd = 0.05 + 0.03 * ((i * 0.53) % 1), up = 0.045 * hs;
+      const fl = [[p[0] - sd, p[1] + up, p[2] - sd], [p[0] + sd, p[1] + up * 0.8, p[2]], [p[0] - sd * 0.4, p[1] + up * 0.6, p[2] + sd * 1.4]];
+      (onArm ? aT : hT).push(fl);
+    }
+    if (aT.length) arm.add(flatTriMesh(aT, M.dorsalFacet));
+    if (hT.length) hand.add(flatTriMesh(hT, M.dorsalFacet));
   }
+
+  // ── CONSTELLATIONS (E5 upgrade) — moon-grey flecks seated close to the membrane, now scattered
+  // into a deliberate BAND across the outer hand with 2–3 larger "named stars" (a size tier), the
+  // one sparkle a matte-black night drake is allowed. Batched into ONE mesh (was one draw call per
+  // fleck). Deterministic drift off the K→tip line so it reads as a strewn field, not a line.
+  const cT = [];
+  for (let i = 0; i < constellations; i++) {
+    const s = 0.35 + 0.55 * ((i * 0.618) % 1);
+    const along = quad(K, tips[Math.min(1, tips.length - 1)], F0, s);
+    const drift = ((i * 0.409) % 1 - 0.5) * 0.5;
+    const base = [along[0] + drift * 0.3, along[1] + 0.012, along[2] + drift];
+    const named = (i % 6 === 2);   // the larger anchor stars
+    const r = (named ? 0.10 : 0.042) + 0.024 * ((i * 0.27) % 1), rot = (i * 1.7) % (Math.PI * 2);
+    const v = (k, rad) => [base[0] + Math.cos(rot + k) * rad, base[1], base[2] + Math.sin(rot + k) * rad];
+    cT.push([v(0, r), v(2.1, r * 0.82), v(4.2, r * 1.12)]);
+  }
+  if (cT.length) hand.add(flatTriMesh(cT, M.speckle));
   return { arm, hand, K };
 }
 
@@ -506,7 +558,8 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   const cowl = (model.cowlPlates ?? 0) > 0;
   const wristT = model.wristT ?? 0.42;   // medial-wrist fraction (short arm, long hand)
   const nseg = Math.round(model.wingNSEG ?? 4);   // membrane-arc segments (6 at f2/f3 → smoother sag)
-  const dials = { fingers, halfSpan, archRise, cup, gusset, thumb, edgeBand, constellations, wristT, nseg };
+  const covertRow = Math.round(model.covertRow ?? 0);   // rank of upper-surface covert flakes (layered wing)
+  const dials = { fingers, halfSpan, archRise, cup, gusset, thumb, edgeBand, constellations, wristT, nseg, covertRow };
 
   // MEMBRANE VALUE TIERS (CP4 — the 4th readable tier, the CP1 ceiling). The old ramp lerped
   // wingOuter→SLATE, but SLATE (0x141b28) is barely above NIGHT, so all four tiers compressed
@@ -619,16 +672,28 @@ function buildVesperCatHead(def, model, mats) {
   // top-centre silhouette punctuation), NOT a horn.
   const pairs = Math.round(model.earFinPairs ?? 1);
   for (let p = 0; p < pairs; p++) {
-    const z0 = 0.18 * hs - p * 0.16 * hs;             // front pair = the "ears", later pairs a small crest
-    const sc = 1 - 0.30 * p;
-    const h = 0.20 * hs * sc, wide = 0.20 * hs * sc;  // SHORT + BROAD (an ear-flake, not a needle)
+    const z0 = 0.18 * hs - p * 0.15 * hs;             // front pair = the "ears", later pairs a swept crest rank
+    const sc = 1 - 0.16 * p;                          // E3: gentler falloff so the rear pairs read as a CREST, not shrink to nothing
+    const crest = p > 0 ? 1.25 : 1;                   // crest blades sharper/taller than the front ears
+    const h = 0.20 * hs * sc * crest, wide = 0.20 * hs * sc;  // SHORT + BROAD ear-flake up front → taller swept blade behind
     for (const side of [1, -1]) {
       const bx = side * 0.12 * hs, by = 0.15 * hs;
       const baseF = [bx - side * 0.02 * hs, by, z0 - wide * 0.5];       // front base
       const baseB = [bx + side * 0.11 * hs * sc, by - 0.03 * hs, z0 + wide * 0.5];  // back-outer base (wide span → the ±12° cant)
-      const tip = [bx + side * 0.07 * hs * sc, by + h, z0 - wide * 0.1]; // moderate up + out, swept slightly forward like a cat ear
+      const tip = [bx + side * 0.07 * hs * sc, by + h, z0 - wide * 0.1 + p * 0.03 * hs]; // sweeps back down the crest
       group.add(flatTriMesh([[baseF, tip, baseB]], M.dorsalFacet));
     }
+  }
+  // E3 — CENTRAL OCCIPITAL BLADE: one swept nightglass blade on the crown midline behind the ear
+  // rank (crown-tier growth from the chase cam; still cat-eared anatomy, NO horn/regalia — honors §6).
+  if ((model.crestBlade ?? 0) > 0) {
+    const z0 = 0.18 * hs - (pairs - 0.4) * 0.15 * hs, by = 0.15 * hs, w = 0.05 * hs;
+    const apex = [0, by + 0.36 * hs, z0 + 0.03 * hs];
+    group.add(flatTriMesh([
+      [[-w, by, z0 - 0.05 * hs], [w, by, z0 - 0.05 * hs], apex],
+      [[w, by, z0 - 0.05 * hs], [0, by - 0.02 * hs, z0 + 0.13 * hs], apex],
+      [[0, by - 0.02 * hs, z0 + 0.13 * hs], [-w, by, z0 - 0.05 * hs], apex],
+    ], M.dorsalFacet));
   }
 
   // BIG acid-green cat eyes — round kitten (f0) → almond (f3): eyeScale drives size,
@@ -760,8 +825,9 @@ function buildSplitFanTail(def, model, mats, anchor) {
       [[rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.12], [0, ty - 0.03, tz + 0.18]],
       [[-rw, ty, tz - 0.06], [0, ty - 0.03, tz + 0.18], [0, ty + 0.03, tz + 0.12]],
     ], M.bodyFlat));
+    const petals = Math.round(model.tailPetals ?? 4);   // E4: 6 at apex, petal 0 the dominant (longest)
     for (const side of [1, -1]) {
-      const petals = 4, root = [side * rw, ty, tz - 0.04];   // rooted INTO the stem tip (welded)
+      const root = [side * rw, ty, tz - 0.04];   // rooted INTO the stem tip (welded)
       const tips = [];
       for (let p = 0; p < petals; p++) {
         const ang = side * (0.10 + 0.62 * (p / (petals - 1))) * Math.max(0.6, spread);
@@ -780,6 +846,16 @@ function buildSplitFanTail(def, model, mats, anchor) {
         add(flatTriMesh([[C, root, arc[0]], [C, arc[0], arc[1]], [C, arc[1], arc[2]], [C, arc[2], arc[3]], [C, arc[3], root]], p % 2 ? M.bodyFlat : M.dorsalFacet));
         if (finRims) { const o = 0.012, e = arc[2]; add(flatTriMesh([[arc[1], e, [e[0], e[1] + o, e[2]]], [arc[1], [e[0], e[1] + o, e[2]], [arc[1][0], arc[1][1] + o, arc[1][2]]]], M.seam)); }
         if (side === -1) { const fx = (root[0] + Fa[0]) / 2, fy = (root[1] + Fa[1]) / 2 + 0.015, fz = (root[2] + Fa[2]) / 2, r = 0.03; add(flatTriMesh([[[fx - r, fy, fz], [fx + r, fy + 0.004, fz - r * 0.3], [fx, fy, fz + r]]], speckle)); }
+      }
+      // E4 — a trailing STREAMER ribbon off the outer petal, bound to the last tail joint so the
+      // CP3 whip animates it (a living finished-blade closer). Thin knapped ribbon, dial-gated.
+      if ((model.tailStreamers ?? 0) > 0) {
+        const oT = tips[petals - 1], w = 0.022;
+        const sE = [oT[0] * 0.7, oT[1] - 0.06, oT[2] + 0.42 + 0.28 * spread];
+        add(flatTriMesh([
+          [[oT[0] - w, oT[1], oT[2]], [oT[0] + w, oT[1], oT[2]], sE],
+          [[oT[0] + w, oT[1], oT[2]], [sE[0] + w * 0.4, sE[1], sE[2] - 0.02], sE],
+        ], M.dorsalFacet));
       }
     }
     // f3 — a central RUDDER facet between the fins (the finished-blade tail closer).
