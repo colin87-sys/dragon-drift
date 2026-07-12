@@ -455,20 +455,25 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   const cowl = (model.cowlPlates ?? 0) > 0;
   const dials = { fingers, halfSpan, archRise, cup, gusset, thumb, edgeBand, constellations };
 
-  // MEMBRANE VALUE TIERS — inboard lighter → outboard = the per-form wingOuter (all in
-  // the L≤0.10 blue-black lane), so the wing reads RICH (≥3 values), not one flat black
-  // (the owner's "lacks richness"). Transparent from day one so the game's wing-fade
-  // (dragon.js drives wingMat.opacity → 0.82/0.77/0.70) works. DoubleSide.
+  // MEMBRANE VALUE TIERS (CP4 — the 4th readable tier, the CP1 ceiling). The old ramp lerped
+  // wingOuter→SLATE, but SLATE (0x141b28) is barely above NIGHT, so all four tiers compressed
+  // into ~0.04–0.06 luminance and only 3 read — the "lacks richness" residual. Lerp toward a
+  // LIT STEEL-SLATE (MEMBLUE) over a WIDER f range so the four values step 0.05→0.14: a real
+  // inboard-lit → outboard-near-black gradient that reads RICH while staying deep (the body at
+  // 0.04 is still the darkest object — the inverted-value law holds). Transparent so the game's
+  // wing-fade (dragon.js drives wingMat.opacity) works. DoubleSide.
   const wo = def.wingOuter ?? NIGHT;
-  M.memTiers = [0.32, 0.20, 0.10, 0].map((f) => {
-    const m = new THREE.MeshStandardMaterial({ color: lerpHex(wo, SLATE, f), emissive: 0x000000, flatShading: true, roughness: 0.8, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
+  const MEMBLUE = 0x2c384a;   // lit steel-slate — the readable top of the membrane value gradient
+  M.memTiers = [0.60, 0.40, 0.22, 0.06].map((f) => {
+    const m = new THREE.MeshStandardMaterial({ color: lerpHex(wo, MEMBLUE, f), emissive: 0x000000, flatShading: true, roughness: 0.8, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
     m.envMapIntensity = 0.2; return m;
   });
   M.wingMat = M.memTiers[0];   // the game's opacity-fade driver (largest inboard area)
   // Knife-edge band — a SINGLE thin translucent layer (never stacked back-faces; the
-  // CP3.2 0.82² lesson). Glossier so the scalloped rim glints as lit night-glass.
-  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, SLATE, 0.6), emissive: 0x000000, flatShading: true, roughness: 0.55, metalness: 0.03, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
-  M.edgeMat.envMapIntensity = 0.3;
+  // CP3.2 0.82² lesson). Glossier + the BRIGHTEST wing value so the scalloped rim glints as
+  // lit night-glass above even the inboard tier (the raised-rim rim-catch).
+  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, 0x3b4a5e, 0.8), emissive: 0x000000, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
+  M.edgeMat.envMapIntensity = 0.32;
 
   const rootSpark = (model.seamRootSpark ?? 0) > 0;   // f3: one short inset seam streak per wing root
   const wingSpineMats = [];
