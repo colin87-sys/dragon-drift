@@ -7,7 +7,7 @@ import { boot } from '../tests/browser.mjs';
 const key = process.argv[2] || 'solar';
 const tier = Number(process.argv[3] ?? 3);
 const { page, done } = await boot({
-  query: '?debug=fever',
+  query: '?debug=fever&norider',
   viewport: { width: 1100, height: 720 },
   deviceScaleFactor: 2,
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
