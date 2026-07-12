@@ -16,6 +16,21 @@ let reflective = false;
 let swellOn = false;        // N10a: whether the surface geometry is subdivided + displaced
 let geomTier = 0;           // N10a: subdivision LOD (0 densest, 2 flat)
 let depthOn = false;        // N10b: whether the Beer–Lambert depth mix is active
+// N11 — the mirror is no longer tier-0-only. tier0 keeps the crisp full-rate 768²
+// hero mirror; tier1 gets a cheaper 384² mirror rendered every OTHER frame (specular
+// changes slowly) so mid-range phones keep a reflection; tier2 stays the cheap
+// analytic quad. `halfRate` + `_parity` (bumped once per presented frame in
+// updateWater, NOT per draw) gate the skip. The far-plane clamp (below) trims the
+// mirror frustum to the fog wall on both reflective tiers.
+let mirrorRes = 768;        // N11: 768 (tier0) / 384 (tier1)
+let halfRate = false;       // N11: tier1 renders the mirror on even parity only
+let _parity = 0;            // per-presented-frame counter (updateWater)
+let reflFar = true;         // N11: mirror far-plane clamp (kill via ?reflfar=0 for A/B)
+function applyReflTier(tier) {
+  reflective = tier <= 1;
+  mirrorRes = tier === 0 ? 768 : 384;
+  halfRate = tier === 1;    // (on,res) uniquely determines this: (T,768)=t0 (T,384)=t1 (F,384)=t2
+}
 
 const SIZE_W = 520;
 const SIZE_L = 1700;
@@ -217,12 +232,13 @@ function buildReflective() {
     vertexShader,
     fragmentShader,
   };
-  // Tier 0 is the only reflective tier, so the hero mirror can afford a sharper
-  // render target — 768² keeps reflected props/dragon crisp instead of mushy.
+  // N11: tier0 = 768² (crisp hero mirror), tier1 = 384² (cheaper, the quarter-area
+  // RT + half-rate roughly quarter the mirror's per-frame cost). textureWidth is a
+  // construction-time Reflector option, so the resolution swap rides the rebuild seam.
   const mesh = new Reflector(makeWaterGeometry(), {
     shader,
-    textureWidth: 768,
-    textureHeight: 768,
+    textureWidth: mirrorRes,
+    textureHeight: mirrorRes,
     clipBias: 0.02,
     multisample: 0,
   });
@@ -231,12 +247,31 @@ function buildReflective() {
   // Mirror pass renders gameplay layer 0 only — sprite clutter (trails,
   // particles, aura) lives on layer 1 and is excluded from the reflection.
   mesh.camera.layers.set(0);
-  // Let callers (the god-ray occlusion mask) skip the expensive mirror render
-  // when the water is being drawn purely as a black occluder.
   const origOBR = mesh.onBeforeRender;
   mesh.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+    // Callers (the god-ray occlusion mask) suspend the mirror when the water is drawn
+    // purely as a black occluder.
     if (_reflectSuspended) return;
+    // N11 half-rate (tier1): skip the mirror render on odd frames — the water keeps
+    // last frame's RT. Skipping the whole origOBR also freezes the textureMatrix,
+    // which is CORRECT: a stale texture with its matching stale matrix. (Updating the
+    // matrix on skip frames would make the reflection swim.)
+    if (halfRate && (_parity & 1)) return;
+    // N11 far-plane clamp: trim the mirror frustum to the fog wall (fogFar+50 —
+    // everything beyond is 100% fogged, so it's visually identical but a much smaller
+    // frustum to cull/draw against). The Reflector copies the MAIN camera's projection
+    // (not the mirror camera's), so clamp the incoming camera and restore it
+    // unconditionally. Read the LIVE per-material fogFar (sharedUniforms is stale
+    // between rebuilds; updateWater writes the material clone).
+    let savedFar = 0, clamped = false;
+    if (reflFar) {
+      savedFar = camera.far;
+      const ffU = this.material.uniforms.fogFar;
+      const nf = Math.min(savedFar, (ffU ? ffU.value : savedFar) + 50);
+      if (nf < savedFar) { camera.far = nf; camera.updateProjectionMatrix(); clamped = true; }
+    }
     origOBR.call(this, renderer, scene, camera, geometry, material, group);
+    if (clamped) { camera.far = savedFar; camera.updateProjectionMatrix(); }
   };
   return mesh;
 }
@@ -288,20 +323,35 @@ function rebuildWater() {
     else old.material.dispose();
     old.geometry.dispose();
   }
+  _parity = 0; // N11: render the fresh mirror on the next frame (never present its black initial RT)
   spawnWater();
 }
 
-export function createWater(scene, useReflection) {
+// N11: the second arg is now a quality TIER (0/1/2), not a boolean — it selects
+// reflective-on + mirror resolution + half-rate together.
+export function createWater(scene, tier) {
   sceneRef = scene;
-  reflective = useReflection;
+  applyReflTier(tier);
   rebuildWater();
 }
 
-// Reflective↔cheap tier crossing (rare; quality hysteresis prevents thrashing).
-export function setWaterReflective(useReflection) {
-  if (!sceneRef || useReflection === reflective) return;
-  reflective = useReflection;
+// Tier crossing (rare; quality hysteresis prevents thrashing). Rebuilds only when the
+// reflective state OR the mirror resolution actually changes — a tier0↔tier1 swap is
+// both reflective, so keying on `reflective` alone would leave the mirror at the wrong
+// resolution; the `mirrorRes` half of the key catches it.
+export function setWaterReflective(tier) {
+  const wasOn = reflective, wasRes = mirrorRes;
+  applyReflTier(tier);
+  if (!sceneRef || (reflective === wasOn && mirrorRes === wasRes)) return;
   rebuildWater();
+}
+
+// N11: mirror far-plane clamp kill-switch (?reflfar=0) for the A/B — live, no rebuild.
+export function setWaterReflFar(on) { reflFar = !!on; }
+// N11 test/debug introspection for the tier truth table (read-only snapshot).
+export function waterReflState() {
+  return { reflective, mirrorRes, halfRate, parity: _parity, reflFar,
+    isReflector: !!(water && water.isReflector) };
 }
 
 // N10a: the SWELL toggle (Settings / ?swell). Rebuilds to the subdivided (on) or
@@ -332,6 +382,7 @@ export function setWaterDepth(on) {
 
 export function updateWater(dt, playerDist, time, fog) {
   if (!water) return;
+  _parity++; // N11: one bump per PRESENTED frame drives the half-rate mirror parity
   water.position.z = -playerDist - 250;
   const u = water.material.uniforms;
   u.time.value = time;

@@ -19,7 +19,7 @@ const water = () => added[added.length - 1];
 const vtxCount = () => water().geometry.getAttribute('position').count;
 
 // --- 1. default OFF = the shipped flat quad (1×1 plane, 4 verts, uSwellAmp 0) ---
-createWater(scene, false);
+createWater(scene, 2); // N11: tier arg — tier2 = cheap non-reflective quad
 check('default swell OFF → flat 1×1 quad (4 verts)', vtxCount() === 4);
 check('default swell OFF → uSwellAmp 0 (shipped identity)', water().material.uniforms.uSwellAmp.value === 0);
 check('waterSurfaceHeight 0 when off (contact shadow stays at shipped y)', waterSurfaceHeight(12, -34) === 0);
@@ -63,7 +63,7 @@ check('toggle OFF → uSwellAmp 0 + height 0 (shipped)', water().material.unifor
 // --- 6. reflective variant builds with the swell (Reflector constructs headless) --
 setWaterSwell(true); setWaterSwellQuality(0);
 try {
-  setWaterReflective(true);
+  setWaterReflective(0); // tier0 = reflective 768²
   check('reflective water builds subdivided (Reflector + swell)', vtxCount() === 97 * 161);
 } catch (e) {
   console.log(`  (reflective build skipped headless: ${String(e).split('\n')[0]})`);
@@ -75,9 +75,9 @@ const um = () => water().material.uniforms;
 check('depth default OFF → uAbsorbOn 0 (shipped height mix)', um().uAbsorbOn.value === 0);
 setWaterDepth(true);
 check('setWaterDepth(true) → uAbsorbOn 1 (live flip, no rebuild)', um().uAbsorbOn.value === 1);
-setWaterReflective(false); // rebuild to cheap
+setWaterReflective(2); // rebuild to cheap (tier2)
 check('uAbsorbOn survives a rebuild (in sharedUniforms)', water().material.uniforms.uAbsorbOn.value === 1);
-setWaterReflective(true);
+setWaterReflective(0); // back to reflective (tier0)
 check('uAbsorbOn survives the reflective rebuild too', water().material.uniforms.uAbsorbOn.value === 1);
 setWaterDepth(false);
 check('setWaterDepth(false) → uAbsorbOn 0', um().uAbsorbOn.value === 0);
