@@ -699,7 +699,12 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
 
   for (let i = entries.length - 1; i >= 0; i--) {
     const e = entries[i];
-    if (e.dist < playerDist - CONFIG.cullBehind) {
+    // Cull by the entry's TRAILING edge, not its anchor: a spine ribcage tiles forward
+    // to dist+ribBandFw (up to ~150m past the ring now that A1 uncaps the fill), so
+    // culling at anchor+cullBehind would pop that forward tube — mesh AND the FX
+    // presence band — out mid-tunnel while the dragon is still inside it. ribBandFw is
+    // undefined→0 for every non-ribcage entry, so their cull is unchanged.
+    if (e.dist + (e.ribBandFw || 0) < playerDist - CONFIG.cullBehind) {
       removeAt(i);
       continue;
     }
