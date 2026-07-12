@@ -2276,6 +2276,10 @@ export function updateBoss(dt, player, time, camera) {
   // THE S3 FOCAL LIFT drive (PR-B): the boss's light LEADS the world — full by the gold-flood peak (mix
   // 1+T0=1.45), so the burst igniting reads as the CAUSE of the heaven arriving. Inert off the heaven.
   if (active && model) model.setArenaHeaven?.(ss01((arenaMixNow - 1) / 0.45));
+  // THE VOID RIM-LIGHT drive (PR-V2): the self-lit violet-silver rim + backglow rise across the void
+  // (mix 0.45→1, peaking at the settled hollow) then EXHALE through the gold flood (mix 1→1.45) so S3
+  // restores the pure dark-on-gold silhouette that already reads. Inert (0) off the void. Stateless.
+  if (active && model) model.setArenaVoid?.(ss01((arenaMixNow - 0.45) / 0.55) * (1 - ss01((arenaMixNow - 1) / 0.45)));
   if (!active) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
@@ -5819,6 +5823,7 @@ export function debugReckoning() {
 // headless) + read the model's S3 focal-lift state (the byte-identity-off-heaven proof).
 export function debugFell() { if (active && lastPlayer) endEncounter(lastPlayer); }
 export function bossDebugModelLift() { return model?.debugArenaLift?.() ?? null; }
+export function bossDebugModelVoid() { return model?.debugArenaVoid?.() ?? null; }
 export function debugLoose() { requestLoose(); }
 export function debugLockCandidates() { return lockCandidates(); }
 export function debugPartWorldPos(part) {

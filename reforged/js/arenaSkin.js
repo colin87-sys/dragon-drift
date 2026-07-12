@@ -33,10 +33,10 @@ export const ARENA_ENV_KEYS = [...COLOR_KEYS, ...SCALAR_KEYS];
 // revealed as pinholes (starMix 1), nothing alive (fauna/whale/flyby zeroed). A dark PLACE with a
 // non-black identity hue (violet), never an absence. Contrast re-derived with the gate's own lum().
 export const VOID_HEX = {
-  skyTop: 0x050208, skyMid: 0x0d0618, skyHorizon: 0x1a0b2e, sunGlow: 0x000000,
-  fogColor: 0x0a0514, fogNear: 45, fogFar: 240, fogFarColor: 0x120a24, fogFarMix: 1,
-  lightSun: 0x9a8fd8, lightSunI: 0.55, hemiSky: 0x241a3a, hemiGround: 0x05030a,
-  waterDeep: 0x030208, waterShallow: 0x140a26, waveAmp: 0.15,
+  skyTop: 0x0a0616, skyMid: 0x1a1030, skyHorizon: 0x2a1a4a, sunGlow: 0x000000,
+  fogColor: 0x18102c, fogNear: 45, fogFar: 240, fogFarColor: 0x241640, fogFarMix: 1,
+  lightSun: 0xa89fe0, lightSunI: 0.6, hemiSky: 0x4a3c72, hemiGround: 0x2a2048,   // hemiGround = the FRONT-fill that actually lights the camera-facing seraph (the sun shines on its BACK); lifting it + the bruise-violet midtone floor pulls the boss + bg off the shared black shadow-floor so the silhouette pops (danmaku: never a pure-black bg). Legibility floor 0.20 respected (skyHorizon L≈0.13).
+  waterDeep: 0x0a061c, waterShallow: 0x1c1236, waveAmp: 0.15,
   ambColor: 0xcfc2ee, ambFall: -0.45, ambSway: 0.4, ambSize: 0.4, ambOpacity: 0.9,
   faunaColor: 0xcfc2ee, faunaScale: 0, faunaFlap: 0,
   starMix: 1, whaleMix: 0, flybyMix: 0,
@@ -97,7 +97,7 @@ export const GOLD_FLOOD_HEX = {
 // band mechanism). Applied once at the reveal (boss.js latch). Consumed by tests/bulletcontrast.mjs.
 export const VOID_BULLETS = { dark: 0xa84167 };
 export const ARENA_CONTRAST = [
-  { name: 'THE HOLLOW (void arena)', fog: 0x0a0514, horizon: 0x1a0b2e, bullets: VOID_BULLETS },
+  { name: 'THE HOLLOW (void arena)', fog: VOID_HEX.fogColor, horizon: VOID_HEX.skyHorizon, bullets: VOID_BULLETS },
   { name: 'THE UNVEILED HEAVEN (arena)', fog: HEAVEN_HEX.fogColor, horizon: HEAVEN_HEX.skyHorizon, bullets: VOID_BULLETS },
 ];
 
