@@ -344,6 +344,66 @@ export function buildUnmasked(def, quality = 1) {
   igniteGlow.layers.set(1);   // out of the god-ray occlusion mask (gotcha 1): unlike voidGlow, the ignite aura runs in the HEAVEN where the rays SWELL — a layer-0 additive disc would punch a hole in them. Also out of the water mirror.
   rig.add(igniteGlow);
 
+  // ── THE LIVING WISPS (GODHEAD DETONATION P5, owner §1.3): ~14 small tapered flame-tongues licking
+  // off the crown + upper-wing perimeter, IN FRONT of the silhouette plane, merged to ONE additive
+  // draw, vertex-faded to black at every edge/tip (no hard rim). Continuously animated — scrolling
+  // tendrils + a SLOW per-wisp flicker (living flame, never a strobe), gold-rose → violet tip. Placed
+  // on the UPPER arc only (crown + wingtips) — never the down/corridor column. Gated on igniteK (rises
+  // with the wreath). Layer 1 (additive in the heaven — out of the ray mask + mirror). ──
+  const WISP_N = 14, WISP_RB = DISC_R * 1.28;
+  const wPos = [], wCol = [], wUv = [], wPh = [];
+  const wpush = (p, c, u, ph) => { wPos.push(p[0], p[1], p[2]); wCol.push(c[0], c[1], c[2]); wUv.push(u[0], u[1]); wPh.push(ph); };
+  const W_GOLD = [1.0, 0.62, 0.42], W_VIO = [0.46, 0.38, 0.64];   // gold-rose base → S2 violet tip
+  const wgrad = (t) => [W_GOLD[0] + (W_VIO[0] - W_GOLD[0]) * t, W_GOLD[1] + (W_VIO[1] - W_GOLD[1]) * t, W_GOLD[2] + (W_VIO[2] - W_GOLD[2]) * t];
+  for (let i = 0; i < WISP_N; i++) {
+    const a = Math.PI * (0.03 + 0.94 * (i / (WISP_N - 1)));       // upper arc 5°→175° (right wingtip → crown → left wingtip)
+    const wob = 0.10 * Math.sin(i * 2.7);                          // slight per-wisp lean (deterministic)
+    const dir = a + wob, len = DISC_R * (0.5 + 0.32 * (0.5 + 0.5 * Math.sin(i * 2.3)));
+    const ex = Math.cos(dir), ey = Math.sin(dir), nx = Math.cos(dir + Math.PI / 2), ny = Math.sin(dir + Math.PI / 2);
+    const bx = Math.cos(a) * WISP_RB, by = Math.sin(a) * WISP_RB, ph = i * 1.7;
+    const SEG = 3, W0 = DISC_R * 0.085;
+    for (let j = 0; j < SEG; j++) {
+      const t0 = j / SEG, t1 = (j + 1) / SEG;
+      const r0 = t0 * len, r1 = t1 * len, w0 = W0 * (1 - t0), w1 = W0 * (1 - t1);
+      const c0 = wgrad(t0), c1 = wgrad(t1);
+      const L0 = [bx + ex * r0 + nx * w0, by + ey * r0 + ny * w0, 0.2], R0 = [bx + ex * r0 - nx * w0, by + ey * r0 - ny * w0, 0.2];
+      const L1 = [bx + ex * r1 + nx * w1, by + ey * r1 + ny * w1, 0.2], R1 = [bx + ex * r1 - nx * w1, by + ey * r1 - ny * w1, 0.2];
+      wpush(L0, c0, [t0, 0], ph); wpush(R0, c0, [t0, 1], ph); wpush(R1, c1, [t1, 1], ph);
+      wpush(L0, c0, [t0, 0], ph); wpush(R1, c1, [t1, 1], ph); wpush(L1, c1, [t1, 0], ph);
+    }
+  }
+  const wGeo = new THREE.BufferGeometry();
+  wGeo.setAttribute('position', new THREE.Float32BufferAttribute(wPos, 3));
+  wGeo.setAttribute('aCol', new THREE.Float32BufferAttribute(wCol, 3));
+  wGeo.setAttribute('uv', new THREE.Float32BufferAttribute(wUv, 2));
+  wGeo.setAttribute('aPh', new THREE.Float32BufferAttribute(wPh, 1));
+  const wMat = track(new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+    vertexShader: `
+      attribute vec3 aCol; attribute float aPh;
+      varying vec3 vCol; varying vec2 vUv; varying float vPh;
+      void main(){ vCol = aCol; vUv = uv; vPh = aPh; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      precision mediump float;
+      uniform float uTime; uniform float uOpacity;
+      varying vec3 vCol; varying vec2 vUv; varying float vPh;
+      void main(){
+        float t = vUv.x;
+        float prof = smoothstep(0.0, 0.18, t) * pow(max(0.0, 1.0 - t), 0.7);   // emerges from the wing, dies to black at the tip
+        float edge = pow(1.0 - abs(2.0 * vUv.y - 1.0), 1.2);                    // soft sides
+        float flow = 0.5 + 0.5 * sin(t * 12.0 - uTime * 3.0 + vPh);            // tendril scrolls outward
+        float flick = 0.72 + 0.28 * sin(uTime * 0.8 + vPh * 2.3);              // SLOW flicker, never a strobe
+        gl_FragColor = vec4(vCol * prof * edge * flow * flick * uOpacity, 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  wMat.toneMapped = false;
+  const wisps = new THREE.Mesh(wGeo, wMat);
+  wisps.name = 'igniteWisps';
+  wisps.frustumCulled = false; wisps.visible = false;
+  wisps.layers.set(1);   // additive in the heaven — out of the ray mask + water mirror
+  rig.add(wisps);
+
   // ── SHATTER SHARDS (S1→S2): a dozen dark disc-fragments fling radially in-plane at the
   // shatter, silhouetted against the backlight (opaque near-black → overdraw-free, unlike an
   // additive chip). Parented to `rig`; a PRIVATE seed keeps the main `rnd` stream untouched (the
@@ -1167,6 +1227,7 @@ export function buildUnmasked(def, quality = 1) {
   const LADDER_IGNITE = {};
   for (const k of LADDER_KEYS) LADDER_IGNITE[k] = baseMats[k].color.clone().lerp(IGNITE_BODY, 0.30);   // 0.30 — wreathed, not washed (body warms, stays dark)
   const IGNITE_GLOW_MAX = 0.46;   // the aura opacity (owner §3d.3 ~0.5·k) — the mandorla is the wreath, supports the silhouette, never floods the frame
+  const WISP_MAX = 0.85;          // the living-wisp brightness (thin tapered tongues → cheap on the probes; the shader's prof/edge/flow keep them sparse)
   let igniteK = 0;
   function setArenaIgnite(k) { igniteK = Math.max(0, Math.min(1, k)); }
 
@@ -1400,12 +1461,14 @@ export function buildUnmasked(def, quality = 1) {
       rimMatB.emissive.copy(RIMB_EM_BASE).lerp(RIMB_EM_IGNITE, igniteK);
       for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_IGNITE[k], igniteK);
       igMat.uniforms.uOpacity.value = igniteK * IGNITE_GLOW_MAX; igMat.uniforms.uTime.value = time; igniteGlow.visible = true;
-    } else if (voidGlow.visible || igniteGlow.visible) {
+      wMat.uniforms.uOpacity.value = igniteK * WISP_MAX; wMat.uniforms.uTime.value = time; wisps.visible = true;   // the living wisps lick off the crown/wingtips
+    } else if (voidGlow.visible || igniteGlow.visible || wisps.visible) {
       rimMat.color.copy(RIM_BASE); rimMat.emissive.copy(RIM_EM_BASE);
       rimMatB.color.copy(RIMB_BASE); rimMatB.emissive.copy(RIMB_EM_BASE);
       for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]);
       vgMat.opacity = 0; voidGlow.visible = false;
       igMat.uniforms.uOpacity.value = 0; igniteGlow.visible = false;
+      wMat.uniforms.uOpacity.value = 0; wisps.visible = false;
     }
   }
 
@@ -1429,7 +1492,7 @@ export function buildUnmasked(def, quality = 1) {
     setArenaIgnite,
     debugArenaLift: () => ({ k: heavenK, sclera: greatScleraMat.color.getHex() }),
     debugArenaVoid: () => ({ k: voidK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +vgMat.opacity.toFixed(3), glowVis: voidGlow.visible }),
-    debugArenaIgnite: () => ({ k: igniteK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +igMat.uniforms.uOpacity.value.toFixed(3), glowVis: igniteGlow.visible }),
+    debugArenaIgnite: () => ({ k: igniteK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +igMat.uniforms.uOpacity.value.toFixed(3), glowVis: igniteGlow.visible, wispVis: wisps.visible, wispOp: +wMat.uniforms.uOpacity.value.toFixed(3) }),
     setDebugStage,
     setStageMorph,
     setStage3,

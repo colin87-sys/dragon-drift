@@ -193,8 +193,8 @@ check(heaven.lift && heaven.lift.k > 0.99 && heaven.lift.sclera !== 0x8f8365,
   `the S3 focal LIFTS on the gold sky (lift.k ${heaven.lift?.k?.toFixed?.(2)}, sclera 0x${heaven.lift?.sclera?.toString(16)} ≠ 0x8f8365) — not a mask on a sunset`);
 // GODHEAD DETONATION P3: THE IGNITED SERAPH engages in the settled heaven — a gold-wreathed rim
 // (self-lit emissive ≠ 0), a roiling gold-violet aura mandorla (glowVis), rising to full at mix 2.
-check(heaven.igniteLift && heaven.igniteLift.k > 0.9 && heaven.igniteLift.glowVis === true && heaven.igniteLift.rimEm !== 0,
-  `the seraph IGNITES in the heaven (igniteK ${heaven.igniteLift?.k?.toFixed?.(2)}, rimEm 0x${heaven.igniteLift?.rimEm?.toString(16)}, aura ${heaven.igniteLift?.glowVis})`);
+check(heaven.igniteLift && heaven.igniteLift.k > 0.9 && heaven.igniteLift.glowVis === true && heaven.igniteLift.rimEm !== 0 && heaven.igniteLift.wispVis === true,
+  `the seraph IGNITES in the heaven (igniteK ${heaven.igniteLift?.k?.toFixed?.(2)}, rimEm 0x${heaven.igniteLift?.rimEm?.toString(16)}, aura ${heaven.igniteLift?.glowVis}, wisps ${heaven.igniteLift?.wispVis})`);
 // MUTUAL EXCLUSIVITY (owner §3d.6): voidK and igniteK never coexist — the void rim EXHALED before
 // the gold wreath rose (voidK = 0 by mix 1.45; igniteK rises 1.45→2). Both >0 at once is a driver bug.
 check((heaven.voidLift?.k ?? 0) === 0 && heaven.igniteLift.k > 0,
@@ -335,8 +335,8 @@ check(liftOff.lift && liftOff.lift.k === 0 && liftOff.lift.sclera === 0x8f8365,
   `the focal lift REVERTS off the heaven — S3 byte-identical (lift.k ${liftOff.lift?.k}, sclera 0x${liftOff.lift?.sclera?.toString(16)})`);
 // GODHEAD DETONATION P3: the ignite wreath is OFF at the S2 pin — igniteK 0, aura hidden (the void
 // rim owns the silhouette here; ignite contributes nothing → byte-identical off the settled heaven).
-check(liftOff.ignite && liftOff.ignite.k === 0 && liftOff.ignite.glowVis === false,
-  `the ignited seraph is OFF at the S2 pin — no gold wreath outside the settled heaven (igniteK ${liftOff.ignite?.k}, aura ${liftOff.ignite?.glowVis})`);
+check(liftOff.ignite && liftOff.ignite.k === 0 && liftOff.ignite.glowVis === false && liftOff.ignite.wispVis === false,
+  `the ignited seraph is OFF at the S2 pin — no gold wreath/wisps outside the settled heaven (igniteK ${liftOff.ignite?.k}, aura ${liftOff.ignite?.glowVis}, wisps ${liftOff.ignite?.wispVis})`);
 
 // THE EXHALE: fell the boss from the heaven → the mix HOLDS (never descends through the void — the
 // reverse-strobe catch) while the fade dissolves the arena back to the biome sky.
