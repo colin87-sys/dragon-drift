@@ -280,6 +280,28 @@ function buildKnappedTorso(def, model, _bodyMat) {
     if (sP.length) group.add(flatTriMesh(sP, M.belly));
   }
 
+  // HIND LEGS (CP6 silhouette mass) — tucked panther hind limbs folded against the haunch: a chunky
+  // faceted THIGH proud below the hull + a SHIN swept forward to a folded foot. Static (parented to
+  // the torso, no rig). This is the biggest OUTLINE lever — a legged drake reads at gameplay distance
+  // where surface plates can't. Dial legHint (apex + radiant only).
+  if ((model.legHint ?? 0) > 0) for (const side of [1, -1]) {
+    const hx = side * 0.30, hy = 0.02, hz = 1.04;              // hip, at the haunch station
+    const knee = [side * 0.36, hy - 0.30, hz + 0.06];
+    const ankle = [side * 0.27, hy - 0.19, hz + 0.34];         // swept FORWARD → the folded tuck
+    const toe = [side * 0.22, hy - 0.24, hz + 0.50];
+    group.add(flatTriMesh([
+      // thigh (chunky wedge from the hip down to the knee)
+      [[hx - side * 0.09, hy + 0.08, hz - 0.10], [hx + side * 0.11, hy + 0.05, hz + 0.16], knee],
+      [[hx - side * 0.09, hy + 0.08, hz - 0.10], knee, [hx - side * 0.05, hy - 0.06, hz + 0.12]],
+      [[hx + side * 0.11, hy + 0.05, hz + 0.16], [hx - side * 0.05, hy - 0.06, hz + 0.12], knee],
+      // shin (knee → ankle, swept forward)
+      [knee, [ankle[0] + side * 0.06, ankle[1] + 0.05, ankle[2]], ankle],
+      [knee, ankle, [ankle[0] - side * 0.03, ankle[1] - 0.03, ankle[2] - 0.04]],
+      // foot (folded, a short knapped plate)
+      [ankle, [toe[0] + side * 0.05, toe[1] + 0.01, toe[2] - 0.03], toe],
+    ], side < 0 ? M.dorsalFacet : M.bodyFlat));
+  }
+
   // Nape motif-anchor (the Starlit Seam seats here). Publishing it is a documented
   // crash-guard (parts read attach.motifAnchor).
   const motifAnchor = new THREE.Object3D();
@@ -676,29 +698,42 @@ function buildVesperCatHead(def, model, mats) {
   // they never crowd into a spiky fringe. Each is ONE bold canted flat blade — its base
   // offset in z tilts the face ~±12° off-sagittal so it reads from behind (the
   // top-centre silhouette punctuation), NOT a horn.
+  // CREST CROWN (CP5) — each blade is a THICK 4-tri knapped wedge (no more paper-thin edge-on
+  // flicker); the rank DESCENDS in height (front ears dominant, no rear-boost) and the rear pairs
+  // CONVERGE toward the midline with the cant carried by z-spread, so from the front they stack into
+  // one clean sagittal crown instead of interleaving into a jumble.
   const pairs = Math.round(model.earFinPairs ?? 1);
+  const th = 0.028 * hs;
   for (let p = 0; p < pairs; p++) {
-    const z0 = 0.18 * hs - p * 0.15 * hs;             // front pair = the "ears", later pairs a swept crest rank
-    const sc = 1 - 0.16 * p;                          // E3: gentler falloff so the rear pairs read as a CREST, not shrink to nothing
-    const crest = p > 0 ? 1.25 : 1;                   // crest blades sharper/taller than the front ears
-    const h = 0.20 * hs * sc * crest, wide = 0.20 * hs * sc;  // SHORT + BROAD ear-flake up front → taller swept blade behind
+    const z0 = 0.18 * hs - p * 0.15 * hs;
+    const sc = 1 - 0.16 * p;
+    const h = 0.20 * hs * sc, wide = 0.20 * hs * sc;
     for (const side of [1, -1]) {
-      const bx = side * 0.12 * hs, by = 0.15 * hs;
-      const baseF = [bx - side * 0.02 * hs, by, z0 - wide * 0.5];       // front base
-      const baseB = [bx + side * 0.11 * hs * sc, by - 0.03 * hs, z0 + wide * 0.5];  // back-outer base (wide span → the ±12° cant)
-      const tip = [bx + side * 0.07 * hs * sc, by + h, z0 - wide * 0.1 + p * 0.03 * hs]; // sweeps back down the crest
-      group.add(flatTriMesh([[baseF, tip, baseB]], M.dorsalFacet));
+      const bx = side * (0.12 - 0.025 * p) * hs, by = 0.15 * hs;   // rear pairs pull toward the midline
+      const baseF = [bx - side * 0.02 * hs, by, z0 - wide * 0.5];
+      const baseB = [bx + side * 0.06 * hs * sc, by - 0.03 * hs, z0 + wide * 0.5];   // narrow x-splay → cant is z, not interleave
+      const tip = [bx + side * 0.05 * hs * sc, by + h, z0 - wide * 0.1 + p * 0.03 * hs];
+      const bFi = [baseF[0] - side * th, baseF[1], baseF[2]], bBi = [baseB[0] - side * th, baseB[1], baseB[2]];
+      group.add(flatTriMesh([[baseF, tip, baseB], [bBi, tip, bFi], [baseF, bFi, tip], [baseB, tip, bBi]], M.dorsalFacet));
     }
   }
-  // E3 — CENTRAL OCCIPITAL BLADE: one swept nightglass blade on the crown midline behind the ear
-  // rank (crown-tier growth from the chase cam; still cat-eared anatomy, NO horn/regalia — honors §6).
+  // CENTRAL OCCIPITAL BLADE — the single TALLEST center peak behind the ears (~1.6× the ears), so
+  // front-on the crown reads as two ears + one dominant peak. Still cat anatomy, NO horn/regalia (§6).
   if ((model.crestBlade ?? 0) > 0) {
-    const z0 = 0.18 * hs - (pairs - 0.4) * 0.15 * hs, by = 0.15 * hs, w = 0.05 * hs;
-    const apex = [0, by + 0.36 * hs, z0 + 0.03 * hs];
+    const z0 = 0.18 * hs - (pairs - 0.4) * 0.15 * hs, by = 0.15 * hs, w = 0.055 * hs;
+    const apex = [0, by + 0.56 * hs, z0 + 0.03 * hs];
     group.add(flatTriMesh([
       [[-w, by, z0 - 0.05 * hs], [w, by, z0 - 0.05 * hs], apex],
-      [[w, by, z0 - 0.05 * hs], [0, by - 0.02 * hs, z0 + 0.13 * hs], apex],
-      [[0, by - 0.02 * hs, z0 + 0.13 * hs], [-w, by, z0 - 0.05 * hs], apex],
+      [[w, by, z0 - 0.05 * hs], [0, by - 0.02 * hs, z0 + 0.15 * hs], apex],
+      [[0, by - 0.02 * hs, z0 + 0.15 * hs], [-w, by, z0 - 0.05 * hs], apex],
+    ], M.dorsalFacet));
+  }
+  // NAPE FRILL (CP5, crestWeb) — a low knapped membrane webbing the rear crest down to the occiput,
+  // doubling the crest's silhouette AREA without adding spikes (silhouette mass, not clutter).
+  if ((model.crestWeb ?? 0) > 0) {
+    const zb = 0.18 * hs - (pairs - 1) * 0.15 * hs, by = 0.15 * hs;
+    for (const side of [1, -1]) group.add(flatTriMesh([
+      [[side * 0.02 * hs, by + 0.10 * hs, zb], [side * 0.11 * hs, by - 0.02 * hs, zb + 0.36 * hs], [side * 0.02 * hs, by - 0.07 * hs, zb + 0.30 * hs]],
     ], M.dorsalFacet));
   }
 
@@ -769,12 +804,13 @@ function buildSplitFanTail(def, model, mats, anchor) {
     const nub = (x, y, z, s) => { const b0 = [x - s, y, z - s], b1 = [x + s, y, z - s], b2 = [x + s, y, z + s * 1.5], b3 = [x - s, y, z + s * 1.5], ap = [x, y + s * 1.4, z + s * 0.2]; return [[b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]]; };
     for (let i = 0; i < tailNubs; i++) { const t = i / Math.max(1, tailNubs); const st = stem[Math.round(t * (nSeg - 1))]; const s = 0.05 * (1 - 0.7 * t); chainAdd(st.z, flatTriMesh(nub(0, st.cy + st.ry + 0.006, st.z, s), M.dorsalFacet)); }
   }
-  // MID-TAIL FIN PAIR (CP2) — a bold knapped fin each side partway down the tail.
+  // MID-TAIL FIN PAIR (CP2, decluttered CP4) — swept FLAT against the stem (raked aft, tip near the
+  // stem ridge, not lifted into a second fan blade) + moved forward, so it reads as stem anatomy.
   if ((model.tailMidFins ?? 0) > 0) {
-    const mt = 0.58, ms = stem[Math.round(mt * nSeg)];
+    const mt = 0.42, ms = stem[Math.round(mt * nSeg)];
     for (const side of [1, -1]) chainAdd(ms.z, flatTriMesh([
-      [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.24, ms.cy + 0.22, ms.z + 0.10], [side * 0.10, ms.cy - 0.02, ms.z + 0.34]],
-      [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.10, ms.cy - 0.02, ms.z + 0.34], [side * 0.02, ms.cy - 0.03, ms.z + 0.10]],
+      [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.20, ms.cy + 0.05, ms.z + 0.20], [side * 0.10, ms.cy - 0.03, ms.z + 0.32]],
+      [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.10, ms.cy - 0.03, ms.z + 0.32], [side * 0.02, ms.cy - 0.04, ms.z + 0.08]],
     ], side < 0 ? M.dorsalFacet : M.bodyFlat));
   }
 
@@ -831,28 +867,30 @@ function buildSplitFanTail(def, model, mats, anchor) {
     // CENTER WEB — welds both fans into the tail tip so there is ZERO daylight at the
     // joint from any view (the Fable CP2 "severed tail" defect). Penetrates the last
     // stem segment forward of the fan roots.
-    const rw = 0.05;
-    add(flatTriMesh([
-      [[rw, ty, tz - 0.06], [-rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.12]],
-      [[rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.12], [0, ty - 0.03, tz + 0.18]],
-      [[-rw, ty, tz - 0.06], [0, ty - 0.03, tz + 0.18], [0, ty + 0.03, tz + 0.12]],
+    const rw = 0.14;   // WIDE center gap so the twin-crescent read is unmistakable (declutter)
+    add(flatTriMesh([   // the center web is the ONLY geometry allowed in the gap; bridges the wider split
+      [[rw, ty, tz - 0.06], [-rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.14]],
+      [[rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.14], [0, ty - 0.03, tz + 0.20]],
+      [[-rw, ty, tz - 0.06], [0, ty - 0.03, tz + 0.20], [0, ty + 0.03, tz + 0.14]],
     ], M.bodyFlat));
-    const petals = Math.round(model.tailPetals ?? 4);   // E4: 6 at apex, petal 0 the dominant (longest)
+    const petals = Math.round(model.tailPetals ?? 4);
+    const lenF = [0.85, 0.66, 0.50, 0.38, 0.30];   // monotone → DOMINANT leading petal, clean crescent falloff
     for (const side of [1, -1]) {
       const root = [side * rw, ty, tz - 0.04];   // rooted INTO the stem tip (welded)
       const tips = [];
       for (let p = 0; p < petals; p++) {
-        const ang = side * (0.10 + 0.62 * (p / (petals - 1))) * Math.max(0.6, spread);
-        const len = (0.72 - 0.06 * p) * (0.7 + 0.5 * spread);   // ~1.35× larger — a real second landmark
-        tips.push([root[0] + Math.sin(ang) * (0.12 + len * 0.5), ty + 0.16 + 0.06 * p, tz + 0.08 + Math.cos(ang) * (0.16 + len)]);
+        const ang = side * (0.34 + 0.52 * (p / Math.max(1, petals - 1))) * Math.max(0.6, spread);   // start ANGLED off the gap
+        const len = lenF[Math.min(p, lenF.length - 1)] * (0.75 + 0.4 * spread);
+        tips.push([root[0] + Math.sin(ang) * (0.12 + len * 0.5), ty + 0.10, tz + 0.08 + Math.cos(ang) * (0.16 + len)]);   // FLAT top → one crescent, not a rising sawtooth
       }
-      for (let p = 0; p < petals; p++) {   // finger-petal ridges
-        const a = root, b = tips[p], dx = b[0] - a[0], dz = b[2] - a[2], L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L, w = 0.03;
-        add(flatTriMesh([[[a[0] + nx * w, a[1], a[2] + nz * w], [a[0] - nx * w, a[1], a[2] - nz * w], b]], p % 2 ? M.dorsalFacet : M.bodyFlat));
+      for (let p = 0; p < petals; p++) {   // finger-petal ridges — raised 2-face TENTS (solid at distance)
+        const a = root, b = tips[p], dx = b[0] - a[0], dz = b[2] - a[2], L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L, w = 0.032;
+        const aL = [a[0] + nx * w, a[1], a[2] + nz * w], aR = [a[0] - nx * w, a[1], a[2] - nz * w], aT = [a[0], a[1] + 0.05, a[2]];
+        add(flatTriMesh([[aL, b, aT], [aT, b, aR]], p % 2 ? M.dorsalFacet : M.bodyFlat));
       }
-      for (let p = 0; p < petals - 1; p++) {   // webbed cupped membrane + fin-rim seam + port mark
+      for (let p = 0; p < petals - 1; p++) {   // webbed DEEP-cupped membrane + fin-rim seam + port mark
         const Fa = tips[p], Fb = tips[p + 1], mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
-        const ctrl = [mid[0] + (root[0] - mid[0]) * 0.35, mid[1] + (root[1] - mid[1]) * 0.35 - 0.02, mid[2] + (root[2] - mid[2]) * 0.35];
+        const ctrl = [mid[0] + (root[0] - mid[0]) * 0.5, mid[1] + (root[1] - mid[1]) * 0.5 - 0.02, mid[2] + (root[2] - mid[2]) * 0.5];
         const arc = [Fa, bez(Fa, ctrl, Fb, 0.34), bez(Fa, ctrl, Fb, 0.66), Fb];
         const C = [(root[0] + mid[0]) / 2, (root[1] + mid[1]) / 2 - 0.04, (root[2] + mid[2]) / 2];
         add(flatTriMesh([[C, root, arc[0]], [C, arc[0], arc[1]], [C, arc[1], arc[2]], [C, arc[2], arc[3]], [C, arc[3], root]], p % 2 ? M.bodyFlat : M.dorsalFacet));
@@ -860,10 +898,11 @@ function buildSplitFanTail(def, model, mats, anchor) {
         if (side === -1) { const fx = (root[0] + Fa[0]) / 2, fy = (root[1] + Fa[1]) / 2 + 0.015, fz = (root[2] + Fa[2]) / 2, r = 0.03; add(flatTriMesh([[[fx - r, fy, fz], [fx + r, fy + 0.004, fz - r * 0.3], [fx, fy, fz + r]]], speckle)); }
       }
     }
-    // f3 — a central RUDDER facet between the fins (the finished-blade tail closer).
+    // f3 — a short VENTRAL keel BELOW the center gap (the closer). Was a dorsal spike crowding the
+    // gap into a third centreline blade; dropped underneath so the twin-crescent dorsal read stays clean.
     if ((model.tailRudder ?? 0) > 0) {
       add(flatTriMesh([
-        [[0, ty + 0.02, tz], [0, ty + 0.30, tz + 0.10], [0, ty - 0.02, tz + 0.40]],
+        [[0, ty - 0.02, tz + 0.02], [0, ty - 0.26, tz + 0.14], [0, ty - 0.02, tz + 0.38]],
       ], M.dorsalFacet));
     }
   }
