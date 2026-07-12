@@ -511,6 +511,115 @@ export const DRAGONS = {
     eye: 0xe0bc78, trail: 0xb47cf0, boostTrail: 0xc8a8ff,
   },
 
+  // NIGHTGLASS VESPER — a FRESH premium matte-black night drake, authored as
+  // deliberate FLAT FACETS (knapped night-glass), NOT the retired smooth-hull
+  // organism family (see VESPER-NIGHTGLASS-BUILDSHEET.md §Anti-pattern). Fully
+  // additive: nothing shipped changes. Cruise-black law — the only cruise emissive
+  // is the acid-green eyes; the ion-blue Starlit Seam is withheld until the Night
+  // Surge (wired from I4). Body value DARKENS up the ladder (apex = darkest object).
+  vesper: {
+    name: 'Nightglass Vesper · Rich',
+    title: 'Knapped from the dark',
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2200,
+    accentHue: 0x2050e8,   // §9 law-9 carrier: ion-blue, emissive-only, Surge-only
+    parts: { torso: 'knappedTorso', wings: 'scallopCrescentWings', head: 'vesperCatHead', tail: 'splitFanTail', surface: { shader: [] } },
+    stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
+    // Apex reference dials; each form dials the per-stage silhouette (cumulative).
+    // Vesper dials (all nullable / default-off in dragonVesper.js): chine,
+    // glassStreak, spanScale, glowLevel, eyeScale, headScale, igniteStage.
+    model: {
+      scale: 1.15, tailSegments: 7, neckSegments: 4, flapBias: 0.85, flapAmp: 0.7,
+      chine: 1, glassStreak: 1, spanScale: 1.0, glowLevel: 1.0,
+      eyeScale: 0.7, headScale: 1.0, tailLength: 1.0, igniteStage: 3,
+      // Wing (scallopCrescentWings) apex reference dials; forms dial each rung.
+      // scallopLobes = finger-BONE count (fingered bat wing); archRise = carpal arch;
+      // wingCup = inward membrane cup depth; wingGusset/thumbClaw = anti-plank extras.
+      scallopLobes: 5, archRise: 0.4, wingCup: 0.35, wingGusset: 1, thumbClaw: 1,
+      wristT: 0.21,   // MEDIAL carpal → very short arm, long-fingered hand (owner: more medial; span preserved by F0=LE(1))
+      edgeBand: 1, constellations: 8, cowlPlates: 1,
+      // Head (vesperCatHead) + tail (splitFanTail) apex reference dials.
+      earFinPairs: 4, eyeAlmond: 1.0, crestBlade: 1, crestWeb: 1,   // CP5: crown (4-tri ears + dominant occipital peak + nape frill)
+      splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
+      tailPetals: 4,                 // E4: split fan-fins (twin crescent)
+      // CP2 body/tail richness: dorsal nub row, hip flakes, tail nubs, mid-tail fins.
+      dorsalNubs: 9, haunchFlakes: 1, tailNubs: 5, tailMidFins: 1,
+      // FINISHED-BLADE spectacle (CP-E): a struck knap-plate field on the hull + a layered wing
+      // covert row + smoother membrane arcs. The single biggest density lever (parity with Solar/
+      // Phoenix). All matte/cold — geometry, not glow — so the night-drake identity survives.
+      knapPlates: 18, covertRow: 12, wingNSEG: 8, legHint: 1,   // CP6: hind legs (silhouette mass) + smoother membrane
+      // The Starlit Seam (Surge-only, ion-blue). surgeGlowMultiplier lifts the seam's
+      // near-zero cruise base to a blaze ONLY on the Night Surge (eyes stay out of the
+      // surge arrays). seamRun/finRims/rootSpark ladder the carved circuit.
+      seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, surgeGlowMultiplier: 22,
+      // WING MOTION (CP3) — the fingered wing is a 3-segment HINGE on the wingParts poser, NOT
+      // the old 1-bone plank (the runtime bug the Fable gate caught): pivot = shoulder flap,
+      // mid = forearm lagged curl, tip = the HAND folding at the wrist (the bat read — the whole
+      // membrane rides the hand as one sheet, so the fold never tears it). glidePow > 1 HOLDS
+      // the broad glide pose and pulses through it (a stealthy "commands the air" beat, not the
+      // old sine metronome); a gentle apex V-lift. Per-form ladder in forms[].
+      wingParts: 3, rootAmp: 0.62, midAmp: 0.34, tipAmp: 0.55, midLag: 0.45, tipLag: 1.0,
+      glidePow: 2.2, restLift: 0.05, apexMid: 0.10, apexTip: 0.22,
+      // TAIL MOTION (CP3) — the splitFanTail is a 4-joint NESTED isBone chain (see dragonVesper.js).
+      // The rig walks it with a travelling lateral COIL + a phase-lagged VERTICAL wave (the axis
+      // the rear-chase lens reads — the "stiff" fix). A BESPOKE supple-predator signature (deeper,
+      // slower undulate than the roster's flame-whips — NOT a copy). tailRudderScale trims the
+      // compounding per-joint turn-curl on the chain to a graceful arc, not a J-hook.
+      tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
+    },
+    // I1 ladder (torso-chine increment): body value DECREASES up the rungs; the
+    // wing/head/tail dials are placeholders until I2/I3. The full knapping ladder
+    // (scallop lobes, seamRun, ear-fin pairs, split-fan spread) lands in I5.
+    forms: [
+      { spanScale: 0.70, glowLevel: 0.25, eyeScale: 1.30, headScale: 1.25, igniteStage: 0,
+        scallopLobes: 2, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
+        wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 0.9,   // whelp: a simple frantic flapper (no wrist fold yet)
+        knapPlates: 0, covertRow: 0, wingNSEG: 4, crestBlade: 0, tailPetals: 4,   // bare pebble
+        earFinPairs: 1, eyeAlmond: 0, splitFan: 0, tailFinSpread: 0, tailStretch: 1.0, tailRudder: 0,
+        seamRun: 0, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 0, haunchFlakes: 0, tailNubs: 0, tailMidFins: 0,
+        colors: { body: 0x111522, belly: 0x1f2942, wingOuter: 0x111522, eye: 0x54c81e } },
+      { spanScale: 0.82, glowLevel: 0.50, eyeScale: 1.05, headScale: 1.12, igniteStage: 1,
+        scallopLobes: 3, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
+        wingParts: 2, midAmp: 0.24, tipAmp: 0.30, glidePow: 1.2,   // kindled: the wrist fold arrives
+        knapPlates: 4, covertRow: 0, wingNSEG: 4, crestBlade: 0, tailPetals: 4,   // first struck plates + shoulder mass
+        earFinPairs: 2, eyeAlmond: 0.4, splitFan: 1, tailFinSpread: 0, tailStretch: 1.0, tailRudder: 0,
+        seamRun: 0.4, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 4, haunchFlakes: 0, tailNubs: 0, tailMidFins: 0,
+        colors: { body: 0x0d111b, belly: 0x1c2338, wingOuter: 0x0d111b, eye: 0x5cd41e } },
+      { spanScale: 0.92, glowLevel: 0.75, eyeScale: 0.90, headScale: 1.05, igniteStage: 2,
+        scallopLobes: 4, glideRake: 0.5, constellations: 5, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
+        wingParts: 3, midAmp: 0.32, tipAmp: 0.46, glidePow: 1.7,   // radiant: full cascade, calmer beat
+        knapPlates: 10, covertRow: 6, wingNSEG: 6, crestBlade: 0, crestWeb: 1, tailPetals: 4, legHint: 1,   // split fan + covert row + crest + legs
+        earFinPairs: 3, eyeAlmond: 0.7, splitFan: 2, tailFinSpread: 1.0, tailStretch: 1.0, tailRudder: 0,
+        seamRun: 1.0, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 7, haunchFlakes: 1, tailNubs: 3, tailMidFins: 0,
+        colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0x62dc22 } },
+      { spanScale: 1.05, glowLevel: 1.00, eyeScale: 0.86, headScale: 1.00, igniteStage: 3,
+        scallopLobes: 5, glideRake: 1.0, constellations: 8, wingCreases: 1, cowlPlates: 1, edgeBand: 1,
+        wingParts: 3, midAmp: 0.34, tipAmp: 0.65, glidePow: 2.2,   // sovereign: deep wrist fold (longer hand reads it), held-glide beat
+        knapPlates: 18, covertRow: 12, wingNSEG: 8, crestBlade: 1, crestWeb: 1, tailPetals: 4, legHint: 1,   // the finished blade
+        earFinPairs: 4, eyeAlmond: 1.0, splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
+        seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, dorsalNubs: 9, haunchFlakes: 1, tailNubs: 5, tailMidFins: 1,
+        colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0x6ae62a } },
+    ],
+    fx: { auraColor: '40,72,150', auraIdle: 0.03, sparkle: false },
+    hasStyle: true,   // keep the cold ion-blue trail in Surge (never warmed to white)
+    // Night Surge palette (COOL — the rig defaults to magenta; override every hook):
+    // wings stay BLACK on Surge (emissive black → the scallop silhouette owns the frame;
+    // only the Starlit Seam + eyes light), a low ion-blue screen wash, acid-green eyes,
+    // and cool arcane motes (Sovereign-style, Surge-only).
+    feverWing: 0x000000, feverEye: 0x9af03a, feverWash: [0.02, 0.045, 0.11], surgeMotes: true,
+    hideRiderGlow: true,   // kill the round rider bloom on Surge — the drake owns the frame by its own cold accents
+    // Cruise membrane emissive is EXPLICITLY black (the wing owns the frame by silhouette, never
+    // glow). Set so the rig's per-frame `wingMat.emissive.setHex(... ?? wingEmissive)` gets a real
+    // 0x000000 instead of coercing setHex(undefined)→black by luck.
+    wingEmissive: 0x000000,
+    body: 0x070a11, belly: 0x1a2234,
+    wingInner: 0x0a0e17, wingOuter: 0x070a11,
+    eye: 0x54c81e,
+    apexEye: 0x6ae62a, apexSeam: 0x2050e8, coreGlow: 0x2050e8, surgeHi: 0x4d86ff,
+    trail: 0x24427a, boostTrail: 0x3d63c8,
+  },
+
   phoenix: {
     name: 'Phoenix Ascendant',
     lanceTint: 0xff7a1a, lanceRune: 'phoenixFlame',   // Eternal wisp: blazing orange (PR8)
@@ -975,6 +1084,21 @@ export const DRAGONS = {
   // skeleton at load and the SHIPPED flapWing/spine-whip/tail drive animates it
   // (no baked clips, no shader hinge). rig knobs are measured defaults —
   // override here only if the preview shows a mask/placement miss.
+};
+
+// ── A/B PREVIEW: "Nightglass Vesper · Lean" ──────────────────────────────────
+// The owner's A/B request: the 7/10-era BODY + the WING FIX (medial wrist + fingered
+// outline) + all the motion — but WITHOUT the Finished-Blade surface RICHNESS (the
+// knapped plate field, the wing covert row, the crest crown expansion, and the hind
+// legs). A near-clone of `vesper` (same builders/palette/motion/shoulder-fix/twin-
+// crescent tail) with those richness dials forced OFF in the base model AND every form,
+// so the two entries sit side-by-side in the shop for the owner to compare + play.
+DRAGONS.vesperLean = {
+  ...DRAGONS.vesper,
+  name: 'Nightglass Vesper · Lean',
+  title: 'Knapped clean',
+  model: { ...DRAGONS.vesper.model, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: 3 },
+  forms: DRAGONS.vesper.forms.map((f) => ({ ...f, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: Math.min(3, f.earFinPairs ?? 3) })),
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

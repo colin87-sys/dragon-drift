@@ -365,6 +365,14 @@ function buildRider(riderDef, socket) {
   riderOrbiters = fig.orbiters; // empty for most riders
   riderGlow = fig.glow;
   if (riderGlow) riderGlow.layers.set(1); // bloom layer in-game
+  // `?norider` (capture-only): HIDE the rider + its bloom glow so a dragon review/hero shot reads
+  // the CREATURE, not the premium-rider glow sprite at its back. All refs stay valid (the animator
+  // writes riderGroup/scarfMesh/riderHead unguarded) — we only flip visibility. No gameplay effect.
+  try {
+    if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('norider')) {
+      rider.visible = false; if (riderGlow) riderGlow.visible = false;
+    }
+  } catch { /* no location */ }
 
   // Saddle + cinch straps anchoring the rider to the dragon's back.
   const strapMat = new THREE.MeshStandardMaterial({ color: 0x3a1b16, roughness: 0.75 });
@@ -608,7 +616,10 @@ export function updateDragon(dt, player, time) {
   scarfMesh.rotation.z = damp(scarfMesh.rotation.z, swayTarget, 6, dt);
 
   // Rider effects: glow breathes with speed; oracle's shards orbit the head.
+  // def.hideRiderGlow suppresses the round bloom sprite behind the rider (a night drake reads by its
+  // OWN cold accents on Surge, not a warm rider halo) — the rider figure itself still rides.
   if (riderGlow) {
+    riderGlow.visible = !activeDef.hideRiderGlow;
     riderGlow.material.opacity = 0.2 + speedNorm * 0.22 + Math.sin(time * 4) * 0.05;
   }
   for (const o of riderOrbiters) {
