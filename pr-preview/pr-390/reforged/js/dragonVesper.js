@@ -201,12 +201,22 @@ function buildKnappedTorso(def, model, _bodyMat) {
   if (seamRun != null && seamRun >= 0) {
     const full = body.length - 1;
     const segCount = seamRun <= 0 ? 1 : Math.max(1, Math.round(full * Math.min(1, seamRun)));
-    const srail = body.slice(0, segCount + 1).map(s => [0, s.cy + s.ry + 0.010, s.z]);
-    const hw = 0.035, seamT = [];
+    // RECESSED · SEGMENTED · TAPERED groove (CP-C) — the sheet's spec is an INSET shadow groove
+    // between facets, not a ribbon on top (the owner's "LED strip stuck on its back"). Seat it a
+    // hair BELOW the ridge crest so the dorsal nubs flank it as lips (Surge light pools UP out of
+    // the crack); break each inter-station span into a DASH with a dark gap at every plate joint;
+    // needle the width at the nape, widen over the back, needle to the tail. Still withheld in
+    // cruise (M.seam near-zero base) — this is geometry only.
+    const srail = body.slice(0, segCount + 1).map(s => [0, s.cy + s.ry - 0.015, s.z]);
+    const seamT = [], gap = 0.34;
+    const hwAt = (t) => 0.014 + 0.030 * Math.sin(Math.PI * Math.min(1, t));
     for (let i = 0; i < srail.length - 1; i++) {
       const A = srail[i], B = srail[i + 1];
-      seamT.push([[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
-                 [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]);
+      const a = [0, A[1] + (B[1] - A[1]) * gap * 0.5, A[2] + (B[2] - A[2]) * gap * 0.5];   // dash inset → dark gap at each station
+      const b = [0, B[1] - (B[1] - A[1]) * gap * 0.5, B[2] - (B[2] - A[2]) * gap * 0.5];
+      const wa = hwAt(i / (srail.length - 1)), wb = hwAt((i + 1) / (srail.length - 1));
+      seamT.push([[a[0] - wa, a[1], a[2]], [b[0] + wb, b[1], b[2]], [b[0] - wb, b[1], b[2]]],
+                 [[a[0] - wa, a[1], a[2]], [a[0] + wa, a[1], a[2]], [b[0] + wb, b[1], b[2]]]);
     }
     group.add(flatTriMesh(seamT, M.seam));
     spineMats.push(M.seam);
@@ -291,8 +301,12 @@ registerTorso('knappedTorso', buildKnappedTorso);
 // mid-span then sweeps hard aft to the tip. This curved-organic leading edge is what
 // kills the "delta-kite / plane" read (the owner's 1.5 verdict). Solar's wingArchY +
 // Phoenix's sunLeadZ, restyled for a stealth drake (modest archRise).
-function vesperArmY(t, hs, archRise) {
-  const arch = t <= 0.42 ? Math.sin((t / 0.42) * Math.PI / 2) * 0.30 : 0.30 - (t - 0.42) * 0.20;
+function vesperArmY(t, hs, archRise, wristT) {
+  // wristT = where the carpal apex sits along the span. MEDIAL (~0.28) = a SHORT arm + a LONG
+  // hand (real bat proportion; the owner's note). The arch peaks at the wrist, then eases to the
+  // tip; a gentler post-apex falloff (0.14) keeps the steeper inboard rise from kinking.
+  const w = wristT ?? 0.42;
+  const arch = t <= w ? Math.sin((t / w) * Math.PI / 2) * 0.30 : 0.30 - (t - w) * 0.14;
   return hs * (0.06 * t + (archRise ?? 0.4) * arch);
 }
 function vesperArmZ(t, hs) {
@@ -316,16 +330,19 @@ function buildOneScallopWing(M, dials) {
   const arm = new THREE.Group();
   const hand = new THREE.Group();
   const { fingers, halfSpan: hs, archRise, cup, gusset, thumb, constellations, edgeBand } = dials;
-  const LE = (t) => [t * hs, vesperArmY(t, hs, archRise), vesperArmZ(t, hs)];
-  const K = LE(0.42);                    // carpal knuckle — the fingers radiate from here
+  const wristT = dials.wristT ?? 0.42;   // MEDIAL wrist → short arm, long hand (bat proportion)
+  const LE = (t) => [t * hs, vesperArmY(t, hs, archRise, wristT), vesperArmZ(t, hs)];
+  const K = LE(wristT);                   // carpal knuckle — the fingers radiate from here
   const F0 = LE(1);                       // wingtip = longest finger (continues the leading edge)
   const quad = (a, c, b, s) => { const m = 1 - s; return [m * m * a[0] + 2 * m * s * c[0] + s * s * b[0], m * m * a[1] + 2 * m * s * c[1] + s * s * b[1], m * m * a[2] + 2 * m * s * c[2] + s * s * b[2]]; };
 
   // Finger tips fan from K: F0 leading; later fingers sweep progressively AFT + inboard,
   // shorter, drooping (aft-and-down terminal — never an up-curl). Real length variance
   // with a dominant (the Phoenix "fat fingers + a dominant, never a picket fence" law).
+  // With the medial wrist the fan is LONGER (r0 grows), so spanAft tightens + the tail of
+  // lenFrac trims so the innermost fingers don't sweep their tips into the hip/tail corridor.
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
-  const lenFrac = [1, 0.82, 0.66, 0.50, 0.36, 0.26], spanAft = 1.55;
+  const lenFrac = [1, 0.82, 0.66, 0.50, 0.32, 0.22], spanAft = 1.35;
   const tips = [F0];
   for (let i = 1; i < fingers; i++) {
     const phi = phi0 + spanAft * (i / (fingers - 1));
@@ -338,28 +355,56 @@ function buildOneScallopWing(M, dials) {
   // rim-catch along the spine so they read as raised skeletal RAYS above the membrane
   // (the clay's piped ridges), not flat wedges. Plus a bolder arm bone (root → carpal).
   const ridgeLift = 0.12 * hs;
-  const ridge = (tgt, a, b, wB, wT, mat, capMat) => {
+  const ridge = (tgt, a, b, wB, wT, mat, capMat, lift) => {
+    const lf = lift ?? ridgeLift;
     const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
     const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
     const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
-    const aT = [a[0], a[1] + ridgeLift, a[2]], bT = [b[0], b[1] + ridgeLift * 0.35, b[2]];
+    const aT = [a[0], a[1] + lf, a[2]], bT = [b[0], b[1] + lf * 0.35, b[2]];
     tgt.add(flatTriMesh([[aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]], mat));
     // a slim brighter spine cap on the ridgeline → the raised-bone rim-catch (light).
-    if (capMat) { const aT2 = [a[0] + px * wB * 0.28, a[1] + ridgeLift, a[2] + pz * wB * 0.28]; tgt.add(flatTriMesh([[aT, bT, aT2]], capMat)); }
+    if (capMat) { const aT2 = [a[0] + px * wB * 0.28, a[1] + lf, a[2] + pz * wB * 0.28]; tgt.add(flatTriMesh([[aT, bT, aT2]], capMat)); }
   };
-  ridge(arm, LE(0), K, 0.13 * hs, 0.09 * hs, M.dorsalFacet, M.speckle);         // arm bone → forearm (rides the wrist joint's parent)
-  for (let i = 0; i < tips.length; i++) ridge(hand, K, tips[i], 0.075 * hs * (1 - 0.08 * i), 0.006, M.dorsalFacet, i < 2 ? M.speckle : null);  // finger bones → hand (fold)
+  // ── ARM (CP-B) — a SHORT humerus + forearm (medial wrist), LOW-lifted, NO bright rim cap, so
+  // the inboard leading edge reads as a muscled LIMB the wing grows from — not a raised bright rod
+  // arcing across the back (the owner's "curved bar"). A DELTOID mass swallows the humerus root
+  // into the shoulder; a PROPATAGIUM membrane webs the inboard leading edge into a wing.
+  const armLift = 0.04 * hs;
+  const E = LE(wristT * 0.42);                                                 // elbow ~40% along the short arm
+  ridge(arm, LE(0), E, 0.17 * hs, 0.11 * hs, M.dorsalFacet, null, armLift);    // humerus (thick at the shoulder)
+  ridge(arm, E, K, 0.10 * hs, 0.05 * hs, M.dorsalFacet, null, armLift);        // forearm (tapers to the wrist)
+  {
+    const s0 = LE(0);
+    const sBk = [s0[0] - 0.09 * hs, s0[1] - 0.02 * hs, s0[2] - 0.34], sUp = [s0[0] + 0.03 * hs, s0[1] + 0.11 * hs, s0[2] - 0.02];
+    const eLo = [E[0], E[1] - 0.02 * hs, E[2] + 0.05];
+    arm.add(flatTriMesh([[sBk, sUp, E], [sBk, E, eLo], [sUp, s0, E], [s0, eLo, E]], M.bodyFlat));   // deltoid muscle wedge
+    arm.add(flatTriMesh([[s0, E, K]], tier(M.memTiers.length - 1)));                                 // propatagium (inboard LE web)
+  }
+  // BOWED finger bones (CP-D) — each ray is a 2-segment ridge whose mid sags below the K→tip
+  // chord (aft + down), so the fingers curve like real phalanges instead of straight rods; the
+  // droop deepens on the shorter inboard fingers. The cap rim-catch rides the inboard segment.
+  for (let i = 0; i < tips.length; i++) {
+    const tp = tips[i], wB = 0.075 * hs * (1 - 0.08 * i), wM = wB * 0.55;
+    const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]);
+    const sag = 0.11 * L * (0.7 + 0.5 * (i / Math.max(1, tips.length - 1)));
+    const Bm = [(K[0] + tp[0]) / 2, (K[1] + tp[1]) / 2 - sag, (K[2] + tp[2]) / 2 + sag * 0.4];
+    ridge(hand, K, Bm, wB, wM, M.dorsalFacet, i < 2 ? M.speckle : null);
+    ridge(hand, Bm, tp, wM, 0.006, M.dorsalFacet, null);
+  }
 
   // ── MEMBRANE BAYS — between consecutive fingers the trailing edge is a SMOOTH concave
   // arc pulled INWARD toward the knuckle (deep stretched-skin cups, the clay-sculpt read
   // — sampled at 4 segments so it's a curved sag, NOT a sharp sawtooth-V; deepest sag
   // biased slightly aft). The bay centre drops below the finger plane so rim light pools.
   // Opaque per-bay tier; the translucent knife-edge is ONE connected rim strip (below).
-  const NSEG = 4, trailing = [];
+  const NSEG = dials.nseg ?? 4, trailing = [];   // 6 at f2/f3 → smoother sag arcs where the player stares
   for (let i = 0; i < tips.length - 1; i++) {
     const Fa = tips[i], Fb = tips[i + 1];
+    // Per-bay cup variance (CP-D): shallow behind the leading dominant, DEEPEST in the aft bays
+    // (real membranes sag most where the fingers are shortest) → no two bay depths equal.
+    const cupI = cup * (0.72 + 0.16 * i);
     const base = [Fa[0] + (Fb[0] - Fa[0]) * 0.55, Fa[1] + (Fb[1] - Fa[1]) * 0.55, Fa[2] + (Fb[2] - Fa[2]) * 0.55];   // aft-biased
-    const ctrl = [base[0] + (K[0] - base[0]) * cup, base[1] + (K[1] - base[1]) * cup - 0.04, base[2] + (K[2] - base[2]) * cup];
+    const ctrl = [base[0] + (K[0] - base[0]) * cupI, base[1] + (K[1] - base[1]) * cupI - 0.04, base[2] + (K[2] - base[2]) * cupI];
     const arc = [];
     for (let s = 0; s <= NSEG; s++) arc.push(quad(Fa, ctrl, Fb, s / NSEG));
     const mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
@@ -437,6 +482,12 @@ function buildScapularCowl(M, root, side) {
     [P(0.14, 0.14, -0.18), P(0.50, 0.04, 0.04), P(0.16, -0.04, 0.36)],
     [P(0.14, 0.14, -0.18), P(0.16, -0.04, 0.36), P(0.00, 0.02, 0.14)],
   ], M.bodyFlat));
+  // Outermost plate (CP-B) — laps FURTHEST out over the humerus root + deltoid so the short arm
+  // emerges from UNDER a 3-plate scapular stack, never a bare rod bolted to the hull.
+  g.add(flatTriMesh([
+    [P(0.30, 0.11, -0.20), P(0.68, 0.02, 0.00), P(0.42, -0.05, 0.30)],
+    [P(0.30, 0.11, -0.20), P(0.42, -0.05, 0.30), P(0.16, 0.03, 0.12)],
+  ], M.dorsalFacet));
   return g;
 }
 
@@ -453,7 +504,9 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   const thumb = (model.thumbClaw ?? 1) > 0;
   const constellations = Math.round(model.constellations ?? 0);
   const cowl = (model.cowlPlates ?? 0) > 0;
-  const dials = { fingers, halfSpan, archRise, cup, gusset, thumb, edgeBand, constellations };
+  const wristT = model.wristT ?? 0.42;   // medial-wrist fraction (short arm, long hand)
+  const nseg = Math.round(model.wingNSEG ?? 4);   // membrane-arc segments (6 at f2/f3 → smoother sag)
+  const dials = { fingers, halfSpan, archRise, cup, gusset, thumb, edgeBand, constellations, wristT, nseg };
 
   // MEMBRANE VALUE TIERS (CP4 — the 4th readable tier, the CP1 ceiling). The old ramp lerped
   // wingOuter→SLATE, but SLATE (0x141b28) is barely above NIGHT, so all four tiers compressed
@@ -522,7 +575,7 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
     const s = side === 1 ? 'R' : 'L';
     // Tip marker MUST duplicate the arm profile (detach gotcha) — the wingtip is the
     // longest finger's tip: LE(1) = (halfSpan, vesperArmY, vesperArmZ).
-    const tipY = vesperArmY(1, halfSpan, archRise), tipZ = vesperArmZ(1, halfSpan);
+    const tipY = vesperArmY(1, halfSpan, archRise, wristT), tipZ = vesperArmZ(1, halfSpan);
     const marker = new THREE.Object3D();
     marker.position.set(halfSpan, tipY, tipZ);
     hand.add(marker);   // tracks the wingtip through the wrist fold (trail/FX emit point)
@@ -653,12 +706,19 @@ function buildSplitFanTail(def, model, mats, anchor) {
   const accentMats = [];
   const seamRun = model.seamRun ?? 0;
   if (seamRun >= 1) {
-    const srail = stem.map(s => [0, s.cy + s.ry + 0.008, s.z]);
-    const hw = 0.026;
-    for (let i = 0; i < srail.length - 1; i++) {   // per-segment → binned to joints so the lit seam flexes with the tail
+    // Recessed · dashed · tapered down the tail (CP-C), matching the dorsal groove: seated below the
+    // ridge crest, broken at each stem station, needling to the tail fork. Per-segment → binned to
+    // the joints so the lit groove flexes with the tail chain.
+    const srail = stem.map(s => [0, s.cy + s.ry - 0.012, s.z]);
+    const gap = 0.34, N = srail.length - 1;
+    const hwAt = (t) => 0.010 + 0.020 * Math.sin(Math.PI * Math.min(1, t));
+    for (let i = 0; i < N; i++) {
       const A = srail[i], B = srail[i + 1];
-      chainAdd(A[2], flatTriMesh([[[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
-                 [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]], M.seam));
+      const a = [0, A[1] + (B[1] - A[1]) * gap * 0.5, A[2] + (B[2] - A[2]) * gap * 0.5];
+      const b = [0, B[1] - (B[1] - A[1]) * gap * 0.5, B[2] - (B[2] - A[2]) * gap * 0.5];
+      const wa = hwAt(i / N), wb = hwAt((i + 1) / N);
+      chainAdd(A[2], flatTriMesh([[[a[0] - wa, a[1], a[2]], [b[0] + wb, b[1], b[2]], [b[0] - wb, b[1], b[2]]],
+                 [[a[0] - wa, a[1], a[2]], [a[0] + wa, a[1], a[2]], [b[0] + wb, b[1], b[2]]]], M.seam));
     }
     accentMats.push(M.seam);
   }

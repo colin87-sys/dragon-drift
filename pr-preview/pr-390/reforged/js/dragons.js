@@ -537,6 +537,7 @@ export const DRAGONS = {
       // scallopLobes = finger-BONE count (fingered bat wing); archRise = carpal arch;
       // wingCup = inward membrane cup depth; wingGusset/thumbClaw = anti-plank extras.
       scallopLobes: 5, archRise: 0.4, wingCup: 0.35, wingGusset: 1, thumbClaw: 1,
+      wristT: 0.28,   // MEDIAL carpal → short arm, long hand (bat proportion; owner note)
       edgeBand: 1, constellations: 8, cowlPlates: 1,
       // Head (vesperCatHead) + tail (splitFanTail) apex reference dials.
       earFinPairs: 3, eyeAlmond: 1.0,
@@ -586,7 +587,7 @@ export const DRAGONS = {
         colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0x62dc22 } },
       { spanScale: 1.00, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
         scallopLobes: 5, glideRake: 1.0, constellations: 8, wingCreases: 1, cowlPlates: 1, edgeBand: 1,
-        wingParts: 3, midAmp: 0.34, tipAmp: 0.55, glidePow: 2.2,   // sovereign: deep wrist fold, held-glide beat
+        wingParts: 3, midAmp: 0.34, tipAmp: 0.65, glidePow: 2.2,   // sovereign: deep wrist fold (longer hand reads it), held-glide beat
         earFinPairs: 3, eyeAlmond: 1.0, splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
         seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, dorsalNubs: 9, haunchFlakes: 1, tailNubs: 5, tailMidFins: 1,
         colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0x6ae62a } },
