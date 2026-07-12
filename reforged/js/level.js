@@ -709,15 +709,19 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       const plan = rockSlicePlan(seg);
       const { yAt } = centre(seg, plan.bk, plan.fw);
       const span = seg.span || 80;
+      // Both the bank-apex orb and the carve-line embers sit on the ENTRY half (z<0), so
+      // clamp them to that half's effective lane edge (plan.laneBk-2) — wider in the run
+      // interior so the pickup rides the wider swayed centre instead of being pulled off it.
+      const xClamp = plan.laneBk - 2;
       if (seg.runIdx % 2 === 1) {
         const z = -span * 0.5;                       // mid-gap toward the previous ring = bank apex
-        out.orbs.push({ dist: seg.dist + z, x: clamp(plan.xcAt(z), -11, 11), y: clamp(yAt(z), 4.5, 20) });
+        out.orbs.push({ dist: seg.dist + z, x: clamp(plan.xcAt(z), -xClamp, xClamp), y: clamp(yAt(z), 4.5, 20) });
       } else if (plan.wb > 14) {
         const zNear = Math.min(12, plan.wb * 0.5);
         const points = [];
         for (let k = 0; k < 5; k++) {
           const z = -plan.wb + (k / 4) * (plan.wb - zNear); // far seam → near-ring approach
-          points.push({ dist: seg.dist + z, x: clamp(plan.xcAt(z), -11, 11), y: clamp(yAt(z), 4.5, 20) });
+          points.push({ dist: seg.dist + z, x: clamp(plan.xcAt(z), -xClamp, xClamp), y: clamp(yAt(z), 4.5, 20) });
         }
         out.embers.push({ points });
       }

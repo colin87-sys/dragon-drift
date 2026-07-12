@@ -81,10 +81,21 @@ export function updateCollision(dt, player) {
   // lane wall is invisible/out-of-place inside the transformed arena, so a wall death reads as unfair
   // (owner). Clamp the player at the edge instead, the damage-free way the boss-arena constriction does
   // ("no cheap wall deaths inside a showpiece phase", player.js). Ordinary flight + the S1 sky keep it.
-  if (p.x > CONFIG.laneHalfWidth || p.x < -CONFIG.laneHalfWidth) {
+  // Effective lane half-width: a WIDENED rock run (game.canyonLaneHW, eased 13→16→13)
+  // pushes the wall outward for bigger banking; otherwise the global lane.
+  const laneHW = game.canyonLaneHW ?? CONFIG.laneHalfWidth;
+  if (p.x > laneHW || p.x < -laneHW) {
     if (game.bossArenaActive) {
       p.x = Math.max(-CONFIG.laneHalfWidth, Math.min(CONFIG.laneHalfWidth, p.x));
       player.velocity.x = 0;
+    } else if (game.canyonLaneHW != null) {
+      // Widened rock run: clamp + chip (the canyon-ceiling grammar), never a wall death.
+      // The rock run is a pressure beat, not a run-ender, and the exit wall sweeps inward
+      // through space the player legally occupied — a kill there would be unearned.
+      const sign = Math.sign(p.x);
+      p.x = Math.max(-laneHW, Math.min(laneHW, p.x));
+      player.velocity.x = -sign * 6;
+      hit(player, sign, 0, CONFIG.canyonCeilingDamage, 'wall');
     } else {
       crash(player, 'wall');
       return;

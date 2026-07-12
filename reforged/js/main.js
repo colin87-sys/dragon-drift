@@ -220,6 +220,8 @@ const pendingGauntletEnds = [];
 // crossing an end restores it.
 const pendingCanyonStarts = [];
 const pendingCanyonEnds = [];
+let canyonStartDist = 0;   // dist of the active run's start marker → drives the eased
+                           // rock-lane widen boundary (game.canyonLaneHW)
 let bossGraceUntil = 0; // post-boss grace band end-distance (rings/collectibles only)
 let rushOnlyBoss = null; // when set, the next rush fights just this ONE boss (roster pick)
 function spawnAhead() {
@@ -976,6 +978,7 @@ function restart(opts = {}) {
   pendingGauntletEnds.length = 0;
   pendingCanyonStarts.length = 0;
   pendingCanyonEnds.length = 0;
+  canyonStartDist = 0;
   bossGraceUntil = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
@@ -1379,7 +1382,9 @@ function tick() {
     // Sky Canyon boundaries: widen the chase cam through the run so the twisty
     // gaps read clearly, then restore. Counted so nested canyons stay balanced.
     while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0].dist) {
-      game.canyonRun = pendingCanyonStarts.shift().run; // 'spine' | 'rock' → spine-only slipstream
+      const st = pendingCanyonStarts.shift();
+      game.canyonRun = st.run;  // 'spine' | 'rock' → spine-only slipstream
+      canyonStartDist = st.dist; // ease-in anchor for the rock-lane widen
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
       if (game.canyonRun === 'spine') sfx.slipstreamStart(); // speed-tunnel wind
@@ -1396,6 +1401,24 @@ function tick() {
       cameraCtl.setCanyon(false);
       // Exit burst: a puff of bone dust as you break out into open sky (release).
       burst(player.position, 0xe7dcc0, { count: 18, speed: 14, size: 1.0 });
+    }
+
+    // Rock-run lane WIDEN: ease the effective fatal wall 13→canyonRockLaneHalfWidth→13
+    // over the run's ±40m entry/exit bands (the boundary markers sit exactly ±40m from
+    // the first/last ring, and the rock geometry's wide halves are pinned strictly inside
+    // that window — canyonMath rockSlicePlan — so the eased wall is ALWAYS ≥ the built
+    // channel). Distance-based → speed-independent + deterministic. Spine runs and the
+    // disabled dial (===laneHalfWidth) leave canyonLaneHW null (today's ±13 fatal wall).
+    if (game.inCanyon && game.canyonRun === 'rock' &&
+        CONFIG.canyonRockLaneHalfWidth > CONFIG.laneHalfWidth) {
+      const sm = (u) => { const c = Math.max(0, Math.min(1, u)); return c * c * (3 - 2 * c); };
+      const kIn = sm((player.dist - canyonStartDist) / 40);
+      const kOut = pendingCanyonEnds.length ? sm((pendingCanyonEnds[0] - player.dist) / 40) : 1;
+      const eff = CONFIG.laneHalfWidth +
+        (CONFIG.canyonRockLaneHalfWidth - CONFIG.laneHalfWidth) * Math.min(kIn, kOut);
+      game.canyonLaneHW = eff > CONFIG.laneHalfWidth + 0.01 ? eff : null;
+    } else if (game.canyonLaneHW != null) {
+      game.canyonLaneHW = null;
     }
 
     // Boost start: camera kick + whoosh SFX
