@@ -30,12 +30,12 @@ export function comboTier(c) {
 }
 
 // Soft radial glow sprite texture, generated at runtime (no asset files).
-export function makeGlowTexture(rgb = '160,220,255') {
+export function makeGlowTexture(rgb = '160,220,255', coreRgb = '255,255,255') {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const g = c.getContext('2d');
   const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0, `rgba(${coreRgb},1)`);   // core stop (default white; warm-cream for fire trails so additive stacking can't sum to white)
   grad.addColorStop(0.3, `rgba(${rgb},0.8)`);
   grad.addColorStop(1, `rgba(${rgb},0)`);
   g.fillStyle = grad;

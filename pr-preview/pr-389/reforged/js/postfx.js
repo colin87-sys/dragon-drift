@@ -91,6 +91,7 @@ export const postfx = {
   _pixelRatio: 1,
   _bloomScale: 0.5,
   _baseBloom: 0.24,
+  _baseBloomThreshold: 1.0,   // UnrealBloom threshold at rest; RAISED on fever so the fire body stops blooming to cream
   _aberrationOn: true,
   _feverMix: 0,
   _feverTint: [0.10, 0.03, 0.08], // fever wash hue; setFeverTint() swaps per dragon
@@ -117,6 +118,15 @@ let _grTier0 = true;
 export function setGodRaySun(uvX, uvY, intensity) {
   _grSunX = uvX; _grSunY = uvY; _grIntensity = intensity;
 }
+// ARENA (PR-B): THE UNVEILED HEAVEN swells the god-rays (the #1 holy carrier — a gallery of light
+// shafts). Bounded by a HARD authored cap so the boosted shafts never lift the effective bullet-
+// background luminance past the fairness bar (the byte-space contrast gate can't see the shader's
+// additive shafts — the fairness PROBE in unmaskedarena.mjs is the merge-blocking authority). 0 = the
+// shipped intensity, byte-identical for every non-heaven frame.
+let _grBoost = 0;
+const GODRAY_HEAVEN_SWELL = 0.45;   // max +45% over base (O-B1 owner dial) — tempered so the unveiling reads "lit not blinding"
+const GODRAY_INTEN_CAP = 1.0;       // hard ceiling on uIntensity — only a rendered frame bounds the OUTPUT (the probe)
+export function setGodRayBoost(k) { _grBoost = Math.max(0, Math.min(1, k)); }
 
 // Called once after the world (and its sky) exist — wires the occlusion buffer
 // to the pass. Safe no-op if post-FX is unsupported.
@@ -159,6 +169,12 @@ const KICK_PRESETS = {
   // tier-0 enhancement layered over the tier-independent DOM #jade-flash). No-op
   // at tier2/unsupported, which is why the DOM flash carries the guaranteed read.
   wispFinale:       { flashFrames: 1, bloom: 0.28, lift: 0.26 },
+  // ARENA (PR-A): the S1→S2 crack FLOOD — a 1-frame overexpose punch as the tear reopens and the
+  // hollow leaks through, before the palette drains into the void (caps: bloom ≤ 0.36 / lift ≤ 0.6).
+  arenaFlood:       { flashFrames: 1, bloom: 0.30, lift: 0.40 },
+  // ARENA (PR-B): the S2→S3 UNVEILING — a gold bloom punch as the light blooms outward from the boss
+  // (within caps 0.36/0.6; tier 1 halves, tier 2 no-ops — the palette lerp carries it on weak mobile).
+  arenaUnveil:      { flashFrames: 1, bloom: 0.32, lift: 0.45 },
 };
 
 export function kick(name) {
@@ -344,13 +360,18 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // out and bury the silhouette — the dragon's own emissive is far brighter and
   // still blooms, keeping the glow ON the dragon, not the whole screen.
   postfx.bloomPass.strength = Math.max(0.08,
-    postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.07 - _bossMix * 0.05);
+    postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.15 - _bossMix * 0.05);
+  // RAISE the bloom threshold during Surge so only the HOTTEST cores bloom — the fire body (emissive
+  // ~1-1.4) then stays SATURATED ember instead of blooming into a pale cream halo (the "washed white
+  // bird"). The base threshold is restored at feverMix 0. (Global, but the whole point of the fever
+  // bloom easing is to stop the Rebirth washing the frame — this finishes that job.)
+  postfx.bloomPass.threshold = postfx._baseBloomThreshold + postfx._feverMix * 0.85;
 
   // God-rays (tier 0): place the sun, ease the shafts down a touch in Surge, and
   // disable the whole thing (mask render included) when the sun isn't on-screen.
   if (postfx.godRayPass) {
     if (_grTier0 && _grAvailable) {
-      const inten = _grIntensity * (1 - postfx._feverMix * 0.45);
+      const inten = Math.min(GODRAY_INTEN_CAP, _grIntensity * (1 - postfx._feverMix * 0.45) * (1 + _grBoost * GODRAY_HEAVEN_SWELL));   // ARENA (PR-B): the heaven swell, hard-capped
       const gu = postfx.godRayPass.uniforms;
       gu.uSunUv.value.set(_grSunX, _grSunY);
       gu.uIntensity.value = inten;
@@ -376,7 +397,7 @@ export function renderPostFX() {
     // dome with a bright field and has no discrete sun, so god-ray shafts read as a
     // rectangular light-source artifact. Restore the pass state after compositing.
     const _grWant = postfx.godRayPass ? postfx.godRayPass.enabled : false;
-    if (postfx.godRayPass && game.embertideSky) postfx.godRayPass.enabled = false;
+    if (postfx.godRayPass && (game.embertideSky || game.bossVoidSky)) postfx.godRayPass.enabled = false;   // ARENA (PR-A): the void has no sun → no shafts
     if (postfx.godRayPass && postfx.godRayPass.enabled) renderGodRayMask();
     postfx.composer.render();
     if (postfx.godRayPass) postfx.godRayPass.enabled = _grWant;

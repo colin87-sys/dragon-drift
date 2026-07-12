@@ -1790,6 +1790,11 @@ export const ui = {
           ${gfxToggle('waterSwell')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">WATER DEPTH</div>
+          <p class="sub">The sea reads as having volume — dark in the deeps, bright where you look straight down. (Experimental.)</p>
+          ${gfxToggle('waterDepth')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">SMOOTH GRADIENTS</div>
           <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
           ${gfxToggle('dither')}

@@ -241,9 +241,12 @@ export function createDragon(scene, def, riderDef) {
     ponyMeshes.push(m);
   }
 
-  // Speed-trail pools
-  const cyanTex = makeGlowTexture('120,220,255');
-  const blueTex = makeGlowTexture('80,130,255');
+  // Speed-trail pools. FIRE dragons (def.fireTrails) build the trail textures WARM with a cream (not
+  // hard-white) core, so the additive tail-exhaust / body-trail read as FIRE instead of a blue-skirt
+  // gray + white-core cloud that stacks along the rear-chase axis into a cream plume (the "white mess").
+  const fireTrails = def.fireTrails;
+  const cyanTex = makeGlowTexture(fireTrails ? '255,150,60' : '120,220,255', fireTrails ? '255,226,184' : '255,255,255');
+  const blueTex = makeGlowTexture(fireTrails ? '255,110,30' : '80,130,255', fireTrails ? '255,214,150' : '255,255,255');
 
   trailSprites = [];
   for (let i = 0; i < TRAIL_POOL; i++) {
@@ -303,7 +306,8 @@ export function createDragon(scene, def, riderDef) {
   emberMotes = [];
   if (def.archetype === 'phoenix' || def.surgeMotes) {
     const moteTex = makeGlowTexture('255,255,255');
-    for (let i = 0; i < 44; i++) {   // a touch larger so trailing-edge emitters (phoenixReforged) can shed a continuous fire without starving the pool
+    const poolN = def.fireTrails ? 60 : 44;   // fireTrails needs headroom for the one-shot ignition ember-burst on top of the continuous shed
+    for (let i = 0; i < poolN; i++) {   // a touch larger so trailing-edge emitters (phoenixReforged) can shed a continuous fire without starving the pool
       const s = new THREE.Sprite(new THREE.SpriteMaterial({
         map: moteTex, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false,
@@ -1078,6 +1082,26 @@ export function updateDragon(dt, player, time) {
   // the spine, swells a glow around the wings and pulses the body, then settles
   // into the steady transformed state (surgeMix).
   if (player.feverActive && !prevFever) surgeAnimT = 0.7;
+  // IGNITION EMBER-BURST — on the Surge rising edge, fling a one-shot shower of ~18 saturated embers off
+  // every trailing-edge/tail emitter at once: the silhouette outlined in flying sparks for half a second,
+  // the "matter becomes fire" beat that reads as a real transformation (replaces the old white flash).
+  if (player.feverActive && !prevFever && emberEmitters) {
+    const burstRamp = [0xffd070, 0xff9a3c, 0xff6a1a, 0xff8a20, 0xfff2d0, 0xffb84a];
+    let bn = 0;
+    for (let pass = 0; pass < 2 && bn < 18; pass++) {
+      for (const em of emberEmitters) {
+        if (bn >= 18) break;
+        const s = emberMotes.find(m => !m.visible);
+        if (!s) break;
+        em.getWorldPosition(tmpV);
+        s.visible = true; s.userData.life = 1;
+        s.userData.vy = 1.4 + Math.random() * 1.2;
+        s.material.color.setHex(burstRamp[bn % burstRamp.length]);
+        s.position.set(tmpV.x + (Math.random() - 0.5) * 0.8, tmpV.y + (Math.random() - 0.5) * 0.8, tmpV.z + (Math.random() - 0.5) * 0.8);
+        bn++;
+      }
+    }
+  }
   prevFever = player.feverActive;
   if (surgeAnimT > 0) surgeAnimT = Math.max(0, surgeAnimT - dt);
   const ignite = surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0;
@@ -1126,7 +1150,10 @@ export function updateDragon(dt, player, time) {
       const wi = m.userData.flareIntensityWeight ?? m.userData.flareWeight ?? 1;
       _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
       m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, (surgeMix * 0.85 + ignite * 0.4) * wc));
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + (surgeMix * 0.9 + ignite * 1.6) * sgm * wi);
+      // A NEGATIVE flareIntensityWeight lets an already-bloom-bright mat DIM on Surge (so a DENSE field of
+      // emissive faces stays saturated fire instead of the bloom summing them to white). Clamp the factor
+      // ≥0.28 so a strongly-dimmed mat holds a steady deep glow and never black-blinks on the ignite spike.
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.12, 1 + (surgeMix * 0.9 + ignite * 1.6) * sgm * wi);
     }
   } else {
     for (const m of spineMats) {
@@ -1152,10 +1179,12 @@ export function updateDragon(dt, player, time) {
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
   const auraTarget = (player.feverActive
-    ? 0.30 + Math.sin(time * 5) * 0.10   // trimmed ~40%: the big additive halo was the main "lens-flare" blob
+    ? 0.30 * (activeDef.feverAuraScale ?? 1) + Math.sin(time * 5) * 0.10   // trimmed ~40%; feverAuraScale further shrinks the big cream disc for fire dragons (it read as a lens-flare "ring on the dragon")
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0)
     + inhale01 * 0.22;   // PR-C: the halo swells with the drawn breath
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
+  // Tint the aura to an ember corona on Surge (default white ⇒ every other dragon unchanged).
+  if (activeDef.feverAura != null) auraSprite.material.color.setHex(player.feverActive ? activeDef.feverAura : 0xffffff);
 
   group.updateMatrixWorld(true);
 
@@ -1207,10 +1236,12 @@ export function updateDragon(dt, player, time) {
       s.visible = true;
       s.userData.life = 1;
       s.material.color.setHex(player.feverActive && !activeDef.hasStyle ? 0xff9ad6 : pickTrailHex(activeDef.trail));
+      // Fire dragons: spawn the body speed-trail well BEHIND the dragon (not ON it) so its additive haze
+      // stops fogging the silhouette; tighter spread too.
       s.position.set(
-        group.position.x + (Math.random() - 0.5) * 1.6,
-        group.position.y + (Math.random() - 0.5) * 1.2,
-        group.position.z + 3 + Math.random() * 2.5
+        group.position.x + (Math.random() - 0.5) * (activeDef.fireTrails ? 1.0 : 1.6),
+        group.position.y + (Math.random() - 0.5) * (activeDef.fireTrails ? 0.8 : 1.2),
+        group.position.z + (activeDef.fireTrails ? 6 : 3) + Math.random() * (activeDef.fireTrails ? 3 : 2.5)
       );
     }
   }
@@ -1219,7 +1250,7 @@ export function updateDragon(dt, player, time) {
     s.userData.life -= dt * 2.5;
     if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
     else {
-      s.material.opacity = s.userData.life * 0.65;
+      s.material.opacity = s.userData.life * (activeDef.fireTrails ? 0.32 : 0.65);
       const sz = 0.8 + (1 - s.userData.life) * 2.2;
       s.scale.set(sz, sz, 1);
     }
@@ -1233,13 +1264,17 @@ export function updateDragon(dt, player, time) {
     const fxLvl = activeDef.model.spineGlow || 0; // 0 hatchling → 1 apex
     const pr = activeDef.model.particleRate ?? 1; // per-form trail density (apex emits more)
     // Light tail trail while boosting; the current heavier rate stays for Surge.
-    boostTrailTimer = (player.feverActive ? 0.012 : 0.035) / (quality * (1 + fxLvl * 0.7) * pr);
+    boostTrailTimer = (player.feverActive ? (activeDef.fireTrails ? 0.018 : 0.012) : 0.035) / (quality * (1 + fxLvl * 0.7) * pr);
     const s = boostTrailSprites.find(s => !s.visible);
     if (s && tailSegs.length) {
       tailSegs[tailSegs.length - 1].getWorldPosition(tmpV);
       s.visible = true;
       s.userData.life = player.feverActive ? 1.2 : 1;
-      s.material.color.setHex(player.feverActive && !activeDef.hasStyle ? 0xfff0c0 : pickTrailHex(activeDef.boostTrail));
+      // Fire dragons: cycle an EMBER ramp across the exhaust sprites so the additive stack reads as
+      // FIRE, not a single-hue fog that sums to cream. (Per-sprite index → stable, deterministic-ish.)
+      const emberExh = [0xffc46a, 0xff8a20, 0xf25410];
+      s.material.color.setHex(activeDef.fireTrails ? emberExh[boostTrailSprites.indexOf(s) % emberExh.length]
+        : player.feverActive && !activeDef.hasStyle ? 0xfff0c0 : pickTrailHex(activeDef.boostTrail));
       s.position.set(
         tmpV.x + (Math.random() - 0.5) * 0.8,
         tmpV.y + (Math.random() - 0.5) * 0.6,
@@ -1247,13 +1282,15 @@ export function updateDragon(dt, player, time) {
       );
     }
   }
+  const boostOp = activeDef.fireTrails ? 0.55 : 0.8;   // fire exhaust runs dimmer so the additive stack doesn't sum to a cream plume
+  const boostSzK = activeDef.fireTrails ? 2.4 : 3.5, boostSz0 = activeDef.fireTrails ? 1.0 : 1.2;
   for (const s of boostTrailSprites) {
     if (!s.visible) continue;
     s.userData.life -= dt * 2.0;
     if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
     else {
-      s.material.opacity = s.userData.life * 0.8;
-      const sz = 1.2 + (1 - s.userData.life) * 3.5;
+      s.material.opacity = s.userData.life * boostOp;
+      const sz = boostSz0 + (1 - s.userData.life) * boostSzK;
       s.scale.set(sz, sz, 1);
     }
   }
@@ -1388,7 +1425,12 @@ export function updateDragon(dt, player, time) {
         s.userData.life = 1;
         if (isPhx) {
           s.userData.vy = 0.5 + Math.random() * 0.9;
-          s.material.color.setHex(player.feverActive ? 0xfff2d0 : player.boosting ? 0xfff0c8 : 0xffd987);
+          // Fire dragons: the rising fever motes cycle an EMBER ramp (3-in-4 saturated ember, 1-in-4 cream
+          // spark) instead of the hard cream 0xfff2d0 → an ascending EMBER coil, not a white one. Scoped to
+          // fireTrails so the shipped phoenix stays byte-identical.
+          const emberRamp = [0xffd070, 0xff9a3c, 0xff6a1a, 0xff8a20, 0xffb84a, 0xf25410, 0xfff2d0, 0xff7a1a];
+          const feverHex = activeDef.fireTrails ? emberRamp[moteIdx % emberRamp.length] : 0xfff2d0;
+          s.material.color.setHex(player.feverActive ? feverHex : player.boosting ? 0xfff0c8 : 0xffd987);
           s.position.set(tmpV.x + (Math.random() - 0.5) * 1.0,
             tmpV.y + (Math.random() - 0.5) * 0.5, tmpV.z + Math.random() * 1.2);
         } else {
