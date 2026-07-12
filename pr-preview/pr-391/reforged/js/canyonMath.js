@@ -184,6 +184,17 @@ export function rockSlicePlan(seg) {
     const zn = Math.abs(z < 0 ? z / bk : z / fw);
     return CONFIG.canyonPinchHalf + CONFIG.canyonBreathOpen * (0.5 - 0.5 * Math.cos(Math.PI * zn));
   };
+  // Ring approach cone: keep the flight line to every ring CLEAR of stacks. Full ±7
+  // pocket within 12m of the ring, then tapering to 0 out to 36m on the APPROACH side
+  // (z<0 → smaller dist → the side you fly in from; ~0.33s of clear convergence at
+  // canyon speed). A binary 12m pocket (0.11s) let a stack sit on the aim line the
+  // player had already locked onto — "a spike in front of the ring".
+  const pocket = (z) => {
+    const az = Math.abs(z);
+    if (az < 12) return 7;
+    if (z < 0 && az < 36) return 7 * (36 - az) / 24;
+    return 0;
+  };
   const count = Math.max(5, Math.round((wb + wf) / 12));   // ~12m slice pitch
   const slices = [];
   for (let k = 0; k < count; k++) {
@@ -192,11 +203,12 @@ export function rockSlicePlan(seg) {
     const z = -wb + ((k + 0.5) / count) * (wb + wf);
     const xc = xAt(z) + sway(z);
     const nearRing = Math.abs(z) < 12;
+    const p = pocket(z);
     let li = xc - chanHalf(z), ri = xc + chanHalf(z);
-    // Around the ring, carve a generous centred pocket so the reward ring is always
-    // grabbable at speed without decelerating (the guaranteed catch).
-    if (nearRing) { li = Math.min(li, gx - 7); ri = Math.max(ri, gx + 7); }
-    slices.push({ z, xc, li, ri, nearRing });
+    if (p > 0) { li = Math.min(li, gx - p); ri = Math.max(ri, gx + p); }
+    // Drop the sea-stack crests anywhere the approach cone is open (noCrest) so a lunge
+    // to a high ring never clips a thin spire tip on the approach.
+    slices.push({ z, xc, li, ri, nearRing, noCrest: p > 0 });
   }
   // xcAt lets the flow audit sample the channel centre continuously (the slices are
   // only ~12m apart — too coarse to catch the peak slope).

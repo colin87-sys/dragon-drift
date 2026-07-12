@@ -37,7 +37,7 @@ const result = await boot().then(async ({ page, done }) => {
     for (const seed of seeds) {
       const segs = collect(seed);
       let slopeBad = 0, seamBad = 0, widthBad = 0, spinePairs = 0, centreBad = 0;
-      let rockSlopeBad = 0, rockWidthBad = 0, rockSeamBad = 0, rockSliceN = 0;
+      let rockSlopeBad = 0, rockWidthBad = 0, rockSeamBad = 0, rockSliceN = 0, rockApproachBad = 0;
 
       // === ROCK RUN (v2 carved slot) ===
       // (b) slope: the swayed channel centre must stay under the steering budget.
@@ -66,6 +66,9 @@ const result = await boot().then(async ({ page, done }) => {
           agg.rockMinWidth = Math.min(agg.rockMinWidth, w);
           if (w < 7.5) rockWidthBad++;
           if (sl.nearRing && (s.gapX - left < 3 || right - s.gapX < 3)) rockWidthBad++;
+          // BUG-1a: the ring line (gapX) must be INSIDE the free channel on the whole
+          // approach cone (z<0 to -36) — no sea-stack on the aim line the player locks.
+          if (sl.z < 0 && sl.z > -36 && (s.gapX < sl.li - 1e-6 || s.gapX > sl.ri + 1e-6)) rockApproachBad++;
           maxLi = Math.max(maxLi, sl.li); minRi = Math.min(minRi, sl.ri);
           minXc = Math.min(minXc, sl.xc); maxXc = Math.max(maxXc, sl.xc);
         }
@@ -148,7 +151,7 @@ const result = await boot().then(async ({ page, done }) => {
       }
       agg.pairs += spinePairs;
       agg.seeds.push({ seed, slopeBad, seamBad, widthBad, spinePairs, centreBad,
-                       rockSlopeBad, rockWidthBad, rockSeamBad, rockSliceN });
+                       rockSlopeBad, rockWidthBad, rockSeamBad, rockSliceN, rockApproachBad });
     }
     return agg;
   });
@@ -175,6 +178,8 @@ check('rock channel seams are continuous (≤2m)',
   result.seeds.every((s) => s.rockSeamBad === 0)) || console.error('  rock-seam fail seeds:', bad('rockSeamBad'));
 check('rock channel never pinches below 7.5m (ring stays reachable both sides)',
   result.seeds.every((s) => s.rockWidthBad === 0)) || console.error('  rock-width fail seeds:', bad('rockWidthBad'));
+check('rock ring line is clear of stacks on the whole approach cone (no spike in front)',
+  result.seeds.every((s) => s.rockApproachBad === 0)) || console.error('  rock-approach fail seeds:', bad('rockApproachBad'));
 
 const meanSwing = result.rockSwingN ? result.rockSwingSum / result.rockSwingN : 0;
 const mustSteerPct = result.rockSwingN ? Math.round(100 * result.rockMustSteer / result.rockSwingN) : 0;

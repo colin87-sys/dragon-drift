@@ -496,15 +496,19 @@ function buildRockGap(o, e) {
     const top = CEIL + 2, bot = -3;
     const hz = ((plan.wb + plan.wf) / Math.max(plan.slices.length, 1)) * 0.6; // tiles along z
     const lo = -LANE - 3, ro = LANE + 3;
+    // Place at -s.z: rockSlicePlan's z>0 is the exit half (toward nextX), but the world
+    // maps local +z to a SMALLER dist (the approach side), so the exit half must sit at
+    // -z (physical dist = o.dist + z) or each section's forward half lands on the backward
+    // side and adjacent sections mismatch at rhythm changes (a wall across the slot).
     for (const s of plan.slices) {
-      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, s.z, 0.06, hz, !s.nearRing);
-      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, s.z, -0.06, hz, !s.nearRing);
+      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, -s.z, 0.06, hz, !s.noCrest);
+      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, -s.z, -0.06, hz, !s.noCrest);
     }
     // Low sea-mist over the section span (same as v1, keyed to the abutting band).
     for (let m = 0; m < 2; m++) {
       const mz = -plan.wb + ((m + 0.5) / 2) * (plan.wb + plan.wf);
       const q = new THREE.Mesh(new THREE.CircleGeometry(LANE * (0.85 + rng() * 0.3), 16), mats.mist);
-      q.position.set(gx + (rng() - 0.5) * 5, 0.4 + rng() * 2, mz);
+      q.position.set(gx + (rng() - 0.5) * 5, 0.4 + rng() * 2, -mz);
       group.add(q);
     }
   };
@@ -553,25 +557,36 @@ function buildRockGap(o, e) {
     // tube centre carries the lateral sweep so the whole run banks like a speed tunnel.
     for (let k = 0; k < nRibs; k++) {
       const f = (k + 0.5) / nRibs;
-      const z = -wb + f * bandLen;
+      const z = -wb + f * bandLen;   // MATH z: >0 = exit half (toward nextX). The world
+      const wz = -z;                 // maps local +z to a SMALLER dist (the approach side),
+                                     // so the exit half must be PLACED at -z (physical dist
+                                     // = o.dist + z). Without this flip each section's
+                                     // forward-eased half lands on the backward side and the
+                                     // seams mismatch at rhythm changes (doubled ribs / a
+                                     // wall across the slot). Math (sway/ease/relief) stays z.
       const sxz = sway(z);
       const ox = xAt(z) + sxz;
       const oy = yAt(z);          // tube centre == ring centre (no belly lift) → perfect flyable
       const inRelief = z < -wb + reliefIn || z > wf - reliefOut;
       if (!inRelief) {
-        box(ox - cor, oy, 0.4, cy * 0.9, wallHz, z);
-        box(ox + cor, oy, 0.4, cy * 0.9, wallHz, z);
+        box(ox - cor, oy, 0.4, cy * 0.9, wallHz, wz);
+        box(ox + cor, oy, 0.4, cy * 0.9, wallHz, wz);
       }
+      // Rib-free reward window: skip the VISIBLE hoop within 5m of the ring plane so a
+      // rib bone never reads as intersecting the reward-ring disc ("stuck in a rib").
+      // The wall colliders above stay, so the corridor is unbroken; the ring gets a
+      // frame of open air. (Placement flip means the ring plane is z=0 either way.)
+      if (Math.abs(z) < 5.0) continue;
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
       const hS = cy * (1 + flare * Math.abs(f - 0.5) * 0.9);
       // Bank the hoop into the turn (roll about the flight axis by the sweep slope) for
-      // the racing lean — visual only, the hoop has no collider.
+      // the racing lean — visual only, the hoop has no collider. Travel is +z now.
       const bank = Math.max(-0.16, Math.min(0.16, 2.4 * (sway(z + 1) - sxz)));
       const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, Math.PI * 1.55),
-        ox, oy, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3 + bank); // belly-down + bank
+        ox, oy, wz, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3 + bank); // belly-down + bank
       rib.scale.set(wS, hS, wS);
-      place(new THREE.IcosahedronGeometry(0.7 + vert, 0), ox, oy + hS + 0.3, z); // dorsal vertebra
-      if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, oy + hS + 1.7, z); // neural spine
+      place(new THREE.IcosahedronGeometry(0.7 + vert, 0), ox, oy + hS + 0.3, wz); // dorsal vertebra
+      if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, oy + hS + 1.7, wz); // neural spine
     }
   };
 

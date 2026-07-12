@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setWaterFoam, setWaterFoamQuality } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -185,6 +185,8 @@ if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(t
 if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
 // N10b water depth: apply the saved toggle; ?depth forces on (live uniform, no rebuild).
 if (urlParams.has('depth') || gfxPref.waterDepth === true) setWaterDepth(true);
+// N10c foam collars: apply the saved toggle; ?foam forces on (visibility flip).
+if (urlParams.has('foam') || gfxPref.waterFoam === true) setWaterFoam(true);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -231,13 +233,14 @@ function spawnAhead() {
     chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
     return;
   }
-  // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
-  // crystal window between rib sections reads unfair. Generator output is untouched
-  // (determinism-safe); we just don't spawn the flagged ones here.
-  const gateSuppress = chunk.canyonGateSuppress && chunk.canyonGateSuppress.length
-    ? new Set(chunk.canyonGateSuppress) : null;
+  // Any base obstacle (gate, pillar, shard, bar) whose dist lands inside a canyon run
+  // is skipped — an obstacle on the ring line inside the carved slot / rib tube is an
+  // undodgeable spike. Generator output is untouched (determinism-safe); we just don't
+  // spawn the flagged ones here.
+  const canyonSuppress = chunk.canyonObstacleSuppress && chunk.canyonObstacleSuppress.length
+    ? new Set(chunk.canyonObstacleSuppress) : null;
   chunk.obstacles.forEach((o) => {
-    if (gateSuppress && o.type === 'gate' && gateSuppress.has(o.dist)) return;
+    if (canyonSuppress && canyonSuppress.has(o.dist)) return;
     addObstacle(o);
   });
   chunk.orbs.forEach(addOrb);
@@ -682,6 +685,7 @@ ui.init({
     else if (kind === 'skyClouds') setSkyCloudsEnabled(value);
     else if (kind === 'waterSwell') setWaterSwell(value);
     else if (kind === 'waterDepth') setWaterDepth(value);
+    else if (kind === 'waterFoam') setWaterFoam(value);
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
@@ -1183,6 +1187,7 @@ function applyQuality(tier) {
   setPostPixelRatio(PIXEL_RATIOS[tier]);
   setWaterReflective(tier === 0);
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
+  setWaterFoamQuality(tier); // N10c: foam at tier0/1, off at tier2
   setAmbientQuality(QUALITY_SCALARS[tier]);
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
