@@ -106,10 +106,10 @@ const embert = await page.evaluate(async () => {
   return s;
 });
 check(embert.mix === 0 && embert.skyDim > 0, `EMBERTIDE engages the sky-replace channel (skyDim ${embert.skyDim?.toFixed?.(2)}), NEVER the arena mix (${embert.mix})`);
-// PR-H1/H2: the heaven's holy architecture is BUILT at boot but stays hidden/dark at mix 0 —
-// an ordinary (non-arena) boss gets zero heaven furniture (the coexist proof, geometry edition).
+// PR-J: the judgment court's architecture is BUILT at boot but stays hidden/dark at mix 0 —
+// an ordinary (non-arena) boss gets zero court furniture (the coexist proof, geometry edition).
 check(embert.arenaSet?.built === true && embert.arenaSet.visible === false && embert.arenaSet.k === 0,
-  `the holy architecture is built-but-HIDDEN at mix 0 (visible ${embert.arenaSet?.visible}, k ${embert.arenaSet?.k})`);
+  `the judgment court is built-but-HIDDEN at mix 0 (visible ${embert.arenaSet?.visible}, k ${embert.arenaSet?.k})`);
 await page.evaluate(() => window.__dd.bossReset());
 await page.waitForTimeout(300);
 
@@ -182,10 +182,11 @@ check(heaven.lift && heaven.lift.k > 0.99 && heaven.lift.sclera !== 0x8f8365,
   `the S3 focal LIFTS on the gold sky (lift.k ${heaven.lift?.k?.toFixed?.(2)}, sclera 0x${heaven.lift?.sclera?.toString(16)} ≠ 0x8f8365) — not a mask on a sunset`);
 check(heaven.bandDark === 0xa84167, `the void's dark band PERSISTS through the heaven (0x${heaven.bandDark?.toString(16)})`);
 check(heaven.propBandsHidden === true && heaven.skyDim === 0, 'the props stay dark + the EMBERTIDE channel stays 0 in the heaven');
-// PR-H1/H2: the holy architecture ENGAGES in the settled heaven — the colonnade + the rose-window
-// are live (k→1 rides the same stateless mix; the exhale/teardown checks below prove the release).
-check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.pillars === 24 && heaven.arenaSet.tierHidden === false,
-  `the holy architecture engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, ${heaven.arenaSet?.pillars} pillars + rose-window)`);
+// PR-J: the judgment court ENGAGES in the settled heaven — the divine column + the stained-glass
+// lancets + the inverted rose-window are live (k→1 rides the same stateless mix; the exhale/
+// teardown checks below prove the release).
+check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.panes === 14 && heaven.arenaSet.tierHidden === false,
+  `the judgment court engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, ${heaven.arenaSet?.panes} lancet panes + column + rose-window)`);
 // Organ×heaven conjunction: the S3 dwell organs resolve sanely in-lane WITH the heaven live (value-space
 // proof, S3 edition — the heaven never reparented them).
 for (const [w, name] of [[heaven.wingRootL, 'wingRootL'], [heaven.wingRootR, 'wingRootR']]) {
@@ -228,12 +229,16 @@ for (let y = Math.floor(ih * 0.55); y < ih * 0.90; y += 2) {
 }
 lums.sort((a, b) => a - b);
 const p90 = lums[Math.floor(lums.length * 0.90)];
-check(p90 <= 0.75, `the heaven's parry corridor stays parry-legible (p90 luminance ${p90.toFixed(3)} ≤ 0.75 — the lit-gold backdrop never floods the dodge zone)`);
+// (PR-J: the corridor gate + rationale above are UNCHANGED — 0.75 is the layered-read ceiling, the
+// parry authority regardless of palette. The chiaroscuro court simply ships miles under it, ≈0.35–0.41
+// vs the lit-gold heaven's 0.69 — the dark sea IS the fairness dividend of the redo.)
+check(p90 <= 0.75, `the heaven's parry corridor stays parry-legible (p90 luminance ${p90.toFixed(3)} ≤ 0.75 — the backdrop never floods the dodge zone)`);
 
-// SKY-BAND CEILING (CP2 finding-2): the bright sky band above the waterline (y 30-55%) is lit-by-design
-// (the "holy" identity) and NOT parry-critical (the corridor probe is), but it must never blow to a
-// blinding WHITE field — a future palette/bloom/god-ray edit that pushes it there would wash even the
-// dark-outline read and drown the boss silhouette. Gate p95 ≤ 0.90 (ships ≈ 0.87): the sun-disc core
+// SKY-BAND CEILING (CP2 finding-2; re-based for PR-J): the sky band above the waterline (y 30-55%)
+// carries the court's authored brights — the divine column + the god-ray swell on the dark vault —
+// and is NOT parry-critical (the corridor probe is), but it must never blow to a blinding WHITE
+// field — a future palette/bloom/god-ray edit that pushes it there would wash even the dark-outline
+// read and drown the boss silhouette. Gate p95 ≤ 0.90 (the court ships ≈ 0.79–0.84): the column core
 // behind the boss may clip, but ≥95% of the band stays below pure white. Merge-blocking against a blowout.
 const skyLums = [];
 for (let y = Math.floor(ih * 0.30); y < ih * 0.55; y += 2) {
@@ -244,7 +249,18 @@ for (let y = Math.floor(ih * 0.30); y < ih * 0.55; y += 2) {
 }
 skyLums.sort((a, b) => a - b);
 const skyP95 = skyLums[Math.floor(skyLums.length * 0.95)];
-check(skyP95 <= 0.90, `the heaven's sky band is lit but not blinding-WHITE (p95 luminance ${skyP95.toFixed(3)} ≤ 0.90 — the gold holy backdrop, never a white-out)`);
+check(skyP95 <= 0.90, `the heaven's sky band is lit but not blinding-WHITE (p95 luminance ${skyP95.toFixed(3)} ≤ 0.90 — the divine column/god-ray tail may clip, never a white-out)`);
+
+// THE CHIAROSCURO LOCK (PR-J, THE JUDGMENT COURT): the owner rejected the first heaven as a bright
+// gold postcard ("over-bright and underwhelming") — the redo is a MIDNIGHT vault lit only by the
+// god's own light (one gold column + jewel glass burning in the dark). The p95 tail is the column/
+// god-ray swell BY DESIGN (it ships ≈0.79–0.84, noise ±0.03 — the offered 0.80 ratchet does NOT
+// hold comfortably, so the ceiling above stays 0.90 as the white-out guard). The identity lives in
+// the MEDIAN: the court's sky band p50 ships ≈0.39–0.41 where the rejected lit-gold sky sat ≈0.7+.
+// Gate p50 ≤ 0.55 — any future palette edit that re-brightens the vault back toward the postcard
+// trips THIS, while the authored bright column keeps its tail headroom.
+const skyP50 = skyLums[Math.floor(skyLums.length * 0.50)];
+check(skyP50 <= 0.55, `the JUDGMENT COURT stays chiaroscuro — the vault's broad field is DARK (sky p50 ${skyP50.toFixed(3)} ≤ 0.55; the light is the column + glass, never a bright-gold wash)`);
 
 // The focal lift REVERTS off the heaven (byte-identity): reset → fresh S2 pin → lift.k 0, sclera restored.
 const liftOff = await page.evaluate(async () => {

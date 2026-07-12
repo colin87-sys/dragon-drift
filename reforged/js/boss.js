@@ -5824,6 +5824,28 @@ export function debugReckoning() {
 export function debugFell() { if (active && lastPlayer) endEncounter(lastPlayer); }
 export function bossDebugModelLift() { return model?.debugArenaLift?.() ?? null; }
 export function bossDebugModelVoid() { return model?.debugArenaVoid?.() ?? null; }
+// ARENA P0 (THE JUDGMENT COURT) test seam: the exact wingtip min-world-Y — transforms EVERY vertex
+// of every `wing_*` pivot subtree by its live matrixWorld and returns the lowest world Y (+ which
+// wing). Used by the S3 water-clearance measure (the stationY lift is set from this number, not
+// eyeballs) — test-only, never called in the game loop (per-vertex scan, ~8 wings × ~2k verts).
+const _wingV = new THREE.Vector3();
+export function debugWingMinWorldY() {
+  if (!model?.group) return null;
+  model.group.updateMatrixWorld(true);
+  let minY = Infinity, which = null;
+  model.group.traverse((o) => {
+    if (!o.name?.startsWith('wing_')) return;
+    o.traverse((m) => {
+      if (!m.isMesh || !m.visible || !m.geometry?.attributes?.position) return;
+      const pos = m.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        _wingV.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+        if (_wingV.y < minY) { minY = _wingV.y; which = o.name; }
+      }
+    });
+  });
+  return minY === Infinity ? null : { minY: +minY.toFixed(3), wing: which };
+}
 export function debugLoose() { requestLoose(); }
 export function debugLockCandidates() { return lockCandidates(); }
 export function debugPartWorldPos(part) {
