@@ -371,7 +371,7 @@ function buildOneScallopWing(M, dials) {
   // With the medial wrist the fan is LONGER (r0 grows), so spanAft tightens + the tail of
   // lenFrac trims so the innermost fingers don't sweep their tips into the hip/tail corridor.
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
-  const lenFrac = [1, 0.82, 0.66, 0.50, 0.32, 0.22], spanAft = 1.35;
+  const lenFrac = [1, 0.86, 0.70, 0.52, 0.33, 0.23], spanAft = 1.22;   // mid-boosted + tightened so the more-medial wrist's longer fan fills the envelope OUTWARD/aft, not into the hip
   const tips = [F0];
   for (let i = 1; i < fingers; i++) {
     const phi = phi0 + spanAft * (i / (fingers - 1));
@@ -858,19 +858,6 @@ function buildSplitFanTail(def, model, mats, anchor) {
         add(flatTriMesh([[C, root, arc[0]], [C, arc[0], arc[1]], [C, arc[1], arc[2]], [C, arc[2], arc[3]], [C, arc[3], root]], p % 2 ? M.bodyFlat : M.dorsalFacet));
         if (finRims) { const o = 0.012, e = arc[2]; add(flatTriMesh([[arc[1], e, [e[0], e[1] + o, e[2]]], [arc[1], [e[0], e[1] + o, e[2]], [arc[1][0], arc[1][1] + o, arc[1][2]]]], M.seam)); }
         if (side === -1) { const fx = (root[0] + Fa[0]) / 2, fy = (root[1] + Fa[1]) / 2 + 0.015, fz = (root[2] + Fa[2]) / 2, r = 0.03; add(flatTriMesh([[[fx - r, fy, fz], [fx + r, fy + 0.004, fz - r * 0.3], [fx, fy, fz + r]]], speckle)); }
-      }
-      // E4 — a trailing STREAMER ribbon off the outer petal, bound to the last tail joint so the
-      // CP3 whip animates it (a living finished-blade closer). Thin knapped ribbon, dial-gated.
-      if ((model.tailStreamers ?? 0) > 0) {
-        const oT = tips[petals - 1], w = 0.024;
-        // LONG (≈1.1u) so it reads at chase distance + the CP3 tail-whip visibly animates it (gate note).
-        const sE = [oT[0] * 0.55, oT[1] - 0.14, oT[2] + 1.05 + 0.4 * spread];
-        const sMid = [oT[0] * 0.8, oT[1] - 0.04, oT[2] + 0.5 + 0.2 * spread];   // a slight droop mid-ribbon
-        add(flatTriMesh([
-          [[oT[0] - w, oT[1], oT[2]], [oT[0] + w, oT[1], oT[2]], sMid],
-          [[oT[0] + w, oT[1], oT[2]], [sMid[0] + w * 0.6, sMid[1], sMid[2]], sMid],
-          [[sMid[0] - w * 0.6, sMid[1], sMid[2]], [sMid[0] + w * 0.6, sMid[1], sMid[2]], sE],
-        ], M.dorsalFacet));
       }
     }
     // f3 — a central RUDDER facet between the fins (the finished-blade tail closer).
