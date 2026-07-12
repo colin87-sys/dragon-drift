@@ -2281,6 +2281,11 @@ export function updateBoss(dt, player, time, camera) {
   // (mix 0.45→1, peaking at the settled hollow) then EXHALE through the gold flood (mix 1→1.45) so S3
   // restores the pure dark-on-gold silhouette that already reads. Inert (0) off the void. Stateless.
   if (active && model) model.setArenaVoid?.(ss01((arenaMixNow - 0.45) / 0.55) * (1 - ss01((arenaMixNow - 1) / 0.45)));
+  // THE IGNITED SERAPH drive (GODHEAD DETONATION P3): the seraph catches fire from its own verdict —
+  // gold-wreathed rim + violet-bronze body + roiling gold-violet mandorla, rising across the SETTLED
+  // heaven (mix 1.45→2), AFTER the void rim has fully exhaled through the gold flood (voidK = 0 for
+  // mix ≥ 1.45) → mutually exclusive with voidK by construction. Inert (0) below 1.45 → byte-identical.
+  if (active && model) model.setArenaIgnite?.(ss01((arenaMixNow - 1.45) / 0.55));
   if (!active) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
@@ -5825,6 +5830,7 @@ export function debugReckoning() {
 export function debugFell() { if (active && lastPlayer) endEncounter(lastPlayer); }
 export function bossDebugModelLift() { return model?.debugArenaLift?.() ?? null; }
 export function bossDebugModelVoid() { return model?.debugArenaVoid?.() ?? null; }
+export function bossDebugModelIgnite() { return model?.debugArenaIgnite?.() ?? null; }
 // ARENA P0 (THE JUDGMENT COURT) test seam: the exact wingtip min-world-Y — transforms EVERY vertex
 // of every `wing_*` pivot subtree by its live matrixWorld and returns the lowest world Y (+ which
 // wing). Used by the S3 water-clearance measure (the stationY lift is set from this number, not
