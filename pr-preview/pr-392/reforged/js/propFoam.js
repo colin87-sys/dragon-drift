@@ -97,13 +97,19 @@ const _off = new THREE.Vector3();
 const PARK = new THREE.Vector3(0.0001, 0.0001, 0.0001);
 
 // Write the foam ring for prop instance `i`. `foamCfg` = the archetype's `foam`
-// config ({ r } radius multiplier) or false (archetype opts out → always parked).
-// `active` is the prop's biome-active state (computed in the caller's writeMatrix),
-// so foam parks in lockstep with the prop. Flat ring (rotY only, no tilt — a tilted
-// ring would exit the water); the tilt only shifts the WATERLINE PIERCE point.
+// config ({ r } radius multiplier, or { rx, rz } for a non-circular footprint) or
+// false (archetype opts out → always parked). `active` is the prop's biome-active
+// state (computed in the caller's writeMatrix), so foam parks in lockstep with the
+// prop. Flat ring (rotY only, no tilt — a tilted ring would exit the water); the
+// tilt only shifts the WATERLINE PIERCE point.
 export function writeFoamMatrix(mesh, i, d, foamCfg, active) {
   if (foamCfg && active) {
-    const fr = d.r * foamCfg.r;
+    // Per-axis radius so a thin/non-circular prop (arch legs, slab wall) gets an
+    // ELLIPTICAL collar that hugs its footprint instead of a round ring floating on
+    // open water. compose applies scale in ring-local axes BEFORE the rotY rotation,
+    // so (frx, frz) track the prop's own x/z; circular configs use { r } for both.
+    const frx = d.r * (foamCfg.rx ?? foamCfg.r);
+    const frz = d.r * (foamCfg.rz ?? foamCfg.r);
     // Pierce offset: the prop origin is at y=-0.5 and tilts by d.tilt; the point
     // where its axis crosses the waterline (+0.5 above the base) shifts in xz.
     _e.set(0, d.rotY ?? 0, d.tilt || 0);
@@ -111,7 +117,7 @@ export function writeFoamMatrix(mesh, i, d, foamCfg, active) {
     _off.set(0, 0.5 / Math.cos(d.tilt || 0), 0).applyQuaternion(_q);
     _e.set(0, d.rotY ?? 0, 0); // the ring itself stays flat (no tilt)
     _q.setFromEuler(_e);
-    _m4.compose(_p.set(d.x + _off.x, 0, -d.dist + _off.z), _q, _s.set(fr, 1, fr));
+    _m4.compose(_p.set(d.x + _off.x, 0, -d.dist + _off.z), _q, _s.set(frx, 1, frz));
   } else {
     _m4.compose(_p.set(d.x, -50, -d.dist), _q.identity(), PARK);
   }
