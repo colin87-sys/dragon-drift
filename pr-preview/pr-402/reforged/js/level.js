@@ -715,20 +715,24 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       // DENSE (pitch ≤ ~46m) → re-catchable at base speed. The gate orb stays dead-centre
       // (weave is 0 at the ring). Straight in through the mouth / out of the finale (no
       // band there); a gauntlet-bridged span leaves wb/wf short → the bridge stays open.
-      const span = seg.span || 80;
-      if (span <= CONFIG.canyonFlowFill) {
+      const span = seg.span || 80, spanFwd = seg.spanFwd ?? span;
+      {
         const { bk, fw } = halves(seg);
         const { wb, wf } = band(seg, bk, fw);
         const { xAt, yAt } = centre(seg, bk, fw);
         const weave = flowWeave(seg, bk, fw);
-        const lo = seg.runIdx === 0 ? 0 : -wb;                       // no ribbon before the mouth ring
-        const hi = seg.runIdx === (seg.runTotal ?? 1) - 1 ? 0 : wf;  // …or past the finale ring
+        // Gate each half on ITS OWN gap: no ribbon before the mouth ring, past the finale
+        // ring, or across a gauntlet-bridged gap (span/spanFwd > canyonFlowFill — the slalom
+        // is its own beat, left open). Gating the whole band on `span` would kill the forward
+        // half on a big backward gap and open a coverage hole in the NEXT gate.
+        const lo = (seg.runIdx === 0 || span > CONFIG.canyonFlowFill) ? 0 : -wb;
+        const hi = (seg.runIdx === (seg.runTotal ?? 1) - 1 || seg.bridgedFwd || spanFwd > CONFIG.canyonFlowFill) ? 0 : wf;
         const len = hi - lo;
         if (len > 8) {
           const n = Math.max(1, Math.round(len / 46));
           for (let i = 0; i < n; i++) {              // cell-centred so seams don't double an orb
             const z = lo + ((i + 0.5) / n) * len;
-            if (Math.abs(z) < 6) continue;           // don't crowd the gate orb
+            if (Math.abs(z) < 6 || Math.abs(z + 8) < 6) continue;  // don't crowd the ring OR the gate orb (at z=−8)
             const w = weave(z);
             out.orbs.push({ dist: seg.dist + z, x: clamp(xAt(z) + w.x, -11, 11), y: clamp(yAt(z) + w.y, 4.5, 20), flow: 1 });
           }

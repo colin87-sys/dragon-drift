@@ -108,37 +108,63 @@ const flow = await page.evaluate(async () => {
   // steering budget on both axes (flyable at flow speed), cross every ring dead-centre
   // (weave 0 at z=0 → a perfect stays flyable), and actually CARVE (anti-inert guard: a
   // future dial/trim change can't silently flatten it back to the PR-1 straight line).
-  let slopeX = 0, slopeY = 0, weaveAtRing = 0, apexSum = 0, apexN = 0, budX = BUDGET_X, budY = BUDGET_Y;
+  let slopeX = 0, slopeY = 0, weaveAtRing = 0, apexSum = 0, apexYSum = 0, apexN = 0, budX = BUDGET_X, budY = BUDGET_Y;
+  const line = (s) => { const { bk, fw } = halves(s); const c = centre(s, bk, fw); const w = flowWeave(s, bk, fw);
+    return { bk, fw, at: (z) => { const wz = w(z); return { x: c.xAt(z) + wz.x, y: c.yAt(z) + wz.y }; }, w }; };
   for (const s of segs) {
-    const { bk, fw } = halves(s);
-    const { xAt, yAt } = centre(s, bk, fw);
-    const w = flowWeave(s, bk, fw);
-    weaveAtRing = Math.max(weaveAtRing, Math.abs(w(0).x), Math.abs(w(0).y));
-    let prev = null, peak = 0;
-    for (let z = -bk; z <= fw + 1e-9; z += 1) {
-      const p = { x: xAt(z) + w(z).x, y: yAt(z) + w(z).y };
-      peak = Math.max(peak, Math.abs(w(z).x));
+    const L = line(s);
+    weaveAtRing = Math.max(weaveAtRing, Math.abs(L.w(0).x), Math.abs(L.w(0).y));
+    let prev = null, peakX = 0, peakY = 0;
+    for (let z = -L.bk; z <= L.fw + 1e-9; z += 1) {
+      const p = L.at(z);
+      peakX = Math.max(peakX, Math.abs(L.w(z).x)); peakY = Math.max(peakY, Math.abs(L.w(z).y));
       if (prev) { slopeX = Math.max(slopeX, Math.abs(p.x - prev.x)); slopeY = Math.max(slopeY, Math.abs(p.y - prev.y)); }
       prev = p;
     }
-    if (s.runIdx > 0 && s.runIdx < (s.runTotal ?? 1) - 1) { apexSum += peak; apexN++; }
+    if (s.runIdx > 0 && s.runIdx < (s.runTotal ?? 1) - 1) { apexSum += peakX; apexYSum += peakY; apexN++; }
   }
-  const meanApex = apexN ? apexSum / apexN : 0;
-  // Fairness: the biggest gap between consecutive pickups (per run) must be re-catchable
-  // at BASE speed — one orb's window (orbDuration) covers ≥ that gap so a broken chain is
-  // always recoverable (the walls-free run's fairness invariant, in place of slope/width).
-  const coverBase = CONFIG.baseSpeed * CONFIG.speedRampMax * CONFIG.orbDuration; // 35·1.35·2 = 94.5m
-  // A gauntlet-bridged gap (consecutive flow segments more than canyonFlowFill apart — a
-  // slalom sits between them) is open by design, like every canyon system. Detect bridges
-  // by the actual inter-segment distance, NOT the orb-gap width (a 342m bridge whose two
-  // ends' bands reach toward each other can leave a ~250m orb gap that is still a bridge).
-  // The re-catchable guarantee applies to the CONTIGUOUS ribbon; bridge voids are excused.
+  const meanApex = apexN ? apexSum / apexN : 0, meanApexY = apexN ? apexYSum / apexN : 0;
+  // C0 across every seam: the carved line must be continuous where two segments meet (the
+  // shared inter-ring midpoint) — this is where the vertical-corkscrew C0 bug hid (the
+  // per-segment slope loop above never crosses a seam). Skip bridged pairs (open by design).
+  let seamX = 0, seamY = 0;
+  for (let i = 1; i < segs.length; i++) {
+    const a = segs[i - 1], b = segs[i];
+    if (b.runIdx !== a.runIdx + 1 || (b.dist - a.dist) > CONFIG.canyonFlowFill) continue;
+    const mid = (a.dist + b.dist) / 2, la = line(a), lb = line(b);
+    const pa = la.at(mid - a.dist), pb = lb.at(mid - b.dist);
+    seamX = Math.max(seamX, Math.abs(pa.x - pb.x)); seamY = Math.max(seamY, Math.abs(pa.y - pb.y));
+  }
+  // Emitted-orb guard: the ACTUAL emitted ribbon orbs must carry the carve (catches a
+  // level.js regression that drops the weave — the pure-function guards above wouldn't).
+  // Map each ribbon orb to its owning segment (nearest ring) and measure lateral deviation
+  // from the base ring line; the mean must show a real carve.
   const segDists = segs.map((s) => s.dist).sort((a, b) => a - b);
   const bridges = [];
   for (let i = 1; i < segDists.length; i++) {
     if (segDists[i] - segDists[i - 1] > CONFIG.canyonFlowFill) bridges.push([segDists[i - 1], segDists[i]]);
   }
   const inBridge = (d) => bridges.some(([a, b]) => d > a && d < b);
+  const bySeg = segs.slice().sort((p, q) => p.dist - q.dist);
+  let devSum = 0, devN = 0;
+  for (const o of orbs) {
+    if (bridges.length && inBridge(o.dist)) continue;
+    let best = bySeg[0];
+    for (const s of bySeg) if (Math.abs(s.dist - o.dist) < Math.abs(best.dist - o.dist)) best = s;
+    const z = o.dist - best.dist;
+    if (Math.abs(z + 8) < 1) continue; // skip the dead-centre gate orb
+    const { bk, fw } = halves(best);
+    devSum += Math.abs(o.x - centre(best, bk, fw).xAt(z)); devN++;
+  }
+  const meanOrbDev = devN ? devSum / devN : 0;
+  // Fairness: the biggest gap between consecutive pickups (per run) must be re-catchable
+  // at BASE speed — one orb's window (orbDuration) covers ≥ that gap so a broken chain is
+  // always recoverable (the walls-free run's fairness invariant, in place of slope/width).
+  const coverBase = CONFIG.baseSpeed * CONFIG.speedRampMax * CONFIG.orbDuration; // 35·1.35·2 = 94.5m
+  // A gauntlet-bridged gap (consecutive flow segments more than canyonFlowFill apart — a
+  // slalom sits between them) is open by design, like every canyon system; bridges/inBridge
+  // (computed above) detect them by inter-segment distance, not orb-gap width. The
+  // re-catchable guarantee applies to the CONTIGUOUS ribbon; bridge voids are excused.
   const startDists = segs.filter((s) => s.runIdx === 0).map((s) => s.dist);
   let maxGap = 0, bridgeVoids = 0;
   for (let i = 0; i < startDists.length; i++) {
@@ -151,7 +177,7 @@ const flow = await page.evaluate(async () => {
     }
   }
   return { segs, orbs, embers, maxGap, bridgeVoids, coverBase,
-           slopeX, slopeY, weaveAtRing, meanApex, budX, budY };
+           slopeX, slopeY, weaveAtRing, meanApex, meanApexY, seamX, seamY, meanOrbDev, budX, budY };
 });
 check('flow runs generate flowgate segments', flow.segs.length >= 1 && flow.segs.every((s) => s.kind === 'flowgate' && s.run === 'flow'));
 check('every flow gate has a gate orb dead-centre on its ring line',
@@ -166,7 +192,11 @@ check('flow carve stays under the steering budget (flyable at flow speed)',
   console.error(`  carve slope X=${flow.slopeX.toFixed(3)}/${flow.budX.toFixed(3)} Y=${flow.slopeY.toFixed(3)}/${flow.budY.toFixed(3)}`);
 check('flow carve crosses every ring dead-centre (a perfect stays flyable)',
   flow.weaveAtRing < 1e-9) || console.error(`  weave at ring plane = ${flow.weaveAtRing.toFixed(4)} (should be 0)`);
-check('flow actually CARVES (anti-inert guard: mean apex ≥ 3.0m)',
-  flow.meanApex >= 3.0) || console.error(`  mean carve apex only ${flow.meanApex.toFixed(2)}m — the weave has flattened`);
-console.log(`  (flow: ${flow.segs.length} gates, ${flow.orbs.length} orbs, max gap ${flow.maxGap.toFixed(1)}m/${flow.coverBase.toFixed(1)}m, ${flow.bridgeVoids} bridges; carve apex ${flow.meanApex.toFixed(1)}m, slope X=${flow.slopeX.toFixed(3)}/${flow.budX.toFixed(3)} Y=${flow.slopeY.toFixed(3)}/${flow.budY.toFixed(3)})`);
+check('flow carve line is C0-continuous across every seam (≤1.5m X / 1.15m Y)',
+  flow.seamX <= 1.5 && flow.seamY <= 1.15) || console.error(`  seam Δ X=${flow.seamX.toFixed(2)} Y=${flow.seamY.toFixed(2)} — the corkscrew broke C0`);
+check('flow actually CARVES on both axes (anti-inert: mean apex ≥ 3.0m X, ≥ 0.8m Y)',
+  flow.meanApex >= 3.0 && flow.meanApexY >= 0.8) || console.error(`  mean carve apex X=${flow.meanApex.toFixed(2)}m Y=${flow.meanApexY.toFixed(2)}m — the weave flattened`);
+check('emitted flow orbs actually carry the carve (not just the pure function)',
+  flow.meanOrbDev >= 1.0) || console.error(`  emitted orbs mean ${flow.meanOrbDev.toFixed(2)}m off the base line — the ribbon lost the weave`);
+console.log(`  (flow: ${flow.segs.length} gates, ${flow.orbs.length} orbs, max gap ${flow.maxGap.toFixed(1)}m/${flow.coverBase.toFixed(1)}m, ${flow.bridgeVoids} bridges; carve apex X=${flow.meanApex.toFixed(1)}m Y=${flow.meanApexY.toFixed(1)}m, emitted-dev ${flow.meanOrbDev.toFixed(1)}m, seamΔ X=${flow.seamX.toFixed(2)} Y=${flow.seamY.toFixed(2)}, slope X=${flow.slopeX.toFixed(3)}/${flow.budX.toFixed(3)} Y=${flow.slopeY.toFixed(3)}/${flow.budY.toFixed(3)})`);
 await done();
