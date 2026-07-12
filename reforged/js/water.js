@@ -402,6 +402,7 @@ export function updateWater(dt, playerDist, time, fog) {
 // N10c: the foam collars ride the same swell — expose its on/off state so the foam
 // shader displaces in lockstep (waterSurfaceHeight is a per-point probe, not a flag).
 export function getWaterSwellOn() { return swellOn; }
+export function getWaterDepthOn() { return depthOn; } // perf-HUD gfx readout
 
 export function waterSurfaceHeight(x, z) {
   if (!swellOn || !water) return 0;
