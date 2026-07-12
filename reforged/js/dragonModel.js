@@ -313,6 +313,10 @@ export function buildDragonModel(def, opts = {}) {
   const wingsResult = getWingsBuilder(recipe.wings)(def, model, attach, giM);
   group.add(wingsResult.group);
   for (const m of wingsResult.spineMats) spineMats.push(m);
+  // FLARE-ONLY mats (flared on Surge but NOT rim-lit): a part can publish `flareMats` for a dense
+  // emissive field (the wing feathers) that the strong Surge rim would otherwise wash to cream. Nullable.
+  const flareMats = [];
+  if (wingsResult.flareMats) for (const m of wingsResult.flareMats) flareMats.push(m);
   const wingMat = wingsResult.wingMat;
   const {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
@@ -407,7 +411,7 @@ export function buildDragonModel(def, opts = {}) {
     return {
       group: wrapper,
       parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
-      materials: { bodyMat, wingMat, eyeMat, spineMats },
+      materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
       auraSprite,
     };
   }
@@ -426,7 +430,7 @@ export function buildDragonModel(def, opts = {}) {
       coreGlow,
       wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength,
     },
-    materials: { bodyMat, wingMat, eyeMat, spineMats },
+    materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
     auraSprite,
   };
 }

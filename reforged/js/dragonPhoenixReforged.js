@@ -101,10 +101,16 @@ function sunhawkMats(def, glow, stage) {
   const orange = new THREE.MeshStandardMaterial({ color: 0x4a1c06, emissive: orangeCol, emissiveIntensity: (0.6 + 0.5 * st) * g, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide });
   orange.userData.baseEmissive = orangeCol; orange.userData.baseIntensity = orange.emissiveIntensity;
 
-  // T0 WHITE-HOT — the heart core (the ≤1 near-white register). OUT of spineMats.
-  const heartEmis = [orangeCol, 0xffb060, 0xffd89a, 0xffffff][st];
-  const heartI = [0.6, 1.6, 2.6, 3.6][st] * g;
+  // T0 HOT-CORE — the heart (the hottest register). Kept an incandescent AMBER, NOT pure white, and its
+  // intensity trimmed at apex, so on Surge the chest reads as the white-HOT heart of a FIRE, not a
+  // celestial-white flashbang that blooms over the whole bird (the tacky-prototype look we're leaving).
+  const heartEmis = [orangeCol, 0xffb060, 0xffb860, 0xffa844][st];   // AMBER, not cream — the cream (high blue) is what bloomed white
+  const heartI = [0.6, 1.6, 2.0, 2.1][st] * g;                       // trimmed at apex so the chest is a hot core, not a bloom bomb
   const heart = new THREE.MeshStandardMaterial({ color: 0xffe8c0, emissive: heartEmis, emissiveIntensity: heartI, flatShading: true, roughness: 0.3, metalness: 0.05 });
+  // Publish the heart so Surge can DEEPEN it toward ember (dim) instead of leaving it to detonate white:
+  // it stays the hottest point at rest, and on Surge shifts to surgeHi + dims via the negative weight.
+  heart.userData.baseEmissive = heartEmis; heart.userData.baseIntensity = heartI;
+  heart.userData.flareColorWeight = 0.3; heart.userData.flareIntensityWeight = 0.45;   // the heart core BLAZES on Surge — the single strongest accent (small + amber, so it pops without a white bomb)
 
   // HOT-RIBBON ramp — dedicated near-pure-EMISSIVE fire materials for the free-STREAMING ribbons
   // (the tail comet + the wing trailing streamers). A near-black diffuse + roughness 1 (no specular)
@@ -120,6 +126,20 @@ function sunhawkMats(def, glow, stage) {
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0xfff2c8, emissive: eyeCol, emissiveIntensity: (1.1 + 0.3 * st) * g, flatShading: true, roughness: 0.28 });
   eyeMat.userData.baseEmissive = eyeCol; eyeMat.userData.baseIntensity = eyeMat.emissiveIntensity;
 
+  // ── SURGE FLARE WEIGHTS — RESTRAINT model (owner: "retain its original colours with STRONG ACCENTS of
+  // surge, not a full transform"). The broad surfaces (wing feathers, membrane, body field) barely change
+  // → the phoenix keeps its cruise fire look. The drama is carried by SELECTIVE bright ACCENTS (regalia
+  // edges, hot roots, the heart core) + the effects (embers/burst). Small weights on big areas = no wash.
+  const flareW = (m, c, i) => { m.userData.flareColorWeight = c; m.userData.flareIntensityWeight = i; };
+  //          material          COLOUR→surgeHi   INTENSITY gain
+  flareW(ivory,    0.12, 0.0);    // body FIELD: essentially unchanged → keeps its cruise ember colour
+  flareW(goldfire, 0.4,  0.3);    // hot feather-roots BLAZE hotter (accent)
+  flareW(flame,    0.15, 0.0);
+  flareW(crimson,  0.15, 0.0);
+  flareW(gold,     0.7,  0.5); flareW(roseGold, 0.7, 0.5); flareW(orange, 0.65, 0.45);   // ridge/collar/hems = STRONG bright gold-white strokes (thin, so they pop without washing)
+  // Wing feathers/streamers: near-ZERO flare so they hold their cruise orange (the surge barely touches
+  // the big surface — this is what kills the white-out). Only a whisper of hue-deepen + a tiny tip lift.
+  flareW(hotRibbon[0], 0.6, 0.0); flareW(hotRibbon[1], 0.6, 0.0); flareW(hotRibbon[2], 0.65, 0.05);   // wings IGNITE via HUE (shift hotter toward the ember surgeHi) with flat intensity → visibly hotter fire, no bloom-to-white
   return { ivory, goldfire, flame, crimson, garnet, emberShadow, emberBelly, bronze, gold, roseGold, orange, heart, eyeMat, hotRibbon, stage: st, glow: g };
 }
 
@@ -308,7 +328,7 @@ function flamePlume(n, base, axis, opts = {}) {
 function buildSunhawkKeelTorso(def, model, _bodyMat) {
   const group = new THREE.Group();
   const M = sunhawkMats(def, model.glowLevel ?? 1, model.igniteStage);
-  const spineMats = [M.ivory, M.goldfire, M.flame, M.crimson, M.gold, M.roseGold, M.orange];   // the whole body flares on Surge
+  const spineMats = [M.ivory, M.goldfire, M.flame, M.crimson, M.gold, M.roseGold, M.orange, M.heart];   // the whole body flares on Surge; heart is published so Surge can DEEPEN it (its negative weight dims it toward ember instead of white)
   const bodyScale = model.torsoScale ?? 1;
   const keelDepth = model.keelDepth ?? 1;   // breast-prow projection (0.7→1.0)
   const neckArch = model.neckArch ?? 1;     // proud hawk neck rise (0.3→1.0)
@@ -468,10 +488,10 @@ function buildSunhawkKeelTorso(def, model, _bodyMat) {
   let coreGlow = null;
   const lvl = 0.4 + M.stage * 0.2;
   coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlow('255,190,110'), transparent: true, opacity: 0.1 + lvl * 0.14,
+    map: makeGlow('255,118,36'), transparent: true, opacity: 0.07 + lvl * 0.08,   // deep EMBER-orange + dim → a fire-core glow, not a white chest-explosion the Surge blooms out
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  coreGlow.scale.setScalar(0.5 + lvl * 0.5);   // tamed — was reading as a chest explosion (critic P1)
+  coreGlow.scale.setScalar(0.32 + lvl * 0.24);   // smaller footprint so the Surge spike stays a hot core, not a bloom bomb over the wings
   coreGlow.position.set(hx, hy, hz - 0.05);
   coreGlow.layers.set(1);
   coreGlow.userData.base = coreGlow.material.opacity;
@@ -675,6 +695,18 @@ function buildOneSunWing(M, model) {
   const memI = (0.7 + 0.16 * (M.stage ?? 3)) * (M.glow ?? 1);
   const mMat = (e) => { const m = new THREE.MeshStandardMaterial({ color: 0x2e0f04, emissive: e, emissiveIntensity: memI, flatShading: true, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }); m.userData.baseEmissive = e; m.userData.baseIntensity = memI; return m; };
   const memHot = mMat(0xffb63a), memGold = mMat(0xf59020), memOrange = mMat(0xe86614), memDeep = mMat(0xd6460c);
+  // Surge flare weights for the broad membrane panels: kept BELOW full so a big face doesn't cream-out to
+  // a pale slab — the white-gold COLOUR convergence (the lerp clamps near 1) carries the "majority of the
+  // wing glows" read, while raw intensity gain stays on the thin feather/streamer layer. Tip-hotter
+  // (memDeep at the outboard-trailing corner runs hottest) so the panel pours into the ember trail.
+  // The broad membrane carries the "majority of the wing glows" read via strong COLOUR convergence to the
+  // gold surgeHi (tip-hotter outboard) while INTENSITY stays low so a big face never blooms to a white slab.
+  const memFlareW = (m, c, i) => { m.userData.flareColorWeight = c; m.userData.flareIntensityWeight = i; };
+  // INTENSITY held UNIFORMLY LOW so no panel crosses the tone-map/bloom knee (which whites-out the
+  // outboard tips exactly where the gold should peak); the COLOUR ramp (0.5→0.95 outboard) alone carries
+  // the tip-hot gold gradient. This is the discipline the split-channel bought.
+  memFlareW(memHot, 0.55, 0.0); memFlareW(memGold, 0.58, 0.0); memFlareW(memOrange, 0.62, 0.0); memFlareW(memDeep, 0.65, 0.0);   // membrane shifts to hotter ember on Surge, flat intensity → no bloom
+  wg.userData.flareMats = [memHot, memGold, memOrange, memDeep];   // published into the wing's spineMats so Surge ignites the membrane (they're locals otherwise)
   // DIAGONAL heat coordinate (not axis-aligned rectangles — the "basic panel/plates" read): a hot
   // inner-leading corner cooling toward the outboard-trailing corner, with a slight wave so the bands
   // aren't ruler-straight. Banded into the same 4 stops.
@@ -830,6 +862,7 @@ function buildSunfeatherWings(def, model, attach, _giM) {
   const hs = 3.3 * (model.wingScale ?? 1);
   const pivots = {}, wingElements = [], emberEmitters = [];
   let wingBladePivotsR = null, wingBladePivotsL = null;
+  const memFlareMats = [];   // per-side membrane mats (locals in buildOneSunWing) → published so Surge ignites the wing panels
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
     const pivot = new THREE.Group();
@@ -863,8 +896,16 @@ function buildSunfeatherWings(def, model, attach, _giM) {
     // reads symmetric (passing the −1 loop side would double-flip → the apex asymmetry the probe caught).
     const bp = (oneWing.userData.bladePivots || []).map((pivot, idx) => ({ pivot, idx, side: 1 }));
     if (s === 'R') wingBladePivotsR = bp; else wingBladePivotsL = bp;
+    for (const fm of (oneWing.userData.flareMats || [])) memFlareMats.push(fm);
   }
-  return { group, spineMats: [M.gold, M.roseGold, M.orange], wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
+  // Wing spineMats = ONLY the thin gilt-regalia accents (gold/roseGold/orange → leading ridge, finger
+  // rims) — these get the Surge flare AND the fresnel rim (thin, so the rim reads as a hot edge, not a wash).
+  // The broad feather field (hotRibbon) + membrane go into the FLARE-ONLY channel: they LIGHT UP on Surge
+  // (so the wings visibly ignite as fire, not sit static) but stay OUT of the rim — the strong Surge rim
+  // over a dense emissive sheet is exactly what washed them to cream. Best of both: wings glow, no white.
+  const spineMats = [M.gold, M.roseGold, M.orange];
+  const flareMats = [...M.hotRibbon, ...memFlareMats];
+  return { group, spineMats, flareMats, wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
 }
 registerWings('sunfeather', buildSunfeatherWings);
 
@@ -911,6 +952,9 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // gathering to a comet point. Every downward degree of freedom is clamped by construction, so the
   // {y<0.30, z>0.85} corridor law holds no matter how the dials move. ══
   const coreRamp = [tMat(0xffbe4a), tMat(0xffa838), tMat(0xf26a16), tMat(0xdc470c)];   // hotter axial core
+  // SURGE flare weights for the tail fire (same discipline as the wings): deepen the hue toward the ember
+  // surgeHi + dim, so the trailing tail reads as a fire ribbon on Surge, not a white flaring coil.
+  for (const m of [bodyEmber, ...ramp4, ...covRamp, ...coreRamp]) { m.userData.flareColorWeight = 0.25; m.userData.flareIntensityWeight = 0.0; }   // RESTRAINT: tail holds its cruise fire look
   const rk = 0.8 + 0.2 * lift;              // radius/size scale by the ladder (whelp puff → apex volute)
   const mouthY = a.y + 0.05, mouthZ = a.z + 0.26;
   const axisDir = [0, 0.30, 1];             // the axis CLIMBS ~17° → halves the down-screen sink so the tail rises out of the sun-glare column in rear-chase (corridor-safe: up is free)

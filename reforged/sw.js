@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = '85716511c455';                          // STAMP:VERSION
+const VERSION = '071729c21132';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './css/style.css',
@@ -48,6 +48,7 @@ const ASSETS = [
   './js/bossWeftwitch.js',
   './js/buildId.js',
   './js/cameraController.js',
+  './js/canyonMath.js',
   './js/collision.js',
   './js/composer.js',
   './js/config.js',
@@ -141,6 +142,7 @@ const ASSETS = [
   './js/showcaseBackdrop.js',
   './js/skyClouds.js',
   './js/skyProbe.js',
+  './js/speedStreaks.js',
   './js/splash.js',
   './js/surface.js',
   './js/titles.js',
