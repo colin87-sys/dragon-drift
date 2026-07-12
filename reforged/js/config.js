@@ -127,6 +127,16 @@ export const CONFIG = {
   canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
   canyonSegments: [9, 13],    // a Rock Run sustains ~9-13 gates of enclosed canyon then opens up
                               // (longer than [8,11] so the weave+boost cadence sustains, fewer dead beats)
+  canyonFlowSegments: [12, 16], // a FLOW run (the Rhythm Flow-Tube): 12-16 light-gates ≈ 11-14s of
+                              // chain — long enough that "hold the line end-to-end" is a real ask
+  canyonFlowFill: 260,        // max ring-gap (m) the flow orb ribbon fills; a wider gap is a genuine
+                              // gauntlet bridge (the slalom is its own beat) and stays open. Covers
+                              // breath-beat spacings (~192m) with headroom; excludes 300m+ gauntlets.
+  // Sky Canyon run-type weights (the startCanyon picker draws ONE canyonRnd and maps it
+  // through these). flow = the Rhythm Flow-Tube (a walls-free speed showcase). Setting
+  // flow:0 renormalizes rock/spine to 50/50 = byte-identical to the pre-flow picker (the
+  // rollback dial). The single-draw mapping keeps the canyonRnd stream aligned.
+  canyonTypeWeights: { rock: 35, spine: 35, flow: 30 },
   spineSegments: [15, 19],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
                               // (longer than [13,16] so it reads as a sustained speed tunnel)
   canyonSpineSlip: 1.325,     // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not

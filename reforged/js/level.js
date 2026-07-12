@@ -2,7 +2,7 @@ import { CONFIG } from './config.js';
 import { mulberry32, clamp } from './util.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import { FIRST_FLIGHT_BEATS, FIRST_FLIGHT_END } from './firstFlight.js';
-import { rockSlicePlan, centre } from './canyonMath.js';
+import { rockSlicePlan, centre, halves } from './canyonMath.js';
 
 const lerp = (a, b, k) => a + (b - a) * k;
 const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') === 'reach';
@@ -14,10 +14,12 @@ const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') ===
 // null in normal play and in the headless tests (no query param) → zero change.
 const _canyonParams = new URLSearchParams(window.location.search);
 const CANYON_FORCE = _canyonParams.get('canyon')
-  || (_canyonParams.has('rockrun') ? 'rock' : _canyonParams.has('ribcage') ? 'spine' : null);
-// Two canyon set-pieces: a ROCK RUN (mixed split slabs + over-under shelves) and
-// a DRAGON SPINE CANYON (skull entrance → throat → ribcage → vertebrae → sky exit).
-const CANYON_MODES = ['rock', 'spine'];
+  || (_canyonParams.has('rockrun') ? 'rock' : _canyonParams.has('ribcage') ? 'spine'
+      : _canyonParams.has('flowrun') ? 'flow' : null);
+// Three canyon set-pieces: a ROCK RUN (mixed split slabs + over-under shelves), a
+// DRAGON SPINE CANYON (skull → throat → ribcage → vertebrae → sky exit), and a FLOW
+// run (the Rhythm Flow-Tube: walls-free light-gates + an orb ribbon, a speed showcase).
+const CANYON_MODES = ['rock', 'spine', 'flow'];
 
 // Set-pieces are computed from the biome grid: a gateway arch at every biome
 // boundary (k * biomeLength) and a mega-arch at each biome midpoint.
@@ -70,7 +72,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // suppressed inside canyon runs by the exact same 3-window logic as obstacles.
   let canyonSuppressWindows = [];
   let canyon = null; // { type, left, idx, total } while a canyon run is in progress
-  let forceAllToggle = false; // ?canyon=all alternates rock/spine runs
+  let forceAllIdx = 0; // ?canyon=all cycles rock → spine → flow runs
   // The last ring overlayCanyons processed, kept on the CLOSURE (not a per-call
   // local) because real play generates ~one ring per ensure() chunk — a call-local
   // "previous ring" is reset every frame, so span + neighbour smoothing would never
@@ -698,6 +700,36 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     // line, deterministic (runIdx is run state, no RNG), rides the non-fixtured orbs.
     if (seg.kind === 'straightrib' || (seg.kind === 'rib' && seg.runIdx % 2 === 0)) {
       addFinaleOrb(seg, out);
+    } else if (seg.run === 'flow') {
+      // FLOW run: the orb/ember RIBBON is the run — a glowing racing line strung between
+      // the light-gates (the rings). A gate orb dead-centre on every ring, plus a dense
+      // orb + ember ribbon on the eased ring line (the guide line IS the main event). All
+      // pure functions of the segment (centre/halves draw no RNG) on the non-fixtured
+      // out.orbs/out.embers → the gold fixture + every RNG stream stay untouched, and it's
+      // granularity-invariant (canyonframe). Flow orbs carry flow:1 (a non-fixtured marker;
+      // PR-3 turns it into the chain pickup — inert for now, and canyonframe keys on dist/x/y).
+      out.orbs.push({ dist: seg.dist - 8, x: clamp(seg.gapX, -11, 11), y: clamp(seg.gapY, 4.5, 20), flow: 1 }); // gate orb
+      // Ribbon back toward the previous ring, DENSE (pitch ≤ ~46m) so the boost/stamina
+      // chain is always re-catchable at base speed. Filled over the WHOLE span up to
+      // canyonFlowFill; a wider span is a genuine gauntlet bridge (rings far apart, the
+      // slalom is its own beat) and stays open, like every canyon system. Skip the mouth
+      // (runIdx 0 — its backward span reaches outside the run).
+      const span = seg.span || 80;
+      if (seg.runIdx > 0 && span <= CONFIG.canyonFlowFill) {
+        const { bk, fw } = halves(seg);
+        const { xAt, yAt } = centre(seg, bk, fw);
+        const n = Math.max(1, Math.round(span / 46));
+        for (let i = 1; i < n; i++) {                // n−1 interior orbs at pitch span/n
+          const z = -span * (i / n);
+          out.orbs.push({ dist: seg.dist + z, x: clamp(xAt(z), -11, 11), y: clamp(yAt(z), 4.5, 20), flow: 1 });
+        }
+        const points = [];                           // ember ribbon = the visual racing line
+        for (let k = 0; k < 5; k++) {
+          const z = -span * (0.12 + (k / 4) * 0.76);
+          points.push({ dist: seg.dist + z, x: clamp(xAt(z), -11, 11), y: clamp(yAt(z), 4.5, 20) });
+        }
+        out.embers.push({ points });
+      }
     } else if (seg.run === 'rock' && seg.kind === 'split' && (seg.span || 80) <= 160) {
       // Rock run adrenaline: rock has no slipstream, so on the long open beats you coast,
       // drain stamina and lose momentum with nothing to grab. Weave a SPEED BOOST onto the
@@ -730,12 +762,18 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
 
   function startCanyon(ring, out) {
     // Test harness forces a run type; the ?canyon=all demo alternates rock/spine.
-    let type = canyonRnd() < 0.5 ? 'rock' : 'spine';
+    // ONE canyonRnd draw for the type, mapped through the weight table (keeps the
+    // canyonRnd stream aligned draw-for-draw with the pre-flow picker). flow:0 →
+    // rock/spine 50/50, byte-identical to before.
+    const w = CONFIG.canyonTypeWeights, wtot = w.rock + w.spine + w.flow;
+    const r = canyonRnd();
+    let type = r < w.rock / wtot ? 'rock' : r < (w.rock + w.spine) / wtot ? 'spine' : 'flow';
     if (CANYON_FORCE === 'rock' || CANYON_FORCE === 'split' || CANYON_FORCE === 'overunder') type = 'rock';
     else if (CANYON_FORCE === 'spine') type = 'spine';
-    else if (CANYON_FORCE === 'all') type = forceAllToggle ? 'spine' : 'rock';
-    forceAllToggle = !forceAllToggle;
-    const [lo, hi] = type === 'spine' ? CONFIG.spineSegments : CONFIG.canyonSegments;
+    else if (CANYON_FORCE === 'flow') type = 'flow';
+    else if (CANYON_FORCE === 'all') { type = CANYON_MODES[forceAllIdx % CANYON_MODES.length]; forceAllIdx++; }
+    const [lo, hi] = type === 'spine' ? CONFIG.spineSegments
+      : type === 'flow' ? CONFIG.canyonFlowSegments : CONFIG.canyonSegments;
     const left = CANYON_FORCE ? hi : lo + Math.floor(canyonRnd() * (hi - lo + 1));
     out.canyonStarts.push({ dist: ring.dist - 40, run: type }); // run type → spine-only slipstream
     // The ribcage tunnel sweeps laterally to fake the body's curve; pick the side
@@ -755,6 +793,8 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // Pick the geometry "kind" for this segment from the run type + its position in
   // the run, so each run reads as a deliberate sequence rather than random rocks.
   function pickKind(ring, prevRing, c) {
+    // Flow run: one kind — the gates are the rings, dressed as light-gates; no walls.
+    if (c.type === 'flow') return 'flowgate';
     if (c.type === 'rock') {
       // Rock Run: alternate tall split slabs with over-under shelves. Bias toward
       // a shelf when the path is making a big vertical move (sells the up/down).

@@ -680,6 +680,27 @@ function buildRockGap(o, e) {
     // tunnel. The finale ('straightrib') is the same ribs with a line of speed orbs
     // down the centre (placed in level.js) — boost flat-out and burst into open air.
     ribcage(kindMult(o.kind), {});
+  } else if (o.kind === 'flowgate') {
+    // FLOW run light-gate: dress the reward ring as a bright floating gate — a thin
+    // emissive torus + a viewfinder bracket — with NO wall colliders (e.boxes stays
+    // EMPTY; the flow run is walls-free by design). The orb/ember ribbon (level.js) is
+    // the actual racing line; PR-2 adds the suggested-tube pylons + mote sleeve.
+    e.noDissolve = true;                          // thin open light never blocks the view
+    e.depthHalf = Math.max(e.depthHalf || 0, (o.span || 80) * 0.5);
+    const ringR = CONFIG.ringRadius + 1.6;
+    const gate = new THREE.Mesh(new THREE.TorusGeometry(ringR, 0.12, 8, 28), edgeMat);
+    gate.position.set(gx, gy, 0);
+    group.add(gate);
+    const legLen = 1.2, gp = ringR + 0.5;         // corner brackets opening toward centre
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      const cx = gx + sx * gp, cy = gy + sy * gp;
+      const hb = new THREE.Mesh(new THREE.BoxGeometry(legLen, 0.28, 0.28), edgeMat);
+      hb.position.set(cx - sx * legLen / 2, cy, 0);
+      group.add(hb);
+      const vb = new THREE.Mesh(new THREE.BoxGeometry(0.28, legLen, 0.28), edgeMat);
+      vb.position.set(cx, cy - sy * legLen / 2, 0);
+      group.add(vb);
+    }
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
@@ -815,6 +836,14 @@ function removeAt(i) {
 
 export function obstacleCount() {
   return entries.length;
+}
+
+// Test seam: total collider boxes across live FLOW-run gates. A flow run is
+// walls-free by design, so this must always be 0 (canyonboot asserts it).
+export function flowColliderBoxes() {
+  let n = 0;
+  for (const e of entries) if (e.type === 'rockGap' && e.run === 'flow') n += (e.boxes ? e.boxes.length : 0);
+  return n;
 }
 
 // First unpassed gate ahead of a distance (reticle target).

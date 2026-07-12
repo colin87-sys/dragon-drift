@@ -34,7 +34,7 @@ const result = await page.evaluate(async () => {
 });
 
 const { segs, starts, ends } = result.a;
-const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'straightrib'];
+const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'straightrib', 'flowgate'];
 check('canyons spawn over 9 km', segs.length >= 1);
 // ends may trail starts by one if a run is still in progress at the walk boundary.
 check('canyon starts/ends are balanced',
@@ -42,7 +42,7 @@ check('canyon starts/ends are balanced',
 check('every gap sits inside the lane + under the ceiling',
   segs.every((s) => s.gapX >= -9 && s.gapX <= 9 && s.gapY >= 5 && s.gapY <= 19));
 check('every segment has a known run + kind',
-  segs.every((s) => ['rock', 'spine'].includes(s.run) && KINDS.includes(s.kind)));
+  segs.every((s) => ['rock', 'spine', 'flow'].includes(s.run) && KINDS.includes(s.kind)));
 check('overlay is deterministic per seed',
   JSON.stringify(result.a.segs) === JSON.stringify(result.b.segs));
 
@@ -87,4 +87,51 @@ check('no hazard lands inside a canyon run',
   result.a.hazDists.every((d) => !inCanyonStrict(d)));
 
 console.log(`  (segments: ${segs.length}, runs: ${starts.length} [${[...runs].join(',')}], kinds: ${[...kinds].join(', ')})`);
+
+// === FLOW run (the Rhythm Flow-Tube) ===
+// Force flow-only via the weight table (CONFIG is the shared mutable object level.js
+// reads at pick time) so the ribbon is exercised deterministically regardless of seed.
+const flow = await page.evaluate(async () => {
+  const { createLevelGen } = await import('./js/level.js');
+  const { CONFIG } = await import('./js/config.js');
+  CONFIG.canyonTypeWeights = { rock: 0, spine: 0, flow: 100 };
+  const gen = createLevelGen(1337);
+  const segs = [], orbs = [], embers = [];
+  for (let d = 800; d <= 9000; d += 800) {
+    const out = gen.ensure(d);
+    segs.push(...out.canyonSegments);
+    orbs.push(...out.orbs.filter((o) => o.flow)); // only the flow ribbon (not base/first-flight orbs)
+    embers.push(...out.embers);
+  }
+  // Fairness: the biggest gap between consecutive pickups (per run) must be re-catchable
+  // at BASE speed — one orb's window (orbDuration) covers ≥ that gap so a broken chain is
+  // always recoverable (the walls-free run's fairness invariant, in place of slope/width).
+  const coverBase = CONFIG.baseSpeed * CONFIG.speedRampMax * CONFIG.orbDuration; // 35·1.35·2 = 94.5m
+  // A single ring's ribbon reaches back at most 2·bk ≈ 192m; a gap wider than that is a
+  // genuine gauntlet-bridged void (rings far apart, the slalom is its own beat), open by
+  // design — the same gaps canyonflow/canyonframe skip. The re-catchable guarantee applies
+  // to the CONTIGUOUS ribbon (gaps ≤ BRIDGE); bridge voids are counted + reported.
+  const BRIDGE = CONFIG.canyonFlowFill;   // spans wider than this are gauntlet bridges (unfilled by design)
+  const startDists = segs.filter((s) => s.runIdx === 0).map((s) => s.dist);
+  let maxGap = 0, bridgeVoids = 0;
+  for (let i = 0; i < startDists.length; i++) {
+    const lo = startDists[i] - 40, hi = (startDists[i + 1] ?? Infinity) - 40;
+    const ds = orbs.filter((o) => o.dist >= lo && o.dist < hi).map((o) => o.dist).sort((a, b) => a - b);
+    for (let k = 1; k < ds.length; k++) {
+      const g = ds[k] - ds[k - 1];
+      if (g > BRIDGE) bridgeVoids++;
+      else maxGap = Math.max(maxGap, g);
+    }
+  }
+  return { segs, orbs, embers, maxGap, bridgeVoids, coverBase };
+});
+check('flow runs generate flowgate segments', flow.segs.length >= 1 && flow.segs.every((s) => s.kind === 'flowgate' && s.run === 'flow'));
+check('every flow gate has a gate orb dead-centre on its ring line',
+  flow.segs.every((s) => flow.orbs.some((o) => Math.abs(o.x - s.gapX) < 1e-6 && o.dist > s.dist - 12 && o.dist <= s.dist)));
+const flowInterior = flow.segs.filter((s) => s.runIdx > 0);
+check('flow interior gates lay an orb + ember ribbon (more pickups than gates)',
+  flow.orbs.length > flow.segs.length && flow.embers.length >= flowInterior.length && flowInterior.length >= 1);
+check('flow contiguous chain is re-catchable at base speed (max gap ≤ orb coverage)',
+  flow.maxGap <= flow.coverBase) || console.error(`  max contiguous pickup gap ${flow.maxGap.toFixed(1)}m > coverage ${flow.coverBase.toFixed(1)}m`);
+console.log(`  (flow: ${flow.segs.length} gates, ${flow.orbs.length} orbs, ${flow.embers.length} ember lines, max contiguous gap ${flow.maxGap.toFixed(1)}m / ${flow.coverBase.toFixed(1)}m, ${flow.bridgeVoids} gauntlet-bridge voids)`);
 await done();

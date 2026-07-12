@@ -99,20 +99,28 @@ export function updateCollision(dt, player) {
       p.x = Math.max(-laneHW, Math.min(laneHW, p.x));
       player.velocity.x = -sign * 6;   // manual inward kick (hit() gets 0,0 — see below)
       hit(player, 0, 0, CONFIG.canyonCeilingDamage, 'wall');
+    } else if (game.inCanyon && game.canyonRun === 'flow') {
+      // FLOW run (the Rhythm Flow-Tube): a walls-free victory lap — clamp at the lane
+      // edge with NO damage (the boss-arena grammar). A wide drift costs the styling
+      // chain (score), never health: "miss the line, drop the combo, not health".
+      p.x = Math.max(-CONFIG.laneHalfWidth, Math.min(CONFIG.laneHalfWidth, p.x));
+      player.velocity.x = 0;
     } else {
       crash(player, 'wall');
       return;
     }
   }
-  // Ground: bounce + chip
+  // Ground: bounce (+ chip, EXCEPT in a flow run — nothing lethal on the victory lap;
+  // you still bounce off the sea, but it never damages or breaks the chain).
   if (p.y < CONFIG.laneMinY) {
     p.y = CONFIG.laneMinY;
     player.velocity.y = Math.max(player.velocity.y, 6);
-    hit(player, 0, 0, CONFIG.groundDamage, 'ground');
+    if (!(game.inCanyon && game.canyonRun === 'flow')) hit(player, 0, 0, CONFIG.groundDamage, 'ground');
   }
   // Canyon ceiling: inside a Sky Canyon run you can't just climb over the rock to
-  // skip it — the top of the lane is capped (bounce + chip, like the ground).
-  if (game.inCanyon && p.y > CONFIG.canyonCeilingY) {
+  // skip it — the top of the lane is capped (bounce + chip, like the ground). A FLOW
+  // run has no ceiling — openness is its identity, and nothing there can hurt you.
+  if (game.inCanyon && game.canyonRun !== 'flow' && p.y > CONFIG.canyonCeilingY) {
     p.y = CONFIG.canyonCeilingY;
     player.velocity.y = Math.min(player.velocity.y, -6);
     hit(player, 0, 0, CONFIG.canyonCeilingDamage, 'ceiling');

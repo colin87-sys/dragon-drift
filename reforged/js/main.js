@@ -13,7 +13,7 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt, flowColliderBoxes } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
@@ -108,7 +108,8 @@ const urlParams = new URLSearchParams(window.location.search);
 // drop you straight into it — skip the tutorial, auto-launch, and warp to just
 // before the first forced canyon. For eyeballing the Sky Canyon on the PR preview.
 const PREVIEW_CANYON = urlParams.has('rockrun') ? 'rock'
-  : urlParams.has('ribcage') ? 'spine' : null;
+  : urlParams.has('ribcage') ? 'spine'
+  : urlParams.has('flowrun') ? 'flow' : null;
 let previewLaunchPending = !!PREVIEW_CANYON;
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
@@ -328,7 +329,7 @@ if (urlParams.has('lab')) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, trailDebug: __trailDebug,
+    renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, flowColliderBoxes, trailDebug: __trailDebug,
     input,   // capture tools poke input.surgeTap to skip a scripted entrance headless (rAF-throttled flythroughs stall waits otherwise)
     juice: { hitstop, juiceEvent },
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
