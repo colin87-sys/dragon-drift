@@ -322,7 +322,6 @@ export function buildUnmasked(def, quality = 1) {
       varying float vR; varying float vPh;
       void main(){ vR = aR; vPh = aPh; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
-      precision mediump float;
       uniform float uTime; uniform float uOpacity;
       varying float vR; varying float vPh;
       void main(){
@@ -384,13 +383,12 @@ export function buildUnmasked(def, quality = 1) {
       varying vec3 vCol; varying vec2 vUv; varying float vPh;
       void main(){ vCol = aCol; vUv = uv; vPh = aPh; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
-      precision mediump float;
       uniform float uTime; uniform float uOpacity;
       varying vec3 vCol; varying vec2 vUv; varying float vPh;
       void main(){
         float t = vUv.x;
         float prof = smoothstep(0.0, 0.18, t) * pow(max(0.0, 1.0 - t), 0.7);   // emerges from the wing, dies to black at the tip
-        float edge = pow(1.0 - abs(2.0 * vUv.y - 1.0), 1.2);                    // soft sides
+        float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.2);          // soft sides (clamp: no NaN at the edge)
         float flow = 0.5 + 0.5 * sin(t * 12.0 - uTime * 3.0 + vPh);            // tendril scrolls outward
         float flick = 0.72 + 0.28 * sin(uTime * 0.8 + vPh * 2.3);              // SLOW flicker, never a strobe
         gl_FragColor = vec4(vCol * prof * edge * flow * flick * uOpacity, 1.0);
