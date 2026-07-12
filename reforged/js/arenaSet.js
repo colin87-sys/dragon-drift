@@ -413,18 +413,44 @@ function buildDebris(prnd) {
     pos.setXYZ(i, pos.getX(i) * (0.65 + prnd() * 0.7), pos.getY(i) * (0.65 + prnd() * 0.7), pos.getZ(i) * (0.65 + prnd() * 0.7));   // irregular chunk
   }
   geo.computeVertexNormals();
-  debrisMat = new THREE.MeshStandardMaterial({ color: DEBRIS_BODY, roughness: 1.0, metalness: 0.0, flatShading: true });   // dark, faceted, opaque (NOT additive) — a brightness SUBTRACTOR
+  // P2 PREMIUM ROCKS: dark faceted body + an incandescent FRESNEL RIM (gold, the blast backlighting the
+  // silhouette edge — the reference's dark-core/hot-edge read) + MOLTEN CRACK veins (thresholded 3D
+  // noise, gold-rose) + a cool violet rim callback, all via onBeforeCompile so instancing/fog/flat-shading
+  // plumbing stays. Per-instance `aHeat` makes hero chunks glow hotter. Still opaque → fairness-positive.
+  debrisMat = new THREE.MeshStandardMaterial({ color: DEBRIS_BODY, roughness: 1.0, metalness: 0.0, flatShading: true });
+  debrisMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uRimCol = { value: new THREE.Color(0xffe2b0) };    // hot gold rim (the palette lightSun)
+    sh.uniforms.uCrackCol = { value: new THREE.Color(0xd98a64) };  // gold-rose molten veins (the nebula key)
+    sh.uniforms.uCoolCol = { value: new THREE.Color(0x6a5ca8) };   // S2 violet cool rim (the arc callback)
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\n attribute float aHeat; varying float vHeat; varying vec3 vObjP;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n vHeat = aHeat; vObjP = position;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform vec3 uRimCol; uniform vec3 uCrackCol; uniform vec3 uCoolCol; varying float vHeat; varying vec3 vObjP;
+        float h13(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+        float n3(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(mix(h13(i), h13(i + vec3(1.,0.,0.)), f.x), mix(h13(i + vec3(0.,1.,0.)), h13(i + vec3(1.,1.,0.)), f.x), f.y),
+                     mix(mix(h13(i + vec3(0.,0.,1.)), h13(i + vec3(1.,0.,1.)), f.x), mix(h13(i + vec3(0.,1.,1.)), h13(i + vec3(1.,1.,1.)), f.x), f.y), f.z); }`)
+      .replace('#include <opaque_fragment>', `
+        float rim = pow(max(0.0, 1.0 - abs(dot(normal, normalize(vViewPosition)))), 2.2);   // backlit silhouette rim (clamp: no NaN)
+        float veins = smoothstep(0.5, 0.56, n3(vObjP * 3.4)) * (0.35 + 0.65 * rim) * vHeat;  // molten cracks, hotter on the rim
+        outgoingLight += uRimCol * rim * (0.7 + 0.5 * vHeat) + uCrackCol * veins * 1.2 + uCoolCol * rim * rim * 0.25;
+        #include <opaque_fragment>`);
+  };
   debris = new THREE.InstancedMesh(geo, debrisMat, DEBRIS_N);
   debris.name = 'godheadDebris';
   debris.frustumCulled = false;
   debris.layers.set(1);   // out of the god-ray mask + water mirror (opaque, but the RenderPass shares depth so it still occludes correctly)
   debrisP = [];
+  const heat = new Float32Array(DEBRIS_N);
   let minX = Infinity;
   for (let i = 0; i < DEBRIS_N; i++) {
     const side = prnd() < 0.5 ? -1 : 1;
     const ang = (prnd() - 0.5) * 1.2;                          // ±0.6 rad from horizontal — the vertical column stays clear
     let size = 2.0 + prnd() * 2.2;
     if (i < 2) size *= 2.4;                                     // 2 hero chunks (D3b)
+    heat[i] = i < 2 ? 1.5 : 0.6 + prnd() * 0.5;                // heroes run molten-hot; the field varies
     const yBias = (i >= 2 && i < 6) ? -(48 + prnd() * 30) : 0; // 4 chunks below-deck, half-sunk in the haze
     const speed = 0.085 + prnd() * 0.06;                       // conveyor traverse ≈ 7–11s (majestic, D6a)
     debrisP.push({ side, cos: Math.cos(ang), sin: Math.sin(ang), size, yBias, speed, phase: prnd(),
@@ -432,6 +458,7 @@ function buildDebris(prnd) {
     minX = Math.min(minX, Math.abs(Math.cos(ang)) * DEBRIS_R_IN);
     debris.setMatrixAt(i, _m.makeScale(0, 0, 0));              // hidden until the first drive frame
   }
+  geo.setAttribute('aHeat', new THREE.InstancedBufferAttribute(heat, 1));   // per-instance molten heat (heroes hotter)
   debris.instanceMatrix.needsUpdate = true;
   debrisMinX = +minX.toFixed(2);
 }
