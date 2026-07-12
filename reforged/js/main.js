@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setWaterFoam, setWaterFoamQuality } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setWaterFoam, setWaterFoamQuality } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -26,7 +26,10 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, setWaterReflFar } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, setWaterReflFar, getWaterSwellOn, getWaterDepthOn } from './water.js';
+import { waterFoamOn } from './propFoam.js';
+import { aoUniform } from './propAO.js';
+import { makePerfStats, resetPerfStats, perfFrame, perfSummary } from './perfStats.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
@@ -431,28 +434,52 @@ if (cleanShot) {
   document.head.appendChild(s);
 }
 
-// Perf overlay (?debug=perf): fps / draw calls / quality tier, plus a per-RUN
-// WORST-FRAME tracker (min fps + the draws/tris at that frame + p95 frame time).
-// The live average hides the split-second dips that make a fight FEEL janky and
-// that added overdraw deepens (L124) — the worst-frame line is the budget the
-// premium fx must respect. All state + work is gated behind perfEl (this flag),
-// so with the flag off the game is byte-identical.
+// Performance HUD: an on-screen fps / frame-time / draw-count readout, plus a per-RUN
+// WORST-FRAME tracker (min fps + the draws/tris at that frame + p95 frame time) and a
+// live list of the active experimental graphics toggles — so a single screenshot
+// captures the framerate AND the config that produced it. Enabled by the PERFORMANCE
+// HUD Settings toggle OR ?debug=perf; DEFAULT OFF → perfEl stays null → the whole
+// per-frame block is skipped and renderer.info.autoReset stays at the three.js
+// default, so the shipped frame is byte-identical with zero added cost.
 let perfEl = null;
 let perfTimer = 0;
-let perfMinFps = Infinity, perfWorstCalls = 0, perfWorstTris = 0;
-const PERF_RING = 600;               // ~10s of frames @60 for the p95 window
-const perfFrames = [];               // recent frame times (ms), ring buffer
-let perfRingCursor = 0;
-const resetPerfPeaks = () => { perfMinFps = Infinity; perfWorstCalls = 0; perfWorstTris = 0; perfFrames.length = 0; perfRingCursor = 0; };
-if (urlParams.get('debug') === 'perf') {
-  renderer.info.autoReset = false; // accumulate across all composer passes
-  perfEl = document.createElement('div');
-  perfEl.style.cssText =
-    'position:fixed;left:8px;top:8px;z-index:99;font:12px monospace;color:#8aff9a;' +
-    'background:rgba(0,0,0,0.55);padding:6px 9px;border-radius:6px;pointer-events:none;white-space:pre';
-  document.body.appendChild(perfEl);
-  on('runStart', resetPerfPeaks);   // worst-frame is per-RUN, so each fight reads clean
+const perfStats = makePerfStats(600);
+// The gfx line reads each toggle's RUNTIME authority (module getter / uniform), not
+// saveData — so it's correct even when a toggle was forced via a ?flag URL param.
+const PERF_GFX = [
+  ['IBL',  skyProbeEnabled],
+  ['SHDW', contactShadowSilhouette],
+  ['AO',   () => aoUniform.value > 0],
+  ['ATMO', atmosphereEnabled],
+  ['CLD',  skyCloudsEnabled],
+  ['SWL',  getWaterSwellOn],
+  ['DPTH', getWaterDepthOn],
+  ['FOAM', waterFoamOn],
+];
+function setPerfHud(on) {
+  if (on && !perfEl) {
+    renderer.info.autoReset = false; // accumulate draw counts across all composer passes
+    perfEl = document.createElement('div');
+    perfEl.className = 'perf-hud';    // test hook
+    // Left edge, below the hearts/pause stack (top-left HUD ≈90px in portrait); clear
+    // of the top-centre distance + top-right score. pointer-events:none = never eats input.
+    perfEl.style.cssText =
+      'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 112px);z-index:99;' +
+      'font:12px monospace;color:#8aff9a;background:rgba(0,0,0,0.55);padding:6px 9px;' +
+      'border-radius:6px;pointer-events:none;white-space:pre';
+    document.body.appendChild(perfEl);
+    resetPerfStats(perfStats);
+    perfTimer = 0;
+  } else if (!on && perfEl) {
+    perfEl.remove();
+    perfEl = null;
+    renderer.info.reset();           // flush accumulation
+    renderer.info.autoReset = true;  // restore the three.js default for every other reader
+  }
 }
+on('runStart', () => resetPerfStats(perfStats)); // worst/best-frame is per-RUN (O(1) field zeroing, no render effect)
+// Boot: either path shows the HUD; default (neither) leaves it off → identity.
+if (urlParams.get('debug') === 'perf' || gfxPref.perfHud === true) setPerfHud(true);
 
 initInput();
 initTouch(renderer.domElement);
@@ -682,6 +709,7 @@ ui.init({
     else if (kind === 'waterSwell') setWaterSwell(value);
     else if (kind === 'waterDepth') setWaterDepth(value);
     else if (kind === 'waterFoam') setWaterFoam(value);
+    else if (kind === 'perfHud') setPerfHud(value); // on-screen fps/frame-time readout (no render effect)
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
@@ -1524,34 +1552,22 @@ function tick() {
   renderPostFX();
 
   if (perfEl) {
-    // Per-frame worst-case capture (rawDt is clamped to 0.05 = a 20fps floor, so a
-    // backgrounded/stalled frame can't poison the min). rawDt==0 while paused.
-    if (rawDt > 0) {
-      const instFps = 1 / rawDt;
-      const ms = rawDt * 1000;
-      if (perfFrames.length < PERF_RING) perfFrames.push(ms);
-      else { perfFrames[perfRingCursor] = ms; perfRingCursor = (perfRingCursor + 1) % PERF_RING; }
-      if (instFps < perfMinFps) {   // new worst frame → snapshot its draws/tris
-        perfMinFps = instFps;
-        perfWorstCalls = renderer.info.render.calls;
-        perfWorstTris = renderer.info.render.triangles;
-      }
-    }
+    // rawDt is clamped to 0.05 (a 20fps floor) so a backgrounded/stalled frame can't
+    // poison the min; rawDt==0 while paused (perfFrame ignores ms<=0).
+    if (rawDt > 0) perfFrame(perfStats, rawDt * 1000, renderer.info.render.calls, renderer.info.render.triangles);
     perfTimer -= rawDt;
     if (perfTimer <= 0) {
       perfTimer = 0.5;
-      let p95 = 0;
-      if (perfFrames.length) {
-        const sorted = perfFrames.slice().sort((a, b) => a - b);
-        p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
-      }
+      const s = perfSummary(perfStats);
+      const gfx = PERF_GFX.filter(([, f]) => f()).map(([n]) => n).join(' ') || '—';
+      const tone = renderer.toneMapping === THREE.AgXToneMapping ? 'soft'
+                 : renderer.toneMapping === THREE.CustomToneMapping ? 'vivid' : 'aces';
       perfEl.textContent =
-        `fps   ${fpsAvg.toFixed(0)}\n` +
-        `calls ${renderer.info.render.calls}\n` +
-        `tris  ${(renderer.info.render.triangles / 1000).toFixed(0)}k\n` +
-        `tier  ${qualityTier}\n` +
-        `min   ${perfMinFps === Infinity ? '—' : perfMinFps.toFixed(0)}fps @${perfWorstCalls}c/${(perfWorstTris / 1000).toFixed(0)}k\n` +
-        `p95   ${p95.toFixed(1)}ms`;
+        `fps   ${fpsAvg.toFixed(0)}  avg ${s.avgFps.toFixed(0)}\n` +
+        `min   ${s.minFps === Infinity ? '—' : s.minFps.toFixed(0)}fps @${s.worstCalls}c/${(s.worstTris / 1000).toFixed(0)}k\n` +
+        `max   ${s.maxFps ? s.maxFps.toFixed(0) : '—'}fps   p95 ${s.p95Ms.toFixed(1)}ms\n` +
+        `calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  tier ${qualityTier}\n` +
+        `gfx   ${gfx} · ${tone}`;
     }
     renderer.info.reset();
   }
