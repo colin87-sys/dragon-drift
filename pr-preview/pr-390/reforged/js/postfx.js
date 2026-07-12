@@ -332,7 +332,7 @@ export function setPostTier(tier) {
 // Per-frame dynamics: speed-driven chromatic aberration, fever pulse, and
 // the impulse kicks. Kicks decay with rawDt (real time) so a hitstop can't
 // freeze its own flash on screen.
-export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget = 0) {
+export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget = 0, canyonSpeedMix = 0) {
   // State decays UNCONDITIONALLY — if the adaptive tier drops to 2 (composer
   // off) mid-decay, a frozen half-applied grade must not survive to pop back
   // when the tier restores.
@@ -356,6 +356,7 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // at the frame edges, leaving the readable centre clean.
   const targetAb = postfx._aberrationOn
     ? clamp(speedNorm, 0, 1) * 0.012 + postfx._feverMix * 0.013
+      + clamp(canyonSpeedMix, 0, 1) * clamp(speedNorm, 0, 1) * 0.014 // spine speed-tunnel streak
     : 0;
   u.aberration.value = damp(u.aberration.value, targetAb, 5, dt) + _kick.ab;
   // Surge wash kept deliberately LOW so rings/hazards/centre lane stay readable —
@@ -396,6 +397,9 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
     sat = sat + (0.25 - sat) * _deathMix;
     vig = vig + (0.62 - vig) * _deathMix;
   }
+  // Spine speed-tunnel: a subtle radial squeeze darkens the tube edges and focuses the
+  // eye down the barrel (rides the same presence-gated mix as the streaks/aberration).
+  vig += clamp(canyonSpeedMix, 0, 1) * 0.05;
   u.saturation.value = sat;
   u.vignette.value = vig;
 }
