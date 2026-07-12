@@ -60,6 +60,18 @@ const SPIKE_W = 3.2;                // ray half-width at the core (tapers to a p
 const STAR_GAIN = 1.0;              // engage dimmer at full k (the corona profile carries the value ramp)
 const BREATH_HZ = 0.22;             // the held presence barely breathes (±2% scale, never a pulse)
 
+// ── THE DEBRIS FIELD dials (GODHEAD DETONATION P4, owner D3b) — rock chunks riding the blast: born
+// deep on the axis (small screen radius = near frame centre), flying OUTWARD + FORWARD along the rays,
+// recycling forever (owner §1.2 perpetual conveyor). DARK flat-shaded silhouettes (NOT additive — they
+// SUBTRACT brightness from the probes = fairness-positive). Stable-room anchored (under `set`) + TIME-
+// driven so the conveyor never freezes even when the player hovers. Hard |x| ≥ 25 keeps the focal +
+// corridor column clean (layout-asserted). ONE InstancedMesh, +1 draw, tier-2 hidden with the set.
+const DEBRIS_N = 30;                // 28 + 2 hero chunks (D3b medium)
+const DEBRIS_R_IN = 34, DEBRIS_R_OUT = 106;   // screen-radius spread: inner (deep, near centre) → outer (frame edge). R_IN·cos(0.6)=28 ≥ 25 by construction
+const DEBRIS_Z_FAR = -560, DEBRIS_Z_NEAR = -70;   // conveyor depth travel (local to the −playerDist anchor): deep (appears central) → near (flown forward)
+const DEBRIS_CY = 62;              // the detonation centre the field radiates from (between the boss ≈18 and the star 100)
+const DEBRIS_BODY = 0x14102a;      // near-black indigo — dark tumbling silhouettes; lit warm on the star side by lightSun
+
 // Owner-locked star mode: 'detonation' (THE GODHEAD DETONATION — the locked default) |
 // 'supernova' | 'spiral' (the pre-apotheosis A/B seams, kept for owner preview — D7a).
 let STAR_MODE = 'detonation';
@@ -68,8 +80,10 @@ let set = null;                     // the root group (built once at boot, hidde
 let starGroup = null;               // breath pivot at (0, STAR_Y, -STAR_DIST)
 let nova = null, spiral = null, deton = null;   // the three mode meshes (one visible)
 let novaMat = null, spiralMat = null, detMat = null;
+let debris = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // the recycled radial-outward rock conveyor
 let tierHidden = false;             // low-tier kill switch (setArenaSetQuality)
 let lastK = 0;                      // debug seam: the engage level actually applied this frame
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _sc = new THREE.Vector3();   // debris scratch (alloc-free)
 
 // ── SUPERNOVA geometry: corona rings + core disc + 4 diffraction spikes, merged into ONE
 // non-indexed additive buffer (one draw). Vertex colour carries the whole value structure:
@@ -351,6 +365,40 @@ const addMat = () => {
   return m;
 };
 
+// ── THE DEBRIS FIELD (P4): one InstancedMesh of lumpy dark rocks. Geometry jittered ONCE off the
+// PRIVATE debris stream (a distinct seed from the star's — determinism law); per-instance conveyor
+// params baked. Matrices are recomputed each visible frame (30 instances = a tiny upload). Scale 0 at
+// build so a pre-update frame shows nothing. Returns the theoretical min |x| for the layout assert.
+function buildDebris(prnd) {
+  const geo = new THREE.IcosahedronGeometry(1, 0);   // 20 faces — a low-poly rock (30×20 = 600 tris)
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setXYZ(i, pos.getX(i) * (0.65 + prnd() * 0.7), pos.getY(i) * (0.65 + prnd() * 0.7), pos.getZ(i) * (0.65 + prnd() * 0.7));   // irregular chunk
+  }
+  geo.computeVertexNormals();
+  debrisMat = new THREE.MeshStandardMaterial({ color: DEBRIS_BODY, roughness: 1.0, metalness: 0.0, flatShading: true });   // dark, faceted, opaque (NOT additive) — a brightness SUBTRACTOR
+  debris = new THREE.InstancedMesh(geo, debrisMat, DEBRIS_N);
+  debris.name = 'godheadDebris';
+  debris.frustumCulled = false;
+  debris.layers.set(1);   // out of the god-ray mask + water mirror (opaque, but the RenderPass shares depth so it still occludes correctly)
+  debrisP = [];
+  let minX = Infinity;
+  for (let i = 0; i < DEBRIS_N; i++) {
+    const side = prnd() < 0.5 ? -1 : 1;
+    const ang = (prnd() - 0.5) * 1.2;                          // ±0.6 rad from horizontal — the vertical column stays clear
+    let size = 2.0 + prnd() * 2.2;
+    if (i < 2) size *= 2.4;                                     // 2 hero chunks (D3b)
+    const yBias = (i >= 2 && i < 6) ? -(48 + prnd() * 30) : 0; // 4 chunks below-deck, half-sunk in the haze
+    const speed = 0.085 + prnd() * 0.06;                       // conveyor traverse ≈ 7–11s (majestic, D6a)
+    debrisP.push({ side, cos: Math.cos(ang), sin: Math.sin(ang), size, yBias, speed, phase: prnd(),
+      ts: (prnd() - 0.5) * 0.6, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });   // tumble seeds (local spin; translation stays radial — nothing orbits)
+    minX = Math.min(minX, Math.abs(Math.cos(ang)) * DEBRIS_R_IN);
+    debris.setMatrixAt(i, _m.makeScale(0, 0, 0));              // hidden until the first drive frame
+  }
+  debris.instanceMatrix.needsUpdate = true;
+  debrisMinX = +minX.toFixed(2);
+}
+
 // Build once at boot (createEnvironment), hidden. Idempotent.
 export function createArenaSet(scene) {
   if (set) return;
@@ -387,6 +435,9 @@ export function createArenaSet(scene) {
   deton.layers.set(1);                  // out of the god-ray mask + water mirror
   deton.visible = true;                 // THE GODHEAD DETONATION is the owner-locked default
   starGroup.add(deton);
+
+  buildDebris(mulberry32(0x0d3b71f));   // PRIVATE stream, distinct from the star's — the level/gold RNG is never touched
+  set.add(debris);                      // under `set` (the stable room), NOT starGroup (debris must not inherit the breath)
 
   set.add(starGroup);
   scene.add(set);
@@ -426,6 +477,24 @@ export function updateArenaSet(time, playerDist, mix, fade) {
   const glow = k * STAR_GAIN * (0.98 + 0.02 * Math.sin(time * 0.31));
   if (STAR_MODE === 'detonation') { detMat.uniforms.uGain.value = glow; detMat.uniforms.uTime.value = time; }
   else (STAR_MODE === 'supernova' ? novaMat : spiralMat).color.setScalar(glow);
+
+  // THE DEBRIS CONVEYOR (P4): each chunk rides a ray from deep-centre outward+forward and recycles,
+  // forever (TIME-driven — never freezes). Scale-in at birth, fade at recycle → seamless loop. The
+  // tumble is LOCAL spin; the translation is radial-outward, never an orbit (§3 stillness).
+  if (debris) {
+    for (let i = 0; i < DEBRIS_N; i++) {
+      const d = debrisP[i];
+      const p = (time * d.speed + d.phase) % 1;
+      const r = DEBRIS_R_IN + (DEBRIS_R_OUT - DEBRIS_R_IN) * p;
+      const env = ss(p / 0.06) * ss((1 - p) / 0.14);            // birth scale-in · recycle fade-out
+      _v.set(d.side * d.cos * r, DEBRIS_CY + d.sin * r + d.yBias, DEBRIS_Z_FAR + (DEBRIS_Z_NEAR - DEBRIS_Z_FAR) * p);
+      _e.set(d.e0 + time * d.ts, d.e1 + time * d.ts * 0.7, d.e2);
+      _q.setFromEuler(_e);
+      _sc.setScalar(Math.max(1e-4, d.size * k * env));
+      debris.setMatrixAt(i, _m.compose(_v, _q, _sc));
+    }
+    debris.instanceMatrix.needsUpdate = true;
+  }
 }
 
 // Tier off-switch (main.js applyQuality): the low tier drops the set entirely — the cosmos
@@ -439,7 +508,9 @@ export function setArenaSetQuality(tier) {
 // with it).
 export function debugArenaSet() {
   return { built: !!set, visible: !!set && set.visible, k: +lastK.toFixed(3), mode: STAR_MODE, star: !!nova,
-    detUTime: detMat ? +detMat.uniforms.uTime.value.toFixed(2) : 0, tierHidden };   // detUTime advances ⇒ the perpetual loop is driven
+    detUTime: detMat ? +detMat.uniforms.uTime.value.toFixed(2) : 0,   // detUTime advances ⇒ the perpetual loop is driven
+    debrisN: DEBRIS_N, debrisVis: !!set && set.visible && !!debris, debrisMinX,   // debrisMinX ≥ 25 ⇒ no chunk enters the focal/corridor column
+    tierHidden };
 }
 
 // Belt-and-braces for the restart path (resetEnvironment) — the stateless mix would self-heal
