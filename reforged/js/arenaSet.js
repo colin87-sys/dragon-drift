@@ -241,8 +241,10 @@ function buildDetonationGeo(prnd) {
     const a0 = (i / CSEG) * TAU, a1 = ((i + 1) / CSEG) * TAU;
     push([0, 0, 0], CORE_C, [0, 0], 0, 0); push(P(CORE_R, a0), EDGE_C, [0, 0], 0, 0); push(P(CORE_R, a1), EDGE_C, [0, 0], 0, 0);
   }
-  // ── CORONA (aType 0): the vast soft blast glow — (1-t)^1.4 to black at the rim (no hard edge).
-  const RSEG = 5, ASEG = 32;
+  // ── CORONA (aType 3): the vast soft blast glow — (1-t)^1.4 to black at the rim. uv = [radial t,
+  // angle fraction]; the shader domain-warps an FBM over it → a MOLTEN ROILING substrate (the richest
+  // zone in the reference, previously the flattest here). More angular segments now that it carries detail.
+  const RSEG = 6, ASEG = 48;
   const cProf = (t) => Math.pow(Math.max(0, 1 - t), 1.4) * 0.5;
   const cCol = (t) => { const b = cProf(t), c = lerp3(GOLD_IN, ROSE_MID, ss(t * 1.3)); return [c[0] * b, c[1] * b, c[2] * b]; };
   for (let j = 0; j < RSEG; j++) {
@@ -250,9 +252,9 @@ function buildDetonationGeo(prnd) {
     const r0 = CORE_R + t0 * (DET_CORONA_R - CORE_R), r1 = CORE_R + t1 * (DET_CORONA_R - CORE_R);
     const c0 = cCol(t0), c1 = cCol(t1);
     for (let i = 0; i < ASEG; i++) {
-      const a0 = (i / ASEG) * TAU, a1 = ((i + 1) / ASEG) * TAU;
-      push(P(r0, a0), c0, [0, 0], 0, 0); push(P(r1, a0), c1, [0, 0], 0, 0); push(P(r1, a1), c1, [0, 0], 0, 0);
-      push(P(r0, a0), c0, [0, 0], 0, 0); push(P(r1, a1), c1, [0, 0], 0, 0); push(P(r0, a1), c0, [0, 0], 0, 0);
+      const a0 = (i / ASEG) * TAU, a1 = ((i + 1) / ASEG) * TAU, u0 = i / ASEG, u1 = (i + 1) / ASEG;
+      push(P(r0, a0), c0, [t0, u0], 3, 0); push(P(r1, a0), c1, [t1, u0], 3, 0); push(P(r1, a1), c1, [t1, u1], 3, 0);
+      push(P(r0, a0), c0, [t0, u0], 3, 0); push(P(r1, a1), c1, [t1, u1], 3, 0); push(P(r0, a1), c0, [t0, u1], 3, 0);
     }
   }
   // ── RADIAL STREAK FAN (aType 1): the frame-filler + the primary perpetual loop. Eclipse + down-
@@ -284,13 +286,14 @@ function buildDetonationGeo(prnd) {
   for (let ri = 0; ri < RINGS.length; ri++) {
     const [R, bw, amp, base] = RINGS[ri], inner = R - bw, outer = R + bw, ph = ri * 2.1;
     for (let i = 0; i < RRSEG; i++) {
-      const a0 = (i / RRSEG) * TAU, a1 = ((i + 1) / RRSEG) * TAU;
+      const a0 = (i / RRSEG) * TAU, a1 = ((i + 1) / RRSEG) * TAU, ua0 = i / RRSEG, ua1 = (i + 1) / RRSEG;
       const d0 = 0.4 + 0.6 * smoothstep(-0.4, 0.2, Math.sin(a0)), d1 = 0.4 + 0.6 * smoothstep(-0.4, 0.2, Math.sin(a1));   // down-suppress lower half
       const c0 = [base[0] * amp * d0, base[1] * amp * d0, base[2] * amp * d0], c1 = [base[0] * amp * d1, base[1] * amp * d1, base[2] * amp * d1];
       const IN0 = P(inner, a0), OUT0 = P(outer, a0), OUT1 = P(outer, a1), IN1 = P(inner, a1);
-      // uv.x = radial t across the band (0 inner → 1 outer); the shader bands it to black at both.
-      push(IN0, c0, [0, 0], 2, ph); push(OUT0, c0, [1, 0], 2, ph); push(OUT1, c1, [1, 0], 2, ph);
-      push(IN0, c0, [0, 0], 2, ph); push(OUT1, c1, [1, 0], 2, ph); push(IN1, c1, [0, 0], 2, ph);
+      // uv = [radial t across the band (0 inner → 1 outer), angle fraction]; the shader bands it to
+      // black at both edges and FILAMENTS the wavefront with an angular FBM (not a clean compass ring).
+      push(IN0, c0, [0, ua0], 2, ph); push(OUT0, c0, [1, ua0], 2, ph); push(OUT1, c1, [1, ua1], 2, ph);
+      push(IN0, c0, [0, ua0], 2, ph); push(OUT1, c1, [1, ua1], 2, ph); push(IN1, c1, [0, ua1], 2, ph);
     }
   }
   // ── 4 DIFFRACTION SPIKES (aType 0): the star-optics glyph survives inside the blast.
@@ -331,28 +334,57 @@ const DET_VERT = `
 // clamped ≥ 0: `pow(negative, fractional)` is UNDEFINED in GLSL — real GPUs return NaN, the bloom
 // pass smears it across the whole framebuffer → a BLACK SCREEN (software renderers swallow it, which
 // is why headless never caught it). sin()/1−abs() both interpolate epsilon-negative at primitive edges.
+// P1 TURBULENCE: a texture-free FBM (sin-free Dave-Hoskins hash → value noise → ≤3 octaves, uOct = the
+// tier dial) transforms the flat vector-art blast into FIRE — braided streak fibers, a domain-warped
+// molten corona, filamented shock wavefronts. Mean-preserving (multiplies the baked vCol), so the
+// eclipse/down-suppression/fairness structure is untouched. All bases clamped ≥ 0 (the NaN law); the
+// hash uses only fract/dot (no pow/sin/sqrt/log) so it can't emit a NaN.
 const DET_FRAG = `
-  uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing;
+  uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing; uniform float uOct; uniform float uRoil;
   varying vec3 vCol; varying vec2 vUv; varying float vType; varying float vPhase;
+  float hash21(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+  float vnoise(vec2 p){
+    vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i), b = hash21(i + vec2(1.0, 0.0)), c = hash21(i + vec2(0.0, 1.0)), d = hash21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  }
+  float fbm(vec2 p){
+    float s = 0.0, amp = 0.5, tot = 0.0;
+    for (int i = 0; i < 3; i++){ if (float(i) >= uOct) break; s += amp * vnoise(p); tot += amp; p = p * 2.02 + 7.1; amp *= 0.5; }
+    return tot > 0.0 ? s / tot : 0.5;
+  }
   void main(){
     float b = 1.0;
-    if (vType > 1.5) {                                   // SHOCK RING — soft band + outward wavefront
-      float t = vUv.x;
-      float band = pow(max(0.0, sin(t * 3.14159265)), 1.4);   // black on both edges (clamp: no NaN at the band rim)
+    if (vType > 2.5) {                                   // CORONA — domain-warped MOLTEN CELLS
+      float t = vUv.x;                                   // radial 0(core edge)→1(rim)
+      float ang = vUv.y * 6.2831853;
+      vec2 ring = vec2(cos(ang), sin(ang)) * (2.0 + t * 3.6);   // seam-free annulus → noise space
+      vec2 warp = vec2(fbm(ring + vec2(-uTime * 0.14, 0.0)), fbm(ring + 4.7)) - 0.5;
+      float n = fbm(ring * 2.3 + warp * 2.1 + vec2(-uTime * 0.2, 0.0));   // molten substrate scrolls outward
+      float cells = 0.32 + 1.5 * n * n;                  // n² → bright cells + dark cracks (reads through bloom)
+      b = mix(1.0, cells, uRoil);                        // ~energy-preserving flat→molten blend
+    } else if (vType > 1.5) {                            // SHOCK RING — soft band × filamented wavefront
+      float t = vUv.x, ang = vUv.y * 6.2831853;
+      float band = pow(max(0.0, sin(t * 3.14159265)), 1.4);   // black on both edges (clamp: no NaN)
       float wave = 0.55 + 0.45 * sin(t * 6.2831853 - uTime * uRing + vPhase);
-      b = band * wave;
-    } else if (vType > 0.5) {                            // STREAK — tip decay × edge fade × outward scroll
+      float fn = fbm(vec2(cos(ang), sin(ang)) * 4.6 + vec2(t * 2.0 - uTime * uRing * 0.3, 0.0));
+      float fil = 0.45 + 0.9 * fn * fn;                  // sharpened angular filaments (not a clean compass ring)
+      b = band * wave * fil;
+    } else if (vType > 0.5) {                            // STREAK — RIDGED FIBROUS VEINS × tip decay × scroll
       float t = vUv.x;
-      float decay = pow(max(0.0, 1.0 - t), 0.85);        // dies to black at the tip
-      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.2); // soft sides, no hard rim (clamp: no NaN at the edge)
-      float flow = 0.5 + 0.5 * sin(t * 18.8495559 - uTime * uFlow + vPhase); // energy jets core→tip, forever
+      float decay = pow(max(0.0, 1.0 - t), 0.8);         // dies to black at the tip
+      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.3); // soft sides (clamp: no NaN)
+      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0));  // high-freq roil
+      float veins = pow(max(0.0, 1.0 - abs(2.0 * n - 1.0)), 2.2);   // RIDGED → thin bright veins, dark between (clamp)
+      float pulse = 0.4 + 0.6 * (0.5 + 0.5 * sin(t * 12.0 - uTime * uFlow + vPhase));  // core→tip energy pulse
+      float flow = (0.22 + 1.7 * veins) * pulse;         // crisp fibers that survive the bloom
       b = decay * edge * flow;
     }
     gl_FragColor = vec4(vCol * b * uGain, 1.0);          // additive: black adds nothing (soft everywhere)
   }`;
 const addDetMat = () => {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uFlow: { value: 3.8 }, uRing: { value: 1.5 } },
+    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uFlow: { value: 3.8 }, uRing: { value: 1.5 }, uOct: { value: 3 }, uRoil: { value: 1.0 } },
     vertexShader: DET_VERT, fragmentShader: DET_FRAG,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
   });
@@ -506,6 +538,7 @@ export function updateArenaSet(time, playerDist, mix, fade) {
 // palette + firmament + nebula carry the identity there (the god-ray/kick tier precedent).
 export function setArenaSetQuality(tier) {
   tierHidden = tier >= 2;
+  if (detMat) detMat.uniforms.uOct.value = tier >= 1 ? 2 : 3;   // P1 tier dial: fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
 }
 
 // Debug seam (tests/unmaskedarena.mjs): the coexist proof reads this through bossArenaState().
