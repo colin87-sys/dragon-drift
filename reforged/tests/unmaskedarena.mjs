@@ -248,6 +248,13 @@ const p90 = lums[Math.floor(lums.length * 0.90)];
 // parry authority regardless of palette. The chiaroscuro court simply ships miles under it, ≈0.35–0.41
 // vs the lit-gold heaven's 0.69 — the dark sea IS the fairness dividend of the redo.)
 check(p90 <= 0.75, `the heaven's parry corridor stays parry-legible (p90 luminance ${p90.toFixed(3)} ≤ 0.75 — the backdrop never floods the dodge zone)`);
+// THE CORRIDOR MEDIAN LOCK (GODHEAD DETONATION, D4): the p90 ceiling is the parry authority, but the
+// apotheosis pushes the SKY median up (the identity moved "midnight vault → perpetual detonation"), so
+// pin the play-field pocket itself DARK against future tuning. The corridor is the calm, darker pocket
+// the detonation deliberately spares (down-hemisphere burst suppression + haze-deck occlusion + dark
+// debris) — its BROAD field must stay a dark dodge canvas even as the mid-annulus blazes.
+const cP50 = lums[Math.floor(lums.length * 0.50)];
+check(cP50 <= 0.45, `the parry corridor's broad field stays DARK (p50 luminance ${cP50.toFixed(3)} ≤ 0.45 — the play-field pocket the detonation spares)`);
 
 // SKY-BAND CEILING (CP2 finding-2; re-based for PR-J): the sky band above the waterline (y 30-55%)
 // carries the court's authored brights — the divine column + the god-ray swell on the dark vault —

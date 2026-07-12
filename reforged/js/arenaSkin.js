@@ -75,15 +75,23 @@ export const FLOOD_HEX = {
 // lapses below bg .28, so the fog must sit ≥.15 from the nearest band colour: arena-dark 0xa84167
 // L.352 ⇒ fog ≤ .202); horizon L≈.49 sits inside the layered window [.28,.75] so all six pass there.
 // All TUNE.
+// THE GODHEAD DETONATION (arena-godhead-detonation, P1) — THE FIRSTBORN SKY's apotheosis: the newborn
+// supernova heart goes off and KEEPS erupting. The indigo+gold cosmos of PR-K, pushed toward a
+// full-frame holy detonation (FF7 Safer-Sephiroth's STYLE, our colour). P1 is the value-space half:
+// the nebula mid-lift is WARMED toward the blast's rose-violet body and the FBM gas is IGNITED
+// (cloudAmount .35→.5, cloudLit hotter) so the vault reads as roiling luminous detonation gas — while
+// the ZENITH (skyTop) and the parry corridor stay dark: the detonation is a MID-ANNULUS event by
+// construction (owner colour law). fog + skyHorizon UNCHANGED (bulletcontrast is re-certified against
+// them). The geometry (streak fan / shock rings / debris / ignited seraph) rides on top in P2–P5. All TUNE.
 export const HEAVEN_HEX = {
-  skyTop: 0x0e1230, skyMid: 0x453466, skyHorizon: 0xa87838, sunGlow: 0xffdf9a,          // deep space-indigo vault · violet-magenta nebula mid-lift · the gold band = the GALACTIC PLANE · the Godhead Star's glow
-  fogColor: 0x352b52, fogNear: 60, fogFar: 340, fogFarColor: 0x352b52, fogFarMix: 1,   // dark violet — distance sinks into cosmic gloom (L≈.188: below .202 so every band colour reads DIRECT against it)
+  skyTop: 0x0e1230, skyMid: 0x584070, skyHorizon: 0xa87838, sunGlow: 0xffdf9a,          // deep space-indigo vault (zenith UNCHANGED — the dark that reads the streaks) · warmed rose-violet nebula body · the gold band = the GALACTIC PLANE · the Godhead Star's glow
+  fogColor: 0x352b52, fogNear: 60, fogFar: 340, fogFarColor: 0x352b52, fogFarMix: 1,   // dark violet — distance sinks into cosmic gloom (L≈.188: below .202 so every band colour reads DIRECT against it) — UNCHANGED, bulletcontrast-locked
   lightSun: 0xffe2b0, lightSunI: 1.15, hemiSky: 0x7e8fc0, hemiGround: 0x635033,        // cool vault fill + a dark warm front-fill (the seraph models, but stays a shadow)
   waterDeep: 0x1a1638, waterShallow: 0x453a5e, waveAmp: 0.08,                           // HAZE-DECK, not a gold mirror — dim violet, near-dead calm (the bright gold glint dies with waterShallow)
   ambColor: 0xffe9c0, ambFall: -0.10, ambSway: 0.45, ambSize: 0.5, ambOpacity: 0.85,    // STARDUST (the mote pool re-skinned — zero new draws): star-white-gold, weightless slow RISE
   faunaColor: 0xffe9c0, faunaScale: 0, faunaFlap: 0,
   starMix: 1.0, whaleMix: 0, flybyMix: 0,                                               // the S2 pinholes BLOOM to a firmament — the same field, kindled (+ the dome's aurora veil rides starMix free)
-  cloudAmount: 0.35, cloudLit: 0xd98a64, cloudShadow: 0x1c1434, atmosHeightK: 0, atmosInscatter: 0,   // NEBULA GAS: the FBM cloud band as warm gold-rose ignited gas; unlit gas sinks into the vault
+  cloudAmount: 0.5, cloudLit: 0xe89a6a, cloudShadow: 0x1c1434, atmosHeightK: 0, atmosInscatter: 0,   // ROILING DETONATION GAS: the FBM cloud band IGNITED (amount .35→.5, hotter gold-rose); unlit gas sinks into the vault
 };
 
 // THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst
