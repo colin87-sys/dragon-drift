@@ -150,7 +150,7 @@ function sunhawkMats(def, glow, stage) {
   // Fire mats are EMISSIVE-DOMINANT over a near-black diffuse: DIMMING them on Surge just reveals that
   // dark diffuse, which the brightened Surge scene lifts to dull TAN. So DON'T dim — hold the rest fire
   // emissive (which reads orange) and only deepen the HUE toward the saturated ember surgeHi.
-  flareW(hotRibbon[0], 0.7, -1.4); flareW(hotRibbon[1], 0.72, -1.2); flareW(hotRibbon[2], 0.75, -0.9);
+  flareW(hotRibbon[0], 0.65, -0.6); flareW(hotRibbon[1], 0.7, -0.5); flareW(hotRibbon[2], 0.72, -0.4);
   return { ivory, goldfire, flame, crimson, garnet, emberShadow, emberBelly, bronze, gold, roseGold, orange, heart, eyeMat, hotRibbon, stage: st, glow: g };
 }
 
@@ -961,6 +961,9 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   // gathering to a comet point. Every downward degree of freedom is clamped by construction, so the
   // {y<0.30, z>0.85} corridor law holds no matter how the dials move. ══
   const coreRamp = [tMat(0xffbe4a), tMat(0xffa838), tMat(0xf26a16), tMat(0xdc470c)];   // hotter axial core
+  // SURGE flare weights for the tail fire (same discipline as the wings): deepen the hue toward the ember
+  // surgeHi + dim, so the trailing tail reads as a fire ribbon on Surge, not a white flaring coil.
+  for (const m of [bodyEmber, ...ramp4, ...covRamp, ...coreRamp]) { m.userData.flareColorWeight = 0.7; m.userData.flareIntensityWeight = -0.8; }
   const rk = 0.8 + 0.2 * lift;              // radius/size scale by the ladder (whelp puff → apex volute)
   const mouthY = a.y + 0.05, mouthZ = a.z + 0.26;
   const axisDir = [0, 0.30, 1];             // the axis CLIMBS ~17° → halves the down-screen sink so the tail rises out of the sun-glare column in rear-chase (corridor-safe: up is free)

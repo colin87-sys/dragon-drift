@@ -91,6 +91,7 @@ export const postfx = {
   _pixelRatio: 1,
   _bloomScale: 0.5,
   _baseBloom: 0.24,
+  _baseBloomThreshold: 1.0,   // UnrealBloom threshold at rest; RAISED on fever so the fire body stops blooming to cream
   _aberrationOn: true,
   _feverMix: 0,
   _feverTint: [0.10, 0.03, 0.08], // fever wash hue; setFeverTint() swaps per dragon
@@ -344,7 +345,12 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // out and bury the silhouette — the dragon's own emissive is far brighter and
   // still blooms, keeping the glow ON the dragon, not the whole screen.
   postfx.bloomPass.strength = Math.max(0.08,
-    postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.07 - _bossMix * 0.05);
+    postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.15 - _bossMix * 0.05);
+  // RAISE the bloom threshold during Surge so only the HOTTEST cores bloom — the fire body (emissive
+  // ~1-1.4) then stays SATURATED ember instead of blooming into a pale cream halo (the "washed white
+  // bird"). The base threshold is restored at feverMix 0. (Global, but the whole point of the fever
+  // bloom easing is to stop the Rebirth washing the frame — this finishes that job.)
+  postfx.bloomPass.threshold = postfx._baseBloomThreshold + postfx._feverMix * 0.85;
 
   // God-rays (tier 0): place the sun, ease the shafts down a touch in Surge, and
   // disable the whole thing (mask render included) when the sun isn't on-screen.
