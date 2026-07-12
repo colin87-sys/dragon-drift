@@ -85,6 +85,13 @@
         if (on) { _sc.setHex(be); m.emissive.copy(_sc).lerp(_shi, 0.4); m.emissiveIntensity = bi * (1 + 0.9 * sgm) * 2.6; }
         else { m.emissive.setHex(be); m.emissiveIntensity = bi; }
       }
+      // FLARE-ONLY mats (dense wing membrane panels) flare in the GAME (spineFlareMats) but
+      // were missing here — replicate them so a whole-wing bloom is judged faithfully, not just seams.
+      for (const m of (mats.flareMats || [])) {
+        const be = m.userData.baseEmissive ?? 0xffffff, bi = m.userData.baseIntensity ?? 1;
+        if (on) { _sc.setHex(be); m.emissive.copy(_sc).lerp(_shi, 0.4); m.emissiveIntensity = bi * (1 + 0.9 * sgm) * 2.6; }
+        else { m.emissive.setHex(be); m.emissiveIntensity = bi; }
+      }
       if (mats.wingMat) mats.wingMat.emissive.setHex(on ? (def.feverWing ?? 0x000000) : (def.wingEmissive ?? 0x000000));
       if (mats.eyeMat) mats.eyeMat.emissive.setHex(on ? (def.feverEye ?? def.eye) : def.eye);
     }

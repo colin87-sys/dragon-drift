@@ -1124,7 +1124,7 @@ DRAGONS.pearlRedesign = {
   // WITHHELD dawn glow: near-dark in cruise, blazes on Surge (base ≈0.05 × surgeGlowMultiplier).
   // feverWing dark-dawn (not the rig's magenta default); brighter gold reaches the shared head builder.
   wingGild: 0xECC25A, feverWing: 0x66C8FF, feverEye: 0x9FD0FF, hideRiderGlow: true,   // bright dawn-cyan fever → the inboard membrane blazes holy-blue on Surge
-  surgeHi: 0xB4EEFF,   // bright saturated dawn-cyan ignition target → surge blooms with luminance on dark skies (not a low-contrast white wash)
+  surgeHi: 0x4CC6FF,   // SATURATED dawn-cyan ignition → on a white-value seraph the Surge reads as a HUE+bloom shift (white→cyan), not a brightness bump that a bright cruise wing can't show
   model: { ...DRAGONS.pearl.model, surgeGlowMultiplier: 30 },
 };
 
