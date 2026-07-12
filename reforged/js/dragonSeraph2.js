@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { seg } from './modelDetail.js';
 import { registerWings, registerTorso, registerHead } from './dragonRecipe.js';
 import { flatTriMesh } from './mechaKit.js';
+import { shingle } from './dragonShingle.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PEARL SERAPH — REDESIGN (CP1: WING + BODY). Coexists default-off; the shipped
@@ -21,8 +22,10 @@ import { flatTriMesh } from './mechaKit.js';
 
 const D2R = Math.PI / 180;
 const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
+const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
 const mul = (a, s) => ({ x: a.x * s, y: a.y * s, z: a.z * s });
 const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
+const norm = (a) => { const m = Math.hypot(a.x, a.y, a.z) || 1; return { x: a.x / m, y: a.y / m, z: a.z / m }; };
 const arr = (p) => [p.x, p.y, p.z];
 
 const SERAPH_PEARL = 0xF2F0EA, SERAPH_GOLD = 0xEDB63E, SERAPH_DAWN = 0x88DFFF;   // warm gold (yellower 0xD6AF4A crushed to olive/green reflecting the sky)
@@ -184,53 +187,57 @@ function buildSeraphWing2(def, model, attach, giM) {
       grp.add(flatTriMesh(tris, goldMat));
     };
 
-    // FEATHER RANK — a DOMINANT carpal feather decaying aft (longest ~2.2× shortest),
-    // laid so each vane OVERLAPS its neighbour ~45% (shingled plumage, not a picket comb),
-    // raked AFT-in-plane with only a slight droop. Camber bows every feather so light
-    // breaks across it. `dawnN` dominant feathers carry the withheld dawn rachis-seam.
-    const rank = (grp, ta, tb, n, o, lenScale, camber, fan, dawnN, plateMat) => {
-      for (let i = 0; i < n; i++) {
-        const f = n > 1 ? i / (n - 1) : 0;
-        const t = ta + (tb - ta) * f;
-        const decay = Math.pow(0.80, i);                     // DOMINANT + strong decay (2.2×+ spread)
-        const root = O(rear(t), o);
-        root.y += 0.026 * i;                                 // shingle lift → overlap reads as a soft seam
-        const c = chordAt(t);
-        // rake AFT with an outboard FAN (tips spread like a hand-fan, `fan` scales it) + slight droop
-        const dirAft = (() => { const v = { x: side * (0.12 + 0.30 * fan * f), y: -0.04 - 0.03 * f, z: 1 }; const m = Math.hypot(v.x, v.y, v.z); return { x: v.x / m, y: v.y / m, z: v.z / m }; })();
-        const len = c * lenScale * (0.48 + 0.95 * decay);    // dominant markedly longer than the tail
-        // BROAD relative to the inter-feather step → adjacent vanes overlap heavily (no sky-gap)
-        const step = (tb - ta) * L / Math.max(n - 1, 1);
-        const wid = Math.max(step * 2.9, 0.60);              // heavier overlap → edge-on reads as feather bodies, no navy slat-gaps
-        const dawn = i < dawnN ? dawnMat : null;
-        grp.add(seraphFeather(root, dirAft, outbAt(t), len, wid, camber, plateMat, goldMat, dawn));
-      }
+    // dorsal wing SURFACE point at span t, chord u (0 = leading arm, 1 = trailing), local o —
+    // a shallow chordwise vault; feathers sit just proud of it.
+    const Psurf = (t, u, o) => {
+      const f = front(t), r = rear(t);
+      const p = lerp(f, r, u);
+      p.y += 0.03 - 0.16 * Math.sin(Math.PI * u) * (0.5 + 0.5 * t);
+      return O(p, o);
+    };
+    // PLUMAGE — shingled feather ROWS tiling the surface (coverts → secondaries → primaries),
+    // each row overlapping the row behind like roof tiles so the wing is SMOOTH LAYERED plumage
+    // and the last row's tips form a soft scalloped TRAILING EDGE (real angel anatomy, not raked
+    // quills). `rows[r] = {u: chord root, len: ×chord, fan?: outer spread}`. Merged → 1 draw call.
+    const plumage = (grp, ta, tb, o, mat, rows) => {
+      const spanLen = (tb - ta) * L;
+      const cnt = Math.max(6, seg(Math.round(spanLen * 2.6)));
+      const { mesh } = shingle({
+        count: cnt, rows: rows.length, material: mat,
+        at: (ts, r) => Psurf(ta + (tb - ta) * ts, rows[r].u, o),
+        normalAt: () => new THREE.Vector3(0, 1, 0),
+        tangentAt: (ts, r) => {
+          const t = ta + (tb - ta) * ts;
+          const a = Psurf(t, rows[r].u, o), b = Psurf(t, Math.min(rows[r].u + 0.14, 1), o);
+          const d = norm(add(norm(sub(b, a)), { x: side * (rows[r].fan ?? 0) * ts, y: 0, z: 0 }));
+          return new THREE.Vector3(d.x, d.y, d.z);
+        },
+        lengthAt: (ts, r) => rows[r].len * chordAt(ta + (tb - ta) * ts),
+        widthAt: () => Math.max(spanLen / cnt * 2.1, 0.34),
+        cup: 0.18, tilt: 0.13,
+      });
+      grp.add(mesh);
     };
 
     const nS = seg(4);
-    // PART A — pivot (0→J0): membrane + spar + a shingled covert field (rounded plumes).
-    // Coverts reach PAST J0 (lenScale high) so the surface is closed into the mid — no scoop-gap.
-    membrane(pivot, 0.0, J0, ZERO, nS); membrane(pivot, 0.0, J0, ZERO, nS, true);
+    // covert → secondary → primary row specs (u = chord root, len = ×chord, fan = outer spread).
+    // Row roots step aft and lengths grow so each row's tips lap past the next → shingled surface;
+    // the primary rows fan from the wrist (the "hand").
+    const COV = [{ u: 0.05, len: 0.26 }, { u: 0.20, len: 0.32 }, { u: 0.37, len: 0.40 }, { u: 0.56, len: 0.50 }];
+    const SEC = [{ u: 0.05, len: 0.28 }, { u: 0.22, len: 0.36 }, { u: 0.42, len: 0.46 }, { u: 0.62, len: 0.56 }];
+    const PRI = [{ u: 0.06, len: 0.30 }, { u: 0.26, len: 0.44 }, { u: 0.48, len: 0.58, fan: 0.28 }, { u: 0.70, len: 0.72, fan: 0.52 }];
+    // BAY A (pivot) — inner coverts over a membrane base
+    membrane(pivot, 0.0, J0, ZERO, nS);
     spar(pivot, 0.0, J0, ZERO, nS);
-    rank(pivot, 0.05, J0, seg(nCov), ZERO, 1.05, 0.11, 0.8, 0, memInner);
-    // PART B — mid (J0→J1): the SECONDARY bridge rank — overlaps into the tip, closing the
-    // covert→primary gap into one continuous feathered surface.
-    membrane(wingMid, J0, J1, midO, nS); membrane(wingMid, J0, J1, midO, nS, true);
+    plumage(pivot, 0.0, J0, ZERO, memInner, COV);
+    // BAY B (mid) — secondaries
+    membrane(wingMid, J0, J1, midO, nS);
     spar(wingMid, J0, J1, midO, nS);
-    rank(wingMid, J0 - 0.02, J1, seg(nSec), midO, 1.30, 0.19, 1.0, 0, memMid);
-    // PART C — tip/HAND (J1→1): the wrist-fold sheet — outer membrane + the DOMINANT primaries
-    // (the carpal feather is the longest, decaying aft). 3 carry the withheld dawn rachis-seam.
-    membrane(wingTip, J1, 1.0, tipO, nS); membrane(wingTip, J1, 1.0, tipO, nS, true);
-    spar(wingTip, J1, 0.82, tipO, nS);   // stop the gilded rail well short of the tip so no bare spar-rod pokes past the feathers
-    rank(wingTip, J1, 0.99, seg(nPrim), tipO, 1.45, 0.24, 1.5, 3, memOuter);
-    // ALULA — 2 broad coverts at the carpal/wrist leading edge, sheathing the wrist + spar tip so
-    // NO hardware breaks the feather group when the far wing is seen edge-on (the rear-¾ read).
-    for (let i = 0; i < 2; i++) {
-      const t = J1 + 0.03 + i * 0.11;
-      const root = O(front(t), tipO);
-      const dir = (() => { const v = { x: side * 0.20, y: -0.03, z: 1 }; const m = Math.hypot(v.x, v.y, v.z); return { x: v.x / m, y: v.y / m, z: v.z / m }; })();
-      wingTip.add(seraphFeather(root, dir, { x: side, y: 0, z: 0 }, chordAt(t) * 0.95, 0.62 - 0.06 * i, 0.15, memMid, goldMat, null));
-    }
+    plumage(wingMid, J0, J1, midO, memMid, SEC);
+    // BAY C (tip/HAND) — long primaries fanning from the wrist (rides the wrist-fold group)
+    membrane(wingTip, J1, 1.0, tipO, nS);
+    spar(wingTip, J1, 0.82, tipO, nS);
+    plumage(wingTip, J1, 1.0, tipO, memOuter, PRI);
     const marker = new THREE.Object3D(); const tc = O(S(1.0), tipO); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
     // ── ROOT INTEGRATION (the wing GROWS from the shoulder) ──
