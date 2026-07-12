@@ -366,6 +366,9 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
     sat = sat + (0.25 - sat) * _deathMix;
     vig = vig + (0.62 - vig) * _deathMix;
   }
+  // Spine speed-tunnel: a subtle radial squeeze darkens the tube edges and focuses the
+  // eye down the barrel (rides the same presence-gated mix as the streaks/aberration).
+  vig += clamp(canyonSpeedMix, 0, 1) * 0.05;
   u.saturation.value = sat;
   u.vignette.value = vig;
 }

@@ -63,6 +63,7 @@ export const player = {
   velocity: new THREE.Vector2(0, 0),
   speed: CONFIG.baseSpeed,
   canyonSlip: 1,       // spine slipstream factor (E5)
+  tunnelFxMix: 0,      // slip × local rib-wall presence — drives the speed FX (feel-v4)
   dist: 0,
   prevDist: 0,
   boosting: false,

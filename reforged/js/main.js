@@ -13,7 +13,7 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
@@ -1457,8 +1457,15 @@ function tick() {
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
     const slipMix = Math.max(0, player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1);
-    updateSpeedStreaks(player, slipMix);
-    if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6); // wind + rib-flutter rate
+    // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
+    // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
+    // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw
+    // slipMix, since you ARE still moving faster there. presence=1 inside any rib band.
+    const wallPresence = slipMix > 0.01 ? spineWallPresenceAt(player.dist) : 0;
+    const fxMix = slipMix * wallPresence;
+    player.tunnelFxMix = fxMix;               // ui.js reads this for the speed-lines gate
+    updateSpeedStreaks(player, fxMix);
+    if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
     updateHazards(dt, player, t);
@@ -1510,7 +1517,7 @@ function tick() {
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
-    Math.max(0, player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1)); // spine slipstream 0→1
+    player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 

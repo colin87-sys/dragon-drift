@@ -335,8 +335,11 @@ export const cameraCtl = {
     if (rollKickT > 0) targetFov += 4;
     targetFov += canyonW * 6; // wider peripheral read while threading rock
     // Spine SPEED TUNNEL: the slipstream punches the FOV wide for the need-for-speed
-    // rush (canyonSlip ramps 1→1.12 in the spine only, so rock is unaffected).
-    targetFov += Math.max(0, player.canyonSlip - 1) * 70;
+    // rush (canyonSlip ramps 1→canyonSpineSlip in the spine only, so rock is unaffected).
+    // Coefficient 45 (was 70): at the 1.25 slip it adds +11.25° — a bigger punch than
+    // the old 1.12×70=+8.4°, but 45 keeps it from stacking into fisheye on top of the
+    // speed-active + canyon-widen FOV (70×0.25=+17.5° tipped into distortion).
+    targetFov += Math.max(0, player.canyonSlip - 1) * 45;
     targetFov -= inhaleLevel * 2; // PR-C: the inhale pinch (narrow = held breath)
     if (Math.abs(camera.fov - targetFov) > 0.1) {
       camera.fov = damp(camera.fov, targetFov, player.boosting ? 5 : 3, dt);

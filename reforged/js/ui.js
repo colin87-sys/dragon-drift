@@ -687,9 +687,13 @@ export const ui = {
     // SPEED TUNNEL (slipstream active) they ignite far earlier and drive to full for
     // the need-for-speed rush.
     const sn = Math.min(Math.max((player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed), 0), 1);
-    const inTunnel = player.canyonSlip > 1.001;
+    // fxMix = slip × local rib-wall presence: it drops to 0 in a rib-free bridged gap,
+    // so the flat CSS lines fade out there (the premium world-space streaks lead) and
+    // the tunnel cap is trimmed to 0.8 so those streaks aren't drowned by CSS glare.
+    const fx = player.tunnelFxMix || 0;
+    const inTunnel = fx > 0.01;
     const slOpacity = inTunnel
-      ? Math.min(Math.max((sn - 0.15) * 1.8, 0), 1.0)
+      ? Math.min(Math.max((sn - 0.15) * 1.8, 0), 0.8) * Math.min(1, fx * 2)
       : Math.min(Math.max((sn - 0.45) * 1.4, 0), 0.8);
     if (Math.abs(slOpacity - lastSpeedlines) > 0.02) {
       els.speedlines.style.opacity = slOpacity;
