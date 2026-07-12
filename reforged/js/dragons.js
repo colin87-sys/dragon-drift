@@ -518,7 +518,7 @@ export const DRAGONS = {
   // is the acid-green eyes; the ion-blue Starlit Seam is withheld until the Night
   // Surge (wired from I4). Body value DARKENS up the ladder (apex = darkest object).
   vesper: {
-    name: 'Nightglass Vesper',
+    name: 'Nightglass Vesper · Rich',
     title: 'Knapped from the dark',
     rarity: 'SSR',
     maxRarity: 'SSSR',
@@ -608,6 +608,7 @@ export const DRAGONS = {
     // only the Starlit Seam + eyes light), a low ion-blue screen wash, acid-green eyes,
     // and cool arcane motes (Sovereign-style, Surge-only).
     feverWing: 0x000000, feverEye: 0x9af03a, feverWash: [0.02, 0.045, 0.11], surgeMotes: true,
+    hideRiderGlow: true,   // kill the round rider bloom on Surge — the drake owns the frame by its own cold accents
     // Cruise membrane emissive is EXPLICITLY black (the wing owns the frame by silhouette, never
     // glow). Set so the rig's per-frame `wingMat.emissive.setHex(... ?? wingEmissive)` gets a real
     // 0x000000 instead of coercing setHex(undefined)→black by luck.
@@ -1083,6 +1084,21 @@ export const DRAGONS = {
   // skeleton at load and the SHIPPED flapWing/spine-whip/tail drive animates it
   // (no baked clips, no shader hinge). rig knobs are measured defaults —
   // override here only if the preview shows a mask/placement miss.
+};
+
+// ── A/B PREVIEW: "Nightglass Vesper · Lean" ──────────────────────────────────
+// The owner's A/B request: the 7/10-era BODY + the WING FIX (medial wrist + fingered
+// outline) + all the motion — but WITHOUT the Finished-Blade surface RICHNESS (the
+// knapped plate field, the wing covert row, the crest crown expansion, and the hind
+// legs). A near-clone of `vesper` (same builders/palette/motion/shoulder-fix/twin-
+// crescent tail) with those richness dials forced OFF in the base model AND every form,
+// so the two entries sit side-by-side in the shop for the owner to compare + play.
+DRAGONS.vesperLean = {
+  ...DRAGONS.vesper,
+  name: 'Nightglass Vesper · Lean',
+  title: 'Knapped clean',
+  model: { ...DRAGONS.vesper.model, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: 3 },
+  forms: DRAGONS.vesper.forms.map((f) => ({ ...f, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: Math.min(3, f.earFinPairs ?? 3) })),
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

@@ -616,7 +616,10 @@ export function updateDragon(dt, player, time) {
   scarfMesh.rotation.z = damp(scarfMesh.rotation.z, swayTarget, 6, dt);
 
   // Rider effects: glow breathes with speed; oracle's shards orbit the head.
+  // def.hideRiderGlow suppresses the round bloom sprite behind the rider (a night drake reads by its
+  // OWN cold accents on Surge, not a warm rider halo) — the rider figure itself still rides.
   if (riderGlow) {
+    riderGlow.visible = !activeDef.hideRiderGlow;
     riderGlow.material.opacity = 0.2 + speedNorm * 0.22 + Math.sin(time * 4) * 0.05;
   }
   for (const o of riderOrbiters) {
