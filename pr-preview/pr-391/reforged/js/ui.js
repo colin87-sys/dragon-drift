@@ -1819,6 +1819,11 @@ export const ui = {
           ${gfxToggle('particleBatch')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">PERFORMANCE HUD</div>
+          <p class="sub">On-screen fps &amp; frame-time readout, plus which experimental effects are active — for testing the graphics settings. No effect on the game.</p>
+          ${gfxToggle('perfHud')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">MODEL DETAIL</div>
           <p class="sub">Dragon geometry density. AUTO matches your graphics tier.</p>
           <div class="seg-row">${mdSeg(null, 'AUTO')}${mdSeg('high', 'HIGH')}${mdSeg('ultra', 'ULTRA')}</div>
