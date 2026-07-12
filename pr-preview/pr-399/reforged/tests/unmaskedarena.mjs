@@ -192,8 +192,8 @@ check(heaven.propBandsHidden === true && heaven.skyDim === 0, 'the props stay da
 // PR-K: THE GODHEAD STAR engages in the settled heaven — the newborn supernova heart burns far on
 // the boss axis (k→1 rides the same stateless mix; the exhale/teardown checks below prove the
 // release). The supernova is the owner-locked default mode ('spiral' is the A/B seam, never shipped-on).
-check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.star === true && heaven.arenaSet.mode === 'supernova' && heaven.arenaSet.tierHidden === false,
-  `the Godhead Star engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, mode ${heaven.arenaSet?.mode})`);
+check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.star === true && heaven.arenaSet.mode === 'detonation' && heaven.arenaSet.tierHidden === false,
+  `THE GODHEAD DETONATION engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, mode ${heaven.arenaSet?.mode})`);
 // PR-K: THE HAZE-DECK — the sea drops ~30u in the settled heaven (the "water" becomes a cosmic haze
 // far below), and the seraph's wings clear it by ≥10u (the P0 probe seam: wingMinY − waterY). The
 // court build measured the mantled fan's tips at world y ≈ −11.6 worst-case; the 30u drop + the
@@ -284,6 +284,28 @@ check(skyP95 <= 0.90, `the heaven's sky band is lit but not blinding-WHITE (p95 
 // trips THIS, while the authored bright column keeps its tail headroom.
 const skyP50 = skyLums[Math.floor(skyLums.length * 0.50)];
 check(skyP50 <= 0.55, `the FIRSTBORN SKY stays a dark astral field — the vault's broad field is DARK (sky p50 ${skyP50.toFixed(3)} ≤ 0.55; the light is the Godhead Star + halo, never a bright wash)`);
+
+// THE LOOP IS ALIVE (GODHEAD DETONATION P2, owner directive §1): the detonation is a PERPETUAL
+// outward loop, never a static painted burst. Two proofs: (a) the shader's uTime driver ADVANCES
+// (the perpetual driver is running), and (b) the streak band VISIBLY changes ≥1s later — the
+// scrolling energy jets outward, so a frame-identical band = a dead loop = a build failure. Probe
+// the UPPER streak band (y 15-35%) where the radial rays dominate and player bullets are sparse.
+const loopA = (await page.evaluate(() => window.__dd.bossArenaState())).arenaSet;
+await page.waitForTimeout(1200);
+const shot2 = await page.screenshot();
+const loopB = (await page.evaluate(() => window.__dd.bossArenaState())).arenaSet;
+const { rgba: rgba2 } = decodePNG(shot2);
+let moved = 0, tot = 0;
+for (let y = Math.floor(ih * 0.15); y < ih * 0.35; y += 2) {
+  for (let x = Math.floor(iw * 0.15); x < iw * 0.85; x += 2) {
+    const d = (y * iw + x) * 4;
+    const dl = Math.abs(rgba[d] - rgba2[d]) + Math.abs(rgba[d + 1] - rgba2[d + 1]) + Math.abs(rgba[d + 2] - rgba2[d + 2]);
+    if (dl > 12) moved++; tot++;
+  }
+}
+const movedFrac = moved / tot;
+check(loopB.detUTime > loopA.detUTime, `the detonation's perpetual driver ADVANCES (uTime ${loopA.detUTime} → ${loopB.detUTime})`);
+check(movedFrac > 0.30, `the detonation LOOP is alive — the streak band jetted over 1.2s (moved ${(movedFrac * 100).toFixed(1)}% of samples, gate > 30%; a dead loop reads near-static)`);
 
 // The focal lift REVERTS off the heaven (byte-identity): reset → fresh S2 pin → lift.k 0, sclera restored.
 const liftOff = await page.evaluate(async () => {
