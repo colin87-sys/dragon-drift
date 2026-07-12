@@ -7,9 +7,13 @@ const lerp = (a, b, k) => a + (b - a) * k;
 const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') === 'reach';
 // Obstacle test harness: ?canyon=split|rib|spiral|overunder|all forces Sky
 // Canyon runs to begin right after takeoff and repeat (with normal rings before
-// and after each), so every archetype can be flown immediately. null in normal
-// play and in the headless tests (no query param) → zero behaviour change.
-const CANYON_FORCE = new URLSearchParams(window.location.search).get('canyon');
+// and after each), so every archetype can be flown immediately. The friendly
+// aliases ?rockrun / ?ribcage force a rock run / dragon-spine run respectively
+// (main.js pairs them with an auto-launch straight into the canyon for previews).
+// null in normal play and in the headless tests (no query param) → zero change.
+const _canyonParams = new URLSearchParams(window.location.search);
+const CANYON_FORCE = _canyonParams.get('canyon')
+  || (_canyonParams.has('rockrun') ? 'rock' : _canyonParams.has('ribcage') ? 'spine' : null);
 // Two canyon set-pieces: a ROCK RUN (mixed split slabs + over-under shelves) and
 // a DRAGON SPINE CANYON (skull entrance → throat → ribcage → vertebrae → sky exit).
 const CANYON_MODES = ['rock', 'spine'];
