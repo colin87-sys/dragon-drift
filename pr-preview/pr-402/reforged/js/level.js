@@ -761,7 +761,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   }
 
   function startCanyon(ring, out) {
-    // Test harness forces a run type; the ?canyon=all demo alternates rock/spine.
+    // Test harness forces a run type; the ?canyon=all demo cycles rock → spine → flow.
     // ONE canyonRnd draw for the type, mapped through the weight table (keeps the
     // canyonRnd stream aligned draw-for-draw with the pre-flow picker). flow:0 →
     // rock/spine 50/50, byte-identical to before.

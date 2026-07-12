@@ -46,6 +46,31 @@ seam and caught the missed sea/ground health seam before a line was written.
   lag) — harmless at flow entry/exit because the player is inside ±13 at both boundaries (the
   same reasoning as the rock-widen soft wall).
 
+**Checkpoint review caught (Fable, folded in).**
+- **BLOCKER — the fatal-wall re-arm class again.** The flow clamp set `velocity.x = 0`
+  (copying the boss-arena grammar), so a player riding the edge rested at EXACTLY ±13; the
+  frame the run ends and `canyonRun` clears, held-outward input pushes to 13.0001 and
+  `crash('wall')` fires — an instant full-health death at the boundary the run spent ~14s
+  teaching is safe. Fix: use the ROCK grammar's INWARD kick (`velocity.x = -sign*6`), never
+  `vx=0` — a pressed player always carries inward velocity across the end marker and can't
+  rest on the fatal line. (The boss-arena `vx=0` is safe only because the arena persists
+  until teardown; a canyon run ends *under* you.) Standing rule: a soft boundary that a
+  fatal boundary re-arms behind must leave the player strictly INSIDE the fatal line at
+  release — clamp-to-edge + zero-velocity is a trap.
+- **SHOULD-FIX — a regression guard can silently evaporate.** `canyonflow` pinned seed
+  205907 for its 341m gauntlet-bridged split pair (guarding the unclamped-zn seam fix). The
+  new `canyonTypeWeights` reassign run types on the same `canyonRnd` draw → that seed no
+  longer contains the bridged pair, so the guard passed while testing nothing. Fix: re-pin
+  (seed 8, ~557m gap) AND add a HARD assertion that a >300m bridged pair EXISTS, so a future
+  weight/layout change fails loudly. Law: a guard that depends on a generated configuration
+  must ASSERT that configuration is present, or it rots invisibly.
+- **Deferred to PR-2 (visual pass), noted:** (a) on spans >~115m the ribbon orbs freeze at
+  the entry MIDPOINT (centre() clamps `u` beyond `-bk`) while the true line is still easing
+  from the previous gate — up to ~5.3m off, a visible dogleg on ~half of filled gates;
+  catchable (not a PR-1 fairness break) but the ribbon IS the identity, so PR-2 samples the
+  previous gate's exit half for the far portion (pure/deterministic). (b) the flowgate builds
+  9 unmerged meshes/gate — merge before PR-2 piles on pylons + the mote sleeve.
+
 **Leapfrog.** The flow run is the coexist→prove template for a run type that's *fair by
 construction* (nothing to clip; the only "failure" is dropping the score chain, which lands
 in PR-3). The `canyonFlowFill` bridge threshold + tagged-orb audit is the reusable pattern
