@@ -54,21 +54,25 @@ const foamMaterial = new THREE.ShaderMaterial({
     varying float vFogDepth;
     float _fhash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main() {
-      // Radial band: broad, peaking just inside the outer edge, feathering both ways.
-      float band = smoothstep(${INNER.toFixed(2)}, 0.80, vRadius) * (1.0 - smoothstep(0.90, 1.0, vRadius));
-      // Broken, time-pulsed edge in WORLD cells (props are absolute world-z) — the
-      // same hash idiom the water's crest foam uses, so they read as one system. Two
-      // scales of break so the ring tears at both coarse + fine cells (reads as churn).
-      float brkC = _fhash(floor(vWPos.xz * 3.0) + floor(time * 1.6));
-      float brkF = _fhash(floor(vWPos.xz * 7.0) + floor(time * 1.6) * 1.7);
-      // Always-visible churn: a solid ring at half strength (a diagnostic solid ring
-      // confirmed the size + placement land perfectly — only intensity failed against
-      // the busy water) + a broken, pulsing top half so it still tears like foam
-      // rather than reading as a plastic band.
-      float brk = 0.5 + 0.5 * smoothstep(0.2, 0.85, brkC) * (0.6 + 0.4 * brkF);
+      // Radial band: a soft lacy collar, feathering BOTH ways with no hard plateau,
+      // and an extra inner falloff so the ring dissolves toward the prop instead of
+      // reading as a filled disc.
+      float band = smoothstep(${INNER.toFixed(2)}, 0.86, vRadius) * (1.0 - smoothstep(0.88, 1.0, vRadius));
+      // Broken, time-pulsed coverage in WORLD cells (props are absolute world-z) —
+      // the same hash idiom the water's crest foam uses, so they read as one system.
+      // Two scales (finer than before, less blocky) tear the collar into clumps and
+      // bubble specks. CRITICAL: NO constant floor — coverage falls to ZERO between
+      // clumps so the sea reads through the gaps. The old half-strength floor kept
+      // every cell at least half-opaque, welding the tears shut into a solid snow cap
+      // (owner report). Now the gaps are real holes → it reads as foam, not a cap.
+      float brkC = _fhash(floor(vWPos.xz * 4.5) + floor(time * 1.4));
+      float brkF = _fhash(floor(vWPos.xz * 11.0) + floor(time * 1.4) * 1.7);
+      float brk = smoothstep(0.28, 0.82, brkC) * (0.45 + 0.55 * brkF);
+      // Translucent even at the clumps (peak ~0.7): wispy, water tinting through,
+      // rather than an opaque white rim.
       float foam = band * brk;
       float fog = 1.0 - smoothstep(fogNear, fogFar, vFogDepth); // die into the haze
-      gl_FragColor = vec4(vec3(0.95, 0.98, 1.0), foam * fog);
+      gl_FragColor = vec4(vec3(0.95, 0.98, 1.0), foam * fog * 0.72);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`,

@@ -80,6 +80,13 @@ export const cloudUniforms = {
   uCloudWarp:    { value: 1 },
 };
 
+// World-parallax rate: how fast the cloud field slides past as the player flies.
+// The clouds sit on a far, camera-locked dome, so — like real distant clouds —
+// they should barely parallax with forward speed; the gentle `time * 0.006` drift
+// (~one cloud-width per ~2 min) is the dominant motion. An earlier 0.02 made the
+// whole field race by (~a cloud a second at cruise) — dialled 10× down here.
+export const CLOUD_PARALLAX = 0.002;
+
 let enabled = false;
 let tier = 0;
 export function skyCloudsEnabled() { return enabled; }
@@ -99,7 +106,7 @@ export function applySkyClouds(env, playerDist, time) {
   cloudUniforms.uCloudShadow.value.copy(env.cloudShadow);
   // Wrap the parallax in JS so it never hits float32 precision on endless runs
   // (a one-frame lattice snap every ~51 km is invisible; float shimmer is not).
-  cloudUniforms.uCloudDrift.value = (playerDist * 0.02) % 1024;
+  cloudUniforms.uCloudDrift.value = (playerDist * CLOUD_PARALLAX) % 1024;
 }
 
 // --- JS FBM port (god-ray coupling only; NOT the probe) ----------------------
@@ -122,7 +129,7 @@ export function jFbm(x, y, octaves) {
 }
 export function sunCloudCover(env, sunDir, playerDist, time) {
   if (!enabled || tier >= 2 || !(env.cloudAmount > 0)) return 0;
-  const drift = (playerDist * 0.02) % 1024;
+  const drift = (playerDist * CLOUD_PARALLAX) % 1024;
   const cx = Math.atan2(sunDir.z, sunDir.x) * 0.6 + time * 0.006 + drift;
   const cy = sunDir.y * 2.1;
   const n = jFbm(cx * 1.7, cy * 1.7, cloudUniforms.uCloudOctaves.value);
