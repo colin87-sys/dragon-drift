@@ -223,13 +223,14 @@ function spawnAhead() {
     chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
     return;
   }
-  // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
-  // crystal window between rib sections reads unfair. Generator output is untouched
-  // (determinism-safe); we just don't spawn the flagged ones here.
-  const gateSuppress = chunk.canyonGateSuppress && chunk.canyonGateSuppress.length
-    ? new Set(chunk.canyonGateSuppress) : null;
+  // Any base obstacle (gate, pillar, shard, bar) whose dist lands inside a canyon run
+  // is skipped — an obstacle on the ring line inside the carved slot / rib tube is an
+  // undodgeable spike. Generator output is untouched (determinism-safe); we just don't
+  // spawn the flagged ones here.
+  const canyonSuppress = chunk.canyonObstacleSuppress && chunk.canyonObstacleSuppress.length
+    ? new Set(chunk.canyonObstacleSuppress) : null;
   chunk.obstacles.forEach((o) => {
-    if (gateSuppress && o.type === 'gate' && gateSuppress.has(o.dist)) return;
+    if (canyonSuppress && canyonSuppress.has(o.dist)) return;
     addObstacle(o);
   });
   chunk.orbs.forEach(addOrb);

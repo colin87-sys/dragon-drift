@@ -501,8 +501,8 @@ function buildRockGap(o, e) {
     // -z (physical dist = o.dist + z) or each section's forward half lands on the backward
     // side and adjacent sections mismatch at rhythm changes (a wall across the slot).
     for (const s of plan.slices) {
-      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, -s.z, 0.06, hz, !s.nearRing);
-      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, -s.z, -0.06, hz, !s.nearRing);
+      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, -s.z, 0.06, hz, !s.noCrest);
+      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, -s.z, -0.06, hz, !s.noCrest);
     }
     // Low sea-mist over the section span (same as v1, keyed to the abutting band).
     for (let m = 0; m < 2; m++) {
@@ -572,6 +572,11 @@ function buildRockGap(o, e) {
         box(ox - cor, oy, 0.4, cy * 0.9, wallHz, wz);
         box(ox + cor, oy, 0.4, cy * 0.9, wallHz, wz);
       }
+      // Rib-free reward window: skip the VISIBLE hoop within 5m of the ring plane so a
+      // rib bone never reads as intersecting the reward-ring disc ("stuck in a rib").
+      // The wall colliders above stay, so the corridor is unbroken; the ring gets a
+      // frame of open air. (Placement flip means the ring plane is z=0 either way.)
+      if (Math.abs(z) < 5.0) continue;
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
       const hS = cy * (1 + flare * Math.abs(f - 0.5) * 0.9);
       // Bank the hoop into the turn (roll about the flight axis by the sweep slope) for

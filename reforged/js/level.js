@@ -64,6 +64,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // (a canyon EXIT decompression window). Persists across per-frame chunks so a
   // gate generated in a later chunk than the canyon it follows still gets caught.
   let suppressGatesUntil = 0;
+  // The canyon suppression windows computed by overlayCanyons, shared with
+  // overlayBiomeHazards (which runs right after in the same ensure) so geysers get
+  // suppressed inside canyon runs by the exact same 3-window logic as obstacles.
+  let canyonSuppressWindows = [];
   let canyon = null; // { type, left, idx, total } while a canyon run is in progress
   let forceAllToggle = false; // ?canyon=all alternates rock/spine runs
   // The last ring overlayCanyons processed, kept on the CLOSURE (not a per-call
@@ -399,10 +403,11 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       // Biome hazards (§5.3) — a SEPARATE output on its own RNG stream; never
       // reads/writes rnd, rings, obstacles or golds → gold-determinism safe.
       hazards: [],
-      // Dists of base Phase Gates that fall INSIDE a canyon run — main.js skips
-      // spawning these so a blind crystal window never appears between rib sections.
+      // Dists of ALL base obstacles (gates, pillars, shards, bars) that fall INSIDE a
+      // canyon run — main.js skips spawning these so nothing (a blind crystal wall, a
+      // spike, a bar) ever appears on the ring line inside the carved slot / rib tube.
       // A separate output array (never touches rings/obstacles) → fixture-safe.
-      canyonGateSuppress: [],
+      canyonObstacleSuppress: [],
     };
     while (prev.dist < target) {
       // Authored first-flight opening takes over placement until it's spent.
@@ -555,6 +560,16 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
         nextHazardAt = at + 120;
       }
     }
+    // A geyser/vent inside a canyon run (rib tube or carved slot) is an undodgeable
+    // wall in an enclosed corridor. Filter them out with the SAME windows overlayCanyons
+    // used for obstacles (it runs first). The while-loop above is byte-identical (all
+    // hazardRnd draws preserved) — only the non-fixtured output array is filtered.
+    if (canyonSuppressWindows.length && out.hazards.length) {
+      out.hazards = out.hazards.filter((h) => {
+        for (const [a, b] of canyonSuppressWindows) if (h.dist >= a && h.dist <= b) return false;
+        return true;
+      });
+    }
   }
 
   // Sky Canyon overlay: a PURELY ADDITIVE post-pass. It frames a run of the
@@ -653,10 +668,12 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     if (cursorAtEntry > 0) windows.push([0, cursorAtEntry]);
     if (canyon) windows.push([canyon.gateFrom, Infinity]);
     else windows.push([nextCanyonAt - 40 - CONFIG.canyonEntryBuffer, Infinity]);
+    canyonSuppressWindows = windows;   // overlayBiomeHazards reuses these for geysers
+    // Suppress EVERY base obstacle in the windows (not just gates): a pillar/shard/bar
+    // inside the carved slot or rib tube is an undodgeable spike on the ring line.
     for (const ob of out.obstacles) {
-      if (ob.type !== 'gate') continue;
       for (const [a, b] of windows) {
-        if (ob.dist >= a && ob.dist <= b) { out.canyonGateSuppress.push(ob.dist); break; }
+        if (ob.dist >= a && ob.dist <= b) { out.canyonObstacleSuppress.push(ob.dist); break; }
       }
     }
   }
