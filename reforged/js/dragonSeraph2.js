@@ -226,9 +226,18 @@ function buildSeraphWing2(def, model, attach, giM) {
     const COV = [{ u: 0.05, len: 0.26 }, { u: 0.20, len: 0.32 }, { u: 0.37, len: 0.42 }, { u: 0.56, len: 0.52 }];
     const SEC = [{ u: 0.05, len: 0.28 }, { u: 0.22, len: 0.36 }, { u: 0.42, len: 0.48 }, { u: 0.62, len: 0.58 }];
     const HAND = [{ u: 0.06, len: 0.30 }, { u: 0.26, len: 0.44 }, { u: 0.46, len: 0.54 }];   // hand coverts; the long fingers come as a separate sparse rank
-    // gilded GREATER-COVERT band — one gold row following each bay's shoulder (the seraph's gild
-    // as an anatomical feather row, not a painted stripe)
-    const gild = (grp, ta, tb, o) => plumage(grp, ta, tb, o, goldMat, [{ u: 0.24, len: 0.24 }], 0.85);
+    // gilded GREATER-COVERT band — ONE CONTINUOUS gold arc following each bay's covert row
+    // (a proud gilded strip reads as regalia; scattered gold cards read as dapple).
+    const gild = (grp, ta, tb, o) => {
+      const tris = [], nB = seg(6), u0 = 0.20, u1 = 0.32, lift = { x: 0, y: 0.03, z: 0 };
+      for (let i = 0; i < nB; i++) {
+        const ta0 = ta + (tb - ta) * (i / nB), tb0 = ta + (tb - ta) * ((i + 1) / nB);
+        const a0 = add(Psurf(ta0, u0, o), lift), b0 = add(Psurf(tb0, u0, o), lift);
+        const a1 = add(Psurf(ta0, u1, o), lift), b1 = add(Psurf(tb0, u1, o), lift);
+        tris.push([arr(a0), arr(b0), arr(b1)], [arr(a0), arr(b1), arr(a1)]);
+      }
+      grp.add(flatTriMesh(tris, goldMat));
+    };
     // BAY A (pivot) — inner coverts over a membrane base
     membrane(pivot, 0.0, J0, ZERO, nS);
     spar(pivot, 0.0, J0, ZERO, nS);
