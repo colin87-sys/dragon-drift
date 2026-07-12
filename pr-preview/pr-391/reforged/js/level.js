@@ -2,6 +2,7 @@ import { CONFIG } from './config.js';
 import { mulberry32, clamp } from './util.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import { FIRST_FLIGHT_BEATS, FIRST_FLIGHT_END } from './firstFlight.js';
+import { rockSlicePlan, centre } from './canyonMath.js';
 
 const lerp = (a, b, k) => a + (b - a) * k;
 const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') === 'reach';
@@ -697,6 +698,29 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     // line, deterministic (runIdx is run state, no RNG), rides the non-fixtured orbs.
     if (seg.kind === 'straightrib' || (seg.kind === 'rib' && seg.runIdx % 2 === 0)) {
       addFinaleOrb(seg, out);
+    } else if (seg.run === 'rock' && seg.kind === 'split' && (seg.span || 80) <= 160) {
+      // Rock run adrenaline: rock has no slipstream, so on the long open beats you coast,
+      // drain stamina and lose momentum with nothing to grab. Weave a SPEED BOOST onto the
+      // bank apex mid-gap of every OTHER split segment — grabbing it IS the carve (earned,
+      // on the swayed channel centre, guaranteed clear) — and lay carve-line embers through
+      // the boost-less gaps so the eye always has a banked line to chase. Both are pure
+      // functions of the segment (rockSlicePlan/centre draw no RNG) on the non-fixtured
+      // out.orbs / out.embers, so the gold fixture and every RNG stream stay untouched.
+      const plan = rockSlicePlan(seg);
+      const { yAt } = centre(seg, plan.bk, plan.fw);
+      const span = seg.span || 80;
+      if (seg.runIdx % 2 === 1) {
+        const z = -span * 0.5;                       // mid-gap toward the previous ring = bank apex
+        out.orbs.push({ dist: seg.dist + z, x: clamp(plan.xcAt(z), -11, 11), y: clamp(yAt(z), 4.5, 20) });
+      } else if (plan.wb > 14) {
+        const zNear = Math.min(12, plan.wb * 0.5);
+        const points = [];
+        for (let k = 0; k < 5; k++) {
+          const z = -plan.wb + (k / 4) * (plan.wb - zNear); // far seam → near-ring approach
+          points.push({ dist: seg.dist + z, x: clamp(plan.xcAt(z), -11, 11), y: clamp(yAt(z), 4.5, 20) });
+        }
+        out.embers.push({ points });
+      }
     }
   }
 

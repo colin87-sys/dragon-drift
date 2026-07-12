@@ -690,11 +690,13 @@ export const ui = {
     // fxMix = slip × local rib-wall presence: it drops to 0 in a rib-free bridged gap,
     // so the flat CSS lines fade out there (the premium world-space streaks lead) and
     // the tunnel cap is trimmed to 0.8 so those streaks aren't drowned by CSS glare.
+    // Continuous by construction (no 1/0 seam): the tunnel layer scales by the smoothed
+    // fx envelope, so as it releases the opacity slides back to the plain speed-line
+    // formula rather than jumping between two branches at fx≈0.
     const fx = player.tunnelFxMix || 0;
-    const inTunnel = fx > 0.01;
-    const slOpacity = inTunnel
-      ? Math.min(Math.max((sn - 0.15) * 1.8, 0), 0.8) * Math.min(1, fx * 2)
-      : Math.min(Math.max((sn - 0.45) * 1.4, 0), 0.8);
+    const outside = Math.min(Math.max((sn - 0.45) * 1.4, 0), 0.8);
+    const tunnel = Math.min(Math.max((sn - 0.15) * 1.8, 0), 0.8) * Math.min(1, fx * 2);
+    const slOpacity = Math.max(outside, tunnel);
     if (Math.abs(slOpacity - lastSpeedlines) > 0.02) {
       els.speedlines.style.opacity = slOpacity;
       lastSpeedlines = slOpacity;

@@ -937,6 +937,7 @@ function startGame(mode = 'normal') {
 let boostWasActive = false;
 let discardNextDelta = false;
 let currentBiome = 0;
+let fxEnv = 0;   // smoothed speed-tunnel FX envelope (fast attack, slow release) — feel-v5
 
 function restart(opts = {}) {
   // toMenu: reset the world but land on the START SCREEN (attract scene + rail)
@@ -953,6 +954,7 @@ function restart(opts = {}) {
   resetRings();
   resetObstacles();
   resetSpeedStreaks();
+  fxEnv = 0;
   sfx.slipstreamStop();
   resetHazards();
   resetPowerups();
@@ -1522,10 +1524,15 @@ function tick() {
     // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
     // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw
     // slipMix, since you ARE still moving faster there. presence=1 inside any rib band.
-    const wallPresence = slipMix > 0.01 ? spineWallPresenceAt(player.dist) : 0;
+    // Keep sampling presence while the envelope is still decaying so the FX ease DOWN
+    // after slip hits zero (leaving the tunnel) instead of snapping off at the last band.
+    const wallPresence = (slipMix > 0.01 || fxEnv > 0.01) ? spineWallPresenceAt(player.dist) : 0;
     const fxMix = slipMix * wallPresence;
-    player.tunnelFxMix = fxMix;               // ui.js reads this for the speed-lines gate
-    updateSpeedStreaks(player, fxMix);
+    // Smoothed envelope: fast attack (~0.3s), slow release (~0.9s) → the whole speed-FX
+    // family ramps up as you accelerate and fades gracefully leaving the tunnel, never 1/0.
+    fxEnv += (fxMix - fxEnv) * (1 - Math.exp(-(fxMix > fxEnv ? 6 : 1.8) * dt));
+    player.tunnelFxMix = fxEnv;               // streaks/postfx/ui.js all read this envelope
+    updateSpeedStreaks(player, fxEnv);
     if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
