@@ -256,73 +256,124 @@ registerTorso('knappedTorso', buildKnappedTorso);
 // day one — the Solar opaque-wall bug). This is the visibility answer for a big dark
 // occluder: the edges the player must see past ARE the see-through part.
 
-// The leading-arm vertical profile — SHARED by the geometry AND the tip marker /
-// wingElements (the documented detach gotcha: the marker must duplicate this or the
-// wingtip trails + aero-shear detach from where the arm actually sits).
-// The REST silhouette is the neutral LATERAL spread (a gentle dihedral V) so the
-// static gate reads the double-crescent, not a vertical staircase. glideRake is a
-// runtime GLIDE-HOLD pose (ref 2 — the high vertical fan) the gate is blind to (§5:
-// "pose, not silhouette; the human judges it on the PR preview"); only a WHISPER is
-// baked so the apex fan sits a touch taller up the ladder without stacking into steps.
-function vesperArmY(t, halfSpan, dih, glideRake) {
-  return t * halfSpan * Math.tan(dih) + glideRake * halfSpan * 0.10 * Math.sin(t * Math.PI * 0.5);
+// Wing leading-edge profile — SHARED with the tip marker / wingElements (the detach
+// gotcha). A KNUCKLED bat arm, NOT a straight bar: a gull ARCH in Y rising to a carpal
+// apex (~t 0.42) then easing to the tip, and a raptor OGEE in Z that bows FORWARD at
+// mid-span then sweeps hard aft to the tip. This curved-organic leading edge is what
+// kills the "delta-kite / plane" read (the owner's 1.5 verdict). Solar's wingArchY +
+// Phoenix's sunLeadZ, restyled for a stealth drake (modest archRise).
+function vesperArmY(t, hs, archRise) {
+  const arch = t <= 0.42 ? Math.sin((t / 0.42) * Math.PI / 2) * 0.30 : 0.30 - (t - 0.42) * 0.20;
+  return hs * (0.06 * t + (archRise ?? 0.4) * arch);
+}
+function vesperArmZ(t, hs) {
+  return -0.10 + 0.44 * hs * Math.pow(t, 1.12) - 0.15 * hs * Math.sin(Math.PI * t);
 }
 
+// THE FINGERED BAT WING — the hero, rebuilt to the clay-sculpt reference (CP1). A carpal
+// KNUCKLE at t≈0.42; FIVE radiating raised finger-BONES fan from it (finger 0 = longest,
+// becomes the wingtip); the membrane cuts DEEP INWARD between finger tips in cupped
+// concave arcs (never convex bumps on a plane); per-bay value tiers + a translucent
+// scalloped knife-edge; a thumb claw at the knuckle + a root gusset sweeping to the hip
+// kill the "bolted-on plank". Body-hued finger ridges are ANATOMY — the "zero hardware"
+// rule bans gold regalia, not bones.
 function buildOneScallopWing(M, dials) {
   const wg = new THREE.Group();
-  const { lobes, halfSpan, dih, glideRake, edgeBand, creases, constellations } = dials;
-  const rootChord = 2.4, tipChord = 0.5, sweep = 0.30;
-  // Leading arm (canonical +X): out + back (sweep) + up (dihedral + a glideRake whisper).
-  const A = (t) => [t * halfSpan, vesperArmY(t, halfSpan, dih, glideRake), -0.10 + t * halfSpan * sweep];
-  const chordAt = (t) => rootChord * (1 - t) + tipChord * t;
-  // Base trailing point (straight back from the arm + a slight droop) — the sail is
-  // ONE CONTINUOUS cambered surface (no per-lobe fans → no stacked-slat staircase).
-  const Tb = (t) => { const a = A(t), c = chordAt(t); return [a[0] + 0.05 * c, a[1] - 0.05 * c, a[2] + c]; };
-  // ROUNDED-SCALLOP trailing edge: a smooth convex bulge per lobe with SHALLOW
-  // notches (notch depth ~⅓ of the peak) — a scalloped rim, deliberately NOT a
-  // sawtooth. sin() gives the convex arc; the 0.34 floor keeps the cusps shallow.
-  const lobeAmp = 0.30;
-  const scallopD = (t) => { const ph = t * lobes - Math.floor(t * lobes); return lobeAmp * (0.34 + 0.66 * Math.sin(ph * Math.PI)) * chordAt(t); };
-  const Tr = (t) => { const tb = Tb(t); return [tb[0], tb[1], tb[2] + scallopD(t)]; };
-  // Shoulder rail at 78% base chord, camber-dropped so the inboard sail cups (a
-  // vault, not a flat pleat) — the boundary between opaque membrane + knife-edge band.
-  // Camber kept shallow so the side profile lofts as one surface, not a slat stack.
-  const camber = 0.075;
-  const sh = (t) => { const a = A(t), tb = Tb(t); return [a[0] + (tb[0] - a[0]) * 0.78, a[1] + (tb[1] - a[1]) * 0.78 - camber * chordAt(t), a[2] + (tb[2] - a[2]) * 0.78]; };
+  const { fingers, halfSpan: hs, archRise, cup, gusset, thumb, constellations, edgeBand } = dials;
+  const LE = (t) => [t * hs, vesperArmY(t, hs, archRise), vesperArmZ(t, hs)];
+  const K = LE(0.42);                    // carpal knuckle — the fingers radiate from here
+  const F0 = LE(1);                       // wingtip = longest finger (continues the leading edge)
+  const quad = (a, c, b, s) => { const m = 1 - s; return [m * m * a[0] + 2 * m * s * c[0] + s * s * b[0], m * m * a[1] + 2 * m * s * c[1] + s * s * b[1], m * m * a[2] + 2 * m * s * c[2] + s * s * b[2]]; };
 
-  // 4 facets per lobe → a rounded arc that still reads as big knapped flats.
-  const SAMP = lobes * 4;
-  const arm = [], shl = [], trl = [];
-  for (let i = 0; i <= SAMP; i++) { const t = i / SAMP; arm.push(A(t)); shl.push(sh(t)); trl.push(Tr(t)); }
-  const memT = [], edgeT = [];
-  for (let i = 0; i < SAMP; i++) {
-    memT.push([arm[i], arm[i + 1], shl[i + 1]], [arm[i], shl[i + 1], shl[i]]);        // inboard cambered membrane (0.82)
-    edgeT.push([shl[i], shl[i + 1], trl[i + 1]], [shl[i], trl[i + 1], trl[i]]);        // scalloped knife-edge band (0.72)
+  // Finger tips fan from K: F0 leading; later fingers sweep progressively AFT + inboard,
+  // shorter, drooping (aft-and-down terminal — never an up-curl). Real length variance
+  // with a dominant (the Phoenix "fat fingers + a dominant, never a picket fence" law).
+  const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
+  const lenFrac = [1, 0.82, 0.66, 0.50, 0.36, 0.26], spanAft = 1.55;
+  const tips = [F0];
+  for (let i = 1; i < fingers; i++) {
+    const phi = phi0 + spanAft * (i / (fingers - 1));
+    const r = r0 * lenFrac[Math.min(i, lenFrac.length - 1)];
+    tips.push([K[0] + Math.cos(phi) * r, K[1] - (0.05 + 0.12 * (i / (fingers - 1))) * r, K[2] + Math.sin(phi) * r]);
   }
-  wg.add(flatTriMesh(memT, M.wingMat));
-  wg.add(flatTriMesh(edgeT, edgeBand ? M.edgeMat : M.wingMat));
+  const tier = (i) => M.memTiers[Math.min(M.memTiers.length - 1, i)];
 
-  // Finger CREASES (f3): a slim body-hued raised ridge at each lobe centre — an
-  // in-plane geometry-shadow (the "finger-webbed" read), never a layered strip/tube.
-  // Kept low so it doesn't stack into a side-profile shingle.
-  if (creases) for (let f = 0; f < lobes; f++) {
-    const t = (f + 0.5) / lobes, a = A(t), tb = Tb(t), up = 0.014 * chordAt(t);
-    const rA = [a[0], a[1] + up, a[2]], rT = [tb[0], tb[1] + up, tb[2]];
-    wg.add(flatTriMesh([[a, rA, rT], [a, rT, tb]], M.dorsalFacet));
+  // ── FINGER BONES — raised tapered tent-ridges from K to each tip with a lighter
+  // rim-catch along the spine so they read as raised skeletal RAYS above the membrane
+  // (the clay's piped ridges), not flat wedges. Plus a bolder arm bone (root → carpal).
+  const ridgeLift = 0.12 * hs;
+  const ridge = (a, b, wB, wT, mat, capMat) => {
+    const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
+    const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
+    const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
+    const aT = [a[0], a[1] + ridgeLift, a[2]], bT = [b[0], b[1] + ridgeLift * 0.35, b[2]];
+    wg.add(flatTriMesh([[aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]], mat));
+    // a slim brighter spine cap on the ridgeline → the raised-bone rim-catch (light).
+    if (capMat) { const aT2 = [a[0] + px * wB * 0.28, a[1] + ridgeLift, a[2] + pz * wB * 0.28]; wg.add(flatTriMesh([[aT, bT, aT2]], capMat)); }
+  };
+  ridge(LE(0), K, 0.13 * hs, 0.09 * hs, M.dorsalFacet, M.speckle);              // arm bone
+  for (let i = 0; i < tips.length; i++) ridge(K, tips[i], 0.075 * hs * (1 - 0.08 * i), 0.006, M.dorsalFacet, i < 2 ? M.speckle : null);
+
+  // ── MEMBRANE BAYS — between consecutive fingers the trailing edge is a SMOOTH concave
+  // arc pulled INWARD toward the knuckle (deep stretched-skin cups, the clay-sculpt read
+  // — sampled at 4 segments so it's a curved sag, NOT a sharp sawtooth-V; deepest sag
+  // biased slightly aft). The bay centre drops below the finger plane so rim light pools.
+  // Opaque per-bay tier; the translucent knife-edge is ONE connected rim strip (below).
+  const NSEG = 4, trailing = [];
+  for (let i = 0; i < tips.length - 1; i++) {
+    const Fa = tips[i], Fb = tips[i + 1];
+    const base = [Fa[0] + (Fb[0] - Fa[0]) * 0.55, Fa[1] + (Fb[1] - Fa[1]) * 0.55, Fa[2] + (Fb[2] - Fa[2]) * 0.55];   // aft-biased
+    const ctrl = [base[0] + (K[0] - base[0]) * cup, base[1] + (K[1] - base[1]) * cup - 0.04, base[2] + (K[2] - base[2]) * cup];
+    const arc = [];
+    for (let s = 0; s <= NSEG; s++) arc.push(quad(Fa, ctrl, Fb, s / NSEG));
+    const mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
+    const dpair = Math.hypot(Fa[0] - Fb[0], Fa[2] - Fb[2]);
+    const C = [(K[0] + mid[0]) / 2, (K[1] + mid[1]) / 2 - 0.11 * dpair, (K[2] + mid[2]) / 2];
+    const fan = [[C, K, arc[0]], [C, arc[NSEG], K]];
+    for (let s = 0; s < NSEG; s++) fan.push([C, arc[s], arc[s + 1]]);
+    wg.add(flatTriMesh(fan, tier(i)));
+    for (let s = 0; s <= NSEG; s++) if (!(i > 0 && s === 0)) trailing.push(arc[s]);   // one shared polyline
   }
 
-  // CONSTELLATIONS — diffuse (non-emissive) dimmed moon-grey facet flecks, SCATTERED
-  // in a loose 2D patch on the upper membrane (golden-ratio jitter → not a tidy row of
-  // chevrons; irregular per-fleck rotation + size → scattered stars, not painted
-  // barring). Diffuse paint never touches the emissive cap (Fable I2 gate, issue 1).
+  // ── TRANSLUCENT KNIFE-EDGE — ONE connected thin band just inboard of the whole
+  // scalloped trailing polyline (was per-bay shards that read as floating debris). Lifted
+  // a hair so it composites over the membrane; light shows through the rim (the visibility
+  // answer — the edges the player sees past ARE the see-through part).
+  if (edgeBand && trailing.length > 1) {
+    const eT = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.12, p[1] + (K[1] - p[1]) * 0.12 + 0.005, p[2] + (K[2] - p[2]) * 0.12];
+    for (let s = 0; s < trailing.length - 1; s++) {
+      const a = trailing[s], b = trailing[s + 1], ai = inb(a), bi = inb(b);
+      eT.push([a, b, bi], [a, bi, ai]);
+    }
+    wg.add(flatTriMesh(eT, M.edgeMat));
+  }
+
+  // ── ROOT GUSSET — the inboard membrane sweeps aft to the hip so the wing isn't bolted
+  // on (a separate overlapped triangle, buried in the body silhouette / under the cowl).
+  // A DARKER inboard tier + a dropped mid so it blends into the wing, not a flat plate.
+  if (gusset) {
+    const r0p = LE(0), Faft = tips[tips.length - 1];
+    const G = [r0p[0] + 0.10 * hs, r0p[1] - 0.06 * hs, r0p[2] + 1.7];
+    const gm = [(r0p[0] + Faft[0] + G[0]) / 3, (r0p[1] + Faft[1] + G[1]) / 3 - 0.06, (r0p[2] + Faft[2] + G[2]) / 3];
+    wg.add(flatTriMesh([[r0p, K, Faft], [r0p, Faft, gm], [Faft, G, gm], [G, r0p, gm]], tier(Math.min(2, M.memTiers.length - 1))));
+  }
+
+  // ── THUMB CLAW — a small knapped blade at the carpal, raked forward-up (the ref's
+  // leading-edge break).
+  if (thumb) {
+    const cl = [K[0] + 0.04 * hs, K[1] + 0.12 * hs, K[2] - 0.18 * hs];
+    wg.add(flatTriMesh([[K, [K[0] + 0.02 * hs, K[1] + 0.02 * hs, K[2] - 0.02 * hs], cl], [K, cl, [K[0] - 0.03 * hs, K[1] + 0.03 * hs, K[2] + 0.02 * hs]]], M.dorsalFacet));
+  }
+
+  // ── CONSTELLATIONS — diffuse moon-grey flecks near the wingtip, seated CLOSE to the
+  // membrane (was floating +0.045 → read as detached dirt; now +0.012). Scattered.
   for (let i = 0; i < constellations; i++) {
-    const ts = 0.26 + 0.34 * ((i * 0.618) % 1);            // span scatter
-    const cf = 0.16 + 0.42 * ((i * 0.382 + 0.2) % 1);      // chord scatter
-    const a = A(ts), tb = Tb(ts);
-    const base = [a[0] + (tb[0] - a[0]) * cf, a[1] + (tb[1] - a[1]) * cf + 0.045, a[2] + (tb[2] - a[2]) * cf];
-    const r = 0.055 + 0.03 * ((i * 0.27) % 1), rot = (i * 1.7) % (Math.PI * 2);
-    const v = (k, rad) => [base[0] + Math.cos(rot + k) * rad, base[1] + 0.004 * ((i % 2) ? 1 : -1), base[2] + Math.sin(rot + k) * rad];
-    wg.add(flatTriMesh([[v(0, r), v(2.1 + (i % 3) * 0.3, r * 0.82), v(4.2, r * 1.12)]], M.speckle));
+    const s = 0.4 + 0.5 * ((i * 0.618) % 1);
+    const along = quad(K, tips[Math.min(1, tips.length - 1)], F0, s);
+    const base = [along[0], along[1] + 0.012, along[2]];
+    const r = 0.05 + 0.028 * ((i * 0.27) % 1), rot = (i * 1.7) % (Math.PI * 2);
+    const v = (k, rad) => [base[0] + Math.cos(rot + k) * rad, base[1], base[2] + Math.sin(rot + k) * rad];
+    wg.add(flatTriMesh([[v(0, r), v(2.1, r * 0.82), v(4.2, r * 1.12)]], M.speckle));
   }
   return wg;
 }
@@ -353,24 +404,31 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   const group = new THREE.Group();
   const glow = model.glowLevel ?? 1;
   const M = vesperMats(def, glow, model.igniteStage);
-  const lobes = Math.round(model.scallopLobes ?? 4);
+  const fingers = Math.max(2, Math.round(model.scallopLobes ?? 5));   // finger-bone count (repurposed dial)
   const halfSpan = (model.spanScale ?? 1) * 3.4;
-  const dih = ((model.dihedral ?? 16) * Math.PI) / 180;
-  const glideRake = model.glideRake ?? 0;
+  const archRise = model.archRise ?? 0.4;
+  const cup = model.wingCup ?? 0.35;                  // how deep the membrane cups inward between fingers
   const edgeBand = (model.edgeBand ?? 1) > 0;
-  const creases = (model.wingCreases ?? 0) > 0;
+  const gusset = (model.wingGusset ?? 1) > 0;
+  const thumb = (model.thumbClaw ?? 1) > 0;
   const constellations = Math.round(model.constellations ?? 0);
   const cowl = (model.cowlPlates ?? 0) > 0;
-  const dials = { lobes, halfSpan, dih, glideRake, edgeBand, creases, constellations };
+  const dials = { fingers, halfSpan, archRise, cup, gusset, thumb, edgeBand, constellations };
 
-  // Inboard membrane — transparent from day one so the game's wing-fade
-  // (dragon.js drives wingMat.opacity → 0.82/0.77/0.70) actually works.
-  M.wingMat = new THREE.MeshStandardMaterial({ color: def.wingOuter ?? NIGHT, emissive: 0x000000, flatShading: true, roughness: 0.78, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
-  M.wingMat.envMapIntensity = 0.2;
+  // MEMBRANE VALUE TIERS — inboard lighter → outboard = the per-form wingOuter (all in
+  // the L≤0.10 blue-black lane), so the wing reads RICH (≥3 values), not one flat black
+  // (the owner's "lacks richness"). Transparent from day one so the game's wing-fade
+  // (dragon.js drives wingMat.opacity → 0.82/0.77/0.70) works. DoubleSide.
+  const wo = def.wingOuter ?? NIGHT;
+  M.memTiers = [0.32, 0.20, 0.10, 0].map((f) => {
+    const m = new THREE.MeshStandardMaterial({ color: lerpHex(wo, SLATE, f), emissive: 0x000000, flatShading: true, roughness: 0.8, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
+    m.envMapIntensity = 0.2; return m;
+  });
+  M.wingMat = M.memTiers[0];   // the game's opacity-fade driver (largest inboard area)
   // Knife-edge band — a SINGLE thin translucent layer (never stacked back-faces; the
-  // CP3.2 0.82² lesson). Slightly cooler so the rim reads as lit night-glass.
-  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(def.wingOuter ?? NIGHT, SLATE, 0.68), emissive: 0x000000, flatShading: true, roughness: 0.68, metalness: 0.02, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
-  M.edgeMat.envMapIntensity = 0.2;
+  // CP3.2 0.82² lesson). Glossier so the scalloped rim glints as lit night-glass.
+  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, SLATE, 0.6), emissive: 0x000000, flatShading: true, roughness: 0.55, metalness: 0.03, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
+  M.edgeMat.envMapIntensity = 0.3;
 
   const rootSpark = (model.seamRootSpark ?? 0) > 0;   // f3: one short inset seam streak per wing root
   const wingSpineMats = [];
@@ -399,19 +457,18 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
       if (!wingSpineMats.includes(M.seam)) wingSpineMats.push(M.seam);
     }
     const s = side === 1 ? 'R' : 'L';
-    // Tip marker MUST duplicate the arm profile incl glideRake (detach gotcha).
-    const tipY = vesperArmY(1, halfSpan, dih, glideRake);
+    // Tip marker MUST duplicate the arm profile (detach gotcha) — the wingtip is the
+    // longest finger's tip: LE(1) = (halfSpan, vesperArmY, vesperArmZ).
+    const tipY = vesperArmY(1, halfSpan, archRise), tipZ = vesperArmZ(1, halfSpan);
     const marker = new THREE.Object3D();
-    marker.position.set(halfSpan, tipY, -0.10 + halfSpan * sweepOf());
+    marker.position.set(halfSpan, tipY, tipZ);
     mid.add(marker);
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
     pivots['tipMarker' + s] = marker;
-    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + halfSpan * sweepOf()], length: halfSpan, tipObj: marker });
+    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + tipZ], length: halfSpan, tipObj: marker });
   }
   return { group, spineMats: wingSpineMats, wingMat: M.wingMat, parts: { ...pivots, wingElements } };
 }
-// sweep constant shared by the marker + wingElements (mirrors buildOneScallopWing).
-function sweepOf() { return 0.30; }
 registerWings('scallopCrescentWings', buildScallopCrescentWings);
 
 // ── HEAD: 'vesperCatHead' ─────────────────────────────────────────────────────
