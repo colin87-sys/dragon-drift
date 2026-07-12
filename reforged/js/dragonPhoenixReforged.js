@@ -139,7 +139,7 @@ function sunhawkMats(def, glow, stage) {
   flareW(gold,     0.7,  0.5); flareW(roseGold, 0.7, 0.5); flareW(orange, 0.65, 0.45);   // ridge/collar/hems = STRONG bright gold-white strokes (thin, so they pop without washing)
   // Wing feathers/streamers: near-ZERO flare so they hold their cruise orange (the surge barely touches
   // the big surface — this is what kills the white-out). Only a whisper of hue-deepen + a tiny tip lift.
-  flareW(hotRibbon[0], 0.3, -0.1); flareW(hotRibbon[1], 0.3, -0.1); flareW(hotRibbon[2], 0.35, 0.0);   // RESTRAINT: wings barely shift → hold their cruise fire (the broad feather field can't beat the Surge bloom, so don't fight it)
+  flareW(hotRibbon[0], 0.6, 0.0); flareW(hotRibbon[1], 0.6, 0.0); flareW(hotRibbon[2], 0.65, 0.05);   // wings IGNITE via HUE (shift hotter toward the ember surgeHi) with flat intensity → visibly hotter fire, no bloom-to-white
   return { ivory, goldfire, flame, crimson, garnet, emberShadow, emberBelly, bronze, gold, roseGold, orange, heart, eyeMat, hotRibbon, stage: st, glow: g };
 }
 
@@ -705,7 +705,7 @@ function buildOneSunWing(M, model) {
   // INTENSITY held UNIFORMLY LOW so no panel crosses the tone-map/bloom knee (which whites-out the
   // outboard tips exactly where the gold should peak); the COLOUR ramp (0.5→0.95 outboard) alone carries
   // the tip-hot gold gradient. This is the discipline the split-channel bought.
-  memFlareW(memHot, 0.25, 0.0); memFlareW(memGold, 0.25, 0.0); memFlareW(memOrange, 0.3, 0.0); memFlareW(memDeep, 0.3, 0.0);   // RESTRAINT: membrane holds its cruise ember colour
+  memFlareW(memHot, 0.55, 0.0); memFlareW(memGold, 0.58, 0.0); memFlareW(memOrange, 0.62, 0.0); memFlareW(memDeep, 0.65, 0.0);   // membrane shifts to hotter ember on Surge, flat intensity → no bloom
   wg.userData.flareMats = [memHot, memGold, memOrange, memDeep];   // published into the wing's spineMats so Surge ignites the membrane (they're locals otherwise)
   // DIAGONAL heat coordinate (not axis-aligned rectangles — the "basic panel/plates" read): a hot
   // inner-leading corner cooling toward the outboard-trailing corner, with a slight wave so the bands
@@ -899,13 +899,13 @@ function buildSunfeatherWings(def, model, attach, _giM) {
     for (const fm of (oneWing.userData.flareMats || [])) memFlareMats.push(fm);
   }
   // Wing spineMats = ONLY the thin gilt-regalia accents (gold/roseGold/orange → leading ridge, finger
-  // rims). The broad feather field (hotRibbon) + membrane are DELIBERATELY excluded: joining spineMats
-  // would subject them to both the Surge flare AND the strong Surge fresnel RIM (applyRim runs over every
-  // spineMats mat, updateRim drives it to ~1.2 on Surge) — and that rim is what brightened the dense
-  // feather sheet to CREAM (the "washed white wings"). Kept out, the wings hold their cruise fire colour
-  // on Surge and the drama is carried by the accents + effects. (memFlareMats now unused → left un-pushed.)
+  // rims) — these get the Surge flare AND the fresnel rim (thin, so the rim reads as a hot edge, not a wash).
+  // The broad feather field (hotRibbon) + membrane go into the FLARE-ONLY channel: they LIGHT UP on Surge
+  // (so the wings visibly ignite as fire, not sit static) but stay OUT of the rim — the strong Surge rim
+  // over a dense emissive sheet is exactly what washed them to cream. Best of both: wings glow, no white.
   const spineMats = [M.gold, M.roseGold, M.orange];
-  return { group, spineMats, wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
+  const flareMats = [...M.hotRibbon, ...memFlareMats];
+  return { group, spineMats, flareMats, wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
 }
 registerWings('sunfeather', buildSunfeatherWings);
 
