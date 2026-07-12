@@ -37,7 +37,7 @@ const result = await boot().then(async ({ page, done }) => {
     for (const seed of seeds) {
       const segs = collect(seed);
       let slopeBad = 0, seamBad = 0, widthBad = 0, spinePairs = 0, centreBad = 0;
-      let rockSlopeBad = 0, rockWidthBad = 0, rockSeamBad = 0, rockSliceN = 0, rockApproachBad = 0;
+      let rockSlopeBad = 0, rockWidthBad = 0, rockSeamBad = 0, rockSliceN = 0, rockApproachBad = 0, rockRampBad = 0;
 
       // === ROCK RUN (v2 carved slot) ===
       // (b) slope: the swayed channel centre must stay under the steering budget.
@@ -61,11 +61,21 @@ const result = await boot().then(async ({ page, done }) => {
         let maxLi = -Infinity, minRi = Infinity, minXc = Infinity, maxXc = -Infinity;
         for (const sl of slices) {
           rockSliceN++;
-          const left = Math.max(sl.li, -LANE), right = Math.min(sl.ri, LANE);
+          // Clamp to the PER-HALF effective lane (wider in the interior, ±13 at the
+          // boundaries) — the same edge the geometry fills to, so the audit measures
+          // the actual widened corridor with no drift.
+          const left = Math.max(sl.li, -sl.laneHW), right = Math.min(sl.ri, sl.laneHW);
           const w = right - left;
           agg.rockMinWidth = Math.min(agg.rockMinWidth, w);
           if (w < 7.5) rockWidthBad++;
           if (sl.nearRing && (s.gapX - left < 3 || right - s.gapX < 3)) rockWidthBad++;
+          // RAMP-SAFETY CONTRACT: a widened (>global-lane) slice may exist ONLY strictly
+          // inside the boundary rings — the first segment's entry half and the last
+          // segment's exit half must stay at the global lane, so the eased fatal wall
+          // (main.js, ramping 13→wide→13 over the ±40m bands) is never asked to sit
+          // further out than it has reached. This pins the collision-ease proof forever.
+          if (sl.laneHW > LANE &&
+              ((s.runIdx === 0 && sl.z < 0) || (s.runIdx === s.runTotal - 1 && sl.z > 0))) rockRampBad++;
           // BUG-1a: the ring line (gapX) must be INSIDE the free channel on the whole
           // approach cone (z<0 to -36) — no sea-stack on the aim line the player locks.
           if (sl.z < 0 && sl.z > -36 && (s.gapX < sl.li - 1e-6 || s.gapX > sl.ri + 1e-6)) rockApproachBad++;
@@ -151,7 +161,7 @@ const result = await boot().then(async ({ page, done }) => {
       }
       agg.pairs += spinePairs;
       agg.seeds.push({ seed, slopeBad, seamBad, widthBad, spinePairs, centreBad,
-                       rockSlopeBad, rockWidthBad, rockSeamBad, rockSliceN, rockApproachBad });
+                       rockSlopeBad, rockWidthBad, rockSeamBad, rockSliceN, rockApproachBad, rockRampBad });
     }
     return agg;
   });
@@ -180,6 +190,8 @@ check('rock channel never pinches below 7.5m (ring stays reachable both sides)',
   result.seeds.every((s) => s.rockWidthBad === 0)) || console.error('  rock-width fail seeds:', bad('rockWidthBad'));
 check('rock ring line is clear of stacks on the whole approach cone (no spike in front)',
   result.seeds.every((s) => s.rockApproachBad === 0)) || console.error('  rock-approach fail seeds:', bad('rockApproachBad'));
+check('rock widen is pinned to the run interior (fatal wall never outruns the ease band)',
+  result.seeds.every((s) => s.rockRampBad === 0)) || console.error('  rock-ramp fail seeds:', bad('rockRampBad'));
 
 const meanSwing = result.rockSwingN ? result.rockSwingSum / result.rockSwingN : 0;
 const mustSteerPct = result.rockSwingN ? Math.round(100 * result.rockMustSteer / result.rockSwingN) : 0;
