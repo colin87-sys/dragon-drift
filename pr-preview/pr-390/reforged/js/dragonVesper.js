@@ -150,12 +150,12 @@ function buildKnappedTorso(def, model, _bodyMat) {
   // Body stations (level long axis; widest at the shoulder yoke where the chine is
   // most pronounced; leanest at the waist tuck).
   const body = [
-    { z: -1.75, rx: 0.24 * shoulderW, ry: 0.32, cy: 0.17 },  // chest prow
-    { z: -1.05, rx: 0.54 * shoulderW, ry: 0.56, cy: 0.13 },  // deep shoulder/chest (widest)
-    { z: -0.15, rx: 0.44, ry: 0.44, cy: 0.18 },
+    { z: -1.75, rx: 0.24 * shoulderW, ry: 0.34, cy: 0.17 },  // chest prow
+    { z: -1.05, rx: 0.55 * shoulderW, ry: 0.62, cy: 0.11 },  // deep shoulder/chest (widest — deepened so the chest reads under the wing)
+    { z: -0.15, rx: 0.44, ry: 0.46, cy: 0.18 },
     { z: 0.55, rx: 0.32, ry: 0.33, cy: 0.18 },               // WAIST tuck (leanest)
-    { z: 1.15, rx: 0.38, ry: 0.35, cy: 0.15 },               // HAUNCH re-swell
-    { z: 1.75, rx: 0.20, ry: 0.20, cy: 0.13 },
+    { z: 1.10, rx: 0.42, ry: 0.44, cy: 0.18 },               // HAUNCH — a real hip BUMP: dorsal rises + thigh mass widens (an S-curve silhouette event before the tail taper)
+    { z: 1.75, rx: 0.19, ry: 0.19, cy: 0.12 },
     { z: 2.10, rx: 0.11, ry: 0.11, cy: 0.12 },               // tail root
   ];
   // Longitudinal VALUE BANDS (colMat by column): dorsal-ridge columns (k1,k2) get
@@ -210,6 +210,35 @@ function buildKnappedTorso(def, model, _bodyMat) {
     }
     group.add(flatTriMesh(seamT, M.seam));
     spineMats.push(M.seam);
+  }
+
+  // DORSAL NUB ROW (CP2) — a nose→tail-root file of small knapped tetra nubs riding the
+  // ridge (the reference's spine ridge), shrinking aft; the Starlit Seam groove threads
+  // BETWEEN them (a richer cruise spine read than the bare glass-streak, and a richer
+  // Surge circuit for free). Non-emissive dorsalFacet so they catch top-light.
+  const nubN = Math.round(model.dorsalNubs ?? 0);
+  if (nubN > 0) {
+    // ridge height over the WHOLE dorsal line (neck + body) so the file runs nose→tail.
+    const allR = body.concat(neck).sort((p, q) => p.z - q.z);
+    const ridgeY = (z) => {
+      for (let i = 0; i < allR.length - 1; i++) { const a = allR[i], b = allR[i + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z); return (a.cy + a.ry) + ((b.cy + b.ry) - (a.cy + a.ry)) * t; } }
+      return 0.3;
+    };
+    const nub = (x, y, z, s) => { const b0 = [x - s, y, z - s], b1 = [x + s, y, z - s], b2 = [x + s, y, z + s * 1.5], b3 = [x - s, y, z + s * 1.5], ap = [x, y + s * 1.4, z + s * 0.2]; return [[b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]]; };
+    const nubT = [], z0 = -2.55, z1 = 1.95;   // from the nape (skull) to the tail root
+    for (let i = 0; i < nubN; i++) { const t = i / Math.max(1, nubN - 1), z = z0 + (z1 - z0) * t, s = 0.055 - 0.028 * t; for (const tri of nub(0, ridgeY(z) + 0.008, z, s)) nubT.push(tri); }
+    group.add(flatTriMesh(nubT, M.dorsalFacet));
+  }
+
+  // HAUNCH FLAKES (CP2) — a pair of knapped hip fairings at the haunch station so the
+  // side profile reads a pelvis + the wing gusset has somewhere to land (same flake
+  // language as the scapular cowl).
+  if ((model.haunchFlakes ?? 0) > 0) for (const s of [1, -1]) {
+    const hx = s * 0.34, hy = 0.18, hz = 1.12;
+    group.add(flatTriMesh([
+      [[hx - s * 0.12, hy + 0.12, hz - 0.24], [hx + s * 0.15, hy + 0.02, hz - 0.10], [hx + s * 0.10, hy - 0.09, hz + 0.22]],
+      [[hx - s * 0.12, hy + 0.12, hz - 0.24], [hx + s * 0.10, hy - 0.09, hz + 0.22], [hx - s * 0.10, hy - 0.02, hz + 0.18]],
+    ], M.dorsalFacet));
   }
 
   // Nape motif-anchor (the Starlit Seam seats here). Publishing it is a documented
@@ -554,6 +583,26 @@ function buildSplitFanTail(def, model, mats, anchor) {
   const bandMat = (k) => (k === 1 || k === 2) ? M.dorsalFacet : (k >= 4) ? M.belly : M.bodyFlat;
   group.add(knapLoft(stem, CHINE_PROFILE, bandMat, false));
 
+  // TAIL-STEM NUB ROW (CP2) — the dorsal nub file continues down the tail (the reference's
+  // tail ridge), shrinking to the tip; the seam threads between them.
+  const tailNubs = Math.round(model.tailNubs ?? 0);
+  if (tailNubs > 0) {
+    const nub = (x, y, z, s) => { const b0 = [x - s, y, z - s], b1 = [x + s, y, z - s], b2 = [x + s, y, z + s * 1.5], b3 = [x - s, y, z + s * 1.5], ap = [x, y + s * 1.4, z + s * 0.2]; return [[b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]]; };
+    const nubT = [];
+    for (let i = 0; i < tailNubs; i++) { const t = i / Math.max(1, tailNubs); const st = stem[Math.round(t * (nSeg - 1))]; const s = 0.05 * (1 - 0.7 * t); for (const tri of nub(0, st.cy + st.ry + 0.006, st.z, s)) nubT.push(tri); }
+    group.add(flatTriMesh(nubT, M.dorsalFacet));
+  }
+  // MID-TAIL FIN PAIR (CP2) — a BOLD knapped fin each side partway down the tail (the
+  // reference's caudal ridge before the terminal fans) — a legible mid-tail silhouette
+  // event (was too small → read as clutter; scaled up + 2-facet).
+  if ((model.tailMidFins ?? 0) > 0) {
+    const mt = 0.58, ms = stem[Math.round(mt * nSeg)];
+    for (const side of [1, -1]) group.add(flatTriMesh([
+      [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.24, ms.cy + 0.22, ms.z + 0.10], [side * 0.10, ms.cy - 0.02, ms.z + 0.34]],
+      [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.10, ms.cy - 0.02, ms.z + 0.34], [side * 0.02, ms.cy - 0.03, ms.z + 0.10]],
+    ], side < 0 ? M.dorsalFacet : M.bodyFlat));
+  }
+
   // THE STARLIT SEAM (tail stem) — the dorsal circuit continues down the tail (f2/f3:
   // "full spine + tail stem"). WITHHELD in cruise (seam mat near-zero base); Surge-lit.
   const accentMats = [];
@@ -592,44 +641,40 @@ function buildSplitFanTail(def, model, mats, anchor) {
       ], M.bodyFlat));
     }
   } else {
-    // f2/f3 — TWIN SPLIT FAN-FINS: each fin = 3 knapped petals splayed by `spread`,
-    // faces pitched ~+15° toward the chase lens (the cant law) so the bright rim (seam,
-    // wired in I4) catches the rear cam. Port (side −1) carries the constellation nod.
+    // f2/f3 — TWIN SPLIT FAN-FINS, each a MINI fingered-webbed fan (echoes the hero wing
+    // for cohesion + richness — was 3 flat petals): 4 knapped finger-petal ridges radiate
+    // from the fin root with the membrane cupping INWARD between them, pitched toward the
+    // chase lens. A center GAP keeps the twin read; port fin carries the constellation.
+    const bez = (a, c, b, s) => { const m = 1 - s; return [m * m * a[0] + 2 * m * s * c[0] + s * s * b[0], m * m * a[1] + 2 * m * s * c[1] + s * s * b[1], m * m * a[2] + 2 * m * s * c[2] + s * s * b[2]]; };
+    // CENTER WEB — welds both fans into the tail tip so there is ZERO daylight at the
+    // joint from any view (the Fable CP2 "severed tail" defect). Penetrates the last
+    // stem segment forward of the fan roots.
+    const rw = 0.05;
+    group.add(flatTriMesh([
+      [[rw, ty, tz - 0.06], [-rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.12]],
+      [[rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.12], [0, ty - 0.03, tz + 0.18]],
+      [[-rw, ty, tz - 0.06], [0, ty - 0.03, tz + 0.18], [0, ty + 0.03, tz + 0.12]],
+    ], M.bodyFlat));
     for (const side of [1, -1]) {
-      const petals = 3;
-      // Separate the port + starboard clusters with a visible GAP so the TWIN read is
-      // legible (not one symmetric spray) — the anti-fray + twin fix share this (Fable
-      // I3 gate, issue 3).
-      const rootX = side * 0.13, rootZ = tz;
+      const petals = 4, root = [side * rw, ty, tz - 0.04];   // rooted INTO the stem tip (welded)
+      const tips = [];
       for (let p = 0; p < petals; p++) {
-        const ang = side * (0.20 + 0.40 * (p / (petals - 1))) * spread;   // fan splay (from the cluster)
-        const len = (0.46 - 0.04 * p) * (0.7 + 0.5 * spread);
-        const px = rootX + Math.sin(ang) * (0.14 + 0.30 * spread), pz = rootZ + Math.cos(ang) * (0.12 + len);
-        const lift = ty + 0.13 + 0.045 * p;                         // pitched +15° up-back toward the lens
-        // BROAD knapped-diamond petal (a leaf, not a quill): a wide root + a wide mid so
-        // it reads solid + faceted from the chase cam, never a frayed brush.
-        const wIn = 0.055, wMid = 0.10 + 0.02 * p;
-        const rIn = [rootX - side * wIn, ty, rootZ + 0.04];
-        const rOut = [rootX + side * wIn, ty - 0.01, rootZ + 0.10];
-        const tipIn = [px - side * wMid, lift, pz - 0.04];
-        const tipOut = [px + side * wMid, lift - 0.02, pz + 0.03];
-        group.add(flatTriMesh([[rIn, tipIn, tipOut], [rIn, tipOut, rOut]], p % 2 ? M.dorsalFacet : M.bodyFlat));
-        // FIN-RIM SEAM (f3) — an ion-blue inset line along the petal's outer rim; the
-        // Starlit Seam forks into both fan-fin rims. WITHHELD in cruise, Surge-lit.
-        if (finRims) {
-          const o = 0.014;
-          group.add(flatTriMesh([
-            [rOut, tipOut, [tipOut[0], tipOut[1] + o, tipOut[2]]],
-            [rOut, [tipOut[0], tipOut[1] + o, tipOut[2]], [rOut[0], rOut[1] + o, rOut[2]]],
-          ], M.seam));
-        }
-        // PORT-FIN CONSTELLATION (asymmetry nod) — diffuse flecks on the port fin only.
-        // Zero-tri-cost identity: fresh + legally clean (NO red prosthetic).
-        if (side === -1) {
-          const fx = (rIn[0] + tipIn[0]) / 2, fy = (rIn[1] + tipIn[1]) / 2 + 0.02, fz = (rIn[2] + tipIn[2]) / 2;
-          const r = 0.035;
-          group.add(flatTriMesh([[[fx - r, fy, fz], [fx + r, fy + 0.004, fz - r * 0.3], [fx, fy, fz + r]]], speckle));
-        }
+        const ang = side * (0.10 + 0.62 * (p / (petals - 1))) * Math.max(0.6, spread);
+        const len = (0.72 - 0.06 * p) * (0.7 + 0.5 * spread);   // ~1.35× larger — a real second landmark
+        tips.push([root[0] + Math.sin(ang) * (0.12 + len * 0.5), ty + 0.16 + 0.06 * p, tz + 0.08 + Math.cos(ang) * (0.16 + len)]);
+      }
+      for (let p = 0; p < petals; p++) {   // finger-petal ridges
+        const a = root, b = tips[p], dx = b[0] - a[0], dz = b[2] - a[2], L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L, w = 0.03;
+        group.add(flatTriMesh([[[a[0] + nx * w, a[1], a[2] + nz * w], [a[0] - nx * w, a[1], a[2] - nz * w], b]], p % 2 ? M.dorsalFacet : M.bodyFlat));
+      }
+      for (let p = 0; p < petals - 1; p++) {   // webbed cupped membrane + fin-rim seam + port mark
+        const Fa = tips[p], Fb = tips[p + 1], mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
+        const ctrl = [mid[0] + (root[0] - mid[0]) * 0.35, mid[1] + (root[1] - mid[1]) * 0.35 - 0.02, mid[2] + (root[2] - mid[2]) * 0.35];
+        const arc = [Fa, bez(Fa, ctrl, Fb, 0.34), bez(Fa, ctrl, Fb, 0.66), Fb];
+        const C = [(root[0] + mid[0]) / 2, (root[1] + mid[1]) / 2 - 0.04, (root[2] + mid[2]) / 2];
+        group.add(flatTriMesh([[C, root, arc[0]], [C, arc[0], arc[1]], [C, arc[1], arc[2]], [C, arc[2], arc[3]], [C, arc[3], root]], p % 2 ? M.bodyFlat : M.dorsalFacet));
+        if (finRims) { const o = 0.012, e = arc[2]; group.add(flatTriMesh([[arc[1], e, [e[0], e[1] + o, e[2]]], [arc[1], [e[0], e[1] + o, e[2]], [arc[1][0], arc[1][1] + o, arc[1][2]]]], M.seam)); }
+        if (side === -1) { const fx = (root[0] + Fa[0]) / 2, fy = (root[1] + Fa[1]) / 2 + 0.015, fz = (root[2] + Fa[2]) / 2, r = 0.03; group.add(flatTriMesh([[[fx - r, fy, fz], [fx + r, fy + 0.004, fz - r * 0.3], [fx, fy, fz + r]]], speckle)); }
       }
     }
     // f3 — a central RUDDER facet between the fins (the finished-blade tail closer).
