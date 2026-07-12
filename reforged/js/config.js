@@ -128,6 +128,11 @@ export const CONFIG = {
   canyonSegments: [8, 11],    // a Rock Run sustains ~8-11s of enclosed canyon then opens up
   spineSegments: [15, 19],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
                               // (longer than [13,16] so it reads as a sustained speed tunnel)
+  canyonSpineSlip: 1.12,      // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not
+                              // rock). Steering co-scales by the SAME factor so every reachability
+                              // ratio (and the whole canyonflow audit) stays exactly valid — the
+                              // world rushes faster, the inputs stay identical relative to it.
+  canyonSlipEase: 2.0,        // per-second damp rate toward the slip target (smooth in/out at seams)
   canyonSpineSwayAmp: 2.6,    // lateral SWEEP of the rib tube between rings (0 at each ring so a
                               // perfect stays dead-centre; peaks at the seams, sign-flips per section
                               // → one long gentle S-curve, the racing-tunnel feel). Slope-budgeted.

@@ -72,7 +72,7 @@ if (spineSegs.length) {
 // window suppresses for a canyon still pending at the 9km walk end (vs nextCanyonAt).
 const ENTRY_SLACK = result.entryBuffer + 500;
 const inSuppressRange = (d) =>
-  starts.some((s, i) => d >= s - ENTRY_SLACK && d <= (ends[i] ?? Infinity) + result.exitBuffer)
+  starts.some((s, i) => d >= s.dist - ENTRY_SLACK && d <= (ends[i] ?? Infinity) + result.exitBuffer)
   || d >= result.a.nextCanyonAt - 40 - result.entryBuffer;
 check('suppressed entries are all real obstacle dists',
   result.a.suppress.every((d) => result.a.obsDists.includes(d)));
@@ -82,7 +82,7 @@ check('suppression is deterministic per seed',
   JSON.stringify(result.a.suppress) === JSON.stringify(result.b.suppress));
 // BUG-3: no biome hazard (geyser) survives inside a canyon run (± buffers) — an
 // undodgeable vertical column in an enclosed corridor.
-const inCanyonStrict = (d) => starts.some((s, i) => d >= s && d <= (ends[i] ?? Infinity));
+const inCanyonStrict = (d) => starts.some((s, i) => d >= s.dist && d <= (ends[i] ?? Infinity));
 check('no hazard lands inside a canyon run',
   result.a.hazDists.every((d) => !inCanyonStrict(d)));
 

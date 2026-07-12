@@ -1303,8 +1303,8 @@ function tick() {
 
     // Sky Canyon boundaries: widen the chase cam through the run so the twisty
     // gaps read clearly, then restore. Counted so nested canyons stay balanced.
-    while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0]) {
-      pendingCanyonStarts.shift();
+    while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0].dist) {
+      game.canyonRun = pendingCanyonStarts.shift().run; // 'spine' | 'rock' → spine-only slipstream
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
       // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
