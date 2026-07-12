@@ -286,9 +286,9 @@ function buildKnappedTorso(def, model, _bodyMat) {
   // where surface plates can't. Dial legHint (apex + radiant only).
   if ((model.legHint ?? 0) > 0) for (const side of [1, -1]) {
     const hx = side * 0.30, hy = 0.02, hz = 1.04;              // hip, at the haunch station
-    const knee = [side * 0.36, hy - 0.30, hz + 0.06];
-    const ankle = [side * 0.27, hy - 0.19, hz + 0.34];         // swept FORWARD → the folded tuck
-    const toe = [side * 0.22, hy - 0.24, hz + 0.50];
+    const knee = [side * 0.30, hy - 0.20, hz + 0.10];          // raised + hugged to the hull → FOLDED, not landing-gear-down
+    const ankle = [side * 0.24, hy - 0.13, hz + 0.34];         // swept FORWARD + up → the tuck
+    const toe = [side * 0.20, hy - 0.17, hz + 0.48];
     group.add(flatTriMesh([
       // thigh (chunky wedge from the hip down to the knee)
       [[hx - side * 0.09, hy + 0.08, hz - 0.10], [hx + side * 0.11, hy + 0.05, hz + 0.16], knee],
@@ -299,7 +299,7 @@ function buildKnappedTorso(def, model, _bodyMat) {
       [knee, ankle, [ankle[0] - side * 0.03, ankle[1] - 0.03, ankle[2] - 0.04]],
       // foot (folded, a short knapped plate)
       [ankle, [toe[0] + side * 0.05, toe[1] + 0.01, toe[2] - 0.03], toe],
-    ], side < 0 ? M.dorsalFacet : M.bodyFlat));
+    ], M.bodyFlat));   // SAME band both sides (the only sanctioned asymmetry on this dragon is the port-fin constellation)
   }
 
   // Nape motif-anchor (the Starlit Seam seats here). Publishing it is a documented
@@ -720,8 +720,8 @@ function buildVesperCatHead(def, model, mats) {
   // CENTRAL OCCIPITAL BLADE — the single TALLEST center peak behind the ears (~1.6× the ears), so
   // front-on the crown reads as two ears + one dominant peak. Still cat anatomy, NO horn/regalia (§6).
   if ((model.crestBlade ?? 0) > 0) {
-    const z0 = 0.18 * hs - (pairs - 0.4) * 0.15 * hs, by = 0.15 * hs, w = 0.055 * hs;
-    const apex = [0, by + 0.56 * hs, z0 + 0.03 * hs];
+    const z0 = 0.18 * hs - (pairs - 0.4) * 0.15 * hs, by = 0.15 * hs, w = 0.06 * hs;
+    const apex = [0, by + 0.40 * hs, z0 + 0.03 * hs];   // ~2× the ears — a dominant crest PEAK, not a lone horn (§6)
     group.add(flatTriMesh([
       [[-w, by, z0 - 0.05 * hs], [w, by, z0 - 0.05 * hs], apex],
       [[w, by, z0 - 0.05 * hs], [0, by - 0.02 * hs, z0 + 0.15 * hs], apex],
@@ -811,7 +811,7 @@ function buildSplitFanTail(def, model, mats, anchor) {
     for (const side of [1, -1]) chainAdd(ms.z, flatTriMesh([
       [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.20, ms.cy + 0.05, ms.z + 0.20], [side * 0.10, ms.cy - 0.03, ms.z + 0.32]],
       [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.10, ms.cy - 0.03, ms.z + 0.32], [side * 0.02, ms.cy - 0.04, ms.z + 0.08]],
-    ], side < 0 ? M.dorsalFacet : M.bodyFlat));
+    ], M.dorsalFacet));   // SAME band both sides (symmetric)
   }
 
   // THE STARLIT SEAM (tail stem) — the dorsal circuit continues down the tail (f2/f3:
