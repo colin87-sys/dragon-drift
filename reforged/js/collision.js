@@ -88,14 +88,17 @@ export function updateCollision(dt, player) {
     if (game.bossArenaActive) {
       p.x = Math.max(-CONFIG.laneHalfWidth, Math.min(CONFIG.laneHalfWidth, p.x));
       player.velocity.x = 0;
-    } else if (game.canyonLaneHW != null) {
+    } else if (game.canyonRockSoft) {
       // Widened rock run: clamp + chip (the canyon-ceiling grammar), never a wall death.
-      // The rock run is a pressure beat, not a run-ender, and the exit wall sweeps inward
-      // through space the player legally occupied — a kill there would be unearned.
-      const sign = Math.sign(p.x);
+      // The rock run is a pressure beat, not a run-ender, and the eased exit wall sweeps
+      // inward through space the player legally occupied — a kill there would be unearned.
+      // Keyed on canyonRockSoft (true for the WHOLE rock run), NOT the nullable eased
+      // width, so the fatal branch never re-arms mid-run while the player is >13 (the
+      // width collapses to null in the ±40m ease bands; the wall stays soft there).
+      const sign = Math.sign(p.x) || 1;
       p.x = Math.max(-laneHW, Math.min(laneHW, p.x));
-      player.velocity.x = -sign * 6;
-      hit(player, sign, 0, CONFIG.canyonCeilingDamage, 'wall');
+      player.velocity.x = -sign * 6;   // manual inward kick (hit() gets 0,0 — see below)
+      hit(player, 0, 0, CONFIG.canyonCeilingDamage, 'wall');
     } else {
       crash(player, 'wall');
       return;
@@ -306,9 +309,9 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
   if (invuln > 0) return;
   // Barrel-roll i-frames: damage is dodged, and the near-miss checks above
   // keep firing — rolling through a cluster showers bonuses instead. The lane
-  // boundaries (ground / canyon ceiling) ignore i-frames so you can't roll-cheese
-  // a limit.
-  if (player.rollInvuln > 0 && cause !== 'ground' && cause !== 'ceiling') return;
+  // boundaries (ground / canyon ceiling / the widened rock-run wall) ignore
+  // i-frames so you can't roll-cheese a limit.
+  if (player.rollInvuln > 0 && cause !== 'ground' && cause !== 'ceiling' && cause !== 'wall') return;
   invuln = CONFIG.invulnTime;
   game.health = Math.max(0, game.health - damage);
   if (pushX) player.velocity.x += pushX * 10;
