@@ -74,7 +74,7 @@ export const HEAVEN_HEX = {
   ambColor: 0xffe9b8, ambFall: 0.5, ambSway: 0.25, ambSize: 0.55, ambOpacity: 0.85,     // GOLD LIGHT-RAIN (the mote pool re-skinned — zero new draws)
   faunaColor: 0xffe9b8, faunaScale: 0, faunaFlap: 0,
   starMix: 0, whaleMix: 0, flybyMix: 0,
-  cloudAmount: 0, cloudLit: 0xd9c79a, cloudShadow: 0x9a8a68, atmosHeightK: 0, atmosInscatter: 0,   // clean gold sky — the heaven's own light-rain, not biome clouds
+  cloudAmount: 0.30, cloudLit: 0xdcc696, cloudShadow: 0xa08862, atmosHeightK: 0, atmosInscatter: 0,   // PR-H0: a gilded "sea of glory" cloudscape rings the holy court (the N9 field the arena owns) — reverent, above the parry corridor; tempered to bank sky-p95 headroom for the H1 colonnade + H2 rose-window
 };
 
 // THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst
