@@ -19,7 +19,15 @@ export const GODRAY_MAX_SAMPLES = 48;
 let occRT = null, blackMat = null;
 let _renderer = null, _scene = null, _camera = null, _sky = null;
 let _enabled = false;
-const SCALE = 0.5;                       // mask render scale (half-res)
+// N11 — mask render scale, now per-tier: tier0 keeps 0.5 (half-res, shipped), tier1
+// drops to 0.25 (quarter-res — the radial blur hides it) so mid-range phones can
+// afford god-rays. A hard 96-px/axis floor guards the small-viewport hazard: the
+// occRT is sized in CSS pixels (no pixelRatio), so on a ~390-CSS-px phone quarter-res
+// would be ~98 px — any lower and thin occluders (ring rims, wingtips) drop out and
+// shafts bleed through them. The floor is a no-op at tier0 for any viewport ≥ 192 px.
+let _maskScale = 0.5;
+export function setGodRayMaskScale(s) { _maskScale = s; resizeGodRays(); }
+export function godRayMaskScale() { return _maskScale; }
 const _white = new THREE.Color(0xffffff);
 
 export function initGodRays(renderer, scene, camera, sky) {
@@ -37,8 +45,8 @@ export function godRayTexture() { return occRT ? occRT.texture : null; }
 
 export function resizeGodRays() {
   if (!occRT) return;
-  occRT.setSize(Math.max(2, Math.floor(window.innerWidth * SCALE)),
-                Math.max(2, Math.floor(window.innerHeight * SCALE)));
+  occRT.setSize(Math.max(96, Math.floor(window.innerWidth * _maskScale)),
+                Math.max(96, Math.floor(window.innerHeight * _maskScale)));
 }
 
 // Render the sky=white / geometry=black mask. Called once per frame, right

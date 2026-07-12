@@ -59,22 +59,29 @@ export const FLOOD_HEX = {
   cloudAmount: 0, cloudLit: 0xe8dcff, cloudShadow: 0xcfc2f2, atmosHeightK: 0, atmosInscatter: 0,
 };
 
-// THE UNVEILED HEAVEN (PR-B) — "What the Sky Was a Mask Of." The finale's stage 3 opens from the void
-// into a LIT, holy gold judgment-court: a cool steel-blue zenith over a molten-gold horizon (the
-// anti-sunset signal), the water a bright glassy sea, gold light-RAIN descending (the inversion of the
-// void's up-dust), the props still gone, the stars OUTSHONE. LIT, not blinding — capped at horizon
-// L≈0.744 (the ~0.75 ceiling) so the dark seraph + the amber parry bullets + white cores all read (the
-// sanctioned dark-on-light value inversion: the boss is the shadow the light throws). Contrast
-// re-derived with the gate's own lum(); the boss's S3 focal LIFTS to lead the light (bossUnmasked.js).
+// THE JUDGMENT COURT (PR-J, the chiaroscuro redo) — "What the Sky Was a Mask Of." The owner rejected
+// the first bright-gold heaven ("over-bright and underwhelming"); the redo keeps the same window but
+// flips the value logic: the gold flood detonates and clears into a vast MIDNIGHT CATHEDRAL lit only
+// by the god's own light. MIDNIGHT INDIGO + GOLD (owner-locked): an indigo/violet vault (skyTop L≈.10)
+// over ONE molten-gold horizon BAND (L≈.49 — a band, not a wash), a black-glass mirror sea carrying
+// the sun-road, distance sinking into dark violet-bronze gloom. The dark seraph reads by SILHOUETTE
+// against the divine column + its own halo blazing on the dark vault (S3 = the VOID TRANSFIGURED — kin
+// to S2's dark, now inhabited by light). Stars kept faint (starMix .25); gold light-RAIN finally reads
+// on the dark vault (ambOpacity .9). hemiGround = the void lesson's real lever: a dark warm front-fill
+// models the camera-facing seraph while keeping it a shadow. Contrast re-derived with the gate's own
+// lum(): fog L≈.19 — every role colour clears it DIRECTLY (the layered read lapses below bg .28, so the
+// fog must sit ≥.15 from the nearest band colour: arena-dark 0xa84167 L.352 ⇒ fog ≤ .202); horizon
+// L≈.49 sits inside the layered window [.28,.75] so all six pass there. The boss's S3 focal now CROWNS
+// a silhouette instead of out-brightening a sky (bossUnmasked.js lifts retuned). All TUNE.
 export const HEAVEN_HEX = {
-  skyTop: 0x6f88ad, skyMid: 0xbe9d58, skyHorizon: 0xccaf72, sunGlow: 0xefdaad,
-  fogColor: 0xc9ae78, fogNear: 70, fogFar: 380, fogFarColor: 0xc9ae78, fogFarMix: 1,   // fogFarColor = the fog hex (never author above L.75 — the distant sky's lowest band sinks into it)
-  lightSun: 0xffefc8, lightSunI: 1.42, hemiSky: 0xcfd8e8, hemiGround: 0x8a7a58,
-  waterDeep: 0x5f7aa8, waterShallow: 0xaaa078, waveAmp: 0.5,
-  ambColor: 0xffe9b8, ambFall: 0.5, ambSway: 0.25, ambSize: 0.55, ambOpacity: 0.85,     // GOLD LIGHT-RAIN (the mote pool re-skinned — zero new draws)
-  faunaColor: 0xffe9b8, faunaScale: 0, faunaFlap: 0,
-  starMix: 0, whaleMix: 0, flybyMix: 0,
-  cloudAmount: 0.27, cloudLit: 0xdcc696, cloudShadow: 0xa08862, atmosHeightK: 0, atmosInscatter: 0,   // PR-H0: a gilded "sea of glory" cloudscape rings the holy court (the N9 field the arena owns) — reverent, above the parry corridor; 0.30→0.27 at PR-H1/H2 to bank sky-p95 headroom for the colonnade + rose-window additive spend (A/B-probed: the p95 tail is the god-ray swell + bullets, noise band ±0.01 — the set itself adds ~+0.005 mean, ~0 at max)
+  skyTop: 0x131a36, skyMid: 0x35305e, skyHorizon: 0xa87838, sunGlow: 0xffdf9a,
+  fogColor: 0x372c4e, fogNear: 60, fogFar: 340, fogFarColor: 0x372c4e, fogFarMix: 1,   // dark violet-bronze — distance sinks into gloom (L≈.19: below .202 so every band colour reads DIRECT against it)
+  lightSun: 0xffe2b0, lightSunI: 1.15, hemiSky: 0x7e8fc0, hemiGround: 0x635033,        // cool vault fill + a dark warm front-fill (the seraph models, but stays a shadow)
+  waterDeep: 0x141c36, waterShallow: 0x7e6534, waveAmp: 0.2,                            // BLACK-GLASS mirror sea, gold only in glints; glassy swell buys ~0.18u wing clearance
+  ambColor: 0xffd98a, ambFall: 0.5, ambSway: 0.25, ambSize: 0.55, ambOpacity: 0.9,      // GOLD LIGHT-RAIN (the mote pool re-skinned — zero new draws), finally legible on the dark vault
+  faunaColor: 0xffd98a, faunaScale: 0, faunaFlap: 0,
+  starMix: 0.25, whaleMix: 0, flybyMix: 0,                                              // the pinholes stay FAINTLY there — the court is the void transfigured, not a new sky
+  cloudAmount: 0.12, cloudLit: 0xd9a860, cloudShadow: 0x241d38, atmosHeightK: 0, atmosInscatter: 0,   // Baroque cloud bodies: DARK masses with gilt rims, sparse — the vault stays legible dark
 };
 
 // THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst

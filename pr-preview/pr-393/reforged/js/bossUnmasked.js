@@ -1062,14 +1062,15 @@ export function buildUnmasked(def, quality = 1) {
   const CATCH_BASE = catchMat.color.clone();
   const SCLERA_BASE = greatScleraMat.color.clone();   // ARENA (PR-B): the S3 focal-lift base (the star-eye/greatEye sclera)
 
-  // ── THE ARENA HEAVEN FOCAL LIFT (PR-B, identity-audit F-2): in THE UNVEILED HEAVEN the gold sky is
-  // BRIGHTER than the shipped S3 focal (star-eye sclera L .516 < heaven horizon .744), so unlifted the
-  // finale reads as "a mask on a sunset" (owner-rejected). heavenK (driven by boss.js as the unveil
-  // completes) raises the halo/starburst/star-eye emissive so the boss's light LEADS the world — the
-  // dark seraph is the shadow the light throws, but its FOCAL still reads. heavenK 0 ⇒ byte-identical
-  // (the halo/burst multipliers are ×1; the sclera/catch writes are heavenK>0-guarded). All TUNE.
+  // ── THE ARENA HEAVEN FOCAL LIFT (PR-B; retuned for PR-J THE JUDGMENT COURT): in the chiaroscuro
+  // court the vault is MIDNIGHT (horizon band L≈.49, zenith ≈.10) — the lift's job flipped from
+  // out-brightening a 0.74 gold sky to CROWNING a silhouette. The halo/starburst keep their full
+  // lift (they ARE the god's light, blazing on the dark vault); the sclera/catch lifts come DOWN
+  // (0.5→0.3 / 0.8→0.6) so the star-eye reads as the focal without bulb-flaring inside the dark
+  // frame. heavenK (driven by boss.js as the unveil completes) — 0 ⇒ byte-identical (the halo/burst
+  // multipliers are ×1; the sclera/catch writes are heavenK>0-guarded). All TUNE.
   let heavenK = 0;
-  const SCLERA_LIFT = 0.5, HALO_LIFT = 0.6, BURST_LIFT = 0.9, CATCH_LIFT = 0.8;
+  const SCLERA_LIFT = 0.3, HALO_LIFT = 0.6, BURST_LIFT = 0.9, CATCH_LIFT = 0.6;
   function setArenaHeaven(k) { heavenK = Math.max(0, Math.min(1, k)); }
 
   // ── THE ARENA VOID RIM-LIGHT (PR-V2): THE HOLLOW has NO sun on the camera-facing seraph (the

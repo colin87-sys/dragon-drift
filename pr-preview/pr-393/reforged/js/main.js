@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -26,7 +26,7 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, setWaterReflFar } from './water.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
@@ -34,7 +34,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -161,8 +161,8 @@ function applyWispCosmetic() {
 createEnvironment(scene, runSeed);
 // N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
 if (urlParams.has('ibl') || gfxPref.skyIbl === true) setSkyProbeEnabled(true);
-setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0)
-createWater(scene, true); // real reflection by default; tiers downgrade it
+setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0 + 1)
+createWater(scene, 0); // N11: boot at tier0 (768² full-rate mirror); applyQuality retiers
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
 // N6 hero shadow: apply the saved toggle (the RT exists now); ?shadow forces on.
@@ -179,6 +179,11 @@ if (urlParams.has('clouds') || gfxPref.skyClouds === true) setSkyCloudsEnabled(t
 if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
 // N10b water depth: apply the saved toggle; ?depth forces on (live uniform, no rebuild).
 if (urlParams.has('depth') || gfxPref.waterDepth === true) setWaterDepth(true);
+// N10c foam collars: apply the saved toggle; ?foam forces on (visibility flip).
+if (urlParams.has('foam') || gfxPref.waterFoam === true) setWaterFoam(true);
+// N11 reflection far-plane clamp: on by default (visually identical — the trimmed
+// frustum is entirely past the fog wall); ?reflfar=0 kills it for the perf/visual A/B.
+if (urlParams.get('reflfar') === '0') setWaterReflFar(false);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -393,8 +398,9 @@ if (urlParams.has('debug')) {
       bandDark: bossDebugState()?.bandDark,            // the active dark bullet band (the certified lift at the reveal)
       lift: bossDebugModelLift(),                      // PR-B: the S3 focal-lift state ({k, sclera}) — byte-identity off-heaven
       voidLift: bossDebugModelVoid(),                  // PR-V2: the void rim-light state ({k, rim, rimEm, glow, glowVis}) — byte-identity off-void
-      arenaSet: debugArenaSet(),                       // PR-H1/H2: the heaven's holy-architecture set ({built, visible, k, pillars, tierHidden}) — hidden off-heaven
+      arenaSet: debugArenaSet(),                       // PR-J: the JUDGMENT COURT set ({built, visible, k, panes, tierHidden}) — hidden off-heaven
     }),
+    bossWingMinY: () => debugWingMinWorldY(),           // ARENA P0 (JUDGMENT COURT): exact wingtip min-world-Y (the S3 water-clearance measure)
     bossFell: () => debugFell(),                       // PR-B: force the natural-kill teardown (the only way to exercise the exhale headless)
     forceGameOver: () => { game.state = 'gameover'; },  // PR-B test seam: park the loop in 'gameover' (updateBoss stops) to prove the exhale still decays there (the CP2/Codex blocker: the finale kill jumps straight to gameover)
     bossReset: () => resetBoss(),                      // rung 14: the HARD teardown (game-over / new-run path) — proves the reckoning latch doesn't leak the burn across runs
@@ -678,6 +684,7 @@ ui.init({
     else if (kind === 'skyClouds') setSkyCloudsEnabled(value);
     else if (kind === 'waterSwell') setWaterSwell(value);
     else if (kind === 'waterDepth') setWaterDepth(value);
+    else if (kind === 'waterFoam') setWaterFoam(value);
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
   // rebuild the dragon at the new level immediately (no 4s gate) for instant
@@ -1177,8 +1184,9 @@ function applyQuality(tier) {
   renderer.setPixelRatio(PIXEL_RATIOS[tier]);
   setPostTier(tier);
   setPostPixelRatio(PIXEL_RATIOS[tier]);
-  setWaterReflective(tier === 0);
+  setWaterReflective(tier); // N11: tier0 768² full-rate · tier1 384² half-rate · tier2 cheap quad
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
+  setWaterFoamQuality(tier); // N10c: foam at tier0/1, off at tier2
   setAmbientQuality(QUALITY_SCALARS[tier]);
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
