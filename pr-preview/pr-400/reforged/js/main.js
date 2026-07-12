@@ -510,6 +510,22 @@ on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
+// A boss never STARTS inside a canyon (boss.js gates on !game.inCanyon), but a canyon
+// start marker generated within the spawn-ahead lead can be CROSSED mid-fight — and the
+// fight's clearAhead wipes that run's geometry, and its end marker (generated mid-fight)
+// is dropped. Flush the pending markers + canyon state on bossStart so a scheduled canyon
+// can't half-arm across a fight: no inCanyon/canyonRun stuck after the boss, no soft/eased
+// rock wall live in a danmaku fight tuned to the fatal ±13 wall, no one-frame fatal snap
+// when the stuck state finally clears while the player is >13.
+on('bossStart', () => {
+  pendingCanyonStarts.length = 0;
+  pendingCanyonEnds.length = 0;
+  canyonStartDist = 0;
+  if (game.inCanyon) { game.inCanyon = false; sfx.slipstreamStop(); cameraCtl.setCanyon(false); }
+  game.canyonRun = null;
+  game.canyonLaneHW = null;
+  game.canyonRockSoft = false;
+});
 // KNELLGRAVE's toll-as-world-event (§5d slot 10): the frame FLINCHES on every toll —
 // a bloom breath + vignette squeeze (postfx kick preset). Def-gated at the emitter
 // (only a def.musicDies boss emits 'bossToll'), so every other fight is untouched.
@@ -1407,18 +1423,23 @@ function tick() {
     // over the run's ±40m entry/exit bands (the boundary markers sit exactly ±40m from
     // the first/last ring, and the rock geometry's wide halves are pinned strictly inside
     // that window — canyonMath rockSlicePlan — so the eased wall is ALWAYS ≥ the built
-    // channel). Distance-based → speed-independent + deterministic. Spine runs and the
-    // disabled dial (===laneHalfWidth) leave canyonLaneHW null (today's ±13 fatal wall).
-    if (game.inCanyon && game.canyonRun === 'rock' &&
-        CONFIG.canyonRockLaneHalfWidth > CONFIG.laneHalfWidth) {
+    // channel). Distance-based → speed-independent + deterministic. Guards: rock runs
+    // only (spine keeps its own tube), NOT during a boss (a fight is tuned to the fatal
+    // ±13 wall), only when the v2 carved-slot geometry is built (v1 rollback assumes ±13),
+    // and only when the dial actually widens. canyonRockSoft flags the WHOLE rock run as
+    // clamp+chip (never fatal), independent of the nullable eased width.
+    if (game.inCanyon && game.canyonRun === 'rock' && !game.inBoss &&
+        CONFIG.canyonRockV2 && CONFIG.canyonRockLaneHalfWidth > CONFIG.laneHalfWidth) {
       const sm = (u) => { const c = Math.max(0, Math.min(1, u)); return c * c * (3 - 2 * c); };
       const kIn = sm((player.dist - canyonStartDist) / 40);
       const kOut = pendingCanyonEnds.length ? sm((pendingCanyonEnds[0] - player.dist) / 40) : 1;
       const eff = CONFIG.laneHalfWidth +
         (CONFIG.canyonRockLaneHalfWidth - CONFIG.laneHalfWidth) * Math.min(kIn, kOut);
       game.canyonLaneHW = eff > CONFIG.laneHalfWidth + 0.01 ? eff : null;
-    } else if (game.canyonLaneHW != null) {
+      game.canyonRockSoft = true;
+    } else {
       game.canyonLaneHW = null;
+      game.canyonRockSoft = false;
     }
 
     // Boost start: camera kick + whoosh SFX

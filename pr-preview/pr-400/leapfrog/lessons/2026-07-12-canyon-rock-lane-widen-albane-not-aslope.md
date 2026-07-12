@@ -56,6 +56,33 @@ strictly inside the boundary rings, so the eased wall is always ≥ the built ch
   pulled off the now-wider swayed centre (possibly into a stack). Pure function of segment
   fields → granularity-invariant (canyonframe holds).
 
+**Checkpoint review caught (fold into any local-lane / eased-boundary work — headless
+tests can't see these; they live in the state plumbing, outside the pure-math audit).**
+- **A soft boundary keyed on the nullable eased width re-arms the fatal branch mid-run.**
+  First cut gated the clamp on `game.canyonLaneHW != null`, but the width collapses to null
+  in the ±40m ease bands — so a player riding the shrinking exit wall met the `crash` branch
+  the instant it nulled while still >13: the exact unearned death the design forbids. Fix: a
+  separate `canyonRockSoft` flag true for the WHOLE run drives the soft-vs-fatal choice;
+  the eased width only sets the clamp DISTANCE. Decouple "is it soft" from "how wide".
+- **A clamp's knockback can double-sign against itself.** The chip did `velocity.x = -sign*6`
+  (inward) then `hit(player, sign, …)` — and `hit` adds `+sign*10` (outward), net +4·sign
+  INTO the wall it just clamped out of. The ground/ceiling grammar passes `(0,0)` to `hit`
+  and kicks manually for exactly this reason. Copy the grammar completely, not partially.
+- **A new lane-boundary chip is roll-cheesable unless added to the i-frame exemption.**
+  `hit` exempts only `ground`/`ceiling` from roll i-frames; a new `'wall'` cause skipped all
+  damage under a barrel roll. Any boundary-limit chip must join that exemption list.
+- **Canyon markers cross boss fights.** The start/end markers are consumed every 'playing'
+  frame (bosses stay 'playing'), while `spawnAhead` early-returns during `inBoss` and drops
+  the run's END marker — so a canyon scheduled within the ~500m lead half-arms across a
+  fight and leaves `inCanyon` stuck for km afterward. Flush pending canyon markers + reset
+  the canyon state on `bossStart` (the run's geometry is `clearAhead`'d anyway), and guard
+  the feature block with `!game.inBoss`. Pre-existing latent seam; the widen weaponized it.
+- **Gate a live behavior on the SAME flag as its geometry.** The eased wall gated only on
+  `canyonRockLaneHalfWidth > laneHalfWidth`, but the carved-slot geometry gates on
+  `canyonRockV2` — so the documented v1 rollback (`canyonRockV2:false`) would run a soft 16
+  wall over ±13-assuming v1 geometry. A runtime behavior and the geometry it assumes must
+  share one enable flag.
+
 **Leapfrog.** "Widen the lane" is now the proven answer for "more rock banking" (up to ~16,
 then aSlope caps it). And the standing law: **when a 'make it more intense' lever is inert,
 MEASURE which of the competing caps actually binds before concluding it's the fairness
