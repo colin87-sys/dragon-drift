@@ -352,6 +352,9 @@ export function createDragon(scene, def, riderDef) {
 }
 
 function buildRider(riderDef, socket) {
+  // `?norider` (capture-only): skip the rider + its bloom glow so a dragon review/hero shot reads
+  // the CREATURE, not the premium-rider glow sprite sitting at its back. No gameplay effect.
+  try { if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('norider')) return; } catch { /* no location */ }
   const rider = new THREE.Group();
   riderGroup = rider;
 

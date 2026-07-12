@@ -583,11 +583,17 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   // Knife-edge band — a SINGLE thin translucent layer (never stacked back-faces; the
   // CP3.2 0.82² lesson). Glossier + the BRIGHTEST wing value so the scalloped rim glints as
   // lit night-glass above even the inboard tier (the raised-rim rim-catch).
-  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, 0x3b4a5e, 0.8), emissive: 0x000000, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
+  // WITHHELD ion-blue emissive on the knife-edge (the gate's "the Surge must blaze on the DRAGON,
+  // not the scene FX"): dark in cruise (near-zero base → the wing owns the frame by silhouette),
+  // but on the Night Surge the whole scalloped wing OUTLINE ignites ion-blue (the two-accent law
+  // sanctions the second accent blazing during Surge). Pushed into the wing's surge mats below.
+  M.edgeMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, 0x3b4a5e, 0.8), emissive: 0x2050e8, emissiveIntensity: 0.045, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.68 });
   M.edgeMat.envMapIntensity = 0.32;
+  M.edgeMat.userData.baseEmissive = 0x2050e8; M.edgeMat.userData.baseIntensity = 0.045;   // surge lerps → surgeHi
 
   const rootSpark = (model.seamRootSpark ?? 0) > 0;   // f3: one short inset seam streak per wing root
   const wingSpineMats = [];
+  if (edgeBand) wingSpineMats.push(M.edgeMat);   // the knife-edge blazes ion-blue on Surge (withheld in cruise)
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
@@ -702,6 +708,12 @@ function buildVesperCatHead(def, model, mats) {
   // camera and OWN the face-front money shot (Fable I3 gate, issue 1).
   const es = model.eyeScale ?? 1, alm = model.eyeAlmond ?? 1;
   const sx = 1.2 + 0.55 * alm, sy = 1.1 - 0.52 * alm;
+  // Eye LIGHT grows up the ladder (fixes the inversion the gate caught — the apex almond is
+  // smaller than the whelp's round eye, so on a dark shop card T0 out-lit T3, a backwards grind
+  // signal). Ramp the emissive intensity with glowLevel so the apex eye BLAZES brightest even as
+  // it narrows — light growing is the grind reward. The rig only re-sets the eye COLOR per frame,
+  // not intensity, so this holds in cruise + the shop preview.
+  eyeMat.emissiveIntensity = 0.7 + 1.7 * (model.glowLevel ?? 1);
   for (const side of [1, -1]) {
     const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.172 * hs * es, 0), eyeMat);   // roster's LARGEST eye (identity claim, §6)
     eye.position.set(side * 0.19 * hs, 0.14 * hs, -0.15 * hs);   // high on the brow, forward
@@ -850,11 +862,14 @@ function buildSplitFanTail(def, model, mats, anchor) {
       // E4 — a trailing STREAMER ribbon off the outer petal, bound to the last tail joint so the
       // CP3 whip animates it (a living finished-blade closer). Thin knapped ribbon, dial-gated.
       if ((model.tailStreamers ?? 0) > 0) {
-        const oT = tips[petals - 1], w = 0.022;
-        const sE = [oT[0] * 0.7, oT[1] - 0.06, oT[2] + 0.42 + 0.28 * spread];
+        const oT = tips[petals - 1], w = 0.024;
+        // LONG (≈1.1u) so it reads at chase distance + the CP3 tail-whip visibly animates it (gate note).
+        const sE = [oT[0] * 0.55, oT[1] - 0.14, oT[2] + 1.05 + 0.4 * spread];
+        const sMid = [oT[0] * 0.8, oT[1] - 0.04, oT[2] + 0.5 + 0.2 * spread];   // a slight droop mid-ribbon
         add(flatTriMesh([
-          [[oT[0] - w, oT[1], oT[2]], [oT[0] + w, oT[1], oT[2]], sE],
-          [[oT[0] + w, oT[1], oT[2]], [sE[0] + w * 0.4, sE[1], sE[2] - 0.02], sE],
+          [[oT[0] - w, oT[1], oT[2]], [oT[0] + w, oT[1], oT[2]], sMid],
+          [[oT[0] + w, oT[1], oT[2]], [sMid[0] + w * 0.6, sMid[1], sMid[2]], sMid],
+          [[sMid[0] - w * 0.6, sMid[1], sMid[2]], [sMid[0] + w * 0.6, sMid[1], sMid[2]], sE],
         ], M.dorsalFacet));
       }
     }

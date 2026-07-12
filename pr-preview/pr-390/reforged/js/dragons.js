@@ -593,7 +593,7 @@ export const DRAGONS = {
         earFinPairs: 3, eyeAlmond: 0.7, splitFan: 2, tailFinSpread: 1.0, tailStretch: 1.0, tailRudder: 0,
         seamRun: 1.0, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 7, haunchFlakes: 1, tailNubs: 3, tailMidFins: 0,
         colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0x62dc22 } },
-      { spanScale: 1.05, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
+      { spanScale: 1.05, glowLevel: 1.00, eyeScale: 0.86, headScale: 1.00, igniteStage: 3,
         scallopLobes: 5, glideRake: 1.0, constellations: 8, wingCreases: 1, cowlPlates: 1, edgeBand: 1,
         wingParts: 3, midAmp: 0.34, tipAmp: 0.65, glidePow: 2.2,   // sovereign: deep wrist fold (longer hand reads it), held-glide beat
         knapPlates: 18, covertRow: 12, wingNSEG: 6, crestBlade: 1, tailPetals: 6, tailStreamers: 1,   // the finished blade
