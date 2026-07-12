@@ -101,10 +101,14 @@ export function updateCollision(dt, player) {
       hit(player, 0, 0, CONFIG.canyonCeilingDamage, 'wall');
     } else if (game.inCanyon && game.canyonRun === 'flow') {
       // FLOW run (the Rhythm Flow-Tube): a walls-free victory lap — clamp at the lane
-      // edge with NO damage (the boss-arena grammar). A wide drift costs the styling
-      // chain (score), never health: "miss the line, drop the combo, not health".
+      // edge with NO damage. A wide drift costs the styling chain (score), never health:
+      // "miss the line, drop the combo, not health". Use the ROCK grammar's INWARD kick
+      // (not vx=0): a player pressed on the edge always carries inward velocity across the
+      // end marker, so they can never rest exactly on the boundary the frame canyonRun
+      // clears and the fatal wall re-arms (the wall-death class this run exists to abolish).
+      const sign = Math.sign(p.x) || 1;
       p.x = Math.max(-CONFIG.laneHalfWidth, Math.min(CONFIG.laneHalfWidth, p.x));
-      player.velocity.x = 0;
+      player.velocity.x = -sign * 6;
     } else {
       crash(player, 'wall');
       return;
