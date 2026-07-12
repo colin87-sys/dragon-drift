@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -393,6 +393,7 @@ if (urlParams.has('debug')) {
       bandDark: bossDebugState()?.bandDark,            // the active dark bullet band (the certified lift at the reveal)
       lift: bossDebugModelLift(),                      // PR-B: the S3 focal-lift state ({k, sclera}) — byte-identity off-heaven
       voidLift: bossDebugModelVoid(),                  // PR-V2: the void rim-light state ({k, rim, rimEm, glow, glowVis}) — byte-identity off-void
+      arenaSet: debugArenaSet(),                       // PR-H1/H2: the heaven's holy-architecture set ({built, visible, k, pillars, tierHidden}) — hidden off-heaven
     }),
     bossFell: () => debugFell(),                       // PR-B: force the natural-kill teardown (the only way to exercise the exhale headless)
     forceGameOver: () => { game.state = 'gameover'; },  // PR-B test seam: park the loop in 'gameover' (updateBoss stops) to prove the exhale still decays there (the CP2/Codex blocker: the finale kill jumps straight to gameover)
@@ -1181,6 +1182,7 @@ function applyQuality(tier) {
   setAmbientQuality(QUALITY_SCALARS[tier]);
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
+  setArenaSetQuality(tier); // ARENA PR-H1/H2: tier2 drops the heaven's holy architecture (palette + rays carry it)
 }
 
 function updateQuality(dt) {

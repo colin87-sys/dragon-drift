@@ -11,10 +11,13 @@ import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } fro
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
+import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet } from './arenaSet.js';
 
 // Re-export the sky-IBL + prop-AO + atmosphere + sky-cloud controls so main.js
 // drives them through environment.
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
+// ARENA (PR-H1/H2): the heaven's holy-architecture set — tier switch + test seam ride through here too.
+export { setArenaSetQuality, debugArenaSet };
 
 // N8: the fog-chunk override MUST run before any material compiles. Installing at
 // module load (before createEnvironment builds the prop materials) guarantees it;
@@ -410,6 +413,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
     bands.push(makeBand(scene, ARCHETYPES[key]));
   }
 
+  // --- ARENA (PR-H1/H2): THE UNVEILED HEAVEN's holy architecture (colonnade + rose-window).
+  // Built once, hidden; driven off the stateless arena mix inside updateEnvironment below.
+  createArenaSet(scene);
+
   // --- Ambient particles + birds.
   createAmbient(scene);
 }
@@ -531,6 +538,7 @@ function reseedBand(band) {
 export function resetEnvironment(seed) {
   if (seed !== undefined) rnd = mulberry32(seed + 99);
   arenaPropsGate = false;   // ARENA (PR-A): a new-run reseed from a paused void frame reseats the bands VISIBLE (belt-and-braces to the self-healing per-frame restore)
+  resetArenaSet();          // ARENA (PR-H1/H2): same belt-and-braces for the heaven furniture
   for (const band of bands) reseedBand(band);
   feverMix = 0;
   bossMix = 0;
@@ -555,6 +563,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
     for (const band of bands) updateBandVisibility(band);
   }
   for (const band of bands) recycleBand(band, playerDist);
+
+  // ARENA (PR-H1/H2): the heaven's holy architecture rides the SAME stateless mix/fade the skin
+  // reads — visible only in the heaven window, dissolved by the exhale, self-healing on teardown.
+  updateArenaSet(time, playerDist, arenaMix, arenaFade);
 
   // --- Biome atmosphere lerp: sky, fog, lights, water all follow the seam.
   const env = computeEnv(playerDist);
