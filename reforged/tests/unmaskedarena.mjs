@@ -208,7 +208,9 @@ check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.are
   `THE GODHEAD DETONATION engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, mode ${heaven.arenaSet?.mode})`);
 // GODHEAD DETONATION P4: the DEBRIS field rides the blast in the settled heaven, and NO chunk can
 // enter the focal/corridor column (hard |x| ≥ 25 by construction — the layout invariant).
-check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 160,
+check(heaven.arenaSet?.debrisFlybyMargin >= 0,
+  `the FLYBY rocks never cross the flight lane at any depth (margin ${heaven.arenaSet?.debrisFlybyMargin} ≥ 0 — the widening keep-out cone)`);
+check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 1536,
   `the DEBRIS conveyor + EMBER layer ride the heaven, clear of the focal column (debris ${heaven.arenaSet?.debrisVis} min|x| ${heaven.arenaSet?.debrisMinX} ≥ 25, embers ${heaven.arenaSet?.emberVis}/${heaven.arenaSet?.emberN})`);
 // PR-K: THE HAZE-DECK — the sea drops ~30u in the settled heaven (the "water" becomes a cosmic haze
 // far below), and the seraph's wings clear it by ≥10u (the P0 probe seam: wingMinY − waterY). The
@@ -353,7 +355,10 @@ const exhale = await page.evaluate(async () => {
   window.__dd.bossFell();
   window.__dd.forceGameOver();   // the finale/rush kill jumps STRAIGHT to gameover → updateBoss stops. The exhale must decay in updateArenaExhale (all-states) or it strands (CP2/Codex BLOCKER).
   const samples = [];
-  for (let i = 0; i < 28; i++) { await new Promise((r) => setTimeout(r, 120)); const s = window.__dd.bossArenaState(); samples.push({ mix: s.mix, fade: s.fade }); }
+  // 40 (was 28): the ~2.5s exhale is fixed game-time, but the richer detonation (dense particulate) is
+  // heavier to RASTERISE headless, so dt-clamping accumulates game-time slower per wall-second — more
+  // poll frames give the software renderer room to reach mix 0 (a real GPU completes it in one blink).
+  for (let i = 0; i < 40; i++) { await new Promise((r) => setTimeout(r, 120)); const s = window.__dd.bossArenaState(); samples.push({ mix: s.mix, fade: s.fade }); }
   return samples;
 });
 const heldMix = exhale.every((s) => s.mix >= 1.99 || s.mix === 0);   // holds at 2, then snaps to 0 at exhale end

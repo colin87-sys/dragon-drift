@@ -66,11 +66,19 @@ const BREATH_HZ = 0.22;             // the held presence barely breathes (±2% s
 // SUBTRACT brightness from the probes = fairness-positive). Stable-room anchored (under `set`) + TIME-
 // driven so the conveyor never freezes even when the player hovers. Hard |x| ≥ 25 keeps the focal +
 // corridor column clean (layout-asserted). ONE InstancedMesh, +1 draw, tier-2 hidden with the set.
-const DEBRIS_N = 30;                // 28 + 2 hero chunks (D3b medium)
+const DEBRIS_N = 30;                // 8 FLYBY (huge, whoosh past the camera) + 22 background conveyor
 const DEBRIS_R_IN = 34, DEBRIS_R_OUT = 106;   // screen-radius spread: inner (deep, near centre) → outer (frame edge). R_IN·cos(0.6)=28 ≥ 25 by construction
 const DEBRIS_Z_FAR = -560, DEBRIS_Z_NEAR = -70;   // conveyor depth travel (local to the −playerDist anchor): deep (appears central) → near (flown forward)
 const DEBRIS_CY = 62;              // the detonation centre the field radiates from (between the boss ≈18 and the star 100)
 const DEBRIS_BODY = 0x14102a;      // near-black indigo — dark tumbling silhouettes; lit warm on the star side by lightSun
+// FLYBY dials — huge rocks coming CLOSE and whooshing PAST the camera on the sides, provably never in
+// the flight lane. The keep-out is a CONE that WIDENS with proximity: a near rock spreads outward on
+// screen, so the world-x exclusion must grow with camera-depth. `x = side·max(26, 11.7 + 1.3·s +
+// 1.15·d)` where d = camera-relative depth; the 11.7 is the max camera-x (0.9·laneHalfWidth 13), 1.3·s
+// the tumble bounding radius, and 1.15 the (C·tan(fov/2)·aspect) slope (with margin over the k=1.0
+// constraint). z travels far→behind-camera so the recycle happens OFFSCREEN (no pop).
+const FLYBY_N = 8, FLYBY_SPEED = 0.05, FLYBY_Z_FAR = -300, FLYBY_Z_NEAR = 30, CAM_LOCAL_Z = 13.2;
+let debrisFlybyMargin = 0;         // min over the path of (x − k=1.0 lane-clearance) — asserted ≥ 0
 
 // Owner-locked star mode: 'detonation' (THE GODHEAD DETONATION — the locked default) |
 // 'supernova' | 'spiral' (the pre-apotheosis A/B seams, kept for owner preview — D7a).
@@ -81,8 +89,8 @@ let starGroup = null;               // breath pivot at (0, STAR_Y, -STAR_DIST)
 let nova = null, spiral = null, deton = null;   // the three mode meshes (one visible)
 let novaMat = null, spiralMat = null, detMat = null;
 let debris = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // the recycled radial-outward rock conveyor
-let embers = null, emberMat = null;    // P3: the fine-particulate spark layer (shader-driven, recycled)
-const EMBER_N = 160;
+let embers = null, emberMat = null;    // the fine-particulate spark layer (shader-driven, recycled)
+const EMBER_N = 1536;                  // the roiling "substance": dense curved trails, ONE static draw
 let tierHidden = false;             // low-tier kill switch (setArenaSetQuality)
 let lastK = 0;                      // debug seam: the engage level actually applied this frame
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _sc = new THREE.Vector3();   // debris scratch (alloc-free)
@@ -221,7 +229,7 @@ function buildSpiralGeo(prnd) {
 const GOLD_IN = [1.00, 0.85, 0.54];    // molten-gold inner blast (0xffd98a)
 const ROSE_MID = [0.85, 0.54, 0.39];   // gold-rose mid filaments (0xd98a64 — the shipped nebula key)
 const VIO_OUT = [0.50, 0.40, 0.70];    // rose-violet → S2 void-violet shock rim (0x6a5ca8, additive-boosted)
-const DET_CORONA_R = 280;              // the blast corona, widened from the nova's 240
+const DET_CORONA_R = 340;              // the billowing fire mass (widened 280→340; paid for by the thinned streak fan)
 const ECL_R0 = 150, ECL_R1 = 210;      // the seraph's ±27° eclipse @ 420m: streaks are black inside, ignite outside
 const smoothstep = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
@@ -246,7 +254,7 @@ function buildDetonationGeo(prnd) {
   // ── CORONA (aType 3): the vast soft blast glow — (1-t)^1.4 to black at the rim. uv = [radial t,
   // angle fraction]; the shader domain-warps an FBM over it → a MOLTEN ROILING substrate (the richest
   // zone in the reference, previously the flattest here). More angular segments now that it carries detail.
-  const RSEG = 6, ASEG = 48;
+  const RSEG = 8, ASEG = 48;
   const cProf = (t) => Math.pow(Math.max(0, 1 - t), 1.4) * 0.5;
   const cCol = (t) => { const b = cProf(t), c = lerp3(GOLD_IN, ROSE_MID, ss(t * 1.3)); return [c[0] * b, c[1] * b, c[2] * b]; };
   for (let j = 0; j < RSEG; j++) {
@@ -261,12 +269,12 @@ function buildDetonationGeo(prnd) {
   }
   // ── RADIAL STREAK FAN (aType 1): the frame-filler + the primary perpetual loop. Eclipse + down-
   // suppression BAKED into vertex colour; the shader adds the outward scroll + tip decay + edge fade.
-  const NST = 64, SEG = 5, W_IN = 6.5, W_TIP = 1.1;
+  const NST = 48, SEG = 5, W_IN = 4.2, W_TIP = 0.8;             // fewer, THINNER — demoted from spokes to snaking dust rivulets (the embers now carry the density)
   for (let s = 0; s < NST; s++) {
-    const a = (s / NST) * TAU + (prnd() - 0.5) * 0.05;
+    const a = (s / NST) * TAU + (prnd() - 0.5) * 0.07;
     const sinA = Math.sin(a), down = sinA < -0.15;              // pointing below horizontal
-    const lenBase = 300 + prnd() * 320;                         // 300..620u — long ones reach the frame edges
-    const len = down ? lenBase * 0.5 : lenBase, gain = down ? 0.4 : 1.0;
+    const lenBase = 280 + prnd() * 280;                         // 280..560u
+    const len = down ? lenBase * 0.5 : lenBase, gain = (down ? 0.4 : 1.0) * 0.85;   // −15% baked gain — the particulate carries the reach
     const ex = Math.cos(a), ey = sinA, nx = Math.cos(a + Math.PI / 2), ny = Math.sin(a + Math.PI / 2);
     const ph = prnd() * TAU;                                    // per-streak scroll phase (breaks lockstep)
     for (let j = 0; j < SEG; j++) {
@@ -355,16 +363,20 @@ const DET_FRAG = `
     for (int i = 0; i < 3; i++){ if (float(i) >= uOct) break; s += amp * vnoise(p); tot += amp; p = p * 2.02 + 7.1; amp *= 0.5; }
     return tot > 0.0 ? s / tot : 0.5;
   }
+  // THE SHARED EXPANSION FRONT: a gaussian luminance crest travelling outward (period 4.6s), fading to
+  // zero at max radius and re-born at the core → seamless growth pulse. Multiplied into every layer so
+  // the WHOLE blast visibly grows outward (§3: expansion allowed, rotation forbidden). exp is NaN-safe.
+  float frontAt(float rr){ float fph = fract(uTime / 4.6); float dR = rr - 560.0 * fph; return 1.0 + 0.4 * exp(-(dR * dR) / 3025.0) * sin(3.14159265 * fph); }
   void main(){
     float b = 1.0;
-    if (vType > 2.5) {                                   // CORONA — domain-warped MOLTEN CELLS
+    if (vType > 2.5) {                                   // CORONA — the BILLOWING FIRE MASS
       float t = vUv.x;                                   // radial 0(core edge)→1(rim)
       float ang = vUv.y * 6.2831853;
       vec2 ring = vec2(cos(ang), sin(ang)) * (2.0 + t * 3.6);   // seam-free annulus → noise space
-      vec2 warp = vec2(fbm(ring + vec2(-uTime * 0.14, 0.0)), fbm(ring + 4.7)) - 0.5;
-      float n = fbm(ring * 2.3 + warp * 2.1 + vec2(-uTime * 0.2, 0.0));   // molten substrate scrolls outward
+      vec2 warp = vec2(fbm(ring + vec2(-uTime * 0.16, 0.0)), fbm(ring + 4.7)) - 0.5;
+      float n = fbm(ring * 2.3 + warp * 3.0 + vec2(-uTime * 0.22, 0.0));   // billow curls (warp 2.1→3.0)
       float cells = 0.32 + 1.5 * n * n;                  // n² → bright cells + dark cracks (reads through bloom)
-      b = mix(1.0, cells, uRoil);                        // ~energy-preserving flat→molten blend
+      b = mix(1.0, cells, uRoil) * frontAt(t * 340.0);   // molten mass, growing outward with the front
     } else if (vType > 1.5) {                            // SHOCK RING — soft band × filamented wavefront
       float t = vUv.x, ang = vUv.y * 6.2831853;
       float band = pow(max(0.0, sin(t * 3.14159265)), 1.4);   // black on both edges (clamp: no NaN)
@@ -372,15 +384,16 @@ const DET_FRAG = `
       float fn = fbm(vec2(cos(ang), sin(ang)) * 4.6 + vec2(t * 2.0 - uTime * uRing * 0.3, 0.0));
       float fil = 0.45 + 0.9 * fn * fn;                  // sharpened angular filaments (not a clean compass ring)
       b = band * wave * fil;
-    } else if (vType > 0.5) {                            // STREAK — RIDGED FIBROUS VEINS × tip decay × scroll
+    } else if (vType > 0.5) {                            // STREAK — SNAKING DUST RIVULET (not a straight ray)
       float t = vUv.x;
       float decay = pow(max(0.0, 1.0 - t), 0.8);         // dies to black at the tip
       float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.3); // soft sides (clamp: no NaN)
-      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0));  // high-freq roil
+      float lat = (fbm(vec2(t * 2.5 - uTime * 0.25, vPhase * 7.0)) - 0.5) * 2.5;   // LATERAL drift → the vein snakes across the quad (not a straight line)
+      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0 + lat));  // advected roil
       float veins = pow(max(0.0, 1.0 - abs(2.0 * n - 1.0)), 2.2);   // RIDGED → thin bright veins, dark between (clamp)
       float pulse = 0.4 + 0.6 * (0.5 + 0.5 * sin(t * 12.0 - uTime * uFlow + vPhase));  // core→tip energy pulse
       float flow = (0.22 + 1.7 * veins) * pulse;         // crisp fibers that survive the bloom
-      b = decay * edge * flow;
+      b = decay * edge * flow * frontAt(t * 500.0);      // grows outward with the shared front
     }
     gl_FragColor = vec4(vCol * b * uGain, 1.0);          // additive: black adds nothing (soft everywhere)
   }`;
@@ -394,48 +407,77 @@ const addDetMat = () => {
   return m;
 };
 
-// ── P3 EMBER/SPARK LAYER: ~160 tiny billboarded quads streaming outward, FULLY shader-driven (the
-// vertex computes each spark's radius from uTime → zero CPU/frame). The fine particulate between the
-// big streaks and the rocks that sells the blast's vastness. Baked fairness (eclipse gate + down-
-// suppression in the vertex), tip-fade recycle, hot-gold→violet over life. Additive, +1 draw, ~640 tris,
-// tiny screen fill (each spark a few px) — NOT a "large additive volume" (the §2 overdraw cap holds).
+// ── THE PARTICULATE MASS: ~1536 fine STREAK-TRAILS streaming outward on CURVED, coherently-braiding
+// paths — the roiling "substance" of the explosion (what turns "radiating lines" into a volumetric
+// blast). FULLY shader-driven (each trail's radius/angle computed from uTime → zero CPU/frame). Each
+// billboard is STRETCHED along its analytic velocity tangent (a motion streak, not a dot). A shared
+// EXPANSION FRONT (a traveling luminance crest, period T, seamless) makes the whole field visibly GROW
+// outward every ~4.6s (§3 stillness allows expansion, forbids rotation). Baked fairness (eclipse gate +
+// down-suppression), hot-gold→violet over life. Additive, +1 draw, ~3k tris, ~5–7% frame in fine sprites
+// (NOT a large additive volume). Coherence: swirlAmp sampled from a smooth harmonic field over `dir` so
+// neighbouring trails braid together (a curl READ) instead of wiggling independently.
 function buildEmbers(prnd) {
-  const pos = [], aq = [], aseed = [];
-  const CORN = [[-1, -1], [1, -1], [1, 1], [-1, 1]], TRI = [0, 1, 2, 0, 2, 3];
+  // A smooth coherent swirl field over the circle (few harmonics, deterministic) → neighbours braid.
+  const H = []; for (let h = 0; h < 4; h++) H.push({ k: 2 + h, amp: prnd(), ph: prnd() * TAU });
+  const swirlField = (d) => { let s = 0; for (const h of H) s += h.amp * Math.sin(h.k * d + h.ph); return s / H.length; };
+  const P = [];
   for (let e = 0; e < EMBER_N; e++) {
-    const dir = prnd() * TAU, speed = 0.08 + prnd() * 0.13, phase = prnd(), size = 0.9 + prnd() * 2.4;
-    for (const k of TRI) { pos.push(0, 0, 0.06); aq.push(CORN[k][0], CORN[k][1]); aseed.push(dir, speed, phase, size); }
+    const dir = prnd() * TAU, sf = swirlField(dir);
+    P.push({ dir, speed: 0.06 + prnd() * 0.14, phase: prnd(), size: 0.8 + prnd() * 2.6,
+      swAmp: 0.14 + 0.34 * (0.5 + 0.5 * sf), swFreq: 1.4 + 1.6 * prnd(), swPh: prnd() * TAU, stretch: 2.4 + prnd() * 2.8 });
+  }
+  P.sort((a, b) => b.size - a.size);   // biggest first → tier-1 drawRange keeps the largest trails
+  const pos = [], aq = [], aseed = [], aseed2 = [];
+  const CORN = [[-1, -1], [1, -1], [1, 1], [-1, 1]], TRI = [0, 1, 2, 0, 2, 3];
+  for (const p of P) {
+    for (const k of TRI) {
+      pos.push(0, 0, 0.06); aq.push(CORN[k][0], CORN[k][1]);
+      aseed.push(p.dir, p.speed, p.phase, p.size); aseed2.push(p.swAmp, p.swFreq, p.swPh, p.stretch);
+    }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('aQuad', new THREE.Float32BufferAttribute(aq, 2));
   geo.setAttribute('aSeed', new THREE.Float32BufferAttribute(aseed, 4));
+  geo.setAttribute('aSeed2', new THREE.Float32BufferAttribute(aseed2, 4));
   emberMat = new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uGain: { value: 0 } },
     vertexShader: `
-      attribute vec2 aQuad; attribute vec4 aSeed;   // aSeed = dir, speed, phase, size
+      attribute vec2 aQuad; attribute vec4 aSeed; attribute vec4 aSeed2;   // aSeed=dir,speed,phase,size · aSeed2=swirlAmp,swirlFreq,swirlPhase,stretch
       uniform float uTime;
       varying vec2 vQ; varying float vGlow; varying float vLife;
       void main(){
         float life = fract(uTime * aSeed.y + aSeed.z);
-        float r = mix(30.0, 360.0, life);
-        float dir = aSeed.x;
-        vec2 c = vec2(cos(dir), sin(dir)) * r;
-        float ecl = smoothstep(150.0, 210.0, r);                       // ignite only outside the seraph
-        float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(dir));      // suppress the corridor column
-        vGlow = ecl * down * (1.0 - life) * smoothstep(0.0, 0.06, life);
+        float sw = aSeed2.x, swf = aSeed2.y, swp = aSeed2.z;
+        float theta = aSeed.x + sw * sin(swf * life + swp) + 0.5 * sw * sin(2.3 * swf * life + aSeed.z * 6.2831853);
+        float decel = pow(max(0.0, 1.0 - life), 1.7);
+        float rr = 520.0 * (1.0 - decel);                              // fast early expansion, decelerating roil
+        vec2 rad = vec2(cos(theta), sin(theta));
+        vec2 c = rad * rr;
+        // analytic velocity tangent → stretch the billboard into a motion streak
+        float drdl = 520.0 * 1.7 * pow(max(0.0, 1.0 - life), 0.7);
+        float dthdl = sw * swf * cos(swf * life + swp) + 1.15 * sw * swf * cos(2.3 * swf * life + aSeed.z * 6.2831853);
+        vec2 tang = drdl * rad + rr * dthdl * vec2(-rad.y, rad.x);
+        tang *= inversesqrt(max(1e-6, dot(tang, tang)));               // NaN-safe normalize
+        vec2 nrm = vec2(-tang.y, tang.x);
+        // shared EXPANSION FRONT: a gaussian luminance crest travelling outward, seamless loop
+        float fph = fract(uTime / 4.6), rFront = 560.0 * fph, dR = rr - rFront;
+        float front = 1.0 + 0.4 * exp(-(dR * dR) / 3025.0) * sin(3.14159265 * fph);
+        float ecl = smoothstep(150.0, 210.0, rr);                      // ignite only outside the seraph
+        float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(theta));    // suppress the corridor column
+        vGlow = ecl * down * (1.0 - life) * smoothstep(0.0, 0.05, life) * front;
         vLife = life; vQ = aQuad;
         vec4 mv = modelViewMatrix * vec4(c, 0.06, 1.0);
-        mv.xy += aQuad * aSeed.w;                                       // screen-facing billboard
+        mv.xy += aQuad.x * tang * (aSeed.w * aSeed2.w) + aQuad.y * nrm * aSeed.w;   // stretch along velocity, width across
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
       uniform float uGain;
       varying vec2 vQ; varying float vGlow; varying float vLife;
       void main(){
-        float spark = max(0.0, 1.0 - dot(vQ, vQ));                     // soft round dot (clamp)
+        float s = max(0.0, (1.0 - vQ.x * vQ.x) * (1.0 - vQ.y * vQ.y));   // soft rounded streak (clamp)
         vec3 col = mix(vec3(1.0, 0.86, 0.58), vec3(0.55, 0.42, 0.72), vLife);   // hot gold young → violet old
-        gl_FragColor = vec4(col * spark * spark * vGlow * uGain, 1.0);
+        gl_FragColor = vec4(col * s * vGlow * uGain, 1.0);
       }`,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
   });
@@ -498,20 +540,33 @@ function buildDebris(prnd) {
   debris.layers.set(1);   // out of the god-ray mask + water mirror (opaque, but the RenderPass shares depth so it still occludes correctly)
   debrisP = [];
   const heat = new Float32Array(DEBRIS_N);
-  let minX = Infinity;
+  let minX = Infinity, flyMargin = Infinity;
   for (let i = 0; i < DEBRIS_N; i++) {
+    if (i < FLYBY_N) {                                          // FLYBY: huge rocks whooshing past the camera
+      const side = i % 2 === 0 ? 1 : -1, size = 5.0 + prnd() * 4.0;   // 5..9u — hero-sized, capped so the lane margin stays positive
+      heat[i] = 1.2 + prnd() * 0.5;
+      debrisP.push({ flyby: true, side, size, phase: i / FLYBY_N, flyY: (prnd() - 0.5) * 90,
+        ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });   // even phase spacing caps simultaneous near-passes
+      for (let ps = 0; ps <= 24; ps++) {                       // verify the lane-clearance margin over the whole path
+        const p = ps / 24, zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
+        const x = Math.max(26, 11.7 + 1.3 * size + 1.15 * dc);
+        flyMargin = Math.min(flyMargin, x - (11.7 + 1.3 * size + 1.0 * dc));
+      }
+      debris.setMatrixAt(i, _m.makeScale(0, 0, 0));
+      continue;
+    }
     const side = prnd() < 0.5 ? -1 : 1;
     const ang = (prnd() - 0.5) * 1.2;                          // ±0.6 rad from horizontal — the vertical column stays clear
-    let size = 2.0 + prnd() * 2.2;
-    if (i < 2) size *= 2.4;                                     // 2 hero chunks (D3b)
-    heat[i] = i < 2 ? 1.5 : 0.6 + prnd() * 0.5;                // heroes run molten-hot; the field varies
-    const yBias = (i >= 2 && i < 6) ? -(48 + prnd() * 30) : 0; // 4 chunks below-deck, half-sunk in the haze
+    const size = 2.0 + prnd() * 2.2;
+    heat[i] = 0.6 + prnd() * 0.5;                              // the background field varies
+    const yBias = (i >= FLYBY_N && i < FLYBY_N + 4) ? -(48 + prnd() * 30) : 0; // 4 chunks below-deck, half-sunk in the haze
     const speed = 0.085 + prnd() * 0.06;                       // conveyor traverse ≈ 7–11s (majestic, D6a)
     debrisP.push({ side, cos: Math.cos(ang), sin: Math.sin(ang), size, yBias, speed, phase: prnd(),
       ts: (prnd() - 0.5) * 0.6, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });   // tumble seeds (local spin; translation stays radial — nothing orbits)
     minX = Math.min(minX, Math.abs(Math.cos(ang)) * DEBRIS_R_IN);
     debris.setMatrixAt(i, _m.makeScale(0, 0, 0));              // hidden until the first drive frame
   }
+  debrisFlybyMargin = +flyMargin.toFixed(2);
   geo.setAttribute('aHeat', new THREE.InstancedBufferAttribute(heat, 1));   // per-instance molten heat (heroes hotter)
   debris.instanceMatrix.needsUpdate = true;
   debrisMinX = +minX.toFixed(2);
@@ -609,6 +664,17 @@ export function updateArenaSet(time, playerDist, mix, fade) {
   if (debris) {
     for (let i = 0; i < DEBRIS_N; i++) {
       const d = debrisP[i];
+      if (d.flyby) {                                            // FLYBY: come CLOSE + whoosh PAST, on the cone that clears the lane
+        const p = (time * FLYBY_SPEED + d.phase) % 1;
+        const zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
+        const env = ss(p / 0.05) * ss((1 - p) / 0.05);         // fade at the far birth + the offscreen recycle
+        _v.set(d.side * Math.max(26, 11.7 + 1.3 * d.size + 1.15 * dc), DEBRIS_CY + d.flyY, zl);   // perspective grows the size as it nears
+        _e.set(d.e0 + time * d.ts, d.e1 + time * d.ts * 0.7, d.e2);
+        _q.setFromEuler(_e);
+        _sc.setScalar(Math.max(1e-4, d.size * k * env));
+        debris.setMatrixAt(i, _m.compose(_v, _q, _sc));
+        continue;
+      }
       const p = (time * d.speed + d.phase) % 1;
       const r = DEBRIS_R_IN + (DEBRIS_R_OUT - DEBRIS_R_IN) * p;
       const env = ss(p / 0.06) * ss((1 - p) / 0.14);            // birth scale-in · recycle fade-out
@@ -626,7 +692,8 @@ export function updateArenaSet(time, playerDist, mix, fade) {
 // palette + firmament + nebula carry the identity there (the god-ray/kick tier precedent).
 export function setArenaSetQuality(tier) {
   tierHidden = tier >= 2;
-  if (detMat) detMat.uniforms.uOct.value = tier >= 1 ? 2 : 3;   // P1 tier dial: fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
+  if (detMat) detMat.uniforms.uOct.value = tier >= 1 ? 2 : 3;   // tier dial: fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
+  if (embers) embers.geometry.setDrawRange(0, (tier >= 1 ? 768 : EMBER_N) * 6);   // tier 1 keeps the largest 768 trails (buffer is size-sorted)
 }
 
 // Debug seam (tests/unmaskedarena.mjs): the coexist proof reads this through bossArenaState().
@@ -635,7 +702,8 @@ export function setArenaSetQuality(tier) {
 export function debugArenaSet() {
   return { built: !!set, visible: !!set && set.visible, k: +lastK.toFixed(3), mode: STAR_MODE, star: !!nova,
     detUTime: detMat ? +detMat.uniforms.uTime.value.toFixed(2) : 0,   // detUTime advances ⇒ the perpetual loop is driven
-    debrisN: DEBRIS_N, debrisVis: !!set && set.visible && !!debris, debrisMinX,   // debrisMinX ≥ 25 ⇒ no chunk enters the focal/corridor column
+    debrisN: DEBRIS_N, debrisVis: !!set && set.visible && !!debris, debrisMinX,   // debrisMinX ≥ 25 ⇒ no background chunk enters the focal/corridor column
+    debrisFlybyMargin,   // ≥ 0 ⇒ no FLYBY rock ever crosses the flight lane at any camera depth
     emberN: EMBER_N, emberVis: !!set && set.visible && !!embers && embers.visible,
     tierHidden };
 }
