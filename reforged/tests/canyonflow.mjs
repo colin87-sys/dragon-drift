@@ -31,7 +31,8 @@ const result = await boot().then(async ({ page, done }) => {
     const seeds = [1337, 424242, 271828, 205907];
     const agg = { worstSlopeX: 0, worstSlopeY: 0, worstSeamX: 0, worstSeamY: 0,
                   minWidth: Infinity, pairs: 0, rockSlopeMax: 0, rockMinWidth: Infinity,
-                  rockSeamMax: 0, rockSlices: 0, seeds: [] };
+                  rockSeamMax: 0, rockSlices: 0, rockSwingSum: 0, rockSwingN: 0,
+                  rockMustSteer: 0, seeds: [] };
 
     for (const seed of seeds) {
       const segs = collect(seed);
@@ -57,14 +58,22 @@ const result = await boot().then(async ({ page, done }) => {
         // the pocket must leave the reward ring (gapX) reachable with clearance on
         // BOTH sides (an off-centre ring near the lane edge legitimately has less room
         // on the edge side — what matters is you can still sit on it, not a fixed width).
+        let maxLi = -Infinity, minRi = Infinity, minXc = Infinity, maxXc = -Infinity;
         for (const sl of slices) {
           rockSliceN++;
           const left = Math.max(sl.li, -LANE), right = Math.min(sl.ri, LANE);
           const w = right - left;
           agg.rockMinWidth = Math.min(agg.rockMinWidth, w);
-          if (w < 8.2) rockWidthBad++;
+          if (w < 7.5) rockWidthBad++;
           if (sl.nearRing && (s.gapX - left < 3 || right - s.gapX < 3)) rockWidthBad++;
+          maxLi = Math.max(maxLi, sl.li); minRi = Math.min(minRi, sl.ri);
+          minXc = Math.min(minXc, sl.xc); maxXc = Math.max(maxXc, sl.xc);
         }
+        // "Banking felt": if no single horizontal line fits the whole channel
+        // (maxLi > minRi), you are FORCED to steer through this section — the weave
+        // can't be cut. Track the swing (centre travel) too.
+        agg.rockSwingSum += (maxXc - minXc); agg.rockSwingN++;
+        if (maxLi > minRi) agg.rockMustSteer++;
       }
       // (a) continuity: consecutive split segments (channel not broken by an overunder).
       for (let i = 1; i < segs.length; i++) {
@@ -156,7 +165,13 @@ check('rock channel slope never exceeds the steering budget',
   result.seeds.every((s) => s.rockSlopeBad === 0)) || console.error('  rock-slope fail seeds:', bad('rockSlopeBad'));
 check('rock channel seams are continuous (≤2m)',
   result.seeds.every((s) => s.rockSeamBad === 0)) || console.error('  rock-seam fail seeds:', bad('rockSeamBad'));
-check('rock channel never pinches below 8.2m (13.9m at the ring)',
+check('rock channel never pinches below 7.5m (ring stays reachable both sides)',
   result.seeds.every((s) => s.rockWidthBad === 0)) || console.error('  rock-width fail seeds:', bad('rockWidthBad'));
 
-console.log(`  (spine pairs: ${result.pairs}, worst slope X=${result.worstSlopeX.toFixed(3)} Y=${result.worstSlopeY.toFixed(3)}, seam ΔX=${result.worstSeamX.toFixed(2)} ΔY=${result.worstSeamY.toFixed(2)}, joint≥${result.minWidth.toFixed(1)}; rock slices: ${result.rockSlices}, worst slope=${result.rockSlopeMax.toFixed(3)}, seam Δ=${result.rockSeamMax.toFixed(2)}, min width=${result.rockMinWidth.toFixed(1)})`);
+const meanSwing = result.rockSwingN ? result.rockSwingSum / result.rockSwingN : 0;
+const mustSteerPct = result.rockSwingN ? Math.round(100 * result.rockMustSteer / result.rockSwingN) : 0;
+// Banking is a REPORTED feel metric (not a hard gate): forced steering fundamentally
+// competes with the slope-fairness budget, so we surface it for the human to judge on
+// the preview rather than fail CI on a fuzzy proxy. mean swing ≫ the old ~2.4m is the win.
+console.log(`  [feel] rock mean centre-swing=${meanSwing.toFixed(1)}m, sections forcing steering=${mustSteerPct}%`);
+console.log(`  (spine pairs: ${result.pairs}, worst slope X=${result.worstSlopeX.toFixed(3)} Y=${result.worstSlopeY.toFixed(3)}, seam ΔX=${result.worstSeamX.toFixed(2)} ΔY=${result.worstSeamY.toFixed(2)}, joint≥${result.minWidth.toFixed(1)}; rock slices: ${result.rockSlices}, worst slope=${result.rockSlopeMax.toFixed(3)}, seam Δ=${result.rockSeamMax.toFixed(2)}, min width=${result.rockMinWidth.toFixed(1)}, mean swing=${meanSwing.toFixed(1)}m, must-steer=${mustSteerPct}%)`);

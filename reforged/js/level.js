@@ -697,12 +697,18 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       // Rock Run: alternate tall split slabs with over-under shelves. Bias toward
       // a shelf when the path is making a big vertical move (sells the up/down).
       const dy = prevRing ? ring.y - prevRing.y : 0;
-      // Mostly tower-slots (the sea-stack read); an over-under squeeze only when
-      // the line really climbs or dives.
-      const wantShelf = Math.abs(dy) > 3.2;
-      if (CANYON_FORCE === 'split') return 'split';
-      if (CANYON_FORCE === 'overunder') return 'overunder';
-      return wantShelf ? 'overunder' : 'split';
+      // Over-under (a vertical squeeze) ONLY on a real vertical move (>5, was >3.2 which
+      // fired on ~half of all hops) and NEVER twice in a row — otherwise the lateral
+      // slalom is interrupted every other segment and the run reads sparse/straight.
+      // Default to the split slot so the weave sustains (~75/25 split:overunder mix).
+      // c.lastKind is run state (no RNG draw) → determinism- and granularity-safe.
+      const wantShelf = Math.abs(dy) > 5.0 && c.lastKind !== 'overunder';
+      let kind;
+      if (CANYON_FORCE === 'split') kind = 'split';
+      else if (CANYON_FORCE === 'overunder') kind = 'overunder';
+      else kind = wantShelf ? 'overunder' : 'split';
+      c.lastKind = kind;
+      return kind;
     }
     // Dragon Spine Canyon: skull (a head you fly into) → throat → a long run of
     // gently swaying ribs (the heart of it) → a STRAIGHT rib tunnel finale you boost

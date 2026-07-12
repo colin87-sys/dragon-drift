@@ -154,9 +154,13 @@ export const CONFIG = {
   // ribcage), instead of the old teleporting double-wall slalom with overhead-arch
   // ducks. One axis at a time — the vertical squeeze stays the 'overunder' beat.
   canyonRockV2: true,         // false = byte-identical old stackRun geometry (rollback flip)
-  canyonSwayAmp: 3.2,         // sway CAP (m); per-half adaptive trim keeps it under the slope + lane budgets
-  canyonPinchHalf: 4.8,       // channel half-width at the tightest breath (old min was 4.5)
-  canyonBreathOpen: 2.2,      // extra half-width added at the section seams (breathes open where you can't aim)
+  canyonSwayAmp: 5.5,         // sway CAP (m); per-half adaptive trim keeps it under the slope + lane budgets.
+                              // High so the weave is FELT — the corner can't be cut (amp > channel half-width).
+  canyonPinchHalf: 4.0,       // channel half-width at the ring approach (tight so the sway amplitude
+                              // exceeds the half-width → the corner physically can't be cut)
+  canyonBreathOpen: 1.0,      // extra half-width at the seams. KEPT SMALL so the channel at the sway peak
+                              // (the seam) stays NARROWER than the sway amplitude — otherwise the slot opens
+                              // exactly where the curve turns and you can fly straight through (self-cancel).
 
   // Endless generation
   spawnAhead: 500,
