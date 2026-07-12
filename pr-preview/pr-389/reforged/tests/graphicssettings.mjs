@@ -56,5 +56,24 @@ await page.click('.seg-btn[data-tm="aces"]');
 await page.waitForTimeout(120);
 check('back to CLASSIC restores ACES exposure 0.92', Math.abs(await page.evaluate(() => window.__dd.renderer.toneMappingExposure) - 0.92) < 1e-6);
 
+// PERFORMANCE HUD: a pure overlay — toggling ON builds the readout div + flips
+// renderer.info.autoReset off (to accumulate draw counts); OFF removes it + restores
+// autoReset so no other reader is affected.
+check('PERFORMANCE HUD toggle renders, default OFF', await page.$eval('.seg-btn[data-gfx="perfHud"][data-val="0"]', (b) => b.classList.contains('sel')));
+check('HUD off by default (no .perf-hud, autoReset default true)',
+  await page.evaluate(() => !document.querySelector('.perf-hud') && window.__dd.renderer.info.autoReset === true));
+await page.click('.seg-btn[data-gfx="perfHud"][data-val="1"]');
+await page.waitForTimeout(120);
+const hudOn = await page.evaluate(() => ({
+  el: !!document.querySelector('.perf-hud'),
+  autoReset: window.__dd.renderer.info.autoReset,
+  saved: window.__dd.save.settings.perfHud,
+}));
+check('HUD on: overlay built + autoReset off + persisted', hudOn.el && hudOn.autoReset === false && hudOn.saved === true);
+await page.click('.seg-btn[data-gfx="perfHud"][data-val="0"]');
+await page.waitForTimeout(120);
+const hudOff = await page.evaluate(() => ({ el: !!document.querySelector('.perf-hud'), autoReset: window.__dd.renderer.info.autoReset }));
+check('HUD off: overlay removed + autoReset restored to true', !hudOff.el && hudOff.autoReset === true);
+
 check('no console errors', errors.length === 0);
 await done();
