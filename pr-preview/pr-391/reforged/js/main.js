@@ -13,7 +13,7 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
@@ -27,7 +27,7 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, setWaterReflFar } from './water.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
@@ -168,8 +168,8 @@ function applyWispCosmetic() {
 createEnvironment(scene, runSeed);
 // N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
 if (urlParams.has('ibl') || gfxPref.skyIbl === true) setSkyProbeEnabled(true);
-setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0)
-createWater(scene, true); // real reflection by default; tiers downgrade it
+setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0 + 1)
+createWater(scene, 0); // N11: boot at tier0 (768² full-rate mirror); applyQuality retiers
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
 // N6 hero shadow: apply the saved toggle (the RT exists now); ?shadow forces on.
@@ -188,6 +188,9 @@ if (urlParams.has('swell') || gfxPref.waterSwell === true) setWaterSwell(true);
 if (urlParams.has('depth') || gfxPref.waterDepth === true) setWaterDepth(true);
 // N10c foam collars: apply the saved toggle; ?foam forces on (visibility flip).
 if (urlParams.has('foam') || gfxPref.waterFoam === true) setWaterFoam(true);
+// N11 reflection far-plane clamp: on by default (visually identical — the trimmed
+// frustum is entirely past the fog wall); ?reflfar=0 kills it for the perf/visual A/B.
+if (urlParams.get('reflfar') === '0') setWaterReflFar(false);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
@@ -1189,7 +1192,7 @@ function applyQuality(tier) {
   renderer.setPixelRatio(PIXEL_RATIOS[tier]);
   setPostTier(tier);
   setPostPixelRatio(PIXEL_RATIOS[tier]);
-  setWaterReflective(tier === 0);
+  setWaterReflective(tier); // N11: tier0 768² full-rate · tier1 384² half-rate · tier2 cheap quad
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
   setWaterFoamQuality(tier); // N10c: foam at tier0/1, off at tier2
   setAmbientQuality(QUALITY_SCALARS[tier]);
@@ -1487,8 +1490,15 @@ function tick() {
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
     const slipMix = Math.max(0, player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1);
-    updateSpeedStreaks(player, slipMix);
-    if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6); // wind + rib-flutter rate
+    // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
+    // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
+    // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw
+    // slipMix, since you ARE still moving faster there. presence=1 inside any rib band.
+    const wallPresence = slipMix > 0.01 ? spineWallPresenceAt(player.dist) : 0;
+    const fxMix = slipMix * wallPresence;
+    player.tunnelFxMix = fxMix;               // ui.js reads this for the speed-lines gate
+    updateSpeedStreaks(player, fxMix);
+    if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
     updateHazards(dt, player, t);
@@ -1545,7 +1555,7 @@ function tick() {
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
-    Math.max(0, player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1)); // spine slipstream 0→1
+    player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 

@@ -525,6 +525,9 @@ function buildRockGap(o, e) {
     const { flare = 0, vert = 0, neural = false } = opts;
     const { bk, fw } = halves(o, mult);            // entry/exit easing lengths
     const { wb, wf } = band(o, bk, fw);            // wall/collider band (abutting tiles)
+    e.ribBandBk = wb; e.ribBandFw = wf;            // world rib coverage [dist-wb, dist+wf]
+                                                   // → spineWallPresenceAt() fades the
+                                                   // speed FX out in genuinely rib-free air
     const { xAt, yAt } = centre(o, bk, fw);        // C1 corridor centre (X AND Y)
     const sway = spineSway(o, bk, fw);             // lateral sweep between rings (racing-tunnel S-curve)
     const nRibs = Math.max(6, Math.round((wb + wf) / 6)); // ~6m rib pitch across the ABUTTING band only
@@ -811,6 +814,24 @@ export function nextGateAhead(dist) {
     if (e.type === 'gate' && !e.passed && e.dist > dist && (!best || e.dist < best.dist)) best = e;
   }
   return best;
+}
+
+// Local rib-wall presence at a distance (0..1) — used to FADE the speed-tunnel FX
+// (streaks / CSS lines / aberration / rib-flutter) out in the genuinely rib-free air
+// of a gauntlet-bridged gap, so the slipstream still SPEEDS you up there (physics /
+// FOV / wind stay on the raw slip) but the "walls whipping past" cues honestly stop.
+// A pure spatial taper of the built world (no state, no damping needed); returns a
+// number before any segment exists (0) so a first frame can't feed NaN downstream.
+export function spineWallPresenceAt(dist) {
+  let p = 0;
+  for (const e of entries) {
+    if (e.type !== 'rockGap' || e.ribBandBk === undefined) continue;
+    const lo = e.dist - e.ribBandBk, hi = e.dist + e.ribBandFw;
+    const gap = dist < lo ? lo - dist : dist > hi ? dist - hi : 0;
+    p = Math.max(p, 1 - Math.min(1, gap / 25));   // full inside band, fades over 25m
+    if (p >= 1) return 1;
+  }
+  return p;
 }
 
 // Revive helper: clear every hazard up to a distance so the player gets a

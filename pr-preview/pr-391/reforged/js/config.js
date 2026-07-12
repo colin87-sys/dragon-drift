@@ -128,7 +128,7 @@ export const CONFIG = {
   canyonSegments: [8, 11],    // a Rock Run sustains ~8-11s of enclosed canyon then opens up
   spineSegments: [15, 19],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
                               // (longer than [13,16] so it reads as a sustained speed tunnel)
-  canyonSpineSlip: 1.12,      // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not
+  canyonSpineSlip: 1.25,      // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not
                               // rock). Steering co-scales by the SAME factor so every reachability
                               // ratio (and the whole canyonflow audit) stays exactly valid — the
                               // world rushes faster, the inputs stay identical relative to it.
@@ -147,7 +147,10 @@ export const CONFIG = {
   // dragon boosting out (orb speed ~108-125 m/s) meets the next wall in open air,
   // in view, after boost decay has begun (carry ~170-195m + ≥90m readability).
   canyonEntryBuffer: 120,     // metres of gate-free approach before a canyon mouth
-  canyonExitBuffer: 350,      // metres of gate-free open air after a canyon exit
+  canyonExitBuffer: 380,      // metres of gate-free open air after a canyon exit (380, was
+                              // 350: the +25% slip lifts boost-out peak speed ~108→135 m/s,
+                              // so 30m more restores the original ~65m readability margin
+                              // before the first post-exit crystal wall)
   canyonFadeNear: 1,          // dz where a rock has fully dissolved (at camera)
   canyonFadeFar: 16,          // dz where a rock is fully solid again
   // Vertical limit (active ONLY inside a canyon run): you can't climb over the

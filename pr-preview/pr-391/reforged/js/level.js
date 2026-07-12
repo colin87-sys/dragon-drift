@@ -606,7 +606,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     };
     const firstAt = CANYON_FORCE ? 320 : CONFIG.canyonFirstAt;
     for (const ring of out.rings) {
-      if (ring.dist < firstAt || inGauntlet(ring.dist)) { lastRingSeen = ring; continue; }
+      if (ring.dist < firstAt || inGauntlet(ring.dist)) {
+        if (canyon) canyon.bridgedAhead = true; // a skipped (gauntlet) ring bridges this gap
+        lastRingSeen = ring; continue;
+      }
       if (!canyon && ring.dist >= nextCanyonAt) canyon = startCanyon(ring, out);
       if (canyon) {
         // BUILD the segment now (so canyonRnd draw order is byte-identical), but
@@ -627,6 +630,12 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
           canyon.held.nextY = seg.gapY;
           canyon.held.nextKind = seg.kind;
           canyon.held.spanFwd = ring.dist - canyon.held.dist; // forward span (PR-2 uses it)
+          // If a gauntlet range sat between the held segment and this ring, its forward
+          // span is a bridged outlier — flag it so halves() keeps that side CAPPED (no
+          // rib walls extending into the gauntlet corridor). Non-bridged long gaps
+          // (breath-beat gate hops) stay unflagged so their ribs fill edge-to-edge.
+          canyon.held.bridgedFwd = !!canyon.bridgedAhead;
+          canyon.bridgedAhead = false;
           emitSegment(canyon.held, out);
         }
         canyon.lastGapX = seg.gapX;

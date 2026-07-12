@@ -4,7 +4,7 @@ import { RenderPass } from '../lib/postprocessing/RenderPass.js';
 import { ShaderPass } from '../lib/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../lib/postprocessing/OutputPass.js';
-import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTexture, resizeGodRays } from './godrays.js';
+import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTexture, resizeGodRays, setGodRayMaskScale } from './godrays.js';
 import { damp, clamp } from './util.js';
 import { game } from './gameState.js';
 
@@ -106,13 +106,16 @@ export function setFeverTint(rgb) {
 }
 
 // --- God-rays (occlusion-masked) --------------------------------------------
-// Sun screen position + base intensity fed each frame from main.js. The mask
-// render + pass are TIER-0 ONLY (the extra half-res scene pass costs too much
-// lower down), and the pass disables itself when the sun is hidden so it is free
-// off-axis. `_grAvailable` = tier 0 and the occlusion buffer is initialised.
+// Sun screen position + base intensity fed each frame from main.js. N11: the mask
+// render + pass now run at TIER 0 AND TIER 1 (`_grTierOK = tier <= 1`) — tier1
+// pays for it via a quarter-res mask (0.25) + fewer march samples (24) + halved
+// intensity (`_grIntenScale = 0.5`), so mid-range phones keep the shafts. The pass
+// disables itself when the sun is hidden so it is free off-axis. `_grAvailable` =
+// the occlusion buffer is initialised.
 let _grSunX = 0.5, _grSunY = 0.8, _grIntensity = 0;
 let _grAvailable = false;
-let _grTier0 = true;
+let _grTierOK = true;      // god-rays run at this tier (tier <= 1)
+let _grIntenScale = 1;     // tier0 = 1 (byte-identical), tier1 = 0.5
 
 export function setGodRaySun(uvX, uvY, intensity) {
   _grSunX = uvX; _grSunY = uvY; _grIntensity = intensity;
@@ -135,7 +138,13 @@ export function setupGodRays(scene, camera, sky) {
   postfx.godRayPass.uniforms.tMask.value = godRayTexture();
   _grAvailable = true;
   // Boot is tier 0 (applyQuality only runs on a tier CHANGE), so arm the mask now.
-  setGodRaysReady(_grTier0 && _grAvailable);
+  setGodRaysReady(_grTierOK && _grAvailable);
+}
+
+// Test/debug introspection for the N11 tier truth table (read-only snapshot).
+export function postTierState() {
+  return { grTierOK: _grTierOK, grIntenScale: _grIntenScale,
+    uSamples: postfx.godRayPass ? postfx.godRayPass.uniforms.uSamples.value : null };
 }
 
 // --- Event-driven impulse kicks ---------------------------------------
@@ -293,7 +302,8 @@ export function setPostTier(tier) {
     return;
   }
   postfx.enabled = true;
-  _grTier0 = tier === 0;
+  _grTierOK = tier <= 1;                 // N11: god-rays at tier 0 AND tier 1
+  _grIntenScale = tier === 0 ? 1 : 0.5;  // tier0 full (byte-identical), tier1 halved
   if (tier === 0) {
     postfx._baseBloom = 0.24; // trimmed so the bright sky stops bleeding
     postfx._bloomScale = 0.5;
@@ -305,9 +315,14 @@ export function setPostTier(tier) {
     postfx._aberrationOn = false;
     postfx._kickScale = 0.5;
   }
-  // God-rays are tier-0 only; force the pass off (and stop the mask render) below.
-  setGodRaysReady(_grTier0 && _grAvailable);
-  if (postfx.godRayPass && !_grTier0) postfx.godRayPass.enabled = false;
+  // N11 per-tier god-ray cost: tier0 = 40 samples @ 0.5 mask (shipped); tier1 = 24
+  // samples @ 0.25 mask. uSamples is otherwise write-once (its shader default is 40),
+  // so setting it here is the one live write; tier0 writes 40 → byte-identical.
+  if (postfx.godRayPass) postfx.godRayPass.uniforms.uSamples.value = tier === 0 ? 40 : 24;
+  setGodRayMaskScale(tier === 0 ? 0.5 : 0.25);
+  // God-rays run at tier ≤ 1; force the pass off (and stop the mask render) at tier2.
+  setGodRaysReady(_grTierOK && _grAvailable);
+  if (postfx.godRayPass && !_grTierOK) postfx.godRayPass.enabled = false;
   postfx.bloomPass.strength = postfx._baseBloom;
   for (const c of Object.keys(_kick)) _kick[c] = 0; // no stale impulses across tiers
   _flashFrames = 0;
@@ -362,11 +377,12 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   postfx.bloomPass.strength = Math.max(0.08,
     postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.07 - _bossMix * 0.05);
 
-  // God-rays (tier 0): place the sun, ease the shafts down a touch in Surge, and
+  // God-rays (tier ≤ 1): place the sun, ease the shafts down a touch in Surge, and
   // disable the whole thing (mask render included) when the sun isn't on-screen.
+  // `_grIntenScale` halves tier1's shafts (1.0 at tier0 → byte-identical).
   if (postfx.godRayPass) {
-    if (_grTier0 && _grAvailable) {
-      const inten = Math.min(GODRAY_INTEN_CAP, _grIntensity * (1 - postfx._feverMix * 0.45) * (1 + _grBoost * GODRAY_HEAVEN_SWELL));   // ARENA (PR-B): the heaven swell, hard-capped
+    if (_grTierOK && _grAvailable) {
+      const inten = Math.min(GODRAY_INTEN_CAP, _grIntensity * _grIntenScale * (1 - postfx._feverMix * 0.45) * (1 + _grBoost * GODRAY_HEAVEN_SWELL));   // ARENA (PR-B): the heaven swell, hard-capped
       const gu = postfx.godRayPass.uniforms;
       gu.uSunUv.value.set(_grSunX, _grSunY);
       gu.uIntensity.value = inten;
@@ -381,6 +397,9 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
     sat = sat + (0.25 - sat) * _deathMix;
     vig = vig + (0.62 - vig) * _deathMix;
   }
+  // Spine speed-tunnel: a subtle radial squeeze darkens the tube edges and focuses the
+  // eye down the barrel (rides the same presence-gated mix as the streaks/aberration).
+  vig += clamp(canyonSpeedMix, 0, 1) * 0.05;
   u.saturation.value = sat;
   u.vignette.value = vig;
 }

@@ -37,12 +37,22 @@ export const kindMult = (kind) => KIND_MULT[kind] ?? 1;
 // span is load-bearing — a burst→breath seam (span 55 → spanFwd ~150) would blow the
 // slope budget if the exit half were sized by the backward span. Clamped 36..80,
 // which also tames spanFwd's 300–450m gauntlet-bridge outliers (the PR-0 clamp).
+// Spine kinds carry the "continuous tunnel" promise, so their easing halves may grow
+// PAST 96 to tile a long gate-hop (breath-beat) gap edge-to-edge — band() still caps
+// the wall band at span·0.5, so the tube fills exactly to the inter-ring midpoint and
+// the two sides meet with no rib-free hole. Rock kinds (split/overunder) stay capped
+// at 96 (no continuity promise; sea-stacks are far heavier meshes). A bridged forward
+// side (a gauntlet corridor sits in the gap) OR the terminal segment (spanFwd
+// undefined → falls back to the backward span) also stays capped, so rib walls never
+// extend into a gauntlet slalom or past the exit into the decompression air.
+const SPINE_FILL = new Set(['throat', 'rib', 'straightrib']);
 export function halves(seg, mult = 1) {
-  // Clamp 36..96: the 96 ceiling (was 80) lets a section reach across the longer ring
-  // gaps left by suppressed gate-hops, closing the median coverage holes so the tunnel
-  // reads continuous. Band caps at span·0.5 keep the wall tiling exact regardless.
-  const cl = (s) => Math.max(36, Math.min(96, s * 0.6)) * mult;
-  return { bk: cl(seg.span || 80), fw: cl(seg.spanFwd ?? (seg.span || 80)) };
+  const fill = SPINE_FILL.has(seg.kind);
+  const cl = (s, capped) => Math.max(36, Math.min(capped ? 96 : 999, s * 0.6)) * mult;
+  return {
+    bk: cl(seg.span || 80, !fill),
+    fw: cl(seg.spanFwd ?? (seg.span || 80), !fill || seg.bridgedFwd || seg.spanFwd === undefined),
+  };
 }
 
 // Wall/slice emission band: abuts the neighbour's band at the inter-ring midpoint
