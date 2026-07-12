@@ -17,6 +17,7 @@ import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObs
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
+import { initSpeedStreaks, updateSpeedStreaks, resetSpeedStreaks } from './speedStreaks.js';
 import { setDragonQuality, setDragonLook, setDragonInhale } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
@@ -183,6 +184,7 @@ initObstacles(scene);
 initHazards(scene);
 initPowerups(scene);
 initParticles(scene);
+initSpeedStreaks(scene);
 initEmbers(scene);
 initGoldEmbers(scene);
 initBoss(scene);
@@ -892,6 +894,8 @@ function restart(opts = {}) {
   resetDragon(player);
   resetRings();
   resetObstacles();
+  resetSpeedStreaks();
+  sfx.slipstreamStop();
   resetHazards();
   resetPowerups();
   resetParticles();
@@ -1233,6 +1237,9 @@ function tick() {
     rawDt = 0;
   }
   updateQuality(rawDt);
+  // The speed-tunnel wind only lives during active play (death/pause/menu silence it;
+  // start/exit are handled on the canyon crossings). Idempotent when already stopped.
+  if (game.state !== 'playing') sfx.slipstreamStop();
   updateModelDetail(rawDt);
 
   // Shop hero shot: hide the loose gameplay FX — collectible rings + the dragon's own
@@ -1307,6 +1314,7 @@ function tick() {
       game.canyonRun = pendingCanyonStarts.shift().run; // 'spine' | 'rock' → spine-only slipstream
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
+      if (game.canyonRun === 'spine') sfx.slipstreamStart(); // speed-tunnel wind
       // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
       // ("you're entering something ancient"). Subtle — within the juice budget.
       cameraCtl.shake(0.5);
@@ -1315,6 +1323,8 @@ function tick() {
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
       game.inCanyon = false;
+      game.canyonRun = null;
+      sfx.slipstreamStop();
       cameraCtl.setCanyon(false);
       // Exit burst: a puff of bone dust as you break out into open sky (release).
       burst(player.position, 0xe7dcc0, { count: 18, speed: 14, size: 1.0 });
@@ -1446,6 +1456,9 @@ function tick() {
     }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
+    const slipMix = Math.max(0, player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1);
+    updateSpeedStreaks(player, slipMix);
+    if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6); // wind + rib-flutter rate
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
     updateHazards(dt, player, t);
@@ -1496,7 +1509,8 @@ function tick() {
   }
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-  updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget());
+  updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
+    Math.max(0, player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1)); // spine slipstream 0→1
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 
