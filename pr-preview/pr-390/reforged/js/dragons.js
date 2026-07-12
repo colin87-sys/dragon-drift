@@ -547,6 +547,11 @@ export const DRAGONS = {
       // near-zero cruise base to a blaze ONLY on the Night Surge (eyes stay out of the
       // surge arrays). seamRun/finRims/rootSpark ladder the carved circuit.
       seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, surgeGlowMultiplier: 22,
+      // MOTION (CP3) — the splitFanTail is a 4-joint NESTED isBone chain (see dragonVesper.js).
+      // The rig walks it with a travelling lateral COIL + a phase-lagged VERTICAL wave (the axis
+      // the rear-chase lens reads — the "stiff" fix). tailRudderScale trims the compounding
+      // per-joint turn-curl on the chain to a graceful arc, not a J-hook (the fluid-tail lesson).
+      tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.26, tailRudderScale: 0.5,
     },
     // I1 ladder (torso-chine increment): body value DECREASES up the rungs; the
     // wing/head/tail dials are placeholders until I2/I3. The full knapping ladder
