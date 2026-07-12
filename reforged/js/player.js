@@ -20,9 +20,14 @@ function assistAxes(player) {
   const ty = target.gapY !== undefined ? target.gapY : target.y;
   const time = Math.max((target.dist - player.dist) / Math.max(player.speed, 1), 0.0001);
   const bonus = player.boosting ? CONFIG.boostSteeringBonus : 1;
+  // The returned axis is later multiplied by steer = bonus·canyonSlip (see update()), so
+  // the assist must divide by canyonSlip too — otherwise inside the spine slipstream the
+  // auto-fly velocity is scaled up by the slip factor and oversteers (visible wobble at
+  // 1.40). Co-scaling here keeps the intercept exact relative to the faster world.
+  const slip = player.canyonSlip || 1;
   return {
-    x: clamp((tx - player.position.x) / time / (S.lateralSpeed * bonus), -1, 1),
-    y: clamp((ty - player.position.y) / time / (S.verticalSpeed * bonus), -1, 1),
+    x: clamp((tx - player.position.x) / time / (S.lateralSpeed * bonus * slip), -1, 1),
+    y: clamp((ty - player.position.y) / time / (S.verticalSpeed * bonus * slip), -1, 1),
   };
 }
 

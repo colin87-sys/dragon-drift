@@ -9,6 +9,13 @@
 // (fxMix), so it's spine-only, fades in rib-free gaps, and idles invisible everywhere
 // else. Visual-only — Math.random at recycle is fine (same license as the gate motes).
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
+
+// Speedometer range: normalize player.speed over the tunnel's REAL dynamic range (a
+// tunnel glide ≈ base×ramp up to an orb-boost at orbSpeed×ramp×slip) so the streaks
+// build/ease with actual acceleration instead of saturating at 80 m/s like the HUD's.
+const SN_LO = CONFIG.baseSpeed * CONFIG.speedRampMax;
+const SN_HI = CONFIG.orbSpeed * CONFIG.speedRampMax * CONFIG.canyonSpineSlip;
 
 const N = 48;                 // streaks
 const SEGS = 3;              // sub-segments per streak → 4 points → 6 verts (SEGS*2)
@@ -83,19 +90,32 @@ export function initSpeedStreaks(scene) {
   }
 }
 
-// mix 0→1 = presence-gated slipstream strength; player supplies the world anchor.
+// mix 0→1 = presence-gated slipstream ENVELOPE (smoothed in main.js); player supplies
+// the world anchor AND its real speed, so the field is a genuine speedometer: it builds
+// as the dragon accelerates and eases down leaving the tunnel — never a 1/0 switch.
 export function updateSpeedStreaks(player, mix) {
   if (!mesh) return;
-  if (mix <= 0.01) { if (mesh.visible) { mesh.visible = false; mat.opacity = 0; } return; }
+  const spd = player.speed;
+  const sn = Math.max(0, Math.min(1, (spd - SN_LO) / (SN_HI - SN_LO))); // 0..1 real-speed
+  // Opacity = envelope × speed (quadratic ignition): a faint shimmer at tunnel-glide,
+  // full blaze under an orb-boost. Length ALSO scales with speed — the strongest "I'm
+  // accelerating" cue. Both ride `mix` so they fade gracefully as the envelope releases.
+  const intensity = mix * (0.35 + 0.65 * sn);
+  const op = 0.75 * intensity * intensity;
+  // Soft cutoff: only truly hide once BOTH the envelope and the drawn opacity round to
+  // nothing, so the mesh rides the release curve down instead of gating on raw mix.
+  if (mix <= 0.01 && op <= 0.005) { if (mesh.visible) { mesh.visible = false; mat.opacity = 0; } return; }
   mesh.visible = true;
-  mat.opacity = 0.75 * mix * mix;                  // quadratic ignition — gentle at seam, full in the pocket
+  mat.opacity = op;
+  const lenScale = 0.5 + 0.8 * sn;                 // darts stretch with speed (parallax speedometer)
   const px = player.position.x, py = player.position.y, pz = player.position.z;
-  const vx = player.velocity.x, vy = player.velocity.y, spd = player.speed;
+  const vx = player.velocity.x, vy = player.velocity.y;
   let recolored = false;
   for (let i = 0; i < N; i++) {
     const s = streaks[i];
     if (s.z > pz + 10) { respawn(s, px, py, pz, vx, vy, spd); bakeColor(i, s); recolored = true; }
-    const ex = s.dx * s.len, ey = s.dy * s.len, ez = s.dz * s.len; // head→tail delta
+    const l = s.len * lenScale;
+    const ex = s.dx * l, ey = s.dy * l, ez = s.dz * l; // head→tail delta, speed-scaled
     let p = i * VPS * 3;
     for (let seg = 0; seg < SEGS; seg++) {
       for (let end = 0; end < 2; end++) {

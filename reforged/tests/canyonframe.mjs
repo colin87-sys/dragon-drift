@@ -19,7 +19,7 @@ const result = await boot().then(async ({ page, done }) => {
     const { createLevelGen } = await import('./js/level.js');
     const walk = (seed, step) => {
       const gen = createLevelGen(seed);
-      const segs = [], starts = [], ends = [], suppress = [], hazards = [];
+      const segs = [], starts = [], ends = [], suppress = [], hazards = [], orbs = [];
       for (let d = step; d <= 9000; d += step) {
         if (gen.generatedUntil >= d) continue;   // mirror main.js spawnAhead guard
         const out = gen.ensure(d);
@@ -28,8 +28,9 @@ const result = await boot().then(async ({ page, done }) => {
         ends.push(...out.canyonEnds);
         suppress.push(...out.canyonObstacleSuppress);
         hazards.push(...out.hazards.map((h) => h.dist));
+        orbs.push(...out.orbs.map((o) => `${o.dist.toFixed(3)}:${o.x.toFixed(3)}:${o.y.toFixed(3)}`));
       }
-      return { segs, starts, ends, suppress, hazards };
+      return { segs, starts, ends, suppress, hazards, orbs };
     };
     const sortNum = (xs) => [...xs].sort((p, q) => p - q);
     const perSeed = seeds.map((seed) => {
@@ -41,6 +42,8 @@ const result = await boot().then(async ({ page, done }) => {
           JSON.stringify(sortNum(frame.suppress)) === JSON.stringify(sortNum(chunky.suppress)),
         hazardsEqual:
           JSON.stringify(sortNum(frame.hazards)) === JSON.stringify(sortNum(chunky.hazards)),
+        orbsEqual:
+          JSON.stringify([...frame.orbs].sort()) === JSON.stringify([...chunky.orbs].sort()),
         frame,
       };
     });
@@ -78,11 +81,14 @@ check('gate suppression actually fires under per-frame generation',
 const segMiss = result.perSeed.filter((s) => !s.segsEqual).map((s) => s.seed);
 const supMiss = result.perSeed.filter((s) => !s.suppressEqual).map((s) => s.seed);
 const hazMiss = result.perSeed.filter((s) => !s.hazardsEqual).map((s) => s.seed);
+const orbMiss = result.perSeed.filter((s) => !s.orbsEqual).map((s) => s.seed);
 check(`segment stream identical per-frame vs chunked (${SEEDS.length} seeds)`,
   segMiss.length === 0) || console.error('  segment mismatch seeds:', segMiss);
 check(`obstacle suppression identical per-frame vs chunked (${SEEDS.length} seeds)`,
   supMiss.length === 0) || console.error('  suppression mismatch seeds:', supMiss);
 check(`hazard set (post canyon-suppression) identical per-frame vs chunked (${SEEDS.length} seeds)`,
   hazMiss.length === 0) || console.error('  hazard mismatch seeds:', hazMiss);
+check(`orb set (incl. woven rock boosts) identical per-frame vs chunked (${SEEDS.length} seeds)`,
+  orbMiss.length === 0) || console.error('  orb mismatch seeds:', orbMiss);
 
 console.log(`  (rep seed 1337: ${segs.length} segments, ${rep.suppress.length} suppressed gates; swept ${SEEDS.length} seeds)`);

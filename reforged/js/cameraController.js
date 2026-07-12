@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { damp } from './util.js';
+import { CONFIG } from './config.js';
 
 // Chase camera: smooth follow, FOV widens on speed, shakes on damage/crash,
 // kicks harder on boost start, tightens during fever.
@@ -336,10 +337,11 @@ export const cameraCtl = {
     targetFov += canyonW * 6; // wider peripheral read while threading rock
     // Spine SPEED TUNNEL: the slipstream punches the FOV wide for the need-for-speed
     // rush (canyonSlip ramps 1→canyonSpineSlip in the spine only, so rock is unaffected).
-    // Coefficient 45 (was 70): at the 1.25 slip it adds +11.25° — a bigger punch than
-    // the old 1.12×70=+8.4°, but 45 keeps it from stacking into fisheye on top of the
-    // speed-active + canyon-widen FOV (70×0.25=+17.5° tipped into distortion).
-    targetFov += Math.max(0, player.canyonSlip - 1) * 45;
+    // NORMALIZED to the 0→1 slip mix (× 13°) rather than the raw (slip−1): a raw
+    // coefficient re-broke into fisheye every time the slip dial climbed (45×0.40=+18°
+    // stacked to ~110°). +13° at full slip stays clear of distortion AND is future-proof
+    // — cranking canyonSpineSlip never re-tips it.
+    targetFov += Math.max(0, Math.min(1, (player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1))) * 13;
     targetFov -= inhaleLevel * 2; // PR-C: the inhale pinch (narrow = held breath)
     if (Math.abs(camera.fov - targetFov) > 0.1) {
       camera.fov = damp(camera.fov, targetFov, player.boosting ? 5 : 3, dt);
