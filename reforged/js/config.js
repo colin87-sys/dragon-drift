@@ -129,7 +129,7 @@ export const CONFIG = {
                               // (longer than [8,11] so the weave+boost cadence sustains, fewer dead beats)
   spineSegments: [15, 19],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
                               // (longer than [13,16] so it reads as a sustained speed tunnel)
-  canyonSpineSlip: 1.40,      // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not
+  canyonSpineSlip: 1.325,     // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not
                               // rock). Steering co-scales by the SAME factor so every reachability
                               // ratio (and the whole canyonflow audit) stays exactly valid — the
                               // world rushes faster, the inputs stay identical relative to it.
