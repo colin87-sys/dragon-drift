@@ -45,7 +45,11 @@ export const kindMult = (kind) => KIND_MULT[kind] ?? 1;
 // side (a gauntlet corridor sits in the gap) OR the terminal segment (spanFwd
 // undefined → falls back to the backward span) also stays capped, so rib walls never
 // extend into a gauntlet slalom or past the exit into the decompression air.
-const SPINE_FILL = new Set(['throat', 'rib', 'straightrib']);
+// FLOW ('flowgate') joins the fill set: its pickup ribbon is emitted per-BAND and must
+// tile each half-gap edge-to-edge (band caps at span·0.5) so the carved line has no
+// coverage hole — and its "geometry" is a torus + orbs (weightless), so the mesh-cost
+// reason rock stays capped doesn't apply.
+const SPINE_FILL = new Set(['throat', 'rib', 'straightrib', 'flowgate']);
 export function halves(seg, mult = 1) {
   const fill = SPINE_FILL.has(seg.kind);
   const cl = (s, capped) => Math.max(36, Math.min(capped ? 96 : 999, s * 0.6)) * mult;
@@ -134,6 +138,50 @@ export function spineSway(seg, bk, fw) {
   return (z) => {
     const zn = Math.max(-1, Math.min(1, z < 0 ? z / bk : z / fw)); // 0 at ring, ±1 at seam
     return si * (z < 0 ? aEntry : aExit) * Math.sin((Math.PI / 2) * zn);
+  };
+}
+
+// Flow run "CARVE": the walls-free slalom the pickup ribbon follows between rings — the
+// SAME spineSway grammar (zero at every ring plane → a perfect stays flyable; peaks at the
+// seams; sign-flips per section → one long C0 S-curve), but at flow's MAX amplitude on BOTH
+// axes (a lateral weave + a gentle vertical corkscrew whose apexes cycle x/y for a helix).
+// Flow has no walls, so the only ceiling is the steering budget + the orb-clamp lane (±11
+// X, [4.5,20] Y) — the carve can never demand more steering than the dragon has, nor push a
+// pickup off the collectable lane. Returns {x,y} offsets to add to the base ring line.
+// Zero when the amp dials are 0 (the PR-1 straight-ribbon rollback).
+export function flowWeave(seg, bk, fw) {
+  const gx = seg.gapX, px = seg.prevX ?? gx, nx = seg.nextX ?? gx;
+  const gy = seg.gapY, py = seg.prevY ?? gy, ny = seg.nextY ?? gy;
+  const total = seg.runTotal ?? 1;
+  // Lateral sign flips per section; vertical flips every OTHER section → the (x,y) apex
+  // walks a slow helix (right-up → left-up → left-down → right-down) no sibling run has.
+  const siX = (seg.swaySign || 1) * (seg.runIdx % 2 ? -1 : 1);
+  const siY = (seg.swaySign || 1) * ((seg.runIdx >> 1) % 2 ? -1 : 1);
+  // d = base ring-line move over this half; eh = easing half length; [lo,hi] = the pickup
+  // lane on this axis; gv/nv = this + neighbour ring value. aSlope leaves headroom below the
+  // budget for the base ease's own peak; aLane keeps base±A inside the lane (using the two
+  // ring extremes → base±A stays in-lane everywhere, seam-symmetric so adjacent halves match
+  // → C0). Same conservative construction as rockSlicePlan's amp trim.
+  const ampHalf = (d, eh, cap, budget, gv, nv, lo, hi) => {
+    const aSlope = Math.max(0, budget - 1.5 * Math.abs(d) / eh) * (2 * eh / Math.PI);
+    const aLane = Math.min(hi - Math.max(gv, nv), Math.min(gv, nv) - lo);
+    return Math.max(0, Math.min(cap, aSlope, aLane));
+  };
+  const capX = CONFIG.canyonFlowWeaveAmp, capY = CONFIG.canyonFlowWeaveAmpY;
+  const entryDx = (gx - px) / 2, exitDx = (nx - gx) / 2;
+  const entryDy = (gy - py) / 2, exitDy = (ny - gy) / 2;
+  const mouth = seg.runIdx === 0, finale = seg.runIdx === total - 1;
+  // Boundary discipline: straight in through the mouth, straight out of the finale, and
+  // straight across a gauntlet-bridged forward side (mirrors rock/spine entry/exit caps).
+  const entryOn = !mouth, exitOn = !finale && !seg.bridgedFwd;
+  const aXe = entryOn ? ampHalf(entryDx, bk, capX, BUDGET_X, gx, px, -11, 11) : 0;
+  const aXx = exitOn ? ampHalf(exitDx, fw, capX, BUDGET_X, gx, nx, -11, 11) : 0;
+  const aYe = entryOn ? ampHalf(entryDy, bk, capY, BUDGET_Y, gy, py, 4.5, 20) : 0;
+  const aYx = exitOn ? ampHalf(exitDy, fw, capY, BUDGET_Y, gy, ny, 4.5, 20) : 0;
+  return (z) => {
+    const zn = Math.max(-1, Math.min(1, z < 0 ? z / bk : z / fw)); // 0 at ring, ±1 at seam
+    const s = Math.sin((Math.PI / 2) * zn);
+    return { x: siX * (z < 0 ? aXe : aXx) * s, y: siY * (z < 0 ? aYe : aYx) * s };
   };
 }
 

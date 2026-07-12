@@ -132,6 +132,14 @@ export const CONFIG = {
   canyonFlowFill: 260,        // max ring-gap (m) the flow orb ribbon fills; a wider gap is a genuine
                               // gauntlet bridge (the slalom is its own beat) and stays open. Covers
                               // breath-beat spacings (~192m) with headroom; excludes 300m+ gauntlets.
+  // Flow run "carve": the pickup ribbon is a walls-free SLALOM — the biggest banking in
+  // the game (rock/spine are wall-/tube-ceilinged; flow's only ceiling is the steering
+  // budget). The line sways off the straight ring-to-ring path between gates and pours
+  // back to dead-centre AT each ring (a perfect stays flyable). Holding the carve is the
+  // mode. Amplitude is slope-budget + orb-clamp-lane trimmed (fair by construction).
+  // Set both to 0 for the byte-identical PR-1 straight ribbon (rollback dial).
+  canyonFlowWeaveAmp: 7.0,    // lateral carve cap (m); per-half adaptive trim keeps it flyable
+  canyonFlowWeaveAmpY: 2.5,   // vertical corkscrew cap (m); apexes cycle x/y for a slow helix
   // Sky Canyon run-type weights (the startCanyon picker draws ONE canyonRnd and maps it
   // through these). flow = the Rhythm Flow-Tube (a walls-free speed showcase). Setting
   // flow:0 renormalizes rock/spine to 50/50 = byte-identical to the pre-flow picker (the
