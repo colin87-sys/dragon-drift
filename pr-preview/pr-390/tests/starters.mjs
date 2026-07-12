@@ -39,12 +39,18 @@ const key = 'vesper';
 const forms = maxTierFor(DRAGONS[key]) + 1;
 assert(forms === 4, `vesper has 4 forms (got ${forms})`);
 
-const tris = [], bodyVal = [];
+const tris = [], bodyVal = [], fingers = [], wristFold = [], beatHold = [];
 for (let t = 0; t < forms; t++) {
   const def = ascendedDef(DRAGONS[key], t, 0);
   const built = buildDragonModel(def, { preview: true });
   tris.push(countTris(built.group));
   bodyVal.push(lum(def.body));
+  // The MOTION-LANGUAGE ladder (CP4 re-grade): the fingered wing gains rays, the wrist fold
+  // deepens, and the beat matures from a frantic whelp flap to a held-glide sovereign pulse —
+  // all monotonic ↑, the same "each rung earns its keep" law the tri/value ramps encode.
+  fingers.push(def.model.scallopLobes ?? 0);       // radiating finger-bones
+  wristFold.push(def.model.tipAmp ?? 0);           // hand/wrist fold amplitude (0 on the whelp)
+  beatHold.push(def.model.glidePow ?? 0);          // glide-hold power (higher = rarer heavier pulses)
 
   // cruise-emissive = eyes ONLY: emissive CONTRIBUTION = intensity × emissive-luminance
   // (a BLACK emissive emits nothing at any intensity). Any material that actually emits
@@ -74,6 +80,12 @@ for (let t = 1; t < forms; t++) assert(tris[t] > tris[t - 1], `tris monotonic �
 ok(`tris monotonic ↑  [${tris.join(' < ')}]`);
 for (let t = 1; t < forms; t++) assert(bodyVal[t] < bodyVal[t - 1], `body value DECREASES (f${t - 1}=${bodyVal[t - 1].toFixed(3)} > f${t}=${bodyVal[t].toFixed(3)})`);
 ok(`body value monotonic ↓ (apex darkest)  [${bodyVal.map((v) => v.toFixed(3)).join(' > ')}]`);
+for (let t = 1; t < forms; t++) {
+  assert(fingers[t] > fingers[t - 1], `finger-bones monotonic ↑ (f${t - 1}=${fingers[t - 1]} < f${t}=${fingers[t]})`);
+  assert(wristFold[t] > wristFold[t - 1], `wrist-fold depth monotonic ↑ (f${t - 1}=${wristFold[t - 1]} < f${t}=${wristFold[t]})`);
+  assert(beatHold[t] > beatHold[t - 1], `glide-hold beat matures ↑ (f${t - 1}=${beatHold[t - 1]} < f${t}=${beatHold[t]})`);
+}
+ok(`motion ladder matures ↑ (fingers [${fingers.join('<')}] · wrist-fold [${wristFold.join('<')}] · glide-hold [${beatHold.join('<')}])`);
 ok('cruise-emissive = eyes only (ion-blue seam withheld)');
 ok('zero near-white emissive · span:body ≤ 2.5');
 
