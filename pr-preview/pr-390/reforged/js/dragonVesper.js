@@ -468,7 +468,12 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
     const m = new THREE.MeshStandardMaterial({ color: lerpHex(wo, MEMBLUE, f), emissive: 0x000000, flatShading: true, roughness: 0.8, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
     m.envMapIntensity = 0.2; return m;
   });
-  M.wingMat = M.memTiers[0];   // the game's opacity-fade driver (largest inboard area)
+  // The rig's single-material wing contract (dragon.js drives ONE wingMat's opacity/emissive).
+  // We hand it the INBOARD tier — the largest membrane area and the fade the player actually reads.
+  // The outer tiers hold fixed opacity, which is invisible by construction: they are near-black and
+  // read as pure silhouette, so a −0.05/−0.12 boost/Surge translucency dip on them can't register.
+  // (All tiers are black-emissive, so the rig's emissive drive on this one is likewise a no-op glow.)
+  M.wingMat = M.memTiers[0];
   // Knife-edge band — a SINGLE thin translucent layer (never stacked back-faces; the
   // CP3.2 0.82² lesson). Glossier + the BRIGHTEST wing value so the scalloped rim glints as
   // lit night-glass above even the inboard tier (the raised-rim rim-catch).

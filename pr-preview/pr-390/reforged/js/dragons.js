@@ -598,6 +598,10 @@ export const DRAGONS = {
     // only the Starlit Seam + eyes light), a low ion-blue screen wash, acid-green eyes,
     // and cool arcane motes (Sovereign-style, Surge-only).
     feverWing: 0x000000, feverEye: 0x9af03a, feverWash: [0.02, 0.045, 0.11], surgeMotes: true,
+    // Cruise membrane emissive is EXPLICITLY black (the wing owns the frame by silhouette, never
+    // glow). Set so the rig's per-frame `wingMat.emissive.setHex(... ?? wingEmissive)` gets a real
+    // 0x000000 instead of coercing setHex(undefined)→black by luck.
+    wingEmissive: 0x000000,
     body: 0x070a11, belly: 0x1a2234,
     wingInner: 0x0a0e17, wingOuter: 0x070a11,
     eye: 0x54c81e,
