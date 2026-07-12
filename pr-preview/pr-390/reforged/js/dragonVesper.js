@@ -307,7 +307,14 @@ function vesperArmZ(t, hs) {
 // kill the "bolted-on plank". Body-hued finger ridges are ANATOMY — the "zero hardware"
 // rule bans gold regalia, not bones.
 function buildOneScallopWing(M, dials) {
-  const wg = new THREE.Group();
+  // TWO articulating pieces (CP3 motion — the wing was a 1-bone plank at runtime): the ARM
+  // (shoulder→carpal: arm bone + root gusset + thumb) rides the forearm joint, and the HAND
+  // (carpal→fingertips: every finger + the whole connected membrane + knife-edge) FOLDS at the
+  // wrist. The membrane lives ENTIRELY in `hand`, so it moves as one rigid sheet — a real wing
+  // fold with zero tear. The caller anchors `hand` at the carpal K (−K offset) so it hinges
+  // there, not at the shoulder. Returns { arm, hand, K }.
+  const arm = new THREE.Group();
+  const hand = new THREE.Group();
   const { fingers, halfSpan: hs, archRise, cup, gusset, thumb, constellations, edgeBand } = dials;
   const LE = (t) => [t * hs, vesperArmY(t, hs, archRise), vesperArmZ(t, hs)];
   const K = LE(0.42);                    // carpal knuckle — the fingers radiate from here
@@ -331,17 +338,17 @@ function buildOneScallopWing(M, dials) {
   // rim-catch along the spine so they read as raised skeletal RAYS above the membrane
   // (the clay's piped ridges), not flat wedges. Plus a bolder arm bone (root → carpal).
   const ridgeLift = 0.12 * hs;
-  const ridge = (a, b, wB, wT, mat, capMat) => {
+  const ridge = (tgt, a, b, wB, wT, mat, capMat) => {
     const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
     const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
     const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
     const aT = [a[0], a[1] + ridgeLift, a[2]], bT = [b[0], b[1] + ridgeLift * 0.35, b[2]];
-    wg.add(flatTriMesh([[aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]], mat));
+    tgt.add(flatTriMesh([[aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]], mat));
     // a slim brighter spine cap on the ridgeline → the raised-bone rim-catch (light).
-    if (capMat) { const aT2 = [a[0] + px * wB * 0.28, a[1] + ridgeLift, a[2] + pz * wB * 0.28]; wg.add(flatTriMesh([[aT, bT, aT2]], capMat)); }
+    if (capMat) { const aT2 = [a[0] + px * wB * 0.28, a[1] + ridgeLift, a[2] + pz * wB * 0.28]; tgt.add(flatTriMesh([[aT, bT, aT2]], capMat)); }
   };
-  ridge(LE(0), K, 0.13 * hs, 0.09 * hs, M.dorsalFacet, M.speckle);              // arm bone
-  for (let i = 0; i < tips.length; i++) ridge(K, tips[i], 0.075 * hs * (1 - 0.08 * i), 0.006, M.dorsalFacet, i < 2 ? M.speckle : null);
+  ridge(arm, LE(0), K, 0.13 * hs, 0.09 * hs, M.dorsalFacet, M.speckle);         // arm bone → forearm (rides the wrist joint's parent)
+  for (let i = 0; i < tips.length; i++) ridge(hand, K, tips[i], 0.075 * hs * (1 - 0.08 * i), 0.006, M.dorsalFacet, i < 2 ? M.speckle : null);  // finger bones → hand (fold)
 
   // ── MEMBRANE BAYS — between consecutive fingers the trailing edge is a SMOOTH concave
   // arc pulled INWARD toward the knuckle (deep stretched-skin cups, the clay-sculpt read
@@ -360,7 +367,7 @@ function buildOneScallopWing(M, dials) {
     const C = [(K[0] + mid[0]) / 2, (K[1] + mid[1]) / 2 - 0.11 * dpair, (K[2] + mid[2]) / 2];
     const fan = [[C, K, arc[0]], [C, arc[NSEG], K]];
     for (let s = 0; s < NSEG; s++) fan.push([C, arc[s], arc[s + 1]]);
-    wg.add(flatTriMesh(fan, tier(i)));
+    hand.add(flatTriMesh(fan, tier(i)));
     for (let s = 0; s <= NSEG; s++) if (!(i > 0 && s === 0)) trailing.push(arc[s]);   // one shared polyline
   }
 
@@ -374,24 +381,28 @@ function buildOneScallopWing(M, dials) {
       const a = trailing[s], b = trailing[s + 1], ai = inb(a), bi = inb(b);
       eT.push([a, b, bi], [a, bi, ai]);
     }
-    wg.add(flatTriMesh(eT, M.edgeMat));
+    hand.add(flatTriMesh(eT, M.edgeMat));
   }
 
   // ── ROOT GUSSET — the inboard membrane sweeps aft to the hip so the wing isn't bolted
   // on (a separate overlapped triangle, buried in the body silhouette / under the cowl).
   // A DARKER inboard tier + a dropped mid so it blends into the wing, not a flat plate.
   if (gusset) {
-    const r0p = LE(0), Faft = tips[tips.length - 1];
+    // Anchored to ARM-side points only (root LE, carpal K, hip G, an arm-plane aft corner
+    // Aaft) — NEVER a finger tip — so it stays welded to the forearm and can't tear when the
+    // hand folds (the wrist pivot K is shared, and near the pivot the fold displacement → 0).
+    const r0p = LE(0);
     const G = [r0p[0] + 0.10 * hs, r0p[1] - 0.06 * hs, r0p[2] + 1.7];
-    const gm = [(r0p[0] + Faft[0] + G[0]) / 3, (r0p[1] + Faft[1] + G[1]) / 3 - 0.06, (r0p[2] + Faft[2] + G[2]) / 3];
-    wg.add(flatTriMesh([[r0p, K, Faft], [r0p, Faft, gm], [Faft, G, gm], [G, r0p, gm]], tier(Math.min(2, M.memTiers.length - 1))));
+    const Aaft = [K[0] * 0.6 + r0p[0] * 0.4, K[1] - 0.10 * hs, K[2] + 0.55];
+    const gm = [(r0p[0] + Aaft[0] + G[0]) / 3, (r0p[1] + Aaft[1] + G[1]) / 3 - 0.06, (r0p[2] + Aaft[2] + G[2]) / 3];
+    arm.add(flatTriMesh([[r0p, K, Aaft], [r0p, Aaft, gm], [Aaft, G, gm], [G, r0p, gm]], tier(Math.min(2, M.memTiers.length - 1))));
   }
 
   // ── THUMB CLAW — a small knapped blade at the carpal, raked forward-up (the ref's
   // leading-edge break).
   if (thumb) {
     const cl = [K[0] + 0.04 * hs, K[1] + 0.12 * hs, K[2] - 0.18 * hs];
-    wg.add(flatTriMesh([[K, [K[0] + 0.02 * hs, K[1] + 0.02 * hs, K[2] - 0.02 * hs], cl], [K, cl, [K[0] - 0.03 * hs, K[1] + 0.03 * hs, K[2] + 0.02 * hs]]], M.dorsalFacet));
+    arm.add(flatTriMesh([[K, [K[0] + 0.02 * hs, K[1] + 0.02 * hs, K[2] - 0.02 * hs], cl], [K, cl, [K[0] - 0.03 * hs, K[1] + 0.03 * hs, K[2] + 0.02 * hs]]], M.dorsalFacet));
   }
 
   // ── CONSTELLATIONS — diffuse moon-grey flecks near the wingtip, seated CLOSE to the
@@ -402,9 +413,9 @@ function buildOneScallopWing(M, dials) {
     const base = [along[0], along[1] + 0.012, along[2]];
     const r = 0.05 + 0.028 * ((i * 0.27) % 1), rot = (i * 1.7) % (Math.PI * 2);
     const v = (k, rad) => [base[0] + Math.cos(rot + k) * rad, base[1], base[2] + Math.sin(rot + k) * rad];
-    wg.add(flatTriMesh([[v(0, r), v(2.1, r * 0.82), v(4.2, r * 1.12)]], M.speckle));
+    hand.add(flatTriMesh([[v(0, r), v(2.1, r * 0.82), v(4.2, r * 1.12)]], M.speckle));
   }
-  return wg;
+  return { arm, hand, K };
 }
 
 // SCAPULAR COWL — overlapping knapped flake-plates (triangular flats in the torso's
@@ -464,15 +475,28 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
+    // The flapping wing is built CANONICAL (right-hand +X, at the canonical right root) for BOTH
+    // sides; the LEFT is a scale.x=-1 OUTER wrapper that reflects the whole posed wing. The mirror
+    // MUST be a parent of the pivot (rotate-then-flip), NOT `pivot.scale.x=-1` (flip-then-rotate) —
+    // the wingParts poser writes IDENTICAL L/R rotations and relies on an outer reflection to make
+    // them symmetric (the aurumToro lmirror convention). A scale on the pivot itself desyncs .y/.z.
+    const rootC = attach.wingRoot(1);
     const pivot = new THREE.Group();
-    pivot.position.set(root.x, root.y, root.z);
+    pivot.position.set(rootC.x, rootC.y, rootC.z);
     pivot.userData.wingRole = 'pivot';
+    // 3-segment hinge (CP3): pivot = shoulder (root flap), mid = forearm (lagged curl), tip =
+    // the HAND folding at the wrist. The wingParts poser drives all three; the hand carries the
+    // whole connected membrane so the fold never tears it.
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
-    mid.add(buildOneScallopWing(M, dials));   // canonical +X geometry (rake/dihedral baked in)
-    if (side === -1) pivot.scale.x = -1;       // left = mirror → the animator's mirrored poses read symmetric
-    group.add(pivot);
+    const { arm, hand, K } = buildOneScallopWing(M, dials);   // canonical +X geometry (rake/dihedral baked in)
+    mid.add(arm);                                             // arm bone + gusset + thumb ride the forearm
+    tip.position.set(K[0], K[1], K[2]);                      // wrist fold axis = the carpal knuckle
+    hand.position.set(-K[0], -K[1], -K[2]);                  // −anchor → assembled REST pose byte-identical
+    tip.add(hand);                                           // fingers + connected membrane FOLD at the wrist
+    if (side === -1) { const lmirror = new THREE.Group(); lmirror.scale.x = -1; lmirror.add(pivot); group.add(lmirror); }
+    else group.add(pivot);
     // Scapular cowl is STATIC (body frame), NOT parented to the flapping pivot.
     if (cowl) group.add(buildScapularCowl(M, root, side));
     // WING-ROOT SPARK LINE (f3) — a single short inset seam streak UNDER the cowl (never
@@ -491,7 +515,7 @@ function buildScallopCrescentWings(def, model, attach, _giM) {
     const tipY = vesperArmY(1, halfSpan, archRise), tipZ = vesperArmZ(1, halfSpan);
     const marker = new THREE.Object3D();
     marker.position.set(halfSpan, tipY, tipZ);
-    mid.add(marker);
+    hand.add(marker);   // tracks the wingtip through the wrist fold (trail/FX emit point)
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip;
     pivots['tipMarker' + s] = marker;
     wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + tipZ], length: halfSpan, tipObj: marker });
