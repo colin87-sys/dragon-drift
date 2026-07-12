@@ -296,6 +296,114 @@ export function buildUnmasked(def, quality = 1) {
   voidGlow.position.set(0, 0, -1.8); voidGlow.visible = false;
   rig.add(voidGlow);
 
+  // ── THE IGNITE AURA MANDORLA (GODHEAD DETONATION P3): the heaven-side sibling of voidGlow — the
+  // seraph catches fire from its own verdict. A radial-falloff disc STRICTLY behind the silhouette
+  // plane, white-gold core → gold-rose → S2 VIOLET outer ring → black (owner D2a+ hybrid: gold fire,
+  // violet-cold edge), ROILING with outward-scrolling noise (owner §1.3 — the aura is alive from P3,
+  // not only once the wisps land). HARD radius cap DISC_R × 1.8 (the void one was shrunk 2.3→1.6 for
+  // a headless fill-rate tax — do not regrow it); shipped at ×1.65. Sibling of voidGlow so voidK/
+  // igniteK stay independent (+1 draw). Opacity driven by igniteK; hidden at rest (byte-identical). ──
+  const igSeg = lowQ ? 40 : 72, IG_R = DISC_R * 1.65;
+  const igPos = [0, 0, 0], igR = [0], igPh = [0], igIdx = [];   // aR = radial 0..1 · aPh = rim angle (roil phase)
+  for (let i = 0; i <= igSeg; i++) {
+    const a = (i / igSeg) * TAU;
+    igPos.push(Math.cos(a) * IG_R, Math.sin(a) * IG_R, 0); igR.push(1); igPh.push(a);
+  }
+  for (let i = 1; i <= igSeg; i++) igIdx.push(0, i, i + 1);
+  const igGeo = new THREE.BufferGeometry();
+  igGeo.setAttribute('position', new THREE.Float32BufferAttribute(igPos, 3));
+  igGeo.setAttribute('aR', new THREE.Float32BufferAttribute(igR, 1));
+  igGeo.setAttribute('aPh', new THREE.Float32BufferAttribute(igPh, 1));
+  igGeo.setIndex(igIdx);
+  const igMat = track(new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+    vertexShader: `
+      attribute float aR; attribute float aPh;
+      varying float vR; varying float vPh;
+      void main(){ vR = aR; vPh = aPh; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      precision mediump float;
+      uniform float uTime; uniform float uOpacity;
+      varying float vR; varying float vPh;
+      void main(){
+        vec3 cCore = vec3(1.00, 0.94, 0.78);   // white-gold heart
+        vec3 cMid  = vec3(0.85, 0.54, 0.39);   // gold-rose (the nebula key)
+        vec3 cRim  = vec3(0.42, 0.36, 0.66);   // S2 void-violet outer ring (the cold edge)
+        vec3 col = vR < 0.5 ? mix(cCore, cMid, vR / 0.5) : mix(cMid, cRim, (vR - 0.5) / 0.5);
+        float ang = sin(vPh) * 3.0 + sin(2.0 * vPh + 1.3) * 2.0;   // seam-continuous angular variation
+        float roil = 0.65 + 0.35 * sin(vR * 10.0 - uTime * 2.0 + ang);   // flame tongues scroll OUTWARD, forever
+        float falloff = pow(max(0.0, 1.0 - vR), 1.4);   // soft to black at the rim (no hard edge)
+        gl_FragColor = vec4(col * falloff * roil * uOpacity, 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  igMat.toneMapped = false;
+  const igniteGlow = new THREE.Mesh(igGeo, igMat);
+  igniteGlow.name = 'igniteGlow';
+  igniteGlow.position.set(0, 0, -1.9); igniteGlow.visible = false;   // just behind voidGlow, behind the silhouette plane
+  igniteGlow.layers.set(1);   // out of the god-ray occlusion mask (gotcha 1): unlike voidGlow, the ignite aura runs in the HEAVEN where the rays SWELL — a layer-0 additive disc would punch a hole in them. Also out of the water mirror.
+  rig.add(igniteGlow);
+
+  // ── THE LIVING WISPS (GODHEAD DETONATION P5, owner §1.3): ~14 small tapered flame-tongues licking
+  // off the crown + upper-wing perimeter, IN FRONT of the silhouette plane, merged to ONE additive
+  // draw, vertex-faded to black at every edge/tip (no hard rim). Continuously animated — scrolling
+  // tendrils + a SLOW per-wisp flicker (living flame, never a strobe), gold-rose → violet tip. Placed
+  // on the UPPER arc only (crown + wingtips) — never the down/corridor column. Gated on igniteK (rises
+  // with the wreath). Layer 1 (additive in the heaven — out of the ray mask + mirror). ──
+  const WISP_N = 14, WISP_RB = DISC_R * 1.28;
+  const wPos = [], wCol = [], wUv = [], wPh = [];
+  const wpush = (p, c, u, ph) => { wPos.push(p[0], p[1], p[2]); wCol.push(c[0], c[1], c[2]); wUv.push(u[0], u[1]); wPh.push(ph); };
+  const W_GOLD = [1.0, 0.62, 0.42], W_VIO = [0.46, 0.38, 0.64];   // gold-rose base → S2 violet tip
+  const wgrad = (t) => [W_GOLD[0] + (W_VIO[0] - W_GOLD[0]) * t, W_GOLD[1] + (W_VIO[1] - W_GOLD[1]) * t, W_GOLD[2] + (W_VIO[2] - W_GOLD[2]) * t];
+  for (let i = 0; i < WISP_N; i++) {
+    const a = Math.PI * (0.03 + 0.94 * (i / (WISP_N - 1)));       // upper arc 5°→175° (right wingtip → crown → left wingtip)
+    const wob = 0.10 * Math.sin(i * 2.7);                          // slight per-wisp lean (deterministic)
+    const dir = a + wob, len = DISC_R * (0.5 + 0.32 * (0.5 + 0.5 * Math.sin(i * 2.3)));
+    const ex = Math.cos(dir), ey = Math.sin(dir), nx = Math.cos(dir + Math.PI / 2), ny = Math.sin(dir + Math.PI / 2);
+    const bx = Math.cos(a) * WISP_RB, by = Math.sin(a) * WISP_RB, ph = i * 1.7;
+    const SEG = 3, W0 = DISC_R * 0.085;
+    for (let j = 0; j < SEG; j++) {
+      const t0 = j / SEG, t1 = (j + 1) / SEG;
+      const r0 = t0 * len, r1 = t1 * len, w0 = W0 * (1 - t0), w1 = W0 * (1 - t1);
+      const c0 = wgrad(t0), c1 = wgrad(t1);
+      const L0 = [bx + ex * r0 + nx * w0, by + ey * r0 + ny * w0, 0.2], R0 = [bx + ex * r0 - nx * w0, by + ey * r0 - ny * w0, 0.2];
+      const L1 = [bx + ex * r1 + nx * w1, by + ey * r1 + ny * w1, 0.2], R1 = [bx + ex * r1 - nx * w1, by + ey * r1 - ny * w1, 0.2];
+      wpush(L0, c0, [t0, 0], ph); wpush(R0, c0, [t0, 1], ph); wpush(R1, c1, [t1, 1], ph);
+      wpush(L0, c0, [t0, 0], ph); wpush(R1, c1, [t1, 1], ph); wpush(L1, c1, [t1, 0], ph);
+    }
+  }
+  const wGeo = new THREE.BufferGeometry();
+  wGeo.setAttribute('position', new THREE.Float32BufferAttribute(wPos, 3));
+  wGeo.setAttribute('aCol', new THREE.Float32BufferAttribute(wCol, 3));
+  wGeo.setAttribute('uv', new THREE.Float32BufferAttribute(wUv, 2));
+  wGeo.setAttribute('aPh', new THREE.Float32BufferAttribute(wPh, 1));
+  const wMat = track(new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+    vertexShader: `
+      attribute vec3 aCol; attribute float aPh;
+      varying vec3 vCol; varying vec2 vUv; varying float vPh;
+      void main(){ vCol = aCol; vUv = uv; vPh = aPh; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      precision mediump float;
+      uniform float uTime; uniform float uOpacity;
+      varying vec3 vCol; varying vec2 vUv; varying float vPh;
+      void main(){
+        float t = vUv.x;
+        float prof = smoothstep(0.0, 0.18, t) * pow(max(0.0, 1.0 - t), 0.7);   // emerges from the wing, dies to black at the tip
+        float edge = pow(1.0 - abs(2.0 * vUv.y - 1.0), 1.2);                    // soft sides
+        float flow = 0.5 + 0.5 * sin(t * 12.0 - uTime * 3.0 + vPh);            // tendril scrolls outward
+        float flick = 0.72 + 0.28 * sin(uTime * 0.8 + vPh * 2.3);              // SLOW flicker, never a strobe
+        gl_FragColor = vec4(vCol * prof * edge * flow * flick * uOpacity, 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  wMat.toneMapped = false;
+  const wisps = new THREE.Mesh(wGeo, wMat);
+  wisps.name = 'igniteWisps';
+  wisps.frustumCulled = false; wisps.visible = false;
+  wisps.layers.set(1);   // additive in the heaven — out of the ray mask + water mirror
+  rig.add(wisps);
+
   // ── SHATTER SHARDS (S1→S2): a dozen dark disc-fragments fling radially in-plane at the
   // shatter, silhouetted against the backlight (opaque near-black → overdraw-free, unlike an
   // additive chip). Parented to `rig`; a PRIVATE seed keeps the main `rnd` stream untouched (the
@@ -1075,7 +1183,7 @@ export function buildUnmasked(def, quality = 1) {
   // frame. heavenK (driven by boss.js as the unveil completes) — 0 ⇒ byte-identical (the halo/burst
   // multipliers are ×1; the sclera/catch writes are heavenK>0-guarded). All TUNE.
   let heavenK = 0;
-  const SCLERA_LIFT = 0.3, HALO_LIFT = 0.6, BURST_LIFT = 0.9, CATCH_LIFT = 0.6;
+  const SCLERA_LIFT = 0.3, HALO_LIFT = 0.75, BURST_LIFT = 1.0, CATCH_LIFT = 0.6;   // GODHEAD DETONATION P3: crown lifted (.6→.75 / .9→1.0) so the star-eye focal outshines the new gold WREATH (dark-gap law)
   function setArenaHeaven(k) { heavenK = Math.max(0, Math.min(1, k)); }
 
   // ── THE ARENA VOID RIM-LIGHT (PR-V2): THE HOLLOW has NO sun on the camera-facing seraph (the
@@ -1097,6 +1205,31 @@ export function buildUnmasked(def, quality = 1) {
   const VOID_GLOW_MAX = 0.42;   // low opacity (owner: "yes, low") — the glow supports the rim, never floods
   let voidK = 0;
   function setArenaVoid(k) { voidK = Math.max(0, Math.min(1, k)); }
+
+  // ── THE IGNITED SERAPH (GODHEAD DETONATION P3): the heaven-side sibling of setArenaVoid — the boss
+  // catches fire from its own verdict (judgment = illumination). igniteK (driven by boss.js across the
+  // SETTLED heaven, mix 1.45→2, AFTER voidK fully exhales — mutually exclusive by construction) does
+  // three things, owner D2a+ HYBRID (gold fire, violet-cold body — NOT a full wash): (1) an
+  // INCANDESCENT GOLD rim on the wing leading edges (emissive → the self-lit term, reads with zero
+  // scene light — the sun rakes the boss's back), (2) a PARTIAL ladder lift (0.35) toward an ember
+  // violet-bronze midtone — the body WARMS but STAYS DARK so the six wingEyes + shingled fan still
+  // read (the line between "wreathed" and "washed" is load-bearing), (3) the roiling gold-violet aura
+  // mandorla. The focal (star-eye) still wins via the heaven-lift retune. igniteK 0 ⇒ byte-identical
+  // (guarded restore, exactly the void idiom). Zero rig writes; wing angles frozen; wingEyes cannot move.
+  // WREATHED, NOT WASHED (load-bearing): rimMat/rimMatB are LARGE feather-rank materials, not thin
+  // edges — recolouring them bright gold WASHES the whole fan and kills the dark silhouette. The
+  // reference's "burning edges" are really BACKLIGHT (the aura mandorla rims the dark figure). So the
+  // feather diffuse stays DARK-warm (value kept near the base 0x5b6472/0x474e5a so it reads DARKER than
+  // the gold sky), with only a MODEST warm-gold EMISSIVE ember; the mandorla behind is the real wreath.
+  const RIM_IGNITE = new THREE.Color(0x8a6a48), RIMB_IGNITE = new THREE.Color(0x6a5238);   // dark warm bronze — a warm TINT, not a gold sticker (silhouette preserved)
+  const RIM_EM_IGNITE = new THREE.Color(0x6e4c22), RIMB_EM_IGNITE = new THREE.Color(0x4a3016);  // a MODEST self-lit ember on the leading ranks (edges glow warm; the mandorla carries the incandescence)
+  const IGNITE_BODY = new THREE.Color(0x544862);   // ember violet-BRONZE midtone — warm but dark, the S2 violet undertone kept (hybrid); PARTIAL lerp preserves the ladder separation
+  const LADDER_IGNITE = {};
+  for (const k of LADDER_KEYS) LADDER_IGNITE[k] = baseMats[k].color.clone().lerp(IGNITE_BODY, 0.30);   // 0.30 — wreathed, not washed (body warms, stays dark)
+  const IGNITE_GLOW_MAX = 0.46;   // the aura opacity (owner §3d.3 ~0.5·k) — the mandorla is the wreath, supports the silhouette, never floods the frame
+  const WISP_MAX = 0.85;          // the living-wisp brightness (thin tapered tongues → cheap on the probes; the shader's prof/edge/flow keep them sparse)
+  let igniteK = 0;
+  function setArenaIgnite(k) { igniteK = Math.max(0, Math.min(1, k)); }
 
   let charge = 0;
   function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
@@ -1309,7 +1442,10 @@ export function buildUnmasked(def, quality = 1) {
       starPupil.scale.set(SW * 0.42 * sk, SH * 0.5 * sk, 0.4);
     }
 
-    // ARENA VOID rim-light + body lift + backglow (PR-V2) — every frame; voidK 0 ⇒ exact restore (byte-identical off-void).
+    // ARENA rim-light + body lift + backglow — every frame; voidK/igniteK 0 ⇒ exact restore
+    // (byte-identical off-arena). voidK (S2 violet rim) and igniteK (S3 gold WREATH) are MUTUALLY
+    // EXCLUSIVE by construction (boss.js: voidK exhales to 0 by mix 1.45, igniteK rises 1.45→2), so
+    // void wins the branch if a driver bug ever overlaps them — the test asserts they never coexist.
     if (voidK > 0) {
       rimMat.color.copy(RIM_BASE).lerp(RIM_VOID, voidK);
       rimMat.emissive.copy(RIM_EM_BASE).lerp(RIM_EM_VOID, voidK);
@@ -1317,11 +1453,22 @@ export function buildUnmasked(def, quality = 1) {
       rimMatB.emissive.copy(RIMB_EM_BASE).lerp(RIMB_EM_VOID, voidK);
       for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_VOID[k], voidK);
       vgMat.opacity = voidK * VOID_GLOW_MAX; voidGlow.visible = true;
-    } else if (voidGlow.visible) {
+    } else if (igniteK > 0) {
+      // THE IGNITED SERAPH: gold-wreathed rim + violet-bronze body + roiling gold-violet mandorla.
+      rimMat.color.copy(RIM_BASE).lerp(RIM_IGNITE, igniteK);
+      rimMat.emissive.copy(RIM_EM_BASE).lerp(RIM_EM_IGNITE, igniteK);
+      rimMatB.color.copy(RIMB_BASE).lerp(RIMB_IGNITE, igniteK);
+      rimMatB.emissive.copy(RIMB_EM_BASE).lerp(RIMB_EM_IGNITE, igniteK);
+      for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_IGNITE[k], igniteK);
+      igMat.uniforms.uOpacity.value = igniteK * IGNITE_GLOW_MAX; igMat.uniforms.uTime.value = time; igniteGlow.visible = true;
+      wMat.uniforms.uOpacity.value = igniteK * WISP_MAX; wMat.uniforms.uTime.value = time; wisps.visible = true;   // the living wisps lick off the crown/wingtips
+    } else if (voidGlow.visible || igniteGlow.visible || wisps.visible) {
       rimMat.color.copy(RIM_BASE); rimMat.emissive.copy(RIM_EM_BASE);
       rimMatB.color.copy(RIMB_BASE); rimMatB.emissive.copy(RIMB_EM_BASE);
       for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]);
       vgMat.opacity = 0; voidGlow.visible = false;
+      igMat.uniforms.uOpacity.value = 0; igniteGlow.visible = false;
+      wMat.uniforms.uOpacity.value = 0; wisps.visible = false;
     }
   }
 
@@ -1342,8 +1489,10 @@ export function buildUnmasked(def, quality = 1) {
     setBrandedRelics,
     setArenaHeaven,
     setArenaVoid,
+    setArenaIgnite,
     debugArenaLift: () => ({ k: heavenK, sclera: greatScleraMat.color.getHex() }),
     debugArenaVoid: () => ({ k: voidK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +vgMat.opacity.toFixed(3), glowVis: voidGlow.visible }),
+    debugArenaIgnite: () => ({ k: igniteK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +igMat.uniforms.uOpacity.value.toFixed(3), glowVis: igniteGlow.visible, wispVis: wisps.visible, wispOp: +wMat.uniforms.uOpacity.value.toFixed(3) }),
     setDebugStage,
     setStageMorph,
     setStage3,
