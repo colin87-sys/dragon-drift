@@ -38,7 +38,10 @@ export const kindMult = (kind) => KIND_MULT[kind] ?? 1;
 // slope budget if the exit half were sized by the backward span. Clamped 36..80,
 // which also tames spanFwd's 300–450m gauntlet-bridge outliers (the PR-0 clamp).
 export function halves(seg, mult = 1) {
-  const cl = (s) => Math.max(36, Math.min(80, s * 0.6)) * mult;
+  // Clamp 36..96: the 96 ceiling (was 80) lets a section reach across the longer ring
+  // gaps left by suppressed gate-hops, closing the median coverage holes so the tunnel
+  // reads continuous. Band caps at span·0.5 keep the wall tiling exact regardless.
+  const cl = (s) => Math.max(36, Math.min(96, s * 0.6)) * mult;
   return { bk: cl(seg.span || 80), fw: cl(seg.spanFwd ?? (seg.span || 80)) };
 }
 
@@ -118,19 +121,31 @@ export function rockSlicePlan(seg) {
   // own easing peak, then cap by the lane-edge margin. Sway peak slope = A·π/(2·eh);
   // set ≤ (BUDGET_X − easePeak) → A ≤ (BUDGET_X − easePeak)·2·eh/π (conservative: the
   // sway peak at the ring and the ease peak mid-half don't co-locate, so total < sum).
-  const ampHalf = (d, eh, seamX) => {
+  // In-lane free-width floor the audit enforces (+0.5 safety). Keep the swayed centre
+  // far enough from the fatal lane wall that the channel never pinches below it.
+  const LANE_MARGIN = CONFIG.laneHalfWidth - 7.5 - 0.5;   // free-width floor 7.5 + 0.5 safety
+  const chanHalfAt = (t) =>
+    CONFIG.canyonPinchHalf + CONFIG.canyonBreathOpen * (0.5 - 0.5 * Math.cos(Math.PI * t));
+  const ampHalf = (d, eh, neighbourGx) => {
     const easePeak = 1.5 * Math.abs(d) / eh;
     const aSlope = Math.max(0, BUDGET_X - easePeak) * (2 * eh / Math.PI);
-    // Keep the swayed centre inside the lane. The binding point is the seam, where
-    // |sway| peaks (=A) AND |centre| peaks (= the neighbour midpoint |seamX|), so
-    // |seamX| + A ≤ laneMargin. Using the MIDPOINT (not max(|gx|,|neighbourGx|)) is
-    // less conservative AND symmetric across the seam — both sides share the same
-    // midpoint — so the C0 seam continuity of the sway is preserved.
-    const aLane = (CONFIG.laneHalfWidth - 3.8) - Math.abs(seamX);
+    // SOLVED, seam-symmetric lane cap: |xAt(z)+A·sin| ≤ LANE_MARGIN + chanHalf across
+    // the WHOLE half, not just the seam — so the sway can't push the centre toward the
+    // wall mid-section and pinch the in-lane channel below the floor. |xAt| is bounded
+    // by max(|gx|, |neighbourGx|) (the two gaps this half spans); those two gaps are
+    // shared by the abutting half of the next section, so a·exit and b·entry compute an
+    // identical cap → the sway stays C0 across the seam. Scan a few t; near the ring
+    // sin→0 imposes no constraint (sway is ~0 there).
+    const maxG = Math.max(Math.abs(gx), Math.abs(neighbourGx));
+    let aLane = CONFIG.canyonSwayAmp;
+    for (const t of [0.35, 0.5, 0.65, 0.8, 0.92, 1.0]) {
+      const s = Math.sin((Math.PI / 2) * t);
+      aLane = Math.min(aLane, (LANE_MARGIN + chanHalfAt(t) - maxG) / s);
+    }
     return Math.max(0, Math.min(CONFIG.canyonSwayAmp, aSlope, aLane));
   };
-  const aEntry = ampHalf(gx - entryX, bk, entryX);
-  const aExit = ampHalf(exitX - gx, fw, exitX);
+  const aEntry = ampHalf(gx - entryX, bk, px);
+  const aExit = ampHalf(exitX - gx, fw, nx);
   const sway = (z) => {
     // zn clamped to [±1] so an out-of-range sample (a gauntlet-bridged "seam" far
     // beyond the rib band) holds the seam value instead of running the sinusoid wild.

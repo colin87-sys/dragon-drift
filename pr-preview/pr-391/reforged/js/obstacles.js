@@ -526,12 +526,16 @@ function buildRockGap(o, e) {
     e.depthHalf = Math.max(e.depthHalf || 0, bk, fw); // broad-phase spans the full section
     e.noDissolve = true;        // thin, open ribs never block the view → don't fade
     const cx = 2 * W;           // TWICE as wide
-    const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
+    const cy = H + 7.0;         // TALLER — the arch clears the forward sightline (raised
+                                // +1.5 to hold the dorsal-apex screen height now that the
+                                // tube centre dropped onto the ring — see below)
     // The rib centre follows a SMOOTH C1 curve through the rings in BOTH axes now
     // (prevY/nextY thread the vertical the same way prevX/nextX thread the lateral),
-    // so the tube no longer teleports up/down at a seam. The +1.5 belly lift rides on
-    // top of the interpolated Y. At z=0 the centre is exactly (gapX,gapY) — the
-    // reward ring stays dead-centre and the finale orb stays inside the corridor.
+    // so the tube no longer teleports up/down at a seam. The tube centre is EXACTLY the
+    // ring centre (gapX,gapY) at z=0 — NO belly lift — so flying the visual tunnel
+    // centre-line scores a perfect (the old +1.5 lift exceeded ringCenterRadius 1.4, so
+    // a centred flight could never perfect, and the ring hung at the open belly). The
+    // finale orb (also at gapY) is centred for free.
     const cor = CORRIDOR_HALF;   // shared with the flow audit (== cx * 0.92)
     const wallHz = ((bk + fw) / Math.max(nRibs - 1, 1)) * 0.62; // tiles along z, slight overlap
     // Joint relief: on a BIG bend, drop the side-wall colliders (not the visible
@@ -548,7 +552,7 @@ function buildRockGap(o, e) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
       const z = -bk + f * total;
       const ox = xAt(z);
-      const oy = yAt(z) + 1.5;
+      const oy = yAt(z);          // tube centre == ring centre (no belly lift) → perfect flyable
       // Walls only where sections tile (the abutting band [-wb,wf]) and outside the
       // big-bend relief slivers at either end.
       const inBand = z >= -wb && z <= wf;
