@@ -7,7 +7,7 @@
 // yoke branch, so no starter (none ride the yoke) could be pinned, and the studio — which
 // builds the model directly instead of running dragon.js's update loop — had no shared
 // freeze at all. Centralising the pose math means the in-game freeze and the studio
-// capture snap to the SAME pose (extend the mechanism, don't fork it — DRAGON-DESIGN §6.6).
+// capture snap to the SAME pose (extend the mechanism, don't fork it — STARTER-REDESIGN §6.6).
 //
 // Covers all four wing motion paths, in dragon.js's own priority order:
 //   1. SKINNED rig      (parts.wingRigL — flapWing cascade; ember's future path)

@@ -198,7 +198,7 @@ export const DRAGONS = {
     rarity: 'SR',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 1200,
-    accentHue: 0xd6ffe9,   // mint-pearl accent (~148°) — the ICONIC GREEN rim/pearl carrier (human art-direction, DRAGON-DESIGN §5d)
+    accentHue: 0xd6ffe9,   // mint-pearl accent (~148°) — the ICONIC GREEN rim/pearl carrier (human art-direction, STARTER-REDESIGN §5d)
     // JADE Serpent — an ICONIC GREEN river-dragon (human art-direction). A long
     // sinuous EASTERN koi/serpent: the BODY is the hero silhouette (S line of
     // action), the SILK-FIN sails carry the beauty. A stranger's one-word read of
