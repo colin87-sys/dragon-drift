@@ -44,7 +44,13 @@ for (const phase of PHASES) {
       settings: { reticle: false, slowMo: true, qualityOverride: null },
     }))`,
   });
-  await page.click('#btn-start').catch(() => {});
+  // Start the run — RETRY the click until the hub's TAKE OFF button actually goes away
+  // (a single best-effort click intermittently missed on some phase boots → the tile captured
+  // the hub screen instead of flight; that was a tooling flake, not the model).
+  for (let a = 0; a < 6; a++) {
+    await page.click('#btn-start').catch(() => {});
+    if (await page.waitForSelector('#btn-start', { state: 'hidden', timeout: 1500 }).then(() => true, () => false)) break;
+  }
   await page.waitForTimeout(2200);   // climb into steady flight (the wing is frozen at `phase`)
   const out = `/tmp/flap-${key}-${phase}.png`;
   await page.screenshot({ path: out, clip: { ...CLIP } });
