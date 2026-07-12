@@ -2,7 +2,7 @@ import { CONFIG } from './config.js';
 import { mulberry32, clamp } from './util.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import { FIRST_FLIGHT_BEATS, FIRST_FLIGHT_END } from './firstFlight.js';
-import { rockSlicePlan, centre, halves } from './canyonMath.js';
+import { rockSlicePlan, centre, halves, band, flowWeave } from './canyonMath.js';
 
 const lerp = (a, b, k) => a + (b - a) * k;
 const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') === 'reach';
@@ -709,26 +709,38 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       // granularity-invariant (canyonframe). Flow orbs carry flow:1 (a non-fixtured marker;
       // PR-3 turns it into the chain pickup — inert for now, and canyonframe keys on dist/x/y).
       out.orbs.push({ dist: seg.dist - 8, x: clamp(seg.gapX, -11, 11), y: clamp(seg.gapY, 4.5, 20), flow: 1 }); // gate orb
-      // Ribbon back toward the previous ring, DENSE (pitch ≤ ~46m) so the boost/stamina
-      // chain is always re-catchable at base speed. Filled over the WHOLE span up to
-      // canyonFlowFill; a wider span is a genuine gauntlet bridge (rings far apart, the
-      // slalom is its own beat) and stays open, like every canyon system. Skip the mouth
-      // (runIdx 0 — its backward span reaches outside the run).
+      // Orb + ember RIBBON over the segment's own BAND [-wb, +wf] — the CARVED slalom line
+      // (base ring line + flowWeave). Emitted per-band so abutting sections TILE (the
+      // weave is C0 at the shared seam) and each pickup sits on the accurate eased line.
+      // DENSE (pitch ≤ ~46m) → re-catchable at base speed. The gate orb stays dead-centre
+      // (weave is 0 at the ring). Straight in through the mouth / out of the finale (no
+      // band there); a gauntlet-bridged span leaves wb/wf short → the bridge stays open.
       const span = seg.span || 80;
-      if (seg.runIdx > 0 && span <= CONFIG.canyonFlowFill) {
+      if (span <= CONFIG.canyonFlowFill) {
         const { bk, fw } = halves(seg);
+        const { wb, wf } = band(seg, bk, fw);
         const { xAt, yAt } = centre(seg, bk, fw);
-        const n = Math.max(1, Math.round(span / 46));
-        for (let i = 1; i < n; i++) {                // n−1 interior orbs at pitch span/n
-          const z = -span * (i / n);
-          out.orbs.push({ dist: seg.dist + z, x: clamp(xAt(z), -11, 11), y: clamp(yAt(z), 4.5, 20), flow: 1 });
+        const weave = flowWeave(seg, bk, fw);
+        const lo = seg.runIdx === 0 ? 0 : -wb;                       // no ribbon before the mouth ring
+        const hi = seg.runIdx === (seg.runTotal ?? 1) - 1 ? 0 : wf;  // …or past the finale ring
+        const len = hi - lo;
+        if (len > 8) {
+          const n = Math.max(1, Math.round(len / 46));
+          for (let i = 0; i < n; i++) {              // cell-centred so seams don't double an orb
+            const z = lo + ((i + 0.5) / n) * len;
+            if (Math.abs(z) < 6) continue;           // don't crowd the gate orb
+            const w = weave(z);
+            out.orbs.push({ dist: seg.dist + z, x: clamp(xAt(z) + w.x, -11, 11), y: clamp(yAt(z) + w.y, 4.5, 20), flow: 1 });
+          }
+          const points = [];                         // ember ribbon samples the SAME carved line
+          const M = 6;
+          for (let k = 0; k < M; k++) {
+            const z = lo + (k / (M - 1)) * len;
+            const w = weave(z);
+            points.push({ dist: seg.dist + z, x: clamp(xAt(z) + w.x, -11, 11), y: clamp(yAt(z) + w.y, 4.5, 20) });
+          }
+          out.embers.push({ points });
         }
-        const points = [];                           // ember ribbon = the visual racing line
-        for (let k = 0; k < 5; k++) {
-          const z = -span * (0.12 + (k / 4) * 0.76);
-          points.push({ dist: seg.dist + z, x: clamp(xAt(z), -11, 11), y: clamp(yAt(z), 4.5, 20) });
-        }
-        out.embers.push({ points });
       }
     } else if (seg.run === 'rock' && seg.kind === 'split' && (seg.span || 80) <= 160) {
       // Rock run adrenaline: rock has no slipstream, so on the long open beats you coast,
