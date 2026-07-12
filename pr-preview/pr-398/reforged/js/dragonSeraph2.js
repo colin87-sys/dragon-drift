@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { seg } from './modelDetail.js';
-import { registerWings, registerTorso } from './dragonRecipe.js';
+import { registerWings, registerTorso, registerHead } from './dragonRecipe.js';
 import { flatTriMesh } from './mechaKit.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -25,7 +25,7 @@ const mul = (a, s) => ({ x: a.x * s, y: a.y * s, z: a.z * s });
 const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
 const arr = (p) => [p.x, p.y, p.z];
 
-const SERAPH_PEARL = 0xF2F0EA, SERAPH_GOLD = 0xD6AF4A, SERAPH_DAWN = 0x88DFFF;
+const SERAPH_PEARL = 0xF2F0EA, SERAPH_GOLD = 0xEDB63E, SERAPH_DAWN = 0x88DFFF;   // warm gold (yellower 0xD6AF4A crushed to olive/green reflecting the sky)
 const SERAPH_HOLY = 0xFFF3C8, SERAPH_GEM = 0x8FEAFF;
 
 // ── PROFILE-AS-FUNCTION (module-level; shared by geometry + FX marker, §5.6) ──────
@@ -43,38 +43,49 @@ function seraphArm(t, L) {
   return { x, y, z };
 }
 
-// ── FEATHER — a wedge-THICK plate-scute (top ridge + 2 side faces), tapering to a
-// blunt point, with a raised gild ridge cap so it reads gold-edged and skeletal.
-// dirAft rakes aft-and-DOWN (no up-curl). `outb` = local outboard unit (for width).
-function plateFeather(root, dirAft, outb, len, wid, height, plate, gild, dawn) {
+// ── FEATHER — a real cambered VANE with a raised rachis RIDGE (thickness by geometry,
+// not a decal) tapering to a ROUNDED tip. Cross-section is a shallow tent (ridge up,
+// two vanes dropped by `camber`) so light breaks across every feather in the close read;
+// the whole shaft bows gently down-aft (no up-curl). The rachis ridge is GEOMETRY — a
+// thin raised gold (or dawn, on dominants) tent along the spine — so seams are formed,
+// never inked. `outb` = local outboard unit (spread axis), `up` = +Y.
+function seraphFeather(root, dirAft, outb, len, wid, camber, plate, gild, dawn) {
   const g = new THREE.Group();
-  const tip  = add(root, mul(dirAft, len));
-  const apex = add(root, { x: 0, y: height, z: 0 });      // ridge apex over the root
-  const bl = add(root, mul(outb, -wid * 0.5));
-  const br = add(root, mul(outb,  wid * 0.5));
-  const tipEdgeW = wid * 0.14;                             // blunt (never a needle point)
-  const tl = add(tip, mul(outb, -tipEdgeW));
-  const tr = add(tip, mul(outb,  tipEdgeW));
-  // wedge body: two side faces + a base gusset → real cross-section thickness
-  g.add(flatTriMesh([
-    [arr(bl), arr(apex), arr(tl)], [arr(apex), arr(tr), arr(tl)],   // top-left / top-right
-    [arr(apex), arr(br), arr(tr)],                                   // right shoulder
-    [arr(bl), arr(br), arr(apex)],                                   // base gusset
-    [arr(bl), arr(tl), arr(br)], [arr(br), arr(tl), arr(tr)],        // underside
-  ], plate));
-  // gild ridge cap: a thin gold sliver riding the apex→tip spine (rim, not face)
-  const apex2 = add(apex, { x: 0, y: 0.018, z: 0 });
-  const tip2  = add(tip,  { x: 0, y: 0.010, z: 0 });
-  g.add(flatTriMesh([[arr(apex), arr(apex2), arr(tip2)], [arr(apex), arr(tip2), arr(tip)]], gild));
-  // dawn shaft-line (component glow) — only on the dominant primaries (dawn passed in)
-  if (dawn) {
-    const s0 = lerp(apex, tip, 0.12), s1 = lerp(apex, tip, 0.92);
-    const w = mul(outb, 0.012);
-    g.add(flatTriMesh([
-      [arr(add(s0, w)), arr(add(s1, w)), arr(add(s1, mul(w, -1)))],
-      [arr(add(s0, w)), arr(add(s1, mul(w, -1))), arr(add(s0, mul(w, -1)))],
-    ], dawn));
+  const up = { x: 0, y: 1, z: 0 };
+  const N = 4;
+  // width profile: broad near the base, tapering to a ROUNDED tip (never a needle)
+  const wof = (u) => wid * (Math.pow(Math.sin(Math.PI * Math.min(u * 0.92 + 0.08, 1)), 0.55) * (1 - 0.22 * u)) + 0.02;
+  const rach = [];
+  for (let i = 0; i <= N; i++) {
+    const u = i / N;
+    const along = add(root, mul(dirAft, len * u));
+    const ridgeH = (0.075 + 0.075 * (1 - u));                // raised rachis, easing to tip
+    rach.push(add(along, mul(up, ridgeH)));
   }
+  const vane = [];
+  for (let i = 0; i < N; i++) {
+    const u0 = i / N, u1 = (i + 1) / N;
+    const r0 = rach[i], r1 = rach[i + 1];
+    const e0 = wof(u0), e1 = wof(u1);
+    const drop = (u) => mul(up, -camber * (0.4 + 0.6 * u));   // vanes sag below the ridge → tent + bow
+    const L0 = add(add(r0, mul(outb, -e0)), drop(u0)), R0 = add(add(r0, mul(outb, e0)), drop(u0));
+    const L1 = add(add(r1, mul(outb, -e1)), drop(u1)), R1 = add(add(r1, mul(outb, e1)), drop(u1));
+    vane.push([arr(r0), arr(L0), arr(L1)], [arr(r0), arr(L1), arr(r1)],   // left vane
+              [arr(r0), arr(R1), arr(R0)], [arr(r0), arr(r1), arr(R1)]);  // right vane
+  }
+  g.add(flatTriMesh(vane, plate));
+  // rachis RIDGE as a thin raised tent of GEOMETRY (gold, or dawn on the dominants)
+  const rmat = dawn || gild;
+  const ridge = [];
+  for (let i = 0; i < N; i++) {
+    const r0 = rach[i], r1 = rach[i + 1];
+    const a0 = add(r0, mul(up, 0.022)), a1 = add(r1, mul(up, 0.022));
+    const b0 = add(r0, mul(outb, 0.02)), b1 = add(r1, mul(outb, 0.02));
+    const c0 = add(r0, mul(outb, -0.02)), c1 = add(r1, mul(outb, -0.02));
+    ridge.push([arr(a0), arr(b0), arr(a1)], [arr(a1), arr(b0), arr(b1)],
+               [arr(a0), arr(a1), arr(c0)], [arr(a1), arr(c1), arr(c0)]);
+  }
+  g.add(flatTriMesh(ridge, rmat));
   return g;
 }
 
@@ -91,7 +102,7 @@ function buildSeraphWing2(def, model, attach, giM) {
   const memMid   = mkPearl(0xD9E2F0, 0.55);                     // steel-pearl mid
   const memOuter = mkPearl(def.wingOuter ?? 0x6AA0F0, 0.50);   // designed dawn-blue outboard (finally used)
   const bellyMat = mkPearl(0x9FB4CE, 0.60);                     // cooler ventral tone (two-tone law)
-  const goldMat  = new THREE.MeshStandardMaterial({ color: def.wingGild ?? SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.30, metalness: 0.74 });
+  const goldMat  = new THREE.MeshStandardMaterial({ color: SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.42, metalness: 0.28, emissive: 0x3a2606, emissiveIntensity: 0.13 });   // low metalness so broad faces don't reflect the sky green
   const seamCol  = def.wingEmissive ?? SERAPH_DAWN;
   const dawnMat  = new THREE.MeshStandardMaterial({ color: seamCol, emissive: seamCol, emissiveIntensity: 0.05 * gi, roughness: 0.35, side: THREE.DoubleSide });
   dawnMat.userData.baseEmissive = seamCol; dawnMat.userData.baseIntensity = 0.05 * gi;   // WITHHELD in cruise → blazes on Surge
@@ -102,7 +113,8 @@ function buildSeraphWing2(def, model, attach, giM) {
   const dih = (model.wingDihedralDeg ?? 14) * D2R;             // chase-cam knob
   const J0 = 0.34, J1 = 0.66;                                  // pivot→mid→tip (=carpal) splits
   // primary count grows up the ladder (5→8); dominant+decay
-  const nPrim = [5, 6, 7, 8][formLevel];
+  const nPrim = [4, 5, 6, 7][formLevel];   // fewer, LARGER, dominant primaries
+  const nSec  = [4, 4, 5, 6][formLevel];   // secondary bridge (closes the covert→primary gap)
   const nCov  = [3, 3, 4, 4][formLevel];
 
   function buildSide(side) {
@@ -166,58 +178,61 @@ function buildSeraphWing2(def, model, attach, giM) {
       grp.add(flatTriMesh(tris, goldMat));
     };
 
-    // FEATHER RANK — DOMINANT at the carpal decaying aft, WIDE so adjacent scutes
-    // SHINGLE (overlap → only a shadow line shows, not a picket comb), raked mostly
-    // AFT-in-plane with only a slight droop (never a downward comb), thick wedge.
-    const rank = (grp, ta, tb, n, o, lenScale, widScale, heightScale, tipDawnN, plateMat) => {
+    // FEATHER RANK — a DOMINANT carpal feather decaying aft (longest ~2.2× shortest),
+    // laid so each vane OVERLAPS its neighbour ~45% (shingled plumage, not a picket comb),
+    // raked AFT-in-plane with only a slight droop. Camber bows every feather so light
+    // breaks across it. `dawnN` dominant feathers carry the withheld dawn rachis-seam.
+    const rank = (grp, ta, tb, n, o, lenScale, camber, dawnN, plateMat) => {
       for (let i = 0; i < n; i++) {
         const f = n > 1 ? i / (n - 1) : 0;
         const t = ta + (tb - ta) * f;
-        const decay = Math.pow(0.82, i);                     // DOMINANT + fast decay (kills picket fence)
+        const decay = Math.pow(0.80, i);                     // DOMINANT + strong decay (2.2×+ spread)
         const root = O(rear(t), o);
-        root.y += 0.02 * i;                                  // shingle lift → overlap reads as a shadow seam
+        root.y += 0.026 * i;                                 // shingle lift → overlap reads as a soft seam
         const c = chordAt(t);
-        // rake AFT in-plane (mostly +z) with a gentle outboard splay + only a slight
-        // downward droop → from the top the scutes overlap into plumage, never a comb.
-        const dirAft = (() => { const v = { x: side * (0.10 + 0.12 * f), y: -0.03 - 0.03 * f, z: 1 }; const m = Math.hypot(v.x, v.y, v.z); return { x: v.x / m, y: v.y / m, z: v.z / m }; })();
-        const len = c * lenScale * (0.45 + 0.95 * decay);    // dominant markedly longer than the tail
-        const wid = (0.54 + 0.16 * (1 - f)) * widScale;      // WIDE → shingled overlap, not separable teeth
-        const h = (0.11 + 0.06 * decay) * heightScale;
-        const dawn = i < tipDawnN ? dawnMat : null;          // dawn shaft only on dominant primaries
-        const fs = plateFeather(root, dirAft, outbAt(t), len, wid, h, plateMat, goldMat, dawn);
-        grp.add(fs);
+        // rake AFT in-plane with a gentle outboard splay + slight droop (no comb / no up-curl)
+        const dirAft = (() => { const v = { x: side * (0.12 + 0.14 * f), y: -0.04 - 0.03 * f, z: 1 }; const m = Math.hypot(v.x, v.y, v.z); return { x: v.x / m, y: v.y / m, z: v.z / m }; })();
+        const len = c * lenScale * (0.42 + 1.00 * decay);    // dominant markedly longer than the tail
+        // WIDE relative to the inter-feather step so adjacent vanes overlap ~45%
+        const step = (tb - ta) * L / Math.max(n - 1, 1);
+        const wid = Math.max(step * 1.9, 0.42);
+        const dawn = i < dawnN ? dawnMat : null;
+        grp.add(seraphFeather(root, dirAft, outbAt(t), len, wid, camber, plateMat, goldMat, dawn));
       }
     };
 
     const nS = seg(4);
-    // PART A — pivot (0→J0): membrane + spar + covert plumes + short inner covert (fullness)
+    // PART A — pivot (0→J0): membrane + spar + a shingled covert field (rounded plumes).
+    // Coverts reach PAST J0 (lenScale high) so the surface is closed into the mid — no scoop-gap.
     membrane(pivot, 0.0, J0, ZERO, nS); membrane(pivot, 0.0, J0, ZERO, nS, true);
     spar(pivot, 0.0, J0, ZERO, nS);
-    rank(pivot, 0.06, J0, seg(nCov), ZERO, 0.85, 1.15, 0.85, 0, memInner);
-    // PART B — mid (J0→J1): secondary plumage
+    rank(pivot, 0.05, J0, seg(nCov), ZERO, 1.05, 0.11, 0, memInner);
+    // PART B — mid (J0→J1): the SECONDARY bridge rank — overlaps into the tip, closing the
+    // covert→primary gap into one continuous feathered surface.
     membrane(wingMid, J0, J1, midO, nS); membrane(wingMid, J0, J1, midO, nS, true);
     spar(wingMid, J0, J1, midO, nS);
-    rank(wingMid, J0, J1, seg(nPrim - 1), midO, 1.05, 1.0, 1.0, 0, memMid);
+    rank(wingMid, J0 - 0.02, J1, seg(nSec), midO, 1.30, 0.14, 0, memMid);
     // PART C — tip/HAND (J1→1): the wrist-fold sheet — outer membrane + the DOMINANT primaries
+    // (the carpal feather is the longest, decaying aft). 3 carry the withheld dawn rachis-seam.
     membrane(wingTip, J1, 1.0, tipO, nS); membrane(wingTip, J1, 1.0, tipO, nS, true);
     spar(wingTip, J1, 1.0, tipO, nS);
-    rank(wingTip, J1, 0.99, seg(nPrim), tipO, 1.55, 1.0, 1.15, 2, memOuter);   // 2 dawn-shaft dominants
+    rank(wingTip, J1, 0.99, seg(nPrim), tipO, 1.62, 0.16, 3, memOuter);
     const marker = new THREE.Object3D(); const tc = O(S(1.0), tipO); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
-    // ── ROOT INTEGRATION (static in the body frame; the wing GROWS from the shoulder) ──
-    // COWL — 2–3 pearl covert plates lapping over the yoke (overlap > weld). On `group`
-    // (body frame) so they cover the membrane root through the whole flap.
+    // ── ROOT INTEGRATION (the wing GROWS from the shoulder) ──
+    // COWL — 2–3 pearl covert plates lapping over the wing root (overlap > weld). Parented
+    // to the YOKE (yoke-local coords) so the mirror clone reproduces it on BOTH sides.
     for (let i = 0; i < 3; i++) {
       const t = 0.02 + i * 0.05, f = front(t), r = rear(t);
-      const bx = { x: wr.x + f.x, y: wr.y + f.y + 0.05 + i * 0.02, z: wr.z + f.z };
-      const rr = { x: wr.x + r.x * 0.7, y: wr.y + r.y + 0.02, z: wr.z + r.z * 0.55 };
+      const bx = { x: f.x, y: f.y + 0.05 + i * 0.02, z: f.z };
+      const rr = { x: r.x * 0.7, y: r.y + 0.02, z: r.z * 0.55 };
       const ow = { x: side * (0.26 - i * 0.03), y: 0, z: 0 };
-      group.add(flatTriMesh([
+      yoke.add(flatTriMesh([
         [arr(add(bx, mul(ow, -1))), arr(add(bx, ow)), arr(rr)],
-        [arr(add(bx, mul(ow, -1))), arr(rr), { ...arr(add(rr, mul(ow, -0.4))) }],
+        [arr(add(bx, mul(ow, -1))), arr(rr), arr(add(rr, mul(ow, -0.4)))],
       ], memInner));
       const gr = { x: side * (0.24 - i * 0.03), y: 0.012, z: 0 };
-      group.add(flatTriMesh([[arr(add(bx, mul(gr, -1))), arr(add(bx, gr)), arr(add(rr, { x: 0, y: 0.012, z: 0 }))]], goldMat));
+      yoke.add(flatTriMesh([[arr(add(bx, mul(gr, -1))), arr(add(bx, gr)), arr(add(rr, { x: 0, y: 0.012, z: 0 }))]], goldMat));
     }
     // GUSSET — a propatagium sweeping from the root aft-inboard to the hip line (arm-side).
     const g0 = O(front(0.02), ZERO), g1 = O(rear(0.30), ZERO), g2 = { x: side * 0.02, y: -0.10, z: 1.15 };
@@ -282,7 +297,7 @@ function seraphMats2(def, gi) {
   const g = Math.min(gi ?? 1, 1.3);
   const pearl = new THREE.MeshStandardMaterial({ color: def.body ?? SERAPH_PEARL, flatShading: true, side: THREE.DoubleSide, roughness: 0.58, metalness: 0.06 });
   const belly = new THREE.MeshStandardMaterial({ color: def.belly ?? 0xFFF4D8, flatShading: true, side: THREE.DoubleSide, roughness: 0.62, metalness: 0.05 });
-  const gold  = new THREE.MeshStandardMaterial({ color: def.wingGild ?? SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.30, metalness: 0.72 });
+  const gold  = new THREE.MeshStandardMaterial({ color: SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.42, metalness: 0.28, emissive: 0x3a2606, emissiveIntensity: 0.13 });   // low metalness so broad faces hold gold (high metalness crushed to olive/green)
   const dawnCol = def.wingEmissive ?? SERAPH_DAWN;
   const dawn = new THREE.MeshStandardMaterial({ color: dawnCol, emissive: dawnCol, emissiveIntensity: 0.05 * g, roughness: 0.4, side: THREE.DoubleSide });
   dawn.userData.baseEmissive = dawnCol; dawn.userData.baseIntensity = 0.05 * g;
@@ -302,7 +317,7 @@ function buildSeraphHull2(def, model, bodyMat) {
 
   // LINE OF ACTION: a curved spine cy(z) — chest lifts, waist dips, hip rises — so the
   // body reads as posture, not a level tube. Every ring rides this curve.
-  const cyAt = (z) => TORSO_Y + 0.16 * Math.exp(-((z + 0.5) ** 2) / 0.32) - 0.10 * Math.exp(-((z - 0.5) ** 2) / 0.18) + 0.07 * Math.exp(-((z - 0.85) ** 2) / 0.10);
+  const cyAt = (z) => TORSO_Y + 0.24 * Math.exp(-((z + 0.55) ** 2) / 0.30) - 0.16 * Math.exp(-((z - 0.45) ** 2) / 0.16) + 0.12 * Math.exp(-((z - 0.85) ** 2) / 0.10);
   const ring = (z, rx, ry) => ({ z, rx, ry, cy: cyAt(z) });
   const hull = loftEllipse([
     ring(-1.00, 0.06, 0.07), ring(-0.82, 0.40, 0.50), ring(-0.43, 0.56, 0.66),
@@ -357,6 +372,15 @@ function buildSeraphHull2(def, model, bodyMat) {
     rim.position.set(s * 0.30, cyAt(0.60) - 0.05, 0.60); rim.rotation.x = Math.PI / 2; rim.rotation.z = s * 10 * D2R; group.add(rim);
   }
 
+  // dawn FLANK SEAMS — withheld glow COMPONENTS along the flank muscle lines (in spineMats
+  // → near-dark in cruise, blaze on Surge). Carved-groove read, not an LED strip.
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
+    const z = -0.28 + i * 0.28;
+    const seamG = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.05, 0.40), mats.dawn);
+    seamG.position.set(s * (0.42 - 0.06 * i), cyAt(z) + 0.03, z); seamG.rotation.y = s * 0.30;
+    group.add(seamG);
+  }
+
   // NECK — ONE continuous lofted tube through 5 stations in a gentle S up to the head
   // (honours neckSegments); 2 partial gorget-language collars instead of full rings.
   const nStations = Math.max(4, Math.min(model.neckSegments ?? 5, 7));
@@ -393,3 +417,66 @@ function buildSeraphHull2(def, model, bodyMat) {
   return { group, attach, spineMats };
 }
 registerTorso('seraphHull2', buildSeraphHull2);
+
+// ── HEAD + CROWN-HALO (redesign variant) — same architecture as the shipped
+// seraphCrownHead but on the corrected (non-olive) gold + curved horns instead of
+// straight stick cones + a lofted jaw instead of a box. Pre-stages CP2; used now so
+// the CP1 gate isn't dinged by the shared head's metal-crushed gold band.
+function buildSeraphCrownHead2(def, model, mats0) {
+  const headGroup = new THREE.Group();
+  const mats = seraphMats2(def, model.glowIntensity);
+  const spineMats = [mats.dawn, mats.holy, mats.gem];
+  const formLevel = model.formLevel ?? 3;
+
+  const skull = loftEllipse([
+    { z: -0.42, rx: 0.06, ry: 0.06 }, { z: -0.24, rx: 0.14, ry: 0.11 },
+    { z: -0.02, rx: 0.22, ry: 0.16 }, { z: 0.22, rx: 0.21, ry: 0.16 }, { z: 0.34, rx: 0.10, ry: 0.10 },
+  ], mats.pearl, seg(8));
+  skull.rotation.x = -4 * D2R; headGroup.add(skull);
+
+  // lofted lower jaw (not a box)
+  const jaw = loftEllipse([
+    { z: -0.34, rx: 0.05, ry: 0.03, cy: -0.10 }, { z: -0.18, rx: 0.10, ry: 0.05, cy: -0.11 }, { z: -0.02, rx: 0.12, ry: 0.055, cy: -0.10 },
+  ], mats.pearl, seg(6));
+  headGroup.add(jaw);
+
+  // gilded brow band + 5 crown points (corrected gold)
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.16), mats.gold);
+  brow.position.set(0, 0.14, -0.04); brow.rotation.x = -6 * D2R; headGroup.add(brow);
+  const ptH = [0.10, 0.13, 0.18, 0.13, 0.10];
+  for (let i = 0; i < 5; i++) {
+    const pt = new THREE.Mesh(new THREE.ConeGeometry(0.022, ptH[i], seg(4)), mats.gold);
+    pt.position.set((i - 2) * 0.075, 0.20 + ptH[i] * 0.4, -0.02); pt.rotation.x = -10 * D2R; headGroup.add(pt);
+  }
+  const browGem = gemNode(0.040, mats.gem); browGem.position.set(0, 0.17, -0.10); headGroup.add(browGem);   // the MOTIF carrier (D5)
+
+  // CURVED swept horns (2-segment, tapering) — curve vs the straight crown points
+  for (const s of [-1, 1]) {
+    const h = new THREE.Group();
+    const seg1 = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.20, seg(4)), mats.gold);
+    seg1.position.set(0, 0.10, 0); h.add(seg1);
+    const seg2 = new THREE.Mesh(new THREE.ConeGeometry(0.028, 0.16, seg(4)), mats.gold);
+    seg2.position.set(0, 0.25, 0.06); seg2.rotation.x = 40 * D2R; h.add(seg2);
+    h.position.set(s * 0.15, 0.16, 0.10); h.rotation.set(40 * D2R, 0, s * -12 * D2R); headGroup.add(h);
+  }
+
+  for (const s of [-1, 1]) { const eye = gemNode(0.05, mats.gem); eye.position.set(s * 0.15, 0.04, -0.16); headGroup.add(eye); }
+
+  let halo = null;
+  if (model.halo) {
+    halo = new THREE.Group(); halo.position.set(0, 0.62, 0.02);
+    const R = 0.34;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.038, seg(6), seg(20)), mats.holy);
+    ring.rotation.x = Math.PI / 2; halo.add(ring);
+    const shards = formLevel >= 3 ? 6 : 5;
+    for (let i = 0; i < shards; i++) {
+      const a = (i / shards) * Math.PI * 2;
+      const shard = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.10, seg(4)), mats.gold);
+      shard.position.set(Math.cos(a) * R, 0, Math.sin(a) * R); shard.rotation.z = -Math.PI / 2; shard.rotation.y = -a; halo.add(shard);
+    }
+    for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + Math.PI / 4; const gem = gemNode(0.024, mats.gem); gem.position.set(Math.cos(a) * R, 0, Math.sin(a) * R); halo.add(gem); }
+    halo.userData.haloBob = true; headGroup.add(halo);
+  }
+  return { group: headGroup, spineMats, halo };
+}
+registerHead('seraphCrownHead2', buildSeraphCrownHead2);
