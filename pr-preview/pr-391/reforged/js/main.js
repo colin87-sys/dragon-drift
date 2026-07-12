@@ -1519,7 +1519,7 @@ function tick() {
     }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
-    const slipMix = Math.max(0, player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1);
+    const slipMix = Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, CONFIG.canyonSpineSlip - 1);
     // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
     // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
     // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw

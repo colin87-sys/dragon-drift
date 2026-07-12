@@ -341,7 +341,7 @@ export const cameraCtl = {
     // coefficient re-broke into fisheye every time the slip dial climbed (45×0.40=+18°
     // stacked to ~110°). +13° at full slip stays clear of distortion AND is future-proof
     // — cranking canyonSpineSlip never re-tips it.
-    targetFov += Math.max(0, Math.min(1, (player.canyonSlip - 1) / (CONFIG.canyonSpineSlip - 1))) * 13;
+    targetFov += Math.max(0, Math.min(1, (player.canyonSlip - 1) / Math.max(1e-6, CONFIG.canyonSpineSlip - 1))) * 13;
     targetFov -= inhaleLevel * 2; // PR-C: the inhale pinch (narrow = held breath)
     if (Math.abs(camera.fov - targetFov) > 0.1) {
       camera.fov = damp(camera.fov, targetFov, player.boosting ? 5 : 3, dt);
