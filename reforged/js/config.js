@@ -150,6 +150,13 @@ export const CONFIG = {
   canyonGapYLo: 5.5,
   canyonGapYHi: 19,
   canyonCeilingDamage: 12,    // chip on scraping the ceiling (gentle, like ground)
+  // Rock Run "carved slot" (v2): a threaded, gently-swayed single channel (like the
+  // ribcage), instead of the old teleporting double-wall slalom with overhead-arch
+  // ducks. One axis at a time — the vertical squeeze stays the 'overunder' beat.
+  canyonRockV2: true,         // false = byte-identical old stackRun geometry (rollback flip)
+  canyonSwayAmp: 3.2,         // sway CAP (m); per-half adaptive trim keeps it under the slope + lane budgets
+  canyonPinchHalf: 4.8,       // channel half-width at the tightest breath (old min was 4.5)
+  canyonBreathOpen: 2.2,      // extra half-width added at the section seams (breathes open where you can't aim)
 
   // Endless generation
   spawnAhead: 500,

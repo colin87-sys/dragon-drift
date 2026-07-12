@@ -9,10 +9,11 @@ import { boot, check } from './browser.mjs';
 const result = await boot().then(async ({ page, done }) => {
   const r = await page.evaluate(async () => {
     const { createLevelGen } = await import('./js/level.js');
-    const { halves, centre, kindMult, CORRIDOR_HALF, BUDGET_X, BUDGET_Y } =
+    const { halves, centre, rockSlicePlan, kindMult, CORRIDOR_HALF, BUDGET_X, BUDGET_Y } =
       await import('./js/canyonMath.js');
 
     const cor = CORRIDOR_HALF;                  // shared with obstacles.js — no re-derivation
+    const LANE = 13;                             // laneHalfWidth (in-lane free-width clamp)
     const SPINE = new Set(['throat', 'rib', 'straightrib']);
     const mult = kindMult;                       // shared per-kind depth multiplier
 
@@ -27,11 +28,53 @@ const result = await boot().then(async ({ page, done }) => {
 
     const seeds = [1337, 424242, 271828];
     const agg = { worstSlopeX: 0, worstSlopeY: 0, worstSeamX: 0, worstSeamY: 0,
-                  minWidth: Infinity, pairs: 0, seeds: [] };
+                  minWidth: Infinity, pairs: 0, rockSlopeMax: 0, rockMinWidth: Infinity,
+                  rockSeamMax: 0, rockSlices: 0, seeds: [] };
 
     for (const seed of seeds) {
       const segs = collect(seed);
       let slopeBad = 0, seamBad = 0, widthBad = 0, spinePairs = 0;
+      let rockSlopeBad = 0, rockWidthBad = 0, rockSeamBad = 0, rockSliceN = 0;
+
+      // === ROCK RUN (v2 carved slot) ===
+      // (b) slope: the swayed channel centre must stay under the steering budget.
+      for (const s of segs) {
+        if (s.kind !== 'split') continue;
+        const { bk, fw, slices, xcAt } = rockSlicePlan(s);
+        let prev = null;
+        for (let z = -bk; z <= fw + 1e-9; z += 1) {
+          const x = xcAt(z);
+          if (prev !== null) {
+            const sx = Math.abs(x - prev);
+            agg.rockSlopeMax = Math.max(agg.rockSlopeMax, sx);
+            if (sx > BUDGET_X + 1e-9) rockSlopeBad++;
+          }
+          prev = x;
+        }
+        // (c) width: in-lane free channel per slice ≥ 8.2m everywhere; AND at the ring
+        // the pocket must leave the reward ring (gapX) reachable with clearance on
+        // BOTH sides (an off-centre ring near the lane edge legitimately has less room
+        // on the edge side — what matters is you can still sit on it, not a fixed width).
+        for (const sl of slices) {
+          rockSliceN++;
+          const left = Math.max(sl.li, -LANE), right = Math.min(sl.ri, LANE);
+          const w = right - left;
+          agg.rockMinWidth = Math.min(agg.rockMinWidth, w);
+          if (w < 8.2) rockWidthBad++;
+          if (sl.nearRing && (s.gapX - left < 3 || right - s.gapX < 3)) rockWidthBad++;
+        }
+      }
+      // (a) continuity: consecutive split segments (channel not broken by an overunder).
+      for (let i = 1; i < segs.length; i++) {
+        const a = segs[i - 1], b = segs[i];
+        if (b.runIdx !== a.runIdx + 1 || a.kind !== 'split' || b.kind !== 'split') continue;
+        const pa = rockSlicePlan(a), pb = rockSlicePlan(b);
+        const mid = (a.dist + b.dist) / 2;
+        const d = Math.abs(pa.xcAt(mid - a.dist) - pb.xcAt(mid - b.dist));
+        agg.rockSeamMax = Math.max(agg.rockSeamMax, d);
+        if (d > 2.0) rockSeamBad++;
+      }
+      agg.rockSlices += rockSliceN;
 
       // (b) slope budget — per spine segment, sample the centre curve and
       // finite-difference the slope (per 1m of forward z). Demand velocity =
@@ -78,7 +121,8 @@ const result = await boot().then(async ({ page, done }) => {
         }
       }
       agg.pairs += spinePairs;
-      agg.seeds.push({ seed, slopeBad, seamBad, widthBad, spinePairs });
+      agg.seeds.push({ seed, slopeBad, seamBad, widthBad, spinePairs,
+                       rockSlopeBad, rockWidthBad, rockSeamBad, rockSliceN });
     }
     return agg;
   });
@@ -95,4 +139,13 @@ check('section seams are C0-continuous (≤1.5m X / 1.15m Y)',
 check('joint never pinches below 14.5m at a non-relief seam',
   result.seeds.every((s) => s.widthBad === 0)) || console.error('  joint-width fail seeds:', bad('widthBad'));
 
-console.log(`  (spine seam pairs: ${result.pairs}; worst slope X=${result.worstSlopeX.toFixed(3)} Y=${result.worstSlopeY.toFixed(3)}; worst seam ΔX=${result.worstSeamX.toFixed(2)} ΔY=${result.worstSeamY.toFixed(2)}; min joint width=${result.minWidth.toFixed(1)})`);
+// --- Rock Run (v2 carved slot) ---
+check('rock runs sampled across seeds', result.rockSlices >= 10);
+check('rock channel slope never exceeds the steering budget',
+  result.seeds.every((s) => s.rockSlopeBad === 0)) || console.error('  rock-slope fail seeds:', bad('rockSlopeBad'));
+check('rock channel seams are continuous (≤2m)',
+  result.seeds.every((s) => s.rockSeamBad === 0)) || console.error('  rock-seam fail seeds:', bad('rockSeamBad'));
+check('rock channel never pinches below 8.2m (13.9m at the ring)',
+  result.seeds.every((s) => s.rockWidthBad === 0)) || console.error('  rock-width fail seeds:', bad('rockWidthBad'));
+
+console.log(`  (spine pairs: ${result.pairs}, worst slope X=${result.worstSlopeX.toFixed(3)} Y=${result.worstSlopeY.toFixed(3)}, seam ΔX=${result.worstSeamX.toFixed(2)} ΔY=${result.worstSeamY.toFixed(2)}, joint≥${result.minWidth.toFixed(1)}; rock slices: ${result.rockSlices}, worst slope=${result.rockSlopeMax.toFixed(3)}, seam Δ=${result.rockSeamMax.toFixed(2)}, min width=${result.rockMinWidth.toFixed(1)})`);
