@@ -4,6 +4,7 @@ import { damp, makeGlowTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
+import { setFeverWarm } from './environment.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv } from './wingFlapSolver.js';
@@ -224,6 +225,7 @@ export function createDragon(scene, def, riderDef) {
   // Per-dragon Surge wash hue (def.feverWash): the Phoenix Rebirth washes warm
   // gold, the Sovereign eclipse washes cool blue, the rest keep the magenta default.
   setFeverTint(def.feverWash || null);
+  setFeverWarm(!!def.fireTrails);   // fire dragons: the Surge sky/aurora go FIERY ember, not magenta (keeps the phoenix's warm colours from washing to cream)
 
   buildRider(riderDef, result.parts.riderSocket);
   scene.add(group);
@@ -1264,7 +1266,7 @@ export function updateDragon(dt, player, time) {
     const fxLvl = activeDef.model.spineGlow || 0; // 0 hatchling → 1 apex
     const pr = activeDef.model.particleRate ?? 1; // per-form trail density (apex emits more)
     // Light tail trail while boosting; the current heavier rate stays for Surge.
-    boostTrailTimer = (player.feverActive ? (activeDef.fireTrails ? 0.018 : 0.012) : 0.035) / (quality * (1 + fxLvl * 0.7) * pr);
+    boostTrailTimer = (player.feverActive ? (activeDef.fireTrails ? 0.03 : 0.012) : 0.035) / (quality * (1 + fxLvl * 0.7) * pr);
     const s = boostTrailSprites.find(s => !s.visible);
     if (s && tailSegs.length) {
       tailSegs[tailSegs.length - 1].getWorldPosition(tmpV);
@@ -1282,7 +1284,7 @@ export function updateDragon(dt, player, time) {
       );
     }
   }
-  const boostOp = activeDef.fireTrails ? 0.55 : 0.8;   // fire exhaust runs dimmer so the additive stack doesn't sum to a cream plume
+  const boostOp = activeDef.fireTrails ? 0.4 : 0.8;   // fire exhaust runs dimmer + sparser so it doesn't wash the scene gold (owner: "too much")
   const boostSzK = activeDef.fireTrails ? 2.4 : 3.5, boostSz0 = activeDef.fireTrails ? 1.0 : 1.2;
   for (const s of boostTrailSprites) {
     if (!s.visible) continue;
