@@ -561,13 +561,13 @@ export function buildUnmasked(def, quality = 1) {
     { key: 'upper',  rotZ: -0.12, scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.45, y: 0.35 } },  // slid DOWN a touch — the top pair sat a bit high vs the others (owner)
     { key: 'upmid',  rotZ: -0.57, scale: 1.52, z: -0.35, phase: 0.7, amp: 0.030, off: { x: 0.45, y: 0.26 } },  // φ≈27°
     { key: 'middle', rotZ: -0.88, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.45, y: 0.02 } }, // out, ~horizontal — lifted so it stays DISTINCT from the lowest wing
-    { key: 'lower',  rotZ: -1.05, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.30 } },// out-and-slightly-down (~−22°), TUCKED UP from −1.20/−0.42 so the tips clear the water + N10a swell (owner: lower wings were submerged); mandorla bottom stays full at this angle
+    { key: 'lower',  rotZ: -0.82, scale: 1.05, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.08 } },// TUCKED UP hard from −1.20/−0.42 (two passes) + shortened so the tips clear the water even at the S3 mantle-throw + N10a swell trough (owner: lower wings still clipped in S3)
   ];
   // CHARGE MANTLE-FLARE sign per wing (right-side convention; ×side in the tick mirrors it): on
   // charge the fan OPENS — the upper pair lifts toward vertical (+), the lower pair sweeps
   // down-and-out (−), the middle holds — so the mandorla WIDENS as the wrath gathers, then
   // settles back at rest (charge 0 → zero flare → the signed-off idle is byte-identical).
-  const FLARE_SIGN = { upper: 1.0, upmid: 0.45, middle: -0.3, lower: -0.6 };   // lower down-throw CLAMPED (was −1.0) so the S3 mantle flare doesn't sweep the tucked lower tips back into the water
+  const FLARE_SIGN = { upper: 1.0, upmid: 0.45, middle: -0.3, lower: 0.0 };   // lower down-throw KILLED (was −1.0) — the lower pair HOLDS through the S3 mantle instead of sweeping into the water; the upper/upmid pairs still open the fan for the wrath tell
   // S1→S2 UNFURL: the seraph blooms from a folded BUD — all wings swept near-vertical + stacked —
   // and cascades open (upper first → lower last) with a small overshoot-settle. foldZ is the delta
   // from each wing's shipped angle to the tight bud angle (near-vertical for its side); foldOrder
