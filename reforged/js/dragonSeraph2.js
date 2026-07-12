@@ -199,9 +199,9 @@ function buildSeraphWing2(def, model, attach, giM) {
     // each row overlapping the row behind like roof tiles so the wing is SMOOTH LAYERED plumage
     // and the last row's tips form a soft scalloped TRAILING EDGE (real angel anatomy, not raked
     // quills). `rows[r] = {u: chord root, len: ×chord, fan?: outer spread}`. Merged → 1 draw call.
-    const plumage = (grp, ta, tb, o, mat, rows) => {
+    const plumage = (grp, ta, tb, o, mat, rows, cntScale = 1, widK = 2.4) => {
       const spanLen = (tb - ta) * L;
-      const cnt = Math.max(6, seg(Math.round(spanLen * 2.6)));
+      const cnt = Math.max(4, seg(Math.round(spanLen * 2.6 * cntScale)));
       const { mesh } = shingle({
         count: cnt, rows: rows.length, material: mat,
         at: (ts, r) => Psurf(ta + (tb - ta) * ts, rows[r].u, o),
@@ -213,7 +213,7 @@ function buildSeraphWing2(def, model, attach, giM) {
           return new THREE.Vector3(d.x, d.y, d.z);
         },
         lengthAt: (ts, r) => rows[r].len * chordAt(ta + (tb - ta) * ts),
-        widthAt: () => Math.max(spanLen / cnt * 2.1, 0.34),
+        widthAt: () => Math.max(spanLen / cnt * widK, 0.36),
         cup: 0.18, tilt: 0.13,
       });
       grp.add(mesh);
@@ -223,21 +223,28 @@ function buildSeraphWing2(def, model, attach, giM) {
     // covert → secondary → primary row specs (u = chord root, len = ×chord, fan = outer spread).
     // Row roots step aft and lengths grow so each row's tips lap past the next → shingled surface;
     // the primary rows fan from the wrist (the "hand").
-    const COV = [{ u: 0.05, len: 0.26 }, { u: 0.20, len: 0.32 }, { u: 0.37, len: 0.40 }, { u: 0.56, len: 0.50 }];
-    const SEC = [{ u: 0.05, len: 0.28 }, { u: 0.22, len: 0.36 }, { u: 0.42, len: 0.46 }, { u: 0.62, len: 0.56 }];
-    const PRI = [{ u: 0.06, len: 0.30 }, { u: 0.26, len: 0.44 }, { u: 0.48, len: 0.58, fan: 0.28 }, { u: 0.70, len: 0.72, fan: 0.52 }];
+    const COV = [{ u: 0.05, len: 0.26 }, { u: 0.20, len: 0.32 }, { u: 0.37, len: 0.42 }, { u: 0.56, len: 0.52 }];
+    const SEC = [{ u: 0.05, len: 0.28 }, { u: 0.22, len: 0.36 }, { u: 0.42, len: 0.48 }, { u: 0.62, len: 0.58 }];
+    const HAND = [{ u: 0.06, len: 0.30 }, { u: 0.26, len: 0.44 }, { u: 0.46, len: 0.54 }];   // hand coverts; the long fingers come as a separate sparse rank
+    // gilded GREATER-COVERT band — one gold row following each bay's shoulder (the seraph's gild
+    // as an anatomical feather row, not a painted stripe)
+    const gild = (grp, ta, tb, o) => plumage(grp, ta, tb, o, goldMat, [{ u: 0.24, len: 0.24 }], 0.85);
     // BAY A (pivot) — inner coverts over a membrane base
     membrane(pivot, 0.0, J0, ZERO, nS);
     spar(pivot, 0.0, J0, ZERO, nS);
     plumage(pivot, 0.0, J0, ZERO, memInner, COV);
+    gild(pivot, 0.04, J0, ZERO);
     // BAY B (mid) — secondaries
     membrane(wingMid, J0, J1, midO, nS);
     spar(wingMid, J0, J1, midO, nS);
     plumage(wingMid, J0, J1, midO, memMid, SEC);
-    // BAY C (tip/HAND) — long primaries fanning from the wrist (rides the wrist-fold group)
+    gild(wingMid, J0, J1, midO);
+    // BAY C (tip/HAND) — hand coverts + a sparse rank of LONG primary FINGERS fanning from the wrist
     membrane(wingTip, J1, 1.0, tipO, nS);
     spar(wingTip, J1, 0.82, tipO, nS);
-    plumage(wingTip, J1, 1.0, tipO, memOuter, PRI);
+    plumage(wingTip, J1, 1.0, tipO, memOuter, HAND);
+    gild(wingTip, J1, 0.9, tipO);
+    plumage(wingTip, J1 + 0.04, 0.985, tipO, memOuter, [{ u: 0.60, len: 0.96, fan: 0.72 }], 0.5, 1.7);   // the spread-wing primary fingers
     const marker = new THREE.Object3D(); const tc = O(S(1.0), tipO); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
     // ── ROOT INTEGRATION (the wing GROWS from the shoulder) ──
