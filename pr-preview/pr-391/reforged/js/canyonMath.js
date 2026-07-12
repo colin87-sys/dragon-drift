@@ -22,6 +22,16 @@ export const CANYON_V = CONFIG.orbSpeed * CONFIG.speedRampMax;                 /
 export const BUDGET_X = 0.85 * CONFIG.lateralSpeed * CONFIG.boostSteeringBonus / CANYON_V;
 export const BUDGET_Y = 0.85 * CONFIG.verticalSpeed * CONFIG.boostSteeringBonus / CANYON_V;
 
+// Ribcage corridor half-separation (the side walls sit at centre ± this). Exported
+// so obstacles.js AND the flow audit share ONE value — no re-derivation, no drift.
+// Matches obstacles.js `cor = (2·gapW)·0.92` since every canyon gap uses canyonGapW.
+export const CORRIDOR_HALF = 2 * CONFIG.canyonGapW * 0.92;
+
+// Per-kind section-depth multiplier (the throat is a shorter run-in). Shared by the
+// geometry and the audit so the reconstructed tube matches the built one exactly.
+const KIND_MULT = { throat: 0.8 };
+export const kindMult = (kind) => KIND_MULT[kind] ?? 1;
+
 // Section half-depths: backward from `span` (dist to the previous ring), forward
 // from `spanFwd` (dist to the next segment). Sizing the FORWARD half by the forward
 // span is load-bearing — a burst→breath seam (span 55 → spanFwd ~150) would blow the
@@ -59,10 +69,16 @@ function alphaFor(d, L, budget) {
 }
 
 // Corridor-centre curve. Returns xAt(z)/yAt(z). At z=0 the value is exactly
-// (gapX,gapY) — the reward ring stays dead-centre; at the seams the value is the
-// midpoint with the neighbour — so adjacent sections join continuously (C1 where
-// the easing stays full smoothstep, C0 where it linearises for fairness). `u` is
-// clamped to [0,1] so an out-of-range sample can never blow up.
+// (gapX,gapY) — the reward ring stays dead-centre. Because the easing half (0.6·span)
+// is longer than the half-distance to the seam (0.5·span), each section reaches its
+// neighbour's midpoint value NEAR the seam but not exactly at it: adjacent sections
+// carry a bounded offset `Δ = 2·d·(1−blend(u_seam,α))` (≤~1.33m X, ≤~1.0m Y for
+// generator-reachable moves — the tolerances in canyonflow.mjs encode this), vs the
+// up-to-13.5m Y teleport before Y-threading. In the SHIPPED system the adaptive
+// degrade (α<1) engages only in the throat (0.8× halves); rib→rib halves have
+// identical span/mult on both sides, so α is equal across every rib seam and the
+// join stays full-C1. `u` is clamped to [0,1] so an out-of-range sample can't blow
+// up (bridged-gauntlet gaps evaluate far outside a section's rib band).
 export function centre(seg, bk, fw) {
   const px = seg.prevX !== undefined ? seg.prevX : seg.gapX;
   const nx = seg.nextX !== undefined ? seg.nextX : seg.gapX;
@@ -80,4 +96,60 @@ export function centre(seg, bk, fw) {
     xAt: (z) => half(z, seg.gapX, px, nx, BUDGET_X),
     yAt: (z) => half(z, seg.gapY, py, ny, BUDGET_Y),
   };
+}
+
+// Rock Run "carved slot" plan: the threaded, gently-swayed lateral channel (one
+// axis — vertical is the 'overunder' beat's job) bounded by sea-stacks. Returns the
+// per-slice left/right channel walls; obstacles.js builds the stacks from it and the
+// flow audit verifies it — same math, no drift. The channel centre is the SAME
+// eased ring-line as the ribcage plus a bounded sway that fills the leftover slope
+// headroom, so the slalom can never demand more steering than the dragon has.
+export function rockSlicePlan(seg) {
+  const { bk, fw } = halves(seg);
+  const { wb, wf } = band(seg, bk, fw);
+  const { xAt } = centre(seg, bk, fw);
+  const gx = seg.gapX;
+  const px = seg.prevX !== undefined ? seg.prevX : gx;
+  const nx = seg.nextX !== undefined ? seg.nextX : gx;
+  const entryX = (px + gx) / 2, exitX = (gx + nx) / 2;
+  // Sway sign flips per section so consecutive seams meet C0 (like the old cos phase).
+  const si = (seg.swaySign || 1) * (seg.runIdx % 2 ? -1 : 1);
+  // Per-half sway amplitude: fill the slope headroom left after the threaded centre's
+  // own easing peak, then cap by the lane-edge margin. Sway peak slope = A·π/(2·eh);
+  // set ≤ (BUDGET_X − easePeak) → A ≤ (BUDGET_X − easePeak)·2·eh/π (conservative: the
+  // sway peak at the ring and the ease peak mid-half don't co-locate, so total < sum).
+  const ampHalf = (d, eh, neighbourGx) => {
+    const easePeak = 1.5 * Math.abs(d) / eh;
+    const aSlope = Math.max(0, BUDGET_X - easePeak) * (2 * eh / Math.PI);
+    const aLane = CONFIG.laneHalfWidth - 3.8 - Math.max(Math.abs(gx), Math.abs(neighbourGx));
+    return Math.max(0, Math.min(CONFIG.canyonSwayAmp, aSlope, aLane));
+  };
+  const aEntry = ampHalf(gx - entryX, bk, px);
+  const aExit = ampHalf(exitX - gx, fw, nx);
+  const sway = (z) => {
+    const zn = z < 0 ? z / bk : z / fw;             // 0 at ring, ±1 at the seam
+    return si * (z < 0 ? aEntry : aExit) * Math.sin((Math.PI / 2) * zn);
+  };
+  // Breathing channel: tightest near the ring (where the ring is the aim point),
+  // opening to pinchHalf+breathOpen at the seams (constant → continuous across them).
+  const chanHalf = (z) => {
+    const zn = Math.abs(z < 0 ? z / bk : z / fw);
+    return CONFIG.canyonPinchHalf + CONFIG.canyonBreathOpen * (0.5 - 0.5 * Math.cos(Math.PI * zn));
+  };
+  const count = Math.max(5, Math.round((wb + wf) / 12));   // ~12m slice pitch
+  const slices = [];
+  for (let k = 0; k < count; k++) {
+    const f = count > 1 ? k / (count - 1) : 0.5;
+    const z = -wb + f * (wb + wf);
+    const xc = xAt(z) + sway(z);
+    const nearRing = Math.abs(z) < 12;
+    let li = xc - chanHalf(z), ri = xc + chanHalf(z);
+    // Around the ring, carve a generous centred pocket so the reward ring is always
+    // grabbable at speed without decelerating (the guaranteed catch).
+    if (nearRing) { li = Math.min(li, gx - 7); ri = Math.max(ri, gx + 7); }
+    slices.push({ z, xc, li, ri, nearRing });
+  }
+  // xcAt lets the flow audit sample the channel centre continuously (the slices are
+  // only ~12m apart — too coarse to catch the peak slope).
+  return { bk, fw, wb, wf, slices, xcAt: (z) => xAt(z) + sway(z) };
 }

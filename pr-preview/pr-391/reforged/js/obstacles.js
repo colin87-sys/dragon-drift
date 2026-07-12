@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { biomeIndexAt } from './biomes.js';
-import { halves, band, centre } from './canyonMath.js';
+import { halves, band, centre, rockSlicePlan, CORRIDOR_HALF, kindMult } from './canyonMath.js';
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
@@ -484,6 +484,31 @@ function buildRockGap(o, e) {
     }
   };
 
+  // Rock Run v2 — the "carved slot": ONE threaded, gently-swayed channel (the same
+  // eased ring-line as the ribcage + a slope-budgeted sway), span-adaptive so
+  // sections abut, and NO overhead arches (the vertical duck is the 'overunder'
+  // beat's job — one axis at a time). Geometry is driven entirely by the shared
+  // rockSlicePlan so the flow audit verifies the literal channel the player flies.
+  const stackRunV2 = () => {
+    const plan = rockSlicePlan(o);
+    e.depthHalf = Math.max(e.depthHalf || 0, plan.bk, plan.fw);
+    e.noDissolve = true;
+    const top = CEIL + 2, bot = -3;
+    const hz = ((plan.wb + plan.wf) / Math.max(plan.slices.length, 1)) * 0.6; // tiles along z
+    const lo = -LANE - 3, ro = LANE + 3;
+    for (const s of plan.slices) {
+      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, s.z, 0.06, hz, !s.nearRing);
+      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, s.z, -0.06, hz, !s.nearRing);
+    }
+    // Low sea-mist over the section span (same as v1, keyed to the abutting band).
+    for (let m = 0; m < 2; m++) {
+      const mz = -plan.wb + ((m + 0.5) / 2) * (plan.wb + plan.wf);
+      const q = new THREE.Mesh(new THREE.CircleGeometry(LANE * (0.85 + rng() * 0.3), 16), mats.mist);
+      q.position.set(gx + (rng() - 0.5) * 5, 0.4 + rng() * 2, mz);
+      group.add(q);
+    }
+  };
+
   // A run of SUCCESSIVE rib bones along the flight axis — the actual ribcage.
   // Each rib is a curved hoop around the corridor (open at the belly), hung off a
   // dorsal spine of vertebrae, repeated frequently down z so you fly through a
@@ -507,7 +532,7 @@ function buildRockGap(o, e) {
     // so the tube no longer teleports up/down at a seam. The +1.5 belly lift rides on
     // top of the interpolated Y. At z=0 the centre is exactly (gapX,gapY) — the
     // reward ring stays dead-centre and the finale orb stays inside the corridor.
-    const cor = cx * 0.92;
+    const cor = CORRIDOR_HALF;   // shared with the flow audit (== cx * 0.92)
     const wallHz = ((bk + fw) / Math.max(nRibs - 1, 1)) * 0.62; // tiles along z, slight overlap
     // Joint relief: on a BIG bend, drop the side-wall colliders (not the visible
     // hoops) for the outer sliver of the section at that end, so the corridor can't
@@ -544,9 +569,10 @@ function buildRockGap(o, e) {
 
   // --- ROCK RUN -------------------------------------------------------------
   if (o.kind === 'split') {
-    // A winding rock canyon: tall sea stacks flank both sides + rock bridges arch
-    // overhead, so you're caged inside it (not flying past a line). Weave + duck.
-    stackRun(36, 6);
+    // v2: one threaded, slope-budgeted carved slot (weave only — the duck is the
+    // 'overunder' beat). v1 (flag off): the old teleporting double-wall + arch-duck.
+    if (CONFIG.canyonRockV2) stackRunV2();
+    else stackRun(36, 6);
   } else if (o.kind === 'overunder') {
     // A rounded rock mass juts from the ceiling (dive under) or a shelf rises from
     // the floor (climb over) — a vertical squeeze between the tower slots.
@@ -607,7 +633,7 @@ function buildRockGap(o, e) {
     }
   } else if (o.kind === 'throat') {
     // First interior beat: neck vertebrae + the first ribs, tiling into the cage.
-    ribcage(0.8, { vert: 0.6 });
+    ribcage(kindMult(o.kind), { vert: 0.6 });
     // Lateral entrance gnarls: bone buttresses fill the OUTER lane margins so you're
     // funnelled INTO the ribcage rather than skimming around it. Sized to whatever
     // room is left beside the (possibly off-centre) opening, so they never seal the
@@ -622,7 +648,7 @@ function buildRockGap(o, e) {
     // line (a smooth curve, rings dead-centre), tiling edge-to-edge as one long
     // tunnel. The finale ('straightrib') is the same ribs with a line of speed orbs
     // down the centre (placed in level.js) — boost flat-out and burst into open air.
-    ribcage(1, {});
+    ribcage(kindMult(o.kind), {});
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
