@@ -1124,6 +1124,7 @@ DRAGONS.pearlRedesign = {
   // WITHHELD dawn glow: near-dark in cruise, blazes on Surge (base ≈0.05 × surgeGlowMultiplier).
   // feverWing dark-dawn (not the rig's magenta default); brighter gold reaches the shared head builder.
   wingGild: 0xECC25A, feverWing: 0x2A5A86, feverEye: 0x9FD0FF, hideRiderGlow: true,
+  surgeHi: 0xCFEAFF,   // dawn-white ignition target (was pure white) → surge reads dawn-blue, not white
   model: { ...DRAGONS.pearl.model, surgeGlowMultiplier: 24 },
 };
 
