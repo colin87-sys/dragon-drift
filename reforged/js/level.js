@@ -734,7 +734,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     const kind = pickKind(ring, prevRing, c);
     const seg = {
       type: 'rockGap', run: c.type, kind, dist: ring.dist,
-      gapX: clamp(ring.x, -9, 9),
+      gapX: clamp(ring.x, -9, 9),     // ±9 keeps the eased tube centre under the safety
+                                      // slope budget; the ≤1m offset at an edge ring is
+                                      // well within ringCenterRadius (1.4) so a perfect
+                                      // is still flyable now that the belly lift is gone
       gapY: clamp(ring.y, CONFIG.canyonGapYLo, CONFIG.canyonGapYHi),
       gapW: CONFIG.canyonGapW, gapH: CONFIG.canyonGapH, thick: CONFIG.canyonThick,
       seed: (canyonRnd() * 1e6) | 0,

@@ -35,7 +35,7 @@ const result = await boot().then(async ({ page, done }) => {
 
     for (const seed of seeds) {
       const segs = collect(seed);
-      let slopeBad = 0, seamBad = 0, widthBad = 0, spinePairs = 0;
+      let slopeBad = 0, seamBad = 0, widthBad = 0, spinePairs = 0, centreBad = 0;
       let rockSlopeBad = 0, rockWidthBad = 0, rockSeamBad = 0, rockSliceN = 0;
 
       // === ROCK RUN (v2 carved slot) ===
@@ -88,6 +88,10 @@ const result = await boot().then(async ({ page, done }) => {
         if (!SPINE.has(s.kind)) continue;
         const { bk, fw } = halves(s, mult(s.kind));
         const { xAt, yAt } = centre(s, bk, fw);
+        // Dead-centre: the tube centre at the ring plane must be EXACTLY the ring
+        // (gapX,gapY) so flying the visual centre-line scores a perfect (obstacles.js
+        // places the rib at oy=yAt(z), no belly lift). Guards centre() from regressing.
+        if (Math.abs(xAt(0) - s.gapX) > 1e-9 || Math.abs(yAt(0) - s.gapY) > 1e-9) centreBad++;
         let prev = null;
         for (let z = -bk; z <= fw + 1e-9; z += 1) {
           const p = { x: xAt(z), y: yAt(z) };
@@ -126,7 +130,7 @@ const result = await boot().then(async ({ page, done }) => {
         }
       }
       agg.pairs += spinePairs;
-      agg.seeds.push({ seed, slopeBad, seamBad, widthBad, spinePairs,
+      agg.seeds.push({ seed, slopeBad, seamBad, widthBad, spinePairs, centreBad,
                        rockSlopeBad, rockWidthBad, rockSeamBad, rockSliceN });
     }
     return agg;
@@ -137,6 +141,8 @@ const result = await boot().then(async ({ page, done }) => {
 
 const bad = (k) => result.seeds.filter((s) => s[k] > 0).map((s) => s.seed);
 check('spine seams sampled across seeds', result.pairs >= 3);
+check('rib tube centres exactly on the ring at the ring plane (perfect flyable)',
+  result.seeds.every((s) => s.centreBad === 0)) || console.error('  dead-centre fail seeds:', bad('centreBad'));
 check('corridor slope never exceeds the steering budget (X & Y)',
   result.seeds.every((s) => s.slopeBad === 0)) || console.error('  slope-budget fail seeds:', bad('slopeBad'));
 check('section seams are C0-continuous (≤1.5m X / 1.15m Y)',
