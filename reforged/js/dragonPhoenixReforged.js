@@ -150,7 +150,10 @@ function sunhawkMats(def, glow, stage) {
   // Fire mats are EMISSIVE-DOMINANT over a near-black diffuse: DIMMING them on Surge just reveals that
   // dark diffuse, which the brightened Surge scene lifts to dull TAN. So DON'T dim — hold the rest fire
   // emissive (which reads orange) and only deepen the HUE toward the saturated ember surgeHi.
-  flareW(hotRibbon[0], 0.65, -0.6); flareW(hotRibbon[1], 0.7, -0.5); flareW(hotRibbon[2], 0.72, -0.4);
+  // Sweet spot: emissive just UNDER the raised fever bloom threshold (so it glows without blooming to
+  // cream) + FULL colour convergence to the deep-ember surgeHi (so the emissive dominates the diffuse →
+  // no white-sun-on-dark-diffuse cream).
+  flareW(hotRibbon[0], 0.95, -0.4); flareW(hotRibbon[1], 0.92, -0.38); flareW(hotRibbon[2], 0.85, -0.3);
   return { ivory, goldfire, flame, crimson, garnet, emberShadow, emberBelly, bronze, gold, roseGold, orange, heart, eyeMat, hotRibbon, stage: st, glow: g };
 }
 
@@ -716,7 +719,7 @@ function buildOneSunWing(M, model) {
   // INTENSITY held UNIFORMLY LOW so no panel crosses the tone-map/bloom knee (which whites-out the
   // outboard tips exactly where the gold should peak); the COLOUR ramp (0.5→0.95 outboard) alone carries
   // the tip-hot gold gradient. This is the discipline the split-channel bought.
-  memFlareW(memHot, 0.8, -0.7); memFlareW(memGold, 0.88, -0.6); memFlareW(memOrange, 0.94, -0.5); memFlareW(memDeep, 1.0, -0.35);   // deepen hue + moderate dim so the saturated ember DIFFUSE reads through instead of blooming white
+  memFlareW(memHot, 0.95, -0.4); memFlareW(memGold, 0.97, -0.38); memFlareW(memOrange, 1.0, -0.32); memFlareW(memDeep, 1.0, -0.28);   // full ember convergence, emissive just under the bloom threshold
   wg.userData.flareMats = [memHot, memGold, memOrange, memDeep];   // published into the wing's spineMats so Surge ignites the membrane (they're locals otherwise)
   // DIAGONAL heat coordinate (not axis-aligned rectangles — the "basic panel/plates" read): a hot
   // inner-leading corner cooling toward the outboard-trailing corner, with a slight wave so the bands
@@ -963,7 +966,7 @@ function buildSunfireTrail(def, model, _mats, anchor) {
   const coreRamp = [tMat(0xffbe4a), tMat(0xffa838), tMat(0xf26a16), tMat(0xdc470c)];   // hotter axial core
   // SURGE flare weights for the tail fire (same discipline as the wings): deepen the hue toward the ember
   // surgeHi + dim, so the trailing tail reads as a fire ribbon on Surge, not a white flaring coil.
-  for (const m of [bodyEmber, ...ramp4, ...covRamp, ...coreRamp]) { m.userData.flareColorWeight = 0.7; m.userData.flareIntensityWeight = -0.8; }
+  for (const m of [bodyEmber, ...ramp4, ...covRamp, ...coreRamp]) { m.userData.flareColorWeight = 0.7; m.userData.flareIntensityWeight = -0.5; }
   const rk = 0.8 + 0.2 * lift;              // radius/size scale by the ladder (whelp puff → apex volute)
   const mouthY = a.y + 0.05, mouthZ = a.z + 0.26;
   const axisDir = [0, 0.30, 1];             // the axis CLIMBS ~17° → halves the down-screen sink so the tail rises out of the sun-glare column in rear-chase (corridor-safe: up is free)

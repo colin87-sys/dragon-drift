@@ -676,6 +676,8 @@ export const DRAGONS = {
     // toward INCANDESCENT GOLD-FIRE, not a washed white slab — consistent with this dragon's warm-gold
     // feverWing/feverWash Rebirth identity, and it lets the wings glow bright while staying fire-hued.
     surgeHi: 0xff5a0c,
+    fireTrails: true,   // warm the additive speed/boost-trail textures (else they're cool blue/cyan → gray+white cloud on Surge)
+    feverAura: 0xff7a22, feverAuraScale: 0.4,   // Surge aura = a modest EMBER corona, not a dragon-sized cream disc
     feverWash: [0.034, 0.017, 0.004],   // Rebirth screen wash: EMBER-orange (half the green/blue) + low, so the wash reads fire and never pushes the frame toward cream/white
     // Base model holds APEX reference dials; each form dials the ladder (cumulative).
     model: {
