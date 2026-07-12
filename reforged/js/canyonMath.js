@@ -22,6 +22,16 @@ export const CANYON_V = CONFIG.orbSpeed * CONFIG.speedRampMax;                 /
 export const BUDGET_X = 0.85 * CONFIG.lateralSpeed * CONFIG.boostSteeringBonus / CANYON_V;
 export const BUDGET_Y = 0.85 * CONFIG.verticalSpeed * CONFIG.boostSteeringBonus / CANYON_V;
 
+// Ribcage corridor half-separation (the side walls sit at centre ± this). Exported
+// so obstacles.js AND the flow audit share ONE value — no re-derivation, no drift.
+// Matches obstacles.js `cor = (2·gapW)·0.92` since every canyon gap uses canyonGapW.
+export const CORRIDOR_HALF = 2 * CONFIG.canyonGapW * 0.92;
+
+// Per-kind section-depth multiplier (the throat is a shorter run-in). Shared by the
+// geometry and the audit so the reconstructed tube matches the built one exactly.
+const KIND_MULT = { throat: 0.8 };
+export const kindMult = (kind) => KIND_MULT[kind] ?? 1;
+
 // Section half-depths: backward from `span` (dist to the previous ring), forward
 // from `spanFwd` (dist to the next segment). Sizing the FORWARD half by the forward
 // span is load-bearing — a burst→breath seam (span 55 → spanFwd ~150) would blow the
@@ -59,10 +69,16 @@ function alphaFor(d, L, budget) {
 }
 
 // Corridor-centre curve. Returns xAt(z)/yAt(z). At z=0 the value is exactly
-// (gapX,gapY) — the reward ring stays dead-centre; at the seams the value is the
-// midpoint with the neighbour — so adjacent sections join continuously (C1 where
-// the easing stays full smoothstep, C0 where it linearises for fairness). `u` is
-// clamped to [0,1] so an out-of-range sample can never blow up.
+// (gapX,gapY) — the reward ring stays dead-centre. Because the easing half (0.6·span)
+// is longer than the half-distance to the seam (0.5·span), each section reaches its
+// neighbour's midpoint value NEAR the seam but not exactly at it: adjacent sections
+// carry a bounded offset `Δ = 2·d·(1−blend(u_seam,α))` (≤~1.33m X, ≤~1.0m Y for
+// generator-reachable moves — the tolerances in canyonflow.mjs encode this), vs the
+// up-to-13.5m Y teleport before Y-threading. In the SHIPPED system the adaptive
+// degrade (α<1) engages only in the throat (0.8× halves); rib→rib halves have
+// identical span/mult on both sides, so α is equal across every rib seam and the
+// join stays full-C1. `u` is clamped to [0,1] so an out-of-range sample can't blow
+// up (bridged-gauntlet gaps evaluate far outside a section's rib band).
 export function centre(seg, bk, fw) {
   const px = seg.prevX !== undefined ? seg.prevX : seg.gapX;
   const nx = seg.nextX !== undefined ? seg.nextX : seg.gapX;

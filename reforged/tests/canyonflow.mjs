@@ -9,12 +9,12 @@ import { boot, check } from './browser.mjs';
 const result = await boot().then(async ({ page, done }) => {
   const r = await page.evaluate(async () => {
     const { createLevelGen } = await import('./js/level.js');
-    const { CONFIG } = await import('./js/config.js');
-    const { halves, centre, BUDGET_X, BUDGET_Y } = await import('./js/canyonMath.js');
+    const { halves, centre, kindMult, CORRIDOR_HALF, BUDGET_X, BUDGET_Y } =
+      await import('./js/canyonMath.js');
 
-    const cor = 2 * CONFIG.canyonGapW * 0.92;   // ribcage wall half-separation (obstacles.js)
+    const cor = CORRIDOR_HALF;                  // shared with obstacles.js — no re-derivation
     const SPINE = new Set(['throat', 'rib', 'straightrib']);
-    const mult = (k) => (k === 'throat' ? 0.8 : 1);
+    const mult = kindMult;                       // shared per-kind depth multiplier
 
     // Collect all canyon segments over a multi-km chunked walk (frame≡chunk is
     // already proven by canyonframe, so the coarse walk is valid and fast).
