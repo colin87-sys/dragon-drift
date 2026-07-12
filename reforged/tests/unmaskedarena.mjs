@@ -108,7 +108,7 @@ const embert = await page.evaluate(async () => {
 check(embert.mix === 0 && embert.skyDim > 0, `EMBERTIDE engages the sky-replace channel (skyDim ${embert.skyDim?.toFixed?.(2)}), NEVER the arena mix (${embert.mix})`);
 // PR-K: the FIRSTBORN SKY's Godhead Star is BUILT at boot but stays hidden/dark at mix 0 —
 // an ordinary (non-arena) boss gets zero arena furniture (the coexist proof, geometry edition).
-check(embert.arenaSet?.built === true && embert.arenaSet.visible === false && embert.arenaSet.k === 0 && embert.arenaSet.debrisVis === false,
+check(embert.arenaSet?.built === true && embert.arenaSet.visible === false && embert.arenaSet.k === 0 && embert.arenaSet.debrisVis === false && embert.arenaSet.emberVis === false,
   `the Godhead Star + debris are built-but-HIDDEN at mix 0 (visible ${embert.arenaSet?.visible}, k ${embert.arenaSet?.k}, debris ${embert.arenaSet?.debrisVis})`);
 // PR-K: the haze-deck water drop is a no-op at mix 0 — the sea sits at the shipped y 0, byte-identical.
 check(embert.water?.y === 0 && embert.water?.dropK === 0,
@@ -140,7 +140,7 @@ check(we && Number.isFinite(we.x) && Number.isFinite(we.y) && Math.abs(we.x) <= 
   `wingEye0 resolves sanely in-lane WITH the void live — no reparent (${we ? `x${we.x.toFixed(1)} y${we.y.toFixed(1)}` : 'null'})`);
 check(engaged.voidSky === true, 'the void suppresses god-rays (voidSky true)');
 // PR-H1/H2: the architecture belongs to the HEAVEN only — the void keeps its austere emptiness.
-check(engaged.arenaSet?.visible === false && engaged.arenaSet.k === 0 && engaged.arenaSet.debrisVis === false,
+check(engaged.arenaSet?.visible === false && engaged.arenaSet.k === 0 && engaged.arenaSet.debrisVis === false && engaged.arenaSet.emberVis === false,
   `the Godhead Star + debris stay hidden in the VOID (heaven-only window; k ${engaged.arenaSet?.k}, debris ${engaged.arenaSet?.debrisVis})`);
 // PR-K: the sea stays UNDROPPED in the void too (the drop window opens at mix 1.45, inside the unveil).
 check(engaged.water?.y === 0 && engaged.water?.dropK === 0,
@@ -208,8 +208,8 @@ check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.are
   `THE GODHEAD DETONATION engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, mode ${heaven.arenaSet?.mode})`);
 // GODHEAD DETONATION P4: the DEBRIS field rides the blast in the settled heaven, and NO chunk can
 // enter the focal/corridor column (hard |x| ≥ 25 by construction — the layout invariant).
-check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25,
-  `the DEBRIS conveyor rides the heaven, clear of the focal column (vis ${heaven.arenaSet?.debrisVis}, N ${heaven.arenaSet?.debrisN}, min|x| ${heaven.arenaSet?.debrisMinX} ≥ 25)`);
+check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 160,
+  `the DEBRIS conveyor + EMBER layer ride the heaven, clear of the focal column (debris ${heaven.arenaSet?.debrisVis} min|x| ${heaven.arenaSet?.debrisMinX} ≥ 25, embers ${heaven.arenaSet?.emberVis}/${heaven.arenaSet?.emberN})`);
 // PR-K: THE HAZE-DECK — the sea drops ~30u in the settled heaven (the "water" becomes a cosmic haze
 // far below), and the seraph's wings clear it by ≥10u (the P0 probe seam: wingMinY − waterY). The
 // court build measured the mantled fan's tips at world y ≈ −11.6 worst-case; the 30u drop + the
@@ -366,7 +366,7 @@ check(fullyExhaled, `the exhale DECAYS to biome while parked in gameover (update
 // PR-H1/H2: the holy architecture dissolved WITH the exhale (fade-scaled) and is hidden again
 // after the natural-kill teardown — the self-healing stateless-source law, geometry edition.
 const after = await page.evaluate(() => window.__dd.bossArenaState());
-check(after.arenaSet?.visible === false && after.arenaSet.k === 0 && after.arenaSet.debrisVis === false,
+check(after.arenaSet?.visible === false && after.arenaSet.k === 0 && after.arenaSet.debrisVis === false && after.arenaSet.emberVis === false,
   `the Godhead Star + debris are hidden again after the exhale/teardown (visible ${after.arenaSet?.visible}, k ${after.arenaSet?.k}, debris ${after.arenaSet?.debrisVis})`);
 // PR-K: the haze-deck rises back with the same window×fade — the sea is at the shipped y 0 again.
 check(after.water?.y === 0 && after.water?.dropK === 0,

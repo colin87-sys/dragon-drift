@@ -81,6 +81,8 @@ let starGroup = null;               // breath pivot at (0, STAR_Y, -STAR_DIST)
 let nova = null, spiral = null, deton = null;   // the three mode meshes (one visible)
 let novaMat = null, spiralMat = null, detMat = null;
 let debris = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // the recycled radial-outward rock conveyor
+let embers = null, emberMat = null;    // P3: the fine-particulate spark layer (shader-driven, recycled)
+const EMBER_N = 160;
 let tierHidden = false;             // low-tier kill switch (setArenaSetQuality)
 let lastK = 0;                      // debug seam: the engage level actually applied this frame
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _sc = new THREE.Vector3();   // debris scratch (alloc-free)
@@ -392,6 +394,58 @@ const addDetMat = () => {
   return m;
 };
 
+// ── P3 EMBER/SPARK LAYER: ~160 tiny billboarded quads streaming outward, FULLY shader-driven (the
+// vertex computes each spark's radius from uTime → zero CPU/frame). The fine particulate between the
+// big streaks and the rocks that sells the blast's vastness. Baked fairness (eclipse gate + down-
+// suppression in the vertex), tip-fade recycle, hot-gold→violet over life. Additive, +1 draw, ~640 tris,
+// tiny screen fill (each spark a few px) — NOT a "large additive volume" (the §2 overdraw cap holds).
+function buildEmbers(prnd) {
+  const pos = [], aq = [], aseed = [];
+  const CORN = [[-1, -1], [1, -1], [1, 1], [-1, 1]], TRI = [0, 1, 2, 0, 2, 3];
+  for (let e = 0; e < EMBER_N; e++) {
+    const dir = prnd() * TAU, speed = 0.08 + prnd() * 0.13, phase = prnd(), size = 0.9 + prnd() * 2.4;
+    for (const k of TRI) { pos.push(0, 0, 0.06); aq.push(CORN[k][0], CORN[k][1]); aseed.push(dir, speed, phase, size); }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('aQuad', new THREE.Float32BufferAttribute(aq, 2));
+  geo.setAttribute('aSeed', new THREE.Float32BufferAttribute(aseed, 4));
+  emberMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uGain: { value: 0 } },
+    vertexShader: `
+      attribute vec2 aQuad; attribute vec4 aSeed;   // aSeed = dir, speed, phase, size
+      uniform float uTime;
+      varying vec2 vQ; varying float vGlow; varying float vLife;
+      void main(){
+        float life = fract(uTime * aSeed.y + aSeed.z);
+        float r = mix(30.0, 360.0, life);
+        float dir = aSeed.x;
+        vec2 c = vec2(cos(dir), sin(dir)) * r;
+        float ecl = smoothstep(150.0, 210.0, r);                       // ignite only outside the seraph
+        float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(dir));      // suppress the corridor column
+        vGlow = ecl * down * (1.0 - life) * smoothstep(0.0, 0.06, life);
+        vLife = life; vQ = aQuad;
+        vec4 mv = modelViewMatrix * vec4(c, 0.06, 1.0);
+        mv.xy += aQuad * aSeed.w;                                       // screen-facing billboard
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uGain;
+      varying vec2 vQ; varying float vGlow; varying float vLife;
+      void main(){
+        float spark = max(0.0, 1.0 - dot(vQ, vQ));                     // soft round dot (clamp)
+        vec3 col = mix(vec3(1.0, 0.86, 0.58), vec3(0.55, 0.42, 0.72), vLife);   // hot gold young → violet old
+        gl_FragColor = vec4(col * spark * spark * vGlow * uGain, 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
+  });
+  emberMat.toneMapped = false;
+  embers = new THREE.Mesh(geo, emberMat);
+  embers.name = 'godheadEmbers';
+  embers.frustumCulled = false;
+  embers.layers.set(1);
+}
+
 const addMat = () => {
   const m = new THREE.MeshBasicMaterial({
     vertexColors: true, transparent: true, blending: THREE.AdditiveBlending,
@@ -500,6 +554,10 @@ export function createArenaSet(scene) {
   deton.visible = true;                 // THE GODHEAD DETONATION is the owner-locked default
   starGroup.add(deton);
 
+  buildEmbers(mulberry32(0x1c6ad39));   // PRIVATE stream (distinct from star/debris)
+  embers.visible = true;                // ships with the detonation (both modes-off A/B seams don't need it)
+  starGroup.add(embers);
+
   buildDebris(mulberry32(0x0d3b71f));   // PRIVATE stream, distinct from the star's — the level/gold RNG is never touched
   set.add(debris);                      // under `set` (the stable room), NOT starGroup (debris must not inherit the breath)
 
@@ -513,6 +571,7 @@ export function setStarMode(mode) {
   if (mode !== 'detonation' && mode !== 'supernova' && mode !== 'spiral') return;
   STAR_MODE = mode;
   if (deton) deton.visible = mode === 'detonation';
+  if (embers) embers.visible = mode === 'detonation';   // the ember layer belongs to the detonation
   if (nova) nova.visible = mode === 'supernova';
   if (spiral) spiral.visible = mode === 'spiral';
 }
@@ -525,7 +584,7 @@ export function updateArenaSet(time, playerDist, mix, fade) {
   if (k <= 0) {
     if (set.visible) {
       set.visible = false;
-      novaMat.color.setScalar(0); spiralMat.color.setScalar(0); detMat.uniforms.uGain.value = 0;
+      novaMat.color.setScalar(0); spiralMat.color.setScalar(0); detMat.uniforms.uGain.value = 0; emberMat.uniforms.uGain.value = 0;
     }
     lastK = 0;
     return;
@@ -539,8 +598,10 @@ export function updateArenaSet(time, playerDist, mix, fade) {
   // continuously (owner §1): a dead loop is a build failure.
   starGroup.scale.setScalar(1 + 0.02 * Math.sin(time * BREATH_HZ));
   const glow = k * STAR_GAIN * (0.98 + 0.02 * Math.sin(time * 0.31));
-  if (STAR_MODE === 'detonation') { detMat.uniforms.uGain.value = glow; detMat.uniforms.uTime.value = time; }
-  else (STAR_MODE === 'supernova' ? novaMat : spiralMat).color.setScalar(glow);
+  if (STAR_MODE === 'detonation') {
+    detMat.uniforms.uGain.value = glow; detMat.uniforms.uTime.value = time;
+    emberMat.uniforms.uGain.value = glow; emberMat.uniforms.uTime.value = time;   // the spark layer rides the same engage + clock
+  } else (STAR_MODE === 'supernova' ? novaMat : spiralMat).color.setScalar(glow);
 
   // THE DEBRIS CONVEYOR (P4): each chunk rides a ray from deep-centre outward+forward and recycles,
   // forever (TIME-driven — never freezes). Scale-in at birth, fade at recycle → seamless loop. The
@@ -575,6 +636,7 @@ export function debugArenaSet() {
   return { built: !!set, visible: !!set && set.visible, k: +lastK.toFixed(3), mode: STAR_MODE, star: !!nova,
     detUTime: detMat ? +detMat.uniforms.uTime.value.toFixed(2) : 0,   // detUTime advances ⇒ the perpetual loop is driven
     debrisN: DEBRIS_N, debrisVis: !!set && set.visible && !!debris, debrisMinX,   // debrisMinX ≥ 25 ⇒ no chunk enters the focal/corridor column
+    emberN: EMBER_N, emberVis: !!set && set.visible && !!embers && embers.visible,
     tierHidden };
 }
 
@@ -583,7 +645,7 @@ export function debugArenaSet() {
 export function resetArenaSet() {
   if (set && set.visible) {
     set.visible = false;
-    novaMat.color.setScalar(0); spiralMat.color.setScalar(0); detMat.uniforms.uGain.value = 0;
+    novaMat.color.setScalar(0); spiralMat.color.setScalar(0); detMat.uniforms.uGain.value = 0; emberMat.uniforms.uGain.value = 0;
     lastK = 0;
   }
 }
