@@ -153,17 +153,22 @@ export function flowWeave(seg, bk, fw) {
   const gx = seg.gapX, px = seg.prevX ?? gx, nx = seg.nextX ?? gx;
   const gy = seg.gapY, py = seg.prevY ?? gy, ny = seg.nextY ?? gy;
   const total = seg.runTotal ?? 1;
-  // Lateral sign flips per section; vertical flips every OTHER section → the (x,y) apex
-  // walks a slow helix (right-up → left-up → left-down → right-down) no sibling run has.
+  // BOTH axes sign-flip per section — the seam (where adjacent bands abut) sits at zn≈±0.83
+  // (the ease half 0.6·span is longer than the half-to-seam 0.5·span), where NEITHER basis is
+  // zero, so C0 across the seam needs the per-section flip on BOTH axes (an every-other-section
+  // Y flip left a ~A step at half the seams — the C0 bug the first cut shipped). The corkscrew
+  // comes from the DIFFERENT BASIS, not a different sign: the X apex sits at the seam, the Y
+  // apex a quarter-phase in at the mid-half, so the (x,y) apex still walks a helix.
   const siX = (seg.swaySign || 1) * (seg.runIdx % 2 ? -1 : 1);
-  const siY = (seg.swaySign || 1) * ((seg.runIdx >> 1) % 2 ? -1 : 1);
+  const siY = siX;
   // d = base ring-line move over this half; eh = easing half length; [lo,hi] = the pickup
   // lane on this axis; gv/nv = this + neighbour ring value. aSlope leaves headroom below the
-  // budget for the base ease's own peak; aLane keeps base±A inside the lane (using the two
-  // ring extremes → base±A stays in-lane everywhere, seam-symmetric so adjacent halves match
-  // → C0). Same conservative construction as rockSlicePlan's amp trim.
-  const ampHalf = (d, eh, cap, budget, gv, nv, lo, hi) => {
-    const aSlope = Math.max(0, budget - 1.5 * Math.abs(d) / eh) * (2 * eh / Math.PI);
+  // budget for the base ease's own peak; slopeF is the phase's peak-slope→amp factor (the X
+  // basis peaks at A·π/2eh, the Y basis at A·π/eh — Y gets HALF the headroom). aLane keeps
+  // base±A inside the lane (two ring extremes → base±A in-lane everywhere; seam-symmetric so
+  // adjacent halves match → C0). Same conservative construction as rockSlicePlan's amp trim.
+  const ampHalf = (d, eh, cap, budget, gv, nv, lo, hi, slopeF) => {
+    const aSlope = Math.max(0, budget - 1.5 * Math.abs(d) / eh) * slopeF;
     const aLane = Math.min(hi - Math.max(gv, nv), Math.min(gv, nv) - lo);
     return Math.max(0, Math.min(cap, aSlope, aLane));
   };
@@ -174,14 +179,15 @@ export function flowWeave(seg, bk, fw) {
   // Boundary discipline: straight in through the mouth, straight out of the finale, and
   // straight across a gauntlet-bridged forward side (mirrors rock/spine entry/exit caps).
   const entryOn = !mouth, exitOn = !finale && !seg.bridgedFwd;
-  const aXe = entryOn ? ampHalf(entryDx, bk, capX, BUDGET_X, gx, px, -11, 11) : 0;
-  const aXx = exitOn ? ampHalf(exitDx, fw, capX, BUDGET_X, gx, nx, -11, 11) : 0;
-  const aYe = entryOn ? ampHalf(entryDy, bk, capY, BUDGET_Y, gy, py, 4.5, 20) : 0;
-  const aYx = exitOn ? ampHalf(exitDy, fw, capY, BUDGET_Y, gy, ny, 4.5, 20) : 0;
+  const aXe = entryOn ? ampHalf(entryDx, bk, capX, BUDGET_X, gx, px, -11, 11, 2 * bk / Math.PI) : 0;
+  const aXx = exitOn ? ampHalf(exitDx, fw, capX, BUDGET_X, gx, nx, -11, 11, 2 * fw / Math.PI) : 0;
+  const aYe = entryOn ? ampHalf(entryDy, bk, capY, BUDGET_Y, gy, py, 4.5, 20, bk / Math.PI) : 0;
+  const aYx = exitOn ? ampHalf(exitDy, fw, capY, BUDGET_Y, gy, ny, 4.5, 20, fw / Math.PI) : 0;
   return (z) => {
     const zn = Math.max(-1, Math.min(1, z < 0 ? z / bk : z / fw)); // 0 at ring, ±1 at seam
-    const s = Math.sin((Math.PI / 2) * zn);
-    return { x: siX * (z < 0 ? aXe : aXx) * s, y: siY * (z < 0 ? aYe : aYx) * s };
+    const sX = Math.sin((Math.PI / 2) * zn);  // peaks at the seam (mid-gap)
+    const sY = Math.sin(Math.PI * zn);         // 0 at ring AND seam → C0 across seams; peaks mid-half
+    return { x: siX * (z < 0 ? aXe : aXx) * sX, y: siY * (z < 0 ? aYe : aYx) * sY };
   };
 }
 
