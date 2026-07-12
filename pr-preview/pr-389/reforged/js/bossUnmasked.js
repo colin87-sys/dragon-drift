@@ -271,6 +271,31 @@ export function buildUnmasked(def, quality = 1) {
   backlight.position.set(0, 0, -1.2); backlight.visible = false;
   rig.add(backlight);
 
+  // ── THE VOID BACKGLOW MANDORLA (PR-V2): in THE HOLLOW the seraph is a dark silhouette against a
+  // near-black sky (no sun rakes its camera-facing front). ONE additive VIOLET disc STRICTLY behind the
+  // silhouette plane makes the body read as dark-on-glow — the Radiance inversion: the void itself
+  // luminesces faintly around the shadow. Same lawful backlight-disc mechanism as the shatter backlight;
+  // radial vertex falloff (violet core → black rim, no hard edge). Opacity driven by voidK; hidden at
+  // rest (byte-identical off-void). ~1 draw, tier-cheap. ──
+  const vgSeg = lowQ ? 40 : 72;
+  const vgPos = [0, 0, 0], vgCol = [0.30, 0.24, 0.56], vgIdx = [];
+  for (let i = 0; i <= vgSeg; i++) {
+    const a = (i / vgSeg) * TAU;
+    vgPos.push(Math.cos(a) * DISC_R * 1.6, Math.sin(a) * DISC_R * 1.6, 0);
+    vgCol.push(0, 0, 0);
+  }
+  for (let i = 1; i <= vgSeg; i++) vgIdx.push(0, i, i + 1);
+  const vgGeo = new THREE.BufferGeometry();
+  vgGeo.setAttribute('position', new THREE.Float32BufferAttribute(vgPos, 3));
+  vgGeo.setAttribute('color', new THREE.Float32BufferAttribute(vgCol, 3));
+  vgGeo.setIndex(vgIdx);
+  const vgMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  vgMat.toneMapped = false;
+  const voidGlow = new THREE.Mesh(vgGeo, vgMat);
+  voidGlow.name = 'voidGlow';
+  voidGlow.position.set(0, 0, -1.8); voidGlow.visible = false;
+  rig.add(voidGlow);
+
   // ── SHATTER SHARDS (S1→S2): a dozen dark disc-fragments fling radially in-plane at the
   // shatter, silhouetted against the backlight (opaque near-black → overdraw-free, unlike an
   // additive chip). Parented to `rig`; a PRIVATE seed keeps the main `rnd` stream untouched (the
@@ -536,13 +561,13 @@ export function buildUnmasked(def, quality = 1) {
     { key: 'upper',  rotZ: -0.12, scale: 1.72, z: -0.20, phase: 0.0, amp: 0.026, off: { x: 0.45, y: 0.35 } },  // slid DOWN a touch — the top pair sat a bit high vs the others (owner)
     { key: 'upmid',  rotZ: -0.57, scale: 1.52, z: -0.35, phase: 0.7, amp: 0.030, off: { x: 0.45, y: 0.26 } },  // φ≈27°
     { key: 'middle', rotZ: -0.88, scale: 1.32, z: -0.50, phase: 1.4, amp: 0.036, off: { x: 0.45, y: 0.02 } }, // out, ~horizontal — lifted so it stays DISTINCT from the lowest wing
-    { key: 'lower',  rotZ: -1.20, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.42 } },// out-and-slightly-down (~−25°) — the distinct lowest wing
+    { key: 'lower',  rotZ: -1.20, scale: 1.12, z: -0.65, phase: 2.1, amp: 0.030, off: { x: 0.48, y: -0.42 } },// out-and-slightly-down (~−25°) — the distinct lowest wing (original angle; water clearance is solved by boss height / water level, NOT by tucking the angle — owner)
   ];
   // CHARGE MANTLE-FLARE sign per wing (right-side convention; ×side in the tick mirrors it): on
   // charge the fan OPENS — the upper pair lifts toward vertical (+), the lower pair sweeps
   // down-and-out (−), the middle holds — so the mandorla WIDENS as the wrath gathers, then
   // settles back at rest (charge 0 → zero flare → the signed-off idle is byte-identical).
-  const FLARE_SIGN = { upper: 1.0, upmid: 0.45, middle: -0.3, lower: -1.0 };
+  const FLARE_SIGN = { upper: 1.0, upmid: 0.45, middle: -0.3, lower: -1.0 };   // original — the fan OPENS on charge/mantle (upper lifts, lower sweeps down-and-out)
   // S1→S2 UNFURL: the seraph blooms from a folded BUD — all wings swept near-vertical + stacked —
   // and cascades open (upper first → lower last) with a small overshoot-settle. foldZ is the delta
   // from each wing's shipped angle to the tight bud angle (near-vertical for its side); foldOrder
@@ -922,7 +947,7 @@ export function buildUnmasked(def, quality = 1) {
   // stage 2's wings + eye-field stay (the SAME seraph, mantled — read in tickBody); only the
   // centre swaps. k3 0 hides stage 3 + shows the focal eye → stage 2 is byte-identical. ──
   let stage3K = 0;
-  let mantleK = 0;      // S2→S3 wing throw weight (read in the shoulder loop): 0 at rest → 1.30 throw-peak → 1.0 settled
+  let mantleK = 0;      // S2→S3 wing throw weight (read in the shoulder loop): 0 at rest → 1.30 throw-peak → 0.20 settled (PR-K)
   let convergeK = 0;    // GATHER: the eye field turns INWARD to the core (read in the pupil loop)
   let burstFlash = 0;   // ignition HDR flash weight (read in the stage-3 tick)
   // THE UNVEILING is a beat map on the reversal: the seraph STOPS WATCHING (eyes converge in) →
@@ -954,8 +979,13 @@ export function buildUnmasked(def, quality = 1) {
     const hideFocal = k3 >= 0.44;
     for (const e of focalParts) e.visible = !hideFocal;
     greatCatch.visible = !hideFocal && closeK < 0.6;   // the catchlight dies first (the light going out)
-    // THE WING THROW (read in the shoulder loop): overshoot to 1.30 at the throw, settle to 1.00.
-    mantleK = -0.35 * fold + 1.65 * throwK - 0.30 * settleK;
+    // THE WING THROW (read in the shoulder loop): overshoot to 1.30 at the throw, then SETTLE to
+    // 0.20 (PR-K, owner-locked): the dramatic throw is kept intact (throwK/igniteK/settleK timing
+    // and the unveil beat/halo/ignition are functions of the Ks, not the settled value), but the
+    // HELD S3 pose relaxes to read near-identical to S2 at fight distance — the FIRSTBORN SKY's
+    // seraph is the same dark figure, now hanging in a born cosmos. Wing base ANGLES untouched
+    // (WING_PAIRS/FLARE_SIGN frozen) — this is a coefficient, not an angle.
+    mantleK = -0.35 * fold + 1.65 * throwK - 1.10 * settleK;
     // THE GATHER: the eye field abandons the player and converges on the core (dies by the throw).
     convergeK = fold * (1 - smooth(0.30, 0.40, k3));
   }
@@ -1037,15 +1067,36 @@ export function buildUnmasked(def, quality = 1) {
   const CATCH_BASE = catchMat.color.clone();
   const SCLERA_BASE = greatScleraMat.color.clone();   // ARENA (PR-B): the S3 focal-lift base (the star-eye/greatEye sclera)
 
-  // ── THE ARENA HEAVEN FOCAL LIFT (PR-B, identity-audit F-2): in THE UNVEILED HEAVEN the gold sky is
-  // BRIGHTER than the shipped S3 focal (star-eye sclera L .516 < heaven horizon .744), so unlifted the
-  // finale reads as "a mask on a sunset" (owner-rejected). heavenK (driven by boss.js as the unveil
-  // completes) raises the halo/starburst/star-eye emissive so the boss's light LEADS the world — the
-  // dark seraph is the shadow the light throws, but its FOCAL still reads. heavenK 0 ⇒ byte-identical
-  // (the halo/burst multipliers are ×1; the sclera/catch writes are heavenK>0-guarded). All TUNE.
+  // ── THE ARENA HEAVEN FOCAL LIFT (PR-B; retuned for PR-J THE JUDGMENT COURT): in the chiaroscuro
+  // court the vault is MIDNIGHT (horizon band L≈.49, zenith ≈.10) — the lift's job flipped from
+  // out-brightening a 0.74 gold sky to CROWNING a silhouette. The halo/starburst keep their full
+  // lift (they ARE the god's light, blazing on the dark vault); the sclera/catch lifts come DOWN
+  // (0.5→0.3 / 0.8→0.6) so the star-eye reads as the focal without bulb-flaring inside the dark
+  // frame. heavenK (driven by boss.js as the unveil completes) — 0 ⇒ byte-identical (the halo/burst
+  // multipliers are ×1; the sclera/catch writes are heavenK>0-guarded). All TUNE.
   let heavenK = 0;
-  const SCLERA_LIFT = 0.5, HALO_LIFT = 0.6, BURST_LIFT = 0.9, CATCH_LIFT = 0.8;
+  const SCLERA_LIFT = 0.3, HALO_LIFT = 0.6, BURST_LIFT = 0.9, CATCH_LIFT = 0.6;
   function setArenaHeaven(k) { heavenK = Math.max(0, Math.min(1, k)); }
+
+  // ── THE ARENA VOID RIM-LIGHT (PR-V2): THE HOLLOW has NO sun on the camera-facing seraph (the
+  // directional light rakes its BACK) over a near-black sky, so the shipped dark silhouette renders
+  // invisible (owner: "unplayable"). voidK (driven by boss.js across the void window) paints a SELF-LIT
+  // violet-silver rim on the wing leading edges (emissive → reads with zero scene light), lifts the
+  // feather value-ladder one step toward a violet midtone BODY, and fades in the backglow mandorla. The
+  // parry-firing wings' legibility IS the fairness case (same argument the relics won). voidK 0 ⇒
+  // byte-identical (guarded restore, like the heaven's sclera). Fades OUT into S3 (the gold flood — the
+  // dark-on-gold silhouette already reads). All TUNE.
+  const RIM_BASE = rimMat.color.clone(), RIMB_BASE = rimMatB.color.clone();
+  const RIM_EM_BASE = rimMat.emissive.clone(), RIMB_EM_BASE = rimMatB.emissive.clone();
+  const RIM_VOID = new THREE.Color(0xc4bcf0), RIMB_VOID = new THREE.Color(0x9a90cc);      // violet-silver moonlight (leading-edge rim)
+  const RIM_EM_VOID = new THREE.Color(0x6a5ca8), RIMB_EM_VOID = new THREE.Color(0x483c78); // the SELF-LIT term (contour reads with no scene light)
+  const VOID_BODY = new THREE.Color(0x5a5080);   // the violet midtone the ladder lifts toward (body band; ladder separation preserved by a partial lerp)
+  const LADDER_KEYS = Object.keys(LADDER);   // precomputed — no per-frame Object.keys allocation in the void tick
+  const LADDER_BASE = {}, LADDER_VOID = {};
+  for (const k of LADDER_KEYS) { LADDER_BASE[k] = baseMats[k].color.clone(); LADDER_VOID[k] = baseMats[k].color.clone().lerp(VOID_BODY, 0.55); }
+  const VOID_GLOW_MAX = 0.42;   // low opacity (owner: "yes, low") — the glow supports the rim, never floods
+  let voidK = 0;
+  function setArenaVoid(k) { voidK = Math.max(0, Math.min(1, k)); }
 
   let charge = 0;
   function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
@@ -1192,7 +1243,7 @@ export function buildUnmasked(def, quality = 1) {
         s.obj.rotation.z = s.baseRotZ + fold
           + Math.sin(time * 0.2 * TAU + s.phase) * s.amp * breath * (0.25 + 0.75 * unfurlK)
           + s.flareZ * charge * 0.16
-          + s.flareZ * mantleK * 0.34;   // STAGE 3: the wings THROW open (overshoot to 1.30 then settle to a WIDER held span than stage 2)
+          + s.flareZ * mantleK * 0.34;   // STAGE 3: the wings THROW open (overshoot to 1.30) then settle to 0.20 — the held pose reads ≈ stage 2 at fight distance (PR-K)
       }
 
       // ── WRATH TELL: the whole eye field bleeds from gold toward danger-red as the charge
@@ -1257,6 +1308,21 @@ export function buildUnmasked(def, quality = 1) {
       const sk = 1 - charge * 0.3;                                          // constrict on charge (the star-eye shares the wrath tell)
       starPupil.scale.set(SW * 0.42 * sk, SH * 0.5 * sk, 0.4);
     }
+
+    // ARENA VOID rim-light + body lift + backglow (PR-V2) — every frame; voidK 0 ⇒ exact restore (byte-identical off-void).
+    if (voidK > 0) {
+      rimMat.color.copy(RIM_BASE).lerp(RIM_VOID, voidK);
+      rimMat.emissive.copy(RIM_EM_BASE).lerp(RIM_EM_VOID, voidK);
+      rimMatB.color.copy(RIMB_BASE).lerp(RIMB_VOID, voidK);
+      rimMatB.emissive.copy(RIMB_EM_BASE).lerp(RIMB_EM_VOID, voidK);
+      for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_VOID[k], voidK);
+      vgMat.opacity = voidK * VOID_GLOW_MAX; voidGlow.visible = true;
+    } else if (voidGlow.visible) {
+      rimMat.color.copy(RIM_BASE); rimMat.emissive.copy(RIM_EM_BASE);
+      rimMatB.color.copy(RIMB_BASE); rimMatB.emissive.copy(RIMB_EM_BASE);
+      for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]);
+      vgMat.opacity = 0; voidGlow.visible = false;
+    }
   }
 
   const muzzle = new THREE.Object3D();
@@ -1275,7 +1341,9 @@ export function buildUnmasked(def, quality = 1) {
     allSnap,
     setBrandedRelics,
     setArenaHeaven,
+    setArenaVoid,
     debugArenaLift: () => ({ k: heavenK, sclera: greatScleraMat.color.getHex() }),
+    debugArenaVoid: () => ({ k: voidK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +vgMat.opacity.toFixed(3), glowVis: voidGlow.visible }),
     setDebugStage,
     setStageMorph,
     setStage3,

@@ -33,10 +33,10 @@ export const ARENA_ENV_KEYS = [...COLOR_KEYS, ...SCALAR_KEYS];
 // revealed as pinholes (starMix 1), nothing alive (fauna/whale/flyby zeroed). A dark PLACE with a
 // non-black identity hue (violet), never an absence. Contrast re-derived with the gate's own lum().
 export const VOID_HEX = {
-  skyTop: 0x050208, skyMid: 0x0d0618, skyHorizon: 0x1a0b2e, sunGlow: 0x000000,
-  fogColor: 0x0a0514, fogNear: 45, fogFar: 240, fogFarColor: 0x120a24, fogFarMix: 1,
-  lightSun: 0x9a8fd8, lightSunI: 0.55, hemiSky: 0x241a3a, hemiGround: 0x05030a,
-  waterDeep: 0x030208, waterShallow: 0x140a26, waveAmp: 0.15,
+  skyTop: 0x0a0616, skyMid: 0x1a1030, skyHorizon: 0x2a1a4a, sunGlow: 0x000000,
+  fogColor: 0x18102c, fogNear: 45, fogFar: 240, fogFarColor: 0x241640, fogFarMix: 1,
+  lightSun: 0xa89fe0, lightSunI: 0.6, hemiSky: 0x4a3c72, hemiGround: 0x2a2048,   // hemiGround = the FRONT-fill that actually lights the camera-facing seraph (the sun shines on its BACK); lifting it + the bruise-violet midtone floor pulls the boss + bg off the shared black shadow-floor so the silhouette pops (danmaku: never a pure-black bg). Legibility floor 0.20 respected (skyHorizon L≈0.13).
+  waterDeep: 0x0a061c, waterShallow: 0x1c1236, waveAmp: 0.15,
   ambColor: 0xcfc2ee, ambFall: -0.45, ambSway: 0.4, ambSize: 0.4, ambOpacity: 0.9,
   faunaColor: 0xcfc2ee, faunaScale: 0, faunaFlap: 0,
   starMix: 1, whaleMix: 0, flybyMix: 0,
@@ -59,22 +59,31 @@ export const FLOOD_HEX = {
   cloudAmount: 0, cloudLit: 0xe8dcff, cloudShadow: 0xcfc2f2, atmosHeightK: 0, atmosInscatter: 0,
 };
 
-// THE UNVEILED HEAVEN (PR-B) — "What the Sky Was a Mask Of." The finale's stage 3 opens from the void
-// into a LIT, holy gold judgment-court: a cool steel-blue zenith over a molten-gold horizon (the
-// anti-sunset signal), the water a bright glassy sea, gold light-RAIN descending (the inversion of the
-// void's up-dust), the props still gone, the stars OUTSHONE. LIT, not blinding — capped at horizon
-// L≈0.744 (the ~0.75 ceiling) so the dark seraph + the amber parry bullets + white cores all read (the
-// sanctioned dark-on-light value inversion: the boss is the shadow the light throws). Contrast
-// re-derived with the gate's own lum(); the boss's S3 focal LIFTS to lead the light (bossUnmasked.js).
+// THE FIRSTBORN SKY (PR-K, the cosmos pivot) — "Behind the Mask There Was Never a Building." The owner
+// pivoted away from the judgment-court cathedral: S3 is now the SAME dark hollow (S2) KINDLING into
+// creation — an astral/nebula cosmos. The S2 pinhole-stars bloom into a full firmament (starMix 1 —
+// THE payoff: the dome's night-aurora term comes alive for free), nebula gas ignites across the vault
+// (the sky-cloud FBM band re-tinted WARM GOLD-ROSE at amount .35 — dome-locked, parallax-perfect,
+// zero new draws), and behind the seraph ONE GODHEAD STAR burns as the fight's single light
+// (arenaSet.js v3). MIDNIGHT INDIGO + GOLD (owner-locked colour heart) expressed as COSMOS, not
+// architecture: a deep space-indigo vault (skyTop L≈.09) over a violet-magenta nebula mid-lift, the
+// molten-gold horizon band kept as the GALACTIC PLANE, the sea dropped ~30u to a dim-violet near-dead-
+// calm HAZE-DECK far below the wings (water.js window driver — mirror kept, glint killed), and star-
+// white-gold STARDUST drifting weightlessly UP (ambFall −0.10 rhymes with S2's up-dust; the mote pool
+// re-skinned — zero new draws). The dark was never empty — it was pregnant. Contrast re-derived with
+// the gate's own lum(): fog 0x352b52 L≈.188 — every role colour clears it DIRECTLY (the layered read
+// lapses below bg .28, so the fog must sit ≥.15 from the nearest band colour: arena-dark 0xa84167
+// L.352 ⇒ fog ≤ .202); horizon L≈.49 sits inside the layered window [.28,.75] so all six pass there.
+// All TUNE.
 export const HEAVEN_HEX = {
-  skyTop: 0x6f88ad, skyMid: 0xbe9d58, skyHorizon: 0xccaf72, sunGlow: 0xefdaad,
-  fogColor: 0xc9ae78, fogNear: 70, fogFar: 380, fogFarColor: 0xc9ae78, fogFarMix: 1,   // fogFarColor = the fog hex (never author above L.75 — the distant sky's lowest band sinks into it)
-  lightSun: 0xffefc8, lightSunI: 1.42, hemiSky: 0xcfd8e8, hemiGround: 0x8a7a58,
-  waterDeep: 0x5f7aa8, waterShallow: 0xaaa078, waveAmp: 0.5,
-  ambColor: 0xffe9b8, ambFall: 0.5, ambSway: 0.25, ambSize: 0.55, ambOpacity: 0.85,     // GOLD LIGHT-RAIN (the mote pool re-skinned — zero new draws)
-  faunaColor: 0xffe9b8, faunaScale: 0, faunaFlap: 0,
-  starMix: 0, whaleMix: 0, flybyMix: 0,
-  cloudAmount: 0, cloudLit: 0xd9c79a, cloudShadow: 0x9a8a68, atmosHeightK: 0, atmosInscatter: 0,   // clean gold sky — the heaven's own light-rain, not biome clouds
+  skyTop: 0x0e1230, skyMid: 0x453466, skyHorizon: 0xa87838, sunGlow: 0xffdf9a,          // deep space-indigo vault · violet-magenta nebula mid-lift · the gold band = the GALACTIC PLANE · the Godhead Star's glow
+  fogColor: 0x352b52, fogNear: 60, fogFar: 340, fogFarColor: 0x352b52, fogFarMix: 1,   // dark violet — distance sinks into cosmic gloom (L≈.188: below .202 so every band colour reads DIRECT against it)
+  lightSun: 0xffe2b0, lightSunI: 1.15, hemiSky: 0x7e8fc0, hemiGround: 0x635033,        // cool vault fill + a dark warm front-fill (the seraph models, but stays a shadow)
+  waterDeep: 0x1a1638, waterShallow: 0x453a5e, waveAmp: 0.08,                           // HAZE-DECK, not a gold mirror — dim violet, near-dead calm (the bright gold glint dies with waterShallow)
+  ambColor: 0xffe9c0, ambFall: -0.10, ambSway: 0.45, ambSize: 0.5, ambOpacity: 0.85,    // STARDUST (the mote pool re-skinned — zero new draws): star-white-gold, weightless slow RISE
+  faunaColor: 0xffe9c0, faunaScale: 0, faunaFlap: 0,
+  starMix: 1.0, whaleMix: 0, flybyMix: 0,                                               // the S2 pinholes BLOOM to a firmament — the same field, kindled (+ the dome's aurora veil rides starMix free)
+  cloudAmount: 0.35, cloudLit: 0xd98a64, cloudShadow: 0x1c1434, atmosHeightK: 0, atmosInscatter: 0,   // NEBULA GAS: the FBM cloud band as warm gold-rose ignited gas; unlit gas sinks into the vault
 };
 
 // THE GOLD FLOOD — the S2→S3 unveiling mid-palette: light blooms outward FROM the boss (the burst
@@ -97,8 +106,8 @@ export const GOLD_FLOOD_HEX = {
 // band mechanism). Applied once at the reveal (boss.js latch). Consumed by tests/bulletcontrast.mjs.
 export const VOID_BULLETS = { dark: 0xa84167 };
 export const ARENA_CONTRAST = [
-  { name: 'THE HOLLOW (void arena)', fog: 0x0a0514, horizon: 0x1a0b2e, bullets: VOID_BULLETS },
-  { name: 'THE UNVEILED HEAVEN (arena)', fog: HEAVEN_HEX.fogColor, horizon: HEAVEN_HEX.skyHorizon, bullets: VOID_BULLETS },
+  { name: 'THE HOLLOW (void arena)', fog: VOID_HEX.fogColor, horizon: VOID_HEX.skyHorizon, bullets: VOID_BULLETS },
+  { name: 'THE FIRSTBORN SKY (arena)', fog: HEAVEN_HEX.fogColor, horizon: HEAVEN_HEX.skyHorizon, bullets: VOID_BULLETS },
 ];
 
 // Baked THREE.Color tables (once at module load — no per-frame allocation).

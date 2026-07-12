@@ -79,7 +79,8 @@ let tipMarkerL = null;
 let tipMarkerR = null;
 let auraSprite = null;
 let coreGlow = null;      // violet core energy sprite (pulses during Surge)
-let spineMats = [];       // spine/crest/seam/plate mats → white-gold in Surge
+let spineMats = [];       // spine/crest/seam/plate mats → flared AND rim-lit in Surge
+let spineFlareMats = [];  // spineMats + optional FLARE-ONLY mats (materials.flareMats): flared but NOT rim-lit — for dense fields (wing feathers) that the strong Surge rim would wash to cream
 let surgeMix = 0;         // 0..1 damped Surge transition
 let prevFever = false;    // rising-edge detect for the Surge ignition flourish
 let surgeAnimT = 0;       // one-shot transformation timer (s)
@@ -209,6 +210,7 @@ export function createDragon(scene, def, riderDef) {
   coreGlow = result.parts.coreGlow;
   emberEmitters = result.parts.emberEmitters || null;
   spineMats = result.materials.spineMats || [];
+  spineFlareMats = result.materials.flareMats ? spineMats.concat(result.materials.flareMats) : spineMats;   // flare-only mats join the flare loop but NOT the rim (applyRim below stays on spineMats)
 
   // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
   // bright sky/water. Additive to outgoing light (independent of the emissive
@@ -1141,7 +1143,7 @@ export function updateDragon(dt, player, time) {
   // overshooting on the ignition.
   if (surgeMix > 0.002 || ignite > 0.002) {
     _surgeHi.setHex(activeDef.surgeHi || 0xfff8e8); // white-gold default; cool per dragon
-    for (const m of spineMats) {
+    for (const m of spineFlareMats) {
       // Per-mat flare WEIGHTS (Surge composition), split into two independent channels so a broad face
       // can shift HUE toward surgeHi (read as "glowing") WITHOUT gaining intensity (which would bloom it
       // to a white slab), while a thin already-bright fire ribbon can hold its intensity flat and just
@@ -1158,7 +1160,7 @@ export function updateDragon(dt, player, time) {
       m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * Math.max(0.12, 1 + (surgeMix * 0.9 + ignite * 1.6) * sgm * wi);
     }
   } else {
-    for (const m of spineMats) {
+    for (const m of spineFlareMats) {
       m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff);
       m.emissiveIntensity = m.userData.baseIntensity ?? 1;
     }

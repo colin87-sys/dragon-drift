@@ -461,12 +461,15 @@ for (const key of BOSS_ORDER) {
   assert(s3.visible, 'stage 3 unveils the core (stage3Rig visible)');
   assert(!focal.visible, 'stage 3 retires the plain focal eye (the star-eye takes the centre)');
   assert(wings.visible, 'stage 3 REUSES the stage-2 seraph wings (not a duplicate set)');
-  // The wings MANTLE fully open — a wider spread than stage 2 (compared at the same time so the
-  // shared breath-sine cancels and the delta isolates the stage-3 mantle).
+  // The settled S3 mantle SETTLES to ~0.20 (PR-K, owner-locked): the throw is dramatic (asserted
+  // below) but the HELD pose reads near-identical to stage 2 at fight distance — a small residual
+  // widening, never the old full-open span. Compared at the same time so the shared breath-sine
+  // cancels and the delta isolates the stage-3 mantle.
   const upR = findAllByName(um.group, 'wing_upper_R')[0];
   um.setDebugStage(2); um.tick(0, 5.0); const z2 = upR.rotation.z;
   um.setDebugStage(3); um.tick(0, 5.0); const z3 = upR.rotation.z;
-  assert(z3 > z2 + 0.1, `stage 3 MANTLES the wings fully open (upper wing ${z2.toFixed(2)} → ${z3.toFixed(2)})`);
+  assert(Math.abs(z3 - z2) > 0.001 && Math.abs(z3 - z2) < 0.1,
+    `stage 3's HELD pose settles near the stage-2 span — a residual mantle, not a full-open throw (upper wing ${z2.toFixed(3)} → ${z3.toFixed(3)}, |Δ| ${Math.abs(z3 - z2).toFixed(3)} ∈ (0.001, 0.1))`);
   // BEAT MAP (gather → close → throw → ignite → settle): the unveiling is phrased, not one ease.
   // mid-CLOSE (k3 0.30): the great eye is still shown but SHUT to a seam (scale.y crushed).
   um.setStage3(0.30);
