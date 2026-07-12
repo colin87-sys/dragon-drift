@@ -612,6 +612,49 @@ function getNoiseBuffer(a) {
   return noiseBuffer;
 }
 
+// Speed-tunnel slipstream (E6): a rising filtered wind + a "boom" pressure layer +
+// a rib-flutter tremolo whose rate tracks the acoustic strobe of ribs whipping past
+// (speed / rib-pitch). Sits UNDER the radio; null-safe (no ctx / muted → no-op).
+let slipNodes = null;
+export function slipstreamStart() {
+  const a = getCtx();
+  if (!a || !sfxBus || sfxMuted || slipNodes) return;
+  const src = a.createBufferSource(); src.buffer = getNoiseBuffer(a); src.loop = true;
+  const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.8;
+  const boom = a.createBiquadFilter(); boom.type = 'bandpass'; boom.frequency.value = 180; boom.Q.value = 0.9;
+  const boomG = a.createGain(); boomG.gain.value = 0.5;
+  const wind = a.createGain(); wind.gain.value = 0;          // overall level (ramped in update)
+  const trem = a.createGain(); trem.gain.value = 1;          // tremolo carrier
+  const lfo = a.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 12;
+  const lfoAmt = a.createGain(); lfoAmt.gain.value = 0.45;
+  lfo.connect(lfoAmt); lfoAmt.connect(trem.gain);           // flutter modulates the wind
+  src.connect(bp); bp.connect(trem);
+  src.connect(boom); boom.connect(boomG); boomG.connect(trem);
+  trem.connect(wind); wind.connect(sfxBus);
+  src.start(); lfo.start();
+  slipNodes = { a, src, bp, wind, lfo, lfoAmt };
+}
+// sn = raw slip mix (drives the wind loop — you're moving faster even in a bridged
+// gap). presence 0..1 = local rib-wall presence: it scales ONLY the flutter DEPTH, so
+// "ribs whipping past" honestly stops in open air while the wind rushes on.
+export function slipstreamUpdate(sn, flutterHz, presence = 1) {
+  if (!slipNodes) return;
+  const { a, bp, wind, lfo, lfoAmt } = slipNodes;
+  const t = a.currentTime;
+  bp.frequency.setTargetAtTime(500 + Math.max(0, Math.min(1, sn)) * 1700, t, 0.15);
+  wind.gain.setTargetAtTime(0.07 * Math.max(0, Math.min(1, sn)), t, 0.15);
+  lfo.frequency.setTargetAtTime(Math.max(8, Math.min(22, flutterHz)), t, 0.1);
+  lfoAmt.gain.setTargetAtTime(0.45 * Math.max(0, Math.min(1, presence)), t, 0.12);
+}
+export function slipstreamStop() {
+  if (!slipNodes) return;
+  const { a, src, wind, lfo } = slipNodes;
+  const t = a.currentTime;
+  wind.gain.setTargetAtTime(0, t, 0.3);
+  try { src.stop(t + 0.5); lfo.stop(t + 0.5); } catch { /* already stopped */ }
+  slipNodes = null;
+}
+
 // Filtered noise burst (whooshes, impacts).
 function noiseWhoosh({ from = 800, to = 3000, dur = 0.25, vol = 0.12, q = 1.2, delay = 0, dest = null }) {
   const a = getCtx();
@@ -708,6 +751,8 @@ function stepRamp(param, t0, dur, from, to, exp = true, steps = 24) {
 }
 
 export const sfx = {
+  // Speed-tunnel slipstream loop (E6) — start/update/stop from main.js on spine enter/exit.
+  slipstreamStart, slipstreamUpdate, slipstreamStop,
   // Glassy ice-bell pluck: pure fundamental + bright inharmonic partial
   ring(combo = 1) {
     const f = 700 + combo * 60;
