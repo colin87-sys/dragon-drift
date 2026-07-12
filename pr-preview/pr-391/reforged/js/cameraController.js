@@ -334,6 +334,9 @@ export const cameraCtl = {
     if (player.feverActive) targetFov = 90;
     if (rollKickT > 0) targetFov += 4;
     targetFov += canyonW * 6; // wider peripheral read while threading rock
+    // Spine SPEED TUNNEL: the slipstream punches the FOV wide for the need-for-speed
+    // rush (canyonSlip ramps 1→1.12 in the spine only, so rock is unaffected).
+    targetFov += Math.max(0, player.canyonSlip - 1) * 70;
     targetFov -= inhaleLevel * 2; // PR-C: the inhale pinch (narrow = held breath)
     if (Math.abs(camera.fov - targetFov) > 0.1) {
       camera.fov = damp(camera.fov, targetFov, player.boosting ? 5 : 3, dt);

@@ -683,7 +683,12 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // untouched — seg.dist-8 on the ring line).
   function emitSegment(seg, out) {
     out.canyonSegments.push(seg);
-    if (seg.kind === 'straightrib') addFinaleOrb(seg, out);
+    // Speed boosts down the tube: the whole finale, PLUS every other bulk rib so the
+    // spine SPEED TUNNEL stays fast the whole way through (E4). Dead-centre on the ring
+    // line, deterministic (runIdx is run state, no RNG), rides the non-fixtured orbs.
+    if (seg.kind === 'straightrib' || (seg.kind === 'rib' && seg.runIdx % 2 === 0)) {
+      addFinaleOrb(seg, out);
+    }
   }
 
   function startCanyon(ring, out) {
@@ -695,7 +700,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     forceAllToggle = !forceAllToggle;
     const [lo, hi] = type === 'spine' ? CONFIG.spineSegments : CONFIG.canyonSegments;
     const left = CANYON_FORCE ? hi : lo + Math.floor(canyonRnd() * (hi - lo + 1));
-    out.canyonStarts.push(ring.dist - 40);
+    out.canyonStarts.push({ dist: ring.dist - 40, run: type }); // run type → spine-only slipstream
     // The ribcage tunnel sweeps laterally to fake the body's curve; pick the side
     // it starts on per run. gateFrom = start of the gate-suppression window, pulled
     // back by the ENTRY buffer so no crystal wall sits in the approach before the

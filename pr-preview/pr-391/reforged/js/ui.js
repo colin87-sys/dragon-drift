@@ -683,9 +683,14 @@ export const ui = {
     }
     lastShownScore = shownScore;
 
-    // Anime speed-lines: fade in with speed (boost/orb), CSS-only.
+    // Anime speed-lines: fade in with speed (boost/orb), CSS-only. Inside the spine
+    // SPEED TUNNEL (slipstream active) they ignite far earlier and drive to full for
+    // the need-for-speed rush.
     const sn = Math.min(Math.max((player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed), 0), 1);
-    const slOpacity = Math.min(Math.max((sn - 0.45) * 1.4, 0), 0.8);
+    const inTunnel = player.canyonSlip > 1.001;
+    const slOpacity = inTunnel
+      ? Math.min(Math.max((sn - 0.15) * 1.8, 0), 1.0)
+      : Math.min(Math.max((sn - 0.45) * 1.4, 0), 0.8);
     if (Math.abs(slOpacity - lastSpeedlines) > 0.02) {
       els.speedlines.style.opacity = slOpacity;
       lastSpeedlines = slOpacity;
