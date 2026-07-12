@@ -100,6 +100,12 @@ window.addEventListener('resize', () => {
 
 // --- Seeds: every run gets a fresh course; daily + challenge runs pin one.
 const urlParams = new URLSearchParams(window.location.search);
+// Preview convenience: ?rockrun / ?ribcage force that canyon type (level.js) AND
+// drop you straight into it — skip the tutorial, auto-launch, and warp to just
+// before the first forced canyon. For eyeballing the Sky Canyon on the PR preview.
+const PREVIEW_CANYON = urlParams.has('rockrun') ? 'rock'
+  : urlParams.has('ribcage') ? 'spine' : null;
+let previewLaunchPending = !!PREVIEW_CANYON;
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
 // Graphics effects: apply the player's saved Settings choices; a URL flag (?tm=,
@@ -122,7 +128,7 @@ if (urlParams.has('rush')) game.mode = 'rush';
 
 // A brand-new pilot's very first normal run is authored (scripted opening +
 // pinned seed) so the first ~90s is intentional, repeatable and QA-able.
-const isFirstFlight = () => game.mode === 'normal' && saveData.stats.runs === 0;
+const isFirstFlight = () => game.mode === 'normal' && saveData.stats.runs === 0 && !PREVIEW_CANYON;
 
 function seedForRun() {
   if (game.mode === 'daily') return dailySeed();
@@ -1210,6 +1216,14 @@ function updateModelDetail(dt) {
 
 function tick() {
   requestAnimationFrame(tick);
+  // Preview auto-launch (?rockrun / ?ribcage): once the menu is ready, take off and
+  // warp to just before the first forced canyon so the link lands you right in it.
+  if (previewLaunchPending && game.state === 'ready') {
+    previewLaunchPending = false;
+    setBossDebugFirstAt(Infinity); // no boss interrupts while eyeballing the canyon (persists across restarts)
+    startGame('normal');
+    if (game.state === 'playing') player.dist = 250; // canyon is forced at ~340 → a short lead-in
+  }
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
   // drives every world/gameplay update.
   let rawDt = Math.min(clock.getDelta(), 0.05);
