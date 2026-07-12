@@ -74,8 +74,8 @@ function vesperMats(def, glow, stage) {
   // the eyes carry light); the shipped surge tick multiplies it by (1 + 0.9·sgm) with
   // a HIGH surgeGlowMultiplier so ONLY the Night Surge blazes it to ion-blue → surgeHi.
   // It goes in the surge arrays (spineMats); the eyes stay OUT. Diffuse stays dark blue.
-  const seam = new THREE.MeshStandardMaterial({ color: 0x0a1024, emissive: 0x2050e8, emissiveIntensity: 0.04, flatShading: true, roughness: 0.5, metalness: 0, side: THREE.DoubleSide });
-  seam.userData.baseEmissive = 0x2050e8; seam.userData.baseIntensity = 0.04;   // surge lerps → surgeHi 0x4d86ff
+  const seam = new THREE.MeshStandardMaterial({ color: 0x0a1024, emissive: 0x2050e8, emissiveIntensity: 0.05, flatShading: true, roughness: 0.5, metalness: 0, side: THREE.DoubleSide });
+  seam.userData.baseEmissive = 0x2050e8; seam.userData.baseIntensity = 0.05;   // surge lerps → surgeHi 0x4d86ff (a touch brighter so the spine circuit POPS on Surge)
   return { bodyFlat, belly, dorsalFacet, glassStreak, speckle, seam, stage: st };
 }
 
@@ -201,15 +201,13 @@ function buildKnappedTorso(def, model, _bodyMat) {
   if (seamRun != null && seamRun >= 0) {
     const full = body.length - 1;
     const segCount = seamRun <= 0 ? 1 : Math.max(1, Math.round(full * Math.min(1, seamRun)));
-    // RECESSED · SEGMENTED · TAPERED groove (CP-C) — the sheet's spec is an INSET shadow groove
-    // between facets, not a ribbon on top (the owner's "LED strip stuck on its back"). Seat it a
-    // hair BELOW the ridge crest so the dorsal nubs flank it as lips (Surge light pools UP out of
-    // the crack); break each inter-station span into a DASH with a dark gap at every plate joint;
-    // needle the width at the nape, widen over the back, needle to the tail. Still withheld in
-    // cruise (M.seam near-zero base) — this is geometry only.
-    const srail = body.slice(0, segCount + 1).map(s => [0, s.cy + s.ry - 0.015, s.z]);
-    const seamT = [], gap = 0.34;
-    const hwAt = (t) => 0.014 + 0.030 * Math.sin(Math.PI * Math.min(1, t));
+    // SEGMENTED · TAPERED spine circuit — the anti-"LED-strip" fix is the DASHES + the width TAPER
+    // (broken into plate-joint segments, needle→wide→needle), NOT hiding it: seat it at the ridge
+    // CREST (proud enough to read on Surge from the chase cam — a deep recess made it invisible even
+    // when lit) so the dorsal nubs flank it but don't occlude it. Withheld in cruise (near-zero base).
+    const srail = body.slice(0, segCount + 1).map(s => [0, s.cy + s.ry + 0.008, s.z]);
+    const seamT = [], gap = 0.22;
+    const hwAt = (t) => 0.020 + 0.038 * Math.sin(Math.PI * Math.min(1, t));
     for (let i = 0; i < srail.length - 1; i++) {
       const A = srail[i], B = srail[i + 1];
       const a = [0, A[1] + (B[1] - A[1]) * gap * 0.5, A[2] + (B[2] - A[2]) * gap * 0.5];   // dash inset → dark gap at each station
@@ -822,9 +820,9 @@ function buildSplitFanTail(def, model, mats, anchor) {
     // Recessed · dashed · tapered down the tail (CP-C), matching the dorsal groove: seated below the
     // ridge crest, broken at each stem station, needling to the tail fork. Per-segment → binned to
     // the joints so the lit groove flexes with the tail chain.
-    const srail = stem.map(s => [0, s.cy + s.ry - 0.012, s.z]);
-    const gap = 0.34, N = srail.length - 1;
-    const hwAt = (t) => 0.010 + 0.020 * Math.sin(Math.PI * Math.min(1, t));
+    const srail = stem.map(s => [0, s.cy + s.ry + 0.006, s.z]);
+    const gap = 0.22, N = srail.length - 1;
+    const hwAt = (t) => 0.014 + 0.024 * Math.sin(Math.PI * Math.min(1, t));
     for (let i = 0; i < N; i++) {
       const A = srail[i], B = srail[i + 1];
       const a = [0, A[1] + (B[1] - A[1]) * gap * 0.5, A[2] + (B[2] - A[2]) * gap * 0.5];
