@@ -330,9 +330,26 @@ export function setWaterDepth(on) {
   if (water) water.material.uniforms.uAbsorbOn.value = depthOn ? 1 : 0;
 }
 
-export function updateWater(dt, playerDist, time, fog) {
+// ARENA (PR-K, THE FIRSTBORN SKY): the S3 heaven drops the sea ~30u into a dim cosmic HAZE-DECK far
+// below the seraph's wings (owner: lowered deck, mirror KEPT — the Reflector derives its mirror plane
+// from the mesh world transform per render, so the drop needs no reflector work). Driven by the EXACT
+// heaven window the arenaSet uses (smoothstep 1.45→1.85 on the stateless bossArenaMix, × the exhale
+// fade) — threaded through main.js's per-frame call (water.js must not import boss.js: boss.js →
+// environment.js → water.js would cycle). k=0 ⇒ y=0 byte-identical; self-healing at mix 0; exhale-
+// continuous (the deck rises back as the sky dissolves). contactShadow.js reads getArenaDropK() to
+// fade the player shadow with the same window (a shadow on vacuum is nonsense).
+const ARENA_DROP = 30;
+const DROP_LO = 1.45, DROP_HI = 1.85;   // = arenaSet.js RISE_LO/RISE_HI (the one heaven window)
+let arenaDropK = 0;
+export function getArenaDropK() { return arenaDropK; }
+export function debugWaterY() { return water ? water.position.y : 0; }
+
+export function updateWater(dt, playerDist, time, fog, arenaMix = 0, arenaFade = 1) {
   if (!water) return;
   water.position.z = -playerDist - 250;
+  const s = Math.max(0, Math.min(1, (arenaMix - DROP_LO) / (DROP_HI - DROP_LO)));
+  arenaDropK = s * s * (3 - 2 * s) * Math.max(0, Math.min(1, arenaFade));
+  water.position.y = -ARENA_DROP * arenaDropK;   // 0 exactly off-heaven → shipped plane
   const u = water.material.uniforms;
   u.time.value = time;
   u.uSwellAmp.value = swellOn ? 1 : 0; // belt-and-braces after any rebuild

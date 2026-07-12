@@ -106,10 +106,13 @@ const embert = await page.evaluate(async () => {
   return s;
 });
 check(embert.mix === 0 && embert.skyDim > 0, `EMBERTIDE engages the sky-replace channel (skyDim ${embert.skyDim?.toFixed?.(2)}), NEVER the arena mix (${embert.mix})`);
-// PR-J: the judgment court's architecture is BUILT at boot but stays hidden/dark at mix 0 —
-// an ordinary (non-arena) boss gets zero court furniture (the coexist proof, geometry edition).
+// PR-K: the FIRSTBORN SKY's Godhead Star is BUILT at boot but stays hidden/dark at mix 0 —
+// an ordinary (non-arena) boss gets zero arena furniture (the coexist proof, geometry edition).
 check(embert.arenaSet?.built === true && embert.arenaSet.visible === false && embert.arenaSet.k === 0,
-  `the judgment court is built-but-HIDDEN at mix 0 (visible ${embert.arenaSet?.visible}, k ${embert.arenaSet?.k})`);
+  `the Godhead Star is built-but-HIDDEN at mix 0 (visible ${embert.arenaSet?.visible}, k ${embert.arenaSet?.k})`);
+// PR-K: the haze-deck water drop is a no-op at mix 0 — the sea sits at the shipped y 0, byte-identical.
+check(embert.water?.y === 0 && embert.water?.dropK === 0,
+  `the sea is UNDROPPED at mix 0 (y ${embert.water?.y}, dropK ${embert.water?.dropK}) — byte-identical off the heaven`);
 await page.evaluate(() => window.__dd.bossReset());
 await page.waitForTimeout(300);
 
@@ -138,7 +141,10 @@ check(we && Number.isFinite(we.x) && Number.isFinite(we.y) && Math.abs(we.x) <= 
 check(engaged.voidSky === true, 'the void suppresses god-rays (voidSky true)');
 // PR-H1/H2: the architecture belongs to the HEAVEN only — the void keeps its austere emptiness.
 check(engaged.arenaSet?.visible === false && engaged.arenaSet.k === 0,
-  `the holy architecture stays hidden in the VOID (heaven-only window; k ${engaged.arenaSet?.k})`);
+  `the Godhead Star stays hidden in the VOID (heaven-only window; k ${engaged.arenaSet?.k})`);
+// PR-K: the sea stays UNDROPPED in the void too (the drop window opens at mix 1.45, inside the unveil).
+check(engaged.water?.y === 0 && engaged.water?.dropK === 0,
+  `the sea is undropped in the VOID (y ${engaged.water?.y}) — the haze-deck belongs to the heaven window`);
 check(engaged.propBandsHidden === true, 'the biome prop bands are dark in the void (F1 gate)');
 check(engaged.skyDim === 0, 'the EMBERTIDE sky channel stayed 0 under the void (disjointness)');
 
@@ -174,6 +180,7 @@ const heaven = await page.evaluate(async () => {
   window.__dd.input.surgeTap = true;
   let s; for (let i = 0; i < 50; i++) { await new Promise((r) => setTimeout(r, 50)); s = window.__dd.bossArenaState(); if (s.mix >= 1.99 && s.heavenRays > 0.9 && s.lift?.k > 0.9) break; }
   s.wingRootL = window.__dd.bossPartWorldPos('wingRootL'); s.wingRootR = window.__dd.bossPartWorldPos('wingRootR');
+  s.wingMin = window.__dd.bossWingMinY();   // PR-K: the exact wingtip min-world-Y probe (the haze-deck clearance measure)
   return s;
 });
 check(heaven.mix >= 1.99 && heaven.kind === 'heaven', `the heaven engages to mix ${heaven.mix?.toFixed?.(3)} (kind ${heaven.kind}) on the S3 skip-snap`);
@@ -182,11 +189,19 @@ check(heaven.lift && heaven.lift.k > 0.99 && heaven.lift.sclera !== 0x8f8365,
   `the S3 focal LIFTS on the gold sky (lift.k ${heaven.lift?.k?.toFixed?.(2)}, sclera 0x${heaven.lift?.sclera?.toString(16)} ≠ 0x8f8365) — not a mask on a sunset`);
 check(heaven.bandDark === 0xa84167, `the void's dark band PERSISTS through the heaven (0x${heaven.bandDark?.toString(16)})`);
 check(heaven.propBandsHidden === true && heaven.skyDim === 0, 'the props stay dark + the EMBERTIDE channel stays 0 in the heaven');
-// PR-J: the judgment court ENGAGES in the settled heaven — the divine column + the stained-glass
-// lancets + the inverted rose-window are live (k→1 rides the same stateless mix; the exhale/
-// teardown checks below prove the release).
-check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.panes === 14 && heaven.arenaSet.tierHidden === false,
-  `the judgment court engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, ${heaven.arenaSet?.panes} lancet panes + column + rose-window)`);
+// PR-K: THE GODHEAD STAR engages in the settled heaven — the newborn supernova heart burns far on
+// the boss axis (k→1 rides the same stateless mix; the exhale/teardown checks below prove the
+// release). The supernova is the owner-locked default mode ('spiral' is the A/B seam, never shipped-on).
+check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.star === true && heaven.arenaSet.mode === 'supernova' && heaven.arenaSet.tierHidden === false,
+  `the Godhead Star engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, mode ${heaven.arenaSet?.mode})`);
+// PR-K: THE HAZE-DECK — the sea drops ~30u in the settled heaven (the "water" becomes a cosmic haze
+// far below), and the seraph's wings clear it by ≥10u (the P0 probe seam: wingMinY − waterY). The
+// court build measured the mantled fan's tips at world y ≈ −11.6 worst-case; the 30u drop + the
+// P4 mantle settle put the deck ~18u+ below them.
+check(heaven.water && heaven.water.y <= -25 && heaven.water.dropK > 0.99,
+  `the sea drops to the HAZE-DECK in the settled heaven (y ${heaven.water?.y?.toFixed?.(1)} ≤ −25, dropK ${heaven.water?.dropK?.toFixed?.(2)})`);
+check(heaven.wingMin && Number.isFinite(heaven.wingMin.minY) && heaven.wingMin.minY - heaven.water.y >= 10,
+  `the wings CLEAR the haze-deck (wingMinY ${heaven.wingMin?.minY} − waterY ${heaven.water?.y?.toFixed?.(1)} = ${(heaven.wingMin?.minY - heaven.water?.y)?.toFixed?.(1)}u ≥ 10)`);
 // Organ×heaven conjunction: the S3 dwell organs resolve sanely in-lane WITH the heaven live (value-space
 // proof, S3 edition — the heaven never reparented them).
 for (const [w, name] of [[heaven.wingRootL, 'wingRootL'], [heaven.wingRootR, 'wingRootR']]) {
@@ -251,7 +266,8 @@ skyLums.sort((a, b) => a - b);
 const skyP95 = skyLums[Math.floor(skyLums.length * 0.95)];
 check(skyP95 <= 0.90, `the heaven's sky band is lit but not blinding-WHITE (p95 luminance ${skyP95.toFixed(3)} ≤ 0.90 — the divine column/god-ray tail may clip, never a white-out)`);
 
-// THE CHIAROSCURO LOCK (PR-J, THE JUDGMENT COURT): the owner rejected the first heaven as a bright
+// THE CHIAROSCURO LOCK (PR-J origin, kept verbatim for PR-K THE FIRSTBORN SKY — the astral field is
+// darker still and ships the same gate): the owner rejected the first heaven as a bright
 // gold postcard ("over-bright and underwhelming") — the redo is a MIDNIGHT vault lit only by the
 // god's own light (one gold column + jewel glass burning in the dark). The p95 tail is the column/
 // god-ray swell BY DESIGN (it ships ≈0.79–0.84, noise ±0.03 — the offered 0.80 ratchet does NOT
@@ -260,7 +276,7 @@ check(skyP95 <= 0.90, `the heaven's sky band is lit but not blinding-WHITE (p95 
 // Gate p50 ≤ 0.55 — any future palette edit that re-brightens the vault back toward the postcard
 // trips THIS, while the authored bright column keeps its tail headroom.
 const skyP50 = skyLums[Math.floor(skyLums.length * 0.50)];
-check(skyP50 <= 0.55, `the JUDGMENT COURT stays chiaroscuro — the vault's broad field is DARK (sky p50 ${skyP50.toFixed(3)} ≤ 0.55; the light is the column + glass, never a bright-gold wash)`);
+check(skyP50 <= 0.55, `the FIRSTBORN SKY stays a dark astral field — the vault's broad field is DARK (sky p50 ${skyP50.toFixed(3)} ≤ 0.55; the light is the Godhead Star + halo, never a bright wash)`);
 
 // The focal lift REVERTS off the heaven (byte-identity): reset → fresh S2 pin → lift.k 0, sclera restored.
 const liftOff = await page.evaluate(async () => {
@@ -300,9 +316,12 @@ const fullyExhaled = exhale[exhale.length - 1].mix === 0 && exhale[exhale.length
 check(fullyExhaled, `the exhale DECAYS to biome while parked in gameover (updateBoss dead) — final mix ${exhale[exhale.length - 1].mix.toFixed(1)}, fade ${exhale[exhale.length - 1].fade.toFixed(2)} (the finale-kill strand blocker)`);
 // PR-H1/H2: the holy architecture dissolved WITH the exhale (fade-scaled) and is hidden again
 // after the natural-kill teardown — the self-healing stateless-source law, geometry edition.
-const setAfter = await page.evaluate(() => window.__dd.bossArenaState().arenaSet);
-check(setAfter?.visible === false && setAfter.k === 0,
-  `the holy architecture is hidden again after the exhale/teardown (visible ${setAfter?.visible}, k ${setAfter?.k})`);
+const after = await page.evaluate(() => window.__dd.bossArenaState());
+check(after.arenaSet?.visible === false && after.arenaSet.k === 0,
+  `the Godhead Star is hidden again after the exhale/teardown (visible ${after.arenaSet?.visible}, k ${after.arenaSet?.k})`);
+// PR-K: the haze-deck rises back with the same window×fade — the sea is at the shipped y 0 again.
+check(after.water?.y === 0 && after.water?.dropK === 0,
+  `the sea is RESTORED to y 0 after the exhale/teardown (y ${after.water?.y}, dropK ${after.water?.dropK})`);
 
 check(errors.length === 0, 'no console errors through the arena run') || console.error(errors.slice(0, 5).join('\n'));
 await done();

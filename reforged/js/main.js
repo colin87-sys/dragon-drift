@@ -26,7 +26,7 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK } from './water.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
@@ -395,9 +395,10 @@ if (urlParams.has('debug')) {
       bandDark: bossDebugState()?.bandDark,            // the active dark bullet band (the certified lift at the reveal)
       lift: bossDebugModelLift(),                      // PR-B: the S3 focal-lift state ({k, sclera}) — byte-identity off-heaven
       voidLift: bossDebugModelVoid(),                  // PR-V2: the void rim-light state ({k, rim, rimEm, glow, glowVis}) — byte-identity off-void
-      arenaSet: debugArenaSet(),                       // PR-J: the JUDGMENT COURT set ({built, visible, k, panes, tierHidden}) — hidden off-heaven
+      arenaSet: debugArenaSet(),                       // PR-K: the FIRSTBORN SKY set ({built, visible, k, mode, tierHidden}) — hidden off-heaven
+      water: { y: debugWaterY(), dropK: getArenaDropK() },   // PR-K: the haze-deck drop (y −30 in the settled heaven, 0 byte-identical off it)
     }),
-    bossWingMinY: () => debugWingMinWorldY(),           // ARENA P0 (JUDGMENT COURT): exact wingtip min-world-Y (the S3 water-clearance measure)
+    bossWingMinY: () => debugWingMinWorldY(),           // ARENA P0: exact wingtip min-world-Y (the S3 haze-deck clearance measure, PR-K)
     bossFell: () => debugFell(),                       // PR-B: force the natural-kill teardown (the only way to exercise the exhale headless)
     forceGameOver: () => { game.state = 'gameover'; },  // PR-B test seam: park the loop in 'gameover' (updateBoss stops) to prove the exhale still decays there (the CP2/Codex blocker: the finale kill jumps straight to gameover)
     bossReset: () => resetBoss(),                      // rung 14: the HARD teardown (game-over / new-run path) — proves the reckoning latch doesn't leak the burn across runs
@@ -1484,7 +1485,7 @@ function tick() {
     sfx.dwellHum?.(humOn ? lh.dwell : 0);   // (lh read above, pre-updateDragon)
     updateArenaExhale(dt);   // ARENA (PR-B): decay the natural-kill exhale in ALL states — the finale/rush kill jumps straight to 'gameover' where updateBoss is dead, so the fade must run here or the sky strands
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget(), bossArenaMix(), bossArenaFade());
-    updateWater(dt, player.dist, t, scene.fog);
+    updateWater(dt, player.dist, t, scene.fog, bossArenaMix(), bossArenaFade());   // ARENA (PR-K): the FIRSTBORN SKY haze-deck drop rides the same stateless window (threaded here — water.js must not import boss.js)
     updateContactShadow(dt, player);
 
     // God-rays: project the sun to screen space and gate intensity by how
