@@ -18,7 +18,8 @@ import './dragonHull.js';           // 'hullWings' + 'hullTorso' (data-driven Ni
 import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + 'bullCrown' head + 'bladeJet' tail + aero layers (hard-edge/automotive family)
 import './dragonSeraph.js';         // Pearl Seraph: feather-scale wings / crown-halo head / comet tail (celestial multi-module family)
 import './dragonSeraphBody.js';     // Pearl Seraph: pearl hull torso + crowned head + real-geometry crown-halo
-import './dragonSeraph2.js';        // Pearl Seraph REDESIGN (CP1, default-off coexist): gull-arch fingered wing + curved-spine hull
+import './dragonSeraph2.js';        // Pearl Seraph REDESIGN (CP1, default-off coexist): curved-spine hull + crown head (wing superseded)
+import './dragonSeraphClerestory.js'; // Pearl Seraph REDESIGN wing v2 (default-off coexist): the CLERESTORY WING — pierced cathedral rose-window tracery
 import './dragonSovereign.js';      // Solar Sovereign (Eclipse Dragon-King): regnalKeelTorso + lanceVaultWings + eclipseCrownHead + scepterWhipTail
 import './dragonPhoenixMolten.js';  // Molten Phoenix (living magma): moltenPhoenixTorso + pyreFanWings + calderaCrestHead + emberWakeTail (caldera heat-tier system)
 import './dragonPhoenixReforged.js'; // Phoenix Ascendant REFORGED ("Sunhawk"): sunhawkKeelTorso + sunfeatherWings + sunpennantTail + sunhawkCrownHead (white-gold solar-ivory glow-up; coexists with `phoenix`)
