@@ -581,23 +581,34 @@ function buildSplitFanTail(def, model, mats, anchor) {
   const stem = [];
   for (let i = 0; i <= nSeg; i++) { const t = i / nSeg; stem.push({ z: a.z + t * T, rx: rAt(t), ry: rAt(t), cy: a.y + curveY(t) }); }
   const bandMat = (k) => (k === 1 || k === 2) ? M.dorsalFacet : (k >= 4) ? M.belly : M.bodyFlat;
-  group.add(knapLoft(stem, CHINE_PROFILE, bandMat, false));
 
-  // TAIL-STEM NUB ROW (CP2) — the dorsal nub file continues down the tail (the reference's
-  // tail ridge), shrinking to the tip; the seam threads between them.
+  // MOTION (CP3) — the tail stem is a 4-joint NESTED isBone chain so the rig's
+  // travelling-wave tailWhip has real joints to walk (the "stiff" fix). Every piece is
+  // binned to the joint whose z-span contains it and position-compensated by −anchor, so
+  // the assembled REST pose is byte-identical. tailRudderScale (def) trims the turn gain
+  // because per-joint locals COMPOUND on a chain (the fluid-tail lesson).
+  const nChain = 4;
+  const jIdx = (j) => Math.min(nSeg, Math.round(j * nSeg / nChain));
+  const jAnchor = (j) => { const s = stem[jIdx(j)]; return { x: 0, y: s.cy, z: s.z }; };
+  const joints = [];
+  { let parent = group, prev = { x: 0, y: 0, z: 0 };
+    for (let j = 0; j < nChain; j++) { const an = jAnchor(j); const sg = new THREE.Group(); sg.name = 'vesperTailPivot' + j; sg.position.set(an.x - prev.x, an.y - prev.y, an.z - prev.z); parent.add(sg); joints.push(sg); parent = sg; prev = an; } }
+  joints[0].isBone = true;   // drive by ROTATION only (position writes tear a connected loft)
+  const jointOf = (z) => { for (let j = nChain - 1; j >= 0; j--) if (z >= jAnchor(j).z - 1e-6) return j; return 0; };
+  const chainAdd = (z, mesh) => { const j = jointOf(z), an = jAnchor(j); mesh.position.set(-an.x, -an.y, -an.z); joints[j].add(mesh); return mesh; };
+  // stem loft, binned per joint (each span flexes; shared boundary station → continuous)
+  for (let j = 0; j < nChain; j++) { const i0 = jIdx(j), i1 = jIdx(j + 1); if (i1 > i0) chainAdd(stem[i0].z, knapLoft(stem.slice(i0, i1 + 1), CHINE_PROFILE, bandMat, false)); }
+
+  // TAIL-STEM NUB ROW (CP2) — the dorsal nub file continues down the tail, binned to joints.
   const tailNubs = Math.round(model.tailNubs ?? 0);
   if (tailNubs > 0) {
     const nub = (x, y, z, s) => { const b0 = [x - s, y, z - s], b1 = [x + s, y, z - s], b2 = [x + s, y, z + s * 1.5], b3 = [x - s, y, z + s * 1.5], ap = [x, y + s * 1.4, z + s * 0.2]; return [[b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]]; };
-    const nubT = [];
-    for (let i = 0; i < tailNubs; i++) { const t = i / Math.max(1, tailNubs); const st = stem[Math.round(t * (nSeg - 1))]; const s = 0.05 * (1 - 0.7 * t); for (const tri of nub(0, st.cy + st.ry + 0.006, st.z, s)) nubT.push(tri); }
-    group.add(flatTriMesh(nubT, M.dorsalFacet));
+    for (let i = 0; i < tailNubs; i++) { const t = i / Math.max(1, tailNubs); const st = stem[Math.round(t * (nSeg - 1))]; const s = 0.05 * (1 - 0.7 * t); chainAdd(st.z, flatTriMesh(nub(0, st.cy + st.ry + 0.006, st.z, s), M.dorsalFacet)); }
   }
-  // MID-TAIL FIN PAIR (CP2) — a BOLD knapped fin each side partway down the tail (the
-  // reference's caudal ridge before the terminal fans) — a legible mid-tail silhouette
-  // event (was too small → read as clutter; scaled up + 2-facet).
+  // MID-TAIL FIN PAIR (CP2) — a bold knapped fin each side partway down the tail.
   if ((model.tailMidFins ?? 0) > 0) {
     const mt = 0.58, ms = stem[Math.round(mt * nSeg)];
-    for (const side of [1, -1]) group.add(flatTriMesh([
+    for (const side of [1, -1]) chainAdd(ms.z, flatTriMesh([
       [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.24, ms.cy + 0.22, ms.z + 0.10], [side * 0.10, ms.cy - 0.02, ms.z + 0.34]],
       [[side * 0.03, ms.cy, ms.z - 0.04], [side * 0.10, ms.cy - 0.02, ms.z + 0.34], [side * 0.02, ms.cy - 0.03, ms.z + 0.10]],
     ], side < 0 ? M.dorsalFacet : M.bodyFlat));
@@ -609,13 +620,12 @@ function buildSplitFanTail(def, model, mats, anchor) {
   const seamRun = model.seamRun ?? 0;
   if (seamRun >= 1) {
     const srail = stem.map(s => [0, s.cy + s.ry + 0.008, s.z]);
-    const hw = 0.026, seamT = [];
-    for (let i = 0; i < srail.length - 1; i++) {
+    const hw = 0.026;
+    for (let i = 0; i < srail.length - 1; i++) {   // per-segment → binned to joints so the lit seam flexes with the tail
       const A = srail[i], B = srail[i + 1];
-      seamT.push([[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
-                 [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]);
+      chainAdd(A[2], flatTriMesh([[[A[0] - hw, A[1], A[2]], [B[0] + hw, B[1], B[2]], [B[0] - hw, B[1], B[2]]],
+                 [[A[0] - hw, A[1], A[2]], [A[0] + hw, A[1], A[2]], [B[0] + hw, B[1], B[2]]]], M.seam));
     }
-    group.add(flatTriMesh(seamT, M.seam));
     accentMats.push(M.seam);
   }
   const finRims = (model.seamFinRims ?? 0) > 0;   // f3: the fan-fin rims carry the seam
@@ -625,10 +635,11 @@ function buildSplitFanTail(def, model, mats, anchor) {
   const spread = model.tailFinSpread ?? 0;
   const splitFan = Math.round(model.splitFan ?? 0);   // 0 spade nub · 1 twin nubs · 2 split fan
   const speckle = M.speckle;
+  const add = (m) => chainAdd(tz, m);   // tail-TIP pieces (fans/nubs) → the last joint (they whip with the tip)
 
   if (splitFan <= 0) {
     // f0 — a small spade nub (a single flat knapped spade closing the stem).
-    group.add(flatTriMesh([
+    add(flatTriMesh([
       [[tx, ty + 0.05, tz], [tx - 0.10, ty, tz + 0.12], [tx + 0.10, ty, tz + 0.12]],
       [[tx - 0.10, ty, tz + 0.12], [tx, ty - 0.03, tz + 0.30], [tx + 0.10, ty, tz + 0.12]],
     ], M.bodyFlat));
@@ -636,7 +647,7 @@ function buildSplitFanTail(def, model, mats, anchor) {
     // f1 — twin nubs (the split begins): two small angled spade nubs.
     for (const side of [1, -1]) {
       const nx = side * 0.07;
-      group.add(flatTriMesh([
+      add(flatTriMesh([
         [[nx, ty + 0.04, tz], [nx + side * 0.10, ty, tz + 0.10], [nx, ty - 0.02, tz + 0.26]],
       ], M.bodyFlat));
     }
@@ -650,7 +661,7 @@ function buildSplitFanTail(def, model, mats, anchor) {
     // joint from any view (the Fable CP2 "severed tail" defect). Penetrates the last
     // stem segment forward of the fan roots.
     const rw = 0.05;
-    group.add(flatTriMesh([
+    add(flatTriMesh([
       [[rw, ty, tz - 0.06], [-rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.12]],
       [[rw, ty, tz - 0.06], [0, ty + 0.03, tz + 0.12], [0, ty - 0.03, tz + 0.18]],
       [[-rw, ty, tz - 0.06], [0, ty - 0.03, tz + 0.18], [0, ty + 0.03, tz + 0.12]],
@@ -665,26 +676,26 @@ function buildSplitFanTail(def, model, mats, anchor) {
       }
       for (let p = 0; p < petals; p++) {   // finger-petal ridges
         const a = root, b = tips[p], dx = b[0] - a[0], dz = b[2] - a[2], L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L, w = 0.03;
-        group.add(flatTriMesh([[[a[0] + nx * w, a[1], a[2] + nz * w], [a[0] - nx * w, a[1], a[2] - nz * w], b]], p % 2 ? M.dorsalFacet : M.bodyFlat));
+        add(flatTriMesh([[[a[0] + nx * w, a[1], a[2] + nz * w], [a[0] - nx * w, a[1], a[2] - nz * w], b]], p % 2 ? M.dorsalFacet : M.bodyFlat));
       }
       for (let p = 0; p < petals - 1; p++) {   // webbed cupped membrane + fin-rim seam + port mark
         const Fa = tips[p], Fb = tips[p + 1], mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
         const ctrl = [mid[0] + (root[0] - mid[0]) * 0.35, mid[1] + (root[1] - mid[1]) * 0.35 - 0.02, mid[2] + (root[2] - mid[2]) * 0.35];
         const arc = [Fa, bez(Fa, ctrl, Fb, 0.34), bez(Fa, ctrl, Fb, 0.66), Fb];
         const C = [(root[0] + mid[0]) / 2, (root[1] + mid[1]) / 2 - 0.04, (root[2] + mid[2]) / 2];
-        group.add(flatTriMesh([[C, root, arc[0]], [C, arc[0], arc[1]], [C, arc[1], arc[2]], [C, arc[2], arc[3]], [C, arc[3], root]], p % 2 ? M.bodyFlat : M.dorsalFacet));
-        if (finRims) { const o = 0.012, e = arc[2]; group.add(flatTriMesh([[arc[1], e, [e[0], e[1] + o, e[2]]], [arc[1], [e[0], e[1] + o, e[2]], [arc[1][0], arc[1][1] + o, arc[1][2]]]], M.seam)); }
-        if (side === -1) { const fx = (root[0] + Fa[0]) / 2, fy = (root[1] + Fa[1]) / 2 + 0.015, fz = (root[2] + Fa[2]) / 2, r = 0.03; group.add(flatTriMesh([[[fx - r, fy, fz], [fx + r, fy + 0.004, fz - r * 0.3], [fx, fy, fz + r]]], speckle)); }
+        add(flatTriMesh([[C, root, arc[0]], [C, arc[0], arc[1]], [C, arc[1], arc[2]], [C, arc[2], arc[3]], [C, arc[3], root]], p % 2 ? M.bodyFlat : M.dorsalFacet));
+        if (finRims) { const o = 0.012, e = arc[2]; add(flatTriMesh([[arc[1], e, [e[0], e[1] + o, e[2]]], [arc[1], [e[0], e[1] + o, e[2]], [arc[1][0], arc[1][1] + o, arc[1][2]]]], M.seam)); }
+        if (side === -1) { const fx = (root[0] + Fa[0]) / 2, fy = (root[1] + Fa[1]) / 2 + 0.015, fz = (root[2] + Fa[2]) / 2, r = 0.03; add(flatTriMesh([[[fx - r, fy, fz], [fx + r, fy + 0.004, fz - r * 0.3], [fx, fy, fz + r]]], speckle)); }
       }
     }
     // f3 — a central RUDDER facet between the fins (the finished-blade tail closer).
     if ((model.tailRudder ?? 0) > 0) {
-      group.add(flatTriMesh([
+      add(flatTriMesh([
         [[0, ty + 0.02, tz], [0, ty + 0.30, tz + 0.10], [0, ty - 0.02, tz + 0.40]],
       ], M.dorsalFacet));
     }
   }
   if (finRims && !accentMats.includes(M.seam)) accentMats.push(M.seam);
-  return { group, segs: [], accentMats };
+  return { group, segs: joints, accentMats };
 }
 registerTail('splitFanTail', buildSplitFanTail);
