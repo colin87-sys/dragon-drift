@@ -547,11 +547,20 @@ export const DRAGONS = {
       // near-zero cruise base to a blaze ONLY on the Night Surge (eyes stay out of the
       // surge arrays). seamRun/finRims/rootSpark ladder the carved circuit.
       seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, surgeGlowMultiplier: 22,
-      // MOTION (CP3) — the splitFanTail is a 4-joint NESTED isBone chain (see dragonVesper.js).
+      // WING MOTION (CP3) — the fingered wing is a 3-segment HINGE on the wingParts poser, NOT
+      // the old 1-bone plank (the runtime bug the Fable gate caught): pivot = shoulder flap,
+      // mid = forearm lagged curl, tip = the HAND folding at the wrist (the bat read — the whole
+      // membrane rides the hand as one sheet, so the fold never tears it). glidePow > 1 HOLDS
+      // the broad glide pose and pulses through it (a stealthy "commands the air" beat, not the
+      // old sine metronome); a gentle apex V-lift. Per-form ladder in forms[].
+      wingParts: 3, rootAmp: 0.62, midAmp: 0.34, tipAmp: 0.55, midLag: 0.45, tipLag: 1.0,
+      glidePow: 2.2, restLift: 0.05, apexMid: 0.10, apexTip: 0.22,
+      // TAIL MOTION (CP3) — the splitFanTail is a 4-joint NESTED isBone chain (see dragonVesper.js).
       // The rig walks it with a travelling lateral COIL + a phase-lagged VERTICAL wave (the axis
-      // the rear-chase lens reads — the "stiff" fix). tailRudderScale trims the compounding
-      // per-joint turn-curl on the chain to a graceful arc, not a J-hook (the fluid-tail lesson).
-      tailWhip: true, tailLagScale: 0.13, tailUndulateX: 0.26, tailRudderScale: 0.5,
+      // the rear-chase lens reads — the "stiff" fix). A BESPOKE supple-predator signature (deeper,
+      // slower undulate than the roster's flame-whips — NOT a copy). tailRudderScale trims the
+      // compounding per-joint turn-curl on the chain to a graceful arc, not a J-hook.
+      tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
     },
     // I1 ladder (torso-chine increment): body value DECREASES up the rungs; the
     // wing/head/tail dials are placeholders until I2/I3. The full knapping ladder
@@ -559,21 +568,25 @@ export const DRAGONS = {
     forms: [
       { spanScale: 0.70, glowLevel: 0.25, eyeScale: 1.30, headScale: 1.25, igniteStage: 0,
         scallopLobes: 2, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
+        wingParts: 1, midAmp: 0, tipAmp: 0, glidePow: 0.9,   // whelp: a simple frantic flapper (no wrist fold yet)
         earFinPairs: 1, eyeAlmond: 0, splitFan: 0, tailFinSpread: 0, tailStretch: 1.0, tailRudder: 0,
         seamRun: 0, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 0, haunchFlakes: 0, tailNubs: 0, tailMidFins: 0,
         colors: { body: 0x111522, belly: 0x1f2942, wingOuter: 0x111522, eye: 0x54c81e } },
       { spanScale: 0.82, glowLevel: 0.50, eyeScale: 1.05, headScale: 1.12, igniteStage: 1,
         scallopLobes: 3, glideRake: 0, constellations: 0, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
+        wingParts: 2, midAmp: 0.24, tipAmp: 0.30, glidePow: 1.2,   // kindled: the wrist fold arrives
         earFinPairs: 2, eyeAlmond: 0.4, splitFan: 1, tailFinSpread: 0, tailStretch: 1.0, tailRudder: 0,
         seamRun: 0.4, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 4, haunchFlakes: 0, tailNubs: 0, tailMidFins: 0,
         colors: { body: 0x0d111b, belly: 0x1c2338, wingOuter: 0x0d111b, eye: 0x5cd41e } },
       { spanScale: 0.92, glowLevel: 0.75, eyeScale: 0.90, headScale: 1.05, igniteStage: 2,
         scallopLobes: 4, glideRake: 0.5, constellations: 5, wingCreases: 0, cowlPlates: 1, edgeBand: 1,
+        wingParts: 3, midAmp: 0.32, tipAmp: 0.46, glidePow: 1.7,   // radiant: full cascade, calmer beat
         earFinPairs: 2, eyeAlmond: 0.7, splitFan: 2, tailFinSpread: 1.0, tailStretch: 1.0, tailRudder: 0,
         seamRun: 1.0, seamFinRims: 0, seamRootSpark: 0, dorsalNubs: 7, haunchFlakes: 1, tailNubs: 3, tailMidFins: 0,
         colors: { body: 0x0a0e17, belly: 0x1a2234, wingOuter: 0x0a0e17, eye: 0x62dc22 } },
       { spanScale: 1.00, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
         scallopLobes: 5, glideRake: 1.0, constellations: 8, wingCreases: 1, cowlPlates: 1, edgeBand: 1,
+        wingParts: 3, midAmp: 0.34, tipAmp: 0.55, glidePow: 2.2,   // sovereign: deep wrist fold, held-glide beat
         earFinPairs: 3, eyeAlmond: 1.0, splitFan: 2, tailFinSpread: 1.2, tailStretch: 1.15, tailRudder: 1,
         seamRun: 1.0, seamFinRims: 1, seamRootSpark: 1, dorsalNubs: 9, haunchFlakes: 1, tailNubs: 5, tailMidFins: 1,
         colors: { body: 0x070a11, belly: 0x1a2234, wingOuter: 0x070a11, eye: 0x6ae62a } },
