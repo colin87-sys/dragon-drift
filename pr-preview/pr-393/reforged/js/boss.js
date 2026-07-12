@@ -1943,7 +1943,7 @@ function endEncounter(player) {
   phase = 'idle';
   game.inBoss = false;
   activeBand = BAND;
-  arenaBandApplied = false; game.bossVoidSky = false; game.bossHeavenRays = 0;   // ARENA (PR-A/B): the void/heaven flags never outlive the fight (grep-both law; the stateless getter + the exhale fade restore env + prop gate). The exhale itself (captured above) rides bossArenaFade with active=false.
+  arenaBandApplied = false; game.bossVoidSky = false; game.bossArenaActive = false; game.bossHeavenRays = 0;   // ARENA (PR-A/B): the void/heaven flags never outlive the fight (grep-both law; the stateless getter + the exhale fade restore env + prop gate). The exhale itself (captured above) rides bossArenaFade with active=false.
   // The arena is NEVER left narrowed past a fight (unconditional restore) — the sky
   // ceiling included (the crush clamp + letterbox must not outlive the encounter).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
@@ -2264,6 +2264,7 @@ export function updateBoss(dt, player, time, camera) {
   // mix RAY_ON (1.6) — the heaven has a sun. Without the upper bound the heaven would inherit the void's
   // suppression and its god-ray swell (its #1 holy carrier) would never fire.
   game.bossVoidSky = arenaMixNow > 0.5 && arenaMixNow < RAY_ON;
+  game.bossArenaActive = arenaMixNow > 0;   // the transformed arena owns the sky (S2 void + S3 court) → collision.js clamps the invisible lane wall instead of killing (owner: no wall deaths in the finale arena). Cleared in BOTH teardowns (grep-both law).
   // HEAVEN god-ray SWELL signal (0..1): ramps over the last 0.4 of the unveil, full at the heaven, eases
   // out with the exhale fade. Cleared in BOTH teardowns beside bossVoidSky (grep-both law).
   game.bossHeavenRays = Math.max(0, Math.min(1, (arenaMixNow - RAY_ON) / (2 - RAY_ON))) * arenaFadeNow;
@@ -5593,7 +5594,7 @@ export function resetBoss() {
   if (orbBandMesh) { orbBandMat.opacity = 0; orbBandMesh.visible = false; }
   if (discBandMesh) { discBandMat.opacity = 0; discBandMesh.visible = false; }
   activeBand = BAND;
-  arenaBandApplied = false; game.bossVoidSky = false; game.bossHeavenRays = 0; exhaleT = 0; exhaleMix = 0;   // ARENA (PR-A/B): hard-clear on the game-over/new-run teardown (the hard snap stands — the exhale is only for the natural kill)
+  arenaBandApplied = false; game.bossVoidSky = false; game.bossArenaActive = false; game.bossHeavenRays = 0; exhaleT = 0; exhaleMix = 0;   // ARENA (PR-A/B): hard-clear on the game-over/new-run teardown (the hard snap stands — the exhale is only for the natural kill)
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
   arenaHY = arenaTargetHY = CONFIG.laneMaxY;

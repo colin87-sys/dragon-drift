@@ -77,12 +77,12 @@ export function updateCollision(dt, player) {
     if (cd !== undefined && cd > 0) nearMissCooldowns.set(c, cd - dt);
   }
 
-  // Canyon walls: fatal — EXCEPT while THE UNMASKED's void owns the sky. In the dark hollow the lane
-  // wall is invisible, so a wall death reads as unfair (owner). Clamp the player at the edge instead,
-  // the same damage-free way the boss-arena constriction does ("no cheap wall deaths inside a showpiece
-  // phase", player.js). Settled heaven (mix ≥ RAY_ON, bossVoidSky false) keeps the normal fatal wall.
+  // Canyon walls: fatal — EXCEPT anywhere THE UNMASKED's arena owns the sky (S2 void + S3 court). The
+  // lane wall is invisible/out-of-place inside the transformed arena, so a wall death reads as unfair
+  // (owner). Clamp the player at the edge instead, the damage-free way the boss-arena constriction does
+  // ("no cheap wall deaths inside a showpiece phase", player.js). Ordinary flight + the S1 sky keep it.
   if (p.x > CONFIG.laneHalfWidth || p.x < -CONFIG.laneHalfWidth) {
-    if (game.bossVoidSky) {
+    if (game.bossArenaActive) {
       p.x = Math.max(-CONFIG.laneHalfWidth, Math.min(CONFIG.laneHalfWidth, p.x));
       player.velocity.x = 0;
     } else {
