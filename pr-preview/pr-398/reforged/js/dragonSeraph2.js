@@ -100,10 +100,14 @@ function buildSeraphWing2(def, model, attach, giM) {
   // ── MATERIALS — 3 membrane value tiers + gold gild + dawn seam + cool belly ──
   // deep pearl-blue emissive FLOOR → shadow pockets read as shaded feathers, never pure-black holes
   const mkPearl = (col, rough) => new THREE.MeshStandardMaterial({ color: col, flatShading: true, side: THREE.DoubleSide, roughness: rough ?? 0.55, metalness: 0.07, emissive: 0x0c1626, emissiveIntensity: 0.09 });
-  const memInner = mkPearl(def.wingInner ?? 0xF4F1EA, 0.58);   // lit inboard
+  const memInner = mkPearl(def.wingInner ?? 0xF4F1EA, 0.58);   // lit inboard (also the rig-driven wingMat)
   const memMid   = mkPearl(0xD9E2F0, 0.55);                     // steel-pearl mid
   const memOuter = mkPearl(def.wingOuter ?? 0x6AA0F0, 0.50);   // designed dawn-blue outboard (finally used)
   const bellyMat = mkPearl(0x9FB4CE, 0.60);                     // cooler ventral tone (two-tone law)
+  // FLARE on Surge: the membrane tiers ignite toward surgeHi (dawn-cyan) so the WHOLE wing
+  // blooms holy-blue at ignition (a Radiant seraph), not just hairline seams. Withheld in cruise
+  // (the 0x0c1626 shadow floor is baseEmissive). These join materials.flareMats (flared, not rim-lit).
+  for (const m of [memMid, memOuter, bellyMat]) { m.userData.baseEmissive = 0x0c1626; m.userData.baseIntensity = 0.09; }
   const goldMat  = new THREE.MeshStandardMaterial({ color: SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.42, metalness: 0.28, emissive: 0x3a2606, emissiveIntensity: 0.13 });   // low metalness so broad faces don't reflect the sky green
   const seamCol  = def.wingEmissive ?? SERAPH_DAWN;
   const dawnMat  = new THREE.MeshStandardMaterial({ color: seamCol, emissive: seamCol, emissiveIntensity: 0.05 * gi, roughness: 0.35, side: THREE.DoubleSide });
@@ -282,6 +286,7 @@ function buildSeraphWing2(def, model, attach, giM) {
       wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,
     },
     wingMat: memInner, spineMats,
+    flareMats: [memMid, memOuter, bellyMat],   // whole-membrane Surge bloom (flared, not rim-lit)
     // measurement handle (§7): the outer wingtip in the wing-group frame, both sides
     wingElements: { tipR: R.marker, tipL: Lf.marker },
   };
@@ -370,7 +375,8 @@ function buildSeraphHull2(def, model, bodyMat) {
     dome.rotation.z = s * -5 * D2R; dome.rotation.y = s * 8 * D2R; group.add(dome);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.032, seg(5), seg(14), Math.PI), mats.gold);
     rim.position.copy(dome.position); rim.rotation.x = Math.PI / 2; rim.rotation.z = s * -5 * D2R; group.add(rim);
-    const gem = gemNode(0.042, mats.gem); gem.position.set(s * (wrBase.x - 0.06), wrBase.y + 0.05, wrBase.z + 0.01); group.add(gem);   // tucked inboard/low so it never pokes past the far wing in rear-¾
+    // (pauldron gem removed — it read as a stray "white ball" poking past the far wing in rear-¾;
+    //  the brow gem is the sole motif carrier, and the dome+gold rim carry the shoulder alone.)
   }
 
   // gilded STERNUM KEEL along the curved centreline

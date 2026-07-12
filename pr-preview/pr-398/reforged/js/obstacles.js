@@ -495,12 +495,14 @@ function buildRockGap(o, e) {
     e.noDissolve = true;
     const top = CEIL + 2, bot = -3;
     const hz = ((plan.wb + plan.wf) / Math.max(plan.slices.length, 1)) * 0.6; // tiles along z
-    const lo = -LANE - 3, ro = LANE + 3;
     // Place at -s.z: rockSlicePlan's z>0 is the exit half (toward nextX), but the world
     // maps local +z to a SMALLER dist (the approach side), so the exit half must sit at
     // -z (physical dist = o.dist + z) or each section's forward half lands on the backward
     // side and adjacent sections mismatch at rhythm changes (a wall across the slot).
     for (const s of plan.slices) {
+      // Fill from the PER-HALF effective lane edge (s.laneHW: wider in the run interior,
+      // ±13 on the boundary halves) so the widened channel still reads as rock, not air.
+      const lo = -s.laneHW - 3, ro = s.laneHW + 3;
       if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, -s.z, 0.06, hz, !s.noCrest);
       if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, -s.z, -0.06, hz, !s.noCrest);
     }
@@ -601,9 +603,12 @@ function buildRockGap(o, e) {
     else stackRun(36, 6);
   } else if (o.kind === 'overunder') {
     // A rounded rock mass juts from the ceiling (dive under) or a shelf rises from
-    // the floor (climb over) — a vertical squeeze between the tower slots.
-    if (o.shelf === 'floor') lump(gx, gy - H - 3, LANE + 1, 3, T, 0.5);
-    else lump(gx, gy + H + 3, LANE + 1, 3, T, 0.5);
+    // the floor (climb over) — a vertical squeeze between the tower slots. The lump
+    // spans the (v2-widened) rock lane so the wider corridor doesn't open a lateral
+    // flank around the squeeze; the outer tips past the eased wall are unreachable.
+    const ouHalf = (CONFIG.canyonRockV2 ? CONFIG.canyonRockLaneHalfWidth : LANE) + 1;
+    if (o.shelf === 'floor') lump(gx, gy - H - 3, ouHalf, 3, T, 0.5);
+    else lump(gx, gy + H + 3, ouHalf, 3, T, 0.5);
 
   // --- DRAGON SPINE CANYON --------------------------------------------------
   } else if (o.kind === 'skull') {

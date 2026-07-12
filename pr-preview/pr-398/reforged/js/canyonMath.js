@@ -159,10 +159,21 @@ export function rockSlicePlan(seg) {
   // sway peak at the ring and the ease peak mid-half don't co-locate, so total < sum).
   // In-lane free-width floor the audit enforces (+0.5 safety). Keep the swayed centre
   // far enough from the fatal lane wall that the channel never pinches below it.
-  const LANE_MARGIN = CONFIG.laneHalfWidth - 7.5 - 0.5;   // free-width floor 7.5 + 0.5 safety
+  // PER-HALF lane: the run INTERIOR uses the wider canyonRockLaneHalfWidth (more sway
+  // headroom — aLane is the binding cap on ~81% of halves), but the first segment's
+  // ENTRY half and the last segment's EXIT half stay at the global laneHalfWidth. Those
+  // two halves are the only rock geometry inside the ±40m entry/exit ease bands where the
+  // fatal wall is still ramping out from 13 — narrow-capping them means the wall is never
+  // asked to sit further out than it has eased to (the ramp-safety contract, verified by
+  // canyonflow's boundary gate). Interior seams stay seam-symmetric (both sides wide), so
+  // the C0 cap agreement below is preserved.
+  const total = seg.runTotal ?? 1;
+  const laneEntry = seg.runIdx === 0 ? CONFIG.laneHalfWidth : CONFIG.canyonRockLaneHalfWidth;
+  const laneExit = seg.runIdx === total - 1 ? CONFIG.laneHalfWidth : CONFIG.canyonRockLaneHalfWidth;
   const chanHalfAt = (t) =>
     CONFIG.canyonPinchHalf + CONFIG.canyonBreathOpen * (0.5 - 0.5 * Math.cos(Math.PI * t));
-  const ampHalf = (d, eh, neighbourGx) => {
+  const ampHalf = (d, eh, neighbourGx, laneHW) => {
+    const LANE_MARGIN = laneHW - 7.5 - 0.5;   // free-width floor 7.5 + 0.5 safety
     const easePeak = 1.5 * Math.abs(d) / eh;
     const aSlope = Math.max(0, BUDGET_X - easePeak) * (2 * eh / Math.PI);
     // SOLVED, seam-symmetric lane cap: |xAt(z)+A·sin| ≤ LANE_MARGIN + chanHalf across
@@ -180,8 +191,8 @@ export function rockSlicePlan(seg) {
     }
     return Math.max(0, Math.min(CONFIG.canyonSwayAmp, aSlope, aLane));
   };
-  const aEntry = ampHalf(gx - entryX, bk, px);
-  const aExit = ampHalf(exitX - gx, fw, nx);
+  const aEntry = ampHalf(gx - entryX, bk, px, laneEntry);
+  const aExit = ampHalf(exitX - gx, fw, nx, laneExit);
   const sway = (z) => {
     // zn clamped to [±1] so an out-of-range sample (a gauntlet-bridged "seam" far
     // beyond the rib band) holds the seam value instead of running the sinusoid wild.
@@ -216,11 +227,17 @@ export function rockSlicePlan(seg) {
     const p = pocket(z);
     let li = xc - chanHalf(z), ri = xc + chanHalf(z);
     if (p > 0) { li = Math.min(li, gx - p); ri = Math.max(ri, gx + p); }
+    // The effective lane half-width for THIS slice's half (entry z<0 / exit z>0) — the
+    // sea-stack fill (obstacles.js) and the flow audit's in-lane clamp both read it, so a
+    // wide interior half fills to ±16 while a narrow boundary half fills to ±13.
+    const laneHW = z < 0 ? laneEntry : laneExit;
     // Drop the sea-stack crests anywhere the approach cone is open (noCrest) so a lunge
     // to a high ring never clips a thin spire tip on the approach.
-    slices.push({ z, xc, li, ri, nearRing, noCrest: p > 0 });
+    slices.push({ z, xc, li, ri, nearRing, noCrest: p > 0, laneHW });
   }
   // xcAt lets the flow audit sample the channel centre continuously (the slices are
-  // only ~12m apart — too coarse to catch the peak slope).
-  return { bk, fw, wb, wf, slices, xcAt: (z) => xAt(z) + sway(z) };
+  // only ~12m apart — too coarse to catch the peak slope). laneBk/laneFw expose the
+  // per-half effective lane so level.js can clamp woven orbs/embers to the right edge.
+  return { bk, fw, wb, wf, slices, laneBk: laneEntry, laneFw: laneExit,
+           xcAt: (z) => xAt(z) + sway(z) };
 }

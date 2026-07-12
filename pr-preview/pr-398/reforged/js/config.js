@@ -176,6 +176,18 @@ export const CONFIG = {
   canyonBreathOpen: 1.0,      // extra half-width at the seams. KEPT SMALL so the channel at the sway peak
                               // (the seam) stays NARROWER than the sway amplitude — otherwise the slot opens
                               // exactly where the curve turns and you can fly straight through (self-cancel).
+  // Rock-run-LOCAL effective lane half-width. The rock sway amplitude per section-half
+  // is min(canyonSwayAmp, aSlope, aLane); MEASURED across 6 seeds, the binding cap is
+  // aLane (the lane-margin) on ~81% of halves at the global laneHalfWidth 13 — NOT the
+  // slope budget — so WIDENING the rock lane is the real "more banking" lever (mean sway
+  // 2.28m→4.41m at 16; aSlope only takes over near 18). This widens ONLY the rock run:
+  // the global laneHalfWidth (13) is untouched, so the base course, boss arenas and the
+  // spine tube are byte-identical. The widen is pinned to the run INTERIOR — the first
+  // entry-half and last exit-half stay at laneHalfWidth so the fatal wall never has to
+  // move outward inside the ±40m entry/exit ease bands (canyonMath rockSlicePlan +
+  // main.js eased boundary + collision soft-clamp). Set === laneHalfWidth to disable
+  // (byte-identical rollback dial, like canyonRockV2).
+  canyonRockLaneHalfWidth: 16,
 
   // Endless generation
   spawnAhead: 500,
