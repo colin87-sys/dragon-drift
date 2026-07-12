@@ -106,6 +106,10 @@ const embert = await page.evaluate(async () => {
   return s;
 });
 check(embert.mix === 0 && embert.skyDim > 0, `EMBERTIDE engages the sky-replace channel (skyDim ${embert.skyDim?.toFixed?.(2)}), NEVER the arena mix (${embert.mix})`);
+// PR-H1/H2: the heaven's holy architecture is BUILT at boot but stays hidden/dark at mix 0 —
+// an ordinary (non-arena) boss gets zero heaven furniture (the coexist proof, geometry edition).
+check(embert.arenaSet?.built === true && embert.arenaSet.visible === false && embert.arenaSet.k === 0,
+  `the holy architecture is built-but-HIDDEN at mix 0 (visible ${embert.arenaSet?.visible}, k ${embert.arenaSet?.k})`);
 await page.evaluate(() => window.__dd.bossReset());
 await page.waitForTimeout(300);
 
@@ -132,6 +136,9 @@ const we = engaged.wingEye0;
 check(we && Number.isFinite(we.x) && Number.isFinite(we.y) && Math.abs(we.x) <= 10.4 && we.y > 8 && we.y < 25,
   `wingEye0 resolves sanely in-lane WITH the void live — no reparent (${we ? `x${we.x.toFixed(1)} y${we.y.toFixed(1)}` : 'null'})`);
 check(engaged.voidSky === true, 'the void suppresses god-rays (voidSky true)');
+// PR-H1/H2: the architecture belongs to the HEAVEN only — the void keeps its austere emptiness.
+check(engaged.arenaSet?.visible === false && engaged.arenaSet.k === 0,
+  `the holy architecture stays hidden in the VOID (heaven-only window; k ${engaged.arenaSet?.k})`);
 check(engaged.propBandsHidden === true, 'the biome prop bands are dark in the void (F1 gate)');
 check(engaged.skyDim === 0, 'the EMBERTIDE sky channel stayed 0 under the void (disjointness)');
 
@@ -175,6 +182,10 @@ check(heaven.lift && heaven.lift.k > 0.99 && heaven.lift.sclera !== 0x8f8365,
   `the S3 focal LIFTS on the gold sky (lift.k ${heaven.lift?.k?.toFixed?.(2)}, sclera 0x${heaven.lift?.sclera?.toString(16)} ≠ 0x8f8365) — not a mask on a sunset`);
 check(heaven.bandDark === 0xa84167, `the void's dark band PERSISTS through the heaven (0x${heaven.bandDark?.toString(16)})`);
 check(heaven.propBandsHidden === true && heaven.skyDim === 0, 'the props stay dark + the EMBERTIDE channel stays 0 in the heaven');
+// PR-H1/H2: the holy architecture ENGAGES in the settled heaven — the colonnade + the rose-window
+// are live (k→1 rides the same stateless mix; the exhale/teardown checks below prove the release).
+check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.pillars === 24 && heaven.arenaSet.tierHidden === false,
+  `the holy architecture engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, ${heaven.arenaSet?.pillars} pillars + rose-window)`);
 // Organ×heaven conjunction: the S3 dwell organs resolve sanely in-lane WITH the heaven live (value-space
 // proof, S3 edition — the heaven never reparented them).
 for (const [w, name] of [[heaven.wingRootL, 'wingRootL'], [heaven.wingRootR, 'wingRootR']]) {
@@ -271,6 +282,11 @@ check(heldMix && fadeFell, `the natural-kill EXHALE holds the mix + fades (never
 // — mix reaches 0 (fully dissolved to biome) by the end. Before the fix this froze at 2 forever.
 const fullyExhaled = exhale[exhale.length - 1].mix === 0 && exhale[exhale.length - 1].fade === 1;
 check(fullyExhaled, `the exhale DECAYS to biome while parked in gameover (updateBoss dead) — final mix ${exhale[exhale.length - 1].mix.toFixed(1)}, fade ${exhale[exhale.length - 1].fade.toFixed(2)} (the finale-kill strand blocker)`);
+// PR-H1/H2: the holy architecture dissolved WITH the exhale (fade-scaled) and is hidden again
+// after the natural-kill teardown — the self-healing stateless-source law, geometry edition.
+const setAfter = await page.evaluate(() => window.__dd.bossArenaState().arenaSet);
+check(setAfter?.visible === false && setAfter.k === 0,
+  `the holy architecture is hidden again after the exhale/teardown (visible ${setAfter?.visible}, k ${setAfter?.k})`);
 
 check(errors.length === 0, 'no console errors through the arena run') || console.error(errors.slice(0, 5).join('\n'));
 await done();
