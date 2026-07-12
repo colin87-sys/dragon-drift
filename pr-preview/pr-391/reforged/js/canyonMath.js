@@ -118,16 +118,23 @@ export function rockSlicePlan(seg) {
   // own easing peak, then cap by the lane-edge margin. Sway peak slope = A·π/(2·eh);
   // set ≤ (BUDGET_X − easePeak) → A ≤ (BUDGET_X − easePeak)·2·eh/π (conservative: the
   // sway peak at the ring and the ease peak mid-half don't co-locate, so total < sum).
-  const ampHalf = (d, eh, neighbourGx) => {
+  const ampHalf = (d, eh, seamX) => {
     const easePeak = 1.5 * Math.abs(d) / eh;
     const aSlope = Math.max(0, BUDGET_X - easePeak) * (2 * eh / Math.PI);
-    const aLane = CONFIG.laneHalfWidth - 3.8 - Math.max(Math.abs(gx), Math.abs(neighbourGx));
+    // Keep the swayed centre inside the lane. The binding point is the seam, where
+    // |sway| peaks (=A) AND |centre| peaks (= the neighbour midpoint |seamX|), so
+    // |seamX| + A ≤ laneMargin. Using the MIDPOINT (not max(|gx|,|neighbourGx|)) is
+    // less conservative AND symmetric across the seam — both sides share the same
+    // midpoint — so the C0 seam continuity of the sway is preserved.
+    const aLane = (CONFIG.laneHalfWidth - 3.8) - Math.abs(seamX);
     return Math.max(0, Math.min(CONFIG.canyonSwayAmp, aSlope, aLane));
   };
-  const aEntry = ampHalf(gx - entryX, bk, px);
-  const aExit = ampHalf(exitX - gx, fw, nx);
+  const aEntry = ampHalf(gx - entryX, bk, entryX);
+  const aExit = ampHalf(exitX - gx, fw, exitX);
   const sway = (z) => {
-    const zn = z < 0 ? z / bk : z / fw;             // 0 at ring, ±1 at the seam
+    // zn clamped to [±1] so an out-of-range sample (a gauntlet-bridged "seam" far
+    // beyond the rib band) holds the seam value instead of running the sinusoid wild.
+    const zn = Math.max(-1, Math.min(1, z < 0 ? z / bk : z / fw)); // 0 at ring, ±1 at seam
     return si * (z < 0 ? aEntry : aExit) * Math.sin((Math.PI / 2) * zn);
   };
   // Breathing channel: tightest near the ring (where the ring is the aim point),
@@ -139,8 +146,9 @@ export function rockSlicePlan(seg) {
   const count = Math.max(5, Math.round((wb + wf) / 12));   // ~12m slice pitch
   const slices = [];
   for (let k = 0; k < count; k++) {
-    const f = count > 1 ? k / (count - 1) : 0.5;
-    const z = -wb + f * (wb + wf);
+    // Staggered (centre-of-cell) sampling — NOT the band edges — so abutting sections
+    // don't both build an identical sea-stack on the shared seam plane (doubled tris).
+    const z = -wb + ((k + 0.5) / count) * (wb + wf);
     const xc = xAt(z) + sway(z);
     const nearRing = Math.abs(z) < 12;
     let li = xc - chanHalf(z), ri = xc + chanHalf(z);

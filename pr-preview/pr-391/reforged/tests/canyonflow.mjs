@@ -26,7 +26,9 @@ const result = await boot().then(async ({ page, done }) => {
       return segs;
     };
 
-    const seeds = [1337, 424242, 271828];
+    // 205907 has a gauntlet-bridged consecutive split pair (a 341m gap) — the case
+    // that tripped the unclamped-zn seam bug; keep it to guard the fix.
+    const seeds = [1337, 424242, 271828, 205907];
     const agg = { worstSlopeX: 0, worstSlopeY: 0, worstSeamX: 0, worstSeamY: 0,
                   minWidth: Infinity, pairs: 0, rockSlopeMax: 0, rockMinWidth: Infinity,
                   rockSeamMax: 0, rockSlices: 0, seeds: [] };
@@ -69,6 +71,9 @@ const result = await boot().then(async ({ page, done }) => {
         const a = segs[i - 1], b = segs[i];
         if (b.runIdx !== a.runIdx + 1 || a.kind !== 'split' || b.kind !== 'split') continue;
         const pa = rockSlicePlan(a), pb = rockSlicePlan(b);
+        // A gauntlet can bridge a run: if the sections' wall bands don't meet there is
+        // no seam to be continuous across (open air between them) — skip it.
+        if (b.dist - a.dist > pa.fw + pb.bk) continue;
         const mid = (a.dist + b.dist) / 2;
         const d = Math.abs(pa.xcAt(mid - a.dist) - pb.xcAt(mid - b.dist));
         agg.rockSeamMax = Math.max(agg.rockSeamMax, d);
