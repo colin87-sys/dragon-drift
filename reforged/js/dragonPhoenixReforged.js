@@ -898,11 +898,13 @@ function buildSunfeatherWings(def, model, attach, _giM) {
     if (s === 'R') wingBladePivotsR = bp; else wingBladePivotsL = bp;
     for (const fm of (oneWing.userData.flareMats || [])) memFlareMats.push(fm);
   }
-  // Publish the wing's DOMINANT fire surfaces into spineMats so Surge ignites the WINGS (the hero of the
-  // Rebirth composition), not just the body. hotRibbon (M is shared across both wings → tag once, covers
-  // both) drives the feathers/streamers/ridge/licks/sheaths; memFlareMats are the per-side membrane
-  // panels. Their per-mat flareWeights (set in sunhawkMats / buildOneSunWing) keep it tip-hot + bloom-safe.
-  const spineMats = [M.gold, M.roseGold, M.orange, ...M.hotRibbon, ...memFlareMats];
+  // Wing spineMats = ONLY the thin gilt-regalia accents (gold/roseGold/orange → leading ridge, finger
+  // rims). The broad feather field (hotRibbon) + membrane are DELIBERATELY excluded: joining spineMats
+  // would subject them to both the Surge flare AND the strong Surge fresnel RIM (applyRim runs over every
+  // spineMats mat, updateRim drives it to ~1.2 on Surge) — and that rim is what brightened the dense
+  // feather sheet to CREAM (the "washed white wings"). Kept out, the wings hold their cruise fire colour
+  // on Surge and the drama is carried by the accents + effects. (memFlareMats now unused → left un-pushed.)
+  const spineMats = [M.gold, M.roseGold, M.orange];
   return { group, spineMats, wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
 }
 registerWings('sunfeather', buildSunfeatherWings);

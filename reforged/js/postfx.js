@@ -334,12 +334,12 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // screen-fill wash. Trimmed ~40% again: the white-hot Phoenix Rebirth was
   // washing out the entire frame and burying the silhouette + hazards.
   u.lift.value = postfx._feverMix * (0.24 + Math.sin(performance.now() * 0.006) * 0.09)
-    + _kick.lift + flash * 0.26;
+    + _kick.lift + flash * 0.26; 
   u.liftTint.value.set(postfx._feverTint[0], postfx._feverTint[1], postfx._feverTint[2]);
   // Boss-time stage management: the world mid-tones itself (sat/vig/bloom ease
   // toward this at mix=1) so the bullets are the most vivid thing on screen —
   // scales linearly with _bossMix, zero term at mix=0 (no boss = byte-identical).
-  let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat - _bossMix * 0.10;
+  let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat - _bossMix * 0.10; 
   let vig = 0.30 + _kick.vig + _bossMix * 0.05;
   // Bloom eases DOWN during Surge (clamped) so the bright scene/sky can't blow
   // out and bury the silhouette — the dragon's own emissive is far brighter and
