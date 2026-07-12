@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { seg } from './modelDetail.js';
-import { registerWings, registerTorso, registerHead } from './dragonRecipe.js';
+import { registerWings, registerTorso, registerHead, registerTail, getTailBuilder } from './dragonRecipe.js';
 import { flatTriMesh } from './mechaKit.js';
 import { shingle } from './dragonShingle.js';
 
@@ -531,3 +531,23 @@ function buildSeraphCrownHead2(def, model, mats0) {
   return { group: headGroup, spineMats, halo };
 }
 registerHead('seraphCrownHead2', buildSeraphCrownHead2);
+
+// ── TAIL (redesign interim) — the shipped comet/banner tail with its GOLD corrected off the
+// olive/khaki crush (high metalness reflecting the sky) to warm low-metal gold, and the broad
+// pearl vertebra self-glow floor pulled down. Builds a FRESH tail (own material instances) so
+// the shipped `pearl` stays byte-identical. A full hero-scale comet rebuild is CP2.
+function buildSeraphTail2(def, model, mats, anchor) {
+  const res = getTailBuilder('seraphTail')(def, model, mats, anchor);
+  res.group.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    const m = o.material;
+    if (m.metalness >= 0.5) {                 // the gold → de-metalize + warm so broad faces hold gold, not olive
+      m.metalness = 0.28; m.roughness = 0.42;
+      m.color.setHex(SERAPH_GOLD); m.emissive.setHex(0x3a2606); m.emissiveIntensity = 0.12;
+    } else if (m.emissive && m.emissiveIntensity > 0 && m.emissiveIntensity < 0.3 && !m.userData.baseEmissive) {
+      m.emissiveIntensity = Math.min(m.emissiveIntensity, 0.06);   // pull down the always-on pearl self-glow floor
+    }
+  });
+  return res;
+}
+registerTail('seraphTail2', buildSeraphTail2);

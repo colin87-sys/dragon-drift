@@ -1120,7 +1120,7 @@ DRAGONS.vesperLean = {
 DRAGONS.pearlRedesign = {
   ...DRAGONS.pearl,
   name: 'Pearl Seraph · Redesign',
-  parts: { torso: 'seraphHull2', wings: 'seraphWing2', head: 'seraphCrownHead2', tail: 'seraphTail' },
+  parts: { torso: 'seraphHull2', wings: 'seraphWing2', head: 'seraphCrownHead2', tail: 'seraphTail2' },
   // WITHHELD dawn glow: near-dark in cruise, blazes on Surge (base ≈0.05 × surgeGlowMultiplier).
   // feverWing dark-dawn (not the rig's magenta default); brighter gold reaches the shared head builder.
   wingGild: 0xECC25A, feverWing: 0x66C8FF, feverEye: 0x9FD0FF, hideRiderGlow: true,   // bright dawn-cyan fever → the inboard membrane blazes holy-blue on Surge
