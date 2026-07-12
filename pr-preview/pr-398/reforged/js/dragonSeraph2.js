@@ -98,7 +98,8 @@ function buildSeraphWing2(def, model, attach, giM) {
   const formLevel = Math.min(model.formLevel ?? 3, 3);
 
   // ── MATERIALS — 3 membrane value tiers + gold gild + dawn seam + cool belly ──
-  const mkPearl = (col, rough) => new THREE.MeshStandardMaterial({ color: col, flatShading: true, side: THREE.DoubleSide, roughness: rough ?? 0.55, metalness: 0.07 });
+  // deep pearl-blue emissive FLOOR → shadow pockets read as shaded feathers, never pure-black holes
+  const mkPearl = (col, rough) => new THREE.MeshStandardMaterial({ color: col, flatShading: true, side: THREE.DoubleSide, roughness: rough ?? 0.55, metalness: 0.07, emissive: 0x0c1626, emissiveIntensity: 0.09 });
   const memInner = mkPearl(def.wingInner ?? 0xF4F1EA, 0.58);   // lit inboard
   const memMid   = mkPearl(0xD9E2F0, 0.55);                     // steel-pearl mid
   const memOuter = mkPearl(def.wingOuter ?? 0x6AA0F0, 0.50);   // designed dawn-blue outboard (finally used)
@@ -216,7 +217,7 @@ function buildSeraphWing2(def, model, attach, giM) {
     // PART C — tip/HAND (J1→1): the wrist-fold sheet — outer membrane + the DOMINANT primaries
     // (the carpal feather is the longest, decaying aft). 3 carry the withheld dawn rachis-seam.
     membrane(wingTip, J1, 1.0, tipO, nS); membrane(wingTip, J1, 1.0, tipO, nS, true);
-    spar(wingTip, J1, 1.0, tipO, nS);
+    spar(wingTip, J1, 0.90, tipO, nS);   // stop the gilded rail short of the tip so no bare spar-rod pokes past the feathers
     rank(wingTip, J1, 0.99, seg(nPrim), tipO, 1.45, 0.17, 1.5, 3, memOuter);
     const marker = new THREE.Object3D(); const tc = O(S(1.0), tipO); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
@@ -238,6 +239,17 @@ function buildSeraphWing2(def, model, attach, giM) {
     // GUSSET — a propatagium sweeping from the root aft-inboard to the hip line (arm-side).
     const g0 = O(front(0.02), ZERO), g1 = O(rear(0.30), ZERO), g2 = { x: side * 0.02, y: -0.10, z: 1.15 };
     pivot.add(flatTriMesh([[arr(g0), arr(g1), arr(g2)]], memInner));
+
+    // SCAPULAR / TERTIAL rank — broad coverts sweeping from the root AFT-and-INBOARD over the
+    // wing-root ↔ tail-base junction, so the top-planform flank reads as a feathered shoulder
+    // (fills the dark root pockets) and the edge-on far wing caps into a shoulder, not a slat-stack.
+    // On the yoke (yoke-local coords) so the mirror reproduces it symmetrically.
+    for (let i = 0; i < 3; i++) {
+      const f = i / 2;
+      const root = { x: side * (0.02 + 0.05 * i), y: 0.05 - 0.02 * i, z: -0.02 + 0.16 * i };
+      const dir = (() => { const v = { x: -side * (0.22 + 0.14 * f), y: -0.05, z: 1 }; const m = Math.hypot(v.x, v.y, v.z); return { x: v.x / m, y: v.y / m, z: v.z / m }; })();
+      yoke.add(seraphFeather(root, dir, { x: side, y: 0, z: 0 }, 1.55 - 0.18 * i, 0.78 - 0.08 * i, 0.10, memInner, goldMat, null));
+    }
 
     group.add(yoke);
     return { yoke, pivot, wingMid, wingTip, marker };
@@ -296,7 +308,7 @@ const gemNode = (r, mat) => new THREE.Mesh(new THREE.OctahedronGeometry(r, 0), m
 
 function seraphMats2(def, gi) {
   const g = Math.min(gi ?? 1, 1.3);
-  const pearl = new THREE.MeshStandardMaterial({ color: def.body ?? SERAPH_PEARL, flatShading: true, side: THREE.DoubleSide, roughness: 0.58, metalness: 0.06 });
+  const pearl = new THREE.MeshStandardMaterial({ color: def.body ?? SERAPH_PEARL, flatShading: true, side: THREE.DoubleSide, roughness: 0.58, metalness: 0.06, emissive: 0x0c1626, emissiveIntensity: 0.09 });   // shadow floor (no pure-black root pockets)
   const belly = new THREE.MeshStandardMaterial({ color: def.belly ?? 0xFFF4D8, flatShading: true, side: THREE.DoubleSide, roughness: 0.62, metalness: 0.05 });
   const gold  = new THREE.MeshStandardMaterial({ color: SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.42, metalness: 0.28, emissive: 0x3a2606, emissiveIntensity: 0.13 });   // low metalness so broad faces hold gold (high metalness crushed to olive/green)
   const dawnCol = def.wingEmissive ?? SERAPH_DAWN;
