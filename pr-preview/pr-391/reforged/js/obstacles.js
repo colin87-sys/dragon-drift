@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { biomeIndexAt } from './biomes.js';
+import { halves, band, centre } from './canyonMath.js';
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
@@ -489,52 +490,57 @@ function buildRockGap(o, e) {
   // barrel of ribs (sky shows BETWEEN the ribs). Collision is a thin shell hugging
   // the corridor and spanning the section depth — fly down the middle. Going wide
   // around the cage is possible but loses the reward ring at its centre.
-  const ribcage = (depthHalf, nRibs, opts = {}) => {
+  // A ribcage sized to LOCAL ring spacing (backward `span` + forward `spanFwd`), so
+  // the bone tunnel tiles edge-to-edge on every rhythm. `mult` shrinks the throat.
+  const ribcage = (mult = 1, opts = {}) => {
     const { flare = 0, vert = 0, neural = false } = opts;
-    e.depthHalf = Math.max(e.depthHalf || 0, depthHalf); // widen collision broad-phase
+    const { bk, fw } = halves(o, mult);            // entry/exit easing lengths
+    const { wb, wf } = band(o, bk, fw);            // wall/collider band (abutting tiles)
+    const { xAt, yAt } = centre(o, bk, fw);        // C1 corridor centre (X AND Y)
+    const nRibs = Math.max(8, Math.round((bk + fw) / 6)); // ~6m rib pitch
+    e.depthHalf = Math.max(e.depthHalf || 0, bk, fw); // broad-phase spans the full section
     e.noDissolve = true;        // thin, open ribs never block the view → don't fade
     const cx = 2 * W;           // TWICE as wide
     const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
-    const cYc = gy + 1.5;       // lift the cage so the belly opening stays roomy
-    // The rib centre follows a SMOOTH curve through the rings: from the midpoint with
-    // the previous ring (at the entry), through this ring (dead-centre at the segment
-    // middle), to the midpoint with the next ring (at the exit). So consecutive ribs
-    // stagger GENTLY — a gentle curve, never a full-rib jump at a seam — and the
-    // reward ring sits dead-centre. Midpoints match the neighbour segments' edges, so
-    // the whole run reads as one continuous winding tunnel.
-    const px = o.prevX !== undefined ? o.prevX : gx;
-    const nx = o.nextX !== undefined ? o.nextX : gx;
-    const entryX = (px + gx) / 2, exitX = (gx + nx) / 2;
-    const baseAt = (f) => f <= 0.5 ? entryX + (gx - entryX) * (f / 0.5)
-                                   : gx + (exitX - gx) * ((f - 0.5) / 0.5);
-
-    // Collision FOLLOWS the curve: thin side walls placed per-rib at each rib's depth
-    // (oz), so the safe corridor curves smoothly with the bone. Belly + overhead stay
-    // open; fly down the middle.
+    // The rib centre follows a SMOOTH C1 curve through the rings in BOTH axes now
+    // (prevY/nextY thread the vertical the same way prevX/nextX thread the lateral),
+    // so the tube no longer teleports up/down at a seam. The +1.5 belly lift rides on
+    // top of the interpolated Y. At z=0 the centre is exactly (gapX,gapY) — the
+    // reward ring stays dead-centre and the finale orb stays inside the corridor.
     const cor = cx * 0.92;
-    const wallHz = (depthHalf / Math.max(nRibs - 1, 1)) * 0.62; // tiles along z, slight overlap
+    const wallHz = ((bk + fw) / Math.max(nRibs - 1, 1)) * 0.62; // tiles along z, slight overlap
+    // Joint relief: on a BIG bend, drop the side-wall colliders (not the visible
+    // hoops) for the outer sliver of the section at that end, so the corridor can't
+    // pinch below what the player can hold at the blind seam metre. Both neighbours
+    // compute this from shared pair data, so the relief band is symmetric.
+    const total = bk + fw;
+    const px = o.prevX !== undefined ? o.prevX : gx, nx = o.nextX !== undefined ? o.nextX : gx;
+    const py = o.prevY !== undefined ? o.prevY : gy, ny = o.nextY !== undefined ? o.nextY : gy;
+    const reliefIn = (Math.abs(px - gx) > 10 || Math.abs(py - gy) > 7) ? 0.15 * total : 0;
+    const reliefOut = (Math.abs(nx - gx) > 10 || Math.abs(ny - gy) > 7) ? 0.15 * total : 0;
 
     for (let k = 0; k < nRibs; k++) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
-      const z = -depthHalf + f * 2 * depthHalf;
-      const ox = baseAt(f);
-      box(ox - cor, cYc, 0.4, cy * 0.9, wallHz, z);
-      box(ox + cor, cYc, 0.4, cy * 0.9, wallHz, z);
+      const z = -bk + f * total;
+      const ox = xAt(z);
+      const oy = yAt(z) + 1.5;
+      // Walls only where sections tile (the abutting band [-wb,wf]) and outside the
+      // big-bend relief slivers at either end.
+      const inBand = z >= -wb && z <= wf;
+      const inRelief = z < -wb + reliefIn || z > wf - reliefOut;
+      if (inBand && !inRelief) {
+        box(ox - cor, oy, 0.4, cy * 0.9, wallHz, z);
+        box(ox + cor, oy, 0.4, cy * 0.9, wallHz, z);
+      }
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
       const hS = cy * (1 + flare * Math.abs(f - 0.5) * 0.9);
       const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, Math.PI * 1.55),
-        ox, cYc, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3); // belly-down + slight sway
+        ox, oy, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3); // belly-down + slight sway
       rib.scale.set(wS, hS, wS);
-      place(new THREE.IcosahedronGeometry(0.7 + vert, 0), ox, cYc + hS + 0.3, z); // dorsal vertebra
-      if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, cYc + hS + 1.7, z); // neural spine
+      place(new THREE.IcosahedronGeometry(0.7 + vert, 0), ox, oy + hS + 0.3, z); // dorsal vertebra
+      if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, oy + hS + 1.7, z); // neural spine
     }
   };
-
-  // Size a ribcage to the LOCAL ring spacing so the bone tunnel tiles edge-to-edge
-  // on every rhythm (burst/flow/breath) — a rib lands ~every 6 units everywhere, so
-  // the ribbing stays continuous and dense instead of thinning on long-spacing beats.
-  const dhFor = (mult = 1) => Math.max(36, Math.min(80, (o.span || 80) * 0.6)) * mult;
-  const nrFor = (dh) => Math.max(8, Math.round((dh * 2) / 6));
 
   // --- ROCK RUN -------------------------------------------------------------
   if (o.kind === 'split') {
@@ -601,8 +607,7 @@ function buildRockGap(o, e) {
     }
   } else if (o.kind === 'throat') {
     // First interior beat: neck vertebrae + the first ribs, tiling into the cage.
-    const dh = dhFor(0.8);
-    ribcage(dh, nrFor(dh), { vert: 0.6 });
+    ribcage(0.8, { vert: 0.6 });
     // Lateral entrance gnarls: bone buttresses fill the OUTER lane margins so you're
     // funnelled INTO the ribcage rather than skimming around it. Sized to whatever
     // room is left beside the (possibly off-centre) opening, so they never seal the
@@ -617,8 +622,7 @@ function buildRockGap(o, e) {
     // line (a smooth curve, rings dead-centre), tiling edge-to-edge as one long
     // tunnel. The finale ('straightrib') is the same ribs with a line of speed orbs
     // down the centre (placed in level.js) — boost flat-out and burst into open air.
-    const dh = dhFor();
-    ribcage(dh, nrFor(dh), {});
+    ribcage(1, {});
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
