@@ -101,6 +101,32 @@ export function centre(seg, bk, fw) {
   };
 }
 
+// Spine (ribcage) lateral SWEEP: a gentle S-curve the tube follows BETWEEN rings so
+// the speed tunnel banks like a racing game — zero at every ring plane (the reward ring
+// stays dead-centre, a perfect stays flyable), peaking at the seams, sign-flipping per
+// section so consecutive sections meet C0 and the sweep reads as one long curve. Applied
+// ONLY where a rib is flanked by ribs (never the skull/throat/finale — the finale stays
+// straight), and the amplitude is trimmed per half by the SAME slope budget as
+// everything else, so the sweep can never demand more steering than the dragon has.
+export function spineSway(seg, bk, fw) {
+  const gx = seg.gapX, px = seg.prevX ?? gx, nx = seg.nextX ?? gx;
+  const si = (seg.swaySign || 1) * (seg.runIdx % 2 ? -1 : 1);
+  const ampHalf = (d, eh, neighbourGx, active) => {
+    if (!active) return 0;
+    const aSlope = Math.max(0, BUDGET_X - 1.5 * Math.abs(d) / eh) * (2 * eh / Math.PI);
+    const aLane = 12 - Math.max(Math.abs(gx), Math.abs(neighbourGx)); // rings stay inside the walls
+    return Math.max(0, Math.min(CONFIG.canyonSpineSwayAmp, aSlope, aLane));
+  };
+  const entryX = (px + gx) / 2, exitX = (gx + nx) / 2;
+  const ribRun = seg.kind === 'rib';
+  const aEntry = ampHalf(gx - entryX, bk, px, ribRun && seg.prevKind === 'rib');
+  const aExit = ampHalf(exitX - gx, fw, nx, ribRun && seg.nextKind === 'rib');
+  return (z) => {
+    const zn = Math.max(-1, Math.min(1, z < 0 ? z / bk : z / fw)); // 0 at ring, ±1 at seam
+    return si * (z < 0 ? aEntry : aExit) * Math.sin((Math.PI / 2) * zn);
+  };
+}
+
 // Rock Run "carved slot" plan: the threaded, gently-swayed lateral channel (one
 // axis — vertical is the 'overunder' beat's job) bounded by sea-stacks. Returns the
 // per-slice left/right channel walls; obstacles.js builds the stacks from it and the

@@ -9,7 +9,7 @@ import { boot, check } from './browser.mjs';
 const result = await boot().then(async ({ page, done }) => {
   const r = await page.evaluate(async () => {
     const { createLevelGen } = await import('./js/level.js');
-    const { halves, centre, rockSlicePlan, kindMult, CORRIDOR_HALF, BUDGET_X, BUDGET_Y } =
+    const { halves, band, centre, spineSway, rockSlicePlan, kindMult, CORRIDOR_HALF, BUDGET_X, BUDGET_Y } =
       await import('./js/canyonMath.js');
 
     const cor = CORRIDOR_HALF;                  // shared with obstacles.js — no re-derivation
@@ -96,14 +96,17 @@ const result = await boot().then(async ({ page, done }) => {
       for (const s of segs) {
         if (!SPINE.has(s.kind)) continue;
         const { bk, fw } = halves(s, mult(s.kind));
+        const { wb, wf } = band(s, bk, fw);
         const { xAt, yAt } = centre(s, bk, fw);
+        const sway = spineSway(s, bk, fw);
+        const xc = (z) => xAt(z) + sway(z);   // the tube's actual swept lateral centre
         // Dead-centre: the tube centre at the ring plane must be EXACTLY the ring
-        // (gapX,gapY) so flying the visual centre-line scores a perfect (obstacles.js
-        // places the rib at oy=yAt(z), no belly lift). Guards centre() from regressing.
-        if (Math.abs(xAt(0) - s.gapX) > 1e-9 || Math.abs(yAt(0) - s.gapY) > 1e-9) centreBad++;
+        // (gapX,gapY) so flying the visual centre-line scores a perfect — the sweep is
+        // zero at the ring by construction, and there's no belly lift.
+        if (Math.abs(xc(0) - s.gapX) > 1e-9 || Math.abs(yAt(0) - s.gapY) > 1e-9) centreBad++;
         let prev = null;
-        for (let z = -bk; z <= fw + 1e-9; z += 1) {
-          const p = { x: xAt(z), y: yAt(z) };
+        for (let z = -wb; z <= wf + 1e-9; z += 1) {   // sample where the ribs actually are
+          const p = { x: xc(z), y: yAt(z) };
           if (prev) {
             const sx = Math.abs(p.x - prev.x), sy = Math.abs(p.y - prev.y);
             agg.worstSlopeX = Math.max(agg.worstSlopeX, sx);
@@ -122,10 +125,15 @@ const result = await boot().then(async ({ page, done }) => {
         if (!SPINE.has(a.kind) || !SPINE.has(b.kind)) continue;
         spinePairs++;
         const ha = halves(a, mult(a.kind)), hb = halves(b, mult(b.kind));
+        // A gauntlet can bridge a run — the sections' bands then don't meet (open air
+        // between them), so there's no continuous tube to be discontinuous. Skip it.
+        if (b.dist - a.dist > ha.fw + hb.bk) continue;
         const cA = centre(a, ha.bk, ha.fw), cB = centre(b, hb.bk, hb.fw);
+        const sA = spineSway(a, ha.bk, ha.fw), sB = spineSway(b, hb.bk, hb.fw);
         const mid = (a.dist + b.dist) / 2;         // the seam = the inter-ring midpoint plane
-        const dX = Math.abs(cA.xAt(mid - a.dist) - cB.xAt(mid - b.dist));
-        const dY = Math.abs(cA.yAt(mid - a.dist) - cB.yAt(mid - b.dist));
+        const za = mid - a.dist, zb = mid - b.dist;
+        const dX = Math.abs((cA.xAt(za) + sA(za)) - (cB.xAt(zb) + sB(zb)));
+        const dY = Math.abs(cA.yAt(za) - cB.yAt(zb));
         agg.worstSeamX = Math.max(agg.worstSeamX, dX);
         agg.worstSeamY = Math.max(agg.worstSeamY, dY);
         if (dX > 1.5) seamBad++;

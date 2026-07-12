@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { biomeIndexAt } from './biomes.js';
-import { halves, band, centre, rockSlicePlan, CORRIDOR_HALF, kindMult } from './canyonMath.js';
+import { halves, band, centre, spineSway, rockSlicePlan, CORRIDOR_HALF, kindMult } from './canyonMath.js';
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
@@ -522,7 +522,8 @@ function buildRockGap(o, e) {
     const { bk, fw } = halves(o, mult);            // entry/exit easing lengths
     const { wb, wf } = band(o, bk, fw);            // wall/collider band (abutting tiles)
     const { xAt, yAt } = centre(o, bk, fw);        // C1 corridor centre (X AND Y)
-    const nRibs = Math.max(8, Math.round((bk + fw) / 6)); // ~6m rib pitch
+    const sway = spineSway(o, bk, fw);             // lateral sweep between rings (racing-tunnel S-curve)
+    const nRibs = Math.max(6, Math.round((wb + wf) / 6)); // ~6m rib pitch across the ABUTTING band only
     e.depthHalf = Math.max(e.depthHalf || 0, bk, fw); // broad-phase spans the full section
     e.noDissolve = true;        // thin, open ribs never block the view → don't fade
     const cx = 2 * W;           // TWICE as wide
@@ -537,34 +538,37 @@ function buildRockGap(o, e) {
     // a centred flight could never perfect, and the ring hung at the open belly). The
     // finale orb (also at gapY) is centred for free.
     const cor = CORRIDOR_HALF;   // shared with the flow audit (== cx * 0.92)
-    const wallHz = ((bk + fw) / Math.max(nRibs - 1, 1)) * 0.62; // tiles along z, slight overlap
-    // Joint relief: on a BIG bend, drop the side-wall colliders (not the visible
-    // hoops) for the outer sliver of the section at that end, so the corridor can't
-    // pinch below what the player can hold at the blind seam metre. Both neighbours
-    // compute this from shared pair data, so the relief band is symmetric.
-    const total = bk + fw;
+    const bandLen = wb + wf;
+    const wallHz = (bandLen / nRibs) * 0.6; // staggered cell pitch, slight overlap
+    // Joint relief: on a BIG bend, drop the side-wall colliders (not the visible hoops)
+    // for the outer sliver at that end, so the corridor can't pinch below what the
+    // player can hold at the blind seam metre. Symmetric from shared pair data.
     const px = o.prevX !== undefined ? o.prevX : gx, nx = o.nextX !== undefined ? o.nextX : gx;
     const py = o.prevY !== undefined ? o.prevY : gy, ny = o.nextY !== undefined ? o.nextY : gy;
-    const reliefIn = (Math.abs(px - gx) > 10 || Math.abs(py - gy) > 7) ? 0.15 * total : 0;
-    const reliefOut = (Math.abs(nx - gx) > 10 || Math.abs(ny - gy) > 7) ? 0.15 * total : 0;
+    const reliefIn = (Math.abs(px - gx) > 10 || Math.abs(py - gy) > 7) ? 0.15 * bandLen : 0;
+    const reliefOut = (Math.abs(nx - gx) > 10 || Math.abs(ny - gy) > 7) ? 0.15 * bandLen : 0;
 
+    // Ribs are emitted ONLY across the abutting band [-wb, wf], cell-centred (staggered)
+    // so adjacent sections don't stack a doubled ghost rib on the shared seam plane. The
+    // tube centre carries the lateral sweep so the whole run banks like a speed tunnel.
     for (let k = 0; k < nRibs; k++) {
-      const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
-      const z = -bk + f * total;
-      const ox = xAt(z);
+      const f = (k + 0.5) / nRibs;
+      const z = -wb + f * bandLen;
+      const sxz = sway(z);
+      const ox = xAt(z) + sxz;
       const oy = yAt(z);          // tube centre == ring centre (no belly lift) → perfect flyable
-      // Walls only where sections tile (the abutting band [-wb,wf]) and outside the
-      // big-bend relief slivers at either end.
-      const inBand = z >= -wb && z <= wf;
       const inRelief = z < -wb + reliefIn || z > wf - reliefOut;
-      if (inBand && !inRelief) {
+      if (!inRelief) {
         box(ox - cor, oy, 0.4, cy * 0.9, wallHz, z);
         box(ox + cor, oy, 0.4, cy * 0.9, wallHz, z);
       }
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
       const hS = cy * (1 + flare * Math.abs(f - 0.5) * 0.9);
+      // Bank the hoop into the turn (roll about the flight axis by the sweep slope) for
+      // the racing lean — visual only, the hoop has no collider.
+      const bank = Math.max(-0.16, Math.min(0.16, 2.4 * (sway(z + 1) - sxz)));
       const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, Math.PI * 1.55),
-        ox, oy, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3); // belly-down + slight sway
+        ox, oy, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3 + bank); // belly-down + bank
       rib.scale.set(wS, hS, wS);
       place(new THREE.IcosahedronGeometry(0.7 + vert, 0), ox, oy + hS + 0.3, z); // dorsal vertebra
       if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, oy + hS + 1.7, z); // neural spine

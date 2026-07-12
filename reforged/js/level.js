@@ -604,10 +604,13 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
         // dead-centre) instead of jumping the full ring-wander at each segment seam.
         seg.prevX = canyon.lastGapX !== undefined ? canyon.lastGapX : seg.gapX;
         seg.prevY = canyon.lastGapY !== undefined ? canyon.lastGapY : seg.gapY;
+        seg.prevKind = canyon.held ? canyon.held.kind : null; // neighbour kinds gate the
+                                                              // spine sweep (rib↔rib only)
         if (canyon.held) {
           // The held segment's forward neighbour is now real — backfill + flush it.
           canyon.held.nextX = seg.gapX;
           canyon.held.nextY = seg.gapY;
+          canyon.held.nextKind = seg.kind;
           canyon.held.spanFwd = ring.dist - canyon.held.dist; // forward span (PR-2 uses it)
           emitSegment(canyon.held, out);
         }
