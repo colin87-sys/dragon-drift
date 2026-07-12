@@ -1113,6 +1113,16 @@ DRAGONS.vesperLean = {
   forms: DRAGONS.vesper.forms.map((f) => ({ ...f, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: Math.min(3, f.earFinPairs ?? 3) })),
 };
 
+// ── COEXIST (default-off): Pearl Seraph REDESIGN — CP1 wing+body on the new builders.
+// Spreads the shipped `pearl` def (palette/stats/motion/forms) and swaps ONLY the torso
+// + wing builders to the redesign; head + comet tail stay on the shipped builders (CP2).
+// The shipped `pearl` stays byte-identical; this key is the Fable-gate render target.
+DRAGONS.pearlRedesign = {
+  ...DRAGONS.pearl,
+  name: 'Pearl Seraph · Redesign',
+  parts: { torso: 'seraphHull2', wings: 'seraphWing2', head: 'seraphCrownHead', tail: 'seraphTail' },
+};
+
 // Highest multipliers in the roster (for shop stat-bar normalisation).
 export const DRAGON_STAT_CAP = { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 };
 
