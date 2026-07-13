@@ -9,7 +9,7 @@ anti-collision proof + the build order; each dragon's full contract lives in its
 | 1 | **Thunderhead Tempest** | a living thundercloud whose near-white lightning is intermittently LIVE — spectacle building | `TEMPEST-THUNDERHEAD-BUILDSHEET.md` |
 | 2 | **Belladonna Stiletto** | a four-winged wasp-wyrm whose translucent sacs visibly FILL with UV-orchid venom | `VENOM-BELLADONNA-BUILDSHEET.md` |
 | 3 | **Aurora Sylph** | a polar ribbon-serpent wearing a rippling pleated aurora curtain instead of wings | `AURORA-SYLPH-BUILDSHEET.md` |
-| 4 | **Gravelight Revenant** | a hollow bone-dragon lit from inside by a caged grave-green ghost-fire | `WRAITH-GRAVELIGHT-BUILDSHEET.md` |
+| 4 | **Gravelight Revenant** | a hollow bone-dragon lit from inside by a caged grave-green ghost-fire — **FIRST IN BUILD (owner call; v1 build-ready sheet at §B)** | `WRAITH-GRAVELIGHT-BUILDSHEET.md` |
 | 5 | **Crimson Tocsin** | a bronze chime-drake that pulses expanding crimson shockwave rings on the wingbeat | `RESONANCE-TOCSIN-BUILDSHEET.md` |
 
 All five honor the mandate's hard exclusions (no fire/water/earth, no phoenix/rebirth, no
@@ -234,7 +234,16 @@ beats everything on game-feel: the one dragon you can hear with your eyes.
 
 ## 4. Recommended BUILD ORDER (strict queue, one merged PR before the next branch cuts)
 
-**Tempest → Revenant → Stiletto → Tocsin → Sylph.**
+> **OWNER DECISION (2026-07-13): REVENANT BUILDS FIRST — v1 build sheet READY.** The owner promoted
+> Gravelight Revenant to slot 1; its research-grounded, feasibility-audited v1 build sheet is done
+> (`WRAITH-GRAVELIGHT-BUILDSHEET.md` §B — builders locked, every element cited to an engine path,
+> overdraw counted, increment plan I0–I5 with per-increment Fable gates). Revenant needs NO rig
+> changes (pure builder + tooling) and lands the silhouette hole-metric in its I0. Consequence for
+> the tranche below: the shared `pulseTimer` engine work originally slotted with Tempest now lands
+> with whichever TIMED-spectacle dragon (Tempest or Tocsin) builds first after it. Effective queue:
+> **Revenant → Tempest → Stiletto → Tocsin → Sylph.**
+
+**Original recommendation (superseded by the owner decision above): Tempest → Revenant → Stiletto → Tocsin → Sylph.**
 
 1. **Thunderhead Tempest** — closest to proven patterns (Vesper's assembly + inset-seam kit; the
    CP1 fingered-slab recipe per deck), so the first slot is the safest; it LANDS the shared engine

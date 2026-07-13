@@ -23,7 +23,7 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -119,7 +119,10 @@ const gfxPref = saveData.settings;
 const tmMode = urlParams.get('tm') || gfxPref.toneMap;
 if (tmMode) setToneMap(renderer, tmMode);
 if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
-// N4 instanced spark backend (150 draws → 1). Must be set before initParticles.
+// N4 instanced spark backend (150 draws → 1). Must be set before initParticles. NOTE: kept OFF by
+// default — tests/particlebatch.mjs currently FAILS the collapse (the instanced mesh is built but the
+// per-sprite draws still submit → calls go 233→234, not 233→1). Defaulting it on would ADD a draw, not
+// save any. Re-enable the default only once that parity test is green (tracked as a separate fix).
 if (urlParams.get('pfx') === 'batch' || gfxPref.particleBatch === true) setParticleBackend('batch');
 const challengeSeedParam = parseInt(urlParams.get('seed'), 10);
 const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam > 0
@@ -369,6 +372,7 @@ if (urlParams.has('debug')) {
     bossPartWorldPos: (part) => debugPartWorldPos(part),
     bossStrikeSurge: () => debugStrikeSurge(),
     bossRaiseShield: () => debugRaiseShield(),
+    setQuality: (t) => applyQuality(t),   // test/dev seam: force a quality tier (the tier-2 graceful-degrade proof)
     // PR6 seams: liveness-filtered paintables, shimmer count, runtime def pick.
     bossPaintables: () => debugPaintables(),
     bossShimmerCount: () => debugShimmerCount(),
@@ -511,6 +515,20 @@ on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
+// WARM-COMPILE (F4): the fight's shaders — shield rim/cage/shards, surge beam/aura/bands/tether, the
+// arena detonation set — are scene-resident but hidden, so three.js compiles each at its FIRST show: a
+// ~200ms stall landing mid-combat (the shield-raise / surge-fire hitch that dragged the tier down).
+// Compile the WHOLE scene now (renderer.compile traverses hidden materials too), under the entrance
+// cinematic where a one-frame stall is invisible, against the LIVE pipeline target so the program
+// variant matches (three keys programs on the bound render target). Best-effort — never break the fight.
+on('bossStart', () => {
+  try {
+    const rt = postfx.enabled && postfx.composer ? postfx.composer.renderTarget1 : null;
+    renderer.setRenderTarget(rt);
+    renderer.compile(scene, camera);
+    renderer.setRenderTarget(null);
+  } catch (e) { /* warm-compile is advisory; a failure must not abort the encounter */ }
+});
 // A boss never STARTS inside a canyon (boss.js gates on !game.inCanyon), but a canyon
 // start marker generated within the spawn-ahead lead can be CROSSED mid-fight — and the
 // fight's clearAhead wipes that run's geometry, and its end marker (generated mid-fight)
@@ -1224,10 +1242,27 @@ let screenshotTimer = 0;
 // Rolling-average FPS drives a quality scalar that thins particle/trail
 // spawn rates, and at the lowest tier also drops the render resolution.
 // Degrades BEFORE 60 is breached (<55 / <42) and restores with hysteresis.
-let fpsAvg = 60;
+let fpsAvg = 60;            // HUD-only (the "fps" readout) — NOT the tier decision signal (see below)
 let qualityTier = 0;        // 0 = full, 1 = reduced, 2 = low
 let qualityTimer = 0;       // time spent above the restore threshold
+let degradeTimer = 0;       // time spent below the degrade threshold (dwell → a hitch can't cascade tiers)
 let warmup = 2;             // ignore first seconds (shader-compile jank)
+let restoreDwell = 3;       // seconds of headroom required before restoring a tier (GROWS on ping-pong)
+let sinceRestore = 1e9;     // time since the last tier restore (anti-ping-pong memory)
+// The tier DECISION signal is a windowed MEDIAN of TRUE frame time, NOT an EMA of the clamped fps. The
+// EMA was a hitch INTEGRATOR: one ≥50ms stall injected a 20fps sample and a cluster dragged the average
+// into the 40s → the controller degraded on transient compile/GC/flip stalls it could never fix by
+// dropping quality, then (with the reverted 72/60 restore wall) got TRAPPED at tier 2. A p50 of the last
+// ~120 deltas is immune to 1–2 outlier frames, so only GENUINE sustained slowness moves it. `capFps` (a
+// decaying peak) proves headroom: on iOS ProMotion is VARIABLE-refresh — measured fps steps down to
+// 60Hz on 10–16ms frames regardless of GPU headroom, so a high restore threshold is unreachable exactly
+// when degraded; capFps reads the true ceiling and marks the device "capable" (hitch-bound, don't uglify).
+const DT_N = 120;
+const dtRing = new Float32Array(DT_N), dtScratch = new Float32Array(DT_N);
+let dtCount = 0, dtIdx = 0, medStale = 0;
+let medFps = 60;            // p50 of the last DT_N true deltas → the degrade/restore signal
+let capFps = 60;            // decaying peak fps (~18s memory) → proof of headroom, immune to load
+let skipQualityFrames = 0;  // set in applyQuality → the flip's own realloc/recompile stall never feeds the signal
 const QUALITY_SCALARS = [1, 0.6, 0.35];
 const PIXEL_RATIOS = [
   Math.min(window.devicePixelRatio, 2),
@@ -1238,14 +1273,15 @@ document.body.dataset.qtier = qualityTier; // boot default (applyQuality only ru
 
 function applyQuality(tier) {
   qualityTier = tier;
+  skipQualityFrames = 2;   // the next 2 frames carry this flip's RT realloc + shader recompile — exclude them from the signal (see updateQuality)
   document.body.dataset.qtier = tier; // CSS gates (speedlines, motes) read this
   setParticleQuality(QUALITY_SCALARS[tier]);
   setDragonQuality(QUALITY_SCALARS[tier]);
   setBossQuality(QUALITY_SCALARS[tier]);
   setContactShadowQuality(QUALITY_SCALARS[tier]);
   renderer.setPixelRatio(PIXEL_RATIOS[tier]);
-  setPostTier(tier);
-  setPostPixelRatio(PIXEL_RATIOS[tier]);
+  setPostPixelRatio(PIXEL_RATIOS[tier]); // set the ratio FIRST (no resize) …
+  setPostTier(tier);                     // … so setPostTier's single applySize() reallocs the RT ONCE, not twice
   setWaterReflective(tier); // N11: tier0 768² full-rate · tier1 384² half-rate · tier2 cheap quad
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
   setWaterFoamQuality(tier); // N10c: foam at tier0/1, off at tier2
@@ -1255,7 +1291,7 @@ function applyQuality(tier) {
   setArenaSetQuality(tier); // ARENA PR-H1/H2: tier2 drops the heaven's holy architecture (palette + rays carry it)
 }
 
-function updateQuality(dt) {
+function updateQuality(dt, hitchDt = dt) {
   // Manual quality override from settings pins the tier.
   const override = saveData.settings.qualityOverride;
   if (override !== null && override !== undefined) {
@@ -1263,20 +1299,43 @@ function updateQuality(dt) {
     return;
   }
   if (warmup > 0) { warmup -= dt; return; }
-  fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * Math.min(dt * 2, 1);
+  // HITCH REJECTION: a genuinely huge frame (≥0.25s tab stall) is dropped outright. hitchDt is the
+  // UNCLAMPED delta (rawDt is capped at 0.05, which made the old dt>0.25 guard dead code).
+  if (hitchDt > 0.25) { degradeTimer = 0; return; }
+  // FLIP GUARD: the 2 frames after an applyQuality carry the flip's OWN realloc/recompile stall — never
+  // let the controller's signal eat its own tail (that self-exciting cascade drove 0→1→2).
+  if (skipQualityFrames > 0) { skipQualityFrames--; fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * 0.1; return; }
+  fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * Math.min(dt * 2, 0.2);   // HUD-only EMA
+  // capFps: decaying peak (≈4fps/s decay → ~18s memory). Proof of true headroom, immune to load/hitches.
+  capFps = Math.max(capFps - dt * 4, Math.min(1 / Math.max(hitchDt, 1e-4), 250));
+  // median ring: p50 of the last DT_N true deltas — a 1–2 frame stall can't move it.
+  dtRing[dtIdx] = hitchDt; dtIdx = (dtIdx + 1) % DT_N; if (dtCount < DT_N) dtCount++;
+  if (++medStale >= 30 && dtCount >= 60) {   // re-sort ~2–4×/s (O(120 log 120), zero alloc — a preallocated scratch)
+    medStale = 0;
+    dtScratch.set(dtRing.subarray(0, dtCount));
+    const s = dtScratch.subarray(0, dtCount); s.sort();
+    medFps = 1 / Math.max(s[dtCount >> 1], 1e-4);
+  }
+  sinceRestore += dt;
+  if (sinceRestore > 30 && restoreDwell !== 3) restoreDwell = 3;   // a long stable stretch forgives past ping-pong
+  const capable = capFps > 70;               // proven >70fps recently ⇒ hitch-bound, NOT throughput-bound → don't uglify
   const degradeAt = [55, 42, 0][qualityTier];
-  const restoreAt = [Infinity, 63, 50][qualityTier];
-  if (fpsAvg < degradeAt) {
-    applyQuality(qualityTier + 1);
-    qualityTimer = 0;
-  } else if (fpsAvg > restoreAt) {
-    qualityTimer += dt;
-    if (qualityTimer > 3) {
-      applyQuality(qualityTier - 1);
-      qualityTimer = 0;
+  const restoreAt = [Infinity, 58, 50][qualityTier];   // reverted: the 72/60 "high-refresh" bump was unreachable on VRR panels = the tier-2 trap
+  const degradeDwell = capable ? 2.5 : 0.9;  // a capable device must be MEDIAN-slow for 2.5s (a stall cluster won't do it); a weak device keeps the fast 0.9s response
+  if (medFps < degradeAt) {
+    degradeTimer += dt;
+    if (degradeTimer > degradeDwell) {
+      // ANTI-PING-PONG: if we restored a tier <8s ago and are already falling back, that tier is NOT
+      // sustainable — demand progressively more headroom before the next restore (so we stop hunting).
+      if (sinceRestore < 8) restoreDwell = Math.min(restoreDwell * 2, 24);
+      applyQuality(qualityTier + 1); degradeTimer = 0; qualityTimer = 0;
     }
+  } else if (medFps > restoreAt) {
+    degradeTimer = 0;
+    qualityTimer += dt;
+    if (qualityTimer > restoreDwell) { applyQuality(qualityTier - 1); qualityTimer = 0; sinceRestore = 0; }
   } else {
-    qualityTimer = 0;
+    degradeTimer = 0; qualityTimer = 0;
   }
 }
 
@@ -1319,12 +1378,14 @@ function tick() {
   }
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
   // drives every world/gameplay update.
-  let rawDt = Math.min(clock.getDelta(), 0.05);
+  const trueDt = clock.getDelta();   // UNCLAMPED — the tier hitch-guard + high-refresh latch must see real deltas
+  let rawDt = Math.min(trueDt, 0.05);
+  let hitchDt = trueDt;
   if (discardNextDelta) {
     discardNextDelta = false;
-    rawDt = 0;
+    rawDt = 0; hitchDt = 0;
   }
-  updateQuality(rawDt);
+  updateQuality(rawDt, hitchDt);
   // The speed-tunnel wind only lives during active play (death/pause/menu silence it;
   // start/exit are handled on the canyon crossings). Idempotent when already stopped.
   if (game.state !== 'playing') sfx.slipstreamStop();
@@ -1639,6 +1700,7 @@ function tick() {
   }
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
+  setFeverArenaWarm(Math.max(0, Math.min(1, bossArenaMix() - 1)));   // heaven (mix 1→2) warms the Surge wash magenta→gold
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
     player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
