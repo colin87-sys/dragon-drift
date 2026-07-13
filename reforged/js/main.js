@@ -554,9 +554,10 @@ on('bossStart', () => {
   game.flowChain = 0;
   lastFlowMilestone = 0;
 });
-// FLOW carve chain: a low-noise multiplier pop at every 5th step (and gold at the cap).
-// The slipstream SPEED is the real feedback; this just names the climbing multiplier. The
-// milestone latch resets on a drop (and on every run-end/boss flush) so re-climbing re-pops.
+// FLOW carve chain: the persistent Keystone Crest (ui.flowMeter) carries the readout now; the
+// popup is a single cyan "MAX FLOW" announce at the cap. The slipstream SPEED is the real
+// feedback; the meter + this one pop just name the climbing multiplier. The cap latch
+// (lastFlowMilestone) re-arms on any drop below the cap so re-capping re-announces.
 on('flowChain', ({ chain, mult }) => {
   // The persistent FLOW crest carries the climb now (js/ui.js flowMeter): light climbs the
   // mini-Windvault, the ×N.N rides the aperture, the keystone ignites at the cap. The popup is

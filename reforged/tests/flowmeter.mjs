@@ -20,6 +20,10 @@ check('crest markup present (flow-crest + two fills + keystone + aperture ×N.N)
   && /class="fc-keystone"/.test(ui) && /id="fc-x"/.test(ui));
 check('uses the Skyforged 3-stop cyan ramp (0c63c8 → 3fc8ff → bfeeff), NOT a new hue',
   /flow-grad[\s\S]*#0c63c8[\s\S]*#3fc8ff[\s\S]*#bfeeff/.test(ui));
+// The dashoffset fill math (100 - frac*100) ONLY maps to fractions if the paths declare
+// pathLength=100 — otherwise the true leg length (~68.7u) saturates the fill early (Gate-2 bug).
+check('fill + ghost paths declare pathLength="100" (the fill math depends on it)',
+  (ui.match(/id="fc-(fill|ghost)-[lr]"[^>]*pathLength="100"/g) || []).length === 4);
 
 // --- API: the flowMeter object with set/drop/show; dashoffset fill; heat; capped; best-notch ---
 check('ui exposes flowMeter with set / drop / show', /flowMeter:\s*\{/.test(ui) && /set\(chain, mult, best, cap\)/.test(ui) && /drop\(chain, mult, cap\)/.test(ui) && /show\(on\)/.test(ui));
