@@ -158,13 +158,24 @@ check('corner brackets stay on edgeMat (safe-route affordance untouched in both 
 
 // ============================ Part B: WebGL boot ============================
 // Skip gracefully if playwright/browser isn't available (Part A already gates CI).
-let boot;
+// NB: `import('./browser.mjs')` ALWAYS succeeds — Playwright is loaded lazily INSIDE boot(),
+// so it only throws when we actually call boot(). Probe by ATTEMPTING the first boot and
+// treating a playwright-not-found throw as the skip; any OTHER boot error is a real failure.
+let boot = null;
 try { ({ boot } = await import('./browser.mjs')); } catch { boot = null; }
+let flow = null;
 if (boot) {
-  const flow = await boot({
-    query: '?debug&canyon=flow',
-    initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
-  });
+  try {
+    flow = await boot({
+      query: '?debug&canyon=flow',
+      initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
+    });
+  } catch (e) {
+    if (!/playwright/i.test(String(e))) throw e; // a genuine boot failure must surface, not be swallowed
+    flow = null;
+  }
+}
+if (flow) {
   await flow.page.click('#btn-start');
   await flow.page.waitForFunction(() => window.__dd.game.state === 'playing', { timeout: 8000 });
   await flow.page.evaluate(() => { window.__dd.player.dist = 300; });
