@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
+import { collapseStaticSiblings } from './dragonCollapse.js';
 import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder, getTailBuilder } from './dragonRecipe.js';
 import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' / 'avian' torsos
 import './dragonWings.js'; // self-registers the 'membrane' / 'feather' / 'none' wings
@@ -397,6 +398,26 @@ export function buildDragonModel(def, opts = {}) {
     attach.shoulderSkin.bind(
       new THREE.Skeleton([rootBone, wingRigL.shoulder, wingRigR.shoulder]),
       attach.shoulderSkin.matrixWorld);
+  }
+
+  // STATIC-MESH COLLAPSE (per-def opt-in, `def.parts.collapseStatic`): merge the RIGID same-material
+  // meshes under each rest-static root — torso, head, each tail chain joint, and each wing's static
+  // frame — into one draw per material. A big draw-call cut on heavy feather models (the dragon is
+  // redrawn in the water mirror AND the god-ray occlusion mask, so each saved draw pays 2–3×). The
+  // animated transforms are preserved: the head/wing move as rigid units, and the blade pivots + tail
+  // joints are animation BOUNDARIES the collapse never crosses (isBone / userData.animBoundary). tris +
+  // world positions stay byte-identical → the starters/blueprint world-space asserts hold. `?dragonedit`
+  // keeps everything unmerged (every feather a separate object) for design iteration.
+  const DRAGON_EDIT = typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('dragonedit');
+  if (def.parts && def.parts.collapseStatic && !DRAGON_EDIT) {
+    collapseStaticSiblings(torsoGroup);
+    collapseStaticSiblings(head);
+    if (Array.isArray(tailSegs)) for (const joint of tailSegs) collapseStaticSiblings(joint);
+    for (const wr of (wingsResult.parts.staticWingRoots || [])) collapseStaticSiblings(wr);
+    // Per-pivot blade INTERIOR merge: each animated blade pivot still rotates, but its 5–6 rigid segment
+    // meshes collapse to ≤3 (the pivot is the root here, so the merge stays inside the animation boundary).
+    for (const arr of [wingsResult.parts.wingBladePivotsR, wingsResult.parts.wingBladePivotsL])
+      for (const b of (arr || [])) collapseStaticSiblings(b.pivot);
   }
 
   // Shop preview: a clean flying showcase (no turntable / no pedestal). Downscale

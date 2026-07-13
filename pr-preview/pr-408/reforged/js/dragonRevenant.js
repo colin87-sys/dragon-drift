@@ -28,7 +28,7 @@ import { makeGlowTexture } from './util.js';   // the engine's soft radial glow 
 const TORSO_Y = 0.15;
 // Palette anchors — BRIGHT COOL CHALK-IVORY bone (Fable gate: bone was reading dim/khaki;
 // bleached bone must be the dominant bright mass). Value RISES up the ladder (apex palest).
-const BONE = 0xe4e3dc, BONE_LO = 0xcac8bf;   // bright NEUTRAL bleached ivory (faint cool — not warm tan, not steel; firewall-safe)
+const BONE = 0xe3e5ea, BONE_LO = 0xccced4;   // bright cool-NEUTRAL bleached ivory (B a hair over R — reads chalk, never warm tan, never steel-blue; firewall-safe)
 const RECESS = 0x3d4a3a;                      // umber-green far-side cavity wall (the hollow-cage depth, §4.4)
 const GRAVE = 0x6bff5e;                        // the grave-light green (heart / eyes / gaps) — brighter for bloom
 
@@ -55,13 +55,13 @@ function revenantMats(def) {
   // were rendering cool blue-grey vs the tail's warm tan — a high sky-reflection on up-facing
   // facets; killing it unifies the ramp). A faint self-lit floor keeps bone off pure-grey in shadow.
   const bone = new THREE.MeshStandardMaterial({ color: def.body ?? BONE, emissive: 0x000000, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
-  bone.envMapIntensity = 0.1;
+  bone.envMapIntensity = 0.0;
   // Belly / ventral tier — a value-step darker so banks and the keel read.
   const boneLo = new THREE.MeshStandardMaterial({ color: def.belly ?? BONE_LO, emissive: 0x000000, flatShading: true, roughness: 0.86, metalness: 0, side: THREE.DoubleSide });
-  boneLo.envMapIntensity = 0.1;
+  boneLo.envMapIntensity = 0.0;
   // Dorsal tier — blended a hair between the two so the vertebra ridge reads from the side.
   const boneDorsal = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, def.belly ?? BONE_LO, 0.35), emissive: 0x000000, flatShading: true, roughness: 0.78, metalness: 0.02, side: THREE.DoubleSide });
-  boneDorsal.envMapIntensity = 0.12;
+  boneDorsal.envMapIntensity = 0.0;
   // Recess — the far-side inner rib/cavity wall (umber-green) so the hollow reads DEEP
   // while the windows stay TRUE holes (§4.4 hollow-cage render). Non-emissive.
   const recess = new THREE.MeshStandardMaterial({ color: RECESS, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
@@ -70,7 +70,7 @@ function revenantMats(def) {
   // faint green self-glow, so the ribs read as BONE LIT BY THE CAGED FLAME (art-director: the
   // reference's fusing trick — ribs + flame become one object). Cheap on flat-shaded geometry.
   const boneLit = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, 0x39b06a, 0.5), emissive: 0x123f22, emissiveIntensity: 0.6, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
-  boneLit.envMapIntensity = 0.12;
+  boneLit.envMapIntensity = 0.0;
   return { bone, boneLo, boneDorsal, recess, boneLit };
 }
 
@@ -173,11 +173,11 @@ function buildOssuaryTorso(def, model, _bodyMat) {
       const P0 = [side * 0.05, cy + 0.16, z];                 // root at the vertebra (top)
       const C1 = [side * hw * 1.18, cy + 0.02, z + 0.02];     // spring wide
       const C2 = [side * hw * 1.02, cy - dep * 0.95, z + 0.03]; // belly (low, widest)
-      const P1 = [side * hw * (0.34 - 0.16 * openFrac), cy - dep * 0.80, z + 0.02];   // free tip CURLS inboard toward the flame
+      const P1 = [side * hw * 0.54, cy - dep * 0.86, z + 0.02];   // free tip curls down but STAYS lateral → a wide ventral GAP so the ribs never close into a reticle octagon from behind; the grave-green spills out the open belly (Fable: closed rings framed the heart like a target)
       const NS = 5; let prev = null;
       for (let k = 0; k <= NS; k++) {
         const p = bez3(P0, C1, C2, P1, k / NS);
-        const w = 0.12 * (1 - 0.60 * (k / NS));   // FAT blade at the root, tapering to a chamfered tip
+        const w = 0.145 * (1 - 0.55 * (k / NS));   // FATTER blade at the root (a single facet was reading as wire — Fable), tapering to a chamfered tip
         const back = [p[0], p[1], p[2] - w], front = [p[0], p[1], p[2] + w];
         if (prev) boneT.push([prev.back, front, prev.front], [prev.back, back, front]);   // all BONE (dropped the green inner-tint — it stacked into concentric green rings when the barrel is viewed head-on / rear-chase, Fable)
         prev = { back, front };
@@ -246,14 +246,26 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   // viewed head-on / rear-chase — Fable, twice). Billboarded radial glows can't form edges. The
   // core stays GREEN (not white) so the lantern reads grave-green from behind, never holy. A soft
   // outer bloom + a tighter brighter green core = a two-value flame with a hot centre.
-  // SATURATED-GREEN core (not near-white) + LOW additive opacity so the fire never blooms to a
-  // white reticle disc — it stays grave-GREEN even at the additive-bright centre (Fable: white
-  // core reads holy). One soft billboard glow, no geometry.
-  const glowTex = makeGlowTexture('34,150,64', '96,255,120');
-  const heartHook = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0.24 + 0.22 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
-  heartHook.scale.set(heartR * (1.9 + 0.6 * coreBlaze), heartR * (2.4 + 0.8 * coreBlaze), 1);   // taller than wide → a flame
+  // The lantern is TWO stacked billboards so it reads GREEN at every distance and NEVER white:
+  //   • CORE — NORMAL blending, a SATURATED grave-green whose centre texel IS green (not near-
+  //     white). Normal blend can't sum toward white the way Additive did (the prior blocker: an
+  //     additive pale-mint core stacked to a white-hot reticle at close range). It's the solid,
+  //     always-green heart the player sees rimming the rib gaps at rear-chase.
+  //   • BLOOM — a WIDER, dim additive halo in a deep green (low R/B so even doubled it stays
+  //     green, never pale) that spills the light THROUGH the rib windows so it reads as "light
+  //     through bone," not a sticker. Kept faint so it can't wash the core white.
+  // The CORE is the ticked coreGlow hook (breathes with boost/Surge); the bloom scales with it.
+  const coreTex  = makeGlowTexture('30,150,58', '78,222,104');   // centre = a clear grave-green, NOT mint-white
+  const bloomTex = makeGlowTexture('16,86,34', '44,168,72');     // low R/B → additive-safe green spill
+  const heartHook = new THREE.Sprite(new THREE.SpriteMaterial({ map: coreTex, color: 0xffffff, transparent: true, opacity: 0.62 + 0.28 * coreBlaze, blending: THREE.NormalBlending, depthWrite: false }));
+  heartHook.scale.set(heartR * (1.7 + 0.5 * coreBlaze), heartR * (2.2 + 0.7 * coreBlaze), 1);   // taller than wide → a flame
   heartHook.position.set(0, hy, hz);
-  heartHook.userData.base = 0.24 + 0.22 * coreBlaze;   // the coreGlow tick scales THIS
+  heartHook.userData.base = 0.62 + 0.28 * coreBlaze;   // the coreGlow tick scales THIS
+  const heartBloom = new THREE.Sprite(new THREE.SpriteMaterial({ map: bloomTex, color: 0xffffff, transparent: true, opacity: 0.30 + 0.20 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
+  heartBloom.scale.set(heartR * (2.9 + 0.8 * coreBlaze), heartR * (3.4 + 1.0 * coreBlaze), 1);   // wider spill through the windows
+  heartBloom.position.set(0, hy, hz);
+  heartBloom.renderOrder = 0;
+  group.add(heartBloom);
   heartHook.renderOrder = 1;
   group.add(heartHook);
 
@@ -396,8 +408,8 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   // off near-black (Fable) so the ivory finger-bones + rib barrel WIN the silhouette (bone
   // ~60/40 over shroud). Translucent so light reads through it and the rig drives its opacity.
   // Emissive black (the wing never glows — the light is the caged heart).
-  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x2a303c, emissive: 0x000000, flatShading: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.88 });   // DARKER blue-charcoal + more opaque so the shroud dominates the wing (Fable: was too pale/seraphic)
-  wingMat.envMapIntensity = 0.14;
+  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x2c2d31, emissive: 0x000000, flatShading: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });   // NEUTRAL dark charcoal (was 0x2a303c — the blue bias lit up powder-blue on the up-facing top surface under the cool sky-fill; Fable: "membrane reads blue from above"). High roughness so the sky doesn't sheen it.
+  wingMat.envMapIntensity = 0.05;
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
