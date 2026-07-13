@@ -39,8 +39,13 @@ await page.waitForTimeout(400);
 
 // Capture the upper sky band (the curtain hangs from ~0.10 elevation up). DSF1 → CSS px == device px.
 const clip = { x: 0, y: 0, width: VIEW.width, height: Math.round(VIEW.height * 0.62) };
+// Top row = QUIET (elegant green/teal + rose skirt); bottom row = ERUPTION (violet base → pink → red
+// crown) — the same run, activity pinned via the ?auract debug seam, so one image shows the color range.
+const acts = [0.30, 0.30, 1.00, 1.00];
+const labels = ['quiet — green/teal', 'quiet — drift', 'ERUPTION — full color', 'ERUPTION — crown'];
 const shots = [];
 for (let i = 0; i < 4; i++) {
+  await page.evaluate((a) => { window.__dd.setAuroraAct(a); }, acts[i]);
   // Let real frames advance the `time` uniform (drapery crawls + breathes), THEN freeze so the
   // capture is cheap + stable (a live rAF loop starves the software-rendered screenshot).
   await page.waitForTimeout(750);
@@ -56,7 +61,7 @@ const { chromium } = loadPlaywright();
 const browser = await chromium.launch();
 const cvpage = await browser.newPage();
 await cvpage.setContent('<canvas id="c"></canvas>');
-const png = await cvpage.evaluate(async (b64) => {
+const png = await cvpage.evaluate(async ({ b64, labels }) => {
   const load = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.src = src; });
   const imgs = [];
   for (const v of b64) imgs.push(await load('data:image/png;base64,' + v));
@@ -71,10 +76,10 @@ const png = await cvpage.evaluate(async (b64) => {
     const cx = i % cols, cy = (i / cols) | 0;
     const x = pad + cx * (w + pad), y = pad + cy * (h + lab + pad);
     ctx.drawImage(im, x, y, w, h);
-    ctx.fillStyle = '#9fe8c0'; ctx.fillText(`t + ${(i * 0.75).toFixed(2)}s`, x + 4, y + h + lab / 2);
+    ctx.fillStyle = '#9fe8c0'; ctx.fillText(labels[i], x + 4, y + h + lab / 2);
   });
   return c.toDataURL('image/png').split(',')[1];
-}, shots.map((v) => v.toString('base64')));
+}, { b64: shots.map((v) => v.toString('base64')), labels });
 await browser.close();
 writeFileSync('/tmp/aurora-montage.png', Buffer.from(png, 'base64'));
 console.log(`wrote /tmp/aurora-montage.png (+ /tmp/aurora-{0..3}.png) — curtain lit: ${mix ? 'yes' : 'NO'}`);

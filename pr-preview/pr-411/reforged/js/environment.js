@@ -11,7 +11,7 @@ import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } fro
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
-import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced } from './auroraSky.js';
+import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, setAuroraActOverride } from './auroraSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
 import { getWaterSwellOn } from './water.js';
 import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
@@ -20,7 +20,7 @@ import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as
 // drives them through environment.
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
 // Aurora Shallows: the sky-splice controls ride through environment too.
-export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced };
+export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, setAuroraActOverride };
 // ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
 export { setArenaSetQuality, debugArenaSet, setStarMode };
 

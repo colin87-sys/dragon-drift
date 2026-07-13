@@ -30,7 +30,9 @@ export const AURORA_HEAD = /* glsl */`
   uniform int   uAurLayers;                 // 2 tier0 / 1 tier1+2
   uniform float uAurRay;                    // 1 tier0/1 rays on / 0 tier2 (smooth quiet arc)
   uniform vec2  uAurFwd, uAurFwd2;          // damped TRAVEL azimuth (the "stage") + the rotated secondary axis
-  uniform vec3  uAurGreen, uAurGreenHot, uAurRed, uAurFringe;  // column green / hot border green / 630nm red top / N2+ rose skirt
+  uniform float uAurErupt;                  // 0 quiet (green/teal + rose) → 1 full-color eruption (rare "wow")
+  uniform vec3  uAurGreen, uAurGreenHot, uAurTeal, uAurRed, uAurPink, uAurViolet, uAurFringe;
+  // column 557.7nm green / hot border green / high-alt teal / 630nm red crown / pink overlap / N2+ violet base / rose skirt
   float _aHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float _aNoise(vec2 x){
     vec2 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
@@ -50,14 +52,19 @@ export const AURORA_BODY = /* glsl */`
           // drop (arc ends dive to the horizon) + the airglow concentration. az⋅uAurFwd, the travel dir.
           float envC = clamp(dot(az, uAurFwd), 0.0, 1.0);
           vec2 across = vec2(-uAurFwd.y, uAurFwd.x);  // perp of travel — the cross-stage axis (spans L↔R)
-          // layer-0 broad fold, HOISTED (shared by the base tilt + the horizon airglow) — no extra fetch.
-          float fold0 = _aNoise(az * 2.3 + vec2(uAurPhase * 0.13, 0.0));
+          // layer-0 broad fold, HOISTED (shared by base tilt + airglow + veil). The 6.4 octave is also
+          // hoisted (its args never depended on L — it was a duplicated eval per layer). fine0 (12.8) is a
+          // tier0-only fractal detail octave, funded by that de-duplication → net eval count unchanged.
+          float fold0   = _aNoise(az * 2.3 + vec2(uAurPhase * 0.13, 0.0));
+          float foldOct = _aNoise(az * 6.4 - vec2(uAurPhase * 0.11, 3.7));
+          float fine0 = 0.0;
+          if (uAurLayers == 2) fine0 = _aNoise(az * 12.8 + vec2(-uAurPhase * 0.19, 1.7));
           for (int L = 0; L < 2; L++) {
             if (L >= uAurLayers) break;
-            // DRAPERY FOLDS: a broad crawling swell + a finer second octave (one octave alone is a
-            // single ruler-straight swell; the octave gives per-fold hairpins).
+            // DRAPERY FOLDS: a broad crawling swell + a mid octave + fine fractal detail (single
+            // frequency = smooth ruler edges; the octaves give hairpin folds + ragged filament edges).
             float fold = (L == 0) ? fold0 : _aNoise(az * 3.2 + vec2(uAurPhase * 0.13 + 7.1, 0.0));
-            fold += 0.5 * (_aNoise(az * 6.4 - vec2(uAurPhase * 0.11, 3.7)) - 0.5);
+            fold += 0.5 * (foldOct - 0.5) + 0.25 * (fine0 - 0.5);
             // THE LOWER BORDER: drops to the horizon at the arc FLANKS (envC→0 → base 0.04, plunges
             // below the sea-line at fold minima so the ends dive behind the world), clears the gate
             // rings at centre (envC→1 → ~0.09). Undulates per fold with a real amplitude.
@@ -69,7 +76,9 @@ export const AURORA_BODY = /* glsl */`
               // gates the intensity, so the arc is ~130° wide with fold-driven bright knots.
               u = dot(az, across) * 4.0 + (fold - 0.5) * 3.5;
               u += (hy - h0) * 1.5 * (fold - 0.5);                       // height shear → 3D drape
-              sheet = smoothstep(-0.35, 0.45, dot(az, uAurFwd)) * (0.30 + 0.70 * smoothstep(0.35, 0.75, fold));
+              // VALUE MODEL: a LOW 0.06 floor (keeps the Gate-3 continuous arc) with a steep pow curve —
+              // fold minima drop ~5× darker → real dark-sky gaps BETWEEN curtains, not a flat mid wash.
+              sheet = smoothstep(-0.35, 0.45, dot(az, uAurFwd)) * (0.06 + 0.94 * pow(smoothstep(0.30, 0.85, fold), 1.6));
             } else {
               // SECONDARY RIBBON (tier0 only): a detached off-axis pillar behind the arc → depth.
               vec2 axis = vec2(-uAurFwd2.y, uAurFwd2.x);
@@ -77,36 +86,71 @@ export const AURORA_BODY = /* glsl */`
               u += (hy - h0) * 1.5 * (fold - 0.5);
               sheet = exp(-u * u * 6.0);                                 // narrow gaussian pillar
             }
-            // RAYS: high-frequency vertical striation streaming UP from the border (noise SQUARED).
-            float rn = _aNoise(vec2(u * 20.0, uAurPhase * 0.7));
-            float ray = mix(1.0, 0.30 + 0.70 * rn * rn, uAurRay);
+            // RAYS: vertical striation streaming UP from the border. Domain-warped by the fold (irregular
+            // spacing/width, not a picket fence) + a per-ray shimmer (each flickers, doesn't scroll as a block).
+            float rn = _aNoise(vec2(u * 20.0 + fold * 4.0, uAurPhase * 0.7));
+            float rayShim = (0.30 + 0.70 * rn * rn) * (0.88 + 0.12 * sin(uAurPhase * 2.6 + rn * 50.0));
+            float ray = mix(1.0, rayShim, uAurRay);
             // THE BORDER: a crisp ONSET above it, a luminous ROSE SKIRT below it — never a hard zero,
             // so there is no floating "invisible line"; the border stands ON light instead of on black.
             float body  = smoothstep(h0 - 0.02, h0 + 0.01, hy);         // crisp bottom onset (unchanged)
             float skirt = exp(min(hy - h0, 0.0) * 9.0);                 // soft luminous falloff BELOW
             float below = max(body, 0.30 * skirt);
+            // STAGGERED RAY HEIGHTS: bright rays (rn²→1) reach high (slow decay), dim ones stay short —
+            // each stripe becomes an individual ray with its own height, not a full-column comb.
             float tall = exp(-max(hy - h0, 0.0) * (5.5 - 2.0 * uAurAct));
+            float rayTall = exp(-max(hy - h0, 0.0) * (2.5 + 5.0 * (1.0 - rn * rn)));
+            tall = mix(tall, rayTall, 0.5 * uAurRay);
             float breath = 0.8 + 0.2 * uAurBreath;
             float I = sheet * ray * below * tall * breath;
             // THE HOT-LINE: a real border is 2–3× brighter than the diffuse column above it.
             float hot = exp(-max(hy - h0, 0.0) * 28.0);
-            I *= 1.0 + 1.7 * hot * below;
-            // THE PHYSICS RAMP: 557.7nm green OWNS the border; the rose fringe now renders as the
-            // descending SKIRT it was designed for (the old cut was deleting it); hot-line → yellower
-            // green; faint crimson tops only when active.
+            I *= 1.0 + 2.2 * hot * below;
+            // THE ALTITUDE PHYSICS RAMP (the answer to "one color?"): green 557.7nm owns the border +
+            // low column; a high-altitude TEAL cools the mid column (quiet richness, always on); and — only
+            // during an ERUPTION — a violet N2+ base, a pink overlap bell, and an ADDITIVE 630nm red crown
+            // (brighter than the green, so it reads crimson, not murky). Border stays green + last.
             vec3 aCol = mix(uAurFringe, uAurGreen, smoothstep(h0 - 0.02, h0 + 0.005, hy));
-            aCol = mix(aCol, uAurGreenHot, hot * below);
-            float v = clamp((hy - h0) * 3.0, 0.0, 1.0);
-            aCol = mix(aCol, uAurRed, smoothstep(0.45, 1.0, v) * (0.35 * uAurAct));
-            col += aCol * I * uAuroraMix * 0.7;    // 0.7 ceiling: only the thin hot-line crosses bloom
-            aurLum += I;
+            aCol = mix(aCol, uAurViolet, (1.0 - body) * 0.6 * uAurErupt);      // violet base (eruption only)
+            float v = clamp((hy - h0) * (2.6 - 1.0 * uAurAct), 0.0, 1.0);      // taller color range when active
+            aCol = mix(aCol, uAurTeal, 0.55 * smoothstep(0.15, 0.55, v));      // altitude cooling (always)
+            float crown = smoothstep(0.35, 0.85, v);
+            aCol = mix(aCol, uAurPink, crown * (1.0 - crown) * 2.4 * uAurErupt); // pink overlap bell (eruption)
+            aCol += uAurRed * crown * crown * 0.9 * uAurErupt;                  // additive red crown (eruption)
+            aCol = mix(aCol, uAurGreenHot, hot * below);                        // green border stays on top
+            I *= 1.0 + 0.35 * crown * uAurErupt;                               // the crown blooms a touch brighter
+            // SPLIT GAIN: the diffuse column is capped LOW (0.55, never blooms) while the thin hot border
+            // + crown reach 1.0 and cross the bloom threshold — the glow lives only in the concentrated cores.
+            col += aCol * I * uAuroraMix * (0.55 + 0.45 * hot * below);
+            // TRANSLUCENCY: stars are dimmed by local CORE brightness, not total column — optically-thin
+            // gas, stars burn through the faint column + only vanish at the border/knots (the env.js splice
+            // reads aurLum unchanged; only its MEANING changes here).
+            aurLum += I * (0.25 + 0.75 * hot * below);
           }
+          // BACK VEIL: a third, very faint, tall, ray-less curtain (reuses fold0 — free) → layered depth.
+          // Contributes ~0 to aurLum so stars burn straight through it (doubles as the translucency showcase).
+          float veil = smoothstep(0.55, 0.9, fold0) * exp(-max(hy - 0.20, 0.0) * 3.0)
+                     * smoothstep(0.02, 0.25, hy) * (0.35 + 0.65 * envC);
+          col += mix(uAurTeal, uAurRed, 0.4 * uAurErupt) * veil * 0.05 * uAuroraMix;
           // THE HORIZON AIRGLOW: the perspective-compressed distant oval the curtains RISE OUT OF.
           // Brightest AT the sea-line (abs(hy) → the last sliver above the silhouette is hottest, and
           // it meets its own mirror reflection at the seam), on-stage (envC), fold-broken. No new fetch.
           float hg = exp(-abs(hy) * 7.0) * (0.55 + 0.45 * fold0) * (0.35 + 0.65 * envC);
-          col += mix(uAurFringe, uAurGreen, 0.65) * hg * (0.10 + 0.10 * uAurAct) * uAuroraMix;
-          aurLum += hg * 0.3;
+          // hue DRIFTS green↔rose per fold (a flat-green horizon band, doubled by the mirror sea, was the
+          // monochrome-frame cause); lower gain so the doubled seam doesn't blow out; barely dims stars.
+          col += mix(uAurGreen, uAurFringe, 0.5 - 0.5 * fold0) * hg * (0.06 + 0.08 * uAurAct) * uAuroraMix;
+          aurLum += hg * 0.1;
+          // ERUPTION COLOR WASH (rare "wow"): strong displays add DIFFUSE high-altitude emission that reads
+          // even where the thin rays have faded — a violet N2+ base hugging the sea-line and a red→pink 630nm
+          // crown glowing ABOVE the green band. Broad + soft (NOT ray-gated), fold-broken, on-stage (envC),
+          // so the eruption actually reads as full-color instead of just brighter green. Free when quiet.
+          if (uAurErupt > 0.001) {
+            float ebase  = exp(-abs(hy - 0.05) * 11.0) * envC * (0.6 + 0.4 * fold0);
+            float ecrown = smoothstep(0.10, 0.30, hy) * exp(-max(hy - 0.32, 0.0) * 3.0) * envC * (0.5 + 0.5 * fold0);
+            col += uAurViolet * ebase * uAurErupt * 0.34 * uAuroraMix;
+            col += mix(uAurPink, uAurRed, smoothstep(0.20, 0.55, hy)) * ecrown * uAurErupt * 0.6 * uAuroraMix;
+            aurLum += (ebase + ecrown) * uAurErupt * 0.12;
+          }
         }`;
 
 export const auroraUniforms = {
@@ -119,16 +163,21 @@ export const auroraUniforms = {
   uAurRay:    { value: 1 },
   uAurFwd:    { value: new THREE.Vector2(0, -1) },      // travel azimuth (forward = -Z); damped in JS
   uAurFwd2:   { value: new THREE.Vector2(0.64, -0.77) },// secondary axis ≈ 40° off forward
+  uAurErupt:  { value: 0 },                          // eruption envelope (driven in JS from activity)
   uAurGreen:  { value: new THREE.Color(0x54ff86) },  // 557.7 nm atomic-oxygen green — the diffuse column
-  uAurGreenHot: { value: new THREE.Color(0x86ff5c) },  // hotter yellow-green for the bright border line
-
-  uAurRed:    { value: new THREE.Color(0xb0303c) },  // 630 nm oxygen red — faint crimson tops
+  uAurGreenHot: { value: new THREE.Color(0x86ff5c) },// hotter yellow-green for the bright border line
+  uAurTeal:   { value: new THREE.Color(0x3ce6b8) },  // high-altitude cooling — quiet-mode second hue (always on)
+  uAurRed:    { value: new THREE.Color(0xff4652) },  // 630 nm oxygen RED crown — brighter than green (additive)
+  uAurPink:   { value: new THREE.Color(0xff9bc2) },  // green×red overlap band (eruption)
+  uAurViolet: { value: new THREE.Color(0x8f7bff) },  // N2+ violet-blue base (eruption)
   uAurFringe: { value: new THREE.Color(0xd06a8a) },  // N2+ rose skirt — DESATURATED, not danger-magenta
 };
 
 let enabled = true;   // the biome channel gates it (env.auroraMix is 0 until a biome declares aurora)
 let forced = false;   // ?aurora=1 — the PR-1 hero read, before the biome exists
 let tier = 0;
+let actOverride = null;   // ?auract=<0..1> debug: pin activity/eruption (for the quiet-vs-eruption montage)
+export function setAuroraActOverride(v) { actOverride = (v == null || Number.isNaN(v)) ? null : v; }
 export function auroraEnabled() { return enabled; }
 export function auroraForced() { return forced; }   // ?aurora=1 preview — gate the day-biome sun/god-rays off
 export function setAuroraEnabled(on) { enabled = !!on; if (!enabled) auroraUniforms.uAuroraMix.value = 0; }
@@ -157,8 +206,14 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   auroraUniforms.uAurPhase.value = time % 4096;
   // breathing: two incommensurate sines → never reads as a loop
   auroraUniforms.uAurBreath.value = 0.5 + 0.5 * (0.55 * Math.sin(time * 0.9) + 0.45 * Math.sin(time * 0.27 + 1.3));
-  // activity: a very slow envelope so a run sees the aurora change form (quiet arc <-> drapery)
-  auroraUniforms.uAurAct.value = 0.5 + 0.5 * Math.sin(time * 0.05);
+  // ACTIVITY + ERUPTION: two incommensurate sines drift the activity; above 0.72 an eruption blooms
+  // (smoothstep-shaped) — full-color violet/pink/red for ~20–40s every few minutes at irregular intervals,
+  // so quiet green/teal stretches make the rare eruption feel EARNED (the "wow"). `?auract=` overrides both.
+  const actRaw = 0.5 + 0.5 * (0.62 * Math.sin(time * 0.05) + 0.38 * Math.sin(time * 0.0177 + 2.4));
+  const act = actOverride == null ? actRaw : actOverride;
+  auroraUniforms.uAurAct.value = act;
+  const e = Math.max(0, (act - 0.72) / 0.28);
+  auroraUniforms.uAurErupt.value = e * e * (3.0 - 2.0 * e);
   // COMPOSITION — the arc holds CENTRE-STAGE. Key it to travel, HEAVILY damped (λ=0.35 → recentres
   // over ~6–8s): during a fast weave/yaw the aurora stays world-anchored and counter-slides across
   // frame (reads as a thing at infinity), but it can never be lost off-frame for long.
