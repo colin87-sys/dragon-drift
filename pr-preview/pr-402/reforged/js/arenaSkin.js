@@ -84,10 +84,10 @@ export const FLOOD_HEX = {
 // construction (owner colour law). fog + skyHorizon UNCHANGED (bulletcontrast is re-certified against
 // them). The geometry (streak fan / shock rings / debris / ignited seraph) rides on top in P2–P5. All TUNE.
 export const HEAVEN_HEX = {
-  skyTop: 0x0e1230, skyMid: 0x584070, skyHorizon: 0xa87838, sunGlow: 0xffdf9a,          // deep space-indigo vault (zenith UNCHANGED — the dark that reads the streaks) · warmed rose-violet nebula body · the gold band = the GALACTIC PLANE · the Godhead Star's glow
+  skyTop: 0x0e1230, skyMid: 0x584070, skyHorizon: 0xa87838, sunGlow: 0xffcf82,          // deep space-indigo vault (zenith UNCHANGED — the dark that reads the streaks) · warmed rose-violet nebula body · the gold band = the GALACTIC PLANE · the Godhead Star's glow (I2: hotter molten gold → the blast IGNITES the sea's reflection column, not an ordinary sun-glint; more-saturated gold is lower-luma = sky-fairness-positive)
   fogColor: 0x352b52, fogNear: 60, fogFar: 340, fogFarColor: 0x352b52, fogFarMix: 1,   // dark violet — distance sinks into cosmic gloom (L≈.188: below .202 so every band colour reads DIRECT against it) — UNCHANGED, bulletcontrast-locked
   lightSun: 0xffe2b0, lightSunI: 1.15, hemiSky: 0x7e8fc0, hemiGround: 0x635033,        // cool vault fill + a dark warm front-fill (the seraph models, but stays a shadow)
-  waterDeep: 0x1a1638, waterShallow: 0x453a5e, waveAmp: 0.08,                           // HAZE-DECK, not a gold mirror — dim violet, near-dead calm (the bright gold glint dies with waterShallow)
+  waterDeep: 0x1a1638, waterShallow: 0x6a4850, waveAmp: 0.12,                           // HAZE-DECK that ANSWERS the blast (I2): deep stays dim violet (the broad fairness-safe rest), but the LIT wave faces warm to a rose-gold ember + a hair more churn → the detonation relights the sea's reflection column WITHOUT a full gold mirror
   ambColor: 0xffe9c0, ambFall: -0.10, ambSway: 0.45, ambSize: 0.5, ambOpacity: 0.85,    // STARDUST (the mote pool re-skinned — zero new draws): star-white-gold, weightless slow RISE
   faunaColor: 0xffe9c0, faunaScale: 0, faunaFlap: 0,
   starMix: 1.0, whaleMix: 0, flybyMix: 0,                                               // the S2 pinholes BLOOM to a firmament — the same field, kindled (+ the dome's aurora veil rides starMix free)
