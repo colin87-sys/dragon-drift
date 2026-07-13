@@ -256,7 +256,15 @@ function buildReflective() {
     // last frame's RT. Skipping the whole origOBR also freezes the textureMatrix,
     // which is CORRECT: a stale texture with its matching stale matrix. (Updating the
     // matrix on skip frames would make the reflection swim.)
-    if (halfRate && (_parity & 1)) return;
+    // HEAVEN DIET: in the settled arena the mirror reflects only a dim haze-deck dropped
+    // 30u — the detonation/embers/debris are layer-1-EXCLUDED, props are hidden, and the
+    // "sea answers the blast" gold column is the ANALYTIC sunColor specular, not the mirror.
+    // So the reflection is nearly static and barely-read → cut the refresh HARD (tier0
+    // half-rate, tier1 quarter-rate). This reclaims ~135–270 draw calls/frame in the arena
+    // — the biggest single perf line item — at ~0 visible cost. Off-heaven = shipped N11 rate.
+    const inHeaven = _arenaMix > 1.0 || arenaDropK > 0.5;   // the whole heaven UNVEILING (mix>1), incl. the heavy transition frames, not just the settled deck
+    const skipMask = inHeaven ? (halfRate ? 3 : 1) : (halfRate ? 1 : 0);
+    if (skipMask && (_parity & skipMask)) return;
     // N11 far-plane clamp: trim the mirror frustum to the fog wall (fogFar+50 —
     // everything beyond is 100% fogged, so it's visually identical but a much smaller
     // frustum to cull/draw against). The Reflector copies the MAIN camera's projection
@@ -391,12 +399,14 @@ export function setWaterDepth(on) {
 const ARENA_DROP = 30;
 const DROP_LO = 1.45, DROP_HI = 1.85;   // = arenaSet.js RISE_LO/RISE_HI (the one heaven window)
 let arenaDropK = 0;
+let _arenaMix = 0;   // 0 biome · 1 void · 2 heaven — the mirror diet triggers the moment the heaven UNVEILING starts (mix>1), not just once the sea has fully dropped, so the heavy transition frames get it too
 export function getArenaDropK() { return arenaDropK; }
 export function debugWaterY() { return water ? water.position.y : 0; }
 
 export function updateWater(dt, playerDist, time, fog, arenaMix = 0, arenaFade = 1) {
   if (!water) return;
   _parity++; // N11: one bump per PRESENTED frame drives the half-rate mirror parity
+  _arenaMix = arenaMix;
   water.position.z = -playerDist - 250;
   const s = Math.max(0, Math.min(1, (arenaMix - DROP_LO) / (DROP_HI - DROP_LO)));
   arenaDropK = s * s * (3 - 2 * s) * Math.max(0, Math.min(1, arenaFade));

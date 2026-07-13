@@ -51,8 +51,15 @@ export function resizeGodRays() {
 
 // Render the sky=white / geometry=black mask. Called once per frame, right
 // before the composer, only while god-rays are active.
+let _maskParity = 0;
 export function renderGodRayMask() {
   if (!_enabled || !occRT || !_renderer) return;
+  // DUTY-CYCLE: the mask is a FULL extra scene render (~200-300 draw calls — every layer-0 mesh with a
+  // black override). The occluder silhouette (boss/dragon) and the camera move slowly frame-to-frame,
+  // so a 1-frame-stale mask is imperceptible; the shaft shader still runs every frame against the kept
+  // occRT. Render every OTHER frame → halves the pass's per-frame draw-call cost. (occRT retains its
+  // last content on the skip; render on the FIRST call so there's never a black-mask frame.)
+  if (_maskParity++ & 1) return;
   const r = _renderer;
   const pTarget = r.getRenderTarget();
   const pOverride = _scene.overrideMaterial;
