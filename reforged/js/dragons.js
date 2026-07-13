@@ -669,16 +669,16 @@ export const DRAGONS = {
     forms: [
       { spanScale: 0.70, glowLevel: 0.25, headScale: 1.44, hornLen: 0.5, fingers: 2, tailStretch: 1.0,
         ribWindows: 0, coreBlaze: 0.15, neckVerts: 4, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.3,
-        colors: { body: 0xc9c9c1, belly: 0xafafa6, wingOuter: 0xc9c9c1, eye: 0x54e01e } },   // Grave Whelp (sealed cage)
+        colors: { body: 0xc4c6ca, belly: 0xabadb2, wingOuter: 0xc4c6ca, eye: 0x54e01e } },   // Grave Whelp (sealed cage) — cool-neutral chalk (was warm-tan)
       { spanScale: 0.82, glowLevel: 0.50, headScale: 1.34, hornLen: 0.55, fingers: 3, tailStretch: 1.0,
         ribWindows: 2, coreBlaze: 0.40, neckVerts: 5, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.6,
-        colors: { body: 0xd5d5cc, belly: 0xbbbbb1, wingOuter: 0xd5d5cc, eye: 0x5ce828 } },   // First Waking
+        colors: { body: 0xd0d2d6, belly: 0xb8bac0, wingOuter: 0xd0d2d6, eye: 0x5ce828 } },   // First Waking — cool-neutral chalk
       { spanScale: 0.92, glowLevel: 0.75, headScale: 1.26, hornLen: 0.6, fingers: 4, tailStretch: 1.0,
         ribWindows: 4, coreBlaze: 0.70, neckVerts: 6, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 0.8,
-        colors: { body: 0xdfded5, belly: 0xc6c5bb, wingOuter: 0xdfded5, eye: 0x66f038 } },   // Open Cage
+        colors: { body: 0xdadce1, belly: 0xc4c6cc, wingOuter: 0xdadce1, eye: 0x66f038 } },   // Open Cage — cool-neutral chalk
       { spanScale: 1.0, glowLevel: 1.00, headScale: 1.2, hornLen: 0.65, fingers: 4, tailStretch: 1.0,
         ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
-        colors: { body: 0xe4e3dc, belly: 0xcac8bf, wingOuter: 0xe4e3dc, eye: 0x76ff68 } },   // Gravelight Revenant
+        colors: { body: 0xe3e5ea, belly: 0xccced4, wingOuter: 0xe3e5ea, eye: 0x76ff68 } },   // Gravelight Revenant — brightest cool-neutral chalk (was warm 0xe4e3dc → read tan on pale BG; Fable)
     ],
     fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
     hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
@@ -688,12 +688,12 @@ export const DRAGONS = {
     feverWing: 0x000000, feverEye: 0x9af08a, feverWash: [0.03, 0.10, 0.03], surgeMotes: true,
     hideRiderGlow: true,
     wingEmissive: 0x000000,   // cruise membrane emissive EXPLICITLY black (light is the heart, never the wing)
-    body: 0xcfc9b8, belly: 0xaaa392,
-    wingInner: 0xbdb6a4, wingOuter: 0xcfc9b8,
+    body: 0xd6d8dd, belly: 0xb4b6bc,
+    wingInner: 0xc4c6cc, wingOuter: 0xd6d8dd,
     // Bone tones for the shared horn/scales mats (dragonModel builds them for every
     // def; the Revenant's parts don't attach them, so these just keep the mats off the
     // white default — a chalk-ivory drake has no warm horn/steel scute anywhere).
-    horn: 0xbdb6a4, scales: 0xcfc9b8,
+    horn: 0xc4c6cc, scales: 0xd6d8dd,
     eye: 0x76f068,
     apexEye: 0x9af08a, apexSeam: 0x54f04e, coreGlow: 0x54f04e, surgeHi: 0x8af07e,
     trail: 0x2e8a3a, boostTrail: 0x54f04e,
