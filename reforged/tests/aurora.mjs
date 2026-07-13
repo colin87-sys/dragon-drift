@@ -62,8 +62,8 @@ check('TRANSLUCENCY: stars keyed off local CORE brightness (aurLum += I × hot·
 check('RAY quality: calm freq (20, reverted) + staggered rayTall + per-ray shimmer',
   /u\s*\*\s*20\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*2\.6/.test(AURORA_BODY));
 // Gate-6: THICK bands (the rays are children of them), rays reverted to calm, eruption gutted.
-check('THICK stacked RIBBONS: a sawtooth band field the rays hang from (diagonal, fold-draped)',
-  /bp\s*=\s*bt\s*\*\s*5\.0\s*-\s*0\.6\s*\*\s*dot\(az,\s*across\)/.test(AURORA_BODY) && /bands\s*=\s*0\.30\s*\+\s*0\.90\s*\*\s*bprof/.test(AURORA_BODY));
+check('IRREGULAR thick RIBBONS: warped field (fanned period + azimuth tilt + height-warp forks), not a parallel sawtooth',
+  /bt\s*\*\s*\(3\.4\s*\+\s*1\.6\s*\*\s*\(fold0/.test(AURORA_BODY) && /1\.0\s*\*\s*warpL/.test(AURORA_BODY) && /bandWarp\s*=\s*_aNoise\(vec2\(sAcross/.test(AURORA_BODY) && !/bt\s*\*\s*5\.0\s*-\s*0\.6/.test(AURORA_BODY));
 check('secondary is a BROAD diagonal band (not a thin pillar) with a diagonal border',
   /sheet\s*=\s*0\.85\s*\*\s*exp\(\s*-u\s*\*\s*u\s*\*\s*2\.0\s*\)/.test(AURORA_BODY) && /float\(L\)\s*\*\s*\(0\.10\s*\+\s*0\.09\s*\*\s*dot\(az,\s*across\)\)/.test(AURORA_BODY));
 check('fine rays REVERTED to calm rn² at freq 20 (no hairline interleave, no rn⁴)',
@@ -139,6 +139,12 @@ check('forcing biome 6 lights the aurora (env.auroraMix 1.0)', Math.abs(forcedMi
 // --- 6b. PR-3: the biome's own LOW ice props + mirror/ground-glow polish -------------
 check('BIOMES[6].props are the low ice set (floe/iceFang/berg/skerry/ridge)', JSON.stringify(BIOMES[6].props) === '["floe","iceFang","berg","skerry","ridge"]');
 const envSrc0 = readFileSync(url('../js/environment.js'), 'utf8');
+// Gate-7 bug: the SPEED-SURGE magenta wash (feverMix) must be suppressed in the aurora biome — a
+// SEPARATE effect from the curtain eruption, and the real "color explosion" over the curtain.
+check('surge magenta wash suppressed under the aurora curtain (× (1 - uAuroraMix))',
+  /col\s*\+=\s*aurora\s*\*\s*curtain\s*\*\s*feverMix\s*\*\s*0\.35\s*\*\s*\(1\.0\s*-\s*uAuroraMix\)/.test(envSrc0));
+check('surge GRADIENT shift also suppressed in the aurora biome (both surge magenta sources gated)',
+  /feverMix\s*\*\s*0\.8\s*\*\s*\(1\.0\s*-\s*uAuroraMix\)/.test(envSrc0) && /feverMix\s*\*\s*0\.7\s*\*\s*\(1\.0\s*-\s*uAuroraMix\)/.test(envSrc0));
 check('all 5 aurora archetypes registered for biome 6 (matIndex 6)',
   ['floe', 'iceFang', 'berg', 'skerry', 'ridge'].every((k) => new RegExp(k + ':\\s*\\{[\\s\\S]*?biomes:\\s*\\[6\\],\\s*matIndex:\\s*6').test(envSrc0)));
 check('iceFang is LOW (height cap 2.2–4.6, never a tall spire)', /iceFang:[\s\S]*?h:\s*2\.2\s*\+\s*rnd\(\)\s*\*\s*2\.4/.test(envSrc0));

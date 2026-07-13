@@ -41,16 +41,26 @@ await page.waitForTimeout(400);
 
 // Capture the upper sky band (the curtain hangs from ~0.10 elevation up). DSF1 → CSS px == device px.
 const clip = { x: 0, y: 0, width: VIEW.width, height: Math.round(VIEW.height * 0.62) };
-// Top row = QUIET (elegant green/teal + rose skirt); bottom row = ERUPTION (violet base → pink → red
-// crown) — the same run, activity pinned via the ?auract debug seam, so one image shows the color range.
-const acts = [0.30, 0.30, 1.00, 1.00];
-const labels = ['quiet — green/teal', 'quiet — drift', 'ERUPTION — full color', 'ERUPTION — crown'];
+// Four states so one image covers the range AND the SURGE (a flow boost that used to paint a magenta
+// wash over the curtain — the "color explosion"). Capturing surge here is the anti-blind-spot: a frozen
+// montage never surges on its own, so the surge wash was invisible in verification until now.
+const cells = [
+  { act: 0.30, surge: false, label: 'quiet' },
+  { act: 1.00, surge: false, label: 'ERUPTION (restrained)' },
+  { act: 0.30, surge: true,  label: 'SURGE — no magenta wash over the curtain' },
+  { act: 1.00, surge: true,  label: 'SURGE + eruption' },
+];
+const labels = cells.map((c) => c.label);
 const shots = [];
-for (let i = 0; i < 4; i++) {
-  await page.evaluate((a) => { window.__dd.setAuroraAct(a); }, acts[i]);
-  // Let real frames advance the `time` uniform (drapery crawls + breathes), THEN freeze so the
-  // capture is cheap + stable (a live rAF loop starves the software-rendered screenshot).
-  await page.waitForTimeout(750);
+for (const c of cells) {
+  await page.evaluate((cc) => {
+    window.__dd.setAuroraAct(cc.act);
+    window.__dd.game.feverActive = cc.surge;          // force the speed-surge on/off
+    window.__dd.game.feverTimer = cc.surge ? 9999 : 0;
+  }, c);
+  // Let real frames advance `time` (drapery crawls) AND let feverMix damp toward the surge target,
+  // THEN freeze so the capture is cheap + stable (a live rAF loop starves the software screenshot).
+  await page.waitForTimeout(c.surge ? 1100 : 750);
   await page.evaluate(() => { window.__dd.game.timeScale = 0; });
   await page.waitForTimeout(60);
   shots.push(await page.screenshot({ clip, timeout: 60000 }));
