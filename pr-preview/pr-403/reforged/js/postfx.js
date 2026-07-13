@@ -105,6 +105,12 @@ const FEVER_TINT_DEFAULT = [0.10, 0.03, 0.08];
 export function setFeverTint(rgb) {
   postfx._feverTint = rgb || FEVER_TINT_DEFAULT;
 }
+// FIRSTBORN heaven: the Surge screen-wash reads in the arena's gold, not the magenta default (paired
+// with the sky feverWarm in environment.js). `_arenaWarm` (0→1, driven from the arena mix in main.js)
+// lerps the lift hue toward a warm ember-gold so the godhead's palette isn't punched magenta on surge.
+let _arenaWarm = 0;
+const _WARM_LIFT = [0.13, 0.065, 0.018];   // ember-gold wash (small additive magnitudes, like the magenta default)
+export function setFeverArenaWarm(k) { _arenaWarm = k < 0 ? 0 : k > 1 ? 1 : k; }
 
 // --- God-rays (occlusion-masked) --------------------------------------------
 // Sun screen position + base intensity fed each frame from main.js. N11: the mask
@@ -366,7 +372,11 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // washing out the entire frame and burying the silhouette + hazards.
   u.lift.value = postfx._feverMix * (0.24 + Math.sin(performance.now() * 0.006) * 0.09)
     + _kick.lift + flash * 0.26; 
-  u.liftTint.value.set(postfx._feverTint[0], postfx._feverTint[1], postfx._feverTint[2]);
+  const ft = postfx._feverTint;   // heaven lerps the wash hue magenta→ember-gold (the arena palette law)
+  u.liftTint.value.set(
+    ft[0] + (_WARM_LIFT[0] - ft[0]) * _arenaWarm,
+    ft[1] + (_WARM_LIFT[1] - ft[1]) * _arenaWarm,
+    ft[2] + (_WARM_LIFT[2] - ft[2]) * _arenaWarm);
   // Boss-time stage management: the world mid-tones itself (sat/vig/bloom ease
   // toward this at mix=1) so the bullets are the most vivid thing on screen —
   // scales linearly with _bossMix, zero term at mix=0 (no boss = byte-identical).
