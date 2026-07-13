@@ -29,13 +29,27 @@ check('AURORA_HEAD carries SELF-CONTAINED noise (no shared symbol collision)', /
 
 // --- 2. the authenticity invariants (the ONE thing: bottom-anchored curtains) -----
 check('SEAM-FREE: noise on normalize(d.xz), not an atan azimuth', /normalize\(\s*d\.xz/.test(AURORA_BODY) && !/atan/.test(AURORA_BODY));
-check('SHARP LOWER BORDER: a smoothstep bottom cut keyed on elevation h0', /below\s*=\s*smoothstep\(\s*h0/.test(AURORA_BODY));
+check('CRISP border ONSET + a luminous rose SKIRT below (no hard zero → no floating line)',
+  /body\s*=\s*smoothstep\(\s*h0/.test(AURORA_BODY) && /skirt\s*=\s*exp\(\s*min\(\s*hy\s*-\s*h0/.test(AURORA_BODY) && /below\s*=\s*max\(\s*body/.test(AURORA_BODY));
 check('exp fade UP from the border (nothing symmetric)', /tall\s*=\s*exp\(\s*-max\(\s*hy\s*-\s*h0/.test(AURORA_BODY));
 check('PHYSICS RAMP: green OWNS the border (not inverted), crimson only when active', /mix\(\s*uAurFringe\s*,\s*uAurGreen\s*,\s*smoothstep\(\s*h0/.test(AURORA_BODY) && /uAurRed[\s\S]*uAurAct/.test(AURORA_BODY));
 check('BORDER HOT-LINE: a thin exp spike glued to the border, ×(1+..hot)', /hot\s*=\s*exp\([\s\S]*I\s*\*=\s*1\.0\s*\+\s*[\d.]+\s*\*\s*hot/.test(AURORA_BODY));
 check('curtain kept UNDER the bloom threshold (× 0.7 ceiling, hot-line only crosses)', /uAuroraMix\s*\*\s*0\.7/.test(AURORA_BODY));
-check('drapery FOLDS: broad swell + a SECOND octave (no ruler-straight single swell)', /fold\s*=\s*_aNoise/.test(AURORA_BODY) && /fold\s*\+=\s*[\d.]+\s*\*\s*\(_aNoise/.test(AURORA_BODY));
-check('NARROW sheet (a ribbon, not a wash) + height SHEAR for 3D drape', /exp\(\s*-u\s*\*\s*u\s*\*\s*6\.0\s*\)/.test(AURORA_BODY) && /u\s*\+=\s*\(hy\s*-\s*h0\)/.test(AURORA_BODY));
+check('drapery FOLDS: broad swell (hoisted fold0) + a SECOND octave', /fold0\s*=\s*_aNoise/.test(AURORA_BODY) && /fold\s*\+=\s*[\d.]+\s*\*\s*\(_aNoise/.test(AURORA_BODY));
+check('SECONDARY ribbon keeps the narrow gaussian pillar + height SHEAR', /exp\(\s*-u\s*\*\s*u\s*\*\s*6\.0\s*\)/.test(AURORA_BODY) && /u\s*\+=\s*\(hy\s*-\s*h0\)/.test(AURORA_BODY));
+
+// --- 2b. COMPOSITION (Gate-3): centre-stage arc, horizon anchoring, flank dip -------
+check('CENTRAL ARC keyed to travel (smoothstep envelope on az⋅uAurFwd — not a fixed azimuth)',
+  /smoothstep\(\s*-0\.35\s*,\s*0\.45\s*,\s*dot\(\s*az\s*,\s*uAurFwd/.test(AURORA_BODY));
+check('base DROPS at the arc flanks (h0 keyed on envC) so the ends dive to the horizon',
+  /envC\s*=\s*clamp\(\s*dot\(\s*az\s*,\s*uAurFwd/.test(AURORA_BODY) && /h0\s*=\s*0\.04\s*\+\s*0\.05\s*\*\s*envC/.test(AURORA_BODY));
+check('HORIZON AIRGLOW the curtains rise from (brightest AT the sea-line, abs(hy))',
+  /exp\(\s*-abs\(hy\)/.test(AURORA_BODY));
+check('AURORA_HEAD declares the travel/secondary azimuth uniforms', /uAurFwd\s*,\s*uAurFwd2/.test(AURORA_HEAD));
+check('uAurFwd default points forward (-Z)', auroraUniforms.uAurFwd.value.x === 0 && auroraUniforms.uAurFwd.value.y === -1);
+const auroraSrc = readFileSync(url('../js/auroraSky.js'), 'utf8');
+check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
+  /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(auroraSrc) && /getWorldDirection/.test(auroraSrc) && /damp\(fwdX/.test(auroraSrc));
 
 // --- 3. gate: default 0 (shipped); enable/disable/force + per-frame write ---------
 check('default mix 0 (byte-identical shipped sky)', auroraUniforms.uAuroraMix.value === 0);
@@ -92,7 +106,7 @@ check('AURORA_BODY spliced BEFORE the clouds (10km clouds occlude the 100km curt
 check('stars dimmed behind the curtain (reads aurLum, identity at 0)', /star\s*\*=\s*1\.0\s*-\s*0\.65\s*\*\s*clamp\(\s*aurLum/.test(envSrc));
 check('surge night-veil suppressed under the real aurora (× (1 - uAuroraMix))', /aurora\s*\*\s*smoothstep\(0\.2,\s*0\.6,\s*h\)\s*\*\s*starMix\s*\*\s*0\.12\s*\*\s*\(1\.0\s*-\s*uAuroraMix\)/.test(envSrc));
 check('tier banding dither gated to the curtain (× uAuroraMix)', /1\.0\s*\/\s*255\.0\)\s*\*\s*uAuroraMix/.test(envSrc));
-check('applyAurora driven per-frame near applySkyClouds', /applyAurora\(env,\s*playerDist,\s*time\)/.test(envSrc));
+check('applyAurora driven per-frame near applySkyClouds (with camera+dt for the travel key)', /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(envSrc));
 check('auroraUniforms spread into the skyMat uniforms', /\.\.\.auroraUniforms/.test(envSrc));
 // The preview night wash: darken the dome + kill the sun + light the stars, all gated by uAurNight
 // (0 in real play → byte-identical). Never over the real biome, which supplies its own night palette.
