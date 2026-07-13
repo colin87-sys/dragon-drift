@@ -290,8 +290,11 @@ export function setPostSize(w, h) {
 }
 
 export function setPostPixelRatio(r) {
+  // NO applySize here: the sole caller (main.js applyQuality) sets this immediately BEFORE setPostTier,
+  // whose own applySize() then does ONE resize with the new ratio — the old order (setPostTier THEN
+  // setPostPixelRatio) reallocated the full-screen MSAA RT + bloom mips + god-ray RTs TWICE per flip,
+  // a self-inflicted per-flip hitch. (At tier 2 the composer is disabled, so its size is moot.)
   postfx._pixelRatio = r;
-  applySize();
 }
 
 // N1 — toggle the grading-pass dither (default on). ?dither=0 turns it off for a
