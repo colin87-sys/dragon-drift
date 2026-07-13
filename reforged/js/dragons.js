@@ -1124,8 +1124,8 @@ DRAGONS.pearlRedesign = {
   // WITHHELD dawn glow: near-dark in cruise, blazes on Surge (base ≈0.05 × surgeGlowMultiplier).
   // feverWing dark-dawn (not the rig's magenta default); brighter gold reaches the shared head builder.
   wingGild: 0xECC25A, feverWing: 0x66C8FF, feverEye: 0x9FD0FF, hideRiderGlow: true,   // bright dawn-cyan fever → the inboard membrane blazes holy-blue on Surge
-  surgeHi: 0x5AD0FF,   // saturated dawn-cyan ignition target
-  model: { ...DRAGONS.pearl.model, surgeGlowMultiplier: 42 },   // near-black dawn channels (base 0.02) blaze hard on Surge → the aureole ignites
+  surgeHi: 0x2CC0FF,   // deeply saturated dawn-cyan ignition target (keeps the blaze BLUE, not white)
+  model: { ...DRAGONS.pearl.model, surgeGlowMultiplier: 28 },   // tuned just below white-clip so the channel blaze reads as a saturated dawn circuit igniting, not "plates got whiter"
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).
