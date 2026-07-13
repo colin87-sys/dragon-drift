@@ -360,7 +360,11 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   for (let i = 0; i < tips.length - 1; i++) {
     const Fa = tips[i], Fb = tips[i + 1];
     const mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
-    const cup = 0.18 + 0.24 * cD;   // DEEPER tattered trailing notches (visible from the rear-chase, not just top-down)
+    // ASYMMETRIC tatter (art-director): deepest crescent bites between the OUTER fingers,
+    // shallow inboard — a ragged revenant shroud, not an even hang-glider hem. A per-bay jitter
+    // adds the tattered irregularity.
+    const outer = 1 - i / Math.max(1, tips.length - 1);
+    const cup = (0.16 + 0.26 * cD) * (0.7 + 0.7 * outer) * (0.9 + 0.2 * ((i * 0.618) % 1));
     const ctrl = [mid[0] + (K[0] - mid[0]) * cup, mid[1] + (K[1] - mid[1]) * cup - 0.02, mid[2] + (K[2] - mid[2]) * cup];
     const arc = []; for (let s = 0; s <= NSEG; s++) arc.push(bez(Fa, ctrl, Fb, s / NSEG));
     const C = [(K[0] + mid[0]) / 2, (K[1] + mid[1]) / 2 - 0.03, (K[2] + mid[2]) / 2];
@@ -486,7 +490,7 @@ function buildRevenantSkullHead(def, model, mats) {
   // ── EYE SOCKETS + pinpoint — a recessed dark orbit with a floating green octahedron
   // seated deep inside (the socket reads as a hole; the pinpoint blazes with glowLevel).
   const socketT = [];
-  eyeMat.emissiveIntensity = 0.8 + 1.8 * (model.glowLevel ?? 1);
+  eyeMat.emissiveIntensity = 0.9 + 0.7 * (model.glowLevel ?? 1);   // moderate so the socket pinpoint reads clearly GRAVE-GREEN, not bloomed white (art-director)
   for (const side of [1, -1]) {
     const ex = side * S(0.15), ey = S(0.04), ez = S(-0.14);
     // a shallow recessed socket ring (dark recess tier) so the eye sits in a hole
