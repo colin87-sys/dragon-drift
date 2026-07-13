@@ -778,7 +778,7 @@ export const DRAGONS = {
     rarity: 'SSSR', maxRarity: 'SSSR', cost: 6000,
     accentHue: 0xffcf6a,   // §9 law-9 carrier: solar gold
     archetype: 'phoenix',  // RIG flag only (warm ember motes + Rebirth fire-trails); explicit parts override the recipe
-    parts: { torso: 'sunhawk', wings: 'sunfeather', tail: 'sunfireTrail', head: 'sunhawkCrown', surface: { shader: [] } },
+    parts: { torso: 'sunhawk', wings: 'sunfeather', tail: 'sunfireTrail', head: 'sunhawkCrown', surface: { shader: [] }, collapseStatic: true },   // merge the ~390 rigid feather/scale meshes → ~40 draws (the Sunhawk is a heavy feather model; the dragon is redrawn in the mirror + god-ray passes)
     stats: { speed: 1.14, handling: 1.27, drain: 0.70, regen: 1.35 },
     hasStyle: true,        // keep its own white-gold trail colour even in Surge
     feverWing: 0xff8428, feverEye: 0xffcf6a,
