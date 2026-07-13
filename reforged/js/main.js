@@ -1425,7 +1425,8 @@ function tick() {
       // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
       // ("you're entering something ancient"). Subtle — within the juice budget.
       cameraCtl.shake(0.5);
-      burst(player.position, 0xcdd9ec, { count: 14, speed: 9, size: 1.1 });
+      // Flow flashes its slip-cyan signature at the threshold; rock/spine keep the bone puff.
+      burst(player.position, game.canyonRun === 'flow' ? 0x59d8ff : 0xcdd9ec, { count: 14, speed: 9, size: 1.1 });
     }
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
@@ -1612,7 +1613,7 @@ function tick() {
     updateSpeedStreaks(player, fxEnv);
     if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-    updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
+    updateObstacles(dt, t, player.dist, obstacleSpeedNorm, slipMix);
     updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
