@@ -669,16 +669,16 @@ export const DRAGONS = {
     forms: [
       { spanScale: 0.70, glowLevel: 0.25, headScale: 1.44, hornLen: 0.5, fingers: 2, tailStretch: 1.0,
         ribWindows: 0, coreBlaze: 0.15, neckVerts: 4, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.3,
-        colors: { body: 0xccc5b2, belly: 0xb0a892, wingOuter: 0xccc5b2, eye: 0x54e01e } },   // Grave Whelp (sealed cage)
+        colors: { body: 0xc9c9c1, belly: 0xafafa6, wingOuter: 0xc9c9c1, eye: 0x54e01e } },   // Grave Whelp (sealed cage)
       { spanScale: 0.82, glowLevel: 0.50, headScale: 1.34, hornLen: 0.55, fingers: 3, tailStretch: 1.0,
         ribWindows: 2, coreBlaze: 0.40, neckVerts: 5, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.6,
-        colors: { body: 0xd9d1be, belly: 0xbeb6a0, wingOuter: 0xd9d1be, eye: 0x5ce828 } },   // First Waking
+        colors: { body: 0xd5d5cc, belly: 0xbbbbb1, wingOuter: 0xd5d5cc, eye: 0x5ce828 } },   // First Waking
       { spanScale: 0.92, glowLevel: 0.75, headScale: 1.26, hornLen: 0.6, fingers: 4, tailStretch: 1.0,
         ribWindows: 4, coreBlaze: 0.70, neckVerts: 6, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 0.8,
-        colors: { body: 0xe4ddc8, belly: 0xc9c1a9, wingOuter: 0xe4ddc8, eye: 0x66f038 } },   // Open Cage
+        colors: { body: 0xdfded5, belly: 0xc6c5bb, wingOuter: 0xdfded5, eye: 0x66f038 } },   // Open Cage
       { spanScale: 1.0, glowLevel: 1.00, headScale: 1.2, hornLen: 0.65, fingers: 4, tailStretch: 1.0,
         ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
-        colors: { body: 0xece6d0, belly: 0xd6cfb8, wingOuter: 0xece6d0, eye: 0x76ff68 } },   // Gravelight Revenant
+        colors: { body: 0xe4e3dc, belly: 0xcac8bf, wingOuter: 0xe4e3dc, eye: 0x76ff68 } },   // Gravelight Revenant
     ],
     fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
     hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
