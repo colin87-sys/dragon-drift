@@ -37,7 +37,7 @@ this table is a snapshot and the code is the source of truth (§9 conflict rule)
    first; append a lesson after every meaningful change. Pay special attention to the
    JADE rebuild lessons **L166–L176** (summarized in §7 below) — they are the state of
    the art you leapfrog from.
-2. **`reforged/DRAGON-DESIGN.md`** — the aesthetics playbook. Read §1 (canvas), §2
+2. **`reforged/STARTER-REDESIGN.md`** — the aesthetics playbook. Read §1 (canvas), §2
    (the 12 aesthetic laws), §3 (the WING LAW — universal clauses + per‑architecture
    columns), §4 (growth arc), §5 (trio registry / anti‑collision), §5d (build sheets),
    §6 (engine needs + the **existing tool inventory — reuse, don't rebuild**), §7
@@ -102,7 +102,7 @@ jade, cap at Radiant/tier 2). These three targets are **premium**, so:
   `node tests/flapcheck.mjs` — all green before every push.
 - **You never judge your own visual output.** Only the Fable gate verdict counts.
   **Append a `LEAPFROG.md` lesson after every meaningful change.**
-- **If this doc or DRAGON-DESIGN conflicts with the code** (stale line ref, missing
+- **If this doc or STARTER-REDESIGN conflicts with the code** (stale line ref, missing
   seam, impossible instruction), STOP that step and report the conflict — never
   improvise schema changes.
 - **Verify before claiming.** "Done" means the headless suites are green AND (where a
@@ -140,7 +140,7 @@ jade, cap at Radiant/tier 2). These three targets are **premium**, so:
 
 ## 5. The Fable aesthetics gate (the loop you run)
 
-Full protocol + the **verbatim GATE PROMPT** are in **DRAGON-DESIGN §8** — read it there
+Full protocol + the **verbatim GATE PROMPT** are in **STARTER-REDESIGN §8** — read it there
 and use it as written (it tells the gate to re‑read the docs itself and trust nothing
 else). The shape:
 
@@ -244,7 +244,7 @@ The human may hand you a **one‑line art direction with the same authority as t
 (as with jade's "ICONIC GREEN" pivot). When they do:
 - Treat it as a design constraint that OVERRIDES the shipped palette/read, inside the
   aesthetic laws (respect the law set; for premium dragons law 12's ceiling is lifted).
-- **Record it in `DRAGON-DESIGN.md`** as human art‑direction (mirror how §5d records
+- **Record it in `STARTER-REDESIGN.md`** as human art‑direction (mirror how §5d records
   the approved hexes/direction), so the gate judges against the new intent.
 - When in doubt between "tasteful/safe" and the human's stated direction, choose the
   direction — and let the gate judge it in pixels.
@@ -256,7 +256,7 @@ palette anchor+accent + the ONE hero feature) and get a "go" before building.
 
 ## 9. Kickoff sequence (first session)
 
-1. Read `LEAPFROG.md`, then DRAGON-DESIGN §1–§9. Confirm the three keys' current
+1. Read `LEAPFROG.md`, then STARTER-REDESIGN §1–§9. Confirm the three keys' current
    `parts`/`forms`/rarity in `dragons.js`.
 2. Ask the human: **which dragon first**, and **is there an art direction** for it (or
    propose one).

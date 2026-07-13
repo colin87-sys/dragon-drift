@@ -7,7 +7,7 @@ CP1→"it's inert"→CP2 detour** — the single biggest time sink. The domain d
 [`BOSS-DESIGN.md`](./BOSS-DESIGN.md) and [`BIOME-DESIGN.md`](./BIOME-DESIGN.md); this is the
 **premium-dragon** counterpart. The worked reference implementation is
 [`SOLAR-ECLIPSE-BUILDSHEET.md`](./SOLAR-ECLIPSE-BUILDSHEET.md) + `js/dragonSovereign.js`. The
-lower-level engine/art laws this method assumes are in [`DRAGON-DESIGN.md`](./DRAGON-DESIGN.md) and
+lower-level engine/art laws this method assumes are in [`STARTER-REDESIGN.md`](./STARTER-REDESIGN.md) and
 [`MODEL-CREATION.md`](./MODEL-CREATION.md) — read them for the per-form tri/overdraw budgets, the
 eye-size ladder, the hue-hold law, and the blueprint grammar (this doc does not repeat them).
 
@@ -23,11 +23,11 @@ SPECTACLE. Bake the spectacle requirements in from round 1 and you gate once, no
   step, must hold **60fps on weak mobile**. Low-poly doctrine: FEWER, LARGER, confidently-faceted
   forms carried by SILHOUETTE.
 - **Tri budget is PER FORM, not per dragon: each form < 6000 tris** on HIGH (`tricount --ci`'s per-form
-  ceiling; ~13000 on ULTRA — see `DRAGON-DESIGN.md` §1). Solar's apex is ~2.2k, so there is large
+  ceiling; ~13000 on ULTRA — see `STARTER-REDESIGN.md` §1). Solar's apex is ~2.2k, so there is large
   headroom — headroom is NOT a target; spend it only on silhouette/spectacle that reads.
 - **Transparent/additive drawables are separately budgeted** (wisps, trails, motes): keep them few
   (Solar: apex ≤ 8, hard ceiling 12, alpha overlap ≤ 2 layers/px) and never as a glow crutch — see
-  §3b + `DRAGON-DESIGN.md`. And **no repeated detail below ~8px at the 250px chase distance** (the law
+  §3b + `STARTER-REDESIGN.md`. And **no repeated detail below ~8px at the 250px chase distance** (the law
   that killed Solar's 7-plate corona) — verify density at chase scale in a capture.
 - **REAR-CHASE CAM IS THE PRIMARY VIEW** (behind + slightly above, at chase distance). This is THE
   design constraint, not a footnote. Players see the DORSAL/rear of the dragon; **the face is ~0% of

@@ -1,691 +1,366 @@
-# DRAGON-DESIGN.md — The Starter Redesign Playbook (aesthetics first)
+# DRAGON-DESIGN.md — the premium creature playbook
 
-This is the player-dragon analog of `BOSS-DESIGN.md`: the design law, the trio
-registry, the per-dragon build sheets, and the gate protocol for rebuilding the
-three starter dragons (`azure`, `ember`, `jade`) in place, on their existing keys.
+**Audience: the next session designing or building a dragon.** This file is the distilled
+output of the arc that took Nightglass Vesper from an owner **1.5/5** ("a plane with
+trailing-edge bumps… stiff and basic… no player would grind for this") to a shipped 4.5
+premium — plus what Solar, the Phoenix line, and Jade banked before it. It teaches the
+METHOD and the reusable kits, not one creature: the next dragon might be a serpent, a
+raptor, a mech-drake, a leviathan — every law here is shape-agnostic. Read THIS instead of
+spelunking the ledger; the short reading list at the bottom is the only set of lessons that
+matter for dragon work.
 
-**PRIME DIRECTIVE — AESTHETICS FIRST.** If a form is not beautiful and
-eye-appealing, it is a failure, regardless of tests passing. The shipped starters
-follow older methods that produced visually inferior dragons; do NOT imitate the
-shipped azure/ember/jade geometry choices. Wings are the HERO feature of every
-dragon: unique architecture per starter, and beautiful without exception —
-never unique at the cost of beauty.
-
-**PRECEDENCE RULE.** Where a §5d build sheet gives a number, the SHEET is the
-sanctioned authority and overrides the shared bands in §2–§4. The shared laws
-define the default; the sheets carry the per-dragon exceptions, each with its
-one-line rationale. Tests (§7) and the gate (§8) judge against the sheet.
-
-Read alongside: `MODEL-CREATION.md` (blueprint grammar + verification loop),
-`CREATURES.md`, and `BOSS-DESIGN.md` §2 (budget truths) / §7c (studio-gate
-process). The boss playbook contributes PROCESS; its front-on emblem styling
-does NOT transfer (see §1).
+Companion docs: [`PREMIUM-DRAGON-METHOD.md`](./PREMIUM-DRAGON-METHOD.md) (coexist keys,
+ladder plumbing, the failure-class gauntlet in detail), [`STARTER-REDESIGN.md`](./STARTER-REDESIGN.md)
+(the azure/ember/jade trio's sheets + the verbatim gate prompt),
+[`BOSS-DESIGN.md`](./BOSS-DESIGN.md) §2 (the measured budget truths dragons share).
 
 ---
 
-## §1 The canvas: rear chase camera, sunlit dorsal, mobile budget
+## 1. The fixed context every dragon designs against
 
-- Dragons are seen from BEHIND at ~95% (chase camera), rear-3/4 during banks,
-  plus the shop turntable and the tier-up reveal. The DORSAL side, the WING TOP
-  surface, and the TRAILING EDGE are the primary canvas. The face matters in
-  the turntable/inspect view and the tier-up moment. Anything whose beauty
-  lives only under the jaw or belly is invisible in play — motifs need a
-  rear-visible carrier (see jade, §5d).
-- Unlike bosses, the sun DOES shade the dragon's dorsal surfaces — geometry
-  relief (ribs, staggered planes, camber) is rewarded with real shading. Value
-  hierarchy should be painted AND sculpted.
-- Budget: ≤ 6,000 static tris per form on HIGH (mobile), 13,000 on ULTRA
-  (`tools/tricount.mjs`). Per BOSS-DESIGN §2: tris are cheap, draws are cheap,
-  OVERDRAW is the cliff — never wrap the body or wings in an enclosing
-  additive/fresnel shell, and cap alpha-blended overlap at ≤2 layers per pixel
-  on any large screen-space element (this constrains jade's lobes, §5d).
-  Membranes use surface shaders (`composeSurface`, `applyFresnelRim`), not
-  stacked glow volumes.
-- Target allocation per starter (guideline, not a straitjacket):
-  hatchling ~2,000–2,800 · adolescent ~3,200–4,200 · apex ~4,500–5,800.
-  The apex must read VISIBLY richer than the adolescent — spend the ceiling.
+- **Rear-chase primacy.** The camera rides behind and above; the DORSAL surface, the wing
+  TOP, the TRAILING EDGE, and the TAIL seen END-ON are ~95% of play. The face is ~0% of the
+  play frame — it matters in the shop turntable, the tier-up reveal, and hero shots. Design
+  the rear first; judge the money feature in the money angle (Vesper's giant eyes read as
+  lit nostrils until they moved HIGH on the brow and converged toward the lens).
+- **Two viewing distances, two budgets.** At gameplay distance the dragon is SMALL and often
+  BACKLIT: only the silhouette, the span, and the lit accents read. In the shop/tier card it
+  fills the frame: surface craft reads. Split every design decision across these two reads
+  (§3, the silhouette-economics law).
+- **The sun DOES shade a dragon's dorsal surfaces** (unlike a boss's front face) — facet
+  relief, overlap shadow, and camber are rewarded with real shading. Sculpt AND paint the
+  value hierarchy.
+- **Engine**: 100% procedural, vanilla Three.js r160, flat-shaded low-poly, 60fps on weak
+  mobile. Tris are effectively free (≤6,000/form on HIGH is the test ceiling and nothing
+  ships near it); draws are cheap; **overdraw is the cliff** — never wrap a body or wing in
+  an enclosing additive/fresnel shell (BOSS-DESIGN §2).
+- **Architecture**: a dragon = part-builders registered in a module
+  (`registerTorso/Wings/Head/Tail` from `dragonRecipe.js` — see `dragonVesper.js` for a
+  complete premium example), a def in `dragons.js` (palette + `model` dials + a `forms[]`
+  ladder that overrides dials per rung), and the SHARED rig in `dragon.js` that poses wings
+  and walks tails every frame. You author geometry + dials; the rig owns time. **Never
+  animate what the rig owns** — publish joints and let its nullable loops drive them (§5).
 
-## §2 The aesthetic law set (every form, every dragon)
+## 2. The failure modes — KILL ON SIGHT
 
-Each law is numeric where possible; the per-sheet asserts (§7) encode the
-measurable ones, the gate (§8) judges the rest in pixels.
+Name these out loud at every render. Each one has shipped at least once and been rejected.
 
-1. **Silhouette-first.** Every form must read as an appealing solid-black fill
-   from the chase camera AND in side profile. One connected component (no
-   floating parts in silhouette). Wings must NOT fully overlap the body
-   outline — negative space between wing, neck and tail is part of the design.
-2. **Line of action.** The spine follows a C or S curve with ≥1 inflection in
-   the idle pose. A straight nose-to-tail axis is forbidden. Neck arcs one
-   way, tail counter-arcs.
-3. **Mass hierarchy (per view).** From the SIDE profile: body 55–65% of
-   silhouette area, wings+tail 25–35%, head+accents ~10%. From the REAR-chase
-   glide: wings 50–65%, body 25–40%, head+accents ≤10% (jade exception,
-   sheet-sanctioned: wings+fins 30–50%, body 40–60% — the serpent IS the
-   silhouette). Never split any two
-   adjacent masses 50/50; adjacent major-mass ratios target ~1.6 (avoid the
-   dead 0.9–1.1 band).
-4. **Taper law.** Every neck, tail, limb, horn, whisker and wing element tapers
-   monotonically; tip radius 10–20% of base radius. No constant-radius tubes
-   ("sausage" fail).
-5. **Repetition with variation.** Any repeated series (ridges, spikes, wing
-   fingers, fin lobes, scallops) varies size by ~×0.8 per step or follows a
-   swell-then-taper curve. Equal size + equal spacing = "sawtooth" fail.
-6. **Curve-vs-straight contrast.** Every silhouette region pairs a straight or
-   taut edge against a curved one (straight leading spar / curved sail;
-   straight horn / curved crest). Matching-radius curve pairs read dead.
-7. **No tangents.** Major forms either clearly overlap or leave a clear gap —
-   a wingtip grazing the tail line or a horn kissing the wing edge flattens
-   the read.
-8. **Detail hierarchy.** Detail clusters (dense at head, wing roots and
-   joints; sparse on large masses). Uniform noise everywhere = fail.
-9. **Palette discipline.** Per line: ONE anchor hue + ONE accent, held across
-   all three forms; ≤3 base diffuse tones + 1 emissive accent per form.
-   VALUE may ramp across forms (lighter hatchling → deeper apex) while the
-   HUE holds. Accents live on EDGES, RAYS and TIPS (the 10%), never on broad
-   masses. Identity hue may be carried in emissive; diffuse stays controlled
-   so nothing reads toy-colored. Registered accents (machine-readable — also
-   set `def.accentHue` so tests and the gate share ground truth):
-   | line | accent hex | hue | carrier |
-   |---|---|---|---|
-   | azure | `0xd9b36a` gold | ~39° | DIFFUSE tip-paint ONLY — zero accent emissive on wings |
-   | ember | `0xff8b2a` lava | ~27° | ICONIC FLAME — a BOLD warm-orange body + light cream belly; lava emissive on the ray tubes + collar + a lit spine/tail + glow-seams (human art-direction, "think Charizard"; supersedes the old near-black/emissive-only spec). Wing MEMBRANE stays dark-warm so the glowing rays read AS fire through it |
-   | jade  | `0xd6ffe9` mint-pearl | ~149° | ICONIC GREEN — a VIVID mid-value jade/emerald body (jade-gemstone bright on the midtones, NOT near-black moss) + pale mint belly; MINT-pearl (green-leaning) rim gradient + the ONE pearl bloom; fins green-family gradients (deep-emerald leading rays → pale jade tips). Even the bloom reads GREEN (human art-direction; supersedes the too-dark §5d starting hexes). Broad body masses stay shaded/material-real — saturation lives in the accents/fins/gradients |
-   Azure (COOL body, diffuse gold tips) and ember (WARM flame body) are 12° apart
-   in HUE but opposite in value/temperature — that separation is the read. §7
-   still asserts ember's wing membrane stays dark (the glowing rays carry the fire,
-   not a toy-bright sheet). Jade completes the trio as the GREEN read: a stranger's
-   one-word read of every jade frame must be GREEN at gameplay distance (the gate
-   judges greenness-at-distance as part of color/rim beauty).
-10. **Life over symmetry.** Perfect L/R pose symmetry in idle reads dead —
-    the flap rig's phase/lag already breaks it; keep it. NO scar law for
-    player dragons: distinctness comes from design, never from damage.
-11. **Painted + sculpted depth.** 2–3 value tiers on the wings and body
-    (leading/upper brightest → root/under darkest) AND real relief (ribs,
-    staggered planes, camber). One flat material on a large surface =
-    "flat sticker" fail.
-12. **Rarity ceiling.** Starters never use `glowSeams`, `wingVeins`, halos,
-    `auraIdle > 0` or `sparkle`; `spineGlow` ≤ 0.32; at MOST one emissive
-    bloom point per dragon, and if present it is the motif (azure's motif is
-    deliberately diffuse-only — its bloom allowance goes unused; the eyes
-    stay the brightest facial points, not a bloom). Premiums keep the fx drama — starters
-    win on FORM. This supersedes the shipped "smallest, narrowest wings so
-    premiums feel rare" comment on azure (update that comment when the build
-    lands): starters may have beautiful, majestic wings; what they may not
-    have is premium GLOW.
-
-## §3 The WING LAW (the hero feature)
-
-### Universal clauses (all three architectures)
-- **Swell-then-taper progression.** Elements (blades/rays/lobes) fan from a
-  leading-edge arm or root arc — never sunburst from one point; lengths swell
-  then taper across the fan (~0.8–0.85 scale per element after the longest);
-  every element tapers to a point (law 4).
-- **Leading-edge visual weight.** The leading edge carries clear thickness /
-  structure against a visibly thinner trailing side.
-- **Camber.** Every wing surface is curved (billow/cup), never a flat quad —
-  rim light must catch it.
-- **Rim beauty.** Fresnel rim / backlit emissive with darker structure reading
-  through it; gradient toward the tips (`applyFresnelRim` + vertex-color
-  gradient). Ribs/edges are geometry, not additive line decals.
-- **Two-tone surfaces.** Dorsal vs ventral tones differ (`wingInner`/
-  `wingOuter` exist — USE the contrast; the shipped starters barely do).
-- **The fold must change the silhouette.** Banks/dives visibly contract the
-  span, not merely rotate panels in place (§7 asserts measured contraction).
-- **Painted value tiers.** 2–3 tiers across the wing per law 11.
-
-### Per-architecture clauses (the sheet's numbers govern — §7 reads these)
-| | AZURE — blade-feather comb | EMBER — rays + membrane | JADE — silk fin lobes |
+| # | Failure | The tell | The fix |
 |---|---|---|---|
-| Elements | 5 separated feather-blades + leading arm | 4 finger rays + membrane panels | 3 lobes (forms 0–1) → 4 lobes (apex) |
-| Separation metric | true gaps ≥0.15× blade width, z-stagger ≥0.12 | deep scallops 0.22–0.30 + true V-gaps ≥0.15× span at the outer two rays | overlap permitted; tip NOTCHES separate the outer 40% of each lobe, notch depth ≥0.3× lobe length |
-| Spar/membrane | n/a (blades ARE the structure); blade-tip rake 15–25° back | beveled spar + propatagium fillet; spar:membrane thickness ≥10:1 | darker leading ray per lobe; lobes tilted ≥40° above horizontal (tall koi fans, NOT flat vanes) |
-| Scallop | n/a | 0.22–0.30 (sheet-sanctioned above the 0.15–0.25 default) | n/a |
-| Apex span : body | 2.8–3.2× | 2.5–2.9× (broad chord ≥1.3× toothless's carries the area) | 2.2–2.5× — sanctioned: the SERPENT reads as reach; the fins carry the beauty |
-| Apex single-wing area : body side-area | 0.8–1.1× | 0.9–1.2× | 0.35–0.55× |
-| Sweep / dihedral (glide) | 25–30° back / 12–20° up | 15–25° back / 10–18° up | lobes raked 30–45° back / fan tilt ≥40° |
-| Motion path (declared — §7 asserts the rig parts exist) | direct `wingPivotL/R` drive + per-blade lag pivots (ASHTALON covert pattern) | skinned `wingRigL/R` shoulder→elbow→wrist + `flapWing` (nightFury pattern) | direct `wingPivotL/R` + per-lobe furl pivots (fan-fold) |
+| 1 | **The plane / delta-kite wing** | Straight leading edge + straight trailing edge + sine bumps. Reads as a paper dart. Convex "scallop lobes" whose valleys never cut inward are still this failure. | The fingered wing kit (§4): knuckled arched leading edge, radiating bones, membrane cupping INWARD. |
+| 2 | **The stick / rod limb** | A cylinder or thin box doing the job of an arm, neck, or tail root. | Loft it with a real profile (shoulder swell, haunch mass, taper); give it nubs/plates in the creature's surface language. |
+| 3 | **The paper-thin flat blade** | A single-quad fin/horn/feather, edge-on invisible, plank-flat face-on. | Multi-tri WEDGE: a tent-ridge with a top face and side faces (a raised skeletal ray), or a two-layer top-vane/belly-skin airfoil. Thickness kills the plank; deep camber just digs a dark pocket — keep camber shallow. |
+| 4 | **The picket-fence fan** | N equal spikes/fingers/feathers at equal pitch. Reads as a comb, or bright, as a firework. | A DOMINANT + decaying rank (Vesper `lenFrac [1,.82,.66,.50,.36]`; Solar's carpal lance ~2.6× its rank pikes, decay `0.62^i`). Fat elements with an in-plane width axis, never needles. |
+| 5 | **The bolted-on wing** | Membrane meets hull at a naked line; the wing looks glued to a tube. | A real SHOULDER the wing grows from: scapular cowl plates lapping the root (overlap > weld — no seam to fail), plus a root gusset sweeping aft to the hip (§4). |
+| 6 | **The severed appendage** | Daylight between a tail stem and its fans, a jewel floating off a spike tip, a trail emitting from empty air. | Build a connective WEB first and hang the parts off it (shared vertices into the stem). Seat tip jewels at ~0.9× blade length. FX markers ride the moving part (§5.6). |
+| 7 | **The landing-gear leg** | A tucked limb hanging straight down. | Raise the knee and hug the limb to the hull (knee up + inboard) so it reads folded, not deployed. |
+| 8 | **The flat-black (or flat-anything) poverty** | One value where the bar has four. "Lacks richness" is usually literally this. | Value TIERS with endpoints spread wide enough to read (§3.2). |
+| 9 | **The LED-strip / rider-halo glow** | A painted emissive stripe along a surface, or one round bloom blob. The owner rejected the strip twice. | Glow as COMPONENTS lighting up — discrete nubs, plates, rims, the membrane underside (§6). `hideRiderGlow: true` if the rider bloom fights the creature. |
+| 10 | **The 1-bone plank / rigid tail** | The wing hinges only at the root; the tail swings as one unit. "Stiff" is a rig-DOF problem, never a geometry problem. | The motion kit (§5): publish real joint chains + a wrist fold. |
+| 11 | **The stacked-rings loft** | A smooth elliptical loft beading into ring bands under flat shading. | A fixed-polygon loft (`knapLoft` + a shared chined profile): every facet column becomes a longitudinal strake, painted in per-column value bands. |
+| 12 | **The sawtooth membrane** | A concave curve sampled at 2 segments polylines into scissor-cut V teeth. | Sample every membrane arc at ≥4 segments; keep inter-lobe cusps ~⅓ of peak depth. |
+| 13 | **The photocopied motion** | Tail/flap dials byte-identical to another dragon's. Motion IS identity. | Author a bespoke signature (Vesper: deeper/slower undulate than the roster's flame-whips). A copied dial block is a real defect at the gate. |
 
-Default bands for anything a sheet doesn't override: 4–5 elements, scallop
-0.15–0.25 (>0.35 = tattered), apex span 2.5–3.5×, sweep 15–35°, dihedral
-10–25°. "Backpack wings" (undersized for the sheet's band) = fail.
-NOTE: `tests/flapcheck.mjs` gates only `model.flap` (yoke-solver) dragons —
-none of the three starters ride that path, so flapcheck is NOT evidence the
-starter wings move well; the §7 fold-contraction assert and the gate's motion
-judgment are.
+## 3. DEPTH, THICKNESS, RICHNESS — where they actually come from
 
-## §4 The growth arc: hatchling → adolescent → apex
+1. **Thickness is geometry, not texture.** Every blade-like element is a wedge (§2.3).
+   A filled wing can still be a flat plank from the SIDE — give it a top surface and a
+   separate belly skin. A body is a lofted volume with named masses (shoulder swell, haunch)
+   — and a mass you modeled in cross-section is worthless unless it breaks the OUTLINE
+   (add the explicit dorsal bump; see law 6).
+2. **Value tiers: ≥3–4 that READ, and check the ENDPOINTS before adding steps.** "Lacks
+   richness" is usually one value where the bar dragons have four. But N tiers lerped toward
+   a target too close to the base compress into one grey (Vesper's four tiers spanned 0.02
+   luminance = invisible; re-aiming the lerp at a lit steel-slate spread them 0.05→0.14 and
+   all four read — a ONE-LINE fix). Judge tiers on the brightest biome the dragon flies in,
+   not a dark thumbnail.
+3. **Richness = number of ORGANIZED detail systems, not triangle count.** Solar reads twice
+   as rich as a same-budget dragon because it has ~7 organized ranks (panel ranks, battens,
+   spire rank, tail spikes, corona, mantle, gem string). Budget ~5–7 repeating-unit systems
+   (a `shingleRow`-style helper: one authored unit laid along different paths). N repeated
+   feathers at a fixed pitch read as crafted plumage; the same N tris scattered read as
+   noise — the gate scores a noise veto.
+4. **Knapped / overlapping plate fields** give close-range richness on any hull: struck
+   flake-plates lapping diagonally in the creature's facet language. Overlap > weld
+   everywhere — an overlapped joint has no seam to fail.
+5. **Layered surfaces**: bone → covert row → membrane (or strut → vane → skin). A wing with
+   a skeletal layer riding proud of the sheet reads organic from every angle; relief only on
+   the dorsal face still leaves a cold ventral plank (give the belly its own warm skin, and
+   a low emissive floor if metalness can crush it to black).
+6. **THE COUNTER-LESSON — silhouette economics.** At gameplay distance the dragon is small
+   and backlit: surface plates and coverts are INVISIBLE there. Spend the play-distance
+   budget on the OUTLINE — crest/crown, legs, tail volume, span, wing shape — and spend
+   surface richness on the close/shop read. A matte-black drake shipped at ~1,060 apex tris
+   against Solar's ~3,300 and reads premium BECAUSE the silhouette does the work. Tri budget
+   is cheap; **legibility is the constraint**. Corollaries: a repeating row must run to its
+   anatomical terminus (a spine ridge that stops mid-back reads unfinished); every landmark
+   should rhyme with the hero feature (Vesper's tail fans are its wing recipe in miniature)
+   so the creature reads as ONE design.
 
-Starters cap at Radiant → exactly THREE visible forms (`forms[0..2]`, tier
-0/1/2). `forms[]` stays length 3 — do NOT add a `forms[3]`. (`wingForms[3]`
-entries may remain for grammar compatibility.)
+## 4. The WING kit
 
-**The bloom rule (Bulbasaur law).** Each line carries ONE motif whose anchor
-position and base hue NEVER move across forms; only its scale, detail and
-count grow (≈0.3 → 0.6 → 1.0 of final glory). The hatchling must visibly hint
-at the apex. "Motif drift" (moved/re-hued motif) and "same-dragon-bigger" (a
-ladder that only scales) are both fails.
+The reference implementation is `buildScallopCrescentWings` / `buildOneScallopWing`
+(`dragonVesper.js`) — the fingered membrane wing that killed the plane read. The recipe
+generalizes to any membrane wing; §4b covers the non-membrane families.
 
-**Monotonic dials.** Every proportion moves one direction only across the
-three forms. Shared bands below; the per-line bands in parentheses are the
-sheet values §7 asserts against:
+1. **Knuckled leading edge, never a straight bar.** Two curves compose it: a gull ARCH in Y
+   (rise to a carpal apex ~t 0.35–0.45, ease to the tip — Solar's `wingArchY`) and an OGEE
+   in Z (bow forward mid-span, sweep hard aft to the tip — `vesperArmZ`). State the profile
+   as a module-level FUNCTION shared by geometry, tip markers, and tests (§5.6).
+2. **Radiating finger-BONES from the carpal knuckle** — raised tent-ridge wedges, not
+   creases (a 0.014u "crease" is invisible). Finger 0 is the longest and IS the wingtip;
+   the rest fan aft, shorter, drooping aft-and-down (never up-curl), with a dominant and
+   real length variance (§2.4). A thin lighter rim-catch cap along each spine makes it read
+   as a skeletal ray.
+3. **Membrane cups INWARD between finger tips** — concave bézier arcs with the control
+   pulled toward the knuckle (cup ≈ 0.35), **sampled at ≥4 segments** (the single
+   highest-value fix in the whole rework; 2 segments = sawtooth). Bias the deepest sag
+   slightly aft; drop each bay a hair so rim light pools.
+4. **A MEDIAL wrist** (`wristT` ≈ 0.2–0.3): short arm, long-fingered hand — the bat
+   proportion, and the natural fold joint (§5.3). **Span is pinned by the tip vertex**
+   (`F0 = LE(1)`), so pulling the wrist inboard GROWS the finger fan without shrinking the
+   wing. General rule: when the owner says "keep the envelope, change the proportion," find
+   what pins the envelope and move everything else freely.
+5. **Value tiers across the membrane** (§3.2): 3–4 materials graduating inboard-lit →
+   outboard-near-black (or the reverse for a bright dragon), all inside the identity lane.
+6. **A connected knife-edge**: ONE thin translucent strip tracing the whole scalloped
+   trailing polyline — per-bay shards read as floating debris.
+7. **Anti-plank extras**: a root gusset sweeping aft to the hip (buried under the cowl — the
+   wing grows from the body, §2.5), a thumb claw at the knuckle, a covert row layering the
+   upper surface. Subdivide + darken any big flat inboard triangle or the plane whispers
+   back at the root.
+8. **The shoulder**: scapular cowl plates in the torso's surface language, STATIC in the
+   body frame (never parented to the flapping pivot) so they cover the membrane root through
+   the whole flap.
 
-| Dial | Hatchling (0) | Adolescent (1) | Apex (2) |
-|---|---|---|---|
-| Head : body length | 1:2.0–1:2.6 (jade 1:2.8–1:3.2) | 1:3.0–1:4.2 (jade 1:4.5–1:5.5) | azure 1:4.8–1:6.0 · ember 1:4.5–1:5.5 · jade 1:7.5–1:9.5 |
-| Eye diameter : head length | 33–40%, round, low-set | 22–28% | 14–18%, almond, higher |
-| Snout projection | near-flat | short | pronounced |
-| Neck | fused/stub (`neckSegments` low) | taper appears | long, defined S |
-| Wingspan : body length | 1.4–1.7× (jade 0.9–1.2×) | 2.0–2.3× (jade 1.8–2.1×) | per §3 table |
-| Spine gesture | curled, chest-down | straightening | proud upright S |
-| Pointiness (horns/spikes/claws) | ~0, all-convex forms | few, soft | many, mixed curvature |
-| Palette | lighter value, softer saturation (hue holds — law 9) | mid | value down, saturation up, luminous tips |
+### 4b. Non-membrane wings
 
-**Machinery (what exists, with the real numbers).** `ascension.js` applies
-`forms[0..tier]` cumulatively onto `d.model` — model KNOBS only, never
-`parts.*` (see §5d global rule). The shared `SIZE_RAMP`/`WING_RAMP` contribute
-only 0.86→0.97 relative wing growth (~1/7th of the §3 arc); the rest of the
-span ladder rides per-form `wingScale` in `forms[]` and per-form planform
-params in the new wing builders — or an explicit per-form
-`bodyScale`/`wingSpan` curve, which `ascendedDef` already honors over the
-shared ramps (the Obsidian mechanism, `ascension.js:143–148`). Per-form values
-work for ANY `model.*` knob via `forms[]` accretion, but only knobs flagged
-`forms:true` in `creatureGrammar.js` are range-checked per form — flagging
-`headScale`/`eyeScale`/`wingScale` (+ the wing-shape dials the sheets vary) is
-an engine need (§6). The genuinely missing dial is POSTURE/spine-curl (no
-torso builder has one — §6); head machinery largely exists on `draconic`
-(`headScale`, `snoutScale`, `snoutType`, `headArchetype` presets,
-`browIntensity`, `whiskerFins` via `OVERRIDE_KEYS`,
-`dragonDraconicHead.js:293–297`) — the real head gap is round-vs-almond eye
-SHAPE (the draconic eye zone is fixed almond).
+The kit's LAWS (arched profile-as-function, dominant + decay, thickness, tiers, connected
+edge, real shoulder) transfer; the surface swaps:
+- **Feathered ranks** (Solar, the Phoenix line): shingled kite-feathers at ~55% overlap so
+  only a shadow LINE shows between them (a 4-tier value gap between vane and root reads as
+  teeth — keep ~2 tiers). Emarginated "fingers" must be fat, in-plane, aft-swept.
+  Choose the profile family deliberately: interior-peak arch = an M silhouette (Solar);
+  monotonic terminal peak = a rising rake (Phoenix Reforged) — the function IS the identity.
+- **Fan / lobe wings** (Jade): mirrored lobe pairs beating on shared phase via
+  `wingLobePivots` — see the jade branch of the rig.
+- Whatever the surface, the rear-chase read comes first: "reads as the intended shape, not a
+  kite, from behind" is a round-1 check, not a polish item.
 
-**Charisma carriers.** Pupil/eye treatment is the cute↔fierce master dial:
-hatchling = large round low-set eye (33–40% of head length; past ~45% reads
-"googly" — gate judges it), apex = narrowed, brighter, higher-set. Eyes are
-the brightest facial point in every form.
+## 5. The MOTION kit — what "excellent wing + tail motion" actually is
 
-## §5 The trio registry (anti-collision — locked before any build)
+"Stiff" always means too few animated joints. The cure is never re-sculpting — it is
+publishing hinges the shared rig already knows how to drive, built so the REST pose stays
+byte-identical.
 
-No two starters may share more than one cell in any column pair. Wing
-architecture is the headline differentiator. Keys, display names, rarity,
-cost, stats and elemental hue families are CONTRACT (saves + shop) — do not
-change them.
+1. **The tail: a 4-joint NESTED `isBone` chain** (`splitFanTail` → `segs: joints`). Build
+   nested Groups down the stem, each child offset by the inter-joint vector; set
+   `joints[0].isBone = true` (rotation-only — position writes tear a connected loft); bin
+   every stem/nub/fan mesh to the joint whose z-span contains it, position-compensated by
+   the −anchor (law 5). The rig's solver (`dragon.js` ~929) then walks it with THREE
+   superimposed motions:
+   - a **travelling lateral coil** — `sin(time·4.0 − i·0.6)`, amplitude growing tip-ward via
+     `lock=(i+1)/nTail`, scaled by `tailLagScale` (0.12 ≈ neutral; author a bespoke value);
+   - a **phase-lagged VERTICAL undulation** (`tailUndulateX`) — THE axis the rear-chase
+     camera reads, since it sees the tail end-on. Verify it as a ± range over frames, never
+     a point sample (a DC bias reads as a static droop, not motion), keep the per-joint
+     phase lag in the coil's family (too much spread cancels the cumulative wave), and
+     up-bias it so the most-down phase sits at/above rest — then corridor safety holds by
+     construction;
+   - a **banking rudder** trimmed by `tailRudderScale` — **per-joint locals COMPOUND on a
+     chain** (world tip ≈ Σ locals ≈ 2.5× base on 4 joints); an untrimmed rudder turns a
+     graceful arc into a J-hook. Whenever you multiply joint count, re-budget every
+     per-joint gain against the new cumulative.
+2. **The wing: a real hinge cascade on the `wingParts` glide-hold poser** (`dragon.js`
+   ~735). Three nested Groups — `pivot` (shoulder) → `mid` (forearm) → `tip` (the HAND) —
+   driven with per-segment amplitude + lag dials (`rootAmp/midAmp/tipAmp`,
+   `midLag/tipLag`) and a `glidePow`-shaped waveform (`sign(sin)·|sin|^glidePow`) that HOLDS
+   the broad glide pose and pulses through it: high glidePow = rare heavy beats ("commands
+   the air"), low = frantic whelp flapping. Kill the raw sine metronome. Optional apex dials
+   (`apexMid/apexTip/apexPitch/restLift`) lift the stroke into a held high-V.
+3. **The wrist fold: the hand moves as ONE rigid unit.** A membrane is a continuous sheet —
+   split it across N independently rotating segments and it tears. Split at the natural
+   crease instead: the builder returns `{ arm, hand, K }` — arm (bone + gusset + thumb)
+   parents to `mid`; hand (EVERY finger + the WHOLE connected membrane + knife-edge) parents
+   to `tip`, positioned at the carpal `K`. Any geometry that spans a joint must keep all its
+   vertices on ONE side of that joint (or on the pivot itself) — the root gusset tore until
+   it was re-anchored to arm-side points only.
+4. **⚠ NON-NEGOTIABLE #1 — the −anchor trick.** Every reparent under a joint offsets the
+   child by the joint's position: `tip.position.set(K)`, `hand.position.set(−K)` (chains:
+   compensate by the cumulative offset). The assembled REST pose stays byte-identical —
+   tests, tricount, and the shipped look are untouched while the joint gains articulation.
+   This is how you add motion to a shipped-looking creature with zero visual regression.
+5. **⚠ NON-NEGOTIABLE #2 — the mirror convention.** The shared posers write IDENTICAL L/R
+   rotations. Build BOTH wings canonical (+X) and mirror the LEFT with an **outer**
+   `scale.x = −1` wrapper that PARENTS the pivot (rotate-then-flip). `pivot.scale.x = −1` ON
+   the pivot (flip-then-rotate) desyncs rotation.y/.z — wings beat in opposite directions
+   (`wingsymprobe` Δ0.000 → ~3.0). Two corollaries: (a) a mirror transform and a per-side
+   sign convention BOTH flip — use exactly one (a mirrored wing feeding a rig loop takes
+   `side: 1` on both, or the flip doubles); (b) a body-frame piece built in a
+   `for (side of [1,−1])` loop handed `side<0 ? matA : matB` is an accidental L/R value
+   asymmetry — same material both sides; the only sanctioned asymmetry is a deliberate,
+   named marking.
+6. **FX handles ride the moving part.** The tip marker / `wingElements` tip must (a)
+   duplicate the SAME profile function as the geometry (hoist it — two copies of a formula
+   is the trail-detach bug) and (b) parent to the FOLDING group (`hand`), or trails emit
+   from where the wingtip used to be.
+7. **Prove motion with numbers + a strip, never a still.** Green headless tests do not prove
+   motion: Vesper shipped a 1-bone plank with every probe green because the rig was rotating
+   an EMPTY group (def lacked `wingParts`, so the fallback poser wrote `pivot`+`tip` and
+   never `mid` — where all the geometry sat). Name your pivots, sample their rotations over
+   N frames headlessly (the per-joint amplitude table proves the wave travels: e.g. seg0
+   ±0.036 → seg3 ±0.124 rad), and run `flapstrip` for the 5-phase pose read. A hinge and the
+   geometry it should move living in different objects is THE motion bug family — check for
+   it in both directions (joints with no geometry / geometry with no joints).
+8. **Ladder the motion** (§7): whelp `wingParts:1, glidePow 0.9` (frantic) → apex
+   `wingParts:3, tipAmp 0.55+, glidePow 2.2` (deep wrist fold, held glide). The maturing
+   BEAT is a grind-visible upgrade.
 
-| Axis | AZURE — "Azure Drake" | EMBER — "Ember Wyrm" | JADE — "Jade Serpent" |
-|---|---|---|---|
-| Key / rarity / cost | `azure` / R / 0 | `ember` / SR / 600 | `jade` / SR / 1200 |
-| Fantasy | swift sky courier — falcon energy | forge-born bruiser — anvil-and-coal energy | river-wind dancer — koi/eastern energy |
-| Body plan | compact avian glider: short body, deep keel chest, long swept wings | stocky broad wyrm: heavy squared shoulders, thick neck, short powerful tail | long sinuous serpent: body IS the silhouette, tall elegant fin fans |
-| Silhouette primitive | △ swept arrow/dart | □ anvil/block masses | ○ flowing S-ribbon |
-| Wing architecture (HERO) | **swept blade-feather comb** (§3 col 1): stiff falcon PRIMARIES, straight taut leading edges (`feather` lineage + ASHTALON comb lessons — CONSTRUCTION only: separation/z-stagger/value-tiers/taper. Do NOT copy its scythe SHAPE language: no hooked crescents, no villain silhouette — azure's blades are straight-edged falcon feathers, a hero read) | **broad-chord ember membrane** (§3 col 2): gapped finger rays through dark membrane (`skinnedMembrane`/`nightFuryWings` lineage) | **silk fin sails** (§3 col 3): tall overlapping koi-fin lobes + trailing streamers (`seraphWing` chord logic + `sideFins`; `plume` TAIL builder is streamer INSPIRATION only) |
-| Motif (fixed anchor, blooms 0.3→0.6→1.0) | **brow crest** (head, gold-tipped): single feather-nub → 3-blade swept crest fan | **forge collar** (nape/wing-root yoke — rear-visible): two dull coals between the wing roots → glowing collar arc → blazing yoke with 6-spike corona | **chin pearl** (jaw) + lockstep rear carrier: pearl bead → held pearl → luminous river-pearl cradled by whiskers, with a mint-pearl rim gradient on the rear lobe tips + tail-veil edge blooming in step |
-| Accent (law 9 table) | gold `0xd9b36a`, diffuse tips only | lava `0xff8b2a` on a BOLD warm FLAME body + cream belly (iconic-flame, §5d) | mint-pearl `0xd6ffe9` (green-leaning) on a VIVID jade body + green-gradient fins (iconic-green, §5d) |
-| Eye character | bright, alert, round→keen | small, hot, deep-set | calm, long, painterly |
-| Stats/fx (unchanged) | 1.0 across; aura `142,213,255` | speed 1.04, handling 1.06, drain 0.95, regen 1.05; aura `255,139,42` | speed 1.07, handling 1.11, drain 0.9, regen 1.1; aura `121,226,183` |
+## 6. GLOW and accents — components, never strips
 
-**Roster anti-collision (beyond the trio).** Each apex black-fill must also be
-instantly tellable from its nearest ROSTER neighbors — azure vs `phoenix` +
-`pearl`; ember vs `toothless`/`obsidian` + `fire`; jade vs `astralWyrm` +
-`thundercoil` + `water`. Locked differentiators:
-- azure vs phoenix: stiff cool-toned falcon primaries with straight leading
-  edges (phoenix = soft layered warm feathers); crest ≤3 blades (phoenix =
-  flame crown); forked banner tail (phoenix = plume ribbons); ZERO warm glow
-  on feathers — gold stays diffuse tip-paint.
-- ember vs `fire`: MOOT — `fire` (Cinderwing, a failed test starter) is being
-  retired, so ember freely owns the flame identity. Ember still reads distinct by
-  BODY PLAN (anvil bruiser) + the gapped-finger membrane wing silhouette + the
-  forge-collar bloom, not by avoiding warm color. (If `fire` is not removed, the
-  two overlap on palette only — differentiate on silhouette.)
-- ember vs toothless: true V-gaps ≥0.15× span at the outer two rays
-  (toothless is a continuous scalloped web, no through-gaps); chord ≥1.3×
-  toothless's.
-- jade vs astralWyrm: fin lobes tilted ≥40° above horizontal (tall koi fans
-  vs astral's near-horizontal vanes); trailing streamers ≥0.6× body length;
-  whisker+pearl head (astral = mask).
+1. **Withheld-in-cruise is the premium move.** The signature accent is DARK in cruise —
+   only the eyes glow at rest — and ignites at the signature moment (Surge). The shipped
+   surge tick is MULTIPLICATIVE: `emissiveIntensity = baseIntensity · (1 + surgeMix·0.9·sgm)`
+   over `materials.spineMats`, lerping toward `surgeHi`. So: `baseIntensity ≈ 0.04`
+   (imperceptible) + a high `model.surgeGlowMultiplier` (Vesper: 22) → a capped blaze only
+   on Surge. Eyes are driven separately — keep them OUT of the surge arrays.
+2. **Override the WHOLE fever palette.** The rig's Surge defaults are MAGENTA
+   (`feverWing ?? 0xff44cc`, `feverEye ?? 0xff66ee`) — any non-pink identity renders
+   hot-pink until every hook is overridden: `feverWing` (0x000000 = wings stay silhouette),
+   `feverEye`, `feverWash`, `surgeHi`. Note `sgm` also multiplies the wing glow target —
+   a black feverWing is the kill switch. Set `wingEmissive` explicitly (an absent field
+   reaches `setHex(undefined)` and works by luck). Dense lit fields (feather ranks) go in
+   `materials.flareMats` — flared on Surge but exempt from the rim that would wash them.
+3. **Glow reads as COMPONENTS lighting up, never a painted stripe or a halo blob.** Put the
+   emissive on discrete geometry the creature already owns: crowning cores on dorsal/tail
+   nubs, plate rims, fin rims, the membrane UNDERSIDE (a backlit wing). The owner rejected
+   the same accent twice as an "LED strip" until it became the components igniting. On a
+   dark creature, kill the rider's round Surge bloom (`hideRiderGlow: true`) — the creature
+   owns the frame with its own accents.
+4. **Rim/tip, never face** (the coal-not-torch law): when lighting a repeated element, the
+   bright part is the RIM or TIP over a dark face — a lit face reads tacky; a glowing tip on
+   a dark blade reads jeweled. Saturated emissive baked into opaque facets (sat ≥0.75)
+   blooms in-colour under ACES; ≤1 tiny near-white element, kept out of the surge arrays.
+   Pick separated hues by how they BLOOM, not by hex distance (crimson and rose bloom to the
+   same pink).
+5. **Emissive geometry gotchas**: a one-sided strip winding away from the camera is
+   back-face culled — the ignition looks like a no-op (thin emissive strips:
+   `side: THREE.DoubleSide`). Prove any bloom-washed motif with a PROBE
+   (`seamprobe`-style: read the material's actual hue/intensity through the surge math) and
+   judge cruise/surge as a MATCHED dark-sky pair, never against a warm biome capture.
+6. **"Only X glows" asserts weigh CONTRIBUTION** — `emissiveIntensity × luminance(emissive)`
+   — because intensity defaults to 1.0 and a black emissive contributes zero at any
+   intensity.
+7. **The dark-identity note.** A matte-black dragon returns ~nothing from a standard rim —
+   unphotographable on a dark card. Never grey the body (if "darkest object" is an identity
+   law, keep it); instead gate a kicker rig on `luminance(def.body) < 0.05` in the capture
+   harnesses: boosted cool rim + a second wing-edge kicker + a faint brand-hued floor
+   bounce, warm key unchanged, bright dragons byte-identical. Outline it, never grey it.
 
-**Distinctness self-test (ALL tiers).** Black-fill thumbnails of the trio at
-EVERY tier (0/1/2) must be tellable apart by body plan AND by wing silhouette
-alone. Guaranteed tier-0 silhouette keys: azure = forked tail-tip hint +
-crest nub breaking the head outline; ember = squared shoulder line
-(shoulder width ≥1.25× azure's at tier 0) + the two collar coals; jade =
-body length ≥1.35× the other two hatchlings + ≥2 visible fin-bud lobes.
+## 7. The TIER LADDER — every rung earns in CRUISE
 
-## §5d Build sheets
+Players grind forms; a form that only differs during Surge confers nothing for 95% of play.
 
-A sheet is the builder's contract. Extend, never rebuild: reuse registered
-part builders and the flap/pivot rigs; new builders self-register and touch
-nothing shipped. Colors below are starting hexes — the gate may direct tuning.
+1. **Each rung is a CRUISE-visible upgrade**: segment/finger count, regalia meshes, crest,
+   span, plate density, motion depth. Gate each regalia MESH to a rung (absent on the whelp
+   — not merely dimmed), so ascending confers hardware + light + silhouette, a coronation
+   arc, never "same dragon at four sizes."
+2. **Encode the growth VERB as monotonic asserts.** Whatever the redesign makes the earn —
+   knapping + folding + a maturing beat, ignition stages, arch rise — assert it rung-over-rung
+   in the dragon's own `tests/starters.mjs` block (e.g. fingers `2<3<4<5`, `tipAmp
+   0<0.3<0.46<0.55`, `glidePow 0.9<1.2<1.7<2.2`, tris monotonic ↑) so a future edit can't
+   silently flatten the ladder.
+3. **Signals grow UP the ladder, never invert**: body/eye/light reads must rank correctly —
+   a whelp must never out-read the apex (big whelp eyes are fine; a brighter whelp is not).
+   An inverted identity (apex = darkest) is legal but must itself be asserted monotonic.
+4. Build the APEX first and gate it to PASS; the ladder is subtraction from the apex, not
+   addition toward it (PREMIUM-DRAGON-METHOD).
 
-**GLOBAL RULE — builders never swap per form.** `ascendedDef` merges `forms[]`
-into `d.model` only, never `d.parts`. Every per-form change must be a model
-knob the (single, fixed) builder reads — the `formLevel`/`tailStyle` pattern.
-Any sheet line that reads "builderA→builderB across forms" is a doc bug: STOP
-and report (§9).
+## 8. The PROCESS that actually worked
 
-**CP1 authoring semantics (all slots).** Author the base def as the shared
-skeleton with apex dials carried in `forms[2]`; `forms[0]`/`forms[1]` may be
-minimal stubs at CP1 but must still BUILD CLEAN (`tricount --ci` runs all
-forms). At CP1, `tests/starters.mjs` may scope the per-form band/monotonicity
-asserts to form 2 (build-clean only for forms 0–1); full 0–2 coverage is
-mandatory from CP2. Render CP1 captures via `ascendedDef(def, 2)`. By CP2,
-base+`forms[0]` must resolve to the hatchling per the §4 table.
+1. **Coexist → hero → migrate.** New builders self-register DEFAULT-OFF in a fresh module;
+   a new roster key opts in; everything shipped stays byte-identical (prove it). Prove the
+   design on the HERO form, then ladder. Never break the shipped roster. (A cheap A/B —
+   a second key spreading the def with richness dials off — is a legitimate deliverable
+   when the owner wants to compare live.)
+2. **The Fable loop is MANDATORY: design-director, then a HARSH CRITIC gate at every
+   checkpoint.** Self-judging is banned by owner mandate. Spawn a high-effort Fable design
+   director to produce the plan/sheet; after each checkpoint spawn (and then RESUME — the
+   r1→r2 comparison is sharper than a fresh spawn) a harsh critic judging REAL renders with
+   a numeric bar (avg ≥4.0, no axis ≤2, binary vetoes). Budget one rework per checkpoint;
+   a first-try pass means the bar is too soft. The critic repeatedly caught what green tests
+   and self-review missed: the 1-bone plank, the mirror desync, per-side material
+   asymmetries, the eyes failing in the face-front angle. Point it at "diagnose why this
+   reads simple and prescribe a costed plan," not just "score this."
+3. **Benchmark against the ROSTER'S BEST and the owner's references, NOT just the spec.**
+   A sheet's own doctrine can be the failure — Vesper's build sheet literally specced the
+   plane wing, and a sheet-compliant build earned a 1.5/5. When the owner rejects a
+   compliant build, the sheet is the bug: run a fresh design pass that REVISES the sheet.
+   A synthesis gate that benchmarks the whole roster also catches "leaner than its peers."
+4. **Verify before claiming** (§9), and the human judges motion/feel on the PR preview —
+   the gate is structurally blind to motion, biome interaction, and dark-shop legibility;
+   ship those as named residuals riding the preview.
+5. **THE RULE applies per checkpoint**: every checkpoint that changed the creature owes a
+   NEW lesson file in `leapfrog/lessons/` — a synthesis reviewer treats a missing one as a
+   process defect.
 
-**BUILD ORDER — strict queue: azure → ember → jade.** Each slot's branch is
-cut from master AFTER the previous slot's PR merges (slot A branches from the
-merge of this design doc), so shared engine work (wing builders, dials, the
-studio tool, `tests/starters.mjs`) accretes instead of forking. Engine needs
-land with the first slot that hits them.
+## 9. The VERIFICATION HARNESS (run from `reforged/`, always `cd` first)
 
-### AZURE — "Azure Drake" (slot A) — branch `claude/azure-rebuild`
-- **Torso** `avian` (or `sweptLoft` if avian fights the keel): deep keel
-  chest, short coupled body, the arrow read. Body `0x1c3048` family kept.
-- **Wings (hero)**: new builder `bladeFeatherWings` per §3 col 1. Leading arm
-  spar (beveled, `horn`-toned) sweeping 25–30° back; 5 feather-blades per
-  wing, roots marching along the arm, lengths swelling mid-fan then tapering
-  (longest ≈ span×0.55), each blade a cambered plane with a raised central
-  rib, z-stagger ≥0.12, gaps ≥0.15× blade width, straight taut leading edges
-  (falcon, not phoenix-soft). Value tiers: leading blades lightest sky, root
-  coverts darkest. Gold `0xd9b36a` as DIFFUSE tip-paint only on blade tips +
-  crest (zero accent emissive on wings — law 9 carrier). Motion: direct
-  `wingPivotL/R` + per-blade lag pivots.
-- **Head** `draconic` (softStealth-adjacent archetype tuned alert/keen —
-  `headScale`/`snoutScale`/`browIntensity` exist via `OVERRIDE_KEYS`); brow
-  crest motif anchor above the eyes. Round-eye hatchling shape needs the §6
-  eye-shape dial.
-- **Tail** builder `clean`, per-form `tailStyle: 'simple' → 'simple' →
-  'finned'` (the shipped pattern, `dragons.js` forms); apex reads as a forked
-  banner (kite/swallow energy — echoes the blades). Tier-0 fork HINT (the
-  tier-0 silhouette key) via a NEW opt-in knob (e.g. `model.tailTipFork`,
-  default off) on the clean builder's simple style — shipped `simple`
-  geometry untouched (§9) — or by using the existing `twinfin` style at
-  form 0. Builder picks one and states it in the PR.
-- **Forms**: 0 = round-chested fluffball glider (head:body 1:2.0–2.4, curled
-  posture), stub blade-comb (even stubs keep gaps), crest nub, forked tail
-  hint; 1 = blades lengthen, crest 3-blade fan begins, span 2.0–2.3×;
-  2 = full high-aspect span 2.8–3.2×, crest fan complete, forked banner tail,
-  gold tips at their richest (still diffuse; `spineGlow` ≤0.3 — restraint IS
-  the read).
-- Tri targets: ~2.4k / ~3.8k / ~5.2k. Engine needs still open for this slot:
-  blade-comb wing builder; posture dial; eye-shape dial; assert-metadata
-  handles; `tests/starters.mjs` (§7/§8). ALREADY LANDED by slot 0 (the tooling
-  tranche): `tailStyle` in grammar, the `forms:true` dial flags,
-  `tools/dragonstudio.mjs` + the `maxTierFor` clamp, the universal `?wingDebug`
-  pin (`setFlapDebugPose`), the silhouette `--wings-only`/`--scale`/`--crop`
-  levers, and `?cleanshot` — use them, don't rebuild them.
+Verify by FAILURE CLASS — each tool catches what the others are blind to:
 
-### EMBER — "Ember Wyrm" (slot B) — branch `claude/ember-rebuild`
-**PALETTE DIRECTION: ICONIC FLAME (human art-direction, "think Charizard").** This
-supersedes the original near-black coal / emissive-only / no-tail-glow spec below.
-Ember is a BOLD warm-orange flame dragon with a light cream belly, a lit spine/tail,
-and glowing lava-crack seams. The GEOMETRY (anvil body, gapped-finger membrane wings,
-feralPredator head, forge collar) is unchanged — only the palette + flame signatures.
-Colours that landed (approved): body ramp `0xf2a24e`→`0xe8792e`→`0xdd5a1c` (light→rich,
-warm orange), belly cream `0xf7dca6`→`0xf2ce92`→`0xf0c888`, warm dark-red membrane
-(`membraneBase 0x4a1a0c`) so the glowing rays read AS fire, cream scutes/horns.
-- **Torso** `arrow` broadened (`shoulderWidthScale` ~1.4–1.8) or `hullTorso`:
-  anvil shoulders (the tier-0 silhouette key: shoulder width ≥1.25× azure's
-  hatchling), thick short neck. Body VALUE ramps per form (light hatchling →
-  rich apex) on the held warm-orange hue (law 9); cream belly two-tone. Top tier:
-  warm cream-ash scutes on the spine ridge + a lit ember leading spar.
-- **Wings (hero)**: new/extended `emberMembraneWings` per §3 col 2. Thick
-  beveled leading spar + propatagium fillet; 4 finger rays as REAL tapering
-  tube geometry (~0.82 per-digit scale) with raised ribs; membrane panels
-  with scallops 0.22–0.30 and true V-gaps ≥0.15× span at the outer two rays;
-  warm dark-red membrane (`membraneBase 0x4a1a0c`, held dark so it never reads
-  toy-bright — §7 asserts this) with a per-vertex EMISSIVE gradient on the ray
-  tubes (leading ray brightest → trailing dim, ≤1.2) so the glowing rays read AS
-  FIRE through the membrane. glowSeams (lava-crack seams) is SANCTIONED for
-  ember's iconic-flame identity (a human-directed exception to the law-12 starter
-  ceiling). Broad chord: span 2.5–2.9× with area at the top of the band. Motion:
-  the whole membrane rides ONE static hand group under the shoulder (never split
-  across an articulated joint — L162); `wingRigL/R` + `flapWing`, fold via the
-  shoulder-yaw furl.
-- **Head** `draconic` with `headArchetype: 'feralPredator'` (heavy brow via
-  `browIntensity`, small deep-set hot eyes; `horned` is OUT — it ignores
-  `headScale` and has no snout dial); 2 horn pairs at apex.
-- **Tail**: short, thick, with a LIT FLAMING SPINE (a glowing warm tail via
-  `spineGlow`, not a dark iron tip — the old no-tail-glow rule is retired with
-  `fire`). Tail builder `clean`, `tailStyle` simple → simple → blade. (A literal
-  Charizard flame-*tip* was offered and declined — the lit-spine read is the
-  approved look.)
-- **MOTIF — forge collar** at the nape/wing-root yoke (rear-visible every
-  frame of play): form 0 = two dull coals between the wing roots (emissive
-  ~0.35 — with the warm belly underglow this keeps the hatchling from
-  reading as a charcoal lump); form 1 = glowing collar arc; form 2 = blazing
-  yoke with a 6-spike corona — the single brightest point on the dragon
-  (law 12: its ONE bloom).
-- **Forms**: 0 = round pot-bellied forge pup (value-lightest body, squared
-  shoulders, coal pair, stub gapped wings); 1 = shoulders square up further,
-  rays lengthen, horns bud, collar arc; 2 = anvil apex, `backSpines`, full
-  broad wings, blazing collar.
-- Tri targets: ~2.6k / ~4.0k / ~5.6k. Engine needs hit here: gapped-finger
-  membrane builder; motif socket (per-form geometry+emissive swap at a named
-  anchor).
+| Class | Tool | Gate |
+|---|---|---|
+| Budget | `node tools/tricount.mjs` | every form <6000, monotonic up the ladder |
+| Integrity | `tests/blueprint.mjs` (via `node tests/run-all.mjs`) | parts resolve, no NaN vertices (a NaN passes every geometry test and only shows as an empty render — the guard lives in starters) |
+| Runtime | `tests/smoke.mjs` headless flight | the dragon actually renders in flight (two invisible-dragon crashes only ever surfaced here) |
+| Symmetry | `node tools/wingsymprobe.mjs <key>` | Δ0.000 bilateral across all 5 flap poses — catches mirror-convention bugs |
+| Accent law | `node tools/seamprobe.mjs` | cruise ≈ dark / surge = the identity hue, through the real surge math |
+| Motion | `node tools/flapstrip.mjs <key>` + a named-pivot amplitude capture | the 5-phase chase-cam read + proof the wave travels (±ranges per joint, not point samples) |
+| Ladder / shop | `node tools/tiershots.mjs <key>` | all forms, rung-over-rung earn visible; dark-identity kicker applies here |
+| Gameplay read | `node tools/gameshots.mjs` / `surgeshot.mjs` | the real rear-chase frame + the Surge money shot |
+| Identity laws | the dragon's block in `tests/starters.mjs` | tris↑, value-ramp monotonic, cruise-emissive = eyes-only by contribution, motion-ladder monotonic, and a no-forbidden-import FIREWALL (a static source check guarding the redesign premise; match import STATEMENTS, not prose — a comment naming the banned module will bait a loose regex) |
 
-### JADE — "Jade Serpent" (slot C) — branch `claude/jade-rebuild`
-**PALETTE DIRECTION: ICONIC GREEN (human art-direction — same authority as ember's
-iconic-flame pivot, PR #237).** This SUPERSEDES the too-dark starting hexes below
-(the near-black `0x123026` moss body). Jade is THE green starter of the new trio
-(the old starters, `cinderwing` and the alt starters are being retired) — a
-stranger's one-word read of EVERY frame must be GREEN. Lift the body to a VIVID
-mid-value jade/emerald (jade-gemstone: bright and saturated on the MIDTONES, NOT
-near-black moss); keep a darker deep-jade tier for the value ramp and the pale mint
-belly for contrast. The pearl AND its lockstep rim carrier are MINT-pearl
-(green-leaning, inside the §7 cool ~149° accent band) not pure white, so even the
-bloom reads green. Fins are green-family gradients (deep-emerald leading rays → pale
-jade tips). Stay inside the laws: ≤3 base diffuse hues, ONE bloom, TOY-COLOR still
-applies — saturation lives in the accents/fins/gradients, the broad body masses stay
-shaded and material-real (like ember's orange). The GEOMETRY (serpent body, silk-fin
-lobes, whisker+pearl head, veil tail) is unchanged — only the palette. Approved hexes
-(value down + saturation up across forms per §4): body ramp `0x3cb883`→`0x28a06b`→
-`0x178a54` (light→rich, vivid jade), deep-jade shadow/value tier `0x0d5c3a`, pale
-mint belly `0xdaf7e6`, mint-pearl bloom + rim carrier `0xd6ffe9`, fin gradient
-deep-emerald `0x116b45` → mid `0x2f9e77` → pale-jade tip `0x9ff0c8`, pale-green scales
-`0x8fe0be` / horn `0xc7ebcf`, calm green eye `0x8ff0c2`. When in doubt between
-"tasteful dark jade" and "unmistakably green," choose GREEN — the gate judges
-greenness-at-gameplay-distance as part of color/rim beauty.
-- **Torso** `serpent` (or `crystalSerpent` spine logic for the coil): the
-  BODY is the hero silhouette — long S line of action enforced in idle
-  (`neckSegments` 7→9, `tailSegments` 10→13 across forms; hatchling body
-  length ≥1.35× the other two hatchlings — the tier-0 key). Body the VIVID
-  jade ramp above (`0x3cb883`→`0x28a06b`→`0x178a54`, NOT the near-black
-  `0x123026` family), deep-jade `0x0d5c3a` shadow tier, pale mint belly
-  `0xdaf7e6`.
-- **Wings (hero)**: new builder `silkFinWings` per §3 col 3. NOT a bat wing:
-  3 lobes (forms 0–1) → 4 lobes (apex) per side, tall koi fans tilted ≥40°
-  above horizontal, each lobe an independently cambered petal with a darker
-  leading ray, ×0.8 size progression, tip notches separating the outer 40%
-  (depth ≥0.3× lobe length); trailing streamers off the rear lobe ≥0.6× body
-  length at apex. OVERDRAW LAW: only the rear-most lobe + streamers are truly
-  translucent; forward lobes are OPAQUE with vertex-color tip gradients +
-  `applyFresnelRim` faking the silk. Fin gradients are GREEN-family per lobe:
-  deep-emerald leading ray `0x116b45` → mid `0x2f9e77` → pale-jade tip
-  `0x9ff0c8` (the rear lobe + streamer tips carry the mint-pearl rim); alpha
-  overlap ≤2 layers per pixel, overlap regions ≤30% of lobe area. Span 0.9–1.2× → 1.8–2.1× → 2.2–2.5×
-  (sheet-sanctioned; the serpent reads as reach, the fins carry the beauty).
-  Motion: direct `wingPivotL/R` + per-lobe furl pivots (fan-fold).
-- **Head** `draconic` slim variant (`snoutType`/`headScale` per form);
-  whiskers (`whiskerFins`) from form 1, taper law applies; calm long eyes.
-- **MOTIF — chin pearl + rear carrier**: pearl bead → held pearl → luminous
-  river-pearl cradled by whisker curls (mint-pearl `0xd6ffe9`, green-leaning,
-  the line's ONE bloom), judged in the turntable face crop. Because the jaw is
-  invisible from the chase camera (§1), a LOCKSTEP carrier blooms with it:
-  mint-pearl rim gradient on the rear lobe tips + tail-veil edge at
-  0.3→0.6→1.0 — this is what the rear-chase gate judges. Even this bloom reads
-  GREEN, never white (ICONIC GREEN direction above).
-- **Tail**: builder `clean`, `tailStyle` simple → simple → finned, with the
-  apex fin read as a flowing veil echoing the wing lobes (streamer geometry
-  from the wing builder's kit; `plume` remains a tail-builder REFERENCE for
-  streamer shaping, not a per-form swap target).
-- **Forms**: 0 = chubby LONG river-pup (head:body 1:2.8–3.2 — less extreme
-  than its siblings so the serpent hint survives), big calm eyes, 3 fin-bud
-  lobes BUILT (≥2 visible in silhouette — the tier-0 key; matches the §3
-  3/3/4 count and the §7 assert), pearl bead; 1 = body lengthens, lobes unfurl, whiskers
-  bud; 2 = full S-ribbon glory, 4 lobes + streamers, veil tail, mint-pearl +
-  rim carrier radiant (bloom still reads GREEN), body at the richest vivid jade.
-- Tri targets: ~2.3k / ~3.9k / ~5.4k. Engine needs hit here: fin-lobe wing
-  builder + overdraw spot-check; pearl motif socket + lockstep rim carrier.
+Hero/review captures: append `?norider` to hide the rider + its bloom. `dragonstudio.mjs`
+has a `surge` state for matched cruise/surge pairs on one sky. Two standing rules: **eyeball
+a render after every geometry change** (green tests lie about pixels), and bring the critic
+BOTH the strip and the numbers.
 
-## §6 Engine needs (land with the FIRST slot that hits them — see build order)
+---
 
-**SLOT 0 — the TOOLING TRANCHE — LANDED (branch `claude/dragon-tools-slot-0`).**
-Before slot A, the capture/verification toolchain was made state-of-the-art so the
-azure/ember/jade builders inherit effective tools instead of building them mid-slot.
-DONE here: item 5 (`tools/dragonstudio.mjs` + the `maxTierFor` clamp on
-`tiershots.html`), item 6 (the `?wingDebug` freeze extended to EVERY wing path via the
-shared `js/wingDebugPose.js` poser + `setFlapDebugPose`, plus fold/bank pins), item 8
-(`--wings-only`), item 9 (silhouette `--scale`/`--w/--h` + `--crop`), item 10
-(`?cleanshot` + the clamped/`wingDebug`-passthrough gameshots), the headshot NAPE
-fix + three backdrops, and the item-2 GRAMMAR FREEBIES (`model.tailStyle` as a
-live-resolved enum + `forms:true` on `headScale`/`eyeScale`/`wingScale` + the wing-shape
-dials). The §8 step 0 CALIBRATION was proven end-to-end on shipped azure (the gate
-FAILed it, as designed). STILL OPEN for the builder slots: items 1, 3, 4, 7, the
-posture/spine-curl dial and the eye-shape dial (item 2), and `tests/starters.mjs`.
+## North star
 
-1. **Wing builders** per §5d (blade comb / gapped membrane / silk fin),
-   self-registered, each declaring its §3 motion path and publishing the
-   standard rig parts (`wingPivotL/R`; `wingRigL/R` where skinned).
-2. **Grammar extensions**: `model.tailStyle` — ✓ DONE (slot 0), added as a LIVE-resolved
-   enum (`kind:'enum'`, `registry:'tailStyle'`) validated against `dragonTail.TAIL_STYLES`
-   (the full 12-style buildable set, not the doc's starter subset, so the shipped roster's
-   `nightfury` etc. stay green); `forms:true` flags on `headScale`, `eyeScale`, `wingScale`
-   and the wing-shape dials the sheets vary per form — ✓ DONE (slot 0). STILL OPEN: a
-   **posture/spine-curl dial** (the one genuinely missing proportion dial — no torso builder
-   has one); an **eye-shape dial** (round↔almond — the draconic eye zone is hardcoded almond;
-   `headScale` reaches `draconic` but NOT `horned`).
-3. **Motif socket pattern**: a named `motifAnchor` each build publishes;
-   per-form motif geometry swaps in one place; §7 checks anchor invariance.
-4. **Assert-metadata contract** (extends the anchor pattern): every
-   new/extended builder publishes measurement handles — `parts.spinePoints`
-   (world-space spine polyline from the torso builder) and
-   `parts.wingElements = [{root, tip, length}]` per blade/ray/lobe. Eye/head
-   asserts read RESOLVED DEF dials (`ascendedDef(def,t).model.*`), never mesh
-   spelunking.
-5. **`tools/dragonstudio.mjs`** (§8): tiershots + bossstudio precedent —
-   deterministic contact sheets. Also: clamp tier montages to
-   `maxTierFor(key)` (today `tiershots.html` renders and frames by an
-   unreachable T3 for starters — the gate must never judge a phantom form).
-   Effectiveness requirements, from running the current tools on the shipped
-   starters (r1 audit): (a) **fill-the-frame detail crops** — in today's
-   tiershots the dragon is a ~15%-height sliver in a mostly-empty tile; wing
-   gaps, value tiers and scallops are unjudgeable. Keep the fixed-distance
-   ladder frame for the SIZE ramp, but add per-part crops (whole-dragon,
-   wing close-up, head) where the subject fills ≥60% of the crop, and judge
-   emissive/edge detail at a 4× crop (bossgate law). (b) **Backdrop contrast
-   is mandatory** — navy-on-near-black hid azure's silhouette edges in both
-   tiershots and headshot; every state renders on all three §8 backdrops,
-   and the pale backdrop is the primary silhouette-judgment frame.
-   (c) **Deterministic wing phase** via the §6.6 pin — tiershots' idle pose
-   is whatever the clock gives it. (d) headshot's REAR tile currently
-   clips inside the neck geometry — reposition or drop that angle.
-6. **Flap debug pin for the starter motion paths.** A `?wingDebug=<phase>`
-   FREEZE mode already exists (`dragon.js` ~line 600, used by
-   `tools/flapstrip.mjs`) but it lives inside the Mk II YOKE branch — it only
-   freezes `model.flap` dragons, and NO starter rides that path (§3 motion
-   rows). EXTEND `?wingDebug` (plus a fold/bank pin) to the direct-pivot and
-   skinned-rig paths rather than inventing a parallel mechanism — transient
-   poses cannot be captured by waiting (L137 law).
-7. **`tests/starters.mjs`** (§7) + `def.accentHue` on the three starters.
-8. **`--wings-only` flag** on `tools/silhouette.mjs`/`silhouetteCore.mjs`
-   (it has `--no-wings`; CP3 needs the inverse) — slot C.
-9. **Silhouette resolution for gap asserts**: at the default 560×440 the
-   rear-view dragon spans ~250px, so a 5-blade comb's gaps are 3–5px —
-   aliasing territory. Add a `--w/--h` (or fixed 2×) render size and/or a
-   tight auto-crop so the subject fills the frame before any pixel-level
-   gap judgment; the `top` planform view at default size is already
-   adequate (verified).
-10. **`?cleanshot` capture flag** (in-game): gameshots frames currently have
-   the tutorial banner, the green target ring and trail scribbles OVERLAPPING
-   the dragon, and the wing phase differs per tile (non-comparable). A debug
-   flag that hides HUD/hints/rings/trails + the §6.6 wing pin (pass
-   `wingDebug` through gameshots) makes in-game frames judgeable; clamp its
-   tier loop per §8 step 4.
+A premium dragon is a creature you'd grind for at BOTH distances: at gameplay range it is a
+living silhouette — an outline you could name in one sentence, a held glide that breaks into
+heavy wingbeats, a tail that travels a visible wave past the camera — and in the shop it is
+a crafted object: organized ranks, four values that read, a wing that grows out of a real
+shoulder, an accent that stays dark until the moment it owns the frame. The engine's
+constraint is legibility, never triangles; the process's constraint is honesty — a harsh
+critic at every checkpoint, benchmarked against the best thing already shipped, verified by
+failure class before any claim. Kill the plane wing, the stick limb, the plank hinge, and
+the LED strip on sight, and build the METHOD's way from turn one: profile-as-function,
+dominant-plus-decay, −anchor joints, outer-wrapper mirrors, withheld light.
 
-## §7 Per-sheet geometry asserts (`tests/starters.mjs`, new)
+## The pre-ship checklist
 
-Headless, built via `buildDragonModel` + `ascendedDef` per reachable form
-(0–2). Asserts read the SHEET bands (§3 per-architecture table + §5d), not
-the §4 defaults, via a small per-dragon spec table in the test:
-- Head:body length inside the sheet band per form; monotonic across forms.
-- Eye diameter : head length inside the §4 band per form (from resolved
-  `eyeScale`/`headScale` dials); monotonic decreasing.
-- Wingspan:body inside the sheet band per form; monotonic increasing.
-- Wing elements: count per the sheet (azure 5 · ember 4 · jade 3/3/4), from
-  `parts.wingElements`; lengths non-equal (progression present); separation
-  per the sheet's metric (azure/ember: planform gaps > 0; jade: tip-notch
-  depth ≥0.3× lobe length over the outer 40%).
-- Declared rig parts exist (`wingPivotL/R`; `wingRigL/R` where the sheet says
-  skinned); driving the fold contracts measured span (ratio ≤0.7 of glide).
-- Taper: every tapered chain (tail, neck, elements from `wingElements`):
-  tip ≤0.20× base, with a ≥0.08 floor (deliberate assert slack: the suite
-  only catches sausages and degenerate needles — the gate judges the law-4
-  10–20% band in pixels).
-- Line of action: `parts.spinePoints` polyline has ≥1 inflection in idle.
-- Motif anchor: positions compared in PRE-SCALE local space (divide out the
-  form's resolved `d.model.scale` before comparing) — drift ≤0.15 units;
-  motif bounding volume monotonic increasing.
-- Tri budget per form within sheet targets ±20% and under the 6,000 ceiling
-  (`tricount` remains the hard gate).
-- Palette: accent hue within ±20° of `def.accentHue`; carrier rule (azure: no
-  accent-hued emissive on wings; ember [ICONIC FLAME]: the wing MEMBRANE diffuse
-  stays dark-warm — L≤0.22 — so the glowing rays carry the fire, not a toy-bright
-  sheet [the old "no warm accent diffuse on the body" rule is retired — the body
-  is now bold warm flame]; jade [ICONIC GREEN]: accent cool green ~149°±20°, AND
-  the body diffuse reads as VIVID mid-value jade (unmistakably green at a glance,
-  NOT near-black moss) — saturation carried in the accents/fins, broad masses
-  material-real; the mint-pearl bloom stays green-leaning inside the ~149° band).
+- [ ] Silhouette: rear-chase outline nameable in one sentence; masses break the OUTLINE, not just the cross-section; detail rows reach their termini; landmarks rhyme with the hero feature.
+- [ ] §2 sweep: zero failure modes present — say each name at the render.
+- [ ] Wing: arched knuckled leading edge (a function), dominant + decaying fingers/feathers, inward-cupped membrane ≥4 seg, connected knife-edge, cowl + gusset shoulder, thickness on every blade.
+- [ ] Values: ≥3–4 tiers that READ (endpoints checked), judged on the brightest biome + the shop card; dark identity has its kicker rig.
+- [ ] Motion: real joint chain(s) published (`isBone` tail, `wingParts` cascade + wrist fold); −anchor rest pose byte-identical; outer-wrapper mirror; bespoke dials; amplitude table + `flapstrip` prove it; FX markers ride the folding part.
+- [ ] Glow: cruise = eyes only (by contribution); accent withheld (base ≈0, high `surgeGlowMultiplier`); full fever palette overridden; glow is components, not strips; DoubleSide on thin emissive.
+- [ ] Ladder: every rung a cruise-visible earn; growth verb asserted monotonic; no inverted signals.
+- [ ] Harness: tricount · blueprint · smoke · wingsymprobe Δ0.000 · seamprobe · flapstrip · tiershots · gameshots/surgeshot · starters block (incl. firewall) all green; roster byte-identical.
+- [ ] Process: Fable director plan; harsh critic PASS at every checkpoint (resumed, ≥4.0); benchmarked vs Solar/Phoenix + owner references; residuals named for the PR preview; a lesson file per checkpoint.
 
-## §8 The gate protocol (aesthetics gate — the reason this rebuild exists)
+## Ledger reading list (the only lessons that matter here)
 
-Process is the boss playbook's, restyled for dragons:
-
-0. **CALIBRATION (once per slot, before CP1 round 1).** Run the identical
-   capture set + verbatim GATE PROMPT on the SHIPPED starter for that key.
-   Expected verdict: FAIL citing §8 failure classes (MITTEN / FLAT STICKER /
-   SAME-DRAGON-BIGGER). If the gate PASSES the shipped dragon, the captures
-   or the gate agent are broken — fix the pipeline before building. Record
-   the calibration verdict in the PR. (L136/L137: the calibration is the
-   gate's credibility.)
-1. Suites green first: `node tests/blueprint.mjs`, `node tools/tricount.mjs
-   --ci`, `node tests/starters.mjs` (and `node tests/flapcheck.mjs` for the
-   roster's `model.flap` dragons — it does not cover starters, §3 note).
-2. **Studio first** — `node tools/dragonstudio.mjs <key>` (§6.5): per
-   reachable form (0–2, clamped via `maxTierFor`), named states
-   glide/fold/bank via `setFlapDebugPose` + turntable-face; fixed angles per
-   state (rear chase, side profile, rear-3/4, top-down planform);
-   DETERMINISTIC animation phase (fixed time seed) so round K and K+1 are
-   pixel-comparable; three backdrops — near-dark `0x14121a`, pale `0xcfd6e4`,
-   warm sunset-gold `0xd9a24a` (L140: gold/pearl accents must be judged
-   against a warm sky too); fixed output paths
-   `reforged-captures/dragon-<key>-f<form>-<state>-<angle>-rK.png`.
-   Black fills via `tools/silhouette.mjs`; face crops via `tools/headshot.mjs`.
-   The tier montage IS the true-scale form-ladder frame (framed once, by the
-   apex form).
-
-   **Existing tool inventory — USE these, do not rebuild them** (several have
-   capabilities their usage comments undersell):
-   - `tools/silhouette.mjs <key> <view> [form]` — headless black fills, ~100ms,
-     no browser. Views: rear/side/front/climb AND (undocumented, verified
-     working) `top` — the wing PLANFORM fill — and `threeq` (rear-¾-above,
-     the bank read). Flags: `--pose=glide|recovery|apex|downstroke|settle`
-     (frozen wing-cycle poses, works headlessly on non-yoke dragons too) and
-     `--no-wings` (body-only fill). `--wings-only` is the one missing flag
-     (§6.8).
-   - `tools/silhouette-overlay.mjs <concept.png> <key> [view]` — built-vs-
-     concept overlap %, for tuning a wing planform against a reference sketch.
-   - `tools/flapstrip.mjs [key] [tier]` — the 5-phase wing-motion strip from
-     the REAL chase cam via `?wingDebug` (yoke dragons today; §6.6 extends it
-     to the starter paths).
-   - `tools/nfview.mjs [key] [tier]` — lit multi-yaw stills (front/¾/side/
-     ¾-rear/rear) on a neutral stage — the general angle viewer dragonstudio
-     wraps.
-   - `tools/headshot.mjs [key] [tier]` — 4-angle head montage (azure/ember/
-     jade are already in its default list).
-   - `tools/tiershots.mjs`, `tools/gameshots.mjs`, `tools/inspectshot.mjs` —
-     tier montage / in-game chase crops / shop-showcase phone frames (clamp
-     caveats per §6.5 and step 4).
-3. Spawn a FRESH gate agent (model `fable`) per round with the verbatim GATE
-   PROMPT below + capture paths + tri counts (+ prior directives for rounds
-   ≥2). The builder NEVER judges its own output. Quote verdicts verbatim.
-   FAIL → apply the numbered directives exactly, re-capture as round K+1,
-   fresh gate. After ~4 rounds of churn: consolidate all directives into one
-   frozen numbered work order before iterating further (MARROWCOIL law).
-4. In-game captures second — `node tools/gameshots.mjs` (or the `?debug`
-   URL flow): ONLY the three named frames are handed to the gate — chase
-   idle, mid-bank, tier-up reveal. Tier MONTAGES come exclusively from the
-   clamped dragonstudio tool: gameshots' hardcoded tier loop `[0,1,2,3]`
-   composites a mislabeled phantom-T3 tile for starters — either clamp its
-   loop to `maxTierFor(key)` (slot A engine need if used for montages) or
-   never hand its montage to the gate. Bank/fold AESTHETICS are judged on
-   the pinned studio states; the in-game pass judges INTEGRATION only
-   (readability against biome skies, presence at gameplay distance) — the
-   BOSS-DESIGN §7c studio-vs-integration split.
-5. Human judges motion/feel on the PR preview. Merge verdict is human.
-
-Checkpoints per slot: **CP1** = apex form body+wings first built (per the
-§5d authoring semantics), captures: rear chase, side profile, rear-3/4 bank
-(pinned), wing planform. **CP2** = all three forms + ascension ladder —
-those per form, plus the true-scale form-ladder montage, turntable face crop
-per form, black-fill silhouette triptych of this dragon's three forms, AND a
-trio black-fill frame: this slot's new build alongside the LATEST merged
-versions of the other two starters (shipped versions for slot A) plus its
-nearest roster neighbors (§5 list). **CP3 (slot C only)** = after jade's CP2
-passes: true-scale trio frame + black-fill triptych of all three NEW apexes
-(bodies-visible and wings-only variants) + the tier-0 and tier-1 trio rows —
-a fresh gate agent gives the trio verdict before the arc closes.
-STOP for the user's go after each checkpoint PASS.
-
-### Failure classes (the gate's vocabulary)
-MITTEN (filled web, no gaps) · BACKPACK WINGS (under the sheet's span band) ·
-SAUSAGE (no taper) · SUNBURST (rays from a point, no arm march) · SAWTOOTH
-(equal repeats) · FLAT STICKER (one material, no tiers/relief) · TANGENT ·
-GOOGLY (hatchling eyes past ~45% of head length) · SAME-DRAGON-BIGGER (forms
-only scale) · MOTIF DRIFT (anchor/hue moves) · TOY-COLOR (saturated diffuse
-on broad masses) · DEAD SYMMETRY (matching-curve pairs, static identical
-wings) · STRAIGHT SPINE (no line of action) · PHANTOM FORM (judging or
-shipping an unreachable tier).
-
-=========================== GATE PROMPT (verbatim) ===========================
-You are the independent AESTHETICS GATE for Dragon Drift's starter-dragon
-rebuild, spawned with fresh eyes. Trust nothing you were told beyond this
-prompt: read the capture PNGs at the provided paths yourself, and read
-reforged/DRAGON-DESIGN.md §2 (aesthetic laws), §3 (wing law — the universal
-clauses plus THIS dragon's architecture column), §4 (growth arc), the §5
-registry row and §5d build sheet for THIS dragon, §8 step 2's capture-set
-definition (states, angles, backdrops, per reachable form — so you can tell
-when a required capture is missing), and §8's failure classes.
-PRECEDENCE: where the §5d sheet or the §3 per-architecture column gives a
-number, it overrides the shared §3/§4 defaults — judge against the sheet.
-If any capture is ambiguous, non-deterministic between rounds, or missing a
-required state/angle, your verdict is a demanded re-capture, not a judgment.
-
-PRIME DIRECTIVE: aesthetics first. This gate exists because the previous
-starters passed every functional test and still looked inferior. A dragon
-that is merely correct FAILS. Ask of every frame: is this beautiful? Would a
-stranger screenshot it unprompted? Does the wing read as the hero feature?
-
-Judge HARSHLY against: the registry silhouette one-liner for this dragon;
-the wing law for THIS architecture (element separation per its metric, taper
-progression, leading-edge weight, camber + rim light, value tiers, span band
-per its sheet); the growth arc (form 0 genuinely CUTE per the §4 dial table
-without going googly; forms must differ in PROPORTION and FEATURES, not just
-scale; the motif anchored and blooming — and rear-visible per §1, via the
-sheet's carrier where one is specified); the aesthetic laws (S-curve line of
-action, per-view mass hierarchy, taper law, no tangents, no sawtooth,
-palette discipline with the law-9 accent carrier for this line, rarity
-ceiling per law 12); and distinctness when trio/roster frames are provided
-(black fills tellable apart at EVERY provided tier by body plan AND wing
-silhouette; no collision with the named roster neighbors). Score silhouette
-appeal, line of action, taper/shape contrast, wing majesty (per this
-sheet's bands), wing-surface detail (membrane, fin or blade per this
-dragon's architecture), hierarchy, color/rim beauty, and life 0–5 each: any
-axis ≤2 is an automatic FAIL; average <4.0 is a FAIL for a rebuild whose
-entire purpose is beauty. Builder self-reports run generous — assume flaws
-exist and hunt for them in the pixels, especially: gaps that closed at
-distance, trailing edges that went straight, accents bleeding onto broad
-masses, hatchlings that read as shrunken adults, and anything judged on an
-unreachable tier (starters cap at form 2 — a fourth tile is a PHANTOM FORM;
-demand a re-capture).
-
-Return exactly one of:
-- "PASS — proceed" (optionally with polish notes), or
-- "FAIL" + NUMBERED surgical directives (specific parts, numbers, hexes —
-  the builder applies them verbatim).
-Your entire final message is the verdict. Do not soften it.
-==============================================================================
-
-## §9 Ground rules for builder sessions (session-history law)
-
-- STRICT BUILD ORDER azure → ember → jade; each slot's branch cut from
-  master after the previous slot merges (§5d). Keep keys/display names/
-  `rarity`/`cost`/`stats`/`fx.auraColor` untouched; `forms[]` stays accretive
-  and length 3; never break a non-starter dragon (run the full `tricount` +
-  `blueprint` roster gates, not just your key).
-- Every command in the FOREGROUND. No `git stash` / `checkout --` / `reset`.
-  Commit small, push often.
-- If this doc conflicts with the code (stale line refs, missing seam,
-  impossible instruction like a per-form builder swap), STOP that step and
-  report the conflict — never improvise schema changes.
-- Extend, never rebuild: new part builders self-register; shipped builders
-  and other dragons' geometry are read-only.
-- You never judge your own visual output. Only the gate agent's verdict
-  counts. Append a LEAPFROG lesson after every meaningful change.
+- `2026-07-12-vesper-cp1-fingered-batwing-rework.md` — the plane-wing autopsy + the wing kit.
+- `2026-07-12-vesper-cp2-body-tail-richness.md` — welded terminals, silhouette bumps, termini, hero-echo.
+- `2026-07-12-vesper-cp3-motion-wing-fold-tail-chain.md` — the plank bug, wrist fold, −anchor, mirror convention.
+- `2026-07-12-vesper-cp4-value-tiers-holistic-ship.md` — lerp endpoints, growth-verb asserts, the roster-benchmark gate.
+- `2026-07-12-vesper-directive3-silhouette-economics.md` — outline vs surface budgets, tip-pinned span, the dark-card kicker.
+- `2026-07-11-vesper-i4-starlit-seam.md` + `i5` — withheld emissive math, fever overrides, contribution-weighted asserts, the firewall.
+- `2026-07-11-fluid-tail-chain-and-wing-blade-flutter.md` — the tail-chain physics: compounding locals, phase-lag families, up-bias-by-construction.
+- `2026-07-10-premium-richness-organized-ranks.md` — organized ranks, `shingleRow`, the NaN guard.
+- `2026-07-09-premium-dragon-method.md` + `2026-07-09-solar-cathedral-arch-spectacle.md` — apex-first, profile-as-function, withheld regalia.
+- `2026-07-09-phoenix-empress-coal-not-torch-build.md` — rim/tip value structure, hues by bloom.
