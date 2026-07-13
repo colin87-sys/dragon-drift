@@ -146,8 +146,10 @@ export const CONFIG = {
   // Co-scale law: the slip multiplies speed AND steering (player.js) + divides assistAxes,
   // so every reachability ratio stays exactly valid — the mode is fair by construction.
   FLOW: {
-    slipPerChain: 0.02,  // slip target = 1 + this × min(flowChain, chainCap)
-    chainCap: 20,        // → slip 1.00 … 1.40 (faster than spine 1.325; the buffer is sized for it)
+    slipPerChain: 0.015, // slip target = 1 + this × min(flowChain, chainCap)
+    chainCap: 20,        // → slip 1.00 … 1.30 (toned from 1.40: on the fastest dragon (Solar)
+                         // the slip compounded on the high speed-stat and read TOO fast; 1.30
+                         // sits just under spine's 1.325. A pure feel dial — nudge either way.
     chainStep: 0.10,     // flow-local score mult = 1 + this × min(chain, chainCap) → ×1 … ×3
     orbScore: 30,        // score per flow ribbon orb (× chainMult × scoreMult; NOT × fever — no double-dip)
   },
