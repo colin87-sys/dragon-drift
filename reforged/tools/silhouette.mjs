@@ -14,10 +14,12 @@
 //       --scale=N       multiply the render resolution ×N (default 1) so gaps span enough px to judge
 //       --w=N --h=N     explicit render size (overrides scale)
 //       --crop          tight auto-crop to the filled subject (+margin) so it fills the frame
+//       --holes         report interior through-holes (flood-fill): count, hole-fraction, sizes,
+//                       + fill-component count — the MITTEN detector / SKELETON gauge (§B.8)
 //     → /tmp/sil-<key>-<view>.png   (white fill on near-black)
 
 import { writeFileSync } from 'node:fs';
-import { renderSilhouette, pngGray, DRAGONS } from './silhouetteCore.mjs';
+import { renderSilhouette, pngGray, holeMetric, DRAGONS } from './silhouetteCore.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -26,6 +28,7 @@ const pose = opt('--pose');                         // glide|recovery|apex|downs
 const hideWings = flag('--no-wings');               // isolate the BODY silhouette (drop wings)
 const wingsOnly = flag('--wings-only');             // isolate the WINGS (drop body) — the §6.8 inverse
 const doCrop = flag('--crop');
+const doHoles = flag('--holes');                    // report interior through-holes (MITTEN detector)
 const scale = Number(opt('--scale') ?? 1);
 const pos = args.filter((a) => !a.startsWith('--'));
 const key = pos[0] || 'pearl';
@@ -83,3 +86,17 @@ const cov = bounds
 const sel = wingsOnly ? ' · wings-only' : hideWings ? ' · body-only' : '';
 console.log(`${name} · ${formName} · ${view}${pose ? ' · pose:' + pose : ''}${sel} — ${tris} tris · ${W}×${H} → ${cov} · widest gap ${gapPx}px`);
 console.log(`wrote ${path} (${outW}×${outH})`);
+
+// --holes: flood-fill the coverage buffer for TRUE interior through-holes (enclosed
+// background), the §B.8 SKELETON gauge. Measured on the FULL-frame buffer (not the
+// crop) so the px areas are the real render's. planform = fill + holes.
+if (doHoles) {
+  const hm = holeMetric(buf, W, H);
+  const pct = (hm.holeFraction * 100).toFixed(1);
+  console.log(`holes: ${hm.holeCount} interior (≥${hm.minHoleArea}px) · hole-fraction ${pct}% of planform · ` +
+    `fill components ${hm.fillComponents} · largest ${hm.largestHole}px · smallest ${hm.smallestHole}px`);
+  if (hm.holeCount > 0) {
+    const list = hm.holes.slice(0, 12).map((h) => `${h.area}px(${h.w}×${h.h})`).join(', ');
+    console.log(`  sizes: ${list}${hm.holeCount > 12 ? ` … +${hm.holeCount - 12} more` : ''}`);
+  }
+}

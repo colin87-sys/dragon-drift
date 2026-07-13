@@ -23,6 +23,7 @@ import './dragonSovereign.js';      // Solar Sovereign (Eclipse Dragon-King): re
 import './dragonPhoenixMolten.js';  // Molten Phoenix (living magma): moltenPhoenixTorso + pyreFanWings + calderaCrestHead + emberWakeTail (caldera heat-tier system)
 import './dragonPhoenixReforged.js'; // Phoenix Ascendant REFORGED ("Sunhawk"): sunhawkKeelTorso + sunfeatherWings + sunpennantTail + sunhawkCrownHead (white-gold solar-ivory glow-up; coexists with `phoenix`)
 import './dragonVesper.js';         // Nightglass Vesper (knapped night-glass): knappedTorso + scallopCrescentWings + vesperCatHead + splitFanTail (FLAT-FACET night drake; NOT the retired organism/one-skin family)
+import './dragonRevenant.js';       // Gravelight Revenant (chalk-ivory bone lattice): ossuaryTorso + phalanxShroudWings + revenantSkullHead + vertebraeWhipTail (holes-in-the-black-fill SKELETON; light THROUGH bone — I0 stub, WRAITH-GRAVELIGHT §B)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
