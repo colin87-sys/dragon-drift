@@ -645,12 +645,14 @@ export const DRAGONS = {
       scale: 1.22, tailSegments: 13, neckSegments: 4, flapBias: 0.9, flapAmp: 0.85,
       spanScale: 1.0, glowLevel: 1.0, headScale: 1.0, tailLength: 1.0, tailStretch: 1.0,
       fingers: 4, wristT: 0.24,
-      // WING MOTION — SHOULDER-LED beat (owner note: the wing complex must read as ONE
-      // joint with a little lag, NOT a stiff elbow/wrist double-bend). The big arc lives in
-      // the shoulder (rootAmp), lifted at the recovery peak toward ~12 o'clock by apexRoot and
-      // swinging down to ~5 o'clock; mid/tip carry only a small trailing LAG (not a bend).
-      wingParts: 3, rootAmp: 1.18, apexRoot: 0.42, midAmp: 0.12, tipAmp: 0.16, midLag: 0.34, tipLag: 0.66,
-      glidePow: 1.12, restLift: 0.06, apexMid: 0.04, apexTip: 0.08,
+      // WING MOTION — SHOULDER-LED beat to the Fable motion target (owner: read as ONE joint
+      // with a little lag, not a stiff elbow/wrist double-bend). The SHOULDER owns ~80% of the
+      // ~150° arc: rootAmp swings it, apexRoot lifts the recovery peak up-and-back to ~12 o'clock
+      // (asymmetric — only the up half), the downstroke bottoms at ~5 o'clock (never 6). The
+      // forearm (midAmp, ~12%) and wrist (tipAmp, ~7%) only TRAIL — same rotational direction,
+      // never counter-bending — lagged 12%/18% of the beat so the wing reads alive, not detached.
+      wingParts: 3, rootAmp: 1.0, apexRoot: 0.62, midAmp: 0.18, tipAmp: 0.10, midLag: 0.7, tipLag: 1.1,
+      glidePow: 1.15, restLift: 0.05, apexMid: 0.05, apexTip: 0.05,
       // TAIL MOTION — the vertebra whip is a 4-joint NESTED isBone chain (see dragonRevenant.js).
       tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
     },
@@ -662,16 +664,16 @@ export const DRAGONS = {
     forms: [
       { spanScale: 0.70, glowLevel: 0.25, headScale: 1.20, fingers: 2, tailStretch: 1.0,
         ribWindows: 0, coreBlaze: 0.15, neckVerts: 4, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.3,
-        colors: { body: 0xc6c2b6, belly: 0xaba695, wingOuter: 0xc6c2b6, eye: 0x54e01e } },   // Grave Whelp (sealed cage)
+        colors: { body: 0xccc5b2, belly: 0xb0a892, wingOuter: 0xccc5b2, eye: 0x54e01e } },   // Grave Whelp (sealed cage)
       { spanScale: 0.82, glowLevel: 0.50, headScale: 1.12, fingers: 3, tailStretch: 1.0,
         ribWindows: 2, coreBlaze: 0.40, neckVerts: 5, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.6,
-        colors: { body: 0xd4d0c4, belly: 0xb9b4a3, wingOuter: 0xd4d0c4, eye: 0x5ce828 } },   // First Waking
+        colors: { body: 0xd9d1be, belly: 0xbeb6a0, wingOuter: 0xd9d1be, eye: 0x5ce828 } },   // First Waking
       { spanScale: 0.92, glowLevel: 0.75, headScale: 1.05, fingers: 4, tailStretch: 1.0,
         ribWindows: 4, coreBlaze: 0.70, neckVerts: 6, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 0.8,
-        colors: { body: 0xdedbcf, belly: 0xc4bfae, wingOuter: 0xdedbcf, eye: 0x66f038 } },   // Open Cage
+        colors: { body: 0xe4ddc8, belly: 0xc9c1a9, wingOuter: 0xe4ddc8, eye: 0x66f038 } },   // Open Cage
       { spanScale: 1.0, glowLevel: 1.00, headScale: 1.0, fingers: 4, tailStretch: 1.0,
         ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
-        colors: { body: 0xe8e5da, belly: 0xcdc9bc, wingOuter: 0xe8e5da, eye: 0x76ff68 } },   // Gravelight Revenant
+        colors: { body: 0xece6d0, belly: 0xd6cfb8, wingOuter: 0xece6d0, eye: 0x76ff68 } },   // Gravelight Revenant
     ],
     fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
     hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
