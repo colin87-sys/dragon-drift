@@ -34,6 +34,8 @@ let flowEdgeMat = null, flowCoreMat = null; // FLOW "Sky Gate" signature (fixed 
 let markerMat = null;                       // Skyforged glass — the Windvault (shared, one program)
 const markerFlow = { value: 0 };            // per-ROLE 0..1 driver (gate: slipMix) — see markerSurface.js
 const markerTime = { value: 0 };            // globally shared clock (one write/frame)
+let gateFrameMats = null;                   // Phase Gate aperture frame — one per biome (Skyforged)
+const gateFlowRef = { value: 0 };           // gate-frame heat ← speedNorm (NEVER markerFlow — that's the flow slip)
 let rimMats = null;  // dim outer silhouette frame (secondary)
 const entries = [];
 export const colliders = entries; // same objects, same array
@@ -171,6 +173,66 @@ export function initObstacles(s) {
   // light"). NOT bindAtmosphere'd: deliberate, parity with the old flow mats —
   // a signature emissive marker should not be fog-tinted (same rationale as soul-fire).
   markerMat = makeMarkerSurface({ flowRef: markerFlow, timeRef: markerTime, glint: 0.8, glintSharp: 40 });
+  // PR-4: the Phase Gate aperture frame gets the Skyforged treatment PER BIOME — six fresh
+  // factory calls derived from PHASE_SKINS (root = darkened biome edge, mid = edge, apex = the
+  // hot core), NEVER cloned (r160 Material.copy JSON-kills the uniform refs). All six + the three
+  // markers share ONE program (customProgramCacheKey). Driver = gateFlowRef (speed), not markerFlow.
+  // A hot inner LIP (lipGlow) puts the safe-route outline on the aperture edge; a restrained glint
+  // keeps menace (heavy sparkle would read "treasure"). Family = the VALUE grammar, not the hue.
+  gateFrameMats = PHASE_SKINS.map((s) => makeMarkerSurface({
+    rootColor: new THREE.Color(s.edge).multiplyScalar(0.42).getHex(),
+    midColor: s.edge, apexColor: s.core,
+    flowRef: gateFlowRef, timeRef: markerTime, emissive: 1.9, side: THREE.DoubleSide,
+    glint: 0.5, glintSharp: 44, lipGlow: 0.9,
+  }));
+}
+
+// PR-4 Phase Gate aperture FRAME (Skyforged): a closed rounded-rectangle faceted sweep replacing
+// the four flat aperture bars — the Jade-Annulus move on a rectangle. A small chisel cross-section
+// (angular, not gem-round → keeps menace) is swept along the gap perimeter; the HOT inner lip
+// (glowT=1) lands EXACTLY on the collider gap boundary, so the safe-route outline gets stronger,
+// never a frame that looks passable but kills. Non-indexed → flat facets; per-QUAD facetJ; glowT
+// baked outer-girdle(0)→inner-lip(1). Drawn from o.gap* only (render-only, determinism-free).
+function buildGateFrame(o) {
+  const inRad = 0.35, outRad = 0.35, zHalf = 0.35, Z0 = 0.3, rC = 0.9;
+  const HX = o.gapW + inRad, HY = o.gapH + inRad, R = rC + inRad;
+  const sx = Math.max(0, o.gapW - rC), sy = Math.max(0, o.gapH - rC); // corner-centre offsets
+  const cl = [];                                     // centreline {x,y,nx,ny}: nx,ny = INWARD normal
+  const addE = (x, y, nx, ny) => cl.push({ x, y, nx, ny });
+  const ES = 3, CS = 4;
+  for (let i = 0; i <= ES; i++) addE(HX, -sy + (i / ES) * 2 * sy, -1, 0);                         // right edge ↑
+  for (let i = 1; i <= CS; i++) { const a = (i / CS) * (Math.PI / 2); addE(sx + R * Math.cos(a), sy + R * Math.sin(a), -Math.cos(a), -Math.sin(a)); } // TR corner
+  for (let i = 1; i <= ES; i++) addE(sx - (i / ES) * 2 * sx, HY, 0, -1);                          // top edge ←
+  for (let i = 1; i <= CS; i++) { const a = Math.PI / 2 + (i / CS) * (Math.PI / 2); addE(-sx + R * Math.cos(a), sy + R * Math.sin(a), -Math.cos(a), -Math.sin(a)); } // TL
+  for (let i = 1; i <= ES; i++) addE(-HX, sy - (i / ES) * 2 * sy, 1, 0);                          // left edge ↓
+  for (let i = 1; i <= CS; i++) { const a = Math.PI + (i / CS) * (Math.PI / 2); addE(-sx + R * Math.cos(a), -sy + R * Math.sin(a), -Math.cos(a), -Math.sin(a)); } // BL
+  for (let i = 1; i <= ES; i++) addE(-sx + (i / ES) * 2 * sx, -HY, 0, 1);                         // bottom edge →
+  for (let i = 1; i <= CS; i++) { const a = 1.5 * Math.PI + (i / CS) * (Math.PI / 2); addE(sx + R * Math.cos(a), -sy + R * Math.sin(a), -Math.cos(a), -Math.sin(a)); } // BR
+  const M = cl.length, prof = [
+    [inRad, 0.0], [0.35 * inRad, zHalf], [-0.35 * outRad, zHalf],
+    [-outRad, 0.0], [-0.35 * outRad, -zHalf], [0.35 * inRad, -zHalf],
+  ], P = prof.length;
+  const gAt = (dn) => (dn + outRad) / (inRad + outRad);   // girdle 0 → lip 1
+  const pt = (c, dn, dz) => [o.gapX + c.x + c.nx * dn, o.gapY + c.y + c.ny * dn, Z0 + dz];
+  const pos = [], gt = [], fj = [];
+  const tri = (a, b, cc, ga, gb, gc, f) => { pos.push(a[0], a[1], a[2], b[0], b[1], b[2], cc[0], cc[1], cc[2]); gt.push(ga, gb, gc); fj.push(f, f, f); };
+  for (let s = 0; s < M; s++) {
+    const c0 = cl[s], c1 = cl[(s + 1) % M];
+    for (let p = 0; p < P; p++) {
+      const pn = (p + 1) % P;
+      const a = pt(c0, prof[p][0], prof[p][1]), b = pt(c1, prof[p][0], prof[p][1]);
+      const cc = pt(c1, prof[pn][0], prof[pn][1]), d = pt(c0, prof[pn][0], prof[pn][1]);
+      const ga = gAt(prof[p][0]), gc = gAt(prof[pn][0]), f = facetHash(s * P + p);
+      tri(a, b, cc, ga, ga, gc, f);
+      tri(a, cc, d, ga, gc, gc, f);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('glowT', new THREE.Float32BufferAttribute(gt, 1));
+  g.setAttribute('facetJ', new THREE.Float32BufferAttribute(fj, 1));
+  g.computeVertexNormals();
+  return g;
 }
 
 // WINDVAULT — a SINGLE tapered arch of forged glass framing the (unchanged) green
@@ -315,12 +377,19 @@ function buildGate(o) {
   bar(0.3, TOP, -X + 0.15, TOP / 2, rimMat, 0.15);
   bar(0.3, TOP, X - 0.15, TOP / 2, rimMat, 0.15);
 
-  // Layer 2 — aperture ring: the brightest element, framing the safe route.
-  bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
-  bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
-  bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
-  bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
-  // Corner brackets (viewfinder cue) opening toward the centre of the gap.
+  // Layer 2 — aperture ring: the brightest element, framing the safe route. Skyforged (PR-4):
+  // ONE faceted forged-glass frame with a hot inner LIP on the collider boundary (per biome),
+  // replacing the four flat bars. Fallback (?skyforged=0): the exact shipped bars.
+  if (SKYFORGED) {
+    group.add(new THREE.Mesh(buildGateFrame(o), gateFrameMats[bi]));
+  } else {
+    bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
+    bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
+    bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
+    bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
+  }
+  // Corner brackets (viewfinder cue) opening toward the centre of the gap. UNTOUCHED in both
+  // modes (on edgeMat) — the highest-leverage safe-route affordance + its speed-aware breath.
   const legLen = 1.2;
   const gap = 0.75;
   for (const sx of [-1, 1]) {
@@ -842,6 +911,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
   if (SKYFORGED) {
     markerTime.value = time;
     markerFlow.value = Math.max(0, Math.min(1, slipMix));
+    gateFlowRef.value = sn;   // PR-4: the gate frame's light climbs the ramp toward the lip with speed
   } else if (flowEdgeMat) {
     const b = 1 + 0.7 * slipMix;
     flowEdgeMat.emissiveIntensity = (1.4 + Math.sin(time * 2.4) * 0.18) * b;

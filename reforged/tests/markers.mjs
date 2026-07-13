@@ -146,6 +146,16 @@ check('z-ROLL is the motion + a capped precession garnish (A3: ≤0.08 rad, aper
 check('fever/combo routed through the shared ringFlow hot path (A6: no per-ring emissiveIntensity double-drive)',
   /ringFlow\.value = game\.feverActive/.test(rj));
 
+// --- Phase Gate frame (PR-4, obstacles.js): faceted aperture per biome, brackets untouched ---
+check('gate aperture is a faceted sweep (buildGateFrame) branched on the flag (fallback = old bars)',
+  /function buildGateFrame/.test(obs) && /if \(SKYFORGED\)[\s\S]*buildGateFrame\(o\)[\s\S]*else[\s\S]*bar\(W \+ 0\.7/.test(obs));
+check('gate frame mats built PER BIOME from PHASE_SKINS (6 instances, never cloned)',
+  /gateFrameMats = PHASE_SKINS\.map/.test(obs) && !/gateFrameMats[\s\S]{0,40}\.clone\(\)/.test(obs));
+check('gate frame driver is gateFlowRef (speed), NEVER markerFlow',
+  /gateFlowRef\.value = sn/.test(obs) && /flowRef: gateFlowRef/.test(obs));
+check('corner brackets stay on edgeMat (safe-route affordance untouched in both modes)',
+  /Corner brackets \(viewfinder cue\)[\s\S]{0,600}bar\(legLen/.test(obs));
+
 // ============================ Part B: WebGL boot ============================
 // Skip gracefully if playwright/browser isn't available (Part A already gates CI).
 let boot;
@@ -213,6 +223,36 @@ if (boot) {
   check('zero console errors building/flying the Windvault', flow.errors.length === 0) ||
     console.error(flow.errors.join('\n'));
   await flow.done();
+
+  // PR-4 Phase Gate frame: fly a NORMAL run until a Phase Gate spawns, then confirm its aperture
+  // is a Skyforged faceted mesh (glowT+facetJ) under the phaseGate group, opaque, no errors.
+  const gate = await boot({
+    query: '?debug',
+    initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
+  });
+  await gate.page.click('#btn-start');
+  await gate.page.waitForFunction(() => window.__dd.game.state === 'playing', { timeout: 8000 });
+  const gInfo = await gate.page.evaluate(async () => {
+    const findGate = () => { let res = null; window.__dd.scene.traverse((o) => { if (o.userData && o.userData.phaseGate) res = o; }); return res; };
+    const t0 = performance.now();
+    while (performance.now() - t0 < 20000) {
+      window.__dd.player.dist += 60;
+      await new Promise((r) => requestAnimationFrame(r));
+      const g = findGate();
+      if (g) {
+        let found = false, opaque = true;
+        g.traverse((o) => { const at = o.geometry && o.geometry.attributes; if (at && at.glowT && at.facetJ) { found = true; if (o.material.transparent) opaque = false; } });
+        return { gateSeen: true, found, opaque };
+      }
+    }
+    return { gateSeen: false, found: false, opaque: true };
+  });
+  check('a Phase Gate spawned in a normal run', gInfo.gateSeen);
+  check('its aperture frame is a Skyforged faceted mesh (glowT+facetJ under the phaseGate group)', gInfo.found);
+  check('the gate frame is opaque emissive (no new transparent volume)', gInfo.opaque);
+  check('zero console errors building the Phase Gate frame', gate.errors.length === 0) ||
+    console.error(gate.errors.join('\n'));
+  await gate.done();
 } else {
   console.log('  (Part B skipped — playwright unavailable; Part A covered the CI-safe checks)');
 }
