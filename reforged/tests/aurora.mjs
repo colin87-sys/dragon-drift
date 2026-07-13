@@ -37,7 +37,7 @@ check('BORDER HOT-LINE: a thin exp spike glued to the border, ×(1+..hot)', /hot
 check('SPLIT GAIN: diffuse column capped low, only the hot core crosses bloom', /uAuroraMix\s*\*\s*\(0\.55\s*\+\s*0\.45\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
 check('drapery FOLDS: hoisted fold0 + de-duplicated mid octave (foldOct) + fine detail (fine0)',
   /fold0\s*=\s*_aNoise/.test(AURORA_BODY) && /foldOct\s*=\s*_aNoise/.test(AURORA_BODY) && /fold\s*\+=\s*0\.5\s*\*\s*\(foldOct/.test(AURORA_BODY));
-check('SECONDARY ribbon keeps the narrow gaussian pillar + height SHEAR', /exp\(\s*-u\s*\*\s*u\s*\*\s*6\.0\s*\)/.test(AURORA_BODY) && /u\s*\+=\s*\(hy\s*-\s*h0\)/.test(AURORA_BODY));
+check('SECONDARY layer + height SHEAR present', /u\s*\+=\s*\(hy\s*-\s*h0\)/.test(AURORA_BODY));
 
 // --- 2b. COMPOSITION (Gate-3): centre-stage arc, horizon anchoring, flank dip -------
 check('CENTRAL ARC keyed to travel (smoothstep envelope on az⋅uAurFwd — not a fixed azimuth)',
@@ -59,20 +59,25 @@ check('VALUE MODEL: low sheet floor (0.06) + steep pow → dark gaps between cur
   /0\.06\s*\+\s*0\.94\s*\*\s*pow\(\s*smoothstep/.test(AURORA_BODY));
 check('TRANSLUCENCY: stars keyed off local CORE brightness (aurLum += I × hot·below)',
   /aurLum\s*\+=\s*I\s*\*\s*\(0\.25\s*\+\s*0\.75\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
-check('RAY quality: fold domain-warp + staggered rayTall + per-ray shimmer',
-  /u\s*\*\s*26\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*2\.6/.test(AURORA_BODY));
-// Gate-5: restraint (ray-carried eruption color, capped peak) + more delicate lines + stars-through.
-check('eruption color RIDES the rays (× rayCore), not a flat wash', /ecR\s*=\s*ecrown\s*\*\s*\(0\.30\s*\+\s*0\.70\s*\*\s*rayCore\)/.test(AURORA_BODY) && /rayCore\s*=\s*clamp/.test(AURORA_BODY));
-check('eruption peak capped at 0.8 (reservation)', /uAurErupt\.value\s*=\s*0\.8\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
-check('MORE lines: finer ray freq (26) + a sparse tier0 HAIRLINE interleave', /u\s*\*\s*26\.0/.test(AURORA_BODY) && /hair\s*=\s*smoothstep\(\s*0\.60/.test(AURORA_BODY) && /rayShim\s*\+\s*0\.5\s*\*\s*hair/.test(AURORA_BODY));
-check('per-ray color STAGGER (color blends along each line)', /\(rn\s*-\s*0\.5\)\s*\*\s*0\.3\s*\*\s*uAurRay/.test(AURORA_BODY));
+check('RAY quality: calm freq (20, reverted) + staggered rayTall + per-ray shimmer',
+  /u\s*\*\s*20\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*2\.6/.test(AURORA_BODY));
+// Gate-6: THICK bands (the rays are children of them), rays reverted to calm, eruption gutted.
+check('THICK stacked RIBBONS: a sawtooth band field the rays hang from (diagonal, fold-draped)',
+  /bp\s*=\s*bt\s*\*\s*5\.0\s*-\s*0\.6\s*\*\s*dot\(az,\s*across\)/.test(AURORA_BODY) && /bands\s*=\s*0\.30\s*\+\s*0\.90\s*\*\s*bprof/.test(AURORA_BODY));
+check('secondary is a BROAD diagonal band (not a thin pillar) with a diagonal border',
+  /sheet\s*=\s*0\.85\s*\*\s*exp\(\s*-u\s*\*\s*u\s*\*\s*2\.0\s*\)/.test(AURORA_BODY) && /float\(L\)\s*\*\s*\(0\.10\s*\+\s*0\.09\s*\*\s*dot\(az,\s*across\)\)/.test(AURORA_BODY));
+check('fine rays REVERTED to calm rn² at freq 20 (no hairline interleave, no rn⁴)',
+  /u\s*\*\s*20\.0/.test(AURORA_BODY) && !/hair\s*=/.test(AURORA_BODY) && /float\s+rr\s*=\s*rn\s*\*\s*rn;/.test(AURORA_BODY) && !/rr\s*\*=\s*rr/.test(AURORA_BODY));
+check('eruption GUTTED: peak 0.45 + violet 0.20 / pink 1.1 / red 0.45',
+  /uAurErupt\.value\s*=\s*0\.45\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')) && /uAurViolet,\s*\(1\.0\s*-\s*body\)\s*\*\s*0\.20/.test(AURORA_BODY) && /uAurPink,\s*crown\s*\*\s*\(1\.0\s*-\s*crown\)\s*\*\s*1\.1/.test(AURORA_BODY));
+check('per-ray color STAGGER kept (color blends along each line)', /\(rn\s*-\s*0\.5\)\s*\*\s*0\.3\s*\*\s*uAurRay/.test(AURORA_BODY));
 check('stars burn through the eruption more (attenuation 0.55)', /star\s*\*=\s*1\.0\s*-\s*0\.55\s*\*\s*clamp\(\s*aurLum/.test(readFileSync(url('../js/environment.js'), 'utf8')));
 check('DEPTH: a faint ray-less BACK VEIL reusing fold0 (free layered curtain)', /float\s+veil\s*=\s*smoothstep\(\s*0\.55/.test(AURORA_BODY));
 check('ERUPTION COLOR WASH: diffuse violet base + red/pink crown glow (reads where rays fade)',
   /if\s*\(\s*uAurErupt\s*>\s*0\.001\s*\)/.test(AURORA_BODY) && /ebase\s*=\s*exp/.test(AURORA_BODY) && /ecrown\s*=\s*smoothstep/.test(AURORA_BODY));
 check('fine0 detail octave is TIER0-ONLY (uAurLayers == 2 branch → no tier1/2 cost)', /if\s*\(\s*uAurLayers\s*==\s*2\s*\)\s*fine0\s*=\s*_aNoise/.test(AURORA_BODY));
 check('ERUPTION driver: activity → smoothstep eruption envelope (rare full-color)',
-  /uAurErupt\.value\s*=\s*0\.8\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+  /uAurErupt\.value\s*=\s*0\.45\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 check('?auract debug override wired (quiet-vs-eruption capture)', /setAuroraActOverride/.test(readFileSync(url('../js/main.js'), 'utf8')));
 
 check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
