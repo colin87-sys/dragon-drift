@@ -239,6 +239,49 @@ cage-opening is visible at ANY distance because it is silhouette, not surface. W
 them: the bone lattice must stay elegant (crescents + decay, never clutter), and the f3 core-roar
 frame must rival Solar's ignition.
 
+## §R — HARSH REAR-CHASE GATE REVISION (Opus critic pass, 2026-07-13)
+**Verdict on the v0 sheet: PASS (with polish notes).** This is the strongest rear-chase read of the
+Fresh Five: the negative-space silhouette is the most distinct thing in the set and its overdraw story
+(void = free fill) is the cleanest. Score: silhouette distinctiveness 5 / interest 4 / nameability 5;
+buildability 5; appeal 4.5. It passes clean — but the through-gaps must stay DESIGNED, never noisy.
+
+### R1. Sharpened §2 rear-chase silhouette
+- **One word:** **SKELETON** (or HOLLOW).
+- **Black-fill (rear):** a lean bone-frame with a strong DRACONIC wing OUTLINE whose interior carries
+  clean crescent through-holes (wing bays open to sky), the dorsal spine-gap leaking core-light, the
+  lit tail-vertebra gaps punctuating the tail — one connected outline, holes interior only.
+- **3+ centerline / landmark punctuation:** (1) the wing-bay through-holes framed by finger bones; (2)
+  the dorsal spine-gap core-leak (the rear-chase carrier); (3) the lit tail-vertebra gaps; (4) the
+  antler-tines breaking the skull outline.
+- **Distinct from the other four because __:** it is the ONLY negative-space silhouette in the roster —
+  no other dragon's black-fill contains holes. Zero collision risk with the other four.
+
+### R2. Polish notes (not blockers)
+1. **Keep crescents FEW, LARGE, CLEAN (3–4 per panel max).** Many small ragged holes read as DAMAGE /
+   an unfinished model; a few clean swept crescents read as designed wind-tatter. This is the whole
+   ballgame for "reads as a dragon, not noise."
+2. **Verify 0.26 apex hole-fraction reads at gameplay distance** — the sheet's own gate-blind residual;
+   if it reads solid at distance, bump +0.02 (already flagged §12).
+3. **Outline stays ONE connected component at every form** (already asserted) — the anti-noise lock.
+
+### R3. Buildability audit (every hero element + motif → cited path)
+| element | engine construction path (reference impl) | overdraw |
+|---|---|---|
+| `ossuaryTorso` (vertebra beam + rib hoops) | bone-lattice assembly — Vesper `knapLoft` faceted knuckles + elliptical rib-arc tubes | opaque, 0 |
+| GRAVE HEART motif (caged core) | opaque emissive faceted teardrop mesh (~60 tris), lantern read from flat facets | opaque emissive |
+| PHALANX SHROUD (hero, bone-finger fan) | CP1 fingered-bat recipe (`dragonWings`) with bone tubes + remnant panels; crescent cuts in the membrane | ≤2 hem layers (single-layer 0.68) |
+| `revenantSkullHead` | faceted head (`flatTriMesh`) with recessed socket geometry | opaque, 0 |
+| `vertebraeWhipTail` | isBone 4-joint chain, −anchor compensation | opaque, 0 |
+| hole-metric (verification) | NEW flood-fill hole counter on `silhouetteCore.mjs` (tooling, headless — retro-useful as a MITTEN detector) | none (offline) |
+**Total transparent ≤5 (2 shroud hems + trail); negative space is FREE fill** — the roster's cheapest
+big-envelope wing. Every element maps to a proven path.
+
+### R4. SSSR appeal / art-direction
+**Why a stranger screenshots and grinds:** "how is it flying?" — a skeleton dragon lit from within by
+grave-green ghost-fire, the cage opening wider and the bone bleaching cleaner as it ascends. **Lead:
+HAUNTED POWER** (elegant dracolich). Anti-gross guard: clean bone architecture + green lantern-light,
+zero gore/flesh/red — eerie, never grisly (tone remains an owner call on the preview, already flagged).
+
 ## SETTLED (do not re-litigate)
 - **The fire is INTERIOR-only** — never painted on bone; the Revenant is a lantern.
 - **BLEACHING (value ↑) is the ramp** — the deliberate mirror of Vesper's darkening.

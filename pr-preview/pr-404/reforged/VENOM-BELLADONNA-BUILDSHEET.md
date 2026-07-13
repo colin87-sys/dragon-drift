@@ -231,6 +231,53 @@ is a diegetic progress bar), the only four-winged silhouette, the deepest fold i
 freshest hue lane (first magenta-family). Where it must match them: the four-wing glass must hit ≥4
 readable membrane tiers and the apex drip moment must be as screenshot-worthy as Solar's ignition.
 
+## §R — HARSH REAR-CHASE GATE REVISION (Opus critic pass, 2026-07-13)
+**Verdict on the v0 sheet: REVISE.** Real risk: four narrow high-aspect blades (chord ≤0.30× length) +
+a thin needle can read SPINDLY from behind — a fragile mosquito, not a badass dragon — and the hind pair
+can merge behind the fore pair from dead astern (a busy blob). Score at v0: silhouette distinctiveness 4
+/ interest 4 / nameability 4; buildability 4 (aux-pivot is a real but scoped rig extension); appeal 4
+(freshest hue lane). REVISE to lock the rear read to a DART, not a bug.
+
+### R1. Sharpened §2 rear-chase silhouette
+- **One word:** **WASP** (or NEEDLE).
+- **Black-fill (rear):** four narrow blades reading as FOUR distinct spokes in a shallow X (fore pair
+  high, hind pair 12° flatter + set below → all four separate, never two merged), radiating from a
+  solid armored THORAX+GASTER core, with the needle stinger hanging dead-center as a tapering
+  exclamation point.
+- **3+ centerline / landmark punctuation:** (1) the central thorax+gaster mass (the dart body that
+  anchors the blades — NOT four floating filaments); (2) the four-spoke X (fore/hind rake split); (3)
+  the needle stinger dead-center; (4) the swept antennae breaking the head outline.
+- **Distinct from the other four because __:** it is the only FOUR-WING + central-needle read — a dart /
+  shuriken, unmistakable from Tempest's stripe-stack, Tocsin's coin-row, Sylph's hood, Revenant's void.
+
+### R2. Mandated fixes
+1. **Anchor the four blades to a solid core.** The rear black-fill must show a clear central
+   thorax+gaster MASS the four blades radiate from; assert the thorax silhouette width ≥ 0.5× the
+   forewing chord so it never reads as disconnected filaments (the anti-mosquito lock).
+2. **Four distinct spokes, never two.** Hind pair raked 12° flatter + seated 0.28 body-lengths aft and
+   one plate-thickness below → in the rear fill, all four blades separate. Assert fore/hind planform
+   overlap ≤20% (already in §5) doubles as the rear-separation guard.
+3. **Elegant menace, not fragile.** Blades are BLADES (taut leading costa, raised veins) — the read is
+   an assassin's stiletto, not an insect's wing.
+
+### R3. Buildability audit (every hero element + motif → cited path)
+| element | engine construction path (reference impl) | overdraw |
+|---|---|---|
+| `chitinWaspTorso` (thorax/waist/gaster) | shingle plate assembly (`shingleRow`/Obsidian-Sovereign shingle cards) + loft waist/gaster stations | opaque, 0 |
+| GOSSAMER DOUBLET (4 wings, hero) | `bladeWing`/membrane blades + raised tent-ridge veins (CP1 finger recipe); single-layer 0.70 | 4 membranes; fore/hind overlap ≤20% (≤2 layers) |
+| aux hind pair | **NEW `parts.auxWingPivots` nullable rig hook — the ONE real engine extension** (poser ticks published extra pivots at a phase offset; roster byte-identical without it) | none |
+| VENOM STILL motif (filling sacs) | translucent sac wall (single-layer 0.72) over an inner OPAQUE emissive fill mesh, height = `sacFill` | 1 transparent layer/sac (≤3) |
+| `stingerLanceTail` | isBone chain needle, taper 0.10× (sanctioned) | opaque, 0 |
+| oil-slick sheen | diffuse 2-tone grazing-row tint (≤10%), NOT the full-body iridescence shader | opaque |
+**Total transparent ≤8** (4 membranes + 3 sac walls + trail). The aux-pivot hook is the only novel
+plumbing and it is nullable/additive — flag it for owner approval before slot 3 branches (already in §11).
+
+### R4. SSSR appeal / art-direction
+**Why a stranger screenshots and grinds:** the roster's first magenta dragon — blacklight UV-orchid
+venom visibly FILLING the glass sacs (a diegetic power meter) behind an oil-slick violet-black dart, the
+four-wing shimmer no other dragon has. **Lead: ELEGANT MENACE** (a patient assassin). Anti-gross guard:
+drips are beads, sacs are glass, nothing bulbous or gore — a stiletto, not a tick.
+
 ## SETTLED (do not re-litigate)
 - **UV-orchid 292°, never chartreuse** (Vesper-eye collision) and never green of any kind.
 - **Four wings** — the doublet is the hero; if the aux-pivot hook is descoped the dragon is descoped.

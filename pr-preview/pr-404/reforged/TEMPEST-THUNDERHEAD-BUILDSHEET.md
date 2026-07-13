@@ -124,9 +124,12 @@ decay), each deck built on the banked CP1 bat-wing recipe re-authored as weather
   **inward-cupped bays sampled ≥4 segments** (the sawtooth killer), and 4 membrane value tiers lerped
   toward lit steel-slate `0x8a95ac` over f `[0.60,0.40,0.22,0.06]` (the CP4 endpoint law — tiers must
   step ≥0.05 luminance, not compress into one grey).
-- **Deck stacking:** vertical gap ≥ 0.12× chord at root opening to 0.22 at tip; upper decks set BACK
-  0.10× chord per level (the shelf-cloud roll-forward read is carried by the BOTTOM deck leading all).
-  The inter-deck slits are the planform signature — assert true through-gaps in top silhouette.
+- **Deck stacking (ANTI-LOUVRE — see §R2):** vertical gap ≥ 0.12× chord at root opening to 0.22 at
+  tip; upper decks set BACK 0.10× chord per level AND each deck ×0.80 shorter than the one below, so
+  the stack reads as a TAPERING ANVIL CONE (stepped thunderhead narrowing upward), never three
+  parallel slats. The bottom deck leads (shelf-cloud roll-forward); the outline is triangular-stepped.
+  The inter-deck slits are the planform signature — assert true through-gaps in top silhouette AND
+  assert monotonic deck-chord decay (no two decks within 10% chord — the venetian-blind killer).
 - **Deck undersides carry the circuit seams** (§3) — light pools INSIDE the stack during strikes: the
   storm's interior flicker, the single best "living cloud" frame.
 - **Opaque decks.** No translucency anywhere on the wing (3 stacked alpha layers would blow the ≤2
@@ -233,6 +236,54 @@ Vesper wins by withholding; Solar by regalia; Phoenix by warmth. **Tempest wins 
 only dragon whose spectacle has RHYTHM (strike windows you wait for), the only stacked-silhouette wing,
 and the only living-weather surface (deck churn + billow). Where it must match them: deck surface
 richness ≥4 readable value tiers (CP4 law) and a f3 strike frame that out-dramas Solar's ignition.
+
+## §R — HARSH REAR-CHASE GATE REVISION (Opus critic pass, 2026-07-13)
+**Verdict on the v0 sheet: REVISE.** Two real risks: (a) three horizontal decks = a VENETIAN-BLIND /
+plank-stack read from behind, and (b) the strike is intermittent (6–18% duty), so the STANDING
+(non-strike) frame — which is 82–94% of play — must already be cool without the lightning. Score at
+v0: silhouette distinctiveness 4 / interest 3 (louvre risk) / nameability 4; buildability 5; appeal 3.5
+(great strike frame, at-risk grey cruise frame).
+
+### R1. Sharpened §2 rear-chase silhouette
+- **One word:** **STACK** (storm-stack).
+- **Black-fill (rear):** a broad, forward-HIGH storm wall — three horizontal cloud-bank slabs per side
+  narrowing UPWARD into a stepped anvil cone, daylight slits between decks, a wispy tapering rain-fringe
+  (virga) hanging below, mane spikes breaking the head crown.
+- **3+ centerline / landmark punctuation:** (1) the two inter-deck daylight slits (the stratification
+  read); (2) the anvil-taper step (each deck shorter — a triangular stepped outline); (3) the 5-wisp
+  virga fringe (irregular, fading — NOT rigid rods); (4) the nimbus mane spikes above the shoulders.
+- **Distinct from the other four because __:** it is the only HORIZONTALLY-STRATIFIED wing (stacked
+  stripe-slabs). Its nearest set-neighbour is Tocsin (also a broad wing with a bottom fringe) — see R2
+  for the enforced separator.
+
+### R2. Mandated fixes
+1. **Anti-louvre (binds §5):** decks ×0.80 chord decay + set-back → a tapering ANVIL CONE, never
+   parallel slats. Assert monotonic deck-chord decay (no two decks within 10% chord).
+2. **Standing-frame appeal:** the non-strike cruise frame carries cool via the diffuse SILVER-LINING
+   rims `0x9fb0c8` (fresnel, non-emissive) on every lobe's upper edge + the anvil-taper stack — the
+   read must be a menacing storm-wall even with zero lightning. The strike is a bonus, not the crutch.
+3. **Tempest ≠ Tocsin separator (SET-LEVEL, enforced):** Tempest is a TALL forward-HIGH stack of
+   horizontal STRIPE-SLABS (up-attitude, +6° dihedral per deck) with a WISPY TAPERING virga fringe;
+   Tocsin is a LOW-flat row of ROUND COINS with RIGID STRAIGHT equal rods. Attitude (up vs flat),
+   inner grain (stripes vs circles), fringe (wispy-tapered vs rigid-straight) — three separators.
+
+### R3. Buildability audit (every hero element + motif → cited path)
+| element | engine construction path (reference impl) | overdraw |
+|---|---|---|
+| `stormcellTorso` (billowed lobes) | faceted loft — Vesper `knapLoft` shared-profile loft, clover-of-3 lobes per station | opaque, 0 |
+| STRATA decks ×3 (hero) | CP1 fingered bat-wing recipe (`dragonWings` membrane / Vesper `scallopCrescentWings`), OPAQUE matte + fresnel silver rim | opaque, 0 (slit gaps cost 0 fill) |
+| STORM CIRCUIT motif (inset seams) | Vesper `seam` emissive material + surge-tick userData; geometry-carried light, no additive shell | opaque emissive, ~7% coverage |
+| strike timer | NEW `js/pulseTimer.js` seeded CPU scheduler (also feeds Tocsin) | none (CPU) |
+| nimbus mane | spike/horn taper filaments | opaque, 0 |
+| virga fringe | tapering blades + single-layer translucent hem band | ≤5 transparent (1 layer) |
+**Total transparent ≤6.** Every element maps to a proven path; opaque decks + slit gaps is the honest
+overdraw story (3 alpha layers would have blown the ≤2 law — avoided by construction).
+
+### R4. SSSR appeal / art-direction
+**Why a stranger screenshots and grinds:** a thunderhead that decided to hunt — the STRIKE frame
+(fractal near-white lightning branching across a stacked storm-wall) is the grind trigger; the standing
+frame is a menacing silver-lined anvil. **Lead: IMMINENT POWER** — you watch the charge build. Anti-
+clinical guard: churn + silver-lining rims keep it a living cloud, never a grey CAD blob.
 
 ## SETTLED (do not re-litigate)
 - CHARCOAL L 0.20–0.26, never Vesper-black; near-white accent by SATURATION cap, not hue collision.
