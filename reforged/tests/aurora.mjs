@@ -79,6 +79,8 @@ check('fine0 detail octave is TIER0-ONLY (uAurLayers == 2 branch → no tier1/2 
 check('ERUPTION driver: activity → smoothstep eruption envelope (rare full-color)',
   /uAurErupt\.value\s*=\s*0\.45\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 check('?auract debug override wired (quiet-vs-eruption capture)', /setAuroraActOverride/.test(readFileSync(url('../js/main.js'), 'utf8')));
+check('?aurerupt debug override wired (pin eruption strength, bypasses the 0.45 cap)',
+  /setAuroraEruptOverride/.test(readFileSync(url('../js/main.js'), 'utf8')) && /if\s*\(eruptOverride\s*!=\s*null\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 
 check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
   /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(auroraSrc) && /getWorldDirection/.test(auroraSrc) && /damp\(fwdX/.test(auroraSrc));
