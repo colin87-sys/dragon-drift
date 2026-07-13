@@ -60,8 +60,10 @@ roster its first magenta-family dragon).
 
 Third rule: **every sheet pre-solves its overdraw story** (§6b p95 law): Tempest's decks are opaque
 (slits, not translucency); Stiletto's venom is an opaque fill mesh behind a single-layer sac wall;
-Sylph's curtain is ONE translucent sheet total; Revenant's void is free fill; Tocsin's rings are
-dial-capped at 2 concurrent.
+Sylph's curtain body is OPAQUE emissive-gradient with a hem-only translucent band (Fable round-2 —
+a dorsal sheet self-overlaps in screen depth from the chase camera, so "one translucent sheet" was
+not actually ≤2 layers in the view that matters; see Sylph §F); Revenant's void is free fill;
+Tocsin's rings are dial-capped at 2 concurrent.
 
 ## 2. The MASTER anti-collision matrix (roster rows + the Fresh Five)
 
@@ -137,9 +139,36 @@ hood), Stiletto (four-blade X + needle) and Revenant (holes) are each in a uniqu
 near-VETO — a purely dorsal-vertical sheet is EDGE-ON from dead astern and collapses to a line (the #1
 "flat plane/kite" failure mode). It was NOT swapped; the concept (Aurelion-Sol worn-light lane) is
 intact and the sheet re-architects the curtain into a FLARED DORSAL HOOD (pleats cant outboard
-±10°→±35°, hood width ≥1.1× body girth) + promoted span-carrier streamers, so the rear read is now a
-broad luminous crescent while staying ONE translucent layer. See Sylph §R2. All five otherwise keep
-their proven-in-shipped-games lanes (§0) — no lane changes.
+±10°→±35°) + promoted span-carrier streamers, so the rear read is now a broad luminous crescent.
+See Sylph §R2 **and §F** (Fable round-2, which supersedes two §R numbers: the hood-width assert is
+now ≥2.4× body girth AND ≥0.35× streamer span — the original ≥1.1× girth was non-binding — and the
+curtain body is OPAQUE emissive-gradient, hem-only translucency). All five otherwise keep their
+proven-in-shipped-games lanes (§0) — no lane changes.
+
+## 2c. FABLE GATE — ROUND 2 (fresh-eyes re-judge of the §R pass, 2026-07-13)
+
+Verdicts: **Revenant PASS (4.9) · Tempest PASS-after-§F (4.6) · Tocsin PASS (4.4) · Stiletto PASS
+(4.4) · Sylph REVISE-sharpened (4.0)**. No lane swaps; every §F is a numbers correction, not a
+concept change. What round 2 caught that the §R pass didn't:
+- **Tempest §F:** the anti-louvre fix was written in CHORD (fore-aft) — invisible from dead astern.
+  The rear anvil taper is now asserted in rear-projected SPAN decay (×0.80±0.05 per deck up). The
+  Tempest↔Tocsin separation still holds, but its load-bearing axes from astern are (1) slit-striped
+  stack vs scalloped coin row, (2) up-attitude vs flat — plus (3) the fringe character, which only
+  counts because Tocsin §F gives the rods a pixel floor.
+- **Sylph §F:** two §R claims overruled (non-binding width assert; the single-translucent-sheet claim
+  fails to screen-space self-overlap from the chase camera → opaque curtain body, Jade-lobe precedent).
+- **Stiletto §F:** the anti-mosquito ratio lock got its missing chord floor (chord ∈ [0.24,0.30]×
+  length) + the §2.3 rear-fill mass split (core 25–40% / blades 50–65%).
+- **Tocsin §F / Revenant §F:** pixel floors on separator-carrying thin elements (rods ≥0.02× wing
+  span; wing-bay holes ≥0.05 planform each) so the set-level distinctions survive the 250px read.
+
+**SET ruling (round 2):** the five rear black-fills remain mutually unmistakable — STACK · WASP ·
+HOOD · SKELETON · COINS span five shape families (stratified / spoked-X / soft crescent / negative
+space / coin row). Closest pair is still Tempest↔Tocsin and the written separators HOLD from dead
+astern *after* the §F span-decay + rod-floor fixes; before them, two of the three separators lived
+on axes the rear camera can't see or resolve. Honest appeal ranking: **Revenant > Tempest > Stiletto
+> Tocsin > Sylph** — Sylph is knowingly the weakest chase-frame read and earns its slot on the
+turntable/shop frame instead (recorded in its §F).
 
 ## 3. One-paragraph summaries
 

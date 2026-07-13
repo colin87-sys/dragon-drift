@@ -282,6 +282,17 @@ grave-green ghost-fire, the cage opening wider and the bone bleaching cleaner as
 HAUNTED POWER** (elegant dracolich). Anti-gross guard: clean bone architecture + green lantern-light,
 zero gore/flesh/red — eerie, never grisly (tone remains an owner call on the preview, already flagged).
 
+## §F — FABLE GATE (round-2, 2026-07-13)
+**Fable gate: PASS (round-2).** Scores: rear-silhouette 5 · buildability 5 · SSSR appeal 4.5 · sweep
+clean → avg 4.9, the strongest sheet of the five. Re-judged with fresh eyes and the Opus PASS HOLDS —
+the only holes-in-the-fill silhouette in the roster is unmistakable in backlit black-fill at any size,
+the void-is-free-fill overdraw story is the honest opposite of every glow-stacking temptation, and
+"how is it flying?" is the set's best grind trigger. One numeric floor added so R2.1's "few, large,
+clean" survives the chase distance: **each rear-visible wing-bay through-hole ≥0.05 of the full-fan
+planform (≈≥8px at the 250px chase read)** — many sub-8px holes alias into MITTEN-noise and hand back
+the "damaged model" read R2.1 kills. Same floor applies to the lit tail-vertebra gaps (≥3px or merge
+two gaps into one). Nothing else touched.
+
 ## SETTLED (do not re-litigate)
 - **The fire is INTERIOR-only** — never painted on bone; the Revenant is a lantern.
 - **BLEACHING (value ↑) is the ramp** — the deliberate mirror of Vesper's darkening.
