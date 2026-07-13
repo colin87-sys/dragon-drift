@@ -1,7 +1,7 @@
 // N11 pass-budget gate (GRAPHICS-OVERHAUL.md). Pure logic, CI-safe (no WebGL — the
 // Reflector constructs on the CPU; the postfx tier switch is stubbed). Asserts the
 // tier truth table that lets tier1 keep the wow:
-//   god-rays  — tier0: 40 samples · ×1.0 · mask 0.5 | tier1: 24 · ×0.5 · mask 0.25 | tier2: off
+//   god-rays  — tier0: 40 samples · ×1.0 · mask 0.5 | tier1: 16 · ×0.5 · mask 0.25 | tier2: off
 //   reflection— tier0: 768² full-rate | tier1: 384² half-rate | tier2: cheap quad
 //   both far-clamped on the reflective tiers; tier0 stays byte-identical (40/×1/0.5/768/full).
 //   node tests/passbudget.mjs
@@ -61,8 +61,8 @@ check('tier0 god-rays: 40 samples · ×1.0 · mask 0.5 (byte-identical to shippe
   postTierState().uSamples === 40 && postTierState().grIntenScale === 1 && godRayMaskScale() === 0.5 && postTierState().grTierOK === true);
 
 setPostTier(1);
-check('tier1 god-rays: 24 samples · ×0.5 · mask 0.25 (cheapened, still on)',
-  postTierState().uSamples === 24 && postTierState().grIntenScale === 0.5 && godRayMaskScale() === 0.25 && postTierState().grTierOK === true);
+check('tier1 god-rays: 16 samples · ×0.5 · mask 0.25 (cheapened, still on)',
+  postTierState().uSamples === 16 && postTierState().grIntenScale === 0.5 && godRayMaskScale() === 0.25 && postTierState().grTierOK === true);
 
 setPostTier(2);
 check('tier2 → composer off entirely (god-rays irrelevant)', postfx.enabled === false);

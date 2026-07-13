@@ -1,3 +1,10 @@
+> ⚠ **SUPERSEDED by `2026-07-13-arena-msaa-off-the-real-60fps-lever.md`.** The *fill-bound* diagnosis
+> below is correct, but the LEVER was wrong: a later on-device `?msaa0` A/B held 60fps at **full
+> resolution**, so the shipped fix is now **MSAA-off in the arena (full resolution kept)**, not the
+> resolution cap. The resolution cap survives only as an optional `?arenapr` fallback. Read this for the
+> fill-vs-draw localization; read the superseding lesson for the actual fix and why MSAA (not resolution)
+> was the right cut. Kept for the reasoning trail.
+
 # Perf — arena dynamic resolution: the confirmed 60fps lever (the fire was fill-bound, not draw-bound)
 
 **What we did.** The whole perf arc chased DRAW CALLS (wings 104→24, Phoenix 814→279, aux-pass thinning:
