@@ -523,6 +523,7 @@ export const DRAGONS = {
     rarity: 'SSR',
     maxRarity: 'SSSR',
     cost: 2200,
+    lanceTint: 0x4d86ff, lanceRune: 'nightEye',   // Eternal wisp (PR8): the lit dorsal-knob GLOW blue (seam surgeHi) + the Night-Fury slit-eye sigil
     accentHue: 0x2050e8,   // §9 law-9 carrier: ion-blue, emissive-only, Surge-only
     parts: { torso: 'knappedTorso', wings: 'scallopCrescentWings', head: 'vesperCatHead', tail: 'splitFanTail', surface: { shader: [] } },
     stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
@@ -1109,6 +1110,8 @@ DRAGONS.vesperLean = {
   ...DRAGONS.vesper,
   name: 'Nightglass Vesper · Lean',
   title: 'Knapped clean',
+  lanceTint: 0x2050e8,   // the base ion dorsal-knob glow — DISTINCT from Rich's lit 0x4d86ff (tints must be unique); shares the nightEye rune
+
   model: { ...DRAGONS.vesper.model, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: 3 },
   forms: DRAGONS.vesper.forms.map((f) => ({ ...f, knapPlates: 0, covertRow: 0, legHint: 0, crestBlade: 0, crestWeb: 0, earFinPairs: Math.min(3, f.earFinPairs ?? 3) })),
 };
