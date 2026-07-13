@@ -370,11 +370,10 @@ function buildOnePhalanxWing(M, dials, wingMat) {
     const tp = tips[i], wB = 0.045 * hs * (1 - 0.05 * i), wM = wB * 0.5;
     const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]), sag = 0.09 * L;
     const Bm = [(K[0] + tp[0]) / 2, (K[1] + tp[1]) / 2 - sag, (K[2] + tp[2]) / 2 + sag * 0.4];
-    ridge(fingerT, K, Bm, wB * 0.85, wM * 0.8, 0.09 * hs, i < 4 ? fingerCapT : null);   // SLIMMER ivory finger bones (Fable: too thick/bright → seraphic) — bone EDGES on a dark shroud, not a feathered wing
+    ridge(fingerT, K, Bm, wB * 0.85, wM * 0.8, 0.09 * hs, null);   // SLIM ivory finger bones — NO rim-catch caps (Fable: the pale caps stacked into shard clutter at the wing root, breaking the finger-ray count at rear-chase). Clean rays read as countable fingers.
     ridge(fingerT, Bm, tp, wM * 0.8, 0.006, 0.06 * hs);
   }
   hand.add(flatTriMesh(fingerT, M.bone));         // bright ivory bones (not the dorsal tier) so they read against the dark shroud
-  if (fingerCapT.length) hand.add(flatTriMesh(fingerCapT, M.bone));
 
   // ── CHIROPATAGIUM — the FILLED shroud membrane between the fingers (a fan from K to a
   // shallow-cupped trailing arc per bay; the cups are tattered notches, not open holes).
@@ -427,7 +426,7 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   // off near-black (Fable) so the ivory finger-bones + rib barrel WIN the silhouette (bone
   // ~60/40 over shroud). Translucent so light reads through it and the rig drives its opacity.
   // Emissive black (the wing never glows — the light is the caged heart).
-  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x2c2d31, emissive: 0x000000, flatShading: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });   // NEUTRAL dark charcoal (was 0x2a303c — the blue bias lit up powder-blue on the up-facing top surface under the cool sky-fill; Fable: "membrane reads blue from above"). High roughness so the sky doesn't sheen it.
+  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x1d1f23, emissive: 0x000000, flatShading: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });   // DEEP neutral charcoal — dark enough that even the lit rear/under facets stay a DARK SHROUD at rear-chase (Fable: membrane inverted to 52% pale in the money view; the law is "dark shroud"). Fully rough → no sky sheen; the pale ivory finger-bones win the wing read by value contrast.
   wingMat.envMapIntensity = 0.05;
 
   const pivots = {}, wingElements = [];
@@ -518,23 +517,27 @@ function buildRevenantSkullHead(def, model, mats) {
   // (|x|→0, +z) so it reads as a true hollow void in profile, not a painted-on facet. The
   // skull needs ≥2 such voids per side or it reads as a solid fleshed wedge (Fable).
   const pocket = (cx, cy, cz, rx, ry, side) => {
-    const floor = [cx - side * rx * 1.4, cy - ry * 0.15, cz + rx * 1.5];   // sunk into the cranium
+    const floor = [cx - side * rx * 2.2, cy - ry * 0.15, cz + rx * 2.4];   // sunk DEEP into the cranium → the floor falls into shadow (Fable: pockets read as flat cracks; a void needs a recessed dark floor)
     const rim = [
       [cx - side * rx, cy + ry, cz - rx * 0.3], [cx + side * rx * 0.5, cy + ry * 0.9, cz - rx * 0.6],
       [cx + side * rx, cy - ry * 0.2, cz - rx * 0.2], [cx + side * rx * 0.3, cy - ry, cz], [cx - side * rx, cy - ry * 0.7, cz + rx * 0.2],
     ];
-    for (let i = 0; i < rim.length; i++) socketT.push([rim[i], rim[(i + 1) % rim.length], floor]);   // rim → floor cup (dark inside)
+    for (let i = 0; i < rim.length; i++) socketT.push([rim[i], rim[(i + 1) % rim.length], floor]);   // rim → deep floor cup
   };
   for (const side of [1, -1]) {
     const ex = side * S(0.15), ey = S(0.04), ez = S(-0.14);
-    pocket(ex, ey, ez, S(0.10), S(0.085), side);                  // (1) EYE SOCKET — deep orbit holding the pinlight
-    pocket(side * S(0.09), S(-0.03), S(-0.46), S(0.05), S(0.05), side);   // (2) NASAL FENESTRA — a void on the muzzle
-    pocket(side * S(0.16), S(-0.05), S(0.12), S(0.06), S(0.07), side);    // (3) TEMPORAL/cheek fenestra — a void behind the eye
+    pocket(ex, ey, ez, S(0.17), S(0.14), side);                   // (1) EYE SOCKET — big deep orbit holding the pinlight (~2× wider — Fable)
+    pocket(side * S(0.09), S(-0.03), S(-0.46), S(0.075), S(0.075), side);  // (2) NASAL FENESTRA — a void on the muzzle
+    pocket(side * S(0.17), S(-0.05), S(0.12), S(0.11), S(0.12), side);     // (3) TEMPORAL/cheek fenestra — a big void behind the eye
     const eye = new THREE.Mesh(new THREE.OctahedronGeometry(S(0.05), 0), eyeMat);
     eye.position.set(ex, ey, ez - S(0.02));   // the grave-green pinlight, seated in the orbit
     group.add(eye);
   }
-  group.add(flatTriMesh(socketT, M.recess));
+  // A dedicated NEAR-BLACK socket floor material (darker than the umber recess tier) so the
+  // orbit interior reads as a true hole (<40 luma) at side-profile game distance, not a decal.
+  const sockMat = new THREE.MeshStandardMaterial({ color: 0x0e1113, emissive: 0x000000, flatShading: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide });
+  sockMat.envMapIntensity = 0.0;
+  group.add(flatTriMesh(socketT, sockMat));
 
   // ── HORNS — a pair sweeping back + up + out from the occiput, ATTACHED at the base
   // (a 3-segment tapered tent so they curve). Length grows with the ladder (hornLen).
