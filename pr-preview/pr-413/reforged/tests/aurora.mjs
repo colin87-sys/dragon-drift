@@ -33,8 +33,8 @@ check('CRISP border ONSET + a luminous rose SKIRT below (no hard zero → no flo
   /body\s*=\s*smoothstep\(\s*h0/.test(AURORA_BODY) && /skirt\s*=\s*exp\(\s*min\(\s*hy\s*-\s*h0/.test(AURORA_BODY) && /below\s*=\s*max\(\s*body/.test(AURORA_BODY));
 check('exp fade UP from the border (nothing symmetric)', /tall\s*=\s*exp\(\s*-max\(\s*hy\s*-\s*h0/.test(AURORA_BODY));
 check('PHYSICS RAMP: green OWNS the border (not inverted)', /mix\(\s*uAurFringe\s*,\s*uAurGreen\s*,\s*smoothstep\(\s*h0/.test(AURORA_BODY));
-check('BORDER HOT-LINE: a thin exp spike glued to the border, ×(1+..hot)', /hot\s*=\s*exp\([\s\S]*I\s*\*=\s*1\.0\s*\+\s*[\d.]+\s*\*\s*hot/.test(AURORA_BODY));
-check('SPLIT GAIN: diffuse column capped low, only the hot core crosses bloom', /uAuroraMix\s*\*\s*\(0\.55\s*\+\s*0\.45\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
+check('BORDER HOT-LINE: two-scale core+feather glow, ×(1+(1.8·hot+0.45·exp(−8·bt))·below)', /hot\s*=\s*exp\([\s\S]*I\s*\*=\s*1\.0\s*\+\s*\(1\.8\s*\*\s*hot\s*\+\s*0\.45\s*\*\s*exp/.test(AURORA_BODY));
+check('SPLIT GAIN: diffuse column capped low; hot core OR band knot crosses bloom', /uAuroraMix\s*\*\s*\(0\.55\s*\+\s*0\.45\s*\*\s*max\(hot\s*\*\s*below,\s*knot\)\)/.test(AURORA_BODY) && /knot\s*=\s*clamp\(bprof\s*\*\s*bn\s*\*\s*bn/.test(AURORA_BODY));
 check('drapery FOLDS: hoisted fold0 + de-duplicated mid octave (foldOct) + fine detail (fine0)',
   /fold0\s*=\s*_aNoise/.test(AURORA_BODY) && /foldOct\s*=\s*_aNoise/.test(AURORA_BODY) && /fold\s*\+=\s*0\.5\s*\*\s*\(foldOct/.test(AURORA_BODY));
 check('SECONDARY layer + height SHEAR present', /u\s*\+=\s*\(hy\s*-\s*h0\)/.test(AURORA_BODY));
@@ -59,8 +59,8 @@ check('VALUE MODEL: low sheet floor (0.06) + steep pow → dark gaps between cur
   /0\.06\s*\+\s*0\.94\s*\*\s*pow\(\s*smoothstep/.test(AURORA_BODY));
 check('TRANSLUCENCY: stars keyed off local CORE brightness (aurLum += I × hot·below)',
   /aurLum\s*\+=\s*I\s*\*\s*\(0\.25\s*\+\s*0\.75\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
-check('RAY quality: calm freq (20, reverted) + staggered rayTall + per-ray shimmer',
-  /u\s*\*\s*20\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*2\.6/.test(AURORA_BODY));
+check('RAY quality: calm freq (20) + staggered rayTall + de-strobed premium shimmer (φ·1.7 + rn·9)',
+  /u\s*\*\s*20\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*1\.7\s*\+\s*rn\s*\*\s*9\.0\s*\)/.test(AURORA_BODY));
 // Gate-6: THICK bands (the rays are children of them), rays reverted to calm, eruption gutted.
 check('IRREGULAR thick RIBBONS: warped field (fanned period + azimuth tilt + height-warp forks), not a parallel sawtooth',
   /bt\s*\*\s*\(3\.4\s*\+\s*1\.6\s*\*\s*\(fold0/.test(AURORA_BODY) && /1\.0\s*\*\s*warpL/.test(AURORA_BODY) && /bandWarp\s*=\s*_aNoise\(vec2\(sAcross/.test(AURORA_BODY) && !/bt\s*\*\s*5\.0\s*-\s*0\.6/.test(AURORA_BODY));
@@ -79,7 +79,7 @@ check('violet bluer (0x7a6bff) + pink hotter (0xff7fae) so they read over green'
   const s = readFileSync(url('../js/auroraSky.js'), 'utf8');
   return /uAurViolet:\s*\{\s*value:\s*new THREE\.Color\(0x7a6bff\)/.test(s) && /uAurPink:\s*\{\s*value:\s*new THREE\.Color\(0xff7fae\)/.test(s);
 })());
-check('per-ray color STAGGER kept (color blends along each line)', /\(rn\s*-\s*0\.5\)\s*\*\s*0\.3\s*\*\s*uAurRay/.test(AURORA_BODY));
+check('per-ray color STAGGER kept, turn-calm-gated (color blends along each line)', /\(rn\s*-\s*0\.5\)\s*\*\s*0\.3\s*\*\s*rOn\s*\*\s*uAurRayMix/.test(AURORA_BODY));
 check('stars burn through the eruption more (attenuation 0.55)', /star\s*\*=\s*1\.0\s*-\s*0\.55\s*\*\s*clamp\(\s*aurLum/.test(readFileSync(url('../js/environment.js'), 'utf8')));
 check('DEPTH: a faint ray-less BACK VEIL reusing fold0 (free layered curtain)', /float\s+veil\s*=\s*smoothstep\(\s*0\.55/.test(AURORA_BODY));
 check('ERUPTION COLOR WASH: diffuse violet base + red/pink crown glow (reads where rays fade)',
@@ -93,6 +93,33 @@ check('?aurerupt debug override wired (pin eruption strength, bypasses the 0.45 
 
 check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
   /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(auroraSrc) && /getWorldDirection/.test(auroraSrc) && /damp\(fwdX/.test(auroraSrc));
+
+// --- 2d. GATE-9: mobile-middle band variation, smooth transitions, premium polish, dreamy run ----
+// Loop bound is uAurBands (tier2=1, tier0/1=2), so mobile keeps the crossing diagonal thick band.
+check('loop bound is uAurBands (tier2 single arc; tier0/1 keep the second thick band)', /if\s*\(L\s*>=\s*uAurBands\)\s*break/.test(AURORA_BODY));
+// The fork mechanism reaches mobile: tier2 gets the REAL 2D height-warp noise, tier1 an analytic one.
+check('bandWarp noise runs on tier0 OR tier2 (uAurLayers==2 || uAurRay<0.5) — tier2 earns the fork field',
+  /if\s*\(uAurLayers\s*==\s*2\s*\|\|\s*uAurRay\s*<\s*0\.5\)\s*bandWarp\s*=\s*_aNoise/.test(AURORA_BODY));
+check('tier1 gets an ANALYTIC height-warp from free noises (sin(hy·4.5), 0 evals) → forks on mobile',
+  /uAurLayers\s*<\s*2\s*&&\s*uAurRay\s*>\s*0\.5\)\s*warpF\s*=\s*\(fold0\s*-\s*0\.5\)\s*\*\s*sin\(\s*hy\s*\*\s*4\.5/.test(AURORA_BODY) && /warpL\s*=\s*warpF/.test(AURORA_BODY));
+check('tier1/2 knots vary PER-BAND + along-band from bp (sin, floor 0.25 never zero)',
+  /bn\s*=\s*0\.25\s*\+\s*0\.75\s*\*\s*\(0\.5\s*\+\s*0\.5\s*\*\s*sin\(bp\s*\*\s*2\.5/.test(AURORA_BODY));
+check('tier1 gets the secondary band as a FREE anti-correlated fold remix (ray-less: rOn 0)',
+  /rOn\s*=\s*uAurRay\s*\*\s*\(\(L\s*==\s*0\s*\|\|\s*uAurLayers\s*==\s*2\)/.test(AURORA_BODY) && /else\s*fold\s*=\s*0\.5\s*\+\s*\(0\.5\s*-\s*fold0\)/.test(AURORA_BODY));
+// Smooth transitions: the fract seam is feathered to zero before the wrap (kills the moving-cliff pop).
+check('band profile SEAM-FEATHERED (smoothstep(1.0,0.82,fp)) → no fract-wrap pop as bp drifts',
+  /bprof\s*=\s*smoothstep\(0\.0,\s*0\.10,\s*fp\)\s*\*\s*smoothstep\(1\.0,\s*0\.82,\s*fp\)\s*\*\s*exp/.test(AURORA_BODY));
+// Rays soften into the sheet during fast yaw (turn-calm) instead of strobing.
+check('TURN-CALM envelope: uAurRayMix gates the ray mix (soften during yaw, floor 0.35)',
+  /ray\s*=\s*mix\(1\.0,\s*rayShim,\s*rOn\s*\*\s*uAurRayMix\)/.test(AURORA_BODY) && /calm\s*=\s*damp\(calm,\s*slew\s*>\s*0\.15\s*\?\s*0\.35\s*:\s*1\.0/.test(auroraSrc));
+// Dreamy run: activity-keyed crawl (quiet=stately, eruption quickens) + breathing horizon airglow.
+check('activity-keyed CRAWL accumulator (dt·(0.7+0.6·act), raw dt so frozen shots pin)',
+  /_aurPhase\s*=\s*\(_aurPhase\s*\+\s*\(dt\s*\|\|\s*0\)\s*\*\s*\(0\.7\s*\+\s*0\.6\s*\*\s*act\)\)\s*%\s*4096/.test(auroraSrc));
+check('horizon airglow BREATHES with uAurBreath (mean unchanged: 0.85+0.30·0.5)',
+  /hg\s*\*\s*\(0\.05\s*\+\s*0\.04\s*\*\s*uAurAct\)\s*\*\s*\(0\.85\s*\+\s*0\.30\s*\*\s*uAurBreath\)/.test(AURORA_BODY));
+// Runtime tier-flip cover: qualFade dips then recovers, so the curtain doesn't restructure on-screen.
+check('tier-flip qualFade cover (dip to 0 on change, damp back to 1 → identity in non-aurora biomes)',
+  /if\s*\(prev\s*!==\s*t\s*&&\s*auroraUniforms\.uAuroraMix\.value\s*>\s*0\.0001\)\s*qualFade\s*=\s*0/.test(auroraSrc) && /qualFade\s*=\s*damp\(qualFade,\s*1,\s*3\.5/.test(auroraSrc));
 
 // --- 3. gate: default 0 (shipped); enable/disable/force + per-frame write ---------
 check('default mix 0 (byte-identical shipped sky)', auroraUniforms.uAuroraMix.value === 0);
@@ -118,11 +145,11 @@ check('un-forced + no biome channel → back to 0 (shipped)', auroraUniforms.uAu
 
 // --- 4. tier truth table (weaker tiers thin the curtain, never delete it) ---------
 setAuroraQuality(0);
-check('tier0 → 2 curtain layers + rays on', auroraUniforms.uAurLayers.value === 2 && auroraUniforms.uAurRay.value === 1);
+check('tier0 → 2 curtain layers + rays on + 2 thick bands', auroraUniforms.uAurLayers.value === 2 && auroraUniforms.uAurRay.value === 1 && auroraUniforms.uAurBands.value === 2);
 setAuroraQuality(1);
-check('tier1 → 1 layer, rays still on', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 1);
+check('tier1 → 1 richness layer, rays on, but KEEPS 2 thick bands (mobile middle variation)', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 1 && auroraUniforms.uAurBands.value === 2);
 setAuroraQuality(2);
-check('tier2 → 1 layer, rays off (a smooth quiet arc — still authentic)', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 0);
+check('tier2 → 1 layer, rays off, 1 band (a smooth quiet arc — still authentic)', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 0 && auroraUniforms.uAurBands.value === 1);
 setAuroraQuality(0);
 
 // --- 5. phases are JS-WRAPPED (float32 precision on endless runs — uCloudDrift lesson)
