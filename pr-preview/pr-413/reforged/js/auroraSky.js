@@ -263,10 +263,10 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   const act = actOverride == null ? actRaw : actOverride;
   auroraUniforms.uAurAct.value = act;
   const e = Math.max(0, (act - 0.72) / 0.28);
-  // Peak 1.2 — strong enough that a natural eruption shows the FULL altitude structure (violet→green→
-  // pink→crimson, Gate-8); restraint now comes from AREA + rarity (color rides the bands/rays, majority
-  // dark between, ~30s every few min), NOT from deleting the hues. The single strength dial is this 1.2.
-  auroraUniforms.uAurErupt.value = 1.2 * (e * e * (3.0 - 2.0 * e));
+  // Peak 1.4 (owner pick) — a natural eruption shows the FULL altitude structure (violet→green→pink→
+  // crimson, Gate-8); restraint comes from AREA + rarity (color rides the bands/rays, majority dark
+  // between, ~30s every few min), NOT from deleting the hues. The single strength dial is this 1.4.
+  auroraUniforms.uAurErupt.value = 1.4 * (e * e * (3.0 - 2.0 * e));
   if (eruptOverride != null) auroraUniforms.uAurErupt.value = eruptOverride;  // debug: pin the eruption strength
   // COMPOSITION — the arc holds CENTRE-STAGE. Key it to travel, HEAVILY damped (λ=0.35 → recentres
   // over ~6–8s): during a fast weave/yaw the aurora stays world-anchored and counter-slides across

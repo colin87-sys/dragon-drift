@@ -621,6 +621,85 @@ export const DRAGONS = {
     trail: 0x24427a, boostTrail: 0x3d63c8,
   },
 
+  // GRAVELIGHT REVENANT — "Nothing stays buried" (WRAITH-GRAVELIGHT-BUILDSHEET.md §B).
+  // A chalk-ivory bone-lattice drake: the roster's ONLY holes-in-the-black-fill
+  // SKELETON. Ghost-fire (the Grave Heart) is seen only THROUGH bone apertures —
+  // "a lantern, not a lamp". Body value RISES up the ladder (BLEACHING — the mirror
+  // of Vesper's darkening). Zero warm hues / zero gold (the Pearl firewall). Fully
+  // additive: nothing shipped changes. BUILD STATE: I0 STUB — the four builders in
+  // dragonRevenant.js are contract-satisfying chalk-ivory placeholders; the real
+  // bone (hollow rib cage, phalanx-shroud wings, skull + wisp tail, the Haunting FX,
+  // the 4-form HOLLOWING ladder) lands increment by increment per §4.6.
+  revenant: {
+    name: 'Gravelight Revenant',
+    title: 'Nothing stays buried',
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2400,
+    accentHue: 0x54f04e,   // §9 law-9 carrier: grave-green, emissive-only (the grave-light family)
+    lanceTint: 0x54f04e, lanceRune: 'gravelight',   // Eternal wisp: grave-green (distinct from the warm SSSR tints)
+    parts: { torso: 'ossuaryTorso', wings: 'phalanxShroudWings', head: 'revenantSkullHead', tail: 'vertebraeWhipTail', surface: { shader: [] } },
+    stats: { speed: 1.09, handling: 1.12, drain: 0.78, regen: 1.24 },
+    // Apex reference dials (all nullable / default-off in dragonRevenant.js). The real
+    // HOLLOWING ladder (rib windows, coreBlaze, socket vents, wisp, crescents) lands in I5.
+    model: {
+      scale: 1.22, tailSegments: 13, neckSegments: 4, flapBias: 0.9, flapAmp: 0.85,
+      spanScale: 1.0, glowLevel: 1.0, headScale: 1.0, tailLength: 1.0, tailStretch: 1.0,
+      fingers: 4, wristT: 0.24,
+      // WING MOTION — SHOULDER-LED beat to the Fable motion target (owner: read as ONE joint
+      // with a little lag, not a stiff elbow/wrist double-bend). The SHOULDER owns ~80% of the
+      // ~150° arc: rootAmp swings it, apexRoot lifts the recovery peak up-and-back to ~12 o'clock
+      // (asymmetric — only the up half), the downstroke bottoms at ~5 o'clock (never 6). The
+      // forearm (midAmp, ~12%) and wrist (tipAmp, ~7%) only TRAIL — same rotational direction,
+      // never counter-bending — lagged 12%/18% of the beat so the wing reads alive, not detached.
+      // Shoulder-led BUT spread BROAD (owner: wings read tiny/vertical like fairy wings — the beat
+      // was swinging them past vertical over the back). Gentler shoulder swing around a WIDE, more
+      // horizontal neutral so the big span reads spread, not foreshortened; still shoulder-dominant
+      // with a small trailing forearm/wrist lag. Recovery peaks ~1 o'clock (not straight up), the
+      // downstroke reaches ~4:30 — a broad, majestic beat rather than a vertical clap.
+      wingParts: 3, rootAmp: 0.72, apexRoot: 0.26, midAmp: 0.14, tipAmp: 0.09, midLag: 0.7, tipLag: 1.1,
+      glidePow: 1.15, restLift: 0.0, apexMid: 0.04, apexTip: 0.04,
+      // TAIL MOTION — the vertebra whip is a 4-joint NESTED isBone chain (see dragonRevenant.js).
+      tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
+    },
+    // The HOLLOWING ladder (§4.5). BODY VALUE RISES up the rungs (BLEACH — the mirror
+    // of Vesper's darkening). Wing/skull/tail dials are placeholders until I2/I3; the
+    // full aperture + light ladder lands in I5.
+    // The HOLLOWING ladder (§4.5): ribWindows {0,2,4,6}, coreBlaze {.15,.4,.7,1}, and
+    // the vertebra file grows (neck 3→5). BODY VALUE RISES up the rungs (BLEACH).
+    forms: [
+      { spanScale: 0.70, glowLevel: 0.25, headScale: 1.44, hornLen: 0.5, fingers: 2, tailStretch: 1.0,
+        ribWindows: 0, coreBlaze: 0.15, neckVerts: 4, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.3,
+        colors: { body: 0xa6a9b1, belly: 0x8f929a, wingOuter: 0xa6a9b1, eye: 0x36c454 } },   // Grave Whelp — DIM least-bleached bone (carries more shadow than the apex; the lit-facet median saturates at the tonemap knee so the bleach reads as SHADOW spread, not peak value)
+      { spanScale: 0.82, glowLevel: 0.50, headScale: 1.34, hornLen: 0.55, fingers: 3, tailStretch: 1.0,
+        ribWindows: 2, coreBlaze: 0.40, neckVerts: 5, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.6,
+        colors: { body: 0xc4c7cf, belly: 0xadb0b8, wingOuter: 0xc4c7cf, eye: 0x3ed45e } },   // First Waking — bleaching (mid-low)
+      { spanScale: 0.92, glowLevel: 0.75, headScale: 1.26, hornLen: 0.6, fingers: 4, tailStretch: 1.0,
+        ribWindows: 4, coreBlaze: 0.70, neckVerts: 6, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 0.8,
+        colors: { body: 0xdadde4, belly: 0xc4c7ce, wingOuter: 0xdadde4, eye: 0x46e468 } },   // Open Cage — bleaching (mid-high)
+      { spanScale: 1.0, glowLevel: 1.00, headScale: 1.2, hornLen: 0.65, fingers: 4, tailStretch: 1.0,
+        ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
+        colors: { body: 0xf3f5f9, belly: 0xdcdee4, wingOuter: 0xf3f5f9, eye: 0x4ef072 } },   // Gravelight Revenant — BRIGHTEST fully-bleached chalk (apex bumped so the top rung hits ~184 median — Fable)
+    ],
+    fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
+    hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
+    // Grave Surge palette (COOL green — the rig defaults to magenta; override every hook
+    // per §4.4). Wings stay BLACK on Surge (silhouette owns the frame; the heart + gaps
+    // carry the light), a low grave-green screen wash, grave-green pinpoint eyes.
+    feverWing: 0x000000, feverEye: 0x9af08a, feverWash: [0.03, 0.10, 0.03], surgeMotes: true,
+    hideRiderGlow: true,
+    wingEmissive: 0x000000,   // cruise membrane emissive EXPLICITLY black (light is the heart, never the wing)
+    body: 0xd6d8dd, belly: 0xb4b6bc,
+    wingInner: 0xc4c6cc, wingOuter: 0xd6d8dd,
+    // Bone tones for the shared horn/scales mats (dragonModel builds them for every
+    // def; the Revenant's parts don't attach them, so these just keep the mats off the
+    // white default — a chalk-ivory drake has no warm horn/steel scute anywhere).
+    horn: 0xc4c6cc, scales: 0xd6d8dd,
+    eye: 0x4ef072,
+    apexEye: 0x9af08a, apexSeam: 0x54f04e, coreGlow: 0x54f04e, surgeHi: 0x8af07e,
+    trail: 0x2e8a3a, boostTrail: 0x54f04e,
+  },
+
   phoenix: {
     name: 'Phoenix Ascendant',
     lanceTint: 0xff7a1a, lanceRune: 'phoenixFlame',   // Eternal wisp: blazing orange (PR8)

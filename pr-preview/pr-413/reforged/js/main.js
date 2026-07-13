@@ -23,7 +23,7 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -356,7 +356,7 @@ if (urlParams.has('debug')) {
     setAuroraErupt: setAuroraEruptOverride,
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
     audioHealth: () => getAudioHealth(),
-    postfx: { setPostTier, kick, kickState, handle: postfx },
+    postfx: { setPostTier, setPostMSAA, kick, kickState, handle: postfx },
     // N4 ParticleBatch seams: fire a burst at a fixed world point in view, and read
     // the backend/visible count + live draw-call total (for the pfx A/B tool + test).
     pfx: {
@@ -1321,6 +1321,28 @@ const PIXEL_RATIOS = [
 // ?pr=<n> — the DECISIVE fill-vs-CPU probe: caps every tier's pixelRatio (changes ONLY pixel count, not
 // draws/JS/scene). If fps jumps ~1/pr², the frame is fill-bound; if it barely moves, it's CPU.
 { const prQ = parseFloat(urlParams.get('pr')); if (Number.isFinite(prQ) && prQ > 0) for (let i = 0; i < PIXEL_RATIOS.length; i++) PIXEL_RATIOS[i] = Math.min(PIXEL_RATIOS[i], prQ); }
+// ARENA PERF MODE: the final-boss detonation is a full-frame ADDITIVE fire — the frame is FILL-bound
+// there, not draw-bound (halving draws didn't move fps). The confirmed wall is MSAA-resolve bandwidth:
+// on-device `?msaa0` held 60fps at FULL resolution, fire intact. So in the heaven (mix>1) we drop MSAA
+// to 0 — that scene is soft, low-frequency glow with NO hard geometry edges, so MSAA does ~nothing
+// there but its resolve is expensive; full AA stays on everywhere it matters. Full RESOLUTION is kept.
+// `?arenapr=<n>` is an OPTIONAL resolution fallback (default off/Infinity = full res) if a heavier
+// instant still dips; e.g. ?arenapr=1.2 also caps pixelRatio in the arena.
+let arenaPerfActive = false;
+const ARENA_PR_CAP = (() => { const v = parseFloat(urlParams.get('arenapr')); return Number.isFinite(v) && v > 0 ? v : Infinity; })();
+const effectivePR = (tier) => arenaPerfActive ? Math.min(PIXEL_RATIOS[tier], ARENA_PR_CAP) : PIXEL_RATIOS[tier];
+// Flip arena perf mode on heaven enter/exit. Drops/restores composer MSAA (the lever) and, if ?arenapr
+// is set, the pixelRatio too. Reallocs the composer RTs ONCE per transition (masked by the unveil flash
+// on entry, the teardown on exit); skipQualityFrames keeps the realloc frames out of the tier signal.
+function setArenaPerf(active) {
+  if (active === arenaPerfActive) return;
+  arenaPerfActive = active;
+  setPostMSAA(active ? 0 : 4);   // the fix: MSAA off in the heaven (near-invisible on soft additive fire), full res kept
+  const pr = effectivePR(qualityTier);   // optional ?arenapr resolution fallback (default Infinity → no-op)
+  if (pr !== renderer.getPixelRatio()) { renderer.setPixelRatio(pr); setPostPixelRatio(pr); }
+  setPostSize(window.innerWidth, window.innerHeight);   // ONE realloc covers the MSAA change + any pr change
+  skipQualityFrames = 2;   // exclude the realloc frames from the tier-decision signal
+}
 document.body.dataset.qtier = qualityTier; // boot default (applyQuality only runs on change)
 
 function applyQuality(tier) {
@@ -1331,8 +1353,8 @@ function applyQuality(tier) {
   setDragonQuality(QUALITY_SCALARS[tier]);
   setBossQuality(QUALITY_SCALARS[tier]);
   setContactShadowQuality(QUALITY_SCALARS[tier]);
-  renderer.setPixelRatio(PIXEL_RATIOS[tier]);
-  setPostPixelRatio(PIXEL_RATIOS[tier]); // set the ratio FIRST (no resize) …
+  renderer.setPixelRatio(effectivePR(tier));
+  setPostPixelRatio(effectivePR(tier)); // set the ratio FIRST (no resize) … (arena-capped, see effectivePR)
   setPostTier(tier);                     // … so setPostTier's single applySize() reallocs the RT ONCE, not twice
   setWaterReflective(tier); // N11: tier0 768² full-rate · tier1 384² half-rate · tier2 cheap quad
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
@@ -1773,6 +1795,7 @@ function tick() {
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
   setFeverArenaWarm(Math.max(0, Math.min(1, bossArenaMix() - 1)));   // heaven (mix 1→2) warms the Surge wash magenta→gold
+  setArenaPerf(bossArenaMix() > 1.05);   // heaven = full-frame additive fire (fill-bound) → drop MSAA there only (full res kept)
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
     player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
