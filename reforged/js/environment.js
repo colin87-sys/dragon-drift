@@ -137,7 +137,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x1d4438, emissive: 0x0a3328, emissiveIntensity: 0.4 }),   // night moss
       new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x24404e, roughness: 0.3, metalness: 0.08, emissive: 0x0d2a26, emissiveIntensity: 0.3 }), // 6 aurora night sea-ice — dark silhouette, faint teal cast
+      new THREE.MeshStandardMaterial({ ...opts, color: 0x26424e, roughness: 0.26, metalness: 0.12, emissive: 0x0d2a26, emissiveIntensity: 0.22 }), // 6 aurora night sea-ice — near-black silhouette, per-facet moon glints
     ],
     accent: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0xc08a50, roughness: 0.5, metalness: 0.25, emissive: 0x2a1505, emissiveIntensity: 0.25 }),
@@ -146,7 +146,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xff5a20, roughness: 0.4, emissive: 0xff3a08, emissiveIntensity: 0.9 }),  // magma seams
       new THREE.MeshStandardMaterial({ ...opts, color: 0x4dffd0, roughness: 0.35, emissive: 0x18d0a0, emissiveIntensity: 1.0 }), // biolume caps
       new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x63988c, roughness: 0.22, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.5 }), // 6 aurora-caught ice edge — a LIT edge, not a lamp
+      new THREE.MeshStandardMaterial({ ...opts, color: 0x78b0a0, roughness: 0.18, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.42 }), // 6 aurora-caught ice edge — paler/glassier, a LIT edge not a lamp
     ],
   };
   for (const m of mats.primary) addPropDetail(m);
@@ -331,32 +331,79 @@ const ARCHETYPES = {
     place: (side, rnd) => ({ x: side * (14 + rnd() * 6), h: 5 + rnd() * 9, r: 1.8 + rnd() * 2, tilt: side * (0.12 + rnd() * 0.22) }),
   },
   // AURORA SHALLOWS (§sky-owns-the-frame): Frozen's OPPOSITE. A flat tabular ICE FLOE —
-  // a wide dark pan breaking the mirror line (h 1.3–2.5 LOW, r 5–11 WIDE vs crystal's tall
-  // spire), with one accent crest + a deck-edge lip that catch the aurora and DOUBLE in the
-  // reflection. No accent near normalized y≈0.1: props sink 0.5u so that band submerges at
-  // small h — the foam collar is the waterline; the deck lip (y 0.58) is the mirror-catch line.
+  // a RAFTED PACK FLOE (~112 tris): an irregular heptagon pan with a flared rammed base, two
+  // smaller pans rafted on top (stepped shelf silhouette — the profile that survives the r≫h flatten),
+  // a leaning fracture-plate PAIR (one dark, one lit), and a flush refrozen melt-pond inlay. Cylinders,
+  // NOT boxes: no 90° dihedral reads as a crate at the waterline. h 1.2–2.6 LOW, r 4–11 WIDE.
   floe: {
     step: 16, biomes: [6], matIndex: 6,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.BoxGeometry(1.10, 0.50, 0.85), { y: 0.30, ry: 0.12 }) },
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.62, 0.42, 0.55), { x: 0.16, z: -0.10, y: 0.52, ry: -0.40, rz: 0.10 }) },
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.45, 0.34, 0.42), { x: -0.28, z: 0.16, y: 0.34, ry: 0.55, rz: -0.08 }) },
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.40, 0.30, 0.20), { x: 0.04, z: -0.04, y: 0.85, ry: 0.20, rz: 0.22 }) },
-      { mat: 1, geo: xform(new THREE.BoxGeometry(1.06, 0.07, 0.16), { z: 0.34, y: 0.58, ry: 0.12 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.50, 0.58, 0.36, 7), { y: 0.18, ry: 0.35, sx: 1.15, sz: 0.82 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.32, 0.40, 0.26, 6), { x: 0.14, z: -0.08, y: 0.44, ry: 1.9, rz: 0.10 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.28, 0.20, 6), { x: -0.30, z: 0.14, y: 0.36, ry: 4.1, rz: -0.09 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.34, 0.50, 0.10), { x: 0.10, z: -0.02, y: 0.72, ry: 0.50, rz: 0.35 }) },
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.26, 0.42, 0.07), { x: 0.02, z: -0.10, y: 0.70, ry: 0.85, rz: -0.42 }) },
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.30, 0.05, 0.30), { x: 0.14, z: -0.08, y: 0.575, ry: 1.9 }) },
     ], 6),
-    place: (side, rnd) => ({ x: side * (15 + rnd() * 10), h: 1.3 + rnd() * 1.2, r: 5 + rnd() * 6, tilt: side * (rnd() * 0.05 - 0.025) }),
+    place: (side, rnd) => ({ x: side * (15 + rnd() * 10), h: 1.2 + rnd() * 1.4, r: 4 + rnd() * 7, tilt: side * (rnd() * 0.05 - 0.025) }),
   },
-  // A LOW sharp ICE FANG cluster — 3 leaning cones + one thin aurora-lit sliver. Height CAPPED
-  // 2.2–4.6 world (vs crystal 18–50): the "never a tall spire" law, in numbers.
+  // A KINKED FANG CLUSTER on a grounded pan (~102 tris): the fangs grow FROM shared ice, each a
+  // frustum + off-axis tip (a broken/refrozen KINK that reads in backlight), one leaning away, plus a
+  // FALLEN tip lying on the pan (the "fracture" story beat + free asymmetry) and one buried lit sliver.
+  // Height CAPPED 2.2–4.6 world (vs crystal 18–50): the "never a tall spire" law holds.
   iceFang: {
     step: 24, biomes: [6], matIndex: 6,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.40, 0.95, 5), { y: 0.47, rz: 0.12 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.30, 0.62, 5), { x: 0.30, z: -0.08, y: 0.30, rz: -0.34 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.22, 0.50, 4), { x: -0.26, z: 0.14, y: 0.24, rz: 0.30, ry: 0.8 }) },
-      { mat: 1, geo: xform(new THREE.ConeGeometry(0.09, 0.75, 4), { x: 0.06, z: -0.16, y: 0.42, rz: -0.06 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.50, 0.18, 6), { y: 0.09, ry: 0.4 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.30, 0.52, 5), { y: 0.42, rz: 0.10 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.14, 0.42, 5), { x: 0.07, y: 0.80, rz: -0.14, ry: 0.6 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.22, 0.38, 5), { x: 0.30, z: -0.10, y: 0.27, rz: -0.30 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.10, 0.30, 5), { x: 0.40, z: -0.12, y: 0.52, rz: -0.45, ry: 1.3 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.36, 5), { x: -0.28, z: 0.12, y: 0.16, rz: 1.35, ry: 0.7 }) },
+      { mat: 1, geo: xform(new THREE.ConeGeometry(0.05, 0.66, 4), { x: -0.06, z: -0.14, y: 0.40, rz: 0.06 }) },
     ], 6),
     place: (side, rnd) => ({ x: side * (13.5 + rnd() * 6), h: 2.2 + rnd() * 2.4, r: 2.2 + rnd() * 1.6, tilt: side * (rnd() * 0.16 - 0.05) }),
+  },
+  // Faceted GROWLER (~72 tris): squashed detail-0 icosahedra — 20 flat facets each give per-facet
+  // moon-glint variance for free (flatShading). The ROUND-family silhouette (vs floe flat, fang spike)
+  // so three genuinely different outlines share the mirror. One accent plate sunk into a facet seam.
+  berg: {
+    step: 21, biomes: [6], matIndex: 6,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.55, 0), { y: 0.34, sy: 0.62, sx: 1.05, sz: 0.85, ry: 0.3 }) },
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.32, 0), { x: 0.30, z: -0.12, y: 0.20, sy: 0.7, ry: 1.4 }) },
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.24, 0), { x: -0.06, y: 0.80, sy: 0.85, ry: 2.2 }) },
+      // .toNonIndexed(): Icosahedron is non-indexed but Box is indexed — mergeGeometries throws on a
+      // mix, so the accent box must match the facet parts (this whole archetype is then non-indexed).
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.30, 0.34, 0.06).toNonIndexed(), { x: -0.10, z: 0.06, y: 0.48, ry: 0.9, rz: 0.5, rx: 0.1 }) },
+    ], 6),
+    place: (side, rnd) => ({ x: side * (14 + rnd() * 8), h: 1.6 + rnd() * 1.4, r: 2.6 + rnd() * 2.4, tilt: side * (rnd() * 0.12 - 0.04) }),
+  },
+  // Dark glacial SKERRY (~40 tris): NO accent, NO glow — bare rock. The foil that makes the ice
+  // accents feel EARNED, and dark punctuation scattered across the mirror (the real-lake-photo read).
+  // Flattened to a squat boulder by the r>h instance scale — the lowest thing in the game (top ≤ 1.4u).
+  skerry: {
+    step: 12, biomes: [6], matIndex: 6,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.55, 0), { y: 0.50, sx: 1.1, sz: 0.85, ry: 0.7 }) },
+      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: 0.36, z: 0.10, y: 0.28, ry: 1.9 }) },
+    ], 6),
+    place: (side, rnd) => ({ x: side * (12.5 + rnd() * 9), h: 0.6 + rnd() * 0.8, r: 1.4 + rnd() * 1.6, tilt: side * (rnd() * 0.2 - 0.06) }),
+  },
+  // Distant RIDGE massif (~52 tris): a jagged multi-peak mountain far off-lane (|x| ≥ 28) that crops
+  // the aurora at the horizon and gives the frame depth + scale (Fable composition note). Peaks spread
+  // in x AND z (radial) so it reads as a mountain from ANY yaw (recycle re-randomizes rotY). mat 0 only,
+  // foam:false — a foam ring on a distant massif would be a bright off-lane artifact. Fog grades it to
+  // near-black against fogFarColor; the sky dome draws behind it → the curtain is cropped for free.
+  ridge: {
+    step: 80, biomes: [6], matIndex: 6,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.50, 1.00, 5), { y: 0.50, sz: 0.62 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.42, 0.72, 5), { x: -0.34, z: 0.18, y: 0.36, sz: 0.6, ry: 0.8 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.38, 0.56, 4), { x: 0.36, z: -0.14, y: 0.28, sz: 0.6, ry: 0.4 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.30, 0.40, 4), { x: 0.05, z: 0.30, y: 0.20, sz: 0.6 }) },
+    ], 6),
+    place: (side, rnd) => ({ x: side * (28 + rnd() * 18), h: 5 + rnd() * 3.5, r: 20 + rnd() * 12, tilt: 0 }),
   },
 };
 
@@ -370,7 +417,8 @@ const FOAM_CFG = {
   obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
-  floe: { r: 0.72 }, iceFang: { r: 0.62 }, // aurora ice — the waterline weld between silhouette + reflection
+  floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
+  ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 
@@ -466,7 +514,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
                    * smoothstep(0.04, 0.3, h);
         // Aurora Shallows: the curtain is nearer than the stars — dim them where it burns
         // (aurLum is 0 in every other biome, so this is a branchless no-op there).
-        star *= 1.0 - 0.65 * clamp(aurLum, 0.0, 1.0);
+        star *= 1.0 - 0.55 * clamp(aurLum, 0.0, 1.0);
         // starMix in real night biomes; the aurora preview also lights the stars (max) so its night sky
         // isn't an empty void behind the curtain.
         col += vec3(0.85, 0.9, 1.0) * star * max(starMix, uAurNight * 0.9);

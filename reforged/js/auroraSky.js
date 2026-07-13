@@ -59,6 +59,7 @@ export const AURORA_BODY = /* glsl */`
           float foldOct = _aNoise(az * 6.4 - vec2(uAurPhase * 0.11, 3.7));
           float fine0 = 0.0;
           if (uAurLayers == 2) fine0 = _aNoise(az * 12.8 + vec2(-uAurPhase * 0.19, 1.7));
+          float rayCore = 1.0;   // main-arc ray structure, exported so the eruption color rides the LINES
           for (int L = 0; L < 2; L++) {
             if (L >= uAurLayers) break;
             // DRAPERY FOLDS: a broad crawling swell + a mid octave + fine fractal detail (single
@@ -86,23 +87,30 @@ export const AURORA_BODY = /* glsl */`
               u += (hy - h0) * 1.5 * (fold - 0.5);
               sheet = exp(-u * u * 6.0);                                 // narrow gaussian pillar
             }
-            // RAYS: vertical striation streaming UP from the border. Domain-warped by the fold (irregular
-            // spacing/width, not a picket fence) + a per-ray shimmer (each flickers, doesn't scroll as a block).
-            float rn = _aNoise(vec2(u * 20.0 + fold * 4.0, uAurPhase * 0.7));
-            float rayShim = (0.30 + 0.70 * rn * rn) * (0.88 + 0.12 * sin(uAurPhase * 2.6 + rn * 50.0));
-            float ray = mix(1.0, rayShim, uAurRay);
+            // RAYS: FINE vertical lines streaming UP from the border. Corona convergence — during an
+            // eruption the spacing dilates with altitude → the fan-from-a-high-point form of a real corona.
+            u *= 1.0 - 0.25 * uAurErupt * max(hy, 0.0);
+            float rn = _aNoise(vec2(u * 26.0 + fold * 4.0, uAurPhase * 0.7));   // finer spacing (was 20)
+            float rr = rn * rn; rr *= rr;                                       // rn⁴ → hairline cores + deep dark gaps
+            float rayShim = (0.16 + 1.15 * rr) * (0.88 + 0.12 * sin(uAurPhase * 2.6 + rn * 50.0));
+            // A sparse HAIRLINE interleave (tier0 only) threads MORE fine lines between the primaries
+            // (the owner's "more lines") — a 2nd incommensurate frequency so it never reads as a comb.
+            float rn2 = 0.0, hair = 0.0;
+            if (uAurLayers == 2) { rn2 = _aNoise(vec2(u * 47.0 - fold * 3.0, uAurPhase * 0.55)); hair = smoothstep(0.60, 0.92, rn2); }
+            float ray = mix(1.0, rayShim + 0.5 * hair, uAurRay);
             // THE BORDER: a crisp ONSET above it, a luminous ROSE SKIRT below it — never a hard zero,
             // so there is no floating "invisible line"; the border stands ON light instead of on black.
             float body  = smoothstep(h0 - 0.02, h0 + 0.01, hy);         // crisp bottom onset (unchanged)
             float skirt = exp(min(hy - h0, 0.0) * 9.0);                 // soft luminous falloff BELOW
             float below = max(body, 0.30 * skirt);
-            // STAGGERED RAY HEIGHTS: bright rays (rn²→1) reach high (slow decay), dim ones stay short —
-            // each stripe becomes an individual ray with its own height, not a full-column comb.
+            // STAGGERED RAY HEIGHTS: bright rays climb higher, dim ones die sooner → more individual lines.
             float tall = exp(-max(hy - h0, 0.0) * (5.5 - 2.0 * uAurAct));
-            float rayTall = exp(-max(hy - h0, 0.0) * (2.5 + 5.0 * (1.0 - rn * rn)));
-            tall = mix(tall, rayTall, 0.5 * uAurRay);
+            float rayTall = exp(-max(hy - h0, 0.0) * (2.0 + 6.5 * (1.0 - rn * rn)));
+            tall = mix(tall, rayTall, 0.65 * uAurRay);
             float breath = 0.8 + 0.2 * uAurBreath;
             float I = sheet * ray * below * tall * breath;
+            // Export the MAIN-ARC ray structure → the eruption color rides the LINES, not a flat wash.
+            if (L == 0) rayCore = clamp((ray - 0.35) * 1.3, 0.0, 1.0) * tall;
             // THE HOT-LINE: a real border is 2–3× brighter than the diffuse column above it.
             float hot = exp(-max(hy - h0, 0.0) * 28.0);
             I *= 1.0 + 2.2 * hot * below;
@@ -111,14 +119,16 @@ export const AURORA_BODY = /* glsl */`
             // during an ERUPTION — a violet N2+ base, a pink overlap bell, and an ADDITIVE 630nm red crown
             // (brighter than the green, so it reads crimson, not murky). Border stays green + last.
             vec3 aCol = mix(uAurFringe, uAurGreen, smoothstep(h0 - 0.02, h0 + 0.005, hy));
-            aCol = mix(aCol, uAurViolet, (1.0 - body) * 0.6 * uAurErupt);      // violet base (eruption only)
-            float v = clamp((hy - h0) * (2.6 - 1.0 * uAurAct), 0.0, 1.0);      // taller color range when active
+            aCol = mix(aCol, uAurViolet, (1.0 - body) * 0.45 * uAurErupt);     // violet base (eruption only)
+            // per-ray color STAGGER: each ray's green→cyan→pink transition sits at its own height, so the
+            // color blends ALONG the lines (reference photo 3) instead of a horizontal ray-shaped band.
+            float v = clamp((hy - h0) * (2.6 - 1.0 * uAurAct) + (rn - 0.5) * 0.3 * uAurRay, 0.0, 1.0);
             aCol = mix(aCol, uAurTeal, 0.55 * smoothstep(0.15, 0.55, v));      // altitude cooling (always)
             float crown = smoothstep(0.35, 0.85, v);
             aCol = mix(aCol, uAurPink, crown * (1.0 - crown) * 2.4 * uAurErupt); // pink overlap bell (eruption)
-            aCol += uAurRed * crown * crown * 0.9 * uAurErupt;                  // additive red crown (eruption)
+            aCol += uAurRed * crown * crown * 0.85 * uAurErupt;                 // additive red crown (eruption)
             aCol = mix(aCol, uAurGreenHot, hot * below);                        // green border stays on top
-            I *= 1.0 + 0.35 * crown * uAurErupt;                               // the crown blooms a touch brighter
+            I *= 1.0 + 0.45 * crown * uAurErupt;                               // ray tops flare (replaces the wash's "eruption signal")
             // SPLIT GAIN: the diffuse column is capped LOW (0.55, never blooms) while the thin hot border
             // + crown reach 1.0 and cross the bloom threshold — the glow lives only in the concentrated cores.
             col += aCol * I * uAuroraMix * (0.55 + 0.45 * hot * below);
@@ -131,7 +141,7 @@ export const AURORA_BODY = /* glsl */`
           // Contributes ~0 to aurLum so stars burn straight through it (doubles as the translucency showcase).
           float veil = smoothstep(0.55, 0.9, fold0) * exp(-max(hy - 0.20, 0.0) * 3.0)
                      * smoothstep(0.02, 0.25, hy) * (0.35 + 0.65 * envC);
-          col += mix(uAurTeal, uAurRed, 0.4 * uAurErupt) * veil * 0.05 * uAuroraMix;
+          col += mix(uAurTeal, uAurRed, 0.3 * uAurErupt) * veil * 0.05 * uAuroraMix;
           // THE HORIZON AIRGLOW: the perspective-compressed distant oval the curtains RISE OUT OF.
           // Brightest AT the sea-line (abs(hy) → the last sliver above the silhouette is hottest, and
           // it meets its own mirror reflection at the seam), on-stage (envC), fold-broken. No new fetch.
@@ -140,16 +150,17 @@ export const AURORA_BODY = /* glsl */`
           // monochrome-frame cause); lower gain so the doubled seam doesn't blow out; barely dims stars.
           col += mix(uAurGreen, uAurFringe, 0.5 - 0.5 * fold0) * hg * (0.06 + 0.08 * uAurAct) * uAuroraMix;
           aurLum += hg * 0.1;
-          // ERUPTION COLOR WASH (rare "wow"): strong displays add DIFFUSE high-altitude emission that reads
-          // even where the thin rays have faded — a violet N2+ base hugging the sea-line and a red→pink 630nm
-          // crown glowing ABOVE the green band. Broad + soft (NOT ray-gated), fold-broken, on-stage (envC),
-          // so the eruption actually reads as full-color instead of just brighter green. Free when quiet.
+          // ERUPTION COLOR TINT (rare "wow", with RESERVATION): a strong display breathes color into the
+          // upper sky — but it RIDES THE RAYS (× rayCore) so it reads as colored LINES over dark starry sky,
+          // NOT a solid magenta ceiling (the owner: "beauty in reservation"). Between the rays it's a whisper;
+          // the steep decay stops it at mid-sky; stars burn through (the aurLum contribution is tiny).
           if (uAurErupt > 0.001) {
-            float ebase  = exp(-abs(hy - 0.05) * 11.0) * envC * (0.6 + 0.4 * fold0);
-            float ecrown = smoothstep(0.10, 0.30, hy) * exp(-max(hy - 0.32, 0.0) * 3.0) * envC * (0.5 + 0.5 * fold0);
-            col += uAurViolet * ebase * uAurErupt * 0.34 * uAuroraMix;
-            col += mix(uAurPink, uAurRed, smoothstep(0.20, 0.55, hy)) * ecrown * uAurErupt * 0.6 * uAuroraMix;
-            aurLum += (ebase + ecrown) * uAurErupt * 0.12;
+            float ebase  = exp(-abs(hy - 0.05) * 11.0) * envC * (0.35 + 0.65 * fold0);
+            float ecrown = smoothstep(0.10, 0.30, hy) * exp(-max(hy - 0.32, 0.0) * 4.5) * envC * (0.5 + 0.5 * fold0);
+            float ecR = ecrown * (0.30 + 0.70 * rayCore);   // the crown tint lives ON the ray cores
+            col += uAurViolet * ebase * uAurErupt * 0.10 * uAuroraMix;                                  // violet under-glow (was 0.34 flood)
+            col += mix(uAurPink, uAurRed, smoothstep(0.20, 0.55, hy)) * ecR * uAurErupt * 0.20 * uAuroraMix; // ray-carried crown (was 0.6 flat)
+            aurLum += (ebase + ecR) * uAurErupt * 0.05;                                                 // stars survive the eruption (was 0.12)
           }
         }`;
 
@@ -219,7 +230,9 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   const act = actOverride == null ? actRaw : actOverride;
   auroraUniforms.uAurAct.value = act;
   const e = Math.max(0, (act - 0.72) / 0.28);
-  auroraUniforms.uAurErupt.value = e * e * (3.0 - 2.0 * e);
+  // Peak capped at 0.8, not 1.0 — even the biggest display keeps a fifth in reserve ("beauty in
+  // reservation"). All downstream consumers (props/ground pulse) soften consistently for free.
+  auroraUniforms.uAurErupt.value = 0.8 * (e * e * (3.0 - 2.0 * e));
   // COMPOSITION — the arc holds CENTRE-STAGE. Key it to travel, HEAVILY damped (λ=0.35 → recentres
   // over ~6–8s): during a fast weave/yaw the aurora stays world-anchored and counter-slides across
   // frame (reads as a thing at infinity), but it can never be lost off-frame for long.

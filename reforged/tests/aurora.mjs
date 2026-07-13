@@ -60,13 +60,19 @@ check('VALUE MODEL: low sheet floor (0.06) + steep pow → dark gaps between cur
 check('TRANSLUCENCY: stars keyed off local CORE brightness (aurLum += I × hot·below)',
   /aurLum\s*\+=\s*I\s*\*\s*\(0\.25\s*\+\s*0\.75\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
 check('RAY quality: fold domain-warp + staggered rayTall + per-ray shimmer',
-  /u\s*\*\s*20\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*2\.6/.test(AURORA_BODY));
+  /u\s*\*\s*26\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*2\.6/.test(AURORA_BODY));
+// Gate-5: restraint (ray-carried eruption color, capped peak) + more delicate lines + stars-through.
+check('eruption color RIDES the rays (× rayCore), not a flat wash', /ecR\s*=\s*ecrown\s*\*\s*\(0\.30\s*\+\s*0\.70\s*\*\s*rayCore\)/.test(AURORA_BODY) && /rayCore\s*=\s*clamp/.test(AURORA_BODY));
+check('eruption peak capped at 0.8 (reservation)', /uAurErupt\.value\s*=\s*0\.8\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+check('MORE lines: finer ray freq (26) + a sparse tier0 HAIRLINE interleave', /u\s*\*\s*26\.0/.test(AURORA_BODY) && /hair\s*=\s*smoothstep\(\s*0\.60/.test(AURORA_BODY) && /rayShim\s*\+\s*0\.5\s*\*\s*hair/.test(AURORA_BODY));
+check('per-ray color STAGGER (color blends along each line)', /\(rn\s*-\s*0\.5\)\s*\*\s*0\.3\s*\*\s*uAurRay/.test(AURORA_BODY));
+check('stars burn through the eruption more (attenuation 0.55)', /star\s*\*=\s*1\.0\s*-\s*0\.55\s*\*\s*clamp\(\s*aurLum/.test(readFileSync(url('../js/environment.js'), 'utf8')));
 check('DEPTH: a faint ray-less BACK VEIL reusing fold0 (free layered curtain)', /float\s+veil\s*=\s*smoothstep\(\s*0\.55/.test(AURORA_BODY));
 check('ERUPTION COLOR WASH: diffuse violet base + red/pink crown glow (reads where rays fade)',
   /if\s*\(\s*uAurErupt\s*>\s*0\.001\s*\)/.test(AURORA_BODY) && /ebase\s*=\s*exp/.test(AURORA_BODY) && /ecrown\s*=\s*smoothstep/.test(AURORA_BODY));
 check('fine0 detail octave is TIER0-ONLY (uAurLayers == 2 branch → no tier1/2 cost)', /if\s*\(\s*uAurLayers\s*==\s*2\s*\)\s*fine0\s*=\s*_aNoise/.test(AURORA_BODY));
 check('ERUPTION driver: activity → smoothstep eruption envelope (rare full-color)',
-  /uAurErupt\.value\s*=\s*e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+  /uAurErupt\.value\s*=\s*0\.8\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 check('?auract debug override wired (quiet-vs-eruption capture)', /setAuroraActOverride/.test(readFileSync(url('../js/main.js'), 'utf8')));
 
 check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
@@ -126,11 +132,20 @@ setForcedBiome(null);
 check('forcing biome 6 lights the aurora (env.auroraMix 1.0)', Math.abs(forcedMix - 1.0) < 1e-6);
 
 // --- 6b. PR-3: the biome's own LOW ice props + mirror/ground-glow polish -------------
-check('BIOMES[6].props are the low flat ice (floe + iceFang)', JSON.stringify(BIOMES[6].props) === '["floe","iceFang"]');
+check('BIOMES[6].props are the low ice set (floe/iceFang/berg/skerry/ridge)', JSON.stringify(BIOMES[6].props) === '["floe","iceFang","berg","skerry","ridge"]');
 const envSrc0 = readFileSync(url('../js/environment.js'), 'utf8');
-check('floe + iceFang archetypes registered for biome 6 (matIndex 6)',
-  /floe:\s*\{[\s\S]*?biomes:\s*\[6\],\s*matIndex:\s*6/.test(envSrc0) && /iceFang:\s*\{[\s\S]*?biomes:\s*\[6\],\s*matIndex:\s*6/.test(envSrc0));
+check('all 5 aurora archetypes registered for biome 6 (matIndex 6)',
+  ['floe', 'iceFang', 'berg', 'skerry', 'ridge'].every((k) => new RegExp(k + ':\\s*\\{[\\s\\S]*?biomes:\\s*\\[6\\],\\s*matIndex:\\s*6').test(envSrc0)));
 check('iceFang is LOW (height cap 2.2–4.6, never a tall spire)', /iceFang:[\s\S]*?h:\s*2\.2\s*\+\s*rnd\(\)\s*\*\s*2\.4/.test(envSrc0));
+// The "still not Frozen-at-night" law, in numbers: every NEAR-LANE aurora archetype's max world top
+// (h_max, since normalized top ≈ 1) is ≤ 5 (vs crystal 18–50). ridge is the sanctioned distant exception.
+check('near-lane ice stays LOW (floe/fang/berg/skerry h_max ≤ 5)', (() => {
+  const hmax = { floe: 1.2 + 1.4, iceFang: 2.2 + 2.4, berg: 1.6 + 1.4, skerry: 0.6 + 0.8 };
+  return Object.values(hmax).every((h) => h <= 5.0);
+})());
+check('shape VARIETY: cylinder/icosahedron families added (not just boxes+cones)',
+  /floe:[\s\S]*?CylinderGeometry/.test(envSrc0) && /berg:[\s\S]*?IcosahedronGeometry/.test(envSrc0));
+check('skerry is the non-glowing rock foil (mat 0 only, foam-less rock)', /skerry:[\s\S]*?IcosahedronGeometry/.test(envSrc0) && /ridge:\s*false/.test(envSrc0));
 check('makeMats gains the 7th (aurora ice) primary + accent', /6 aurora night sea-ice/.test(envSrc0) && /6 aurora-caught ice edge/.test(envSrc0));
 check('FOAM_CFG has the floe + iceFang water collars', /floe:\s*\{\s*r:\s*0\.72\s*\}/.test(envSrc0) && /iceFang:\s*\{\s*r:\s*0\.62\s*\}/.test(envSrc0));
 check('hemi ground-glow pulse driven by auroraPulse (color-space, gated by mix)',
@@ -144,7 +159,7 @@ const envSrc = readFileSync(url('../js/environment.js'), 'utf8');
 check('sky shader splices AURORA_HEAD + AURORA_BODY', /\$\{AURORA_HEAD\}/.test(envSrc) && /\$\{AURORA_BODY\}/.test(envSrc));
 check('AURORA_BODY spliced BEFORE the clouds (10km clouds occlude the 100km curtain)',
   envSrc.indexOf('${AURORA_BODY}') < envSrc.indexOf('${CLOUD_BODY}'));
-check('stars dimmed behind the curtain (reads aurLum, identity at 0)', /star\s*\*=\s*1\.0\s*-\s*0\.65\s*\*\s*clamp\(\s*aurLum/.test(envSrc));
+check('stars dimmed behind the curtain (reads aurLum, identity at 0)', /star\s*\*=\s*1\.0\s*-\s*0\.55\s*\*\s*clamp\(\s*aurLum/.test(envSrc));
 check('surge night-veil suppressed under the real aurora (× (1 - uAuroraMix))', /aurora\s*\*\s*smoothstep\(0\.2,\s*0\.6,\s*h\)\s*\*\s*starMix\s*\*\s*0\.12\s*\*\s*\(1\.0\s*-\s*uAuroraMix\)/.test(envSrc));
 check('tier banding dither gated to the curtain (× uAuroraMix)', /1\.0\s*\/\s*255\.0\)\s*\*\s*uAuroraMix/.test(envSrc));
 check('applyAurora driven per-frame near applySkyClouds (with camera+dt for the travel key)', /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(envSrc));
