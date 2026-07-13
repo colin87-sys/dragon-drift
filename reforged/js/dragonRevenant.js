@@ -245,6 +245,24 @@ function buildOssuaryTorso(def, model, _bodyMat) {
     );
   }
 
+  // ── PLAGIOPATAGIUM (BODY-FIXED) — the shroud membrane that joins the wing to the SPINE /
+  // ribcage. It lives on the TORSO (not the arm) so it (a) reads as coming from the spine, and
+  // (b) NEVER swings into a "weird triangle" during the flap (owner saw the old arm-parented
+  // version deform in flight). Seated HIGH on the dorsal (above the rib belly, so it never clips
+  // through the wide cage) — a web from each wing root inboard to the dorsal ridge, sweeping a
+  // little aft + down with a tattered lower edge. Dark charcoal shroud tier.
+  const drapeMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x1d1f23, emissive: 0x000000, flatShading: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
+  drapeMat.envMapIntensity = 0.0;
+  const drapeT = [];
+  for (const side of [1, -1]) {
+    const W  = [0.50 * shoulderW * side, TORSO_Y + 0.32, -0.52];   // the wing root (where the wing emerges)
+    const Sf = [0.07 * side, TORSO_Y + 0.30, -0.80];               // dorsal ridge, forward (near the spine at the shoulder)
+    const Sa = [0.10 * side, TORSO_Y + 0.20, 0.10];                // dorsal ridge, aft along the back
+    const D  = [0.40 * side, TORSO_Y - 0.06, 0.02];                // a drape point on the upper flank (tattered lower corner)
+    drapeT.push([W, Sf, Sa], [W, Sa, D]);                          // a membrane web root→spine + a little drape
+  }
+  group.add(flatTriMesh(drapeT, drapeMat));
+
   group.add(flatTriMesh(boneT, M.bone));
   group.add(flatTriMesh(dorsalT, M.boneDorsal));
   if (recessT.length) group.add(flatTriMesh(recessT, M.recess));
@@ -328,7 +346,7 @@ registerTorso('ossuaryTorso', buildOssuaryTorso);
 function buildOnePhalanxWing(M, dials, wingMat) {
   const arm = new THREE.Group();
   const hand = new THREE.Group();
-  const hs = dials.halfSpan, wristT = dials.wristT ?? 0.16;   // MEDIAL wrist → SHORT arm + LONG fingers (owner note)
+  const hs = dials.halfSpan, wristT = dials.wristT ?? 0.10;   // VERY MEDIAL wrist → SHORT humerus + SHORT forearm, the LONG finger struts carry the span (owner: arm+elbow read too long, fingers too short)
   const N = Math.max(2, Math.round(dials.fingers));
   const cD = dials.crescentDepth ?? 1;
   const sweep = dials.sweep ?? 0.46, dih = dials.dihedral ?? 0.10;   // LOW rake → the span reads HORIZONTAL from the rear-chase (not two vertical spikes)
@@ -351,7 +369,7 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // ── ARM — a SHORT humerus + radius with an elbow bend. Medial wrist keeps the arm a
   // stub; the fingers carry the span.
   const boneT = [], capT = [];
-  const E = LE(wristT * 0.5); E[1] -= 0.04 * hs; E[2] += 0.05 * hs;
+  const E = LE(wristT * 0.55); E[1] -= 0.03 * hs; E[2] += 0.04 * hs;   // elbow near the body → a SHORT forearm
   ridge(boneT, LE(0), E, 0.075 * hs, 0.05 * hs, 0.06 * hs);          // humerus
   ridge(boneT, E, K, 0.05 * hs, 0.04 * hs, 0.05 * hs, capT);         // radius → wrist (rim-catch)
   arm.add(flatTriMesh(boneT, M.bone));                               // bright ivory arm bones
@@ -359,7 +377,7 @@ function buildOnePhalanxWing(M, dials, wingMat) {
 
   // ── FINGERS — LONG metacarpals fanning from the carpal K (finger 0 = wingtip, the rest
   // sweep aft + shorter). Bowed 2-segment bone tents; inner two carry a rim-catch cap.
-  const lenFrac = [1, 0.84, 0.68, 0.54];
+  const lenFrac = [1, 0.93, 0.85, 0.77];   // aft fingers stay LONG → a fan of long finger struts (owner: struts were too short), not a short decaying fan
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
   const tips = [F0];
   for (let i = 1; i < N; i++) {
@@ -399,23 +417,12 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // ── PROPATAGIUM — the leading-edge web over the SHORT arm (shoulder→elbow→wrist), so
   // the membrane starts at the HUMERUS, not the wrist. Arm-side → folds with the arm.
   arm.add(flatTriMesh([[LE(0), E, K], [LE(0), K, [K[0] * 0.6 + LE(0)[0] * 0.4, K[1] - 0.03 * hs, K[2] + 0.10 * hs]]], wingMat));
-  // ── PLAGIOPATAGIUM / ROOT GUSSET — the inboard membrane sweeps AFT + INBOARD + DOWN to
-  // a BODY anchor (G, toward the hip/spine), so the wing joins the body instead of
-  // floating at the wrist (owner note). Anchored to ARM-side points only (root LE, wrist
-  // K, aft corner, body G) so it never tears when the hand folds at the wrist.
-  // The body anchor G is a FIXED point (NOT span-scaled) so the inboard membrane always tapers
-  // to a thin sliver at the spine and can NEVER cross the centreline at any span — the midline-
-  // clash fix. The pivot sits at world x≈+0.5; a local x of −0.34 lands at world x≈+0.16, just
-  // off the spine, never past it. The panel is ONE thin triangle wide at the arm root, tapering
-  // to the body point (the reference plagiopatagium that melts into the torso).
-  const r0p = LE(0);
-  const G = [-0.34, -0.40, 1.05];
-  const Aaft = [r0p[0] + 0.26 * hs, r0p[1] - 0.05 * hs, r0p[2] + 0.34 * hs];   // aft point ON the arm (outboard) → the sliver tapers arm→body
-  // A CREASED panel (crease vertex C lifted out of plane) so the gusset reads as a folded 3-D
-  // membrane, not one flat 2-D black sticker floating over the ribcage (Fable). The two facets
-  // flat-shade to different values across the fold.
-  const C = [(Aaft[0] + G[0]) / 2 - 0.09, (Aaft[1] + G[1]) / 2 + 0.07, (Aaft[2] + G[2]) / 2];
-  arm.add(flatTriMesh([[r0p, Aaft, C], [r0p, C, G]], wingMat));
+  // NOTE: the PLAGIOPATAGIUM (the membrane joining the wing to the ribcage/spine) is NOT built
+  // here anymore. When it was an arm-parented triangle reaching to a fixed body point, the flap
+  // rig swung it away from the body into a "weird triangle" every downstroke (owner saw it in
+  // flight). It now lives on the TORSO as a BODY-FIXED shroud drape (buildOssuaryTorso) that
+  // sweeps from the wing root down the ribcage flank — so it reads as coming from the spine/
+  // ribcage AND never deforms with the flap. The arm keeps only the small propatagium above.
   return { arm, hand, K, tip: F0 };
 }
 
@@ -424,7 +431,7 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   const M = revenantMats(def);
   const fingers = Math.max(2, Math.round(model.fingers ?? 4));
   const halfSpan = (model.spanScale ?? 1) * 4.1;   // BROAD majestic span (owner: wings read tiny/fairy — push toward Phoenix Ascendant's span:length)
-  const wristT = model.wristT ?? 0.16;
+  const wristT = model.wristT ?? 0.10;   // very medial → short arm, long fingers (owner)
   const dials = { fingers, halfSpan, wristT, crescentDepth: model.crescentDepth ?? 1, sweep: model.wingSweep ?? 0.36, dihedral: model.wingDihedral ?? 0.10 };
 
   // The shroud MEMBRANE — a dark CHARCOAL slate-green tattered skin, lifted one value step
