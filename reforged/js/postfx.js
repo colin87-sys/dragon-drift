@@ -328,7 +328,7 @@ export function setPostTier(tier) {
   // N11 per-tier god-ray cost: tier0 = 40 samples @ 0.5 mask (shipped); tier1 = 24
   // samples @ 0.25 mask. uSamples is otherwise write-once (its shader default is 40),
   // so setting it here is the one live write; tier0 writes 40 → byte-identical.
-  if (postfx.godRayPass) postfx.godRayPass.uniforms.uSamples.value = tier === 0 ? 40 : 24;
+  if (postfx.godRayPass) postfx.godRayPass.uniforms.uSamples.value = tier === 0 ? 40 : 16;   // tier1 24→16: the march reads a quarter-res mask over broad radial columns → 16 taps is indistinguishable, less per-pixel fill
   setGodRayMaskScale(tier === 0 ? 0.5 : 0.25);
   // God-rays run at tier ≤ 1; force the pass off (and stop the mask render) at tier2.
   setGodRaysReady(_grTierOK && _grAvailable);

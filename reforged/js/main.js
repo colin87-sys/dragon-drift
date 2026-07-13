@@ -1317,6 +1317,26 @@ const PIXEL_RATIOS = [
 // ?pr=<n> — the DECISIVE fill-vs-CPU probe: caps every tier's pixelRatio (changes ONLY pixel count, not
 // draws/JS/scene). If fps jumps ~1/pr², the frame is fill-bound; if it barely moves, it's CPU.
 { const prQ = parseFloat(urlParams.get('pr')); if (Number.isFinite(prQ) && prQ > 0) for (let i = 0; i < PIXEL_RATIOS.length; i++) PIXEL_RATIOS[i] = Math.min(PIXEL_RATIOS[i], prQ); }
+// ARENA DYNAMIC RESOLUTION: the final-boss detonation is a full-frame ADDITIVE fire — the frame is
+// fill-bound there, not draw-bound (halving draws didn't move fps). Cap pixelRatio to ~1.2 while in the
+// heaven (mix>1): ×0.64 fill on the composer + fire at ~0 visible cost (soft low-frequency glow, no text
+// or fine edges), restored on exit. `?arenapr=<n>` tunes/overrides it (1.5 = off).
+let arenaResActive = false;
+const ARENA_PR_CAP = (() => { const v = parseFloat(urlParams.get('arenapr')); return Number.isFinite(v) && v > 0 ? v : 1.2; })();
+const effectivePR = (tier) => arenaResActive ? Math.min(PIXEL_RATIOS[tier], ARENA_PR_CAP) : PIXEL_RATIOS[tier];
+// Flip the arena resolution cap on heaven enter/exit. Reallocs the composer/bloom/god-ray RTs ONCE per
+// transition (masked by the unveil flash on entry, the teardown on exit); a no-op if the cap ≥ the tier's
+// ratio (e.g. ?arenapr=1.5 or at tier 2 where PIXEL_RATIOS is already 1).
+function setArenaRes(active) {
+  if (active === arenaResActive) return;
+  arenaResActive = active;
+  const pr = effectivePR(qualityTier);
+  if (pr === renderer.getPixelRatio()) return;   // nothing to realloc (cap didn't bite this tier)
+  renderer.setPixelRatio(pr);
+  setPostPixelRatio(pr);
+  setPostSize(window.innerWidth, window.innerHeight);
+  skipQualityFrames = 2;   // exclude the realloc frames from the tier-decision signal
+}
 document.body.dataset.qtier = qualityTier; // boot default (applyQuality only runs on change)
 
 function applyQuality(tier) {
@@ -1327,8 +1347,8 @@ function applyQuality(tier) {
   setDragonQuality(QUALITY_SCALARS[tier]);
   setBossQuality(QUALITY_SCALARS[tier]);
   setContactShadowQuality(QUALITY_SCALARS[tier]);
-  renderer.setPixelRatio(PIXEL_RATIOS[tier]);
-  setPostPixelRatio(PIXEL_RATIOS[tier]); // set the ratio FIRST (no resize) …
+  renderer.setPixelRatio(effectivePR(tier));
+  setPostPixelRatio(effectivePR(tier)); // set the ratio FIRST (no resize) … (arena-capped, see effectivePR)
   setPostTier(tier);                     // … so setPostTier's single applySize() reallocs the RT ONCE, not twice
   setWaterReflective(tier); // N11: tier0 768² full-rate · tier1 384² half-rate · tier2 cheap quad
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
@@ -1769,6 +1789,7 @@ function tick() {
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
   setFeverArenaWarm(Math.max(0, Math.min(1, bossArenaMix() - 1)));   // heaven (mix 1→2) warms the Surge wash magenta→gold
+  setArenaRes(bossArenaMix() > 1.05);   // heaven = full-frame additive fire (fill-bound) → cap pixelRatio ~1.2 there only
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
     player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
