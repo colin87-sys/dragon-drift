@@ -108,8 +108,8 @@ const embert = await page.evaluate(async () => {
 check(embert.mix === 0 && embert.skyDim > 0, `EMBERTIDE engages the sky-replace channel (skyDim ${embert.skyDim?.toFixed?.(2)}), NEVER the arena mix (${embert.mix})`);
 // PR-K: the FIRSTBORN SKY's Godhead Star is BUILT at boot but stays hidden/dark at mix 0 —
 // an ordinary (non-arena) boss gets zero arena furniture (the coexist proof, geometry edition).
-check(embert.arenaSet?.built === true && embert.arenaSet.visible === false && embert.arenaSet.k === 0,
-  `the Godhead Star is built-but-HIDDEN at mix 0 (visible ${embert.arenaSet?.visible}, k ${embert.arenaSet?.k})`);
+check(embert.arenaSet?.built === true && embert.arenaSet.visible === false && embert.arenaSet.k === 0 && embert.arenaSet.debrisVis === false && embert.arenaSet.emberVis === false,
+  `the Godhead Star + debris are built-but-HIDDEN at mix 0 (visible ${embert.arenaSet?.visible}, k ${embert.arenaSet?.k}, debris ${embert.arenaSet?.debrisVis})`);
 // PR-K: the haze-deck water drop is a no-op at mix 0 — the sea sits at the shipped y 0, byte-identical.
 check(embert.water?.y === 0 && embert.water?.dropK === 0,
   `the sea is UNDROPPED at mix 0 (y ${embert.water?.y}, dropK ${embert.water?.dropK}) — byte-identical off the heaven`);
@@ -140,13 +140,17 @@ check(we && Number.isFinite(we.x) && Number.isFinite(we.y) && Math.abs(we.x) <= 
   `wingEye0 resolves sanely in-lane WITH the void live — no reparent (${we ? `x${we.x.toFixed(1)} y${we.y.toFixed(1)}` : 'null'})`);
 check(engaged.voidSky === true, 'the void suppresses god-rays (voidSky true)');
 // PR-H1/H2: the architecture belongs to the HEAVEN only — the void keeps its austere emptiness.
-check(engaged.arenaSet?.visible === false && engaged.arenaSet.k === 0,
-  `the Godhead Star stays hidden in the VOID (heaven-only window; k ${engaged.arenaSet?.k})`);
+check(engaged.arenaSet?.visible === false && engaged.arenaSet.k === 0 && engaged.arenaSet.debrisVis === false && engaged.arenaSet.emberVis === false,
+  `the Godhead Star + debris stay hidden in the VOID (heaven-only window; k ${engaged.arenaSet?.k}, debris ${engaged.arenaSet?.debrisVis})`);
 // PR-K: the sea stays UNDROPPED in the void too (the drop window opens at mix 1.45, inside the unveil).
 check(engaged.water?.y === 0 && engaged.water?.dropK === 0,
   `the sea is undropped in the VOID (y ${engaged.water?.y}) — the haze-deck belongs to the heaven window`);
 check(engaged.propBandsHidden === true, 'the biome prop bands are dark in the void (F1 gate)');
 check(engaged.skyDim === 0, 'the EMBERTIDE sky channel stayed 0 under the void (disjointness)');
+// GODHEAD DETONATION P3: the gold WREATH is heaven-only — the seraph does NOT ignite in the void
+// (igniteK 0), so the S2 violet rim (voidK) owns the silhouette there. Mutual exclusivity, void side.
+check((engaged.igniteLift?.k ?? 0) === 0 && engaged.igniteLift?.glowVis === false,
+  `the seraph does NOT ignite in the VOID (igniteK ${engaged.igniteLift?.k}, aura ${engaged.igniteLift?.glowVis}) — the gold wreath is heaven-only`);
 
 // (e) BAND — the void's certified dark-band lift is live at the reveal.
 check(engaged.bandDark === 0xa84167, `the void's dark bullet band is the certified lift 0xa84167 (got 0x${engaged.bandDark?.toString(16)})`);
@@ -187,13 +191,27 @@ check(heaven.mix >= 1.99 && heaven.kind === 'heaven', `the heaven engages to mix
 check(heaven.voidSky === false && heaven.heavenRays > 0.9, `the heaven RELEASES the void's god-ray suppression and SWELLS the shafts (voidSky ${heaven.voidSky}, rays ${heaven.heavenRays?.toFixed?.(2)})`);
 check(heaven.lift && heaven.lift.k > 0.99 && heaven.lift.sclera !== 0x8f8365,
   `the S3 focal LIFTS on the gold sky (lift.k ${heaven.lift?.k?.toFixed?.(2)}, sclera 0x${heaven.lift?.sclera?.toString(16)} ≠ 0x8f8365) — not a mask on a sunset`);
+// GODHEAD DETONATION P3: THE IGNITED SERAPH engages in the settled heaven — a gold-wreathed rim
+// (self-lit emissive ≠ 0), a roiling gold-violet aura mandorla (glowVis), rising to full at mix 2.
+check(heaven.igniteLift && heaven.igniteLift.k > 0.9 && heaven.igniteLift.glowVis === true && heaven.igniteLift.rimEm !== 0 && heaven.igniteLift.wispVis === true,
+  `the seraph IGNITES in the heaven (igniteK ${heaven.igniteLift?.k?.toFixed?.(2)}, rimEm 0x${heaven.igniteLift?.rimEm?.toString(16)}, aura ${heaven.igniteLift?.glowVis}, wisps ${heaven.igniteLift?.wispVis})`);
+// MUTUAL EXCLUSIVITY (owner §3d.6): voidK and igniteK never coexist — the void rim EXHALED before
+// the gold wreath rose (voidK = 0 by mix 1.45; igniteK rises 1.45→2). Both >0 at once is a driver bug.
+check((heaven.voidLift?.k ?? 0) === 0 && heaven.igniteLift.k > 0,
+  `voidK and igniteK are mutually exclusive in the heaven (voidK ${heaven.voidLift?.k}, igniteK ${heaven.igniteLift?.k?.toFixed?.(2)})`);
 check(heaven.bandDark === 0xa84167, `the void's dark band PERSISTS through the heaven (0x${heaven.bandDark?.toString(16)})`);
 check(heaven.propBandsHidden === true && heaven.skyDim === 0, 'the props stay dark + the EMBERTIDE channel stays 0 in the heaven');
 // PR-K: THE GODHEAD STAR engages in the settled heaven — the newborn supernova heart burns far on
 // the boss axis (k→1 rides the same stateless mix; the exhale/teardown checks below prove the
 // release). The supernova is the owner-locked default mode ('spiral' is the A/B seam, never shipped-on).
-check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.star === true && heaven.arenaSet.mode === 'supernova' && heaven.arenaSet.tierHidden === false,
-  `the Godhead Star engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, mode ${heaven.arenaSet?.mode})`);
+check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.arenaSet.star === true && heaven.arenaSet.mode === 'detonation' && heaven.arenaSet.tierHidden === false,
+  `THE GODHEAD DETONATION engages in the heaven (visible ${heaven.arenaSet?.visible}, k ${heaven.arenaSet?.k}, mode ${heaven.arenaSet?.mode})`);
+// GODHEAD DETONATION P4: the DEBRIS field rides the blast in the settled heaven, and NO chunk can
+// enter the focal/corridor column (hard |x| ≥ 25 by construction — the layout invariant).
+check(heaven.arenaSet?.debrisFlybyMargin >= 0,
+  `the FLYBY rocks never cross the flight lane at any depth (margin ${heaven.arenaSet?.debrisFlybyMargin} ≥ 0 — the widening keep-out cone)`);
+check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 1152,
+  `the DEBRIS conveyor + EMBER layer ride the heaven, clear of the focal column (debris ${heaven.arenaSet?.debrisVis} min|x| ${heaven.arenaSet?.debrisMinX} ≥ 25, embers ${heaven.arenaSet?.emberVis}/${heaven.arenaSet?.emberN})`);
 // PR-K: THE HAZE-DECK — the sea drops ~30u in the settled heaven (the "water" becomes a cosmic haze
 // far below), and the seraph's wings clear it by ≥10u (the P0 probe seam: wingMinY − waterY). The
 // court build measured the mantled fan's tips at world y ≈ −11.6 worst-case; the 30u drop + the
@@ -248,6 +266,13 @@ const p90 = lums[Math.floor(lums.length * 0.90)];
 // parry authority regardless of palette. The chiaroscuro court simply ships miles under it, ≈0.35–0.41
 // vs the lit-gold heaven's 0.69 — the dark sea IS the fairness dividend of the redo.)
 check(p90 <= 0.75, `the heaven's parry corridor stays parry-legible (p90 luminance ${p90.toFixed(3)} ≤ 0.75 — the backdrop never floods the dodge zone)`);
+// THE CORRIDOR MEDIAN LOCK (GODHEAD DETONATION, D4): the p90 ceiling is the parry authority, but the
+// apotheosis pushes the SKY median up (the identity moved "midnight vault → perpetual detonation"), so
+// pin the play-field pocket itself DARK against future tuning. The corridor is the calm, darker pocket
+// the detonation deliberately spares (down-hemisphere burst suppression + haze-deck occlusion + dark
+// debris) — its BROAD field must stay a dark dodge canvas even as the mid-annulus blazes.
+const cP50 = lums[Math.floor(lums.length * 0.50)];
+check(cP50 <= 0.45, `the parry corridor's broad field stays DARK (p50 luminance ${cP50.toFixed(3)} ≤ 0.45 — the play-field pocket the detonation spares)`);
 
 // SKY-BAND CEILING (CP2 finding-2; re-based for PR-J): the sky band above the waterline (y 30-55%)
 // carries the court's authored brights — the divine column + the god-ray swell on the dark vault —
@@ -278,16 +303,65 @@ check(skyP95 <= 0.90, `the heaven's sky band is lit but not blinding-WHITE (p95 
 const skyP50 = skyLums[Math.floor(skyLums.length * 0.50)];
 check(skyP50 <= 0.55, `the FIRSTBORN SKY stays a dark astral field — the vault's broad field is DARK (sky p50 ${skyP50.toFixed(3)} ≤ 0.55; the light is the Godhead Star + halo, never a bright wash)`);
 
+// THE LOOP IS ALIVE (GODHEAD DETONATION P2, owner directive §1): the detonation is a PERPETUAL
+// outward loop, never a static painted burst. Two proofs: (a) the shader's uTime driver ADVANCES
+// (the perpetual driver is running), and (b) the streak band VISIBLY changes ≥1s later — the
+// scrolling energy jets outward, so a frame-identical band = a dead loop = a build failure. Probe
+// the UPPER streak band (y 15-35%) where the radial rays dominate and player bullets are sparse.
+const loopA = (await page.evaluate(() => window.__dd.bossArenaState())).arenaSet;
+await page.waitForTimeout(1200);
+const shot2 = await page.screenshot();
+const loopB = (await page.evaluate(() => window.__dd.bossArenaState())).arenaSet;
+const { rgba: rgba2 } = decodePNG(shot2);
+let moved = 0, tot = 0;
+for (let y = Math.floor(ih * 0.15); y < ih * 0.35; y += 2) {
+  for (let x = Math.floor(iw * 0.15); x < iw * 0.85; x += 2) {
+    const d = (y * iw + x) * 4;
+    const dl = Math.abs(rgba[d] - rgba2[d]) + Math.abs(rgba[d + 1] - rgba2[d + 1]) + Math.abs(rgba[d + 2] - rgba2[d + 2]);
+    if (dl > 12) moved++; tot++;
+  }
+}
+const movedFrac = moved / tot;
+check(loopB.detUTime > loopA.detUTime, `the detonation's perpetual driver ADVANCES (uTime ${loopA.detUTime} → ${loopB.detUTime})`);
+check(movedFrac > 0.30, `the detonation LOOP is alive — the streak band jetted over 1.2s (moved ${(movedFrac * 100).toFixed(1)}% of samples, gate > 30%; a dead loop reads near-static)`);
+
+// TIER-2 GRACEFUL DEGRADE (the "background goes black at shield-raise" fix): forcing the weakest tier
+// must NOT hide the whole detonation — it keeps a lit core+corona (drawRange subset). The set stays
+// VISIBLE and the frame centre stays lit; only on tier 2 does the old code hard-black. Restore after.
+const t2 = await page.evaluate(async () => {
+  window.__dd.setQuality(2);
+  await new Promise((r) => setTimeout(r, 250));
+  const s = window.__dd.bossArenaState();
+  return { tier: s.arenaSet?.tier, vis: s.arenaSet?.visible, k: s.arenaSet?.k };
+});
+const shotT2 = await page.screenshot();
+const { rgba: rgbaT2 } = decodePNG(shotT2);
+let cLum = 0, cN = 0;   // centre annulus (where the core+corona sits) must stay lit, not black
+for (let y = Math.floor(ih * 0.28); y < ih * 0.46; y += 2) {
+  for (let x = Math.floor(iw * 0.38); x < iw * 0.62; x += 2) {
+    const d = (y * iw + x) * 4; cLum += (0.2126 * rgbaT2[d] + 0.7152 * rgbaT2[d + 1] + 0.0722 * rgbaT2[d + 2]) / 255; cN++;
+  }
+}
+const cMean = cLum / cN;
+check(t2.tier === 2 && t2.vis === true && cMean > 0.12,
+  `tier 2 GRACEFULLY degrades — the detonation stays lit (set visible ${t2.vis}, centre luma ${cMean.toFixed(3)} > 0.12), never a hard black`);
+await page.evaluate(() => window.__dd.setQuality(0));
+await page.waitForTimeout(150);
+
 // The focal lift REVERTS off the heaven (byte-identity): reset → fresh S2 pin → lift.k 0, sclera restored.
 const liftOff = await page.evaluate(async () => {
   window.__dd.bossReset(); await new Promise((r) => setTimeout(r, 200));
   window.__dd.bossSetDefIdx(13); window.__dd.bossSetStage(2); window.__dd.spawnBoss();
   await new Promise((r) => setTimeout(r, 400)); window.__dd.bossForceFight();
   let s; for (let i = 0; i < 30; i++) { await new Promise((r) => setTimeout(r, 50)); s = window.__dd.bossArenaState(); if ((s.lift?.k ?? 0) === 0) break; }
-  return s.lift;
+  return { lift: s.lift, ignite: s.igniteLift };
 });
-check(liftOff && liftOff.k === 0 && liftOff.sclera === 0x8f8365,
-  `the focal lift REVERTS off the heaven — S3 byte-identical (lift.k ${liftOff?.k}, sclera 0x${liftOff?.sclera?.toString(16)})`);
+check(liftOff.lift && liftOff.lift.k === 0 && liftOff.lift.sclera === 0x8f8365,
+  `the focal lift REVERTS off the heaven — S3 byte-identical (lift.k ${liftOff.lift?.k}, sclera 0x${liftOff.lift?.sclera?.toString(16)})`);
+// GODHEAD DETONATION P3: the ignite wreath is OFF at the S2 pin — igniteK 0, aura hidden (the void
+// rim owns the silhouette here; ignite contributes nothing → byte-identical off the settled heaven).
+check(liftOff.ignite && liftOff.ignite.k === 0 && liftOff.ignite.glowVis === false && liftOff.ignite.wispVis === false,
+  `the ignited seraph is OFF at the S2 pin — no gold wreath/wisps outside the settled heaven (igniteK ${liftOff.ignite?.k}, aura ${liftOff.ignite?.glowVis}, wisps ${liftOff.ignite?.wispVis})`);
 
 // THE EXHALE: fell the boss from the heaven → the mix HOLDS (never descends through the void — the
 // reverse-strobe catch) while the fade dissolves the arena back to the biome sky.
@@ -304,7 +378,10 @@ const exhale = await page.evaluate(async () => {
   window.__dd.bossFell();
   window.__dd.forceGameOver();   // the finale/rush kill jumps STRAIGHT to gameover → updateBoss stops. The exhale must decay in updateArenaExhale (all-states) or it strands (CP2/Codex BLOCKER).
   const samples = [];
-  for (let i = 0; i < 28; i++) { await new Promise((r) => setTimeout(r, 120)); const s = window.__dd.bossArenaState(); samples.push({ mix: s.mix, fade: s.fade }); }
+  // 40 (was 28): the ~2.5s exhale is fixed game-time, but the richer detonation (dense particulate) is
+  // heavier to RASTERISE headless, so dt-clamping accumulates game-time slower per wall-second — more
+  // poll frames give the software renderer room to reach mix 0 (a real GPU completes it in one blink).
+  for (let i = 0; i < 40; i++) { await new Promise((r) => setTimeout(r, 120)); const s = window.__dd.bossArenaState(); samples.push({ mix: s.mix, fade: s.fade }); }
   return samples;
 });
 const heldMix = exhale.every((s) => s.mix >= 1.99 || s.mix === 0);   // holds at 2, then snaps to 0 at exhale end
@@ -317,8 +394,8 @@ check(fullyExhaled, `the exhale DECAYS to biome while parked in gameover (update
 // PR-H1/H2: the holy architecture dissolved WITH the exhale (fade-scaled) and is hidden again
 // after the natural-kill teardown — the self-healing stateless-source law, geometry edition.
 const after = await page.evaluate(() => window.__dd.bossArenaState());
-check(after.arenaSet?.visible === false && after.arenaSet.k === 0,
-  `the Godhead Star is hidden again after the exhale/teardown (visible ${after.arenaSet?.visible}, k ${after.arenaSet?.k})`);
+check(after.arenaSet?.visible === false && after.arenaSet.k === 0 && after.arenaSet.debrisVis === false && after.arenaSet.emberVis === false,
+  `the Godhead Star + debris are hidden again after the exhale/teardown (visible ${after.arenaSet?.visible}, k ${after.arenaSet?.k}, debris ${after.arenaSet?.debrisVis})`);
 // PR-K: the haze-deck rises back with the same window×fade — the sea is at the shipped y 0 again.
 check(after.water?.y === 0 && after.water?.dropK === 0,
   `the sea is RESTORED to y 0 after the exhale/teardown (y ${after.water?.y}, dropK ${after.water?.dropK})`);

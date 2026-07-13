@@ -657,7 +657,13 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   // Dragon Surge sky tint (damped so it sweeps in/out smoothly)
   feverMix = damp(feverMix, feverActive ? 1 : 0, 2.5, dt);
   su.feverMix.value = feverMix;
-  feverWarmMix = damp(feverWarmMix, feverWarmTarget, 2.5, dt);   // FIERY rebirth palette (fire dragons) vs magenta
+  // In the FIRSTBORN heaven the Surge reads in the arena's OWN gold, not the default magenta — the
+  // godhead's palette law extends to the player's surge (a magenta wash punched a hole in the gold
+  // sky, the owner's "background changes randomly"). Force the existing FIERY feverWarm variant while
+  // in the heaven (arenaMix 1→2), overriding the per-dragon target. feverWarm is a no-op until surge
+  // fires (it's × feverMix in the shader), so this only shows when the player actually surges.
+  const heavenWarm = Math.max(0, Math.min(1, arenaMix - 1));   // 0 in biome/void → 1 as the heaven settles
+  feverWarmMix = damp(feverWarmMix, Math.max(feverWarmTarget, heavenWarm), 2.5, dt);   // FIERY (fire dragons / the heaven) vs magenta
   su.feverWarm.value = feverWarmMix;
   su.dimMix.value = skyDim;          // EMBERTIDE sky-replacement crossfade
   sky.visible = skyDim < 0.985;      // hide the real dome once EMBERTIDE fully covers (draw replaced, not added)
