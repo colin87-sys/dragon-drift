@@ -78,7 +78,20 @@ const DEBRIS_BODY = 0x14102a;      // near-black indigo — dark tumbling silhou
 // the tumble bounding radius, and 1.15 the (C·tan(fov/2)·aspect) slope (with margin over the k=1.0
 // constraint). z travels far→behind-camera so the recycle happens OFFSCREEN (no pop).
 const FLYBY_N = 8, FLYBY_SPEED = 0.05, FLYBY_Z_FAR = -300, FLYBY_Z_NEAR = 30, CAM_LOCAL_Z = 13.2;
-let debrisFlybyMargin = 0;         // min over the path of (x − k=1.0 lane-clearance) — asserted ≥ 0
+// OVERHEAD flyby (owner ask: rocks also passing from ABOVE, close, never a collision). Of the 8 flyby,
+// FLYBY_OVH_N come from overhead — they DIVE toward the camera and sweep up over the TOP of frame, on a
+// VERTICAL keep-out cone (the horizontal cone rotated 90°). Vertical FOV has NO aspect term (three.js fov
+// is vertical), so this reads on a PORTRAIT phone where the side passes are geometrically off-frame.
+const FLYBY_OVH_N = 3;                   // 3 overhead + 5 side (owner-chosen mix)
+const OVH_SET = new Set([1, 4, 6]);      // which flyby indices are overhead — phases 0.125/0.50/0.75 (maximally spread on the loop)
+const FLYBY_R = 1.45;                    // honest world bounding radius per unit size (Phase-2 hero geo normalises to 1.16 × per-instance axis cap 1.25 = 1.45; ≥ the current jitter max 1.35, so the cones are conservative now too)
+const CAM_Y_MAX = 27.0;                  // worst-case camera height (laneMaxY 22 + chase 4.6 + shake headroom) — the vertical analog of the 11.7 max camera-x
+const OVH_Y_BASE = 6, OVH_Y_SLOPE = 0.26;    // PLACEMENT: the y-floor gap above the worst camera + the proximity-widening slope (rock bottom = CAM_Y_MAX + base + slope·dc, size-independent)
+const OVH_YC_BASE = 4, OVH_YC_SLOPE = 0.22;  // CONSTRAINT: the elevation-band floor + slope the rock bottom must clear (both < placement ⇒ margin ≥ 0 at every depth); slope 0.22 pins the rock to the top sky band (elev ≥ ~12°)
+const OVH_Y_ABS = 30;                    // ABSOLUTE floor: rock bottom never below laneMaxY 22 + 8 → the dragon can never touch one regardless of camera state
+const OVH_ENABLED = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('noovh'));   // ?noovh — A/B: all 8 flyby revert to side passes
+let debrisFlybyMargin = 0;         // horizontal side cone: min over the path of (x − k=1.0 lane-clearance) — asserted ≥ 0
+let debrisFlybyMarginY = 0;        // vertical overhead cone: min over the path of (rock-bottom − elevation-band floor) — asserted ≥ 0
 
 // Owner-locked star mode: 'detonation' (THE GODHEAD DETONATION — the locked default) |
 // 'supernova' | 'spiral' (the pre-apotheosis A/B seams, kept for owner preview — D7a).
@@ -575,17 +588,30 @@ function buildDebris(prnd) {
   debris.layers.set(1);   // out of the god-ray mask + water mirror (opaque, but the RenderPass shares depth so it still occludes correctly)
   debrisP = [];
   const heat = new Float32Array(DEBRIS_N);
-  let minX = Infinity, flyMargin = Infinity;
+  let minX = Infinity, flyMargin = Infinity, flyMarginY = Infinity, sideCount = 0;
   for (let i = 0; i < DEBRIS_N; i++) {
     if (i < FLYBY_N) {                                          // FLYBY: huge rocks whooshing past the camera
-      const side = i % 2 === 0 ? 1 : -1, size = 5.0 + prnd() * 4.0;   // 5..9u — hero-sized, capped so the lane margin stays positive
+      const size = 5.0 + prnd() * 3.5;                         // 5..8.5u — hero-sized, capped so BOTH cone margins stay ≥ 0 (the 1.45 radius tightened it)
       heat[i] = 1.2 + prnd() * 0.5;
-      debrisP.push({ flyby: true, side, size, phase: i / FLYBY_N, flyY: (prnd() - 0.5) * 90,
-        ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });   // even phase spacing caps simultaneous near-passes
-      for (let ps = 0; ps <= 24; ps++) {                       // verify the lane-clearance margin over the whole path
-        const p = ps / 24, zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
-        const x = Math.max(26, 11.7 + 1.3 * size + 1.15 * dc);
-        flyMargin = Math.min(flyMargin, x - (11.7 + 1.3 * size + 1.0 * dc));
+      if (OVH_ENABLED && OVH_SET.has(i)) {                     // OVERHEAD: dive in from high, sweep up over the top of frame
+        const x0 = (prnd() - 0.5) * 18, xd = (prnd() - 0.5) * 0.04;   // ±9u lateral band (portrait-centre), ±0.02 depth-drift slope
+        debrisP.push({ flyby: true, overhead: true, size, phase: i / FLYBY_N, x0, xd,
+          ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });
+        for (let ps = 0; ps <= 24; ps++) {                     // verify the VERTICAL clearance margin over the whole path
+          const p = ps / 24, zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
+          const yBottom = CAM_Y_MAX + OVH_Y_BASE + OVH_Y_SLOPE * dc;             // placement bottom (the FLYBY_R·size term cancels: centre is lifted by exactly the radius)
+          const floor = Math.max(OVH_Y_ABS, CAM_Y_MAX + OVH_YC_BASE + OVH_YC_SLOPE * dc);
+          flyMarginY = Math.min(flyMarginY, yBottom - floor);
+        }
+      } else {                                                 // SIDE: whoosh past on the left/right cone (3R/2L across the 5 side flyby)
+        const side = (sideCount++ % 2 === 0) ? 1 : -1;
+        debrisP.push({ flyby: true, side, size, phase: i / FLYBY_N, flyY: (prnd() - 0.5) * 90,
+          ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });   // even phase spacing caps simultaneous near-passes
+        for (let ps = 0; ps <= 24; ps++) {                     // verify the HORIZONTAL lane-clearance margin over the whole path
+          const p = ps / 24, zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
+          const x = Math.max(26, 11.7 + FLYBY_R * size + 1.15 * dc);
+          flyMargin = Math.min(flyMargin, x - (11.7 + FLYBY_R * size + 1.0 * dc));
+        }
       }
       debris.setMatrixAt(i, _m.makeScale(0, 0, 0));
       continue;
@@ -602,6 +628,7 @@ function buildDebris(prnd) {
     debris.setMatrixAt(i, _m.makeScale(0, 0, 0));              // hidden until the first drive frame
   }
   debrisFlybyMargin = +flyMargin.toFixed(2);
+  debrisFlybyMarginY = Number.isFinite(flyMarginY) ? +flyMarginY.toFixed(2) : Infinity;   // Infinity ⇒ no overhead this run (?noovh)
   geo.setAttribute('aHeat', new THREE.InstancedBufferAttribute(heat, 1));   // per-instance molten heat (heroes hotter)
   debris.instanceMatrix.needsUpdate = true;
   debrisMinX = +minX.toFixed(2);
@@ -707,7 +734,11 @@ export function updateArenaSet(time, playerDist, mix, fade) {
         const p = (time * FLYBY_SPEED + d.phase) % 1;
         const zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
         const env = ss(p / 0.05) * ss((1 - p) / 0.05);         // fade at the far birth + the offscreen recycle
-        _v.set(d.side * Math.max(26, 11.7 + 1.3 * d.size + 1.15 * dc), DEBRIS_CY + d.flyY, zl);   // perspective grows the size as it nears
+        if (d.overhead) {                                       // OVERHEAD: dive from high (y≈124) → sweep up over the top (y≈43), never into the lane
+          _v.set(d.x0 + d.xd * dc, CAM_Y_MAX + OVH_Y_BASE + FLYBY_R * d.size + OVH_Y_SLOPE * dc, zl);   // centre = bottom-floor + the bounding radius (keeps the baked marginY exact)
+        } else {
+          _v.set(d.side * Math.max(26, 11.7 + FLYBY_R * d.size + 1.15 * dc), DEBRIS_CY + d.flyY, zl);   // perspective grows the size as it nears
+        }
         _e.set(d.e0 + time * d.ts, d.e1 + time * d.ts * 0.7, d.e2);
         _q.setFromEuler(_e);
         _sc.setScalar(Math.max(1e-4, d.size * k * env));
@@ -744,7 +775,9 @@ export function debugArenaSet() {
   return { built: !!set, visible: !!set && set.visible, k: +lastK.toFixed(3), mode: STAR_MODE, star: !!nova,
     detUTime: detMat ? +detMat.uniforms.uTime.value.toFixed(2) : 0,   // detUTime advances ⇒ the perpetual loop is driven
     debrisN: DEBRIS_N, debrisVis: !!set && set.visible && !!debris, debrisMinX,   // debrisMinX ≥ 25 ⇒ no background chunk enters the focal/corridor column
-    debrisFlybyMargin,   // ≥ 0 ⇒ no FLYBY rock ever crosses the flight lane at any camera depth
+    debrisFlybyMargin,   // ≥ 0 ⇒ no SIDE flyby rock ever crosses the flight lane at any camera depth
+    debrisFlybyMarginY,  // ≥ 0 ⇒ no OVERHEAD flyby rock ever dips into the lane/gameplay band at any camera depth
+    flybyOvh: OVH_ENABLED ? FLYBY_OVH_N : 0, flybySide: FLYBY_N - (OVH_ENABLED ? FLYBY_OVH_N : 0),   // the split (owner-tunable)
     emberN: EMBER_N, emberVis: !!set && set.visible && !!embers && embers.visible,
     tier: tierLevel, tierHidden: tierLevel >= 2 };   // tierHidden now means "tier-2 graceful degrade" (core+corona kept), not a full hide
 }
