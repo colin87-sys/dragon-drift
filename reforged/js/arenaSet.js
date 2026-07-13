@@ -216,7 +216,8 @@ function buildSpiralGeo(prnd) {
 // ══════════════════ THE GODHEAD DETONATION (owner-locked default mode) ══════════════════
 // The newborn supernova heart goes off and KEEPS erupting — a PERPETUAL radial detonation (FF7
 // Safer-Sephiroth's STYLE, our indigo+gold colour). ONE merged additive ShaderMaterial draw:
-//   • CORE + widened CORONA (R 280) + 4 diffraction SPIKES — the static star glyph (aType 0).
+//   • CORE + widened CORONA (R 280) — the newborn heart (aType 0) + molten glow (aType 3). The
+//     CROSS is no longer geometry: it EMERGES from the corona via a shared 4-fold field (see below).
 //   • RADIAL STREAK FAN — 64 tapered filaments jetting from the core to the frame edges, energy
 //     SCROLLING outward core→tip on a seamless loop (aType 1). The ECLIPSE corollary is BAKED into
 //     the vertex colour by ACTUAL radius (black until a streak clears the seraph's ±27° fan at
@@ -276,7 +277,8 @@ function buildDetonationGeo(prnd) {
     const a = (s / NST) * TAU + (prnd() - 0.5) * 0.07;
     const sinA = Math.sin(a), down = sinA < -0.15;              // pointing below horizontal
     const lenBase = 280 + prnd() * 280;                         // 280..560u
-    const len = down ? lenBase * 0.5 : lenBase, gain = (down ? 0.4 : 1.0) * 0.85;   // −15% baked gain — the particulate carries the reach
+    const cAlign = 0.78 + 0.55 * Math.pow(Math.abs(Math.cos(2 * a)), 6);   // cross-aligned streaks BRIGHTEN (the fire-rivers of the arms), off-axis dim (subtractive)
+    const len = down ? lenBase * 0.5 : lenBase, gain = (down ? 0.4 : 1.0) * 0.85 * cAlign;   // −15% baked gain — the particulate carries the reach
     const ex = Math.cos(a), ey = sinA, nx = Math.cos(a + Math.PI / 2), ny = Math.sin(a + Math.PI / 2);
     const ph = prnd() * TAU;                                    // per-streak scroll phase (breaks lockstep)
     for (let j = 0; j < SEG; j++) {
@@ -308,22 +310,12 @@ function buildDetonationGeo(prnd) {
       push(IN0, c0, [0, ua0], 2, ph); push(OUT1, c1, [1, ua1], 2, ph); push(IN1, c1, [0, ua1], 2, ph);
     }
   }
-  // ── 4 DIFFRACTION SPIKES (aType 0): the star-optics glyph survives inside the blast.
-  const SPIKE_C = [0.95, 0.86, 0.62];
-  for (let s = 0; s < 4; s++) {
-    const ang = (s * Math.PI) / 2, len = SPIKE_LEN * (s % 2 === 1 ? 1.0 : 0.8) * (0.96 + prnd() * 0.08);
-    const dx = Math.cos(ang + Math.PI / 2), dy = Math.sin(ang + Math.PI / 2), ex = Math.cos(ang), ey = Math.sin(ang);
-    const SSEG = 3;
-    for (let j = 0; j < SSEG; j++) {
-      const t0 = j / SSEG, t1 = (j + 1) / SSEG, w0 = SPIKE_W * (1 - t0), w1 = SPIKE_W * (1 - t1);
-      const b0 = Math.pow(1 - t0, 1.5) * 0.85, b1 = Math.pow(1 - t1, 1.5) * 0.85;
-      const c0 = [SPIKE_C[0] * b0, SPIKE_C[1] * b0, SPIKE_C[2] * b0], c1 = [SPIKE_C[0] * b1, SPIKE_C[1] * b1, SPIKE_C[2] * b1];
-      const p00 = [ex * len * t0 + dx * w0, ey * len * t0 + dy * w0, 0.1], p01 = [ex * len * t0 - dx * w0, ey * len * t0 - dy * w0, 0.1];
-      const p10 = [ex * len * t1 + dx * w1, ey * len * t1 + dy * w1, 0.1], p11 = [ex * len * t1 - dx * w1, ey * len * t1 - dy * w1, 0.1];
-      push(p00, c0, [0, 0], 0, 0); push(p01, c0, [0, 0], 0, 0); push(p11, c1, [0, 0], 0, 0);
-      push(p00, c0, [0, 0], 0, 0); push(p11, c1, [0, 0], 0, 0); push(p10, c1, [0, 0], 0, 0);
-    }
-  }
+  // ── THE CROSS is no longer geometry. The old 4 explicit diffraction-spike quads read as a static
+  // bright DECAL over a living fire (the owner's "3 distinct elements" complaint). It now EMERGES from
+  // the fire itself: a shared 4-fold angular field (`cross4` in DET_FRAG) makes the corona brighten
+  // INTO the axes (gated by the SAME molten noise, so it breathes/dissolves with the flames), darkens
+  // slightly OFF-axis (the negative edge), the ember trails migrate onto the axes as they age, and the
+  // cross-aligned streaks are the bright fire-rivers. No constant-value pixels remain → no overlay.
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('aCol', new THREE.Float32BufferAttribute(acol, 3));
@@ -352,8 +344,9 @@ const DET_VERT = `
 // eclipse/down-suppression/fairness structure is untouched. All bases clamped ≥ 0 (the NaN law); the
 // hash uses only fract/dot (no pow/sin/sqrt/log) so it can't emit a NaN.
 const DET_FRAG = `
-  uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing; uniform float uOct; uniform float uRoil;
+  uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing; uniform float uOct; uniform float uRoil; uniform float uCross;
   varying vec3 vCol; varying vec2 vUv; varying float vType; varying float vPhase;
+  float cross4(float a){ return pow(abs(cos(a * 2.0)), 10.0); }   // 4-fold angular field: peaks on 0/90/180/270; abs base ≥ 0 (NaN-safe)
   float hash21(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
   float vnoise(vec2 p){
     vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
@@ -378,7 +371,11 @@ const DET_FRAG = `
       vec2 warp = vec2(fbm(ring + vec2(-uTime * 0.16, 0.0)), fbm(ring + 4.7)) - 0.5;
       float n = fbm(ring * 2.3 + warp * 3.0 + vec2(-uTime * 0.22, 0.0));   // billow curls (warp 2.1→3.0)
       float cells = 0.32 + 1.5 * n * n;                  // n² → bright cells + dark cracks (reads through bloom)
-      b = mix(1.0, cells, uRoil) * frontAt(t * 340.0);   // molten mass, growing outward with the front
+      float cx = cross4(ang);
+      float crossGlow = cx * smoothstep(0.2, 0.75, n);   // the fire brightens INTO the cross, driven by the SAME molten noise (breathes with the flames)
+      b = mix(1.0, cells, uRoil) * frontAt(t * 340.0)
+        * (1.0 - 0.14 * uCross * (1.0 - cx))             // OFF-axis darkening = the negative edge
+        * (1.0 + 1.6 * uCross * crossGlow);              // ON-axis fire-flare (mean ≈ preserved by the darkening)
     } else if (vType > 1.5) {                            // SHOCK RING — soft band × filamented wavefront
       float t = vUv.x, ang = vUv.y * 6.2831853;
       float band = pow(max(0.0, sin(t * 3.14159265)), 1.4);   // black on both edges (clamp: no NaN)
@@ -401,7 +398,7 @@ const DET_FRAG = `
   }`;
 const addDetMat = () => {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uFlow: { value: 3.8 }, uRing: { value: 1.5 }, uOct: { value: 3 }, uRoil: { value: 1.0 } },
+    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uFlow: { value: 3.8 }, uRing: { value: 1.5 }, uOct: { value: 3 }, uRoil: { value: 1.0 }, uCross: { value: 1.0 } },
     vertexShader: DET_VERT, fragmentShader: DET_FRAG,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
   });
@@ -443,15 +440,16 @@ function buildEmbers(prnd) {
   geo.setAttribute('aSeed', new THREE.Float32BufferAttribute(aseed, 4));
   geo.setAttribute('aSeed2', new THREE.Float32BufferAttribute(aseed2, 4));
   emberMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uGain: { value: 0 } },
+    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uCross: { value: 1.0 } },
     vertexShader: `
       attribute vec2 aQuad; attribute vec4 aSeed; attribute vec4 aSeed2;   // aSeed=dir,speed,phase,size · aSeed2=swirlAmp,swirlFreq,swirlPhase,stretch
-      uniform float uTime;
-      varying vec2 vQ; varying float vGlow; varying float vLife;
+      uniform float uTime; uniform float uCross;
+      varying vec2 vQ; varying float vGlow; varying vec3 vCol;
       void main(){
         float life = fract(uTime * aSeed.y + aSeed.z);
         float sw = aSeed2.x, swf = aSeed2.y, swp = aSeed2.z;
         float theta = aSeed.x + sw * sin(swf * life + swp) + 0.5 * sw * sin(2.3 * swf * life + aSeed.z * 6.2831853);
+        theta -= uCross * 0.12 * sin(4.0 * theta) * smoothstep(0.15, 0.7, life);   // trails MIGRATE onto the cross axes as they age (sin4θ attractors on 0/90/180/270)
         float decel = pow(max(0.0, 1.0 - life), 1.7);
         float rr = 520.0 * (1.0 - decel);                              // fast early expansion, decelerating roil
         vec2 rad = vec2(cos(theta), sin(theta));
@@ -467,19 +465,24 @@ function buildEmbers(prnd) {
         float front = 1.0 + 0.4 * exp(-(dR * dR) / 3025.0) * sin(3.14159265 * fph);
         float ecl = smoothstep(150.0, 210.0, rr);                      // ignite only outside the seraph
         float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(theta));    // suppress the corridor column
-        vGlow = ecl * down * (1.0 - life) * smoothstep(0.0, 0.05, life) * front;
-        vLife = life; vQ = aQuad;
+        float crossW = 0.85 + 0.55 * uCross * pow(abs(cos(2.0 * theta)), 6.0);   // brighter DENSITY along the arms
+        vGlow = ecl * down * (1.0 - life) * smoothstep(0.0, 0.05, life) * front * crossW;
+        vQ = aQuad;
+        // ONE substance: the ember colour is the SAME gold→rose→violet ramp over RADIUS as the corona/streaks
+        float rg = clamp(rr / 520.0, 0.0, 1.0);
+        vec3 ramp = rg < 0.5 ? mix(vec3(1.0, 0.85, 0.54), vec3(0.85, 0.54, 0.39), rg / 0.5)
+                             : mix(vec3(0.85, 0.54, 0.39), vec3(0.5, 0.4, 0.7), (rg - 0.5) / 0.5);
+        vCol = mix(ramp, vec3(1.0, 0.9, 0.65), (1.0 - life) * 0.3);     // young embers spark hotter (a small life boost, not a separate law)
         vec4 mv = modelViewMatrix * vec4(c, 0.06, 1.0);
         mv.xy += aQuad.x * tang * (aSeed.w * aSeed2.w) + aQuad.y * nrm * aSeed.w;   // stretch along velocity, width across
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
       uniform float uGain;
-      varying vec2 vQ; varying float vGlow; varying float vLife;
+      varying vec2 vQ; varying float vGlow; varying vec3 vCol;
       void main(){
         float s = max(0.0, (1.0 - vQ.x * vQ.x) * (1.0 - vQ.y * vQ.y));   // soft rounded streak (clamp)
-        vec3 col = mix(vec3(1.0, 0.86, 0.58), vec3(0.55, 0.42, 0.72), vLife);   // hot gold young → violet old
-        gl_FragColor = vec4(col * s * vGlow * uGain, 1.0);
+        gl_FragColor = vec4(vCol * s * vGlow * uGain, 1.0);
       }`,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
   });
