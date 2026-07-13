@@ -104,6 +104,10 @@ window.addEventListener('resize', () => {
 
 // --- Seeds: every run gets a fresh course; daily + challenge runs pin one.
 const urlParams = new URLSearchParams(window.location.search);
+// PERF A/B seams (all no-ops without the param → shipped behaviour unchanged): isolate each fill/CPU
+// cost center on-device. ?nobloom disables the bloom pass; ?pr=<n> caps pixelRatio (fill-vs-CPU probe,
+// applied at PIXEL_RATIOS below). See also ?norays (god-rays), ?msaa0 (postfx), ?nodet (arenaSet).
+if (urlParams.has('nobloom') && postfx.bloomPass) postfx.bloomPass.enabled = false;
 // Preview convenience: ?rockrun / ?ribcage force that canyon type (level.js) AND
 // drop you straight into it — skip the tutorial, auto-launch, and warp to just
 // before the first forced canyon. For eyeballing the Sky Canyon on the PR preview.
@@ -175,7 +179,7 @@ function applyWispCosmetic() {
 createEnvironment(scene, runSeed);
 // N5 sky-IBL: apply the saved toggle (the probe exists now); ?ibl forces it on.
 if (urlParams.has('ibl') || gfxPref.skyIbl === true) setSkyProbeEnabled(true);
-setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0 + 1)
+if (!urlParams.has('norays')) setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0 + 1); ?norays — perf A/B: kills the per-frame shaft march + the mask scene pass
 createWater(scene, 0); // N11: boot at tier0 (768² full-rate mirror); applyQuality retiers
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
@@ -1299,6 +1303,9 @@ const PIXEL_RATIOS = [
   Math.min(window.devicePixelRatio, 1.5),
   1,
 ];
+// ?pr=<n> — the DECISIVE fill-vs-CPU probe: caps every tier's pixelRatio (changes ONLY pixel count, not
+// draws/JS/scene). If fps jumps ~1/pr², the frame is fill-bound; if it barely moves, it's CPU.
+{ const prQ = parseFloat(urlParams.get('pr')); if (Number.isFinite(prQ) && prQ > 0) for (let i = 0; i < PIXEL_RATIOS.length; i++) PIXEL_RATIOS[i] = Math.min(PIXEL_RATIOS[i], prQ); }
 document.body.dataset.qtier = qualityTier; // boot default (applyQuality only runs on change)
 
 function applyQuality(tier) {
