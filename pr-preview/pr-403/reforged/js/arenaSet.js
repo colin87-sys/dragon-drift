@@ -93,6 +93,14 @@ let embers = null, emberMat = null;    // the fine-particulate spark layer (shad
 const EMBER_N = 1536;                  // the roiling "substance": dense curved trails, ONE static draw
 let tierLevel = 0;                  // 0/1/2 — tier 2 GRACEFULLY degrades (cheap core+corona) instead of hiding the set (never a hard black)
 let detCoreCoronaVerts = 0;         // the [0,n) draw-range that keeps only core+corona at tier 2
+// The SHARED coherent swirl field (a few harmonics over the launch angle). The curved streak spines
+// AND the ember trails both sample THIS field so they braid as ONE substance (the cohesion law:
+// emergence = a shared field, not two that happen to overlap). Built once from a private stream.
+let swirlField = null;
+const buildSwirlField = (prnd) => {
+  const H = []; for (let h = 0; h < 4; h++) H.push({ k: 2 + h, amp: prnd(), ph: prnd() * TAU });
+  return (d) => { let s = 0; for (const h of H) s += h.amp * Math.sin(h.k * d + h.ph); return s / H.length; };
+};
 let lastK = 0;                      // debug seam: the engage level actually applied this frame
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _sc = new THREE.Vector3();   // debris scratch (alloc-free)
 
@@ -270,26 +278,38 @@ function buildDetonationGeo(prnd) {
     }
   }
   detCoreCoronaVerts = pos.length / 3;   // tier-2 graceful degrade draws only [0, here) = core + corona (never a hard black)
-  // ── RADIAL STREAK FAN (aType 1): the frame-filler + the primary perpetual loop. Eclipse + down-
-  // suppression BAKED into vertex colour; the shader adds the outward scroll + tip decay + edge fade.
-  const NST = 48, SEG = 5, W_IN = 4.2, W_TIP = 0.8;             // fewer, THINNER — demoted from spokes to snaking dust rivulets (the embers now carry the density)
+  // ── RADIAL STREAK FAN (aType 1): the frame-filler + the primary perpetual loop. The spines now
+  // CURVE — each streak bends along the SHARED swirl field so it arcs outward like the embers braiding
+  // through it (the owner's "straight lines fight the flame" fix). The CROSS AXES are exempted (the
+  // bend is scaled to ~0 on 0/90/180/270), so the ONLY straight lines left in the frame are the four
+  // sacred axes — straightness becomes the glyph, not noise. Fairness (eclipse + down-suppression) is
+  // re-baked PER VERTEX from the ACTUAL curved position, so an arc that dips downward dims continuously.
+  const NST = 48, SEG = 11, W_IN = 4.2, W_TIP = 0.8;           // fewer, THINNER, now with a curved spine (SEG 5→11 for a smooth arc)
   for (let s = 0; s < NST; s++) {
-    const a = (s / NST) * TAU + (prnd() - 0.5) * 0.07;
-    const sinA = Math.sin(a), down = sinA < -0.15;              // pointing below horizontal
+    const a0 = (s / NST) * TAU + (prnd() - 0.5) * 0.07;
+    const down = Math.sin(a0) < -0.15;                          // launched below horizontal → shorter reach
     const lenBase = 280 + prnd() * 280;                         // 280..560u
-    const cAlign = 0.78 + 0.55 * Math.pow(Math.abs(Math.cos(2 * a)), 6);   // cross-aligned streaks BRIGHTEN (the fire-rivers of the arms), off-axis dim (subtractive)
-    const len = down ? lenBase * 0.5 : lenBase, gain = (down ? 0.4 : 1.0) * 0.85 * cAlign;   // −15% baked gain — the particulate carries the reach
-    const ex = Math.cos(a), ey = sinA, nx = Math.cos(a + Math.PI / 2), ny = Math.sin(a + Math.PI / 2);
+    const len = down ? lenBase * 0.5 : lenBase;
+    const cAlign = 0.78 + 0.55 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // cross-aligned streaks BRIGHTEN (the fire-rivers of the arms), off-axis dim
+    const baseGain = 0.85 * cAlign;                             // −15% baked gain — the particulate carries the reach (down-suppression now per-vertex, below)
+    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // ≈0.15 on the axes → cross-arm streaks stay STRAIGHT; ≈1 off-axis → they curve
+    const bendAmp = 0.42 * swirlField(a0) * crossExempt;        // ≤0.42 rad drift (capped < 0.5 so no upper streak reaches the corridor band); braids with the embers via the shared field
+    const bendFreq = 1.2 + 0.6 * prnd(), bendPh = prnd() * TAU;
+    const aAt = (t) => a0 + bendAmp * (Math.sin(bendFreq * t + bendPh) - Math.sin(bendPh));   // spine angle vs t; anchored to a0 at the core (t=0), arcs outward
     const ph = prnd() * TAU;                                    // per-streak scroll phase (breaks lockstep)
     for (let j = 0; j < SEG; j++) {
       const t0 = j / SEG, t1 = (j + 1) / SEG;
       const r0 = CORE_R + t0 * (len - CORE_R), r1 = CORE_R + t1 * (len - CORE_R);
+      const av0 = aAt(t0), av1 = aAt(t1);                       // CURVED spine angles
       const w0 = W_IN + (W_TIP - W_IN) * t0, w1 = W_IN + (W_TIP - W_IN) * t1;
-      const e0 = smoothstep(ECL_R0, ECL_R1, r0) * gain, e1 = smoothstep(ECL_R0, ECL_R1, r1) * gain;
+      const d0 = 0.4 + 0.6 * ss((Math.sin(av0) + 0.4) / 0.6), d1 = 0.4 + 0.6 * ss((Math.sin(av1) + 0.4) / 0.6);   // per-vertex down-suppression from the ACTUAL curved angle
+      const e0 = smoothstep(ECL_R0, ECL_R1, r0) * baseGain * d0, e1 = smoothstep(ECL_R0, ECL_R1, r1) * baseGain * d1;
       const g0 = detGrad(t0), g1 = detGrad(t1);
       const c0 = [g0[0] * e0, g0[1] * e0, g0[2] * e0], c1 = [g1[0] * e1, g1[1] * e1, g1[2] * e1];
-      const L0 = [ex * r0 + nx * w0, ey * r0 + ny * w0, 0.05], R0 = [ex * r0 - nx * w0, ey * r0 - ny * w0, 0.05];
-      const L1 = [ex * r1 + nx * w1, ey * r1 + ny * w1, 0.05], R1 = [ex * r1 - nx * w1, ey * r1 - ny * w1, 0.05];
+      const ex0 = Math.cos(av0), ey0 = Math.sin(av0), nx0 = Math.cos(av0 + Math.PI / 2), ny0 = Math.sin(av0 + Math.PI / 2);
+      const ex1 = Math.cos(av1), ey1 = Math.sin(av1), nx1 = Math.cos(av1 + Math.PI / 2), ny1 = Math.sin(av1 + Math.PI / 2);
+      const L0 = [ex0 * r0 + nx0 * w0, ey0 * r0 + ny0 * w0, 0.05], R0 = [ex0 * r0 - nx0 * w0, ey0 * r0 - ny0 * w0, 0.05];
+      const L1 = [ex1 * r1 + nx1 * w1, ey1 * r1 + ny1 * w1, 0.05], R1 = [ex1 * r1 - nx1 * w1, ey1 * r1 - ny1 * w1, 0.05];
       quad(L0, R0, R1, L1, c0, c1, t0, t1, 1, ph);
     }
   }
@@ -406,32 +426,35 @@ const addDetMat = () => {
   return m;
 };
 
-// ── THE PARTICULATE MASS: ~1536 fine STREAK-TRAILS streaming outward on CURVED, coherently-braiding
+// ── THE PARTICULATE MASS: ~1536 fine COMET-TRAILS streaming outward on CURVED, coherently-braiding
 // paths — the roiling "substance" of the explosion (what turns "radiating lines" into a volumetric
 // blast). FULLY shader-driven (each trail's radius/angle computed from uTime → zero CPU/frame). Each
-// billboard is STRETCHED along its analytic velocity tangent (a motion streak, not a dot). A shared
-// EXPANSION FRONT (a traveling luminance crest, period T, seamless) makes the whole field visibly GROW
-// outward every ~4.6s (§3 stillness allows expansion, forbids rotation). Baked fairness (eclipse gate +
-// down-suppression), hot-gold→violet over life. Additive, +1 draw, ~3k tris, ~5–7% frame in fine sprites
-// (NOT a large additive volume). Coherence: swirlAmp sampled from a smooth harmonic field over `dir` so
-// neighbouring trails braid together (a curl READ) instead of wiggling independently.
+// trail is a 3-SEGMENT RIBBON whose vertices sample the SAME analytic path at successively earlier life
+// (head/outer → tail/inner) so the ribbon FOLLOWS the curve (the old single velocity-stretched chord
+// read straight — the owner's fix). A shared EXPANSION FRONT (a traveling luminance crest, period T,
+// seamless) makes the whole field visibly GROW outward every ~4.6s (§3 stillness allows expansion,
+// forbids rotation). Per-sample fairness (eclipse gate + down-suppression), radius-keyed gold→rose→violet
+// (ONE substance with the corona/streaks). Additive, +1 draw, ~9k tris, fine sprites (NOT a large additive
+// volume). Coherence: swirlAmp sampled from the SHARED harmonic field (see `swirlField`) so the trails
+// braid WITH the curved streaks (a curl READ) instead of wiggling independently.
 function buildEmbers(prnd) {
-  // A smooth coherent swirl field over the circle (few harmonics, deterministic) → neighbours braid.
-  const H = []; for (let h = 0; h < 4; h++) H.push({ k: 2 + h, amp: prnd(), ph: prnd() * TAU });
-  const swirlField = (d) => { let s = 0; for (const h of H) s += h.amp * Math.sin(h.k * d + h.ph); return s / H.length; };
   const P = [];
   for (let e = 0; e < EMBER_N; e++) {
-    const dir = prnd() * TAU, sf = swirlField(dir);
+    const dir = prnd() * TAU, sf = swirlField(dir);            // SHARED field → embers braid WITH the curved streaks
     P.push({ dir, speed: 0.06 + prnd() * 0.14, phase: prnd(), size: 0.8 + prnd() * 2.6,
-      swAmp: 0.14 + 0.34 * (0.5 + 0.5 * sf), swFreq: 1.4 + 1.6 * prnd(), swPh: prnd() * TAU, stretch: 2.4 + prnd() * 2.8 });
+      swAmp: 0.30 + 0.50 * (0.5 + 0.5 * sf), swFreq: 1.4 + 1.6 * prnd(), swPh: prnd() * TAU, trailDt: 0.014 + prnd() * 0.010 });   // swAmp 0.14–0.48 → 0.30–0.80 (the curve shows while bright); stretch seed repurposed → per-ember trail Δlife
   }
   P.sort((a, b) => b.size - a.size);   // biggest first → tier-1 drawRange keeps the largest trails
   const pos = [], aq = [], aseed = [], aseed2 = [];
-  const CORN = [[-1, -1], [1, -1], [1, 1], [-1, 1]], TRI = [0, 1, 2, 0, 2, 3];
+  // 3-SEGMENT COMET RIBBON (18 verts): each vertex samples the SAME analytic path at an earlier life
+  // (seg 0 = head/outer, seg 3 = tail/inner). A curved path drawn as a multi-segment ribbon reads
+  // CURVED; the old single velocity-stretched chord read straight. aQuad = (side ∈ {−1,+1}, seg ∈ 0..3).
+  const RIB = [];
+  for (let k = 0; k < 3; k++) RIB.push([-1, k], [1, k], [1, k + 1], [-1, k], [1, k + 1], [-1, k + 1]);
   for (const p of P) {
-    for (const k of TRI) {
-      pos.push(0, 0, 0.06); aq.push(CORN[k][0], CORN[k][1]);
-      aseed.push(p.dir, p.speed, p.phase, p.size); aseed2.push(p.swAmp, p.swFreq, p.swPh, p.stretch);
+    for (const v of RIB) {
+      pos.push(0, 0, 0.06); aq.push(v[0], v[1]);
+      aseed.push(p.dir, p.speed, p.phase, p.size); aseed2.push(p.swAmp, p.swFreq, p.swPh, p.trailDt);
     }
   }
   const geo = new THREE.BufferGeometry();
@@ -442,20 +465,23 @@ function buildEmbers(prnd) {
   emberMat = new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uCross: { value: 1.0 } },
     vertexShader: `
-      attribute vec2 aQuad; attribute vec4 aSeed; attribute vec4 aSeed2;   // aSeed=dir,speed,phase,size · aSeed2=swirlAmp,swirlFreq,swirlPhase,stretch
+      attribute vec2 aQuad; attribute vec4 aSeed; attribute vec4 aSeed2;   // aQuad=(side,seg) · aSeed=dir,speed,phase,size · aSeed2=swirlAmp,swirlFreq,swirlPhase,trailDt
       uniform float uTime; uniform float uCross;
       varying vec2 vQ; varying float vGlow; varying vec3 vCol;
       void main(){
-        float life = fract(uTime * aSeed.y + aSeed.z);
+        float side = aQuad.x, seg = aQuad.y, segT = seg / 3.0;         // seg 0 = head/outer, 3 = tail/inner
+        float life0 = fract(uTime * aSeed.y + aSeed.z);                // the HEAD's life
+        float life = max(1e-4, life0 - seg * aSeed2.w);                // this vertex samples the path EARLIER in life (the trail) — NaN-safe floor
         float sw = aSeed2.x, swf = aSeed2.y, swp = aSeed2.z;
         float theta = aSeed.x + sw * sin(swf * life + swp) + 0.5 * sw * sin(2.3 * swf * life + aSeed.z * 6.2831853);
         theta -= uCross * 0.12 * sin(4.0 * theta) * smoothstep(0.15, 0.7, life);   // trails MIGRATE onto the cross axes as they age (sin4θ attractors on 0/90/180/270)
-        float decel = pow(max(0.0, 1.0 - life), 1.7);
-        float rr = 520.0 * (1.0 - decel);                              // fast early expansion, decelerating roil
+        float decel = pow(max(0.0, 1.0 - life), 1.3);                  // slower blowout (1.7→1.3): the trail dwells at mid-radii where the CURVE is visible
+        float rr = 520.0 * (1.0 - decel);
         vec2 rad = vec2(cos(theta), sin(theta));
         vec2 c = rad * rr;
-        // analytic velocity tangent → stretch the billboard into a motion streak
-        float drdl = 520.0 * 1.7 * pow(max(0.0, 1.0 - life), 0.7);
+        // analytic velocity tangent AT THIS sample → the ribbon's local width direction (the length now
+        // comes from the per-segment path samples, not a straight stretch, so the ribbon FOLLOWS the curve)
+        float drdl = 520.0 * 1.3 * pow(max(0.0, 1.0 - life), 0.3);
         float dthdl = sw * swf * cos(swf * life + swp) + 1.15 * sw * swf * cos(2.3 * swf * life + aSeed.z * 6.2831853);
         vec2 tang = drdl * rad + rr * dthdl * vec2(-rad.y, rad.x);
         tang *= inversesqrt(max(1e-6, dot(tang, tang)));               // NaN-safe normalize
@@ -463,18 +489,22 @@ function buildEmbers(prnd) {
         // shared EXPANSION FRONT: a gaussian luminance crest travelling outward, seamless loop
         float fph = fract(uTime / 4.6), rFront = 560.0 * fph, dR = rr - rFront;
         float front = 1.0 + 0.4 * exp(-(dR * dR) / 3025.0) * sin(3.14159265 * fph);
-        float ecl = smoothstep(150.0, 210.0, rr);                      // ignite only outside the seraph
-        float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(theta));    // suppress the corridor column
+        float ecl = smoothstep(150.0, 210.0, rr);                      // ignite only outside the seraph (per-sample)
+        float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(theta));    // suppress the corridor column (per-sample)
         float crossW = 0.85 + 0.55 * uCross * pow(abs(cos(2.0 * theta)), 6.0);   // brighter DENSITY along the arms
-        vGlow = ecl * down * (1.0 - life) * smoothstep(0.0, 0.05, life) * front * crossW;
-        vQ = aQuad;
+        float birth = smoothstep(0.0, 0.05, life0);                    // spawn fade keyed to the HEAD life → a just-born trail collapses to its head (no stale-wrap stretch)
+        float trailFade = 1.0 - 0.55 * segT;                           // head brightest, tail dim (the comet falloff)
+        vGlow = ecl * down * (1.0 - life0) * birth * front * crossW * trailFade * 0.9;   // ×0.9 mid-radius-dwell compensator (guards sky p50)
+        vQ = vec2(side, 0.0);                                          // round tube across width (length shaped by the segments)
         // ONE substance: the ember colour is the SAME gold→rose→violet ramp over RADIUS as the corona/streaks
         float rg = clamp(rr / 520.0, 0.0, 1.0);
         vec3 ramp = rg < 0.5 ? mix(vec3(1.0, 0.85, 0.54), vec3(0.85, 0.54, 0.39), rg / 0.5)
                              : mix(vec3(0.85, 0.54, 0.39), vec3(0.5, 0.4, 0.7), (rg - 0.5) / 0.5);
-        vCol = mix(ramp, vec3(1.0, 0.9, 0.65), (1.0 - life) * 0.3);     // young embers spark hotter (a small life boost, not a separate law)
-        vec4 mv = modelViewMatrix * vec4(c, 0.06, 1.0);
-        mv.xy += aQuad.x * tang * (aSeed.w * aSeed2.w) + aQuad.y * nrm * aSeed.w;   // stretch along velocity, width across
+        vCol = mix(ramp, vec3(1.0, 0.9, 0.65), (1.0 - life0) * 0.3);   // young embers spark hotter (a small life boost, not a separate law)
+        float wid = aSeed.w * (1.0 - 0.7 * segT);                      // width tapers head→tail
+        float zoff = (fract(aSeed.z * 91.7) - 0.5) * 180.0;           // per-ember depth (I4): ±90u about the star plane → parallax near/far layering
+        vec4 mv = modelViewMatrix * vec4(c, 0.06 + zoff, 1.0);
+        mv.xy += side * wid * nrm;                                     // width ACROSS the local motion; ribbon length is the segment spread
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
@@ -606,6 +636,7 @@ export function createArenaSet(scene) {
   spiral.visible = false;               // an A/B seam only
   starGroup.add(spiral);
 
+  swirlField = buildSwirlField(mulberry32(0x53177e1));   // the ONE braid field, shared by curved streaks + ember trails (built before both)
   detMat = addDetMat();
   deton = new THREE.Mesh(buildDetonationGeo(prnd), detMat);
   deton.name = 'godheadDetonation';
@@ -698,7 +729,7 @@ export function updateArenaSet(time, playerDist, mix, fade) {
 export function setArenaSetQuality(tier) {
   tierLevel = tier;
   if (detMat) detMat.uniforms.uOct.value = tier >= 2 ? 1 : (tier >= 1 ? 2 : 3);   // fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
-  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 256 : tier >= 1 ? 768 : EMBER_N) * 6);   // size-sorted buffer → the biggest trails survive
+  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 256 : tier >= 1 ? 768 : EMBER_N) * 18);   // 18 verts/ember (3-seg comet ribbon); size-sorted buffer → the biggest trails survive
   if (deton) deton.geometry.setDrawRange(0, tier >= 2 ? detCoreCoronaVerts : Infinity);   // GRACEFUL DEGRADE: tier 2 keeps core+corona (a lit blast heart) instead of hiding the whole set → never a hard black
   if (debris) debris.visible = tier < 2;   // debris off at tier 2 (opaque cost)
 }
