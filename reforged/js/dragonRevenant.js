@@ -50,19 +50,27 @@ function revenantMats(def) {
   // the rig's emissiveIntensity tick is a near-no-op, so "no lit exterior bone" still holds).
   // envMapIntensity kept LOW: a high sky-reflection was tinting the bone steel-blue (Fable). Bone
   // is matte bleached chalk — brightness comes from albedo + key light, not a mirror of the sky.
-  const bone = new THREE.MeshStandardMaterial({ color: def.body ?? BONE, emissive: 0x000000, flatShading: true, roughness: 0.82, metalness: 0, side: THREE.DoubleSide });
-  bone.envMapIntensity = 0.22;
+  // envMap kept VERY low so ALL bone reads the SAME warm chalk-ivory (art-director: skull/wings
+  // were rendering cool blue-grey vs the tail's warm tan — a high sky-reflection on up-facing
+  // facets; killing it unifies the ramp). A faint self-lit floor keeps bone off pure-grey in shadow.
+  const bone = new THREE.MeshStandardMaterial({ color: def.body ?? BONE, emissive: 0x000000, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+  bone.envMapIntensity = 0.1;
   // Belly / ventral tier — a value-step darker so banks and the keel read.
-  const boneLo = new THREE.MeshStandardMaterial({ color: def.belly ?? BONE_LO, emissive: 0x000000, flatShading: true, roughness: 0.84, metalness: 0, side: THREE.DoubleSide });
-  boneLo.envMapIntensity = 0.2;
+  const boneLo = new THREE.MeshStandardMaterial({ color: def.belly ?? BONE_LO, emissive: 0x000000, flatShading: true, roughness: 0.86, metalness: 0, side: THREE.DoubleSide });
+  boneLo.envMapIntensity = 0.1;
   // Dorsal tier — blended a hair between the two so the vertebra ridge reads from the side.
-  const boneDorsal = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, def.belly ?? BONE_LO, 0.35), emissive: 0x000000, flatShading: true, roughness: 0.76, metalness: 0.02, side: THREE.DoubleSide });
-  boneDorsal.envMapIntensity = 0.24;
+  const boneDorsal = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, def.belly ?? BONE_LO, 0.35), emissive: 0x000000, flatShading: true, roughness: 0.78, metalness: 0.02, side: THREE.DoubleSide });
+  boneDorsal.envMapIntensity = 0.12;
   // Recess — the far-side inner rib/cavity wall (umber-green) so the hollow reads DEEP
   // while the windows stay TRUE holes (§4.4 hollow-cage render). Non-emissive.
   const recess = new THREE.MeshStandardMaterial({ color: RECESS, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
   recess.envMapIntensity = 0.15;
-  return { bone, boneLo, boneDorsal, recess };
+  // Flame-lit bone — the INNER-facing rib faces, ivory washed toward the grave-green with a
+  // faint green self-glow, so the ribs read as BONE LIT BY THE CAGED FLAME (art-director: the
+  // reference's fusing trick — ribs + flame become one object). Cheap on flat-shaded geometry.
+  const boneLit = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, 0x39b06a, 0.5), emissive: 0x123f22, emissiveIntensity: 0.6, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+  boneLit.envMapIntensity = 0.12;
+  return { bone, boneLo, boneDorsal, recess, boneLit };
 }
 
 // ── A minimal faceted tube loft (shared placeholder body element) ────────────
@@ -132,7 +140,7 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   const group = new THREE.Group();
   const M = revenantMats(def);
   const shoulderW = model.shoulderWidthScale ?? 1;
-  const boneT = [], dorsalT = [], recessT = [], keelT = [];   // per-tier accumulators → ≤4 meshes total
+  const boneT = [], dorsalT = [], recessT = [], keelT = [], ribLitT = [];   // per-tier accumulators → ≤5 meshes
 
   // ── VERTEBRA BEAM — neck file + dorsal file of shared vertebra units.
   const neckVerts = Math.round(model.neckVerts ?? 5);
@@ -141,74 +149,46 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   placeUnits(-2.62, -1.16, neckVerts, 0.70, 1.0);   // LONG S-curved neck of shrinking vertebrae rising to the skull
   placeUnits(-1.06, 1.58, dorsalVerts, 1.0, 0.74);  // dorsal → tail root (taper aft)
 
-  // ── HOLLOW RIB CAGE — NRIB arc staves bridging the dorsal beam to a ventral keel
-  // across the chest; the z-gaps between staves are the through-WINDOWS. `ribWindows`
-  // (0..6) opens gaps CENTRE-OUT (the heart shows through the middle first); the rest
-  // are sealed with an inset cartilage panel (f0 → all sealed).
-  const zF = -1.22, zB = 0.88, NGAP = 8, NRIB = NGAP + 1;
-  const ribWindows = Math.max(0, Math.min(NGAP, Math.round((model.ribWindows ?? NGAP) * NGAP / 6)));
+  // ── RIB CAGE — a BONE BLOSSOM (art-director + Fable, replacing the wire birdcage): free-
+  // ended flat bone BLADES springing from the dorsal vertebrae, sweeping out + down then
+  // CURLING back toward the caged flame. NO closed hoops, NO horizontal rails (those were the
+  // "wireframe" tell). Flat blade cross-section (wide in z / tangential, thin radially),
+  // FAT at the root + tapering to a chamfered tip, faceted per segment so each catches its
+  // own flat-shaded value like real bone. Petal-splay (front short · mid longest+widest · back
+  // short). The gaps between blades ARE the lantern windows; the flame-facing inner ends are
+  // painted flame-lit green (bone lit BY the fire — the reference's fusing trick).
   const bell = (z) => Math.max(0, 1 - Math.pow((z + 0.20) / 1.22, 2));
-  const cageDepth = (z) => 0.40 + 0.64 * bell(z);   // DEEPER flared barrel (~25% bigger — the mass centre from the rear-chase, Fable)
-  const halfW = (z) => 0.30 + 0.76 * bell(z);       // WIDER flare — ribs sweep far outboard (barrel blossom)
-  const topY = (z) => cyAt(z) + 0.14;               // ribs spring from ABOVE the spine so the barrel lifts toward the shoulder line, not dangling low
-  const botY = (z) => cyAt(z) - cageDepth(z);
-  const bez = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
+  const cageDepth = (z) => 0.42 + 0.68 * bell(z);
+  const halfW = (z) => 0.34 + 0.82 * bell(z);
   const bez3 = (a, c1, c2, b, t) => { const m = 1 - t; return [0, 1, 2].map((j) => m * m * m * a[j] + 3 * m * m * t * c1[j] + 3 * m * t * t * c2[j] + t * t * t * b[j]); };
-  const ribZ = (i) => zF + (zB - zF) * i / (NRIB - 1);
-  // One rib = a thin ribbon following a ROUNDED cubic arc: dorsal → far outboard (belly of
-  // the barrel) → keel. Two control points round the sweep so the cage reads as a barrel
-  // basket, not a shallow half-pipe.
-  const buildRib = (z, side, mat, tgt) => {
-    const hw = halfW(z), dep = cageDepth(z), cy = cyAt(z);
-    const P0 = [0, topY(z), z];
-    const C1 = [side * hw * 1.05, cy + 0.02, z + 0.03];                 // spring out wide near the top (shoulder of the barrel)
-    const C2 = [side * hw * 1.15, cy - dep * 0.75, z + 0.06];           // stay wide low (belly of the barrel) before tucking to the keel
-    const P1 = [side * 0.05, botY(z), z + 0.02];
-    const NS = 6, w = 0.030;
-    let prev = null;
-    for (let k = 0; k <= NS; k++) {
-      const p = bez3(P0, C1, C2, P1, k / NS);
-      const back = [p[0], p[1], p[2] - w], front = [p[0], p[1], p[2] + w];
-      if (prev) tgt.push([prev.back, front, prev.front], [prev.back, back, front]);
-      prev = { back, front };
-    }
-  };
-  // Gap-open order: centre gaps first (indices sorted by distance from the middle gap).
-  const gapOrder = Array.from({ length: NGAP }, (_, g) => g).sort((a, b) => Math.abs(a - (NGAP - 1) / 2) - Math.abs(b - (NGAP - 1) / 2));
-  const openGap = new Set(gapOrder.slice(0, ribWindows));
-  for (let i = 0; i < NRIB; i++) {
-    const z = ribZ(i);
-    buildRib(z, 1, M.bone, boneT);       // near (right) rib — bone
-    buildRib(z, -1, M.recess, recessT);  // far (left) rib — umber-green so the cavity reads deep through the near windows
-  }
-  // SEAL the closed gaps with an inset cartilage panel — a full-cover quad spanning the
-  // gap (rib→rib, rail→keel) at a small +x inset so it's NOT coplanar with the rib plane
-  // (§4.3) yet fully OCCLUDES the window in projection (a sealed rung reads solid, no ring
-  // of leaked background). Open gaps are pure ABSENCE → the enclosed through-window.
-  for (let g = 0; g < NGAP; g++) {
-    if (openGap.has(g)) continue;
-    const za = ribZ(g), zb = ribZ(g + 1);
+  const NRIBPAIR = 7;
+  const ribLenF = [0.74, 0.90, 1.0, 1.02, 0.96, 0.84, 0.68];   // petal-splay (widest at the mid pairs)
+  const openFrac = 0.60 + 0.40 * Math.max(0, Math.min(1, (model.ribWindows ?? 6) / 6));   // ladder: f0 tighter cage → f3 full blossom
+  const cz0 = -1.16, cz1 = 0.92;
+  for (let i = 0; i < NRIBPAIR; i++) {
+    const t = i / (NRIBPAIR - 1), z = cz0 + (cz1 - cz0) * t;
+    const cy = cyAt(z), dep = cageDepth(z) * ribLenF[i] * openFrac, hw = halfW(z) * ribLenF[i];
     for (const side of [1, -1]) {
-      const inx = side * 0.09;
-      const TL = [inx, topY(za), za], TR = [inx, topY(zb), zb], BR = [inx, botY(zb) + 0.01, zb], BL = [inx, botY(za) + 0.01, za];
-      recessT.push([TL, TR, BR], [TL, BR, BL]);
+      const P0 = [side * 0.05, cy + 0.16, z];                 // root at the vertebra (top)
+      const C1 = [side * hw * 1.18, cy + 0.02, z + 0.02];     // spring wide
+      const C2 = [side * hw * 1.02, cy - dep * 0.95, z + 0.03]; // belly (low, widest)
+      const P1 = [side * hw * (0.34 - 0.16 * openFrac), cy - dep * 0.80, z + 0.02];   // free tip CURLS inboard toward the flame
+      const NS = 5; let prev = null;
+      for (let k = 0; k <= NS; k++) {
+        const p = bez3(P0, C1, C2, P1, k / NS);
+        const w = 0.12 * (1 - 0.60 * (k / NS));   // FAT blade at the root, tapering to a chamfered tip
+        const back = [p[0], p[1], p[2] - w], front = [p[0], p[1], p[2] + w];
+        if (prev) { const inner = (k / NS) > 0.58; (inner ? ribLitT : boneT).push([prev.back, front, prev.front], [prev.back, back, front]); }
+        prev = { back, front };
+      }
     }
   }
-  // ── DORSAL RAIL — a CONTINUOUS bone strip along the top of the cage that bounds every
-  // window from ABOVE (the discrete vertebra centra leave gaps the flood-fill would leak
-  // through, so the windows would not read as enclosed holes without this rail). Runs the
-  // full cage z-span just under the neural spines.
-  { let prev = null; const w = 0.045;
-    for (let i = 0; i <= 20; i++) { const z = zF - 0.05 + (zB - zF + 0.1) * i / 20, y = topY(z);
-      const L = [-w, y, z], R = [w, y, z], U = [0, y + 0.05, z];
-      if (prev) { boneT.push([prev.L, R, L], [prev.L, prev.R, R], [prev.R, U, R], [prev.R, prev.U, U]); }
-      prev = { L, R, U }; } }
-  // ── VENTRAL KEEL / STERNUM — a continuous rail closing the bottom of every window
-  // (so the gaps are ENCLOSED, not open to the belly). Belly tier.
-  { let prev = null; const w = 0.05;
-    for (let i = 0; i <= 20; i++) { const z = zF - 0.05 + (zB - zF + 0.1) * i / 20, y = botY(z) + 0.01;
-      const L = [-w, y, z], R = [w, y, z], D = [0, y - 0.05, z];
-      if (prev) { keelT.push([prev.L, R, L], [prev.L, prev.R, R], [prev.R, D, R], [prev.R, prev.D, D]); }
+  // ── STERNUM — a short ventral keel the FRONT rib tips converge on (the chest reads as a
+  // closed structure at the prow, not floating hoops). Belly tier.
+  { let prev = null;
+    for (let i = 0; i <= 8; i++) { const z = cz0 + 0.12 + 0.55 * (i / 8), y = cyAt(z) - cageDepth(z) * 0.82 * openFrac + 0.02, w = 0.055;
+      const L = [-w, y, z], R = [w, y, z], D = [0, y - 0.06, z];
+      if (prev) keelT.push([prev.L, R, L], [prev.L, prev.R, R], [prev.R, D, R], [prev.R, prev.D, D]);
       prev = { L, R, D }; } }
 
   // ── PELVIS — a small bone mass at the haunch (z≈1.1) so the aft profile reads a hip.
@@ -247,8 +227,9 @@ function buildOssuaryTorso(def, model, _bodyMat) {
 
   group.add(flatTriMesh(boneT, M.bone));
   group.add(flatTriMesh(dorsalT, M.boneDorsal));
-  group.add(flatTriMesh(recessT, M.recess));
+  if (recessT.length) group.add(flatTriMesh(recessT, M.recess));
   group.add(flatTriMesh(keelT, M.boneLo));
+  if (ribLitT.length) group.add(flatTriMesh(ribLitT, M.boneLit));   // flame-lit inner rib ends
 
   // ── THE GRAVE HEART — an emissive grave-green teardrop caged at the cage centre,
   // on the REAL transparent coreGlow hook (dragon.js:1147 ticks material.opacity:
@@ -267,19 +248,21 @@ function buildOssuaryTorso(def, model, _bodyMat) {
     for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; tris.push([apex, ring[k], ring[k1]], [bot, ring[k1], ring[k]]); }
     return tris;
   };
-  const heartMat = new THREE.MeshBasicMaterial({ color: GRAVE, transparent: true, opacity: 0.45 + 0.5 * coreBlaze, depthWrite: false, side: THREE.DoubleSide });
-  const heartFlame = flatTriMesh(flameTeardrop(heartR * 0.82, heartR * 1.7), heartMat);   // bulb radius + flame height
+  // TWO-TONE teardrop (art-director): a near-white MINT core inside a grave-green body, so it
+  // reads as caged FIRE with a hot heart, not a flat lime diamond. The green BODY is the coreGlow
+  // hook (the rig ticks its opacity); the mint core is a child that rides it. No additive halo —
+  // that octahedron shell was rendering as concentric spirograph RINGS (Fable); the flame's own
+  // brightness + the pipeline bloom carry the glow, and it stays colour-locked green on any sky.
+  const bodyMatF = new THREE.MeshBasicMaterial({ color: 0x2fbf7f, transparent: true, opacity: 0.42 + 0.48 * coreBlaze, depthWrite: false, side: THREE.DoubleSide });
+  const heartFlame = flatTriMesh(flameTeardrop(heartR * 0.9, heartR * 1.8), bodyMatF);   // grave-green body
   heartFlame.position.set(0, hy, hz);
-  heartFlame.userData.base = 0.45 + 0.5 * coreBlaze;   // the coreGlow tick scales THIS
+  heartFlame.userData.base = 0.42 + 0.48 * coreBlaze;   // the coreGlow tick scales THIS
   heartFlame.renderOrder = 2;
   group.add(heartFlame);
-  // A TIGHT grave-green glow shell hugging the flame so the ghost-fire reads as CONTAINED green
-  // light through the rib gaps — NOT a big white additive bloom (Fable: the white halo drifted
-  // "holy"). Darker teal-green so additive blending stays GREEN, not washing to white.
-  const haloMat = new THREE.MeshBasicMaterial({ color: 0x2e8a3a, transparent: true, opacity: (0.10 + 0.12 * coreBlaze), depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.BackSide });
-  const halo = new THREE.Mesh(new THREE.OctahedronGeometry(heartR * 1.35, 1), haloMat);
-  halo.scale.set(1, 1.6, 0.9); halo.position.set(0, hy, hz); halo.renderOrder = 1;
-  group.add(halo);
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xd6ffe8, transparent: true, opacity: 0.6 + 0.35 * coreBlaze, depthWrite: false, side: THREE.DoubleSide });   // mint-white hot core
+  const heartCore = flatTriMesh(flameTeardrop(heartR * 0.42, heartR * 1.0), coreMat);
+  heartCore.position.set(0, hy - heartR * 0.15, hz); heartCore.renderOrder = 3;
+  group.add(heartCore);
   const heartHook = heartFlame;   // the coreGlow the torso returns
 
   // Motif anchor = the cage centre (the Grave Heart seats here).
@@ -295,7 +278,7 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   ];
   const wro = model.wingRootOffset ?? {};
   const attach = {
-    wingRoot: (side) => ({ x: (0.34 * shoulderW) * side, y: TORSO_Y + 0.30 + (wro.y ?? 0), z: -0.55 + (wro.z ?? 0) }),
+    wingRoot: (side) => ({ x: (0.50 * shoulderW) * side, y: TORSO_Y + 0.34 + (wro.y ?? 0), z: -0.55 + (wro.z ?? 0) }),   // roots OUTBOARD on the upper cage → a bare-spine gap so the two membranes never meet at centre
     headBase: { x: 0, y: 0.34, z: -2.68 },   // raised skull on the S-curved neck
     tailAnchor: { y: 0.14, z: 1.66 },
     keelTopAt: (z) => TORSO_Y + 0.30 * Math.max(0, 1 - Math.abs(z + 0.4) / 2.4),
@@ -393,10 +376,15 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // a BODY anchor (G, toward the hip/spine), so the wing joins the body instead of
   // floating at the wrist (owner note). Anchored to ARM-side points only (root LE, wrist
   // K, aft corner, body G) so it never tears when the hand folds at the wrist.
+  // The body anchor G is a FIXED point (NOT span-scaled) so the inboard membrane always tapers
+  // to a thin sliver at the spine and can NEVER cross the centreline at any span — the midline-
+  // clash fix. The pivot sits at world x≈+0.5; a local x of −0.34 lands at world x≈+0.16, just
+  // off the spine, never past it. The panel is ONE thin triangle wide at the arm root, tapering
+  // to the body point (the reference plagiopatagium that melts into the torso).
   const r0p = LE(0);
-  const G = [r0p[0] - 0.12 * hs, r0p[1] - 0.14 * hs, r0p[2] + 0.85 * hs];   // reaches to the body/hip WITHOUT slabbing over the ivory ribcage
-  const Aaft = [K[0] * 0.5 + r0p[0] * 0.5, K[1] - 0.10 * hs, K[2] + 0.40 * hs];
-  arm.add(flatTriMesh([[r0p, K, Aaft], [r0p, Aaft, G]], wingMat));
+  const G = [-0.34, -0.40, 1.05];
+  const Aaft = [r0p[0] + 0.26 * hs, r0p[1] - 0.05 * hs, r0p[2] + 0.34 * hs];   // aft point ON the arm (outboard) → the sliver tapers arm→body
+  arm.add(flatTriMesh([[r0p, Aaft, G]], wingMat));
   return { arm, hand, K, tip: F0 };
 }
 
@@ -412,7 +400,7 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   // off near-black (Fable) so the ivory finger-bones + rib barrel WIN the silhouette (bone
   // ~60/40 over shroud). Translucent so light reads through it and the rig drives its opacity.
   // Emissive black (the wing never glows — the light is the caged heart).
-  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x4e564a, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
+  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x353d4a, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
   wingMat.envMapIntensity = 0.16;
 
   const pivots = {}, wingElements = [];
