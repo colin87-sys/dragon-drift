@@ -646,10 +646,12 @@ export const DRAGONS = {
       scale: 1.22, tailSegments: 13, neckSegments: 4, flapBias: 0.9, flapAmp: 0.85,
       spanScale: 1.0, glowLevel: 1.0, headScale: 1.0, tailLength: 1.0, tailStretch: 1.0,
       fingers: 4, wristT: 0.24,
-      // WING MOTION — the phalanx-shroud is a 3-segment hinge (pivot/mid/tip); the SNAP
-      // rides glidePow + tipLag + flapAmp/flapBias (the §4.4 substitutions for the cut downFrac).
-      wingParts: 3, rootAmp: 0.6, midAmp: 0.34, tipAmp: 0.55, midLag: 0.5, tipLag: 1.2,
-      glidePow: 1.6, restLift: 0.05, apexMid: 0.10, apexTip: 0.22,
+      // WING MOTION — SHOULDER-LED beat (owner note: the wing complex must read as ONE
+      // joint with a little lag, NOT a stiff elbow/wrist double-bend). The big arc lives in
+      // the shoulder (rootAmp), lifted at the recovery peak toward ~12 o'clock by apexRoot and
+      // swinging down to ~5 o'clock; mid/tip carry only a small trailing LAG (not a bend).
+      wingParts: 3, rootAmp: 1.18, apexRoot: 0.42, midAmp: 0.12, tipAmp: 0.16, midLag: 0.34, tipLag: 0.66,
+      glidePow: 1.12, restLift: 0.06, apexMid: 0.04, apexTip: 0.08,
       // TAIL MOTION — the vertebra whip is a 4-joint NESTED isBone chain (see dragonRevenant.js).
       tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
     },
