@@ -179,7 +179,7 @@ function buildOssuaryTorso(def, model, _bodyMat) {
         const p = bez3(P0, C1, C2, P1, k / NS);
         const w = 0.12 * (1 - 0.60 * (k / NS));   // FAT blade at the root, tapering to a chamfered tip
         const back = [p[0], p[1], p[2] - w], front = [p[0], p[1], p[2] + w];
-        if (prev) { const inner = (k / NS) > 0.58; (inner ? ribLitT : boneT).push([prev.back, front, prev.front], [prev.back, back, front]); }
+        if (prev) boneT.push([prev.back, front, prev.front], [prev.back, back, front]);   // all BONE (dropped the green inner-tint — it stacked into concentric green rings when the barrel is viewed head-on / rear-chase, Fable)
         prev = { back, front };
       }
     }
@@ -241,31 +241,19 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   const coreBlaze = model.coreBlaze ?? 1;
   const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.30;   // seated in the UPPER barrel (lifted toward the shoulder line)
   const heartR = 0.24 + 0.13 * coreBlaze;   // BIG glow to fill the deeper flared cage (lantern, not sticker)
-  // A ROUND (16-gon) teardrop, rendered FRONTSIDE + opaque so it reads as a SOLID flame body
-  // — NOT the transparent double-layer octagons that were rendering as concentric spirograph
-  // rings (Fable). Two solid shapes: grave-green body + mint-white core (two-tone fire).
-  const flameTeardrop = (R, H) => {
-    const N = 16, tris = [], apex = [0, H, 0], bot = [0, -H * 0.6, 0], ring = [];
-    for (let k = 0; k < N; k++) { const a = (k / N) * Math.PI * 2; ring.push([Math.cos(a) * R, -H * 0.14, Math.sin(a) * R]); }
-    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; tris.push([apex, ring[k], ring[k1]], [bot, ring[k1], ring[k]]); }
-    return tris;
-  };
-  const bodyMatF = new THREE.MeshBasicMaterial({ color: 0x2fbf7f, side: THREE.FrontSide });   // solid grave-green flame body
-  const heartFlame = flatTriMesh(flameTeardrop(heartR * 0.9, heartR * 1.8), bodyMatF);
-  heartFlame.position.set(0, hy, hz); heartFlame.renderOrder = 2;
-  group.add(heartFlame);
-  const coreMat = new THREE.MeshBasicMaterial({ color: 0xd6ffe8, side: THREE.FrontSide });     // mint-white hot core
-  const heartCore = flatTriMesh(flameTeardrop(heartR * 0.42, heartR * 1.0), coreMat);
-  heartCore.position.set(0, hy - heartR * 0.15, hz); heartCore.renderOrder = 3;
-  group.add(heartCore);
-  // THE GLOW — a single soft RADIAL sprite (the engine's makeGlowTexture), so the ghost-fire
-  // reads as a soft ringless bloom seen through the rib gaps — a lantern, never a wireframe halo.
-  // This IS the coreGlow hook (the rig ticks its opacity: floor → boost → Surge blaze).
-  const glowTex = makeGlowTexture('84,240,78', '214,255,232');
-  const heartHook = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0.5 + 0.4 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
-  heartHook.scale.setScalar(heartR * (2.6 + 1.0 * coreBlaze));
+  // THE GRAVE-FIRE — PURE SOFT SPRITES, no flame geometry at all (any teardrop mesh's base ring
+  // + the rib arcs stacked into concentric octagon "target-reticle" rings when the barrel is
+  // viewed head-on / rear-chase — Fable, twice). Billboarded radial glows can't form edges. The
+  // core stays GREEN (not white) so the lantern reads grave-green from behind, never holy. A soft
+  // outer bloom + a tighter brighter green core = a two-value flame with a hot centre.
+  // SATURATED-GREEN core (not near-white) + LOW additive opacity so the fire never blooms to a
+  // white reticle disc — it stays grave-GREEN even at the additive-bright centre (Fable: white
+  // core reads holy). One soft billboard glow, no geometry.
+  const glowTex = makeGlowTexture('34,150,64', '96,255,120');
+  const heartHook = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0.24 + 0.22 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
+  heartHook.scale.set(heartR * (1.9 + 0.6 * coreBlaze), heartR * (2.4 + 0.8 * coreBlaze), 1);   // taller than wide → a flame
   heartHook.position.set(0, hy, hz);
-  heartHook.userData.base = 0.5 + 0.4 * coreBlaze;   // the coreGlow tick scales THIS
+  heartHook.userData.base = 0.24 + 0.22 * coreBlaze;   // the coreGlow tick scales THIS
   heartHook.renderOrder = 1;
   group.add(heartHook);
 
