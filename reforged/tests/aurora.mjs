@@ -73,8 +73,8 @@ check('FULL-STRUCTURE eruption ramp: violet base + pink plateau + crimson crown,
   && /pinkB\s*=\s*smoothstep\(0\.30,\s*0\.50,\s*v\)/.test(AURORA_BODY)                     // pink is a plateau band, not a ×0.25 bell
   && /mix\(aCol,\s*uAurRed,\s*0\.75\s*\*\s*crown\s*\*\s*em\)/.test(AURORA_BODY)            // crimson by MIX (hue), not additive-only
   && /float\s+em\s*=\s*min\(uAurErupt,\s*1\.0\)/.test(AURORA_BODY));                       // mix saturates, additive rides the dial
-check('eruption peak raised to 1.2 so the full structure shows in natural play',
-  /uAurErupt\.value\s*=\s*1\.2\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+check('eruption peak raised to 1.4 (owner pick) so the full structure shows in natural play',
+  /uAurErupt\.value\s*=\s*1\.4\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 check('violet bluer (0x7a6bff) + pink hotter (0xff7fae) so they read over green', (() => {
   const s = readFileSync(url('../js/auroraSky.js'), 'utf8');
   return /uAurViolet:\s*\{\s*value:\s*new THREE\.Color\(0x7a6bff\)/.test(s) && /uAurPink:\s*\{\s*value:\s*new THREE\.Color\(0xff7fae\)/.test(s);
@@ -86,7 +86,7 @@ check('ERUPTION COLOR WASH: diffuse violet base + red/pink crown glow (reads whe
   /if\s*\(\s*uAurErupt\s*>\s*0\.001\s*\)/.test(AURORA_BODY) && /ebase\s*=\s*exp/.test(AURORA_BODY) && /ecrown\s*=\s*smoothstep/.test(AURORA_BODY));
 check('fine0 detail octave is TIER0-ONLY (uAurLayers == 2 branch → no tier1/2 cost)', /if\s*\(\s*uAurLayers\s*==\s*2\s*\)\s*fine0\s*=\s*_aNoise/.test(AURORA_BODY));
 check('ERUPTION driver: activity → smoothstep eruption envelope (rare full-color)',
-  /uAurErupt\.value\s*=\s*1\.2\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+  /uAurErupt\.value\s*=\s*1\.4\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 check('?auract debug override wired (quiet-vs-eruption capture)', /setAuroraActOverride/.test(readFileSync(url('../js/main.js'), 'utf8')));
 check('?aurerupt debug override wired (pin eruption strength, bypasses the 0.45 cap)',
   /setAuroraEruptOverride/.test(readFileSync(url('../js/main.js'), 'utf8')) && /if\s*\(eruptOverride\s*!=\s*null\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
