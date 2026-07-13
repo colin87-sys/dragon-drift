@@ -27,8 +27,10 @@ export const AURORA_HEAD = /* glsl */`
   uniform float uAurNight;                  // PREVIEW-only (?aurora=1): sink day sky→night so the
                                             // curtain reads (auroras need a dark sky). 0 in real play.
   uniform float uAurPhase, uAurBreath, uAurAct;  // JS slow phases: crawl / breathe / activity
-  uniform int   uAurLayers;                 // 2 tier0 / 1 tier1+2
+  uniform int   uAurLayers;                 // 2 tier0 / 1 tier1+2 — the tier0-RICHNESS flag (rays, fine0, noise knots)
+  uniform int   uAurBands;                  // thick-curtain layer count: 2 tier0/tier1 / 1 tier2 (loop bound)
   uniform float uAurRay;                    // 1 tier0/1 rays on / 0 tier2 (smooth quiet arc)
+  uniform float uAurRayMix;                 // TURN-CALM: 1 settled → 0.35 during fast yaw (rays soften into the sheet, never vanish)
   uniform vec2  uAurFwd, uAurFwd2;          // damped TRAVEL azimuth (the "stage") + the rotated secondary axis
   uniform float uAurErupt;                  // 0 quiet (green/teal + rose) → 1 full-color eruption (rare "wow")
   uniform vec3  uAurGreen, uAurGreenHot, uAurTeal, uAurRed, uAurPink, uAurViolet, uAurFringe;
@@ -62,15 +64,31 @@ export const AURORA_BODY = /* glsl */`
           if (uAurLayers == 2) fine0 = _aNoise(az * 12.8 + vec2(-uAurPhase * 0.19, 1.7));
           // GATE-7 band-warp field: 2D noise in (cross-stage, ELEVATION). The HEIGHT axis is the point —
           // a pure-azimuth warp shifts every ribbon identically (still parallel); a height-varying warp
-          // bends each ribbon differently → S-curves, pinches, and (at extremes) forks. tier0 only.
+          // bends each ribbon differently → S-curves, pinches, and (at extremes) forks. The true noise
+          // runs on tier0 AND tier2 (tier2 has no rays, so the thick bands are ALL it has → it earns the
+          // fork field, funded by its now-dead ray eval). Gate-9: phase 0.045→0.02 so forks evolve over
+          // ~50s (static within a glance — the "smooth transitions" fix, not a fast-sliding cliff).
           float bandWarp = 0.0;
-          if (uAurLayers == 2) bandWarp = _aNoise(vec2(sAcross * 2.2 + 5.0, hy * 3.0 - uAurPhase * 0.045)) - 0.5;
+          if (uAurLayers == 2 || uAurRay < 0.5) bandWarp = _aNoise(vec2(sAcross * 2.2 + 5.0, hy * 3.0 - uAurPhase * 0.02)) - 0.5;
+          // TIER1 gets the fork mechanism ANALYTICALLY (0 evals): the Gate-7 law only needs the warp to
+          // VARY WITH ELEVATION, not to be noise. sin(hy·k) with azimuth-varying amplitude (fold0) + phase
+          // (foldOct) bends each ribbon differently, and where its slope beats the base band slope it forks.
+          float warpF = bandWarp;
+          if (uAurLayers < 2 && uAurRay > 0.5) warpF = (fold0 - 0.5) * sin(hy * 4.5 + (foldOct - 0.5) * 5.0 + uAurPhase * 0.02);
           float rayCore = 1.0;   // main-arc ray structure, exported so the eruption color rides the LINES
           for (int L = 0; L < 2; L++) {
-            if (L >= uAurLayers) break;
+            if (L >= uAurBands) break;   // tier2 = 1 band; tier0/tier1 = 2 (mobile keeps the crossing diagonal)
+            // rOn: rays live on the MAIN arc always, on the SECONDARY band only at tier0 (mobile's second
+            // band is a ray-less thick ribbon — the "middle variation" without the ray eval).
+            float rOn = uAurRay * ((L == 0 || uAurLayers == 2) ? 1.0 : 0.0);
             // DRAPERY FOLDS: a broad crawling swell + a mid octave + fine fractal detail (single
             // frequency = smooth ruler edges; the octaves give hairpin folds + ragged filament edges).
-            float fold = (L == 0) ? fold0 : _aNoise(az * 3.2 + vec2(uAurPhase * 0.13 + 7.1, 0.0));
+            // The tier0 secondary band gets its own noise fold; tier1's is a FREE anti-correlated remix of
+            // the shared folds (reads as a deliberately CROSSING curtain), 0 evals.
+            float fold;
+            if (L == 0) fold = fold0;
+            else if (uAurLayers == 2) fold = _aNoise(az * 3.2 + vec2(uAurPhase * 0.13 + 7.1, 0.0));
+            else fold = 0.5 + (0.5 - fold0) * 0.8 + (foldOct - 0.5) * 0.5;
             fold += 0.5 * (foldOct - 0.5) + 0.25 * (fine0 - 0.5);
             // THE LOWER BORDER: drops to the horizon at the arc FLANKS (envC→0 → base 0.04, plunges
             // below the sea-line at fold minima so the ends dive behind the world), clears the gate
@@ -99,10 +117,16 @@ export const AURORA_BODY = /* glsl */`
             // RAYS: fine vertical lines streaming UP from the bands (they are CHILDREN of the ribbons
             // below). Corona convergence — during an eruption the spacing dilates with altitude.
             u *= 1.0 - 0.25 * uAurErupt * max(hy, 0.0);
-            float rn = _aNoise(vec2(u * 20.0 + fold * 4.0, uAurPhase * 0.7));   // calm spacing (rn², not hairline)
+            // Only sample the ray noise where rays actually render (main arc always; secondary only tier0).
+            // tier2 + tier1's secondary band skip it → the freed eval funds tier2's fork field above.
+            // Gate-9: time axis 0.7→0.35 (slower boil) so a MOTION-slewed rn no longer strobes (issue 2c).
+            float rn = 0.5;
+            if (uAurRay > 0.5 && (L == 0 || uAurLayers == 2)) rn = _aNoise(vec2(u * 20.0 + fold * 4.0, uAurPhase * 0.35));
             float rr = rn * rn;                                                 // rn² — soft cores, not needles
-            float rayShim = (0.30 + 0.85 * rr) * (0.88 + 0.12 * sin(uAurPhase * 2.6 + rn * 50.0));
-            float ray = mix(1.0, rayShim, uAurRay);
+            // PREMIUM PROFILE (Gate-9): a wide linear lobe under a squared core → luminous falloff, not a bar;
+            // deeper gaps (0.24) read cores brighter for free. Shimmer de-strobed: rn·50→rn·9, φ·2.6→φ·1.7.
+            float rayShim = (0.24 + 0.42 * rn + 0.50 * rr) * (0.90 + 0.10 * sin(uAurPhase * 1.7 + rn * 9.0));
+            float ray = mix(1.0, rayShim, rOn * uAurRayMix);
             // THE BORDER: a crisp ONSET above it, a luminous ROSE SKIRT below it — never a hard zero.
             float body  = smoothstep(h0 - 0.02, h0 + 0.01, hy);
             float skirt = exp(min(hy - h0, 0.0) * 9.0);
@@ -110,7 +134,7 @@ export const AURORA_BODY = /* glsl */`
             // STAGGERED RAY HEIGHTS: bright rays climb higher, dim ones die sooner → individual lines.
             float tall = exp(-max(hy - h0, 0.0) * (5.5 - 2.0 * uAurAct));
             float rayTall = exp(-max(hy - h0, 0.0) * (2.0 + 6.5 * (1.0 - rn * rn)));
-            tall = mix(tall, rayTall, 0.65 * uAurRay);
+            tall = mix(tall, rayTall, 0.65 * rOn * uAurRayMix);
             float breath = 0.8 + 0.2 * uAurBreath;
             float I = sheet * ray * below * tall * breath;
             // IRREGULAR THICK RIBBONS: the bands the rays hang FROM, as level-sets of a WARPED field (NOT a
@@ -119,30 +143,39 @@ export const AURORA_BODY = /* glsl */`
             // WARP (bandWarp) that bends ribbons apart and, at extremes, FORKS/merges them, and along-band
             // KNOTS (bn) that let a ribbon fade out mid-sky. Each ribbon keeps the crisp-bottom/soft-top edge.
             float bt = hy - h0;
-            float warpL = bandWarp * ((L == 0) ? 1.0 : -0.8);       // opposite-sign per layer → bands cross at varied angles
+            float warpL = warpF * ((L == 0) ? 1.0 : -0.8);          // opposite-sign per layer → bands cross at varied angles
             float bp = bt * (3.4 + 1.6 * (fold0 - 0.5))             // NON-UNIFORM spacing (period fans/crowds)
                      - (0.25 + 0.65 * foldOct) * sAcross            // AZIMUTH-VARYING tilt → arcs, not parallel
                      - 0.8 * (fold - 0.5)                           // the Gate-6 drape
                      + 1.0 * warpL                                  // THE PARALLEL-BREAKER (folds → forks/merges)
                      + 0.37 * float(L);                             // decorrelate the two layers' band phases
             float fp = fract(bp);
-            float bn = 0.4 + 0.6 * foldOct;                         // tier1/2 fallback: free along-band variation
-            if (uAurLayers == 2 && L == 0) bn = _aNoise(vec2(sAcross * 3.0 - uAurPhase * 0.04, bp * 0.8 + 11.0)); // knots ALONG the band
-            float bprof = smoothstep(0.0, 0.08, fp) * exp(-fp * (2.9 - 1.5 * bn));   // knots are THICKER (slower top decay)
+            // KNOTS (bn): tier1/2 now vary PER-BAND and ALONG-band from bp itself (a smooth sin, continuous —
+            // decorrelates adjacent ribbons at period ≈ 0.74, slides the knot along each band via foldOct), so
+            // mobile bands no longer share one azimuth-locked knot. Floor 0.25 → a faded band never hits zero
+            // (feeds the smooth-transition fix). tier0 keeps the true along-band noise (phase 0.04→0.02, Gate-9).
+            float bn = 0.25 + 0.75 * (0.5 + 0.5 * sin(bp * 2.5 + foldOct * 7.0 + fold0 * 3.0));
+            if (uAurLayers == 2 && L == 0) bn = _aNoise(vec2(sAcross * 3.0 - uAurPhase * 0.02, bp * 0.8 + 11.0)); // knots ALONG the band
+            // SEAM-FEATHERED profile (Gate-9): the old fract tail ended at exp(-k) (0.05–0.25) then HARD-dropped
+            // to 0 at the period wrap — a moving cliff that popped as bp drifted (the #1 "erratic" source). The
+            // smoothstep(1.0,0.82,fp) fades the tail to zero BEFORE the seam, both sides 0, crisp bottom kept.
+            float bprof = smoothstep(0.0, 0.10, fp) * smoothstep(1.0, 0.82, fp) * exp(-fp * (2.9 - 1.5 * bn));
             float bands = 0.30 + 0.95 * bprof * (0.30 + 1.05 * bn * bn);             // bn² → a band FADES OUT along its length
             I *= mix(1.0, bands, smoothstep(0.04, 0.12, bt));                  // protect the hot border (bt < 0.04)
             // Export the MAIN-ARC structure → the eruption color rides the LINES + bands, not a flat wash.
             if (L == 0) rayCore = clamp((ray - 0.35) * 1.3, 0.0, 1.0) * tall;
-            // THE HOT-LINE: a real border is 2–3× brighter than the diffuse column above it.
+            // THE HOT-LINE: a real border is 2–3× brighter than the diffuse column above it. Gate-9 gives it
+            // TWO scales — a tight 28-decay core (the physics thesis) under a soft 8-decay FEATHER (a bloom
+            // impression rising off the hot line, no post-FX) → the border reads luminous, not clinical.
             float hot = exp(-max(hy - h0, 0.0) * 28.0);
-            I *= 1.0 + 2.2 * hot * below;
+            I *= 1.0 + (1.8 * hot + 0.45 * exp(-max(hy - h0, 0.0) * 8.0)) * below;
             // THE ALTITUDE PHYSICS RAMP — FULL STRUCTURE (Gate-8): quiet = green + teal (unchanged). An
             // eruption adds THREE hybrid bands — violet-blue N2+ base, PINK overlap, 630nm crimson crown —
             // each a MIX (hue authority, saturates at erupt=1) + a small ADDITIVE (luminance parity so no
             // single hue monopolises — the old all-additive red did), windowed in v with soft OVERLAPS so
             // bottom→top reads violet→green→pink→crimson blended, not two colors. (per-ray v-stagger kept.)
             vec3 aCol = mix(uAurFringe, uAurGreen, smoothstep(h0 - 0.02, h0 + 0.005, hy));
-            float v = clamp((hy - h0) * (2.6 - 1.0 * uAurAct) + (rn - 0.5) * 0.3 * uAurRay, 0.0, 1.0);
+            float v = clamp((hy - h0) * (2.6 - 1.0 * uAurAct) + (rn - 0.5) * 0.3 * rOn * uAurRayMix, 0.0, 1.0);
             aCol = mix(aCol, uAurTeal, 0.55 * smoothstep(0.15, 0.55, v));      // altitude cooling (always) — UNCHANGED
             float em = min(uAurErupt, 1.0);     // hue weight (mix) — saturates so hues never overshoot
             float ea = uAurErupt;               // glow weight (additive) — rides the dial past 1.0
@@ -162,7 +195,10 @@ export const AURORA_BODY = /* glsl */`
             I *= 1.0 + 0.25 * crown * uAurErupt;                               // ray-top flare — unchanged
             // SPLIT GAIN: the diffuse column is capped LOW (0.55, never blooms) while the thin hot border
             // + crown reach 1.0 and cross the bloom threshold — the glow lives only in the concentrated cores.
-            col += aCol * I * uAuroraMix * (0.55 + 0.45 * hot * below);
+            // Gate-9: the THICKEST along-band knots also cross the threshold → jewel points bloom along every
+            // ribbon (only bprof·bn² ≳ 0.28 lifts), so the thick lines read premium, not flat-topped.
+            float knot = clamp(bprof * bn * bn * 1.6 - 0.45, 0.0, 0.8);
+            col += aCol * I * uAuroraMix * (0.55 + 0.45 * max(hot * below, knot));
             // TRANSLUCENCY: stars are dimmed by local CORE brightness, not total column — optically-thin
             // gas, stars burn through the faint column + only vanish at the border/knots (the env.js splice
             // reads aurLum unchanged; only its MEANING changes here).
@@ -179,7 +215,9 @@ export const AURORA_BODY = /* glsl */`
           float hg = exp(-abs(hy) * 7.0) * (0.55 + 0.45 * fold0) * (0.35 + 0.65 * envC);
           // hue DRIFTS green↔rose per fold (a flat-green horizon band, doubled by the mirror sea, was the
           // monochrome-frame cause); lower gain so the doubled seam doesn't blow out; barely dims stars.
-          col += mix(uAurGreen, uAurFringe, 0.5 - 0.5 * fold0) * hg * (0.06 + 0.05 * uAurAct) * uAuroraMix;
+          // Gate-9: the sea-line airglow (+ its own mirror reflection) INHALES with the breath uniform —
+          // sky and sea swell + dim together on an 8–20s cycle (mean unchanged: 0.85+0.30·0.5 = 1.0).
+          col += mix(uAurGreen, uAurFringe, 0.5 - 0.5 * fold0) * hg * (0.05 + 0.04 * uAurAct) * (0.85 + 0.30 * uAurBreath) * uAuroraMix;
           aurLum += hg * 0.1;
           // ERUPTION COLOR TINT (rare "wow", with RESERVATION): a strong display breathes color into the
           // upper sky — but it RIDES THE RAYS (× rayCore) so it reads as colored LINES over dark starry sky,
@@ -202,7 +240,9 @@ export const auroraUniforms = {
   uAurBreath: { value: 0.5 },
   uAurAct:    { value: 0.5 },
   uAurLayers: { value: 2 },
+  uAurBands:  { value: 2 },                          // thick-curtain layer count (2 tier0/tier1, 1 tier2)
   uAurRay:    { value: 1 },
+  uAurRayMix: { value: 1 },                          // turn-calm envelope (1 settled → 0.35 during fast yaw)
   uAurFwd:    { value: new THREE.Vector2(0, -1) },      // travel azimuth (forward = -Z); damped in JS
   uAurFwd2:   { value: new THREE.Vector2(0.64, -0.77) },// secondary axis ≈ 40° off forward
   uAurErupt:  { value: 0 },                          // eruption envelope (driven in JS from activity)
@@ -233,27 +273,39 @@ export function auroraPulse() {
 export function setAuroraEnabled(on) { enabled = !!on; if (!enabled) auroraUniforms.uAuroraMix.value = 0; }
 export function setAuroraForced(on) { forced = !!on; }
 export function setAuroraQuality(t) {
+  const prev = tier;
   tier = t;
-  auroraUniforms.uAurLayers.value = t === 0 ? 2 : 1;    // fewer curtain layers on weaker tiers
+  auroraUniforms.uAurLayers.value = t === 0 ? 2 : 1;    // tier0-RICHNESS flag (rays, fine0, noise knots, tier0 2nd-band fold)
+  auroraUniforms.uAurBands.value = t >= 2 ? 1 : 2;      // tier0/tier1 keep the crossing diagonal band; tier2 = single arc
   auroraUniforms.uAurRay.value = t >= 2 ? 0 : 1;        // tier2 = a smooth quiet arc (still an authentic form)
+  // A runtime tier flip (perf governor) would restructure the curtain on-screen in one frame (bands/rays
+  // appear/vanish — a literal "lines disappear"). Dip the whole curtain through a breath instead: qualFade
+  // 0→1 over ~1.2s (the godhead tier-hysteresis lesson), so the restructure happens while faded down.
+  if (prev !== t && auroraUniforms.uAuroraMix.value > 0.0001) qualFade = 0;
 }
 
 // Damped travel azimuth (module-local so it survives frames). Starts pointing forward (-Z).
 const _fwd = new THREE.Vector3();
 let fwdX = 0, fwdZ = -1;
+let _aurPhase = 0;              // JS-accumulated crawl phase (activity-keyed rate → stately when quiet)
+let pwx = 0, pwz = -1, calm = 1;  // previous stage azimuth + turn-calm envelope (rays soften during yaw)
+let qualFade = 1;              // tier-flip cover: dips to 0 on a quality change, recovers over ~1.2s
 
 // Per-frame write from the lerped biome env. Off / no aurora in this biome → mix 0 (the uniform
 // branch skips the whole block; the sky is the shipped gradient). Phases wrapped in JS so they
 // never hit float32 precision on endless runs (the uCloudDrift lesson).
 export function applyAurora(env, playerDist, time, camera, dt) {
+  const dtc = dt || 0.016;
   const mix = forced ? 1 : (enabled ? (env.auroraMix || 0) : 0);
-  auroraUniforms.uAuroraMix.value = mix;
+  // qualFade recovers to 1 (identity — damp(1,1)=1 → byte-identical in non-aurora biomes); it only
+  // dips below 1 for ~1.2s after a runtime tier flip, so the curtain restructures while faded down.
+  qualFade = damp(qualFade, 1, 3.5, dtc);
+  auroraUniforms.uAuroraMix.value = mix * qualFade;
   // PREVIEW ONLY: `?aurora=1` over a day biome would wash the curtain out (auroras need a dark sky).
   // Force a night wash so the preview reads as the shipping NIGHT biome will. The real biome supplies
   // its own dark palette, so this stays 0 in all actual gameplay → byte-identical.
   auroraUniforms.uAurNight.value = forced ? 1 : 0;
   if (mix < 0.0001) return;
-  auroraUniforms.uAurPhase.value = time % 4096;
   // breathing: two incommensurate sines → never reads as a loop
   auroraUniforms.uAurBreath.value = 0.5 + 0.5 * (0.55 * Math.sin(time * 0.9) + 0.45 * Math.sin(time * 0.27 + 1.3));
   // ACTIVITY + ERUPTION: two incommensurate sines drift the activity; above 0.72 an eruption blooms
@@ -262,6 +314,12 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   const actRaw = 0.5 + 0.5 * (0.62 * Math.sin(time * 0.05) + 0.38 * Math.sin(time * 0.0177 + 2.4));
   const act = actOverride == null ? actRaw : actOverride;
   auroraUniforms.uAurAct.value = act;
+  // ACTIVITY-KEYED CRAWL (Gate-9 dreaminess): accumulate phase at a variable rate instead of `time%4096`
+  // — quiet stretches drift stately (~0.8×), an eruption visibly quickens (~1.25×), so motion tells the
+  // activity story. Uses RAW dt (0 when the montage freezes via timeScale=0 → phase holds, frozen shots
+  // stay pinned); wraps at 4096 exactly like the old `%4096` (the uCloudDrift float32-precision lesson).
+  _aurPhase = (_aurPhase + (dt || 0) * (0.7 + 0.6 * act)) % 4096;
+  auroraUniforms.uAurPhase.value = _aurPhase;
   const e = Math.max(0, (act - 0.72) / 0.28);
   // Peak 1.4 (owner pick) — a natural eruption shows the FULL altitude structure (violet→green→pink→
   // crimson, Gate-8); restraint comes from AREA + rarity (color rides the bands/rays, majority dark
@@ -273,7 +331,6 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // frame (reads as a thing at infinity), but it can never be lost off-frame for long.
   if (camera) {
     camera.getWorldDirection(_fwd);
-    const dtc = dt || 0.016;
     fwdX = damp(fwdX, _fwd.x, 0.35, dtc);
     fwdZ = damp(fwdZ, _fwd.z, 0.35, dtc);
   }
@@ -281,6 +338,14 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   const a = 0.20 * Math.sin(time * 0.017), ca = Math.cos(a), sa = Math.sin(a);
   let wx = fwdX * ca - fwdZ * sa, wz = fwdX * sa + fwdZ * ca;
   const inv = 1 / (Math.hypot(wx, wz) || 1); wx *= inv; wz *= inv;
+  // TURN-CALM: measure the stage's angular slew (rad/s); while it's turning fast the ray field would slew
+  // through many noise cells and STROBE (the "erratic while flying" tell). Ease the rays toward the smooth
+  // sheet (uAurRayMix→0.35, a FLOOR — they soften/brighten into the band, never vanish), ease back when
+  // settled. The bands themselves are unaffected, so the curtain structure holds; only the fine rays calm.
+  const slew = Math.abs(Math.atan2(wx * pwz - wz * pwx, wx * pwx + wz * pwz)) / dtc;
+  pwx = wx; pwz = wz;
+  calm = damp(calm, slew > 0.15 ? 0.35 : 1.0, 1.6, dtc);
+  auroraUniforms.uAurRayMix.value = calm;
   auroraUniforms.uAurFwd.value.set(wx, wz);
   // secondary BAND axis: forward rotated ~52°±20°, drifting — crosses the arc more obliquely (a diagonal band)
   const b = 0.90 + 0.35 * Math.sin(time * 0.021), cb = Math.cos(b), sb = Math.sin(b);
