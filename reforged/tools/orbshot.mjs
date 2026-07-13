@@ -44,7 +44,7 @@ async function capture({ skyforged = true, chain = 0, frameDist = 0 }) {
     });
     return isFinite(best) ? best : 0;
   }).catch(() => 0);
-  await page.evaluate((td) => { if (td) window.__dd.player.dist = td - 9; }, targetDist);
+  await page.evaluate((td) => { if (td) window.__dd.player.dist = td - 5; }, targetDist);
   // Freeze, drive the ribbon heat (orbFlow tracks game.flowChain on flow runs; updatePowerups
   // still writes it at dt=0), hide the harness Phase Gate, commit a couple of frames.
   await page.evaluate(async (ch) => {
