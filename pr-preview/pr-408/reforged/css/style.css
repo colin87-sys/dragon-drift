@@ -86,6 +86,7 @@ body.app-loaded > canvas { opacity: 1; }
 #hud.cine-hold .hud-top-right,
 #hud.cine-hold .stamina-arc,
 #hud.cine-hold .surge-min,
+#hud.cine-hold .flow-crest,
 #hud.cine-hold .milestone-banner,
 #hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
 
@@ -346,6 +347,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
 /* These vitals live only during a run — hide them whenever a menu/screen is up */
 #hud:has(#screen.visible) .stamina-arc,
 #hud:has(#screen.visible) .surge-min,
+#hud:has(#screen.visible) .flow-crest,
 #hud:has(#screen.visible) .health-hearts { opacity: 0 !important; pointer-events: none; }
 
 /* hud-top-left now stacks the pause button + the hearts */
@@ -404,6 +406,83 @@ body[data-qtier="2"] .hud-sew { display: none; }
 @keyframes stam-glow {
   0%,100% { filter: drop-shadow(0 0 5px rgba(130,255,235,0.95)) drop-shadow(0 0 11px rgba(80,240,220,0.7)); }
   50%     { filter: drop-shadow(0 0 11px rgba(190,255,248,1)) drop-shadow(0 0 20px rgba(120,255,235,0.9)); } }
+
+/* FLOW "Keystone Crest" — a miniature Windvault in the centre column (above the surge gems),
+   shown ONLY during a Sky Canyon flow run. Cyan light climbs both legs of a forged-glass arch
+   as the carve chain builds and meets at the keystone at the cap (×3.0); the ×N.N rides the
+   aperture. Same 3-stop cyan ramp + climb-motion as the in-world Skyforged markers — the run's
+   own icon. Whispers at rest (cold glass, ZERO idle motion — motion is earned). */
+.flow-crest {
+  position: absolute; left: 50%;
+  bottom: calc(max(clamp(46px, 9vh, 108px), env(safe-area-inset-bottom, 0px) + 38px) + 44px);
+  transform: translateX(-50%); width: 116px; height: 62px; z-index: 5; pointer-events: none;
+  opacity: 0; display: none; transition: opacity var(--t-ui) var(--ease-out); }
+.flow-crest.on { display: block; opacity: 1; }
+.flow-crest svg { width: 100%; height: 100%; overflow: visible; }
+.fc-trk { fill: none; stroke: rgba(90,150,210,0.28); stroke-width: 5; stroke-linecap: butt;
+  vector-effect: non-scaling-stroke; }
+/* the climbing light — forged-glass ramp foot→apex; dashoffset driven by ui.js on events only */
+.fc-fill { fill: none; stroke: url(#flow-grad); stroke-width: 5; stroke-linecap: butt;
+  vector-effect: non-scaling-stroke; stroke-dasharray: 100; stroke-dashoffset: 100;
+  transition: stroke-dashoffset var(--t-ui) var(--ease-out);
+  filter: drop-shadow(0 0 3px rgba(63,200,255,0.5)); }
+/* afterimage ghosts — snapshot the lost light on a halve/miss, then fade */
+.fc-ghost { fill: none; stroke: url(#flow-grad); stroke-width: 5; stroke-linecap: butt;
+  vector-effect: non-scaling-stroke; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; }
+.fc-ghost.fc-ghost-fade { animation: fc-ghost-fade 0.4s var(--ease-out); }
+@keyframes fc-ghost-fade { 0% { opacity: 0.5; } 100% { opacity: 0; } }
+.fc-best { stroke: rgba(215,245,255,0.85); stroke-width: 1.4; vector-effect: non-scaling-stroke;
+  opacity: 0; transition: opacity var(--t-ui); }
+/* keystone shard — invisible-dim until the cap, then ignites (the one earned ornament) */
+.fc-keystone { fill: #bfeeff; opacity: 0.14; transform-box: fill-box; transform-origin: center;
+  transition: opacity var(--t-ui) var(--ease-out); }
+.flow-crest.capped .fc-keystone { opacity: 1;
+  animation: fc-keystone-in 0.42s var(--ease-spring), fc-keystone-breathe 1.6s ease-in-out 0.42s infinite; }
+@keyframes fc-keystone-in { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
+@keyframes fc-keystone-breathe {
+  0%,100% { filter: drop-shadow(0 0 5px rgba(191,238,255,0.8)); }
+  50%     { filter: drop-shadow(0 0 10px rgba(210,245,255,1)); } }
+/* the ×N.N hero number, suspended in the aperture (cyan ramp text, like the wordmark) */
+.fc-x { position: absolute; left: 50%; top: 52%; transform: translate(-50%,-50%);
+  font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 21px;
+  letter-spacing: 1px; line-height: 1;
+  background: linear-gradient(180deg, #3fc8ff, #bfeeff);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  color: transparent; filter: drop-shadow(0 0 10px rgba(63,200,255,0.45)); }
+.fc-x.fc-pop { animation: fc-pop 0.18s var(--ease-out); }
+@keyframes fc-pop {
+  0%   { transform: translate(-50%,-50%) scale(1); }
+  45%  { transform: translate(-50%,-50%) scale(1.14); }
+  100% { transform: translate(-50%,-50%) scale(1); } }
+.fc-word { position: absolute; left: 50%; bottom: -3px; transform: translateX(-50%);
+  font-size: 8px; letter-spacing: 2.5px; font-weight: 800; color: rgba(190,238,255,0.7);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+/* heat: the crest BURNS hotter as the chain climbs — a peripheral luminance channel, so you
+   read the momentum without a saccade to the digits at flow-run speed. Stepped on events. */
+.flow-crest[data-heat="1"] .fc-fill { filter: drop-shadow(0 0 4px rgba(63,200,255,0.6)); }
+.flow-crest[data-heat="2"] .fc-fill { filter: drop-shadow(0 0 5px rgba(80,215,255,0.7)); }
+.flow-crest[data-heat="3"] .fc-fill { filter: drop-shadow(0 0 7px rgba(120,225,255,0.85)); }
+.flow-crest[data-heat="4"] .fc-fill { filter: drop-shadow(0 0 9px rgba(160,235,255,0.95)); }
+.flow-crest[data-heat="4"] .fc-x { color: #bfeeff; -webkit-text-fill-color: #bfeeff;
+  filter: drop-shadow(0 0 14px rgba(191,238,255,0.7)); }
+/* the soft KNOCK (orb-drop halve) vs the dramatic SHATTER (gate miss → 0) — distinct verbs */
+.flow-crest.fc-knock { animation: fc-knock 0.3s var(--ease-out); }
+@keyframes fc-knock { 0%,100% { transform: translateX(-50%); } 40% { transform: translate(calc(-50% - 2px), 1px); } }
+.flow-crest.fc-shatter { animation: fc-shatter 0.5s var(--ease-out); }
+@keyframes fc-shatter {
+  0%   { transform: translateX(-50%); }
+  15%  { transform: translate(calc(-50% + 3px), -1px); }
+  30%  { transform: translate(calc(-50% - 3px), 1px); }
+  50%  { transform: translate(calc(-50% + 2px), 0); }
+  100% { transform: translateX(-50%); } }
+/* Reduced motion: keep all STATE (fill, heat, keystone, best-notch) but drop every animation
+   (no pop/knock/shatter/breathe/ghost) — the meter still reads, it just doesn't move. */
+@media (prefers-reduced-motion: reduce) {
+  .flow-crest .fc-fill { transition: none; }
+  .fc-x.fc-pop, .flow-crest.fc-knock, .flow-crest.fc-shatter,
+  .flow-crest.capped .fc-keystone, .fc-ghost.fc-ghost-fade { animation: none; }
+  .fc-ghost { opacity: 0 !important; }
+}
 
 /* Surge — a bare gem row + quiet multiplier, centred low */
 .surge-min { position: absolute; left: 50%; bottom: clamp(46px, 9vh, 108px);
@@ -1315,6 +1394,15 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .assist-chip   { font-size: 9px; }
   .chain         { font-size: 10px; }
   .chain .chain-n { font-size: 12px; }
+  .flow-crest    { width: 96px; height: 54px; }
+  .flow-crest .fc-x { font-size: 18px; }
+}
+/* Short landscape (phones held sideways): tighten the centre column so the crest, the
+   stamina arc, and the surge gems never stack into each other. */
+@media (max-height: 430px) {
+  .flow-crest { width: 84px; height: 46px;
+    bottom: calc(max(clamp(46px, 9vh, 108px), env(safe-area-inset-bottom, 0px) + 30px) + 32px); }
+  .flow-crest .fc-x { font-size: 15px; }
 }
 
 /* ============ LEGEND UPDATE (retention systems) ============ */

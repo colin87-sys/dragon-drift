@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
 // ANGEL WING — a single standalone wing built from the ASHTALON wing lessons
 // (LEAPFROG L137), re-voiced from hunter to angel.
@@ -100,7 +101,38 @@ function scallopStrip(L, h, lobes, d0, d1, seed = 0) {
   return s;
 }
 
-export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, blade = 0, shape = {} } = {}) {
+// Collapse a built wing's static meshes into ONE merged mesh per material — 13 draws → ~3. The wing's
+// feathers NEVER animate individually (only the wing group breathes/unfurls as a unit) and dissolve
+// rides the SHARED tracked material, so baking each mesh's local transform into its cloned geometry and
+// merging per material is VISUALLY BYTE-IDENTICAL at a fraction of the draw calls — and that saving pays
+// off again in every full-scene aux pass (mirror + god-ray mask). Off by default so the winglab hero /
+// design-iteration path is untouched; the seraph opts in (and can pass merge:false to edit). Any merge
+// error leaves the wing unmerged (correctness over the perf win).
+function collapseWingByMaterial(group) {
+  group.updateMatrixWorld(true);   // group is at identity during build → each mesh's matrixWorld is its group-local transform
+  const buckets = new Map();       // material → [baked geometry clones], insertion-ordered
+  group.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    const g = o.geometry.clone();
+    g.applyMatrix4(o.matrixWorld);  // bake transform (position + normal) into the geometry
+    if (!buckets.has(o.material)) buckets.set(o.material, []);
+    buckets.get(o.material).push(g);
+  });
+  try {
+    const merged = [];
+    for (const [mat, geos] of buckets) {
+      const g = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+      if (!g) throw new Error('mergeGeometries returned null (incompatible attributes)');
+      const mesh = new THREE.Mesh(g, mat);
+      mesh.frustumCulled = false;   // one mesh now spans the whole wing; the boss is on-screen when active
+      merged.push(mesh);
+    }
+    group.clear();                  // drop the 13 pivots/meshes (orphaned geometries GC'd; clones live on the merged meshes)
+    for (const m of merged) group.add(m);
+  } catch (e) { /* leave the group unmerged — the wing still renders, just at full draw-call cost */ }
+}
+
+export function buildAngelWing({ quality = 1, material = null, rimMaterial = null, rimMaterialB = null, blade = 0, shape = {}, merge = false } = {}) {
   const lowQ = quality < 0.75;
   // `blade` (0..1) re-voices the FROND into a straight, lifted seraph feather-BLADE: straighter
   // spines (less bow), sharper points, slimmer. 0 = the owner's signed-off winglab hero, byte-
@@ -288,5 +320,6 @@ export function buildAngelWing({ quality = 1, material = null, rimMaterial = nul
     group.add(m);
   }
 
+  if (merge) collapseWingByMaterial(group);   // 13 draws → ~3 (the seraph opts in; winglab stays unmerged/byte-identical)
   return { group };
 }

@@ -554,19 +554,25 @@ on('bossStart', () => {
   game.flowChain = 0;
   lastFlowMilestone = 0;
 });
-// FLOW carve chain: a low-noise multiplier pop at every 5th step (and gold at the cap).
-// The slipstream SPEED is the real feedback; this just names the climbing multiplier. The
-// milestone latch resets on a drop (and on every run-end/boss flush) so re-climbing re-pops.
+// FLOW carve chain: the persistent Keystone Crest (ui.flowMeter) carries the readout now; the
+// popup is a single cyan "MAX FLOW" announce at the cap. The slipstream SPEED is the real
+// feedback; the meter + this one pop just name the climbing multiplier. The cap latch
+// (lastFlowMilestone) re-arms on any drop below the cap so re-capping re-announces.
 on('flowChain', ({ chain, mult }) => {
-  // Latch on the CAPPED chain so pops stop at the cap (one gold "MAX" pop, not a spam of
-  // identical ×3.0 pops that stomp the ring-score popup for the rest of the run).
-  const m = Math.floor(Math.min(chain, CONFIG.FLOW.chainCap) / 5);
-  if (chain > 0 && m > lastFlowMilestone) {
-    lastFlowMilestone = m;
-    ui.flowChainPop(`FLOW ×${mult.toFixed(1)}`, chain >= CONFIG.FLOW.chainCap ? 'gold' : 'green');
+  // The persistent FLOW crest carries the climb now (js/ui.js flowMeter): light climbs the
+  // mini-Windvault, the ×N.N rides the aperture, the keystone ignites at the cap. The popup is
+  // DEMOTED to a single cyan "MAX FLOW" announce at the cap (flow's colour — gold is perfects),
+  // so we don't double-announce every 5 chain. lastFlowMilestone is the once-per-cap latch.
+  ui.flowMeter.set(chain, mult, game.flowChainBest, CONFIG.FLOW.chainCap);
+  if (chain >= CONFIG.FLOW.chainCap && lastFlowMilestone === 0) {
+    lastFlowMilestone = 1;
+    ui.flowChainPop(`MAX FLOW ×${mult.toFixed(1)}`, 'cyan');
   }
 });
-on('flowChainDrop', ({ chain }) => { lastFlowMilestone = Math.floor(chain / 5); });
+on('flowChainDrop', ({ chain }) => {
+  ui.flowMeter.drop(chain, 1 + CONFIG.FLOW.chainStep * Math.min(chain, CONFIG.FLOW.chainCap), CONFIG.FLOW.chainCap, game.flowChainBest);
+  if (chain < CONFIG.FLOW.chainCap) lastFlowMilestone = 0;   // re-arm the cap announce
+});
 // KNELLGRAVE's toll-as-world-event (§5d slot 10): the frame FLINCHES on every toll —
 // a bloom breath + vignette squeeze (postfx kick preset). Def-gated at the emitter
 // (only a def.musicDies boss emits 'bossToll'), so every other fight is untouched.

@@ -4,6 +4,15 @@ import { mulberry32 } from './util.js';
 import { createBossCommon, stripForMerge } from './bossKit.js';
 import { buildAngelWing } from './angelWing.js';   // the owner's merged, signed-off angel wing (do NOT rebuild)
 
+// The seraph's 8 wings each merge their static feathers per material (13 draws/wing → ~3) — the single
+// biggest draw-call lever here, and it pays off AGAIN in every full-scene aux pass (water mirror +
+// god-ray mask re-draw the wings too). Feathers never animate individually (only the wing group
+// breathes/unfurls) and dissolve rides the shared material, so the merge is visually byte-identical.
+// `?wingedit` keeps the wings UNMERGED (every feather a separate object) for design iteration on
+// eye/feather placement — the merge is a build-time collapse, so the design params are edited the same
+// either way; this flag just lets you grab individual feathers while tweaking.
+const WING_MERGE = !(typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('wingedit'));
+
 // THE UNMASKED — slot 14, the APEX / FINALE (BOSS-DESIGN.md §5b row 14, §5c APEX).
 // "The second sun that cracks open into a biblically-accurate angel." Three STAGES
 // dissolve-swap between sub-rigs: STAGE 1 the ECLIPSE-EYE (this file) → STAGE 2 the
@@ -714,7 +723,7 @@ export function buildUnmasked(def, quality = 1) {
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78 }).group);   // per-wing value ladder + painted moon-rim (two tiers → the fan fingers separate)
+      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE }).group);   // per-wing value ladder + painted moon-rim (two tiers → the fan fingers separate); merge = 13 draws/wing → ~3
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0),

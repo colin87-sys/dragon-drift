@@ -25,11 +25,11 @@ import { flatTriMesh } from './mechaKit.js';
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const TORSO_Y = 0.15;
-// Palette anchors (chalk-ivory bone; value RISES up the ladder — apex is the PALEST).
-// These are the apex (f3) reference values; the per-form BLEACH ramp lands in I5.
-const BONE = 0xcfc9b8, BONE_LO = 0xb0a992;   // apex bone + one value-step darker (belly/recess band)
-const RECESS = 0x464b3d;                      // umber-green far-side cavity wall (the hollow-cage depth, §4.4)
-const GRAVE = 0x54f04e;                        // the grave-light green (heart / eyes / gaps — I1+)
+// Palette anchors — BRIGHT COOL CHALK-IVORY bone (Fable gate: bone was reading dim/khaki;
+// bleached bone must be the dominant bright mass). Value RISES up the ladder (apex palest).
+const BONE = 0xe6e7e0, BONE_LO = 0xc7cac3;   // bright COOL ivory (no khaki drift) + one value-step darker
+const RECESS = 0x3d4a3a;                      // umber-green far-side cavity wall (the hollow-cage depth, §4.4)
+const GRAVE = 0x6bff5e;                        // the grave-light green (heart / eyes / gaps) — brighter for bloom
 
 // hex-lerp — blend two colours by t (bone value banding tracks the bleach ladder).
 function lerpHex(a, b, t) {
@@ -45,14 +45,17 @@ function lerpHex(a, b, t) {
 // a no-op so "no lit exterior bone" survives). The grave-light family (heart / gaps /
 // vents / wisp) is NOT built here — it lands in flareMats (never spineMats) from I1.
 function revenantMats(def) {
-  const bone = new THREE.MeshStandardMaterial({ color: def.body ?? BONE, emissive: 0x000000, flatShading: true, roughness: 0.86, metalness: 0, side: THREE.DoubleSide });
-  bone.envMapIntensity = 0.25;
+  // Bone reads BRIGHT bleached ivory: high albedo, low roughness sheen, a faint self-lit
+  // floor so it never sinks to grey in shadow (exterior emissive stays a hair above black —
+  // the rig's emissiveIntensity tick is a near-no-op, so "no lit exterior bone" still holds).
+  const bone = new THREE.MeshStandardMaterial({ color: def.body ?? BONE, emissive: 0x000000, flatShading: true, roughness: 0.72, metalness: 0, side: THREE.DoubleSide });
+  bone.envMapIntensity = 0.55;
   // Belly / ventral tier — a value-step darker so banks and the keel read.
-  const boneLo = new THREE.MeshStandardMaterial({ color: def.belly ?? BONE_LO, emissive: 0x000000, flatShading: true, roughness: 0.86, metalness: 0, side: THREE.DoubleSide });
-  boneLo.envMapIntensity = 0.25;
+  const boneLo = new THREE.MeshStandardMaterial({ color: def.belly ?? BONE_LO, emissive: 0x000000, flatShading: true, roughness: 0.74, metalness: 0, side: THREE.DoubleSide });
+  boneLo.envMapIntensity = 0.5;
   // Dorsal tier — blended a hair between the two so the vertebra ridge reads from the side.
-  const boneDorsal = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, def.belly ?? BONE_LO, 0.4), emissive: 0x000000, flatShading: true, roughness: 0.8, metalness: 0.02, side: THREE.DoubleSide });
-  boneDorsal.envMapIntensity = 0.25;
+  const boneDorsal = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, def.belly ?? BONE_LO, 0.35), emissive: 0x000000, flatShading: true, roughness: 0.66, metalness: 0.02, side: THREE.DoubleSide });
+  boneDorsal.envMapIntensity = 0.55;
   // Recess — the far-side inner rib/cavity wall (umber-green) so the hollow reads DEEP
   // while the windows stay TRUE holes (§4.4 hollow-cage render). Non-emissive.
   const recess = new THREE.MeshStandardMaterial({ color: RECESS, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
@@ -84,7 +87,9 @@ function tubeLoft(stations, mat, cap = true) {
 
 // The dorsal spine line cyAt(z) — piecewise-linear over the body control points
 // (skull-low stoop → rise over the pelvis → tail counter-lift, the ≥2 inflections).
-const SPINE = [[-2.42, 0.03], [-2.05, 0.11], [-1.64, 0.18], [-1.00, 0.13], [-0.15, 0.17], [0.55, 0.16], [1.10, 0.20], [1.70, 0.15]];
+// The dorsal spine line. The neck RISES in an S-curve to a raised skull (the reference
+// soaring pose), dips at the shoulder, swells over the pelvis, counter-lifts at the tail.
+const SPINE = [[-2.62, 0.40], [-2.20, 0.30], [-1.72, 0.16], [-1.10, 0.11], [-0.15, 0.17], [0.55, 0.16], [1.10, 0.22], [1.70, 0.15]];
 function cyAt(z) {
   if (z <= SPINE[0][0]) return SPINE[0][1];
   if (z >= SPINE[SPINE.length - 1][0]) return SPINE[SPINE.length - 1][1];
@@ -131,30 +136,37 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   const neckVerts = Math.round(model.neckVerts ?? 5);
   const dorsalVerts = Math.round(model.dorsalVerts ?? 9);
   const placeUnits = (z0, z1, n, s0, s1) => { for (let i = 0; i < n; i++) { const t = i / Math.max(1, n - 1), z = z0 + (z1 - z0) * t; vertebraUnit(z, cyAt(z), s0 + (s1 - s0) * t, boneT, dorsalT); } };
-  placeUnits(-2.34, -1.20, neckVerts, 0.78, 1.0);   // neck (smaller vertebrae toward the skull)
-  placeUnits(-1.10, 1.58, dorsalVerts, 1.0, 0.74);  // dorsal → tail root (taper aft)
+  placeUnits(-2.62, -1.16, neckVerts, 0.70, 1.0);   // LONG S-curved neck of shrinking vertebrae rising to the skull
+  placeUnits(-1.06, 1.58, dorsalVerts, 1.0, 0.74);  // dorsal → tail root (taper aft)
 
   // ── HOLLOW RIB CAGE — NRIB arc staves bridging the dorsal beam to a ventral keel
   // across the chest; the z-gaps between staves are the through-WINDOWS. `ribWindows`
   // (0..6) opens gaps CENTRE-OUT (the heart shows through the middle first); the rest
   // are sealed with an inset cartilage panel (f0 → all sealed).
-  const zF = -1.15, zB = 0.78, NGAP = 6, NRIB = NGAP + 1;
-  const ribWindows = Math.max(0, Math.min(NGAP, Math.round(model.ribWindows ?? NGAP)));
-  const bell = (z) => Math.max(0, 1 - Math.pow((z + 0.18) / 1.06, 2));
-  const cageDepth = (z) => 0.24 + 0.24 * bell(z);
-  const halfW = (z) => 0.15 + 0.21 * bell(z);
+  const zF = -1.22, zB = 0.88, NGAP = 8, NRIB = NGAP + 1;
+  const ribWindows = Math.max(0, Math.min(NGAP, Math.round((model.ribWindows ?? NGAP) * NGAP / 6)));
+  const bell = (z) => Math.max(0, 1 - Math.pow((z + 0.20) / 1.18, 2));
+  const cageDepth = (z) => 0.34 + 0.52 * bell(z);   // DEEP flared barrel — the ribcage IS the torso mass centre
+  const halfW = (z) => 0.24 + 0.60 * bell(z);       // WIDE flare — ribs sweep far outboard (barrel blossom)
   const topY = (z) => cyAt(z) + 0.05;
   const botY = (z) => cyAt(z) - cageDepth(z);
   const bez = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
+  const bez3 = (a, c1, c2, b, t) => { const m = 1 - t; return [0, 1, 2].map((j) => m * m * m * a[j] + 3 * m * m * t * c1[j] + 3 * m * t * t * c2[j] + t * t * t * b[j]); };
   const ribZ = (i) => zF + (zB - zF) * i / (NRIB - 1);
-  // One rib = a thin ribbon following a dorsal→outer→keel bezier arc at fixed-ish z.
+  // One rib = a thin ribbon following a ROUNDED cubic arc: dorsal → far outboard (belly of
+  // the barrel) → keel. Two control points round the sweep so the cage reads as a barrel
+  // basket, not a shallow half-pipe.
   const buildRib = (z, side, mat, tgt) => {
-    const P0 = [0, topY(z), z], Pc = [side * halfW(z) * 1.18, cyAt(z) - cageDepth(z) * 0.32, z + 0.05], P1 = [side * 0.045, botY(z), z + 0.02];
-    const NS = 5, w = 0.028;
+    const hw = halfW(z), dep = cageDepth(z), cy = cyAt(z);
+    const P0 = [0, topY(z), z];
+    const C1 = [side * hw * 1.05, cy + 0.02, z + 0.03];                 // spring out wide near the top (shoulder of the barrel)
+    const C2 = [side * hw * 1.15, cy - dep * 0.75, z + 0.06];           // stay wide low (belly of the barrel) before tucking to the keel
+    const P1 = [side * 0.05, botY(z), z + 0.02];
+    const NS = 6, w = 0.030;
     let prev = null;
     for (let k = 0; k <= NS; k++) {
-      const p = bez(P0, Pc, P1, k / NS);
-      const back = [p[0], p[1], p[2] - w], front = [p[0], p[1], p[2] + w];   // ribbon width in z → reads as a solid bar from the side
+      const p = bez3(P0, C1, C2, P1, k / NS);
+      const back = [p[0], p[1], p[2] - w], front = [p[0], p[1], p[2] + w];
       if (prev) tgt.push([prev.back, front, prev.front], [prev.back, back, front]);
       prev = { back, front };
     }
@@ -205,6 +217,20 @@ function buildOssuaryTorso(def, model, _bodyMat) {
       [[hx - side * 0.06, hy + 0.10, hz - 0.16], [hx + side * 0.04, hy - 0.10, hz + 0.20], [hx - side * 0.04, hy - 0.02, hz + 0.14]],
     );
   }
+  // ── HIND LEGS — tucked skeletal raptor legs (femur → shin → 3-talon foot) hanging
+  // below the rear cage, like the reference. A bone TENT ridge per bone; talons splay.
+  const legRidge = (a, b, w) => { const dx = b[0] - a[0], dz = b[2] - a[2], L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L; const aL = [a[0] + nx * w, a[1], a[2] + nz * w], aR = [a[0] - nx * w, a[1], a[2] - nz * w], aU = [a[0], a[1] + w, a[2]]; boneT.push([aL, b, aU], [aU, b, aR], [aR, b, aL]); };
+  for (const side of [1, -1]) {
+    const hip = [side * 0.16, cyAt(1.05) - 0.10, 1.02];
+    const knee = [side * 0.30, cyAt(1.05) - 0.34, 1.16];   // femur out + down
+    const ankle = [side * 0.24, cyAt(1.05) - 0.60, 1.05];  // shin down, swept slightly fwd (tucked)
+    legRidge(hip, knee, 0.045);
+    legRidge(knee, ankle, 0.035);
+    for (const tz of [-0.10, 0.0, 0.12]) {                 // 3 talons splaying off the foot
+      const toe = [ankle[0] + side * 0.03, ankle[1] - 0.10, ankle[2] + tz];
+      legRidge(ankle, toe, 0.02);
+    }
+  }
   // ── SCAPULAR COWLS — overlapping bone flakes lapping over each wing root (z≈-0.55)
   // so the wing emerges from under a shoulder blade, not bolted to a rib (overlap > weld).
   for (const side of [1, -1]) {
@@ -230,30 +256,38 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   // only THROUGH the windows — a lantern, not a lamp.
   const coreBlaze = model.coreBlaze ?? 1;
   const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.42;
-  const heartR = 0.10 + 0.055 * coreBlaze;
-  const heartMat = new THREE.MeshBasicMaterial({ color: GRAVE, transparent: true, opacity: 0.25 + 0.4 * coreBlaze, depthWrite: false, side: THREE.FrontSide });
+  const heartR = 0.20 + 0.11 * coreBlaze;   // BIG glow to fill the deep flared cage (lantern, not sticker)
+  const heartMat = new THREE.MeshBasicMaterial({ color: GRAVE, transparent: true, opacity: 0.45 + 0.5 * coreBlaze, depthWrite: false, side: THREE.FrontSide });
   const heart = new THREE.Mesh(new THREE.OctahedronGeometry(heartR, 1), heartMat);
   heart.scale.set(1, 1.5, 0.85);            // teardrop (taller than wide)
   heart.position.set(0, hy, hz);
-  heart.userData.base = 0.25 + 0.4 * coreBlaze;   // the coreGlow tick scales THIS
+  heart.userData.base = 0.45 + 0.5 * coreBlaze;   // the coreGlow tick scales THIS
   heart.renderOrder = 2;
   group.add(heart);
+  // A TIGHT grave-green glow shell hugging the heart so the ghost-fire reads as CONTAINED
+  // green light through the rib gaps — NOT a big white additive bloom (Fable: the white halo
+  // drifted "holy"). A darker teal-green core colour so additive blending stays GREEN, not
+  // washing to white on the pale/gold backdrops; small radius so it never forms an opaque cloud.
+  const haloMat = new THREE.MeshBasicMaterial({ color: 0x2e8a3a, transparent: true, opacity: (0.10 + 0.12 * coreBlaze), depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.BackSide });
+  const halo = new THREE.Mesh(new THREE.OctahedronGeometry(heartR * 1.35, 1), haloMat);
+  halo.scale.set(1, 1.4, 0.9); halo.position.set(0, hy, hz); halo.renderOrder = 1;
+  group.add(halo);
 
   // Motif anchor = the cage centre (the Grave Heart seats here).
   const motifAnchor = new THREE.Object3D();
   motifAnchor.position.set(0, hy, hz);
   group.add(motifAnchor);
 
-  // Line-of-action (≥2 inflections: skull-low stoop → rise over pelvis → tail counter-lift).
+  // Line-of-action (≥2 inflections: raised skull → shoulder dip → rise over pelvis → tail).
   const spinePoints = [
-    new THREE.Vector3(0, 0.03, -2.42), new THREE.Vector3(0, 0.17, -1.2),
-    new THREE.Vector3(0, 0.16, -0.1), new THREE.Vector3(0, 0.20, 1.1),
+    new THREE.Vector3(0, 0.40, -2.62), new THREE.Vector3(0, 0.16, -1.5),
+    new THREE.Vector3(0, 0.15, -0.3), new THREE.Vector3(0, 0.22, 1.1),
     new THREE.Vector3(0, 0.14, 1.7),
   ];
   const wro = model.wingRootOffset ?? {};
   const attach = {
     wingRoot: (side) => ({ x: (0.34 * shoulderW) * side, y: TORSO_Y + 0.30 + (wro.y ?? 0), z: -0.55 + (wro.z ?? 0) }),
-    headBase: { x: 0, y: 0.00, z: -2.52 },
+    headBase: { x: 0, y: 0.34, z: -2.68 },   // raised skull on the S-curved neck
     tailAnchor: { y: 0.14, z: 1.66 },
     keelTopAt: (z) => TORSO_Y + 0.30 * Math.max(0, 1 - Math.abs(z + 0.4) / 2.4),
     halfWidthAt: (z) => 0.34 * Math.max(0.2, 1 - Math.abs(z + 0.2) / 3.0),
@@ -266,31 +300,29 @@ function buildOssuaryTorso(def, model, _bodyMat) {
 }
 registerTorso('ossuaryTorso', buildOssuaryTorso);
 
-// ── WINGS: 'phalanxShroudWings' (the HERO — I2 REAL) ──────────────────────────
-// The Vesper fingered-bat recipe with the SKIN MOSTLY REMOVED (§4.3): a bone arm
-// (humerus + radius, elbow ≥20°) → metacarpal FINGER bones fanning aft (dominant +
-// decay) → SHROUD panels on the OUTER bays only, the INNER bays left OPEN. A single
-// connected translucent HEM band closes the trailing edge — and, per the I1 lesson,
-// that continuous hem is what FRAMES each open bay into a true ENCLOSED through-hole
-// (a bay open to the rim wouldn't read as a hole). The trailing edge is cut into
-// swept CRESCENT bites between finger tips. The whole hand (fingers + panels + hem)
-// rides ONE group that folds at the wrist, so the through-gaps VANISH on the fold.
-// This is deliberately NOT Vesper: Vesper's bays are FILLED (0 enclosed holes); the
-// Revenant's are OPEN and framed → the SKELETON read the rear-chase carries.
+// ── WINGS: 'phalanxShroudWings' (the HERO) ────────────────────────────────────
+// A skeletal-dragon BAT WING to the concept-art reference (owner-directed, overrides
+// the digest's open-bay read): a SHORT arm (humerus + radius, MEDIAL wrist) → LONG
+// metacarpal FINGER bones fanning out → a FILLED dark shroud MEMBRANE spanning the
+// whole wing. The membrane is a continuous sheet: propatagium along the humerus
+// (starts at the SHOULDER, not the wrist) + chiropatagium between the fingers +
+// plagiopatagium sweeping inboard-aft to the BODY (the wing connects INTO the spine,
+// not floating at the wrist). Trailing edge cut into shallow tattered notches. The
+// SKELETON identity is carried by the ribcage + tail; the wings are the shroud.
 function buildOnePhalanxWing(M, dials, wingMat) {
   const arm = new THREE.Group();
   const hand = new THREE.Group();
-  const hs = dials.halfSpan, wristT = dials.wristT ?? 0.24;
+  const hs = dials.halfSpan, wristT = dials.wristT ?? 0.16;   // MEDIAL wrist → SHORT arm + LONG fingers (owner note)
   const N = Math.max(2, Math.round(dials.fingers));
-  const shroudPanels = Math.max(0, Math.min(N - 1, Math.round(dials.shroudPanels ?? 2)));
   const cD = dials.crescentDepth ?? 1;
-  const sweep = dials.sweep ?? 0.52, dih = dials.dihedral ?? 0.30;   // sweep + dihedral tuned so the bays face the rear-chase cam (not edge-on) even in glide
-  const armY = (t) => hs * (dih * t + 0.24 * (t <= wristT ? Math.sin((t / wristT) * Math.PI / 2) : 1 - (t - wristT) * 0.12));
-  const armZ = (t) => hs * (0.10 + sweep * Math.pow(t, 1.08) - 0.10 * Math.sin(Math.PI * t));
+  const sweep = dials.sweep ?? 0.46, dih = dials.dihedral ?? 0.10;   // LOW rake → the span reads HORIZONTAL from the rear-chase (not two vertical spikes)
+  // Arch peaks at the carpal then DECAYS hard so the wingtip stays LEVEL (was spiking up into
+  // a vertical delta from behind); the tip sits just above the shoulder line, not overhead.
+  const armY = (t) => hs * (dih * t + 0.15 * (t <= wristT ? Math.sin((t / wristT) * Math.PI / 2) : Math.max(0.12, 1 - (t - wristT) * 0.72)));
+  const armZ = (t) => hs * (0.08 + sweep * Math.pow(t, 1.06) - 0.10 * Math.sin(Math.PI * t));
   const LE = (t) => [t * hs, armY(t), armZ(t)];
   const K = LE(wristT), F0 = LE(1);
   const bez = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
-  // Raised bone TENT ridge (a→b) with an optional brighter rim-catch cap along the spine.
   const ridge = (tgt, a, b, wB, wT, lift, capT) => {
     const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
     const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
@@ -300,78 +332,79 @@ function buildOnePhalanxWing(M, dials, wingMat) {
     if (capT) capT.push([aT, bT, [a[0] + px * wB * 0.3, a[1] + lift, a[2] + pz * wB * 0.3]]);
   };
 
-  // ── ARM — humerus + radius with a real ELBOW BEND (≥20°): the elbow E is offset
-  // aft + down off the shoulder→carpal chord so the leading edge kinks, not a straight bar.
+  // ── ARM — a SHORT humerus + radius with an elbow bend. Medial wrist keeps the arm a
+  // stub; the fingers carry the span.
   const boneT = [], capT = [];
-  const E = LE(wristT * 0.48); E[1] -= 0.05 * hs; E[2] += 0.06 * hs;
-  ridge(boneT, LE(0), E, 0.085 * hs, 0.05 * hs, 0.05 * hs);          // humerus (thick at the shoulder)
-  ridge(boneT, E, K, 0.055 * hs, 0.035 * hs, 0.04 * hs, capT);       // radius → wrist (rim-catch)
-  arm.add(flatTriMesh(boneT, M.boneDorsal));
+  const E = LE(wristT * 0.5); E[1] -= 0.04 * hs; E[2] += 0.05 * hs;
+  ridge(boneT, LE(0), E, 0.075 * hs, 0.05 * hs, 0.06 * hs);          // humerus
+  ridge(boneT, E, K, 0.05 * hs, 0.04 * hs, 0.05 * hs, capT);         // radius → wrist (rim-catch)
+  arm.add(flatTriMesh(boneT, M.bone));                               // bright ivory arm bones
   if (capT.length) arm.add(flatTriMesh(capT, M.bone));
-  // PROPATAGIUM — a small translucent web on the inboard leading edge (arm-side, so it
-  // folds with the arm and never tears at the wrist).
-  arm.add(flatTriMesh([[LE(0), E, K]], wingMat));
 
-  // ── FINGERS — metacarpals fanning aft from the carpal K; finger 0 is the wingtip
-  // (continues the leading edge), the rest sweep progressively aft + shorter (dominant
-  // + decay, lenFrac). Each is a BOWED 2-segment tent (sags below the chord like a real
-  // phalanx); the inner two carry a rim-catch cap.
-  const lenFrac = [1, 0.80, 0.62, 0.46];
+  // ── FINGERS — LONG metacarpals fanning from the carpal K (finger 0 = wingtip, the rest
+  // sweep aft + shorter). Bowed 2-segment bone tents; inner two carry a rim-catch cap.
+  const lenFrac = [1, 0.84, 0.68, 0.54];
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
   const tips = [F0];
   for (let i = 1; i < N; i++) {
-    const phi = phi0 + 1.22 * (i / (N - 1)), r = r0 * lenFrac[Math.min(i, lenFrac.length - 1)];
-    tips.push([K[0] + Math.cos(phi) * r, K[1] - 0.06 * r, K[2] + Math.sin(phi) * r]);
+    const phi = phi0 + 1.32 * (i / (N - 1)), r = r0 * lenFrac[Math.min(i, lenFrac.length - 1)];
+    tips.push([K[0] + Math.cos(phi) * r, K[1] - 0.05 * r, K[2] + Math.sin(phi) * r]);
   }
   const fingerT = [], fingerCapT = [];
   for (let i = 0; i < tips.length; i++) {
-    const tp = tips[i], wB = 0.05 * hs * (1 - 0.06 * i), wM = wB * 0.5;
-    const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]), sag = 0.10 * L;
+    const tp = tips[i], wB = 0.045 * hs * (1 - 0.05 * i), wM = wB * 0.5;
+    const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]), sag = 0.09 * L;
     const Bm = [(K[0] + tp[0]) / 2, (K[1] + tp[1]) / 2 - sag, (K[2] + tp[2]) / 2 + sag * 0.4];
-    ridge(fingerT, K, Bm, wB, wM, 0.055 * hs, i < 2 ? fingerCapT : null);
-    ridge(fingerT, Bm, tp, wM, 0.006, 0.04 * hs);
+    ridge(fingerT, K, Bm, wB * 1.25, wM, 0.14 * hs, i < 4 ? fingerCapT : null);   // PROUD, THICK ivory finger bones stand well over the shroud so bone webbing reads from BEHIND
+    ridge(fingerT, Bm, tp, wM, 0.008, 0.10 * hs);
   }
-  hand.add(flatTriMesh(fingerT, M.boneDorsal));
+  hand.add(flatTriMesh(fingerT, M.bone));         // bright ivory bones (not the dorsal tier) so they read against the dark shroud
   if (fingerCapT.length) hand.add(flatTriMesh(fingerCapT, M.bone));
 
-  // ── BAYS — between consecutive finger tips. The OUTER `shroudPanels` bays get a
-  // translucent shroud panel (solid); the INNER bays stay OPEN (pure absence → an
-  // enclosed through-hole, framed by the two finger bones + the hem). The trailing
-  // edge of every bay is a CRESCENT bite: a concave ≥4-seg bezier cupping toward K.
-  const NSEG = 4, panelT = [], trailing = [];
+  // ── CHIROPATAGIUM — the FILLED shroud membrane between the fingers (a fan from K to a
+  // shallow-cupped trailing arc per bay; the cups are tattered notches, not open holes).
+  // Lives on the HAND so it folds as one rigid sheet at the wrist.
+  const NSEG = 4, memT = [];
   for (let i = 0; i < tips.length - 1; i++) {
     const Fa = tips[i], Fb = tips[i + 1];
     const mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
-    const ctrl = [mid[0] + (K[0] - mid[0]) * 0.30 * cD, mid[1] + (K[1] - mid[1]) * 0.30 * cD, mid[2] + (K[2] - mid[2]) * 0.30 * cD];
+    const cup = 0.18 + 0.24 * cD;   // DEEPER tattered trailing notches (visible from the rear-chase, not just top-down)
+    const ctrl = [mid[0] + (K[0] - mid[0]) * cup, mid[1] + (K[1] - mid[1]) * cup - 0.02, mid[2] + (K[2] - mid[2]) * cup];
     const arc = []; for (let s = 0; s <= NSEG; s++) arc.push(bez(Fa, ctrl, Fb, s / NSEG));
-    if (i < shroudPanels) for (let s = 0; s < NSEG; s++) panelT.push([K, arc[s], arc[s + 1]]);   // paneled outer bay
-    for (let s = 0; s <= NSEG; s++) if (!(i > 0 && s === 0)) trailing.push(arc[s]);               // one shared trailing polyline
+    const C = [(K[0] + mid[0]) / 2, (K[1] + mid[1]) / 2 - 0.03, (K[2] + mid[2]) / 2];
+    memT.push([C, K, arc[0]], [C, arc[NSEG], K]);
+    for (let s = 0; s < NSEG; s++) memT.push([C, arc[s], arc[s + 1]]);
   }
-  if (panelT.length) hand.add(flatTriMesh(panelT, wingMat));
-  // ── HEM — ONE connected thin translucent band just inboard of the whole trailing
-  // polyline (the FRAME that closes every open bay into an enclosed hole).
-  if (trailing.length > 1) {
-    const hemT = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.09, p[1] + (K[1] - p[1]) * 0.09, p[2] + (K[2] - p[2]) * 0.09];
-    for (let s = 0; s < trailing.length - 1; s++) { const a = trailing[s], b = trailing[s + 1], ai = inb(a), bi = inb(b); hemT.push([a, b, bi], [a, bi, ai]); }
-    hand.add(flatTriMesh(hemT, wingMat));
-  }
+  hand.add(flatTriMesh(memT, wingMat));
+
+  // ── PROPATAGIUM — the leading-edge web over the SHORT arm (shoulder→elbow→wrist), so
+  // the membrane starts at the HUMERUS, not the wrist. Arm-side → folds with the arm.
+  arm.add(flatTriMesh([[LE(0), E, K], [LE(0), K, [K[0] * 0.6 + LE(0)[0] * 0.4, K[1] - 0.03 * hs, K[2] + 0.10 * hs]]], wingMat));
+  // ── PLAGIOPATAGIUM / ROOT GUSSET — the inboard membrane sweeps AFT + INBOARD + DOWN to
+  // a BODY anchor (G, toward the hip/spine), so the wing joins the body instead of
+  // floating at the wrist (owner note). Anchored to ARM-side points only (root LE, wrist
+  // K, aft corner, body G) so it never tears when the hand folds at the wrist.
+  const r0p = LE(0);
+  const G = [r0p[0] - 0.12 * hs, r0p[1] - 0.14 * hs, r0p[2] + 0.85 * hs];   // reaches to the body/hip WITHOUT slabbing over the ivory ribcage
+  const Aaft = [K[0] * 0.5 + r0p[0] * 0.5, K[1] - 0.10 * hs, K[2] + 0.40 * hs];
+  arm.add(flatTriMesh([[r0p, K, Aaft], [r0p, Aaft, G]], wingMat));
   return { arm, hand, K, tip: F0 };
 }
 
 function buildPhalanxShroudWings(def, model, attach, _giM) {
   const group = new THREE.Group();
   const M = revenantMats(def);
-  const fingers = Math.max(2, Math.round(model.fingers ?? model.scallopLobes ?? 4));
-  const halfSpan = (model.spanScale ?? 1) * 2.4;
-  const wristT = model.wristT ?? 0.24;
-  const dials = { fingers, halfSpan, wristT, shroudPanels: Math.round(model.shroudPanels ?? 2), crescentDepth: model.crescentDepth ?? 1, sweep: model.wingSweep ?? 0.42, dihedral: model.wingDihedral ?? 0.20 };
+  const fingers = Math.max(2, Math.round(model.fingers ?? 4));
+  const halfSpan = (model.spanScale ?? 1) * 2.6;
+  const wristT = model.wristT ?? 0.16;
+  const dials = { fingers, halfSpan, wristT, crescentDepth: model.crescentDepth ?? 1, sweep: model.wingSweep ?? 0.46, dihedral: model.wingDihedral ?? 0.10 };
 
-  // The rig's single-material wing contract (dragonModel/dragon.js drive ONE wingMat's
-  // opacity/emissive). A single translucent hem tier; emissive black (the wing owns the
-  // frame by silhouette — light is the heart THROUGH the bays, never painted on).
-  const wo = def.wingOuter ?? BONE;
-  const wingMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, BONE, 0.3), emissive: 0x000000, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
-  wingMat.envMapIntensity = 0.2;
+  // The shroud MEMBRANE — a DARK desaturated slate-green tattered skin (the reference's
+  // shadowy bat shroud), translucent so light reads through it and the rig can drive its
+  // opacity. Emissive black (the wing never glows — the light is the caged heart). This
+  // is the rig's single wingMat contract (dragon.js drives .opacity/.emissive on it).
+  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x3a4038, emissive: 0x000000, flatShading: true, roughness: 0.88, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+  wingMat.envMapIntensity = 0.18;
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
@@ -401,36 +434,94 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
 registerWings('phalanxShroudWings', buildPhalanxShroudWings);
 
 // ── HEAD: 'revenantSkullHead' ─────────────────────────────────────────────────
-// STUB (I3 builds it for real): a blunt bone skull wedge + two recessed pinpoint
-// eyes. I3 adds the true draconic skull facets, the 6-tooth row, the back-swept
-// antler-tines, the socket:skull ladder + the floating octahedron pinpoint that
-// blazes brighter up the ladder. Uses the shared eyeMat (def.eye drives its colour).
+// A true draconic SKULL (Fable gate: the head was a featureless cone): an elongated
+// cranium + a HINGED lower jaw with a mouth gap + a row of teeth + recessed eye
+// SOCKETS holding a green pinpoint + a pair of back-swept horns ATTACHED at the
+// occiput (not floating). Points −Z. Uses the shared eyeMat (def.eye drives colour).
 function buildRevenantSkullHead(def, model, mats) {
   const group = new THREE.Group();
   const M = revenantMats(def);
   const hs = model.headScale ?? 1;
   const eyeMat = mats.eyeMat;
+  const S = (v) => v * hs;
 
-  // Blunt bone wedge pointing −Z (broad brow → short muzzle).
-  const skull = [
-    { z: 0.30, rx: 0.20 * hs, ry: 0.22 * hs, cy: 0.02 },   // occiput
-    { z: -0.04, rx: 0.24 * hs, ry: 0.23 * hs, cy: 0.03 },  // brow (widest)
-    { z: -0.40, rx: 0.16 * hs, ry: 0.15 * hs, cy: -0.02 }, // cheek
-    { z: -0.74, rx: 0.08 * hs, ry: 0.08 * hs, cy: -0.06 }, // muzzle
-    { z: -0.92, rx: 0.04 * hs, ry: 0.04 * hs, cy: -0.07 }, // tip
+  // ── CRANIUM — an elongated draconic upper skull (occiput → long muzzle), a hair
+  // boxy so it reads bone, not a smooth snake head.
+  const cranium = [
+    { z: S(0.42), rx: S(0.19), ry: S(0.23), cy: S(0.06) },   // occiput (tall, back)
+    { z: S(0.16), rx: S(0.22), ry: S(0.21), cy: S(0.05) },   // brow (widest)
+    { z: S(-0.14), rx: S(0.16), ry: S(0.15), cy: S(0.02) },  // over the eye socket
+    { z: S(-0.52), rx: S(0.12), ry: S(0.11), cy: S(-0.02) }, // muzzle
+    { z: S(-0.92), rx: S(0.07), ry: S(0.07), cy: S(-0.04) }, // nasal
+    { z: S(-1.12), rx: S(0.035), ry: S(0.04), cy: S(-0.05) },// nose tip
   ];
-  group.add(tubeLoft(skull, M.bone));
-  const headLength = 1.24 * hs;
+  group.add(tubeLoft(cranium, M.bone));
+  const headLength = 1.5 * hs;
 
-  // Recessed pinpoint eyes (green — def.eye). Seated back on the brow, converged
-  // forward. Intensity rises with glowLevel (waif→wraith, the grind reward).
-  eyeMat.emissiveIntensity = 0.7 + 1.6 * (model.glowLevel ?? 1);
+  // ── LOWER JAW — a slimmer wedge slung BELOW the cranium with a clear mouth GAP
+  // between them; slightly agape (the reference's fanged maw).
+  const jaw = [
+    { z: S(0.24), rx: S(0.13), ry: S(0.06), cy: S(-0.17) },
+    { z: S(-0.16), rx: S(0.11), ry: S(0.055), cy: S(-0.19) },
+    { z: S(-0.56), rx: S(0.08), ry: S(0.05), cy: S(-0.19) },
+    { z: S(-0.95), rx: S(0.045), ry: S(0.04), cy: S(-0.17) },
+  ];
+  group.add(tubeLoft(jaw, M.boneLo));
+
+  // ── TEETH — DISCRETE solid pyramid fangs (not a wireframe net): a clean row along the
+  // upper jaw pointing DOWN and the lower jaw pointing UP, interlocking across the mouth gap.
+  const teethT = [];
+  const tooth = (x, yBase, z, dir, sz) => {
+    const b0 = [x - sz * 0.5, yBase, z - sz * 0.5], b1 = [x + sz * 0.5, yBase, z - sz * 0.5], b2 = [x + sz * 0.5, yBase, z + sz * 0.5], b3 = [x - sz * 0.5, yBase, z + sz * 0.5];
+    const ap = [x, yBase + dir * sz * 2.6, z];
+    teethT.push([b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]);
+  };
+  const nT = 5;
+  for (let i = 0; i < nT; i++) {
+    const t = i / (nT - 1), z = S(-0.08 - 0.70 * t), w = S(0.085 - 0.05 * t), sz = S(0.036 - 0.013 * t);
+    for (const side of [1, -1]) {
+      tooth(side * w, S(-0.055), z, -1, sz);          // upper fang (points down)
+      tooth(side * w * 0.9, S(-0.135), z, 1, sz * 0.85);   // lower fang (points up)
+    }
+  }
+  group.add(flatTriMesh(teethT, M.bone));
+
+  // ── EYE SOCKETS + pinpoint — a recessed dark orbit with a floating green octahedron
+  // seated deep inside (the socket reads as a hole; the pinpoint blazes with glowLevel).
+  const socketT = [];
+  eyeMat.emissiveIntensity = 0.8 + 1.8 * (model.glowLevel ?? 1);
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.05 * hs, 0), eyeMat);
-    eye.position.set(side * 0.14 * hs, 0.05 * hs, -0.12 * hs);   // recessed into the orbit
+    const ex = side * S(0.15), ey = S(0.04), ez = S(-0.14);
+    // a shallow recessed socket ring (dark recess tier) so the eye sits in a hole
+    socketT.push(
+      [[ex - S(0.09), ey + S(0.07), ez], [ex + S(0.09), ey + S(0.07), ez], [ex, ey - S(0.02), ez - S(0.06)]],
+      [[ex - S(0.09), ey + S(0.07), ez], [ex, ey - S(0.02), ez - S(0.06)], [ex - S(0.06), ey - S(0.05), ez]],
+      [[ex + S(0.09), ey + S(0.07), ez], [ex + S(0.06), ey - S(0.05), ez], [ex, ey - S(0.02), ez - S(0.06)]],
+    );
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(S(0.055), 0), eyeMat);
+    eye.position.set(ex, ey, ez - S(0.03));   // seated DEEP in the socket
     group.add(eye);
   }
-  const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.14 * hs, 0.10 * hs); group.add(motifAnchor);
+  group.add(flatTriMesh(socketT, M.recess));
+
+  // ── HORNS — a pair sweeping back + up + out from the occiput, ATTACHED at the base
+  // (a 3-segment tapered tent so they curve). Length grows with the ladder (hornLen).
+  const hornLen = model.hornLen ?? 1;
+  const hornT = [];
+  for (const side of [1, -1]) {
+    const base = [side * S(0.13), S(0.16), S(0.34)];
+    const mid = [side * S(0.24), S(0.34), S(0.60) * hornLen];
+    const tip = [side * S(0.30), S(0.40), S(0.92) * hornLen];
+    const horn = (a, b, w) => {
+      const dz = b[2] - a[2], dx = b[0] - a[0], L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L;
+      const aL = [a[0] + nx * w, a[1], a[2] + nz * w], aR = [a[0] - nx * w, a[1], a[2] - nz * w], aU = [a[0], a[1] + w, a[2]];
+      hornT.push([aL, b, aU], [aU, b, aR], [aR, b, aL]);
+    };
+    horn(base, mid, S(0.05)); horn(mid, tip, S(0.03));
+  }
+  group.add(flatTriMesh(hornT, M.bone));
+
+  const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, S(0.14), S(0.10)); group.add(motifAnchor);
   return { group, spineMats: [], motifAnchor, headLength };
 }
 registerHead('revenantSkullHead', buildRevenantSkullHead);
@@ -444,8 +535,8 @@ function buildVertebraeWhipTail(def, model, mats, anchor) {
   const group = new THREE.Group();
   const M = revenantMats(def);
   const a = anchor ?? { y: 0.14, z: 1.66 };
-  const T = (model.tailLength ?? 1) * 2.6 * (model.tailStretch ?? 1);
-  const nSeg = Math.round(model.tailSegments ?? 8);
+  const T = (model.tailLength ?? 1) * 3.1 * (model.tailStretch ?? 1);   // longer skeletal tail (reference)
+  const nSeg = Math.round(model.tailSegments ?? 10);
   const rAt = (t) => 0.11 * Math.pow(1 - t * 0.92, 0.7) + 0.008;
   const curveY = (t) => -0.05 * T * Math.sin(Math.PI * t * 0.9);
   const stem = [];
@@ -459,17 +550,34 @@ function buildVertebraeWhipTail(def, model, mats, anchor) {
   const joints = [];
   { let parent = group, prev = { x: 0, y: 0, z: 0 };
     for (let j = 0; j < nChain; j++) { const an = jAnchor(j); const sg = new THREE.Group(); sg.name = 'revenantTailPivot' + j; sg.position.set(an.x - prev.x, an.y - prev.y, an.z - prev.z); parent.add(sg); joints.push(sg); parent = sg; prev = an; } }
-  joints[0].isBone = true;   // drive by ROTATION only (position writes tear a connected loft)
+  joints[0].isBone = true;   // drive by ROTATION only
   const jointOf = (z) => { for (let j = nChain - 1; j >= 0; j--) if (z >= jAnchor(j).z - 1e-6) return j; return 0; };
-  const chainAdd = (z, mesh) => { const j = jointOf(z), an = jAnchor(j); mesh.position.set(-an.x, -an.y, -an.z); joints[j].add(mesh); return mesh; };
-  for (let j = 0; j < nChain; j++) { const i0 = jIdx(j), i1 = jIdx(j + 1); if (i1 > i0) chainAdd(stem[i0].z, tubeLoft(stem.slice(i0, i1 + 1), M.bone, false)); }
 
-  // Spade nub closing the stem (the wisp tip lands here in I3).
-  const tip = stem[nSeg], tx = 0, ty = tip.cy, tz = tip.z;
-  chainAdd(tz, flatTriMesh([
-    [[tx, ty + 0.05, tz], [tx - 0.09, ty, tz + 0.12], [tx + 0.09, ty, tz + 0.12]],
-    [[tx - 0.09, ty, tz + 0.12], [tx, ty - 0.03, tz + 0.28], [tx + 0.09, ty, tz + 0.12]],
-  ], M.boneLo));
+  // SKELETAL vertebra chain — a file of SHRINKING vertebra units along the stem (the SAME
+  // vertebraUnit as the spine), binned per joint. NO smooth tube: the tail is BONE, and the
+  // spacing leaves visible GAPS between vertebrae (the "lit tail-vertebra gaps" rear read).
+  const boneByJoint = Array.from({ length: nChain }, () => []);
+  const dorsalByJoint = Array.from({ length: nChain }, () => []);
+  for (let i = 0; i <= nSeg; i++) {
+    const t = i / nSeg, s = stem[i], sc = 1.18 - 0.72 * t;   // BIGGER vertebrae, closely spaced → a bone chain, not a dotted line
+    if (sc <= 0.06) continue;
+    const j = jointOf(s.z);
+    vertebraUnit(s.z, s.cy, sc, boneByJoint[j], dorsalByJoint[j]);
+  }
+  for (let j = 0; j < nChain; j++) {
+    const an = jAnchor(j);
+    if (boneByJoint[j].length) { const m = flatTriMesh(boneByJoint[j], M.bone); m.position.set(-an.x, -an.y, -an.z); joints[j].add(m); }
+    if (dorsalByJoint[j].length) { const m = flatTriMesh(dorsalByJoint[j], M.boneDorsal); m.position.set(-an.x, -an.y, -an.z); joints[j].add(m); }
+  }
+  // A fine skeletal POINT closes the tail (a last tapering caudal vertebra → a spike), NOT a
+  // fleshy spade. The spectral wisp tip (translucent taper) lands here in I4.
+  const tip = stem[nSeg], jt = jointOf(tip.z), ant = jAnchor(jt);
+  const tp = flatTriMesh([
+    [[-0.03, tip.cy + 0.03, tip.z], [0.03, tip.cy + 0.03, tip.z], [0, tip.cy, tip.z + 0.24]],
+    [[0.03, tip.cy + 0.03, tip.z], [0, tip.cy - 0.03, tip.z], [0, tip.cy, tip.z + 0.24]],
+    [[0, tip.cy - 0.03, tip.z], [-0.03, tip.cy + 0.03, tip.z], [0, tip.cy, tip.z + 0.24]],
+  ], M.boneLo);
+  tp.position.set(-ant.x, -ant.y, -ant.z); joints[jt].add(tp);
 
   return { group, segs: joints, accentMats: [] };
 }
