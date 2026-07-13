@@ -404,9 +404,9 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   const group = new THREE.Group();
   const M = revenantMats(def);
   const fingers = Math.max(2, Math.round(model.fingers ?? 4));
-  const halfSpan = (model.spanScale ?? 1) * 2.35;   // ~15% less area (Fable: wings were out-massing the bone)
+  const halfSpan = (model.spanScale ?? 1) * 4.1;   // BROAD majestic span (owner: wings read tiny/fairy — push toward Phoenix Ascendant's span:length)
   const wristT = model.wristT ?? 0.16;
-  const dials = { fingers, halfSpan, wristT, crescentDepth: model.crescentDepth ?? 1, sweep: model.wingSweep ?? 0.46, dihedral: model.wingDihedral ?? 0.10 };
+  const dials = { fingers, halfSpan, wristT, crescentDepth: model.crescentDepth ?? 1, sweep: model.wingSweep ?? 0.36, dihedral: model.wingDihedral ?? 0.10 };
 
   // The shroud MEMBRANE — a dark CHARCOAL slate-green tattered skin, lifted one value step
   // off near-black (Fable) so the ivory finger-bones + rib barrel WIN the silhouette (bone
