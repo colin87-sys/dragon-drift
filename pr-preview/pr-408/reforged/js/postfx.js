@@ -242,7 +242,7 @@ export function initPostFX(renderer, scene, camera) {
   // doesn't apply to render targets) and HDR headroom for bloom.
   const rt = new THREE.WebGLRenderTarget(1, 1, {
     type: THREE.HalfFloatType,
-    samples: 4,
+    samples: (typeof location !== 'undefined' && new URLSearchParams(location.search).has('msaa0')) ? 0 : 4,   // ?msaa0 — perf A/B: MSAA-resolve bandwidth probe
   });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));

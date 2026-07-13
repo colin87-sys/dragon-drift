@@ -654,6 +654,9 @@ export function createArenaSet(scene) {
 
   set.add(starGroup);
   scene.add(set);
+  // ?nodet — perf A/B: hide the detonation + embers (the big full-frame additive overdraw) to isolate
+  // their fill cost. No-op without the param; updateArenaSet only writes uniforms, never visibility.
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('nodet')) { deton.visible = false; embers.visible = false; }
 }
 
 // Owner A/B seam: swap the star's form ('supernova' | 'spiral'). One visibility flip — both
