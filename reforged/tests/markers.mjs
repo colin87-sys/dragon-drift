@@ -11,7 +11,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 const THREE = await import('three');
-const { makeMarkerSurface, bakeGlowT } = await import('../js/markerSurface.js');
+const { makeMarkerSurface, bakeGlowT, facetHash, bakeFacetJitterPerTri, bakeConst } = await import('../js/markerSurface.js');
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(DIR, '..', p), 'utf8');
@@ -44,6 +44,11 @@ check('fragment declares the ramp uniforms + varying',
   /uniform vec3 uRoot/.test(fake.fragmentShader) && /varying float vGlowT/.test(fake.fragmentShader));
 check('fragment OWNS the emissive (3-stop ramp + fresnel + flow front → totalEmissiveRadiance)',
   /totalEmissiveRadiance = emis/.test(fake.fragmentShader) && /uFlow/.test(fake.fragmentShader));
+// D1: per-facet jitter attribute wired + used in the lift; D2: hot-lift is a uniform.
+check('D1 facetJ attribute + varying injected and used (centered, safe default)',
+  /attribute float facetJ/.test(fake.vertexShader) && /varying float vFacetJ/.test(fake.fragmentShader) && /vFacetJ/.test(fake.fragmentShader));
+check('D2 hot-lift is a tunable uniform (uHotLift), not a hardcoded white-out',
+  /uniform float uHotLift/.test(fake.fragmentShader) && !!mu.uHotLift);
 check('onBeforeCompile binds the shared driver objects into shader.uniforms',
   fake.uniforms.uFlow === flowRef && fake.uniforms.uTime === timeRef);
 // glowT is an ABSTRACT ramp — the GLSL must not assume world-up / position.y
@@ -60,6 +65,23 @@ let inRange = true, sawLo = false, sawHi = false;
 for (let i = 0; i < gt.count; i++) { const v = gt.getX(i); if (v < 0 || v > 1) inRange = false; if (v < 0.01) sawLo = true; if (v > 0.99) sawHi = true; }
 check('baked glowT values in [0,1] and span the full ramp (root→apex present)', inRange && sawLo && sawHi);
 
+// --- D1 facet jitter: deterministic index hash (never a gameplay rng stream) ---
+check('facetHash is deterministic + in [0,1]',
+  facetHash(7) === facetHash(7) && facetHash(7) >= 0 && facetHash(7) < 1 && facetHash(7) !== facetHash(8));
+// A3: per-tri bake gives every triangle's 3 verts ONE facet value (both tris of a quad
+// share it via the per-quad id in buildWindvault; here we prove the per-tri primitive).
+const tg = new THREE.BufferGeometry();
+tg.setAttribute('position', new THREE.Float32BufferAttribute(new Array(18).fill(0).map((_, i) => i), 3)); // 2 tris
+bakeFacetJitterPerTri(tg);
+const fj = tg.getAttribute('facetJ');
+check('bakeFacetJitterPerTri: each triangle\'s 3 verts share one facetJ, values in [0,1]',
+  fj.count === 6 && fj.getX(0) === fj.getX(1) && fj.getX(1) === fj.getX(2)
+  && fj.getX(3) === fj.getX(4) && fj.getX(4) === fj.getX(5) && fj.getX(0) !== fj.getX(3)
+  && fj.getX(0) >= 0 && fj.getX(0) < 1);
+const kc = bakeConst(new THREE.BoxGeometry(1, 1, 1), 'facetJ', 0.5).getAttribute('facetJ');
+check('bakeConst fills the attribute (keystone merge-parity: matching set → no null merge)',
+  !!kc && kc.count > 0 && kc.getX(0) === 0.5);
+
 // --- Source asserts on the obstacles.js wiring (A1/A5 + walls-free invariant) ---
 const obs = read('js/obstacles.js');
 check('A/B kill-switch present (?skyforged=0 → old Sky Gate)', /skyforged/.test(obs) && /const SKYFORGED =/.test(obs));
@@ -75,6 +97,24 @@ check('marker material NOT bindAtmosphere\'d (deliberate — signature emissive,
   !/bindAtmosphere\(markerMat\)/.test(obs));
 check('flowgate branch adds NO collider boxes (walls-free: e.boxes untouched)',
   !/o\.kind === 'flowgate'[\s\S]*e\.boxes\.push/.test(obs));
+check('D1: Windvault bakes facetJ per-QUAD (both tris share it) + keystone bakes a constant facetJ',
+  /facetHash\(i \* K \+ k\)/.test(obs) && /bakeConst\(key, 'facetJ'/.test(obs));
+
+// --- Star Shard orb (powerups.js): premium shard, no additive sprite, coexist ---
+const pw = read('js/powerups.js');
+check('orb A/B kill-switch present (?skyforged=0 → old sphere+sprite)', /const SKYFORGED =/.test(pw));
+check('the makeGlowTexture import is KEPT (the fallback orb still needs it)', /import \{ makeGlowTexture \}/.test(pw));
+check('Skyforged orb is the Star Shard on markerSurface, with NO additive Sprite',
+  /buildStarShard/.test(pw) && /makeMarkerSurface\(/.test(pw)
+  && /if \(SKYFORGED\)[\s\S]*new THREE\.Mesh\(shardGeo, shardMat\)[\s\S]*else[\s\S]*new THREE\.Sprite/.test(pw));
+check('shard geometry bakes glowT (aft→tip) + facetJ, flat-faceted',
+  /bakeGlowT\(g,/.test(pw) && /bakeFacetJitterPerTri\(g\)/.test(pw) && /computeVertexNormals\(\)/.test(pw));
+check('orb has its OWN per-role flowRef driver (not the gate\'s markerFlow), written each frame',
+  /orbFlow\.value =/.test(pw) && /flowRef: orbFlow/.test(pw));
+check('collect flash is a capped scale-POP for the opaque shard (o.glow only in fallback)',
+  /o\.mesh\.scale\.setScalar\(0\.2 \+ k \* 1\.4\)/.test(pw) && /if \(o\.glow\)/.test(pw));
+check('idle: shard spins (head-on motion), sprite pulse only in fallback',
+  /o\.mesh\.rotation\.z \+= dt/.test(pw));
 
 // ============================ Part B: WebGL boot ============================
 // Skip gracefully if playwright/browser isn't available (Part A already gates CI).
@@ -93,17 +133,37 @@ if (boot) {
   // Traverse the live scene for a Windvault mesh: a geometry carrying the baked
   // glowT ramp attribute (the Sky-Gate fallback has no such attribute).
   const win = await flow.page.evaluate(() => {
-    let found = false, lo = 1, hi = 0, count = 0;
+    let found = false, lo = 1, hi = 0, count = 0, hasFacetJ = false;
     window.__dd.scene.traverse((o) => {
-      const a = o.geometry && o.geometry.attributes && o.geometry.attributes.glowT;
-      if (!a) return;
-      found = true; count++;
+      const at = o.geometry && o.geometry.attributes, a = at && at.glowT;
+      if (!a || a.count < 100) return; // the ARCH is a large mesh; small glowT meshes are Star Shards
+      found = true; count++; if (at.facetJ) hasFacetJ = true;
       for (let i = 0; i < a.count; i++) { const v = a.getX(i); if (v < lo) lo = v; if (v > hi) hi = v; }
     });
-    return { found, lo, hi, count };
+    return { found, lo, hi, count, hasFacetJ };
   });
   check('Windvault built in WebGL (a live mesh carries the baked glowT ramp)', win.found);
   check('the arch ramp spans feet→crown (glowT reaches both ~0 and ~1)', win.lo <= 0.05 && win.hi >= 0.95);
+  check('Windvault carries the D1 facetJ attribute in WebGL', win.hasFacetJ);
+  // Star Shard orbs: the flow ribbon spawns them — a live orb mesh must carry glowT + facetJ
+  // and have NO Sprite child (the additive glow sprite is deleted in Skyforged mode).
+  const shard = await flow.page.evaluate(() => {
+    let found = false, noSprite = true, facetOk = false;
+    window.__dd.scene.traverse((o) => {
+      const a = o.geometry && o.geometry.attributes;
+      // a shard = glowT + facetJ but NOT the big arch (the arch is a rockGap group child);
+      // orbs are top-level small meshes. Distinguish by vertex count (< 60) + facetJ present.
+      if (a && a.glowT && a.facetJ && a.position.count < 60) {
+        found = true;
+        let lo = 1, hi = 0; for (let i = 0; i < a.facetJ.count; i++) { const v = a.facetJ.getX(i); if (v < lo) lo = v; if (v > hi) hi = v; }
+        facetOk = lo >= 0 && hi <= 1;
+        if (o.children.some((c) => c.isSprite)) noSprite = false;
+      }
+    });
+    return { found, noSprite, facetOk };
+  });
+  check('Star Shard orbs built in WebGL (small glowT+facetJ meshes present)', shard.found);
+  check('the additive glow sprite is GONE in Skyforged mode (no Sprite child on the shard)', shard.noSprite);
   check('flow run stays walls-free with the Windvault (zero collider boxes)',
     await flow.page.evaluate(() => window.__dd.flowColliderBoxes() === 0));
   check('zero console errors building/flying the Windvault', flow.errors.length === 0) ||

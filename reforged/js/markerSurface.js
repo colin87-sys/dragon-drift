@@ -34,13 +34,15 @@ import * as THREE from 'three';
 // sees a matching attribute set and never returns null.
 export function makeMarkerSurface(opts = {}) {
   const {
-    rootColor = 0x1f8fd8,   // deep slip-cyan (root / aft / outer)
-    midColor = 0x59d8ff,    // slip-cyan — the flow signature (continuity with the ribbon orbs)
-    apexColor = 0xd6f4ff,   // ice-white hot core (apex / tip / inner-lip)
-    flowRef = { value: 0 }, // per-role 0..1 driver (gate: slipMix)
+    rootColor = 0x0c63c8,   // D2: deeper, more saturated cyan glass (root / aft / outer)
+    midColor = 0x3fc8ff,    // slip-cyan — the flow signature (continuity with the ribbon orbs)
+    apexColor = 0xbfeeff,   // D2: icy hot core — NOT pure white, so it keeps cyan when hot
+    flowRef = { value: 0 }, // per-role 0..1 driver (gate: slipMix; orb: chain/boost heat)
     timeRef = { value: 0 }, // globally shared clock
-    rimPower = 2.4,
+    rimPower = 3.4,         // D1: narrower rim → the glint concentrates on facet edges
     emissive = 1.7,         // base emissive scale (pre-flow)
+    hotLift = 0.55,         // D2: uFlow intensity contribution (tunable so hot doesn't fully white out)
+    side = THREE.FrontSide, // small closed markers (the Star Shard) pass DoubleSide so winding can't hide them
   } = opts;
   const mat = new THREE.MeshStandardMaterial({
     color: 0x0a0a12,                       // near-black body so the emissive carries the read
@@ -48,6 +50,7 @@ export function makeMarkerSurface(opts = {}) {
     emissiveIntensity: emissive,
     roughness: 0.34,
     metalness: 0.0,
+    side,
   });
   // Kept on the material so the caller can hand the SAME driver objects to
   // updateObstacles without re-plumbing (and so a per-instance clone keeps them).
@@ -59,18 +62,19 @@ export function makeMarkerSurface(opts = {}) {
     uTime: timeRef,
     uRimPow: { value: rimPower },
     uEmisScale: { value: emissive },
+    uHotLift: { value: hotLift },
   };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, mat.userData.markerUniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float glowT;\nvarying float vGlowT;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlowT = glowT;');
+      .replace('#include <common>', '#include <common>\nattribute float glowT;\nattribute float facetJ;\nvarying float vGlowT;\nvarying float vFacetJ;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlowT = glowT;\n  vFacetJ = facetJ;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',
         `#include <common>
          uniform vec3 uRoot; uniform vec3 uMid; uniform vec3 uApex;
-         uniform float uFlow; uniform float uTime; uniform float uRimPow; uniform float uEmisScale;
-         varying float vGlowT;`)
+         uniform float uFlow; uniform float uTime; uniform float uRimPow; uniform float uEmisScale; uniform float uHotLift;
+         varying float vGlowT; varying float vFacetJ;`)
       // Splice at emissivemap_fragment: `normal` (flat, from normal_fragment_begin)
       // and `vViewPosition` are both already in scope, and totalEmissiveRadiance is
       // declared just above — we OWN the emissive here.
@@ -85,10 +89,13 @@ export function makeMarkerSurface(opts = {}) {
            float fres = pow(1.0 - clamp(dot(normalize(normal), Vd), 0.0, 1.0), uRimPow);
            // subtle idle shimmer travelling along the ramp
            float shim = 0.86 + 0.14 * sin(uTime * 2.4 + gt * 6.2831853);
-           // FLOW: a bright front that climbs the ramp as uFlow rises + an overall lift
+           // FLOW: a bright front that climbs the ramp as uFlow rises + an overall lift.
+           // D1: per-facet jitter (centered → a missing attribute defaults 0 → factor 0.9,
+           // never black) so the discrete glints survive bloom instead of washing to a tube.
            float front = smoothstep(0.16, 0.0, abs(gt - uFlow));
-           float lift = 1.0 + 0.7 * uFlow + 1.1 * front;
-           vec3 emis = ramp * shim * lift + uApex * fres * (0.55 + 0.9 * uFlow);
+           float lift = (1.0 + uHotLift * uFlow + 0.9 * front) * (0.9 + 0.2 * vFacetJ);
+           // D2: less white-out — smaller apex-fres term, and uApex keeps cyan (see palette).
+           vec3 emis = ramp * shim * lift + uApex * fres * (0.5 + 0.7 * uFlow);
            totalEmissiveRadiance = emis * uEmisScale;
          }`);
   };
@@ -105,5 +112,30 @@ export function bakeGlowT(geom, fn) {
   const t = new Float32Array(pos.count);
   for (let i = 0; i < pos.count; i++) t[i] = fn(pos.getX(i), pos.getY(i), pos.getZ(i));
   geom.setAttribute('glowT', new THREE.BufferAttribute(t, 1));
+  return geom;
+}
+
+// Deterministic per-face hash in [0,1]. Geometry builders must bake facet jitter from
+// a pure INDEX hash — NEVER by drawing from a seeded gameplay rng stream, which would
+// shift downstream consumers (a determinism break, not just a Math.random one).
+export function facetHash(n) { const s = Math.sin(n * 12.9898) * 43758.5453; return s - Math.floor(s); }
+
+// Bake a constant `glowT`/`facetJ` value across a whole geometry — for a merge piece
+// that must carry the attribute (matching set → mergeGeometries never returns null)
+// but has no ramp of its own (e.g. the Windvault keystone).
+export function bakeConst(geom, name, value) {
+  const n = geom.getAttribute('position').count;
+  geom.setAttribute(name, new THREE.BufferAttribute(new Float32Array(n).fill(value), 1));
+  return geom;
+}
+
+// Bake `facetJ` per TRIANGLE for a NON-INDEXED geometry where each triangle IS a facet
+// (e.g. the octahedron/bipyramid-derived Star Shard). For QUAD facets (the Windvault
+// tube) bake inline with a per-QUAD id so both tris of a facet share one value.
+export function bakeFacetJitterPerTri(geom) {
+  const pos = geom.getAttribute('position');
+  const t = new Float32Array(pos.count);
+  for (let v = 0; v < pos.count; v += 3) { const j = facetHash(v / 3); t[v] = j; t[v + 1] = j; t[v + 2] = j; }
+  geom.setAttribute('facetJ', new THREE.BufferAttribute(t, 1));
   return geom;
 }
