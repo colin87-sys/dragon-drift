@@ -266,43 +266,95 @@ function buildOssuaryTorso(def, model, _bodyMat) {
 }
 registerTorso('ossuaryTorso', buildOssuaryTorso);
 
-// ── WINGS: 'phalanxShroudWings' (the HERO) ────────────────────────────────────
-// STUB (I2 builds it for real): a bare bone ARM + a small fan of finger-BONE tents
-// carrying one thin translucent shroud membrane, wired into the SAME 3-segment
-// hinge (pivot/mid/tip) + outer-lmirror rig the real wing will use — so I2 swaps
-// GEOMETRY without touching the flap contract. No through-windows / crescents yet.
+// ── WINGS: 'phalanxShroudWings' (the HERO — I2 REAL) ──────────────────────────
+// The Vesper fingered-bat recipe with the SKIN MOSTLY REMOVED (§4.3): a bone arm
+// (humerus + radius, elbow ≥20°) → metacarpal FINGER bones fanning aft (dominant +
+// decay) → SHROUD panels on the OUTER bays only, the INNER bays left OPEN. A single
+// connected translucent HEM band closes the trailing edge — and, per the I1 lesson,
+// that continuous hem is what FRAMES each open bay into a true ENCLOSED through-hole
+// (a bay open to the rim wouldn't read as a hole). The trailing edge is cut into
+// swept CRESCENT bites between finger tips. The whole hand (fingers + panels + hem)
+// rides ONE group that folds at the wrist, so the through-gaps VANISH on the fold.
+// This is deliberately NOT Vesper: Vesper's bays are FILLED (0 enclosed holes); the
+// Revenant's are OPEN and framed → the SKELETON read the rear-chase carries.
 function buildOnePhalanxWing(M, dials, wingMat) {
   const arm = new THREE.Group();
   const hand = new THREE.Group();
   const hs = dials.halfSpan, wristT = dials.wristT ?? 0.24;
-  const fingers = Math.max(2, Math.round(dials.fingers));
-  // Leading edge: a shallow gull arch to the carpal, then ease to the tip.
-  const armY = (t) => hs * (0.05 * t + 0.22 * (t <= wristT ? Math.sin((t / wristT) * Math.PI / 2) : 1 - (t - wristT) * 0.12));
-  const armZ = (t) => -0.08 + 0.40 * hs * Math.pow(t, 1.1) - 0.12 * hs * Math.sin(Math.PI * t);
+  const N = Math.max(2, Math.round(dials.fingers));
+  const shroudPanels = Math.max(0, Math.min(N - 1, Math.round(dials.shroudPanels ?? 2)));
+  const cD = dials.crescentDepth ?? 1;
+  const sweep = dials.sweep ?? 0.52, dih = dials.dihedral ?? 0.30;   // sweep + dihedral tuned so the bays face the rear-chase cam (not edge-on) even in glide
+  const armY = (t) => hs * (dih * t + 0.24 * (t <= wristT ? Math.sin((t / wristT) * Math.PI / 2) : 1 - (t - wristT) * 0.12));
+  const armZ = (t) => hs * (0.10 + sweep * Math.pow(t, 1.08) - 0.10 * Math.sin(Math.PI * t));
   const LE = (t) => [t * hs, armY(t), armZ(t)];
   const K = LE(wristT), F0 = LE(1);
-  // Arm bone (humerus+forearm) as a low tent ridge along the inboard LE.
-  const ridge = (tgt, a, b, w, lift, mat) => {
+  const bez = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
+  // Raised bone TENT ridge (a→b) with an optional brighter rim-catch cap along the spine.
+  const ridge = (tgt, a, b, wB, wT, lift, capT) => {
     const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
-    const aL = [a[0] + px * w, a[1], a[2] + pz * w], aR = [a[0] - px * w, a[1], a[2] - pz * w];
-    const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.35, b[2]];
-    tgt.add(flatTriMesh([[aL, b, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, b]], mat));
+    const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
+    const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
+    const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.4, b[2]];
+    tgt.push([aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]);
+    if (capT) capT.push([aT, bT, [a[0] + px * wB * 0.3, a[1] + lift, a[2] + pz * wB * 0.3]]);
   };
-  ridge(arm, LE(0), K, 0.09 * hs, 0.06 * hs, M.boneDorsal);   // humerus→carpal
-  // Finger bones fan aft from the carpal (dominant + decay), each a bone tent.
+
+  // ── ARM — humerus + radius with a real ELBOW BEND (≥20°): the elbow E is offset
+  // aft + down off the shoulder→carpal chord so the leading edge kinks, not a straight bar.
+  const boneT = [], capT = [];
+  const E = LE(wristT * 0.48); E[1] -= 0.05 * hs; E[2] += 0.06 * hs;
+  ridge(boneT, LE(0), E, 0.085 * hs, 0.05 * hs, 0.05 * hs);          // humerus (thick at the shoulder)
+  ridge(boneT, E, K, 0.055 * hs, 0.035 * hs, 0.04 * hs, capT);       // radius → wrist (rim-catch)
+  arm.add(flatTriMesh(boneT, M.boneDorsal));
+  if (capT.length) arm.add(flatTriMesh(capT, M.bone));
+  // PROPATAGIUM — a small translucent web on the inboard leading edge (arm-side, so it
+  // folds with the arm and never tears at the wrist).
+  arm.add(flatTriMesh([[LE(0), E, K]], wingMat));
+
+  // ── FINGERS — metacarpals fanning aft from the carpal K; finger 0 is the wingtip
+  // (continues the leading edge), the rest sweep progressively aft + shorter (dominant
+  // + decay, lenFrac). Each is a BOWED 2-segment tent (sags below the chord like a real
+  // phalanx); the inner two carry a rim-catch cap.
   const lenFrac = [1, 0.80, 0.62, 0.46];
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
   const tips = [F0];
-  for (let i = 1; i < fingers; i++) {
-    const phi = phi0 + 1.0 * (i / (fingers - 1)), r = r0 * lenFrac[Math.min(i, lenFrac.length - 1)];
-    tips.push([K[0] + Math.cos(phi) * r, K[1] - 0.08 * r, K[2] + Math.sin(phi) * r]);
+  for (let i = 1; i < N; i++) {
+    const phi = phi0 + 1.22 * (i / (N - 1)), r = r0 * lenFrac[Math.min(i, lenFrac.length - 1)];
+    tips.push([K[0] + Math.cos(phi) * r, K[1] - 0.06 * r, K[2] + Math.sin(phi) * r]);
   }
-  for (const tp of tips) ridge(hand, K, tp, 0.05 * hs, 0.06 * hs, M.boneDorsal);
-  // ONE thin shroud membrane spanning arm-root → carpal → last finger tip (placeholder
-  // sheet; I2 cuts the crescents + opens the inner-bay through-gaps). Transparent so the
-  // rig's wingMat.opacity drive works (the Solar opaque-wall bug — transparent from day one).
-  const root = LE(0), last = tips[tips.length - 1];
-  hand.add(flatTriMesh([[root, K, last], [root, last, [last[0] * 0.5 + root[0] * 0.5, root[1] - 0.05 * hs, last[2] * 0.5 + root[2] * 0.5]]], wingMat));
+  const fingerT = [], fingerCapT = [];
+  for (let i = 0; i < tips.length; i++) {
+    const tp = tips[i], wB = 0.05 * hs * (1 - 0.06 * i), wM = wB * 0.5;
+    const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]), sag = 0.10 * L;
+    const Bm = [(K[0] + tp[0]) / 2, (K[1] + tp[1]) / 2 - sag, (K[2] + tp[2]) / 2 + sag * 0.4];
+    ridge(fingerT, K, Bm, wB, wM, 0.055 * hs, i < 2 ? fingerCapT : null);
+    ridge(fingerT, Bm, tp, wM, 0.006, 0.04 * hs);
+  }
+  hand.add(flatTriMesh(fingerT, M.boneDorsal));
+  if (fingerCapT.length) hand.add(flatTriMesh(fingerCapT, M.bone));
+
+  // ── BAYS — between consecutive finger tips. The OUTER `shroudPanels` bays get a
+  // translucent shroud panel (solid); the INNER bays stay OPEN (pure absence → an
+  // enclosed through-hole, framed by the two finger bones + the hem). The trailing
+  // edge of every bay is a CRESCENT bite: a concave ≥4-seg bezier cupping toward K.
+  const NSEG = 4, panelT = [], trailing = [];
+  for (let i = 0; i < tips.length - 1; i++) {
+    const Fa = tips[i], Fb = tips[i + 1];
+    const mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
+    const ctrl = [mid[0] + (K[0] - mid[0]) * 0.30 * cD, mid[1] + (K[1] - mid[1]) * 0.30 * cD, mid[2] + (K[2] - mid[2]) * 0.30 * cD];
+    const arc = []; for (let s = 0; s <= NSEG; s++) arc.push(bez(Fa, ctrl, Fb, s / NSEG));
+    if (i < shroudPanels) for (let s = 0; s < NSEG; s++) panelT.push([K, arc[s], arc[s + 1]]);   // paneled outer bay
+    for (let s = 0; s <= NSEG; s++) if (!(i > 0 && s === 0)) trailing.push(arc[s]);               // one shared trailing polyline
+  }
+  if (panelT.length) hand.add(flatTriMesh(panelT, wingMat));
+  // ── HEM — ONE connected thin translucent band just inboard of the whole trailing
+  // polyline (the FRAME that closes every open bay into an enclosed hole).
+  if (trailing.length > 1) {
+    const hemT = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.09, p[1] + (K[1] - p[1]) * 0.09, p[2] + (K[2] - p[2]) * 0.09];
+    for (let s = 0; s < trailing.length - 1; s++) { const a = trailing[s], b = trailing[s + 1], ai = inb(a), bi = inb(b); hemT.push([a, b, bi], [a, bi, ai]); }
+    hand.add(flatTriMesh(hemT, wingMat));
+  }
   return { arm, hand, K, tip: F0 };
 }
 
@@ -312,7 +364,7 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   const fingers = Math.max(2, Math.round(model.fingers ?? model.scallopLobes ?? 4));
   const halfSpan = (model.spanScale ?? 1) * 2.4;
   const wristT = model.wristT ?? 0.24;
-  const dials = { fingers, halfSpan, wristT };
+  const dials = { fingers, halfSpan, wristT, shroudPanels: Math.round(model.shroudPanels ?? 2), crescentDepth: model.crescentDepth ?? 1, sweep: model.wingSweep ?? 0.42, dihedral: model.wingDihedral ?? 0.20 };
 
   // The rig's single-material wing contract (dragonModel/dragon.js drive ONE wingMat's
   // opacity/emissive). A single translucent hem tier; emissive black (the wing owns the
@@ -329,7 +381,7 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
-    const { arm, hand, K } = buildOnePhalanxWing(M, dials, wingMat);
+    const { arm, hand, K, tip: wtip } = buildOnePhalanxWing(M, dials, wingMat);
     mid.add(arm);
     tip.position.set(K[0], K[1], K[2]);      // wrist fold axis = the carpal knuckle
     hand.position.set(-K[0], -K[1], -K[2]);  // −anchor → assembled REST pose byte-identical
@@ -337,13 +389,12 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
     if (side === -1) { const lmirror = new THREE.Group(); lmirror.scale.x = -1; lmirror.add(pivot); group.add(lmirror); }
     else group.add(pivot);
     const s = side === 1 ? 'R' : 'L';
-    // Tip marker — the wingtip (longest finger tip), tracked through the wrist fold (FX emit point).
-    const tipY = ((model.spanScale ?? 1) * 2.4) * (0.05 + 0.22 * (1 - (1 - wristT) * 0.12));
+    // Tip marker — the actual wingtip (finger 0 tip, LE(1)), tracked through the wrist fold (FX emit point).
     const marker = new THREE.Object3D();
-    marker.position.set(halfSpan, tipY, -0.08 + 0.40 * halfSpan);
+    marker.position.set(wtip[0], wtip[1], wtip[2]);
     hand.add(marker);
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip; pivots['tipMarker' + s] = marker;
-    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + 0.3], length: halfSpan, tipObj: marker });
+    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * wtip[0], root.y + wtip[1], root.z + wtip[2]], length: halfSpan, tipObj: marker });
   }
   return { group, spineMats: [], wingMat, parts: { ...pivots, wingElements } };
 }
