@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { registerTorso, registerWings, registerHead, registerTail } from './dragonRecipe.js';
 import { flatTriMesh } from './mechaKit.js';
+import { makeGlowTexture } from './util.js';   // the engine's soft radial glow (ringless) — reused for the caged flame
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GRAVELIGHT REVENANT — "Nothing stays buried" (WRAITH-GRAVELIGHT-BUILDSHEET.md §B).
@@ -27,7 +28,7 @@ import { flatTriMesh } from './mechaKit.js';
 const TORSO_Y = 0.15;
 // Palette anchors — BRIGHT COOL CHALK-IVORY bone (Fable gate: bone was reading dim/khaki;
 // bleached bone must be the dominant bright mass). Value RISES up the ladder (apex palest).
-const BONE = 0xece6d0, BONE_LO = 0xd6cfb8;   // bright chalk-ivory / bleached CREAM (warm-neutral, not steel-cold)
+const BONE = 0xe4e3dc, BONE_LO = 0xcac8bf;   // bright NEUTRAL bleached ivory (faint cool — not warm tan, not steel; firewall-safe)
 const RECESS = 0x3d4a3a;                      // umber-green far-side cavity wall (the hollow-cage depth, §4.4)
 const GRAVE = 0x6bff5e;                        // the grave-light green (heart / eyes / gaps) — brighter for bloom
 
@@ -240,30 +241,33 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   const coreBlaze = model.coreBlaze ?? 1;
   const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.30;   // seated in the UPPER barrel (lifted toward the shoulder line)
   const heartR = 0.24 + 0.13 * coreBlaze;   // BIG glow to fill the deeper flared cage (lantern, not sticker)
-  // A pointed TEARDROP FLAME (Fable: was a round orb — must read as caged FIRE): a rounded bulb
-  // bottom tapering to a flame tip at the top. Built as tris so the silhouette is a real teardrop.
+  // A ROUND (16-gon) teardrop, rendered FRONTSIDE + opaque so it reads as a SOLID flame body
+  // — NOT the transparent double-layer octagons that were rendering as concentric spirograph
+  // rings (Fable). Two solid shapes: grave-green body + mint-white core (two-tone fire).
   const flameTeardrop = (R, H) => {
-    const N = 8, tris = [], apex = [0, H, 0], bot = [0, -H * 0.6, 0], ring = [];
+    const N = 16, tris = [], apex = [0, H, 0], bot = [0, -H * 0.6, 0], ring = [];
     for (let k = 0; k < N; k++) { const a = (k / N) * Math.PI * 2; ring.push([Math.cos(a) * R, -H * 0.14, Math.sin(a) * R]); }
     for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; tris.push([apex, ring[k], ring[k1]], [bot, ring[k1], ring[k]]); }
     return tris;
   };
-  // TWO-TONE teardrop (art-director): a near-white MINT core inside a grave-green body, so it
-  // reads as caged FIRE with a hot heart, not a flat lime diamond. The green BODY is the coreGlow
-  // hook (the rig ticks its opacity); the mint core is a child that rides it. No additive halo —
-  // that octahedron shell was rendering as concentric spirograph RINGS (Fable); the flame's own
-  // brightness + the pipeline bloom carry the glow, and it stays colour-locked green on any sky.
-  const bodyMatF = new THREE.MeshBasicMaterial({ color: 0x2fbf7f, transparent: true, opacity: 0.42 + 0.48 * coreBlaze, depthWrite: false, side: THREE.DoubleSide });
-  const heartFlame = flatTriMesh(flameTeardrop(heartR * 0.9, heartR * 1.8), bodyMatF);   // grave-green body
-  heartFlame.position.set(0, hy, hz);
-  heartFlame.userData.base = 0.42 + 0.48 * coreBlaze;   // the coreGlow tick scales THIS
-  heartFlame.renderOrder = 2;
+  const bodyMatF = new THREE.MeshBasicMaterial({ color: 0x2fbf7f, side: THREE.FrontSide });   // solid grave-green flame body
+  const heartFlame = flatTriMesh(flameTeardrop(heartR * 0.9, heartR * 1.8), bodyMatF);
+  heartFlame.position.set(0, hy, hz); heartFlame.renderOrder = 2;
   group.add(heartFlame);
-  const coreMat = new THREE.MeshBasicMaterial({ color: 0xd6ffe8, transparent: true, opacity: 0.6 + 0.35 * coreBlaze, depthWrite: false, side: THREE.DoubleSide });   // mint-white hot core
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xd6ffe8, side: THREE.FrontSide });     // mint-white hot core
   const heartCore = flatTriMesh(flameTeardrop(heartR * 0.42, heartR * 1.0), coreMat);
   heartCore.position.set(0, hy - heartR * 0.15, hz); heartCore.renderOrder = 3;
   group.add(heartCore);
-  const heartHook = heartFlame;   // the coreGlow the torso returns
+  // THE GLOW — a single soft RADIAL sprite (the engine's makeGlowTexture), so the ghost-fire
+  // reads as a soft ringless bloom seen through the rib gaps — a lantern, never a wireframe halo.
+  // This IS the coreGlow hook (the rig ticks its opacity: floor → boost → Surge blaze).
+  const glowTex = makeGlowTexture('84,240,78', '214,255,232');
+  const heartHook = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0.5 + 0.4 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
+  heartHook.scale.setScalar(heartR * (2.6 + 1.0 * coreBlaze));
+  heartHook.position.set(0, hy, hz);
+  heartHook.userData.base = 0.5 + 0.4 * coreBlaze;   // the coreGlow tick scales THIS
+  heartHook.renderOrder = 1;
+  group.add(heartHook);
 
   // Motif anchor = the cage centre (the Grave Heart seats here).
   const motifAnchor = new THREE.Object3D();
@@ -347,8 +351,8 @@ function buildOnePhalanxWing(M, dials, wingMat) {
     const tp = tips[i], wB = 0.045 * hs * (1 - 0.05 * i), wM = wB * 0.5;
     const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]), sag = 0.09 * L;
     const Bm = [(K[0] + tp[0]) / 2, (K[1] + tp[1]) / 2 - sag, (K[2] + tp[2]) / 2 + sag * 0.4];
-    ridge(fingerT, K, Bm, wB * 1.25, wM, 0.14 * hs, i < 4 ? fingerCapT : null);   // PROUD, THICK ivory finger bones stand well over the shroud so bone webbing reads from BEHIND
-    ridge(fingerT, Bm, tp, wM, 0.008, 0.10 * hs);
+    ridge(fingerT, K, Bm, wB * 0.85, wM * 0.8, 0.09 * hs, i < 4 ? fingerCapT : null);   // SLIMMER ivory finger bones (Fable: too thick/bright → seraphic) — bone EDGES on a dark shroud, not a feathered wing
+    ridge(fingerT, Bm, tp, wM * 0.8, 0.006, 0.06 * hs);
   }
   hand.add(flatTriMesh(fingerT, M.bone));         // bright ivory bones (not the dorsal tier) so they read against the dark shroud
   if (fingerCapT.length) hand.add(flatTriMesh(fingerCapT, M.bone));
@@ -404,8 +408,8 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   // off near-black (Fable) so the ivory finger-bones + rib barrel WIN the silhouette (bone
   // ~60/40 over shroud). Translucent so light reads through it and the rig drives its opacity.
   // Emissive black (the wing never glows — the light is the caged heart).
-  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x353d4a, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
-  wingMat.envMapIntensity = 0.16;
+  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x2a303c, emissive: 0x000000, flatShading: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.88 });   // DARKER blue-charcoal + more opaque so the shroud dominates the wing (Fable: was too pale/seraphic)
+  wingMat.envMapIntensity = 0.14;
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
