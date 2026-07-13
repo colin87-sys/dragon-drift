@@ -328,16 +328,9 @@ registerTorso('ossuaryTorso', buildOssuaryTorso);
 function buildOnePhalanxWing(M, dials, wingMat) {
   const arm = new THREE.Group();
   const hand = new THREE.Group();
-  const hs = dials.halfSpan, wristT = dials.wristT ?? 0.10;   // VERY MEDIAL wrist → SHORT humerus + SHORT forearm, the LONG finger struts carry the span (owner: arm+elbow read too long, fingers too short)
+  const hs = dials.halfSpan, wristT = dials.wristT ?? 0.12;   // MEDIAL wrist → SHORT arm stub; finger 0 carries the wing (owner: bring the arm back to short)
   const N = Math.max(2, Math.round(dials.fingers));
   const cD = dials.crescentDepth ?? 1;
-  const sweep = dials.sweep ?? 0.46, dih = dials.dihedral ?? 0.10;   // LOW rake → the span reads HORIZONTAL from the rear-chase (not two vertical spikes)
-  // Arch peaks at the carpal then DECAYS hard so the wingtip stays LEVEL (was spiking up into
-  // a vertical delta from behind); the tip sits just above the shoulder line, not overhead.
-  const armY = (t) => hs * (dih * t + 0.15 * (t <= wristT ? Math.sin((t / wristT) * Math.PI / 2) : Math.max(0.12, 1 - (t - wristT) * 0.72)));
-  const armZ = (t) => hs * (0.08 + sweep * Math.pow(t, 1.06) - 0.10 * Math.sin(Math.PI * t));
-  const LE = (t) => [t * hs, armY(t), armZ(t)];
-  const K = LE(wristT), F0 = LE(1);
   const bez = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
   const ridge = (tgt, a, b, wB, wT, lift, capT) => {
     const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
@@ -348,57 +341,78 @@ function buildOnePhalanxWing(M, dials, wingMat) {
     if (capT) capT.push([aT, bT, [a[0] + px * wB * 0.3, a[1] + lift, a[2] + pz * wB * 0.3]]);
   };
 
-  // ── ARM — a SHORT humerus + radius with an elbow bend. Medial wrist keeps the arm a
-  // stub; the fingers carry the span.
+  // ── ARM — a SHORT 2-bone stub (owner: bring the arm back to short). The wrist K sits medial
+  // with just a slight forward-up set to seat it; the FINGERS carry the whole wing. Δz<0 = fwd.
+  const K = [wristT * hs, 0.06 * hs, -0.04 * hs];
+  const root = [0, 0, 0], E = [wristT * 0.5 * hs, 0.03 * hs, -0.02 * hs];
   const boneT = [], capT = [];
-  const E = LE(wristT * 0.55); E[1] -= 0.03 * hs; E[2] += 0.04 * hs;   // elbow near the body → a SHORT forearm
-  ridge(boneT, LE(0), E, 0.075 * hs, 0.05 * hs, 0.06 * hs);          // humerus
-  ridge(boneT, E, K, 0.05 * hs, 0.04 * hs, 0.05 * hs, capT);         // radius → wrist (rim-catch)
-  arm.add(flatTriMesh(boneT, M.bone));                               // bright ivory arm bones
+  ridge(boneT, root, E, 0.075 * hs, 0.06 * hs, 0.06 * hs);           // humerus stub
+  ridge(boneT, E, K, 0.06 * hs, 0.045 * hs, 0.05 * hs, capT);        // radius → wrist
+  arm.add(flatTriMesh(boneT, M.bone));
   if (capT.length) arm.add(flatTriMesh(capT, M.bone));
 
-  // ── FINGERS — LONG metacarpals fanning from the carpal K (finger 0 = wingtip, the rest
-  // sweep aft + shorter). Bowed 2-segment bone tents; inner two carry a rim-catch cap.
-  const lenFrac = [1, 0.93, 0.85, 0.77];   // aft fingers stay LONG → a fan of long finger struts (owner: struts were too short), not a short decaying fan
-  const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
-  const tips = [F0];
-  for (let i = 1; i < N; i++) {
-    const phi = phi0 + 1.32 * (i / (N - 1)), r = r0 * lenFrac[Math.min(i, lenFrac.length - 1)];
-    tips.push([K[0] + Math.cos(phi) * r, K[1] - 0.05 * r, K[2] + Math.sin(phi) * r]);
+  // ── FINGERS — long metacarpals fanning AFT off the medial wrist. Finger 0 = the leading edge
+  // and carries the reference "‹" kink (forward at the knuckle → back to a TALL tip). The fan
+  // rakes aft (az 25→88°) with a non-linear length falloff, and the tips DROOP progressively
+  // (elev +15° leading → −20° trailing) — a VENTRAL dome that cups air to glide, not the old
+  // dorsal up-flick (owner: the camber was inverted). Each finger is sampled along its curved
+  // spar so the membrane can weld to the bone. Rows = [azimuth° aft, elevation° (up+), length×].
+  const FAN = [[25, 1.00], [42, 0.92], [60, 0.74], [76, 0.55], [88, 0.40]];   // [azimuth° aft off K, length× of finger 0]
+  const DROOP = [0.12, 0.16, 0.20, 0.24, 0.28];   // tip drop BELOW the wrist line, × finger length — EVERY tip droops (ventral dome that cups air; the trailing fingers droop most). NO dorsal lift (owner/critic: the wing was cupping UP in a raised V).
+  const D2R = Math.PI / 180, NS = 4, L0 = 0.92 * hs;   // finger-0 length (long — the arm gave up its share)
+  const spars = [], fingerT = [];
+  for (let i = 0; i < N; i++) {
+    const rowF = i / Math.max(1, N - 1) * (FAN.length - 1);
+    const ri = Math.min(FAN.length - 2, Math.floor(rowF)), f = rowF - ri;
+    const az = (FAN[ri][0] + (FAN[ri + 1][0] - FAN[ri][0]) * f) * D2R;
+    const L = L0 * (FAN[ri][1] + (FAN[ri + 1][1] - FAN[ri][1]) * f);
+    const dr = (DROOP[Math.min(N - 1, Math.max(0, Math.round(rowF)))]) * L;   // droop below the wrist plane
+    const tip = [K[0] + Math.cos(az) * L, K[1] - dr, K[2] + Math.sin(az) * L];   // XZ from azimuth; Y DROOPS below the wrist → ventral cup
+    // knuckle at ~58% to the tip: forward-outboard bow in XZ = concave-AFT plan curve (convex
+    // leading edge). Finger 0 throws its knuckle STRONGLY forward (−Z) for the "‹" kink. Y stays
+    // on the straight chord (no dorsal flip); the spanwise droop above gives the dome.
+    const cdx = tip[0] - K[0], cdz = tip[2] - K[2], clen = Math.hypot(cdx, cdz) || 1;
+    const kn = 0.58, bow = (i === 0 ? 0.30 : 0.18) * clen;
+    const pfx = cdz / clen, pfz = -cdx / clen;
+    const Bm = [K[0] + cdx * kn + pfx * bow, K[1] + (tip[1] - K[1]) * kn, K[2] + cdz * kn + pfz * bow];
+    const s = []; for (let k = 0; k <= NS; k++) s.push(bez(K, Bm, tip, k / NS));   // curved-spar samples (welded nodes)
+    spars.push(s);
+    const w = 0.05 * hs * (1 - 0.06 * i);
+    for (let k = 0; k < NS; k++) ridge(fingerT, s[k], s[k + 1], w * (1 - k / NS * 0.55) + 0.004, w * (1 - (k + 1) / NS * 0.55) + 0.004, 0.05 * hs * (1 - k / NS));
   }
-  const fingerT = [], fingerCapT = [];
-  for (let i = 0; i < tips.length; i++) {
-    const tp = tips[i], wB = 0.045 * hs * (1 - 0.05 * i), wM = wB * 0.5;
-    const L = Math.hypot(tp[0] - K[0], tp[1] - K[1], tp[2] - K[2]), sag = 0.09 * L;
-    const Bm = [(K[0] + tp[0]) / 2, (K[1] + tp[1]) / 2 - sag, (K[2] + tp[2]) / 2 + sag * 0.4];
-    ridge(fingerT, K, Bm, wB * 0.85, wM * 0.8, 0.09 * hs, null);   // SLIM ivory finger bones — NO rim-catch caps (Fable: the pale caps stacked into shard clutter at the wing root, breaking the finger-ray count at rear-chase). Clean rays read as countable fingers.
-    ridge(fingerT, Bm, tp, wM * 0.8, 0.006, 0.06 * hs);
-  }
-  hand.add(flatTriMesh(fingerT, M.bone));         // bright ivory bones (not the dorsal tier) so they read against the dark shroud
+  hand.add(flatTriMesh(fingerT, M.bone));
 
-  // ── CHIROPATAGIUM — the FILLED shroud membrane between the fingers (a fan from K to a
-  // shallow-cupped trailing arc per bay; the cups are tattered notches, not open holes).
-  // Lives on the HAND so it folds as one rigid sheet at the wrist.
-  const NSEG = 4, memT = [];
-  for (let i = 0; i < tips.length - 1; i++) {
-    const Fa = tips[i], Fb = tips[i + 1];
-    const mid = [(Fa[0] + Fb[0]) / 2, (Fa[1] + Fb[1]) / 2, (Fa[2] + Fb[2]) / 2];
-    // ASYMMETRIC tatter (art-director): deepest crescent bites between the OUTER fingers,
-    // shallow inboard — a ragged revenant shroud, not an even hang-glider hem. A per-bay jitter
-    // adds the tattered irregularity.
-    const outer = 1 - i / Math.max(1, tips.length - 1);
-    const cup = (0.16 + 0.26 * cD) * (0.7 + 0.7 * outer) * (0.9 + 0.2 * ((i * 0.618) % 1));
-    const ctrl = [mid[0] + (K[0] - mid[0]) * cup, mid[1] + (K[1] - mid[1]) * cup - 0.02, mid[2] + (K[2] - mid[2]) * cup];
-    const arc = []; for (let s = 0; s <= NSEG; s++) arc.push(bez(Fa, ctrl, Fb, s / NSEG));
-    const C = [(K[0] + mid[0]) / 2, (K[1] + mid[1]) / 2 - 0.03, (K[2] + mid[2]) / 2];
-    memT.push([C, K, arc[0]], [C, arc[NSEG], K]);
-    for (let s = 0; s < NSEG; s++) memT.push([C, arc[s], arc[s + 1]]);
+  // ── CHIROPATAGIUM — the skin is LOFTED onto the finger spar samples, so every membrane edge IS
+  // a bone node: it is WELDED to the frame and cannot float off (owner: the old tip-referencing
+  // fan detached from the bones). Each bay = strips between finger i's samples and finger i+1's,
+  // split by a MID line that SAGS below the spar plane (−Y), deeper toward the trailing edge — a
+  // VENTRAL billow that cups air. The free trailing edge is pulled toward K (scallop).
+  const memT = [];
+  const bayScallop = [0.34, 0.28, 0.23, 0.17];
+  for (let i = 0; i < N - 1; i++) {
+    const fa = spars[i], fb = spars[i + 1];
+    const chord = Math.hypot(fb[NS][0] - fa[NS][0], fb[NS][1] - fa[NS][1], fb[NS][2] - fa[NS][2]) || 1;
+    const billow = (0.14 + 0.08 * cD) * chord;                          // ventral sag depth
+    const scal = bayScallop[Math.min(i, bayScallop.length - 1)] * (0.6 + 0.4 * cD) * (0.9 + 0.2 * ((i * 0.618) % 1));
+    const mid = [];
+    for (let k = 0; k <= NS; k++) {
+      const saf = k / NS;                                              // 0 at the wrist (welded), 1 at the free edge
+      const m = [(fa[k][0] + fb[k][0]) / 2, (fa[k][1] + fb[k][1]) / 2, (fa[k][2] + fb[k][2]) / 2];
+      m[1] -= billow * (0.3 + 0.7 * saf);                              // cup DOWN, deepest aft
+      if (k > 0) { m[0] += (K[0] - m[0]) * scal * saf; m[1] += (K[1] - m[1]) * scal * saf * 0.4; m[2] += (K[2] - m[2]) * scal * saf; }   // scallop the free edge toward the wrist
+      mid.push(m);
+    }
+    for (let k = 0; k < NS; k++) {
+      memT.push([fa[k], fa[k + 1], mid[k + 1]], [fa[k], mid[k + 1], mid[k]]);   // leading half of the bay
+      memT.push([mid[k], mid[k + 1], fb[k + 1]], [mid[k], fb[k + 1], fb[k]]);   // trailing half
+    }
   }
   hand.add(flatTriMesh(memT, wingMat));
 
-  // ── PROPATAGIUM — the leading-edge web over the SHORT arm (shoulder→elbow→wrist), so
-  // the membrane starts at the HUMERUS, not the wrist. Arm-side → folds with the arm.
-  arm.add(flatTriMesh([[LE(0), E, K], [LE(0), K, [K[0] * 0.6 + LE(0)[0] * 0.4, K[1] - 0.03 * hs, K[2] + 0.10 * hs]]], wingMat));
+  // ── PROPATAGIUM — the leading-edge web over the SHORT arm stub (shoulder→elbow→wrist) welding
+  // the skin to the arm; it meets the chiropatagium at K, so the membrane is unbroken across the
+  // wrist. Arm-side → folds with the arm.
+  arm.add(flatTriMesh([[root, E, K], [root, K, [K[0] * 0.6, K[1] - 0.03 * hs, K[2] + 0.10 * hs]]], wingMat));
   // ── PLAGIOPATAGIUM / BRACHIAL membrane — the wing is ONE CONTINUOUS sheet, not a finger-fan
   // with a bare arm. This panel fills the ARMPIT under the arm and sweeps INBOARD + DOWN to a
   // body anchor B at the upper ribcage BESIDE THE SHOULDER JOINT (owner: the membrane must
@@ -410,8 +424,8 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // and the chiropatagium (between the fingers), the membrane is unbroken from body to fingertip.
   const B = [-0.34, -0.39, 0.10];   // upper ribcage beside the shoulder joint (local; world ≈ inboard + down of the root)
   const Btr = [-0.10, -0.30, 0.55];   // a trailing point so the inboard hem drapes aft, not a straight cut
-  arm.add(flatTriMesh([[B, LE(0), E], [B, E, K], [B, K, Btr]], wingMat));   // armpit + brachial sheet: body → root → wrist → aft hem
-  return { arm, hand, K, tip: F0 };
+  arm.add(flatTriMesh([[B, root, E], [B, E, K], [B, K, Btr]], wingMat));   // armpit + brachial sheet: body → root → wrist → aft hem
+  return { arm, hand, K, tip: spars[0][NS] };   // wingtip = finger-0 tip (the leading spar)
 }
 
 function buildPhalanxShroudWings(def, model, attach, _giM) {
@@ -419,7 +433,7 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   const M = revenantMats(def);
   const fingers = Math.max(2, Math.round(model.fingers ?? 4));
   const halfSpan = (model.spanScale ?? 1) * 4.1;   // BROAD majestic span (owner: wings read tiny/fairy — push toward Phoenix Ascendant's span:length)
-  const wristT = model.wristT ?? 0.10;   // very medial → short arm, long fingers (owner)
+  const wristT = model.wristT ?? 0.40;   // Fable anatomy spec: arm = ~40% of the leading edge
   const dials = { fingers, halfSpan, wristT, crescentDepth: model.crescentDepth ?? 1, sweep: model.wingSweep ?? 0.36, dihedral: model.wingDihedral ?? 0.10 };
 
   // The shroud MEMBRANE — a dark CHARCOAL slate-green tattered skin, lifted one value step
