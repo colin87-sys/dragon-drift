@@ -28,7 +28,7 @@ const save = noSW + `localStorage.setItem('dragonDriftSave', JSON.stringify({ v:
 // Fly into the forced flow run, frame the nearest gate ~34m ahead, hold the chain
 // to `chain` for a beat (so the light climbs on the hot shots), nudge the player
 // laterally by `offX` for the off-axis read, then freeze and shoot.
-async function capture({ skyforged = true, chain = 0, offX = 0 }) {
+async function capture({ skyforged = true, chain = 0, offX = 0, frameDist = 0 }) {
   const query = `?debug&canyon=flow&seed=${SEED}${skyforged ? '' : '&skyforged=0'}`;
   const { page, done } = await boot({ query, viewport: VIEW, deviceScaleFactor: 2, initScript: save });
   await page.click('#btn-start').catch(() => {});
@@ -41,37 +41,42 @@ async function capture({ skyforged = true, chain = 0, offX = 0 }) {
     window.__dd.player.dist += 40; return false;
   }, { timeout: 25000, polling: 200 });
   await page.waitForTimeout(500);
-  // Frame a gate: find a flow-gate group's world z (glowT arch, or the Sky-Gate
-  // group), and sit ~34m behind it. Sky Gate has no glowT, so use the same target
-  // dist the Windvault run resolves (same seed → same gate planes) via a fallback.
-  const targetDist = await page.evaluate(() => {
+  // Ramp the slipstream FIRST (holding the chain advances the player), so the light
+  // has climbed the arch before we frame — otherwise the player drifts past the
+  // targeted gate onto a neighbouring Phase Gate by screenshot time.
+  await page.evaluate(async (ch) => {
+    const t0 = performance.now();
+    while (performance.now() - t0 < (ch ? 1200 : 150)) { window.__dd.game.flowChain = ch; await new Promise((r) => requestAnimationFrame(r)); }
+  }, chain);
+  // NOW frame the nearest Windvault ahead by its glowT arch (the Sky-Gate build has
+  // none → reuse the Windvault run's frameDist; same seed → same gate planes).
+  const targetDist = frameDist || await page.evaluate(() => {
     let best = Infinity;
     window.__dd.scene.traverse((o) => {
       const g = o.geometry && o.geometry.attributes && o.geometry.attributes.glowT;
       if (g) { o.updateWorldMatrix(true, false); const z = -o.matrixWorld.elements[14]; if (z > window.__dd.player.dist && z < best) best = z; }
     });
-    return best;
-  }).catch(() => Infinity);
-  await page.evaluate((td) => { if (isFinite(td)) window.__dd.player.dist = td - 34; }, targetDist);
-  // Hold the chain so the slipstream (and the Windvault light-climb) rises.
-  await page.evaluate(async (ch) => {
-    const t0 = performance.now();
-    while (performance.now() - t0 < (ch ? 1200 : 200)) { window.__dd.game.flowChain = ch; await new Promise((r) => requestAnimationFrame(r)); }
-  }, chain);
+    return isFinite(best) ? best : 0;
+  }).catch(() => 0);
+  await page.evaluate((td) => { if (td) window.__dd.player.dist = td - 34; }, targetDist);
   if (offX) await page.evaluate((x) => { window.__dd.player.x = (window.__dd.player.x || 0) + x; }, offX);
-  await page.waitForTimeout(120);
-  await page.evaluate(() => { window.__dd.game.timeScale = 0; });
-  await page.waitForTimeout(80);
+  // Freeze, then re-assert the chain so slipMix (and the light-climb) holds for the shot.
+  await page.evaluate((ch) => { window.__dd.game.timeScale = 0; window.__dd.game.flowChain = ch; }, chain);
+  await page.waitForTimeout(140);
   const buf = await page.screenshot();
   await done();
-  return buf;
+  return { buf, dist: targetDist };
 }
 
+// Resolve the framing gate once (cold), then frame ALL cells on that same gate
+// plane so only the chain / off-axis / build differs — a fair A/B.
+const cold = await capture({ skyforged: true, chain: 0 });
+const D = cold.dist;
 const shots = {
-  cold: await capture({ skyforged: true, chain: 0 }),
-  hot: await capture({ skyforged: true, chain: 20 }),
-  offaxis: await capture({ skyforged: true, chain: 12, offX: 7 }),
-  skygate: await capture({ skyforged: false, chain: 0 }),
+  cold: cold.buf,
+  hot: (await capture({ skyforged: true, chain: 20, frameDist: D })).buf,
+  offaxis: (await capture({ skyforged: true, chain: 12, offX: 7, frameDist: D })).buf,
+  skygate: (await capture({ skyforged: false, chain: 0, frameDist: D })).buf,
 };
 for (const [k, v] of Object.entries(shots)) writeFileSync(`/tmp/marker-${k}.png`, v);
 
