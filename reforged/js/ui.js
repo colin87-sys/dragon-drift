@@ -89,6 +89,7 @@ let popupTimer = null;
 let lastCombo = 1;
 let lastChain = 0;
 let lastGraze = -1;
+let lastFlowOn = false;
 let lastSurgeLit = -1;     // gems currently lit (avoid per-frame DOM churn)
 let lastThreshold = -1;    // gem-slot count (feverThreshold can change)
 let wasFever = false;      // fever-start edge -> ignition animation
@@ -498,6 +499,30 @@ export const ui = {
         <div class="surge-x" id="surge-x">×1.00</div>
         <div class="surge-gems" id="surge-gems"></div>
       </div>
+      <!-- FLOW crest ("Keystone Crest"): a miniature Windvault — cyan light climbs both
+           legs of a forged-glass arch as the carve chain builds, meeting at the keystone
+           at the cap (×3.0). The ×N.N multiplier is suspended in the aperture. Shown ONLY
+           during a Sky Canyon flow run. Reuses the stamina-arc SVG technique (pathLength
+           100 + dashoffset) + the Skyforged cyan ramp/climb — the run's own icon. -->
+      <div class="flow-crest" id="flow-crest" data-heat="0">
+        <svg viewBox="0 0 120 66" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <defs>
+            <linearGradient id="flow-grad" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stop-color="#0c63c8"/><stop offset="0.6" stop-color="#3fc8ff"/><stop offset="1" stop-color="#bfeeff"/>
+            </linearGradient>
+          </defs>
+          <path class="fc-trk" d="M 16 58 Q 14 16 54 10"/>
+          <path class="fc-trk" d="M 104 58 Q 106 16 66 10"/>
+          <path class="fc-ghost" id="fc-ghost-l" d="M 16 58 Q 14 16 54 10"/>
+          <path class="fc-ghost" id="fc-ghost-r" d="M 104 58 Q 106 16 66 10"/>
+          <path class="fc-fill" id="fc-fill-l" d="M 16 58 Q 14 16 54 10"/>
+          <path class="fc-fill" id="fc-fill-r" d="M 104 58 Q 106 16 66 10"/>
+          <line class="fc-best" id="fc-best" x1="0" y1="0" x2="0" y2="0"/>
+          <polygon class="fc-keystone" id="fc-keystone" points="60,2 66,10 60,18 54,10"/>
+        </svg>
+        <div class="fc-x" id="fc-x">×1.0</div>
+        <div class="fc-word">FLOW</div>
+      </div>
       <div class="milestone-banner" id="milestone-banner"></div>
       <div class="danger-glow" id="danger-glow"></div>
       <!-- §5b WEFTWITCH HUD-SEW: golden threads stitch across the chrome ONCE at her
@@ -569,6 +594,13 @@ export const ui = {
       chainN:       root.querySelector('#chain-n'),
       grazeHud:     root.querySelector('#graze-hud'),
       grazeN:       root.querySelector('#graze-n'),
+      flowCrest:    root.querySelector('#flow-crest'),
+      fcFillL:      root.querySelector('#fc-fill-l'),
+      fcFillR:      root.querySelector('#fc-fill-r'),
+      fcGhostL:     root.querySelector('#fc-ghost-l'),
+      fcGhostR:     root.querySelector('#fc-ghost-r'),
+      fcBest:       root.querySelector('#fc-best'),
+      fcX:          root.querySelector('#fc-x'),
       bossWarn:     root.querySelector('#boss-warn'),
       hudSew:       root.querySelector('#hud-sew'),
       bossWarnName: root.querySelector('#boss-warn-name'),
@@ -762,6 +794,11 @@ export const ui = {
       }
     }
 
+    // FLOW crest: shown ONLY during a Sky Canyon flow run (other run types get a
+    // byte-identical HUD — it's display:none until this toggles it on). Change-detected.
+    const flowOn = game.canyonRun === 'flow' && !game.inBoss;
+    if (flowOn !== lastFlowOn) { this.flowMeter.show(flowOn); lastFlowOn = flowOn; }
+
     els.dist.textContent = `${Math.floor(player.dist)} m`;
 
     // C1: BEST is a brief encouragement reveal near the record, not a
@@ -860,6 +897,57 @@ export const ui = {
   // is the main feedback; this just names the climbing multiplier). color set by caller.
   flowChainPop(text, color) {
     this._popup(text, color);
+  },
+
+  // The FLOW "Keystone Crest" meter — cyan light climbs both legs of a mini Windvault as the
+  // carve chain builds (dashoffset), the ×N.N rides the aperture, the keystone ignites at the
+  // cap, and a notch marks the best-of-run high-water line. Driven by main.js events — one
+  // write per chain change, no per-frame work. cap/mult come from the caller (CONFIG-free UI).
+  flowMeter: {
+    _apply(chain, mult, cap) {
+      const frac = cap > 0 ? Math.max(0, Math.min(1, chain / cap)) : 0;
+      const off = (100 - frac * 100).toFixed(1);      // dashoffset: 100 = empty foot, 0 = closed apex
+      els.fcFillL.style.strokeDashoffset = off;
+      els.fcFillR.style.strokeDashoffset = off;
+      els.fcX.textContent = `×${mult.toFixed(1)}`;
+      els.flowCrest.dataset.heat = Math.min(4, Math.floor(chain / 5));
+      els.flowCrest.classList.toggle('capped', cap > 0 && chain >= cap);
+    },
+    set(chain, mult, best, cap) {
+      this._apply(chain, mult, cap);
+      restartAnim(els.fcX, 'fc-pop');
+      // Best-of-run notch: a hairline tick on the LEFT leg at the best fraction (Bézier point
+      // + perpendicular), the mark the light must reclaim after a shatter. Hidden once matched.
+      if (best > chain && best > 0 && cap > 0) {
+        const t = Math.max(0, Math.min(1, best / cap)), mt = 1 - t;   // P0(16,58) C(14,16) P1(54,10)
+        const px = mt * mt * 16 + 2 * mt * t * 14 + t * t * 54;
+        const py = mt * mt * 58 + 2 * mt * t * 16 + t * t * 10;
+        let dx = 2 * mt * (14 - 16) + 2 * t * (54 - 14), dy = 2 * mt * (16 - 58) + 2 * t * (10 - 16);
+        const dl = Math.hypot(dx, dy) || 1; const nx = -dy / dl, ny = dx / dl;   // unit perpendicular
+        els.fcBest.setAttribute('x1', (px - nx * 4).toFixed(1)); els.fcBest.setAttribute('y1', (py - ny * 4).toFixed(1));
+        els.fcBest.setAttribute('x2', (px + nx * 4).toFixed(1)); els.fcBest.setAttribute('y2', (py + ny * 4).toFixed(1));
+        els.fcBest.style.opacity = '0.8';
+      } else {
+        els.fcBest.style.opacity = '0';
+      }
+    },
+    drop(chain, mult, cap) {
+      // Snapshot the current light into the ghost strokes, then fade them as the live fill
+      // eases down — "light knocked out of the glass". chain===0 = the dramatic miss-shatter.
+      const cur = els.fcFillL.style.strokeDashoffset || '100';
+      els.fcGhostL.style.strokeDashoffset = cur; els.fcGhostR.style.strokeDashoffset = cur;
+      restartAnim(els.fcGhostL, 'fc-ghost-fade'); restartAnim(els.fcGhostR, 'fc-ghost-fade');
+      this._apply(chain, mult, cap);
+      restartAnim(els.flowCrest, chain === 0 ? 'fc-shatter' : 'fc-knock');
+    },
+    show(on) {
+      els.flowCrest.classList.toggle('on', on);
+      if (!on) {                                       // reset to cold glass when leaving a flow run
+        els.fcFillL.style.strokeDashoffset = '100'; els.fcFillR.style.strokeDashoffset = '100';
+        els.fcX.textContent = '×1.0'; els.flowCrest.dataset.heat = 0;
+        els.flowCrest.classList.remove('capped'); els.fcBest.style.opacity = '0';
+      }
+    },
   },
 
   // Gold radial flash on a perfect-center ring.
