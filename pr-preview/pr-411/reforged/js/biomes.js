@@ -202,6 +202,10 @@ const env = {
   ambColor: new THREE.Color(), ambFall: 1, ambSway: 1, ambSize: 0.4, ambOpacity: 0.75,
   faunaColor: new THREE.Color(), faunaScale: 1, faunaFlap: 1,
   starMix: 0, whaleMix: 0, flybyMix: 0,
+  // Aurora Shallows (BIOME plan): 0 in every current biome (optional-channel
+  // pattern) → the aurora sky-splice is a byte-identical no-op until a biome
+  // declares `aurora`. Consumed by auroraSky.js via applyAurora(env).
+  auroraMix: 0,
   // N8 atmosphere channels (OPTIONAL per biome; 0 everywhere by default so the
   // fog is byte-identical). heightK = thin fog with altitude; inscatter = sunward
   // brightening. Consumed by atmosphere.js via applyAtmosphere(env).
@@ -242,6 +246,7 @@ export function computeEnv(dist) {
   env.faunaScale = lerp(a.fauna.scale, b.fauna.scale, t);
   env.faunaFlap = lerp(a.fauna.flap, b.fauna.flap, t);
   env.starMix = lerp(a.stars || 0, b.stars || 0, t);
+  env.auroraMix = lerp(a.aurora || 0, b.aurora || 0, t);
   env.whaleMix = lerp(a.whale || 0, b.whale || 0, t);
   env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, t);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.

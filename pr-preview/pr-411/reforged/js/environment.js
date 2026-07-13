@@ -11,6 +11,7 @@ import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } fro
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
+import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced } from './auroraSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
 import { getWaterSwellOn } from './water.js';
 import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
@@ -18,6 +19,8 @@ import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as
 // Re-export the sky-IBL + prop-AO + atmosphere + sky-cloud controls so main.js
 // drives them through environment.
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
+// Aurora Shallows: the sky-splice controls ride through environment too.
+export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced };
 // ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
 export { setArenaSetQuality, debugArenaSet, setStarMode };
 
@@ -366,6 +369,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       fogFarMix: { value: 0 },
       time: { value: 0 },
       ...cloudUniforms, // N9: shared sky-cloud uniforms (uCloudAmount 0 = shipped)
+      ...auroraUniforms, // Aurora Shallows: uAuroraMix 0 = shipped (biome x toggle gate)
     },
     vertexShader: `
       varying vec3 vDir;
@@ -378,6 +382,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
       uniform vec3 topColor, midColor, horizonColor, sunGlow, sunDir, fogFarColor;
       uniform float feverMix, feverWarm, starMix, fogFarMix, time, dimMix;
       ${CLOUD_HEAD}
+      ${AURORA_HEAD}
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
@@ -392,13 +397,19 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // sink it toward fogFarColor. Branchless: fogFarMix is 0 in biomes
         // without a fogFarColor, leaving the gradient byte-identical.
         col = mix(col, fogFarColor, fogFarMix * (1.0 - smoothstep(0.0, 0.15, h)));
+        // Aurora PREVIEW night wash (?aurora=1 only): sink the day sky to a near-black indigo BEFORE the
+        // curtain adds on top, so the forced preview reads like the shipping NIGHT biome (an aurora over a
+        // sunlit sky is a physics lie). uAurNight is 0 in all real gameplay → byte-identical.
+        col = mix(col, vec3(0.020, 0.030, 0.075), uAurNight);
+        ${AURORA_BODY}
         ${CLOUD_BODY}
         float s = max(dot(d, normalize(sunDir)), 0.0);
         // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
         // blowing out the centre of the screen and washing out contrast.
         // N9: a cloud covering this pixel occludes the disc (cCov=0 when clouds off
         // → shipped). The halo stays so clouds still glow near the sun.
-        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) + pow(s, 10.0) * 0.16);
+        // (× (1 - uAurNight): the aurora preview kills the sun — a night sky has none.)
+        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) + pow(s, 10.0) * 0.16) * (1.0 - uAurNight);
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);
@@ -414,9 +425,18 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         float star = smoothstep(0.9965, 1.0, sh)
                    * (0.6 + 0.4 * sin(time * 2.0 + sh * 90.0))
                    * smoothstep(0.04, 0.3, h);
-        col += vec3(0.85, 0.9, 1.0) * star * starMix;
-        // Night biomes also get a faint, slow aurora veil of their own.
-        col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12;
+        // Aurora Shallows: the curtain is nearer than the stars — dim them where it burns
+        // (aurLum is 0 in every other biome, so this is a branchless no-op there).
+        star *= 1.0 - 0.65 * clamp(aurLum, 0.0, 1.0);
+        // starMix in real night biomes; the aurora preview also lights the stars (max) so its night sky
+        // isn't an empty void behind the curtain.
+        col += vec3(0.85, 0.9, 1.0) * star * max(starMix, uAurNight * 0.9);
+        // Night biomes also get a faint, slow surge aurora veil of their own — but NOT
+        // over the authentic aurora (two auroras stacked read as noise), so × (1 - mix).
+        col += aurora * smoothstep(0.2, 0.6, h) * starMix * 0.12 * (1.0 - uAuroraMix);
+        // Aurora Shallows tier2 banding guard: a per-pixel ±0.5/255 dither breaks the
+        // smooth green ramp's Mach bands on 8-bit panels (only where the curtain is lit).
+        col += (_aHash(gl_FragCoord.xy) - 0.5) * (1.0 / 255.0) * uAuroraMix;
         // EMBERTIDE sky-replacement crossfade ("one sky, never two"): as EMBERTIDE's dome
         // fades IN, dim the real dome toward black (and it's hidden entirely at dimMix≈1,
         // so its draw is replaced, not stacked — overdraw stays flat).
@@ -632,6 +652,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.fogFarMix.value = env.fogFarMix;
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
+  applyAurora(env, playerDist, time); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down
   // as a cloud drifts across it (rather than strobe). main.js reads getCloudSunCover().
   cloudSunCover = damp(cloudSunCover, sunCloudCover(env, su.sunDir.value, playerDist, time), 3, dt);

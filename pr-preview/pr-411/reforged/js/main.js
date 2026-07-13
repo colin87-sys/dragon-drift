@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -120,6 +120,10 @@ const gfxPref = saveData.settings;
 const tmMode = urlParams.get('tm') || gfxPref.toneMap;
 if (tmMode) setToneMap(renderer, tmMode);
 if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
+// Aurora Shallows PR-1 hero read: ?aurora=1 forces the authentic aurora curtain on in
+// ANY biome (the biome that declares it doesn't exist yet) so the owner can judge it on
+// the preview. mix stays 0 without the flag → byte-identical shipped sky.
+if (urlParams.get('aurora') === '1') setAuroraForced(true);
 // N4 instanced spark backend (150 draws → 1). Must be set before initParticles. NOTE: kept OFF by
 // default — tests/particlebatch.mjs currently FAILS the collapse (the instanced mesh is built but the
 // per-sprite draws still submit → calls go 233→234, not 233→1). Defaulting it on would ADD a draw, not
@@ -1318,6 +1322,7 @@ function applyQuality(tier) {
   setAmbientQuality(QUALITY_SCALARS[tier]);
   setAtmosphereQuality(tier); // N8: tier2 drops heightK/inscatter (keeps far-color mix)
   setSkyCloudQuality(tier); // N9: tier0 full / tier1 fewer octaves+no warp / tier2 off
+  setAuroraQuality(tier); // Aurora Shallows: tier0 2 layers+rays / tier1 1 layer / tier2 smooth quiet arc
   setArenaSetQuality(tier); // ARENA PR-H1/H2: tier2 drops the heaven's holy architecture (palette + rays carry it)
 }
 
@@ -1717,7 +1722,9 @@ function tick() {
     // front-facing it is (postfx disables the pass + mask render when it's ~0).
     camera.updateMatrixWorld();
     camera.getWorldDirection(_camFwd);
-    const sunFacing = _camFwd.dot(SUN_DIR);
+    // Aurora preview (?aurora=1) is a night sky with no sun → no light-shafts (the sky-shader sun kill
+    // doesn't reach the postfx pass, so gate its strength to 0 here too, else a white fan blows out the dark sky).
+    const sunFacing = auroraForced() ? 0 : _camFwd.dot(SUN_DIR);
     if (sunFacing > 0.05) {
       _sunProj.copy(SUN_DIR).add(camera.position).project(camera);
       // N9: ease the shafts down as clouds drift across the sun (damped in env;
