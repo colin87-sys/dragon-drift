@@ -642,7 +642,7 @@ export const DRAGONS = {
     // Apex reference dials (all nullable / default-off in dragonRevenant.js). The real
     // HOLLOWING ladder (rib windows, coreBlaze, socket vents, wisp, crescents) lands in I5.
     model: {
-      scale: 1.14, tailSegments: 8, neckSegments: 3, flapBias: 0.9, flapAmp: 0.85,
+      scale: 1.22, tailSegments: 13, neckSegments: 4, flapBias: 0.9, flapAmp: 0.85,
       spanScale: 1.0, glowLevel: 1.0, headScale: 1.0, tailLength: 1.0, tailStretch: 1.0,
       fingers: 4, wristT: 0.24,
       // WING MOTION — the phalanx-shroud is a 3-segment hinge (pivot/mid/tip); the SNAP
@@ -658,18 +658,18 @@ export const DRAGONS = {
     // The HOLLOWING ladder (§4.5): ribWindows {0,2,4,6}, coreBlaze {.15,.4,.7,1}, and
     // the vertebra file grows (neck 3→5). BODY VALUE RISES up the rungs (BLEACH).
     forms: [
-      { spanScale: 0.66, glowLevel: 0.25, headScale: 1.24, fingers: 2, tailStretch: 1.0,
-        ribWindows: 0, coreBlaze: 0.15, neckVerts: 3, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0,
-        colors: { body: 0x9a9284, belly: 0x827b6d, wingOuter: 0x9a9284, eye: 0x54c81e } },   // Grave Whelp (sealed cage)
-      { spanScale: 0.79, glowLevel: 0.50, headScale: 1.14, fingers: 3, tailStretch: 1.0,
-        ribWindows: 2, coreBlaze: 0.40, neckVerts: 4, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.5,
-        colors: { body: 0xaaa392, belly: 0x8f886f, wingOuter: 0xaaa392, eye: 0x5cd41e } },   // First Waking
-      { spanScale: 0.92, glowLevel: 0.75, headScale: 1.06, fingers: 4, tailStretch: 1.0,
-        ribWindows: 4, coreBlaze: 0.70, neckVerts: 4, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 0.8,
-        colors: { body: 0xbdb6a4, belly: 0x9c9578, wingOuter: 0xbdb6a4, eye: 0x66e638 } },   // Open Cage
+      { spanScale: 0.70, glowLevel: 0.25, headScale: 1.20, fingers: 2, tailStretch: 1.0,
+        ribWindows: 0, coreBlaze: 0.15, neckVerts: 4, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.3,
+        colors: { body: 0xc6c2b6, belly: 0xaba695, wingOuter: 0xc6c2b6, eye: 0x54e01e } },   // Grave Whelp (sealed cage)
+      { spanScale: 0.82, glowLevel: 0.50, headScale: 1.12, fingers: 3, tailStretch: 1.0,
+        ribWindows: 2, coreBlaze: 0.40, neckVerts: 5, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.6,
+        colors: { body: 0xd4d0c4, belly: 0xb9b4a3, wingOuter: 0xd4d0c4, eye: 0x5ce828 } },   // First Waking
+      { spanScale: 0.92, glowLevel: 0.75, headScale: 1.05, fingers: 4, tailStretch: 1.0,
+        ribWindows: 4, coreBlaze: 0.70, neckVerts: 6, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 0.8,
+        colors: { body: 0xdedbcf, belly: 0xc4bfae, wingOuter: 0xdedbcf, eye: 0x66f038 } },   // Open Cage
       { spanScale: 1.0, glowLevel: 1.00, headScale: 1.0, fingers: 4, tailStretch: 1.0,
-        ribWindows: 6, coreBlaze: 1.00, neckVerts: 5, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
-        colors: { body: 0xcfc9b8, belly: 0xaaa392, wingOuter: 0xcfc9b8, eye: 0x76f068 } },   // Gravelight Revenant
+        ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
+        colors: { body: 0xe8e5da, belly: 0xcdc9bc, wingOuter: 0xe8e5da, eye: 0x76ff68 } },   // Gravelight Revenant
     ],
     fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
     hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
