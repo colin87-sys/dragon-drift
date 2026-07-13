@@ -629,6 +629,19 @@ run local/on-demand; only math + plumbing tests gate CI).
   look work on the collectibles rather than the renderer, but it lives here because it's the premium-look backlog
   and follows the same gate + `graphics-`-slug lesson discipline. (Owner: *"happy with plan, just make sure you
   add it to the list of things to do so we don't forget."*)
+  - **✓ Landed — PR-1 Windvault + `markerSurface.js` (`?skyforged=0` A/B, default ON). Gate 2 SHIP 8/10.** The
+    shared Skyforged-glass factory (opaque emissive, baked `glowT` axial ramp + fresnel rim + flow-climb phase,
+    per-role `flowRef` + global `timeRef`, one `customProgramCacheKey`) + the Windvault (hand-rolled swept faceted
+    horseshoe arch, keystone shard, flat facets) replace the rejected Sky Gate (kept as the `?skyforged=0`
+    fallback, deleted after owner sign-off). Render-only (determinism byte-identical, walls-free
+    `flowColliderBoxes()===0`), a net perf win (~218 tris/1 draw vs ~536/3 + halo). See lesson
+    `2026-07-13-graphics-skyforged-windvault.md`. **Gate-2 deltas → PR-2 follow-ups (surface-material tuning, the
+    8→9 gap):** **D1** make the facets survive bloom (baked per-facet ±emissive jitter, or narrow the rim
+    `uRimPow` ~2.4→4 so the glint concentrates on facet edges) judged at the 34m framing; **D2** widen the
+    cold↔hot color story (deepen the cold root/mid cyan saturation so the resting arch reads *glass* and doesn't
+    wash into the sunset, and the hot state doesn't fully white out); **D3** tooling — `markershot` should hide the
+    interleaved Phase Gate by kind, not only by the veil `uEdge` uniform. Owner judges the climb-front motion +
+    the hot white-out on the live preview.
 
 ---
 
@@ -638,7 +651,7 @@ One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable 
 
 | PR / Phase | Initiative | Fable score | Verdict | Notes |
 |------------|-----------|-------------|---------|-------|
-| #373 Phase 0 | N2 renderer contract | 9/10 | SHIP | `stencil:false` skip justified (EffectComposer clears stencil); recorded deviation |
+| #402 N17 (PR-1) | Windvault gate + `markerSurface.js` | 8/10 | SHIP | Gate-1 ADJUST(A1–A6) all applied+verified (coexist-not-delete; per-role `flowRef` + palette-as-uniforms + one `customProgramCacheKey`; keystone bakes `glowT` for merge parity + flat facets; tall horseshoe + z-elongated x-section for the edge-on read; shot tool). Gate-2 independently verified identity-off (`gold-determinism` byte-identical), walls-free (3 ways), one-program key, merge parity, and the 1-vs-3 rng branch asymmetry is safe (terminal kind branch, no downstream draws); NOT `bindAtmosphere`'d = documented deviation; net perf win (~218 tris/1 draw vs ~536/3 + halo). Premium delta over the Sky Gate "decisive"; loses 9 on facet/gradient subtlety at the 34m framing (bloom+ACES flatten the glints) → D1 per-facet emissive jitter / narrower rim, D2 deepen cold cyan saturation, D3 hide the harness Phase Gate by kind — all staged for PR-2. Human judges the climb-front motion + hot white-out on the preview |
 | #373 Phase 0 | N1 gradient dither | 8.5/10 | SHIP | placement/amplitude verified; `?dither=0` = exact identity; tier2 sky/water copies deferred; gate margin added |
 | #373 Phase 0 | N3 tonemap scaffold | 5.5→SHIP | REVISE→fixed | Gate caught: vendored `OutputPass` had no `CustomToneMapping` branch → `?tm=neutral` was untonemapped on tier0/1. Patched `OutputPass.js`+`OutputShader.js`, reshot montage at pinned tier0, restamped `sw.js`, fixed idempotence test |
 | #376 N4 | N4 ParticleBatch | 7.5→SHIP | REVISE→fixed | Billboard/blend parity verified vs vendored sprite shader; 150 draws→1. Gate caught: `BATCH_FRAG` lacked `tonemapping`/`colorspace` chunks → tier2 (direct-to-screen) sparks skipped ACES+sRGB, read ~25-35% dimmer. Added the two includes (auto-gated per render target); `pfxshot` now shoots tier0+tier2. Fog left as documented deviation (near-field bursts unaffected) |

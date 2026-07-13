@@ -60,11 +60,18 @@ normal-course **Phase Gates**, one of which can straddle the framed flow plane (
 real flow play) — hide them by their veil `ShaderMaterial`'s `uEdge` uniform so the A/B judges the
 flow marker alone. (`tools/markershot.mjs`.)
 
-**Gotcha / open question for Gate 2 + the owner.** At gameplay distance the Windvault reads as a
-clean glowing cyan-white arch — the **facets and the cyan→white gradient are subtle** (the "forged
-glass" material story is more felt than seen). It already looks far more premium than the Sky Gate,
-but if it should read as *glass* up close the facet contrast / gradient may want a boost. Flagged
-for the montage judgment.
+**Gotcha / the 8→9 gap (Gate 2 SHIP 8/10).** At gameplay distance the Windvault reads as a clean
+glowing cyan-white arch — the **facets and the cyan→white gradient are subtle** (the "forged glass"
+material story is carried by the SILHOUETTE, not the surface: bloom + ACES flatten the pentagonal
+glints into a smooth tube glow at the 34m framing, and the ramp whites out when hot). Gate 2 called
+the premium delta over the Sky Gate *"decisive"* and verified every risky claim, but this material
+is the SPINE PR-2/PR-3 ride, so the signature should strengthen. Deltas staged for PR-2:
+**D1** make the facets survive bloom — a baked per-facet ±emissive jitter attribute, or narrow the
+rim (`uRimPow` ~2.4→4) so the glint concentrates on facet edges — judged at the 34m framing, not
+close-up; **D2** widen the cold↔hot color story — deepen the cold root/mid cyan saturation so the
+resting arch reads as *glass* and the hot state doesn't fully white out; **D3** tooling — hide the
+interleaved harness Phase Gate by entry kind, not only by the veil `uEdge` uniform (one lingers in
+the cold cell). Owner judges the climb-front motion + the hot white-out on the live preview.
 
 **Leapfrog.** `markerSurface.js` is now the shared spine: **PR-2 Star Shard** (global orb; delete
 the additive glow sprite — a perf win) and **PR-3 Jade Annulus** (global ring; per-instance
