@@ -91,7 +91,8 @@ let novaMat = null, spiralMat = null, detMat = null;
 let debris = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // the recycled radial-outward rock conveyor
 let embers = null, emberMat = null;    // the fine-particulate spark layer (shader-driven, recycled)
 const EMBER_N = 1536;                  // the roiling "substance": dense curved trails, ONE static draw
-let tierHidden = false;             // low-tier kill switch (setArenaSetQuality)
+let tierLevel = 0;                  // 0/1/2 — tier 2 GRACEFULLY degrades (cheap core+corona) instead of hiding the set (never a hard black)
+let detCoreCoronaVerts = 0;         // the [0,n) draw-range that keeps only core+corona at tier 2
 let lastK = 0;                      // debug seam: the engage level actually applied this frame
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _sc = new THREE.Vector3();   // debris scratch (alloc-free)
 
@@ -267,6 +268,7 @@ function buildDetonationGeo(prnd) {
       push(P(r0, a0), c0, [t0, u0], 3, 0); push(P(r1, a1), c1, [t1, u1], 3, 0); push(P(r0, a1), c0, [t0, u1], 3, 0);
     }
   }
+  detCoreCoronaVerts = pos.length / 3;   // tier-2 graceful degrade draws only [0, here) = core + corona (never a hard black)
   // ── RADIAL STREAK FAN (aType 1): the frame-filler + the primary perpetual loop. Eclipse + down-
   // suppression BAKED into vertex colour; the shader adds the outward scroll + tip decay + edge fade.
   const NST = 48, SEG = 5, W_IN = 4.2, W_TIP = 0.8;             // fewer, THINNER — demoted from spokes to snaking dust rivulets (the embers now carry the density)
@@ -635,7 +637,7 @@ export function setStarMode(mode) {
 // reads. Hidden ⇒ one write on the falling edge, then zero writes (the arenaPropsGate recipe).
 export function updateArenaSet(time, playerDist, mix, fade) {
   if (!set) return;
-  const k = tierHidden ? 0 : ss((mix - RISE_LO) / (RISE_HI - RISE_LO)) * Math.max(0, Math.min(1, fade));
+  const k = ss((mix - RISE_LO) / (RISE_HI - RISE_LO)) * Math.max(0, Math.min(1, fade));   // tier no longer hides the set — tier 2 degrades it gracefully (setArenaSetQuality)
   if (k <= 0) {
     if (set.visible) {
       set.visible = false;
@@ -691,9 +693,11 @@ export function updateArenaSet(time, playerDist, mix, fade) {
 // Tier off-switch (main.js applyQuality): the low tier drops the set entirely — the cosmos
 // palette + firmament + nebula carry the identity there (the god-ray/kick tier precedent).
 export function setArenaSetQuality(tier) {
-  tierHidden = tier >= 2;
-  if (detMat) detMat.uniforms.uOct.value = tier >= 1 ? 2 : 3;   // tier dial: fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
-  if (embers) embers.geometry.setDrawRange(0, (tier >= 1 ? 768 : EMBER_N) * 6);   // tier 1 keeps the largest 768 trails (buffer is size-sorted)
+  tierLevel = tier;
+  if (detMat) detMat.uniforms.uOct.value = tier >= 2 ? 1 : (tier >= 1 ? 2 : 3);   // fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
+  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 256 : tier >= 1 ? 768 : EMBER_N) * 6);   // size-sorted buffer → the biggest trails survive
+  if (deton) deton.geometry.setDrawRange(0, tier >= 2 ? detCoreCoronaVerts : Infinity);   // GRACEFUL DEGRADE: tier 2 keeps core+corona (a lit blast heart) instead of hiding the whole set → never a hard black
+  if (debris) debris.visible = tier < 2;   // debris off at tier 2 (opaque cost)
 }
 
 // Debug seam (tests/unmaskedarena.mjs): the coexist proof reads this through bossArenaState().
@@ -705,7 +709,7 @@ export function debugArenaSet() {
     debrisN: DEBRIS_N, debrisVis: !!set && set.visible && !!debris, debrisMinX,   // debrisMinX ≥ 25 ⇒ no background chunk enters the focal/corridor column
     debrisFlybyMargin,   // ≥ 0 ⇒ no FLYBY rock ever crosses the flight lane at any camera depth
     emberN: EMBER_N, emberVis: !!set && set.visible && !!embers && embers.visible,
-    tierHidden };
+    tier: tierLevel, tierHidden: tierLevel >= 2 };   // tierHidden now means "tier-2 graceful degrade" (core+corona kept), not a full hide
 }
 
 // Belt-and-braces for the restart path (resetEnvironment) — the stateless mix would self-heal

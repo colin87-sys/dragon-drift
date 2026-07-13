@@ -369,6 +369,7 @@ if (urlParams.has('debug')) {
     bossPartWorldPos: (part) => debugPartWorldPos(part),
     bossStrikeSurge: () => debugStrikeSurge(),
     bossRaiseShield: () => debugRaiseShield(),
+    setQuality: (t) => applyQuality(t),   // test/dev seam: force a quality tier (the tier-2 graceful-degrade proof)
     // PR6 seams: liveness-filtered paintables, shimmer count, runtime def pick.
     bossPaintables: () => debugPaintables(),
     bossShimmerCount: () => debugShimmerCount(),
@@ -1227,6 +1228,7 @@ let screenshotTimer = 0;
 let fpsAvg = 60;
 let qualityTier = 0;        // 0 = full, 1 = reduced, 2 = low
 let qualityTimer = 0;       // time spent above the restore threshold
+let degradeTimer = 0;       // time spent below the degrade threshold (dwell → a hitch can't cascade tiers)
 let warmup = 2;             // ignore first seconds (shader-compile jank)
 const QUALITY_SCALARS = [1, 0.6, 0.35];
 const PIXEL_RATIOS = [
@@ -1263,20 +1265,25 @@ function updateQuality(dt) {
     return;
   }
   if (warmup > 0) { warmup -= dt; return; }
-  fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * Math.min(dt * 2, 1);
+  // HITCH REJECTION: a single long frame (shield-raise flash + first shield-shader compile, GC, a tab
+  // stall) is NOT a sustained framerate — feeding it to the average nuked quality for a transient spike
+  // (a shield hitch could cascade tier 0→2 in two frames, and tier 2 hides the whole detonation → the
+  // "background goes black" report). Drop the frame entirely.
+  if (dt > 0.25) { degradeTimer = 0; return; }
+  fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * Math.min(dt * 2, 0.2);   // clamp the EMA weight so one slow frame can't dominate the average
   const degradeAt = [55, 42, 0][qualityTier];
-  const restoreAt = [Infinity, 63, 50][qualityTier];
+  const restoreAt = [Infinity, 58, 50][qualityTier];   // 63→58: 63 is unreachable at 60Hz vsync (fpsAvg asymptotes ≤ ~60), so the game got STUCK at tier 1 forever after any single dip
   if (fpsAvg < degradeAt) {
-    applyQuality(qualityTier + 1);
-    qualityTimer = 0;
+    // DEGRADE HYSTERESIS: the low FPS must HOLD ~0.9s (symmetric to the 3s restore dwell) before we drop
+    // a tier — a momentary hitch no longer collapses the quality (and, with F2, never hard-blacks anyway).
+    degradeTimer += dt;
+    if (degradeTimer > 0.9) { applyQuality(qualityTier + 1); degradeTimer = 0; qualityTimer = 0; }
   } else if (fpsAvg > restoreAt) {
+    degradeTimer = 0;
     qualityTimer += dt;
-    if (qualityTimer > 3) {
-      applyQuality(qualityTier - 1);
-      qualityTimer = 0;
-    }
+    if (qualityTimer > 3) { applyQuality(qualityTier - 1); qualityTimer = 0; }
   } else {
-    qualityTimer = 0;
+    degradeTimer = 0; qualityTimer = 0;
   }
 }
 
