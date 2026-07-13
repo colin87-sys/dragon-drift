@@ -604,6 +604,32 @@ run local/on-demand; only math + plumbing tests gate CI).
   shader initiative — schedule it in Phase 2/3 alongside the world work, and treat every lighting upgrade (N5/N7)
   as raising the bar the props must meet. (Owner-flagged, 2026-07-11.)
 
+- **N17 — Premium collectibles: the "Skyforged glass" marker system.** *(Owner-approved plan, 2026-07-13 — must
+  not be forgotten.)* The owner flew the Sky Canyon **flow** run and rejected the flow gate as *"tacky and
+  cheap,"* and separately noted the rings/powerups don't read premium. A high-effort Fable art-direction pass
+  diagnosed the markers against 7 premium principles (one designed form, not an assembly; weight/taper; emissive
+  gradient; material story/fresnel; restraint; weighted motion; one 3-stop palette ramp per role) and proposed a
+  unifying **"Skyforged glass"** language — every marker reads as *light suspended in forged, faceted glass* via a
+  shared new material patch, **`js/markerSurface.js`** (axial emissive gradient from a baked `glowT` vertex attr +
+  fresnel rim + a flow phase). Three redesigns ride it:
+  - **Gate → Windvault** (replaces the rejected Sky Gate): a **single** tapered arc of forged light — a swept
+    faceted tube, root-thick tapering to a keystone-shard apex above the ring; the light climbs the arch with
+    `slipMix`. Delete the posts/chevron/gem/halo.
+  - **Orb → Star Shard** (global): a faceted directional crystal pointing along the flight axis; **delete the
+    additive glow sprite** (`powerups.js` `glowTex`) — a perf win, not just a look change.
+  - **Ring → Jade Annulus** (global): a gem-cut faceted lathe with a hot inner lip outlining the aperture, and a
+    precession wobble replacing the constant spin; fix the `transparent:true`-from-spawn wart (`rings.js`). Keep
+    the **circular green** silhouette (owner-approved default).
+  - **Gate frame polish** (optional PR-4).
+  **Rollout (owner-approved defaults — global retool, staged FLOW-FIRST):** PR-1 Windvault + `markerSurface.js`
+  (ship for the `?flowrun` read) → PR-2 Star Shard (global, deletes the sprite) → PR-3 Jade Annulus (global) →
+  PR-4 frame polish. **Constraints:** every PR is **render-only** (determinism byte-identical — markers are drawn
+  from segment fields, `e.boxes` stays empty, `gold-determinism` unchanged), behind an **A/B kill-switch**, judged
+  via the **Fable Quality-Gate** (Gate 1 pre-build, Gate 2 pre-merge), with a new `tests/markers.mjs`. This is
+  look work on the collectibles rather than the renderer, but it lives here because it's the premium-look backlog
+  and follows the same gate + `graphics-`-slug lesson discipline. (Owner: *"happy with plan, just make sure you
+  add it to the list of things to do so we don't forget."*)
+
 ---
 
 ## Gate Log
