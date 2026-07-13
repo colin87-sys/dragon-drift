@@ -62,17 +62,11 @@ async function capture({ skyforged = true, chain = 0, offX = 0, frameDist = 0 })
     window.__dd.game.timeScale = 0;
     window.__dd.game.flowChain = ch;
     window.__dd.player.canyonSlip = ch ? 2.0 : 1.0; // 2.0 clamps slipMix to 1 regardless of the run ceiling
-    // The forced ?canyon=flow harness interleaves normal-course PHASE GATES, one of
-    // which can straddle the framed flow plane (never happens in real flow play).
-    // Hide any Phase-Gate group (identified by its veil ShaderMaterial's uEdge uniform)
-    // so the A/B judges the flow marker alone. The Windvault + reward ring are separate
-    // groups without a veil, so they survive.
-    window.__dd.scene.traverse((o) => {
-      if (o.material && o.material.uniforms && o.material.uniforms.uEdge) {
-        let g = o; while (g.parent && g.parent !== window.__dd.scene) g = g.parent;
-        g.visible = false;
-      }
-    });
+    // D3: the forced ?canyon=flow harness interleaves normal-course PHASE GATES, one of
+    // which can straddle the framed flow plane (never happens in real flow play). Hide any
+    // Phase-Gate group by its `userData.phaseGate` tag so the A/B judges the flow marker
+    // alone. The Windvault + reward ring are separate groups, so they survive.
+    window.__dd.scene.traverse((o) => { if (o.userData && o.userData.phaseGate) o.visible = false; });
     for (let i = 0; i < 4; i++) await new Promise((r) => requestAnimationFrame(r));
   }, chain);
   await page.waitForTimeout(120);

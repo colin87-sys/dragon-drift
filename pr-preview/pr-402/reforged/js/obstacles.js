@@ -4,7 +4,7 @@ import { biomeIndexAt } from './biomes.js';
 import { halves, band, centre, spineSway, rockSlicePlan, CORRIDOR_HALF, kindMult } from './canyonMath.js';
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
-import { makeMarkerSurface, bakeGlowT } from './markerSurface.js';
+import { makeMarkerSurface, bakeGlowT, bakeConst, facetHash } from './markerSurface.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
 // Skyforged A/B kill-switch: the premium Windvault gate is ON by default;
@@ -212,25 +212,29 @@ function buildWindvault(gx, gy, j) {
     for (let k = 0; k < K; k++) { const ang = (k / K) * Math.PI * 2 + 0.3; const c = Math.cos(ang) * rN, s = Math.sin(ang) * rZ; ring.push([p.x + nx * c, p.y + ny * c, s]); }
     rings.push({ ring, gt });
   }
-  const posA = [], gtA = [];
-  const tri = (v0, v1, v2, g0, g1, g2) => { posA.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]); gtA.push(g0, g1, g2); };
+  const posA = [], gtA = [], fjA = [];
+  const tri = (v0, v1, v2, g0, g1, g2, fj) => { posA.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]); gtA.push(g0, g1, g2); fjA.push(fj, fj, fj); };
   for (let i = 0; i < rings.length - 1; i++) {
     const r0 = rings[i], r1 = rings[i + 1];
     for (let k = 0; k < K; k++) {
       const kn = (k + 1) % K;
-      tri(r0.ring[k], r1.ring[k], r1.ring[kn], r0.gt, r1.gt, r1.gt);
-      tri(r0.ring[k], r1.ring[kn], r0.ring[kn], r0.gt, r1.gt, r0.gt);
+      const fj = facetHash(i * K + k);           // D1: per-QUAD facet id (both tris share it)
+      tri(r0.ring[k], r1.ring[k], r1.ring[kn], r0.gt, r1.gt, r1.gt, fj);
+      tri(r0.ring[k], r1.ring[kn], r0.ring[kn], r0.gt, r1.gt, r0.gt, fj);
     }
   }
   const tube = new THREE.BufferGeometry();
   tube.setAttribute('position', new THREE.Float32BufferAttribute(posA, 3));
   tube.setAttribute('glowT', new THREE.Float32BufferAttribute(gtA, 1));
+  tube.setAttribute('facetJ', new THREE.Float32BufferAttribute(fjA, 1));
   geoms.push(tube);
-  // Keystone shard at the crown (glowT baked = 1) — the far-field bloom point.
+  // Keystone shard at the crown (glowT baked = 1) — the far-field bloom point. Bake a
+  // constant facetJ too so the merged attribute set matches the tube (else mergeGeometries → null).
   const key = new THREE.OctahedronGeometry(0.95, 0).toNonIndexed();
   key.deleteAttribute('normal'); key.deleteAttribute('uv'); // match the tube's attribute set
   key.scale(0.8, 1.3, 0.8); key.rotateY(0.4 + j * 0.5); key.translate(cxA, crownY + 0.4, 0);
   bakeGlowT(key, () => 1.0);
+  bakeConst(key, 'facetJ', 0.5);
   geoms.push(key);
   const merged = mergeGeometries(geoms, false); // both are position+glowT → never null
   geoms.forEach((g) => g.dispose());
@@ -268,6 +272,7 @@ export function addObstacle(o) {
 // per-instance (marked so removeAt disposes them).
 function buildGate(o) {
   const group = new THREE.Group();
+  group.userData.phaseGate = true;   // tag: lets tooling hide the harness-interleaved Phase Gate reliably
   const bi = biomeIndexAt(o.dist);
   const skin = PHASE_SKINS[bi];
   const veilMat = veilMats[bi];
