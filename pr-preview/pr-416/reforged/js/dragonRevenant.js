@@ -357,16 +357,17 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // (elev +15° leading → −20° trailing) — a VENTRAL dome that cups air to glide, not the old
   // dorsal up-flick (owner: the camber was inverted). Each finger is sampled along its curved
   // spar so the membrane can weld to the bone. Rows = [azimuth° aft, elevation° (up+), length×].
-  const FAN = [[25, 15, 1.00], [42, 0, 0.92], [60, -8, 0.74], [76, -15, 0.55], [88, -20, 0.40]];
+  const FAN = [[25, 1.00], [42, 0.92], [60, 0.74], [76, 0.55], [88, 0.40]];   // [azimuth° aft off K, length× of finger 0]
+  const DROOP = [0.12, 0.16, 0.20, 0.24, 0.28];   // tip drop BELOW the wrist line, × finger length — EVERY tip droops (ventral dome that cups air; the trailing fingers droop most). NO dorsal lift (owner/critic: the wing was cupping UP in a raised V).
   const D2R = Math.PI / 180, NS = 4, L0 = 0.92 * hs;   // finger-0 length (long — the arm gave up its share)
   const spars = [], fingerT = [];
   for (let i = 0; i < N; i++) {
     const rowF = i / Math.max(1, N - 1) * (FAN.length - 1);
     const ri = Math.min(FAN.length - 2, Math.floor(rowF)), f = rowF - ri;
     const az = (FAN[ri][0] + (FAN[ri + 1][0] - FAN[ri][0]) * f) * D2R;
-    const el = (FAN[ri][1] + (FAN[ri + 1][1] - FAN[ri][1]) * f) * D2R;
-    const L = L0 * (FAN[ri][2] + (FAN[ri + 1][2] - FAN[ri][2]) * f);
-    const tip = [K[0] + Math.cos(el) * Math.cos(az) * L, K[1] + Math.sin(el) * L, K[2] + Math.cos(el) * Math.sin(az) * L];
+    const L = L0 * (FAN[ri][1] + (FAN[ri + 1][1] - FAN[ri][1]) * f);
+    const dr = (DROOP[Math.min(N - 1, Math.max(0, Math.round(rowF)))]) * L;   // droop below the wrist plane
+    const tip = [K[0] + Math.cos(az) * L, K[1] - dr, K[2] + Math.sin(az) * L];   // XZ from azimuth; Y DROOPS below the wrist → ventral cup
     // knuckle at ~58% to the tip: forward-outboard bow in XZ = concave-AFT plan curve (convex
     // leading edge). Finger 0 throws its knuckle STRONGLY forward (−Z) for the "‹" kink. Y stays
     // on the straight chord (no dorsal flip); the spanwise droop above gives the dome.
