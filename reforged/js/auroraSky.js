@@ -136,21 +136,30 @@ export const AURORA_BODY = /* glsl */`
             // THE HOT-LINE: a real border is 2–3× brighter than the diffuse column above it.
             float hot = exp(-max(hy - h0, 0.0) * 28.0);
             I *= 1.0 + 2.2 * hot * below;
-            // THE ALTITUDE PHYSICS RAMP (the answer to "one color?"): green 557.7nm owns the border +
-            // low column; a high-altitude TEAL cools the mid column (quiet richness, always on); and — only
-            // during an ERUPTION — a violet N2+ base, a pink overlap bell, and an ADDITIVE 630nm red crown
-            // (brighter than the green, so it reads crimson, not murky). Border stays green + last.
+            // THE ALTITUDE PHYSICS RAMP — FULL STRUCTURE (Gate-8): quiet = green + teal (unchanged). An
+            // eruption adds THREE hybrid bands — violet-blue N2+ base, PINK overlap, 630nm crimson crown —
+            // each a MIX (hue authority, saturates at erupt=1) + a small ADDITIVE (luminance parity so no
+            // single hue monopolises — the old all-additive red did), windowed in v with soft OVERLAPS so
+            // bottom→top reads violet→green→pink→crimson blended, not two colors. (per-ray v-stagger kept.)
             vec3 aCol = mix(uAurFringe, uAurGreen, smoothstep(h0 - 0.02, h0 + 0.005, hy));
-            aCol = mix(aCol, uAurViolet, (1.0 - body) * 0.20 * uAurErupt);     // violet base (eruption only, cut hard)
-            // per-ray color STAGGER: each ray's green→cyan→pink transition sits at its own height, so the
-            // color blends ALONG the lines (reference photo 3) instead of a horizontal ray-shaped band.
             float v = clamp((hy - h0) * (2.6 - 1.0 * uAurAct) + (rn - 0.5) * 0.3 * uAurRay, 0.0, 1.0);
-            aCol = mix(aCol, uAurTeal, 0.55 * smoothstep(0.15, 0.55, v));      // altitude cooling (always)
-            float crown = smoothstep(0.35, 0.85, v);
-            aCol = mix(aCol, uAurPink, crown * (1.0 - crown) * 1.1 * uAurErupt); // pink overlap bell (eruption, cut 2.4→1.1)
-            aCol += uAurRed * crown * crown * 0.45 * uAurErupt;                 // additive red crown (eruption, cut 0.85→0.45)
-            aCol = mix(aCol, uAurGreenHot, hot * below);                        // green border stays on top
-            I *= 1.0 + 0.25 * crown * uAurErupt;                               // ray tops flare (cut 0.45→0.25)
+            aCol = mix(aCol, uAurTeal, 0.55 * smoothstep(0.15, 0.55, v));      // altitude cooling (always) — UNCHANGED
+            float em = min(uAurErupt, 1.0);     // hue weight (mix) — saturates so hues never overshoot
+            float ea = uAurErupt;               // glow weight (additive) — rides the dial past 1.0
+            // VIOLET-BLUE BASE: the low column ABOVE the border (v < ~0.34), plus the old sub-border skirt.
+            float baseB = max((1.0 - smoothstep(0.12, 0.34, v)) * body, 1.0 - body);
+            aCol = mix(aCol, uAurViolet, 0.55 * baseB * em);
+            aCol += uAurViolet * baseB * 0.18 * ea;
+            // PINK OVERLAP: a PLATEAU band where green hands off to red (the old crown·(1-crown) capped at 0.25).
+            float pinkB = smoothstep(0.30, 0.50, v) * (1.0 - smoothstep(0.55, 0.75, v));
+            aCol = mix(aCol, uAurPink, 0.85 * pinkB * em);
+            aCol += uAurPink * pinkB * 0.16 * ea;
+            // CRIMSON CROWN: hue by MIX now (reads crimson, not just "the brightest thing") + a small glow.
+            float crown = smoothstep(0.48, 0.92, v);
+            aCol = mix(aCol, uAurRed, 0.75 * crown * em);
+            aCol += uAurRed * crown * crown * 0.20 * ea;
+            aCol = mix(aCol, uAurGreenHot, hot * below);                        // green border stays last (Gate-2)
+            I *= 1.0 + 0.25 * crown * uAurErupt;                               // ray-top flare — unchanged
             // SPLIT GAIN: the diffuse column is capped LOW (0.55, never blooms) while the thin hot border
             // + crown reach 1.0 and cross the bloom threshold — the glow lives only in the concentrated cores.
             col += aCol * I * uAuroraMix * (0.55 + 0.45 * hot * below);
@@ -201,8 +210,8 @@ export const auroraUniforms = {
   uAurGreenHot: { value: new THREE.Color(0x86ff5c) },// hotter yellow-green for the bright border line
   uAurTeal:   { value: new THREE.Color(0x3ce6b8) },  // high-altitude cooling — quiet-mode second hue (always on)
   uAurRed:    { value: new THREE.Color(0xff4652) },  // 630 nm oxygen RED crown — brighter than green (additive)
-  uAurPink:   { value: new THREE.Color(0xff9bc2) },  // green×red overlap band (eruption)
-  uAurViolet: { value: new THREE.Color(0x8f7bff) },  // N2+ violet-blue base (eruption)
+  uAurPink:   { value: new THREE.Color(0xff7fae) },  // green×red overlap band — hotter/magenta so it reads at 50–85% mix over teal-green
+  uAurViolet: { value: new THREE.Color(0x7a6bff) },  // N2+ violet-blue base — bluer/more saturated so it survives the green underneath
   uAurFringe: { value: new THREE.Color(0xd06a8a) },  // N2+ rose skirt — DESATURATED, not danger-magenta
 };
 
@@ -254,10 +263,10 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   const act = actOverride == null ? actRaw : actOverride;
   auroraUniforms.uAurAct.value = act;
   const e = Math.max(0, (act - 0.72) / 0.28);
-  // Peak capped at 0.45 — a peak eruption leaves the MAJORITY of the sky dark, the color a restrained
-  // accent on the bands/rays, NOT a full-sky explosion (owner said "too much" twice). The single
-  // recovery dial is this 0.45. All downstream consumers (props/ground pulse) soften for free.
-  auroraUniforms.uAurErupt.value = 0.45 * (e * e * (3.0 - 2.0 * e));
+  // Peak 1.2 — strong enough that a natural eruption shows the FULL altitude structure (violet→green→
+  // pink→crimson, Gate-8); restraint now comes from AREA + rarity (color rides the bands/rays, majority
+  // dark between, ~30s every few min), NOT from deleting the hues. The single strength dial is this 1.2.
+  auroraUniforms.uAurErupt.value = 1.2 * (e * e * (3.0 - 2.0 * e));
   if (eruptOverride != null) auroraUniforms.uAurErupt.value = eruptOverride;  // debug: pin the eruption strength
   // COMPOSITION — the arc holds CENTRE-STAGE. Key it to travel, HEAVILY damped (λ=0.35 → recentres
   // over ~6–8s): during a fast weave/yaw the aurora stays world-anchored and counter-slides across
