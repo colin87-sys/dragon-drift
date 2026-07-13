@@ -99,9 +99,9 @@ function buildAureoleWing(def, model, attach, giM) {
   const shadowMat = mkPearl(0x93A6C0, 0.58);     // the SHADOW facet — a clear value step down (chased-armor read)
   const goldMat = new THREE.MeshStandardMaterial({ color: SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.40, metalness: 0.30, emissive: 0x3a2606, emissiveIntensity: 0.14 });
   const goldHiMat = new THREE.MeshStandardMaterial({ color: 0xFFDE7A, flatShading: true, side: THREE.DoubleSide, roughness: 0.34, metalness: 0.34, emissive: 0x4a3208, emissiveIntensity: 0.16 });   // lit hem crest (metallic read)
-  const dawnCol = def.wingEmissive ?? SERAPH_DAWN;
+  const dawnCol = 0x3AC4FF;   // SATURATED dawn-cyan so the Surge blaze stays BLUE (not clipped white)
   const dawnMat = new THREE.MeshStandardMaterial({ color: 0x10233a, emissive: dawnCol, emissiveIntensity: 0.02 * gi, roughness: 0.35, side: THREE.DoubleSide });
-  dawnMat.userData.baseEmissive = dawnCol; dawnMat.userData.baseIntensity = 0.02 * gi;   // NEAR-BLACK cruise → the whole channel circuit blazes on Surge
+  dawnMat.userData.baseEmissive = dawnCol; dawnMat.userData.baseIntensity = 0.02 * gi;   // NEAR-BLACK cruise → the whole channel circuit blazes saturated-blue on Surge
   spineMats.push(dawnMat);
 
   const L = 4.9 * ws;
