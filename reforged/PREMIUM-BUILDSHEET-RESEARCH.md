@@ -74,7 +74,7 @@ All three sit **well under the 6000 ceiling at every form** — apex ≤ 4506. T
 
 ## 3. What a §5d BUILD SHEET requires (the data fields to fill)
 
-A sheet is the builder's contract (DRAGON-DESIGN §5d). To author one for a premium key you must supply, per dragon, the following — **each numeric field needs a value + a one-line rationale**, and each is later asserted by `tests/starters.mjs` (§7) and judged by the Fable gate (§8). Adapted from the 3-form starter format to **4 forms (0–3)**:
+A sheet is the builder's contract (STARTER-REDESIGN §5d). To author one for a premium key you must supply, per dragon, the following — **each numeric field needs a value + a one-line rationale**, and each is later asserted by `tests/starters.mjs` (§7) and judged by the Fable gate (§8). Adapted from the 3-form starter format to **4 forms (0–3)**:
 
 1. **Torso** — the body-plan builder (name) + the silhouette primitive it must read as (△/□/○/serpent/etc.) + the body-value ramp across 4 forms (hue held, value/saturation ramp per law 9).
 2. **Wings (the HERO)** — the architecture, the per-form element count, the **separation metric** (gaps / z-stagger / scallop / tip-notch depth — the wing-law column), spar:membrane or blade construction, **apex span : body-length** band, **apex single-wing area : body side-area** band, sweep/dihedral (glide), and the declared **motion path** (`wingPivotL/R` direct, `wingRigL/R` skinned, or a yoke `model.flap`) — §7 asserts the rig parts exist and that driving the fold contracts the span ≤0.7×.
@@ -156,7 +156,7 @@ Guardrails: `node tests/blueprint.mjs` · `node tools/tricount.mjs --ci` · `nod
 Per dragon, the following are **not yet determined** and are the human's calls (charter §8: propose one line per dragon and get a "go"):
 
 **All three (shared):**
-- The **one-line art direction** (silhouette read + palette anchor + accent + the ONE hero feature) — has the same authority as code; must be recorded in `DRAGON-DESIGN.md` so the gate judges against it.
+- The **one-line art direction** (silhouette read + palette anchor + accent + the ONE hero feature) — has the same authority as code; must be recorded in `STARTER-REDESIGN.md` so the gate judges against it.
 - Whether "redesign" is a **directed elevation** (keep the current identity, push it to the premium bar) or an **art-direction pivot** (new read). Charter §2.4: these ship with real designs, not placeholders.
 - The **4-form dial ladder** numbers (head:body, eye:head, wingspan, spineGlow, drama %) and their monotonic direction.
 - The **registry §5 anti-collision row** + roster-neighbor differentiators (pearl vs phoenix/azure; obsidian vs toothless/obsidian2/ember; solar vs phoenix/astralWyrm).
