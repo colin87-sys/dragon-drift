@@ -657,8 +657,8 @@ export const DRAGONS = {
       // horizontal neutral so the big span reads spread, not foreshortened; still shoulder-dominant
       // with a small trailing forearm/wrist lag. Recovery peaks ~1 o'clock (not straight up), the
       // downstroke reaches ~4:30 — a broad, majestic beat rather than a vertical clap.
-      wingParts: 3, rootAmp: 0.72, apexRoot: 0.26, midAmp: 0.14, tipAmp: 0.09, midLag: 0.7, tipLag: 1.1,
-      glidePow: 1.15, restLift: 0.0, apexMid: 0.04, apexTip: 0.04,
+      wingParts: 3, rootAmp: 0.72, apexRoot: 0.13, midAmp: 0.14, tipAmp: 0.09, midLag: 0.7, tipLag: 1.1,
+      glidePow: 1.15, restLift: 0.0, apexMid: 0.04, apexTip: 0.04,   // apexRoot 0.26→0.13: bring the glide/recovery pose DOWN toward horizontal so the ventral dome canopy reads from the rear-chase (owner) — the recovery peak drops from ~12 o'clock to a flatter spread
       // TAIL MOTION — the vertebra whip is a 4-joint NESTED isBone chain (see dragonRevenant.js).
       tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
     },
