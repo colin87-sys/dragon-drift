@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, setAuroraActOverride } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -124,6 +124,8 @@ if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false
 // ANY biome (the biome that declares it doesn't exist yet) so the owner can judge it on
 // the preview. mix stays 0 without the flag → byte-identical shipped sky.
 if (urlParams.get('aurora') === '1') setAuroraForced(true);
+// ?auract=<0..1> pins the aurora activity/eruption (quiet ~0.3 vs full-color eruption ~1.0) for capture.
+if (urlParams.has('auract')) setAuroraActOverride(parseFloat(urlParams.get('auract')));
 // N4 instanced spark backend (150 draws → 1). Must be set before initParticles. NOTE: kept OFF by
 // default — tests/particlebatch.mjs currently FAILS the collapse (the instanced mesh is built but the
 // per-sprite draws still submit → calls go 233→234, not 233→1). Defaulting it on would ADD a draw, not
@@ -339,6 +341,8 @@ if (urlParams.has('debug')) {
     renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, flowColliderBoxes, trailDebug: __trailDebug,
     input,   // capture tools poke input.surgeTap to skip a scripted entrance headless (rAF-throttled flythroughs stall waits otherwise)
     juice: { hitstop, juiceEvent },
+    // Aurora capture seam: pin activity/eruption (null restores the live envelope) for the montage tool.
+    setAuroraAct: setAuroraActOverride,
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
     audioHealth: () => getAudioHealth(),
     postfx: { setPostTier, kick, kickState, handle: postfx },

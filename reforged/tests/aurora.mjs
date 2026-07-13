@@ -32,10 +32,11 @@ check('SEAM-FREE: noise on normalize(d.xz), not an atan azimuth', /normalize\(\s
 check('CRISP border ONSET + a luminous rose SKIRT below (no hard zero → no floating line)',
   /body\s*=\s*smoothstep\(\s*h0/.test(AURORA_BODY) && /skirt\s*=\s*exp\(\s*min\(\s*hy\s*-\s*h0/.test(AURORA_BODY) && /below\s*=\s*max\(\s*body/.test(AURORA_BODY));
 check('exp fade UP from the border (nothing symmetric)', /tall\s*=\s*exp\(\s*-max\(\s*hy\s*-\s*h0/.test(AURORA_BODY));
-check('PHYSICS RAMP: green OWNS the border (not inverted), crimson only when active', /mix\(\s*uAurFringe\s*,\s*uAurGreen\s*,\s*smoothstep\(\s*h0/.test(AURORA_BODY) && /uAurRed[\s\S]*uAurAct/.test(AURORA_BODY));
+check('PHYSICS RAMP: green OWNS the border (not inverted)', /mix\(\s*uAurFringe\s*,\s*uAurGreen\s*,\s*smoothstep\(\s*h0/.test(AURORA_BODY));
 check('BORDER HOT-LINE: a thin exp spike glued to the border, ×(1+..hot)', /hot\s*=\s*exp\([\s\S]*I\s*\*=\s*1\.0\s*\+\s*[\d.]+\s*\*\s*hot/.test(AURORA_BODY));
-check('curtain kept UNDER the bloom threshold (× 0.7 ceiling, hot-line only crosses)', /uAuroraMix\s*\*\s*0\.7/.test(AURORA_BODY));
-check('drapery FOLDS: broad swell (hoisted fold0) + a SECOND octave', /fold0\s*=\s*_aNoise/.test(AURORA_BODY) && /fold\s*\+=\s*[\d.]+\s*\*\s*\(_aNoise/.test(AURORA_BODY));
+check('SPLIT GAIN: diffuse column capped low, only the hot core crosses bloom', /uAuroraMix\s*\*\s*\(0\.55\s*\+\s*0\.45\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
+check('drapery FOLDS: hoisted fold0 + de-duplicated mid octave (foldOct) + fine detail (fine0)',
+  /fold0\s*=\s*_aNoise/.test(AURORA_BODY) && /foldOct\s*=\s*_aNoise/.test(AURORA_BODY) && /fold\s*\+=\s*0\.5\s*\*\s*\(foldOct/.test(AURORA_BODY));
 check('SECONDARY ribbon keeps the narrow gaussian pillar + height SHEAR', /exp\(\s*-u\s*\*\s*u\s*\*\s*6\.0\s*\)/.test(AURORA_BODY) && /u\s*\+=\s*\(hy\s*-\s*h0\)/.test(AURORA_BODY));
 
 // --- 2b. COMPOSITION (Gate-3): centre-stage arc, horizon anchoring, flank dip -------
@@ -48,6 +49,26 @@ check('HORIZON AIRGLOW the curtains rise from (brightest AT the sea-line, abs(hy
 check('AURORA_HEAD declares the travel/secondary azimuth uniforms', /uAurFwd\s*,\s*uAurFwd2/.test(AURORA_HEAD));
 check('uAurFwd default points forward (-Z)', auroraUniforms.uAurFwd.value.x === 0 && auroraUniforms.uAurFwd.value.y === -1);
 const auroraSrc = readFileSync(url('../js/auroraSky.js'), 'utf8');
+check('AURORA_HEAD declares the altitude palette + eruption gate', /uAurTeal/.test(AURORA_HEAD) && /uAurPink/.test(AURORA_HEAD) && /uAurViolet/.test(AURORA_HEAD) && /uAurErupt/.test(AURORA_HEAD));
+
+// --- 2c. PREMIUM art direction (Gate-4): multi-color, value model, translucency, depth ------
+check('ALTITUDE COLOR: teal cools the mid column (quiet second hue, always on)', /mix\(\s*aCol\s*,\s*uAurTeal/.test(AURORA_BODY));
+check('ERUPTION rainbow: violet base + pink overlap + ADDITIVE red crown, all × uAurErupt',
+  /uAurViolet[\s\S]*uAurErupt/.test(AURORA_BODY) && /uAurPink[\s\S]*uAurErupt/.test(AURORA_BODY) && /aCol\s*\+=\s*uAurRed[\s\S]*uAurErupt/.test(AURORA_BODY));
+check('VALUE MODEL: low sheet floor (0.06) + steep pow → dark gaps between curtains',
+  /0\.06\s*\+\s*0\.94\s*\*\s*pow\(\s*smoothstep/.test(AURORA_BODY));
+check('TRANSLUCENCY: stars keyed off local CORE brightness (aurLum += I × hot·below)',
+  /aurLum\s*\+=\s*I\s*\*\s*\(0\.25\s*\+\s*0\.75\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
+check('RAY quality: fold domain-warp + staggered rayTall + per-ray shimmer',
+  /u\s*\*\s*20\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*2\.6/.test(AURORA_BODY));
+check('DEPTH: a faint ray-less BACK VEIL reusing fold0 (free layered curtain)', /float\s+veil\s*=\s*smoothstep\(\s*0\.55/.test(AURORA_BODY));
+check('ERUPTION COLOR WASH: diffuse violet base + red/pink crown glow (reads where rays fade)',
+  /if\s*\(\s*uAurErupt\s*>\s*0\.001\s*\)/.test(AURORA_BODY) && /ebase\s*=\s*exp/.test(AURORA_BODY) && /ecrown\s*=\s*smoothstep/.test(AURORA_BODY));
+check('fine0 detail octave is TIER0-ONLY (uAurLayers == 2 branch → no tier1/2 cost)', /if\s*\(\s*uAurLayers\s*==\s*2\s*\)\s*fine0\s*=\s*_aNoise/.test(AURORA_BODY));
+check('ERUPTION driver: activity → smoothstep eruption envelope (rare full-color)',
+  /uAurErupt\.value\s*=\s*e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+check('?auract debug override wired (quiet-vs-eruption capture)', /setAuroraActOverride/.test(readFileSync(url('../js/main.js'), 'utf8')));
+
 check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
   /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(auroraSrc) && /getWorldDirection/.test(auroraSrc) && /damp\(fwdX/.test(auroraSrc));
 

@@ -51,6 +51,31 @@ shot** — a sky element has to be composed against the horizon and the foregrou
 where the player is looking, or it reads as a floating decal no matter how physically correct the hue and
 border are. Compose the frame, not just the phenomenon.
 
+**The Gate-4 art-direction pass (basic/tacky → premium).** The composed curtain read cheap because it was
+a uniform mid-bright *green wall*. Fable's study (with aurora science) found the tell is VALUE + COLOR +
+TRANSLUCENCY, and — crucially — the premium version cost *nothing extra* because one of the six noise evals
+was a duplicate (a `az*6.4` octave whose args never depended on the loop index `L`, re-evaluated per layer);
+hoisting it funded a new fine-detail octave at net-zero. Banked patterns: (1) **A premium glow is mostly DARK
+with concentrated luminous filaments, not a bright uniform wash** — drop the sheet floor (0.30→0.06 under a
+steep `pow`) so fold minima go to real dark-sky gaps *between* curtains; concentrate brightness in the thin
+hot border + fold knots (raise the hot-line gain, and a SPLIT output gain `0.55 + 0.45*hot*below` so only the
+thin cores cross the bloom threshold). Bright-and-thin reads expensive; bright-and-wide reads screensaver.
+(2) **Color = altitude physics gated by a rare eruption envelope.** Green owns the border+column (always),
+a teal cools the mid column (always — that alone kills the mono-green), and violet base / pink overlap /
+*additive* red crown appear ONLY when an activity envelope crosses a threshold (`erupt = smoothstep((act-0.72)/0.28)`)
+— so most of the run is an elegant green/teal and a full-color eruption blooms for ~30s every few minutes.
+The rarity IS the awe; a permanent rainbow reads tacky. The red MUST be brighter than the green and *added*,
+not mixed (a darker red mixed over green just muddies it — the Gate-2 lesson's cousin). (3) **Translucency is
+the single strongest "glowing gas not a decal" cue** — key star attenuation off LOCAL core brightness
+(`aurLum += I*(0.25+0.75*hot*below)`), not total luminance, so stars burn through the faint column and vanish
+only at the border/knots; the env.js consumer stays byte-identical, only the *meaning* of aurLum changes.
+(4) **Individual rays, not a picket fence** — domain-warp the ray coordinate by the fold (irregular spacing),
+stagger ray HEIGHTS (`rayTall` decays slower where `rn²→1` so bright rays reach higher), and a per-ray sin
+shimmer — all free. (5) A near-free faint **back veil** (reuse a hoisted sample, ray-less, contributes ~0 to
+aurLum so stars pass through) adds a layer of depth. All of it degrades by tier for free (tier1/2 keep the
+color+value+translucency, lose only the extra layer/detail octave), and a `?auract=` debug override lets one
+montage show quiet vs eruption without waiting minutes for the live envelope.
+
 **Reusable patterns banked.**
 - **THE ONE THING is a single shader term you protect through every tier + tuning pass.** What makes
   a procedural aurora read as authentic (vs a generic scrolling rainbow ribbon) is the **bottom-anchored
