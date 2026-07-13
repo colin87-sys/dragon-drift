@@ -140,6 +140,17 @@ export const CONFIG = {
   // Set both to 0 for the byte-identical PR-1 straight ribbon (rollback dial).
   canyonFlowWeaveAmp: 7.0,    // lateral carve cap (m); per-half adaptive trim keeps it flyable
   canyonFlowWeaveAmpY: 2.5,   // vertical corkscrew cap (m); apexes cycle x/y for a slow helix
+  // Flow run MOMENTUM (PR-3): holding the carve builds game.flowChain, which drives an
+  // escalating SLIPSTREAM — the world rushes faster the longer you hold the line, and
+  // DROPS (decelerates under you) when you break it. The stakes that make the carve matter.
+  // Co-scale law: the slip multiplies speed AND steering (player.js) + divides assistAxes,
+  // so every reachability ratio stays exactly valid — the mode is fair by construction.
+  FLOW: {
+    slipPerChain: 0.02,  // slip target = 1 + this × min(flowChain, chainCap)
+    chainCap: 20,        // → slip 1.00 … 1.40 (faster than spine 1.325; the buffer is sized for it)
+    chainStep: 0.10,     // flow-local score mult = 1 + this × min(chain, chainCap) → ×1 … ×3
+    orbScore: 30,        // score per flow ribbon orb (× chainMult × scoreMult; NOT × fever — no double-dip)
+  },
   // Sky Canyon run-type weights (the startCanyon picker draws ONE canyonRnd and maps it
   // through these). flow = the Rhythm Flow-Tube (a walls-free speed showcase). Setting
   // flow:0 renormalizes rock/spine to 50/50 = byte-identical to the pre-flow picker (the

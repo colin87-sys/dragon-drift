@@ -53,6 +53,8 @@ export const game = {
   canyonRockSoft: false, // this frame's rock-run wall CLAMPS+chips (never kills). Set by
                        // the main.js widen block; decoupled from canyonLaneHW's eased value
                        // so the fatal branch can't re-arm while the player is legally >13
+  flowChain: 0,        // FLOW run momentum: builds on pickups/rings, halves on a dropped
+  flowChainBest: 0,    // orb, zeros on a missed ring → drives the chain slipstream (PR-3)
   inBoss: false,       // inside a boss encounter → hazards suppressed, boost locked
   bossArenaHW: null,   // narrowed arena half-width during a constriction showpiece (null = full lane)
   bossesDefeatedRun: 0,// bosses slain this run
@@ -140,6 +142,8 @@ export const game = {
     this.canyonRun = null;
     this.canyonLaneHW = null;
     this.canyonRockSoft = false;
+    this.flowChain = 0;
+    this.flowChainBest = 0;
     this.inBoss = false;
     this.bossArenaHW = null;
     this.bossesDefeatedRun = 0;
