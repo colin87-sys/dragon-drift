@@ -127,6 +127,37 @@ export const CONFIG = {
   canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
   canyonSegments: [9, 13],    // a Rock Run sustains ~9-13 gates of enclosed canyon then opens up
                               // (longer than [8,11] so the weave+boost cadence sustains, fewer dead beats)
+  canyonFlowSegments: [12, 16], // a FLOW run (the Rhythm Flow-Tube): 12-16 light-gates ≈ 11-14s of
+                              // chain — long enough that "hold the line end-to-end" is a real ask
+  canyonFlowFill: 260,        // max ring-gap (m) the flow orb ribbon fills; a wider gap is a genuine
+                              // gauntlet bridge (the slalom is its own beat) and stays open. Covers
+                              // breath-beat spacings (~192m) with headroom; excludes 300m+ gauntlets.
+  // Flow run "carve": the pickup ribbon is a walls-free SLALOM — the biggest banking in
+  // the game (rock/spine are wall-/tube-ceilinged; flow's only ceiling is the steering
+  // budget). The line sways off the straight ring-to-ring path between gates and pours
+  // back to dead-centre AT each ring (a perfect stays flyable). Holding the carve is the
+  // mode. Amplitude is slope-budget + orb-clamp-lane trimmed (fair by construction).
+  // Set both to 0 for the byte-identical PR-1 straight ribbon (rollback dial).
+  canyonFlowWeaveAmp: 7.0,    // lateral carve cap (m); per-half adaptive trim keeps it flyable
+  canyonFlowWeaveAmpY: 2.5,   // vertical corkscrew cap (m); apexes cycle x/y for a slow helix
+  // Flow run MOMENTUM (PR-3): holding the carve builds game.flowChain, which drives an
+  // escalating SLIPSTREAM — the world rushes faster the longer you hold the line, and
+  // DROPS (decelerates under you) when you break it. The stakes that make the carve matter.
+  // Co-scale law: the slip multiplies speed AND steering (player.js) + divides assistAxes,
+  // so every reachability ratio stays exactly valid — the mode is fair by construction.
+  FLOW: {
+    slipPerChain: 0.015, // slip target = 1 + this × min(flowChain, chainCap)
+    chainCap: 20,        // → slip 1.00 … 1.30 (toned from 1.40: on the fastest dragon (Solar)
+                         // the slip compounded on the high speed-stat and read TOO fast; 1.30
+                         // sits just under spine's 1.325. A pure feel dial — nudge either way.
+    chainStep: 0.10,     // flow-local score mult = 1 + this × min(chain, chainCap) → ×1 … ×3
+    orbScore: 30,        // score per flow ribbon orb (× chainMult × scoreMult; NOT × fever — no double-dip)
+  },
+  // Sky Canyon run-type weights (the startCanyon picker draws ONE canyonRnd and maps it
+  // through these). flow = the Rhythm Flow-Tube (a walls-free speed showcase). Setting
+  // flow:0 renormalizes rock/spine to 50/50 = byte-identical to the pre-flow picker (the
+  // rollback dial). The single-draw mapping keeps the canyonRnd stream aligned.
+  canyonTypeWeights: { rock: 35, spine: 35, flow: 30 },
   spineSegments: [15, 19],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
                               // (longer than [13,16] so it reads as a sustained speed tunnel)
   canyonSpineSlip: 1.325,     // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not

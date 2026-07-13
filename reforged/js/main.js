@@ -13,7 +13,7 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt, flowColliderBoxes } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
@@ -108,7 +108,8 @@ const urlParams = new URLSearchParams(window.location.search);
 // drop you straight into it — skip the tutorial, auto-launch, and warp to just
 // before the first forced canyon. For eyeballing the Sky Canyon on the PR preview.
 const PREVIEW_CANYON = urlParams.has('rockrun') ? 'rock'
-  : urlParams.has('ribcage') ? 'spine' : null;
+  : urlParams.has('ribcage') ? 'spine'
+  : urlParams.has('flowrun') ? 'flow' : null;
 let previewLaunchPending = !!PREVIEW_CANYON;
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
@@ -331,7 +332,7 @@ if (urlParams.has('lab')) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, trailDebug: __trailDebug,
+    renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, flowColliderBoxes, trailDebug: __trailDebug,
     input,   // capture tools poke input.surgeTap to skip a scripted entrance headless (rAF-throttled flythroughs stall waits otherwise)
     juice: { hitstop, juiceEvent },
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
@@ -515,6 +516,7 @@ on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
+let lastFlowMilestone = 0;   // flow-chain HUD milestone latch (reset whenever the chain zeroes)
 // WARM-COMPILE (F4): the fight's shaders — shield rim/cage/shards, surge beam/aura/bands/tether, the
 // arena detonation set — are scene-resident but hidden, so three.js compiles each at its FIRST show: a
 // ~200ms stall landing mid-combat (the shield-raise / surge-fire hitch that dragged the tier down).
@@ -544,7 +546,22 @@ on('bossStart', () => {
   game.canyonRun = null;
   game.canyonLaneHW = null;
   game.canyonRockSoft = false;
+  game.flowChain = 0;
+  lastFlowMilestone = 0;
 });
+// FLOW carve chain: a low-noise multiplier pop at every 5th step (and gold at the cap).
+// The slipstream SPEED is the real feedback; this just names the climbing multiplier. The
+// milestone latch resets on a drop (and on every run-end/boss flush) so re-climbing re-pops.
+on('flowChain', ({ chain, mult }) => {
+  // Latch on the CAPPED chain so pops stop at the cap (one gold "MAX" pop, not a spam of
+  // identical ×3.0 pops that stomp the ring-score popup for the rest of the run).
+  const m = Math.floor(Math.min(chain, CONFIG.FLOW.chainCap) / 5);
+  if (chain > 0 && m > lastFlowMilestone) {
+    lastFlowMilestone = m;
+    ui.flowChainPop(`FLOW ×${mult.toFixed(1)}`, chain >= CONFIG.FLOW.chainCap ? 'gold' : 'green');
+  }
+});
+on('flowChainDrop', ({ chain }) => { lastFlowMilestone = Math.floor(chain / 5); });
 // KNELLGRAVE's toll-as-world-event (§5d slot 10): the frame FLINCHES on every toll —
 // a bloom breath + vignette squeeze (postfx kick preset). Def-gated at the emitter
 // (only a def.musicDies boss emits 'bossToll'), so every other fight is untouched.
@@ -1014,6 +1031,7 @@ function restart(opts = {}) {
   pendingCanyonStarts.length = 0;
   pendingCanyonEnds.length = 0;
   canyonStartDist = 0;
+  lastFlowMilestone = 0;
   bossGraceUntil = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
@@ -1465,16 +1483,19 @@ function tick() {
       canyonStartDist = st.dist; // ease-in anchor for the rock-lane widen
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
-      if (game.canyonRun === 'spine') sfx.slipstreamStart(); // speed-tunnel wind
+      if (game.canyonRun === 'spine' || game.canyonRun === 'flow') sfx.slipstreamStart(); // speed-tunnel / flow-carve wind
       // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
       // ("you're entering something ancient"). Subtle — within the juice budget.
       cameraCtl.shake(0.5);
-      burst(player.position, 0xcdd9ec, { count: 14, speed: 9, size: 1.1 });
+      // Flow flashes its slip-cyan signature at the threshold; rock/spine keep the bone puff.
+      burst(player.position, game.canyonRun === 'flow' ? 0x59d8ff : 0xcdd9ec, { count: 14, speed: 9, size: 1.1 });
     }
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
       game.inCanyon = false;
       game.canyonRun = null;
+      game.flowChain = 0;   // the carve chain lives only within a flow run (best is kept)
+      lastFlowMilestone = 0;
       sfx.slipstreamStop();
       cameraCtl.setCanyon(false);
       // Exit burst: a puff of bone dust as you break out into open sky (release).
@@ -1630,7 +1651,15 @@ function tick() {
     }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
-    const slipMix = Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, CONFIG.canyonSpineSlip - 1);
+    // Normalize the slip envelope by the ACTIVE run's max slip (flow ramps to a different
+    // ceiling than spine) so the speed FX read 0..1 in both.
+    const slipRef = game.canyonRun === 'flow'
+      ? CONFIG.FLOW.slipPerChain * CONFIG.FLOW.chainCap
+      : CONFIG.canyonSpineSlip - 1;
+    // Clamp to 1: the frame a capped flow run ends, slipRef flips to spine's smaller
+    // denominator while canyonSlip is still decaying from 1.40 → slipMix would overshoot >1
+    // and flash the speed streaks past their designed max in the exit air.
+    const slipMix = Math.min(1, Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, slipRef));
     // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
     // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
     // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw
@@ -1646,7 +1675,7 @@ function tick() {
     updateSpeedStreaks(player, fxEnv);
     if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-    updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
+    updateObstacles(dt, t, player.dist, obstacleSpeedNorm, slipMix);
     updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);

@@ -26,13 +26,16 @@ const result = await boot().then(async ({ page, done }) => {
       return segs;
     };
 
-    // 205907 has a gauntlet-bridged consecutive split pair (a 341m gap) — the case
-    // that tripped the unclamped-zn seam bug; keep it to guard the fix.
-    const seeds = [1337, 424242, 271828, 205907];
+    // Seed 8 has a gauntlet-bridged consecutive split pair (a ~557m gap under the shipped
+    // canyonTypeWeights) — the case that tripped the unclamped-zn seam bug; keep it to
+    // guard the fix. (205907 held this role until the flow run type reshuffled per-seed
+    // canyon layouts — the guard is re-pinned + asserted below so it can't silently
+    // evaporate again when weights change.)
+    const seeds = [1337, 424242, 271828, 8];
     const agg = { worstSlopeX: 0, worstSlopeY: 0, worstSeamX: 0, worstSeamY: 0,
                   minWidth: Infinity, pairs: 0, rockSlopeMax: 0, rockMinWidth: Infinity,
                   rockSeamMax: 0, rockSlices: 0, rockSwingSum: 0, rockSwingN: 0,
-                  rockMustSteer: 0, seeds: [] };
+                  rockMustSteer: 0, rockSplitPairGapMax: 0, seeds: [] };
 
     for (const seed of seeds) {
       const segs = collect(seed);
@@ -92,6 +95,7 @@ const result = await boot().then(async ({ page, done }) => {
       for (let i = 1; i < segs.length; i++) {
         const a = segs[i - 1], b = segs[i];
         if (b.runIdx !== a.runIdx + 1 || a.kind !== 'split' || b.kind !== 'split') continue;
+        agg.rockSplitPairGapMax = Math.max(agg.rockSplitPairGapMax, b.dist - a.dist);
         const pa = rockSlicePlan(a), pb = rockSlicePlan(b);
         // A gauntlet can bridge a run: if the sections' wall bands don't meet there is
         // no seam to be continuous across (open air between them) — skip it.
@@ -192,6 +196,12 @@ check('rock ring line is clear of stacks on the whole approach cone (no spike in
   result.seeds.every((s) => s.rockApproachBad === 0)) || console.error('  rock-approach fail seeds:', bad('rockApproachBad'));
 check('rock widen is pinned to the run interior (fatal wall never outruns the ease band)',
   result.seeds.every((s) => s.rockRampBad === 0)) || console.error('  rock-ramp fail seeds:', bad('rockRampBad'));
+// GUARD: the seam-continuity check above only exercises the bridged-gap clamp when the
+// seed set actually CONTAINS a gauntlet-bridged split pair (>300m). Assert one exists so a
+// future weight/layout change can't silently reshuffle it away (as the flow run type did to
+// the old 205907 pin) and leave the unclamped-zn regression untested.
+check('a gauntlet-bridged split pair (>300m) is present to guard the seam clamp',
+  result.rockSplitPairGapMax > 300) || console.error(`  max split-pair gap only ${result.rockSplitPairGapMax.toFixed(0)}m — re-pin a bridged seed`);
 
 const meanSwing = result.rockSwingN ? result.rockSwingSum / result.rockSwingN : 0;
 const mustSteerPct = result.rockSwingN ? Math.round(100 * result.rockMustSteer / result.rockSwingN) : 0;

@@ -150,7 +150,17 @@ export const player = {
     // and steering CO-SCALES by the same factor — so every reachability ratio (and the
     // whole canyonflow fairness audit) stays exactly valid; the inputs feel identical
     // relative to the faster world. Damped smoothly at the seams; 1 outside spine / in boss.
-    const slipTarget = (game.inCanyon && game.canyonRun === 'spine' && !game.inBoss) ? CONFIG.canyonSpineSlip : 1;
+    // Slipstream target: spine = a fixed dial; FLOW = chain-driven (1 → 1.40 as the carve
+    // chain climbs → the world rushes faster the longer you hold the line, and eases DOWN
+    // when the chain drops). Both co-scale (steer × canyonSlip below, targetSpeed × it, and
+    // assistAxes ÷ it) so the mode stays fair by construction.
+    let slipTarget = 1;
+    if (game.inCanyon && !game.inBoss) {
+      if (game.canyonRun === 'spine') slipTarget = CONFIG.canyonSpineSlip;
+      else if (game.canyonRun === 'flow') {
+        slipTarget = 1 + CONFIG.FLOW.slipPerChain * Math.min(game.flowChain, CONFIG.FLOW.chainCap);
+      }
+    }
     this.canyonSlip = damp(this.canyonSlip, slipTarget, CONFIG.canyonSlipEase, dt);
     const steer = steeringBonus * this.canyonSlip;
     this.velocity.x = damp(this.velocity.x, axes.x * S.lateralSpeed * steer, CONFIG.moveAccel, dt);

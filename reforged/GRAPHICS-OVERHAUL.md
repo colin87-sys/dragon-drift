@@ -604,6 +604,92 @@ run local/on-demand; only math + plumbing tests gate CI).
   shader initiative — schedule it in Phase 2/3 alongside the world work, and treat every lighting upgrade (N5/N7)
   as raising the bar the props must meet. (Owner-flagged, 2026-07-11.)
 
+- **N17 — Premium collectibles: the "Skyforged glass" marker system.** *(Owner-approved plan, 2026-07-13 — must
+  not be forgotten.)* The owner flew the Sky Canyon **flow** run and rejected the flow gate as *"tacky and
+  cheap,"* and separately noted the rings/powerups don't read premium. A high-effort Fable art-direction pass
+  diagnosed the markers against 7 premium principles (one designed form, not an assembly; weight/taper; emissive
+  gradient; material story/fresnel; restraint; weighted motion; one 3-stop palette ramp per role) and proposed a
+  unifying **"Skyforged glass"** language — every marker reads as *light suspended in forged, faceted glass* via a
+  shared new material patch, **`js/markerSurface.js`** (axial emissive gradient from a baked `glowT` vertex attr +
+  fresnel rim + a flow phase). Three redesigns ride it:
+  - **Gate → Windvault** (replaces the rejected Sky Gate): a **single** tapered arc of forged light — a swept
+    faceted tube, root-thick tapering to a keystone-shard apex above the ring; the light climbs the arch with
+    `slipMix`. Delete the posts/chevron/gem/halo.
+  - **Orb → Star Shard** (global): a faceted directional crystal pointing along the flight axis; **delete the
+    additive glow sprite** (`powerups.js` `glowTex`) — a perf win, not just a look change.
+  - **Ring → Jade Annulus** (global): a gem-cut faceted lathe with a hot inner lip outlining the aperture, and a
+    precession wobble replacing the constant spin; fix the `transparent:true`-from-spawn wart (`rings.js`). Keep
+    the **circular green** silhouette (owner-approved default).
+  - **Gate frame polish** (optional PR-4).
+  **Rollout (owner-approved defaults — global retool, staged FLOW-FIRST):** PR-1 Windvault + `markerSurface.js`
+  (ship for the `?flowrun` read) → PR-2 Star Shard (global, deletes the sprite) → PR-3 Jade Annulus (global) →
+  PR-4 frame polish. **Constraints:** every PR is **render-only** (determinism byte-identical — markers are drawn
+  from segment fields, `e.boxes` stays empty, `gold-determinism` unchanged), behind an **A/B kill-switch**, judged
+  via the **Fable Quality-Gate** (Gate 1 pre-build, Gate 2 pre-merge), with a new `tests/markers.mjs`. This is
+  look work on the collectibles rather than the renderer, but it lives here because it's the premium-look backlog
+  and follows the same gate + `graphics-`-slug lesson discipline. (Owner: *"happy with plan, just make sure you
+  add it to the list of things to do so we don't forget."*)
+  - **✓ Landed — PR-1 Windvault + `markerSurface.js` (`?skyforged=0` A/B, default ON). Gate 2 SHIP 8/10.** The
+    shared Skyforged-glass factory (opaque emissive, baked `glowT` axial ramp + fresnel rim + flow-climb phase,
+    per-role `flowRef` + global `timeRef`, one `customProgramCacheKey`) + the Windvault (hand-rolled swept faceted
+    horseshoe arch, keystone shard, flat facets) replace the rejected Sky Gate (kept as the `?skyforged=0`
+    fallback, deleted after owner sign-off). Render-only (determinism byte-identical, walls-free
+    `flowColliderBoxes()===0`), a net perf win (~218 tris/1 draw vs ~536/3 + halo). See lesson
+    `2026-07-13-graphics-skyforged-windvault.md`. **Gate-2 deltas → PR-2 follow-ups (surface-material tuning, the
+    8→9 gap):** **D1** make the facets survive bloom (baked per-facet ±emissive jitter, or narrow the rim
+    `uRimPow` ~2.4→4 so the glint concentrates on facet edges) judged at the 34m framing; **D2** widen the
+    cold↔hot color story (deepen the cold root/mid cyan saturation so the resting arch reads *glass* and doesn't
+    wash into the sunset, and the hot state doesn't fully white out); **D3** tooling — `markershot` should hide the
+    interleaved Phase Gate by kind, not only by the veil `uEdge` uniform. Owner judges the climb-front motion +
+    the hot white-out on the live preview.
+  - **✓ Landed — PR-2 Star Shard orb (global) + the D1/D2/D3 fold-in (`?skyforged=0` A/B). Gate 2 SHIP 8.5/10.**
+    Replaces the orb's sphere + additive glow Sprite with a faceted directional **Star Shard** (asymmetric
+    bipyramid, bright ice-white tip toward the approaching player, mandatory axial spin) on the shared
+    `markerSurface` — **deleting the additive sprite is a net perf win** (2 draws→1, overdraw gone; the flow
+    ribbon spawns many orbs). The collect flash reroutes to a capped scale-pop (≤1.6×, ~0.15s) since the opaque
+    material can't fade opacity; the batched `burst()` carries the spark (gated so `?skyforged=0` stays
+    byte-identical). The orb has its own per-role `flowRef` (chain-heat on flow, boost-heat globally). **D1**
+    (facets survive bloom): a per-FACET emissive-jitter attribute from a deterministic index hash — baked
+    per-quad on the arch, per-tri on the shard, constant on the keystone — plus a narrower rim. **D2**: deeper
+    cold cyan + an icy (not white) hot core + a tunable `uHotLift` so hot doesn't fully white out — improves the
+    arch without regressing the SHIP'd read. **D3**: `buildGate` tags `userData.phaseGate` for the shot tools.
+    Render-only (determinism byte-identical — facetJ from an index hash, level.js untouched). See lesson
+    `2026-07-13-graphics-skyforged-star-shard.md`. Remaining 8.5→9 (for PR-3/Gate-3): facet glints still subtle
+    at 34m (next lever = a normal-dependent specular glint, not more jitter); a small cold shard reads near-white
+    under bloom; a clean "marker showroom" would beat the cluttered live-harness montages.
+  - **✓ Landed — PR-3 Jade Annulus ring (global) + the shared specular GLINT (`?skyforged=0` A/B). Gate 2 SHIP
+    8.5/10.** The reward ring → a gem-cut faceted **Jade Annulus** (hand-rolled 6-point bevel sweep, hot
+    mint-white inner LIP outlining the aperture, deep jade outer girdle) keeping the circular GREEN catch
+    identity — **and an 82% per-ring geometry cut** (240 tris vs the torus's 1344). z-roll is now the readable
+    motion + a capped ≤0.08rad precession (aperture stays honest); the `transparent:true`-from-spawn wart is
+    fixed (opaque gem, scale-pop collect). Each ring calls the factory FRESH (never a cloned material — r160
+    `Material.copy` JSON-kills the uniform refs), one program via `customProgramCacheKey`; fever/combo/chain
+    route through the shared `ringFlow` hot path (no `emissiveIntensity` double-drive), perfect-gold writes the
+    per-instance palette once. The owner-approved **specular glint** (a tight per-flat-facet highlight vs a fixed
+    view-space key, `uGlint` master default 0 = factory identity) is opted into all three markers — the 8.5→9
+    facet lever, a MOTION effect (facets sweep past the key on roll/approach). Render-only, determinism
+    byte-identical, all three markers now on ONE spine + ONE program. See lesson
+    `2026-07-13-graphics-skyforged-jade-annulus.md`. Non-blocking (Gate-3): build the "marker showroom" shot
+    scene; frame the fever A/B closer. **The Skyforged marker system (N17) is complete;** PR-4 (Phase Gate frame
+    polish) is the optional remainder.
+  - **✓ Landed — PR-4 Phase Gate aperture frame (per-biome Skyforged forged glass, `?skyforged=0` A/B). Gate 2
+    SHIP 8/10.** Option B: only the Phase Gate's brightest layer (the four flat aperture bars) → ONE faceted
+    forged-glass frame (a closed rounded-rect chisel sweep) with a hot inner LIP on the collider boundary, per
+    biome; the veil / outer rim / corner brackets / beacon / motes stay byte-untouched so the gate keeps its
+    hazard read + biome identity. Six per-biome materials from PHASE_SKINS (root = darkened edge, mid = edge,
+    apex = a BRIGHTENED edge — NOT `skin.core`, which washed Caldera/Frozen white), never cloned, all one program;
+    driver = a new `gateFlowRef` (speed), never `markerFlow`. Gate-2 independently verified the per-biome tint at
+    RUNTIME across biomes 0/2/3 (Caldera `uMid=ff6a24` ember / `uApex=ffc7bd` warm-not-white), re-derived the
+    lip-on-boundary math (visual opening ≤ collider gap — the affordance strengthened), and confirmed `lipGlow`
+    default-0 = identity for the SHIP'd Windvault + Star Shard. 4 aperture draws → 1; render-only, determinism
+    byte-identical. Also **noted here (rode in under PR-4's gate):** the Jade Annulus got an always-hot inner-lip
+    tune (`lipGlow: 1.1`) after PR-3 shipped so the ring reads at flight distance — owner-feedback-driven,
+    reviewed, fine. Added a `rC ≤ min(gapW,gapH)` corner-radius clamp (latent looks-passable-but-kills guard if
+    gap dims ever go dynamic). See lesson `2026-07-13-graphics-skyforged-phasegate-frame.md`. **Non-blocking
+    (carried):** build the "marker showroom" scene + a HUD-reticle hide seam for shot tools — three gates have now
+    paid the harness-clutter tax; owner judges warm-sky frame legibility + the speed flow-front live. **All four
+    Skyforged surfaces (3 markers + the gate frame) now ride one spine + one program.**
+
 ---
 
 ## Gate Log
@@ -612,7 +698,10 @@ One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable 
 
 | PR / Phase | Initiative | Fable score | Verdict | Notes |
 |------------|-----------|-------------|---------|-------|
-| #373 Phase 0 | N2 renderer contract | 9/10 | SHIP | `stencil:false` skip justified (EffectComposer clears stencil); recorded deviation |
+| #402 N17 (PR-4) | Phase Gate aperture frame (per-biome) | 8/10 | SHIP | Gate-1 APPROVED(Option B) + 10 directives, all applied+verified. Gate-2 independently re-derived the lip-on-collider-boundary geometry (visual opening ≤ gap — affordance strengthened, safe corners) and dumped per-biome tint at RUNTIME across biomes 0/2/3 (Caldera uMid=ff6a24 ember, uApex=ffc7bd warm-not-white — the pale-`skin.core`→white wash caught + fixed to a brightened EDGE). 6 per-biome mats never cloned → one program; gateFlowRef≠markerFlow; brackets/veil/rim/beacon untouched (menace held structurally); removeAt frees per-gate geom, shared mats survive; lipGlow default-0 = SHIP'd-marker identity. 4 draws→1. Held at 8 (not 8.5+): no clean pixel-view of warm-sky frames — the marker-showroom tax, now 3×. Also logged: the Jade Annulus lipGlow:1.1 always-hot lip rode in under this gate (post-PR-3 owner-feedback tune, reviewed OK); added an rC clamp. Human judges warm-sky legibility + flow-front live |
+| #402 N17 (PR-3) | Jade Annulus ring (global) + shared specular glint | 8.5/10 | SHIP | Gate-1 ADJUST(A1–A8) all applied+verified against the vendored r160 source. Gate-2 independently verified the r160 traps: NO `material.clone()` (r160 `Material.copy` JSON-kills uniform refs → factory-per-instance, distinct uApex per ring, one program); collect is a scale-pop with NO runtime `transparent` toggle (the `#define OPAQUE` program-cache-key hazard); precession capped 0.08rad (aperture honest, `ringCatchRadius` 3.9 vs girdle 3.98); fever routes through `ringFlow` only (no `emissiveIntensity` double-drive → no white-out); glint `uGlint`=0 default = gate/orb identity. Determinism byte-identical (re-run); `?skyforged=0` byte-identical torus. Premium gem-vs-torus "decisive"; green-in-cyan coheres; net perf win **240 vs 1344 tris/ring (82% cut)**. 8.5→9 = stills can't bank the motion glint + the deferred marker-showroom scene. Human judges glint/roll/fever on preview |
+| #402 N17 (PR-2) | Star Shard orb (global) + D1/D2/D3 fold-in | 8.5/10 | SHIP | Gate-1 ADJUST(A1–A7) all applied+verified (keep glowTex + branch update path; head-on read: girth ≥ old core + bright tip toward +z player + mandatory spin; facetJ per-FACET not per-tri + keystone const; facetJ from an index hash NOT the seeded stream; own orbFlow driver; flash pop ≤1.6×/0.15s; re-judge arch at 34m). Gate-2 independently verified: facetJ per-facet (both tris of a quad share it), index-hash determinism (`gold-determinism` byte-identical re-run), flag branches builder+update+dispose paths (o.glow guards), the 1.6×/0.15s pop, sprite-deletion didn't touch collect/scoring. Net perf win (2 draws→1, additive overdraw gone). Star Shard vs old blob "decisive"; D1/D2 improve the arch with no regression. One deviation gated not documented: the collect `burst()` tune is `?skyforged`-only so flag-off stays byte-identical. 8.5→9 = facet glints still subtle at 34m (next lever: normal-dependent specular glint) + a showroom scene. Human judges spin/breathing/pop on preview |
+| #402 N17 (PR-1) | Windvault gate + `markerSurface.js` | 8/10 | SHIP | Gate-1 ADJUST(A1–A6) all applied+verified (coexist-not-delete; per-role `flowRef` + palette-as-uniforms + one `customProgramCacheKey`; keystone bakes `glowT` for merge parity + flat facets; tall horseshoe + z-elongated x-section for the edge-on read; shot tool). Gate-2 independently verified identity-off (`gold-determinism` byte-identical), walls-free (3 ways), one-program key, merge parity, and the 1-vs-3 rng branch asymmetry is safe (terminal kind branch, no downstream draws); NOT `bindAtmosphere`'d = documented deviation; net perf win (~218 tris/1 draw vs ~536/3 + halo). Premium delta over the Sky Gate "decisive"; loses 9 on facet/gradient subtlety at the 34m framing (bloom+ACES flatten the glints) → D1 per-facet emissive jitter / narrower rim, D2 deepen cold cyan saturation, D3 hide the harness Phase Gate by kind — all staged for PR-2. Human judges the climb-front motion + hot white-out on the preview |
 | #373 Phase 0 | N1 gradient dither | 8.5/10 | SHIP | placement/amplitude verified; `?dither=0` = exact identity; tier2 sky/water copies deferred; gate margin added |
 | #373 Phase 0 | N3 tonemap scaffold | 5.5→SHIP | REVISE→fixed | Gate caught: vendored `OutputPass` had no `CustomToneMapping` branch → `?tm=neutral` was untonemapped on tier0/1. Patched `OutputPass.js`+`OutputShader.js`, reshot montage at pinned tier0, restamped `sw.js`, fixed idempotence test |
 | #376 N4 | N4 ParticleBatch | 7.5→SHIP | REVISE→fixed | Billboard/blend parity verified vs vendored sprite shader; 150 draws→1. Gate caught: `BATCH_FRAG` lacked `tonemapping`/`colorspace` chunks → tier2 (direct-to-screen) sparks skipped ACES+sRGB, read ~25-35% dimmer. Added the two includes (auto-gated per render target); `pfxshot` now shoots tier0+tier2. Fog left as documented deviation (near-field bursts unaffected) |
