@@ -120,6 +120,13 @@ function collect(r, centerDist) {
   tmpV.set(r.x, r.y, -r.dist);
   ringBurst(tmpV, perfect);
   emit('ring', { perfect });
+  // FLOW chain: catching a light-gate (the ring) builds the chain — +2, +1 more on a
+  // perfect (the perfect-ring pop). The gates are the slalom's nodes.
+  if (game.canyonRun === 'flow') {
+    game.flowChain += perfect ? 3 : 2;
+    game.flowChainBest = Math.max(game.flowChainBest, game.flowChain);
+    emit('flowChain', { chain: game.flowChain, mult: 1 + CONFIG.FLOW.chainStep * Math.min(game.flowChain, CONFIG.FLOW.chainCap) });
+  }
   const tierAfter = comboTier(game.combo);
   if (tierAfter > tierBefore) sfx.comboUp(tierAfter);
 
@@ -147,6 +154,9 @@ function miss(r) {
     juiceEvent('comboBreak'); // desat dip — losing the streak should sting
   }
   game.combo = 1;
+  // FLOW chain: missing a gate is the HARD reset — the chain (and its slipstream) drop to
+  // zero. The gate is the line; lose it and you lose the flow. Score/momentum, never health.
+  if (game.canyonRun === 'flow' && game.flowChain > 0) { game.flowChain = 0; emit('flowChainDrop', { chain: 0 }); }
   emit('ringMiss');
 }
 

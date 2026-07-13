@@ -32,7 +32,7 @@ export function addOrb(p) {
   glow.scale.set(4.8, 4.8, 1);
   mesh.add(glow);
   scene.add(mesh);
-  orbs.push({ mesh, glow, dist: p.dist, x: p.x, y: p.y, collected: false, flash: 0 });
+  orbs.push({ mesh, glow, dist: p.dist, x: p.x, y: p.y, collected: false, flash: 0, flow: !!p.flow });
 }
 
 export function updatePowerups(dt, player, time) {
@@ -61,6 +61,20 @@ export function updatePowerups(dt, player, time) {
         sfx.orb();
         burst(o.mesh.position, 0x55ccff, { count: 20, speed: 14, size: 1.1 });
         emit('orb');
+        // FLOW chain: a ribbon orb builds the chain (drives the slipstream) and pays a
+        // climbing flow-local bonus (× chainMult × scoreMult; NOT × fever — no double-dip).
+        if (o.flow && game.canyonRun === 'flow') {
+          game.flowChain++;
+          game.flowChainBest = Math.max(game.flowChainBest, game.flowChain);
+          const chainMult = 1 + CONFIG.FLOW.chainStep * Math.min(game.flowChain, CONFIG.FLOW.chainCap);
+          game.score += Math.round(CONFIG.FLOW.orbScore * chainMult * game.scoreMult);
+          emit('flowChain', { chain: game.flowChain, mult: chainMult });
+        }
+      } else if (o.flow && game.canyonRun === 'flow' && player.prevDist < o.dist && player.dist >= o.dist) {
+        // Dropped a ribbon orb (crossed its plane out of catch range): the chain HALVES —
+        // the world eases back, the multiplier falls. Score/momentum cost only, never health.
+        o.collected = true;   // consume it so it can't re-trigger
+        if (game.flowChain > 0) { game.flowChain = Math.floor(game.flowChain / 2); emit('flowChainDrop', { chain: game.flowChain }); }
       }
     } else if (o.flash > 0) {
       o.flash -= dt * 3;

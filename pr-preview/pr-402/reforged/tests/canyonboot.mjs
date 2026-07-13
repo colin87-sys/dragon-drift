@@ -36,12 +36,29 @@ const flow = await boot({
 await flow.page.click('#btn-start');
 await flow.page.waitForFunction(() => window.__dd.game.state === 'playing', { timeout: 8000 });
 await flow.page.evaluate(() => { window.__dd.player.dist = 300; });
-await flow.page.waitForFunction(() => window.__dd.obstacleCount() > 0, { timeout: 10000 });
-await flow.page.waitForTimeout(1500);
+// Fly until we actually CROSS into the forced flow run (canyonRun flips to 'flow').
+await flow.page.waitForFunction(() => window.__dd.game.canyonRun === 'flow', { timeout: 15000 });
+await flow.page.waitForTimeout(800); // let a few gates build + the collision/camera run
 check('flow light-gates built in WebGL (obstacles present)',
   await flow.page.evaluate(() => window.__dd.obstacleCount() > 0));
 check('flow run is walls-free (zero collider boxes on flow gates)',
   await flow.page.evaluate(() => window.__dd.flowColliderBoxes() === 0));
+// MOMENTUM (PR-3): a HELD carve chain must drive the slipstream UP (the chain→speed
+// coupling that makes the carve matter). Re-inject a full chain each frame (simulate a
+// player HOLDING the line — the input-less dragon otherwise misses rings and zeroes it).
+// NB headless throttles requestAnimationFrame heavily, so only a few sim frames run and
+// the slip can't reach its 1.40 ceiling in wall-time; we assert it's clearly RAMPING above
+// the no-chain baseline of 1.0 (the coupling is active). The 1.40 target = formula + preview.
+const slip = await flow.page.evaluate(async () => {
+  const t0 = performance.now();
+  while (performance.now() - t0 < 1200) {
+    window.__dd.game.flowChain = 20; // chainCap
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  return window.__dd.player.canyonSlip;
+});
+check('flow chain drives the slipstream (held chain ramps canyonSlip above the 1.0 baseline)',
+  slip > 1.05) || console.error(`  canyonSlip only ${slip.toFixed(3)} — the chain→slip coupling isn't firing`);
 check('zero console errors building/flying flow gates', flow.errors.length === 0) ||
   console.error(flow.errors.join('\n'));
 await flow.done();

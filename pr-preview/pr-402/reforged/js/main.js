@@ -527,7 +527,20 @@ on('bossStart', () => {
   game.canyonRun = null;
   game.canyonLaneHW = null;
   game.canyonRockSoft = false;
+  game.flowChain = 0;
 });
+// FLOW carve chain: a low-noise multiplier pop at every 5th step (and gold at the cap).
+// The slipstream SPEED is the real feedback; this just names the climbing multiplier. The
+// milestone latch resets on a drop so re-climbing re-pops.
+let lastFlowMilestone = 0;
+on('flowChain', ({ chain, mult }) => {
+  const m = Math.floor(chain / 5);
+  if (chain > 0 && m > lastFlowMilestone) {
+    lastFlowMilestone = m;
+    ui.flowChainPop(`FLOW ×${mult.toFixed(1)}`, chain >= CONFIG.FLOW.chainCap ? 'gold' : 'green');
+  }
+});
+on('flowChainDrop', ({ chain }) => { lastFlowMilestone = Math.floor(chain / 5); });
 // KNELLGRAVE's toll-as-world-event (§5d slot 10): the frame FLINCHES on every toll —
 // a bloom breath + vignette squeeze (postfx kick preset). Def-gated at the emitter
 // (only a def.musicDies boss emits 'bossToll'), so every other fight is untouched.
@@ -1405,7 +1418,7 @@ function tick() {
       canyonStartDist = st.dist; // ease-in anchor for the rock-lane widen
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
-      if (game.canyonRun === 'spine') sfx.slipstreamStart(); // speed-tunnel wind
+      if (game.canyonRun === 'spine' || game.canyonRun === 'flow') sfx.slipstreamStart(); // speed-tunnel / flow-carve wind
       // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
       // ("you're entering something ancient"). Subtle — within the juice budget.
       cameraCtl.shake(0.5);
@@ -1415,6 +1428,7 @@ function tick() {
       pendingCanyonEnds.shift();
       game.inCanyon = false;
       game.canyonRun = null;
+      game.flowChain = 0;   // the carve chain lives only within a flow run (best is kept)
       sfx.slipstreamStop();
       cameraCtl.setCanyon(false);
       // Exit burst: a puff of bone dust as you break out into open sky (release).
@@ -1570,7 +1584,12 @@ function tick() {
     }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
-    const slipMix = Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, CONFIG.canyonSpineSlip - 1);
+    // Normalize the slip envelope by the ACTIVE run's max slip (flow ramps to a different
+    // ceiling than spine) so the speed FX read 0..1 in both.
+    const slipRef = game.canyonRun === 'flow'
+      ? CONFIG.FLOW.slipPerChain * CONFIG.FLOW.chainCap
+      : CONFIG.canyonSpineSlip - 1;
+    const slipMix = Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, slipRef);
     // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
     // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
     // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw

@@ -686,7 +686,10 @@ function buildRockGap(o, e) {
     // EMPTY; the flow run is walls-free by design). The orb/ember ribbon (level.js) is
     // the actual racing line; PR-2 adds the suggested-tube pylons + mote sleeve.
     e.noDissolve = true;                          // thin open light never blocks the view
-    e.depthHalf = Math.max(e.depthHalf || 0, (o.span || 80) * 0.5);
+    const fh = halves(o), fb = band(o, fh.bk, fh.fw);
+    e.depthHalf = Math.max(e.depthHalf || 0, fh.bk, fh.fw);
+    e.ribBandBk = fb.wb; e.ribBandFw = fb.wf;     // presence band → spineWallPresenceAt drives
+                                                  // the chain-slipstream speed FX (streaks/wind)
     const ringR = CONFIG.ringRadius + 1.6;
     const gate = new THREE.Mesh(new THREE.TorusGeometry(ringR, 0.12, 8, 28), edgeMat);
     gate.position.set(gx, gy, 0);
