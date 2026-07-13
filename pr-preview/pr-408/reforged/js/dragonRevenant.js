@@ -69,7 +69,7 @@ function revenantMats(def) {
   // Flame-lit bone — the INNER-facing rib faces, ivory washed toward the grave-green with a
   // faint green self-glow, so the ribs read as BONE LIT BY THE CAGED FLAME (art-director: the
   // reference's fusing trick — ribs + flame become one object). Cheap on flat-shaded geometry.
-  const boneLit = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, 0x39b06a, 0.5), emissive: 0x123f22, emissiveIntensity: 0.6, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+  const boneLit = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, 0x39b06a, 0.45), emissive: 0x1a5230, emissiveIntensity: 0.75, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });   // INNER rib faces: bone washed toward grave-green + a self-glow → the cage reads lit-from-within (Fable "lantern"), the fire and the ribs fusing into one object
   boneLit.envMapIntensity = 0.0;
   return { bone, boneLo, boneDorsal, recess, boneLit };
 }
@@ -178,12 +178,13 @@ function buildOssuaryTorso(def, model, _bodyMat) {
       let dx = q[0] - r[0], dy = q[1] - r[1]; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;   // x-y tangent
       const nx = -dy, ny = dx, w = wFn(k / (pts.length - 1));   // in-plane normal (radial-ish → visible from behind)
       const ring = {
-        n: [p[0] + nx * w, p[1] + ny * w, p[2]], s: [p[0] - nx * w, p[1] - ny * w, p[2]],
+        n: [p[0] + nx * w, p[1] + ny * w, p[2]], s: [p[0] - nx * w, p[1] - ny * w, p[2]],   // n = OUTWARD, s = INWARD (toward the heart)
         u: [p[0], p[1], p[2] + w], d: [p[0], p[1], p[2] - w],   // fore/aft flanks
       };
       if (prev) {
-        const quad = (a, b) => { boneT.push([prev[a], ring[b], ring[a]], [prev[a], prev[b], ring[b]]); };
-        quad('n', 'u'); quad('u', 's'); quad('s', 'd'); quad('d', 'n');   // 4 faces → mass + chamfer values
+        const quad = (a, b, out) => { out.push([prev[a], ring[b], ring[a]], [prev[a], prev[b], ring[b]]); };
+        quad('n', 'u', boneT); quad('d', 'n', boneT);          // OUTWARD faces → plain bone
+        quad('u', 's', ribLitT); quad('s', 'd', ribLitT);      // INWARD faces (touch the 's'/heart-side vertex) → green flame-lit bone (Fable: "faint green tint on the inner rib faces so the cage reads lit-from-within"). Only the inner faces → self-occluded from behind, so no concentric-ring tell.
       }
       prev = ring;
     }
@@ -268,8 +269,8 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   //   • BLOOM — a wide additive halo, scaled ANISOTROPICALLY along the ribcage barrel (taller
   //     than wide, not a perfect disc) in a low-R/B green so the doubled centre stays green. It
   //     spills light out through the ventral gap + rib windows → "light through bone," not a disc.
-  const bloomTex = makeGlowTexture('18,92,38', '48,178,80');    // low R/B → additive-safe green spill, no white centre
-  const emberGeo = new THREE.IcosahedronGeometry(heartR * 0.62, 0);
+  const bloomTex = makeGlowTexture('16,84,34', '40,168,66');    // low R/B → additive-safe green spill, centre holds green (never white — Fable warned brightening to white)
+  const emberGeo = new THREE.IcosahedronGeometry(heartR * 0.92, 0);   // bigger ember → the green reads at the rear-chase money cam (Fable: was a 34px glint, not a lantern)
   { const pa = emberGeo.attributes.position; for (let vi = 0; vi < pa.count; vi++) {   // jitter → an irregular ember, no card-edge (deterministic: hashed by index, no Math.random)
       const h = Math.sin((vi + 1) * 12.9898) * 43758.5453; const j = (h - Math.floor(h) - 0.5) * 0.34 * heartR;
       const h2 = Math.sin((vi + 1) * 78.233) * 12543.187; const j2 = (h2 - Math.floor(h2) - 0.5) * 0.34 * heartR;
@@ -279,8 +280,8 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   const heartHook = new THREE.Mesh(emberGeo, emberMat);
   heartHook.position.set(0, hy, hz);
   heartHook.userData.base = 0.78 + 0.20 * coreBlaze;   // the coreGlow tick scales THIS opacity
-  const heartBloom = new THREE.Sprite(new THREE.SpriteMaterial({ map: bloomTex, color: 0xffffff, transparent: true, opacity: 0.34 + 0.22 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
-  heartBloom.scale.set(heartR * (2.4 + 0.7 * coreBlaze), heartR * (3.4 + 1.0 * coreBlaze), 1);   // taller than wide → spills along the barrel, not a round disc
+  const heartBloom = new THREE.Sprite(new THREE.SpriteMaterial({ map: bloomTex, color: 0xffffff, transparent: true, opacity: 0.30 + 0.18 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
+  heartBloom.scale.set(heartR * (3.3 + 0.9 * coreBlaze), heartR * (4.5 + 1.2 * coreBlaze), 1);   // WIDE + taller than wide → green spills across multiple rib gaps, not a round disc (Fable: cross ≥3 gaps)
   heartBloom.position.set(0, hy, hz);
   heartBloom.renderOrder = 0;
   group.add(heartBloom);
@@ -512,17 +513,25 @@ function buildRevenantSkullHead(def, model, mats) {
   // ── EYE SOCKETS + pinpoint — a recessed dark orbit with a floating green octahedron
   // seated deep inside (the socket reads as a hole; the pinpoint blazes with glowLevel).
   const socketT = [];
-  eyeMat.emissiveIntensity = 0.9 + 0.7 * (model.glowLevel ?? 1);   // moderate so the socket pinpoint reads clearly GRAVE-GREEN, not bloomed white (art-director)
+  eyeMat.emissiveIntensity = 0.6 + 0.45 * (model.glowLevel ?? 1);   // kept LOW so the low-R grave-green emissive never clips its G channel to a cream/white bloom (Fable: the eye was the most holy-leaning element — a cream diamond)
+  // A recessed dark POCKET = a rim ring at the skull surface + a floor point sunk INWARD
+  // (|x|→0, +z) so it reads as a true hollow void in profile, not a painted-on facet. The
+  // skull needs ≥2 such voids per side or it reads as a solid fleshed wedge (Fable).
+  const pocket = (cx, cy, cz, rx, ry, side) => {
+    const floor = [cx - side * rx * 1.4, cy - ry * 0.15, cz + rx * 1.5];   // sunk into the cranium
+    const rim = [
+      [cx - side * rx, cy + ry, cz - rx * 0.3], [cx + side * rx * 0.5, cy + ry * 0.9, cz - rx * 0.6],
+      [cx + side * rx, cy - ry * 0.2, cz - rx * 0.2], [cx + side * rx * 0.3, cy - ry, cz], [cx - side * rx, cy - ry * 0.7, cz + rx * 0.2],
+    ];
+    for (let i = 0; i < rim.length; i++) socketT.push([rim[i], rim[(i + 1) % rim.length], floor]);   // rim → floor cup (dark inside)
+  };
   for (const side of [1, -1]) {
     const ex = side * S(0.15), ey = S(0.04), ez = S(-0.14);
-    // a shallow recessed socket ring (dark recess tier) so the eye sits in a hole
-    socketT.push(
-      [[ex - S(0.09), ey + S(0.07), ez], [ex + S(0.09), ey + S(0.07), ez], [ex, ey - S(0.02), ez - S(0.06)]],
-      [[ex - S(0.09), ey + S(0.07), ez], [ex, ey - S(0.02), ez - S(0.06)], [ex - S(0.06), ey - S(0.05), ez]],
-      [[ex + S(0.09), ey + S(0.07), ez], [ex + S(0.06), ey - S(0.05), ez], [ex, ey - S(0.02), ez - S(0.06)]],
-    );
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(S(0.055), 0), eyeMat);
-    eye.position.set(ex, ey, ez - S(0.03));   // seated DEEP in the socket
+    pocket(ex, ey, ez, S(0.10), S(0.085), side);                  // (1) EYE SOCKET — deep orbit holding the pinlight
+    pocket(side * S(0.09), S(-0.03), S(-0.46), S(0.05), S(0.05), side);   // (2) NASAL FENESTRA — a void on the muzzle
+    pocket(side * S(0.16), S(-0.05), S(0.12), S(0.06), S(0.07), side);    // (3) TEMPORAL/cheek fenestra — a void behind the eye
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(S(0.05), 0), eyeMat);
+    eye.position.set(ex, ey, ez - S(0.02));   // the grave-green pinlight, seated in the orbit
     group.add(eye);
   }
   group.add(flatTriMesh(socketT, M.recess));

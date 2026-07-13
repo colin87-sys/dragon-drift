@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
 import { mulberry32, clamp } from './util.js';
-import { BIOMES, biomeIndexAt } from './biomes.js';
+import { BIOMES, biomeIndexAt, CYCLE } from './biomes.js';
 import { FIRST_FLIGHT_BEATS, FIRST_FLIGHT_END } from './firstFlight.js';
 import { rockSlicePlan, centre, halves, band, flowWeave } from './canyonMath.js';
 
@@ -27,15 +27,19 @@ const CANYON_MODES = ['rock', 'spine', 'flow'];
 function setPiecesBetween(a, b, out) {
   const L = CONFIG.biomeLength;
   const HALF = L / 2;
-  const N = BIOMES.length;
+  // Set-piece biome index MUST go through CYCLE (not `k % BIOMES.length`) so the gateway /
+  // mega-arch palettes match the world biome at that block — else they silently diverge once
+  // CYCLE reorders/adds a biome. Set-pieces are events, not fixtured output, so this is
+  // gold-determinism-safe; with the identity CYCLE it is byte-identical to the old `k % N`.
+  const bi = (k) => CYCLE[k % CYCLE.length];
   // Boundary gateways
   for (let k = Math.floor(a / L) + 1; k * L <= b; k++) {
-    out.push({ type: 'biomeGate', dist: k * L, biomeIndex: k % N });
+    out.push({ type: 'biomeGate', dist: k * L, biomeIndex: bi(k) });
   }
   // Midpoint mega-arches (skip the very first half-point: tutorial zone)
   for (let k = Math.floor((a - HALF) / L) + 1; k * L + HALF <= b; k++) {
     if (k * L + HALF < 600) continue;
-    out.push({ type: 'megaArch', dist: k * L + HALF, biomeIndex: k % N });
+    out.push({ type: 'megaArch', dist: k * L + HALF, biomeIndex: bi(k) });
   }
 }
 
