@@ -42,21 +42,25 @@ export function seraphCrownZ(t) {
   return 0.98 * Math.pow(tc, 1.06) - 0.16 * Math.sin(Math.PI * tc) * (1 - tc);                       // slight fore-bow at root → straight aft blade
 }
 
-// ── THE ATOM — a chased armor PLATE. Returns triangles BUCKETED by material so a whole
-// rank merges to one mesh per material (few draw calls). up = surface normal (~+Y).
+// ── THE ATOM — a chased armor PLATE with a TWO-VALUE bevel. Returns triangles bucketed
+// by role: L = lit facet (rank tier mat), S = shadow facet + underside (steel-pearl, a
+// clear value step down → chased-armor read + breaks slat monotony), H = raised gold hem,
+// C = the carved DAWN CHANNEL fuller down the centre ridge (near-black cruise, blazes Surge).
+// A whole rank merges each bucket to one mesh (few draws). up = surface normal (~+Y).
 function seraphPlate(root, dirAft, outb, up, len, wid, ridgeH, channel) {
-  const F = [], H = [], C = [];
+  const L = [], S = [], H = [], C = [];
   const tip = add(root, mul(dirAft, len));
   const hw = wid * 0.5, tw = wid * 0.22;                              // blunt straight tip (armor, not a needle)
   const bl = add(root, mul(outb, -hw)), br = add(root, mul(outb, hw));
   const tl = add(tip, mul(outb, -tw)), tr = add(tip, mul(outb, tw));
-  const cR = add(root, mul(up, ridgeH)), cT = add(tip, mul(up, ridgeH * 0.35));   // raised centre ridge
-  // FACE — two facets off the ridge (two values by flat shading) + a thin underside (thickness)
-  F.push([arr(bl), arr(cR), arr(cT)], [arr(bl), arr(cT), arr(tl)],
-         [arr(cR), arr(br), arr(tr)], [arr(cR), arr(tr), arr(cT)]);
+  const cR = add(root, mul(up, ridgeH)), cT = add(tip, mul(up, ridgeH * 0.42));   // raised centre ridge
+  // TWO-VALUE BEVEL: lit facet (left of ridge) vs shadow facet (right) — a real value event per plate
+  L.push([arr(bl), arr(cR), arr(cT)], [arr(bl), arr(cT), arr(tl)]);
+  S.push([arr(cR), arr(br), arr(tr)], [arr(cR), arr(tr), arr(cT)]);
+  // underside skin (thickness), in the shadow tier so edge-on isn't a bright plank
   const dl = add(bl, mul(up, -0.02)), dr = add(br, mul(up, -0.02));
   const dtl = add(tl, mul(up, -0.014)), dtr = add(tr, mul(up, -0.014));
-  F.push([arr(bl), arr(dl), arr(tl)], [arr(dl), arr(dtl), arr(tl)],
+  S.push([arr(bl), arr(dl), arr(tl)], [arr(dl), arr(dtl), arr(tl)],
          [arr(br), arr(tr), arr(dr)], [arr(dr), arr(tr), arr(dtr)]);
   // GOLD HEM — thin raised strips riding both long edges root→tip (chased plate armor)
   const hemW = 0.022;
@@ -64,14 +68,15 @@ function seraphPlate(root, dirAft, outb, up, len, wid, ridgeH, channel) {
   H.push([arr(gl0), arr(add(bl, mul(outb, -hemW))), arr(gl1)], [arr(gl1), arr(add(bl, mul(outb, -hemW))), arr(add(tl, mul(outb, -hemW * 0.6)))]);
   const gr0 = add(br, mul(up, 0.016)), gr1 = add(tr, mul(up, 0.011));
   H.push([arr(gr0), arr(gr1), arr(add(br, mul(outb, hemW)))], [arr(gr1), arr(add(tr, mul(outb, hemW * 0.6))), arr(add(br, mul(outb, hemW)))]);
-  // DAWN CHANNEL — a recessed fuller down the centre (dominants only): near-black cruise, blazes Surge
+  // DAWN CHANNEL — a recessed fuller down the centre ridge, dropped just below it (the groove
+  // between the two facets). Near-black in cruise, the whole circuit blazes on Surge.
   if (channel) {
-    const cw = wid * 0.07;
-    const a0 = add(add(root, mul(up, ridgeH * 0.45)), mul(outb, -cw)), b0 = add(add(root, mul(up, ridgeH * 0.45)), mul(outb, cw));
-    const a1 = add(add(tip, mul(up, ridgeH * 0.15)), mul(outb, -cw * 0.5)), b1 = add(add(tip, mul(up, ridgeH * 0.15)), mul(outb, cw * 0.5));
+    const cw = wid * 0.055, drop = mul(up, ridgeH - 0.012);
+    const a0 = add(add(root, drop), mul(outb, -cw)), b0 = add(add(root, drop), mul(outb, cw));
+    const a1 = add(add(tip, mul(up, ridgeH * 0.42 - 0.010)), mul(outb, -cw * 0.5)), b1 = add(add(tip, mul(up, ridgeH * 0.42 - 0.010)), mul(outb, cw * 0.5));
     C.push([arr(a0), arr(b0), arr(b1)], [arr(a0), arr(b1), arr(a1)]);
   }
-  return { F, H, C };
+  return { L, S, H, C };
 }
 
 function buildAureoleWing(def, model, attach, giM) {
@@ -88,13 +93,15 @@ function buildAureoleWing(def, model, attach, giM) {
   const bellyMat = mkPearl(0x9FB4CE, 0.60);
   for (const m of [memMid, memOuter, bellyMat]) { m.userData.baseEmissive = 0x0c1626; m.userData.baseIntensity = 0.08; }
   // plate tiers — each rank steps one value off the membrane beneath it so the rank READS
-  const plateCovert = mkPearl(0xFBFAF6, 0.50);   // brightest (lit armor)
-  const plateSecond = mkPearl(0xE4EAF4, 0.52);
-  const platePrimary = mkPearl(0xCBD9EE, 0.50);
-  const goldMat = new THREE.MeshStandardMaterial({ color: SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.42, metalness: 0.28, emissive: 0x3a2606, emissiveIntensity: 0.13 });
+  const plateCovert = mkPearl(0xFBFAF6, 0.50);   // brightest lit-facet tier
+  const plateSecond = mkPearl(0xEAEEF6, 0.52);
+  const platePrimary = mkPearl(0xDCE6F2, 0.50);
+  const shadowMat = mkPearl(0x93A6C0, 0.58);     // the SHADOW facet — a clear value step down (chased-armor read)
+  const goldMat = new THREE.MeshStandardMaterial({ color: SERAPH_GOLD, flatShading: true, side: THREE.DoubleSide, roughness: 0.40, metalness: 0.30, emissive: 0x3a2606, emissiveIntensity: 0.14 });
+  const goldHiMat = new THREE.MeshStandardMaterial({ color: 0xFFDE7A, flatShading: true, side: THREE.DoubleSide, roughness: 0.34, metalness: 0.34, emissive: 0x4a3208, emissiveIntensity: 0.16 });   // lit hem crest (metallic read)
   const dawnCol = def.wingEmissive ?? SERAPH_DAWN;
-  const dawnMat = new THREE.MeshStandardMaterial({ color: dawnCol, emissive: dawnCol, emissiveIntensity: 0.05 * gi, roughness: 0.35, side: THREE.DoubleSide });
-  dawnMat.userData.baseEmissive = dawnCol; dawnMat.userData.baseIntensity = 0.05 * gi;   // WITHHELD: near-black cruise → blaze on Surge
+  const dawnMat = new THREE.MeshStandardMaterial({ color: 0x10233a, emissive: dawnCol, emissiveIntensity: 0.02 * gi, roughness: 0.35, side: THREE.DoubleSide });
+  dawnMat.userData.baseEmissive = dawnCol; dawnMat.userData.baseIntensity = 0.02 * gi;   // NEAR-BLACK cruise → the whole channel circuit blazes on Surge
   spineMats.push(dawnMat);
 
   const L = 4.9 * ws;
@@ -116,7 +123,7 @@ function buildAureoleWing(def, model, attach, giM) {
     const pivot = new THREE.Group(); yoke.add(pivot);
 
     const front = (t) => ({ x: side * L * (0.05 + 0.95 * t), y: seraphCrownY(t) * YS, z: seraphCrownZ(t) * ZS });
-    const chordAt = (t) => (2.0 + (0.5 - 2.0) * Math.min(t, 1)) * (t < 0.34 ? 1 + 0.14 * (1 - t / 0.34) : 1) * chordScale;
+    const chordAt = (t) => (1.72 + (0.44 - 1.72) * Math.min(t, 1)) * (t < 0.34 ? 1 + 0.14 * (1 - t / 0.34) : 1) * chordScale;   // shallower chord (less drooping trailing region)
     const rear = (t) => { const f = front(t); const c = chordAt(t); return { x: f.x * 0.99, y: f.y - 0.03 - 0.05 * t, z: f.z + c }; };   // shallower trailing droop (no staircase)
     const up = { x: 0, y: 1, z: 0 };
 
@@ -159,62 +166,69 @@ function buildAureoleWing(def, model, attach, giM) {
       grp.add(flatTriMesh(tris, goldMat));
     };
 
-    // SHINGLED plate rank (coverts/secondaries) — small/mid plates, overlap by construction
-    // (width = spacing/(1−ovl)), value-stepped, laid over a chord band.
+    const emit = (grp, L2, S2, H2, C2, litMat) => {
+      if (L2.length) grp.add(flatTriMesh(L2, litMat));
+      if (S2.length) grp.add(flatTriMesh(S2, shadowMat));
+      if (H2.length) { grp.add(flatTriMesh(H2, goldMat)); }
+      if (C2.length) grp.add(flatTriMesh(C2, dawnMat));
+    };
+
+    // SHINGLED plate rank (coverts/secondaries) — small/mid plates laid nearly FLAT on the
+    // surface (follow the tangent, minimal aft droop → no staircase), overlap by construction,
+    // value-stepped, each carrying the two-value bevel + a dawn channel.
     const shingleRank = (grp, ta, tb, o, plateMat, rows) => {
-      const F = [], H = [], C = [];
+      const L2 = [], S2 = [], H2 = [], C2 = [];
       for (const row of rows) {
         const spanLen = (tb - ta) * L, cnt = Math.max(4, seg(Math.round(spanLen * 2.4)));
         for (let i = 0; i < cnt; i++) {
           const ts = cnt > 1 ? i / (cnt - 1) : 0;
           const t = ta + (tb - ta) * ts;
-          const rootP = Psurf(t, row.u, o), aheadP = Psurf(t, Math.min(row.u + 0.12, 1), o);
-          const dirAft = norm(add(norm(sub(aheadP, rootP)), { x: side * 0.10, y: -0.02, z: 0 }));
+          const rootP = Psurf(t, row.u, o), aheadP = Psurf(t, Math.min(row.u + 0.16, 1), o);
+          const dirAft = norm(sub(aheadP, rootP));                    // FOLLOW the surface (flat scale-mail, no droop)
           const len = row.len * chordAt(t);
-          const wid = Math.max(spanLen / cnt / (1 - 0.55), 0.30);   // guaranteed ~55% overlap
-          const pl = seraphPlate(rootP, dirAft, { x: side, y: 0, z: 0 }, up, len, wid, 0.05, false);
-          F.push(...pl.F); H.push(...pl.H);
+          const wid = Math.max(spanLen / cnt / (1 - 0.62), 0.30);     // ~62% overlap → tips buried, no gaps
+          const pl = seraphPlate(rootP, dirAft, { x: side, y: 0, z: 0 }, up, len, wid, 0.03, true);   // LOW ridge → lies flat
+          L2.push(...pl.L); S2.push(...pl.S); H2.push(...pl.H); C2.push(...pl.C);
         }
       }
-      grp.add(flatTriMesh(F, plateMat));
-      grp.add(flatTriMesh(H, goldMat));
+      emit(grp, L2, S2, H2, C2, plateMat);
     };
 
     // PRIMARY BLADE rank — few LARGE straight plates fanning from the carpal, ONE dominant
-    // decaying ~0.84, cant/width variance, tips raked aft-and-DOWN (no up-curl), channels on
-    // the dominants, TRUE SLOTS between them (separate blades = sky shows through, pinion slots).
-    const primaryRank = (grp, ta, tb, o, n, chanN) => {
-      const F = [], H = [], C = [];
+    // decaying ~0.84, cant/width/rake variance (breaks slat monotony), tips raked aft-and-slightly-
+    // DOWN (no up-curl), ROOT-TUCKED under the coverts (root at u≈0.20, no daylight), channels on all,
+    // TRUE SLOTS between them (separate blades → pinion slots the silhouette owns).
+    const primaryRank = (grp, ta, tb, o, n) => {
+      const L2 = [], S2 = [], H2 = [], C2 = [];
       for (let i = 0; i < n; i++) {
         const f = n > 1 ? i / (n - 1) : 0;
         const t = ta + (tb - ta) * (0.04 + 0.92 * f);
         const decay = Math.pow(0.84, i);
-        const rootP = Psurf(t, 0.30, o);
-        const dirAft = norm({ x: side * (0.12 + 0.26 * f), y: -0.02 - 0.03 * f, z: 1 });   // fan out, rake mostly AFT-in-plane (no droop)
-        const len = chordAt(t) * (0.52 + 0.80 * decay);
-        const wid = (0.34 + 0.10 * (1 - f)) * (1 + 0.15 * (i % 2));   // width variance
-        const ridge = 0.06 + 0.04 * decay;
-        const pl = seraphPlate(rootP, dirAft, { x: side, y: 0, z: 0 }, up, len, wid, ridge, i < chanN);
-        F.push(...pl.F); H.push(...pl.H); C.push(...pl.C);
+        const rootP = Psurf(t, 0.20, o);                              // tuck the root UNDER the covert rank
+        const jit = (i % 2 ? 1 : -1);
+        const dirAft = norm({ x: side * (0.12 + 0.26 * f), y: -0.015 - 0.025 * f, z: 1 });   // fan out, mostly aft-in-plane
+        const len = chordAt(t) * (0.66 + 0.80 * decay);
+        const wid = (0.52 + 0.16 * (1 - f)) * (1 + 0.16 * (i % 2));   // WIDE (overlap into a fan, not spaced steps) + variance
+        const ridge = (0.06 + 0.04 * decay) * (1 + 0.12 * jit);       // ridge (rake) variance
+        const pl = seraphPlate(rootP, dirAft, { x: side, y: 0, z: 0 }, up, len, wid, ridge, true);
+        L2.push(...pl.L); S2.push(...pl.S); H2.push(...pl.H); C2.push(...pl.C);
       }
-      grp.add(flatTriMesh(F, platePrimary));
-      grp.add(flatTriMesh(H, goldMat));
-      if (C.length) grp.add(flatTriMesh(C, dawnMat));
+      emit(grp, L2, S2, H2, C2, platePrimary);
     };
 
-    // BAY A (pivot) — membrane + spar + 3 shingled covert rows (fully plated, membrane covered)
+    // BAY A (pivot) — membrane + spar + dense SHORT scale-mail rows (flat, tips buried → no staircase)
     membrane(pivot, 0.0, J0, ZERO, memInner);
     spar(pivot, 0.0, J0, ZERO);
-    shingleRank(pivot, 0.03, J0, ZERO, plateCovert, [{ u: 0.10, len: 0.28 }, { u: 0.28, len: 0.36 }, { u: 0.48, len: 0.46 }]);
-    // BAY B (mid) — secondaries (hems form the continuous gilded greater-covert arc)
+    shingleRank(pivot, 0.03, J0, ZERO, plateCovert, [{ u: 0.08, len: 0.20 }, { u: 0.22, len: 0.22 }, { u: 0.38, len: 0.24 }, { u: 0.56, len: 0.28 }]);
+    // BAY B (mid) — secondary scale-mail (hems form the continuous gilded greater-covert arc)
     membrane(wingMid, J0, J1, midO, memMid);
     spar(wingMid, J0, J1, midO);
-    shingleRank(wingMid, J0, J1, midO, plateSecond, [{ u: 0.10, len: 0.30 }, { u: 0.30, len: 0.40 }, { u: 0.52, len: 0.50 }]);
-    // BAY C (tip / HAND) — outer membrane + covert-cover + the primary BLADE fan (wrist-fold group)
+    shingleRank(wingMid, J0, J1, midO, plateSecond, [{ u: 0.08, len: 0.22 }, { u: 0.22, len: 0.24 }, { u: 0.38, len: 0.28 }, { u: 0.56, len: 0.32 }]);
+    // BAY C (tip / HAND) — outer scale-mail + the primary BLADE fan (wrist-fold group)
     membrane(wingTip, J1, 1.0, tipO, memOuter);
     spar(wingTip, J1, 0.86, tipO);
-    shingleRank(wingTip, J1, 1.0, tipO, plateSecond, [{ u: 0.12, len: 0.32 }, { u: 0.34, len: 0.42 }]);
-    primaryRank(wingTip, J1, 0.99, tipO, nPrim, nChan);
+    shingleRank(wingTip, J1, 1.0, tipO, plateSecond, [{ u: 0.08, len: 0.22 }, { u: 0.24, len: 0.26 }, { u: 0.42, len: 0.30 }]);
+    primaryRank(wingTip, J1, 0.99, tipO, nPrim);
 
     const marker = new THREE.Object3D(); const tc = O(front(1.0), tipO); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
