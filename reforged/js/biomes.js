@@ -182,7 +182,7 @@ export const BIOMES = [
     water: { deep: C(0x030814), shallow: C(0x0f3c46), waveAmp: 0.2 }, // shallow half-step green so the wave-face harmonizes with the reflected aurora
     ambient: { color: C(0xd8f4ff), fall: 0.05, sway: 0.5, size: 0.26, opacity: 0.7 },
     fauna: { color: C(0xc0d8e0), scale: 0.6, flap: 0.35 },
-    props: ['floe', 'iceFang'], // LOW flat ice — the sky owns the frame (Frozen's tall-spire opposite)
+    props: ['floe', 'iceFang', 'berg', 'skerry', 'ridge'], // LOW ice across 3 shape families + rock + distant massif (sky owns the frame)
     matIndex: 6, // ice (doc only; obstacles tint via biomeIndexAt → mats.body[6])
     // Contrast gate: darker fog than Astral (L≈0.10) → the default deep bullet band vanishes.
     bullets: { dark: 0xaf4f73 },

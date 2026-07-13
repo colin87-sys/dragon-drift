@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -133,6 +133,9 @@ if (urlParams.has('auract')) setAuroraActOverride(parseFloat(urlParams.get('aura
 // ?biome=<i> pins the whole course to one biome — lets Aurora Shallows (6, appended but not yet in
 // CYCLE) be flown before the flip. The biome supplies its own dark night sky, so no ?aurora night-wash.
 if (urlParams.has('biome')) setForcedBiome(parseInt(urlParams.get('biome'), 10));
+// ?aurerupt=<0..2> pins the aurora ERUPTION strength (bypasses the 0.45 shipped cap) so a level can be
+// judged in motion: 0.45 = shipped, ~0.9 pre-dial-down, 1.4 strong red crown, 2.0 max. Debug only.
+if (urlParams.has('aurerupt')) setAuroraEruptOverride(parseFloat(urlParams.get('aurerupt')));
 // N4 instanced spark backend (150 draws → 1). Must be set before initParticles. NOTE: kept OFF by
 // default — tests/particlebatch.mjs currently FAILS the collapse (the instanced mesh is built but the
 // per-sprite draws still submit → calls go 233→234, not 233→1). Defaulting it on would ADD a draw, not
@@ -348,8 +351,9 @@ if (urlParams.has('debug')) {
     renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, flowColliderBoxes, trailDebug: __trailDebug,
     input,   // capture tools poke input.surgeTap to skip a scripted entrance headless (rAF-throttled flythroughs stall waits otherwise)
     juice: { hitstop, juiceEvent },
-    // Aurora capture seam: pin activity/eruption (null restores the live envelope) for the montage tool.
+    // Aurora capture seams: pin activity/eruption (null restores the live envelope) for the montage tools.
     setAuroraAct: setAuroraActOverride,
+    setAuroraErupt: setAuroraEruptOverride,
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
     audioHealth: () => getAudioHealth(),
     postfx: { setPostTier, setPostMSAA, kick, kickState, handle: postfx },
