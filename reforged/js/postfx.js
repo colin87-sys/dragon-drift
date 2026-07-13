@@ -297,6 +297,19 @@ export function setPostPixelRatio(r) {
   postfx._pixelRatio = r;
 }
 
+// Toggle composer MSAA at runtime. The heaven arena drops it to 0: that scene is a soft, full-frame
+// ADDITIVE fire with no hard geometry edges, so MSAA does ~nothing there but its resolve is heavy
+// bandwidth — the CONFIRMED fill wall (on-device ?msaa0 = 60fps at FULL resolution, fire intact).
+// Reallocs the composer's two multisample framebuffers ONCE (set .samples → dispose → the renderer
+// rebuilds at the current sample count on the next render). Bloom/god-ray RTs are separate, untouched.
+export function setPostMSAA(samples) {
+  const c = postfx.composer;
+  if (!c) return;
+  for (const rt of [c.renderTarget1, c.renderTarget2]) {
+    if (rt && rt.samples !== samples) { rt.samples = samples; rt.dispose(); }
+  }
+}
+
 // N1 — toggle the grading-pass dither (default on). ?dither=0 turns it off for a
 // clean before/after A/B; the shipped look is dither ON.
 export function setDither(on) {
