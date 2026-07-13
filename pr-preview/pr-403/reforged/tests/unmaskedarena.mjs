@@ -325,6 +325,29 @@ const movedFrac = moved / tot;
 check(loopB.detUTime > loopA.detUTime, `the detonation's perpetual driver ADVANCES (uTime ${loopA.detUTime} → ${loopB.detUTime})`);
 check(movedFrac > 0.30, `the detonation LOOP is alive — the streak band jetted over 1.2s (moved ${(movedFrac * 100).toFixed(1)}% of samples, gate > 30%; a dead loop reads near-static)`);
 
+// TIER-2 GRACEFUL DEGRADE (the "background goes black at shield-raise" fix): forcing the weakest tier
+// must NOT hide the whole detonation — it keeps a lit core+corona (drawRange subset). The set stays
+// VISIBLE and the frame centre stays lit; only on tier 2 does the old code hard-black. Restore after.
+const t2 = await page.evaluate(async () => {
+  window.__dd.setQuality(2);
+  await new Promise((r) => setTimeout(r, 250));
+  const s = window.__dd.bossArenaState();
+  return { tier: s.arenaSet?.tier, vis: s.arenaSet?.visible, k: s.arenaSet?.k };
+});
+const shotT2 = await page.screenshot();
+const { rgba: rgbaT2 } = decodePNG(shotT2);
+let cLum = 0, cN = 0;   // centre annulus (where the core+corona sits) must stay lit, not black
+for (let y = Math.floor(ih * 0.28); y < ih * 0.46; y += 2) {
+  for (let x = Math.floor(iw * 0.38); x < iw * 0.62; x += 2) {
+    const d = (y * iw + x) * 4; cLum += (0.2126 * rgbaT2[d] + 0.7152 * rgbaT2[d + 1] + 0.0722 * rgbaT2[d + 2]) / 255; cN++;
+  }
+}
+const cMean = cLum / cN;
+check(t2.tier === 2 && t2.vis === true && cMean > 0.12,
+  `tier 2 GRACEFULLY degrades — the detonation stays lit (set visible ${t2.vis}, centre luma ${cMean.toFixed(3)} > 0.12), never a hard black`);
+await page.evaluate(() => window.__dd.setQuality(0));
+await page.waitForTimeout(150);
+
 // The focal lift REVERTS off the heaven (byte-identity): reset → fresh S2 pin → lift.k 0, sclera restored.
 const liftOff = await page.evaluate(async () => {
   window.__dd.bossReset(); await new Promise((r) => setTimeout(r, 200));
