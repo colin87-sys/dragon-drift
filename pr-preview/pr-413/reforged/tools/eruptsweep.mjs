@@ -34,10 +34,10 @@ const clip = { x: 0, y: 0, width: VIEW.width, height: Math.round(VIEW.height * 0
 // uAurErupt levels: 0.45 = the current SHIPPED cap; ×2 ≈ the pre-dial-down gains (I cut the color
 // gains ~half), so 0.9 ≈ "before"; 1.4 / 2.0 = pushed past it so the full range is visible.
 const cells = [
-  { erupt: 0.45, label: 'CURRENT (shipped, restrained)' },
-  { erupt: 0.90, label: '≈ before the dial-down' },
-  { erupt: 1.40, label: 'strong' },
-  { erupt: 2.00, label: 'MAX (full explosion)' },
+  { erupt: 0.60, label: 'gentle (0.6)' },
+  { erupt: 1.20, label: 'SHIPPED (1.2) — full structure' },
+  { erupt: 1.60, label: 'strong (1.6)' },
+  { erupt: 2.00, label: 'max (2.0)' },
 ];
 const labels = cells.map((c) => c.label);
 const shots = [];
