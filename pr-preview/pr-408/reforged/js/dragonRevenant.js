@@ -245,24 +245,6 @@ function buildOssuaryTorso(def, model, _bodyMat) {
     );
   }
 
-  // ── PLAGIOPATAGIUM (BODY-FIXED) — the shroud membrane that joins the wing to the SPINE /
-  // ribcage. It lives on the TORSO (not the arm) so it (a) reads as coming from the spine, and
-  // (b) NEVER swings into a "weird triangle" during the flap (owner saw the old arm-parented
-  // version deform in flight). Seated HIGH on the dorsal (above the rib belly, so it never clips
-  // through the wide cage) — a web from each wing root inboard to the dorsal ridge, sweeping a
-  // little aft + down with a tattered lower edge. Dark charcoal shroud tier.
-  const drapeMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x1d1f23, emissive: 0x000000, flatShading: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
-  drapeMat.envMapIntensity = 0.0;
-  const drapeT = [];
-  for (const side of [1, -1]) {
-    const W  = [0.50 * shoulderW * side, TORSO_Y + 0.32, -0.52];   // the wing root (where the wing emerges)
-    const Sf = [0.07 * side, TORSO_Y + 0.30, -0.80];               // dorsal ridge, forward (near the spine at the shoulder)
-    const Sa = [0.10 * side, TORSO_Y + 0.20, 0.10];                // dorsal ridge, aft along the back
-    const D  = [0.40 * side, TORSO_Y - 0.06, 0.02];                // a drape point on the upper flank (tattered lower corner)
-    drapeT.push([W, Sf, Sa], [W, Sa, D]);                          // a membrane web root→spine + a little drape
-  }
-  group.add(flatTriMesh(drapeT, drapeMat));
-
   group.add(flatTriMesh(boneT, M.bone));
   group.add(flatTriMesh(dorsalT, M.boneDorsal));
   if (recessT.length) group.add(flatTriMesh(recessT, M.recess));
@@ -417,12 +399,18 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // ── PROPATAGIUM — the leading-edge web over the SHORT arm (shoulder→elbow→wrist), so
   // the membrane starts at the HUMERUS, not the wrist. Arm-side → folds with the arm.
   arm.add(flatTriMesh([[LE(0), E, K], [LE(0), K, [K[0] * 0.6 + LE(0)[0] * 0.4, K[1] - 0.03 * hs, K[2] + 0.10 * hs]]], wingMat));
-  // NOTE: the PLAGIOPATAGIUM (the membrane joining the wing to the ribcage/spine) is NOT built
-  // here anymore. When it was an arm-parented triangle reaching to a fixed body point, the flap
-  // rig swung it away from the body into a "weird triangle" every downstroke (owner saw it in
-  // flight). It now lives on the TORSO as a BODY-FIXED shroud drape (buildOssuaryTorso) that
-  // sweeps from the wing root down the ribcage flank — so it reads as coming from the spine/
-  // ribcage AND never deforms with the flap. The arm keeps only the small propatagium above.
+  // ── PLAGIOPATAGIUM / BRACHIAL membrane — the wing is ONE CONTINUOUS sheet, not a finger-fan
+  // with a bare arm. This panel fills the ARMPIT under the arm and sweeps INBOARD + DOWN to a
+  // body anchor B at the upper ribcage BESIDE THE SHOULDER JOINT (owner: the membrane must
+  // connect to the ribcage-near-shoulder, and the long arm bones must carry membrane too — it
+  // read as "tiny wings + skinny bare arms"). B sits close to the wing ROOT/pivot — NOT the far
+  // hip like the old anchor, whose long aft lever swung a shard every downstroke — so it rotates
+  // WITH the wing and stays glued to the shoulder. Arm-side + root points only (B, LE0, E, K) →
+  // it never tears when the hand folds at the wrist. Together with the propatagium (over the arm)
+  // and the chiropatagium (between the fingers), the membrane is unbroken from body to fingertip.
+  const B = [-0.34, -0.39, 0.10];   // upper ribcage beside the shoulder joint (local; world ≈ inboard + down of the root)
+  const Btr = [-0.10, -0.30, 0.55];   // a trailing point so the inboard hem drapes aft, not a straight cut
+  arm.add(flatTriMesh([[B, LE(0), E], [B, E, K], [B, K, Btr]], wingMat));   // armpit + brachial sheet: body → root → wrist → aft hem
   return { arm, hand, K, tip: F0 };
 }
 
