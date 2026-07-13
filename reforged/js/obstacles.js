@@ -198,7 +198,9 @@ export function initObstacles(s) {
 // never a frame that looks passable but kills. Non-indexed → flat facets; per-QUAD facetJ; glowT
 // baked outer-girdle(0)→inner-lip(1). Drawn from o.gap* only (render-only, determinism-free).
 function buildGateFrame(o) {
-  const inRad = 0.35, outRad = 0.35, zHalf = 0.35, Z0 = 0.3, rC = 0.9;
+  // rC clamped to the half-extents: a corner radius > gapW/gapH would bulge the lip OUTSIDE the
+  // collider (looks-passable-but-kills). Today gap dims are fixed (~3.8/3.4) so this is a guard.
+  const inRad = 0.35, outRad = 0.35, zHalf = 0.35, Z0 = 0.3, rC = Math.min(0.9, o.gapW, o.gapH);
   const HX = o.gapW + inRad, HY = o.gapH + inRad, R = rC + inRad;
   const sx = Math.max(0, o.gapW - rC), sy = Math.max(0, o.gapH - rC); // corner-centre offsets
   const cl = [];                                     // centreline {x,y,nx,ny}: nx,ny = INWARD normal
