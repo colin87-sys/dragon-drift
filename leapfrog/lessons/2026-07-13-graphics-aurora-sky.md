@@ -28,6 +28,29 @@ whisper striations into rays). Split the green into a diffuse column (0x54ff86) 
 montage-vs-reference gate is where "plausible green" becomes "reads as the real phenomenon," and a
 one-line ramp inversion can silently invert the entire identity thesis.
 
+**The Gate-3 composition catch (the owner flew it and it read wrong).** The tuned curtain was
+authentic in ISOLATION but composed badly in the frame: it clustered to one side, had a hard "invisible
+line" across its bottom, and never touched the horizon. Fable's composition study (spawned on the owner's
+request, with aurora-photography research) found each was structural, not a tuning miss: (1) the fixed
+azimuth gaussians (`exp(-dot(az,axis)²)`) put each layer's bright locus at a fixed compass bearing —
+dead-centre of the forward view was *mathematically* empty (`e^-37`); (2) the `below = smoothstep(h0…)`
+cut went to exact zero with the brightest hot-line pixels sitting on it → it *was* a clip; (3) nothing in
+the shader referenced the horizon at all, and the sub-border rose fringe was being multiplied to zero by
+the cut before it could descend. The fix is a reusable **horizon-anchoring model**: (a) key the main arc
+to the *damped travel direction* (`uAurFwd`, λ=0.35 → world-anchored during a weave, recentres over
+~6–8s — never pinned decal-like, never lost off-frame) and gate it with a wide `smoothstep` envelope
+across the forward hemisphere instead of a narrow gaussian, so it spans ~130° through centre; (b) drop
+the border to the horizon at the arc *flanks* (`h0` keyed on `envC = clamp(dot(az,uAurFwd))`) so the ends
+dive behind the world and foreground props/ridges crop it for free (the dome is already drawn after the
+world → early-z occlusion was always free, it just had nothing to occlude because sky and land occupied
+disjoint elevation bands); (c) replace the hard cut with `max(body, 0.30*skirt)` where
+`skirt=exp(min(hy-h0,0)*9)` — a luminous rose underside so the border stands ON light; (d) add a
+horizon airglow band `exp(-abs(hy)*7)` the curtains rise out of (brightest AT the sea-line, meeting its
+own mirror reflection at the seam). Lesson: **an effect can be authentic in isolation and still fail as a
+shot** — a sky element has to be composed against the horizon and the foreground silhouette, keyed to
+where the player is looking, or it reads as a floating decal no matter how physically correct the hue and
+border are. Compose the frame, not just the phenomenon.
+
 **Reusable patterns banked.**
 - **THE ONE THING is a single shader term you protect through every tier + tuning pass.** What makes
   a procedural aurora read as authentic (vs a generic scrolling rainbow ribbon) is the **bottom-anchored

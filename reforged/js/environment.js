@@ -652,7 +652,7 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.fogFarMix.value = env.fogFarMix;
   applyAtmosphere(env); // N8: drive the shared fog-chunk uniforms from the biome (identity when off)
   applySkyClouds(env, playerDist, time); // N9: drive the sky-cloud uniforms (amount 0 = shipped)
-  applyAurora(env, playerDist, time); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
+  applyAurora(env, playerDist, time, camera, dt); // Aurora Shallows: drive the curtain uniforms (mix 0 = shipped)
   // N9 god-ray coupling: damp the cloud coverage over the sun so shafts EASE down
   // as a cloud drifts across it (rather than strobe). main.js reads getCloudSunCover().
   cloudSunCover = damp(cloudSunCover, sunCloudCover(env, su.sunDir.value, playerDist, time), 3, dt);
