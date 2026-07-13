@@ -513,10 +513,10 @@ export const ui = {
           </defs>
           <path class="fc-trk" d="M 16 58 Q 14 16 54 10"/>
           <path class="fc-trk" d="M 104 58 Q 106 16 66 10"/>
-          <path class="fc-ghost" id="fc-ghost-l" d="M 16 58 Q 14 16 54 10"/>
-          <path class="fc-ghost" id="fc-ghost-r" d="M 104 58 Q 106 16 66 10"/>
-          <path class="fc-fill" id="fc-fill-l" d="M 16 58 Q 14 16 54 10"/>
-          <path class="fc-fill" id="fc-fill-r" d="M 104 58 Q 106 16 66 10"/>
+          <path class="fc-ghost" id="fc-ghost-l" pathLength="100" d="M 16 58 Q 14 16 54 10"/>
+          <path class="fc-ghost" id="fc-ghost-r" pathLength="100" d="M 104 58 Q 106 16 66 10"/>
+          <path class="fc-fill" id="fc-fill-l" pathLength="100" d="M 16 58 Q 14 16 54 10"/>
+          <path class="fc-fill" id="fc-fill-r" pathLength="100" d="M 104 58 Q 106 16 66 10"/>
           <line class="fc-best" id="fc-best" x1="0" y1="0" x2="0" y2="0"/>
           <polygon class="fc-keystone" id="fc-keystone" points="60,2 66,10 60,18 54,10"/>
         </svg>

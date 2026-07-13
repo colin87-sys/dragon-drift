@@ -20,6 +20,7 @@ import { bossCharge01 } from './boss.js';
 const SHARED_RUNE = 'M12 2 L20 12 L12 22 L4 12 Z M12 6 V18 M7.5 12 H16.5';
 const RUNES = {
   nightEye:      'M3 12 Q12 5 21 12 Q12 19 3 12 Z M12 8 V16',            // Night Fury slit-eye
+  nightGlass:    'M12 2 L17 11 L13 22 L11 22 L7 11 Z M12 5 V20 M8 10 L12 12 M16 10 L12 12 M8 15 L12 17 M16 15 L12 17', // Nightglass Vesper — a knapped flint shard + flake scars
   nightFang:     'M5 5 L12 20 L19 5 M8 5 L8 9 M16 5 L16 9',              // twin fangs
   plasmaBolt:    'M13 3 L6 13 L11 13 L9 21 L18 9 L13 9 Z',               // plasma bolt
   seraphWing:    'M12 4 A5 5 0 1 1 11.9 4 M4 15 L12 10 L20 15',          // halo + wing sweep

@@ -86,6 +86,7 @@ body.app-loaded > canvas { opacity: 1; }
 #hud.cine-hold .hud-top-right,
 #hud.cine-hold .stamina-arc,
 #hud.cine-hold .surge-min,
+#hud.cine-hold .flow-crest,
 #hud.cine-hold .milestone-banner,
 #hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
 
@@ -346,6 +347,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
 /* These vitals live only during a run — hide them whenever a menu/screen is up */
 #hud:has(#screen.visible) .stamina-arc,
 #hud:has(#screen.visible) .surge-min,
+#hud:has(#screen.visible) .flow-crest,
 #hud:has(#screen.visible) .health-hearts { opacity: 0 !important; pointer-events: none; }
 
 /* hud-top-left now stacks the pause button + the hearts */

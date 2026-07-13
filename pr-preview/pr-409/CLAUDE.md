@@ -28,6 +28,15 @@ first — it distills the boss research, design laws, the tier ladder, the arche
 architecture, and the SHORT list of ledger lessons that matter for boss work (so you don't
 read the whole ledger for it).
 
+**Designing or building a DRAGON / rideable creature?** Read
+[`reforged/DRAGON-DESIGN.md`](./reforged/DRAGON-DESIGN.md) FIRST — the shape-agnostic dragon
+creation method (learnt the hard way taking Vesper from a 1.5/5 "plane with bumps" to shipped):
+the failure modes to kill on sight (plane wings, stick limbs, LED-strip glow, flat-black
+poverty), how to get real DEPTH / THICKNESS / RICHNESS, the reusable fingered-membrane WING kit,
+the tail-chain + wrist-fold MOTION kit (the −anchor + mirror rigging gotchas), withheld
+component glow, the cruise-visible tier ladder, the Fable-critic-per-checkpoint process, and the
+verification harness. Read it so you start rich on turn one instead of building a stick dragon.
+
 **Designing or touching a BIOME / the environment?** Read
 [`reforged/BIOME-DESIGN.md`](./reforged/BIOME-DESIGN.md) first — the biome playbook: the
 8-biome lineup, the identity system (hazard + verb + anchor boss per biome), the
