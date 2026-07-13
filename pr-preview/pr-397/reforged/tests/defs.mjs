@@ -135,16 +135,16 @@ ok(`${Object.keys(DRAGONS).length} dragons have expected form counts (3 starter 
 // lanceRune; every other dragon (SSR starters, asset-backed) carries neither so
 // they keep the shipped jade wisp + shared rune. ---
 const sssr = Object.entries(DRAGONS).filter(([, d]) => d.maxRarity === 'SSSR' && !d.assetBacked);
-assertEq(sssr.length, 7, 'exactly 7 Eternal-capable (SSSR, procedural) dragons');   // +phoenixReforged (Phoenix Ascendant reforged)
+assertEq(sssr.length, 9, 'exactly 9 Eternal-capable (SSSR, procedural) dragons');   // +vesper +vesperLean (Nightglass Vesper Rich/Lean A/B)
 for (const [key, d] of sssr) {
   assert(typeof d.lanceTint === 'number' && d.lanceTint >= 0 && d.lanceTint <= 0xffffff,
     `dragon ${key} carries a valid lanceTint hex`);
   assert(typeof d.lanceRune === 'string' && d.lanceRune.length > 0,
     `dragon ${key} carries a lanceRune key`);
 }
-ok('7 SSSR dragons each carry lanceTint (hex) + lanceRune (key)');
+ok('9 SSSR dragons each carry lanceTint (hex) + lanceRune (key)');
 const tints = sssr.map(([, d]) => d.lanceTint);
-assertEq(new Set(tints).size, tints.length, 'the 6 Eternal wisp tints are all distinct');
+assertEq(new Set(tints).size, tints.length, 'the Eternal wisp tints are all distinct');
 ok('Eternal wisp tints are distinct per dragon');
 for (const [key, d] of Object.entries(DRAGONS)) {
   if (d.maxRarity === 'SSSR' && !d.assetBacked) continue;

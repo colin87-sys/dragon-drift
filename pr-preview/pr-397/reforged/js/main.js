@@ -13,7 +13,7 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount, spineWallPresenceAt, flowColliderBoxes } from './obstacles.js';
 import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality, setParticleBackend } from './particles.js';
@@ -23,7 +23,7 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -38,7 +38,7 @@ import { DRAGONS, wispTintFor, lanceRuneFor } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
+import { initBoss, updateBoss, syncSkyRig, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugThreadCut, debugRestitch, debugBreakFrame, debugFelledLie, debugLanceState, debugArmBeamDuel, debugBeamDuelT, debugCrush, debugCrushOn, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugPhase, setBossDebugStage, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, setBossLab, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, debugPaintables, debugShimmerCount, debugTetherCount, debugBeatOn, debugBurns, debugReckoning, debugLoose, bossGradeTarget, bossArenaMix, bossArenaFade, updateArenaExhale, debugFell, bossDebugModelLift, bossDebugModelVoid, bossDebugModelIgnite, debugWingMinWorldY, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo, setLanceTint } from './boss.js';
 import { debugActiveBullets, setDebugPerfectParryRel, setWispTint, getWispTint as wispTint, debugWispColors } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
@@ -108,7 +108,8 @@ const urlParams = new URLSearchParams(window.location.search);
 // drop you straight into it — skip the tutorial, auto-launch, and warp to just
 // before the first forced canyon. For eyeballing the Sky Canyon on the PR preview.
 const PREVIEW_CANYON = urlParams.has('rockrun') ? 'rock'
-  : urlParams.has('ribcage') ? 'spine' : null;
+  : urlParams.has('ribcage') ? 'spine'
+  : urlParams.has('flowrun') ? 'flow' : null;
 let previewLaunchPending = !!PREVIEW_CANYON;
 // N3 tone-map A/B (default ACES unchanged): ?tm=aces|agx|neutral. N1 dither is
 // ON by default; ?dither=0 kills it for a clean before/after comparison.
@@ -119,7 +120,10 @@ const gfxPref = saveData.settings;
 const tmMode = urlParams.get('tm') || gfxPref.toneMap;
 if (tmMode) setToneMap(renderer, tmMode);
 if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
-// N4 instanced spark backend (150 draws → 1). Must be set before initParticles.
+// N4 instanced spark backend (150 draws → 1). Must be set before initParticles. NOTE: kept OFF by
+// default — tests/particlebatch.mjs currently FAILS the collapse (the instanced mesh is built but the
+// per-sprite draws still submit → calls go 233→234, not 233→1). Defaulting it on would ADD a draw, not
+// save any. Re-enable the default only once that parity test is green (tracked as a separate fix).
 if (urlParams.get('pfx') === 'batch' || gfxPref.particleBatch === true) setParticleBackend('batch');
 const challengeSeedParam = parseInt(urlParams.get('seed'), 10);
 const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam > 0
@@ -220,6 +224,8 @@ const pendingGauntletEnds = [];
 // crossing an end restores it.
 const pendingCanyonStarts = [];
 const pendingCanyonEnds = [];
+let canyonStartDist = 0;   // dist of the active run's start marker → drives the eased
+                           // rock-lane widen boundary (game.canyonLaneHW)
 let bossGraceUntil = 0; // post-boss grace band end-distance (rings/collectibles only)
 let rushOnlyBoss = null; // when set, the next rush fights just this ONE boss (roster pick)
 function spawnAhead() {
@@ -326,7 +332,7 @@ if (urlParams.has('lab')) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, trailDebug: __trailDebug,
+    renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, flowColliderBoxes, trailDebug: __trailDebug,
     input,   // capture tools poke input.surgeTap to skip a scripted entrance headless (rAF-throttled flythroughs stall waits otherwise)
     juice: { hitstop, juiceEvent },
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
@@ -367,6 +373,7 @@ if (urlParams.has('debug')) {
     bossPartWorldPos: (part) => debugPartWorldPos(part),
     bossStrikeSurge: () => debugStrikeSurge(),
     bossRaiseShield: () => debugRaiseShield(),
+    setQuality: (t) => applyQuality(t),   // test/dev seam: force a quality tier (the tier-2 graceful-degrade proof)
     // PR6 seams: liveness-filtered paintables, shimmer count, runtime def pick.
     bossPaintables: () => debugPaintables(),
     bossShimmerCount: () => debugShimmerCount(),
@@ -410,6 +417,7 @@ if (urlParams.has('debug')) {
       bandDark: bossDebugState()?.bandDark,            // the active dark bullet band (the certified lift at the reveal)
       lift: bossDebugModelLift(),                      // PR-B: the S3 focal-lift state ({k, sclera}) — byte-identity off-heaven
       voidLift: bossDebugModelVoid(),                  // PR-V2: the void rim-light state ({k, rim, rimEm, glow, glowVis}) — byte-identity off-void
+      igniteLift: bossDebugModelIgnite(),              // GODHEAD DETONATION P3: the ignited-seraph state ({k, rim, rimEm, glow, glowVis}) — byte-identity off-heaven
       arenaSet: debugArenaSet(),                       // PR-K: the FIRSTBORN SKY set ({built, visible, k, mode, tierHidden}) — hidden off-heaven
       water: { y: debugWaterY(), dropK: getArenaDropK() },   // PR-K: the haze-deck drop (y −30 in the settled heaven, 0 byte-identical off it)
     }),
@@ -490,7 +498,12 @@ function setPerfHud(on) {
     renderer.info.autoReset = true;  // restore the three.js default for every other reader
   }
 }
-on('runStart', () => resetPerfStats(perfStats)); // worst/best-frame is per-RUN (O(1) field zeroing, no render effect)
+on('runStart', () => { resetPerfStats(perfStats); restoreDwell = 3; sinceRestore = 1e9; }); // worst/best-frame is per-RUN; a fresh run also forgives past ping-pong (moved off the old 30s timer, which re-armed the mid-fight hunt)
+// The quality controller forbids tier RESTORES during a boss fight (see updateQuality) so the tier — and
+// thus the detonation's look — can't ping-pong/repaint mid-encounter. Set the latch on the fight window.
+on('bossStart', () => { bossEncounter = true; });
+on('bossEnd', () => { bossEncounter = false; });
+on('bossDefeated', () => { bossEncounter = false; });
 // Boot: either path shows the HUD; default (neither) leaves it off → identity.
 if (urlParams.get('debug') === 'perf' || gfxPref.perfHud === true) setPerfHud(true);
 
@@ -508,6 +521,52 @@ on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
+let lastFlowMilestone = 0;   // flow-chain HUD milestone latch (reset whenever the chain zeroes)
+// WARM-COMPILE (F4): the fight's shaders — shield rim/cage/shards, surge beam/aura/bands/tether, the
+// arena detonation set — are scene-resident but hidden, so three.js compiles each at its FIRST show: a
+// ~200ms stall landing mid-combat (the shield-raise / surge-fire hitch that dragged the tier down).
+// Compile the WHOLE scene now (renderer.compile traverses hidden materials too), under the entrance
+// cinematic where a one-frame stall is invisible, against the LIVE pipeline target so the program
+// variant matches (three keys programs on the bound render target). Best-effort — never break the fight.
+on('bossStart', () => {
+  try {
+    const rt = postfx.enabled && postfx.composer ? postfx.composer.renderTarget1 : null;
+    renderer.setRenderTarget(rt);
+    renderer.compile(scene, camera);
+    renderer.setRenderTarget(null);
+  } catch (e) { /* warm-compile is advisory; a failure must not abort the encounter */ }
+});
+// A boss never STARTS inside a canyon (boss.js gates on !game.inCanyon), but a canyon
+// start marker generated within the spawn-ahead lead can be CROSSED mid-fight — and the
+// fight's clearAhead wipes that run's geometry, and its end marker (generated mid-fight)
+// is dropped. Flush the pending markers + canyon state on bossStart so a scheduled canyon
+// can't half-arm across a fight: no inCanyon/canyonRun stuck after the boss, no soft/eased
+// rock wall live in a danmaku fight tuned to the fatal ±13 wall, no one-frame fatal snap
+// when the stuck state finally clears while the player is >13.
+on('bossStart', () => {
+  pendingCanyonStarts.length = 0;
+  pendingCanyonEnds.length = 0;
+  canyonStartDist = 0;
+  if (game.inCanyon) { game.inCanyon = false; sfx.slipstreamStop(); cameraCtl.setCanyon(false); }
+  game.canyonRun = null;
+  game.canyonLaneHW = null;
+  game.canyonRockSoft = false;
+  game.flowChain = 0;
+  lastFlowMilestone = 0;
+});
+// FLOW carve chain: a low-noise multiplier pop at every 5th step (and gold at the cap).
+// The slipstream SPEED is the real feedback; this just names the climbing multiplier. The
+// milestone latch resets on a drop (and on every run-end/boss flush) so re-climbing re-pops.
+on('flowChain', ({ chain, mult }) => {
+  // Latch on the CAPPED chain so pops stop at the cap (one gold "MAX" pop, not a spam of
+  // identical ×3.0 pops that stomp the ring-score popup for the rest of the run).
+  const m = Math.floor(Math.min(chain, CONFIG.FLOW.chainCap) / 5);
+  if (chain > 0 && m > lastFlowMilestone) {
+    lastFlowMilestone = m;
+    ui.flowChainPop(`FLOW ×${mult.toFixed(1)}`, chain >= CONFIG.FLOW.chainCap ? 'gold' : 'green');
+  }
+});
+on('flowChainDrop', ({ chain }) => { lastFlowMilestone = Math.floor(chain / 5); });
 // KNELLGRAVE's toll-as-world-event (§5d slot 10): the frame FLINCHES on every toll —
 // a bloom breath + vignette squeeze (postfx kick preset). Def-gated at the emitter
 // (only a def.musicDies boss emits 'bossToll'), so every other fight is untouched.
@@ -976,6 +1035,8 @@ function restart(opts = {}) {
   pendingGauntletEnds.length = 0;
   pendingCanyonStarts.length = 0;
   pendingCanyonEnds.length = 0;
+  canyonStartDist = 0;
+  lastFlowMilestone = 0;
   bossGraceUntil = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
@@ -1204,10 +1265,28 @@ let screenshotTimer = 0;
 // Rolling-average FPS drives a quality scalar that thins particle/trail
 // spawn rates, and at the lowest tier also drops the render resolution.
 // Degrades BEFORE 60 is breached (<55 / <42) and restores with hysteresis.
-let fpsAvg = 60;
+let fpsAvg = 60;            // HUD-only (the "fps" readout) — NOT the tier decision signal (see below)
 let qualityTier = 0;        // 0 = full, 1 = reduced, 2 = low
 let qualityTimer = 0;       // time spent above the restore threshold
+let degradeTimer = 0;       // time spent below the degrade threshold (dwell → a hitch can't cascade tiers)
 let warmup = 2;             // ignore first seconds (shader-compile jank)
+let restoreDwell = 3;       // seconds of headroom required before restoring a tier (GROWS on ping-pong)
+let sinceRestore = 1e9;     // time since the last tier restore (anti-ping-pong memory)
+let bossEncounter = false;  // true from bossStart→bossEnd: FORBID restores mid-fight so the tier (and thus the detonation's look) can't ping-pong/repaint during the boss — the owner's "background randomly changes"
+// The tier DECISION signal is a windowed MEDIAN of TRUE frame time, NOT an EMA of the clamped fps. The
+// EMA was a hitch INTEGRATOR: one ≥50ms stall injected a 20fps sample and a cluster dragged the average
+// into the 40s → the controller degraded on transient compile/GC/flip stalls it could never fix by
+// dropping quality, then (with the reverted 72/60 restore wall) got TRAPPED at tier 2. A p50 of the last
+// ~120 deltas is immune to 1–2 outlier frames, so only GENUINE sustained slowness moves it. `capFps` (a
+// decaying peak) proves headroom: on iOS ProMotion is VARIABLE-refresh — measured fps steps down to
+// 60Hz on 10–16ms frames regardless of GPU headroom, so a high restore threshold is unreachable exactly
+// when degraded; capFps reads the true ceiling and marks the device "capable" (hitch-bound, don't uglify).
+const DT_N = 120;
+const dtRing = new Float32Array(DT_N), dtScratch = new Float32Array(DT_N);
+let dtCount = 0, dtIdx = 0, medStale = 0;
+let medFps = 60;            // p50 of the last DT_N true deltas → the degrade/restore signal
+let capFps = 60;            // decaying peak fps (~18s memory) → proof of headroom, immune to load
+let skipQualityFrames = 0;  // set in applyQuality → the flip's own realloc/recompile stall never feeds the signal
 const QUALITY_SCALARS = [1, 0.6, 0.35];
 const PIXEL_RATIOS = [
   Math.min(window.devicePixelRatio, 2),
@@ -1218,14 +1297,15 @@ document.body.dataset.qtier = qualityTier; // boot default (applyQuality only ru
 
 function applyQuality(tier) {
   qualityTier = tier;
+  skipQualityFrames = 2;   // the next 2 frames carry this flip's RT realloc + shader recompile — exclude them from the signal (see updateQuality)
   document.body.dataset.qtier = tier; // CSS gates (speedlines, motes) read this
   setParticleQuality(QUALITY_SCALARS[tier]);
   setDragonQuality(QUALITY_SCALARS[tier]);
   setBossQuality(QUALITY_SCALARS[tier]);
   setContactShadowQuality(QUALITY_SCALARS[tier]);
   renderer.setPixelRatio(PIXEL_RATIOS[tier]);
-  setPostTier(tier);
-  setPostPixelRatio(PIXEL_RATIOS[tier]);
+  setPostPixelRatio(PIXEL_RATIOS[tier]); // set the ratio FIRST (no resize) …
+  setPostTier(tier);                     // … so setPostTier's single applySize() reallocs the RT ONCE, not twice
   setWaterReflective(tier); // N11: tier0 768² full-rate · tier1 384² half-rate · tier2 cheap quad
   setWaterSwellQuality(tier); // N10a: tier0 96×160 / tier1 48×80 / tier2 flat (swell off)
   setWaterFoamQuality(tier); // N10c: foam at tier0/1, off at tier2
@@ -1235,7 +1315,7 @@ function applyQuality(tier) {
   setArenaSetQuality(tier); // ARENA PR-H1/H2: tier2 drops the heaven's holy architecture (palette + rays carry it)
 }
 
-function updateQuality(dt) {
+function updateQuality(dt, hitchDt = dt) {
   // Manual quality override from settings pins the tier.
   const override = saveData.settings.qualityOverride;
   if (override !== null && override !== undefined) {
@@ -1243,20 +1323,48 @@ function updateQuality(dt) {
     return;
   }
   if (warmup > 0) { warmup -= dt; return; }
-  fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * Math.min(dt * 2, 1);
+  // HITCH REJECTION: a genuinely huge frame (≥0.25s tab stall) is dropped outright. hitchDt is the
+  // UNCLAMPED delta (rawDt is capped at 0.05, which made the old dt>0.25 guard dead code).
+  if (hitchDt > 0.25) { degradeTimer = 0; return; }
+  // FLIP GUARD: the 2 frames after an applyQuality carry the flip's OWN realloc/recompile stall — never
+  // let the controller's signal eat its own tail (that self-exciting cascade drove 0→1→2).
+  if (skipQualityFrames > 0) { skipQualityFrames--; fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * 0.1; return; }
+  fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * Math.min(dt * 2, 0.2);   // HUD-only EMA
+  // capFps: decaying peak (≈4fps/s decay → ~18s memory). Proof of true headroom, immune to load/hitches.
+  capFps = Math.max(capFps - dt * 4, Math.min(1 / Math.max(hitchDt, 1e-4), 250));
+  // median ring: p50 of the last DT_N true deltas — a 1–2 frame stall can't move it.
+  dtRing[dtIdx] = hitchDt; dtIdx = (dtIdx + 1) % DT_N; if (dtCount < DT_N) dtCount++;
+  if (++medStale >= 30 && dtCount >= 60) {   // re-sort ~2–4×/s (O(120 log 120), zero alloc — a preallocated scratch)
+    medStale = 0;
+    dtScratch.set(dtRing.subarray(0, dtCount));
+    const s = dtScratch.subarray(0, dtCount); s.sort();
+    medFps = 1 / Math.max(s[dtCount >> 1], 1e-4);
+  }
+  sinceRestore += dt;
+  const capable = capFps > 70;               // proven >70fps recently ⇒ hitch-bound, NOT throughput-bound → don't uglify
+  // CAPABLE FLOOR: a device that has proven >70fps never falls to tier 2 — the PALETTE-BREAKING tier
+  // (composer off, clouds off, the detonation cut to core+corona). Tier 2 stays for genuinely weak
+  // devices. So a flagship oscillates at most 0↔1 (near-identical), never the jarring tier-2 repaint.
+  const maxTier = capable ? 1 : 2;
   const degradeAt = [55, 42, 0][qualityTier];
-  const restoreAt = [Infinity, 63, 50][qualityTier];
-  if (fpsAvg < degradeAt) {
-    applyQuality(qualityTier + 1);
-    qualityTimer = 0;
-  } else if (fpsAvg > restoreAt) {
-    qualityTimer += dt;
-    if (qualityTimer > 3) {
-      applyQuality(qualityTier - 1);
-      qualityTimer = 0;
+  const restoreAt = [Infinity, 58, 57][qualityTier];   // 2→1 restore now demands a NEAR-60 median at tier 2 (was 50 → it restored into a tier 1 that couldn't hold it → 1↔2 bounce)
+  const degradeDwell = capable ? 2.5 : 0.9;  // a capable device must be MEDIAN-slow for 2.5s (a stall cluster won't do it); a weak device keeps the fast 0.9s response
+  if (medFps < degradeAt && qualityTier < maxTier) {
+    degradeTimer += dt;
+    if (degradeTimer > degradeDwell) {
+      // ANTI-PING-PONG: if we restored a tier <8s ago and are already falling back, that tier is NOT
+      // sustainable — demand progressively more headroom before the next restore (so we stop hunting).
+      if (sinceRestore < 8) restoreDwell = Math.min(restoreDwell * 2, 24);
+      applyQuality(qualityTier + 1); degradeTimer = 0; qualityTimer = 0;
     }
+  } else if (medFps > restoreAt && !bossEncounter) {
+    // NO RESTORES MID-ENCOUNTER: a restore during the fight would flip the tier and REPAINT the
+    // detonation (the owner's "background changes"). Restores are deferred to after bossEnd.
+    degradeTimer = 0;
+    qualityTimer += dt;
+    if (qualityTimer > restoreDwell) { applyQuality(qualityTier - 1); qualityTimer = 0; sinceRestore = 0; }
   } else {
-    qualityTimer = 0;
+    degradeTimer = 0; qualityTimer = 0;
   }
 }
 
@@ -1299,12 +1407,14 @@ function tick() {
   }
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
   // drives every world/gameplay update.
-  let rawDt = Math.min(clock.getDelta(), 0.05);
+  const trueDt = clock.getDelta();   // UNCLAMPED — the tier hitch-guard + high-refresh latch must see real deltas
+  let rawDt = Math.min(trueDt, 0.05);
+  let hitchDt = trueDt;
   if (discardNextDelta) {
     discardNextDelta = false;
-    rawDt = 0;
+    rawDt = 0; hitchDt = 0;
   }
-  updateQuality(rawDt);
+  updateQuality(rawDt, hitchDt);
   // The speed-tunnel wind only lives during active play (death/pause/menu silence it;
   // start/exit are handled on the canyon crossings). Idempotent when already stopped.
   if (game.state !== 'playing') sfx.slipstreamStop();
@@ -1379,23 +1489,51 @@ function tick() {
     // Sky Canyon boundaries: widen the chase cam through the run so the twisty
     // gaps read clearly, then restore. Counted so nested canyons stay balanced.
     while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0].dist) {
-      game.canyonRun = pendingCanyonStarts.shift().run; // 'spine' | 'rock' → spine-only slipstream
+      const st = pendingCanyonStarts.shift();
+      game.canyonRun = st.run;  // 'spine' | 'rock' → spine-only slipstream
+      canyonStartDist = st.dist; // ease-in anchor for the rock-lane widen
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
-      if (game.canyonRun === 'spine') sfx.slipstreamStart(); // speed-tunnel wind
+      if (game.canyonRun === 'spine' || game.canyonRun === 'flow') sfx.slipstreamStart(); // speed-tunnel / flow-carve wind
       // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
       // ("you're entering something ancient"). Subtle — within the juice budget.
       cameraCtl.shake(0.5);
-      burst(player.position, 0xcdd9ec, { count: 14, speed: 9, size: 1.1 });
+      // Flow flashes its slip-cyan signature at the threshold; rock/spine keep the bone puff.
+      burst(player.position, game.canyonRun === 'flow' ? 0x59d8ff : 0xcdd9ec, { count: 14, speed: 9, size: 1.1 });
     }
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
       game.inCanyon = false;
       game.canyonRun = null;
+      game.flowChain = 0;   // the carve chain lives only within a flow run (best is kept)
+      lastFlowMilestone = 0;
       sfx.slipstreamStop();
       cameraCtl.setCanyon(false);
       // Exit burst: a puff of bone dust as you break out into open sky (release).
       burst(player.position, 0xe7dcc0, { count: 18, speed: 14, size: 1.0 });
+    }
+
+    // Rock-run lane WIDEN: ease the effective fatal wall 13→canyonRockLaneHalfWidth→13
+    // over the run's ±40m entry/exit bands (the boundary markers sit exactly ±40m from
+    // the first/last ring, and the rock geometry's wide halves are pinned strictly inside
+    // that window — canyonMath rockSlicePlan — so the eased wall is ALWAYS ≥ the built
+    // channel). Distance-based → speed-independent + deterministic. Guards: rock runs
+    // only (spine keeps its own tube), NOT during a boss (a fight is tuned to the fatal
+    // ±13 wall), only when the v2 carved-slot geometry is built (v1 rollback assumes ±13),
+    // and only when the dial actually widens. canyonRockSoft flags the WHOLE rock run as
+    // clamp+chip (never fatal), independent of the nullable eased width.
+    if (game.inCanyon && game.canyonRun === 'rock' && !game.inBoss &&
+        CONFIG.canyonRockV2 && CONFIG.canyonRockLaneHalfWidth > CONFIG.laneHalfWidth) {
+      const sm = (u) => { const c = Math.max(0, Math.min(1, u)); return c * c * (3 - 2 * c); };
+      const kIn = sm((player.dist - canyonStartDist) / 40);
+      const kOut = pendingCanyonEnds.length ? sm((pendingCanyonEnds[0] - player.dist) / 40) : 1;
+      const eff = CONFIG.laneHalfWidth +
+        (CONFIG.canyonRockLaneHalfWidth - CONFIG.laneHalfWidth) * Math.min(kIn, kOut);
+      game.canyonLaneHW = eff > CONFIG.laneHalfWidth + 0.01 ? eff : null;
+      game.canyonRockSoft = true;
+    } else {
+      game.canyonLaneHW = null;
+      game.canyonRockSoft = false;
     }
 
     // Boost start: camera kick + whoosh SFX
@@ -1524,7 +1662,15 @@ function tick() {
     }
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
-    const slipMix = Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, CONFIG.canyonSpineSlip - 1);
+    // Normalize the slip envelope by the ACTIVE run's max slip (flow ramps to a different
+    // ceiling than spine) so the speed FX read 0..1 in both.
+    const slipRef = game.canyonRun === 'flow'
+      ? CONFIG.FLOW.slipPerChain * CONFIG.FLOW.chainCap
+      : CONFIG.canyonSpineSlip - 1;
+    // Clamp to 1: the frame a capped flow run ends, slipRef flips to spine's smaller
+    // denominator while canyonSlip is still decaying from 1.40 → slipMix would overshoot >1
+    // and flash the speed streaks past their designed max in the exit air.
+    const slipMix = Math.min(1, Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, slipRef));
     // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
     // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
     // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw
@@ -1540,7 +1686,7 @@ function tick() {
     updateSpeedStreaks(player, fxEnv);
     if (slipMix > 0.01) sfx.slipstreamUpdate(slipMix, player.speed / 6, wallPresence); // wind on slip, flutter on presence
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-    updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
+    updateObstacles(dt, t, player.dist, obstacleSpeedNorm, slipMix);
     updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
@@ -1594,6 +1740,7 @@ function tick() {
   }
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
+  setFeverArenaWarm(Math.max(0, Math.min(1, bossArenaMix() - 1)));   // heaven (mix 1→2) warms the Surge wash magenta→gold
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
     player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)

@@ -4,7 +4,16 @@ import { biomeIndexAt } from './biomes.js';
 import { halves, band, centre, spineSway, rockSlicePlan, CORRIDOR_HALF, kindMult } from './canyonMath.js';
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
+import { makeMarkerSurface, bakeGlowT, bakeConst, facetHash } from './markerSurface.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
+
+// Skyforged A/B kill-switch: the premium Windvault gate is ON by default;
+// ?skyforged=0 falls back to the old "Sky Gate" (posts/chevron/halo/gem) so the
+// owner can compare premium-vs-old on the preview. Guarded so a non-browser
+// import can't throw. Branches BOTH the builder and the motion path.
+const _mkParams = (typeof window !== 'undefined' && window.location)
+  ? new URLSearchParams(window.location.search) : new URLSearchParams();
+const SKYFORGED = _mkParams.get('skyforged') !== '0';
 
 // Hazards, spawned ahead and culled behind the dragon:
 //   pillar — floor spike (health damage)
@@ -21,6 +30,12 @@ let mats = null;
 // Phase Gate shared materials, one per biome (built in initObstacles).
 let veilMats = null; // translucent fresnel membrane
 let edgeMats = null; // bright aperture ring + corner brackets (visual hierarchy #1)
+let flowEdgeMat = null, flowCoreMat = null; // FLOW "Sky Gate" signature (fixed cyan/white) — fallback
+let markerMat = null;                       // Skyforged glass — the Windvault (shared, one program)
+const markerFlow = { value: 0 };            // per-ROLE 0..1 driver (gate: slipMix) — see markerSurface.js
+const markerTime = { value: 0 };            // globally shared clock (one write/frame)
+let gateFrameMats = null;                   // Phase Gate aperture frame — one per biome (Skyforged)
+const gateFlowRef = { value: 0 };           // gate-frame heat ← speedNorm (NEVER markerFlow — that's the flow slip)
 let rimMats = null;  // dim outer silhouette frame (secondary)
 const entries = [];
 export const colliders = entries; // same objects, same array
@@ -147,6 +162,152 @@ export function initObstacles(s) {
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
   edgeMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 1.4));
   rimMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 0.5));
+  // FLOW "Sky Gate" signature — FIXED slip-cyan / ice-white in EVERY biome (never
+  // edgeMats[bi]) so a flow run reads as its own distinct place, not a recoloured ring.
+  // Shared: the whole run pulses together with the slipstream (updateObstacles). Opaque
+  // emissive → blooms, overdraw-free.
+  flowEdgeMat = makeEdgeMat(0x59d8ff, 1.6);   // posts / chevron
+  flowCoreMat = makeEdgeMat(0xd6f4ff, 2.4);   // white-hot halo / gem (survives biome wash-out)
+  // Skyforged Windvault material — one shared program (customProgramCacheKey), the
+  // flow signature cyan family (continuity with the ribbon orbs → "flow = cyan
+  // light"). NOT bindAtmosphere'd: deliberate, parity with the old flow mats —
+  // a signature emissive marker should not be fog-tinted (same rationale as soul-fire).
+  markerMat = makeMarkerSurface({ flowRef: markerFlow, timeRef: markerTime, glint: 0.8, glintSharp: 40 });
+  // PR-4: the Phase Gate aperture frame gets the Skyforged treatment PER BIOME — six fresh
+  // factory calls derived from PHASE_SKINS (root = darkened biome edge, mid = edge, apex = the
+  // hot core), NEVER cloned (r160 Material.copy JSON-kills the uniform refs). All six + the three
+  // markers share ONE program (customProgramCacheKey). Driver = gateFlowRef (speed), not markerFlow.
+  // A hot inner LIP (lipGlow) puts the safe-route outline on the aperture edge; a restrained glint
+  // keeps menace (heavy sparkle would read "treasure"). Family = the VALUE grammar, not the hue.
+  // Apex is a BRIGHTENED EDGE (biome hue lerped toward white), NOT skin.core — the pale cores
+  // (Caldera peach, Frozen white) washed the frame white and killed biome identity. Keeping the
+  // hot lip hue-tinted + restrained lip/glint lets the biome-hued MID carry the read.
+  gateFrameMats = PHASE_SKINS.map((s) => makeMarkerSurface({
+    rootColor: new THREE.Color(s.edge).multiplyScalar(0.38).getHex(),
+    midColor: s.edge,
+    apexColor: new THREE.Color(s.edge).lerp(new THREE.Color(0xffffff), 0.5).getHex(),
+    flowRef: gateFlowRef, timeRef: markerTime, emissive: 1.8, side: THREE.DoubleSide,
+    glint: 0.35, glintSharp: 44, lipGlow: 0.6,
+  }));
+}
+
+// PR-4 Phase Gate aperture FRAME (Skyforged): a closed rounded-rectangle faceted sweep replacing
+// the four flat aperture bars — the Jade-Annulus move on a rectangle. A small chisel cross-section
+// (angular, not gem-round → keeps menace) is swept along the gap perimeter; the HOT inner lip
+// (glowT=1) lands EXACTLY on the collider gap boundary, so the safe-route outline gets stronger,
+// never a frame that looks passable but kills. Non-indexed → flat facets; per-QUAD facetJ; glowT
+// baked outer-girdle(0)→inner-lip(1). Drawn from o.gap* only (render-only, determinism-free).
+function buildGateFrame(o) {
+  // rC clamped to the half-extents: a corner radius > gapW/gapH would bulge the lip OUTSIDE the
+  // collider (looks-passable-but-kills). Today gap dims are fixed (~3.8/3.4) so this is a guard.
+  const inRad = 0.35, outRad = 0.35, zHalf = 0.35, Z0 = 0.3, rC = Math.min(0.9, o.gapW, o.gapH);
+  const HX = o.gapW + inRad, HY = o.gapH + inRad, R = rC + inRad;
+  const sx = Math.max(0, o.gapW - rC), sy = Math.max(0, o.gapH - rC); // corner-centre offsets
+  const cl = [];                                     // centreline {x,y,nx,ny}: nx,ny = INWARD normal
+  const addE = (x, y, nx, ny) => cl.push({ x, y, nx, ny });
+  const ES = 3, CS = 4;
+  for (let i = 0; i <= ES; i++) addE(HX, -sy + (i / ES) * 2 * sy, -1, 0);                         // right edge ↑
+  for (let i = 1; i <= CS; i++) { const a = (i / CS) * (Math.PI / 2); addE(sx + R * Math.cos(a), sy + R * Math.sin(a), -Math.cos(a), -Math.sin(a)); } // TR corner
+  for (let i = 1; i <= ES; i++) addE(sx - (i / ES) * 2 * sx, HY, 0, -1);                          // top edge ←
+  for (let i = 1; i <= CS; i++) { const a = Math.PI / 2 + (i / CS) * (Math.PI / 2); addE(-sx + R * Math.cos(a), sy + R * Math.sin(a), -Math.cos(a), -Math.sin(a)); } // TL
+  for (let i = 1; i <= ES; i++) addE(-HX, sy - (i / ES) * 2 * sy, 1, 0);                          // left edge ↓
+  for (let i = 1; i <= CS; i++) { const a = Math.PI + (i / CS) * (Math.PI / 2); addE(-sx + R * Math.cos(a), -sy + R * Math.sin(a), -Math.cos(a), -Math.sin(a)); } // BL
+  for (let i = 1; i <= ES; i++) addE(-sx + (i / ES) * 2 * sx, -HY, 0, 1);                         // bottom edge →
+  for (let i = 1; i <= CS; i++) { const a = 1.5 * Math.PI + (i / CS) * (Math.PI / 2); addE(sx + R * Math.cos(a), -sy + R * Math.sin(a), -Math.cos(a), -Math.sin(a)); } // BR
+  const M = cl.length, prof = [
+    [inRad, 0.0], [0.35 * inRad, zHalf], [-0.35 * outRad, zHalf],
+    [-outRad, 0.0], [-0.35 * outRad, -zHalf], [0.35 * inRad, -zHalf],
+  ], P = prof.length;
+  const gAt = (dn) => (dn + outRad) / (inRad + outRad);   // girdle 0 → lip 1
+  const pt = (c, dn, dz) => [o.gapX + c.x + c.nx * dn, o.gapY + c.y + c.ny * dn, Z0 + dz];
+  const pos = [], gt = [], fj = [];
+  const tri = (a, b, cc, ga, gb, gc, f) => { pos.push(a[0], a[1], a[2], b[0], b[1], b[2], cc[0], cc[1], cc[2]); gt.push(ga, gb, gc); fj.push(f, f, f); };
+  for (let s = 0; s < M; s++) {
+    const c0 = cl[s], c1 = cl[(s + 1) % M];
+    for (let p = 0; p < P; p++) {
+      const pn = (p + 1) % P;
+      const a = pt(c0, prof[p][0], prof[p][1]), b = pt(c1, prof[p][0], prof[p][1]);
+      const cc = pt(c1, prof[pn][0], prof[pn][1]), d = pt(c0, prof[pn][0], prof[pn][1]);
+      const ga = gAt(prof[p][0]), gc = gAt(prof[pn][0]), f = facetHash(s * P + p);
+      tri(a, b, cc, ga, ga, gc, f);
+      tri(a, cc, d, ga, gc, gc, f);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('glowT', new THREE.Float32BufferAttribute(gt, 1));
+  g.setAttribute('facetJ', new THREE.Float32BufferAttribute(fj, 1));
+  g.computeVertexNormals();
+  return g;
+}
+
+// WINDVAULT — a SINGLE tapered arch of forged glass framing the (unchanged) green
+// reward ring nested inside as the catch. A hand-rolled swept faceted tube (THREE
+// .TubeGeometry can't taper per-point nor bake glowT): a tall HORSESHOE — the lower
+// legs stay near-vertical so the "posts" read survives edge-on (the lesson the old
+// torus forgot), the crown frames the ring frontally — root-thick tapering to a
+// keystone-shard apex, with a z-elongated cross-section so a banking approach still
+// sees lit area. glowT ramps 0 (feet) → 1 (crown); the light climbs it with the
+// slipstream. Returns ONE merged non-indexed geometry (position + glowT), flat-faceted.
+function buildWindvault(gx, gy, j) {
+  const geoms = [];
+  const footY = Math.max(1.5, gy - 6);       // feet clear max swell (0.6m); no foam weld needed
+  const shoulderY = gy + 2.5;                 // legs meet the crown here
+  const crownY = gy + 9;                      // apex (keystone) — good ring-to-arch breathing room
+  const half = 7.5;                           // half-span between feet
+  const clampX = (x) => Math.max(-12.5, Math.min(12.5, x)); // stay in the lane
+  const footLx = clampX(gx - half), footRx = clampX(gx + half);
+  const cxA = (footLx + footRx) / 2, halfA = (footRx - footLx) / 2;
+  // Centreline: near-vertical left leg → elliptical crown → near-vertical right leg.
+  const pts = [];
+  const push = (x, y) => { const p = pts[pts.length - 1]; if (!p || Math.hypot(p.x - x, p.y - y) > 0.05) pts.push({ x, y }); };
+  const legN = 4;
+  for (let i = 0; i <= legN; i++) push(footLx, footY + (shoulderY - footY) * (i / legN));
+  const crownN = 12;
+  for (let i = 0; i <= crownN; i++) { const th = Math.PI * (i / crownN); push(cxA - halfA * Math.cos(th), shoulderY + (crownY - shoulderY) * Math.sin(th)); }
+  for (let i = 0; i <= legN; i++) push(footRx, shoulderY + (footY - shoulderY) * (i / legN));
+  const glowAt = (y) => Math.max(0, Math.min(1, (y - footY) / (crownY - footY)));
+  // Sweep a faceted elliptical cross-section (z-elongated) along the centreline.
+  const K = 5;                                // pentagonal facets → forged-glass glints
+  const rings = [];
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    const nx = -ty, ny = tx;                  // in-plane normal
+    const gt = glowAt(p.y), taper = 0.6 + (0.14 - 0.6) * gt; // root-thick → apex-thin
+    const rN = taper, rZ = taper * 1.4;       // z-elongated cross-section
+    const ring = [];
+    for (let k = 0; k < K; k++) { const ang = (k / K) * Math.PI * 2 + 0.3; const c = Math.cos(ang) * rN, s = Math.sin(ang) * rZ; ring.push([p.x + nx * c, p.y + ny * c, s]); }
+    rings.push({ ring, gt });
+  }
+  const posA = [], gtA = [], fjA = [];
+  const tri = (v0, v1, v2, g0, g1, g2, fj) => { posA.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]); gtA.push(g0, g1, g2); fjA.push(fj, fj, fj); };
+  for (let i = 0; i < rings.length - 1; i++) {
+    const r0 = rings[i], r1 = rings[i + 1];
+    for (let k = 0; k < K; k++) {
+      const kn = (k + 1) % K;
+      const fj = facetHash(i * K + k);           // D1: per-QUAD facet id (both tris share it)
+      tri(r0.ring[k], r1.ring[k], r1.ring[kn], r0.gt, r1.gt, r1.gt, fj);
+      tri(r0.ring[k], r1.ring[kn], r0.ring[kn], r0.gt, r1.gt, r0.gt, fj);
+    }
+  }
+  const tube = new THREE.BufferGeometry();
+  tube.setAttribute('position', new THREE.Float32BufferAttribute(posA, 3));
+  tube.setAttribute('glowT', new THREE.Float32BufferAttribute(gtA, 1));
+  tube.setAttribute('facetJ', new THREE.Float32BufferAttribute(fjA, 1));
+  geoms.push(tube);
+  // Keystone shard at the crown (glowT baked = 1) — the far-field bloom point. Bake a
+  // constant facetJ too so the merged attribute set matches the tube (else mergeGeometries → null).
+  const key = new THREE.OctahedronGeometry(0.95, 0).toNonIndexed();
+  key.deleteAttribute('normal'); key.deleteAttribute('uv'); // match the tube's attribute set
+  key.scale(0.8, 1.3, 0.8); key.rotateY(0.4 + j * 0.5); key.translate(cxA, crownY + 0.4, 0);
+  bakeGlowT(key, () => 1.0);
+  bakeConst(key, 'facetJ', 0.5);
+  geoms.push(key);
+  const merged = mergeGeometries(geoms, false); // both are position+glowT → never null
+  geoms.forEach((g) => g.dispose());
+  merged.computeVertexNormals();               // non-indexed → per-face FLAT normals (facet glints)
+  return merged;
 }
 
 export function addObstacle(o) {
@@ -179,6 +340,7 @@ export function addObstacle(o) {
 // per-instance (marked so removeAt disposes them).
 function buildGate(o) {
   const group = new THREE.Group();
+  group.userData.phaseGate = true;   // tag: lets tooling hide the harness-interleaved Phase Gate reliably
   const bi = biomeIndexAt(o.dist);
   const skin = PHASE_SKINS[bi];
   const veilMat = veilMats[bi];
@@ -221,12 +383,19 @@ function buildGate(o) {
   bar(0.3, TOP, -X + 0.15, TOP / 2, rimMat, 0.15);
   bar(0.3, TOP, X - 0.15, TOP / 2, rimMat, 0.15);
 
-  // Layer 2 — aperture ring: the brightest element, framing the safe route.
-  bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
-  bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
-  bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
-  bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
-  // Corner brackets (viewfinder cue) opening toward the centre of the gap.
+  // Layer 2 — aperture ring: the brightest element, framing the safe route. Skyforged (PR-4):
+  // ONE faceted forged-glass frame with a hot inner LIP on the collider boundary (per biome),
+  // replacing the four flat bars. Fallback (?skyforged=0): the exact shipped bars.
+  if (SKYFORGED) {
+    group.add(new THREE.Mesh(buildGateFrame(o), gateFrameMats[bi]));
+  } else {
+    bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
+    bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
+    bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
+    bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
+  }
+  // Corner brackets (viewfinder cue) opening toward the centre of the gap. UNTOUCHED in both
+  // modes (on edgeMat) — the highest-leverage safe-route affordance + its speed-aware breath.
   const legLen = 1.2;
   const gap = 0.75;
   for (const sx of [-1, 1]) {
@@ -495,12 +664,14 @@ function buildRockGap(o, e) {
     e.noDissolve = true;
     const top = CEIL + 2, bot = -3;
     const hz = ((plan.wb + plan.wf) / Math.max(plan.slices.length, 1)) * 0.6; // tiles along z
-    const lo = -LANE - 3, ro = LANE + 3;
     // Place at -s.z: rockSlicePlan's z>0 is the exit half (toward nextX), but the world
     // maps local +z to a SMALLER dist (the approach side), so the exit half must sit at
     // -z (physical dist = o.dist + z) or each section's forward half lands on the backward
     // side and adjacent sections mismatch at rhythm changes (a wall across the slot).
     for (const s of plan.slices) {
+      // Fill from the PER-HALF effective lane edge (s.laneHW: wider in the run interior,
+      // ±13 on the boundary halves) so the widened channel still reads as rock, not air.
+      const lo = -s.laneHW - 3, ro = s.laneHW + 3;
       if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, -s.z, 0.06, hz, !s.noCrest);
       if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, -s.z, -0.06, hz, !s.noCrest);
     }
@@ -601,9 +772,12 @@ function buildRockGap(o, e) {
     else stackRun(36, 6);
   } else if (o.kind === 'overunder') {
     // A rounded rock mass juts from the ceiling (dive under) or a shelf rises from
-    // the floor (climb over) — a vertical squeeze between the tower slots.
-    if (o.shelf === 'floor') lump(gx, gy - H - 3, LANE + 1, 3, T, 0.5);
-    else lump(gx, gy + H + 3, LANE + 1, 3, T, 0.5);
+    // the floor (climb over) — a vertical squeeze between the tower slots. The lump
+    // spans the (v2-widened) rock lane so the wider corridor doesn't open a lateral
+    // flank around the squeeze; the outer tips past the eased wall are unreachable.
+    const ouHalf = (CONFIG.canyonRockV2 ? CONFIG.canyonRockLaneHalfWidth : LANE) + 1;
+    if (o.shelf === 'floor') lump(gx, gy - H - 3, ouHalf, 3, T, 0.5);
+    else lump(gx, gy + H + 3, ouHalf, 3, T, 0.5);
 
   // --- DRAGON SPINE CANYON --------------------------------------------------
   } else if (o.kind === 'skull') {
@@ -675,6 +849,47 @@ function buildRockGap(o, e) {
     // tunnel. The finale ('straightrib') is the same ribs with a line of speed orbs
     // down the centre (placed in level.js) — boost flat-out and burst into open air.
     ribcage(kindMult(o.kind), {});
+  } else if (o.kind === 'flowgate') {
+    // FLOW run gate. Two visual grammars, chosen by the ?skyforged kill-switch (both
+    // share the fixed slip-cyan signature — never edgeMats[bi] — so a flow run reads as
+    // its own place, and both are walls-free: e.boxes stays EMPTY). The green reward ring
+    // survives untouched as the bullseye nested inside.
+    e.noDissolve = true;
+    const fh = halves(o), fb = band(o, fh.bk, fh.fw);
+    e.depthHalf = Math.max(e.depthHalf || 0, fh.bk, fh.fw);
+    e.ribBandBk = fb.wb; e.ribBandFw = fb.wf;     // presence band → the chain-slipstream FX
+    const j = () => (rng() - 0.5);                 // seeded per-gate cosmetic jitter (no Math.random)
+    if (SKYFORGED) {
+      // WINDVAULT (premium): one tapered arch of forged glass; the light CLIMBS the arch
+      // with the slipstream (updateObstacles writes markerFlow). One merged faceted mesh.
+      group.add(new THREE.Mesh(buildWindvault(gx, gy, j()), markerMat));
+    } else {
+      // "SKY GATE" (fallback, ?skyforged=0): twin light-posts + a down-chevron roof + a
+      // counter-rotating dashed halo + an apex gem. Kept for the owner's A/B against the
+      // Windvault; deleted in a follow-up after sign-off.
+      const parts = [];
+      const bar = (w, h, d, x, y, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rz) g.rotateZ(rz); g.translate(x, y, 0); parts.push(g); };
+      const postY0 = Math.max(1.5, gy - 7), postY1 = gy + 6, postH = postY1 - postY0, postYc = (postY0 + postY1) / 2;
+      for (const sx of [-1, 1]) {
+        const px = Math.max(-12.5, Math.min(12.5, gx + sx * 7.5));
+        bar(0.35, postH, 0.35, px, postYc, sx * 0.03 * j());       // post (slight seeded lean)
+        bar(5.0, 0.3, 0.3, (px + gx) / 2, (postY1 + gy + 8) / 2, -sx * 0.42); // chevron half → apex (gx, gy+8)
+      }
+      const gate = new THREE.Mesh(mergeGeometries(parts, false), flowEdgeMat);
+      parts.forEach((g) => g.dispose());
+      group.add(gate);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), flowCoreMat);
+      gem.position.set(gx, gy + 8, 0);
+      group.add(gem);
+      const arcs = [];
+      for (let a = 0; a < 4; a++) { const g = new THREE.TorusGeometry(CONFIG.ringRadius + 2.0, 0.14, 6, 10, Math.PI / 3); g.rotateZ(a * Math.PI / 2); arcs.push(g); }
+      const halo = new THREE.Mesh(mergeGeometries(arcs, false), flowCoreMat);
+      arcs.forEach((g) => g.dispose());
+      halo.position.set(gx, gy, 0);
+      halo.rotation.z = j() * 3;                     // seeded start phase
+      group.add(halo);
+      e.flowHalo = halo;
+    }
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
@@ -685,7 +900,7 @@ function buildRockGap(o, e) {
   return group;
 }
 
-export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
+export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0) {
   // Warning pulse on every moving shard (shared material, one write).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
   // Skull soul-fire eyes breathe (shared material, one write) so the mouth reads as
@@ -696,6 +911,18 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
   // ring a gentle, speed-aware breath. Six writes each — negligible.
   for (const m of veilMats) m.uniforms.uTime.value = time;
   for (const m of edgeMats) m.emissiveIntensity = (1.25 + Math.sin(time * 2.4) * 0.18) * (1 + 0.4 * sn);
+  // FLOW gate: the whole run's light BREATHES with the slipstream (slipMix 0..1).
+  // WINDVAULT: two shared uniform writes drive the light climbing the arch (uFlow) +
+  // the idle shimmer (uTime). SKY GATE fallback: the old emissiveIntensity pulse.
+  if (SKYFORGED) {
+    markerTime.value = time;
+    markerFlow.value = Math.max(0, Math.min(1, slipMix));
+    gateFlowRef.value = sn;   // PR-4: the gate frame's light climbs the ramp toward the lip with speed
+  } else if (flowEdgeMat) {
+    const b = 1 + 0.7 * slipMix;
+    flowEdgeMat.emissiveIntensity = (1.4 + Math.sin(time * 2.4) * 0.18) * b;
+    flowCoreMat.emissiveIntensity = (2.2 + Math.sin(time * 3.1) * 0.3) * b;
+  }
 
   for (let i = entries.length - 1; i >= 0; i--) {
     const e = entries[i];
@@ -708,6 +935,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
       removeAt(i);
       continue;
     }
+    if (e.flowHalo) e.flowHalo.rotation.z -= dt * 0.4; // Sky Gate halo counter-rotates (waypoint, not ring)
     if (e.type === 'shard') {
       e.object.rotation.y += dt * 0.8;
       e.object.rotation.x += dt * 0.3;
@@ -810,6 +1038,14 @@ function removeAt(i) {
 
 export function obstacleCount() {
   return entries.length;
+}
+
+// Test seam: total collider boxes across live FLOW-run gates. A flow run is
+// walls-free by design, so this must always be 0 (canyonboot asserts it).
+export function flowColliderBoxes() {
+  let n = 0;
+  for (const e of entries) if (e.type === 'rockGap' && e.run === 'flow') n += (e.boxes ? e.boxes.length : 0);
+  return n;
 }
 
 // First unpassed gate ahead of a distance (reticle target).

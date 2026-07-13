@@ -856,6 +856,12 @@ export const ui = {
     }
   },
 
+  // Flow-run carve chain: a low-noise multiplier pop at milestones (the SLIPSTREAM speed
+  // is the main feedback; this just names the climbing multiplier). color set by caller.
+  flowChainPop(text, color) {
+    this._popup(text, color);
+  },
+
   // Gold radial flash on a perfect-center ring.
   perfectFlash() {
     restartAnim(els.goldFlash, 'flash-anim');
