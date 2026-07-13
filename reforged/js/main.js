@@ -511,6 +511,7 @@ on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
+let lastFlowMilestone = 0;   // flow-chain HUD milestone latch (reset whenever the chain zeroes)
 // A boss never STARTS inside a canyon (boss.js gates on !game.inCanyon), but a canyon
 // start marker generated within the spawn-ahead lead can be CROSSED mid-fight — and the
 // fight's clearAhead wipes that run's geometry, and its end marker (generated mid-fight)
@@ -527,13 +528,15 @@ on('bossStart', () => {
   game.canyonLaneHW = null;
   game.canyonRockSoft = false;
   game.flowChain = 0;
+  lastFlowMilestone = 0;
 });
 // FLOW carve chain: a low-noise multiplier pop at every 5th step (and gold at the cap).
 // The slipstream SPEED is the real feedback; this just names the climbing multiplier. The
-// milestone latch resets on a drop so re-climbing re-pops.
-let lastFlowMilestone = 0;
+// milestone latch resets on a drop (and on every run-end/boss flush) so re-climbing re-pops.
 on('flowChain', ({ chain, mult }) => {
-  const m = Math.floor(chain / 5);
+  // Latch on the CAPPED chain so pops stop at the cap (one gold "MAX" pop, not a spam of
+  // identical ×3.0 pops that stomp the ring-score popup for the rest of the run).
+  const m = Math.floor(Math.min(chain, CONFIG.FLOW.chainCap) / 5);
   if (chain > 0 && m > lastFlowMilestone) {
     lastFlowMilestone = m;
     ui.flowChainPop(`FLOW ×${mult.toFixed(1)}`, chain >= CONFIG.FLOW.chainCap ? 'gold' : 'green');
@@ -1009,6 +1012,7 @@ function restart(opts = {}) {
   pendingCanyonStarts.length = 0;
   pendingCanyonEnds.length = 0;
   canyonStartDist = 0;
+  lastFlowMilestone = 0;
   bossGraceUntil = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
@@ -1428,6 +1432,7 @@ function tick() {
       game.inCanyon = false;
       game.canyonRun = null;
       game.flowChain = 0;   // the carve chain lives only within a flow run (best is kept)
+      lastFlowMilestone = 0;
       sfx.slipstreamStop();
       cameraCtl.setCanyon(false);
       // Exit burst: a puff of bone dust as you break out into open sky (release).
@@ -1588,7 +1593,10 @@ function tick() {
     const slipRef = game.canyonRun === 'flow'
       ? CONFIG.FLOW.slipPerChain * CONFIG.FLOW.chainCap
       : CONFIG.canyonSpineSlip - 1;
-    const slipMix = Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, slipRef);
+    // Clamp to 1: the frame a capped flow run ends, slipRef flips to spine's smaller
+    // denominator while canyonSlip is still decaying from 1.40 → slipMix would overshoot >1
+    // and flash the speed streaks past their designed max in the exit air.
+    const slipMix = Math.min(1, Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, slipRef));
     // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
     // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
     // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw

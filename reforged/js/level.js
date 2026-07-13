@@ -708,7 +708,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       // out.orbs/out.embers → the gold fixture + every RNG stream stay untouched, and it's
       // granularity-invariant (canyonframe). Flow orbs carry flow:1 (a non-fixtured marker;
       // PR-3 turns it into the chain pickup — inert for now, and canyonframe keys on dist/x/y).
-      out.orbs.push({ dist: seg.dist - 8, x: clamp(seg.gapX, -11, 11), y: clamp(seg.gapY, 4.5, 20), flow: 1 }); // gate orb
+      out.orbs.push({ dist: seg.dist - 8, x: clamp(seg.gapX, -11, 11), y: clamp(seg.gapY, 4.5, 20), flow: 1, gate: 1 }); // gate orb (chain-exempt from the drop — the ring's own miss is the hard reset)
       // Orb + ember RIBBON over the segment's own BAND [-wb, +wf] — the CARVED slalom line
       // (base ring line + flowWeave). Emitted per-band so abutting sections TILE (the
       // weave is C0 at the shared seam) and each pickup sits on the accurate eased line.
