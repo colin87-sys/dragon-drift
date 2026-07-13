@@ -21,6 +21,7 @@ let mats = null;
 // Phase Gate shared materials, one per biome (built in initObstacles).
 let veilMats = null; // translucent fresnel membrane
 let edgeMats = null; // bright aperture ring + corner brackets (visual hierarchy #1)
+let flowEdgeMat = null, flowCoreMat = null; // FLOW "Sky Gate" signature (fixed cyan/white)
 let rimMats = null;  // dim outer silhouette frame (secondary)
 const entries = [];
 export const colliders = entries; // same objects, same array
@@ -147,6 +148,12 @@ export function initObstacles(s) {
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
   edgeMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 1.4));
   rimMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 0.5));
+  // FLOW "Sky Gate" signature — FIXED slip-cyan / ice-white in EVERY biome (never
+  // edgeMats[bi]) so a flow run reads as its own distinct place, not a recoloured ring.
+  // Shared: the whole run pulses together with the slipstream (updateObstacles). Opaque
+  // emissive → blooms, overdraw-free.
+  flowEdgeMat = makeEdgeMat(0x59d8ff, 1.6);   // posts / chevron
+  flowCoreMat = makeEdgeMat(0xd6f4ff, 2.4);   // white-hot halo / gem (survives biome wash-out)
 }
 
 export function addObstacle(o) {
@@ -681,29 +688,44 @@ function buildRockGap(o, e) {
     // down the centre (placed in level.js) — boost flat-out and burst into open air.
     ribcage(kindMult(o.kind), {});
   } else if (o.kind === 'flowgate') {
-    // FLOW run light-gate: dress the reward ring as a bright floating gate — a thin
-    // emissive torus + a viewfinder bracket — with NO wall colliders (e.boxes stays
-    // EMPTY; the flow run is walls-free by design). The orb/ember ribbon (level.js) is
-    // the actual racing line; PR-2 adds the suggested-tube pylons + mote sleeve.
-    e.noDissolve = true;                          // thin open light never blocks the view
+    // FLOW run "SKY GATE": a torii-like gateway of light — twin posts flanking the ring,
+    // a chevron roof pointing DOWN at it ("fly here"), and a counter-rotating dashed halo
+    // around the reward ring (which survives as the green bullseye nested inside). A FIXED
+    // slip-cyan signature (flowEdgeMat/flowCoreMat, never edgeMats[bi]) so a flow run reads
+    // as a distinct PLACE at a glance, not a recoloured ring. Opaque emissive → blooms,
+    // overdraw-free. NO wall colliders (e.boxes stays EMPTY — walls-free by design). The
+    // whole run brightens with the slipstream (updateObstacles pulse).
+    e.noDissolve = true;
     const fh = halves(o), fb = band(o, fh.bk, fh.fw);
     e.depthHalf = Math.max(e.depthHalf || 0, fh.bk, fh.fw);
-    e.ribBandBk = fb.wb; e.ribBandFw = fb.wf;     // presence band → spineWallPresenceAt drives
-                                                  // the chain-slipstream speed FX (streaks/wind)
-    const ringR = CONFIG.ringRadius + 1.6;
-    const gate = new THREE.Mesh(new THREE.TorusGeometry(ringR, 0.12, 8, 28), edgeMat);
-    gate.position.set(gx, gy, 0);
-    group.add(gate);
-    const legLen = 1.2, gp = ringR + 0.5;         // corner brackets opening toward centre
-    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-      const cx = gx + sx * gp, cy = gy + sy * gp;
-      const hb = new THREE.Mesh(new THREE.BoxGeometry(legLen, 0.28, 0.28), edgeMat);
-      hb.position.set(cx - sx * legLen / 2, cy, 0);
-      group.add(hb);
-      const vb = new THREE.Mesh(new THREE.BoxGeometry(0.28, legLen, 0.28), edgeMat);
-      vb.position.set(cx, cy - sy * legLen / 2, 0);
-      group.add(vb);
+    e.ribBandBk = fb.wb; e.ribBandFw = fb.wf;     // presence band → the chain-slipstream FX
+    const j = () => (rng() - 0.5);                 // seeded per-gate cosmetic jitter (no Math.random)
+    // Twin light-posts + chevron roof, merged into ONE static mesh (was 9 meshes → 2).
+    const parts = [];
+    const bar = (w, h, d, x, y, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rz) g.rotateZ(rz); g.translate(x, y, 0); parts.push(g); };
+    const postY0 = Math.max(1.5, gy - 7), postY1 = gy + 6, postH = postY1 - postY0, postYc = (postY0 + postY1) / 2;
+    for (const sx of [-1, 1]) {
+      const px = Math.max(-12.5, Math.min(12.5, gx + sx * 7.5));
+      bar(0.35, postH, 0.35, px, postYc, sx * 0.03 * j());       // post (slight seeded lean)
+      bar(5.0, 0.3, 0.3, (px + gx) / 2, (postY1 + gy + 8) / 2, -sx * 0.42); // chevron half → apex (gx, gy+8)
     }
+    const gate = new THREE.Mesh(mergeGeometries(parts, false), flowEdgeMat);
+    parts.forEach((g) => g.dispose());
+    group.add(gate);
+    // Apex gem — the far-field bloom point (white-hot core).
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), flowCoreMat);
+    gem.position.set(gx, gy + 8, 0);
+    group.add(gem);
+    // Dashed halo: 4 arcs at 90° spacing, merged, COUNTER-rotating (mechanical waypoint,
+    // not a collectible ring). Rotated per-frame in updateObstacles via e.flowHalo.
+    const arcs = [];
+    for (let a = 0; a < 4; a++) { const g = new THREE.TorusGeometry(CONFIG.ringRadius + 2.0, 0.14, 6, 10, Math.PI / 3); g.rotateZ(a * Math.PI / 2); arcs.push(g); }
+    const halo = new THREE.Mesh(mergeGeometries(arcs, false), flowCoreMat);
+    arcs.forEach((g) => g.dispose());
+    halo.position.set(gx, gy, 0);
+    halo.rotation.z = j() * 3;                     // seeded start phase
+    group.add(halo);
+    e.flowHalo = halo;
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
@@ -714,7 +736,7 @@ function buildRockGap(o, e) {
   return group;
 }
 
-export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
+export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0) {
   // Warning pulse on every moving shard (shared material, one write).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
   // Skull soul-fire eyes breathe (shared material, one write) so the mouth reads as
@@ -725,6 +747,14 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
   // ring a gentle, speed-aware breath. Six writes each — negligible.
   for (const m of veilMats) m.uniforms.uTime.value = time;
   for (const m of edgeMats) m.emissiveIntensity = (1.25 + Math.sin(time * 2.4) * 0.18) * (1 + 0.4 * sn);
+  // FLOW Sky Gate: the whole run's light BREATHES with the slipstream — brighter as the
+  // carve chain climbs (slipMix 0..1). Two shared-material writes → the identity and the
+  // PR-3 momentum feedback in one place.
+  if (flowEdgeMat) {
+    const b = 1 + 0.7 * slipMix;
+    flowEdgeMat.emissiveIntensity = (1.4 + Math.sin(time * 2.4) * 0.18) * b;
+    flowCoreMat.emissiveIntensity = (2.2 + Math.sin(time * 3.1) * 0.3) * b;
+  }
 
   for (let i = entries.length - 1; i >= 0; i--) {
     const e = entries[i];
@@ -737,6 +767,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
       removeAt(i);
       continue;
     }
+    if (e.flowHalo) e.flowHalo.rotation.z -= dt * 0.4; // Sky Gate halo counter-rotates (waypoint, not ring)
     if (e.type === 'shard') {
       e.object.rotation.y += dt * 0.8;
       e.object.rotation.x += dt * 0.3;
