@@ -642,6 +642,21 @@ run local/on-demand; only math + plumbing tests gate CI).
     wash into the sunset, and the hot state doesn't fully white out); **D3** tooling — `markershot` should hide the
     interleaved Phase Gate by kind, not only by the veil `uEdge` uniform. Owner judges the climb-front motion +
     the hot white-out on the live preview.
+  - **✓ Landed — PR-2 Star Shard orb (global) + the D1/D2/D3 fold-in (`?skyforged=0` A/B). Gate 2 SHIP 8.5/10.**
+    Replaces the orb's sphere + additive glow Sprite with a faceted directional **Star Shard** (asymmetric
+    bipyramid, bright ice-white tip toward the approaching player, mandatory axial spin) on the shared
+    `markerSurface` — **deleting the additive sprite is a net perf win** (2 draws→1, overdraw gone; the flow
+    ribbon spawns many orbs). The collect flash reroutes to a capped scale-pop (≤1.6×, ~0.15s) since the opaque
+    material can't fade opacity; the batched `burst()` carries the spark (gated so `?skyforged=0` stays
+    byte-identical). The orb has its own per-role `flowRef` (chain-heat on flow, boost-heat globally). **D1**
+    (facets survive bloom): a per-FACET emissive-jitter attribute from a deterministic index hash — baked
+    per-quad on the arch, per-tri on the shard, constant on the keystone — plus a narrower rim. **D2**: deeper
+    cold cyan + an icy (not white) hot core + a tunable `uHotLift` so hot doesn't fully white out — improves the
+    arch without regressing the SHIP'd read. **D3**: `buildGate` tags `userData.phaseGate` for the shot tools.
+    Render-only (determinism byte-identical — facetJ from an index hash, level.js untouched). See lesson
+    `2026-07-13-graphics-skyforged-star-shard.md`. Remaining 8.5→9 (for PR-3/Gate-3): facet glints still subtle
+    at 34m (next lever = a normal-dependent specular glint, not more jitter); a small cold shard reads near-white
+    under bloom; a clean "marker showroom" would beat the cluttered live-harness montages.
 
 ---
 
@@ -651,6 +666,7 @@ One row per Gate 2 (per-PR) / Gate 3 (phase) verdict from its high-effort Fable 
 
 | PR / Phase | Initiative | Fable score | Verdict | Notes |
 |------------|-----------|-------------|---------|-------|
+| #402 N17 (PR-2) | Star Shard orb (global) + D1/D2/D3 fold-in | 8.5/10 | SHIP | Gate-1 ADJUST(A1–A7) all applied+verified (keep glowTex + branch update path; head-on read: girth ≥ old core + bright tip toward +z player + mandatory spin; facetJ per-FACET not per-tri + keystone const; facetJ from an index hash NOT the seeded stream; own orbFlow driver; flash pop ≤1.6×/0.15s; re-judge arch at 34m). Gate-2 independently verified: facetJ per-facet (both tris of a quad share it), index-hash determinism (`gold-determinism` byte-identical re-run), flag branches builder+update+dispose paths (o.glow guards), the 1.6×/0.15s pop, sprite-deletion didn't touch collect/scoring. Net perf win (2 draws→1, additive overdraw gone). Star Shard vs old blob "decisive"; D1/D2 improve the arch with no regression. One deviation gated not documented: the collect `burst()` tune is `?skyforged`-only so flag-off stays byte-identical. 8.5→9 = facet glints still subtle at 34m (next lever: normal-dependent specular glint) + a showroom scene. Human judges spin/breathing/pop on preview |
 | #402 N17 (PR-1) | Windvault gate + `markerSurface.js` | 8/10 | SHIP | Gate-1 ADJUST(A1–A6) all applied+verified (coexist-not-delete; per-role `flowRef` + palette-as-uniforms + one `customProgramCacheKey`; keystone bakes `glowT` for merge parity + flat facets; tall horseshoe + z-elongated x-section for the edge-on read; shot tool). Gate-2 independently verified identity-off (`gold-determinism` byte-identical), walls-free (3 ways), one-program key, merge parity, and the 1-vs-3 rng branch asymmetry is safe (terminal kind branch, no downstream draws); NOT `bindAtmosphere`'d = documented deviation; net perf win (~218 tris/1 draw vs ~536/3 + halo). Premium delta over the Sky Gate "decisive"; loses 9 on facet/gradient subtlety at the 34m framing (bloom+ACES flatten the glints) → D1 per-facet emissive jitter / narrower rim, D2 deepen cold cyan saturation, D3 hide the harness Phase Gate by kind — all staged for PR-2. Human judges the climb-front motion + hot white-out on the preview |
 | #373 Phase 0 | N1 gradient dither | 8.5/10 | SHIP | placement/amplitude verified; `?dither=0` = exact identity; tier2 sky/water copies deferred; gate margin added |
 | #373 Phase 0 | N3 tonemap scaffold | 5.5→SHIP | REVISE→fixed | Gate caught: vendored `OutputPass` had no `CustomToneMapping` branch → `?tm=neutral` was untonemapped on tier0/1. Patched `OutputPass.js`+`OutputShader.js`, reshot montage at pinned tier0, restamped `sw.js`, fixed idempotence test |

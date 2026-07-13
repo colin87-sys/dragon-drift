@@ -121,7 +121,9 @@ export function updatePowerups(dt, player, time) {
         game.speedOrbsCollected++;
         ui.orbFlash();
         sfx.orb();
-        burst(o.mesh.position, 0x55ccff, { count: 22, speed: 14, size: 1.3 }); // carries the collect spark (was the sprite)
+        // Skyforged: a punchier spark carries the collect (the additive sprite is gone). Fallback
+        // (o.glow present) keeps the exact shipped burst → the ?skyforged=0 look stays byte-identical.
+        burst(o.mesh.position, 0x55ccff, o.glow ? { count: 20, speed: 14, size: 1.1 } : { count: 22, speed: 14, size: 1.3 });
         emit('orb');
         // FLOW chain: a ribbon orb builds the chain (drives the slipstream) and pays a
         // climbing flow-local bonus (× chainMult × scoreMult; NOT × fever — no double-dip).
