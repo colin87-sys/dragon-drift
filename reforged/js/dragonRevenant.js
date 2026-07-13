@@ -82,48 +82,166 @@ function tubeLoft(stations, mat, cap = true) {
   return flatTriMesh(tris, mat);
 }
 
-// ── TORSO: 'ossuaryTorso' ─────────────────────────────────────────────────────
-// STUB (I1 builds it for real): a vertebra BEAM + a minimal keel, publishing the
-// FULL attach contract (§4.3) so the wings/head/tail mount correctly and the rig
-// flaps/rides without a crash. spinePoints carry the ≥2 inflections (skull-low
-// stoop → rise over the pelvis → tail counter-lift) the §7 line-of-action assert
-// wants. coreGlow is NULL for now (the Grave Heart on the real coreGlow hook lands
-// in I1); dragonModel then builds the def.coreGlow sprite as a placeholder glow.
+// The dorsal spine line cyAt(z) — piecewise-linear over the body control points
+// (skull-low stoop → rise over the pelvis → tail counter-lift, the ≥2 inflections).
+const SPINE = [[-2.42, 0.03], [-2.05, 0.11], [-1.64, 0.18], [-1.00, 0.13], [-0.15, 0.17], [0.55, 0.16], [1.10, 0.20], [1.70, 0.15]];
+function cyAt(z) {
+  if (z <= SPINE[0][0]) return SPINE[0][1];
+  if (z >= SPINE[SPINE.length - 1][0]) return SPINE[SPINE.length - 1][1];
+  for (let i = 0; i < SPINE.length - 1; i++) { const [az, ay] = SPINE[i], [bz, by] = SPINE[i + 1]; if (z >= az && z <= bz) return ay + (by - ay) * (z - az) / (bz - az); }
+  return 0.15;
+}
+
+// vertebraUnit — the SHARED repeating skeletal element (§4.3): a hexagonal centrum
+// mini-loft + a neural-spine TENT + 2 transverse-process nubs, ~18 tris. It APPENDS
+// into per-tier accumulators (boneT / dorsalT) so the whole beam collapses to ≤3
+// meshes, never one draw per vertebra (the Pearl 253-draw lesson).
+const VHEX = [[1, 0.28], [0.5, 1], [-0.5, 1], [-1, 0.28], [-0.5, -1], [0.5, -1]];
+function vertebraUnit(z, cy, s, boneT, dorsalT) {
+  const hw = 0.10 * s, hh = 0.085 * s, hl = 0.085 * s;
+  const ring = (zz) => VHEX.map(([ux, uy]) => [ux * hw, cy + uy * hh, zz]);
+  const r0 = ring(z - hl), r1 = ring(z + hl);
+  for (let k = 0; k < 6; k++) { const k1 = (k + 1) % 6; boneT.push([r0[k], r1[k1], r1[k]], [r0[k], r0[k1], r1[k1]]); }   // centrum: 12
+  const ny = cy + hh;                                                         // neural-spine TENT (dorsal, raked slightly aft): 4
+  const bL = [-0.05 * s, ny, z - 0.02 * s], bR = [0.05 * s, ny, z - 0.02 * s], bB = [0, ny, z + 0.06 * s], ap = [0, ny + 0.17 * s, z + 0.04 * s];
+  dorsalT.push([bL, bR, ap], [bR, bB, ap], [bB, bL, ap], [bL, bB, bR]);
+  for (const sd of [1, -1]) {                                                 // transverse nubs: 2
+    boneT.push([[sd * hw, cy, z - 0.03 * s], [sd * (hw + 0.07 * s), cy + 0.01 * s, z], [sd * hw, cy, z + 0.03 * s]]);
+  }
+}
+
+// ── TORSO: 'ossuaryTorso' (I1 — REAL) ─────────────────────────────────────────
+// A chalk-ivory BONE LATTICE: a vertebra beam (neck + dorsal files of vertebraUnit)
+// + a HOLLOW RIB CAGE — arc staves bridging the dorsal beam to a ventral keel, with
+// TRUE through-window voids between them (geometry ABSENCE, so the SKELETON reads as
+// holes-in-the-black-fill from the side). The far-side ribs are painted the umber-
+// green recess so the cavity reads DEEP while the holes stay true holes (§4.4). f0
+// seals every window with an INSET cartilage panel (never coplanar). Caged at the
+// centre: THE GRAVE HEART on the real transparent coreGlow hook — seen only THROUGH
+// the windows ("a lantern, not a lamp"). Exterior bone emissive is 0x000000 so the
+// rig's bodyMat emissive tick is a no-op (no lit exterior bone). The attach contract
+// is byte-identical to the I0 stub, so the wings/head/tail mount unchanged (wingsym Δ0).
 function buildOssuaryTorso(def, model, _bodyMat) {
   const group = new THREE.Group();
   const M = revenantMats(def);
   const shoulderW = model.shoulderWidthScale ?? 1;
+  const boneT = [], dorsalT = [], recessT = [], keelT = [];   // per-tier accumulators → ≤4 meshes total
 
-  // Vertebra beam (level-ish long axis; deepest at the shoulder, waist tuck, pelvis
-  // re-swell → the S-line the spinePoints echo). Thin — a bone beam, not a hull.
-  const body = [
-    { z: -1.70, rx: 0.16 * shoulderW, ry: 0.20, cy: 0.20 },   // chest prow (skull-low stoop begins)
-    { z: -1.00, rx: 0.30 * shoulderW, ry: 0.34, cy: 0.13 },   // shoulder yoke (widest)
-    { z: -0.15, rx: 0.22, ry: 0.26, cy: 0.17 },
-    { z: 0.55, rx: 0.17, ry: 0.19, cy: 0.16 },                // waist tuck
-    { z: 1.10, rx: 0.22, ry: 0.24, cy: 0.20 },                // pelvis re-swell (rise)
-    { z: 1.70, rx: 0.11, ry: 0.12, cy: 0.15 },                // tail root (counter-lift down)
-  ];
-  group.add(tubeLoft(body, M.bone));
-  // Head-low neck arcing down-forward to the skull base.
-  const neck = [
-    { z: -1.64, rx: 0.15, ry: 0.18, cy: 0.18 },
-    { z: -2.05, rx: 0.11, ry: 0.13, cy: 0.11 },
-    { z: -2.42, rx: 0.08, ry: 0.09, cy: 0.03 },
-  ];
-  group.add(tubeLoft(neck, M.bone, false));
-  // A thin ventral keel line (belly tier) so the side profile isn't a bare rod.
-  const keel = [];
-  for (let i = 0; i < body.length - 1; i++) {
-    const a = body[i], b = body[i + 1], w = 0.03;
-    const ay = a.cy - a.ry, by = b.cy - b.ry;
-    keel.push([[-w, ay, a.z], [w, by, b.z], [-w, by, b.z]], [[-w, ay, a.z], [w, ay, a.z], [w, by, b.z]]);
+  // ── VERTEBRA BEAM — neck file + dorsal file of shared vertebra units.
+  const neckVerts = Math.round(model.neckVerts ?? 5);
+  const dorsalVerts = Math.round(model.dorsalVerts ?? 9);
+  const placeUnits = (z0, z1, n, s0, s1) => { for (let i = 0; i < n; i++) { const t = i / Math.max(1, n - 1), z = z0 + (z1 - z0) * t; vertebraUnit(z, cyAt(z), s0 + (s1 - s0) * t, boneT, dorsalT); } };
+  placeUnits(-2.34, -1.20, neckVerts, 0.78, 1.0);   // neck (smaller vertebrae toward the skull)
+  placeUnits(-1.10, 1.58, dorsalVerts, 1.0, 0.74);  // dorsal → tail root (taper aft)
+
+  // ── HOLLOW RIB CAGE — NRIB arc staves bridging the dorsal beam to a ventral keel
+  // across the chest; the z-gaps between staves are the through-WINDOWS. `ribWindows`
+  // (0..6) opens gaps CENTRE-OUT (the heart shows through the middle first); the rest
+  // are sealed with an inset cartilage panel (f0 → all sealed).
+  const zF = -1.15, zB = 0.78, NGAP = 6, NRIB = NGAP + 1;
+  const ribWindows = Math.max(0, Math.min(NGAP, Math.round(model.ribWindows ?? NGAP)));
+  const bell = (z) => Math.max(0, 1 - Math.pow((z + 0.18) / 1.06, 2));
+  const cageDepth = (z) => 0.24 + 0.24 * bell(z);
+  const halfW = (z) => 0.15 + 0.21 * bell(z);
+  const topY = (z) => cyAt(z) + 0.05;
+  const botY = (z) => cyAt(z) - cageDepth(z);
+  const bez = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
+  const ribZ = (i) => zF + (zB - zF) * i / (NRIB - 1);
+  // One rib = a thin ribbon following a dorsal→outer→keel bezier arc at fixed-ish z.
+  const buildRib = (z, side, mat, tgt) => {
+    const P0 = [0, topY(z), z], Pc = [side * halfW(z) * 1.18, cyAt(z) - cageDepth(z) * 0.32, z + 0.05], P1 = [side * 0.045, botY(z), z + 0.02];
+    const NS = 5, w = 0.028;
+    let prev = null;
+    for (let k = 0; k <= NS; k++) {
+      const p = bez(P0, Pc, P1, k / NS);
+      const back = [p[0], p[1], p[2] - w], front = [p[0], p[1], p[2] + w];   // ribbon width in z → reads as a solid bar from the side
+      if (prev) tgt.push([prev.back, front, prev.front], [prev.back, back, front]);
+      prev = { back, front };
+    }
+  };
+  // Gap-open order: centre gaps first (indices sorted by distance from the middle gap).
+  const gapOrder = Array.from({ length: NGAP }, (_, g) => g).sort((a, b) => Math.abs(a - (NGAP - 1) / 2) - Math.abs(b - (NGAP - 1) / 2));
+  const openGap = new Set(gapOrder.slice(0, ribWindows));
+  for (let i = 0; i < NRIB; i++) {
+    const z = ribZ(i);
+    buildRib(z, 1, M.bone, boneT);       // near (right) rib — bone
+    buildRib(z, -1, M.recess, recessT);  // far (left) rib — umber-green so the cavity reads deep through the near windows
   }
-  group.add(flatTriMesh(keel, M.boneLo));
+  // SEAL the closed gaps with an inset cartilage panel — a full-cover quad spanning the
+  // gap (rib→rib, rail→keel) at a small +x inset so it's NOT coplanar with the rib plane
+  // (§4.3) yet fully OCCLUDES the window in projection (a sealed rung reads solid, no ring
+  // of leaked background). Open gaps are pure ABSENCE → the enclosed through-window.
+  for (let g = 0; g < NGAP; g++) {
+    if (openGap.has(g)) continue;
+    const za = ribZ(g), zb = ribZ(g + 1);
+    for (const side of [1, -1]) {
+      const inx = side * 0.09;
+      const TL = [inx, topY(za), za], TR = [inx, topY(zb), zb], BR = [inx, botY(zb) + 0.01, zb], BL = [inx, botY(za) + 0.01, za];
+      recessT.push([TL, TR, BR], [TL, BR, BL]);
+    }
+  }
+  // ── DORSAL RAIL — a CONTINUOUS bone strip along the top of the cage that bounds every
+  // window from ABOVE (the discrete vertebra centra leave gaps the flood-fill would leak
+  // through, so the windows would not read as enclosed holes without this rail). Runs the
+  // full cage z-span just under the neural spines.
+  { let prev = null; const w = 0.045;
+    for (let i = 0; i <= 20; i++) { const z = zF - 0.05 + (zB - zF + 0.1) * i / 20, y = topY(z);
+      const L = [-w, y, z], R = [w, y, z], U = [0, y + 0.05, z];
+      if (prev) { boneT.push([prev.L, R, L], [prev.L, prev.R, R], [prev.R, U, R], [prev.R, prev.U, U]); }
+      prev = { L, R, U }; } }
+  // ── VENTRAL KEEL / STERNUM — a continuous rail closing the bottom of every window
+  // (so the gaps are ENCLOSED, not open to the belly). Belly tier.
+  { let prev = null; const w = 0.05;
+    for (let i = 0; i <= 20; i++) { const z = zF - 0.05 + (zB - zF + 0.1) * i / 20, y = botY(z) + 0.01;
+      const L = [-w, y, z], R = [w, y, z], D = [0, y - 0.05, z];
+      if (prev) { keelT.push([prev.L, R, L], [prev.L, prev.R, R], [prev.R, D, R], [prev.R, prev.D, D]); }
+      prev = { L, R, D }; } }
 
-  // Motif anchor (the Grave Heart's cage centre — real heart lands here in I1).
+  // ── PELVIS — a small bone mass at the haunch (z≈1.1) so the aft profile reads a hip.
+  for (const side of [1, -1]) {
+    const hx = side * 0.14, hz = 1.08, hy = cyAt(hz);
+    boneT.push(
+      [[hx - side * 0.06, hy + 0.10, hz - 0.16], [hx + side * 0.12, hy + 0.02, hz], [hx + side * 0.04, hy - 0.10, hz + 0.20]],
+      [[hx - side * 0.06, hy + 0.10, hz - 0.16], [hx + side * 0.04, hy - 0.10, hz + 0.20], [hx - side * 0.04, hy - 0.02, hz + 0.14]],
+    );
+  }
+  // ── SCAPULAR COWLS — overlapping bone flakes lapping over each wing root (z≈-0.55)
+  // so the wing emerges from under a shoulder blade, not bolted to a rib (overlap > weld).
+  for (const side of [1, -1]) {
+    const rx = 0.34 * shoulderW * side, ry = TORSO_Y + 0.30, rz = -0.55;
+    const P = (dx, dy, dz) => [rx + side * dx, ry + dy, rz + dz];
+    boneT.push(
+      [P(-0.22, 0.14, -0.22), P(0.16, 0.10, -0.10), P(-0.02, -0.02, 0.26)],
+      [P(-0.22, 0.14, -0.22), P(-0.02, -0.02, 0.26), P(-0.20, 0.02, 0.16)],
+      [P(0.04, 0.10, -0.16), P(0.30, 0.00, 0.02), P(0.06, -0.06, 0.28)],
+    );
+  }
+
+  group.add(flatTriMesh(boneT, M.bone));
+  group.add(flatTriMesh(dorsalT, M.boneDorsal));
+  group.add(flatTriMesh(recessT, M.recess));
+  group.add(flatTriMesh(keelT, M.boneLo));
+
+  // ── THE GRAVE HEART — an emissive grave-green teardrop caged at the cage centre,
+  // on the REAL transparent coreGlow hook (dragon.js:1147 ticks material.opacity:
+  // floor → boost-breathe → Surge blaze). REQUIRES transparent:true + userData.base.
+  // FrontSide + depthWrite off keeps it ~single-layer along any ray (§4.4 overdraw);
+  // sized well inside the ribs (≥0.08 clearance) so it never z-fights a stave. Seen
+  // only THROUGH the windows — a lantern, not a lamp.
+  const coreBlaze = model.coreBlaze ?? 1;
+  const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.42;
+  const heartR = 0.10 + 0.055 * coreBlaze;
+  const heartMat = new THREE.MeshBasicMaterial({ color: GRAVE, transparent: true, opacity: 0.25 + 0.4 * coreBlaze, depthWrite: false, side: THREE.FrontSide });
+  const heart = new THREE.Mesh(new THREE.OctahedronGeometry(heartR, 1), heartMat);
+  heart.scale.set(1, 1.5, 0.85);            // teardrop (taller than wide)
+  heart.position.set(0, hy, hz);
+  heart.userData.base = 0.25 + 0.4 * coreBlaze;   // the coreGlow tick scales THIS
+  heart.renderOrder = 2;
+  group.add(heart);
+
+  // Motif anchor = the cage centre (the Grave Heart seats here).
   const motifAnchor = new THREE.Object3D();
-  motifAnchor.position.set(0, TORSO_Y + 0.10, -0.55);
+  motifAnchor.position.set(0, hy, hz);
   group.add(motifAnchor);
 
   // Line-of-action (≥2 inflections: skull-low stoop → rise over pelvis → tail counter-lift).
@@ -143,10 +261,8 @@ function buildOssuaryTorso(def, model, _bodyMat) {
     riderSocket: { x: 0, y: 0.60, z: -0.30 },
     motifAnchor,
   };
-  // coreGlow MUST be null (not a colour) or the flight tick null-derefs
-  // coreGlow.userData.base every frame — the documented Solar crash. The real
-  // Grave Heart mesh (transparent, on the parts.coreGlow hook) replaces this in I1.
-  return { group, attach, spinePoints, spineMats: [], mats: { bodyMat: M.bone }, coreGlow: null };
+  // coreGlow = THE GRAVE HEART mesh (the real Solar hook — NOT null like the I0 stub).
+  return { group, attach, spinePoints, spineMats: [], mats: { bodyMat: M.bone }, coreGlow: heart };
 }
 registerTorso('ossuaryTorso', buildOssuaryTorso);
 

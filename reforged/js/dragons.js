@@ -655,14 +655,20 @@ export const DRAGONS = {
     // The HOLLOWING ladder (§4.5). BODY VALUE RISES up the rungs (BLEACH — the mirror
     // of Vesper's darkening). Wing/skull/tail dials are placeholders until I2/I3; the
     // full aperture + light ladder lands in I5.
+    // The HOLLOWING ladder (§4.5): ribWindows {0,2,4,6}, coreBlaze {.15,.4,.7,1}, and
+    // the vertebra file grows (neck 3→5). BODY VALUE RISES up the rungs (BLEACH).
     forms: [
       { spanScale: 0.66, glowLevel: 0.25, headScale: 1.24, fingers: 2, tailStretch: 1.0,
-        colors: { body: 0x9a9284, belly: 0x827b6d, wingOuter: 0x9a9284, eye: 0x54c81e } },   // Grave Whelp
+        ribWindows: 0, coreBlaze: 0.15, neckVerts: 3, dorsalVerts: 9,
+        colors: { body: 0x9a9284, belly: 0x827b6d, wingOuter: 0x9a9284, eye: 0x54c81e } },   // Grave Whelp (sealed cage)
       { spanScale: 0.79, glowLevel: 0.50, headScale: 1.14, fingers: 3, tailStretch: 1.0,
+        ribWindows: 2, coreBlaze: 0.40, neckVerts: 4, dorsalVerts: 9,
         colors: { body: 0xaaa392, belly: 0x8f886f, wingOuter: 0xaaa392, eye: 0x5cd41e } },   // First Waking
       { spanScale: 0.92, glowLevel: 0.75, headScale: 1.06, fingers: 4, tailStretch: 1.0,
+        ribWindows: 4, coreBlaze: 0.70, neckVerts: 4, dorsalVerts: 9,
         colors: { body: 0xbdb6a4, belly: 0x9c9578, wingOuter: 0xbdb6a4, eye: 0x66e638 } },   // Open Cage
       { spanScale: 1.0, glowLevel: 1.00, headScale: 1.0, fingers: 4, tailStretch: 1.0,
+        ribWindows: 6, coreBlaze: 1.00, neckVerts: 5, dorsalVerts: 9,
         colors: { body: 0xcfc9b8, belly: 0xaaa392, wingOuter: 0xcfc9b8, eye: 0x76f068 } },   // Gravelight Revenant
     ],
     fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
