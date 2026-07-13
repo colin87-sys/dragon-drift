@@ -45,6 +45,15 @@ precedents verbatim — the stamina-arc SVG technique and the Skyforged marker l
   `.on` → every other run type's HUD is byte-identical; `prefers-reduced-motion` keeps all STATE
   (fill/heat/keystone/notch) and drops every animation.
 
+**The dashoffset gotcha (Gate-2 caught it).** The `100 - frac*100` dashoffset fill math ONLY maps
+to true fractions if the path declares **`pathLength="100"`** — without it the dash units are the
+path's REAL length (the arch legs are ~68.7 user units), so the light saturates at ~69% of the
+intended chain (the arch "closed" at chain ~14 of 20, firing the keystone-meets beat ~6 chain early
+and desyncing it from the ignition). The stamina-arc precedent HAS the attribute; the crest dropped
+it and 23 green tests missed it because they asserted the JS dashoffset values + the markup ids but
+never the one attribute the math depends on. **Assert the attribute your math assumes, not just the
+values you write.**
+
 **Tooling gotchas.** Playwright's `screenshot({clip})` is in **CSS px**, not device px (don't multiply
 by `devicePixelRatio` — the deviceScaleFactor is applied to the output). And a `display:none` element
 has a 0×0 box — **show it before measuring** its clip rect. Drive the live meter for shots/tests via
