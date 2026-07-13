@@ -23,7 +23,7 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -1666,6 +1666,7 @@ function tick() {
   }
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
+  setFeverArenaWarm(Math.max(0, Math.min(1, bossArenaMix() - 1)));   // heaven (mix 1→2) warms the Surge wash magenta→gold
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
     player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
