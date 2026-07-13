@@ -256,7 +256,15 @@ function buildReflective() {
     // last frame's RT. Skipping the whole origOBR also freezes the textureMatrix,
     // which is CORRECT: a stale texture with its matching stale matrix. (Updating the
     // matrix on skip frames would make the reflection swim.)
-    if (halfRate && (_parity & 1)) return;
+    // HEAVEN DIET: in the settled arena the mirror reflects only a dim haze-deck dropped
+    // 30u — the detonation/embers/debris are layer-1-EXCLUDED, props are hidden, and the
+    // "sea answers the blast" gold column is the ANALYTIC sunColor specular, not the mirror.
+    // So the reflection is nearly static and barely-read → cut the refresh HARD (tier0
+    // half-rate, tier1 quarter-rate). This reclaims ~135–270 draw calls/frame in the arena
+    // — the biggest single perf line item — at ~0 visible cost. Off-heaven = shipped N11 rate.
+    const inHeaven = arenaDropK > 0.5;
+    const skipMask = inHeaven ? (halfRate ? 3 : 1) : (halfRate ? 1 : 0);
+    if (skipMask && (_parity & skipMask)) return;
     // N11 far-plane clamp: trim the mirror frustum to the fog wall (fogFar+50 —
     // everything beyond is 100% fogged, so it's visually identical but a much smaller
     // frustum to cull/draw against). The Reflector copies the MAIN camera's projection
