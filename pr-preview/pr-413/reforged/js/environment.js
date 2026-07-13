@@ -473,8 +473,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // Dragon Surge palette shift: magenta by default, or FIERY ember for fire dragons (feverWarm)
         vec3 horF = mix(vec3(1.0, 0.35, 0.85), vec3(1.0, 0.52, 0.20), feverWarm);
         vec3 midF = mix(vec3(0.55, 0.25, 0.9), vec3(0.92, 0.40, 0.14), feverWarm);
-        vec3 hor = mix(horizonColor, horF, feverMix * 0.8);
-        vec3 mid = mix(midColor, midF, feverMix * 0.7);
+        // × (1 - uAuroraMix): the SURGE also shifts the whole sky GRADIENT toward magenta — the second
+        // (bigger) half of the aurora-biome "color explosion". Suppress it too so the night sky + curtain
+        // stay the spectacle during a boost (0 in every other biome → byte-identical).
+        vec3 hor = mix(horizonColor, horF, feverMix * 0.8 * (1.0 - uAuroraMix));
+        vec3 mid = mix(midColor, midF, feverMix * 0.7 * (1.0 - uAuroraMix));
         vec3 col = mix(hor, mid, smoothstep(0.0, 0.25, h));
         col = mix(col, topColor, smoothstep(0.2, 0.7, h));
         // Dual-fog far color (§5.2): the sky's lowest band IS the far field —
@@ -504,7 +507,10 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         float curtain = smoothstep(0.15, 0.65, h) * (0.5 + 0.5 * sin(time * 0.3));
         vec3 aurora = mix(vec3(0.25, 0.95, 0.85), vec3(1.0, 0.6, 0.22), feverWarm) * max(band1, 0.0)
                     + mix(vec3(0.95, 0.3, 0.95), vec3(1.0, 0.42, 0.12), feverWarm) * max(band2, 0.0);
-        col += aurora * curtain * feverMix * 0.35;
+        // × (1 - uAuroraMix): in Aurora Shallows the CURTAIN is the sky spectacle — the magenta SURGE wash
+        // on top of it is the "color explosion" the owner kept seeing (it is NOT the aurora eruption, which
+        // is why cutting the eruption never fixed it). Suppress it here like the night-surge veil below.
+        col += aurora * curtain * feverMix * 0.35 * (1.0 - uAuroraMix);
         // Starfield (night biomes): hashed cells in the upper dome, gently
         // twinkling. Branchless — multiplied to zero outside night biomes.
         vec3 cell = floor(d * 110.0);

@@ -52,6 +52,7 @@ export const AURORA_BODY = /* glsl */`
           // drop (arc ends dive to the horizon) + the airglow concentration. az⋅uAurFwd, the travel dir.
           float envC = clamp(dot(az, uAurFwd), 0.0, 1.0);
           vec2 across = vec2(-uAurFwd.y, uAurFwd.x);  // perp of travel — the cross-stage axis (spans L↔R)
+          float sAcross = dot(az, across);            // hoisted (reused by base tilt + the band field)
           // layer-0 broad fold, HOISTED (shared by base tilt + airglow + veil). The 6.4 octave is also
           // hoisted (its args never depended on L — it was a duplicated eval per layer). fine0 (12.8) is a
           // tier0-only fractal detail octave, funded by that de-duplication → net eval count unchanged.
@@ -59,6 +60,11 @@ export const AURORA_BODY = /* glsl */`
           float foldOct = _aNoise(az * 6.4 - vec2(uAurPhase * 0.11, 3.7));
           float fine0 = 0.0;
           if (uAurLayers == 2) fine0 = _aNoise(az * 12.8 + vec2(-uAurPhase * 0.19, 1.7));
+          // GATE-7 band-warp field: 2D noise in (cross-stage, ELEVATION). The HEIGHT axis is the point —
+          // a pure-azimuth warp shifts every ribbon identically (still parallel); a height-varying warp
+          // bends each ribbon differently → S-curves, pinches, and (at extremes) forks. tier0 only.
+          float bandWarp = 0.0;
+          if (uAurLayers == 2) bandWarp = _aNoise(vec2(sAcross * 2.2 + 5.0, hy * 3.0 - uAurPhase * 0.045)) - 0.5;
           float rayCore = 1.0;   // main-arc ray structure, exported so the eruption color rides the LINES
           for (int L = 0; L < 2; L++) {
             if (L >= uAurLayers) break;
@@ -71,13 +77,13 @@ export const AURORA_BODY = /* glsl */`
             // rings at centre (envC→1 → ~0.09). Undulates per fold with a real amplitude.
             // + float(L)*(0.10 + 0.09*dot(az,across)): the secondary band's border rises DIAGONALLY (higher
             // on one flank) → a rising diagonal ribbon behind the arc, not a parallel copy.
-            float h0 = 0.04 + 0.05 * envC + 0.11 * (fold - 0.5) + float(L) * (0.10 + 0.09 * dot(az, across));
+            float h0 = 0.04 + 0.05 * envC + 0.11 * (fold - 0.5) + float(L) * (0.10 + 0.09 * sAcross);
             float u, sheet;
             if (L == 0) {
               // MAIN ARC (all tiers — the layer tier1/2 keeps): spans the forward hemisphere THROUGH
               // dead centre. u parameterises rays/warp only; a smoothstep envelope (not a gaussian)
               // gates the intensity, so the arc is ~130° wide with fold-driven bright knots.
-              u = dot(az, across) * 4.0 + (fold - 0.5) * 3.5;
+              u = sAcross * 4.0 + (fold - 0.5) * 3.5;
               u += (hy - h0) * 1.5 * (fold - 0.5);                       // height shear → 3D drape
               // VALUE MODEL: a LOW 0.06 floor (keeps the Gate-3 continuous arc) with a steep pow curve —
               // fold minima drop ~5× darker → real dark-sky gaps BETWEEN curtains, not a flat mid wash.
@@ -107,17 +113,23 @@ export const AURORA_BODY = /* glsl */`
             tall = mix(tall, rayTall, 0.65 * uAurRay);
             float breath = 0.8 + 0.2 * uAurBreath;
             float I = sheet * ray * below * tall * breath;
-            // STACKED RIBBONS: the THICK horizontal/diagonal bands the rays hang FROM (the owner's ask).
-            // A sawtooth in height-above-border → each ribbon has a crisp bottom onset + exp-fading top
-            // (the border thesis, fractally repeated). The tilt (dot(az,across)) makes them DIAGONAL; fold
-            // drapes them. ~2 thick ribbons per column; the 0.30 floor keeps the rays continuous between.
+            // IRREGULAR THICK RIBBONS: the bands the rays hang FROM, as level-sets of a WARPED field (NOT a
+            // straight sawtooth — the owner: "too parallel"). Non-uniform SPACING (fold0 fans the period),
+            // azimuth-varying TILT (foldOct curves each band along its length → S-curves), a height-varying
+            // WARP (bandWarp) that bends ribbons apart and, at extremes, FORKS/merges them, and along-band
+            // KNOTS (bn) that let a ribbon fade out mid-sky. Each ribbon keeps the crisp-bottom/soft-top edge.
             float bt = hy - h0;
-            float bp = bt * 5.0 - 0.6 * dot(az, across) - 0.8 * (fold - 0.5);
+            float warpL = bandWarp * ((L == 0) ? 1.0 : -0.8);       // opposite-sign per layer → bands cross at varied angles
+            float bp = bt * (3.4 + 1.6 * (fold0 - 0.5))             // NON-UNIFORM spacing (period fans/crowds)
+                     - (0.25 + 0.65 * foldOct) * sAcross            // AZIMUTH-VARYING tilt → arcs, not parallel
+                     - 0.8 * (fold - 0.5)                           // the Gate-6 drape
+                     + 1.0 * warpL                                  // THE PARALLEL-BREAKER (folds → forks/merges)
+                     + 0.37 * float(L);                             // decorrelate the two layers' band phases
             float fp = fract(bp);
-            float bprof = smoothstep(0.0, 0.08, fp) * exp(-fp * 2.2);
-            float bn = 1.0;
-            if (uAurLayers == 2 && L == 0) bn = _aNoise(vec2(bp * 0.5 + 11.0, uAurPhase * 0.06)); // per-band drift
-            float bands = 0.30 + 0.90 * bprof * (0.55 + 0.65 * bn);
+            float bn = 0.4 + 0.6 * foldOct;                         // tier1/2 fallback: free along-band variation
+            if (uAurLayers == 2 && L == 0) bn = _aNoise(vec2(sAcross * 3.0 - uAurPhase * 0.04, bp * 0.8 + 11.0)); // knots ALONG the band
+            float bprof = smoothstep(0.0, 0.08, fp) * exp(-fp * (2.9 - 1.5 * bn));   // knots are THICKER (slower top decay)
+            float bands = 0.30 + 0.95 * bprof * (0.30 + 1.05 * bn * bn);             // bn² → a band FADES OUT along its length
             I *= mix(1.0, bands, smoothstep(0.04, 0.12, bt));                  // protect the hot border (bt < 0.04)
             // Export the MAIN-ARC structure → the eruption color rides the LINES + bands, not a flat wash.
             if (L == 0) rayCore = clamp((ray - 0.35) * 1.3, 0.0, 1.0) * tall;
