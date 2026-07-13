@@ -232,15 +232,16 @@ function buildOssuaryTorso(def, model, _bodyMat) {
       legRidge(ankle, toe, 0.02);
     }
   }
-  // ── SCAPULAR COWLS — overlapping bone flakes lapping over each wing root (z≈-0.55)
-  // so the wing emerges from under a shoulder blade, not bolted to a rib (overlap > weld).
+  // ── SCAPULAR BLADE — ONE clean shoulder-blade plate per side over each wing root (z≈-0.55)
+  // so the wing emerges from under a shoulder mass. A SINGLE quad, not 3 overlapping flakes —
+  // the old flakes crisscrossed the neck+root into a shard jumble at rear-chase (Fable: the one
+  // region of the money view that couldn't be parsed).
   for (const side of [1, -1]) {
     const rx = 0.34 * shoulderW * side, ry = TORSO_Y + 0.30, rz = -0.55;
     const P = (dx, dy, dz) => [rx + side * dx, ry + dy, rz + dz];
     boneT.push(
-      [P(-0.22, 0.14, -0.22), P(0.16, 0.10, -0.10), P(-0.02, -0.02, 0.26)],
-      [P(-0.22, 0.14, -0.22), P(-0.02, -0.02, 0.26), P(-0.20, 0.02, 0.16)],
-      [P(0.04, 0.10, -0.16), P(0.30, 0.00, 0.02), P(0.06, -0.06, 0.28)],
+      [P(-0.20, 0.14, -0.20), P(0.24, 0.07, -0.05), P(0.08, -0.05, 0.28)],
+      [P(-0.20, 0.14, -0.20), P(0.08, -0.05, 0.28), P(-0.18, 0.00, 0.20)],
     );
   }
 
@@ -410,7 +411,11 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   const r0p = LE(0);
   const G = [-0.34, -0.40, 1.05];
   const Aaft = [r0p[0] + 0.26 * hs, r0p[1] - 0.05 * hs, r0p[2] + 0.34 * hs];   // aft point ON the arm (outboard) → the sliver tapers arm→body
-  arm.add(flatTriMesh([[r0p, Aaft, G]], wingMat));
+  // A CREASED panel (crease vertex C lifted out of plane) so the gusset reads as a folded 3-D
+  // membrane, not one flat 2-D black sticker floating over the ribcage (Fable). The two facets
+  // flat-shade to different values across the fold.
+  const C = [(Aaft[0] + G[0]) / 2 - 0.09, (Aaft[1] + G[1]) / 2 + 0.07, (Aaft[2] + G[2]) / 2];
+  arm.add(flatTriMesh([[r0p, Aaft, C], [r0p, C, G]], wingMat));
   return { arm, hand, K, tip: F0 };
 }
 
@@ -516,13 +521,18 @@ function buildRevenantSkullHead(def, model, mats) {
   // A recessed dark POCKET = a rim ring at the skull surface + a floor point sunk INWARD
   // (|x|→0, +z) so it reads as a true hollow void in profile, not a painted-on facet. The
   // skull needs ≥2 such voids per side or it reads as a solid fleshed wedge (Fable).
+  const rimT = [];
   const pocket = (cx, cy, cz, rx, ry, side) => {
     const floor = [cx - side * rx * 2.2, cy - ry * 0.15, cz + rx * 2.4];   // sunk DEEP into the cranium → the floor falls into shadow (Fable: pockets read as flat cracks; a void needs a recessed dark floor)
     const rim = [
       [cx - side * rx, cy + ry, cz - rx * 0.3], [cx + side * rx * 0.5, cy + ry * 0.9, cz - rx * 0.6],
       [cx + side * rx, cy - ry * 0.2, cz - rx * 0.2], [cx + side * rx * 0.3, cy - ry, cz], [cx - side * rx, cy - ry * 0.7, cz + rx * 0.2],
     ];
-    for (let i = 0; i < rim.length; i++) socketT.push([rim[i], rim[(i + 1) % rim.length], floor]);   // rim → deep floor cup
+    for (let i = 0; i < rim.length; i++) socketT.push([rim[i], rim[(i + 1) % rim.length], floor]);   // rim → deep floor cup (near-black interior)
+    // A raised BONE LIP flaring outward from the rim → a lit rim edge on every fenestra so it
+    // reads as a CARVED orbit (bright bone rim + dark hole), not a flat painted chevron (Fable).
+    const lip = rim.map((p) => [p[0] + (p[0] - floor[0]) * 0.18, p[1] + (p[1] - floor[1]) * 0.18 + ry * 0.10, p[2] + (p[2] - floor[2]) * 0.18]);
+    for (let i = 0; i < rim.length; i++) { const j = (i + 1) % rim.length; rimT.push([rim[i], lip[j], lip[i]], [rim[i], rim[j], lip[j]]); }
   };
   for (const side of [1, -1]) {
     const ex = side * S(0.15), ey = S(0.04), ez = S(-0.14);
@@ -538,6 +548,7 @@ function buildRevenantSkullHead(def, model, mats) {
   const sockMat = new THREE.MeshStandardMaterial({ color: 0x0e1113, emissive: 0x000000, flatShading: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide });
   sockMat.envMapIntensity = 0.0;
   group.add(flatTriMesh(socketT, sockMat));
+  group.add(flatTriMesh(rimT, M.bone));   // the bright carved orbit rims
 
   // ── HORNS — a pair sweeping back + up + out from the occiput, ATTACHED at the base
   // (a 3-segment tapered tent so they curve). Length grows with the ladder (hornLen).
