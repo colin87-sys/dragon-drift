@@ -119,7 +119,10 @@ const gfxPref = saveData.settings;
 const tmMode = urlParams.get('tm') || gfxPref.toneMap;
 if (tmMode) setToneMap(renderer, tmMode);
 if (urlParams.get('dither') === '0' || gfxPref.dither === false) setDither(false);
-// N4 instanced spark backend (150 draws → 1). Must be set before initParticles.
+// N4 instanced spark backend (150 draws → 1). Must be set before initParticles. NOTE: kept OFF by
+// default — tests/particlebatch.mjs currently FAILS the collapse (the instanced mesh is built but the
+// per-sprite draws still submit → calls go 233→234, not 233→1). Defaulting it on would ADD a draw, not
+// save any. Re-enable the default only once that parity test is green (tracked as a separate fix).
 if (urlParams.get('pfx') === 'batch' || gfxPref.particleBatch === true) setParticleBackend('batch');
 const challengeSeedParam = parseInt(urlParams.get('seed'), 10);
 const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam > 0
@@ -1230,6 +1233,9 @@ let qualityTier = 0;        // 0 = full, 1 = reduced, 2 = low
 let qualityTimer = 0;       // time spent above the restore threshold
 let degradeTimer = 0;       // time spent below the degrade threshold (dwell → a hitch can't cascade tiers)
 let warmup = 2;             // ignore first seconds (shader-compile jank)
+let highRefresh = false;    // latched when a sub-13ms frame proves a >60Hz (ProMotion/120Hz) display
+let restoreDwell = 3;       // seconds of headroom required before restoring a tier (GROWS on ping-pong)
+let sinceRestore = 1e9;     // time since the last tier restore (anti-ping-pong memory)
 const QUALITY_SCALARS = [1, 0.6, 0.35];
 const PIXEL_RATIOS = [
   Math.min(window.devicePixelRatio, 2),
@@ -1257,7 +1263,7 @@ function applyQuality(tier) {
   setArenaSetQuality(tier); // ARENA PR-H1/H2: tier2 drops the heaven's holy architecture (palette + rays carry it)
 }
 
-function updateQuality(dt) {
+function updateQuality(dt, hitchDt = dt) {
   // Manual quality override from settings pins the tier.
   const override = saveData.settings.qualityOverride;
   if (override !== null && override !== undefined) {
@@ -1265,23 +1271,35 @@ function updateQuality(dt) {
     return;
   }
   if (warmup > 0) { warmup -= dt; return; }
-  // HITCH REJECTION: a single long frame (shield-raise flash + first shield-shader compile, GC, a tab
-  // stall) is NOT a sustained framerate — feeding it to the average nuked quality for a transient spike
-  // (a shield hitch could cascade tier 0→2 in two frames, and tier 2 hides the whole detonation → the
-  // "background goes black" report). Drop the frame entirely.
-  if (dt > 0.25) { degradeTimer = 0; return; }
+  // HITCH REJECTION (now LIVE): a single long frame (shield/surge first-compile, GC, a tab stall, or the
+  // tier-flip's own RT realloc) is NOT a sustained framerate — feeding it to the average nuked quality
+  // for a transient spike. `hitchDt` is the UNCLAMPED delta: the caller's `rawDt` is capped at 0.05, so
+  // the old `dt > 0.25` guard here was DEAD CODE (it could never fire). Drop the frame entirely.
+  if (hitchDt > 0.25) { degradeTimer = 0; return; }
+  // HIGH-REFRESH (120Hz/ProMotion) LATCH: a sub-13ms frame can only occur above 60Hz. The restore
+  // thresholds were tuned for 60Hz vsync (fpsAvg asymptotes ≤ ~60); on a 120Hz panel fpsAvg swings
+  // ~50–91 and clears 58 constantly → tier 0↔1 OSCILLATION (which repaints the background AND hitches
+  // on every flip). On such a display, demand real headroom before daring a costlier tier.
+  if (hitchDt > 0 && hitchDt < 0.0125) highRefresh = true;
   fpsAvg += ((1 / Math.max(dt, 1e-4)) - fpsAvg) * Math.min(dt * 2, 0.2);   // clamp the EMA weight so one slow frame can't dominate the average
+  sinceRestore += dt;
+  if (sinceRestore > 30 && restoreDwell !== 3) restoreDwell = 3;   // a long stable stretch forgives past ping-pong
   const degradeAt = [55, 42, 0][qualityTier];
-  const restoreAt = [Infinity, 58, 50][qualityTier];   // 63→58: 63 is unreachable at 60Hz vsync (fpsAvg asymptotes ≤ ~60), so the game got STUCK at tier 1 forever after any single dip
+  const restoreAt = [Infinity, highRefresh ? 72 : 58, highRefresh ? 60 : 50][qualityTier];   // 63→58 fixed the stuck-at-tier-1 60Hz bug; 72 stops the 120Hz oscillation
   if (fpsAvg < degradeAt) {
-    // DEGRADE HYSTERESIS: the low FPS must HOLD ~0.9s (symmetric to the 3s restore dwell) before we drop
-    // a tier — a momentary hitch no longer collapses the quality (and, with F2, never hard-blacks anyway).
+    // DEGRADE HYSTERESIS: the low FPS must HOLD ~0.9s (symmetric to the restore dwell) before we drop a
+    // tier — a momentary hitch no longer collapses the quality (and, with F2, never hard-blacks anyway).
     degradeTimer += dt;
-    if (degradeTimer > 0.9) { applyQuality(qualityTier + 1); degradeTimer = 0; qualityTimer = 0; }
+    if (degradeTimer > 0.9) {
+      // ANTI-PING-PONG: if we restored a tier <8s ago and are already falling back, that tier is NOT
+      // sustainable — demand progressively more headroom before the next restore (so we stop hunting).
+      if (sinceRestore < 8) restoreDwell = Math.min(restoreDwell * 2, 24);
+      applyQuality(qualityTier + 1); degradeTimer = 0; qualityTimer = 0;
+    }
   } else if (fpsAvg > restoreAt) {
     degradeTimer = 0;
     qualityTimer += dt;
-    if (qualityTimer > 3) { applyQuality(qualityTier - 1); qualityTimer = 0; }
+    if (qualityTimer > restoreDwell) { applyQuality(qualityTier - 1); qualityTimer = 0; sinceRestore = 0; }
   } else {
     degradeTimer = 0; qualityTimer = 0;
   }
@@ -1326,12 +1344,14 @@ function tick() {
   }
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
   // drives every world/gameplay update.
-  let rawDt = Math.min(clock.getDelta(), 0.05);
+  const trueDt = clock.getDelta();   // UNCLAMPED — the tier hitch-guard + high-refresh latch must see real deltas
+  let rawDt = Math.min(trueDt, 0.05);
+  let hitchDt = trueDt;
   if (discardNextDelta) {
     discardNextDelta = false;
-    rawDt = 0;
+    rawDt = 0; hitchDt = 0;
   }
-  updateQuality(rawDt);
+  updateQuality(rawDt, hitchDt);
   // The speed-tunnel wind only lives during active play (death/pause/menu silence it;
   // start/exit are handled on the canyon crossings). Idempotent when already stopped.
   if (game.state !== 'playing') sfx.slipstreamStop();

@@ -90,7 +90,7 @@ let nova = null, spiral = null, deton = null;   // the three mode meshes (one vi
 let novaMat = null, spiralMat = null, detMat = null;
 let debris = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // the recycled radial-outward rock conveyor
 let embers = null, emberMat = null;    // the fine-particulate spark layer (shader-driven, recycled)
-const EMBER_N = 1536;                  // the roiling "substance": dense curved trails, ONE static draw
+const EMBER_N = 1152;                  // the roiling "substance": dense curved trails, ONE static draw (1536→1152: a curved 3-seg comet reads DENSER than a straight dash, so fewer trails hold the mass while reclaiming the ribbon's ~2.5× fill — perf, fairness-positive)
 let tierLevel = 0;                  // 0/1/2 — tier 2 GRACEFULLY degrades (cheap core+corona) instead of hiding the set (never a hard black)
 let detCoreCoronaVerts = 0;         // the [0,n) draw-range that keeps only core+corona at tier 2
 // The SHARED coherent swirl field (a few harmonics over the launch angle). The curved streak spines
@@ -729,7 +729,7 @@ export function updateArenaSet(time, playerDist, mix, fade) {
 export function setArenaSetQuality(tier) {
   tierLevel = tier;
   if (detMat) detMat.uniforms.uOct.value = tier >= 2 ? 1 : (tier >= 1 ? 2 : 3);   // fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
-  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 256 : tier >= 1 ? 768 : EMBER_N) * 18);   // 18 verts/ember (3-seg comet ribbon); size-sorted buffer → the biggest trails survive
+  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 256 : tier >= 1 ? 576 : EMBER_N) * 18);   // 18 verts/ember (3-seg comet ribbon); size-sorted buffer → the biggest trails survive
   if (deton) deton.geometry.setDrawRange(0, tier >= 2 ? detCoreCoronaVerts : Infinity);   // GRACEFUL DEGRADE: tier 2 keeps core+corona (a lit blast heart) instead of hiding the whole set → never a hard black
   if (debris) debris.visible = tier < 2;   // debris off at tier 2 (opaque cost)
 }

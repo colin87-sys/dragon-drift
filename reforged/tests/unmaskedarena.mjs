@@ -210,7 +210,7 @@ check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.are
 // enter the focal/corridor column (hard |x| ≥ 25 by construction — the layout invariant).
 check(heaven.arenaSet?.debrisFlybyMargin >= 0,
   `the FLYBY rocks never cross the flight lane at any depth (margin ${heaven.arenaSet?.debrisFlybyMargin} ≥ 0 — the widening keep-out cone)`);
-check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 1536,
+check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 1152,
   `the DEBRIS conveyor + EMBER layer ride the heaven, clear of the focal column (debris ${heaven.arenaSet?.debrisVis} min|x| ${heaven.arenaSet?.debrisMinX} ≥ 25, embers ${heaven.arenaSet?.emberVis}/${heaven.arenaSet?.emberN})`);
 // PR-K: THE HAZE-DECK — the sea drops ~30u in the settled heaven (the "water" becomes a cosmic haze
 // far below), and the seraph's wings clear it by ≥10u (the P0 probe seam: wingMinY − waterY). The
