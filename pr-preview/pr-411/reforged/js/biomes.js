@@ -159,6 +159,34 @@ export const BIOMES = [
     // Contrast gate: dark band vs this biome's near-black fog (L≈0.12) — lifted.
     bullets: { dark: 0xa84167 },
   },
+  {
+    // Aurora Shallows: a moonlit NIGHT biome — the dark, still MIRROR canvas the aurora
+    // curtain rises against. Near-black indigo sky (ALL the saturation comes from the
+    // curtain), stillest water in the game, a faint aurora-green world wash. Appended as
+    // BIOMES[6] but NOT yet in CYCLE — reachable only via ?biome=6 until the flip (PR-4).
+    // Slots between Mire and Astral (night crescendo: biolume → aurora → cosmos).
+    name: 'AURORA SHALLOWS',
+    keyShift: -1,
+    stars: 0.85,
+    // The aurora channel (auroraSky.js): the biome that finally lights the dormant
+    // env.auroraMix. computeEnv lerps it across the 150m seam for free.
+    aurora: 1.0,
+    // horizon = the dim aurora airglow shelf the curtain rises from — darkened to 0x183a36 (L≈0.20)
+    // so the fixed magenta DANGER bullet (L≈0.36) clears it (bulletcontrast gate); darker = aurora pops more.
+    sky: { top: C(0x050a14), mid: C(0x0e1a34), horizon: C(0x183a36), sun: C(0xa8c8e8) },
+    fog: { color: C(0x101a2e), near: 95, far: 460 },
+    // Dual-fog (§5.2): sink the far field to near-black indigo so the horizon aurora band
+    // is the brightest thing in the frame.
+    fogFarColor: C(0x070c18),
+    light: { sun: C(0xbfd4f0), sunI: 0.9, hemiSky: C(0x2f5c55), hemiGround: C(0x0a1414) },
+    water: { deep: C(0x030814), shallow: C(0x14384a), waveAmp: 0.2 },
+    ambient: { color: C(0xd8f4ff), fall: 0.05, sway: 0.5, size: 0.26, opacity: 0.7 },
+    fauna: { color: C(0xc0d8e0), scale: 0.6, flap: 0.35 },
+    props: [], // flat floe/iceFang props arrive in PR-3; for now the sky + mirror own the frame
+    matIndex: 6, // ice (doc only; obstacles tint via biomeIndexAt → mats.body[6])
+    // Contrast gate: darker fog than Astral (L≈0.10) → the default deep bullet band vanishes.
+    bullets: { dark: 0xaf4f73 },
+  },
 ];
 
 // The biome CYCLE — the ORDER biomes appear along the course, independent of the BIOMES
@@ -168,7 +196,15 @@ export const BIOMES = [
 // Any code that cycles biomes by distance MUST index through CYCLE, never `block % BIOMES.length`.
 export const CYCLE = [0, 1, 2, 3, 4, 5];
 
+// Debug seam: ?biome=<i> pins the whole course to one biome (no seam crossfade) so an
+// appended-but-not-yet-cycled biome (Aurora Shallows = 6) is flyable before the CYCLE flip.
+// null in all real play → biomeAt is byte-identical (gold-determinism untouched; course gen
+// is biome-blind regardless).
+let forcedBiome = null;
+export function setForcedBiome(i) { forcedBiome = (i == null || Number.isNaN(i)) ? null : i; }
+
 export function biomeAt(dist) {
+  if (forcedBiome != null) return { ia: forcedBiome, ib: forcedBiome, t: 0 };
   const L = CONFIG.biomeLength;
   const block = Math.max(0, Math.floor(dist / L));
   const ci = block % CYCLE.length;

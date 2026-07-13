@@ -11,7 +11,7 @@ import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } fro
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
-import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, setAuroraActOverride } from './auroraSky.js';
+import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, setAuroraActOverride } from './auroraSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
 import { getWaterSwellOn } from './water.js';
 import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
@@ -20,7 +20,7 @@ import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as
 // drives them through environment.
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
 // Aurora Shallows: the sky-splice controls ride through environment too.
-export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, setAuroraActOverride };
+export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, setAuroraActOverride };
 // ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
 export { setArenaSetQuality, debugArenaSet, setStarMode };
 
@@ -408,8 +408,11 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         // blowing out the centre of the screen and washing out contrast.
         // N9: a cloud covering this pixel occludes the disc (cCov=0 when clouds off
         // → shipped). The halo stays so clouds still glow near the sun.
-        // (× (1 - uAurNight): the aurora preview kills the sun — a night sky has none.)
-        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) + pow(s, 10.0) * 0.16) * (1.0 - uAurNight);
+        // (× (1 - uAurNight): the aurora preview kills the sun — a night sky has none. And under a real
+        // aurora biome (uAuroraMix up), dim the moon disc + kill most of its broad halo so it doesn't grey
+        // the sky the curtain owns — a faint moon dot remains. uAuroraMix 0 elsewhere → byte-identical.)
+        col += sunGlow * (pow(s, 900.0) * 0.7 * (1.0 - cCov * 0.85) * (1.0 - 0.5 * uAuroraMix)
+                        + pow(s, 10.0) * 0.16 * (1.0 - 0.85 * uAuroraMix)) * (1.0 - uAurNight);
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);

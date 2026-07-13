@@ -54,14 +54,15 @@ export function resizeGodRays() {
 let _maskParity = 0, _maskEver = false;
 export function renderGodRayMask() {
   if (!_enabled || !occRT || !_renderer) return;
-  // DUTY-CYCLE + STAGGER: the mask is a FULL extra scene render (~200-300 draw calls — every layer-0 mesh
-  // with a black override). The occluder silhouette + camera move slowly, so a 1-frame-stale mask is
-  // imperceptible; the shaft shader still runs every frame against the kept occRT. Render every OTHER
-  // frame, on ODD parity — STAGGERED off the water mirror (which renders on EVEN _parity) so the two
-  // full-scene passes never land on the same frame (that stacking was the ~2× worst-frame spike). Always
-  // render the FIRST call so occRT is never a black mask.
+  // DUTY-CYCLE + STAGGER: the mask is a FULL extra scene render (~169 draw calls — every layer-0 mesh
+  // with a black override). The occluder silhouette + camera move slowly and the shafts are broad,
+  // radial-blurred columns, so a few-frame-stale mask is imperceptible; the shaft shader still runs every
+  // frame against the kept occRT. Render ~1/3 of frames (20Hz), on a parity STAGGERED off the water
+  // mirror (EVEN _parity) so the two full-scene passes don't stack. Always render the FIRST call so occRT
+  // is never a black mask. (The clean structural win — deriving the mask from the depth buffer to drop
+  // this pass entirely — is deferred pending real-GPU MSAA-depth verification.)
   const p = _maskParity++;
-  if (_maskEver && (p & 1) === 0) return;
+  if (_maskEver && (p % 3) !== 1) return;
   _maskEver = true;
   const r = _renderer;
   const pTarget = r.getRenderTarget();
