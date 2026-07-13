@@ -46,6 +46,8 @@ export function makeMarkerSurface(opts = {}) {
     glint = 0,              // GLINT master (0 = OFF → the term is exactly 0.0, factory identity until opt-in)
     glintSharp = 36,        // tight specular exponent (per-role: bigger facets want higher; small facets lower)
     glintDir = [0.35, 0.5, 0.78], // fixed VIEW-SPACE "studio key" — flat facet normals sweeping past it sparkle
+    lipGlow = 0,            // ALWAYS-ON hot glow at the high-glowT end (0 = OFF). The ring uses it so the inner
+                            // aperture lip reads as a bright rim at flight distance (not only during fever/combo).
   } = opts;
   const mat = new THREE.MeshStandardMaterial({
     color: 0x0a0a12,                       // near-black body so the emissive carries the read
@@ -69,6 +71,7 @@ export function makeMarkerSurface(opts = {}) {
     uGlint: { value: glint },
     uGlintSharp: { value: glintSharp },
     uGlintDir: { value: new THREE.Vector3(glintDir[0], glintDir[1], glintDir[2]).normalize() },
+    uLipGlow: { value: lipGlow },
   };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, mat.userData.markerUniforms);
@@ -80,7 +83,7 @@ export function makeMarkerSurface(opts = {}) {
         `#include <common>
          uniform vec3 uRoot; uniform vec3 uMid; uniform vec3 uApex;
          uniform float uFlow; uniform float uTime; uniform float uRimPow; uniform float uEmisScale; uniform float uHotLift;
-         uniform float uGlint; uniform float uGlintSharp; uniform vec3 uGlintDir;
+         uniform float uGlint; uniform float uGlintSharp; uniform vec3 uGlintDir; uniform float uLipGlow;
          varying float vGlowT; varying float vFacetJ;`)
       // Splice at emissivemap_fragment: `normal` (flat, from normal_fragment_begin)
       // and `vViewPosition` are both already in scope, and totalEmissiveRadiance is
@@ -108,6 +111,9 @@ export function makeMarkerSurface(opts = {}) {
            // sparkles as it rolls / the camera approaches. uGlint=0 → exactly 0 (factory identity).
            float glint = pow(clamp(dot(normalize(normal), uGlintDir), 0.0, 1.0), uGlintSharp);
            emis += uApex * glint * (0.6 + 0.4 * vFacetJ) * uGlint;
+           // Always-on hot LIP at the high-glowT end — the ring's bright aperture rim, so the
+           // upgrade reads at flight distance (not only during fever/combo). uLipGlow=0 → identity.
+           emis += uApex * smoothstep(0.62, 1.0, gt) * uLipGlow;
            totalEmissiveRadiance = emis * uEmisScale;
          }`);
   };
