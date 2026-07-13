@@ -41,15 +41,10 @@ async function capture({ skyforged = true, chain = 0, offX = 0, frameDist = 0 })
     window.__dd.player.dist += 40; return false;
   }, { timeout: 25000, polling: 200 });
   await page.waitForTimeout(500);
-  // Ramp the slipstream FIRST (holding the chain advances the player), so the light
-  // has climbed the arch before we frame — otherwise the player drifts past the
-  // targeted gate onto a neighbouring Phase Gate by screenshot time.
-  await page.evaluate(async (ch) => {
-    const t0 = performance.now();
-    while (performance.now() - t0 < (ch ? 1200 : 150)) { window.__dd.game.flowChain = ch; await new Promise((r) => requestAnimationFrame(r)); }
-  }, chain);
-  // NOW frame the nearest Windvault ahead by its glowT arch (the Sky-Gate build has
-  // none → reuse the Windvault run's frameDist; same seed → same gate planes).
+  // Frame the nearest Windvault ahead by its glowT arch (the Sky-Gate build has none
+  // → reuse the Windvault run's frameDist; same seed → same gate planes). No chain
+  // ramp: holding the chain advances the player and drifts a neighbouring Phase Gate
+  // into frame. Instead we light the arch WHILE FROZEN (below) with zero advance.
   const targetDist = frameDist || await page.evaluate(() => {
     let best = Infinity;
     window.__dd.scene.traverse((o) => {
@@ -60,9 +55,27 @@ async function capture({ skyforged = true, chain = 0, offX = 0, frameDist = 0 })
   }).catch(() => 0);
   await page.evaluate((td) => { if (td) window.__dd.player.dist = td - 34; }, targetDist);
   if (offX) await page.evaluate((x) => { window.__dd.player.x = (window.__dd.player.x || 0) + x; }, offX);
-  // Freeze, then re-assert the chain so slipMix (and the light-climb) holds for the shot.
-  await page.evaluate((ch) => { window.__dd.game.timeScale = 0; window.__dd.game.flowChain = ch; }, chain);
-  await page.waitForTimeout(140);
+  // Freeze, then drive the slipstream DIRECTLY (canyonSlip>1 → slipMix→1 → the light
+  // climbs the arch): updateObstacles runs each rAF even at dt=0, writing markerFlow
+  // from player.canyonSlip. A couple of frames commit the uniform. Zero advance.
+  await page.evaluate(async (ch) => {
+    window.__dd.game.timeScale = 0;
+    window.__dd.game.flowChain = ch;
+    window.__dd.player.canyonSlip = ch ? 2.0 : 1.0; // 2.0 clamps slipMix to 1 regardless of the run ceiling
+    // The forced ?canyon=flow harness interleaves normal-course PHASE GATES, one of
+    // which can straddle the framed flow plane (never happens in real flow play).
+    // Hide any Phase-Gate group (identified by its veil ShaderMaterial's uEdge uniform)
+    // so the A/B judges the flow marker alone. The Windvault + reward ring are separate
+    // groups without a veil, so they survive.
+    window.__dd.scene.traverse((o) => {
+      if (o.material && o.material.uniforms && o.material.uniforms.uEdge) {
+        let g = o; while (g.parent && g.parent !== window.__dd.scene) g = g.parent;
+        g.visible = false;
+      }
+    });
+    for (let i = 0; i < 4; i++) await new Promise((r) => requestAnimationFrame(r));
+  }, chain);
+  await page.waitForTimeout(120);
   const buf = await page.screenshot();
   await done();
   return { buf, dist: targetDist };
