@@ -27,7 +27,7 @@ import { flatTriMesh } from './mechaKit.js';
 const TORSO_Y = 0.15;
 // Palette anchors — BRIGHT COOL CHALK-IVORY bone (Fable gate: bone was reading dim/khaki;
 // bleached bone must be the dominant bright mass). Value RISES up the ladder (apex palest).
-const BONE = 0xe6e7e0, BONE_LO = 0xc7cac3;   // bright COOL ivory (no khaki drift) + one value-step darker
+const BONE = 0xece6d0, BONE_LO = 0xd6cfb8;   // bright chalk-ivory / bleached CREAM (warm-neutral, not steel-cold)
 const RECESS = 0x3d4a3a;                      // umber-green far-side cavity wall (the hollow-cage depth, §4.4)
 const GRAVE = 0x6bff5e;                        // the grave-light green (heart / eyes / gaps) — brighter for bloom
 
@@ -48,14 +48,16 @@ function revenantMats(def) {
   // Bone reads BRIGHT bleached ivory: high albedo, low roughness sheen, a faint self-lit
   // floor so it never sinks to grey in shadow (exterior emissive stays a hair above black —
   // the rig's emissiveIntensity tick is a near-no-op, so "no lit exterior bone" still holds).
-  const bone = new THREE.MeshStandardMaterial({ color: def.body ?? BONE, emissive: 0x000000, flatShading: true, roughness: 0.72, metalness: 0, side: THREE.DoubleSide });
-  bone.envMapIntensity = 0.55;
+  // envMapIntensity kept LOW: a high sky-reflection was tinting the bone steel-blue (Fable). Bone
+  // is matte bleached chalk — brightness comes from albedo + key light, not a mirror of the sky.
+  const bone = new THREE.MeshStandardMaterial({ color: def.body ?? BONE, emissive: 0x000000, flatShading: true, roughness: 0.82, metalness: 0, side: THREE.DoubleSide });
+  bone.envMapIntensity = 0.22;
   // Belly / ventral tier — a value-step darker so banks and the keel read.
-  const boneLo = new THREE.MeshStandardMaterial({ color: def.belly ?? BONE_LO, emissive: 0x000000, flatShading: true, roughness: 0.74, metalness: 0, side: THREE.DoubleSide });
-  boneLo.envMapIntensity = 0.5;
+  const boneLo = new THREE.MeshStandardMaterial({ color: def.belly ?? BONE_LO, emissive: 0x000000, flatShading: true, roughness: 0.84, metalness: 0, side: THREE.DoubleSide });
+  boneLo.envMapIntensity = 0.2;
   // Dorsal tier — blended a hair between the two so the vertebra ridge reads from the side.
-  const boneDorsal = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, def.belly ?? BONE_LO, 0.35), emissive: 0x000000, flatShading: true, roughness: 0.66, metalness: 0.02, side: THREE.DoubleSide });
-  boneDorsal.envMapIntensity = 0.55;
+  const boneDorsal = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, def.belly ?? BONE_LO, 0.35), emissive: 0x000000, flatShading: true, roughness: 0.76, metalness: 0.02, side: THREE.DoubleSide });
+  boneDorsal.envMapIntensity = 0.24;
   // Recess — the far-side inner rib/cavity wall (umber-green) so the hollow reads DEEP
   // while the windows stay TRUE holes (§4.4 hollow-cage render). Non-emissive.
   const recess = new THREE.MeshStandardMaterial({ color: RECESS, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
@@ -257,21 +259,28 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   const coreBlaze = model.coreBlaze ?? 1;
   const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.42;
   const heartR = 0.20 + 0.11 * coreBlaze;   // BIG glow to fill the deep flared cage (lantern, not sticker)
-  const heartMat = new THREE.MeshBasicMaterial({ color: GRAVE, transparent: true, opacity: 0.45 + 0.5 * coreBlaze, depthWrite: false, side: THREE.FrontSide });
-  const heart = new THREE.Mesh(new THREE.OctahedronGeometry(heartR, 1), heartMat);
-  heart.scale.set(1, 1.5, 0.85);            // teardrop (taller than wide)
-  heart.position.set(0, hy, hz);
-  heart.userData.base = 0.45 + 0.5 * coreBlaze;   // the coreGlow tick scales THIS
-  heart.renderOrder = 2;
-  group.add(heart);
-  // A TIGHT grave-green glow shell hugging the heart so the ghost-fire reads as CONTAINED
-  // green light through the rib gaps — NOT a big white additive bloom (Fable: the white halo
-  // drifted "holy"). A darker teal-green core colour so additive blending stays GREEN, not
-  // washing to white on the pale/gold backdrops; small radius so it never forms an opaque cloud.
+  // A pointed TEARDROP FLAME (Fable: was a round orb — must read as caged FIRE): a rounded bulb
+  // bottom tapering to a flame tip at the top. Built as tris so the silhouette is a real teardrop.
+  const flameTeardrop = (R, H) => {
+    const N = 8, tris = [], apex = [0, H, 0], bot = [0, -H * 0.6, 0], ring = [];
+    for (let k = 0; k < N; k++) { const a = (k / N) * Math.PI * 2; ring.push([Math.cos(a) * R, -H * 0.14, Math.sin(a) * R]); }
+    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; tris.push([apex, ring[k], ring[k1]], [bot, ring[k1], ring[k]]); }
+    return tris;
+  };
+  const heartMat = new THREE.MeshBasicMaterial({ color: GRAVE, transparent: true, opacity: 0.45 + 0.5 * coreBlaze, depthWrite: false, side: THREE.DoubleSide });
+  const heartFlame = flatTriMesh(flameTeardrop(heartR * 0.82, heartR * 1.7), heartMat);   // bulb radius + flame height
+  heartFlame.position.set(0, hy, hz);
+  heartFlame.userData.base = 0.45 + 0.5 * coreBlaze;   // the coreGlow tick scales THIS
+  heartFlame.renderOrder = 2;
+  group.add(heartFlame);
+  // A TIGHT grave-green glow shell hugging the flame so the ghost-fire reads as CONTAINED green
+  // light through the rib gaps — NOT a big white additive bloom (Fable: the white halo drifted
+  // "holy"). Darker teal-green so additive blending stays GREEN, not washing to white.
   const haloMat = new THREE.MeshBasicMaterial({ color: 0x2e8a3a, transparent: true, opacity: (0.10 + 0.12 * coreBlaze), depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.BackSide });
   const halo = new THREE.Mesh(new THREE.OctahedronGeometry(heartR * 1.35, 1), haloMat);
-  halo.scale.set(1, 1.4, 0.9); halo.position.set(0, hy, hz); halo.renderOrder = 1;
+  halo.scale.set(1, 1.6, 0.9); halo.position.set(0, hy, hz); halo.renderOrder = 1;
   group.add(halo);
+  const heartHook = heartFlame;   // the coreGlow the torso returns
 
   // Motif anchor = the cage centre (the Grave Heart seats here).
   const motifAnchor = new THREE.Object3D();
@@ -296,7 +305,7 @@ function buildOssuaryTorso(def, model, _bodyMat) {
     motifAnchor,
   };
   // coreGlow = THE GRAVE HEART mesh (the real Solar hook — NOT null like the I0 stub).
-  return { group, attach, spinePoints, spineMats: [], mats: { bodyMat: M.bone }, coreGlow: heart };
+  return { group, attach, spinePoints, spineMats: [], mats: { bodyMat: M.bone }, coreGlow: heartHook };
 }
 registerTorso('ossuaryTorso', buildOssuaryTorso);
 
