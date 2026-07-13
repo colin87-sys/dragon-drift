@@ -498,7 +498,12 @@ function setPerfHud(on) {
     renderer.info.autoReset = true;  // restore the three.js default for every other reader
   }
 }
-on('runStart', () => resetPerfStats(perfStats)); // worst/best-frame is per-RUN (O(1) field zeroing, no render effect)
+on('runStart', () => { resetPerfStats(perfStats); restoreDwell = 3; sinceRestore = 1e9; }); // worst/best-frame is per-RUN; a fresh run also forgives past ping-pong (moved off the old 30s timer, which re-armed the mid-fight hunt)
+// The quality controller forbids tier RESTORES during a boss fight (see updateQuality) so the tier — and
+// thus the detonation's look — can't ping-pong/repaint mid-encounter. Set the latch on the fight window.
+on('bossStart', () => { bossEncounter = true; });
+on('bossEnd', () => { bossEncounter = false; });
+on('bossDefeated', () => { bossEncounter = false; });
 // Boot: either path shows the HUD; default (neither) leaves it off → identity.
 if (urlParams.get('debug') === 'perf' || gfxPref.perfHud === true) setPerfHud(true);
 
@@ -1267,6 +1272,7 @@ let degradeTimer = 0;       // time spent below the degrade threshold (dwell →
 let warmup = 2;             // ignore first seconds (shader-compile jank)
 let restoreDwell = 3;       // seconds of headroom required before restoring a tier (GROWS on ping-pong)
 let sinceRestore = 1e9;     // time since the last tier restore (anti-ping-pong memory)
+let bossEncounter = false;  // true from bossStart→bossEnd: FORBID restores mid-fight so the tier (and thus the detonation's look) can't ping-pong/repaint during the boss — the owner's "background randomly changes"
 // The tier DECISION signal is a windowed MEDIAN of TRUE frame time, NOT an EMA of the clamped fps. The
 // EMA was a hitch INTEGRATOR: one ≥50ms stall injected a 20fps sample and a cluster dragged the average
 // into the 40s → the controller degraded on transient compile/GC/flip stalls it could never fix by
@@ -1335,12 +1341,15 @@ function updateQuality(dt, hitchDt = dt) {
     medFps = 1 / Math.max(s[dtCount >> 1], 1e-4);
   }
   sinceRestore += dt;
-  if (sinceRestore > 30 && restoreDwell !== 3) restoreDwell = 3;   // a long stable stretch forgives past ping-pong
   const capable = capFps > 70;               // proven >70fps recently ⇒ hitch-bound, NOT throughput-bound → don't uglify
+  // CAPABLE FLOOR: a device that has proven >70fps never falls to tier 2 — the PALETTE-BREAKING tier
+  // (composer off, clouds off, the detonation cut to core+corona). Tier 2 stays for genuinely weak
+  // devices. So a flagship oscillates at most 0↔1 (near-identical), never the jarring tier-2 repaint.
+  const maxTier = capable ? 1 : 2;
   const degradeAt = [55, 42, 0][qualityTier];
-  const restoreAt = [Infinity, 58, 50][qualityTier];   // reverted: the 72/60 "high-refresh" bump was unreachable on VRR panels = the tier-2 trap
+  const restoreAt = [Infinity, 58, 57][qualityTier];   // 2→1 restore now demands a NEAR-60 median at tier 2 (was 50 → it restored into a tier 1 that couldn't hold it → 1↔2 bounce)
   const degradeDwell = capable ? 2.5 : 0.9;  // a capable device must be MEDIAN-slow for 2.5s (a stall cluster won't do it); a weak device keeps the fast 0.9s response
-  if (medFps < degradeAt) {
+  if (medFps < degradeAt && qualityTier < maxTier) {
     degradeTimer += dt;
     if (degradeTimer > degradeDwell) {
       // ANTI-PING-PONG: if we restored a tier <8s ago and are already falling back, that tier is NOT
@@ -1348,7 +1357,9 @@ function updateQuality(dt, hitchDt = dt) {
       if (sinceRestore < 8) restoreDwell = Math.min(restoreDwell * 2, 24);
       applyQuality(qualityTier + 1); degradeTimer = 0; qualityTimer = 0;
     }
-  } else if (medFps > restoreAt) {
+  } else if (medFps > restoreAt && !bossEncounter) {
+    // NO RESTORES MID-ENCOUNTER: a restore during the fight would flip the tier and REPAINT the
+    // detonation (the owner's "background changes"). Restores are deferred to after bossEnd.
     degradeTimer = 0;
     qualityTimer += dt;
     if (qualityTimer > restoreDwell) { applyQuality(qualityTier - 1); qualityTimer = 0; sinceRestore = 0; }

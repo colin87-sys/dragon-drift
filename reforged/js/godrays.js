@@ -51,15 +51,18 @@ export function resizeGodRays() {
 
 // Render the sky=white / geometry=black mask. Called once per frame, right
 // before the composer, only while god-rays are active.
-let _maskParity = 0;
+let _maskParity = 0, _maskEver = false;
 export function renderGodRayMask() {
   if (!_enabled || !occRT || !_renderer) return;
-  // DUTY-CYCLE: the mask is a FULL extra scene render (~200-300 draw calls — every layer-0 mesh with a
-  // black override). The occluder silhouette (boss/dragon) and the camera move slowly frame-to-frame,
-  // so a 1-frame-stale mask is imperceptible; the shaft shader still runs every frame against the kept
-  // occRT. Render every OTHER frame → halves the pass's per-frame draw-call cost. (occRT retains its
-  // last content on the skip; render on the FIRST call so there's never a black-mask frame.)
-  if (_maskParity++ & 1) return;
+  // DUTY-CYCLE + STAGGER: the mask is a FULL extra scene render (~200-300 draw calls — every layer-0 mesh
+  // with a black override). The occluder silhouette + camera move slowly, so a 1-frame-stale mask is
+  // imperceptible; the shaft shader still runs every frame against the kept occRT. Render every OTHER
+  // frame, on ODD parity — STAGGERED off the water mirror (which renders on EVEN _parity) so the two
+  // full-scene passes never land on the same frame (that stacking was the ~2× worst-frame spike). Always
+  // render the FIRST call so occRT is never a black mask.
+  const p = _maskParity++;
+  if (_maskEver && (p & 1) === 0) return;
+  _maskEver = true;
   const r = _renderer;
   const pTarget = r.getRenderTarget();
   const pOverride = _scene.overrideMaterial;
