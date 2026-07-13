@@ -118,7 +118,8 @@ metalness 0, envIntensity 0.22. Publishes attach contract + `spinePoints` + `mot
 
 ## 5. Wings — the HERO: THE AURORA CURTAIN (+ streamer pairs — the no-membrane architecture)
 
-> **⚠️ SUPERSEDED BY §R2 (harsh rear-chase gate, 2026-07-13) — READ IT FIRST.** A purely
+> **⚠️ SUPERSEDED BY §R2 AND §F (Fable round-2 — §F overrules R2.1's width number and this
+> section's 0.78 curtain opacity: the curtain BODY is now OPAQUE, hem-only translucency).** A purely
 > dorsal-vertical curtain is EDGE-ON from dead astern (95% of play) and collapses to a thin vertical
 > line — the #1 failure mode. §R2 re-architects the curtain into a FLARED DORSAL HOOD (pleats cant
 > progressively outboard, ±10°→±35° at the crown) so the rear black-fill reads as a broad luminous
@@ -196,8 +197,10 @@ body value ↓ · eye:head ↓ · cross-section H:W ≥1.3 at every form (the an
   vesper 223°; rose 325° sits 33° from Stiletto's 292° and 30° crimson-side from Tocsin's 354°.
 
 ## 10. Perf / overdraw (THE budget sheet of the Fresh Five — pre-solved)
-1. **One translucent sheet, ever.** Curtain single-layer 0.78; streamers OPAQUE + hem bands; sac-
-   style stacking impossible by construction. Transparent drawables at apex ≤7 (curtain 1 + hems 6).
+1. **(SUPERSEDED BY §F.2)** ~~One translucent sheet, ever. Curtain single-layer 0.78~~ — the curtain
+   BODY is OPAQUE (emissive-in-fragment gradient); translucency lives only in the crown-hem fade band
+   (top ≤20% pleat height, single layer, depthWrite off) + streamer hems. Transparent drawables at
+   apex ≤7 (all hem bands — zero large translucent sheets; rear-chase self-overlap killed by §F.2).
 2. **Emissive in the fragment,** never additive shells (the §6b p95 law — the curtain is exactly
    the kind of big screen-space element that killed the on-device dip; it must be a surface shader).
 3. **The curtain never crosses the ±10° forward corridor** — it is dorsal and aft of the rider eye
@@ -292,9 +295,43 @@ RIPPLES, crowned rose at full unfurl — the one dragon whose hero read is livin
 turntable. Anti-clinical guard: it must read as WORN WEATHER, never a lit-up science exhibit — zero body
 emissive holds this.
 
+## §F — FABLE GATE (round-2, 2026-07-13)
+**Verdict: REVISE (sharpened) — concept + Aurelion-Sol lane fully intact.** Scores: rear-silhouette 4
+(post-fix; was 3 — the §R hood as written doesn't guarantee breadth) · buildability 4.5 (post-fix; the
+§R translucency claim was wrong in the one view that matters) · SSSR appeal 3.5 · sweep clean → avg 4.0
+borderline, no axis ≤2 after the fixes. One word: **HOOD** (holds — once the width number actually binds).
+Two §R rulings were too soft; both are overruled here:
+
+1. **R2.1's "hood width ≥1.1× body girth" is a NON-BINDING assert — an assert that cannot fail holds
+   nothing.** At the mandated ±35° crown cant, pleat height alone (0.9× girth ×2.2 ≈ 0.99 units on a
+   0.5-girth body) projects ~0.57 units of flare PER SIDE — the geometry as written already yields
+   ~3× girth, so 1.1× passes even at a near-line ±15° cant. Replace with numbers that bind:
+   **rear-projected hood width ≥2.4× body girth at the widest pleat station AND ≥0.35× the streamer
+   tip-to-tip span**, measured from `parts.wingElements` pleat tips in rear projection. A cobra hood
+   is a MULTIPLE of the body, or it's a fin.
+2. **"One connected sheet can never stack against itself" is FALSE from the chase camera.** From dead
+   astern you look nearly ALONG the curtain's run — pleats at different spine stations stack in screen
+   DEPTH, so the single translucent sheet self-overlaps many layers deep in exactly the 95% view; and
+   three.js does not sort triangles within one transparent mesh, so a big self-overlapping translucent
+   sheet z-pops (intra-mesh draw-order artifacts) on top of blowing the ≤2-layer law. R3's "1 transparent
+   layer total" line under-modeled screen-space self-overlap. Fix (shipped precedent — the Jade
+   forward-lobe law, §5d: opaque lobes + rim/gradient faking the silk): **the curtain body goes OPAQUE**
+   — teal→rose vertex gradient, emissive-in-fragment (`composeSurface` + `applyFresnelRim`); an
+   emissive-lit sheet against sky loses almost nothing by dropping translucency at gameplay distance.
+   Translucency survives ONLY as the crown-hem fade band (top ≤20% of pleat height, single layer,
+   depthWrite off). Transparent inventory: ≤7 hem bands, zero large translucent sheets. This
+   supersedes §5's 0.78 opacity, §10.1, and the R3 hood row.
+3. **Unchanged and still load-bearing:** flows-or-fails CPU ripple; streamers as span-carriers with
+   chord ≥0.18× length; zero body emissive; rose hem f2+ ≤15% height.
+
+Honest appeal note for the set ranking: even fixed, Sylph is the weakest REAR read of the five (grace
+under-screenshots menace); it earns its 2800 slot on the turntable/shop frame, which should be the
+roster's most beautiful. That trade is accepted, not denied.
+
 ## SETTLED (do not re-litigate)
 - **Teardrop H>W cross-section + VERTICAL wave** — the two structural anti-Jade locks.
 - **The curtain is ONE sheet + real pleat geometry** — never stacked cards, never a flat alpha quad.
+  **(§F: the sheet body is OPAQUE emissive-gradient; only the crown hem is translucent.)**
 - **Two-stop light (teal + rose hem) is sheet-sanctioned; a third stop is a palette fail.**
 - **Zero body emissive; zero crystal/gems; span:body 1.6× is sanctioned-low** (Jade clause).
 - **Rose hem arrives f2** — the hatchling/f1 curtain is pure teal (the earn is visible).

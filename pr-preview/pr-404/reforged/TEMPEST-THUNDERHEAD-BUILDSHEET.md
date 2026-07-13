@@ -285,6 +285,30 @@ overdraw story (3 alpha layers would have blown the ≤2 law — avoided by cons
 frame is a menacing silver-lined anvil. **Lead: IMMINENT POWER** — you watch the charge build. Anti-
 clinical guard: churn + silver-lining rims keep it a living cloud, never a grey CAD blob.
 
+## §F — FABLE GATE (round-2, 2026-07-13)
+**Verdict: PASS — after the axis fix below.** Scores: rear-silhouette 4.5 (post-fix) · buildability 5 ·
+SSSR appeal 4 · 13-failure-mode sweep clean → avg 4.6, no axis ≤2, no veto. One word: **STACK** (holds).
+The Opus §R was right about the louvre risk but wrote the fix on the wrong AXIS:
+
+1. **CHORD decay is invisible from dead astern — the anvil must taper in SPAN.** R2.1 mandates ×0.80
+   *chord* decay + 0.10-chord *set-back*: both are fore-aft moves; the rear black-fill (95% of play)
+   projects neither. Three decks of equal SPAN with fancy chord decay still read as parallel slats
+   from behind — the louvre survives the "fix." Mandate + assert (supersedes R2.1's assert, which
+   stays for the TOP planform only): **rear-projected deck span decays monotonically ×0.80±0.05 per
+   level up** (deck-2 rear extent ≤0.85× deck-1's, deck-3 ≤0.85× deck-2's, measured from
+   `parts.wingElements` tips in rear projection). THIS is the stepped anvil cone the camera sees.
+2. **No-tangents guard (new — §2.7):** the nimbus mane spikes rise exactly where the forward-high
+   deck stack leans — in rear fill a spike tip grazing a deck-2/3 leading edge flattens both reads.
+   Enforce clear gap ≥0.08 units OR clear overlap ≥0.05 between every mane-spike tip and any deck
+   silhouette edge, at glide AND the pinned bank pose.
+3. **Rear slit readability residual:** the inter-deck slits are the stratification signature, and at
+   the ~250px chase read a 0.12-chord gap projects to ~3–5px. Judge the rear crop on the PALE backdrop
+   at 2× before CP1 sign-off; if the slits close, widen the ROOT gap (min 0.16× chord), never the tip.
+
+Everything else in §R holds: opaque decks (honest overdraw), silver-lining diffuse rims carrying the
+82–94% no-strike frame, the three Tocsin separators. The strike frame remains the set's best single
+screenshot.
+
 ## SETTLED (do not re-litigate)
 - CHARCOAL L 0.20–0.26, never Vesper-black; near-white accent by SATURATION cap, not hue collision.
 - The arc is INTERMITTENT in cruise — never always-on (Solar's lane), never Surge-only (Vesper's lane).

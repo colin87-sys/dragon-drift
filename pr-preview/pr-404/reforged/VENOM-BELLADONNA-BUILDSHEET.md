@@ -278,6 +278,26 @@ venom visibly FILLING the glass sacs (a diegetic power meter) behind an oil-slic
 four-wing shimmer no other dragon has. **Lead: ELEGANT MENACE** (a patient assassin). Anti-gross guard:
 drips are beads, sacs are glass, nothing bulbous or gore — a stiletto, not a tick.
 
+## §F — FABLE GATE (round-2, 2026-07-13)
+**Verdict: PASS (round-2) — with two bounds tightened.** Scores: rear-silhouette 4 · buildability 4.5
+(aux-pivot hook is real but scoped + flagged; all other paths cited and verified in code) · SSSR appeal 4
+· sweep clean → avg 4.4, no axis ≤2, no veto. One word: **WASP** (holds). The §R direction was right;
+its anti-mosquito lock leaks:
+
+1. **R2.1's thorax ≥0.5× forewing-chord lock is a RATIO with no floor — both terms can collapse
+   together.** Chord is only bounded ABOVE (≤0.30× length); a builder at chord 0.18 passes R2.1 with a
+   0.09-wide thorax and ships the exact spindly mosquito R2 exists to kill. Add the floor: **forewing
+   chord ∈ [0.24, 0.30]× wing length** (hindwing inherits via the 0.62 scale). Now the 0.5× lock binds
+   to a real blade, and "blades are BLADES" has a number.
+2. **The dart-not-bug read gets the §2.3 mass-hierarchy assert, applied to the REAR fill:** central
+   core (thorax+gaster+stinger) 25–40% of the rear black-fill area, four blades 50–65% — the standard
+   rear-chase band, now asserted per-form from the rear silhouette. If the core drops under 25% it's a
+   mosquito; over 40% it's a grub with fins. Both are vetoes.
+
+Confirmed against fresh eyes: the four-spoke X + center needle is the set's most nameable rear fill
+after Revenant; UV-orchid 292° is the freshest hue in the roster; the sac = translucent wall + opaque
+emissive fill mesh is the single cleverest buildability story of the five (the liquid costs zero fill).
+
 ## SETTLED (do not re-litigate)
 - **UV-orchid 292°, never chartreuse** (Vesper-eye collision) and never green of any kind.
 - **Four wings** — the doublet is the hero; if the aux-pivot hook is descoped the dragon is descoped.

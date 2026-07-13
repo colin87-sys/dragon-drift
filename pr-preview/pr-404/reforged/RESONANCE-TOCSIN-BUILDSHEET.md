@@ -304,6 +304,26 @@ dragon you can hear with your eyes. **Lead: WEIGHT / POWER** (a heavy alarm-bell
 tocsin). Anti-clinical guard: the patina + polished-band value work keeps the bronze from reading as a
 muddy prop; the rod fringe + coin scallop keep it from reading as a decorative wind-chime.
 
+## §F — FABLE GATE (round-2, 2026-07-13)
+**Verdict: PASS — with one visibility floor.** Scores: rear-silhouette 4 · buildability 5 (the ring is
+the best-grounded motif in the set — `js/rings.js` TorusGeometry + CPU scale + intensity fade verified
+shipped) · SSSR appeal 4 · sweep clean → avg 4.4, no axis ≤2, no veto. One word: **COINS** (holds). The
+§R standing-frame and anti-flat-poverty fixes are correct and sufficient. What the Opus pass missed:
+
+1. **"Thin straight taut cylinders" alias to nothing at the chase read — and the rods are a SEPARATOR,
+   not decoration.** At ~250px the fringe rods render ~1–2px and vanish; the wing then reads as a bare
+   coin row, and the third Tempest↔Tocsin separator (rigid-straight fringe vs wispy virga) evaporates
+   at exactly the distance the set-judgment happens. Floor: **rod diameter ≥0.02× single-wing span
+   (≈3px at the 250px chase read)**, bright-worn tip caps mandatory (already in §5), and the rod comb
+   must be visible in the rear black-fill thumbnail at gate resolution — assert rod pixels present in
+   the 2×-crop rear silhouette, not just the full-res planform.
+2. **Confirmed:** coins-vs-stripes + low-flat-vs-forward-high hold from dead astern even in a small
+   backlit fill (round scalloped outer edge vs slit-striped stack — different at 60px); the standing
+   no-ring frame carries on the coin scallop + rod comb + pagoda staircase; the blunt striker-horns
+   stay (sharper horns would collapse into the generic horned-drake read — Open-5 answered, gate-side).
+Wind-chime risk is real but held by the §R2.1 mass language (deep cup, thick bronze) — judge the 4×
+crop at CP1; if it still reads mobile-not-armor, thicken rod diameter before adding any new element.
+
 ## SETTLED (do not re-litigate)
 - **≤2 concurrent rings** — a dial cap, not a hope; Surge chains cadence, never count.
 - **Dark ANTIQUE bronze + diffuse verdigris** — never giallo, never bright gold, never emissive
