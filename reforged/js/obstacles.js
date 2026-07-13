@@ -4,7 +4,16 @@ import { biomeIndexAt } from './biomes.js';
 import { halves, band, centre, spineSway, rockSlicePlan, CORRIDOR_HALF, kindMult } from './canyonMath.js';
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
+import { makeMarkerSurface, bakeGlowT } from './markerSurface.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
+
+// Skyforged A/B kill-switch: the premium Windvault gate is ON by default;
+// ?skyforged=0 falls back to the old "Sky Gate" (posts/chevron/halo/gem) so the
+// owner can compare premium-vs-old on the preview. Guarded so a non-browser
+// import can't throw. Branches BOTH the builder and the motion path.
+const _mkParams = (typeof window !== 'undefined' && window.location)
+  ? new URLSearchParams(window.location.search) : new URLSearchParams();
+const SKYFORGED = _mkParams.get('skyforged') !== '0';
 
 // Hazards, spawned ahead and culled behind the dragon:
 //   pillar — floor spike (health damage)
@@ -21,7 +30,10 @@ let mats = null;
 // Phase Gate shared materials, one per biome (built in initObstacles).
 let veilMats = null; // translucent fresnel membrane
 let edgeMats = null; // bright aperture ring + corner brackets (visual hierarchy #1)
-let flowEdgeMat = null, flowCoreMat = null; // FLOW "Sky Gate" signature (fixed cyan/white)
+let flowEdgeMat = null, flowCoreMat = null; // FLOW "Sky Gate" signature (fixed cyan/white) — fallback
+let markerMat = null;                       // Skyforged glass — the Windvault (shared, one program)
+const markerFlow = { value: 0 };            // per-ROLE 0..1 driver (gate: slipMix) — see markerSurface.js
+const markerTime = { value: 0 };            // globally shared clock (one write/frame)
 let rimMats = null;  // dim outer silhouette frame (secondary)
 const entries = [];
 export const colliders = entries; // same objects, same array
@@ -154,6 +166,76 @@ export function initObstacles(s) {
   // emissive → blooms, overdraw-free.
   flowEdgeMat = makeEdgeMat(0x59d8ff, 1.6);   // posts / chevron
   flowCoreMat = makeEdgeMat(0xd6f4ff, 2.4);   // white-hot halo / gem (survives biome wash-out)
+  // Skyforged Windvault material — one shared program (customProgramCacheKey), the
+  // flow signature cyan family (continuity with the ribbon orbs → "flow = cyan
+  // light"). NOT bindAtmosphere'd: deliberate, parity with the old flow mats —
+  // a signature emissive marker should not be fog-tinted (same rationale as soul-fire).
+  markerMat = makeMarkerSurface({ flowRef: markerFlow, timeRef: markerTime });
+}
+
+// WINDVAULT — a SINGLE tapered arch of forged glass framing the (unchanged) green
+// reward ring nested inside as the catch. A hand-rolled swept faceted tube (THREE
+// .TubeGeometry can't taper per-point nor bake glowT): a tall HORSESHOE — the lower
+// legs stay near-vertical so the "posts" read survives edge-on (the lesson the old
+// torus forgot), the crown frames the ring frontally — root-thick tapering to a
+// keystone-shard apex, with a z-elongated cross-section so a banking approach still
+// sees lit area. glowT ramps 0 (feet) → 1 (crown); the light climbs it with the
+// slipstream. Returns ONE merged non-indexed geometry (position + glowT), flat-faceted.
+function buildWindvault(gx, gy, j) {
+  const geoms = [];
+  const footY = Math.max(1.5, gy - 6);       // feet clear max swell (0.6m); no foam weld needed
+  const shoulderY = gy + 2.5;                 // legs meet the crown here
+  const crownY = gy + 9;                      // apex (keystone) — good ring-to-arch breathing room
+  const half = 7.5;                           // half-span between feet
+  const clampX = (x) => Math.max(-12.5, Math.min(12.5, x)); // stay in the lane
+  const footLx = clampX(gx - half), footRx = clampX(gx + half);
+  const cxA = (footLx + footRx) / 2, halfA = (footRx - footLx) / 2;
+  // Centreline: near-vertical left leg → elliptical crown → near-vertical right leg.
+  const pts = [];
+  const push = (x, y) => { const p = pts[pts.length - 1]; if (!p || Math.hypot(p.x - x, p.y - y) > 0.05) pts.push({ x, y }); };
+  const legN = 4;
+  for (let i = 0; i <= legN; i++) push(footLx, footY + (shoulderY - footY) * (i / legN));
+  const crownN = 12;
+  for (let i = 0; i <= crownN; i++) { const th = Math.PI * (i / crownN); push(cxA - halfA * Math.cos(th), shoulderY + (crownY - shoulderY) * Math.sin(th)); }
+  for (let i = 0; i <= legN; i++) push(footRx, shoulderY + (footY - shoulderY) * (i / legN));
+  const glowAt = (y) => Math.max(0, Math.min(1, (y - footY) / (crownY - footY)));
+  // Sweep a faceted elliptical cross-section (z-elongated) along the centreline.
+  const K = 5;                                // pentagonal facets → forged-glass glints
+  const rings = [];
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    const nx = -ty, ny = tx;                  // in-plane normal
+    const gt = glowAt(p.y), taper = 0.6 + (0.14 - 0.6) * gt; // root-thick → apex-thin
+    const rN = taper, rZ = taper * 1.4;       // z-elongated cross-section
+    const ring = [];
+    for (let k = 0; k < K; k++) { const ang = (k / K) * Math.PI * 2 + 0.3; const c = Math.cos(ang) * rN, s = Math.sin(ang) * rZ; ring.push([p.x + nx * c, p.y + ny * c, s]); }
+    rings.push({ ring, gt });
+  }
+  const posA = [], gtA = [];
+  const tri = (v0, v1, v2, g0, g1, g2) => { posA.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]); gtA.push(g0, g1, g2); };
+  for (let i = 0; i < rings.length - 1; i++) {
+    const r0 = rings[i], r1 = rings[i + 1];
+    for (let k = 0; k < K; k++) {
+      const kn = (k + 1) % K;
+      tri(r0.ring[k], r1.ring[k], r1.ring[kn], r0.gt, r1.gt, r1.gt);
+      tri(r0.ring[k], r1.ring[kn], r0.ring[kn], r0.gt, r1.gt, r0.gt);
+    }
+  }
+  const tube = new THREE.BufferGeometry();
+  tube.setAttribute('position', new THREE.Float32BufferAttribute(posA, 3));
+  tube.setAttribute('glowT', new THREE.Float32BufferAttribute(gtA, 1));
+  geoms.push(tube);
+  // Keystone shard at the crown (glowT baked = 1) — the far-field bloom point.
+  const key = new THREE.OctahedronGeometry(0.95, 0).toNonIndexed();
+  key.deleteAttribute('normal'); key.deleteAttribute('uv'); // match the tube's attribute set
+  key.scale(0.8, 1.3, 0.8); key.rotateY(0.4 + j * 0.5); key.translate(cxA, crownY + 0.4, 0);
+  bakeGlowT(key, () => 1.0);
+  geoms.push(key);
+  const merged = mergeGeometries(geoms, false); // both are position+glowT → never null
+  geoms.forEach((g) => g.dispose());
+  merged.computeVertexNormals();               // non-indexed → per-face FLAT normals (facet glints)
+  return merged;
 }
 
 export function addObstacle(o) {
@@ -688,44 +770,46 @@ function buildRockGap(o, e) {
     // down the centre (placed in level.js) — boost flat-out and burst into open air.
     ribcage(kindMult(o.kind), {});
   } else if (o.kind === 'flowgate') {
-    // FLOW run "SKY GATE": a torii-like gateway of light — twin posts flanking the ring,
-    // a chevron roof pointing DOWN at it ("fly here"), and a counter-rotating dashed halo
-    // around the reward ring (which survives as the green bullseye nested inside). A FIXED
-    // slip-cyan signature (flowEdgeMat/flowCoreMat, never edgeMats[bi]) so a flow run reads
-    // as a distinct PLACE at a glance, not a recoloured ring. Opaque emissive → blooms,
-    // overdraw-free. NO wall colliders (e.boxes stays EMPTY — walls-free by design). The
-    // whole run brightens with the slipstream (updateObstacles pulse).
+    // FLOW run gate. Two visual grammars, chosen by the ?skyforged kill-switch (both
+    // share the fixed slip-cyan signature — never edgeMats[bi] — so a flow run reads as
+    // its own place, and both are walls-free: e.boxes stays EMPTY). The green reward ring
+    // survives untouched as the bullseye nested inside.
     e.noDissolve = true;
     const fh = halves(o), fb = band(o, fh.bk, fh.fw);
     e.depthHalf = Math.max(e.depthHalf || 0, fh.bk, fh.fw);
     e.ribBandBk = fb.wb; e.ribBandFw = fb.wf;     // presence band → the chain-slipstream FX
     const j = () => (rng() - 0.5);                 // seeded per-gate cosmetic jitter (no Math.random)
-    // Twin light-posts + chevron roof, merged into ONE static mesh (was 9 meshes → 2).
-    const parts = [];
-    const bar = (w, h, d, x, y, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rz) g.rotateZ(rz); g.translate(x, y, 0); parts.push(g); };
-    const postY0 = Math.max(1.5, gy - 7), postY1 = gy + 6, postH = postY1 - postY0, postYc = (postY0 + postY1) / 2;
-    for (const sx of [-1, 1]) {
-      const px = Math.max(-12.5, Math.min(12.5, gx + sx * 7.5));
-      bar(0.35, postH, 0.35, px, postYc, sx * 0.03 * j());       // post (slight seeded lean)
-      bar(5.0, 0.3, 0.3, (px + gx) / 2, (postY1 + gy + 8) / 2, -sx * 0.42); // chevron half → apex (gx, gy+8)
+    if (SKYFORGED) {
+      // WINDVAULT (premium): one tapered arch of forged glass; the light CLIMBS the arch
+      // with the slipstream (updateObstacles writes markerFlow). One merged faceted mesh.
+      group.add(new THREE.Mesh(buildWindvault(gx, gy, j()), markerMat));
+    } else {
+      // "SKY GATE" (fallback, ?skyforged=0): twin light-posts + a down-chevron roof + a
+      // counter-rotating dashed halo + an apex gem. Kept for the owner's A/B against the
+      // Windvault; deleted in a follow-up after sign-off.
+      const parts = [];
+      const bar = (w, h, d, x, y, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rz) g.rotateZ(rz); g.translate(x, y, 0); parts.push(g); };
+      const postY0 = Math.max(1.5, gy - 7), postY1 = gy + 6, postH = postY1 - postY0, postYc = (postY0 + postY1) / 2;
+      for (const sx of [-1, 1]) {
+        const px = Math.max(-12.5, Math.min(12.5, gx + sx * 7.5));
+        bar(0.35, postH, 0.35, px, postYc, sx * 0.03 * j());       // post (slight seeded lean)
+        bar(5.0, 0.3, 0.3, (px + gx) / 2, (postY1 + gy + 8) / 2, -sx * 0.42); // chevron half → apex (gx, gy+8)
+      }
+      const gate = new THREE.Mesh(mergeGeometries(parts, false), flowEdgeMat);
+      parts.forEach((g) => g.dispose());
+      group.add(gate);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), flowCoreMat);
+      gem.position.set(gx, gy + 8, 0);
+      group.add(gem);
+      const arcs = [];
+      for (let a = 0; a < 4; a++) { const g = new THREE.TorusGeometry(CONFIG.ringRadius + 2.0, 0.14, 6, 10, Math.PI / 3); g.rotateZ(a * Math.PI / 2); arcs.push(g); }
+      const halo = new THREE.Mesh(mergeGeometries(arcs, false), flowCoreMat);
+      arcs.forEach((g) => g.dispose());
+      halo.position.set(gx, gy, 0);
+      halo.rotation.z = j() * 3;                     // seeded start phase
+      group.add(halo);
+      e.flowHalo = halo;
     }
-    const gate = new THREE.Mesh(mergeGeometries(parts, false), flowEdgeMat);
-    parts.forEach((g) => g.dispose());
-    group.add(gate);
-    // Apex gem — the far-field bloom point (white-hot core).
-    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), flowCoreMat);
-    gem.position.set(gx, gy + 8, 0);
-    group.add(gem);
-    // Dashed halo: 4 arcs at 90° spacing, merged, COUNTER-rotating (mechanical waypoint,
-    // not a collectible ring). Rotated per-frame in updateObstacles via e.flowHalo.
-    const arcs = [];
-    for (let a = 0; a < 4; a++) { const g = new THREE.TorusGeometry(CONFIG.ringRadius + 2.0, 0.14, 6, 10, Math.PI / 3); g.rotateZ(a * Math.PI / 2); arcs.push(g); }
-    const halo = new THREE.Mesh(mergeGeometries(arcs, false), flowCoreMat);
-    arcs.forEach((g) => g.dispose());
-    halo.position.set(gx, gy, 0);
-    halo.rotation.z = j() * 3;                     // seeded start phase
-    group.add(halo);
-    e.flowHalo = halo;
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
@@ -747,10 +831,13 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
   // ring a gentle, speed-aware breath. Six writes each — negligible.
   for (const m of veilMats) m.uniforms.uTime.value = time;
   for (const m of edgeMats) m.emissiveIntensity = (1.25 + Math.sin(time * 2.4) * 0.18) * (1 + 0.4 * sn);
-  // FLOW Sky Gate: the whole run's light BREATHES with the slipstream — brighter as the
-  // carve chain climbs (slipMix 0..1). Two shared-material writes → the identity and the
-  // PR-3 momentum feedback in one place.
-  if (flowEdgeMat) {
+  // FLOW gate: the whole run's light BREATHES with the slipstream (slipMix 0..1).
+  // WINDVAULT: two shared uniform writes drive the light climbing the arch (uFlow) +
+  // the idle shimmer (uTime). SKY GATE fallback: the old emissiveIntensity pulse.
+  if (SKYFORGED) {
+    markerTime.value = time;
+    markerFlow.value = Math.max(0, Math.min(1, slipMix));
+  } else if (flowEdgeMat) {
     const b = 1 + 0.7 * slipMix;
     flowEdgeMat.emissiveIntensity = (1.4 + Math.sin(time * 2.4) * 0.18) * b;
     flowCoreMat.emissiveIntensity = (2.2 + Math.sin(time * 3.1) * 0.3) * b;
