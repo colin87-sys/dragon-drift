@@ -31,6 +31,17 @@ each. No game code touched; roster byte-identical.
   matte chalk sat ≤0.12 vs Pearl's satin pearl+gold. "Not a second Vesper / not a second Pearl" becomes
   a testable number, not a critic's opinion.
 
+**Owner add-on mid-flight — the PRECEDENT gate.** The owner added a requirement after the first pass:
+each concept must **already exist in another shipped game** (proof the archetype has audience appeal
+before we build it). All five cleared it cleanly because the research was archetype-grounded from the
+start — storm (MH Kushala Daora/Amatsu, Genshin Dvalin, Pokémon Zekrom/Rayquaza), venom (Pokémon
+Naganadel/Dragalge), aurora/celestial-light (LoL Aurelion Sol + the East-Asian ribbon-serpent), undead
+(Skyrim Durnehviir, GW2 Zhaitan, Pokémon Dragapult, the D&D dracolich), sound (Pokémon Kommo-o). The
+takeaway: **distinctiveness is two-sided** — the LANE should be *validated* by a shipped game (don't
+invent an untested archetype), while the EXECUTION must be *distinct* from your own roster. The two pull
+in opposite directions and both are gates. Each sheet now carries a "Prior art" block; the synthesis
+carries the master precedent table (§0).
+
 **→ Systematize.** Any future "give me a new premium" starts from the **taken-lanes matrix** (palette /
 silhouette region / motif / growth verb / wing architecture) + the **hue-wheel census** + the
 **spectacle-mode census** — three global maps that turn "is this distinct?" from a subjective gate into

@@ -12,6 +12,14 @@ authenticity, copied from none). One of the FRESH FIVE (see `FRESH-DRAGONS-SYNTH
 > streamers**, no fin fans, no membrane, no lobes. Also NOT Astral Wyrm: no crystal, no mask, no
 > energy bands — soft pleated light on a matte polar hide.
 
+**Prior art — the concept is PROVEN in shipped games (owner requirement):** the celestial / aurora /
+worn-light dragon is an established premium archetype. **League of Legends** — *Aurelion Sol,* a cosmic
+celestial dragon whose deep-space-blue hide "glistens with the light of stars," who forges constellations
+and trails cosmic light (the direct precedent for a serpentine dragon that WEARS flowing light rather
+than breathing fire). The long ribbon-serpent silhouette is the canonical East-Asian celestial dragon
+(dozens of games — *Genshin*, *Ni no Kuni*, *Puzzle & Dragons*). Aurora Sylph fuses the two into a
+polar-aurora curtain identity with a fresh no-membrane WING, copied from none.
+
 **Read first:** `DRAGON-DESIGN.md` · `VESPER-NIGHTGLASS-BUILDSHEET.md` (house format) ·
 `PREMIUM-BUILDSHEET-RESEARCH.md` §3/§4/§6b (**§6b is load-bearing here** — the curtain is the Fresh
 Five's biggest fill-rate temptation; this sheet pre-spends its overdraw budget) · Jade's shipped

@@ -17,6 +17,24 @@ solar/sun/eclipse, no vesper/night-glass/stealth-black) and were designed agains
 roster in `js/dragons.js` + the METHOD in `DRAGON-DESIGN.md` + the 9-field contract in
 `PREMIUM-BUILDSHEET-RESEARCH.md` §3.
 
+## 0. Prior art — every concept is PROVEN in a shipped game (owner requirement)
+
+The mandate requires each concept to be validated by prior use — a dragon TYPE another game already
+shipped, so we know the archetype has audience appeal before we build it. Each of the five takes a
+battle-tested lane and contributes a fresh silhouette / motif / spectacle, never a copy:
+
+| Dragon | Lane (archetype) | Proven in (shipped games) | What we add that's new |
+|---|---|---|---|
+| **Thunderhead Tempest** | storm / lightning dragon | MH *Kushala Daora* & *Amatsu*; Genshin *Dvalin "Stormterror"*; Pokémon *Zekrom* / *Rayquaza* | stacked strata-deck wing + intermittently-live charge |
+| **Belladonna Stiletto** | poison / venom (insectoid) dragon | Pokémon *Naganadel* (luminescent wasp-venom) & *Dragalge* | UV-orchid hue + the diegetic venom fill-meter |
+| **Aurora Sylph** | celestial / aurora / worn-light dragon | LoL *Aurelion Sol* (star-lit cosmic dragon); East-Asian ribbon-serpent (Genshin, P&D) | polar-aurora curtain as a no-membrane wing |
+| **Gravelight Revenant** | undead / skeletal / dracolich | Skyrim *Durnehviir*; GW2 *Zhaitan*; Pokémon *Dragapult*; D&D dracolich | true negative-space hollow cage + bleaching invert |
+| **Crimson Tocsin** | sound / resonance dragon | Pokémon *Kommo-o* (percussion chime-scales) | expanding shockwave rings that escape the silhouette |
+
+So distinctiveness is two-sided: the LANE is validated by a shipped game (this section), and the
+EXECUTION is proven-distinct from our own roster (the §2 anti-collision matrix). Each build sheet
+carries its own "Prior art" block with the specific precedent.
+
 ---
 
 ## 1. Design thesis

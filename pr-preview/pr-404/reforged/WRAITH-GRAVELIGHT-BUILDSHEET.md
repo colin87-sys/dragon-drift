@@ -17,6 +17,15 @@ authenticity, copied from none). One of the FRESH FIVE (see `FRESH-DRAGONS-SYNTH
 > this sheet SANCTIONS designed through-gaps (crescent cutouts, not rips) with its own band — the
 > PRECEDENCE RULE carries it, and beauty is held by clean swept edges.
 
+**Prior art — the concept is PROVEN in shipped games (owner requirement):** the undead / skeletal /
+dracolich dragon is one of the most battle-tested archetypes in gaming. **Skyrim** — *Durnehviir* (the
+undead dragon of the Soul Cairn) and the grounded *Skeletal Dragon.* **Guild Wars 2** — *Zhaitan,* the
+Elder Dragon of Death, a mass of undead dragon-flesh. **Pokémon** — *Dragapult* (Dragon/Ghost, a
+spectral stealth-frame). The *dracolich* itself is a canonical D&D creature reproduced across Neverwinter,
+Baldur's Gate, and many CRPGs (TV Tropes catalogs a full "Dracolich / Video Games" list). Gravelight
+Revenant claims this validated lane with a fresh CONSTRUCTION (a true negative-space hollow cage) and a
+BLEACHING value-invert, copied from none.
+
 **Read first:** `DRAGON-DESIGN.md` · `VESPER-NIGHTGLASS-BUILDSHEET.md` (house format; the assembly-
 not-loft construction lesson) · `PREMIUM-BUILDSHEET-RESEARCH.md` §3/§4/§6b · the CP1 fingered-wing
 lesson (the bone-finger fan IS its skeleton, literally) · the silhouette-economics lesson (this

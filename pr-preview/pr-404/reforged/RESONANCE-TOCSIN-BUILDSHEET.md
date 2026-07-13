@@ -19,6 +19,14 @@ tubular-chime craft, mined for authenticity, copied from none). One of the FRESH
 > gloss or lights (Aurum — Tocsin is dark ANTIQUE bronze, and its crimson is an emissive ring, not
 > a tail-light seam).
 
+**Prior art — the concept is PROVEN in shipped games (owner requirement):** the sound / resonance dragon
+is an established archetype. **Pokémon** — *Kommo-o* (Dragon/Fighting): its steel-hard scales are used as
+PERCUSSION — clashed like cymbals and castanets to intimidate, referencing a rattlesnake's warning rattle
+(the direct precedent for a dragon whose body is an instrument). The "bell/gong dragon" and sonic-roar
+dragon also recur across MMOs and the *Monster Hunter* roar-stagger mechanic. Crimson Tocsin claims this
+validated lane with a fresh MOTIF that no roster dragon owns — expanding shockwave rings that escape the
+silhouette — copied from none.
+
 **Read first:** `DRAGON-DESIGN.md` · `VESPER-NIGHTGLASS-BUILDSHEET.md` (house format) ·
 `PREMIUM-BUILDSHEET-RESEARCH.md` §3/§4/§6b (the ring pulses are additive drawables — budget-counted
 here) · `TEMPEST-THUNDERHEAD-BUILDSHEET.md` §11 (`js/pulseTimer.js`, the shared deterministic pulse

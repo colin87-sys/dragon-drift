@@ -12,6 +12,14 @@ mined for authenticity, copied from none). One of the FRESH FIVE (see `FRESH-DRA
 > Vesper's "zero near-white emissive" is a VESPER law, not a roster law — the near-white strike IS
 > Tempest's identity, and near-white was an unowned emissive lane (Pearl's white is diffuse body).
 
+**Prior art — the concept is PROVEN in shipped games (owner requirement):** the storm/lightning dragon
+is a battle-tested archetype, not a novelty. **Monster Hunter** — *Kushala Daora* (the steel-plated wind
+tempest, "Wings of Steel," wraps itself in a gale barrier) and *Amatsu* (the storm elder dragon).
+**Genshin Impact** — *Dvalin / "Stormterror,"* the Anemo storm dragon and its first-act boss.
+**Pokémon** — *Zekrom* (the electric Dragon legendary) and *Rayquaza* (the sky/ozone dragon).
+Thunderhead Tempest occupies this validated lane with a fresh SILHOUETTE (stacked strata decks) and a
+fresh SPECTACLE (intermittently-live charge), copied from none.
+
 **Read first:** `DRAGON-DESIGN.md` (laws, wing kit, failure classes), `VESPER-NIGHTGLASS-BUILDSHEET.md`
 (the proven premium sheet + faceted-assembly pattern), `PREMIUM-BUILDSHEET-RESEARCH.md` §3/§4/§6b
 (9 required fields · premium inversion of law 12 · the overdraw p95 budget), and the banked wing recipe
