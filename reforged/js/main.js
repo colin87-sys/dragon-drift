@@ -570,7 +570,7 @@ on('flowChain', ({ chain, mult }) => {
   }
 });
 on('flowChainDrop', ({ chain }) => {
-  ui.flowMeter.drop(chain, 1 + CONFIG.FLOW.chainStep * Math.min(chain, CONFIG.FLOW.chainCap), CONFIG.FLOW.chainCap);
+  ui.flowMeter.drop(chain, 1 + CONFIG.FLOW.chainStep * Math.min(chain, CONFIG.FLOW.chainCap), CONFIG.FLOW.chainCap, game.flowChainBest);
   if (chain < CONFIG.FLOW.chainCap) lastFlowMilestone = 0;   // re-arm the cap announce
 });
 // KNELLGRAVE's toll-as-world-event (§5d slot 10): the frame FLINCHES on every toll —

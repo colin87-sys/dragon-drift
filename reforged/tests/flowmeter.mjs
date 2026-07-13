@@ -26,7 +26,7 @@ check('fill + ghost paths declare pathLength="100" (the fill math depends on it)
   (ui.match(/id="fc-(fill|ghost)-[lr]"[^>]*pathLength="100"/g) || []).length === 4);
 
 // --- API: the flowMeter object with set/drop/show; dashoffset fill; heat; capped; best-notch ---
-check('ui exposes flowMeter with set / drop / show', /flowMeter:\s*\{/.test(ui) && /set\(chain, mult, best, cap\)/.test(ui) && /drop\(chain, mult, cap\)/.test(ui) && /show\(on\)/.test(ui));
+check('ui exposes flowMeter with set / drop / show', /flowMeter:\s*\{/.test(ui) && /set\(chain, mult, best, cap\)/.test(ui) && /drop\(chain, mult, cap, best\)/.test(ui) && /show\(on\)/.test(ui));
 check('fill is dashoffset-driven (100 empty → 0 closed), the stamina-arc technique',
   /strokeDashoffset = off/.test(ui) && /100 - frac \* 100/.test(ui));
 check('heat steps floor(chain/5) capped at 4; capped class at chain>=cap',
@@ -84,14 +84,17 @@ if (flow) {
     m.set(0, 1.0, 0, 20); const off0 = fill.style.strokeDashoffset, heat0 = crest.dataset.heat;
     m.set(10, 2.0, 0, 20); const off10 = fill.style.strokeDashoffset, x10 = x.textContent;
     m.set(20, 3.0, 20, 20); const capped = crest.classList.contains('capped'), heat20 = crest.dataset.heat;
-    m.drop(0, 1.0, 20); const afterMiss = crest.classList.contains('capped');
+    const best = document.getElementById('fc-best');
+    m.drop(0, 1.0, 20, 15);   // miss → 0, but a best-of-15 high-water mark remains
+    const afterMiss = crest.classList.contains('capped'), notchAfterDrop = +best.style.opacity;
     const shown = getComputedStyle(crest).display;
-    return { shown, off0: +off0, off10: +off10, x10, capped, heat0, heat20, afterMiss };
+    return { shown, off0: +off0, off10: +off10, x10, capped, heat0, heat20, afterMiss, notchAfterDrop };
   });
   check('crest is shown during a flow run (display:block)', st.shown === 'block');
   check('fill climbs as chain builds (dashoffset 100 empty → 50 at half)', st.off0 === 100 && st.off10 === 50);
   check('the ×N.N reads the multiplier (×2.0 at chain 10)', st.x10 === '×2.0');
   check('keystone ignites at the cap (.capped) with heat 4; clears after a miss', st.capped && st.heat20 === '4' && !st.afterMiss);
+  check('best-notch survives a drop — the high-water mark to reclaim is shown after the shatter', st.notchAfterDrop > 0);
   check('zero console errors driving the FLOW crest', flow.errors.length === 0) || console.error(flow.errors.join('\n'));
   await flow.done();
 } else {

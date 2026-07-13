@@ -913,11 +913,9 @@ export const ui = {
       els.flowCrest.dataset.heat = Math.min(4, Math.floor(chain / 5));
       els.flowCrest.classList.toggle('capped', cap > 0 && chain >= cap);
     },
-    set(chain, mult, best, cap) {
-      this._apply(chain, mult, cap);
-      restartAnim(els.fcX, 'fc-pop');
-      // Best-of-run notch: a hairline tick on the LEFT leg at the best fraction (Bézier point
-      // + perpendicular), the mark the light must reclaim after a shatter. Hidden once matched.
+    // Best-of-run notch: a hairline tick on the LEFT leg at the best fraction (Bézier point
+    // + perpendicular), the mark the light must reclaim. Hidden once the live chain matches it.
+    _notch(best, chain, cap) {
       if (best > chain && best > 0 && cap > 0) {
         const t = Math.max(0, Math.min(1, best / cap)), mt = 1 - t;   // P0(16,58) C(14,16) P1(54,10)
         const px = mt * mt * 16 + 2 * mt * t * 14 + t * t * 54;
@@ -931,13 +929,19 @@ export const ui = {
         els.fcBest.style.opacity = '0';
       }
     },
-    drop(chain, mult, cap) {
+    set(chain, mult, best, cap) {
+      this._apply(chain, mult, cap);
+      restartAnim(els.fcX, 'fc-pop');
+      this._notch(best, chain, cap);
+    },
+    drop(chain, mult, cap, best) {
       // Snapshot the current light into the ghost strokes, then fade them as the live fill
       // eases down — "light knocked out of the glass". chain===0 = the dramatic miss-shatter.
       const cur = els.fcFillL.style.strokeDashoffset || '100';
       els.fcGhostL.style.strokeDashoffset = cur; els.fcGhostR.style.strokeDashoffset = cur;
       restartAnim(els.fcGhostL, 'fc-ghost-fade'); restartAnim(els.fcGhostR, 'fc-ghost-fade');
       this._apply(chain, mult, cap);
+      this._notch(best, chain, cap);   // reveal the high-water mark to reclaim after the drop
       restartAnim(els.flowCrest, chain === 0 ? 'fc-shatter' : 'fc-knock');
     },
     show(on) {
