@@ -263,12 +263,12 @@ function buildReflective() {
     // half-rate, tier1 quarter-rate). This reclaims ~135–270 draw calls/frame in the arena
     // — the biggest single perf line item — at ~0 visible cost. Off-heaven = shipped N11 rate.
     const inHeaven = _arenaMix > 1.0 || arenaDropK > 0.5;   // the whole heaven UNVEILING (mix>1), incl. the heavy transition frames, not just the settled deck
-    // The mirror is a FULL extra scene render. Duty-cycle it EVERYWHERE at tier 0 (was full-rate off-
-    // heaven — a whole second scene pass every frame for a reflection the wave-distortion hides at 30Hz):
-    // in-heaven tier1 = quarter-rate, everything else (incl. normal-play tier 0) = half-rate. Renders on
-    // EVEN _parity (the god-ray mask is staggered onto ODD frames so the two passes never stack → the ~2×
-    // worst-frame spike flattens).
-    const skipMask = (inHeaven && halfRate) ? 3 : 1;
+    const settledHeaven = arenaDropK > 0.9;                 // the sea is a dim deck dropped 30u — the reflection is all but invisible (the "sea answers the blast" gold column is analytic sunColor specular, NOT the mirror)
+    // The mirror is a FULL extra scene render (~169 draws). Duty-cycle it: NEAR-FREEZE in the settled
+    // heaven (1/8 — the dropped deck barely reads), quarter-rate elsewhere in the heaven, half-rate in
+    // normal play (was full-rate off-heaven at tier 0). Renders on EVEN _parity (the god-ray mask is
+    // staggered onto other frames so the two full-scene passes don't stack → the worst frame flattens).
+    const skipMask = settledHeaven ? 7 : ((inHeaven && halfRate) ? 3 : 1);
     if (_parity & skipMask) return;
     // N11 far-plane clamp: trim the mirror frustum to the fog wall (fogFar+50 —
     // everything beyond is 100% fogged, so it's visually identical but a much smaller
