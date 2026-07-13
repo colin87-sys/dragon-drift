@@ -166,6 +166,28 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   const ribLenF = [0.74, 0.90, 1.0, 1.02, 0.96, 0.84, 0.68];   // petal-splay (widest at the mid pairs)
   const openFrac = 0.60 + 0.40 * Math.max(0, Math.min(1, (model.ribWindows ?? 6) / 6));   // ladder: f0 tighter cage → f3 full blossom
   const cz0 = -1.16, cz1 = 0.92;
+  // Extrude a rib centreline as a chunky 4-sided DIAMOND BEAM so each rib reads as CARVED
+  // BONE MASS from every angle — the old flat ribbon showed only its thin edge at rear-chase
+  // and read as bent WIRE (Fable). The 4 faces catch 4 flat-shaded values → a lit top vs a
+  // shaded underside (the chamfer that says "bone", not "wire"). Cross-section = z-axis ×
+  // in-plane-normal, so the beam has real width in the rear-chase view plane.
+  const ribBeam = (pts, wFn) => {
+    let prev = null;
+    for (let k = 0; k < pts.length; k++) {
+      const p = pts[k], q = pts[Math.min(k + 1, pts.length - 1)], r = pts[Math.max(k - 1, 0)];
+      let dx = q[0] - r[0], dy = q[1] - r[1]; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;   // x-y tangent
+      const nx = -dy, ny = dx, w = wFn(k / (pts.length - 1));   // in-plane normal (radial-ish → visible from behind)
+      const ring = {
+        n: [p[0] + nx * w, p[1] + ny * w, p[2]], s: [p[0] - nx * w, p[1] - ny * w, p[2]],
+        u: [p[0], p[1], p[2] + w], d: [p[0], p[1], p[2] - w],   // fore/aft flanks
+      };
+      if (prev) {
+        const quad = (a, b) => { boneT.push([prev[a], ring[b], ring[a]], [prev[a], prev[b], ring[b]]); };
+        quad('n', 'u'); quad('u', 's'); quad('s', 'd'); quad('d', 'n');   // 4 faces → mass + chamfer values
+      }
+      prev = ring;
+    }
+  };
   for (let i = 0; i < NRIBPAIR; i++) {
     const t = i / (NRIBPAIR - 1), z = cz0 + (cz1 - cz0) * t;
     const cy = cyAt(z), dep = cageDepth(z) * ribLenF[i] * openFrac, hw = halfW(z) * ribLenF[i];
@@ -174,14 +196,9 @@ function buildOssuaryTorso(def, model, _bodyMat) {
       const C1 = [side * hw * 1.18, cy + 0.02, z + 0.02];     // spring wide
       const C2 = [side * hw * 1.02, cy - dep * 0.95, z + 0.03]; // belly (low, widest)
       const P1 = [side * hw * 0.54, cy - dep * 0.86, z + 0.02];   // free tip curls down but STAYS lateral → a wide ventral GAP so the ribs never close into a reticle octagon from behind; the grave-green spills out the open belly (Fable: closed rings framed the heart like a target)
-      const NS = 5; let prev = null;
-      for (let k = 0; k <= NS; k++) {
-        const p = bez3(P0, C1, C2, P1, k / NS);
-        const w = 0.145 * (1 - 0.55 * (k / NS));   // FATTER blade at the root (a single facet was reading as wire — Fable), tapering to a chamfered tip
-        const back = [p[0], p[1], p[2] - w], front = [p[0], p[1], p[2] + w];
-        if (prev) boneT.push([prev.back, front, prev.front], [prev.back, back, front]);   // all BONE (dropped the green inner-tint — it stacked into concentric green rings when the barrel is viewed head-on / rear-chase, Fable)
-        prev = { back, front };
-      }
+      const NS = 5, pts = [];
+      for (let k = 0; k <= NS; k++) pts.push(bez3(P0, C1, C2, P1, k / NS));
+      ribBeam(pts, (u) => 0.075 * (1 - 0.5 * u));   // THICK carved bone at the root, tapering to a rounded tip (was a flat 2-tri ribbon — Fable: "wire brackets")
     }
   }
   // ── STERNUM — a short ventral keel the FRONT rib tips converge on (the chest reads as a
@@ -239,30 +256,31 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   // sized well inside the ribs (≥0.08 clearance) so it never z-fights a stave. Seen
   // only THROUGH the windows — a lantern, not a lamp.
   const coreBlaze = model.coreBlaze ?? 1;
-  const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.30;   // seated in the UPPER barrel (lifted toward the shoulder line)
-  const heartR = 0.24 + 0.13 * coreBlaze;   // BIG glow to fill the deeper flared cage (lantern, not sticker)
-  // THE GRAVE-FIRE — PURE SOFT SPRITES, no flame geometry at all (any teardrop mesh's base ring
-  // + the rib arcs stacked into concentric octagon "target-reticle" rings when the barrel is
-  // viewed head-on / rear-chase — Fable, twice). Billboarded radial glows can't form edges. The
-  // core stays GREEN (not white) so the lantern reads grave-green from behind, never holy. A soft
-  // outer bloom + a tighter brighter green core = a two-value flame with a hot centre.
-  // The lantern is TWO stacked billboards so it reads GREEN at every distance and NEVER white:
-  //   • CORE — NORMAL blending, a SATURATED grave-green whose centre texel IS green (not near-
-  //     white). Normal blend can't sum toward white the way Additive did (the prior blocker: an
-  //     additive pale-mint core stacked to a white-hot reticle at close range). It's the solid,
-  //     always-green heart the player sees rimming the rib gaps at rear-chase.
-  //   • BLOOM — a WIDER, dim additive halo in a deep green (low R/B so even doubled it stays
-  //     green, never pale) that spills the light THROUGH the rib windows so it reads as "light
-  //     through bone," not a sticker. Kept faint so it can't wash the core white.
-  // The CORE is the ticked coreGlow hook (breathes with boost/Surge); the bloom scales with it.
-  const coreTex  = makeGlowTexture('30,150,58', '78,222,104');   // centre = a clear grave-green, NOT mint-white
-  const bloomTex = makeGlowTexture('16,86,34', '44,168,72');     // low R/B → additive-safe green spill
-  const heartHook = new THREE.Sprite(new THREE.SpriteMaterial({ map: coreTex, color: 0xffffff, transparent: true, opacity: 0.62 + 0.28 * coreBlaze, blending: THREE.NormalBlending, depthWrite: false }));
-  heartHook.scale.set(heartR * (1.7 + 0.5 * coreBlaze), heartR * (2.2 + 0.7 * coreBlaze), 1);   // taller than wide → a flame
+  const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.22;   // seated HIGH between the rib roots, on the spine centre-line (Fable: the flat card floated right of the spine)
+  const heartR = 0.24 + 0.13 * coreBlaze;
+  // THE GRAVE-FIRE — a small IRREGULAR EMBER MESH (not a flat billboard card) glowing behind a
+  // WIDER anisotropic additive bloom:
+  //   • EMBER — a vertex-jittered icosa lump with a SATURATED grave-green emissive (G≫R,B so it
+  //     can never read white/holy). A real 3-D lump has no straight card-edge and no axial base
+  //     ring, so it kills BOTH prior failures: the "flat mint rectangle sticker" and the
+  //     "concentric octagon reticle." It's the ticked coreGlow hook (transparent → the rig
+  //     breathes its opacity on boost/Surge). Emissive brightness carries at gameplay distance.
+  //   • BLOOM — a wide additive halo, scaled ANISOTROPICALLY along the ribcage barrel (taller
+  //     than wide, not a perfect disc) in a low-R/B green so the doubled centre stays green. It
+  //     spills light out through the ventral gap + rib windows → "light through bone," not a disc.
+  const bloomTex = makeGlowTexture('18,92,38', '48,178,80');    // low R/B → additive-safe green spill, no white centre
+  const emberGeo = new THREE.IcosahedronGeometry(heartR * 0.62, 0);
+  { const pa = emberGeo.attributes.position; for (let vi = 0; vi < pa.count; vi++) {   // jitter → an irregular ember, no card-edge (deterministic: hashed by index, no Math.random)
+      const h = Math.sin((vi + 1) * 12.9898) * 43758.5453; const j = (h - Math.floor(h) - 0.5) * 0.34 * heartR;
+      const h2 = Math.sin((vi + 1) * 78.233) * 12543.187; const j2 = (h2 - Math.floor(h2) - 0.5) * 0.34 * heartR;
+      pa.setXYZ(vi, pa.getX(vi) + j, pa.getY(vi) * 1.35 + j2, pa.getZ(vi) + j); }   // stretched vertically → a flame lump
+    pa.needsUpdate = true; emberGeo.computeVertexNormals(); }
+  const emberMat = new THREE.MeshBasicMaterial({ color: 0x4ec870, transparent: true, opacity: 0.78 + 0.20 * coreBlaze, depthWrite: false, blending: THREE.NormalBlending });   // saturated grave-green, unlit → a solid green ember (G−R = 122, can't read white)
+  const heartHook = new THREE.Mesh(emberGeo, emberMat);
   heartHook.position.set(0, hy, hz);
-  heartHook.userData.base = 0.62 + 0.28 * coreBlaze;   // the coreGlow tick scales THIS
-  const heartBloom = new THREE.Sprite(new THREE.SpriteMaterial({ map: bloomTex, color: 0xffffff, transparent: true, opacity: 0.30 + 0.20 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
-  heartBloom.scale.set(heartR * (2.9 + 0.8 * coreBlaze), heartR * (3.4 + 1.0 * coreBlaze), 1);   // wider spill through the windows
+  heartHook.userData.base = 0.78 + 0.20 * coreBlaze;   // the coreGlow tick scales THIS opacity
+  const heartBloom = new THREE.Sprite(new THREE.SpriteMaterial({ map: bloomTex, color: 0xffffff, transparent: true, opacity: 0.34 + 0.22 * coreBlaze, blending: THREE.AdditiveBlending, depthWrite: false }));
+  heartBloom.scale.set(heartR * (2.4 + 0.7 * coreBlaze), heartR * (3.4 + 1.0 * coreBlaze), 1);   // taller than wide → spills along the barrel, not a round disc
   heartBloom.position.set(0, hy, hz);
   heartBloom.renderOrder = 0;
   group.add(heartBloom);
