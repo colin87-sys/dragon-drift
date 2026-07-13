@@ -179,11 +179,15 @@ export function initObstacles(s) {
   // markers share ONE program (customProgramCacheKey). Driver = gateFlowRef (speed), not markerFlow.
   // A hot inner LIP (lipGlow) puts the safe-route outline on the aperture edge; a restrained glint
   // keeps menace (heavy sparkle would read "treasure"). Family = the VALUE grammar, not the hue.
+  // Apex is a BRIGHTENED EDGE (biome hue lerped toward white), NOT skin.core — the pale cores
+  // (Caldera peach, Frozen white) washed the frame white and killed biome identity. Keeping the
+  // hot lip hue-tinted + restrained lip/glint lets the biome-hued MID carry the read.
   gateFrameMats = PHASE_SKINS.map((s) => makeMarkerSurface({
-    rootColor: new THREE.Color(s.edge).multiplyScalar(0.42).getHex(),
-    midColor: s.edge, apexColor: s.core,
-    flowRef: gateFlowRef, timeRef: markerTime, emissive: 1.9, side: THREE.DoubleSide,
-    glint: 0.5, glintSharp: 44, lipGlow: 0.9,
+    rootColor: new THREE.Color(s.edge).multiplyScalar(0.38).getHex(),
+    midColor: s.edge,
+    apexColor: new THREE.Color(s.edge).lerp(new THREE.Color(0xffffff), 0.5).getHex(),
+    flowRef: gateFlowRef, timeRef: markerTime, emissive: 1.8, side: THREE.DoubleSide,
+    glint: 0.35, glintSharp: 44, lipGlow: 0.6,
   }));
 }
 

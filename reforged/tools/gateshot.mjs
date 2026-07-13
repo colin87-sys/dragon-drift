@@ -49,6 +49,19 @@ async function capture({ skyforged = true, base = 600, frameDist = 0 }) {
   await page.evaluate((td) => { if (td) window.__dd.player.dist = td - 40; }, targetDist);
   await page.evaluate(async () => {
     window.__dd.game.timeScale = 0;
+    // ISOLATE the target Phase Gate: hide every SMALL top-level sibling (reward rings, setpiece
+    // gateways, other gates, motes) so only THIS gate reads against sky+water+the prop band.
+    // Sky/water/prop-band are huge (kept); the target gate group is kept explicitly.
+    const box = new (window.THREE ? window.THREE.Box3 : Object)();
+    let target = null;
+    window.__dd.scene.traverse((o) => { if (o.userData && o.userData.phaseGate && !target) target = o; });
+    for (const o of window.__dd.scene.children) {
+      if (o === target) continue;
+      o.updateWorldMatrix(true, false);
+      let r = 0; // rough radius from geometry bounding sphere (small = clutter)
+      o.traverse((c) => { if (c.geometry) { if (!c.geometry.boundingSphere) c.geometry.computeBoundingSphere(); if (c.geometry.boundingSphere) r = Math.max(r, c.geometry.boundingSphere.radius); } });
+      if (r > 0 && r < 130) o.visible = false; // hide small clutter; keep huge sky/water/prop-band
+    }
     for (let i = 0; i < 4; i++) await new Promise((r) => requestAnimationFrame(r));
   });
   await page.waitForTimeout(140);
