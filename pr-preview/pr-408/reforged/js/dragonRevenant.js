@@ -147,10 +147,10 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   // are sealed with an inset cartilage panel (f0 → all sealed).
   const zF = -1.22, zB = 0.88, NGAP = 8, NRIB = NGAP + 1;
   const ribWindows = Math.max(0, Math.min(NGAP, Math.round((model.ribWindows ?? NGAP) * NGAP / 6)));
-  const bell = (z) => Math.max(0, 1 - Math.pow((z + 0.20) / 1.18, 2));
-  const cageDepth = (z) => 0.34 + 0.52 * bell(z);   // DEEP flared barrel — the ribcage IS the torso mass centre
-  const halfW = (z) => 0.24 + 0.60 * bell(z);       // WIDE flare — ribs sweep far outboard (barrel blossom)
-  const topY = (z) => cyAt(z) + 0.05;
+  const bell = (z) => Math.max(0, 1 - Math.pow((z + 0.20) / 1.22, 2));
+  const cageDepth = (z) => 0.40 + 0.64 * bell(z);   // DEEPER flared barrel (~25% bigger — the mass centre from the rear-chase, Fable)
+  const halfW = (z) => 0.30 + 0.76 * bell(z);       // WIDER flare — ribs sweep far outboard (barrel blossom)
+  const topY = (z) => cyAt(z) + 0.14;               // ribs spring from ABOVE the spine so the barrel lifts toward the shoulder line, not dangling low
   const botY = (z) => cyAt(z) - cageDepth(z);
   const bez = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
   const bez3 = (a, c1, c2, b, t) => { const m = 1 - t; return [0, 1, 2].map((j) => m * m * m * a[j] + 3 * m * m * t * c1[j] + 3 * m * t * t * c2[j] + t * t * t * b[j]); };
@@ -257,8 +257,8 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   // sized well inside the ribs (≥0.08 clearance) so it never z-fights a stave. Seen
   // only THROUGH the windows — a lantern, not a lamp.
   const coreBlaze = model.coreBlaze ?? 1;
-  const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.42;
-  const heartR = 0.20 + 0.11 * coreBlaze;   // BIG glow to fill the deep flared cage (lantern, not sticker)
+  const hz = -0.18, hy = cyAt(hz) - cageDepth(hz) * 0.30;   // seated in the UPPER barrel (lifted toward the shoulder line)
+  const heartR = 0.24 + 0.13 * coreBlaze;   // BIG glow to fill the deeper flared cage (lantern, not sticker)
   // A pointed TEARDROP FLAME (Fable: was a round orb — must read as caged FIRE): a rounded bulb
   // bottom tapering to a flame tip at the top. Built as tris so the silhouette is a real teardrop.
   const flameTeardrop = (R, H) => {
@@ -404,16 +404,16 @@ function buildPhalanxShroudWings(def, model, attach, _giM) {
   const group = new THREE.Group();
   const M = revenantMats(def);
   const fingers = Math.max(2, Math.round(model.fingers ?? 4));
-  const halfSpan = (model.spanScale ?? 1) * 2.6;
+  const halfSpan = (model.spanScale ?? 1) * 2.35;   // ~15% less area (Fable: wings were out-massing the bone)
   const wristT = model.wristT ?? 0.16;
   const dials = { fingers, halfSpan, wristT, crescentDepth: model.crescentDepth ?? 1, sweep: model.wingSweep ?? 0.46, dihedral: model.wingDihedral ?? 0.10 };
 
-  // The shroud MEMBRANE — a DARK desaturated slate-green tattered skin (the reference's
-  // shadowy bat shroud), translucent so light reads through it and the rig can drive its
-  // opacity. Emissive black (the wing never glows — the light is the caged heart). This
-  // is the rig's single wingMat contract (dragon.js drives .opacity/.emissive on it).
-  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x3a4038, emissive: 0x000000, flatShading: true, roughness: 0.88, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
-  wingMat.envMapIntensity = 0.18;
+  // The shroud MEMBRANE — a dark CHARCOAL slate-green tattered skin, lifted one value step
+  // off near-black (Fable) so the ivory finger-bones + rib barrel WIN the silhouette (bone
+  // ~60/40 over shroud). Translucent so light reads through it and the rig drives its opacity.
+  // Emissive black (the wing never glows — the light is the caged heart).
+  const wingMat = new THREE.MeshStandardMaterial({ color: def.wingMembrane ?? 0x4e564a, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.82 });
+  wingMat.envMapIntensity = 0.16;
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
@@ -515,18 +515,20 @@ function buildRevenantSkullHead(def, model, mats) {
 
   // ── HORNS — a pair sweeping back + up + out from the occiput, ATTACHED at the base
   // (a 3-segment tapered tent so they curve). Length grows with the ladder (hornLen).
-  const hornLen = model.hornLen ?? 1;
+  // Back-swept horns — SHORTER + THICKER (Fable: they read as tall insect antennae). A chunky
+  // ram-horn crowning the skull, not a thin antler; length via hornLen (kept low).
+  const hornLen = model.hornLen ?? 0.65;
   const hornT = [];
   for (const side of [1, -1]) {
-    const base = [side * S(0.13), S(0.16), S(0.34)];
-    const mid = [side * S(0.24), S(0.34), S(0.60) * hornLen];
-    const tip = [side * S(0.30), S(0.40), S(0.92) * hornLen];
+    const base = [side * S(0.14), S(0.15), S(0.32)];
+    const mid = [side * S(0.26), S(0.30), S(0.30) + S(0.34) * hornLen];
+    const tip = [side * S(0.34), S(0.33), S(0.30) + S(0.62) * hornLen];
     const horn = (a, b, w) => {
       const dz = b[2] - a[2], dx = b[0] - a[0], L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L;
-      const aL = [a[0] + nx * w, a[1], a[2] + nz * w], aR = [a[0] - nx * w, a[1], a[2] - nz * w], aU = [a[0], a[1] + w, a[2]];
-      hornT.push([aL, b, aU], [aU, b, aR], [aR, b, aL]);
+      const aL = [a[0] + nx * w, a[1], a[2] + nz * w], aR = [a[0] - nx * w, a[1], a[2] - nz * w], aU = [a[0], a[1] + w, a[2]], aD = [a[0], a[1] - w * 0.6, a[2]];
+      hornT.push([aL, b, aU], [aU, b, aR], [aR, b, aD], [aD, b, aL]);   // 4-sided → chunky, not a flat blade
     };
-    horn(base, mid, S(0.05)); horn(mid, tip, S(0.03));
+    horn(base, mid, S(0.09)); horn(mid, tip, S(0.055));   // THICK base tapering to a still-solid tip
   }
   group.add(flatTriMesh(hornT, M.bone));
 
