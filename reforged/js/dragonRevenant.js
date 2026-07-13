@@ -335,7 +335,7 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // FORWARD (−Z, toward the head) of the shoulder, then the leading finger sweeps back to the
   // tip: a "‹" kink in plan view. The old profile raked the whole edge AFT from the root, so the
   // fan collapsed toward the tail (owner). Waypoints [t, Δz, Δy] in half-span units; Δz<0 = fwd.
-  const LEWP = [[0, 0, 0], [0.15, -0.10, 0.14], [0.25, -0.14, 0.24], [0.40, -0.18, 0.34], [0.55, -0.12, 0.42], [0.75, -0.03, 0.48], [1.0, 0.10, 0.50]];
+  const LEWP = [[0, 0, 0], [0.15, -0.12, 0.14], [0.25, -0.17, 0.24], [0.40, -0.22, 0.34], [0.55, -0.14, 0.42], [0.75, -0.03, 0.48], [1.0, 0.12, 0.50]];   // wrist thrown to −0.22·span → a sharper "‹" kink (Fable: the forward flare rendered a touch shallow)
   const lewp = (t, k) => { for (let i = 0; i < LEWP.length - 1; i++) { const a = LEWP[i], b = LEWP[i + 1]; if (t <= b[0]) { const f = (t - a[0]) / (b[0] - a[0]); return a[k] + (b[k] - a[k]) * f; } } return LEWP[LEWP.length - 1][k]; };
   const LE = (t) => [t * hs, hs * lewp(t, 2), hs * lewp(t, 1)];
   const K = LE(wristT), F0 = LE(1);   // wrist = forwardmost+high kink (wristT≈0.40); F0 = wingtip, slightly aft of the shoulder
@@ -383,9 +383,9 @@ function buildOnePhalanxWing(M, dials, wingMat) {
     const tp = tips[i], wB = 0.045 * hs * (1 - 0.05 * i), wM = wB * 0.5;
     const cdx = tp[0] - K[0], cdz = tp[2] - K[2], clen = Math.hypot(cdx, cdz) || 1;
     const pfx = cdz / clen, pfz = -cdx / clen;   // forward-outboard perpendicular in XZ (the convex leading side)
-    const bow = 0.16 * clen, kn = 0.58;          // knuckle biased toward the tip
+    const bow = 0.26 * clen, kn = 0.58;          // knuckle biased toward the tip; DEEP bow so the concave-aft curve survives low-poly + distance (Fable: was rendering straight)
     const Bm = [K[0] + cdx * kn + pfx * bow, K[1] + (tp[1] - K[1]) * kn, K[2] + cdz * kn + pfz * bow];
-    const tipEnd = (i === 0) ? [tp[0], tp[1] + 0.05 * hs, tp[2]] : tp;   // finger-0 up-flick
+    const tipEnd = (i === 0) ? [tp[0], tp[1] + 0.16 * hs, tp[2] + 0.08 * hs] : tp;   // finger-0 tip hooks UP (+Y) and aft (+Z) → the reference's claw-tip up-flick (Fable: make it explicit)
     ridge(fingerT, K, Bm, wB * 0.85, wM * 0.8, 0.06 * hs, null);
     ridge(fingerT, Bm, tipEnd, wM * 0.8, 0.006, 0.05 * hs);
     tips[i] = tipEnd;   // membrane follows the flicked tip
@@ -396,7 +396,7 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // shallow-cupped trailing arc per bay; the cups are tattered notches, not open holes).
   // Lives on the HAND so it folds as one rigid sheet at the wrist.
   const NSEG = 4, memT = [];
-  const bayDepth = [0.35, 0.30, 0.25, 0.18];   // scallop depth (× tip-to-tip) DEEPEST at the outer wing → shallowing inboard (Fable)
+  const bayDepth = [0.44, 0.35, 0.27, 0.18];   // scallop depth (× tip-to-tip) DEEPEST at the outer wing → shallowing inboard; outer cusp deepened so the dramatic reference scoop reads (Fable: rendered shallow)
   for (let i = 0; i < tips.length - 1; i++) {
     const Fa = tips[i], Fb = tips[i + 1];
     // cusp biased 40% along the bay from the INNER (higher-i, Fb) finger, pulled toward the wrist
