@@ -135,6 +135,92 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
   return { buf, W, H, bounds, tris, name: DRAGONS[key].name || key, formName: FORM[t] || `T${t}` };
 }
 
+// ── HOLE METRIC ──────────────────────────────────────────────────────────────
+// Flood-fill analysis of a filled coverage buffer (0 bg, 255 fill) — the roster's
+// MITTEN detector and the Revenant's SKELETON gauge (WRAITH-GRAVELIGHT §B.8). It
+// answers "does this silhouette have true interior through-holes, and how big?" —
+// the thing a filled-web wing (MITTEN) fails and a bone-lattice must pass.
+//
+// Method: flood the BACKGROUND (0) inward from every border pixel (4-connectivity)
+// → everything reachable is "outside". Any 0 pixel NOT reached is enclosed by fill
+// = a true interior HOLE. Label those into connected components (each a distinct
+// through-window) and measure. Separately label the FILL (255) into components so
+// the "ONE connected outline" law (§4.2) is checkable.
+//
+// Fractions are taken against the PLANFORM = fill + holes (the solid outline area
+// the holes are punched out of), so holeFraction matches the §4.5 ladder's
+// "hole-fraction (side)" band {0, .08, .16, .26}. minHoleArea filters rasteriser
+// pinholes (default 3px) so a 1px seam gap isn't counted as a design aperture; the
+// px-floor caller (§F) then checks each surviving hole against its own threshold.
+export function holeMetric(buf, W, H, { minHoleArea = 3, minFillArea = 8 } = {}) {
+  const N = W * H;
+  const region = new Uint8Array(N);   // 0 = unvisited, 1 = outside-bg, 2 = hole-bg
+  const stack = new Int32Array(N);
+  // 1) Flood the OUTSIDE background from the border.
+  let sp = 0;
+  const pushOutside = (i) => { if (buf[i] === 0 && region[i] === 0) { region[i] = 1; stack[sp++] = i; } };
+  for (let x = 0; x < W; x++) { pushOutside(x); pushOutside((H - 1) * W + x); }
+  for (let y = 0; y < H; y++) { pushOutside(y * W); pushOutside(y * W + (W - 1)); }
+  while (sp > 0) {
+    const i = stack[--sp], x = i % W, y = (i - x) / W;
+    if (x > 0) pushOutside(i - 1);
+    if (x < W - 1) pushOutside(i + 1);
+    if (y > 0) pushOutside(i - W);
+    if (y < H - 1) pushOutside(i + W);
+  }
+  // 2) Label the remaining background pixels (region 0, buf 0) into hole components.
+  const holes = [];
+  let holePixels = 0;
+  for (let i = 0; i < N; i++) {
+    if (buf[i] !== 0 || region[i] !== 0) continue;
+    let area = 0, hminX = W, hmaxX = 0, hminY = H, hmaxY = 0;
+    region[i] = 2; stack[0] = i; let s = 1;
+    while (s > 0) {
+      const j = stack[--s], x = j % W, y = (j - x) / W;
+      area++; holePixels++;
+      if (x < hminX) hminX = x; if (x > hmaxX) hmaxX = x;
+      if (y < hminY) hminY = y; if (y > hmaxY) hmaxY = y;
+      const nb = (k) => { if (buf[k] === 0 && region[k] === 0) { region[k] = 2; stack[s++] = k; } };
+      if (x > 0) nb(j - 1);
+      if (x < W - 1) nb(j + 1);
+      if (y > 0) nb(j - W);
+      if (y < H - 1) nb(j + W);
+    }
+    holes.push({ area, w: hmaxX - hminX + 1, h: hmaxY - hminY + 1 });
+  }
+  // 3) Label the FILL into connected components (the outline-connectivity law).
+  const fseen = new Uint8Array(N);
+  let fillPixels = 0, fillComponents = 0;
+  for (let i = 0; i < N; i++) {
+    if (buf[i] === 0) continue;
+    fillPixels++;
+    if (fseen[i]) continue;
+    let area = 0;
+    fseen[i] = 1; stack[0] = i; let s = 1;
+    while (s > 0) {
+      const j = stack[--s], x = j % W, y = (j - x) / W;
+      area++;
+      const nb = (k) => { if (buf[k] !== 0 && !fseen[k]) { fseen[k] = 1; stack[s++] = k; } };
+      if (x > 0) nb(j - 1);
+      if (x < W - 1) nb(j + 1);
+      if (y > 0) nb(j - W);
+      if (y < H - 1) nb(j + W);
+    }
+    if (area >= minFillArea) fillComponents++;   // ignore stray specks
+  }
+  const bigHoles = holes.filter((h) => h.area >= minHoleArea).sort((a, b) => b.area - a.area);
+  const planform = fillPixels + holePixels;
+  return {
+    fillPixels, holePixels, planform,
+    holeFraction: planform > 0 ? holePixels / planform : 0,
+    holeCount: bigHoles.length,
+    holes: bigHoles,
+    largestHole: bigHoles.length ? bigHoles[0].area : 0,
+    smallestHole: bigHoles.length ? bigHoles[bigHoles.length - 1].area : 0,
+    fillComponents, minHoleArea,
+  };
+}
+
 // --- PNG: CRC32 + chunk framing ----------------------------------------------
 const crcTable = (() => { const tb = new Uint32Array(256);
   for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); tb[n] = c >>> 0; }
