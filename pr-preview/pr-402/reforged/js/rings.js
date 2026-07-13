@@ -89,7 +89,7 @@ export function addRing(p) {
     const mat = makeMarkerSurface({
       rootColor: JADE_ROOT, midColor: JADE_MID, apexColor: JADE_APEX,
       flowRef: ringFlow, timeRef: ringTime, emissive: 1.8, side: THREE.DoubleSide,
-      glint: 1.0, glintSharp: 40,
+      glint: 1.2, glintSharp: 40, lipGlow: 1.1, // always-hot inner aperture rim → reads at flight distance
     });
     mesh = new THREE.Mesh(jadeGeo, mat);
     uni = mat.userData.markerUniforms;

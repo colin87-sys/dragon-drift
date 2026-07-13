@@ -121,6 +121,8 @@ check('glint term present (tight specular per FLAT facet against a fixed view-sp
   /pow\(clamp\(dot\(normalize\(normal\), uGlintDir\)/.test(fake.fragmentShader) && /\* uGlint/.test(fake.fragmentShader));
 check('glint defaults OFF in the factory (uGlint 0 → term exactly 0 → identity until opt-in)',
   makeMarkerSurface({}).userData.markerUniforms.uGlint.value === 0);
+check('lip-glow defaults OFF (uLipGlow 0 → the always-hot rim term is 0 → gate/orb identity)',
+  makeMarkerSurface({}).userData.markerUniforms.uLipGlow.value === 0 && /uLipGlow/.test(fake.fragmentShader));
 // A1: per-instance factory calls yield DISTINCT live uniform objects (never material.clone()).
 const rA = makeMarkerSurface({ midColor: 0x3dff8f, glint: 1.0 }), rB = makeMarkerSurface({ midColor: 0x3dff8f, glint: 1.0 });
 check('two factory instances → DISTINCT live uApex Color objects (the r160 clone trap avoided)',
