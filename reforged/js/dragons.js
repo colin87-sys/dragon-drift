@@ -669,16 +669,16 @@ export const DRAGONS = {
     forms: [
       { spanScale: 0.70, glowLevel: 0.25, headScale: 1.44, hornLen: 0.5, fingers: 2, tailStretch: 1.0,
         ribWindows: 0, coreBlaze: 0.15, neckVerts: 4, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.3,
-        colors: { body: 0xc4c6ca, belly: 0xabadb2, wingOuter: 0xc4c6ca, eye: 0x54e01e } },   // Grave Whelp (sealed cage) — cool-neutral chalk (was warm-tan)
+        colors: { body: 0xabaeb6, belly: 0x94979e, wingOuter: 0xabaeb6, eye: 0x54e01e } },   // Grave Whelp — DIM least-bleached bone (ramp base, widened so the bleach climb reads — Fable: flat ladder)
       { spanScale: 0.82, glowLevel: 0.50, headScale: 1.34, hornLen: 0.55, fingers: 3, tailStretch: 1.0,
         ribWindows: 2, coreBlaze: 0.40, neckVerts: 5, dorsalVerts: 9, shroudPanels: 1, crescentDepth: 0.6,
-        colors: { body: 0xd0d2d6, belly: 0xb8bac0, wingOuter: 0xd0d2d6, eye: 0x5ce828 } },   // First Waking — cool-neutral chalk
+        colors: { body: 0xc4c7cf, belly: 0xadb0b8, wingOuter: 0xc4c7cf, eye: 0x5ce828 } },   // First Waking — bleaching (mid-low)
       { spanScale: 0.92, glowLevel: 0.75, headScale: 1.26, hornLen: 0.6, fingers: 4, tailStretch: 1.0,
         ribWindows: 4, coreBlaze: 0.70, neckVerts: 6, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 0.8,
-        colors: { body: 0xdadce1, belly: 0xc4c6cc, wingOuter: 0xdadce1, eye: 0x66f038 } },   // Open Cage — cool-neutral chalk
+        colors: { body: 0xdadde4, belly: 0xc4c7ce, wingOuter: 0xdadde4, eye: 0x66f038 } },   // Open Cage — bleaching (mid-high)
       { spanScale: 1.0, glowLevel: 1.00, headScale: 1.2, hornLen: 0.65, fingers: 4, tailStretch: 1.0,
         ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
-        colors: { body: 0xe3e5ea, belly: 0xccced4, wingOuter: 0xe3e5ea, eye: 0x76ff68 } },   // Gravelight Revenant — brightest cool-neutral chalk (was warm 0xe4e3dc → read tan on pale BG; Fable)
+        colors: { body: 0xedeff4, belly: 0xd6d8de, wingOuter: 0xedeff4, eye: 0x76ff68 } },   // Gravelight Revenant — BRIGHTEST fully-bleached chalk (ramp apex, widened for a monotonic climb — Fable)
     ],
     fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
     hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
