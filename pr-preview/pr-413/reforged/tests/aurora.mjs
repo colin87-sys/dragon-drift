@@ -1,0 +1,193 @@
+// Aurora Shallows sky-splice gate (BIOME plan §1). Pure logic, CI-safe (no WebGL): the
+// curtain block is uniform-branched (off = zero cost + byte-identical shipped sky), the
+// authenticity invariants are present in the shader (bottom-anchored border, physics ramp,
+// seam-free noise), the JS driver's tier table + phase-wrap are right, the biome channel is
+// 0 in every shipped biome, and — critically — the curtain is PROBE-INVISIBLE.
+//   node tests/aurora.mjs
+import { register } from 'node:module';
+import { readFileSync } from 'node:fs';
+register('../tools/three-resolver.mjs', import.meta.url);
+const THREE = await import('three');
+globalThis.window = globalThis;
+globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
+const {
+  AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora,
+  setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled,
+} = await import('../js/auroraSky.js');
+const { computeEnv, BIOMES, setForcedBiome } = await import('../js/biomes.js');
+const { CONFIG } = await import('../js/config.js');
+
+let pass = 0, fail = 0;
+const check = (label, ok) => { if (ok) { pass++; } else { fail++; console.error(`FAIL: ${label}`); } };
+const url = (p) => new URL(p, import.meta.url);
+
+// --- 1. the curtain block is UNIFORM-BRANCHED (off = zero cost, not branchless *0) --
+check('AURORA_BODY is uniform-branched (if uAuroraMix > eps)', /if\s*\(\s*uAuroraMix\s*>\s*0\.0001\s*\)/.test(AURORA_BODY));
+check('aurLum hoisted =0 above the branch (star-attenuation coupling, identity off)', /float\s+aurLum\s*=\s*0\.0;[\s\S]*if\s*\(\s*uAuroraMix/.test(AURORA_BODY));
+check('AURORA_HEAD declares the gate + curtain uniforms', /uAuroraMix/.test(AURORA_HEAD) && /uAurPhase/.test(AURORA_HEAD) && /uAurLayers/.test(AURORA_HEAD) && /uAurGreen/.test(AURORA_HEAD));
+check('AURORA_HEAD carries SELF-CONTAINED noise (no shared symbol collision)', /float\s+_aHash/.test(AURORA_HEAD) && /float\s+_aNoise/.test(AURORA_HEAD));
+
+// --- 2. the authenticity invariants (the ONE thing: bottom-anchored curtains) -----
+check('SEAM-FREE: noise on normalize(d.xz), not an atan azimuth', /normalize\(\s*d\.xz/.test(AURORA_BODY) && !/atan/.test(AURORA_BODY));
+check('CRISP border ONSET + a luminous rose SKIRT below (no hard zero → no floating line)',
+  /body\s*=\s*smoothstep\(\s*h0/.test(AURORA_BODY) && /skirt\s*=\s*exp\(\s*min\(\s*hy\s*-\s*h0/.test(AURORA_BODY) && /below\s*=\s*max\(\s*body/.test(AURORA_BODY));
+check('exp fade UP from the border (nothing symmetric)', /tall\s*=\s*exp\(\s*-max\(\s*hy\s*-\s*h0/.test(AURORA_BODY));
+check('PHYSICS RAMP: green OWNS the border (not inverted)', /mix\(\s*uAurFringe\s*,\s*uAurGreen\s*,\s*smoothstep\(\s*h0/.test(AURORA_BODY));
+check('BORDER HOT-LINE: a thin exp spike glued to the border, ×(1+..hot)', /hot\s*=\s*exp\([\s\S]*I\s*\*=\s*1\.0\s*\+\s*[\d.]+\s*\*\s*hot/.test(AURORA_BODY));
+check('SPLIT GAIN: diffuse column capped low, only the hot core crosses bloom', /uAuroraMix\s*\*\s*\(0\.55\s*\+\s*0\.45\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
+check('drapery FOLDS: hoisted fold0 + de-duplicated mid octave (foldOct) + fine detail (fine0)',
+  /fold0\s*=\s*_aNoise/.test(AURORA_BODY) && /foldOct\s*=\s*_aNoise/.test(AURORA_BODY) && /fold\s*\+=\s*0\.5\s*\*\s*\(foldOct/.test(AURORA_BODY));
+check('SECONDARY ribbon keeps the narrow gaussian pillar + height SHEAR', /exp\(\s*-u\s*\*\s*u\s*\*\s*6\.0\s*\)/.test(AURORA_BODY) && /u\s*\+=\s*\(hy\s*-\s*h0\)/.test(AURORA_BODY));
+
+// --- 2b. COMPOSITION (Gate-3): centre-stage arc, horizon anchoring, flank dip -------
+check('CENTRAL ARC keyed to travel (smoothstep envelope on az⋅uAurFwd — not a fixed azimuth)',
+  /smoothstep\(\s*-0\.35\s*,\s*0\.45\s*,\s*dot\(\s*az\s*,\s*uAurFwd/.test(AURORA_BODY));
+check('base DROPS at the arc flanks (h0 keyed on envC) so the ends dive to the horizon',
+  /envC\s*=\s*clamp\(\s*dot\(\s*az\s*,\s*uAurFwd/.test(AURORA_BODY) && /h0\s*=\s*0\.04\s*\+\s*0\.05\s*\*\s*envC/.test(AURORA_BODY));
+check('HORIZON AIRGLOW the curtains rise from (brightest AT the sea-line, abs(hy))',
+  /exp\(\s*-abs\(hy\)/.test(AURORA_BODY));
+check('AURORA_HEAD declares the travel/secondary azimuth uniforms', /uAurFwd\s*,\s*uAurFwd2/.test(AURORA_HEAD));
+check('uAurFwd default points forward (-Z)', auroraUniforms.uAurFwd.value.x === 0 && auroraUniforms.uAurFwd.value.y === -1);
+const auroraSrc = readFileSync(url('../js/auroraSky.js'), 'utf8');
+check('AURORA_HEAD declares the altitude palette + eruption gate', /uAurTeal/.test(AURORA_HEAD) && /uAurPink/.test(AURORA_HEAD) && /uAurViolet/.test(AURORA_HEAD) && /uAurErupt/.test(AURORA_HEAD));
+
+// --- 2c. PREMIUM art direction (Gate-4): multi-color, value model, translucency, depth ------
+check('ALTITUDE COLOR: teal cools the mid column (quiet second hue, always on)', /mix\(\s*aCol\s*,\s*uAurTeal/.test(AURORA_BODY));
+check('ERUPTION rainbow: violet base + pink overlap + ADDITIVE red crown, all × uAurErupt',
+  /uAurViolet[\s\S]*uAurErupt/.test(AURORA_BODY) && /uAurPink[\s\S]*uAurErupt/.test(AURORA_BODY) && /aCol\s*\+=\s*uAurRed[\s\S]*uAurErupt/.test(AURORA_BODY));
+check('VALUE MODEL: low sheet floor (0.06) + steep pow → dark gaps between curtains',
+  /0\.06\s*\+\s*0\.94\s*\*\s*pow\(\s*smoothstep/.test(AURORA_BODY));
+check('TRANSLUCENCY: stars keyed off local CORE brightness (aurLum += I × hot·below)',
+  /aurLum\s*\+=\s*I\s*\*\s*\(0\.25\s*\+\s*0\.75\s*\*\s*hot\s*\*\s*below\)/.test(AURORA_BODY));
+check('RAY quality: fold domain-warp + staggered rayTall + per-ray shimmer',
+  /u\s*\*\s*26\.0\s*\+\s*fold\s*\*\s*4\.0/.test(AURORA_BODY) && /rayTall\s*=\s*exp/.test(AURORA_BODY) && /sin\(\s*uAurPhase\s*\*\s*2\.6/.test(AURORA_BODY));
+// Gate-5: restraint (ray-carried eruption color, capped peak) + more delicate lines + stars-through.
+check('eruption color RIDES the rays (× rayCore), not a flat wash', /ecR\s*=\s*ecrown\s*\*\s*\(0\.30\s*\+\s*0\.70\s*\*\s*rayCore\)/.test(AURORA_BODY) && /rayCore\s*=\s*clamp/.test(AURORA_BODY));
+check('eruption peak capped at 0.8 (reservation)', /uAurErupt\.value\s*=\s*0\.8\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+check('MORE lines: finer ray freq (26) + a sparse tier0 HAIRLINE interleave', /u\s*\*\s*26\.0/.test(AURORA_BODY) && /hair\s*=\s*smoothstep\(\s*0\.60/.test(AURORA_BODY) && /rayShim\s*\+\s*0\.5\s*\*\s*hair/.test(AURORA_BODY));
+check('per-ray color STAGGER (color blends along each line)', /\(rn\s*-\s*0\.5\)\s*\*\s*0\.3\s*\*\s*uAurRay/.test(AURORA_BODY));
+check('stars burn through the eruption more (attenuation 0.55)', /star\s*\*=\s*1\.0\s*-\s*0\.55\s*\*\s*clamp\(\s*aurLum/.test(readFileSync(url('../js/environment.js'), 'utf8')));
+check('DEPTH: a faint ray-less BACK VEIL reusing fold0 (free layered curtain)', /float\s+veil\s*=\s*smoothstep\(\s*0\.55/.test(AURORA_BODY));
+check('ERUPTION COLOR WASH: diffuse violet base + red/pink crown glow (reads where rays fade)',
+  /if\s*\(\s*uAurErupt\s*>\s*0\.001\s*\)/.test(AURORA_BODY) && /ebase\s*=\s*exp/.test(AURORA_BODY) && /ecrown\s*=\s*smoothstep/.test(AURORA_BODY));
+check('fine0 detail octave is TIER0-ONLY (uAurLayers == 2 branch → no tier1/2 cost)', /if\s*\(\s*uAurLayers\s*==\s*2\s*\)\s*fine0\s*=\s*_aNoise/.test(AURORA_BODY));
+check('ERUPTION driver: activity → smoothstep eruption envelope (rare full-color)',
+  /uAurErupt\.value\s*=\s*0\.8\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+check('?auract debug override wired (quiet-vs-eruption capture)', /setAuroraActOverride/.test(readFileSync(url('../js/main.js'), 'utf8')));
+
+check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
+  /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(auroraSrc) && /getWorldDirection/.test(auroraSrc) && /damp\(fwdX/.test(auroraSrc));
+
+// --- 3. gate: default 0 (shipped); enable/disable/force + per-frame write ---------
+check('default mix 0 (byte-identical shipped sky)', auroraUniforms.uAuroraMix.value === 0);
+const env = { auroraMix: 0.7 };
+setAuroraForced(false);
+setAuroraEnabled(false);
+applyAurora(env, 1000, 5);
+check('disabled → mix held at 0', auroraUniforms.uAuroraMix.value === 0);
+setAuroraEnabled(true);
+applyAurora(env, 1000, 5);
+check('enabled → biome auroraMix written', Math.abs(auroraUniforms.uAuroraMix.value - 0.7) < 1e-6);
+check('default night-wash 0 (real gameplay never darkens the sky)', auroraUniforms.uAurNight.value === 0);
+setAuroraForced(true);
+applyAurora({ auroraMix: 0 }, 1000, 5);
+check('forced (?aurora=1) → mix 1 even with no biome channel', auroraUniforms.uAuroraMix.value === 1);
+check('forced preview → night wash 1 (aurora needs a dark sky)', auroraUniforms.uAurNight.value === 1);
+setAuroraForced(false);
+applyAurora({ auroraMix: 0.7 }, 1000, 5); // a real biome declaring aurora: curtain on, but NO night wash
+check('real biome aurora → curtain on, night wash 0 (biome supplies its own dark palette)',
+  Math.abs(auroraUniforms.uAuroraMix.value - 0.7) < 1e-6 && auroraUniforms.uAurNight.value === 0);
+applyAurora({ auroraMix: 0 }, 1000, 5);
+check('un-forced + no biome channel → back to 0 (shipped)', auroraUniforms.uAuroraMix.value === 0);
+
+// --- 4. tier truth table (weaker tiers thin the curtain, never delete it) ---------
+setAuroraQuality(0);
+check('tier0 → 2 curtain layers + rays on', auroraUniforms.uAurLayers.value === 2 && auroraUniforms.uAurRay.value === 1);
+setAuroraQuality(1);
+check('tier1 → 1 layer, rays still on', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 1);
+setAuroraQuality(2);
+check('tier2 → 1 layer, rays off (a smooth quiet arc — still authentic)', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 0);
+setAuroraQuality(0);
+
+// --- 5. phases are JS-WRAPPED (float32 precision on endless runs — uCloudDrift lesson)
+setAuroraForced(true);
+applyAurora({ auroraMix: 0 }, 10_000_000, 5); // ~forever
+check('uAurPhase wrapped into [0,4096) (no float32 shimmer)', auroraUniforms.uAurPhase.value >= 0 && auroraUniforms.uAurPhase.value < 4096);
+check('uAurBreath stays in [0,1] (two incommensurate sines)', auroraUniforms.uAurBreath.value >= 0 && auroraUniforms.uAurBreath.value <= 1);
+check('uAurAct stays in [0,1] (slow form envelope)', auroraUniforms.uAurAct.value >= 0 && auroraUniforms.uAurAct.value <= 1);
+setAuroraForced(false);
+applyAurora({ auroraMix: 0 }, 5, 5); // leave shipped state
+
+// --- 6. the biome channel is 0 in EVERY shipped biome (optional-channel = identity) --
+let maxMix = 0;
+const L = CONFIG.biomeLength;
+for (let dist = 0; dist <= 8 * L; dist += L / 4) maxMix = Math.max(maxMix, computeEnv(dist).auroraMix);
+check(`no CYCLED biome lights the aurora → env.auroraMix 0 across the course (max ${maxMix})`, maxMix === 0);
+check('exactly BIOMES[6] declares aurora (the anchor; the other 6 stay dormant)',
+  BIOMES.slice(0, 6).every((b) => !b.aurora) && BIOMES[6] && BIOMES[6].aurora === 1.0);
+// Forcing biome 6 (?biome=6) is the ONLY way to reach it until the CYCLE flip → it lights the curtain.
+setForcedBiome(6);
+const forcedMix = computeEnv(1000).auroraMix;
+setForcedBiome(null);
+check('forcing biome 6 lights the aurora (env.auroraMix 1.0)', Math.abs(forcedMix - 1.0) < 1e-6);
+
+// --- 6b. PR-3: the biome's own LOW ice props + mirror/ground-glow polish -------------
+check('BIOMES[6].props are the low ice set (floe/iceFang/berg/skerry/ridge)', JSON.stringify(BIOMES[6].props) === '["floe","iceFang","berg","skerry","ridge"]');
+const envSrc0 = readFileSync(url('../js/environment.js'), 'utf8');
+check('all 5 aurora archetypes registered for biome 6 (matIndex 6)',
+  ['floe', 'iceFang', 'berg', 'skerry', 'ridge'].every((k) => new RegExp(k + ':\\s*\\{[\\s\\S]*?biomes:\\s*\\[6\\],\\s*matIndex:\\s*6').test(envSrc0)));
+check('iceFang is LOW (height cap 2.2–4.6, never a tall spire)', /iceFang:[\s\S]*?h:\s*2\.2\s*\+\s*rnd\(\)\s*\*\s*2\.4/.test(envSrc0));
+// The "still not Frozen-at-night" law, in numbers: every NEAR-LANE aurora archetype's max world top
+// (h_max, since normalized top ≈ 1) is ≤ 5 (vs crystal 18–50). ridge is the sanctioned distant exception.
+check('near-lane ice stays LOW (floe/fang/berg/skerry h_max ≤ 5)', (() => {
+  const hmax = { floe: 1.2 + 1.4, iceFang: 2.2 + 2.4, berg: 1.6 + 1.4, skerry: 0.6 + 0.8 };
+  return Object.values(hmax).every((h) => h <= 5.0);
+})());
+check('shape VARIETY: cylinder/icosahedron families added (not just boxes+cones)',
+  /floe:[\s\S]*?CylinderGeometry/.test(envSrc0) && /berg:[\s\S]*?IcosahedronGeometry/.test(envSrc0));
+check('skerry is the non-glowing rock foil (mat 0 only, foam-less rock)', /skerry:[\s\S]*?IcosahedronGeometry/.test(envSrc0) && /ridge:\s*false/.test(envSrc0));
+check('makeMats gains the 7th (aurora ice) primary + accent', /6 aurora night sea-ice/.test(envSrc0) && /6 aurora-caught ice edge/.test(envSrc0));
+check('FOAM_CFG has the floe + iceFang water collars', /floe:\s*\{\s*r:\s*0\.72\s*\}/.test(envSrc0) && /iceFang:\s*\{\s*r:\s*0\.62\s*\}/.test(envSrc0));
+check('hemi ground-glow pulse driven by auroraPulse (color-space, gated by mix)',
+  /auroraPulse\(\)/.test(envSrc0) && /hemi\.color\.lerp\(_AUR_HEMI_GREEN/.test(envSrc0));
+const waterSrc = readFileSync(url('../js/water.js'), 'utf8');
+check('tier2 water aurora sheen (uAuroraGlow in sharedUniforms + cheap branch, identity at 0)',
+  /uAuroraGlow:\s*\{\s*value:\s*0\s*\}/.test(waterSrc) && /refl\s*\+=\s*vec3\([^)]*\)[\s\S]*uAuroraGlow/.test(waterSrc));
+
+// --- 7. spliced into the sky shader (environment.js) with the right couplings ------
+const envSrc = readFileSync(url('../js/environment.js'), 'utf8');
+check('sky shader splices AURORA_HEAD + AURORA_BODY', /\$\{AURORA_HEAD\}/.test(envSrc) && /\$\{AURORA_BODY\}/.test(envSrc));
+check('AURORA_BODY spliced BEFORE the clouds (10km clouds occlude the 100km curtain)',
+  envSrc.indexOf('${AURORA_BODY}') < envSrc.indexOf('${CLOUD_BODY}'));
+check('stars dimmed behind the curtain (reads aurLum, identity at 0)', /star\s*\*=\s*1\.0\s*-\s*0\.55\s*\*\s*clamp\(\s*aurLum/.test(envSrc));
+check('surge night-veil suppressed under the real aurora (× (1 - uAuroraMix))', /aurora\s*\*\s*smoothstep\(0\.2,\s*0\.6,\s*h\)\s*\*\s*starMix\s*\*\s*0\.12\s*\*\s*\(1\.0\s*-\s*uAuroraMix\)/.test(envSrc));
+check('tier banding dither gated to the curtain (× uAuroraMix)', /1\.0\s*\/\s*255\.0\)\s*\*\s*uAuroraMix/.test(envSrc));
+check('applyAurora driven per-frame near applySkyClouds (with camera+dt for the travel key)', /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(envSrc));
+check('auroraUniforms spread into the skyMat uniforms', /\.\.\.auroraUniforms/.test(envSrc));
+// The preview night wash: darken the dome + kill the sun + light the stars, all gated by uAurNight
+// (0 in real play → byte-identical). Never over the real biome, which supplies its own night palette.
+check('preview darkens the dome before the curtain (× uAurNight)', /col\s*=\s*mix\(\s*col\s*,\s*vec3\([^)]*\)\s*,\s*uAurNight\s*\)/.test(envSrc));
+check('preview kills the sun (× (1 - uAurNight))', /sunGlow[\s\S]{0,320}\*\s*\(1\.0\s*-\s*uAurNight\)/.test(envSrc));
+check('preview lights the stars (max(starMix, uAurNight..))', /star\s*\*\s*max\(\s*starMix\s*,\s*uAurNight/.test(envSrc));
+
+// --- 8. wired into main.js (the ?aurora=1 hero read + tier switch) -----------------
+const mainSrc = readFileSync(url('../js/main.js'), 'utf8');
+check('main.js reads ?aurora=1 → setAuroraForced(true)', /getParam?|aurora['"]\)\s*===\s*['"]1['"]/.test(mainSrc) && /setAuroraForced\(true\)/.test(mainSrc));
+check('main.js drives setAuroraQuality in applyQuality', /setAuroraQuality\(tier\)/.test(mainSrc));
+check('main.js gates god-ray shafts off for the aurora (preview OR real biome — no white fan)', /auroraForced\(\)\s*\|\|\s*auroraMix\(\)\s*>\s*0\.5[\s\S]{0,6}\?\s*0\s*:\s*_camFwd\.dot/.test(mainSrc));
+
+// --- 9. PROBE-EXCLUSION GUARD: skyProbe.js must not know about the aurora ----------
+const probeSrc = readFileSync(url('../js/skyProbe.js'), 'utf8');
+// The probe deliberately excludes the high-frequency curtain — the only mention of "aurora"
+// in skyProbe.js is the comment DOCUMENTING that exclusion; there must be NO aurora uniform
+// or code path (that would alias the curtain into SH wobble).
+check('skyProbe.js has NO aurora uniform/code (probe-invisible; only the exclusion note)',
+  !/uAur/.test(probeSrc) && !/auroraUniforms|applyAurora|AURORA_/.test(probeSrc));
+
+// --- 10. biomes.js carries the channel (default 0, lerped like starMix) ------------
+const biomesSrc = readFileSync(url('../js/biomes.js'), 'utf8');
+check('computeEnv lerps env.auroraMix from a.aurora/b.aurora (optional channel)', /env\.auroraMix\s*=\s*lerp\(\s*a\.aurora\s*\|\|\s*0\s*,\s*b\.aurora\s*\|\|\s*0/.test(biomesSrc));
+
+setAuroraEnabled(true); setAuroraForced(false); setAuroraQuality(0); // leave shipped state for later imports
+console.log(`\naurora: ${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);
