@@ -18,6 +18,17 @@ named identifier.
 1. **Scope: 8 biomes.** Retool the existing 6 AND add two new ones — **Tempest Reach**
    (STORMREND's home) and **Tidal Reef** (BRINEHOLM's home). New biomes land LAST, each
    gated on its anchor boss being ready (never ship an orphan biome).
+   - **AMENDMENT (2026-07-13, owner-approved): 9 biomes.** Add **Aurora Shallows** — a
+     NIGHT biome whose signature is an authentic aurora-borealis drapery sky, theming the
+     Sky Canyon flow run (owner's own concept). It appends as **`BIOMES[6]`**, so the two
+     still-unbuilt planned biomes renumber (doc-only — no code exists yet): **Tempest
+     Reach → `BIOMES[7]`, Tidal Reef → `BIOMES[8]`**. Interim `CYCLE` slotting Aurora
+     between Mire and Astral (the night crescendo biolume → aurora → cosmos) is
+     `[0,1,2,3,4,6,5]`; with Tempest `[0,1,7,2,3,4,6,5]`; final 9-biome
+     `[0,1,8,7,2,3,4,6,5]`. Aurora ships as a **breather** at first (hazard/anchor
+     deferred — the sanctioned §1 exception; banked anchor **THE SKYWEFT**, banked hazard
+     `veil` solar-wind curtains), so the "no orphan biome" rule holds via the breather
+     designation. Full plan: `reforged/AURORA-SHALLOWS-PLAN.md`.
 2. **Mechanics: hazards-first, kinematics later.** Biome hazards are DODGE-ONLY at first
    (they can kill you, they never move you). The data schema carries the flight-feel
    scalars from day one (defaulted neutral = byte-identical), so turning on a kinematic
@@ -466,6 +477,16 @@ skins, mats, bullets all keep their indices. Ship the `CYCLE` layer as a pure re
 FIRST (with `CYCLE = [0,1,2,3,4,5]` — provably identical output), THEN append biome 6/7
 entries when their bosses are ready. Headless-diff `computeEnv` samples across a full
 old cycle to prove the refactor is a no-op before flipping anything.
+
+> **✓ LANDED (2026-07-13, Aurora PR-0):** `export const CYCLE = [0,1,2,3,4,5]` in `biomes.js`;
+> `biomeAt` indexes `CYCLE[block % CYCLE.length]`. **Seam the audit above missed** (found +
+> fixed): `level.js` `setPiecesBetween` computed the gateway/mega-arch `biomeIndex` as
+> `k % BIOMES.length` DIRECTLY (bypassing `biomeAt`) — so set-piece palettes would silently
+> diverge from the world once `CYCLE` reorders. It now routes through `CYCLE[k % CYCLE.length]`.
+> Set-pieces are events (not fixtured), so `gold-determinism` is untouched. Proven no-op:
+> `tests/biomecycle.mjs` (biomeAt reproduces `block % N` byte-for-byte over 2 cycles) +
+> `gold-determinism` byte-identical. **Any new biome-by-distance cycling MUST index through
+> `CYCLE`, never `block % BIOMES.length`.**
 
 This is also where the deferred weather×time-of-day multiplier lives later (§10):
 `CYCLE` entries can become `{biome, weather, tod}` descriptors with an `applyWeather`/

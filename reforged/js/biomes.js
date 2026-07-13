@@ -161,11 +161,19 @@ export const BIOMES = [
   },
 ];
 
+// The biome CYCLE — the ORDER biomes appear along the course, independent of the BIOMES
+// array order. This indirection lets a new biome be APPENDED to BIOMES (with its mats/skins/
+// palettes) while the shipped world stays byte-identical until its index is added to CYCLE —
+// the coexistence seam for slotting Aurora Shallows (BIOMES[6]) between Mire and Astral, etc.
+// Any code that cycles biomes by distance MUST index through CYCLE, never `block % BIOMES.length`.
+export const CYCLE = [0, 1, 2, 3, 4, 5];
+
 export function biomeAt(dist) {
   const L = CONFIG.biomeLength;
   const block = Math.max(0, Math.floor(dist / L));
-  const ia = block % BIOMES.length;
-  const ib = (ia + 1) % BIOMES.length;
+  const ci = block % CYCLE.length;
+  const ia = CYCLE[ci];
+  const ib = CYCLE[(ci + 1) % CYCLE.length];
   const local = dist - block * L;
   const t = THREE.MathUtils.smoothstep(local, L - CONFIG.biomeTransition, L);
   return { ia, ib, t };
