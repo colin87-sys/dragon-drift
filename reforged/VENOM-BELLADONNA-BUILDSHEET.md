@@ -15,6 +15,14 @@ One of the FRESH FIVE (see `FRESH-DRAGONS-SYNTHESIS.md`).
 > OIL-SLICK GLOSS** (thin-film sheen streaks) vs Vesper's matte "glints, never glows"; (3) light —
 > the venom sacs are **always lit in cruise** (a filling vessel) vs Vesper's withheld Surge circuit.
 
+**Prior art — the concept is PROVEN in shipped games (owner requirement):** the poison/venom dragon —
+and specifically the INSECTOID venom-wyrm — is an established archetype. **Pokémon** — *Naganadel*
+(Poison/Dragon, an Ultra Beast with a swollen wasp-abdomen full of luminescent adhesive venom fired from
+a stinger — the direct silhouette+motif precedent) and *Dragalge* (Poison/Dragon, the toxic sea-dragon).
+The venomous serpent-dragon also runs through Norse *Níðhöggr* and countless RPG "poison wyrms."
+Belladonna Stiletto claims this validated lane with a fresh HUE (UV-orchid, not the genre-default green)
+and a fresh SPECTACLE (the diegetic venom fill-meter), copied from none.
+
 **Read first:** `DRAGON-DESIGN.md` · `VESPER-NIGHTGLASS-BUILDSHEET.md` (house format + faceted
 assembly + cowl-overlap join) · `PREMIUM-BUILDSHEET-RESEARCH.md` §3/§4/§6b · the CP1 fingered-wing
 lesson (dominant-plus-decay applies to VEINS here) · the CP4 value-endpoint lesson (a dark chitin
