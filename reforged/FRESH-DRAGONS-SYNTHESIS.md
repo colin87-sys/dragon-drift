@@ -111,6 +111,36 @@ re-litigates):**
 rides its rods/horns/tail instead; Tempest/Stiletto pin their strike/drip timers deterministically
 so no capture is non-comparable).
 
+## 2b. REAR-CHASE SILHOUETTE VARIANCE (Opus harsh-gate pass, 2026-07-13)
+
+The owner's spine directive: ~95% of play is the dragon seen from BEHIND as a small, often-backlit
+black-fill. The five were re-judged as a SET — line up their rear black-fills side by side. Verdict:
+**mutually distinct after the revisions below.** One-word rear reads, deliberately spread across shape
+families:
+
+| Dragon | Rear one-word | Rear black-fill (what the outline IS) | Shape family |
+|---|---|---|---|
+| Thunderhead Tempest | **STACK** | forward-HIGH horizontal stripe-slab stack, tapering anvil, wispy virga fringe | horizontal stratification |
+| Crimson Tocsin | **COINS** | LOW-flat row of round overlapping disc-coins, rigid straight rod comb below | round-coin row |
+| Aurora Sylph | **HOOD** | thin serpent under a BROAD flared luminous crescent (hood), swept streamers | soft flared light-crescent |
+| Belladonna Stiletto | **WASP** | four distinct blade-spokes in a shallow X off a solid dart-core, central needle | four-blade X + needle |
+| Gravelight Revenant | **SKELETON** | draconic wing outline pierced by clean crescent through-holes; void reads | negative space |
+
+**Closest pair (and the separation):** **Tempest ↔ Tocsin** — both are broad wings with a bottom
+fringe, the one genuine near-collision in the set. Separated on THREE axes, written into both sheets
+(Tempest §R2.3 / Tocsin §R2.3): (1) ATTITUDE — Tempest stacks UP forward-high (+6°/deck) vs Tocsin held
+LOW and flat; (2) INNER GRAIN — horizontal STRIPE-slabs vs round CIRCLE-coins; (3) FRINGE — Tempest's
+WISPY TAPERING virga vs Tocsin's RIGID STRAIGHT equal rods. No other pair is close: Sylph (soft vertical
+hood), Stiletto (four-blade X + needle) and Revenant (holes) are each in a unique shape family.
+
+**The one structural rescue (no concept swap):** the harsh gate ruled Aurora Sylph's v0 curtain a
+near-VETO — a purely dorsal-vertical sheet is EDGE-ON from dead astern and collapses to a line (the #1
+"flat plane/kite" failure mode). It was NOT swapped; the concept (Aurelion-Sol worn-light lane) is
+intact and the sheet re-architects the curtain into a FLARED DORSAL HOOD (pleats cant outboard
+±10°→±35°, hood width ≥1.1× body girth) + promoted span-carrier streamers, so the rear read is now a
+broad luminous crescent while staying ONE translucent layer. See Sylph §R2. All five otherwise keep
+their proven-in-shipped-games lanes (§0) — no lane changes.
+
 ## 3. One-paragraph summaries
 
 **1 · THUNDERHEAD TEMPEST — "The gathering storm" (SSR→SSSR, 2600).** A living thundercloud drake:

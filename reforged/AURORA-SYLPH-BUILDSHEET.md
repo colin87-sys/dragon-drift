@@ -117,6 +117,15 @@ metalness 0, envIntensity 0.22. Publishes attach contract + `spinePoints` + `mot
 + `coreGlow: null`.
 
 ## 5. Wings — the HERO: THE AURORA CURTAIN (+ streamer pairs — the no-membrane architecture)
+
+> **⚠️ SUPERSEDED BY §R2 (harsh rear-chase gate, 2026-07-13) — READ IT FIRST.** A purely
+> dorsal-vertical curtain is EDGE-ON from dead astern (95% of play) and collapses to a thin vertical
+> line — the #1 failure mode. §R2 re-architects the curtain into a FLARED DORSAL HOOD (pleats cant
+> progressively outboard, ±10°→±35° at the crown) so the rear black-fill reads as a broad luminous
+> crescent, and promotes the streamers to primary span-carriers with real chord. This preserves the
+> concept intact (one translucent layer, worn light, no membrane, Aurelion-Sol broad-worn-light
+> precedent). Build the curtain per §R2's flared spec; the numbers below stand except where §R2 widens them.
+
 The `wings` slot builds light, not membrane:
 - **The CURTAIN:** ONE continuous pleated sheet rooted along the dorsal line (occiput → curtainRun
   fraction of the spine). Height profile swells mid-body (max 0.9× body girth ×2.2) then tapers —
@@ -230,6 +239,58 @@ Its shop turntable should be the most beautiful in the roster; its chase read is
 Where it must match them: the f3 rose-crowned curtain must hit Solar-ignition screenshot value, and
 the pleat relief must survive the 250px density law (7 pleats ≥8px each at chase — verified by
 crop).
+
+## §R — HARSH REAR-CHASE GATE REVISION (Opus critic pass, 2026-07-13)
+**Verdict on the v0 sheet: REVISE (hard).** The curtain was the closest thing in the Fresh Five to a
+VETO — an edge-on dorsal sheet has no rear silhouette. It is NOT swapped (the Aurelion-Sol worn-light
+lane is intact); it is re-architected below to carry a real rear read. Score at v0: silhouette
+distinctiveness 4 / interest 2 (edge-on — the failing axis) / nameability 3; buildability 4; appeal 3
+(gorgeous in turntable, weak in chase). The interest axis ≤2 is what forced the REVISE.
+
+### R1. Sharpened §2 rear-chase silhouette
+- **One word:** **HOOD** (aurora hood).
+- **Black-fill (rear):** a thin serpent body under a BROAD, tall luminous crescent — the flared hood
+  spreads outboard-and-back like a cobra hood / manta mantle, its top edge pleat-scalloped (swell mid,
+  taper to the crown), two-to-three swept streamer ribbons trailing outboard-aft below it. Not a
+  dorsal fin; a spread of worn light with real WIDTH.
+- **3+ centerline / landmark punctuation:** (1) the pleat-scallop crown-edge (swell-then-taper, never a
+  picket fence); (2) the frost-spur diadem breaking the head outline where the hood anchors; (3) the
+  split-pennant tail fork; (4) the streamer pair fanning outboard (the span-makers).
+- **Distinct from the other four because __:** it is the only LUMINOUS FLARED HOOD + no-membrane read —
+  Tempest is a horizontal stripe-stack, Tocsin a round-coin row, Stiletto a four-blade X + needle,
+  Revenant a pierced bone lattice. Sylph is the only continuous soft-light crescent.
+
+### R2. The mandated structural fix (binds §5)
+1. **Flare the curtain into a HOOD.** Pleat cant ramps outboard along the run: ±10° over the neck →
+   ±25° mid-body → **±35° at the crown**. Rear black-fill target: hood WIDTH ≥ 1.1× body girth at
+   its widest (asserted headless from `parts.wingElements` pleat tips), so from dead astern it reads
+   as a broad crescent, never an edge-on line. Still ONE translucent layer (the cant is geometry, not
+   a second sheet).
+2. **Promote streamers to span-carriers.** Chord ≥ 0.18× their length (not thread); apex streamer
+   span:body stays 1.6× (Jade-clause) but now reads as a real swept light-wing. They remain OPAQUE
+   silk + single-layer hem — zero added transparent cost.
+3. **The ripple still runs** (flows-or-fails law) — now across a hood that actually occupies the rear
+   frame. If CP1's Fable gate still reads KITE after the flare, the concept-preserving fallback is to
+   widen the hood toward a full mantle (same lane, same overdraw); no lane swap.
+
+### R3. Buildability audit (every hero element + motif → cited path)
+| element | engine construction path (reference impl) | overdraw |
+|---|---|---|
+| `polarRibbonTorso` (teardrop, vertical wave) | Jade `koiSerpent` bodyWave loft re-derived + new nullable `bodyWaveAxis:'y'` switch | opaque, 0 |
+| aurora HOOD (flared pleats) | real fold quads via `buildSail` in `dragonSideFins.js`; ONE translucent layer 0.78; emissive-in-fragment (`composeSurface`/`applyFresnelRim`) — no additive shell | 1 transparent layer total |
+| CPU ripple | `pulseTimer.js` clock (Tempest slot) + per-vertex offset, Jade bodyWave precedent, ~600 tris | none (CPU) |
+| streamers (span-makers) | opaque silk ribbon + single-layer hem band (`sideFins`/`cometWake` streamer kit) | ≤6 hems |
+| POLAR CROWN motif (2-stop gradient) | vertex-color gradient on the hood sheet, teal `0x38e8dc`→rose hem `0xf868c8` (f2+) | on the 1 curtain layer |
+| frost-spur diadem | diffuse spikes (horn taper) | opaque, 0 |
+**Total transparent ≤7 (curtain 1 + hems 6).** No element lacks a path; the fluid ripple is CPU on one
+layer — 60fps-safe. The only risk was the silhouette read, now fixed by R2.
+
+### R4. SSSR appeal / art-direction
+**Why a stranger screenshots and grinds:** a moon-dark sky-serpent trailing a broad aurora hood that
+RIPPLES, crowned rose at full unfurl — the one dragon whose hero read is living light. **Lead: GRACE**
+(elegant power, not menace) — but the flared hood now delivers that grace in rear-chase, not only on the
+turntable. Anti-clinical guard: it must read as WORN WEATHER, never a lit-up science exhibit — zero body
+emissive holds this.
 
 ## SETTLED (do not re-litigate)
 - **Teardrop H>W cross-section + VERTICAL wave** — the two structural anti-Jade locks.

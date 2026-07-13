@@ -254,6 +254,56 @@ must hit Solar-ignition screenshot value, and the antique material read must be 
 Aurum's giallo (dark bronze is HARD in flat-shading — the patina grooves + polished gong band are
 the answer; judge at the 4× crop).
 
+## §R — HARSH REAR-CHASE GATE REVISION (Opus critic pass, 2026-07-13)
+**Verdict on the v0 sheet: REVISE.** Two real risks: (a) the rings are additive/transparent and VANISH
+at distance — so the STANDING (no-ring) silhouette must already be cool on its own; and (b) Tocsin is
+the CLOSEST pair in the Fresh Five to Tempest (both broad wings with a bottom fringe). Also flagged:
+dark antique bronze in flat-shading risks a muddy FLAT-POVERTY blob. Score at v0: silhouette
+distinctiveness 3.5 (Tempest collision) / interest 4 / nameability 4; buildability 5 (rings.js proven);
+appeal 3.5 (spectacular ring frame, at-risk muddy standing read).
+
+### R1. Sharpened §2 rear-chase silhouette
+- **One word:** **COINS** (chime-coins).
+- **Black-fill (rear):** a low, level fan of FOUR overlapping round disc-coins per side (scalloped
+  circle-row outer edge), five RIGID STRAIGHT rods hanging in an even comb below each fan, the tail-gong
+  a punctuation disc dead-center. Heavy, grounded, level — armor, not jewelry.
+- **3+ centerline / landmark punctuation:** (1) the four-coin scalloped outer edge (round bumps, the
+  disc read); (2) the straight rigid rod comb (curve-vs-straight against the discs); (3) the central
+  tail-gong disc; (4) the tiered pagoda mantle staircase breaking the shoulder line.
+- **Distinct from the other four because __:** it is the only ROUND-COIN-ROW wing — Tempest (its nearest
+  neighbour) is horizontal STRIPE-SLABS held HIGH with a WISPY fringe; Tocsin is round COINS held LOW +
+  flat with a RIGID STRAIGHT fringe. Sylph is a soft hood, Stiletto four thin blades, Revenant a void.
+
+### R2. Mandated fixes
+1. **Standing read must be cool WITHOUT the rings** (they're additive + fade): lean into the round-coin
+   scalloped outline + rigid rod comb; the discs read HEAVY (deep cup, thick bronze) — a war-gong drake,
+   not a temple mobile. The ring is the spectacle bonus; the coin-fan silhouette is the identity.
+2. **Anti-flat-poverty bronze value read:** flat-shaded dark bronze must carry ≥3 value steps — mantle
+   top `0x4e3d2a` → flank `0x3e3122` → under-shadow `0x241c12` — plus the DIFFUSE verdigris groove tint
+   `0x4e7a6e` (≤12%) and ONE polished gong-face band (metalness 0.5, gong faces only). Judge at the 4×
+   crop; a single muddy brown tone is a FLAT-STICKER fail.
+3. **Tempest ≠ Tocsin separator (SET-LEVEL, enforced — mirror of Tempest §R2.3):** LOW-flat coins +
+   rigid rods vs Tempest's high stripe-stack + wispy virga.
+
+### R3. Buildability audit (every hero element + motif → cited path)
+| element | engine construction path (reference impl) | overdraw |
+|---|---|---|
+| `bellPlateTorso` + pagoda mantles | shingle plate tiers (`shingleRow`/Obsidian shingle) + Sovereign beveled-plate precedent | opaque, 0 |
+| GONG discs ×4 (hero) | cupped disc plates (shallow-cone geo), z-staggered 0.10, shingle-overlap ≤2 — opaque | opaque, 0 |
+| chime-rod fringe | thin taut cylinders, per-rod micro-pivots | opaque, 0 |
+| RESONANT ANNULUS motif (rings) | **`TorusGeometry` scaled on CPU + emissiveIntensity fade — PROVEN in `js/rings.js`**; ≤2 pooled, no per-pulse alloc | ≤2 additive |
+| ring/rod clock | `pulseTimer.js` (Tempest slot) — deterministic seeded | none (CPU) |
+| `gongAnnulusTail` (tail-gong) | isBone chain + disc plate, cant +15° | opaque, 0 |
+**Total additive ≤2 (+trail) — the LOWEST transparent inventory of the Fresh Five despite the flashiest
+motif.** The ring is directly grounded in shipped `rings.js`; no element lacks a path.
+
+### R4. SSSR appeal / art-direction
+**Why a stranger screenshots and grinds:** the crimson SHOCKWAVE RING blooming off the chest ON the
+beat and rolling past the outline — the only roster spectacle that escapes the silhouette, the one
+dragon you can hear with your eyes. **Lead: WEIGHT / POWER** (a heavy alarm-bell drake, the last
+tocsin). Anti-clinical guard: the patina + polished-band value work keeps the bronze from reading as a
+muddy prop; the rod fringe + coin scallop keep it from reading as a decorative wind-chime.
+
 ## SETTLED (do not re-litigate)
 - **≤2 concurrent rings** — a dial cap, not a hope; Surge chains cadence, never count.
 - **Dark ANTIQUE bronze + diffuse verdigris** — never giallo, never bright gold, never emissive
