@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = '071729c21132';                          // STAMP:VERSION
+const VERSION = 'df7baadeabb7';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './css/style.css',
@@ -20,9 +20,11 @@ const ASSETS = [
   './js/ambient.js',
   './js/analytics.js',
   './js/angelWing.js',
+  './js/arenaSet.js',
   './js/arenaSkin.js',
   './js/ascension.js',
   './js/atmosphere.js',
+  './js/auroraSky.js',
   './js/biomeBoss.js',
   './js/biomes.js',
   './js/boss.js',
@@ -57,6 +59,7 @@ const ASSETS = [
   './js/daily.js',
   './js/dragon.js',
   './js/dragonCelestialHead.js',
+  './js/dragonCollapse.js',
   './js/dragonCometWake.js',
   './js/dragonCrystalSerpent.js',
   './js/dragonDraconicHead.js',
@@ -85,6 +88,7 @@ const ASSETS = [
   './js/dragonTail.js',
   './js/dragonTorso.js',
   './js/dragonUnifiedHull.js',
+  './js/dragonVesper.js',
   './js/dragonWingFlap.js',
   './js/dragonWings.js',
   './js/dragons.js',
@@ -109,6 +113,7 @@ const ASSETS = [
   './js/level.js',
   './js/lockLayer.js',
   './js/main.js',
+  './js/markerSurface.js',
   './js/mechaKit.js',
   './js/milestones.js',
   './js/missions.js',
