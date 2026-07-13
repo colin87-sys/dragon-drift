@@ -54,6 +54,24 @@ flat*, so angular character in the recipe never reaches the frame; accents were 
   single sliver — an edge catching the aurora, never a glowing volume. Materials only nudged (glossier
   primary for facet glints, paler/quieter accent).
 
+**Gate-6 correction (the owner clarified — I misread "lines").** "More lines" did NOT mean more fine
+vertical rays (what Gate-5 added); it meant more of the THICK CURTAIN BANDS — the broad bright ribbons that
+sweep horizontally/diagonally across the sky, *from which* the fine rays hang. An aurora is a hierarchy:
+few thick parent ribbons, many fine child rays. Gate-5 gave more children inside the one existing band.
+Lessons: (1) **When a client says "more X," confirm which level of the hierarchy they mean** before
+tuning — a reference photo has both the broad ribbons and the fine striations, and "lines" can mean
+either. (2) The thick-band structure is a **sawtooth in height-above-border** (`fract(bt*5 - tilt - drape)`
+with a crisp-onset/soft-top profile per period) — the bottom-anchored-border thesis *fractally repeated* up
+the column, tilted by `dot(az,across)` for diagonals and draped by the fold; plus turning the thin
+secondary gaussian pillar into a BROAD diagonal band (`exp(-u²·2)` not `·6`, with a diagonal `h0` offset).
+Now the rays visibly descend from 3–4 stacked/crossing ribbons. (3) **The eruption still exploded because
+Gate-5 only gutted ONE of two wash sources** — it ray-gated the diffuse tint block but left the per-curtain
+color RAMP (violet/pink/red) at full gain across the whole ~130° arc, and the arc IS most of the sky, so
+"full-gain colors on the curtain" ≡ "full-sky wash" however well the extra tint rode the rays. Fix: cut the
+ramp gains too (violet 0.45→0.20, pink 2.4→1.1, red 0.85→0.45, flare 0.45→0.25) AND drop the envelope peak
+0.8→0.45. Rule: **when "too intense" persists after a restraint pass, audit for a SECOND source of the same
+energy you didn't cut** — the loud term is rarely alone. The single recovery dial is now the JS peak (0.45).
+
 **Leapfrog.** This is a POST-MERGE refinement on a fresh branch (PR #411 already merged). It's the last
 polish before **PR-4 THE FLIP** (`CYCLE=[0,1,2,3,4,6,5]`) puts Aurora Shallows in the live rotation —
 an owner decision. The biome now has a restrained-yet-alive aurora and rich, varied, LOW ice props +
