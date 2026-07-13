@@ -181,6 +181,11 @@ export function setAuroraActOverride(v) { actOverride = (v == null || Number.isN
 export function auroraEnabled() { return enabled; }
 export function auroraForced() { return forced; }   // ?aurora=1 preview — gate the day-biome sun/god-rays off
 export function auroraMix() { return auroraUniforms.uAuroraMix.value; }   // live curtain strength (real biome god-ray gate)
+// Live envelopes for the ground-glow pulse + the tier2 water aurora sheen (no per-frame allocs).
+export function auroraPulse() {
+  return { mix: auroraUniforms.uAuroraMix.value, breath: auroraUniforms.uAurBreath.value,
+           act: auroraUniforms.uAurAct.value, erupt: auroraUniforms.uAurErupt.value };
+}
 export function setAuroraEnabled(on) { enabled = !!on; if (!enabled) auroraUniforms.uAuroraMix.value = 0; }
 export function setAuroraForced(on) { forced = !!on; }
 export function setAuroraQuality(t) {
