@@ -325,21 +325,26 @@ const DET_VERT = `
   varying vec3 vCol; varying vec2 vUv; varying float vType; varying float vPhase;
   void main(){ vCol = aCol; vUv = uv; vType = aType; vPhase = aPhase;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+// NOTE: no `precision mediump float;` here — inherit three's injected `precision highp float;` so
+// (a) the highp(VS)/mediump(FS) varying pair can't trip strict drivers and (b) uTime stays fp32 (on
+// Apple GPUs mediump = fp16, which quantizes the scroll after long uptime). EVERY pow() base is
+// clamped ≥ 0: `pow(negative, fractional)` is UNDEFINED in GLSL — real GPUs return NaN, the bloom
+// pass smears it across the whole framebuffer → a BLACK SCREEN (software renderers swallow it, which
+// is why headless never caught it). sin()/1−abs() both interpolate epsilon-negative at primitive edges.
 const DET_FRAG = `
-  precision mediump float;
   uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing;
   varying vec3 vCol; varying vec2 vUv; varying float vType; varying float vPhase;
   void main(){
     float b = 1.0;
     if (vType > 1.5) {                                   // SHOCK RING — soft band + outward wavefront
       float t = vUv.x;
-      float band = pow(sin(t * 3.14159265), 1.4);        // black on both edges
+      float band = pow(max(0.0, sin(t * 3.14159265)), 1.4);   // black on both edges (clamp: no NaN at the band rim)
       float wave = 0.55 + 0.45 * sin(t * 6.2831853 - uTime * uRing + vPhase);
       b = band * wave;
     } else if (vType > 0.5) {                            // STREAK — tip decay × edge fade × outward scroll
       float t = vUv.x;
       float decay = pow(max(0.0, 1.0 - t), 0.85);        // dies to black at the tip
-      float edge = pow(1.0 - abs(2.0 * vUv.y - 1.0), 1.2); // soft sides, no hard rim
+      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.2); // soft sides, no hard rim (clamp: no NaN at the edge)
       float flow = 0.5 + 0.5 * sin(t * 18.8495559 - uTime * uFlow + vPhase); // energy jets core→tip, forever
       b = decay * edge * flow;
     }
