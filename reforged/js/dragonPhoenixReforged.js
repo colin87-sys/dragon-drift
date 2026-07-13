@@ -861,6 +861,7 @@ function buildSunfeatherWings(def, model, attach, _giM) {
   const M = sunhawkMats(def, model.glowLevel ?? 1, model.igniteStage);
   const hs = 3.3 * (model.wingScale ?? 1);
   const pivots = {}, wingElements = [], emberEmitters = [];
+  const staticWingRoots = [];   // the per-side rigid wing FRAMES (each `oneWing`) — the collapse merges their static feathers/panels; the blade pivots inside are marked animBoundary so the merge skips them
   let wingBladePivotsR = null, wingBladePivotsL = null;
   const memFlareMats = [];   // per-side membrane mats (locals in buildOneSunWing) → published so Surge ignites the wing panels
   for (const side of [1, -1]) {
@@ -873,6 +874,8 @@ function buildSunfeatherWings(def, model, attach, _giM) {
     pivot.add(mid); mid.add(tip);
     const oneWing = buildOneSunWing(M, model);
     mid.add(oneWing);   // canonical +X geometry
+    staticWingRoots.push(oneWing);
+    for (const bp of (oneWing.userData.bladePivots || [])) bp.userData.animBoundary = true;   // the per-blade lag pivots ANIMATE → the static-collapse must not cross into them
     if (side === -1) pivot.scale.x = -1;   // left = mirror → symmetric flap poses
     group.add(pivot);
     const s = side === 1 ? 'R' : 'L';
@@ -905,7 +908,7 @@ function buildSunfeatherWings(def, model, attach, _giM) {
   // over a dense emissive sheet is exactly what washed them to cream. Best of both: wings glow, no white.
   const spineMats = [M.gold, M.roseGold, M.orange];
   const flareMats = [...M.hotRibbon, ...memFlareMats];
-  return { group, spineMats, flareMats, wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL } };
+  return { group, spineMats, flareMats, wingMat: M.ivory, parts: { ...pivots, wingElements, emberEmitters, wingBladePivotsR, wingBladePivotsL, staticWingRoots } };
 }
 registerWings('sunfeather', buildSunfeatherWings);
 
