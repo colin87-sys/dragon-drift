@@ -116,6 +116,34 @@ check('collect flash is a capped scale-POP for the opaque shard (o.glow only in 
 check('idle: shard spins (head-on motion), sprite pulse only in fallback',
   /o\.mesh\.rotation\.z \+= dt/.test(pw));
 
+// --- Glint (owner-approved 8.5→9 lever): shared factory, uniform-gated, default OFF ---
+check('glint term present (tight specular per FLAT facet against a fixed view-space key)',
+  /pow\(clamp\(dot\(normalize\(normal\), uGlintDir\)/.test(fake.fragmentShader) && /\* uGlint/.test(fake.fragmentShader));
+check('glint defaults OFF in the factory (uGlint 0 → term exactly 0 → identity until opt-in)',
+  makeMarkerSurface({}).userData.markerUniforms.uGlint.value === 0);
+// A1: per-instance factory calls yield DISTINCT live uniform objects (never material.clone()).
+const rA = makeMarkerSurface({ midColor: 0x3dff8f, glint: 1.0 }), rB = makeMarkerSurface({ midColor: 0x3dff8f, glint: 1.0 });
+check('two factory instances → DISTINCT live uApex Color objects (the r160 clone trap avoided)',
+  rA.userData.markerUniforms.uApex !== rB.userData.markerUniforms.uApex
+  && rA.userData.markerUniforms.uApex.value.isColor && rB.userData.markerUniforms.uApex.value.isColor);
+
+// --- Jade Annulus (rings.js): gem annulus, per-instance material, wart fixed, coexist ---
+const rj = read('js/rings.js');
+check('ring A/B kill-switch present (?skyforged=0 → old torus)', /const SKYFORGED =/.test(rj));
+check('Jade Annulus is a hand-rolled sweep with glowT (outer→inner) + per-quad facetJ, flat-faceted',
+  /buildJadeAnnulus/.test(rj) && /facetHash\(p \* N \+ s\)/.test(rj) && /computeVertexNormals\(\)/.test(rj));
+check('per-INSTANCE material via a fresh factory call (A1: never material.clone())',
+  /makeMarkerSurface\(\{[\s\S]*flowRef: ringFlow/.test(rj) && !/\.clone\(\)/.test(rj));
+check('the transparent:true-from-spawn WART is fixed (transparent lives ONLY in the fallback torus)',
+  (rj.match(/transparent: true/g) || []).length === 1 && /new THREE\.MeshStandardMaterial\([\s\S]*transparent: true/.test(rj));
+check('keeps the GREEN catch identity (jade palette, not cyan)', /JADE_MID = 0x3dff8f/.test(rj));
+check('collect flash is a capped scale-POP for the opaque gem (A2; fallback keeps opacity-fade)',
+  /\(1 - k\) \* 0\.35/.test(rj) && /r\.mesh\.material\.opacity = k/.test(rj));
+check('z-ROLL is the motion + a capped precession garnish (A3: ≤0.08 rad, aperture-safe)',
+  /rotation\.z \+= dt \* 0\.9/.test(rj) && /rotation\.x = Math\.sin[\s\S]*\* 0\.08/.test(rj));
+check('fever/combo routed through the shared ringFlow hot path (A6: no per-ring emissiveIntensity double-drive)',
+  /ringFlow\.value = game\.feverActive/.test(rj));
+
 // ============================ Part B: WebGL boot ============================
 // Skip gracefully if playwright/browser isn't available (Part A already gates CI).
 let boot;
@@ -164,6 +192,20 @@ if (boot) {
   });
   check('Star Shard orbs built in WebGL (small glowT+facetJ meshes present)', shard.found);
   check('the additive glow sprite is GONE in Skyforged mode (no Sprite child on the shard)', shard.noSprite);
+  // Jade Annulus rings: a live ring carries glowT+facetJ, an OPAQUE per-instance markerSurface
+  // whose uMid is GREEN (jade, not cyan) with the glint enabled — and is NOT transparent-from-spawn.
+  const jade = await flow.page.evaluate(() => {
+    let found = false, opaque = true, glintOn = false;
+    window.__dd.scene.traverse((o) => {
+      const at = o.geometry && o.geometry.attributes, u = o.material && o.material.userData && o.material.userData.markerUniforms;
+      if (!at || !at.glowT || !at.facetJ || !u) return;
+      const m = u.uMid.value; // ring = green (g high, b low); arch/orb = cyan (b high)
+      if (m.g > 0.9 && m.b < 0.7) { found = true; if (o.material.transparent) opaque = false; if (u.uGlint.value > 0) glintOn = true; }
+    });
+    return { found, opaque, glintOn };
+  });
+  check('Jade Annulus rings built in WebGL (green glowT+facetJ gem with the glint on)', jade.found && jade.glintOn);
+  check('the ring is OPAQUE from spawn (transparent:true wart fixed)', jade.opaque);
   check('flow run stays walls-free with the Windvault (zero collider boxes)',
     await flow.page.evaluate(() => window.__dd.flowColliderBoxes() === 0));
   check('zero console errors building/flying the Windvault', flow.errors.length === 0) ||

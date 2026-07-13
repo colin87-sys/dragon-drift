@@ -58,7 +58,7 @@ export function initPowerups(s) {
     shardGeo = buildStarShard();
     // Orb palette rides the shared Skyforged defaults (deep cyan → icy tip); a touch more
     // emissive since a shard is small and must pop head-on.
-    shardMat = makeMarkerSurface({ flowRef: orbFlow, timeRef: orbTime, emissive: 2.0, side: THREE.DoubleSide });
+    shardMat = makeMarkerSurface({ flowRef: orbFlow, timeRef: orbTime, emissive: 2.0, side: THREE.DoubleSide, glint: 0.9, glintSharp: 28 });
   } else {
     geo = new THREE.SphereGeometry(0.75, 16, 12);
     glowTex = makeGlowTexture('80,170,255');
