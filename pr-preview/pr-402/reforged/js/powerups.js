@@ -32,7 +32,7 @@ export function addOrb(p) {
   glow.scale.set(4.8, 4.8, 1);
   mesh.add(glow);
   scene.add(mesh);
-  orbs.push({ mesh, glow, dist: p.dist, x: p.x, y: p.y, collected: false, flash: 0, flow: !!p.flow });
+  orbs.push({ mesh, glow, dist: p.dist, x: p.x, y: p.y, collected: false, flash: 0, flow: !!p.flow, gate: !!p.gate });
 }
 
 export function updatePowerups(dt, player, time) {
@@ -67,13 +67,16 @@ export function updatePowerups(dt, player, time) {
           game.flowChain++;
           game.flowChainBest = Math.max(game.flowChainBest, game.flowChain);
           const chainMult = 1 + CONFIG.FLOW.chainStep * Math.min(game.flowChain, CONFIG.FLOW.chainCap);
-          game.score += Math.round(CONFIG.FLOW.orbScore * chainMult * game.scoreMult);
+          game.score += Math.round(CONFIG.FLOW.orbScore * chainMult * game.scoreMult * game.mods.score);
           emit('flowChain', { chain: game.flowChain, mult: chainMult });
         }
-      } else if (o.flow && game.canyonRun === 'flow' && player.prevDist < o.dist && player.dist >= o.dist) {
-        // Dropped a ribbon orb (crossed its plane out of catch range): the chain HALVES —
+      } else if (o.flow && !o.gate && game.canyonRun === 'flow' && player.prevDist < o.dist && player.dist >= o.dist) {
+        // Dropped a RIBBON orb (crossed its plane out of catch range): the chain HALVES —
         // the world eases back, the multiplier falls. Score/momentum cost only, never health.
-        o.collected = true;   // consume it so it can't re-trigger
+        // The dead-centre GATE orb is exempt (o.gate): its ring's own miss is the hard reset,
+        // so an edge-caught ring (2.8<d≤3.9: misses the orb, catches the ring) must not both
+        // reward the catch AND halve the chain — contradictory feedback on marginal catches.
+        o.collected = true; o.flash = 0.6;   // consume it + fizzle out (don't hang frozen)
         if (game.flowChain > 0) { game.flowChain = Math.floor(game.flowChain / 2); emit('flowChainDrop', { chain: game.flowChain }); }
       }
     } else if (o.flash > 0) {
