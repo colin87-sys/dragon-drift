@@ -11,7 +11,7 @@ import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } fro
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
-import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, setAuroraActOverride } from './auroraSky.js';
+import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, auroraPulse, setAuroraActOverride } from './auroraSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
 import { getWaterSwellOn } from './water.js';
 import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
@@ -35,6 +35,11 @@ export function setWaterFoamQuality(t) { _setWaterFoamQuality(t); refreshFoamVis
 // module load (before createEnvironment builds the prop materials) guarantees it;
 // idempotent, so main.js's explicit boot call is a harmless belt-and-braces.
 installAtmosphere();
+
+// Aurora ground-glow pulse targets (module consts — no per-frame allocs). The ground light
+// answering the sky: quiet breath toward the curtain's green, a warm rose creep during eruptions.
+const _AUR_HEMI_GREEN = new THREE.Color(0x54ff86);  // = uAurGreen (sky + ground light agree)
+const _AUR_HEMI_ROSE = new THREE.Color(0xd06a8a);   // = uAurFringe (desaturated rose, NOT danger-magenta)
 
 // Sky dome, lighting, and the prop bands lining the course. Endless: prop
 // instances are recycled — anything behind the player leapfrogs ahead with
@@ -132,6 +137,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x1d4438, emissive: 0x0a3328, emissiveIntensity: 0.4 }),   // night moss
       new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
+      new THREE.MeshStandardMaterial({ ...opts, color: 0x24404e, roughness: 0.3, metalness: 0.08, emissive: 0x0d2a26, emissiveIntensity: 0.3 }), // 6 aurora night sea-ice — dark silhouette, faint teal cast
     ],
     accent: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0xc08a50, roughness: 0.5, metalness: 0.25, emissive: 0x2a1505, emissiveIntensity: 0.25 }),
@@ -140,6 +146,7 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0xff5a20, roughness: 0.4, emissive: 0xff3a08, emissiveIntensity: 0.9 }),  // magma seams
       new THREE.MeshStandardMaterial({ ...opts, color: 0x4dffd0, roughness: 0.35, emissive: 0x18d0a0, emissiveIntensity: 1.0 }), // biolume caps
       new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
+      new THREE.MeshStandardMaterial({ ...opts, color: 0x63988c, roughness: 0.22, metalness: 0.05, emissive: 0x1c5c48, emissiveIntensity: 0.5 }), // 6 aurora-caught ice edge — a LIT edge, not a lamp
     ],
   };
   for (const m of mats.primary) addPropDetail(m);
@@ -323,6 +330,34 @@ const ARCHETYPES = {
     ], 5),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 6), h: 5 + rnd() * 9, r: 1.8 + rnd() * 2, tilt: side * (0.12 + rnd() * 0.22) }),
   },
+  // AURORA SHALLOWS (§sky-owns-the-frame): Frozen's OPPOSITE. A flat tabular ICE FLOE —
+  // a wide dark pan breaking the mirror line (h 1.3–2.5 LOW, r 5–11 WIDE vs crystal's tall
+  // spire), with one accent crest + a deck-edge lip that catch the aurora and DOUBLE in the
+  // reflection. No accent near normalized y≈0.1: props sink 0.5u so that band submerges at
+  // small h — the foam collar is the waterline; the deck lip (y 0.58) is the mirror-catch line.
+  floe: {
+    step: 16, biomes: [6], matIndex: 6,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.BoxGeometry(1.10, 0.50, 0.85), { y: 0.30, ry: 0.12 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.62, 0.42, 0.55), { x: 0.16, z: -0.10, y: 0.52, ry: -0.40, rz: 0.10 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.45, 0.34, 0.42), { x: -0.28, z: 0.16, y: 0.34, ry: 0.55, rz: -0.08 }) },
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.40, 0.30, 0.20), { x: 0.04, z: -0.04, y: 0.85, ry: 0.20, rz: 0.22 }) },
+      { mat: 1, geo: xform(new THREE.BoxGeometry(1.06, 0.07, 0.16), { z: 0.34, y: 0.58, ry: 0.12 }) },
+    ], 6),
+    place: (side, rnd) => ({ x: side * (15 + rnd() * 10), h: 1.3 + rnd() * 1.2, r: 5 + rnd() * 6, tilt: side * (rnd() * 0.05 - 0.025) }),
+  },
+  // A LOW sharp ICE FANG cluster — 3 leaning cones + one thin aurora-lit sliver. Height CAPPED
+  // 2.2–4.6 world (vs crystal 18–50): the "never a tall spire" law, in numbers.
+  iceFang: {
+    step: 24, biomes: [6], matIndex: 6,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.40, 0.95, 5), { y: 0.47, rz: 0.12 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.30, 0.62, 5), { x: 0.30, z: -0.08, y: 0.30, rz: -0.34 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.22, 0.50, 4), { x: -0.26, z: 0.14, y: 0.24, rz: 0.30, ry: 0.8 }) },
+      { mat: 1, geo: xform(new THREE.ConeGeometry(0.09, 0.75, 4), { x: 0.06, z: -0.16, y: 0.42, rz: -0.06 }) },
+    ], 6),
+    place: (side, rnd) => ({ x: side * (13.5 + rnd() * 6), h: 2.2 + rnd() * 2.4, r: 2.2 + rnd() * 1.6, tilt: side * (rnd() * 0.16 - 0.05) }),
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -335,6 +370,7 @@ const FOAM_CFG = {
   obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
+  floe: { r: 0.72 }, iceFang: { r: 0.62 }, // aurora ice — the waterline weld between silhouette + reflection
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 
@@ -663,10 +699,22 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   sun.color.copy(env.lightSun);
   sun.intensity = env.lightSunI;
   hemi.color.copy(env.hemiSky);
+  // Aurora ground-glow pulse (COLOR space only — hemi.intensity is owned by the sky probe): the
+  // world faintly answers the curtain. Quiet breath 10–18% toward green; eruption creeps rose in.
+  // mix is 0 in every other biome → byte-identical there.
+  const _ap = auroraPulse();
+  if (_ap.mix > 0.001) {
+    hemi.color.lerp(_AUR_HEMI_GREEN, _ap.mix * (0.10 + 0.08 * _ap.breath));
+    hemi.color.lerp(_AUR_HEMI_ROSE, _ap.mix * _ap.erupt * 0.16);
+  }
   hemi.groundColor.copy(env.hemiGround);
   setWaterTint({
     deep: env.waterDeep,
     shallow: env.waterShallow,
+    // tier2 analytic-reflection aurora sheen (uAuroraGlow): the cheap water path has no mirror, so
+    // paint a horizonward green glow into its reflection. 0 in every other biome (byte-identical);
+    // the reflective tiers ignore it (they mirror the real curtain for free).
+    auroraGlow: _ap.mix * (0.20 + 0.25 * _ap.act + 0.35 * _ap.erupt),
     sun: env.sunGlow,
     horizon: env.skyHorizon,
     zenith: env.skyTop,

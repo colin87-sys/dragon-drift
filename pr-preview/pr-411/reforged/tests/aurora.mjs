@@ -125,6 +125,20 @@ const forcedMix = computeEnv(1000).auroraMix;
 setForcedBiome(null);
 check('forcing biome 6 lights the aurora (env.auroraMix 1.0)', Math.abs(forcedMix - 1.0) < 1e-6);
 
+// --- 6b. PR-3: the biome's own LOW ice props + mirror/ground-glow polish -------------
+check('BIOMES[6].props are the low flat ice (floe + iceFang)', JSON.stringify(BIOMES[6].props) === '["floe","iceFang"]');
+const envSrc0 = readFileSync(url('../js/environment.js'), 'utf8');
+check('floe + iceFang archetypes registered for biome 6 (matIndex 6)',
+  /floe:\s*\{[\s\S]*?biomes:\s*\[6\],\s*matIndex:\s*6/.test(envSrc0) && /iceFang:\s*\{[\s\S]*?biomes:\s*\[6\],\s*matIndex:\s*6/.test(envSrc0));
+check('iceFang is LOW (height cap 2.2–4.6, never a tall spire)', /iceFang:[\s\S]*?h:\s*2\.2\s*\+\s*rnd\(\)\s*\*\s*2\.4/.test(envSrc0));
+check('makeMats gains the 7th (aurora ice) primary + accent', /6 aurora night sea-ice/.test(envSrc0) && /6 aurora-caught ice edge/.test(envSrc0));
+check('FOAM_CFG has the floe + iceFang water collars', /floe:\s*\{\s*r:\s*0\.72\s*\}/.test(envSrc0) && /iceFang:\s*\{\s*r:\s*0\.62\s*\}/.test(envSrc0));
+check('hemi ground-glow pulse driven by auroraPulse (color-space, gated by mix)',
+  /auroraPulse\(\)/.test(envSrc0) && /hemi\.color\.lerp\(_AUR_HEMI_GREEN/.test(envSrc0));
+const waterSrc = readFileSync(url('../js/water.js'), 'utf8');
+check('tier2 water aurora sheen (uAuroraGlow in sharedUniforms + cheap branch, identity at 0)',
+  /uAuroraGlow:\s*\{\s*value:\s*0\s*\}/.test(waterSrc) && /refl\s*\+=\s*vec3\([^)]*\)[\s\S]*uAuroraGlow/.test(waterSrc));
+
 // --- 7. spliced into the sky shader (environment.js) with the right couplings ------
 const envSrc = readFileSync(url('../js/environment.js'), 'utf8');
 check('sky shader splices AURORA_HEAD + AURORA_BODY', /\$\{AURORA_HEAD\}/.test(envSrc) && /\$\{AURORA_BODY\}/.test(envSrc));

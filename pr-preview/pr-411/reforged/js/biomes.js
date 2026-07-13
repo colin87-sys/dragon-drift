@@ -179,10 +179,10 @@ export const BIOMES = [
     // is the brightest thing in the frame.
     fogFarColor: C(0x070c18),
     light: { sun: C(0xbfd4f0), sunI: 0.9, hemiSky: C(0x2f5c55), hemiGround: C(0x0a1414) },
-    water: { deep: C(0x030814), shallow: C(0x14384a), waveAmp: 0.2 },
+    water: { deep: C(0x030814), shallow: C(0x0f3c46), waveAmp: 0.2 }, // shallow half-step green so the wave-face harmonizes with the reflected aurora
     ambient: { color: C(0xd8f4ff), fall: 0.05, sway: 0.5, size: 0.26, opacity: 0.7 },
     fauna: { color: C(0xc0d8e0), scale: 0.6, flap: 0.35 },
-    props: [], // flat floe/iceFang props arrive in PR-3; for now the sky + mirror own the frame
+    props: ['floe', 'iceFang'], // LOW flat ice — the sky owns the frame (Frozen's tall-spire opposite)
     matIndex: 6, // ice (doc only; obstacles tint via biomeIndexAt → mats.body[6])
     // Contrast gate: darker fog than Astral (L≈0.10) → the default deep bullet band vanishes.
     bullets: { dark: 0xaf4f73 },

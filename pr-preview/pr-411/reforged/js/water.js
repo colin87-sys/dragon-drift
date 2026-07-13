@@ -45,6 +45,10 @@ const sharedUniforms = {
   // vanish on the reflective↔cheap/swell rebuild (rebuildWater carries sharedUniforms).
   uAbsorbOn: { value: 0 },
   uAbsorbK: { value: 0.45 },
+  // Aurora Shallows: the tier2 ANALYTIC reflection has no mirror (both horizon/zenith are near-black
+  // there), so paint a horizonward aurora-green glow into it. 0 in every other biome (byte-identical);
+  // reflective tiers ignore it. MUST live here or it vanishes on the reflective↔cheap rebuild.
+  uAuroraGlow: { value: 0 },
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -108,6 +112,7 @@ const fragmentShader = /* glsl */`
   uniform vec3 uAtmosSunDir, uAtmosSunTint;
   uniform float uAtmosInscatter;
   uniform float uAbsorbOn, uAbsorbK; // N10b depth (0 = shipped height-driven mix)
+  uniform float uAuroraGlow; // Aurora Shallows tier2 analytic-reflection sheen (0 = shipped)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -160,6 +165,9 @@ const fragmentShader = /* glsl */`
       refl = mix(horizonColor, zenithColor, pow(clamp(R.y, 0.0, 1.0), 0.55));
       float sk = hash(floor(p * 2.6) + floor(time * 3.0));
       refl += sunColor * step(0.985, sk) * 2.2 * pow(1.0 - NdotV, 2.0);
+      // Aurora sheen (tier2 has no mirror): a horizonward green glow so weak devices keep the
+      // biome's money shot. uAuroraGlow is 0 in every other biome → byte-identical.
+      refl += vec3(0.33, 1.0, 0.52) * 0.4 * pow(1.0 - clamp(R.y, 0.0, 1.0), 3.0) * uAuroraGlow;
     #endif
 
     vec3 col = mix(base, refl, clamp(fresnel * 1.35, 0.0, 1.0));
@@ -444,7 +452,7 @@ export function waterSurfaceHeight(x, z) {
 }
 
 // Biome hook (Phase 3): lerp water palette along with sky/fog.
-export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor }) {
+export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fogFarColor, auroraGlow }) {
   if (!water) return;
   const u = water.material.uniforms;
   if (deep) u.deepColor.value.copy(deep);
@@ -454,6 +462,7 @@ export function setWaterTint({ deep, shallow, sun, horizon, zenith, waveAmp, fog
   if (zenith) u.zenithColor.value.copy(zenith);
   if (waveAmp !== undefined) u.waveAmp.value = waveAmp;
   if (fogFarColor) u.fogFarColor.value.copy(fogFarColor);
+  u.uAuroraGlow.value = auroraGlow || 0; // 0 in every biome that doesn't pass it → byte-identical
   // N10b: derive the extinction×depth per biome from the (lerped) deep/shallow
   // colours — the darker the deeps read relative to the shallows, the murkier the
   // water absorbs. No new biome fields; free biome-seam smoothness.
