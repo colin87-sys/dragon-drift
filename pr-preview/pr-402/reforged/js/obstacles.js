@@ -170,7 +170,7 @@ export function initObstacles(s) {
   // flow signature cyan family (continuity with the ribbon orbs → "flow = cyan
   // light"). NOT bindAtmosphere'd: deliberate, parity with the old flow mats —
   // a signature emissive marker should not be fog-tinted (same rationale as soul-fire).
-  markerMat = makeMarkerSurface({ flowRef: markerFlow, timeRef: markerTime });
+  markerMat = makeMarkerSurface({ flowRef: markerFlow, timeRef: markerTime, glint: 0.8, glintSharp: 40 });
 }
 
 // WINDVAULT — a SINGLE tapered arch of forged glass framing the (unchanged) green

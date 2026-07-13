@@ -43,6 +43,9 @@ export function makeMarkerSurface(opts = {}) {
     emissive = 1.7,         // base emissive scale (pre-flow)
     hotLift = 0.55,         // D2: uFlow intensity contribution (tunable so hot doesn't fully white out)
     side = THREE.FrontSide, // small closed markers (the Star Shard) pass DoubleSide so winding can't hide them
+    glint = 0,              // GLINT master (0 = OFF → the term is exactly 0.0, factory identity until opt-in)
+    glintSharp = 36,        // tight specular exponent (per-role: bigger facets want higher; small facets lower)
+    glintDir = [0.35, 0.5, 0.78], // fixed VIEW-SPACE "studio key" — flat facet normals sweeping past it sparkle
   } = opts;
   const mat = new THREE.MeshStandardMaterial({
     color: 0x0a0a12,                       // near-black body so the emissive carries the read
@@ -63,6 +66,9 @@ export function makeMarkerSurface(opts = {}) {
     uRimPow: { value: rimPower },
     uEmisScale: { value: emissive },
     uHotLift: { value: hotLift },
+    uGlint: { value: glint },
+    uGlintSharp: { value: glintSharp },
+    uGlintDir: { value: new THREE.Vector3(glintDir[0], glintDir[1], glintDir[2]).normalize() },
   };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, mat.userData.markerUniforms);
@@ -74,6 +80,7 @@ export function makeMarkerSurface(opts = {}) {
         `#include <common>
          uniform vec3 uRoot; uniform vec3 uMid; uniform vec3 uApex;
          uniform float uFlow; uniform float uTime; uniform float uRimPow; uniform float uEmisScale; uniform float uHotLift;
+         uniform float uGlint; uniform float uGlintSharp; uniform vec3 uGlintDir;
          varying float vGlowT; varying float vFacetJ;`)
       // Splice at emissivemap_fragment: `normal` (flat, from normal_fragment_begin)
       // and `vViewPosition` are both already in scope, and totalEmissiveRadiance is
@@ -96,6 +103,11 @@ export function makeMarkerSurface(opts = {}) {
            float lift = (1.0 + uHotLift * uFlow + 0.9 * front) * (0.9 + 0.2 * vFacetJ);
            // D2: less white-out — smaller apex-fres term, and uApex keeps cyan (see palette).
            vec3 emis = ramp * shim * lift + uApex * fres * (0.5 + 0.7 * uFlow);
+           // Sharper specular GLINT (owner-approved 8.5→9 lever): a tight highlight per FLAT facet
+           // against a fixed view-space key. Adjacent facets differ → some catch it → the gem
+           // sparkles as it rolls / the camera approaches. uGlint=0 → exactly 0 (factory identity).
+           float glint = pow(clamp(dot(normalize(normal), uGlintDir), 0.0, 1.0), uGlintSharp);
+           emis += uApex * glint * (0.6 + 0.4 * vFacetJ) * uGlint;
            totalEmissiveRadiance = emis * uEmisScale;
          }`);
   };
