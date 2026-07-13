@@ -14,7 +14,7 @@ const {
   AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora,
   setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled,
 } = await import('../js/auroraSky.js');
-const { computeEnv, BIOMES } = await import('../js/biomes.js');
+const { computeEnv, BIOMES, setForcedBiome } = await import('../js/biomes.js');
 const { CONFIG } = await import('../js/config.js');
 
 let pass = 0, fail = 0;
@@ -116,8 +116,14 @@ applyAurora({ auroraMix: 0 }, 5, 5); // leave shipped state
 let maxMix = 0;
 const L = CONFIG.biomeLength;
 for (let dist = 0; dist <= 8 * L; dist += L / 4) maxMix = Math.max(maxMix, computeEnv(dist).auroraMix);
-check(`no shipped biome declares aurora → env.auroraMix 0 everywhere (max ${maxMix})`, maxMix === 0);
-check('no BIOMES entry carries an `aurora` field yet (channel dormant)', BIOMES.every((b) => !b.aurora));
+check(`no CYCLED biome lights the aurora → env.auroraMix 0 across the course (max ${maxMix})`, maxMix === 0);
+check('exactly BIOMES[6] declares aurora (the anchor; the other 6 stay dormant)',
+  BIOMES.slice(0, 6).every((b) => !b.aurora) && BIOMES[6] && BIOMES[6].aurora === 1.0);
+// Forcing biome 6 (?biome=6) is the ONLY way to reach it until the CYCLE flip → it lights the curtain.
+setForcedBiome(6);
+const forcedMix = computeEnv(1000).auroraMix;
+setForcedBiome(null);
+check('forcing biome 6 lights the aurora (env.auroraMix 1.0)', Math.abs(forcedMix - 1.0) < 1e-6);
 
 // --- 7. spliced into the sky shader (environment.js) with the right couplings ------
 const envSrc = readFileSync(url('../js/environment.js'), 'utf8');
@@ -132,14 +138,14 @@ check('auroraUniforms spread into the skyMat uniforms', /\.\.\.auroraUniforms/.t
 // The preview night wash: darken the dome + kill the sun + light the stars, all gated by uAurNight
 // (0 in real play → byte-identical). Never over the real biome, which supplies its own night palette.
 check('preview darkens the dome before the curtain (× uAurNight)', /col\s*=\s*mix\(\s*col\s*,\s*vec3\([^)]*\)\s*,\s*uAurNight\s*\)/.test(envSrc));
-check('preview kills the sun (× (1 - uAurNight))', /sunGlow[\s\S]{0,120}\*\s*\(1\.0\s*-\s*uAurNight\)/.test(envSrc));
+check('preview kills the sun (× (1 - uAurNight))', /sunGlow[\s\S]{0,320}\*\s*\(1\.0\s*-\s*uAurNight\)/.test(envSrc));
 check('preview lights the stars (max(starMix, uAurNight..))', /star\s*\*\s*max\(\s*starMix\s*,\s*uAurNight/.test(envSrc));
 
 // --- 8. wired into main.js (the ?aurora=1 hero read + tier switch) -----------------
 const mainSrc = readFileSync(url('../js/main.js'), 'utf8');
 check('main.js reads ?aurora=1 → setAuroraForced(true)', /getParam?|aurora['"]\)\s*===\s*['"]1['"]/.test(mainSrc) && /setAuroraForced\(true\)/.test(mainSrc));
 check('main.js drives setAuroraQuality in applyQuality', /setAuroraQuality\(tier\)/.test(mainSrc));
-check('main.js gates god-ray shafts off in the aurora preview (no white fan on the night sky)', /auroraForced\(\)\s*\?\s*0\s*:\s*_camFwd\.dot/.test(mainSrc));
+check('main.js gates god-ray shafts off for the aurora (preview OR real biome — no white fan)', /auroraForced\(\)\s*\|\|\s*auroraMix\(\)\s*>\s*0\.5[\s\S]{0,6}\?\s*0\s*:\s*_camFwd\.dot/.test(mainSrc));
 
 // --- 9. PROBE-EXCLUSION GUARD: skyProbe.js must not know about the aurora ----------
 const probeSrc = readFileSync(url('../js/skyProbe.js'), 'utf8');

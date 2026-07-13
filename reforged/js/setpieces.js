@@ -17,6 +17,7 @@ const PALETTES = [
   { stone: 0x3a2a2e, accent: 0xff5a20, glow: 0xff7a30 }, // caldera
   { stone: 0x1d4438, accent: 0x4dffd0, glow: 0x3fd8b0 }, // mire
   { stone: 0x3a3a6a, accent: 0x9fb8ff, glow: 0x8a6aff }, // astral
+  { stone: 0x24384a, accent: 0x86ffe0, glow: 0x3fe0c0 }, // aurora — dark steel, aurora-teal glow
 ];
 
 function stoneMat(biomeIdx) {

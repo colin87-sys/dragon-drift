@@ -180,6 +180,7 @@ let actOverride = null;   // ?auract=<0..1> debug: pin activity/eruption (for th
 export function setAuroraActOverride(v) { actOverride = (v == null || Number.isNaN(v)) ? null : v; }
 export function auroraEnabled() { return enabled; }
 export function auroraForced() { return forced; }   // ?aurora=1 preview — gate the day-biome sun/god-rays off
+export function auroraMix() { return auroraUniforms.uAuroraMix.value; }   // live curtain strength (real biome god-ray gate)
 export function setAuroraEnabled(on) { enabled = !!on; if (!enabled) auroraUniforms.uAuroraMix.value = 0; }
 export function setAuroraForced(on) { forced = !!on; }
 export function setAuroraQuality(t) {

@@ -21,10 +21,12 @@ const VIEW = { width: 900, height: 600 };
 const noSW = `if (navigator.serviceWorker) navigator.serviceWorker.register = () => Promise.resolve({});\n`;
 const save = noSW + `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`;
 
-// ?aurora=1 forces the curtain on in ANY biome (the Aurora Shallows biome doesn't exist yet).
-// DSF1: the forced full-sky curtain (2 fbm layers + rays over every pixel) is heavy under the
-// software renderer; 900×600 keeps each capture inside the screenshot timeout. Real phones are GPU.
-const { page, done } = await boot({ query: '?debug&canyon=flow&aurora=1&seed=8', viewport: VIEW, deviceScaleFactor: 1, initScript: save });
+// ?biome=6 pins the course to the REAL Aurora Shallows night biome (its own dark palette + the
+// aurora via env.auroraMix) — validates the biome boots (mats.body[6]/PHASE_SKINS[6]/PALETTES[6]
+// resolve) and shows the shipping look, not the ?aurora=1 forced-night preview.
+// DSF1: the full-sky curtain (2 fbm layers + rays over every pixel) is heavy under the software
+// renderer; 900×600 keeps each capture inside the screenshot timeout. Real phones are GPU.
+const { page, done } = await boot({ query: '?debug&canyon=flow&biome=6&seed=8', viewport: VIEW, deviceScaleFactor: 1, initScript: save });
 page.on('console', (m) => { if (m.type() === 'error') console.log('[page.error]', m.text()); });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 console.log('booted, clicking start…');
