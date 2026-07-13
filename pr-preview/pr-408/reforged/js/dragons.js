@@ -652,8 +652,13 @@ export const DRAGONS = {
       // (asymmetric — only the up half), the downstroke bottoms at ~5 o'clock (never 6). The
       // forearm (midAmp, ~12%) and wrist (tipAmp, ~7%) only TRAIL — same rotational direction,
       // never counter-bending — lagged 12%/18% of the beat so the wing reads alive, not detached.
-      wingParts: 3, rootAmp: 1.0, apexRoot: 0.62, midAmp: 0.18, tipAmp: 0.10, midLag: 0.7, tipLag: 1.1,
-      glidePow: 1.15, restLift: 0.05, apexMid: 0.05, apexTip: 0.05,
+      // Shoulder-led BUT spread BROAD (owner: wings read tiny/vertical like fairy wings — the beat
+      // was swinging them past vertical over the back). Gentler shoulder swing around a WIDE, more
+      // horizontal neutral so the big span reads spread, not foreshortened; still shoulder-dominant
+      // with a small trailing forearm/wrist lag. Recovery peaks ~1 o'clock (not straight up), the
+      // downstroke reaches ~4:30 — a broad, majestic beat rather than a vertical clap.
+      wingParts: 3, rootAmp: 0.72, apexRoot: 0.26, midAmp: 0.14, tipAmp: 0.09, midLag: 0.7, tipLag: 1.1,
+      glidePow: 1.15, restLift: 0.0, apexMid: 0.04, apexTip: 0.04,
       // TAIL MOTION — the vertebra whip is a 4-joint NESTED isBone chain (see dragonRevenant.js).
       tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
     },
