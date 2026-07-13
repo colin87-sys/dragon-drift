@@ -70,14 +70,14 @@ const DEBRIS_N = 30;                // 8 FLYBY (huge, whoosh past the camera) + 
 const DEBRIS_R_IN = 34, DEBRIS_R_OUT = 106;   // screen-radius spread: inner (deep, near centre) → outer (frame edge). R_IN·cos(0.6)=28 ≥ 25 by construction
 const DEBRIS_Z_FAR = -560, DEBRIS_Z_NEAR = -70;   // conveyor depth travel (local to the −playerDist anchor): deep (appears central) → near (flown forward)
 const DEBRIS_CY = 62;              // the detonation centre the field radiates from (between the boss ≈18 and the star 100)
-const DEBRIS_BODY = 0x14102a;      // near-black indigo — dark tumbling silhouettes; lit warm on the star side by lightSun
+// (P5) the rock albedo now lives in ROCK_ALBEDO (per-instance instanceColor); the old single indigo body is retired
 // FLYBY dials — huge rocks coming CLOSE and whooshing PAST the camera on the sides, provably never in
 // the flight lane. The keep-out is a CONE that WIDENS with proximity: a near rock spreads outward on
 // screen, so the world-x exclusion must grow with camera-depth. `x = side·max(26, 11.7 + 1.3·s +
 // 1.15·d)` where d = camera-relative depth; the 11.7 is the max camera-x (0.9·laneHalfWidth 13), 1.3·s
 // the tumble bounding radius, and 1.15 the (C·tan(fov/2)·aspect) slope (with margin over the k=1.0
 // constraint). z travels far→behind-camera so the recycle happens OFFSCREEN (no pop).
-const FLYBY_N = 8, FLYBY_SPEED = 0.05, FLYBY_Z_FAR = -300, FLYBY_Z_NEAR = 30, CAM_LOCAL_Z = 13.2;
+const FLYBY_N = 8, FLYBY_Z_FAR = -300, FLYBY_Z_NEAR = 30, CAM_LOCAL_Z = 13.2;   // per-rock speed now lives in each flyby's `spd` (distinct tracks), not one shared constant
 // OVERHEAD flyby (owner ask: rocks also passing from ABOVE, close, never a collision). Of the 8 flyby,
 // FLYBY_OVH_N come from overhead — they DIVE toward the camera and sweep up over the TOP of frame, on a
 // VERTICAL keep-out cone (the horizontal cone rotated 90°). Vertical FOV has NO aspect term (three.js fov
@@ -101,7 +101,8 @@ let set = null;                     // the root group (built once at boot, hidde
 let starGroup = null;               // breath pivot at (0, STAR_Y, -STAR_DIST)
 let nova = null, spiral = null, deton = null;   // the three mode meshes (one visible)
 let novaMat = null, spiralMat = null, detMat = null;
-let debris = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // the recycled radial-outward rock conveyor
+let debris = null, debrisField = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // hero (8 flyby, high-poly) + field (22 conveyor, low-poly) sculpted rocks, ONE shared material
+let debrisTris = 0, debrisLedger = { dx0: 0, dxd: 0, dspd: 0 };   // baked: total tri count + the overhead path-distinctness floors (no two rocks share a track)
 let embers = null, emberMat = null;    // the fine-particulate spark layer (shader-driven, recycled)
 const EMBER_N = 1152;                  // the roiling "substance": dense curved trails, ONE static draw (1536→1152: a curved 3-seg comet reads DENSER than a straight dash, so fewer trails hold the mass while reclaiming the ribbon's ~2.5× fill — perf, fairness-positive)
 let tierLevel = 0;                  // 0/1/2 — tier 2 GRACEFULLY degrades (cheap core+corona) instead of hiding the set (never a hard black)
@@ -115,7 +116,7 @@ const buildSwirlField = (prnd) => {
   return (d) => { let s = 0; for (const h of H) s += h.amp * Math.sin(h.k * d + h.ph); return s / H.length; };
 };
 let lastK = 0;                      // debug seam: the engage level actually applied this frame
-const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _sc = new THREE.Vector3();   // debris scratch (alloc-free)
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _sc = new THREE.Vector3(), _col = new THREE.Color();   // debris scratch (alloc-free)
 
 // ── SUPERNOVA geometry: corona rings + core disc + 4 diffraction spikes, merged into ONE
 // non-indexed additive buffer (one draw). Vertex colour carries the whole value structure:
@@ -546,67 +547,133 @@ const addMat = () => {
   return m;
 };
 
-// ── THE DEBRIS FIELD (P4): one InstancedMesh of lumpy dark rocks. Geometry jittered ONCE off the
-// PRIVATE debris stream (a distinct seed from the star's — determinism law); per-instance conveyor
-// params baked. Matrices are recomputed each visible frame (30 instances = a tiny upload). Scale 0 at
-// build so a pre-update frame shows nothing. Returns the theoretical min |x| for the layout assert.
-function buildDebris(prnd) {
-  const geo = new THREE.IcosahedronGeometry(1, 0);   // 20 faces — a low-poly rock (30×20 = 600 tris)
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    pos.setXYZ(i, pos.getX(i) * (0.65 + prnd() * 0.7), pos.getY(i) * (0.65 + prnd() * 0.7), pos.getZ(i) * (0.65 + prnd() * 0.7));   // irregular chunk
+// ── ASTEROID SCULPT (P5): a believable rock from a subdivided icosahedron — build-once, deterministic,
+// off a PRIVATE stream. The 20-face jitter blob read as flat cardboard up close; the fix is the DRAGON-
+// DESIGN frequency hierarchy: BIG shape (anisotropy + agglomerate lobes that break the OUTLINE), MEDIUM
+// (craters — the one concavity a convex blob can never have, the asteroid signature), FINE (multi-octave
+// grain). A per-vertex `aCavity` (0 rims/crowns → 1 crater floors/crevices) is baked to drive the surface
+// value structure (dark IN the cracks, molten glow embedded in them — not decals floating on flats).
+const _randUnit = (prnd) => { const z = prnd() * 2 - 1, a = prnd() * TAU, r = Math.sqrt(Math.max(0, 1 - z * z)); return { x: r * Math.cos(a), y: r * Math.sin(a), z }; };
+const _fr = (v) => v - Math.floor(v);
+const _jh = (x, y, z) => { let px = _fr(x * 0.3183099 + 0.1), py = _fr(y * 0.3183099 + 0.1), pz = _fr(z * 0.3183099 + 0.1); px *= 17; py *= 17; pz *= 17; return _fr(px * py * pz * (px + py + pz)); };
+const _jn3 = (x, y, z) => {   // JS value-noise matching the shader's n3 (build-time grain)
+  const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z); let fx = x - ix, fy = y - iy, fz = z - iz;
+  fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy); fz = fz * fz * (3 - 2 * fz);
+  const L = (a, b, t) => a + (b - a) * t;
+  return L(L(L(_jh(ix, iy, iz), _jh(ix + 1, iy, iz), fx), L(_jh(ix, iy + 1, iz), _jh(ix + 1, iy + 1, iz), fx), fy),
+           L(L(_jh(ix, iy, iz + 1), _jh(ix + 1, iy, iz + 1), fx), L(_jh(ix, iy + 1, iz + 1), _jh(ix + 1, iy + 1, iz + 1), fx), fy), fz);
+};
+function sculptRock(detail, prnd, nCraters) {
+  const geo = new THREE.IcosahedronGeometry(1, detail);
+  geo.deleteAttribute('uv');                                   // rock needs no uvs — smaller buffer
+  const pos = geo.attributes.position, N = pos.count;
+  const sy = 0.70 + prnd() * 0.20, sz = 0.82 + prnd() * 0.18;  // anisotropy (x = 1) → elongated, never a sphere
+  const lobes = []; for (let k = 0; k < 4; k++) lobes.push({ d: _randUnit(prnd), a: 0.16 + prnd() * 0.18, s: 0.38 + prnd() * 0.24 });   // agglomerate masses — break the outline
+  const craters = []; for (let k = 0; k < nCraters; k++) craters.push({ d: _randUnit(prnd), r: 0.24 + prnd() * 0.20, dep: 0.08 + prnd() * 0.08 });
+  const cav = new Float32Array(N), P = new Float32Array(N * 3); let maxLen = 1e-6;
+  for (let i = 0; i < N; i++) {
+    const nx = pos.getX(i), ny = pos.getY(i), nz = pos.getZ(i);   // ico verts sit on the unit sphere → direction = position
+    let r = 1.0, pushIn = 0;
+    for (const L of lobes) { const c = Math.max(-1, Math.min(1, nx * L.d.x + ny * L.d.y + nz * L.d.z)), ang = Math.acos(c); r += L.a * Math.exp(-(ang * ang) / (L.s * L.s)); }
+    for (const C of craters) { const c = Math.max(-1, Math.min(1, nx * C.d.x + ny * C.d.y + nz * C.d.z)), ang = Math.acos(c), t = ang / C.r;
+      const cup = Math.exp(-(t * t) * 1.4), rim = Math.exp(-((t - 1) * (t - 1)) * 6.0) * 0.35, d = -C.dep * cup + C.dep * rim;
+      r += d; if (d < 0) pushIn += -d;                          // cup (concave) + a raised rim that catches the backlight
+    }
+    const g = (_jn3(nx * 2 + 11, ny * 2 + 11, nz * 2 + 11) - 0.5) * 0.05
+            + (_jn3(nx * 4 + 23, ny * 4 + 23, nz * 4 + 23) - 0.5) * 0.025
+            + (_jn3(nx * 8 + 37, ny * 8 + 37, nz * 8 + 37) - 0.5) * 0.012;   // 3-octave grain — kills mirror-smooth patches
+    r += g; if (g < 0) pushIn += -g;
+    cav[i] = Math.max(0, Math.min(1, pushIn / 0.14));           // crevice AO: crater floors + grain pits → 1
+    const px = nx * r, py = ny * r * sy, pz = nz * r * sz;
+    P[i * 3] = px; P[i * 3 + 1] = py; P[i * 3 + 2] = pz;
+    maxLen = Math.max(maxLen, Math.sqrt(px * px + py * py + pz * pz));
   }
+  const norm = 1.16 / maxLen;                                   // normalise bounding radius → 1.16 (world radius ≤ 1.45·size with the per-instance ≤1.18 axis cap)
+  for (let i = 0; i < N; i++) pos.setXYZ(i, P[i * 3] * norm, P[i * 3 + 1] * norm, P[i * 3 + 2] * norm);
+  pos.needsUpdate = true;
+  geo.setAttribute('aCavity', new THREE.BufferAttribute(cav, 1));
   geo.computeVertexNormals();
-  // P2 PREMIUM ROCKS: dark faceted body + an incandescent FRESNEL RIM (gold, the blast backlighting the
-  // silhouette edge — the reference's dark-core/hot-edge read) + MOLTEN CRACK veins (thresholded 3D
-  // noise, gold-rose) + a cool violet rim callback, all via onBeforeCompile so instancing/fog/flat-shading
-  // plumbing stays. Per-instance `aHeat` makes hero chunks glow hotter. Still opaque → fairness-positive.
-  debrisMat = new THREE.MeshStandardMaterial({ color: DEBRIS_BODY, roughness: 1.0, metalness: 0.0, flatShading: true });
-  debrisMat.onBeforeCompile = (sh) => {
+  return geo;
+}
+
+// ── PREMIUM ROCK MATERIAL (P5): charcoal rock (per-instance albedo trio) with the value structure that
+// kills the "khaki-camo" read — crevice AO darkens IN the cracks (not black blotches ON flats), the molten
+// glow is GATED to the deep crevices (coal, not torch, embedded in real relief), and a DIRECTIONAL hot rim
+// on the blast side + cool violet on the shadow side so the form reads round. Opaque → fairness-positive.
+function makeDebrisMat() {
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, metalness: 0.0, flatShading: true });   // white base; per-instance instanceColor carries the rock albedo
+  m.onBeforeCompile = (sh) => {
     sh.uniforms.uRimCol = { value: new THREE.Color(0xffe2b0) };    // hot gold rim (the palette lightSun)
-    sh.uniforms.uCrackCol = { value: new THREE.Color(0xd98a64) };  // gold-rose molten veins (the nebula key)
-    sh.uniforms.uCoolCol = { value: new THREE.Color(0x6a5ca8) };   // S2 violet cool rim (the arc callback)
+    sh.uniforms.uCrackCol = { value: new THREE.Color(0xd98a64) };  // gold-rose molten glow in the crevices (the nebula key)
+    sh.uniforms.uCoolCol = { value: new THREE.Color(0x6a5ca8) };   // violet cool rim, shadow side (the arc callback)
+    sh.uniforms.uStarDir = { value: new THREE.Vector3(0.0, 0.35, -0.94).normalize() };   // view-space blast direction (ahead + a touch up)
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\n attribute float aHeat; varying float vHeat; varying vec3 vObjP;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n vHeat = aHeat; vObjP = position;');
+      .replace('#include <common>', '#include <common>\n attribute float aHeat; attribute float aCavity; varying float vHeat; varying float vCav; varying vec3 vObjP;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n vHeat = aHeat; vCav = aCavity; vObjP = position;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform vec3 uRimCol; uniform vec3 uCrackCol; uniform vec3 uCoolCol; varying float vHeat; varying vec3 vObjP;
+        uniform vec3 uRimCol; uniform vec3 uCrackCol; uniform vec3 uCoolCol; uniform vec3 uStarDir;
+        varying float vHeat; varying float vCav; varying vec3 vObjP;
         float h13(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
         float n3(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
           return mix(mix(mix(h13(i), h13(i + vec3(1.,0.,0.)), f.x), mix(h13(i + vec3(0.,1.,0.)), h13(i + vec3(1.,1.,0.)), f.x), f.y),
                      mix(mix(h13(i + vec3(0.,0.,1.)), h13(i + vec3(1.,0.,1.)), f.x), mix(h13(i + vec3(0.,1.,1.)), h13(i + vec3(1.,1.,1.)), f.x), f.y), f.z); }`)
+      // crevice AO + a subtle warm/cool albedo mottle — the value tiers the flat blotches lacked
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float ao = mix(1.05, 0.28, clamp(vCav, 0.0, 1.0));                          // dark IN the crevices, bright on rims/crowns
+        float mott = n3(vObjP * 1.7);                                               // large-scale stone mottle
+        diffuseColor.rgb *= ao * mix(vec3(0.92, 0.94, 1.02), vec3(1.10, 1.00, 0.86), clamp(mott, 0.0, 1.0));`)
       .replace('#include <opaque_fragment>', `
-        float rim = pow(max(0.0, 1.0 - abs(dot(normal, normalize(vViewPosition)))), 2.2);   // backlit silhouette rim (clamp: no NaN)
-        float veins = smoothstep(0.5, 0.56, n3(vObjP * 3.4)) * (0.35 + 0.65 * rim) * vHeat;  // molten cracks, hotter on the rim
-        outgoingLight += uRimCol * rim * (0.7 + 0.5 * vHeat) + uCrackCol * veins * 1.2 + uCoolCol * rim * rim * 0.25;
+        float ndotS = clamp(dot(normal, uStarDir) * 0.5 + 0.5, 0.0, 1.0);          // 1 = blast-facing, 0 = shadow side
+        float warm = smoothstep(0.12, 0.72, ndotS);
+        float rim = pow(max(0.0, 1.0 - abs(dot(normal, normalize(vViewPosition)))), 2.6);   // backlit silhouette rim (clamp: no NaN)
+        float glow = smoothstep(0.5, 0.9, clamp(vCav, 0.0, 1.0)) * max(0.0, n3(vObjP * 6.0)) * vHeat;   // molten ember ONLY in the deep crevices
+        outgoingLight += uRimCol * rim * warm * (0.7 + 0.5 * vHeat)                // hot gold rim, blast side only
+                       + uCoolCol * rim * (1.0 - warm) * 0.35                      // cool violet rim, shadow side
+                       + uCrackCol * glow * 1.1;                                   // embedded molten glow
         #include <opaque_fragment>`);
   };
-  debris = new THREE.InstancedMesh(geo, debrisMat, DEBRIS_N);
-  debris.name = 'godheadDebris';
-  debris.frustumCulled = false;
-  debris.layers.set(1);   // out of the god-ray mask + water mirror (opaque, but the RenderPass shares depth so it still occludes correctly)
+  return m;
+}
+
+const ROCK_ALBEDO = [0x2e2a26, 0x38322c, 0x453b32];   // charcoal → grey-brown → umber — dark occluders that grade to STONE (not khaki) under the gold key
+// ── THE DEBRIS FIELD (P4/P5): TWO InstancedMeshes sharing ONE material — hero (8 flyby, subdiv-3, the
+// close hero rocks) + field (22 conveyor, subdiv-1, distant + cheap). Geometry sculpted ONCE off PRIVATE
+// streams (distinct seeds so retuning placement never reshuffles the sculpt). Per-instance conveyor params
+// + non-uniform scale (silhouette variety off ONE shared shape). Matrices recomputed each visible frame
+// (30 = a tiny upload). Scale 0 at build so a pre-update frame shows nothing.
+function buildDebris(prnd) {
+  const geoHero = sculptRock(6, mulberry32(0x0d3b72a), 6);      // detail-6 (980 tris, 20·(d+1)²): facets tiny at the near pass → granular chisel + a smooth silhouette, not shards
+  const geoField = sculptRock(1, mulberry32(0x0d3b73b), 2);     // detail-1 (80 tris): distant, invisible-cheap, still beats the old 20-face blob
+  debrisTris = (geoHero.attributes.position.count / 3) * FLYBY_N + (geoField.attributes.position.count / 3) * (DEBRIS_N - FLYBY_N) | 0;
+  debrisMat = makeDebrisMat();
+  debris = new THREE.InstancedMesh(geoHero, debrisMat, FLYBY_N);
+  debris.name = 'godheadDebris';                                // hero rocks (the 8 flyby)
+  debrisField = new THREE.InstancedMesh(geoField, debrisMat, DEBRIS_N - FLYBY_N);
+  debrisField.name = 'godheadDebrisField';                      // background conveyor (22)
+  for (const dm of [debris, debrisField]) { dm.frustumCulled = false; dm.layers.set(1); }   // out of the god-ray mask + water mirror (opaque; RenderPass shares depth so occlusion is correct)
   debrisP = [];
-  const heat = new Float32Array(DEBRIS_N);
-  let minX = Infinity, flyMargin = Infinity, flyMarginY = Infinity, sideCount = 0;
+  const heatHero = new Float32Array(FLYBY_N), heatField = new Float32Array(DEBRIS_N - FLYBY_N);
+  let minX = Infinity, flyMargin = Infinity, flyMarginY = Infinity, sideCount = 0, ovhCount = 0;
+  const OVH_LANE = [-10, 0, 10], OVH_XD = [-0.10, 0.02, 0.10], OVH_SPD = [0.042, 0.055, 0.068], OVH_PH = [0.0, 0.33, 0.67], OVH_SZBASE = [5.0, 6.2, 7.4];   // per-rock DISTINCT tracks — never two in line (disjoint by construction)
+  const iscale = () => 0.88 + prnd() * 0.30;                    // per-instance axis scale 0.88..1.18 (silhouette variety; ≤1.18 keeps world radius < 1.45·size)
   for (let i = 0; i < DEBRIS_N; i++) {
-    if (i < FLYBY_N) {                                          // FLYBY: huge rocks whooshing past the camera
-      const size = 5.0 + prnd() * 3.5;                         // 5..8.5u — hero-sized, capped so BOTH cone margins stay ≥ 0 (the 1.45 radius tightened it)
-      heat[i] = 1.2 + prnd() * 0.5;
-      if (OVH_ENABLED && OVH_SET.has(i)) {                     // OVERHEAD: dive in from high, sweep up over the top of frame
-        const x0 = (prnd() - 0.5) * 18, xd = (prnd() - 0.5) * 0.04;   // ±9u lateral band (portrait-centre), ±0.02 depth-drift slope
-        debrisP.push({ flyby: true, overhead: true, size, phase: i / FLYBY_N, x0, xd,
-          ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });
+    if (i < FLYBY_N) {                                          // FLYBY: big rocks whooshing close past the camera
+      heatHero[i] = 1.2 + prnd() * 0.5;
+      const base = { flyby: true, isx: iscale(), isy: iscale(), isz: iscale(), ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU };
+      if (OVH_ENABLED && OVH_SET.has(i)) {                      // OVERHEAD: dive in from high, sweep up over the top — on a DISTINCT lane/heading/speed per rock
+        const k = ovhCount++, size = OVH_SZBASE[k] + prnd() * 1.1;
+        debrisP.push({ ...base, overhead: true, size, phase: OVH_PH[k], spd: OVH_SPD[k],
+          x0: OVH_LANE[k] + (prnd() - 0.5) * 4, xd: OVH_XD[k] + (prnd() - 0.5) * 0.04 });
         for (let ps = 0; ps <= 24; ps++) {                     // verify the VERTICAL clearance margin over the whole path
           const p = ps / 24, zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
-          const yBottom = CAM_Y_MAX + OVH_Y_BASE + OVH_Y_SLOPE * dc;             // placement bottom (the FLYBY_R·size term cancels: centre is lifted by exactly the radius)
-          const floor = Math.max(OVH_Y_ABS, CAM_Y_MAX + OVH_YC_BASE + OVH_YC_SLOPE * dc);
-          flyMarginY = Math.min(flyMarginY, yBottom - floor);
+          const yBottom = CAM_Y_MAX + OVH_Y_BASE + OVH_Y_SLOPE * dc;             // placement bottom (the FLYBY_R·size lift cancels → size-independent)
+          flyMarginY = Math.min(flyMarginY, yBottom - Math.max(OVH_Y_ABS, CAM_Y_MAX + OVH_YC_BASE + OVH_YC_SLOPE * dc));
         }
-      } else {                                                 // SIDE: whoosh past on the left/right cone (3R/2L across the 5 side flyby)
-        const side = (sideCount++ % 2 === 0) ? 1 : -1;
-        debrisP.push({ flyby: true, side, size, phase: i / FLYBY_N, flyY: (prnd() - 0.5) * 90,
-          ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });   // even phase spacing caps simultaneous near-passes
+      } else {                                                 // SIDE: whoosh past on the left/right cone (3R/2L), each its own speed
+        const side = (sideCount % 2 === 0) ? 1 : -1, size = 5.0 + prnd() * 3.5;
+        debrisP.push({ ...base, side, size, phase: i / FLYBY_N, spd: 0.046 + sideCount * 0.004, flyY: (prnd() - 0.5) * 90 });
+        sideCount++;
         for (let ps = 0; ps <= 24; ps++) {                     // verify the HORIZONTAL lane-clearance margin over the whole path
           const p = ps / 24, zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
           const x = Math.max(26, 11.7 + FLYBY_R * size + 1.15 * dc);
@@ -614,23 +681,35 @@ function buildDebris(prnd) {
         }
       }
       debris.setMatrixAt(i, _m.makeScale(0, 0, 0));
+      debris.setColorAt(i, _col.setHex(ROCK_ALBEDO[i % 3]));
       continue;
     }
+    const fi = i - FLYBY_N;                                     // field-mesh index
     const side = prnd() < 0.5 ? -1 : 1;
     const ang = (prnd() - 0.5) * 1.2;                          // ±0.6 rad from horizontal — the vertical column stays clear
     const size = 2.0 + prnd() * 2.2;
-    heat[i] = 0.6 + prnd() * 0.5;                              // the background field varies
-    const yBias = (i >= FLYBY_N && i < FLYBY_N + 4) ? -(48 + prnd() * 30) : 0; // 4 chunks below-deck, half-sunk in the haze
+    heatField[fi] = 0.6 + prnd() * 0.5;                        // the background field varies
+    const yBias = (fi < 4) ? -(48 + prnd() * 30) : 0;         // 4 chunks below-deck, half-sunk in the haze
     const speed = 0.085 + prnd() * 0.06;                       // conveyor traverse ≈ 7–11s (majestic, D6a)
     debrisP.push({ side, cos: Math.cos(ang), sin: Math.sin(ang), size, yBias, speed, phase: prnd(),
-      ts: (prnd() - 0.5) * 0.6, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });   // tumble seeds (local spin; translation stays radial — nothing orbits)
+      isx: iscale(), isy: iscale(), isz: iscale(), ts: (prnd() - 0.5) * 0.6, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU });
     minX = Math.min(minX, Math.abs(Math.cos(ang)) * DEBRIS_R_IN);
-    debris.setMatrixAt(i, _m.makeScale(0, 0, 0));              // hidden until the first drive frame
+    debrisField.setMatrixAt(fi, _m.makeScale(0, 0, 0));        // hidden until the first drive frame
+    debrisField.setColorAt(fi, _col.setHex(ROCK_ALBEDO[i % 3]));
   }
+  // the overhead path-distinctness ledger — floors asserted in unmaskedarena (no two rocks share a track)
+  const ov = debrisP.filter((d) => d.overhead); let dx0 = Infinity, dxd = Infinity, dspd = Infinity;
+  for (let a = 0; a < ov.length; a++) for (let b = a + 1; b < ov.length; b++) {
+    dx0 = Math.min(dx0, Math.abs(ov[a].x0 - ov[b].x0)); dxd = Math.min(dxd, Math.abs(ov[a].xd - ov[b].xd)); dspd = Math.min(dspd, Math.abs(ov[a].spd - ov[b].spd));
+  }
+  debrisLedger = { dx0: +dx0.toFixed(2), dxd: +dxd.toFixed(3), dspd: +dspd.toFixed(3) };
   debrisFlybyMargin = +flyMargin.toFixed(2);
   debrisFlybyMarginY = Number.isFinite(flyMarginY) ? +flyMarginY.toFixed(2) : Infinity;   // Infinity ⇒ no overhead this run (?noovh)
-  geo.setAttribute('aHeat', new THREE.InstancedBufferAttribute(heat, 1));   // per-instance molten heat (heroes hotter)
-  debris.instanceMatrix.needsUpdate = true;
+  geoHero.setAttribute('aHeat', new THREE.InstancedBufferAttribute(heatHero, 1));    // per-instance molten heat (heroes hotter)
+  geoField.setAttribute('aHeat', new THREE.InstancedBufferAttribute(heatField, 1));
+  debris.instanceMatrix.needsUpdate = true; debrisField.instanceMatrix.needsUpdate = true;
+  if (debris.instanceColor) debris.instanceColor.needsUpdate = true;
+  if (debrisField.instanceColor) debrisField.instanceColor.needsUpdate = true;
   debrisMinX = +minX.toFixed(2);
 }
 
@@ -676,8 +755,8 @@ export function createArenaSet(scene) {
   embers.visible = true;                // ships with the detonation (both modes-off A/B seams don't need it)
   starGroup.add(embers);
 
-  buildDebris(mulberry32(0x0d3b71f));   // PRIVATE stream, distinct from the star's — the level/gold RNG is never touched
-  set.add(debris);                      // under `set` (the stable room), NOT starGroup (debris must not inherit the breath)
+  buildDebris(mulberry32(0x0d3b71f));   // PRIVATE stream (placement/instance params), distinct from the sculpt streams + the star's — the level/gold RNG is never touched
+  set.add(debris); set.add(debrisField);   // under `set` (the stable room), NOT starGroup (debris must not inherit the breath)
 
   set.add(starGroup);
   scene.add(set);
@@ -730,31 +809,31 @@ export function updateArenaSet(time, playerDist, mix, fade) {
   if (debris) {
     for (let i = 0; i < DEBRIS_N; i++) {
       const d = debrisP[i];
+      let env;
       if (d.flyby) {                                            // FLYBY: come CLOSE + whoosh PAST, on the cone that clears the lane
-        const p = (time * FLYBY_SPEED + d.phase) % 1;
+        const p = (time * d.spd + d.phase) % 1;                 // per-rock speed (distinct tracks — no lockstep)
         const zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
-        const env = ss(p / 0.05) * ss((1 - p) / 0.05);         // fade at the far birth + the offscreen recycle
-        if (d.overhead) {                                       // OVERHEAD: dive from high (y≈124) → sweep up over the top (y≈43), never into the lane
+        env = ss(p / 0.05) * ss((1 - p) / 0.05);               // fade at the far birth + the offscreen recycle
+        if (d.overhead) {                                       // OVERHEAD: dive from high → sweep up over the top, never into the lane
           _v.set(d.x0 + d.xd * dc, CAM_Y_MAX + OVH_Y_BASE + FLYBY_R * d.size + OVH_Y_SLOPE * dc, zl);   // centre = bottom-floor + the bounding radius (keeps the baked marginY exact)
         } else {
           _v.set(d.side * Math.max(26, 11.7 + FLYBY_R * d.size + 1.15 * dc), DEBRIS_CY + d.flyY, zl);   // perspective grows the size as it nears
         }
-        _e.set(d.e0 + time * d.ts, d.e1 + time * d.ts * 0.7, d.e2);
-        _q.setFromEuler(_e);
-        _sc.setScalar(Math.max(1e-4, d.size * k * env));
-        debris.setMatrixAt(i, _m.compose(_v, _q, _sc));
-        continue;
+      } else {
+        const p = (time * d.speed + d.phase) % 1;
+        const r = DEBRIS_R_IN + (DEBRIS_R_OUT - DEBRIS_R_IN) * p;
+        env = ss(p / 0.06) * ss((1 - p) / 0.14);               // birth scale-in · recycle fade-out
+        _v.set(d.side * d.cos * r, DEBRIS_CY + d.sin * r + d.yBias, DEBRIS_Z_FAR + (DEBRIS_Z_NEAR - DEBRIS_Z_FAR) * p);
       }
-      const p = (time * d.speed + d.phase) % 1;
-      const r = DEBRIS_R_IN + (DEBRIS_R_OUT - DEBRIS_R_IN) * p;
-      const env = ss(p / 0.06) * ss((1 - p) / 0.14);            // birth scale-in · recycle fade-out
-      _v.set(d.side * d.cos * r, DEBRIS_CY + d.sin * r + d.yBias, DEBRIS_Z_FAR + (DEBRIS_Z_NEAR - DEBRIS_Z_FAR) * p);
       _e.set(d.e0 + time * d.ts, d.e1 + time * d.ts * 0.7, d.e2);
       _q.setFromEuler(_e);
-      _sc.setScalar(Math.max(1e-4, d.size * k * env));
-      debris.setMatrixAt(i, _m.compose(_v, _q, _sc));
+      const b = Math.max(1e-4, d.size * k * env);
+      _sc.set(b * d.isx, b * d.isy, b * d.isz);                 // per-instance non-uniform scale → silhouette variety off one shared shape
+      if (i < FLYBY_N) debris.setMatrixAt(i, _m.compose(_v, _q, _sc));
+      else debrisField.setMatrixAt(i - FLYBY_N, _m.compose(_v, _q, _sc));
     }
     debris.instanceMatrix.needsUpdate = true;
+    debrisField.instanceMatrix.needsUpdate = true;
   }
 }
 
@@ -765,7 +844,8 @@ export function setArenaSetQuality(tier) {
   if (detMat) detMat.uniforms.uOct.value = tier >= 2 ? 1 : (tier >= 1 ? 2 : 3);   // fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
   if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 256 : tier >= 1 ? 576 : EMBER_N) * 18);   // 18 verts/ember (3-seg comet ribbon); size-sorted buffer → the biggest trails survive
   if (deton) deton.geometry.setDrawRange(0, tier >= 2 ? detCoreCoronaVerts : Infinity);   // GRACEFUL DEGRADE: tier 2 keeps core+corona (a lit blast heart) instead of hiding the whole set → never a hard black
-  if (debris) debris.visible = tier < 2;   // debris off at tier 2 (opaque cost)
+  if (debris) debris.visible = tier < 2;               // hero rocks off at tier 2 (opaque cost)
+  if (debrisField) debrisField.visible = tier < 2;     // field rocks off at tier 2
 }
 
 // Debug seam (tests/unmaskedarena.mjs): the coexist proof reads this through bossArenaState().
@@ -774,9 +854,11 @@ export function setArenaSetQuality(tier) {
 export function debugArenaSet() {
   return { built: !!set, visible: !!set && set.visible, k: +lastK.toFixed(3), mode: STAR_MODE, star: !!nova,
     detUTime: detMat ? +detMat.uniforms.uTime.value.toFixed(2) : 0,   // detUTime advances ⇒ the perpetual loop is driven
-    debrisN: DEBRIS_N, debrisVis: !!set && set.visible && !!debris, debrisMinX,   // debrisMinX ≥ 25 ⇒ no background chunk enters the focal/corridor column
+    debrisN: DEBRIS_N, debrisVis: !!set && set.visible && !!debris && !!debrisField, debrisMinX,   // debrisMinX ≥ 25 ⇒ no background chunk enters the focal/corridor column
+    debrisDraws: (debris ? 1 : 0) + (debrisField ? 1 : 0), debrisTris,   // 2 InstancedMeshes (hero+field), one shared material; tris asserted ≤ budget
     debrisFlybyMargin,   // ≥ 0 ⇒ no SIDE flyby rock ever crosses the flight lane at any camera depth
     debrisFlybyMarginY,  // ≥ 0 ⇒ no OVERHEAD flyby rock ever dips into the lane/gameplay band at any camera depth
+    debrisLedger,        // overhead path-distinctness floors (min pairwise Δlane/Δdrift/Δspeed) — no two rocks share a track
     flybyOvh: OVH_ENABLED ? FLYBY_OVH_N : 0, flybySide: FLYBY_N - (OVH_ENABLED ? FLYBY_OVH_N : 0),   // the split (owner-tunable)
     emberN: EMBER_N, emberVis: !!set && set.visible && !!embers && embers.visible,
     tier: tierLevel, tierHidden: tierLevel >= 2 };   // tierHidden now means "tier-2 graceful degrade" (core+corona kept), not a full hide
