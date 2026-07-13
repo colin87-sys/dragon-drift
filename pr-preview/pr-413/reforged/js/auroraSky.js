@@ -211,6 +211,8 @@ let forced = false;   // ?aurora=1 — the PR-1 hero read, before the biome exis
 let tier = 0;
 let actOverride = null;   // ?auract=<0..1> debug: pin activity/eruption (for the quiet-vs-eruption montage)
 export function setAuroraActOverride(v) { actOverride = (v == null || Number.isNaN(v)) ? null : v; }
+let eruptOverride = null; // debug: pin uAurErupt DIRECTLY (bypasses the 0.45 peak cap) to compare eruption strengths
+export function setAuroraEruptOverride(v) { eruptOverride = (v == null || Number.isNaN(v)) ? null : v; }
 export function auroraEnabled() { return enabled; }
 export function auroraForced() { return forced; }   // ?aurora=1 preview — gate the day-biome sun/god-rays off
 export function auroraMix() { return auroraUniforms.uAuroraMix.value; }   // live curtain strength (real biome god-ray gate)
@@ -256,6 +258,7 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // accent on the bands/rays, NOT a full-sky explosion (owner said "too much" twice). The single
   // recovery dial is this 0.45. All downstream consumers (props/ground pulse) soften for free.
   auroraUniforms.uAurErupt.value = 0.45 * (e * e * (3.0 - 2.0 * e));
+  if (eruptOverride != null) auroraUniforms.uAurErupt.value = eruptOverride;  // debug: pin the eruption strength
   // COMPOSITION — the arc holds CENTRE-STAGE. Key it to travel, HEAVILY damped (λ=0.35 → recentres
   // over ~6–8s): during a fast weave/yaw the aurora stays world-anchored and counter-slides across
   // frame (reads as a thing at infinity), but it can never be lost off-frame for long.
