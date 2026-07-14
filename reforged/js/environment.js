@@ -383,10 +383,14 @@ const ARCHETYPES = {
       // unbroken high-aspect polyline, not two chips), sunk well below the rim tops so
       // from above it reads as one glowing crack framed by shaded ice, and oblique rims
       // occlude it. ~4:1 crack proportions, not a rectangle.
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.055, 0.20, 0.32), { x: 0.035, z: -0.03, y: 0.60, ry: 1.5 }) },       // crevasse rim L (TALL + proud → a deep trench frames the crack from above)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.055, 0.20, 0.32), { x: 0.150, z: -0.05, y: 0.60, ry: 1.5 }) },       // crevasse rim R (tall)
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.045, 0.06, 0.24), { x: 0.092, z: -0.05, y: 0.61, ry: 1.5 }) },       // lit crack segment 1 (narrow ~5:1, deep in the trench)
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.045, 0.06, 0.14), { x: 0.078, z: 0.09, y: 0.61, ry: 1.5 }) },        // lit crack segment 2 — SAME ry, z-overlaps seg 1 at the joint → one continuous jagged crack, not two chips
+      // On the EXPOSED tier-2 tread (clear of the tier-3 cap, which was occluding the
+      // old crack from above) and LONG — the lit floor runs the full ~0.38 polyline
+      // (~40% of the tread width) at ~5:1, so from gameplay altitude it still reads as
+      // a glowing crack, not a chip. Two proud rims frame it into a trench.
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.05, 0.16, 0.42), { x: 0.22, z: 0.02, y: 0.60, ry: 0.3 }) },          // crevasse rim L (proud → trench wall)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.05, 0.16, 0.42), { x: 0.39, z: 0.02, y: 0.60, ry: 0.3 }) },          // crevasse rim R
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.075, 0.06, 0.26), { x: 0.29, z: -0.08, y: 0.62, ry: 0.3 }) },        // lit crack segment 1 (full glowing floor)
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.075, 0.06, 0.16), { x: 0.33, z: 0.12, y: 0.62, ry: 0.3 }) },         // lit crack segment 2 — overlaps seg 1 → one continuous glowing crack spanning the tread
     ], 2),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 2.5 + rnd() * 4.5, r: 8 + rnd() * 8, tilt: side * (rnd() * 0.04 - 0.02) }),
   },
