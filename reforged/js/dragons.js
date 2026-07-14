@@ -727,15 +727,16 @@ export const DRAGONS = {
     // Apex reference dials (all nullable / default-off in dragonTempest.js). The real
     // CHARGING ladder (kink-knuckles, Y-fork, arc-tree, strikes) lands in I2/I4/I5.
     model: {
-      scale: 1.2, tailSegments: 12, neckSegments: 4, flapBias: 0.82, flapAmp: 0.8,
+      scale: 1.2, tailSegments: 12, neckSegments: 4, flapBias: 0.9, flapAmp: 0.9,
       spanScale: 1.0, glowLevel: 1.0, headScale: 1.0, tailLength: 1.0, tailStretch: 1.0,
       rays: 4, wristT: 0.24,
-      // WING MOTION — SHOULDER-LED (§D.4, kills the §C.5-flagged broken-linkage: the
-      // shoulder owns ~77% of the swept arc, each distal strictly < proximal, same
-      // rotational direction, segments trailing via the lags). glidePow 1.9 = the heavy
-      // weather-front beat held; block unique in the roster (Vesper 2.2 / Revenant 1.15).
-      wingParts: 3, rootAmp: 0.74, midAmp: 0.14, tipAmp: 0.08, midLag: 0.45, tipLag: 0.95,
-      glidePow: 1.9, restLift: 0.06, apexMid: 0.06, apexTip: 0.10,
+      // WING MOTION — SHOULDER-LED, a BIG ~150° flap (owner: it read like one plank held in a glide).
+      // Matched to Revenant's decent flap: a real down-swing (rootAmp) + apexRoot lifting the recovery
+      // up-and-back to ~12 o'clock, a LOW glidePow so it actually beats through the arc (was 1.9 = it
+      // just held the glide pose), and DEEP root→mid→tip lags so the forearm + wrist visibly TRAIL and
+      // the wing curls/uncurls through the stroke (not a rigid plank). Each distal strictly < proximal.
+      wingParts: 3, rootAmp: 0.80, apexRoot: 0.17, midAmp: 0.17, tipAmp: 0.11, midLag: 0.70, tipLag: 1.15,
+      glidePow: 1.2, restLift: 0.03, apexMid: 0.05, apexTip: 0.08,
       // TAIL MOTION — the virga storm-stem is a 4-joint NESTED isBone chain (see
       // dragonTempest.js): a LOW lateral coil + a pronounced vertical wave (the storm rolls).
       tailWhip: true, tailLagScale: 0.12, tailUndulateX: 0.30, tailRudderScale: 0.5,
