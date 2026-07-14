@@ -541,23 +541,24 @@ function buildOneStormforkWing(M, dials) {
   const boltRidge = (g, a, b, wB, wT, lift, glowMat) => stormSpike((mat, ...t) => push(g, mat, ...t), hs, a, b, wB, wT, lift, M.spine, glowMat, M.silverRim);
   const housing = (g, p, r) => stormWeld((mat, ...t) => push(g, mat, ...t), hs, p, r, M.arcCore);
 
-  // ── THE SHORT ARM — a 2-bone stub (humerus + radius), medial wrist K. The struts carry the wing.
-  // Arm rakes gently AFT (+Z), tangent-continuous into strut 0, so the leading edge is ONE clean
-  // out+up sweep — NOT a forward tilt that reverses aft at the wrist (owner: the leading-frame S-kink).
-  const K = [wristT * hs, 0.06 * hs, 0.06 * hs];
-  const ROOT = [0, 0, 0], E = [wristT * 0.5 * hs, 0.03 * hs, 0.02 * hs];
-  boltRidge(arm, ROOT, E, 0.085 * hs, 0.07 * hs, 0.06 * hs, M.arcSeam);   // humerus stub
-  boltRidge(arm, E, K, 0.07 * hs, 0.05 * hs, 0.05 * hs, M.arcSeam);       // radius → wrist
-  // (no separate wrist housing — the strut roots + fork housings already read there; a housing here
-  // just adds clutter at the wrist, Fable's polish note)
+  // ── THE SHORT ARM — a 2-bone stub, medial wrist K. The reference's leading frame BOWS FORWARD
+  // (−Z, toward travel) across the arm to a forward-most APEX at the wrist, then the dominant strut
+  // recurves AFT — a graceful swan-neck OGEE (owner: the reference has this curve; ADD it). A mid-
+  // waypoint Am splits the forward bow into shallow (~7°) bends so it reads as a smooth arc, and the
+  // single reversal vertex sits ONLY at the anatomical wrist knuckle, never mid-arm (no hard kink).
+  const K = [wristT * hs, 0.06 * hs, -0.10 * hs];        // wrist = forward-most point (leading-edge apex)
+  const ROOT = [0, 0, 0], E = [0.14 * hs, 0.025 * hs, -0.05 * hs], Am = [0.28 * hs, 0.048 * hs, -0.085 * hs];
+  boltRidge(arm, ROOT, E, 0.085 * hs, 0.075 * hs, 0.06 * hs, M.arcSeam);    // humerus
+  boltRidge(arm, E, Am, 0.075 * hs, 0.065 * hs, 0.055 * hs, M.arcSeam);     // radius (forward bow)
+  boltRidge(arm, Am, K, 0.065 * hs, 0.05 * hs, 0.05 * hs, M.arcSeam);       // → the forward wrist apex
 
   // ── THE FINGER-STRUTS — N kinked glowing storm-bolts fanning aft off K + drooping (Revenant
   // FAN/DROOP). Each strut = TWO straight bolt segments K→knuckle→tip: the hard KNUCKLE (the storm
   // kink) replaces Revenant's smooth bone-bow. Sampled along the kinked path so the membrane welds
   // to the bone (the C14 weld — the membrane cannot float off).
-  // strut 0 launches at a LOW aft angle (15°) so it continues the arm's rake with no kink at the wrist
-  // (was 25° → a hard aft hook at K). The fan still rakes aft behind the leading bolt.
-  const FAN = [[15, 1.00], [42, 0.92], [60, 0.74], [76, 0.55], [88, 0.40]];   // [azimuth° aft off K, length× of strut 0]
+  // strut 0 recurves AFT (26°) off the forward wrist apex — the OUTER half of the ogee (with the arm's
+  // forward bow it makes the reference's forward-then-back leading-edge curve). The fan rakes aft behind it.
+  const FAN = [[26, 1.00], [42, 0.92], [60, 0.74], [76, 0.55], [88, 0.40]];   // [azimuth° aft off K, length× of strut 0]
   // leading strut droops LEAST (top edge bows UP, convex, like the reference); trailing struts droop most,
   // and the SPREAD is wide so the tips sit at very different heights → the SIDE profile scallops (not a slab).
   const DROOP = [0.06, 0.14, 0.22, 0.30, 0.38];   // tip drop below the wrist line, × strut length
@@ -572,7 +573,9 @@ function buildOneStormforkWing(M, dials) {
     // the KNUCKLE at ~58%: forward-outboard bow in XZ (convex leading edge, Revenant) + a hard Y jog
     // (alternating) = the Tempest storm kink (a stepped bone, not a smooth curve).
     const cdx = tip[0] - K[0], cdz = tip[2] - K[2], clen = Math.hypot(cdx, cdz) || 1;
-    const kn = 0.58, bow = (i === 0 ? 0.0 : 0.18) * clen, pfx = cdz / clen, pfz = -cdx / clen, yj = (i % 2 ? 1 : -1) * 0.05 * L;   // NO forward bow on the leading strut (keeps the silhouette leading edge clean)
+    // strut 0's forward knuckle bow (0.13) SHAVES the wrist corner: it leaves the apex at only ~12° aft,
+    // so the wrist bend is a soft knuckle (~19°) not a snap, and the hard aft sweep happens one joint out.
+    const kn = 0.58, bow = (i === 0 ? 0.13 : 0.18) * clen, pfx = cdz / clen, pfz = -cdx / clen, yj = (i === 0 ? -0.02 : (i % 2 ? 1 : -1) * 0.05) * L;
     const Bm = [K[0] + cdx * kn + pfx * bow, K[1] + (tip[1] - K[1]) * kn + yj, K[2] + cdz * kn + pfz * bow];
     const wB = 0.055 * hs * (1 - 0.05 * i) + 0.004, wM = wB * 0.66, lift = 0.075 * hs * (1 - 0.04 * i);
     boltRidge(hand, K, Bm, wB, wM, lift, i === 0 ? M.arcCore : M.arcSeam);            // wrist → knuckle (strut 0 = brightest)
@@ -630,7 +633,7 @@ function buildOneStormforkWing(M, dials) {
   const teMid = lerp3(Tlast, B, 0.5), teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.45, teMid[1] + (K[1] - teMid[1]) * 0.45 - 0.12 * hs, teMid[2] + (K[2] - teMid[2]) * 0.45];
   const teN = 4, tePts = []; for (let k = 0; k <= teN; k++) tePts.push(bz(Tlast, teCtrl, B, k / teN));
   for (let k = 0; k < teN; k++) push(arm, M.boltTiers[1], [K, tePts[k + 1], tePts[k]]);   // the cupped inboard sheet, fanned from the wrist
-  push(arm, M.boltTiers[0], [ROOT, E, K], [ROOT, K, B]);                                    // propatagium (arm leading web) + shoulder fill
+  push(arm, M.boltTiers[0], [ROOT, E, Am], [ROOT, Am, K], [ROOT, K, B]);                     // propatagium hugs the forward arm bow + shoulder fill
   for (let k = 1; k <= teN; k++) trailing.push(tePts[k]);                                   // continue the scalloped trailing polyline (→ knife-edge) down to the body
 
   // ── COVERT ROW (richness rank) — short angular flakes lapping the UPPER surface along the arm then
