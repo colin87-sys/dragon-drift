@@ -193,7 +193,7 @@ const _envParams = (typeof window !== 'undefined' && window.location)
 const PROPS_V1 = _envParams.get('props') === 'v1';
 // Per-biome whitelist helpers: FROZEN is the A1 biome (new kit default-on, legacy
 // parked). A biome not yet migrated returns its shipped whitelist unconditionally.
-const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier v3 (no-spike, flat-topped glacier ice): bergwall/serac/terrace/icetower/glacierwall
+const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier (no-spike glacier ice): bergwall/serac/terrace/icetower/glacierwall/sungate(hero)
 const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
 
 const ARCHETYPES = {
@@ -301,7 +301,11 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.10, 0.28), { x: 0.22, z: -0.10, y: 0.90, ry: 0.6 }) },          // stepped tabular block (banding)
       { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.55, 0.10), { x: 0.05, z: 0.30, y: 0.45, rz: 0.06 }) },          // cyan crevasse seam on the face
     ], 2),
-    place: (side, rnd) => ({ x: side * (26 + rnd() * 14), h: 22 + rnd() * 16, r: 15 + rnd() * 9, tilt: side * (rnd() * 0.03 - 0.015) }),
+    // Gate-safety clamp (Move 2 pre-assess): bergwall's REAL footprint is ±0.95 (not
+    // ±0.6 — calved foot + upper stratum), and rotY is random, so the inner edge must
+    // clear the ±16 gameplay-gate veil from EITHER orientation. x = 17.5 + 0.95·r + …
+    // keeps the near edge ≥ 17.5 → props never intrude on a gate (the owner's complaint).
+    place: (side, rnd) => { const r = 15 + rnd() * 9; return { x: side * (17.5 + 0.95 * r + rnd() * 5), h: 22 + rnd() * 16, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
   },
   // THE SERAC STACK — chunky faceted block-pile (~104 tris): three tilted icosahedral
   // blocks stacked and toppling + a capstone rhomb (the Khumbu-icefall read), ~1:1
@@ -341,7 +345,7 @@ const ARCHETYPES = {
   // ice blocks with a FLAT stepped top, not a spire. Placed FAR from the lane
   // (|x| ≥ 24) so it never looms over or occludes a gameplay gate (clean lanes).
   icetower: {
-    step: 130, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.12 }, // force-parks in breath (rare landmark, congregation only)
+    step: 170, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.0 }, // rarer + capped (Move 2: the Sun Gate is the tallest paired hero at a peak, not this)
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.42, 0.52, 0.32, 6), { y: 0.16, ry: 0.3, sx: 1.1, sz: 0.9 }) },   // base block
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.42, 0.34, 6), { x: 0.04, y: 0.47, ry: 0.7 }) },            // mid block (offset — stacked serac column)
@@ -507,6 +511,28 @@ const ARCHETYPES = {
     ], 6),
     place: (side, rnd) => ({ x: side * (28 + rnd() * 18), h: 5 + rnd() * 3.5, r: 20 + rnd() * 12, tilt: 0 }),
   },
+  // THE SUN GATE — the hero focal landmark (~108 tris, Move 2). Paired flat-topped
+  // TABULAR ice pylons (icetower/bergwall block vocabulary, NO spikes) that flank the
+  // lane and frame the low sun — a doorway of light. `hero:true` phase-LOCKS it to the
+  // composition congregation PEAK (frozenComp phase 0.15) via a fixed slot jitter, and
+  // a per-peak hash makes it RARE (one gate on ~40% of peaks). `paired:true` seats the
+  // left+right posts at the SAME distance. GATE-SAFE: at |x| 24-27 with the gap-facing
+  // (+x, mirrored inward by rotY) footprint ≤ 0.58, the inner edge stays ≥ 17 — clear of
+  // the ±16 gameplay-gate veil from any chase-cam pose (occlusion divergence proof). The
+  // gap carves real god-ray shafts (occlusion mask) and doubles in the water mirror.
+  // Registered LAST so no existing band's render-rnd stream shifts.
+  sungate: {
+    step: 300, biomes: frozenNew, matIndex: 2, paired: true, hero: true,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.48, 0.58, 0.36, 6), { y: 0.18, ry: 0.3, sz: 0.9 }) },      // broad base block (gap-side extent ≤0.58)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.48, 0.36, 6), { x: -0.08, y: 0.50, ry: 0.6 }) },     // mid block, stepped AWAY from the gap
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.32, 0.40, 0.34, 6), { x: -0.14, y: 0.80, ry: 1.2 }) },     // upper block, stepped away
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.16, 0.46), { x: 0.04, y: 0.96, ry: 0.25 }) },             // FLAT cap cantilevered toward the gap — the implied LINTEL (no literal arch)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.14, 0.26), { x: -0.18, z: 0.10, y: 0.88, ry: 0.8 }) },    // stepped block (tabular banding)
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.72, 0.09), { x: 0.30, z: 0.02, y: 0.50, rz: 0.02 }) },    // cyan crevasse seam on the GAP-FACING inner face
+    ], 2),
+    place: (side, rnd) => ({ x: side * (24 + rnd() * 3), h: 36 + rnd() * 6, r: 7 + rnd() * 2, tilt: side * (-0.03 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }),
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -519,7 +545,7 @@ const FOAM_CFG = {
   obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
   // Sunset Glacier kit (v2) — the waterline weld between silhouette + reflection;
   // glacierwall floats on the fog line so it takes no collar.
-  bergwall: { r: 0.9 }, serac: { r: 0.7 }, terrace: { r: 0.9 }, icetower: { r: 0.8 }, glacierwall: false,
+  bergwall: { r: 0.9 }, serac: { r: 0.7 }, terrace: { r: 0.9 }, icetower: { r: 0.8 }, glacierwall: false, sungate: { r: 0.8 },
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
@@ -727,10 +753,13 @@ function makeBand(scene, def) {
   // writeMatrix so it recycles + parks in lockstep with the props.
   const foam = makeFoamMesh(perSide * 2);
   const band = { mesh, foam, data: [], step: def.step, def };
-  // Paired archetypes (the Sun Gate): the left and right instance of a slot must
-  // land at the SAME distance so they read as flanking gate-posts. Precompute one
-  // jitter per slot and share it across both sides (render-only rnd — no fixture).
-  const slotJit = def.paired ? Array.from({ length: perSide }, () => rnd()) : null;
+  // Paired archetypes: left+right of a slot must land at the SAME distance (shared
+  // jitter). HERO archetypes go further — a FIXED jitter that phase-locks every slot
+  // to the congregation peak: dist % period === HERO_PEAK_OFFSET (frozenComp 0.15).
+  // Stored on the band so reseedBand re-seats it identically (pairing survives restart).
+  const slotJit = def.hero ? new Array(perSide).fill((HERO_PEAK_OFFSET + 100) / def.step)
+    : def.paired ? Array.from({ length: perSide }, () => rnd()) : null;
+  band.slotJit = slotJit;
   let idx = 0;
   for (let side = -1; side <= 1; side += 2) {
     for (let i = 0; i < perSide; i++) {
@@ -798,6 +827,14 @@ function saltFromKey(key) {
   for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619) >>> 0;
   return h >>> 0;
 }
+// Hero-landmark rarity (Move 2): a PURE hash of the integer congregation-PEAK index →
+// [0,1). Side-agnostic so a paired hero keeps or parks BOTH posts together (no half-gate).
+function heroHash(n) {
+  let h = Math.imul(((n | 0) ^ 0x9e3779b9) >>> 0, 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 3266489917) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+const HERO_PEAK_OFFSET = 45;   // frozenComp phase 0.15 lands at (dist % 300) === 45 (the congregation peak)
 
 const m4 = new THREE.Matrix4();
 const quat = new THREE.Quaternion();
@@ -820,6 +857,12 @@ function writeMatrix(band, i, d) {
     const density = c.floor + (1 - c.floor) * g;            // fraction of this archetype's slots kept here
     if (compHash(band.def._salt, d.side, d.slot) >= density) active = false; // park (off-beat)
     else k = c.sMin + (c.sMax - c.sMin) * g;                // uniform SIZE scale (never the x POSITION)
+  } else if (active && bi === 2 && band.def.hero) {
+    // Hero landmark (Sun Gate): phase-locked to the congregation peak by its fixed
+    // slot jitter; a per-peak hash keeps it on only ~40% of peaks so it reads as THE
+    // hero. Renders at full size (k=1) or not at all — never the comp scale lottery.
+    const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET) / (CONFIG.biomeLength / FROZEN_COMP_PERIODS));
+    if (heroHash(peakIdx) >= 0.4) active = false;
   }
   if (active) {
     m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k, d.r * k));
@@ -857,7 +900,10 @@ function recycleBand(band, playerDist) {
     const d = band.data[i];
     if (d.dist < playerDist - 100) {
       const fresh = band.def.place(d.side, rnd);
-      Object.assign(d, fresh, { dist: d.dist + WALL_WINDOW, rotY: rnd() * Math.PI });
+      const rjit = rnd() * Math.PI; // always draw (keep the shared stream count), but…
+      // …a paired/hero prop keeps its AUTHORED rotY (mirrored gate posts, seam-inward);
+      // dist += WALL_WINDOW (= 3 periods) preserves the phase-lock/pairing for free.
+      Object.assign(d, fresh, { dist: d.dist + WALL_WINDOW, rotY: fresh.rotY ?? rjit });
       writeMatrix(band, i, d);
       changed = true;
     }
@@ -877,9 +923,13 @@ function recycleBand(band, playerDist) {
 function reseedBand(band) {
   for (let i = 0; i < band.data.length; i++) {
     const d = band.data[i];
-    Object.assign(d, band.def.place(d.side, rnd), {
-      dist: d.slot * band.step + rnd() * band.step - 100,
-      rotY: rnd() * Math.PI,
+    const fresh = band.def.place(d.side, rnd);
+    const djit = rnd();           // always draw (keep the shared stream count), but…
+    const rjit = rnd() * Math.PI; // …paired/hero bands re-seat from their stored slotJit
+    // (pairing + phase-lock survive restart) and keep their authored rotY.
+    Object.assign(d, fresh, {
+      dist: d.slot * band.step + (band.slotJit ? band.slotJit[d.slot] : djit) * band.step - 100,
+      rotY: fresh.rotY ?? rjit,
     });
     writeMatrix(band, i, d);
   }
