@@ -601,36 +601,52 @@ function sculptRock(detail, prnd, nCraters) {
 // glow is GATED to the deep crevices (coal, not torch, embedded in real relief), and a DIRECTIONAL hot rim
 // on the blast side + cool violet on the shadow side so the form reads round. Opaque → fairness-positive.
 function makeDebrisMat() {
-  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, metalness: 0.0, flatShading: true });   // white base; per-instance instanceColor carries the rock albedo
+  // fog:false — the heaven's scene fog is a LOCKED dark violet (bullet-contrast); it painted the rocks as
+  // flat cut-out stickers against the warm blast. We EXIT it and paint our own warm haze (below) so the
+  // rocks melt into the detonation gas, not the violet. (They live only in the heaven window — safe to opt out.)
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, metalness: 0.0, flatShading: true, fog: false });   // white base; per-instance instanceColor carries the rock albedo
+  const SEAT_K = (typeof location !== 'undefined' && new URLSearchParams(location.search).has('noseat')) ? 0 : 1;   // ?noseat — A/B: scene-integration (fill+haze+wrap) off, spots-kill still on
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uRimCol = { value: new THREE.Color(0xffe2b0) };    // hot gold rim (the palette lightSun)
-    sh.uniforms.uCrackCol = { value: new THREE.Color(0xd98a64) };  // gold-rose molten glow in the crevices (the nebula key)
+    sh.uniforms.uFillCol = { value: new THREE.Color(0xffd9a0) };   // warm blast FILL on the body — a step cooler than the rim so the rim stays the hottest tier
     sh.uniforms.uCoolCol = { value: new THREE.Color(0x6a5ca8) };   // violet cool rim, shadow side (the arc callback)
+    sh.uniforms.uHazeCol = { value: new THREE.Color(0x8a6046) };   // detonation-gas umber-rose — distant rocks melt INTO it (aerial perspective, the scene's own palette)
     sh.uniforms.uStarDir = { value: new THREE.Vector3(0.0, 0.35, -0.94).normalize() };   // view-space blast direction (ahead + a touch up)
+    sh.uniforms.uSeatK = { value: SEAT_K };
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\n attribute float aHeat; attribute float aCavity; varying float vHeat; varying float vCav; varying vec3 vObjP;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n vHeat = aHeat; vCav = aCavity; vObjP = position;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform vec3 uRimCol; uniform vec3 uCrackCol; uniform vec3 uCoolCol; uniform vec3 uStarDir;
+        uniform vec3 uRimCol; uniform vec3 uFillCol; uniform vec3 uCoolCol; uniform vec3 uHazeCol; uniform vec3 uStarDir; uniform float uSeatK;
         varying float vHeat; varying float vCav; varying vec3 vObjP;
         float h13(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
         float n3(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
           return mix(mix(mix(h13(i), h13(i + vec3(1.,0.,0.)), f.x), mix(h13(i + vec3(0.,1.,0.)), h13(i + vec3(1.,1.,0.)), f.x), f.y),
                      mix(mix(h13(i + vec3(0.,0.,1.)), h13(i + vec3(1.,0.,1.)), f.x), mix(h13(i + vec3(0.,1.,1.)), h13(i + vec3(1.,1.,1.)), f.x), f.y), f.z); }`)
-      // crevice AO + a subtle warm/cool albedo mottle — the value tiers the flat blotches lacked
+      // crevice AO + a subtle warm/cool albedo mottle — the value tiers the flat blotches lacked. AO floor
+      // 0.28→0.45: on a ~0.03-luminance body 0.28 was indistinguishable from black; 0.45 keeps a legible
+      // crevice tier that reads as shadowed STONE, not a hole.
       .replace('#include <color_fragment>', `#include <color_fragment>
-        float ao = mix(1.05, 0.28, clamp(vCav, 0.0, 1.0));                          // dark IN the crevices, bright on rims/crowns
+        float ao = mix(1.05, 0.45, clamp(vCav, 0.0, 1.0));                          // dark IN the crevices, bright on rims/crowns
         float mott = n3(vObjP * 1.7);                                               // large-scale stone mottle
         diffuseColor.rgb *= ao * mix(vec3(0.92, 0.94, 1.02), vec3(1.10, 1.00, 0.86), clamp(mott, 0.0, 1.0));`)
       .replace('#include <opaque_fragment>', `
         float ndotS = clamp(dot(normal, uStarDir) * 0.5 + 0.5, 0.0, 1.0);          // 1 = blast-facing, 0 = shadow side
         float warm = smoothstep(0.12, 0.72, ndotS);
-        float rim = pow(max(0.0, 1.0 - abs(dot(normal, normalize(vViewPosition)))), 2.6);   // backlit silhouette rim (clamp: no NaN)
-        float glow = smoothstep(0.5, 0.9, clamp(vCav, 0.0, 1.0)) * max(0.0, n3(vObjP * 6.0)) * vHeat;   // molten ember ONLY in the deep crevices
-        outgoingLight += uRimCol * rim * warm * (0.7 + 0.5 * vHeat)                // hot gold rim, blast side only
+        float rimBase = max(0.0, 1.0 - abs(dot(normal, normalize(vViewPosition))));   // fresnel base (clamp: no NaN)
+        float rim = pow(rimBase, 2.6);                                             // thin hot silhouette rim
+        float wrap = pow(rimBase, 1.1);                                            // broad warm shoulder — the bloomed backdrop wrapping the edge (no razor cut-out)
+        // WARM BLAST FILL: the body catches the detonation's light on the blast hemisphere (albedo-modulated
+        // → crevices auto-receive less, stone stays stone-coloured); the rim stays the hottest tier.
+        outgoingLight += diffuseColor.rgb * uFillCol * ((0.5 + 2.3 * ndotS * ndotS) * uSeatK)
+                       + uRimCol * rim * warm * (0.7 + 0.5 * vHeat)                // hot gold rim, blast side
                        + uCoolCol * rim * (1.0 - warm) * 0.35                      // cool violet rim, shadow side
-                       + uCrackCol * glow * 1.1;                                   // embedded molten glow
+                       + uRimCol * wrap * warm * (0.16 * uSeatK);                  // soft lit-edge halo
+        // ATMOSPHERIC PERSPECTIVE toward the BLAST gas (we exited the violet scene fog): distant conveyor
+        // rocks melt into the detonation's own warm value instead of punching violet-black holes in it.
+        float hz = smoothstep(110.0, 470.0, length(vViewPosition));
+        outgoingLight = mix(outgoingLight, uHazeCol, hz * 0.72 * uSeatK);
         #include <opaque_fragment>`);
   };
   return m;
