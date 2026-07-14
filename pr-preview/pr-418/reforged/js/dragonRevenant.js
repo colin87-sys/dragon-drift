@@ -755,8 +755,8 @@ function buildVertebraeWhipTail(def, model, mats, anchor) {
   tailGraveMat.userData.flareColorWeight = 1; tailGraveMat.userData.flareIntensityWeight = 5;
   tailGraveMat.userData.gravePulseBucket = 2; tailGraveMat.userData.gravePulseAmp = tGraveAmp;
   const tGraveByJoint = Array.from({ length: nChain }, () => []);
-  const tDrum = (cy, z, r, hz, tgt) => {   // a short 8-sided emissive band centred in the gap, axis along Z; ivory centra fore/aft occlude its rim → reads as a slit BETWEEN segments
-    const pt = (k, zz) => { const a = k / 8 * Math.PI * 2; return [Math.cos(a) * r, cy + Math.sin(a) * r, zz]; };
+  const tDrum = (cy, z, rx, ry, hz, tgt) => {   // a short 8-sided emissive band in the gap, axis along Z. FLATTENED in Y (ry < rx): the tail whip CURVES, so a round rim un-occludes below the ventral bone line on the convex side (Fable checkpoint: 7px underhang). A vertically-flat band stays inside the centrum's Y-envelope through the curve while keeping the wide X/Z read for the top-planform slit.
+    const pt = (k, zz) => { const a = k / 8 * Math.PI * 2; return [Math.cos(a) * rx, cy + Math.sin(a) * ry, zz]; };
     for (let k = 0; k < 8; k++) { const k1 = (k + 1) % 8; tgt.push([pt(k, z - hz), pt(k1, z - hz), pt(k1, z + hz)], [pt(k, z - hz), pt(k1, z + hz), pt(k, z + hz)]); }
   };
   const gapZ = T / nSeg;
@@ -765,8 +765,8 @@ function buildVertebraeWhipTail(def, model, mats, anchor) {
     if (t > 0.5 && i % 2 === 0) continue;             // fore half: every gap; aft half: every other → the trail thins as it dies
     const s = stem[i], j = jointOf(s.z), sc = 1.18 - 0.72 * t;
     if (sc <= 0.06) continue;
-    const centra = 0.085 * sc;                         // vertebraUnit half-HEIGHT hh (the tighter of the flange dims) — drum radius MUST stay under this or green forms the tail's outer silhouette (inverse-lantern). Held well under so no overshoot at any tier/pose.
-    tDrum(s.cy, s.z - 0.5 * gapZ, centra * 0.62, gapZ * 0.34, tGraveByJoint[j]);
+    const centra = 0.085 * sc;                         // vertebraUnit half-HEIGHT hh — the drum's Y-rim MUST stay under this or green forms the tail's ventral silhouette (inverse-lantern)
+    tDrum(s.cy, s.z - 0.5 * gapZ, centra * 0.78, centra * 0.42, gapZ * 0.32, tGraveByJoint[j]);   // rx wide for the top-planform slit read; ry flat + well under the centrum so the curved whip never underhangs green
   }
   for (let j = 0; j < nChain; j++) {
     if (!tGraveByJoint[j].length) continue;

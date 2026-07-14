@@ -25,7 +25,7 @@ battle-tested lane and contributes a fresh silhouette / motif / spectacle, never
 
 | Dragon | Lane (archetype) | Proven in (shipped games) | What we add that's new |
 |---|---|---|---|
-| **Thunderhead Tempest** | storm / lightning dragon | MH *Kushala Daora* & *Amatsu*; Genshin *Dvalin "Stormterror"*; Pokémon *Zekrom* / *Rayquaza* | stacked strata-deck wing + intermittently-live charge |
+| **Thunderhead Tempest** | storm / lightning dragon | MH *Kushala Daora* & *Amatsu*; Genshin *Dvalin "Stormterror"*; Pokémon *Zekrom* / *Rayquaza* | the STORMFORK bolt-frame wing (kinked lightning-skeleton — owner-chosen 2026-07-14, superseding the strata-deck) + intermittently-live charge |
 | **Belladonna Stiletto** | poison / venom (insectoid) dragon | Pokémon *Naganadel* (luminescent wasp-venom) & *Dragalge* | UV-orchid hue + the diegetic venom fill-meter |
 | **Aurora Sylph** | celestial / aurora / worn-light dragon | LoL *Aurelion Sol* (star-lit cosmic dragon); East-Asian ribbon-serpent (Genshin, P&D) | polar-aurora curtain as a no-membrane wing |
 | **Gravelight Revenant** | undead / skeletal / dracolich | Skyrim *Durnehviir*; GW2 *Zhaitan*; Pokémon *Dragapult*; D&D dracolich | true negative-space hollow cage + bleaching invert |
@@ -58,8 +58,9 @@ venom dragon is **UV-orchid, not chartreuse** (the mandate's default sat within 
 acid-green eyes — a bloom collision; the swap is flagged per the mandate's rules and gives the
 roster its first magenta-family dragon).
 
-Third rule: **every sheet pre-solves its overdraw story** (§6b p95 law): Tempest's decks are opaque
-(slits, not translucency); Stiletto's venom is an opaque fill mesh behind a single-layer sac wall;
+Third rule: **every sheet pre-solves its overdraw story** (§6b p95 law): Tempest's wing is opaque
+(the boltframe membrane + opaque-emissive frame; one connected knife-edge band is its only
+translucency); Stiletto's venom is an opaque fill mesh behind a single-layer sac wall;
 Sylph's curtain body is OPAQUE emissive-gradient with a hem-only translucent band (Fable round-2 —
 a dorsal sheet self-overlaps in screen depth from the chase camera, so "one translucent sheet" was
 not actually ≤2 layers in the view that matters; see Sylph §F); Revenant's void is free fill;
@@ -82,7 +83,7 @@ code truth), Fresh Five below the rule.
 | Molten Phoenix | magma orange-red-black | — | magma seams + caldera heart | — | pyre fans |
 | Aurum Toro | metallic giallo gold, gloss | bull-crown mecha | thrusters/tail-lights | — | svj blade panels |
 | Astral Wyrm | crystal + energy bands | serpentine (crystal) | energy bands | — | flat astral vanes |
-| **Thunderhead Tempest** | **charcoal slate L0.20–0.26 + near-white 255°/sat.09** | **forward-high strata wall** | **branching arc-tree, INTERMITTENT-live** | **charging** | **3 stacked opaque strata decks, slit gaps** |
+| **Thunderhead Tempest** | **charcoal slate L0.20–0.26 + near-white 255°/sat.09** | **forward-high kinked bolt-blades** | **branching arc-tree, INTERMITTENT-live — the wing skeleton IS its f2/f3 branches** | **charging** | **boltframe: kinked opaque membrane, forked lightning-skeleton** |
 | **Belladonna Stiletto** | **gloss oil-slick violet-black + UV-orchid 292°** | **pinched-waist cruciform + rear needle** | **translucent sacs that FILL (always-on)** | **brewing** | **FOUR gossamer veined blades (2 pairs)** |
 | **Aurora Sylph** | **deep polar indigo + teal 176° (+rose hem 325°, f2+)** | **serpentine PENNANT (vertical sky-swim)** | **flowing 2-stop gradient curtain** | **unfurling** | **pleated dorsal light-curtain + streamers (no membrane)** |
 | **Gravelight Revenant** | **matte chalk ivory (value ↑!) + gravefire 118°** | **latticed hollow (pierced mid-body)** | **caged INTERIOR core, seen through apertures** | **hollowing** | **bone-finger fan + shroud remnants, through-gaps** |
@@ -97,7 +98,9 @@ re-litigates):**
   hue family; GLOSS oil-slick vs matte; always-lit vessel vs withheld seam; four blades vs one
   crescent; cruciform-waist vs lateral spread.
 - *Tempest vs Vesper* — both dark-cool. Separators as sheet LAWS: body L 0.20–0.26 (2× Vesper),
-  near-white intermittent vs ion-blue Surge-only, deck stack vs crescent.
+  near-white intermittent vs ion-blue Surge-only, kinked angular-stepped bolt-frame vs smooth
+  scallop crescent (2026-07-14: the deck-stack separator was replaced by an even harder one —
+  hard angles vs pure curves).
 - *Revenant vs Pearl* — both light bodies. Separators: matte chalk sat ≤0.12 (asserted) vs satin
   pearl+gold; skeleton cage vs armored paladin; green interior fire vs white-gold surface light.
 - *Tocsin vs Pearl/Solar/Aurum* — plate/metal family. Separators: 4 rigid disc-coins LOW+level +
@@ -122,18 +125,21 @@ families:
 
 | Dragon | Rear one-word | Rear black-fill (what the outline IS) | Shape family |
 |---|---|---|---|
-| Thunderhead Tempest | **STACK** | forward-HIGH horizontal stripe-slab stack, tapering anvil, wispy virga fringe | horizontal stratification |
+| Thunderhead Tempest | **BOLT** *(2026-07-14; was STACK)* | two jagged kinked storm-blades — angular-stepped leading edges (3 bolt knuckles on a gull arch), Y-fork tip notch, wispy virga fringe | angular-stepped blade |
 | Crimson Tocsin | **COINS** | LOW-flat row of round overlapping disc-coins, rigid straight rod comb below | round-coin row |
 | Aurora Sylph | **HOOD** | thin serpent under a BROAD flared luminous crescent (hood), swept streamers | soft flared light-crescent |
 | Belladonna Stiletto | **WASP** | four distinct blade-spokes in a shallow X off a solid dart-core, central needle | four-blade X + needle |
 | Gravelight Revenant | **SKELETON** | draconic wing outline pierced by clean crescent through-holes; void reads | negative space |
 
 **Closest pair (and the separation):** **Tempest ↔ Tocsin** — both are broad wings with a bottom
-fringe, the one genuine near-collision in the set. Separated on THREE axes, written into both sheets
-(Tempest §R2.3 / Tocsin §R2.3): (1) ATTITUDE — Tempest stacks UP forward-high (+6°/deck) vs Tocsin held
-LOW and flat; (2) INNER GRAIN — horizontal STRIPE-slabs vs round CIRCLE-coins; (3) FRINGE — Tempest's
-WISPY TAPERING virga vs Tocsin's RIGID STRAIGHT equal rods. No other pair is close: Sylph (soft vertical
-hood), Stiletto (four-blade X + needle) and Revenant (holes) are each in a unique shape family.
+fringe, the one genuine near-collision in the set. *(2026-07-14 — the Stormfork supersedes the
+strata-deck and the separation got STRONGER; the old slit-stripe axis is gone.)* Separated on
+THREE axes, written into both sheets (Tempest §D.1 / Tocsin §R2.3): (1) OUTLINE GEOMETRY —
+Tempest's kinked ANGULAR-STEPPED blades (hard bolt angles + a Y-fork notch, pure outline — no
+pixel floor needed) vs Tocsin's round CIRCLE-coin row; (2) ATTITUDE — Tempest forward-high
+up-attitude vs Tocsin held LOW and flat; (3) FRINGE — Tempest's WISPY TAPERING virga vs Tocsin's
+RIGID STRAIGHT equal rods. No other pair is close: Sylph (soft vertical hood), Stiletto
+(four-blade X + needle) and Revenant (holes) are each in a unique shape family.
 
 **The one structural rescue (no concept swap):** the harsh gate ruled Aurora Sylph's v0 curtain a
 near-VETO — a purely dorsal-vertical sheet is EDGE-ON from dead astern and collapses to a line (the #1
@@ -154,7 +160,9 @@ concept change. What round 2 caught that the §R pass didn't:
   The rear anvil taper is now asserted in rear-projected SPAN decay (×0.80±0.05 per deck up). The
   Tempest↔Tocsin separation still holds, but its load-bearing axes from astern are (1) slit-striped
   stack vs scalloped coin row, (2) up-attitude vs flat — plus (3) the fringe character, which only
-  counts because Tocsin §F gives the rods a pixel floor.
+  counts because Tocsin §F gives the rods a pixel floor. *(2026-07-14: this whole bullet is now
+  HISTORY — the owner superseded the strata-deck with the STORMFORK (Tempest §D); the anvil/slit
+  machinery died with it, and the Tocsin separation re-bases on the angular-stepped outline, §2b.)*
 - **Sylph §F:** two §R claims overruled (non-binding width assert; the single-translucent-sheet claim
   fails to screen-space self-overlap from the chase camera → opaque curtain body, Jade-lobe precedent).
 - **Stiletto §F:** the anti-mosquito ratio lock got its missing chord floor (chord ∈ [0.24,0.30]×
@@ -162,10 +170,13 @@ concept change. What round 2 caught that the §R pass didn't:
 - **Tocsin §F / Revenant §F:** pixel floors on separator-carrying thin elements (rods ≥0.02× wing
   span; wing-bay holes ≥0.05 planform each) so the set-level distinctions survive the 250px read.
 
-**SET ruling (round 2):** the five rear black-fills remain mutually unmistakable — STACK · WASP ·
-HOOD · SKELETON · COINS span five shape families (stratified / spoked-X / soft crescent / negative
-space / coin row). Closest pair is still Tempest↔Tocsin and the written separators HOLD from dead
-astern *after* the §F span-decay + rod-floor fixes; before them, two of the three separators lived
+**SET ruling (round 2, rear-read words updated 2026-07-14):** the five rear black-fills remain
+mutually unmistakable — **BOLT** *(was STACK)* · WASP · HOOD · SKELETON · COINS span five shape
+families (angular-stepped blade / spoked-X / soft crescent / negative space / coin row). Closest
+pair is still Tempest↔Tocsin and the separation is now carried by outline geometry itself
+(kinked steps + fork notch vs round coins — see §2b); the original ruling's span-decay + rod-floor
+reasoning is kept below as history: the written separators HOLD from dead astern *after* the §F
+span-decay + rod-floor fixes; before them, two of the three separators lived
 on axes the rear camera can't see or resolve. Honest appeal ranking: **Revenant > Tempest > Stiletto
 > Tocsin > Sylph** — Sylph is knowingly the weakest chase-frame read and earns its slot on the
 turntable/shop frame instead (recorded in its §F).
@@ -174,14 +185,17 @@ turntable/shop frame instead (recorded in its §F).
 
 **1 · THUNDERHEAD TEMPEST — "The gathering storm" (SSR→SSSR, 2600).** A living thundercloud drake:
 billowed charcoal cloud-masses (L 0.20–0.26 — charcoal, never Vesper-black) with diffuse
-silver-lining rims, whose hero wing is the roster's only STACKED silhouette — three opaque strata
-decks per side (dominant-bottom ×0.8 decay, true slit gaps, per-deck 0.12 phase-lag churn). The
-motif is the STORM CIRCUIT: a branching near-white (`0xd9deff`, the unowned near-white emissive
-lane) arc-tree anchored at a sternum storm-heart, INTERMITTENTLY LIVE in cruise on a deterministic
-strike timer (duty 0.06→0.18 up the CHARGING ladder) — the deliberate midpoint between Solar's
-always-on and Vesper's withheld. Span 1.7→2.6×, tris 1.9/2.8/3.9/5.2k, fold ≤0.66. It beats its
-nearest neighbor (Vesper) by being spectacle-BUILDING where Vesper is spectacle-withheld: rhythm
-and threat instead of restraint.
+silver-lining rims, whose hero wing is **THE STORMFORK** (owner-chosen 2026-07-14, superseding the
+strata-deck) — the roster's only ANGULAR-STEPPED silhouette: one opaque charcoal blade per side
+whose skeleton is a frozen branching lightning bolt (3 kink-knuckles on a gull arch, a Y-forked
+dominant ray, silver rim-caps on every kinked ridge). The motif is the STORM CIRCUIT: a branching
+near-white (`0xd9deff`, the unowned near-white emissive lane) arc-tree anchored at a sternum
+storm-heart, INTERMITTENTLY LIVE in cruise on a deterministic strike timer (duty 0.06→0.18 up the
+CHARGING ladder) — the deliberate midpoint between Solar's always-on and Vesper's withheld — and
+**the wing's skeleton IS the circuit's f2/f3 branches**: each strike ignites the frame
+root-to-tip (the dragon flies on two lightning bolts). Span 1.7→2.5×, tris 1.8/2.6/3.6/4.7k, fold
+≤0.66. It beats its nearest neighbor (Vesper) by being spectacle-BUILDING where Vesper is
+spectacle-withheld: rhythm and threat instead of restraint.
 
 **2 · BELLADONNA STILETTO — "Venom, patiently brewed" (SSR→SSSR, 2400).** An insectoid wasp-wyrm in
 gloss oil-slick violet-black chitin: armored thorax, the roster's only concave silhouette break (a
@@ -250,6 +264,11 @@ beats everything on game-feel: the one dragon you can hear with your eyes.
 > increment plan I0–I5). **Tempest LANDS `js/pulseTimer.js` for the queue** (the pure seeded
 > deterministic burst-cluster strike/pulse scheduler + `?strikePin` + the dragonstudio `strike`
 > state) in its I0 — Tocsin's ring clock reuses it as planned below.
+>
+> **2026-07-14: TEMPEST HERO WING RE-CHOSEN — THE STORMFORK (Tempest §D).** The owner rejected the
+> strata-deck on aesthetics and chose the boltframe (kinked opaque membrane, forked
+> lightning-skeleton; rear read STACK → BOLT). §D supersedes the sheet's wing sections; queue,
+> costs, pulseTimer plan, and everything non-wing unchanged.
 
 **Original recommendation (superseded by the owner decision above): Tempest → Revenant → Stiletto → Tocsin → Sylph.**
 
