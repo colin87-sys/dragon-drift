@@ -730,13 +730,16 @@ export const DRAGONS = {
       scale: 1.2, tailSegments: 12, neckSegments: 4, flapBias: 0.9, flapAmp: 0.9,
       spanScale: 1.0, glowLevel: 1.0, headScale: 1.0, tailLength: 1.0, tailStretch: 1.0,
       rays: 4, wristT: 0.24,
-      // WING MOTION — SHOULDER-LED, a BIG ~150° flap (owner: it read like one plank held in a glide).
-      // Matched to Revenant's decent flap: a real down-swing (rootAmp) + apexRoot lifting the recovery
-      // up-and-back to ~12 o'clock, a LOW glidePow so it actually beats through the arc (was 1.9 = it
-      // just held the glide pose), and DEEP root→mid→tip lags so the forearm + wrist visibly TRAIL and
-      // the wing curls/uncurls through the stroke (not a rigid plank). Each distal strictly < proximal.
-      wingParts: 3, rootAmp: 0.80, apexRoot: 0.17, midAmp: 0.17, tipAmp: 0.11, midLag: 0.70, tipLag: 1.15,
-      glidePow: 1.2, restLift: 0.03, apexMid: 0.05, apexTip: 0.08,
+      // WING MOTION — SHOULDER-LED, a BIG continuous ~12→5 o'clock flap (owner: it read like one plank
+      // held in a glide). A real down-swing (rootAmp) + a strong apexRoot lifting the recovery toward
+      // TRUE vertical, a near-sinusoid glidePow so it beats CONTINUOUSLY (no held-glide-then-snap), and
+      // DEEP root→mid→tip lags (tipLag ~29% of the cycle) so the hand NEVER aligns with the forearm at
+      // either extreme — at the 12 o'clock apex the hand still droops/trails, at the 5 o'clock bottom it
+      // trails high. That deep lag is what kills the straight-blade apex (the plank read) and makes the
+      // wing curl/uncurl legibly in every frame. The hand carries ~76% of the wing (wristT 0.24) and
+      // folds at the −anchor wrist, so the trail is real in-wing motion, no membrane tear.
+      wingParts: 3, rootAmp: 0.80, apexRoot: 0.30, midAmp: 0.22, tipAmp: 0.20, midLag: 1.05, tipLag: 2.1,
+      glidePow: 1.1, restLift: 0.03, apexMid: 0.06, apexTip: 0.10,
       // TAIL MOTION — the virga storm-stem is a 4-joint NESTED isBone chain (see
       // dragonTempest.js): a LOW lateral coil + a pronounced vertical wave (the storm rolls).
       tailWhip: true, tailLagScale: 0.12, tailUndulateX: 0.30, tailRudderScale: 0.5,
