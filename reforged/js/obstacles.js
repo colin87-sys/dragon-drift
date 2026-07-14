@@ -219,6 +219,14 @@ export function initObstacles(s) {
     frostShadow: new THREE.MeshStandardMaterial({
       color: 0x0e2630, flatShading: true, roughness: 0.6, metalness: 0,
     }),
+    // Dynamic-shard material — the SAME vertex-coloured ice as frostIce but with a
+    // coral emissive that PULSES in updateObstacles: the ice ladder reads at the
+    // trough (clearly ice), coral dominates at the peak (clearly "this one moves").
+    // Keeps the reskin instead of the old full-body swap to a solid coral lump.
+    moverIce: new THREE.MeshStandardMaterial({
+      color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.3, metalness: 0.02,
+      emissive: 0xff5a47, emissiveIntensity: 0.9,
+    }),
     // Ancient fossil bone for the Dragon Spine Canyon — warm ivory, faceted, a
     // touch of emissive so the skeleton reads (and blooms) against any biome sky.
     bone: new THREE.MeshStandardMaterial({
@@ -907,15 +915,23 @@ function xf(geo, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0 } = {}) {
 // silhouette always separates), deep teal in the belly/shadow planes. This is what
 // turns "one blue band" into premium low-poly ice at zero triangle cost.
 const _FROST = [0.87, 0.93, 0.99], _MIDICE = [0.36, 0.60, 0.75], _BELLY = [0.13, 0.32, 0.40];
-function bakeIceLadder(geo) {
+// Default (axis = world +Y) is a LIGHTING story: frost on sunlit up-faces, teal in the
+// shadowed belly — correct for STATIC props (bar/pillar). For a TUMBLING body pass a
+// per-chunk weathering `axis`: the same ladder becomes a MATERIAL-HISTORY story that is
+// orientation-invariant (frost = weathered rind, mid = fresh fracture plane, teal = deep
+// seam), so a spinning shard doesn't flicker its "sunlight" at the floor. Thresholds
+// default to the shipped bar/pillar values (byte-identical when called with no opts).
+function bakeIceLadder(geo, opts = {}) {
+  const ax0 = opts.ax ?? 0, ay0 = opts.ay ?? 1, az0 = opts.az ?? 0;
+  const frostT = opts.frostT ?? 0.35, tealT = opts.tealT ?? -0.30;
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
   for (let i = 0; i < n; i += 3) {
     ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
     e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
-    const ny = nr.y;
-    const c = ny > 0.35 ? _FROST : ny < -0.30 ? _BELLY : _MIDICE;
+    const d = nr.x * ax0 + nr.y * ay0 + nr.z * az0;
+    const c = d > frostT ? _FROST : d < tealT ? _BELLY : _MIDICE;
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = c[0]; col[o + 1] = c[1]; col[o + 2] = c[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -1074,8 +1090,75 @@ export function pillarColliderCoverage() {
   return { ok: gaps.length === 0, gaps: gaps.slice(0, 12), gapCount: gaps.length };
 }
 
+// CALVED BERG CHUNK — the Frozen shard (Fable pre-assess 2026-07-14). Three jittered,
+// interpenetrating icosahedra at a strong 1 : 0.55 : 0.38 hierarchy (never equal → that's
+// a fused-dice gem) plus a couple of micro-shards in the seam, so it reads as a tumbling
+// calved iceberg fragment. Because it SPINS, the value ladder is baked per-chunk against a
+// fixed WEATHERING AXIS (material-history, not lighting) so it never flickers. Uniform
+// r-scale. Same geometry for static & dynamic variants (dynamic just swaps to the coral-
+// pulsing moverIce material) so "same hazard, it moves" stays legible.
+// [circumR, [offX,offY,offZ], [sclX,sclY,sclZ], [axisX,axisY,axisZ]] in r units.
+const BERG_CHUNKS = [
+  [0.98, [0.00, 0.00, 0.00], [1.00, 0.90, 1.07], [0.28, 0.50, 0.62]],   // dominant, centred on the collider
+  [0.60, [0.54, -0.28, 0.36], [1.06, 0.95, 1.00], [-0.7, 0.25, 0.6]],   // secondary fragment, poking clear of A
+  [0.44, [-0.56, 0.32, -0.42], [1.00, 1.06, 0.95], [0.45, -0.6, -0.55]], // ~130° from B (never 180 → mitosis)
+];
+const BERG_MICRO = [ [0.17, [0.52, 0.06, 0.52]], [0.15, [-0.22, -0.30, 0.34]] ];   // seam micro-shards
+let _bergSupport = 0;   // min face-plane distance of chunk A from centre (proven ≥ collider 0.70r)
+
+function buildFrozenShard() {
+  const rng = mulberry32(0x5e9c0de);
+  const parts = [];
+  // Coherent per-position jitter (hash unique local positions so the 5 face-copies of a
+  // shared icosahedron vertex move together — independent jitter would tear the mesh).
+  const jitter = (g, amt) => {
+    const p = g.attributes.position, jm = new Map();
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const k = `${x.toFixed(2)},${y.toFixed(2)},${z.toFixed(2)}`;
+      let j = jm.get(k); if (!j) { j = [(rng() - 0.5) * amt, (rng() - 0.5) * amt, (rng() - 0.5) * amt]; jm.set(k, j); }
+      p.setXYZ(i, x * (1 + j[0]), y * (1 + j[1]), z * (1 + j[2]));
+    }
+  };
+  let ai = 0;
+  for (const [rad, off, scl, axis] of BERG_CHUNKS) {
+    let g = new THREE.IcosahedronGeometry(rad, 0);
+    if (g.index) g = g.toNonIndexed();
+    jitter(g, 0.16);
+    if (ai === 0) {   // measure chunk A's inradius (min face-plane distance to origin) BEFORE offset
+      const p = g.attributes.position; let mind = Infinity;
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+      for (let i = 0; i < p.count; i += 3) {
+        a.fromBufferAttribute(p, i); b.fromBufferAttribute(p, i + 1); c.fromBufferAttribute(p, i + 2);
+        e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
+        mind = Math.min(mind, Math.abs(nr.dot(a)));   // |plane offset| from origin
+      }
+      _bergSupport = mind;
+    }
+    g.scale(scl[0], scl[1], scl[2]);
+    g.translate(off[0], off[1], off[2]);
+    bakeIceLadder(g, { ax: axis[0], ay: axis[1], az: axis[2], frostT: 0.44, tealT: -0.42 });
+    parts.push(g); ai++;
+  }
+  for (const [rad, off] of BERG_MICRO) {
+    let g = new THREE.TetrahedronGeometry(rad);
+    jitter(g, 0.2);
+    g.translate(off[0], off[1], off[2]);
+    bakeIceLadder(g, { ax: off[0], ay: off[1], az: off[2], frostT: 0.2, tealT: -0.5 });
+    parts.push(g);
+  }
+  const geo = mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false);
+  geo.userData.shared = true;
+  return { geo };
+}
+// Fairness: chunk A's inradius must contain the r*0.70 collider sphere (in r units).
+export function shardColliderSupport() {
+  obstacleSkin(2, 'shard');   // ensure built (sets _bergSupport)
+  return _bergSupport;
+}
+
 const SKIN_BUILDERS = {
-  2: { bar: buildFrozenBar, pillar: buildFrozenPillar },   // Frozen; shard added next
+  2: { bar: buildFrozenBar, pillar: buildFrozenPillar, shard: buildFrozenShard },   // Frozen
 };
 const _skinCache = {};
 function obstacleSkin(bi, type) {
@@ -1118,6 +1201,12 @@ function hazardMesh(type, bi, p) {
     return new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 6), mats.body[bi]);
   }
   // shard
+  const skin = obstacleSkin(bi, 'shard');
+  if (skin) {
+    const m = new THREE.Mesh(skin.geo, p.dynamic ? mats.moverIce : mats.frostIce);
+    m.scale.setScalar(p.r);
+    return m;
+  }
   return new THREE.Mesh(new THREE.OctahedronGeometry(p.r), p.dynamic ? mats.mover : mats.body[bi]);
 }
 
@@ -1652,8 +1741,9 @@ function buildRockGap(o, e) {
 }
 
 export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0) {
-  // Warning pulse on every moving shard (shared material, one write).
+  // Warning pulse on every moving shard (shared material, one write each).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
+  if (mats.moverIce) mats.moverIce.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;   // skinned berg-chunk warning
   // Slow crevasse breathe on skinned Frozen hazards (shared, one write) — a ~0.5Hz
   // "live hazard" cue that replaces the deleted bar spin.
   if (mats.frostGlow) mats.frostGlow.emissiveIntensity = 0.95 + Math.sin(time * 3.0) * 0.4;

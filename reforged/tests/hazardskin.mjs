@@ -16,7 +16,7 @@ if (!globalThis.localStorage) { const s = new Map(); globalThis.localStorage = {
 if (!globalThis.location) globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
 if (!globalThis.navigator) globalThis.navigator = { userAgent: 'node' };
 
-const { buildObstacleMesh, barColliderCoverage, pillarColliderCoverage } = await import('../js/obstacles.js');
+const { buildObstacleMesh, barColliderCoverage, pillarColliderCoverage, shardColliderSupport } = await import('../js/obstacles.js');
 
 let pass = 0, fail = 0;
 const check = (label, ok) => { if (ok) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.error(`  ✗ FAIL: ${label}`); } };
@@ -40,6 +40,13 @@ for (const r of [0.7, 0.85, 1.0, 1.1]) {
 {
   const c = pillarColliderCoverage();
   check(`pillar collider covered to 80% height (gaps: ${c.gapCount})`, c.ok);
+}
+
+// 1c. FAIRNESS — the berg chunk's dominant chunk contains the r*0.70 collider sphere
+//     (its inradius ≥ 0.70 in r units, so the visible ice is never smaller than the hitbox).
+{
+  const s = shardColliderSupport();
+  check(`shard dominant chunk contains the collider sphere (inradius ${s.toFixed(3)} ≥ 0.70)`, s >= 0.70);
 }
 
 // 2. BUDGET — each Frozen hazard skin ≤150 triangles (mobile 60fps budget).
