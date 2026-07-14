@@ -31,6 +31,7 @@ export const AURORA_HEAD = /* glsl */`
   uniform int   uAurBands;                  // thick-curtain layer count: 2 tier0/tier1 / 1 tier2 (loop bound)
   uniform float uAurRay;                    // 1 tier0/1 rays on / 0 tier2 (smooth quiet arc)
   uniform float uAurRayMix;                 // TURN-CALM: 1 settled → 0.35 during fast yaw (rays soften into the sheet, never vanish)
+  uniform float uAurGain;                   // 1 tier0/1 / ~1.35 tier2 — brighten the curtain where bloom is OFF (tier2)
   uniform vec2  uAurFwd, uAurFwd2;          // damped TRAVEL azimuth (the "stage") + the rotated secondary axis
   uniform float uAurErupt;                  // 0 quiet (green/teal + rose) → 1 full-color eruption (rare "wow")
   uniform vec3  uAurGreen, uAurGreenHot, uAurTeal, uAurRed, uAurPink, uAurViolet, uAurFringe;
@@ -198,7 +199,7 @@ export const AURORA_BODY = /* glsl */`
             // Gate-9: the THICKEST along-band knots also cross the threshold → jewel points bloom along every
             // ribbon (only bprof·bn² ≳ 0.28 lifts), so the thick lines read premium, not flat-topped.
             float knot = clamp(bprof * bn * bn * 1.6 - 0.45, 0.0, 0.8);
-            col += aCol * I * uAuroraMix * (0.55 + 0.45 * max(hot * below, knot));
+            col += aCol * I * uAuroraMix * uAurGain * (0.55 + 0.45 * max(hot * below, knot));
             // TRANSLUCENCY: stars are dimmed by local CORE brightness, not total column — optically-thin
             // gas, stars burn through the faint column + only vanish at the border/knots (the env.js splice
             // reads aurLum unchanged; only its MEANING changes here).
@@ -217,7 +218,7 @@ export const AURORA_BODY = /* glsl */`
           // monochrome-frame cause); lower gain so the doubled seam doesn't blow out; barely dims stars.
           // Gate-9: the sea-line airglow (+ its own mirror reflection) INHALES with the breath uniform —
           // sky and sea swell + dim together on an 8–20s cycle (mean unchanged: 0.85+0.30·0.5 = 1.0).
-          col += mix(uAurGreen, uAurFringe, 0.5 - 0.5 * fold0) * hg * (0.05 + 0.04 * uAurAct) * (0.85 + 0.30 * uAurBreath) * uAuroraMix;
+          col += mix(uAurGreen, uAurFringe, 0.5 - 0.5 * fold0) * hg * (0.05 + 0.04 * uAurAct) * (0.85 + 0.30 * uAurBreath) * uAurGain * uAuroraMix;
           aurLum += hg * 0.1;
           // ERUPTION COLOR TINT (rare "wow", with RESERVATION): a strong display breathes color into the
           // upper sky — but it RIDES THE RAYS (× rayCore) so it reads as colored LINES over dark starry sky,
@@ -243,6 +244,7 @@ export const auroraUniforms = {
   uAurBands:  { value: 2 },                          // thick-curtain layer count (2 tier0/tier1, 1 tier2)
   uAurRay:    { value: 1 },
   uAurRayMix: { value: 1 },                          // turn-calm envelope (1 settled → 0.35 during fast yaw)
+  uAurGain:   { value: 1 },                          // tier2 curtain brightener (bloom is off at tier2)
   uAurFwd:    { value: new THREE.Vector2(0, -1) },      // travel azimuth (forward = -Z); damped in JS
   uAurFwd2:   { value: new THREE.Vector2(0.64, -0.77) },// secondary axis ≈ 40° off forward
   uAurErupt:  { value: 0 },                          // eruption envelope (driven in JS from activity)
@@ -276,16 +278,23 @@ export function auroraPulse() {
 }
 export function setAuroraEnabled(on) { enabled = !!on; if (!enabled) auroraUniforms.uAuroraMix.value = 0; }
 export function setAuroraForced(on) { forced = !!on; }
-export function setAuroraQuality(t) {
-  const prev = tier;
-  tier = t;
+function applyTierStructure(t) {
   auroraUniforms.uAurLayers.value = t === 0 ? 2 : 1;    // tier0-RICHNESS flag (rays, fine0, noise knots, tier0 2nd-band fold)
   auroraUniforms.uAurBands.value = t >= 2 ? 1 : 2;      // tier0/tier1 keep the crossing diagonal band; tier2 = single arc
   auroraUniforms.uAurRay.value = t >= 2 ? 0 : 1;        // tier2 = a smooth quiet arc (still an authentic form)
-  // A runtime tier flip (perf governor) would restructure the curtain on-screen in one frame (bands/rays
-  // appear/vanish — a literal "lines disappear"). Dip the whole curtain through a breath instead: qualFade
-  // 0→1 over ~1.2s (the godhead tier-hysteresis lesson), so the restructure happens while faded down.
-  if (prev !== t && auroraUniforms.uAuroraMix.value > 0.0001) qualFade = 0;
+  auroraUniforms.uAurGain.value = t >= 2 ? 1.35 : 1.0;  // tier2 has NO bloom (postfx off) → brighten the raw curtain
+}
+export function setAuroraQuality(t) {
+  const prev = tier;
+  tier = t;
+  if (prev === t) { applyTierStructure(t); return; }
+  // A runtime tier flip must NOT hard-cut the curtain. The old `qualFade = 0` dropped uAuroraMix to 0 in a
+  // SINGLE frame, then recovered over ~1s — a cut, then a fade-in (the owner's "no lights, then it pops
+  // in"). Instead LATCH a fade: while the curtain is visible, breathe it DOWN (qualTarget 0), apply the
+  // structure change once it's invisible, then breathe it back UP — driven in applyAurora. Off-screen
+  // (no aurora) the structure applies immediately, no fade needed.
+  if (auroraUniforms.uAuroraMix.value > 0.0001) { pendingTier = t; qualTarget = 0; }
+  else applyTierStructure(t);
 }
 
 // Damped travel azimuth (module-local so it survives frames). Starts pointing forward (-Z).
@@ -293,7 +302,9 @@ const _fwd = new THREE.Vector3();
 let fwdX = 0, fwdZ = -1;
 let _aurPhase = 0;              // JS-accumulated crawl phase (activity-keyed rate → stately when quiet)
 let pwx = 0, pwz = -1, calm = 1;  // previous stage azimuth + turn-calm envelope (rays soften during yaw)
-let qualFade = 1;              // tier-flip cover: dips to 0 on a quality change, recovers over ~1.2s
+let qualFade = 1;              // tier-flip cover: BREATHES down→up on a quality change (never a hard cut)
+let qualTarget = 1;           // fade target: 0 while dipping for a tier restructure, else 1
+let pendingTier = 0;          // the tier whose curtain structure applies once qualFade has faded down
 let eruptEnv = 0;              // damped eruption envelope → the color SWELLS and FADES over ~3-4s, never flashes
 
 // Per-frame write from the lerped biome env. Off / no aurora in this biome → mix 0 (the uniform
@@ -302,9 +313,11 @@ let eruptEnv = 0;              // damped eruption envelope → the color SWELLS 
 export function applyAurora(env, playerDist, time, camera, dt) {
   const dtc = dt || 0.016;
   const mix = forced ? 1 : (enabled ? (env.auroraMix || 0) : 0);
-  // qualFade recovers to 1 (identity — damp(1,1)=1 → byte-identical in non-aurora biomes); it only
-  // dips below 1 for ~1.2s after a runtime tier flip, so the curtain restructures while faded down.
-  qualFade = damp(qualFade, 1, 3.5, dtc);
+  // qualFade BREATHES between 1 and qualTarget (identity when no flip — damp(1,1)=1 → byte-identical in
+  // non-aurora biomes). On a tier flip it dips to 0 (~0.4s), the deferred structure applies while it's
+  // invisible, then it breathes back up — so a tier change is a soft breath, never a one-frame cut.
+  qualFade = damp(qualFade, qualTarget, 6.0, dtc);
+  if (qualTarget < 0.5 && qualFade < 0.05) { applyTierStructure(pendingTier); qualTarget = 1; }
   flowExcite = damp(flowExcite, flowExciteTarget, 2.0, dtc);   // eased so the eruption swells/settles with the carve
   auroraUniforms.uAuroraMix.value = mix * qualFade;
   // PREVIEW ONLY: `?aurora=1` over a day biome would wash the curtain out (auroras need a dark sky).
