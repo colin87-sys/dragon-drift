@@ -593,6 +593,22 @@ function buildRevenantSkullHead(def, model, mats) {
   group.add(flatTriMesh(socketT, sockMat));
   group.add(flatTriMesh(rimT, M.bone));   // the bright carved orbit rims
 
+  // ── SOCKET VENTS (the Haunting) — a small emissive cone seated behind each orbit, WITHHELD in
+  // cruise (near-black) and BLAZING grave-green on Surge: "the sockets vent". In flareMats (Surge-
+  // flared, never rim-lit); a large flareIntensityWeight lifts the tiny withheld base to a blaze
+  // through the multiplicative flare loop, tuned so the ignite peak stays ≲2.2 (no white glare).
+  const ventMat = new THREE.MeshStandardMaterial({ color: 0x0a120c, emissive: 0x76f068, emissiveIntensity: 0.035, flatShading: true, roughness: 1, metalness: 0 });
+  ventMat.envMapIntensity = 0;
+  ventMat.userData.baseEmissive = 0x76f068; ventMat.userData.baseIntensity = 0.035;
+  ventMat.userData.flareColorWeight = 1; ventMat.userData.flareIntensityWeight = 22;
+  const ventT = [];
+  for (const side of [1, -1]) {
+    const ex = side * S(0.15), ey = S(0.04), ez = S(-0.14), r = S(0.055), ap = [ex, ey - S(0.03), ez + S(0.16)];   // apex jets aft-down, deep into the orbit
+    const ring = (k) => { const a = k / 5 * Math.PI * 2; return [ex + Math.cos(a) * r, ey + Math.sin(a) * r, ez + S(0.02)]; };
+    for (let k = 0; k < 5; k++) ventT.push([ring(k), ring((k + 1) % 5), ap]);
+  }
+  group.add(flatTriMesh(ventT, ventMat));
+
   // ── HORNS — a pair sweeping back + up + out from the occiput, ATTACHED at the base
   // (a 3-segment tapered tent so they curve). Length grows with the ladder (hornLen).
   // Back-swept horns — SHORTER + THICKER (Fable: they read as tall insect antennae). A chunky
@@ -613,7 +629,7 @@ function buildRevenantSkullHead(def, model, mats) {
   group.add(flatTriMesh(hornT, M.bone));
 
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, S(0.14), S(0.10)); group.add(motifAnchor);
-  return { group, spineMats: [], motifAnchor, headLength };
+  return { group, spineMats: [], flareMats: [ventMat], motifAnchor, headLength };
 }
 registerHead('revenantSkullHead', buildRevenantSkullHead);
 
@@ -670,6 +686,26 @@ function buildVertebraeWhipTail(def, model, mats, anchor) {
   ], M.boneLo);
   tp.position.set(-ant.x, -ant.y, -ant.z); joints[jt].add(tp);
 
-  return { group, segs: joints, accentMats: [] };
+  // ── SPECTRAL WISP TIP (the Haunting) — a single-layer translucent taper trailing aft of the
+  // spike (Dragapult's ethereal tail). CRUISE: emissive BLACK → zero glow, spectral by
+  // transparency alone (keeps the cruise-emissive inventory clean). SURGE: the flare loop lerps
+  // emissive black→surgeHi and multiplies the base → it ignites grave-green. In flareMats.
+  const wispMat = new THREE.MeshStandardMaterial({ color: 0x8fae94, emissive: 0x000000, emissiveIntensity: 0.8, transparent: true, opacity: 0.42, flatShading: true, roughness: 1, metalness: 0, depthWrite: false });
+  wispMat.envMapIntensity = 0;
+  wispMat.userData.baseEmissive = 0x000000; wispMat.userData.baseIntensity = 0.8;
+  wispMat.userData.flareColorWeight = 1; wispMat.userData.flareIntensityWeight = 4;
+  const wispLen = model.wispLen ?? 0.45;
+  if (wispLen > 0.001) {
+    const z0 = tip.z + 0.24, z1 = z0 + wispLen * 1.7, w = 0.055;
+    const a1 = [0, tip.cy, z1];
+    const wispT = [
+      [[-w, tip.cy + 0.02, z0], [w, tip.cy + 0.02, z0], a1],
+      [[w, tip.cy + 0.02, z0], [0, tip.cy - 0.05, z0], a1],
+      [[0, tip.cy - 0.05, z0], [-w, tip.cy + 0.02, z0], a1],
+    ];
+    const wm = flatTriMesh(wispT, wispMat); wm.position.set(-ant.x, -ant.y, -ant.z); wm.renderOrder = 1; joints[jt].add(wm);
+  }
+
+  return { group, segs: joints, flareMats: [wispMat], accentMats: [] };
 }
 registerTail('vertebraeWhipTail', buildVertebraeWhipTail);

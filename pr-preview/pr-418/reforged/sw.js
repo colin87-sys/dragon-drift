@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = '4e1c2c92069e';                          // STAMP:VERSION
+const VERSION = 'a9bc32498a01';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './css/style.css',
