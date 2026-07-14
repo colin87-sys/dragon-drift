@@ -1,10 +1,10 @@
-// tools/gateconcepts.mjs — throwaway concept mockups for the Phase Gate, now as
-// FULL-LANE BARRIERS (the corrected mechanic: the wall fills the whole lane and
-// forces you through one window — no fly-around). A glowing ring sits BEHIND each
-// barrier to prove the route beyond stays visible through it. 4 concepts, head-on
-// (the gameplay read) + a ¾, into one sheet so the owner can pick a direction.
+// tools/gateconcepts.mjs — SERENE / MAGICAL full-lane barrier concepts for the
+// Phase Gate (owner vibe: "serene magical"). Each fills the whole 32x24 lane so
+// there's no fly-around, keeps a mandatory window, stays see-through (a glowing
+// ring sits behind to prove it), and is built from soft light — lines + additive
+// motes (cheap). 3 concepts × head-on + ¾.
 //
-//   node tools/gateconcepts.mjs  →  reforged-captures/gate-barriers.png
+//   node tools/gateconcepts.mjs  →  reforged-captures/gate-serene.png
 import { createRequire } from 'module';
 import { execFileSync } from 'child_process';
 import { writeFileSync, mkdirSync } from 'fs';
@@ -22,21 +22,20 @@ const pw = (() => {
 mkdirSync('reforged-captures', { recursive: true });
 const srv = await serve();
 const browser = await pw.chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1300, height: 2500 }, deviceScaleFactor: 2 });
+const page = await browser.newPage({ viewport: { width: 1300, height: 2000 }, deviceScaleFactor: 2 });
 page.on('pageerror', (e) => console.error('PAGEERR', e.message));
 await page.goto(`${srv.url}/tools/gateconcepts.html`);
 await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });
 const err = await page.evaluate(() => document.getElementById('err').textContent);
 if (err) { console.error('CONCEPT ERROR:', err); await browser.close(); srv.close?.(); process.exit(1); }
 
-const CELL = 600;
+const CELL = 620;
 const CONCEPTS = [
-  ['fang', 'FANG PORTCULLIS · faceted fangs'],
-  ['rain', 'PARTED RAIN · strand curtain'],
-  ['shatter', 'HELD SHATTER · frozen explosion'],
-  ['maelstrom', 'MAELSTROM IRIS · spiral streaks'],
+  ['curtain', 'LIGHT CURTAIN · parted veil of light'],
+  ['swirl', 'AURORA SWIRL · slow spiral to a calm eye'],
+  ['wisp', 'WISP VEIL · a field of spirits, an open eye'],
 ];
-await page.evaluate((c) => window.gcSheetInit(c[0], c[1], c[2]), [2, 4, CELL]);
+await page.evaluate((c) => window.gcSheetInit(c[0], c[1], c[2]), [2, 3, CELL]);
 let q = 0;
 for (const [kind, label] of CONCEPTS) {
   await page.evaluate((o) => window.gcRender(o), { kind, angle: 'headon', rebuild: true });
@@ -44,8 +43,8 @@ for (const [kind, label] of CONCEPTS) {
   await page.evaluate((o) => window.gcRender(o), { kind, angle: 'q34', rebuild: false });
   await page.evaluate((a) => window.gcTile(a[0], a[1]), [q++, 'same · ¾ (see route beyond)']);
 }
-writeFileSync('reforged-captures/gate-barriers.png', await page.screenshot({ clip: { x: 0, y: 0, width: 2 * CELL, height: 4 * CELL } }));
-console.log('wrote reforged-captures/gate-barriers.png');
+writeFileSync('reforged-captures/gate-serene.png', await page.screenshot({ clip: { x: 0, y: 0, width: 2 * CELL, height: 3 * CELL } }));
+console.log('wrote reforged-captures/gate-serene.png');
 await browser.close();
 srv.close?.();
 process.exit(0);

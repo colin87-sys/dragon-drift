@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Gate Barrier Concepts</title>
+  <title>Serene Gate Concepts</title>
   <style>
     html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
     #gl{position:fixed;left:0;top:0}
@@ -22,166 +22,125 @@
   <div id="err"></div>
   <script type="module">
     import * as THREE from 'three';
-
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.25;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 6000);
-    scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x40342a, 1.4));
-    const sun = new THREE.DirectionalLight(0xffc888, 2.4); sun.position.set(-3, 1.4, 4); scene.add(sun);
-    const rim = new THREE.DirectionalLight(0xffe0b0, 1.1); rim.position.set(3, 2, -3); scene.add(rim);
+    scene.add(new THREE.HemisphereLight(0xbcd6ff, 0x2a2438, 0.9));
+    const key = new THREE.DirectionalLight(0xffe0c0, 1.0); key.position.set(-3, 2, 4); scene.add(key);
 
     function gradTex(stops){ const c=document.createElement('canvas'); c.width=8; c.height=256; const g=c.getContext('2d'); const grd=g.createLinearGradient(0,0,0,256); for(const[p,col]of stops)grd.addColorStop(p,col); g.fillStyle=grd; g.fillRect(0,0,8,256); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
-    scene.background = gradTex([[0,'#241f47'],[0.42,'#7a4a86'],[0.6,'#e07a4a'],[0.8,'#ffb060'],[1,'#ffd89a']]);
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshStandardMaterial({color:0x2a3a54,roughness:0.2,metalness:0.4}));
+    // a calm twilight — serene, not fiery
+    scene.background = gradTex([[0,'#141a3a'],[0.45,'#3a2f66'],[0.68,'#8a5a86'],[0.85,'#e0906a'],[1,'#f6c58a']]);
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshStandardMaterial({color:0x1e2c48,roughness:0.15,metalness:0.5}));
     water.rotation.x=-Math.PI/2; scene.add(water);
 
-    // The lane the barrier must fill, and the mandatory window in it.
     const LANE = { hx: 16, top: 24 };
-    const WIN = { cx: 0, cy: 11, hw: 4.4, hh: 3.8 };
-    const inWinX = (x) => Math.abs(x - WIN.cx) < WIN.hw + 0.6;
-
-    const stone = (c) => new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.65, metalness: 0.05 });
-    const glowM = (c) => new THREE.MeshBasicMaterial({ color: c });
-    const lineMat = () => new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95 });
+    const WIN = { cx: 0, cy: 11, hw: 4.4, hh: 3.9 };
     const R = () => Math.random();
+    const softDot = (() => { const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d'); const gr=g.createRadialGradient(32,32,0,32,32,32); gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.4,'rgba(255,255,255,0.5)'); gr.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=gr; g.fillRect(0,0,64,64); const t=new THREE.CanvasTexture(c); return t; })();
 
-    // A hazard "behind" the barrier (a glowing ring + dark massifs) to PROVE the
-    // route beyond stays visible through the see-through barrier.
     function hazardBehind() {
       const g = new THREE.Group();
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.5, 8, 32), new THREE.MeshBasicMaterial({ color: 0x66ff9e }));
-      ring.position.set(7, 9, -46); g.add(ring);
-      for (const p of [[-26, 5, -70, 12], [30, 6, -60, 14], [-6, 4, -95, 20]]) {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(p[3], p[3] * 2.4, p[3]), stone(0x2c3346));
-        m.position.set(p[0], p[1] + p[3] * 1.2, p[2]); g.add(m);
-      }
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.45, 8, 32), new THREE.MeshBasicMaterial({ color: 0x66ff9e }));
+      ring.position.set(6.5, 9, -46); g.add(ring);
+      const stone = new THREE.MeshStandardMaterial({ color: 0x24304a, flatShading: true, roughness: 0.7 });
+      for (const p of [[-26, -70, 12], [30, -60, 14], [-8, -95, 20]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(p[2], p[2]*2.4, p[2]), stone); m.position.set(p[0], p[2]*1.2, p[1]); g.add(m); }
       return g;
     }
-
-    // ==== 1. FANG PORTCULLIS — interleaved faceted fangs fill the lane ====
-    function fangPortcullis(tint) {
-      const g = new THREE.Group(); const rock = stone(0x6a7488), glow = glowM(tint);
-      const pitch = 2.5;
-      for (let x = -LANE.hx + 1; x <= LANE.hx - 1; x += pitch) {
-        for (const dir of [1, -1]) {                       // 1 = top (points down), -1 = bottom (points up)
-          const xx = x + (dir < 0 ? pitch / 2 : 0);
-          if (Math.abs(xx) > LANE.hx) continue;
-          const win = inWinX(xx);
-          const base = dir === 1 ? LANE.top : 0;
-          let L = win ? (dir === 1 ? LANE.top - (WIN.cy + WIN.hh) : WIN.cy - WIN.hh) : 15.5 + R() * 2.5;
-          if (L < 1) continue;
-          const cone = new THREE.Mesh(new THREE.ConeGeometry(1.25, L, 6), rock);
-          cone.position.set(xx, base - dir * L / 2, (R() - 0.5) * 3.2);
-          if (dir === 1) cone.rotation.z = Math.PI;         // tip points down
-          cone.rotation.y = R() * 0.6; g.add(cone);
-          if (win) { const cap = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 0), glow); cap.position.set(xx, dir === 1 ? WIN.cy + WIN.hh : WIN.cy - WIN.hh, cone.position.z); g.add(cap); }
-        }
-      }
-      return g;
+    // shared drifting motes (soft additive points) across the lane, avoiding the window
+    function motes(n, tint, spread = 1) {
+      const pos = []; for (let i = 0; i < n; i++) { let x, y; do { x = -LANE.hx + R()*LANE.hx*2; y = R()*LANE.top; } while (Math.abs(x-WIN.cx)<WIN.hw && Math.abs(y-WIN.cy)<WIN.hh); pos.push(x, y, (R()-0.5)*8*spread); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      return new THREE.Points(g, new THREE.PointsMaterial({ color: tint, size: 1.1, map: softDot, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
     }
+    const softLine = () => new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
 
-    // ==== 2. PARTED RAIN — full-lane strand curtain, tied back at the window ====
-    function partedRain(tint) {
-      const g = new THREE.Group(); const pos = [], col = [];
-      const hot = new THREE.Color(tint), dim = new THREE.Color(tint).multiplyScalar(0.5);
-      for (let i = 0; i < 150; i++) {
-        const x0 = -LANE.hx + R() * LANE.hx * 2;
-        // strands near the window bow outward to the window's side edges (tie-back)
-        const near = Math.max(0, 1 - Math.abs(x0 - WIN.cx) / (WIN.hw * 2.2));
-        const dashN = 7;
-        for (let d = 0; d < dashN; d++) {
-          const y1 = LANE.top - (d / dashN) * LANE.top, y2 = y1 - LANE.top / dashN * 0.55;
-          const inWinY = (y) => y > WIN.cy - WIN.hh && y < WIN.cy + WIN.hh;
-          if (near > 0.15 && inWinY((y1 + y2) / 2)) continue;      // window is held open (no strands)
-          const bow = near * (x0 < WIN.cx ? -1 : 1) * WIN.hw * 0.9;
-          const c = d % 2 ? hot : dim;
-          pos.push(x0 + bow, y1, (R() - 0.5) * 2, x0 + bow, y2, (R() - 0.5) * 2);
-          col.push(c.r, c.g, c.b, c.r, c.g, c.b);
-        }
-      }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-      g.add(new THREE.LineSegments(geo, lineMat()));
-      // two bright bundle tie-backs at the window's vertical edges
-      for (const s of [-1, 1]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.55, WIN.hh * 2.3, 5), glowM(tint)); b.position.set(WIN.cx + s * WIN.hw, WIN.cy, 0.5); b.rotation.z = s * 0.12; g.add(b); }
-      return g;
-    }
-
-    // ==== 3. HELD SHATTER — frozen explosion of shards, radial toward the void ====
-    function heldShatter(tint) {
-      const g = new THREE.Group(); const rock = stone(0x5a6274), hotM = glowM(tint);
-      for (let i = 0; i < 150; i++) {
-        const x = -LANE.hx + R() * LANE.hx * 2, y = R() * LANE.top;
-        const dx = x - WIN.cx, dy = y - WIN.cy, dist = Math.hypot(dx, dy);
-        if (dist < WIN.hw + 1.2 && Math.abs(dx) < WIN.hw && Math.abs(dy) < WIN.hh) continue; // clear the window
-        const near = dist < WIN.hw + 3.5;
-        const sz = near ? 0.4 + R() * 0.4 : 0.7 + R() * 1.6 * Math.min(dist / 12, 1);
-        const sh = new THREE.Mesh(new THREE.TetrahedronGeometry(sz), near ? hotM : rock);
-        sh.position.set(x, y, (R() - 0.5) * 6);
-        sh.rotation.set(R() * 3, Math.atan2(dy, dx), R() * 3);       // long axis roughly radial
-        g.add(sh);
-      }
-      return g;
-    }
-
-    // ==== 4. MAELSTROM IRIS — spiral of line-streaks converging on the window ====
-    function maelstromIris(tint) {
+    // ==== A. LIGHT CURTAIN — a swaying veil of light-strands, parted at the window ====
+    function lightCurtain(tint) {
       const g = new THREE.Group(); const pos = [], col = [];
       const hot = new THREE.Color(tint), dim = new THREE.Color(tint).multiplyScalar(0.35);
-      const arms = 5;
-      for (let a = 0; a < arms; a++) {
-        const a0 = a / arms * Math.PI * 2;
-        let px = null, py = null;
-        for (let t = 0; t < 60; t++) {
-          const rr = WIN.hw + 0.5 + t * 0.42, th = a0 + t * 0.16;
-          const x = WIN.cx + Math.cos(th) * rr, y = WIN.cy + Math.sin(th) * rr * 0.95;
-          if (Math.abs(x) > LANE.hx + 2 || y < -1 || y > LANE.top + 3) break;
-          if (px != null) {
-            const c = new THREE.Color().copy(dim).lerp(hot, Math.max(0, 1 - t / 18));
-            pos.push(px, py, -rr * 0.5, x, y, -rr * 0.5); col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+      const N = 90, SEG = 16;
+      for (let i = 0; i < N; i++) {
+        const x0 = -LANE.hx + (i + R()*0.6) / N * LANE.hx * 2, ph = R()*6.28, amp = 0.4 + R()*0.5;
+        const near = Math.max(0, 1 - Math.abs(x0 - WIN.cx) / (WIN.hw * 2.4));
+        let py = null, px = null;
+        for (let s = 0; s <= SEG; s++) {
+          const y = LANE.top - s / SEG * LANE.top;
+          const inWinY = y > WIN.cy - WIN.hh - 1 && y < WIN.cy + WIN.hh + 1;
+          const bow = (near > 0.1 && inWinY) ? near * (x0 < WIN.cx ? -1 : 1) * WIN.hw * 1.15 : near * (x0 < WIN.cx ? -1 : 1) * WIN.hw * 0.25;
+          const x = x0 + bow + Math.sin(y * 0.16 + ph) * amp;
+          const skip = near > 0.12 && inWinY;      // window held open
+          if (px != null && !skip && !(near > 0.12 && (py > WIN.cy - WIN.hh - 1 && py < WIN.cy + WIN.hh + 1))) {
+            const b = 0.55 + 0.45 * Math.sin(s * 0.6 + ph);        // gentle brightness shimmer down the strand
+            const c = new THREE.Color().copy(dim).lerp(hot, b * (0.5 + 0.5 * near + 0.3));
+            pos.push(px, py, (R()-0.5)*1.5, x, y, (R()-0.5)*1.5); col.push(c.r, c.g, c.b, c.r, c.g, c.b);
           }
           px = x; py = y;
-          if (t % 9 === 4) { const sh = new THREE.Mesh(new THREE.TetrahedronGeometry(0.5 + R()), stone(0x5a6274)); sh.position.set(x, y, -rr * 0.5); sh.rotation.set(R() * 3, R() * 3, R() * 3); g.add(sh); }
         }
       }
-      // faint connecting cross-threads for density (still see-through)
-      for (let i = 0; i < 40; i++) { const th = R() * Math.PI * 2, rr = WIN.hw + 2 + R() * 12; const x = WIN.cx + Math.cos(th) * rr, y = WIN.cy + Math.sin(th) * rr * 0.95; if (Math.abs(x) > LANE.hx || y < 0 || y > LANE.top) continue; const c = dim; pos.push(x, y, 0, WIN.cx + Math.cos(th) * (rr - 2.5), WIN.cy + Math.sin(th) * (rr - 2.5) * 0.95, 0); col.push(c.r, c.g, c.b, c.r, c.g, c.b); }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-      g.add(new THREE.LineSegments(geo, lineMat()));
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col,3));
+      g.add(new THREE.LineSegments(geo, softLine()));
+      g.add(motes(140, tint));
       return g;
     }
 
-    const BUILD = { fang: fangPortcullis, rain: partedRain, shatter: heldShatter, maelstrom: maelstromIris };
-    const TINT = { fang: 0xbfe8ff, rain: 0x9fd8f0, shatter: 0xbfe8ff, maelstrom: 0x9fb8ff };
-    let built = null, haz = null;
-    const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
-    function build(kind) {
-      if (built) { scene.remove(built); scene.remove(haz); }
-      haz = hazardBehind(); scene.add(haz);
-      built = BUILD[kind](TINT[kind]); scene.add(built); built.updateMatrixWorld(true);
+    // ==== B. AURORA SWIRL — a slow luminous spiral into a calm eye ====
+    function auroraSwirl(tint) {
+      const g = new THREE.Group(); const pos = [], col = [];
+      const hot = new THREE.Color(tint), dim = new THREE.Color(tint).multiplyScalar(0.3);
+      const arms = 7;
+      for (let a = 0; a < arms; a++) {
+        const a0 = a / arms * Math.PI * 2; let px = null, py = null, pt = 0;
+        for (let t = 0; t < 80; t++) {
+          const rr = WIN.hw + 0.8 + Math.pow(t, 1.15) * 0.22, th = a0 + t * 0.11;
+          const x = WIN.cx + Math.cos(th) * rr, y = WIN.cy + Math.sin(th) * rr * 0.95;
+          if (Math.abs(x) > LANE.hx + 3 || y < -2 || y > LANE.top + 4) break;
+          if (px != null) { const c = new THREE.Color().copy(dim).lerp(hot, Math.max(0, 1 - t / 24)); pos.push(px, py, -rr*0.35, x, y, -rr*0.35); col.push(c.r,c.g,c.b, c.r,c.g,c.b); }
+          px = x; py = y;
+        }
+      }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col,3));
+      g.add(new THREE.LineSegments(geo, softLine()));
+      g.add(motes(120, tint, 0.6));
+      return g;
     }
-    function fit(angle) {
-      // frame the whole lane wall (fixed box), head-on = the gameplay read
-      _c.set(WIN.cx, LANE.top / 2, 0); const radius = LANE.hx * 1.02;
-      const vfov = camera.fov * Math.PI / 180, dist = (radius / Math.tan(vfov / 2)) / 0.95;
-      const dir = angle === 'q34' ? [0.42, 0.12, 0.9] : [0.0, 0.02, 1];
-      camera.up.set(0, 1, 0);
-      camera.position.copy(_c).addScaledVector(new THREE.Vector3(...dir).normalize(), dist);
-      camera.near = 0.1; camera.far = 4000; camera.updateProjectionMatrix(); camera.lookAt(_c);
-    }
-    function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
 
+    // ==== C. WISP VEIL — a still field of drifting spirits, a calm window-eye ====
+    function wispVeil(tint) {
+      const g = new THREE.Group();
+      g.add(motes(520, tint, 1.4));                 // the wall of spirits
+      // brighter rim of wisps hugging the window edge (draws the aperture)
+      const rimPos = []; for (let i = 0; i < 90; i++) { const th = i/90*Math.PI*2; rimPos.push(WIN.cx + Math.cos(th)*(WIN.hw+0.4), WIN.cy + Math.sin(th)*(WIN.hh+0.4), (R()-0.5)*1.5); }
+      const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rimPos,3));
+      g.add(new THREE.Points(rg, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, map: softDot, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
+      // faint flow-threads for a sense of current
+      const pos = [], col = []; const dim = new THREE.Color(tint).multiplyScalar(0.5);
+      for (let i = 0; i < 70; i++) { const th = R()*Math.PI*2, rr = WIN.hw + 2 + R()*11; const x = WIN.cx + Math.cos(th)*rr, y = WIN.cy + Math.sin(th)*rr*0.95; if (Math.abs(x)>LANE.hx||y<0||y>LANE.top) continue; const th2 = th + 0.5; pos.push(x, y, 0, WIN.cx+Math.cos(th2)*rr, WIN.cy+Math.sin(th2)*rr*0.95, 0); col.push(dim.r,dim.g,dim.b, dim.r,dim.g,dim.b); }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col,3));
+      g.add(new THREE.LineSegments(geo, softLine()));
+      return g;
+    }
+
+    const BUILD = { curtain: lightCurtain, swirl: auroraSwirl, wisp: wispVeil };
+    const TINT = { curtain: 0x9fe6ff, swirl: 0xaeffd8, wisp: 0xbfe0ff };
+    let built = null, haz = null;
+    function build(kind) { if (built) { scene.remove(built); scene.remove(haz); } haz = hazardBehind(); scene.add(haz); built = BUILD[kind](TINT[kind]); scene.add(built); built.updateMatrixWorld(true); }
+    function fit(angle) {
+      const c = new THREE.Vector3(WIN.cx, LANE.top/2, 0); const radius = LANE.hx * 1.02;
+      const vfov = camera.fov*Math.PI/180, dist = (radius/Math.tan(vfov/2))/0.95;
+      const dir = angle === 'q34' ? [0.4, 0.12, 0.9] : [0, 0.02, 1];
+      camera.up.set(0,1,0); camera.position.copy(c).addScaledVector(new THREE.Vector3(...dir).normalize(), dist);
+      camera.near = 0.1; camera.far = 4000; camera.updateProjectionMatrix(); camera.lookAt(c);
+    }
+    function sizeGL(px) { gl.width=px; gl.height=px; renderer.setSize(px,px,false); camera.aspect=1; camera.updateProjectionMatrix(); }
     window.gcRender = (o) => { if (o.rebuild) build(o.kind); fit(o.angle); renderer.render(scene, camera); return true; };
     const _sheet = document.getElementById('sheet');
-    window.gcSheetInit = (cols, rows, cell) => { _sheet.width = cols * cell; _sheet.height = rows * cell; _sheet.style.display = 'block'; const ctx = _sheet.getContext('2d'); ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, _sheet.width, _sheet.height); _sheet.__cell = cell; _sheet.__cols = cols; sizeGL(cell); return true; };
-    window.gcTile = (quad, label) => { const cell = _sheet.__cell, cols = _sheet.__cols, ctx = _sheet.getContext('2d'); const ox = (quad % cols) * cell, oy = ((quad / cols) | 0) * cell; ctx.drawImage(gl, ox, oy, cell, cell); if (label) { ctx.font = '600 22px system-ui'; ctx.textBaseline = 'top'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(label, ox + 14, oy + 14); ctx.fillStyle = '#ffe08a'; ctx.fillText(label, ox + 14, oy + 14); } return true; };
-    try { renderer.setSize(700, 700, false); window.__ready = true; } catch (e) { window.__gcerr((e && e.stack) || String(e)); throw e; }
+    window.gcSheetInit = (cols, rows, cell) => { _sheet.width=cols*cell; _sheet.height=rows*cell; _sheet.style.display='block'; const ctx=_sheet.getContext('2d'); ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,_sheet.width,_sheet.height); _sheet.__cell=cell; _sheet.__cols=cols; sizeGL(cell); return true; };
+    window.gcTile = (quad, label) => { const cell=_sheet.__cell, cols=_sheet.__cols, ctx=_sheet.getContext('2d'); const ox=(quad%cols)*cell, oy=((quad/cols)|0)*cell; ctx.drawImage(gl,ox,oy,cell,cell); if(label){ctx.font='600 22px system-ui';ctx.textBaseline='top';ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.85)';ctx.strokeText(label,ox+14,oy+14);ctx.fillStyle='#ffe08a';ctx.fillText(label,ox+14,oy+14);} return true; };
+    try { renderer.setSize(700,700,false); window.__ready = true; } catch (e) { window.__gcerr((e && e.stack) || String(e)); throw e; }
   </script>
 </body>
 </html>
