@@ -161,7 +161,13 @@ export function ascendedDef(def, tier, radiance) {
 
   const isFinal = tier >= ASCENSION_TIERS.length;
   d.fx = { ...d.fx };
-  d.fx.auraIdle = Math.min(0.6, (def.fx.auraIdle || 0) + 0.09 * tier + 0.012 * radiance);
+  // auraIdleRamp (default 1) lets a def OPT OUT of the ascension idle-aura swell. The ramp can
+  // multiply the authored idle up to ~10× at high tiers — a def built around WITHHELD glow (e.g.
+  // the Revenant: "a lantern, not a lamp") must set this to 0 or the additive aura billboard
+  // becomes a permanent lamp that washes the creature (green, over water especially). Default 1 →
+  // every existing dragon is arithmetically identical (the coexistence gate is this data dial).
+  const auraRamp = def.fx.auraIdleRamp ?? 1;
+  d.fx.auraIdle = Math.min(0.6, (def.fx.auraIdle || 0) + (0.09 * tier + 0.012 * radiance) * auraRamp);
   d.fx.sparkle = def.fx.sparkle || isFinal;
   d.fx.wingGlow = 1 + 0.18 * tier;
   if (isFinal) d.fx.bodyGlow = 1.7;
