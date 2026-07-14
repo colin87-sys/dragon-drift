@@ -491,6 +491,29 @@ registerTorso('cumulonimbusTorso', buildCumulonimbusTorso);
 const wjit = (i, amp) => { const h = Math.sin((i + 1) * 78.233 + 2.7) * 43758.5453; return (h - Math.floor(h) - 0.5) * 2 * amp; };
 const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
+// ── THE SHARED STORM PRIMITIVES (one bone, three body parts, ONE creature — DRY per the head/tail
+// spec). stormSpike = a kinked lightning bone: a charcoal tent (shadowed SIDES) + a WIDE near-white
+// glow CAP standing proud + a silver rim-cap. It is the wing's finger-strut, the head's crown spike,
+// AND the tail's flame-tongue — same primitive, so all three read as the same lightning. stormWeld =
+// a small proud near-white HOUSING at a node (the carved-socket move → welded, not floating).
+// push(mat, ...tris) accumulates; the caller binds the target group/accumulator.
+function stormSpike(push, hs, a, b, wB, wT, lift, sideMat, glowMat, rimMat, cw = 0.76) {
+  const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
+  const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
+  const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
+  const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.45, b[2]];
+  if (sideMat) push(sideMat, [aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]);   // shadowed charcoal sides
+  const up = 0.008 * hs;
+  const caL = [a[0] + px * wB * cw, a[1] + lift * 0.5 + up, a[2] + pz * wB * cw], caR = [a[0] - px * wB * cw, a[1] + lift * 0.5 + up, a[2] - pz * wB * cw];
+  const cbL = [b[0] + px * wT * cw, b[1] + lift * 0.24 + up, b[2] + pz * wT * cw], cbR = [b[0] - px * wT * cw, b[1] + lift * 0.24 + up, b[2] - pz * wT * cw];
+  const caT = [a[0], a[1] + lift + up, a[2]], cbT = [b[0], b[1] + lift * 0.45 + up, b[2]];
+  push(glowMat, [caL, cbT, caT], [caL, cbL, cbT], [caR, caT, cbT], [caR, cbT, cbR]);   // wide near-white glow cap
+  if (rimMat) push(rimMat, [[a[0] + px * wB * 0.16, a[1] + lift + up * 1.5, a[2] + pz * wB * 0.16], cbT, [a[0] - px * wB * 0.16, a[1] + lift + up * 1.5, a[2] - pz * wB * 0.16]]);
+}
+function stormWeld(push, hs, p, r, glowMat) {
+  push(glowMat, [[p[0] - r, p[1] + 0.05 * hs, p[2] - r], [p[0] + r, p[1] + 0.05 * hs, p[2] - r], [p[0], p[1] + 0.06 * hs, p[2] + r]]);
+}
+
 function buildOneStormforkWing(M, dials) {
   const hs = dials.halfSpan;
   const N = Math.max(2, Math.round(dials.struts));       // finger-struts {2,3,4,5}
@@ -508,25 +531,10 @@ function buildOneStormforkWing(M, dials) {
   const push = (g, mat, ...tris) => { const m = acc(g); let a = m.get(mat); if (!a) m.set(mat, a = []); for (const t of tris) a.push(t); };
   const flush = (g) => { const m = accs.get(g); if (!m) return; for (const [mat, tris] of m) g.add(flatTriMesh(tris, mat)); };
 
-  // A STORM-BOLT = a 4-face charcoal tent (shadowed SIDES) + a wide near-white glow CAP (the lit
-  // lightning bone) + a silver rim-CAP, standing PROUD of the recessed membrane (carved depth; the
-  // glow rides the SAME crest nodes — it cannot float off). This is the Tempest's unique storm bone.
-  const boltRidge = (g, a, b, wB, wT, lift, glowMat) => {
-    const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
-    const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
-    const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
-    const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.45, b[2]];
-    push(g, M.spine, [aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]);            // shadowed charcoal sides
-    const up = 0.008 * hs, cw = 0.76;   // glow cap a touch narrower → the dark cloud stays dominant in daylight (gate polish #2)
-    const caL = [a[0] + px * wB * cw, a[1] + lift * 0.5 + up, a[2] + pz * wB * cw], caR = [a[0] - px * wB * cw, a[1] + lift * 0.5 + up, a[2] - pz * wB * cw];
-    const cbL = [b[0] + px * wT * cw, b[1] + lift * 0.24 + up, b[2] + pz * wT * cw], cbR = [b[0] - px * wT * cw, b[1] + lift * 0.24 + up, b[2] - pz * wT * cw];
-    const caT = [a[0], a[1] + lift + up, a[2]], cbT = [b[0], b[1] + lift * 0.45 + up, b[2]];
-    push(g, glowMat, [caL, cbT, caT], [caL, cbL, cbT], [caR, caT, cbT], [caR, cbT, cbR]);   // wide near-white glow cap
-    push(g, M.silverRim, [[a[0] + px * wB * 0.16, a[1] + lift + up * 1.5, a[2] + pz * wB * 0.16], cbT, [a[0] - px * wB * 0.16, a[1] + lift + up * 1.5, a[2] - pz * wB * 0.16]]);
-  };
-  // a small proud near-white HOUSING at a node (the Revenant carved-socket move → every fork/wrist
-  // reads as a lit welded housing, not a floating cross-thread).
-  const housing = (g, p, r) => push(g, M.arcCore, [[p[0] - r, p[1] + 0.05 * hs, p[2] - r], [p[0] + r, p[1] + 0.05 * hs, p[2] - r], [p[0], p[1] + 0.06 * hs, p[2] + r]]);
+  // the wing's finger-strut = the shared stormSpike (charcoal sides + M.spine, near-white glow cap,
+  // silver rim); housing = the shared stormWeld. group-bound so the batcher keeps its per-group draws.
+  const boltRidge = (g, a, b, wB, wT, lift, glowMat) => stormSpike((mat, ...t) => push(g, mat, ...t), hs, a, b, wB, wT, lift, M.spine, glowMat, M.silverRim);
+  const housing = (g, p, r) => stormWeld((mat, ...t) => push(g, mat, ...t), hs, p, r, M.arcCore);
 
   // ── THE SHORT ARM — a 2-bone stub (humerus + radius), medial wrist K. The struts carry the wing.
   const K = [wristT * hs, 0.06 * hs, -0.04 * hs];
@@ -694,56 +702,126 @@ function buildStormforkWings(def, model, attach, _giM) {
 }
 registerWings('stormforkWings', buildStormforkWings);
 
-// ── HEAD: 'stormbrowHead' ─────────────────────────────────────────────────────
-// STUB (I3 builds it for real): a blunt RAM-PROW wedge (the storm leads with its
-// forehead — heavy brow shelf, short muzzle, no horns) + two pale arc-white pinpoint
-// eyes. I3 adds the true facets, the 2 blunt horn-BOSSES, the swept-back NIMBUS MANE
-// (0→2→4→6 up the ladder), the eye:head ladder + the f3 charge-hair. Uses the shared
-// eyeMat (def.eye drives its colour) — eyes are the brightest facial point.
+// ── HEAD: 'stormbrowHead' — the Stormcrown (I3) ────────────────────────────────
+// A sleek ELONGATED angular charcoal skull (value-banded knapped wedge, hard dorsal chine — NOT a
+// blunt ram-prow, NOT a round cat-head), with the HERO: a fanned CROWN of swept-back near-white
+// lightning SPIKES off the occiput (the same stormSpike as the wing struts — one creature), a
+// carved socketed near-white almond EYE, a closed sleek maw (carved mouth-line, no fangs), cheek
+// facet plates, nostril pits, and the near-white nape MANE continuing the body's spine circuit.
+// Glow ONLY on raised components (spike caps / eye / mane blades) — zero emissive on the skull loft.
 function buildStormbrowHead(def, model, mats) {
   const group = new THREE.Group();
   const M = tempestMats(def, model.glowLevel ?? 1);
   const hs = model.headScale ?? 1;
+  const glow = model.glowLevel ?? 1;
   const eyeMat = mats.eyeMat;
+  const byMat = new Map();
+  const push = (mat, ...tris) => { let a = byMat.get(mat); if (!a) byMat.set(mat, a = []); for (const t of tris) a.push(t); };
 
-  // Blunt ram-prow wedge pointing −Z (heavy brow → short muzzle).
+  // ── THE SKULL — an elongated angular wedge (−Z), VALUE-BANDED per column (top spine / flanks
+  // flank / underside dorsal) so flat-shading reads it knapped, not a smooth balloon. The single
+  // biggest fix over the stub's mono-mat "warm-looking" broad top.
   const skull = [
-    { z: 0.28, rx: 0.19 * hs, ry: 0.20 * hs, cy: 0.02 },   // occiput
-    { z: -0.02, rx: 0.23 * hs, ry: 0.24 * hs, cy: 0.05 },  // brow shelf (widest, heavy)
-    { z: -0.36, rx: 0.16 * hs, ry: 0.15 * hs, cy: -0.01 }, // cheek
-    { z: -0.66, rx: 0.09 * hs, ry: 0.09 * hs, cy: -0.05 }, // short muzzle
-    { z: -0.84, rx: 0.05 * hs, ry: 0.05 * hs, cy: -0.06 }, // blunt tip
+    { z: 0.34, rx: 0.17 * hs, ry: 0.21 * hs, cy: 0.06 },   // occiput (crown roots here)
+    { z: 0.06, rx: 0.20 * hs, ry: 0.19 * hs, cy: 0.05 },   // brow (widest; hard chine)
+    { z: -0.16, rx: 0.15 * hs, ry: 0.14 * hs, cy: 0.02 },  // eye-ridge / cheek shelf
+    { z: -0.44, rx: 0.12 * hs, ry: 0.11 * hs, cy: -0.02 }, // cheek
+    { z: -0.80, rx: 0.075 * hs, ry: 0.075 * hs, cy: -0.05 }, // long slender muzzle
+    { z: -1.02, rx: 0.035 * hs, ry: 0.045 * hs, cy: -0.06 }, // sharp angular tip
   ];
-  group.add(tubeLoft(skull, M.flank));
-  const headLength = 1.12 * hs;
+  const N = OCTA.length, SP = (s, k) => [OCTA[k][0] * s.rx, s.cy + OCTA[k][1] * s.ry, s.z];
+  const band = (k) => (OCTA[k][1] > 0.5 ? M.spine : OCTA[k][1] < -0.5 ? M.dorsal : M.flank);
+  for (let i = 0; i < skull.length - 1; i++) { const a = skull[i], b = skull[i + 1];
+    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; push(band(k), [SP(a, k), SP(b, k1), SP(b, k)], [SP(a, k), SP(a, k1), SP(b, k1)]); } }
+  { const f = skull[0], l = skull[skull.length - 1], fc = [0, f.cy, f.z], lc = [0, l.cy, l.z];
+    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; push(M.spine, [fc, SP(f, k1), SP(f, k)]); push(M.dorsal, [lc, SP(l, k), SP(l, k1)]); } }
+  const headLength = 1.45 * hs;
 
-  // Pale arc-white pinpoint eyes (def.eye). Seated high on the brow, converged forward.
-  // Intensity rises with glowLevel (whelp→apex, the grind reward); eyes are rig-driven
-  // separately (kept OUT of every surge/storm array — the fever firewall).
-  eyeMat.emissiveIntensity = 0.7 + 1.6 * (model.glowLevel ?? 1);
+  // ── THE LOWER JAW — a slim closed wedge slung under the cranium (a sleek maw, no fangs) with a
+  // thin dark MOUTH-LINE recess between it and the skull (one carved seam step).
+  const jaw = [[0, -0.02 * hs, 0.10], [0, -0.05 * hs, -0.44], [0, -0.06 * hs, -0.80], [0, -0.06 * hs, -1.00]];
+  for (let i = 0; i < jaw.length - 1; i++) { const a = jaw[i], b = jaw[i + 1], w = (0.10 - 0.02 * i) * hs, wb = (0.09 - 0.02 * i) * hs;
+    push(M.dorsal, [[a[0] - w, a[1], a[2]], [b[0] + wb, b[1], b[2]], [b[0] - wb, b[1], b[2]]], [[a[0] - w, a[1], a[2]], [a[0] + w, a[1], a[2]], [b[0] + wb, b[1], b[2]]]);
+    push(M.recess, [[a[0] - w, a[1] + 0.03 * hs, a[2]], [b[0] - wb, b[1] + 0.03 * hs, b[2]], [b[0] - wb, b[1], b[2]]], [[a[0] + w, a[1] + 0.03 * hs, a[2]], [b[0] + wb, b[1], b[2]], [b[0] + wb, b[1] + 0.03 * hs, b[2]]]); }   // dark mouth-line seam
+
+  // ── THE DORSAL CHINE — a rank of raised charcoal facet-scutes down the head-top centerline
+  // (brow→nose): breaks the broad smooth top into knapped facets so it doesn't catch the warm
+  // key-light as one continuous sheen band (the residual "tan band"), and gives a hard chine + a rank.
+  const topY = (z) => { for (let i = 0; i < skull.length - 1; i++) { const p = skull[i], q = skull[i + 1]; if (z <= p.z && z >= q.z) { const t = (p.z - z) / (p.z - q.z || 1); return (p.cy + p.ry) + ((q.cy + q.ry) - (p.cy + p.ry)) * t; } } const l = skull[skull.length - 1]; return l.cy + l.ry; };
+  for (let i = 0; i < 8; i++) { const t = i / 7, z = 0.10 - t * 1.05, yT = topY(z), hw = (0.05 - 0.03 * t) * hs, h = (0.032 - 0.016 * t) * hs, mat = i % 2 ? M.dorsal : M.spine;
+    const bl = [-hw, yT - 0.006 * hs, z - 0.03], br = [hw, yT - 0.006 * hs, z - 0.03], pk = [0, yT + h, z + 0.02];
+    push(mat, [bl, br, pk], [bl, pk, [-hw * 0.5, yT + h * 0.4, z + 0.05]], [br, [hw * 0.5, yT + h * 0.4, z + 0.05], pk]);
+    push(M.recess, [bl, [-hw, yT - 0.02 * hs, z + 0.05], br]); }
+
+  // ── THE CROWN (the hero) — swept-back glowing storm-spikes off the occiput; ladder 0/2/4/6.
+  // Each = the shared stormSpike (charcoal sides + near-white cap + silver rim), kinked at a
+  // knuckle, tip on arcCore (brightest), welded into the skull with stormWeld. Inner pairs tallest
+  // + arcCore-glow, outer pairs shorter + arcSeam + splayed wider — a value ladder = depth, not a comb.
+  const crownN = Math.round(model.maneSpikes ?? 6), HT = [0.30, 0.24, 0.18], AZ = [8, 22, 36];
+  for (let p = 0; p < Math.floor(crownN / 2); p++) {
+    const h = HT[Math.min(p, 2)] * hs, azd = AZ[Math.min(p, 2)] * Math.PI / 180, glowMat = p === 0 ? M.arcCore : M.arcSeam, w = (0.03 - 0.005 * p) * hs;
+    for (const side of [1, -1]) {
+      const bx = side * (0.04 + 0.035 * p) * hs, base = [bx, 0.15 * hs, 0.30 * hs];
+      const tip = [bx + side * Math.sin(azd) * h * 0.9, base[1] + h, base[2] + 0.30 * hs];   // swept back (+Z) + up (+Y), splayed (X)
+      const kn = 0.55, Bm = [base[0] + (tip[0] - base[0]) * kn + side * 0.05 * h, base[1] + (tip[1] - base[1]) * kn + 0.02 * h, base[2] + (tip[2] - base[2]) * kn - 0.05 * h];   // the storm knuckle
+      stormSpike(push, hs, base, Bm, w, w * 0.7, 0.02 * hs, M.spine, glowMat, M.silverRim);
+      stormSpike(push, hs, Bm, tip, w * 0.7, 0.004 * hs, 0.015 * hs, M.spine, M.arcCore, M.silverRim);   // tip segment brightest
+      stormWeld(push, hs, base, w * 1.3, glowMat);   // welded into the crown, never a floating antenna
+    }
+  }
+
+  // ── THE CARVED EYE SOCKET + almond eye (the Revenant orbit law: glow from within a housing).
+  const eyeSocket = (cx, cy, cz, r) => { const nR = 6, rim = [], lip = [];
+    for (let k = 0; k < nR; k++) { const a = (k / nR) * Math.PI * 2; rim.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz]); lip.push([cx + Math.cos(a) * r * 1.28, cy + Math.sin(a) * r * 1.05, cz - 0.02 * hs]); }
+    const floor = [cx, cy, cz + r * 1.2];
+    for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; push(M.socketFloor, [rim[k], rim[k1], floor]); push(M.flank, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } };
+  eyeMat.emissiveIntensity = 0.7 + 1.6 * glow;
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.05 * hs, 0), eyeMat);
-    eye.position.set(side * 0.15 * hs, 0.09 * hs, -0.10 * hs);   // high on the brow (the brightest facial point)
+    const cx = side * 0.13 * hs, cy = 0.04 * hs, cz = -0.14 * hs;
+    eyeSocket(cx, cy, cz, 0.055 * hs);
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.045 * hs, 0), eyeMat);
+    eye.scale.set(1.5, 0.7, 1); eye.rotation.y = -side * 0.2;   // almond slit, toed-in forward
+    eye.position.set(cx, cy, cz - 0.02 * hs); eye.renderOrder = 1;   // just behind the lip
     group.add(eye);
   }
-  const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.14 * hs, 0.10 * hs); group.add(motifAnchor);
-  return { group, spineMats: [], motifAnchor, headLength };
+
+  // ── RANKS: cheek/brow facet plates (angularity) + nostril pits (a second carved void).
+  for (const side of [1, -1]) {
+    addArmorPlate(push, M, [side * 0.16 * hs, 0.10 * hs, 0.0], [side * 0.7, 0.5, 0], [0, 0, 1], 0.06 * hs, 0.10 * hs, M.flank);
+    addArmorPlate(push, M, [side * 0.12 * hs, 0.0, -0.34 * hs], [side * 0.7, 0.3, 0], [0, 0, 1], 0.05 * hs, 0.09 * hs, M.flank);
+    const nx = side * 0.05 * hs, ny = -0.05 * hs, nz = -0.9 * hs, r = 0.02 * hs;   // nostril pit
+    push(M.socketFloor, [[nx - r, ny, nz], [nx + r, ny, nz], [nx, ny + r * 0.5, nz + r * 1.4]]);
+  }
+
+  // ── THE NAPE MANE — continue the body's spine circuit onto the head: a descending rank of small
+  // emissive crest blades down the nape centerline + a near-white arcCore zigzag ribbon (the mane).
+  const maneN = Math.max(2, Math.round(2 + 4 * glow));
+  for (let i = 0; i < maneN; i++) { const t = i / (maneN - 1), z = 0.32 * hs - t * 0.5 * hs, y = (0.18 - 0.04 * t) * hs, len = (0.09 - 0.04 * t) * hs;
+    stormSpike(push, hs, [0, y, z], [0, y + len, z + 0.06 * hs], 0.018 * hs, 0.004 * hs, 0.01 * hs, M.spine, M.crest, null);
+    push(M.recess, [[-0.02 * hs, y - 0.01 * hs, z], [0.02 * hs, y - 0.01 * hs, z], [0, y - 0.01 * hs, z + 0.05 * hs]]); }
+  const zig = []; for (let i = 0; i <= 5; i++) { const t = i / 5; zig.push([(i % 2 ? 0.05 : -0.05) * hs, (0.02 - 0.08 * t) * hs, (0.30 - t * 0.55) * hs]); }
+  addRibbon(push, M.arcCore, zig, 0.016 * hs, 0.01 * hs);
+
+  for (const [mat, tris] of byMat) group.add(flatTriMesh(tris, mat));
+  const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.16 * hs, 0.20 * hs); group.add(motifAnchor);
+  // flareMats = the crown/mane near-white garment (hum-lit); the eye is EXCLUDED (the fever firewall).
+  return { group, spineMats: [], flareMats: [M.arcSeam, M.arcCore, M.crest], motifAnchor, headLength };
 }
 registerHead('stormbrowHead', buildStormbrowHead);
 
-// ── TAIL: 'virgaTail' ─────────────────────────────────────────────────────────
-// STUB (I3 builds it for real): a tapering storm-stem on the Vesper isBone 4-joint
-// NESTED chain (−anchor rest-pose compensation, rotation-only drive) closing in a small
-// nub — the SAME nested-chain pattern as splitFanTail so the rig's travelling-wave
-// tailWhip has real joints to walk. I3 adds the VIRGA FRINGE (2→3→4→5 rain-streamer
-// wisps) + ONE connected translucent hem band + the f3 arc terminus stud. NO wisps yet.
+// ── TAIL: 'virgaTail' — the storm-stem + the lightning-flame BOLT-TUFT (I3) ─────
+// A long faceted charcoal storm-stem on the isBone 4-joint chain, carrying a glowing near-white
+// dorsal CREST FRINGE (serrated silhouette the rear-chase sees) + flank scutes, terminating in the
+// HERO: a radial near-white lightning-flame BOLT-TUFT (faceted flame-tongues erupting from a socketed
+// core node — the point of light the chase cam tracks). Same stormSpike as the wing/crown — one storm.
 function buildVirgaTail(def, model, mats, anchor) {
   const group = new THREE.Group();
   const M = tempestMats(def, model.glowLevel ?? 1);
+  const glow = model.glowLevel ?? 1;
   const a = anchor ?? { y: 0.12, z: 1.62 };
   const T = (model.tailLength ?? 1) * 2.5 * (model.tailStretch ?? 1);
   const nSeg = Math.round(model.tailSegments ?? 8);
-  const rAt = (t) => 0.11 * Math.pow(1 - t * 0.92, 0.7) + 0.008;   // tapers to ≤0.20× base
+  const rAt = (t) => 0.11 * Math.pow(1 - t * 0.82, 0.7) + 0.010;   // holds mass to ~85% so the tuft has a shoulder
   const curveY = (t) => -0.05 * T * Math.sin(Math.PI * t * 0.9);   // low counter-drop then flick
   const stem = [];
   for (let i = 0; i <= nSeg; i++) { const t = i / nSeg; stem.push({ z: a.z + t * T, rx: rAt(t), ry: rAt(t), cy: a.y + curveY(t) }); }
@@ -759,15 +837,56 @@ function buildVirgaTail(def, model, mats, anchor) {
   joints[0].isBone = true;   // drive by ROTATION only (position writes tear a connected loft)
   const jointOf = (z) => { for (let j = nChain - 1; j >= 0; j--) if (z >= jAnchor(j).z - 1e-6) return j; return 0; };
   const chainAdd = (z, mesh) => { const j = jointOf(z), an = jAnchor(j); mesh.position.set(-an.x, -an.y, -an.z); joints[j].add(mesh); return mesh; };
+  // per-(joint,material) accumulator → one mesh per joint per mat, all binned via chainAdd (whip-safe).
+  const perJ = [];
+  const pushJ = (z, mat, ...tris) => { const j = jointOf(z); let m = perJ[j]; if (!m) perJ[j] = m = new Map(); let arr = m.get(mat); if (!arr) m.set(mat, arr = []); for (const t of tris) arr.push(t); };
+  const spikeJ = (z, p0, p1, wB, wT, lift, sideMat, glowMat) => stormSpike((mat, ...t) => pushJ(z, mat, ...t), 1.0, p0, p1, wB, wT, lift, sideMat, glowMat, M.silverRim);
+
   for (let j = 0; j < nChain; j++) { const i0 = jIdx(j), i1 = jIdx(j + 1); if (i1 > i0) chainAdd(stem[i0].z, tubeLoft(stem.slice(i0, i1 + 1), M.flank, false)); }
 
-  // Small rain-nub closing the stem (the virga fringe + hem land here in I3).
-  const tip = stem[nSeg], tx = 0, ty = tip.cy, tz = tip.z;
-  chainAdd(tz, flatTriMesh([
-    [[tx, ty + 0.04, tz], [tx - 0.07, ty, tz + 0.10], [tx + 0.07, ty, tz + 0.10]],
-    [[tx - 0.07, ty, tz + 0.10], [tx, ty - 0.02, tz + 0.24], [tx + 0.07, ty, tz + 0.10]],
-  ], M.bellyMid));
+  const sampleStem = (t) => { const f = t * nSeg, i = Math.min(nSeg - 1, Math.floor(f)), k = f - i, s0 = stem[i], s1 = stem[i + 1]; return { z: s0.z + (s1.z - s0.z) * k, cy: s0.cy + (s1.cy - s0.cy) * k, r: s0.rx + (s1.rx - s0.rx) * k }; };
 
-  return { group, segs: joints, accentMats: [] };
+  // ── RANK: the dorsal CREST FRINGE — a descending rank of glowing near-white crest blades down the
+  // top of the stem (the serrated silhouette + the reference's glowing tail crest), each with a dark
+  // under-gap recess. Continues the body's spine circuit aft. Binned per joint (whips with the tail).
+  const fringeN = Math.max(3, Math.round(4 + 5 * glow));
+  for (let i = 0; i < fringeN; i++) { const t = 0.05 + 0.82 * (i / (fringeN - 1)), s = sampleStem(t), len = (0.10 - 0.06 * t) * (0.6 + 0.4 * glow), yTop = s.cy + s.r;
+    spikeJ(s.z, [0, yTop, s.z], [0, yTop + len, s.z + 0.05], 0.016, 0.004, 0.008, M.spine, M.crest);
+    pushJ(s.z, M.recess, [[-0.018, yTop - 0.006, s.z], [0.018, yTop - 0.006, s.z], [0, yTop - 0.006, s.z + 0.045]]); }
+
+  // ── RANK: flank scute cards — small cupped charcoal cards down each flank (alternating value), a
+  // dark shadow gap under each so the stem isn't a bare tube. Binned per joint.
+  for (let i = 0; i < fringeN; i++) { const t = 0.08 + 0.78 * (i / (fringeN - 1)), s = sampleStem(t);
+    for (const side of [1, -1]) { const cx = side * s.r * 0.85, tip = [cx + side * 0.03, s.cy, s.z + 0.02], bl = [cx - side * 0.01, s.cy + 0.03, s.z - 0.03], br = [cx - side * 0.01, s.cy - 0.03, s.z - 0.03];
+      pushJ(s.z, i % 2 ? M.flank : M.spine, [bl, tip, br]); pushJ(s.z, M.recess, [bl, br, [cx - side * 0.03, s.cy, s.z - 0.05]]); } }
+
+  // ── THE HERO — the lightning-flame BOLT-TUFT: a radial spray of faceted flame-tongues erupting
+  // from a socketed core at the stem tip. Each tongue is the shared stormSpike INVERTED (arcSeam
+  // body + arcCore tip, thin M.spine underside for a facet shadow), splayed in X AND Y + kinked, odd
+  // count with ONE dominant center tongue — the point of light. Cool near-white only (no green/warm).
+  const tip = stem[nSeg], tb = [0, tip.cy, tip.z], tScale = 0.35 + 0.65 * glow, tuftN = Math.max(3, Math.round(2 + 5 * glow));
+  // socket lip at the tuft base (a housing the tongues erupt from)
+  { const nR = 6, r = 0.05 * (0.7 + 0.4 * tScale); const rim = [], lip = [];
+    for (let k = 0; k < nR; k++) { const ang = (k / nR) * Math.PI * 2; rim.push([tb[0] + Math.cos(ang) * r, tb[1] + Math.sin(ang) * r, tb[2]]); lip.push([tb[0] + Math.cos(ang) * r * 1.25, tb[1] + Math.sin(ang) * r * 1.05, tb[2] - 0.03]); }
+    const floor = [tb[0], tb[1], tb[2] - r * 1.2];
+    for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; pushJ(tb[2], M.socketFloor, [rim[k], rim[k1], floor]); pushJ(tb[2], M.flank, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } }
+  for (let i = 0; i < tuftN; i++) {
+    const isC = i === 0, ang = (i / tuftN) * Math.PI * 2 + 0.4;
+    const L = (isC ? 0.45 : 0.26 + 0.12 * ((i * 0.37) % 1)) * tScale, outR = isC ? 0 : 0.55;
+    const dir = [Math.cos(ang) * outR, 0.28 + Math.sin(ang * 1.3) * 0.45, 0.72], dl = Math.hypot(dir[0], dir[1], dir[2]);
+    const tt = [tb[0] + dir[0] / dl * L, tb[1] + dir[1] / dl * L, tb[2] + dir[2] / dl * L];
+    const kn = 0.55, Bm = [tb[0] + (tt[0] - tb[0]) * kn + Math.cos(ang) * 0.05 * L, tb[1] + (tt[1] - tb[1]) * kn + 0.03 * L, tb[2] + (tt[2] - tb[2]) * kn];
+    const w = (isC ? 0.03 : 0.022) * (0.7 + 0.4 * tScale);
+    spikeJ(tb[2], tb, Bm, w, w * 0.7, 0.008, M.spine, M.arcSeam);
+    spikeJ(tb[2], Bm, tt, w * 0.7, 0.004, 0.006, M.spine, M.arcCore);   // tip segment brightest — the point of light
+  }
+  // the ignition CORE node behind the lip (heartCore — the brightest tuft point, on the storm tick)
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.045 * (0.7 + 0.5 * tScale), 0), M.heartCore);
+  core.position.set(0, 0, 0); chainAdd(tb[2], core).position.set(tb[0] - jAnchor(jointOf(tb[2])).x, tb[1] - jAnchor(jointOf(tb[2])).y, tb[2] - jAnchor(jointOf(tb[2])).z);
+
+  // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
+  for (let j = 0; j < nChain; j++) { const m = perJ[j]; if (!m) continue; for (const [mat, tris] of m) chainAdd(jAnchor(j).z, flatTriMesh(tris, mat)); }
+
+  return { group, segs: joints, accentMats: [M.crest, M.arcSeam, M.arcCore] };
 }
 registerTail('virgaTail', buildVirgaTail);
