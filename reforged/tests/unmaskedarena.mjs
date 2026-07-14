@@ -209,7 +209,19 @@ check(heaven.arenaSet?.visible === true && heaven.arenaSet.k > 0.9 && heaven.are
 // GODHEAD DETONATION P4: the DEBRIS field rides the blast in the settled heaven, and NO chunk can
 // enter the focal/corridor column (hard |x| ≥ 25 by construction — the layout invariant).
 check(heaven.arenaSet?.debrisFlybyMargin >= 0,
-  `the FLYBY rocks never cross the flight lane at any depth (margin ${heaven.arenaSet?.debrisFlybyMargin} ≥ 0 — the widening keep-out cone)`);
+  `the SIDE flyby rocks never cross the flight lane at any depth (margin ${heaven.arenaSet?.debrisFlybyMargin} ≥ 0 — the widening horizontal keep-out cone)`);
+// GODHEAD DETONATION overhead flyby: 3 of the 8 flyby rocks pass from ABOVE (dive in, sweep over the top
+// of frame) on a VERTICAL keep-out cone — a size-independent bottom-floor that widens with proximity so
+// no overhead rock ever dips into the lane/gameplay band. marginY ≥ 0 proves it at any camera depth/FOV.
+check(heaven.arenaSet?.debrisFlybyMarginY >= 0 && heaven.arenaSet.flybyOvh === 3 && heaven.arenaSet.flybySide === 5,
+  `the OVERHEAD flyby rocks never dip into the lane at any depth (marginY ${heaven.arenaSet?.debrisFlybyMarginY} ≥ 0, split ${heaven.arenaSet?.flybyOvh}ovh/${heaven.arenaSet?.flybySide}side — the vertical keep-out cone)`);
+// P5 PREMIUM ROCKS: sculpted asteroids (subdiv-3 hero + subdiv-1 field) across 2 InstancedMeshes sharing
+// ONE material (+1 draw), and the overhead paths are provably DISTINCT (no two rocks share a track).
+const _led = heaven.arenaSet?.debrisLedger;
+check(heaven.arenaSet?.debrisDraws === 2 && heaven.arenaSet.debrisTris > 0 && heaven.arenaSet.debrisTris <= 13000,
+  `the debris is 2 sculpted InstancedMeshes within budget (draws ${heaven.arenaSet?.debrisDraws} === 2, tris ${heaven.arenaSet?.debrisTris} ≤ 13000)`);
+check(!!_led && _led.dx0 >= 6 && _led.dxd >= 0.05 && _led.dspd >= 0.010,
+  `the 3 overhead rocks ride DISTINCT tracks — never two in line (min Δlane ${_led?.dx0} ≥ 6, Δdrift ${_led?.dxd} ≥ 0.05, Δspeed ${_led?.dspd} ≥ 0.010)`);
 check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 1152,
   `the DEBRIS conveyor + EMBER layer ride the heaven, clear of the focal column (debris ${heaven.arenaSet?.debrisVis} min|x| ${heaven.arenaSet?.debrisMinX} ≥ 25, embers ${heaven.arenaSet?.emberVis}/${heaven.arenaSet?.emberN})`);
 // PR-K: THE HAZE-DECK — the sea drops ~30u in the settled heaven (the "water" becomes a cosmic haze
