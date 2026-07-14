@@ -84,16 +84,26 @@ export const BIOMES = [
     name: 'FROZEN REACH',
     keyShift: -3,
     stars: 0,
-    sky: { top: C(0x1c2e5e), mid: C(0x9a5a8e), horizon: C(0xff9a55), sun: C(0xffd9b0) },
-    fog: { color: C(0xd99a7a), near: 70, far: 380 },
-    light: { sun: C(0xffb070), sunI: 1.6, hemiSky: C(0x9ab8ff), hemiGround: C(0x32435e) },
-    water: { deep: C(0x122a4a), shallow: C(0x3a6a9a), waveAmp: 0.3 },
-    ambient: { color: C(0xffffff), fall: 3.5, sway: 0.6, size: 0.4, opacity: 0.75 },
-    fauna: { color: C(0xe8f4ff), scale: 0.85, flap: 1.3 }, // petrel pair: tight, fast flap
-    // N8 atmosphere: the low cold sun sits right on the horizon — strong sunward
-    // inscatter so the haze glows toward it (OPTIONAL; 0 on every other biome).
-    atmos: { inscatter: 0.7 },
-    props: ['ribspire', 'vertebrae', 'penitentes', 'serac', 'glacierfront'], // A1 (legacy crystal/crystalSmall parked; ?props=v1 restores)
+    // THE SUNSET GLACIER: the last 10 min of a polar sunset — a frozen cathedral at
+    // vespers. Cool light lives IN the ice; warm light only ever comes FROM the sun.
+    sky: { top: C(0x1c2e5e), mid: C(0x9a5a8e), horizon: C(0xff9a55), sun: C(0xffd2a0) }, // sun a touch hotter for the water glitter lane
+    // Dual-fog (§5.2): NEAR = cool rose-quartz (the ice reads icy); FAR melts into
+    // the sunset so every receding monument dissolves into molten gold.
+    fog: { color: C(0xbfa9c0), near: 78, far: 400 },
+    fogFarColor: C(0xffa268),
+    // Hotter sun rim (the gold is the second protagonist); warm fog-sea bounce
+    // (hemiGround) lifts the black undersides the low dead-ahead sun leaves.
+    light: { sun: C(0xffa860), sunI: 1.75, hemiSky: C(0x9ab8ff), hemiGround: C(0x6b5a66) },
+    water: { deep: C(0x0e2440), shallow: C(0x4a7290), waveAmp: 0.22 }, // near-mirror over twilight deeps — doubles the spires + sunset
+    // DIAMOND DUST: near-suspended gilded ice crystals catching the low sun — the
+    // air itself becomes the beauty. Stillness (low fall) = the held breath.
+    ambient: { color: C(0xffe9cf), fall: 0.35, sway: 0.5, size: 0.27, opacity: 0.85 },
+    fauna: { color: C(0xffdfc2), scale: 1.15, flap: 0.4 }, // high gilded soarers: near-motionless, sun-caught
+    // Sunward inscatter burns a little harder; heightK = the fog-SEA (dense at the
+    // waterline, thinning with altitude) the monuments rise from — and the surface
+    // MARROWCOIL rises through (the dive verb, felt before it is ever used).
+    atmos: { inscatter: 0.85, heightK: 0.05 },
+    props: ['candle', 'sungate', 'sail', 'floeshelf', 'glacierwall'], // Sunset Glacier (legacy crystal/crystalSmall parked; ?props=v1 restores)
     matIndex: 2, // ice
   },
   {
