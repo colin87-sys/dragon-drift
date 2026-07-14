@@ -7,7 +7,7 @@ anti-collision proof + the build order; each dragon's full contract lives in its
 | # | Dragon | One-line identity | Build sheet |
 |---|---|---|---|
 | 1 | **Thunderhead Tempest** | a living thundercloud WEARING its near-white lightning — a live humming garment that builds to strikes *(emissive doctrine revised 2026-07-14, owner reference; was "intermittently live")* — **v3 CONSOLIDATED contract at §1–§10** | `TEMPEST-THUNDERHEAD-BUILDSHEET.md` |
-| 2 | **Belladonna Stiletto** | a four-winged wasp-wyrm whose translucent sacs visibly FILL with UV-orchid venom | `VENOM-BELLADONNA-BUILDSHEET.md` |
+| 2 | **Belladonna Stiletto** | a four-winged wasp-DRAGON (dragon skeleton, wasp anatomy kit — art-direction LOCK 2026-07-14) whose translucent sacs visibly FILL with UV-orchid venom — **v1 CONSOLIDATED contract at §1–§10** | `VENOM-BELLADONNA-BUILDSHEET.md` (+ `BELLADONNA-ARTDIRECTION-LOCK.md`) |
 | 3 | **Aurora Sylph** | a polar ribbon-serpent wearing a rippling pleated aurora curtain instead of wings | `AURORA-SYLPH-BUILDSHEET.md` |
 | 4 | **Gravelight Revenant** | a hollow bone-dragon lit from inside by a caged grave-green ghost-fire — **FIRST IN BUILD (owner call; v1 build-ready sheet at §B)** | `WRAITH-GRAVELIGHT-BUILDSHEET.md` |
 | 5 | **Crimson Tocsin** | a bronze chime-drake that pulses expanding crimson shockwave rings on the wingbeat | `RESONANCE-TOCSIN-BUILDSHEET.md` |
@@ -210,17 +210,24 @@ root-to-tip (the dragon flies on two lightning bolts). Span 1.7→2.5×, tris 1.
 ≤0.66. It beats its nearest neighbors on behaviour: spectacle-BUILDING where Vesper is
 spectacle-withheld, ALIVE-and-rhythmic where Solar is static regalia.
 
-**2 · BELLADONNA STILETTO — "Venom, patiently brewed" (SSR→SSSR, 2400).** An insectoid wasp-wyrm in
-gloss oil-slick violet-black chitin: armored thorax, the roster's only concave silhouette break (a
-wasp waist tightening 0.50→0.34), a four-segment gaster with translucent sac windows, and a needle
-stinger presented dead-center at the chase lens. Hero: the GOSSAMER DOUBLET — the roster's first
-FOUR wings (fore + hind pairs, hind at 0.62× and 0.35 beat-phase offset via a new nullable
-aux-pivot rig hook), veined glass blades with insect cells and a pterostigma. Motif: the VENOM
-STILL — sacs that visibly FILL with UV-orchid (`0xd936ff`, 292° — deliberately swapped off the
-mandate's chartreuse, which collided with Vesper's 80° acid eyes) from 0.05→1.0 up the BREWING
-ladder, plus a drip bead from f2. Span 1.5→2.2×, tris 1.5/2.2/3.2/4.4k, the roster's deepest fold
-(≤0.58). It beats Vesper on hue freshness (first magenta-family) and beats everything on
-storytelling density: the fill line is a diegetic power meter.
+**2 · BELLADONNA STILETTO — "Venom, patiently brewed" (SSR→SSSR, 2400).** A wasp-DRAGON *(art-
+direction LOCK 2026-07-14: the skeleton is a dragon, the anatomy kit is wasp — dragon forward:
+draconic chitin skull-mask head with horn-gauge antennae, a short 2–3-plate collared neck, ONE
+pair of tucked raptorial forelimbs, zero hind legs; wasp aft: waist, gaster, stinger, wings)* in
+gloss oil-slick violet-black chitin, locked to HORIZONTAL chase flight (body axis ±8°; the
+S-curve lives in the dorsal line-of-action, banks only): armored thorax, the roster's only
+concave silhouette break (a wasp waist tightening 0.50→0.34, hard floor 0.22×), a four-segment
+gaster with exactly 3 discrete hex-cut sac windows, and a thick-lofted needle stinger presented
+dead-center at the chase lens. Hero: the GOSSAMER DOUBLET — the roster's first FOUR wings (fore +
+hind pairs, hind at 0.62× and 0.35 beat-phase offset via the new nullable `auxWingPivots` rig
+hook — confirmed absent from dragon.js, specced as a ≤12-line additive extension), veined glass
+blades with insect cells and a pterostigma, chord floored [0.24,0.30]× against the SPINDLE read.
+Motif: the VENOM STILL — sacs that visibly FILL with UV-orchid (`0xd936ff`, 292° — deliberately
+swapped off the mandate's chartreuse, which collided with Vesper's 80° acid eyes) from 0.05→1.0
+up the BREWING ladder, plus a drip bead from f2. Span 1.5→2.2×, tris 1.6/2.4/3.4/4.6k (re-pinned
+for the lock's new anatomy), the roster's deepest fold (≤0.58). It beats Vesper on hue freshness
+(first magenta-family) and beats everything on storytelling density: the fill line is a diegetic
+power meter.
 
 **3 · AURORA SYLPH — "The sky, unfurled" (SSR→SSSR, 2800).** A polar ribbon-serpent — the roster's
 longest creature (apex body ≥1.4× Jade's) on a deep-indigo hide with a teardrop H>W cross-section
@@ -282,6 +289,23 @@ beats everything on game-feel: the one dragon you can hear with your eyes.
 > strata-deck on aesthetics and chose the boltframe (kinked opaque membrane, forked
 > lightning-skeleton; rear read STACK → BOLT). §D supersedes the sheet's wing sections; queue,
 > costs, pulseTimer plan, and everything non-wing unchanged.
+>
+> **2026-07-14 (later): STILETTO ART-DIRECTION LOCKED + SHEET CONSOLIDATED TO v1 BUILD-READY.**
+> A Fable art director reconciled the sheet with the four concept images
+> (`BELLADONNA-ARTDIRECTION-LOCK.md`): **the skeleton is a dragon, the anatomy kit is wasp** —
+> draconic skull-mask + collared neck + one raptorial forelimb pair forward (the images' six
+> insect legs and literal bug head are corrected out), wasp waist/gaster/stinger/four-wings aft;
+> HORIZONTAL flight lock (the banking pair's S-pose rotated into the dorsal line-of-action);
+> exactly 3 discrete hex-cut sac windows (never a grid). The engineer then consolidated
+> `VENOM-BELLADONNA-BUILDSHEET.md` into a v1 build-ready contract (§1–§10; v0/§R/§F demoted to
+> its appendix) audited against the real rig: `parts.auxWingPivots` confirmed ABSENT from
+> dragon.js and specced (≤12 guarded lines inside the wingParts branch; the shipped
+> `wingBladePivots` walker + `wingPivot2` secondary pair are the precedents — wingPivot2 itself
+> is unusable: in-phase, wrong waveform); the hook lands at Stiletto I0 with its no-op
+> byte-identity proof (shared owner call #2 rides that PR). Overdraw reconciled to 6/6 cruise
+> / 8/8 Surge (opaque wing hems, 3 sac walls merged to ONE drawable, Surge motes default 1 —
+> the one recorded delta from the lock, owner-flagged); tris re-pinned {1.6, 2.4, 3.4, 4.6}k.
+> Queue position (slot 3) unchanged.
 >
 > **2026-07-14 (later): TEMPEST SHEET CONSOLIDATED TO v3 + THE GARMENT DOCTRINE.** The layered
 > sheet (§B patched by §C, partially replaced by §D) was rewritten as ONE self-contained
