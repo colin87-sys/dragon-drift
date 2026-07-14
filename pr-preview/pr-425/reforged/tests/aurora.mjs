@@ -74,7 +74,7 @@ check('FULL-STRUCTURE eruption ramp: violet base + pink plateau + crimson crown,
   && /mix\(aCol,\s*uAurRed,\s*0\.75\s*\*\s*crown\s*\*\s*em\)/.test(AURORA_BODY)            // crimson by MIX (hue), not additive-only
   && /float\s+em\s*=\s*min\(uAurErupt,\s*1\.0\)/.test(AURORA_BODY));                       // mix saturates, additive rides the dial
 check('eruption peak raised to 1.4 (owner pick) so the full structure shows in natural play',
-  /uAurErupt\.value\s*=\s*1\.4\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+  /eruptTarget\s*=\s*1\.4\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 check('violet bluer (0x7a6bff) + pink hotter (0xff7fae) so they read over green', (() => {
   const s = readFileSync(url('../js/auroraSky.js'), 'utf8');
   return /uAurViolet:\s*\{\s*value:\s*new THREE\.Color\(0x7a6bff\)/.test(s) && /uAurPink:\s*\{\s*value:\s*new THREE\.Color\(0xff7fae\)/.test(s);
@@ -85,8 +85,10 @@ check('DEPTH: a faint ray-less BACK VEIL reusing fold0 (free layered curtain)', 
 check('ERUPTION COLOR WASH: diffuse violet base + red/pink crown glow (reads where rays fade)',
   /if\s*\(\s*uAurErupt\s*>\s*0\.001\s*\)/.test(AURORA_BODY) && /ebase\s*=\s*exp/.test(AURORA_BODY) && /ecrown\s*=\s*smoothstep/.test(AURORA_BODY));
 check('fine0 detail octave is TIER0-ONLY (uAurLayers == 2 branch → no tier1/2 cost)', /if\s*\(\s*uAurLayers\s*==\s*2\s*\)\s*fine0\s*=\s*_aNoise/.test(AURORA_BODY));
-check('ERUPTION driver: activity → smoothstep eruption envelope (rare full-color)',
-  /uAurErupt\.value\s*=\s*1\.4\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+check('ERUPTION driver: activity → smoothstep eruption target, EASED in/out (damped envelope, no flash)',
+  /eruptTarget\s*=\s*1\.4\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(auroraSrc)
+  && /eruptEnv\s*=\s*damp\(eruptEnv,\s*eruptTarget,\s*0\.7,\s*dt\s*\|\|\s*0\)/.test(auroraSrc)
+  && /uAurErupt\.value\s*=\s*eruptEnv/.test(auroraSrc));
 check('?auract debug override wired (quiet-vs-eruption capture)', /setAuroraActOverride/.test(readFileSync(url('../js/main.js'), 'utf8')));
 check('?aurerupt debug override wired (pin eruption strength, bypasses the 0.45 cap)',
   /setAuroraEruptOverride/.test(readFileSync(url('../js/main.js'), 'utf8')) && /if\s*\(eruptOverride\s*!=\s*null\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
@@ -112,6 +114,15 @@ setAuroraFlowExcite(0);
 for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // release → excite decays to 0
 check('releasing the carve returns activity to the natural drift (no floor → byte-inert)',
   auroraUniforms.uAurAct.value < 0.9 && Math.abs(auroraUniforms.uAurAct.value - (0.5 + 0.5 * (0.62 * Math.sin(3.0 * 0.05) + 0.38 * Math.sin(3.0 * 0.0177 + 2.4)))) < 1e-6);
+// EASE (the fix): the eruption must SWELL and FADE, never flash. From settled-high, one release frame keeps
+// most of the colour (afterglow) even though the target has crashed — the damped envelope, not on/off.
+setAuroraFlowExcite(1);
+for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);
+const settledErupt = auroraUniforms.uAurErupt.value;
+setAuroraFlowExcite(0);
+applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // ONE release frame
+check('the eruption FADES OUT gradually (one release frame keeps most of it → afterglow, no flash)',
+  settledErupt > 0.5 && auroraUniforms.uAurErupt.value > settledErupt * 0.85);
 setAuroraForced(false);
 setAuroraFlowExcite(0);
 applyAurora({ auroraMix: 0 }, 1000, 5, null, 0.1);   // leave shipped state
