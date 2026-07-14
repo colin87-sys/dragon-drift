@@ -1920,7 +1920,7 @@ export const ui = {
         </div>
         <div class="settings-group">
           <div class="settings-label">ADAPTIVE RESOLUTION</div>
-          <p class="sub">Holds a smooth frame rate by trimming render sharpness a touch in heavy scenes instead of dropping visual effects. Recommended on mobile.</p>
+          <p class="sub">Holds a smooth frame rate by trimming render sharpness a touch in heavy scenes instead of dropping visual effects. On by default; turn off to always render at native resolution.</p>
           ${gfxToggle('dynRes')}
         </div>
         <div class="settings-group">
