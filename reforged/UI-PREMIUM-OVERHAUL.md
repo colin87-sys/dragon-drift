@@ -264,6 +264,9 @@ toast, 2728 unlock glyph), `➤` in the primary CTA (ui.js:1606), `🪶` (ui.js:
 `⟲` `◀▶‹›`.
 
 ### U8 — HUD relegibility + relevance system — **L / medium / U2**
+> **GOVERNED BY [`HUD-REDESIGN.md`](./HUD-REDESIGN.md)** (the EMBERSIGHT spec) — U8's
+> scope is delivered by increments H1–H3/H6 there; the notes below stand as background.
+
 **Payoff:** vitals you can read at arm's length over a bright biome — and a HUD that
 earns its pixels by disappearing when irrelevant (the premium mobile look *and* an FPS win).
 - **Chrome floor:** surge gems get a quiet hairline housing + unlit alpha 0.18 → ~0.35 +
@@ -282,6 +285,9 @@ earns its pixels by disappearing when irrelevant (the premium mobile look *and* 
 Center stays sacred: nothing new near the reticle except what U9/U10 place there.
 
 ### U9 — Boss HP bar chrome — **M / medium / U2, U8**
+> **GOVERNED BY [`HUD-REDESIGN.md`](./HUD-REDESIGN.md)** — U9's scope is delivered by
+> increment H5 (the Mews plate) there; note `emit('bossHit')` already exists (boss.js:5520).
+
 **Payoff:** the climactic fight's central gauge finally matches its excellent supporting
 cast (title card / spell card / FELLED card — all credited, all protected).
 Elden Ring grammar, DOM-side in a new `js/bossBar.js` (new files never conflict):
@@ -303,6 +309,9 @@ system *above* `.boss-note`'s band. Mind `formLifebars` bosses (multi-lifebar re
 boss.js:2160/3973) — the bar must re-fill on form swap, not read as healing mid-phase.
 
 ### U10 — Reticle / lock-on consolidation — **M / medium / U8**
+> **GOVERNED BY [`HUD-REDESIGN.md`](./HUD-REDESIGN.md)** — U10's scope is delivered by
+> increment H4 (the Lure) there; the flight-vector stretch goal is H9's flagged tether.
+
 **Payoff:** one reticle authority instead of three concentric ornaments fighting in a
 ~120px cluster (gate squares + ring-focus circle + WebGL ring glow, style.css:552-563).
 - Adopt the **lens2 hollow-bracket language** (600–685) as THE reticle. Audit correction:
@@ -363,6 +372,8 @@ boss — also the screenshot generator); `:focus-visible` everywhere (from U2);
 reduced-motion audit of every new system. **Phasing note (audit):** the sliders, presets
 and focus work land in Phase 2 as planned; the IMMERSIVE HUD toggle rides U8's relevance
 classes and finishes in Phase 3 — the Phase 2 row's "U14" means U14-minus-immersive.
+**HUD-redesign note:** the immersive toggle + the per-element override matrix are now
+specced in [`HUD-REDESIGN.md`](./HUD-REDESIGN.md) §F (they land with increments H3/H6).
 
 ### Killed / deferred (explicit, with reasons)
 | Item | Verdict | Why |
@@ -410,7 +421,7 @@ to be a good first proof.
 | **0 — Credibility floor + constitution** | U1, U2, `uishots` harness lands and banks the 16-state baseline | Quick wins visible (no stamp, no +0 XP, no trash-run chips); *nothing else* changed; slogan replaced (owner-approved, see U1) | `tests/run-all.mjs` green (incl. `buildstamp.mjs` under `?debug`); `tests/uitokens.mjs` green (allowlist = everything); `uishots` baseline committed as artifacts |
 | **1 — Hero: splash + start hub** | U3 (splash/hub slice), U4 (hub slice incl. `.screen` blur kill), U13 entry ritual on hero, U11 first 4 sounds, U7 hub call-sites | Both orientations premium: title theater, staggered reveal, sharp live scene behind an asymmetric scrim, no rail collision; sound feel; motion feel | `uishots --diff`: only splash/hub frames changed; uitokens allowlist shrinks (splash/hub files enforced); run-all green |
 | **2 — Meta migration wave** | U3 + U4 remainder (shop, settings, pause, quests, daily, boss-rush, pilot, recap, celebrate, inspect, revive offer, load screen), U5, U6, U7 complete, U14 (minus immersive-HUD toggle → Phase 3) | Every meta screen reads as one hand; settings navigable; shop landscape composes; pause EXIT reachable in landscape | uitokens: **navy-literal eviction assert green**, allowlist ≈ empty for meta files; `uishots --diff` all meta states reviewed; run-all + shop/splash tests green |
-| **3 — Flight HUD + boss** | U8, U9, U10 | Vitals legible over Frozen Reach / bright sky at arm's length; relevance fades feel right at speed; boss bar chrome + drain-lag lands the fight; reticle reads as one instrument | `uishots` HUD/boss states over a bright seeded biome; `tricount` + `tiershots` when WebGL is touched (ring retirement); no layout-prop transitions on HUD selectors (uitokens rule d); 60fps via `?debug=perf` on-device |
+| **3 — Flight HUD + boss** | U8, U9, U10 — **executed as [`HUD-REDESIGN.md`](./HUD-REDESIGN.md) increments H1–H6** (EMBERSIGHT; the flagged dragon-vitals increments H7–H9 may trail the phase boundary without blocking it) | Vitals legible over Frozen Reach / bright sky at arm's length; relevance fades feel right at speed; boss bar chrome + drain-lag lands the fight; reticle reads as one instrument | `uishots` HUD/boss states over a bright seeded biome; `tricount` + `tiershots` when WebGL is touched (ring retirement); no layout-prop transitions on HUD selectors (uitokens rule d); 60fps via `?debug=perf` on-device; plus the per-increment gates in HUD-REDESIGN §D |
 | **4 — Theater finish** | U12, U13 complete, U11 full soundboard | Transitions travel through the world; high-frequency screens still snap; idle life invisible-but-alive; full-run feel check | Full `uishots` montage vs banked baseline; run-all green; Gate 3 Fable review scores the compound result vs the 9–10 bar |
 
 ### Verification plan
@@ -543,3 +554,4 @@ corrected the plan in place. What changed:
 | Date | Phase/PR | Gate | Verdict | Score | Notes |
 |---|---|---|---|---|---|
 | — | — | 0 (kickoff) | pending | — | Spawn the high-effort Fable kickoff before U1 code |
+| 2026-07-14 | Phase 3 scope | — | superseded | — | The **EMBERSIGHT** HUD redesign spec ([`HUD-REDESIGN.md`](./HUD-REDESIGN.md)) supersedes the in-place U8–U10 scopes; Phase 3 executes its increments H1–H6 (H7–H9 flagged) |
