@@ -161,18 +161,33 @@ check('uAurAct stays in [0,1] (slow form envelope)', auroraUniforms.uAurAct.valu
 setAuroraForced(false);
 applyAurora({ auroraMix: 0 }, 5, 5); // leave shipped state
 
-// --- 6. the biome channel is 0 in EVERY shipped biome (optional-channel = identity) --
-let maxMix = 0;
+// --- 6. PR-4 THE FLIP: the aurora block (CYCLE index 5 = biome 6) NOW lights the curtain, over a
+// wide pre-ramp, with ZERO leak into the upstream biomes. Block layout at L=1500: blocks 0-4 =
+// biomes 0-4 (Mire is block 4, [6000,7500)); block 5 = AURORA ([7500,9000)); block 6 = Astral.
 const L = CONFIG.biomeLength;
-for (let dist = 0; dist <= 8 * L; dist += L / 4) maxMix = Math.max(maxMix, computeEnv(dist).auroraMix);
-check(`no CYCLED biome lights the aurora → env.auroraMix 0 across the course (max ${maxMix})`, maxMix === 0);
-check('exactly BIOMES[6] declares aurora (the anchor; the other 6 stay dormant)',
+let maxMix = 0;
+for (let dist = 0; dist <= 9 * L; dist += 25) maxMix = Math.max(maxMix, computeEnv(dist).auroraMix);
+check(`the aurora block lights the curtain → env.auroraMix reaches 1.0 across the course (max ${maxMix.toFixed(3)})`, Math.abs(maxMix - 1.0) < 1e-6);
+// NO UPSTREAM LEAK: blocks 0-3 + the first ~1000m of Mire stay byte-identically 0 (the 450m ramp-in
+// only fires in Mire's last stretch). The ramp start is L-450 into Mire = dist 7050.
+let leak = 0;
+for (let dist = 0; dist <= 4 * L + 1000; dist += 25) leak = Math.max(leak, computeEnv(dist).auroraMix);   // Mire = block 4 [6000,7500); ramp-in starts at 7050
+check(`no upstream leak → auroraMix 0 through block 3 + early Mire (max ${leak})`, leak === 0);
+// RAMP-IN (curtain dawns over Mire's last 450m): 0 at dist 7000, rising by 7300, full by aurora start.
+const mIn0 = computeEnv(7000).auroraMix, mIn1 = computeEnv(7300).auroraMix, mIn2 = computeEnv(7480).auroraMix;
+check('ramp-IN is a smooth dawn (0 at 7000m → partial at 7300m → ~full by 7480m, monotone)',
+  mIn0 === 0 && mIn1 > 0.02 && mIn1 < mIn2 && mIn2 > 0.9);
+check('aurora block interior is full curtain (auroraMix 1.0 mid-block)', Math.abs(computeEnv(8100).auroraMix - 1.0) < 1e-6);
+// RAMP-OUT (curtain dies over the aurora's last 300m as the whale fades in): full at 8100, fading by 8850.
+const mOut = computeEnv(8850).auroraMix;
+check('ramp-OUT hands off to Astral (auroraMix falling by 8850m, < full)', mOut < 0.98 && mOut >= 0);
+check('exactly BIOMES[6] declares aurora (the other 6 stay dormant)',
   BIOMES.slice(0, 6).every((b) => !b.aurora) && BIOMES[6] && BIOMES[6].aurora === 1.0);
-// Forcing biome 6 (?biome=6) is the ONLY way to reach it until the CYCLE flip → it lights the curtain.
+// ?biome=6 force (ia===ib, t=0) skips the ramp branch → still pins 1.0 for the debug preview.
 setForcedBiome(6);
 const forcedMix = computeEnv(1000).auroraMix;
 setForcedBiome(null);
-check('forcing biome 6 lights the aurora (env.auroraMix 1.0)', Math.abs(forcedMix - 1.0) < 1e-6);
+check('forcing biome 6 still pins the aurora (env.auroraMix 1.0, ramp branch skipped)', Math.abs(forcedMix - 1.0) < 1e-6);
 
 // --- 6b. PR-3: the biome's own LOW ice props + mirror/ground-glow polish -------------
 check('BIOMES[6].props are the low ice set (floe/iceFang/berg/skerry/ridge)', JSON.stringify(BIOMES[6].props) === '["floe","iceFang","berg","skerry","ridge"]');
@@ -223,7 +238,8 @@ check('preview lights the stars (max(starMix, uAurNight..))', /star\s*\*\s*max\(
 const mainSrc = readFileSync(url('../js/main.js'), 'utf8');
 check('main.js reads ?aurora=1 → setAuroraForced(true)', /getParam?|aurora['"]\)\s*===\s*['"]1['"]/.test(mainSrc) && /setAuroraForced\(true\)/.test(mainSrc));
 check('main.js drives setAuroraQuality in applyQuality', /setAuroraQuality\(tier\)/.test(mainSrc));
-check('main.js gates god-ray shafts off for the aurora (preview OR real biome — no white fan)', /auroraForced\(\)\s*\|\|\s*auroraMix\(\)\s*>\s*0\.5[\s\S]{0,6}\?\s*0\s*:\s*_camFwd\.dot/.test(mainSrc));
+check('main.js gates god-ray shafts off for the aurora — CONTINUOUS fade, no mid-seam pop (PR-4)',
+  /auroraForced\(\)\s*\?\s*0\s*:\s*_camFwd\.dot\(SUN_DIR\)\s*\*\s*\(1\s*-\s*Math\.min\(1,\s*auroraMix\(\)\s*\*\s*2\)\)/.test(mainSrc));
 
 // --- 9. PROBE-EXCLUSION GUARD: skyProbe.js must not know about the aurora ----------
 const probeSrc = readFileSync(url('../js/skyProbe.js'), 'utf8');

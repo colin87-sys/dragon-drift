@@ -194,7 +194,12 @@ export const BIOMES = [
 // palettes) while the shipped world stays byte-identical until its index is added to CYCLE —
 // the coexistence seam for slotting Aurora Shallows (BIOMES[6]) between Mire and Astral, etc.
 // Any code that cycles biomes by distance MUST index through CYCLE, never `block % BIOMES.length`.
-export const CYCLE = [0, 1, 2, 3, 4, 5];
+// PR-4 THE FLIP: Aurora Shallows (6) slotted between Lumen Mire (4) and Astral Shallows (5) — the
+// night crescendo biolume → AURORA → cosmos. Mire→Aurora is the softest seam in the roster (both
+// night, Mire's teal horizon 0x3fd8b0 is the aurora's own hue family); Aurora→Astral hands the dying
+// curtain off to the sky-whale (auroraMix 1→0 as whaleMix 0→1). Cycle is now 7 long; every consumer
+// indexes through CYCLE.length so that is safe. Blocks 0-4 reproduce the shipped order byte-for-byte.
+export const CYCLE = [0, 1, 2, 3, 4, 6, 5];
 
 // Debug seam: ?biome=<i> pins the whole course to one biome (no seam crossfade) so an
 // appended-but-not-yet-cycled biome (Aurora Shallows = 6) is flyable before the CYCLE flip.
@@ -252,6 +257,10 @@ const env = {
 };
 
 const lerp = THREE.MathUtils.lerp;
+// Aurora-only crossfade widths (see computeEnv): the curtain ignites over the last 450m of the
+// entry biome and dies over the last 300m of the aurora — asymmetric so the "dawn" is slower than
+// the "handoff to the whale." Only the aurora channel uses these; every other channel keeps the 150m.
+const AUR_RAMP_IN = 450, AUR_RAMP_OUT = 300;
 
 export function computeEnv(dist) {
   const { ia, ib, t } = biomeAt(dist);
@@ -282,7 +291,19 @@ export function computeEnv(dist) {
   env.faunaScale = lerp(a.fauna.scale, b.fauna.scale, t);
   env.faunaFlap = lerp(a.fauna.flap, b.fauna.flap, t);
   env.starMix = lerp(a.stars || 0, b.stars || 0, t);
-  env.auroraMix = lerp(a.aurora || 0, b.aurora || 0, t);
+  // AURORA pre-ramp (PR-4): the curtain is the brightest element in the game; igniting it over the
+  // standard 150m seam (~2-3s at cruise) reads as a light-switch. Give the aurora channel ITS OWN
+  // wider window (450m in / 300m out) so the curtain dawns as the teal horizon dims, and dies as the
+  // whale fades in — a crossfade, not a snap. Branch-gated to a real aurora seam, so lerp(0,0)=0 at
+  // every other seam → env.auroraMix byte-identical elsewhere; ?biome=6 (ia===ib, t=0) → pins 1.0.
+  let tAur = t;
+  if ((a.aurora || b.aurora) && ia !== ib) {
+    const L = CONFIG.biomeLength;
+    const local = dist - Math.max(0, Math.floor(dist / L)) * L;
+    const W = b.aurora ? AUR_RAMP_IN : AUR_RAMP_OUT;
+    tAur = THREE.MathUtils.smoothstep(local, L - W, L);
+  }
+  env.auroraMix = lerp(a.aurora || 0, b.aurora || 0, tAur);
   env.whaleMix = lerp(a.whale || 0, b.whale || 0, t);
   env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, t);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.

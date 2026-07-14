@@ -19,32 +19,35 @@ const read = (p) => readFileSync(join(DIR, '..', p), 'utf8');
 let pass = 0, fail = 0;
 const check = (label, ok) => { if (ok) { pass++; } else { fail++; console.error(`FAIL: ${label}`); } };
 
-// CYCLE is the shipped play-order: the identity of the FIRST 6 biomes. BIOMES[6] (Aurora
-// Shallows) is APPENDED but NOT yet in CYCLE — coexistence, reachable only via ?biome=6 until
-// the flip. So the play order (and thus gold-determinism) is unchanged by the append.
-check('CYCLE is [0,1,2,3,4,5] (identity of the first 6 biomes)',
-  Array.isArray(CYCLE) && CYCLE.length === 6 && CYCLE.every((v, i) => v === i));
-check('BIOMES[6] appended (Aurora Shallows) but NOT in CYCLE yet (coexistence)',
-  BIOMES.length === 7 && !CYCLE.includes(6));
+// PR-4 THE FLIP: Aurora Shallows (6) is slotted between Lumen Mire (4) and Astral Shallows (5) —
+// CYCLE = [0,1,2,3,4,6,5], now 7 long. The shipped PREFIX (blocks 0-4 → biomes 0-4) is preserved;
+// the order changes from block 5 on (was Astral, now Aurora → Astral). gold-determinism is untouched
+// because course gen is biome-blind (a separate test proves the fixtures still match).
+check('CYCLE is [0,1,2,3,4,6,5] (Aurora slotted between Mire and Astral)',
+  Array.isArray(CYCLE) && CYCLE.length === 7 && [0, 1, 2, 3, 4, 6, 5].every((v, i) => CYCLE[i] === v));
+check('BIOMES[6] (Aurora Shallows) is now IN the cycle', BIOMES.length === 7 && CYCLE.includes(6));
+check('the shipped prefix survives: blocks 0-4 are still biomes 0,1,2,3,4', [0, 1, 2, 3, 4].every((b, i) => CYCLE[i] === b));
+check('Aurora sits between Mire(4) and Astral(5): ...,4,6,5', CYCLE[4] === 4 && CYCLE[5] === 6 && CYCLE[6] === 5);
 
 // biomeAt cycles through CYCLE with period CYCLE.length — reproduce CYCLE[block % N] exactly, and
-// biome 6 must be UNREACHABLE via the seam (proving the append changed no play-order).
+// biome 6 must now BE reachable via the seam (at block ≡ 5 mod 7).
 const L = CONFIG.biomeLength, N = CYCLE.length;
-let iaOk = true, ibOk = true, idxOk = true, sixSeen = false;
+let iaOk = true, ibOk = true, idxOk = true, sixAtRightBlock = true, sixSeen = false;
 for (let dist = 0; dist <= 24 * L; dist += 37) {
   const block = Math.max(0, Math.floor(dist / L));
   const oldIa = CYCLE[block % N], oldIb = CYCLE[(block % N + 1) % N];
   const { ia, ib, t } = biomeAt(dist);
   if (ia !== oldIa) iaOk = false;
   if (ib !== oldIb) ibOk = false;
-  if (ia === 6 || ib === 6) sixSeen = true;
+  if (ia === 6) { sixSeen = true; if (block % N !== 5) sixAtRightBlock = false; }
   const idx = biomeIndexAt(dist);
   if (idx !== (t < 0.5 ? oldIa : oldIb)) idxOk = false;
 }
-check('biomeAt.ia reproduces CYCLE[block % N] over 2 cycles', iaOk);
+check('biomeAt.ia reproduces CYCLE[block % N] over the cycles', iaOk);
 check('biomeAt.ib reproduces CYCLE[(block+1) % N]', ibOk);
 check('biomeIndexAt is unchanged (picks ia/ib by the seam t)', idxOk);
-check('biome 6 is UNREACHABLE via biomeAt (appended, not cycled → play order unchanged)', !sixSeen);
+check('biome 6 IS reachable via biomeAt (the flip took effect)', sixSeen);
+check('biome 6 appears exactly at block ≡ 5 (mod 7)', sixAtRightBlock);
 
 // The seam consumers must route through CYCLE, not `block % BIOMES.length` / `k % N`.
 const biomesSrc = read('js/biomes.js'), levelSrc = read('js/level.js');

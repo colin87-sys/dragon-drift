@@ -467,10 +467,17 @@ let lastBossKey = null;
 // Fixed biome offset encounters snap to (§5h: foreshadowing is only authorable
 // if the encounter distance is deterministic — the horizon seed reads it).
 const BOSS_BIOME_OFFSET = 900;
+// A biome that declares `aurora` is a protected DREAM RUN (owner: no boss may interrupt it). Keyed on
+// the `aurora` field, not index 6, so it survives CYCLE edits / a double-aurora block.
+function isAuroraBlock(d) { return !!BIOMES[biomeIndexAt(d)]?.aurora; }
 function snapBossDist(minDist) {
   const L = CONFIG.biomeLength;
   let d = Math.floor((minDist - BOSS_BIOME_OFFSET) / L + 1) * L + BOSS_BIOME_OFFSET;
   if (d < minDist) d += L;
+  // Never SNAP an encounter into the aurora dream — nor into the block BEFORE it: a fight travels
+  // 2-5 blocks (player locked to cruiseSpeed while dist keeps accruing), so a boss that starts one
+  // block early is guaranteed to still be raging when the curtain rises. Lookahead 2 clears both.
+  while (isAuroraBlock(d) || isAuroraBlock(d + L)) d += L;
   return d;
 }
 // The def the NEXT (non-rush, non-debug) encounter will spawn — the horizon
@@ -529,7 +536,15 @@ function updateHorizonSeed(player, dt = 0.016) {
     if (foreshadowFor !== nextBossDist) { foreshadowFor = nextBossDist; foreshadowFired.length = 0; }
     const eta = nextBossDist - player.dist;
     for (const [th, k, vol] of FORESHADOW_TOLLS) {
-      if (eta <= th && eta > 60 && !foreshadowFired.includes(th)) { foreshadowFired.push(th); bellToll(k, vol); break; }
+      if (eta <= th && eta > 60 && !foreshadowFired.includes(th)) {
+        foreshadowFired.push(th);
+        // A funeral toll mid-dream breaks the aurora spell — audio is the dream's medium. Mark the
+        // threshold CONSUMED but stay silent while the player is inside the aurora; the eta-750 toll
+        // lands in Astral (outside the dream), so the dread compresses to the approach (correct shape).
+        // The SILENT horizon seed (a still black arch on the dark horizon) is kept — "something waits."
+        if (!isAuroraBlock(player.dist)) bellToll(k, vol);
+        break;
+      }
     }
   }
   const want = nd && nd.horizonSeed ? nd : null;
@@ -2310,8 +2325,11 @@ export function updateBoss(dt, player, time, camera) {
     // §5e: the horizon seed rides the idle stretch between encounters.
     updateHorizonSeed(player, dt);
     // Trigger a fresh encounter once the player flies past the scheduled mark
-    // (never inside a canyon, never on the menu).
-    if (game.state === 'playing' && !game.inCanyon && player.dist >= nextBossDist) {
+    // (never inside a canyon, never on the menu, NEVER inside the aurora dream). The snap already
+    // keeps scheduled marks out of the aurora; this also catches a canyon-DEFERRED encounter, which
+    // fires at an arbitrary unsnapped distance the moment the canyon ends — it now waits for Astral.
+    if (game.state === 'playing' && !game.inCanyon && player.dist >= nextBossDist
+        && !isAuroraBlock(player.dist)) {
       startBossEncounter(player);
     }
     return;
