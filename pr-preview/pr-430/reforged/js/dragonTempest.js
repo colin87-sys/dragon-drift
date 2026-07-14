@@ -517,7 +517,7 @@ function buildOneStormforkWing(M, dials) {
     const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
     const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.45, b[2]];
     push(g, M.spine, [aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]);            // shadowed charcoal sides
-    const up = 0.008 * hs, cw = 0.82;
+    const up = 0.008 * hs, cw = 0.76;   // glow cap a touch narrower → the dark cloud stays dominant in daylight (gate polish #2)
     const caL = [a[0] + px * wB * cw, a[1] + lift * 0.5 + up, a[2] + pz * wB * cw], caR = [a[0] - px * wB * cw, a[1] + lift * 0.5 + up, a[2] - pz * wB * cw];
     const cbL = [b[0] + px * wT * cw, b[1] + lift * 0.24 + up, b[2] + pz * wT * cw], cbR = [b[0] - px * wT * cw, b[1] + lift * 0.24 + up, b[2] - pz * wT * cw];
     const caT = [a[0], a[1] + lift + up, a[2]], cbT = [b[0], b[1] + lift * 0.45 + up, b[2]];
@@ -582,7 +582,9 @@ function buildOneStormforkWing(M, dials) {
   for (let i = 0; i < N - 1; i++) {
     const fa = spars[i], fb = spars[i + 1];
     const chord = Math.hypot(fb[NS][0] - fa[NS][0], fb[NS][1] - fa[NS][1], fb[NS][2] - fa[NS][2]) || 1;
-    const billow = (0.14 + 0.08 * cD) * chord, scal = bayScallop[Math.min(i, 3)] * (0.6 + 0.4 * cD) * (0.9 + 0.2 * ((i * 0.618) % 1));
+    // aft bays sag DEEPER (a big per-bay differential) so the SIDE profile scallops between the
+    // fingers instead of collapsing to one flat sail (gate polish #1).
+    const billow = (0.14 + 0.10 * cD) * chord * (0.68 + 0.62 * (i / Math.max(1, N - 2))), scal = bayScallop[Math.min(i, 3)] * (0.6 + 0.4 * cD) * (0.9 + 0.2 * ((i * 0.618) % 1));
     const mid = [];
     for (let k = 0; k <= NS; k++) {
       const saf = k / NS, m = [(fa[k][0] + fb[k][0]) / 2, (fa[k][1] + fb[k][1]) / 2, (fa[k][2] + fb[k][2]) / 2];
@@ -660,8 +662,8 @@ function buildStormforkWings(def, model, attach, _giM) {
   // rig's wingMat.opacity / wingMembraneEmissive writes are visually inert — the FRAME owns the
   // light). THE KNIFE-EDGE: hum-lit near-white translucent (the wing's only transparency).
   M.wingMat = M.boltTiers[0];
-  M.edgeMat = new THREE.MeshStandardMaterial({ color: 0xc9d0e8, emissive: 0xd9deff, emissiveIntensity: M.humFloor * 0.8, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.62 });
-  M.edgeMat.envMapIntensity = 0.3; M.edgeMat.userData.baseEmissive = 0xd9deff; M.edgeMat.userData.baseIntensity = M.humFloor * 0.8;
+  M.edgeMat = new THREE.MeshStandardMaterial({ color: 0xc9d0e8, emissive: 0xd9deff, emissiveIntensity: M.humFloor * 0.6, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.55 });   // dimmer/thinner rim → cloud dominant in daylight (gate polish #2)
+  M.edgeMat.envMapIntensity = 0.3; M.edgeMat.userData.baseEmissive = 0xd9deff; M.edgeMat.userData.baseIntensity = M.humFloor * 0.6;
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
