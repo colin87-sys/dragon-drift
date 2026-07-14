@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Veil Studio</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{position:fixed;left:0;top:0}
+    #sheet{position:fixed;left:0;top:0;display:none;background:#0a0e1a}
+    #err{position:fixed;left:12px;right:12px;top:12px;color:#ff9a9a;font-size:13px;white-space:pre-wrap;
+      background:rgba(40,8,8,.7);padding:10px;border-radius:8px;display:none;max-height:60vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__vserr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display = 'block'; e.textContent = 'Studio error:\n' + m; } };
+    window.addEventListener('error', (ev) => window.__vserr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__vserr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="600" height="600"></canvas>
+  <canvas id="sheet"></canvas>
+  <div id="err"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { buildStudioGate, studioGateTick } from '../js/obstacles.js';
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 4000);
+    camera.layers.enable(1);   // the gate's core-glow / beacon / motes live on layer 1
+    // The gate frame is emissive (blooms in-game); a little ambient + key so the
+    // forged frame + facet fresnel read here (no post/bloom in the studio).
+    scene.add(new THREE.HemisphereLight(0xdfeaff, 0x2a2438, 1.0));
+    const key = new THREE.DirectionalLight(0xffe6c0, 1.4); key.position.set(-3, 2, 4); scene.add(key);
+
+    // Procedural sky-gradient backdrops (the veil is transparent → judged AGAINST a
+    // sky; the bright one is the legibility stress test the frost veil failed).
+    function gradTex(stops) {
+      const c = document.createElement('canvas'); c.width = 8; c.height = 256;
+      const g = c.getContext('2d'); const grd = g.createLinearGradient(0, 0, 0, 256);
+      for (const [p, col] of stops) grd.addColorStop(p, col);
+      g.fillStyle = grd; g.fillRect(0, 0, 8, 256);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+    }
+    const BG = {
+      sunset: gradTex([[0, '#241f47'], [0.42, '#7a4a86'], [0.6, '#e07a4a'], [0.8, '#ffb060'], [1, '#ffd69a']]),
+      dusk:   gradTex([[0, '#141a3a'], [0.5, '#2a3566'], [0.8, '#5a6aa0'], [1, '#8aa0d0']]),
+      dark:   gradTex([[0, '#0a0d18'], [1, '#1a2236']]),
+    };
+    function setBg(bg) { scene.background = BG[bg] || BG.sunset; }
+
+    const ANGLES = {
+      headon:  { dir: [0.0, 0.02, 1], up: [0, 1, 0], fill: 0.92 },   // gameplay read (most transparent)
+      q34:     { dir: [0.62, 0.12, 0.78], up: [0, 1, 0], fill: 0.92 },
+      side:    { dir: [1.0, 0.08, 0.28], up: [0, 1, 0], fill: 0.86 }, // grazing → fresnel edges + facet flash
+      detail:  { dir: [0.5, 0.1, 0.86], up: [0, 1, 0], fill: 0.42, aim: [-0.42, 0.0, 0] }, // zoom a left-panel facet field
+    };
+
+    let built = null;
+    const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
+    function dispose() { if (built) { scene.remove(built); built.traverse(o => { if (o.geometry) o.geometry.dispose(); }); built = null; } }
+    function build(bi) {
+      dispose();
+      built = buildStudioGate(bi);
+      built.position.set(0, 0, 0);
+      scene.add(built);
+      built.updateMatrixWorld(true);
+      return built;
+    }
+    function fit(a) {
+      _box.setFromObject(built); _box.getCenter(_c); _box.getSize(_s);
+      if (a.aim) _c.set(_c.x + _s.x * (a.aim[0] || 0), _c.y + _s.y * (a.aim[1] || 0), _c.z + _s.z * (a.aim[2] || 0));
+      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      const vfov = camera.fov * Math.PI / 180;
+      const dist = (radius / Math.tan(vfov / 2)) / (a.fill || 0.9);
+      camera.up.set(a.up[0], a.up[1], a.up[2]);
+      const d = new THREE.Vector3(a.dir[0], a.dir[1], a.dir[2]).normalize();
+      camera.position.copy(_c).addScaledVector(d, dist);
+      camera.near = Math.max(0.1, dist / 500); camera.far = dist * 40;
+      camera.updateProjectionMatrix(); camera.lookAt(_c);
+    }
+    function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
+
+    window.vsKeys = () => ({ 0: 'sanctuary', 2: 'frozen', 3: 'caldera', 5: 'astral' });
+    window.vsRender = (o) => {
+      if (!built || o.rebuild) build(o.bi);
+      studioGateTick(o.t != null ? o.t : 1.2);
+      setBg(o.bg || 'sunset');
+      fit(ANGLES[o.angle] || ANGLES.headon);
+      renderer.render(scene, camera);
+      return true;
+    };
+
+    const _sheet = document.getElementById('sheet');
+    window.vsSheetInit = (cols, rows, cell) => {
+      _sheet.width = cols * cell; _sheet.height = rows * cell; _sheet.style.display = 'block';
+      const ctx = _sheet.getContext('2d'); ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, _sheet.width, _sheet.height);
+      _sheet.__cell = cell; _sheet.__cols = cols; sizeGL(cell); return true;
+    };
+    window.vsTile = (quad, label) => {
+      const cell = _sheet.__cell, cols = _sheet.__cols, ctx = _sheet.getContext('2d');
+      const ox = (quad % cols) * cell, oy = ((quad / cols) | 0) * cell;
+      ctx.drawImage(gl, ox, oy, cell, cell);
+      if (label) { ctx.font = '600 20px system-ui, sans-serif'; ctx.textBaseline = 'top';
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(label, ox + 12, oy + 12);
+        ctx.fillStyle = '#ffe08a'; ctx.fillText(label, ox + 12, oy + 12); }
+      return true;
+    };
+
+    window.__vs = { scene, camera, renderer, group: () => built };
+    try { renderer.setSize(600, 600, false); window.__ready = true; }
+    catch (e) { window.__vserr((e && e.stack) || String(e)); throw e; }
+  </script>
+</body>
+</html>

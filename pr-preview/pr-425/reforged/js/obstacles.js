@@ -64,28 +64,39 @@ function makeVeilMat(color, edge) {
       uColor: { value: new THREE.Color(color) },
       uEdge: { value: new THREE.Color(edge) },
       uAlpha: { value: 0.6 },
+      // View-space low-sun direction (ahead + slightly up) for the per-facet glint.
+      // Fixed approximation — the facets already vary the read as the camera flies.
+      uSun: { value: new THREE.Vector3(0.0, 0.25, -1.0).normalize() },
     },
     vertexShader: `
-      varying vec3 vN; varying vec3 vView; varying vec3 vPos;
+      attribute float aFacet;
+      varying vec3 vN; varying vec3 vView; varying vec3 vPos; varying float vFacet;
       void main() {
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vView = -mv.xyz;
         vN = normalMatrix * normal;
         vPos = position;
+        vFacet = aFacet;
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
-      uniform float uTime; uniform vec3 uColor; uniform vec3 uEdge; uniform float uAlpha;
-      varying vec3 vN; varying vec3 vView; varying vec3 vPos;
+      uniform float uTime; uniform vec3 uColor; uniform vec3 uEdge; uniform float uAlpha; uniform vec3 uSun;
+      varying vec3 vN; varying vec3 vView; varying vec3 vPos; varying float vFacet;
       void main() {
         vec3 N = normalize(vN);
         vec3 V = normalize(vView);
-        float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
-        float band = sin((vPos.y * 0.5 + vPos.x * 0.3) - uTime * 1.5);
+        float ndv = clamp(dot(N, V), 0.0, 1.0);
+        float fres = pow(1.0 - ndv, 3.0);
+        // Per-facet sun GLINT: faceted panels flash sequentially as the camera flies
+        // and the (view-space) low sun sweeps across the differently-angled planes.
+        float glint = pow(max(dot(reflect(-V, N), normalize(uSun)), 0.0), 28.0);
+        float band = sin((vPos.y * 0.5 + vPos.x * 0.3) + vFacet * 6.28 - uTime * 1.5);
         float shimmer = 0.85 + 0.15 * band;
-        float a = clamp(uAlpha * (0.30 + 0.70 * fres) * shimmer, 0.0, 0.30);
+        float a = clamp(uAlpha * (0.30 + 0.70 * fres) * shimmer + 0.18 * glint, 0.0, 0.30);
         vec3 col = mix(uColor, uEdge, clamp(fres * 0.85, 0.0, 1.0));
         col += uEdge * max(0.0, band) * 0.12;
+        col += uEdge * glint * 0.9;                 // hot spark on the sun-facing facet
+        col += uEdge * (vFacet - 0.5) * 0.05;       // faint per-facet tone so panes read distinct head-on
         gl_FragColor = vec4(col, a);
       }`,
     transparent: true,
@@ -340,10 +351,59 @@ export function addObstacle(o) {
 //   4. reactive FX: core-glow locator, long-range beacon, drifting motes
 // Veil/ring/rim materials are shared per biome; core/beacon/motes are
 // per-instance (marked so removeAt disposes them).
-function buildGate(o) {
+// A faceted crystal PANEL for the Phase Gate veil (graphics veil pass). Same
+// rectangular outline as the old flat box face, but the interior is a jittered
+// low-poly triangulation of FLAT facets, so the fresnel membrane reads as GROWN
+// crystal instead of a flat hologram pane: each facet catches the grazing light
+// and the low-sun glint differently, and the sun sweeps across them as
+// sequentially flashing planes as the camera flies. Boundary vertices are PINNED
+// (z = 0, exact outline, no XY jitter) so the four panels tile seamlessly against
+// each other and the frame with no cracks and never bulge into the gameplay
+// aperture. Carries a per-facet random attribute `aFacet` (same value on a
+// triangle's three verts). Non-indexed → computeVertexNormals yields true flat
+// facet normals. Uses Math.random like the motes below (a gate's VISUAL detail is
+// not determinism-tracked — the fixture tracks gameplay state, not mesh jitter).
+function facetedPanelGeo(w, h, T) {
+  const nx = Math.max(1, Math.round(w / 3.0));
+  const ny = Math.max(1, Math.round(h / 3.0));
+  const cw = w / nx, ch = h / ny;
+  const gv = [];
+  for (let j = 0; j <= ny; j++) {
+    for (let i = 0; i <= nx; i++) {
+      const edge = (i === 0 || i === nx || j === 0 || j === ny);
+      let x = -w / 2 + i * cw, y = -h / 2 + j * ch, z = 0;
+      if (!edge) {
+        x += (Math.random() - 0.5) * 0.6 * cw;
+        y += (Math.random() - 0.5) * 0.6 * ch;
+        z += (Math.random() - 0.5) * 0.84 * T;   // within the ±T/2 slab, never into the gap (panels sit outside it)
+      }
+      gv.push(x, y, z);
+    }
+  }
+  const idx = (i, j) => (j * (nx + 1) + i) * 3;
+  const pos = [], facet = [];
+  const pushTri = (a, b, c) => {
+    const f = Math.random();
+    for (const k of [a, b, c]) { pos.push(gv[k], gv[k + 1], gv[k + 2]); facet.push(f); }
+  };
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const a = idx(i, j), b = idx(i + 1, j), c = idx(i + 1, j + 1), d = idx(i, j + 1);
+      if ((i + j) % 2 === 0) { pushTri(a, b, c); pushTri(a, c, d); }
+      else { pushTri(a, b, d); pushTri(b, c, d); }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aFacet', new THREE.Float32BufferAttribute(facet, 1));
+  g.computeVertexNormals();
+  return g;
+}
+
+function buildGate(o, biOverride) {
   const group = new THREE.Group();
   group.userData.phaseGate = true;   // tag: lets tooling hide the harness-interleaved Phase Gate reliably
-  const bi = biomeIndexAt(o.dist);
+  const bi = biOverride != null ? biOverride : biomeIndexAt(o.dist);
   const skin = PHASE_SKINS[bi];
   const veilMat = veilMats[bi];
   const edgeMat = edgeMats[bi];
@@ -362,7 +422,7 @@ function buildGate(o) {
   // Layer 3 — translucent phase field (veil panels around the aperture).
   const panel = (w, h, cx, cy) => {
     if (w <= 0.1 || h <= 0.1) return;
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, T), veilMat);
+    const mesh = new THREE.Mesh(facetedPanelGeo(w, h, T), veilMat);
     mesh.position.set(cx, cy, 0);
     group.add(mesh);
   };
@@ -459,6 +519,24 @@ function buildGate(o) {
 
   group.position.z = -o.dist;
   return group;
+}
+
+// Inert STUDIO export (tools/veilstudio) — build ONE Phase Gate in ISOLATION for a
+// given biome so the veil ("crystal wall") can be judged close-up and reproducibly,
+// without the in-game camera/spawn fight (the propstudio pattern, for the gate).
+// Lazily builds the shared gate materials via a scene-less initObstacles, and lights
+// the approach-lit FX (core glow / beacon start at opacity 0 in-game) so the full
+// read shows. Never imported by the running game.
+export function buildStudioGate(bi = 0) {
+  if (!veilMats) initObstacles({ add() {}, remove() {} });
+  const g = buildGate({ dist: 0, gapX: 0, gapY: 11, gapW: 3.8, gapH: 3.4, thick: 1.5 }, bi);
+  if (g.userData.core) g.userData.core.material.opacity = 0.5;
+  if (g.userData.beacon) g.userData.beacon.material.opacity = 0.22;
+  return g;
+}
+// Drive the veil shimmer (uTime) for the studio — called per frame by the driver.
+export function studioGateTick(t) {
+  if (veilMats) for (const m of veilMats) m.uniforms.uTime.value = t;
 }
 
 // --- Sky Canyon rock gates -------------------------------------------------
