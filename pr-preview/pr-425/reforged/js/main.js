@@ -23,11 +23,11 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn, setWaterPerfSaver } from './water.js';
 import { waterFoamOn } from './propFoam.js';
 import { aoUniform } from './propAO.js';
 import { makePerfStats, resetPerfStats, perfFrame, perfSummary } from './perfStats.js';
@@ -1335,8 +1335,19 @@ const PIXEL_RATIOS = [
 // DEFAULT OFF → resScale pinned at 1.0 → effectivePR is byte-identical to shipped. Enable
 // via the ADAPTIVE RESOLUTION setting or ?dynres; ?dynresmin=<n> tunes the floor (device data).
 let dynResEnabled = urlParams.has('dynres') ? urlParams.get('dynres') !== '0' : gfxPref.dynRes === true;
-const resGov = makeResGov((() => { const m = parseFloat(urlParams.get('dynresmin')); return Number.isFinite(m) && m > 0 ? buildResSteps(m, 5) : RES_STEPS; })());
-let resScale = 1.0;   // current pixel-scale = resGov.steps[resGov.idx]; 1.0 = full resolution
+// The escalation LADDER, cheapest-cut-first (the arena "spend the invisible fill lever
+// before resolution" principle, generalized to cruise). Rung 0 = shipped. Rung 1 engages
+// the PERF-SAVER — near-invisible fill cuts (cruise mirror ½→¼, god-ray march 40→24 taps),
+// full resolution KEPT — so a heavy section first spends the pixels the eye can't see it
+// lose. Rungs 2+ then trim resolution. Feature-tier drop stays the final backstop
+// (updateQuality). Restored in reverse: features → resolution → saver last.
+const RES_SCALES = (() => { const m = parseFloat(urlParams.get('dynresmin')); return Number.isFinite(m) && m > 0 ? buildResSteps(m, 5) : RES_STEPS; })();
+const STAGES = [{ saver: false, scale: RES_SCALES[0] },                        // 0 — shipped look
+                { saver: true,  scale: RES_SCALES[0] },                        // 1 — invisible fill cuts, full res
+                ...RES_SCALES.slice(1).map((s) => ({ saver: true, scale: s }))]; // 2.. — + trim resolution to the floor
+const resGov = makeResGov(STAGES);   // the governor manages the ladder index; main.js interprets each rung
+let resScale = 1.0;      // current pixel-scale = STAGES[resGov.idx].scale; 1.0 = full resolution
+let perfSaverOn = false; // current STAGES[resGov.idx].saver
 // ARENA PERF MODE: the final-boss detonation is a full-frame ADDITIVE fire — the frame is FILL-bound
 // there, not draw-bound (halving draws didn't move fps). The confirmed wall is MSAA-resolve bandwidth:
 // on-device `?msaa0` held 60fps at FULL resolution, fire intact. So in the heaven (mix>1) we drop MSAA
@@ -1375,11 +1386,20 @@ function setResScale(scale) {
   setPostSize(window.innerWidth, window.innerHeight);
   skipQualityFrames = 2;   // keep the realloc frames out of the tier-decision signal
 }
+// Engage/lift the perf-saver rung — the near-invisible fill cuts the governor spends BEFORE
+// resolution. Pure parameter flips (mirror duty-cycle + god-ray sample count), NO realloc, so
+// the saver rung engages for free (its STAGES.scale is 1.0 → setResScale no-ops beside it).
+function setPerfSaver(on) {
+  if (on === perfSaverOn) return;
+  perfSaverOn = on;
+  setWaterPerfSaver(on);        // cruise mirror ½ → ¼ rate
+  setGodRaySamplesSaver(on);    // tier0 shaft march 40 → 24 taps
+}
 // Settings toggle for the governor. Turning it OFF snaps pixel-scale back to full (shipped
 // look); turning it ON leaves resScale at 1.0 (the governor trims from there under load).
 function setDynRes(on) {
   dynResEnabled = on;
-  if (!on) { resGovReset(resGov); resScale = 1.0; }
+  if (!on) { resGovReset(resGov); resScale = 1.0; setPerfSaver(false); }
   const pr = effectivePR(qualityTier);
   renderer.setPixelRatio(pr);
   setPostPixelRatio(pr);
@@ -1390,7 +1410,7 @@ document.body.dataset.qtier = qualityTier; // boot default (applyQuality only ru
 
 function applyQuality(tier) {
   qualityTier = tier;
-  resGovReset(resGov); resScale = 1.0;   // each tier is (re)evaluated at full res; the governor re-trims within it (no double-dip with the tier's own pixelRatio drop)
+  resGovReset(resGov); resScale = 1.0; setPerfSaver(false);   // each tier is (re)evaluated from the full ladder top; the governor re-engages the saver / re-trims within the new tier (no double-dip with the tier's own pixelRatio drop)
   skipQualityFrames = 2;   // the next 2 frames carry this flip's RT realloc + shader recompile — exclude them from the signal (see updateQuality)
   document.body.dataset.qtier = tier; // CSS gates (speedlines, motes) read this
   setParticleQuality(QUALITY_SCALARS[tier]);
@@ -1452,7 +1472,7 @@ function updateQuality(dt, hitchDt = dt) {
   if (dynResEnabled) {
     const canRestore = !bossEncounter && !(player.tunnelFxMix > 0.3);   // no pixel-restore mid-boss / mid-flow-carve (a realloc breath, kept out of the tense beats — as with tier restores)
     const r = resGovStep(resGov, { medFps, tier: qualityTier, degradeAt, dt, canRestore });
-    if (r.changed) setResScale(resGov.steps[r.idx]);
+    if (r.changed) { const st = STAGES[r.idx]; setPerfSaver(st.saver); setResScale(st.scale); }   // saver first (free), then pixels
     if (r.owned) { degradeTimer = 0; qualityTimer = 0; return; }
   }
   if (medFps < degradeAt && qualityTier < maxTier) {
@@ -1878,7 +1898,7 @@ function tick() {
         `fps   ${fpsAvg.toFixed(0)}  avg ${s.avgFps.toFixed(0)}\n` +
         `min   ${s.minFps === Infinity ? '—' : s.minFps.toFixed(0)}fps @${s.worstCalls}c/${(s.worstTris / 1000).toFixed(0)}k\n` +
         `max   ${s.maxFps ? s.maxFps.toFixed(0) : '—'}fps   p95 ${s.p95Ms.toFixed(1)}ms\n` +
-        `calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  tier ${qualityTier}${dynResEnabled ? `  res ${resScale.toFixed(2)}` : ''}\n` +
+        `calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  tier ${qualityTier}${dynResEnabled ? `  res ${resScale.toFixed(2)}${perfSaverOn ? ' sv' : ''}` : ''}\n` +
         `gfx   ${gfx} · ${tone}`;
     }
     renderer.info.reset();

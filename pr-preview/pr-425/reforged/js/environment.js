@@ -357,7 +357,10 @@ const ARCHETYPES = {
       // recessed crevasse core in the cleft between the ribs (proud of the main block face)
       ...crevasseCore({ x: 0.06, y: 0.40, z: 0.36, h: 0.34, w: 0.07, seg: 2 }),
     ], 2),
-    place: (side, rnd) => ({ x: side * (16 + rnd() * 8), h: 7 + rnd() * 6, r: 7 + rnd() * 4, tilt: side * (rnd() * 0.10 - 0.03) }),
+    // LANE-CLEARANCE (PR-1): inner edge = x − ρ·r·sMax must clear the ±13 fatal lane
+    // + the ±16 gate veil. serac ρ=0.712, sMax 1.10 → 0.79; floor 15.5 (MID class).
+    // Draw r FIRST then couple x to it (the shipped bergwall pattern) — same 4 draws.
+    place: (side, rnd) => { const r = 7 + rnd() * 4; return { x: side * (15.5 + 0.79 * r + rnd() * 6), h: 7 + rnd() * 6, r, tilt: side * (rnd() * 0.10 - 0.03) }; },
   },
   // THE ICE TERRACE — stepped shelf (~108 tris): a giant's staircase rising from the
   // mirror — wide (3–8:1). Low h-rolls read as pack ice, high rolls as full terraces
@@ -392,7 +395,9 @@ const ARCHETYPES = {
       { mat: 1, geo: xform(new THREE.BoxGeometry(0.075, 0.06, 0.26), { x: 0.29, z: -0.08, y: 0.62, ry: 0.3 }) },        // lit crack segment 1 (full glowing floor)
       { mat: 1, geo: xform(new THREE.BoxGeometry(0.075, 0.06, 0.16), { x: 0.33, z: 0.12, y: 0.62, ry: 0.3 }) },         // lit crack segment 2 — overlaps seg 1 → one continuous glowing crack spanning the tread
     ], 2),
-    place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 2.5 + rnd() * 4.5, r: 8 + rnd() * 8, tilt: side * (rnd() * 0.04 - 0.02) }),
+    // LANE-CLEARANCE (PR-1): terrace ρ=0.704, sMax 1.08 → 0.76; floor 14.5 (LOW class,
+    // top ≤7 so it may hug the route but its widest pans now sit outside the ±13 wall).
+    place: (side, rnd) => { const r = 8 + rnd() * 8; return { x: side * (14.8 + 0.76 * r + rnd() * 6), h: 2.5 + rnd() * 4.5, r, tilt: side * (rnd() * 0.04 - 0.02) }; },
   },
   // THE ICE TOWER — a tall TABULAR ice column (~108 tris, step 130 = rare landmark).
   // Real glaciers are flat-topped and blocky, NEVER spiky (research: tabular/blocky
@@ -417,7 +422,9 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.44, 0.20), { x: 0.14, z: 0.30, y: 0.60 }) },                    // crevasse rib R (proud, deep)
       ...crevasseCore({ x: 0.04, y: 0.58, z: 0.36, h: 0.38, w: 0.07, seg: 2 }),                                          // recessed crevasse (kit accent)
     ], 2),
-    place: (side, rnd) => ({ x: side * (24 + rnd() * 12), h: 22 + rnd() * 14, r: 8 + rnd() * 4, tilt: side * (rnd() * 0.06 - 0.02) }),
+    // LANE-CLEARANCE (PR-1): icetower ρ=0.56; floor 17.5 (TALL class) AND cap the inward
+    // lean so the top stays ≥ 16.5 (never leans over the ±16 gate veil). Same 4 draws.
+    place: (side, rnd) => { const r = 8 + rnd() * 4, h = 22 + rnd() * 14; return { x: side * (17.5 + 0.56 * r + rnd() * 12), h, r, tilt: side * Math.min(rnd() * 0.06 - 0.02, 1.0 / h) }; },
   },
   // THE GLACIER WALL — far massif on the fog line (~64 tris): a long tabular ice-shelf
   // front, mass in the UPPER band so it FLOATS on the fog line (foam:false); peaks
@@ -439,7 +446,10 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.38, 0.30, 5), { x: 0.62, z: 0.10, y: 0.40, ry: 1.6 }) },   // lowest calved block (far right — the last step)
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.34, 0.20, 0.30), { x: -0.56, z: 0.06, y: 0.66, ry: 0.5, rz: 0.20 }) },// tilted wedge cap (breaks the flat machined line)
     ], 2),
-    place: (side, rnd) => ({ x: side * (40 + rnd() * 24), h: 14 + rnd() * 8, r: 34 + rnd() * 16, tilt: 0 }),
+    // LANE-CLEARANCE (PR-1): glacierwall ρ=1.004 was the smoking gun — the "far massif"
+    // routinely sprawled across half the ±13 lane at flight height. Couple x to r (1.01)
+    // so inner edge ≥ 26 (BACKDROP class) — it stays the honest fog-line massif. 3 draws.
+    place: (side, rnd) => { const r = 34 + rnd() * 16; return { x: side * (26 + 1.01 * r + rnd() * 22), h: 14 + rnd() * 8, r, tilt: 0 }; },
   },
   // Emberfall Caldera: jagged basalt spire split by a glowing magma seam.
   basalt: {
@@ -699,6 +709,30 @@ export function buildArchetypeMesh(key, opts = {}) {
 // hardcode a list that could drift from the roster.
 export function frozenPropKeys() {
   return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(2)).map(([k]) => k);
+}
+
+// --- Lane-clearance audit seam (tools/propclearance.mjs) — BEHAVIOR-INERT ------
+// For every archetype: the object-space max XZ radial extent ρ (the true reach
+// toward the lane, since instances get a random rotY), the geometry's yMax (top),
+// the comp sMax growth, and a brute-force sample of place() over a 4-draw rnd
+// lattice. The tool asserts each prop's worst-case inner edge (|x| − ρ·r·sMax −
+// lean) clears the ±13 fatal lane + the ±16 gate veil. Never imported by the game.
+export function propClearanceData() {
+  if (!propMats) propMats = makeMats();
+  const grid = [0.001, 0.25, 0.5, 0.75, 0.999];
+  return Object.entries(ARCHETYPES).map(([name, def]) => {
+    const { geometry } = def.build();
+    const p = geometry.getAttribute('position');
+    let rho = 0, yMax = 0, xMax = 0;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); rho = Math.max(rho, Math.hypot(x, z)); yMax = Math.max(yMax, p.getY(i)); xMax = Math.max(xMax, x); }
+    geometry.dispose();
+    const samples = [];
+    for (const a of grid) for (const b of grid) for (const c of grid) for (const d of grid) {
+      const seq = [a, b, c, d]; let i = 0; const rnd = () => seq[(i++) % 4];
+      samples.push(def.place(1, rnd));
+    }
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, samples };
+  });
 }
 
 export function propDiag() {
