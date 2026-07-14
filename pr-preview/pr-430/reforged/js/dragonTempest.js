@@ -546,8 +546,8 @@ function buildOneStormforkWing(M, dials) {
   // recurves AFT — a graceful swan-neck OGEE (owner: the reference has this curve; ADD it). A mid-
   // waypoint Am splits the forward bow into shallow (~7°) bends so it reads as a smooth arc, and the
   // single reversal vertex sits ONLY at the anatomical wrist knuckle, never mid-arm (no hard kink).
-  const K = [wristT * hs, 0.06 * hs, -0.10 * hs];        // wrist = forward-most point (leading-edge apex)
-  const ROOT = [0, 0, 0], E = [0.14 * hs, 0.025 * hs, -0.05 * hs], Am = [0.28 * hs, 0.048 * hs, -0.085 * hs];
+  const K = [wristT * hs, 0.06 * hs, -0.115 * hs];       // wrist = forward-most point (leading-edge apex) — a pronounced swan-neck
+  const ROOT = [0, 0, 0], E = [0.14 * hs, 0.025 * hs, -0.05 * hs], Am = [0.30 * hs, 0.05 * hs, -0.10 * hs];
   boltRidge(arm, ROOT, E, 0.085 * hs, 0.075 * hs, 0.06 * hs, M.arcSeam);    // humerus
   boltRidge(arm, E, Am, 0.075 * hs, 0.065 * hs, 0.055 * hs, M.arcSeam);     // radius (forward bow)
   boltRidge(arm, Am, K, 0.065 * hs, 0.05 * hs, 0.05 * hs, M.arcSeam);       // → the forward wrist apex
@@ -575,7 +575,7 @@ function buildOneStormforkWing(M, dials) {
     const cdx = tip[0] - K[0], cdz = tip[2] - K[2], clen = Math.hypot(cdx, cdz) || 1;
     // strut 0's forward knuckle bow (0.13) SHAVES the wrist corner: it leaves the apex at only ~12° aft,
     // so the wrist bend is a soft knuckle (~19°) not a snap, and the hard aft sweep happens one joint out.
-    const kn = 0.58, bow = (i === 0 ? 0.13 : 0.18) * clen, pfx = cdz / clen, pfz = -cdx / clen, yj = (i === 0 ? -0.02 : (i % 2 ? 1 : -1) * 0.05) * L;
+    const kn = 0.58, bow = (i === 0 ? 0.15 : 0.18) * clen, pfx = cdz / clen, pfz = -cdx / clen, yj = (i === 0 ? -0.02 : (i % 2 ? 1 : -1) * 0.05) * L;
     const Bm = [K[0] + cdx * kn + pfx * bow, K[1] + (tip[1] - K[1]) * kn + yj, K[2] + cdz * kn + pfz * bow];
     const wB = 0.055 * hs * (1 - 0.05 * i) + 0.004, wM = wB * 0.66, lift = 0.075 * hs * (1 - 0.04 * i);
     boltRidge(hand, K, Bm, wB, wM, lift, i === 0 ? M.arcCore : M.arcSeam);            // wrist → knuckle (strut 0 = brightest)
