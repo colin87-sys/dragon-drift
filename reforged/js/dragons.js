@@ -657,8 +657,8 @@ export const DRAGONS = {
       // horizontal neutral so the big span reads spread, not foreshortened; still shoulder-dominant
       // with a small trailing forearm/wrist lag. Recovery peaks ~1 o'clock (not straight up), the
       // downstroke reaches ~4:30 — a broad, majestic beat rather than a vertical clap.
-      wingParts: 3, rootAmp: 0.72, apexRoot: 0.26, midAmp: 0.14, tipAmp: 0.09, midLag: 0.7, tipLag: 1.1,
-      glidePow: 1.15, restLift: 0.0, apexMid: 0.04, apexTip: 0.04,
+      wingParts: 3, rootAmp: 0.72, apexRoot: 0.17, midAmp: 0.14, tipAmp: 0.09, midLag: 0.7, tipLag: 1.1,
+      glidePow: 1.15, restLift: 0.0, apexMid: 0.04, apexTip: 0.04,   // apexRoot 0.26→0.17: glide/recovery pose brought DOWN so the ventral dome canopy reads from the rear-chase, but nudged back up a smidge from 0.13 (owner)
       // TAIL MOTION — the vertebra whip is a 4-joint NESTED isBone chain (see dragonRevenant.js).
       tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
     },
@@ -681,12 +681,13 @@ export const DRAGONS = {
         ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
         colors: { body: 0xf3f5f9, belly: 0xdcdee4, wingOuter: 0xf3f5f9, eye: 0x4ef072 } },   // Gravelight Revenant — BRIGHTEST fully-bleached chalk (apex bumped so the top rung hits ~184 median — Fable)
     ],
-    fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
+    fx: { auraColor: '84,240,78', auraIdle: 0, auraIdleRamp: 0, sparkle: false },   // NO idle aura at all — the lantern is interior (auraIdle 0.03 was invisible but still a drawn 9u additive quad every frame; Fable census). opt OUT of the ascension idle-aura swell too — the Revenant's ghost-fire is "a lantern, not a lamp" (seen only through bone); the ascension ramp was turning the additive green aura billboard into a permanent lamp that washed the whole dragon green over water (Fable graphics diag). Its ascension tell is the HOLLOWING ladder (ribWindows/coreBlaze/bleach), not an aura.
     hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
     // Grave Surge palette (COOL green — the rig defaults to magenta; override every hook
     // per §4.4). Wings stay BLACK on Surge (silhouette owns the frame; the heart + gaps
     // carry the light), a low grave-green screen wash, grave-green pinpoint eyes.
     feverWing: 0x000000, feverEye: 0x9af08a, feverWash: [0.03, 0.10, 0.03], surgeMotes: true,
+    feverAuraScale: 0.5,   // Fable gate: the Surge green ground-wash on the water read LARGER + brighter than the dragon itself and collided with the collectible-ring green — halve the aura disc so the flood never exceeds the silhouette; the ignite budget stays in the heart/gaps/sockets (the lantern), not a lamp on the water.
     hideRiderGlow: true,
     wingEmissive: 0x000000,   // cruise membrane emissive EXPLICITLY black (light is the heart, never the wing)
     body: 0xd6d8dd, belly: 0xb4b6bc,
@@ -698,6 +699,84 @@ export const DRAGONS = {
     eye: 0x4ef072,
     apexEye: 0x9af08a, apexSeam: 0x54f04e, coreGlow: 0x54f04e, surgeHi: 0x8af07e,
     trail: 0x2e8a3a, boostTrail: 0x54f04e,
+  },
+
+  // ── THUNDERHEAD TEMPEST — "The gathering storm" (TEMPEST-THUNDERHEAD §B/§D) ──
+  // A living-thundercloud storm drake: billowed CHARCOAL cloud-mass (L 0.20–0.26,
+  // never black — ~2× Vesper's L≤0.10) with diffuse silver-lining rims, and — the
+  // HERO — THE STORMFORK (§D): a wing whose skeleton IS a frozen branching lightning
+  // bolt. The near-white STORM CIRCUIT flickers in short LIVE strikes on the shared
+  // js/pulseTimer.js clock ("Vesper withholds; Tempest THREATENS"). Growth verb:
+  // CHARGING (arcDuty / arc-tree / heart-scale accumulate up the ladder). Body value
+  // DARKENS up the ladder (the storm gathers) inside the L≥0.20 floor. Zero warm hues /
+  // zero gold. Fully additive: nothing shipped changes. BUILD STATE: I0 STUB — the four
+  // builders in dragonTempest.js are contract-satisfying charcoal-cloud placeholders;
+  // the real weather (billowed clover-loft + caged dynamo, the STORMFORK bolt-frame,
+  // stormbrow + virga fringe, the Storm Circuit + Surge, the CHARGING ladder) lands
+  // increment by increment per §B.7 / §D.
+  tempest: {
+    name: 'Thunderhead Tempest',
+    title: 'The gathering storm',
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2600,
+    accentHue: 0xd9deff,   // §9 law-9 carrier: storm-white (near-white 255°/sat≈0.09), emissive-only — the unowned value lane
+    lanceTint: 0xd9deff, lanceRune: 'stormcircuit',   // Eternal wisp: storm-white (distinct from the warm SSSR tints + the Revenant's grave-green)
+    parts: { torso: 'cumulonimbusTorso', wings: 'stormforkWings', head: 'stormbrowHead', tail: 'virgaTail', surface: { shader: [] } },
+    stats: { speed: 1.12, handling: 1.14, drain: 0.86, regen: 1.16 },   // a front that keeps coming — pace + endurance, under the 1.16/1.28 caps
+    // Apex reference dials (all nullable / default-off in dragonTempest.js). The real
+    // CHARGING ladder (kink-knuckles, Y-fork, arc-tree, strikes) lands in I2/I4/I5.
+    model: {
+      scale: 1.2, tailSegments: 12, neckSegments: 4, flapBias: 0.82, flapAmp: 0.8,
+      spanScale: 1.0, glowLevel: 1.0, headScale: 1.0, tailLength: 1.0, tailStretch: 1.0,
+      rays: 4, wristT: 0.24,
+      // WING MOTION — SHOULDER-LED (§D.4, kills the §C.5-flagged broken-linkage: the
+      // shoulder owns ~77% of the swept arc, each distal strictly < proximal, same
+      // rotational direction, segments trailing via the lags). glidePow 1.9 = the heavy
+      // weather-front beat held; block unique in the roster (Vesper 2.2 / Revenant 1.15).
+      wingParts: 3, rootAmp: 0.74, midAmp: 0.14, tipAmp: 0.08, midLag: 0.45, tipLag: 0.95,
+      glidePow: 1.9, restLift: 0.06, apexMid: 0.06, apexTip: 0.10,
+      // TAIL MOTION — the virga storm-stem is a 4-joint NESTED isBone chain (see
+      // dragonTempest.js): a LOW lateral coil + a pronounced vertical wave (the storm rolls).
+      tailWhip: true, tailLagScale: 0.12, tailUndulateX: 0.30, tailRudderScale: 0.5,
+    },
+    // The CHARGING ladder (§B.5 / §D.5). BODY VALUE DARKENS up the rungs (the storm
+    // gathers) inside the L≥0.20 floor — the ramp 0x3a3f4a→0x333947→0x2e3543→0x293040
+    // (L .259/.239/.222/.206). Wing/head/tail dials are placeholders until I2/I3; the
+    // full kink/fork/arc + light ladder lands in I4/I5.
+    forms: [
+      { spanScale: 0.68, glowLevel: 0.25, headScale: 1.30, rays: 2, tailStretch: 1.0,
+        kinkKnuckles: 1, arcRun: 0.0, arcDuty: 0.06, maneSpikes: 0, virgaWisps: 2, heartScale: 0.5, billowAmp: 0.0,
+        colors: { body: 0x3a3f4a, belly: 0x545e70, wingOuter: 0x3a3f4a, eye: 0xcfd8ff } },   // Squall Pup — one soft cloud-bank, dim heart (least-gathered, LIGHTEST charcoal)
+      { spanScale: 0.80, glowLevel: 0.50, headScale: 1.22, rays: 3, tailStretch: 1.0,
+        kinkKnuckles: 2, arcRun: 0.5, arcDuty: 0.10, maneSpikes: 2, virgaWisps: 3, heartScale: 0.7, billowAmp: 0.015,
+        colors: { body: 0x333947, belly: 0x4e5768, wingOuter: 0x333947, eye: 0xcfd8ff } },   // Stormcell — second kink, first live strikes
+      { spanScale: 0.90, glowLevel: 0.75, headScale: 1.14, rays: 4, tailStretch: 1.0,
+        kinkKnuckles: 3, arcRun: 0.75, arcDuty: 0.14, maneSpikes: 4, virgaWisps: 4, heartScale: 0.85, billowAmp: 0.02,
+        colors: { body: 0x2e3543, belly: 0x48505f, wingOuter: 0x2e3543, eye: 0xcfd8ff } },   // Thunderhead — third kink + the Y-FORK, forking arcs
+      { spanScale: 1.0, glowLevel: 1.00, headScale: 1.08, rays: 4, tailStretch: 1.0,
+        kinkKnuckles: 3, arcRun: 1.0, arcDuty: 0.18, maneSpikes: 6, virgaWisps: 5, heartScale: 1.0, billowAmp: 0.03,
+        colors: { body: 0x293040, belly: 0x434b5a, wingOuter: 0x293040, eye: 0xcfd8ff } },   // Tempest Unleashed — the full bolt-frame + fractal tree (DARKEST charcoal, apex)
+    ],
+    fx: { auraColor: '217,222,255', auraIdle: 0, auraIdleRamp: 0, sparkle: false },   // NO idle halo — the standing frame is diffuse-only by law (§B.4d); the strike owns the frame
+    hasStyle: true,   // Surge stays a WHITE-VIOLET storm, never magenta
+    // Storm Surge palette — the full FEVER-PALETTE OVERRIDE (§B.4d / §D.3). The rig
+    // defaults to MAGENTA (feverWing 0xff44cc / feverEye 0xff66ee) + white-gold surgeHi;
+    // every hook is overridden to the cold storm-white lane. feverWing 0xd9deff (§D.3:
+    // the wing FRAME is the ignition, the membrane becomes the receiver — capped ≤0.30
+    // in I4, NOT black); wing membrane emissive explicitly black in cruise/boost.
+    feverWing: 0xd9deff, feverEye: 0xe8ecff, feverWash: [0.05, 0.055, 0.10], surgeMotes: false,
+    hideRiderGlow: true,
+    wingEmissive: 0x000000, wingMembraneEmissive: 0x000000,   // cruise/boost membrane emissive EXPLICITLY black (light is the circuit, on the frame)
+    body: 0x293040, belly: 0x434b5a,
+    wingInner: 0x2a2f3c, wingOuter: 0x293040,
+    // Cloud tones for the shared horn/scales mats (dragonModel builds them for every
+    // def; the Tempest's parts don't attach them, so these just keep the mats off the
+    // white default — a charcoal cloud drake has no warm horn/steel scute anywhere).
+    horn: 0x2a2f3c, scales: 0x2e3543,
+    eye: 0xcfd8ff,
+    apexEye: 0xd9deff, apexSeam: 0xd9deff, coreGlow: 0xd9deff, surgeHi: 0xe8ecff,
+    trail: 0x7a84b8, boostTrail: 0xaab4e8,
   },
 
   phoenix: {

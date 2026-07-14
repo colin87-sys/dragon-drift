@@ -257,62 +257,69 @@ const env = {
 };
 
 const lerp = THREE.MathUtils.lerp;
-// Aurora-only crossfade widths (see computeEnv): the curtain ignites over the last 450m of the
-// entry biome and dies over the last 300m of the aurora — asymmetric so the "dawn" is slower than
-// the "handoff to the whale." Only the aurora channel uses these; every other channel keeps the 150m.
-const AUR_RAMP_IN = 450, AUR_RAMP_OUT = 300;
+// Aurora-seam crossfade widths (see computeEnv): the WHOLE world (curtain + sky + water + fog + stars)
+// crossfades over these — the curtain dawns over the entry biome's last 600m and the seam hands off to
+// the cosmos over the aurora's last 400m. Asymmetric so the "dawn" is slower than the "handoff to the
+// whale." Sized for the worst realistic crossing speed (orb ~108 m/s → 600m ≈ 5.6s still reads as a
+// dawn); the exit is naturally fast (the guaranteed flow run ends ~B+1200 with slip decaying) so 400m
+// keeps the finale under a bright curtain. Only aurora-adjacent seams use these; all others keep 150m.
+const AUR_RAMP_IN = 600, AUR_RAMP_OUT = 400;
 
 export function computeEnv(dist) {
   const { ia, ib, t } = biomeAt(dist);
   const a = BIOMES[ia];
   const b = BIOMES[ib];
-  env.skyTop.lerpColors(a.sky.top, b.sky.top, t);
-  env.skyMid.lerpColors(a.sky.mid, b.sky.mid, t);
-  env.skyHorizon.lerpColors(a.sky.horizon, b.sky.horizon, t);
-  env.sunGlow.lerpColors(a.sky.sun, b.sky.sun, t);
-  env.fogColor.lerpColors(a.fog.color, b.fog.color, t);
-  env.fogNear = lerp(a.fog.near, b.fog.near, t);
-  env.fogFar = lerp(a.fog.far, b.fog.far, t);
-  env.fogFarColor.lerpColors(a.fogFarColor ?? a.fog.color, b.fogFarColor ?? b.fog.color, t);
-  env.fogFarMix = lerp(a.fogFarColor ? 1 : 0, b.fogFarColor ? 1 : 0, t);
-  env.lightSun.lerpColors(a.light.sun, b.light.sun, t);
-  env.lightSunI = lerp(a.light.sunI, b.light.sunI, t);
-  env.hemiSky.lerpColors(a.light.hemiSky, b.light.hemiSky, t);
-  env.hemiGround.lerpColors(a.light.hemiGround, b.light.hemiGround, t);
-  env.waterDeep.lerpColors(a.water.deep, b.water.deep, t);
-  env.waterShallow.lerpColors(a.water.shallow, b.water.shallow, t);
-  env.waveAmp = lerp(a.water.waveAmp, b.water.waveAmp, t);
-  env.ambColor.lerpColors(a.ambient.color, b.ambient.color, t);
-  env.ambFall = lerp(a.ambient.fall, b.ambient.fall, t);
-  env.ambSway = lerp(a.ambient.sway, b.ambient.sway, t);
-  env.ambSize = lerp(a.ambient.size, b.ambient.size, t);
-  env.ambOpacity = lerp(a.ambient.opacity, b.ambient.opacity, t);
-  env.faunaColor.lerpColors(a.fauna.color, b.fauna.color, t);
-  env.faunaScale = lerp(a.fauna.scale, b.fauna.scale, t);
-  env.faunaFlap = lerp(a.fauna.flap, b.fauna.flap, t);
-  env.starMix = lerp(a.stars || 0, b.stars || 0, t);
-  // AURORA pre-ramp (PR-4): the curtain is the brightest element in the game; igniting it over the
-  // standard 150m seam (~2-3s at cruise) reads as a light-switch. Give the aurora channel ITS OWN
-  // wider window (450m in / 300m out) so the curtain dawns as the teal horizon dims, and dies as the
-  // whale fades in — a crossfade, not a snap. Branch-gated to a real aurora seam, so lerp(0,0)=0 at
-  // every other seam → env.auroraMix byte-identical elsewhere; ?biome=6 (ia===ib, t=0) → pins 1.0.
-  let tAur = t;
+  // SHARED aurora-seam ramp (PR-4b, issue #2 fix): PR-4 widened only the curtain (auroraMix), leaving
+  // sky/water/fog/stars on the 150m seam — so the background SNAPPED under the dawning curtain, and at
+  // flow-run / boost speed the 150m whips by in ~1.5s ("sometimes abrupt" = "when fast"). Give EVERY
+  // channel one shared wide window at an aurora-adjacent seam (splitting per-channel just relocates the
+  // incoherence mid-seam). Branch-gated: non-aurora seams → ts === t → byte-identical; ?biome=6
+  // (ia===ib, t=0) → branch false, t=0 → full values pinned; biomeAt/biomeIndexAt untouched (props,
+  // matIndex switch, hazard Law-5's CONFIG.biomeTransition, and the boss guards all stay byte-identical).
+  let ts = t;
   if ((a.aurora || b.aurora) && ia !== ib) {
     const L = CONFIG.biomeLength;
     const local = dist - Math.max(0, Math.floor(dist / L)) * L;
     const W = b.aurora ? AUR_RAMP_IN : AUR_RAMP_OUT;
-    tAur = THREE.MathUtils.smoothstep(local, L - W, L);
+    ts = THREE.MathUtils.smoothstep(local, L - W, L);
   }
-  env.auroraMix = lerp(a.aurora || 0, b.aurora || 0, tAur);
-  env.whaleMix = lerp(a.whale || 0, b.whale || 0, t);
-  env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, t);
+  env.skyTop.lerpColors(a.sky.top, b.sky.top, ts);
+  env.skyMid.lerpColors(a.sky.mid, b.sky.mid, ts);
+  env.skyHorizon.lerpColors(a.sky.horizon, b.sky.horizon, ts);
+  env.sunGlow.lerpColors(a.sky.sun, b.sky.sun, ts);
+  env.fogColor.lerpColors(a.fog.color, b.fog.color, ts);
+  env.fogNear = lerp(a.fog.near, b.fog.near, ts);
+  env.fogFar = lerp(a.fog.far, b.fog.far, ts);
+  env.fogFarColor.lerpColors(a.fogFarColor ?? a.fog.color, b.fogFarColor ?? b.fog.color, ts);
+  env.fogFarMix = lerp(a.fogFarColor ? 1 : 0, b.fogFarColor ? 1 : 0, ts);
+  env.lightSun.lerpColors(a.light.sun, b.light.sun, ts);
+  env.lightSunI = lerp(a.light.sunI, b.light.sunI, ts);
+  env.hemiSky.lerpColors(a.light.hemiSky, b.light.hemiSky, ts);
+  env.hemiGround.lerpColors(a.light.hemiGround, b.light.hemiGround, ts);
+  env.waterDeep.lerpColors(a.water.deep, b.water.deep, ts);
+  env.waterShallow.lerpColors(a.water.shallow, b.water.shallow, ts);
+  env.waveAmp = lerp(a.water.waveAmp, b.water.waveAmp, ts);
+  env.ambColor.lerpColors(a.ambient.color, b.ambient.color, ts);
+  env.ambFall = lerp(a.ambient.fall, b.ambient.fall, ts);
+  env.ambSway = lerp(a.ambient.sway, b.ambient.sway, ts);
+  env.ambSize = lerp(a.ambient.size, b.ambient.size, ts);
+  env.ambOpacity = lerp(a.ambient.opacity, b.ambient.opacity, ts);
+  env.faunaColor.lerpColors(a.fauna.color, b.fauna.color, ts);
+  env.faunaScale = lerp(a.fauna.scale, b.fauna.scale, ts);
+  env.faunaFlap = lerp(a.fauna.flap, b.fauna.flap, ts);
+  env.starMix = lerp(a.stars || 0, b.stars || 0, ts);
+  env.auroraMix = lerp(a.aurora || 0, b.aurora || 0, ts);
+  // whaleMix now rides the SAME 400m window the curtain dies in → the "curtain hands off to the whale"
+  // handoff PR-4 described finally happens in one window (was 150m while the curtain took 300m).
+  env.whaleMix = lerp(a.whale || 0, b.whale || 0, ts);
+  env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, ts);
   // N8 atmosphere (optional-channel pattern): 0 unless the biome declares atmos.
-  env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, t);
-  env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, t);
+  env.atmosHeightK = lerp(a.atmos?.heightK || 0, b.atmos?.heightK || 0, ts);
+  env.atmosInscatter = lerp(a.atmos?.inscatter || 0, b.atmos?.inscatter || 0, ts);
   // N9 sky clouds (optional-channel): amount gates them out (0 = shipped); colours
   // fall back to the biome's sky mid/top so a cloudy↔clear seam lerps sane hues.
-  env.cloudAmount = lerp(a.sky.cloud?.amount || 0, b.sky.cloud?.amount || 0, t);
-  env.cloudLit.lerpColors(a.sky.cloud?.lit ?? a.sky.top, b.sky.cloud?.lit ?? b.sky.top, t);
-  env.cloudShadow.lerpColors(a.sky.cloud?.shadow ?? a.sky.mid, b.sky.cloud?.shadow ?? b.sky.mid, t);
+  env.cloudAmount = lerp(a.sky.cloud?.amount || 0, b.sky.cloud?.amount || 0, ts);
+  env.cloudLit.lerpColors(a.sky.cloud?.lit ?? a.sky.top, b.sky.cloud?.lit ?? b.sky.top, ts);
+  env.cloudShadow.lerpColors(a.sky.cloud?.shadow ?? a.sky.mid, b.sky.cloud?.shadow ?? b.sky.mid, ts);
   return env;
 }

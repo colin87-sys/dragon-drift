@@ -27,6 +27,16 @@ let activeRider = null;
 const WING_DEBUG = (typeof location !== 'undefined' && location.search)
   ? new URLSearchParams(location.search).get('wingDebug') : null;
 let wingDebugLogged = false;
+
+// `?strikePin=<t01>` STRIKE-PIN passthrough (TEMPEST §B.4b): freezes the shared
+// js/pulseTimer.js strike clock at a named phase so timed-spectacle captures are
+// pixel-comparable round-over-round (the MARROWCOIL determinism law extended to timed
+// spectacle). 0 = the standing/rest frame (no strike), 0.5 = a mid-window strike peak.
+// Parsed module-scope exactly like ?wingDebug; the guarded storm tick that reads it and
+// drives the Storm Circuit lands with the lightning at I4 (at I0 the Tempest has no timer
+// wired yet — this is the tooling landing before the geometry it captures, per §B.7 I0).
+const STRIKE_PIN = (typeof location !== 'undefined' && location.search && new URLSearchParams(location.search).has('strikePin'))
+  ? Number(new URLSearchParams(location.search).get('strikePin')) : null;
 let bodyFlapLift = 0;   // flap-coupled body pitch (chest lift at apex / compress on downstroke); set by the yoke solver
 
 let group = null;
@@ -81,6 +91,7 @@ let auraSprite = null;
 let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let spineMats = [];       // spine/crest/seam/plate mats → flared AND rim-lit in Surge
 let spineFlareMats = [];  // spineMats + optional FLARE-ONLY mats (materials.flareMats): flared but NOT rim-lit — for dense fields (wing feathers) that the strong Surge rim would wash to cream
+let graveMatPulse = [];   // cached grave-light buckets (userData.gravePulseBucket set) — the Revenant gap-pulse tick; empty for every other dragon
 let surgeMix = 0;         // 0..1 damped Surge transition
 let prevFever = false;    // rising-edge detect for the Surge ignition flourish
 let surgeAnimT = 0;       // one-shot transformation timer (s)
@@ -211,6 +222,7 @@ export function createDragon(scene, def, riderDef) {
   emberEmitters = result.parts.emberEmitters || null;
   spineMats = result.materials.spineMats || [];
   spineFlareMats = result.materials.flareMats ? spineMats.concat(result.materials.flareMats) : spineMats;   // flare-only mats join the flare loop but NOT the rim (applyRim below stays on spineMats)
+  graveMatPulse = (result.materials.flareMats || []).filter((m) => m.userData && m.userData.gravePulseBucket != null);   // the Revenant gap-pulse buckets (empty for every other dragon)
 
   // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
   // bright sky/water. Additive to outgoing light (independent of the emissive
@@ -1149,6 +1161,15 @@ export function updateDragon(dt, player, time) {
     const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
       : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4;   // PR-C: interior ember charges
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
+  }
+  // THE HAUNTING gap-pulse (Revenant): walk a brightness wave tail→head across the 3 dorsal
+  // gap-leak buckets — "the glow that dances across the bones". Writes userData.baseIntensity (NOT
+  // emissiveIntensity — that would be clobbered by the flare/reset loop below); the shared loop then
+  // APPLIES it: cruise shows the dance, Surge multiplies the dancing base. Runs BEFORE that loop.
+  // Guarded on the cached bucket list → an empty array (zero writes) for every other dragon.
+  for (const m of graveMatPulse) {
+    const amp = m.userData.gravePulseAmp || 0;
+    m.userData.baseIntensity = amp * (0.7 + 0.3 * Math.sin(time * 2.2 - m.userData.gravePulseBucket * 1.7));
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
   // overshooting on the ignition.

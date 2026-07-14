@@ -262,6 +262,10 @@ let actOverride = null;   // ?auract=<0..1> debug: pin activity/eruption (for th
 export function setAuroraActOverride(v) { actOverride = (v == null || Number.isNaN(v)) ? null : v; }
 let eruptOverride = null; // debug: pin uAurErupt DIRECTLY (bypasses the 0.45 peak cap) to compare eruption strengths
 export function setAuroraEruptOverride(v) { eruptOverride = (v == null || Number.isNaN(v)) ? null : v; }
+// FLOW COUPLING: main.js feeds the flow chain's slipMix × auroraMix here each frame; it raises the aurora
+// ACTIVITY floor so the sky erupts as the chain climbs. 0 everywhere outside the aurora carve → byte-inert.
+let flowExcite = 0, flowExciteTarget = 0;
+export function setAuroraFlowExcite(k) { flowExciteTarget = Math.max(0, Math.min(1, k || 0)); }
 export function auroraEnabled() { return enabled; }
 export function auroraForced() { return forced; }   // ?aurora=1 preview — gate the day-biome sun/god-rays off
 export function auroraMix() { return auroraUniforms.uAuroraMix.value; }   // live curtain strength (real biome god-ray gate)
@@ -290,6 +294,7 @@ let fwdX = 0, fwdZ = -1;
 let _aurPhase = 0;              // JS-accumulated crawl phase (activity-keyed rate → stately when quiet)
 let pwx = 0, pwz = -1, calm = 1;  // previous stage azimuth + turn-calm envelope (rays soften during yaw)
 let qualFade = 1;              // tier-flip cover: dips to 0 on a quality change, recovers over ~1.2s
+let eruptEnv = 0;              // damped eruption envelope → the color SWELLS and FADES over ~3-4s, never flashes
 
 // Per-frame write from the lerped biome env. Off / no aurora in this biome → mix 0 (the uniform
 // branch skips the whole block; the sky is the shipped gradient). Phases wrapped in JS so they
@@ -300,6 +305,7 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // qualFade recovers to 1 (identity — damp(1,1)=1 → byte-identical in non-aurora biomes); it only
   // dips below 1 for ~1.2s after a runtime tier flip, so the curtain restructures while faded down.
   qualFade = damp(qualFade, 1, 3.5, dtc);
+  flowExcite = damp(flowExcite, flowExciteTarget, 2.0, dtc);   // eased so the eruption swells/settles with the carve
   auroraUniforms.uAuroraMix.value = mix * qualFade;
   // PREVIEW ONLY: `?aurora=1` over a day biome would wash the curtain out (auroras need a dark sky).
   // Force a night wash so the preview reads as the shipping NIGHT biome will. The real biome supplies
@@ -312,7 +318,10 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // (smoothstep-shaped) — full-color violet/pink/red for ~20–40s every few minutes at irregular intervals,
   // so quiet green/teal stretches make the rare eruption feel EARNED (the "wow"). `?auract=` overrides both.
   const actRaw = 0.5 + 0.5 * (0.62 * Math.sin(time * 0.05) + 0.38 * Math.sin(time * 0.0177 + 2.4));
-  const act = actOverride == null ? actRaw : actOverride;
+  // FLOW COUPLING: holding the flow carve (flowExcite = slipMix × auroraMix, damped) raises the activity
+  // FLOOR → the sky erupts violet/pink over you as your chain climbs (0.9 floor → a strong, not max,
+  // eruption at full carve). 0 outside the aurora / off the carve → act = actRaw → byte-inert. ?auract wins.
+  const act = actOverride != null ? actOverride : Math.max(actRaw, flowExcite * 0.9);
   auroraUniforms.uAurAct.value = act;
   // ACTIVITY-KEYED CRAWL (Gate-9 dreaminess): accumulate phase at a variable rate instead of `time%4096`
   // — quiet stretches drift stately (~0.8×), an eruption visibly quickens (~1.25×), so motion tells the
@@ -324,7 +333,13 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // Peak 1.4 (owner pick) — a natural eruption shows the FULL altitude structure (violet→green→pink→
   // crimson, Gate-8); restraint comes from AREA + rarity (color rides the bands/rays, majority dark
   // between, ~30s every few min), NOT from deleting the hues. The single strength dial is this 1.4.
-  auroraUniforms.uAurErupt.value = 1.4 * (e * e * (3.0 - 2.0 * e));
+  const eruptTarget = 1.4 * (e * e * (3.0 - 2.0 * e));
+  // EASE the eruption IN and OUT (owner: "it feels like a flash — should transition in and out"): damp the
+  // envelope so the color SWELLS and FADES over ~3-4s no matter how fast `act` crossed the threshold — a
+  // flow-carve spike no longer pops the color on/off, and the carve ending leaves a gentle afterglow. Raw
+  // dt so a frozen montage holds (dt=0 → damp is a no-op); the override below still pins it for the sweep.
+  eruptEnv = damp(eruptEnv, eruptTarget, 0.7, dt || 0);
+  auroraUniforms.uAurErupt.value = eruptEnv;
   if (eruptOverride != null) auroraUniforms.uAurErupt.value = eruptOverride;  // debug: pin the eruption strength
   // COMPOSITION — the arc holds CENTRE-STAGE. Key it to travel, HEAVILY damped (λ=0.35 → recentres
   // over ~6–8s): during a fast weave/yaw the aurora stays world-anchored and counter-slides across

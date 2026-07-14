@@ -24,6 +24,7 @@ import './dragonPhoenixMolten.js';  // Molten Phoenix (living magma): moltenPhoe
 import './dragonPhoenixReforged.js'; // Phoenix Ascendant REFORGED ("Sunhawk"): sunhawkKeelTorso + sunfeatherWings + sunpennantTail + sunhawkCrownHead (white-gold solar-ivory glow-up; coexists with `phoenix`)
 import './dragonVesper.js';         // Nightglass Vesper (knapped night-glass): knappedTorso + scallopCrescentWings + vesperCatHead + splitFanTail (FLAT-FACET night drake; NOT the retired organism/one-skin family)
 import './dragonRevenant.js';       // Gravelight Revenant (chalk-ivory bone lattice): ossuaryTorso + phalanxShroudWings + revenantSkullHead + vertebraeWhipTail (holes-in-the-black-fill SKELETON; light THROUGH bone — I0 stub, WRAITH-GRAVELIGHT §B)
+import './dragonTempest.js';        // Thunderhead Tempest (billowed charcoal cloud + the STORMFORK bolt-frame wing): cumulonimbusTorso + stormforkWings + stormbrowHead + virgaTail (living-thundercloud storm drake; the near-white STORM CIRCUIT flickers on the pulseTimer clock — I0 stub, TEMPEST-THUNDERHEAD §B/§D)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
@@ -319,6 +320,12 @@ export function buildDragonModel(def, opts = {}) {
   // emissive field (the wing feathers) that the strong Surge rim would otherwise wash to cream. Nullable.
   const flareMats = [];
   if (wingsResult.flareMats) for (const m of wingsResult.flareMats) flareMats.push(m);
+  // Torso/head/tail may also publish flareMats (a withheld grave-light family — e.g. the Revenant's
+  // gap-leak plugs / socket vents / spectral wisp — that Surge-flares but must NEVER pick up the warm
+  // cruise rim). Nullable + additive: no shipped dragon returns these, so the roster stays byte-identical.
+  if (torsoResult.flareMats) for (const m of torsoResult.flareMats) flareMats.push(m);
+  if (headResult.flareMats) for (const m of headResult.flareMats) flareMats.push(m);
+  if (tailResult.flareMats) for (const m of tailResult.flareMats) flareMats.push(m);
   const wingMat = wingsResult.wingMat;
   const {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
