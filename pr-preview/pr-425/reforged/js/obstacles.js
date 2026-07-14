@@ -16,13 +16,13 @@ const _mkParams = (typeof window !== 'undefined' && window.location)
 const SKYFORGED = _mkParams.get('skyforged') !== '0';
 // Phase Gate VEIL STYLE — the serene-magical redesign of the "crystal wall" (the
 // full-lane barrier you thread the window in). Switchable for fly-testing:
-//   ?veil=swirl   — a slow luminous spiral into a calm eye (DEFAULT)
+//   ?veil=curtain — a swaying aurora curtain of light-strands, parted at the window (DEFAULT, Fable's champion)
+//   ?veil=swirl   — a slow luminous spiral into a calm eye
 //   ?veil=wisp    — a field of drifting spirits, the window a soft-lit eye
-//   ?veil=curtain — a swaying veil of light-strands, parted at the window
 //   ?veil=crystal — the prior faceted fresnel membrane (kept for A/B)
 // All fill the lane (no fly-around — the collider is unchanged), stay see-through
 // (lines/points), and are cheap (additive lines/points, no full-lane transparent fill).
-let veilStyle = _mkParams.get('veil') || 'swirl';
+let veilStyle = _mkParams.get('veil') || 'curtain';
 export function setVeilStyle(s) { veilStyle = s; }   // studio/tests override
 
 // Hazards, spawned ahead and culled behind the dragon:
