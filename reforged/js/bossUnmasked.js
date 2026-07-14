@@ -13,9 +13,22 @@ import { chainBeforeCompile } from './atmosphere.js';   // wrap-never-overwrite 
 // eye/feather placement — the merge is a build-time collapse, so the design params are edited the same
 // either way; this flag just lets you grab individual feathers while tweaking.
 const WING_MERGE = !(typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('wingedit'));
-// ?oldrim — A/B for the FIRE-CARVED SERAPH (GODHEAD DETONATION P3+): reverts the igniteK tip-ember edge +
-// the annular mandorla ridge to the shipped soft-aura look. igniteK 0 ⇒ byte-identical either way.
-const OLD_RIM = typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('oldrim');
+// ?rim — the seraph edge treatment in the settled heaven (GODHEAD DETONATION P3+). All three are
+// byte-identical at igniteK 0.
+//   'depth' (default): a SUBTLE depth rim-light — a dilated back-SHELL per wing, tucked behind its own
+//                      feathers so the boss's opaque geometry razor-cuts a thin even OUTLINE glow that
+//                      tracks the wingbeat; warm rose-bronze, upper-arc weighted, kept BELOW bloom → the
+//                      dark silhouette lifts off the blast as a 3D form (owner: "super subtle glow for depth").
+//   'fire'           : the rejected fire-carved tip embers + mandorla ridge (A/B comparison only).
+//   'old' / ?oldrim  : the shipped soft-aura mandorla + modest bronze ember, no shell.
+const RIM_MODE = (() => {
+  if (typeof location === 'undefined') return 'depth';
+  const q = new URLSearchParams(location.search || '');
+  if (q.has('oldrim')) return 'old';
+  const m = q.get('rim');
+  return (m === 'fire' || m === 'old' || m === 'depth') ? m : 'depth';
+})();
+const OLD_RIM = RIM_MODE !== 'fire';   // the mandorla keeps its shipped soft profile in BOTH 'depth' and 'old' (the shell carries the new rim, not the disc)
 
 // THE UNMASKED — slot 14, the APEX / FINALE (BOSS-DESIGN.md §5b row 14, §5c APEX).
 // "The second sun that cracks open into a biblically-accurate angel." Three STAGES
@@ -601,7 +614,60 @@ ${OLD_RIM ? `        float falloff = pow(max(0.0, 1.0 - vR), 1.4);   // soft to 
         { float eg = smoothstep(${EDGE_R0.toFixed(1)}, ${EDGE_R1.toFixed(1)}, vFanR); eg *= eg;   // steep drop inward
           totalEmissiveRadiance += vec3(1.0, 0.60, 0.24) * (${EDGE_GAIN.toFixed(2)} * eg * uIgniteEdge); }`);   // W_GOLD incandescent hue; HDR → blooms into a fused fire-line
   });
-  if (!OLD_RIM) { patchRimEdge(rimMat); patchRimEdge(rimMatB); }
+  if (RIM_MODE === 'fire') { patchRimEdge(rimMat); patchRimEdge(rimMatB); }   // the fire tips only exist in the ?rim=fire A/B
+
+  // ── THE DEPTH RIM-SHELL (?rim=depth, the default): a dilated copy of each wing, tucked JUST BEHIND its own
+  // feathers. The boss's opaque geometry is depth-tested against it, so only the thin OUTLINE band (dilated −
+  // original) survives — a razor-cut edge glow that tracks the wingbeat for free, with ZERO light on the body
+  // (the silhouette stays the darkest mass). Warm rose-bronze (reflected blast light), upper-arc weighted
+  // (crown lit / lower dark → spares the parry corridor), and bounded FAR below the bloom threshold (1.0) so it
+  // never haloes into the sky band. One energy dial `RIM_MAX` (hard-capped). igniteK 0 ⇒ shells hidden ⇒
+  // byte-identical. Built per wing in the WING_PAIRS loop below; NOT a 3rd large additive volume (outline ×
+  // ~2px coverage, not a filled shell).
+  const RIM_MAX = 0.30;   // the ONE energy dial — peak shell radiance ≈ colour·RIM_MAX ≈ 0.25, well under bloom 1.0 even where two wings' shells overlap (≤0.5). EDGE brightness only; the body gets none.
+  const rimShells = [];
+  const rimShellMat = track(new THREE.ShaderMaterial({
+    uniforms: {
+      uRimGlow: { value: 0 },                                       // igniteK · RIM_MAX (per-frame)
+      uRimColor: { value: new THREE.Color(0xd79a66) },              // warm rose-bronze = the blast's gold grazing dark feathers (NOT saturated fire, NOT cool moonlight)
+      uRimW: { value: 0.16 },                                       // dilation width in wing-local units (× the pivot scale 1.12–1.72 → world thickness)
+      uRimR0: { value: 1.6 }, uRimR1: { value: 3.2 },               // fade the rim OUT near the root/shoulder only (NOT a fingertip bias — even along the fan)
+    },
+    vertexShader: `
+      uniform float uRimW;
+      varying float vFanR; varying float vNdcY;
+      void main(){
+        vec3 p = position; float L = max(length(p.xy), 1e-3);       // NaN law: clamped normalize
+        vFanR = L;
+        p.xy += (p.xy / L) * uRimW;                                 // constant-width radial dilation of the feather outline
+        vec4 cp = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        vNdcY = cp.y / max(cp.w, 1e-4);                             // NaN law: clamped divide → screen-space up/down for the hemi weight
+        gl_Position = cp;
+      }`,
+    fragmentShader: `
+      uniform float uRimGlow; uniform vec3 uRimColor; uniform float uRimR0; uniform float uRimR1;
+      varying float vFanR; varying float vNdcY;
+      void main(){
+        float cover = smoothstep(uRimR0, uRimR1, vFanR);            // root fade only
+        float hemi = smoothstep(-0.05, 0.45, vNdcY);               // blast-facing UPPER arc lit; lower feathers → 0 (dark, corridor spared)
+        gl_FragColor = vec4(uRimColor * (uRimGlow * cover * hemi), 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  rimShellMat.toneMapped = false;
+  // Build ONE dilated shell for a wing group (position-only clone of its merged feather meshes).
+  const buildRimShell = (wingGroup) => {
+    const geos = [];
+    wingGroup.traverse((o) => { if (o.isMesh && o.geometry?.attributes?.position) {
+      const src = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', src.attributes.position.clone()); geos.push(g);
+    }});
+    if (!geos.length) return null;
+    const shell = new THREE.Mesh(geos.length === 1 ? geos[0] : mergeGeometries(geos, false), rimShellMat);
+    shell.name = 'rimShell'; shell.position.z = -0.6;   // wing-local: behind every feather layer of its own wing
+    shell.frustumCulled = false; shell.visible = false; shell.layers.set(1);   // out of the god-ray mask + water mirror (the igniteGlow gotcha)
+    rimShells.push(shell); return shell;
+  };
 
   // ── THE CENTRAL STARBURST is RESERVED FOR STAGE 3 (owner: "use this type of eye for the third
   // form"). Stage 2 goes back to the ORIGINAL focal almond eye (below) — no radiant star here.
@@ -756,7 +822,9 @@ ${OLD_RIM ? `        float falloff = pow(max(0.0, 1.0 - vR), 1.4);   // soft to 
       pivot.position.set(side > 0 ? P.off.x : -P.off.x, P.off.y, P.z);   // shoulder on a small central RING → open core
       // Wings at REDUCED quality (×6 full-detail wings blow the tri budget). ×0.45 scales the
       // feather curve segments down (and with boss quality → q0.5 halves again).
-      pivot.add(buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE }).group);   // per-wing value ladder + painted moon-rim (two tiers → the fan fingers separate); merge = 13 draws/wing → ~3
+      const wingGroup = buildAngelWing({ quality: quality * 0.40, material: baseMats[P.key] || baseMats.middle, rimMaterial: rimMat, rimMaterialB: rimMatB, blade: 0.78, merge: WING_MERGE }).group;   // per-wing value ladder + painted moon-rim (two tiers → the fan fingers separate); merge = 13 draws/wing → ~3
+      pivot.add(wingGroup);
+      if (RIM_MODE === 'depth' && WING_MERGE) { const sh = buildRimShell(wingGroup); if (sh) pivot.add(sh); }   // the depth rim-shell rides this wing's pivot (breath/mantle/mirror for free); ?wingedit → skipped (feather-local coords)
       stage2.add(pivot);
       pivot.updateMatrix();
       shoulders.push({ obj: pivot, baseRotZ, phase: P.phase + (side < 0 ? 0.6 : 0), amp: P.amp, flareZ: side * (FLARE_SIGN[P.key] || 0),
@@ -1501,14 +1569,16 @@ ${OLD_RIM ? `        float falloff = pow(max(0.0, 1.0 - vR), 1.4);   // soft to 
       rimMatB.emissive.copy(RIMB_EM_BASE).lerp(RIMB_EM_IGNITE, igniteK);
       for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_IGNITE[k], igniteK);
       igMat.uniforms.uOpacity.value = igniteK * IGNITE_GLOW_MAX; igMat.uniforms.uTime.value = time; igniteGlow.visible = true;
-      uIgniteEdge.value = igniteK;   // the fire-carved tip ember rises with the wreath (byte-identical at 0)
+      uIgniteEdge.value = igniteK;   // the fire-carved tip ember rises with the wreath (?rim=fire only; byte-identical at 0)
+      rimShellMat.uniforms.uRimGlow.value = igniteK * RIM_MAX; for (const s of rimShells) s.visible = true;   // the depth rim-shell rises with the wreath (?rim=depth; byte-identical at 0)
       wMat.uniforms.uOpacity.value = igniteK * WISP_MAX; wMat.uniforms.uTime.value = time; wisps.visible = true;   // the living wisps lick off the crown/wingtips
-    } else if (voidGlow.visible || igniteGlow.visible || wisps.visible) {
+    } else if (voidGlow.visible || igniteGlow.visible || wisps.visible || rimShells[0]?.visible) {
       rimMat.color.copy(RIM_BASE); rimMat.emissive.copy(RIM_EM_BASE);
       rimMatB.color.copy(RIMB_BASE); rimMatB.emissive.copy(RIMB_EM_BASE);
       for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]);
       vgMat.opacity = 0; voidGlow.visible = false;
       igMat.uniforms.uOpacity.value = 0; igniteGlow.visible = false; uIgniteEdge.value = 0;
+      rimShellMat.uniforms.uRimGlow.value = 0; for (const s of rimShells) s.visible = false;
       wMat.uniforms.uOpacity.value = 0; wisps.visible = false;
     }
   }
@@ -1533,7 +1603,7 @@ ${OLD_RIM ? `        float falloff = pow(max(0.0, 1.0 - vR), 1.4);   // soft to 
     setArenaIgnite,
     debugArenaLift: () => ({ k: heavenK, sclera: greatScleraMat.color.getHex() }),
     debugArenaVoid: () => ({ k: voidK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +vgMat.opacity.toFixed(3), glowVis: voidGlow.visible }),
-    debugArenaIgnite: () => ({ k: igniteK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +igMat.uniforms.uOpacity.value.toFixed(3), glowVis: igniteGlow.visible, edge: +uIgniteEdge.value.toFixed(3), wispVis: wisps.visible, wispOp: +wMat.uniforms.uOpacity.value.toFixed(3) }),
+    debugArenaIgnite: () => ({ k: igniteK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +igMat.uniforms.uOpacity.value.toFixed(3), glowVis: igniteGlow.visible, edge: +uIgniteEdge.value.toFixed(3), rimShellVis: !!rimShells[0]?.visible, rimGlow: +rimShellMat.uniforms.uRimGlow.value.toFixed(3), wispVis: wisps.visible, wispOp: +wMat.uniforms.uOpacity.value.toFixed(3) }),
     setDebugStage,
     setStageMorph,
     setStage3,
