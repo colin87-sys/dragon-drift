@@ -291,7 +291,7 @@ const ARCHETYPES = {
   // facets catch the low sun as single gold sheets while the shadow side glows blue;
   // doubled in the mirror. ONE cyan crevasse seam (mat 1) recessed on the face.
   bergwall: {
-    step: 70, biomes: frozenNew, matIndex: 2,
+    step: 70, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.12 }, // force-parks in breath; grows in congregation
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.50, 0.60, 0.62, 7), { y: 0.31, ry: 0.3, sx: 1.4, sz: 0.85 }) },  // main tabular mass
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.50, 0.34, 6), { x: -0.30, z: 0.10, y: 0.72, ry: 1.1, sx: 1.3, sz: 0.8 }) }, // upper stratum, stepped back
@@ -309,7 +309,7 @@ const ARCHETYPES = {
   // angle — the richest per-tri surface in the kit. ONE lit fracture plate (mat 1) in
   // a cleft. NON-INDEXED throughout (icosahedra + .toNonIndexed() boxes — the `berg` rule).
   serac: {
-    step: 26, biomes: frozenNew, matIndex: 2,
+    step: 26, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.88, sMax: 1.10 }, // force-parks in breath
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.50, 0), { y: 0.35, sy: 0.75, sx: 1.1 }) },                    // main block
       { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.34, z: -0.14, y: 0.62, ry: 1.3 }) },           // upper block (toppling via offset, not rotation)
@@ -325,7 +325,7 @@ const ARCHETYPES = {
   // (one archetype, two reads). Each tread catches the gold rim, each riser holds blue
   // shadow — free banding. The horizontal REST that makes the verticals read colossal.
   terrace: {
-    step: 20, biomes: frozenNew, matIndex: 2,
+    step: 20, biomes: frozenNew, matIndex: 2, comp: { floor: 0.22, sMin: 0.85, sMax: 1.08 }, // keeps a floor of LOW pack-ice through the breath
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.55, 0.62, 0.14, 7), { y: 0.07, ry: 0.4, sx: 1.15, sz: 0.8 }) },  // base pan
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.48, 0.22, 6), { x: 0.10, z: -0.06, y: 0.25, ry: 1.6, sx: 1.1 }) }, // tier 2
@@ -341,7 +341,7 @@ const ARCHETYPES = {
   // ice blocks with a FLAT stepped top, not a spire. Placed FAR from the lane
   // (|x| ≥ 24) so it never looms over or occludes a gameplay gate (clean lanes).
   icetower: {
-    step: 130, biomes: frozenNew, matIndex: 2,
+    step: 130, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.12 }, // force-parks in breath (rare landmark, congregation only)
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.42, 0.52, 0.32, 6), { y: 0.16, ry: 0.3, sx: 1.1, sz: 0.9 }) },   // base block
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.42, 0.34, 6), { x: 0.04, y: 0.47, ry: 0.7 }) },            // mid block (offset — stacked serac column)
@@ -701,6 +701,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
   for (const key of Object.keys(ARCHETYPES)) {
+    ARCHETYPES[key]._salt = saltFromKey(key); // stable per-archetype salt for the composition hash (§Move 1)
     bands.push(makeBand(scene, ARCHETYPES[key]));
   }
 
@@ -764,6 +765,40 @@ const BIOME_TINTS = [
   TINT_WHITE, TINT_WHITE, TINT_WHITE, TINT_WHITE,      // 2–5 — no shared archetypes today
 ];
 
+// --- Composition rhythm (Move 1, WALL-PROPS-REDESIGN §composition) -----------
+// A deterministic macro-rhythm over BLOCK-LOCAL distance for FROZEN props only:
+// CONGREGATION (dense, larger masses) → MIRROR-BREATH (near-empty: open fog-sea +
+// reflections + low pack-ice) → repeat. 5 periods per 1500m block so every biome
+// visit is IDENTICAL and the entry/exit beats are authored (first breath ~195m in,
+// last breath against the exit seam). Applied at WRITE time (park + uniform scale)
+// — a PURE function (no rnd), render-only, zero per-frame cost. Byte-identical
+// outside Frozen: only the Frozen archetypes carry a `comp` block, and the whole
+// term is gated on `bi === 2`. glacierwall carries NO comp → it stays the
+// unmodulated fog-line backdrop (the horizon must never breathe empty).
+const FROZEN_COMP_PERIODS = 5;
+function frozenComp(dist) {
+  const L = CONFIG.biomeLength;                              // 1500
+  const local = ((dist % L) + L) % L;                       // 0..L (negative-safe)
+  const seg = L / FROZEN_COMP_PERIODS;                       // 300m
+  const ph = (local % seg) / seg;                           // 0..1 within the period
+  // congregation weight g: 1 near ph=0.15 (dense), 0 near ph=0.65 (breath); smooth
+  // raised cosine so slots fade in/out along the ramp — a spatial fade, no pops.
+  return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.15));
+}
+// Stable per-instance keep value in [0,1) — a PURE hash of (archetype salt, side,
+// slot). Includes `side` so left/right slots don't park symmetrically (mirrored gaps).
+function compHash(salt, side, slot) {
+  let h = (salt ^ Math.imul(slot + 1, 2246822519) ^ (side > 0 ? 0x9e3779b9 : 0x85ebca6b)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 3266489917) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function saltFromKey(key) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619) >>> 0;
+  return h >>> 0;
+}
+
 const m4 = new THREE.Matrix4();
 const quat = new THREE.Quaternion();
 const eul = new THREE.Euler();
@@ -773,18 +808,28 @@ function writeMatrix(band, i, d) {
   // Park instances whose archetype doesn't belong to the biome at their
   // distance — they re-enter when recycled into a matching stretch.
   const bi = biomeIndexAt(Math.max(d.dist, 0));
-  const active = band.def.biomes.includes(bi);
-  eul.set(0, d.rotY ?? (d.rotY = rnd() * Math.PI), d.tilt);
+  let active = band.def.biomes.includes(bi);
+  eul.set(0, d.rotY ?? (d.rotY = rnd() * Math.PI), d.tilt); // rnd order MUST stay here (determinism outside Frozen)
   quat.setFromEuler(eul);
+  // Composition rhythm — FROZEN only, PURE (no rnd), evaluated AFTER the rotY init
+  // so no rnd() call order changes. Parks off-beat instances and scales the rest.
+  let k = 1;
+  if (active && bi === 2 && band.def.comp) {
+    const g = frozenComp(d.dist);
+    const c = band.def.comp;
+    const density = c.floor + (1 - c.floor) * g;            // fraction of this archetype's slots kept here
+    if (compHash(band.def._salt, d.side, d.slot) >= density) active = false; // park (off-beat)
+    else k = c.sMin + (c.sMax - c.sMin) * g;                // uniform SIZE scale (never the x POSITION)
+  }
   if (active) {
-    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r, d.h, d.r));
+    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k, d.r * k));
   } else {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }
   band.mesh.setMatrixAt(i, m4);
   // N10c: write the foam ring at the same index — inherits the prop's active/parked
   // state (always written, so the toggle is a pure visibility flip, correct mid-run).
-  writeFoamMatrix(band.foam, i, d, band.def.foam, active);
+  writeFoamMatrix(band.foam, i, d, band.def.foam, active, k);
   // Shared archetypes (whitelisted in >1 biome) tint per dominant biome so the
   // same mesh reads verdigris in Sanctuary and sandstone in the Wastes.
   // Single-biome archetypes never allocate instanceColor — untouched.
