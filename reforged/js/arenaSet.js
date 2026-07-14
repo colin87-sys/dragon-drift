@@ -93,6 +93,9 @@ const OVH_Z_FAR = -820;                  // overhead birth depth (vs side's -300
 const OVH_EASE = (p) => 1.61 * p - 0.61 * p * p;   // deep→near depth easing: g'(0)=1.61 (fast while a speck, tiny angular vel) → g'(1)=0.39 (near-pass dz/dt = shipped whoosh). Monotone on [0,1], NaN-free.
 const OVH_ENABLED = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('noovh'));   // ?noovh — A/B: all 8 flyby revert to side passes
 const OVH_OLD = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldovh');   // ?oldovh — A/B: the pre-fix overhead (on-screen materialise, fixed lanes/phases, no per-pass re-roll)
+const OLD_START = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldstart');   // ?oldstart — A/B: the pre-fix engage (a mid-approach rock fades in already-giant)
+const OVH_START_PHASE = [0.0, 0.045, 0.09];   // on arena engage, the 3 overhead rocks rebase to these near-zero phases → all born as far specks; incommensurate speeds stagger the first dives (~13/18/27s)
+const mod1 = (x) => ((x % 1) + 1) % 1;         // positive fractional part
 let debrisFlybyMargin = 0;         // horizontal side cone: min over the path of (x − k=1.0 lane-clearance) — asserted ≥ 0
 let debrisFlybyMarginY = 0;        // vertical overhead cone: min over the path of (rock-bottom − elevation-band floor) — asserted ≥ 0
 
@@ -834,9 +837,21 @@ export function updateArenaSet(time, playerDist, mix, fade) {
     lastK = 0;
     return;
   }
+  const rising = lastK === 0;           // the engage rising edge (k>0 now, was 0) — fires once per encounter, self-healing on teardown/restart
   lastK = k;
   set.visible = true;
   set.position.z = -playerDist;         // the stable room: hold formation around the fight
+  // Fix A — GIANT-ROCK-AT-START: rebase every flyby's phase on engage so each rock BEGINS its approach
+  // from the far/small end (no boulder fading in already-giant mid-path). p starts at P0 because
+  // arg = time·spd + mod1(P0 − time·spd) ≡ P0. The phase jump re-fires the per-pass re-roll (fresh track).
+  if (rising && !OLD_START && !OVH_OLD && debris) {
+    let sIdx = 0;
+    for (let i = 0; i < FLYBY_N; i++) {
+      const d = debrisP[i];
+      const P0 = d.overhead ? OVH_START_PHASE[d.k] : (0.10 + 0.55 * (sIdx++ / 5));   // overhead: all far specks · side: far→mid band (first whoosh ~5–6s, none born near-camera)
+      d.phase = mod1(P0 - time * d.spd);
+    }
+  }
   // THE HELD PRESENCE: ±2% scale breath, near-steady light — a newborn heart, never a strobe,
   // never a spin (§3 stillness; the spiral is a FROZEN form — rotating it is forbidden). The
   // DETONATION's roil is EXPANSION (uTime-scrolled streaks/rings), not rotation — the loop runs
