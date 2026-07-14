@@ -452,11 +452,23 @@ const addDetMat = () => {
 // volume). Coherence: swirlAmp sampled from the SHARED harmonic field (see `swirlField`) so the trails
 // braid WITH the curved streaks (a curl READ) instead of wiggling independently.
 function buildEmbers(prnd) {
+  // COHERENCE FIX: the pre-fix embers shared only the swirl field's AMPLITUDE (unsigned, random phase/freq,
+  // a 2.3× harmonic, 3–6× the streaks' wander, ~5× brighter) → they read as a SECOND system, not the blast's
+  // substance. Now they speak the STREAK FAN's exact curve language: the field SIGNED + cross-exempt, ONE
+  // anchored arc (no harmonic), matched amp (0.42) + sub-cycle freq → they braid in the same flow; dimmer +
+  // longer + finer → they dissolve into the mass. ?oldembers restores the pre-fix look for an A/B.
+  const V1 = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldembers');
   const P = [];
   for (let e = 0; e < EMBER_N; e++) {
     const dir = prnd() * TAU, sf = swirlField(dir);            // SHARED field → embers braid WITH the curved streaks
-    P.push({ dir, speed: 0.06 + prnd() * 0.14, phase: prnd(), size: 0.8 + prnd() * 2.6,
-      swAmp: 0.30 + 0.50 * (0.5 + 0.5 * sf), swFreq: 1.4 + 1.6 * prnd(), swPh: prnd() * TAU, trailDt: 0.014 + prnd() * 0.010 });   // swAmp 0.14–0.48 → 0.30–0.80 (the curve shows while bright); stretch seed repurposed → per-ember trail Δlife
+    const speed = 0.06 + prnd() * 0.14, phase = prnd();       // draw the SAME prnds in both modes so ?oldembers is the same embers, only the curve/value mapping differs
+    const rSize = prnd(), rFreq = prnd(), swPh = prnd() * TAU, rTrail = prnd(), rAmp = prnd();
+    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * dir)), 6);   // SAME exemption as the streak fan → embers fly straight along the sacred cross arms
+    P.push({ dir, speed, phase, swPh,
+      size: V1 ? (0.8 + rSize * 2.6) : (0.6 + rSize * 1.6),                                        // finer heads (max 3.4→2.2u)
+      swAmp: V1 ? (0.30 + 0.50 * (0.5 + 0.5 * sf)) : (0.42 * sf * crossExempt * (0.85 + 0.3 * rAmp)),   // SIGNED + streak-matched 0.42 (was unsigned 0.30–0.80)
+      swFreq: V1 ? (1.4 + rFreq * 1.6) : (1.2 + rFreq * 0.6),                                     // sub-cycle → ONE arc, not a multi-inflection S
+      trailDt: V1 ? (0.014 + rTrail * 0.010) : (0.022 + rTrail * 0.014) });                       // longer, finer streamers = substance
   }
   P.sort((a, b) => b.size - a.size);   // biggest first → tier-1 drawRange keeps the largest trails
   const pos = [], aq = [], aseed = [], aseed2 = [];
@@ -476,6 +488,16 @@ function buildEmbers(prnd) {
   geo.setAttribute('aQuad', new THREE.Float32BufferAttribute(aq, 2));
   geo.setAttribute('aSeed', new THREE.Float32BufferAttribute(aseed, 4));
   geo.setAttribute('aSeed2', new THREE.Float32BufferAttribute(aseed2, 4));
+  // Shader-string branches for the ?oldembers A/B (build-time; zero runtime cost). New = one anchored arc
+  // (no 2.3× harmonic), softer eclipse fade-up, dimmer heads, tighter parallax; V1 = the pre-fix formula.
+  const thetaExpr = V1 ? 'aSeed.x + sw * sin(swf * life + swp) + 0.5 * sw * sin(2.3 * swf * life + aSeed.z * 6.2831853)'
+                       : 'aSeed.x + sw * (sin(swf * life + swp) - sin(swp))';               // anchored at the core (like the streak spine), single arc
+  const dthdlExpr = V1 ? 'sw * swf * cos(swf * life + swp) + 1.15 * sw * swf * cos(2.3 * swf * life + aSeed.z * 6.2831853)'
+                       : 'sw * swf * cos(swf * life + swp)';                                 // tangent of the single-arc path
+  const eclHi = V1 ? '210.0' : '260.0';        // softer eclipse gate → embers fade UP through the corona, no snap-on at the annulus edge
+  const comp = V1 ? '0.9' : '0.6';             // ×mid-radius-dwell compensator: heads drop ~5×→~2× local corona (of the field, not on top)
+  const hotBoost = V1 ? '0.3' : '0.15';        // young-hot spark, not a white worm-head
+  const zoffAmp = V1 ? '180.0' : '80.0';       // ±90u→±40u parallax: keep depth, kill the separate-plane slide
   emberMat = new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uCross: { value: 1.0 } },
     vertexShader: `
@@ -487,7 +509,7 @@ function buildEmbers(prnd) {
         float life0 = fract(uTime * aSeed.y + aSeed.z);                // the HEAD's life
         float life = max(1e-4, life0 - seg * aSeed2.w);                // this vertex samples the path EARLIER in life (the trail) — NaN-safe floor
         float sw = aSeed2.x, swf = aSeed2.y, swp = aSeed2.z;
-        float theta = aSeed.x + sw * sin(swf * life + swp) + 0.5 * sw * sin(2.3 * swf * life + aSeed.z * 6.2831853);
+        float theta = ${thetaExpr};   // braids in the streak fan's flow (signed shared field, anchored single arc)
         theta -= uCross * 0.12 * sin(4.0 * theta) * smoothstep(0.15, 0.7, life);   // trails MIGRATE onto the cross axes as they age (sin4θ attractors on 0/90/180/270)
         float decel = pow(max(0.0, 1.0 - life), 1.3);                  // slower blowout (1.7→1.3): the trail dwells at mid-radii where the CURVE is visible
         float rr = 520.0 * (1.0 - decel);
@@ -496,27 +518,27 @@ function buildEmbers(prnd) {
         // analytic velocity tangent AT THIS sample → the ribbon's local width direction (the length now
         // comes from the per-segment path samples, not a straight stretch, so the ribbon FOLLOWS the curve)
         float drdl = 520.0 * 1.3 * pow(max(0.0, 1.0 - life), 0.3);
-        float dthdl = sw * swf * cos(swf * life + swp) + 1.15 * sw * swf * cos(2.3 * swf * life + aSeed.z * 6.2831853);
+        float dthdl = ${dthdlExpr};
         vec2 tang = drdl * rad + rr * dthdl * vec2(-rad.y, rad.x);
         tang *= inversesqrt(max(1e-6, dot(tang, tang)));               // NaN-safe normalize
         vec2 nrm = vec2(-tang.y, tang.x);
         // shared EXPANSION FRONT: a gaussian luminance crest travelling outward, seamless loop
         float fph = fract(uTime / 4.6), rFront = 560.0 * fph, dR = rr - rFront;
         float front = 1.0 + 0.4 * exp(-(dR * dR) / 3025.0) * sin(3.14159265 * fph);
-        float ecl = smoothstep(150.0, 210.0, rr);                      // ignite only outside the seraph (per-sample)
+        float ecl = smoothstep(150.0, ${eclHi}, rr);                   // ignite only outside the seraph (per-sample); softer fade-up so embers don't snap on at the annulus edge
         float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(theta));    // suppress the corridor column (per-sample)
         float crossW = 0.85 + 0.55 * uCross * pow(abs(cos(2.0 * theta)), 6.0);   // brighter DENSITY along the arms
         float birth = smoothstep(0.0, 0.05, life0);                    // spawn fade keyed to the HEAD life → a just-born trail collapses to its head (no stale-wrap stretch)
         float trailFade = 1.0 - 0.55 * segT;                           // head brightest, tail dim (the comet falloff)
-        vGlow = ecl * down * (1.0 - life0) * birth * front * crossW * trailFade * 0.9;   // ×0.9 mid-radius-dwell compensator (guards sky p50)
+        vGlow = ecl * down * (1.0 - life0) * birth * front * crossW * trailFade * ${comp};   // ×mid-radius-dwell compensator (guards sky p50); dimmer so heads read as OF the field, not on top
         vQ = vec2(side, 0.0);                                          // round tube across width (length shaped by the segments)
         // ONE substance: the ember colour is the SAME gold→rose→violet ramp over RADIUS as the corona/streaks
         float rg = clamp(rr / 520.0, 0.0, 1.0);
         vec3 ramp = rg < 0.5 ? mix(vec3(1.0, 0.85, 0.54), vec3(0.85, 0.54, 0.39), rg / 0.5)
                              : mix(vec3(0.85, 0.54, 0.39), vec3(0.5, 0.4, 0.7), (rg - 0.5) / 0.5);
-        vCol = mix(ramp, vec3(1.0, 0.9, 0.65), (1.0 - life0) * 0.3);   // young embers spark hotter (a small life boost, not a separate law)
+        vCol = mix(ramp, vec3(1.0, 0.9, 0.65), (1.0 - life0) * ${hotBoost});   // young embers spark hotter (a small life boost, not a separate law)
         float wid = aSeed.w * (1.0 - 0.7 * segT);                      // width tapers head→tail
-        float zoff = (fract(aSeed.z * 91.7) - 0.5) * 180.0;           // per-ember depth (I4): ±90u about the star plane → parallax near/far layering
+        float zoff = (fract(aSeed.z * 91.7) - 0.5) * ${zoffAmp};      // per-ember depth (I4): parallax near/far layering (tightened so the ember shell doesn't slide as a separate plane)
         vec4 mv = modelViewMatrix * vec4(c, 0.06 + zoff, 1.0);
         mv.xy += side * wid * nrm;                                     // width ACROSS the local motion; ribbon length is the segment spread
         gl_Position = projectionMatrix * mv;
