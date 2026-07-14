@@ -116,6 +116,7 @@ export function setFlapDebugPose(parts, model, state) {
     const apexRootF = (m.apexRoot ?? 0) * apexUp(phase);
     const apexMidF = (m.apexMid ?? 0) * apexUp(phase - midLag);
     const apexTipF = (m.apexTip ?? 0) * apexUp(phase - tipLag);
+    const apexTipSweepF = (m.tipApexSweep ?? 0) * apexUp(phase);   // in-plane wrist sweep at the top (dragon.js parity)
     const apexPitch = m.apexPitch ?? 0;
     const restLift = m.restLift ?? 0;
     const tipSweepBase = 0.07 + 0.16 * upTip;
@@ -126,7 +127,7 @@ export function setFlapDebugPose(parts, model, state) {
       pv.rotation.set(0.14 + feather * 0.16 + climbBias - apexPitch * apexRootF, -0.18, -(rootF * amp) + apexRootF * amp + restLift + baseZ + rollFold);
       if (md) md.rotation.set(twMid + 0.05 * inside - apexPitch * apexMidF, upMid * 0.08 + 0.05 * outside, -(midF * amp) + apexMidF * amp + 0.10 * inside);
       if (tp) { const tF = md ? tipF : (midF + tipF), aT = md ? apexTipF : (apexMidF + apexTipF);
-        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside, -(tF * amp) + aT * amp + 0.16 * inside); }
+        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside + apexTipSweepF, -(tF * amp) + aT * amp + 0.16 * inside); }
     };
     poseWing(parts.wingPivotR, parts.wingMidR, parts.wingTipR, bank);
     poseWing(parts.wingPivotL, parts.wingMidL, parts.wingTipL, -bank);
