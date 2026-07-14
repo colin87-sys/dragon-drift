@@ -59,8 +59,13 @@ saturated compact objects; cyan stays Windvault/Crest-only).
   (c) run length kept at 1500m (~30-45s dream; ~50-70s boss-free), with `[0,1,2,3,4,6,6,5]` double-block as a
   one-line data dial if the owner wants it longer. Tests: `auroraflip.mjs` (new), `biomecycle.mjs`/`aurora.mjs
   §6` rewritten (the "no cycled biome lights aurora" assert flips), `tools/auroseam.mjs` (new seam filmstrip).
-- PR-5 (default-off CONFIG.flowBiomeBias=0): biome-weighted canyonTypeWeights through the single
-  canyonRnd draw (flow-heavy in biome 6). Re-pins canyonframe knowingly when flipped.
+- PR-5: ✅ SUPERSEDED by the GUARANTEED aurora flow run (owner chose "guarantee" over "bias"). The aurora
+  block always contains a flow run via a snap-BACK of the canyon schedule (pulls the mouth to the block,
+  never pushes → no desert) + type-targeted bleed conversion (a spine crossing the seam becomes flow).
+  Also delivered: the abrupt-seam fix (#2) — one shared 600m/400m aurora-seam ramp for ALL channels
+  (sky/water/fog/stars, not just the curtain) so the background no longer snaps under the dawning curtain,
+  smooth even at flow/boost speed. ~60% flow share near the aurora (owner dial). Deferred bonus:
+  slipMix→eruption coupling. Re-pins canyonflow/canyon knowingly; gold-determinism/canyonframe stay green.
 - PR-6+: veil hazard; THE SKYWEFT anchor (own session); aurora audio bed; horizon foreshadow.
 
 ## Key risks: reads generic (→ the ONE thing + montage vs reference forms); OLED banding (→ tier2
