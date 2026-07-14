@@ -245,6 +245,7 @@ let canyonStartDist = 0;   // dist of the active run's start marker → drives t
                            // rock-lane widen boundary (game.canyonLaneHW)
 let bossGraceUntil = 0; // post-boss grace band end-distance (rings/collectibles only)
 let rushOnlyBoss = null; // when set, the next rush fights just this ONE boss (roster pick)
+const _distEv = { m: 0 };   // reused per-frame 'distance' event payload (see the emit below — no listener retains it)
 function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
@@ -1525,6 +1526,11 @@ function updateModelDetail(dt) {
 
 function tick() {
   requestAnimationFrame(tick);
+  // Hitch attribution (HUD only): wall-time the world-update phase (JS/GC) separately from
+  // the render-submit phase, so a p95 spike can be pinned on-device — high `sim` = a JS/GC
+  // stall, high `draw` = an extra render pass (mirror/mask), and the frame-time remainder =
+  // GPU-bound fill. Zero cost when the HUD is off (perfEl null → no perf clock reads).
+  const _perfT0 = perfEl ? performance.now() : 0;
   // Preview auto-launch (?rockrun / ?ribcage): once the menu is ready, take off and
   // warp to just before the first forced canyon so the link lands you right in it.
   if (previewLaunchPending && game.state === 'ready') {
@@ -1688,8 +1694,11 @@ function tick() {
     // off the wings (power being generated), not just a one-frame puff.
     if (player.roll) rollWake(player.position, player.roll.dir, 4);
 
-    // Mission distance progress (cheap: 3 active slots max)
-    emit('distance', { m: player.dist });
+    // Mission distance progress (cheap: 3 active slots max). Reuse ONE payload object —
+    // the listeners (records/feats/missions) read `.m` synchronously and never retain it,
+    // so a fresh literal every frame was pure GC feed (60 short-lived objects/s).
+    _distEv.m = player.dist;
+    emit('distance', _distEv);
 
     // Distance milestones
     const ms = Math.floor(player.dist / CONFIG.milestoneStep);
@@ -1880,13 +1889,15 @@ function tick() {
   setArenaPerf(bossArenaMix() > 1.05);   // heaven = full-frame additive fire (fill-bound) → drop MSAA there only (full res kept)
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
     player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
+  const _perfTRender = perfEl ? performance.now() : 0;   // end of the world-update (sim) phase
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 
   if (perfEl) {
+    const _perfTDone = performance.now();   // end of the render-submit phase
     // rawDt is clamped to 0.05 (a 20fps floor) so a backgrounded/stalled frame can't
     // poison the min; rawDt==0 while paused (perfFrame ignores ms<=0).
-    if (rawDt > 0) perfFrame(perfStats, rawDt * 1000, renderer.info.render.calls, renderer.info.render.triangles);
+    if (rawDt > 0) perfFrame(perfStats, rawDt * 1000, renderer.info.render.calls, renderer.info.render.triangles, _perfTRender - _perfT0, _perfTDone - _perfTRender);
     perfTimer -= rawDt;
     if (perfTimer <= 0) {
       perfTimer = 0.5;
@@ -1899,6 +1910,8 @@ function tick() {
         `min   ${s.minFps === Infinity ? '—' : s.minFps.toFixed(0)}fps @${s.worstCalls}c/${(s.worstTris / 1000).toFixed(0)}k\n` +
         `max   ${s.maxFps ? s.maxFps.toFixed(0) : '—'}fps   p95 ${s.p95Ms.toFixed(1)}ms\n` +
         `calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  tier ${qualityTier}${dynResEnabled ? `  res ${resScale.toFixed(2)}${perfSaverOn ? ' sv' : ''}` : ''}\n` +
+        // worst-frame attribution: sim (JS/GC) + draw (render submit) + gpu (fill remainder).
+        `hitch ${s.minFps === Infinity ? '—' : (1000 / s.minFps).toFixed(0)}ms  sim ${s.worstSimMs.toFixed(0)} draw ${s.worstRenderMs.toFixed(0)} gpu ${s.minFps === Infinity ? 0 : Math.max(0, 1000 / s.minFps - s.worstSimMs - s.worstRenderMs).toFixed(0)}\n` +
         `gfx   ${gfx} · ${tone}`;
     }
     renderer.info.reset();
