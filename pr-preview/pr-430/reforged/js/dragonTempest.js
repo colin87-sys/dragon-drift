@@ -548,7 +548,8 @@ function buildOneStormforkWing(M, dials) {
   const ROOT = [0, 0, 0], E = [wristT * 0.5 * hs, 0.03 * hs, 0.02 * hs];
   boltRidge(arm, ROOT, E, 0.085 * hs, 0.07 * hs, 0.06 * hs, M.arcSeam);   // humerus stub
   boltRidge(arm, E, K, 0.07 * hs, 0.05 * hs, 0.05 * hs, M.arcSeam);       // radius → wrist
-  housing(arm, K, 0.05 * hs);
+  // (no separate wrist housing — the strut roots + fork housings already read there; a housing here
+  // just adds clutter at the wrist, Fable's polish note)
 
   // ── THE FINGER-STRUTS — N kinked glowing storm-bolts fanning aft off K + drooping (Revenant
   // FAN/DROOP). Each strut = TWO straight bolt segments K→knuckle→tip: the hard KNUCKLE (the storm
@@ -576,7 +577,7 @@ function buildOneStormforkWing(M, dials) {
     const wB = 0.055 * hs * (1 - 0.05 * i) + 0.004, wM = wB * 0.66, lift = 0.075 * hs * (1 - 0.04 * i);
     boltRidge(hand, K, Bm, wB, wM, lift, i === 0 ? M.arcCore : M.arcSeam);            // wrist → knuckle (strut 0 = brightest)
     boltRidge(hand, Bm, tip, wM, 0.008 * hs, lift * 0.7, i === 0 ? M.arcCore : M.arcSeam);   // knuckle → tip
-    housing(hand, Bm, 0.03 * hs * (1 - 0.06 * i));                                    // carved knuckle housing
+    if (i > 0) housing(hand, Bm, 0.026 * hs * (1 - 0.06 * i));                        // carved knuckle housing (skip the leading strut → clean leading edge, less wrist clutter)
     spars.push([K, lerp3(K, Bm, 0.5), Bm, lerp3(Bm, tip, 0.5), tip]);                 // NS+1 welded samples along the kinked path
     // FORK the OUTER struts near the tip (the reference's forked branches) — a bright prong splaying aft.
     if (i >= N - forkN) {
@@ -737,13 +738,15 @@ function buildStormbrowHead(def, model, mats) {
   // ── THE SKULL — an elongated angular wedge (−Z), VALUE-BANDED per column (top spine / flanks
   // flank / underside dorsal) so flat-shading reads it knapped, not a smooth balloon. The single
   // biggest fix over the stub's mono-mat "warm-looking" broad top.
+  // Heavier skull + jaw mass + a shorter muzzle so the front end matches the new compact body
+  // (Fable polish: the head/neck was the last slightly-lean element).
   const skull = [
-    { z: 0.34, rx: 0.17 * hs, ry: 0.21 * hs, cy: 0.06 },   // occiput (crown roots here)
-    { z: 0.06, rx: 0.20 * hs, ry: 0.19 * hs, cy: 0.05 },   // brow (widest; hard chine)
-    { z: -0.16, rx: 0.15 * hs, ry: 0.14 * hs, cy: 0.02 },  // eye-ridge / cheek shelf
-    { z: -0.44, rx: 0.12 * hs, ry: 0.11 * hs, cy: -0.02 }, // cheek
-    { z: -0.80, rx: 0.075 * hs, ry: 0.075 * hs, cy: -0.05 }, // long slender muzzle
-    { z: -1.02, rx: 0.035 * hs, ry: 0.045 * hs, cy: -0.06 }, // sharp angular tip
+    { z: 0.34, rx: 0.18 * hs, ry: 0.22 * hs, cy: 0.06 },   // occiput (crown roots here)
+    { z: 0.06, rx: 0.23 * hs, ry: 0.21 * hs, cy: 0.05 },   // brow (heavy, widest; hard chine)
+    { z: -0.16, rx: 0.18 * hs, ry: 0.16 * hs, cy: 0.02 },  // eye-ridge / cheek shelf
+    { z: -0.42, rx: 0.15 * hs, ry: 0.14 * hs, cy: -0.02 }, // cheek / jowl (full)
+    { z: -0.72, rx: 0.10 * hs, ry: 0.095 * hs, cy: -0.05 }, // muzzle (shorter, thicker)
+    { z: -0.92, rx: 0.05 * hs, ry: 0.055 * hs, cy: -0.06 }, // blunt angular tip
   ];
   const N = OCTA.length, SP = (s, k) => [OCTA[k][0] * s.rx, s.cy + OCTA[k][1] * s.ry, s.z];
   const band = (k) => (OCTA[k][1] > 0.5 ? M.spine : OCTA[k][1] < -0.5 ? M.dorsal : M.flank);
@@ -751,7 +754,7 @@ function buildStormbrowHead(def, model, mats) {
     for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; push(band(k), [SP(a, k), SP(b, k1), SP(b, k)], [SP(a, k), SP(a, k1), SP(b, k1)]); } }
   { const f = skull[0], l = skull[skull.length - 1], fc = [0, f.cy, f.z], lc = [0, l.cy, l.z];
     for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; push(M.spine, [fc, SP(f, k1), SP(f, k)]); push(M.dorsal, [lc, SP(l, k), SP(l, k1)]); } }
-  const headLength = 1.45 * hs;
+  const headLength = 1.35 * hs;
 
   // ── THE LOWER JAW — a slim closed wedge slung under the cranium (a sleek maw, no fangs) with a
   // thin dark MOUTH-LINE recess between it and the skull (one carved seam step).
