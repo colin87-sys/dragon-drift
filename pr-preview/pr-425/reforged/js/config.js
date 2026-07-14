@@ -129,6 +129,20 @@ export const CONFIG = {
                               // (longer than [8,11] so the weave+boost cadence sustains, fewer dead beats)
   canyonFlowSegments: [12, 16], // a FLOW run (the Rhythm Flow-Tube): 12-16 light-gates ≈ 11-14s of
                               // chain — long enough that "hold the line end-to-end" is a real ask
+  // GUARANTEED aurora flow run (supersedes the deferred PR-5 flowBiomeBias): the Aurora Shallows
+  // biome always contains exactly one flow run — the dreamy sky + the speed-tube as one signature
+  // moment. A canyon is SNAPPED to start at aurora-block-start + offset, its type forced to flow, and
+  // no natural canyon may be scheduled within the shadow before it. (level.js snapCanyonToAurora.)
+  canyonAuroraFlowOffset: 150,  // injected mouth = auroraBlockStart + this (world already fully aurora at
+                                // start; leaves ~1.5-3s of open mirror-sea breath before the Sky-Gate posts)
+  canyonAuroraFlowShadow: 3400, // TYPE-forcing pre-roll (spine bleed span): a SPINE run starting within
+                                // this before an aurora block would carry into it, so it's converted to
+                                // flow (rock uses a 1500 span inline; a run too short to reach keeps its
+                                // type → variety preserved). TYPE-only — the natural SCHEDULE is untouched,
+                                // so canyon frequency everywhere is unchanged (no desert). 100% coverage
+                                // over 400 seeds; ~60% of canyons near the aurora read flow (owner dial).
+  canyonAuroraFlowSegments: [12, 12], // fixed 12 (~1050m) so the whole run sits under auroraMix≥~0.85
+                                      // even past the exit ramp; [12,13] is a one-number length dial
   canyonFlowFill: 260,        // max ring-gap (m) the flow orb ribbon fills; a wider gap is a genuine
                               // gauntlet bridge (the slalom is its own beat) and stays open. Covers
                               // breath-beat spacings (~192m) with headroom; excludes 300m+ gauntlets.

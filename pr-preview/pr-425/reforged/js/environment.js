@@ -11,7 +11,7 @@ import { initSkyProbe, updateSkyProbe, setSkyProbeEnabled, skyProbeEnabled } fro
 import { bakeAO, aoUniform, setPropAO } from './propAO.js';
 import { installAtmosphere, assignAtmos, applyAtmosphere, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled } from './atmosphere.js';
 import { CLOUD_HEAD, CLOUD_BODY, cloudUniforms, applySkyClouds, sunCloudCover, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled } from './skyClouds.js';
-import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, auroraPulse, setAuroraActOverride, setAuroraEruptOverride } from './auroraSky.js';
+import { AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora, setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, auroraPulse, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './auroraSky.js';
 import { createArenaSet, updateArenaSet, resetArenaSet, setArenaSetQuality, debugArenaSet, setStarMode } from './arenaSet.js';
 import { getWaterSwellOn } from './water.js';
 import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as _setWaterFoam, setWaterFoamQuality as _setWaterFoamQuality } from './propFoam.js';
@@ -20,7 +20,7 @@ import { makeFoamMesh, writeFoamMatrix, foamVisible, updateFoam, setWaterFoam as
 // drives them through environment.
 export { setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, setAtmosphereQuality, atmosphereEnabled, setSkyCloudsEnabled, setSkyCloudQuality, skyCloudsEnabled };
 // Aurora Shallows: the sky-splice controls ride through environment too.
-export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride };
+export { setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite };
 // ARENA (PR-K): the FIRSTBORN SKY's Godhead Star — tier switch + test seam + the owner A/B mode ride through here too.
 export { setArenaSetQuality, debugArenaSet, setStarMode };
 
@@ -133,7 +133,7 @@ function makeMats() {
     primary: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0x86b39c, emissive: 0x0e2018, emissiveIntensity: 0.25 }),
       new THREE.MeshStandardMaterial({ ...opts, color: 0xe2bd8a, emissive: 0x2a1a08, emissiveIntensity: 0.2 }),
-      new THREE.MeshStandardMaterial({ ...opts, color: 0xd8d2c2, roughness: 0.32, metalness: 0.1, emissive: 0x1a2230, emissiveIntensity: 0.05 }),   // A1: bone-ivory (was toy-blue 0x6fb7e8) — near-zero cool emissive, roughness kept for facet glints; warm sun-rim + cyan shadow do the work
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xbfdce6, roughness: 0.30, metalness: 0.08, emissive: 0x357088, emissiveIntensity: 0.42 }),   // Sunset Glacier: LUMINOUS glacial ice — the emissive fakes transmission (glows from every side in backlight); weathering noise mottles it; low roughness → per-facet sun glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x1d4438, emissive: 0x0a3328, emissiveIntensity: 0.4 }),   // night moss
       new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
@@ -142,7 +142,7 @@ function makeMats() {
     accent: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0xc08a50, roughness: 0.5, metalness: 0.25, emissive: 0x2a1505, emissiveIntensity: 0.25 }),
       new THREE.MeshStandardMaterial({ ...opts, color: 0xb56a40, emissive: 0x251005, emissiveIntensity: 0.2 }),
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x9fd8f0, roughness: 0.3, emissive: 0x1c4a66, emissiveIntensity: 0.3 }),
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xd8f6ff, roughness: 0.22, emissive: 0x3fc8e8, emissiveIntensity: 0.85 }),   // Sunset Glacier: the CYAN CORE — the light inside the ice (Candle slivers + Sail panes only; warm is NEVER emissive)
       new THREE.MeshStandardMaterial({ ...opts, color: 0xff5a20, roughness: 0.4, emissive: 0xff3a08, emissiveIntensity: 0.9 }),  // magma seams
       new THREE.MeshStandardMaterial({ ...opts, color: 0x4dffd0, roughness: 0.35, emissive: 0x18d0a0, emissiveIntensity: 1.0 }), // biolume caps
       new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
@@ -193,7 +193,7 @@ const _envParams = (typeof window !== 'undefined' && window.location)
 const PROPS_V1 = _envParams.get('props') === 'v1';
 // Per-biome whitelist helpers: FROZEN is the A1 biome (new kit default-on, legacy
 // parked). A biome not yet migrated returns its shipped whitelist unconditionally.
-const frozenNew = PROPS_V1 ? [] : [2];   // ribspire/vertebrae/penitentes/serac/glacierfront
+const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier: candle/sungate/sail/floeshelf/glacierwall
 const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
 
 const ARCHETYPES = {
@@ -283,89 +283,86 @@ const ARCHETYPES = {
       return { x: side * (13.5 + rnd() * 3), h, r: h * 0.35, tilt: side * rnd() * 0.3 };
     },
   },
-  // TALL HERO (~112 tris): a KINKED blade family on a shared crusted pan — one
-  // dominant blade (frustum body + off-axis cone tip = the fracture kink that
-  // survives backlight), two graduated children, and a SNAPPED stub with its
-  // fallen tip lying on the pan (the fracture story + free asymmetry). ONE cyan
-  // sliver (mat 1) buried in the cleft between the dominant blade and its tallest
-  // child — visible only when a gap-aligned yaw opens (the withheld cold).
-  ribspire: {
-    step: 17, biomes: frozenNew, matIndex: 2,
+  // THE CANDLE — hero spire (~126 tris): a single COLOSSAL tapering blade of
+  // luminous blue ice, a votive candle the size of a skyscraper, lit from within
+  // and gold-rimmed by the sun. Richness lives in the STACKED FACETED shaft (3
+  // offset frustums = strata that each catch the sun rim differently) + the kinked
+  // crown + a low buttress. ONE cyan CORE sliver (mat 1) buried in the shaft/
+  // buttress cleft — the light inside the ice, flashing only when a yaw opens the gap.
+  candle: {
+    step: 48, biomes: frozenNew, matIndex: 2,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.50, 0.58, 0.12, 6), { y: 0.06, ry: 0.4, sx: 1.1, sz: 0.85 }) }, // crusted base pan
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.26, 0.62, 5), { y: 0.40 }) },                              // dominant blade body
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.13, 0.44, 5), { x: 0.07, y: 0.82, rz: -0.16 }) },                    // off-axis kinked tip
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.14, 0.58, 5), { x: -0.26, z: 0.12, y: 0.30, rz: 0.20 }) },           // child blade 1 (tallest)
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.11, 0.42, 5), { x: 0.28, z: -0.10, y: 0.24, rz: -0.24 }) },          // child blade 2
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.17, 0.24, 5), { x: 0.34, z: 0.14, y: 0.13, rz: -0.12 }) }, // snapped stub
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.08, 0.34, 5), { x: -0.36, z: -0.18, y: 0.11, rz: 1.4, ry: 0.6 }) },  // FALLEN tip on the pan
-      { mat: 1, geo: xform(new THREE.ConeGeometry(0.045, 0.52, 4), { x: -0.12, z: 0.02, y: 0.34, rz: 0.06 }) },          // cyan sliver, buried in the cleft
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.58, 0.20, 6), { y: 0.10, ry: 0.3, sx: 1.15, sz: 0.9 }) },  // broad faceted ice foot
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.44, 0.30, 5), { y: 0.32 }) },                              // tower stratum 1 (BROAD — chunky, not a needle)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.26, 0.34, 0.28, 5), { x: 0.03, y: 0.58 }) },                     // stratum 2 (offset)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.18, 0.26, 0.26, 5), { x: 0.05, y: 0.82 }) },                     // stratum 3 (offset)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.17, 0.40, 6), { x: 0.08, y: 1.10, rz: -0.12 }) },                    // kinked crown
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.17, 0.86, 5), { x: -0.30, z: 0.10, y: 0.30, rz: 0.16 }) },           // fused COMPANION blade (the duet — richness, one mass)
+      { mat: 1, geo: xform(new THREE.ConeGeometry(0.055, 0.92, 4), { x: -0.15, z: 0.05, y: 0.50, rz: 0.04 }) },          // cyan CORE seam in the cleft — tall, visible
     ], 2),
-    place: (side, rnd) => ({ x: side * (17 + rnd() * 8), h: 16 + rnd() * 24, r: 3.5 + rnd() * 2, tilt: side * (0.05 + rnd() * 0.09) }),
+    place: (side, rnd) => ({ x: side * (18 + rnd() * 10), h: 30 + rnd() * 22, r: 5 + rnd() * 3, tilt: side * (0.02 + rnd() * 0.04) }),
   },
-  // MID HERO, EXCLUSIVE (~120 tris): a SPINE breaching the ice — 6 stacked
-  // lens-discs (squashed cylinders) with alternating pinched-waist radii, centers
-  // progressively OFFSET to trace a bowed curve (the offset-curve survives the
-  // (r,h,r) shear by construction). NO accent — the pure-form beat (§4.2). The one
-  // silhouette in the roster that reads unmistakably as bone.
-  vertebrae: {
-    step: 29, biomes: frozenNew, matIndex: 2,
+  // THE SUN GATE — paired portal spires (~118 tris): two grander Candles flanking
+  // the lane, leaning INWARD, framing the low sun dead-ahead — a doorway of light
+  // that re-forms every ~100m. `paired:true` makes makeBand seat the left and right
+  // instance of a slot at the SAME distance so they read as gate-posts. The notched
+  // V crown (two offset tips) says "gate", not "another candle". God-rays are
+  // occlusion-masked, so the gap between the posts CARVES real light shafts for free.
+  sungate: {
+    step: 100, biomes: frozenNew, matIndex: 2, paired: true,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.32, 0.13, 5), { x: 0.00, y: 0.09, sy: 0.8 }) },
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.19, 0.21, 0.10, 5), { x: 0.05, y: 0.24, sy: 0.75 }) }, // pinched waist
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.28, 0.29, 0.13, 5), { x: 0.09, y: 0.40, sy: 0.8 }) },
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.17, 0.19, 0.10, 5), { x: 0.08, y: 0.56, sy: 0.75 }) }, // pinched waist
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.25, 0.12, 5), { x: 0.03, y: 0.71, sy: 0.8 }) },
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.20, 0.16, 5), { x: -0.03, y: 0.87, sy: 0.85 }) }, // crown vertebra
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.64, 0.22, 6), { y: 0.11, ry: 0.3, sx: 1.15, sz: 0.85 }) }, // grand flared base
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.36, 0.46, 0.32, 6), { y: 0.34 }) },                              // BROAD gate-post tower
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.27, 0.36, 0.30, 6), { x: 0.02, y: 0.62 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.18, 0.27, 0.28, 6), { x: 0.03, y: 0.88 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.44, 6), { x: 0.00, z: 0.06, y: 1.16, rz: -0.08 }) },           // crown peak (tall)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.30, 5), { x: 0.14, z: -0.06, y: 1.06, rz: 0.22 }) },           // second peak (the V notch = "gate", not "candle")
+      { mat: 1, geo: xform(new THREE.ConeGeometry(0.06, 1.0, 4), { x: -0.02, z: 0.02, y: 0.52, rz: 0.03 }) },            // cyan core, running the height
     ], 2),
-    place: (side, rnd) => ({ x: side * (14 + rnd() * 7), h: 6 + rnd() * 8, r: 2.5 + rnd() * 1.5, tilt: 0 }),
+    place: (side, rnd) => ({ x: side * (15 + rnd() * 2), h: 42 + rnd() * 20, r: 5.5 + rnd() * 2, tilt: -side * (0.05 + rnd() * 0.03) }),
   },
-  // MID-LOW CLUSTER (~80 tris): a hoarfrost tooth-field — 7 small kinked blades
-  // (offset tips) on a shared crusted pan, graduated heights, spread radially in x
-  // AND z (rotation-robust). ONE tooth core-lit (mat 1). Fills the ground register
-  // so the biome reads DENSE (its Law-4 word).
-  penitentes: {
-    step: 11, biomes: frozenNew, matIndex: 2,
+  // THE SAIL — the stained-glass pane (~52 tris): a tall thin pane of lit ice
+  // standing alone like a shard of cathedral window, the biome's material showpiece
+  // (the biggest CYAN surface). As you fly past, the real sun's specular sweeps the
+  // glassy face — a moving gold gleam no static emissive could fake. One broken
+  // primary plate leans against it for asymmetry + story.
+  sail: {
+    step: 60, biomes: frozenNew, matIndex: 2,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.54, 0.10, 6), { y: 0.05, ry: 0.7, sx: 1.05, sz: 0.9 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.11, 0.90, 4), { x: -0.02, z: 0.04, y: 0.10, rz: 0.10 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.09, 0.64, 4), { x: 0.24, z: -0.10, y: 0.10, rz: -0.16 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.08, 0.50, 4), { x: -0.26, z: 0.14, y: 0.10, rz: 0.22 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.07, 0.38, 4), { x: 0.10, z: 0.28, y: 0.10, rz: 0.05 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.07, 0.44, 4), { x: -0.14, z: -0.24, y: 0.10, rz: -0.10 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.06, 0.30, 4), { x: 0.30, z: 0.18, y: 0.10, rz: -0.20 }) },
-      { mat: 1, geo: xform(new THREE.ConeGeometry(0.07, 0.56, 4), { x: 0.04, z: -0.06, y: 0.10, rz: -0.04 }) }, // the one lit core
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.32, 0.40, 0.12, 6), { y: 0.06, ry: 0.5, sx: 1.1, sz: 0.7 }) },   // base pan
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.60, 0.94, 0.05), { x: 0.02, y: 0.54, rz: 0.04 }) },                   // the LIT PANE (accent glass)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.56, 0.06), { x: -0.24, z: -0.06, y: 0.34, rz: -0.22 }) },       // broken plate leaning
     ], 2),
-    place: (side, rnd) => ({ x: side * (13 + rnd() * 5), h: 2.5 + rnd() * 3.5, r: 2 + rnd() * 1.5, tilt: side * (rnd() * 0.14 - 0.05) }),
+    place: (side, rnd) => ({ x: side * (16 + rnd() * 7), h: 10 + rnd() * 10, r: 2.5 + rnd() * 1.5, tilt: side * (rnd() * 0.2 - 0.1) }),
   },
-  // LOW FOIL (~36 tris): a pressure-ridge fragment — 3 THIN tilted plates tented
-  // against each other, serration carried by STAGGERED plate heights (not a chunky
-  // dihedral), spread in x AND z. NO accent, no glow — deep glacial blue-grey via
-  // the bone primary going dark at low AO. The dark mass that earns the cyan.
-  serac: {
-    step: 13, biomes: frozenNew, matIndex: 2,
+  // THE FLOE SHELF — low foil (~44 tris): wide flat white pack-ice shelves at the
+  // waterline, the horizontal REST that makes the verticals read colossal (a
+  // cathedral needs a floor) and the fog-sea surface made solid. Primary only,
+  // NO accent — the clean day-lit slab that earns the Candles' light. Distinct from
+  // Aurora's dark complex night floe by being bright, minimal, warm-lit.
+  floeshelf: {
+    step: 18, biomes: frozenNew, matIndex: 2,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.92, 0.09), { x: -0.14, z: 0.06, y: 0.46, rz: 0.15, ry: 0.3 }) },
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.72, 0.08), { x: 0.14, z: 0.12, y: 0.36, rz: -0.19, ry: -0.4 }) },
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.32, 0.54, 0.07), { x: 0.02, z: -0.16, y: 0.27, rz: 0.08, ry: 0.9 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.55, 0.62, 0.14, 7), { y: 0.07, ry: 0.4, sx: 1.1, sz: 0.82 }) },  // wide pan
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.32, 0.40, 0.12, 6), { x: 0.24, z: -0.10, y: 0.16, ry: 1.2 }) },  // rafted smaller pan
     ], 2),
-    place: (side, rnd) => ({ x: side * (12.5 + rnd() * 5.5), h: 1.5 + rnd() * 2, r: 2 + rnd() * 2, tilt: side * (rnd() * 0.16 - 0.05) }),
+    place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 0.8 + rnd() * 0.9, r: 7 + rnd() * 7, tilt: side * (rnd() * 0.05 - 0.025) }),
   },
-  // DISTANT MASSIF (~64 tris): a bergschrund cliff that FLOATS on the fog line —
-  // its mass sits in the UPPER normalized band (nothing below y≈0.38) so, at the
-  // hardcoded base y=-0.5, its world base rides ~0.38·h above the water; foam:false
-  // hides the missing waterline. Peaks spread in x AND z so any recycle-yaw reads
-  // as a jagged massif (the `ridge` rotation-robust pattern). mat 0 only.
-  glacierfront: {
-    step: 83, biomes: frozenNew, matIndex: 2,
+  // THE GLACIER WALL — distant massif on the fog line (~64 tris): a long tabular
+  // ice cliff whose mass sits in the UPPER normalized band (nothing below y≈0.4) so
+  // it FLOATS on the fog line (base y=-0.5 → world base ~0.4·h above the water);
+  // foam:false. Peaks spread in x AND z so any recycle-yaw reads as a jagged wall.
+  // With the dual-fog it dissolves into molten gold — the world beyond the lane.
+  glacierwall: {
+    step: 85, biomes: frozenNew, matIndex: 2,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.60, 0.52, 5), { y: 0.66, ry: 0.4, sx: 1.25, sz: 0.9 }) }, // main wall
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.38, 0.30, 5), { x: -0.52, z: 0.16, y: 0.52, ry: 1.6 }) },  // calved shelf
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.18, 0.36, 4), { x: -0.34, z: -0.12, y: 0.94, ry: 0.5 }) },           // serac crown peaks
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.16, 0.30, 4), { x: 0.10, z: 0.22, y: 0.90 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.26, 4), { x: 0.44, z: -0.18, y: 0.86, ry: 0.9 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.60, 0.52, 5), { y: 0.66, ry: 0.4, sx: 1.4, sz: 0.9 }) },   // long main wall
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.38, 0.30, 5), { x: -0.58, z: 0.16, y: 0.52, ry: 1.6 }) },  // calved step
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.18, 0.36, 4), { x: -0.38, z: -0.12, y: 0.94, ry: 0.5 }) },           // crown peaks (radial)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.16, 0.30, 4), { x: 0.12, z: 0.22, y: 0.90 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.26, 4), { x: 0.50, z: -0.18, y: 0.86, ry: 0.9 }) },
     ], 2),
-    place: (side, rnd) => ({ x: side * (28 + rnd() * 18), h: 5 + rnd() * 3.5, r: 20 + rnd() * 12, tilt: 0 }),
+    place: (side, rnd) => ({ x: side * (32 + rnd() * 20), h: 6 + rnd() * 4, r: 24 + rnd() * 14, tilt: 0 }),
   },
   // Emberfall Caldera: jagged basalt spire split by a glowing magma seam.
   basalt: {
@@ -518,9 +515,9 @@ const ARCHETYPES = {
 const FOAM_CFG = {
   tower: { r: 0.7 }, column: { r: 0.6 }, archruin: { rx: 0.52, rz: 0.18 }, slab: { rx: 0.48, rz: 0.16 },
   obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
-  // A1 Frozen kit — the waterline weld between silhouette + reflection; glacierfront
-  // is a floating fog-line massif so it takes no collar (like `ridge`).
-  ribspire: { r: 0.85 }, vertebrae: { r: 0.5 }, penitentes: { r: 0.75 }, serac: { r: 0.55 }, glacierfront: false,
+  // Sunset Glacier kit — the waterline weld between silhouette + reflection; the
+  // sail's thin footprint gets an elliptical collar; glacierwall floats on the fog line (no collar).
+  candle: { r: 0.8 }, sungate: { r: 0.8 }, sail: { rx: 0.5, rz: 0.2 }, floeshelf: { r: 0.85 }, glacierwall: false,
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
@@ -727,10 +724,15 @@ function makeBand(scene, def) {
   // writeMatrix so it recycles + parks in lockstep with the props.
   const foam = makeFoamMesh(perSide * 2);
   const band = { mesh, foam, data: [], step: def.step, def };
+  // Paired archetypes (the Sun Gate): the left and right instance of a slot must
+  // land at the SAME distance so they read as flanking gate-posts. Precompute one
+  // jitter per slot and share it across both sides (render-only rnd — no fixture).
+  const slotJit = def.paired ? Array.from({ length: perSide }, () => rnd()) : null;
   let idx = 0;
   for (let side = -1; side <= 1; side += 2) {
     for (let i = 0; i < perSide; i++) {
-      const d = { side, slot: i, dist: i * def.step + rnd() * def.step - 100, ...def.place(side, rnd) };
+      const dj = slotJit ? slotJit[i] : rnd();
+      const d = { side, slot: i, dist: i * def.step + dj * def.step - 100, ...def.place(side, rnd) };
       band.data.push(d);
       writeMatrix(band, idx++, d);
     }

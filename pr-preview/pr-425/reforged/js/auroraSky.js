@@ -262,6 +262,10 @@ let actOverride = null;   // ?auract=<0..1> debug: pin activity/eruption (for th
 export function setAuroraActOverride(v) { actOverride = (v == null || Number.isNaN(v)) ? null : v; }
 let eruptOverride = null; // debug: pin uAurErupt DIRECTLY (bypasses the 0.45 peak cap) to compare eruption strengths
 export function setAuroraEruptOverride(v) { eruptOverride = (v == null || Number.isNaN(v)) ? null : v; }
+// FLOW COUPLING: main.js feeds the flow chain's slipMix × auroraMix here each frame; it raises the aurora
+// ACTIVITY floor so the sky erupts as the chain climbs. 0 everywhere outside the aurora carve → byte-inert.
+let flowExcite = 0, flowExciteTarget = 0;
+export function setAuroraFlowExcite(k) { flowExciteTarget = Math.max(0, Math.min(1, k || 0)); }
 export function auroraEnabled() { return enabled; }
 export function auroraForced() { return forced; }   // ?aurora=1 preview — gate the day-biome sun/god-rays off
 export function auroraMix() { return auroraUniforms.uAuroraMix.value; }   // live curtain strength (real biome god-ray gate)
@@ -300,6 +304,7 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // qualFade recovers to 1 (identity — damp(1,1)=1 → byte-identical in non-aurora biomes); it only
   // dips below 1 for ~1.2s after a runtime tier flip, so the curtain restructures while faded down.
   qualFade = damp(qualFade, 1, 3.5, dtc);
+  flowExcite = damp(flowExcite, flowExciteTarget, 2.0, dtc);   // eased so the eruption swells/settles with the carve
   auroraUniforms.uAuroraMix.value = mix * qualFade;
   // PREVIEW ONLY: `?aurora=1` over a day biome would wash the curtain out (auroras need a dark sky).
   // Force a night wash so the preview reads as the shipping NIGHT biome will. The real biome supplies
@@ -312,7 +317,10 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // (smoothstep-shaped) — full-color violet/pink/red for ~20–40s every few minutes at irregular intervals,
   // so quiet green/teal stretches make the rare eruption feel EARNED (the "wow"). `?auract=` overrides both.
   const actRaw = 0.5 + 0.5 * (0.62 * Math.sin(time * 0.05) + 0.38 * Math.sin(time * 0.0177 + 2.4));
-  const act = actOverride == null ? actRaw : actOverride;
+  // FLOW COUPLING: holding the flow carve (flowExcite = slipMix × auroraMix, damped) raises the activity
+  // FLOOR → the sky erupts violet/pink over you as your chain climbs (0.9 floor → a strong, not max,
+  // eruption at full carve). 0 outside the aurora / off the carve → act = actRaw → byte-inert. ?auract wins.
+  const act = actOverride != null ? actOverride : Math.max(actRaw, flowExcite * 0.9);
   auroraUniforms.uAurAct.value = act;
   // ACTIVITY-KEYED CRAWL (Gate-9 dreaminess): accumulate phase at a variable rate instead of `time%4096`
   // — quiet stretches drift stately (~0.8×), an eruption visibly quickens (~1.25×), so motion tells the
