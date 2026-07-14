@@ -157,8 +157,15 @@ const CAUSE_TEXT = {
 
 function recordChips(sum, maxVisible = 3) {
   const chips = [];
-  if (game.isNewHighScore) chips.push('★ HIGH SCORE');
-  if (game.isNewBestDistance) chips.push('★ LONGEST FLIGHT');
+  // U1: celebrations must be earned — a record chip needs a real prior best to
+  // beat (or a genuinely substantial first run), else every first flight "sets
+  // records" and the gold stars read as noise.
+  const earnedScore = game.isNewHighScore &&
+    (game.prevHighScore > 0 || game.highScore >= 500);
+  const earnedDist = game.isNewBestDistance &&
+    (game.prevBestDistance > 0 || game.bestDistance >= 1000);
+  if (earnedScore) chips.push('★ HIGH SCORE');
+  if (earnedDist) chips.push('★ LONGEST FLIGHT');
   for (const r of sum.newRecords) {
     const v = r.key === 'longestCleanDist' ? `${r.value} m`
       : r.key === 'bestCombo' ? `×${r.value}` : r.value;
@@ -261,7 +268,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
     ${earnListHtml}
     ${unclaimedFeatCount() > 0 ? `<button class="feat-claim-cta" id="feat-claim-cta">✦ Claim ${unclaimedFeatCount()} feat reward${unclaimedFeatCount() > 1 ? 's' : ''} · <span class="ember-ico">◆</span> ${unclaimedFeatReward()}</button>` : ''}
     <div class="xp-wrap">
-      <div class="xp-row"><span class="lvl">LV ${saveData.level}</span><span>+${sum.xpGained || 0} XP</span><span class="lvl">LV ${saveData.level + 1}</span></div>
+      <div class="xp-row"><span class="lvl">LV ${saveData.level}</span><span>${sum.xpGained ? `+${sum.xpGained} XP` : ''}</span><span class="lvl">LV ${saveData.level + 1}</span></div>
       <div class="xp-bar"><span id="xp-fill"></span></div>
     </div>
     <div id="nextup-wrap">${nextUpCardHtml(sum.nextUp || selectNextUp())}</div>

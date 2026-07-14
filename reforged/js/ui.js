@@ -786,7 +786,9 @@ export const ui = {
     // Live GRAZE counter — shown only during a boss, ticks up on every skim in
     // real time (encourages constant grazing to charge Surge).
     if (els.grazeHud) {
-      els.grazeHud.classList.toggle('on', game.inBoss);
+      // U1: the counter appears on its FIRST skim (same rule as the chain
+      // counter) — a permanent "0 SKIMS" is furniture, not information.
+      els.grazeHud.classList.toggle('on', game.inBoss && game.grazesRun > 0);
       if (game.inBoss && game.grazesRun !== lastGraze) {
         els.grazeN.textContent = game.grazesRun;
         if (game.grazesRun > lastGraze) restartAnim(els.grazeHud, 'chain-pop');
@@ -1559,8 +1561,8 @@ export const ui = {
       const topbar = cold ? '' : `
         <div class="hero-topbar">
           <div class="hero-wallet">
-            <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
-            ${game.highScore ? `<div class="meta-chip">BEST <b>${game.highScore}</b></div>` : ''}
+            <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b></div>
+            ${game.highScore ? `<div class="meta-chip">BEST <b>${game.highScore.toLocaleString()}</b></div>` : ''}
           </div>
           <button class="hero-gear" id="btn-settings" title="Settings" aria-label="Settings">${ICONS.settings}</button>
         </div>`;
@@ -1590,10 +1592,11 @@ export const ui = {
         items += railBtn('btn-rush', ICONS.rush, 'BOSS RUSH', false, !saveData.flags.seenBossRush);
       if (items) rail = `<nav class="hero-rail">${items}</nav>`;
 
+      // U1: no control dumps on the title screen — touch players learn in-run
+      // from the gesture tutorial; keyboard players get one short line.
       const sub = cold
         ? 'Thread rings. Chase the surge.'
-        : (touch ? 'Drag to steer · hold a second finger to boost · swipe it sideways to barrel roll'
-                 : 'WASD/Arrows to steer · SPACE to boost · double-tap a direction to barrel roll');
+        : (touch ? '' : 'WASD to steer · SPACE to boost');
 
       html = `
         ${topbar}
@@ -1604,7 +1607,7 @@ export const ui = {
           ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">«${title}»</button>` : ''}
           <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
           <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">➤</span>TAKE OFF</button>
-          <p class="hero-sub">${sub}</p>
+          ${sub ? `<p class="hero-sub">${sub}</p>` : ''}
           <p class="action-key">${touch ? 'or tap anywhere to fly' : 'or press ENTER to fly'}</p>
         </div>
         ${rail}
@@ -2222,7 +2225,7 @@ export const ui = {
         <div class="seg-row pm-tabs">${tabBtn('audio', 'AUDIO')}${tabBtn('assists', 'ASSISTS')}${tabBtn('quests', 'QUESTS')}</div>
         <div class="pm-body">${body}</div>
         <div class="pm-footer">
-          <span class="pm-wallet"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b> · LV <b>${saveData.level}</b></span>
+          <span class="pm-wallet"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b> · LV <b>${saveData.level}</b></span>
           <div class="pm-nav" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
             ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>`}
             <button class="btn-secondary pm-nav-btn" id="pm-settings">SETTINGS</button>

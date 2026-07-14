@@ -48,7 +48,7 @@ export function initSplash(h = {}) {
     <div class="splash-embers"></div>
     <div class="splash-top">
       <h1 class="splash-title">DRAGON<br>DRIFT</h1>
-      <p class="splash-slogan">&#9670;&ensp;it's a skill issue&ensp;&#9670;</p>
+      <p class="splash-slogan">&#9670;&ensp;born of ember &middot; forged in flight&ensp;&#9670;</p>
     </div>
     <div class="splash-bottom">
       <p class="splash-tag">Evolve. Drift. Conquer the skies.</p>
