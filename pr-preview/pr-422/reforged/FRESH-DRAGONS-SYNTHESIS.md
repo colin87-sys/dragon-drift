@@ -242,6 +242,14 @@ beats everything on game-feel: the one dragon you can hear with your eyes.
 > the tranche below: the shared `pulseTimer` engine work originally slotted with Tempest now lands
 > with whichever TIMED-spectacle dragon (Tempest or Tocsin) builds first after it. Effective queue:
 > **Revenant → Tempest → Stiletto → Tocsin → Sylph.**
+>
+> **BUILD-ORDER #2 (2026-07-13): TEMPEST — v1 build sheet READY.** Thunderhead Tempest's
+> research-grounded, feasibility-audited v1 sheet is done (`TEMPEST-THUNDERHEAD-BUILDSHEET.md` §B —
+> builders locked to its §11 names, every element cited to a real engine path incl. the
+> `wingBladePivots` churn hook + the single-writer storm tick, overdraw counted 3-cruise/4-Surge,
+> increment plan I0–I5). **Tempest LANDS `js/pulseTimer.js` for the queue** (the pure seeded
+> deterministic burst-cluster strike/pulse scheduler + `?strikePin` + the dragonstudio `strike`
+> state) in its I0 — Tocsin's ring clock reuses it as planned below.
 
 **Original recommendation (superseded by the owner decision above): Tempest → Revenant → Stiletto → Tocsin → Sylph.**
 

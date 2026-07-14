@@ -89,7 +89,10 @@ const CAM_Y_MAX = 27.0;                  // worst-case camera height (laneMaxY 2
 const OVH_Y_BASE = 6, OVH_Y_SLOPE = 0.26;    // PLACEMENT: the y-floor gap above the worst camera + the proximity-widening slope (rock bottom = CAM_Y_MAX + base + slope·dc, size-independent)
 const OVH_YC_BASE = 4, OVH_YC_SLOPE = 0.22;  // CONSTRAINT: the elevation-band floor + slope the rock bottom must clear (both < placement ⇒ margin ≥ 0 at every depth); slope 0.22 pins the rock to the top sky band (elev ≥ ~12°)
 const OVH_Y_ABS = 30;                    // ABSOLUTE floor: rock bottom never below laneMaxY 22 + 8 → the dragon can never touch one regardless of camera state
+const OVH_Z_FAR = -820;                  // overhead birth depth (vs side's -300): a size-7 rock at ~860m subtends ~1.3° — a SPECK that condenses out of the haze and comes closer (the side-rock grammar, via DEPTH). The eased z-map keeps the near-pass whoosh speed unchanged.
+const OVH_EASE = (p) => 1.61 * p - 0.61 * p * p;   // deep→near depth easing: g'(0)=1.61 (fast while a speck, tiny angular vel) → g'(1)=0.39 (near-pass dz/dt = shipped whoosh). Monotone on [0,1], NaN-free.
 const OVH_ENABLED = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('noovh'));   // ?noovh — A/B: all 8 flyby revert to side passes
+const OVH_OLD = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldovh');   // ?oldovh — A/B: the pre-fix overhead (on-screen materialise, fixed lanes/phases, no per-pass re-roll)
 let debrisFlybyMargin = 0;         // horizontal side cone: min over the path of (x − k=1.0 lane-clearance) — asserted ≥ 0
 let debrisFlybyMarginY = 0;        // vertical overhead cone: min over the path of (rock-bottom − elevation-band floor) — asserted ≥ 0
 
@@ -693,18 +696,23 @@ function buildDebris(prnd) {
   debrisP = [];
   const heatHero = new Float32Array(FLYBY_N), heatField = new Float32Array(DEBRIS_N - FLYBY_N);
   let minX = Infinity, flyMargin = Infinity, flyMarginY = Infinity, sideCount = 0, ovhCount = 0;
-  const OVH_LANE = [-10, 0, 10], OVH_XD = [-0.10, 0.02, 0.10], OVH_SPD = [0.042, 0.055, 0.068], OVH_PH = [0.0, 0.33, 0.67], OVH_SZBASE = [5.0, 6.2, 7.4];   // per-rock DISTINCT tracks — never two in line (disjoint by construction)
+  // Overhead per-rock CENTRES (the per-pass hash re-roll jitters around these — §P2b). Disjoint by
+  // construction so the distinctness ledger holds at EVERY cycle: lanes gap 12 (−2·2.5 jitter = 7 ≥ 6),
+  // drifts min-gap 0.12 (−2·0.03 = 0.06 ≥ 0.05), speeds gap 0.017 ≥ 0.010 and INCOMMENSURATE (periods
+  // 27/18.5/14.1s) so arrivals never lock into a repeating beat.
+  const OVH_LANE = [-12, 0, 12], OVH_XD = [-0.12, 0.02, 0.14], OVH_SPD = [0.037, 0.054, 0.071], OVH_SZBASE = [5.0, 6.2, 7.4];
   const iscale = () => 0.88 + prnd() * 0.30;                    // per-instance axis scale 0.88..1.18 (silhouette variety; ≤1.18 keeps world radius < 1.45·size)
   for (let i = 0; i < DEBRIS_N; i++) {
     if (i < FLYBY_N) {                                          // FLYBY: big rocks whooshing close past the camera
       heatHero[i] = 1.2 + prnd() * 0.5;
       const base = { flyby: true, isx: iscale(), isy: iscale(), isz: iscale(), ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU };
-      if (OVH_ENABLED && OVH_SET.has(i)) {                      // OVERHEAD: dive in from high, sweep up over the top — on a DISTINCT lane/heading/speed per rock
-        const k = ovhCount++, size = OVH_SZBASE[k] + prnd() * 1.1;
-        debrisP.push({ ...base, overhead: true, size, phase: OVH_PH[k], spd: OVH_SPD[k],
-          x0: OVH_LANE[k] + (prnd() - 0.5) * 4, xd: OVH_XD[k] + (prnd() - 0.5) * 0.04 });
-        for (let ps = 0; ps <= 24; ps++) {                     // verify the VERTICAL clearance margin over the whole path
-          const p = ps / 24, zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
+      if (OVH_ENABLED && OVH_SET.has(i)) {                      // OVERHEAD: born a SPECK deep in the haze, condenses + comes closer — per-pass RE-ROLLED tracks (never the same 3 rocks)
+        const k = ovhCount++;
+        debrisP.push({ ...base, overhead: true, k, laneC: OVH_LANE[k], xdBase: OVH_XD[k], szBand: OVH_SZBASE[k], spd: OVH_SPD[k],
+          phase: (k + 0.5 * prnd()) / 3,                       // staggered thirds + jitter → rarely bunched at any instant (incommensurate speeds keep it so)
+          cyc: -999, xJ: 0, xdJ: 0, szC: OVH_SZBASE[k], ax: base.isx, ay: base.isy, az: base.isz, te0: base.e0, te1: base.e1, tts: base.ts });   // per-pass fields (defaults = OLD static look for ?oldovh)
+        for (let ps = 0; ps <= 24; ps++) {                     // verify the VERTICAL clearance margin over the EASED DEEP path (size-independent y → unaffected by the size re-roll)
+          const p = ps / 24, zl = OVH_Z_FAR + (FLYBY_Z_NEAR - OVH_Z_FAR) * OVH_EASE(p), dc = Math.max(0, CAM_LOCAL_Z - zl);
           const yBottom = CAM_Y_MAX + OVH_Y_BASE + OVH_Y_SLOPE * dc;             // placement bottom (the FLYBY_R·size lift cancels → size-independent)
           flyMarginY = Math.min(flyMarginY, yBottom - Math.max(OVH_Y_ABS, CAM_Y_MAX + OVH_YC_BASE + OVH_YC_SLOPE * dc));
         }
@@ -735,12 +743,13 @@ function buildDebris(prnd) {
     debrisField.setMatrixAt(fi, _m.makeScale(0, 0, 0));        // hidden until the first drive frame
     debrisField.setColorAt(fi, _col.setHex(ROCK_ALBEDO[i % 3]));
   }
-  // the overhead path-distinctness ledger — floors asserted in unmaskedarena (no two rocks share a track)
-  const ov = debrisP.filter((d) => d.overhead); let dx0 = Infinity, dxd = Infinity, dspd = Infinity;
-  for (let a = 0; a < ov.length; a++) for (let b = a + 1; b < ov.length; b++) {
-    dx0 = Math.min(dx0, Math.abs(ov[a].x0 - ov[b].x0)); dxd = Math.min(dxd, Math.abs(ov[a].xd - ov[b].xd)); dspd = Math.min(dspd, Math.abs(ov[a].spd - ov[b].spd));
-  }
-  debrisLedger = { dx0: +dx0.toFixed(2), dxd: +dxd.toFixed(3), dspd: +dspd.toFixed(3) };
+  // the overhead path-distinctness ledger — ANALYTIC worst-case floors (params re-roll per pass, so the
+  // ledger is the centre-gap MINUS the max jitter, which holds at EVERY cycle by construction — not a
+  // one-time measurement). min pairwise centre gap over the trio, minus 2× the per-pass jitter half-width.
+  const minGap = (arr) => { let m = Infinity; for (let a = 0; a < arr.length; a++) for (let b = a + 1; b < arr.length; b++) m = Math.min(m, Math.abs(arr[a] - arr[b])); return m; };
+  debrisLedger = ovhCount > 1
+    ? { dx0: +(minGap(OVH_LANE) - 5.0).toFixed(2), dxd: +(minGap(OVH_XD) - 0.06).toFixed(3), dspd: +minGap(OVH_SPD).toFixed(3) }   // −2·2.5 lane · −2·0.03 drift · speeds fixed per rock
+    : { dx0: 99, dxd: 99, dspd: 99 };
   debrisFlybyMargin = +flyMargin.toFixed(2);
   debrisFlybyMarginY = Number.isFinite(flyMarginY) ? +flyMarginY.toFixed(2) : Infinity;   // Infinity ⇒ no overhead this run (?noovh)
   geoHero.setAttribute('aHeat', new THREE.InstancedBufferAttribute(heatHero, 1));    // per-instance molten heat (heroes hotter)
@@ -847,16 +856,32 @@ export function updateArenaSet(time, playerDist, mix, fade) {
   if (debris) {
     for (let i = 0; i < DEBRIS_N; i++) {
       const d = debrisP[i];
+      if (d.overhead) {                                         // OVERHEAD: eased DEEP birth (a speck condensing from the haze) + per-pass RE-ROLL (never the same 3 rocks)
+        const arg = time * d.spd + d.phase, cyc = Math.floor(arg), p = arg - cyc;
+        if (!OVH_OLD && d.cyc !== cyc) {                        // re-roll ONCE per pass (3 rocks → negligible CPU); stream-free _jh hash → deterministic, never repeats
+          d.cyc = cyc;
+          const h = (n) => _jh(cyc * 13 + 1, d.k * 7 + n, 5);   // decorrelated per (cycle, rock, field)
+          d.xJ = (h(1) - 0.5) * 5.0; d.xdJ = (h(2) - 0.5) * 0.06; d.szC = d.szBand + h(3) * 1.1;   // lane ±2.5 · drift ±0.03 · size resampled in-band
+          d.ax = 0.90 + h(4) * 0.28; d.ay = 0.90 + h(5) * 0.28; d.az = 0.90 + h(6) * 0.28;         // fresh silhouette (≤1.18 cap)
+          d.te0 = h(7) * TAU; d.te1 = h(8) * TAU; d.tts = (h(9) - 0.5) * 0.4;                       // fresh tumble (the boundary jump is masked — the rock is faded out at p→0/1)
+        }
+        const ease = OVH_OLD ? p : OVH_EASE(p), zFar = OVH_OLD ? FLYBY_Z_FAR : OVH_Z_FAR;
+        const zl = zFar + (FLYBY_Z_NEAR - zFar) * ease, dc = Math.max(0, CAM_LOCAL_Z - zl);
+        const env = (OVH_OLD ? ss(p / 0.05) : ss(p / 0.12)) * ss((1 - p) / 0.05);                  // longer, deeper birth ramp → grows from a distant speck, no on-screen materialise
+        _v.set(d.laneC + d.xJ + (d.xdBase + d.xdJ) * dc, CAM_Y_MAX + OVH_Y_BASE + FLYBY_R * d.szC + OVH_Y_SLOPE * dc, zl);   // size-independent bottom (marginY exact regardless of the size re-roll)
+        _e.set(d.te0 + time * d.tts, d.te1 + time * d.tts * 0.7, d.e2);
+        _q.setFromEuler(_e);
+        const b = Math.max(1e-4, d.szC * k * env);
+        _sc.set(b * d.ax, b * d.ay, b * d.az);
+        debris.setMatrixAt(i, _m.compose(_v, _q, _sc));
+        continue;
+      }
       let env;
-      if (d.flyby) {                                            // FLYBY: come CLOSE + whoosh PAST, on the cone that clears the lane
+      if (d.flyby) {                                            // SIDE: whoosh past on the left/right cone
         const p = (time * d.spd + d.phase) % 1;                 // per-rock speed (distinct tracks — no lockstep)
         const zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
         env = ss(p / 0.05) * ss((1 - p) / 0.05);               // fade at the far birth + the offscreen recycle
-        if (d.overhead) {                                       // OVERHEAD: dive from high → sweep up over the top, never into the lane
-          _v.set(d.x0 + d.xd * dc, CAM_Y_MAX + OVH_Y_BASE + FLYBY_R * d.size + OVH_Y_SLOPE * dc, zl);   // centre = bottom-floor + the bounding radius (keeps the baked marginY exact)
-        } else {
-          _v.set(d.side * Math.max(26, 11.7 + FLYBY_R * d.size + 1.15 * dc), DEBRIS_CY + d.flyY, zl);   // perspective grows the size as it nears
-        }
+        _v.set(d.side * Math.max(26, 11.7 + FLYBY_R * d.size + 1.15 * dc), DEBRIS_CY + d.flyY, zl);   // perspective grows the size as it nears
       } else {
         const p = (time * d.speed + d.phase) % 1;
         const r = DEBRIS_R_IN + (DEBRIS_R_OUT - DEBRIS_R_IN) * p;
