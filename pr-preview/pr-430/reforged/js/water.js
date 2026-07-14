@@ -31,7 +31,12 @@ let depthOn = false;        // N10b: whether the Beer–Lambert depth mix is act
 // mirror frustum to the fog wall on both reflective tiers.
 let mirrorRes = 768;        // N11: 768 (tier0) / 384 (tier1)
 let halfRate = false;       // N11: tier1 renders the mirror on even parity only
+let _perfSaver = false;     // dynRes perf-saver: cruise mirror ½ → ¼ rate under load (near-invisible)
 let _parity = 0;            // per-presented-frame counter (updateWater)
+// The adaptive-resolution governor engages this BEFORE trimming resolution: a heavier
+// cruise duty-cycle on the mirror (a full extra scene render) is a low-visibility fill
+// saving, spent before the more-visible pixel trim. Off = shipped ½-rate cruise mirror.
+export function setWaterPerfSaver(on) { _perfSaver = !!on; }
 let reflFar = true;         // N11: mirror far-plane clamp (kill via ?reflfar=0 for A/B)
 function applyReflTier(tier) {
   reflective = tier <= 1;
@@ -306,7 +311,10 @@ function buildReflective() {
     // heaven (1/8 — the dropped deck barely reads), quarter-rate elsewhere in the heaven, half-rate in
     // normal play (was full-rate off-heaven at tier 0). Renders on EVEN _parity (the god-ray mask is
     // staggered onto other frames so the two full-scene passes don't stack → the worst frame flattens).
-    const skipMask = settledHeaven ? 7 : ((inHeaven && halfRate) ? 3 : 1);
+    // Off-heaven (cruise) the mirror is ½-rate; the dynRes perf-saver drops it to ¼ under
+    // load (near-invisible — the reflection moves slowly), spent before any resolution trim.
+    // Heaven rates are untouched (identity when the saver is off).
+    const skipMask = settledHeaven ? 7 : (inHeaven ? (halfRate ? 3 : 1) : (_perfSaver ? 3 : 1));
     if (_parity & skipMask) return;
     // N11 far-plane clamp: trim the mirror frustum to the fog wall (fogFar+50 —
     // everything beyond is 100% fogged, so it's visually identical but a much smaller

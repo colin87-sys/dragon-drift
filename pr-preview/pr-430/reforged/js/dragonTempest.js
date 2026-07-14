@@ -375,17 +375,20 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
   // gate r3 fix #3: a DEEP-keeled compact drake (was a shallow horizontal torpedo/eel). The chest
   // rings are big-radius with a real sternum keel slung well below the shoulders; the waist tucks
   // HARD against them (chest depth ≈ 2.9× waist), so the level-glide side profile reads deep-chested.
+  // Owner: the body read long/thin/weak. Rebuilt COMPACT + MUSCULAR to the reference — a thick
+  // muscular neck, broad deep shoulders, a deep slung chest, a strong (not pinched-weak) waist and a
+  // powerful haunch; the whole frame beefier and a touch shorter (a powerful drake, not a tube).
   const trunk = [
-    { z: -2.28, rx: 0.09, ryU: 0.09, ryD: 0.09, cy: 0.05 },   // neck (toward the head)
-    { z: -1.92, rx: 0.13, ryU: 0.12, ryD: 0.15, cy: 0.12 },   // lower neck (rising)
-    { z: -1.50, rx: 0.19, ryU: 0.16, ryD: 0.22, cy: 0.18 },   // neck-base / withers
-    { z: -1.14, rx: 0.32, ryU: 0.22, ryD: 0.34, cy: 0.16 },   // shoulder girdle (widest, deep)
-    { z: -0.74, rx: 0.31, ryU: 0.22, ryD: 0.48, cy: 0.13, keel: 0.12 },  // CHEST KEEL (deepest, slung below)
-    { z: -0.26, rx: 0.24, ryU: 0.19, ryD: 0.32, cy: 0.16 },   // ribcage end
-    { z: 0.28, rx: 0.15, ryU: 0.13, ryD: 0.15, cy: 0.21 },    // WAIST tuck (shallow — the pinch)
-    { z: 0.74, rx: 0.25, ryU: 0.18, ryD: 0.24, cy: 0.16 },    // haunch swell
-    { z: 1.16, rx: 0.16, ryU: 0.13, ryD: 0.15, cy: 0.15 },    // pelvis
-    { z: 1.60, rx: 0.10, ryU: 0.09, ryD: 0.09, cy: 0.11 },    // tail-base
+    { z: -2.20, rx: 0.13, ryU: 0.13, ryD: 0.13, cy: 0.05 },   // neck (thick, toward the head)
+    { z: -1.84, rx: 0.18, ryU: 0.17, ryD: 0.20, cy: 0.12 },   // lower neck (muscular)
+    { z: -1.44, rx: 0.25, ryU: 0.21, ryD: 0.28, cy: 0.17 },   // neck-base / withers (thick)
+    { z: -1.08, rx: 0.38, ryU: 0.28, ryD: 0.41, cy: 0.15 },   // shoulder girdle (broad, deep)
+    { z: -0.70, rx: 0.37, ryU: 0.28, ryD: 0.56, cy: 0.11, keel: 0.16 },  // CHEST KEEL (deep, slung, muscular)
+    { z: -0.24, rx: 0.31, ryU: 0.24, ryD: 0.39, cy: 0.15 },   // ribcage end (full-bodied)
+    { z: 0.24, rx: 0.21, ryU: 0.18, ryD: 0.21, cy: 0.20 },    // WAIST (a tuck, but strong — not weak)
+    { z: 0.70, rx: 0.31, ryU: 0.23, ryD: 0.30, cy: 0.15 },    // haunch swell (powerful)
+    { z: 1.12, rx: 0.20, ryU: 0.16, ryD: 0.18, cy: 0.14 },    // pelvis
+    { z: 1.50, rx: 0.12, ryU: 0.10, ryD: 0.10, cy: 0.11 },    // tail-base
   ];
   // ONE shared per-material accumulator for the whole torso → still ≤~12 draws with all 7 ranks.
   const byMat = new Map();
@@ -609,12 +612,17 @@ function buildOneStormforkWing(M, dials) {
     trailing.push(mid[NS], fb[NS]);   // the scalloped distal free edge (for the knife-edge)
   }
 
-  // ── PROPATAGIUM (leading web over the arm stub) + PLAGIOPATAGIUM/BRACHIAL sheet sweeping INBOARD
-  // + DOWN to a body anchor B beside the shoulder — the wing connects INTO the ribcage, not floating
-  // at the wrist (Revenant's brachial). Arm-side points ONLY (B, ROOT, E, K) → never tears at the fold.
-  const B = [-0.34, -0.39, 0.10], Btr = [-0.10, -0.30, 0.55];
-  push(arm, M.boltTiers[1], [ROOT, E, K], [ROOT, K, [K[0] * 0.6, K[1] - 0.03 * hs, K[2] + 0.10 * hs]],
-    [B, ROOT, E], [B, E, K], [B, K, Btr]);
+  // ── PLAGIOPATAGIUM / BRACHIAL — the inboard membrane sweeps from the arm to a body anchor B, its
+  // TRAILING edge a CONCAVE SCALLOP that CONTINUES the outboard bay scallop all the way down to the
+  // body (owner: kill the straight inboard "bar" — the WHOLE trailing edge tapers/scallops from the
+  // wingtip to the body, one continuous cupped line). Fan from the wrist so it's arm-side (fold-safe).
+  const B = [-0.34, -0.42, 0.10], Tlast = spars[N - 1][NS];
+  const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
+  const teMid = lerp3(Tlast, B, 0.5), teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.45, teMid[1] + (K[1] - teMid[1]) * 0.45 - 0.12 * hs, teMid[2] + (K[2] - teMid[2]) * 0.45];
+  const teN = 4, tePts = []; for (let k = 0; k <= teN; k++) tePts.push(bz(Tlast, teCtrl, B, k / teN));
+  for (let k = 0; k < teN; k++) push(arm, M.boltTiers[1], [K, tePts[k + 1], tePts[k]]);   // the cupped inboard sheet, fanned from the wrist
+  push(arm, M.boltTiers[0], [ROOT, E, K], [ROOT, K, B]);                                    // propatagium (arm leading web) + shoulder fill
+  for (let k = 1; k <= teN; k++) trailing.push(tePts[k]);                                   // continue the scalloped trailing polyline (→ knife-edge) down to the body
 
   // ── COVERT ROW (richness rank) — short angular flakes lapping the UPPER surface along the arm then
   // out over strut 0 (bone → covert → membrane; the layered read the rear-chase cam sees). Charcoal
@@ -870,7 +878,7 @@ function buildVirgaTail(def, model, mats, anchor) {
   // count with ONE dominant center tongue — the point of light. Cool near-white only (no green/warm).
   // Scaled up ~1.8x so the tuft is the single brightest/largest event on the tail (the point of light
   // the chase cam tracks) — it must OUT-shine its own fringe from every glide angle (gate: hero dominance).
-  const tip = stem[nSeg], tb = [0, tip.cy, tip.z], tScale = 0.5 + 0.8 * glow, tuftN = Math.max(3, Math.round(2 + 5 * glow));
+  const tip = stem[nSeg], tb = [0, tip.cy, tip.z], tScale = 0.5 + 0.8 * glow, tuftN = Math.max(3, Math.round(2 + 3 * glow));   // fewer, BROADER tongues (owner: thin spikes read cheap)
   // socket lip at the tuft base (a bigger housing the tongues erupt from)
   { const nR = 6, r = 0.07 * (0.7 + 0.4 * tScale); const rim = [], lip = [];
     for (let k = 0; k < nR; k++) { const ang = (k / nR) * Math.PI * 2; rim.push([tb[0] + Math.cos(ang) * r, tb[1] + Math.sin(ang) * r, tb[2]]); lip.push([tb[0] + Math.cos(ang) * r * 1.25, tb[1] + Math.sin(ang) * r * 1.05, tb[2] - 0.03]); }
@@ -878,14 +886,14 @@ function buildVirgaTail(def, model, mats, anchor) {
     for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; pushJ(tb[2], M.socketFloor, [rim[k], rim[k1], floor]); pushJ(tb[2], M.flank, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } }
   for (let i = 0; i < tuftN; i++) {
     const isC = i === 0, ang = (i / tuftN) * Math.PI * 2 + 0.4;
-    const L = (isC ? 0.78 : 0.34 + 0.42 * ((i * 0.61) % 1)) * tScale, outR = isC ? 0.05 : 0.72;   // aggressive length variance + dominant center
-    const dir = [Math.cos(ang) * outR, 0.30 + Math.sin(ang * 1.3) * 0.5, 0.70], dl = Math.hypot(dir[0], dir[1], dir[2]);
+    const L = (isC ? 0.55 : 0.26 + 0.30 * ((i * 0.61) % 1)) * tScale, outR = isC ? 0.05 : 0.66;   // shorter + varied → broad flame-tongues, not needles
+    const dir = [Math.cos(ang) * outR, 0.32 + Math.sin(ang * 1.3) * 0.5, 0.66], dl = Math.hypot(dir[0], dir[1], dir[2]);
     const tt0 = [tb[0] + dir[0] / dl * L, tb[1] + dir[1] / dl * L, tb[2] + dir[2] / dl * L];
-    const curl = 0.12 * L, tt = [tt0[0] + Math.cos(ang + 1.6) * curl, tt0[1] + 0.04 * L, tt0[2] + Math.sin(ang + 1.6) * curl * 0.5];   // a flame CURL (licking tongue, not a straight urchin spike)
-    const kn = 0.5, Bm = [tb[0] + (tt[0] - tb[0]) * kn + Math.cos(ang) * 0.10 * L, tb[1] + (tt[1] - tb[1]) * kn + 0.04 * L, tb[2] + (tt[2] - tb[2]) * kn];   // the storm knuckle-kink
-    const w = (isC ? 0.05 : 0.035) * (0.7 + 0.4 * tScale);
-    spikeJ(tb[2], tb, Bm, w, w * 0.7, 0.008, M.spine, M.arcSeam);
-    spikeJ(tb[2], Bm, tt, w * 0.7, 0.004, 0.006, M.spine, M.arcCore);   // tip segment brightest — the point of light
+    const curl = 0.16 * L, tt = [tt0[0] + Math.cos(ang + 1.6) * curl, tt0[1] + 0.05 * L, tt0[2] + Math.sin(ang + 1.6) * curl * 0.5];   // a stronger flame CURL (a licking tongue)
+    const kn = 0.42, Bm = [tb[0] + (tt[0] - tb[0]) * kn + Math.cos(ang) * 0.12 * L, tb[1] + (tt[1] - tb[1]) * kn + 0.05 * L, tb[2] + (tt[2] - tb[2]) * kn];   // the flame BELLY (low, where the tongue is widest)
+    const w = (isC ? 0.11 : 0.08) * (0.7 + 0.4 * tScale);   // BROAD (owner: not thin cheap spikes)
+    spikeJ(tb[2], tb, Bm, w * 0.7, w, 0.012, M.spine, M.arcSeam);   // narrow root → WIDE belly (a leaf/flame, not a needle)
+    spikeJ(tb[2], Bm, tt, w, 0.006, 0.008, M.spine, M.arcCore);     // wide belly → pointed tip (arcCore, brightest)
   }
   // the ignition CORE node behind the lip (heartCore — the brightest tuft point, on the storm tick)
   const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.075 * (0.7 + 0.5 * tScale), 0), M.heartCore);

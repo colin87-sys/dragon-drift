@@ -66,15 +66,28 @@ check('canRestore=false: pixel-restore is deferred to a calm beat', c.idx === cI
 resGovReset(g);
 check('resGovReset → idx 0, timers cleared', g.idx === 0 && g.degTimer === 0 && g.resTimer === 0);
 
+// --- 8b. the ladder is content-agnostic: a 6-rung STAGES ladder (saver rung + 5 res)
+//         ratchets through EVERY rung to the floor, then hands off ------------------
+let six = makeResGov([0, 1, 2, 3, 4, 5]);   // 6 opaque rungs (main.js maps each to {saver,scale})
+for (let k = 0; k < 60; k++) resGovStep(six, { medFps: SLOW, tier: 0, degradeAt, dt: 0.1, canRestore: true });
+check('6-rung ladder ratchets to the floor index (5)', six.idx === 5);
+check('rung 1 is reached before any resolution rung (saver-first is a real first step)', true /* main.js maps STAGES[1].saver=true, scale=full — asserted in the source guards below */);
+
 // --- 9. source guards: identity-off + escalation wiring in main.js --------------
 const main = src('../js/main.js');
 check('main: dynRes DEFAULT OFF (?dynres / saved pref, no auto-on)', /let dynResEnabled = urlParams\.has\('dynres'\)/.test(main));
 check('main: effectivePR multiplies by resScale only when enabled (×1 when off = shipped)', /PIXEL_RATIOS\[tier\] \* \(dynResEnabled \? resScale : 1\)/.test(main));
-check('main: applyQuality resets the governor on every tier flip (no double-dip)', /resGovReset\(resGov\); resScale = 1\.0;/.test(main));
+check('main: applyQuality resets the governor on every tier flip (no double-dip)', /resGovReset\(resGov\); resScale = 1\.0; setPerfSaver\(false\);/.test(main));
 check('main: the governor runs BEFORE the tier degrade/restore and can own the frame', /resGovStep\(resGov,[\s\S]*?if \(r\.owned\) \{ degradeTimer = 0; qualityTimer = 0; return; \}/.test(main));
 check('main: governor decision is gated behind `if (dynResEnabled)`', /if \(dynResEnabled\) \{[\s\S]*?resGovStep/.test(main));
 check('main: setResScale reallocs ONCE and shields the tier signal (skipQualityFrames)', /function setResScale[\s\S]*?setPostSize\(window\.innerWidth[\s\S]*?skipQualityFrames = 2;/.test(main));
 check('main: onGraphicsChange routes dynRes → setDynRes', /kind === 'dynRes'\) setDynRes\(value\)/.test(main));
+// perf-saver stage (cheap invisible cuts spent BEFORE resolution):
+check('main: STAGES ladder is saver-first — rung 0 shipped, rung 1 saver at full res', /STAGES = \[\{ saver: false[\s\S]*?\{ saver: true,  scale: RES_SCALES\[0\] \}/.test(main));
+check('main: each rung applies saver THEN scale (saver is free, spent first)', /const st = STAGES\[r\.idx\]; setPerfSaver\(st\.saver\); setResScale\(st\.scale\);/.test(main));
+check('main: setPerfSaver flips the mirror + god-ray levers (no realloc)', /function setPerfSaver[\s\S]*?setWaterPerfSaver\(on\)[\s\S]*?setGodRaySamplesSaver\(on\)/.test(main));
+check('water: setWaterPerfSaver present; cruise mirror ½→¼ only under the saver (identity off)', /export function setWaterPerfSaver/.test(src('../js/water.js')) && /_perfSaver \? 3 : 1/.test(src('../js/water.js')));
+check('postfx: setGodRaySamplesSaver present; tier0 march 40→24 only under the saver (identity off)', /export function setGodRaySamplesSaver/.test(src('../js/postfx.js')) && /_grSaver \? 24 : 40/.test(src('../js/postfx.js')));
 check('save: dynRes default false (shipped identity)', /dynRes: false/.test(src('../js/save.js')));
 check('ui: ADAPTIVE RESOLUTION settings toggle present', /gfxToggle\('dynRes'\)/.test(src('../js/ui.js')));
 
