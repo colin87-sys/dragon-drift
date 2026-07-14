@@ -975,10 +975,11 @@ export function buildObstacleMesh(type, bi = 0, opts = {}) {
 // (not rotate): a 0.15rad rotate on a 26-tall wall walks the top ~3u sideways into the
 // channel; shearing keeps top faces pointing UP (frost survives) and the ±hw check exact.
 const WALL_TIERS = {
-  footFace: [0.70, 0.78], footTop: [0.30, 0.35],   // deeply recessed undercut waterline
-  bodyFace: [0.94, 0.97], bodyTop: [0.66, 0.71],   // proud calved bulge — juts ~0.2hw over the foot → teal underside
+  footFace: [0.64, 0.74], footTop: [0.26, 0.36],   // deeply recessed undercut (deeper → the bulge underside reads teal from below)
+  bodyFace: [0.94, 0.97], bodyTop: [0.55, 0.72],   // proud calved bulge — juts over the foot; top staggered per column into shelves
   crestFace: [0.80, 0.86],                          // clearly stepped back from the body
   shearToward: 0.03, shearZ: 0.22,                  // max shear toward channel (frac hw) / z jitter (frac hz)
+  zStep: [0.35, 0.50], hStep: 0.06,                 // HARD alternating depth step (frac hz) + height stagger (frac h) between columns
   faceFloor: 0.90,                                  // fairness: body channel-face ≥ this·hw (cones tapered to ~0.5)
   crestBand: 0.60, bodyBandTop: 0.692, crestBandTop: 0.98,  // collider bands in unit-y (body y−3..15, crest 13.5..22.5 over h=26)
 };
@@ -1015,13 +1016,18 @@ function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
   const rr = (a) => a[0] + rng() * (a[1] - a[0]);
   const backX = -hw * channelSign;
   for (let ci = 0; ci < nc; ci++) {
-    // Columns tile the depth ±hz with jittered centres + spans so faded masses show
-    // overlapping INTERNAL ice planes (kills the single-sheet "paper billboard").
-    const zc = (nc > 1 ? (-1 + 2 * (ci + 0.5) / nc) : 0) * hz * 0.62 + (rng() - 0.5) * 0.28 * hz;
+    // HARD-STEP the columns in depth (front/back/front/back) so the grazing flight angle
+    // sees the side RETURN faces between them → real THICKNESS, not one flat sheet.
+    const zSign = (ci % 2) * 2 - 1;
+    const zc = zSign * (T.zStep[0] + rng() * (T.zStep[1] - T.zStep[0])) * hz + (rng() - 0.5) * 0.18 * hz;
     const zspan = hz * (0.55 + rng() * 0.35);
     const seam = (rng() - 0.5) * 0.10 * h;   // per-column seam stagger (kills fortress coursing)
-    const footTop = botY + Math.min(0.5, rr(T.footTop)) * h + seam;
-    const bodyTop = botY + rr(T.bodyTop) * h + seam;
+    // STAGGER the tier tops between neighbours so every block top is a SHELF against its
+    // lower neighbour — below the flight line those shelves face up (frost), above it they
+    // face down (teal): the ladder's own faces, now presented to the camera, zero new tris.
+    const hStep = zSign * T.hStep * h;
+    const footTop = botY + Math.min(0.5, rr(T.footTop) + 0.4 * (hStep / h)) * h + seam;
+    const bodyTop = botY + (rr(T.bodyTop) + hStep / h) * h + seam;
     // Crest MUST reach the crest collider top (0.98) everywhere — a short crest leaves an
     // invisible-kill gap where a high-flying player clips the collider. Skyline drama comes
     // from height variance ABOVE that floor (0.98→1.14 ≈ 4 world units of ridge swing).
