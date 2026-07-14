@@ -281,32 +281,6 @@ function addScaleRow(push, M, count, at, nrm, tan, len, wid) {
   }
 }
 
-// R6 — a real drake LEG: a lofted teardrop THIGH → knee knuckle → shank → ankle → 4-tri pyramid
-// TALONS + a hip cowl plate. Kills the stick-limb / single-tri-claw failure. Static (the legs hang).
-function addLeg(push, M, rootX, rootY, rootZ, side, len, fwd) {
-  const seg = (x0, y0, z0, r0, x1, y1, z1, r1, mat, sides = 6) => {
-    for (let k = 0; k < sides; k++) {
-      const a = (k / sides) * Math.PI * 2, a1 = ((k + 1) / sides) * Math.PI * 2;
-      const p = (x, y, z, r, ang) => [x + Math.cos(ang) * r, y, z + Math.sin(ang) * r * 1.3];
-      push(mat, [p(x0, y0, z0, r0, a), p(x1, y1, z1, r1, a1), p(x1, y1, z1, r1, a)], [p(x0, y0, z0, r0, a), p(x0, y0, z0, r0, a1), p(x1, y1, z1, r1, a1)]);
-    }
-  };
-  const hipX = rootX, hipY = rootY, hipZ = rootZ;
-  const kneeX = rootX + side * 0.04, kneeY = rootY - len * 0.46, kneeZ = rootZ + fwd * 0.05;
-  const ankY = kneeY - len * 0.40, ankZ = kneeZ + fwd * 0.12;
-  const footY = ankY - len * 0.10, footZ = ankZ + fwd * 0.02;
-  seg(hipX, hipY, hipZ, len * 0.34, kneeX, kneeY, kneeZ, len * 0.15, M.dorsal);   // teardrop thigh (muscled)
-  seg(kneeX, kneeY, kneeZ, len * 0.17, kneeX, kneeY - 0.01, kneeZ, len * 0.15, M.spine, 6);   // knee knuckle
-  seg(kneeX, kneeY, kneeZ, len * 0.14, kneeX, ankY, ankZ, len * 0.08, M.dorsal);   // shank
-  seg(kneeX, ankY, ankZ, len * 0.09, kneeX, footY, footZ, len * 0.07, M.spine);    // ankle → foot
-  // 3 forward talons + 1 rear dewclaw — solid 4-tri pyramids (never single tris)
-  const talon = (tx, tz, tl) => { const b0 = [tx - 0.02, footY, footZ], b1 = [tx + 0.02, footY, footZ], b2 = [tx + 0.02, footY, footZ + 0.03], b3 = [tx - 0.02, footY, footZ + 0.03], ap = [tx, footY - tl, footZ + tl * 1.4]; push(M.spine, [b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]); };
-  for (let t = -1; t <= 1; t++) talon(kneeX + t * len * 0.06, footZ, len * 0.14);
-  talon(kneeX, footZ - 0.04, len * 0.09);   // rear dewclaw
-  // hip cowl plate lapping the leg root (hides the intersection + one more shadow gap)
-  addArmorPlate(push, M, [hipX, hipY + len * 0.14, hipZ], [side, 0.4, 0], [0, 0, 1], len * 0.13, len * 0.14, M.flank);
-}
-
 // R7 — THROAT GORGET bands: wide shallow ventral scutes carrying the belly glow up the neck in
 // SEGMENTED geometry (so the throat joins the belly system instead of being a bare tube).
 function addGorget(push, stations, M) {
@@ -441,11 +415,8 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
     }
   }
 
-  // R6 — four real legs (thigh loft → knee → shank → ankle → pyramid talons + hip cowl).
-  addLeg(push, M, 0.20, -0.32, -0.76, 1, 0.56, 1);
-  addLeg(push, M, -0.20, -0.32, -0.76, -1, 0.56, 1);
-  addLeg(push, M, 0.21, -0.08, 0.78, 1, 0.52, -1);
-  addLeg(push, M, -0.21, -0.08, 0.78, -1, 0.52, -1);
+  // (No legs — no dragon in the roster has arms/legs; the Tempest is a legless wyvern-drake, owner-
+  // directed. The reference showed a quadruped, but the owner outranks the reference on game-fit.)
 
   // R3 — the carved STORM-HEART SOCKET at the sternum (rim + sunk floor + lit lip + cowl vanes).
   const mouth = addSocket(push, M, 0, -0.20, -0.74, 0.11 * (0.8 + 0.3 * heartScale));
