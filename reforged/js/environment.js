@@ -422,6 +422,46 @@ const FOAM_CFG = {
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 
+// --- Diagnostic export (tools/envcount.mjs) — BEHAVIOR-INERT -----------------
+// Builds every archetype headlessly and reports its geometry/material/instance
+// stats so the env-overdraw/geometry guard (WALL-PROPS-REDESIGN.md §8.2) can
+// assert against them. NEVER imported by the running game — `ARCHETYPES`,
+// `propMats` and `WALL_WINDOW` are module-private by design, and
+// `createEnvironment` is too heavy to run headless (it builds the sky shader,
+// arena, ambient and IBL probe), so the tool reaches the archetype geometry
+// through this one narrow, side-effect-free window instead. Calling it merely
+// lazily initialises the SAME `propMats` the game builds (no canvas/renderer
+// needed) — it changes nothing about runtime behaviour.
+export function propDiag() {
+  if (!propMats) propMats = makeMats();
+  return Object.entries(ARCHETYPES).map(([name, def]) => {
+    // build() THROWS here on an indexed/non-indexed mergeGeometries mix or a
+    // `mat >= 2` part — i.e. this loop IS the headless boot-crash catch that a
+    // live createEnvironment would otherwise only surface in the browser.
+    const { geometry, materials } = def.build();
+    const pos = geometry.getAttribute('position');
+    const tris = Math.round((geometry.index ? geometry.index.count : pos.count) / 3);
+    const mats = materials.map((m) => ({
+      transparent: m.transparent === true,
+      depthWriteFalse: m.depthWrite === false,
+      additive: m.blending === THREE.AdditiveBlending,
+    }));
+    geometry.dispose();
+    return {
+      name,
+      biomes: def.biomes.slice(),
+      step: def.step,
+      instances: Math.ceil(WALL_WINDOW / def.step) * 2, // makeBand: perSide × 2
+      tris,
+      materials: mats,
+      // FOAM_CFG assigns `.foam` (possibly `false`) to every archetype it lists;
+      // an archetype missing from FOAM_CFG has `.foam === undefined` → its foam
+      // sibling would draw garbage. `!== undefined` is the completeness probe.
+      hasFoam: def.foam !== undefined,
+    };
+  });
+}
+
 export function createEnvironment(scene, seed = CONFIG.seed) {
   sceneRef = scene;
   rnd = mulberry32(seed + 99);
