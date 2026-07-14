@@ -3,32 +3,33 @@ import { registerTorso, registerWings, registerHead, registerTail } from './drag
 import { flatTriMesh } from './mechaKit.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// THUNDERHEAD TEMPEST — "The gathering storm" (TEMPEST-THUNDERHEAD-BUILDSHEET.md).
-// A living-thundercloud storm drake: billowed CHARCOAL cloud-mass (L 0.20–0.26,
-// never black) with diffuse silver-lining rims, a branching near-white STORM
-// CIRCUIT that flickers in short live strikes on the pulseTimer clock ("Vesper
-// withholds; Tempest THREATENS"), and — the HERO — THE STORMFORK (§D): a wing whose
-// skeleton IS a frozen branching lightning bolt (a gull ARCH with 3 kink-knuckles +
-// a Y-fork, the circuit's own f2/f3 branches riding the bolt-ridge crests).
-// Growth verb: CHARGING. Motif anchor: the sternum dynamo storm-heart. NOT a Vesper
-// (charcoal ≥0.20, not black), NOT a Revenant (no bone / cage / lantern / bat-membrane
-// — §C.3 anti-reskin guard). Assembly family: billowed/faceted — the smooth-hull
-// organism family is a FORBIDDEN import (asserted in tests/starters.mjs §B.8).
+// THUNDERHEAD TEMPEST — "The gathering storm" (TEMPEST-THUNDERHEAD-BUILDSHEET.md v3).
+// A sleek dark-scaled STORM DRAKE (owner-reference-driven, NOT a cloud-mass): a charcoal
+// dorsal shell (L 0.20–0.26, never black) over a diffuse pale underbelly, WEARING a live
+// near-white energy GARMENT — "the storm WEARS its lightning" (v3 doctrine): the spine
+// circuit, sternum veins, horn-crest, and — the HERO — THE STORMFORK wing-frame all
+// hum-lit at idle (humFloor 0.30→0.90 up the ladder), the pulseTimer strike is the PEAK
+// of the hum (root→tip travel), Surge is the break. Glow on COMPONENTS (strips/frame),
+// never surfaces (DRAGON-DESIGN §6). Growth verb: CHARGING. Motif anchor: the sternum
+// storm-heart. NOT a Vesper (charcoal ≥0.20, not black; worn-not-withheld), NOT a Solar
+// (cool near-white, breathing + striking, not static warm regalia), NOT a Revenant (no
+// bone / cage / lantern / bat-membrane — §3 anti-reskin veto). Assembly family:
+// billowed/faceted (the smooth-hull organism family is a FORBIDDEN import, tests/starters).
 //
-// Four self-registering, default-off builders (names per the build task):
+// Four self-registering, default-off builders:
 //   cumulonimbusTorso · stormforkWings · stormbrowHead · virgaTail
-// They reuse the dragonVesper.js / dragonRevenant.js PATTERNS (value-band loft, the
-// −anchor tail chain, the outer lmirror wing wrapper, the mats factory) with FRESH
-// geometry. Axis: head/forward −Z, tail/rear +Z, right +X, up +Y; torso baseline y≈0.15.
+// They reuse the dragonVesper.js PATTERNS (value-band loft, the −anchor tail chain, the
+// outer lmirror wing wrapper, the mats factory) with FRESH geometry. Axis: head/forward
+// −Z, tail/rear +Z, right +X, up +Y; torso baseline y≈0.15.
 //
-// BUILD STATE: I0 = STUB. All four builders are minimal charcoal-cloud PLACEHOLDERS
-// that satisfy the flap/attach contract (so tricount / dragonstudio / the roster stay
-// green and byte-identical) — NO real weather geometry yet. The real parts land per
-// §B.7 / §D:  I1 cumulonimbusTorso + the STORM-HEART · I2 stormforkWings (the HERO,
-// §D) · I3 stormbrowHead + virgaTail · I4 the STORM CIRCUIT + strikes + Surge +
-// the fever firewall · I5 the CHARGING ladder + tests/starters.mjs.
-// Everything here is written so I1+ flesh GEOMETRY without rewiring the contract.
-// The shared strike clock (js/pulseTimer.js) and ?strikePin already exist (I0).
+// BUILD STATE: I2. cumulonimbusTorso is the gated drake body + the worn garment (I1).
+// stormforkWings is the real STORMFORK bolt-frame (I2 — the boltArm 3-kink gull arch,
+// the Y-fork + decaying rays, cupped opaque bays, the hum-lit frame + silver caps + the
+// knife-edge, the crackle-churn blade pivots). stormbrowHead + virgaTail are still I0
+// STUBS (I3 builds them). The STORM CIRCUIT storm-tick (breathing + strikes + Surge)
+// lands at I4 as the single-writer dragon.js addition; the full CHARGING ladder +
+// tests/starters.mjs block at I5. The shared strike clock (js/pulseTimer.js) + ?strikePin
+// exist (I0); the garment hums via flareMats today (the flare-loop else-branch holds it).
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const TORSO_Y = 0.15;
@@ -115,7 +116,18 @@ function tempestMats(def, glow = 1) {
   // CARVED-DEPTH tiers (Revenant richness): near-black RECESS walls + a darker SOCKET FLOOR.
   const recess = std(lerpHex(base, 0x000000, 0.55), { emissive: 0x000000, rough: 0.9 });
   const socketFloor = std(0x05070c, { emissive: 0x000000, rough: 0.95 });
-  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, crest, heartCore, recess, socketFloor, humFloor };
+  // ── THE STORMFORK WING KIT (I2) ──
+  // silverRim — the diffuse "silver lining" cap tier: glints, never glows (metalness 0.06,
+  // envMapIntensity 0.3). Keeps every bolt sculpted when the hum is at its floor (f0) and under the
+  // warm-gold backdrop stress tile. Rides UNDER the arc overlays on the same crest nodes.
+  const silverRim = std(0x9fb0c8, { emissive: 0x0a0e16, ei: 0.4, rough: 0.5, metal: 0.06 }); silverRim.envMapIntensity = 0.3;
+  // boltTiers[4] — the OPAQUE matte cloud-membrane the bolt is sewn to (near-black faceted planes,
+  // §4b-d, the reference's dark storm-cloth). A dark charcoal base lerped a little toward a muted
+  // steel-slate so the inboard bays catch a flat facet-value and the outboard crotch reads darkest.
+  // NEVER translucent/additive — the frame owns 100% of the light, the membrane emits nothing.
+  const memBase = lerpHex(base, 0x05070c, 0.30);   // darker than the dorsal shell (the recessed floor)
+  const boltTiers = [0.42, 0.28, 0.16, 0.05].map((f) => std(lerpHex(memBase, 0x6a7488, f), { emissive: 0x090c14, ei: 0.5, rough: 0.9, metal: 0 }));
+  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, crest, heartCore, recess, socketFloor, silverRim, boltTiers, humFloor };
 }
 
 // Deterministic hash jitter (index-seeded — never Math.random, so builds are reproducible).
@@ -482,69 +494,203 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
 }
 registerTorso('cumulonimbusTorso', buildCumulonimbusTorso);
 
-// ── WINGS: 'stormforkWings' (the HERO) ────────────────────────────────────────
-// STUB (I2 builds it for real, §D): the STORMFORK — a wing whose skeleton IS a frozen
-// branching lightning bolt (a gull ARCH with exactly 3 kink-knuckles + a dominant
-// Y-fork, cupped opaque membrane bays, silver rim-caps, ONE connected knife-edge). For
-// now a bare charcoal ARM + a small decaying ray fan carrying one thin opaque membrane,
-// wired into the SAME 3-segment hinge (pivot/mid/tip) + outer-lmirror rig the real wing
-// will use — so I2 swaps GEOMETRY without touching the flap contract. NO bolt kinks /
-// Y-fork / bays yet; the module-level boltArm waypoint profile lands in I2.
-function buildOneStormforkWing(M, dials, wingMat) {
-  const arm = new THREE.Group();
-  const hand = new THREE.Group();
-  const hs = dials.halfSpan, wristT = dials.wristT ?? 0.24;
-  const rays = Math.max(2, Math.round(dials.rays));
-  // Placeholder leading edge: a shallow gull arch to the carpal, then ease to the tip
-  // (I2 replaces this with the piecewise-LINEAR boltArm waypoint function — the 3 kinks).
-  const armY = (t) => hs * (0.05 * t + 0.22 * (t <= wristT ? Math.sin((t / wristT) * Math.PI / 2) : 1 - (t - wristT) * 0.12));
-  const armZ = (t) => -0.06 + 0.34 * hs * Math.pow(t, 1.05) - 0.10 * hs * Math.sin(Math.PI * t);
-  const LE = (t) => [t * hs, armY(t), armZ(t)];
-  const K = LE(wristT), F0 = LE(1);
-  // Arm bone (root→carpal) as a low tent ridge with a diffuse silver rim-cap crest.
-  const ridge = (tgt, a, b, w, lift, mat) => {
+// ── WINGS: 'stormforkWings' (the HERO — the bolt-frame wing, §4b) ──────────────
+// THE STORMFORK: a wing whose skeleton IS a frozen branching lightning bolt. The bright
+// near-white FRAME is the hero and carries ~100% of the light; the dark opaque cloud-
+// membrane is a RECESSED backdrop the bolts stand PROUD of (carved depth, not a decal).
+// The leading edge is a piecewise-LINEAR stepped leader on a gull ARCH — 3 hard kink-
+// knuckles (single global Y-max at K2, the fold), a Y-FORK branching AT K3, decaying aft
+// rays, cupped opaque bays, an open fork-crotch V-notch, and ONE connected knife-edge.
+// Every bolt is a 4-face tent: shadowed charcoal SIDES + a silver rim-CAP + a hum-lit
+// near-white glow overlay on the crest (the reference's beveled bright bolt on dark cloud).
+
+// The bolt profile — ONE module-level waypoint function (§4b-a), shared by geometry, tip
+// markers, blade-pivot placement, and the §9 tests (the detach-gotcha law). Piecewise-
+// LINEAR through 5 waypoints: straight chords between stations, hard BREAKS at them.
+const BOLT_T = [0, 0.18, 0.40, 0.68, 1.00];        // stations; interior 3 = K1, K2 (fold), K3 (fork)
+const BOLT_Y = [0, 0.030, 0.170, 0.078, 0.088];    // ×hs — gull arch: a SINGLE global Y-max at K2
+const BOLT_Z = [-0.03, -0.06, -0.02, 0.10, 0.32];  // ×hs — plan ogee: bows forward inboard, steps hard aft
+const BOLT_K1 = 0.18, BOLT_K2 = 0.40, BOLT_K3 = 0.68;
+// The rear-projection (X-Y) breaks measure 23°/51°/20° at K1/K2/K3 — each ∈ [18°,60°], K2 the
+// dominant (arch apex); the Z jogs deliver the STEP in TOP planform (plan jogs don't project
+// astern, so the rear silhouette stays an arch, never a zigzag). §9 asserts land at I5.
+function boltArm(t, hs) {
+  let i = 0; while (i < BOLT_T.length - 2 && t > BOLT_T[i + 1]) i++;
+  const f = (t - BOLT_T[i]) / (BOLT_T[i + 1] - BOLT_T[i] || 1);
+  return [t * hs, (BOLT_Y[i] + (BOLT_Y[i + 1] - BOLT_Y[i]) * f) * hs, (BOLT_Z[i] + (BOLT_Z[i + 1] - BOLT_Z[i]) * f) * hs];
+}
+
+function buildOneStormforkWing(M, dials) {
+  const hs = dials.halfSpan;
+  const rays = Math.max(2, Math.round(dials.rays));       // total primary rays (dominant + aft): {2,3,4,4}
+  const kinks = Math.max(1, Math.min(3, dials.kinks));    // active hard kink-knuckles {1,2,3,3}
+  const forked = !!dials.forked;                          // the Y-fork at K3 (f2+)
+  const spur = !!dials.spur;                              // the 2nd-order spur (f3-only)
+  const NSEG = dials.nseg ?? 6;                           // bay segments {4,4,6,6}
+  const nBlade = dials.nBlade ?? 2;                       // crackle-churn blade pivots {0,1,2,2}
+
+  const arm = new THREE.Group();    // root→K1→K2 (the inboard leading edge — rides the forearm/`mid`)
+  const hand = new THREE.Group();   // K2 outward — everything folds at the wrist (rides `tip`)
+  const blades = [];                // {group, anchor} crackle-churn pivots (idx0 prong@K3, idx1 aft-ray@K)
+
+  // Per-(group) per-material accumulators → a handful of draws (the batching discipline).
+  const accs = new Map();
+  const acc = (g) => { let m = accs.get(g); if (!m) accs.set(g, m = new Map()); return m; };
+  const push = (g, mat, ...tris) => { const m = acc(g); let a = m.get(mat); if (!a) m.set(mat, a = []); for (const t of tris) a.push(t); };
+  const flush = (g, anchor) => { const m = accs.get(g); if (!m) return; const off = anchor && (anchor[0] || anchor[1] || anchor[2]); for (const [mat, tris] of m) g.add(flatTriMesh(off ? tris.map((t) => t.map((v) => [v[0] - anchor[0], v[1] - anchor[1], v[2] - anchor[2]])) : tris, mat)); };
+
+  // ACTIVE-station bolt profile: an INACTIVE interior kink lies on the chord between its active
+  // neighbours (the ladder softens the leader — 1 bend at f0, 2 at f1, all 3 at f2/f3).
+  const stns = [0]; if (kinks >= 2) stns.push(1); stns.push(2); if (kinks >= 3) stns.push(3); stns.push(4);
+  const bolt = (t) => { let i = 0; while (i < stns.length - 2 && t > BOLT_T[stns[i + 1]]) i++; const s0 = stns[i], s1 = stns[i + 1], f = (t - BOLT_T[s0]) / (BOLT_T[s1] - BOLT_T[s0] || 1); return [t * hs, (BOLT_Y[s0] + (BOLT_Y[s1] - BOLT_Y[s0]) * f) * hs, (BOLT_Z[s0] + (BOLT_Z[s1] - BOLT_Z[s0]) * f) * hs]; };
+  const ROOT = bolt(0), K1 = bolt(BOLT_K1), K = bolt(BOLT_K2), K3 = bolt(BOLT_K3), F0 = bolt(1.0);
+
+  // A BOLT = a 4-face charcoal tent (shadowed SIDES) + a silver rim-CAP + a near-white glow
+  // OVERLAY on the crest (the lit top). Stands PROUD of the recessed membrane — depth from
+  // geometry occluding the dark bay floor, never a painted value. The glow overlay rides the
+  // SAME crest nodes as the tent (the C14 weld — it cannot float off the frame).
+  const boltRidge = (g, a, b, wB, wT, lift, glowMat) => {
     const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
-    const aL = [a[0] + px * w, a[1], a[2] + pz * w], aR = [a[0] - px * w, a[1], a[2] - pz * w];
-    const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.35, b[2]];
-    tgt.add(flatTriMesh([[aL, b, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, b]], mat));
+    const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
+    const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
+    const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.45, b[2]];
+    // shadowed charcoal SIDES — the dark under-bevel that gives the bright bar an occlusion edge over
+    // the recessed membrane (carved depth), and keeps the bolt from over-blooming to a white slab.
+    push(g, M.spine, [aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]);
+    // THE LIT NEAR-WHITE BAR — a WIDE 4-face glow cap over the whole top of the tent (the reference's
+    // bolt is bright edge-to-edge, not a thread on a dark rod — the gate's #1 blocker fix). Lifted
+    // proud; ~0.82 of the ridge width so a thin charcoal shadow-bevel still frames it.
+    const up = 0.008 * hs, cw = 0.82;
+    const caL = [a[0] + px * wB * cw, a[1] + lift * 0.5 + up, a[2] + pz * wB * cw], caR = [a[0] - px * wB * cw, a[1] + lift * 0.5 + up, a[2] - pz * wB * cw];
+    const cbL = [b[0] + px * wT * cw, b[1] + lift * 0.24 + up, b[2] + pz * wT * cw], cbR = [b[0] - px * wT * cw, b[1] + lift * 0.24 + up, b[2] - pz * wT * cw];
+    const caT = [a[0], a[1] + lift + up, a[2]], cbT = [b[0], b[1] + lift * 0.45 + up, b[2]];
+    push(g, glowMat, [caL, cbT, caT], [caL, cbL, cbT], [caR, caT, cbT], [caR, cbT, cbR]);
+    // silver rim-cap on the very ridgeline (the crisp "silver lining" edge that survives the lowest hum)
+    push(g, M.silverRim, [[a[0] + px * wB * 0.16, a[1] + lift + up * 1.5, a[2] + pz * wB * 0.16], cbT, [a[0] - px * wB * 0.16, a[1] + lift + up * 1.5, a[2] - pz * wB * 0.16]]);
   };
-  ridge(arm, LE(0), K, 0.08 * hs, 0.06 * hs, M.flank);   // arm crest (silver-lining rim-cap)
-  // Rays fan aft from the carpal (dominant + decay ≤0.86×), each a low charcoal tent.
-  const lenFrac = [1, 0.80, 0.62, 0.46];
+  // A 2-segment ray with ONE hard mid-break (bolts STEP, never sag), the break sign alternating
+  // down the rank; from an origin O to tip T. Returns the mid node.
+  const rayKinked = (g, O, T, wB, wT, lift, glowMat, sign) => {
+    const dx = T[0] - O[0], dz = T[2] - O[2], L = Math.hypot(dx, dz) || 1, px = -dz / L, pz = dx / L;
+    const mid = [(O[0] + T[0]) / 2 + px * 0.05 * L * sign, (O[1] + T[1]) / 2 - 0.03 * L, (O[2] + T[2]) / 2 + pz * 0.05 * L * sign];   // ~11° mid-break
+    boltRidge(g, O, mid, wB, (wB + wT) * 0.5, lift, glowMat);
+    boltRidge(g, mid, T, (wB + wT) * 0.5, wT, lift * 0.7, glowMat);
+    return mid;
+  };
+
+  // ── THE ARM (root → K1 → K2) — the thick inboard leading edge, on `arm` (folds at the forearm).
+  boltRidge(arm, ROOT, K1, 0.16 * hs, 0.11 * hs, 0.10 * hs, M.arcSeam);
+  boltRidge(arm, K1, K, 0.11 * hs, 0.075 * hs, 0.085 * hs, M.arcSeam);
+
+  // ── THE DOMINANT RAY (K → K3 → F0) — the longest, brightest bolt; kinks at K3 (the fork vertex).
+  boltRidge(hand, K, K3, 0.075 * hs, 0.055 * hs, 0.075 * hs, M.arcCore);
+  boltRidge(hand, K3, F0, 0.055 * hs, 0.012 * hs, 0.06 * hs, M.arcCore);
+
+  // ── THE AFT RAY RANK — (rays−1) rays fan aft-and-down from K, each shorter (decay ≤0.86×), each
+  // a 2-seg kinked bolt with alternating mid-break sign. The aftmost rides blade-pivot idx1.
+  const spanAft = 1.10, lenFrac = [1, 0.80, 0.62, 0.46];
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
-  const tips = [F0];
-  for (let i = 1; i < rays; i++) {
-    const phi = phi0 + 1.0 * (i / (rays - 1)), r = r0 * lenFrac[Math.min(i, lenFrac.length - 1)];
-    tips.push([K[0] + Math.cos(phi) * r, K[1] - 0.08 * r, K[2] + Math.sin(phi) * r]);
+  const nAft = rays - 1, aftTips = [];
+  for (let i = 1; i <= nAft; i++) {
+    const phi = phi0 + spanAft * (i / rays), r = r0 * lenFrac[Math.min(i, lenFrac.length - 1)];
+    const T = [K[0] + Math.cos(phi) * r, K[1] - (0.05 + 0.12 * (i / rays)) * r, K[2] + Math.sin(phi) * r];
+    aftTips.push(T);
+    const isAftmost = (i === nAft) && nBlade >= 2;
+    let g = hand;
+    if (isAftmost) { const bp = new THREE.Group(); bp.position.set(K[0], K[1], K[2]); blades[1] = { group: bp, anchor: K }; g = bp; }
+    rayKinked(g, K, T, 0.07 * hs * (1 - 0.06 * i), 0.009 * hs, 0.095 * hs * (1 - 0.05 * i), M.arcSeam, i % 2 ? 1 : -1);
   }
-  for (const tp of tips) ridge(hand, K, tp, 0.05 * hs, 0.05 * hs, M.dorsal);
-  // ONE opaque charcoal membrane spanning arm-root → carpal → last ray tip (placeholder
-  // sheet; I2 cuts the inward-cupped bays + the Y-fork V-notch). The membrane is OPAQUE
-  // matte cloud (the settled opacity law — never translucent bat-skin, §C.3/§D.2c); the
-  // rig's wingMat.opacity writes are visually inert by construction (noted, not a bug —
-  // the transparent flag is kept so the rig's material drive never throws).
-  const root = LE(0), last = tips[tips.length - 1];
-  hand.add(flatTriMesh([[root, K, last], [root, last, [last[0] * 0.5 + root[0] * 0.5, root[1] - 0.05 * hs, last[2] * 0.5 + root[2] * 0.5]]], wingMat));
-  return { arm, hand, K, tip: F0 };
+
+  // ── THE Y-FORK — a branch PRONG forks AT K3 (a stepped leader branches at a step; K3 is the
+  // shared welded node), +24° aft in plan, −8° dip, 0.62× the K3→F0 span. At f3 a 2nd-order SPUR
+  // leaves the prong at 55%, +20°, 0.52× the remainder. Rides blade-pivot idx0 (churns at K3).
+  let Fb = null;
+  if (forked) {
+    const bp = new THREE.Group(); bp.position.set(K3[0], K3[1], K3[2]); blades[0] = { group: bp, anchor: K3 };
+    const dd = [F0[0] - K3[0], F0[1] - K3[1], F0[2] - K3[2]], domLen = Math.hypot(dd[0], dd[2]);
+    const planA = Math.atan2(dd[2], dd[0]), prongA = planA + 24 * Math.PI / 180, dip = -8 * Math.PI / 180;
+    const pLen = 0.62 * domLen, ch = pLen * Math.cos(dip);
+    Fb = [K3[0] + Math.cos(prongA) * ch, K3[1] + Math.sin(dip) * pLen, K3[2] + Math.sin(prongA) * ch];
+    rayKinked(bp, K3, Fb, 0.055 * hs, 0.009 * hs, 0.075 * hs, M.arcSeam, 1);
+    if (spur) {
+      const Pm = [K3[0] + (Fb[0] - K3[0]) * 0.55, K3[1] + (Fb[1] - K3[1]) * 0.55, K3[2] + (Fb[2] - K3[2]) * 0.55];
+      const spurA = prongA + 20 * Math.PI / 180, sLen = 0.52 * pLen * 0.45, sc = sLen * Math.cos(dip);
+      const Fs = [Pm[0] + Math.cos(spurA) * sc, Pm[1] + Math.sin(dip) * sLen, Pm[2] + Math.sin(spurA) * sc];
+      boltRidge(bp, Pm, Fs, 0.028 * hs, 0.006 * hs, 0.05 * hs, M.arcCore);   // the little forked-tongue tip (brightest)
+    }
+    flush(bp, K3); hand.add(bp);
+  }
+  if (blades[1]) { flush(blades[1].group, K); hand.add(blades[1].group); }
+
+  // ── THE FORK-NODE HOTSPOT — the wrist/K3 convergence reads as a bright welded housing (a carved
+  // node, the Revenant-socket move), not a floating cross. A small proud arcCore cap at K3.
+  { const r = 0.045 * hs; push(hand, M.arcCore, [[K3[0] - r, K3[1] + 0.07 * hs, K3[2]], [K3[0] + r, K3[1] + 0.07 * hs, K3[2] - r], [K3[0] + r, K3[1] + 0.07 * hs, K3[2] + r]]); }
+
+  // ── THE MEMBRANE BAYS — between consecutive fan tips an INWARD-cupped bézier trailing edge
+  // (control pulled toward K), sampled ≥4 seg (6 at f2/f3), bay centre dropped so rim light pools.
+  // The prong tip Fb is inserted into the fan so the big dominant→aft triangle is CHOPPED into small
+  // dark bays each FLANKED by lit frame (the gate's #2 fix). The F0→Fb bay is the fork-crotch: a
+  // DEEP cup so its trailing edge notches hard toward K3 — the open V-notch (never an enclosed
+  // aperture — the C-guard), darkest tier. OPAQUE matte cloud, RECESSED below the proud bright frame.
+  const quad = (a, c, b, s) => { const m = 1 - s; return [m * m * a[0] + 2 * m * s * c[0] + s * s * b[0], m * m * a[1] + 2 * m * s * c[1] + s * s * b[1], m * m * a[2] + 2 * m * s * c[2] + s * s * b[2]]; };
+  const fanTips = (forked && Fb) ? [F0, Fb, ...aftTips] : [F0, ...aftTips], trailing = [];
+  for (let i = 0; i < fanTips.length - 1; i++) {
+    const Fa = fanTips[i], Fc = fanTips[i + 1];
+    const isCrotch = forked && Fb && i === 0;                       // the F0→Fb fork-crotch V-notch
+    const cupI = isCrotch ? 0.62 : 0.42 * (0.78 + 0.12 * i);
+    const pull = isCrotch ? K3 : K;                                 // crotch notches toward the fork vertex; aft bays toward the wrist
+    const base = [Fa[0] + (Fc[0] - Fa[0]) * 0.55, Fa[1] + (Fc[1] - Fa[1]) * 0.55, Fa[2] + (Fc[2] - Fa[2]) * 0.55];
+    const ctrl = [base[0] + (pull[0] - base[0]) * cupI, base[1] + (pull[1] - base[1]) * cupI - 0.04 * hs, base[2] + (pull[2] - base[2]) * cupI];
+    const arcpts = []; for (let s = 0; s <= NSEG; s++) arcpts.push(quad(Fa, ctrl, Fc, s / NSEG));
+    const mid = [(Fa[0] + Fc[0]) / 2, (Fa[1] + Fc[1]) / 2, (Fa[2] + Fc[2]) / 2];
+    const dpair = Math.hypot(Fa[0] - Fc[0], Fa[2] - Fc[2]);
+    const C = [(K[0] + mid[0]) / 2, (K[1] + mid[1]) / 2 - 0.13 * dpair, (K[2] + mid[2]) / 2];   // deeper drop → a recessed pocket
+    const tier = isCrotch ? M.boltTiers[M.boltTiers.length - 1] : M.boltTiers[Math.min(M.boltTiers.length - 1, i)];
+    const fan = [[C, K, arcpts[0]], [C, arcpts[NSEG], K]];
+    for (let s = 0; s < NSEG; s++) fan.push([C, arcpts[s], arcpts[s + 1]]);
+    push(hand, tier, ...fan);
+    for (let s = 0; s <= NSEG; s++) if (!(i > 0 && s === 0)) trailing.push(arcpts[s]);
+  }
+
+  // ── INBOARD PROPATAGIUM + ROOT GUSSET (arm-side anchors ONLY — the fold-tear law): the inboard
+  // membrane webs root → K → the first aft tip, then sweeps aft to a hip point buried under the body.
+  push(arm, M.boltTiers[0], [ROOT, K, aftTips[0] ?? F0]);
+  push(arm, M.boltTiers[1], [ROOT, K, [ROOT[0] + 0.10 * hs, ROOT[1] - 0.06 * hs, ROOT[2] + 0.9]]);
+
+  // ── THE CONNECTED KNIFE-EDGE — ONE thin translucent band just inboard of the WHOLE scalloped
+  // trailing polyline (the wing's ONLY transparency; per-bay shards banned). Hum-lit near-white.
+  if (trailing.length > 1) {
+    const et = [], inb = (p) => [p[0] + (K[0] - p[0]) * 0.10, p[1] + (K[1] - p[1]) * 0.10 + 0.006 * hs, p[2] + (K[2] - p[2]) * 0.10];
+    for (let s = 0; s < trailing.length - 1; s++) { const a = trailing[s], b = trailing[s + 1], ai = inb(a), bi = inb(b); et.push([a, b, bi], [a, bi, ai]); }
+    push(hand, M.edgeMat, ...et);
+  }
+
+  flush(arm); flush(hand);
+  return { arm, hand, K, tip: F0, blades };
 }
 
 function buildStormforkWings(def, model, attach, _giM) {
   const group = new THREE.Group();
   const M = tempestMats(def, model.glowLevel ?? 1);
-  const rays = Math.max(2, Math.round(model.rays ?? model.fingers ?? 4));
+  const glow = model.glowLevel ?? 1;
+  const rays = Math.max(2, Math.round(model.rays ?? 4));
   const halfSpan = (model.spanScale ?? 1) * 2.3;
-  const wristT = model.wristT ?? 0.24;
-  const dials = { rays, halfSpan, wristT };
+  const kinks = Math.max(1, Math.round(model.kinkKnuckles ?? 3));
+  const forked = kinks >= 3;                    // the Y-fork arrives with the third kink (f2+)
+  const spur = forked && glow >= 0.95;          // the 2nd-order spur is f3-only
+  const nseg = kinks >= 3 ? 6 : 4;              // bay NSEG {4,4,6,6}
+  const nBlade = kinks >= 3 ? 2 : (kinks >= 2 ? 1 : 0);   // crackle-churn pivots {0,1,2,2}
+  const dials = { rays, halfSpan, kinks, forked, spur, nseg, nBlade };
 
-  // The rig's single-material wing contract (dragonModel/dragon.js drive ONE wingMat's
-  // opacity/emissive). The Stormfork membrane is OPAQUE matte cloud; emissive black in
-  // cruise (the near-white circuit owns the light, on the FRAME, never painted on the
-  // sheet). transparent:true is kept so the rig's opacity drive is a no-op, not a throw.
-  const wo = def.wingOuter ?? FLANK;
-  const wingMat = new THREE.MeshStandardMaterial({ color: lerpHex(wo, STORM_SHADOW, 0.3), emissive: 0x000000, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 1.0 });
-  wingMat.envMapIntensity = 0.18;
+  // The rig's single-material wing contract = the inboard membrane tier (OPAQUE matte cloud; the
+  // rig's wingMat.opacity / wingMembraneEmissive writes are visually inert — the FRAME owns the
+  // light). THE KNIFE-EDGE: hum-lit near-white translucent (the wing's only transparency).
+  M.wingMat = M.boltTiers[0];
+  M.edgeMat = new THREE.MeshStandardMaterial({ color: 0xc9d0e8, emissive: 0xd9deff, emissiveIntensity: M.humFloor * 0.8, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.62 });
+  M.edgeMat.envMapIntensity = 0.3; M.edgeMat.userData.baseEmissive = 0xd9deff; M.edgeMat.userData.baseIntensity = M.humFloor * 0.8;
 
   const pivots = {}, wingElements = [];
+  const wingBladePivotsR = [], wingBladePivotsL = [];
   for (const side of [1, -1]) {
     const root = attach.wingRoot(side);
     const rootC = attach.wingRoot(1);   // build CANONICAL right; left is an outer lmirror wrapper
@@ -552,23 +698,28 @@ function buildStormforkWings(def, model, attach, _giM) {
     const mid = new THREE.Group(); mid.userData.wingRole = 'mid';
     const tip = new THREE.Group(); tip.userData.wingRole = 'tip';
     pivot.add(mid); mid.add(tip);
-    const { arm, hand, K } = buildOneStormforkWing(M, dials, wingMat);
+    const { arm, hand, K, tip: F0, blades } = buildOneStormforkWing(M, dials);
     mid.add(arm);
-    tip.position.set(K[0], K[1], K[2]);      // fold joint = the carpal knuckle (the dominant kink in I2)
+    tip.position.set(K[0], K[1], K[2]);      // wrist fold axis = K2 (the wing folds where the bolt breaks hardest)
     hand.position.set(-K[0], -K[1], -K[2]);  // −anchor → assembled REST pose byte-identical
     tip.add(hand);
     if (side === -1) { const lmirror = new THREE.Group(); lmirror.scale.x = -1; lmirror.add(pivot); group.add(lmirror); }
     else group.add(pivot);
     const s = side === 1 ? 'R' : 'L';
+    // THE CRACKLE-CHURN — publish the blade pivots the rig's lag walker phase-lags: idx0 = the branch
+    // prong AT K3 (shivers like a stepped leader), idx1 = the aftmost aft ray. Nullable (f0: none).
+    const arr = side === 1 ? wingBladePivotsR : wingBladePivotsL;
+    blades.forEach((b, idx) => { if (b) arr.push({ pivot: b.group, idx, side }); });
     // Tip marker — the wingtip (dominant-ray tip F0), tracked through the wrist fold (FX emit point).
-    const tipY = halfSpan * (0.05 + 0.22 * (1 - (1 - wristT) * 0.12));
-    const marker = new THREE.Object3D();
-    marker.position.set(halfSpan, tipY, -0.06 + 0.34 * halfSpan);
-    hand.add(marker);
+    const marker = new THREE.Object3D(); marker.position.set(F0[0], F0[1], F0[2]); hand.add(marker);
     pivots['wingPivot' + s] = pivot; pivots['wingMid' + s] = mid; pivots['wingTip' + s] = tip; pivots['tipMarker' + s] = marker;
-    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * halfSpan, root.y + tipY, root.z + 0.28], length: halfSpan, tipObj: marker });
+    wingElements.push({ root: [root.x, root.y, root.z], tip: [root.x + side * F0[0], root.y + F0[1], root.z + F0[2]], length: halfSpan, tipObj: marker });
   }
-  return { group, spineMats: [], wingMat, parts: { ...pivots, wingElements } };
+  // flareMats = the wing's hum-lit near-white GARMENT (arc frame + knife-edge) — held at humFloor by
+  // the flare loop's else-branch in cruise, Surge-flared, warm-rim-exempt. The I4 storm tick takes
+  // over as the single writer (breathing + strikes). NOT in spineMats (that gets the warm rim).
+  return { group, spineMats: [], flareMats: [M.arcSeam, M.arcCore, M.edgeMat], wingMat: M.wingMat,
+    parts: { ...pivots, wingElements, wingBladePivotsR: nBlade ? wingBladePivotsR : null, wingBladePivotsL: nBlade ? wingBladePivotsL : null } };
 }
 registerWings('stormforkWings', buildStormforkWings);
 
