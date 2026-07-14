@@ -103,7 +103,7 @@ export const BIOMES = [
     // waterline, thinning with altitude) the monuments rise from — and the surface
     // MARROWCOIL rises through (the dive verb, felt before it is ever used).
     atmos: { inscatter: 0.85, heightK: 0.05 },
-    props: ['bergwall', 'serac', 'terrace', 'pinnacle', 'sungate', 'glacierwall'], // Sunset Glacier v2 — massive-first (legacy crystal/crystalSmall parked; ?props=v1 restores)
+    props: ['bergwall', 'serac', 'terrace', 'icetower', 'glacierwall'], // Sunset Glacier v3 — no-spike flat-topped glacier ice (legacy crystal/crystalSmall parked; ?props=v1 restores)
     matIndex: 2, // ice
   },
   {
