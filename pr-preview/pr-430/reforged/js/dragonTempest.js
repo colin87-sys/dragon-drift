@@ -378,17 +378,19 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
   // Owner: the body read long/thin/weak. Rebuilt COMPACT + MUSCULAR to the reference — a thick
   // muscular neck, broad deep shoulders, a deep slung chest, a strong (not pinched-weak) waist and a
   // powerful haunch; the whole frame beefier and a touch shorter (a powerful drake, not a tube).
+  // Compacted further (Fable: still read long/lean). The NECK is shortened ~20% + bulked, and the
+  // mid-torso bulked, so the wing roots sit on a big shoulder-block of visible muscle, not a tube.
   const trunk = [
-    { z: -2.20, rx: 0.13, ryU: 0.13, ryD: 0.13, cy: 0.05 },   // neck (thick, toward the head)
-    { z: -1.84, rx: 0.18, ryU: 0.17, ryD: 0.20, cy: 0.12 },   // lower neck (muscular)
-    { z: -1.44, rx: 0.25, ryU: 0.21, ryD: 0.28, cy: 0.17 },   // neck-base / withers (thick)
-    { z: -1.08, rx: 0.38, ryU: 0.28, ryD: 0.41, cy: 0.15 },   // shoulder girdle (broad, deep)
-    { z: -0.70, rx: 0.37, ryU: 0.28, ryD: 0.56, cy: 0.11, keel: 0.16 },  // CHEST KEEL (deep, slung, muscular)
-    { z: -0.24, rx: 0.31, ryU: 0.24, ryD: 0.39, cy: 0.15 },   // ribcage end (full-bodied)
-    { z: 0.24, rx: 0.21, ryU: 0.18, ryD: 0.21, cy: 0.20 },    // WAIST (a tuck, but strong — not weak)
-    { z: 0.70, rx: 0.31, ryU: 0.23, ryD: 0.30, cy: 0.15 },    // haunch swell (powerful)
-    { z: 1.12, rx: 0.20, ryU: 0.16, ryD: 0.18, cy: 0.14 },    // pelvis
-    { z: 1.50, rx: 0.12, ryU: 0.10, ryD: 0.10, cy: 0.11 },    // tail-base
+    { z: -1.98, rx: 0.15, ryU: 0.15, ryD: 0.15, cy: 0.05 },   // neck (short + thick, toward the head)
+    { z: -1.66, rx: 0.21, ryU: 0.20, ryD: 0.23, cy: 0.12 },   // lower neck (muscular)
+    { z: -1.34, rx: 0.28, ryU: 0.24, ryD: 0.31, cy: 0.17 },   // neck-base / withers (thick)
+    { z: -1.04, rx: 0.41, ryU: 0.31, ryD: 0.44, cy: 0.15 },   // shoulder girdle (broad, deep — the wing block)
+    { z: -0.68, rx: 0.40, ryU: 0.31, ryD: 0.58, cy: 0.11, keel: 0.17 },  // CHEST KEEL (deep, slung, muscular)
+    { z: -0.24, rx: 0.34, ryU: 0.27, ryD: 0.42, cy: 0.15 },   // ribcage end (full-bodied)
+    { z: 0.22, rx: 0.24, ryU: 0.21, ryD: 0.24, cy: 0.20 },    // WAIST (a tuck, but strong — not weak)
+    { z: 0.66, rx: 0.33, ryU: 0.25, ryD: 0.32, cy: 0.15 },    // haunch swell (powerful)
+    { z: 1.08, rx: 0.21, ryU: 0.17, ryD: 0.19, cy: 0.14 },    // pelvis
+    { z: 1.46, rx: 0.12, ryU: 0.10, ryD: 0.10, cy: 0.11 },    // tail-base
   ];
   // ONE shared per-material accumulator for the whole torso → still ≤~12 draws with all 7 ranks.
   const byMat = new Map();
@@ -452,8 +454,8 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
   const wro = model.wingRootOffset ?? {};
   const attach = {
     wingRoot: (side) => ({ x: 0.30 * side, y: TORSO_Y + 0.30 + (wro.y ?? 0), z: -1.00 + (wro.z ?? 0) }),   // shoulder girdle
-    headBase: { x: 0, y: 0.00, z: -2.40 },
-    tailAnchor: { y: 0.12, z: 1.56 },
+    headBase: { x: 0, y: 0.00, z: -2.32 },   // pulled in with the shortened neck (occiput meets neck front)
+    tailAnchor: { y: 0.12, z: 1.48 },
     keelTopAt: (z) => TORSO_Y + 0.30 * Math.max(0, 1 - Math.abs(z + 1.0) / 2.4),
     halfWidthAt: (z) => 0.30 * Math.max(0.2, 1 - Math.abs(z + 0.6) / 3.0),
     bodyMidY: TORSO_Y, tailShift: 0,
@@ -540,8 +542,10 @@ function buildOneStormforkWing(M, dials) {
   const housing = (g, p, r) => stormWeld((mat, ...t) => push(g, mat, ...t), hs, p, r, M.arcCore);
 
   // ── THE SHORT ARM — a 2-bone stub (humerus + radius), medial wrist K. The struts carry the wing.
-  const K = [wristT * hs, 0.06 * hs, -0.04 * hs];
-  const ROOT = [0, 0, 0], E = [wristT * 0.5 * hs, 0.03 * hs, -0.02 * hs];
+  // Arm rakes gently AFT (+Z), tangent-continuous into strut 0, so the leading edge is ONE clean
+  // out+up sweep — NOT a forward tilt that reverses aft at the wrist (owner: the leading-frame S-kink).
+  const K = [wristT * hs, 0.06 * hs, 0.06 * hs];
+  const ROOT = [0, 0, 0], E = [wristT * 0.5 * hs, 0.03 * hs, 0.02 * hs];
   boltRidge(arm, ROOT, E, 0.085 * hs, 0.07 * hs, 0.06 * hs, M.arcSeam);   // humerus stub
   boltRidge(arm, E, K, 0.07 * hs, 0.05 * hs, 0.05 * hs, M.arcSeam);       // radius → wrist
   housing(arm, K, 0.05 * hs);
@@ -550,8 +554,12 @@ function buildOneStormforkWing(M, dials) {
   // FAN/DROOP). Each strut = TWO straight bolt segments K→knuckle→tip: the hard KNUCKLE (the storm
   // kink) replaces Revenant's smooth bone-bow. Sampled along the kinked path so the membrane welds
   // to the bone (the C14 weld — the membrane cannot float off).
-  const FAN = [[25, 1.00], [42, 0.92], [60, 0.74], [76, 0.55], [88, 0.40]];   // [azimuth° aft off K, length× of strut 0]
-  const DROOP = [0.12, 0.16, 0.20, 0.24, 0.28];   // tip drop below the wrist line, × strut length (trailing droops most)
+  // strut 0 launches at a LOW aft angle (15°) so it continues the arm's rake with no kink at the wrist
+  // (was 25° → a hard aft hook at K). The fan still rakes aft behind the leading bolt.
+  const FAN = [[15, 1.00], [42, 0.92], [60, 0.74], [76, 0.55], [88, 0.40]];   // [azimuth° aft off K, length× of strut 0]
+  // leading strut droops LEAST (top edge bows UP, convex, like the reference); trailing struts droop most,
+  // and the SPREAD is wide so the tips sit at very different heights → the SIDE profile scallops (not a slab).
+  const DROOP = [0.06, 0.14, 0.22, 0.30, 0.38];   // tip drop below the wrist line, × strut length
   const D2R = Math.PI / 180, L0 = 0.92 * hs, NS = 4;
   const spars = [], forkNodes = [];
   for (let i = 0; i < N; i++) {
@@ -563,7 +571,7 @@ function buildOneStormforkWing(M, dials) {
     // the KNUCKLE at ~58%: forward-outboard bow in XZ (convex leading edge, Revenant) + a hard Y jog
     // (alternating) = the Tempest storm kink (a stepped bone, not a smooth curve).
     const cdx = tip[0] - K[0], cdz = tip[2] - K[2], clen = Math.hypot(cdx, cdz) || 1;
-    const kn = 0.58, bow = (i === 0 ? 0.30 : 0.18) * clen, pfx = cdz / clen, pfz = -cdx / clen, yj = (i % 2 ? 1 : -1) * 0.05 * L;
+    const kn = 0.58, bow = (i === 0 ? 0.0 : 0.18) * clen, pfx = cdz / clen, pfz = -cdx / clen, yj = (i % 2 ? 1 : -1) * 0.05 * L;   // NO forward bow on the leading strut (keeps the silhouette leading edge clean)
     const Bm = [K[0] + cdx * kn + pfx * bow, K[1] + (tip[1] - K[1]) * kn + yj, K[2] + cdz * kn + pfz * bow];
     const wB = 0.055 * hs * (1 - 0.05 * i) + 0.004, wM = wB * 0.66, lift = 0.075 * hs * (1 - 0.04 * i);
     boltRidge(hand, K, Bm, wB, wM, lift, i === 0 ? M.arcCore : M.arcSeam);            // wrist → knuckle (strut 0 = brightest)
@@ -891,9 +899,9 @@ function buildVirgaTail(def, model, mats, anchor) {
     const tt0 = [tb[0] + dir[0] / dl * L, tb[1] + dir[1] / dl * L, tb[2] + dir[2] / dl * L];
     const curl = 0.16 * L, tt = [tt0[0] + Math.cos(ang + 1.6) * curl, tt0[1] + 0.05 * L, tt0[2] + Math.sin(ang + 1.6) * curl * 0.5];   // a stronger flame CURL (a licking tongue)
     const kn = 0.42, Bm = [tb[0] + (tt[0] - tb[0]) * kn + Math.cos(ang) * 0.12 * L, tb[1] + (tt[1] - tb[1]) * kn + 0.05 * L, tb[2] + (tt[2] - tb[2]) * kn];   // the flame BELLY (low, where the tongue is widest)
-    const w = (isC ? 0.11 : 0.08) * (0.7 + 0.4 * tScale);   // BROAD (owner: not thin cheap spikes)
-    spikeJ(tb[2], tb, Bm, w * 0.7, w, 0.012, M.spine, M.arcSeam);   // narrow root → WIDE belly (a leaf/flame, not a needle)
-    spikeJ(tb[2], Bm, tt, w, 0.006, 0.008, M.spine, M.arcCore);     // wide belly → pointed tip (arcCore, brightest)
+    const w = (isC ? 0.14 : 0.11) * (0.7 + 0.4 * tScale);   // BROADER still (Fable: tips read too pointy/bladey)
+    spikeJ(tb[2], tb, Bm, w * 0.72, w, 0.012, M.spine, M.arcSeam);   // narrow root → WIDE belly (a leaf/flame)
+    spikeJ(tb[2], Bm, tt, w, w * 0.28, 0.008, M.spine, M.arcCore);   // belly → a ROUNDED broad tip (not a needle point), arcCore brightest
   }
   // the ignition CORE node behind the lip (heartCore — the brightest tuft point, on the storm tick)
   const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.075 * (0.7 + 0.5 * tScale), 0), M.heartCore);
