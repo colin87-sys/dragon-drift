@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Dragon Studio</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{position:fixed;left:0;top:0}
+    #sheet{position:fixed;left:0;top:0;display:none;background:#0a0e1a}
+    #err{position:fixed;left:12px;right:12px;top:12px;color:#ff9a9a;font-size:13px;white-space:pre-wrap;
+      background:rgba(40,8,8,.7);padding:10px;border-radius:8px;display:none;max-height:60vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__dserr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display = 'block'; e.textContent = 'Studio error:\n' + m; } };
+    window.addEventListener('error', (ev) => window.__dserr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__dserr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl" width="500" height="500"></canvas>
+  <canvas id="sheet"></canvas>
+  <div id="err"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { DRAGONS } from '../js/dragons.js';
+    import { ascendedDef, maxTierFor } from '../js/ascension.js';
+    import { buildDragonModel } from '../js/dragonModel.js';
+    import { setFlapDebugPose } from '../js/wingDebugPose.js';
+
+    // ── lit stage (nfview.html's neutral lighting; scene.background set per backdrop) ──
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 400);
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+    const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
+    const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
+    const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+
+    const BG = { dark: 0x14121a, pale: 0xcfd6e4, gold: 0xd9a24a };
+
+    // Body angles (state glide/fold/bank): rear chase · side profile · rear-¾-above · top planform.
+    // Face angles (state face — the turntable-face read): front · front-¾ · profile · nape, on the head.
+    const BODY_ANGLES = {
+      rear:  { dir: [0.06, 0.20, 0.95], up: [0, 1, 0] },
+      side:  { dir: [1.0, 0.14, 0.001], up: [0, 1, 0] },
+      rear3q:{ dir: [0.72, 0.42, 0.72], up: [0, 1, 0] },
+      top:   { dir: [0.0001, 1, 0.0001], up: [0, 0, -1] },
+    };
+    const FACE_ANGLES = {
+      front: { dir: [0.0, 0.02, -1], up: [0, 1, 0], aim: [0, -0.08, -0.42] },
+      front3q:{ dir: [-0.7, 0.06, -0.72], up: [0, 1, 0], aim: [-0.12, -0.06, -0.34] },
+      profile:{ dir: [-1, 0.16, 0.001], up: [0, 1, 0], aim: [-0.4, -0.05, 0] },
+      nape:  { dir: [0.12, 0.82, 0.56], up: [0, 1, 0] },
+    };
+    // state → (wing pose, angle set, target part). 'face' poses a natural glide + frames the head.
+    // fill = fraction of frame the subject box fills (lower = more margin). The bank
+    // raises a wide wing and the face box is tall — both need extra headroom so the
+    // subject is not cropped at the frame edge (gate framing note).
+    const STATE = {
+      glide: { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86 },
+      fold:  { pose: 'fold',  angles: BODY_ANGLES, target: 'model', fill: 0.84 },
+      bank:  { pose: 'bank',  angles: BODY_ANGLES, target: 'model', fill: 0.70 },
+      face:  { pose: 'glide', angles: FACE_ANGLES, target: 'head',  fill: 0.64 },
+      // SURGE: the glide pose with the Dragon-Surge emissive applied statically
+      // (replays dragon.js's surge tick for spineMats + wing/eye) so a withheld
+      // motif can be judged as a matched cruise/surge PAIR on the SAME sky.
+      surge: { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86, surge: true },
+    };
+    const _sc = new THREE.Color(), _shi = new THREE.Color();
+    function applySurge(b, on) {
+      const mats = b.materials || {}, def = b.def;
+      const sgm = def.model.surgeGlowMultiplier ?? 1;
+      _shi.setHex(def.surgeHi || 0xffffff);
+      for (const m of (mats.spineMats || [])) {
+        const be = m.userData.baseEmissive ?? 0xffffff, bi = m.userData.baseIntensity ?? 1;
+        // VIZ BOOST: the studio has no UnrealBloom (the live game does), so the in-game
+        // emissiveIntensity reads dim here — boost it purely so the withheld motif is
+        // legible on the dark diagnostic tile (does NOT change the game). Lerp only
+        // partway to the pale surge peak so the diagnostic reads its ION-BLUE hue rather
+        // than clipping white at the boosted intensity.
+        if (on) { _sc.setHex(be); m.emissive.copy(_sc).lerp(_shi, 0.4); m.emissiveIntensity = bi * (1 + 0.9 * sgm) * 2.6; }
+        else { m.emissive.setHex(be); m.emissiveIntensity = bi; }
+      }
+      // FLARE-ONLY mats (the Revenant grave family: gap-leak buckets, socket vents, wisp) —
+      // Surge-flared with the per-mat intensity WEIGHT (a withheld base blazes through it). The
+      // live game rides UnrealBloom, which floods this ignition into a green halo; the studio has
+      // NONE, so the only no-bloom signal for a withheld→ignite motif is that surge reads BRIGHTER
+      // and PALER than cruise. So here (diagnostic-only) we DON'T pre-cap at the live 2.2 glare
+      // cap — capping just re-clips the same already-saturated cruise pixels and the two tiles come
+      // out identical — and we lerp harder toward surgeHi so the hue visibly pales. Else-branch
+      // resets to the withheld cruise base (the moderate gap-pulse "dance floor").
+      for (const m of (mats.flareMats || [])) {
+        const be = m.userData.baseEmissive ?? 0xffffff, bi = m.userData.baseIntensity ?? 1, wi = m.userData.flareIntensityWeight ?? 1;
+        if (on) { _sc.setHex(be); m.emissive.copy(_sc).lerp(_shi, 0.55); m.emissiveIntensity = bi * (1 + 0.9 * sgm * wi) * 1.6; }
+        else { m.emissive.setHex(be); m.emissiveIntensity = bi; }
+      }
+      if (mats.wingMat) mats.wingMat.emissive.setHex(on ? (def.feverWing ?? 0x000000) : (def.wingEmissive ?? 0x000000));
+      if (mats.eyeMat) mats.eyeMat.emissive.setHex(on ? (def.feverEye ?? def.eye) : def.eye);
+    }
+
+    const WING_ROOTS = ['wingYokeL','wingYokeR','wingRigL','wingRigR','wingPivotL','wingPivotR','wingPivot2L','wingPivot2R'];
+    const WING_R = ['wingYokeR','wingRigR','wingPivotR','wingPivot2R'];   // one wing, for a fill-frame close-up
+
+    let built = null, curKey = null, curTier = null;
+    const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
+
+    function disposeCur() {
+      if (!built) return;
+      scene.remove(built.group);
+      built.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); });
+      built = null;
+    }
+    function load(key, tier) {
+      if (built && key === curKey && tier === curTier) return built;
+      disposeCur();
+      const def = ascendedDef(DRAGONS[key], tier, 0);
+      built = buildDragonModel(def, { preview: true });   // preview: hide the gameplay aim marker
+      built.def = def;
+      scene.add(built.group);
+      curKey = key; curTier = tier;
+      return built;
+    }
+    // Bounding box of a named target: whole model, the wing subtrees, or the head.
+    function targetBox(part) {
+      const parts = built.parts || {};
+      if (part === 'head' && parts.head) {
+        // Frame the FACE, not the crest/horns: crest feathers (ExtrudeGeometry) tower over the
+        // crown and rear horns/tips sweep back, so boxing the whole head group centres the fit
+        // high/back and shrinks the face (gate r6/r7 dir 1b + cp2-r3 dir 1 — "head/eye crop has no
+        // eye" / apex over-zoom). Box the SKULL SHELL (the single largest head mesh) plus only the
+        // small meshes seated ON it (eyes/brow); this scales cleanly with headScale at every form.
+        const meshes = [];
+        parts.head.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'ExtrudeGeometry' && !o.userData.isHorn) meshes.push(o); });
+        if (meshes.length) {
+          let shell = meshes[0], vol = -1; const tmp = new THREE.Vector3();
+          for (const o of meshes) { const bb = new THREE.Box3().setFromObject(o); bb.getSize(tmp); const v = tmp.x * tmp.y * tmp.z; if (v > vol) { vol = v; shell = o; } }
+          const b = new THREE.Box3().setFromObject(shell);
+          const grown = b.clone().expandByScalar(0.5 * Math.cbrt(vol));   // tolerance for eyes seated just proud of the shell
+          const mc = new THREE.Vector3();
+          for (const o of meshes) { if (o === shell) continue; const bb = new THREE.Box3().setFromObject(o); bb.getCenter(mc); if (grown.containsPoint(mc)) b.union(bb); }
+          return _box.copy(b);
+        }
+        return _box.setFromObject(parts.head);
+      }
+      if (part === 'wing' || part === 'wingR') {
+        const roots = part === 'wingR' ? WING_R : WING_ROOTS;
+        const b = new THREE.Box3(); b.makeEmpty();
+        // wingRigL/R may be a rig-HANDLE object ({shoulder,elbow,wrist,…}, ember's
+        // skinned path), not an Object3D — skip those; the wing subtree is covered
+        // by wingPivotL/R. Guard on isObject3D so expandByObject never sees a handle.
+        for (const k of roots) if (parts[k] && parts[k].isObject3D) b.expandByObject(parts[k]);
+        if (!b.isEmpty()) return _box.copy(b);
+      }
+      return _box.setFromObject(built.group);
+    }
+    // Fit the camera so `box` fills ~fillFrac of the frame from `dir`. zoom>1 magnifies (detail crop).
+    function fit(dir, up, box, fillFrac, zoom, aimFrac) {
+      box.getCenter(_c); box.getSize(_s);
+      // aimFrac (optional): shift the look target by fractions of the box size — used to aim the
+      // head DETAIL crop at the eye (front-upper) instead of the head centroid (gate r13 dir 1).
+      if (aimFrac) _c.set(_c.x + _s.x * (aimFrac[0] || 0), _c.y + _s.y * (aimFrac[1] || 0), _c.z + _s.z * (aimFrac[2] || 0));
+      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      const vfov = camera.fov * Math.PI / 180;
+      const dist = (radius / Math.tan(vfov / 2)) / (fillFrac * (zoom || 1));
+      camera.up.set(up[0], up[1], up[2]);
+      const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+      camera.position.copy(_c).addScaledVector(d, dist);
+      camera.near = Math.max(0.01, dist / 200); camera.far = dist * 30;
+      camera.updateProjectionMatrix();
+      camera.lookAt(_c);
+    }
+    function setBg(bg) { scene.background = new THREE.Color(BG[bg] ?? BG.pale); }
+    function render() { renderer.render(scene, camera); }
+
+    // Size the GL canvas to a square cell (called before a sheet run).
+    function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
+
+    // ── public API (dragonstudio.mjs drives these) ──────────────────────────
+    // Build+pose+frame+render one (key, tier, state, bg, angle). Deterministic: the pose is
+    // clock-free (setFlapDebugPose), so round K and K+1 are pixel-identical.
+    window.dsRender = (o) => {
+      const b = load(o.key, o.tier);
+      const st = STATE[o.state] || STATE.glide;
+      applySurge(b, !!st.surge);   // light the withheld motif for the surge state; reset it otherwise
+      setFlapDebugPose(b.parts || {}, b.def.model, st.pose);
+      b.group.updateMatrixWorld(true);
+      setBg(o.bg);
+      const a = st.angles[o.angle] || Object.values(st.angles)[0];
+      fit(a.dir, a.up, targetBox(st.target), o.fill ?? st.fill ?? 0.9, 1, a.aim);
+      render();
+      return true;
+    };
+    // Reframe to another angle of the SAME posed model+bg (cheap — no rebuild). Used to fill a sheet.
+    window.dsAngle = (o) => {
+      const st = STATE[o.state] || STATE.glide;
+      const a = st.angles[o.angle] || Object.values(st.angles)[0];
+      fit(a.dir, a.up, targetBox(st.target), o.fill ?? st.fill ?? 0.9, 1, a.aim);
+      render();
+      return true;
+    };
+    // A fill-the-frame PART crop (whole/wing/head, subject ≥60%) or a 4× detail crop (zoom). Each
+    // part gets its own angle + fill so the subject actually FILLS the crop: the wing crop frames a
+    // SINGLE (right) wing broadside; the head crop tightens onto the face.
+    window.dsCrop = (o) => {
+      const b = load(o.key, o.tier);
+      applySurge(b, false);   // crops are never a surge state — reset any surge mutation from a prior sheet render
+      setFlapDebugPose(b.parts || {}, b.def.model, o.pose || 'glide');
+      b.group.updateMatrixWorld(true);
+      setBg(o.bg);
+      let dir, up = [0, 1, 0], fill, target;
+      let aimFrac = null;
+      if (o.part === 'head') { dir = [-0.66, -0.12, -0.72]; fill = 0.92; target = 'head';   // front-left, a touch below level — looks INTO the cheek/eye zone
+        if ((o.zoom || 1) > 1.4) aimFrac = [-0.22, -0.02, -0.34]; }   // detail crop: aim onto the NEAR (front-left) EYE on the cheek
+      else if (o.part === 'wing') { dir = [0.45, 0.5, 0.62]; fill = 1.0; target = 'wingR'; }  // rear-above on ONE wing
+      else { dir = BODY_ANGLES.rear.dir; fill = 0.95; target = 'whole'; }
+      fit(dir, up, targetBox(target), o.fill ?? fill, o.zoom || 1, aimFrac);
+      render();
+      return true;
+    };
+    // Fixed-distance ladder tile: render one form at a caller-supplied distance so the SIZE RAMP
+    // reads across forms (the tiershots law — never reframe per form). Frame by the apex's REAR-facing
+    // extent (width/height, not the tail depth) with 1.4× headroom so the widest apex span fits.
+    window.dsApexRadius = (key) => {
+      const b = load(key, maxTierFor(key));
+      setFlapDebugPose(b.parts || {}, b.def.model, 'glide');
+      b.group.updateMatrixWorld(true);
+      const box = _box.setFromObject(b.group); box.getSize(_s);
+      return 0.5 * Math.max(_s.x, _s.y);
+    };
+    window.dsLadderTile = (o) => {
+      const b = load(o.key, o.tier);
+      setFlapDebugPose(b.parts || {}, b.def.model, 'glide');
+      b.group.updateMatrixWorld(true);
+      setBg(o.bg);
+      const box = _box.setFromObject(b.group); box.getCenter(_c);
+      const vfov = camera.fov * Math.PI / 180;
+      // Headroom 1.8×: enough margin for the apex's forward-swept wingtips (closer to the rear lens
+      // than the body centre → perspective magnifies them) while the widest form still reads large.
+      const dist = (o.radius / Math.tan(vfov / 2)) * 1.8;   // ONE distance from the apex extent + headroom
+      camera.up.set(0, 1, 0);
+      const d = new THREE.Vector3(...BODY_ANGLES.rear.dir).normalize();
+      camera.position.copy(_c).addScaledVector(d, dist);
+      camera.near = dist / 200; camera.far = dist * 30; camera.updateProjectionMatrix();
+      camera.lookAt(_c);
+      render();
+      return true;
+    };
+    window.dsMaxTier = (key) => maxTierFor(key);
+
+    // ── in-page contact-sheet compositing (bossstudio pattern) ──────────────
+    const _sheet = document.getElementById('sheet');
+    window.dsSheetInit = (cols, rows, cell) => {
+      _sheet.width = cols * cell; _sheet.height = rows * cell;
+      _sheet.style.display = 'block';
+      const ctx = _sheet.getContext('2d');
+      ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, _sheet.width, _sheet.height);
+      _sheet.__cell = cell; _sheet.__cols = cols;
+      sizeGL(cell);
+      return true;
+    };
+    window.dsTile = (quad, label) => {
+      const cell = _sheet.__cell, cols = _sheet.__cols;
+      const ctx = _sheet.getContext('2d');
+      const ox = (quad % cols) * cell, oy = ((quad / cols) | 0) * cell;
+      ctx.drawImage(gl, ox, oy, cell, cell);
+      if (label) {
+        ctx.font = '600 20px system-ui, sans-serif'; ctx.textBaseline = 'top';
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(label, ox + 12, oy + 12);
+        ctx.fillStyle = '#ffe08a'; ctx.fillText(label, ox + 12, oy + 12);
+      }
+      return true;
+    };
+
+    // Debug seam (mirrors bossstudio.__dd): the live scene/camera/renderer + current group.
+    window.__dd = { scene, camera, renderer, group: () => built && built.group };
+
+    try {
+      renderer.setSize(500, 500, false);
+      window.__ready = true;
+    } catch (e) { window.__dserr((e && e.stack) || String(e)); throw e; }
+  </script>
+</body>
+</html>
