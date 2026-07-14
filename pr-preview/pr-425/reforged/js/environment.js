@@ -182,6 +182,28 @@ function mergeParts(parts, biomeIdx) {
   return { geometry, materials: mats };
 }
 
+// A RECESSED crevasse core — the Frozen kit's ONE accent language (Fable studio
+// gate P3 #6). The old kit stuck a bright cyan RECTANGLE flat on a face, which
+// read as a sticker / LED strip (the poverty pattern DRAGON-DESIGN.md kills on
+// sight). Instead this drops emissive (mat 1) slivers SET BACK at low z, broken
+// into `seg` vertical segments, to be seated in a NARROW GAP between two mat-0
+// blocks — the blocks are the chasm walls, so the glow reads as light escaping
+// from INSIDE the ice, never painted on it. Caller sizes the flanking blocks so
+// the core is proud-recessed (walls at higher z than `z`). Returns parts to spread
+// into a build([...]) list. Cost = seg×12 tris. All boxes → merges indexed.
+function crevasseCore({ x = 0, y = 0.45, z = 0.0, h = 0.5, w = 0.07, seg = 3, gap = 0.04 }) {
+  const parts = [];
+  const segH = (h - gap * (seg - 1)) / seg;
+  for (let i = 0; i < seg; i++) {
+    // brightest read comes from the middle segment being tallest; taper the ends
+    const t = seg > 1 ? Math.abs(i - (seg - 1) / 2) / ((seg - 1) / 2) : 0; // 0 mid → 1 ends
+    const sh = segH * (1 - 0.28 * t);
+    const sy = y - h / 2 + segH / 2 + i * (segH + gap);
+    parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(w, sh, 0.05), { x, z, y: sy }) });
+  }
+  return parts;
+}
+
 // A/B coexistence flag for the wall-props redesign (WALL-PROPS-REDESIGN.md §6),
 // same idiom as `?skyforged=0` (powerups.js:13-15). Default (v2) = the new premium
 // per-biome kits; `?props=v1` restores the legacy roster. The flip is a swap of the
@@ -293,13 +315,15 @@ const ARCHETYPES = {
   bergwall: {
     step: 70, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.12 }, // force-parks in breath; grows in congregation
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.50, 0.60, 0.62, 7), { y: 0.31, ry: 0.3, sx: 1.4, sz: 0.85 }) },  // main tabular mass
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.50, 0.34, 6), { x: -0.30, z: 0.10, y: 0.72, ry: 1.1, sx: 1.3, sz: 0.8 }) }, // upper stratum, stepped back
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.26, 0.34, 0.30, 5), { x: 0.34, z: -0.06, y: 0.60, ry: 2.2 }) },  // shoulder block, far end
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.28, 0.30, 5), { x: 0.60, z: 0.08, y: 0.18, ry: 3.1 }) },   // calved block at the foot (story beat)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.12, 0.44), { x: -0.06, y: 0.94, ry: 0.2 }) },                   // FLAT tabular top (glaciers are flat-topped, never peaked)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.10, 0.28), { x: 0.22, z: -0.10, y: 0.90, ry: 0.6 }) },          // stepped tabular block (banding)
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.55, 0.10), { x: 0.05, z: 0.30, y: 0.45, rz: 0.06 }) },          // cyan crevasse seam on the face
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.62, 0.64, 7), { y: 0.32, ry: 0.3, sx: 1.4, sz: 0.85 }) },  // main tabular mass
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.52, 0.38, 6), { x: -0.22, z: 0.06, y: 0.74, ry: 1.1, sx: 1.3, sz: 0.85 }) }, // upper stratum → the calving OVERHANG on the left (the best glacial gesture — kept)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.62, 0.16, 0.52), { x: -0.10, y: 0.90, ry: 0.15 }) },                  // crown cap A — ONE large tabular cap (consolidated, was crown clutter)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.40, 0.16, 0.36), { x: 0.24, z: -0.06, y: 0.70, ry: 0.5 }) },          // crown cap B — SEATED on the main top (was the floating chip; now overlaps)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.30, 0.34, 5), { x: 0.56, z: 0.08, y: 0.17, ry: 3.1 }) },   // calved block at the foot (story beat)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.50, 0.13), { x: 0.02, z: 0.50, y: 0.44 }) },                    // crevasse rib L (proud of the face)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.50, 0.13), { x: 0.24, z: 0.50, y: 0.44 }) },                    // crevasse rib R (proud of the face)
+      // recessed crevasse core in the cleft between the ribs (the lit chasm, kit accent language)
+      ...crevasseCore({ x: 0.13, y: 0.44, z: 0.53, h: 0.42, w: 0.07, seg: 2 }),
     ], 2),
     // Gate-safety clamp (Move 2 pre-assess): bergwall's REAL footprint is ±0.95 (not
     // ±0.6 — calved foot + upper stratum), and rotY is random, so the inner edge must
@@ -312,15 +336,26 @@ const ARCHETYPES = {
   // chunky. flatShading gives ~90 flat facets each catching the sunset at a different
   // angle — the richest per-tri surface in the kit. ONE lit fracture plate (mat 1) in
   // a cleft. NON-INDEXED throughout (icosahedra + .toNonIndexed() boxes — the `berg` rule).
+  // THE SERAC STACK — a pile of SHEARED, interpenetrating ice BLOCKS (~120 tris).
+  // The Fable studio gate (2.4/5) killed the old icosahedral version as "rounded
+  // BOULDERS, not seracs" (icosa read as pebbles) with a detached FLOATING block and
+  // a plastic sticker accent. Real Khumbu seracs are toppling cubic blocks that lean
+  // ON each other — so this is now all BOXES, each rotated to a different shear and
+  // overlapping its neighbours ≥25% (nothing floats). The accent is a RECESSED
+  // crevasse (kit language), not a plate stuck on the surface. All boxes → indexed.
   serac: {
     step: 26, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.88, sMax: 1.10 }, // force-parks in breath
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.50, 0), { y: 0.35, sy: 0.75, sx: 1.1 }) },                    // main block
-      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.34, 0), { x: 0.34, z: -0.14, y: 0.62, ry: 1.3 }) },           // upper block (toppling via offset, not rotation)
-      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.30, 0), { x: -0.36, z: 0.10, y: 0.24, ry: 2.4, sy: 0.85 }) }, // flank block
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.34, 0.26).toNonIndexed(), { x: -0.06, y: 0.92, ry: 0.5, rz: -0.22 }) }, // capstone rhomb
-      { mat: 0, geo: xform(new THREE.IcosahedronGeometry(0.22, 0), { x: 0.10, z: 0.30, y: 0.16, ry: 4.0, sy: 0.7 }) },   // foot rubble
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.30, 0.40, 0.06).toNonIndexed(), { x: 0.16, z: 0.22, y: 0.50, ry: 0.7, rz: 0.15 }) }, // lit fracture plate in a cleft
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.66, 0.60, 0.58), { y: 0.32, ry: 0.20, rz: 0.09 }) },            // main sheared block
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.54, 0.46), { x: 0.30, z: -0.08, y: 0.40, ry: 0.6, rz: -0.20 }) }, // block leaning ON the main (topple)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.46, 0.48, 0.42), { x: -0.30, z: 0.12, y: 0.30, ry: 1.1, rz: 0.18 }) },  // flank block, sheared other way
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.42, 0.44, 0.38), { x: 0.06, z: 0.04, y: 0.68, ry: 0.4, rz: 0.24 }) },   // upper block seated ON the pile (grounded, was the floater)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.32, 0.28), { x: -0.12, z: -0.06, y: 0.74, ry: 0.9, rz: -0.30 }) },// small toppled capstone, overlapping
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.36, 0.26, 0.32), { x: 0.34, z: 0.22, y: 0.14, ry: 0.5, rz: 0.10 }) },   // foot rubble, half-buried
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.42, 0.16), { x: -0.06, z: 0.30, y: 0.42 }) },             // crevasse rib L (proud)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.42, 0.16), { x: 0.18, z: 0.30, y: 0.42 }) },              // crevasse rib R (proud)
+      // recessed crevasse core in the cleft between the ribs (proud of the main block face)
+      ...crevasseCore({ x: 0.06, y: 0.42, z: 0.33, h: 0.34, w: 0.06, seg: 2 }),
     ], 2),
     place: (side, rnd) => ({ x: side * (16 + rnd() * 8), h: 7 + rnd() * 7, r: 6 + rnd() * 4, tilt: side * (rnd() * 0.10 - 0.03) }),
   },
@@ -330,14 +365,20 @@ const ARCHETYPES = {
   // shadow — free banding. The horizontal REST that makes the verticals read colossal.
   terrace: {
     step: 20, biomes: frozenNew, matIndex: 2, comp: { floor: 0.22, sMin: 0.85, sMax: 1.08 }, // keeps a floor of LOW pack-ice through the breath
+    // Fable studio gate (2.6/5): the plan view is good but in elevation it read as
+    // "one thin pancake" — no riser height → no blue shadow bands → no depth. Rebuilt
+    // with THICKER tiers (real risers that hold a shadow band) + 2 chunky serac boxes
+    // as pressure-ridge rubble to break the pancake silhouette, and a slightly higher
+    // floor so it reads as a low shelf with thickness, not paper.
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.55, 0.62, 0.14, 7), { y: 0.07, ry: 0.4, sx: 1.15, sz: 0.8 }) },  // base pan
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.48, 0.22, 6), { x: 0.10, z: -0.06, y: 0.25, ry: 1.6, sx: 1.1 }) }, // tier 2
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.26, 0.33, 0.20, 6), { x: -0.14, z: 0.10, y: 0.46, ry: 3.0 }) },  // tier 3
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.14, 0.20, 0.16, 5), { x: 0.16, z: 0.08, y: 0.64, ry: 0.9 }) },   // cap block
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.22, 0.04, 0.22), { x: 0.10, z: -0.06, y: 0.375, ry: 1.6 }) },         // flush melt-pond inlay glowing on the tier-2 tread
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.55, 0.64, 0.24, 7), { y: 0.12, ry: 0.4, sx: 1.15, sz: 0.8 }) },  // base pan (thicker riser)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.48, 0.30, 6), { x: 0.10, z: -0.06, y: 0.39, ry: 1.6, sx: 1.1 }) }, // tier 2 (real riser)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.26, 0.33, 0.26, 6), { x: -0.14, z: 0.10, y: 0.67, ry: 3.0 }) },  // tier 3
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.24, 0.22, 0.22), { x: 0.24, z: 0.14, y: 0.30, ry: 0.5, rz: 0.10 }) }, // pressure-ridge rubble chunk
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.20, 0.20, 0.18), { x: -0.30, z: -0.10, y: 0.26, ry: 1.2 }) },        // pressure-ridge rubble chunk
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.22, 0.05, 0.22), { x: 0.10, z: -0.06, y: 0.55, ry: 1.6 }) },         // melt-pond inlay glowing on the tier-2 tread
     ], 2),
-    place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 1.2 + rnd() * 5.0, r: 8 + rnd() * 8, tilt: side * (rnd() * 0.04 - 0.02) }),
+    place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 2.5 + rnd() * 4.5, r: 8 + rnd() * 8, tilt: side * (rnd() * 0.04 - 0.02) }),
   },
   // THE ICE TOWER — a tall TABULAR ice column (~108 tris, step 130 = rare landmark).
   // Real glaciers are flat-topped and blocky, NEVER spiky (research: tabular/blocky
@@ -346,13 +387,22 @@ const ARCHETYPES = {
   // (|x| ≥ 24) so it never looms over or occludes a gameplay gate (clean lanes).
   icetower: {
     step: 170, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.0 }, // rarer + capped (Move 2: the Sun Gate is the tallest paired hero at a peak, not this)
+    // The Fable studio gate (2.0/5) flagged this as the "man-made" repeat offense —
+    // uniform taper + concentric coursing + aligned seams read as a water tower /
+    // chimney / ziggurat. Rebuilt to BREAK the coursing: a fat tabular base, then
+    // blocks of strongly VARIED heights with lateral offsets that ALTERNATE sides
+    // (a zig-zag silhouette, not a smooth taper), each yawed irregularly so the
+    // plan-view star symmetry dies, finished with one OVERSIZED overhanging capstone
+    // and a recessed crevasse seam (it was the only unlit prop).
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.42, 0.52, 0.32, 6), { y: 0.16, ry: 0.3, sx: 1.1, sz: 0.9 }) },   // base block
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.42, 0.34, 6), { x: 0.04, y: 0.47, ry: 0.7 }) },            // mid block (offset — stacked serac column)
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.27, 0.34, 0.30, 6), { x: -0.03, z: 0.04, y: 0.77, ry: 1.5 }) },  // upper block
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.46, 0.14, 0.42), { x: 0.02, y: 0.98, ry: 0.4 }) },                    // FLAT tabular cap (no spike)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.16, 0.24), { x: 0.16, z: -0.08, y: 0.90, ry: 0.9 }) },          // broken stepped block (banding)
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.62, 0.09), { x: 0.00, z: 0.14, y: 0.50, rz: 0.03 }) },          // cyan crevasse seam
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.54, 0.40, 6), { y: 0.20, ry: 0.2, sx: 1.05 }) },          // FAT tabular base (~40% height)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.34, 0.40), { x: -0.10, z: 0.04, y: 0.55, ry: 0.5 }) },          // block — offset LEFT, tall
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.40, 0.22, 0.36), { x: 0.12, z: -0.06, y: 0.80, ry: -0.7 }) },         // block — offset RIGHT, short (zig-zag)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.34, 0.30, 0.32), { x: -0.08, z: 0.06, y: 0.98, ry: 1.2 }) },          // block — offset LEFT, medium
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.18, 0.44), { x: 0.10, y: 1.16, ry: 0.4, rz: 0.05 }) },          // OVERSIZED overhanging capstone (breaks the taper)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.10, 0.44, 0.12), { x: -0.06, z: 0.30, y: 0.62 }) },                   // crevasse rib L (proud)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.10, 0.44, 0.12), { x: 0.14, z: 0.30, y: 0.62 }) },                    // crevasse rib R (proud)
+      ...crevasseCore({ x: 0.04, y: 0.60, z: 0.34, h: 0.36, w: 0.06, seg: 2 }),                                          // recessed crevasse (kit accent)
     ], 2),
     place: (side, rnd) => ({ x: side * (24 + rnd() * 12), h: 22 + rnd() * 14, r: 8 + rnd() * 4, tilt: side * (rnd() * 0.06 - 0.02) }),
   },
@@ -362,11 +412,19 @@ const ARCHETYPES = {
   // — the world's edge dissolving into molten gold via the dual-fog. Fixes the far read.
   glacierwall: {
     step: 80, biomes: frozenNew, matIndex: 2,
+    // Fable studio gate (3.6/5 — the kit's best): right tabular-iceberg language, but
+    // the old FLAT top box read as a machined rebate/casting-mold slot, and the skyline
+    // was one unbroken flat line (reads as a wall, not a massif). Rebuilt as a bulk mass
+    // topped by THREE tabular slabs of descending height (left tall → centre lower →
+    // right lowest calved block) so the skyline STEPS DOWN like a real massif, plus one
+    // tilted wedge cap so no edge reads machined. Ice breaks in wedges and steps, never
+    // in neat right-angle rebates.
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.60, 0.52, 5), { y: 0.66, ry: 0.4, sx: 1.4, sz: 0.9 }) },   // long main wall
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.38, 0.30, 5), { x: -0.58, z: 0.16, y: 0.52, ry: 1.6 }) },  // calved step
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.90, 0.14, 0.50), { x: 0.02, y: 0.92, ry: 0.15 }) },                   // FLAT tabular ice-shelf top (horizontal banding)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.12, 0.40), { x: -0.35, z: 0.10, y: 0.82, ry: 0.5 }) },          // stepped calving block
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.54, 0.62, 0.56, 5), { x: 0.05, y: 0.30, ry: 0.4, sx: 1.4, sz: 0.9 }) }, // bulk mass
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.70, 0.30, 0.48), { x: -0.30, y: 0.72, ry: 0.08 }) },                  // tall tabular slab (skyline high, left)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.60, 0.22, 0.46), { x: 0.28, z: -0.04, y: 0.60, ry: -0.06 }) },        // lower slab (skyline step-down, right)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.38, 0.30, 5), { x: 0.62, z: 0.10, y: 0.40, ry: 1.6 }) },   // lowest calved block (far right — the last step)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.34, 0.20, 0.30), { x: -0.56, z: 0.06, y: 0.66, ry: 0.5, rz: 0.20 }) },// tilted wedge cap (breaks the flat machined line)
     ], 2),
     place: (side, rnd) => ({ x: side * (40 + rnd() * 24), h: 14 + rnd() * 8, r: 34 + rnd() * 16, tilt: 0 }),
   },
@@ -521,17 +579,43 @@ const ARCHETYPES = {
   // the ±16 gameplay-gate veil from any chase-cam pose (occlusion divergence proof). The
   // gap carves real god-ray shafts (occlusion mask) and doubles in the water mirror.
   // Registered LAST so no existing band's render-rnd stream shifts.
+  // THE SUN GATE — the hero focal landmark (~144 tris, rebuilt to the Fable studio
+  // gate P1). A pair of MASSIVE flat-topped ice pylons that flank the lane and frame
+  // the low sun as a doorway of light. The Fable studio gate killed the prior version
+  // (1.8/5) as "two skinny towers" (~6:1 obelisks, an LED stripe, no doorway). This
+  // rebuild answers its six points, ALL via offset-stacking (rotation gets sheared
+  // flat by the (r,h,r) instance scale — lateral OFFSET survives it):
+  //   • MASS: fat tabular base slab (~40% of height) + a wide footprint → ~2.5:1, not 6:1.
+  //   • LEAN toward the gap: every block's centre steps progressively toward +x (the
+  //     gap-facing side, mirrored inward by rotY), so the two pylons' silhouettes
+  //     CONVERGE — that convergence is what makes the sky between them read as a door.
+  //   • REACHING CAP: a wide capstone cantilevered furthest of all into the gap — the
+  //     implied broken lintel; the two caps nearly meet overhead.
+  //   • ROOTED FEET: half-buried serac chunks skirt the base (grows from an ice apron).
+  //   • CREVASSE CORE (not an LED strip): a recessed emissive chasm between two proud
+  //     ribs on the front face — light escaping the ice, per the kit accent language.
+  // +x = the gap-facing side (rotY = π mirrors it inward on the +x post). GATE-SAFE:
+  // max +x extent is the cap at 0.54; at r ≤ 15, x ≥ 27 → inner edge ≥ 18.9, clear of
+  // the ±16 gameplay-gate veil. Registered LAST so no band's render-rnd stream shifts.
   sungate: {
     step: 300, biomes: frozenNew, matIndex: 2, paired: true, hero: true,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.48, 0.58, 0.36, 6), { y: 0.18, ry: 0.3, sz: 0.9 }) },      // broad base block (gap-side extent ≤0.58)
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.48, 0.36, 6), { x: -0.08, y: 0.50, ry: 0.6 }) },     // mid block, stepped AWAY from the gap
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.32, 0.40, 0.34, 6), { x: -0.14, y: 0.80, ry: 1.2 }) },     // upper block, stepped away
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.16, 0.46), { x: 0.04, y: 0.96, ry: 0.25 }) },             // FLAT cap cantilevered toward the gap — the implied LINTEL (no literal arch)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.14, 0.26), { x: -0.18, z: 0.10, y: 0.88, ry: 0.8 }) },    // stepped block (tabular banding)
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.72, 0.09), { x: 0.30, z: 0.02, y: 0.50, rz: 0.02 }) },    // cyan crevasse seam on the GAP-FACING inner face
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.68, 0.44, 6), { x: -0.12, y: 0.22, ry: 0.3 }) },     // FAT tabular base slab (~40% height — the mass), seated OUTward
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.80, 0.34, 0.68), { x: 0.02, y: 0.55, ry: 0.12 }) },             // lower block (steps toward the gap)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.66, 0.40, 0.50), { x: 0.16, y: 0.80, ry: -0.10 }) },            // mid mass (steps further inward → convergence)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.44, 0.20), { x: 0.00, z: 0.24, y: 0.82 }) },              // crevasse rib L (proud, front face)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.44, 0.20), { x: 0.34, z: 0.24, y: 0.82 }) },              // crevasse rib R (proud, front face)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.30, 0.42), { x: 0.26, y: 1.05, ry: 0.20 }) },             // upper block (steps further toward the gap)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.62, 0.17, 0.48), { x: 0.34, y: 1.22, ry: 0.10, rz: 0.06 }) },   // capstone CANTILEVERED + angled DOWN into the gap — the broken lintel reaching for its twin
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.42, 0.26, 0.36), { x: 0.26, z: 0.16, y: 0.13, ry: 0.5, rz: -0.05 }) },  // rooted foot rubble (gap side) — a grounded chunk, not a flare
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.38, 0.24, 0.34), { x: -0.30, z: -0.14, y: 0.12, ry: 1.0, rz: 0.06 }) }, // rooted foot rubble (outer side)
+      // recessed crevasse core — the lit chasm between the two ribs (seg 2, set back so the ribs overhang it)
+      ...crevasseCore({ x: 0.17, y: 0.80, z: 0.27, h: 0.40, w: 0.07, seg: 2 }),
     ], 2),
-    place: (side, rnd) => ({ x: side * (25 + rnd() * 3), h: 50 + rnd() * 14, r: 8 + rnd() * 2, tilt: side * (-0.03 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }), // COLOSSAL (h 50-64) so it towers over the congregation; inner edge 25-0.58·10-lean ≥ 17
+    // MASSIVE + gate-safe: r 12-15 (wide footprint for mass, not a pole), h 40-49
+    // (towers over the congregation), x 27-30 (inner edge ≥ 18.9). tilt is tiny — the
+    // convergence is carried by the offset-stack, not a shear-prone rotation.
+    place: (side, rnd) => ({ x: side * (27 + rnd() * 3), h: 40 + rnd() * 9, r: 12 + rnd() * 3, tilt: side * (-0.015 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }),
   },
 };
 
