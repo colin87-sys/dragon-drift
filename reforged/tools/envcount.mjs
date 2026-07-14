@@ -79,7 +79,7 @@ const CAP = {
   gateVeilLayers: 1,       // AT MOST one blended (non-additive) veil layer — the overdraw rule.
                            //   The serene light styles (swirl/wisp/curtain) have ZERO — lines/points only.
   gateAdditivePlanes: 9,   // core + beacon + (crystal: 7 motes | serene: 1-2 spirit Points) — all cheap
-  gateLatticeSegments: 2000, // lines are OVERDRAW-EXEMPT (thin, 1 draw); the curtain needs ~1.2k strand-dashes
+  gateLatticeSegments: 3200, // lines are OVERDRAW-EXEMPT (thin, 1 draw); the smooth ribbon curtain needs ~2.5k strand segments
 };
 
 // Grandfathered legacy archetypes that predate the 150-tri target (their

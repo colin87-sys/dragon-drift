@@ -545,31 +545,40 @@ function buildVeilWisp(o, skin) {
   return { objects: [field, rim] };
 }
 
-// CURTAIN — a swaying veil of light-strands filling the lane, drawn back at the window.
+// CURTAIN — a swaying veil of light-RIBBONS filling the lane, drawn back at the window
+// (Fable's champion). Smooth, gently S-curved strands (no scratchy kinks), brightness
+// tapered to a SOFT fade at both ends (kills the hard top/bottom band seams), density
+// falling toward the window where the strands sweep aside — the parting doubles as an
+// arrow to the safe route.
 function buildVeilCurtain(o, skin) {
-  const hot = new THREE.Color(skin.edge), dim = new THREE.Color(skin.edge).multiplyScalar(0.33), _c = new THREE.Color();
+  const hot = new THREE.Color(skin.edge), dim = new THREE.Color(skin.edge).multiplyScalar(0.4), _c = new THREE.Color();
   const pos = [], col = [], phase = [], sway = [];
-  const N = 84, SEG = 15;
+  const N = 110, SEG = 26;
   for (let i = 0; i < N; i++) {
-    const x0 = -LX + (i + Math.random() * 0.6) / N * LX * 2, ph = Math.random() * 6.28;
-    const near = Math.max(0, 1 - Math.abs(x0 - o.gapX) / (o.gapW * 2.4)), amp = 0.35 + Math.random() * 0.45;
-    let px = null, py = null;
+    const x0 = -LX + (i + Math.random() * 0.5) / N * LX * 2, ph = Math.random() * 6.28;
+    const near = Math.max(0, 1 - Math.abs(x0 - o.gapX) / (o.gapW * 2.4));
+    const amp = 0.3 + Math.random() * 0.4;
+    const scurve = (0.5 + Math.random()) * (Math.random() < 0.5 ? -1 : 1);  // gentle per-strand S-bend
+    const bright = 0.7 + Math.random() * 0.5;
+    let px = null, py = null, pE = 0;
     for (let s = 0; s <= SEG; s++) {
-      const y = LTOP - s / SEG * LTOP, inWinY = y > o.gapY - o.gapH - 1 && y < o.gapY + o.gapH + 1;
-      const bow = (near > 0.1 && inWinY) ? near * (x0 < o.gapX ? -1 : 1) * o.gapW * 1.15 : near * (x0 < o.gapX ? -1 : 1) * o.gapW * 0.22;
-      const x = x0 + bow, skip = near > 0.12 && inWinY;
-      const pInWinY = py != null && (py > o.gapY - o.gapH - 1 && py < o.gapY + o.gapH + 1);
-      if (px != null && !skip && !(near > 0.12 && pInWinY)) {
+      const t = s / SEG, y = LTOP - t * LTOP;
+      const inWinY = y > o.gapY - o.gapH - 1.5 && y < o.gapY + o.gapH + 1.5;
+      const bow = (near > 0.1 && inWinY) ? near * (x0 < o.gapX ? -1 : 1) * o.gapW * 1.2 : near * (x0 < o.gapX ? -1 : 1) * o.gapW * 0.2;
+      const x = x0 + bow + Math.sin(t * Math.PI) * scurve;                  // smooth S-curve, zero at both ends
+      // soft brightness envelope: fades to 0 at top & bottom → no razor band edge
+      const env = Math.pow(Math.sin(t * Math.PI), 0.6) * bright;
+      const skip = near > 0.12 && inWinY;
+      if (px != null && !skip && pE > 0.02) {
         _c.copy(hot).lerp(dim, Math.min(_winDist(x - o.gapX, y - o.gapY, o) / 11, 1));
-        const b = 0.55 + 0.45 * Math.sin(s * 0.6 + ph);
-        pos.push(px, py, (Math.random() - 0.5) * 1.5, x, y, (Math.random() - 0.5) * 1.5);
-        col.push(_c.r * b, _c.g * b, _c.b * b, _c.r * b, _c.g * b, _c.b * b); phase.push(ph, ph); sway.push(amp, amp);
+        col.push(_c.r * pE, _c.g * pE, _c.b * pE, _c.r * env, _c.g * env, _c.b * env);
+        pos.push(px, py, 0, x, y, 0); phase.push(ph, ph); sway.push(amp, amp);
       }
-      px = x; py = y;
+      px = x; py = y; pE = env;
     }
   }
   const lines = new THREE.LineSegments(_veilGeo(pos, col, phase, sway, 'aSway'), veilLineMat);
-  return { objects: [lines, _veilMotes(o, skin, 130)] };
+  return { objects: [lines, _veilMotes(o, skin, 90)] };
 }
 
 // shared drifting motes for the swirl/curtain (soft additive spirits away from the window)
