@@ -14,6 +14,16 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 const _mkParams = (typeof window !== 'undefined' && window.location)
   ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const SKYFORGED = _mkParams.get('skyforged') !== '0';
+// Phase Gate VEIL STYLE — the serene-magical redesign of the "crystal wall" (the
+// full-lane barrier you thread the window in). Switchable for fly-testing:
+//   ?veil=swirl   — a slow luminous spiral into a calm eye (DEFAULT)
+//   ?veil=wisp    — a field of drifting spirits, the window a soft-lit eye
+//   ?veil=curtain — a swaying veil of light-strands, parted at the window
+//   ?veil=crystal — the prior faceted fresnel membrane (kept for A/B)
+// All fill the lane (no fly-around — the collider is unchanged), stay see-through
+// (lines/points), and are cheap (additive lines/points, no full-lane transparent fill).
+let veilStyle = _mkParams.get('veil') || 'swirl';
+export function setVeilStyle(s) { veilStyle = s; }   // studio/tests override
 
 // Hazards, spawned ahead and culled behind the dragon:
 //   pillar — floor spike (health damage)
@@ -107,6 +117,53 @@ function makeVeilMat(color, edge) {
   });
 }
 
+// Serene-veil animated materials (shared; one uTime write/frame). Additive light,
+// blooms in postfx, overdraw-cheap (thin lines / small round point sprites).
+// Per-vertex aColor carries the biome tint + the hot-near-window gradient.
+function makeVeilLineMat() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      attribute vec3 aColor; attribute float aPhase; attribute float aSway;
+      varying vec3 vCol; uniform float uTime;
+      void main(){
+        vCol = aColor;
+        vec3 p = position;
+        p.x += sin(uTime * 0.6 + aPhase + p.y * 0.14) * aSway;   // gentle strand sway (0 for the spiral)
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: `varying vec3 vCol; void main(){ gl_FragColor = vec4(vCol, 0.9); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+}
+function makeVeilPointMat() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      attribute vec3 aColor; attribute float aPhase; attribute float aSize;
+      varying vec3 vCol; uniform float uTime;
+      void main(){
+        vCol = aColor;
+        vec3 p = position;
+        p.x += sin(uTime * 0.45 + aPhase) * 0.7;                 // slow drift of each spirit
+        p.y += cos(uTime * 0.37 + aPhase * 1.3) * 0.55;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = aSize * (260.0 / max(0.1, -mv.z));
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      varying vec3 vCol;
+      void main(){
+        vec2 d = gl_PointCoord - 0.5; float r = dot(d, d);
+        if (r > 0.25) discard;
+        float a = smoothstep(0.25, 0.0, r);
+        gl_FragColor = vec4(vCol * a, a);
+      }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+}
+let veilLineMat = null, veilPointMat = null;   // built in initObstacles
+
 // Emissive glow line for the frame/ring/brackets — blooms in postfx.
 function makeEdgeMat(color, intensity) {
   return new THREE.MeshStandardMaterial({
@@ -180,6 +237,9 @@ export function initObstacles(s) {
   // colour carries the biome tint + the fly-here gradient). Fogged so distant lines
   // recede; overdraw-exempt, so it's free richness + the outer silhouette in one.
   latticeMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.92, fog: true });
+  // Serene-veil shared materials (curtain/swirl strands + wisp spirits).
+  veilLineMat = makeVeilLineMat();
+  veilPointMat = makeVeilPointMat();
   // FLOW "Sky Gate" signature — FIXED slip-cyan / ice-white in EVERY biome (never
   // edgeMats[bi]) so a flow run reads as its own distinct place, not a recoloured ring.
   // Shared: the whole run pulses together with the slipstream (updateObstacles). Opaque
@@ -424,6 +484,104 @@ function facetedPanel(w, h, T) {
   return { geo: g, lattice };
 }
 
+// ---- Serene veil STYLES: full-lane light barriers with a mandatory window (the
+// crystal-wall redesign). Each fills the lane box (±LX, 0..LTOP) around the
+// aperture, leaves the window clear, stays see-through (lines/points), and animates
+// via the shared veil shaders. Colour runs HOT (biome edge, blooms) near the window
+// → DIM biome tone at the periphery, so the window reads and the far field recedes.
+const LX = 16, LTOP = 24;
+function _veilGeo(pos, col, phase, extra, extraName) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aColor', new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute('aPhase', new THREE.Float32BufferAttribute(phase, 1));
+  g.setAttribute(extraName, new THREE.Float32BufferAttribute(extra, 1));
+  return g;
+}
+// distance from a window-relative point to the window rect (0 inside), for colour.
+function _winDist(rx, ry, o) { return Math.hypot(Math.max(Math.abs(rx) - o.gapW, 0), Math.max(Math.abs(ry) - o.gapH, 0)); }
+
+// SWIRL — a slow luminous spiral into a calm eye. Built eye-relative so the whole
+// thing rotates gently about the window (updateObstacles).
+function buildVeilSwirl(o, skin) {
+  const hot = new THREE.Color(skin.edge), dim = new THREE.Color(skin.edge).multiplyScalar(0.28), _c = new THREE.Color();
+  const pos = [], col = [], phase = [], sway = [];
+  const arms = 7;
+  for (let a = 0; a < arms; a++) {
+    const a0 = a / arms * Math.PI * 2; let px = null, py = null;
+    for (let t = 0; t < 80; t++) {
+      const rr = o.gapW + 0.9 + Math.pow(t, 1.14) * 0.2, th = a0 + t * 0.1;
+      const x = Math.cos(th) * rr, y = Math.sin(th) * rr * 0.95;
+      if (rr > 26) break;
+      if (px != null) {
+        _c.copy(hot).lerp(dim, Math.min(_winDist(x, y, o) / 12, 1));
+        const b = Math.max(0.16, 1 - t / 40);
+        pos.push(px, py, 0, x, y, 0); col.push(_c.r * b, _c.g * b, _c.b * b, _c.r * b, _c.g * b, _c.b * b); phase.push(0, 0); sway.push(0, 0);
+      }
+      px = x; py = y;
+    }
+  }
+  const lines = new THREE.LineSegments(_veilGeo(pos, col, phase, sway, 'aSway'), veilLineMat);
+  lines.position.set(o.gapX, o.gapY, 0);
+  const motes = _veilMotes(o, skin, 100);
+  return { objects: [lines, motes], spin: lines };
+}
+
+// WISP — a still field of drifting spirits filling the lane, the window a calm eye
+// ringed by a soft halo of brighter wisps.
+function buildVeilWisp(o, skin) {
+  const hot = new THREE.Color(skin.edge), dim = new THREE.Color(skin.edge).multiplyScalar(0.5), _c = new THREE.Color();
+  const pos = [], col = [], phase = [], size = [];
+  for (let i = 0; i < 480; i++) {
+    let x, y; do { x = -LX + Math.random() * LX * 2; y = Math.random() * LTOP; } while (Math.abs(x - o.gapX) < o.gapW && Math.abs(y - o.gapY) < o.gapH);
+    _c.copy(hot).lerp(dim, Math.min(_winDist(x - o.gapX, y - o.gapY, o) / 14, 1));
+    pos.push(x, y, (Math.random() - 0.5) * 9); col.push(_c.r, _c.g, _c.b); phase.push(Math.random() * 6.28); size.push(0.7 + Math.random() * 0.9);
+  }
+  const field = new THREE.Points(_veilGeo(pos, col, phase, size, 'aSize'), veilPointMat);
+  // bright halo of wisps hugging the window edge — draws the aperture
+  const rp = [], rc = [], rph = [], rs = [];
+  for (let i = 0; i < 80; i++) { const th = i / 80 * Math.PI * 2; rp.push(o.gapX + Math.cos(th) * (o.gapW + 0.4), o.gapY + Math.sin(th) * (o.gapH + 0.4), (Math.random() - 0.5) * 1.5); rc.push(hot.r, hot.g, hot.b); rph.push(Math.random() * 6.28); rs.push(1.3 + Math.random() * 0.5); }
+  const rim = new THREE.Points(_veilGeo(rp, rc, rph, rs, 'aSize'), veilPointMat);
+  return { objects: [field, rim] };
+}
+
+// CURTAIN — a swaying veil of light-strands filling the lane, drawn back at the window.
+function buildVeilCurtain(o, skin) {
+  const hot = new THREE.Color(skin.edge), dim = new THREE.Color(skin.edge).multiplyScalar(0.33), _c = new THREE.Color();
+  const pos = [], col = [], phase = [], sway = [];
+  const N = 84, SEG = 15;
+  for (let i = 0; i < N; i++) {
+    const x0 = -LX + (i + Math.random() * 0.6) / N * LX * 2, ph = Math.random() * 6.28;
+    const near = Math.max(0, 1 - Math.abs(x0 - o.gapX) / (o.gapW * 2.4)), amp = 0.35 + Math.random() * 0.45;
+    let px = null, py = null;
+    for (let s = 0; s <= SEG; s++) {
+      const y = LTOP - s / SEG * LTOP, inWinY = y > o.gapY - o.gapH - 1 && y < o.gapY + o.gapH + 1;
+      const bow = (near > 0.1 && inWinY) ? near * (x0 < o.gapX ? -1 : 1) * o.gapW * 1.15 : near * (x0 < o.gapX ? -1 : 1) * o.gapW * 0.22;
+      const x = x0 + bow, skip = near > 0.12 && inWinY;
+      const pInWinY = py != null && (py > o.gapY - o.gapH - 1 && py < o.gapY + o.gapH + 1);
+      if (px != null && !skip && !(near > 0.12 && pInWinY)) {
+        _c.copy(hot).lerp(dim, Math.min(_winDist(x - o.gapX, y - o.gapY, o) / 11, 1));
+        const b = 0.55 + 0.45 * Math.sin(s * 0.6 + ph);
+        pos.push(px, py, (Math.random() - 0.5) * 1.5, x, y, (Math.random() - 0.5) * 1.5);
+        col.push(_c.r * b, _c.g * b, _c.b * b, _c.r * b, _c.g * b, _c.b * b); phase.push(ph, ph); sway.push(amp, amp);
+      }
+      px = x; py = y;
+    }
+  }
+  const lines = new THREE.LineSegments(_veilGeo(pos, col, phase, sway, 'aSway'), veilLineMat);
+  return { objects: [lines, _veilMotes(o, skin, 130)] };
+}
+
+// shared drifting motes for the swirl/curtain (soft additive spirits away from the window)
+function _veilMotes(o, skin, n) {
+  const c = new THREE.Color(skin.mote), pos = [], col = [], phase = [], size = [];
+  for (let i = 0; i < n; i++) {
+    let x, y; do { x = -LX + Math.random() * LX * 2; y = Math.random() * LTOP; } while (Math.abs(x - o.gapX) < o.gapW && Math.abs(y - o.gapY) < o.gapH);
+    pos.push(x, y, (Math.random() - 0.5) * 7); col.push(c.r, c.g, c.b); phase.push(Math.random() * 6.28); size.push(0.5 + Math.random() * 0.7);
+  }
+  return new THREE.Points(_veilGeo(pos, col, phase, size, 'aSize'), veilPointMat);
+}
+
 function buildGate(o, biOverride) {
   const group = new THREE.Group();
   group.userData.phaseGate = true;   // tag: lets tooling hide the harness-interleaved Phase Gate reliably
@@ -443,10 +601,15 @@ function buildGate(o, biOverride) {
   const W = o.gapW * 2;
   const H = o.gapH * 2;
 
-  // Layer 3 — translucent phase field (faceted crystal panels) + the crystalline
-  // LATTICE (Layer 1 duty folded in). Each panel contributes its facet-crease +
-  // outline edges to a single merged LineSegments (the crack network), so the
-  // veil reads as grown crystal and gets a hard silhouette on any sky.
+  // Layer 3 — the VEIL: the full-lane barrier you thread the window in. Default is a
+  // serene light barrier (swirl/wisp/curtain — the crystal-wall redesign); ?veil=crystal
+  // keeps the prior faceted fresnel membrane + crack-lattice for A/B.
+  if (veilStyle !== 'crystal') {
+    const veil = (veilStyle === 'wisp') ? buildVeilWisp(o, skin)
+      : (veilStyle === 'curtain') ? buildVeilCurtain(o, skin) : buildVeilSwirl(o, skin);
+    for (const obj of veil.objects) group.add(obj);
+    if (veil.spin) group.userData.veilSpin = veil.spin;
+  } else {
   const latPos = [];
   const panel = (w, h, cx, cy) => {
     if (w <= 0.1 || h <= 0.1) return;
@@ -480,6 +643,7 @@ function buildGate(o, biOverride) {
   latGeo.setAttribute('position', new THREE.Float32BufferAttribute(latPos, 3));
   latGeo.setAttribute('color', new THREE.Float32BufferAttribute(latCol, 3));
   group.add(new THREE.LineSegments(latGeo, latticeMat));
+  }
 
   const bar = (w, h, cx, cy, mat, z) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), mat);
@@ -544,17 +708,22 @@ function buildGate(o, biOverride) {
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   moteMat.userData.perInstance = true;
-  const moteGeo = new THREE.PlaneGeometry(0.45, 0.45);
   const motes = [];
-  for (let i = 0; i < 7; i++) {
-    const m = new THREE.Mesh(moteGeo, moteMat);
-    const mx = o.gapX + (Math.random() * 2 - 1) * (X * 0.7);
-    const my = 2 + Math.random() * (TOP - 4);
-    m.position.set(mx, my, 0.4);
-    m.userData = { baseX: mx, baseY: my, phase: Math.random() * Math.PI * 2, sp: 0.5 + Math.random() * 0.7 };
-    m.layers.set(1);
-    group.add(m);
-    motes.push(m);
+  // The legacy drifting mesh-motes are the crystal style's atmosphere; the serene
+  // light styles bring their own additive spirits, and the additive budget is tight
+  // (core + beacon + the style's points must stay ≤ the cap), so skip them there.
+  if (veilStyle === 'crystal') {
+    const moteGeo = new THREE.PlaneGeometry(0.45, 0.45);
+    for (let i = 0; i < 7; i++) {
+      const m = new THREE.Mesh(moteGeo, moteMat);
+      const mx = o.gapX + (Math.random() * 2 - 1) * (X * 0.7);
+      const my = 2 + Math.random() * (TOP - 4);
+      m.position.set(mx, my, 0.4);
+      m.userData = { baseX: mx, baseY: my, phase: Math.random() * Math.PI * 2, sp: 0.5 + Math.random() * 0.7 };
+      m.layers.set(1);
+      group.add(m);
+      motes.push(m);
+    }
   }
   group.userData.motes = motes;
   group.userData.rise = skin.rise;
@@ -573,12 +742,14 @@ export function buildStudioGate(bi = 0) {
   if (!veilMats) initObstacles({ add() {}, remove() {} });
   const g = buildGate({ dist: 0, gapX: 0, gapY: 11, gapW: 3.8, gapH: 3.4, thick: 1.5 }, bi);
   if (g.userData.core) g.userData.core.material.opacity = 0.5;
-  if (g.userData.beacon) g.userData.beacon.material.opacity = 0.22;
+  if (g.userData.beacon) g.userData.beacon.visible = false;   // the far-range locator pillar distracts the close veil read
   return g;
 }
 // Drive the veil shimmer (uTime) for the studio — called per frame by the driver.
 export function studioGateTick(t) {
   if (veilMats) for (const m of veilMats) m.uniforms.uTime.value = t;
+  if (veilLineMat) veilLineMat.uniforms.uTime.value = t;
+  if (veilPointMat) veilPointMat.uniforms.uTime.value = t;
 }
 
 // --- Sky Canyon rock gates -------------------------------------------------
@@ -1032,6 +1203,8 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
   // Phase Gate: flow the veil shimmer (shared per biome) and give the aperture
   // ring a gentle, speed-aware breath. Six writes each — negligible.
   for (const m of veilMats) m.uniforms.uTime.value = time;
+  if (veilLineMat) veilLineMat.uniforms.uTime.value = time;   // serene-veil strand sway
+  if (veilPointMat) veilPointMat.uniforms.uTime.value = time; // serene-veil spirit drift
   for (const m of edgeMats) m.emissiveIntensity = (1.25 + Math.sin(time * 2.4) * 0.18) * (1 + 0.4 * sn);
   // FLOW gate: the whole run's light BREATHES with the slipstream (slipMix 0..1).
   // WINDVAULT: two shared uniform writes drive the light climbing the arch (uFlow) +
@@ -1083,6 +1256,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
       }
       const ud = e.object.userData;
       const dz = e.dist - playerDist;
+      if (ud.veilSpin) ud.veilSpin.rotation.z = time * 0.12;   // serene SWIRL: a slow, calm rotation about the eye
       // Beacon: brightest far out, fades off as you arrive so it never blinds
       // the route up close.
       if (ud.beacon) {
