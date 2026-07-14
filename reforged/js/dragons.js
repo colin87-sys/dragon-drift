@@ -687,6 +687,7 @@ export const DRAGONS = {
     // per §4.4). Wings stay BLACK on Surge (silhouette owns the frame; the heart + gaps
     // carry the light), a low grave-green screen wash, grave-green pinpoint eyes.
     feverWing: 0x000000, feverEye: 0x9af08a, feverWash: [0.03, 0.10, 0.03], surgeMotes: true,
+    feverAuraScale: 0.5,   // Fable gate: the Surge green ground-wash on the water read LARGER + brighter than the dragon itself and collided with the collectible-ring green — halve the aura disc so the flood never exceeds the silhouette; the ignite budget stays in the heart/gaps/sockets (the lantern), not a lamp on the water.
     hideRiderGlow: true,
     wingEmissive: 0x000000,   // cruise membrane emissive EXPLICITLY black (light is the heart, never the wing)
     body: 0xd6d8dd, belly: 0xb4b6bc,
