@@ -36,7 +36,8 @@ const markerFlow = { value: 0 };            // per-ROLE 0..1 driver (gate: slipM
 const markerTime = { value: 0 };            // globally shared clock (one write/frame)
 let gateFrameMats = null;                   // Phase Gate aperture frame — one per biome (Skyforged)
 const gateFlowRef = { value: 0 };           // gate-frame heat ← speedNorm (NEVER markerFlow — that's the flow slip)
-let rimMats = null;  // dim outer silhouette frame (secondary)
+let rimMats = null;  // dim outer silhouette frame (secondary) — retired by the crack-lattice
+let latticeMat = null; // shared crystalline crack-lattice (vertexColors hot→dark; overdraw-exempt lines)
 const entries = [];
 export const colliders = entries; // same objects, same array
 
@@ -175,6 +176,10 @@ export function initObstacles(s) {
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
   edgeMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 1.4));
   rimMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 0.5));
+  // The crystalline crack-lattice — ONE shared line material (per-vertex hot→dark
+  // colour carries the biome tint + the fly-here gradient). Fogged so distant lines
+  // recede; overdraw-exempt, so it's free richness + the outer silhouette in one.
+  latticeMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.92, fog: true });
   // FLOW "Sky Gate" signature — FIXED slip-cyan / ice-white in EVERY biome (never
   // edgeMats[bi]) so a flow run reads as its own distinct place, not a recoloured ring.
   // Shared: the whole run pulses together with the slipstream (updateObstacles). Opaque
@@ -363,11 +368,11 @@ export function addObstacle(o) {
 // triangle's three verts). Non-indexed → computeVertexNormals yields true flat
 // facet normals. Uses Math.random like the motes below (a gate's VISUAL detail is
 // not determinism-tracked — the fixture tracks gameplay state, not mesh jitter).
-function facetedPanelGeo(w, h, T) {
+function facetedPanel(w, h, T) {
   const nx = Math.max(1, Math.round(w / 3.0));
   const ny = Math.max(1, Math.round(h / 3.0));
   const cw = w / nx, ch = h / ny;
-  const gv = [];
+  const V = [];
   for (let j = 0; j <= ny; j++) {
     for (let i = 0; i <= nx; i++) {
       const edge = (i === 0 || i === nx || j === 0 || j === ny);
@@ -377,27 +382,46 @@ function facetedPanelGeo(w, h, T) {
         y += (Math.random() - 0.5) * 0.6 * ch;
         z += (Math.random() - 0.5) * 0.84 * T;   // within the ±T/2 slab, never into the gap (panels sit outside it)
       }
-      gv.push(x, y, z);
+      V.push({ x, y, z });
     }
   }
-  const idx = (i, j) => (j * (nx + 1) + i) * 3;
-  const pos = [], facet = [];
-  const pushTri = (a, b, c) => {
-    const f = Math.random();
-    for (const k of [a, b, c]) { pos.push(gv[k], gv[k + 1], gv[k + 2]); facet.push(f); }
+  const vid = (i, j) => j * (nx + 1) + i;
+  const norm = (a, b, c) => {
+    const A = V[a], B = V[b], C = V[c];
+    const ux = B.x - A.x, uy = B.y - A.y, uz = B.z - A.z, vx = C.x - A.x, vy = C.y - A.y, vz = C.z - A.z;
+    let nx2 = uy * vz - uz * vy, ny2 = uz * vx - ux * vz, nz2 = ux * vy - uy * vx;
+    const l = Math.hypot(nx2, ny2, nz2) || 1; return [nx2 / l, ny2 / l, nz2 / l];
   };
+  const tris = [];
   for (let j = 0; j < ny; j++) {
     for (let i = 0; i < nx; i++) {
-      const a = idx(i, j), b = idx(i + 1, j), c = idx(i + 1, j + 1), d = idx(i, j + 1);
-      if ((i + j) % 2 === 0) { pushTri(a, b, c); pushTri(a, c, d); }
-      else { pushTri(a, b, d); pushTri(b, c, d); }
+      const a = vid(i, j), b = vid(i + 1, j), c = vid(i + 1, j + 1), d = vid(i, j + 1);
+      if ((i + j) % 2 === 0) { tris.push([a, b, c]); tris.push([a, c, d]); }
+      else { tris.push([a, b, d]); tris.push([b, c, d]); }
     }
   }
+  const triN = tris.map((t) => norm(t[0], t[1], t[2]));
+  // Edge → adjacent triangles, to select the crystalline LATTICE: boundary edges
+  // (mesh outline = the gate silhouette) + interior edges whose dihedral angle
+  // exceeds ~9° (the facet crease network — line and shade agree → one material).
+  const emap = new Map();
+  const ek = (p, q) => (p < q ? p * 100000 + q : q * 100000 + p);
+  tris.forEach((t, ti) => { for (const [p, q] of [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]]) { const k = ek(p, q); (emap.get(k) || emap.set(k, []).get(k)).push(ti); } });
+  const lattice = [];
+  const cosThresh = Math.cos(9 * Math.PI / 180);
+  for (const [k, adj] of emap) {
+    const p = Math.floor(k / 100000), q = k % 100000;
+    let emit = adj.length === 1;   // boundary/outline edge
+    if (adj.length === 2) { const n0 = triN[adj[0]], n1 = triN[adj[1]]; if (n0[0] * n1[0] + n0[1] * n1[1] + n0[2] * n1[2] < cosThresh) emit = true; }
+    if (emit) { const A = V[p], B = V[q]; lattice.push(A.x, A.y, A.z, B.x, B.y, B.z); }
+  }
+  const pos = [], facet = [];
+  for (const t of tris) { const f = Math.random(); for (const vi of t) { const P = V[vi]; pos.push(P.x, P.y, P.z); facet.push(f); } }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('aFacet', new THREE.Float32BufferAttribute(facet, 1));
   g.computeVertexNormals();
-  return g;
+  return { geo: g, lattice };
 }
 
 function buildGate(o, biOverride) {
@@ -419,31 +443,49 @@ function buildGate(o, biOverride) {
   const W = o.gapW * 2;
   const H = o.gapH * 2;
 
-  // Layer 3 — translucent phase field (veil panels around the aperture).
+  // Layer 3 — translucent phase field (faceted crystal panels) + the crystalline
+  // LATTICE (Layer 1 duty folded in). Each panel contributes its facet-crease +
+  // outline edges to a single merged LineSegments (the crack network), so the
+  // veil reads as grown crystal and gets a hard silhouette on any sky.
+  const latPos = [];
   const panel = (w, h, cx, cy) => {
     if (w <= 0.1 || h <= 0.1) return;
-    const mesh = new THREE.Mesh(facetedPanelGeo(w, h, T), veilMat);
+    const { geo, lattice } = facetedPanel(w, h, T);
+    const mesh = new THREE.Mesh(geo, veilMat);
     mesh.position.set(cx, cy, 0);
     group.add(mesh);
+    for (let i = 0; i < lattice.length; i += 3) latPos.push(lattice[i] + cx, lattice[i + 1] + cy, lattice[i + 2]);
   };
   panel(left + X, TOP, (left - X) / 2, TOP / 2); // left of gap
   panel(X - right, TOP, (right + X) / 2, TOP / 2); // right of gap
   panel(right - left, TOP - top, o.gapX, (top + TOP) / 2); // above gap
   panel(right - left, bottom, o.gapX, bottom / 2); // below gap
 
+  // The crack-lattice colours: HOT (biome edge) within ~1.5 cells of the aperture
+  // — reinforcing "fly here" and blooming — falling to a DARK biome tone at the
+  // periphery, which reads as a crisp silhouette even where the glow is invisible
+  // on a bright sky (the Frozen legibility fix). Replaces the 4 hairline rim bars.
+  const hot = new THREE.Color(skin.edge);
+  const dark = new THREE.Color(skin.edge).multiplyScalar(0.26);
+  const latCol = [];
+  const _lc = new THREE.Color();
+  for (let i = 0; i < latPos.length; i += 3) {
+    const dx = Math.max(Math.abs(latPos[i] - o.gapX) - o.gapW, 0);
+    const dy = Math.max(Math.abs(latPos[i + 1] - o.gapY) - o.gapH, 0);
+    const t = Math.min(Math.hypot(dx, dy) / 8, 1);
+    _lc.copy(hot).lerp(dark, t);
+    latCol.push(_lc.r, _lc.g, _lc.b);
+  }
+  const latGeo = new THREE.BufferGeometry();
+  latGeo.setAttribute('position', new THREE.Float32BufferAttribute(latPos, 3));
+  latGeo.setAttribute('color', new THREE.Float32BufferAttribute(latCol, 3));
+  group.add(new THREE.LineSegments(latGeo, latticeMat));
+
   const bar = (w, h, cx, cy, mat, z) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), mat);
     mesh.position.set(cx, cy, z);
     group.add(mesh);
   };
-
-  // Layer 1 — outer silhouette frame: a slim, dim glowing rim around the whole
-  // span so the gate reads as an intentional portal from a distance (secondary
-  // in the hierarchy, hence rimMat's lower emissive).
-  bar(2 * X, 0.3, 0, TOP - 0.15, rimMat, 0.15);
-  bar(2 * X, 0.3, 0, 0.15, rimMat, 0.15);
-  bar(0.3, TOP, -X + 0.15, TOP / 2, rimMat, 0.15);
-  bar(0.3, TOP, X - 0.15, TOP / 2, rimMat, 0.15);
 
   // Layer 2 — aperture ring: the brightest element, framing the safe route. Skyforged (PR-4):
   // ONE faceted forged-glass frame with a hot inner LIP on the collider boundary (per biome),
