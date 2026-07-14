@@ -51,7 +51,14 @@ saturated compact objects; cyan stays Windvault/Crest-only).
   Gate 1+2; tools/aurorashot.mjs; bandshot; real-phone stress. Human judges MOTION on preview.
 - PR-2: append BIOMES[6] (full sheet) + 7th mats/tints/skins/palettes; CYCLE unchanged + `?biome=6` warp.
 - PR-3: floe/iceFang props + mirror-water tuning + hemi ground-glow pulse.
-- PR-4: THE FLIP — CYCLE=[0,1,2,3,4,6,5]. Owner flies the full cycle on preview. gold-determinism unaffected.
+- PR-4: THE FLIP — CYCLE=[0,1,2,3,4,6,5]. ✅ DONE. Owner flies the full cycle on preview. gold-determinism
+  unaffected. Also delivered (Fable cycle-integration plan): (a) **boss-free dream** — `snapBossDist`
+  lookahead-2 guard + trigger guard + foreshadow-toll mute (fights TRAVEL 2-5 blocks, so the block-before is
+  suppressed too); (b) **smooth seams** — `auroraMix` gets its OWN wider ramp (450m in / 300m out) in
+  computeEnv, branch-gated to byte-identity elsewhere, + a continuous god-ray gate (no 0.5-threshold pop);
+  (c) run length kept at 1500m (~30-45s dream; ~50-70s boss-free), with `[0,1,2,3,4,6,6,5]` double-block as a
+  one-line data dial if the owner wants it longer. Tests: `auroraflip.mjs` (new), `biomecycle.mjs`/`aurora.mjs
+  §6` rewritten (the "no cycled biome lights aurora" assert flips), `tools/auroseam.mjs` (new seam filmstrip).
 - PR-5 (default-off CONFIG.flowBiomeBias=0): biome-weighted canyonTypeWeights through the single
   canyonRnd draw (flow-heavy in biome 6). Re-pins canyonframe knowingly when flipped.
 - PR-6+: veil hazard; THE SKYWEFT anchor (own session); aurora audio bed; horizon foreshadow.

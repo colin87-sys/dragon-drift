@@ -354,6 +354,7 @@ if (urlParams.has('debug')) {
     // Aurora capture seams: pin activity/eruption (null restores the live envelope) for the montage tools.
     setAuroraAct: setAuroraActOverride,
     setAuroraErupt: setAuroraEruptOverride,
+    auroraMix: () => auroraMix(),   // read-only: live curtain strength (the seam filmstrip reads the ramp)
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
     audioHealth: () => getAudioHealth(),
     postfx: { setPostTier, setPostMSAA, kick, kickState, handle: postfx },
@@ -1764,8 +1765,10 @@ function tick() {
     camera.getWorldDirection(_camFwd);
     // Aurora nights have no sun → no light-shafts. Gate the god-ray pass off both for the ?aurora=1
     // preview AND for a real aurora biome (auroraMix high), else the moon's shafts blow a white fan
-    // across the dark sky. In non-aurora biomes auroraMix is 0 → shipped behavior (byte-identical).
-    const sunFacing = (auroraForced() || auroraMix() > 0.5) ? 0 : _camFwd.dot(SUN_DIR);
+    // across the dark sky. CONTINUOUS gate (PR-4): fade the shafts out as auroraMix ramps up rather
+    // than snapping at 0.5 — the old threshold popped mid-seam (Mire has dim live shafts). Identity
+    // when mix is 0 (every non-aurora biome, byte-identical); fully off by mix 0.5 (same endpoint).
+    const sunFacing = auroraForced() ? 0 : _camFwd.dot(SUN_DIR) * (1 - Math.min(1, auroraMix() * 2));
     if (sunFacing > 0.05) {
       _sunProj.copy(SUN_DIR).add(camera.position).project(camera);
       // N9: ease the shafts down as clouds drift across the sun (damped in env;
