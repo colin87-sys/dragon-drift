@@ -27,6 +27,16 @@ let activeRider = null;
 const WING_DEBUG = (typeof location !== 'undefined' && location.search)
   ? new URLSearchParams(location.search).get('wingDebug') : null;
 let wingDebugLogged = false;
+
+// `?strikePin=<t01>` STRIKE-PIN passthrough (TEMPEST §B.4b): freezes the shared
+// js/pulseTimer.js strike clock at a named phase so timed-spectacle captures are
+// pixel-comparable round-over-round (the MARROWCOIL determinism law extended to timed
+// spectacle). 0 = the standing/rest frame (no strike), 0.5 = a mid-window strike peak.
+// Parsed module-scope exactly like ?wingDebug; the guarded storm tick that reads it and
+// drives the Storm Circuit lands with the lightning at I4 (at I0 the Tempest has no timer
+// wired yet — this is the tooling landing before the geometry it captures, per §B.7 I0).
+const STRIKE_PIN = (typeof location !== 'undefined' && location.search && new URLSearchParams(location.search).has('strikePin'))
+  ? Number(new URLSearchParams(location.search).get('strikePin')) : null;
 let bodyFlapLift = 0;   // flap-coupled body pitch (chest lift at apex / compress on downstroke); set by the yoke solver
 
 let group = null;
