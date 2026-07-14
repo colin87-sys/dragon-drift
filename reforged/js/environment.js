@@ -531,7 +531,7 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.14, 0.26), { x: -0.18, z: 0.10, y: 0.88, ry: 0.8 }) },    // stepped block (tabular banding)
       { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.72, 0.09), { x: 0.30, z: 0.02, y: 0.50, rz: 0.02 }) },    // cyan crevasse seam on the GAP-FACING inner face
     ], 2),
-    place: (side, rnd) => ({ x: side * (24 + rnd() * 3), h: 36 + rnd() * 6, r: 7 + rnd() * 2, tilt: side * (-0.03 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }),
+    place: (side, rnd) => ({ x: side * (25 + rnd() * 3), h: 50 + rnd() * 14, r: 8 + rnd() * 2, tilt: side * (-0.03 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }), // COLOSSAL (h 50-64) so it towers over the congregation; inner edge 25-0.58·10-lean ≥ 17
   },
 };
 
@@ -563,6 +563,47 @@ for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHET
 // through this one narrow, side-effect-free window instead. Calling it merely
 // lazily initialises the SAME `propMats` the game builds (no canvas/renderer
 // needed) — it changes nothing about runtime behaviour.
+// --- Studio export (tools/propstudio) — BEHAVIOR-INERT ----------------------
+// Builds ONE archetype as a live THREE.Mesh (or the L+R pair for a `paired`
+// hero) at a representative in-game instance scale (r,h,r), base at y=0, so a
+// prop can be judged in ISOLATION in a neutral studio (the dragonstudio pattern
+// applied to props). Uses a FIXED mid-range rnd so the render is reproducible.
+// The nonuniform (r,h,r) scale is applied exactly as writeMatrix does — that
+// shear IS part of how the prop reads in-game, so the studio must not hide it.
+// Never imported by the running game; like propDiag it just lazily builds the
+// SAME propMats the game builds.
+export function buildArchetypeMesh(key, opts = {}) {
+  if (!propMats) propMats = makeMats();
+  const def = ARCHETYPES[key];
+  if (!def) throw new Error('propstudio: no archetype "' + key + '"');
+  const group = new THREE.Group();
+  // Deterministic mid-range draw sequence (a real prop pulls 3-5 rnd()s per place()).
+  const seq = opts.rnd || [0.5, 0.35, 0.62, 0.5, 0.42, 0.58, 0.5, 0.48];
+  let ri = 0;
+  const rnd = () => seq[(ri++) % seq.length];
+  const makeOne = (side) => {
+    const { geometry, materials } = def.build();
+    const mesh = new THREE.Mesh(geometry, materials.length > 1 ? materials : materials[0]);
+    const p = def.place(side, rnd);
+    mesh.scale.set(p.r, p.h, p.r);          // world instance scale (r,h,r) — same as writeMatrix
+    // Paired hero: seat L/R at real ±x (gapScale 1 = honest in-game spacing; <1
+    // pulls the posts into a tighter doorway study). Single/non-paired: centre it.
+    const gs = opts.gapScale != null ? opts.gapScale : 1;
+    mesh.position.set(opts.single ? 0 : p.x * gs, 0, 0);
+    mesh.rotation.z = p.tilt || 0;
+    mesh.rotation.y = p.rotY != null ? p.rotY : 0;
+    group.add(mesh);
+  };
+  if (def.paired && opts.single !== true) { makeOne(-1); ri = 0; makeOne(1); }
+  else makeOne(1);
+  return group;
+}
+// The keys the studio iterates (the live Frozen kit), so the driver need not
+// hardcode a list that could drift from the roster.
+export function frozenPropKeys() {
+  return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(2)).map(([k]) => k);
+}
+
 export function propDiag() {
   if (!propMats) propMats = makeMats();
   return Object.entries(ARCHETYPES).map(([name, def]) => {
