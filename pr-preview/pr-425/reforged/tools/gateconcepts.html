@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Gate Concepts</title>
+  <title>Gate Barrier Concepts</title>
   <style>
     html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
     #gl{position:fixed;left:0;top:0}
@@ -26,160 +26,161 @@
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.25;
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 6000);
-    scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x40342a, 1.5));
-    const sun = new THREE.DirectionalLight(0xffc888, 2.6); sun.position.set(-3, 1.4, 4); scene.add(sun);
-    const rim = new THREE.DirectionalLight(0xffe0b0, 1.2); rim.position.set(3, 2.0, -3); scene.add(rim);
-    const fill = new THREE.DirectionalLight(0x9fc4ff, 0.6); fill.position.set(2, 0.5, 3); scene.add(fill);
+    const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 6000);
+    scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x40342a, 1.4));
+    const sun = new THREE.DirectionalLight(0xffc888, 2.4); sun.position.set(-3, 1.4, 4); scene.add(sun);
+    const rim = new THREE.DirectionalLight(0xffe0b0, 1.1); rim.position.set(3, 2, -3); scene.add(rim);
 
-    function gradTex(stops) {
-      const c = document.createElement('canvas'); c.width = 8; c.height = 256;
-      const g = c.getContext('2d'); const grd = g.createLinearGradient(0, 0, 0, 256);
-      for (const [p, col] of stops) grd.addColorStop(p, col);
-      g.fillStyle = grd; g.fillRect(0, 0, 8, 256);
-      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-    }
-    scene.background = gradTex([[0, '#241f47'], [0.42, '#7a4a86'], [0.6, '#e07a4a'], [0.8, '#ffb060'], [1, '#ffd89a']]);
+    function gradTex(stops){ const c=document.createElement('canvas'); c.width=8; c.height=256; const g=c.getContext('2d'); const grd=g.createLinearGradient(0,0,0,256); for(const[p,col]of stops)grd.addColorStop(p,col); g.fillStyle=grd; g.fillRect(0,0,8,256); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
+    scene.background = gradTex([[0,'#241f47'],[0.42,'#7a4a86'],[0.6,'#e07a4a'],[0.8,'#ffb060'],[1,'#ffd89a']]);
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshStandardMaterial({color:0x2a3a54,roughness:0.2,metalness:0.4}));
+    water.rotation.x=-Math.PI/2; scene.add(water);
 
-    // Mirror-ish water: a dark plane at y=0. Reflection is faked by a mirrored clone
-    // of the gate group (scale.y=-1) at reduced brightness — enough to read grounding.
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000),
-      new THREE.MeshStandardMaterial({ color: 0x2a3a54, roughness: 0.2, metalness: 0.4 }));
-    water.rotation.x = -Math.PI / 2; water.position.y = 0; scene.add(water);
+    // The lane the barrier must fill, and the mandatory window in it.
+    const LANE = { hx: 16, top: 24 };
+    const WIN = { cx: 0, cy: 11, hw: 4.4, hh: 3.8 };
+    const inWinX = (x) => Math.abs(x - WIN.cx) < WIN.hw + 0.6;
 
-    // ---- shared material helpers ----
-    const stone = (c) => new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.7, metalness: 0.05 });
-    // glow = UNLIT bright colour (no bloom in this throwaway studio, so simulate it):
-    // reads as a light source even without post-processing.
+    const stone = (c) => new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.65, metalness: 0.05 });
     const glowM = (c) => new THREE.MeshBasicMaterial({ color: c });
-    const lineM = (c) => new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: 0.95 });
-    const jitterBox = (w, h, d, jit = 0.06) => {
-      const g = new THREE.BoxGeometry(w, h, d, 2, 3, 1).toNonIndexed();
-      const p = g.getAttribute('position');
-      for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) + (Math.random() - .5) * jit * w, p.getY(i) + (Math.random() - .5) * jit * h, p.getZ(i) + (Math.random() - .5) * jit * d);
-      g.computeVertexNormals(); return g;
-    };
+    const lineMat = () => new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95 });
+    const R = () => Math.random();
 
-    // ==== CONCEPT 1: WAYSTONE — leaning monoliths + cracked lintel + runes ====
-    function waystone(tint) {
+    // A hazard "behind" the barrier (a glowing ring + dark massifs) to PROVE the
+    // route beyond stays visible through the see-through barrier.
+    function hazardBehind() {
       const g = new THREE.Group();
-      const rock = stone(0x525a6e), rune = glowM(tint, 1.8);
-      for (const s of [-1, 1]) {
-        const col = new THREE.Mesh(jitterBox(6, 30, 5), rock);
-        col.position.set(s * 11, 15, 0); col.rotation.z = -s * 0.06; g.add(col);
-        // recessed glowing rune channel on the inner face
-        for (let k = 0; k < 4; k++) {
-          const r = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.2, 0.4), rune);
-          r.position.set(s * 8.3, 6 + k * 6, 2.4); g.add(r);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.5, 8, 32), new THREE.MeshBasicMaterial({ color: 0x66ff9e }));
+      ring.position.set(7, 9, -46); g.add(ring);
+      for (const p of [[-26, 5, -70, 12], [30, 6, -60, 14], [-6, 4, -95, 20]]) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(p[3], p[3] * 2.4, p[3]), stone(0x2c3346));
+        m.position.set(p[0], p[1] + p[3] * 1.2, p[2]); g.add(m);
+      }
+      return g;
+    }
+
+    // ==== 1. FANG PORTCULLIS — interleaved faceted fangs fill the lane ====
+    function fangPortcullis(tint) {
+      const g = new THREE.Group(); const rock = stone(0x6a7488), glow = glowM(tint);
+      const pitch = 2.5;
+      for (let x = -LANE.hx + 1; x <= LANE.hx - 1; x += pitch) {
+        for (const dir of [1, -1]) {                       // 1 = top (points down), -1 = bottom (points up)
+          const xx = x + (dir < 0 ? pitch / 2 : 0);
+          if (Math.abs(xx) > LANE.hx) continue;
+          const win = inWinX(xx);
+          const base = dir === 1 ? LANE.top : 0;
+          let L = win ? (dir === 1 ? LANE.top - (WIN.cy + WIN.hh) : WIN.cy - WIN.hh) : 15.5 + R() * 2.5;
+          if (L < 1) continue;
+          const cone = new THREE.Mesh(new THREE.ConeGeometry(1.25, L, 6), rock);
+          cone.position.set(xx, base - dir * L / 2, (R() - 0.5) * 3.2);
+          if (dir === 1) cone.rotation.z = Math.PI;         // tip points down
+          cone.rotation.y = R() * 0.6; g.add(cone);
+          if (win) { const cap = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 0), glow); cap.position.set(xx, dir === 1 ? WIN.cy + WIN.hh : WIN.cy - WIN.hh, cone.position.z); g.add(cap); }
         }
       }
-      // cracked lintel (two offset chunks, a gap between)
-      for (const s of [-1, 1]) {
-        const l = new THREE.Mesh(jitterBox(11, 4.5, 5.5), rock);
-        l.position.set(s * 6.2, 30.5, 0); l.rotation.z = s * 0.03; g.add(l);
+      return g;
+    }
+
+    // ==== 2. PARTED RAIN — full-lane strand curtain, tied back at the window ====
+    function partedRain(tint) {
+      const g = new THREE.Group(); const pos = [], col = [];
+      const hot = new THREE.Color(tint), dim = new THREE.Color(tint).multiplyScalar(0.5);
+      for (let i = 0; i < 150; i++) {
+        const x0 = -LANE.hx + R() * LANE.hx * 2;
+        // strands near the window bow outward to the window's side edges (tie-back)
+        const near = Math.max(0, 1 - Math.abs(x0 - WIN.cx) / (WIN.hw * 2.2));
+        const dashN = 7;
+        for (let d = 0; d < dashN; d++) {
+          const y1 = LANE.top - (d / dashN) * LANE.top, y2 = y1 - LANE.top / dashN * 0.55;
+          const inWinY = (y) => y > WIN.cy - WIN.hh && y < WIN.cy + WIN.hh;
+          if (near > 0.15 && inWinY((y1 + y2) / 2)) continue;      // window is held open (no strands)
+          const bow = near * (x0 < WIN.cx ? -1 : 1) * WIN.hw * 0.9;
+          const c = d % 2 ? hot : dim;
+          pos.push(x0 + bow, y1, (R() - 0.5) * 2, x0 + bow, y2, (R() - 0.5) * 2);
+          col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+        }
       }
-      // floating broken chunks near the lintel
-      for (let k = 0; k < 5; k++) {
-        const c = new THREE.Mesh(new THREE.TetrahedronGeometry(1.1 + Math.random()), rock);
-        c.position.set((Math.random() - .5) * 16, 33 + Math.random() * 6, (Math.random() - .5) * 4);
-        c.rotation.set(Math.random(), Math.random(), Math.random()); g.add(c);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      g.add(new THREE.LineSegments(geo, lineMat()));
+      // two bright bundle tie-backs at the window's vertical edges
+      for (const s of [-1, 1]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.55, WIN.hh * 2.3, 5), glowM(tint)); b.position.set(WIN.cx + s * WIN.hw, WIN.cy, 0.5); b.rotation.z = s * 0.12; g.add(b); }
+      return g;
+    }
+
+    // ==== 3. HELD SHATTER — frozen explosion of shards, radial toward the void ====
+    function heldShatter(tint) {
+      const g = new THREE.Group(); const rock = stone(0x5a6274), hotM = glowM(tint);
+      for (let i = 0; i < 150; i++) {
+        const x = -LANE.hx + R() * LANE.hx * 2, y = R() * LANE.top;
+        const dx = x - WIN.cx, dy = y - WIN.cy, dist = Math.hypot(dx, dy);
+        if (dist < WIN.hw + 1.2 && Math.abs(dx) < WIN.hw && Math.abs(dy) < WIN.hh) continue; // clear the window
+        const near = dist < WIN.hw + 3.5;
+        const sz = near ? 0.4 + R() * 0.4 : 0.7 + R() * 1.6 * Math.min(dist / 12, 1);
+        const sh = new THREE.Mesh(new THREE.TetrahedronGeometry(sz), near ? hotM : rock);
+        sh.position.set(x, y, (R() - 0.5) * 6);
+        sh.rotation.set(R() * 3, Math.atan2(dy, dx), R() * 3);       // long axis roughly radial
+        g.add(sh);
       }
       return g;
     }
 
-    // ==== CONCEPT 2: ASTROLABE — concentric broken rings + orbiting plates ====
-    function astrolabe(tint) {
-      const g = new THREE.Group(); const cy = 15;
-      const ringR = [13, 18, 23];
-      ringR.forEach((R, i) => {
-        const arc = Math.PI * (1.3 + i * 0.15);
-        const t = new THREE.Mesh(new THREE.TorusGeometry(R, 0.9, 6, 40, arc), stone(0x3a4358));
-        t.position.set(0, cy, 0); t.rotation.z = i * 1.1; g.add(t);
-        // emissive inlay (thinner bright torus, same arc)
-        const inlay = new THREE.Mesh(new THREE.TorusGeometry(R, 0.28, 6, 40, arc), glowM(tint, 2.0));
-        inlay.position.set(0, cy, 0); inlay.rotation.z = i * 1.1; g.add(inlay);
-        // line orbit circle
-        const pts = []; for (let a = 0; a <= 48; a++) { const th = a / 48 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(th) * R, cy + Math.sin(th) * R, 0)); }
-        g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineM(tint)));
-      });
-      // orbiting rune-plates
-      for (let k = 0; k < 10; k++) {
-        const R = 13 + Math.random() * 12, th = Math.random() * Math.PI * 2;
-        const pl = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 0.4), glowM(tint, 1.4));
-        pl.position.set(Math.cos(th) * R, cy + Math.sin(th) * R, (Math.random() - .5) * 2);
-        pl.rotation.z = th; g.add(pl);
+    // ==== 4. MAELSTROM IRIS — spiral of line-streaks converging on the window ====
+    function maelstromIris(tint) {
+      const g = new THREE.Group(); const pos = [], col = [];
+      const hot = new THREE.Color(tint), dim = new THREE.Color(tint).multiplyScalar(0.35);
+      const arms = 5;
+      for (let a = 0; a < arms; a++) {
+        const a0 = a / arms * Math.PI * 2;
+        let px = null, py = null;
+        for (let t = 0; t < 60; t++) {
+          const rr = WIN.hw + 0.5 + t * 0.42, th = a0 + t * 0.16;
+          const x = WIN.cx + Math.cos(th) * rr, y = WIN.cy + Math.sin(th) * rr * 0.95;
+          if (Math.abs(x) > LANE.hx + 2 || y < -1 || y > LANE.top + 3) break;
+          if (px != null) {
+            const c = new THREE.Color().copy(dim).lerp(hot, Math.max(0, 1 - t / 18));
+            pos.push(px, py, -rr * 0.5, x, y, -rr * 0.5); col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+          }
+          px = x; py = y;
+          if (t % 9 === 4) { const sh = new THREE.Mesh(new THREE.TetrahedronGeometry(0.5 + R()), stone(0x5a6274)); sh.position.set(x, y, -rr * 0.5); sh.rotation.set(R() * 3, R() * 3, R() * 3); g.add(sh); }
+        }
       }
+      // faint connecting cross-threads for density (still see-through)
+      for (let i = 0; i < 40; i++) { const th = R() * Math.PI * 2, rr = WIN.hw + 2 + R() * 12; const x = WIN.cx + Math.cos(th) * rr, y = WIN.cy + Math.sin(th) * rr * 0.95; if (Math.abs(x) > LANE.hx || y < 0 || y > LANE.top) continue; const c = dim; pos.push(x, y, 0, WIN.cx + Math.cos(th) * (rr - 2.5), WIN.cy + Math.sin(th) * (rr - 2.5) * 0.95, 0); col.push(c.r, c.g, c.b, c.r, c.g, c.b); }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      g.add(new THREE.LineSegments(geo, lineMat()));
       return g;
     }
 
-    // ==== CONCEPT 3: NIGHTBLOOM — iris of petals (opened) + glowing veins ====
-    function petalGeo(len, wid, curve) {
-      const seg = 7, pos = [], idx = [];
-      for (let i = 0; i <= seg; i++) {
-        const t = i / seg, y = t * len, w = Math.sin(t * Math.PI * 0.9) * wid * (1 - 0.25 * t), z = Math.sin(t * Math.PI) * curve;
-        pos.push(-w, y, z, w, y, z);
-      }
-      for (let i = 0; i < seg; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
-      g.computeVertexNormals(); return g;
-    }
-    function nightbloom(tint) {
-      const g = new THREE.Group(); const cy = 15, N = 8, R = 6;
-      const petalMat = new THREE.MeshStandardMaterial({ color: 0x2a3550, emissive: new THREE.Color(tint), emissiveIntensity: 0.35, roughness: 0.5, side: THREE.DoubleSide, flatShading: true });
-      for (let i = 0; i < N; i++) {
-        const a = i / N * Math.PI * 2;
-        const pg = petalGeo(20, 4.5, 5);
-        const m = new THREE.Mesh(pg, petalMat);
-        m.position.set(Math.cos(a) * R, cy + Math.sin(a) * R, 0);
-        m.rotation.z = a - Math.PI / 2;          // base points outward from centre
-        m.rotation.x = -0.5;                      // furled OPEN (tips lean away from the viewer/outward)
-        g.add(m);
-        // glowing vein up the petal centre
-        const vp = []; for (let k = 0; k <= 6; k++) { const t = k / 6; vp.push(new THREE.Vector3(0, t * 20, Math.sin(t * Math.PI) * 5 + 0.1)); }
-        const vein = new THREE.Line(new THREE.BufferGeometry().setFromPoints(vp), lineM(tint));
-        vein.position.copy(m.position); vein.rotation.copy(m.rotation); g.add(vein);
-      }
-      // glowing seed core at the centre (the far-off locator)
-      const seed = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6, 0), glowM(tint, 2.2));
-      seed.position.set(0, cy, 0); g.add(seed);
-      return g;
-    }
-
-    const BUILD = { waystone, astrolabe, nightbloom };
-    const TINT = { waystone: 0xbfe8ff, astrolabe: 0x9fb8ff, nightbloom: 0x8fe9ff };
-    let built = null, mirror = null;
+    const BUILD = { fang: fangPortcullis, rain: partedRain, shatter: heldShatter, maelstrom: maelstromIris };
+    const TINT = { fang: 0xbfe8ff, rain: 0x9fd8f0, shatter: 0xbfe8ff, maelstrom: 0x9fb8ff };
+    let built = null, haz = null;
     const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
     function build(kind) {
-      if (built) { scene.remove(built); scene.remove(mirror); }
-      built = BUILD[kind](TINT[kind]); scene.add(built);
-      mirror = built.clone(); mirror.scale.y = -1; mirror.position.y = -0.15;
-      mirror.traverse(o => { if (o.material) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.28; if (o.material.emissiveIntensity != null) o.material.emissiveIntensity *= 0.5; } });
-      scene.add(mirror);
-      built.updateMatrixWorld(true);
+      if (built) { scene.remove(built); scene.remove(haz); }
+      haz = hazardBehind(); scene.add(haz);
+      built = BUILD[kind](TINT[kind]); scene.add(built); built.updateMatrixWorld(true);
     }
-    function fit(kind, angle) {
-      _box.setFromObject(built); _box.getCenter(_c); _box.getSize(_s);
-      const radius = 0.55 * Math.max(_s.x, _s.y, _s.z) || 1;
-      const vfov = camera.fov * Math.PI / 180;
-      const dist = (radius / Math.tan(vfov / 2)) / 0.82;
-      const dir = angle === 'q34' ? [0.55, 0.1, 0.83] : [0.02, 0.06, 1];
+    function fit(angle) {
+      // frame the whole lane wall (fixed box), head-on = the gameplay read
+      _c.set(WIN.cx, LANE.top / 2, 0); const radius = LANE.hx * 1.02;
+      const vfov = camera.fov * Math.PI / 180, dist = (radius / Math.tan(vfov / 2)) / 0.95;
+      const dir = angle === 'q34' ? [0.42, 0.12, 0.9] : [0.0, 0.02, 1];
       camera.up.set(0, 1, 0);
-      const d = new THREE.Vector3(...dir).normalize();
-      camera.position.copy(_c).addScaledVector(d, dist);
-      camera.near = Math.max(0.1, dist / 500); camera.far = dist * 40; camera.updateProjectionMatrix();
-      camera.lookAt(_c);
+      camera.position.copy(_c).addScaledVector(new THREE.Vector3(...dir).normalize(), dist);
+      camera.near = 0.1; camera.far = 4000; camera.updateProjectionMatrix(); camera.lookAt(_c);
     }
     function sizeGL(px) { gl.width = px; gl.height = px; renderer.setSize(px, px, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
 
-    window.gcRender = (o) => { if (o.rebuild) build(o.kind); fit(o.kind, o.angle); renderer.render(scene, camera); return true; };
+    window.gcRender = (o) => { if (o.rebuild) build(o.kind); fit(o.angle); renderer.render(scene, camera); return true; };
     const _sheet = document.getElementById('sheet');
     window.gcSheetInit = (cols, rows, cell) => { _sheet.width = cols * cell; _sheet.height = rows * cell; _sheet.style.display = 'block'; const ctx = _sheet.getContext('2d'); ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, _sheet.width, _sheet.height); _sheet.__cell = cell; _sheet.__cols = cols; sizeGL(cell); return true; };
     window.gcTile = (quad, label) => { const cell = _sheet.__cell, cols = _sheet.__cols, ctx = _sheet.getContext('2d'); const ox = (quad % cols) * cell, oy = ((quad / cols) | 0) * cell; ctx.drawImage(gl, ox, oy, cell, cell); if (label) { ctx.font = '600 22px system-ui'; ctx.textBaseline = 'top'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(label, ox + 14, oy + 14); ctx.fillStyle = '#ffe08a'; ctx.fillText(label, ox + 14, oy + 14); } return true; };
-
     try { renderer.setSize(700, 700, false); window.__ready = true; } catch (e) { window.__gcerr((e && e.stack) || String(e)); throw e; }
   </script>
 </body>
