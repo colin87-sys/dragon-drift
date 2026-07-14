@@ -29,7 +29,7 @@ async function fly(query, tag, startDist) {
   return errors;
 }
 
-const e1 = await fly('?biome=2&debug', 'a', 1200);
-const e2 = await fly('?biome=2&debug', 'b', 5000);
+const e1 = await fly('?biome=2&debug', 'a', 2560);
+const e2 = await fly('?biome=2&debug', 'b', 3460);
 console.log('errors:', e1.length, e2.length);
 console.log('wrote /tmp/fclose-a-0..7.png and /tmp/fclose-b-0..7.png');
