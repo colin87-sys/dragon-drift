@@ -294,6 +294,7 @@ let fwdX = 0, fwdZ = -1;
 let _aurPhase = 0;              // JS-accumulated crawl phase (activity-keyed rate → stately when quiet)
 let pwx = 0, pwz = -1, calm = 1;  // previous stage azimuth + turn-calm envelope (rays soften during yaw)
 let qualFade = 1;              // tier-flip cover: dips to 0 on a quality change, recovers over ~1.2s
+let eruptEnv = 0;              // damped eruption envelope → the color SWELLS and FADES over ~3-4s, never flashes
 
 // Per-frame write from the lerped biome env. Off / no aurora in this biome → mix 0 (the uniform
 // branch skips the whole block; the sky is the shipped gradient). Phases wrapped in JS so they
@@ -332,7 +333,13 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // Peak 1.4 (owner pick) — a natural eruption shows the FULL altitude structure (violet→green→pink→
   // crimson, Gate-8); restraint comes from AREA + rarity (color rides the bands/rays, majority dark
   // between, ~30s every few min), NOT from deleting the hues. The single strength dial is this 1.4.
-  auroraUniforms.uAurErupt.value = 1.4 * (e * e * (3.0 - 2.0 * e));
+  const eruptTarget = 1.4 * (e * e * (3.0 - 2.0 * e));
+  // EASE the eruption IN and OUT (owner: "it feels like a flash — should transition in and out"): damp the
+  // envelope so the color SWELLS and FADES over ~3-4s no matter how fast `act` crossed the threshold — a
+  // flow-carve spike no longer pops the color on/off, and the carve ending leaves a gentle afterglow. Raw
+  // dt so a frozen montage holds (dt=0 → damp is a no-op); the override below still pins it for the sweep.
+  eruptEnv = damp(eruptEnv, eruptTarget, 0.7, dt || 0);
+  auroraUniforms.uAurErupt.value = eruptEnv;
   if (eruptOverride != null) auroraUniforms.uAurErupt.value = eruptOverride;  // debug: pin the eruption strength
   // COMPOSITION — the arc holds CENTRE-STAGE. Key it to travel, HEAVILY damped (λ=0.35 → recentres
   // over ~6–8s): during a fast weave/yaw the aurora stays world-anchored and counter-slides across
