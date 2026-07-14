@@ -94,6 +94,7 @@ const OVH_EASE = (p) => 1.61 * p - 0.61 * p * p;   // deep→near depth easing: 
 const OVH_ENABLED = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('noovh'));   // ?noovh — A/B: all 8 flyby revert to side passes
 const OVH_OLD = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldovh');   // ?oldovh — A/B: the pre-fix overhead (on-screen materialise, fixed lanes/phases, no per-pass re-roll)
 const OLD_START = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldstart');   // ?oldstart — A/B: the pre-fix engage (a mid-approach rock fades in already-giant)
+const OLD_FAN = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldfan');   // ?oldfan — A/B: the pre-fix radial fan (48 even rays, head-taper, straight)
 const OVH_START_PHASE = [0.0, 0.045, 0.09];   // on arena engage, the 3 overhead rocks rebase to these near-zero phases → all born as far specks; incommensurate speeds stagger the first dives (~13/18/27s)
 const mod1 = (x) => ((x % 1) + 1) % 1;         // positive fractional part
 let debrisFlybyMargin = 0;         // horizontal side cone: min over the path of (x − k=1.0 lane-clearance) — asserted ≥ 0
@@ -305,26 +306,45 @@ function buildDetonationGeo(prnd) {
   // bend is scaled to ~0 on 0/90/180/270), so the ONLY straight lines left in the frame are the four
   // sacred axes — straightness becomes the glyph, not noise. Fairness (eclipse + down-suppression) is
   // re-baked PER VERTEX from the ACTUAL curved position, so an arc that dips downward dims continuously.
-  const NST = 48, SEG = 11, W_IN = 4.2, W_TIP = 0.8;           // fewer, THINNER, now with a curved spine (SEG 5→11 for a smooth arc)
-  for (let s = 0; s < NST; s++) {
-    const a0 = (s / NST) * TAU + (prnd() - 0.5) * 0.07;
+  // B2 — the fan is no longer 48 even rays with a head-taper (a mechanical starburst, the last "vector art"
+  // once the dust reads premium). It's ~36 tongues launched in CLUSTERED JETS (irregular = organic), each
+  // with a CURVATURE FLOOR (every off-axis tongue carries a visible arc) and a MID-PEAK envelope over its
+  // VISIBLE span (erupts thin from behind the silhouette, swells, frays into dust — no bright ray-tips, no
+  // ring of identical ray-starts). The cross-axis exemption/brightening is kept, so the four sacred axes
+  // stay the straight glyph. ?oldfan restores the even fan.
+  const SEG = 11, W_IN = 4.2, W_TIP = 0.8;
+  const streaks = [];
+  if (OLD_FAN) {
+    for (let s = 0; s < 48; s++) streaks.push({ a0: (s / 48) * TAU + (prnd() - 0.5) * 0.07, lenMul: 1 });
+  } else {
+    for (let jj = 0; jj < 12; jj++) {                          // 12 jets × 2–4 filaments ≈ 36, irregularly clumped
+      const c = prnd() * TAU, nf = 2 + Math.floor(prnd() * 3);
+      for (let f = 0; f < nf; f++) streaks.push({ a0: c + (prnd() - 0.5) * 0.12, lenMul: 0.7 + prnd() * 0.6 });   // ±0.06 rad in-jet spread · ×0.7–1.3 length variance
+    }
+  }
+  for (const st of streaks) {
+    const a0 = st.a0;
     const down = Math.sin(a0) < -0.15;                          // launched below horizontal → shorter reach
-    const lenBase = 280 + prnd() * 280;                         // 280..560u
-    const len = down ? lenBase * 0.5 : lenBase;
-    const cAlign = 0.78 + 0.55 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // cross-aligned streaks BRIGHTEN (the fire-rivers of the arms), off-axis dim
-    const baseGain = 0.85 * cAlign;                             // −15% baked gain — the particulate carries the reach (down-suppression now per-vertex, below)
-    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // ≈0.15 on the axes → cross-arm streaks stay STRAIGHT; ≈1 off-axis → they curve
-    const bendAmp = 0.42 * swirlField(a0) * crossExempt;        // ≤0.42 rad drift (capped < 0.5 so no upper streak reaches the corridor band); braids with the embers via the shared field
-    const bendFreq = 1.2 + 0.6 * prnd(), bendPh = prnd() * TAU;
+    const lenBase = (280 + prnd() * 280) * st.lenMul;          // 280..560u × in-jet variance
+    const len = Math.max(ECL_R1 + 60, down ? lenBase * 0.5 : lenBase);   // keep a visible span past the eclipse ignite
+    const cAlign = 0.78 + 0.55 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // cross-aligned tongues BRIGHTEN (the fire-rivers of the arms), off-axis dim
+    const baseGain = 0.85 * cAlign;
+    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // ≈0.15 on the axes → cross-arm tongues stay STRAIGHT; ≈1 off-axis → they curve
+    const sw = swirlField(a0), sf = Math.sign(sw || 1) * Math.max(0.35, Math.abs(sw));   // CURVATURE FLOOR: |bend| ≥ 0.35·0.42 ≈ 0.15 rad so the arc reads (sign kept — braids with the shared field)
+    const bendAmp = 0.42 * (OLD_FAN ? sw : sf) * crossExempt;   // ≤0.42 rad drift (capped < 0.5 so no upper tongue reaches the corridor band)
+    const bendFreq = OLD_FAN ? (1.2 + 0.6 * prnd()) : (1.7 + 0.9 * prnd()), bendPh = prnd() * TAU;   // higher freq → the arc completes more of its sweep (still single-inflection)
     const aAt = (t) => a0 + bendAmp * (Math.sin(bendFreq * t + bendPh) - Math.sin(bendPh));   // spine angle vs t; anchored to a0 at the core (t=0), arcs outward
-    const ph = prnd() * TAU;                                    // per-streak scroll phase (breaks lockstep)
+    const ph = prnd() * TAU;                                    // per-tongue scroll phase (breaks lockstep)
     for (let j = 0; j < SEG; j++) {
       const t0 = j / SEG, t1 = (j + 1) / SEG;
       const r0 = CORE_R + t0 * (len - CORE_R), r1 = CORE_R + t1 * (len - CORE_R);
       const av0 = aAt(t0), av1 = aAt(t1);                       // CURVED spine angles
-      const w0 = W_IN + (W_TIP - W_IN) * t0, w1 = W_IN + (W_TIP - W_IN) * t1;
+      const tv0 = Math.max(0, Math.min(1, (r0 - ECL_R1) / (len - ECL_R1))), tv1 = Math.max(0, Math.min(1, (r1 - ECL_R1) / (len - ECL_R1)));   // 0 at the ignite radius → 1 at the tip
+      const w0 = OLD_FAN ? (W_IN + (W_TIP - W_IN) * t0) : (1.2 + 4.8 * Math.pow(Math.sin(Math.PI * tv0), 0.8));   // MID-PEAK width: thin at both ends, swell ~6 in the middle
+      const w1 = OLD_FAN ? (W_IN + (W_TIP - W_IN) * t1) : (1.2 + 4.8 * Math.pow(Math.sin(Math.PI * tv1), 0.8));
       const d0 = 0.4 + 0.6 * ss((Math.sin(av0) + 0.4) / 0.6), d1 = 0.4 + 0.6 * ss((Math.sin(av1) + 0.4) / 0.6);   // per-vertex down-suppression from the ACTUAL curved angle
-      const e0 = smoothstep(ECL_R0, ECL_R1, r0) * baseGain * d0, e1 = smoothstep(ECL_R0, ECL_R1, r1) * baseGain * d1;
+      const e0 = (OLD_FAN ? smoothstep(ECL_R0, ECL_R1, r0) : (Math.pow(tv0, 0.5) * Math.pow(1 - tv0, 1.2) * 2.4)) * baseGain * d0;   // MID-PEAK brightness (0 at ignite AND tip → no ray-start ring, no bright tip); 2.4 (not 2.8) keeps sky p50 headroom (the mid-peak now lights the sky the old core-taper hid behind the seraph)
+      const e1 = (OLD_FAN ? smoothstep(ECL_R0, ECL_R1, r1) : (Math.pow(tv1, 0.5) * Math.pow(1 - tv1, 1.2) * 2.4)) * baseGain * d1;
       const g0 = detGrad(t0), g1 = detGrad(t1);
       const c0 = [g0[0] * e0, g0[1] * e0, g0[2] * e0], c1 = [g1[0] * e1, g1[1] * e1, g1[2] * e1];
       const ex0 = Math.cos(av0), ey0 = Math.sin(av0), nx0 = Math.cos(av0 + Math.PI / 2), ny0 = Math.sin(av0 + Math.PI / 2);
@@ -384,6 +404,28 @@ const DET_VERT = `
 // molten corona, filamented shock wavefronts. Mean-preserving (multiplies the baked vCol), so the
 // eclipse/down-suppression/fairness structure is untouched. All bases clamped ≥ 0 (the NaN law); the
 // hash uses only fract/dot (no pow/sin/sqrt/log) so it can't emit a NaN.
+// B2 — the STREAK branch. New tongues bake their own mid-peak envelope, so the shader drops the old head
+// `decay` and instead FRAYS the tip into the dust field + shares the radial grain. ?oldfan keeps the old
+// tip-death decay (its baked brightness is constant past ignite, so it needs the shader to die the tip).
+const STREAK_BRANCH = OLD_FAN ? `
+      float decay = pow(max(0.0, 1.0 - t), 0.8);         // dies to black at the tip
+      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.3);
+      float lat = (fbm(vec2(t * 2.5 - uTime * 0.25, vPhase * 7.0)) - 0.5) * 2.5;
+      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0 + lat));
+      float veins = pow(max(0.0, 1.0 - abs(2.0 * n - 1.0)), 2.2);
+      float pulse = 0.4 + 0.6 * (0.5 + 0.5 * sin(t * 12.0 - uTime * uFlow + vPhase));
+      float flow = (0.22 + 1.7 * veins) * pulse;
+      b = decay * edge * flow * frontAt(t * 500.0);` : `
+      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.3);   // soft sides (clamp: no NaN)
+      float lat = (fbm(vec2(t * 2.5 - uTime * 0.25, vPhase * 7.0)) - 0.5) * 2.5;   // LATERAL drift → the vein snakes
+      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0 + lat));   // advected roil
+      float veins = pow(max(0.0, 1.0 - abs(2.0 * n - 1.0)), 2.2);   // thin bright veins, dark between
+      float pulse = 0.4 + 0.6 * (0.5 + 0.5 * sin(t * 12.0 - uTime * uFlow + vPhase));
+      float flow = (0.22 + 1.7 * veins) * pulse;
+      float g = vnoise(vec2(vUv.y * 30.0, t * 17.0 - uTime * 2.6));   // the corona's radial grain, ON the tongue
+      float grain = mix(1.0, 0.62 + 1.35 * g * g, uGrain * smoothstep(0.5, 0.9, t));
+      float fray = smoothstep(0.12, 0.4, n + (1.0 - t) * 0.8);        // the tip DISSOLVES into the dust field (no geometric point)
+      b = edge * flow * grain * fray * frontAt(t * 500.0);` ;   // tip/ignite darkness = the baked mid-peak envelope
 const DET_FRAG = `
   uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing; uniform float uOct; uniform float uRoil; uniform float uCross; uniform float uGrain;
   varying vec3 vCol; varying vec2 vUv; varying float vType; varying float vPhase;
@@ -421,7 +463,7 @@ const DET_FRAG = `
       // and radially advected OUTWARD (streaks with the blast, not static speckle). The particulate is now
       // literally the SAME pixels as the blast → it cannot read as a separate object. mean ≈ preserved (the
       // cells idiom); rises with t so the inner core stays clean. ALU-only, zero new fill/draws.
-      vec2 gr = vec2(cos(ang), sin(ang)) * 26.0 + vec2(0.0, t * 44.0 - uTime * 2.6);
+      vec2 gr = vec2(cos(ang), sin(ang)) * 38.0 + vec2(0.0, t * 17.0 - uTime * 2.6);   // B1: tangential 26→38 · radial 44→17 → grain cells ELONGATE along the radius = thousands of fine soft speed-lines INSIDE the blast (the real replacement for the geometric rays)
       float dust = vnoise(gr);
       b *= mix(1.0, 0.62 + 1.35 * dust * dust, uGrain * smoothstep(0.10, 0.45, t));
     } else if (vType > 1.5) {                            // SHOCK RING — soft band × filamented wavefront
@@ -431,16 +473,8 @@ const DET_FRAG = `
       float fn = fbm(vec2(cos(ang), sin(ang)) * 4.6 + vec2(t * 2.0 - uTime * uRing * 0.3, 0.0));
       float fil = 0.45 + 0.9 * fn * fn;                  // sharpened angular filaments (not a clean compass ring)
       b = band * wave * fil;
-    } else if (vType > 0.5) {                            // STREAK — SNAKING DUST RIVULET (not a straight ray)
-      float t = vUv.x;
-      float decay = pow(max(0.0, 1.0 - t), 0.8);         // dies to black at the tip
-      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.3); // soft sides (clamp: no NaN)
-      float lat = (fbm(vec2(t * 2.5 - uTime * 0.25, vPhase * 7.0)) - 0.5) * 2.5;   // LATERAL drift → the vein snakes across the quad (not a straight line)
-      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0 + lat));  // advected roil
-      float veins = pow(max(0.0, 1.0 - abs(2.0 * n - 1.0)), 2.2);   // RIDGED → thin bright veins, dark between (clamp)
-      float pulse = 0.4 + 0.6 * (0.5 + 0.5 * sin(t * 12.0 - uTime * uFlow + vPhase));  // core→tip energy pulse
-      float flow = (0.22 + 1.7 * veins) * pulse;         // crisp fibers that survive the bloom
-      b = decay * edge * flow * frontAt(t * 500.0);      // grows outward with the shared front
+    } else if (vType > 0.5) {                            // STREAK — an eruption TONGUE (mid-peak baked; frays into the dust field)
+      float t = vUv.x;${STREAK_BRANCH}
     }
     gl_FragColor = vec4(vCol * b * uGain, 1.0);          // additive: black adds nothing (soft everywhere)
   }`;
