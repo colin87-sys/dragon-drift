@@ -45,7 +45,8 @@ initiative migrates *toward*. Nothing ships that isn't written in it.
 :root {
   /* -- TYPE SCALE: six sizes, ~1.35 ratio. Russo One = display, Rajdhani = text.
         RULE: no px font-size outside these tokens on a migrated screen (lint-enforced).
-        The splash wordmark is the ONE sanctioned exception (its own clamp). */
+        The WORDMARK is the ONE sanctioned exception family: the splash title clamp
+        (style.css:1962) AND the hub hero-wordmark (66px / 40px mobile, 1813/1368). */
   --fs-micro:  11px;                      /* caps meta labels · Rajdhani 700 · caps */
   --fs-label:  13px;                      /* chips, secondary · Rajdhani 600 · caps */
   --fs-body:   15px;                      /* body copy        · Rajdhani 500 */
@@ -110,10 +111,15 @@ only for its meaning, on an otherwise near-monochrome warm-glass UI.
 
 **The navy-legacy eviction rule:** any UI *fill or background* whose blue channel
 dominates is a previous color generation and gets replaced with warm tokens. Known
-squatters (from the critique, verified): `.nextup-card` (style.css:1509), `.radio-name`
-(1026), `.mute-btn` (689–697), `.form-arrow` (1158), inspect modal (2182), celebrate card
-(1677), `.bar` chrome (125), page background `#1c2e5e` (48), load screen (57–72), music
-discs (1193–1203). Blue may only appear *by role* (cyan vitals). The one-off purple
+squatters (from the critique, verified against the code): `.nextup-card` (style.css:1509),
+`.radio-name` (1026), `.mute-btn` (689–697), `.form-arrow` (1158), inspect modal (2182),
+celebrate card (1677), `.bar` chrome (125), page background `#1c2e5e` (48), load screen
+(57–72), music discs (1193–1203). The audit found more the critique missed — same rule,
+same sweep: `.revive-offer` (736), `.hint` pill (1444), `.race-bar` (1411–1412),
+the celebrate overlay scrim (1666), `.hero-gear:hover` (1806), `.load-bar` (66–67),
+the inspect chrome cluster (`.inspect-btn`/`.inspect-close`/`.inspect-nav`/`.inspect-rothint`,
+2159–2242), and the cool-ink `.screen` base radial (749 — replaced by the scrim recipe
+in U4). Blue may only appear *by role* (cyan vitals). The one-off purple
 `.btn-daily` (943) is evicted → gold.
 
 ### A.3 Interaction-state grammar (every interactive element, four visible states + focus)
@@ -127,16 +133,28 @@ discs (1193–1203). Blue may only appear *by role* (cyan vitals). The one-off p
 ### A.4 The backdrop-filter law (the mobile-perf trap, adjudicated)
 
 Research verdict: real blur over an animating WebGL canvas re-blurs **every frame**;
-budget on weak mobile ≈ **one** panel, and **zero during gameplay**. Current code
-violates this twice. Ruling:
+budget on weak mobile ≈ **one** panel, and **zero during gameplay**. Current code has
+**~12 backdrop-filter sites**, not two (audit-verified inventory): `.screen` blur(3px)
+(750), pause card blur(14px) (961), gesture-tutorial `.gx-card` blur(14px) (2363),
+inspect overlay blur(12px) (2172) + its chrome micro-blurs (2163/2194/2213/2242),
+hub topbar chips / gear / rail buttons blur(6px) (1800/1804/1848), and the rothints
+blur(5px) (1265/2242). Note: a `max-width:700px` media rule (1348) already kills the
+`.screen` blur on portrait phones — it is live only on **landscape phones and desktop**,
+exactly where the critique shot the "illegible mush." Ruling:
 
-1. `.screen { backdrop-filter: blur(3px) }` (full-screen, behind every menu) is **KILLED**
-   (U4). It costs GPU *and* turns the live hero scene into "illegible mush" (critique 3.2)
-   — worst of both worlds. Replaced by the asymmetric scrim recipe + optional in-engine
-   dim/exposure drop (the menu owns the camera; render the mood instead of sampling it).
-2. The pause card's `blur(14px)` (962) may stay — the world behind pause is frozen — but
-   drops to ≤10px, wrapped in `@supports`, with the tinted-glass fallback, and is the
-   **only** blurred element allowed on any screen. New blur anywhere else = Gate 2 reject.
+1. `.screen { backdrop-filter: blur(3px) }` is **KILLED everywhere** (U4) — the kill
+   formalizes what portrait already does and extends it to landscape/desktop. It costs
+   GPU *and* turns the live hero scene into "illegible mush" (critique 3.2) — worst of
+   both worlds. Replaced by the asymmetric scrim recipe + optional in-engine dim/exposure
+   drop (the menu owns the camera; render the mood instead of sampling it).
+2. The **one-blur budget** goes to the frozen-world modal family: the pause card (961)
+   and the gesture card (2363) — the world behind both is frozen and they never show at
+   once. Both drop to ≤10px, wrapped in `@supports`, with the tinted-glass fallback.
+3. **All other blurs die in U4's sweep:** the inspect overlay's blur(12px) folds into the
+   panel recipe + scrim (it sits over a static shop scene but is a full-screen sample —
+   the costliest kind), and every micro-blur on chips/buttons/rothints is removed
+   (tinted glass + hairline reads identically at those sizes, at zero cost).
+   New blur anywhere = Gate 2 reject.
 
 Also constitution-level: **animate `transform`/`opacity` only.** Frequently-updated
 meters using `width` transitions (e.g. `.bar-fill`, 126) migrate to `transform: scaleX()`.
@@ -154,7 +172,9 @@ Disposition of the critique's top-10 weaknesses: #1→U1 · #2→U3 · #3→U4 �
 ### U1 — Credibility floor — **S / low risk / no deps**
 **Payoff:** delete every "student project" tell in one PR; the cheapest score points in the plan.
 - Build stamp behind `?debug` only (`js/main.js:65-78`). `tests/buildstamp.mjs` boots with
-  `?debug` already, so it stays green — verify, don't assume.
+  `?debug` already (audit-verified: `tests/browser.mjs` `boot()` defaults to
+  `query='?debug'`), so it stays green; add one assertion that the stamp is **absent**
+  without the param.
 - Suppress "+0 XP" rows and gate the ★ HIGH SCORE / ★ LONGEST FLIGHT chips on non-trivial
   values + an existing prior best (`js/recap.js` — a 9-point first run must not celebrate).
 - "0 SKIMS" appears on first increment, copying the chain-counter pattern (`js/ui.js`
@@ -162,8 +182,15 @@ Disposition of the critique's top-10 weaknesses: #1→U1 · #2→U3 · #3→U4 �
 - Wallet numbers via `toLocaleString` everywhere (`ui.js:1562` vs pilot).
 - Trim the hub's control-dump line (redundant with the gesture tutorial).
 - The splash slogan "◆ it's a skill issue ◆" (`js/splash.js:51`): tonal whiplash under a
-  premium gold wordmark. **Owner-taste call** — PR proposes an earnest alternate behind the
-  same slot; the human picks on preview. Do not silently delete a joke the owner may love.
+  premium gold wordmark. **Owner-approved: REPLACE** (decision recorded 2026-07-14; the
+  owner delegated the call and accepted the replace recommendation). The committed line is
+  **"◆ born of ember · forged in flight ◆"** — earnest, on the dragon-flight fantasy, ties
+  the ember currency + the EMBERLINE language to the wordmark it sits under, and avoids
+  repeating "skies" from the tagline below it. Same slot, same chrome: keep the ◆ frame,
+  the italic Rajdhani `.splash-slogan` styling (style.css:1976–1985) and its breathe
+  animation untouched — swap only the text at `splash.js:51`
+  (`&#9670;&ensp;born of ember &middot; forged in flight&ensp;&#9670;`). No test pins the
+  old string (audit-verified), so nothing else changes.
 
 ### U2 — The EMBERLINE constitution — **M / low / no deps**
 **Payoff:** the §A token sheet lands as CSS variables **coexisting** with old values (zero
@@ -181,8 +208,11 @@ a **shrinking allowlist**: unmigrated files are exempt, each phase removes exemp
 - Shop landscape: two-column (rail + hero left/right split) so name/stats/CTA never fall
   below the fold (`style.css:1049-1342`, `ui.js:1714-1835`).
 - Pause landscape: footer (wallet + PILOT/SETTINGS/SHOP/**EXIT**) pinned outside the
-  scroll region; `max-height` rework (962 → 304px at 390px height is how EXIT vanished);
-  portrait wallet wrap fix (985).
+  scroll region — note the markup makes the whole `.pause-menu` the scroll container
+  (`overflow-y:auto` at 962), so this is a small restructure in `ui.js`
+  `showPauseOverlay` (2211–2234): the scroll region becomes `.pm-body`, resume + strip +
+  footer stay fixed; `max-height` rework (962 → 304px at 390px height is how EXIT
+  vanished); portrait wallet wrap fix (985).
 - Quests/daily: fix the sticky-topbar overlap (`:has` spacer removal at 1066) and add a
   two-column landscape grid so cards stop floating in dead void.
 Verified by the `uishots` landscape set (§C) — this initiative is *why* the harness
@@ -225,10 +255,12 @@ high-frequency screen — it snaps, no theater.
 **Payoff:** the half-finished icon system finishes; platform-variable glyphs stop leaking
 into cinematic moments.
 Extend the credited `ICONS` set (`ui.js:59-85`) with: lock, warning-triangle, note,
-heart, feather, flame, play-glyph, chevrons. Replace all call sites: `🔒` (ui.js:1973,
-style.css:1335), `⚠` in the boss warn (style.css:174-176 — the single most cinematic
-moment currently renders an emoji), `♪` (1637 + discs), `➤` in the primary CTA
-(ui.js:1606), `🪶` `🔥` (1666, 1637), `♥` hearts (style.css:358 — becomes U8's SVG pips),
+heart, feather, flame, play-glyph, chevrons. Replace all call sites (audit-corrected):
+`🔒` (ui.js:1973, ui.js:1682 rush chip, style.css:1335), `⚠` in the boss warn (markup at
+ui.js:535, styled at style.css:174-176 — the single most cinematic moment currently
+renders an emoji), `♪` (ui.js:1791 music disc, 2157 pause radio pill, 1325 now-playing
+toast, 2728 unlock glyph), `➤` in the primary CTA (ui.js:1606), `🪶` (ui.js:1637, 2206,
+839) `🔥` (ui.js:1666, 2968), `♥` hearts (style.css:358 — becomes U8's SVG pips),
 `⟲` `◀▶‹›`.
 
 ### U8 — HUD relegibility + relevance system — **L / medium / U2**
@@ -257,14 +289,28 @@ bottom-center hairline bar in a 1px housing; nameplate in display caps + epithet
 micro caps; **phase notches**; the **drain-lag chunk** (gold "recently lost" segment
 drains after ~0.5s — the most-copied juice detail in boss bars); intro fill
 left-to-right ~800ms synced to the title card. The current WebGL over-model sliver is
-retired or reduced to a locator pip — never double-reported. Slot into the existing
-collision-managed boss-slot system; surge row ghosts during boss via U8's relevance table.
+retired or reduced to a locator pip — never double-reported.
+**Audit facts a builder needs:** the WebGL bar lives in `bossKit.js` `createBossCommon`
+(hpBar group, 108–138) and *already carries phase notches* from `def.phases[].atFrac` —
+the DOM bar inherits that data, it doesn't invent it. Boss health is module-state in
+`boss.js` (`hp`/`hpMax`) pushed via `model.setHealth()`; **no JS-side getter/event exists
+yet** — add one small exported seam (a `bossHealthFrac()` getter polled by U8's ≤4Hz
+ticker, or an `emit('bossHp', …)` on damage; `emit('bossStart'/'bossEnd')` already exist
+for show/hide). Bottom-center is contested: `.boss-note` sits at bottom 28% (style.css:248)
+and the flow crest + surge row anchor bottom-center — the surge row ghosts during boss via
+U8's relevance table, and the bar slots into the existing collision-managed boss-slot
+system *above* `.boss-note`'s band. Mind `formLifebars` bosses (multi-lifebar refills,
+boss.js:2160/3973) — the bar must re-fill on form swap, not read as healing mid-phase.
 
 ### U10 — Reticle / lock-on consolidation — **M / medium / U8**
 **Payoff:** one reticle authority instead of three concentric ornaments fighting in a
 ~120px cluster (gate squares + ring-focus circle + WebGL ring glow, style.css:552-563).
-- Adopt the **lens2 hollow-bracket language** (600–685) as THE reticle — the critique
-  notes the team already built the good version and ships the busy one.
+- Adopt the **lens2 hollow-bracket language** (600–685) as THE reticle. Audit correction:
+  the bracket version is **already shipped and default-ON for the BOSS reticle** — it's
+  the Bullet Clarity setting (`js/lensFlag.js`; `?lens=2/0` is only the A/B override) —
+  while the busy nested-squares version still ships for the ring/gate reticles. So U10 =
+  extend the proven bracket mask to the ring/gate states + retire the triple-ornament
+  cluster, not "turn on an experiment."
 - Lock-on grammar (Star Fox/AC7 lineage): bracket appears at ~3× and **shrink-snaps** to
   1× over ~150ms ease-out; searching-tick → solid lock tone (U11); lock pips stay DOM
   divs projected per frame with `will-change: transform` (`lockLayer.js` — already right).
@@ -306,13 +352,17 @@ hooks — land `main.js` edits early and tight (the GRAPHICS conflict lesson).
   60–100ms) on hero moments only. All of it collapses to fades under
   `prefers-reduced-motion` (credited coverage — extend by construction).
 
-### U14 — Compact accessibility package — **S–M / low / U2, U8**
+### U14 — Compact accessibility package — **S–M / low / U2 (sliders+presets), U8 (immersive toggle only)**
 **Payoff:** the 2024+ AAA care signal, nearly free in a CSS-variable UI.
 `--hud-scale` (0.85–1.3) and `--hud-alpha` sliders in settings; colorblind-safe accent
 alternates (deuter/prot/trit presets swap the magenta/jade hues via a root class — roles,
-not colors, are the contract); "IMMERSIVE HUD" toggle (Squadrons: hides all but hearts +
+not colors, are the contract; **scope: DOM UI tokens only** — in-world WebGL hues like
+wisp/bullet colors are out of scope here, though `setWispTint`/`setLanceTint` seams exist
+if a later pass wants them); "IMMERSIVE HUD" toggle (Squadrons: hides all but hearts +
 boss — also the screenshot generator); `:focus-visible` everywhere (from U2);
-reduced-motion audit of every new system.
+reduced-motion audit of every new system. **Phasing note (audit):** the sliders, presets
+and focus work land in Phase 2 as planned; the IMMERSIVE HUD toggle rides U8's relevance
+classes and finishes in Phase 3 — the Phase 2 row's "U14" means U14-minus-immersive.
 
 ### Killed / deferred (explicit, with reasons)
 | Item | Verdict | Why |
@@ -324,6 +374,18 @@ reduced-motion audit of every new system.
 | Animating width/height/top/left/box-shadow on HUD | **KILL where found** | Layout/paint next to a 60fps canvas; `scaleX`/opacity only |
 | Per-frame DOM text updates / class toggles | **NEVER** | Batch to value-change; projected markers update `transform` only |
 | Haptics, localization pass, WebGL-rendered UI | **DEFER / out of scope** | DOM/CSS is the system; these don't move the premium score at this rung |
+
+### Full-inventory disposition (audit 2026-07-14 — screens/elements the backlog didn't name)
+| Surface | Disposition |
+|---|---|
+| Revive offer (style.css:733–743, navy) | U4 palette/panel sweep — panel recipe + warm tokens; behavior untouched |
+| Hint pill (1442–1448, navy) · race-bar (1411–1419, navy) · first-flight chip (1422) | U4 navy sweep; race-bar + ff-chip also get U8 relevance conditions |
+| Milestone banner · popups · feat toast | U8's single toast lane (already specced) |
+| Boss Rush screen (ui.js:1671–1712) | Phase 2 wave with quests/daily (it shares the daily-card chrome) |
+| Gesture tutorial (`.gx-card`, 2352+) | Protected (already warm/premium); its blur(14px) is governed by §A.4 ruling 2 |
+| Cinebars (95–102) | Out of scope — pure black letterbox bars are already correct |
+| Loading screen · inspect/showcase · pilot | Already in U4/Phase 2 (named there) |
+| **The OLD root game** (repo-root `js/`, `css/`, `index.html`, root `tests/`+`tools/`) | **Explicitly OUT OF SCOPE.** This overhaul touches `reforged/` only; always use `reforged/tests` + `reforged/tools` (the root copies are the legacy game's) |
 
 ---
 
@@ -345,9 +407,9 @@ to be a good first proof.
 
 | Phase | Contents | Exit GATE — human judges (PR preview) | Exit GATE — headless |
 |---|---|---|---|
-| **0 — Credibility floor + constitution** | U1, U2, `uishots` harness lands and banks the 16-state baseline | Quick wins visible (no stamp, no +0 XP, no trash-run chips); *nothing else* changed; slogan A/B decision | `tests/run-all.mjs` green (incl. `buildstamp.mjs` under `?debug`); `tests/uitokens.mjs` green (allowlist = everything); `uishots` baseline committed as artifacts |
+| **0 — Credibility floor + constitution** | U1, U2, `uishots` harness lands and banks the 16-state baseline | Quick wins visible (no stamp, no +0 XP, no trash-run chips); *nothing else* changed; slogan replaced (owner-approved, see U1) | `tests/run-all.mjs` green (incl. `buildstamp.mjs` under `?debug`); `tests/uitokens.mjs` green (allowlist = everything); `uishots` baseline committed as artifacts |
 | **1 — Hero: splash + start hub** | U3 (splash/hub slice), U4 (hub slice incl. `.screen` blur kill), U13 entry ritual on hero, U11 first 4 sounds, U7 hub call-sites | Both orientations premium: title theater, staggered reveal, sharp live scene behind an asymmetric scrim, no rail collision; sound feel; motion feel | `uishots --diff`: only splash/hub frames changed; uitokens allowlist shrinks (splash/hub files enforced); run-all green |
-| **2 — Meta migration wave** | U3 + U4 remainder (shop, settings, pause, quests, daily, pilot, recap, celebrate, inspect, load screen), U5, U6, U7 complete, U14 | Every meta screen reads as one hand; settings navigable; shop landscape composes; pause EXIT reachable in landscape | uitokens: **navy-literal eviction assert green**, allowlist ≈ empty for meta files; `uishots --diff` all meta states reviewed; run-all + shop/splash tests green |
+| **2 — Meta migration wave** | U3 + U4 remainder (shop, settings, pause, quests, daily, boss-rush, pilot, recap, celebrate, inspect, revive offer, load screen), U5, U6, U7 complete, U14 (minus immersive-HUD toggle → Phase 3) | Every meta screen reads as one hand; settings navigable; shop landscape composes; pause EXIT reachable in landscape | uitokens: **navy-literal eviction assert green**, allowlist ≈ empty for meta files; `uishots --diff` all meta states reviewed; run-all + shop/splash tests green |
 | **3 — Flight HUD + boss** | U8, U9, U10 | Vitals legible over Frozen Reach / bright sky at arm's length; relevance fades feel right at speed; boss bar chrome + drain-lag lands the fight; reticle reads as one instrument | `uishots` HUD/boss states over a bright seeded biome; `tricount` + `tiershots` when WebGL is touched (ring retirement); no layout-prop transitions on HUD selectors (uitokens rule d); 60fps via `?debug=perf` on-device |
 | **4 — Theater finish** | U12, U13 complete, U11 full soundboard | Transitions travel through the world; high-frequency screens still snap; idle life invisible-but-alive; full-run feel check | Full `uishots` montage vs banked baseline; run-all green; Gate 3 Fable review scores the compound result vs the 9–10 bar |
 
@@ -368,8 +430,15 @@ headless WebGL screenshots work locally; codify its exact matrix. Built on the
   boss (title card + bar up) · recap.
 - **× Orientations (2):** 844×390 landscape · 390×844 portrait, `deviceScaleFactor: 2`.
 - **Output:** 16 PNGs + one montage → the artifact every Fable Gate reads.
-- **`--diff` mode:** pixel-diff vs banked baselines with a small threshold — the
-  regression gate; a phase may only change the frames its initiatives own.
+- **`--diff` mode (audit-respecced for determinism):** the live scene animates and the
+  splash/hub ember-mote layers are `Math.random`-placed, so a naive small-threshold
+  pixel-diff **will flake**. Spec: uishots injects a `--static` seam before capture
+  (CSS `animation-play-state: paused` + hide `.splash-embers`/`.hero-embers`/`.menu-motes`,
+  and pin the run with `?seed=`), diffs **menu states** against banked baselines with a
+  per-state threshold, and treats the **in-run HUD + boss frames as review-only** (capture
+  + montage, no hard diff gate) unless the WebGL canvas region is masked out of the diff.
+  Boss state is forcible headlessly via the shipped `?debug` seams
+  (`__dd.spawnBoss()` / `__dd.bossForceFight()` — main.js:373+).
 - CI has no WebGL (Chromium CDN blocked) — `uishots` runs locally/pre-PR like
   `gameshots`; its montage is attached to the PR and the human judges motion live.
 
@@ -377,8 +446,12 @@ headless WebGL screenshots work locally; codify its exact matrix. Built on the
 (a) every `font-size` in migrated files ∈ the six tokens (shrinking allowlist per phase);
 (b) navy-literal eviction assert (Phase 2 exit); (c) `letter-spacing` em-only on migrated
 selectors; (d) no transition/animation of layout properties (`width|height|top|left|
-box-shadow`) on HUD selectors. This test is what makes "37 font sizes" structurally
-unable to recur.
+box-shadow`) on HUD selectors. **Scope (audit):** the lint must scan `css/style.css` AND
+`js/*.js` template strings — JS-injected styles exist and would otherwise evade it
+(e.g. the build stamp's inline `cssText` in main.js:72-75, inline `style="…"` attrs in
+ui.js markup, splash.js ember styles). `tests/run-all.mjs` auto-discovers every
+`tests/*.mjs`, so the lint joins the suite by existing. This test is what makes
+"37 font sizes" (39 by the audit's count today) structurally unable to recur.
 
 ---
 
@@ -421,6 +494,49 @@ WebGL only to retire chrome, behind flags, with `tricount`/`tiershots` gates.
 | **8.5 → 10** | Phase 4: camera-shot transitions through the live world, the procedural soundboard, motion finish (stagger/count-up/secondary motion/idle life), accessibility package | The layer nobody can name but everyone feels — theater, sound, and craft; this is what separates "very good web game" from "how is this a browser game" |
 
 ---
+
+## Audit addendum (2026-07-14)
+
+A full adversarial ground-truth pass verified every file:line claim against the code and
+corrected the plan in place. What changed:
+
+- **§A.4 rewritten:** the "violates this twice" claim was wrong — ~12 backdrop-filter
+  sites exist; the ruling now enumerates them all (kill `.screen` + inspect overlay +
+  every micro-blur; the pause card and gesture card share the one-blur budget). Also
+  noted: portrait phones already run `.screen` blur-free (style.css:1348) — the kill's
+  visible effect is on landscape/desktop.
+- **§A.2 navy list extended** with audit finds: revive offer, hint pill, race-bar,
+  celebrate scrim, `.hero-gear:hover`, load-bar, inspect chrome, `.screen` base radial.
+- **U1:** buildstamp claim verified true (`boot()` defaults to `?debug`); slogan decision
+  recorded — owner-approved REPLACE with "◆ born of ember · forged in flight ◆".
+- **U7:** wrong emoji call-site lines fixed (`♪` is at ui.js:1791/2157/1325, not 1637;
+  `⚠` markup at ui.js:535; added the 1682 rush-chip 🔒).
+- **U9:** added the real plumbing facts — WebGL bar in `bossKit.js:108-138` (already has
+  phase notches), no JS-side health getter exists yet (add one), `.boss-note` bottom-28%
+  collision, `formLifebars` refill behavior.
+- **U10:** corrected — the bracket reticle is shipped **default-ON** for bosses (Bullet
+  Clarity, `lensFlag.js`); U10 extends it to ring/gate, it doesn't enable an experiment.
+- **U14:** dep/phase contradiction fixed (immersive-HUD toggle → Phase 3); colorblind
+  presets scoped to DOM tokens.
+- **§C:** `uishots --diff` respecced for determinism (static seam, per-state thresholds,
+  in-run/boss frames review-only); `uitokens` scope extended to JS-injected styles.
+- **Gaps filled:** full-inventory disposition table (revive offer, hint pill, race-bar,
+  boss-rush screen, gesture tutorial, cinebars) + the repo-root legacy game declared
+  out of scope; §A.1 wordmark exception extended to the hub wordmark (66px).
+
+**Residual risks a building session must verify on-device / on-preview:**
+1. Killing the `.screen` blur changes menu legibility on landscape/desktop — the
+   asymmetric scrims must land in the same PR (never ship the kill bare).
+2. The `--static` uishots seam must not leak into shipped behavior (query-param-gated,
+   like `?lens`).
+3. U9's DOM boss bar over `formLifebars` bosses and during FELLED/revive beats
+   (boss.js:2522+) needs live-fight eyes — the drain-lag chunk must not fight the refill.
+4. Roster-relative stat bars (U6): several premiums share identical stat lines (e.g.
+   three at 1.14/1.27/0.70/1.35, dragons.js:799/866/940) — identical bars for siblings is
+   honest, but check it doesn't read as a bug on the rail; stats are per-dragon, not
+   per-form, so scrubbing forms won't move bars.
+5. Pause-card blur reduction (14→≤10px) is a visible change on the most-credited surface
+   — human eyes on preview before merge.
 
 ## Gate Log
 
