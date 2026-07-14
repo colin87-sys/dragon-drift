@@ -1919,6 +1919,11 @@ export const ui = {
           ${gfxToggle('particleBatch')}
         </div>
         <div class="settings-group">
+          <div class="settings-label">ADAPTIVE RESOLUTION</div>
+          <p class="sub">Holds a smooth frame rate by trimming render sharpness a touch in heavy scenes instead of dropping visual effects. Recommended on mobile.</p>
+          ${gfxToggle('dynRes')}
+        </div>
+        <div class="settings-group">
           <div class="settings-label">PERFORMANCE HUD</div>
           <p class="sub">On-screen fps &amp; frame-time readout, plus which experimental effects are active — for testing the graphics settings. No effect on the game.</p>
           ${gfxToggle('perfHud')}
