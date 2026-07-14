@@ -13,12 +13,13 @@ const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 // --- 1. a synthetic run: 100 good frames + one bad (40ms) + one sub-ms spike -----
 const s = makePerfStats(600);
 for (let i = 0; i < 100; i++) perfFrame(s, 1000 / 60, 100, 200000); // 16.667ms → 60fps
-perfFrame(s, 40, 132, 230000);  // the janky frame: 25fps, heavier draws
+perfFrame(s, 40, 132, 230000, 30, 6);  // the janky frame: 25fps, heavier draws; 30ms sim (a JS/GC stall) + 6ms render
 perfFrame(s, 2, 999, 999000);   // an rAF double-fire: 500fps — must NOT become "max"
 const sum = perfSummary(s);
 
 check(`min fps = the worst frame (${sum.minFps.toFixed(2)} ≈ 25)`, near(sum.minFps, 25));
 check('min snapshots the draws/tris AT the worst frame', sum.worstCalls === 132 && sum.worstTris === 230000);
+check('min snapshots the sim/render split AT the worst frame (hitch attribution)', sum.worstSimMs === 30 && sum.worstRenderMs === 6);
 check(`max fps caps honestly — sub-4ms spike excluded (${sum.maxFps.toFixed(2)} ≈ 60)`, near(sum.maxFps, 60.0, 0.5));
 check(`avg fps = true run mean (${sum.avgFps.toFixed(2)} ≈ 59.9)`, near(sum.avgFps, 1000 * 102 / (100 * 1000 / 60 + 40 + 2), 0.2));
 check(`p95 lands in the tail (${sum.p95Ms.toFixed(1)}ms — the good-frame band, one 40ms outlier at p>95)`, sum.p95Ms > 16 && sum.p95Ms < 41);

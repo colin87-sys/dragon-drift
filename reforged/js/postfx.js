@@ -168,6 +168,7 @@ export function postTierState() {
 // that exp-decays back to zero. Presets keep shader-coupled tuning next to
 // the shader; CONFIG.JUICE only maps events -> preset names.
 const _kick = { bloom: 0, lift: 0, sat: 0, vig: 0, ab: 0 };
+const _kickKeys = Object.keys(_kick);   // hoisted: `Object.keys(_kick)` in the per-frame decay loop was allocating a fresh 5-string array 60×/s (steady GC feed)
 const KICK_DECAY = { bloom: 6, lift: 5, sat: 7, vig: 6, ab: 8 };
 const KICK_MAX = { bloom: 0.36, lift: 0.6, sat: 0.35, vig: 0.25, ab: 0.010 };
 let _flashFrames = 0;   // hard gold flash, decremented per PRESENTED frame
@@ -357,7 +358,7 @@ export function setPostTier(tier) {
   setGodRaysReady(_grTierOK && _grAvailable);
   if (postfx.godRayPass && !_grTierOK) postfx.godRayPass.enabled = false;
   postfx.bloomPass.strength = postfx._baseBloom;
-  for (const c of Object.keys(_kick)) _kick[c] = 0; // no stale impulses across tiers
+  for (let i = 0; i < _kickKeys.length; i++) _kick[_kickKeys[i]] = 0; // no stale impulses across tiers
   _flashFrames = 0;
   applySize();
 }
@@ -369,7 +370,8 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // State decays UNCONDITIONALLY — if the adaptive tier drops to 2 (composer
   // off) mid-decay, a frozen half-applied grade must not survive to pop back
   // when the tier restores.
-  for (const c of Object.keys(_kick)) {
+  for (let i = 0; i < _kickKeys.length; i++) {
+    const c = _kickKeys[i];
     _kick[c] = damp(_kick[c], 0, KICK_DECAY[c], rawDt);
   }
   if (_deathOn) _deathMix = Math.min(_deathMix + rawDt / 0.45, 1);
