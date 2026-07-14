@@ -10,6 +10,12 @@ import { atmosUniforms } from './atmosphere.js';
 // WORLD-space xz — the plane slides with the player on z, so world coords
 // keep the waves stationary instead of swimming along.
 
+// HEAVEN sun steer: the biome SUN_DIR points LEFT (x −0.22), but the arena's light is the CENTERED
+// detonation (world x 0, crest y≈100, ~13° up). The "sea answers the blast" gold specular column keys off
+// sunDir, so off-heaven it sat left of the blast. Steer sunDir to centre+blast-elevation as the heaven
+// engages (mix 1→2), restored off-heaven (byte-identical when the lerp weight is 0).
+const HEAVEN_SUN_DIR = new THREE.Vector3(0.0, 0.2, -1).normalize();
+
 let water = null;          // current mesh (Reflector or plain Mesh)
 let sceneRef = null;
 let reflective = false;
@@ -428,6 +434,10 @@ export function updateWater(dt, playerDist, time, fog, arenaMix = 0, arenaFade =
   u.time.value = time;
   u.uSwellAmp.value = swellOn ? 1 : 0; // belt-and-braces after any rebuild
   u.uAbsorbOn.value = depthOn ? 1 : 0; // N10b live toggle (no rebuild needed)
+  // HEAVEN sun steer: move the gold specular column UNDER the centered detonation (was left, on the biome
+  // sun). Weight ramps with the heaven unveiling (mix 1→2) × fade; 0 off-heaven ⇒ sunDir === SUN_DIR.
+  const heavenSunK = Math.max(0, Math.min(1, arenaMix - 1)) * Math.max(0, Math.min(1, arenaFade));
+  u.sunDir.value.copy(SUN_DIR).lerp(HEAVEN_SUN_DIR, heavenSunK).normalize();
   if (fog) {
     u.fogColor.value.copy(fog.color);
     u.fogNear.value = fog.near;

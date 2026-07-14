@@ -319,6 +319,12 @@ export function buildDragonModel(def, opts = {}) {
   // emissive field (the wing feathers) that the strong Surge rim would otherwise wash to cream. Nullable.
   const flareMats = [];
   if (wingsResult.flareMats) for (const m of wingsResult.flareMats) flareMats.push(m);
+  // Torso/head/tail may also publish flareMats (a withheld grave-light family — e.g. the Revenant's
+  // gap-leak plugs / socket vents / spectral wisp — that Surge-flares but must NEVER pick up the warm
+  // cruise rim). Nullable + additive: no shipped dragon returns these, so the roster stays byte-identical.
+  if (torsoResult.flareMats) for (const m of torsoResult.flareMats) flareMats.push(m);
+  if (headResult.flareMats) for (const m of headResult.flareMats) flareMats.push(m);
+  if (tailResult.flareMats) for (const m of tailResult.flareMats) flareMats.push(m);
   const wingMat = wingsResult.wingMat;
   const {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
