@@ -6,7 +6,7 @@ anti-collision proof + the build order; each dragon's full contract lives in its
 
 | # | Dragon | One-line identity | Build sheet |
 |---|---|---|---|
-| 1 | **Thunderhead Tempest** | a living thundercloud whose near-white lightning is intermittently LIVE — spectacle building | `TEMPEST-THUNDERHEAD-BUILDSHEET.md` |
+| 1 | **Thunderhead Tempest** | a living thundercloud WEARING its near-white lightning — a live humming garment that builds to strikes *(emissive doctrine revised 2026-07-14, owner reference; was "intermittently live")* — **v3 CONSOLIDATED contract at §1–§10** | `TEMPEST-THUNDERHEAD-BUILDSHEET.md` |
 | 2 | **Belladonna Stiletto** | a four-winged wasp-wyrm whose translucent sacs visibly FILL with UV-orchid venom | `VENOM-BELLADONNA-BUILDSHEET.md` |
 | 3 | **Aurora Sylph** | a polar ribbon-serpent wearing a rippling pleated aurora curtain instead of wings | `AURORA-SYLPH-BUILDSHEET.md` |
 | 4 | **Gravelight Revenant** | a hollow bone-dragon lit from inside by a caged grave-green ghost-fire — **FIRST IN BUILD (owner call; v1 build-ready sheet at §B)** | `WRAITH-GRAVELIGHT-BUILDSHEET.md` |
@@ -25,7 +25,7 @@ battle-tested lane and contributes a fresh silhouette / motif / spectacle, never
 
 | Dragon | Lane (archetype) | Proven in (shipped games) | What we add that's new |
 |---|---|---|---|
-| **Thunderhead Tempest** | storm / lightning dragon | MH *Kushala Daora* & *Amatsu*; Genshin *Dvalin "Stormterror"*; Pokémon *Zekrom* / *Rayquaza* | the STORMFORK bolt-frame wing (kinked lightning-skeleton — owner-chosen 2026-07-14, superseding the strata-deck) + intermittently-live charge |
+| **Thunderhead Tempest** | storm / lightning dragon | MH *Kushala Daora* & *Amatsu*; Genshin *Dvalin "Stormterror"*; Pokémon *Zekrom* / *Rayquaza* | the STORMFORK bolt-frame wing (kinked lightning-skeleton — owner-chosen 2026-07-14, superseding the strata-deck) + the live lightning GARMENT (humming at idle, building to strikes — owner-reference doctrine 2026-07-14) |
 | **Belladonna Stiletto** | poison / venom (insectoid) dragon | Pokémon *Naganadel* (luminescent wasp-venom) & *Dragalge* | UV-orchid hue + the diegetic venom fill-meter |
 | **Aurora Sylph** | celestial / aurora / worn-light dragon | LoL *Aurelion Sol* (star-lit cosmic dragon); East-Asian ribbon-serpent (Genshin, P&D) | polar-aurora curtain as a no-membrane wing |
 | **Gravelight Revenant** | undead / skeletal / dracolich | Skyrim *Durnehviir*; GW2 *Zhaitan*; Pokémon *Dragapult*; D&D dracolich | true negative-space hollow cage + bleaching invert |
@@ -43,7 +43,10 @@ carries its own "Prior art" block with the specific precedent.
 owns regalia, fire, and withholding — the three classic spectacle modes. The Fresh Five each claim
 a spectacle mode the roster has never used, so distinctiveness is structural, not cosmetic:
 
-- **Tempest owns TIME** — the first intermittent spectacle (strike windows you wait for).
+- **Tempest owns TIME** — the only spectacle with RHYTHM: a live garment that breathes at idle,
+  strikes on a deterministic scheduler, and breaks on Surge *(re-based 2026-07-14 — the owner's
+  reference made the garment PRESENT in cruise; "intermittent-from-dark" is history, the rhythm
+  is not)*.
 - **Stiletto owns VOLUME** — the first diegetic power meter (a liquid fill line).
 - **Sylph owns FLOW** — the first fluid-simulation read (a rippling worn-light curtain, no wings).
 - **Revenant owns VOID** — the first negative-space silhouette (light through a body that isn't there).
@@ -83,7 +86,7 @@ code truth), Fresh Five below the rule.
 | Molten Phoenix | magma orange-red-black | — | magma seams + caldera heart | — | pyre fans |
 | Aurum Toro | metallic giallo gold, gloss | bull-crown mecha | thrusters/tail-lights | — | svj blade panels |
 | Astral Wyrm | crystal + energy bands | serpentine (crystal) | energy bands | — | flat astral vanes |
-| **Thunderhead Tempest** | **charcoal slate L0.20–0.26 + near-white 255°/sat.09** | **forward-high kinked bolt-blades** | **branching arc-tree, INTERMITTENT-live — the wing skeleton IS its f2/f3 branches** | **charging** | **boltframe: kinked opaque membrane, forked lightning-skeleton** |
+| **Thunderhead Tempest** | **charcoal slate L0.20–0.26 + near-white 255°/sat.09** | **forward-high kinked bolt-blades** | **branching arc-tree GARMENT — LIVE hum in cruise building to strikes; the wing skeleton IS its f2/f3 branches** | **charging** | **boltframe: kinked opaque membrane, forked lightning-skeleton (hum-lit)** |
 | **Belladonna Stiletto** | **gloss oil-slick violet-black + UV-orchid 292°** | **pinched-waist cruciform + rear needle** | **translucent sacs that FILL (always-on)** | **brewing** | **FOUR gossamer veined blades (2 pairs)** |
 | **Aurora Sylph** | **deep polar indigo + teal 176° (+rose hem 325°, f2+)** | **serpentine PENNANT (vertical sky-swim)** | **flowing 2-stop gradient curtain** | **unfurling** | **pleated dorsal light-curtain + streamers (no membrane)** |
 | **Gravelight Revenant** | **matte chalk ivory (value ↑!) + gravefire 118°** | **latticed hollow (pierced mid-body)** | **caged INTERIOR core, seen through apertures** | **hollowing** | **bone-finger fan + shroud remnants, through-gaps** |
@@ -98,9 +101,17 @@ re-litigates):**
   hue family; GLOSS oil-slick vs matte; always-lit vessel vs withheld seam; four blades vs one
   crescent; cruciform-waist vs lateral spread.
 - *Tempest vs Vesper* — both dark-cool. Separators as sheet LAWS: body L 0.20–0.26 (2× Vesper),
-  near-white intermittent vs ion-blue Surge-only, kinked angular-stepped bolt-frame vs smooth
-  scallop crescent (2026-07-14: the deck-stack separator was replaced by an even harder one —
-  hard angles vs pure curves).
+  near-white LIVE-hum-building vs ion-blue Surge-only (the 2026-07-14 garment doctrine made this
+  separator STRONGER — Tempest is now visibly lit in cruise, the exact opposite of withholding),
+  kinked angular-stepped bolt-frame vs smooth scallop crescent (2026-07-14: the deck-stack
+  separator was replaced by an even harder one — hard angles vs pure curves).
+- *Tempest vs Solar* — **NEW watched cell (2026-07-14):** the garment doctrine makes Solar the
+  nearest EMISSIVE-BEHAVIOUR neighbour (both always-visible in cruise). Separators as sheet laws
+  (Tempest §3 + I0 calibration tile): HUE — cool 255° at sat ≤0.12 vs warm antique gold; BEHAVIOUR
+  — a breathing hum (±15%, fixed ω) punctuated by scheduled strikes and a Surge break vs static
+  worn regalia; OBJECT — a branching circuit skeleton (the wing frame itself) vs ring + gem
+  jewelry; BODY — charcoal storm L 0.20–0.26 vs indigo + gold crown. Twin gate veto: *"black
+  Vesper clone or gold-regalia Solar?"*
 - *Revenant vs Pearl* — both light bodies. Separators: matte chalk sat ≤0.12 (asserted) vs satin
   pearl+gold; skeleton cage vs armored paladin; green interior fire vs white-gold surface light.
 - *Tocsin vs Pearl/Solar/Aurum* — plate/metal family. Separators: 4 rigid disc-coins LOW+level +
@@ -190,12 +201,14 @@ strata-deck) — the roster's only ANGULAR-STEPPED silhouette: one opaque charco
 whose skeleton is a frozen branching lightning bolt (3 kink-knuckles on a gull arch, a Y-forked
 dominant ray, silver rim-caps on every kinked ridge). The motif is the STORM CIRCUIT: a branching
 near-white (`0xd9deff`, the unowned near-white emissive lane) arc-tree anchored at a sternum
-storm-heart, INTERMITTENTLY LIVE in cruise on a deterministic strike timer (duty 0.06→0.18 up the
-CHARGING ladder) — the deliberate midpoint between Solar's always-on and Vesper's withheld — and
+dynamo, worn as a LIVE GARMENT *(doctrine revised 2026-07-14 — the owner's reference wins)*: the
+bolt wing-frames, spine, chest/underbelly veins, glowing crest, and tail bolt-tuft HUM at idle
+(humFloor 0.30→0.90, breathing at a fixed ω), the deterministic strike timer lifts it to PEAKS
+(duty 0.06→0.18 up the CHARGING ladder, contrast capped 2.2–4.0× — never ignition-from-dark), and
 **the wing's skeleton IS the circuit's f2/f3 branches**: each strike ignites the frame
-root-to-tip (the dragon flies on two lightning bolts). Span 1.7→2.5×, tris 1.8/2.6/3.6/4.7k, fold
-≤0.66. It beats its nearest neighbor (Vesper) by being spectacle-BUILDING where Vesper is
-spectacle-withheld: rhythm and threat instead of restraint.
+root-to-tip (the dragon flies on two lightning bolts). Span 1.7→2.5×, tris 1.8/2.7/3.7/4.9k, fold
+≤0.66. It beats its nearest neighbors on behaviour: spectacle-BUILDING where Vesper is
+spectacle-withheld, ALIVE-and-rhythmic where Solar is static regalia.
 
 **2 · BELLADONNA STILETTO — "Venom, patiently brewed" (SSR→SSSR, 2400).** An insectoid wasp-wyrm in
 gloss oil-slick violet-black chitin: armored thorax, the roster's only concave silhouette break (a
@@ -269,6 +282,14 @@ beats everything on game-feel: the one dragon you can hear with your eyes.
 > strata-deck on aesthetics and chose the boltframe (kinked opaque membrane, forked
 > lightning-skeleton; rear read STACK → BOLT). §D supersedes the sheet's wing sections; queue,
 > costs, pulseTimer plan, and everything non-wing unchanged.
+>
+> **2026-07-14 (later): TEMPEST SHEET CONSOLIDATED TO v3 + THE GARMENT DOCTRINE.** The layered
+> sheet (§B patched by §C, partially replaced by §D) was rewritten as ONE self-contained
+> build-ready contract (Tempest §1–§10; all history demoted to an appendix — build chats read the
+> contract ONLY), and the emissive doctrine was revised in the owner's favour per the reference
+> image: the lightning is a generously lit, BUILDING garment (hum → strike-peak → Surge-break),
+> no longer withheld. Queue and pulseTimer plan unchanged; tris re-pinned {1.8, 2.7, 3.7, 4.9}k;
+> Solar joins the I0 calibration tiles.
 
 **Original recommendation (superseded by the owner decision above): Tempest → Revenant → Stiletto → Tocsin → Sylph.**
 
