@@ -133,7 +133,7 @@ function makeMats() {
     primary: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0x86b39c, emissive: 0x0e2018, emissiveIntensity: 0.25 }),
       new THREE.MeshStandardMaterial({ ...opts, color: 0xe2bd8a, emissive: 0x2a1a08, emissiveIntensity: 0.2 }),
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x6fb7e8, roughness: 0.32, metalness: 0.1, emissive: 0x123a55, emissiveIntensity: 0.25 }),
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xd8d2c2, roughness: 0.32, metalness: 0.1, emissive: 0x1a2230, emissiveIntensity: 0.05 }),   // A1: bone-ivory (was toy-blue 0x6fb7e8) — near-zero cool emissive, roughness kept for facet glints; warm sun-rim + cyan shadow do the work
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x1d4438, emissive: 0x0a3328, emissiveIntensity: 0.4 }),   // night moss
       new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
@@ -181,6 +181,20 @@ function mergeParts(parts, biomeIdx) {
   bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
   return { geometry, materials: mats };
 }
+
+// A/B coexistence flag for the wall-props redesign (WALL-PROPS-REDESIGN.md §6),
+// same idiom as `?skyforged=0` (powerups.js:13-15). Default (v2) = the new premium
+// per-biome kits; `?props=v1` restores the legacy roster. The flip is a swap of the
+// two rosters' `biomes` whitelists at module init — a registered-but-unlisted
+// archetype parks every instance (writeMatrix) and the visible-gate kills its draw,
+// so both rosters coexist ~free until the legacy set is deleted in the §6 A8 cleanup.
+const _envParams = (typeof window !== 'undefined' && window.location)
+  ? new URLSearchParams(window.location.search) : new URLSearchParams();
+const PROPS_V1 = _envParams.get('props') === 'v1';
+// Per-biome whitelist helpers: FROZEN is the A1 biome (new kit default-on, legacy
+// parked). A biome not yet migrated returns its shipped whitelist unconditionally.
+const frozenNew = PROPS_V1 ? [] : [2];   // ribspire/vertebrae/penitentes/serac/glacierfront
+const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -246,16 +260,21 @@ const ARCHETYPES = {
       return { x: side * (17 + r * 0.5 + rnd() * 14), h: 4.5 + rnd() * 3.5, r, tilt: 0 };
     },
   },
-  // Frozen Reach: the original big crystal spires.
+  // --- FROZEN REACH (A1 — WALL-PROPS-REDESIGN.md §4.2) ------------------------
+  // "The ribs of something enormous, not quite done being buried." Clustered
+  // blades + vertebral stacks, bone-white — the MARROWCOIL foreshadow made
+  // literal. Opposes Astral: hard/near/dense/rooted vs soft/vast/sparse/floating.
+  // Legacy single-cone crystals (now `frozenOld`, parked by default) stay
+  // registered until the §6 A8 cleanup; `?props=v1` swaps the rosters back.
   crystal: {
-    step: 13, biomes: [2], matIndex: 2,
+    step: 13, biomes: frozenOld, matIndex: 2,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.ConeGeometry(1, 1, 5), { y: 0.42, sy: 1 }) },
     ], 2),
     place: (side, rnd) => ({ x: side * (17 + rnd() * 8), h: 18 + rnd() * 32, r: 3.5 + rnd() * 5, tilt: side * (0.06 + rnd() * 0.1) }),
   },
   crystalSmall: {
-    step: 30, biomes: [2], matIndex: 2,
+    step: 30, biomes: frozenOld, matIndex: 2,
     build: () => mergeParts([
       { mat: 1, geo: xform(new THREE.ConeGeometry(1, 1, 5), { y: 0.42 }) },
     ], 2),
@@ -263,6 +282,90 @@ const ARCHETYPES = {
       const h = 2 + rnd() * 5;
       return { x: side * (13.5 + rnd() * 3), h, r: h * 0.35, tilt: side * rnd() * 0.3 };
     },
+  },
+  // TALL HERO (~112 tris): a KINKED blade family on a shared crusted pan — one
+  // dominant blade (frustum body + off-axis cone tip = the fracture kink that
+  // survives backlight), two graduated children, and a SNAPPED stub with its
+  // fallen tip lying on the pan (the fracture story + free asymmetry). ONE cyan
+  // sliver (mat 1) buried in the cleft between the dominant blade and its tallest
+  // child — visible only when a gap-aligned yaw opens (the withheld cold).
+  ribspire: {
+    step: 17, biomes: frozenNew, matIndex: 2,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.50, 0.58, 0.12, 6), { y: 0.06, ry: 0.4, sx: 1.1, sz: 0.85 }) }, // crusted base pan
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.26, 0.62, 5), { y: 0.40 }) },                              // dominant blade body
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.13, 0.44, 5), { x: 0.07, y: 0.82, rz: -0.16 }) },                    // off-axis kinked tip
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.14, 0.58, 5), { x: -0.26, z: 0.12, y: 0.30, rz: 0.20 }) },           // child blade 1 (tallest)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.11, 0.42, 5), { x: 0.28, z: -0.10, y: 0.24, rz: -0.24 }) },          // child blade 2
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.09, 0.17, 0.24, 5), { x: 0.34, z: 0.14, y: 0.13, rz: -0.12 }) }, // snapped stub
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.08, 0.34, 5), { x: -0.36, z: -0.18, y: 0.11, rz: 1.4, ry: 0.6 }) },  // FALLEN tip on the pan
+      { mat: 1, geo: xform(new THREE.ConeGeometry(0.045, 0.52, 4), { x: -0.12, z: 0.02, y: 0.34, rz: 0.06 }) },          // cyan sliver, buried in the cleft
+    ], 2),
+    place: (side, rnd) => ({ x: side * (17 + rnd() * 8), h: 16 + rnd() * 24, r: 3.5 + rnd() * 2, tilt: side * (0.05 + rnd() * 0.09) }),
+  },
+  // MID HERO, EXCLUSIVE (~120 tris): a SPINE breaching the ice — 6 stacked
+  // lens-discs (squashed cylinders) with alternating pinched-waist radii, centers
+  // progressively OFFSET to trace a bowed curve (the offset-curve survives the
+  // (r,h,r) shear by construction). NO accent — the pure-form beat (§4.2). The one
+  // silhouette in the roster that reads unmistakably as bone.
+  vertebrae: {
+    step: 29, biomes: frozenNew, matIndex: 2,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.32, 0.13, 5), { x: 0.00, y: 0.09, sy: 0.8 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.19, 0.21, 0.10, 5), { x: 0.05, y: 0.24, sy: 0.75 }) }, // pinched waist
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.28, 0.29, 0.13, 5), { x: 0.09, y: 0.40, sy: 0.8 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.17, 0.19, 0.10, 5), { x: 0.08, y: 0.56, sy: 0.75 }) }, // pinched waist
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.25, 0.12, 5), { x: 0.03, y: 0.71, sy: 0.8 }) },
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.13, 0.20, 0.16, 5), { x: -0.03, y: 0.87, sy: 0.85 }) }, // crown vertebra
+    ], 2),
+    place: (side, rnd) => ({ x: side * (14 + rnd() * 7), h: 6 + rnd() * 8, r: 2.5 + rnd() * 1.5, tilt: 0 }),
+  },
+  // MID-LOW CLUSTER (~80 tris): a hoarfrost tooth-field — 7 small kinked blades
+  // (offset tips) on a shared crusted pan, graduated heights, spread radially in x
+  // AND z (rotation-robust). ONE tooth core-lit (mat 1). Fills the ground register
+  // so the biome reads DENSE (its Law-4 word).
+  penitentes: {
+    step: 11, biomes: frozenNew, matIndex: 2,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.54, 0.10, 6), { y: 0.05, ry: 0.7, sx: 1.05, sz: 0.9 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.11, 0.90, 4), { x: -0.02, z: 0.04, y: 0.10, rz: 0.10 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.09, 0.64, 4), { x: 0.24, z: -0.10, y: 0.10, rz: -0.16 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.08, 0.50, 4), { x: -0.26, z: 0.14, y: 0.10, rz: 0.22 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.07, 0.38, 4), { x: 0.10, z: 0.28, y: 0.10, rz: 0.05 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.07, 0.44, 4), { x: -0.14, z: -0.24, y: 0.10, rz: -0.10 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.06, 0.30, 4), { x: 0.30, z: 0.18, y: 0.10, rz: -0.20 }) },
+      { mat: 1, geo: xform(new THREE.ConeGeometry(0.07, 0.56, 4), { x: 0.04, z: -0.06, y: 0.10, rz: -0.04 }) }, // the one lit core
+    ], 2),
+    place: (side, rnd) => ({ x: side * (13 + rnd() * 5), h: 2.5 + rnd() * 3.5, r: 2 + rnd() * 1.5, tilt: side * (rnd() * 0.14 - 0.05) }),
+  },
+  // LOW FOIL (~36 tris): a pressure-ridge fragment — 3 THIN tilted plates tented
+  // against each other, serration carried by STAGGERED plate heights (not a chunky
+  // dihedral), spread in x AND z. NO accent, no glow — deep glacial blue-grey via
+  // the bone primary going dark at low AO. The dark mass that earns the cyan.
+  serac: {
+    step: 13, biomes: frozenNew, matIndex: 2,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.92, 0.09), { x: -0.14, z: 0.06, y: 0.46, rz: 0.15, ry: 0.3 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.72, 0.08), { x: 0.14, z: 0.12, y: 0.36, rz: -0.19, ry: -0.4 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.32, 0.54, 0.07), { x: 0.02, z: -0.16, y: 0.27, rz: 0.08, ry: 0.9 }) },
+    ], 2),
+    place: (side, rnd) => ({ x: side * (12.5 + rnd() * 5.5), h: 1.5 + rnd() * 2, r: 2 + rnd() * 2, tilt: side * (rnd() * 0.16 - 0.05) }),
+  },
+  // DISTANT MASSIF (~64 tris): a bergschrund cliff that FLOATS on the fog line —
+  // its mass sits in the UPPER normalized band (nothing below y≈0.38) so, at the
+  // hardcoded base y=-0.5, its world base rides ~0.38·h above the water; foam:false
+  // hides the missing waterline. Peaks spread in x AND z so any recycle-yaw reads
+  // as a jagged massif (the `ridge` rotation-robust pattern). mat 0 only.
+  glacierfront: {
+    step: 83, biomes: frozenNew, matIndex: 2,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.60, 0.52, 5), { y: 0.66, ry: 0.4, sx: 1.25, sz: 0.9 }) }, // main wall
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.38, 0.30, 5), { x: -0.52, z: 0.16, y: 0.52, ry: 1.6 }) },  // calved shelf
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.18, 0.36, 4), { x: -0.34, z: -0.12, y: 0.94, ry: 0.5 }) },           // serac crown peaks
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.16, 0.30, 4), { x: 0.10, z: 0.22, y: 0.90 }) },
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.26, 4), { x: 0.44, z: -0.18, y: 0.86, ry: 0.9 }) },
+    ], 2),
+    place: (side, rnd) => ({ x: side * (28 + rnd() * 18), h: 5 + rnd() * 3.5, r: 20 + rnd() * 12, tilt: 0 }),
   },
   // Emberfall Caldera: jagged basalt spire split by a glowing magma seam.
   basalt: {
@@ -415,6 +518,9 @@ const ARCHETYPES = {
 const FOAM_CFG = {
   tower: { r: 0.7 }, column: { r: 0.6 }, archruin: { rx: 0.52, rz: 0.18 }, slab: { rx: 0.48, rz: 0.16 },
   obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
+  // A1 Frozen kit — the waterline weld between silhouette + reflection; glacierfront
+  // is a floating fog-line massif so it takes no collar (like `ridge`).
+  ribspire: { r: 0.85 }, vertebrae: { r: 0.5 }, penitentes: { r: 0.75 }, serac: { r: 0.55 }, glacierfront: false,
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
