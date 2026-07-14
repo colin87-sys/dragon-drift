@@ -822,6 +822,98 @@ Per DRAGON-DESIGN §8/§9, run per increment and in full at I5:
 - **The billow** ±3% — alive vs breathing-balloon (fallback: cut, churn carries it).
 - Storm SFX tie-in (owner call §Open-4, default OFF).
 
+## §C — BUILD-EXPERIENCE CARRYOVER from the Revenant build (Fable-vetted, anti-reskin; 2026-07-14)
+
+**What this section is.** The Gravelight Revenant (build order #1) banked 15 build-time lessons.
+A harsh Fable triage vetted every one against a single test: *does it describe how the ENGINE,
+METHOD, CAMERA, MOTION, or MATERIAL-under-light behaves — true whether the subject is bone or
+cloud — or does it describe a REVENANT FEATURE (bone, cage, enclosed holes, lantern-core,
+phalanx bat-membrane)?* Features do NOT transfer; importing one produces the owner's named
+failure: a re-skinned Revenant. Verdicts: **6 TRANSFER · 7 PARTIAL · 2 REJECT.** §B stays the
+build contract; §C adds carryover rules to its increments. Where a §C rule and §B disagree, §C
+flags it explicitly (one place: the C5 wingbeat catch).
+
+### §C.1 Triage table (all 15 Revenant lessons)
+
+| # | Revenant lesson (2026-07-13-revenant-…) | Verdict | Why | Tempest translation (rewritten, not copied) |
+|---|---|---|---|---|
+| C1 | `i0-stub-and-the-hole-metric` | **TRANSFER** (tool carved out) | The coexist-in-4-moves pattern, the builder contract, and the byte-identity proof are engine facts. The holeMetric TOOL is Revenant's gauge, not ours. | I0 runs the identical contract: 4 self-registering builders (module imports ONLY three+dragonRecipe+mechaKit); torso publishes `group/attach/spinePoints/spineMats/mats` + **`coreGlow:null`** (the crash-safe stub — a colour number null-derefs every frame); head/wings return `spineMats:[]` never `undefined`; the def OWES `horn`+`scales` hexes (storm-tone, unused mats) or every build spews 2 warnings; `lanceTint`+`lanceRune` mandatory (SSSR roster invariant throws); LEFT wing = outer `lmirror` wrapper (never scale the pivot) → wingsymprobe Δ0.000. **Prove byte-identity by multiset `comm -3` compare of sorted tricount FORM rows** — the naive diff lies (stderr interleave + unlabeled continuation rows). Attribute pre-existing red suites on clean master before gating; gate only on the prescribed four. **Tempest's I0 gauge is NOT hole-fraction** — it is the rear-projected deck-span decay + slit-open assert + pulseTimer determinism (§B.7 I0, already specced). holeMetric's ONE Tempest use is INVERTED: see C-GUARD assert (enclosed-hole count ≈ 0). |
+| C2 | `render-in-color-and-fable-gate-from-the-start` | **TRANSFER** | Black-fill proves STRUCTURE, never LOOK; trusting it alone cost the Revenant two increments and a 2.2/5 gate. | `tools/dragonstudio.mjs tempest` colour captures + a FRESH harsh Fable gate at EVERY increment from the first real geometry (I1) — Chromium+Playwright are pre-installed and headless-capable. §B's silhouette asserts (span decay, slit-open, corridor) are structure pre-checks, never the gate. Process: pre-assess (Fable validates the approach + hands back numeric targets) → build → gate on real pixels. |
+| C3 | `render-in-color-and-let-the-owner-reference-win` | **PARTIAL** | Both process halves are universal; the anatomy list (medial wrist, vertebra tail, skull, ivory) is Revenant bone. | (a) Never claim colour renders are impossible headless — check first. (b) When the owner posts a reference image or gameplay screenshot, it OUTRANKS this sheet's prose: rebuild to the picture, log the deviation in the changelog, don't defend the digest. REJECT the entire anatomy list — none of it describes a cloud. |
+| C4 | `the-money-camera-dictates-proportion` | **TRANSFER** | Pure camera law: a creature tuned at turntable angles still fails if the ONE shipped angle reads wrong. | Grade and tune every proportion at the rear-chase tile FIRST. The identity mass — the STRATA STACK — must own the centre of the rear silhouette at the shoulder line; the mane and virga fringe stay secondary by area; if the charcoal decks lose the frame, the levers are AREA and VALUE (the silver-rim tier), not new geometry. Let the Fable critic localise misses to a camera and hand back numeric deltas ("+X% deck-1 span", "one value step on rims"); apply verbatim, re-render the money tile, re-gate. |
+| C5 | `wingbeat-distal-amplitude-must-be-less-than-the-shoulder` | **TRANSFER** | A motion law of the SHARED wingParts rig Tempest rides — substrate-irrelevant. | Shoulder owns 75–85% of the swept arc; forearm+wrist ≤ ~25%, EACH strictly < the shoulder, same rotational direction (never counter-bend), lagged so the decks trail. **CONCRETE CATCH: §B.3b's dial block (`rootAmp .66, midAmp .28, tipAmp .42`) trips this law — tip > mid, and mid+tip = 0.70 > root.** Re-tune at I2 to shoulder-led ownership before the first motion gate; verify headless at the frozen extremes (`silhouette.mjs tempest rearfit --pose=recovery|downstroke` — clock target: top ~12:00–12:30, bottom ~5:00, never 6:00). The deck-2/3 blade-walker sway (0.10–0.14 rad hardcoded) is safely under the shoulder beat — assert it stays there if the follow-up lag dial ever lands. |
+| C6 | `give-the-fire-a-body-and-the-bone-mass` | **TRANSFER** | "A billboard is a sticker; a flat ribbon end-on is a wire; a ramp is a claim about rendered pixels" — camera + material facts. | **No billboard, sprite, or flat-ribbon lightning, ever**: every arc strip is a tent/groove with cross-section (§B.4a's law — this lesson is WHY), DoubleSide per §6.5. The dynamo core is a vertex-jittered faceted MESH (jitter = index hash `sin(i*12.9898)*43758…`, never `Math.random()` — determinism), not a sprite. Anything the chase cam sees END-ON needs cross-section there: deck trailing edges, mane spikes, virga wisps are wedges/tents, never single quads. Assert the charcoal ramp on RENDERED medians (monotonic ↓ under ACES), not source hexes — tonemapping compresses the ends. And attribute colour casts to LIGHT before touching albedo (a cool studio fill is not a material bug). |
+| C7 | `a-dark-shroud-must-stay-dark-under-the-game-light` | **PARTIAL** | Value-under-the-real-key + distance-dependent highlight facets are universal; the fenestra dark floor is cage/skull anatomy. | The charcoal law (L 0.20–0.26) is a claim about GAME-LIT pixels: lit facets of `0x293040` can lift to mid-grey under the key — verify the band on the game-lit tile, hold roughness 0.85 so lit facets stay inside it. AREA and VALUE are separate levers: the silver rims may sharpen edges but must not lift the wing ZONE's measured value read. Small bright facets are a distance bet: judge rim-catches + horn bosses at the ~250px chase read on both backdrops; if they stack into clutter (the shard-salad tell), cut them — clean ridges only. REJECT the fenestra-floor half. |
+| C8 | `a-carved-orbit-is-a-dark-floor-plus-a-lit-rim` | **PARTIAL** | Relief = dark floor + lit rim, and "one flat triangle flat-shades to one value = sticker" are lighting laws; orbits/sockets are skull features. | The DYNAMO recess needs BOTH cues: a genuinely dark interior behind the vanes (dedicated near-black recess mat, envMap 0) AND lit vane edges (silver tier) — depth alone reads as a painted chest decal. Every panel-like element (cowl lobes, virga wisps) carries ≥2 facets with a real out-of-plane crease. Simplify the CONVERGENCE zone: where neck + mane + cowl + deck roots meet, one clean cowl plate per side beats overlapping flakes (detail the open areas instead). **BAN: no eye sockets, orbit pockets, or skull fenestrae anywhere on the ram-prow.** |
+| C9 | `i2-a-rear-chase-hole-must-face-the-cam-not-just-exist` | **TRANSFER** | Literally Tempest's #1 risk stated as a law: a gap in a plane is invisible to a camera looking along that plane. | The inter-deck slits must be OPEN IN REAR PROJECTION at the poses the game HOLDS: assert background rows between deck bands in `rearfit` black-fill at glide AND bank AND apex (one transient edge-on pose is fine; edge-on at cruise is a fail). If a slit closes, the fix is ATTITUDE — dihedral stagger (14/20/26°), set-back — plus the root-gap floor 0.16× chord (§F residual); never just "cut a bigger gap." Both anti-clone claims are NUMBERS: not-venetian-blinds = span-decay ×0.80±0.05 + slit px ≥ floor; not-a-Revenant = enclosed-hole count ≈ 0 (C-GUARD). |
+| C10 | `i1-an-enclosed-hole-needs-a-continuous-frame` | **REJECT (Revenant-specific)** | Tempest's slits are OPEN-ENDED gaps by design (they open outboard, 0.12→0.22× chord). Importing a "continuous frame" would close them into enclosed framed windows — a rib cage in the wing, the exact reskin failure. | No translation. The one echo, already carried by C1/C9: know what your metric measures — open bays correctly read ZERO enclosed holes, and for Tempest zero is the PASS, not the miss. |
+| C11 | `a-lantern-is-lit-bone-not-a-bright-core` | **PARTIAL** | "Light the receiver, not the source", the channel-clip desaturation law, and metric hygiene generalize; lit-bone + the fenestrated skull do not — and running the receiver-lighting CONTINUOUSLY rebuilds the Revenant's lantern. | On STRIKE frames the light must LAND on receivers — deck undersides + vane inner faces (the §B.4a pools) — so the strike reads as the storm lit from within, never as bright lines floating on charcoal. **But only inside strike windows**: a continuously-glowing caged core with lit surroundings IS the Grave-Heart lantern (banned; between windows the ember floor stays ≤0.06 and the frame is diffuse-only). Channel-clip law: keep dominant-channel × intensity under clip on seams + ember so the cold violet cast survives and the `0xd9deff → 0xf2f4ff` strike step stays a visible jump (an over-driven emissive desaturates and the ladder collapses). And when a gate metric measures the wrong thing (two changes move it the wrong way), note the artifact and move on — don't grind an unwinnable number. |
+| C12 | `a-wing-membrane-anchors-at-the-pivot-not-the-body-and-not-the-hip` | **PARTIAL** | The pivot-lever law is universal rig physics (a vertex at the rotation centre barely translates); the patagium anatomy is bat-wing. | Any geometry bridging body↔flapping wing satisfies "moves with the wing" AND "stays glued to the body" only NEAR THE JOINT: deck-1's inboard root edge sits close to the shoulder pivot (short lever → no gap opens under the static cowl through the beat; the cowl itself stays body-frame, §B.3a). And nothing spans the hand fold: no element owned by both the hand group and the body/arm — the fold-tear gotcha applies verbatim to deck nesting at the ≤0.66 fold. REJECT the propatagium/brachial membrane anatomy wholesale. |
+| C13 | `a-body-membrane-belongs-on-the-body-not-the-flap-arm` | **REJECT (superseded + Revenant-specific)** | Its central fix (body-FIXED membrane) was corrected by the pivot lesson (C12 — "body-fixed reads detached"); the unique remainder is bat anatomy (medial wrist, patagium drape). | No translation. Its surviving echo — grade ARTICULATED poses (fold/bank/flap extremes), not the neutral glide, because flap bugs hide in stills — already lives in C12's verify note and §B.9's flapstrip/fold mandates. |
+| C14 | `weld-the-membrane-to-spar-samples-and-cup-it-ventrally` | **PARTIAL** | Shared-sample welding is a universal anti-detach method; the membrane loft + ventral glide cup are bat-wing construction. | Generate the arc-tree polylines FROM the decks' own sampled seam/ridge nodes (the module-level profile functions, sampled AFTER any shaping is baked) so the bolts ride the surface exactly through churn + ±3% billow — a bolt authored from independent constants floats off a breathing deck, and "the lightning detached" is the foreseeable I4 bug. Same for the virga hem: trace the wisps' ACTUAL trailing nodes. REJECT the chiropatagium loft and the ventral membrane cup (the decks already own their inward bay-cup spec; do not add glide-surface camber logic to cloud slabs). |
+| C15 | `the-wing-leading-edge-flares-forward-then-hooks-back` | **PARTIAL** | Waypoint-table authoring + the curvature-axis diagnostic are method; the "‹" forward-flare profile is the Revenant reference's bat arm. | Author each deck's leading edge as an interpolated WAYPOINT table (module-level, shared by geometry, tip markers, and tests) — the clean way to give three decks genuinely different direction-changing profiles (§B.3b's non-parallel-curves lock) instead of fighting a formula. When a curve reads wrong, check WHICH AXIS the curvature is in (Y gull arch vs Z ogee) before touching lengths; never fix a direction bug with a length change. **BAN the Revenant waypoint numbers, the "‹" kink, and all wrist-fraction reasoning — a cloud deck has no arm/wrist anatomy to imitate.** |
+
+### §C.2 Carryover build rules → §B increments
+
+- **I0** (+C1, C2): identical coexist contract + the `coreGlow:null` stub + `horn`/`scales` def
+  hexes + `lanceTint`/`lanceRune`; **prove roster byte-identity by multiset comm-compare of
+  tricount FORM rows**; attribute pre-existing red suites on clean master, gate on the prescribed
+  four only. Land the slit/span-decay measurement as I0 tooling (Tempest's counterpart of the
+  Revenant's hole metric — §B.7 already specs it with pulseTimer + `?strikePin`); add the C-GUARD
+  enclosed-hole ≈ 0 assert. Lock the Fable rubric now, including the §C.3 anti-reskin veto.
+- **I1** (+C6, C7, C8, C2): first real geometry ⇒ first COLOUR gate (never silhouette-only).
+  Verify the charcoal L band on the game-lit tile, not the swatch. The dynamo = near-black recess
+  floor + lit vane rims (both cues) — and it idles dark (ember ≤0.06); no continuous lantern.
+  Heart core = hash-jittered faceted mesh, never a sprite.
+- **I2** (+C5, C9, C12, C15, C4): re-tune the §B.3b amplitude block to shoulder-led arc ownership
+  (the C5 catch: tip .42 > mid .28 as written); slit-open assert IN REAR PROJECTION across
+  glide/bank/apex, attitude before gap-size; deck-1 root anchored near the pivot, nothing spans
+  the hand fold; leading edges as waypoint tables; grade the stack at the rear-chase money tile
+  and let the critic hand back numeric proportion deltas.
+- **I3** (+C8, C7, C6): no skull pockets/orbits — the ram-prow stays a solid billowed wedge;
+  mane spikes + virga wisps are tents/wedges with ≥2 facets (never single quads); simplify the
+  neck/mane/cowl/deck-root convergence zone; judge horn bosses + rims at the 250px read.
+- **I4** (+C6, C11, C14, C1): bolts are tents/grooves with cross-section, DoubleSide, welded to
+  deck sample nodes (no floating lightning over a billowing deck); strike light lands on the
+  receivers (deck undersides, vane faces) inside windows ONLY; channel-clip caps preserve the
+  violet cast and the seam→core step; ember floor stays carved-not-lit.
+- **I5** (+C6, C4, C11): assert the ramp on RENDERED medians (monotonic under ACES); final
+  money-camera proportion pass (the stack owns the rear silhouette centre); if a gate metric
+  proves unwinnable (measuring the wrong thing), document and move on — don't trade money-camera
+  work for a comparison-render number.
+- **Every increment** (+C2, C3): colour captures + a fresh harsh Fable gate; pre-assess → build →
+  gate; the owner's reference/screenshot outranks this sheet.
+
+### §C.3 ANTI-RESKIN GUARD — Revenant features the Tempest builder must NOT import
+
+The owner's stated fear is a re-skinned Revenant. These five are FEATURES, not lessons; each
+one-line reason is why importing it betrays the cloud-and-lightning identity:
+
+1. **Bone units / vertebra chains / skeletal segmentation** (`vertebraUnit`, bead-chain tails,
+   discrete centra) — Tempest is condensed vapor; ANY bone read makes it a skeleton in a cloud
+   costume. The virga tail is rain-wisps off a billowed stem, never a chain of segments.
+2. **The hollow cage + enclosed through-windows + the hole-fraction ladder** — Tempest's
+   see-through is OPEN-ENDED slit gaps between opaque decks; enclosed framed apertures anywhere
+   (wing, torso, head) read as ribcage/fenestra. **Standing assert: `holeMetric` enclosed-hole
+   count ≈ 0 on every Tempest view/form (≤ the Pearl aliasing floor ~2%)** — the Revenant's
+   pass-band is Tempest's FAIL-band.
+3. **The lantern-core** (an always-lit caged glow that continuously lights its surrounding
+   structure) — the dynamo is INTERMITTENT by identity ("Vesper withholds; Tempest threatens"):
+   between strike windows the frame is diffuse-only + ember ≤0.06. A continuous chest lantern is
+   a recolored Grave Heart and erases the CHARGING verb (rhythm IS the spectacle).
+4. **The phalanx bat-membrane wing** (medial wrist, finger-bone fan, propatagium/plagiopatagium/
+   chiropatagium, the "‹" leading-edge kink, ventral membrane cupping, tattered scallop hems) —
+   the hero is THREE OPAQUE STRATA DECKS; any membrane/patagium geometry or bat-arm proportion
+   reasoning turns the storm-front into a bat with grey skin.
+5. **The chalk-ivory BLEACH ramp + "brightest coolest mass in frame" material law** — Tempest
+   DARKENS up the ladder (the storm gathers) inside the L≥0.20 floor; importing the Revenant's
+   value direction or bone-bright material logic inverts the identity and collides with Pearl's
+   lane.
+
+**STANDING GATE VETO (add to every increment's Fable gate, alongside the Vesper/Solar veto):**
+*"Does any Tempest frame read like a re-skinned Revenant — bone, cage, lantern, or bat-membrane —
+instead of a thundercloud?"* Any YES is an automatic FAIL regardless of the numeric average.
+
 ## CHANGELOG
 - **v0 (Fable design-director synthesis).** Fresh storm drake THUNDERHEAD TEMPEST — identity IMMINENT
   (the gathering storm); hero = THE STRATA STORM-FRONT (triple-deck slab stack, opaque, slit gaps);
@@ -848,3 +940,18 @@ Per DRAGON-DESIGN §8/§9, run per increment and in full at I5:
   wings ~20 draws, apex ≤70. Increment plan I0–I5 (stub+pulseTimer+calibration → torso+heart →
   strata decks → head+tail → circuit+Surge+firewall → ladder), each behind a fresh Fable gate.
   Next: cut the build branch and run I0.
+- **v1.1 (§C — Revenant build-experience carryover; Fable harsh triage, 2026-07-14).** The
+  sibling Revenant build banked 15 lessons; a Fable critic triaged every one for what genuinely
+  transfers to a structurally-different dragon: **6 TRANSFER · 7 PARTIAL · 2 REJECT** (§C.1),
+  with each keeper rewritten as a Tempest directive and cross-referenced into the §B increments
+  (§C.2). Headline transfers: render-in-COLOUR + Fable-gate from increment one (the Revenant's
+  costliest miss); the rear-chase slit-must-FACE-the-cam law (attitude before gap-size);
+  give-the-lightning-a-BODY (no billboard/ribbon bolts); the byte-identity multiset proof; and a
+  concrete catch — §B.3b's wing dials (`tipAmp .42 > midAmp .28`, mid+tip > root) trip the
+  Revenant's broken-linkage motion law and must be re-tuned at I2. Rejected as reskin-bait: the
+  enclosed-hole continuous-frame law (would close the slits into a ribcage) and the superseded
+  body-membrane lesson. NEW §C.3 ANTI-RESKIN GUARD: five banned Revenant features (bone units /
+  cage + enclosed holes / lantern-core / phalanx bat-membrane / ivory bleach ramp), a standing
+  `holeMetric ≈ 0` anti-cage assert (the Revenant's pass-band is Tempest's fail-band), and a
+  standing gate veto: *"does any Tempest frame read like a re-skinned Revenant instead of a
+  thundercloud?"* §B untouched; §C is additive.
