@@ -175,6 +175,20 @@ function makeEdgeMat(color, intensity) {
   });
 }
 
+// Fold the vertex-colour ladder into the EMISSIVE term so it reads in ANY light
+// (vertex colours alone only modulate diffuse → they die backlit). frost faces →
+// emissive×(bright frost), belly faces → emissive×(deep teal): the ladder's self-lit
+// legibility floor. Not applied to moverIce (its coral warning must stay unmodulated).
+function withLadderEmissive(mat) {
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vColor.rgb;'
+    );
+  };
+  return mat;
+}
+
 export function initObstacles(s) {
   scene = s;
   const bodyOpts = { flatShading: true, roughness: 0.4, metalness: 0.1 };
@@ -210,10 +224,17 @@ export function initObstacles(s) {
     // LADDER (near-white frost on upward faces, mid ice on verticals, deep teal in
     // the belly/shadow planes) that lifts flat-shaded ice from "one blue band" to
     // premium. Base white so the baked vertex colours read as authored.
-    frostIce: new THREE.MeshStandardMaterial({
+    // vColor carries the frost/mid/teal ladder. Vertex colours only modulate the
+    // DIFFUSE term, so backlit against the bright sunset the whole body collapsed to
+    // near-black emissive and the ladder vanished (the owner's "less premium than the
+    // side props" — the hazards sit dead-centre in the sun corridor, the worst
+    // contrast spot). Fix: fold the ladder into EMISSIVE too (onBeforeCompile below),
+    // so frost faces stay bright and belly faces stay teal in ANY light — a self-lit
+    // legibility FLOOR for a material-history ladder, not a glow feature.
+    frostIce: withLadderEmissive(new THREE.MeshStandardMaterial({
       color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.34, metalness: 0.02,
-      emissive: 0x11384c, emissiveIntensity: 0.28,
-    }),
+      emissive: 0xcfe4f0, emissiveIntensity: 0.42,
+    })),
     // Dark recess backing behind a crevasse glow — the near-black-teal socket that
     // turns "strip stuck on a face" into "crack with light inside".
     frostShadow: new THREE.MeshStandardMaterial({
@@ -1097,13 +1118,18 @@ export function pillarColliderCoverage() {
 // fixed WEATHERING AXIS (material-history, not lighting) so it never flickers. Uniform
 // r-scale. Same geometry for static & dynamic variants (dynamic just swaps to the coral-
 // pulsing moverIce material) so "same hazard, it moves" stays legible.
+// WIDER THAN TALL (~1.5 : 1) — a floating hazard you dodge by moving SIDEWAYS, so
+// lateral mass is the verb (the owner's note). The dominant chunk A stays centred and
+// big enough to carry the r*0.70 collider sphere on EVERY axis (measured post-scale);
+// B and C are pushed far out laterally so the fragments extend the mass to the flanks
+// (visual edge OUTSIDE the collider = forgiving fringe, the correct direction).
 // [circumR, [offX,offY,offZ], [sclX,sclY,sclZ], [axisX,axisY,axisZ]] in r units.
 const BERG_CHUNKS = [
-  [0.98, [0.00, 0.00, 0.00], [1.00, 0.90, 1.07], [0.28, 0.50, 0.62]],   // dominant, centred on the collider
-  [0.60, [0.54, -0.28, 0.36], [1.06, 0.95, 1.00], [-0.7, 0.25, 0.6]],   // secondary fragment, poking clear of A
-  [0.44, [-0.56, 0.32, -0.42], [1.00, 1.06, 0.95], [0.45, -0.6, -0.55]], // ~130° from B (never 180 → mitosis)
+  [1.05, [0.00, 0.00, 0.00], [1.20, 0.90, 1.08], [0.28, 0.50, 0.62]],   // dominant — wide, centred on the collider
+  [0.66, [0.90, -0.16, 0.32], [1.05, 0.92, 1.00], [-0.7, 0.25, 0.6]],   // fragment flung to the RIGHT flank
+  [0.50, [-0.92, 0.20, -0.38], [1.00, 1.04, 0.95], [0.45, -0.6, -0.55]], // fragment flung to the LEFT (~130° from B)
 ];
-const BERG_MICRO = [ [0.17, [0.52, 0.06, 0.52]], [0.15, [-0.22, -0.30, 0.34]] ];   // seam micro-shards
+const BERG_MICRO = [ [0.17, [0.70, 0.04, 0.50]], [0.15, [-0.42, -0.24, 0.34]] ];   // seam micro-shards
 let _bergSupport = 0;   // min face-plane distance of chunk A from centre (proven ≥ collider 0.70r)
 
 function buildFrozenShard() {
@@ -1125,7 +1151,9 @@ function buildFrozenShard() {
     let g = new THREE.IcosahedronGeometry(rad, 0);
     if (g.index) g = g.toNonIndexed();
     jitter(g, 0.16);
-    if (ai === 0) {   // measure chunk A's inradius (min face-plane distance to origin) BEFORE offset
+    g.scale(scl[0], scl[1], scl[2]);
+    if (ai === 0) {   // chunk A carries the collider — measure its inradius AFTER the
+      // (non-uniform) scale, so a squashed axis can't secretly drop below the sphere.
       const p = g.attributes.position; let mind = Infinity;
       const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
       for (let i = 0; i < p.count; i += 3) {
@@ -1135,7 +1163,6 @@ function buildFrozenShard() {
       }
       _bergSupport = mind;
     }
-    g.scale(scl[0], scl[1], scl[2]);
     g.translate(off[0], off[1], off[2]);
     bakeIceLadder(g, { ax: axis[0], ay: axis[1], az: axis[2], frostT: 0.44, tealT: -0.42 });
     parts.push(g); ai++;
