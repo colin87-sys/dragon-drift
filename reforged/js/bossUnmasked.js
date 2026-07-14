@@ -3,6 +3,7 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './util.js';
 import { createBossCommon, stripForMerge } from './bossKit.js';
 import { buildAngelWing } from './angelWing.js';   // the owner's merged, signed-off angel wing (do NOT rebuild)
+import { chainBeforeCompile } from './atmosphere.js';   // wrap-never-overwrite onBeforeCompile (the fire-carved edge composes with any future atmosphere bind)
 
 // The seraph's 8 wings each merge their static feathers per material (13 draws/wing → ~3) — the single
 // biggest draw-call lever here, and it pays off AGAIN in every full-scene aux pass (water mirror +
@@ -12,6 +13,9 @@ import { buildAngelWing } from './angelWing.js';   // the owner's merged, signed
 // eye/feather placement — the merge is a build-time collapse, so the design params are edited the same
 // either way; this flag just lets you grab individual feathers while tweaking.
 const WING_MERGE = !(typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('wingedit'));
+// ?oldrim — A/B for the FIRE-CARVED SERAPH (GODHEAD DETONATION P3+): reverts the igniteK tip-ember edge +
+// the annular mandorla ridge to the shipped soft-aura look. igniteK 0 ⇒ byte-identical either way.
+const OLD_RIM = typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('oldrim');
 
 // THE UNMASKED — slot 14, the APEX / FINALE (BOSS-DESIGN.md §5b row 14, §5c APEX).
 // "The second sun that cracks open into a biblically-accurate angel." Three STAGES
@@ -328,11 +332,11 @@ export function buildUnmasked(def, quality = 1) {
     uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
     vertexShader: `
       attribute float aR; attribute float aPh;
-      varying float vR; varying float vPh;
-      void main(){ vR = aR; vPh = aPh; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      varying float vR; varying float vPh; varying vec2 vXY;
+      void main(){ vR = aR; vPh = aPh; vXY = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
       uniform float uTime; uniform float uOpacity;
-      varying float vR; varying float vPh;
+      varying float vR; varying float vPh; varying vec2 vXY;
       void main(){
         vec3 cCore = vec3(1.00, 0.94, 0.78);   // white-gold heart
         vec3 cMid  = vec3(0.85, 0.54, 0.39);   // gold-rose (the nebula key)
@@ -340,8 +344,16 @@ export function buildUnmasked(def, quality = 1) {
         vec3 col = vR < 0.5 ? mix(cCore, cMid, vR / 0.5) : mix(cMid, cRim, (vR - 0.5) / 0.5);
         float ang = sin(vPh) * 3.0 + sin(2.0 * vPh + 1.3) * 2.0;   // seam-continuous angular variation
         float roil = 0.65 + 0.35 * sin(vR * 10.0 - uTime * 2.0 + ang);   // flame tongues scroll OUTWARD, forever
-        float falloff = pow(max(0.0, 1.0 - vR), 1.4);   // soft to black at the rim (no hard edge)
-        gl_FragColor = vec4(col * falloff * roil * uOpacity, 1.0);
+${OLD_RIM ? `        float falloff = pow(max(0.0, 1.0 - vR), 1.4);   // soft to black at the rim (no hard edge)
+        gl_FragColor = vec4(col * falloff * roil * uOpacity, 1.0);` : `        // FIRE-CARVED: dim tight core + an incandescent RIDGE at vR≈0.74 (r≈5.7 rig-u) that burns through the
+        // inter-feather gaps + flanks the crown/notches (a backlight rim, where the soft core-glow couldn't reach).
+        float core = pow(max(0.0, 1.0 - vR), 2.2);
+        float rd = (vR - 0.74) / 0.11;
+        float ring = exp(-rd * rd);                                      // TIGHT gaussian ridge → a sharp carve line, few sky pixels lit (guards sky p50), ~0 by the rim
+        float hemi = 0.55 + 0.45 * smoothstep(-0.6, 0.2, vXY.y / ${IG_R.toFixed(2)});   // lower arc at 55% — spares the parry corridor
+        float falloff = 0.50 * core + 0.65 * ring * hemi;
+        vec3 colC = mix(col, cCore, 0.6 * ring);                        // the ridge pulls toward white-gold incandescence; the violet cold edge survives outside it
+        gl_FragColor = vec4(colC * falloff * roil * uOpacity, 1.0);`}
       }`,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
   }));
@@ -569,6 +581,27 @@ export function buildUnmasked(def, quality = 1) {
   for (const k of Object.keys(LADDER)) baseMats[k] = track(new THREE.MeshStandardMaterial({ color: LADDER[k], roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide }));
   const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x5b6472, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide }));   // cool moonlit steel — the leading-edge rim
   const rimMatB = track(new THREE.MeshStandardMaterial({ color: 0x474e5a, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide }));  // a step DARKER — the alternate primary + secondary rank, so the outer fan reads as separate fingers (Fable P5, interior feather-rank shading)
+  // ── THE FIRE-CARVED EDGE (GODHEAD DETONATION P3+): an igniteK-gated ADDITIVE emissive on the leading-rank
+  // materials, graded by the fan's OUTER RADIUS in canonical wing space (the wing MERGE bakes each feather's
+  // group transform into `position`, so length(position.xy) is scale/mirror/breath-invariant "distance out the
+  // fan"). Only the DISTAL fingertips kindle (roots/secondaries/ladder body stay dark) → hot edge, dark
+  // interior = the eclipse, WREATHED not washed. HDR gain crosses the bloom threshold so the tips catch fire
+  // FIRST as igniteK rises. uIgniteEdge 0 ⇒ the added term is exactly vec3(0) ⇒ pixel-identical.
+  // (?wingedit leaves `position` feather-local so vFanR maxes ~5.2 and the edge stays dark — accepted: an edit seam.)
+  const EDGE_R0 = 6.4, EDGE_R1 = 9.2, EDGE_GAIN = 1.15;   // R0 6.4 (only the OUTERMOST fingers kindle → fewer bloomed tips bleeding into the sky band) · gain 1.15 (R-channel still crosses bloom 1.0, minimal halo) — tuned to hold sky-p50 under cap with margin; EDGE_GAIN is the owner's "hotter" dial (with the sky-dark tradeoff)
+  const uIgniteEdge = { value: 0 };
+  const patchRimEdge = (m) => chainBeforeCompile(m, (sh) => {
+    sh.uniforms.uIgniteEdge = uIgniteEdge;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\n varying float vFanR;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n vFanR = length(position.xy);');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\n varying float vFanR; uniform float uIgniteEdge;')
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        { float eg = smoothstep(${EDGE_R0.toFixed(1)}, ${EDGE_R1.toFixed(1)}, vFanR); eg *= eg;   // steep drop inward
+          totalEmissiveRadiance += vec3(1.0, 0.60, 0.24) * (${EDGE_GAIN.toFixed(2)} * eg * uIgniteEdge); }`);   // W_GOLD incandescent hue; HDR → blooms into a fused fire-line
+  });
+  if (!OLD_RIM) { patchRimEdge(rimMat); patchRimEdge(rimMatB); }
 
   // ── THE CENTRAL STARBURST is RESERVED FOR STAGE 3 (owner: "use this type of eye for the third
   // form"). Stage 2 goes back to the ORIGINAL focal almond eye (below) — no radiant star here.
@@ -1233,7 +1266,7 @@ export function buildUnmasked(def, quality = 1) {
   const IGNITE_BODY = new THREE.Color(0x544862);   // ember violet-BRONZE midtone — warm but dark, the S2 violet undertone kept (hybrid); PARTIAL lerp preserves the ladder separation
   const LADDER_IGNITE = {};
   for (const k of LADDER_KEYS) LADDER_IGNITE[k] = baseMats[k].color.clone().lerp(IGNITE_BODY, 0.30);   // 0.30 — wreathed, not washed (body warms, stays dark)
-  const IGNITE_GLOW_MAX = 0.46;   // the aura opacity (owner §3d.3 ~0.5·k) — the mandorla is the wreath, supports the silhouette, never floods the frame
+  const IGNITE_GLOW_MAX = 0.46;   // the aura opacity (owner §3d.3 ~0.5·k). Fire-carved reuses the shipped opacity — the ridge's SHAPE (tight annulus) carries the carve, not extra energy (guards sky p50)
   const WISP_MAX = 0.85;          // the living-wisp brightness (thin tapered tongues → cheap on the probes; the shader's prof/edge/flow keep them sparse)
   let igniteK = 0;
   function setArenaIgnite(k) { igniteK = Math.max(0, Math.min(1, k)); }
@@ -1468,13 +1501,14 @@ export function buildUnmasked(def, quality = 1) {
       rimMatB.emissive.copy(RIMB_EM_BASE).lerp(RIMB_EM_IGNITE, igniteK);
       for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]).lerp(LADDER_IGNITE[k], igniteK);
       igMat.uniforms.uOpacity.value = igniteK * IGNITE_GLOW_MAX; igMat.uniforms.uTime.value = time; igniteGlow.visible = true;
+      uIgniteEdge.value = igniteK;   // the fire-carved tip ember rises with the wreath (byte-identical at 0)
       wMat.uniforms.uOpacity.value = igniteK * WISP_MAX; wMat.uniforms.uTime.value = time; wisps.visible = true;   // the living wisps lick off the crown/wingtips
     } else if (voidGlow.visible || igniteGlow.visible || wisps.visible) {
       rimMat.color.copy(RIM_BASE); rimMat.emissive.copy(RIM_EM_BASE);
       rimMatB.color.copy(RIMB_BASE); rimMatB.emissive.copy(RIMB_EM_BASE);
       for (const k of LADDER_KEYS) baseMats[k].color.copy(LADDER_BASE[k]);
       vgMat.opacity = 0; voidGlow.visible = false;
-      igMat.uniforms.uOpacity.value = 0; igniteGlow.visible = false;
+      igMat.uniforms.uOpacity.value = 0; igniteGlow.visible = false; uIgniteEdge.value = 0;
       wMat.uniforms.uOpacity.value = 0; wisps.visible = false;
     }
   }
@@ -1499,7 +1533,7 @@ export function buildUnmasked(def, quality = 1) {
     setArenaIgnite,
     debugArenaLift: () => ({ k: heavenK, sclera: greatScleraMat.color.getHex() }),
     debugArenaVoid: () => ({ k: voidK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +vgMat.opacity.toFixed(3), glowVis: voidGlow.visible }),
-    debugArenaIgnite: () => ({ k: igniteK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +igMat.uniforms.uOpacity.value.toFixed(3), glowVis: igniteGlow.visible, wispVis: wisps.visible, wispOp: +wMat.uniforms.uOpacity.value.toFixed(3) }),
+    debugArenaIgnite: () => ({ k: igniteK, rim: rimMat.color.getHex(), rimEm: rimMat.emissive.getHex(), glow: +igMat.uniforms.uOpacity.value.toFixed(3), glowVis: igniteGlow.visible, edge: +uIgniteEdge.value.toFixed(3), wispVis: wisps.visible, wispOp: +wMat.uniforms.uOpacity.value.toFixed(3) }),
     setDebugStage,
     setStageMorph,
     setStage3,

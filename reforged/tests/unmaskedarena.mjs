@@ -149,8 +149,8 @@ check(engaged.propBandsHidden === true, 'the biome prop bands are dark in the vo
 check(engaged.skyDim === 0, 'the EMBERTIDE sky channel stayed 0 under the void (disjointness)');
 // GODHEAD DETONATION P3: the gold WREATH is heaven-only — the seraph does NOT ignite in the void
 // (igniteK 0), so the S2 violet rim (voidK) owns the silhouette there. Mutual exclusivity, void side.
-check((engaged.igniteLift?.k ?? 0) === 0 && engaged.igniteLift?.glowVis === false,
-  `the seraph does NOT ignite in the VOID (igniteK ${engaged.igniteLift?.k}, aura ${engaged.igniteLift?.glowVis}) — the gold wreath is heaven-only`);
+check((engaged.igniteLift?.k ?? 0) === 0 && engaged.igniteLift?.glowVis === false && (engaged.igniteLift?.edge ?? 0) === 0,
+  `the seraph does NOT ignite in the VOID (igniteK ${engaged.igniteLift?.k}, aura ${engaged.igniteLift?.glowVis}, edge ${engaged.igniteLift?.edge}) — the gold wreath is heaven-only`);
 
 // (e) BAND — the void's certified dark-band lift is live at the reveal.
 check(engaged.bandDark === 0xa84167, `the void's dark bullet band is the certified lift 0xa84167 (got 0x${engaged.bandDark?.toString(16)})`);
@@ -193,8 +193,8 @@ check(heaven.lift && heaven.lift.k > 0.99 && heaven.lift.sclera !== 0x8f8365,
   `the S3 focal LIFTS on the gold sky (lift.k ${heaven.lift?.k?.toFixed?.(2)}, sclera 0x${heaven.lift?.sclera?.toString(16)} ≠ 0x8f8365) — not a mask on a sunset`);
 // GODHEAD DETONATION P3: THE IGNITED SERAPH engages in the settled heaven — a gold-wreathed rim
 // (self-lit emissive ≠ 0), a roiling gold-violet aura mandorla (glowVis), rising to full at mix 2.
-check(heaven.igniteLift && heaven.igniteLift.k > 0.9 && heaven.igniteLift.glowVis === true && heaven.igniteLift.rimEm !== 0 && heaven.igniteLift.wispVis === true,
-  `the seraph IGNITES in the heaven (igniteK ${heaven.igniteLift?.k?.toFixed?.(2)}, rimEm 0x${heaven.igniteLift?.rimEm?.toString(16)}, aura ${heaven.igniteLift?.glowVis}, wisps ${heaven.igniteLift?.wispVis})`);
+check(heaven.igniteLift && heaven.igniteLift.k > 0.9 && heaven.igniteLift.glowVis === true && heaven.igniteLift.rimEm !== 0 && heaven.igniteLift.wispVis === true && heaven.igniteLift.edge > 0.9,
+  `the seraph IGNITES in the heaven (igniteK ${heaven.igniteLift?.k?.toFixed?.(2)}, rimEm 0x${heaven.igniteLift?.rimEm?.toString(16)}, aura ${heaven.igniteLift?.glowVis}, wisps ${heaven.igniteLift?.wispVis}, fire-carve edge ${heaven.igniteLift?.edge})`);
 // MUTUAL EXCLUSIVITY (owner §3d.6): voidK and igniteK never coexist — the void rim EXHALED before
 // the gold wreath rose (voidK = 0 by mix 1.45; igniteK rises 1.45→2). Both >0 at once is a driver bug.
 check((heaven.voidLift?.k ?? 0) === 0 && heaven.igniteLift.k > 0,
