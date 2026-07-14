@@ -102,14 +102,16 @@ const PARK = new THREE.Vector3(0.0001, 0.0001, 0.0001);
 // state (computed in the caller's writeMatrix), so foam parks in lockstep with the
 // prop. Flat ring (rotY only, no tilt — a tilted ring would exit the water); the
 // tilt only shifts the WATERLINE PIERCE point.
-export function writeFoamMatrix(mesh, i, d, foamCfg, active) {
+export function writeFoamMatrix(mesh, i, d, foamCfg, active, k = 1) {
   if (foamCfg && active) {
     // Per-axis radius so a thin/non-circular prop (arch legs, slab wall) gets an
     // ELLIPTICAL collar that hugs its footprint instead of a round ring floating on
     // open water. compose applies scale in ring-local axes BEFORE the rotY rotation,
     // so (frx, frz) track the prop's own x/z; circular configs use { r } for both.
-    const frx = d.r * (foamCfg.rx ?? foamCfg.r);
-    const frz = d.r * (foamCfg.rz ?? foamCfg.r);
+    // `k` = the composition-rhythm scale on the prop (Move 1); the collar must track
+    // it or a scaled prop reads as a detached ring at the waterline (the N10c weld).
+    const frx = d.r * k * (foamCfg.rx ?? foamCfg.r);
+    const frz = d.r * k * (foamCfg.rz ?? foamCfg.r);
     // Pierce offset: the prop origin is at y=-0.5 and tilts by d.tilt; the point
     // where its axis crosses the waterline (+0.5 above the base) shifts in xz.
     _e.set(0, d.rotY ?? 0, d.tilt || 0);
