@@ -107,7 +107,8 @@ let novaMat = null, spiralMat = null, detMat = null;
 let debris = null, debrisField = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // hero (8 flyby, high-poly) + field (22 conveyor, low-poly) sculpted rocks, ONE shared material
 let debrisTris = 0, debrisLedger = { dx0: 0, dxd: 0, dspd: 0 };   // baked: total tri count + the overhead path-distinctness floors (no two rocks share a track)
 let embers = null, emberMat = null;    // the fine-particulate spark layer (shader-driven, recycled)
-const EMBER_N = 1152;                  // the roiling "substance": dense curved trails, ONE static draw (1536→1152: a curved 3-seg comet reads DENSER than a straight dash, so fewer trails hold the mass while reclaiming the ribbon's ~2.5× fill — perf, fairness-positive)
+const EMBER_N = 192;                   // §P1a headless FILAMENTS: sparse fine mid-peak spindles (1152→192) — the outer whisper; the corona grain (§P1b) carries the inner mass. ~7% of the old ember fill (fill-negative on a fill-bound frame)
+const DET_GRAIN = (typeof location !== 'undefined' && new URLSearchParams(location.search).has('nograin')) ? 0 : 1;   // §P1b ?nograin master (corona dust grain off for A/B); tier-scaled below
 let tierLevel = 0;                  // 0/1/2 — tier 2 GRACEFULLY degrades (cheap core+corona) instead of hiding the set (never a hard black)
 let detCoreCoronaVerts = 0;         // the [0,n) draw-range that keeps only core+corona at tier 2
 // The SHARED coherent swirl field (a few harmonics over the launch angle). The curved streak spines
@@ -381,7 +382,7 @@ const DET_VERT = `
 // eclipse/down-suppression/fairness structure is untouched. All bases clamped ≥ 0 (the NaN law); the
 // hash uses only fract/dot (no pow/sin/sqrt/log) so it can't emit a NaN.
 const DET_FRAG = `
-  uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing; uniform float uOct; uniform float uRoil; uniform float uCross;
+  uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing; uniform float uOct; uniform float uRoil; uniform float uCross; uniform float uGrain;
   varying vec3 vCol; varying vec2 vUv; varying float vType; varying float vPhase;
   float cross4(float a){ return pow(abs(cos(a * 2.0)), 10.0); }   // 4-fold angular field: peaks on 0/90/180/270; abs base ≥ 0 (NaN-safe)
   float hash21(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -413,6 +414,13 @@ const DET_FRAG = `
       b = mix(1.0, cells, uRoil) * frontAt(t * 340.0)
         * (1.0 - 0.14 * uCross * (1.0 - cx))             // OFF-axis darkening = the negative edge
         * (1.0 + 1.6 * uCross * crossGlow);              // ON-axis fire-flare (mean ≈ preserved by the darkening)
+      // §P1b FINE DUST GRAIN folded INTO the corona: a high-frequency octave, circle-embedded (seam-free)
+      // and radially advected OUTWARD (streaks with the blast, not static speckle). The particulate is now
+      // literally the SAME pixels as the blast → it cannot read as a separate object. mean ≈ preserved (the
+      // cells idiom); rises with t so the inner core stays clean. ALU-only, zero new fill/draws.
+      vec2 gr = vec2(cos(ang), sin(ang)) * 26.0 + vec2(0.0, t * 44.0 - uTime * 2.6);
+      float dust = vnoise(gr);
+      b *= mix(1.0, 0.62 + 1.35 * dust * dust, uGrain * smoothstep(0.10, 0.45, t));
     } else if (vType > 1.5) {                            // SHOCK RING — soft band × filamented wavefront
       float t = vUv.x, ang = vUv.y * 6.2831853;
       float band = pow(max(0.0, sin(t * 3.14159265)), 1.4);   // black on both edges (clamp: no NaN)
@@ -435,7 +443,8 @@ const DET_FRAG = `
   }`;
 const addDetMat = () => {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uFlow: { value: 3.8 }, uRing: { value: 1.5 }, uOct: { value: 3 }, uRoil: { value: 1.0 }, uCross: { value: 1.0 } },
+    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uFlow: { value: 3.8 }, uRing: { value: 1.5 }, uOct: { value: 3 }, uRoil: { value: 1.0 }, uCross: { value: 1.0 },
+      uGrain: { value: DET_GRAIN } },   // §P1b corona dust grain — ?nograin A/B; tier-dialled in setArenaSetQuality
     vertexShader: DET_VERT, fragmentShader: DET_FRAG,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
   });
@@ -455,23 +464,21 @@ const addDetMat = () => {
 // volume). Coherence: swirlAmp sampled from the SHARED harmonic field (see `swirlField`) so the trails
 // braid WITH the curved streaks (a curl READ) instead of wiggling independently.
 function buildEmbers(prnd) {
-  // COHERENCE FIX: the pre-fix embers shared only the swirl field's AMPLITUDE (unsigned, random phase/freq,
-  // a 2.3× harmonic, 3–6× the streaks' wander, ~5× brighter) → they read as a SECOND system, not the blast's
-  // substance. Now they speak the STREAK FAN's exact curve language: the field SIGNED + cross-exempt, ONE
-  // anchored arc (no harmonic), matched amp (0.42) + sub-cycle freq → they braid in the same flow; dimmer +
-  // longer + finer → they dissolve into the mass. ?oldembers restores the pre-fix look for an A/B.
-  const V1 = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldembers');
+  // HEADLESS FILAMENTS (§P1a): the comet-ribbon (bright round HEAD + tail) reads as a discrete firefly no
+  // matter how it's curved/dimmed — the bright end-cap is the tell, and bloom inflates it into a ball. The
+  // architecture changes: NO vertex is a maximum at an end (brightness + width both peak MID-ribbon), width
+  // is sub-bloom-kernel so bloom can't make a ball, no hot-white boost, far dimmer + fewer + longer → a
+  // whisper of fine streaks laced through the outer blast, not a swarm. The path stays coherent (signed
+  // shared field, single anchored arc) — that part was right. The corona grain (§P1b) carries the inner mass.
   const P = [];
   for (let e = 0; e < EMBER_N; e++) {
-    const dir = prnd() * TAU, sf = swirlField(dir);            // SHARED field → embers braid WITH the curved streaks
-    const speed = 0.06 + prnd() * 0.14, phase = prnd();       // draw the SAME prnds in both modes so ?oldembers is the same embers, only the curve/value mapping differs
-    const rSize = prnd(), rFreq = prnd(), swPh = prnd() * TAU, rTrail = prnd(), rAmp = prnd();
-    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * dir)), 6);   // SAME exemption as the streak fan → embers fly straight along the sacred cross arms
-    P.push({ dir, speed, phase, swPh,
-      size: V1 ? (0.8 + rSize * 2.6) : (0.6 + rSize * 1.6),                                        // finer heads (max 3.4→2.2u)
-      swAmp: V1 ? (0.30 + 0.50 * (0.5 + 0.5 * sf)) : (0.42 * sf * crossExempt * (0.85 + 0.3 * rAmp)),   // SIGNED + streak-matched 0.42 (was unsigned 0.30–0.80)
-      swFreq: V1 ? (1.4 + rFreq * 1.6) : (1.2 + rFreq * 0.6),                                     // sub-cycle → ONE arc, not a multi-inflection S
-      trailDt: V1 ? (0.014 + rTrail * 0.010) : (0.022 + rTrail * 0.014) });                       // longer, finer streamers = substance
+    const dir = prnd() * TAU, sf = swirlField(dir);            // SHARED field → filaments braid WITH the curved streaks
+    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * dir)), 6);   // SAME exemption as the streak fan → filaments fly straight along the sacred cross arms
+    P.push({ dir, speed: 0.06 + prnd() * 0.14, phase: prnd(), swPh: prnd() * TAU,
+      size: 0.30 + prnd() * 0.55,                              // sub-bloom width (max 0.85u) → bloom can't inflate a ball
+      swAmp: 0.42 * sf * crossExempt * (0.85 + 0.3 * prnd()),  // SIGNED + streak-matched 0.42 (braids in the same flow)
+      swFreq: 1.2 + prnd() * 0.6,                              // sub-cycle → ONE arc, not a multi-inflection S
+      trailDt: 0.030 + prnd() * 0.018 });                      // longer, finer streamers
   }
   P.sort((a, b) => b.size - a.size);   // biggest first → tier-1 drawRange keeps the largest trails
   const pos = [], aq = [], aseed = [], aseed2 = [];
@@ -491,16 +498,6 @@ function buildEmbers(prnd) {
   geo.setAttribute('aQuad', new THREE.Float32BufferAttribute(aq, 2));
   geo.setAttribute('aSeed', new THREE.Float32BufferAttribute(aseed, 4));
   geo.setAttribute('aSeed2', new THREE.Float32BufferAttribute(aseed2, 4));
-  // Shader-string branches for the ?oldembers A/B (build-time; zero runtime cost). New = one anchored arc
-  // (no 2.3× harmonic), softer eclipse fade-up, dimmer heads, tighter parallax; V1 = the pre-fix formula.
-  const thetaExpr = V1 ? 'aSeed.x + sw * sin(swf * life + swp) + 0.5 * sw * sin(2.3 * swf * life + aSeed.z * 6.2831853)'
-                       : 'aSeed.x + sw * (sin(swf * life + swp) - sin(swp))';               // anchored at the core (like the streak spine), single arc
-  const dthdlExpr = V1 ? 'sw * swf * cos(swf * life + swp) + 1.15 * sw * swf * cos(2.3 * swf * life + aSeed.z * 6.2831853)'
-                       : 'sw * swf * cos(swf * life + swp)';                                 // tangent of the single-arc path
-  const eclHi = V1 ? '210.0' : '260.0';        // softer eclipse gate → embers fade UP through the corona, no snap-on at the annulus edge
-  const comp = V1 ? '0.9' : '0.6';             // ×mid-radius-dwell compensator: heads drop ~5×→~2× local corona (of the field, not on top)
-  const hotBoost = V1 ? '0.3' : '0.15';        // young-hot spark, not a white worm-head
-  const zoffAmp = V1 ? '180.0' : '80.0';       // ±90u→±40u parallax: keep depth, kill the separate-plane slide
   emberMat = new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uCross: { value: 1.0 } },
     vertexShader: `
@@ -512,7 +509,7 @@ function buildEmbers(prnd) {
         float life0 = fract(uTime * aSeed.y + aSeed.z);                // the HEAD's life
         float life = max(1e-4, life0 - seg * aSeed2.w);                // this vertex samples the path EARLIER in life (the trail) — NaN-safe floor
         float sw = aSeed2.x, swf = aSeed2.y, swp = aSeed2.z;
-        float theta = ${thetaExpr};   // braids in the streak fan's flow (signed shared field, anchored single arc)
+        float theta = aSeed.x + sw * (sin(swf * life + swp) - sin(swp));   // braids in the streak fan's flow (signed shared field, anchored single arc)
         theta -= uCross * 0.12 * sin(4.0 * theta) * smoothstep(0.15, 0.7, life);   // trails MIGRATE onto the cross axes as they age (sin4θ attractors on 0/90/180/270)
         float decel = pow(max(0.0, 1.0 - life), 1.3);                  // slower blowout (1.7→1.3): the trail dwells at mid-radii where the CURVE is visible
         float rr = 520.0 * (1.0 - decel);
@@ -521,27 +518,27 @@ function buildEmbers(prnd) {
         // analytic velocity tangent AT THIS sample → the ribbon's local width direction (the length now
         // comes from the per-segment path samples, not a straight stretch, so the ribbon FOLLOWS the curve)
         float drdl = 520.0 * 1.3 * pow(max(0.0, 1.0 - life), 0.3);
-        float dthdl = ${dthdlExpr};
+        float dthdl = sw * swf * cos(swf * life + swp);   // tangent of the single-arc path
         vec2 tang = drdl * rad + rr * dthdl * vec2(-rad.y, rad.x);
         tang *= inversesqrt(max(1e-6, dot(tang, tang)));               // NaN-safe normalize
         vec2 nrm = vec2(-tang.y, tang.x);
         // shared EXPANSION FRONT: a gaussian luminance crest travelling outward, seamless loop
         float fph = fract(uTime / 4.6), rFront = 560.0 * fph, dR = rr - rFront;
         float front = 1.0 + 0.4 * exp(-(dR * dR) / 3025.0) * sin(3.14159265 * fph);
-        float ecl = smoothstep(150.0, ${eclHi}, rr);                   // ignite only outside the seraph (per-sample); softer fade-up so embers don't snap on at the annulus edge
+        float ecl = smoothstep(150.0, 260.0, rr);                     // ignite only outside the seraph (per-sample); soft fade-up so filaments don't snap on at the annulus edge
         float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(theta));    // suppress the corridor column (per-sample)
         float crossW = 0.85 + 0.55 * uCross * pow(abs(cos(2.0 * theta)), 6.0);   // brighter DENSITY along the arms
-        float birth = smoothstep(0.0, 0.05, life0);                    // spawn fade keyed to the HEAD life → a just-born trail collapses to its head (no stale-wrap stretch)
-        float trailFade = 1.0 - 0.55 * segT;                           // head brightest, tail dim (the comet falloff)
-        vGlow = ecl * down * (1.0 - life0) * birth * front * crossW * trailFade * ${comp};   // ×mid-radius-dwell compensator (guards sky p50); dimmer so heads read as OF the field, not on top
+        float birth = smoothstep(0.0, 0.05, life0);                    // spawn fade keyed to the HEAD life
+        float trailFade = 4.0 * segT * (1.0 - segT);                   // MID-PEAK spindle: 0 at BOTH ends → nothing terminates bright (no round head cap, the whole 'firefly' read)
+        vGlow = ecl * down * (1.0 - life0) * birth * front * crossW * trailFade * 0.35;   // far dimmer → a whisper of grain, not bright filaments on top
         vQ = vec2(side, 0.0);                                          // round tube across width (length shaped by the segments)
-        // ONE substance: the ember colour is the SAME gold→rose→violet ramp over RADIUS as the corona/streaks
+        // ONE substance: the filament colour is the SAME gold→rose→violet ramp over RADIUS as the corona/streaks (no hot-white boost — that made the ball)
         float rg = clamp(rr / 520.0, 0.0, 1.0);
         vec3 ramp = rg < 0.5 ? mix(vec3(1.0, 0.85, 0.54), vec3(0.85, 0.54, 0.39), rg / 0.5)
                              : mix(vec3(0.85, 0.54, 0.39), vec3(0.5, 0.4, 0.7), (rg - 0.5) / 0.5);
-        vCol = mix(ramp, vec3(1.0, 0.9, 0.65), (1.0 - life0) * ${hotBoost});   // young embers spark hotter (a small life boost, not a separate law)
-        float wid = aSeed.w * (1.0 - 0.7 * segT);                      // width tapers head→tail
-        float zoff = (fract(aSeed.z * 91.7) - 0.5) * ${zoffAmp};      // per-ember depth (I4): parallax near/far layering (tightened so the ember shell doesn't slide as a separate plane)
+        vCol = ramp;
+        float wid = aSeed.w * (0.35 + 0.65 * sin(3.14159265 * segT));  // width tapers to sub-bloom at BOTH ends (bloom can't inflate a ball where there's no wide bright cap)
+        float zoff = (fract(aSeed.z * 91.7) - 0.5) * 80.0;            // per-ember depth: parallax near/far layering (tight → the shell doesn't slide as a separate plane)
         vec4 mv = modelViewMatrix * vec4(c, 0.06 + zoff, 1.0);
         mv.xy += side * wid * nrm;                                     // width ACROSS the local motion; ribbon length is the segment spread
         gl_Position = projectionMatrix * mv;
@@ -810,6 +807,7 @@ export function createArenaSet(scene) {
   // ?nodet — perf A/B: hide the detonation + embers (the big full-frame additive overdraw) to isolate
   // their fill cost. No-op without the param; updateArenaSet only writes uniforms, never visibility.
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('nodet')) { deton.visible = false; embers.visible = false; }
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('noembers')) embers.visible = false;   // ?noembers — A/B: blast with the filaments off (identification + before/after)
 }
 
 // Owner A/B seam: swap the star's form ('supernova' | 'spiral'). One visibility flip — both
@@ -905,7 +903,8 @@ export function updateArenaSet(time, playerDist, mix, fade) {
 export function setArenaSetQuality(tier) {
   tierLevel = tier;
   if (detMat) detMat.uniforms.uOct.value = tier >= 2 ? 1 : (tier >= 1 ? 2 : 3);   // fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
-  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 256 : tier >= 1 ? 576 : EMBER_N) * 18);   // 18 verts/ember (3-seg comet ribbon); size-sorted buffer → the biggest trails survive
+  if (detMat) detMat.uniforms.uGrain.value = DET_GRAIN * (tier >= 2 ? 0 : tier >= 1 ? 0.6 : 1.0);   // §P1b dust grain: full / lighter / off (tier2 keeps only the cheap core+corona)
+  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 64 : tier >= 1 ? 128 : EMBER_N) * 18);   // 18 verts/filament (3-seg spindle); size-sorted buffer → the biggest survive
   if (deton) deton.geometry.setDrawRange(0, tier >= 2 ? detCoreCoronaVerts : Infinity);   // GRACEFUL DEGRADE: tier 2 keeps core+corona (a lit blast heart) instead of hiding the whole set → never a hard black
   if (debris) debris.visible = tier < 2;               // hero rocks off at tier 2 (opaque cost)
   if (debrisField) debrisField.visible = tier < 2;     // field rocks off at tier 2
