@@ -64,160 +64,133 @@ function lerpHex(a, b, t) {
 // inventory assert to "≤ a tiny hue-matched floor" — the Fable design gate approved the lever.
 const CLOUD_FLOOR = 0x070a12;
 
+// OWNER-REFERENCE-DRIVEN (reference/tempest-owner-reference.png; the owner-reference-wins
+// law, DRAGON-DESIGN §3): the Tempest is NOT a cloud-mass — it is a sleek dark-scaled storm
+// DRAKE with a TWO-VALUE body: a near-black charcoal dorsal shell (camouflaged into the storm
+// sky) over a BLAZING white-blue EMISSIVE underbelly, a chevron lightning seam where the two
+// meet, dark bolt-glyphs knocked out of the glow, a white crest, four legs, and a glowing tail
+// tuft. The billowed cloud clover-loft was WRONG at the primitive level and is deleted.
 function tempestMats(def) {
-  const base = def.body ?? FLANK;
-  // Lever 1 — SPATIAL albedo spread WITHIN the charcoal band (0.20↔0.26): lit lobe CRESTS
-  // ride lighter, shadow CREASES ride darker, so the body carries the MID-TONE cloud
-  // gradient the gate found missing (was bimodal: black body + white stripe). All derived
-  // from the per-form def.body so the CHARGING ramp still darkens the whole set up the ladder.
-  const mk = (mat) => { mat.envMapIntensity = 0.18; mat.emissive = new THREE.Color(CLOUD_FLOOR); mat.emissiveIntensity = 1.0; return mat; };
-  const std = (color) => mk(new THREE.MeshStandardMaterial({ color, emissive: CLOUD_FLOOR, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }));
-  const crest = std(lerpHex(base, 0xdfe6f2, 0.16));   // lit lobe crest — the lightest charcoal (~top of the band)
-  const flank = std(base);                            // mid tier (the bodyMat the rig ticks)
-  const crease = std(lerpHex(base, 0x05070c, 0.22));  // shadow crease between lobes — the deepest cloud value
-  const belly = std(def.belly ?? BELLY);              // rain-slate ventral — banks read
-  // Silver-lining rim — DIFFUSE, low metalness ("glints, never glows"): the standing-frame
-  // cool. A small self-lit floor keeps the lining readable on the dark sky (the ≥10%
-  // body-px-≥L0.10 floor) but capped so it stays UNDER the eyes (gate M1: rim value L≤0.75).
-  const silverRim = new THREE.MeshStandardMaterial({ color: SILVER_RIM, emissive: SILVER_RIM, emissiveIntensity: 0.05, flatShading: true, roughness: 0.7, metalness: 0.06, side: THREE.DoubleSide });
-  silverRim.envMapIntensity = 0.3;
-  // `dorsal` alias kept for the cowl plate call sites (points at the crease/shadow tier).
-  const dorsal = crease;
-  // Dynamo stator VANE — charcoal, a hair darker than dorsal (the cage that rings the core).
-  const vane = new THREE.MeshStandardMaterial({ color: lerpHex(STORM_SHADOW, 0x000000, 0.28), emissive: 0x000000, flatShading: true, roughness: 0.8, metalness: 0.04, side: THREE.DoubleSide });
-  vane.envMapIntensity = 0.16;
-  // Dynamo HUB — the opaque faceted turbine hub (reads as a generator, dark, always visible).
-  const hub = new THREE.MeshStandardMaterial({ color: lerpHex(STORM_SHADOW, 0x000000, 0.42), emissive: 0x000000, flatShading: true, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
-  hub.envMapIntensity = 0.16;
-  // Dynamo CORE — the withheld storm-white emissive seat, TRANSPARENT for the coreGlow
-  // opacity tick (dragon.js:1159). Idles near-invisible (base 0.06 opacity + dim emissive):
-  // carved-dark cruise, NO lit lantern (§C.3.3). The strike/Surge ignition lands at I4.
-  const heartCore = new THREE.MeshStandardMaterial({ color: 0x0a0e1a, emissive: 0xd9deff, emissiveIntensity: 0.06, flatShading: true, roughness: 0.5, metalness: 0, transparent: true, opacity: 0.06, depthWrite: false, side: THREE.DoubleSide });
-  heartCore.userData.baseEmissive = 0xd9deff; heartCore.userData.baseIntensity = 0.06;   // flareMats lerps emissive → surgeHi on Surge (hue only; the storm tick owns cruise strikes at I4)
-  return { crest, flank, crease, dorsal, belly, silverRim, vane, hub, heartCore };
+  const base = def.body ?? FLANK;                         // per-form charcoal (darkens up the ladder)
+  const std = (color, opts = {}) => { const m = new THREE.MeshStandardMaterial({ color, emissive: opts.emissive ?? CLOUD_FLOOR, emissiveIntensity: opts.ei ?? 1.0, flatShading: true, roughness: opts.rough ?? 0.82, metalness: opts.metal ?? 0.03, side: THREE.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity ?? 1, depthWrite: opts.depthWrite ?? true }); m.envMapIntensity = 0.2; return m; };
+  // The DORSAL SHELL — near-black charcoal scale skin (three facet steps for the flat-shaded
+  // scale read; the darkest spine, a mid flank, a lit-facet step). The dorsal is SUPPOSED to
+  // read dark (it camouflages into the storm sky) — the LIGHT is the emissive belly, not a
+  // lifted charcoal (the I1 value tension dissolves: dark dorsal is correct).
+  const spine = std(lerpHex(base, 0x05070c, 0.28));       // darkest dorsal ridge
+  const dorsal = std(base);                               // the bodyMat the rig ticks
+  const flank = std(lerpHex(base, 0x5a6472, 0.34));       // lit flank facet step (cool grey)
+  // THE STORM-LIT UNDERBELLY — the identity, as a blue-lavender GRADIENT (gate r3 fix #2: the flat
+  // 0xe4ecff@2.6 clipped to pure white, B−R 4 = house-paint; the reference belly is blue-lavender
+  // B−R 35–70 with a bright-core→dim-edge falloff). Three tiers, intensities kept BELOW the ACES
+  // channel-clip so the blue survives: core (chest), mid, dim edge. Diffuse a mid blue so unlit
+  // parts aren't white. ALWAYS ON in cruise (the reference glows continuously — the owner reference
+  // overrides the "withheld/intermittent" sheet prose). In flareMats (Surge-flared, warm-rim-exempt).
+  const mkBelly = (col, ei) => { const m = std(0x556aa8, { emissive: col, ei, rough: 0.55, metal: 0 }); m.userData.baseEmissive = col; m.userData.baseIntensity = ei; m.userData.flareIntensityWeight = 0.45; return m; };
+  // Intensities kept LOW so ACES doesn't desaturate the emissive to white (the channel-clip law,
+  // §C.11): a bright blue emissive tonemaps toward white, so the PANEL stays dim-enough to hold its
+  // blue and the small storm-heart core (emissive 3.0) is the only near-white hot-spot. In-game
+  // bloom re-brightens the panel without re-whitening the hue.
+  const bellyCore = mkBelly(0x9ab0f4, 1.2);   // chest centre (B−R 90)
+  const bellyMid = mkBelly(0x6f8cf0, 0.95);   // saturated storm-blue body (B−R 129 — pushed hard so it survives the ACES highlight desaturation)
+  const bellyEdge = mkBelly(0x5570cc, 0.78);  // deep blue flank/aft edge (B−R 119) — the falloff
+  // THE BOLT GLYPHS — dark facets knocked OUT of the glow (a diagonal lightning slash in the panel).
+  const bolt = std(lerpHex(base, 0x3a4250, 0.5), { emissive: 0x05070c });
+  // THE NECK CREST — back-swept white-blue emissive blades (one step under the belly core).
+  const crest = std(0x9aa6d0, { emissive: 0xc7d3fb, ei: 1.5, rough: 0.5, metal: 0 });
+  crest.userData.baseEmissive = 0xc7d3fb; crest.userData.baseIntensity = 1.5; crest.userData.flareIntensityWeight = 0.4;
+  // THE STORM-HEART core — the brightest ventral point at the sternum, on the coreGlow hook
+  // (transparent → the rig breathes its opacity on boost/Surge). Bright in cruise (the reference
+  // chest is the hottest spot), blazes on Surge.
+  const heartCore = std(0xd9deff, { emissive: 0xf2f4ff, ei: 3.0, rough: 0.4, metal: 0, transparent: true, opacity: 0.85, depthWrite: false });
+  heartCore.userData.baseEmissive = 0xf2f4ff; heartCore.userData.baseIntensity = 3.0;
+  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, crest, heartCore };
 }
 
-// ── The 9-point CLOVER-OF-3-LOBES cross-section (unit; a dorsal lobe on top + two
-// ventral lobes) — a billowed cloud section, NOT a smooth ring. `r(θ)=1+0.30·cos(3θ+90°)`
-// puts a soft lobe peak at the top (dorsal) and two below (ventral): the convex lobes
-// break the OUTLINE into ≥3 bumps (amp 0.30 ≈ 30% of local radius, so the 3-clover survives
-// to the REAR-CHASE silhouette — gate M3) AND catch the key/sky far better than a flat tube
-// (the I0 black-crush fix is GEOMETRY, not albedo).
-const CLOVER = (() => {
-  const p = [];
-  for (let k = 0; k < 9; k++) { const th = (90 + k * 40) * Math.PI / 180; const r = 1 + 0.30 * Math.cos(3 * th + Math.PI / 2); p.push([Math.cos(th) * r, Math.sin(th) * r]); }
-  return p;
-})();
-const CLOVER_R = CLOVER.map((p) => Math.hypot(p[0], p[1]));
-// Per-column value band — lever 1 SPATIAL SPREAD: a column on a lit lobe CREST (high radius)
-// rides the lightest tier, a column in a shadow CREASE (low radius) the darkest, ventral
-// columns the rain-slate belly — the mid-tone cloud gradient (crest-lit / crease-shadowed),
-// not a flat body + a stripe.
-function cloverBand(M, k) {
-  const k1 = (k + 1) % CLOVER.length;
-  const rC = (CLOVER_R[k] + CLOVER_R[k1]) * 0.5;         // crest vs crease
-  const yC = (CLOVER[k][1] + CLOVER[k1][1]) * 0.5;        // dorsal vs ventral
-  if (yC < -0.45) return M.belly;                         // ventral lobes → rain-slate
-  if (rC > 1.04) return M.crest;                          // lobe crest (lit) → lightest charcoal
-  if (rC < 0.92) return M.crease;                         // shadow crease → deepest
-  return M.flank;                                         // shoulders → mid
-}
+// Deterministic hash jitter (index-seeded — never Math.random, so builds are reproducible).
+function jit(i, amp) { const h = Math.sin((i + 1) * 12.9898 + 4.1) * 43758.5453; return (h - Math.floor(h) - 0.5) * 2 * amp; }
 
-// A fixed-polygon loft over the CLOVER profile with a per-station ROTATION (`rot`,
-// radians) — the knapLoft PATTERN (shared indices weld longitudinal facets) but the
-// small alternating ±10–14° rotation station-to-station skews those facets into a
-// DIAGONAL TURBULENCE WEAVE: it kills lateral rings (adjacent stations are out of phase)
-// AND straight strakes (columns wobble) — the "churning cloud, never a smooth hull"
-// read (§4/§B.3a). `bandFn(k)` paints the value bands; tris group per material → one
-// draw per band. knapLoft deliberately cannot rotate — that is what makes IT strakes.
-function cloverLoft(stations, bandFn, cap = true) {
-  const N = CLOVER.length;
-  const rot = (p, a) => [p[0] * Math.cos(a) - p[1] * Math.sin(a), p[0] * Math.sin(a) + p[1] * Math.cos(a)];
-  const P = (s, k) => { const pr = rot(CLOVER[k], s.rot || 0); return [(s.cx ?? 0) + pr[0] * s.rx, s.cy + pr[1] * s.ry, s.z]; };
-  const colMat = typeof bandFn === 'function' ? bandFn : () => bandFn;
+// THE DRAKE TRUNK — a lofted anatomical body (deep keeled chest → hard waist tuck → haunch
+// swell), flat-shaded irregular faceted skin, split into the DARK dorsal shell + the EMISSIVE
+// ventral panel by a CHEVRON seam, with dark BOLT-GLYPH facets knocked out of the belly.
+// Stations: {z, rx, ryU (half-height up), ryD (half-height down), cy, keel}. N=10 ring points,
+// a keel vertex at the bottom (the sternum V). Replaces the cloud clover-loft entirely.
+const TRUNK_N = 10;
+function buildDrakeTrunk(stations, M) {
+  const N = TRUNK_N;
+  // ring point k of a station, with a deterministic vertex jitter (the irregular skin read)
+  const P = (s, i, k) => {
+    const th = Math.PI / 2 - (k * 2 * Math.PI / N);        // k0 top, k5 bottom (the keel)
+    const c = Math.cos(th), sn = Math.sin(th);
+    const rY = sn >= 0 ? s.ryU : s.ryD;
+    const jx = jit(i * 97 + k * 7, s.rx * 0.10), jy = jit(i * 131 + k * 13, rY * 0.10);
+    let x = c * s.rx + jx, y = s.cy + sn * rY + jy;
+    if (k === 5) y -= s.keel || 0;                          // sternum keel tip
+    return [x, y, s.z];
+  };
+  // The dark/glow seam CHEVRONS diagonally (gate r3 fix #1: the ±1-per-station toggle made an
+  // axis-aligned "orca" checkerboard). A triangle wave over a 4-station period marches the flank
+  // boundary in and out, so the seam runs at a diagonal with long torn runs, not vertical teeth.
+  const tri = (i) => 2 - Math.abs((i % 4) - 2);            // 0,1,2,1 triangle wave
+  const ventCols = (i) => { const lo = 2 + tri(i), hi = 8 - tri(i), s = new Set(); for (let k = lo; k <= hi; k++) s.add(k); return s; };
+  // The bolt glyph — a diagonal ZIGZAG of dark facets (col 6→5→4→5→6 down the belly = a chevron
+  // lightning slash), knocked out of the glow. NOT a block of squares.
+  const boltSet = new Set(['2:6', '3:5', '4:4', '5:5', '6:6']);
+  // Belly GRADIENT tier: brightest at the chest centre (station ~4, column 5), dim at flanks + aft.
+  const bellyMat = (i, k) => { const lvl = Math.min(Math.abs(k - 5), 3) + Math.abs(i - 4) * 0.6; return lvl < 0.7 ? M.bellyCore : lvl < 2.2 ? M.bellyMid : M.bellyEdge; };
   const byMat = new Map();
   const push = (mat, ...tris) => { let a = byMat.get(mat); if (!a) byMat.set(mat, a = []); for (const t of tris) a.push(t); };
   for (let i = 0; i < stations.length - 1; i++) {
-    const a = stations[i], b = stations[i + 1];
-    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; const A0 = P(a, k), A1 = P(a, k1), B0 = P(b, k), B1 = P(b, k1); push(colMat(k), [A0, B1, B0], [A0, A1, B1]); }
+    const vc = ventCols(i);
+    for (let k = 0; k < N; k++) {
+      const k1 = (k + 1) % N;
+      const A0 = P(stations[i], i, k), A1 = P(stations[i], i, k1), B0 = P(stations[i + 1], i + 1, k), B1 = P(stations[i + 1], i + 1, k1);
+      let mat;
+      if (vc.has(k)) mat = boltSet.has(i + ':' + k) ? M.bolt : bellyMat(i, k);   // ventral glow gradient, or a dark bolt facet
+      else if (k === 0 || k === 9 || k === 1) mat = M.spine;              // dorsal ridge (darkest)
+      else if (k === 2 || k === 8) mat = M.flank;                        // lit flank facet
+      else mat = M.dorsal;                                               // shell
+      push(mat, [A0, B1, B0], [A0, A1, B1]);
+    }
   }
-  if (cap) {
-    const f = stations[0], l = stations[stations.length - 1];
-    const fc = [(f.cx ?? 0), f.cy, f.z], lc = [(l.cx ?? 0), l.cy, l.z];
-    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; push(colMat(k), [fc, P(f, k1), P(f, k)], [lc, P(l, k), P(l, k1)]); }
+  // nose + tail caps (dorsal)
+  for (const [s, i, dir] of [[stations[0], 0, 1], [stations[stations.length - 1], stations.length - 1, -1]]) {
+    const c = [0, s.cy, s.z];
+    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; const a = P(s, i, k), b = P(s, i, k1); push(M.spine, dir > 0 ? [c, b, a] : [c, a, b]); }
   }
   const g = new THREE.Group();
   for (const [mat, tris] of byMat) g.add(flatTriMesh(tris, mat));
   return g;
 }
 
-// A thin raised SILVER-LINING dash following one CLOVER lobe-crest (profile index
-// `idx`) — a narrow ribbon lifted radially off the surface, catching a cool rim glint
-// on its outward face ("the sun behind the cloud"). Gate M1: the width TAPERS to 0 at
-// both ends (a hann window) so it reads as an INTERRUPTED lining, never a full-length
-// racing stripe. Diffuse, held under the eyes. Kept SHORT + on the dorsal crest only.
-function crestRim(stations, idx, mat, lift = 0.02, halfW = 0.05) {
-  const rot = (p, a) => [p[0] * Math.cos(a) - p[1] * Math.sin(a), p[0] * Math.sin(a) + p[1] * Math.cos(a)];
-  const n = stations.length;
-  const at = (s) => {
-    const pr = rot(CLOVER[idx], s.rot || 0); const nl = Math.hypot(pr[0], pr[1]) || 1;
-    const x = (s.cx ?? 0) + pr[0] * s.rx + (pr[0] / nl) * lift, y = s.cy + pr[1] * s.ry + (pr[1] / nl) * lift;
-    return { x, y, z: s.z, tx: -(pr[1] / nl), ty: pr[0] / nl };   // tangent in the cross-plane → the ribbon's width axis
-  };
-  const win = (i) => halfW * Math.sin(Math.PI * i / (n - 1));   // hann taper → 0 at both ends
-  const tris = [];
-  for (let i = 0; i < n - 1; i++) {
-    const A = at(stations[i]), B = at(stations[i + 1]); const wA = win(i), wB = win(i + 1);
-    const AL = [A.x + A.tx * wA, A.y + A.ty * wA, A.z], AR = [A.x - A.tx * wA, A.y - A.ty * wA, A.z];
-    const BL = [B.x + B.tx * wB, B.y + B.ty * wB, B.z], BR = [B.x - B.tx * wB, B.y - B.ty * wB, B.z];
-    tris.push([AL, BR, BL], [AL, AR, BR]);
-  }
-  return flatTriMesh(tris, mat);
-}
-
-// THE CAGED DYNAMO (the Zekrom-Overdrive storm-heart, §B.3a): 5 charcoal stator VANES
-// swept like turbine blades around an opaque faceted HUB, with a withheld transparent
-// storm-white CORE seated inside on the `coreGlow` hook. Reads as a GENERATOR (opaque
-// structure) in cruise, idles DARK (the core near-invisible), and "turns over" on the
-// pre-strike telegraph + Surge (I4). Recessed at the sternum so the belly mass occludes
-// it ≥60% from the side — never an enclosed framed hole (anti-reskin), never a lamp.
-function buildDynamo(M, cx, cy, cz, heartScale) {
+// A hanging drake LEG — upper limb → shank → clawed foot, tapered tri-lofts, dark shell.
+// The reference is a QUADRUPED; a trunk with no legs reads as a slug (Fable). Static (a
+// flight game — the legs hang), a slight forward/back set for fore/hind.
+function buildLeg(M, rootX, rootY, rootZ, side, len, fwd) {
   const g = new THREE.Group();
-  const R = 0.16 * (0.7 + 0.5 * heartScale);   // cage radius
-  // Opaque faceted HUB — an icosa lump, hash-jittered (deterministic, index-hashed — never
-  // Math.random) so it reads as a struck turbine hub, not a smooth ball. Seated at the core.
-  const hubGeo = new THREE.IcosahedronGeometry(R * 0.55, 0);
-  { const pa = hubGeo.attributes.position; for (let vi = 0; vi < pa.count; vi++) {
-      const h = Math.sin((vi + 1) * 12.9898) * 43758.5453, j = (h - Math.floor(h) - 0.5) * 0.22 * R;
-      pa.setXYZ(vi, pa.getX(vi) + j, pa.getY(vi) + j * 0.8, pa.getZ(vi) + j * 0.6); }
-    pa.needsUpdate = true; hubGeo.computeVertexNormals(); }
-  const hub = new THREE.Mesh(hubGeo, M.hub); hub.position.set(cx, cy, cz); g.add(hub);
-  // 5 stator VANES ringing the hub in the frontal (x-y) plane, swept — 2-face tents each,
-  // ≥0.06 clearance off the hub so the core is seen BETWEEN them (no coplanar z-fight).
-  const nV = 5;
-  for (let i = 0; i < nV; i++) {
-    const a0 = (i / nV) * Math.PI * 2, sweep = 0.5;   // swept like turbine stators
-    const inner = R * 0.62, outer = R * 1.12;
-    const ix = cx + Math.cos(a0) * inner, iy = cy + Math.sin(a0) * inner;
-    const ox = cx + Math.cos(a0 + sweep) * outer, oy = cy + Math.sin(a0 + sweep) * outer;
-    const zf = cz + 0.05, zb = cz - 0.03;   // a tent: front lip proud, back lip recessed
-    g.add(flatTriMesh([
-      [[ix, iy, zb], [ox, oy, zb], [ (ix + ox) / 2, (iy + oy) / 2, zf ]],
-      [[ix, iy, zb], [(ix + ox) / 2, (iy + oy) / 2, zf], [ox, oy, zb]],
-    ], M.vane));
+  const seg = (x0, y0, z0, r0, x1, y1, z1, r1, mat) => {
+    const tris = [], M6 = 6;
+    for (let k = 0; k < M6; k++) {
+      const a = (k / M6) * Math.PI * 2, a1 = ((k + 1) / M6) * Math.PI * 2;
+      const p = (x, y, z, r, ang) => [x + Math.cos(ang) * r, y, z + Math.sin(ang) * r];
+      const A0 = p(x0, y0, z0, r0, a), A1 = p(x0, y0, z0, r0, a1), B0 = p(x1, y1, z1, r1, a), B1 = p(x1, y1, z1, r1, a1);
+      tris.push([A0, B1, B0], [A0, A1, B1]);
+    }
+    g.add(flatTriMesh(tris, mat));
+  };
+  const kneeX = rootX + side * 0.03, kneeY = rootY - len * 0.5, kneeZ = rootZ + fwd * 0.06;
+  const footY = kneeY - len * 0.45, footZ = kneeZ + fwd * 0.10;
+  // gate r3 fix #4: real limb MASS (was single spider-threads that vanished in top/rear views).
+  seg(rootX, rootY, rootZ, len * 0.30, kneeX, kneeY, kneeZ, len * 0.18, M.dorsal);      // thigh/upper (muscled)
+  seg(kneeX, kneeY, kneeZ, len * 0.18, footX(kneeX, side), footY, footZ, len * 0.09, M.spine);   // shank
+  // three little claw toes
+  for (let t = -1; t <= 1; t++) {
+    const tx = footX(kneeX, side) + t * len * 0.06, tz = footZ + len * 0.13;
+    g.add(flatTriMesh([[[footX(kneeX, side), footY, footZ], [tx - 0.02, footY - len * 0.05, tz], [tx + 0.02, footY - len * 0.05, tz]]], M.spine));
   }
-  // The withheld CORE on the coreGlow hook (transparent, idle-dark, ignites I4/Surge).
-  const coreGeo = new THREE.OctahedronGeometry(R * 0.42, 0);
-  { const pa = coreGeo.attributes.position; for (let vi = 0; vi < pa.count; vi++) {
-      const h = Math.sin((vi + 1) * 78.233) * 12543.187, j = (h - Math.floor(h) - 0.5) * 0.2 * R;
-      pa.setXYZ(vi, pa.getX(vi) + j, pa.getY(vi) + j, pa.getZ(vi) + j); }
-    pa.needsUpdate = true; coreGeo.computeVertexNormals(); }
-  const core = new THREE.Mesh(coreGeo, M.heartCore);
-  core.position.set(cx, cy, cz + 0.02); core.renderOrder = 1;
-  core.userData.base = 0.06 + 0.10 * heartScale;   // the coreGlow tick scales THIS opacity (low = withheld)
-  g.add(core);
-  return { group: g, core };
+  return g;
 }
+function footX(x, side) { return x + side * 0.01; }
 
 // ── A minimal faceted tube loft (shared placeholder body element) ────────────
 // Stations [{z, rx, ry, cy}] → one flat-shaded octagon tube. The STUB's stand-in
@@ -241,98 +214,87 @@ function tubeLoft(stations, mat, cap = true) {
   return flatTriMesh(tris, mat);
 }
 
-// ── TORSO: 'cumulonimbusTorso' (I1 — the billowed cloud-mass + the caged dynamo) ─
-// A lean charcoal cloud-mass built as a CLOVER-LOFT (billowed 3-lobe sections, per-
-// station rotation = the diagonal turbulence weave), with diffuse silver-lining rims
-// tracing the lobe crests, scapular STORM COWLS lapping the wing roots, and the CAGED
-// DYNAMO storm-heart at the sternum on the real transparent `coreGlow` hook. Publishes
-// the FULL attach contract (§B.3a). spinePoints carry the ≥2 inflections the §7
-// line-of-action assert wants: neck rises INTO the storm wall → chest proud → tail
-// counter-drop → tip flick. The STORMFORK wing (I2), stormbrow head + virga fringe (I3),
-// and the Storm Circuit + Surge (I4) still land per the increment plan.
+// ── TORSO: 'cumulonimbusTorso' (rebuilt to the OWNER REFERENCE — a storm DRAKE) ──
+// A sleek dark-scaled drake trunk (deep keeled chest → hard waist tuck → haunch swell) with
+// the near-black charcoal dorsal shell over the BLAZING white-blue emissive underbelly (the
+// chevron lightning seam + dark bolt glyphs), a white neck crest, and four hanging legs.
+// Publishes the FULL attach contract. The STORMFORK wing (I2), stormbrow head + virga fringe
+// (I3), and the Storm Circuit + Surge (I4) still land per the increment plan.
 function buildCumulonimbusTorso(def, model, _bodyMat) {
   const group = new THREE.Group();
   const M = tempestMats(def);
-  const shoulderW = model.shoulderWidthScale ?? 1;
   const heartScale = model.heartScale ?? 1;
 
-  // Billowed cloud-mass: chest deepest at the wing-arm root (shoulder:waist ≈ 1.55),
-  // lean waist, haunch swell — the storm front's forward-high mass on a lean chassis.
-  // `rot` alternates ±10–14° station-to-station (the turbulence weave; small enough the
-  // dorsal/ventral value bands still read regionally).
-  const D = Math.PI / 180;
-  // Billowed cloud-mass, WIDENED (gate M3: the storm-front must be the widest, most-massed
-  // thing in the rear-chase frame — the torso was reading slim). rx/ry pushed up through the
-  // chest→haunch so the 3-clover reads as a broad cumulonimbus, not a slim serpent-jet.
-  const body = [
-    { z: -1.55, rx: 0.24 * shoulderW, ry: 0.27, cy: 0.19, rot: 12 * D },   // chest prow (proud into the wall)
-    { z: -0.92, rx: 0.44 * shoulderW, ry: 0.50, cy: 0.12, rot: -10 * D },  // shoulder / wing-arm root (deepest, widest)
-    { z: -0.15, rx: 0.34, ry: 0.38, cy: 0.14, rot: 14 * D },               // mid barrel (kept massed)
-    { z: 0.52, rx: 0.26, ry: 0.29, cy: 0.13, rot: -11 * D },               // waist (a tuck, not a pinch)
-    { z: 1.08, rx: 0.30, ry: 0.32, cy: 0.16, rot: 13 * D },                // haunch swell
-    { z: 1.62, rx: 0.14, ry: 0.15, cy: 0.11, rot: -10 * D },               // tail root (counter-drop)
+  // The drake trunk stations (neck-base → tail-base, + two forward neck rings so the THROAT
+  // glow reads). {z, rx, ryU (up), ryD (down), cy, keel}. chest depth ≥ 1.5× waist (Fable).
+  // gate r3 fix #3: a DEEP-keeled compact drake (was a shallow horizontal torpedo/eel). The chest
+  // rings are big-radius with a real sternum keel slung well below the shoulders; the waist tucks
+  // HARD against them (chest depth ≈ 2.9× waist), so the level-glide side profile reads deep-chested.
+  const trunk = [
+    { z: -2.28, rx: 0.09, ryU: 0.09, ryD: 0.09, cy: 0.05 },   // neck (toward the head)
+    { z: -1.92, rx: 0.13, ryU: 0.12, ryD: 0.15, cy: 0.12 },   // lower neck (rising)
+    { z: -1.50, rx: 0.19, ryU: 0.16, ryD: 0.22, cy: 0.18 },   // neck-base / withers
+    { z: -1.14, rx: 0.32, ryU: 0.22, ryD: 0.34, cy: 0.16 },   // shoulder girdle (widest, deep)
+    { z: -0.74, rx: 0.31, ryU: 0.22, ryD: 0.48, cy: 0.13, keel: 0.12 },  // CHEST KEEL (deepest, slung below)
+    { z: -0.26, rx: 0.24, ryU: 0.19, ryD: 0.32, cy: 0.16 },   // ribcage end
+    { z: 0.28, rx: 0.15, ryU: 0.13, ryD: 0.15, cy: 0.21 },    // WAIST tuck (shallow — the pinch)
+    { z: 0.74, rx: 0.25, ryU: 0.18, ryD: 0.24, cy: 0.16 },    // haunch swell
+    { z: 1.16, rx: 0.16, ryU: 0.13, ryD: 0.15, cy: 0.15 },    // pelvis
+    { z: 1.60, rx: 0.10, ryU: 0.09, ryD: 0.09, cy: 0.11 },    // tail-base
   ];
-  group.add(cloverLoft(body, (k) => cloverBand(M, k)));
-  // Neck rising INTO the wall (chest proud, head slightly low under the overhang).
-  const neck = [
-    { z: -1.50, rx: 0.21, ry: 0.23, cy: 0.19, rot: 12 * D },
-    { z: -1.92, rx: 0.15, ry: 0.16, cy: 0.14, rot: -8 * D },
-    { z: -2.30, rx: 0.10, ry: 0.11, cy: 0.06, rot: 10 * D },
-  ];
-  group.add(cloverLoft(neck, (k) => cloverBand(M, k), false));
+  group.add(buildDrakeTrunk(trunk, M));
 
-  // Silver-lining accent — gate M1: ONE short, hann-TAPERED dorsal-crest dash over the
-  // shoulder→waist (the middle ~40% of the body, where a lobe crest meets the silhouette),
-  // NOT the three full-length zigzag stripes that read as racing livery. Interrupted +
-  // tapered = "the sun catching one cloud crest", ≤~5% of body pixels, held under the eyes.
-  group.add(crestRim(body.slice(1, 4), 0, M.silverRim, 0.02, 0.055));
+  // THE NECK CREST — 4 back-swept white-blue emissive blades along the dorsal centerline over
+  // the neck→shoulders, breaking the silhouette (the head pass continues them forward).
+  for (let i = 0; i < 4; i++) {
+    const t = i / 3, z = -1.62 + t * 0.66;                    // neck-base → shoulder
+    const topY = 0.20 + t * 0.04, len = 0.22 - t * 0.06;      // taller toward the head
+    const cant = (i % 2 ? 1 : -1) * 0.04;                     // slight ±off-sagittal so they read from behind
+    const root0 = [cant - 0.03, topY, z], root1 = [cant + 0.03, topY, z];
+    const kink = [cant, topY + len * 0.5, z + 0.10];          // mid-kink, swept back
+    const tip = [cant, topY + len * 0.35, z + len * 0.9];     // swept aft
+    group.add(flatTriMesh([[root0, kink, root1], [root1, kink, tip], [root0, tip, kink]], M.crest));
+  }
 
-  // Scapular STORM COWLS — a LOFTED billowed lobe-plate per side lapping each wing root,
-  // STATIC in the body frame (never parented to the flapping pivot). Gate M2: a real loft
-  // (a small clover cap, ≥8 faces, no right-angle silhouette corners), blended into the
-  // shoulder lobe — the overlap-over-weld cowl trick (§B.3a / §D.2f).
-  const cowlAt = (side) => {
-    const rx0 = 0.30 * shoulderW;
-    const cowl = [
-      { z: -1.02, rx: 0.10, ry: 0.12, cx: side * (rx0 + 0.02), cy: TORSO_Y + 0.30, rot: side * 20 * D },
-      { z: -0.80, rx: 0.15, ry: 0.17, cx: side * (rx0 + 0.06), cy: TORSO_Y + 0.30, rot: side * 24 * D },
-      { z: -0.52, rx: 0.11, ry: 0.13, cx: side * (rx0 + 0.02), cy: TORSO_Y + 0.26, rot: side * 20 * D },
-    ];
-    group.add(cloverLoft(cowl, (k) => (CLOVER_R[k] > 1.04 ? M.crest : M.crease), false));
-  };
-  cowlAt(1); cowlAt(-1);
+  // FOUR HANGING LEGS — fore from the deep chest keel bottom, hind from the haunch (Fable).
+  group.add(buildLeg(M, 0.19, -0.34, -0.76, 1, 0.54, 1));
+  group.add(buildLeg(M, -0.19, -0.34, -0.76, -1, 0.54, 1));
+  group.add(buildLeg(M, 0.20, -0.10, 0.76, 1, 0.50, -1));
+  group.add(buildLeg(M, -0.20, -0.10, 0.76, -1, 0.50, -1));
 
-  // THE CAGED DYNAMO — recessed at the sternum, below the rider eye-line, seen between
-  // the belly lobes from the rear (the storm-heart). coreGlow rides its withheld core.
-  const dz = -0.72, dyn = buildDynamo(M, 0, TORSO_Y - 0.06, dz, heartScale);
-  group.add(dyn.group);
+  // THE STORM-HEART core — the brightest ventral point at the sternum, on the coreGlow hook.
+  const coreGeo = new THREE.OctahedronGeometry(0.10 * (0.7 + 0.5 * heartScale), 0);
+  { const pa = coreGeo.attributes.position; for (let vi = 0; vi < pa.count; vi++) { const j = jit(vi * 3, 0.02); pa.setXYZ(vi, pa.getX(vi) + j, pa.getY(vi) + j, pa.getZ(vi) + j); } pa.needsUpdate = true; coreGeo.computeVertexNormals(); }
+  const core = new THREE.Mesh(coreGeo, M.heartCore);
+  core.position.set(0, -0.22, -0.74); core.renderOrder = 1;   // in the deep chest keel, the hot spot of the belly glow
+  core.userData.base = 0.7 + 0.15 * heartScale;              // bright in cruise (the reference chest is the hot spot); blazes on Surge
+  group.add(core);
 
-  // Motif anchor — the STORM-HEART's dynamo centre (fixed, never re-hues, §3).
+  // Motif anchor — the STORM-HEART (fixed at the sternum, never re-hues, §3).
   const motifAnchor = new THREE.Object3D();
-  motifAnchor.position.set(0, TORSO_Y - 0.06, dz);
+  motifAnchor.position.set(0, -0.22, -0.74);
   group.add(motifAnchor);
 
-  // Line-of-action (≥2 inflections: neck rises into the wall → chest proud → tail counter-drop → flick).
+  // Line-of-action (≥2 inflections: neck rises → chest proud → waist tuck → haunch → tail).
   const spinePoints = [
-    new THREE.Vector3(0, 0.06, -2.30), new THREE.Vector3(0, 0.19, -1.5),
-    new THREE.Vector3(0, 0.15, -0.1), new THREE.Vector3(0, 0.17, 1.08),
-    new THREE.Vector3(0, 0.12, 1.62),
+    new THREE.Vector3(0, 0.05, -2.28), new THREE.Vector3(0, 0.19, -1.5),
+    new THREE.Vector3(0, 0.17, -0.28), new THREE.Vector3(0, 0.20, 0.26),
+    new THREE.Vector3(0, 0.12, 1.60),
   ];
   const wro = model.wingRootOffset ?? {};
   const attach = {
-    wingRoot: (side) => ({ x: (0.36 * shoulderW) * side, y: TORSO_Y + 0.32 + (wro.y ?? 0), z: -0.72 + (wro.z ?? 0) }),
-    headBase: { x: 0, y: 0.02, z: -2.40 },
-    tailAnchor: { y: 0.12, z: 1.58 },
-    keelTopAt: (z) => TORSO_Y + 0.34 * Math.max(0, 1 - Math.abs(z + 0.5) / 2.4),
-    halfWidthAt: (z) => 0.36 * Math.max(0.2, 1 - Math.abs(z + 0.3) / 3.0),
+    wingRoot: (side) => ({ x: 0.30 * side, y: TORSO_Y + 0.30 + (wro.y ?? 0), z: -1.00 + (wro.z ?? 0) }),   // shoulder girdle
+    headBase: { x: 0, y: 0.00, z: -2.40 },
+    tailAnchor: { y: 0.12, z: 1.56 },
+    keelTopAt: (z) => TORSO_Y + 0.30 * Math.max(0, 1 - Math.abs(z + 1.0) / 2.4),
+    halfWidthAt: (z) => 0.30 * Math.max(0.2, 1 - Math.abs(z + 0.6) / 3.0),
     bodyMidY: TORSO_Y, tailShift: 0,
-    riderSocket: { x: 0, y: 0.62, z: -0.28 },
+    riderSocket: { x: 0, y: 0.52, z: -0.5 },
     motifAnchor,
   };
-  // coreGlow = the withheld dynamo CORE mesh (the real transparent hook — NOT null now).
-  // flareMats = the core mat (Surge hue-lerp toward surgeHi; the storm tick owns cruise
-  // strikes at I4). spineMats stays [] (the warm cruise rim must never touch the storm family).
-  return { group, attach, spinePoints, spineMats: [], flareMats: [M.heartCore], mats: { bodyMat: M.flank }, coreGlow: dyn.core };
+  // coreGlow = the storm-heart core (the real transparent hook — opacity ticked). flareMats =
+  // the belly + crest + heart (Surge-flared, exempt from the warm cruise rim). spineMats [] .
+  return { group, attach, spinePoints, spineMats: [], flareMats: [M.bellyCore, M.bellyMid, M.bellyEdge, M.crest, M.heartCore], mats: { bodyMat: M.dorsal }, coreGlow: core };
 }
 registerTorso('cumulonimbusTorso', buildCumulonimbusTorso);
 
