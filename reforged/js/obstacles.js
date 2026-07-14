@@ -822,6 +822,68 @@ export function studioGateTick(t) {
   if (veilPointMat) veilPointMat.uniforms.uTime.value = t;
 }
 
+// --- OBSTACLE STUDIO (tools/obstaclestudio) --------------------------------
+// The in-lane hazards (bar / pillar / shard) are shipped as generic primitives
+// (a cone, a horizontal cylinder "log", an octahedron) that don't read as ice —
+// the owner wants them reskinned per biome. Before touching a shipped pixel we
+// need a workbench: build ONE hazard in ISOLATION, at its REAL collider scale,
+// so a reskin can be Fable-gated AND proven "visual ≥ hitbox, never less". Inert
+// (never imported by the running game). Representative params (mid of level.js's
+// spawn ranges) so the studio read is honest, overridable via opts.params.
+const OBSTACLE_STUDIO_PARAMS = {
+  pillar: { r: 2.3, h: 15 },   // level.js: r 1.6–3.0, h 8–21
+  shard:  { r: 2.0, y: 0 },    // level.js: r 1.3–2.6
+  bar:    { r: 0.85, y: 0 },   // level.js: r 0.7–1.1, spans the full lane
+};
+// The VISUAL body — identical to what addObstacle() builds today (the fallback
+// that PR-3's OBSTACLE_SKINS will override). Kept in lockstep with addObstacle by
+// eye; the collider ghost below is the real invariant the reskins must honour.
+function obstacleBody(type, bi, p) {
+  const body = mats.body[bi] || mats.body[0];
+  if (type === 'pillar') {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 6), body);
+    m.position.y = p.h / 2; return m;
+  }
+  if (type === 'shard') {
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(p.r), p.dynamic ? mats.mover : body);
+    m.position.y = p.y || 0; return m;
+  }
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(p.r, p.r, 30, 8), body);   // bar = horizontal log
+  m.rotation.z = Math.PI / 2; m.position.y = p.y || 0; return m;
+}
+// The COLLISION ENVELOPE as a wireframe ghost — the hazard-intrinsic term of the
+// collider from collision.js (player radius R is added at runtime; shown as 0
+// here). A reskin must keep its visible silhouette OUTSIDE this ghost everywhere
+// (never "looks passable but kills"), and the collider itself must stay byte-
+// identical, so these ghosts are the acceptance test rendered next to each skin.
+function obstacleColliderGhost(type, p) {
+  const mat = new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.6 });
+  let g;
+  if (type === 'pillar') {          // horiz < r*0.65  &&  y < h  → vertical cylinder from floor
+    g = new THREE.Mesh(new THREE.CylinderGeometry(p.r * 0.65, p.r * 0.65, p.h, 20), mat);
+    g.position.y = p.h / 2;
+  } else if (type === 'shard') {    // dist3 < r*0.70  → sphere
+    g = new THREE.Mesh(new THREE.SphereGeometry(p.r * 0.70, 20, 14), mat);
+    g.position.y = p.y || 0;
+  } else {                          // |dz| < r  &&  |y-cy| < r*0.75  → box, FULL lane in x (no x term)
+    g = new THREE.Mesh(new THREE.BoxGeometry(32, p.r * 1.5, p.r * 2), mat);
+    g.position.y = p.y || 0;
+  }
+  return g;
+}
+// Build one hazard for the studio. opts.hitbox overlays the collision-envelope
+// ghost; opts.params overrides the representative sizing; opts.dynamic renders the
+// oscillating shard (hot mover material). Returns a Group centred for framing.
+export function buildObstacleMesh(type, bi = 0, opts = {}) {
+  if (!mats) initObstacles({ add() {}, remove() {} });
+  const p = { ...(OBSTACLE_STUDIO_PARAMS[type] || {}), ...(opts.params || {}), dynamic: !!opts.dynamic };
+  const g = new THREE.Group();
+  g.add(obstacleBody(type, bi, p));
+  if (opts.hitbox) g.add(obstacleColliderGhost(type, p));
+  g.userData.params = p;
+  return g;
+}
+
 // --- Sky Canyon rock gates -------------------------------------------------
 // A canyon segment frames a safe aperture (centered on a reward ring) with rock
 // masses, an emissive aperture rim ("glowing crystal cracks"), and an additive
