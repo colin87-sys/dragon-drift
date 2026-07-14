@@ -89,7 +89,14 @@ const CAM_Y_MAX = 27.0;                  // worst-case camera height (laneMaxY 2
 const OVH_Y_BASE = 6, OVH_Y_SLOPE = 0.26;    // PLACEMENT: the y-floor gap above the worst camera + the proximity-widening slope (rock bottom = CAM_Y_MAX + base + slope·dc, size-independent)
 const OVH_YC_BASE = 4, OVH_YC_SLOPE = 0.22;  // CONSTRAINT: the elevation-band floor + slope the rock bottom must clear (both < placement ⇒ margin ≥ 0 at every depth); slope 0.22 pins the rock to the top sky band (elev ≥ ~12°)
 const OVH_Y_ABS = 30;                    // ABSOLUTE floor: rock bottom never below laneMaxY 22 + 8 → the dragon can never touch one regardless of camera state
+const OVH_Z_FAR = -820;                  // overhead birth depth (vs side's -300): a size-7 rock at ~860m subtends ~1.3° — a SPECK that condenses out of the haze and comes closer (the side-rock grammar, via DEPTH). The eased z-map keeps the near-pass whoosh speed unchanged.
+const OVH_EASE = (p) => 1.61 * p - 0.61 * p * p;   // deep→near depth easing: g'(0)=1.61 (fast while a speck, tiny angular vel) → g'(1)=0.39 (near-pass dz/dt = shipped whoosh). Monotone on [0,1], NaN-free.
 const OVH_ENABLED = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('noovh'));   // ?noovh — A/B: all 8 flyby revert to side passes
+const OVH_OLD = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldovh');   // ?oldovh — A/B: the pre-fix overhead (on-screen materialise, fixed lanes/phases, no per-pass re-roll)
+const OLD_START = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldstart');   // ?oldstart — A/B: the pre-fix engage (a mid-approach rock fades in already-giant)
+const OLD_FAN = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldfan');   // ?oldfan — A/B: the pre-fix radial fan (48 even rays, head-taper, straight)
+const OVH_START_PHASE = [0.0, 0.045, 0.09];   // on arena engage, the 3 overhead rocks rebase to these near-zero phases → all born as far specks; incommensurate speeds stagger the first dives (~13/18/27s)
+const mod1 = (x) => ((x % 1) + 1) % 1;         // positive fractional part
 let debrisFlybyMargin = 0;         // horizontal side cone: min over the path of (x − k=1.0 lane-clearance) — asserted ≥ 0
 let debrisFlybyMarginY = 0;        // vertical overhead cone: min over the path of (rock-bottom − elevation-band floor) — asserted ≥ 0
 
@@ -104,7 +111,8 @@ let novaMat = null, spiralMat = null, detMat = null;
 let debris = null, debrisField = null, debrisMat = null, debrisP = null, debrisMinX = 0;   // hero (8 flyby, high-poly) + field (22 conveyor, low-poly) sculpted rocks, ONE shared material
 let debrisTris = 0, debrisLedger = { dx0: 0, dxd: 0, dspd: 0 };   // baked: total tri count + the overhead path-distinctness floors (no two rocks share a track)
 let embers = null, emberMat = null;    // the fine-particulate spark layer (shader-driven, recycled)
-const EMBER_N = 1152;                  // the roiling "substance": dense curved trails, ONE static draw (1536→1152: a curved 3-seg comet reads DENSER than a straight dash, so fewer trails hold the mass while reclaiming the ribbon's ~2.5× fill — perf, fairness-positive)
+const EMBER_N = 192;                   // §P1a headless FILAMENTS: sparse fine mid-peak spindles (1152→192) — the outer whisper; the corona grain (§P1b) carries the inner mass. ~7% of the old ember fill (fill-negative on a fill-bound frame)
+const DET_GRAIN = (typeof location !== 'undefined' && new URLSearchParams(location.search).has('nograin')) ? 0 : 1;   // §P1b ?nograin master (corona dust grain off for A/B); tier-scaled below
 let tierLevel = 0;                  // 0/1/2 — tier 2 GRACEFULLY degrades (cheap core+corona) instead of hiding the set (never a hard black)
 let detCoreCoronaVerts = 0;         // the [0,n) draw-range that keeps only core+corona at tier 2
 // The SHARED coherent swirl field (a few harmonics over the launch angle). The curved streak spines
@@ -298,26 +306,45 @@ function buildDetonationGeo(prnd) {
   // bend is scaled to ~0 on 0/90/180/270), so the ONLY straight lines left in the frame are the four
   // sacred axes — straightness becomes the glyph, not noise. Fairness (eclipse + down-suppression) is
   // re-baked PER VERTEX from the ACTUAL curved position, so an arc that dips downward dims continuously.
-  const NST = 48, SEG = 11, W_IN = 4.2, W_TIP = 0.8;           // fewer, THINNER, now with a curved spine (SEG 5→11 for a smooth arc)
-  for (let s = 0; s < NST; s++) {
-    const a0 = (s / NST) * TAU + (prnd() - 0.5) * 0.07;
+  // B2 — the fan is no longer 48 even rays with a head-taper (a mechanical starburst, the last "vector art"
+  // once the dust reads premium). It's ~36 tongues launched in CLUSTERED JETS (irregular = organic), each
+  // with a CURVATURE FLOOR (every off-axis tongue carries a visible arc) and a MID-PEAK envelope over its
+  // VISIBLE span (erupts thin from behind the silhouette, swells, frays into dust — no bright ray-tips, no
+  // ring of identical ray-starts). The cross-axis exemption/brightening is kept, so the four sacred axes
+  // stay the straight glyph. ?oldfan restores the even fan.
+  const SEG = 11, W_IN = 4.2, W_TIP = 0.8;
+  const streaks = [];
+  if (OLD_FAN) {
+    for (let s = 0; s < 48; s++) streaks.push({ a0: (s / 48) * TAU + (prnd() - 0.5) * 0.07, lenMul: 1 });
+  } else {
+    for (let jj = 0; jj < 12; jj++) {                          // 12 jets × 2–4 filaments ≈ 36, irregularly clumped
+      const c = prnd() * TAU, nf = 2 + Math.floor(prnd() * 3);
+      for (let f = 0; f < nf; f++) streaks.push({ a0: c + (prnd() - 0.5) * 0.12, lenMul: 0.7 + prnd() * 0.6 });   // ±0.06 rad in-jet spread · ×0.7–1.3 length variance
+    }
+  }
+  for (const st of streaks) {
+    const a0 = st.a0;
     const down = Math.sin(a0) < -0.15;                          // launched below horizontal → shorter reach
-    const lenBase = 280 + prnd() * 280;                         // 280..560u
-    const len = down ? lenBase * 0.5 : lenBase;
-    const cAlign = 0.78 + 0.55 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // cross-aligned streaks BRIGHTEN (the fire-rivers of the arms), off-axis dim
-    const baseGain = 0.85 * cAlign;                             // −15% baked gain — the particulate carries the reach (down-suppression now per-vertex, below)
-    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // ≈0.15 on the axes → cross-arm streaks stay STRAIGHT; ≈1 off-axis → they curve
-    const bendAmp = 0.42 * swirlField(a0) * crossExempt;        // ≤0.42 rad drift (capped < 0.5 so no upper streak reaches the corridor band); braids with the embers via the shared field
-    const bendFreq = 1.2 + 0.6 * prnd(), bendPh = prnd() * TAU;
+    const lenBase = (280 + prnd() * 280) * st.lenMul;          // 280..560u × in-jet variance
+    const len = Math.max(ECL_R1 + 60, down ? lenBase * 0.5 : lenBase);   // keep a visible span past the eclipse ignite
+    const cAlign = 0.78 + 0.55 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // cross-aligned tongues BRIGHTEN (the fire-rivers of the arms), off-axis dim
+    const baseGain = 0.85 * cAlign;
+    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * a0)), 6);   // ≈0.15 on the axes → cross-arm tongues stay STRAIGHT; ≈1 off-axis → they curve
+    const sw = swirlField(a0), sf = Math.sign(sw || 1) * Math.max(0.35, Math.abs(sw));   // CURVATURE FLOOR: |bend| ≥ 0.35·0.42 ≈ 0.15 rad so the arc reads (sign kept — braids with the shared field)
+    const bendAmp = 0.42 * (OLD_FAN ? sw : sf) * crossExempt;   // ≤0.42 rad drift (capped < 0.5 so no upper tongue reaches the corridor band)
+    const bendFreq = OLD_FAN ? (1.2 + 0.6 * prnd()) : (1.7 + 0.9 * prnd()), bendPh = prnd() * TAU;   // higher freq → the arc completes more of its sweep (still single-inflection)
     const aAt = (t) => a0 + bendAmp * (Math.sin(bendFreq * t + bendPh) - Math.sin(bendPh));   // spine angle vs t; anchored to a0 at the core (t=0), arcs outward
-    const ph = prnd() * TAU;                                    // per-streak scroll phase (breaks lockstep)
+    const ph = prnd() * TAU;                                    // per-tongue scroll phase (breaks lockstep)
     for (let j = 0; j < SEG; j++) {
       const t0 = j / SEG, t1 = (j + 1) / SEG;
       const r0 = CORE_R + t0 * (len - CORE_R), r1 = CORE_R + t1 * (len - CORE_R);
       const av0 = aAt(t0), av1 = aAt(t1);                       // CURVED spine angles
-      const w0 = W_IN + (W_TIP - W_IN) * t0, w1 = W_IN + (W_TIP - W_IN) * t1;
+      const tv0 = Math.max(0, Math.min(1, (r0 - ECL_R1) / (len - ECL_R1))), tv1 = Math.max(0, Math.min(1, (r1 - ECL_R1) / (len - ECL_R1)));   // 0 at the ignite radius → 1 at the tip
+      const w0 = OLD_FAN ? (W_IN + (W_TIP - W_IN) * t0) : (1.2 + 4.8 * Math.pow(Math.sin(Math.PI * tv0), 0.8));   // MID-PEAK width: thin at both ends, swell ~6 in the middle
+      const w1 = OLD_FAN ? (W_IN + (W_TIP - W_IN) * t1) : (1.2 + 4.8 * Math.pow(Math.sin(Math.PI * tv1), 0.8));
       const d0 = 0.4 + 0.6 * ss((Math.sin(av0) + 0.4) / 0.6), d1 = 0.4 + 0.6 * ss((Math.sin(av1) + 0.4) / 0.6);   // per-vertex down-suppression from the ACTUAL curved angle
-      const e0 = smoothstep(ECL_R0, ECL_R1, r0) * baseGain * d0, e1 = smoothstep(ECL_R0, ECL_R1, r1) * baseGain * d1;
+      const e0 = (OLD_FAN ? smoothstep(ECL_R0, ECL_R1, r0) : (Math.pow(tv0, 0.5) * Math.pow(1 - tv0, 1.2) * 2.4)) * baseGain * d0;   // MID-PEAK brightness (0 at ignite AND tip → no ray-start ring, no bright tip); 2.4 (not 2.8) keeps sky p50 headroom (the mid-peak now lights the sky the old core-taper hid behind the seraph)
+      const e1 = (OLD_FAN ? smoothstep(ECL_R0, ECL_R1, r1) : (Math.pow(tv1, 0.5) * Math.pow(1 - tv1, 1.2) * 2.4)) * baseGain * d1;
       const g0 = detGrad(t0), g1 = detGrad(t1);
       const c0 = [g0[0] * e0, g0[1] * e0, g0[2] * e0], c1 = [g1[0] * e1, g1[1] * e1, g1[2] * e1];
       const ex0 = Math.cos(av0), ey0 = Math.sin(av0), nx0 = Math.cos(av0 + Math.PI / 2), ny0 = Math.sin(av0 + Math.PI / 2);
@@ -377,8 +404,30 @@ const DET_VERT = `
 // molten corona, filamented shock wavefronts. Mean-preserving (multiplies the baked vCol), so the
 // eclipse/down-suppression/fairness structure is untouched. All bases clamped ≥ 0 (the NaN law); the
 // hash uses only fract/dot (no pow/sin/sqrt/log) so it can't emit a NaN.
+// B2 — the STREAK branch. New tongues bake their own mid-peak envelope, so the shader drops the old head
+// `decay` and instead FRAYS the tip into the dust field + shares the radial grain. ?oldfan keeps the old
+// tip-death decay (its baked brightness is constant past ignite, so it needs the shader to die the tip).
+const STREAK_BRANCH = OLD_FAN ? `
+      float decay = pow(max(0.0, 1.0 - t), 0.8);         // dies to black at the tip
+      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.3);
+      float lat = (fbm(vec2(t * 2.5 - uTime * 0.25, vPhase * 7.0)) - 0.5) * 2.5;
+      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0 + lat));
+      float veins = pow(max(0.0, 1.0 - abs(2.0 * n - 1.0)), 2.2);
+      float pulse = 0.4 + 0.6 * (0.5 + 0.5 * sin(t * 12.0 - uTime * uFlow + vPhase));
+      float flow = (0.22 + 1.7 * veins) * pulse;
+      b = decay * edge * flow * frontAt(t * 500.0);` : `
+      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.3);   // soft sides (clamp: no NaN)
+      float lat = (fbm(vec2(t * 2.5 - uTime * 0.25, vPhase * 7.0)) - 0.5) * 2.5;   // LATERAL drift → the vein snakes
+      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0 + lat));   // advected roil
+      float veins = pow(max(0.0, 1.0 - abs(2.0 * n - 1.0)), 2.2);   // thin bright veins, dark between
+      float pulse = 0.4 + 0.6 * (0.5 + 0.5 * sin(t * 12.0 - uTime * uFlow + vPhase));
+      float flow = (0.22 + 1.7 * veins) * pulse;
+      float g = vnoise(vec2(vUv.y * 30.0, t * 17.0 - uTime * 2.6));   // the corona's radial grain, ON the tongue
+      float grain = mix(1.0, 0.62 + 1.35 * g * g, uGrain * smoothstep(0.5, 0.9, t));
+      float fray = smoothstep(0.12, 0.4, n + (1.0 - t) * 0.8);        // the tip DISSOLVES into the dust field (no geometric point)
+      b = edge * flow * grain * fray * frontAt(t * 500.0);` ;   // tip/ignite darkness = the baked mid-peak envelope
 const DET_FRAG = `
-  uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing; uniform float uOct; uniform float uRoil; uniform float uCross;
+  uniform float uTime; uniform float uGain; uniform float uFlow; uniform float uRing; uniform float uOct; uniform float uRoil; uniform float uCross; uniform float uGrain;
   varying vec3 vCol; varying vec2 vUv; varying float vType; varying float vPhase;
   float cross4(float a){ return pow(abs(cos(a * 2.0)), 10.0); }   // 4-fold angular field: peaks on 0/90/180/270; abs base ≥ 0 (NaN-safe)
   float hash21(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -410,6 +459,13 @@ const DET_FRAG = `
       b = mix(1.0, cells, uRoil) * frontAt(t * 340.0)
         * (1.0 - 0.14 * uCross * (1.0 - cx))             // OFF-axis darkening = the negative edge
         * (1.0 + 1.6 * uCross * crossGlow);              // ON-axis fire-flare (mean ≈ preserved by the darkening)
+      // §P1b FINE DUST GRAIN folded INTO the corona: a high-frequency octave, circle-embedded (seam-free)
+      // and radially advected OUTWARD (streaks with the blast, not static speckle). The particulate is now
+      // literally the SAME pixels as the blast → it cannot read as a separate object. mean ≈ preserved (the
+      // cells idiom); rises with t so the inner core stays clean. ALU-only, zero new fill/draws.
+      vec2 gr = vec2(cos(ang), sin(ang)) * 38.0 + vec2(0.0, t * 17.0 - uTime * 2.6);   // B1: tangential 26→38 · radial 44→17 → grain cells ELONGATE along the radius = thousands of fine soft speed-lines INSIDE the blast (the real replacement for the geometric rays)
+      float dust = vnoise(gr);
+      b *= mix(1.0, 0.62 + 1.35 * dust * dust, uGrain * smoothstep(0.10, 0.45, t));
     } else if (vType > 1.5) {                            // SHOCK RING — soft band × filamented wavefront
       float t = vUv.x, ang = vUv.y * 6.2831853;
       float band = pow(max(0.0, sin(t * 3.14159265)), 1.4);   // black on both edges (clamp: no NaN)
@@ -417,22 +473,15 @@ const DET_FRAG = `
       float fn = fbm(vec2(cos(ang), sin(ang)) * 4.6 + vec2(t * 2.0 - uTime * uRing * 0.3, 0.0));
       float fil = 0.45 + 0.9 * fn * fn;                  // sharpened angular filaments (not a clean compass ring)
       b = band * wave * fil;
-    } else if (vType > 0.5) {                            // STREAK — SNAKING DUST RIVULET (not a straight ray)
-      float t = vUv.x;
-      float decay = pow(max(0.0, 1.0 - t), 0.8);         // dies to black at the tip
-      float edge = pow(max(0.0, 1.0 - abs(2.0 * vUv.y - 1.0)), 1.3); // soft sides (clamp: no NaN)
-      float lat = (fbm(vec2(t * 2.5 - uTime * 0.25, vPhase * 7.0)) - 0.5) * 2.5;   // LATERAL drift → the vein snakes across the quad (not a straight line)
-      float n = fbm(vec2(t * 10.0 - uTime * uFlow * 0.4 + vPhase * 3.0, vUv.y * 6.0 + lat));  // advected roil
-      float veins = pow(max(0.0, 1.0 - abs(2.0 * n - 1.0)), 2.2);   // RIDGED → thin bright veins, dark between (clamp)
-      float pulse = 0.4 + 0.6 * (0.5 + 0.5 * sin(t * 12.0 - uTime * uFlow + vPhase));  // core→tip energy pulse
-      float flow = (0.22 + 1.7 * veins) * pulse;         // crisp fibers that survive the bloom
-      b = decay * edge * flow * frontAt(t * 500.0);      // grows outward with the shared front
+    } else if (vType > 0.5) {                            // STREAK — an eruption TONGUE (mid-peak baked; frays into the dust field)
+      float t = vUv.x;${STREAK_BRANCH}
     }
     gl_FragColor = vec4(vCol * b * uGain, 1.0);          // additive: black adds nothing (soft everywhere)
   }`;
 const addDetMat = () => {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uFlow: { value: 3.8 }, uRing: { value: 1.5 }, uOct: { value: 3 }, uRoil: { value: 1.0 }, uCross: { value: 1.0 } },
+    uniforms: { uTime: { value: 0 }, uGain: { value: 0 }, uFlow: { value: 3.8 }, uRing: { value: 1.5 }, uOct: { value: 3 }, uRoil: { value: 1.0 }, uCross: { value: 1.0 },
+      uGrain: { value: DET_GRAIN } },   // §P1b corona dust grain — ?nograin A/B; tier-dialled in setArenaSetQuality
     vertexShader: DET_VERT, fragmentShader: DET_FRAG,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
   });
@@ -452,11 +501,21 @@ const addDetMat = () => {
 // volume). Coherence: swirlAmp sampled from the SHARED harmonic field (see `swirlField`) so the trails
 // braid WITH the curved streaks (a curl READ) instead of wiggling independently.
 function buildEmbers(prnd) {
+  // HEADLESS FILAMENTS (§P1a): the comet-ribbon (bright round HEAD + tail) reads as a discrete firefly no
+  // matter how it's curved/dimmed — the bright end-cap is the tell, and bloom inflates it into a ball. The
+  // architecture changes: NO vertex is a maximum at an end (brightness + width both peak MID-ribbon), width
+  // is sub-bloom-kernel so bloom can't make a ball, no hot-white boost, far dimmer + fewer + longer → a
+  // whisper of fine streaks laced through the outer blast, not a swarm. The path stays coherent (signed
+  // shared field, single anchored arc) — that part was right. The corona grain (§P1b) carries the inner mass.
   const P = [];
   for (let e = 0; e < EMBER_N; e++) {
-    const dir = prnd() * TAU, sf = swirlField(dir);            // SHARED field → embers braid WITH the curved streaks
-    P.push({ dir, speed: 0.06 + prnd() * 0.14, phase: prnd(), size: 0.8 + prnd() * 2.6,
-      swAmp: 0.30 + 0.50 * (0.5 + 0.5 * sf), swFreq: 1.4 + 1.6 * prnd(), swPh: prnd() * TAU, trailDt: 0.014 + prnd() * 0.010 });   // swAmp 0.14–0.48 → 0.30–0.80 (the curve shows while bright); stretch seed repurposed → per-ember trail Δlife
+    const dir = prnd() * TAU, sf = swirlField(dir);            // SHARED field → filaments braid WITH the curved streaks
+    const crossExempt = 1 - 0.85 * Math.pow(Math.abs(Math.cos(2 * dir)), 6);   // SAME exemption as the streak fan → filaments fly straight along the sacred cross arms
+    P.push({ dir, speed: 0.06 + prnd() * 0.14, phase: prnd(), swPh: prnd() * TAU,
+      size: 0.30 + prnd() * 0.55,                              // sub-bloom width (max 0.85u) → bloom can't inflate a ball
+      swAmp: 0.42 * sf * crossExempt * (0.85 + 0.3 * prnd()),  // SIGNED + streak-matched 0.42 (braids in the same flow)
+      swFreq: 1.2 + prnd() * 0.6,                              // sub-cycle → ONE arc, not a multi-inflection S
+      trailDt: 0.030 + prnd() * 0.018 });                      // longer, finer streamers
   }
   P.sort((a, b) => b.size - a.size);   // biggest first → tier-1 drawRange keeps the largest trails
   const pos = [], aq = [], aseed = [], aseed2 = [];
@@ -487,7 +546,7 @@ function buildEmbers(prnd) {
         float life0 = fract(uTime * aSeed.y + aSeed.z);                // the HEAD's life
         float life = max(1e-4, life0 - seg * aSeed2.w);                // this vertex samples the path EARLIER in life (the trail) — NaN-safe floor
         float sw = aSeed2.x, swf = aSeed2.y, swp = aSeed2.z;
-        float theta = aSeed.x + sw * sin(swf * life + swp) + 0.5 * sw * sin(2.3 * swf * life + aSeed.z * 6.2831853);
+        float theta = aSeed.x + sw * (sin(swf * life + swp) - sin(swp));   // braids in the streak fan's flow (signed shared field, anchored single arc)
         theta -= uCross * 0.12 * sin(4.0 * theta) * smoothstep(0.15, 0.7, life);   // trails MIGRATE onto the cross axes as they age (sin4θ attractors on 0/90/180/270)
         float decel = pow(max(0.0, 1.0 - life), 1.3);                  // slower blowout (1.7→1.3): the trail dwells at mid-radii where the CURVE is visible
         float rr = 520.0 * (1.0 - decel);
@@ -496,27 +555,27 @@ function buildEmbers(prnd) {
         // analytic velocity tangent AT THIS sample → the ribbon's local width direction (the length now
         // comes from the per-segment path samples, not a straight stretch, so the ribbon FOLLOWS the curve)
         float drdl = 520.0 * 1.3 * pow(max(0.0, 1.0 - life), 0.3);
-        float dthdl = sw * swf * cos(swf * life + swp) + 1.15 * sw * swf * cos(2.3 * swf * life + aSeed.z * 6.2831853);
+        float dthdl = sw * swf * cos(swf * life + swp);   // tangent of the single-arc path
         vec2 tang = drdl * rad + rr * dthdl * vec2(-rad.y, rad.x);
         tang *= inversesqrt(max(1e-6, dot(tang, tang)));               // NaN-safe normalize
         vec2 nrm = vec2(-tang.y, tang.x);
         // shared EXPANSION FRONT: a gaussian luminance crest travelling outward, seamless loop
         float fph = fract(uTime / 4.6), rFront = 560.0 * fph, dR = rr - rFront;
         float front = 1.0 + 0.4 * exp(-(dR * dR) / 3025.0) * sin(3.14159265 * fph);
-        float ecl = smoothstep(150.0, 210.0, rr);                      // ignite only outside the seraph (per-sample)
+        float ecl = smoothstep(150.0, 260.0, rr);                     // ignite only outside the seraph (per-sample); soft fade-up so filaments don't snap on at the annulus edge
         float down = 0.3 + 0.7 * smoothstep(-0.3, 0.2, sin(theta));    // suppress the corridor column (per-sample)
         float crossW = 0.85 + 0.55 * uCross * pow(abs(cos(2.0 * theta)), 6.0);   // brighter DENSITY along the arms
-        float birth = smoothstep(0.0, 0.05, life0);                    // spawn fade keyed to the HEAD life → a just-born trail collapses to its head (no stale-wrap stretch)
-        float trailFade = 1.0 - 0.55 * segT;                           // head brightest, tail dim (the comet falloff)
-        vGlow = ecl * down * (1.0 - life0) * birth * front * crossW * trailFade * 0.9;   // ×0.9 mid-radius-dwell compensator (guards sky p50)
+        float birth = smoothstep(0.0, 0.05, life0);                    // spawn fade keyed to the HEAD life
+        float trailFade = 4.0 * segT * (1.0 - segT);                   // MID-PEAK spindle: 0 at BOTH ends → nothing terminates bright (no round head cap, the whole 'firefly' read)
+        vGlow = ecl * down * (1.0 - life0) * birth * front * crossW * trailFade * 0.35;   // far dimmer → a whisper of grain, not bright filaments on top
         vQ = vec2(side, 0.0);                                          // round tube across width (length shaped by the segments)
-        // ONE substance: the ember colour is the SAME gold→rose→violet ramp over RADIUS as the corona/streaks
+        // ONE substance: the filament colour is the SAME gold→rose→violet ramp over RADIUS as the corona/streaks (no hot-white boost — that made the ball)
         float rg = clamp(rr / 520.0, 0.0, 1.0);
         vec3 ramp = rg < 0.5 ? mix(vec3(1.0, 0.85, 0.54), vec3(0.85, 0.54, 0.39), rg / 0.5)
                              : mix(vec3(0.85, 0.54, 0.39), vec3(0.5, 0.4, 0.7), (rg - 0.5) / 0.5);
-        vCol = mix(ramp, vec3(1.0, 0.9, 0.65), (1.0 - life0) * 0.3);   // young embers spark hotter (a small life boost, not a separate law)
-        float wid = aSeed.w * (1.0 - 0.7 * segT);                      // width tapers head→tail
-        float zoff = (fract(aSeed.z * 91.7) - 0.5) * 180.0;           // per-ember depth (I4): ±90u about the star plane → parallax near/far layering
+        vCol = ramp;
+        float wid = aSeed.w * (0.35 + 0.65 * sin(3.14159265 * segT));  // width tapers to sub-bloom at BOTH ends (bloom can't inflate a ball where there's no wide bright cap)
+        float zoff = (fract(aSeed.z * 91.7) - 0.5) * 80.0;            // per-ember depth: parallax near/far layering (tight → the shell doesn't slide as a separate plane)
         vec4 mv = modelViewMatrix * vec4(c, 0.06 + zoff, 1.0);
         mv.xy += side * wid * nrm;                                     // width ACROSS the local motion; ribbon length is the segment spread
         gl_Position = projectionMatrix * mv;
@@ -671,18 +730,23 @@ function buildDebris(prnd) {
   debrisP = [];
   const heatHero = new Float32Array(FLYBY_N), heatField = new Float32Array(DEBRIS_N - FLYBY_N);
   let minX = Infinity, flyMargin = Infinity, flyMarginY = Infinity, sideCount = 0, ovhCount = 0;
-  const OVH_LANE = [-10, 0, 10], OVH_XD = [-0.10, 0.02, 0.10], OVH_SPD = [0.042, 0.055, 0.068], OVH_PH = [0.0, 0.33, 0.67], OVH_SZBASE = [5.0, 6.2, 7.4];   // per-rock DISTINCT tracks — never two in line (disjoint by construction)
+  // Overhead per-rock CENTRES (the per-pass hash re-roll jitters around these — §P2b). Disjoint by
+  // construction so the distinctness ledger holds at EVERY cycle: lanes gap 12 (−2·2.5 jitter = 7 ≥ 6),
+  // drifts min-gap 0.12 (−2·0.03 = 0.06 ≥ 0.05), speeds gap 0.017 ≥ 0.010 and INCOMMENSURATE (periods
+  // 27/18.5/14.1s) so arrivals never lock into a repeating beat.
+  const OVH_LANE = [-12, 0, 12], OVH_XD = [-0.12, 0.02, 0.14], OVH_SPD = [0.037, 0.054, 0.071], OVH_SZBASE = [5.0, 6.2, 7.4];
   const iscale = () => 0.88 + prnd() * 0.30;                    // per-instance axis scale 0.88..1.18 (silhouette variety; ≤1.18 keeps world radius < 1.45·size)
   for (let i = 0; i < DEBRIS_N; i++) {
     if (i < FLYBY_N) {                                          // FLYBY: big rocks whooshing close past the camera
       heatHero[i] = 1.2 + prnd() * 0.5;
       const base = { flyby: true, isx: iscale(), isy: iscale(), isz: iscale(), ts: (prnd() - 0.5) * 0.4, e0: prnd() * TAU, e1: prnd() * TAU, e2: prnd() * TAU };
-      if (OVH_ENABLED && OVH_SET.has(i)) {                      // OVERHEAD: dive in from high, sweep up over the top — on a DISTINCT lane/heading/speed per rock
-        const k = ovhCount++, size = OVH_SZBASE[k] + prnd() * 1.1;
-        debrisP.push({ ...base, overhead: true, size, phase: OVH_PH[k], spd: OVH_SPD[k],
-          x0: OVH_LANE[k] + (prnd() - 0.5) * 4, xd: OVH_XD[k] + (prnd() - 0.5) * 0.04 });
-        for (let ps = 0; ps <= 24; ps++) {                     // verify the VERTICAL clearance margin over the whole path
-          const p = ps / 24, zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
+      if (OVH_ENABLED && OVH_SET.has(i)) {                      // OVERHEAD: born a SPECK deep in the haze, condenses + comes closer — per-pass RE-ROLLED tracks (never the same 3 rocks)
+        const k = ovhCount++;
+        debrisP.push({ ...base, overhead: true, k, laneC: OVH_LANE[k], xdBase: OVH_XD[k], szBand: OVH_SZBASE[k], spd: OVH_SPD[k],
+          phase: (k + 0.5 * prnd()) / 3,                       // staggered thirds + jitter → rarely bunched at any instant (incommensurate speeds keep it so)
+          cyc: -999, xJ: 0, xdJ: 0, szC: OVH_SZBASE[k], ax: base.isx, ay: base.isy, az: base.isz, te0: base.e0, te1: base.e1, tts: base.ts });   // per-pass fields (defaults = OLD static look for ?oldovh)
+        for (let ps = 0; ps <= 24; ps++) {                     // verify the VERTICAL clearance margin over the EASED DEEP path (size-independent y → unaffected by the size re-roll)
+          const p = ps / 24, zl = OVH_Z_FAR + (FLYBY_Z_NEAR - OVH_Z_FAR) * OVH_EASE(p), dc = Math.max(0, CAM_LOCAL_Z - zl);
           const yBottom = CAM_Y_MAX + OVH_Y_BASE + OVH_Y_SLOPE * dc;             // placement bottom (the FLYBY_R·size lift cancels → size-independent)
           flyMarginY = Math.min(flyMarginY, yBottom - Math.max(OVH_Y_ABS, CAM_Y_MAX + OVH_YC_BASE + OVH_YC_SLOPE * dc));
         }
@@ -713,12 +777,13 @@ function buildDebris(prnd) {
     debrisField.setMatrixAt(fi, _m.makeScale(0, 0, 0));        // hidden until the first drive frame
     debrisField.setColorAt(fi, _col.setHex(ROCK_ALBEDO[i % 3]));
   }
-  // the overhead path-distinctness ledger — floors asserted in unmaskedarena (no two rocks share a track)
-  const ov = debrisP.filter((d) => d.overhead); let dx0 = Infinity, dxd = Infinity, dspd = Infinity;
-  for (let a = 0; a < ov.length; a++) for (let b = a + 1; b < ov.length; b++) {
-    dx0 = Math.min(dx0, Math.abs(ov[a].x0 - ov[b].x0)); dxd = Math.min(dxd, Math.abs(ov[a].xd - ov[b].xd)); dspd = Math.min(dspd, Math.abs(ov[a].spd - ov[b].spd));
-  }
-  debrisLedger = { dx0: +dx0.toFixed(2), dxd: +dxd.toFixed(3), dspd: +dspd.toFixed(3) };
+  // the overhead path-distinctness ledger — ANALYTIC worst-case floors (params re-roll per pass, so the
+  // ledger is the centre-gap MINUS the max jitter, which holds at EVERY cycle by construction — not a
+  // one-time measurement). min pairwise centre gap over the trio, minus 2× the per-pass jitter half-width.
+  const minGap = (arr) => { let m = Infinity; for (let a = 0; a < arr.length; a++) for (let b = a + 1; b < arr.length; b++) m = Math.min(m, Math.abs(arr[a] - arr[b])); return m; };
+  debrisLedger = ovhCount > 1
+    ? { dx0: +(minGap(OVH_LANE) - 5.0).toFixed(2), dxd: +(minGap(OVH_XD) - 0.06).toFixed(3), dspd: +minGap(OVH_SPD).toFixed(3) }   // −2·2.5 lane · −2·0.03 drift · speeds fixed per rock
+    : { dx0: 99, dxd: 99, dspd: 99 };
   debrisFlybyMargin = +flyMargin.toFixed(2);
   debrisFlybyMarginY = Number.isFinite(flyMarginY) ? +flyMarginY.toFixed(2) : Infinity;   // Infinity ⇒ no overhead this run (?noovh)
   geoHero.setAttribute('aHeat', new THREE.InstancedBufferAttribute(heatHero, 1));    // per-instance molten heat (heroes hotter)
@@ -779,6 +844,7 @@ export function createArenaSet(scene) {
   // ?nodet — perf A/B: hide the detonation + embers (the big full-frame additive overdraw) to isolate
   // their fill cost. No-op without the param; updateArenaSet only writes uniforms, never visibility.
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('nodet')) { deton.visible = false; embers.visible = false; }
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('noembers')) embers.visible = false;   // ?noembers — A/B: blast with the filaments off (identification + before/after)
 }
 
 // Owner A/B seam: swap the star's form ('supernova' | 'spiral'). One visibility flip — both
@@ -805,9 +871,21 @@ export function updateArenaSet(time, playerDist, mix, fade) {
     lastK = 0;
     return;
   }
+  const rising = lastK === 0;           // the engage rising edge (k>0 now, was 0) — fires once per encounter, self-healing on teardown/restart
   lastK = k;
   set.visible = true;
   set.position.z = -playerDist;         // the stable room: hold formation around the fight
+  // Fix A — GIANT-ROCK-AT-START: rebase every flyby's phase on engage so each rock BEGINS its approach
+  // from the far/small end (no boulder fading in already-giant mid-path). p starts at P0 because
+  // arg = time·spd + mod1(P0 − time·spd) ≡ P0. The phase jump re-fires the per-pass re-roll (fresh track).
+  if (rising && !OLD_START && !OVH_OLD && debris) {
+    let sIdx = 0;
+    for (let i = 0; i < FLYBY_N; i++) {
+      const d = debrisP[i];
+      const P0 = d.overhead ? OVH_START_PHASE[d.k] : (0.10 + 0.55 * (sIdx++ / 5));   // overhead: all far specks · side: far→mid band (first whoosh ~5–6s, none born near-camera)
+      d.phase = mod1(P0 - time * d.spd);
+    }
+  }
   // THE HELD PRESENCE: ±2% scale breath, near-steady light — a newborn heart, never a strobe,
   // never a spin (§3 stillness; the spiral is a FROZEN form — rotating it is forbidden). The
   // DETONATION's roil is EXPANSION (uTime-scrolled streaks/rings), not rotation — the loop runs
@@ -825,16 +903,32 @@ export function updateArenaSet(time, playerDist, mix, fade) {
   if (debris) {
     for (let i = 0; i < DEBRIS_N; i++) {
       const d = debrisP[i];
+      if (d.overhead) {                                         // OVERHEAD: eased DEEP birth (a speck condensing from the haze) + per-pass RE-ROLL (never the same 3 rocks)
+        const arg = time * d.spd + d.phase, cyc = Math.floor(arg), p = arg - cyc;
+        if (!OVH_OLD && d.cyc !== cyc) {                        // re-roll ONCE per pass (3 rocks → negligible CPU); stream-free _jh hash → deterministic, never repeats
+          d.cyc = cyc;
+          const h = (n) => _jh(cyc * 13 + 1, d.k * 7 + n, 5);   // decorrelated per (cycle, rock, field)
+          d.xJ = (h(1) - 0.5) * 5.0; d.xdJ = (h(2) - 0.5) * 0.06; d.szC = d.szBand + h(3) * 1.1;   // lane ±2.5 · drift ±0.03 · size resampled in-band
+          d.ax = 0.90 + h(4) * 0.28; d.ay = 0.90 + h(5) * 0.28; d.az = 0.90 + h(6) * 0.28;         // fresh silhouette (≤1.18 cap)
+          d.te0 = h(7) * TAU; d.te1 = h(8) * TAU; d.tts = (h(9) - 0.5) * 0.4;                       // fresh tumble (the boundary jump is masked — the rock is faded out at p→0/1)
+        }
+        const ease = OVH_OLD ? p : OVH_EASE(p), zFar = OVH_OLD ? FLYBY_Z_FAR : OVH_Z_FAR;
+        const zl = zFar + (FLYBY_Z_NEAR - zFar) * ease, dc = Math.max(0, CAM_LOCAL_Z - zl);
+        const env = (OVH_OLD ? ss(p / 0.05) : ss(p / 0.12)) * ss((1 - p) / 0.05);                  // longer, deeper birth ramp → grows from a distant speck, no on-screen materialise
+        _v.set(d.laneC + d.xJ + (d.xdBase + d.xdJ) * dc, CAM_Y_MAX + OVH_Y_BASE + FLYBY_R * d.szC + OVH_Y_SLOPE * dc, zl);   // size-independent bottom (marginY exact regardless of the size re-roll)
+        _e.set(d.te0 + time * d.tts, d.te1 + time * d.tts * 0.7, d.e2);
+        _q.setFromEuler(_e);
+        const b = Math.max(1e-4, d.szC * k * env);
+        _sc.set(b * d.ax, b * d.ay, b * d.az);
+        debris.setMatrixAt(i, _m.compose(_v, _q, _sc));
+        continue;
+      }
       let env;
-      if (d.flyby) {                                            // FLYBY: come CLOSE + whoosh PAST, on the cone that clears the lane
+      if (d.flyby) {                                            // SIDE: whoosh past on the left/right cone
         const p = (time * d.spd + d.phase) % 1;                 // per-rock speed (distinct tracks — no lockstep)
         const zl = FLYBY_Z_FAR + (FLYBY_Z_NEAR - FLYBY_Z_FAR) * p, dc = Math.max(0, CAM_LOCAL_Z - zl);
         env = ss(p / 0.05) * ss((1 - p) / 0.05);               // fade at the far birth + the offscreen recycle
-        if (d.overhead) {                                       // OVERHEAD: dive from high → sweep up over the top, never into the lane
-          _v.set(d.x0 + d.xd * dc, CAM_Y_MAX + OVH_Y_BASE + FLYBY_R * d.size + OVH_Y_SLOPE * dc, zl);   // centre = bottom-floor + the bounding radius (keeps the baked marginY exact)
-        } else {
-          _v.set(d.side * Math.max(26, 11.7 + FLYBY_R * d.size + 1.15 * dc), DEBRIS_CY + d.flyY, zl);   // perspective grows the size as it nears
-        }
+        _v.set(d.side * Math.max(26, 11.7 + FLYBY_R * d.size + 1.15 * dc), DEBRIS_CY + d.flyY, zl);   // perspective grows the size as it nears
       } else {
         const p = (time * d.speed + d.phase) % 1;
         const r = DEBRIS_R_IN + (DEBRIS_R_OUT - DEBRIS_R_IN) * p;
@@ -858,7 +952,8 @@ export function updateArenaSet(time, playerDist, mix, fade) {
 export function setArenaSetQuality(tier) {
   tierLevel = tier;
   if (detMat) detMat.uniforms.uOct.value = tier >= 2 ? 1 : (tier >= 1 ? 2 : 3);   // fewer FBM octaves on weaker GPUs (the turbulence stays, cheaper)
-  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 256 : tier >= 1 ? 576 : EMBER_N) * 18);   // 18 verts/ember (3-seg comet ribbon); size-sorted buffer → the biggest trails survive
+  if (detMat) detMat.uniforms.uGrain.value = DET_GRAIN * (tier >= 2 ? 0 : tier >= 1 ? 0.6 : 1.0);   // §P1b dust grain: full / lighter / off (tier2 keeps only the cheap core+corona)
+  if (embers) embers.geometry.setDrawRange(0, (tier >= 2 ? 64 : tier >= 1 ? 128 : EMBER_N) * 18);   // 18 verts/filament (3-seg spindle); size-sorted buffer → the biggest survive
   if (deton) deton.geometry.setDrawRange(0, tier >= 2 ? detCoreCoronaVerts : Infinity);   // GRACEFUL DEGRADE: tier 2 keeps core+corona (a lit blast heart) instead of hiding the whole set → never a hard black
   if (debris) debris.visible = tier < 2;               // hero rocks off at tier 2 (opaque cost)
   if (debrisField) debrisField.visible = tier < 2;     // field rocks off at tier 2
