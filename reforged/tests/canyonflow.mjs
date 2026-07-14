@@ -26,12 +26,13 @@ const result = await boot().then(async ({ page, done }) => {
       return segs;
     };
 
-    // Seed 8 has a gauntlet-bridged consecutive split pair (a ~557m gap under the shipped
-    // canyonTypeWeights) — the case that tripped the unclamped-zn seam bug; keep it to
-    // guard the fix. (205907 held this role until the flow run type reshuffled per-seed
-    // canyon layouts — the guard is re-pinned + asserted below so it can't silently
-    // evaporate again when weights change.)
-    const seeds = [1337, 424242, 271828, 8];
+    // A gauntlet-bridged consecutive split pair (>300m gap) is the case that tripped the unclamped-zn
+    // seam bug; keep at least one in the set to guard the fix (asserted below so it can't silently
+    // evaporate). Seed 9 holds this role (a ~542m bridged pair). The pin has moved before —
+    // 205907 → 8 when the flow run type reshuffled layouts, 8 → 9 when the GUARANTEED aurora flow run
+    // (level.js snapCanyonToAurora) reshuffled the canyonRnd stream again — an intentional, sanctioned
+    // canyonframe/canyonflow re-pin; gold-determinism stays byte-identical (canyonRnd is its own stream).
+    const seeds = [1337, 424242, 271828, 8, 9];
     const agg = { worstSlopeX: 0, worstSlopeY: 0, worstSeamX: 0, worstSeamY: 0,
                   minWidth: Infinity, pairs: 0, rockSlopeMax: 0, rockMinWidth: Infinity,
                   rockSeamMax: 0, rockSlices: 0, rockSwingSum: 0, rockSwingN: 0,

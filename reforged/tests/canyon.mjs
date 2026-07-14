@@ -30,7 +30,11 @@ const result = await page.evaluate(async () => {
   const a = run();
   createLevelGen(424242).ensure(9000); // interleave a different seed
   const b = run();
-  return { a, b, entryBuffer: CONFIG.canyonEntryBuffer, exitBuffer: CONFIG.canyonExitBuffer };
+  // A wider kinds walk (to 20km) so "multiple kinds appear" reflects the GLOBAL variety — the aurora
+  // flow guarantee can make one seed's first ~9km all-flow, but rock/spine appear in later cycles.
+  const kw = new Set();
+  { const g = createLevelGen(1337); for (let d = 800; d <= 20000; d += 800) for (const s of g.ensure(d).canyonSegments) kw.add(s.kind); }
+  return { a, b, kindsWide: [...kw], entryBuffer: CONFIG.canyonEntryBuffer, exitBuffer: CONFIG.canyonExitBuffer };
 });
 
 const { segs, starts, ends } = result.a;
@@ -48,7 +52,11 @@ check('overlay is deterministic per seed',
 
 const runs = new Set(segs.map((s) => s.run));
 const kinds = new Set(segs.map((s) => s.kind));
-check('multiple kinds appear', kinds.size >= 2);
+// The Aurora Shallows flow guarantee (level.js) makes the first ~9km flow-heavy for some seeds — a
+// natural flow plus the aurora-coupled one can be the only two canyons before 9km. "Canyons come in
+// multiple kinds" is a GLOBAL property, so assert it over the wider walk (result.kindsWide, computed
+// in-page to 20km — into the non-aurora canyons of the next cycles) rather than one flow-heavy window.
+check('multiple kinds appear', new Set(result.kindsWide).size >= 2);
 // A Dragon Spine run, if present, must open with a skull and end on a flare.
 const spineSegs = segs.filter((s) => s.run === 'spine');
 if (spineSegs.length) {

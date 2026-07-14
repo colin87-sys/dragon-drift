@@ -64,9 +64,36 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // seed. A cursor walks the course; overlayBiomeHazards decides per site.
   const hazardRnd = mulberry32((seed ^ 0x3d81c94b) >>> 0);
   let nextHazardAt = 0;
+  // GUARANTEED AURORA FLOW RUN (supersedes the deferred PR-5 flowBiomeBias): the Aurora Shallows block
+  // always contains exactly one flow run — the dreamy sky + the speed-tube as one signature moment. The
+  // schedule is SNAPPED so a canyon starts at aurora-block-start + offset, its type forced to flow, and
+  // no natural canyon may be scheduled within the shadow before it. `auroraBlock(k)` keys on the WORLD
+  // CYCLE directly, NEVER biomeIndexAt — biomeIndexAt honours the ?biome= debug force, and course gen
+  // must not be steerable by a URL param (the biome-blind contract gold-determinism relies on). The snap
+  // is a pure CLAMP that draws NO RNG (the canyonRnd stream stays aligned draw-for-draw).
+  // The aurora block is identified by the WORLD CYCLE directly, NEVER biomeIndexAt — biomeIndexAt
+  // honours the ?biome= debug force, and course gen must not be steerable by a URL param (the
+  // biome-blind contract gold-determinism relies on).
+  const auroraBlock = (k) => !!BIOMES[CYCLE[k % CYCLE.length]]?.aurora;
+  let auroraServedUpTo = 0;   // block-END of the last served aurora block → the snap-back stops targeting it
+  // Snap-back: if the next NATURAL canyon would start PAST an unserved aurora block's mouth (leaving it
+  // uncovered), pull the mouth BACK to the aurora block so the guaranteed flow lands there. Only ever pulls
+  // BACK (T < natural) — never pushes a pre-mouth canyon forward — so canyon frequency is untouched (NO
+  // desert), and it's applied at nextCanyonAt-assignment time so the gate-suppression window (which anchors
+  // to nextCanyonAt) stays a pure function of persistent state → granularity-invariant (canyonframe-safe).
+  function snapBackToAurora(natural) {
+    if (CANYON_FORCE) return natural;
+    const L = CONFIG.biomeLength;
+    for (let k = Math.max(0, Math.floor(auroraServedUpTo / L)), i = 0; i <= CYCLE.length; i++, k++) {
+      if (!auroraBlock(k) || (k + 1) * L <= auroraServedUpTo) continue;   // skip non-aurora / already served
+      const T = k * L + CONFIG.canyonAuroraFlowOffset;
+      return natural > T ? T : natural;   // overshoots the mouth → pull back to it; else let it happen
+    }
+    return natural;
+  }
   // Test harness brings the first canyon in right after takeoff; normal play
   // waits past the tutorial with a jittered interval.
-  let nextCanyonAt = CANYON_FORCE ? 340 : CONFIG.canyonFirstAt + canyonRnd() * 500;
+  let nextCanyonAt = CANYON_FORCE ? 340 : snapBackToAurora(CONFIG.canyonFirstAt + canyonRnd() * 500);
   // Persistent gate-suppression cursor: Phase Gates are suppressed up to this dist
   // (a canyon EXIT decompression window). Persists across per-frame chunks so a
   // gate generated in a later chunk than the canyon it follows still gets caught.
@@ -617,7 +644,27 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
         if (canyon) canyon.bridgedAhead = true; // a skipped (gauntlet) ring bridges this gap
         lastRingSeen = ring; continue;
       }
-      if (!canyon && ring.dist >= nextCanyonAt) canyon = startCanyon(ring, out);
+      // GUARANTEED AURORA FLOW RUN (no desert — supersedes the deferred PR-5). Two parts: the snap-back
+      // (above, at nextCanyonAt-assignment) PLACES a flow run at the aurora mouth when the schedule would
+      // skip it; here we force flow-TYPE for the canyon that lands in — or bleeds into — the block, and
+      // mark the block SERVED once a flow run covers it (so the snap-back stops targeting it).
+      const bl = CONFIG.biomeLength;
+      const kRing = Math.floor(ring.dist / bl);
+      const blockEnd = (kRing + 1) * bl;
+      if (!CANYON_FORCE && canyon && canyon.type === 'flow' && auroraBlock(kRing) && auroraServedUpTo < blockEnd) {
+        auroraServedUpTo = blockEnd;   // a flow (bled-in or snapped-in) already covers this aurora block
+      }
+      if (!canyon && ring.dist >= nextCanyonAt) {
+        const inAur = !CANYON_FORCE && auroraBlock(kRing);
+        // Distance to the next aurora block START (scan forward up to one cycle) — startCanyon forces flow
+        // ONLY for a run whose own type-span would carry it into the block (TYPE-targeted, so a short rock
+        // near the aurora keeps its type — variety preserved; only true bleeders convert).
+        let bNext = -1;
+        if (!CANYON_FORCE) for (let k = kRing; k <= kRing + CYCLE.length; k++) { if (auroraBlock(k)) { bNext = k * bl; break; } }
+        const forceInBlock = inAur && auroraServedUpTo < blockEnd;   // the snapped/natural mouth in the block
+        if (forceInBlock) auroraServedUpTo = blockEnd;
+        canyon = startCanyon(ring, out, forceInBlock, bNext);
+      }
       if (canyon) {
         // BUILD the segment now (so canyonRnd draw order is byte-identical), but
         // EMIT it one ring later (`canyon.held`). Only then do we know the NEXT
@@ -663,7 +710,9 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
           // each run shows before/after integration. Normal play: rare + jittered.
           nextCanyonAt = CANYON_FORCE
             ? ring.dist + 300
-            : ring.dist + CONFIG.canyonIntervalBase + canyonRnd() * CONFIG.canyonIntervalJitter;
+            // The jitter draw is consumed first, THEN the snap-back pulls the mouth to an aurora block if
+            // this natural would overshoot it (canyonRnd consumption is invariant whether it fires or not).
+            : snapBackToAurora(ring.dist + CONFIG.canyonIntervalBase + canyonRnd() * CONFIG.canyonIntervalJitter);
           canyon = null;
         }
       }
@@ -780,19 +829,28 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     }
   }
 
-  function startCanyon(ring, out) {
+  function startCanyon(ring, out, forced = false, bNext = -1) {
     // Test harness forces a run type; the ?canyon=all demo cycles rock → spine → flow.
     // ONE canyonRnd draw for the type, mapped through the weight table (keeps the
     // canyonRnd stream aligned draw-for-draw with the pre-flow picker). flow:0 →
     // rock/spine 50/50, byte-identical to before.
     const w = CONFIG.canyonTypeWeights, wtot = w.rock + w.spine + w.flow;
-    const r = canyonRnd();
+    const r = canyonRnd();                              // ALWAYS consume the type draw (stream aligned)
     let type = r < w.rock / wtot ? 'rock' : r < (w.rock + w.spine) / wtot ? 'spine' : 'flow';
+    if (forced) type = 'flow';                          // AURORA guarantee (injected / in-block): force flow
+    // TYPE-TARGETED bleed: a run before an aurora block (bNext) whose OWN type-span would carry it into
+    // the block is converted to flow, so a run crossing the seam reads as the aurora's flow — never a
+    // stray rock/spine. A run too short to reach keeps its type (rock stays rock → variety preserved).
+    else if (bNext > ring.dist) {
+      const span = type === 'spine' ? CONFIG.canyonAuroraFlowShadow : type === 'rock' ? 1500 : 0;
+      if (ring.dist + span > bNext) type = 'flow';      // it would reach the aurora → make it the flow run
+    }
     if (CANYON_FORCE === 'rock' || CANYON_FORCE === 'split' || CANYON_FORCE === 'overunder') type = 'rock';
     else if (CANYON_FORCE === 'spine') type = 'spine';
     else if (CANYON_FORCE === 'flow') type = 'flow';
     else if (CANYON_FORCE === 'all') { type = CANYON_MODES[forceAllIdx % CANYON_MODES.length]; forceAllIdx++; }
-    const [lo, hi] = type === 'spine' ? CONFIG.spineSegments
+    const [lo, hi] = forced ? CONFIG.canyonAuroraFlowSegments   // fixed-length aurora flow run (~1050m)
+      : type === 'spine' ? CONFIG.spineSegments
       : type === 'flow' ? CONFIG.canyonFlowSegments : CONFIG.canyonSegments;
     const left = CANYON_FORCE ? hi : lo + Math.floor(canyonRnd() * (hi - lo + 1));
     out.canyonStarts.push({ dist: ring.dist - 40, run: type }); // run type → spine-only slipstream
@@ -912,6 +970,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       if (nextCanyonAt < target + CONFIG.canyonFirstAt) {
         nextCanyonAt = target + CONFIG.canyonFirstAt;
       }
+      nextCanyonAt = snapBackToAurora(nextCanyonAt);   // re-apply the aurora guarantee after the boss floor
       suppressGatesUntil = 0;
       untilGauntlet = target + 650 + rnd() * 450;
       nextGoldAt = target + CONFIG.goldEmberInterval;

@@ -168,19 +168,37 @@ const L = CONFIG.biomeLength;
 let maxMix = 0;
 for (let dist = 0; dist <= 9 * L; dist += 25) maxMix = Math.max(maxMix, computeEnv(dist).auroraMix);
 check(`the aurora block lights the curtain → env.auroraMix reaches 1.0 across the course (max ${maxMix.toFixed(3)})`, Math.abs(maxMix - 1.0) < 1e-6);
-// NO UPSTREAM LEAK: blocks 0-3 + the first ~1000m of Mire stay byte-identically 0 (the 450m ramp-in
-// only fires in Mire's last stretch). The ramp start is L-450 into Mire = dist 7050.
+// NO UPSTREAM LEAK: blocks 0-3 + the first ~900m of Mire stay byte-identically 0 (PR-4b widened the
+// ramp-in to 600m, so it starts at L-600 into Mire = dist 6900). Sample up to 4L+850 = 6850, just before.
 let leak = 0;
-for (let dist = 0; dist <= 4 * L + 1000; dist += 25) leak = Math.max(leak, computeEnv(dist).auroraMix);   // Mire = block 4 [6000,7500); ramp-in starts at 7050
+for (let dist = 0; dist <= 4 * L + 850; dist += 25) leak = Math.max(leak, computeEnv(dist).auroraMix);   // Mire = block 4 [6000,7500); ramp-in starts at 6900
 check(`no upstream leak → auroraMix 0 through block 3 + early Mire (max ${leak})`, leak === 0);
-// RAMP-IN (curtain dawns over Mire's last 450m): 0 at dist 7000, rising by 7300, full by aurora start.
-const mIn0 = computeEnv(7000).auroraMix, mIn1 = computeEnv(7300).auroraMix, mIn2 = computeEnv(7480).auroraMix;
-check('ramp-IN is a smooth dawn (0 at 7000m → partial at 7300m → ~full by 7480m, monotone)',
+// RAMP-IN (PR-4b: the WHOLE world dawns over Mire's last 600m): 0 at 6850, rising by 7200, full by ~7450.
+const mIn0 = computeEnv(6850).auroraMix, mIn1 = computeEnv(7200).auroraMix, mIn2 = computeEnv(7450).auroraMix;
+check('ramp-IN is a smooth dawn (0 at 6850m → partial at 7200m → ~full by 7450m, monotone)',
   mIn0 === 0 && mIn1 > 0.02 && mIn1 < mIn2 && mIn2 > 0.9);
 check('aurora block interior is full curtain (auroraMix 1.0 mid-block)', Math.abs(computeEnv(8100).auroraMix - 1.0) < 1e-6);
-// RAMP-OUT (curtain dies over the aurora's last 300m as the whale fades in): full at 8100, fading by 8850.
+// RAMP-OUT (PR-4b: 400m die-out): full at 8100, fading by 8850.
 const mOut = computeEnv(8850).auroraMix;
 check('ramp-OUT hands off to Astral (auroraMix falling by 8850m, < full)', mOut < 0.98 && mOut >= 0);
+// PR-4b (issue #2): the SHARED wide ramp — the BACKGROUND (sky/water/star) rides the same 600m window
+// as the curtain, so it no longer snaps under the dawning curtain. skyHorizon at 6850 must equal pure
+// Mire (ramp not started), but by 7200 must have moved off Mire toward the aurora horizon.
+const mireHorizon = BIOMES[4].sky.horizon.getHex();
+check('background rides the wide ramp: skyHorizon is pure Mire at 6850m (ramp not yet started)',
+  computeEnv(6850).skyHorizon.getHex() === mireHorizon);
+check('background rides the wide ramp: skyHorizon has moved off Mire by 7200m (no 150m snap)',
+  computeEnv(7200).skyHorizon.getHex() !== mireHorizon && computeEnv(7200).starMix > BIOMES[4].stars);
+// EXIT handoff: auroraMix (dying) and whaleMix (rising) now cross in the SAME 400m window.
+const eA = computeEnv(8800).auroraMix, eW = computeEnv(8800).whaleMix;
+check('exit handoff: curtain dying while whale rising in one window (both mid-transition at 8800m)',
+  eA > 0 && eA < 1 && eW > 0 && eW < 1);
+// A NON-AURORA seam stays byte-identical (the wide ramp is gated): Wastes(1)→Frozen(2) at dist 2925
+// (block 1 [1500,3000), seam at 2925) must equal the inline 150m smoothstep computation.
+const dN = 2925, localN = dN - 1500, tN = THREE.MathUtils.smoothstep(localN, 1500 - 150, 1500);
+const expHorizonN = BIOMES[1].sky.horizon.clone().lerp(BIOMES[2].sky.horizon, tN).getHex();
+check('a NON-aurora seam is byte-identical (wide ramp gated to aurora seams only)',
+  computeEnv(dN).skyHorizon.getHex() === expHorizonN);
 check('exactly BIOMES[6] declares aurora (the other 6 stay dormant)',
   BIOMES.slice(0, 6).every((b) => !b.aurora) && BIOMES[6] && BIOMES[6].aurora === 1.0);
 // ?biome=6 force (ia===ib, t=0) skips the ramp branch → still pins 1.0 for the debug preview.
