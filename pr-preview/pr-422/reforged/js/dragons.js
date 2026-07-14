@@ -657,8 +657,8 @@ export const DRAGONS = {
       // horizontal neutral so the big span reads spread, not foreshortened; still shoulder-dominant
       // with a small trailing forearm/wrist lag. Recovery peaks ~1 o'clock (not straight up), the
       // downstroke reaches ~4:30 — a broad, majestic beat rather than a vertical clap.
-      wingParts: 3, rootAmp: 0.72, apexRoot: 0.26, midAmp: 0.14, tipAmp: 0.09, midLag: 0.7, tipLag: 1.1,
-      glidePow: 1.15, restLift: 0.0, apexMid: 0.04, apexTip: 0.04,
+      wingParts: 3, rootAmp: 0.72, apexRoot: 0.17, midAmp: 0.14, tipAmp: 0.09, midLag: 0.7, tipLag: 1.1,
+      glidePow: 1.15, restLift: 0.0, apexMid: 0.04, apexTip: 0.04,   // apexRoot 0.26→0.17: glide/recovery pose brought DOWN so the ventral dome canopy reads from the rear-chase, but nudged back up a smidge from 0.13 (owner)
       // TAIL MOTION — the vertebra whip is a 4-joint NESTED isBone chain (see dragonRevenant.js).
       tailWhip: true, tailLagScale: 0.16, tailUndulateX: 0.34, tailRudderScale: 0.5,
     },
@@ -681,12 +681,13 @@ export const DRAGONS = {
         ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
         colors: { body: 0xf3f5f9, belly: 0xdcdee4, wingOuter: 0xf3f5f9, eye: 0x4ef072 } },   // Gravelight Revenant — BRIGHTEST fully-bleached chalk (apex bumped so the top rung hits ~184 median — Fable)
     ],
-    fx: { auraColor: '84,240,78', auraIdle: 0.03, sparkle: false },
+    fx: { auraColor: '84,240,78', auraIdle: 0, auraIdleRamp: 0, sparkle: false },   // NO idle aura at all — the lantern is interior (auraIdle 0.03 was invisible but still a drawn 9u additive quad every frame; Fable census). opt OUT of the ascension idle-aura swell too — the Revenant's ghost-fire is "a lantern, not a lamp" (seen only through bone); the ascension ramp was turning the additive green aura billboard into a permanent lamp that washed the whole dragon green over water (Fable graphics diag). Its ascension tell is the HOLLOWING ladder (ribWindows/coreBlaze/bleach), not an aura.
     hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
     // Grave Surge palette (COOL green — the rig defaults to magenta; override every hook
     // per §4.4). Wings stay BLACK on Surge (silhouette owns the frame; the heart + gaps
     // carry the light), a low grave-green screen wash, grave-green pinpoint eyes.
     feverWing: 0x000000, feverEye: 0x9af08a, feverWash: [0.03, 0.10, 0.03], surgeMotes: true,
+    feverAuraScale: 0.5,   // Fable gate: the Surge green ground-wash on the water read LARGER + brighter than the dragon itself and collided with the collectible-ring green — halve the aura disc so the flood never exceeds the silhouette; the ignite budget stays in the heart/gaps/sockets (the lantern), not a lamp on the water.
     hideRiderGlow: true,
     wingEmissive: 0x000000,   // cruise membrane emissive EXPLICITLY black (light is the heart, never the wing)
     body: 0xd6d8dd, belly: 0xb4b6bc,
