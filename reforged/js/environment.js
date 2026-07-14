@@ -193,7 +193,7 @@ const _envParams = (typeof window !== 'undefined' && window.location)
 const PROPS_V1 = _envParams.get('props') === 'v1';
 // Per-biome whitelist helpers: FROZEN is the A1 biome (new kit default-on, legacy
 // parked). A biome not yet migrated returns its shipped whitelist unconditionally.
-const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier v2: bergwall/serac/terrace/pinnacle/sungate/glacierwall
+const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier v3 (no-spike, flat-topped glacier ice): bergwall/serac/terrace/icetower/glacierwall
 const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
 
 const ARCHETYPES = {
@@ -297,8 +297,8 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.50, 0.34, 6), { x: -0.30, z: 0.10, y: 0.72, ry: 1.1, sx: 1.3, sz: 0.8 }) }, // upper stratum, stepped back
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.26, 0.34, 0.30, 5), { x: 0.34, z: -0.06, y: 0.60, ry: 2.2 }) },  // shoulder block, far end
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.28, 0.30, 5), { x: 0.60, z: 0.08, y: 0.18, ry: 3.1 }) },   // calved block at the foot (story beat)
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.16, 0.26, 4), { x: -0.18, z: -0.14, y: 0.98 }) },                    // crown bump
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.13, 0.20, 4), { x: 0.10, z: 0.16, y: 0.94 }) },                      // crown bump
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.12, 0.44), { x: -0.06, y: 0.94, ry: 0.2 }) },                   // FLAT tabular top (glaciers are flat-topped, never peaked)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.10, 0.28), { x: 0.22, z: -0.10, y: 0.90, ry: 0.6 }) },          // stepped tabular block (banding)
       { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.55, 0.10), { x: 0.05, z: 0.30, y: 0.45, rz: 0.06 }) },          // cyan crevasse seam on the face
     ], 2),
     place: (side, rnd) => ({ x: side * (26 + rnd() * 14), h: 22 + rnd() * 16, r: 15 + rnd() * 9, tilt: side * (rnd() * 0.03 - 0.015) }),
@@ -335,39 +335,22 @@ const ARCHETYPES = {
     ], 2),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 1.2 + rnd() * 5.0, r: 8 + rnd() * 8, tilt: side * (rnd() * 0.04 - 0.02) }),
   },
-  // THE PINNACLE — a BROKEN natural ice peak (~122 tris, step 120 = rare punctuation).
-  // NOT a smooth spire (that reads man-made) — a broad chunky mass with an ASYMMETRIC
-  // multi-jag broken top (three jags at opposing tilts kill the single-steeple read).
-  // Jagged, blunt, irregular = natural ice, never a gothic tower. Grows FROM mass.
-  pinnacle: {
-    step: 120, biomes: frozenNew, matIndex: 2,
+  // THE ICE TOWER — a tall TABULAR ice column (~108 tris, step 130 = rare landmark).
+  // Real glaciers are flat-topped and blocky, NEVER spiky (research: tabular/blocky
+  // dominate; pinnacled spires are the rare exception) — so this is a STACK of offset
+  // ice blocks with a FLAT stepped top, not a spire. Placed FAR from the lane
+  // (|x| ≥ 24) so it never looms over or occludes a gameplay gate (clean lanes).
+  icetower: {
+    step: 130, biomes: frozenNew, matIndex: 2,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.62, 0.30, 6), { y: 0.15, ry: 0.3, sx: 1.2, sz: 0.95 }) }, // broad chunky foot
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.46, 0.30, 6), { x: -0.06, z: 0.04, y: 0.42, ry: 0.9 }) },  // shoulder mass
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.32, 0.26, 5), { x: 0.04, z: -0.03, y: 0.66, ry: 2.1 }) },  // upper mass
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.20, 0.42, 5), { x: -0.02, y: 0.94, rz: -0.16, ry: 0.4 }) },          // main broken jag (tilted, blunt)
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.30, 5), { x: 0.22, z: 0.06, y: 0.70, rz: 0.5 }) },             // asymmetric side jag
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.24, 4), { x: -0.24, z: -0.08, y: 0.66, rz: -0.55 }) },         // second side jag — breaks the spire read
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.44, 0.09), { x: 0.00, z: 0.16, y: 0.52, rz: 0.04 }) },          // cyan crevasse seam
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.42, 0.52, 0.32, 6), { y: 0.16, ry: 0.3, sx: 1.1, sz: 0.9 }) },   // base block
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.42, 0.34, 6), { x: 0.04, y: 0.47, ry: 0.7 }) },            // mid block (offset — stacked serac column)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.27, 0.34, 0.30, 6), { x: -0.03, z: 0.04, y: 0.77, ry: 1.5 }) },  // upper block
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.46, 0.14, 0.42), { x: 0.02, y: 0.98, ry: 0.4 }) },                    // FLAT tabular cap (no spike)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.16, 0.24), { x: 0.16, z: -0.08, y: 0.90, ry: 0.9 }) },          // broken stepped block (banding)
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.62, 0.09), { x: 0.00, z: 0.14, y: 0.50, rz: 0.03 }) },          // cyan crevasse seam
     ], 2),
-    place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 24 + rnd() * 14, r: 10 + rnd() * 4, tilt: side * (rnd() * 0.10 - 0.03) }),
-  },
-  // THE SUN GATE — paired natural ICE FINS leaning together (~107 tris): two broad
-  // jagged ice masses flanking the lane, leaning INWARD, framing the low sun — a
-  // natural gap, NOT architectural pylons (the owner's "man-made town" read killed:
-  // broken asymmetric jag crowns, chunky bases, no regular tapering column). `paired`
-  // seats left+right at the same distance; the gap still carves god-ray shafts.
-  sungate: {
-    step: 100, biomes: frozenNew, matIndex: 2, paired: true,
-    build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.66, 0.34, 6), { y: 0.17, ry: 0.3, sx: 1.2, sz: 0.85 }) },  // broad chunky base
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.38, 0.52, 0.34, 6), { x: 0.04, y: 0.46, ry: 0.7 }) },            // rising mass
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.26, 0.38, 0.28, 5), { x: 0.08, z: -0.04, y: 0.74, ry: 1.8 }) },  // upper mass (offset lean toward the gap)
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.22, 0.44, 5), { x: 0.10, y: 1.00, rz: -0.20, ry: 0.5 }) },           // broken jag crown (tilted — not a smooth spire)
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.28, 4), { x: -0.16, z: 0.08, y: 0.78, rz: 0.40 }) },           // asymmetric side jag
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.06, 0.60, 0.07), { x: 0.02, z: 0.02, y: 0.52, rz: 0.03 }) },          // cyan seam on the inner face
-    ], 2),
-    place: (side, rnd) => ({ x: side * (15 + rnd() * 2), h: 30 + rnd() * 12, r: 11 + rnd() * 3, tilt: -side * (0.06 + rnd() * 0.04) }),
+    place: (side, rnd) => ({ x: side * (24 + rnd() * 12), h: 22 + rnd() * 14, r: 8 + rnd() * 4, tilt: side * (rnd() * 0.06 - 0.02) }),
   },
   // THE GLACIER WALL — far massif on the fog line (~64 tris): a long tabular ice-shelf
   // front, mass in the UPPER band so it FLOATS on the fog line (foam:false); peaks
@@ -378,9 +361,8 @@ const ARCHETYPES = {
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.60, 0.52, 5), { y: 0.66, ry: 0.4, sx: 1.4, sz: 0.9 }) },   // long main wall
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.38, 0.30, 5), { x: -0.58, z: 0.16, y: 0.52, ry: 1.6 }) },  // calved step
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.18, 0.36, 4), { x: -0.38, z: -0.12, y: 0.94, ry: 0.5 }) },           // crown peaks (radial)
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.16, 0.30, 4), { x: 0.12, z: 0.22, y: 0.90 }) },
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.26, 4), { x: 0.50, z: -0.18, y: 0.86, ry: 0.9 }) },
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.90, 0.14, 0.50), { x: 0.02, y: 0.92, ry: 0.15 }) },                   // FLAT tabular ice-shelf top (horizontal banding)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.12, 0.40), { x: -0.35, z: 0.10, y: 0.82, ry: 0.5 }) },          // stepped calving block
     ], 2),
     place: (side, rnd) => ({ x: side * (40 + rnd() * 24), h: 14 + rnd() * 8, r: 34 + rnd() * 16, tilt: 0 }),
   },
@@ -537,7 +519,7 @@ const FOAM_CFG = {
   obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
   // Sunset Glacier kit (v2) — the waterline weld between silhouette + reflection;
   // glacierwall floats on the fog line so it takes no collar.
-  bergwall: { r: 0.9 }, serac: { r: 0.7 }, terrace: { r: 0.9 }, pinnacle: { r: 0.8 }, sungate: { r: 0.85 }, glacierwall: false,
+  bergwall: { r: 0.9 }, serac: { r: 0.7 }, terrace: { r: 0.9 }, icetower: { r: 0.8 }, glacierwall: false,
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
