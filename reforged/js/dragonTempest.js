@@ -70,46 +70,42 @@ const CLOUD_FLOOR = 0x070a12;
 // sky) over a BLAZING white-blue EMISSIVE underbelly, a chevron lightning seam where the two
 // meet, dark bolt-glyphs knocked out of the glow, a white crest, four legs, and a glowing tail
 // tuft. The billowed cloud clover-loft was WRONG at the primitive level and is deleted.
-function tempestMats(def) {
+// v3 GARMENT DOCTRINE (§1 law 1, §4a, §5): the storm WEARS its lightning. The body is a charcoal
+// dorsal shell over a DIFFUSE pale underbelly (`0x566384`), and the near-white energy CIRCUIT —
+// spine seam + branching sternum veins + crest strips + (I2) wing-frame — is worn as hum-lit
+// STRIPS (glow on COMPONENTS, never surfaces — DRAGON-DESIGN §6). Accent lane: `arcSeam 0xd9deff`
+// (sat≤0.12) + `arcCore 0xf2f4ff` (the ONE true near-white). The strips idle at `humFloor(form)`
+// (0.30→0.90) in cruise; the pulseTimer strike + breathing + Surge = the storm tick (I4).
+function tempestMats(def, glow = 1) {
   const base = def.body ?? FLANK;                         // per-form charcoal (darkens up the ladder)
+  const humFloor = 0.30 + 0.80 * (glow - 0.25);           // {0.25,0.5,0.75,1.0} glow → {0.30,0.50,0.70,0.90} hum
   const std = (color, opts = {}) => { const m = new THREE.MeshStandardMaterial({ color, emissive: opts.emissive ?? CLOUD_FLOOR, emissiveIntensity: opts.ei ?? 1.0, flatShading: true, roughness: opts.rough ?? 0.82, metalness: opts.metal ?? 0.03, side: THREE.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity ?? 1, depthWrite: opts.depthWrite ?? true }); m.envMapIntensity = 0.2; return m; };
-  // The DORSAL SHELL — near-black charcoal scale skin (three facet steps for the flat-shaded
-  // scale read; the darkest spine, a mid flank, a lit-facet step). The dorsal is SUPPOSED to
-  // read dark (it camouflages into the storm sky) — the LIGHT is the emissive belly, not a
-  // lifted charcoal (the I1 value tension dissolves: dark dorsal is correct).
-  const spine = std(lerpHex(base, 0x05070c, 0.28));       // darkest dorsal ridge
+  // The DORSAL SHELL — near-black charcoal scale skin (spine darkest / mid dorsal / lit flank facet).
+  const spine = std(lerpHex(base, 0x05070c, 0.28));
   const dorsal = std(base);                               // the bodyMat the rig ticks
-  const flank = std(lerpHex(base, 0x5a6472, 0.34));       // lit flank facet step (cool grey)
-  // THE STORM-LIT UNDERBELLY — the identity, as a blue-lavender GRADIENT (gate r3 fix #2: the flat
-  // 0xe4ecff@2.6 clipped to pure white, B−R 4 = house-paint; the reference belly is blue-lavender
-  // B−R 35–70 with a bright-core→dim-edge falloff). Three tiers, intensities kept BELOW the ACES
-  // channel-clip so the blue survives: core (chest), mid, dim edge. Diffuse a mid blue so unlit
-  // parts aren't white. ALWAYS ON in cruise (the reference glows continuously — the owner reference
-  // overrides the "withheld/intermittent" sheet prose). In flareMats (Surge-flared, warm-rim-exempt).
-  const mkBelly = (col, ei) => { const m = std(0x556aa8, { emissive: col, ei, rough: 0.55, metal: 0 }); m.userData.baseEmissive = col; m.userData.baseIntensity = ei; m.userData.flareIntensityWeight = 0.45; return m; };
-  // Intensities kept LOW so ACES doesn't desaturate the emissive to white (the channel-clip law,
-  // §C.11): a bright blue emissive tonemaps toward white, so the PANEL stays dim-enough to hold its
-  // blue and the small storm-heart core (emissive 3.0) is the only near-white hot-spot. In-game
-  // bloom re-brightens the panel without re-whitening the hue.
-  const bellyCore = mkBelly(0x9ab0f4, 1.2);   // chest centre (B−R 90)
-  const bellyMid = mkBelly(0x6f8cf0, 0.95);   // saturated storm-blue body (B−R 129 — pushed hard so it survives the ACES highlight desaturation)
-  const bellyEdge = mkBelly(0x5570cc, 0.78);  // deep blue flank/aft edge (B−R 119) — the falloff
-  // THE BOLT GLYPHS — dark facets knocked OUT of the glow (a diagonal lightning slash in the panel).
-  const bolt = std(lerpHex(base, 0x3a4250, 0.5), { emissive: 0x05070c });
-  // THE NECK CREST — back-swept white-blue emissive blades (one step under the belly core).
-  const crest = std(0x9aa6d0, { emissive: 0xc7d3fb, ei: 1.5, rough: 0.5, metal: 0 });
-  crest.userData.baseEmissive = 0xc7d3fb; crest.userData.baseIntensity = 1.5; crest.userData.flareIntensityWeight = 0.4;
-  // THE STORM-HEART core — the brightest ventral point at the sternum, on the coreGlow hook
-  // (transparent → the rig breathes its opacity on boost/Surge). Bright in cruise (the reference
-  // chest is the hottest spot), blazes on Surge.
-  const heartCore = std(0xd9deff, { emissive: 0xf2f4ff, ei: 3.0, rough: 0.4, metal: 0, transparent: true, opacity: 0.85, depthWrite: false });
-  heartCore.userData.baseEmissive = 0xf2f4ff; heartCore.userData.baseIntensity = 3.0;
-  // CARVED-DEPTH tiers (the Revenant richness trick mine lacked): a near-black RECESS wall (gutter
-  // seams between plates, under-scute strips, plate standoff gaps) + an even darker SOCKET FLOOR (the
-  // storm-heart orbit interior). Dark floor + lit rim = the "crafted, not smooth" read. Non-emissive.
+  const flank = std(lerpHex(base, 0x5a6472, 0.34));
+  // THE PALE UNDERBELLY — DIFFUSE pale storm-slate `0x566384` (the reference's paler chest/belly),
+  // lighter than the body but NOT emissive: the glow lives on the vein strips, and the soft halo is
+  // ACES bloom off them (§4a: "a uniformly emissive belly surface" is deliberately NOT taken). Three
+  // near-value steps so the plated belly still reads carved.
+  const bellyCore = std(0x566384, { emissive: 0x000000, rough: 0.7, metal: 0 });   // chest keel (palest)
+  const bellyMid = std(0x4c586f, { emissive: 0x000000, rough: 0.72, metal: 0 });
+  const bellyEdge = std(0x424c60, { emissive: 0x000000, rough: 0.74, metal: 0 });  // flank/aft edge
+  // THE BOLT GLYPHS — dark facets knocked out of the pale belly (a diagonal lightning slash).
+  const bolt = std(lerpHex(base, 0x2a3140, 0.5), { emissive: 0x000000 });
+  // ── THE WORN CIRCUIT (the garment's near-white glow strips; hum-lit at humFloor) ──
+  const mkArc = (col, mul, w) => { const m = std(col, { emissive: col, ei: humFloor * mul, rough: 0.45, metal: 0 }); m.userData.baseEmissive = col; m.userData.baseIntensity = humFloor * mul; m.userData.flareIntensityWeight = w ?? 0.5; return m; };
+  const arcSeam = mkArc(0xd9deff, 1.0);                   // the storm-white circuit (spine + sternum veins)
+  const arcCore = mkArc(0xf2f4ff, 1.15);                  // the ONE true near-white — vein cores + strike-peak tips
+  const crest = mkArc(0xd9deff, 0.85, 0.4);               // the horn-crest strips (a step under the veins)
+  // THE STORM-HEART dynamo core — the brightest node, on the coreGlow hook (transparent; opacity
+  // ticked). Near-white, hum-lit; ≤15% of cruise emissive (the anti-lantern lock, §3.3).
+  const heartCore = std(0xd9deff, { emissive: 0xf2f4ff, ei: humFloor * 1.3, rough: 0.4, metal: 0, transparent: true, opacity: 0.7 + 0.2 * glow, depthWrite: false });
+  heartCore.userData.baseEmissive = 0xf2f4ff; heartCore.userData.baseIntensity = humFloor * 1.3;
+  // CARVED-DEPTH tiers (Revenant richness): near-black RECESS walls + a darker SOCKET FLOOR.
   const recess = std(lerpHex(base, 0x000000, 0.55), { emissive: 0x000000, rough: 0.9 });
   const socketFloor = std(0x05070c, { emissive: 0x000000, rough: 0.95 });
-  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, crest, heartCore, recess, socketFloor };
+  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, crest, heartCore, recess, socketFloor, humFloor };
 }
 
 // Deterministic hash jitter (index-seeded — never Math.random, so builds are reproducible).
@@ -297,11 +293,50 @@ function addGorget(push, stations, M) {
   // gate fix: the bands must STAND OFF the throat with a dark step behind, or they vanish. Each band is
   // a raised emissive chevron plate + a recessed dark seam aft = a segmented glowing throat (a real rank).
   zs.forEach((z, i) => {
-    const s = sample(z), mat = i < 2 ? M.bellyEdge : M.bellyMid, w = s.w * 0.82, y = s.yb;
-    const bl = [-w, y + 0.01, z], br = [w, y + 0.01, z], keel = [0, y - 0.05, z + 0.05];   // raised keel of the band
-    push(mat, [bl, keel, br]);                                  // the lit throat band (proud)
+    const s = sample(z), w = s.w * 0.7, y = s.yb;
+    const bl = [-w, y + 0.01, z], br = [w, y + 0.01, z], keel = [0, y - 0.04, z + 0.05];   // diffuse pale throat band
+    push(M.bellyMid, [bl, keel, br]);
     push(M.recess, [bl, [-w, y + 0.02, z + 0.11], keel], [br, keel, [w, y + 0.02, z + 0.11]]);   // dark recessed seam aft
   });
+}
+
+// ── THE WORN CIRCUIT (v3 garment): a thin RIBBON strip of near-white glow riding a polyline of
+// body nodes — the spine seam + branching sternum veins. Raised a hair off the surface so it reads
+// as a lit strip ON the charcoal/pale body (glow on components, DRAGON-DESIGN §6). arcSeam/arcCore.
+function addRibbon(push, mat, pts, halfW, dy = 0.015) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const aL = [a[0] - halfW, a[1] + dy, a[2]], aR = [a[0] + halfW, a[1] + dy, a[2]];
+    const bL = [b[0] - halfW, b[1] + dy, b[2]], bR = [b[0] + halfW, b[1] + dy, b[2]];
+    push(mat, [aL, bR, bL], [aL, aR, bR]);
+  }
+}
+// THE SPINE CIRCUIT — one near-white seam occiput→tail-root along the dorsal centerline (bucket b2),
+// riding the same spine nodes the ridge uses (weld by construction — it can't float off).
+function addSpineCircuit(push, stations, M) {
+  const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); return (a.cy + a.ryU) + ((b.cy + b.ryU) - (a.cy + a.ryU)) * t; } } return stations[stations.length - 1].cy; };
+  const pts = []; for (let z = -2.16; z <= 1.55; z += 0.22) pts.push([0, sample(z) + 0.005, z]);
+  addRibbon(push, M.arcSeam, pts, 0.016, 0.02);
+}
+// THE STERNUM VEINS — the branching near-white circuit worn on the pale belly (bucket b1): one
+// bright core vein down the ventral centerline dynamo→tail-root + a branch to each wing root + two
+// short forked side-veins, all welded to the belly-bottom nodes.
+function addSternumVeins(push, stations, M) {
+  const sampleB = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); const L = (p, q) => p + (q - p) * t; return { yb: L(a.cy - a.ryD, b.cy - b.ryD), w: L(a.rx, b.rx) }; } } const l = stations[stations.length - 1]; return { yb: l.cy - l.ryD, w: l.rx }; };
+  // The bright CORE vein down the keel (dynamo → tail-root).
+  const main = []; for (let z = -0.9; z <= 1.5; z += 0.18) { const s = sampleB(z); main.push([0, s.yb + 0.02, z]); }
+  addRibbon(push, M.arcCore, main, 0.028, -0.005);
+  // Two side veins riding the lower flanks (the chest carries a NETWORK, not one wire — the
+  // reference's glowing veined belly), each with a zigzag chest branch toward the core.
+  for (const side of [1, -1]) {
+    const sideV = []; for (let z = -0.85; z <= 1.1; z += 0.22) { const s = sampleB(z); sideV.push([side * s.w * 0.62, s.yb + s.w * 0.35, z]); }
+    addRibbon(push, M.arcSeam, sideV, 0.02, 0);
+    // zig chest branches: side vein → core, alternating fore/aft (the lightning chest read)
+    for (const z of [-0.7, -0.2, 0.35, 0.8]) { const s = sampleB(z); addRibbon(push, M.arcSeam, [[side * s.w * 0.6, s.yb + s.w * 0.32, z], [side * s.w * 0.2, s.yb + 0.03, z + 0.12], [0, s.yb + 0.02, z + 0.02]], 0.013, 0); }
+    // branch up to each wing root
+    const s0 = sampleB(-0.85), sR = sampleB(-1.05);
+    addRibbon(push, M.arcSeam, [[side * s0.w * 0.4, s0.yb + 0.06, -0.85], [side * sR.w * 0.7, sR.yb + 0.16, -1.05], [side * 0.28, 0.10, -1.08]], 0.014, 0);
+  }
 }
 
 // ── A minimal faceted tube loft (shared placeholder body element) ────────────
@@ -334,7 +369,7 @@ function tubeLoft(stations, mat, cap = true) {
 // (I3), and the Storm Circuit + Surge (I4) still land per the increment plan.
 function buildCumulonimbusTorso(def, model, _bodyMat) {
   const group = new THREE.Group();
-  const M = tempestMats(def);
+  const M = tempestMats(def, model.glowLevel ?? 1);
   const heartScale = model.heartScale ?? 1;
 
   // The drake trunk stations (neck-base → tail-base, + two forward neck rings so the THROAT
@@ -362,7 +397,9 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
   addBellyDeck(push, trunk, M);         // R2 — raised glow plates + recessed gutters + bolt channel
   const ridgeN = 13 + Math.round(8 * (model.glowLevel ?? 1));   // R1 — dorsal scute/crest rank, occiput→tail (ladders up)
   addDorsalRidge(push, trunk, M, ridgeN);
-  addGorget(push, trunk, M);            // R7 — throat gorget bands
+  addGorget(push, trunk, M);            // R7 — throat gorget bands (diffuse pale)
+  addSpineCircuit(push, trunk, M);      // the worn SPINE seam (near-white, hum-lit)
+  addSternumVeins(push, trunk, M);      // the worn STERNUM VEINS (branching near-white circuit)
 
   // R4 — lapped armor plates over the shoulder girdle + haunch (the two muscle masses).
   for (const side of [1, -1]) {
@@ -427,7 +464,11 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
   };
   // coreGlow = the storm-heart core (the real transparent hook — opacity ticked). flareMats =
   // the belly + crest + heart (Surge-flared, exempt from the warm cruise rim). spineMats [] .
-  return { group, attach, spinePoints, spineMats: [], flareMats: [M.bellyCore, M.bellyMid, M.bellyEdge, M.crest, M.heartCore], mats: { bodyMat: M.dorsal }, coreGlow: core };
+  // flareMats = the worn CIRCUIT (arcSeam veins/spine + arcCore core vein + crest + heart) — hum-lit
+  // in cruise (the flare loop's else-branch holds them at userData.baseIntensity = humFloor),
+  // Surge-flared, warm-rim-exempt; the belly tiers are now DIFFUSE (glow lives on the strips). The
+  // storm tick becomes the single writer at I4 (breathing + strikes). spineMats [] .
+  return { group, attach, spinePoints, spineMats: [], flareMats: [M.arcSeam, M.arcCore, M.crest, M.heartCore], mats: { bodyMat: M.dorsal }, coreGlow: core };
 }
 registerTorso('cumulonimbusTorso', buildCumulonimbusTorso);
 
@@ -457,7 +498,7 @@ function buildOneStormforkWing(M, dials, wingMat) {
     const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.35, b[2]];
     tgt.add(flatTriMesh([[aL, b, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, b]], mat));
   };
-  ridge(arm, LE(0), K, 0.08 * hs, 0.06 * hs, M.silverRim);   // arm crest (silver-lining rim-cap)
+  ridge(arm, LE(0), K, 0.08 * hs, 0.06 * hs, M.flank);   // arm crest (silver-lining rim-cap)
   // Rays fan aft from the carpal (dominant + decay ≤0.86×), each a low charcoal tent.
   const lenFrac = [1, 0.80, 0.62, 0.46];
   const phi0 = Math.atan2(F0[2] - K[2], F0[0] - K[0]), r0 = Math.hypot(F0[0] - K[0], F0[2] - K[2]);
@@ -479,7 +520,7 @@ function buildOneStormforkWing(M, dials, wingMat) {
 
 function buildStormforkWings(def, model, attach, _giM) {
   const group = new THREE.Group();
-  const M = tempestMats(def);
+  const M = tempestMats(def, model.glowLevel ?? 1);
   const rays = Math.max(2, Math.round(model.rays ?? model.fingers ?? 4));
   const halfSpan = (model.spanScale ?? 1) * 2.3;
   const wristT = model.wristT ?? 0.24;
@@ -529,7 +570,7 @@ registerWings('stormforkWings', buildStormforkWings);
 // eyeMat (def.eye drives its colour) — eyes are the brightest facial point.
 function buildStormbrowHead(def, model, mats) {
   const group = new THREE.Group();
-  const M = tempestMats(def);
+  const M = tempestMats(def, model.glowLevel ?? 1);
   const hs = model.headScale ?? 1;
   const eyeMat = mats.eyeMat;
 
@@ -566,7 +607,7 @@ registerHead('stormbrowHead', buildStormbrowHead);
 // wisps) + ONE connected translucent hem band + the f3 arc terminus stud. NO wisps yet.
 function buildVirgaTail(def, model, mats, anchor) {
   const group = new THREE.Group();
-  const M = tempestMats(def);
+  const M = tempestMats(def, model.glowLevel ?? 1);
   const a = anchor ?? { y: 0.12, z: 1.62 };
   const T = (model.tailLength ?? 1) * 2.5 * (model.tailStretch ?? 1);
   const nSeg = Math.round(model.tailSegments ?? 8);
@@ -593,7 +634,7 @@ function buildVirgaTail(def, model, mats, anchor) {
   chainAdd(tz, flatTriMesh([
     [[tx, ty + 0.04, tz], [tx - 0.07, ty, tz + 0.10], [tx + 0.07, ty, tz + 0.10]],
     [[tx - 0.07, ty, tz + 0.10], [tx, ty - 0.02, tz + 0.24], [tx + 0.07, ty, tz + 0.10]],
-  ], M.belly));
+  ], M.bellyMid));
 
   return { group, segs: joints, accentMats: [] };
 }
