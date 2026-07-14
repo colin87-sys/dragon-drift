@@ -150,6 +150,39 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   placeUnits(-2.62, -1.16, neckVerts, 0.70, 1.0);   // LONG S-curved neck of shrinking vertebrae rising to the skull
   placeUnits(-1.06, 1.58, dorsalVerts, 1.0, 0.74);  // dorsal → tail root (taper aft)
 
+  // ── THE HAUNTING — dorsal GAP-LEAK plugs (the rear-chase carrier). Small emissive octagons
+  // recessed in the gaps BETWEEN the dorsal vertebrae, so grave-fire reads THROUGH bone (the
+  // lantern law: light in the gaps, never on the bone). Grouped into 3 phase BUCKETS (aft·mid·
+  // fore) so the guarded dragon.js gap-pulse tick can walk a brightness wave tail→head ("the glow
+  // that dances across the bones"). OPAQUE emissive → 0 transparent cost. Published in FLAREMATS
+  // (never spineMats) so Surge flares them toward surgeHi but the warm cruise rim never touches
+  // them (Pearl firewall). Every grave mat sets userData.baseEmissive so the flare-reset never
+  // falls back to its 0xffffff default (which would paint the plug glowing WHITE — a holy leak).
+  const GRAVEFIRE = 0x54f04e, graveBlaze = model.coreBlaze ?? 1, graveAmp = 1.15 * graveBlaze;
+  const graveBucket = (k) => {
+    const floor = graveAmp * 0.7;   // the cruise dance FLOOR (the live tick animates 0.7±0.3 around it; a static render shows this)
+    const m = new THREE.MeshStandardMaterial({ color: 0x0a120c, emissive: GRAVEFIRE, emissiveIntensity: floor, flatShading: true, roughness: 1, metalness: 0 });
+    m.envMapIntensity = 0;
+    m.userData.baseEmissive = GRAVEFIRE; m.userData.baseIntensity = floor;
+    m.userData.flareColorWeight = 1; m.userData.flareIntensityWeight = 5;   // Surge flares intensity up (multiplicative on baseIntensity)
+    m.userData.gravePulseBucket = k; m.userData.gravePulseAmp = graveAmp;   // the tick reads amp, writes baseIntensity per frame
+    return m;
+  };
+  const graveBuckets = [graveBucket(0), graveBucket(1), graveBucket(2)];
+  const graveT = [[], [], []];
+  const octaPlug = (cyP, cz, r, tgt) => {   // a small octagon in the XY plane (faces aft toward the chase cam), between two neural spines
+    const c = [0, cyP, cz], pt = (k) => { const a = k / 8 * Math.PI * 2; return [Math.cos(a) * r, cyP + Math.sin(a) * r * 0.6, cz + 0.02]; };
+    for (let k = 0; k < 8; k++) tgt.push([c, pt(k), pt((k + 1) % 8)]);
+  };
+  { const gz0 = -1.06, gz1 = 1.58, gn = dorsalVerts, gstep = (gz1 - gz0) / Math.max(1, gn - 1);
+    for (let i = 0; i < gn - 1; i++) {
+      const u = (i + 0.5) / (gn - 1), zg = gz0 + gstep * (i + 0.5), s = 1.0 + (0.74 - 1.0) * u, cy = cyAt(zg);
+      const bucket = u < 0.34 ? 2 : u < 0.67 ? 1 : 0;   // fore-third→bucket0, aft-third→bucket2 (wave walks tail→head)
+      octaPlug(cy + 0.085 * s + 0.03, zg, 0.05 * s, graveT[bucket]);
+    }
+  }
+  graveBuckets.forEach((m, k) => { if (graveT[k].length) group.add(flatTriMesh(graveT[k], m)); });
+
   // ── RIB CAGE — a BONE BLOSSOM (art-director + Fable, replacing the wire birdcage): free-
   // ended flat bone BLADES springing from the dorsal vertebrae, sweeping out + down then
   // CURLING back toward the caged flame. NO closed hoops, NO horizontal rails (those were the
@@ -313,7 +346,7 @@ function buildOssuaryTorso(def, model, _bodyMat) {
     motifAnchor,
   };
   // coreGlow = THE GRAVE HEART mesh (the real Solar hook — NOT null like the I0 stub).
-  return { group, attach, spinePoints, spineMats: [], mats: { bodyMat: M.bone }, coreGlow: heartHook };
+  return { group, attach, spinePoints, spineMats: [], flareMats: graveBuckets, mats: { bodyMat: M.bone }, coreGlow: heartHook };
 }
 registerTorso('ossuaryTorso', buildOssuaryTorso);
 
