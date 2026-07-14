@@ -681,7 +681,7 @@ export const DRAGONS = {
         ribWindows: 6, coreBlaze: 1.00, neckVerts: 7, dorsalVerts: 9, shroudPanels: 2, crescentDepth: 1.0,
         colors: { body: 0xf3f5f9, belly: 0xdcdee4, wingOuter: 0xf3f5f9, eye: 0x4ef072 } },   // Gravelight Revenant — BRIGHTEST fully-bleached chalk (apex bumped so the top rung hits ~184 median — Fable)
     ],
-    fx: { auraColor: '84,240,78', auraIdle: 0.03, auraIdleRamp: 0, sparkle: false },   // opt OUT of the ascension idle-aura swell — the Revenant's ghost-fire is "a lantern, not a lamp" (seen only through bone); the ascension ramp was turning the additive green aura billboard into a permanent lamp that washed the whole dragon green over water (Fable graphics diag). Its ascension tell is the HOLLOWING ladder (ribWindows/coreBlaze/bleach), not an aura.
+    fx: { auraColor: '84,240,78', auraIdle: 0, auraIdleRamp: 0, sparkle: false },   // NO idle aura at all — the lantern is interior (auraIdle 0.03 was invisible but still a drawn 9u additive quad every frame; Fable census). opt OUT of the ascension idle-aura swell too — the Revenant's ghost-fire is "a lantern, not a lamp" (seen only through bone); the ascension ramp was turning the additive green aura billboard into a permanent lamp that washed the whole dragon green over water (Fable graphics diag). Its ascension tell is the HOLLOWING ladder (ribWindows/coreBlaze/bleach), not an aura.
     hasStyle: true,   // keep the cold grave-green trail in Surge (never warmed)
     // Grave Surge palette (COOL green — the rig defaults to magenta; override every hook
     // per §4.4). Wings stay BLACK on Surge (silhouette owns the frame; the heart + gaps
