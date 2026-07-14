@@ -197,6 +197,28 @@ export function initObstacles(s) {
       emissive: 0xff5a47,
       emissiveIntensity: 0.9,
     }),
+    // Frozen hazard-skin crevasse glow (PR-3): light escaping from INSIDE calved
+    // ice — recessed emissive slivers seated between proud walls (never a proud
+    // strip → that's the LED-strip/light-saber failure). Breathes in updateObstacles
+    // (shared — one write/frame) to restore the "live hazard" cue the skinned bar
+    // loses when its spin is killed.
+    frostGlow: new THREE.MeshStandardMaterial({
+      color: 0x6ec8ec, flatShading: true, roughness: 0.2, metalness: 0,
+      emissive: 0x1fb4ff, emissiveIntensity: 0.95,
+    }),
+    // Vertex-coloured ICE body for the Frozen hazard skins — the per-face VALUE
+    // LADDER (near-white frost on upward faces, mid ice on verticals, deep teal in
+    // the belly/shadow planes) that lifts flat-shaded ice from "one blue band" to
+    // premium. Base white so the baked vertex colours read as authored.
+    frostIce: new THREE.MeshStandardMaterial({
+      color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.34, metalness: 0.02,
+      emissive: 0x11384c, emissiveIntensity: 0.28,
+    }),
+    // Dark recess backing behind a crevasse glow — the near-black-teal socket that
+    // turns "strip stuck on a face" into "crack with light inside".
+    frostShadow: new THREE.MeshStandardMaterial({
+      color: 0x0e2630, flatShading: true, roughness: 0.6, metalness: 0,
+    }),
     // Ancient fossil bone for the Dragon Spine Canyon — warm ivory, faceted, a
     // touch of emissive so the skeleton reads (and blooms) against any biome sky.
     bone: new THREE.MeshStandardMaterial({
@@ -396,17 +418,17 @@ function buildWindvault(gx, gy, j) {
 
 export function addObstacle(o) {
   const e = { ...o, object: null };
-  const body = mats.body[biomeIndexAt(o.dist)];
+  const bi = biomeIndexAt(o.dist);
   if (o.type === 'pillar') {
-    e.object = new THREE.Mesh(new THREE.ConeGeometry(o.r, o.h, 6), body);
+    e.object = hazardMesh('pillar', bi, { r: o.r, h: o.h });
     e.object.position.set(o.x, o.h / 2, -o.dist);
   } else if (o.type === 'shard') {
-    e.object = new THREE.Mesh(new THREE.OctahedronGeometry(o.r), o.dynamic ? mats.mover : body);
+    e.object = hazardMesh('shard', bi, { r: o.r, dynamic: o.dynamic });
     e.object.position.set(o.x, o.y, -o.dist);
   } else if (o.type === 'bar') {
-    e.object = new THREE.Mesh(new THREE.CylinderGeometry(o.r, o.r, 30, 8), body);
-    e.object.rotation.z = Math.PI / 2;
+    e.object = hazardMesh('bar', bi, { r: o.r });
     e.object.position.set(0, o.y, -o.dist);
+    if (e.object.userData.skinned) e.skinned = true;   // a calved shelf can't barrel-roll — kill the spin
   } else if (o.type === 'gate') {
     e.object = buildGate(o);
   }
@@ -822,6 +844,197 @@ export function studioGateTick(t) {
   if (veilPointMat) veilPointMat.uniforms.uTime.value = t;
 }
 
+// --- HAZARD SKINS (PR-3) ---------------------------------------------------
+// Per-biome reskins of the in-lane hazards. A skin is a set of SHARED, normalized
+// geometries built once and reused by every instance (scaled per collider radius),
+// so N hazards cost one geometry. The COLLIDER in collision.js is untouched — the
+// skin only changes the mesh — and every skin is authored so its visible silhouette
+// stays OUTSIDE the collision envelope (proven with the studio's ghost + the
+// numeric coverage check below). Missing skin → null → the byte-identical primitive
+// fallback, so non-skinned biomes never change. Shared geos are tagged
+// userData.shared so removeAt never disposes them out from under the next instance.
+const BAR_REF = 0.85;   // reference collider radius the bar skin is authored at (gauntlet r; level.js spawns 0.7–1.1)
+
+// CALVED SHELF-BEAM — the Frozen bar (Fable pre-assess 2026-07-14). Five sheared,
+// interpenetrating flat-shaded ice sections fused into one tabular calving front
+// that overshoots the lane (±16.5), with a STEPPED top and belly (excess mass goes
+// up on some sections, down on others — never toward the collider), recessed
+// crevasse glow at the fracture seams (upper third), and clustered short icicle
+// teeth. No spin. Coverage invariant: every section's cross-section individually
+// contains the collider box (half-height BAR_REF*0.75=0.64, half-depth BAR_REF=0.85),
+// so the union covers the full lane with margin at any r. Sections carry small rolls
+// (rx, safe — uniform along the lane axis) and tiny slant (rz, bounded) for the
+// calved read; the numeric check asserts coverage holds.
+// [len, cx, h, cy, d, rx(roll), rz(slant)] — authored at BAR_REF. Half-heights are
+// kept ≥ 0.64(collider)+|cy|+roll-margin so every section covers the collider corner
+// even shifted/rolled (the numeric check enforces it); depth is uniform so the front
+// face can carry a consistent recessed crevasse channel.
+const BAR_BOXES = [
+  [7.4, -13.3, 2.06, 0.16, 2.20, 0.07, -0.05],   // end: tall, raw, steep slant
+  [9.4, -6.5, 2.12, -0.18, 2.20, -0.08, 0.04],   // belly-heavy (thick slab, low belly)
+  [7.6, 0.2, 2.00, 0.18, 2.20, 0.06, -0.03],     // mid: top-heavy
+  [9.4, 6.6, 2.12, -0.16, 2.20, 0.08, 0.05],     // belly-heavy
+  [7.4, 13.4, 2.08, 0.16, 2.20, -0.07, 0.06],    // end: tall, raw, steep slant
+];
+// Crevasse seams: [cx, cy, len, height] emissive slivers on the front (+z) face
+// (front at z≈+1.1), upper third, sitting just proud of the face but OVERHUNG by a
+// proud brow lip that shadows them → light escaping a fracture, NOT a proud LED
+// strip. Two short, seam-anchored segments (never one full run = the light-saber).
+const BAR_SEAMS = [
+  [-8.4, 0.30, 4.6, 0.22],
+  [4.2, 0.34, 4.2, 0.22],
+];
+// Icicle teeth hung under the belly — clustered, three length classes, never more
+// than 0.7 below the collider bottom. [cx, len, baseR]
+const BAR_TEETH = [
+  [-12.6, 0.46, 0.46], [-11.7, 0.68, 0.54], [-11.0, 0.40, 0.40],  // cluster L
+  [-4.5, 0.60, 0.50],  [-3.5, 0.80, 0.56],                        // cluster mid-L
+  [1.7, 0.48, 0.44],                                              // lone
+  [9.3, 0.78, 0.56], [10.2, 0.50, 0.46], [11.0, 0.64, 0.50],     // cluster R
+];
+
+function xf(geo, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0 } = {}) {
+  if (rx) geo.rotateX(rx);
+  if (ry) geo.rotateY(ry);
+  if (rz) geo.rotateZ(rz);
+  geo.translate(x, y, z);
+  return geo;
+}
+
+// The Frozen ICE VALUE LADDER — bake per-face vertex colours onto a merged,
+// non-indexed, flat-shaded geometry from each triangle's geometric normal: near-
+// white frost on upward faces, mid ice on verticals (hue nudged off the sky so the
+// silhouette always separates), deep teal in the belly/shadow planes. This is what
+// turns "one blue band" into premium low-poly ice at zero triangle cost.
+const _FROST = [0.87, 0.93, 0.99], _MIDICE = [0.36, 0.60, 0.75], _BELLY = [0.13, 0.32, 0.40];
+function bakeIceLadder(geo) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const ny = nr.y;
+    const c = ny > 0.35 ? _FROST : ny < -0.30 ? _BELLY : _MIDICE;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = c[0]; col[o + 1] = c[1]; col[o + 2] = c[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+function buildFrozenBar() {
+  const body = [], glow = [], shadow = [];
+  for (const [len, cx, h, cy, d, rx, rz] of BAR_BOXES) {
+    body.push(xf(new THREE.BoxGeometry(len, h, d), { x: cx, y: cy, rx, rz }));
+  }
+  // Teeth: tetrahedra (4 tris, no base cap needed — embedded), tip pointing down,
+  // hung off the FRONT-belly edge so they read against the sky. Beefy girth so they
+  // read as MASS, not fuzz. Capped so no tip drops > 0.7 below the collider bottom
+  // (a long opaque tooth in the under-gap reads as a collision bug). The value
+  // ladder tints their downward faces deep teal.
+  const colliderBottom = -BAR_REF * 0.75;   // -0.64
+  for (const [cx, len, baseR] of BAR_TEETH) {
+    const t = new THREE.TetrahedronGeometry(baseR);
+    t.scale(1, len / baseR, 1);             // stretch to a spike
+    t.rotateX(Math.PI);                     // point down
+    const topY = colliderBottom + 0.05;
+    const tipY = Math.max(colliderBottom - 0.7, topY - len);
+    xf(t, { x: cx, y: (topY + tipY) / 2, z: 0.86 });   // on the front-belly edge
+    body.push(t);
+  }
+  // Crevasse seams: an emissive sliver PROUD of the front face, set into a dark-teal
+  // recess backing (the socket that reads "crack with light inside it") and overhung
+  // by a proud brow lip. Faint + short + segmented → a lit fracture, never an LED strip.
+  for (const [cx, cy, len, hh] of BAR_SEAMS) {
+    shadow.push(xf(new THREE.PlaneGeometry(len + 0.5, hh + 0.28), { x: cx, y: cy, z: 1.13 })); // dark socket
+    glow.push(xf(new THREE.BoxGeometry(len, hh, 0.05), { x: cx, y: cy, z: 1.16 }));
+    body.push(xf(new THREE.BoxGeometry(len + 0.6, 0.16, 0.12), { x: cx, y: cy + hh / 2 + 0.18, z: 1.20 })); // brow lip
+  }
+  // Tetrahedron teeth are non-indexed while BoxGeometry is indexed — normalize so
+  // mergeGeometries can fuse them.
+  const norm = (arr) => arr.map((g) => g.index ? g.toNonIndexed() : g);
+  const bodyGeo = bakeIceLadder(mergeGeometries(norm(body), false)); bodyGeo.userData.shared = true;
+  const glowGeo = mergeGeometries(norm(glow), false); glowGeo.userData.shared = true;
+  const shadowGeo = mergeGeometries(norm(shadow), false); shadowGeo.userData.shared = true;
+  return { parts: [
+    { geo: bodyGeo, mat: mats.frostIce },
+    { geo: shadowGeo, mat: mats.frostShadow },
+    { geo: glowGeo, mat: mats.frostGlow },
+  ], ref: BAR_REF };
+}
+
+const SKIN_BUILDERS = {
+  2: { bar: buildFrozenBar },   // Frozen; pillar/shard added in later PR-3 steps
+};
+const _skinCache = {};
+function obstacleSkin(bi, type) {
+  const b = SKIN_BUILDERS[bi] && SKIN_BUILDERS[bi][type];
+  if (!b) return null;
+  const key = bi + ':' + type;
+  return (_skinCache[key] || (_skinCache[key] = b()));
+}
+
+// Unified hazard builder — used by BOTH addObstacle (game) and the studio, so what
+// is Fable-graded is what ships. Returns the object in its LOCAL frame (origin =
+// the collider anchor); the caller sets world position. Falls back to the shipped
+// primitive when no skin exists (byte-identical for non-skinned biomes).
+function hazardMesh(type, bi, p) {
+  if (type === 'bar') {
+    const skin = obstacleSkin(bi, 'bar');
+    if (skin) {
+      const g = new THREE.Group();
+      for (const part of skin.parts) g.add(new THREE.Mesh(part.geo, part.mat));
+      const s = p.r / skin.ref;
+      g.scale.set(1, s, s);            // x fixed (spans the lane); y/z track the collider
+      g.userData.skinned = true;
+      return g;
+    }
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(p.r, p.r, 30, 8), mats.body[bi]);
+    m.rotation.z = Math.PI / 2;
+    return m;
+  }
+  if (type === 'pillar') {
+    return new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 6), mats.body[bi]);
+  }
+  // shard
+  return new THREE.Mesh(new THREE.OctahedronGeometry(p.r), p.dynamic ? mats.mover : mats.body[bi]);
+}
+
+// Numeric FAIRNESS check for the skinned bar: sample the collider outline
+// (|dz|<r, |y-cy|<r*0.75, full lane x) and assert every sample point sits INSIDE
+// some body section — i.e. the mesh never leaves a gap in the collision envelope
+// ("looks passable but kills"). Returns { ok, worstX, gaps }. Studio/tests call it.
+export function barColliderCoverage(r = BAR_REF) {
+  const s = r / BAR_REF;
+  const halfY = r * 0.75, halfZ = r;      // collider half-extents at this r
+  const LANE = CONFIG.laneHalfWidth;
+  const inBox = (px, py, pz, box) => {
+    const [len, cx, h, cy, d, rx, rz] = box;
+    // point in the section's local frame (built: rotateX(rx)→rotateZ(rz)→translate(cx,cy),
+    // then group-scaled by s in y,z). Undo scale, translate, rz, rx.
+    let x = px, y = py / s, z = pz / s;    // undo group y/z scale (x unscaled)
+    x -= cx; y -= cy;
+    // undo rotateZ
+    const cz = Math.cos(-rz), sz = Math.sin(-rz);
+    const x1 = x * cz - y * sz, y1 = x * sz + y * cz; x = x1; y = y1;
+    // undo rotateX
+    const cx2 = Math.cos(-rx), sx2 = Math.sin(-rx);
+    const y2 = y * cx2 - z * sx2, z2 = y * sx2 + z * cx2; y = y2; z = z2;
+    return Math.abs(x) <= len / 2 + 1e-4 && Math.abs(y) <= h / 2 + 1e-4 && Math.abs(z) <= d / 2 + 1e-4;
+  };
+  const gaps = [];
+  // sample the collider surface densely in x, at the worst-case corners in y,z
+  for (let ix = -LANE; ix <= LANE; ix += 0.25) {
+    for (const yy of [-halfY, 0, halfY]) {
+      for (const zz of [-halfZ, 0, halfZ]) {
+        const covered = BAR_BOXES.some((b) => inBox(ix, yy, zz, b));
+        if (!covered) gaps.push([+ix.toFixed(2), yy.toFixed(2), zz.toFixed(2)]);
+      }
+    }
+  }
+  return { ok: gaps.length === 0, gaps: gaps.slice(0, 12), gapCount: gaps.length };
+}
+
 // --- OBSTACLE STUDIO (tools/obstaclestudio) --------------------------------
 // The in-lane hazards (bar / pillar / shard) are shipped as generic primitives
 // (a cone, a horizontal cylinder "log", an octahedron) that don't read as ice —
@@ -835,21 +1048,13 @@ const OBSTACLE_STUDIO_PARAMS = {
   shard:  { r: 2.0, y: 0 },    // level.js: r 1.3–2.6
   bar:    { r: 0.85, y: 0 },   // level.js: r 0.7–1.1, spans the full lane
 };
-// The VISUAL body — identical to what addObstacle() builds today (the fallback
-// that PR-3's OBSTACLE_SKINS will override). Kept in lockstep with addObstacle by
-// eye; the collider ghost below is the real invariant the reskins must honour.
+// The VISUAL body — the SAME hazardMesh() the game builds (skin when present, else
+// primitive fallback), so what is Fable-graded here is exactly what ships. Applies
+// the game's local→world y offset (pillar base sits on the floor at y=h/2).
 function obstacleBody(type, bi, p) {
-  const body = mats.body[bi] || mats.body[0];
-  if (type === 'pillar') {
-    const m = new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 6), body);
-    m.position.y = p.h / 2; return m;
-  }
-  if (type === 'shard') {
-    const m = new THREE.Mesh(new THREE.OctahedronGeometry(p.r), p.dynamic ? mats.mover : body);
-    m.position.y = p.y || 0; return m;
-  }
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(p.r, p.r, 30, 8), body);   // bar = horizontal log
-  m.rotation.z = Math.PI / 2; m.position.y = p.y || 0; return m;
+  const m = hazardMesh(type, bi, p);
+  m.position.y = type === 'pillar' ? p.h / 2 : (p.y || 0);
+  return m;
 }
 // The COLLISION ENVELOPE as a wireframe ghost — the hazard-intrinsic term of the
 // collider from collision.js (player radius R is added at runtime; shown as 0
@@ -1328,6 +1533,9 @@ function buildRockGap(o, e) {
 export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0) {
   // Warning pulse on every moving shard (shared material, one write).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
+  // Slow crevasse breathe on skinned Frozen hazards (shared, one write) — a ~0.5Hz
+  // "live hazard" cue that replaces the deleted bar spin.
+  if (mats.frostGlow) mats.frostGlow.emissiveIntensity = 0.95 + Math.sin(time * 3.0) * 0.4;
   // Skull soul-fire eyes breathe (shared material, one write) so the mouth reads as
   // "ancient, awake" — pulsing together across any skull instance.
   if (mats.soul) mats.soul.emissiveIntensity = 1.7 + Math.sin(time * 2.2) * 0.6;
@@ -1375,7 +1583,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
         e.object.position.y = e.y + Math.sin(time * 1.4 + e.dist) * 0.4;
       }
     } else if (e.type === 'bar') {
-      e.object.rotation.x += dt * 0.5; // spin around its long axis
+      if (!e.skinned) e.object.rotation.x += dt * 0.5; // spin around its long axis (skinned calved shelf hangs still)
     } else if (e.type === 'gate') {
       // Phase shatter: blow the gate apart (scale + spin) then hide it. Transform
       // only — shared veil/ring materials are never touched here.
@@ -1455,7 +1663,9 @@ function removeAt(i) {
   const e = entries[i];
   scene.remove(e.object);
   e.object.traverse((m) => {
-    if (m.geometry) m.geometry.dispose();
+    // Shared hazard-skin geometries are reused by every instance — never dispose
+    // them here or the next instance renders an emptied buffer.
+    if (m.geometry && !(m.geometry.userData && m.geometry.userData.shared)) m.geometry.dispose();
     // Most materials are shared (biome pools); only per-instance ones
     // (gate core-glow / beacon / motes) are owned by this object and disposed.
     const mat = m.material;
