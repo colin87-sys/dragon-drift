@@ -377,13 +377,16 @@ const ARCHETYPES = {
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.24, 0.24), { x: 0.26, z: 0.16, y: 0.34, ry: 0.5, rz: 0.10 }) },// pressure-ridge rubble chunk
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.22, 0.22, 0.20), { x: -0.32, z: -0.10, y: 0.30, ry: 1.2 }) },        // pressure-ridge rubble chunk
       // The accent is a RECESSED crevasse SLIT in the tread, not a flush pond decal
-      // (Fable r4: the wide pond read as a sticker from ABOVE — the primary read in a
-      // flying game). Two proud mat-0 rims flank a narrow 2-segment jagged emissive
-      // crack, so from above it reads as light in a chasm and oblique rims occlude it.
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.05, 0.12, 0.24), { x: 0.015, z: -0.04, y: 0.60, ry: 1.5 }) },        // crevasse rim (proud of the tread)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.05, 0.12, 0.24), { x: 0.165, z: -0.06, y: 0.60, ry: 1.5 }) },        // crevasse rim
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.055, 0.04, 0.15), { x: 0.06, z: -0.10, y: 0.61, ry: 1.5 }) },        // lit crevasse segment (narrow, recessed between the rims)
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.055, 0.04, 0.13), { x: 0.12, z: 0.02, y: 0.61, ry: 1.5 }) },         // lit crevasse segment (offset → jagged crack, not a rectangle)
+      // (Fable: the wide pond read as a sticker from ABOVE — the primary read in a
+      // flying game). Two TALL proud mat-0 rims flank a CONTINUOUS 2-segment jagged
+      // emissive crack (segments overlap at the joint so the top-down projection is one
+      // unbroken high-aspect polyline, not two chips), sunk well below the rim tops so
+      // from above it reads as one glowing crack framed by shaded ice, and oblique rims
+      // occlude it. ~4:1 crack proportions, not a rectangle.
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.055, 0.20, 0.32), { x: 0.035, z: -0.03, y: 0.60, ry: 1.5 }) },       // crevasse rim L (TALL + proud → a deep trench frames the crack from above)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.055, 0.20, 0.32), { x: 0.150, z: -0.05, y: 0.60, ry: 1.5 }) },       // crevasse rim R (tall)
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.045, 0.06, 0.24), { x: 0.092, z: -0.05, y: 0.61, ry: 1.5 }) },       // lit crack segment 1 (narrow ~5:1, deep in the trench)
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.045, 0.06, 0.14), { x: 0.078, z: 0.09, y: 0.61, ry: 1.5 }) },        // lit crack segment 2 — SAME ry, z-overlaps seg 1 at the joint → one continuous jagged crack, not two chips
     ], 2),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 2.5 + rnd() * 4.5, r: 8 + rnd() * 8, tilt: side * (rnd() * 0.04 - 0.02) }),
   },
