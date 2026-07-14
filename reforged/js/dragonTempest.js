@@ -141,7 +141,8 @@ function trunkRaised(s, i, k, lift) {
 const triWave = (i) => 2 - Math.abs((i % 4) - 2);            // 0,1,2,1 — the chevron seam march
 const ventColsAt = (i) => { const lo = 2 + triWave(i), hi = 8 - triWave(i), set = new Set(); for (let k = lo; k <= hi; k++) set.add(k); return set; };
 const bellyBolt = new Set(['2:6', '3:5', '4:4', '5:5', '6:6']);   // the recessed bolt channel facets
-function bellyTier(M, i, k) { const lvl = Math.min(Math.abs(k - 5), 3) + Math.abs(i - 4) * 0.6; return lvl < 0.7 ? M.bellyCore : lvl < 2.2 ? M.bellyMid : M.bellyEdge; }
+// gate fix: +(i%2) makes ADJACENT plates alternate value so the deck doesn't posterise to flat blue tape.
+function bellyTier(M, i, k) { const lvl = Math.min(Math.abs(k - 5), 3) + Math.abs(i - 4) * 0.5 + (i % 2) * 0.7; return lvl < 0.7 ? M.bellyCore : lvl < 2.0 ? M.bellyMid : M.bellyEdge; }
 
 // The DARK dorsal shell (spine ridge darkest / flank lit / dorsal mid) — ventral columns are owned
 // by the raised belly DECK (addBellyDeck), so this only lays the top ~60% of each ring + the caps.
@@ -193,7 +194,7 @@ function addBellyDeck(push, stations, M) {
 // shrinking aft), each with a GAP + a dark under-strip = a free carved recess per unit; the top
 // silhouette becomes a serrated rank instead of a bare tube.
 function addDorsalRidge(push, stations, M, count) {
-  const zTop = stations[1].z, zEnd = stations[stations.length - 2].z;   // skip the very nose/tail tips
+  const zTop = -2.20, zEnd = stations[stations.length - 1].z;   // occiput → tail-base (gate: the crest must run up the NECK, the head-crop money surface)
   const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); return { x: 0, y: (a.cy + a.ryU) + ((b.cy + b.ryU) - (a.cy + a.ryU)) * t, w: (a.rx + (b.rx - a.rx) * t) }; } } const l = stations[stations.length - 1]; return { x: 0, y: l.cy + l.ryU, w: l.rx }; };
   for (let u = 0; u < count; u++) {
     const t = u / (count - 1), z = zTop + (zEnd - zTop) * t;
@@ -240,10 +241,11 @@ function addArmorPlate(push, M, c, n, t, halfW, len, mat) {
   const tl = Math.hypot(...t) || 1, tt = [t[0] / tl, t[1] / tl, t[2] / tl];
   const s = [tt[1] * tn[2] - tt[2] * tn[1], tt[2] * tn[0] - tt[0] * tn[2], tt[0] * tn[1] - tt[1] * tn[0]];   // side = t×n
   const P = (u, v, lift) => [c[0] + tt[0] * u + s[0] * v + tn[0] * lift, c[1] + tt[1] * u + s[1] * v + tn[1] * lift, c[2] + tt[2] * u + s[2] * v + tn[2] * lift];
-  const off = 0.02, cup = 0.03;
-  const fore = P(-len, 0, off), aft = P(len, 0, off + 0.01), l = P(0, -halfW, off + cup), rr = P(0, halfW, off + cup);
-  push(mat, [fore, l, rr], [aft, rr, l]);                   // the cupped plate (2 faces)
-  push(M.recess, [P(-len, -halfW, 0), fore, P(-len, halfW, 0)]);   // a dark fore-edge gap (standoff shadow)
+  const off = 0.055, cup = 0.035;   // gate: the standoff GAP is the rank — deepen it so the plate throws a real shadow step
+  const fore = P(-len, 0, off), aft = P(len, 0, off + 0.015), l = P(0, -halfW, off + cup), rr = P(0, halfW, off + cup);
+  push(mat, [fore, l, rr], [aft, rr, l]);                   // the cupped plate (2 faces, standing proud)
+  // dark recessed walls around the plate perimeter = the shadow gap that makes it read as a lapped plate
+  push(M.recess, [P(-len, -halfW, 0), fore, l], [P(-len, halfW, 0), rr, fore], [P(len, -halfW, 0), l, aft], [P(len, halfW, 0), aft, rr]);
 }
 
 // R5 — a run of small cupped SCALE cards along a body line (the flank plate-scale texture; 2 tris
@@ -255,8 +257,9 @@ function addScaleRow(push, M, count, at, nrm, tan, len, wid) {
     const tl = Math.hypot(...tg) || 1, tt = [tg[0] / tl, tg[1] / tl, tg[2] / tl];
     const s = [tt[1] * tn[2] - tt[2] * tn[1], tt[2] * tn[0] - tt[0] * tn[2], tt[0] * tn[1] - tt[1] * tn[0]];
     const P = (a, b, h) => [c[0] + tt[0] * a + s[0] * b + tn[0] * h, c[1] + tt[1] * a + s[1] * b + tn[1] * h, c[2] + tt[2] * a + s[2] * b + tn[2] * h];
-    const tip = P(len, 0, 0.008), bl = P(-len * 0.4, -wid, 0.028), br = P(-len * 0.4, wid, 0.028);
-    push(u % 2 ? M.flank : M.dorsal, [bl, tip, br]);        // a cupped scale card, proud of the hull
+    const tip = P(len, 0, 0.03), bl = P(-len * 0.4, -wid, 0.055), br = P(-len * 0.4, wid, 0.055);   // stand proud so the edge throws a shadow
+    push(u % 2 ? M.flank : M.spine, [bl, tip, br]);          // a cupped scale card (alternating value for the plate read)
+    push(M.recess, [bl, br, P(-len * 0.9, 0, 0)]);          // a dark gap under the fore edge = the shadow step (the rank cue)
   }
 }
 
@@ -289,11 +292,15 @@ function addLeg(push, M, rootX, rootY, rootZ, side, len, fwd) {
 // R7 — THROAT GORGET bands: wide shallow ventral scutes carrying the belly glow up the neck in
 // SEGMENTED geometry (so the throat joins the belly system instead of being a bare tube).
 function addGorget(push, stations, M) {
-  const zs = [-2.20, -2.05, -1.90, -1.75, -1.60];
+  const zs = [-2.16, -2.02, -1.88, -1.74, -1.60];
   const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); return { yb: (a.cy - a.ryD) + ((b.cy - b.ryD) - (a.cy - a.ryD)) * t, w: a.rx + (b.rx - a.rx) * t }; } } return { yb: stations[2].cy - stations[2].ryD, w: stations[2].rx }; };
-  zs.forEach((z, i) => { const s = sample(z), mat = i < 2 ? M.bellyEdge : M.bellyMid, w = s.w * 0.8, y = s.yb + 0.01;
-    push(mat, [[-w, y, z], [w, y, z], [0, y - 0.02, z + 0.10]]);   // a shallow overlapping throat band (emissive)
-    push(M.recess, [[-w, y, z], [0, y - 0.02, z + 0.10], [-w, y - 0.01, z + 0.12]]);   // a thin dark seam under it
+  // gate fix: the bands must STAND OFF the throat with a dark step behind, or they vanish. Each band is
+  // a raised emissive chevron plate + a recessed dark seam aft = a segmented glowing throat (a real rank).
+  zs.forEach((z, i) => {
+    const s = sample(z), mat = i < 2 ? M.bellyEdge : M.bellyMid, w = s.w * 0.82, y = s.yb;
+    const bl = [-w, y + 0.01, z], br = [w, y + 0.01, z], keel = [0, y - 0.05, z + 0.05];   // raised keel of the band
+    push(mat, [bl, keel, br]);                                  // the lit throat band (proud)
+    push(M.recess, [bl, [-w, y + 0.02, z + 0.11], keel], [br, keel, [w, y + 0.02, z + 0.11]]);   // dark recessed seam aft
   });
 }
 
@@ -353,7 +360,7 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
 
   addTrunkShell(push, trunk, M);        // the dark hull
   addBellyDeck(push, trunk, M);         // R2 — raised glow plates + recessed gutters + bolt channel
-  const ridgeN = 8 + Math.round(6 * (model.glowLevel ?? 1));   // R1 — dorsal scute/crest rank (ladders up)
+  const ridgeN = 13 + Math.round(8 * (model.glowLevel ?? 1));   // R1 — dorsal scute/crest rank, occiput→tail (ladders up)
   addDorsalRidge(push, trunk, M, ridgeN);
   addGorget(push, trunk, M);            // R7 — throat gorget bands
 
