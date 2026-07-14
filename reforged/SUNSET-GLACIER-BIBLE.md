@@ -40,3 +40,17 @@ flock: high gilded soarers color 0xffdfc2 scale 1.15 flap 0.4 (near-motionless s
 ## 11. AUDIO (later): glassy ice chimes (pentatonic, rare, unquantized), thin high wind, a deep ice groan every 20–40s (MARROWCOIL foreshadow grows animal). Water lap muted (mirror = silent). Snow-quiet mix.
 
 ## SEQUENCING (render a pass each): 1 palette+light+fog+water+motes+fauna (pure data+makeMats) → 2 prop kit (5 archetypes + paired makeBand + foam + swap) → 3 sky pillar + flyby → 4 Cathedral Berg → 5 verify (bulletcontrast, envcount, tiers).
+
+---
+## PROP DOCTRINE v2 (supersedes §2 — owner: "all long and skinny, mountains don't look like that")
+**Massive-first: ~86% broad/chunky mass, ~14% vertical punctuation.** Real ice reads as scale through
+BREADTH, not height. ≥80% of instances have world width ≥ height; true spires are ONE rare archetype
+(largest step). No vertical without a broad base it grows from (Matterhorn logic). ≥4 unrelated outline
+families so no two archetypes share a silhouette (anti-picket). Aspect from BOTH place() r AND geometry sx.
+Roster v2: **bergwall** (hero tabular berg-wall, ~1.2:1 wide, colossal) · **serac** (chunky icosahedral
+block-pile ~1:1, ~90 facets = richest surface) · **terrace** (stepped ice staircase, 3–8:1 wide, the foil)
+· **pinnacle** (rare broad-based horn, step 120 = punctuation) · **sungate** (massive Argonath pylons,
+paired) · **glacierwall** (far ice-shelf front, 4–5:1 wide, now at true scale). Cyan lives in the CRACKS
+(crevasse seams / fracture plates / melt-ponds), never as a whole object (the deleted `sail` was neon
+signage). Richness = form + per-facet sun variance (different ry per stratum) + stepped self-shadow bands +
+emissive-transmission on big faces, not thin repeated spikes.
