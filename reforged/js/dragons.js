@@ -742,7 +742,7 @@ export const DRAGONS = {
       // ~76% of the wing (wristT 0.24) and folds at the −anchor wrist, so the trail is real in-wing motion,
       // no membrane tear (the welded chiropatagium hinges cleanly at the shared wrist edge).
       wingParts: 3, rootAmp: 0.80, apexRoot: 0.30, midAmp: 0.32, tipAmp: 0.8, midLag: 1.05, tipLag: 2.1,
-      glidePow: 1.1, restLift: 0.03, apexMid: 0.08, apexTip: 0.12,
+      glidePow: 1.1, restLift: 0.03, apexMid: 0.08, apexTip: 0.12, tipApexSweep: 0.26,
       // TAIL MOTION — the virga storm-stem is a 4-joint NESTED isBone chain (see
       // dragonTempest.js): a LOW lateral coil + a pronounced vertical wave (the storm rolls).
       tailWhip: true, tailLagScale: 0.12, tailUndulateX: 0.30, tailRudderScale: 0.5,

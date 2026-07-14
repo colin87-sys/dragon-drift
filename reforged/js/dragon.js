@@ -775,6 +775,12 @@ export function updateDragon(dt, player, time) {
     const apexRootF = (m.apexRoot ?? 0) * apexUp(phase);
     const apexMidF  = (m.apexMid  ?? 0) * apexUp(phase - midLag);
     const apexTipF  = (m.apexTip  ?? 0) * apexUp(phase - tipLag);
+    // APEX WRIST-SWEEP (opt-in via model.tipApexSweep): at the TOP of the upstroke the wing is near
+    // vertical, so the flap-axis (z) wrist fold points almost AT the chase camera and projects into
+    // DEPTH — invisible in silhouette. This sweeps the hand AFT in the wing's PLANE (+.y), driven by
+    // the ROOT's apex (unlagged) so it concentrates at recovery, turning the fold into a wrist DOGLEG
+    // the rear camera can actually see. Zero for any dragon without the dial (roster unchanged).
+    const apexTipSweepF = (m.tipApexSweep ?? 0) * apexUp(phase);
     const apexPitch = m.apexPitch ?? 0;
     const restLift  = m.restLift ?? 0;
     // ── BANKING via POSE BIAS ONLY — never a L/R phase delay. Both wings share the ONE
@@ -794,7 +800,7 @@ export function updateDragon(dt, player, time) {
       if (md) md.rotation.set(twMid + 0.05 * inside - apexPitch * apexMidF, upMid * 0.08 + 0.05 * outside, -(midF * amp) + apexMidF * amp + 0.10 * inside);
       // tip: smaller arc + apex lift (highest → forms the V) + feathers BACK (.y) + UP (.x) + folds up inside
       if (tp) { const tF = md ? tipF : (midF + tipF), aT = md ? apexTipF : (apexMidF + apexTipF);
-        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside, -(tF * amp) + aT * amp + 0.16 * inside); }
+        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside + apexTipSweepF, -(tF * amp) + aT * amp + 0.16 * inside); }
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
