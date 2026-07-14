@@ -1409,9 +1409,11 @@ function updateQuality(dt, hitchDt = dt) {
       if (sinceRestore < 8) restoreDwell = Math.min(restoreDwell * 2, 24);
       applyQuality(qualityTier + 1); degradeTimer = 0; qualityTimer = 0;
     }
-  } else if (medFps > restoreAt && !bossEncounter) {
-    // NO RESTORES MID-ENCOUNTER: a restore during the fight would flip the tier and REPAINT the
-    // detonation (the owner's "background changes"). Restores are deferred to after bossEnd.
+  } else if (medFps > restoreAt && !bossEncounter && !(player.tunnelFxMix > 0.3)) {
+    // NO RESTORES MID-ENCOUNTER OR MID-FLOW-CARVE: a tier flip repaints the scene — during a boss it
+    // repaints the detonation, and during a flow run it flips the AURORA curtain (the owner's "no lights,
+    // then it pops in"). Defer restores to after bossEnd / until the carve envelope (tunnelFxMix) settles,
+    // so the restore's breath lands in the calm exit air. (Degrades stay instant — the 60fps floor holds.)
     degradeTimer = 0;
     qualityTimer += dt;
     if (qualityTimer > restoreDwell) { applyQuality(qualityTier - 1); qualityTimer = 0; sinceRestore = 0; }
