@@ -1,5 +1,682 @@
 # THUNDERHEAD TEMPEST — "The gathering storm" · Premium Build Sheet (fresh storm drake)
 
+**v3 — THE CONSOLIDATED CONTRACT (2026-07-14).** This sheet was rebuilt as ONE coherent,
+self-contained builder's contract: §1–§10 below are the ONLY sections a build chat reads. The
+STORMFORK bolt-wing is the NATIVE hero (not a patch), the emissive doctrine is re-derived from the
+owner's reference image (the glowing lightning garment — a deliberate, recorded revision of the old
+"withheld" doctrine), and every number, path, and assert that used to live across §0–§D +
+supersede banners has been reconciled INTO the contract. The full v0→v2 layered history — the
+strata-deck era, the §R/§F critic passes, the original §B, the §C carryover tables, the §D wing
+patch — is preserved verbatim in the **APPENDIX (design history — superseded; do not build from
+here)** at the bottom. If anything in the appendix appears to disagree with §1–§10, the contract
+wins, always, with no reconciliation required of the builder.
+
+One of the FRESH FIVE (see `FRESH-DRAGONS-SYNTHESIS.md`). Storm/lightning lane, proven in shipped
+games (MH *Kushala Daora*/*Amatsu* · Genshin *Dvalin "Stormterror"* · Pokémon *Zekrom*/*Rayquaza*),
+copied from none. **Read first:** `DRAGON-DESIGN.md` (laws, wing kit §4, motion kit §5, glow §6,
+harness §9) · `VESPER-NIGHTGLASS-BUILDSHEET.md` (house format) · `PREMIUM-BUILDSHEET-RESEARCH.md`
+§3/§4/§6b. Numbers here are the authority; every Fable gate judges against THIS contract.
+
+---
+
+## §1 Identity contract + frozen identity laws
+
+Fresh roster key `tempest` — fully additive, nothing shipped changes.
+`name:'Thunderhead Tempest'` · `title:'The gathering storm'` · `rarity:'SSR'` / `maxRarity:'SSSR'` ·
+`cost: 2600` (between Vesper 2200 and Pearl 3400; owner may re-slot) ·
+`stats { speed 1.12, handling 1.14, drain 0.86, regen 1.16 }` (a front that keeps coming — pace +
+endurance, under the 1.16/1.28 caps) · `fx.auraColor '217,222,255'` (storm-white, cold) ·
+`forms[]` accretive, length 4 · `maxTierFor === 3` · `hasStyle` (Surge stays a white-violet storm,
+never magenta) · `accentHue: 0xd9deff`.
+
+**Frozen identity laws (v3):**
+1. **THE STORM WEARS ITS LIGHTNING.** *(Revised 2026-07-14 — the owner's reference image wins over
+   the v0–v2 "withheld" doctrine, and the revision is recorded, not smuggled.)* The cruise frame is
+   a charcoal thundercloud wearing a LIVE near-white energy garment: the bolt wing-frame, the
+   spine circuit, the chest/underbelly veins, the horn-crest, and the tail bolt-tuft all HUM
+   visibly at idle (`humFloor` 0.30→0.90 up the ladder), breathing on a slow deterministic charge
+   cycle. The pulseTimer STRIKE is the PEAK of that hum (a 2.2–4.0× luminance lift travelling
+   root→tip), never an ignition-from-dark; **Dragon Surge = "the Tempest breaks"** (continuous
+   blaze + ≤3 Hz fork-strobe). One line: *Solar wears its light as regalia; Vesper sheathes it;
+   the Tempest wears the storm — charged, breathing, building, breaking.* The body is NEVER
+   dark-and-dead — and never Solar-static: the garment always has rhythm.
+2. **Charcoal, never black; near-white, never warm.** Body L 0.20–0.26 at every form (≈2× Vesper's
+   L≤0.10 — the hard anti-Vesper floor, asserted); hue ~222° held; zero warm hues, zero gold.
+   Accent family passes by SATURATION (≤0.12), not hue collision: near-white `0xd9deff` (sat≈0.09),
+   strike core `0xf2f4ff` (the ONE true near-white, sat<0.06), silver `0x9fb0c8` (diffuse only).
+3. **CHARGING is the verb.** Every ascension accumulates charge in four channels at once: TREE
+   (circuit completeness `arcRun` ↑), TIME (strike duty `arcDuty` 0.06→0.18 ↑), GLOW (humFloor +
+   lit coverage ↑), SOURCE (`heartScale` ↑) — plus mass and silhouette (kinks/fork/rays). Apex
+   superiority is shape-completion, never scale.
+4. **Everything churns.** Fork tips shiver on the blade-lag walker, bays billow ±3%, the crest
+   streams, virga wisps trail — motion IS the cloud read (bespoke dial block, no photocopied flap
+   block).
+5. **Structure IS motif.** The Stormfork wing's skeleton is literally the Storm Circuit's f2/f3
+   branches — a strike renders the wing's own construction diagram root-to-tip. The grind-hook is
+   in the silhouette.
+6. **Build vehicle:** NEW `js/dragonTempest.js`, billowed/faceted assembly family. Forbidden
+   imports: `dragonOrganism.js`, `dragonNightFury.js`, `dragonUnifiedHull.js` (asserted in tests).
+
+## §2 Reference-image DNA → design decisions (the owner's Stormfork concept art is ground truth)
+
+The owner's reference: a sleek faceted low-poly dragon, dark charcoal/blue-slate body, PALER
+GLOWING underbelly/chest; each wing's skeleton a bright near-white FORKED BOLT with dark charcoal
+cloud-membrane webbed between the glowing branches — the lightning frame generously, beautifully
+lit; a near-white energy circuit along neck/spine and chest; a glowing swept-back spiky horn-crest;
+a long tail ending in a near-white lightning-flame tuft; a soft near-white aura under the belly;
+cool desaturated palette against a dark stormy sky. Per the Revenant lesson
+(`2026-07-13-revenant-render-in-color-and-let-the-owner-reference-win`): the picture OUTRANKS
+prose — this table is the contract's ground truth.
+
+| Reference element (owner image) | Tempest feature it grounds | Deliberately NOT taken |
+|---|---|---|
+| Wing skeleton = a bright forked lightning bolt, membrane webbed between GLOWING branches | THE STORMFORK (§4b): `boltArm` 3-kink arch + Y-fork frame, whose crest overlays (`arcSeam`) idle at `humFloor` — the frame reads as lit lightning in CRUISE, not only in strikes | a literal zigzag (the arch-not-zigzag law §4b holds); translucent/additive glow shells (the garment is opaque emissive geometry) |
+| Dark charcoal cloud-membrane between the branches | opaque matte `boltTiers[4]` membrane — the dark cloth the bolt is sewn to; it stays diffuse in cruise (glow lives on COMPONENTS, never surfaces — DRAGON-DESIGN §6) | lit membrane in cruise (it becomes the RECEIVER only at strike peaks + Surge, capped ≤0.30) |
+| Paler, GLOWING underbelly/chest | belly tier lifted one step to `0x566384` (recorded revision from v1's `0x4a5468`) + THE STERNUM-VEIN CIRCUIT (§4a): branching opaque-emissive vein strips dynamo→keel→tail-root, hum-lit | a uniformly emissive belly surface (veins are strips; the surface stays diffuse) |
+| Near-white circuit along neck/spine | THE SPINE CIRCUIT (§4a): one dorsal inset seam occiput→tail-root riding `spinePoints`, hum-lit, bucket b2 | a second hue; any warm rim (spineMats trap — §5e) |
+| Glowing swept-back spiky horn-crest | `stormbrowHead`'s STORMBROW CREST (§4c): 0→2→4→6 swept tent-blades, each ridge carrying a thin hum-lit `arcSeam` crest strip | lighting every blade at full intensity (dominant-decay applies to the glow too); horn SPIKES breaking the rear fill (no-tangents guard) |
+| Tail ends in a near-white lightning-FLAME tuft | THE BOLT-TUFT (§4d): a faceted opaque-emissive flame terminus (~70 tris, `arcSeam` body + `arcCore` tips), `tuftScale` 0.3→1.0, whips with the last joint | sprite/billboard flame (C6: give the fire a BODY); warm flame hues |
+| Soft near-white aura haloing the underside | delivered FREE by ACES bloom off the hum-lit vein strips + lifted belly tier — `auraIdle 0` stays, zero added overdraw | an aura sprite or additive shell in cruise (the overdraw cliff) |
+| The lightning is a generous garment, present at idle, building | THE GARMENT DOCTRINE (§1 law 1 + §5a): humFloor 0.30→0.90, strike = peak ×2.2–4.0, Surge = the break | Solar's static always-on (the hum BREATHES + strikes punctuate — rhythm is kept); the old withheld doctrine (superseded, recorded) |
+| Cool desaturated palette, charcoal + near-white/pale-blue | §1 law 2 palette verbatim: `0xd9deff / 0xf2f4ff / 0x9fb0c8 / 0x2e3543`-family ramp | any hue warmer than 90° at sat>0.2 (asserted) |
+| Dark stormy sky, faint distant lightning | biome coupling — belongs to `BIOME-DESIGN.md`, not this dragon | sky FX on the dragon itself |
+
+## §3 Art direction + the rear-chase silhouette
+
+**North star: THE GATHERING STORM — a thunderhead that decided to hunt, already wearing its
+lightning.** Billowed charcoal cloud-mass with silver-lined rims, dressed in a live near-white
+storm circuit that hums at idle, flashes root→tip on strikes, and breaks open on Surge. Anchor:
+charcoal slate `0x293040` (apex). Accent: storm-white `0xd9deff` (~255° at sat≈0.09), emissive-only.
+Hero: **THE STORMFORK** (the bolt-frame wing). Motif: **THE STORM CIRCUIT** (the worn branching
+arc-tree). Growth verb: **CHARGING**. One word: **IMMINENT.**
+
+- **One-word rear read: BOLT.** Black-fill (rear): two jagged kinked storm-blades — each wing ONE
+  opaque charcoal blade whose leading edge steps through THREE hard bolt angles on a gull-arch
+  macro line, the dominant ray splitting mid-length into a **Y** (the fork crotch notching the
+  outline), membrane sagging in cupped bays between a decaying ray rank; the wispy 5-wisp virga
+  fringe below, the swept crest above. **The only angular-stepped outline in the game** — and in
+  colour, the only silhouette whose skeleton GLOWS at idle.
+- **Landmark punctuation (5):** (1) the three kink steps per leading edge (outline angles — they
+  survive 250px); (2) the Y-fork notch near the tip; (3) the hum-lit frame tracing those same
+  angles in colour (the garment doubles the outline read); (4) the virga fringe (irregular,
+  tapering ×0.80 — never rods) + the bolt-tuft point of light at the tail tip, dead-center of the
+  chase frame; (5) the crest blades — held off the wing leading edge by the no-tangents guard
+  (gap ≥0.08 OR overlap ≥0.05, at glide AND bank).
+- **The standing frame carries the identity** — no longer by silver rims alone: carved charcoal
+  frame + silver caps + the LIVE hum garment + the crackle-churn. Judged FIRST on the standing
+  (`pin(0)`, between-strikes) rear crop at every gate — it must read "a dragon wearing lightning,"
+  with the strike as the crescendo, not the crutch.
+- **Anti-collision (each pair ≤1 shared cell, separators as laws):** vs VESPER — L floor 0.20 vs
+  L≤0.10; live-hum near-white 255°/sat.09 vs withheld ion 223° Surge-only; kinked ANGULAR-STEPPED
+  blade vs smooth scallop crescent (hard angles vs pure curves). vs SOLAR (the new nearest
+  emissive neighbour — both always-visible): cool 255° sat≤0.12 vs warm gold; a BREATHING,
+  strike-punctuated, form-growing garment vs static worn regalia; a branching circuit skeleton vs
+  ring + gem; charcoal storm vs indigo crown. Calibration veto (both tiles at I0): *"does any
+  frame read as a black Vesper clone or a gold-regalia Solar?"* vs STILETTO — one kinked opaque
+  blade per side vs four straight translucent veined blades. vs TOCSIN — angular-stepped kinked
+  blades + wispy tapering virga vs round coin row + rigid rods; up-attitude vs low-flat. vs
+  REVENANT — see the guard below. vs SYLPH — hard-angle blade vs soft luminous hood.
+- **§C ANTI-RESKIN GUARD (carried at FULL strength, restated for the garment era):** the owner's
+  named fear is a re-skinned Revenant. Five bans, each with its reason and its machine check:
+  1. **No BONE** — no vertebra units, bead-chains, knuckle nodules, ivory anywhere; the frame's
+     language is electrical ("kink station", "fork vertex"), never skeletal anatomy.
+  2. **No CAGE / enclosed apertures** — Tempest's only negative space is the OPEN-ended fork-crotch
+     V-notch; standing assert `holeMetric` enclosed-hole count ≈ 0 on every view/form (≤ the ~2%
+     aliasing floor). The Revenant's pass-band is Tempest's FAIL-band.
+  3. **No LANTERN** — the Revenant lantern = ONE interior core seen THROUGH apertures, continuously
+     lighting its cage. Tempest's glow is the opposite topology: a DISTRIBUTED circuit worn ON the
+     surface (a garment with ~5 limbs), no apertures, whose rhythm builds hum→strike→Surge.
+     Machine check: the sternum dynamo contributes ≤15% of summed cruise emissive (the wing-frame
+     ≥45%) — a single-source chest glow that out-reads the frame is the lantern creeping back.
+     *(This restates — does not weaken — the old guard: what was banned was the Grave-Heart
+     topology, and it stays banned; the hum being present is the OWNER'S doctrine, §1 law 1.)*
+  4. **No BAT-MEMBRANE read** — opaque matte cloud membrane (never translucent skin, no tattered
+     scallop hems); the skeleton's geometry is one no vertebrate limb makes (three hard ≥18°
+     breaks + a mid-ray Y-fork); no arm/wrist anatomical reasoning anywhere (the fold joint is
+     "the dominant kink," an electrical object). The wing-kit LAWS it keeps (dominant-plus-decay,
+     cupped bays, cowl+gusset) are DRAGON-DESIGN §4 laws, not Revenant features.
+  5. **No BLEACH ramp** — Tempest DARKENS up the ladder inside the L≥0.20 floor (the storm
+     gathers); importing the Revenant's value direction inverts the identity.
+  **Standing gate veto, every increment, judged first on the standing rear crop:** *"Does any
+  Tempest frame read like a re-skinned Revenant — bone, cage, lantern, or bat-membrane — instead
+  of a thundercloud wearing lightning?"* Any YES fails the gate regardless of the numeric average.
+
+## §4 The part builders — `js/dragonTempest.js` (billowed/faceted assembly, self-registering, nullable default-off dials)
+
+**Shared kit (top of module):** `flatTriMesh` (mechaKit.js) · `tempestMats(def, glow, stage)`
+copying only the `sovereignMats`/`vesperMats` STRUCTURE (dragonVesper.js:43–80 — stage-aware;
+`userData.baseEmissive/baseIntensity` on every ticked mat). Tiers: `stormShadow 0x2a2f3c` (dorsal)
+/ `flank` = `def.body` (the ramp hex) / `belly 0x566384` (lifted one step from v1's `0x4a5468` —
+the reference's pale underbelly; hue 222° held) / `silverRim 0x9fb0c8` (diffuse, metalness 0.06,
+envMapIntensity 0.3 — glints, never glows) / `boltTiers[4]` (membrane, lerped toward lit
+steel-slate `0x8a95ac` over f `[0.60,0.40,0.22,0.06]`, endpoint steps ≥0.05 L) / `arcSeam`
+(emissive `0xd9deff` — THE GARMENT mat family, 3 bucket copies, idle at `humFloor`) / `arcCore`
+(emissive `0xf2f4ff` — the one true near-white, strike-peak hue-lerp target only) / `heart`
+(emissive `0xd9deff`, `transparent:true` for the coreGlow hook). Body law: metalness 0, roughness
+0.85, envIntensity 0.18, **emissive 0x000000** on every diffuse mat (the rig ticks
+`bodyMat.emissiveIntensity` 0.12→0.35 at dragon.js:1192 — black emissive keeps the cloud matte
+through it; the garment lives on dedicated strips, never on surfaces). `cloverLoft(stations,
+profile, matOrFn)` = the `knapLoft` PATTERN (dragonVesper.js:106–131) with a per-station `rot`
+field rotating profile indices ±10–14° station-to-station (the diagonal turbulence weave — kills
+rings AND strakes; knapLoft itself deliberately cannot rotate). All builders batch per-material
+tri accumulation → ≤3–4 `flatTriMesh` per group (the Pearl 253-draw lesson); apex draws ≤70.
+
+### §4a `cumulonimbusTorso` — the billowed cloud-loft + the STERNUM DYNAMO + the body circuit
+*(Renamed from v1's `stormcellTorso` — reference-era name; nothing is built yet, zero code impact.)*
+Publishes the full attach contract (`wingRoot(side)`, `headBase`, `tailAnchor`, `halfWidthAt`,
+`bodyMidY`, `riderSocket`), `spinePoints` (≥2 inflections: neck rises INTO the storm-wall line →
+chest proud → tail counter-drop → tip flick), `motifAnchor` (sternum, fixed, never re-hued), and
+**`coreGlow` = the dynamo core mesh** (the dragon.js:1147–1151 opacity hook's third real user —
+floor → ×1.5 boost breathe → ×(1+1.4·sgm) Surge blaze, zero new engine code).
+- **Loft:** 6 stations, each a clover of 3 overlapping soft lobes (N=9 merged profile), `rot`
+  +12°/−10°/+14°… per station. Shoulder:waist ≈1.55, haunch 0.8× chest. Value bands per column:
+  `stormShadow` dorsal / `flank` sides / `belly` under; every lobe's UPPER edge column takes
+  `silverRim` (the sun behind the cloud — diffuse, warm-sky-safe). f0 carries one lobe less per
+  station (a small wad of weather).
+- **THE STERNUM DYNAMO (storm-heart, ~110 tris):** 5 charcoal cowl VANES (2-face tent wedges swept
+  like turbine stators, `stormShadow`) ringing a recessed faceted octa-teardrop core (~50 tris,
+  fan-built, vertex-jittered by index hash `sin(i*12.9898)*43758…` — deterministic, never
+  `Math.random()`; `heart` mat, `transparent:true`, `userData.base = 0.22 + 0.30·glowLevel` — the
+  hum-era idle, brighter than the withheld era's 0.10). ≥0.06 clearance from every vane (no
+  coplanar faces); sits BELOW the rider eye-line. The storm tick (§5d) kicks it ×(1+0.5·env01) on
+  strike frames — the dynamo audibly "turns over" ~0.2 s before each bolt (the player's telegraph).
+  The vane inner faces take a dedicated near-black recess mat (envMap 0) so the recess reads as
+  DEPTH + lit rims, not a chest decal (C8 both-cues law).
+- **THE STERNUM-VEIN CIRCUIT (new, from the reference):** 2–3 branching vein strips (shallow
+  2-face `arcSeam` tents, width ≤0.02×body length, `THREE.DoubleSide`) running dynamo → belly keel
+  → tail root along the ventral centerline, one short branch per side toward each wing root —
+  generated FROM the loft's own sampled belly-column nodes (C14 weld law: authored from
+  independent constants they'd float off the billowing loft). Bucket b1. The reference's soft
+  underbelly halo = ACES bloom off these strips + the lifted belly tier; `auraIdle 0` stays.
+- **THE SPINE CIRCUIT:** one dorsal inset-groove seam + tent strip, occiput → tail root, riding
+  the same `spinePoints` the rig uses (weld by construction). Bucket b2. Grooved, so cruise reads
+  carved-and-lit, not painted.
+- **Scapular STORM COWL:** 2 billowed lobe-plates per side lapping the wing roots — the Vesper
+  `buildScapularCowl` overlap trick (dragonVesper.js:540–562), STATIC in the body frame, never
+  parented to the flapping pivot.
+
+### §4b `stormforkWings` — THE HERO: the bolt-frame wing (native, not a patch)
+Construction cites (reuse the PATTERNS, fresh geometry): `buildOneScallopWing`
+(dragonVesper.js:365–534) · module-level profile-as-function `vesperArmY/Z` (346–356) · `ridge()`
+tents (400–409) · connected `edgeBand` (470–477) · gusset (482–491) · cowl (540–562) · the −anchor
+wrist fold + `lmirror` outer mirror (616–638) · seam-mat DoubleSide (77–78).
+- **(a) The bolt profile — ONE module-level waypoint function** shared by geometry, tip markers,
+  blade-pivot placement, and tests (the detach-gotcha law):
+  ```js
+  const BOLT_T = [0, 0.18, 0.40, 0.68, 1.00];      // stations; interior 3 = K1, K2 (fold), K3 (fork)
+  const BOLT_Y = [0, 0.042, 0.180, 0.066, 0.048];  // ×hs — gull-arch envelope, bolt offsets baked in
+  const BOLT_Z = [-0.03, -0.05, -0.02, 0.09, 0.30];// ×hs — plan ogee: bows forward inboard, steps hard aft
+  function boltArm(t, hs) { /* piecewise-LINEAR through the 5 waypoints */ }
+  ```
+  Piecewise-LINEAR is the trick: between stations the leading edge is a straight chord; at the
+  stations it breaks hard — a stepped leader, frozen. **The macro line stays an ARCH — 3 knuckles
+  on an arch, NEVER a zigzag** (the anti-sawtooth discipline, asserted): exactly **3** interior
+  slope breaks; each rear-projection (X-Y) direction change ∈ **[18°, 60°]** with **K2's the max**
+  (dominant kink = arch apex = the fold joint) and K1 ≥20°; a **single global Y-max at K2** (a
+  zigzag has multiple comparable peaks and >3 breaks); every waypoint Y within **±0.06·hs** of the
+  smooth gull arch. The Z jogs deliver the stepping in TOP planform (asserted there — plan jogs
+  don't project astern).
+- **(b) The Y-FORK + the decaying ray rank:** `K = boltArm(0.40)` (fold joint); `F0 = boltArm(1.0)`
+  (tip, pins the span). The dominant ray IS the outboard leading edge K→K3→F0. **The fork happens
+  AT K3** (t 0.68 — a stepped leader branches AT a step; the third knuckle IS the fork vertex, a
+  shared welded node): the branch prong leaves K3 at **+24° aft** in plan, **−8°** dip, length
+  **0.62×** |K3→F0|, tip `Fb`; at f3 a 2nd-order SPUR leaves the branch at 0.55 of its length,
+  +20°, 0.52× the remainder. Aft rays: 3 more from K (apex = 4 rays + prong), `lenFrac [1, 0.80,
+  0.62, 0.46]`, **each successive length ≤0.86× the previous** (branch 0.62× and spur 0.52× obey
+  it), fanned `spanAft 1.10`, tips drooping aft-and-down; every ray = 2 straight segments with an
+  8–14° mid-break, alternating sign down the rank (bolts step, never sag).
+- **(c) Thickness everywhere:** arm segments, rays, prongs are `ridge()` 4-face tents — arm width
+  0.16·hs root → 0.05·hs at K3, lift 0.10 → 0.035·hs; rays width 0.075·hs·(1−0.08i), lift 0.09·hs.
+  Nothing on this wing is a single quad or a paper crease.
+- **(d) Membrane bays (the sawtooth killer):** between consecutive ray tips, an INWARD-cupped
+  quadratic bézier trailing edge (control pulled toward K; cup 0.32×(0.75+0.14·i); deepest sag
+  biased aft; bay centre dropped so rim light pools), **sampled ≥4 segments (6 at f2/f3)**,
+  inter-lobe cusp depth ∈ [0.25, 0.45]× peak sag. **THE FORK-CROTCH BAY** (between the prongs):
+  cup 0.5, the darkest tier, and **OPEN at the trailing edge** — a V-notch, never an enclosed
+  aperture (the C-GUARD). Membrane **OPAQUE matte** `boltTiers[4]`, assigned by bay index;
+  `M.wingMat` = the inboard tier (the rig's single-material wing contract; opaque, so the rig's
+  opacity-fade writes are visually inert — noted, not a bug).
+- **(e) THE GLOWING FRAME (the garment's main limb):** thin `arcSeam` tent overlays riding every
+  ridge crest exactly — generated FROM the same sampled crest nodes the ridge geometry uses (C14:
+  a bolt authored from independent constants floats off its frame; this one CANNOT detach).
+  Shallow 2-face tents lifted 0.008 above the caps, `THREE.DoubleSide` (the culled-ignition no-op
+  gotcha, DRAGON-DESIGN §6.5), strip width ≤0.022·hs. **Idles at `humFloor(form)`** — in cruise
+  the wing reads as a lit lightning skeleton webbed with dark cloud (the reference, verbatim);
+  strikes lift it to peak; Surge blazes it. Buckets: arm crest → b2; K3→tips + fork + aft-ray
+  crests → b3 (§5b).
+- **(f) The silver rim-cap tier:** `silverRim` cap strips tracing the same crests UNDER the arc
+  overlays (root→K1→K2 brightest — the Kushala new-skin leading edge; then dominant ray, prong,
+  inboard aft-ray segments) — the diffuse "silver lining" that keeps the wing sculpted when the
+  hum is at its lowest (f0) and under the warm-gold backdrop stress tile.
+- **(g) The connected knife-edge:** ONE thin translucent band (brightest wing value, opacity 0.62,
+  DoubleSide) just inboard of the WHOLE scalloped trailing polyline — innermost bay, around every
+  cusp, around the crotch V, to the tip (per-bay shards banned; dragonVesper.js:470–477 verbatim).
+  **The wing's only transparency.**
+- **(h) Shoulder:** root gusset (root-LE → K → hip point) anchored to ARM-side points only (the
+  fold-tear law), buried under the static scapular cowl; the membrane's inboard edge sits close to
+  the shoulder pivot (C12 pivot-lever law).
+- **(i) Motion — shoulder-led, the broken-linkage tell dead by construction:** `wingParts 3`
+  cascade pivot→mid(arm root→K1→K2)→tip(HAND at K2): `tip.position.set(K)`,
+  `hand.position.set(−K)` (the −anchor law, rest pose byte-identical); LEFT = outer
+  `lmirror scale.x = −1` wrapper PARENTING the pivot (never on the pivot). Dial block:
+  `flapBias 0.82, flapAmp 0.8, wingParts 3, rootAmp 0.74, midAmp 0.14, tipAmp 0.08, midLag 0.45,
+  tipLag 0.95, glidePow 1.9, restLift 0.06, apexMid 0.06, apexTip 0.10` — shoulder arc ownership
+  77% (C5's 75–85% band), each distal strictly < proximal, block unique in the roster (Vesper
+  glidePow 2.2 / Revenant rootAmp 0.72, glidePow 1.15). **THE CRACKLE-CHURN:** publish
+  `wingBladePivotsL/R` — idx 1 = a pivot AT K3 owning the branch prong (+f3 spur + crotch-side
+  bay skirt, boundary verts AT K3), idx 2 = a pivot at the aftmost ray's root — the rig's lag
+  walker (dragon.js:852–859, zero rig surgery) phase-lags them 0.45/0.9 rad, sway 0.10/0.14 rad:
+  **the fork tips shiver like a stepped leader hunting for ground**; seam breathing ≤0.012 at
+  walker extremes (asserted). pulseTimer's downstroke bias means strikes tend to fire at the beat
+  apex — the bolt-frame flashes as the wing slams (free drama). **Fold at K2** (the wing folds
+  where the bolt breaks hardest), span ≤0.66 of glide, prong nest clearance 0.02 checked in the
+  builder.
+- **(j) Numbers:** apex span:body **2.5×** (roster cap) · sweep 18° · single-blade area:body
+  side-area ~0.8 · ~300 tris/wing + ~40 arc-overlay tris → ~0.7k/pair at apex · ~8–9 meshes/wing ≈
+  18 draws/pair. Publishes `wingPivot/Mid/TipL/R`, tip markers duplicating `boltArm` (module-level
+  — the trail-detach bug impossible), `parts.wingElements` (arm + dominant-ray path), per-tip
+  markers at F0/Fb.
+
+### §4c `stormbrowHead` — the horned stormbrow + the glowing crest
+*(Renamed from v1's `thunderheadManeHead`.)* A blunt RAM-PROW wedge (~14 facets via a mini profile
+loft: occiput → heavy brow shelf → short muzzle — the storm leads with its forehead), pointing −Z.
+**2 blunt horn-BOSSES** on the brow shelf (~8 tris each — a horned-brow read in the shop turntable,
+cut before they become spikes; inside the head outline in rear fill). **THE STORMBROW CREST** (the
+reference's glowing swept spiky crest): swept-back tent-blade filaments off the occiput (0→2→4→6
+up the ladder, lengths ×0.82 dominant-decay, 2-face tents — never paper planes), canted ±8°
+off-sagittal; tips placed by a module-level function shared with the §9 no-tangent test. **Each
+blade's ridge carries a thin `arcSeam` crest strip** (hum-lit — the crest glows near-white at
+idle, intensity decaying ×0.8 down the rank so the dominant blade leads), bucket b3; ONE `arcCore`
+tip node on the dominant blade at f3 (~6 tris). Eyes: octahedra (the Vesper eye pattern,
+dragonVesper.js:748–755), `0xcfd8ff`, ladder 36%→28%→23%→19% almond; eye mats OUT of every
+surge/storm array (rig-driven via `feverEye`). Publishes `headLength`.
+
+### §4d `virgaTail` — the rain-stem + the BOLT-TUFT
+A tapering storm-stem on the Vesper **isBone 4-joint nested chain** verbatim
+(dragonVesper.js:785–795: `jAnchor`/`chainAdd` −anchor compensation, `joints[0].isBone = true`,
+rotation-only — position writes tear the chain). Stem = `cloverLoft` sections ×0.90 per joint
+span, tip ≤0.20× base. Dials: `tailWhip: true, tailLagScale 0.12, tailUndulateX 0.30,
+tailRudderScale 0.5` (low lateral coil, pronounced vertical wave — the storm rolls). **THE VIRGA
+FRINGE:** 2→3→4→5 rain-streamer wisps off the last two joints (thin tapering 2-face tents, lengths
+×0.80, tips ≤0.20× base, irregular spacing — never a rod comb) + **ONE connected single-layer
+translucent HEM band** (opacity ~0.55) tracing the fringe's trailing polyline (the edgeBand fix —
+one transparent drawable, not per-wisp shards). **THE BOLT-TUFT (the reference's lightning-flame
+terminus, replacing v1's 4-tri stud):** a faceted flame of 3–5 interleaved tapering tent-tongues
+(~70 tris, index-hash jittered, OPAQUE emissive — `arcSeam` body, `arcCore` on the 2 tip facets
+only), `tuftScale` {0.3, 0.5, 0.75, 1.0}, hum-lit, bucket b3, binned to the last chain joint so it
+whips with the tip — the point of light the chase camera tracks, dead-center by construction.
+Tail stem carries the spine circuit's last segments (grooved, bucket b3). Wisps bin to the joint
+whose z-span holds them (−anchor compensated).
+
+## §5 THE STORM CIRCUIT — the garment doctrine, pulseTimer, the storm tick, the fever firewall, the overdraw census
+
+**§5a The garment doctrine (law, with the revision recorded).** v0–v2 held "withheld — lightning
+live 6–18% of frames, dark charcoal otherwise." **The owner's reference image shows the lightning
+as a generous glowing garment, and the reference wins** (the Revenant lesson, applied): the
+circuit — wing frames, spine, sternum veins, crest, bolt-tuft, dynamo — idles at a visible
+**hum**: `intensity = humFloor(form) · (0.85 + 0.15·sin(ω_charge·t))`, humFloor
+**0.30/0.50/0.70/0.90** up the ladder, ω_charge fixed ≈0.5 Hz (deterministic, pinnable — a live
+wire breathing, not a lamp). **CHARGING stays the verb and the STRIKE stays the peak:** pulseTimer
+windows lift the buckets to `peak(form)` = **1.2/1.6/2.0/2.4**, travelling root→tip; the
+strike:idle luminance ratio is asserted ∈ **[2.2, 4.0]** — big enough to read as an event, never
+an ignition-from-dark (which also SHRINKS the photosensitivity modulation depth vs the withheld
+era). **Surge = "the Tempest breaks"**: continuous blaze at the caps + ≤3 Hz fork-strobe
+alternating buckets 2/3. Distinctness holds by behaviour, not just hue: Solar's regalia is warm,
+gold, and STATIC; Vesper's seam is dark until Surge; Tempest's garment is cool, near-white, and
+ALIVE — breathing, striking, growing. What is retired with the withheld doctrine (named so nobody
+re-adds it): the ≤0.06 ember floor, the "heart+eyes ≥85% of cruise emissive" assert, and C11's
+"receiver light inside strike windows ONLY" clause (the hum is the garment; C11's receiver law
+still governs the MEMBRANE, which stays diffuse in cruise and receives only at peaks/Surge).
+- **Coverage census (the garment is generous, not unbounded):** emissive strip area as a fraction
+  of visible surface — wing frames ~6% + spine/veins ~3% + crest ~1.5% + tuft ~1% + heart ~0.5% ≈
+  **12% at apex** (ladder 4/7/10/12%, asserted by strip-area sum). ≤7% was the withheld era's cap;
+  12% is the honest garment recount — bounded, counted, and all OPAQUE.
+- **Glare discipline unchanged:** peak caps `arcSeam ≤2.4`, `arcCore ≤2.0` (strike-peak hue-lerp
+  only), `heart ≤1.6`; hum ≤0.95 by construction; the ±10° corridor asserted emissive-clear at the
+  PINNED strike frame; duty + window length remain the drama levers, never intensity (rim-diet
+  law). **≤1 true near-white discipline held:** `arcCore` (sat<0.06) is the only near-white mat,
+  absent from both surge arrays; `arcSeam 0xd9deff` is sat 0.09 — the sanctioned lane.
+
+**§5b Topology + run buckets.** Fixed anchor: the STERNUM DYNAMO (motifAnchor, never moves, never
+re-hues). The tree: dynamo → sternum veins + scapulars→K1 (**bucket b1**) → spine circuit + arm
+crest K1→K2→K3 (**b2**) → K3→F0 + fork branch (+f3 spur) + aft-ray crests + crest blades + tail
+stem + bolt-tuft (**b3**). 3 bucket materials → 3 draws; the storm tick offsets each bucket's
+strike envelope +0.04 s so a strike TRAVELS root→tip over ~0.12 s (the Revenant 3-phase-bucket
+pattern, proven on dragon.js:1008-style ticks). On the wing the "jitter" is the frame's own kinks;
+the seeded zig-zag polyline generator (mulberry32 on `stormSeed`) survives for the tail stem +
+crest filaments only. `arcRun` gates completeness per form (§6).
+
+**§5c `js/pulseTimer.js` — the shared deterministic strike scheduler (LANDS with this build;
+Tocsin reuses it).** Confirmed absent from `js/`; architecture precedent `bossRhythm.js` (pure,
+deterministic-given-rng, CI-simulated) + the integrated-phase law (dragon.js:62 — advance by dt,
+never `time·freq`). Pure module: no THREE, no DOM, no globals.
+`createPulseTimer({ seed, duty, windowMin: 0.10, windowMax: 0.28, burstMin: 1, burstMax: 4,
+restShape: 'storm' })` → `{ tick(dt, phaseHint01), state() → { live, env01, burstIdx, windowIdx,
+t }, pin(t01), reseed(seed) }`. Schedule = BURST CLUSTERS: `burstN ∈ [burstMin,burstMax]` windows
+of 0.10–0.28 s, 0.30–0.70 s intra-gaps, then a rest sized so long-run lit fraction = `duty`
+exactly (rest ≥1.2 s). Downstroke bias: an about-to-open window may be DELAYED ≤0.25 s until the
+flap phase crosses the downstroke apex — deterministic given the same dt/phase stream. Envelope:
+env01 rises over 30 ms, holds, falls over 60 ms; within-window flicker a fixed ≤3 Hz cosine dip —
+**the photosensitivity caps live IN the module** (window ≥0.10 s ≥ the 80 ms floor, rest ≥1.2 s,
+≤3 Hz; no call site can strobe faster). Call-site guards: skip opening windows when the adaptive
+`quality < 1` (dragon.js:89); boost multiplies duty ×2.2 by scaling rests, never window length.
+**`?strikePin=<t01>`**: module-scope URLSearchParams parse exactly like `?wingDebug`
+(dragon.js:22–28) → `timer.pin(t01)` freezes the schedule (0 = standing/hum frame; 0.5 =
+mid-window strike peak); `tools/dragonstudio.mjs` gains a `strike` state — every gate round
+pixel-comparable. Headless tests: same seed → identical schedule over 10k fixed-dt ticks; long-run
+duty ±10%; window/rest/Hz floors; `pin()` idempotent.
+
+**§5d The STORM TICK — the ONE guarded dragon.js addition (≤14 lines), the single writer.** Two
+engine truths force single-writer architecture: (a) `spineMats` get the global WARM cruise rim
+`0xfff0d8` (dragon.js:1183/222) — poison for a 255° family; (b) the flare loop's else-branch
+RESETS every spineFlareMat's emissiveIntensity each non-surge frame (dragon.js:1174–1177), erasing
+anything written earlier. So the arc mats sit in **NEITHER surge array**; one tick, keyed on
+`parts.stormArcMats` existing (null for every other dragon — roster byte-identical), placed AFTER
+the flare loop (jade pearl-mat precedent, dragon.js:1008–1017):
+- writes the 3 bucket mats: `emissiveIntensity = hum(form)·breathe(t) +
+  env01(t − 0.04·bucket)·(peak(form) − hum)`; hue-lerps `0xd9deff → 0xf2f4ff` at env>0.85 (the
+  strike core, capped; the channel-clip law keeps the violet cast + the hue step a visible jump);
+- kicks the dynamo (`coreGlow.userData.base` ×(1+0.5·env01) — the hook owns OPACITY, the tick only
+  scales the base pre-read: one writer per channel);
+- **owns Surge itself**: `player.feverActive` → continuous blaze at the caps + ≤3 Hz strobe
+  alternating b2/b3 — never handed to the flare loop;
+- drives the ±3% bay BILLOW (`parts.bayGroups`, fixed ω, phase-lagged) — deterministic, pinnable;
+- fallback if the owner vetoes rig code: static hum + Surge-only blaze via flareMats (loses
+  strikes — identity-critical, so the tick is the plan of record).
+
+**§5e Full fever-palette override (every hostile default named with its dragon.js line).**
+Defaults: `feverWing 0xff44cc` magenta (1135), `feverEye 0xff66ee` (1193), `surgeHi 0xfff8e8`
+white-gold (1156), warm rim `0xfff0d8` on spineMats (1183–1186). The def block (Vesper
+dragons.js:611–621 format):
+
+| hook | value | why |
+|---|---|---|
+| `feverWing` | `0xd9deff`, membrane fever emissiveIntensity **≤ 0.30** | the frame IS the ignition — a black feverWing would leave a blazing skeleton on dead cloth; the membrane becomes the capped RECEIVER (frame out-reads it ~5:1), near-white lane, NEVER magenta |
+| `wingEmissive` + `wingMembraneEmissive` | `0x000000` | kills the cruise/boost membrane-glow target (1130–1135) — cruise membrane stays diffuse cloud |
+| `feverEye` | `0xe8ecff` | eyes blaze pale storm-white |
+| `surgeHi` | `0xe8ecff` | every flared-mat lerp goes storm-white, never white-gold |
+| `feverWash` | `[0.05, 0.055, 0.10]` | cold wash, under the godhead NaN/flash guards |
+| `eye / apexEye` | `0xcfd8ff / 0xd9deff` | pale arc-white family |
+| `apexSeam / coreGlow` (color fields) | `0xd9deff` | hue-lock ground truth |
+| `trail / boostTrail` | `0x7a84b8 / 0xaab4e8` | cold trail family (surge `0xe8ecff`) |
+| `fx.auraColor` | `'217,222,255'`, `auraIdle 0` | the underside halo comes from bloom off the vein strips — no sprite |
+| `hideRiderGlow` | `true` | the garment owns the frame |
+| `surgeMotes` | absent/false | the Surge spend is the blazing circuit, not motes |
+| surge arrays | arc mats in NEITHER (single-writer tick); heart in flareMats for the hue lerp only | the warm-rim + else-reset dodge |
+
+**§5f THE OVERDRAW CENSUS — recomputed for the always-lit garment (the biggest feasibility
+shift, counted, not vibes).** The garment is **OPAQUE emissive geometry** — emissive is a shading
+term on opaque triangles, NOT blending: an always-lit frame adds **ZERO transparent drawables and
+zero fill cost** over the unlit version. CRUISE transparent = 1 dynamo core (coreGlow) + 1 virga
+hem + 1 trail + **2 knife-edge bands (L/R meshes, one shared mat)** = **5 ≤ 6**. SURGE = + the
+fever aura sprite = **6 ≤ 6 — AT the ceiling, zero slack**: `surgeMotes` stays banned, and the
+NAMED FALLBACK if the p95 HUD flags is the knife-edge band dropping to opaque lit-slate (the
+silver caps carry the rim read) → 4 cruise / 5 Surge. Max alpha layers along any chase ray: wing
+ray = 1 (band) · tail ray = 2 (hem + trail) · heart ray = 1 — all ≤2 ✓. What always-lit ACTUALLY
+costs is **BLOOM AREA**, and it is bounded: coverage ≤12% (§5a ladder, asserted) × hum ≤0.95 in
+cruise; the strike lifts intensity (capped), never area. p95 honesty: worst case =
+strike+boost-trail coincident — pre-degraded by the quality guard skipping new windows below
+tier 1. Draws: ~18/pair wings, apex total ≤70 (creaturestress-checked).
+
+## §6 The CHARGING ladder (4 forms — the bolt-frame matures, the garment brightens, the storm gathers)
+
+Form names: **f0 Squall Pup · f1 Stormcell · f2 Thunderhead · f3 Tempest Unleashed.**
+Drama 25/45/70/100. Every rung adds a CATEGORY (structure + light + a silhouette move).
+
+| dial | f0 Squall Pup | f1 Stormcell | f2 Thunderhead | f3 Tempest Unleashed | assert |
+|---|---|---|---|---|---|
+| read | one soft cloud-bend, dim hum | first hard kinks, arm frame lights | the fork arrives, chest veins + crest light | the full garment, root-to-tip live | — |
+| `kinkKnuckles` | 1 (K2 only, soft ~12°) | 2 (+K1) | 3 (+K3; breaks enter [18°,60°]) | 3 (fully hard) | exact {1,2,3,3}; band at f2/f3 |
+| Y-FORK / spur | — | — | fork at K3 | fork + 2nd-order spur | {0,0,1,1}; spur f3-only |
+| rays (dominant + aft) | 2 | 3 | 4 | 4 | ↑; decay ≤0.86× each |
+| bay NSEG | 4 | 4 | 6 | 6 | ≥4 always |
+| `arcRun` (circuit completeness) | 0.25 (dynamo + sternum veins) | 0.5 (+arm frame + spine to shoulders) | 0.75 (+to the fork + chest branches + crest) | 1.0 (every tip + spur + tuft full) | monotonic ↑ |
+| `humFloor` (idle garment) | 0.30 | 0.50 | 0.70 | 0.90 | monotonic ↑; breathe ±15% fixed ω |
+| glow coverage (strip-area frac) | 0.04 | 0.07 | 0.10 | 0.12 | monotonic ↑; ≤0.12 |
+| `arcDuty` (strike duty) | 0.06 | 0.10 | 0.14 | 0.18 | monotonic ↑; long-run ±10% |
+| strike peak / contrast vs hum | 1.2 / 4.0× | 1.6 / 3.2× | 2.0 / 2.9× | 2.4 / 2.7× | contrast ∈ [2.2,4.0] |
+| burst windows / cluster | 1 | 1–2 | 2–3 | 2–4 | max ↑ |
+| `heartScale` (dynamo) | 0.5 | 0.7 | 0.85 | 1.0 | monotonic ↑; ≤15% of cruise emissive |
+| crest blades (lit ridges) | 0 | 2 | 4 | 6 | ↑; ×0.82 decay; tip node f3-only |
+| `virgaWisps` / `tuftScale` | 2 / 0.3 | 3 / 0.5 | 4 / 0.75 | 5 / 1.0 | both ↑; wisp taper ≤0.20× |
+| `wingBladePivots` /side | 0 | 1 (aft ray) | 2 (+branch prong) | 2 | {0,1,2,2} |
+| `billowAmp` (bay groups) | 0 | 0.015 | 0.02 | 0.03 | monotonic ↑ |
+| span : body | 1.7× | 2.0× | 2.25× | 2.5× | ↑, ±10%, apex ≤2.5 |
+| eye : head | 36% round | 28% | 23% | 19% almond | monotonic ↓ |
+| body hex (value ↓, hue ~222°) | `0x3a3f4a` | `0x333947` | `0x2e3543` | `0x293040` | **L ↓ AND ∈[0.20,0.26] every form** (L .259/.239/.222/.206) |
+| head : body | 1:2.3 | 1:3.2 | 1:4.2 | 1:5.0 | ↓ |
+| tri target | ~1.8k | ~2.7k | ~3.7k | ~4.9k | monotonic ↑, ±20%, <6000 |
+
+Growth-verb asserts: CHARGING = `arcRun` ↑ + `arcDuty` ↑ + `humFloor` ↑ + coverage ↑ +
+`kinkKnuckles` ↑ + the fork arriving + `heartScale` ↑ — charge accumulating in TREE, TIME, GLOW,
+SHAPE, and SOURCE at once; the fork arrives at f2 exactly when `arcRun` reaches it (structure and
+motif rung-locked). The value ramp DECREASES (the storm gathers darkness under the brightening
+garment — the value scissor is the ladder's signature move) and is bracketed by the L≥0.20 floor.
+Tri re-pin rationale (honest): §D's {1.8,2.6,3.6,4.7}k + ~200 apex tris of garment geometry
+(veins ~50, spine ~60, crest strips ~30, bolt-tuft ~70) → {1.8, 2.7, 3.7, 4.9}k; the
+silhouette-economics law still holds — the OUTLINE does the work, no padding back.
+
+## §7 FEASIBILITY AUDIT (every element + motif + motion channel → cited path → overdraw → biggest risk → mitigation)
+
+| # | element | engine construction path (cited) | overdraw | biggest risk | mitigation |
+|---|---|---|---|---|---|
+| T1 | `cumulonimbusTorso` clover loft | `cloverLoft` = knapLoft pattern (dragonVesper.js:106–131) + per-station rotation (fresh in-module helper) | 0 | rotated weave re-banding at low rot angles | rot ≥10°/station + per-column value bands; I1 colour gate on the pale backdrop |
+| T2 | silver-lining rims + lifted belly | diffuse tiers, metalness 0.06 / envMapIntensity 0.3 (Vesper glassStreak "glints, never glows") | 0 | rims/belly out-reading the garment on a dark sky | envIntensity cap 0.3; belly is DIFFUSE (the halo is bloom off the veins); judged both backdrops at I1 |
+| T3 | sternum dynamo | `parts.coreGlow` hook (dragon.js:1147–1151) + 5 opaque vanes + near-black recess floor (C8) | 1 (the sanctioned transparent) | the lantern creeping back (anti-reskin §3.3) | heart ≤15% of cruise emissive contribution (asserted); it is one node of a 5-limb garment, no apertures |
+| T4 | sternum veins + spine circuit | opaque `arcSeam` tents welded to loft/spine sample nodes (C14) + inset grooves | 0 | strips floating off the billowing loft | generated FROM sampled nodes, never constants; groove-recessed so cruise reads carved-and-lit |
+| SF1 | `boltArm` waypoint profile | `vesperArmY/Z` profile-as-function (346–356) + the waypoint-table method (C15) | 0 | **HEADLINE (a): the kinked outline collapsing to SAWTOOTH/COMB at 250px** | 3-knuckles-on-an-ARCH discipline, all machine-checked: exactly-3 breaks + single global Y-max at K2 + break band [18°,60°] + arch envelope ±0.06·hs + bays ≥4 seg, cusp ∈[0.25,0.45] + decay ≤0.86×; judged on the STANDING `pin(0)` rear crop FIRST at 2× pale |
+| SF2 | ridge tents + silver caps | `ridge()` 4-face tents + caps (400–409) | 0 | caps out-glinting the garment | envMap cap 0.3; dim one notch if they out-read the hum |
+| SF3 | Y-fork + decaying rays | finger-fan tips (386–393) + `lenFrac`; fork = welded node at K3 | 0 | fork reads as a 5th equal finger → comb | fork ONLY on the dominant; branch 0.62×, spur f3 0.52×; ≤0.86× decay asserted |
+| SF4 | opaque membrane bays | bay bézier fan ≥4 seg, aft-biased sag (443–463) | 0 | sawtooth Vs between rays | NSEG ≥4 (6 f2+) + cusp ∈[0.25,0.45] (assert) |
+| SF5 | knife-edge band | `edgeBand` ONE-strip (470–477) | +2 drawables (L/R, 1 mat) — the wing's only transparency | Surge census at ceiling 6/6 | counted (§5f); named fallback = opaque lit-slate band |
+| SF6 | cowl + gusset shoulder | gusset arm-side anchors (482–491) + static cowl (540–562) | 0 | fold-tear across the K2 joint | arm-side-only anchoring; nothing spans the hand fold (C12) |
+| SF7 | THE GARMENT (hum-lit frame + circuit) | Vesper seam-mat pattern (77–78) + DoubleSide (§6.5) + C14 weld + the §5d tick | 0 (opaque emissive) | **HEADLINE (b): the always-lit garment blowing the p95 / photosensitivity budget** | it adds ZERO transparency (opaque emissive, §5f) — the cost is bloom AREA, bounded by coverage ≤12% + hum ≤0.95 + peak caps; strike modulation depth SHRINKS vs withheld (contrast capped ≤4.0 from a lit base); ≤3 Hz / window ≥0.10 s / rest ≥1.2 s live IN pulseTimer; corridor emissive-clear at the pinned strike; duty/window are the levers, never intensity |
+| SF8 | fork crackle-churn | `wingBladePivotsL/R` walker (dragon.js:852–859, hardcoded lag/sway) | 0 | membrane tear at the flutter boundary | boundary verts AT the pivot (C12); seam breathing ≤0.012 asserted; sway ≤0.14 rad under the shoulder beat |
+| SF9 | fold at K2, span ≤0.66 | wingParts fold pose + contraction assert | 0 | prong poking through folded membrane | nest clearance 0.02 in the builder; flapstrip 5-phase + fold pin |
+| SF10 | rear-read measurement | tip markers + `rearfit` black-fill (silhouetteCore.mjs:90) | offline | kinks measured in the wrong projection | Y-breaks asserted in rear X-Y; the Z ogee in TOP planform separately |
+| H1 | stormbrow crest (glowing) | tent-wedge blades (Vesper CP5 ear pattern) + module-level tip fn + `arcSeam` ridge strips | 0 | crest tips tangent vs the wing leading edge; picket-fence-of-light | no-tangents assert (gap ≥0.08 OR overlap ≥0.05, glide AND bank); glow decays ×0.8 down the rank, ONE `arcCore` tip node f3 |
+| H2 | eyes | Vesper octahedra (748–755) | 0 | out-shone by the crest | eye intensity rides glowLevel; crest strips capped below eye luminance at f0–f1 |
+| V1 | virga tail + bolt-tuft | isBone chain (785–795) + tents + ONE hem band + fan-built tuft | 1 (hem) | tuft reads as a sprite/blob | faceted interleaved tongues, index-hash jitter, `arcCore` tips only (C6: the fire has a body) |
+| M1 | `js/pulseTimer.js` | NEW pure module; bossRhythm.js architecture; integrated-phase law (dragon.js:62) | none (CPU) | headless/live schedule drift | fixed-dt tests + `pin()`; no wall-clock reads |
+| M2 | the storm tick (single writer) | guarded ≤14-line block AFTER the flare loop; keyed `parts.stormArcMats` (jade precedent 1008–1017) | 0 | the else-reset (1174–1177) / warm rim (1183) clobbering the garment | arc mats in NEITHER surge array; tick after the loop; one writer per channel (heart: hook owns opacity, tick scales base) |
+| M3 | fever firewall | full §5e table — every default named with its line | — | ONE missed hook = magenta/white-gold leak | §9 simulates the surge-tick values; every fever emissive ≤0.12 sat OR 255°±20 |
+| M4 | photosensitivity + glare | caps IN pulseTimer + peak caps + contrast band [2.2,4.0] | — | the pinned strike blooming over the corridor | ±10° corridor emissive-coverage assert at `pin(0.5)`; no full-screen flash in cruise (feverWash Surge-only, under shipped guards) |
+
+**Q(a) — the anti-sawtooth kink discipline: does a hand-authored kinked leading edge stay a BOLT
+(3 knuckles on an arch) and never decay into a zigzag/comb? YES — because the discipline is
+construction + five independent machine checks, not taste.** The arch envelope (±0.06·hs of the
+smooth gull curve) guarantees the macro line reads WING before the eye finds the breaks; exactly-3
+breaks + a single global Y-max at K2 makes a zigzag structurally unrepresentable; the [18°,60°]
+band keeps every break visible-but-anatomical; the ray mid-breaks (8–14°, alternating) rhyme with
+the hero without competing; the bays' ≥4-seg cups + ⅓ cusps kill the triangle-teeth read between
+rays. All five are §9 asserts, and every gate judges the STANDING rear crop first at 2× on the
+pale backdrop — if the outline needs its lightning to read, it fails before the strike frame is
+even graded.
+
+**Q(b) — does the ALWAYS-LIT garment stay inside the p95 overdraw + photosensitivity budget?
+YES — because "lit" is free where it matters and bounded where it isn't.** Overdraw: the entire
+garment is opaque emissive geometry — emissive is shading, not blending, so the always-lit frame
+adds ZERO transparent drawables and zero fill over an unlit build; the census stays 5 cruise /
+6 Surge (§5f, ceiling hit by the pre-existing band+aura, with the band's opaque fallback named),
+alpha ≤2 on every ray. The true cost is BLOOM AREA: bounded by the coverage ladder (≤12% of
+surface, asserted by strip-area sum) × hum ≤0.95, with peaks capped (arcSeam ≤2.4 / arcCore ≤2.0
+/ heart ≤1.6) and the strike lifting intensity, never area. Photosensitivity IMPROVES over the
+withheld doctrine: the old scheme flashed dark→bright (maximum modulation depth); the garment
+strikes from a lit base with contrast capped ≤4.0×, and the hard caps (window ≥0.10 s, rest
+≥1.2 s, ≤3 Hz modulation, Surge strobe ≤3 Hz) live INSIDE pulseTimer where no call site can
+defeat them. The genuinely human residual — whether a 0.90-hum apex reads charged-and-alive or
+neon-sign — rides the preview with named levers (§10).
+
+## §8 BUILD INCREMENT PLAN (coexist → hero → ladder; one fresh harsh Fable gate per increment; COLOUR from the first geometry)
+
+- **I0 — stub + `pulseTimer.js` + `?strikePin` + calibration.** Roster key `tempest` (fully
+  additive; roster byte-identity proven by multiset `comm -3` compare of sorted tricount FORM
+  rows — the naive diff lies); `js/dragonTempest.js` skeleton with 4 registered
+  contract-satisfying placeholders (`coreGlow:null` crash-guard stub until I1; `horn`/`scales`
+  def hexes; `lanceTint`/`lanceRune` — the SSSR invariants). LAND `pulseTimer.js` + determinism
+  tests + `?strikePin` + the dragonstudio `strike` state — timed-spectacle tooling before any
+  lightning exists. Gate calibration on **Vesper AND Solar** tiles with the twin veto (*"black
+  Vesper clone or gold-regalia Solar?"*) + the anti-reskin veto locked into the rubric; add the
+  C-GUARD `holeMetric ≈ 0` assert.
+- **I1 — `cumulonimbusTorso` + the dynamo + the body circuit.** Clover loft + silver rims +
+  lifted belly + cowls + the caged dynamo on coreGlow + sternum veins + spine circuit at hum.
+  FIRST COLOUR GATE (never silhouette-only — the Revenant's costliest miss): the weave reads
+  billowed cloud; the hum reads charged-alive on the game-lit tile (verify the charcoal L band
+  under the real key, not the swatch); the dynamo reads a generator behind vanes, not a lantern;
+  the belly halo blooms soft, no sprite.
+- **I2 — `stormforkWings` (the HERO).** boltArm frame → fork → rays → bays → caps → glowing frame
+  at hum → knife-edge → churn pivots → fold. Gate: the STANDING rear crop first (BOLT, not
+  sawtooth, not venetian anything) at 250px AND the 2× pale crop; kink/fork/decay asserts green;
+  wingsymprobe Δ0.000; trio frame vs Vesper + Stiletto-concept; the anti-reskin veto.
+- **I3 — `stormbrowHead` + `virgaTail`.** Ram-prow + bosses + glowing crest (no-tangents green) +
+  eyes; tail chain + fringe + hem + THE BOLT-TUFT. Gate: crest punctuation + tuft point-of-light
+  read at chase; fringe wispy-tapered (the Tocsin separator); tail-ray alpha ≤2.
+- **I4 — THE FULL GARMENT + strikes + Surge + the fever firewall.** Buckets wired, the storm
+  tick, hum ladder, strike travel, boost duty ×2.2, "the Tempest breaks," the FULL §5e override
+  table. Gate: the three-state ruling on PINNED frames — hum (`pin(0)`: a dragon wearing
+  lightning, garment distribution ≥45% wing-frame / ≤15% heart), strike (`pin(0.5)`: root→tip
+  travel + contrast ∈[2.2,4.0] + corridor clear), Surge (the break, ≤3 Hz); the overdraw recount
+  (5/6); the firewall hue proof through the real tick math.
+- **I5 — the CHARGING ladder + `tests/starters.mjs`.** `forms[]` accretive ×4 + the §9 block +
+  tricount ladder + the full capture set (all forms; states glide/fold/bank/surge/**strike**/
+  **hum**; 3 backdrops; roster neighbour frames incl. Solar). Gate: full-ladder verdict; then the
+  PR preview carries §10's residuals.
+
+Each gate is a FRESH high-effort Fable spawn judging real captures against THIS contract; FAIL →
+numbered directives applied verbatim; the builder never judges its own output. The owner's
+reference/screenshot outranks this sheet — deviations rebuild to the picture and log the delta.
+THE RULE: a new lesson file per increment that changes the creature.
+
+## §9 `tests/starters.mjs` SPEC — the `tempest` 4-form block (mirrors the Solar/Molten premium blocks at starters.mjs:281/:326; Molten donates the corridor-scan pattern)
+
+Headless via `buildDragonModel` + `ascendedDef(def, t)`, t = 0..3; silhouette asserts import
+`renderSilhouette` + `holeMetric` from `../tools/silhouetteCore.mjs`; pulseTimer imported directly.
+- **Contract:** `maxTierFor('tempest') === 3`; forms accretive length 4; contract fields
+  untouched; NaN-vertex guard (Molten pattern).
+- **TRIS:** monotonic ↑, ±20% of {1.8k, 2.7k, 3.7k, 4.9k}, all <6000.
+- **PROFILE SHARED:** tip-marker + `wingElements` positions equal `boltArm()` evaluations — one
+  module-level function, no duplicated formula.
+- **KINKS (arch-not-zigzag):** interior slope-break count of the leading edge in REAR X-Y
+  projection = {1,2,3,3} exact; at f2/f3 each break ∈ [18°,60°], K1 ≥20°, K2's break the max,
+  single global Y-max at K2, waypoint Ys within ±0.06·hs of the smooth arch; the Z ogee asserted
+  in TOP planform.
+- **FORK:** {0,0,1,1} on the dominant ray only; spur f3-only; fork vertex a shared welded node;
+  ray + prong lengths each ≤0.86× the previous.
+- **BAYS:** every membrane arc ≥4 seg (≥6 at f2/f3); cusp ∈ [0.25,0.45]× peak sag; the
+  fork-crotch bay OPEN at the trailing edge; **C-GUARD:** `holeMetric` enclosed-hole count ≈ 0 on
+  every view/form (≤ the ~2% aliasing floor).
+- **NO-TANGENTS:** every crest-blade tip (module-level tip fn) vs the wing leading edge: gap
+  ≥0.08 OR overlap ≥0.05, at glide AND bank poses.
+- **CHARGING:** `arcRun` {0.25,0.5,0.75,1.0} · `arcDuty` {.06,.10,.14,.18} exact ·
+  `humFloor` {0.30,0.50,0.70,0.90} · coverage {0.04,0.07,0.10,0.12}±0.02 ≤0.12 (strip-area sum) ·
+  `heartScale`/crest-blades/`virgaWisps`/`tuftScale`/`billowAmp`/`glowLevel` monotonic ↑ ·
+  span:body {1.7,2.0,2.25,2.5}±10% ↑ apex ≤2.5 · eye:head ↓ {36,28,23,19}%±3.
+- **THE GARMENT (replaces the retired withheld asserts):** at `pin(0)` surge-off — every bucket
+  mat's intensity within ±10% of `humFloor(form)`; garment distribution by summed
+  `emissiveIntensity × luminance(emissive)`: wing-frame buckets ≥45%, dynamo ≤15% (the
+  anti-lantern lock); every membrane/cap/tent/body diffuse mat emissive `0x000000` (inventory
+  assert — silver caps machine-checked diffuse). At `pin(0.5)`: bucket luminance ratio vs
+  `pin(0)` ∈ [2.2, 4.0] (the contrast band); corridor emissive-clear; coverage unchanged (strikes
+  lift intensity, never area). **RETIRED (named so nobody re-adds):** the ≤0.06 ember floor · the
+  "heart+eyes ≥85%" cruise assert · `feverWing === 0x000000` · all deck/anvil/slit-era asserts.
+- **CHARCOAL LAW:** resolved `def.body` HSL-L strictly DECREASING AND ∈ [0.20,0.26] at every
+  form; hue drift ≤8° around ~222°; belly `0x566384` lighter than body; zero warm diffuse (hue
+  <90° or >330° at sat >0.2 → fail); zero gold-family. Assert the ramp on RENDERED medians too
+  (monotonic under ACES — tonemapping compresses the ends; C6).
+- **ACCENT LAW:** every emissive hue within ±20° of 255° OR sat ≤0.12; exactly ONE mat with
+  emissive sat <0.06 (`arcCore`), absent from both surge arrays.
+- **STRIKE DETERMINISM:** same seed → identical schedule over 10k fixed-dt ticks; long-run lit
+  fraction ±10% of `arcDuty`; window ∈ [0.10,0.28] s; rest ≥1.2 s; ≤3 Hz within-window;
+  `pin(t01)` reproduces the same state every call.
+- **FEVER FIREWALL:** simulate the surge-tick values — all fever-state emissive hues ∈ 255°±20 OR
+  sat ≤0.12, no hue in 280–340° at sat >0.2 (never magenta); `feverWing === 0xd9deff` with
+  membrane fever emissiveIntensity ≤ 0.30; `feverEye`/`surgeHi === 0xe8ecff`; `trail/boostTrail`
+  from the def.
+- **CORRIDOR (Molten pattern, starters.mjs:326):** glide pose ±10° forward corridor contains NO
+  wing/arc vertices at any form; at `pin(0.5)` no emissive-mat vertex inside it.
+- **MOTION / RIG:** def dials `rootAmp > midAmp > tipAmp` AND (mid+tip)/sum ≤ 0.28; measured
+  named-pivot amplitude table over N frames (± ranges, never point samples): |pivot| > |mid| >
+  |tip|; `wingBladePivotsL/R` lengths {0,1,2,2}; flutter-boundary seam breathing ≤0.012 at walker
+  extremes; fold contracts span ≤0.66; wingsym Δ0.000 (`tools/wingsymprobe.mjs`); tail publishes
+  4 isBone-rooted joints; motif anchor drift ≤0.15 pre-scale; `spinePoints` ≥2 inflections; wisp
+  tip taper ≤0.20×.
+- **FIREWALL IMPORTS:** `dragonTempest.js` contains no
+  `dragonOrganism|dragonNightFury|dragonUnifiedHull|growSkinnedExtension|sweepProfileSmooth`
+  (import statements, not prose); `pulseTimer.js` imports NOTHING from `js/` (purity assert).
+
+## §10 Verification harness + gate-blind residuals
+
+Per DRAGON-DESIGN §8/§9, per increment and in full at I5:
+1. Suites green: `node tests/blueprint.mjs` · `node tools/tricount.mjs --ci` (FULL roster) ·
+   `node tests/starters.mjs` · `node tools/creaturestress.mjs --ci` (≤70 draws).
+2. Studio: `node tools/dragonstudio.mjs tempest` — all 4 forms; states glide/fold/bank/surge +
+   **`strike` (pinned 0.5)** + **`hum` (pinned 0)**; fixed angles (rear chase / side / rear-¾ /
+   top planform); three backdrops — PALE is the kink/outline judge, warm-gold is the cold-glint
+   stress tile (do the silver caps + garment stay cold?), dark-sky is the bloom/halo judge.
+3. Black fills: `tools/silhouette.mjs tempest rear|rearfit|top [form]` (+ `--wings-only`) — kink
+   counts + fork notch + C-GUARD numbers ride every gate round.
+4. Motion: `tools/flapstrip.mjs` 5-phase corridor (±10° empty at ALL phases + folded);
+   `tools/wingsymprobe.mjs` Δ0.000; the named-pivot amplitude table; frozen-extreme clock check
+   (top ~12:00–12:30, bottom ~5:00, never 6:00).
+5. Three-state proof: matched PINNED triple — hum / strike / Surge on one dark sky (the seamprobe
+   pattern through the real storm-tick math).
+6. In-game: `tools/gameshots.mjs` (`?cleanshot&strikePin=…`) — chase idle, mid-bank, tier-up;
+   integration judgment only.
+
+**Named gate-blind residuals (the human judges on the PR preview — the gate cannot):**
+- **Hum brightness feel:** does the 0.90 apex hum read as a charged living garment or a neon
+  sign? Levers: humFloor down ONE step (0.90→0.80) before touching coverage; never dim the strike.
+- **Strike-on-hum drama:** at contrast 2.7× (apex), does the strike still land as an EVENT? Lever:
+  widen the strike window toward 0.28 s (duty-preserving) before raising peak caps.
+- **The standing-frame kink read at speed:** BOLT vs "damaged wing" in motion at 250px — levers:
+  sharpen K2 toward 55°, deepen the crotch notch; never add a 4th kink.
+- **Fork flutter feel:** stepped-leader shiver vs nervous wobble (walker lag is hardcoded; the
+  ≤3-line nullable dial follow-up stays flagged).
+- **Surge census at 6/6:** zero slack — if p95 flags, the knife-edge band drops to opaque
+  lit-slate (named fallback).
+- **Photosensitivity in real play** (owner call): caps are in the module; whether 0.18 duty over
+  a 10-minute run feels aggressive is a human ruling.
+- **Grey-sky legibility:** the hum garment now CARRIES the charcoal body on the dust-haze biome
+  (the inverse of the v2 worry) — confirm it doesn't over-carry (the body must still read as mass,
+  not a wireframe).
+- Storm SFX tie-in (default OFF) · the billow ±3% (alive vs breathing-balloon; fallback: cut).
+
+## SETTLED (v3 — do not re-litigate)
+- **THE GARMENT IS PRESENT (2026-07-14, owner reference):** the circuit hums in cruise
+  (humFloor 0.30→0.90, breathing), strikes are PEAKS (contrast 2.2–4.0×), Surge is the break.
+  This deliberately supersedes v0–v2's "withheld / intermittent-only" doctrine — recorded, with
+  the reference image as the authority. Never dark-and-dead; never Solar-static.
+- CHARCOAL L 0.20–0.26, never Vesper-black; near-white passes by SATURATION cap (≤0.12), never
+  hue collision; `arcCore` is the ONLY sat<0.06 emissive.
+- The membrane and all body surfaces are OPAQUE and diffuse in cruise; the garment is opaque
+  emissive COMPONENT geometry; the wing's only transparency is the knife-edge band.
+- THE STORMFORK is the native hero: 3 kinks on an arch (never a zigzag), Y-fork at K3, decay
+  ≤0.86×, fold at K2 ≤0.66.
+- The §C anti-reskin guard at full strength (bone/cage/lantern-topology/bat-membrane/bleach), with
+  the ≤15%-heart + `holeMetric ≈ 0` machine locks.
+- `pulseTimer.js` lands here, pure + deterministic, photosensitivity caps in-module; the storm
+  tick is the single writer; arc mats live in neither surge array.
+
+## Open owner calls (flag on the build PR)
+1. **Name** — "Thunderhead Tempest" (recommended); alternates Squallmarch · Stratovyr.
+2. **Cost/slot** — 2600 proposed.
+3. **Hum ceiling + strike cadence** — humFloor 0.90 apex + duty 0.18 + ≤3 Hz proposed; owner may
+   cap harder (photosensitivity policy shared with Tocsin).
+4. **Storm SFX tie-in** — distant-thunder rumble on f3 strikes (cross-discipline; default OFF).
+5. **How bright is too bright** — the garment vs the canyon dust-haze; rides the PR preview.
+
+---
+
+## APPENDIX — design history (superseded; DO NOT build from here)
+
+Everything below is the frozen v0→v2 stratigraphy: the original concept (§0–§12), the strata-deck
+era and its §R/§F critic passes, the v1 §B build sheet, the §C Revenant-carryover triage, and the
+§D Stormfork patch — kept verbatim because its research, critic verdicts, and engine finds are
+real history, but **every load-bearing number now lives in the v3 contract above**, which wins
+wherever the two disagree. Section numbers below (§0–§D) are internal to this appendix.
+
+### [ARCHIVED v0–v2 SHEET BEGINS — superseded by the v3 contract above]
+
 The builder's contract for a bespoke, low-poly, premium **living-thundercloud drake** — the storm/tempest
 lane (Kushala Daora's wind-tyrant presence + Amatsu's storm-mass + Kirin's bio-electric arc language,
 mined for authenticity, copied from none). One of the FRESH FIVE (see `FRESH-DRAGONS-SYNTHESIS.md`).
@@ -1275,6 +1952,7 @@ holds unchanged** — the circuit is the same cited tech on a better carrier.
 - **Surge census at 6/6:** zero slack — if p95 flags, the knife-edge band drops to opaque
   lit-slate (named fallback, SF5).
 
+
 ## CHANGELOG
 - **v0 (Fable design-director synthesis).** Fresh storm drake THUNDERHEAD TEMPEST — identity IMMINENT
   (the gathering storm); hero = THE STRATA STORM-FRONT (triple-deck slab stack, opaque, slit gaps);
@@ -1342,3 +2020,32 @@ holds unchanged** — the circuit is the same cited tech on a better carrier.
   in-module caps + coverage ≤7% asserted + corridor-clear at the pinned strike. Synthesis doc
   updated (matrix cell → "boltframe: kinked opaque membrane, forked lightning-skeleton"; rear
   read BOLT). Next: I2 builds `stormforkWings` against §D.
+- **v3 (THE CONSOLIDATED CONTRACT + the owner-reference glow; Fable design-director,
+  2026-07-14).** Structural: the sheet had decayed into a supersede-palimpsest (§B patched by §C,
+  partially replaced by §D, with superseded fragments scattered through §5/§R/§F/§B.3b–§B.8) — a
+  builder had to reconcile four strata before writing a line. Rewritten as ONE self-contained
+  contract (§1–§10 at the top, Revenant-§B structure: identity laws → reference-DNA table → art
+  direction/silhouette → four fully-specced builders with cited engine paths → circuit plumbing +
+  overdraw census → CHARGING ladder → feasibility audit with the two hardest questions → I0–I5 →
+  starters spec → residuals), with the STORMFORK as the NATIVE hero and all v0–v2 material demoted
+  to a clearly-marked history appendix. Zero "read X but ignore Y." Identity: the emissive
+  doctrine is REVISED in the owner's favour — the reference image shows the lightning as a
+  generous glowing garment, so "withheld (duty 6–18%, dark otherwise)" becomes **"generously lit,
+  building"**: the circuit (bolt wing-frames + spine + sternum/underbelly veins + glowing crest +
+  tail bolt-tuft + dynamo) idles at a breathing hum (humFloor 0.30→0.90 up the ladder, ω fixed),
+  pulseTimer strikes are the PEAK (contrast capped 2.2–4.0× — no more ignition-from-dark, which
+  also shrinks photosensitivity modulation depth), Surge stays "the Tempest breaks." CHARGING
+  survives intact (arcRun/arcDuty/humFloor/coverage/heartScale all monotonic). New reference-era
+  anatomy: lifted belly `0x566384`, sternum-vein circuit, spine circuit, glowing stormbrow crest
+  strips, the faceted BOLT-TUFT tail terminus (~70 tris, arcCore tips); builder renames
+  `stormcellTorso→cumulonimbusTorso`, `thunderheadManeHead→stormbrowHead` (nothing built yet).
+  Honest recounts: the garment is OPAQUE emissive (zero added transparency) — census cruise 5/6,
+  Surge 6/6 at ceiling with the knife-edge→opaque fallback named; coverage ladder 4/7/10/12% ≤12%
+  asserted by strip-area sum; tris re-pinned {1.8, 2.7, 3.7, 4.9}k (+~200 apex garment tris).
+  Retired asserts named so nobody re-adds them (≤0.06 ember floor · "heart+eyes ≥85%" ·
+  `feverWing 0x000000` · all deck-era asserts); new locks: garment distribution (wing-frame ≥45%,
+  heart ≤15% — the anti-lantern machine check), hum ±10% of humFloor at `pin(0)`, contrast band
+  at `pin(0.5)`, Solar added to gate calibration (the new nearest emissive neighbour). Anti-reskin
+  guard restated at full strength for the garment era. Synthesis doc updated (Tempest owns TIME,
+  re-based on rhythm-of-a-live-garment; Tempest↔Solar watched cell added). Next: cut the build
+  branch and run I0 against §1–§10 ONLY.
