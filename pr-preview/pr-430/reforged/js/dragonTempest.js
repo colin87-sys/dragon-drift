@@ -104,93 +104,198 @@ function tempestMats(def) {
   // chest is the hottest spot), blazes on Surge.
   const heartCore = std(0xd9deff, { emissive: 0xf2f4ff, ei: 3.0, rough: 0.4, metal: 0, transparent: true, opacity: 0.85, depthWrite: false });
   heartCore.userData.baseEmissive = 0xf2f4ff; heartCore.userData.baseIntensity = 3.0;
-  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, crest, heartCore };
+  // CARVED-DEPTH tiers (the Revenant richness trick mine lacked): a near-black RECESS wall (gutter
+  // seams between plates, under-scute strips, plate standoff gaps) + an even darker SOCKET FLOOR (the
+  // storm-heart orbit interior). Dark floor + lit rim = the "crafted, not smooth" read. Non-emissive.
+  const recess = std(lerpHex(base, 0x000000, 0.55), { emissive: 0x000000, rough: 0.9 });
+  const socketFloor = std(0x05070c, { emissive: 0x000000, rough: 0.95 });
+  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, crest, heartCore, recess, socketFloor };
 }
 
 // Deterministic hash jitter (index-seeded — never Math.random, so builds are reproducible).
 function jit(i, amp) { const h = Math.sin((i + 1) * 12.9898 + 4.1) * 43758.5453; return (h - Math.floor(h) - 0.5) * 2 * amp; }
 
-// THE DRAKE TRUNK — a lofted anatomical body (deep keeled chest → hard waist tuck → haunch
-// swell), flat-shaded irregular faceted skin, split into the DARK dorsal shell + the EMISSIVE
-// ventral panel by a CHEVRON seam, with dark BOLT-GLYPH facets knocked out of the belly.
-// Stations: {z, rx, ryU (half-height up), ryD (half-height down), cy, keel}. N=10 ring points,
-// a keel vertex at the bottom (the sternum V). Replaces the cloud clover-loft entirely.
+// ── THE DRAKE TRUNK + ORGANIZED DETAIL RANKS (richness overhaul, Fable diagnostic I1.5) ──
+// The body carries CRAFT the way the shipped Revenant does: ~7 organized geometric RANKS (repeating
+// units at fixed pitch) + CARVED DEPTH (a lit rim over a dark sunk floor), NOT paint on a smooth
+// loft. Every rank pushes into ONE shared per-material accumulator → still ≤~12 draws for the whole
+// torso. Module-level ring helpers so the trunk, the belly deck, and the ranks all share the geometry.
 const TRUNK_N = 10;
-function buildDrakeTrunk(stations, M) {
+const JA = 0.04;   // trunk vertex jitter (was 0.10 — that read as a melted balloon; crisp facets now)
+function trunkTh(k) { return Math.PI / 2 - (k * 2 * Math.PI / TRUNK_N); }   // k0 top, k5 bottom keel
+function trunkPt(s, i, k) {
+  const c = Math.cos(trunkTh(k)), sn = Math.sin(trunkTh(k));
+  const rY = sn >= 0 ? s.ryU : s.ryD;
+  const jx = jit(i * 97 + k * 7, s.rx * JA), jy = jit(i * 131 + k * 13, rY * JA);
+  let x = c * s.rx + jx, y = s.cy + sn * rY + jy;
+  if (k === 5) y -= s.keel || 0;
+  return [x, y, s.z];
+}
+// a trunk ring point raised outward along the (jitter-free) radial normal by `lift` (for relief)
+function trunkRaised(s, i, k, lift) {
+  const p = trunkPt(s, i, k);
+  const nx = Math.cos(trunkTh(k)) * s.rx, ny = Math.sin(trunkTh(k)) * (Math.sin(trunkTh(k)) >= 0 ? s.ryU : s.ryD);
+  const nl = Math.hypot(nx, ny) || 1;
+  return [p[0] + (nx / nl) * lift, p[1] + (ny / nl) * lift, p[2]];
+}
+const triWave = (i) => 2 - Math.abs((i % 4) - 2);            // 0,1,2,1 — the chevron seam march
+const ventColsAt = (i) => { const lo = 2 + triWave(i), hi = 8 - triWave(i), set = new Set(); for (let k = lo; k <= hi; k++) set.add(k); return set; };
+const bellyBolt = new Set(['2:6', '3:5', '4:4', '5:5', '6:6']);   // the recessed bolt channel facets
+function bellyTier(M, i, k) { const lvl = Math.min(Math.abs(k - 5), 3) + Math.abs(i - 4) * 0.6; return lvl < 0.7 ? M.bellyCore : lvl < 2.2 ? M.bellyMid : M.bellyEdge; }
+
+// The DARK dorsal shell (spine ridge darkest / flank lit / dorsal mid) — ventral columns are owned
+// by the raised belly DECK (addBellyDeck), so this only lays the top ~60% of each ring + the caps.
+function addTrunkShell(push, stations, M) {
   const N = TRUNK_N;
-  // ring point k of a station, with a deterministic vertex jitter (the irregular skin read)
-  const P = (s, i, k) => {
-    const th = Math.PI / 2 - (k * 2 * Math.PI / N);        // k0 top, k5 bottom (the keel)
-    const c = Math.cos(th), sn = Math.sin(th);
-    const rY = sn >= 0 ? s.ryU : s.ryD;
-    const jx = jit(i * 97 + k * 7, s.rx * 0.10), jy = jit(i * 131 + k * 13, rY * 0.10);
-    let x = c * s.rx + jx, y = s.cy + sn * rY + jy;
-    if (k === 5) y -= s.keel || 0;                          // sternum keel tip
-    return [x, y, s.z];
-  };
-  // The dark/glow seam CHEVRONS diagonally (gate r3 fix #1: the ±1-per-station toggle made an
-  // axis-aligned "orca" checkerboard). A triangle wave over a 4-station period marches the flank
-  // boundary in and out, so the seam runs at a diagonal with long torn runs, not vertical teeth.
-  const tri = (i) => 2 - Math.abs((i % 4) - 2);            // 0,1,2,1 triangle wave
-  const ventCols = (i) => { const lo = 2 + tri(i), hi = 8 - tri(i), s = new Set(); for (let k = lo; k <= hi; k++) s.add(k); return s; };
-  // The bolt glyph — a diagonal ZIGZAG of dark facets (col 6→5→4→5→6 down the belly = a chevron
-  // lightning slash), knocked out of the glow. NOT a block of squares.
-  const boltSet = new Set(['2:6', '3:5', '4:4', '5:5', '6:6']);
-  // Belly GRADIENT tier: brightest at the chest centre (station ~4, column 5), dim at flanks + aft.
-  const bellyMat = (i, k) => { const lvl = Math.min(Math.abs(k - 5), 3) + Math.abs(i - 4) * 0.6; return lvl < 0.7 ? M.bellyCore : lvl < 2.2 ? M.bellyMid : M.bellyEdge; };
-  const byMat = new Map();
-  const push = (mat, ...tris) => { let a = byMat.get(mat); if (!a) byMat.set(mat, a = []); for (const t of tris) a.push(t); };
   for (let i = 0; i < stations.length - 1; i++) {
-    const vc = ventCols(i);
+    const vc = ventColsAt(i);
     for (let k = 0; k < N; k++) {
+      if (vc.has(k)) continue;                              // ventral → the belly deck owns it
       const k1 = (k + 1) % N;
-      const A0 = P(stations[i], i, k), A1 = P(stations[i], i, k1), B0 = P(stations[i + 1], i + 1, k), B1 = P(stations[i + 1], i + 1, k1);
-      let mat;
-      if (vc.has(k)) mat = boltSet.has(i + ':' + k) ? M.bolt : bellyMat(i, k);   // ventral glow gradient, or a dark bolt facet
-      else if (k === 0 || k === 9 || k === 1) mat = M.spine;              // dorsal ridge (darkest)
-      else if (k === 2 || k === 8) mat = M.flank;                        // lit flank facet
-      else mat = M.dorsal;                                               // shell
+      const A0 = trunkPt(stations[i], i, k), A1 = trunkPt(stations[i], i, k1), B0 = trunkPt(stations[i + 1], i + 1, k), B1 = trunkPt(stations[i + 1], i + 1, k1);
+      const mat = (k === 0 || k === 9 || k === 1) ? M.spine : (k === 2 || k === 8) ? M.flank : M.dorsal;
       push(mat, [A0, B1, B0], [A0, A1, B1]);
     }
   }
-  // nose + tail caps (dorsal)
   for (const [s, i, dir] of [[stations[0], 0, 1], [stations[stations.length - 1], stations.length - 1, -1]]) {
-    const c = [0, s.cy, s.z];
-    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; const a = P(s, i, k), b = P(s, i, k1); push(M.spine, dir > 0 ? [c, b, a] : [c, a, b]); }
+    const c = [0, s.cy - (s.keel || 0) * 0.5, s.z];
+    for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; const a = trunkPt(s, i, k), b = trunkPt(s, i, k1); push(M.spine, dir > 0 ? [c, b, a] : [c, a, b]); }
   }
-  const g = new THREE.Group();
-  for (const [mat, tris] of byMat) g.add(flatTriMesh(tris, mat));
-  return g;
 }
 
-// A hanging drake LEG — upper limb → shank → clawed foot, tapered tri-lofts, dark shell.
-// The reference is a QUADRUPED; a trunk with no legs reads as a slug (Fable). Static (a
-// flight game — the legs hang), a slight forward/back set for fore/hind.
-function buildLeg(M, rootX, rootY, rootZ, side, len, fwd) {
-  const g = new THREE.Group();
-  const seg = (x0, y0, z0, r0, x1, y1, z1, r1, mat) => {
-    const tris = [], M6 = 6;
-    for (let k = 0; k < M6; k++) {
-      const a = (k / M6) * Math.PI * 2, a1 = ((k + 1) / M6) * Math.PI * 2;
-      const p = (x, y, z, r, ang) => [x + Math.cos(ang) * r, y, z + Math.sin(ang) * r];
-      const A0 = p(x0, y0, z0, r0, a), A1 = p(x0, y0, z0, r0, a1), B0 = p(x1, y1, z1, r1, a), B1 = p(x1, y1, z1, r1, a1);
-      tris.push([A0, B1, B0], [A0, A1, B1]);
+// R2 — the STRUCTURED BELLY DECK: the glow ventral is now RAISED armor plates over a dark RECESS
+// base, with recessed gutter WALLS around every plate + a dark recessed bolt channel. The chevron
+// seam becomes a physical STEP (the plate edge over the shell). Paint → carving.
+function addBellyDeck(push, stations, M) {
+  const LIFT = 0.05;
+  const raised = (i, k) => ventColsAt(i).has(k) && !bellyBolt.has(i + ':' + k) && !(i === 3 || i === 6);   // gutter bands at i=3,6
+  const wall = (a, b, c, d) => push(M.recess, [a, b, c], [a, c, d]);
+  for (let i = 0; i < stations.length - 1; i++) {
+    for (const k of ventColsAt(i)) {
+      const k1 = (k + 1) % TRUNK_N;
+      const A0 = trunkPt(stations[i], i, k), A1 = trunkPt(stations[i], i, k1), B0 = trunkPt(stations[i + 1], i + 1, k), B1 = trunkPt(stations[i + 1], i + 1, k1);
+      if (raised(i, k)) {
+        const rA0 = trunkRaised(stations[i], i, k, LIFT), rA1 = trunkRaised(stations[i], i, k1, LIFT), rB0 = trunkRaised(stations[i + 1], i + 1, k, LIFT), rB1 = trunkRaised(stations[i + 1], i + 1, k1, LIFT);
+        push(bellyTier(M, i, k), [rA0, rB1, rB0], [rA0, rA1, rB1]);   // the lit glow plate face
+        if (!raised(i, k - 1)) wall(A0, B0, rB0, rA0);                // gutter walls to any non-raised neighbour
+        if (!raised(i, k + 1)) wall(A1, rA1, rB1, B1);
+        if (!raised(i - 1, k)) wall(A0, rA0, rA1, A1);
+        if (!raised(i + 1, k)) wall(B0, B1, rB1, rB0);
+      } else {
+        push(bellyBolt.has(i + ':' + k) ? M.bolt : M.recess, [A0, B1, B0], [A0, A1, B1]);   // recess base / dark bolt channel
+      }
     }
-    g.add(flatTriMesh(tris, mat));
-  };
-  const kneeX = rootX + side * 0.03, kneeY = rootY - len * 0.5, kneeZ = rootZ + fwd * 0.06;
-  const footY = kneeY - len * 0.45, footZ = kneeZ + fwd * 0.10;
-  // gate r3 fix #4: real limb MASS (was single spider-threads that vanished in top/rear views).
-  seg(rootX, rootY, rootZ, len * 0.30, kneeX, kneeY, kneeZ, len * 0.18, M.dorsal);      // thigh/upper (muscled)
-  seg(kneeX, kneeY, kneeZ, len * 0.18, footX(kneeX, side), footY, footZ, len * 0.09, M.spine);   // shank
-  // three little claw toes
-  for (let t = -1; t <= 1; t++) {
-    const tx = footX(kneeX, side) + t * len * 0.06, tz = footZ + len * 0.13;
-    g.add(flatTriMesh([[[footX(kneeX, side), footY, footZ], [tx - 0.02, footY - len * 0.05, tz], [tx + 0.02, footY - len * 0.05, tz]]], M.spine));
   }
-  return g;
 }
-function footX(x, side) { return x + side * 0.01; }
+
+// R1 — the DORSAL SCUTE + CREST RIDGE (the rear-chase carrier): a rank of ~N units down the spine.
+// Crest BLADES over the neck/withers (tall, emissive), peaked SCUTES over the back (charcoal,
+// shrinking aft), each with a GAP + a dark under-strip = a free carved recess per unit; the top
+// silhouette becomes a serrated rank instead of a bare tube.
+function addDorsalRidge(push, stations, M, count) {
+  const zTop = stations[1].z, zEnd = stations[stations.length - 2].z;   // skip the very nose/tail tips
+  const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); return { x: 0, y: (a.cy + a.ryU) + ((b.cy + b.ryU) - (a.cy + a.ryU)) * t, w: (a.rx + (b.rx - a.rx) * t) }; } } const l = stations[stations.length - 1]; return { x: 0, y: l.cy + l.ryU, w: l.rx }; };
+  for (let u = 0; u < count; u++) {
+    const t = u / (count - 1), z = zTop + (zEnd - zTop) * t;
+    const at = sample(z), fr = 0.9 - 0.5 * t;               // shrink aft
+    if (z < -0.95) {   // NECK/WITHERS → an emissive crest blade (kinked, swept back)
+      const len = 0.24 * fr + 0.06, cant = (u % 2 ? 1 : -1) * 0.035;
+      const r0 = [cant - 0.03, at.y, z], r1 = [cant + 0.03, at.y, z];
+      const kink = [cant, at.y + len * 0.55, z + 0.09], tip = [cant, at.y + len * 0.4, z + len * 0.95];
+      push(M.crest, [r0, kink, r1], [r1, kink, tip], [r0, tip, kink]);
+    } else {           // BACK → a peaked charcoal scute (a raised tent-plate) with a dark under-gap
+      const hw = 0.05 * fr + 0.02, h = 0.09 * fr + 0.03, back = 0.05;
+      const bl = [-hw, at.y - 0.01, z - 0.04], br = [hw, at.y - 0.01, z - 0.04];
+      const peak = [0, at.y + h, z + back];
+      push(M.spine, [bl, br, peak]);                        // the lit scute roof (two faces)
+      push(M.spine, [bl, peak, [-hw * 0.6, at.y + h * 0.4, z + back + 0.04]], [br, [hw * 0.6, at.y + h * 0.4, z + back + 0.04], peak]);
+      push(M.recess, [bl, [-hw, at.y - 0.02, z + 0.05], br], [br, [-hw, at.y - 0.02, z + 0.05], [hw, at.y - 0.02, z + 0.05]]);   // dark under-strip (the recess gap)
+    }
+  }
+}
+
+// R3 — the STORM-HEART SOCKET (the carved-recess flagship): a rim ring at the keel surface, a floor
+// point sunk INWARD (near-black), a lip flared outward (lit rim) — the Revenant orbit pattern. The
+// ember seats at the socket MOUTH behind the lip. 5 charcoal cowl VANES ring it (the caged dynamo).
+function addSocket(push, M, cx, cy, cz, r) {
+  const nR = 7, rim = [], lip = [];
+  for (let k = 0; k < nR; k++) { const a = (k / nR) * Math.PI * 2; rim.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz]); lip.push([cx + Math.cos(a) * r * 1.28, cy + Math.sin(a) * r * 1.05, cz + 0.02]); }
+  const floor = [cx, cy - r * 0.15, cz - r * 1.5];          // sunk deep → the interior falls to shadow
+  for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR;
+    push(M.socketFloor, [rim[k], rim[k1], floor]);          // rim → deep dark floor cup
+    push(M.flank, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]);   // rim → lit outward lip
+  }
+  for (let v = 0; v < 5; v++) {   // caged-dynamo cowl vanes, swept, ringing the mouth
+    const a = (v / 5) * Math.PI * 2, inner = r * 1.15, outer = r * 1.7, sw = 0.5;
+    const ix = cx + Math.cos(a) * inner, iy = cy + Math.sin(a) * inner, ox = cx + Math.cos(a + sw) * outer, oy = cy + Math.sin(a + sw) * outer;
+    push(M.spine, [[ix, iy, cz + 0.03], [ox, oy, cz + 0.03], [(ix + ox) / 2, (iy + oy) / 2, cz + 0.10]]);
+  }
+  return [cx, cy, cz + 0.03];   // the ember mouth position (behind the lip)
+}
+
+// R4 — a LAPPED ARMOR PLATE standing `off` the surface (the standoff gap = a shadow recess), aft
+// edge overlapping the next. Cupped 4-quad card in a local frame (centre c, outward n, along-body t).
+function addArmorPlate(push, M, c, n, t, halfW, len, mat) {
+  const nl = Math.hypot(...n) || 1, tn = [n[0] / nl, n[1] / nl, n[2] / nl];
+  const tl = Math.hypot(...t) || 1, tt = [t[0] / tl, t[1] / tl, t[2] / tl];
+  const s = [tt[1] * tn[2] - tt[2] * tn[1], tt[2] * tn[0] - tt[0] * tn[2], tt[0] * tn[1] - tt[1] * tn[0]];   // side = t×n
+  const P = (u, v, lift) => [c[0] + tt[0] * u + s[0] * v + tn[0] * lift, c[1] + tt[1] * u + s[1] * v + tn[1] * lift, c[2] + tt[2] * u + s[2] * v + tn[2] * lift];
+  const off = 0.02, cup = 0.03;
+  const fore = P(-len, 0, off), aft = P(len, 0, off + 0.01), l = P(0, -halfW, off + cup), rr = P(0, halfW, off + cup);
+  push(mat, [fore, l, rr], [aft, rr, l]);                   // the cupped plate (2 faces)
+  push(M.recess, [P(-len, -halfW, 0), fore, P(-len, halfW, 0)]);   // a dark fore-edge gap (standoff shadow)
+}
+
+// R5 — a run of small cupped SCALE cards along a body line (the flank plate-scale texture; 2 tris
+// each, alternating value). at(t)/n(t)/tan(t) sample the path; cards overlap like shingles.
+function addScaleRow(push, M, count, at, nrm, tan, len, wid) {
+  for (let u = 0; u < count; u++) {
+    const t = u / (count - 1), c = at(t), n = nrm(t), tg = tan(t);
+    const nl = Math.hypot(...n) || 1, tn = [n[0] / nl, n[1] / nl, n[2] / nl];
+    const tl = Math.hypot(...tg) || 1, tt = [tg[0] / tl, tg[1] / tl, tg[2] / tl];
+    const s = [tt[1] * tn[2] - tt[2] * tn[1], tt[2] * tn[0] - tt[0] * tn[2], tt[0] * tn[1] - tt[1] * tn[0]];
+    const P = (a, b, h) => [c[0] + tt[0] * a + s[0] * b + tn[0] * h, c[1] + tt[1] * a + s[1] * b + tn[1] * h, c[2] + tt[2] * a + s[2] * b + tn[2] * h];
+    const tip = P(len, 0, 0.008), bl = P(-len * 0.4, -wid, 0.028), br = P(-len * 0.4, wid, 0.028);
+    push(u % 2 ? M.flank : M.dorsal, [bl, tip, br]);        // a cupped scale card, proud of the hull
+  }
+}
+
+// R6 — a real drake LEG: a lofted teardrop THIGH → knee knuckle → shank → ankle → 4-tri pyramid
+// TALONS + a hip cowl plate. Kills the stick-limb / single-tri-claw failure. Static (the legs hang).
+function addLeg(push, M, rootX, rootY, rootZ, side, len, fwd) {
+  const seg = (x0, y0, z0, r0, x1, y1, z1, r1, mat, sides = 6) => {
+    for (let k = 0; k < sides; k++) {
+      const a = (k / sides) * Math.PI * 2, a1 = ((k + 1) / sides) * Math.PI * 2;
+      const p = (x, y, z, r, ang) => [x + Math.cos(ang) * r, y, z + Math.sin(ang) * r * 1.3];
+      push(mat, [p(x0, y0, z0, r0, a), p(x1, y1, z1, r1, a1), p(x1, y1, z1, r1, a)], [p(x0, y0, z0, r0, a), p(x0, y0, z0, r0, a1), p(x1, y1, z1, r1, a1)]);
+    }
+  };
+  const hipX = rootX, hipY = rootY, hipZ = rootZ;
+  const kneeX = rootX + side * 0.04, kneeY = rootY - len * 0.46, kneeZ = rootZ + fwd * 0.05;
+  const ankY = kneeY - len * 0.40, ankZ = kneeZ + fwd * 0.12;
+  const footY = ankY - len * 0.10, footZ = ankZ + fwd * 0.02;
+  seg(hipX, hipY, hipZ, len * 0.34, kneeX, kneeY, kneeZ, len * 0.15, M.dorsal);   // teardrop thigh (muscled)
+  seg(kneeX, kneeY, kneeZ, len * 0.17, kneeX, kneeY - 0.01, kneeZ, len * 0.15, M.spine, 6);   // knee knuckle
+  seg(kneeX, kneeY, kneeZ, len * 0.14, kneeX, ankY, ankZ, len * 0.08, M.dorsal);   // shank
+  seg(kneeX, ankY, ankZ, len * 0.09, kneeX, footY, footZ, len * 0.07, M.spine);    // ankle → foot
+  // 3 forward talons + 1 rear dewclaw — solid 4-tri pyramids (never single tris)
+  const talon = (tx, tz, tl) => { const b0 = [tx - 0.02, footY, footZ], b1 = [tx + 0.02, footY, footZ], b2 = [tx + 0.02, footY, footZ + 0.03], b3 = [tx - 0.02, footY, footZ + 0.03], ap = [tx, footY - tl, footZ + tl * 1.4]; push(M.spine, [b0, b1, ap], [b1, b2, ap], [b2, b3, ap], [b3, b0, ap]); };
+  for (let t = -1; t <= 1; t++) talon(kneeX + t * len * 0.06, footZ, len * 0.14);
+  talon(kneeX, footZ - 0.04, len * 0.09);   // rear dewclaw
+  // hip cowl plate lapping the leg root (hides the intersection + one more shadow gap)
+  addArmorPlate(push, M, [hipX, hipY + len * 0.14, hipZ], [side, 0.4, 0], [0, 0, 1], len * 0.13, len * 0.14, M.flank);
+}
+
+// R7 — THROAT GORGET bands: wide shallow ventral scutes carrying the belly glow up the neck in
+// SEGMENTED geometry (so the throat joins the belly system instead of being a bare tube).
+function addGorget(push, stations, M) {
+  const zs = [-2.20, -2.05, -1.90, -1.75, -1.60];
+  const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); return { yb: (a.cy - a.ryD) + ((b.cy - b.ryD) - (a.cy - a.ryD)) * t, w: a.rx + (b.rx - a.rx) * t }; } } return { yb: stations[2].cy - stations[2].ryD, w: stations[2].rx }; };
+  zs.forEach((z, i) => { const s = sample(z), mat = i < 2 ? M.bellyEdge : M.bellyMid, w = s.w * 0.8, y = s.yb + 0.01;
+    push(mat, [[-w, y, z], [w, y, z], [0, y - 0.02, z + 0.10]]);   // a shallow overlapping throat band (emissive)
+    push(M.recess, [[-w, y, z], [0, y - 0.02, z + 0.10], [-w, y - 0.01, z + 0.12]]);   // a thin dark seam under it
+  });
+}
 
 // ── A minimal faceted tube loft (shared placeholder body element) ────────────
 // Stations [{z, rx, ry, cy}] → one flat-shaded octagon tube. The STUB's stand-in
@@ -242,32 +347,53 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
     { z: 1.16, rx: 0.16, ryU: 0.13, ryD: 0.15, cy: 0.15 },    // pelvis
     { z: 1.60, rx: 0.10, ryU: 0.09, ryD: 0.09, cy: 0.11 },    // tail-base
   ];
-  group.add(buildDrakeTrunk(trunk, M));
+  // ONE shared per-material accumulator for the whole torso → still ≤~12 draws with all 7 ranks.
+  const byMat = new Map();
+  const push = (mat, ...tris) => { let a = byMat.get(mat); if (!a) byMat.set(mat, a = []); for (const t of tris) a.push(t); };
 
-  // THE NECK CREST — 4 back-swept white-blue emissive blades along the dorsal centerline over
-  // the neck→shoulders, breaking the silhouette (the head pass continues them forward).
-  for (let i = 0; i < 4; i++) {
-    const t = i / 3, z = -1.62 + t * 0.66;                    // neck-base → shoulder
-    const topY = 0.20 + t * 0.04, len = 0.22 - t * 0.06;      // taller toward the head
-    const cant = (i % 2 ? 1 : -1) * 0.04;                     // slight ±off-sagittal so they read from behind
-    const root0 = [cant - 0.03, topY, z], root1 = [cant + 0.03, topY, z];
-    const kink = [cant, topY + len * 0.5, z + 0.10];          // mid-kink, swept back
-    const tip = [cant, topY + len * 0.35, z + len * 0.9];     // swept aft
-    group.add(flatTriMesh([[root0, kink, root1], [root1, kink, tip], [root0, tip, kink]], M.crest));
+  addTrunkShell(push, trunk, M);        // the dark hull
+  addBellyDeck(push, trunk, M);         // R2 — raised glow plates + recessed gutters + bolt channel
+  const ridgeN = 8 + Math.round(6 * (model.glowLevel ?? 1));   // R1 — dorsal scute/crest rank (ladders up)
+  addDorsalRidge(push, trunk, M, ridgeN);
+  addGorget(push, trunk, M);            // R7 — throat gorget bands
+
+  // R4 — lapped armor plates over the shoulder girdle + haunch (the two muscle masses).
+  for (const side of [1, -1]) {
+    for (const z of [-1.2, -0.98, -0.78]) addArmorPlate(push, M, [side * 0.28, 0.27, z], [side * 0.75, 0.5, 0], [0, 0, 1], 0.10, 0.13, M.flank);
+    for (const z of [0.56, 0.82]) addArmorPlate(push, M, [side * 0.22, 0.26, z], [side * 0.7, 0.45, 0], [0, 0, 1], 0.09, 0.11, M.flank);
   }
 
-  // FOUR HANGING LEGS — fore from the deep chest keel bottom, hind from the haunch (Fable).
-  group.add(buildLeg(M, 0.19, -0.34, -0.76, 1, 0.54, 1));
-  group.add(buildLeg(M, -0.19, -0.34, -0.76, -1, 0.54, 1));
-  group.add(buildLeg(M, 0.20, -0.10, 0.76, 1, 0.50, -1));
-  group.add(buildLeg(M, -0.20, -0.10, 0.76, -1, 0.50, -1));
+  // R5 — flank scale-plate shingle rows (2 lines per side over the smooth flank wall).
+  const lerpStn = (z) => { for (let j = 0; j < trunk.length - 1; j++) { const a = trunk[j], b = trunk[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); const L = (p, q) => p + (q - p) * t; return { z, rx: L(a.rx, b.rx), ryU: L(a.ryU, b.ryU), ryD: L(a.ryD, b.ryD), cy: L(a.cy, b.cy), keel: 0 }; } } return trunk[trunk.length - 1]; };
+  for (const side of [1, -1]) {
+    for (const [k, cnt] of [[2, 11], [3, 10]]) {
+      const kk = side > 0 ? k : (TRUNK_N - k);
+      const at = (t) => { const z = -1.35 + t * 2.35; return trunkPt(lerpStn(z), 0, kk); };
+      const nrm = (t) => { const th = trunkTh(kk); return [Math.cos(th) * side, Math.sin(th) * 0.6, 0]; };
+      const tan = () => [0, 0, 1];
+      addScaleRow(push, M, Math.round(cnt * (0.6 + 0.4 * (model.glowLevel ?? 1))), at, nrm, tan, 0.075, 0.05);
+    }
+  }
 
-  // THE STORM-HEART core — the brightest ventral point at the sternum, on the coreGlow hook.
-  const coreGeo = new THREE.OctahedronGeometry(0.10 * (0.7 + 0.5 * heartScale), 0);
+  // R6 — four real legs (thigh loft → knee → shank → ankle → pyramid talons + hip cowl).
+  addLeg(push, M, 0.20, -0.32, -0.76, 1, 0.56, 1);
+  addLeg(push, M, -0.20, -0.32, -0.76, -1, 0.56, 1);
+  addLeg(push, M, 0.21, -0.08, 0.78, 1, 0.52, -1);
+  addLeg(push, M, -0.21, -0.08, 0.78, -1, 0.52, -1);
+
+  // R3 — the carved STORM-HEART SOCKET at the sternum (rim + sunk floor + lit lip + cowl vanes).
+  const mouth = addSocket(push, M, 0, -0.20, -0.74, 0.11 * (0.8 + 0.3 * heartScale));
+
+  // materialise every rank into ≤~12 meshes (one flatTriMesh per material instance).
+  for (const [mat, tris] of byMat) group.add(flatTriMesh(tris, mat));
+
+  // THE STORM-HEART ember — a jittered lump seated at the socket MOUTH behind the lip (the "glow
+  // from within" read — not too deep, the no-bloom-studio band). Transparent, on the coreGlow hook.
+  const coreGeo = new THREE.OctahedronGeometry(0.075 * (0.7 + 0.5 * heartScale), 0);
   { const pa = coreGeo.attributes.position; for (let vi = 0; vi < pa.count; vi++) { const j = jit(vi * 3, 0.02); pa.setXYZ(vi, pa.getX(vi) + j, pa.getY(vi) + j, pa.getZ(vi) + j); } pa.needsUpdate = true; coreGeo.computeVertexNormals(); }
   const core = new THREE.Mesh(coreGeo, M.heartCore);
-  core.position.set(0, -0.22, -0.74); core.renderOrder = 1;   // in the deep chest keel, the hot spot of the belly glow
-  core.userData.base = 0.7 + 0.15 * heartScale;              // bright in cruise (the reference chest is the hot spot); blazes on Surge
+  core.position.set(mouth[0], mouth[1], mouth[2]); core.renderOrder = 1;
+  core.userData.base = 0.7 + 0.15 * heartScale;
   group.add(core);
 
   // Motif anchor — the STORM-HEART (fixed at the sternum, never re-hues, §3).
