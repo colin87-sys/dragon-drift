@@ -963,8 +963,119 @@ function buildFrozenBar() {
   ], ref: BAR_REF };
 }
 
+// SERAC SPUR — the Frozen pillar (Fable pre-assess 2026-07-14). A leaning zig-zag
+// stack of 4 sheared hex frustums + a blunt chisel cap, authored in UNIT space
+// (radius as fractions of r, height as fractions of h) so independent r/h scaling
+// stays coherent from squat h=8 to needle h=21. The seg-3 RE-FLARE (mass steps back
+// OUT on the way up) is the anti-spike move — its underside gives deep-teal overhang
+// faces so the value ladder shows all three rungs on one body. Coverage uses the hex
+// INRADIUS (0.866×circumR): 0.866*R − offset ≥ 0.67r keeps the visible ice around the
+// r*0.65 collider cylinder to ~80% height (a strict improvement over the needle cone,
+// whose top ~60% was hollow); the top ~20% tapers inside the collider by design.
+// A stack of sheared, yawed, offset ANGULAR ICE BLOCKS (boxes, not cylinders — hex
+// frustums read as a machined rocket; sharp-edged blocks read as calved ice, and
+// their flat top/bottom faces feed the frost/teal value ladder). Authored in UNIT
+// space (half-widths + offsets as fractions of r, heights as fractions of h). The
+// seg-3 RE-FLARE (a block wider than the one below, offset) throws a teal overhang;
+// the top block is a sheared blunt wedge (never a party-hat point).
+// [y0f, y1f, wx, wz, cx, cz, yaw, tiltZ] — half-widths & offsets in r; heights in h.
+const PILLAR_SEGS = [
+  [0.00, 0.32, 0.88, 0.84, 0.00, 0.00, 0.10, 0.00],   // rooted base
+  [0.28, 0.57, 0.82, 0.86, 0.12, 0.05, 0.55, 0.05],   // step + twist
+  [0.53, 0.80, 0.90, 0.82, -0.07, 0.09, 1.00, -0.04], // RE-FLARE (wider → teal overhang) + twist
+  [0.76, 0.93, 0.74, 0.70, 0.11, -0.05, 1.45, 0.06],  // narrower shoulder + twist
+  [0.90, 1.00, 0.48, 0.44, 0.14, 0.03, 1.85, 0.17],   // blunt sheared top (upright + small so it holds its silhouette vs pale sky)
+];
+const PILLAR_COVER_TO = 0.78;   // require collider coverage to 78% height; top exempt (tapers inside, per design)
+// A single narrow, slightly-diagonal crevasse crack on the +z (approach) face — a
+// thin lit fissure, NOT a rectangular window. [y0f, y1f, wide, radius, tilt]
+const PILLAR_SEAM = [0.34, 0.64, 0.12, 0.86, 0.28];
+// Foot rubble: a broken ARC biased to one side (not a ring), squat so the r-only
+// scale keeps them as chunks. [angle, dist, size]
+const PILLAR_RUBBLE = [
+  [-0.5, 1.00, 0.34], [-0.15, 1.14, 0.26], [0.2, 1.04, 0.30], [0.6, 1.20, 0.24], [1.0, 1.02, 0.28],
+];
+
+function buildFrozenPillar() {
+  const tower = [], glow = [], shadow = [], rubble = [];
+  for (const [y0f, y1f, wx, wz, cx, cz, yaw, tiltZ] of PILLAR_SEGS) {
+    const segH = y1f - y0f;
+    const b = new THREE.BoxGeometry(wx * 2, segH, wz * 2);
+    if (tiltZ) b.rotateZ(tiltZ);
+    if (yaw) b.rotateY(yaw);
+    b.translate(cx, (y0f + y1f) / 2 - 0.5, cz);   // centre the tower on y (base at -0.5)
+    tower.push(b);
+  }
+  // Crevasse crack — a thin lit fissure on the mid block's OWN front face (built in
+  // its local frame then given the block's yaw+offset, so it stays proud of the
+  // yawed face instead of being swallowed by it). Slim dark socket + a slightly
+  // tilted glow → a natural fracture, not a window pane.
+  {
+    const [by0, by1, , bwz, bcx, bcz, byaw] = PILLAR_SEGS[1];   // the mid block
+    const [sy0, sy1, wide, , tilt] = PILLAR_SEAM;
+    const cy = (sy0 + sy1) / 2 - (by0 + by1) / 2, hh = sy1 - sy0;   // seam y relative to the block centre
+    const front = bwz;                                             // block's local +z face
+    const mk = (geo, z) => { geo.rotateZ(tilt); geo.translate(0.05, cy, z); geo.rotateY(byaw); geo.translate(bcx, (by0 + by1) / 2 - 0.5, bcz); return geo; };
+    shadow.push(mk(new THREE.PlaneGeometry(wide + 0.10, hh), front + 0.01));
+    glow.push(mk(new THREE.PlaneGeometry(wide, hh - 0.05), front + 0.03));
+  }
+  // Foot rubble — squat ice chunks (own r-only scale in hazardMesh), tetrahedra (4
+  // tris) authored around y=0. Sunk ~20% into the floor so they read as calved debris.
+  for (const [ang, dist, size] of PILLAR_RUBBLE) {
+    const t = new THREE.TetrahedronGeometry(size);
+    t.scale(1, 0.6, 1);                         // squat
+    t.rotateY(ang * 1.7);
+    xf(t, { x: Math.cos(ang) * dist, y: -size * 0.2, z: Math.sin(ang) * dist });
+    rubble.push(t);
+  }
+  const norm = (arr) => arr.map((g) => g.index ? g.toNonIndexed() : g);
+  const towerGeo = bakeIceLadder(mergeGeometries(norm(tower), false)); towerGeo.userData.shared = true;
+  const glowGeo = mergeGeometries(norm(glow), false); glowGeo.userData.shared = true;
+  const shadowGeo = mergeGeometries(norm(shadow), false); shadowGeo.userData.shared = true;
+  const rubbleGeo = bakeIceLadder(mergeGeometries(norm(rubble), false)); rubbleGeo.userData.shared = true;
+  return {
+    tower: [
+      { geo: towerGeo, mat: mats.frostIce },
+      { geo: shadowGeo, mat: mats.frostShadow },
+      { geo: glowGeo, mat: mats.frostGlow },
+    ],
+    rubble: [{ geo: rubbleGeo, mat: mats.frostIce }],
+  };
+}
+
+// Numeric FAIRNESS check for the serac spur: sample the r*0.65 collider circle at a
+// ring of angles across heights 0→PILLAR_COVER_TO and assert every point sits inside
+// some frustum's hex cross-section (inradius test, yaw-aware). Scale-invariant (x/z
+// track r, y tracks h), so one unit-space pass covers all (r,h). Returns { ok, gaps }.
+export function pillarColliderCoverage() {
+  const R = 0.65;                       // collider radius in unit (r) space
+  // Each block is a yawed, offset box; tiltZ shifts the cross-section with height, so
+  // include it. A circle point is inside iff, in the block's local frame, |x|<wx & |z|<wz.
+  const inBox = (px, pz, seg, y) => {
+    const [y0f, y1f, wx, wz, cx, cz, yaw, tiltZ] = seg;
+    if (y < y0f - 1e-6 || y > y1f + 1e-6) return false;
+    let qx = px - cx, qz = pz - cz;
+    // undo yaw about Y
+    const cy2 = Math.cos(-yaw), sy2 = Math.sin(-yaw);
+    const x1 = qx * cy2 - qz * sy2, z1 = qx * sy2 + qz * cy2; qx = x1; qz = z1;
+    // tiltZ shifts x with height off the block centre; account for the worst-case shift
+    const dy = y - (y0f + y1f) / 2;
+    qx -= Math.tan(tiltZ || 0) * dy;
+    return Math.abs(qx) <= wx + 1e-6 && Math.abs(qz) <= wz + 1e-6;
+  };
+  const gaps = [];
+  for (let y = 0; y <= PILLAR_COVER_TO + 1e-9; y += 0.04) {
+    for (let k = 0; k < 20; k++) {
+      const a = (k / 20) * Math.PI * 2;
+      const px = R * Math.cos(a), pz = R * Math.sin(a);
+      if (!PILLAR_SEGS.some((s) => inBox(px, pz, s, y))) gaps.push([+y.toFixed(2), +(a).toFixed(2)]);
+    }
+  }
+  return { ok: gaps.length === 0, gaps: gaps.slice(0, 12), gapCount: gaps.length };
+}
+
 const SKIN_BUILDERS = {
-  2: { bar: buildFrozenBar },   // Frozen; pillar/shard added in later PR-3 steps
+  2: { bar: buildFrozenBar, pillar: buildFrozenPillar },   // Frozen; shard added next
 };
 const _skinCache = {};
 function obstacleSkin(bi, type) {
@@ -994,6 +1105,16 @@ function hazardMesh(type, bi, p) {
     return m;
   }
   if (type === 'pillar') {
+    const skin = obstacleSkin(bi, 'pillar');
+    if (skin) {
+      const g = new THREE.Group();
+      // Tower scales r×h×r (centred, base on the floor); rubble scales r×r×r so it
+      // stays chunky no matter the height, seated at the foot (local y = −h/2).
+      for (const part of skin.tower) { const m = new THREE.Mesh(part.geo, part.mat); m.scale.set(p.r, p.h, p.r); g.add(m); }
+      for (const part of skin.rubble) { const m = new THREE.Mesh(part.geo, part.mat); m.scale.set(p.r, p.r, p.r); m.position.y = -p.h / 2; g.add(m); }
+      g.userData.skinned = true;
+      return g;
+    }
     return new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 6), mats.body[bi]);
   }
   // shard
