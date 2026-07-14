@@ -12,7 +12,7 @@ globalThis.window = globalThis;
 globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
 const {
   AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora,
-  setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled,
+  setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, setAuroraFlowExcite,
 } = await import('../js/auroraSky.js');
 const { computeEnv, BIOMES, setForcedBiome } = await import('../js/biomes.js');
 const { CONFIG } = await import('../js/config.js');
@@ -93,6 +93,28 @@ check('?aurerupt debug override wired (pin eruption strength, bypasses the 0.45 
 
 check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
   /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(auroraSrc) && /getWorldDirection/.test(auroraSrc) && /damp\(fwdX/.test(auroraSrc));
+
+// --- 2c2. FLOW × AURORA coupling: holding the flow carve raises the activity FLOOR → the sky erupts ---
+// main.js feeds slipMix × auroraMix() (0 in every other biome → byte-inert). act = max(actRaw, excite·0.9).
+check('main.js feeds the flow chain to the aurora (setAuroraFlowExcite(slipMix × auroraMix()))',
+  /setAuroraFlowExcite\(\s*slipMix\s*\*\s*auroraMix\(\)\s*\)/.test(readFileSync(url('../js/main.js'), 'utf8')));
+check('act floors on the flow excite, actOverride still wins',
+  /const act = actOverride != null \? actOverride : Math\.max\(actRaw, flowExcite \* 0\.9\)/.test(auroraSrc));
+// FUNCTIONAL: with the carve held (excite→1), the activity floor lifts and the eruption blooms; released
+// (excite→0) it returns to the natural actRaw drift (byte-inert). ?biome-independent — driven via forced.
+setAuroraForced(true);
+setAuroraFlowExcite(1);   // applyAurora(env, playerDist, time, camera, dt)
+for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // converge the damped excite
+const hotAct = auroraUniforms.uAurAct.value, hotErupt = auroraUniforms.uAurErupt.value;
+check('holding the carve lifts activity to the ~0.9 floor (well above the natural drift)', hotAct > 0.88);
+check('holding the carve blooms the eruption (uAurErupt > 0.5)', hotErupt > 0.5);
+setAuroraFlowExcite(0);
+for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // release → excite decays to 0
+check('releasing the carve returns activity to the natural drift (no floor → byte-inert)',
+  auroraUniforms.uAurAct.value < 0.9 && Math.abs(auroraUniforms.uAurAct.value - (0.5 + 0.5 * (0.62 * Math.sin(3.0 * 0.05) + 0.38 * Math.sin(3.0 * 0.0177 + 2.4)))) < 1e-6);
+setAuroraForced(false);
+setAuroraFlowExcite(0);
+applyAurora({ auroraMix: 0 }, 1000, 5, null, 0.1);   // leave shipped state
 
 // --- 2d. GATE-9: mobile-middle band variation, smooth transitions, premium polish, dreamy run ----
 // Loop bound is uAurBands (tier2=1, tier0/1=2), so mobile keeps the crossing diagonal thick band.
