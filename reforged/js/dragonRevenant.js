@@ -285,6 +285,7 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   heartBloom.scale.set(heartR * (3.3 + 0.9 * coreBlaze), heartR * (4.5 + 1.2 * coreBlaze), 1);   // WIDE + taller than wide → green spills across multiple rib gaps, not a round disc (Fable: cross ≥3 gaps)
   heartBloom.position.set(0, hy, hz);
   heartBloom.renderOrder = 0;
+  heartBloom.layers.set(1);   // glow sprites live on layer 1 (main cam sees it) so it is NOT mirrored under the dragon in the water nor punched into the god-ray occlusion mask — the codebase convention every other glow sprite follows (dragonModel/dragonTorso/etc.). This bloom was leaking onto layer 0.
   group.add(heartBloom);
   heartHook.renderOrder = 1;
   group.add(heartHook);
