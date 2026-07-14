@@ -624,7 +624,7 @@ ${OLD_RIM ? `        float falloff = pow(max(0.0, 1.0 - vR), 1.4);   // soft to 
   // never haloes into the sky band. One energy dial `RIM_MAX` (hard-capped). igniteK 0 ⇒ shells hidden ⇒
   // byte-identical. Built per wing in the WING_PAIRS loop below; NOT a 3rd large additive volume (outline ×
   // ~2px coverage, not a filled shell).
-  const RIM_MAX = 0.30;   // the ONE energy dial — peak shell radiance ≈ colour·RIM_MAX ≈ 0.25, well under bloom 1.0 even where two wings' shells overlap (≤0.5). EDGE brightness only; the body gets none.
+  const RIM_MAX = 0.35;   // the ONE energy dial (art-spec default) — peak shell radiance ≈ colour·RIM_MAX ≈ 0.29, well under bloom 1.0 even where two wings' shells overlap (≤0.58). EDGE brightness only; the body gets none.
   const rimShells = [];
   const rimShellMat = track(new THREE.ShaderMaterial({
     uniforms: {
