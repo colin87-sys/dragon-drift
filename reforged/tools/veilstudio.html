@@ -23,7 +23,7 @@
   <div id="err"></div>
   <script type="module">
     import * as THREE from 'three';
-    import { buildStudioGate, studioGateTick } from '../js/obstacles.js';
+    import { buildStudioGate, studioGateTick, setVeilStyle } from '../js/obstacles.js';
 
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
@@ -64,8 +64,9 @@
     let built = null;
     const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
     function dispose() { if (built) { scene.remove(built); built.traverse(o => { if (o.geometry) o.geometry.dispose(); }); built = null; } }
-    function build(bi) {
+    function build(bi, style) {
       dispose();
+      if (style) setVeilStyle(style);
       built = buildStudioGate(bi);
       built.position.set(0, 0, 0);
       scene.add(built);
@@ -73,9 +74,10 @@
       return built;
     }
     function fit(a) {
-      _box.setFromObject(built); _box.getCenter(_c); _box.getSize(_s);
-      if (a.aim) _c.set(_c.x + _s.x * (a.aim[0] || 0), _c.y + _s.y * (a.aim[1] || 0), _c.z + _s.z * (a.aim[2] || 0));
-      const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
+      // Frame the FIXED lane box (x ±16, y 0..24) — the gate spans the lane; framing the
+      // built bbox would zoom out to fit stray far-range FX. Head-on = the gameplay read.
+      _c.set(0, 12, 0);
+      const radius = 16.5;
       const vfov = camera.fov * Math.PI / 180;
       const dist = (radius / Math.tan(vfov / 2)) / (a.fill || 0.9);
       camera.up.set(a.up[0], a.up[1], a.up[2]);
@@ -88,8 +90,9 @@
 
     window.vsKeys = () => ({ 0: 'sanctuary', 2: 'frozen', 3: 'caldera', 5: 'astral' });
     window.vsRender = (o) => {
-      if (!built || o.rebuild) build(o.bi);
+      if (!built || o.rebuild) build(o.bi, o.style);
       studioGateTick(o.t != null ? o.t : 1.2);
+      if (o.spin != null && built.userData.veilSpin) built.userData.veilSpin.rotation.z = o.spin;
       setBg(o.bg || 'sunset');
       fit(ANGLES[o.angle] || ANGLES.headon);
       renderer.render(scene, camera);
