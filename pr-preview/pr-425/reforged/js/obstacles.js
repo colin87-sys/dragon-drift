@@ -240,6 +240,12 @@ export function initObstacles(s) {
   // Serene-veil shared materials (curtain/swirl strands + wisp spirits).
   veilLineMat = makeVeilLineMat();
   veilPointMat = makeVeilPointMat();
+  // Window-marker materials: iris loops (vertexColors, NORMAL blend so the dark
+  // under-stroke reads as a silhouette on bright skies while the bright loop blooms),
+  // and the dark faceted ice-petal wreath (neutral dark ice → the cores carry the tint).
+  markerLineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95 });
+  markerStoneMat = new THREE.MeshStandardMaterial({ color: 0x3a4a68, flatShading: true, roughness: 0.4, metalness: 0.2, emissive: 0x14203a, emissiveIntensity: 0.5 });
+  bindAtmosphere(markerStoneMat);
   // FLOW "Sky Gate" signature — FIXED slip-cyan / ice-white in EVERY biome (never
   // edgeMats[bi]) so a flow run reads as its own distinct place, not a recoloured ring.
   // Shared: the whole run pulses together with the slipstream (updateObstacles). Opaque
@@ -538,11 +544,8 @@ function buildVeilWisp(o, skin) {
     pos.push(x, y, (Math.random() - 0.5) * 9); col.push(_c.r, _c.g, _c.b); phase.push(Math.random() * 6.28); size.push(0.7 + Math.random() * 0.9);
   }
   const field = new THREE.Points(_veilGeo(pos, col, phase, size, 'aSize'), veilPointMat);
-  // bright halo of wisps hugging the window edge — draws the aperture
-  const rp = [], rc = [], rph = [], rs = [];
-  for (let i = 0; i < 80; i++) { const th = i / 80 * Math.PI * 2; rp.push(o.gapX + Math.cos(th) * (o.gapW + 0.4), o.gapY + Math.sin(th) * (o.gapH + 0.4), (Math.random() - 0.5) * 1.5); rc.push(hot.r, hot.g, hot.b); rph.push(Math.random() * 6.28); rs.push(1.3 + Math.random() * 0.5); }
-  const rim = new THREE.Points(_veilGeo(rp, rc, rph, rs, 'aSize'), veilPointMat);
-  return { objects: [field, rim] };
+  // (the window ring is now the shared marker — iris loops + glacier-bloom wreath)
+  return { objects: [field] };
 }
 
 // CURTAIN — a swaying veil of light-RIBBONS filling the lane, drawn back at the window
@@ -579,6 +582,64 @@ function buildVeilCurtain(o, skin) {
   }
   const lines = new THREE.LineSegments(_veilGeo(pos, col, phase, sway, 'aSway'), veilLineMat);
   return { objects: [lines, _veilMotes(o, skin, 90)] };
+}
+
+// ---- Window MARKER (Fable frame redesign): kill the rounded-square + corner
+// "viewfinder" brackets. The safe window is instead marked by (a) IRIS OF THE VEIL
+// — concentric SUPERELLIPSE (squircle, no hard corners) loops of the veil's own
+// light hugging the opening, with a dark under-stroke so the silhouette survives a
+// bright sky, and (b) a sparse GLACIER-BLOOM WREATH — a few dark faceted ice-petals
+// with a bright emissive core, giving mass + the game's recessed-glow material
+// language + bright-sky legibility. Beaded/petaled (not a plain ring) so a mandatory
+// gate never reads as an optional reward ring.
+let markerLineMat = null, markerStoneMat = null;
+function _superellipse(cx, cy, a, b, steps, n = 4) {
+  const p = [];
+  for (let i = 0; i < steps; i++) {
+    const th = i / steps * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
+    p.push(cx + a * Math.sign(c) * Math.pow(Math.abs(c), 2 / n), cy + b * Math.sign(s) * Math.pow(Math.abs(s), 2 / n));
+  }
+  return p;
+}
+function _loopSegs(cx, cy, a, b, steps, z, color, pos, col) {
+  const p = _superellipse(cx, cy, a, b, steps);
+  for (let i = 0; i < steps; i++) {
+    const j = (i + 1) % steps;
+    pos.push(p[i * 2], p[i * 2 + 1], z, p[j * 2], p[j * 2 + 1], z);
+    col.push(color.r, color.g, color.b, color.r, color.g, color.b);
+  }
+}
+function buildWindowMarker(o, skin) {
+  const objs = [];
+  const hot = new THREE.Color(skin.edge);
+  const white = new THREE.Color(skin.core);
+  const bright = hot.clone().multiplyScalar(2.2), faint = hot.clone().multiplyScalar(0.5), dark = hot.clone().multiplyScalar(0.12);
+  const pos = [], col = [], steps = 52;
+  _loopSegs(o.gapX, o.gapY, o.gapW + 0.42, o.gapH + 0.42, steps, -0.1, dark, pos, col);   // dark under-stroke → silhouette on bright sky
+  _loopSegs(o.gapX, o.gapY, o.gapW + 0.45, o.gapH + 0.45, steps, 0.06, bright, pos, col);  // bright boundary loop (blooms)
+  _loopSegs(o.gapX, o.gapY, o.gapW + 1.35, o.gapH + 1.35, steps, 0.0, faint, pos, col);    // faint outer echo loop
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  objs.push(new THREE.LineSegments(g, markerLineMat));
+  // wreath: small faceted ice-petals catching light, each with a BRIGHT glowing core
+  // (a beaded ring of light — the glow reads even where a dark body would; the core
+  // is white-hot skin.core so it blooms and is legible on any sky).
+  const wp = _superellipse(o.gapX, o.gapY, o.gapW + 0.9, o.gapH + 0.9, 14);
+  const shards = [], cpos = [], ccol = [], cph = [], csz = [];
+  const cw = white.clone().lerp(hot, 0.3);
+  for (let i = 0; i < 14; i++) {
+    const x = wp[i * 2], y = wp[i * 2 + 1], th = Math.atan2(y - o.gapY, x - o.gapX);
+    const sg = new THREE.IcosahedronGeometry(0.26, 0);
+    sg.scale(1.35, 0.6, 0.6); sg.rotateZ(th); sg.translate(x, y, 0);
+    shards.push(sg);
+    cpos.push(x, y, 0.2); ccol.push(cw.r, cw.g, cw.b); cph.push(Math.random() * 6.28); csz.push(2.8);
+  }
+  const wreath = new THREE.Mesh(mergeGeometries(shards, false), markerStoneMat);
+  shards.forEach((s) => s.dispose());
+  objs.push(wreath);
+  objs.push(new THREE.Points(_veilGeo(cpos, ccol, cph, csz, 'aSize'), veilPointMat));
+  return objs;
 }
 
 // shared drifting motes for the swirl/curtain (soft additive spirits away from the window)
@@ -660,27 +721,27 @@ function buildGate(o, biOverride) {
     group.add(mesh);
   };
 
-  // Layer 2 — aperture ring: the brightest element, framing the safe route. Skyforged (PR-4):
-  // ONE faceted forged-glass frame with a hot inner LIP on the collider boundary (per biome),
-  // replacing the four flat bars. Fallback (?skyforged=0): the exact shipped bars.
-  if (SKYFORGED) {
-    group.add(new THREE.Mesh(buildGateFrame(o), gateFrameMats[bi]));
+  // Layer 2 — the WINDOW MARKER. Serene styles: the redesigned iris + glacier-bloom
+  // wreath (no UI frame, no viewfinder brackets — the owner rejected those). Crystal
+  // (A/B): the prior Skyforged forged-glass frame + corner brackets, unchanged.
+  if (veilStyle !== 'crystal') {
+    for (const obj of buildWindowMarker(o, skin)) group.add(obj);
   } else {
-    bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
-    bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
-    bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
-    bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
-  }
-  // Corner brackets (viewfinder cue) opening toward the centre of the gap. UNTOUCHED in both
-  // modes (on edgeMat) — the highest-leverage safe-route affordance + its speed-aware breath.
-  const legLen = 1.2;
-  const gap = 0.75;
-  for (const sx of [-1, 1]) {
-    for (const sy of [-1, 1]) {
-      const cx = o.gapX + sx * (o.gapW + gap);
-      const cy = o.gapY + sy * (o.gapH + gap);
-      bar(legLen, 0.34, cx - sx * legLen / 2, cy, edgeMat, 0.5); // horizontal leg
-      bar(0.34, legLen, cx, cy - sy * legLen / 2, edgeMat, 0.5); // vertical leg
+    if (SKYFORGED) {
+      group.add(new THREE.Mesh(buildGateFrame(o), gateFrameMats[bi]));
+    } else {
+      bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
+      bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
+      bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
+      bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
+    }
+    const legLen = 1.2, gap = 0.75;
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        const cx = o.gapX + sx * (o.gapW + gap), cy = o.gapY + sy * (o.gapH + gap);
+        bar(legLen, 0.34, cx - sx * legLen / 2, cy, edgeMat, 0.5);
+        bar(0.34, legLen, cx, cy - sy * legLen / 2, edgeMat, 0.5);
+      }
     }
   }
 
@@ -750,7 +811,7 @@ function buildGate(o, biOverride) {
 export function buildStudioGate(bi = 0) {
   if (!veilMats) initObstacles({ add() {}, remove() {} });
   const g = buildGate({ dist: 0, gapX: 0, gapY: 11, gapW: 3.8, gapH: 3.4, thick: 1.5 }, bi);
-  if (g.userData.core) g.userData.core.material.opacity = 0.5;
+  if (g.userData.core) g.userData.core.material.opacity = 0.12;  // faint — the window is open AIR; the marker carries the read
   if (g.userData.beacon) g.userData.beacon.visible = false;   // the far-range locator pillar distracts the close veil read
   return g;
 }
