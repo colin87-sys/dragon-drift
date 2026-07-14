@@ -346,18 +346,18 @@ const ARCHETYPES = {
   serac: {
     step: 26, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.88, sMax: 1.10 }, // force-parks in breath
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.66, 0.60, 0.58), { y: 0.32, ry: 0.20, rz: 0.09 }) },            // main sheared block
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.54, 0.46), { x: 0.30, z: -0.08, y: 0.40, ry: 0.6, rz: -0.20 }) }, // block leaning ON the main (topple)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.46, 0.48, 0.42), { x: -0.30, z: 0.12, y: 0.30, ry: 1.1, rz: 0.18 }) },  // flank block, sheared other way
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.42, 0.44, 0.38), { x: 0.06, z: 0.04, y: 0.68, ry: 0.4, rz: 0.24 }) },   // upper block seated ON the pile (grounded, was the floater)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.32, 0.28), { x: -0.12, z: -0.06, y: 0.74, ry: 0.9, rz: -0.30 }) },// small toppled capstone, overlapping
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.36, 0.26, 0.32), { x: 0.34, z: 0.22, y: 0.14, ry: 0.5, rz: 0.10 }) },   // foot rubble, half-buried
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.42, 0.16), { x: -0.06, z: 0.30, y: 0.42 }) },             // crevasse rib L (proud)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.42, 0.16), { x: 0.18, z: 0.30, y: 0.42 }) },              // crevasse rib R (proud)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.66, 0.56, 0.60), { y: 0.30, ry: 0.20, rz: 0.09 }) },            // main sheared block (deeper — a block, never a plane)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.54, 0.50, 0.52), { x: 0.30, z: -0.08, y: 0.38, ry: 0.6, rz: -0.20 }) }, // block leaning ON the main (topple)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.48, 0.46, 0.48), { x: -0.30, z: 0.12, y: 0.28, ry: 1.1, rz: 0.18 }) },  // flank block, sheared other way
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.42, 0.42), { x: 0.06, z: 0.04, y: 0.64, ry: 0.4, rz: 0.24 }) },   // upper block seated ON the pile (grounded, was the floater)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.32, 0.32, 0.32), { x: -0.12, z: -0.06, y: 0.70, ry: 0.9, rz: -0.30 }) },// small toppled capstone, overlapping
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.38, 0.28, 0.36), { x: 0.34, z: 0.22, y: 0.14, ry: 0.5, rz: 0.10 }) },   // foot rubble, half-buried
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.40, 0.26), { x: -0.06, z: 0.30, y: 0.40 }) },             // crevasse rib L (proud, DEEP — reads as ice, not a card)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.40, 0.26), { x: 0.18, z: 0.30, y: 0.40 }) },              // crevasse rib R (proud, deep)
       // recessed crevasse core in the cleft between the ribs (proud of the main block face)
-      ...crevasseCore({ x: 0.06, y: 0.42, z: 0.33, h: 0.34, w: 0.06, seg: 2 }),
+      ...crevasseCore({ x: 0.06, y: 0.40, z: 0.36, h: 0.34, w: 0.07, seg: 2 }),
     ], 2),
-    place: (side, rnd) => ({ x: side * (16 + rnd() * 8), h: 7 + rnd() * 7, r: 6 + rnd() * 4, tilt: side * (rnd() * 0.10 - 0.03) }),
+    place: (side, rnd) => ({ x: side * (16 + rnd() * 8), h: 7 + rnd() * 6, r: 7 + rnd() * 4, tilt: side * (rnd() * 0.10 - 0.03) }),
   },
   // THE ICE TERRACE — stepped shelf (~108 tris): a giant's staircase rising from the
   // mirror — wide (3–8:1). Low h-rolls read as pack ice, high rolls as full terraces
@@ -371,12 +371,12 @@ const ARCHETYPES = {
     // as pressure-ridge rubble to break the pancake silhouette, and a slightly higher
     // floor so it reads as a low shelf with thickness, not paper.
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.55, 0.64, 0.24, 7), { y: 0.12, ry: 0.4, sx: 1.15, sz: 0.8 }) },  // base pan (thicker riser)
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.40, 0.48, 0.30, 6), { x: 0.10, z: -0.06, y: 0.39, ry: 1.6, sx: 1.1 }) }, // tier 2 (real riser)
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.26, 0.33, 0.26, 6), { x: -0.14, z: 0.10, y: 0.67, ry: 3.0 }) },  // tier 3
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.24, 0.22, 0.22), { x: 0.24, z: 0.14, y: 0.30, ry: 0.5, rz: 0.10 }) }, // pressure-ridge rubble chunk
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.20, 0.20, 0.18), { x: -0.30, z: -0.10, y: 0.26, ry: 1.2 }) },        // pressure-ridge rubble chunk
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.22, 0.05, 0.22), { x: 0.10, z: -0.06, y: 0.55, ry: 1.6 }) },         // melt-pond inlay glowing on the tier-2 tread
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.62, 0.62, 0.32, 7), { y: 0.16, ry: 0.4, sx: 1.15, sz: 0.8 }) },  // base pan — STRAIGHT walls (vertical ice cliff, not a melting taper) + 30% thicker
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.46, 0.30, 6), { x: 0.10, z: -0.06, y: 0.45, ry: 1.6, sx: 1.1 }) }, // tier 2 — straight-walled riser
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.30, 0.26, 6), { x: -0.14, z: 0.10, y: 0.70, ry: 3.0 }) },  // tier 3 — straight-walled
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.24, 0.24), { x: 0.26, z: 0.16, y: 0.34, ry: 0.5, rz: 0.10 }) },// pressure-ridge rubble chunk
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.22, 0.22, 0.20), { x: -0.32, z: -0.10, y: 0.30, ry: 1.2 }) },        // pressure-ridge rubble chunk
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.22, 0.05, 0.22), { x: 0.10, z: -0.06, y: 0.61, ry: 1.6 }) },         // melt-pond inlay glowing on the tier-2 tread
     ], 2),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 2.5 + rnd() * 4.5, r: 8 + rnd() * 8, tilt: side * (rnd() * 0.04 - 0.02) }),
   },
@@ -395,14 +395,13 @@ const ARCHETYPES = {
     // plan-view star symmetry dies, finished with one OVERSIZED overhanging capstone
     // and a recessed crevasse seam (it was the only unlit prop).
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.54, 0.40, 6), { y: 0.20, ry: 0.2, sx: 1.05 }) },          // FAT tabular base (~40% height)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.34, 0.40), { x: -0.10, z: 0.04, y: 0.55, ry: 0.5 }) },          // block — offset LEFT, tall
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.40, 0.22, 0.36), { x: 0.12, z: -0.06, y: 0.80, ry: -0.7 }) },         // block — offset RIGHT, short (zig-zag)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.34, 0.30, 0.32), { x: -0.08, z: 0.06, y: 0.98, ry: 1.2 }) },          // block — offset LEFT, medium
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.18, 0.44), { x: 0.10, y: 1.16, ry: 0.4, rz: 0.05 }) },          // OVERSIZED overhanging capstone (breaks the taper)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.10, 0.44, 0.12), { x: -0.06, z: 0.30, y: 0.62 }) },                   // crevasse rib L (proud)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.10, 0.44, 0.12), { x: 0.14, z: 0.30, y: 0.62 }) },                    // crevasse rib R (proud)
-      ...crevasseCore({ x: 0.04, y: 0.60, z: 0.34, h: 0.36, w: 0.06, seg: 2 }),                                          // recessed crevasse (kit accent)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.54, 0.44, 6), { y: 0.22, ry: 0.2, sx: 1.05 }) },          // FAT tabular base (~40% height)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.48, 0.42, 0.44), { x: -0.10, z: 0.04, y: 0.52, ry: 0.5 }) },          // block — offset LEFT, tall (deep overlap into the base → fused, not perched)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.34, 0.40), { x: 0.12, z: -0.06, y: 0.78, ry: -0.7 }) },         // block — offset RIGHT (zig-zag), overlapping heavily
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.56, 0.22, 0.50), { x: 0.04, y: 0.98, ry: 0.4, rz: 0.05 }) },          // OVERSIZED overhanging capstone (shaved a block — less totem-tall)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.44, 0.20), { x: -0.06, z: 0.30, y: 0.60 }) },                   // crevasse rib L (proud, deep)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.44, 0.20), { x: 0.14, z: 0.30, y: 0.60 }) },                    // crevasse rib R (proud, deep)
+      ...crevasseCore({ x: 0.04, y: 0.58, z: 0.36, h: 0.38, w: 0.07, seg: 2 }),                                          // recessed crevasse (kit accent)
     ], 2),
     place: (side, rnd) => ({ x: side * (24 + rnd() * 12), h: 22 + rnd() * 14, r: 8 + rnd() * 4, tilt: side * (rnd() * 0.06 - 0.02) }),
   },
@@ -600,22 +599,22 @@ const ARCHETYPES = {
   sungate: {
     step: 300, biomes: frozenNew, matIndex: 2, paired: true, hero: true,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.60, 0.68, 0.44, 6), { x: -0.12, y: 0.22, ry: 0.3 }) },     // FAT tabular base slab (~40% height — the mass), seated OUTward
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.80, 0.34, 0.68), { x: 0.02, y: 0.55, ry: 0.12 }) },             // lower block (steps toward the gap)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.66, 0.40, 0.50), { x: 0.16, y: 0.80, ry: -0.10 }) },            // mid mass (steps further inward → convergence)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.44, 0.20), { x: 0.00, z: 0.24, y: 0.82 }) },              // crevasse rib L (proud, front face)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.44, 0.20), { x: 0.34, z: 0.24, y: 0.82 }) },              // crevasse rib R (proud, front face)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.50, 0.30, 0.42), { x: 0.26, y: 1.05, ry: 0.20 }) },             // upper block (steps further toward the gap)
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.62, 0.17, 0.48), { x: 0.34, y: 1.22, ry: 0.10, rz: 0.06 }) },   // capstone CANTILEVERED + angled DOWN into the gap — the broken lintel reaching for its twin
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.42, 0.26, 0.36), { x: 0.26, z: 0.16, y: 0.13, ry: 0.5, rz: -0.05 }) },  // rooted foot rubble (gap side) — a grounded chunk, not a flare
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.38, 0.24, 0.34), { x: -0.30, z: -0.14, y: 0.12, ry: 1.0, rz: 0.06 }) }, // rooted foot rubble (outer side)
-      // recessed crevasse core — the lit chasm between the two ribs (seg 2, set back so the ribs overhang it)
-      ...crevasseCore({ x: 0.17, y: 0.80, z: 0.27, h: 0.40, w: 0.07, seg: 2 }),
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.62, 0.72, 0.44, 6), { x: -0.14, y: 0.22, ry: 0.3 }) },     // FAT tabular base slab (~40% height — the mass), seated OUTward
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.92, 0.34, 0.86), { x: -0.04, y: 0.55, ry: 0.12 }) },            // lower block — WIDER + DEEPER (chunk, not slab); grows toward the outer side
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.80, 0.40, 0.66), { x: 0.08, y: 0.80, ry: -0.10 }) },            // mid mass — fatter; steps toward the gap (convergence)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.48, 0.18), { x: 0.03, z: 0.30, y: 0.82 }) },              // crevasse rib L (thin + proud → a deep chasm, not fat ribs)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.48, 0.18), { x: 0.25, z: 0.30, y: 0.82 }) },              // crevasse rib R (thin + proud)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.64, 0.32, 0.54), { x: 0.16, y: 1.05, ry: 0.20 }) },             // upper block — fatter; steps further toward the gap
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.72, 0.18, 0.58), { x: 0.22, y: 1.23, ry: 0.10, rz: 0.06 }) },   // capstone CANTILEVERED + angled DOWN into the gap — the broken lintel reaching for its twin
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.46, 0.28, 0.42), { x: 0.24, z: 0.18, y: 0.13, ry: 0.5, rz: -0.05 }) },  // rooted foot rubble (gap side) — a grounded chunk, not a flare
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.26, 0.40), { x: -0.34, z: -0.14, y: 0.12, ry: 1.0, rz: 0.06 }) }, // rooted foot rubble (outer side)
+      // recessed crevasse core — the SAME deep 2-segment chasm used on bergwall/serac (wider core, set well back so the ribs overhang it), not a thin single bar
+      ...crevasseCore({ x: 0.14, y: 0.80, z: 0.34, h: 0.44, w: 0.10, seg: 2 }),
     ], 2),
     // MASSIVE + gate-safe: r 12-15 (wide footprint for mass, not a pole), h 40-49
     // (towers over the congregation), x 27-30 (inner edge ≥ 18.9). tilt is tiny — the
     // convergence is carried by the offset-stack, not a shear-prone rotation.
-    place: (side, rnd) => ({ x: side * (27 + rnd() * 3), h: 40 + rnd() * 9, r: 12 + rnd() * 3, tilt: side * (-0.015 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }),
+    place: (side, rnd) => ({ x: side * (27 + rnd() * 3), h: 38 + rnd() * 8, r: 13 + rnd() * 3, tilt: side * (-0.015 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }),
   },
 };
 
