@@ -965,6 +965,112 @@ export function buildObstacleMesh(type, bi = 0, opts = {}) {
   return g;
 }
 
+// --- CALVED CANYON wall kit (Fable pre-assess 2026-07-14) ------------------
+// Replaces the picket-fence of ConeGeometry shards with stacked, SHEARED calved ice
+// blocks for the Frozen rock run: recessed foot → proud re-flare bulge (throws a teal
+// underside) → stepped-back broken-ridge crest. Reuses the glacier kit — bakeIceLadder
+// + withLadderEmissive so the wall stays lit (frost caps / mid faces / teal belly) in
+// the backlit sunset instead of collapsing to a black silhouette. Authored in UNIT
+// space (x in hw, y in h, z in hz) so one fairness pass covers every mass size. SHEAR
+// (not rotate): a 0.15rad rotate on a 26-tall wall walks the top ~3u sideways into the
+// channel; shearing keeps top faces pointing UP (frost survives) and the ±hw check exact.
+const WALL_TIERS = {
+  footFace: [0.70, 0.78], footTop: [0.30, 0.35],   // deeply recessed undercut waterline
+  bodyFace: [0.94, 0.97], bodyTop: [0.66, 0.71],   // proud calved bulge — juts ~0.2hw over the foot → teal underside
+  crestFace: [0.80, 0.86],                          // clearly stepped back from the body
+  shearToward: 0.03, shearZ: 0.22,                  // max shear toward channel (frac hw) / z jitter (frac hz)
+  faceFloor: 0.90,                                  // fairness: body channel-face ≥ this·hw (cones tapered to ~0.5)
+  crestBand: 0.60, bodyBandTop: 0.692, crestBandTop: 0.98,  // collider bands in unit-y (body y−3..15, crest 13.5..22.5 over h=26)
+};
+// Skyline families → crest TOP (unit-y) per column, so each mass reads as a distinct
+// BROKEN RIDGE, never a comb. Height variance carries the drama; deep notches only in
+// outer columns. Chosen per mass by (stackCount % 3) so consecutive masses differ.
+const WALL_SKYLINES = [
+  (ci, nc, rng) => 1.10 - (ci / Math.max(nc - 1, 1)) * 0.34 + (rng() - 0.5) * 0.06, // PROW  — tall front tooth, steps down back
+  (ci, nc, rng) => 0.99 + Math.abs((ci / Math.max(nc - 1, 1)) - 0.5) * 0.30 + (rng() - 0.5) * 0.05, // SADDLE — high ends, low mid
+  (ci, nc, rng) => 1.07 - (ci / Math.max(nc - 1, 1)) * 0.30 + (rng() - 0.5) * 0.05, // STEP  — monotonic stair
+];
+
+// Shear a box by displacing x/z proportionally to height-from-base (top moves, base fixed).
+function shearBoxGeo(w, h, d, shx = 0, shz = 0) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  if (shx || shz) {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const t = p.getY(i) / h + 0.5;   // 0 at base → 1 at top
+      p.setX(i, p.getX(i) + t * shx);
+      p.setZ(i, p.getZ(i) + t * shz);
+    }
+  }
+  return g;
+}
+
+// Build the block geometries for ONE Frozen canyon wall mass (unit-authored, world-scaled).
+// channelSign = +1 puts the calved face toward +x; the caller passes sign(lean) so the
+// undercut always faces the channel. Returns non-indexed geos ready to merge.
+function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
+  const T = WALL_TIERS, parts = [];
+  const nc = Math.max(1, Math.min(4, Math.round(hw / 3.0)));
+  const sky = WALL_SKYLINES[((familyIdx % 3) + 3) % 3];
+  const rr = (a) => a[0] + rng() * (a[1] - a[0]);
+  const backX = -hw * channelSign;
+  for (let ci = 0; ci < nc; ci++) {
+    // Columns tile the depth ±hz with jittered centres + spans so faded masses show
+    // overlapping INTERNAL ice planes (kills the single-sheet "paper billboard").
+    const zc = (nc > 1 ? (-1 + 2 * (ci + 0.5) / nc) : 0) * hz * 0.62 + (rng() - 0.5) * 0.28 * hz;
+    const zspan = hz * (0.55 + rng() * 0.35);
+    const seam = (rng() - 0.5) * 0.10 * h;   // per-column seam stagger (kills fortress coursing)
+    const footTop = botY + Math.min(0.5, rr(T.footTop)) * h + seam;
+    const bodyTop = botY + rr(T.bodyTop) * h + seam;
+    // Crest MUST reach the crest collider top (0.98) everywhere — a short crest leaves an
+    // invisible-kill gap where a high-flying player clips the collider. Skyline drama comes
+    // from height variance ABOVE that floor (0.98→1.14 ≈ 4 world units of ridge swing).
+    const crestTop = botY + Math.max(WALL_TIERS.crestBandTop, Math.min(1.14, sky(ci, nc, rng))) * h;
+    const mk = (faceFrac, yb, yt, shTowardFrac, isBody) => {
+      const faceX = faceFrac * hw * channelSign;
+      const w = Math.abs(faceX - backX), cx = (faceX + backX) / 2;
+      const shx = shTowardFrac * hw * channelSign;
+      const g = shearBoxGeo(w, yt - yb, zspan, shx, (rng() - 0.5) * T.shearZ * hz);
+      g.translate(cx, (yb + yt) / 2, zc);
+      return g;
+    };
+    parts.push(mk(rr(T.footFace), botY, footTop, rng() * T.shearToward, false));
+    parts.push(mk(rr(T.bodyFace), footTop - 0.05 * h, bodyTop, T.shearToward * (0.5 + rng() * 0.5), true)); // re-flare overhang
+    if (crest) parts.push(mk(rr(T.crestFace), bodyTop - 0.05 * h, crestTop, (rng() - 0.5) * 2 * T.shearToward, false));
+  }
+  return parts;
+}
+
+// Fairness check for the calved wall — validates the authoring invariants that keep the
+// visible ice covering the collider band (a direct sibling of pillarColliderCoverage).
+// Structural (the builder draws from these same ranges), so it can't drift from the code.
+export function wallColliderCoverage() {
+  const T = WALL_TIERS, issues = [];
+  if (T.bodyFace[0] < T.faceFloor) issues.push(`body channel-face ${T.bodyFace[0]} < fairness floor ${T.faceFloor}`);
+  const poke = Math.max(T.footFace[1], T.bodyFace[1], T.crestFace[1]) + T.shearToward;
+  if (poke > 1.0 + 1e-9) issues.push(`channel poke ${poke.toFixed(3)} > 1.0 (visual crosses ±hw into the channel)`);
+  if (T.crestFace[0] < T.crestBand) issues.push(`crest face ${T.crestFace[0]} < crest collider band ${T.crestBand}`);
+  // The union foot∪body∪crest must cover y 0..crestBandTop with NO gap: tiers overlap by
+  // 0.05h (crest bottom = bodyTop−0.05 ≤ bodyTop; body bottom = footTop−0.05 ≤ footTop) and
+  // the crest is clamped to reach crestBandTop, so the body collider top (0.692) is always
+  // covered by the crest overlap even when body tops out at 0.66.
+  if (T.bodyTop[0] + 0.05 < T.footTop[0]) issues.push('body/foot y-bands leave a gap');   // body reaches down into foot
+  if (T.bodyTop[1] < T.bodyBandTop - 0.05) issues.push('body top too low for crest to bridge to the body collider top');
+  return { ok: issues.length === 0, issues };
+}
+
+// Inert STUDIO export — build one Frozen wall mass in isolation (Fable checkpoint before
+// wiring into the canyon). Mirrors the in-canyon material path (self-lit ladder, faded).
+export function buildCanyonWallMass(hw = 6, hz = 4, { crest = true, family = 0, seed = 1, lean = 0.06 } = {}) {
+  if (!mats) initObstacles({ add() {}, remove() {} });
+  const rng = mulberry32((seed ^ 0x1a2b3c4d) >>> 0);
+  const h = 26, botY = -3, channelSign = Math.sign(lean) || 1;
+  const parts = frozenWallParts(hw, hz, h, botY, channelSign, crest, family, rng);
+  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false));
+  const mat = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
+  return new THREE.Mesh(geo, mat);
+}
+
 // --- Sky Canyon rock gates -------------------------------------------------
 // A canyon segment frames a safe aperture (centered on a reward ring) with rock
 // masses, an emissive aperture rim ("glowing crystal cracks"), and an additive
