@@ -335,38 +335,39 @@ const ARCHETYPES = {
     ], 2),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 10), h: 1.2 + rnd() * 5.0, r: 8 + rnd() * 8, tilt: side * (rnd() * 0.04 - 0.02) }),
   },
-  // THE PINNACLE — the rare horn (~113 tris, step 120 = punctuation, not vocabulary):
-  // a broad MOUNTAIN — massive foot + shoulder occupying the bottom 60% — with ONE
-  // kinked horn rising from it + a fused sub-peak. Matterhorn logic: the spire grows
-  // FROM mass, never a stick in water. The one exclamation mark in a paragraph of mass.
+  // THE PINNACLE — a BROKEN natural ice peak (~122 tris, step 120 = rare punctuation).
+  // NOT a smooth spire (that reads man-made) — a broad chunky mass with an ASYMMETRIC
+  // multi-jag broken top (three jags at opposing tilts kill the single-steeple read).
+  // Jagged, blunt, irregular = natural ice, never a gothic tower. Grows FROM mass.
   pinnacle: {
     step: 120, biomes: frozenNew, matIndex: 2,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.60, 0.26, 6), { y: 0.13, ry: 0.3, sx: 1.15, sz: 0.9 }) },  // massive foot
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.42, 0.30, 6), { x: -0.06, y: 0.38, ry: 0.8 }) },           // shoulder mass
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.16, 0.28, 0.28, 5), { x: 0.02, y: 0.65 }) },                     // neck frustum (offset lean)
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.42, 6), { x: 0.05, y: 1.00, rz: -0.10 }) },                    // THE HORN, kinked
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.20, 0.50, 5), { x: -0.34, z: 0.12, y: 0.42, rz: 0.18 }) },           // fused sub-peak in the shoulder
-      { mat: 1, geo: xform(new THREE.ConeGeometry(0.05, 0.60, 4), { x: -0.14, z: 0.06, y: 0.55 }) },                     // cyan core sliver in the shoulder cleft
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.62, 0.30, 6), { y: 0.15, ry: 0.3, sx: 1.2, sz: 0.95 }) }, // broad chunky foot
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.34, 0.46, 0.30, 6), { x: -0.06, z: 0.04, y: 0.42, ry: 0.9 }) },  // shoulder mass
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.32, 0.26, 5), { x: 0.04, z: -0.03, y: 0.66, ry: 2.1 }) },  // upper mass
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.20, 0.42, 5), { x: -0.02, y: 0.94, rz: -0.16, ry: 0.4 }) },          // main broken jag (tilted, blunt)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.30, 5), { x: 0.22, z: 0.06, y: 0.70, rz: 0.5 }) },             // asymmetric side jag
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.24, 4), { x: -0.24, z: -0.08, y: 0.66, rz: -0.55 }) },         // second side jag — breaks the spire read
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.05, 0.44, 0.09), { x: 0.00, z: 0.16, y: 0.52, rz: 0.04 }) },          // cyan crevasse seam
     ], 2),
-    place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 34 + rnd() * 16, r: 10 + rnd() * 4, tilt: side * (0.02 + rnd() * 0.03) }),
+    place: (side, rnd) => ({ x: side * (19 + rnd() * 9), h: 24 + rnd() * 14, r: 10 + rnd() * 4, tilt: side * (rnd() * 0.10 - 0.03) }),
   },
-  // THE SUN GATE — massive paired pylons (~117 tris): Argonath-scale battered posts —
-  // wide plinth, tapering tower, V-notch crown — flanking the lane, leaning INWARD,
-  // framing the low sun: a doorway of light that re-forms every ~100m. `paired:true`
-  // seats the left+right of a slot at the SAME distance. The now-taller-walled gap
-  // carves STRONGER god-ray shafts (more occluder in the mask). Cyan seam on the inner face.
+  // THE SUN GATE — paired natural ICE FINS leaning together (~107 tris): two broad
+  // jagged ice masses flanking the lane, leaning INWARD, framing the low sun — a
+  // natural gap, NOT architectural pylons (the owner's "man-made town" read killed:
+  // broken asymmetric jag crowns, chunky bases, no regular tapering column). `paired`
+  // seats left+right at the same distance; the gap still carves god-ray shafts.
   sungate: {
     step: 100, biomes: frozenNew, matIndex: 2, paired: true,
     build: () => mergeParts([
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.50, 0.62, 0.30, 6), { y: 0.15, ry: 0.3, sx: 1.1, sz: 0.85 }) },  // grand plinth
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.36, 0.48, 0.34, 6), { y: 0.45 }) },                              // battered tower
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.34, 0.30, 6), { x: 0.03, y: 0.76 }) },                     // upper course (offset)
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.16, 0.34, 6), { x: 0.02, z: 0.05, y: 1.06 }) },                      // crown peak
-      { mat: 0, geo: xform(new THREE.ConeGeometry(0.12, 0.24, 5), { x: 0.15, z: -0.07, y: 0.98, rz: 0.25 }) },           // second peak (the V notch = "gate")
-      { mat: 1, geo: xform(new THREE.BoxGeometry(0.07, 0.78, 0.06), { x: -0.01, z: 0.03, y: 0.50, rz: 0.03 }) },         // cyan seam on the inner face
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.66, 0.34, 6), { y: 0.17, ry: 0.3, sx: 1.2, sz: 0.85 }) },  // broad chunky base
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.38, 0.52, 0.34, 6), { x: 0.04, y: 0.46, ry: 0.7 }) },            // rising mass
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.26, 0.38, 0.28, 5), { x: 0.08, z: -0.04, y: 0.74, ry: 1.8 }) },  // upper mass (offset lean toward the gap)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.22, 0.44, 5), { x: 0.10, y: 1.00, rz: -0.20, ry: 0.5 }) },           // broken jag crown (tilted — not a smooth spire)
+      { mat: 0, geo: xform(new THREE.ConeGeometry(0.15, 0.28, 4), { x: -0.16, z: 0.08, y: 0.78, rz: 0.40 }) },           // asymmetric side jag
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.06, 0.60, 0.07), { x: 0.02, z: 0.02, y: 0.52, rz: 0.03 }) },          // cyan seam on the inner face
     ], 2),
-    place: (side, rnd) => ({ x: side * (16 + rnd() * 2), h: 36 + rnd() * 12, r: 10 + rnd() * 3, tilt: -side * (0.04 + rnd() * 0.03) }),
+    place: (side, rnd) => ({ x: side * (15 + rnd() * 2), h: 30 + rnd() * 12, r: 11 + rnd() * 3, tilt: -side * (0.06 + rnd() * 0.04) }),
   },
   // THE GLACIER WALL — far massif on the fog line (~64 tris): a long tabular ice-shelf
   // front, mass in the UPPER band so it FLOATS on the fog line (foam:false); peaks
