@@ -748,7 +748,7 @@ function buildStormbrowHead(def, model, mats) {
   // (brow→nose): breaks the broad smooth top into knapped facets so it doesn't catch the warm
   // key-light as one continuous sheen band (the residual "tan band"), and gives a hard chine + a rank.
   const topY = (z) => { for (let i = 0; i < skull.length - 1; i++) { const p = skull[i], q = skull[i + 1]; if (z <= p.z && z >= q.z) { const t = (p.z - z) / (p.z - q.z || 1); return (p.cy + p.ry) + ((q.cy + q.ry) - (p.cy + p.ry)) * t; } } const l = skull[skull.length - 1]; return l.cy + l.ry; };
-  for (let i = 0; i < 8; i++) { const t = i / 7, z = 0.10 - t * 1.05, yT = topY(z), hw = (0.05 - 0.03 * t) * hs, h = (0.032 - 0.016 * t) * hs, mat = i % 2 ? M.dorsal : M.spine;
+  for (let i = 0; i < 10; i++) { const t = i / 9, z = 0.335 - t * 1.29, yT = topY(z), hw = (0.05 - 0.03 * t) * hs, h = (0.032 - 0.016 * t) * hs, mat = i % 2 ? M.dorsal : M.spine;
     const bl = [-hw, yT - 0.006 * hs, z - 0.03], br = [hw, yT - 0.006 * hs, z - 0.03], pk = [0, yT + h, z + 0.02];
     push(mat, [bl, br, pk], [bl, pk, [-hw * 0.5, yT + h * 0.4, z + 0.05]], [br, [hw * 0.5, yT + h * 0.4, z + 0.05], pk]);
     push(M.recess, [bl, [-hw, yT - 0.02 * hs, z + 0.05], br]); }
@@ -757,31 +757,35 @@ function buildStormbrowHead(def, model, mats) {
   // Each = the shared stormSpike (charcoal sides + near-white cap + silver rim), kinked at a
   // knuckle, tip on arcCore (brightest), welded into the skull with stormWeld. Inner pairs tallest
   // + arcCore-glow, outer pairs shorter + arcSeam + splayed wider — a value ladder = depth, not a comb.
-  const crownN = Math.round(model.maneSpikes ?? 6), HT = [0.30, 0.24, 0.18], AZ = [8, 22, 36];
+  // Blades stand PROUD (rise near-vertical off the dome, THEN sweep back) as a bold fan of distinct
+  // blades — the tall inner pair dominant — not a flat thicket along the neck (gate polish).
+  const crownN = Math.round(model.maneSpikes ?? 6), HT = [0.34, 0.26, 0.19], AZ = [8, 22, 36];
   for (let p = 0; p < Math.floor(crownN / 2); p++) {
-    const h = HT[Math.min(p, 2)] * hs, azd = AZ[Math.min(p, 2)] * Math.PI / 180, glowMat = p === 0 ? M.arcCore : M.arcSeam, w = (0.03 - 0.005 * p) * hs;
+    const h = HT[Math.min(p, 2)] * hs, azd = AZ[Math.min(p, 2)] * Math.PI / 180, glowMat = p === 0 ? M.arcCore : M.arcSeam, w = (0.05 - 0.009 * p) * hs;
     for (const side of [1, -1]) {
-      const bx = side * (0.04 + 0.035 * p) * hs, base = [bx, 0.15 * hs, 0.30 * hs];
-      const tip = [bx + side * Math.sin(azd) * h * 0.9, base[1] + h, base[2] + 0.30 * hs];   // swept back (+Z) + up (+Y), splayed (X)
-      const kn = 0.55, Bm = [base[0] + (tip[0] - base[0]) * kn + side * 0.05 * h, base[1] + (tip[1] - base[1]) * kn + 0.02 * h, base[2] + (tip[2] - base[2]) * kn - 0.05 * h];   // the storm knuckle
-      stormSpike(push, hs, base, Bm, w, w * 0.7, 0.02 * hs, M.spine, glowMat, M.silverRim);
-      stormSpike(push, hs, Bm, tip, w * 0.7, 0.004 * hs, 0.015 * hs, M.spine, M.arcCore, M.silverRim);   // tip segment brightest
-      stormWeld(push, hs, base, w * 1.3, glowMat);   // welded into the crown, never a floating antenna
+      const bx = side * (0.03 + 0.03 * p) * hs, base = [bx, 0.15 * hs, 0.30 * hs];
+      const tip = [bx + side * Math.sin(azd) * h, base[1] + h, base[2] + 0.16 * hs];                 // rise (+Y) then a MODEST back-sweep (+Z)
+      const Bm = [bx + side * Math.sin(azd) * h * 0.35, base[1] + h * 0.6, base[2] + 0.02 * hs];      // knuckle risen near-vertical, barely back
+      stormSpike(push, hs, base, Bm, w, w * 0.72, 0.02 * hs, M.spine, glowMat, M.silverRim);
+      stormSpike(push, hs, Bm, tip, w * 0.72, 0.005 * hs, 0.015 * hs, M.spine, M.arcCore, M.silverRim);   // tip segment brightest
+      stormWeld(push, hs, base, w * 1.2, glowMat);   // welded into the crown, never a floating antenna
     }
   }
 
   // ── THE CARVED EYE SOCKET + almond eye (the Revenant orbit law: glow from within a housing).
+  // socket lip is CHARCOAL (M.dorsal) so the EYE is the only bright thing in the housing; the ember
+  // sits at the socket MOUTH (forward + up), clipped by the lip but NOT swallowed by the deep floor.
   const eyeSocket = (cx, cy, cz, r) => { const nR = 6, rim = [], lip = [];
     for (let k = 0; k < nR; k++) { const a = (k / nR) * Math.PI * 2; rim.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz]); lip.push([cx + Math.cos(a) * r * 1.28, cy + Math.sin(a) * r * 1.05, cz - 0.02 * hs]); }
-    const floor = [cx, cy, cz + r * 1.2];
-    for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; push(M.socketFloor, [rim[k], rim[k1], floor]); push(M.flank, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } };
+    const floor = [cx, cy, cz + r * 0.7];   // SHALLOW cup — the ember reads, never swallowed
+    for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; push(M.socketFloor, [rim[k], rim[k1], floor]); push(M.dorsal, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } };
   eyeMat.emissiveIntensity = 0.7 + 1.6 * glow;
   for (const side of [1, -1]) {
-    const cx = side * 0.13 * hs, cy = 0.04 * hs, cz = -0.14 * hs;
-    eyeSocket(cx, cy, cz, 0.055 * hs);
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.045 * hs, 0), eyeMat);
-    eye.scale.set(1.5, 0.7, 1); eye.rotation.y = -side * 0.2;   // almond slit, toed-in forward
-    eye.position.set(cx, cy, cz - 0.02 * hs); eye.renderOrder = 1;   // just behind the lip
+    const cx = side * 0.135 * hs, cy = 0.06 * hs, cz = -0.14 * hs;
+    eyeSocket(cx, cy, cz, 0.06 * hs);
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.09 * hs, 0), eyeMat);   // a real bright lozenge, not a pinprick
+    eye.scale.set(1.4, 0.7, 1); eye.rotation.y = -side * 0.25;   // almond slit, toed-in forward
+    eye.position.set(side * 0.155 * hs, cy, cz - 0.04 * hs); eye.renderOrder = 3;   // PROUD of the narrow skull side (was buried inside), at the socket mouth
     group.add(eye);
   }
 
@@ -793,14 +797,12 @@ function buildStormbrowHead(def, model, mats) {
     push(M.socketFloor, [[nx - r, ny, nz], [nx + r, ny, nz], [nx, ny + r * 0.5, nz + r * 1.4]]);
   }
 
-  // ── THE NAPE MANE — continue the body's spine circuit onto the head: a descending rank of small
-  // emissive crest blades down the nape centerline + a near-white arcCore zigzag ribbon (the mane).
-  const maneN = Math.max(2, Math.round(2 + 4 * glow));
-  for (let i = 0; i < maneN; i++) { const t = i / (maneN - 1), z = 0.32 * hs - t * 0.5 * hs, y = (0.18 - 0.04 * t) * hs, len = (0.09 - 0.04 * t) * hs;
-    stormSpike(push, hs, [0, y, z], [0, y + len, z + 0.06 * hs], 0.018 * hs, 0.004 * hs, 0.01 * hs, M.spine, M.crest, null);
-    push(M.recess, [[-0.02 * hs, y - 0.01 * hs, z], [0.02 * hs, y - 0.01 * hs, z], [0, y - 0.01 * hs, z + 0.05 * hs]]); }
-  const zig = []; for (let i = 0; i <= 5; i++) { const t = i / 5; zig.push([(i % 2 ? 0.05 : -0.05) * hs, (0.02 - 0.08 * t) * hs, (0.30 - t * 0.55) * hs]); }
-  addRibbon(push, M.arcCore, zig, 0.016 * hs, 0.01 * hs);
+  // ── THE NAPE MANE — the near-white lightning mane runs down the THROAT/lower-neck SIDES (continues
+  // the body's spine circuit), kept OFF the crown-top so it never crowds the crown base (gate polish).
+  for (const side of [1, -1]) {
+    const zig = []; for (let i = 0; i <= 5; i++) { const t = i / 5; zig.push([side * (0.06 + 0.02 * (i % 2)) * hs, (-0.02 - 0.06 * t) * hs, (0.26 - t * 0.5) * hs]); }
+    addRibbon(push, M.arcSeam, zig, 0.014 * hs, 0.008 * hs);
+  }
 
   for (const [mat, tris] of byMat) group.add(flatTriMesh(tris, mat));
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.16 * hs, 0.20 * hs); group.add(motifAnchor);
@@ -850,7 +852,9 @@ function buildVirgaTail(def, model, mats, anchor) {
   // top of the stem (the serrated silhouette + the reference's glowing tail crest), each with a dark
   // under-gap recess. Continues the body's spine circuit aft. Binned per joint (whips with the tail).
   const fringeN = Math.max(3, Math.round(4 + 5 * glow));
-  for (let i = 0; i < fringeN; i++) { const t = 0.05 + 0.82 * (i / (fringeN - 1)), s = sampleStem(t), len = (0.10 - 0.06 * t) * (0.6 + 0.4 * glow), yTop = s.cy + s.r;
+  for (let i = 0; i < fringeN; i++) { const t = 0.05 + 0.82 * (i / (fringeN - 1)), s = sampleStem(t),
+    taper = t > 0.6 ? Math.max(0.22, 1 - (t - 0.6) / 0.4 * 0.85) : 1,   // ramp DOWN over the last stretch → the fringe hands off to the tuft, never competes (gate: hero hierarchy)
+    len = (0.085 - 0.05 * t) * (0.6 + 0.4 * glow) * taper, yTop = s.cy + s.r;
     spikeJ(s.z, [0, yTop, s.z], [0, yTop + len, s.z + 0.05], 0.016, 0.004, 0.008, M.spine, M.crest);
     pushJ(s.z, M.recess, [[-0.018, yTop - 0.006, s.z], [0.018, yTop - 0.006, s.z], [0, yTop - 0.006, s.z + 0.045]]); }
 
@@ -864,24 +868,27 @@ function buildVirgaTail(def, model, mats, anchor) {
   // from a socketed core at the stem tip. Each tongue is the shared stormSpike INVERTED (arcSeam
   // body + arcCore tip, thin M.spine underside for a facet shadow), splayed in X AND Y + kinked, odd
   // count with ONE dominant center tongue — the point of light. Cool near-white only (no green/warm).
-  const tip = stem[nSeg], tb = [0, tip.cy, tip.z], tScale = 0.35 + 0.65 * glow, tuftN = Math.max(3, Math.round(2 + 5 * glow));
-  // socket lip at the tuft base (a housing the tongues erupt from)
-  { const nR = 6, r = 0.05 * (0.7 + 0.4 * tScale); const rim = [], lip = [];
+  // Scaled up ~1.8x so the tuft is the single brightest/largest event on the tail (the point of light
+  // the chase cam tracks) — it must OUT-shine its own fringe from every glide angle (gate: hero dominance).
+  const tip = stem[nSeg], tb = [0, tip.cy, tip.z], tScale = 0.5 + 0.8 * glow, tuftN = Math.max(3, Math.round(2 + 5 * glow));
+  // socket lip at the tuft base (a bigger housing the tongues erupt from)
+  { const nR = 6, r = 0.07 * (0.7 + 0.4 * tScale); const rim = [], lip = [];
     for (let k = 0; k < nR; k++) { const ang = (k / nR) * Math.PI * 2; rim.push([tb[0] + Math.cos(ang) * r, tb[1] + Math.sin(ang) * r, tb[2]]); lip.push([tb[0] + Math.cos(ang) * r * 1.25, tb[1] + Math.sin(ang) * r * 1.05, tb[2] - 0.03]); }
     const floor = [tb[0], tb[1], tb[2] - r * 1.2];
     for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; pushJ(tb[2], M.socketFloor, [rim[k], rim[k1], floor]); pushJ(tb[2], M.flank, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } }
   for (let i = 0; i < tuftN; i++) {
     const isC = i === 0, ang = (i / tuftN) * Math.PI * 2 + 0.4;
-    const L = (isC ? 0.45 : 0.26 + 0.12 * ((i * 0.37) % 1)) * tScale, outR = isC ? 0 : 0.55;
-    const dir = [Math.cos(ang) * outR, 0.28 + Math.sin(ang * 1.3) * 0.45, 0.72], dl = Math.hypot(dir[0], dir[1], dir[2]);
-    const tt = [tb[0] + dir[0] / dl * L, tb[1] + dir[1] / dl * L, tb[2] + dir[2] / dl * L];
-    const kn = 0.55, Bm = [tb[0] + (tt[0] - tb[0]) * kn + Math.cos(ang) * 0.05 * L, tb[1] + (tt[1] - tb[1]) * kn + 0.03 * L, tb[2] + (tt[2] - tb[2]) * kn];
-    const w = (isC ? 0.03 : 0.022) * (0.7 + 0.4 * tScale);
+    const L = (isC ? 0.78 : 0.34 + 0.42 * ((i * 0.61) % 1)) * tScale, outR = isC ? 0.05 : 0.72;   // aggressive length variance + dominant center
+    const dir = [Math.cos(ang) * outR, 0.30 + Math.sin(ang * 1.3) * 0.5, 0.70], dl = Math.hypot(dir[0], dir[1], dir[2]);
+    const tt0 = [tb[0] + dir[0] / dl * L, tb[1] + dir[1] / dl * L, tb[2] + dir[2] / dl * L];
+    const curl = 0.12 * L, tt = [tt0[0] + Math.cos(ang + 1.6) * curl, tt0[1] + 0.04 * L, tt0[2] + Math.sin(ang + 1.6) * curl * 0.5];   // a flame CURL (licking tongue, not a straight urchin spike)
+    const kn = 0.5, Bm = [tb[0] + (tt[0] - tb[0]) * kn + Math.cos(ang) * 0.10 * L, tb[1] + (tt[1] - tb[1]) * kn + 0.04 * L, tb[2] + (tt[2] - tb[2]) * kn];   // the storm knuckle-kink
+    const w = (isC ? 0.05 : 0.035) * (0.7 + 0.4 * tScale);
     spikeJ(tb[2], tb, Bm, w, w * 0.7, 0.008, M.spine, M.arcSeam);
     spikeJ(tb[2], Bm, tt, w * 0.7, 0.004, 0.006, M.spine, M.arcCore);   // tip segment brightest — the point of light
   }
   // the ignition CORE node behind the lip (heartCore — the brightest tuft point, on the storm tick)
-  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.045 * (0.7 + 0.5 * tScale), 0), M.heartCore);
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.075 * (0.7 + 0.5 * tScale), 0), M.heartCore);
   core.position.set(0, 0, 0); chainAdd(tb[2], core).position.set(tb[0] - jAnchor(jointOf(tb[2])).x, tb[1] - jAnchor(jointOf(tb[2])).y, tb[2] - jAnchor(jointOf(tb[2])).z);
 
   // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
