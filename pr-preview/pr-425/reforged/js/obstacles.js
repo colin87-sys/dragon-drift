@@ -914,7 +914,7 @@ function xf(geo, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0 } = {}) {
 // white frost on upward faces, mid ice on verticals (hue nudged off the sky so the
 // silhouette always separates), deep teal in the belly/shadow planes. This is what
 // turns "one blue band" into premium low-poly ice at zero triangle cost.
-const _FROST = [0.87, 0.93, 0.99], _MIDICE = [0.36, 0.60, 0.75], _BELLY = [0.13, 0.32, 0.40];
+const _FROST = [0.82, 0.91, 0.99], _MIDICE = [0.36, 0.60, 0.75], _BELLY = [0.13, 0.32, 0.40];   // chalk-BLUE frost (not chalk-gray) — reads as ice, not concrete
 // Default (axis = world +Y) is a LIGHTING story: frost on sunlit up-faces, teal in the
 // shadowed belly — correct for STATIC props (bar/pillar). For a TUMBLING body pass a
 // per-chunk weathering `axis`: the same ladder becomes a MATERIAL-HISTORY story that is
