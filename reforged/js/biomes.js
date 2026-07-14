@@ -93,7 +93,7 @@ export const BIOMES = [
     // N8 atmosphere: the low cold sun sits right on the horizon — strong sunward
     // inscatter so the haze glows toward it (OPTIONAL; 0 on every other biome).
     atmos: { inscatter: 0.7 },
-    props: ['crystal', 'crystalSmall'],
+    props: ['ribspire', 'vertebrae', 'penitentes', 'serac', 'glacierfront'], // A1 (legacy crystal/crystalSmall parked; ?props=v1 restores)
     matIndex: 2, // ice
   },
   {
