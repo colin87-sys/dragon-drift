@@ -66,11 +66,18 @@ function revenantMats(def) {
   // while the windows stay TRUE holes (§4.4 hollow-cage render). Non-emissive.
   const recess = new THREE.MeshStandardMaterial({ color: RECESS, emissive: 0x000000, flatShading: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
   recess.envMapIntensity = 0.15;
-  // Flame-lit bone — the INNER-facing rib faces, ivory washed toward the grave-green with a
-  // faint green self-glow, so the ribs read as BONE LIT BY THE CAGED FLAME (art-director: the
-  // reference's fusing trick — ribs + flame become one object). Cheap on flat-shaded geometry.
-  const boneLit = new THREE.MeshStandardMaterial({ color: lerpHex(def.body ?? BONE, 0x39b06a, 0.45), emissive: 0x1a5230, emissiveIntensity: 0.75, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });   // INNER rib faces: bone washed toward grave-green + a self-glow → the cage reads lit-from-within (Fable "lantern"), the fire and the ribs fusing into one object
+  // INNER-facing rib faces — the LANTERN INTERIOR. Fable gate (harsh critic) FAILED the prior
+  // build for this exact material: albedo was washed 45% toward green with a STATIC 0.75 emissive,
+  // so it read as flat green PAINT on the bone (no falloff) AND it was already saturated at cruise
+  // (nowhere to ignite → the withheld→ignite motif was dead). Fix: albedo stays PURE IVORY (same as
+  // the outer bone — "keep bone albedo ivory"), and the grave-green lives entirely in a WITHHELD
+  // emissive that is DIM at cruise and IGNITES on Surge. It's published in flareMats (torso only)
+  // so the flare/reset loop ticks it: cruise shows a faint lit-from-within ember on the inner faces,
+  // Surge blazes them grave-green. Hue locked to GRAVEFIRE 0x54f04e (~118°) — no mint/seafoam drift.
+  const boneLit = new THREE.MeshStandardMaterial({ color: def.body ?? BONE, emissive: 0x54f04e, emissiveIntensity: 0.22, flatShading: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
   boneLit.envMapIntensity = 0.0;
+  boneLit.userData.baseEmissive = 0x54f04e; boneLit.userData.baseIntensity = 0.22;   // WITHHELD dim cruise ember; the flare/reset loop resets here every cruise frame
+  boneLit.userData.flareColorWeight = 0.45; boneLit.userData.flareIntensityWeight = 3.5;   // Surge ignites the interior faces (0.22 → ~2.15). LOW colour weight so this LARGE area holds DEEP grave-green on ignite (haunted, not the pale surgeHi white-out) while still brightening — the small gap/socket accents keep the full pale-green pop.
   return { bone, boneLo, boneDorsal, recess, boneLit };
 }
 
@@ -149,6 +156,44 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   const placeUnits = (z0, z1, n, s0, s1) => { for (let i = 0; i < n; i++) { const t = i / Math.max(1, n - 1), z = z0 + (z1 - z0) * t; vertebraUnit(z, cyAt(z), s0 + (s1 - s0) * t, boneT, dorsalT); } };
   placeUnits(-2.62, -1.16, neckVerts, 0.70, 1.0);   // LONG S-curved neck of shrinking vertebrae rising to the skull
   placeUnits(-1.06, 1.58, dorsalVerts, 1.0, 0.74);  // dorsal → tail root (taper aft)
+
+  // ── THE HAUNTING — dorsal GAP-LEAK plugs (the rear-chase carrier). Small emissive octagons
+  // recessed in the gaps BETWEEN the dorsal vertebrae, so grave-fire reads THROUGH bone (the
+  // lantern law: light in the gaps, never on the bone). Grouped into 3 phase BUCKETS (aft·mid·
+  // fore) so the guarded dragon.js gap-pulse tick can walk a brightness wave tail→head ("the glow
+  // that dances across the bones"). OPAQUE emissive → 0 transparent cost. Published in FLAREMATS
+  // (never spineMats) so Surge flares them toward surgeHi but the warm cruise rim never touches
+  // them (Pearl firewall). Every grave mat sets userData.baseEmissive so the flare-reset never
+  // falls back to its 0xffffff default (which would paint the plug glowing WHITE — a holy leak).
+  // graveAmp = the cruise dance-floor amplitude. Round-3 gate FAIL (withheld→ignite 3): "cruise is
+  // running half-ignited — the ember is not withheld; it never goes quiet enough at cruise to have
+  // something to ignite." The 1.15 floor blazed the dorsal gap-leak onto the water at cruise from the
+  // rear-chase. Cut to 0.55 → cruise gap floor ~0.38 (was 0.8, a ~52% withhold) while Surge still
+  // multiplies ×13.5 to a bloom-blaze — so the ignition DELTA widens (quiet cruise → loud Surge).
+  const GRAVEFIRE = 0x54f04e, graveBlaze = model.coreBlaze ?? 1, graveAmp = 0.55 * graveBlaze;
+  const graveBucket = (k) => {
+    const floor = graveAmp * 0.7;   // the cruise dance FLOOR (the live tick animates 0.7±0.3 around it; a static render shows this)
+    const m = new THREE.MeshStandardMaterial({ color: 0x0a120c, emissive: GRAVEFIRE, emissiveIntensity: floor, flatShading: true, roughness: 1, metalness: 0 });
+    m.envMapIntensity = 0;
+    m.userData.baseEmissive = GRAVEFIRE; m.userData.baseIntensity = floor;
+    m.userData.flareColorWeight = 1; m.userData.flareIntensityWeight = 5;   // Surge flares intensity up (multiplicative on baseIntensity)
+    m.userData.gravePulseBucket = k; m.userData.gravePulseAmp = graveAmp;   // the tick reads amp, writes baseIntensity per frame
+    return m;
+  };
+  const graveBuckets = [graveBucket(0), graveBucket(1), graveBucket(2)];
+  const graveT = [[], [], []];
+  const octaPlug = (cyP, cz, r, tgt) => {   // a small octagon in the XY plane (faces aft toward the chase cam), between two neural spines
+    const c = [0, cyP, cz], pt = (k) => { const a = k / 8 * Math.PI * 2; return [Math.cos(a) * r, cyP + Math.sin(a) * r * 0.6, cz + 0.02]; };
+    for (let k = 0; k < 8; k++) tgt.push([c, pt(k), pt((k + 1) % 8)]);
+  };
+  { const gz0 = -1.06, gz1 = 1.58, gn = dorsalVerts, gstep = (gz1 - gz0) / Math.max(1, gn - 1);
+    for (let i = 0; i < gn - 1; i++) {
+      const u = (i + 0.5) / (gn - 1), zg = gz0 + gstep * (i + 0.5), s = 1.0 + (0.74 - 1.0) * u, cy = cyAt(zg);
+      const bucket = u < 0.34 ? 2 : u < 0.67 ? 1 : 0;   // fore-third→bucket0, aft-third→bucket2 (wave walks tail→head)
+      octaPlug(cy + 0.085 * s + 0.03, zg, 0.05 * s, graveT[bucket]);
+    }
+  }
+  graveBuckets.forEach((m, k) => { if (graveT[k].length) group.add(flatTriMesh(graveT[k], m)); });
 
   // ── RIB CAGE — a BONE BLOSSOM (art-director + Fable, replacing the wire birdcage): free-
   // ended flat bone BLADES springing from the dorsal vertebrae, sweeping out + down then
@@ -285,6 +330,7 @@ function buildOssuaryTorso(def, model, _bodyMat) {
   heartBloom.scale.set(heartR * (3.3 + 0.9 * coreBlaze), heartR * (4.5 + 1.2 * coreBlaze), 1);   // WIDE + taller than wide → green spills across multiple rib gaps, not a round disc (Fable: cross ≥3 gaps)
   heartBloom.position.set(0, hy, hz);
   heartBloom.renderOrder = 0;
+  heartBloom.layers.set(1);   // glow sprites live on layer 1 (main cam sees it) so it is NOT mirrored under the dragon in the water nor punched into the god-ray occlusion mask — the codebase convention every other glow sprite follows (dragonModel/dragonTorso/etc.). This bloom was leaking onto layer 0.
   group.add(heartBloom);
   heartHook.renderOrder = 1;
   group.add(heartHook);
@@ -312,7 +358,10 @@ function buildOssuaryTorso(def, model, _bodyMat) {
     motifAnchor,
   };
   // coreGlow = THE GRAVE HEART mesh (the real Solar hook — NOT null like the I0 stub).
-  return { group, attach, spinePoints, spineMats: [], mats: { bodyMat: M.bone }, coreGlow: heartHook };
+  // flareMats = the 3 dorsal gap-leak buckets + the lantern-interior rib faces (boneLit): both
+  // withheld-dim at cruise, ignited on Surge (Pearl firewall — never spineMats, so the warm
+  // cruise rim never touches the grave family).
+  return { group, attach, spinePoints, spineMats: [], flareMats: [...graveBuckets, M.boneLit], mats: { bodyMat: M.bone }, coreGlow: heartHook };
 }
 registerTorso('ossuaryTorso', buildOssuaryTorso);
 
@@ -348,8 +397,7 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   const boneT = [], capT = [];
   ridge(boneT, root, E, 0.075 * hs, 0.06 * hs, 0.06 * hs);           // humerus stub
   ridge(boneT, E, K, 0.06 * hs, 0.045 * hs, 0.05 * hs, capT);        // radius → wrist
-  arm.add(flatTriMesh(boneT, M.bone));
-  if (capT.length) arm.add(flatTriMesh(capT, M.bone));
+  arm.add(flatTriMesh(capT.length ? boneT.concat(capT) : boneT, M.bone));   // humerus + wrist cap in ONE draw (same material, same arm subtree — draw-call merge, geometry byte-identical)
 
   // ── FINGERS — long metacarpals fanning AFT off the medial wrist. Finger 0 = the leading edge
   // and carries the reference "‹" kink (forward at the knuckle → back to a TALL tip). The fan
@@ -412,7 +460,7 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // ── PROPATAGIUM — the leading-edge web over the SHORT arm stub (shoulder→elbow→wrist) welding
   // the skin to the arm; it meets the chiropatagium at K, so the membrane is unbroken across the
   // wrist. Arm-side → folds with the arm.
-  arm.add(flatTriMesh([[root, E, K], [root, K, [K[0] * 0.6, K[1] - 0.03 * hs, K[2] + 0.10 * hs]]], wingMat));
+  const armMemT = [[root, E, K], [root, K, [K[0] * 0.6, K[1] - 0.03 * hs, K[2] + 0.10 * hs]]];   // propatagium (accumulated, added once with the brachial sheet below → one arm-membrane draw)
   // ── PLAGIOPATAGIUM / BRACHIAL membrane — the wing is ONE CONTINUOUS sheet, not a finger-fan
   // with a bare arm. This panel fills the ARMPIT under the arm and sweeps INBOARD + DOWN to a
   // body anchor B at the upper ribcage BESIDE THE SHOULDER JOINT (owner: the membrane must
@@ -424,7 +472,8 @@ function buildOnePhalanxWing(M, dials, wingMat) {
   // and the chiropatagium (between the fingers), the membrane is unbroken from body to fingertip.
   const B = [-0.34, -0.39, 0.10];   // upper ribcage beside the shoulder joint (local; world ≈ inboard + down of the root)
   const Btr = [-0.10, -0.30, 0.55];   // a trailing point so the inboard hem drapes aft, not a straight cut
-  arm.add(flatTriMesh([[B, root, E], [B, E, K], [B, K, Btr]], wingMat));   // armpit + brachial sheet: body → root → wrist → aft hem
+  armMemT.push([B, root, E], [B, E, K], [B, K, Btr]);   // armpit + brachial sheet: body → root → wrist → aft hem
+  arm.add(flatTriMesh(armMemT, wingMat));   // propatagium + brachial in ONE transparent draw (both arm-side wingMat → merged; hand chiropatagium stays separate, it folds at the wrist)
   return { arm, hand, K, tip: spars[0][NS] };   // wingtip = finger-0 tip (the leading spar)
 }
 
@@ -521,7 +570,8 @@ function buildRevenantSkullHead(def, model, mats) {
       tooth(side * w * 0.9, S(-0.135), z, 1, sz * 0.85);   // lower fang (points up)
     }
   }
-  group.add(flatTriMesh(teethT, M.bone));
+  // (teeth mesh deferred → merged with the orbit rims + horns into ONE static-skull M.bone draw at
+  // the end of this builder; all three are the same material on the non-hinged skull group.)
 
   // ── EYE SOCKETS + pinpoint — a recessed dark orbit with a floating green octahedron
   // seated deep inside (the socket reads as a hole; the pinpoint blazes with glowLevel).
@@ -548,8 +598,19 @@ function buildRevenantSkullHead(def, model, mats) {
     pocket(ex, ey, ez, S(0.17), S(0.14), side);                   // (1) EYE SOCKET — big deep orbit holding the pinlight (~2× wider — Fable)
     pocket(side * S(0.09), S(-0.03), S(-0.46), S(0.075), S(0.075), side);  // (2) NASAL FENESTRA — a void on the muzzle
     pocket(side * S(0.17), S(-0.05), S(0.12), S(0.11), S(0.12), side);     // (3) TEMPORAL/cheek fenestra — a big void behind the eye
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(S(0.05), 0), eyeMat);
-    eye.position.set(ex, ey, ez - S(0.02));   // the grave-green pinlight, seated in the orbit
+    // The grave-green ember, seated DEEP in the pocket (slid ~40% down the rim→floor vector: aft in
+    // z AND inward in x) so the ivory rim LIP physically occludes it at glancing angles — that
+    // occlusion is the "glow from WITHIN" read (Fable: the pinlight rode the orbit opening → a decal).
+    // An irregular jittered lump (the Grave-Heart hash) reads as a coal, not a clean lime diamond.
+    const eR = S(0.040);
+    const emberGeo = new THREE.IcosahedronGeometry(eR, 0);
+    { const pa = emberGeo.attributes.position; for (let vi = 0; vi < pa.count; vi++) {
+        const h = Math.sin((vi + 1) * 12.9898) * 43758.5453; const j = (h - Math.floor(h) - 0.5) * 0.5 * eR;
+        const h2 = Math.sin((vi + 1) * 78.233) * 12543.187; const j2 = (h2 - Math.floor(h2) - 0.5) * 0.5 * eR;
+        pa.setXYZ(vi, pa.getX(vi) + j, pa.getY(vi) + j2, pa.getZ(vi) + j); }
+      pa.needsUpdate = true; emberGeo.computeVertexNormals(); }
+    const eye = new THREE.Mesh(emberGeo, eyeMat);
+    eye.position.set(ex - side * S(0.02), ey - S(0.005), ez + S(0.05));   // just inside the socket mouth — behind the ivory rim LIP (which frames/clips it → "coal in a socket") but forward of the deep black cup wall that fully occludes it (over-recess died in the studio no-bloom test)
     group.add(eye);
   }
   // A dedicated NEAR-BLACK socket floor material (darker than the umber recess tier) so the
@@ -557,7 +618,29 @@ function buildRevenantSkullHead(def, model, mats) {
   const sockMat = new THREE.MeshStandardMaterial({ color: 0x0e1113, emissive: 0x000000, flatShading: true, roughness: 1.0, metalness: 0, side: THREE.DoubleSide });
   sockMat.envMapIntensity = 0.0;
   group.add(flatTriMesh(socketT, sockMat));
-  group.add(flatTriMesh(rimT, M.bone));   // the bright carved orbit rims
+  // (orbit rims deferred → merged into the static-skull M.bone draw at the end.)
+
+  // ── SOCKET VENTS (the Haunting) — a small emissive cone seated behind each orbit. Fable gate:
+  // "light the skull — the head is the identity anchor and it's currently the deadest part." The
+  // prior base (0.035) was invisible at cruise, so the sockets read UNLIT. Now a DIM but visible
+  // grave-green ember at cruise (a death's-head with faintly glowing eye-pits) that IGNITES on
+  // Surge. Hue locked to GRAVEFIRE 0x54f04e (~118°) — no yellow-green drift. flareIntensityWeight
+  // trimmed 22→8 so the ignite peak (0.24 → ~5) reads as a bright socket, not a white glare.
+  const ventMat = new THREE.MeshStandardMaterial({ color: 0x0a120c, emissive: 0x54f04e, emissiveIntensity: 0.24, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });   // DoubleSide: the socket glow-disc must read flat-on regardless of winding (FrontSide back-culled it → the sockets read as dead shadow)
+  ventMat.envMapIntensity = 0;
+  ventMat.userData.baseEmissive = 0x54f04e; ventMat.userData.baseIntensity = 0.52;   // recessing the disc behind the rim dims the read; compensate with INTENSITY not size (Fable) so the eye still reads at rear-chase game distance
+  ventMat.userData.flareColorWeight = 1; ventMat.userData.flareIntensityWeight = 6;
+  const ventT = [];
+  for (const side of [1, -1]) {
+    // A grave-green glow DISC — pushed BEHIND the rim plane (deeper aft) and SHRUNK so it reads as a
+    // dim pit-wash AROUND the recessed ember, not a lens taped over the socket opening (Fable: the
+    // disc at the opening was half the "decal" read). Aft cone jets deeper still for pocket depth.
+    const ex = side * S(0.15), ey = S(0.05), ez = S(-0.11), r = S(0.055), ap = [ex, ey - S(0.02), ez + S(0.16)];
+    const ring = (k) => { const a = k / 6 * Math.PI * 2; return [ex + Math.cos(a) * r, ey + Math.sin(a) * r, ez + S(0.05)]; };
+    const cen = [ex, ey, ez + S(0.03)];
+    for (let k = 0; k < 6; k++) { ventT.push([ring(k), ring((k + 1) % 6), cen]); ventT.push([ring(k), ring((k + 1) % 6), ap]); }   // recessed disc + aft cone (depth)
+  }
+  group.add(flatTriMesh(ventT, ventMat));
 
   // ── HORNS — a pair sweeping back + up + out from the occiput, ATTACHED at the base
   // (a 3-segment tapered tent so they curve). Length grows with the ladder (hornLen).
@@ -576,10 +659,10 @@ function buildRevenantSkullHead(def, model, mats) {
     };
     horn(base, mid, S(0.09)); horn(mid, tip, S(0.055));   // THICK base tapering to a still-solid tip
   }
-  group.add(flatTriMesh(hornT, M.bone));
+  group.add(flatTriMesh([...teethT, ...rimT, ...hornT], M.bone));   // STATIC-SKULL merge: teeth + orbit rims + horns in ONE draw (same M.bone, non-hinged skull group; jaw stays separate — it hinges). Geometry byte-identical.
 
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, S(0.14), S(0.10)); group.add(motifAnchor);
-  return { group, spineMats: [], motifAnchor, headLength };
+  return { group, spineMats: [], flareMats: [ventMat], motifAnchor, headLength };
 }
 registerHead('revenantSkullHead', buildRevenantSkullHead);
 
@@ -636,6 +719,60 @@ function buildVertebraeWhipTail(def, model, mats, anchor) {
   ], M.boneLo);
   tp.position.set(-ant.x, -ant.y, -ant.z); joints[jt].add(tp);
 
-  return { group, segs: joints, accentMats: [] };
+  // ── SPECTRAL WISP TIP (the Haunting) — a single-layer translucent taper trailing aft of the
+  // spike (Dragapult's ethereal tail). CRUISE: emissive BLACK → zero glow, spectral by
+  // transparency alone (keeps the cruise-emissive inventory clean). SURGE: the flare loop lerps
+  // emissive black→surgeHi and multiplies the base → it ignites grave-green. In flareMats.
+  const wispMat = new THREE.MeshStandardMaterial({ color: 0x8fae94, emissive: 0x000000, emissiveIntensity: 0.8, transparent: true, opacity: 0.42, flatShading: true, roughness: 1, metalness: 0, depthWrite: false });
+  wispMat.envMapIntensity = 0;
+  wispMat.userData.baseEmissive = 0x000000; wispMat.userData.baseIntensity = 0.8;
+  wispMat.userData.flareColorWeight = 1; wispMat.userData.flareIntensityWeight = 4;
+  const wispLen = model.wispLen ?? 0.45;
+  if (wispLen > 0.001) {
+    const z0 = tip.z + 0.24, z1 = z0 + wispLen * 1.7, w = 0.055;
+    const a1 = [0, tip.cy, z1];
+    const wispT = [
+      [[-w, tip.cy + 0.02, z0], [w, tip.cy + 0.02, z0], a1],
+      [[w, tip.cy + 0.02, z0], [0, tip.cy - 0.05, z0], a1],
+      [[0, tip.cy - 0.05, z0], [-w, tip.cy + 0.02, z0], a1],
+    ];
+    const wm = flatTriMesh(wispT, wispMat); wm.position.set(-ant.x, -ant.y, -ant.z); wm.renderOrder = 1; joints[jt].add(wm);
+  }
+
+  // ── TAIL EMBER CHAIN (the Haunting) — grave-light escaping the GAP BETWEEN vertebrae. Prior passes
+  // (flat octagons, then upward spikes) read as specks painted ON the bone — a lantern-law violation.
+  // Fable polish plan: fill each inter-vertebral gap with a short emissive DRUM (an octagonal band on
+  // the tail axis), radius held UNDER the vertebra flange so the ivory centra occlude its rim — what
+  // survives is a green slit flashing BETWEEN two bone segments, i.e. light through the gap, reading
+  // from top-planform / rear-chase / side at once with no billboard trick. Runs down the whip and
+  // DECAYS toward the tip by geometry (radius tracks the shrinking centra), so it's an ember trail,
+  // not a runway. On Surge pulse BUCKET 2 (aft) so the tail→head wave terminates in the whip; hue
+  // locked to GRAVEFIRE 0x54f04e (~118°). Opaque emissive → 0 transparent-overdraw cost.
+  const TGRAVE = 0x54f04e, tGraveAmp = 0.55 * (model.coreBlaze ?? 1) * 0.85;   // tracks the withheld dorsal graveAmp (0.55), a hair under it so the tail stays the faintest ember in the chain
+  const tailGraveMat = new THREE.MeshStandardMaterial({ color: 0x0a120c, emissive: TGRAVE, emissiveIntensity: tGraveAmp * 0.7, flatShading: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });
+  tailGraveMat.envMapIntensity = 0;
+  tailGraveMat.userData.baseEmissive = TGRAVE; tailGraveMat.userData.baseIntensity = tGraveAmp * 0.7;
+  tailGraveMat.userData.flareColorWeight = 1; tailGraveMat.userData.flareIntensityWeight = 5;
+  tailGraveMat.userData.gravePulseBucket = 2; tailGraveMat.userData.gravePulseAmp = tGraveAmp;
+  const tGraveByJoint = Array.from({ length: nChain }, () => []);
+  const tDrum = (cy, z, rx, ry, hz, tgt) => {   // a short 8-sided emissive band in the gap, axis along Z. FLATTENED in Y (ry < rx): the tail whip CURVES, so a round rim un-occludes below the ventral bone line on the convex side (Fable checkpoint: 7px underhang). A vertically-flat band stays inside the centrum's Y-envelope through the curve while keeping the wide X/Z read for the top-planform slit.
+    const pt = (k, zz) => { const a = k / 8 * Math.PI * 2; return [Math.cos(a) * rx, cy + Math.sin(a) * ry, zz]; };
+    for (let k = 0; k < 8; k++) { const k1 = (k + 1) % 8; tgt.push([pt(k, z - hz), pt(k1, z - hz), pt(k1, z + hz)], [pt(k, z - hz), pt(k1, z + hz), pt(k, z + hz)]); }
+  };
+  const gapZ = T / nSeg;
+  for (let i = 1; i <= nSeg; i++) {                   // every gap fore, then thinning aft — a decaying ember trail down the whip
+    const t = i / nSeg; if (t > 0.72) break;
+    if (t > 0.5 && i % 2 === 0) continue;             // fore half: every gap; aft half: every other → the trail thins as it dies
+    const s = stem[i], j = jointOf(s.z), sc = 1.18 - 0.72 * t;
+    if (sc <= 0.06) continue;
+    const centra = 0.085 * sc;                         // vertebraUnit half-HEIGHT hh — the drum's Y-rim MUST stay under this or green forms the tail's ventral silhouette (inverse-lantern)
+    tDrum(s.cy, s.z - 0.5 * gapZ, centra * 0.78, centra * 0.42, gapZ * 0.32, tGraveByJoint[j]);   // rx wide for the top-planform slit read; ry flat + well under the centrum so the curved whip never underhangs green
+  }
+  for (let j = 0; j < nChain; j++) {
+    if (!tGraveByJoint[j].length) continue;
+    const an = jAnchor(j); const m = flatTriMesh(tGraveByJoint[j], tailGraveMat); m.position.set(-an.x, -an.y, -an.z); joints[j].add(m);
+  }
+
+  return { group, segs: joints, flareMats: [wispMat, tailGraveMat], accentMats: [] };
 }
 registerTail('vertebraeWhipTail', buildVertebraeWhipTail);

@@ -12,6 +12,15 @@ mined for authenticity, copied from none). One of the FRESH FIVE (see `FRESH-DRA
 > Vesper's "zero near-white emissive" is a VESPER law, not a roster law — the near-white strike IS
 > Tempest's identity, and near-white was an unowned emissive lane (Pearl's white is diffuse body).
 
+> **⚠ 2026-07-14 — WING SUPERSEDED (owner decision):** the strata-deck wing was REJECTED on
+> aesthetics; from a 5-alternative menu the owner chose **§D — THE STORMFORK ("BOLTFRAME")**, rear
+> read **BOLT** — the wing whose skeleton IS a frozen branching lightning bolt. Separator (3) above
+> now reads: *the wing is a kinked bolt-frame, the only angular-stepped outline in the game —
+> nothing like the single scallop crescent.* §5 / §R / §F / §B.3b and the wing rows of
+> §B.4/§B.5/§B.6/§B.8 remain below as HISTORY; where anything conflicts with §D, **§D wins.**
+> Everything non-wing (charcoal body, Storm Circuit + dynamo + pulseTimer, CHARGING, head, tail,
+> palette/stats/cost, §C carryover + anti-reskin guard) survives verbatim.
+
 **Prior art — the concept is PROVEN in shipped games (owner requirement):** the storm/lightning dragon
 is a battle-tested archetype, not a novelty. **Monster Hunter** — *Kushala Daora* (the steel-plated wind
 tempest, "Wings of Steel," wraps itself in a gale barrier) and *Amatsu* (the storm elder dragon).
@@ -117,6 +126,9 @@ Belly rain-slate `0x4a5468` (banks read). Matte: metalness 0, roughness 0.85, en
 Publishes the full attach contract + `spinePoints` + `motifAnchor` (sternum) + `coreGlow: null`.
 
 ## 5. Wings — the HERO: THE STRATA STORM-FRONT (triple-deck slab stack)
+
+> **SUPERSEDED by §D (owner decision 2026-07-14).** The strata-deck was rejected; the hero wing is
+> THE STORMFORK (§D.2 `stormforkWings`). Kept as history.
 Each wing = **3 stacked cloud-bank DECKS** (bottom deck dominant, then ×0.80, ×0.64 above — law-5
 decay), each deck built on the banked CP1 bat-wing recipe re-authored as weather:
 - **Per deck:** a knuckled leading edge (gull arch in Y, ogee in Z — never a straight bar), **4 rolling
@@ -238,6 +250,10 @@ and the only living-weather surface (deck churn + billow). Where it must match t
 richness ≥4 readable value tiers (CP4 law) and a f3 strike frame that out-dramas Solar's ignition.
 
 ## §R — HARSH REAR-CHASE GATE REVISION (Opus critic pass, 2026-07-13)
+
+> **Wing content SUPERSEDED by §D (2026-07-14):** the STACK rear read, the anti-louvre/anvil
+> mandates, and R3's deck rows are history. R2.2 (the standing frame must carry its own cool) and
+> R2.3's attitude/fringe Tocsin separators SURVIVE, re-based on the Stormfork in §D.1.
 **Verdict on the v0 sheet: REVISE.** Two real risks: (a) three horizontal decks = a VENETIAN-BLIND /
 plank-stack read from behind, and (b) the strike is intermittent (6–18% duty), so the STANDING
 (non-strike) frame — which is 82–94% of play — must already be cool without the lightning. Score at
@@ -286,6 +302,10 @@ frame is a menacing silver-lined anvil. **Lead: IMMINENT POWER** — you watch t
 clinical guard: churn + silver-lining rims keep it a living cloud, never a grey CAD blob.
 
 ## §F — FABLE GATE (round-2, 2026-07-13)
+
+> **SUPERSEDED by §D (2026-07-14):** the rear span-decay anvil law and the slit residual die with
+> the decks. Two pieces SURVIVE: the no-tangents guard (§F.2 — now mane tips vs ONE leading edge
+> per side, §D.1) and the pale-backdrop 2× standing-crop protocol (§F.3 — now §D's sawtooth judge).
 **Verdict: PASS — after the axis fix below.** Scores: rear-silhouette 4.5 (post-fix) · buildability 5 ·
 SSSR appeal 4 · 13-failure-mode sweep clean → avg 4.6, no axis ≤2, no veto. One word: **STACK** (holds).
 The Opus §R was right about the louvre risk but wrote the fix on the wrong AXIS:
@@ -310,6 +330,10 @@ Everything else in §R holds: opaque decks (honest overdraw), silver-lining diff
 screenshot.
 
 ## SETTLED (do not re-litigate)
+
+> **2026-07-14:** items 1–2 stand unchanged. Items 3–4 are wing-scoped: the OPACITY law transfers
+> to the Stormfork membrane (§D.2c); the deck geometry itself is superseded by §D.
+
 - CHARCOAL L 0.20–0.26, never Vesper-black; near-white accent by SATURATION cap, not hue collision.
 - The arc is INTERMITTENT in cruise — never always-on (Solar's lane), never Surge-only (Vesper's lane).
 - Decks are OPAQUE; the see-through read comes from slit gaps, not translucency.
@@ -459,6 +483,10 @@ flick), `motifAnchor` (sternum, fixed), and **`coreGlow` = the storm-heart core 
   frame, never parented to the flapping pivot).
 - f0 carries one soft lobe less per station (the squall pup is a small wad of weather, not a wall).
 
+> **SUPERSEDED by §D.2 `stormforkWings` (owner decision 2026-07-14).** History only — including
+> the dial block below, whose broken-linkage inversion (§C.1 C5: `tipAmp .42 > midAmp .28`) is
+> FIXED in §D.4.
+
 **§B.3b `strataStormWings`** — the HERO. Construction = the CP1 fingered-bat recipe per deck
 (cited: `buildOneScallopWing` dragonVesper.js:365–534; leading-edge profile-as-function
 `vesperArmY/Z` pattern; the outer `lmirror` mirror + −anchor wrist fold dragonVesper.js:616–638 —
@@ -527,6 +555,12 @@ single-layer translucent HEM band** (opacity ~0.55) tracing the whole fringe's t
 (−anchor compensated) so the fringe whips with the tip.
 
 ### §B.4 THE STORM CIRCUIT — arc geometry, `pulseTimer.js`, the storm tick, the fever firewall, the overdraw census
+
+> **Wing rows SUPERSEDED by §D.3 (2026-07-14):** the arc branch paths no longer ride deck
+> undersides — the Stormfork's bolt-frame CRESTS are the circuit's f2/f3 branches (the wing
+> skeleton IS the circuit); §B.4d's `feverWing 0x000000` row is REVISED to `0xd9deff` capped
+> (§D.3); the overdraw census is recounted (cruise 5 / Surge 6, §D.3). `pulseTimer.js`, the
+> single-writer storm tick, the bucket architecture, and every cap survive verbatim.
 
 **§B.4a The arc-tree geometry (opaque emissive, no additive shells).** The circuit = inset seams +
 thin ridge filaments in the Vesper §3 anti-tacky kit, all OPAQUE `arcSeam`/`arcCore` mats:
@@ -623,6 +657,10 @@ bloom never masks the ±10° corridor (asserted at the pinned strike frame, §B.
 
 ### §B.5 The CHARGING ladder (4 forms; extends v0 §8 with the v1 corrections + DNA dials)
 
+> **Wing rows SUPERSEDED by §D.5 (2026-07-14):** `strataDecks`, the rear span-decay row, and the
+> tri targets are history — kink/fork/ray rows replace them; tris re-pinned {1.8, 2.6, 3.6, 4.7}k
+> with rationale. All non-wing rows (arcDuty, heartScale, mane, virga, body hex, eyes…) HOLD.
+
 f0 Squall Pup · f1 Stormcell · f2 Thunderhead · f3 Tempest Unleashed. Drama 25/45/70/100.
 
 | dial | f0 | f1 | f2 | f3 | assert |
@@ -651,6 +689,10 @@ L≥0.20 at every rung, asserted alongside the monotonic ↓. Apex superiority i
 (only f3 has the full wall + full tree + the lit mane tip), never scale.
 
 ### §B.6 FEASIBILITY AUDIT (every element → cited engine path → overdraw → biggest risk → mitigation)
+
+> **Rows W1–W7 SUPERSEDED by §D.6's SF rows (2026-07-14).** W5's blade-walker substitution
+> survives re-purposed as the fork crackle-churn (SF8); W6's billow moves to the membrane bay
+> groups. T/H/M/V rows and the Q(b) circuit ruling HOLD; Q(a)'s deck ruling is history.
 
 | # | element | engine construction path (cited) | overdraw | biggest build risk | mitigation / substitution |
 |---|---|---|---|---|---|
@@ -739,6 +781,10 @@ numbered directives applied verbatim; the builder never judges its own output. T
 lesson file per increment that changes the creature.
 
 ### §B.8 `tests/starters.mjs` SPEC — the `tempest` 4-form block (mirrors the Solar/Molten premium blocks at starters.mjs:281/:326 — the in-repo premium precedent; the Molten block additionally donates the corridor-scan pattern reused below)
+
+> **Deck/anvil/slit asserts SUPERSEDED by §D.7 (2026-07-14)** — deck count, rear span-decay,
+> top-planform chord decay, slit-open, and `feverWing === 0x000000` are retired/revised there.
+> Every non-wing assert (charcoal law, accent law, strike determinism, corridor, firewall…) HOLDS.
 
 Headless via `buildDragonModel` + `ascendedDef(def, t)` for t = 0..3; silhouette asserts import
 `renderSilhouette` (+ `holeMetric` where useful — it landed with the Revenant I0) from
@@ -914,6 +960,321 @@ one-line reason is why importing it betrays the cloud-and-lightning identity:
 *"Does any Tempest frame read like a re-skinned Revenant — bone, cage, lantern, or bat-membrane —
 instead of a thundercloud?"* Any YES is an automatic FAIL regardless of the numeric average.
 
+## §D — HERO WING = THE STORMFORK (owner-chosen 2026-07-14; SUPERSEDES the strata-deck: §5, §R, §F, §B.3b, and the wing rows of §B.4/§B.5/§B.6/§B.8)
+
+**SUPERSEDES banner.** The owner REJECTED the triple-stacked strata-deck on aesthetics and chose
+**THE STORMFORK ("BOLTFRAME")** from the 5-alternative menu: the wing whose skeleton IS a frozen
+branching lightning bolt. Superseded-as-history (each carries a pointer): **§5** (strata concept) ·
+**§R** (STACK read + anti-louvre; R2.2 standing-frame law + R2.3 attitude/fringe separators
+survive) · **§F** (span-decay anvil; the no-tangents guard + 2×-pale-crop protocol survive) ·
+**§B.3b** (`strataStormWings` + its C5-flagged dial block) · **§B.4** wing rows (deck-underside
+seam paths; `feverWing 0x000000`) · **§B.5** deck/span-decay/tri rows · **§B.6** W1–W7 · **§B.8**
+deck/anvil/slit asserts. SETTLED items 3–4 are re-scoped (opacity law transfers; deck geometry
+dies). Everything else — charcoal L 0.20–0.26, the Storm Circuit + sternum dynamo + `pulseTimer`
+(duty 0.06→0.18), CHARGING, stormbrow head, virga tail, palette (`0xd9deff` / `0xf2f4ff` /
+`0x9fb0c8` / the `0x2e3543`-family ramp), stats/cost 2600 SSR→SSSR, and the **§C carryover +
+ANTI-RESKIN GUARD at full, unweakened strength** — survives verbatim. Where §D and any earlier
+section disagree, §D wins.
+
+**The identity win, in one line:** the Storm Circuit's arc-tree seams ride the bolt-ridge crests
+exactly — the circuit is NOT painted on the wing; the wing's skeleton IS the circuit's f2/f3
+branches. Structure and motif are one object, and every strike renders the wing's own construction
+diagram root-to-tip. The grind-hook is IN the silhouette.
+
+### §D.1 The rear read — BOLT
+
+- **One word: BOLT.**
+- **Black-fill (rear):** two jagged, kinked storm-blades — each wing ONE opaque charcoal blade
+  whose leading edge steps through THREE hard bolt angles on a gull-arch macro line, whose
+  dominant ray splits mid-length into a **Y** (a stepped-leader fork notching the outline), with
+  membrane sagging in cupped bays between a decaying ray rank; the wispy 5-wisp virga fringe
+  below, nimbus mane spikes above. **The only angular-stepped outline in the game.**
+- **Landmark punctuation (4):** (1) the three kink steps in each leading edge — hard direction
+  breaks that survive 250px because they are OUTLINE angles, not interior detail; (2) the Y-fork
+  notch near the tip (the fork crotch cuts a V into the planform); (3) the virga fringe
+  (irregular, tapering ×0.80 — never rods); (4) the mane spikes — the §F no-tangents guard runs
+  unchanged, now against ONE leading edge per side (gap ≥0.08 OR overlap ≥0.05, glide AND bank).
+- **Anti-collision:** VESPER = a SMOOTH scallop crescent — pure curves, zero hard angles (and
+  L≤0.10 black vs charcoal ≥0.20; ion Surge-only vs intermittent near-white). STILETTO = FOUR
+  straight translucent veined blades in a shallow X — count, gloss, translucency, straightness
+  all differ. SOLAR = straight GOLD lances — regalia, gold, straight. TOCSIN = round COINS +
+  rigid rods. REVENANT = through-HOLES. SYLPH = a soft luminous HOOD. Nothing else STEPS. The
+  Tempest↔Tocsin near-pair separation gets STRONGER than the deck era's: (1) angular-stepped
+  kinked blades vs round coin row — pure outline geometry, no pixel floor needed (the old
+  slit-stripe axis needed one); (2) up-attitude (+14° dihedral, forward-high) vs LOW-flat;
+  (3) wispy tapering virga vs rigid straight rods.
+- **§C ANTI-RESKIN CLEARANCE (guard unweakened; all five bans held and re-verified):**
+  **no BONE** — the bolt-frame is billowed charcoal tent-ridges with silver rim-caps: weather-
+  toned, no ivory, no vertebra units, no knuckle nodules, and the frame's language is electrical
+  ("kink station", "fork vertex"), never skeletal anatomy. **no CAGE** — `holeMetric` enclosed-
+  hole count ≈ 0 stands; the fork crotch bay is OPEN at the trailing edge (asserted §D.7) — a
+  V-notch, never a framed aperture. **no LANTERN** — the frame idles carved-dark (ember ≤0.06,
+  diffuse-only between windows); the dynamo stays intermittent. **no BAT-MEMBRANE read** — the
+  membrane is OPAQUE matte cloud (never translucent skin, no tattered scallop hems), and the
+  skeleton's geometry is one no vertebrate limb makes: three hard ≥20° breaks plus a mid-ray
+  Y-FORK (no bat finger forks; no arm/wrist anatomical reasoning anywhere in the recipe — the
+  fold joint is "the dominant kink," an electrical object). The wing kit LAWS it keeps
+  (dominant-plus-decay, cupped bays, cowl+gusset) are DRAGON-DESIGN §4 laws, not Revenant
+  features. The standing gate veto rides every increment unchanged, judged FIRST on the standing
+  (no-strike) rear crop.
+
+### §D.2 `stormforkWings` — the builder (replaces `strataStormWings` in `js/dragonTempest.js`)
+
+Construction cites (reuse the PATTERNS, fresh geometry): `buildOneScallopWing`
+(dragonVesper.js:365–534) · the module-level profile functions `vesperArmY/Z` (346–356) · the
+`ridge()` bone-tent helper (400–409) · the connected `edgeBand` (470–477) · the gusset (482–491) ·
+the cowl (540–562) · the −anchor wrist fold + `lmirror` outer mirror (616–638) · the seam-mat
+DoubleSide pattern (77–78). Shared kit + `tempestMats` from §B.3 unchanged; `deckTiers[4]` renames
+to `boltTiers[4]` (same lerp).
+
+**(a) The bolt profile — a module-level WAYPOINT function shared by geometry, tip markers,
+blade-pivot placement, and tests (the detach-gotcha law + the C15 waypoint-table method):**
+
+```js
+// module-level — the ONE source of truth for the leading edge
+const BOLT_T = [0, 0.18, 0.40, 0.68, 1.00];      // stations; interior 3 = K1, K2 (fold), K3 (fork)
+const BOLT_Y = [0, 0.042, 0.180, 0.066, 0.048];  // ×hs — gull-arch envelope with bolt offsets baked in
+const BOLT_Z = [-0.03, -0.05, -0.02, 0.09, 0.30];// ×hs — the ogee in plan: bows forward inboard, steps hard aft
+function boltArm(t, hs) { /* piecewise-LINEAR interp through the 5 waypoints */ }
+```
+
+PIECEWISE-LINEAR is the whole trick: between stations the leading edge is a STRAIGHT chord; AT
+the stations it breaks hard — a stepped leader, frozen. **The macro line stays an ARCH — the
+kinks are the signature, NEVER a full zigzag** — enforced by construction + measured asserts:
+exactly **3** interior slope breaks (never more); each in-plane direction change (rear X-Y
+projection — the axes the chase camera sees) ∈ **[18°, 60°]**, with **K2's break the MAX** (the
+dominant kink = the arch apex = the fold joint) and K1 ≥20° (the elbow-analog: a real bolt angle,
+not a soft bow); a **single global Y-max, at K2** (one apex — a zigzag has multiple comparable
+peaks and >3 breaks; this has one and exactly 3); every waypoint Y within **±0.06·hs** of the
+smooth gull arch (rise 0.18·hs to t 0.40, −0.14 ease after — the vesperArmY family) so the arch
+envelope always dominates the deviations. The Z jogs deliver the same stepping in TOP planform
+(asserted there — plan jogs don't project astern, §D.6 SF10).
+
+**(b) The Y-FORK + the decaying ray rank (dominant-plus-decay, no comb, no picket fence):**
+- `K = boltArm(0.40)` — the fold joint. `F0 = boltArm(1.0)` — the tip, which PINS the span.
+- The dominant ray IS the outboard leading edge K→K3→F0 (finger-0-continues-the-LE, the Vesper
+  law) — 2 straight segments breaking at K3. **The fork happens AT K3** (t 0.68 ≈ mid-length of
+  the hand — a stepped leader branches AT a step; the third kink-knuckle IS the fork vertex, a
+  shared welded node, never a floating branch): the BRANCH prong leaves K3 at **+24° aft** in
+  plan, **−8°** dip, length **0.62×** |K3→F0|, tip `Fb`. At f3 a 2nd-order SPUR leaves the branch
+  at 0.55 of its length, +20°, length 0.52× the branch remainder — the fractal tick.
+- Aft rays: 3 more from K (apex = 4 rays total + the branch prong), `lenFrac [1, 0.80, 0.62,
+  0.46]` of r0 — **each successive length ≤0.86× the previous** (asserted; the branch 0.62× and
+  spur 0.52× obey it too), fanned with `spanAft 1.10` (tighter than Vesper's 1.22 — a storm-BLADE,
+  not a broad bat fan), tips drooping aft-and-down. Every ray = **2 straight segments with a small
+  mid-break (8–14°, alternating sign down the rank)** — the micro-echo of the macro kinks; bolts
+  step, they never sag (landmarks rhyme with the hero, and the Vesper sag-bow is deliberately NOT
+  copied — §C.15 ban on imported bat-arm curvature honored).
+- **Thickness on every ridge — tent wedges, no paper planes:** all arm segments, rays, and prongs
+  are `ridge()` 4-face tents (dragonVesper.js:400–409): arm width 0.16·hs at the root tapering to
+  0.05·hs at K3, lift 0.10·hs → 0.035·hs; rays width 0.075·hs·(1−0.08i), lift 0.09·hs. Nothing on
+  this wing is a single quad or a 0.014u "crease".
+
+**(c) Membrane bays — the sawtooth killer:** between consecutive ray tips the trailing edge is an
+INWARD-cupped quadratic bézier (control pulled toward K, cup 0.32 ×(0.75+0.14·i) per-bay
+variance, deepest sag biased aft, bay centre dropped so rim light pools) — **sampled ≥4 segments
+(6 at f2/f3)**, inter-lobe cusp depth ≈ **⅓ of peak sag** (asserted ∈ [0.25, 0.45]). **THE
+FORK-CROTCH BAY** (between the two prongs): a deeper cup (0.5), the darkest tier, and **OPEN at
+the trailing edge** — a V-notch in the outline, never an enclosed aperture. The membrane is
+**OPAQUE matte** (the settled opacity law survives the decks): `boltTiers[4]` lerped toward lit
+steel-slate `0x8a95ac` over f `[0.60, 0.40, 0.22, 0.06]` (endpoint steps ≥0.05 L — the CP4 law),
+assigned by bay index. `M.wingMat` = the inboard tier (the rig's single-material wing contract;
+opaque, so the rig's opacity-fade writes are visually inert by construction — noted, not a bug).
+
+**(d) The silver rim-cap tier — the standing frame's carrier:** thin brighter cap strips
+(`silverRim 0x9fb0c8`, diffuse, metalness 0.06, envMapIntensity 0.3 — glints, never glows)
+tracing EVERY kinked ridge crest: the arm root→K1→K2 (brightest — the Kushala new-skin leading
+edge), the dominant ray K2→K3→F0, the branch prong, and the inboard segment of each aft ray.
+Between strikes the CARVED charcoal frame + silver caps + the ≤0.06 ember tracery ARE the wing's
+cool — the strike is the bonus, never the crutch (§R2.2 held as law).
+
+**(e) The connected knife-edge:** ONE thin translucent band (edge-mat family: brightest wing
+value, opacity 0.62, DoubleSide) just inboard of the WHOLE scalloped trailing polyline — from the
+innermost bay, around every cusp, around the fork-crotch V, to the tip (per-bay shards banned —
+dragonVesper.js:470–477 verbatim pattern). **The only transparency on the wing.**
+
+**(f) The shoulder — cowl + gusset:** root gusset (root-LE → K → hip point) anchored to ARM-side
+points only, never a ray tip — the fold-tear law (482–491) — buried under the scapular STORM COWL
+(§B.3a's 2 billowed lobe-plates, STATIC in the body frame). The membrane's inboard edge sits
+close to the shoulder pivot (C12's pivot-lever law inherits).
+
+**(g) Value tiers that read (≥3, judged on the pale backdrop):** (1) silverRim caps — brightest;
+(2) `boltTiers[3]` outboard lit-slate membrane; (3) `boltTiers[0]` inboard charcoal membrane;
+(4) `stormShadow` tent sides + the crotch-bay dark — four diffuse steps ≥0.05 L apart, plus the
+ember tracery (emissive ≤0.06) as a carved 5th. **Tri estimate ~300/wing → ~0.6k/pair at apex**
+(the strata stack was ~1.1k — see §D.5 for the honest re-pin).
+
+### §D.3 Circuit-as-skeleton plumbing (the arc-tree ON the crests; fever; overdraw recount)
+
+- **The arc-tree = thin opaque-emissive TENT overlays riding the ridge crests exactly**, generated
+  FROM the same sampled crest nodes the ridge geometry uses (the module-level `boltArm` + ray
+  functions, sampled after shaping — the C14 weld law: a bolt authored from independent constants
+  floats off its frame; this one CANNOT detach because it shares the skeleton's own nodes).
+  Shallow 2-face tents lifted 0.008 above the silver caps, **`side: THREE.DoubleSide`** on every
+  strip (the culled-ignition no-op gotcha, DRAGON-DESIGN §6.5). `arcSeam` (`0xd9deff`) with the
+  `arcCore` (`0xf2f4ff`) hue-lerp at strike peak — both mats unchanged from §B.3.
+- **Withheld in cruise:** `arcSeam` base ≤0.06 (the ember floor) — the standing frame reads
+  CARVED, not lit (C11's anti-lantern law: between windows the frame is diffuse-only). The high
+  strike/surge multiplier is delivered by the SINGLE-WRITER storm tick (§B.4c verbatim):
+  `emissiveIntensity = floor + env01(t − 0.04·bucket) · peak(form)`.
+- **Buckets re-pathed (supersedes §B.4a's deck-underside paths):** b1 = heart + scapulars → K1 ·
+  b2 = K1→K2→K3 (the arm crest) · b3 = K3→F0 + the fork branch (+ f3 spur) + the aft-ray crests +
+  tail stem + charge-hair. A strike ignites the skeleton **ROOT-TO-TIP over ~0.12 s** — the
+  dragon flies on two lightning bolts, and `arcRun`'s f2/f3 growth is literally the wing's own
+  frame joining the circuit (f2 = carved to the fork; f3 = every tip live). The seeded zig-zag
+  polyline generator survives for the TAIL stem + charge-hair only — on the wing, the "jitter" is
+  the frame's own kinks (stormSeed determinism unchanged).
+- **FEVER — the wing frame IS the ignition (revises two §B.4d rows):** the membrane becomes the
+  RECEIVER (C11: light the receiver, inside windows/Surge only). **`feverWing: 0xd9deff`** (was
+  `0x000000` — a black feverWing here would leave the blazing frame reading as lit wire floating
+  on dead cloth; the Vesper black-kill-switch precedent was correct for a wing the light was NOT
+  part of, and wrong for this one). The rig's fever path lerps `wingMat`'s emissive toward it with
+  `sgm`; **CAP the membrane's contribution: wingMat fever emissiveIntensity ≤ 0.30** — the frame
+  must out-read the membrane ~5:1 (the frame is the bolt; the membrane is cloud catching it).
+  `wingEmissive`/`wingMembraneEmissive` stay `0x000000` (cruise/boost membrane dark). Every other
+  §B.4d row HOLDS: `feverEye`/`surgeHi 0xe8ecff`, cold `feverWash`, `hideRiderGlow`, arc mats in
+  NEITHER surge array (single-writer), heart in flareMats for the hue lerp only.
+- **≤1 near-white discipline held:** `arcCore` (sat <0.06, strike-peak only, cap ≤2.0) remains
+  the ONLY true-near-white emissive; `feverWing 0xd9deff` is sat 0.09 — inside the sanctioned
+  255° lane, not a second near-white. Glare caps unchanged (arcSeam ≤2.4, heart ≤1.6); channel-
+  clip law (C11) keeps the violet cast + the `0xd9deff → 0xf2f4ff` strike step a visible jump.
+- **Overdraw census (recounted honestly):** CRUISE transparent drawables = 1 storm-heart core +
+  1 virga hem + 1 trail + **2 knife-edge bands (L/R meshes, one shared material)** = **5 ≤ 6**.
+  SURGE = + the fever aura sprite = **6 ≤ 6 — AT the ceiling, zero slack**: `surgeMotes` stays
+  absent (already law), and the named fallback if p95 flags is the band dropping to opaque
+  lit-slate (the silver caps carry the rim read). Added-transparent-beyond-the-band = **0** — the
+  arc overlays are opaque emissive, the membrane opaque, the tents opaque. Max alpha layers along
+  any chase ray: wing ray = 1 (band) · tail ray = 2 (hem + trail) · heart ray = 1 — all ≤2 ✓.
+  Draws: ~8–9 meshes/wing ≈ 18/pair (under the strata's ~20); apex total ≤70 holds.
+
+### §D.4 Motion (shoulder-led — the §C.5 broken-linkage tell is dead)
+
+- **`wingParts 3` cascade:** pivot (shoulder) → mid (the arm, root→K1→K2) → tip (the HAND at K2):
+  `tip.position.set(K)`, `hand.position.set(−K)` — the −anchor law, rest pose byte-identical.
+  LEFT = outer `lmirror scale.x = −1` wrapper PARENTING the pivot (never on the pivot;
+  dragonVesper.js:616–638 verbatim). **The fold joint is the dominant kink** — the wing folds
+  where the bolt breaks hardest (identity rhyme); fold contracts measured span **≤ 0.66**
+  (asserted), branch-prong nest clearance 0.02 checked in the builder at the fold pose.
+- **THE CRACKLE-CHURN — the fork rides the blade walker:** publish `wingBladePivotsL/R` entries
+  (the rig's lag walker, dragon.js:852–859 — zero rig surgery): **idx 1 = a pivot AT K3 owning
+  the branch prong** (+ f3 spur + the crotch-side bay skirt whose inboard vertices sit AT K3 —
+  C12's pivot-lever law: shared-boundary displacement → 0); **idx 2 = a pivot at the aftmost
+  ray's root** owning that ray + the aft half of its bay, boundary vertices at the pivot. The
+  walker phase-lags them 0.45/0.9 rad behind the beat with sway 0.10/0.14 rad — **the fork tips
+  SHIVER like a stepped leader hunting for ground.** Seam breathing at the shared bay edges
+  ≤0.012 units at the walker's hardcoded extremes (asserted) — no membrane tear by construction.
+- **The dial block, FIXED shoulder-led (kills the flagged inversion `tipAmp .42 > midAmp .28`):**
+  `flapBias 0.82, flapAmp 0.8, wingParts 3, rootAmp 0.74, midAmp 0.14, tipAmp 0.08, midLag 0.45,
+  tipLag 0.95, glidePow 1.9, restLift 0.06, apexMid 0.06, apexTip 0.10`. Shoulder arc ownership
+  0.74/0.96 = **77%** (inside C5's 75–85% band); mid+tip = 22.9% ≤ ~25%; **each distal strictly <
+  proximal** (0.74 > 0.14 > 0.08), same rotational direction, segments trailing via the lags.
+  `glidePow 1.9` = the heavy weather-front beat held; block unique in the roster (Vesper 2.2 /
+  Revenant rootAmp 0.72 glidePow 1.15 — §2.13 clean). Verify at the frozen extremes (clock law:
+  top ~12:00–12:30, bottom ~5:00, never 6:00) + the named-pivot amplitude table (§D.7).
+- **Beat character:** the `glidePow`-shaped waveform holds the broad glide and pulses heavy beats
+  through it; pulseTimer's downstroke bias means strikes tend to fire at the beat apex — **the
+  bolt-frame flashes as the wing slams** (free drama, zero new code).
+- **FX handles ride the folding part:** tip markers duplicate the SAME `boltArm` function
+  (module-level — the trail-detach bug is impossible), parent to the HAND; `parts.wingElements` =
+  the arm + dominant-ray path; per-tip markers at F0/Fb feed trails + the §D.7 asserts.
+
+### §D.5 The 4-form CHARGING ladder — wing dials (replaces §B.5's deck rows; all non-wing rows hold)
+
+| dial | f0 Squall Pup | f1 Stormcell | f2 Thunderhead | f3 Tempest Unleashed | assert |
+|---|---|---|---|---|---|
+| `kinkKnuckles` | 1 (K2 only, soft ~12°) | 2 (+K1) | 3 (+K3; breaks enter [18°,60°]) | 3 (fully hard) | exact {1,2,3,3}; band at f2/f3 |
+| Y-FORK (dominant ray) | — | — | **fork arrives** (at K3) | fork + 2nd-order spur | {0,0,1,1}; spur f3-only |
+| rays (dominant + aft) | 2 | 3 | 4 | 4 | monotonic ↑; decay ≤0.86× each |
+| bay NSEG | 4 | 4 | 6 | 6 | ≥4 always |
+| silver-cap crest coverage | 0.35 (leading arm) | 0.55 (+dominant ray) | 0.80 (+ray roots, branch) | 1.0 (full frame + spur) | monotonic ↑ |
+| membrane tiers | 2 | 3 | 4 | 4 | steps ≥0.05 L from f2 |
+| strike-live completeness (`arcRun`) | heart node (0) | root→K2 (0.5) | root→fork (0.75) | root→every tip (1.0) | monotonic ↑ (numbers unchanged from §B.5) |
+| `wingBladePivots` /side | 0 | 1 (aft ray) | 2 (+branch prong) | 2 | {0,1,2,2} |
+| span : body | 1.7× | 2.0× | 2.25× | 2.5× | ↑, ±10%, apex ≤2.5 (refinement 7 honored) |
+| `billowAmp` (bay groups) | 0 | 0.015 | 0.02 | 0.03 | monotonic ↑ (moved off deckGroups) |
+| tri target | **~1.8k** | **~2.6k** | **~3.6k** | **~4.7k** | monotonic ↑, ±20%, <6000 |
+
+**Tri re-pin rationale (honest, not aspirational):** the Stormfork sheds the ×3 deck duplication
+(~1.1k/wing-pair → ~0.6k at apex). The silhouette-economics law says do NOT pad the budget back —
+the OUTLINE (kinks + fork) does the work; NSEG 6 and the f3 spur are already inside the count.
+Growth verb still **CHARGING**: `arcDuty` ↑ + strike-completeness ↑ + `kinkKnuckles` ↑ + the fork
+arriving + `heartScale` ↑ — **the bolt-frame maturing**: the pup is one soft bend of cloud; the
+apex is a full three-kink, Y-forked stepped-leader skeleton that goes live root-to-tip. The fork
+arrives at f2 exactly when the circuit's first fork carves (`arcRun` 0.75) — structure and motif
+rung-locked. Apex superiority = shape-completion, never scale.
+
+### §D.6 Feasibility audit (SF rows replace §B.6's W1–W7; T/H/M/V rows hold)
+
+| # | element | engine construction path (cited) | overdraw | biggest risk | mitigation |
+|---|---|---|---|---|---|
+| SF1 | `boltArm` waypoint profile (module-level, shared) | `vesperArmY/Z` profile-as-function precedent (dragonVesper.js:346–356) + the C15 waypoint-table method | 0 | **HEADLINE (a): the kinked outline collapsing to SAWTOOTH/COMB at 250px** | "3 knuckles on an ARCH, never a zigzag" — exactly-3 + single-global-max + break band [18°,60°] + arch envelope ±0.06·hs (all asserted); bays ≥4 seg, cusp ⅓; dominant-fork decay ≤0.86×; judged on the **STANDING (`pin(0)`, no-strike) rear crop FIRST** at 2× on the pale backdrop — the wing must be a badass carved storm-blade with ZERO lightning before any strike frame is graded |
+| SF2 | ridge tents + silver rim-caps | `ridge()` 4-face tent + cap (400–409) | 0 | caps out-glint on a dark sky (the Vesper I1 failure) | envMapIntensity capped 0.3; judged both backdrops; dim one notch if they out-read the eyes (T2 inherited) |
+| SF3 | Y-fork + decaying ray rank | finger-fan tips pattern (386–393) + `lenFrac`; fork = shared welded node at K3 | 0 | the fork reads as a 5th equal finger → comb | fork ONLY on the dominant; branch 0.62×, spur f3-only 0.52×; every successive length ≤0.86× prev (assert) |
+| SF4 | opaque membrane bays | bay bézier fan, ≥4 seg, aft-biased sag (443–463) | 0 (opaque) | sawtooth Vs between rays | NSEG ≥4 (6 at f2/f3) + cusp ∈[0.25,0.45]× peak (assert) |
+| SF5 | connected knife-edge band | `edgeBand` ONE-strip pattern (470–477) | **+2 drawables (L/R, 1 mat) — the wing's only transparency** | Surge census at ceiling 6/6 | counted honestly (§D.3); fallback = opaque lit-slate band (silver caps carry the rim); `surgeMotes` stays banned |
+| SF6 | cowl + gusset shoulder | gusset arm-side anchors (482–491) + static body-frame cowl (540–562) | 0 | fold-tear if any vertex crosses the K2 joint | arm-side-only anchoring verbatim; nothing spans the hand fold (C12) |
+| SF7 | circuit crest overlays | Vesper seam-mat pattern (77–78) + DoubleSide §6.5 + C14 weld-to-sample-nodes | 0 (opaque emissive) | **HEADLINE (b): frame ignition = photosensitivity / glare hazard** — root-to-tip live is more lit length than the old deck seams | the caps live IN pulseTimer (window ≥0.10 s, rest ≥1.2 s, ≤3 Hz — no call site can strobe faster); peak caps arcSeam ≤2.4 / arcCore ≤2.0 / heart ≤1.6; strip width ≤0.022·hs → coverage ~5–6%, asserted ≤7% by area sum; ±10° corridor emissive-clear at the PINNED strike; DoubleSide kills half-ignited flicker asymmetry; duty/window are the drama levers, NEVER intensity (rim-diet law) |
+| SF8 | fork crackle-churn | `wingBladePivotsL/R` walker (dragon.js:852–859, hardcoded lag/sway) | 0 | membrane tear at the flutter boundary | C12 pivot-lever anchoring (boundary verts AT the pivot); seam breathing ≤0.012 at walker extremes (assert); sway ≤0.14 rad stays under the shoulder beat |
+| SF9 | fold at K2, span ≤0.66 | wingParts fold pose + contraction assert (starters pattern) | 0 | the branch prong poking through the folded membrane | nest clearance 0.02 at the fold pose checked in the builder; flapstrip 5-phase + fold pin |
+| SF10 | rear-read measurement | pure math on published tip markers + `rearfit` black-fill (silhouetteCore.mjs:90) | offline | kink breaks measured in the wrong projection (plan Z jogs don't project astern) | Y-breaks asserted in the rear X-Y projection (the camera's axes); the Z ogee asserted in TOP planform separately |
+
+**Q(a′) — does the single kinked blade read premium WITHOUT the lightning (82–94% of play)?
+YES — with the sawtooth discipline airtight.** The standing frame carries four independent
+systems: (1) the only angular-stepped OUTLINE in the game (outline beats interior detail at
+250px — this is a stronger 250px bet than the deck slits, which needed a 3–5px gap to survive);
+(2) the silver rim-caps tracing the full frame — the "silver lining", diffuse, warm-sky-safe;
+(3) four membrane tiers + carved ember tracery (≥0.05 L steps, ≤0.06 emissive); (4) the
+crackle-churn + billow motion. Every gate judges the standing crop FIRST (SF1). **Q(b) from §B.6
+holds unchanged** — the circuit is the same cited tech on a better carrier.
+
+### §D.7 `tests/starters.mjs` — wing asserts (replace §B.8's deck/anvil/slit asserts; every non-wing §B.8 assert holds)
+
+- **PROFILE SHARED:** tip-marker + `wingElements` positions equal `boltArm()` evaluations — one
+  module-level function, no duplicated formula (the detach gotcha, machine-checked).
+- **KINKS (arch-not-zigzag, computable):** interior slope-break count of the leading-edge
+  polyline in REAR X-Y projection = **{1,2,3,3} exact** across forms; at f2/f3 each break ∈
+  [18°, 60°], **K1 ≥20°** (the elbow-analog), **K2's break the max**, **single global Y-max at
+  K2**, waypoint Ys within ±0.06·hs of the smooth arch.
+- **FORK:** present f2+ on the dominant ray only ({0,0,1,1}); spur f3-only; fork vertex is a
+  shared node (weld); ray + prong lengths **each ≤0.86× the previous** (dominant+decay).
+- **BAYS:** every membrane arc sampled **≥4 seg** (≥6 at f2/f3); cusp depth ∈ [0.25,0.45]× peak
+  sag; the fork-crotch bay OPEN at the trailing edge; `holeMetric` enclosed-hole count ≈ 0 on
+  every view/form (the C-GUARD, kept).
+- **MOTION (anti-broken-linkage):** def dials `rootAmp > midAmp > tipAmp` AND (mid+tip)/(sum) ≤
+  0.28; measured named-pivot amplitude table over N frames: |pivot| > |mid| > |tip| as ± RANGES
+  (never point samples); `wingBladePivotsL/R` lengths {0,1,2,2}; flutter-boundary seam breathing
+  ≤0.012 at walker extremes; fold pose contracts span ≤0.66; **wingsym Δ0.000**
+  (`tools/wingsymprobe.mjs`).
+- **SPAN:** span:body {1.7, 2.0, 2.25, 2.5} ±10% monotonic ↑, apex ≤2.5.
+- **CRUISE-EMISSIVE (by contribution, timer pinned `pin(0)`, surge off):** storm-heart + eyes
+  ≥85% of summed `emissiveIntensity × luminance(emissive)`; every wing-frame arc mat ≤0.06;
+  every membrane/cap/tent mat emissive `0x000000` (inventory assert — the silver caps are
+  machine-checked diffuse). **EXCEPT mid-strike** (`pin(0.5)`): exempt by design — assert instead
+  corridor-clear + the peak caps + coverage ≤7% of wing surface by strip-area sum.
+- **NEAR-WHITE:** exactly ONE mat with emissive sat <0.06 (`arcCore`), absent from both surge
+  arrays.
+- **FEVER (revises §B.8):** simulate the surge-tick values — all fever-state emissive hues ∈
+  255°±20 OR sat ≤0.12, **never magenta** (no hue in 280–340° at sat >0.2 anywhere in fever
+  state); **`feverWing === 0xd9deff`** (near-white lane — REPLACES the retired
+  `feverWing === 0x000000` assert) with membrane fever emissiveIntensity ≤ 0.30;
+  `feverEye`/`surgeHi 0xe8ecff` asserted from the def.
+- **TRIS:** {1.8k, 2.6k, 3.6k, 4.7k} ±20%, monotonic ↑, all <6000.
+- **RETIRED (named so nobody re-adds them):** deck count {1,2,3,3} · rear span-decay ×0.80±0.05 ·
+  top-planform chord decay · slit-open · deck-nest clearance · `feverWing === 0x000000`.
+
+### §D.8 Gate-blind residuals for the PR preview (wing-specific; §B.9's non-wing residuals stand)
+
+- **The standing-frame kink read at speed:** the asserts prove the angles exist; whether the
+  stepped outline reads BOLT (not "damaged wing") in motion at 250px is the human's call. Levers
+  if it misses: sharpen K2 toward 55°, deepen the crotch notch — never add a 4th kink.
+- **The fork flutter feel:** leader-hunting shiver vs nervous wobble (the walker's lag is
+  hardcoded; the ≤3-line nullable dial follow-up stays flagged from W5).
+- **Strike-on-frame drama vs glare** in real play (owner call §Open-3 unchanged): the caps are
+  in the module; whether a root-to-tip frame ignition FEELS like flying on lightning or like a
+  neon sign rides the preview.
+- **Surge census at 6/6:** zero slack — if p95 flags, the knife-edge band drops to opaque
+  lit-slate (named fallback, SF5).
+
 ## CHANGELOG
 - **v0 (Fable design-director synthesis).** Fresh storm drake THUNDERHEAD TEMPEST — identity IMMINENT
   (the gathering storm); hero = THE STRATA STORM-FRONT (triple-deck slab stack, opaque, slit gaps);
@@ -955,3 +1316,29 @@ instead of a thundercloud?"* Any YES is an automatic FAIL regardless of the nume
   `holeMetric ≈ 0` anti-cage assert (the Revenant's pass-band is Tempest's fail-band), and a
   standing gate veto: *"does any Tempest frame read like a re-skinned Revenant instead of a
   thundercloud?"* §B untouched; §C is additive.
+- **v2 (§D — HERO WING = THE STORMFORK; owner decision + Fable design-director + feasibility
+  audit, 2026-07-14).** The owner REJECTED the triple-stacked strata-deck on aesthetics and chose
+  the STORMFORK ("BOLTFRAME") from a 5-alternative menu: the wing whose skeleton IS a frozen
+  branching lightning bolt — rear read **STACK → BOLT**, the only angular-stepped outline in the
+  game. §D supersedes §5/§R/§F/§B.3b and the wing rows of §B.4/§B.5/§B.6/§B.8 (all kept as history
+  with pointers). The build: a module-level piecewise-LINEAR `boltArm` waypoint profile (3
+  kink-knuckles on a gull arch — exactly 3, breaks ∈[18°,60°], single global max, arch envelope
+  ±0.06·hs: the arch-not-zigzag law made computable), the Y-fork AT K3 (the third kink IS the fork
+  vertex; branch 0.62×, f3 spur), dominant+decay rays ≤0.86× each, inward-cupped bays ≥4 seg with
+  ⅓ cusps, `ridge()` tent thickness everywhere, silver rim-caps carrying the standing frame, ONE
+  connected knife-edge band (the wing's only transparency). THE IDENTITY WIN: the Storm Circuit's
+  arc-tree rides the bolt-ridge crests welded to the frame's own sample nodes — the wing skeleton
+  IS the circuit's f2/f3 branches; strikes ignite it root-to-tip over ~0.12 s via the unchanged
+  3-bucket storm tick. Fixes banked: the §C.5-flagged broken-linkage dial block re-tuned
+  shoulder-led (rootAmp .74 > midAmp .14 > tipAmp .08 — 77% shoulder ownership); `feverWing`
+  0x000000 → 0xd9deff capped ≤0.30 (the frame is the ignition — the membrane becomes the Surge
+  receiver); fork tips published as `wingBladePivots` (the crackle-churn, C12-anchored, zero rig
+  surgery). Honest recounts: overdraw cruise 5 / Surge 6 (≤6, at ceiling — fallback named); tris
+  re-pinned {1.8, 2.6, 3.9→3.6, 5.2→4.7}k (the ×3 deck duplication sheds ~0.5k at apex;
+  silhouette-economics says don't pad it back). Anti-reskin guard cleared at full strength (no
+  bone/cage/lantern/bat-membrane read; holeMetric ≈0 stands; crotch bay open-ended). Headline
+  risks + mitigations: (a) sawtooth/comb collapse at 250px — 3-knuckles-on-an-arch discipline,
+  judged on the STANDING no-strike rear crop first; (b) frame-ignition glare — pulseTimer
+  in-module caps + coverage ≤7% asserted + corridor-clear at the pinned strike. Synthesis doc
+  updated (matrix cell → "boltframe: kinked opaque membrane, forked lightning-skeleton"; rear
+  read BOLT). Next: I2 builds `stormforkWings` against §D.
