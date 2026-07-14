@@ -16,7 +16,7 @@ if (!globalThis.localStorage) { const s = new Map(); globalThis.localStorage = {
 if (!globalThis.location) globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
 if (!globalThis.navigator) globalThis.navigator = { userAgent: 'node' };
 
-const { buildObstacleMesh, barColliderCoverage } = await import('../js/obstacles.js');
+const { buildObstacleMesh, barColliderCoverage, pillarColliderCoverage } = await import('../js/obstacles.js');
 
 let pass = 0, fail = 0;
 const check = (label, ok) => { if (ok) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.error(`  ✗ FAIL: ${label}`); } };
@@ -32,6 +32,14 @@ const triCount = (obj) => {
 for (const r of [0.7, 0.85, 1.0, 1.1]) {
   const c = barColliderCoverage(r);
   check(`bar collider gap-free at r=${r} (gaps: ${c.gapCount})`, c.ok);
+}
+
+// 1b. FAIRNESS — the serac spur covers the r*0.65 collider cylinder to ~80% height
+//     (scale-invariant, so one check covers all r,h; the top ~20% tapers inside the
+//     collider by design, a strict improvement over the needle cone).
+{
+  const c = pillarColliderCoverage();
+  check(`pillar collider covered to 80% height (gaps: ${c.gapCount})`, c.ok);
 }
 
 // 2. BUDGET — each Frozen hazard skin ≤150 triangles (mobile 60fps budget).
