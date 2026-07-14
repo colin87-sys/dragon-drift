@@ -62,7 +62,10 @@ function lerpHex(a, b, t) {
 // don't crush to black. Kept ≤~0.02 contribution + hue-matched so it never reads as GLOW
 // (the LED-strip failure mode). NOTE: this revises the future §B.8 "body emissive = 0x000000"
 // inventory assert to "≤ a tiny hue-matched floor" — the Fable design gate approved the lever.
-const CLOUD_FLOOR = 0x070a12;
+// Cool self-scatter FLOOR — lifts the matte charcoal off coal-black so it RENDERS in the 0.20–0.26
+// charcoal lane (gate: a body at rendered L 0.11–0.14 reads Vesper-black, failing the anti-Vesper
+// separator; matte Lambert on a dark albedo needs this floor to hit the lane). Hue-matched, uniform.
+const CLOUD_FLOOR = 0x151b26;
 
 // OWNER-REFERENCE-DRIVEN (reference/tempest-owner-reference.png; the owner-reference-wins
 // law, DRAGON-DESIGN §3): the Tempest is NOT a cloud-mass — it is a sleek dark-scaled storm
@@ -88,20 +91,27 @@ function tempestMats(def, glow = 1) {
   // lighter than the body but NOT emissive: the glow lives on the vein strips, and the soft halo is
   // ACES bloom off them (§4a: "a uniformly emissive belly surface" is deliberately NOT taken). Three
   // near-value steps so the plated belly still reads carved.
-  const bellyCore = std(0x566384, { emissive: 0x000000, rough: 0.7, metal: 0 });   // chest keel (palest)
-  const bellyMid = std(0x4c586f, { emissive: 0x000000, rough: 0.72, metal: 0 });
-  const bellyEdge = std(0x424c60, { emissive: 0x000000, rough: 0.74, metal: 0 });  // flank/aft edge
+  // gate: 0x566384 rendered as faint NAVY (sat 0.21–0.27) — the reference belly is PALE slate. Lifted
+  // + desaturated to a true pale grey-slate so the chest reads pale and gives the veins a bright
+  // substrate to sit on (and lifts the ventral half of the body value into the charcoal lane).
+  const bellyCore = std(0x7d879c, { emissive: 0x0d1119, rough: 0.7, metal: 0 });   // chest keel (palest)
+  const bellyMid = std(0x707a90, { emissive: 0x0d1119, rough: 0.72, metal: 0 });
+  const bellyEdge = std(0x646e84, { emissive: 0x0d1119, rough: 0.74, metal: 0 });  // flank/aft edge
   // THE BOLT GLYPHS — dark facets knocked out of the pale belly (a diagonal lightning slash).
   const bolt = std(lerpHex(base, 0x2a3140, 0.5), { emissive: 0x000000 });
   // ── THE WORN CIRCUIT (the garment's near-white glow strips; hum-lit at humFloor) ──
+  // gate: the circuit "whispers, doesn't hum" — at ei≈humFloor the strips read as grey stitching in
+  // the no-bloom studio. The hum MULTIPLIER is pushed up so the worn circuit reads as clearly-lit
+  // near-white even without bloom (in-game bloom then blazes it; the I4 storm tick will cap the
+  // peak). This is a studio-legibility lift, not a game-brightness spec.
   const mkArc = (col, mul, w) => { const m = std(col, { emissive: col, ei: humFloor * mul, rough: 0.45, metal: 0 }); m.userData.baseEmissive = col; m.userData.baseIntensity = humFloor * mul; m.userData.flareIntensityWeight = w ?? 0.5; return m; };
-  const arcSeam = mkArc(0xd9deff, 1.0);                   // the storm-white circuit (spine + sternum veins)
-  const arcCore = mkArc(0xf2f4ff, 1.15);                  // the ONE true near-white — vein cores + strike-peak tips
-  const crest = mkArc(0xd9deff, 0.85, 0.4);               // the horn-crest strips (a step under the veins)
+  const arcSeam = mkArc(0xd9deff, 2.4);                   // the storm-white circuit (spine + sternum veins)
+  const arcCore = mkArc(0xf2f4ff, 3.0);                   // the ONE true near-white — vein cores + strike-peak tips
+  const crest = mkArc(0xd9deff, 2.0, 0.4);                // the horn-crest strips (reads, a step under the veins)
   // THE STORM-HEART dynamo core — the brightest node, on the coreGlow hook (transparent; opacity
   // ticked). Near-white, hum-lit; ≤15% of cruise emissive (the anti-lantern lock, §3.3).
-  const heartCore = std(0xd9deff, { emissive: 0xf2f4ff, ei: humFloor * 1.3, rough: 0.4, metal: 0, transparent: true, opacity: 0.7 + 0.2 * glow, depthWrite: false });
-  heartCore.userData.baseEmissive = 0xf2f4ff; heartCore.userData.baseIntensity = humFloor * 1.3;
+  const heartCore = std(0xd9deff, { emissive: 0xf2f4ff, ei: humFloor * 3.2, rough: 0.4, metal: 0, transparent: true, opacity: 0.7 + 0.2 * glow, depthWrite: false });
+  heartCore.userData.baseEmissive = 0xf2f4ff; heartCore.userData.baseIntensity = humFloor * 3.2;
   // CARVED-DEPTH tiers (Revenant richness): near-black RECESS walls + a darker SOCKET FLOOR.
   const recess = std(lerpHex(base, 0x000000, 0.55), { emissive: 0x000000, rough: 0.9 });
   const socketFloor = std(0x05070c, { emissive: 0x000000, rough: 0.95 });
@@ -315,27 +325,27 @@ function addRibbon(push, mat, pts, halfW, dy = 0.015) {
 // riding the same spine nodes the ridge uses (weld by construction — it can't float off).
 function addSpineCircuit(push, stations, M) {
   const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); return (a.cy + a.ryU) + ((b.cy + b.ryU) - (a.cy + a.ryU)) * t; } } return stations[stations.length - 1].cy; };
-  const pts = []; for (let z = -2.16; z <= 1.55; z += 0.22) pts.push([0, sample(z) + 0.005, z]);
-  addRibbon(push, M.arcSeam, pts, 0.016, 0.02);
+  const pts = []; for (let z = -2.16; z <= 1.55; z += 0.12) pts.push([0, sample(z) + 0.005, z]);   // tight pitch → CONTINUOUS seam, not dashes
+  addRibbon(push, M.arcSeam, pts, 0.03, 0.055);   // wider + lifted proud of the scutes so it reads continuous
 }
 // THE STERNUM VEINS — the branching near-white circuit worn on the pale belly (bucket b1): one
 // bright core vein down the ventral centerline dynamo→tail-root + a branch to each wing root + two
 // short forked side-veins, all welded to the belly-bottom nodes.
 function addSternumVeins(push, stations, M) {
   const sampleB = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); const L = (p, q) => p + (q - p) * t; return { yb: L(a.cy - a.ryD, b.cy - b.ryD), w: L(a.rx, b.rx) }; } } const l = stations[stations.length - 1]; return { yb: l.cy - l.ryD, w: l.rx }; };
-  // The bright CORE vein down the keel (dynamo → tail-root).
-  const main = []; for (let z = -0.9; z <= 1.5; z += 0.18) { const s = sampleB(z); main.push([0, s.yb + 0.02, z]); }
-  addRibbon(push, M.arcCore, main, 0.028, -0.005);
+  // The bright CORE vein down the keel (dynamo → tail-root) — proud + wide so it reads from the chase.
+  const main = []; for (let z = -0.9; z <= 1.5; z += 0.12) { const s = sampleB(z); main.push([0, s.yb + 0.02, z]); }
+  addRibbon(push, M.arcCore, main, 0.045, -0.04);
   // Two side veins riding the lower flanks (the chest carries a NETWORK, not one wire — the
   // reference's glowing veined belly), each with a zigzag chest branch toward the core.
   for (const side of [1, -1]) {
-    const sideV = []; for (let z = -0.85; z <= 1.1; z += 0.22) { const s = sampleB(z); sideV.push([side * s.w * 0.62, s.yb + s.w * 0.35, z]); }
-    addRibbon(push, M.arcSeam, sideV, 0.02, 0);
+    const sideV = []; for (let z = -0.85; z <= 1.1; z += 0.16) { const s = sampleB(z); sideV.push([side * s.w * 0.62, s.yb + s.w * 0.35, z]); }
+    addRibbon(push, M.arcSeam, sideV, 0.032, -0.02);
     // zig chest branches: side vein → core, alternating fore/aft (the lightning chest read)
-    for (const z of [-0.7, -0.2, 0.35, 0.8]) { const s = sampleB(z); addRibbon(push, M.arcSeam, [[side * s.w * 0.6, s.yb + s.w * 0.32, z], [side * s.w * 0.2, s.yb + 0.03, z + 0.12], [0, s.yb + 0.02, z + 0.02]], 0.013, 0); }
+    for (const z of [-0.7, -0.2, 0.35, 0.8]) { const s = sampleB(z); addRibbon(push, M.arcSeam, [[side * s.w * 0.6, s.yb + s.w * 0.32, z], [side * s.w * 0.2, s.yb + 0.03, z + 0.12], [0, s.yb + 0.02, z + 0.02]], 0.02, -0.01); }
     // branch up to each wing root
     const s0 = sampleB(-0.85), sR = sampleB(-1.05);
-    addRibbon(push, M.arcSeam, [[side * s0.w * 0.4, s0.yb + 0.06, -0.85], [side * sR.w * 0.7, sR.yb + 0.16, -1.05], [side * 0.28, 0.10, -1.08]], 0.014, 0);
+    addRibbon(push, M.arcSeam, [[side * s0.w * 0.4, s0.yb + 0.06, -0.85], [side * sR.w * 0.7, sR.yb + 0.16, -1.05], [side * 0.28, 0.10, -1.08]], 0.022, -0.01);
   }
 }
 
