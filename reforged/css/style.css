@@ -819,6 +819,63 @@ body.hud-immersive.hud-critical #hud .stamina-arc,
 body.hud-immersive #hud .stamina-arc.sealed {
   opacity: calc(0.9 * var(--hud-alpha)) !important; }
 
+/* ===== H6 — THE SETTINGS MATRIX (§F): per-element ALWAYS / DYNAMIC / OFF. =====
+   hudState.js is the single API — it toggles body.hud-<key>-off / -always from
+   saveData.settings.hudElements; CSS owns the appearance (§F: JS never sets styles).
+   ALWAYS pins the element past its relevance ghost (the scorekeeper trick, per
+   element); OFF hides it — but NEVER the safety floor (LIFE-at-critical, the seal
+   beat; boss WARNING lives on .boss-warn, not .bell, so a Bell OFF never mutes it). */
+/* ALWAYS — defeat the .rest ghost (mirror of body.hud-scorekeeper .score.rest) */
+body.hud-life-always #hud .health-hearts.rest { opacity: var(--hud-alpha); }
+body.hud-stamina-always #hud .g-arc.rest { opacity: var(--hud-alpha); }
+body.hud-surge-always #hud .gauntlet-surge.rest { opacity: var(--hud-alpha); }
+body.hud-score-always #hud .score.rest { opacity: var(--hud-alpha); }
+/* OFF — hide the element (paint stays for the safety floor below) */
+body.hud-life-off #hud .health-hearts,
+body.hud-stamina-off #hud .stamina-arc,
+body.hud-surge-off #hud .gauntlet-surge,
+body.hud-score-off #hud .score,
+body.hud-distance-off #hud .hud-top-center,
+body.hud-chain-off #hud .chain,
+body.hud-damageDir-off #hud .g-dmg,
+body.hud-bell-off #hud .bell {
+  opacity: 0 !important; transition: opacity var(--t-ui) var(--ease-out); }
+/* safety floor — OFF can never remove these */
+body.hud-life-off.hud-critical #hud .health-hearts {
+  opacity: var(--hud-alpha) !important; }
+body.hud-stamina-off.hud-critical #hud .stamina-arc,
+body.hud-stamina-off #hud .stamina-arc.sealed {
+  opacity: calc(0.9 * var(--hud-alpha)) !important; }
+
+/* ===== H6 — skyLuma bright-biome keyline swap (§0/§B). =====
+   Over a bright sky (body.biome-bright, set per-biome in main.js — deterministic,
+   no sampling) the Bell / Tape / Tally hairlines swap from the warm light keyline
+   to a darker, more saturated EMBER-CORE line: a dark stroke reads on a washed-out
+   bright veil where the light one vanishes. Only the --rf-stroke vars change, so
+   every slug/chip inside inherits the higher-contrast keyline for free. */
+body.biome-bright #hud .hud-top-center,
+body.biome-bright #hud .hud-top-right,
+body.biome-bright #hud .bell {
+  --rf-stroke: rgba(74, 32, 12, 0.72);
+  --rf-stroke-hi: rgba(112, 48, 18, 0.88); }
+
+/* ===== H6 — the PB light-seam (§B.6), DOM horizon-seam fallback. =====
+   A single gold seam sweeps past at the exact personal-best metre (fired once per
+   run from ui.js). Transform/opacity only — it flashes at the horizon then sweeps
+   toward the viewer and dissolves. Crossing your record is a place. */
+.pb-seam { position: fixed; left: 0; right: 0; top: 44%; height: 3px; z-index: 6;
+  pointer-events: none; opacity: 0; transform-origin: center;
+  background: linear-gradient(90deg, transparent, rgba(255,216,106,0.95) 30%, #fff2c8 50%, rgba(255,216,106,0.95) 70%, transparent);
+  box-shadow: 0 0 18px rgba(255,200,90,0.8); }
+.pb-seam.sweep { animation: pb-seam-sweep 1s ease-out; }
+@keyframes pb-seam-sweep {
+  0%   { opacity: 0; transform: translateY(0) scaleY(0.4); }
+  18%  { opacity: 1; transform: translateY(0) scaleY(1); }
+  100% { opacity: 0; transform: translateY(130px) scaleY(3); } }
+@media (prefers-reduced-motion: reduce) {
+  .pb-seam.sweep { animation: pb-seam-fade 0.6s ease-out; }
+  @keyframes pb-seam-fade { 0%{opacity:0} 25%{opacity:0.9} 100%{opacity:0} } }
+
 /* ============ THE LURE — the ONE reticle instrument (EMBERSIGHT H4 §B.8) ============
    The lens2 hollow-bracket becomes THE reticle for EVERY state: four corner
    brackets (the outer square masked to its corners), the nested-squares .inner
@@ -1697,6 +1754,9 @@ body.hud-immersive #hud .stamina-arc.sealed {
   margin: 24px 2px 2px; padding-bottom: 7px; border-bottom: var(--panel-line); }
 .settings-section:first-child { margin-top: 10px; }
 .set-row { display: flex; align-items: center; gap: 14px; padding: 11px 2px; }
+/* H6 §F HUD-matrix rows: a compact 3-way segment sized to sit beside the label */
+.seg-row.seg-compact { flex: 0 0 auto; width: min(52vw, 232px); gap: 5px; }
+.seg-compact .seg-btn { padding: 7px 0; font-size: 10px; letter-spacing: 0.04em; }
 .set-row + .set-row, .set-row + .settings-group, .settings-group + .set-row
   { border-top: 1px solid rgba(255, 201, 130, 0.10); }
 .set-info { flex: 1; min-width: 0; }

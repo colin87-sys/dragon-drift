@@ -37,7 +37,12 @@ const DEFAULTS = {
     hudScale: 1, hudAlpha: 1, colorblind: 'off',
     // EMBERSIGHT §F player contract: SCOREKEEPER pins score+distance at full
     // alpha (H2); IMMERSIVE HUD hides all but the safety floor (H3).
-    scorekeeper: false, immersiveHud: false },
+    scorekeeper: false, immersiveHud: false,
+    // EMBERSIGHT H6 §F — the per-element HUD override matrix. Each element is
+    // ALWAYS (pinned) / DYNAMIC (the H1 relevance table, default) / OFF. OFF never
+    // removes the safety floor (LIFE-at-critical, the seal beat, boss WARNING).
+    hudElements: { life: 'dynamic', stamina: 'dynamic', surge: 'dynamic', score: 'dynamic',
+      distance: 'dynamic', chain: 'dynamic', damageDir: 'dynamic', bell: 'dynamic' } },
   embers: 0,
   xp: 0,
   level: 1,

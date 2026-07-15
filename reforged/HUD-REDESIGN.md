@@ -214,6 +214,13 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
   sealed/ashen greys, threat-yield halo, magenta telegraph chevrons off `bossCharge01()`,
   lock-pip row + `lanceRune` brand marks with `--life` drain. The Lure only re-strokes
   it to dual-stroke hairline weight (3.5px → 2px + keyline).
+- **OWNER RULING (2026-07-15, overrides any earlier reading):** the lance lock-pips
+  (banked locks, rune brand-marks, volley fuse, dwell/sealed/ashen states) are AIMING
+  information and **stay AT THE RETICLE / point of aim, within eyesight — exactly where
+  they are today**. Their POSITION and BEHAVIOR are UNCHANGED; H4 only re-strokes their
+  line weight to the EMBERSIGHT hairline grammar. **No lance/lock cells go on the Gauntlet**
+  (it stays hearts + stamina + surge only) and lock state is **never duplicated at the
+  bottom of the screen**. The DLZ column (§B.9) is the sole, flag-gated peripheral echo.
 - **THE CREANCE TETHER (H9, flag `?tether=1` — owner-taste call):** one 1px dash-gapped
   gold hairline from the gauntlet keystone to the Lure — the falconer's line, doubling
   as the flight-vector lead (this IS U10's stretch goal). Rest alpha 0.14; brightens to
@@ -234,9 +241,11 @@ Legend — **Layer:** WORLD (WebGL scene/postfx) · DRAGON (flagged emissive cha
 - **Nameplate:** name `--fs-title` Russo One caps + epithet `--fs-micro` caps — the same
   type ramp as the protected title card, so card→plate is one voice.
 - **WebGL over-model sliver:** retired to a locator pip (never double-reported).
-- **DLZ column (flagged, late):** a small vertical strip at the bar's right end
-  summarizing `lockHudState()` — banked pips/cap as cells, the volley fuse as a filling
-  caret, ashen greys it. The at-gaze pip row stays primary; cut this first if busy.
+- **DLZ column (flagged, late — OWNER RULING: OFF by default):** a small vertical strip
+  at the bar's right end summarizing `lockHudState()` — banked pips/cap as cells, ashen
+  greys it. It is **STRICTLY behind `?dlz=1`, OFF by default, built minimally** — a
+  "cut-first" luxury the owner is unlikely to use; it must never render without the flag.
+  The at-gaze pip row (§B.8) stays the primary, authoritative lock read.
 - **Spell card:** kept lower-right (protected behavior/animations) but re-chromed —
   slug + magenta left hairline + caret timer, folding the sixth panel language into the
   grammar. **Warn:** `⚠` emoji → stroked SVG triangle (U7).
@@ -337,9 +346,9 @@ the overhaul plan's **Phase 3** content.
 | **H1** | M | **State machine + relevance + the Bell.** `hud-cruise/combat/boss` body classes; the ≤4Hz relevance ticker + `{show-when, ghost-to, return}` table; the single queued toast lane absorbing popup/popup2/feat-toast/milestone/hint | uishots: cruise-ghosted vs active states; toast queue coalescing headless test |
 | **H2** | M | **The Tape + the Tally.** Distance instrument + PB caret; score demoted to 20px slug w/ tier-hairline; chain chip + underline cells; embers/skims restyle (first-increment rule); race caret strip (navy race-bar dies); **SCOREKEEPER** toggle | uishots: PB-approach state; arm's-length legibility over Frozen Reach frame (human) |
 | **H3** | M | **The Gauntlet.** Arc re-stroke + LIFE + SURGE horns in one SVG; multiplier slug; damage-direction arcs (+ impact-side param at the collision site); denial shake; fever drain-timer; VIGIL critical perimeter + grading arbiter; **IMMERSIVE toggle** (rides the state classes) | uishots: full/damaged/critical/fever/sealed states; on-device 60fps `?debug=perf`; grading arbiter vs fever lift eyeballed live |
-| **H4** | M | **The Lure (U10).** lens2 brackets extended to ring/gate; `.rsq` pair + ring-focus + WebGL ring glow retired; shrink-snap grammar; U11 search-tick→lock-tone; dual-stroke re-stroke of boss skin | `tricount` + `tiershots` (WebGL ring retirement); `?lens` A/B kept for review |
-| **H5** | M | **The Mews plate (U9).** `bossBar.js` on `bossHit`; phase notches; drain-lag; etch-in intro synced to title card; re-forge shimmer for `formLifebars`; WebGL sliver → locator pip; spell-card re-chrome + SVG warn triangle; off-screen chevrons; DLZ column behind `?dlz=1` | live-fight eyes on formLifebars + FELLED/revive (audit risk #3); tricount/tiershots (sliver retirement); uishots boss state |
-| **H6** | S | **World echoes + settings matrix.** Ember swallow; PB light-seam; overtake trail flash; skyLuma bright-biome keyline class; wingbeat-sync garnish; per-element override UI (always/dynamic/off) in settings | tiershots (billboard + coreGlow writes); settings matrix persists across reload (headless) |
+| **H4 ✅ BUILT** | M | **The Lure (U10).** lens2 brackets extended to ring/gate; `.rsq` pair + ring-focus + WebGL ring glow retired; shrink-snap grammar; U11 search-tick→lock-tone; dual-stroke re-stroke of boss skin | `tricount` + `tiershots` (WebGL ring retirement); `?lens` A/B kept for review |
+| **H5 ✅ BUILT** | M | **The Mews plate (U9).** `bossBar.js` on `bossHit`; phase notches; drain-lag; etch-in intro synced to title card; re-forge shimmer for `formLifebars`; WebGL sliver → locator pip; spell-card re-chrome + SVG warn triangle; off-screen chevrons; DLZ column behind `?dlz=1` | live-fight eyes on formLifebars + FELLED/revive (audit risk #3); tricount/tiershots (sliver retirement); uishots boss state |
+| **H6 ✅ BUILT** | S | **World echoes + settings matrix.** Ember swallow; PB light-seam; overtake trail flash; skyLuma bright-biome keyline class; wingbeat-sync garnish; per-element override UI (always/dynamic/off) in settings | tiershots (billboard + coreGlow writes); settings matrix persists across reload (headless) |
 | **H7** | L | **The Living Gauge I** — flag `?vitals=1` → settings toggle. `bondChannel.setVitals()` seam; wing-charge stamina (bucket version; span-gradient `onBeforeCompile` stays a sub-flag); body-light health (clamp ≥0.75) + ember-bleed; 1-heart coreGlow heartbeat; chrome rest-ghosts deepen one step **only when flag ON** | tricount + tiershots across roster tiers (incl. Frozen Reach / bright + dark biomes); Fable critic per checkpoint (DRAGON-DESIGN process); on-device 60fps; flag-OFF pixel-identical |
 | **H8** | M | **The Living Gauge II** — same flag family. Spine-ignition surge nodes (per-recipe markers + tail-chain→coreGlow fallback contract); trail-as-combo tint (lerp cap 0.5); +120ms echo wiring | tiershots per hero dragon as nodes are authored; roster fallback proven on an unauthored dragon |
 | **H9** | S | **Signature garnish** — `?tether=1` Creance tether (boss-hidden, first-cut candidate); graze wingtip spark (side-data permitting, else tail shimmer); hit-side wing flare **only if** per-side materials are free | owner-taste review on PR preview; tricount if wing material split attempted |

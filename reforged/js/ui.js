@@ -592,6 +592,10 @@ export const ui = {
         <div class="fc-word">FLOW</div>
       </div>
       <div class="danger-glow" id="danger-glow"></div>
+      <!-- EMBERSIGHT H6 — the PB light-seam (§B.6): a single gold seam sweeps past
+           at the exact personal-best metre (fires once per run, deterministic). A
+           DOM horizon seam (the sanctioned fallback for the in-world billboard). -->
+      <div class="pb-seam" id="pb-seam" aria-hidden="true"></div>
       <!-- §5b WEFTWITCH HUD-SEW: golden threads stitch across the chrome ONCE at her
            entrance. RENDER-ORDER LAW: bullets live in the WebGL canvas BELOW all DOM,
            so this overlay must never run during 'fight' — the controller fires it
@@ -719,6 +723,7 @@ export const ui = {
       tape:         root.querySelector('#tape'),
       tapeTicks:    root.querySelector('#tape-ticks'),
       tapePb:       root.querySelector('#tape-pb'),
+      pbSeam:       root.querySelector('#pb-seam'),
       chainCells:   root.querySelector('#chain-cells'),
       raceStrip:    root.querySelector('#race-bar'),
       raceYou:      root.querySelector('#race-you'),
@@ -997,6 +1002,8 @@ export const ui = {
           els.tapePb.style.transform = 'translateX(0px)';
           restartAnim(els.tape, 'tape-flash');
           this.bell('NEW BEST DISTANCE', 'gold', { key: 'record' });
+          // §B.6 the world echo: a gold light-seam sweeps past at the PB metre.
+          if (els.pbSeam) restartAnim(els.pbSeam, 'sweep');
         } else {
           const delta = pb - player.dist;
           const on = delta <= 500;
@@ -1062,6 +1069,7 @@ export const ui = {
         game.challengeBeaten = true;
         els.raceStrip.classList.add('won');   // CSS: rival caret falls off + gold flash
         this.bell('RIVAL BEATEN', 'gold');
+        emit('overtake');   // EMBERSIGHT H6 §B.12 — the WORLD echo: the trail flashes gold 1s
         sfx.record();
       }
     }
@@ -2151,6 +2159,17 @@ export const ui = {
           <div class="seg-row">${rowHtml}</div>
         </div>`;
       const pct = (v) => Math.round(v * 100);
+      // EMBERSIGHT H6 §F — the per-element HUD override matrix. Each element is a
+      // labelled row with a 3-way ALWAYS / DYNAMIC / OFF segment (default DYNAMIC =
+      // the relevance table). Persists to saveData.settings.hudElements; hudState
+      // maps it onto body classes live.
+      const hudEls = s.hudElements || {};
+      const hudElRow = (key, label) => {
+        const mode = hudEls[key] || 'dynamic';
+        const seg3 = (v, l) => `<button class="seg-btn${mode === v ? ' sel' : ''}" data-hudel="${key}" data-mode="${v}">${l}</button>`;
+        return `<div class="set-row"><div class="set-info"><div class="settings-label">${label}</div></div>
+          <div class="seg-row seg-compact">${seg3('always', 'ALWAYS')}${seg3('dynamic', 'AUTO')}${seg3('off', 'OFF')}</div></div>`;
+      };
       // DEV MODE only surfaces under ?debug/?dev — or while it's already ON,
       // so a dev save can always be restored.
       const devVisible = /[?&](debug|dev)\b/.test(location.search) || s.dev;
@@ -2201,6 +2220,17 @@ export const ui = {
           ${swRow('assist', 'bulletClarity', 'BULLET CLARITY', 'Boss fights: hollow lock reticle, bigger bullets, danger telegraphs.')}
           ${swRow('assist', 'slowMo', 'LAST-CHANCE SLOW-MO', `A heartbeat of slow time before a fatal hit. Off pays +${pct(CONFIG.slowMoOffBonus)}% score.`)}
           ${swRow('assist', 'glideAssist', 'GLIDE ASSIST', `Auto-flies to each ring and collects embers. Scores −${pct(1 - CONFIG.glideAssistScoreMult)}% while on.`)}
+
+          <div class="settings-section">HUD readouts</div>
+          <p class="set-sub" style="margin:-2px 0 8px">Per readout: ALWAYS on, AUTO (fades when quiet, returns on a change), or OFF. Vital warnings — a last heart, a sealed boost — always land.</p>
+          ${hudElRow('life', 'LIFE')}
+          ${hudElRow('stamina', 'BOOST')}
+          ${hudElRow('surge', 'SURGE')}
+          ${hudElRow('score', 'SCORE')}
+          ${hudElRow('distance', 'DISTANCE')}
+          ${hudElRow('chain', 'CHAIN')}
+          ${hudElRow('damageDir', 'DAMAGE DIR')}
+          ${hudElRow('bell', 'ALERTS')}
 
           <div class="settings-section">Audio</div>
           <div class="settings-group">
@@ -3097,6 +3127,17 @@ function wireScreenButtons(type) {
       (v) => document.documentElement.style.setProperty('--hud-scale', v));
     wireRange('#set-hud-alpha', '#hud-alpha-val', 'hudAlpha',
       (v) => document.documentElement.style.setProperty('--hud-alpha', v));
+    // H6 §F — per-element HUD override matrix: pick ALWAYS/AUTO/OFF, persist,
+    // repaint just this row's selection (hudState applies the body class live).
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-hudel]')) {
+      btn.onclick = stop(() => {
+        const key = btn.dataset.hudel;
+        if (!saveData.settings.hudElements) saveData.settings.hudElements = {};
+        saveData.settings.hudElements[key] = btn.dataset.mode;
+        persist();
+        selectSeg(btn);
+      });
+    }
     // Assist switches (reticle / clarity / slow-mo / glide / mouse): instant flip.
     for (const btn of els.screen.querySelectorAll('.sw[data-assist]')) {
       btn.onclick = stop(() => {

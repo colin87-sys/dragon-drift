@@ -1718,6 +1718,10 @@ function tick() {
     if (bi !== currentBiome) {
       currentBiome = bi;
       music.setKeyShift(BIOMES[bi].keyShift);
+      // EMBERSIGHT H6 skyLuma (§0/§B): a per-biome class (deterministic, no sampling)
+      // — over a bright sky the Bell/Tape/Tally keylines swap to a higher-contrast
+      // ember-core variant so the hairlines survive the washout.
+      document.body.classList.toggle('biome-bright', !!BIOMES[bi].bright);
       if (player.dist > 100) {
         ui.biomePopup(BIOMES[bi].name);
         sfx.milestone();

@@ -82,6 +82,25 @@ function setBodyFlag(cls, key, onFlag) {
   document.body && document.body.classList.toggle(cls, onFlag);
 }
 
+// EMBERSIGHT H6 §F — the per-element override matrix. hudState is the single API:
+// it maps saveData.settings.hudElements[key] ∈ {always,dynamic,off} onto the body
+// classes hud-<key>-always / hud-<key>-off; CSS owns the appearance + the safety
+// floor. Cached so it's ~free per tick.
+const HUD_EL_KEYS = ['life', 'stamina', 'surge', 'score', 'distance', 'chain', 'damageDir', 'bell'];
+const appliedEl = {};
+function applyElementOverrides() {
+  const b = document.body;
+  if (!b) return;
+  const m = saveData.settings.hudElements || {};
+  for (const k of HUD_EL_KEYS) {
+    const mode = m[k] || 'dynamic';
+    if (appliedEl[k] === mode) continue;
+    appliedEl[k] = mode;
+    b.classList.toggle(`hud-${k}-off`, mode === 'off');
+    b.classList.toggle(`hud-${k}-always`, mode === 'always');
+  }
+}
+
 // Public poke: gameplay code (or ui.js's change detection) names an activity.
 // 'combat' = any scoring/danger event; 'earn' = score gained meaningfully.
 export function hudPoke(kind) {
@@ -177,6 +196,7 @@ export function updateHudState(player) {
   // §F player overrides ride the same tick (cheap; class writes are cached).
   setBodyFlag('hud-scorekeeper', 'scorekeeper', !!saveData.settings.scorekeeper);
   setBodyFlag('hud-immersive', 'immersive', !!saveData.settings.immersiveHud);
+  applyElementOverrides();   // H6 §F per-element ALWAYS/DYNAMIC/OFF
   // Critical = last heart: the VIGIL (H3 §B.1). The body class drives the
   // CSS perimeter breathe; the postfx grade goes through the ONE arbiter
   // (risk #9 — hudState is its only caller, HUD code never touches uniforms).
