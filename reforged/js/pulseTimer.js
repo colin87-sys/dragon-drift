@@ -44,14 +44,18 @@ const RISE = 0.030, FALL = 0.060;   // 30 ms up, 60 ms down (§B.4b)
 const FLICKER_HZ = 3;               // the photosensitivity ceiling, baked as the modulation rate
 const FLICKER_DEPTH = 0.16;         // shallow — a live shimmer, never a strobe
 
-function envelope(tIn, W) {
+function envelope(tIn, W, flickerDepth = FLICKER_DEPTH, smooth = false) {
   if (tIn <= 0 || tIn >= W) return 0;
   let base;
-  if (tIn < RISE) base = tIn / RISE;
+  if (smooth) {
+    // a single smooth BELL swell over the whole window (no rise-hold-fall plateau) — reads as
+    // current welling up and fading, not a hard flash. Used by the Tempest's idle current-pulse.
+    base = Math.pow(Math.sin(Math.PI * (tIn / W)), 0.8);
+  } else if (tIn < RISE) base = tIn / RISE;
   else if (tIn > W - FALL) base = Math.max(0, (W - tIn) / FALL);
   else base = 1;
   // ≤3 Hz cosine dip; peak (base=1, cos=1) stays exactly 1 so the strike core still hits its cap.
-  const dip = FLICKER_DEPTH * (0.5 - 0.5 * Math.cos(2 * Math.PI * FLICKER_HZ * tIn));
+  const dip = flickerDepth * (0.5 - 0.5 * Math.cos(2 * Math.PI * FLICKER_HZ * tIn));
   return base * (1 - dip);
 }
 
@@ -75,8 +79,11 @@ export function createPulseTimer(opts = {}) {
   const restFloor = opts.restFloor ?? 1.2;
   const downstrokeApex = opts.downstrokeApex ?? 0.5;
   const biasBudget = opts.biasBudget ?? 0.25;
+  const flickerDepth = opts.flickerDepth ?? FLICKER_DEPTH;   // 0 → a clean swell (no ≤3 Hz shimmer)
+  const smooth = opts.smooth ?? false;                        // true → a single bell swell per window
 
   let rng;
+  let dutyScale = 1;  // runtime duty multiplier (boost ×2.2 shortens RESTS, never windows — §5c)
   let phase;          // 'window' | 'gap' | 'rest'
   let tInPhase;       // seconds elapsed in the current phase
   let plan;           // current burst plan: { windows:[], gaps:[], rest }
@@ -98,7 +105,10 @@ export function createPulseTimer(opts = {}) {
     for (let i = 0; i < n - 1; i++) gaps.push(gapMin + rng() * (gapMax - gapMin));
     const litSum = windows.reduce((s, w) => s + w, 0);
     const gapSum = gaps.reduce((s, g) => s + g, 0);
-    const rest = Math.max(restFloor, litSum / duty - litSum - gapSum);
+    // Boost (dutyScale>1) raises the effective duty by SHORTENING the rest, never the windows
+    // (§5c: window length is the photosensitivity floor; duty/rest are the drama levers).
+    const eff = duty * dutyScale;
+    const rest = Math.max(restFloor, litSum / eff - litSum - gapSum);
     return { windows, gaps, rest };
   }
 
@@ -188,7 +198,7 @@ export function createPulseTimer(opts = {}) {
       };
     }
     const live = phase === 'window';
-    const env01 = live ? envelope(tInPhase, plan.windows[windowIdx]) : 0;
+    const env01 = live ? envelope(tInPhase, plan.windows[windowIdx], flickerDepth, smooth) : 0;
     return { live, env01, burstIdx, windowIdx, t: tGlobal, pinned: null };
   }
 
@@ -196,5 +206,9 @@ export function createPulseTimer(opts = {}) {
   // standing (no-strike) frame; 0.5 = a mid-window strike peak. pin(null) releases it.
   function pin(t01) { pinned = (t01 === null || t01 === undefined) ? null : +t01; }
 
-  return { tick, state, pin, reseed };
+  // setDuty — runtime effective-duty multiplier (boost ×2.2). Applies to the NEXT planned burst's
+  // rest, so there is no mid-burst discontinuity; the restFloor cap still holds the ≥1.2 s floor.
+  function setDuty(mul) { dutyScale = (mul > 0 ? mul : 1); }
+
+  return { tick, state, pin, reseed, setDuty };
 }

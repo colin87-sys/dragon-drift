@@ -43,7 +43,11 @@ for (let tier = 0; tier <= 3; tier++) {
   for (const m of mats) {
     const u = m.userData;
     const ratio = u.stormPeak / u.stormHum;
-    ok(ratio >= 2.2 - 1e-6 && ratio <= 4.0 + 1e-6, `f${tier} strike:idle ratio ${ratio.toFixed(2)} in [2.2,4.0] (bucket ${u.stormBucket}, cap ${u.stormCap})`);
+    // NORMAL is nearly OFF (owner): idle a faint HINT (≤25% of the cap), and the crackle/surge is a
+    // STRONG event against it (peak:idle ≥ 3.5 — deliberately ignition-from-near-off, the reinstated
+    // withheld idle that supersedes §5a's generous-garment band).
+    ok(u.stormHum <= 0.25 * u.stormCap + 1e-6, `f${tier} idle near-OFF (hum ${u.stormHum.toFixed(2)} ≤ 0.25·cap ${u.stormCap.toFixed(2)}, bucket ${u.stormBucket})`);
+    ok(ratio >= 3.5, `f${tier} crackle is a strong event (peak:idle ${ratio.toFixed(2)} ≥ 3.5, bucket ${u.stormBucket})`);
     ok(u.stormPeak <= u.stormCap + 1e-6, `f${tier} stormPeak ${u.stormPeak.toFixed(2)} ≤ cap ${u.stormCap} (bucket ${u.stormBucket})`);
     ok(u.stormBucket >= 0 && u.stormBucket <= 2, `f${tier} bucket ${u.stormBucket} ∈ {0,1,2}`);
     buckets.add(u.stormBucket);

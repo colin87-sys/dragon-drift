@@ -32,6 +32,7 @@ const { DRAGONS } = await import('../js/dragons.js');
 const { ascendedDef, maxTierFor } = await import('../js/ascension.js');
 const { buildDragonModel } = await import('../js/dragonModel.js');
 const { setFlapDebugPose } = await import('../js/wingDebugPose.js');
+const { createPulseTimer } = await import('../js/pulseTimer.js');
 
 const cp1 = process.argv.includes('--cp1');
 
@@ -477,6 +478,85 @@ if (!cp1) {
   const pr = per.map((p) => p.m.pennantRibbons ?? 5), pl = per.map((p) => p.m.pennantLift ?? 1);
   ok(pr[0] < pr[1] && pr[1] < pr[2] && pr[2] < pr[3], `${key}: pennant ribbons 1→5 monotonic (${pr.join('→')})`);
   ok(pl[0] < pl[1] && pl[1] < pl[2] && pl[2] < pl[3], `${key}: pennant lift (up-aft) monotonic (${pl.join('→')})`);
+}
+
+// ── THUNDERHEAD TEMPEST (SSSR premium storm-drake, 4 forms) — the CHARGING ladder + the storm-circuit
+// contract (I5 / §9). Asserts the ladder ACCRETES (bolt-frame kinks, fork, mane, wisps, arc duty/run,
+// heart, billow all grow rung by rung), the body DARKENS into the charcoal lane as the storm gathers,
+// the near-white accent stays the sanctioned cool lane (one true near-white = arcCore), the storm
+// garment reads (dynamo ≤15% anti-lantern; strike:idle ∈[2.2,4.0]), and the Surge never goes magenta.
+if (!cp1) {
+  const key = 'tempest';
+  const maxT = maxTierFor(key);
+  ok(maxT === 3, `${key}: premium reaches Eternal (maxTierFor=${maxT})`);
+  ok(DRAGONS[key].forms.length === 4, `${key}: forms accretive length 4`);
+  // sRGB HSL-lightness straight from the hex — THREE.Color linearises on setHex, which drags a
+  // charcoal into ~0.04 and out of the [0.20,0.26] lane; the charcoal LAW is authored in sRGB.
+  const srgbL = (hex) => { const r = (hex >> 16 & 255) / 255, g = (hex >> 8 & 255) / 255, b = (hex & 255) / 255; return (Math.max(r, g, b) + Math.min(r, g, b)) / 2; };
+  // HSV (value) saturation — the "near-white" measure the accent law uses (pale-but-pure blues read
+  // saturated in HSL; HSV-sat is what separates arcCore f2f4ff (~0.05) from the tinted lane).
+  const satV = (hex) => { const r = (hex >> 16 & 255), g = (hex >> 8 & 255), b = (hex & 255), mx = Math.max(r, g, b); return mx ? (mx - Math.min(r, g, b)) / mx : 0; };
+  const mono = (a) => a.every((v, i) => i === 0 || v > a[i - 1]);
+  const per = [];
+  for (let f = 0; f <= maxT; f++) {
+    const def = ascendedDef(DRAGONS[key], f, 0);
+    const { group, parts } = buildDragonModel(def, {});
+    let tris = 0; group.traverse((o) => { if (o.isMesh && o.geometry) { const g = o.geometry; tris += g.index ? g.index.count / 3 : (g.attributes?.position?.count / 3 || 0); } });
+    per.push({ def, m: def.model, parts, tris: Math.round(tris) });
+  }
+  // TRIS: under budget + monotonic (each rung bolts on hardware — a kink, the fork, more mane/wisps).
+  for (let f = 0; f <= maxT; f++) ok(per[f].tris > 0 && per[f].tris < 6000, `${key} f${f}: builds under 6000 (${per[f].tris})`);
+  ok(mono(per.map((p) => p.tris)), `${key}: tris monotonic (${per.map((p) => p.tris).join(' < ')})`);
+  // CHARGING ladder — the growth currency accretes every rung (§6 / §B.5).
+  const arcDuty = per.map((p) => p.m.arcDuty), glow = per.map((p) => p.m.glowLevel), arcRun = per.map((p) => p.m.arcRun ?? 0), kink = per.map((p) => p.m.kinkKnuckles);
+  ok(arcDuty[0] === 0.06 && arcDuty[1] === 0.10 && arcDuty[2] === 0.14 && arcDuty[3] === 0.18, `${key}: arcDuty ladder {.06,.10,.14,.18} (${arcDuty.join(',')})`);
+  ok(glow[0] === 0.25 && glow[1] === 0.5 && glow[2] === 0.75 && glow[3] === 1, `${key}: glowLevel→humFloor ladder {.30,.50,.70,.90} (${glow.join(',')})`);
+  ok(arcRun[0] < arcRun[1] && arcRun[1] < arcRun[2] && arcRun[2] <= arcRun[3] && arcRun[3] === 1, `${key}: arcRun (circuit completeness) grows to 1 (${arcRun.join('→')})`);
+  ok(kink[0] === 1 && kink[1] === 2 && kink[2] === 3 && kink[3] === 3, `${key}: kinkKnuckles {1,2,3,3} (${kink.join(',')})`);
+  for (const [name, arr] of [['maneSpikes', per.map((p) => p.m.maneSpikes)], ['virgaWisps', per.map((p) => p.m.virgaWisps)], ['heartScale', per.map((p) => p.m.heartScale)], ['billowAmp', per.map((p) => p.m.billowAmp)]])
+    ok(mono(arr), `${key}: ${name} monotonic ↑ (${arr.join('→')})`);
+  // span:body grows (the storm-front spreads) and the apex holds under the 2.5 cap.
+  const sb = [0, 1, 2, 3].map((f) => measure(key, f).spanBody);
+  ok(mono(sb), `${key}: span:body grows each rung (${sb.map((x) => x.toFixed(2)).join('→')})`);
+  ok(sb[3] <= 2.5 + 1e-6, `${key}: apex span:body ≤2.5 (${sb[3].toFixed(2)})`);
+  // CHARCOAL LAW: the body DARKENS (the storm gathers) but stays in the L∈[0.20,0.26] charcoal lane,
+  // ~222° hue, belly always lighter than body, zero warm.
+  const bl = per.map((p) => srgbL(p.def.body));
+  ok(bl[0] > bl[1] && bl[1] > bl[2] && bl[2] > bl[3], `${key}: body value DARKENS each rung (${bl.map((x) => x.toFixed(3)).join('→')})`);
+  for (let f = 0; f <= maxT; f++) ok(bl[f] >= 0.20 && bl[f] <= 0.26, `${key} f${f}: body L in charcoal lane [0.20,0.26] (${bl[f].toFixed(3)})`);
+  for (let f = 0; f <= maxT; f++) { const h = hueOf(per[f].def.body); ok(hueDist(h, 222) <= 8, `${key} f${f}: body hue ~222°±8 (${h.toFixed(0)}°)`); }
+  for (let f = 0; f <= maxT; f++) ok(srgbL(per[f].def.belly) > srgbL(per[f].def.body), `${key} f${f}: belly lighter than body`);
+  // ACCENT LAW: every storm-arc emissive sits in the cool near-white lane (HSV-sat ≤0.16), and at
+  // least one is a TRUE near-white (HSV-sat <0.06) — arcCore, the strike core.
+  const sam3 = per[3].parts.stormArcMats || [];
+  ok(sam3.length > 0, `${key}: apex publishes storm-arc mats`);
+  let nearWhite = 0;
+  for (const m of sam3) { const be = m.userData.baseEmissive; const s = satV(be); ok(s <= 0.16, `${key}: accent emissive in cool lane (HSV-sat ${s.toFixed(2)})`); if (s < 0.06) nearWhite++; }
+  ok(nearWhite >= 1, `${key}: a true near-white accent present (arcCore, HSV-sat<0.06)`);
+  // THE GARMENT: all three travel buckets present; the dynamo (root bucket) ≤15% of the lit circuit
+  // (anti-lantern lock); every bucket's strike:idle ratio in the [2.2,4.0] event band, every form.
+  for (let f = 0; f <= maxT; f++) {
+    const sam = per[f].parts.stormArcMats || [];
+    const bset = new Set(sam.map((m) => m.userData.stormBucket));
+    ok(bset.has(0) && bset.has(1) && bset.has(2), `${key} f${f}: all 3 travel buckets present`);
+    let dyn = 0, all = 0;
+    for (const m of sam) { const w = m.userData.stormHum ?? 0; all += w; if (m.userData.stormBucket === 0) dyn += w; }
+    ok(all > 0 && dyn / all <= 0.15 + 1e-6, `${key} f${f}: dynamo ≤15% of the circuit hum (${(100 * dyn / all).toFixed(0)}%)`);
+    // NORMAL near-OFF (owner redirect): idle a faint hint (≤25% of cap), the crackle a strong event
+    // (peak:idle ≥3.5) — the reinstated withheld idle superseding the old generous-garment band.
+    for (const m of sam) { const u = m.userData; ok(u.stormHum <= 0.25 * u.stormCap + 1e-6, `${key} f${f}: idle near-OFF (${u.stormHum.toFixed(2)} ≤ 0.25·cap)`); ok(u.stormPeak / u.stormHum >= 3.5, `${key} f${f}: crackle a strong event (${(u.stormPeak / u.stormHum).toFixed(1)} ≥ 3.5)`); }
+  }
+  // FEVER FIREWALL: the Surge palette is the cold storm-white lane, NEVER magenta.
+  const d = DRAGONS[key];
+  ok(d.feverWing === 0xd9deff, `${key}: feverWing storm-white 0xd9deff`);
+  ok(d.feverEye === 0xe8ecff && d.surgeHi === 0xe8ecff, `${key}: feverEye/surgeHi pale storm-white`);
+  for (const [n, hex] of [['feverWing', d.feverWing], ['feverEye', d.feverEye], ['surgeHi', d.surgeHi], ['apexEye', d.apexEye], ['coreGlow', d.coreGlow]]) {
+    const h = hueOf(hex), s = satV(hex); ok(!(h >= 280 && h <= 340 && s > 0.2), `${key}: ${n} not magenta (hue ${h.toFixed(0)}°)`);
+  }
+  // STRIKE DETERMINISM: same seed → identical schedule (the spectacle is reproducible — §5c).
+  const t1 = createPulseTimer({ seed: 0x7e57, duty: 0.12 }), t2 = createPulseTimer({ seed: 0x7e57, duty: 0.12 });
+  let same = true; for (let i = 0; i < 2000; i++) { t1.tick(1 / 60); t2.tick(1 / 60); if (Math.abs(t1.state().env01 - t2.state().env01) > 1e-9) { same = false; break; } }
+  ok(same, `${key}: pulseTimer deterministic — same seed → identical strike schedule`);
 }
 
 
