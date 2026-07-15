@@ -89,6 +89,22 @@
 :focus-visible { outline: 2px solid #ffd24f; outline-offset: 2px; }
 :focus:not(:focus-visible) { outline: none; }
 
+/* ===== U14 — role-tone tokens + colorblind presets (DOM meta scope) =====
+   Roles, not colours, are the contract: JADE = success/equipped/done,
+   DANGER = armed-destructive. The cb-* root class (Settings → COLORBLIND)
+   swaps the hues; every meta call-site references the token. In-world WebGL
+   hues + the flight HUD/boss layer migrate in Phase 3 (HUD-REDESIGN). */
+:root {
+  --tone-jade: #46d98a; --tone-jade-hi: #8affc0;
+  --tone-danger: #ff4636; --tone-danger-deep: #7d120e;
+}
+:root.cb-deuter { --tone-jade: #4db2ff; --tone-jade-hi: #a4d9ff;
+  --tone-danger: #ff9a2e; --tone-danger-deep: #7d4a08; }
+:root.cb-prot   { --tone-jade: #3fd8e8; --tone-jade-hi: #a4f2ff;
+  --tone-danger: #ffb020; --tone-danger-deep: #7d5608; }
+:root.cb-trit   { --tone-jade: #58e08a; --tone-jade-hi: #a0ffc4;
+  --tone-danger: #ff4fd8; --tone-danger-deep: #6e0e56; }
+
 /* Display face: identity for the wordmark + big numbers. */
 @font-face {
   font-family: 'Russo One'; font-style: normal; font-weight: 400;
@@ -873,7 +889,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .newbest   { color: #ffd86a; font-size: 20px; letter-spacing: 4px; margin-bottom: 8px;
   text-shadow: 0 0 16px rgba(255,200,90,0.9); animation: pulse 1.2s ease-in-out infinite; }
 .challenge     { color: #ff9a5a; font-size: 16px; letter-spacing: 2px; margin: 6px 0 10px; }
-.challenge.won { color: #8aff9a; text-shadow: 0 0 14px rgba(110,255,140,0.7); }
+.challenge.won { color: var(--tone-jade-hi); text-shadow: 0 0 14px color-mix(in srgb, var(--tone-jade) 70%, transparent); }
 .sub.gap       { color: #ffd86a; }
 
 /* meta row: pilot level + embers */
@@ -893,7 +909,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .mission-card { display: flex; align-items: center; gap: 12px; text-align: left;
   background: var(--panel-fill); border: var(--panel-line);
   border-radius: var(--r-m); padding: 9px 14px; box-shadow: var(--panel-inner); }
-.mission-card.done { border-color: rgba(120, 255, 180, 0.6); background: rgba(20, 60, 45, 0.55); }
+.mission-card.done { border-color: color-mix(in srgb, var(--tone-jade) 60%, transparent); background: color-mix(in srgb, var(--tone-jade) 14%, rgba(18, 12, 12, 0.62)); }
 .mission-info { flex: 1; }
 .mission-label { font-size: var(--fs-label); font-weight: 600; }
 .mission-bar { height: 5px; border-radius: 3px; background: rgba(26, 16, 10, 0.8); margin-top: 5px; overflow: hidden; }
@@ -902,7 +918,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .mission-prog { font-size: 10.5px; opacity: 0.65; margin-top: 3px; letter-spacing: 0.5px; }
 .mission-reward { font-size: 13px; font-weight: 800; color: #ffc050; white-space: nowrap; }
 .mission-results { display: flex; flex-direction: column; gap: 5px; margin: 8px 0; }
-.mission-done-line { font-size: 14px; color: #8affc0; font-weight: 600; }
+.mission-done-line { font-size: 14px; color: var(--tone-jade-hi); font-weight: 600; }
 .mission-done-line b { color: #ffc050; }
 
 /* daily card */
@@ -916,7 +932,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .daily-mod { font-size: 12.5px; font-weight: 800; color: #ffd86a; margin-top: 3px; letter-spacing: 0.3px; }
 .daily-mod-glyph { display: inline-block; margin-right: 2px; }
 .daily-sub { font-size: 11px; opacity: 0.78; margin-top: 2px; }
-.daily-done { font-size: 10.5px; color: #8affc0; font-weight: 700; margin-top: 3px; }
+.daily-done { font-size: 10.5px; color: var(--tone-jade-hi); font-weight: 700; margin-top: 3px; }
 /* Boss Rush roster panel — cooler storm tone so it reads apart from the warm daily.
    Each boss is a chip tinted with its own body accent (locked ones are ??? teasers). */
 .daily-card.rush-panel { background: linear-gradient(90deg, rgba(44, 30, 24, 0.58), rgba(28, 20, 16, 0.58)); }
@@ -985,7 +1001,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
   50%      { box-shadow: 0 4px 26px rgba(255, 214, 92, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
 }
 .feat-claim-cta.claimed { animation: none; cursor: default; transform: none;
-  background: linear-gradient(135deg, #8fe6b0, #5fd08a); color: #0c2417;
+  background: linear-gradient(135deg, var(--tone-jade-hi), var(--tone-jade)); color: #0c2417;
   box-shadow: 0 3px 12px rgba(95, 208, 138, 0.4); }
 .claim-flyup { position: absolute; left: 50%; top: 0; transform: translateX(-50%);
   color: #fff; font-weight: 900; font-size: 15px; pointer-events: none;
@@ -1067,10 +1083,10 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .pm-quest-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .pm-quest-meta b { font-size: 11px; color: var(--rf-ink-2); }
 .pm-quest-meta span { font-size: 10.5px; color: #ffc050; font-weight: 700; }
-.pm-quest.done .pm-quest-label { color: #8affc0; }
-.pm-quest.done .pm-quest-label::before { content: '✓ '; color: #8affc0; }
-.pm-quest.done .mission-bar span { background: linear-gradient(90deg, #58ffa0, #8affc0); }
-.pm-quest.done .pm-quest-meta b { color: #8affc0; }
+.pm-quest.done .pm-quest-label { color: var(--tone-jade-hi); }
+.pm-quest.done .pm-quest-label::before { content: '✓ '; color: var(--tone-jade-hi); }
+.pm-quest.done .mission-bar span { background: linear-gradient(90deg, var(--tone-jade), var(--tone-jade-hi)); }
+.pm-quest.done .pm-quest-meta b { color: var(--tone-jade-hi); }
 .pm-quest.done .pm-quest-meta span { opacity: 0.5; }
 .vol-row { display: flex; align-items: center; gap: 12px; }
 .vol-lbl { font-size: 11px; letter-spacing: 2px; opacity: 0.8; width: 48px; text-align: left; }
@@ -1211,7 +1227,7 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .skin-title { font-size: 10px; opacity: 0.6; letter-spacing: 0.5px; margin-top: -3px; }
 .skin-perk { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; color: #ffc050; }
 .skin-cost { font-size: 12px; color: #ffc050; font-weight: 700; }
-.skin-cost.owned { color: #8affc0; }
+.skin-cost.owned { color: var(--tone-jade-hi); }
 .rider-bonus { color: #ffce8a; font-weight: 800; }
 /* Dragon stat bars (SPD / AGI / STA, normalised to the flagship) */
 .stat-bars { width: 100%; display: flex; flex-direction: column; gap: 3px; margin: 2px 0; }
@@ -1308,10 +1324,52 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .seg-btn.sel { color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d); border-color: transparent;
   box-shadow: 0 4px 14px rgba(255, 180, 70, 0.32); }
 /* Armed destructive action (reset save, two-step confirm): unmistakably red */
-.seg-btn.danger-armed { color: #fff; border-color: rgba(255, 70, 60, 0.9);
-  background: linear-gradient(135deg, #b8241c, #7d120e);
-  box-shadow: 0 0 16px rgba(255, 60, 40, 0.45); animation: danger-armed-pulse 0.8s ease-in-out infinite; }
+.seg-btn.danger-armed { color: #fff; border-color: var(--tone-danger);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tone-danger) 70%, #200), var(--tone-danger-deep));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--tone-danger) 45%, transparent); animation: danger-armed-pulse 0.8s ease-in-out infinite; }
 @keyframes danger-armed-pulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.35)} }
+
+/* ===== U5 — SETTINGS: a quiet, grouped, exit-able instrument panel ===== */
+.settings-body { width: min(460px, 92vw); display: flex; flex-direction: column;
+  align-items: stretch; text-align: left; padding: 2px 0 10px; }
+.settings-section { font-family: var(--font-display); font-size: var(--fs-micro);
+  letter-spacing: var(--track-caps); color: #ffce8a; text-transform: uppercase;
+  margin: 24px 2px 2px; padding-bottom: 7px; border-bottom: var(--panel-line); }
+.settings-section:first-child { margin-top: 10px; }
+.set-row { display: flex; align-items: center; gap: 14px; padding: 11px 2px; }
+.set-row + .set-row, .set-row + .settings-group, .settings-group + .set-row
+  { border-top: 1px solid rgba(255, 201, 130, 0.10); }
+.set-info { flex: 1; min-width: 0; }
+.set-info .settings-label { margin-bottom: 0; }
+.set-sub { font-size: var(--fs-label); color: var(--rf-ink-3); margin-top: 3px;
+  line-height: 1.35; letter-spacing: var(--track-body); }
+.settings-body .settings-group { width: auto; margin: 0; padding: 11px 2px; }
+.settings-body .settings-label { margin-bottom: 0; }
+.settings-body .settings-group .seg-row { margin-top: 8px; }
+.settings-body .settings-group .set-sub { margin-bottom: 2px; }
+/* The switch: single-accent — gold means ON, and ONLY on (§A.2: gold is never
+   "current but OFF"). Instant, transform/background only. */
+.sw { position: relative; flex: 0 0 auto; width: 52px; height: 30px; border-radius: 999px;
+  cursor: pointer; pointer-events: auto; padding: 0;
+  background: rgba(26, 16, 10, 0.85); border: var(--panel-line);
+  transition: background var(--t-micro), border-color var(--t-micro), box-shadow var(--t-micro); }
+.sw i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+  background: #8a7660; transition: transform var(--t-ui) var(--ease-out), background var(--t-micro); }
+.sw.on { background: linear-gradient(135deg, #ffe27a, #ffb84d); border-color: transparent;
+  box-shadow: 0 0 14px rgba(255, 180, 70, 0.35); }
+.sw.on i { transform: translateX(22px); background: #2a1c0a; }
+.sw:active { transform: scale(0.94); }
+/* Settings range rows (HUD scale/opacity): reuse the credited styled range. */
+.set-range { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.set-range .range-val { flex: 0 0 auto; min-width: 44px; text-align: right;
+  font-family: var(--font-display); font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums; color: var(--rf-ink-2); }
+/* DATA danger zone: visually fenced off from everything above it. */
+.danger-zone { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-m);
+  border: 1px solid color-mix(in srgb, var(--tone-danger) 35%, transparent);
+  background: color-mix(in srgb, var(--tone-danger) 6%, transparent); }
+.danger-zone .settings-label { color: #ff9a8a; }
+.danger-zone .set-sub { margin-bottom: 8px; }
 
 /* ============ HERO CHARACTER-SELECT (dragons tab) ============ */
 /* One focused screen: a big rotatable hero, a thumbnail RAIL to switch dragon, a
@@ -1391,7 +1449,7 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   font-size: 15px; letter-spacing: 2px; color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d);
   box-shadow: 0 6px 20px rgba(255,180,70,0.34); transition: transform 0.1s, box-shadow 0.2s; }
 .dpick-cta button:active { transform: translateY(1px); }
-.dpick-cta button.equipped { color: #062013; background: linear-gradient(135deg, #9bffc7, #46d98a); box-shadow: 0 6px 20px rgba(70,217,138,0.3); }
+.dpick-cta button.equipped { color: #062013; background: linear-gradient(135deg, var(--tone-jade-hi), var(--tone-jade)); box-shadow: 0 6px 20px color-mix(in srgb, var(--tone-jade) 30%, transparent); }
 .dpick-cta button.locked { color: #160d22; background: linear-gradient(135deg, color-mix(in srgb, var(--haccent) 75%, #fff), var(--haccent));
   box-shadow: 0 6px 20px color-mix(in srgb, var(--haccent) 30%, transparent); }
 .dpick-cta button.ascend { color: #160d22; background: linear-gradient(135deg, #ffd86a, #ff9a3c); }
@@ -1414,7 +1472,7 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   box-shadow: 0 0 0 1px var(--hthumb, #7fe0ff), 0 0 16px color-mix(in srgb, var(--hthumb, #7fe0ff) 45%, transparent); }
 .hero-thumb .tgem { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 3px; background: var(--tr); box-shadow: 0 0 6px var(--tr); z-index: 2; }
 .hero-thumb.locked::after { content: '🔒'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgba(4,8,16,0.5); z-index: 1; }
-.hero-thumb.equip-dot::before { content: '✓'; position: absolute; bottom: 1px; left: 0; right: 0; text-align: center; font-size: 9px; font-weight: 900; color: #46d98a; z-index: 3; text-shadow: 0 1px 2px #000; }
+.hero-thumb.equip-dot::before { content: '✓'; position: absolute; bottom: 1px; left: 0; right: 0; text-align: center; font-size: 9px; font-weight: 900; color: var(--tone-jade); z-index: 3; text-shadow: 0 1px 2px #000; }
 .revive-chip { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 2px 0 4px;
   padding: 10px 0; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 12px; color: #ffe0a8;
   background: linear-gradient(180deg, rgba(48,38,16,0.5), rgba(22,18,10,0.6)); border: 1px solid rgba(255,205,110,0.28);
@@ -1553,7 +1611,7 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 .earn-dim { font-size: 12px; opacity: 0.55; margin-left: 6px; }
 .quest-unlock { color: #ffce8a; font-weight: 700; letter-spacing: 0.5px; }
 .weekly-done { color: #ffce8a; font-weight: 700; }
-.milestone-line { color: #8aff9a; font-weight: 700; }
+.milestone-line { color: var(--tone-jade-hi); font-weight: 700; }
 .feat-line { color: #ffce8a; font-weight: 700; }
 .daily-mod-line { color: #ffce8a; font-weight: 700; }
 .streak-line { color: #ff9a5a; font-weight: 700; }
@@ -1610,21 +1668,21 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 .weekly-strip.expanded .weekly-rows { max-height: 260px; opacity: 1; margin-top: 6px; }
 .weekly-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
 .weekly-row .mission-bar { flex: 1; margin-top: 0; }
-.weekly-row.done .weekly-label { color: #8aff9a; }
+.weekly-row.done .weekly-label { color: var(--tone-jade-hi); }
 .weekly-label { font-size: 12px; font-weight: 600; flex-basis: 52%; }
 .weekly-reward { font-size: 11.5px; color: #ffd86a; font-weight: 700; }
-.weekly-reward.earned { color: #8aff9a; }
+.weekly-reward.earned { color: var(--tone-jade-hi); }
 .weekly-count { font-weight: 900; opacity: 0.7; margin-left: 4px; }
-.weekly-count.some { color: #8aff9a; opacity: 1; }
-.weekly-done-badge { flex: 1; font-size: 10px; font-weight: 800; letter-spacing: 1px;
-  color: #8aff9a; }
+.weekly-count.some { color: var(--tone-jade-hi); opacity: 1; }
+.weekly-done-badge { flex: 1; font-size: 10px; font-weight: 800; letter-spacing: var(--track-caps);
+  color: var(--tone-jade-hi); }
 .feather { font-size: 13px; }
 .pm-weekly-head { font-size: 10px; letter-spacing: 2.5px; color: #ffce8a; font-weight: 900;
   margin: 10px 0 2px; text-align: left; }
 
 /* Start-screen one-shot notice (welcome back / stake refund) */
-.start-notice { font-size: 13.5px; color: #8aff9a; letter-spacing: 0.5px; margin: 4px 0;
-  text-shadow: 0 0 12px rgba(110, 255, 140, 0.5); }
+.start-notice { font-size: 13.5px; color: var(--tone-jade-hi); letter-spacing: 0.04em; margin: 4px 0;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--tone-jade) 50%, transparent); }
 
 /* Title chip */
 .meta-chip.title-chip { color: #ffd86a; font-style: italic; cursor: pointer;
@@ -1680,7 +1738,7 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 .title-row.locked { opacity: 0.5; cursor: default; }
 .title-name { font-size: 14px; font-weight: 800; color: #ffd86a; font-style: italic; flex-basis: 38%; }
 .title-src { font-size: 11px; opacity: 0.65; flex: 1; }
-.title-state { font-size: 10px; letter-spacing: 2px; color: #8aff9a; font-weight: 800; }
+.title-state { font-size: 10px; letter-spacing: var(--track-caps); color: var(--tone-jade-hi); font-weight: 800; }
 
 /* Reduced motion: collapse every reveal/celebration animation */
 @media (prefers-reduced-motion: reduce) {

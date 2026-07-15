@@ -84,7 +84,31 @@ const ICONS = {
   rush:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L4 10h4l-1 6 6-8h-4l1-6z"/></svg>',
   weekly:   '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2h7v2.6a3.5 3.5 0 0 1-7 0z"/><path d="M5.5 4.2H4a1.6 1.6 0 0 0 1.6 1.9M12.5 4.2H14a1.6 1.6 0 0 1-1.6 1.9"/><path d="M9 9.4v2.3M6.8 14.6h4.4l-.6-2.9H7.4z"/></svg>',
   play:     '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M7 4.8c0-1 1.1-1.6 2-1.1l11 6.3c.9.5.9 1.8 0 2.3L9 18.6c-.9.5-2-.1-2-1.1z"/></svg>',
+  // U7 — emoji eviction: the platform-variable glyphs (🔒 ♪ 🪶 🔥 ☀ ⟲ ◀▶‹›✕)
+  // get consistent line-icon replacements in the established style.
+  lock:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="10" height="7.5" rx="1.6"/><path d="M6 8V6a3 3 0 0 1 6 0v2"/></svg>',
+  close:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5l9 9M13.5 4.5l-9 9"/></svg>',
+  chevL:    '<svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3.5L5.5 9l5.5 5.5"/></svg>',
+  chevR:    '<svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5L12.5 9 7 14.5"/></svg>',
+  chevD:    '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7L9 12.5 14.5 7"/></svg>',
+  chevU:    '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11L9 5.5 14.5 11"/></svg>',
+  rotate:   '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 9a5.5 5.5 0 1 1-1.8-4.1"/><path d="M14.7 1.8v3.4h-3.4"/></svg>',
+  flame:    '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.4c1.6 2.5 4.6 4.1 4.6 7.4A4.6 4.6 0 0 1 4.4 9.8c0-1.5.7-2.7 1.6-3.8 0 1.3.7 2 1.5 2C6.8 5.6 8.6 4.4 9 2.4z"/></svg>',
+  feather:  '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.6 3.4c-3.8-.6-8.2 1.6-9.6 5.6-.8 2.2-.6 4.6-.6 4.6s2.4.3 4.6-.6c4-1.4 6.2-5.8 5.6-9.6z"/><path d="M3.4 14.6L11 7"/></svg>',
+  sun:      '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="3.4"/><path d="M9 1.6v2M9 14.4v2M1.6 9h2M14.4 9h2M3.8 3.8l1.4 1.4M12.8 12.8l1.4 1.4M14.2 3.8l-1.4 1.4M5.2 12.8l-1.4 1.4"/></svg>',
 };
+
+// U14 — apply the persisted accessibility prefs to :root (HUD scale/alpha CSS
+// vars honored by the Phase 3 EMBERSIGHT HUD; colorblind class swaps the
+// jade/danger token hues). Runs at boot (ui.init) and on every settings change.
+function applyAccessibility() {
+  const s = saveData.settings;
+  const root = document.documentElement;
+  root.style.setProperty('--hud-scale', s.hudScale || 1);
+  root.style.setProperty('--hud-alpha', s.hudAlpha || 1);
+  root.classList.remove('cb-deuter', 'cb-prot', 'cb-trit');
+  if (s.colorblind && s.colorblind !== 'off') root.classList.add(`cb-${s.colorblind}`);
+}
 
 // Popup text IDs used across multiple popups
 let popupTimer = null;
@@ -145,21 +169,45 @@ function formTierLabel(tier) {
   return ASCENSION_TIERS[tier - 1]?.name ?? 'Eternal';
 }
 
-// Readable stat rows for the showcase: a clear label, a thick accent-tinted bar
-// and a numeric rating (40–99 so even the humble starter reads as a real stat).
-function inspectStatRows(d) {
-  const st = d.stats;
-  const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
-  const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
-  const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
-  const row = (lbl, k) => {
-    const p = Math.max(0, Math.min(1, k));
-    const rating = Math.round(40 + 59 * p);
-    return `<div class="ins-stat"><span class="ins-stat-label">${lbl}</span>`
-      + `<div class="ins-stat-track"><span class="ins-stat-fill" style="width:${Math.round(10 + 90 * p)}%"></span></div>`
-      + `<span class="ins-stat-val">${rating}</span></div>`;
+// U6: stat ratings are ROSTER-RELATIVE — each stat's min→max across the whole
+// roster maps to a 20–100 rating, so the bars actually differentiate dragons.
+// (The old cap-normalized mapping read 99/99/99 on every flagship — fake-depth
+// chrome, critique 3.3.) Ties are honest: siblings with identical stat lines
+// show identical bars. Stats are per-dragon, not per-form.
+let statSpansCache = null;
+function rosterStatRatings(d) {
+  if (!statSpansCache) {
+    const derive = (st) => ({
+      spd: st.speed,
+      agi: st.handling,
+      sta: (1 - st.drain) + (st.regen - 1),
+    });
+    const all = Object.values(DRAGONS).map((x) => derive(x.stats));
+    const span = (k) => {
+      const vs = all.map((a) => a[k]);
+      return [Math.min(...vs), Math.max(...vs)];
+    };
+    statSpansCache = { derive, spans: { spd: span('spd'), agi: span('agi'), sta: span('sta') } };
+  }
+  const { derive, spans } = statSpansCache;
+  const v = derive(d.stats);
+  const rate = (k) => {
+    const [lo, hi] = spans[k];
+    const p = hi > lo ? (v[k] - lo) / (hi - lo) : 1;
+    return Math.round(20 + 80 * Math.max(0, Math.min(1, p)));
   };
-  return row('SPEED', spd) + row('AGILITY', agi) + row('STAMINA', sta);
+  return { spd: rate('spd'), agi: rate('agi'), sta: rate('sta') };
+}
+
+// Readable stat rows for the showcase: a clear label, a thick accent-tinted bar
+// and the roster-relative rating (the bar width IS the rating — no second scale).
+function inspectStatRows(d) {
+  const r = rosterStatRatings(d);
+  const row = (lbl, rating) =>
+    `<div class="ins-stat"><span class="ins-stat-label">${lbl}</span>`
+    + `<div class="ins-stat-track"><span class="ins-stat-fill" style="width:${rating}%"></span></div>`
+    + `<span class="ins-stat-val">${rating}</span></div>`;
+  return row('SPEED', r.spd) + row('AGILITY', r.agi) + row('STAMINA', r.sta);
 }
 
 // Buy (if affordable) or equip a dragon — shared by the shop card and the
@@ -441,6 +489,7 @@ function openInspect(startKey) {
 export const ui = {
   init(h = {}) {
     handlers = h;
+    applyAccessibility();
     const root = document.createElement('div');
     root.id = 'hud';
     root.innerHTML = `
@@ -1840,160 +1889,106 @@ export const ui = {
         </div>`;
 
     } else if (type === 'settings') {
-      const q = saveData.settings.qualityOverride;
+      // U5: the wall of gold ON/OFF pairs becomes a quiet, grouped instrument
+      // panel — GAME / GRAPHICS / ASSISTS / AUDIO / DATA sections, sticky topbar
+      // exit matching shop/quests, single-accent SWITCHES (gold = ON, never
+      // "current"), player-voice copy, and the destructive stuff fenced in a
+      // danger zone. Settings stay INSTANT — no theater (ZZZ rule).
+      const s = saveData.settings;
+      const q = s.qualityOverride;
       const seg = (val, label) =>
         `<button class="seg-btn${q === val ? ' sel' : ''}" data-q="${val === null ? 'auto' : val}">${label}</button>`;
-      const md = saveData.settings.modelDetail;
+      const md = s.modelDetail;
       const mdSeg = (val, label) =>
         `<button class="seg-btn${md === val ? ' sel' : ''}" data-md="${val === null ? 'auto' : val}">${label}</button>`;
-      const assistSeg = (id, on, bonusPct) => `
-        <div class="seg-row">
-          <button class="seg-btn${on ? ' sel' : ''}" data-assist="${id}" data-val="1">ON</button>
-          <button class="seg-btn${on ? '' : ' sel'}" data-assist="${id}" data-val="0">OFF — SCORE +${bonusPct}%</button>
-        </div>`;
-      // Graphics-effects controls (GRAPHICS-OVERHAUL.md): a colour-grade pick + on/off
-      // toggles. Every new graphics feature adds its control here.
-      const tmVal = saveData.settings.toneMap || 'aces';
+      const tmVal = s.toneMap || 'aces';
       const tmSeg = (val, label) => `<button class="seg-btn${tmVal === val ? ' sel' : ''}" data-tm="${val}">${label}</button>`;
-      const gfxToggle = (id) => {
-        const on = !!saveData.settings[id];
-        return `<div class="seg-row">
-          <button class="seg-btn${on ? ' sel' : ''}" data-gfx="${id}" data-val="1">ON</button>
-          <button class="seg-btn${on ? '' : ' sel'}" data-gfx="${id}" data-val="0">OFF</button>
+      const cbVal = s.colorblind || 'off';
+      const cbSeg = (val, label) => `<button class="seg-btn${cbVal === val ? ' sel' : ''}" data-cb="${val}">${label}</button>`;
+      // A labelled row with a single-accent switch. kind = 'assist' | 'gfx'.
+      const swRow = (kind, id, label, sub = '') => `
+        <div class="set-row">
+          <div class="set-info"><div class="settings-label">${label}</div>${sub ? `<p class="set-sub">${sub}</p>` : ''}</div>
+          <button class="sw${s[id] ? ' on' : ''}" role="switch" aria-checked="${!!s[id]}" aria-label="${label}" data-${kind}="${id}"><i></i></button>
         </div>`;
-      };
+      const segGroup = (label, sub, rowHtml) => `
+        <div class="settings-group">
+          <div class="settings-label">${label}</div>
+          ${sub ? `<p class="set-sub">${sub}</p>` : ''}
+          <div class="seg-row">${rowHtml}</div>
+        </div>`;
+      const pct = (v) => Math.round(v * 100);
+      // DEV MODE only surfaces under ?debug/?dev — or while it's already ON,
+      // so a dev save can always be restored.
+      const devVisible = /[?&](debug|dev)\b/.test(location.search) || s.dev;
       html = `
-        <h1>SETTINGS</h1>
-        <div class="settings-group">
-          <div class="settings-label">GRAPHICS QUALITY</div>
-          <div class="seg-row">${seg(null, 'AUTO')}${seg(0, 'HIGH')}${seg(1, 'MEDIUM')}${seg(2, 'LOW')}</div>
+        <div class="screen-topbar">
+          <span class="topbar-title">SETTINGS</span>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">✕</button>
         </div>
-        <div class="settings-group">
-          <div class="settings-label">COLOUR GRADE</div>
-          <p class="sub">Overall colour look. VIVID keeps golds &amp; neons richer; SOFT is muted.</p>
-          <div class="seg-row">${tmSeg('aces', 'CLASSIC')}${tmSeg('agx', 'SOFT')}${tmSeg('neutral', 'VIVID')}</div>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">SKY LIGHTING</div>
-          <p class="sub">The sky lights the world — objects pick up its colour as biomes change. (Experimental.)</p>
-          ${gfxToggle('skyIbl')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">DRAGON SHADOW</div>
-          <p class="sub">Casts the dragon's real silhouette on the water — you can see the wings beat. (Experimental.)</p>
-          ${gfxToggle('heroShadow')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">PROP SHADING</div>
-          <p class="sub">Grounds the world props with soft baked shadow at their bases &amp; undersides. (Experimental.)</p>
-          ${gfxToggle('propAO')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">ATMOSPHERE</div>
-          <p class="sub">Aerial haze — fog pools low &amp; glows toward the sun. Deepest in Emberfall &amp; the Frozen Reach. (Experimental.)</p>
-          ${gfxToggle('atmosphere')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">SKY CLOUDS</div>
-          <p class="sub">Drifting procedural clouds with sun-lit silver edges. Deepest in the Sanctuary &amp; Amber Wastes. (Experimental.)</p>
-          ${gfxToggle('skyClouds')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">OCEAN SWELL</div>
-          <p class="sub">The sea surface rolls with a real swell — a living, undulating horizon instead of a flat line. (Experimental.)</p>
-          ${gfxToggle('waterSwell')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">WATER DEPTH</div>
-          <p class="sub">The sea reads as having volume — dark in the deeps, bright where you look straight down. (Experimental.)</p>
-          ${gfxToggle('waterDepth')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">SHORE FOAM</div>
-          <p class="sub">Broken foam collars where the waves meet the towers &amp; crystals — welds them into the sea. (Experimental.)</p>
-          ${gfxToggle('waterFoam')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">SMOOTH GRADIENTS</div>
-          <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
-          ${gfxToggle('dither')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">FAST PARTICLES</div>
-          <p class="sub">Lighter spark/burst effects for weaker devices — looks the same. Reloads to apply.</p>
-          ${gfxToggle('particleBatch')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">ADAPTIVE RESOLUTION</div>
-          <p class="sub">Holds a smooth frame rate by trimming render sharpness a touch in heavy scenes instead of dropping visual effects. On by default; turn off to always render at native resolution.</p>
-          ${gfxToggle('dynRes')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">PERFORMANCE HUD</div>
-          <p class="sub">On-screen fps &amp; frame-time readout, plus which experimental effects are active — for testing the graphics settings. No effect on the game.</p>
-          ${gfxToggle('perfHud')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">MODEL DETAIL</div>
-          <p class="sub">Dragon geometry density. AUTO matches your graphics tier.</p>
-          <div class="seg-row">${mdSeg(null, 'AUTO')}${mdSeg('high', 'HIGH')}${mdSeg('ultra', 'ULTRA')}</div>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">TARGET RETICLE</div>
-          ${assistSeg('reticle', saveData.settings.reticle, Math.round(CONFIG.reticleOffBonus * 100))}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">BULLET CLARITY</div>
-          <p class="sub">Boss fights: hollow lock reticle, bigger imminent bullets, danger telegraph.</p>
-          <div class="seg-row">
-            <button class="seg-btn${saveData.settings.bulletClarity ? ' sel' : ''}" data-assist="bulletClarity" data-val="1">ON</button>
-            <button class="seg-btn${saveData.settings.bulletClarity ? '' : ' sel'}" data-assist="bulletClarity" data-val="0">OFF</button>
+        <div class="settings-body">
+          <div class="settings-section">Game</div>
+          ${isTouch() ? '' : swRow('assist', 'mouseSteer', 'MOUSE STEERING', 'Hold left-click to steer · right-click or Space boosts.')}
+          <div class="settings-group">
+            <div class="settings-label">HUD SCALE</div>
+            <p class="set-sub">Size of the in-flight readouts.</p>
+            <div class="set-range vol-row"><input type="range" id="set-hud-scale" min="85" max="130" step="5" value="${Math.round((s.hudScale || 1) * 100)}"><span class="range-val" id="hud-scale-val">${Math.round((s.hudScale || 1) * 100)}%</span></div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-label">HUD OPACITY</div>
+            <p class="set-sub">How present the in-flight readouts are.</p>
+            <div class="set-range vol-row"><input type="range" id="set-hud-alpha" min="50" max="100" step="5" value="${Math.round((s.hudAlpha || 1) * 100)}"><span class="range-val" id="hud-alpha-val">${Math.round((s.hudAlpha || 1) * 100)}%</span></div>
+          </div>
+          ${segGroup('COLORBLIND', 'Shifts the success and danger hues — the roles stay the same.',
+            cbSeg('off', 'OFF') + cbSeg('deuter', 'DEUTER') + cbSeg('prot', 'PROT') + cbSeg('trit', 'TRIT'))}
+
+          <div class="settings-section">Graphics</div>
+          ${segGroup('GRAPHICS QUALITY', '', seg(null, 'AUTO') + seg(0, 'HIGH') + seg(1, 'MEDIUM') + seg(2, 'LOW'))}
+          ${segGroup('COLOUR GRADE', 'VIVID keeps golds and neons richer; SOFT is muted.',
+            tmSeg('aces', 'CLASSIC') + tmSeg('agx', 'SOFT') + tmSeg('neutral', 'VIVID'))}
+          ${segGroup('MODEL DETAIL', 'Dragon geometry density. AUTO follows your graphics tier.',
+            mdSeg(null, 'AUTO') + mdSeg('high', 'HIGH') + mdSeg('ultra', 'ULTRA'))}
+          ${swRow('gfx', 'dynRes', 'ADAPTIVE RESOLUTION', 'Trims render sharpness a touch in heavy scenes to hold the frame rate.')}
+          ${swRow('gfx', 'dither', 'SMOOTH GRADIENTS', 'No colour banding in the sky. Best left on.')}
+          ${swRow('gfx', 'skyIbl', 'SKY LIGHTING', 'The sky’s colour spills onto the world as biomes change.')}
+          ${swRow('gfx', 'heroShadow', 'DRAGON SHADOW', 'Your real silhouette on the water — watch the wings beat.')}
+          ${swRow('gfx', 'propAO', 'PROP SHADING', 'Soft grounding shadow under the towers and crystals.')}
+          ${swRow('gfx', 'atmosphere', 'ATMOSPHERE', 'Aerial haze that pools low and glows toward the sun.')}
+          ${swRow('gfx', 'skyClouds', 'SKY CLOUDS', 'Drifting clouds with sun-lit silver edges.')}
+          ${swRow('gfx', 'waterSwell', 'OCEAN SWELL', 'The sea rolls with a living swell.')}
+          ${swRow('gfx', 'waterDepth', 'WATER DEPTH', 'Dark in the deeps, bright where you look straight down.')}
+          ${swRow('gfx', 'waterFoam', 'SHORE FOAM', 'Foam collars where the waves meet the stone.')}
+          ${swRow('gfx', 'particleBatch', 'FAST PARTICLES', 'Lighter spark effects for weaker devices — looks the same. Reloads to apply.')}
+          ${swRow('gfx', 'perfHud', 'PERFORMANCE HUD', 'On-screen fps readout, for testing.')}
+
+          <div class="settings-section">Assists</div>
+          ${swRow('assist', 'reticle', 'TARGET RETICLE', `Off pays +${pct(CONFIG.reticleOffBonus)}% score.`)}
+          ${swRow('assist', 'bulletClarity', 'BULLET CLARITY', 'Boss fights: hollow lock reticle, bigger bullets, danger telegraphs.')}
+          ${swRow('assist', 'slowMo', 'LAST-CHANCE SLOW-MO', `A heartbeat of slow time before a fatal hit. Off pays +${pct(CONFIG.slowMoOffBonus)}% score.`)}
+          ${swRow('assist', 'glideAssist', 'GLIDE ASSIST', `Auto-flies to each ring and collects embers. Scores −${pct(1 - CONFIG.glideAssistScoreMult)}% while on.`)}
+
+          <div class="settings-section">Audio</div>
+          <div class="settings-group">
+            <div class="settings-label">DRAGON RADIO</div>
+            <p class="set-sub">${isTouch() ? 'Buy more stations in the shop.' : 'Press N in flight to cycle stations. Buy more in the shop.'}</p>
+            <div class="seg-row radio-segs">${TRACKS.map((t, i) => trackUnlocked(i)
+              ? `<button class="seg-btn${music.trackIndex === i ? ' sel' : ''}" data-track="${i}">${t.name.toUpperCase()}</button>`
+              : `<button class="seg-btn locked" disabled title="Buy in the shop">${ICONS.lock} ${t.name.toUpperCase()}</button>`).join('')}</div>
+          </div>
+          <div class="set-row">
+            <div class="set-info"><div class="settings-label">VOLUME</div>
+            <p class="set-sub">Music and sound sliders live in the pause menu (Esc during flight).</p></div>
+          </div>
+
+          <div class="settings-section">Data</div>
+          ${devVisible ? swRow('dev', 'dev', 'DEV MODE', 'Unlock everything at max form for testing. Reloads; turn off to restore your save.') : ''}
+          <div class="danger-zone">
+            <div class="settings-label">RESET ALL PROGRESS</div>
+            <p class="set-sub">Erases your save on this device. There is no undo.</p>
+            <div class="seg-row"><button class="seg-btn" id="btn-reset-save">RESET ALL PROGRESS</button></div>
           </div>
         </div>
-        <div class="settings-group">
-          <div class="settings-label">LAST-CHANCE SLOW-MO</div>
-          ${assistSeg('slowMo', saveData.settings.slowMo, Math.round(CONFIG.slowMoOffBonus * 100))}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">GLIDE ASSIST</div>
-          <p class="sub">Auto-flies to each ring and collects embers.</p>
-          <div class="seg-row">
-            <button class="seg-btn${saveData.settings.glideAssist ? ' sel' : ''}" data-assist="glideAssist" data-val="1">ON — SCORE −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%</button>
-            <button class="seg-btn${saveData.settings.glideAssist ? '' : ' sel'}" data-assist="glideAssist" data-val="0">OFF</button>
-          </div>
-        </div>
-        ${isTouch() ? '' : `<div class="settings-group">
-          <div class="settings-label">MOUSE STEERING</div>
-          <p class="sub">Hold left-click to steer; right-click or Space boosts.</p>
-          <div class="seg-row">
-            <button class="seg-btn${saveData.settings.mouseSteer ? ' sel' : ''}" data-assist="mouseSteer" data-val="1">ON</button>
-            <button class="seg-btn${saveData.settings.mouseSteer ? '' : ' sel'}" data-assist="mouseSteer" data-val="0">OFF</button>
-          </div>
-        </div>`}
-        <div class="settings-group">
-          <div class="settings-label">DRAGON RADIO</div>
-          <p class="sub">${isTouch() ? 'Buy more stations in the shop.' : 'Press N in flight to cycle stations. Buy more in the shop.'}</p>
-          <div class="seg-row radio-segs">${TRACKS.map((t, i) => trackUnlocked(i)
-            ? `<button class="seg-btn${music.trackIndex === i ? ' sel' : ''}" data-track="${i}">${t.name.toUpperCase()}</button>`
-            : `<button class="seg-btn locked" disabled title="Buy in the shop">🔒 ${t.name.toUpperCase()}</button>`).join('')}</div>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">AUDIO</div>
-          <p class="sub" style="font-size:13px; opacity:0.75">Music &amp; sound volume live in the pause menu (Esc during flight).</p>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">DEV MODE</div>
-          <p class="sub">Unlock every dragon, rider, and style at max form for testing. Turn off to restore your real save.</p>
-          <div class="seg-row">
-            <button class="seg-btn${saveData.settings.dev ? ' sel' : ''}" data-dev="1">ON</button>
-            <button class="seg-btn${saveData.settings.dev ? '' : ' sel'}" data-dev="0">OFF</button>
-          </div>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">DATA</div>
-          <div class="seg-row"><button class="seg-btn" id="btn-reset-save">RESET ALL PROGRESS</button></div>
-        </div>
-        <div class="action-row"><button class="btn-secondary" id="btn-back">← BACK</button></div>`;
+        <div class="action-row"><button class="btn-secondary" id="btn-back2">← BACK</button></div>`;
 
     } else if (type === 'gameover') {
       // Run Recap v2 lives in recap.js (count-up, record chips, earnings
@@ -2509,6 +2504,9 @@ function wireScreenButtons(type) {
       const ownedOf = (k) => saveData.skins.owned.includes(k);
       let hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
 
+      // U6 CTA de-overload: STATE (jade EQUIPPED badge) ≠ PROGRESS (quiet meta
+      // row) ≠ ACTION (the one gold button). The old single pill crammed all
+      // three into "✓ EQUIPPED · 60k m to ascend".
       const ctaHtml = () => {
         const d = DRAGONS[heroKey];
         if (!ownedOf(heroKey)) {
@@ -2516,14 +2514,16 @@ function wireScreenButtons(type) {
           return `<button class="locked${can ? '' : ' dim'}" data-cta="buy">◆ ${d.cost} · UNLOCK</button>`;
         }
         if (saveData.skins.equipped !== heroKey) return `<button data-cta="equip">EQUIP</button>`;
+        const badge = `<span class="cta-state">EQUIPPED</span>`;
         const t = ascensionTier(heroKey), cap = maxTierFor(heroKey);
         if (t < cap) {
           const check = canAscend(heroKey, d.cost);
           if (check.flown >= check.gateMetres)
-            return `<button class="ascend${saveData.embers >= check.cost ? '' : ' dim'}" data-cta="ascend">▲ ASCEND · ${ASCENSION_TIERS[t].name} ◆${check.cost}</button>`;
-          return `<button class="equipped" data-cta="none">✓ EQUIPPED · ${(check.gateMetres / 1000).toFixed(0)}k m to ascend</button>`;
+            return `${badge}<button class="ascend${saveData.embers >= check.cost ? '' : ' dim'}" data-cta="ascend">▲ ASCEND · ${ASCENSION_TIERS[t].name} ◆${check.cost}</button>`;
+          const togo = Math.max(0, check.gateMetres - check.flown);
+          return `${badge}<div class="cta-meta">${(togo / 1000).toFixed(togo < 10000 ? 1 : 0)}k m of flight unlocks ${ASCENSION_TIERS[t].name}</div>`;
         }
-        return `<button class="equipped" data-cta="none">✓ EQUIPPED · MAX</button>`;
+        return `${badge}<div class="cta-meta">Final form</div>`;
       };
 
       const wireCta = () => {
@@ -2562,13 +2562,12 @@ function wireScreenButtons(type) {
         q('#hero-sub').textContent = d.title;
         segEl.innerHTML = Array.from({ length: cap + 1 }, (_, i) =>
           `<div class="hero-seg${i === hTier ? ' on' : ''}" data-form="${i}">${formTierLabel(i)}</div>`).join('');
-        const st = d.stats;
-        const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
-        const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
-        const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
-        const srow = (lbl, kf) => { const v = Math.max(0.06, Math.min(1, kf));
-          return `<div class="hsrow"><div class="hslabel">${lbl}</div><div class="hstrack"><div class="hsfill" style="width:${Math.round(12 + 88 * v)}%"></div></div><div class="hsval">${Math.round(40 + 59 * v)}</div></div>`; };
-        q('#hero-stats').innerHTML = srow('SPEED', spd) + srow('AGILITY', agi) + srow('STAMINA', sta);
+        // U6: roster-relative ratings (min-max across the roster → 20–100) so
+        // the bars differentiate; the bar width IS the rating.
+        const ratings = rosterStatRatings(d);
+        const srow = (lbl, rating) =>
+          `<div class="hsrow"><div class="hslabel">${lbl}</div><div class="hstrack"><div class="hsfill" style="width:${rating}%"></div></div><div class="hsval">${rating}</div></div>`;
+        q('#hero-stats').innerHTML = srow('SPEED', ratings.spd) + srow('AGILITY', ratings.agi) + srow('STAMINA', ratings.sta);
         ctaEl.innerHTML = ctaHtml(); wireCta();
         for (const t2 of railEl.querySelectorAll('.hero-thumb')) t2.classList.toggle('on', t2.dataset.hero === heroKey);
         // Show the inspected dragon in the LIVE menu scene (the real environment behind
@@ -2792,11 +2791,27 @@ function wireScreenButtons(type) {
   }
 
   if (type === 'settings') {
+    // U5: settings are INSTANT and IN-PLACE — a switch flips its own chrome
+    // without re-rendering the screen (a re-render would snap a 3-section
+    // scroll back to the top), a seg row repaints only its own selection.
+    const flipSwitch = (btn, on) => {
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-checked', String(on));
+    };
+    const selectSeg = (btn) => {
+      for (const o of btn.parentElement.querySelectorAll('.seg-btn')) o.classList.toggle('sel', o === btn);
+    };
+    const back2 = q('#btn-back2');
+    if (back2) back2.onclick = stop(() => {
+      uiSound.back();
+      if (returnScreen === 'pause') ui.showPauseOverlay();
+      else ui.showScreen(returnScreen);
+    });
     for (const btn of els.screen.querySelectorAll('.seg-btn[data-track]')) {
       btn.onclick = stop(() => {
         music.setTrack(Number(btn.dataset.track));
         sfx.radio();
-        ui.showScreen('settings');
+        selectSeg(btn);
       });
     }
     for (const btn of els.screen.querySelectorAll('.seg-btn[data-q]')) {
@@ -2805,7 +2820,7 @@ function wireScreenButtons(type) {
         saveData.settings.qualityOverride = v;
         persist();
         handlers.onQualityChange && handlers.onQualityChange(v);
-        ui.showScreen('settings');
+        selectSeg(btn);
       });
     }
     // MODEL DETAIL (geometry LOD): null = AUTO (track graphics tier), else 'high'/'ultra'.
@@ -2815,15 +2830,56 @@ function wireScreenButtons(type) {
         saveData.settings.modelDetail = v;
         persist();
         handlers.onModelDetailChange && handlers.onModelDetailChange(v);
-        ui.showScreen('settings');
+        selectSeg(btn);
       });
     }
-    // Assist toggles (reticle / slow-mo): instant effect + score bonus
-    for (const btn of els.screen.querySelectorAll('.seg-btn[data-assist]')) {
+    // U14: colorblind preset — swaps the jade/danger token hues via a root class.
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-cb]')) {
       btn.onclick = stop(() => {
-        saveData.settings[btn.dataset.assist] = btn.dataset.val === '1';
+        saveData.settings.colorblind = btn.dataset.cb;
         persist();
-        ui.showScreen('settings');
+        applyAccessibility();
+        selectSeg(btn);
+      });
+    }
+    // U14: HUD scale/opacity sliders — live :root vars, persisted like any setting.
+    const wireRange = (inputId, valId, key, apply) => {
+      const input = q(inputId), val = q(valId);
+      if (!input) return;
+      input.addEventListener('pointerdown', (e) => e.stopPropagation());
+      input.addEventListener('input', () => {
+        const v = Number(input.value) / 100;
+        saveData.settings[key] = v;
+        if (val) val.textContent = `${input.value}%`;
+        apply(v);
+      });
+      input.addEventListener('change', () => { persist(); sfx.ember(1); });
+    };
+    wireRange('#set-hud-scale', '#hud-scale-val', 'hudScale',
+      (v) => document.documentElement.style.setProperty('--hud-scale', v));
+    wireRange('#set-hud-alpha', '#hud-alpha-val', 'hudAlpha',
+      (v) => document.documentElement.style.setProperty('--hud-alpha', v));
+    // Assist switches (reticle / clarity / slow-mo / glide / mouse): instant flip.
+    for (const btn of els.screen.querySelectorAll('.sw[data-assist]')) {
+      btn.onclick = stop(() => {
+        const id = btn.dataset.assist;
+        const on = !saveData.settings[id];
+        saveData.settings[id] = on;
+        persist();
+        flipSwitch(btn, on);
+      });
+    }
+    // Graphics switches. dither/effects apply live; particleBatch re-inits the
+    // pool, so (like DEV mode) it persists + reloads.
+    for (const btn of els.screen.querySelectorAll('.sw[data-gfx]')) {
+      btn.onclick = stop(() => {
+        const id = btn.dataset.gfx;
+        const on = !saveData.settings[id];
+        saveData.settings[id] = on;
+        if (id === 'particleBatch') { unfreezeSaves(); persistNow(); location.reload(); return; }
+        persist();
+        handlers.onGraphicsChange && handlers.onGraphicsChange(id, on);
+        flipSwitch(btn, on);
       });
     }
     // Graphics: colour-grade pick (applies live — three recompiles on toneMapping change).
@@ -2833,27 +2889,12 @@ function wireScreenButtons(type) {
         saveData.settings.toneMap = btn.dataset.tm;
         persist();
         handlers.onGraphicsChange && handlers.onGraphicsChange('toneMap', btn.dataset.tm);
-        ui.showScreen('settings');
+        selectSeg(btn);
       });
     }
-    // Graphics on/off toggles. dither applies live; particleBatch re-inits the pool,
-    // so (like DEV mode) it persists + reloads.
-    for (const btn of els.screen.querySelectorAll('.seg-btn[data-gfx]')) {
+    for (const btn of els.screen.querySelectorAll('.sw[data-dev]')) {
       btn.onclick = stop(() => {
-        const id = btn.dataset.gfx;
-        const on = btn.dataset.val === '1';
-        if (on === !!saveData.settings[id]) return;
-        saveData.settings[id] = on;
-        if (id === 'particleBatch') { unfreezeSaves(); persistNow(); location.reload(); return; }
-        persist();
-        handlers.onGraphicsChange && handlers.onGraphicsChange(id, on);
-        ui.showScreen('settings');
-      });
-    }
-    for (const btn of els.screen.querySelectorAll('.seg-btn[data-dev]')) {
-      btn.onclick = stop(() => {
-        const on = btn.dataset.dev === '1';
-        if (on === !!saveData.settings.dev) return;
+        const on = !saveData.settings.dev;
         saveData.settings.dev = on;
         // Persist the preference even if dev froze writes, then reload so boot
         // applies (or removes) the unlock from a clean save state.
