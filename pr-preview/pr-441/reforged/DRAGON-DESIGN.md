@@ -153,6 +153,11 @@ edge, real shoulder) transfer; the surface swaps:
 publishing hinges the shared rig already knows how to drive, built so the REST pose stays
 byte-identical.
 
+> **Tuning the WING-FLAP specifically?** This section covers publishing the hinges; the full
+> flap-tuning method — the dial vocabulary, the design laws (the glide-hold plank, deep lag,
+> and the depth-projection trap), the reference dial sets, and the gate — lives in its own
+> playbook: **[`FLAP-DESIGN.md`](./FLAP-DESIGN.md)**. Read it before turning flap knobs.
+
 1. **The tail: a 4-joint NESTED `isBone` chain** (`splitFanTail` → `segs: joints`). Build
    nested Groups down the stem, each child offset by the inter-joint vector; set
    `joints[0].isBone = true` (rotation-only — position writes tear a connected loft); bin
