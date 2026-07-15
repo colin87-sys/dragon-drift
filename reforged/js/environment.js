@@ -226,9 +226,13 @@ function bakeCalderaLadder(geo) {
     a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
     e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
     const d = -nr.y;                                             // world-DOWN axis: down-faces (nr.y<0) → d>0 → hot
-    // down-threshold 0.28 (was 0.35) so undercut/overhang faces (inverted plinth skirt,
-    // capstone + toppled undersides) catch the ember belly — the hot waterline seam.
-    const s = d > 0.28 ? _CAL_BELLY : d < -0.30 ? _CAL_CRUST : _CAL_BASALT;
+    const yc = (a.y + b.y + c.y) / 3;                            // face-centroid height (unit space, pre-scale)
+    // The ember belly fires ONLY where the fire lives: LOW (yc ≤ 0.30 of unit height) AND
+    // down-facing (d > 0.28, to catch the undercut plinth skirt). A HIGH down-face — a
+    // capstone/overhang underside near the crown — is NOT belly: the crown stays dark
+    // (theology). Up-faces are ash crust; everything else near-black basalt. (Fable r3 D1:
+    // the wide threshold was glowing the leaning capstone's tipped faces — a crown-glow defect.)
+    const s = (yc <= 0.30 && d > 0.28) ? _CAL_BELLY : d < -0.30 ? _CAL_CRUST : _CAL_BASALT;
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -574,13 +578,13 @@ const ARCHETYPES = {
       // [x, z, height, radius, yaw] — 7 slender columns, ~3.5:1, packed ≥35%, staggered
       // front/back, crest NON-monotonic (1.05, 0.80, 0.92, 0.62, 0.28-stump, 0.50, 0.72).
       const cols = [
-        [-0.34,  0.05, 1.05, 0.115, 0.20],
-        [-0.19, -0.14, 0.80, 0.125, 0.95],
-        [-0.05,  0.11, 0.92, 0.115, 1.65],
-        [ 0.11, -0.09, 0.62, 0.125, 0.50],
-        [ 0.03,  0.28, 0.28, 0.105, 2.20],   // the SNAPPED STUMP — the broken beat
-        [ 0.25,  0.09, 0.50, 0.120, 1.15],
-        [ 0.37, -0.07, 0.72, 0.110, 0.35],
+        [-0.44,  0.05, 1.05, 0.125, 0.20],
+        [-0.27, -0.15, 0.80, 0.130, 0.95],
+        [-0.11,  0.12, 0.92, 0.120, 1.65],
+        [ 0.08, -0.10, 0.62, 0.130, 0.50],
+        [-0.02,  0.30, 0.28, 0.110, 2.20],   // the SNAPPED STUMP — the broken beat
+        [ 0.26,  0.10, 0.50, 0.125, 1.15],
+        [ 0.45, -0.06, 0.72, 0.115, 0.35],
       ];
       const parts = [];
       for (const [x, z, h, r, ry] of cols) {
@@ -592,21 +596,23 @@ const ARCHETYPES = {
       // Plinth — LOW subordinate cooled terrace, open-ended (10 tris; top hidden by the
       // column pack, bottom at the waterline) with an INVERTED taper (rt>rb) so its
       // overhanging undercut skirt faces DOWN → the hot ember waterline seam (Fable D4).
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.42, 0.32, 0.14, 5, 1, true), { y: 0.07, ry: 0.30, sx: 1.15, sz: 1.00 }) });
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.40, 0.14, 5, 1, true), { y: 0.07, ry: 0.30, sx: 1.28, sz: 1.02 }) });
       // Toppled column — a fallen shaft abutting the stump, lying full 90° (survives the
-      // (r,h,r) shear), capped both ends so the pentagon cross-section is the payoff.
-      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.115, 0.115, 0.46, 5), { x: -0.02, z: 0.33, y: 0.115, rz: Math.PI / 2, ry: 0.40 }) });
+      // (r,h,r) shear), capped both ends so the pentagon cross-section is the payoff. Slimmed
+      // ~10% (Fable r3 D5 — front-on it verged on shipping-container).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.10, 0.10, 0.44, 5), { x: -0.06, z: 0.34, y: 0.10, rz: Math.PI / 2, ry: 0.40 }) });
       // Capstone — a broken slab sliding OFF the tall column to one side (asymmetric, well
       // tilted — not a centred "T"/hammer); overhangs the right flank, its underside a small
       // physically-motivated ember patch (belly, not accent — keep the crown dark).
       parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.11, 0.25), { x: -0.27, z: 0.01, y: 1.05, ry: 0.35, rz: -0.34 }) });
       return mergeCalderaParts(parts);
     },
-    // Fairness AND composition (§9): draw r FIRST, couple x to it conservatively (ρ≈0.75;
+    // Fairness AND composition (§9): draw r FIRST, couple x to it (ρ≈0.67, plinth-driven;
     // widen propclearance SCOPE_BIOME to 3 and re-tune). Inner edge = |x|−ρ·r ≥ 14.5.
-    // Heroes stand PLUMB (tilt 0, explicit — a missing tilt is a NaN quaternion); the lean
-    // lives in the geometry. h < world width always (wider than tall).
-    place: (side, rnd) => { const r = 22 + rnd() * 12; return { x: side * (16 + 0.85 * r + rnd() * 7), h: 14 + rnd() * 8, r, tilt: 0 }; },
+    // World ratio 2·ρ·r / h ≈ 1.34·r/h → h 11–17 vs r 24–36 keeps it ≥1.8:1 wider-than-tall
+    // (Fable r3 D3). Heroes stand PLUMB (tilt 0 explicit — a missing tilt is a NaN quaternion);
+    // the lean lives in the geometry.
+    place: (side, rnd) => { const r = 24 + rnd() * 12; return { x: side * (15 + 0.72 * r + rnd() * 6), h: 11 + rnd() * 6, r, tilt: 0 }; },
   },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
