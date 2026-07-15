@@ -1024,7 +1024,7 @@ body.biome-bright #hud .bell {
    --fs-micro caps — card→plate is one voice). The housing ETCHES in stroke-by-stroke
    (stroke-dashoffset, the hud-sew grammar) synced to the title card. All motion is
    transform / opacity / dashoffset — no layout-prop animation. */
-.mews-plate { position: fixed; left: 50%; bottom: 45%;
+.mews-plate { position: fixed; left: 50%; bottom: 31%;
   transform: translateX(-50%) scale(var(--hud-scale)); transform-origin: bottom center;
   width: min(46vw, 420px); z-index: 41; pointer-events: none;
   opacity: 0; transition: opacity var(--t-ui) var(--ease-out);
@@ -1089,7 +1089,7 @@ body.biome-bright #hud .bell {
 }
 /* portrait: the plate widens + the nameplate stacks above the bar (§C) */
 @media (orientation: portrait) {
-  .mews-plate { width: 82vw; bottom: 40%; }
+  .mews-plate { width: 82vw; bottom: 30%; }
 }
 
 /* ============ AUDIO / PAUSE BUTTON ============ */
