@@ -4,6 +4,7 @@ import { TITLES, titleById } from './titles.js';
 import { MILESTONES, masteryStarsFor, MASTERY_STARS } from './milestones.js';
 import { DRAGONS } from './dragons.js';
 import { EMBER_ICON } from './util.js';
+import { ICONS } from './icons.js';
 
 // The PILOT screen: who you are in this game. Three tabs —
 //   FEATS  : the achievement wall (locked ones show exactly what to do)
@@ -102,7 +103,7 @@ function titlesBody() {
     return `
       <div class="title-row${owned ? '' : ' locked'}${sel ? ' sel' : ''}" ${owned ? `data-title="${t.id}"` : ''}>
         <span class="title-name">«${t.name}»</span>
-        <span class="title-src">${owned ? t.source : '🔒 ' + t.source}</span>
+        <span class="title-src">${owned ? t.source : `${ICONS.lock} ` + t.source}</span>
         <span class="title-state">${sel ? 'WORN' : owned ? 'TAP TO WEAR' : ''}</span>
       </div>`;
   }).join('');

@@ -977,11 +977,11 @@ function makeShareCard() {
 
   const s = c.width / 1280;
   const top = c.height * 0.28;
-  g.fillStyle = 'rgba(8, 14, 30, 0.6)';
+  g.fillStyle = 'rgba(24, 15, 10, 0.6)';
   g.fillRect(0, top, c.width, 195 * s);
   g.textAlign = 'center';
 
-  g.fillStyle = '#aaddff';
+  g.fillStyle = '#ffe0b0';
   g.font = `700 ${24 * s}px sans-serif`;
   g.fillText('DRAGON DRIFT', c.width / 2, top + 36 * s);
 
