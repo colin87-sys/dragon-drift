@@ -110,10 +110,15 @@ function pickStormArcRoutes(seed) {
   const wl = () => tipMarkerL.getWorldPosition(_av1), wr = () => tipMarkerR.getWorldPosition(_av2),
     dyn = () => motifAnchor.getWorldPosition(_av3),
     tail = () => (tailSegs.length ? tailSegs[tailSegs.length - 1].getWorldPosition(_av4) : motifAnchor.getWorldPosition(_av4));
-  const routes = [{ getA: wl, getB: wr, forks: 3 }];   // the over-the-back arc — always
-  const rest = [{ getA: wl, getB: dyn, forks: 2 }, { getA: wr, getB: dyn, forks: 2 }, { getA: dyn, getB: tail, forks: 2 }];
-  for (const r of rest) if (rng() < 0.6) routes.push(r);
-  return routes.slice(0, 3);
+  void tail;   // dynamo→tail dropped: from the chase cam it overlapped her silhouette and bloomed into an
+               // on-body smear, not an air leap (#5). The cage is now wingtip↔wingtip + wingtip→sternum.
+  const routes = [{ getA: wl, getB: wr, forks: 3 }];   // the over-the-back HERO arc — always
+  // a GUARANTEED second bolt wingtip→sternum so the "cage of storm" always shows ≥2 legible arcs, never
+  // one hero + two ghosts (#3); a seeded third from the OTHER wingtip keeps no two beats identical.
+  const first = rng() < 0.5;
+  routes.push(first ? { getA: wl, getB: dyn, forks: 2 } : { getA: wr, getB: dyn, forks: 2 });
+  if (rng() < 0.55) routes.push(first ? { getA: wr, getB: dyn, forks: 2 } : { getA: wl, getB: dyn, forks: 2 });
+  return routes;
 }
 const _stormBase = new THREE.Color();   // scratch: per-mat base emissive for the strike-peak hue lerp
 const _stormHot = new THREE.Color(0xf2f4ff);   // the near-white strike core (hue-lerp target at env>0.85)
