@@ -222,7 +222,7 @@ check(heaven.arenaSet?.debrisDraws === 2 && heaven.arenaSet.debrisTris > 0 && he
   `the debris is 2 sculpted InstancedMeshes within budget (draws ${heaven.arenaSet?.debrisDraws} === 2, tris ${heaven.arenaSet?.debrisTris} ≤ 13000)`);
 check(!!_led && _led.dx0 >= 6 && _led.dxd >= 0.05 && _led.dspd >= 0.010,
   `the 3 overhead rocks ride DISTINCT tracks — never two in line (min Δlane ${_led?.dx0} ≥ 6, Δdrift ${_led?.dxd} ≥ 0.05, Δspeed ${_led?.dspd} ≥ 0.010)`);
-check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 1152,
+check(heaven.arenaSet?.debrisVis === true && heaven.arenaSet.debrisN === 30 && heaven.arenaSet.debrisMinX >= 25 && heaven.arenaSet.emberVis === true && heaven.arenaSet.emberN === 192,
   `the DEBRIS conveyor + EMBER layer ride the heaven, clear of the focal column (debris ${heaven.arenaSet?.debrisVis} min|x| ${heaven.arenaSet?.debrisMinX} ≥ 25, embers ${heaven.arenaSet?.emberVis}/${heaven.arenaSet?.emberN})`);
 // PR-K: THE HAZE-DECK — the sea drops ~30u in the settled heaven (the "water" becomes a cosmic haze
 // far below), and the seraph's wings clear it by ≥10u (the P0 probe seam: wingMinY − waterY). The

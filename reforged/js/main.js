@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
@@ -23,14 +23,15 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth, UNLEASH_V2, LANCE_V3, getLanceProfile, toggleLanceProfile } from './sfx.js';
 import { lanceWyrm } from './sfxLance2.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostMSAA, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun, setGodRayBoost, setDither, setFeverArenaWarm, setGodRaySamplesSaver } from './postfx.js';
 import { installNeutralToneMap, setToneMap } from './toneMap.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality, setContactShadowSilhouette, renderHeroShadow, heroShadowCoverage, contactShadowSilhouette, heroShadowMaskURL, heroShadowSpriteLeak } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
-import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn } from './water.js';
+import { createWater, setWaterReflective, updateWater, setWaterSwell, setWaterSwellQuality, setWaterDepth, debugWaterY, getArenaDropK, setWaterReflFar, getWaterSwellOn, getWaterDepthOn, setWaterPerfSaver } from './water.js';
 import { waterFoamOn } from './propFoam.js';
 import { aoUniform } from './propAO.js';
 import { makePerfStats, resetPerfStats, perfFrame, perfSummary } from './perfStats.js';
+import { makeResGov, resGovReset, resGovStep, buildResSteps, RES_STEPS } from './resGovernor.js';
 import { burst, rollWake, gatherPulse, particleStats } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR, setForcedBiome } from './biomes.js';
@@ -244,6 +245,7 @@ let canyonStartDist = 0;   // dist of the active run's start marker → drives t
                            // rock-lane widen boundary (game.canyonLaneHW)
 let bossGraceUntil = 0; // post-boss grace band end-distance (rings/collectibles only)
 let rushOnlyBoss = null; // when set, the next rush fights just this ONE boss (roster pick)
+const _distEv = { m: 0 };   // reused per-frame 'distance' event payload (see the emit below — no listener retains it)
 function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
@@ -807,6 +809,7 @@ ui.init({
     else if (kind === 'waterSwell') setWaterSwell(value);
     else if (kind === 'waterDepth') setWaterDepth(value);
     else if (kind === 'waterFoam') setWaterFoam(value);
+    else if (kind === 'dynRes') setDynRes(value); // adaptive resolution: trim pixels to hold fps before cutting features
     else if (kind === 'perfHud') setPerfHud(value); // on-screen fps/frame-time readout (no render effect)
   },
   // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
@@ -1322,6 +1325,30 @@ const PIXEL_RATIOS = [
 // ?pr=<n> — the DECISIVE fill-vs-CPU probe: caps every tier's pixelRatio (changes ONLY pixel count, not
 // draws/JS/scene). If fps jumps ~1/pr², the frame is fill-bound; if it barely moves, it's CPU.
 { const prQ = parseFloat(urlParams.get('pr')); if (Number.isFinite(prQ) && prQ > 0) for (let i = 0; i < PIXEL_RATIOS.length; i++) PIXEL_RATIOS[i] = Math.min(PIXEL_RATIOS[i], prQ); }
+// --- Adaptive resolution governor (dynRes) — the GLOBAL fill lever -----------------
+// The frame is GPU fill-bound on mobile (halving draws never moved fps; ?pr=1 hit 60 with
+// every effect intact — the perf lessons). The shipped controller's only answer to a heavy
+// section was to drop a whole quality TIER, which turns FEATURES off (composer, clouds,
+// atmosphere, the detonation). This governor inserts a finer step BELOW that: trim a
+// `resScale` multiplier on the tier's base pixelRatio to hold the frame budget, and cut
+// features only once resolution is fully spent (resGovernor.js). Near-invisible on soft
+// stylized content — bloom + the grading dither already mask a small pixel-density loss.
+// DEFAULT OFF → resScale pinned at 1.0 → effectivePR is byte-identical to shipped. Enable
+// via the ADAPTIVE RESOLUTION setting or ?dynres; ?dynresmin=<n> tunes the floor (device data).
+let dynResEnabled = urlParams.has('dynres') ? urlParams.get('dynres') !== '0' : gfxPref.dynRes === true;
+// The escalation LADDER, cheapest-cut-first (the arena "spend the invisible fill lever
+// before resolution" principle, generalized to cruise). Rung 0 = shipped. Rung 1 engages
+// the PERF-SAVER — near-invisible fill cuts (cruise mirror ½→¼, god-ray march 40→24 taps),
+// full resolution KEPT — so a heavy section first spends the pixels the eye can't see it
+// lose. Rungs 2+ then trim resolution. Feature-tier drop stays the final backstop
+// (updateQuality). Restored in reverse: features → resolution → saver last.
+const RES_SCALES = (() => { const m = parseFloat(urlParams.get('dynresmin')); return Number.isFinite(m) && m > 0 ? buildResSteps(m, 5) : RES_STEPS; })();
+const STAGES = [{ saver: false, scale: RES_SCALES[0] },                        // 0 — shipped look
+                { saver: true,  scale: RES_SCALES[0] },                        // 1 — invisible fill cuts, full res
+                ...RES_SCALES.slice(1).map((s) => ({ saver: true, scale: s }))]; // 2.. — + trim resolution to the floor
+const resGov = makeResGov(STAGES);   // the governor manages the ladder index; main.js interprets each rung
+let resScale = 1.0;      // current pixel-scale = STAGES[resGov.idx].scale; 1.0 = full resolution
+let perfSaverOn = false; // current STAGES[resGov.idx].saver
 // ARENA PERF MODE: the final-boss detonation is a full-frame ADDITIVE fire — the frame is FILL-bound
 // there, not draw-bound (halving draws didn't move fps). The confirmed wall is MSAA-resolve bandwidth:
 // on-device `?msaa0` held 60fps at FULL resolution, fire intact. So in the heaven (mix>1) we drop MSAA
@@ -1331,7 +1358,11 @@ const PIXEL_RATIOS = [
 // instant still dips; e.g. ?arenapr=1.2 also caps pixelRatio in the arena.
 let arenaPerfActive = false;
 const ARENA_PR_CAP = (() => { const v = parseFloat(urlParams.get('arenapr')); return Number.isFinite(v) && v > 0 ? v : Infinity; })();
-const effectivePR = (tier) => arenaPerfActive ? Math.min(PIXEL_RATIOS[tier], ARENA_PR_CAP) : PIXEL_RATIOS[tier];
+const effectivePR = (tier) => {
+  let pr = PIXEL_RATIOS[tier] * (dynResEnabled ? resScale : 1);   // dynRes off ⇒ ×1 ⇒ shipped value
+  if (arenaPerfActive) pr = Math.min(pr, ARENA_PR_CAP);
+  return pr;
+};
 // Flip arena perf mode on heaven enter/exit. Drops/restores composer MSAA (the lever) and, if ?arenapr
 // is set, the pixelRatio too. Reallocs the composer RTs ONCE per transition (masked by the unveil flash
 // on entry, the teardown on exit); skipQualityFrames keeps the realloc frames out of the tier signal.
@@ -1344,10 +1375,43 @@ function setArenaPerf(active) {
   setPostSize(window.innerWidth, window.innerHeight);   // ONE realloc covers the MSAA change + any pr change
   skipQualityFrames = 2;   // exclude the realloc frames from the tier-decision signal
 }
+// Apply a new adaptive pixel-scale (the governor's step) — reallocates the composer/bloom/
+// god-ray RTs ONCE, exactly like setArenaPerf. Only ever called on a ladder-index change, so
+// reallocs stay rare (the whole point of stepping discretely — see resGovernor.js).
+function setResScale(scale) {
+  if (scale === resScale) return;
+  resScale = scale;
+  const pr = effectivePR(qualityTier);
+  renderer.setPixelRatio(pr);
+  setPostPixelRatio(pr);
+  setPostSize(window.innerWidth, window.innerHeight);
+  skipQualityFrames = 2;   // keep the realloc frames out of the tier-decision signal
+}
+// Engage/lift the perf-saver rung — the near-invisible fill cuts the governor spends BEFORE
+// resolution. Pure parameter flips (mirror duty-cycle + god-ray sample count), NO realloc, so
+// the saver rung engages for free (its STAGES.scale is 1.0 → setResScale no-ops beside it).
+function setPerfSaver(on) {
+  if (on === perfSaverOn) return;
+  perfSaverOn = on;
+  setWaterPerfSaver(on);        // cruise mirror ½ → ¼ rate
+  setGodRaySamplesSaver(on);    // tier0 shaft march 40 → 24 taps
+}
+// Settings toggle for the governor. Turning it OFF snaps pixel-scale back to full (shipped
+// look); turning it ON leaves resScale at 1.0 (the governor trims from there under load).
+function setDynRes(on) {
+  dynResEnabled = on;
+  if (!on) { resGovReset(resGov); resScale = 1.0; setPerfSaver(false); }
+  const pr = effectivePR(qualityTier);
+  renderer.setPixelRatio(pr);
+  setPostPixelRatio(pr);
+  setPostSize(window.innerWidth, window.innerHeight);
+  skipQualityFrames = 2;
+}
 document.body.dataset.qtier = qualityTier; // boot default (applyQuality only runs on change)
 
 function applyQuality(tier) {
   qualityTier = tier;
+  resGovReset(resGov); resScale = 1.0; setPerfSaver(false);   // each tier is (re)evaluated from the full ladder top; the governor re-engages the saver / re-trims within the new tier (no double-dip with the tier's own pixelRatio drop)
   skipQualityFrames = 2;   // the next 2 frames carry this flip's RT realloc + shader recompile — exclude them from the signal (see updateQuality)
   document.body.dataset.qtier = tier; // CSS gates (speedlines, motes) read this
   setParticleQuality(QUALITY_SCALARS[tier]);
@@ -1401,6 +1465,17 @@ function updateQuality(dt, hitchDt = dt) {
   const degradeAt = [55, 42, 0][qualityTier];
   const restoreAt = [Infinity, 58, 57][qualityTier];   // 2→1 restore now demands a NEAR-60 median at tier 2 (was 50 → it restored into a tier 1 that couldn't hold it → 1↔2 bounce)
   const degradeDwell = capable ? 2.5 : 0.9;  // a capable device must be MEDIAN-slow for 2.5s (a stall cluster won't do it); a weak device keeps the fast 0.9s response
+  // ADAPTIVE RESOLUTION FIRST (dynRes): spend pixels before features. While the governor
+  // still has resolution to give (or is restoring at full features) it OWNS the frame and
+  // the tier degrade/restore below is skipped; at its floor it hands off and the tier drops
+  // as the backstop. Shares the tier's VRR-safe `degradeAt` line but responds faster (0.7s
+  // dwell) with a cheap, reversible action, so it always acts before a feature-cutting flip.
+  if (dynResEnabled) {
+    const canRestore = !bossEncounter && !(player.tunnelFxMix > 0.3);   // no pixel-restore mid-boss / mid-flow-carve (a realloc breath, kept out of the tense beats — as with tier restores)
+    const r = resGovStep(resGov, { medFps, tier: qualityTier, degradeAt, dt, canRestore });
+    if (r.changed) { const st = STAGES[r.idx]; setPerfSaver(st.saver); setResScale(st.scale); }   // saver first (free), then pixels
+    if (r.owned) { degradeTimer = 0; qualityTimer = 0; return; }
+  }
   if (medFps < degradeAt && qualityTier < maxTier) {
     degradeTimer += dt;
     if (degradeTimer > degradeDwell) {
@@ -1409,9 +1484,11 @@ function updateQuality(dt, hitchDt = dt) {
       if (sinceRestore < 8) restoreDwell = Math.min(restoreDwell * 2, 24);
       applyQuality(qualityTier + 1); degradeTimer = 0; qualityTimer = 0;
     }
-  } else if (medFps > restoreAt && !bossEncounter) {
-    // NO RESTORES MID-ENCOUNTER: a restore during the fight would flip the tier and REPAINT the
-    // detonation (the owner's "background changes"). Restores are deferred to after bossEnd.
+  } else if (medFps > restoreAt && !bossEncounter && !(player.tunnelFxMix > 0.3)) {
+    // NO RESTORES MID-ENCOUNTER OR MID-FLOW-CARVE: a tier flip repaints the scene — during a boss it
+    // repaints the detonation, and during a flow run it flips the AURORA curtain (the owner's "no lights,
+    // then it pops in"). Defer restores to after bossEnd / until the carve envelope (tunnelFxMix) settles,
+    // so the restore's breath lands in the calm exit air. (Degrades stay instant — the 60fps floor holds.)
     degradeTimer = 0;
     qualityTimer += dt;
     if (qualityTimer > restoreDwell) { applyQuality(qualityTier - 1); qualityTimer = 0; sinceRestore = 0; }
@@ -1449,6 +1526,11 @@ function updateModelDetail(dt) {
 
 function tick() {
   requestAnimationFrame(tick);
+  // Hitch attribution (HUD only): wall-time the world-update phase (JS/GC) separately from
+  // the render-submit phase, so a p95 spike can be pinned on-device — high `sim` = a JS/GC
+  // stall, high `draw` = an extra render pass (mirror/mask), and the frame-time remainder =
+  // GPU-bound fill. Zero cost when the HUD is off (perfEl null → no perf clock reads).
+  const _perfT0 = perfEl ? performance.now() : 0;
   // Preview auto-launch (?rockrun / ?ribcage): once the menu is ready, take off and
   // warp to just before the first forced canyon so the link lands you right in it.
   if (previewLaunchPending && game.state === 'ready') {
@@ -1612,8 +1694,11 @@ function tick() {
     // off the wings (power being generated), not just a one-frame puff.
     if (player.roll) rollWake(player.position, player.roll.dir, 4);
 
-    // Mission distance progress (cheap: 3 active slots max)
-    emit('distance', { m: player.dist });
+    // Mission distance progress (cheap: 3 active slots max). Reuse ONE payload object —
+    // the listeners (records/feats/missions) read `.m` synchronously and never retain it,
+    // so a fresh literal every frame was pure GC feed (60 short-lived objects/s).
+    _distEv.m = player.dist;
+    emit('distance', _distEv);
 
     // Distance milestones
     const ms = Math.floor(player.dist / CONFIG.milestoneStep);
@@ -1723,6 +1808,9 @@ function tick() {
     // denominator while canyonSlip is still decaying from 1.40 → slipMix would overshoot >1
     // and flash the speed streaks past their designed max in the exit air.
     const slipMix = Math.min(1, Math.max(0, player.canyonSlip - 1) / Math.max(1e-6, slipRef));
+    // FLOW × AURORA coupling: feed the chain's slipMix (× curtain strength) to the aurora — hold the flow
+    // carve in the aurora and the sky ERUPTS over you. auroraMix() is 0 in every other biome → byte-inert.
+    setAuroraFlowExcite(slipMix * auroraMix());
     // The "walls whipping past" FX (streaks, CSS lines, aberration, rib-flutter) fade
     // out in a genuinely rib-free bridged gap so a long break stops screaming SPEED at
     // empty air — but the slip itself (physics), FOV and the wind loop stay on the raw
@@ -1801,13 +1889,15 @@ function tick() {
   setArenaPerf(bossArenaMix() > 1.05);   // heaven = full-frame additive fire (fill-bound) → drop MSAA there only (full res kept)
   updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget(),
     player.tunnelFxMix || 0); // spine slipstream 0→1, faded out in rib-free bridged gaps
+  const _perfTRender = perfEl ? performance.now() : 0;   // end of the world-update (sim) phase
   renderHeroShadow(renderer); // N6: render the dragon silhouette to its RT before the main pass (no-op unless enabled)
   renderPostFX();
 
   if (perfEl) {
+    const _perfTDone = performance.now();   // end of the render-submit phase
     // rawDt is clamped to 0.05 (a 20fps floor) so a backgrounded/stalled frame can't
     // poison the min; rawDt==0 while paused (perfFrame ignores ms<=0).
-    if (rawDt > 0) perfFrame(perfStats, rawDt * 1000, renderer.info.render.calls, renderer.info.render.triangles);
+    if (rawDt > 0) perfFrame(perfStats, rawDt * 1000, renderer.info.render.calls, renderer.info.render.triangles, _perfTRender - _perfT0, _perfTDone - _perfTRender);
     perfTimer -= rawDt;
     if (perfTimer <= 0) {
       perfTimer = 0.5;
@@ -1819,7 +1909,9 @@ function tick() {
         `fps   ${fpsAvg.toFixed(0)}  avg ${s.avgFps.toFixed(0)}\n` +
         `min   ${s.minFps === Infinity ? '—' : s.minFps.toFixed(0)}fps @${s.worstCalls}c/${(s.worstTris / 1000).toFixed(0)}k\n` +
         `max   ${s.maxFps ? s.maxFps.toFixed(0) : '—'}fps   p95 ${s.p95Ms.toFixed(1)}ms\n` +
-        `calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  tier ${qualityTier}\n` +
+        `calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  tier ${qualityTier}${dynResEnabled ? `  res ${resScale.toFixed(2)}${perfSaverOn ? ' sv' : ''}` : ''}\n` +
+        // worst-frame attribution: sim (JS/GC) + draw (render submit) + gpu (fill remainder).
+        `hitch ${s.minFps === Infinity ? '—' : (1000 / s.minFps).toFixed(0)}ms  sim ${s.worstSimMs.toFixed(0)} draw ${s.worstRenderMs.toFixed(0)} gpu ${s.minFps === Infinity ? 0 : Math.max(0, 1000 / s.minFps - s.worstSimMs - s.worstRenderMs).toFixed(0)}\n` +
         `gfx   ${gfx} · ${tone}`;
     }
     renderer.info.reset();

@@ -15,6 +15,7 @@ import { atmosUniforms } from './atmosphere.js';
 // sunDir, so off-heaven it sat left of the blast. Steer sunDir to centre+blast-elevation as the heaven
 // engages (mix 1→2), restored off-heaven (byte-identical when the lerp weight is 0).
 const HEAVEN_SUN_DIR = new THREE.Vector3(0.0, 0.2, -1).normalize();
+const OLD_SEA = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldsea');   // ?oldsea — A/B: the pre-fix heaven sea (flat two-bands horizon, thin glitter only)
 
 let water = null;          // current mesh (Reflector or plain Mesh)
 let sceneRef = null;
@@ -30,7 +31,12 @@ let depthOn = false;        // N10b: whether the Beer–Lambert depth mix is act
 // mirror frustum to the fog wall on both reflective tiers.
 let mirrorRes = 768;        // N11: 768 (tier0) / 384 (tier1)
 let halfRate = false;       // N11: tier1 renders the mirror on even parity only
+let _perfSaver = false;     // dynRes perf-saver: cruise mirror ½ → ¼ rate under load (near-invisible)
 let _parity = 0;            // per-presented-frame counter (updateWater)
+// The adaptive-resolution governor engages this BEFORE trimming resolution: a heavier
+// cruise duty-cycle on the mirror (a full extra scene render) is a low-visibility fill
+// saving, spent before the more-visible pixel trim. Off = shipped ½-rate cruise mirror.
+export function setWaterPerfSaver(on) { _perfSaver = !!on; }
 let reflFar = true;         // N11: mirror far-plane clamp (kill via ?reflfar=0 for A/B)
 function applyReflTier(tier) {
   reflective = tier <= 1;
@@ -55,6 +61,12 @@ const sharedUniforms = {
   // there), so paint a horizonward aurora-green glow into it. 0 in every other biome (byte-identical);
   // reflective tiers ignore it. MUST live here or it vanishes on the reflective↔cheap rebuild.
   uAuroraGlow: { value: 0 },
+  // Fix C — PREMIUM HEAVEN HORIZON: weight (0 off-heaven ⇒ byte-identical) driving a graded blast-haze
+  // horizon + a broad reflection column + the shared heartbeat, so the sea ANSWERS the detonation instead
+  // of being two flat cardboard bands (gold sky / flat violet fogged sea) with a hard seam. MUST live here
+  // or it vanishes on the reflective↔cheap rebuild.
+  uHeavenGlow: { value: 0 },
+  uHorizonCol: { value: new THREE.Color(0x9a6242) },   // warm umber — one tier BELOW the dome's skyHorizon 0xa87838, so the far sea grades UP into the gold band under the blast
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
   sunDir: { value: SUN_DIR.clone() },
@@ -119,6 +131,7 @@ const fragmentShader = /* glsl */`
   uniform float uAtmosInscatter;
   uniform float uAbsorbOn, uAbsorbK; // N10b depth (0 = shipped height-driven mix)
   uniform float uAuroraGlow; // Aurora Shallows tier2 analytic-reflection sheen (0 = shipped)
+  uniform float uHeavenGlow; uniform vec3 uHorizonCol; // Fix C: heaven blast-horizon integration (0 = shipped)
   #ifdef USE_REFLECTION
     uniform sampler2D tDiffuse;
     uniform vec3 color;
@@ -149,6 +162,14 @@ const fragmentShader = /* glsl */`
     vec3 V = normalize(cameraPosition - vWorldPos);
     float NdotV = max(dot(N, V), 0.0);
     float fresnel = 0.04 + 0.96 * pow(1.0 - NdotV, 5.0);
+
+    float dist = length(cameraPosition - vWorldPos);
+    // HEAVEN horizon terms (all no-op when uHeavenGlow is 0): az = how aligned the view azimuth is with
+    // the blast-steered sun (the "under the detonation" band); breath = the blast's 4.6s expansion front
+    // propagated across the sea with a distance lag — the sea and sky share one heartbeat.
+    vec2 vxz = -V.xz, sxz = normalize(sunDir.xz + vec2(1e-5, 0.0));
+    float az = pow(clamp(dot(vxz * inversesqrt(max(1e-6, dot(vxz, vxz))), sxz), 0.0, 1.0), 3.0);
+    float breath = 0.85 + 0.3 * sin(6.2831853 * time / 4.6 - dist * 0.004);
 
     // Base water body: shallows pick up light at glancing wave faces (shipped mix).
     float tH = clamp(0.5 + h * 1.4, 0.0, 1.0) * 0.55;
@@ -184,6 +205,9 @@ const fragmentShader = /* glsl */`
     vec3 H = normalize(normalize(sunDir) + V);
     float spec = pow(max(dot(Ns, H), 0.0), 240.0);
     col += sunColor * spec * 2.6;
+    // HEAVEN reflection COLUMN: a broad soft gold lobe under the detonation — the sea-scale answer to the
+    // sky-scale blast (the thin pow-240 glitter alone was nowhere near the scale of the fire). Breathes.
+    col += sunColor * pow(max(dot(Ns, H), 0.0), 18.0) * 0.35 * uHeavenGlow * breath;   // 0.35 (not 0.5): the column sits in the parry corridor — keep fairness headroom under the p90 cap
 
     // Crest foam: a broken band where the swell peaks. Hashed in world cells
     // (and time-stepped) so it tears apart instead of reading as a flat cap, and
@@ -198,15 +222,20 @@ const fragmentShader = /* glsl */`
     // otherwise has no micro-sparkle of its own). Kept rare so it reads as
     // catch-lights, not noise.
     float glit = hash(floor(p * 4.0) + floor(time * 3.0));
-    col += sunColor * step(0.9965, glit) * pow(1.0 - NdotV, 1.6) * 1.5;
+    col += sunColor * step(0.9965 - 0.002 * uHeavenGlow * az, glit) * pow(1.0 - NdotV, 1.6) * 1.5;   // a few more catch-lights inside the blast column
 
     // Manual fog (matches scene linear fog) — dual-color (§5.2): the fog
     // itself grades from the NEAR color into the FAR color with the same
     // factor. Where fogFarColor == fogColor (every biome without one) this is
     // exactly the old single-color fog.
-    float dist = length(vWorldPos - cameraPosition);
     float fogF = smoothstep(fogNear, fogFar, dist);
     vec3 fogCol = mix(fogColor, fogFarColor, fogF);
+    // HEAVEN graded haze horizon (kills the flat-two-bands seam): re-target the FAR fog toward a warm umber
+    // under the blast — the far sea grades continuously UP into the dome's gold band where it aligns with the
+    // detonation (az→1), cooling back to the locked violet toward the frame edges. fogF² keeps the near/mid
+    // sea (the parry-corridor field) untouched.
+    vec3 heavenHaze = mix(fogFarColor, uHorizonCol, uHeavenGlow * (0.30 + 0.70 * az));
+    fogCol = mix(fogCol, heavenHaze, fogF * fogF * uHeavenGlow);   // ×uHeavenGlow gate ⇒ 0 off-heaven = byte-identical (won't disturb dual-fog biomes)
     // N8 PR B sunward inscatter: brighten the fog toward the sun (matches the
     // prop chunk's pow(...,6.0)). +0 exactly when uAtmosInscatter is 0 → shipped.
     // -V is the camera->fragment dir (V = normalize(cameraPosition - vWorldPos)
@@ -282,7 +311,10 @@ function buildReflective() {
     // heaven (1/8 — the dropped deck barely reads), quarter-rate elsewhere in the heaven, half-rate in
     // normal play (was full-rate off-heaven at tier 0). Renders on EVEN _parity (the god-ray mask is
     // staggered onto other frames so the two full-scene passes don't stack → the worst frame flattens).
-    const skipMask = settledHeaven ? 7 : ((inHeaven && halfRate) ? 3 : 1);
+    // Off-heaven (cruise) the mirror is ½-rate; the dynRes perf-saver drops it to ¼ under
+    // load (near-invisible — the reflection moves slowly), spent before any resolution trim.
+    // Heaven rates are untouched (identity when the saver is off).
+    const skipMask = settledHeaven ? 7 : (inHeaven ? (halfRate ? 3 : 1) : (_perfSaver ? 3 : 1));
     if (_parity & skipMask) return;
     // N11 far-plane clamp: trim the mirror frustum to the fog wall (fogFar+50 —
     // everything beyond is 100% fogged, so it's visually identical but a much smaller
@@ -438,6 +470,7 @@ export function updateWater(dt, playerDist, time, fog, arenaMix = 0, arenaFade =
   // sun). Weight ramps with the heaven unveiling (mix 1→2) × fade; 0 off-heaven ⇒ sunDir === SUN_DIR.
   const heavenSunK = Math.max(0, Math.min(1, arenaMix - 1)) * Math.max(0, Math.min(1, arenaFade));
   u.sunDir.value.copy(SUN_DIR).lerp(HEAVEN_SUN_DIR, heavenSunK).normalize();
+  u.uHeavenGlow.value = OLD_SEA ? 0 : heavenSunK;   // Fix C: the premium blast-horizon integration rides the SAME heaven weight (0 off-heaven → byte-identical); ?oldsea pins it off
   if (fog) {
     u.fogColor.value.copy(fog.color);
     u.fogNear.value = fog.near;

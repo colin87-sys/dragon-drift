@@ -12,7 +12,7 @@ globalThis.window = globalThis;
 globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
 const {
   AURORA_HEAD, AURORA_BODY, auroraUniforms, applyAurora,
-  setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled,
+  setAuroraEnabled, setAuroraForced, setAuroraQuality, auroraEnabled, setAuroraFlowExcite,
 } = await import('../js/auroraSky.js');
 const { computeEnv, BIOMES, setForcedBiome } = await import('../js/biomes.js');
 const { CONFIG } = await import('../js/config.js');
@@ -34,7 +34,7 @@ check('CRISP border ONSET + a luminous rose SKIRT below (no hard zero → no flo
 check('exp fade UP from the border (nothing symmetric)', /tall\s*=\s*exp\(\s*-max\(\s*hy\s*-\s*h0/.test(AURORA_BODY));
 check('PHYSICS RAMP: green OWNS the border (not inverted)', /mix\(\s*uAurFringe\s*,\s*uAurGreen\s*,\s*smoothstep\(\s*h0/.test(AURORA_BODY));
 check('BORDER HOT-LINE: two-scale core+feather glow, ×(1+(1.8·hot+0.45·exp(−8·bt))·below)', /hot\s*=\s*exp\([\s\S]*I\s*\*=\s*1\.0\s*\+\s*\(1\.8\s*\*\s*hot\s*\+\s*0\.45\s*\*\s*exp/.test(AURORA_BODY));
-check('SPLIT GAIN: diffuse column capped low; hot core OR band knot crosses bloom', /uAuroraMix\s*\*\s*\(0\.55\s*\+\s*0\.45\s*\*\s*max\(hot\s*\*\s*below,\s*knot\)\)/.test(AURORA_BODY) && /knot\s*=\s*clamp\(bprof\s*\*\s*bn\s*\*\s*bn/.test(AURORA_BODY));
+check('SPLIT GAIN: diffuse column capped low; hot core OR band knot crosses bloom (×uAurGain for tier2)', /uAuroraMix\s*\*\s*uAurGain\s*\*\s*\(0\.55\s*\+\s*0\.45\s*\*\s*max\(hot\s*\*\s*below,\s*knot\)\)/.test(AURORA_BODY) && /knot\s*=\s*clamp\(bprof\s*\*\s*bn\s*\*\s*bn/.test(AURORA_BODY));
 check('drapery FOLDS: hoisted fold0 + de-duplicated mid octave (foldOct) + fine detail (fine0)',
   /fold0\s*=\s*_aNoise/.test(AURORA_BODY) && /foldOct\s*=\s*_aNoise/.test(AURORA_BODY) && /fold\s*\+=\s*0\.5\s*\*\s*\(foldOct/.test(AURORA_BODY));
 check('SECONDARY layer + height SHEAR present', /u\s*\+=\s*\(hy\s*-\s*h0\)/.test(AURORA_BODY));
@@ -74,7 +74,7 @@ check('FULL-STRUCTURE eruption ramp: violet base + pink plateau + crimson crown,
   && /mix\(aCol,\s*uAurRed,\s*0\.75\s*\*\s*crown\s*\*\s*em\)/.test(AURORA_BODY)            // crimson by MIX (hue), not additive-only
   && /float\s+em\s*=\s*min\(uAurErupt,\s*1\.0\)/.test(AURORA_BODY));                       // mix saturates, additive rides the dial
 check('eruption peak raised to 1.4 (owner pick) so the full structure shows in natural play',
-  /uAurErupt\.value\s*=\s*1\.4\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+  /eruptTarget\s*=\s*1\.4\s*\*/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 check('violet bluer (0x7a6bff) + pink hotter (0xff7fae) so they read over green', (() => {
   const s = readFileSync(url('../js/auroraSky.js'), 'utf8');
   return /uAurViolet:\s*\{\s*value:\s*new THREE\.Color\(0x7a6bff\)/.test(s) && /uAurPink:\s*\{\s*value:\s*new THREE\.Color\(0xff7fae\)/.test(s);
@@ -85,14 +85,47 @@ check('DEPTH: a faint ray-less BACK VEIL reusing fold0 (free layered curtain)', 
 check('ERUPTION COLOR WASH: diffuse violet base + red/pink crown glow (reads where rays fade)',
   /if\s*\(\s*uAurErupt\s*>\s*0\.001\s*\)/.test(AURORA_BODY) && /ebase\s*=\s*exp/.test(AURORA_BODY) && /ecrown\s*=\s*smoothstep/.test(AURORA_BODY));
 check('fine0 detail octave is TIER0-ONLY (uAurLayers == 2 branch → no tier1/2 cost)', /if\s*\(\s*uAurLayers\s*==\s*2\s*\)\s*fine0\s*=\s*_aNoise/.test(AURORA_BODY));
-check('ERUPTION driver: activity → smoothstep eruption envelope (rare full-color)',
-  /uAurErupt\.value\s*=\s*1\.4\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
+check('ERUPTION driver: activity → smoothstep eruption target, EASED in/out (damped envelope, no flash)',
+  /eruptTarget\s*=\s*1\.4\s*\*\s*\(e\s*\*\s*e\s*\*\s*\(3\.0\s*-\s*2\.0\s*\*\s*e\)\)/.test(auroraSrc)
+  && /eruptEnv\s*=\s*damp\(eruptEnv,\s*eruptTarget,\s*0\.7,\s*dt\s*\|\|\s*0\)/.test(auroraSrc)
+  && /uAurErupt\.value\s*=\s*eruptEnv/.test(auroraSrc));
 check('?auract debug override wired (quiet-vs-eruption capture)', /setAuroraActOverride/.test(readFileSync(url('../js/main.js'), 'utf8')));
 check('?aurerupt debug override wired (pin eruption strength, bypasses the 0.45 cap)',
   /setAuroraEruptOverride/.test(readFileSync(url('../js/main.js'), 'utf8')) && /if\s*\(eruptOverride\s*!=\s*null\)/.test(readFileSync(url('../js/auroraSky.js'), 'utf8')));
 
 check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-anchored)',
   /applyAurora\(env,\s*playerDist,\s*time,\s*camera,\s*dt\)/.test(auroraSrc) && /getWorldDirection/.test(auroraSrc) && /damp\(fwdX/.test(auroraSrc));
+
+// --- 2c2. FLOW × AURORA coupling: holding the flow carve raises the activity FLOOR → the sky erupts ---
+// main.js feeds slipMix × auroraMix() (0 in every other biome → byte-inert). act = max(actRaw, excite·0.9).
+check('main.js feeds the flow chain to the aurora (setAuroraFlowExcite(slipMix × auroraMix()))',
+  /setAuroraFlowExcite\(\s*slipMix\s*\*\s*auroraMix\(\)\s*\)/.test(readFileSync(url('../js/main.js'), 'utf8')));
+check('act floors on the flow excite, actOverride still wins',
+  /const act = actOverride != null \? actOverride : Math\.max\(actRaw, flowExcite \* 0\.9\)/.test(auroraSrc));
+// FUNCTIONAL: with the carve held (excite→1), the activity floor lifts and the eruption blooms; released
+// (excite→0) it returns to the natural actRaw drift (byte-inert). ?biome-independent — driven via forced.
+setAuroraForced(true);
+setAuroraFlowExcite(1);   // applyAurora(env, playerDist, time, camera, dt)
+for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // converge the damped excite
+const hotAct = auroraUniforms.uAurAct.value, hotErupt = auroraUniforms.uAurErupt.value;
+check('holding the carve lifts activity to the ~0.9 floor (well above the natural drift)', hotAct > 0.88);
+check('holding the carve blooms the eruption (uAurErupt > 0.5)', hotErupt > 0.5);
+setAuroraFlowExcite(0);
+for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // release → excite decays to 0
+check('releasing the carve returns activity to the natural drift (no floor → byte-inert)',
+  auroraUniforms.uAurAct.value < 0.9 && Math.abs(auroraUniforms.uAurAct.value - (0.5 + 0.5 * (0.62 * Math.sin(3.0 * 0.05) + 0.38 * Math.sin(3.0 * 0.0177 + 2.4)))) < 1e-6);
+// EASE (the fix): the eruption must SWELL and FADE, never flash. From settled-high, one release frame keeps
+// most of the colour (afterglow) even though the target has crashed — the damped envelope, not on/off.
+setAuroraFlowExcite(1);
+for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);
+const settledErupt = auroraUniforms.uAurErupt.value;
+setAuroraFlowExcite(0);
+applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // ONE release frame
+check('the eruption FADES OUT gradually (one release frame keeps most of it → afterglow, no flash)',
+  settledErupt > 0.5 && auroraUniforms.uAurErupt.value > settledErupt * 0.85);
+setAuroraForced(false);
+setAuroraFlowExcite(0);
+applyAurora({ auroraMix: 0 }, 1000, 5, null, 0.1);   // leave shipped state
 
 // --- 2d. GATE-9: mobile-middle band variation, smooth transitions, premium polish, dreamy run ----
 // Loop bound is uAurBands (tier2=1, tier0/1=2), so mobile keeps the crossing diagonal thick band.
@@ -117,9 +150,14 @@ check('activity-keyed CRAWL accumulator (dt·(0.7+0.6·act), raw dt so frozen sh
   /_aurPhase\s*=\s*\(_aurPhase\s*\+\s*\(dt\s*\|\|\s*0\)\s*\*\s*\(0\.7\s*\+\s*0\.6\s*\*\s*act\)\)\s*%\s*4096/.test(auroraSrc));
 check('horizon airglow BREATHES with uAurBreath (mean unchanged: 0.85+0.30·0.5)',
   /hg\s*\*\s*\(0\.05\s*\+\s*0\.04\s*\*\s*uAurAct\)\s*\*\s*\(0\.85\s*\+\s*0\.30\s*\*\s*uAurBreath\)/.test(AURORA_BODY));
-// Runtime tier-flip cover: qualFade dips then recovers, so the curtain doesn't restructure on-screen.
-check('tier-flip qualFade cover (dip to 0 on change, damp back to 1 → identity in non-aurora biomes)',
-  /if\s*\(prev\s*!==\s*t\s*&&\s*auroraUniforms\.uAuroraMix\.value\s*>\s*0\.0001\)\s*qualFade\s*=\s*0/.test(auroraSrc) && /qualFade\s*=\s*damp\(qualFade,\s*1,\s*3\.5/.test(auroraSrc));
+// Runtime tier-flip cover: the curtain BREATHES down→restructure→up (never a one-frame hard cut, which
+// was the owner's "no lights, then it pops in"). A visible flip latches qualTarget=0 + defers the tier
+// structure; applyAurora damps qualFade toward qualTarget and applies the structure once faded down.
+check('tier-flip fade LATCH (breathe down, restructure while invisible, breathe up — no hard cut)',
+  /if\s*\(auroraUniforms\.uAuroraMix\.value\s*>\s*0\.0001\)\s*\{\s*pendingTier\s*=\s*t;\s*qualTarget\s*=\s*0;\s*\}/.test(auroraSrc)
+  && /qualFade\s*=\s*damp\(qualFade,\s*qualTarget,\s*6\.0/.test(auroraSrc)
+  && /if\s*\(qualTarget\s*<\s*0\.5\s*&&\s*qualFade\s*<\s*0\.05\)\s*\{\s*applyTierStructure\(pendingTier\);\s*qualTarget\s*=\s*1;/.test(auroraSrc)
+  && !/qualFade\s*=\s*0;/.test(auroraSrc));   // the hard cut is gone
 
 // --- 3. gate: default 0 (shipped); enable/disable/force + per-frame write ---------
 check('default mix 0 (byte-identical shipped sky)', auroraUniforms.uAuroraMix.value === 0);
@@ -145,12 +183,26 @@ check('un-forced + no biome channel → back to 0 (shipped)', auroraUniforms.uAu
 
 // --- 4. tier truth table (weaker tiers thin the curtain, never delete it) ---------
 setAuroraQuality(0);
-check('tier0 → 2 curtain layers + rays on + 2 thick bands', auroraUniforms.uAurLayers.value === 2 && auroraUniforms.uAurRay.value === 1 && auroraUniforms.uAurBands.value === 2);
+check('tier0 → 2 curtain layers + rays on + 2 thick bands, gain 1.0', auroraUniforms.uAurLayers.value === 2 && auroraUniforms.uAurRay.value === 1 && auroraUniforms.uAurBands.value === 2 && auroraUniforms.uAurGain.value === 1);
 setAuroraQuality(1);
-check('tier1 → 1 richness layer, rays on, but KEEPS 2 thick bands (mobile middle variation)', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 1 && auroraUniforms.uAurBands.value === 2);
+check('tier1 → 1 richness layer, rays on, but KEEPS 2 thick bands (mobile middle variation), gain 1.0', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 1 && auroraUniforms.uAurBands.value === 2 && auroraUniforms.uAurGain.value === 1);
 setAuroraQuality(2);
-check('tier2 → 1 layer, rays off, 1 band (a smooth quiet arc — still authentic)', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 0 && auroraUniforms.uAurBands.value === 1);
+check('tier2 → 1 layer, rays off, 1 band + gain 1.35 (bloom off → brighten so it still reads as lights)', auroraUniforms.uAurLayers.value === 1 && auroraUniforms.uAurRay.value === 0 && auroraUniforms.uAurBands.value === 1 && Math.abs(auroraUniforms.uAurGain.value - 1.35) < 1e-6);
 setAuroraQuality(0);
+// NO HARD CUT (the fix): a tier flip while the curtain is VISIBLE must not drop uAuroraMix to 0 in one
+// frame (the owner's "no lights, then it pops in") — it breathes down, restructures while invisible, up.
+setAuroraForced(true); setAuroraQuality(0);
+for (let i = 0; i < 40; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // settle qualFade→1, tier0
+const mixBeforeFlip = auroraUniforms.uAuroraMix.value;
+setAuroraQuality(2);                                     // request a flip mid-curtain
+applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);     // ONE frame after the flip
+check('a tier flip does NOT hard-cut the curtain (one frame keeps most of it — breathes, not cuts)',
+  mixBeforeFlip > 0.9 && auroraUniforms.uAuroraMix.value > 0.4);
+for (let i = 0; i < 50; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // let the breath complete
+check('after the breath the tier2 structure applied (1 band, rays off, gain 1.35) + curtain restored',
+  auroraUniforms.uAurBands.value === 1 && auroraUniforms.uAurRay.value === 0 && Math.abs(auroraUniforms.uAurGain.value - 1.35) < 1e-6 && auroraUniforms.uAuroraMix.value > 0.9);
+setAuroraForced(false); setAuroraQuality(0);
+applyAurora({ auroraMix: 0 }, 1000, 5, null, 0.1);
 
 // --- 5. phases are JS-WRAPPED (float32 precision on endless runs — uCloudDrift lesson)
 setAuroraForced(true);
@@ -168,19 +220,37 @@ const L = CONFIG.biomeLength;
 let maxMix = 0;
 for (let dist = 0; dist <= 9 * L; dist += 25) maxMix = Math.max(maxMix, computeEnv(dist).auroraMix);
 check(`the aurora block lights the curtain → env.auroraMix reaches 1.0 across the course (max ${maxMix.toFixed(3)})`, Math.abs(maxMix - 1.0) < 1e-6);
-// NO UPSTREAM LEAK: blocks 0-3 + the first ~1000m of Mire stay byte-identically 0 (the 450m ramp-in
-// only fires in Mire's last stretch). The ramp start is L-450 into Mire = dist 7050.
+// NO UPSTREAM LEAK: blocks 0-3 + the first ~900m of Mire stay byte-identically 0 (PR-4b widened the
+// ramp-in to 600m, so it starts at L-600 into Mire = dist 6900). Sample up to 4L+850 = 6850, just before.
 let leak = 0;
-for (let dist = 0; dist <= 4 * L + 1000; dist += 25) leak = Math.max(leak, computeEnv(dist).auroraMix);   // Mire = block 4 [6000,7500); ramp-in starts at 7050
+for (let dist = 0; dist <= 4 * L + 850; dist += 25) leak = Math.max(leak, computeEnv(dist).auroraMix);   // Mire = block 4 [6000,7500); ramp-in starts at 6900
 check(`no upstream leak → auroraMix 0 through block 3 + early Mire (max ${leak})`, leak === 0);
-// RAMP-IN (curtain dawns over Mire's last 450m): 0 at dist 7000, rising by 7300, full by aurora start.
-const mIn0 = computeEnv(7000).auroraMix, mIn1 = computeEnv(7300).auroraMix, mIn2 = computeEnv(7480).auroraMix;
-check('ramp-IN is a smooth dawn (0 at 7000m → partial at 7300m → ~full by 7480m, monotone)',
+// RAMP-IN (PR-4b: the WHOLE world dawns over Mire's last 600m): 0 at 6850, rising by 7200, full by ~7450.
+const mIn0 = computeEnv(6850).auroraMix, mIn1 = computeEnv(7200).auroraMix, mIn2 = computeEnv(7450).auroraMix;
+check('ramp-IN is a smooth dawn (0 at 6850m → partial at 7200m → ~full by 7450m, monotone)',
   mIn0 === 0 && mIn1 > 0.02 && mIn1 < mIn2 && mIn2 > 0.9);
 check('aurora block interior is full curtain (auroraMix 1.0 mid-block)', Math.abs(computeEnv(8100).auroraMix - 1.0) < 1e-6);
-// RAMP-OUT (curtain dies over the aurora's last 300m as the whale fades in): full at 8100, fading by 8850.
+// RAMP-OUT (PR-4b: 400m die-out): full at 8100, fading by 8850.
 const mOut = computeEnv(8850).auroraMix;
 check('ramp-OUT hands off to Astral (auroraMix falling by 8850m, < full)', mOut < 0.98 && mOut >= 0);
+// PR-4b (issue #2): the SHARED wide ramp — the BACKGROUND (sky/water/star) rides the same 600m window
+// as the curtain, so it no longer snaps under the dawning curtain. skyHorizon at 6850 must equal pure
+// Mire (ramp not started), but by 7200 must have moved off Mire toward the aurora horizon.
+const mireHorizon = BIOMES[4].sky.horizon.getHex();
+check('background rides the wide ramp: skyHorizon is pure Mire at 6850m (ramp not yet started)',
+  computeEnv(6850).skyHorizon.getHex() === mireHorizon);
+check('background rides the wide ramp: skyHorizon has moved off Mire by 7200m (no 150m snap)',
+  computeEnv(7200).skyHorizon.getHex() !== mireHorizon && computeEnv(7200).starMix > BIOMES[4].stars);
+// EXIT handoff: auroraMix (dying) and whaleMix (rising) now cross in the SAME 400m window.
+const eA = computeEnv(8800).auroraMix, eW = computeEnv(8800).whaleMix;
+check('exit handoff: curtain dying while whale rising in one window (both mid-transition at 8800m)',
+  eA > 0 && eA < 1 && eW > 0 && eW < 1);
+// A NON-AURORA seam stays byte-identical (the wide ramp is gated): Wastes(1)→Frozen(2) at dist 2925
+// (block 1 [1500,3000), seam at 2925) must equal the inline 150m smoothstep computation.
+const dN = 2925, localN = dN - 1500, tN = THREE.MathUtils.smoothstep(localN, 1500 - 150, 1500);
+const expHorizonN = BIOMES[1].sky.horizon.clone().lerp(BIOMES[2].sky.horizon, tN).getHex();
+check('a NON-aurora seam is byte-identical (wide ramp gated to aurora seams only)',
+  computeEnv(dN).skyHorizon.getHex() === expHorizonN);
 check('exactly BIOMES[6] declares aurora (the other 6 stay dormant)',
   BIOMES.slice(0, 6).every((b) => !b.aurora) && BIOMES[6] && BIOMES[6].aurora === 1.0);
 // ?biome=6 force (ia===ib, t=0) skips the ramp branch → still pins 1.0 for the debug preview.
@@ -238,6 +308,8 @@ check('preview lights the stars (max(starMix, uAurNight..))', /star\s*\*\s*max\(
 const mainSrc = readFileSync(url('../js/main.js'), 'utf8');
 check('main.js reads ?aurora=1 → setAuroraForced(true)', /getParam?|aurora['"]\)\s*===\s*['"]1['"]/.test(mainSrc) && /setAuroraForced\(true\)/.test(mainSrc));
 check('main.js drives setAuroraQuality in applyQuality', /setAuroraQuality\(tier\)/.test(mainSrc));
+check('main.js defers tier RESTORES during the flow carve (no mid-carve curtain repaint / pop-in)',
+  /medFps > restoreAt && !bossEncounter && !\(player\.tunnelFxMix > 0\.3\)/.test(mainSrc));
 check('main.js gates god-ray shafts off for the aurora — CONTINUOUS fade, no mid-seam pop (PR-4)',
   /auroraForced\(\)\s*\?\s*0\s*:\s*_camFwd\.dot\(SUN_DIR\)\s*\*\s*\(1\s*-\s*Math\.min\(1,\s*auroraMix\(\)\s*\*\s*2\)\)/.test(mainSrc));
 

@@ -11,7 +11,7 @@ const KEY = 'dragonDriftSave';
 // objects under a {} default are dropped on load — collections MUST be
 // arrays (e.g. mastery.flown is [[key, metres], ...], never a map).
 const DEFAULTS = {
-  v: 4,
+  v: 5,
   best: { score: 0, dist: 0 },
   flags: {
     seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false, phaseTaught: false, seenIntro: false,
@@ -30,7 +30,7 @@ const DEFAULTS = {
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
   settings: { qualityOverride: null, modelDetail: null, reticle: true, slowMo: true, glideAssist: false, mouseSteer: true, bulletClarity: true, dev: false,
     // Graphics effects (defaults = the shipped look): dither ON, ACES colour grade, fast-particles OFF, sky-IBL OFF.
-    dither: true, toneMap: 'aces', particleBatch: false, skyIbl: false, heroShadow: false, propAO: false, atmosphere: false, skyClouds: false, waterSwell: false, waterDepth: false, waterFoam: false, perfHud: false },
+    dither: true, toneMap: 'aces', particleBatch: false, skyIbl: false, heroShadow: false, propAO: false, atmosphere: false, skyClouds: false, waterSwell: false, waterDepth: false, waterFoam: false, dynRes: true, perfHud: false },
   embers: 0,
   xp: 0,
   level: 1,
@@ -140,6 +140,15 @@ function load() {
   // claimed — never re-pay them; only feats unlocked from here on are claimable.
   if (parsed && (parsed.v || 0) < 3) {
     data.feats.claimed = [...new Set(data.feats.unlocked)];
+  }
+  // v4 → v5: ADAPTIVE RESOLUTION ships default-ON. It only trims once the frame median
+  // drops below 60 for a sustained window, so it is a no-op on any device with headroom
+  // (byte-identical there) and simply lets a struggling device hold the frame rate without
+  // hunting in Settings. Flip it on once for existing saves (deepMerge already gave the
+  // default to saves that predate the setting; this also covers saves that persisted the
+  // old default-OFF). Anyone who prefers native resolution can toggle it back off.
+  if (parsed && (parsed.v || 0) < 5) {
+    data.settings.dynRes = true;
   }
   data.v = DEFAULTS.v;
   // FTUE onboarding one-shots are new flags: a returning pilot who predates them
