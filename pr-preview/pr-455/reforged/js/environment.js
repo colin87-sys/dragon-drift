@@ -92,7 +92,7 @@ const PROP_NOISE_HEAD = /* glsl */`
   }
   void main() {`;
 
-function addPropDetail(mat) {
+function addPropDetail(mat, ladderEmissive = false) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uAO = aoUniform; // N15 shared AO gate (0 = shipped)
     assignAtmos(shader);             // N8 shared atmosphere uniforms (0 = shipped fog)
@@ -118,10 +118,15 @@ function addPropDetail(mat) {
         // is 1.0 and 0.86+0.26*_pn ≥ 0.86 > 0.62, so the floor never engages.
         diffuseColor.rgb *= max((0.86 + 0.26 * _pn) * mix(1.0, vAO, uAO), 0.62);   // N15 AO + weathering (floored)`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        totalEmissiveRadiance *= 0.78 + 0.44 * _pn;`);
+        totalEmissiveRadiance *= 0.78 + 0.44 * _pn;${ladderEmissive ? `
+        // CALDERA self-lit floor: fold the baked value-ladder (vColor) into emissive so
+        // the hot ember belly stays lit when a dark basalt mass silhouettes against the
+        // bright ember horizon (vColor alone only modulates DIFFUSE → dies backlit).
+        totalEmissiveRadiance *= vColor.rgb;` : ''}`);
   };
-  // Own cache bucket so these never share a program with plain standard mats.
-  mat.customProgramCacheKey = () => 'propDetail';
+  // Own cache bucket so these never share a program with plain standard mats (the
+  // ladder variant gets its own bucket — it references vColor / compiles differently).
+  mat.customProgramCacheKey = () => (ladderEmissive ? 'propDetailLadder' : 'propDetail');
   return mat;
 }
 
@@ -151,6 +156,22 @@ function makeMats() {
   };
   for (const m of mats.primary) addPropDetail(m);
   for (const m of mats.accent) addPropDetail(m);
+  // EMBERFALL CALDERA new-kit materials (CALDERA-BIBLE.md §5) — kept SEPARATE from the
+  // legacy primary/accent[3] (which stay flat for ?props=v1). The primary is a DARK
+  // basalt whose carved read comes entirely from the inverted value ladder: color white
+  // so the baked vColor stops (hot ember belly / ash-grey crust / near-black vertical)
+  // show through, run through addPropDetail(ladderEmissive) so the belly stays lit
+  // backlit. A warm emissive BASE biases the folded emissive toward ember (belly glows,
+  // crown reads dark) — the theology's "mass is dark; light is a wound" made material.
+  mats.calderaPrimary = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xffffff, vertexColors: true, roughness: 0.42, metalness: 0.06,
+    emissive: 0xff5a20, emissiveIntensity: 0.5,
+  }), true);
+  // The magma accent — hot orange-red, graded white-hot only inside recessed throats
+  // (per-archetype). vertexColors OFF so it ignores the ladder bake on shared geometry.
+  mats.calderaAccent = addPropDetail(new THREE.MeshStandardMaterial({
+    ...opts, color: 0xff6a24, roughness: 0.4, metalness: 0.05, emissive: 0xff3808, emissiveIntensity: 1.0,
+  }));
   return mats;
 }
 let propMats = null;
@@ -179,6 +200,56 @@ function mergeParts(parts, biomeIdx) {
   }
   const geometry = mergeGeometries(geos, true);
   bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
+  return { geometry, materials: mats };
+}
+
+// EMBERFALL CALDERA value ladder (CALDERA-BIBLE.md §5) — the INVERTED, light-from-below
+// sibling of the Frozen ice ladder. Bakes a per-face 3-stop vertex-colour ladder onto a
+// merged, NON-INDEXED, flat-shaded prop geometry from each triangle's geometric normal,
+// keyed to world-DOWN (the lava floor is the light source): DOWN-faces = hot ember belly,
+// UP-faces = ash-grey cooled crust (hue nudged cool-off the ember sky so crowns separate
+// in silhouette), the verticals = near-black smouldering basalt. Zero triangle cost;
+// turns flat dark basalt into carved, bottom-lit mass. Caldera's OWN stops — never the
+// Frozen ice hues (the Part B leak the mechanical grep guards).
+const _CAL_BELLY = [0.86, 0.34, 0.12];   // hot ember catch-light (down-faces)  — THE BELLY GLOWS
+const _CAL_CRUST = [0.34, 0.29, 0.31];   // DARK ash grey-mauve cooled crust (up-faces), off-orange —
+                                         // the crown is dark (theology); distinct from the vertical basalt
+                                         // but clearly darker than the belly, so mass never reads light-topped.
+const _CAL_BASALT = [0.15, 0.11, 0.11];  // near-black warm basalt (verticals)  — the dark mass
+function bakeCalderaLadder(geo) {
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
+    const d = -nr.y;                                             // world-DOWN axis: down-faces (nr.y<0) → d>0 → hot
+    const s = d > 0.35 ? _CAL_BELLY : d < -0.30 ? _CAL_CRUST : _CAL_BASALT;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+// Merge a Caldera new-kit archetype: force NON-INDEXED parts → ≤2 material groups → bake
+// the inverted value ladder → bake AO. Primary group = the ladder material (reads vColor);
+// accent group = magma (vertexColors off, ignores the bake on the shared geometry).
+// Coexistence: ONLY the new Caldera archetypes call this; every other biome's mergeParts
+// path is byte-identical (props are render-only, so determinism is untouched regardless).
+function mergeCalderaParts(parts) {
+  const groups = [[], []];
+  for (const p of parts) groups[p.mat].push(p.geo.index ? p.geo.toNonIndexed() : p.geo);
+  const geos = [];
+  const mats = [];
+  for (let m = 0; m < 2; m++) {
+    if (!groups[m].length) continue;
+    geos.push(groups[m].length > 1 ? mergeGeometries(groups[m]) : groups[m][0]);
+    mats.push(m === 0 ? propMats.calderaPrimary : propMats.calderaAccent);
+  }
+  const geometry = mergeGeometries(geos, true);
+  bakeCalderaLadder(geometry);   // per-face ladder BEFORE AO (both are per-vertex attrs; order independent)
+  bakeAO(geometry);
   return { geometry, materials: mats };
 }
 
@@ -217,6 +288,12 @@ const PROPS_V1 = _envParams.get('props') === 'v1';
 // parked). A biome not yet migrated returns its shipped whitelist unconditionally.
 const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier (no-spike glacier ice): bergwall/serac/terrace/icetower/glacierwall/sungate(hero)
 const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
+// EMBERFALL CALDERA overhaul (CALDERA-BIBLE.md) — same flip idiom. Default (v2) = the
+// new volcanic kit (colonnata hero + roster as it lands, light-from-below ladder);
+// `?props=v1` restores the legacy basalt/vent cones. Kit is built up over PRs; while
+// it grows the biome is intentionally sparser than the legacy roster (restraint > clutter).
+const calderaNew = PROPS_V1 ? [] : [3];  // colonnata (+ flowlobe/fumarole/clinker/riftwall/riftfang to come)
+const calderaOld = PROPS_V1 ? [3] : [];  // legacy basalt/vent (retired once the kit completes)
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -453,7 +530,7 @@ const ARCHETYPES = {
   },
   // Emberfall Caldera: jagged basalt spire split by a glowing magma seam.
   basalt: {
-    step: 18, biomes: [3], matIndex: 3,
+    step: 18, biomes: calderaOld, matIndex: 3,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.3, 0.52, 0.95, 5), { y: 0.48 }) },
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.17, 0.3, 0.55, 5), { x: 0.24, y: 0.6, rz: 0.2 }) },
@@ -463,12 +540,51 @@ const ARCHETYPES = {
   },
   // Squat fumarole cone with a glowing throat.
   vent: {
-    step: 42, biomes: [3], matIndex: 3,
+    step: 42, biomes: calderaOld, matIndex: 3,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.ConeGeometry(0.6, 0.85, 6), { y: 0.42 }) },
       { mat: 1, geo: xform(new THREE.CylinderGeometry(0.16, 0.24, 0.12, 6), { y: 0.86 }) },
     ], 3),
     place: (side, rnd) => ({ x: side * (14 + rnd() * 6), h: 3 + rnd() * 3.5, r: 3 + rnd() * 2, tilt: 0 }),
+  },
+  // EMBERFALL CALDERA — THE HERO (CALDERA-BIBLE.md §4.1/§9): a columnar-basalt palisade
+  // (Giant's Causeway / Svartifoss) — a broad terrace from which fused hex column RANKS
+  // rise at DESCENDING heights (organ-pipe crest broken mid-song), one column snapped, one
+  // toppled where it fell, an overhanging capstone against the descent. 7 offset-stacked
+  // interpenetrating parts, ~140 tris, ONE material (bare dark mass — the biome's thesis;
+  // its "fire" is only the inverted ladder's hot belly + its reflection). The lean/broken
+  // read is built by radial x+z OFFSET-stacking, NEVER internal rotation — the (r,h,r)
+  // instance scale shears internal tilts flat. rotY re-randomises on recycle, so features
+  // spread in x AND z → broad from every yaw. flatShading hex facets give the vertical rib.
+  colonnata: {
+    step: 53, biomes: calderaNew, matIndex: 3,
+    build: () => mergeCalderaParts([
+      // A PACKED PALISADE of fused hex columns at DESCENDING heights (organ pipes broken
+      // mid-song) rising from a LOW subordinate plinth. The columns are the hero, not the
+      // base — chunky, tight-packed (interpenetrating ≥25%), spread in x AND z so the rib
+      // read survives any recycle yaw. flatShading on the hex facets gives the vertical rib.
+      // 1. Plinth — LOW cooled terrace welding the columns at the waterline (broad hot belly
+      //    for the mirror), deliberately subordinate so the columns dominate the silhouette.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.54, 0.13, 5), { y: 0.065, ry: 0.30, sx: 1.40, sz: 1.00 }) },
+      // 2. Column 1 (tall, left) — the crest's high note.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.24, 1.00, 6), { x: -0.30, z: 0.03, y: 0.52, sx: 1.15, sz: 0.95 }) },
+      // 3. Column 2 (tall-mid, offset BACK) — different ry so facet corners never align.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.23, 0.25, 0.84, 6), { x: -0.07, z: -0.15, y: 0.45, ry: 0.55, sx: 1.10, sz: 0.95 }) },
+      // 4. Column 3 (mid, offset FORWARD) — the fall continues.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.24, 0.66, 6), { x: 0.16, z: 0.14, y: 0.36, ry: 0.95, sx: 1.10 }) },
+      // 5. Column 4 (low shoulder, right) — the crest lands.
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.22, 0.50, 6), { x: 0.36, z: -0.05, y: 0.28, ry: 1.40, sx: 1.05 }) },
+      // 6. Toppled column — the collapse lying where it fell, half-buried across the plinth.
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.18, 0.18), { x: 0.06, z: 0.30, y: 0.11, ry: 0.55, rz: 0.05 }) },
+      // 7. Capstone wedge — oversized overhang on column 1, opposite the crest's descent; the
+      //    one gesture that breaks any residual machined line.
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.15, 0.27), { x: -0.34, z: -0.03, y: 0.99, ry: 0.40, rz: -0.20 }) },
+    ]),
+    // Fairness AND composition (§9): draw r FIRST, couple x to it conservatively (ρ≈0.78;
+    // widen propclearance SCOPE_BIOME to 3 and re-tune). Inner edge = |x|−ρ·r ≥ 14.5.
+    // Heroes stand PLUMB (tilt 0, explicit — a missing tilt is a NaN quaternion); the lean
+    // lives in the geometry. h < world width always (wider than tall).
+    place: (side, rnd) => { const r = 22 + rnd() * 12; return { x: side * (16 + 0.85 * r + rnd() * 7), h: 14 + rnd() * 8, r, tilt: 0 }; },
   },
   // Lumen Mire: colossal bioluminescent mushroom, cap lit from within.
   glowcap: {
@@ -654,6 +770,7 @@ const FOAM_CFG = {
   // glacierwall floats on the fog line so it takes no collar.
   bergwall: { r: 0.9 }, serac: { r: 0.7 }, terrace: { r: 0.9 }, icetower: { r: 0.8 }, glacierwall: false, sungate: { r: 0.8 },
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
+  colonnata: { r: 0.86 },   // Caldera hero — broad plinth waterline weld; reads as glowing lava shoreline
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
