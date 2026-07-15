@@ -174,9 +174,30 @@ spend it on clutter. The arrival frame, in order of what the eye meets:
    band promise the rest of the biome.
 
 Implementation note (render-only, deterministic): instances already PARK by biome
-whitelist in `writeMatrix`; extend the park predicate so the three tall/mid families
-also park when `(d.dist mod biomeLength) < 220`. No RNG touched, no fixture risk;
-verify with envcount + a seam flythrough capture.
+whitelist in `writeMatrix` (environment.js:1019-1020, keyed on `biomeIndexAt(d.dist)`).
+Extend the park predicate so the three tall/mid families ALSO park through the arrival
+zone. ⚠ The naive `(d.dist mod biomeLength) < 220` is WRONG: `biomeIndexAt` returns the
+DOMINANT biome and flips to Caldera once the crossfade passes its halfway point (t≥0.5,
+BIOME-DESIGN §2), so a Caldera prop becomes active ~`biomeTransition/2` = 75m BEFORE the
+block boundary — at local ≈1425–1500m of the preceding (Frozen) block, where
+`local < 220` is false. The first visible Frozen→Caldera crossfade would then still carry
+the colonnata/fumarole/riftfang clutter the open-mirror arrival is meant to suppress.
+Use a SEAM-RELATIVE delta that folds the incoming transition into the arrival window:
+
+```js
+// biomeLength 1500, biomeTransition 150 (config.js). Render-only, no RNG.
+const local = d.dist % CONFIG.biomeLength;
+// map the last transition band (local ≥ 1500−150) to a NEGATIVE lead-in past the seam
+const seamDelta = local >= CONFIG.biomeLength - CONFIG.biomeTransition ? local - CONFIG.biomeLength : local;
+const inArrival = seamDelta < 220;   // covers [−150, 220): incoming crossfade tail + first 220m
+```
+
+Park tall/mid Caldera archetypes when `inArrival` (the low forms — flowlobe, clinker —
+stay, so the seam still reads as burning water with a low black baseline). Mid-block
+instances (large positive `seamDelta`) are untouched; the incoming-transition tail
+(negative `seamDelta`) that `biomeIndexAt` has already flipped to Caldera is now covered.
+No RNG touched, no fixture risk; verify with envcount + a seam flythrough capture that the
+crossfade frame is clean of tall clutter. (Catch: Codex PR review, 2026-07-15.)
 
 ### 3.3 THE MONEY SHOT — CRUISE ("the crucible corridor")
 

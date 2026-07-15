@@ -131,7 +131,9 @@ export const BIOMES = [
     // vents in the lane — the biome's signature "read the vent rhythm, weave the
     // columns" verb. Dodge-only. OPTIONAL — absent everywhere else.
     hazard: { type: 'geyser', every: [150, 280], warn: 1.3, radius: 3.2 },
-    props: ['basalt', 'vent'],
+    // Overhaul kit (CALDERA-BIBLE.md) — the volcanic roster as it lands; `?props=v1`
+    // restores the legacy basalt/vent cones. Mirror grows with each PR (colonnata first).
+    props: ['colonnata'],
     matIndex: 3, // basalt + ember veins
     // Contrast gate: dark band vs this biome's near-black fog (L≈0.18) — lifted.
     bullets: { dark: 0xa84167 },
