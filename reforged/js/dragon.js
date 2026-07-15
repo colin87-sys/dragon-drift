@@ -9,6 +9,7 @@ import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv } from './wingFlapSolver.js';
 import { setFlapDebugPose, resolveWingDebug } from './wingDebugPose.js';
+import { createPulseTimer } from './pulseTimer.js';
 import { setActiveDetail } from './modelDetail.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
@@ -92,6 +93,12 @@ let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let spineMats = [];       // spine/crest/seam/plate mats → flared AND rim-lit in Surge
 let spineFlareMats = [];  // spineMats + optional FLARE-ONLY mats (materials.flareMats): flared but NOT rim-lit — for dense fields (wing feathers) that the strong Surge rim would wash to cream
 let graveMatPulse = [];   // cached grave-light buckets (userData.gravePulseBucket set) — the Revenant gap-pulse tick; empty for every other dragon
+let stormArcMats = [];    // TEMPEST storm circuit — the guarded storm tick is their SINGLE writer (§5d); empty for every other dragon
+let stormTimer = null;    // the tempest's pulseTimer strike clock (null unless a storm dragon is equipped)
+let stormEnvHist = [];    // ring of recent { t, env } so a strike TRAVELS root→tip (bucket b reads env at t − 0.04·b)
+let stormCoreKick = 1;    // the strike kicks the dynamo — coreGlow.userData.base is scaled by this pre-read
+const _stormBase = new THREE.Color();   // scratch: per-mat base emissive for the strike-peak hue lerp
+const _stormHot = new THREE.Color(0xf2f4ff);   // the near-white strike core (hue-lerp target at env>0.85)
 let surgeMix = 0;         // 0..1 damped Surge transition
 let prevFever = false;    // rising-edge detect for the Surge ignition flourish
 let surgeAnimT = 0;       // one-shot transformation timer (s)
@@ -223,6 +230,15 @@ export function createDragon(scene, def, riderDef) {
   spineMats = result.materials.spineMats || [];
   spineFlareMats = result.materials.flareMats ? spineMats.concat(result.materials.flareMats) : spineMats;   // flare-only mats join the flare loop but NOT the rim (applyRim below stays on spineMats)
   graveMatPulse = (result.materials.flareMats || []).filter((m) => m.userData && m.userData.gravePulseBucket != null);   // the Revenant gap-pulse buckets (empty for every other dragon)
+  // TEMPEST STORM CIRCUIT — cache the arc mats + build the deterministic strike clock. Duty (lit
+  // fraction) ramps with the CHARGING ladder via the form's arcDuty (0.06→0.18). Seeded so the
+  // schedule is reproducible (determinism is a deliverable); null for every other dragon.
+  stormArcMats = result.parts.stormArcMats || [];
+  stormTimer = stormArcMats.length
+    ? createPulseTimer({ seed: (def.model.stormSeed ?? 0x7e57) | 0, duty: def.model.arcDuty ?? 0.10, windowMin: 0.10, windowMax: 0.28, burstMin: 1, burstMax: 4 })
+    : null;
+  stormEnvHist = [];
+  stormCoreKick = 1;
 
   // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
   // bright sky/water. Additive to outgoing light (independent of the emissive
@@ -1161,9 +1177,56 @@ export function updateDragon(dt, player, time) {
   const baseWingOp = activeDef.model.wingOpacity ?? 0.82;
   const wingOpacity = player.feverActive ? baseWingOp - 0.12 : player.boosting ? baseWingOp - 0.05 : baseWingOp;
   wingMat.opacity = damp(wingMat.opacity, wingOpacity, 5, dt);
+  // ── TEMPEST STORM TICK (§5d) — the SINGLE writer for the storm circuit (parts.stormArcMats).
+  // Advances the deterministic strike clock, idles the garment at a breathing hum, lifts it to
+  // `peak` on the pulseTimer strikes TRAVELLING root→tip (each bucket reads the strike env delayed
+  // +0.04·bucket s, so the bolt arrives at the tips ~0.08 s after the sternum), and BREAKS it open
+  // on Surge. The arc mats sit in NEITHER the rim nor the flare loop, so nothing else writes them;
+  // stormTimer is null for every other dragon → roster untouched.
+  if (stormTimer && stormArcMats.length) {
+    stormTimer.pin(STRIKE_PIN);   // ?strikePin freezes the schedule for pixel-comparable captures (null = live)
+    const phase01 = ((phase / (Math.PI * 2)) % 1 + 1) % 1;   // flap phase → the downstroke-apex bias hint
+    stormTimer.tick(dt, phase01);
+    const ss = stormTimer.state();
+    const tNow = ss.t;
+    stormEnvHist.push({ t: tNow, e: ss.env01 });
+    while (stormEnvHist.length > 24) stormEnvHist.shift();
+    // env for a bucket = the strike envelope delayed by its travel offset (live only; a pinned
+    // capture is a single static frame, so every bucket shows the same env).
+    const envAt = (b) => {
+      if (STRIKE_PIN !== null || b === 0) return ss.env01;
+      const want = tNow - 0.04 * b;
+      let e = stormEnvHist.length ? stormEnvHist[0].e : 0;
+      for (let i = stormEnvHist.length - 1; i >= 0; i--) { if (stormEnvHist[i].t <= want) { e = stormEnvHist[i].e; break; } }
+      return e;
+    };
+    const breathe = 0.85 + 0.15 * Math.sin(2 * Math.PI * 0.5 * tNow);   // 0.5 Hz charge breathe (deterministic, pinnable)
+    const qGate = quality >= 1 ? 1 : 0.6;   // low adaptive quality softens the strike (photosensitivity headroom)
+    const fever = player.feverActive;
+    for (const m of stormArcMats) {
+      const u = m.userData;
+      const b = u.stormBucket || 0;
+      const hum = u.stormHum ?? 0.6, peak = u.stormPeak ?? 1.6, cap = u.stormCap ?? 2.0;
+      const env = envAt(b) * qGate;
+      let ei = hum * breathe + env * (peak - hum);
+      let hot = Math.max(0, (env - 0.85) / 0.15);   // the strike CORE hue-shifts d9deff→f2f4ff at the peak
+      if (fever) {
+        // Surge = "the Tempest breaks": continuous blaze toward the caps + a ≤3 Hz strobe alternating b1/b2
+        const strobe = b >= 1 ? 0.9 + 0.1 * Math.sin(2 * Math.PI * 3 * tNow + b * Math.PI) : 1;
+        ei = Math.max(ei, cap * strobe * (0.55 + 0.45 * surgeMix));
+        hot = Math.max(hot, surgeMix);
+      }
+      m.emissiveIntensity = Math.min(cap * 1.02, ei);
+      _stormBase.setHex(u.baseEmissive ?? 0xd9deff);
+      m.emissive.copy(_stormBase).lerp(_stormHot, Math.min(1, hot));
+    }
+    stormCoreKick = 1 + 0.5 * ss.env01;   // the sternum dynamo "turns over" on the strike (root bucket)
+  } else {
+    stormCoreKick = 1;
+  }
   // Violet core energy: pulses on boost, blazes + flashes on the Surge ignition.
   if (coreGlow) {
-    const cb = coreGlow.userData.base || 0.3;
+    const cb = (coreGlow.userData.base || 0.3) * stormCoreKick;
     const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
       : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4;   // PR-C: interior ember charges
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
