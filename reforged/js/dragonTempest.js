@@ -118,7 +118,13 @@ function tempestMats(def, glow = 1) {
   // stormHum = the idle base (humFloor·rel, the value-ladder weight); stormPeak = the strike
   // target (peakFloor·cap/2.4, so the apex form lands exactly on the cap and lower rungs scale
   // down). The tick reads these directly (no form lookup): ei = stormHum·breathe + env·(peak−hum).
-  const mkStorm = (m, bucket, cap, rel) => { m.userData.stormBucket = bucket; m.userData.stormCap = cap; m.userData.stormRel = rel; m.userData.stormHum = humFloor * rel; m.userData.stormPeak = Math.min(cap, peakFloor * cap / 2.4); return m; };
+  // BLOOM_SCALE: the pre-render caps (2.4/2.0) sit ABOVE the in-game bloom-saturation knee, so at
+  // idle the strip cores already clip white and the strike's extra emissive floods the SCENE bloom
+  // instead of punching the wire (Fable: "the strike reads as the weather changing, not the circuit
+  // firing"). Scaling hum + peak + cap by ONE factor keeps the strike:idle RATIO in band but drops
+  // the whole range below the knee, so the strike lands as a CORE brightening on the components.
+  const BLOOM_SCALE = 0.6;
+  const mkStorm = (m, bucket, cap, rel) => { const c = cap * BLOOM_SCALE; m.userData.stormBucket = bucket; m.userData.stormCap = c; m.userData.stormRel = rel; m.userData.stormHum = humFloor * rel * BLOOM_SCALE; m.userData.stormPeak = Math.min(c, peakFloor * c / 2.4); return m; };
   const mkArc = (col, mul, w, bucket, cap, rel) => { const m = std(col, { emissive: col, ei: humFloor * mul, rough: 0.45, metal: 0 }); m.userData.baseEmissive = col; m.userData.baseIntensity = humFloor * mul; m.userData.flareIntensityWeight = w ?? 0.5; return mkStorm(m, bucket, cap, rel); };
   const arcSeam = mkArc(0xd9deff, 2.4, 0.5, 1, 2.4, 1.00);   // the storm-white circuit (spine + sternum veins) — MID bucket
   const arcCore = mkArc(0xf2f4ff, 3.0, 0.5, 2, 2.0, 0.92);   // the ONE true near-white — vein cores + strike-peak tips — TIPS bucket
@@ -708,8 +714,8 @@ function buildStormforkWings(def, model, attach, _giM) {
   M.wingMat = M.boltTiers[0];
   M.edgeMat = new THREE.MeshStandardMaterial({ color: 0xc9d0e8, emissive: 0xd9deff, emissiveIntensity: M.humFloor * 0.6, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.55 });   // dimmer/thinner rim → cloud dominant in daylight (gate polish #2)
   M.edgeMat.envMapIntensity = 0.3; M.edgeMat.userData.baseEmissive = 0xd9deff; M.edgeMat.userData.baseIntensity = M.humFloor * 0.6;
-  M.edgeMat.userData.stormBucket = 2; M.edgeMat.userData.stormCap = 2.0; M.edgeMat.userData.stormRel = 0.85;   // TIPS bucket — the knife-edge rides the strike out to the wingtip
-  M.edgeMat.userData.stormHum = M.humFloor * 0.85; M.edgeMat.userData.stormPeak = Math.min(2.0, M.peakFloor * 2.0 / 2.4);   // rel 0.85 keeps the strike:idle ratio ≤4.0 at the dim f0 floor
+  { const BS = 0.6, cap = 2.0 * BS; M.edgeMat.userData.stormBucket = 2; M.edgeMat.userData.stormCap = cap; M.edgeMat.userData.stormRel = 0.85;   // TIPS bucket — the knife-edge rides the strike out to the wingtip
+    M.edgeMat.userData.stormHum = M.humFloor * 0.85 * BS; M.edgeMat.userData.stormPeak = Math.min(cap, M.peakFloor * cap / 2.4); }   // rel 0.85 keeps the ratio ≤4.0 at the dim f0 floor; BLOOM_SCALE drops the range below the bloom knee
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
