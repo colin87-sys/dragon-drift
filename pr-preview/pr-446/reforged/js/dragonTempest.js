@@ -86,10 +86,13 @@ function tempestMats(def, glow = 1) {
   const base = def.body ?? FLANK;                         // per-form charcoal (darkens up the ladder)
   const humFloor = 0.30 + 0.80 * (glow - 0.25);           // {0.25,0.5,0.75,1.0} glow → {0.30,0.50,0.70,0.90} hum
   const std = (color, opts = {}) => { const m = new THREE.MeshStandardMaterial({ color, emissive: opts.emissive ?? CLOUD_FLOOR, emissiveIntensity: opts.ei ?? 1.0, flatShading: true, roughness: opts.rough ?? 0.82, metalness: opts.metal ?? 0.03, side: THREE.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity ?? 1, depthWrite: opts.depthWrite ?? true }); m.envMapIntensity = 0.2; return m; };
-  // The DORSAL SHELL — near-black charcoal scale skin (spine darkest / mid dorsal / lit flank facet).
-  const spine = std(lerpHex(base, 0x05070c, 0.28));
-  const dorsal = std(base);                               // the bodyMat the rig ticks
-  const flank = std(lerpHex(base, 0x5a6472, 0.34));
+  // The DORSAL SHELL — a lit STEEL-SLATE scale skin in a 3-step value ladder (glow-up: kill flat-black —
+  // she must read as structure next to her own lightning, not one coal-black mass). spine = the dark
+  // shadow channel (a dark STEEL, not pure black); dorsal = a mid steel lift off the base; flank = a
+  // clearly-lit steel facet so the top-lit scales catch a highlight and the body carves.
+  const spine = std(lerpHex(base, 0x161d2c, 0.30));       // dark steel channel (was near-black 0x05070c)
+  const dorsal = std(lerpHex(base, 0x434f66, 0.16));      // the bodyMat the rig ticks — a mid steel lift
+  const flank = std(lerpHex(base, 0x76869f, 0.46));       // lit steel facet (brighter, wider spread)
   // THE PALE UNDERBELLY — DIFFUSE pale storm-slate `0x566384` (the reference's paler chest/belly),
   // lighter than the body but NOT emissive: the glow lives on the vein strips, and the soft halo is
   // ACES bloom off them (§4a: "a uniformly emissive belly surface" is deliberately NOT taken). Three
@@ -134,6 +137,12 @@ function tempestMats(def, glow = 1) {
   const mkArc = (col, mul, w, bucket, cap, rel) => { const m = std(col, { emissive: col, ei: humFloor * mul, rough: 0.45, metal: 0 }); m.userData.baseEmissive = col; m.userData.baseIntensity = humFloor * mul; m.userData.flareIntensityWeight = w ?? 0.5; return mkStorm(m, bucket, cap, rel); };
   const arcSeam = mkArc(0xd9deff, 2.4, 0.5, 1, 2.4, 1.00);   // the storm-white circuit (spine + sternum veins) — MID bucket
   const arcCore = mkArc(0xf2f4ff, 3.0, 0.5, 2, 2.0, 0.92);   // the ONE true near-white — vein cores + strike-peak tips — TIPS bucket
+  // arcBloom — the storm-blue PENUMBRA under each lightning filament (the glow-up: the wing bones stop
+  // being flat white tape and gain the Arc Crown's core→bloom→dark structure). A WIDE, DIM, RECESSED
+  // storm-blue skirt under the narrow white core so every strut reads white filament → blue haze → dark
+  // membrane, not a parallel-edged white strip. Held to the near-white ACCENT LANE (HSV-sat ≤0.16, §9):
+  // the falloff is carried by VALUE (dim + wide vs the bright narrow core), not by saturation.
+  const arcBloom = mkArc(0xd8e2ff, 1.5, 0.4, 1, 1.9, 0.72);  // the bluest in-lane storm-white, dimmer/lower than the core
   const crest = mkArc(0xd9deff, 2.0, 0.4, 1, 2.0, 0.85);     // the horn-crest strips (a step under the veins) — MID bucket
   // THE STORM-HEART dynamo core — the brightest node, on the coreGlow hook (transparent; opacity
   // ticked). Near-white, hum-lit; ≤15% of cruise emissive (the anti-lantern lock, §3.3). ROOT bucket.
@@ -154,7 +163,7 @@ function tempestMats(def, glow = 1) {
   // NEVER translucent/additive — the frame owns 100% of the light, the membrane emits nothing.
   const memBase = lerpHex(base, 0x05070c, 0.30);   // darker than the dorsal shell (the recessed floor)
   const boltTiers = [0.42, 0.28, 0.16, 0.05].map((f) => std(lerpHex(memBase, 0x6a7488, f), { emissive: 0x090c14, ei: 0.5, rough: 0.9, metal: 0 }));
-  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, crest, heartCore, recess, socketFloor, silverRim, boltTiers, humFloor, peakFloor };
+  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, arcBloom, crest, heartCore, recess, socketFloor, silverRim, boltTiers, humFloor, peakFloor };
 }
 
 // Deterministic hash jitter (index-seeded — never Math.random, so builds are reproducible).
@@ -258,7 +267,7 @@ function addDorsalRidge(push, stations, M, count) {
       const foot = 0.11 * fr + 0.03, wB = 0.05 * fr + 0.018, lean = 0.05 + 0.03 * (u % 2);
       const a = [0, at.y - 0.012, z - foot * 0.4], b = [0, at.y - 0.012, z + foot];   // short fore-aft footprint, raised H
       const glow = (u % 3 === 0) ? M.arcCore : M.arcSeam;   // brightest vane every 3rd (a value ladder down the rank)
-      stormSpike(push, 1, a, b, wB, 0.012, H, M.spine, glow, M.silverRim, 0.66);
+      stormSpike(push, 1, a, b, wB, 0.012, H, M.spine, glow, M.silverRim, 0.66, M.arcBloom);
       // the DEEP under-gap flanking the vane base → a charcoal recess (depth; the trough the spine
       // channel's glow pools into, never a strip on convexity).
       push(M.recess, [[-wB, at.y - 0.03, z + foot * 0.6], [-wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.012, z - foot * 0.4]],
@@ -513,7 +522,7 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
   // The near-white CIRCUIT mats go to stormArcMats — the storm tick (dragon.js §5d) is their
   // SINGLE writer (breathe + strikes + Surge). NOT flareMats (else-reset erases the tick) and
   // NOT spineMats (the warm cruise rim is poison for the 255° near-white family).
-  return { group, attach, spinePoints, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.crest, M.heartCore], mats: { bodyMat: M.dorsal }, coreGlow: core };
+  return { group, attach, spinePoints, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.arcBloom, M.crest, M.heartCore], mats: { bodyMat: M.dorsal }, coreGlow: core };
 }
 registerTorso('cumulonimbusTorso', buildCumulonimbusTorso);
 
@@ -547,17 +556,32 @@ const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, 
 // AND the tail's flame-tongue — same primitive, so all three read as the same lightning. stormWeld =
 // a small proud near-white HOUSING at a node (the carved-socket move → welded, not floating).
 // push(mat, ...tris) accumulates; the caller binds the target group/accumulator.
-function stormSpike(push, hs, a, b, wB, wT, lift, sideMat, glowMat, rimMat, cw = 0.76) {
+function stormSpike(push, hs, a, b, wB, wT, lift, sideMat, glowMat, rimMat, cw = 0.76, bloomMat = null) {
   const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len;
   const aL = [a[0] + px * wB, a[1], a[2] + pz * wB], aR = [a[0] - px * wB, a[1], a[2] - pz * wB];
   const bL = [b[0] + px * wT, b[1], b[2] + pz * wT], bR = [b[0] - px * wT, b[1], b[2] - pz * wT];
   const aT = [a[0], a[1] + lift, a[2]], bT = [b[0], b[1] + lift * 0.45, b[2]];
   if (sideMat) push(sideMat, [aL, bL, bT], [aL, bT, aT], [aR, aT, bT], [aR, bT, bR]);   // shadowed charcoal sides
   const up = 0.008 * hs;
-  const caL = [a[0] + px * wB * cw, a[1] + lift * 0.5 + up, a[2] + pz * wB * cw], caR = [a[0] - px * wB * cw, a[1] + lift * 0.5 + up, a[2] - pz * wB * cw];
-  const cbL = [b[0] + px * wT * cw, b[1] + lift * 0.24 + up, b[2] + pz * wT * cw], cbR = [b[0] - px * wT * cw, b[1] + lift * 0.24 + up, b[2] - pz * wT * cw];
-  const caT = [a[0], a[1] + lift + up, a[2]], cbT = [b[0], b[1] + lift * 0.45 + up, b[2]];
-  push(glowMat, [caL, cbT, caT], [caL, cbL, cbT], [caR, caT, cbT], [caR, cbT, cbR]);   // wide near-white glow cap
+  // a tent CAP at width-fraction `f` of the strut, peaking at (pkB·lift, pkT·lift) — reused for the
+  // wide dim bloom skirt and the narrow bright core so a bolt reads CORE→GLOW→DARK (the Arc Crown look).
+  const cap = (mat, f, pkB, pkT, u) => {
+    const caL = [a[0] + px * wB * f, a[1] + lift * pkB * 0.5 + u, a[2] + pz * wB * f], caR = [a[0] - px * wB * f, a[1] + lift * pkB * 0.5 + u, a[2] - pz * wB * f];
+    const cbL = [b[0] + px * wT * f, b[1] + lift * pkT * 0.24 + u, b[2] + pz * wT * f], cbR = [b[0] - px * wT * f, b[1] + lift * pkT * 0.24 + u, b[2] - pz * wT * f];
+    const caT = [a[0], a[1] + lift * pkB + u, a[2]], cbT = [b[0], b[1] + lift * pkT * 0.45 + u, b[2]];
+    push(mat, [caL, cbT, caT], [caL, cbL, cbT], [caR, caT, cbT], [caR, cbT, cbR]);
+    return cbT;
+  };
+  if (bloomMat) {
+    // GLOW-UP: not a flat white strip — a RECESSED white filament in a blue haze. The bloom is WIDE and
+    // LOW (fills the channel floor with blue); the core is NARROW and TAPERED and sits below the charcoal
+    // wall-tops (recessed, not proud), so the wall shadows flank a bright thread → a discharge, not tape.
+    cap(bloomMat, Math.min(1, cw + 0.22), 0.42, 0.18, up * 0.4);           // wide dim blue penumbra (channel floor)
+    const cbT = cap(glowMat, cw * 0.42, 0.66, 0.30, up);                    // narrow bright white filament (tapers to a needle at b)
+    if (rimMat) push(rimMat, [[a[0] + px * wB * cw * 0.14, a[1] + lift * 0.7 + up * 1.2, a[2] + pz * wB * cw * 0.14], cbT, [a[0] - px * wB * cw * 0.14, a[1] + lift * 0.7 + up * 1.2, a[2] - pz * wB * cw * 0.14]]);
+    return;
+  }
+  const cbT = cap(glowMat, cw, 1.0, 1.0, up);   // legacy single wide cap (call sites that don't pass a bloom)
   if (rimMat) push(rimMat, [[a[0] + px * wB * 0.16, a[1] + lift + up * 1.5, a[2] + pz * wB * 0.16], cbT, [a[0] - px * wB * 0.16, a[1] + lift + up * 1.5, a[2] - pz * wB * 0.16]]);
 }
 function stormWeld(push, hs, p, r, glowMat) {
@@ -583,7 +607,7 @@ function buildOneStormforkWing(M, dials) {
 
   // the wing's finger-strut = the shared stormSpike (charcoal sides + M.spine, near-white glow cap,
   // silver rim); housing = the shared stormWeld. group-bound so the batcher keeps its per-group draws.
-  const boltRidge = (g, a, b, wB, wT, lift, glowMat) => stormSpike((mat, ...t) => push(g, mat, ...t), hs, a, b, wB, wT, lift, M.spine, glowMat, M.silverRim);
+  const boltRidge = (g, a, b, wB, wT, lift, glowMat) => stormSpike((mat, ...t) => push(g, mat, ...t), hs, a, b, wB, wT, lift, M.spine, glowMat, M.silverRim, 0.72, M.arcBloom);
   const housing = (g, p, r) => stormWeld((mat, ...t) => push(g, mat, ...t), hs, p, r, M.arcCore);
 
   // ── THE SHORT ARM — a 2-bone stub, medial wrist K. The reference's leading frame BOWS FORWARD
@@ -611,8 +635,10 @@ function buildOneStormforkWing(M, dials) {
   const spars = [], forkNodes = [];
   for (let i = 0; i < N; i++) {
     const rowF = i / Math.max(1, N - 1) * (FAN.length - 1), ri = Math.min(FAN.length - 2, Math.floor(rowF)), f = rowF - ri;
-    const az = (FAN[ri][0] + (FAN[ri + 1][0] - FAN[ri][0]) * f) * D2R;
-    const L = L0 * (FAN[ri][1] + (FAN[ri + 1][1] - FAN[ri][1]) * f);
+    // glow-up: JITTER the fan azimuth ±3.5° and length ±7% off the even table so the rank reads as an
+    // organic irregular discharge, not a metronomic comb of equal strips (owner: "flat and regular").
+    const az = (FAN[ri][0] + (FAN[ri + 1][0] - FAN[ri][0]) * f) * D2R + (i === 0 ? 0 : wjit(i * 3 + 1, 3.5) * D2R);
+    const L = L0 * (FAN[ri][1] + (FAN[ri + 1][1] - FAN[ri][1]) * f) * (1 + (i === 0 ? 0 : wjit(i * 3 + 5, 0.07)));
     const dr = DROOP[Math.min(N - 1, Math.round(rowF))] * L;
     const tip = [K[0] + Math.cos(az) * L, K[1] - dr, K[2] + Math.sin(az) * L];   // XZ from azimuth; Y DROOPS (ventral cup)
     // the KNUCKLE at ~58%: forward-outboard bow in XZ (convex leading edge, Revenant) + a hard Y jog
@@ -622,14 +648,14 @@ function buildOneStormforkWing(M, dials) {
     // so the wrist bend is a soft knuckle (~19°) not a snap, and the hard aft sweep happens one joint out.
     const kn = 0.58, bow = (i === 0 ? 0.15 : 0.18) * clen, pfx = cdz / clen, pfz = -cdx / clen, yj = (i === 0 ? -0.02 : (i % 2 ? 1 : -1) * 0.05) * L;
     const Bm = [K[0] + cdx * kn + pfx * bow, K[1] + (tip[1] - K[1]) * kn + yj, K[2] + cdz * kn + pfz * bow];
-    const wB = 0.055 * hs * (1 - 0.05 * i) + 0.004, wM = wB * 0.66, lift = 0.075 * hs * (1 - 0.04 * i);
+    const wB = (0.055 * hs * (1 - 0.05 * i) + 0.004) * (i === 0 ? 1 : 1 + wjit(i * 3 + 9, 0.14)), wM = wB * 0.66, lift = 0.075 * hs * (1 - 0.04 * i);
     boltRidge(hand, K, Bm, wB, wM, lift, i === 0 ? M.arcCore : M.arcSeam);            // wrist → knuckle (strut 0 = brightest)
     boltRidge(hand, Bm, tip, wM, 0.008 * hs, lift * 0.7, i === 0 ? M.arcCore : M.arcSeam);   // knuckle → tip
     if (i > 0) housing(hand, Bm, 0.026 * hs * (1 - 0.06 * i));                        // carved knuckle housing (skip the leading strut → clean leading edge, less wrist clutter)
     spars.push([K, lerp3(K, Bm, 0.5), Bm, lerp3(Bm, tip, 0.5), tip]);                 // NS+1 welded samples along the kinked path
     // FORK the OUTER struts near the tip (the reference's forked branches) — a bright prong splaying aft.
     if (i >= N - forkN) {
-      const fp = lerp3(Bm, tip, 0.62), faz = az + 17 * D2R, fl = L * 0.30;
+      const fp = lerp3(Bm, tip, 0.55 + 0.14 * (wjit(i * 5 + 2, 1) * 0.5 + 0.5)), faz = az + (13 + 8 * Math.abs(wjit(i * 5, 1))) * D2R, fl = L * (0.26 + 0.08 * Math.abs(wjit(i * 5 + 4, 1)));
       const fTip = [fp[0] + Math.cos(faz) * fl, fp[1] - 0.05 * fl, fp[2] + Math.sin(faz) * fl];
       boltRidge(hand, fp, fTip, wM * 0.7, 0.006 * hs, lift * 0.6, M.arcCore);
       forkNodes.push(fp);
@@ -637,6 +663,13 @@ function buildOneStormforkWing(M, dials) {
         const sp = lerp3(fp, fTip, 0.55), saz = faz + 20 * D2R, sl = fl * 0.5;
         boltRidge(hand, sp, [sp[0] + Math.cos(saz) * sl, sp[1] - 0.04 * sl, sp[2] + Math.sin(saz) * sl], wM * 0.5, 0.005 * hs, lift * 0.5, M.arcCore);
       }
+    } else if (i > 0) {
+      // glow-up: EVERY inner strut (bar the clean leading strut) throws ONE short off-axis prong at a
+      // jittered position/angle/width → the whole rank forks like real lightning, not a bare fan.
+      const t = 0.52 + 0.22 * (wjit(i * 7 + 3, 1) * 0.5 + 0.5), pp = lerp3(K, tip, t);
+      const pdir = wjit(i * 7, 1) > 0 ? 1 : -1, paz = az + pdir * (9 + 9 * Math.abs(wjit(i * 7 + 1, 1))) * D2R, pl = L * (0.13 + 0.06 * Math.abs(wjit(i * 7 + 2, 1)));
+      const pTip = [pp[0] + Math.cos(paz) * pl, pp[1] - 0.035 * pl, pp[2] + Math.sin(paz) * pl];
+      boltRidge(hand, pp, pTip, wM * 0.52, 0.005 * hs, lift * 0.5, M.arcSeam);
     }
   }
   for (const fn of forkNodes) housing(hand, fn, 0.026 * hs);
@@ -764,7 +797,7 @@ function buildStormforkWings(def, model, attach, _giM) {
   // flareMats = the wing's hum-lit near-white GARMENT (strut frame + knife-edge) — held at humFloor by
   // the flare loop's else-branch in cruise, Surge-flared, warm-rim-exempt. The I4 storm tick takes
   // over as the single writer (breathing + strikes). NOT in spineMats (that gets the warm rim).
-  return { group, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.edgeMat], wingMat: M.wingMat,
+  return { group, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.arcBloom, M.edgeMat], wingMat: M.wingMat,
     parts: { ...pivots, wingElements } };
 }
 registerWings('stormforkWings', buildStormforkWings);
@@ -835,8 +868,8 @@ function buildStormbrowHead(def, model, mats) {
       const bx = side * (0.03 + 0.03 * p) * hs, base = [bx, 0.15 * hs, 0.30 * hs];
       const tip = [bx + side * Math.sin(azd) * h, base[1] + h, base[2] + 0.16 * hs];                 // rise (+Y) then a MODEST back-sweep (+Z)
       const Bm = [bx + side * Math.sin(azd) * h * 0.35, base[1] + h * 0.6, base[2] + 0.02 * hs];      // knuckle risen near-vertical, barely back
-      stormSpike(push, hs, base, Bm, w, w * 0.72, 0.02 * hs, M.spine, glowMat, M.silverRim);
-      stormSpike(push, hs, Bm, tip, w * 0.72, 0.005 * hs, 0.015 * hs, M.spine, M.arcCore, M.silverRim);   // tip segment brightest
+      stormSpike(push, hs, base, Bm, w, w * 0.72, 0.02 * hs, M.spine, glowMat, M.silverRim, 0.76, M.arcBloom);
+      stormSpike(push, hs, Bm, tip, w * 0.72, 0.005 * hs, 0.015 * hs, M.spine, M.arcCore, M.silverRim, 0.76, M.arcBloom);   // tip segment brightest
       stormWeld(push, hs, base, w * 1.2, glowMat);   // welded into the crown, never a floating antenna
     }
   }
@@ -876,7 +909,7 @@ function buildStormbrowHead(def, model, mats) {
   for (const [mat, tris] of byMat) group.add(flatTriMesh(tris, mat));
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.16 * hs, 0.20 * hs); group.add(motifAnchor);
   // flareMats = the crown/mane near-white garment (hum-lit); the eye is EXCLUDED (the fever firewall).
-  return { group, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.crest], motifAnchor, headLength };
+  return { group, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.arcBloom, M.crest], motifAnchor, headLength };
 }
 registerHead('stormbrowHead', buildStormbrowHead);
 
@@ -911,7 +944,7 @@ function buildVirgaTail(def, model, mats, anchor) {
   // per-(joint,material) accumulator → one mesh per joint per mat, all binned via chainAdd (whip-safe).
   const perJ = [];
   const pushJ = (z, mat, ...tris) => { const j = jointOf(z); let m = perJ[j]; if (!m) perJ[j] = m = new Map(); let arr = m.get(mat); if (!arr) m.set(mat, arr = []); for (const t of tris) arr.push(t); };
-  const spikeJ = (z, p0, p1, wB, wT, lift, sideMat, glowMat) => stormSpike((mat, ...t) => pushJ(z, mat, ...t), 1.0, p0, p1, wB, wT, lift, sideMat, glowMat, M.silverRim);
+  const spikeJ = (z, p0, p1, wB, wT, lift, sideMat, glowMat) => stormSpike((mat, ...t) => pushJ(z, mat, ...t), 1.0, p0, p1, wB, wT, lift, sideMat, glowMat, M.silverRim, 0.76, M.arcBloom);
 
   for (let j = 0; j < nChain; j++) { const i0 = jIdx(j), i1 = jIdx(j + 1); if (i1 > i0) chainAdd(stem[i0].z, tubeLoft(stem.slice(i0, i1 + 1), M.flank, false)); }
 
@@ -968,6 +1001,6 @@ function buildVirgaTail(def, model, mats, anchor) {
   // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
   for (let j = 0; j < nChain; j++) { const m = perJ[j]; if (!m) continue; for (const [mat, tris] of m) chainAdd(jAnchor(j).z, flatTriMesh(tris, mat)); }
 
-  return { group, segs: joints, stormArcMats: [M.crest, M.arcSeam, M.arcCore] };
+  return { group, segs: joints, stormArcMats: [M.crest, M.arcSeam, M.arcCore, M.arcBloom] };
 }
 registerTail('virgaTail', buildVirgaTail);

@@ -783,6 +783,9 @@ export const DRAGONS = {
     horn: 0x2a2f3c, scales: 0x2e3543,
     eye: 0xcfd8ff,
     apexEye: 0xd9deff, apexSeam: 0xd9deff, coreGlow: 0xd9deff, surgeHi: 0xe8ecff,
+    // Glow-up: a COLD storm-steel cruise rim (not the default warm cream) at a lifted base strength, so her
+    // charcoal reads OUTLINED with a cool identity against dark scenes instead of a flat-black silhouette.
+    rimCruise: 0x8bb4ff, rimCruiseBase: 0.78,
     trail: 0x7a84b8, boostTrail: 0xaab4e8,
   },
 

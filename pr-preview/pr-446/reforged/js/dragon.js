@@ -1351,12 +1351,15 @@ export function updateDragon(dt, player, time) {
   // toward the per-dragon Surge highlight during a surge. Strength scales with
   // the adaptive quality factor so the lowest tier softens it. (updateRim is a
   // no-op until the materials compile — registry fills on first render.)
-  _rimCol.setHex(0xfff0d8);
+  // Cruise rim hue is per-dragon: a warm cream by default, but a COLD storm-steel for the Tempest so her
+  // charcoal reads OUTLINED with a cool identity in cruise instead of a warm-lit generic silhouette
+  // (glow-up: kill the flat-black read; a storm dragon's edge must be cold, not cream).
+  _rimCol.setHex(activeDef.rimCruise ?? 0xfff0d8);
   if (surgeMix > 0.002) {
     _rimHi.setHex(activeDef.surgeHi || 0xff66cc);
     _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));
   }
-  const rimStrength = (0.5 + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality;
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality;
   updateRim(_rimCol, rimStrength);
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
