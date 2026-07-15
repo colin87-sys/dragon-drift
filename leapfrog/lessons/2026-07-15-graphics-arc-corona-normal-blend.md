@@ -4,7 +4,7 @@
 wingtip→sternum, `js/stormArcs.js`) failed its first harsh Fable checkpoint at **3.8/5**: the money
 arc's *path* was 4.5-grade (irregular midpoint-displacement, real kinks, rooted + occluded), but the
 *cross-section* was a cheap-tell — "white core → sky pink in 2 px, no colored corona." We took it back
-to **≥4.2** by fixing the five ranked tells; the biggest one is a reusable graphics law.
+to **4.3/5 (APPROVE)** by fixing the five ranked tells; the biggest one is a reusable graphics law.
 
 **THE LAW — additive light can only BRIGHTEN, so it can never grow a colored fringe over a bright
 background.** The halo was an ADDITIVE ribbon of pale blue (`0xd9deff`). Additive *adds* to the
