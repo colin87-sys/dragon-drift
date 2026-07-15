@@ -25,8 +25,11 @@ function loadPlaywright() {
 // reached via the dashboard hub. By default boot() skips the splash (calls the
 // __dd.toHub seam) so existing tests see the dashboard exactly as before. Pass
 // `splash: true` to leave the splash up and test it directly.
+// `player: true` boots WITHOUT the ?debug seams (window.__dd never appears on a
+// player boot) and waits for app-loaded instead — for asserting player-facing
+// state like the absence of dev chrome.
 export async function boot({ query = '?debug', initScript = null, splash = false,
-  viewport = { width: 900, height: 640 }, deviceScaleFactor = 1 } = {}) {
+  viewport = { width: 900, height: 640 }, deviceScaleFactor = 1, player = false } = {}) {
   const { chromium } = loadPlaywright();
   const srv = await serve();
   const browser = await chromium.launch();
@@ -36,8 +39,12 @@ export async function boot({ query = '?debug', initScript = null, splash = false
   page.on('pageerror', (e) => errors.push(String(e)));
   if (initScript) await page.addInitScript(initScript);
   await page.goto(srv.url + '/' + query);
-  await page.waitForFunction(() => !!window.__dd, { timeout: 15000 });
-  if (!splash) await page.evaluate(() => window.__dd.toHub && window.__dd.toHub());
+  if (player) {
+    await page.waitForFunction(() => document.body.classList.contains('app-loaded'), { timeout: 20000 });
+  } else {
+    await page.waitForFunction(() => !!window.__dd, { timeout: 15000 });
+    if (!splash) await page.evaluate(() => window.__dd.toHub && window.__dd.toHub());
+  }
   return {
     page, errors, url: srv.url,
     done: async () => { await browser.close(); srv.close(); },

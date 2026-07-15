@@ -120,6 +120,24 @@ function withLadderEmissive(mat) {
   return mat;
 }
 
+// The rock-run walls / arch / mouth share ONE glacier-tuned ice material so the run reads as
+// the SAME luminous ice as the biome side-props the owner loves (bergwall/serac use
+// color 0xbfdce6 + emissive 0x357088 @0.42 — a teal glow that survives backlight), instead of
+// the chalky near-white the ladder floored at (0xcfe4f0). Same self-lit ladder architecture
+// (withLadderEmissive folds the vColor ladder into emissive); only the HUES change, and only
+// on a per-instance CLONE — the shared mats.frostIce (gated hazards) is untouched. Pair with
+// bakeIceLadder(..., { stops: _WALL_LADDER }) so the diffuse ladder matches the glow.
+function glacierWallMat() {
+  const m = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
+  m.color.setHex(0xbfdce6);          // glacier body tint (was flat white)
+  m.emissive.setHex(0x357088);       // the props' EXACT saturated teal (not a lighter 0x4f8ea6): the
+                                     // saturation is what makes shadow-side faces carry teal and stay
+                                     // alive in backlight like the props (fake transmission), not the intensity
+  m.emissiveIntensity = 0.45;        // trimmed from 0.5 so the frost caps (×vColor) don't clip toward LED
+  m.roughness = 0.30; m.metalness = 0.08;   // pick up the same per-facet sun glints as the props
+  return m;
+}
+
 export function initObstacles(s) {
   scene = s;
   const bodyOpts = { flatShading: true, roughness: 0.4, metalness: 0.1 };
@@ -581,9 +599,16 @@ const _FROST = [0.82, 0.91, 0.99], _MIDICE = [0.36, 0.60, 0.75], _BELLY = [0.13,
 // orientation-invariant (frost = weathered rind, mid = fresh fracture plane, teal = deep
 // seam), so a spinning shard doesn't flicker its "sunlight" at the floor. Thresholds
 // default to the shipped bar/pillar values (byte-identical when called with no opts).
+// Glacier-tinted ladder stops for the ROCK-RUN walls/arch/mouth ONLY (pass via opts.stops):
+// mid nudged toward the side-props' luminous body (0xbfdce6), belly deepened toward their
+// teal glow (0x357088), frost kept near-white. This unifies the run with the biome props the
+// owner loves WITHOUT touching the shared hazard ladder (_FROST/_MIDICE/_BELLY, gated 4.4).
+const _WALL_LADDER = { frost: [0.84, 0.92, 0.99], mid: [0.42, 0.66, 0.78], belly: [0.10, 0.34, 0.44] };
+
 function bakeIceLadder(geo, opts = {}) {
   const ax0 = opts.ax ?? 0, ay0 = opts.ay ?? 1, az0 = opts.az ?? 0;
   const frostT = opts.frostT ?? 0.35, tealT = opts.tealT ?? -0.30;
+  const S = opts.stops, F = S ? S.frost : _FROST, M = S ? S.mid : _MIDICE, B = S ? S.belly : _BELLY;
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
   const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
@@ -591,7 +616,7 @@ function bakeIceLadder(geo, opts = {}) {
     ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
     e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
     const d = nr.x * ax0 + nr.y * ay0 + nr.z * az0;
-    const c = d > frostT ? _FROST : d < tealT ? _BELLY : _MIDICE;
+    const c = d > frostT ? F : d < tealT ? B : M;
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = c[0]; col[o + 1] = c[1]; col[o + 2] = c[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -1183,8 +1208,8 @@ export function buildCanyonWallMass(hw = 6, hz = 4, { crest = true, family = 0, 
   const parts = frozenWallParts(hw, hz, h, botY, channelSign, crest, family, rng);
   // frostT 0.30 (vs the shipped 0.35): the battered upper faces tip into frost, giving a
   // base-mid→top-frost gradient ON the face instead of one flat mid. Wall-bake only.
-  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
-  const mat = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
+  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
+  const mat = glacierWallMat();
   return new THREE.Mesh(geo, mat);
 }
 
@@ -1282,7 +1307,7 @@ function buildRockGap(o, e) {
       // (box() below) is UNCHANGED — the visible ice covers it (wallColliderCoverage).
       const fam = (e.wallCount = (e.wallCount || 0) + 1);
       const parts = frozenWallParts(hw, hzCol, h, botY, Math.sign(lean) || 1, crest, fam, rng);
-      merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
+      merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
       parts.forEach((g) => g.dispose());
     } else {
       const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
@@ -1306,7 +1331,7 @@ function buildRockGap(o, e) {
     // THROUGH it (the fix for "blind at boost speed"). Floored so it never fully
     // vanishes — it has a collider. Frozen uses the self-lit ladder ice (re-wrapped
     // after clone so onBeforeCompile survives); other biomes the flat body clone.
-    const smat = bi === 2 ? withLadderEmissive(mats.frostIce.clone()) : mats.body[bi].clone();
+    const smat = bi === 2 ? glacierWallMat() : mats.body[bi].clone();
     smat.transparent = true; smat.depthWrite = false; smat.userData.perInstance = true;
     const m = new THREE.Mesh(merged, smat);
     m.position.set(cx, 0, z);
@@ -1557,9 +1582,9 @@ function buildRockGap(o, e) {
     // Geometry (pillars + beam / ridge) + the collider box come from the shared module builder
     // so the ringClearance() audit measures this EXACT mesh. Caller owns bake/merge/material.
     const { parts, box: cb } = overunderMassParts(shelf, { gx, gy, H, T, ouHalf, rng });
-    const merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
+    const merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
     parts.forEach((g) => g.dispose());
-    const amat = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
+    const amat = glacierWallMat();
     amat.transparent = true; amat.depthWrite = false; amat.userData.perInstance = true;
     group.add(new THREE.Mesh(merged, amat));
     (e.spireFades || (e.spireFades = [])).push({ mat: amat, dist: o.dist, floor: 0.75 });
@@ -1604,9 +1629,9 @@ function buildRockGap(o, e) {
         parts.push(g);
       }
     }
-    const merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
+    const merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
     parts.forEach((g) => g.dispose());
-    const mmat = withLadderEmissive(mats.frostIce.clone());
+    const mmat = glacierWallMat();
     mmat.transparent = true; mmat.depthWrite = false; mmat.userData.perInstance = true;
     const mesh = new THREE.Mesh(merged, mmat); mesh.position.z = 0;
     group.add(mesh);
