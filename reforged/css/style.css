@@ -415,12 +415,17 @@ body[data-qtier="2"] .hud-sew { display: none; }
    lower-RIGHT so it never collides with the lower-third reveal/felled cards or
    the bottom-centre boss-note. Non-blocking. Slides in, holds, flashes its
    capture/survive result. */
+/* EMBERSIGHT H5 re-chrome (§B.9): folded into the grammar — a smoked slug body, a
+   role-locked MAGENTA left hairline (boss set-pieces = danger), and a caret timer.
+   The protected animations (bc-in / bc-capture / bc-survive / the timer tick) and the
+   per-boss accent glow are untouched — only the skin changes. */
 .boss-card { position: fixed; right: 14px; bottom: 15%; z-index: 41; pointer-events: none;
-  min-width: 156px; max-width: 46vw; padding: 8px 12px; text-align: right;
-  border-right: 3px solid var(--bc-accent, #fff);
-  background: linear-gradient(90deg, rgba(8,6,14,0) 0%, rgba(8,6,14,0.62) 60%);
+  min-width: 156px; max-width: 46vw; padding: 8px 12px 8px 14px; text-align: right;
+  border-left: 2px solid rgba(255, 43, 106, 0.92);
+  border-radius: var(--r-s);
+  background: linear-gradient(90deg, rgba(10,7,12,0.5) 0%, rgba(8,6,14,0.62) 100%);
   opacity: 0; transform: translateX(18px);
-  box-shadow: inset -18px 0 22px -18px var(--bc-accent, #fff); }
+  box-shadow: -1px 0 0 rgba(0,0,0,0.6), inset 12px 0 20px -16px rgba(255,43,106,0.6); }
 .boss-card.show { opacity: 1; transform: translateX(0); transition: opacity .28s ease, transform .28s ease; }
 .bc-label { font: 800 10px/1 'Russo One', system-ui, sans-serif; letter-spacing: 0.26em;
   color: var(--bc-accent, #fff); opacity: 0.9; text-shadow: 0 0 8px var(--bc-accent, #fff); }
@@ -430,6 +435,10 @@ body[data-qtier="2"] .hud-sew { display: none; }
   letter-spacing: 0.06em; color: #fff; text-shadow: 0 0 12px var(--bc-accent, #fff), 0 2px 8px #000; }
 .bc-timer { margin-top: 3px; font: 800 13px/1 'Russo One', system-ui, sans-serif; letter-spacing: 0.1em;
   color: #ffe9b8; opacity: 0.85; text-shadow: 0 2px 8px #000; }
+/* the caret timer: a small magenta count-down caret leads the readout */
+.bc-timer::before { content: ''; display: inline-block; width: 0; height: 0; margin-right: 5px;
+  vertical-align: 1px; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  border-right: 5px solid rgba(255,43,106,0.9); }
 .bc-timer[data-low="1"] { color: #ff6a6a; animation: bc-tick 0.5s ease-in-out infinite; }
 @keyframes bc-tick { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
 .boss-card.bc-in { animation: bc-in 0.32s ease-out; }
@@ -949,6 +958,82 @@ body.hud-immersive #hud .stamina-arc.sealed {
 /* Final-instant blink at ~2.9Hz (under the 3Hz photosensitivity guideline), soft brightness swing. */
 #reticle.lens2.threat-hot .rchevs { animation: chev-blink 0.34s steps(1) infinite; }
 @keyframes chev-blink { 0%, 100% { filter: brightness(1.45); } 50% { filter: brightness(0.7); } }
+
+/* ============ EMBERSIGHT H5 — THE MEWS PLATE (boss HP bar, §B.9) ============
+   Bottom-centre, slotted ABOVE .boss-note's band. 1px hairline housing, a 5px
+   magenta-warm fill (transform:scaleX — rule d, never width) with a drain-lag gold
+   chunk behind it, phase notches from def.phases[].atFrac, and a nameplate whose
+   type ramp mirrors the protected title card (name --fs-title Russo caps + epithet
+   --fs-micro caps — card→plate is one voice). The housing ETCHES in stroke-by-stroke
+   (stroke-dashoffset, the hud-sew grammar) synced to the title card. All motion is
+   transform / opacity / dashoffset — no layout-prop animation. */
+.mews-plate { position: fixed; left: 50%; bottom: 45%;
+  transform: translateX(-50%) scale(var(--hud-scale)); transform-origin: bottom center;
+  width: min(46vw, 420px); z-index: 41; pointer-events: none;
+  opacity: 0; transition: opacity var(--t-ui) var(--ease-out);
+  --mp-mag: 255, 43, 106; --mp-gold: 255, 216, 106; }
+.mews-plate.show { opacity: var(--hud-alpha); }
+.mp-name { display: flex; align-items: baseline; justify-content: center; gap: 8px;
+  margin-bottom: 4px; text-align: center; white-space: nowrap; }
+.mp-title { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-title);
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--rf-ink);
+  text-shadow: 0 0 12px rgba(var(--mp-mag), 0.4), 0 2px 8px #000; line-height: 1; }
+.mp-epithet { font-family: 'Rajdhani', var(--font-display); font-weight: 700;
+  font-size: var(--fs-micro); letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(var(--mp-mag), 0.92); text-shadow: 0 1px 4px #000; }
+/* the bar: a smoked housing with the etched hairline outline on top */
+.mp-bar { position: relative; height: 7px; border-radius: 3px;
+  background: rgba(12, 8, 6, 0.42); overflow: hidden; }
+.mp-etch { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible;
+  fill: none; pointer-events: none; z-index: 3; }
+.mp-etch path { stroke: var(--rf-stroke-hi); stroke-width: 1;
+  filter: drop-shadow(0 0.5px 0 rgba(0,0,0,0.7));   /* dual-stroke keyline */
+  stroke-dasharray: 100; stroke-dashoffset: 100; }
+.mews-plate.etch .mp-etch path { animation: mp-etch 0.8s cubic-bezier(.55,0,.3,1) forwards; }
+@keyframes mp-etch { to { stroke-dashoffset: 0; } }
+/* fill + drain: both scaleX from the LEFT edge (transform-origin), never width */
+.mp-fill, .mp-drain { position: absolute; left: 0; top: 1px; bottom: 1px; width: 100%;
+  transform-origin: left center; border-radius: 2px; }
+.mp-drain { transform: scaleX(1); z-index: 1;
+  background: linear-gradient(90deg, rgba(var(--mp-gold), 0.95), rgba(255, 180, 70, 0.95)); }
+.mp-fill { transform: scaleX(1); z-index: 2;
+  background: linear-gradient(90deg, rgba(var(--mp-mag), 0.98), rgba(255, 110, 90, 0.96));
+  box-shadow: 0 0 8px rgba(var(--mp-mag), 0.5);
+  transition: transform var(--t-micro) linear; }
+/* the re-forge shimmer (formLifebars refill): a bright band sweeps L→R once — reads
+   "new bar", never healing. Transform-only (translateX of a masked gloss). */
+.mp-fill::after { content: ''; position: absolute; inset: 0; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,240,220,0.85), transparent);
+  transform: translateX(-120%); opacity: 0; }
+.mews-plate.reforge .mp-fill::after { animation: mp-reforge 0.62s ease-out; }
+@keyframes mp-reforge { 0% { transform: translateX(-120%); opacity: 1; } 100% { transform: translateX(120%); opacity: 0; } }
+/* phase notches (from def.phases[].atFrac): thin dark dividers, positioned by left% */
+.mp-notches { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.mp-notches i { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px;
+  background: rgba(6, 4, 8, 0.9); box-shadow: 0 0 0 0.5px rgba(255,255,255,0.12); }
+/* DLZ column (§B.9, ?dlz=1 ONLY — a cut-first luxury; never renders without the flag) */
+.mp-dlz { display: none; position: absolute; right: -14px; top: 0; bottom: 0; width: 10px;
+  flex-direction: column-reverse; gap: 2px; z-index: 3; }
+.mews-plate.dlz .mp-dlz { display: flex; }
+.mp-dlz i { flex: 1; border-radius: 1px; background: rgba(var(--mp-mag), 0.25);
+  border: 0.5px solid rgba(var(--mp-mag), 0.4); }
+.mp-dlz i.f { background: rgba(var(--mp-mag), 0.9); }
+.mp-dlz i.ashen { background: rgba(150,160,175,0.4); border-color: rgba(150,160,175,0.5); }
+/* off-screen threat chevrons (§B.9): a pool of 4, riding the screen edge at the boss's
+   projected bearing, alpha off bossCharge01(). translate3d + rotate, transform-only. */
+.mp-chev { position: fixed; left: 0; top: 0; width: 26px; height: 26px; z-index: 40;
+  margin: -13px 0 0 -13px; pointer-events: none; opacity: 0; will-change: transform;
+  color: rgba(var(--mp-mag), 0.95); filter: drop-shadow(0 0 4px rgba(var(--mp-mag), 0.7)); }
+.mp-chev svg { width: 100%; height: 100%; fill: currentColor; }
+@media (prefers-reduced-motion: reduce) {
+  .mews-plate.etch .mp-etch path { animation: none; stroke-dashoffset: 0; }
+  .mews-plate.reforge .mp-fill::after { animation: none; }
+  .mp-fill { transition: opacity var(--t-micro) linear; }
+}
+/* portrait: the plate widens + the nameplate stacks above the bar (§C) */
+@media (orientation: portrait) {
+  .mews-plate { width: 82vw; bottom: 40%; }
+}
 
 /* ============ AUDIO / PAUSE BUTTON ============ */
 .audio-btns { display: none; }

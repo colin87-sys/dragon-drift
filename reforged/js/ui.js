@@ -599,7 +599,7 @@ export const ui = {
            enterFight; the TIMING is the layering guarantee. -->
       <svg class="hud-sew" id="hud-sew" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="boss-warn" id="boss-warn">
-        <div class="boss-warn-alert">⚠ WARNING ⚠</div>
+        <div class="boss-warn-alert">${ICONS.warn} WARNING ${ICONS.warn}</div>
         <div class="boss-warn-name" id="boss-warn-name"></div>
       </div>
       <div class="boss-danger" id="boss-danger">DANGER</div>

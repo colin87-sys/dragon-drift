@@ -32,6 +32,9 @@ export const ICONS = {
   // get consistent line-icon replacements in the established style.
   lock:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="10" height="7.5" rx="1.6"/><path d="M6 8V6a3 3 0 0 1 6 0v2"/></svg>',
   close:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5l9 9M13.5 4.5l-9 9"/></svg>',
+  // EMBERSIGHT H5 — the stroked WARNING triangle (§B.9): retires the ⚠ emoji on
+  // the boss WARNING + spell card. Bang inside a rounded triangle, currentColor.
+  warn:     '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2 22 20.2H2z"/><path d="M12 9.5v4.4"/><path d="M12 17.2h.01"/></svg>',
   chevL:    '<svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3.5L5.5 9l5.5 5.5"/></svg>',
   chevR:    '<svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5L12.5 9 7 14.5"/></svg>',
   chevD:    '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7L9 12.5 14.5 7"/></svg>',

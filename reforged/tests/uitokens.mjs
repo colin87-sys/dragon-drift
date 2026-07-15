@@ -60,7 +60,7 @@ const FS_ALLOWLIST = [cssFile, 'js/'];      // Phase 0: everything exempt (dorma
 const TRACK_ALLOWLIST = [cssFile, 'js/'];   // Phase 0: everything exempt (dormant)
 // Phase 1+: files MIGRATED and armed even while a broader prefix stays exempt.
 // New UI files are born migrated — add them here on creation.
-const ENFORCED = ['js/splash.js', 'js/uiSound.js', 'js/icons.js', 'js/hudState.js'];
+const ENFORCED = ['js/splash.js', 'js/uiSound.js', 'js/icons.js', 'js/hudState.js', 'js/bossBar.js'];
 // Selector-level sanction (§A.1): the wordmark family keeps its bespoke sizes on
 // migrated screens. Matched against the ~2 lines of context around a violation.
 const WORDMARK_EXCEPTION = /splash-title|hero-wordmark|load-hint h1/;
@@ -180,7 +180,7 @@ const NAVY_BASELINE = {
 // HUD selector families (grepped from style.css): hud-*, boss-*, surge-*,
 // lock*, race-*, lens2*, flow-crest, reticle, the vitals .bar/.bar-fill,
 // hearts. Layout/paint props next to the 60fps canvas are the §A.4 kill list.
-const HUD_RE = /(^|[\s,>+~(:])\.(hud-[\w-]*|boss[\w-]*|surge[\w-]*|lock[\w-]*|race-[\w-]*|lens2[\w-]*|flow-crest[\w-]*|reticle[\w-]*|bar(-fill)?|hearts?|bell[\w-]*|tape[\w-]*|tally[\w-]*|gauntlet[\w-]*|stamina[\w-]*|arc-[\w-]*|vigil[\w-]*|vg-[\w-]*|vignette[\w-]*|popup[\w-]*|dmg[\w-]*|g-[\w-]*|gd-[\w-]*|pip[\w-]*|health-hearts)\b/;
+const HUD_RE = /(^|[\s,>+~(:])\.(hud-[\w-]*|boss[\w-]*|surge[\w-]*|lock[\w-]*|race-[\w-]*|lens2[\w-]*|flow-crest[\w-]*|reticle[\w-]*|mews[\w-]*|mp-[\w-]*|rsq|rsnap|rchevs|bar(-fill)?|hearts?|bell[\w-]*|tape[\w-]*|tally[\w-]*|gauntlet[\w-]*|stamina[\w-]*|arc-[\w-]*|vigil[\w-]*|vg-[\w-]*|vignette[\w-]*|popup[\w-]*|dmg[\w-]*|g-[\w-]*|gd-[\w-]*|pip[\w-]*|health-hearts)\b/;
 const LAYOUT_PROP = /(^|[\s;,])(max-|min-)?(width|height|top|left|right|bottom|margin[\w-]*|padding[\w-]*|box-shadow)\s*[\s:,]/;
 
 // Pre-existing violations, documented — NOT a license for new ones.
