@@ -181,16 +181,13 @@ Disposition of the critique's top-10 weaknesses: #1→U1 · #2→U3 · #3→U4 �
   graze block ~788; pattern at `css/style.css:157-162`).
 - Wallet numbers via `toLocaleString` everywhere (`ui.js:1562` vs pilot).
 - Trim the hub's control-dump line (redundant with the gesture tutorial).
-- The splash slogan "◆ it's a skill issue ◆" (`js/splash.js:51`): tonal whiplash under a
-  premium gold wordmark. **Owner-approved: REPLACE** (decision recorded 2026-07-14; the
-  owner delegated the call and accepted the replace recommendation). The committed line is
-  **"◆ born of ember · forged in flight ◆"** — earnest, on the dragon-flight fantasy, ties
-  the ember currency + the EMBERLINE language to the wordmark it sits under, and avoids
-  repeating "skies" from the tagline below it. Same slot, same chrome: keep the ◆ frame,
-  the italic Rajdhani `.splash-slogan` styling (style.css:1976–1985) and its breathe
-  animation untouched — swap only the text at `splash.js:51`
-  (`&#9670;&ensp;born of ember &middot; forged in flight&ensp;&#9670;`). No test pins the
-  old string (audit-verified), so nothing else changes.
+- The splash slogan **"◆ it's a skill issue ◆" STAYS — final owner decision, do not
+  re-litigate.** History: the critique flagged it as tonal whiplash; the owner first
+  delegated the call (a replacement, "born of ember · forged in flight", briefly shipped
+  in Phase 0), then saw it on the preview and **chose the original** (2026-07-15). The
+  irreverent line is the game's voice, deliberately set against the premium chrome —
+  treat it as a protected feature, same class as the §D credits. Slot/chrome unchanged
+  (`splash.js:51`, `.splash-slogan` at style.css:1976–1985).
 
 ### U2 — The EMBERLINE constitution — **M / low / no deps**
 **Payoff:** the §A token sheet lands as CSS variables **coexisting** with old values (zero
@@ -518,8 +515,9 @@ corrected the plan in place. What changed:
   visible effect is on landscape/desktop.
 - **§A.2 navy list extended** with audit finds: revive offer, hint pill, race-bar,
   celebrate scrim, `.hero-gear:hover`, load-bar, inspect chrome, `.screen` base radial.
-- **U1:** buildstamp claim verified true (`boot()` defaults to `?debug`); slogan decision
-  recorded — owner-approved REPLACE with "◆ born of ember · forged in flight ◆".
+- **U1:** buildstamp claim verified true (`boot()` defaults to `?debug`); slogan: the
+  audit-era replace decision was OVERTURNED on preview — the owner keeps "it's a skill
+  issue" (final, protected; see U1).
 - **U7:** wrong emoji call-site lines fixed (`♪` is at ui.js:1791/2157/1325, not 1637;
   `⚠` markup at ui.js:535; added the 1682 rush-chip 🔒).
 - **U9:** added the real plumbing facts — WebGL bar in `bossKit.js:108-138` (already has

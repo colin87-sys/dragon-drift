@@ -17,3 +17,12 @@ check('no console errors', errors.length === 0);
 
 console.log(`  (stamp: "${stamp}", sw VERSION: ${swVersion})`);
 await done();
+
+// U1 (UI-PREMIUM-OVERHAUL): the stamp is dev chrome — it must NOT render for
+// players (no ?debug). The console line still prints for support diagnostics.
+const clean = await boot({ query: '', player: true });
+await clean.page.waitForTimeout(500);
+const stampless = await clean.page.$('#build-stamp');
+check('build stamp is absent without ?debug', stampless === null);
+check('no console errors (player boot)', clean.errors.length === 0);
+await clean.done();
