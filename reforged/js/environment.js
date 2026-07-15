@@ -827,6 +827,11 @@ export function buildArchetypeMesh(key, opts = {}) {
 export function frozenPropKeys() {
   return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(2)).map(([k]) => k);
 }
+// Emberfall Caldera studio keys (the live volcanic kit — colonnata + roster as it lands;
+// `?props=v1` swaps in the legacy basalt/vent). Same drift-proof filter as Frozen.
+export function calderaPropKeys() {
+  return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(3)).map(([k]) => k);
+}
 
 // --- Lane-clearance audit seam (tools/propclearance.mjs) — BEHAVIOR-INERT ------
 // For every archetype: the object-space max XZ radial extent ρ (the true reach
