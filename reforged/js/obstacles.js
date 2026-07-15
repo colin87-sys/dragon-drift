@@ -1080,6 +1080,100 @@ export function wallColliderCoverage() {
   return { ok: issues.length === 0, issues };
 }
 
+// Build the Frozen OVERUNDER mass — a calved-ice ceiling GATEWAY (post-and-lintel) or a floor
+// pressure-RIDGE — as geometry parts + the collider box it must respect. Shared by the live
+// builder (iceArch, inside buildRockGap) and the headless ringClearance() audit, so the audit
+// measures the REAL visible geometry, not a restatement of constants. World-space around
+// (gx, gy). The ring sits at (gx, gy); the beam bottom (ceiling) / ridge top (floor) is pinned
+// to the collider face and jags AWAY from the ring, so visible ice never overshoots the collider
+// toward the reward ring. Caller bakes/merges/materials; this only shapes + reports the box.
+export function overunderMassParts(shelf, { gx = 0, gy = 9, H = CONFIG.canyonGapH, T = 4, ouHalf = 17, rng }) {
+  const ceiling = shelf !== 'floor';
+  const midY = ceiling ? gy + H + 3 : gy - H - 3;   // collider centre (UNCHANGED from the old lump)
+  const hh = 3, bot = -3;                            // collider half-height / sea surface
+  const parts = [];
+  let famN = 0; const fam = () => (famN += 1);
+  if (ceiling) {
+    const underY = midY - hh;                        // collider lower face — ice never dips below this
+    const topY = midY + hh;                           // collider upper face (beam must cover to here)
+    const beamThick = (topY - underY) + 0.8;          // ≥ collider thickness (+cover margin)
+    const pierH = (topY + 2.5) - bot;
+    for (const sgn of [-1, 1]) {
+      const pierX = gx + sgn * (ouHalf + 2.8);
+      const pp = frozenWallParts(2.8, 3.2, pierH, bot, -sgn, true, fam(), rng);
+      pp.forEach((g) => { g.translate(pierX, 0, (rng() - 0.5) * T * 0.4); parts.push(g); });
+    }
+    const half = ouHalf + 3.0, span = 2 * half, nb = 5, bw = span / nb;
+    for (const zr of [0.55, -0.55]) {                 // front + back rows → mass edge-on
+      for (let i = 0; i < nb; i++) {
+        const bx = gx - half + (i + 0.5) * bw;
+        const u = (i / (nb - 1)) * 2 - 1;              // −1..1 across the span
+        const bh = beamThick + 1.4 * (1 - u * u);      // low crown, flat bottom
+        const g = shearBoxGeo(bw * 1.18, bh, T * 1.4, (rng() - 0.5) * 0.22, (rng() - 0.5) * 0.14);
+        g.translate(bx + (rng() - 0.5) * 0.4, underY + bh / 2, zr * T + (rng() - 0.5) * T * 0.12);
+        parts.push(g);
+      }
+    }
+    for (let i = 0; i < 3; i++) {                      // fat crown caps over the centre
+      const cw = bw * 1.5, cx = gx + (i - 1) * cw * 0.8, ch = (i === 1 ? 3.6 : 3.0) + rng() * 1.0;
+      const g = shearBoxGeo(cw, ch, T * 1.6, (rng() - 0.5) * 0.3, (rng() - 0.5) * 0.2);
+      g.translate(cx, underY + beamThick + ch * 0.4, (rng() - 0.5) * T * 0.2);
+      parts.push(g);
+    }
+  } else {
+    const topY = midY + hh;                            // collider upper face — ice caps here, jags DOWN only
+    const half = ouHalf + 1.2, span = 2 * half, nb = 6, bw = span / nb;
+    for (const zr of [0.5, -0.5]) {
+      for (let i = 0; i < nb; i++) {
+        const bx = gx - half + (i + 0.5) * bw;
+        const u = (i / (nb - 1)) * 2 - 1;
+        const bh = (topY - bot) * (0.8 + 0.2 * (1 - u * u));   // crowned ridge, ≤ full height
+        const g = shearBoxGeo(bw * 1.18, bh, T * 1.45, (rng() - 0.5) * 0.3, (rng() - 0.5) * 0.15);
+        g.translate(bx + (rng() - 0.5) * 0.4, topY - bh / 2, zr * T + (rng() - 0.5) * T * 0.12);  // pin TOP, jag down
+        parts.push(g);
+      }
+    }
+  }
+  return { parts, box: { cx: gx, cy: midY, hw: ouHalf, hh, hz: T }, ceiling };
+}
+
+// FAIRNESS/POLISH check for the overunder: the visible ice must not overshoot its collider
+// TOWARD the reward ring (owner: "rings appear inside the rock ... needs clearance"). The
+// collider is frozen (gameplay), so the achievable contract is "visible ice ≤ collider face
+// toward the ring" — the beam bottom (ceiling) / ridge top (floor) is pinned to the collider
+// face and jags away, so nothing dips into the ring beyond the collider's own ~0.08u graze
+// (which the frozen collider already had). We measure the REAL merged geometry (via the shared
+// overunderMassParts), sampling only the ring's x/z footprint so the sea-rooted pillars (far
+// out in x, legitimately full-height) don't false-fail. The OLD lump overshot ~0.8u here.
+export function ringClearance() {
+  if (!mats) initObstacles({ add() {}, remove() {} });
+  const gy = 9, H = CONFIG.canyonGapH, R = CONFIG.ringRadius + 0.38;  // ring outer radius (tube 0.38)
+  const foot = R + 0.6;                                               // ring x/z footprint to sample
+  const issues = [];
+  const worst = {};
+  for (const shelf of ['ceiling', 'floor']) {
+    let overshoot = -Infinity;
+    for (let s = 1; s <= 8; s++) {                                    // sweep jitter seeds → worst case
+      const rng = mulberry32((s * 2654435761) >>> 0);
+      const { parts, box: cb } = overunderMassParts(shelf, { gx: 0, gy, H, T: 4, ouHalf: 17, rng });
+      let minY = Infinity, maxY = -Infinity;
+      for (const g of parts) {
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          if (Math.abs(p.getX(i)) < foot && Math.abs(p.getZ(i)) < foot) { const y = p.getY(i); if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        }
+        g.dispose();
+      }
+      const colBottom = cb.cy - cb.hh, colTop = cb.cy + cb.hh;
+      const ov = shelf === 'ceiling' ? (colBottom - minY) : (maxY - colTop);  // >0 = ice past collider toward ring
+      if (Number.isFinite(ov)) overshoot = Math.max(overshoot, ov);
+    }
+    worst[shelf] = overshoot;
+    if (overshoot > 0.05) issues.push(`${shelf} visible ice overshoots collider toward ring by ${overshoot.toFixed(2)}u`);
+  }
+  return { ok: issues.length === 0, issues, worst };
+}
+
 // Inert STUDIO export — build one Frozen wall mass in isolation (Fable checkpoint before
 // wiring into the canyon). Mirrors the in-canyon material path (self-lit ladder, faded).
 export function buildCanyonWallMass(hw = 6, hz = 4, { crest = true, family = 0, seed = 1, lean = 0.06 } = {}) {
@@ -1239,18 +1333,24 @@ function buildRockGap(o, e) {
         const faceX = cx + 0.95 * hw * chSign;          // channel face of the mass
         const cy = 8 + rng() * 3, sz = z + (rng() - 0.5) * hzCol * 0.5;
         const tilt = chSign * (0.2 + rng() * 0.15);
-        // dark recess backing (opaque, faces the channel)
-        const back = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 5.6).rotateY(chSign * Math.PI / 2), mats.frostShadow);
+        // dark recess backing (opaque, faces the channel) — frames the wider glow pair.
+        const back = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 5.8).rotateY(chSign * Math.PI / 2), mats.frostShadow);
         back.position.set(faceX + chSign * 0.02, cy, sz); back.rotation.z = tilt;
         group.add(back);
-        // two collinear glow slivers (a fracture propagates), proud, faded WITH the wall
-        const gmat = mats.frostGlow.clone(); gmat.transparent = true; gmat.depthWrite = false; gmat.userData.perInstance = true;
+        // Two collinear glow slivers (a fracture propagates). WIDER (1.1) and PROUDER (0.18 vs
+        // the 0.02 backing) so at the range they're actually visible they have real pixel
+        // coverage and no depth ambiguity with the backing (killing the distant "flickery
+        // stick-line"). DISTANCE-LOD: instead of the wall's solid-far curve, the socket rides
+        // its OWN socketFades — invisible beyond ~150m (no sub-pixel horizon shimmer), resolving
+        // IN as you close (withheld-glow reveal). No collider → fully hiding it far is fair.
+        const gmat = mats.frostGlow.clone(); gmat.transparent = true; gmat.depthWrite = false; gmat.opacity = 0; gmat.userData.perInstance = true;
         for (const dy of [-1.5, 1.5]) {
-          const g = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 2.2).rotateY(chSign * Math.PI / 2), gmat);
-          g.position.set(faceX + chSign * 0.06, cy + dy, sz); g.rotation.z = tilt;
+          const g = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 2.4).rotateY(chSign * Math.PI / 2), gmat);
+          g.position.set(faceX + chSign * 0.18, cy + dy, sz); g.rotation.z = tilt;
           group.add(g);
         }
-        (e.spireFades || (e.spireFades = [])).push({ mat: gmat, dist: o.dist - z, floor: 0.75 });
+        back.visible = false;   // hidden until inside LOD range (set live in updateObstacles)
+        (e.socketFades || (e.socketFades = [])).push({ mat: gmat, back, dist: o.dist - z });
       }
     }
   };
@@ -1441,7 +1541,89 @@ function buildRockGap(o, e) {
     }
   };
 
+  // A calved-ice ARCH / pressure-ridge — the premium replacement for the old flat-tinted
+  // `lump` (owner: "floating log ... makes more sense as a pillar or arch"). CEILING → a
+  // post-and-lintel ICE GATEWAY: two piers rooted to the sea (so the span reads as
+  // SUPPORTED, never floating) rising to a lintel of calved blocks whose UNDERSIDE is
+  // pinned to the collider's lower face and jags UP only (so no ice ever dips into the
+  // ring below — the ring-clearance contract, verified by ringClearance()). FLOOR → a
+  // calved pressure-ridge shouldering out of the sea, capped AT the collider top (jags
+  // DOWN only). Built in the gated wall vocabulary (frozenWallParts + bakeIceLadder +
+  // withLadderEmissive, re-wrapped after clone) and merged to ONE mesh (one draw call).
+  // Piers/lintel visuals sit OUTSIDE the reachable lane (±canyonRockLaneHalfWidth) so they
+  // need no collider; the ONE box() below is byte-identical to the old lump → gameplay
+  // unchanged. Fades on the shared spireFades list (floor 0.75) with the depthWrite fix.
+  const iceArch = (shelf, ouHalf) => {
+    // Geometry (pillars + beam / ridge) + the collider box come from the shared module builder
+    // so the ringClearance() audit measures this EXACT mesh. Caller owns bake/merge/material.
+    const { parts, box: cb } = overunderMassParts(shelf, { gx, gy, H, T, ouHalf, rng });
+    const merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
+    parts.forEach((g) => g.dispose());
+    const amat = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
+    amat.transparent = true; amat.depthWrite = false; amat.userData.perInstance = true;
+    group.add(new THREE.Mesh(merged, amat));
+    (e.spireFades || (e.spireFades = [])).push({ mat: amat, dist: o.dist, floor: 0.75 });
+    box(cb.cx, cb.cy, cb.hw, cb.hh, cb.hz);              // collider — IDENTICAL to the old lump
+  };
+
+  // Canyon MOUTH — collider-free dressing that makes a rock run OPEN instead of snap into
+  // existence (owner: "entering a rock run is pretty ugly"). The channel itself can't be
+  // reshaped (li/ri/heights carry the ramp-safety contract), so this is pure framing planted
+  // OUTSIDE the fatal lane: (1) two oversized calved HEADLAND capes angled toward the player
+  // that frame the slot and hide the sawn wall ends; (2) a CALVING FIELD of small grounded
+  // ice blocks stepping back over the ~80m approach — the biome's side-prop language literally
+  // breaking off into the canyon; (3) a threshold MIST veil the player punches through. All on
+  // one merged mesh (one draw call), faded with the run, NO colliders. Exit = headlands only,
+  // lighter, so the run releases rather than stops. Frozen-only (bi===2), rock runs only.
+  const iceMouth = (exit) => {
+    const LHW = CONFIG.canyonRockV2 ? CONFIG.canyonRockLaneHalfWidth : LANE;
+    const top = CEIL + 2, bot = -3;
+    const zSide = exit ? -1 : 1;                        // entry = approach side (local +z); exit = far side
+    const zBase = zSide * (T * 1.2 + 6);
+    const parts = [];
+    let famN = 100;
+    // HEADLAND capes — one oversized calved mass per side, outside the fatal lane, leaning
+    // ~10° toward the player so they frame the slot (SHEAR-free tilt is fine here: dressing,
+    // no collider, so walking the top a few u out of plane is intended, not a fairness risk).
+    for (const sgn of [-1, 1]) {
+      const capeX = gx + sgn * (LHW + 5.5);
+      const h = (top - bot) * (exit ? 0.72 : 0.96);
+      const pp = frozenWallParts(4.5, 5.0, h, bot, -sgn, true, ++famN, rng);
+      pp.forEach((g) => { g.rotateX(zSide * 0.17); g.translate(capeX, 0, zBase + (rng() - 0.5) * 3); parts.push(g); });
+    }
+    // CALVING FIELD — small grounded ice blocks scattered on the flanks over the approach
+    // (entry only): the side-prop → canyon handoff the owner is missing.
+    if (!exit) {
+      for (let i = 0; i < 6; i++) {
+        const sgn = i % 2 ? 1 : -1;
+        const bx = gx + sgn * (LHW + 8 + rng() * 10);
+        const bz = zBase + (12 + i * 9 + rng() * 5);   // step back toward the player over ~80m
+        const s = 1.4 + rng() * 2.0;
+        const g = shearBoxGeo(s * (1.4 + rng()), s * (1.0 + rng() * 1.4), s * (1.2 + rng()), (rng() - 0.5) * 0.5, (rng() - 0.5) * 0.5);
+        g.translate(bx, bot + s * 0.5 + rng() * 1.3, bz);
+        parts.push(g);
+      }
+    }
+    const merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
+    parts.forEach((g) => g.dispose());
+    const mmat = withLadderEmissive(mats.frostIce.clone());
+    mmat.transparent = true; mmat.depthWrite = false; mmat.userData.perInstance = true;
+    const mesh = new THREE.Mesh(merged, mmat); mesh.position.z = 0;
+    group.add(mesh);
+    (e.spireFades || (e.spireFades = [])).push({ mat: mmat, dist: o.dist - zBase, floor: 0.75 });
+    // THRESHOLD mist — a soft veil hanging in the mouth (entry only), reusing the biome mist.
+    if (!exit) {
+      const veil = new THREE.Mesh(new THREE.CircleGeometry(LHW * 1.3, 20), mats.mist);
+      veil.position.set(gx, bot + (top - bot) * 0.4, zBase - 2);
+      group.add(veil);
+    }
+  };
+
   // --- ROCK RUN -------------------------------------------------------------
+  if (bi === 2 && (o.kind === 'split' || o.kind === 'overunder')) {
+    if (o.runIdx === 0) iceMouth(false);                         // opening headlands + calving field + mist
+    else if (o.runTotal && o.runIdx === o.runTotal - 1) iceMouth(true);  // closing headlands (lighter)
+  }
   if (o.kind === 'split') {
     // v2: one threaded, slope-budgeted carved slot (weave only — the duck is the
     // 'overunder' beat). v1 (flag off): the old teleporting double-wall + arch-duck.
@@ -1453,8 +1635,14 @@ function buildRockGap(o, e) {
     // spans the (v2-widened) rock lane so the wider corridor doesn't open a lateral
     // flank around the squeeze; the outer tips past the eased wall are unreachable.
     const ouHalf = (CONFIG.canyonRockV2 ? CONFIG.canyonRockLaneHalfWidth : LANE) + 1;
-    if (o.shelf === 'floor') lump(gx, gy - H - 3, ouHalf, 3, T, 0.5);
-    else lump(gx, gy + H + 3, ouHalf, 3, T, 0.5);
+    if (bi === 2) {
+      // Frozen: the calved-ice arch (ceiling) / pressure-ridge (floor) — no more floating log.
+      iceArch(o.shelf, ouHalf);
+    } else if (o.shelf === 'floor') {
+      lump(gx, gy - H - 3, ouHalf, 3, T, 0.5);
+    } else {
+      lump(gx, gy + H + 3, ouHalf, 3, T, 0.5);
+    }
 
   // --- DRAGON SPINE CANYON --------------------------------------------------
   } else if (o.kind === 'skull') {
@@ -1668,9 +1856,17 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
       const dz = e.dist - playerDist;
       const span = CONFIG.canyonFadeFar - CONFIG.canyonFadeNear;
       const fade = Math.min(1, Math.max(0, (dz - CONFIG.canyonFadeNear) / span));
+      // OCCLUSION FIX: every canyon mass is transparent:true, depthWrite:false from birth so
+      // it can fade near the camera — but a FULLY-SOLID (opacity 1) mass hundreds of metres
+      // out then sorts by centroid in the transparent pass and can paint OVER a nearer mass
+      // ("rocks appear over pillars"). An opacity-1 mesh looks IDENTICAL with depthWrite on or
+      // off, so we turn depthWrite ON precisely while a mass is fully solid and OFF the instant
+      // it starts fading — purely restoring occlusion, changing nothing about the shipped
+      // near-fade see-through. `dw()` is applied to every fade path below.
+      const dw = (mat, op) => { mat.depthWrite = op >= 0.999; };
       // Ribcage sections are long tubes of thin, open bone — fading the whole
       // section by its centre would vanish the ribs ahead, so they never fade.
-      if (e.fadeMat && !e.noDissolve) e.fadeMat.opacity = fade;
+      if (e.fadeMat) { if (!e.noDissolve) e.fadeMat.opacity = fade; dw(e.fadeMat, e.noDissolve ? 1 : fade); }
       // Overhead rock bridges fade INDIVIDUALLY (each by its own depth) as you
       // approach, so the near arch turns translucent and the next ones show
       // through it — caging silhouette far, clear view up close. The fade is a
@@ -1682,6 +1878,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
           // floor at 0.2 so a near arch stays faintly visible — it still has a
           // collider, so it must never become invisible-but-solid (unfair hit).
           a.mat.opacity = 0.2 + 0.8 * (t * t * (3 - 2 * t));
+          dw(a.mat, a.mat.opacity);
         }
       }
       // Sea-stack spires: SOLID far out (read the winding channel ahead), then
@@ -1697,6 +1894,20 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
           // read from the gap, not through the wall — 0.35 just ghosts out the calved detail).
           const f = s.floor ?? 0.35;
           s.mat.opacity = f + (1 - f) * (t * t * (3 - 2 * t));
+          dw(s.mat, s.mat.opacity);
+        }
+      }
+      // Crevasse sockets: DISTANCE-LOD (opposite of the wall's solid-far curve). A lit fracture
+      // is legible detail up close but sub-pixel noise at the horizon (the "glitchy stick-line"),
+      // so it's invisible beyond ~150m and resolves IN as you close — a withheld-glow reveal.
+      // The opaque backing is hidden with it. No collider → hiding it far is fair.
+      if (e.socketFades) {
+        for (const s of e.socketFades) {
+          const d = s.dist - playerDist;
+          let t = (150 - d) / 90;           // 0 at 150m → 1 by ~60m
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          s.mat.opacity = t * t * (3 - 2 * t);
+          if (s.back) s.back.visible = t > 0.02;
         }
       }
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
