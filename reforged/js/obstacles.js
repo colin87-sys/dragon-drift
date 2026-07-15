@@ -1224,6 +1224,35 @@ function buildRockGap(o, e) {
     // lunging up to grab a high ring never clips a thin tip.
     box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width
     if (crest) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
+
+    // Crevasse SOCKET — a rationed lit fracture on the calved wall's re-flare face (Frozen
+    // only). Countdown-rationed (1 per 2–3 eligible masses); because L/R walls interleave
+    // the calls the sockets alternate sides. Sized in ABSOLUTE world units (never a fraction
+    // of hw — a proportional socket on an hw≈12 wall becomes a lit window). Dark backing
+    // stays OPAQUE (a hole with light inside) while the glow fades WITH the wall (same floor
+    // 0.75, pushed to the same spireFades list) so it can never float off as an LED strip.
+    if (bi === 2 && crest && hw >= 2.5) {
+      e.seamCountdown = (e.seamCountdown ?? (1 + Math.floor(rng() * 2))) - 1;
+      if (e.seamCountdown <= 0) {
+        e.seamCountdown = 2 + Math.floor(rng() * 2);
+        const chSign = Math.sign(lean) || 1;
+        const faceX = cx + 0.95 * hw * chSign;          // channel face of the mass
+        const cy = 8 + rng() * 3, sz = z + (rng() - 0.5) * hzCol * 0.5;
+        const tilt = chSign * (0.2 + rng() * 0.15);
+        // dark recess backing (opaque, faces the channel)
+        const back = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 5.6).rotateY(chSign * Math.PI / 2), mats.frostShadow);
+        back.position.set(faceX + chSign * 0.02, cy, sz); back.rotation.z = tilt;
+        group.add(back);
+        // two collinear glow slivers (a fracture propagates), proud, faded WITH the wall
+        const gmat = mats.frostGlow.clone(); gmat.transparent = true; gmat.depthWrite = false; gmat.userData.perInstance = true;
+        for (const dy of [-1.5, 1.5]) {
+          const g = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 2.2).rotateY(chSign * Math.PI / 2), gmat);
+          g.position.set(faceX + chSign * 0.06, cy + dy, sz); g.rotation.z = tilt;
+          group.add(g);
+        }
+        (e.spireFades || (e.spireFades = [])).push({ mat: gmat, dist: o.dist - z, floor: 0.75 });
+      }
+    }
   };
 
   // A continuous RUN of sea stacks: frequent towers alternating left/right that
