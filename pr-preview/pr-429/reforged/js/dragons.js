@@ -727,15 +727,22 @@ export const DRAGONS = {
     // Apex reference dials (all nullable / default-off in dragonTempest.js). The real
     // CHARGING ladder (kink-knuckles, Y-fork, arc-tree, strikes) lands in I2/I4/I5.
     model: {
-      scale: 1.2, tailSegments: 12, neckSegments: 4, flapBias: 0.82, flapAmp: 0.8,
+      scale: 1.2, tailSegments: 12, neckSegments: 4, flapBias: 0.9, flapAmp: 0.9,
       spanScale: 1.0, glowLevel: 1.0, headScale: 1.0, tailLength: 1.0, tailStretch: 1.0,
       rays: 4, wristT: 0.24,
-      // WING MOTION — SHOULDER-LED (§D.4, kills the §C.5-flagged broken-linkage: the
-      // shoulder owns ~77% of the swept arc, each distal strictly < proximal, same
-      // rotational direction, segments trailing via the lags). glidePow 1.9 = the heavy
-      // weather-front beat held; block unique in the roster (Vesper 2.2 / Revenant 1.15).
-      wingParts: 3, rootAmp: 0.74, midAmp: 0.14, tipAmp: 0.08, midLag: 0.45, tipLag: 0.95,
-      glidePow: 1.9, restLift: 0.06, apexMid: 0.06, apexTip: 0.10,
+      // WING MOTION — SHOULDER-LED, a BIG continuous ~12→5 o'clock flap (owner: it read like one plank
+      // held in a glide). A real down-swing (rootAmp) + a strong apexRoot lifting the recovery toward
+      // TRUE vertical, a near-sinusoid glidePow so it beats CONTINUOUSLY (no held-glide-then-snap), and
+      // DEEP lags (tipLag ~33% of the cycle) so the hand NEVER aligns with the forearm at either extreme,
+      // and a MEATY distal amplitude so that misalignment is a VISIBLE wrist dogleg at chase distance (a
+      // small phase-correct offset computes right but reads as a plank on screen). At the 12 o'clock apex
+      // the hand droops off the forearm's line; at the 5 o'clock bottom it trails high; mid-stroke the fold
+      // travels out the wing like a real wingbeat. Distal amp is well over the roster's glide-wings (they
+      // barely fold) BUT capped so the hand reads as a living wrist, not a rubber hose. The hand carries
+      // ~76% of the wing (wristT 0.24) and folds at the −anchor wrist, so the trail is real in-wing motion,
+      // no membrane tear (the welded chiropatagium hinges cleanly at the shared wrist edge).
+      wingParts: 3, rootAmp: 0.80, apexRoot: 0.30, midAmp: 0.32, tipAmp: 0.8, midLag: 1.05, tipLag: 2.1,
+      glidePow: 1.1, restLift: 0.03, apexMid: 0.08, apexTip: 0.12, tipApexSweep: 0.26,
       // TAIL MOTION — the virga storm-stem is a 4-joint NESTED isBone chain (see
       // dragonTempest.js): a LOW lateral coil + a pronounced vertical wave (the storm rolls).
       tailWhip: true, tailLagScale: 0.12, tailUndulateX: 0.30, tailRudderScale: 0.5,
@@ -754,9 +761,9 @@ export const DRAGONS = {
       { spanScale: 0.90, glowLevel: 0.75, headScale: 1.14, rays: 4, tailStretch: 1.0,
         kinkKnuckles: 3, arcRun: 0.75, arcDuty: 0.14, maneSpikes: 4, virgaWisps: 4, heartScale: 0.85, billowAmp: 0.02,
         colors: { body: 0x2e3543, belly: 0x48505f, wingOuter: 0x2e3543, eye: 0xcfd8ff } },   // Thunderhead — third kink + the Y-FORK, forking arcs
-      { spanScale: 1.0, glowLevel: 1.00, headScale: 1.08, rays: 4, tailStretch: 1.0,
-        kinkKnuckles: 3, arcRun: 1.0, arcDuty: 0.18, maneSpikes: 6, virgaWisps: 5, heartScale: 1.0, billowAmp: 0.03,
-        colors: { body: 0x293040, belly: 0x434b5a, wingOuter: 0x293040, eye: 0xcfd8ff } },   // Tempest Unleashed — the full bolt-frame + fractal tree (DARKEST charcoal, apex)
+      { spanScale: 1.0, glowLevel: 1.00, headScale: 1.08, rays: 5, tailStretch: 1.0,
+        kinkKnuckles: 3, arcRun: 1.0, arcDuty: 0.18, maneSpikes: 8, virgaWisps: 7, heartScale: 1.0, billowAmp: 0.03,
+        colors: { body: 0x293040, belly: 0x434b5a, wingOuter: 0x293040, eye: 0xcfd8ff } },   // Tempest Unleashed — the full bolt-frame + fractal tree (DARKEST charcoal, apex). f3 crown gets its OWN silhouette step (Fable: f2→f3 read as density, not a leap): an extra aft ray-prong (rays 4→5, a change f2 lacks), a wider virga tail-rudder (5→7), a denser storm-crown (6→8)
     ],
     fx: { auraColor: '217,222,255', auraIdle: 0, auraIdleRamp: 0, sparkle: false },   // NO idle halo — the standing frame is diffuse-only by law (§B.4d); the strike owns the frame
     hasStyle: true,   // Surge stays a WHITE-VIOLET storm, never magenta
@@ -776,6 +783,10 @@ export const DRAGONS = {
     horn: 0x2a2f3c, scales: 0x2e3543,
     eye: 0xcfd8ff,
     apexEye: 0xd9deff, apexSeam: 0xd9deff, coreGlow: 0xd9deff, surgeHi: 0xe8ecff,
+    // Glow-up: a COLD storm-steel cruise rim (not the default warm cream) run HOT + TIGHT so her charcoal
+    // edge clears bright water (L≥130) instead of collapsing to a silhouette. rimPowerMul concentrates it
+    // into a thin hot line; rimCruiseBase drives the edge brightness (P1b: 0.78 was averaged away by backlight).
+    rimCruise: 0x8bb4ff, rimCruiseBase: 1.25, rimPowerMul: 1.5,
     trail: 0x7a84b8, boostTrail: 0xaab4e8,
   },
 

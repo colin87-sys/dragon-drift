@@ -123,6 +123,15 @@ let _grSunX = 0.5, _grSunY = 0.8, _grIntensity = 0;
 let _grAvailable = false;
 let _grTierOK = true;      // god-rays run at this tier (tier <= 1)
 let _grIntenScale = 1;     // tier0 = 1 (byte-identical), tier1 = 0.5
+let _grTier = 0;           // last tier set (so the saver can recompute uSamples without a tier flip)
+let _grSaver = false;      // dynRes perf-saver: tier0 shaft march 40 → 24 taps (per-pixel fill saving)
+// The adaptive-resolution governor engages this BEFORE trimming resolution: fewer march
+// samples over the broad, radial-blurred columns is near-invisible but a real full-res
+// fill saving. Off = shipped 40 taps at tier0. tier1 is already at its 16-tap floor.
+export function setGodRaySamplesSaver(on) {
+  _grSaver = !!on;
+  if (postfx.godRayPass) postfx.godRayPass.uniforms.uSamples.value = _grTier === 0 ? (_grSaver ? 24 : 40) : 16;
+}
 
 export function setGodRaySun(uvX, uvY, intensity) {
   _grSunX = uvX; _grSunY = uvY; _grIntensity = intensity;
@@ -159,6 +168,7 @@ export function postTierState() {
 // that exp-decays back to zero. Presets keep shader-coupled tuning next to
 // the shader; CONFIG.JUICE only maps events -> preset names.
 const _kick = { bloom: 0, lift: 0, sat: 0, vig: 0, ab: 0 };
+const _kickKeys = Object.keys(_kick);   // hoisted: `Object.keys(_kick)` in the per-frame decay loop was allocating a fresh 5-string array 60×/s (steady GC feed)
 const KICK_DECAY = { bloom: 6, lift: 5, sat: 7, vig: 6, ab: 8 };
 const KICK_MAX = { bloom: 0.36, lift: 0.6, sat: 0.35, vig: 0.25, ab: 0.010 };
 let _flashFrames = 0;   // hard gold flash, decremented per PRESENTED frame
@@ -325,6 +335,7 @@ export function setPostTier(tier) {
     return;
   }
   postfx.enabled = true;
+  _grTier = tier;
   _grTierOK = tier <= 1;                 // N11: god-rays at tier 0 AND tier 1
   _grIntenScale = tier === 0 ? 1 : 0.5;  // tier0 full (byte-identical), tier1 halved
   if (tier === 0) {
@@ -341,13 +352,13 @@ export function setPostTier(tier) {
   // N11 per-tier god-ray cost: tier0 = 40 samples @ 0.5 mask (shipped); tier1 = 24
   // samples @ 0.25 mask. uSamples is otherwise write-once (its shader default is 40),
   // so setting it here is the one live write; tier0 writes 40 → byte-identical.
-  if (postfx.godRayPass) postfx.godRayPass.uniforms.uSamples.value = tier === 0 ? 40 : 16;   // tier1 24→16: the march reads a quarter-res mask over broad radial columns → 16 taps is indistinguishable, less per-pixel fill
+  if (postfx.godRayPass) postfx.godRayPass.uniforms.uSamples.value = tier === 0 ? (_grSaver ? 24 : 40) : 16;   // tier1 24→16: broad radial columns over a quarter-res mask → 16 taps is indistinguishable; tier0 saver 40→24 (dynRes perf-saver, else 40 = byte-identical)
   setGodRayMaskScale(tier === 0 ? 0.5 : 0.25);
   // God-rays run at tier ≤ 1; force the pass off (and stop the mask render) at tier2.
   setGodRaysReady(_grTierOK && _grAvailable);
   if (postfx.godRayPass && !_grTierOK) postfx.godRayPass.enabled = false;
   postfx.bloomPass.strength = postfx._baseBloom;
-  for (const c of Object.keys(_kick)) _kick[c] = 0; // no stale impulses across tiers
+  for (let i = 0; i < _kickKeys.length; i++) _kick[_kickKeys[i]] = 0; // no stale impulses across tiers
   _flashFrames = 0;
   applySize();
 }
@@ -359,7 +370,8 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget 
   // State decays UNCONDITIONALLY — if the adaptive tier drops to 2 (composer
   // off) mid-decay, a frozen half-applied grade must not survive to pop back
   // when the tier restores.
-  for (const c of Object.keys(_kick)) {
+  for (let i = 0; i < _kickKeys.length; i++) {
+    const c = _kickKeys[i];
     _kick[c] = damp(_kick[c], 0, KICK_DECAY[c], rawDt);
   }
   if (_deathOn) _deathMix = Math.min(_deathMix + rawDt / 0.45, 1);

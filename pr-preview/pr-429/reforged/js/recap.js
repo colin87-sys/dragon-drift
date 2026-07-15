@@ -85,7 +85,9 @@ export function selectNextUp() {
     return {
       icon: '⬡', head: 'UNLOCK', label: shop.name,
       frac: Math.min(1, saveData.embers / shop.cost),
-      sub: `◆ ${need.toLocaleString()} to go — ≈${runs} run${runs > 1 ? 's' : ''} away`,
+      // Already affordable → say so (a negative "-12,884 to go" reads as a bug).
+      sub: need <= 0 ? 'You can afford it — open the shop'
+        : `◆ ${need.toLocaleString()} to go — ≈${runs} run${runs > 1 ? 's' : ''} away`,
     };
   }
 
@@ -157,8 +159,15 @@ const CAUSE_TEXT = {
 
 function recordChips(sum, maxVisible = 3) {
   const chips = [];
-  if (game.isNewHighScore) chips.push('★ HIGH SCORE');
-  if (game.isNewBestDistance) chips.push('★ LONGEST FLIGHT');
+  // U1: celebrations must be earned — a record chip needs a real prior best to
+  // beat (or a genuinely substantial first run), else every first flight "sets
+  // records" and the gold stars read as noise.
+  const earnedScore = game.isNewHighScore &&
+    (game.prevHighScore > 0 || game.highScore >= 500);
+  const earnedDist = game.isNewBestDistance &&
+    (game.prevBestDistance > 0 || game.bestDistance >= 1000);
+  if (earnedScore) chips.push('★ HIGH SCORE');
+  if (earnedDist) chips.push('★ LONGEST FLIGHT');
   for (const r of sum.newRecords) {
     const v = r.key === 'longestCleanDist' ? `${r.value} m`
       : r.key === 'bestCombo' ? `×${r.value}` : r.value;
@@ -175,7 +184,7 @@ function recordChips(sum, maxVisible = 3) {
 
 // The earnings ledger: ordered reveal items. Returns array of html strings.
 // compact=true drops low-signal quest unlock rows (used on narrow screens).
-function ledgerItems(sum, compact = false) {
+function ledgerItems(sum, compact = false, ICONS = {}) {
   const items = [];
   // Peak-end: the run-1 recap names the signature first Surge once, up top.
   if (sum.firstSurgeExplain) {
@@ -220,7 +229,7 @@ function ledgerItems(sum, compact = false) {
   if (d && d.streakBonus > 0) {
     const flames = Math.min(saveData.daily.streak, 7);
     const row = Array.from({ length: flames }, (_, i) =>
-      `<span class="flame" style="animation-delay:${i * 60}ms">🔥</span>`).join('');
+      `<span class="flame" style="animation-delay:${i * 60}ms">${ICONS.flame || ''}</span>`).join('');
     items.push(`<div class="earn-line streak-line">${saveData.daily.streak}-day streak <b>+◆${d.streakBonus}</b>${d.featherUsed ? ' <span class="earn-detail">— a Phoenix Feather carried your streak</span>' : ''}
       <span class="streak-flames">${row}</span></div>`);
   }
@@ -238,7 +247,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
 
   // Pre-render all ledger items into the DOM before first paint so iOS WebKit's
   // backdrop-filter never sees post-paint DOM growth (ghosting bug).
-  const items = ledgerItems(sum, isCompact);
+  const items = ledgerItems(sum, isCompact, ICONS);
   const interval = REDUCED ? 0 : Math.min(220, items.length ? 2000 / items.length : 0);
   const earnListHtml = `<div class="earn-list revealing" id="earn-list">${
     items.map((html, i) =>
@@ -261,7 +270,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
     ${earnListHtml}
     ${unclaimedFeatCount() > 0 ? `<button class="feat-claim-cta" id="feat-claim-cta">✦ Claim ${unclaimedFeatCount()} feat reward${unclaimedFeatCount() > 1 ? 's' : ''} · <span class="ember-ico">◆</span> ${unclaimedFeatReward()}</button>` : ''}
     <div class="xp-wrap">
-      <div class="xp-row"><span class="lvl">LV ${saveData.level}</span><span>+${sum.xpGained || 0} XP</span><span class="lvl">LV ${saveData.level + 1}</span></div>
+      <div class="xp-row"><span class="lvl">LV ${saveData.level}</span><span>${sum.xpGained ? `+${sum.xpGained} XP` : ''}</span><span class="lvl">LV ${saveData.level + 1}</span></div>
       <div class="xp-bar"><span id="xp-fill"></span></div>
     </div>
     <div id="nextup-wrap">${nextUpCardHtml(sum.nextUp || selectNextUp())}</div>

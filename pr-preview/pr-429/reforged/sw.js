@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = 'f90c8ebb9ef7';                          // STAMP:VERSION
+const VERSION = '257489eee20a';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './css/style.css',
@@ -108,6 +108,7 @@ const ASSETS = [
   './js/harmony.js',
   './js/hazards.js',
   './js/hints.js',
+  './js/icons.js',
   './js/input.js',
   './js/insts.js',
   './js/juice.js',
@@ -134,6 +135,7 @@ const ASSETS = [
   './js/pulseTimer.js',
   './js/recap.js',
   './js/records.js',
+  './js/resGovernor.js',
   './js/reticle.js',
   './js/riderParts.js',
   './js/riders.js',
@@ -152,12 +154,14 @@ const ASSETS = [
   './js/skyProbe.js',
   './js/speedStreaks.js',
   './js/splash.js',
+  './js/stormArcs.js',
   './js/surface.js',
   './js/titles.js',
   './js/toneMap.js',
   './js/tracks.js',
   './js/trailPreview.js',
   './js/ui.js',
+  './js/uiSound.js',
   './js/util.js',
   './js/validateCreatureBlueprint.js',
   './js/water.js',

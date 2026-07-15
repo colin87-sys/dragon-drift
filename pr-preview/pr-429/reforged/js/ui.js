@@ -10,8 +10,10 @@ import { weeklyTrials } from './weekly.js';
 import { equippedTitleName } from './titles.js';
 import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
+import { uiSound } from './uiSound.js';
+import { ICONS } from './icons.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
-import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
+import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase, setShowcaseZoom, showcaseDragStart, showcaseDragMove, showcaseDragEnd } from './preview.js';
 import { attachTrailPreviews } from './trailPreview.js';
@@ -56,33 +58,18 @@ const isTouch = () =>
 // CSS @media guard. Read once at load (matches how the rest of the HUD gates motion).
 const reduceMotion = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-const ICONS = {
-  ig:   '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.3" fill="currentColor"/></svg>',
-  x:    '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M18.9 2H22l-7.6 8.7L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8.1-9.3L1 2h7l4.8 6.3L18.9 2z"/></svg>',
-  tt:   '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.77.12V9.77a5.76 5.76 0 0 0-.77-.05 5.66 5.66 0 1 0 5.66 5.66V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.22-1.48z"/></svg>',
-  link: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.6 13.4a4 4 0 0 0 5.7 0l3-3a4 4 0 1 0-5.7-5.6l-1.2 1.2"/><path d="M13.4 10.6a4 4 0 0 0-5.7 0l-3 3a4 4 0 1 0 5.7 5.6l1.2-1.2"/></svg>',
-  music:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
-  musicOff: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><line x1="2" y1="3" x2="22" y2="21"/></svg>',
-  sfxOn:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
-  sfxOff:   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>',
-  radio:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="12" rx="2"/><path d="M5 9l13-6"/><circle cx="8" cy="15" r="2.5"/><path d="M15 13h4M15 17h4"/></svg>',
-  pause:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
-  inspect:  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.6-4.6"/></svg>',
-  prev:     '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h2v16H6zM20 4v16L9 12z"/></svg>',
-  next:     '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 4h2v16h-2zM4 4v16l11-8z"/></svg>',
-  // §14 — one consistent premium line-icon set for the section/category labels
-  // (matches the music/radio/inspect SVGs above, not the old grab-bag of emoji).
-  dragon:   '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.6c2.1 3 3.2 4.2 3.2 6.9A3.2 3.2 0 0 1 5.8 9.5c0-1.7 1-2.8 2-3.7 0 1.1.5 1.6 1 1.6-.5-2 .2-3.9.2-4.8z"/></svg>',
-  rider:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5.2" r="2.5"/><path d="M3.9 15c0-2.8 2.3-4.7 5.1-4.7s5.1 1.9 5.1 4.7"/></svg>',
-  style:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9 2.2l1.7 4.7 4.7 1.6-4.7 1.6L9 14.8l-1.7-4.7L2.6 8.5l4.7-1.6z"/></svg>',
-  shop:     '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 6h9.2l-.8 9.2H5.2z"/><path d="M6.6 6a2.4 2.4 0 0 1 4.8 0"/></svg>',
-  settings: '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><circle cx="11.5" cy="6" r="1.9"/><circle cx="6.5" cy="12" r="1.9"/></svg>',
-  pilot:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.6l5 3.1-5-1-5 1z"/><path d="M9 8.7l5 3.1-5-1-5 1z"/></svg>',
-  daily:    '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="12" height="10.5" rx="1.4"/><path d="M3 7.6h12M6 3v3M12 3v3"/></svg>',
-  feat:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.4 2.2l2.6 4.1 2.6-4.1"/><circle cx="9" cy="11" r="3.9"/></svg>',
-  rush:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L4 10h4l-1 6 6-8h-4l1-6z"/></svg>',
-  weekly:   '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2h7v2.6a3.5 3.5 0 0 1-7 0z"/><path d="M5.5 4.2H4a1.6 1.6 0 0 0 1.6 1.9M12.5 4.2H14a1.6 1.6 0 0 1-1.6 1.9"/><path d="M9 9.4v2.3M6.8 14.6h4.4l-.6-2.9H7.4z"/></svg>',
-};
+
+// U14 — apply the persisted accessibility prefs to :root (HUD scale/alpha CSS
+// vars honored by the Phase 3 EMBERSIGHT HUD; colorblind class swaps the
+// jade/danger token hues). Runs at boot (ui.init) and on every settings change.
+function applyAccessibility() {
+  const s = saveData.settings;
+  const root = document.documentElement;
+  root.style.setProperty('--hud-scale', s.hudScale || 1);
+  root.style.setProperty('--hud-alpha', s.hudAlpha || 1);
+  root.classList.remove('cb-deuter', 'cb-prot', 'cb-trit');
+  if (s.colorblind && s.colorblind !== 'off') root.classList.add(`cb-${s.colorblind}`);
+}
 
 // Popup text IDs used across multiple popups
 let popupTimer = null;
@@ -143,21 +130,45 @@ function formTierLabel(tier) {
   return ASCENSION_TIERS[tier - 1]?.name ?? 'Eternal';
 }
 
-// Readable stat rows for the showcase: a clear label, a thick accent-tinted bar
-// and a numeric rating (40–99 so even the humble starter reads as a real stat).
-function inspectStatRows(d) {
-  const st = d.stats;
-  const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
-  const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
-  const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
-  const row = (lbl, k) => {
-    const p = Math.max(0, Math.min(1, k));
-    const rating = Math.round(40 + 59 * p);
-    return `<div class="ins-stat"><span class="ins-stat-label">${lbl}</span>`
-      + `<div class="ins-stat-track"><span class="ins-stat-fill" style="width:${Math.round(10 + 90 * p)}%"></span></div>`
-      + `<span class="ins-stat-val">${rating}</span></div>`;
+// U6: stat ratings are ROSTER-RELATIVE — each stat's min→max across the whole
+// roster maps to a 20–100 rating, so the bars actually differentiate dragons.
+// (The old cap-normalized mapping read 99/99/99 on every flagship — fake-depth
+// chrome, critique 3.3.) Ties are honest: siblings with identical stat lines
+// show identical bars. Stats are per-dragon, not per-form.
+let statSpansCache = null;
+function rosterStatRatings(d) {
+  if (!statSpansCache) {
+    const derive = (st) => ({
+      spd: st.speed,
+      agi: st.handling,
+      sta: (1 - st.drain) + (st.regen - 1),
+    });
+    const all = Object.values(DRAGONS).map((x) => derive(x.stats));
+    const span = (k) => {
+      const vs = all.map((a) => a[k]);
+      return [Math.min(...vs), Math.max(...vs)];
+    };
+    statSpansCache = { derive, spans: { spd: span('spd'), agi: span('agi'), sta: span('sta') } };
+  }
+  const { derive, spans } = statSpansCache;
+  const v = derive(d.stats);
+  const rate = (k) => {
+    const [lo, hi] = spans[k];
+    const p = hi > lo ? (v[k] - lo) / (hi - lo) : 1;
+    return Math.round(20 + 80 * Math.max(0, Math.min(1, p)));
   };
-  return row('SPEED', spd) + row('AGILITY', agi) + row('STAMINA', sta);
+  return { spd: rate('spd'), agi: rate('agi'), sta: rate('sta') };
+}
+
+// Readable stat rows for the showcase: a clear label, a thick accent-tinted bar
+// and the roster-relative rating (the bar width IS the rating — no second scale).
+function inspectStatRows(d) {
+  const r = rosterStatRatings(d);
+  const row = (lbl, rating) =>
+    `<div class="ins-stat"><span class="ins-stat-label">${lbl}</span>`
+    + `<div class="ins-stat-track"><span class="ins-stat-fill" style="width:${rating}%"></span></div>`
+    + `<span class="ins-stat-val">${rating}</span></div>`;
+  return row('SPEED', r.spd) + row('AGILITY', r.agi) + row('STAMINA', r.sta);
 }
 
 // Buy (if affordable) or equip a dragon — shared by the shop card and the
@@ -212,17 +223,17 @@ function openInspect(startKey) {
   overlay.className = 'inspect-overlay';
   overlay.innerHTML = `
     <div class="inspect-modal">
-      <button class="inspect-close" id="inspect-close" title="Close" aria-label="Close">✕</button>
+      <button class="inspect-close" id="inspect-close" title="Close" aria-label="Close">${ICONS.close}</button>
       <div class="rarity-gem inspect-gem" id="inspect-gem"></div>
       <div class="inspect-viewport" id="inspect-viewport">
-        <button class="inspect-nav prev" id="inspect-dragon-prev" aria-label="Previous dragon">‹</button>
-        <button class="inspect-nav next" id="inspect-dragon-next" aria-label="Next dragon">›</button>
+        <button class="inspect-nav prev" id="inspect-dragon-prev" aria-label="Previous dragon">${ICONS.chevL}</button>
+        <button class="inspect-nav next" id="inspect-dragon-next" aria-label="Next dragon">${ICONS.chevR}</button>
         <div class="inspect-content" id="inspect-content">
           <div class="inspect-stage">
             <div class="inspect-glow"></div>
             <canvas class="inspect-canvas" width="640" height="640"></canvas>
             <div class="inspect-pedestal"></div>
-            <div class="inspect-rothint">⟲ drag to rotate</div>
+            <div class="inspect-rothint">${ICONS.rotate} drag to rotate</div>
           </div>
           <div class="inspect-name" id="inspect-name"></div>
           <div class="inspect-title" id="inspect-title"></div>
@@ -230,14 +241,16 @@ function openInspect(startKey) {
       </div>
       <div class="inspect-lower" id="inspect-lower">
         <div class="inspect-formbar">
-          <button class="form-btn" id="inspect-prev" aria-label="Previous form">◀</button>
+          <button class="form-btn" id="inspect-prev" aria-label="Previous form">${ICONS.chevL}</button>
           <div class="form-meta">
             <span class="form-name" id="inspect-formlabel"></span>
             <span class="form-rarity" id="inspect-formrarity"></span>
           </div>
-          <button class="form-btn" id="inspect-next" aria-label="Next form">▶</button>
+          <button class="form-btn" id="inspect-next" aria-label="Next form">${ICONS.chevR}</button>
         </div>
         <div class="form-pips" id="inspect-formpips"></div>
+        <div class="rarity-legend" id="inspect-legend" title="Rarity grades">RARITY
+          <b data-fr="R">R</b><i>→</i><b data-fr="SR">SR</b><i>→</i><b data-fr="SSR">SSR</b><i>→</i><b data-fr="SSSR">SSSR</b></div>
         <div class="inspect-stats" id="inspect-stats"></div>
         <div class="inspect-cta" id="inspect-cta"></div>
       </div>
@@ -266,7 +279,8 @@ function openInspect(startKey) {
   const renderCta = () => {
     const equipped = saveData.skins.equipped === key;
     if (owned && equipped) {
-      ctaEl.innerHTML = `<span class="ins-owned">✓ EQUIPPED</span>`;
+      // U6: state is a jade badge — never a dead gold button.
+      ctaEl.innerHTML = `<span class="cta-state">EQUIPPED</span>`;
       return;
     }
     if (owned) {
@@ -300,6 +314,7 @@ function openInspect(startKey) {
       ? '#' + d.previewAccent.toString(16).padStart(6, '0')
       : (FR_ACCENT[fr] || FR_ACCENT.SSSR));
     gem.textContent = fr; gem.dataset.fr = fr;
+    for (const b of overlay.querySelectorAll('#inspect-legend b')) b.classList.toggle('cur', b.dataset.fr === fr);
     nameEl.textContent = d.name;
     titleEl.textContent = d.title;
     formLabel.textContent = formTierLabel(tier);
@@ -439,6 +454,7 @@ function openInspect(startKey) {
 export const ui = {
   init(h = {}) {
     handlers = h;
+    applyAccessibility();
     const root = document.createElement('div');
     root.id = 'hud';
     root.innerHTML = `
@@ -681,6 +697,14 @@ export const ui = {
         sfx.featUnlock();
       }
     });
+
+    // U7/U11 — the hub interaction grammar rolls out to every meta screen:
+    // ONE delegated tick on pointerdown for nav/cards/switches (touch-first,
+    // ≤50ms response; sliders excluded — no sound spam on drag).
+    els.screen.addEventListener('pointerdown', (e) => {
+      const t = e.target.closest('button, .skin-card, .hero-thumb, .hero-seg, .title-row, .weekly-head');
+      if (t && !t.disabled) uiSound.tick();
+    }, { passive: true });
   },
 
   update(player) {
@@ -786,7 +810,9 @@ export const ui = {
     // Live GRAZE counter — shown only during a boss, ticks up on every skim in
     // real time (encourages constant grazing to charge Surge).
     if (els.grazeHud) {
-      els.grazeHud.classList.toggle('on', game.inBoss);
+      // U1: the counter appears on its FIRST skim (same rule as the chain
+      // counter) — a permanent "0 SKIMS" is furniture, not information.
+      els.grazeHud.classList.toggle('on', game.inBoss && game.grazesRun > 0);
       if (game.inBoss && game.grazesRun !== lastGraze) {
         els.grazeN.textContent = game.grazesRun;
         if (game.grazesRun > lastGraze) restartAnim(els.grazeHud, 'chain-pop');
@@ -836,12 +862,12 @@ export const ui = {
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
     let newAssistText = '';
     if (saveData.settings.glideAssist) {
-      newAssistText = `🪶 −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%`;
+      newAssistText = `${ICONS.feather} −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%`;
     } else if (hcBonus > 0) {
       newAssistText = `⚔ +${hcBonus}%`;
     }
     if (newAssistText !== lastAssistText) {
-      els.assistChip.textContent = newAssistText;
+      els.assistChip.innerHTML = newAssistText;
       els.assistChip.classList.remove('faded');
       clearTimeout(assistFadeTimer);
       if (newAssistText) assistFadeTimer = setTimeout(() => els.assistChip.classList.add('faded'), 3000);
@@ -867,7 +893,7 @@ export const ui = {
     // First flight of the day: one short reveal; recap ledger explains/banks it.
     const ffActive = saveData.firstFlightDay !== todayUTC();
     if (ffActive && !lastFFActive) {
-      els.ffChip.textContent = `☀ ×${CONFIG.firstFlightMult}`;
+      els.ffChip.innerHTML = `${ICONS.sun} ×${CONFIG.firstFlightMult}`;
       els.ffChip.classList.add('hud-reveal');
       clearTimeout(ffRevealTimer);
       ffRevealTimer = setTimeout(() => {
@@ -1386,7 +1412,7 @@ export const ui = {
       demo = `<div class="gx-stage gx-keys gx-${g}">${keys}</div>`;
     }
     els.gestureOverlay.innerHTML = `<div class="gx-card">${demo}<div class="gx-text">${spec.text}</div>` +
-      `<button class="gx-skip" id="gx-skip">SKIP TUTORIAL ›</button></div>`;
+      `<button class="gx-skip" id="gx-skip">SKIP TUTORIAL ${ICONS.chevR}</button></div>`;
     els.gestureOverlay.classList.add('on');
     const skip = els.gestureOverlay.querySelector('#gx-skip');
     if (skip && spec.onSkip) {
@@ -1559,8 +1585,8 @@ export const ui = {
       const topbar = cold ? '' : `
         <div class="hero-topbar">
           <div class="hero-wallet">
-            <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
-            ${game.highScore ? `<div class="meta-chip">BEST <b>${game.highScore}</b></div>` : ''}
+            <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b></div>
+            ${game.highScore ? `<div class="meta-chip">BEST <b>${game.highScore.toLocaleString()}</b></div>` : ''}
           </div>
           <button class="hero-gear" id="btn-settings" title="Settings" aria-label="Settings">${ICONS.settings}</button>
         </div>`;
@@ -1590,10 +1616,11 @@ export const ui = {
         items += railBtn('btn-rush', ICONS.rush, 'BOSS RUSH', false, !saveData.flags.seenBossRush);
       if (items) rail = `<nav class="hero-rail">${items}</nav>`;
 
+      // U1: no control dumps on the title screen — touch players learn in-run
+      // from the gesture tutorial; keyboard players get one short line.
       const sub = cold
         ? 'Thread rings. Chase the surge.'
-        : (touch ? 'Drag to steer · hold a second finger to boost · swipe it sideways to barrel roll'
-                 : 'WASD/Arrows to steer · SPACE to boost · double-tap a direction to barrel roll');
+        : (touch ? '' : 'WASD to steer · SPACE to boost');
 
       html = `
         ${topbar}
@@ -1603,8 +1630,8 @@ export const ui = {
           ${startNotice ? `<p class="start-notice">${startNotice}</p>` : ''}
           ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">«${title}»</button>` : ''}
           <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
-          <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">➤</span>TAKE OFF</button>
-          <p class="hero-sub">${sub}</p>
+          <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">${ICONS.play}</span>TAKE OFF</button>
+          ${sub ? `<p class="hero-sub">${sub}</p>` : ''}
           <p class="action-key">${touch ? 'or tap anywhere to fly' : 'or press ENTER to fly'}</p>
         </div>
         ${rail}
@@ -1629,12 +1656,12 @@ export const ui = {
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">QUESTS</span>
-          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <p class="nextup-line">${nextUp.icon} NEXT UP — ${nextUp.label} <span class="nextup-line-sub">${nextUp.sub}</span></p>
         <div class="mission-list">${missions}</div>
         <div class="weekly-strip expanded">
-          <div class="weekly-head">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
+          <div class="weekly-head">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ` <span class="feather" title="Phoenix Feather — bridges one missed streak day">${ICONS.feather}</span>` : ''}</div>
           <div class="weekly-rows">
           ${trials.map((t) => `
             <div class="weekly-row${t.done ? ' done' : ''}">
@@ -1654,7 +1681,7 @@ export const ui = {
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">DAILY CHALLENGE</span>
-          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <div class="daily-card daily-panel">
           <div class="daily-info">
@@ -1663,7 +1690,7 @@ export const ui = {
             <div class="daily-sub">${dmod.brief}</div>
             ${dailyDone ? `<div class="daily-done">✓ Cleared today — best ${daily.bestScore}. New twist at UTC midnight.</div>` : ''}
           </div>
-          ${daily.streak > 1 ? `<div class="daily-streak">🔥 ${daily.streak}</div>` : ''}
+          ${daily.streak > 1 ? `<div class="daily-streak">${ICONS.flame} ${daily.streak}</div>` : ''}
           <button class="btn-secondary btn-daily${dailyDone ? '' : ' glow'}" id="btn-fly-daily">FLY DAILY</button>
         </div>
         <p class="share-hint">A fresh modifier every day · your daily score stays out of your main best.</p>`;
@@ -1679,7 +1706,7 @@ export const ui = {
       // are ??? teasers. The FLY button runs the whole gauntlet back-to-back.
       const chips = info.bosses.map((b) => b.unlocked
         ? `<button type="button" class="rush-chip pick" data-boss="${b.id}" style="--a:${hex(b.accent)}" title="Fight ${b.name} solo"><span class="rush-dot"></span>${b.name}</button>`
-        : `<div class="rush-chip locked"><span class="rush-dot"></span>??? <span class="rush-lock">🔒</span></div>`).join('');
+        : `<div class="rush-chip locked"><span class="rush-dot"></span>??? <span class="rush-lock">${ICONS.lock}</span></div>`).join('');
       const multi = info.unlockedCount > 1;
       // DEV STAGE-JUMP (?dev / ?rush=all): a multi-STAGE boss (THE UNMASKED: eclipse-eye →
       // seraph → the unveiling) can be pinned to a chosen stage so each is playtestable in a
@@ -1697,7 +1724,7 @@ export const ui = {
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">BOSS RUSH</span>
-          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <div class="daily-card rush-panel">
           <div class="daily-info">
@@ -1744,7 +1771,7 @@ export const ui = {
             <div class="hero-gem" id="hero-gem"></div>
             <canvas class="hero-canvas" id="hero-canvas" width="640" height="640"></canvas>
             <div class="hero-pedestal"></div>
-            <div class="hero-rothint">⟲ drag to rotate</div>
+            <div class="hero-rothint">${ICONS.rotate} drag to rotate</div>
           </div>
           <div class="hero-ident"><div class="hero-name" id="hero-name"></div><div class="dpick-sub" id="hero-sub"></div></div>
           <div class="hero-forms" id="hero-forms"></div>
@@ -1788,7 +1815,7 @@ export const ui = {
           return `
             <div class="skin-card track-card${playing ? ' equipped' : ''}${owned ? '' : ' locked'}"
                  data-track-i="${i}" style="--accent:${accent}">
-              <div class="track-disc${playing ? ' spin' : ''}">♪</div>
+              <div class="track-disc${playing ? ' spin' : ''}">${ICONS.music}</div>
               <div class="skin-name">${t.name}</div>
               <div class="skin-title">${t.desc} · ${t.bpm} BPM</div>
               <div class="skin-cost ${owned ? 'owned' : ''}">${playing ? `${eqBars} ON AIR` : owned ? 'TAP TO PLAY' : `◆ ${t.cost}`}</div>
@@ -1826,7 +1853,7 @@ export const ui = {
         <div class="screen-topbar">
           <span class="topbar-title">SHOP</span>
           <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
-          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <div class="shop-scroll">
           <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', `${ICONS.dragon} DRAGONS`)}${tabBtn('riders', `${ICONS.rider} RIDERS`)}${tabBtn('music', `${ICONS.music} MUSIC`)}${tabBtn('style', `${ICONS.style} STYLE`)}</div>
@@ -1835,155 +1862,106 @@ export const ui = {
         </div>`;
 
     } else if (type === 'settings') {
-      const q = saveData.settings.qualityOverride;
+      // U5: the wall of gold ON/OFF pairs becomes a quiet, grouped instrument
+      // panel — GAME / GRAPHICS / ASSISTS / AUDIO / DATA sections, sticky topbar
+      // exit matching shop/quests, single-accent SWITCHES (gold = ON, never
+      // "current"), player-voice copy, and the destructive stuff fenced in a
+      // danger zone. Settings stay INSTANT — no theater (ZZZ rule).
+      const s = saveData.settings;
+      const q = s.qualityOverride;
       const seg = (val, label) =>
         `<button class="seg-btn${q === val ? ' sel' : ''}" data-q="${val === null ? 'auto' : val}">${label}</button>`;
-      const md = saveData.settings.modelDetail;
+      const md = s.modelDetail;
       const mdSeg = (val, label) =>
         `<button class="seg-btn${md === val ? ' sel' : ''}" data-md="${val === null ? 'auto' : val}">${label}</button>`;
-      const assistSeg = (id, on, bonusPct) => `
-        <div class="seg-row">
-          <button class="seg-btn${on ? ' sel' : ''}" data-assist="${id}" data-val="1">ON</button>
-          <button class="seg-btn${on ? '' : ' sel'}" data-assist="${id}" data-val="0">OFF — SCORE +${bonusPct}%</button>
-        </div>`;
-      // Graphics-effects controls (GRAPHICS-OVERHAUL.md): a colour-grade pick + on/off
-      // toggles. Every new graphics feature adds its control here.
-      const tmVal = saveData.settings.toneMap || 'aces';
+      const tmVal = s.toneMap || 'aces';
       const tmSeg = (val, label) => `<button class="seg-btn${tmVal === val ? ' sel' : ''}" data-tm="${val}">${label}</button>`;
-      const gfxToggle = (id) => {
-        const on = !!saveData.settings[id];
-        return `<div class="seg-row">
-          <button class="seg-btn${on ? ' sel' : ''}" data-gfx="${id}" data-val="1">ON</button>
-          <button class="seg-btn${on ? '' : ' sel'}" data-gfx="${id}" data-val="0">OFF</button>
+      const cbVal = s.colorblind || 'off';
+      const cbSeg = (val, label) => `<button class="seg-btn${cbVal === val ? ' sel' : ''}" data-cb="${val}">${label}</button>`;
+      // A labelled row with a single-accent switch. kind = 'assist' | 'gfx'.
+      const swRow = (kind, id, label, sub = '') => `
+        <div class="set-row">
+          <div class="set-info"><div class="settings-label">${label}</div>${sub ? `<p class="set-sub">${sub}</p>` : ''}</div>
+          <button class="sw${s[id] ? ' on' : ''}" role="switch" aria-checked="${!!s[id]}" aria-label="${label}" data-${kind}="${id}"><i></i></button>
         </div>`;
-      };
+      const segGroup = (label, sub, rowHtml) => `
+        <div class="settings-group">
+          <div class="settings-label">${label}</div>
+          ${sub ? `<p class="set-sub">${sub}</p>` : ''}
+          <div class="seg-row">${rowHtml}</div>
+        </div>`;
+      const pct = (v) => Math.round(v * 100);
+      // DEV MODE only surfaces under ?debug/?dev — or while it's already ON,
+      // so a dev save can always be restored.
+      const devVisible = /[?&](debug|dev)\b/.test(location.search) || s.dev;
       html = `
-        <h1>SETTINGS</h1>
-        <div class="settings-group">
-          <div class="settings-label">GRAPHICS QUALITY</div>
-          <div class="seg-row">${seg(null, 'AUTO')}${seg(0, 'HIGH')}${seg(1, 'MEDIUM')}${seg(2, 'LOW')}</div>
+        <div class="screen-topbar">
+          <span class="topbar-title">SETTINGS</span>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
-        <div class="settings-group">
-          <div class="settings-label">COLOUR GRADE</div>
-          <p class="sub">Overall colour look. VIVID keeps golds &amp; neons richer; SOFT is muted.</p>
-          <div class="seg-row">${tmSeg('aces', 'CLASSIC')}${tmSeg('agx', 'SOFT')}${tmSeg('neutral', 'VIVID')}</div>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">SKY LIGHTING</div>
-          <p class="sub">The sky lights the world — objects pick up its colour as biomes change. (Experimental.)</p>
-          ${gfxToggle('skyIbl')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">DRAGON SHADOW</div>
-          <p class="sub">Casts the dragon's real silhouette on the water — you can see the wings beat. (Experimental.)</p>
-          ${gfxToggle('heroShadow')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">PROP SHADING</div>
-          <p class="sub">Grounds the world props with soft baked shadow at their bases &amp; undersides. (Experimental.)</p>
-          ${gfxToggle('propAO')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">ATMOSPHERE</div>
-          <p class="sub">Aerial haze — fog pools low &amp; glows toward the sun. Deepest in Emberfall &amp; the Frozen Reach. (Experimental.)</p>
-          ${gfxToggle('atmosphere')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">SKY CLOUDS</div>
-          <p class="sub">Drifting procedural clouds with sun-lit silver edges. Deepest in the Sanctuary &amp; Amber Wastes. (Experimental.)</p>
-          ${gfxToggle('skyClouds')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">OCEAN SWELL</div>
-          <p class="sub">The sea surface rolls with a real swell — a living, undulating horizon instead of a flat line. (Experimental.)</p>
-          ${gfxToggle('waterSwell')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">WATER DEPTH</div>
-          <p class="sub">The sea reads as having volume — dark in the deeps, bright where you look straight down. (Experimental.)</p>
-          ${gfxToggle('waterDepth')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">SHORE FOAM</div>
-          <p class="sub">Broken foam collars where the waves meet the towers &amp; crystals — welds them into the sea. (Experimental.)</p>
-          ${gfxToggle('waterFoam')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">SMOOTH GRADIENTS</div>
-          <p class="sub">Removes colour banding in the sky &amp; fog. Recommended on.</p>
-          ${gfxToggle('dither')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">FAST PARTICLES</div>
-          <p class="sub">Lighter spark/burst effects for weaker devices — looks the same. Reloads to apply.</p>
-          ${gfxToggle('particleBatch')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">PERFORMANCE HUD</div>
-          <p class="sub">On-screen fps &amp; frame-time readout, plus which experimental effects are active — for testing the graphics settings. No effect on the game.</p>
-          ${gfxToggle('perfHud')}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">MODEL DETAIL</div>
-          <p class="sub">Dragon geometry density. AUTO matches your graphics tier.</p>
-          <div class="seg-row">${mdSeg(null, 'AUTO')}${mdSeg('high', 'HIGH')}${mdSeg('ultra', 'ULTRA')}</div>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">TARGET RETICLE</div>
-          ${assistSeg('reticle', saveData.settings.reticle, Math.round(CONFIG.reticleOffBonus * 100))}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">BULLET CLARITY</div>
-          <p class="sub">Boss fights: hollow lock reticle, bigger imminent bullets, danger telegraph.</p>
-          <div class="seg-row">
-            <button class="seg-btn${saveData.settings.bulletClarity ? ' sel' : ''}" data-assist="bulletClarity" data-val="1">ON</button>
-            <button class="seg-btn${saveData.settings.bulletClarity ? '' : ' sel'}" data-assist="bulletClarity" data-val="0">OFF</button>
+        <div class="settings-body">
+          <div class="settings-section">Game</div>
+          ${isTouch() ? '' : swRow('assist', 'mouseSteer', 'MOUSE STEERING', 'Hold left-click to steer · right-click or Space boosts.')}
+          <div class="settings-group">
+            <div class="settings-label">HUD SCALE</div>
+            <p class="set-sub">Size of the in-flight readouts.</p>
+            <div class="set-range vol-row"><input type="range" id="set-hud-scale" min="85" max="130" step="5" value="${Math.round((s.hudScale || 1) * 100)}"><span class="range-val" id="hud-scale-val">${Math.round((s.hudScale || 1) * 100)}%</span></div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-label">HUD OPACITY</div>
+            <p class="set-sub">How present the in-flight readouts are.</p>
+            <div class="set-range vol-row"><input type="range" id="set-hud-alpha" min="50" max="100" step="5" value="${Math.round((s.hudAlpha || 1) * 100)}"><span class="range-val" id="hud-alpha-val">${Math.round((s.hudAlpha || 1) * 100)}%</span></div>
+          </div>
+          ${segGroup('COLORBLIND', 'Shifts the success and danger hues — the roles stay the same.',
+            cbSeg('off', 'OFF') + cbSeg('deuter', 'DEUTER') + cbSeg('prot', 'PROT') + cbSeg('trit', 'TRIT'))}
+
+          <div class="settings-section">Graphics</div>
+          ${segGroup('GRAPHICS QUALITY', '', seg(null, 'AUTO') + seg(0, 'HIGH') + seg(1, 'MEDIUM') + seg(2, 'LOW'))}
+          ${segGroup('COLOUR GRADE', 'VIVID keeps golds and neons richer; SOFT is muted.',
+            tmSeg('aces', 'CLASSIC') + tmSeg('agx', 'SOFT') + tmSeg('neutral', 'VIVID'))}
+          ${segGroup('MODEL DETAIL', 'Dragon geometry density. AUTO follows your graphics tier.',
+            mdSeg(null, 'AUTO') + mdSeg('high', 'HIGH') + mdSeg('ultra', 'ULTRA'))}
+          ${swRow('gfx', 'dynRes', 'ADAPTIVE RESOLUTION', 'Trims render sharpness a touch in heavy scenes to hold the frame rate.')}
+          ${swRow('gfx', 'dither', 'SMOOTH GRADIENTS', 'No colour banding in the sky. Best left on.')}
+          ${swRow('gfx', 'skyIbl', 'SKY LIGHTING', 'The sky’s colour spills onto the world as biomes change.')}
+          ${swRow('gfx', 'heroShadow', 'DRAGON SHADOW', 'Your real silhouette on the water — watch the wings beat.')}
+          ${swRow('gfx', 'propAO', 'PROP SHADING', 'Soft grounding shadow under the towers and crystals.')}
+          ${swRow('gfx', 'atmosphere', 'ATMOSPHERE', 'Aerial haze that pools low and glows toward the sun.')}
+          ${swRow('gfx', 'skyClouds', 'SKY CLOUDS', 'Drifting clouds with sun-lit silver edges.')}
+          ${swRow('gfx', 'waterSwell', 'OCEAN SWELL', 'The sea rolls with a living swell.')}
+          ${swRow('gfx', 'waterDepth', 'WATER DEPTH', 'Dark in the deeps, bright where you look straight down.')}
+          ${swRow('gfx', 'waterFoam', 'SHORE FOAM', 'Foam collars where the waves meet the stone.')}
+          ${swRow('gfx', 'particleBatch', 'FAST PARTICLES', 'Lighter spark effects for weaker devices — looks the same. Reloads to apply.')}
+          ${swRow('gfx', 'perfHud', 'PERFORMANCE HUD', 'On-screen fps readout, for testing.')}
+
+          <div class="settings-section">Assists</div>
+          ${swRow('assist', 'reticle', 'TARGET RETICLE', `Off pays +${pct(CONFIG.reticleOffBonus)}% score.`)}
+          ${swRow('assist', 'bulletClarity', 'BULLET CLARITY', 'Boss fights: hollow lock reticle, bigger bullets, danger telegraphs.')}
+          ${swRow('assist', 'slowMo', 'LAST-CHANCE SLOW-MO', `A heartbeat of slow time before a fatal hit. Off pays +${pct(CONFIG.slowMoOffBonus)}% score.`)}
+          ${swRow('assist', 'glideAssist', 'GLIDE ASSIST', `Auto-flies to each ring and collects embers. Scores −${pct(1 - CONFIG.glideAssistScoreMult)}% while on.`)}
+
+          <div class="settings-section">Audio</div>
+          <div class="settings-group">
+            <div class="settings-label">DRAGON RADIO</div>
+            <p class="set-sub">${isTouch() ? 'Buy more stations in the shop.' : 'Press N in flight to cycle stations. Buy more in the shop.'}</p>
+            <div class="seg-row radio-segs">${TRACKS.map((t, i) => trackUnlocked(i)
+              ? `<button class="seg-btn${music.trackIndex === i ? ' sel' : ''}" data-track="${i}">${t.name.toUpperCase()}</button>`
+              : `<button class="seg-btn locked" disabled title="Buy in the shop">${ICONS.lock} ${t.name.toUpperCase()}</button>`).join('')}</div>
+          </div>
+          <div class="set-row">
+            <div class="set-info"><div class="settings-label">VOLUME</div>
+            <p class="set-sub">Music and sound sliders live in the pause menu (Esc during flight).</p></div>
+          </div>
+
+          <div class="settings-section">Data</div>
+          ${devVisible ? swRow('dev', 'dev', 'DEV MODE', 'Unlock everything at max form for testing. Reloads; turn off to restore your save.') : ''}
+          <div class="danger-zone">
+            <div class="settings-label">RESET ALL PROGRESS</div>
+            <p class="set-sub">Erases your save on this device. There is no undo.</p>
+            <div class="seg-row"><button class="seg-btn" id="btn-reset-save">RESET ALL PROGRESS</button></div>
           </div>
         </div>
-        <div class="settings-group">
-          <div class="settings-label">LAST-CHANCE SLOW-MO</div>
-          ${assistSeg('slowMo', saveData.settings.slowMo, Math.round(CONFIG.slowMoOffBonus * 100))}
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">GLIDE ASSIST</div>
-          <p class="sub">Auto-flies to each ring and collects embers.</p>
-          <div class="seg-row">
-            <button class="seg-btn${saveData.settings.glideAssist ? ' sel' : ''}" data-assist="glideAssist" data-val="1">ON — SCORE −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%</button>
-            <button class="seg-btn${saveData.settings.glideAssist ? '' : ' sel'}" data-assist="glideAssist" data-val="0">OFF</button>
-          </div>
-        </div>
-        ${isTouch() ? '' : `<div class="settings-group">
-          <div class="settings-label">MOUSE STEERING</div>
-          <p class="sub">Hold left-click to steer; right-click or Space boosts.</p>
-          <div class="seg-row">
-            <button class="seg-btn${saveData.settings.mouseSteer ? ' sel' : ''}" data-assist="mouseSteer" data-val="1">ON</button>
-            <button class="seg-btn${saveData.settings.mouseSteer ? '' : ' sel'}" data-assist="mouseSteer" data-val="0">OFF</button>
-          </div>
-        </div>`}
-        <div class="settings-group">
-          <div class="settings-label">DRAGON RADIO</div>
-          <p class="sub">${isTouch() ? 'Buy more stations in the shop.' : 'Press N in flight to cycle stations. Buy more in the shop.'}</p>
-          <div class="seg-row radio-segs">${TRACKS.map((t, i) => trackUnlocked(i)
-            ? `<button class="seg-btn${music.trackIndex === i ? ' sel' : ''}" data-track="${i}">${t.name.toUpperCase()}</button>`
-            : `<button class="seg-btn locked" disabled title="Buy in the shop">🔒 ${t.name.toUpperCase()}</button>`).join('')}</div>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">AUDIO</div>
-          <p class="sub" style="font-size:13px; opacity:0.75">Music &amp; sound volume live in the pause menu (Esc during flight).</p>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">DEV MODE</div>
-          <p class="sub">Unlock every dragon, rider, and style at max form for testing. Turn off to restore your real save.</p>
-          <div class="seg-row">
-            <button class="seg-btn${saveData.settings.dev ? ' sel' : ''}" data-dev="1">ON</button>
-            <button class="seg-btn${saveData.settings.dev ? '' : ' sel'}" data-dev="0">OFF</button>
-          </div>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label">DATA</div>
-          <div class="seg-row"><button class="seg-btn" id="btn-reset-save">RESET ALL PROGRESS</button></div>
-        </div>
-        <div class="action-row"><button class="btn-secondary" id="btn-back">← BACK</button></div>`;
+        <div class="action-row"><button class="btn-secondary" id="btn-back2">← BACK</button></div>`;
 
     } else if (type === 'gameover') {
       // Run Recap v2 lives in recap.js (count-up, record chips, earnings
@@ -2035,6 +2013,10 @@ export const ui = {
     els.screen.classList.toggle('scroll-screen', type === 'shop');
     els.screen.classList.toggle('hero-intro', type === 'start' && fresh && !saveData.flags.seenIntro);
     if (fresh) restartAnim(els.screen, 'screen-anim');
+    // U11 (Phase 2): ONE central whoosh as a panel opens over the world —
+    // fresh navigations only (tab re-renders stay silent), never on the hub
+    // itself (its entrance choreography owns that moment).
+    if (fresh && type !== 'start') uiSound.whoosh();
     // Title screen → the catchy menu theme (no-ops until audio is unlocked, and
     // bows out once the player has picked a Dragon Radio station).
     if (type === 'start') music.startMenuTheme();
@@ -2070,6 +2052,7 @@ export const ui = {
       if (Math.hypot(e.clientX - backDownX, e.clientY - backDownY) > 10) return; // a scroll/drag, not a tap
       if (type === 'shop' || type === 'settings' || type === 'pilot' ||
           type === 'quests' || type === 'daily' || type === 'rush') {
+        uiSound.back();
         if (returnScreen === 'pause') ui.showPauseOverlay();
         else ui.showScreen(returnScreen);
       }
@@ -2149,7 +2132,7 @@ export const ui = {
       body = `
         <div class="radio-row">
           <button class="mute-btn" id="pm-prev" title="Previous station">${ICONS.prev}</button>
-          <div class="radio-name" id="pm-track">♪ ${music.trackName}</div>
+          <div class="radio-name" id="pm-track">${ICONS.music}<span>${music.trackName}</span></div>
           <button class="mute-btn" id="pm-next" title="Next station">${ICONS.next}</button>
         </div>
         <div class="vol-row">
@@ -2198,7 +2181,7 @@ export const ui = {
           <div class="pm-quest-meta"><b>${Math.min(t.progress, t.def.target)}/${t.def.target}</b><span>◆ ${t.def.reward}</span></div>
         </div>`).join('');
       body = `${rows}
-        <div class="pm-weekly-head">WEEKLY TRIALS${saveData.weekly.feather ? ' 🪶' : ''}</div>
+        <div class="pm-weekly-head">WEEKLY TRIALS${saveData.weekly.feather ? ` <span class="feather">${ICONS.feather}</span>` : ''}</div>
         ${weekly}
         <p class="pm-hint">Quests pay when the run ends · weeklies reset Mondays (UTC).</p>`;
     }
@@ -2217,7 +2200,7 @@ export const ui = {
         <div class="seg-row pm-tabs">${tabBtn('audio', 'AUDIO')}${tabBtn('assists', 'ASSISTS')}${tabBtn('quests', 'QUESTS')}</div>
         <div class="pm-body">${body}</div>
         <div class="pm-footer">
-          <span class="pm-wallet"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b> · LV <b>${saveData.level}</b></span>
+          <span class="pm-wallet"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b> · LV <b>${saveData.level}</b></span>
           <div class="pm-nav" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
             ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>`}
             <button class="btn-secondary pm-nav-btn" id="pm-settings">SETTINGS</button>
@@ -2289,7 +2272,7 @@ export const ui = {
       const retune = (dir) => {
         const name = music.nextTrack(dir);
         sfx.radio();
-        trackEl.textContent = `♪ ${name}`;
+        trackEl.innerHTML = `${ICONS.music}<span>${name}</span>`;
       };
       els.screen.querySelector('#pm-prev').onclick = stop(() => retune(-1));
       els.screen.querySelector('#pm-next').onclick = stop(() => retune(1));
@@ -2416,8 +2399,11 @@ function wireScreenButtons(type) {
 
   if (type === 'start') {
     returnScreen = 'start';
+    // U11: the press tick is now the DELEGATED #screen pointerdown listener
+    // (ui.init) and the open-whoosh fires centrally in showScreen — the
+    // Phase 1 per-button listeners are retired so nothing double-plays.
     const start = q('#btn-start');
-    if (start) start.onclick = stop(() => handlers.onStart && handlers.onStart('normal'));
+    if (start) start.onclick = stop(() => { uiSound.confirm(); handlers.onStart && handlers.onStart('normal'); });
     // Rail icons open their panels (never launch a run directly).
     const quests = q('#btn-quests');
     if (quests) quests.onclick = stop(() => ui.showScreen('quests'));
@@ -2461,6 +2447,7 @@ function wireScreenButtons(type) {
   if (chipTitle) chipTitle.onclick = stop(() => { pilotTab = 'titles'; ui.showScreen('pilot'); });
   const back = q('#btn-back');
   if (back) back.onclick = stop(() => {
+    uiSound.back();
     // BACK from a pause-opened subscreen returns to the pause overlay.
     if (returnScreen === 'pause') ui.showPauseOverlay();
     else ui.showScreen(returnScreen);
@@ -2493,6 +2480,9 @@ function wireScreenButtons(type) {
       const ownedOf = (k) => saveData.skins.owned.includes(k);
       let hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
 
+      // U6 CTA de-overload: STATE (jade EQUIPPED badge) ≠ PROGRESS (quiet meta
+      // row) ≠ ACTION (the one gold button). The old single pill crammed all
+      // three into "✓ EQUIPPED · 60k m to ascend".
       const ctaHtml = () => {
         const d = DRAGONS[heroKey];
         if (!ownedOf(heroKey)) {
@@ -2500,14 +2490,16 @@ function wireScreenButtons(type) {
           return `<button class="locked${can ? '' : ' dim'}" data-cta="buy">◆ ${d.cost} · UNLOCK</button>`;
         }
         if (saveData.skins.equipped !== heroKey) return `<button data-cta="equip">EQUIP</button>`;
+        const badge = `<span class="cta-state">EQUIPPED</span>`;
         const t = ascensionTier(heroKey), cap = maxTierFor(heroKey);
         if (t < cap) {
           const check = canAscend(heroKey, d.cost);
           if (check.flown >= check.gateMetres)
-            return `<button class="ascend${saveData.embers >= check.cost ? '' : ' dim'}" data-cta="ascend">▲ ASCEND · ${ASCENSION_TIERS[t].name} ◆${check.cost}</button>`;
-          return `<button class="equipped" data-cta="none">✓ EQUIPPED · ${(check.gateMetres / 1000).toFixed(0)}k m to ascend</button>`;
+            return `${badge}<button class="ascend${saveData.embers >= check.cost ? '' : ' dim'}" data-cta="ascend">▲ ASCEND · ${ASCENSION_TIERS[t].name} ◆${check.cost}</button>`;
+          const togo = Math.max(0, check.gateMetres - check.flown);
+          return `${badge}<div class="cta-meta">${(togo / 1000).toFixed(togo < 10000 ? 1 : 0)}k m of flight unlocks ${ASCENSION_TIERS[t].name}</div>`;
         }
-        return `<button class="equipped" data-cta="none">✓ EQUIPPED · MAX</button>`;
+        return `${badge}<div class="cta-meta">Final form</div>`;
       };
 
       const wireCta = () => {
@@ -2546,13 +2538,12 @@ function wireScreenButtons(type) {
         q('#hero-sub').textContent = d.title;
         segEl.innerHTML = Array.from({ length: cap + 1 }, (_, i) =>
           `<div class="hero-seg${i === hTier ? ' on' : ''}" data-form="${i}">${formTierLabel(i)}</div>`).join('');
-        const st = d.stats;
-        const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
-        const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
-        const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
-        const srow = (lbl, kf) => { const v = Math.max(0.06, Math.min(1, kf));
-          return `<div class="hsrow"><div class="hslabel">${lbl}</div><div class="hstrack"><div class="hsfill" style="width:${Math.round(12 + 88 * v)}%"></div></div><div class="hsval">${Math.round(40 + 59 * v)}</div></div>`; };
-        q('#hero-stats').innerHTML = srow('SPEED', spd) + srow('AGILITY', agi) + srow('STAMINA', sta);
+        // U6: roster-relative ratings (min-max across the roster → 20–100) so
+        // the bars differentiate; the bar width IS the rating.
+        const ratings = rosterStatRatings(d);
+        const srow = (lbl, rating) =>
+          `<div class="hsrow"><div class="hslabel">${lbl}</div><div class="hstrack"><div class="hsfill" style="width:${rating}%"></div></div><div class="hsval">${rating}</div></div>`;
+        q('#hero-stats').innerHTML = srow('SPEED', ratings.spd) + srow('AGILITY', ratings.agi) + srow('STAMINA', ratings.sta);
         ctaEl.innerHTML = ctaHtml(); wireCta();
         for (const t2 of railEl.querySelectorAll('.hero-thumb')) t2.classList.toggle('on', t2.dataset.hero === heroKey);
         // Show the inspected dragon in the LIVE menu scene (the real environment behind
@@ -2720,7 +2711,7 @@ function wireScreenButtons(type) {
           sfx.radio();
           ui.showScreen('shop');
           ui.celebrate({
-            kind: 'track', tier: 'small', glyph: '♪',
+            kind: 'track', tier: 'small', glyph: ICONS.music,
             title: t.name, subtitle: `${t.desc} · now on air`,
           });
         } else {
@@ -2776,11 +2767,27 @@ function wireScreenButtons(type) {
   }
 
   if (type === 'settings') {
+    // U5: settings are INSTANT and IN-PLACE — a switch flips its own chrome
+    // without re-rendering the screen (a re-render would snap a 3-section
+    // scroll back to the top), a seg row repaints only its own selection.
+    const flipSwitch = (btn, on) => {
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-checked', String(on));
+    };
+    const selectSeg = (btn) => {
+      for (const o of btn.parentElement.querySelectorAll('.seg-btn')) o.classList.toggle('sel', o === btn);
+    };
+    const back2 = q('#btn-back2');
+    if (back2) back2.onclick = stop(() => {
+      uiSound.back();
+      if (returnScreen === 'pause') ui.showPauseOverlay();
+      else ui.showScreen(returnScreen);
+    });
     for (const btn of els.screen.querySelectorAll('.seg-btn[data-track]')) {
       btn.onclick = stop(() => {
         music.setTrack(Number(btn.dataset.track));
         sfx.radio();
-        ui.showScreen('settings');
+        selectSeg(btn);
       });
     }
     for (const btn of els.screen.querySelectorAll('.seg-btn[data-q]')) {
@@ -2789,7 +2796,7 @@ function wireScreenButtons(type) {
         saveData.settings.qualityOverride = v;
         persist();
         handlers.onQualityChange && handlers.onQualityChange(v);
-        ui.showScreen('settings');
+        selectSeg(btn);
       });
     }
     // MODEL DETAIL (geometry LOD): null = AUTO (track graphics tier), else 'high'/'ultra'.
@@ -2799,15 +2806,56 @@ function wireScreenButtons(type) {
         saveData.settings.modelDetail = v;
         persist();
         handlers.onModelDetailChange && handlers.onModelDetailChange(v);
-        ui.showScreen('settings');
+        selectSeg(btn);
       });
     }
-    // Assist toggles (reticle / slow-mo): instant effect + score bonus
-    for (const btn of els.screen.querySelectorAll('.seg-btn[data-assist]')) {
+    // U14: colorblind preset — swaps the jade/danger token hues via a root class.
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-cb]')) {
       btn.onclick = stop(() => {
-        saveData.settings[btn.dataset.assist] = btn.dataset.val === '1';
+        saveData.settings.colorblind = btn.dataset.cb;
         persist();
-        ui.showScreen('settings');
+        applyAccessibility();
+        selectSeg(btn);
+      });
+    }
+    // U14: HUD scale/opacity sliders — live :root vars, persisted like any setting.
+    const wireRange = (inputId, valId, key, apply) => {
+      const input = q(inputId), val = q(valId);
+      if (!input) return;
+      input.addEventListener('pointerdown', (e) => e.stopPropagation());
+      input.addEventListener('input', () => {
+        const v = Number(input.value) / 100;
+        saveData.settings[key] = v;
+        if (val) val.textContent = `${input.value}%`;
+        apply(v);
+      });
+      input.addEventListener('change', () => { persist(); sfx.ember(1); });
+    };
+    wireRange('#set-hud-scale', '#hud-scale-val', 'hudScale',
+      (v) => document.documentElement.style.setProperty('--hud-scale', v));
+    wireRange('#set-hud-alpha', '#hud-alpha-val', 'hudAlpha',
+      (v) => document.documentElement.style.setProperty('--hud-alpha', v));
+    // Assist switches (reticle / clarity / slow-mo / glide / mouse): instant flip.
+    for (const btn of els.screen.querySelectorAll('.sw[data-assist]')) {
+      btn.onclick = stop(() => {
+        const id = btn.dataset.assist;
+        const on = !saveData.settings[id];
+        saveData.settings[id] = on;
+        persist();
+        flipSwitch(btn, on);
+      });
+    }
+    // Graphics switches. dither/effects apply live; particleBatch re-inits the
+    // pool, so (like DEV mode) it persists + reloads.
+    for (const btn of els.screen.querySelectorAll('.sw[data-gfx]')) {
+      btn.onclick = stop(() => {
+        const id = btn.dataset.gfx;
+        const on = !saveData.settings[id];
+        saveData.settings[id] = on;
+        if (id === 'particleBatch') { unfreezeSaves(); persistNow(); location.reload(); return; }
+        persist();
+        handlers.onGraphicsChange && handlers.onGraphicsChange(id, on);
+        flipSwitch(btn, on);
       });
     }
     // Graphics: colour-grade pick (applies live — three recompiles on toneMapping change).
@@ -2817,27 +2865,12 @@ function wireScreenButtons(type) {
         saveData.settings.toneMap = btn.dataset.tm;
         persist();
         handlers.onGraphicsChange && handlers.onGraphicsChange('toneMap', btn.dataset.tm);
-        ui.showScreen('settings');
+        selectSeg(btn);
       });
     }
-    // Graphics on/off toggles. dither applies live; particleBatch re-inits the pool,
-    // so (like DEV mode) it persists + reloads.
-    for (const btn of els.screen.querySelectorAll('.seg-btn[data-gfx]')) {
+    for (const btn of els.screen.querySelectorAll('.sw[data-dev]')) {
       btn.onclick = stop(() => {
-        const id = btn.dataset.gfx;
-        const on = btn.dataset.val === '1';
-        if (on === !!saveData.settings[id]) return;
-        saveData.settings[id] = on;
-        if (id === 'particleBatch') { unfreezeSaves(); persistNow(); location.reload(); return; }
-        persist();
-        handlers.onGraphicsChange && handlers.onGraphicsChange(id, on);
-        ui.showScreen('settings');
-      });
-    }
-    for (const btn of els.screen.querySelectorAll('.seg-btn[data-dev]')) {
-      btn.onclick = stop(() => {
-        const on = btn.dataset.dev === '1';
-        if (on === !!saveData.settings.dev) return;
+        const on = !saveData.settings.dev;
         saveData.settings.dev = on;
         // Persist the preference even if dev froze writes, then reload so boot
         // applies (or removes) the unlock from a clean save state.

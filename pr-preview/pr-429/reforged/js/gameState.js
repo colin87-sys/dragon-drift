@@ -171,6 +171,11 @@ export const game = {
     // so a modifier (e.g. Hot Streak ×score, High Winds ×speed) can never pollute
     // the main high-score / best-distance records.
     if (this.mode !== 'daily') {
+      // Keep the PRIOR bests around for the recap: record chips only celebrate
+      // beating a real previous record (or a genuinely big first run) — a
+      // 9-point first flight must not earn a gold star (U1).
+      this.prevHighScore = this.highScore;
+      this.prevBestDistance = this.bestDistance;
       this.isNewHighScore = this.score > this.highScore && this.score > 0;
       if (this.isNewHighScore) {
         this.highScore = Math.floor(this.score);

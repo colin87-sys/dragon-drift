@@ -22,6 +22,17 @@ const PALETTES = [
 
 function stoneMat(biomeIdx) {
   const p = PALETTES[biomeIdx % PALETTES.length];
+  // Frozen (2): the flat 0.06-emissive stone collapsed to near-black in backlight — the owner's
+  // "dark vertical strip" (a gate leg) and "large arch" reading as silhouettes. Swap to the
+  // biome props' LUMINOUS Sunset Glacier ice (self-lit teal glow that survives backlight) so the
+  // gate/arch glow as ice, not black cutouts. Frozen-first; other biomes keep the flat stone
+  // until their rollout (a full Sun-Gate-language geometry rebuild is the separate follow-up job).
+  if (biomeIdx === 2) {
+    return bindAtmosphere(new THREE.MeshStandardMaterial({
+      color: 0xbfdce6, flatShading: true, roughness: 0.30, metalness: 0.08,
+      emissive: 0x357088, emissiveIntensity: 0.42,
+    }));
+  }
   return bindAtmosphere(new THREE.MeshStandardMaterial({
     color: p.stone, flatShading: true, roughness: 0.65,
     emissive: p.stone, emissiveIntensity: 0.06,
