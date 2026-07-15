@@ -70,4 +70,17 @@ export const uiSound = {
   back()    { blip({ type: 'sine', from: 1180, to: 880, dur: 0.06, vol: 0.09 }); },
   // A screen breathing open over the world.
   whoosh()  { puff({ dur: 0.22, fromHz: 900, toHz: 3200, vol: 0.065 }); },
+  // EMBERSIGHT H1 — the Bell's per-role tone (HUD-REDESIGN §B.11): a soft
+  // upward blip for rewards/unlocks (gold/jade), a quieter tick for everything
+  // else. Deliberately UNDER the gameplay sfx (rings/gates already chime) —
+  // felt, never noticed.
+  bell(role) {
+    if (role === 'gold' || role === 'jade') {
+      blip({ type: 'sine', from: 1480, to: 1720, dur: 0.05, vol: 0.05 });
+    } else if (role === 'magenta') {
+      blip({ type: 'triangle', from: 1150, to: 950, dur: 0.05, vol: 0.055 });
+    } else {
+      blip({ type: 'triangle', from: 2150, to: 1950, dur: 0.032, vol: 0.045 });
+    }
+  },
 };

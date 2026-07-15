@@ -7,10 +7,12 @@ import { boot, check } from './browser.mjs';
   const { page, errors, done } = await boot();
   await page.click('#btn-start');
   await page.waitForFunction(() => window.__dd.game.state === 'playing');
+  // H1: onboarding hints render through THE BELL as sticky hint-role lines.
   await page.waitForFunction(() =>
-    document.querySelector('#hint').classList.contains('on'), { timeout: 30000 });
-  const text = await page.textContent('#hint');
-  check(`steer hint shows for a new pilot ("${text}")`, /steer/i.test(text));
+    document.querySelector('#bell-slug').classList.contains('show') &&
+    document.querySelector('#bell-slug').dataset.role === 'hint', { timeout: 30000, polling: 120 });
+  const text = await page.textContent('#bell-text');
+  check(`steer hint rings the Bell for a new pilot ("${text}")`, /steer/i.test(text));
   check('hint bit persisted', await page.evaluate(() => (window.__dd.save.flags.hintsSeen & 1) === 1));
   check('no errors', errors.length === 0) || console.error(errors.join('\n'));
   await done();

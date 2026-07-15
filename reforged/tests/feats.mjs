@@ -3,7 +3,13 @@
 // the game state.
 import { boot, check } from './browser.mjs';
 
-const { page, errors, done } = await boot();
+// runs: 1 keeps the first-flight gesture tutorial out of the way — it PAUSES the
+// run mid-flight (runs === 0 only), which froze the settle leg once the H1 Bell
+// wait added wall time before the crash. The settle setup below still rewrites
+// stats.runs to 9 for the runs_10 feat.
+const { page, errors, done } = await boot({
+  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 1 }, flags: { seenIntro: true } }))`,
+});
 await page.click('#btn-start');
 await page.waitForFunction(() => window.__dd.game.state === 'playing');
 
@@ -15,7 +21,13 @@ const w0 = await page.evaluate(() => window.__dd.save.embers);
 await page.evaluate(() => { window.__dd.emit('ring', { perfect: true }); });
 check('Bullseye unlocks on first perfect', await page.evaluate(() =>
   window.__dd.save.feats.unlocked.includes('first_perfect')));
-check('feat toast fired', await page.$eval('#feat-toast', (el) => el.textContent.includes('Bullseye')));
+// H1: feat unlocks ring THE BELL (the one toast lane) as a jade line.
+await page.waitForFunction(() =>
+  document.querySelector('#bell-slug').classList.contains('show') &&
+  document.querySelector('#bell-text').textContent.includes('Bullseye'),
+  { timeout: 5000, polling: 120 });
+check('feat unlock rings the Bell (jade role)',
+  await page.$eval('#bell-slug', (el) => el.dataset.role === 'jade'));
 await page.evaluate(() => { window.__dd.emit('ring', { perfect: true }); });
 check('unlock does not auto-pay (claimed in Pilot)',
   (await page.evaluate(() => window.__dd.save.embers)) - w0 === 0);

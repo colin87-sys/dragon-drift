@@ -12,6 +12,7 @@ import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { uiSound } from './uiSound.js';
 import { ICONS } from './icons.js';
+import { initHudState, updateHudState, hudPoke } from './hudState.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
@@ -71,8 +72,6 @@ function applyAccessibility() {
   if (s.colorblind && s.colorblind !== 'off') root.classList.add(`cb-${s.colorblind}`);
 }
 
-// Popup text IDs used across multiple popups
-let popupTimer = null;
 let lastCombo = 1;
 let lastChain = 0;
 let lastGraze = -1;
@@ -539,7 +538,6 @@ export const ui = {
         <div class="fc-x" id="fc-x">×1.0</div>
         <div class="fc-word">FLOW</div>
       </div>
-      <div class="milestone-banner" id="milestone-banner"></div>
       <div class="danger-glow" id="danger-glow"></div>
       <!-- §5b WEFTWITCH HUD-SEW: golden threads stitch across the chrome ONCE at her
            entrance. RENDER-ORDER LAW: bullets live in the WebGL canvas BELOW all DOM,
@@ -576,10 +574,17 @@ export const ui = {
         <div class="bc-name" id="bc-name"></div>
         <div class="bc-timer" id="bc-timer"></div>
       </div>
+      <!-- EMBERSIGHT H1 — THE BELL: the ONE queued toast lane (HUD-REDESIGN §B.11).
+           popup2 / feat-toast / milestone-banner / hint all collapse into this
+           single anchored slot; queue depth 3 with coalescing (+50 ×3), min
+           display 900ms, one type style (slug + role accent underline). -->
+      <div class="bell" id="bell" aria-live="polite">
+        <div class="bell-slug" id="bell-slug" data-role="gold">
+          <span class="bell-text" id="bell-text"></span><span class="bell-x" id="bell-x"></span>
+        </div>
+      </div>
+      <!-- The perfect-ring micro-pop: the ONE sanctioned center event text (§B.11). -->
       <div class="popup" id="popup"></div>
-      <div class="popup popup2" id="popup2"></div>
-      <div class="feat-toast" id="feat-toast"></div>
-      <div class="hint" id="hint"></div>
       <div class="gesture-overlay" id="gesture-overlay"></div>
       <div class="vignette" id="vignette"></div>
       <div class="blue-flash" id="blue-flash"></div>
@@ -648,20 +653,24 @@ export const ui = {
       dist:         root.querySelector('#dist'),
       best:         root.querySelector('#best'),
       popup:        root.querySelector('#popup'),
-      popup2:       root.querySelector('#popup2'),
-      featToast:    root.querySelector('#feat-toast'),
-      hint:         root.querySelector('#hint'),
+      bell:         root.querySelector('#bell'),
+      bellSlug:     root.querySelector('#bell-slug'),
+      bellText:     root.querySelector('#bell-text'),
+      bellX:        root.querySelector('#bell-x'),
       gestureOverlay: root.querySelector('#gesture-overlay'),
       vignette:     root.querySelector('#vignette'),
       blueFlash:    root.querySelector('#blue-flash'),
       feverOverlay: root.querySelector('#fever-overlay'),
       speedlines:   root.querySelector('#speedlines'),
-      milestoneBanner: root.querySelector('#milestone-banner'),
       screen:       root.querySelector('#screen'),
       celebrate:    root.querySelector('#celebrate'),
       revive:       root.querySelector('#revive-offer'),
       reviveCount:  root.querySelector('#revive-count'),
     };
+
+    // EMBERSIGHT H1 — the state machine + relevance ticker (hudState.js owns
+    // the classification; it rides ui.update's existing call, never a new rAF).
+    initHudState(root);
 
     // Celebration overlay tap-shield: the global pointerdown listener in
     // main.js starts/restarts/resumes on blank taps — propagation must die
@@ -697,6 +706,9 @@ export const ui = {
         sfx.featUnlock();
       }
     });
+
+    // A fresh takeoff never inherits a stale toast (H1 — the Bell flushes).
+    on('runStart', () => this.bellClear());
 
     // U7/U11 — the hub interaction grammar rolls out to every meta screen:
     // ONE delegated tick on pointerdown for nav/cards/switches (touch-first,
@@ -736,6 +748,7 @@ export const ui = {
     // up visibly. transform-origin:right keeps the right-aligned digits firm.
     if (shownScore - lastShownScore >= CONFIG.JUICE.earnPopThreshold) {
       restartAnim(els.score, 'score-earn-pop');
+      hudPoke('earn');   // H1: a meaningful earn returns the ghosted score ≤150ms
     }
     lastShownScore = shownScore;
 
@@ -885,7 +898,7 @@ export const ui = {
       els.raceBar.classList.toggle('won', game.challengeBeaten);
       if (!game.challengeBeaten && game.score > game.challengeScore) {
         game.challengeBeaten = true;
-        this._popup('CHALLENGE BEATEN — KEEP FLYING!', 'gold');
+        this.bell('CHALLENGE BEATEN — KEEP FLYING', 'gold');
         sfx.record();
       }
     }
@@ -909,20 +922,102 @@ export const ui = {
 
     // Fever overlay pulse
     els.feverOverlay.classList.toggle('active', game.feverActive);
+
+    // EMBERSIGHT H1 — the ≤4Hz relevance ticker (class writes only on change).
+    updateHudState(player);
+  },
+
+  // ══ THE BELL (EMBERSIGHT H1, HUD-REDESIGN §B.11) ═══════════════════════════
+  // The ONE queued toast lane. Every ephemeral line (pickups, feats, milestones,
+  // records, hints) rings here: one slot, queue depth 3, coalescing (`+50 ×3`),
+  // min display 900ms, role accent underline, U11 tone per role.
+  //   role: 'gold' reward · 'cyan' graze/info · 'jade' unlock · 'magenta' warning
+  //         · 'hint' onboarding (sticky — dismissed by hideHint or the 8s cap)
+  //   opts: { key, dur (s), sticky, ritual } — same-key messages coalesce.
+  bell(text, role = 'gold', opts = {}) {
+    if (!els.bell) return;   // headless / no-DOM: toasts no-op
+    const key = opts.key || `${role}|${text}`;
+    const m = {
+      text, role, key, count: 1,
+      sticky: !!opts.sticky,
+      ritual: !!opts.ritual,
+      dur: Math.max(900, (opts.dur || 0) * 1000 || 1100),
+    };
+    const cur = this._bellCur;
+    if (cur && cur.key === key && !cur.ritual) {
+      // Coalesce into the DISPLAYED message: bump ×N in place, extend the hold.
+      cur.count++;
+      cur.text = text;
+      els.bellText.innerHTML = cur.text;
+      els.bellX.textContent = `×${cur.count}`;
+      restartAnim(els.bellSlug, 'bell-pop');
+      this._bellArm(cur);
+      return;
+    }
+    const q = this._bellQ || (this._bellQ = []);
+    const tail = q[q.length - 1];
+    if (tail && tail.key === key && !tail.ritual) { tail.count++; tail.text = text; return; }
+    q.push(m);
+    if (q.length > 3) q.shift();   // depth 3 — the oldest queued line yields
+    this._bellPump();
+  },
+
+  _bellPump() {
+    if (!els.bell || this._bellCur) return;
+    const m = (this._bellQ || []).shift();
+    if (!m) return;
+    this._bellCur = m;
+    const slug = els.bellSlug;
+    slug.dataset.role = m.role;
+    slug.classList.toggle('bell-ritual', m.ritual);
+    els.bellText.innerHTML = m.text;
+    els.bellX.textContent = m.count > 1 ? `×${m.count}` : '';
+    slug.classList.add('show');
+    uiSound.bell(m.role);
+    this._bellArm(m);
+  },
+
+  _bellArm(m) {
+    clearTimeout(this._bellTO);
+    // Sticky (hints) hold until hideHint() — with an 8s starvation backstop.
+    this._bellTO = setTimeout(() => this._bellEnd(), m.sticky ? 8000 : m.dur);
+  },
+
+  _bellEnd() {
+    clearTimeout(this._bellTO);
+    this._bellTO = null;
+    if (!this._bellCur) return;
+    this._bellCur = null;
+    els.bellSlug.classList.remove('show', 'bell-ritual');
+    setTimeout(() => this._bellPump(), 180);   // let the --t-exit fade finish
+  },
+
+  // Flush the lane (run reset — no stale toast over a fresh takeoff).
+  bellClear() {
+    this._bellQ = [];
+    this._bellEnd();
+  },
+
+  // The at-center micro-pop — perfect-ring only (§B.11: the one sanctioned
+  // center event text; tiny, 500ms, no reticle coupling — H4 owns the Lure).
+  _centerPop(text) {
+    if (!els.popup) return;
+    els.popup.textContent = text;
+    restartAnim(els.popup, 'popup-anim');
   },
 
   ringPopup(points, perfect, streak = 0) {
     if (perfect) {
-      this._popup(streak > 1 ? `+${points} PERFECT ×${streak}!` : `+${points} PERFECT!`, 'gold');
+      this._centerPop(streak > 1 ? `+${points} PERFECT ×${streak}` : `+${points} PERFECT`);
     } else {
-      this._popup(`+${points}`, 'green');
+      this.bell(`+${points}`, 'gold', { key: 'earn:ring' });
     }
   },
 
-  // Flow-run carve chain: a low-noise multiplier pop at milestones (the SLIPSTREAM speed
-  // is the main feedback; this just names the climbing multiplier). color set by caller.
+  // Flow-run carve chain: a low-noise multiplier line at milestones (the
+  // SLIPSTREAM speed is the main feedback; this just names the multiplier).
   flowChainPop(text, color) {
-    this._popup(text, color);
+    this.bell(text, color === 'cyan' ? 'cyan' : 'gold', { key: 'flow' });
   },
 
   // The FLOW "Keystone Crest" meter — cyan light climbs both legs of a mini Windvault as the
@@ -999,65 +1094,55 @@ export const ui = {
     restartAnim(els.blueFlash, 'flash-anim');
   },
 
-  // Surge phase popup. Perfect = big violet banner (climbs with the streak);
-  // minor = a smaller "PHASE" tag; assisted = the one-time teaching coach line.
+  // Surge phase-through. Perfect climbs with the streak; assisted = the
+  // one-time teaching coach line (rings as a hint).
   phasePopup(points, perfect, streak = 0, assisted = false) {
-    if (assisted) { this._popup2('Like that! — roll to phase', 'orange'); return; }
+    if (assisted) { this.bell('Like that! — roll to phase', 'hint', { key: 'hint' }); return; }
     if (perfect) {
-      this._popup(streak > 1 ? `PERFECT PHASE ×${streak}! +${points}` : `PERFECT PHASE! +${points}`, 'phase');
+      this.bell(streak > 1 ? `PERFECT PHASE ×${streak} +${points}` : `PERFECT PHASE +${points}`, 'gold', { key: 'earn:phase' });
     } else {
-      this._popup2(`PHASE +${points}`, 'orange');
+      this.bell(`PHASE +${points}`, 'gold', { key: 'earn:phase' });
     }
   },
 
   nearMissPopup(points) {
-    this._popup2(`NEAR MISS +${points}`, 'orange');
+    this.bell(`NEAR MISS +${points}`, 'cyan', { key: 'earn:near' });
   },
 
   rollPopup(points) {
-    this._popup2(`BARREL ROLL +${points}`, 'gold');
+    this.bell(`BARREL ROLL +${points}`, 'gold', { key: 'earn:roll' });
   },
 
-  // Reflect/parry callout. A perfect parry gets the big violet banner with the
-  // climbing streak (like a perfect-phase); a normal parry is a quieter cyan pop.
+  // Reflect/parry callout. A perfect parry keeps the climbing streak read;
+  // a normal parry is a quieter cyan line.
   parryPopup(points, perfect, streak) {
-    if (perfect) this._popup(`★ PERFECT PARRY ×${streak} ★  +${points}`, 'fever');
-    else this._popup2(`PARRY +${points}`, 'cyan');
+    if (perfect) this.bell(`PERFECT PARRY ×${streak} +${points}`, 'gold', { key: 'earn:parry' });
+    else this.bell(`PARRY +${points}`, 'cyan', { key: 'earn:parry' });
   },
 
   gatePopup(points) {
-    this._popup(`THREADED +${points}`, 'cyan');
+    this.bell(`THREADED +${points}`, 'cyan', { key: 'earn:gate' });
   },
 
   // §5i.B THREAD-THE-GAP: threading a boss WALL's safe gap — same word/colour as the course
   // gate (it's the same skill), streak-aware like parryPopup. Boss.js owns the scoring.
   threadPopup(points, streak) {
-    this._popup(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan');
+    this.bell(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan', { key: 'earn:gate' });
   },
 
   milestonePopup(metres) {
-    const b = els.milestoneBanner;
-    if (!b) { this._popup2(`${metres} m!`, 'gold'); return; }
-    b.textContent = `${metres} m!`;
-    b.classList.remove('ms-anim');
-    void b.offsetWidth;
-    b.classList.add('ms-anim');
+    this.bell(`${metres.toLocaleString()} m`, 'gold', { key: 'milestone' });
   },
 
   recordPopup() {
-    this._popup('★ NEW RECORD ★', 'gold');
+    this.bell('NEW RECORD', 'gold', { key: 'record' });
   },
 
   // First-ever Dragon Surge: a one-shot, non-blocking flourish (the run never
-  // pauses). Reuses the milestone banner's pop; the surge hint line and the
-  // sky-fire (feverStart) carry the rest, and recap.js names it at run end.
+  // pauses). The Bell carries it; the sky-fire (feverStart) and recap.js do
+  // the rest of the celebrating.
   surgeFlourish() {
-    const b = els.milestoneBanner;
-    if (!b) { this._popup('⚡ DRAGON SURGE ⚡', 'gold'); return; }
-    b.textContent = '⚡ DRAGON SURGE ⚡';
-    b.classList.remove('ms-anim');
-    void b.offsetWidth;
-    b.classList.add('ms-anim');
+    this.bell('DRAGON SURGE', 'gold', { key: 'surge', dur: 1.6 });
   },
 
   // Surge killed by a hit: one-shot dim/desaturate sweep over the gem row so
@@ -1068,7 +1153,7 @@ export const ui = {
   },
 
   biomePopup(name) {
-    this._popup(`— ${name} —`, 'cyan');
+    this.bell(`— ${name} —`, 'cyan', { key: 'biome' });
   },
 
   // Dramatic incoming-boss warning shown across the warn + approach beats: a
@@ -1348,37 +1433,37 @@ export const ui = {
   },
 
   radioPopup(name) {
-    this._popup2(`♪ Now playing: ${name}`, 'gold');
+    this.bell(`${ICONS.music} ${name}`, 'cyan', { key: 'radio' });
   },
 
   // Live personal-record break (throttled by records.js)
   newBestPopup(label, value) {
-    this._popup2(`★ NEW BEST ${label}: ${value} ★`, 'gold');
+    this.bell(`NEW BEST ${label} · ${value}`, 'gold');
     sfx.record();
   },
 
   goldEmberPopup(value) {
-    this._popup2(`✦ GOLDEN EMBER +◆${value} ✦`, 'gold');
+    this.bell(`GOLDEN EMBER +${EMBER_ICON}${value}`, 'gold', { key: 'goldember' });
   },
 
   pbMarkerPopup(bonus) {
-    this._popup(`⟡ PAST YOUR BEST FLIGHT +◆${bonus} ⟡`, 'gold');
+    this.bell(`PAST YOUR BEST +${EMBER_ICON}${bonus}`, 'gold');
   },
 
-  // Feat toast: short in-flight unlock; Pilot and recap carry the details.
+  // Feat unlock: one Bell line (jade = unlock role); Pilot + recap carry details.
   featToast(name, reward) {
-    els.featToast.innerHTML = `${ICONS.feat} FEAT UNLOCKED <b>◆${reward}</b>`;
-    restartAnim(els.featToast, 'feat-toast-anim');
+    this.bell(`FEAT · ${name} <b>${EMBER_ICON}${reward}</b>`, 'jade', { dur: 2.0 });
   },
 
-  // Onboarding hint line (hints.js drives show/hide)
+  // Onboarding hint line (hints.js drives show/hide). Renders through the Bell
+  // as a STICKY message — held until hideHint() or the 8s starvation backstop.
   showHint(text) {
-    els.hint.textContent = text;
-    els.hint.classList.add('on');
+    this.bell(text, 'hint', { key: 'hint', sticky: true });
   },
 
   hideHint() {
-    els.hint.classList.remove('on');
+    if (this._bellCur && this._bellCur.key === 'hint') { this._bellEnd(); return; }
+    if (this._bellQ) this._bellQ = this._bellQ.filter((m) => m.key !== 'hint');
   },
 
   // Paused gesture tutorial overlay (gestureTutorial.js drives show/hide while
@@ -1512,37 +1597,24 @@ export const ui = {
   },
 
   comboBreak() {
-    this._popup('COMBO LOST', 'red');
+    this.bell('COMBO LOST', 'magenta', { key: 'combolost' });
     // Soft red edge pulse — the damage vignette at lower stakes.
     els.vignette.classList.remove('lethal');
     restartAnim(els.vignette, 'flash-anim');
   },
 
   orbFlash() {
-    this._popup('SPEED SURGE!', 'cyan');
+    this.bell('SPEED SURGE', 'cyan', { key: 'orb' });
     restartAnim(els.blueFlash, 'flash-anim');
   },
 
   feverStart() {
-    this._popup('DRAGON SURGE!', 'fever');
+    this.bell('DRAGON SURGE', 'gold', { key: 'surge', dur: 1.6 });
   },
 
   damageFlash(lethal = false) {
     els.vignette.classList.toggle('lethal', lethal);
     restartAnim(els.vignette, 'flash-anim');
-  },
-
-  _popup(text, color) {
-    if (!els.popup) return;   // headless / no-DOM: UI popups no-op (a boss can now score-pop mid-fight)
-    els.popup.textContent = text;
-    els.popup.dataset.color = color;
-    restartAnim(els.popup, 'popup-anim');
-  },
-
-  _popup2(text, color) {
-    els.popup2.textContent = text;
-    els.popup2.dataset.color = color;
-    restartAnim(els.popup2, 'popup2-anim');
   },
 
   showScreen(type) {
