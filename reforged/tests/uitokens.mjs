@@ -184,11 +184,11 @@ const HUD_RE = /(^|[\s,>+~(:])\.(hud-[\w-]*|boss[\w-]*|surge[\w-]*|lock[\w-]*|ra
 const LAYOUT_PROP = /(^|[\s;,])(max-|min-)?(width|height|top|left|right|bottom|margin[\w-]*|padding[\w-]*|box-shadow)\s*[\s:,]/;
 
 // Pre-existing violations, documented — NOT a license for new ones.
-// TODO(U8/H1): migrate these meter fills to transform:scaleX() (§A.4) and the
-// race-bar to the relevance system, then delete each entry.
+// H2 deleted the .race-fill width transition (the navy race-bar died for the
+// two-caret tick-strip). TODO: .bar-fill is legacy chrome no live HUD markup
+// uses; delete with its CSS block. .surge-gems dies with the H3 gauntlet.
 const HUD_MOTION_EXCEPTIONS = [
   '.bar-fill | transition: width 0.12s linear',   // vitals meter fill (style.css:189)
-  '.race-fill | transition: width 0.3s',          // challenge race fill (style.css:1478)
   '.surge-gems i | transition: background 0.15s, box-shadow 0.15s', // gem pip glow (style.css:570)
 ];
 

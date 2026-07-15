@@ -40,4 +40,7 @@ export const ICONS = {
   flame:    '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.4c1.6 2.5 4.6 4.1 4.6 7.4A4.6 4.6 0 0 1 4.4 9.8c0-1.5.7-2.7 1.6-3.8 0 1.3.7 2 1.5 2C6.8 5.6 8.6 4.4 9 2.4z"/></svg>',
   feather:  '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.6 3.4c-3.8-.6-8.2 1.6-9.6 5.6-.8 2.2-.6 4.6-.6 4.6s2.4.3 4.6-.6c4-1.4 6.2-5.8 5.6-9.6z"/><path d="M3.4 14.6L11 7"/></svg>',
   sun:      '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="3.4"/><path d="M9 1.6v2M9 14.4v2M1.6 9h2M14.4 9h2M3.8 3.8l1.4 1.4M12.8 12.8l1.4 1.4M14.2 3.8l-1.4 1.4M5.2 12.8l-1.4 1.4"/></svg>',
+  // EMBERSIGHT H2 — the ember gem (◆ text glyph evicted from the HUD Tally):
+  // a faceted lozenge, currentColor, sized per call-site.
+  ember:    '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M9 1.8L15.4 9 9 16.2 2.6 9z"/><path d="M5.4 9L9 5.2 12.6 9 9 12.8z" fill="currentColor" stroke="none" opacity="0.55"/></svg>',
 };

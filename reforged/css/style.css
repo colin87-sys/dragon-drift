@@ -208,17 +208,24 @@ body.app-loaded > canvas { opacity: 1; }
 .bar-fill.health  { background: linear-gradient(90deg, #ff4d3d, #ffa53d, #ffd24d); box-shadow: 0 0 8px rgba(255,140,60,0.55); width: 100%; }
 .bar-fill.stamina { background: linear-gradient(90deg, #2f9aff, #3fd8e8, #7fffe0); box-shadow: 0 0 8px rgba(60,210,255,0.55); width: 100%; }
 .bar-fill.stamina.depleted { background: #58606e; box-shadow: none; }
-/* ============ SCORE / COMBO (top-right) ============ */
+/* ============ EMBERSIGHT H2 — THE TALLY (top-right column, §B.4) ============ */
 .hud-top-right { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; text-align: right; }
-.score { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 40px;
-  font-weight: 400; letter-spacing: 1px; transform-origin: right center;
-  text-shadow: 0 0 18px rgba(255, 190, 90, 0.75), 0 2px 5px rgba(0,0,0,0.6);
-  transition: transform 0.08s, color 0.3s, opacity var(--t-micro) var(--ease-out); }
+/* THE SLUG (§A Law 2): every numeral sits on a smoked lozenge — never glow-stacks. */
+.slug { display: inline-block; padding: 2px 9px 3px; border-radius: var(--r-s);
+  background: rgba(12,8,6,0.28); border: 1px solid var(--rf-stroke);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+/* Score demoted to --fs-title tabular in a slug; the 40px triple glow is dead.
+   The combo tier warm-up survives as the SLUG'S HAIRLINE colour (data-tier). */
+.score { font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-title); line-height: 1.25;
+  font-weight: 400; letter-spacing: 0.03em; transform-origin: right center;
+  color: var(--rf-ink); text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  transition: transform 0.08s, color 0.3s, border-color 0.3s, opacity var(--t-micro) var(--ease-out); }
 .score.boost-pulse { animation: score-pulse 0.18s ease-out; }
-.score.fever { color: #ffb8ff; text-shadow: 0 0 22px rgba(255,120,255,0.9), 0 2px 4px rgba(0,0,0,0.5); }
-.score[data-tier="2"]:not(.fever) { color: #fff3d8; text-shadow: 0 0 18px rgba(255,210,110,0.7), 0 2px 4px rgba(0,0,0,0.5); }
-.score[data-tier="3"]:not(.fever) { color: #ffe9c2; text-shadow: 0 0 20px rgba(255,170,70,0.85), 0 2px 4px rgba(0,0,0,0.5); }
-.score[data-tier="4"]:not(.fever) { color: #ffdcae; text-shadow: 0 0 22px rgba(255,130,60,0.95), 0 2px 4px rgba(0,0,0,0.5); }
+.score[data-tier="2"]:not(.fever) { border-color: rgba(255,210,110,0.55); }
+.score[data-tier="3"]:not(.fever) { border-color: rgba(255,170,70,0.72); }
+.score[data-tier="4"]:not(.fever) { border-color: rgba(255,130,60,0.88); }
+.score.fever { color: #ffb8ff; border-color: rgba(255,136,255,0.8); }
 @keyframes score-pulse { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
 
 .combo { font-weight: 700; letter-spacing: 1px; margin-top: 2px;
@@ -236,18 +243,28 @@ body.app-loaded > canvas { opacity: 1; }
 .combo-x.combo-pop { animation: combo-pop 0.3s ease-out; }
 @keyframes combo-pop { 0%{transform:scale(1)} 40%{transform:scale(1.45)} 100%{transform:scale(1)} }
 
-/* Chain counter: consecutive rings/windows — visible from 2, pops per link */
-.chain { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #ffcaa0;
-  margin-top: 4px; opacity: 0; transform: translateY(-4px);
+/* Chain chip (H2 §B.4): gold, appears from 2, pops per link, and a hairline
+   underline fills in CELLS OF FIVE. A live chain is a decision window — it is
+   exempt from every ghost rule by construction (it only exists while live). */
+.chain { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #ffd86a;
+  margin-top: 5px; opacity: 0; transform: translateY(-4px);
   transition: opacity 0.25s, transform 0.25s;
-  text-shadow: 0 0 10px rgba(255, 150, 80, 0.6); }
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
 .chain.on { opacity: 1; transform: translateY(0); }
-.chain .chain-n { font-size: 15px; }
-.chain .chain-word { font-size: 8px; letter-spacing: 2.5px; opacity: 0.75; margin-left: 5px; vertical-align: 1px; }
+.chain .chain-n { font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: 15px; font-weight: 400; }
+.chain .chain-word { font-size: 8px; letter-spacing: 0.22em; opacity: 0.75; margin-left: 5px; vertical-align: 1px; }
+/* the cells-of-5 underline: five hairline segments, filled per link */
+.chain .chain-cells { display: flex; gap: 3px; justify-content: flex-end; margin-top: 2px; }
+.chain .chain-cells i { width: 9px; height: 2px; border-radius: 1px;
+  background: rgba(255,216,106,0.22); box-shadow: 0 1px 0 rgba(0,0,0,0.5);
+  transition: background 0.15s; }
+.chain .chain-cells i.f { background: #ffd86a; }
 .chain.chain-pop { animation: chain-pop 0.28s ease-out; }
 @keyframes chain-pop { 0%{transform:scale(1)} 45%{transform:scale(1.3)} 100%{transform:scale(1)} }
-/* Live GRAZE counter (boss only) — graze-green, reuses the .chain layout + pop. */
-.graze-hud { color: #9dffea; text-shadow: 0 0 10px rgba(120, 255, 220, 0.6); }
+/* Live GRAZE counter (boss only) — cyan role, reuses the .chain layout + pop. */
+.graze-hud { color: #9dffea; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.graze-hud .chain-cells { display: none; }
 
 /* Boss incoming warning + directional danger glow (telegraph before it arrives) */
 .boss-warn { position: fixed; top: 30%; left: 0; right: 0; text-align: center;
@@ -417,10 +434,41 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .boss-card.bc-survive { animation: bc-survive 0.5s ease-out; }
 @keyframes bc-survive { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 
-.dist { font-size: 13px; letter-spacing: 2px; opacity: 0.75; margin-top: 3px; }
-.best { font-size: 11px; letter-spacing: 2px; opacity: 0.6; margin-top: 4px; }
-.embers-hud { font-size: 13px; letter-spacing: 1px; color: #ffc050; margin-top: 5px;
-  text-shadow: 0 0 10px rgba(255,170,50,0.6); }
+/* ===== EMBERSIGHT H2 — THE TAPE (top-center, §B.6) =====
+   The one permanent readout: a 160px hairline (portrait 120px, tick strip
+   dropped) with ticks scrolling under a fixed center caret, the numeral at
+   --fs-title in a slug, and the gold ★ PB caret sliding in within ±500m. */
+.tape { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tape-strip { position: relative; width: 160px; height: 12px; overflow: hidden;
+  /* dual-stroke hairline: warm line + 1px dark shadow (bright-biome survival) */
+  border-bottom: 1px solid var(--rf-stroke-hi);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.55); }
+.tape-ticks { position: absolute; left: -20px; bottom: 0; width: 220px; height: 8px;
+  stroke: rgba(255,219,150,0.34); stroke-width: 1;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.5)); }
+.tape-caret { position: absolute; left: 50%; top: 0; width: 0; height: 0; margin-left: -4px;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid var(--rf-ink); filter: drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
+/* THE PB CARET: gold, ★-topped, rides the tape at the record's position
+   (translateX from JS, ≤4Hz); passed = pinned center for the rest of the run. */
+.tape-pb { position: absolute; left: 50%; bottom: 0; width: 0; height: 0;
+  margin-left: -1px; opacity: 0; transition: opacity var(--t-ui) var(--ease-out);
+  color: #ffd86a; }
+.tape-pb::before { content: ''; position: absolute; left: 0; bottom: 0; width: 2px; height: 7px;
+  background: #ffd86a; box-shadow: 0 1px 0 rgba(0,0,0,0.55); }
+.tape-pb svg { position: absolute; left: -3.5px; bottom: 7px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
+.tape-pb.on { opacity: 0.95; }
+.tape-pb.passed { opacity: 1; }
+.tape-flash .tape-strip { animation: tape-flash 0.7s ease-out; }
+@keyframes tape-flash { 0% { filter: brightness(2.4) drop-shadow(0 0 8px rgba(255,216,106,0.9)); }
+  100% { filter: brightness(1); } }
+.dist { font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-title); line-height: 1.25; letter-spacing: 0.03em;
+  color: var(--rf-ink); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.embers-hud { font-size: var(--fs-label); letter-spacing: 0.06em; color: #ffc050; margin-top: 5px;
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.embers-hud svg { vertical-align: -2px; margin-right: 1px; }
 
 /* ============ MINIMAL VITALS (beauty-first) ============
    Health = quiet hearts (top-left). Stamina = an arc cradling the dragon.
@@ -848,6 +896,35 @@ body.hud-scorekeeper .score.rest { opacity: 1; }
 .bell-slug.bell-pop { animation: bell-pop 0.24s var(--ease-spring); }
 @keyframes bell-pop { 0%{transform:scale(1.09)} 100%{transform:scale(1)} }
 
+/* THE TALLY RITUAL (H2 §B.4): a chain ≥5 ending carries its banked points
+   through the Bell at --fs-title gold — the slug WRITES open left→right
+   (transform-only wipe, 300ms), holds ~900ms, then dissolves UPWARD while
+   3–4 ember motes rise off it. The keyframe animation overrides the lane's
+   standard enter/exit transitions for this one message. */
+.bell-slug.bell-ritual { font-family: var(--font-display); font-size: var(--fs-title);
+  font-weight: 400; color: #ffd86a; letter-spacing: 0.04em; overflow: visible;
+  font-variant-numeric: tabular-nums;
+  animation: bell-ritual 1.6s var(--ease-out) forwards; transform-origin: left center; }
+.bell-slug.bell-ritual::after { --bell-accent: #ffd86a; }
+@keyframes bell-ritual {
+  0%   { opacity: 1; transform: scaleX(0); }
+  19%  { opacity: 1; transform: scaleX(1) translateY(0); }   /* the 300ms write */
+  75%  { opacity: 1; transform: scaleX(1) translateY(0); }   /* the hold */
+  100% { opacity: 0; transform: scaleX(1) translateY(-16px); } /* dissolve upward */
+}
+/* the rising ember motes (the shipped surge-ember grammar, retimed) */
+.bell-motes { display: none; }
+.bell-slug.bell-ritual .bell-motes { display: block; position: absolute; inset: 0; pointer-events: none; }
+.bell-motes i { position: absolute; bottom: 4px; width: 3px; height: 3px; border-radius: 50%;
+  background: #ffd9a0; box-shadow: 0 0 6px rgba(255,180,100,0.9); opacity: 0;
+  animation: bell-mote 0.7s ease-in forwards; }
+.bell-motes i:nth-child(1) { left: 16%; animation-delay: 1.0s; }
+.bell-motes i:nth-child(2) { left: 42%; animation-delay: 1.12s; }
+.bell-motes i:nth-child(3) { left: 66%; animation-delay: 1.05s; }
+.bell-motes i:nth-child(4) { left: 86%; animation-delay: 1.18s; }
+@keyframes bell-mote { 0% { opacity: 0; transform: translateY(0) scale(1); }
+  20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px) scale(0.4); } }
+
 .vignette  { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(255,40,40,0.55) 100%); }
 .vignette.lethal { background: radial-gradient(ellipse at center, rgba(255,30,30,0.25) 20%, rgba(255,20,20,0.8) 100%); }
 .blue-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(110,200,255,0.22) 0%, transparent 70%); }
@@ -1211,8 +1288,8 @@ body.hud-scorekeeper .score.rest { opacity: 1; }
   font-weight: 800; text-shadow: 0 0 10px rgba(255, 120, 60, 0.55);
   transition: opacity 1s ease; }
 .assist-chip.faded { opacity: 0; }
-.best, .ff-chip { opacity: 0; transition: opacity 0.45s ease; }
-.best.hud-reveal, .ff-chip.hud-reveal { opacity: 1; }
+.ff-chip { opacity: 0; transition: opacity 0.45s ease; }
+.ff-chip.hud-reveal { opacity: 1; }
 .hc-line { color: #ff9a5a; font-size: 14px; letter-spacing: 2px; font-weight: 700; margin: 4px 0;
   text-shadow: 0 0 12px rgba(255, 120, 60, 0.5); }
 
@@ -1590,12 +1667,10 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .hud-top-left  { top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; }
   .hud-top-center{ top: calc(10px + env(safe-area-inset-top, 0px)); }
   .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; }
-  .score         { font-size: 36px; }
   .stamina-arc   { top: 64%; width: min(38vw, 128px); }
   .surge-x       { font-size: 13px; }
-  .dist          { font-size: 15px; }
-  .best          { font-size: 11px; }
-  .embers-hud    { font-size: 14px; }
+  .tape-strip    { width: 120px; }
+  .tape-ticks    { display: none; }   /* portrait drops the tick strip (§C) */
   #reticle       { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
   .popup         { top: 36%; }
   .bell          { top: 20%; }   /* portrait: the Bell rises (HUD-REDESIGN §C) */
@@ -1647,16 +1722,27 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 
 /* ============ LEGEND UPDATE (retention systems) ============ */
 
-/* Challenge race bar: live HUD progress vs a friend's score */
-.race-bar { display: none; position: relative; width: 150px; height: 8px; margin: 6px 0 2px auto;
-  border-radius: 5px; background: rgba(26, 15, 10, 0.85); border: 1px solid var(--rf-stroke); }
-.race-bar.on { display: block; }
-.race-fill { display: block; height: 100%; border-radius: 5px; width: 0;
-  background: linear-gradient(90deg, #3fd8e8, #ff9a5a); transition: width 0.3s; }
-.race-bar.won .race-fill { background: linear-gradient(90deg, #ffd86a, #ff9540); }
-.race-target { position: absolute; right: 2px; top: -14px; font-size: 9.5px; letter-spacing: 1px;
-  color: #ff9a5a; font-weight: 800; }
-.race-bar.won .race-target { color: #ffd86a; }
+/* EMBERSIGHT H2 — race-vs-ghost (§B.12): the two-caret tick-strip. One 90px
+   hairline under the Tally; your caret gold, the rival's white; `vs 1 850`
+   in micro caps. Relevance-gated: ghosted at 0.30 until within 15% of the
+   target (or beaten). Overtake: rival caret falls off the end + gold flash. */
+.race-strip { display: none; margin: 6px 0 2px auto; text-align: right;
+  opacity: 0.3; transition: opacity var(--t-micro) var(--ease-out); }
+.race-strip.on { display: block; }
+.race-strip.close { opacity: 1; }
+.race-target { display: block; font-size: 9.5px; letter-spacing: var(--track-caps);
+  color: #ffd9ac; font-weight: 800; margin-bottom: 3px;
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,0.7); }
+.race-strip.won .race-target { color: #ffd86a; }
+.race-line { position: relative; display: block; width: 90px; height: 8px; margin-left: auto;
+  border-bottom: 1px solid var(--rf-stroke-hi); box-shadow: 0 1px 0 rgba(0,0,0,0.55); }
+.race-you, .race-rival { position: absolute; left: 0; bottom: 0; width: 2px; height: 7px;
+  transition: transform 0.3s var(--ease-out), opacity var(--t-exit) var(--ease-in); }
+.race-you { background: #ffd86a; box-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 0 4px rgba(255,216,106,0.6); }
+.race-rival { background: rgba(255,255,255,0.85); box-shadow: 0 1px 0 rgba(0,0,0,0.55); height: 5px; }
+/* overtake: the rival caret falls off the end; the strip flashes gold */
+.race-strip.won .race-rival { transform: translateX(98px) !important; opacity: 0; }
+.race-strip.won .race-line { animation: tape-flash 0.7s ease-out; }
 
 /* HUD chips: first-flight bonus */
 .ff-chip { font-size: 10.5px; letter-spacing: 1.5px; color: #ffe27a; margin-top: 5px;
@@ -1830,12 +1916,15 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .earn-list.revealing .earn-line { animation: none; opacity: 1; transform: none; }
   .bell-slug, .bell-slug.show { transform: none; transition: opacity var(--t-ui); }
   .bell-slug.bell-pop { animation: none; }
+  .bell-slug.bell-ritual { animation: none; }   /* the write/dissolve collapses to the lane's fade */
+  .bell-motes { display: none !important; }
   .hud-flash { animation: none; }
+  .tape-flash .tape-strip, .race-strip.won .race-line { animation: none; }
+  .race-you, .race-rival { transition: opacity var(--t-exit); }
 }
 
 /* Mobile sizing for the new surfaces */
 @media (max-width: 600px) {
-  .race-bar { width: 110px; }
   .record-chip { font-size: 10.5px; padding: 5px 10px; }
   .earn-line { font-size: 12px; }
   .nextup-label { font-size: 13px; }

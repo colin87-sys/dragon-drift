@@ -86,9 +86,19 @@ let lastSpeedlines = -1;
 let celebrateShownAt = 0;
 let assistFadeTimer = null;
 let lastAssistText = '';
-let bestRevealTimer = null;
-let lastBestReveal = '';
 let ffRevealTimer = null;
+// EMBERSIGHT H2 — TAPE + TALLY state (change-detected, transforms only)
+const TAPE_PXPM = 80 / 500;    // px per metre: PB caret spans ±500m over 80px
+let lastTapeAt = 0;            // ≤4Hz transform gate for the tick scroll + PB caret
+let lastDistShown = -1;
+let pbPassed = false;
+let pbLastX = null;
+let chainStartScore = 0;       // score banked when the live chain began (the ritual line)
+let chainPeakCombo = 1;
+let lastRaceYou = -1, lastRaceRival = -1, raceClose = false;
+let lastRaceLabel = '';
+// `1 403 m` — tabular numerals, thin-space grouping (§B.6)
+const fmtNum = (n) => Math.floor(n).toLocaleString('en-US').replace(/,/g, '\u2009');
 let lastFFActive = false;
 let lastEmbersRun = 0;
 let emberDimTimer = null;
@@ -461,15 +471,32 @@ export const ui = {
         <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
         <div class="health-hearts" id="health-hearts"><span></span><span></span><span></span><span></span></div>
       </div>
+      <!-- EMBERSIGHT H2 — the TAPE (§B.6): the one permanent readout. A 160px
+           hairline with ticks scrolling with distance (translateX, ≤4Hz), a
+           fixed center caret, the live numeral in a slug, and the PB caret
+           (gold ★) sliding in when the record is within ±500m. -->
       <div class="hud-top-center">
-        <div class="dist" id="dist">0 m</div>
-        <div class="best" id="best"></div>
+        <div class="tape" id="tape">
+          <div class="tape-strip" aria-hidden="true">
+            <svg class="tape-ticks" id="tape-ticks" viewBox="0 0 220 8" preserveAspectRatio="none">
+              <path d="M10 1V7M30 1V7M50 1V7M70 1V7M90 1V7M110 1V7M130 1V7M150 1V7M170 1V7M190 1V7M210 1V7"/>
+            </svg>
+            <i class="tape-caret"></i>
+            <i class="tape-pb" id="tape-pb"><svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true"><path fill="currentColor" d="M6 .8l1.5 3.2 3.5.4-2.6 2.4.7 3.4L6 8.5 2.9 10.2l.7-3.4L1 4.4l3.5-.4z"/></svg></i>
+          </div>
+          <div class="dist slug" id="dist">0 m</div>
+        </div>
       </div>
+      <!-- EMBERSIGHT H2 — the TALLY (§B.4): the top-right numbers column. -->
       <div class="hud-top-right">
-        <div class="score" id="score">0</div>
+        <div class="score slug" id="score" data-tier="0">0</div>
         <div class="embers-hud" id="embers-hud"></div>
-        <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
-        <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
+        <!-- race-vs-ghost: the two-caret tick-strip (§B.12; the navy race-bar died) -->
+        <div class="race-strip" id="race-bar">
+          <span class="race-target" id="race-target"></span>
+          <span class="race-line"><i class="race-you" id="race-you"></i><i class="race-rival" id="race-rival"></i></span>
+        </div>
+        <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span><span class="chain-cells" id="chain-cells" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
         <div class="chain graze-hud" id="graze-hud"><span class="chain-n" id="graze-n">0</span><span class="chain-word">SKIMS</span></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
@@ -581,6 +608,7 @@ export const ui = {
       <div class="bell" id="bell" aria-live="polite">
         <div class="bell-slug" id="bell-slug" data-role="gold">
           <span class="bell-text" id="bell-text"></span><span class="bell-x" id="bell-x"></span>
+          <span class="bell-motes" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         </div>
       </div>
       <!-- The perfect-ring micro-pop: the ONE sanctioned center event text (§B.11). -->
@@ -646,12 +674,16 @@ export const ui = {
       healthHearts: root.querySelector('#health-hearts'),
       embersHud:    root.querySelector('#embers-hud'),
       ffChip:       root.querySelector('#ff-chip'),
-      raceBar:      root.querySelector('#race-bar'),
-      raceFill:     root.querySelector('#race-fill'),
       raceTarget:   root.querySelector('#race-target'),
       assistChip:   root.querySelector('#assist-chip'),
       dist:         root.querySelector('#dist'),
-      best:         root.querySelector('#best'),
+      tape:         root.querySelector('#tape'),
+      tapeTicks:    root.querySelector('#tape-ticks'),
+      tapePb:       root.querySelector('#tape-pb'),
+      chainCells:   root.querySelector('#chain-cells'),
+      raceStrip:    root.querySelector('#race-bar'),
+      raceYou:      root.querySelector('#race-you'),
+      raceRival:    root.querySelector('#race-rival'),
       popup:        root.querySelector('#popup'),
       bell:         root.querySelector('#bell'),
       bellSlug:     root.querySelector('#bell-slug'),
@@ -707,8 +739,16 @@ export const ui = {
       }
     });
 
-    // A fresh takeoff never inherits a stale toast (H1 — the Bell flushes).
-    on('runStart', () => this.bellClear());
+    // A fresh takeoff never inherits a stale toast (H1 — the Bell flushes)
+    // nor a stale TAPE/TALLY pose (H2 — PB caret, race carets, ritual state).
+    on('runStart', () => {
+      this.bellClear();
+      pbPassed = false; pbLastX = null; lastDistShown = -1;
+      els.tapePb.classList.remove('on', 'passed');
+      els.tapePb.style.transform = '';
+      lastRaceYou = lastRaceRival = -1; raceClose = false; lastRaceLabel = '';
+      els.raceStrip.classList.remove('won', 'close');
+    });
 
     // U7/U11 — the hub interaction grammar rolls out to every meta screen:
     // ONE delegated tick on pointerdown for nav/cards/switches (touch-first,
@@ -812,11 +852,26 @@ export const ui = {
 
     // Chain counter: consecutive rings/windows without a miss. Appears from
     // 2 and pops on every link — the visible streak you don't want to drop.
+    // H2: a hairline underline fills in cells of 5, and a chain ≥5 ending
+    // rings THE TALLY RITUAL through the Bell (§B.4).
     const chain = game.consecutiveRings;
     els.chain.classList.toggle('on', chain >= 2);
     if (chain !== lastChain) {
       els.chainN.textContent = chain;
-      if (chain > lastChain && chain >= 2) restartAnim(els.chain, 'chain-pop');
+      const filled = chain > 0 ? ((chain - 1) % 5) + 1 : 0;
+      const cells = els.chainCells.children;
+      for (let i = 0; i < cells.length; i++) cells[i].classList.toggle('f', i < filled);
+      if (chain > lastChain) {
+        if (lastChain === 0) { chainStartScore = game.score; chainPeakCombo = game.combo; }
+        chainPeakCombo = Math.max(chainPeakCombo, game.combo);
+        if (chain >= 2) restartAnim(els.chain, 'chain-pop');
+      } else if (chain === 0 && lastChain >= 5) {
+        // THE TALLY RITUAL: the chain's banked points + peak multiplier,
+        // written into the Bell, dissolving upward as ember motes.
+        const pts = Math.max(0, Math.floor(game.score - chainStartScore));
+        this.bell(`+${fmtNum(pts)} · ×${chainPeakCombo.toFixed(1)} CHAIN`, 'gold',
+          { ritual: true, dur: 1.6, key: 'ritual' });
+      }
       lastChain = chain;
     }
 
@@ -838,38 +893,51 @@ export const ui = {
     const flowOn = game.canyonRun === 'flow' && !game.inBoss;
     if (flowOn !== lastFlowOn) { this.flowMeter.show(flowOn); lastFlowOn = flowOn; }
 
-    els.dist.textContent = `${Math.floor(player.dist)} m`;
-
-    // C1: BEST is a brief encouragement reveal near the record, not a
-    // persistent HUD stat. Full record context belongs in recap.
-    const nearBest = game.highScore > 0 && game.score >= 0.7 * game.highScore;
-    const bestText = nearBest ? '★ PB' : '';
-    if (bestText && bestText !== lastBestReveal) {
-      els.best.textContent = bestText;
-      els.best.classList.add('hud-reveal');
-      clearTimeout(bestRevealTimer);
-      bestRevealTimer = setTimeout(() => {
-        els.best.classList.remove('hud-reveal');
-        els.best.textContent = '';
-      }, 3000);
-      lastBestReveal = bestText;
-    } else if (!nearBest) {
-      clearTimeout(bestRevealTimer);
-      els.best.classList.remove('hud-reveal');
-      els.best.textContent = '';
-      lastBestReveal = '';
+    // H2 — the TAPE (§B.6): live numeral (change-detected), tick strip
+    // scrolling with distance + the PB caret, both transform-only at ≤4Hz.
+    const dm = Math.floor(player.dist);
+    if (dm !== lastDistShown) {
+      els.dist.textContent = `${fmtNum(dm)} m`;
+      lastDistShown = dm;
+    }
+    const tNow = performance.now();
+    if (tNow - lastTapeAt > 250) {
+      lastTapeAt = tNow;
+      els.tapeTicks.style.transform = `translateX(${(-((player.dist * TAPE_PXPM) % 20)).toFixed(1)}px)`;
+      const pb = game.bestDistance;
+      if (pb > 0 && !pbPassed) {
+        if (player.dist >= pb) {
+          // PASSING YOUR RECORD: caret snaps to center, gold flash, the Bell
+          // rings NEW BEST — and the caret rides center for the rest of the run.
+          pbPassed = true;
+          els.tapePb.classList.add('on', 'passed');
+          els.tapePb.style.transform = 'translateX(0px)';
+          restartAnim(els.tape, 'tape-flash');
+          this.bell('NEW BEST DISTANCE', 'gold', { key: 'record' });
+        } else {
+          const delta = pb - player.dist;
+          const on = delta <= 500;
+          els.tapePb.classList.toggle('on', on);
+          if (on) {
+            const x = Math.round(delta * TAPE_PXPM);
+            if (x !== pbLastX) { els.tapePb.style.transform = `translateX(${x}px)`; pbLastX = x; }
+          }
+        }
+      }
     }
 
-    // C3: Ember HUD — pop bright on pickup, dim after 2.5s idle
+    // C3: Ember HUD — SVG gem + tabular count; pop on pickup, dim after 2.5s
     const curEmbers = game.embersRun;
-    els.embersHud.textContent = curEmbers > 0 ? `◆ ${curEmbers}` : '';
-    if (curEmbers > lastEmbersRun) {
-      els.embersHud.classList.remove('dim');
-      restartAnim(els.embersHud, 'ember-pickup');
-      clearTimeout(emberDimTimer);
-      emberDimTimer = setTimeout(() => els.embersHud.classList.add('dim'), 2500);
+    if (curEmbers !== lastEmbersRun) {
+      els.embersHud.innerHTML = curEmbers > 0 ? `${ICONS.ember} ${fmtNum(curEmbers)}` : '';
+      if (curEmbers > lastEmbersRun) {
+        els.embersHud.classList.remove('dim');
+        restartAnim(els.embersHud, 'ember-pickup');
+        clearTimeout(emberDimTimer);
+        emberDimTimer = setTimeout(() => els.embersHud.classList.add('dim'), 2500);
+      }
+      lastEmbersRun = curEmbers;
     }
-    lastEmbersRun = curEmbers;
 
     // C2: Assist chip — short icon/value reveal only; pause/recap explain scoring.
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
@@ -887,18 +955,30 @@ export const ui = {
       lastAssistText = newAssistText;
     }
 
-    // Challenge race bar: live progress against the friend's score, gold
-    // once beaten. Today's comparison shouldn't wait for the crash screen.
+    // H2 — race-vs-ghost (§B.12): the two-caret tick-strip. Your caret gold,
+    // the rival's white, on one 90px hairline; relevance-gated (full alpha
+    // within 15% of the target, ghosted otherwise); overtake = the rival
+    // caret falls off the end + gold flash + RIVAL BEATEN through the Bell.
     const racing = game.challengeScore > 0;
-    els.raceBar.classList.toggle('on', racing);
+    els.raceStrip.classList.toggle('on', racing);
     if (racing) {
-      const frac = Math.min(1, game.score / game.challengeScore);
-      els.raceFill.style.width = `${frac * 100}%`;
-      els.raceTarget.textContent = game.challengeBeaten ? 'BEATEN!' : `vs ${game.challengeScore}`;
-      els.raceBar.classList.toggle('won', game.challengeBeaten);
-      if (!game.challengeBeaten && game.score > game.challengeScore) {
+      const target = game.challengeScore;
+      const domain = Math.max(target * 1.15, game.score);
+      const you = Math.round(Math.min(1, game.score / domain) * 90);
+      const rival = Math.round(Math.min(1, target / domain) * 90);
+      if (you !== lastRaceYou) { els.raceYou.style.transform = `translateX(${you}px)`; lastRaceYou = you; }
+      if (!game.challengeBeaten && rival !== lastRaceRival) {
+        els.raceRival.style.transform = `translateX(${rival}px)`;
+        lastRaceRival = rival;
+      }
+      const close = game.challengeBeaten || game.score >= 0.85 * target;
+      if (close !== raceClose) { els.raceStrip.classList.toggle('close', close); raceClose = close; }
+      const label = game.challengeBeaten ? 'BEATEN' : `vs ${fmtNum(target)}`;
+      if (label !== lastRaceLabel) { els.raceTarget.textContent = label; lastRaceLabel = label; }
+      if (!game.challengeBeaten && game.score > target) {
         game.challengeBeaten = true;
-        this.bell('CHALLENGE BEATEN — KEEP FLYING', 'gold');
+        els.raceStrip.classList.add('won');   // CSS: rival caret falls off + gold flash
+        this.bell('RIVAL BEATEN', 'gold');
         sfx.record();
       }
     }
@@ -1984,6 +2064,7 @@ export const ui = {
             <p class="set-sub">How present the in-flight readouts are.</p>
             <div class="set-range vol-row"><input type="range" id="set-hud-alpha" min="50" max="100" step="5" value="${Math.round((s.hudAlpha || 1) * 100)}"><span class="range-val" id="hud-alpha-val">${Math.round((s.hudAlpha || 1) * 100)}%</span></div>
           </div>
+          ${swRow('assist', 'scorekeeper', 'SCOREKEEPER', 'Score and distance never fade — the classic corner readout.')}
           ${segGroup('COLORBLIND', 'Shifts the success and danger hues — the roles stay the same.',
             cbSeg('off', 'OFF') + cbSeg('deuter', 'DEUTER') + cbSeg('prot', 'PROT') + cbSeg('trit', 'TRIT'))}
 
