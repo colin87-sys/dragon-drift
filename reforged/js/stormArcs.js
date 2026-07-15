@@ -14,7 +14,7 @@ import { mulberry32 } from './pulseTimer.js';
 // ── a normalized displaced CHANNEL in param space: array of { t, u, v } where a world point is
 // A + (B−A)·t + axU·(u·chord) + axV·(v·chord). Midpoint displacement + jittered split + kink pass.
 function genChannel(rng, subdiv, R, kinkN) {
-  let pts = [{ t: 0, u: 0, v: 0 }, { t: 1, u: 0, v: 0 }];
+  let pts = [{ t: 0, u: 0, v: 0, wj: 1 }, { t: 1, u: 0, v: 0, wj: 1 }];
   for (let lvl = 0; lvl < subdiv; lvl++) {
     const out = [];
     const amp = 0.5 * Math.pow(0.5, lvl) * R;            // macro drift → fine micro-jitter as level rises
@@ -25,7 +25,8 @@ function genChannel(rng, subdiv, R, kinkN) {
       const seg = b.t - a.t;
       out.push({ t: a.t + seg * tt,
         u: a.u + (b.u - a.u) * tt + (rng() - 0.5) * 2 * amp * 1.0,   // 70% weight → dominant (camera) plane
-        v: a.v + (b.v - a.v) * tt + (rng() - 0.5) * 2 * amp * 0.42 });
+        v: a.v + (b.v - a.v) * tt + (rng() - 0.5) * 2 * amp * 0.42,
+        wj: 0.62 + rng() * 0.76 });                       // per-point width multiplier → the bolt visibly swells & pinches
     }
     out.push(pts[pts.length - 1]);
     pts = out;
@@ -54,10 +55,13 @@ function genFork(rng, main, t0, dirSign) {
   const swing = (0.35 + rng() * 0.35) * dirSign;          // 20–40° away, biased outward
   for (let i = 0; i < n; i++) {
     const f = i / (n - 1);
+    // width holds thick over most of the branch then pinches to a point ONLY in the last stretch — so
+    // the shaft renders as a solid ribbon (≥2px), never a dotted 1px line, and just the tip tapers away.
+    const w = (f < 0.7 ? 1.0 - 0.28 * (f / 0.7) : 0.72 * (1 - (f - 0.7) / 0.3));
     out.push({ t: base.t + len * f,
       u: base.u + swing * len * f + (rng() - 0.5) * 2 * 0.22 * (1 - f) * len,
       v: base.v + (rng() - 0.5) * 2 * 0.14 * (1 - f) * len,
-      w: 0.55 * (1 - f) });                               // core width fraction, tapering to a POINT
+      w });                                               // core width fraction, tapering to a POINT
   }
   return out;
 }
@@ -74,21 +78,27 @@ function widthAt(t, jit) {
 
 export function createArcCrown(THREE, opts = {}) {
   const coreColor = new THREE.Color(opts.coreColor ?? 0xf2f4ff);
-  const haloColor = new THREE.Color(opts.haloColor ?? 0xd9deff);
-  const CORE_W = opts.coreW ?? 0.024, HALO_MUL = 5.0, CORE_I = 3.4, HALO_I = 1.0;
+  // A DEEPLY saturated storm-blue for the corona. The critic's target fringe (~200,215,255) has R pulled
+  // BELOW the pink sky (247) — additive light can only brighten, so an additive halo can never read blue
+  // over this sky. The halo therefore ALPHA-COMPOSITES this blue (NormalBlending): it TINTS the fringe
+  // toward periwinkle, pulling R down, which is the only way to grow a real colored corona over pink.
+  const haloColor = new THREE.Color(opts.haloColor ?? 0x6690ff);
+  const CORE_W = opts.coreW ?? 0.024, HALO_MUL = 6.5, CORE_I = 3.4;
+  const HALO_A = 0.85;                                    // peak corona alpha (normal-blended tint strength)
+  const FORK_HALO_MUL = 3.4;                              // forks get a slimmer corona so they glow, not stipple
   const MAXSEG = 640;                                     // total ribbon segments across all live arcs
   const group = new THREE.Group(); group.renderOrder = 6; group.frustumCulled = false;
 
-  const mkMesh = (vertsPerSeg) => {
+  const mkMesh = (vertsPerSeg, blending) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAXSEG * vertsPerSeg * 3), 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAXSEG * vertsPerSeg * 4), 4).setUsage(THREE.DynamicDrawUsage));
-    const m = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true, side: THREE.DoubleSide, toneMapped: true });
+    const m = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending, depthWrite: false, depthTest: true, side: THREE.DoubleSide, toneMapped: true });
     const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = 6;
     return mesh;
   };
-  const coreMesh = mkMesh(6);   // 2 tris/seg = 6 verts
-  const haloMesh = mkMesh(12);  // 3-row ribbon (soft edge) = 4 tris/seg = 12 verts
+  const coreMesh = mkMesh(6, THREE.AdditiveBlending);     // white-hot core, ADDITIVE (2 tris/seg = 6 verts)
+  const haloMesh = mkMesh(24, THREE.NormalBlending);      // blue corona, ALPHA-COMPOSITED (core + forks; 3-row soft edge)
   group.add(haloMesh); group.add(coreMesh);   // halo under core
 
   // preallocated scratch
@@ -109,7 +119,7 @@ export function createArcCrown(THREE, opts = {}) {
       const main = genChannel(rng, subdiv, R, 2 + Math.floor(rng() * 2));
       const channels = [{ pts: main, core: 1.0 }];
       const nF = r.forks ?? 2;
-      for (let k = 0; k < nF; k++) channels.push({ pts: genFork(rng, main, 0.25 + rng() * 0.5, k % 2 ? 1 : -1), core: 0.6 });
+      for (let k = 0; k < nF; k++) channels.push({ pts: genFork(rng, main, 0.25 + rng() * 0.5, k % 2 ? 1 : -1), core: 0.9 });
       return { channels, getA: r.getA, getB: r.getB };
     });
   }
@@ -126,10 +136,21 @@ export function createArcCrown(THREE, opts = {}) {
       [a.x - wa.x, a.y - wa.y, a.z - wa.z], [b.x + wb.x, b.y + wb.y, b.z + wb.z], [b.x - wb.x, b.y - wb.y, b.z - wb.z]];
     for (const v of q) { if (ci >= MAXSEG * 6) return; cpos[ci * 3] = v[0]; cpos[ci * 3 + 1] = v[1]; cpos[ci * 3 + 2] = v[2]; ccol[ci * 4] = cr; ccol[ci * 4 + 1] = cg; ccol[ci * 4 + 2] = cb; ccol[ci * 4 + 3] = 1; ci++; }
   }
+  // Halo is NORMAL-blended: rgb carries the constant blue TINT (0..1), the per-vertex alpha is the
+  // soft-edge coverage. Compositing blue over the pink sky pulls the fringe's R down → a real blue corona
+  // (additive could only brighten toward white). A hair of intensity feeds the color so it glows at peak.
   function pushHaloTri(p0, p1, p2, a0, a1, a2, intensity) {
-    const hr = haloColor.r * HALO_I * intensity, hg = haloColor.g * HALO_I * intensity, hb = haloColor.b * HALO_I * intensity;
+    const kb = Math.min(1, 0.78 + 0.30 * intensity);
+    const hr = haloColor.r * kb, hg = haloColor.g * kb, hb = haloColor.b * kb;
     const vs = [[p0, a0], [p1, a1], [p2, a2]];
-    for (const [p, al] of vs) { if (hi >= MAXSEG * 12) return; hpos[hi * 3] = p.x; hpos[hi * 3 + 1] = p.y; hpos[hi * 3 + 2] = p.z; hcol[hi * 4] = hr; hcol[hi * 4 + 1] = hg; hcol[hi * 4 + 2] = hb; hcol[hi * 4 + 3] = al; hi++; }
+    for (const [p, al] of vs) { if (hi >= MAXSEG * 24) return; hpos[hi * 3] = p.x; hpos[hi * 3 + 1] = p.y; hpos[hi * 3 + 2] = p.z; hcol[hi * 4] = hr; hcol[hi * 4 + 1] = hg; hcol[hi * 4 + 2] = hb; hcol[hi * 4 + 3] = al * intensity * HALO_A; hi++; }
+  }
+  // emit the 3-row soft-edge corona ribbon for one segment (reused by the main bolt and the forks).
+  function pushHaloRibbon(p0, p1, hw0, hw1, intensity) {
+    L.copy(p0).addScaledVector(wv, -hw0); Cc.copy(p0); Rr.copy(p0).addScaledVector(wv, hw0);
+    Ln.copy(p1).addScaledVector(wv, -hw1); Cn.copy(p1); Rn.copy(p1).addScaledVector(wv, hw1);
+    pushHaloTri(L, Cc, Cn, 0, 1, 1, intensity); pushHaloTri(L, Cn, Ln, 0, 1, 0, intensity);
+    pushHaloTri(Cc, Rr, Rn, 1, 0, 0, intensity); pushHaloTri(Cc, Rn, Cn, 1, 0, 1, intensity);
   }
   const L = new THREE.Vector3(), Cc = new THREE.Vector3(), Rr = new THREE.Vector3(), Ln = new THREE.Vector3(), Cn = new THREE.Vector3(), Rn = new THREE.Vector3();
 
@@ -158,21 +179,19 @@ export function createArcCrown(THREE, opts = {}) {
             seg.copy(p1).sub(p0).normalize();
             wv.crossVectors(seg, camL); if (wv.lengthSq() < 1e-5) wv.copy(axU); wv.normalize();   // billboard width ⟂ seg & cam
             const t0 = pts[i].t, t1 = pts[i + 1].t;
-            const baseW = (ch.core) * CORE_W * (ch.core < 1 ? (pts[i].w ?? 0.5) : 1);
-            const w0 = baseW * widthAt(t0, ((i * 2654435761) % 100) / 100);
-            const w1 = baseW * widthAt(t1, ((i * 40503 + 7) % 100) / 100);
+            const isMain = ch.core >= 1;
+            const baseW = (ch.core) * CORE_W * (isMain ? 1 : (pts[i].w ?? 0.5));
+            // per-point width jitter (main bolt only) makes the core visibly swell & pinch, killing the
+            // constant-3px right-half tell; forks taper via their own `w` fraction, no extra jitter.
+            const wjA = isMain ? (pts[i].wj ?? 1) : 1, wjB = isMain ? (pts[i + 1].wj ?? 1) : 1;
+            const w0 = baseW * widthAt(t0, ((i * 2654435761) % 100) / 100) * wjA;
+            const w1 = baseW * widthAt(t1, ((i * 40503 + 7) % 100) / 100) * wjB;
             // CORE quad
             wa_.copy(wv).multiplyScalar(w0); wb_.copy(wv).multiplyScalar(w1);
             pushCoreQuad(p0, p1, wa_, wb_, intensity01);
-            // HALO 3-row ribbon (soft edge) — only on the main channel (forks are core-only)
-            if (ch.core >= 1) {
-              const hw0 = w0 * HALO_MUL, hw1 = w1 * HALO_MUL;
-              L.copy(p0).addScaledVector(wv, -hw0); Cc.copy(p0); Rr.copy(p0).addScaledVector(wv, hw0);
-              Ln.copy(p1).addScaledVector(wv, -hw1); Cn.copy(p1); Rn.copy(p1).addScaledVector(wv, hw1);
-              // left half (alpha 0 → 0.45), right half (0.45 → 0)
-              pushHaloTri(L, Cc, Cn, 0, 0.45, 0.45, intensity01); pushHaloTri(L, Cn, Ln, 0, 0.45, 0, intensity01);
-              pushHaloTri(Cc, Rr, Rn, 0.45, 0, 0, intensity01); pushHaloTri(Cc, Rn, Cn, 0.45, 0, 0.45, intensity01);
-            }
+            // HALO corona — wide on the main bolt, slimmer on forks (so branches glow, not stipple)
+            const hmul = isMain ? HALO_MUL : FORK_HALO_MUL;
+            pushHaloRibbon(p0, p1, w0 * hmul, w1 * hmul, intensity01);
           }
         }
       }
