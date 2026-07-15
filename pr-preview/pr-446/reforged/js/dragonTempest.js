@@ -162,7 +162,10 @@ function tempestMats(def, glow = 1) {
   // steel-slate so the inboard bays catch a flat facet-value and the outboard crotch reads darkest.
   // NEVER translucent/additive — the frame owns 100% of the light, the membrane emits nothing.
   const memBase = lerpHex(base, 0x05070c, 0.30);   // darker than the dorsal shell (the recessed floor)
-  const boltTiers = [0.42, 0.28, 0.16, 0.05].map((f) => std(lerpHex(memBase, 0x6a7488, f), { emissive: 0x090c14, ei: 0.5, rough: 0.9, metal: 0 }));
+  // glow-up #4: a WIDER value ladder (0.05→0.58 toward a lit steel-blue) so the value-banded bays read as
+  // a faceted charged CLOUD — lit taut facets vs dark cups — not one flat near-black plane. A hair more
+  // emissive charge (still far under the anti-lantern floor) gives the underside a faint stormlight.
+  const boltTiers = [0.58, 0.34, 0.18, 0.05].map((f) => std(lerpHex(memBase, 0x808ea8, f), { emissive: 0x0c1120, ei: 0.55, rough: 0.9, metal: 0 }));
   return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, arcBloom, crest, heartCore, recess, socketFloor, silverRim, boltTiers, humFloor, peakFloor };
 }
 
@@ -685,7 +688,9 @@ function buildOneStormforkWing(M, dials) {
     const chord = Math.hypot(fb[NS][0] - fa[NS][0], fb[NS][1] - fa[NS][1], fb[NS][2] - fa[NS][2]) || 1;
     // aft bays sag DEEPER (a big per-bay differential) so the SIDE profile scallops between the
     // fingers instead of collapsing to one flat sail (gate polish #1).
-    const billow = (0.14 + 0.10 * cD) * chord * (0.68 + 0.62 * (i / Math.max(1, N - 2))), scal = bayScallop[Math.min(i, 3)] * (0.6 + 0.4 * cD) * (0.9 + 0.2 * ((i * 0.618) % 1));
+    // DEEPER scallop differential (glow-up #4 de-plane): the aft bays sag much harder than the inner ones
+    // so the SIDE profile scallops between fingers instead of reading as one flat sail.
+    const billow = (0.15 + 0.11 * cD) * chord * (0.55 + 0.92 * (i / Math.max(1, N - 2))), scal = bayScallop[Math.min(i, 3)] * (0.6 + 0.45 * cD) * (0.9 + 0.2 * ((i * 0.618) % 1));
     const mid = [];
     for (let k = 0; k <= NS; k++) {
       const saf = k / NS, m = [(fa[k][0] + fb[k][0]) / 2, (fa[k][1] + fb[k][1]) / 2, (fa[k][2] + fb[k][2]) / 2];
@@ -693,10 +698,14 @@ function buildOneStormforkWing(M, dials) {
       if (k > 0) { m[0] += (K[0] - m[0]) * scal * saf; m[1] += (K[1] - m[1]) * scal * saf * 0.4; m[2] += (K[2] - m[2]) * scal * saf; }
       mid.push(m);
     }
-    const tier = M.boltTiers[Math.min(i, M.boltTiers.length - 1)];
+    // VALUE-BAND each bay (glow-up #4): not one flat dark tier — the taut ROOT catches light (lighter tier),
+    // the deep ventral CUP toward the free edge falls into shadow (darker tier), + the bay gradient + a
+    // little jitter → a faceted charged-cloud value field, not black cardstock.
+    const vBase = i * 0.5;
+    const vi = (kk, d) => M.boltTiers[Math.max(0, Math.min(3, Math.round(vBase + (kk / NS) * 1.7 + d)))];
     for (let k = 0; k < NS; k++) {
-      push(hand, tier, [fa[k], fa[k + 1], mid[k + 1]], [fa[k], mid[k + 1], mid[k]]);   // leading half of the bay
-      push(hand, tier, [mid[k], mid[k + 1], fb[k + 1]], [mid[k], fb[k + 1], fb[k]]);   // trailing half
+      push(hand, vi(k, -0.3 + wjit(i * 11 + k, 0.5)), [fa[k], fa[k + 1], mid[k + 1]], [fa[k], mid[k + 1], mid[k]]);   // leading half (taut, lighter)
+      push(hand, vi(k, 0.9 + wjit(i * 11 + k + 50, 0.5)), [mid[k], mid[k + 1], fb[k + 1]], [mid[k], fb[k + 1], fb[k]]);   // trailing half (deep cup, darker)
     }
     if (i === 0) trailing.push(fa[NS]);
     trailing.push(mid[NS], fb[NS]);   // the scalloped distal free edge (for the knife-edge)
@@ -709,8 +718,16 @@ function buildOneStormforkWing(M, dials) {
   const B = [-0.34, -0.42, 0.10], Tlast = spars[N - 1][NS];
   const bz = (a, c, b, t) => { const m = 1 - t; return [m * m * a[0] + 2 * m * t * c[0] + t * t * b[0], m * m * a[1] + 2 * m * t * c[1] + t * t * b[1], m * m * a[2] + 2 * m * t * c[2] + t * t * b[2]]; };
   const teMid = lerp3(Tlast, B, 0.5), teCtrl = [teMid[0] + (K[0] - teMid[0]) * 0.45, teMid[1] + (K[1] - teMid[1]) * 0.45 - 0.12 * hs, teMid[2] + (K[2] - teMid[2]) * 0.45];
-  const teN = 4, tePts = []; for (let k = 0; k <= teN; k++) tePts.push(bz(Tlast, teCtrl, B, k / teN));
-  for (let k = 0; k < teN; k++) push(arm, M.boltTiers[1], [K, tePts[k + 1], tePts[k]]);   // the cupped inboard sheet, fanned from the wrist
+  // de-plane the inboard brachial (glow-up #4: it was ONE large flat black triangle — the plane whisper).
+  // Add a SAGGED mid-ring so the sheet CUPS, and value-band it: taut inner band (root, lighter) vs the deep
+  // outer cup (trailing, darker), and wrist (lighter) → body-anchor (darker) — a faceted charged cloud.
+  const teN = 5, tePts = [], mPts = [];
+  for (let k = 0; k <= teN; k++) { const p = bz(Tlast, teCtrl, B, k / teN); tePts.push(p); const m = lerp3(K, p, 0.55); m[1] -= 0.11 * hs * (0.4 + 0.6 * (k / teN)); mPts.push(m); }
+  for (let k = 0; k < teN; k++) {
+    const fw = k / teN;   // 0 at the wrist side, 1 at the body anchor
+    push(arm, M.boltTiers[Math.max(0, Math.min(3, Math.round(0.2 + 1.1 * fw)))], [K, mPts[k + 1], mPts[k]]);   // inner taut band (lighter)
+    push(arm, M.boltTiers[Math.max(0, Math.min(3, Math.round(1.3 + 1.4 * fw)))], [mPts[k], mPts[k + 1], tePts[k + 1]], [mPts[k], tePts[k + 1], tePts[k]]);   // deep cup (darker)
+  }
   push(arm, M.boltTiers[0], [ROOT, E, Am], [ROOT, Am, K], [ROOT, K, B]);                     // propatagium hugs the forward arm bow + shoulder fill
   for (let k = 1; k <= teN; k++) trailing.push(tePts[k]);                                   // continue the scalloped trailing polyline (→ knife-edge) down to the body
 
