@@ -980,6 +980,7 @@ const WALL_TIERS = {
   crestFace: [0.80, 0.86],                          // clearly stepped back from the body
   shearToward: 0.03, shearZ: 0.22,                  // max shear toward channel (frac hw) / z jitter (frac hz)
   zStep: [0.35, 0.50], hStep: 0.06,                 // HARD alternating depth step (frac hz) + height stagger (frac h) between columns
+  batter: 0.18, footMin: 0.22,                      // calved lean-back above band-top (frac hw, hw-proportional) / min foot height (frac h)
   faceFloor: 0.90,                                  // fairness: body channel-face ≥ this·hw (cones tapered to ~0.5)
   crestBand: 0.60, bodyBandTop: 0.692, crestBandTop: 0.98,  // collider bands in unit-y (body y−3..15, crest 13.5..22.5 over h=26)
 };
@@ -1026,22 +1027,32 @@ function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
     // lower neighbour — below the flight line those shelves face up (frost), above it they
     // face down (teal): the ladder's own faces, now presented to the camera, zero new tris.
     const hStep = zSign * T.hStep * h;
-    const footTop = botY + Math.min(0.5, rr(T.footTop) + 0.4 * (hStep / h)) * h + seam;
+    const footTop = Math.max(botY + T.footMin * h, botY + Math.min(0.5, rr(T.footTop) + 0.4 * (hStep / h)) * h + seam); // clamp ≥ min height (no degenerate slivers)
     const bodyTop = botY + (rr(T.bodyTop) + hStep / h) * h + seam;
     // Crest MUST reach the crest collider top (0.98) everywhere — a short crest leaves an
     // invisible-kill gap where a high-flying player clips the collider. Skyline drama comes
     // from height variance ABOVE that floor (0.98→1.14 ≈ 4 world units of ridge swing).
     const crestTop = botY + Math.max(WALL_TIERS.crestBandTop, Math.min(1.14, sky(ci, nc, rng))) * h;
-    const mk = (faceFrac, yb, yt, shTowardFrac, isBody) => {
+    const bandTopW = botY + T.bodyBandTop * h;   // ~y15 — batter pivots here; below it the face stays proud (covered)
+    const mk = (faceFrac, yb, yt, shTowardFrac, noShear) => {
       const faceX = faceFrac * hw * channelSign;
       const w = Math.abs(faceX - backX), cx = (faceX + backX) / 2;
-      const shx = shTowardFrac * hw * channelSign;
-      const g = shearBoxGeo(w, yt - yb, zspan, shx, (rng() - 0.5) * T.shearZ * hz);
+      const shx = noShear ? 0 : shTowardFrac * hw * channelSign;
+      const shz = noShear ? 0 : (rng() - 0.5) * T.shearZ * hz;   // foot stays ROOTED (no shear → no edge-on frost slivers)
+      const g = shearBoxGeo(w, yt - yb, zspan, shx, shz);
       g.translate(cx, (yb + yt) / 2, zc);
+      // BATTER: lean the channel face BACK above band-top (calved lean + tips upper faces
+      // toward frost). hw-PROPORTIONAL (not fixed-angle) so the recede scales with the crest
+      // collider margin → narrow masses' crests stay covered. Below band-top: untouched (proud).
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const y = p.getY(i);
+        if (y > bandTopW) p.setX(i, p.getX(i) - channelSign * T.batter * hw * (y - bandTopW) / (0.4 * h));
+      }
       return g;
     };
-    parts.push(mk(rr(T.footFace), botY, footTop, rng() * T.shearToward, false));
-    parts.push(mk(rr(T.bodyFace), footTop - 0.05 * h, bodyTop, T.shearToward * (0.5 + rng() * 0.5), true)); // re-flare overhang
+    parts.push(mk(rr(T.footFace), botY, footTop, 0, true));                                       // foot: rooted, no shear
+    parts.push(mk(rr(T.bodyFace), footTop - 0.05 * h, bodyTop, T.shearToward * (0.5 + rng() * 0.5), false)); // re-flare overhang
     if (crest) parts.push(mk(rr(T.crestFace), bodyTop - 0.05 * h, crestTop, (rng() - 0.5) * 2 * T.shearToward, false));
   }
   return parts;
@@ -1055,7 +1066,10 @@ export function wallColliderCoverage() {
   if (T.bodyFace[0] < T.faceFloor) issues.push(`body channel-face ${T.bodyFace[0]} < fairness floor ${T.faceFloor}`);
   const poke = Math.max(T.footFace[1], T.bodyFace[1], T.crestFace[1]) + T.shearToward;
   if (poke > 1.0 + 1e-9) issues.push(`channel poke ${poke.toFixed(3)} > 1.0 (visual crosses ±hw into the channel)`);
-  if (T.crestFace[0] < T.crestBand) issues.push(`crest face ${T.crestFace[0]} < crest collider band ${T.crestBand}`);
+  // Crest face must cover the ±0.6hw crest collider AFTER the batter recedes it. Because
+  // the batter is hw-proportional (T.batter·hw at the crest top), this holds on EVERY mass
+  // size — a fixed-angle batter would uncover narrow crests (fixed-world recede vs hw-scaled margin).
+  if (T.crestFace[0] - T.batter < T.crestBand) issues.push(`crest face ${T.crestFace[0]} − batter ${T.batter} < crest band ${T.crestBand}`);
   // The union foot∪body∪crest must cover y 0..crestBandTop with NO gap: tiers overlap by
   // 0.05h (crest bottom = bodyTop−0.05 ≤ bodyTop; body bottom = footTop−0.05 ≤ footTop) and
   // the crest is clamped to reach crestBandTop, so the body collider top (0.692) is always
@@ -1072,7 +1086,9 @@ export function buildCanyonWallMass(hw = 6, hz = 4, { crest = true, family = 0, 
   const rng = mulberry32((seed ^ 0x1a2b3c4d) >>> 0);
   const h = 26, botY = -3, channelSign = Math.sign(lean) || 1;
   const parts = frozenWallParts(hw, hz, h, botY, channelSign, crest, family, rng);
-  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false));
+  // frostT 0.30 (vs the shipped 0.35): the battered upper faces tip into frost, giving a
+  // base-mid→top-frost gradient ON the face instead of one flat mid. Wall-bake only.
+  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: 0.30 });
   const mat = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
   return new THREE.Mesh(geo, mat);
 }
