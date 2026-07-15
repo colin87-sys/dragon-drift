@@ -126,39 +126,41 @@ for (const [file, text] of sources) {
 
 // ═══ (b) navy-legacy eviction ratchet (§A.2 squatter table + audit finds) ═════
 // Whitespace-normalized exact literals → the count on 2026-07-14 (Phase 0).
-// The counts may only SHRINK. Phase 2's exit criterion sets every value to 0.
+// The counts may only SHRINK. Phase 2 (2026-07-15) executed the full eviction:
+// every squatter is now 0 — this is the Phase 2 exit assert, and it keeps any
+// of them from ever coming back.
 const NAVY_BASELINE = {
-  '#1c2e5e': 1,          // page background (style.css:48)
-  '#274a86': 1,          // load screen radial
-  '#101a36': 2,          // load screen radial + music disc
-  '#3a5a9a': 1,          // music disc
-  '#8a5aff': 1,          // .btn-daily purple (evicted → gold)
-  '#6a3ae0': 1,          // .btn-daily purple
-  '#c08aff': 1,          // .btn-daily purple
-  'rgba(10,20,42': 3,    // .load-bar, .hint pill, .race-bar
-  'rgba(8,18,38': 4,     // .bar chrome, .radio-name, …
-  'rgba(20,40,80': 1,    // .mute-btn
-  'rgba(60,120,200': 1,  // .mute-btn:hover
-  'rgba(12,20,44': 1,    // .revive-offer
-  'rgba(18,30,58': 1,    // .form-arrow
-  'rgba(40,62,104': 1,   // .form-arrow:hover
-  'rgba(20,48,86': 1,    // .nextup-card
-  'rgba(30,50,95': 1,    // celebrate overlay scrim
-  'rgba(28,44,86': 1,    // celebrate card
-  'rgba(40,70,120': 1,   // .hero-gear:hover
-  'rgba(10,20,40': 2,    // .inspect-btn, …
-  'rgba(40,70,130': 1,   // .inspect-btn:hover
-  'rgba(26,36,66': 1,    // inspect modal
-  'rgba(11,16,32': 1,    // inspect modal
-  'rgba(8,14,30': 6,     // inspect chrome / rothints / hero chips
-  'rgba(10,18,38': 1,    // .inspect-nav
-  'rgba(18,28,56': 2,    // .inspect-nav:hover
-  'rgba(10,16,34': 1,    // .screen base radial (cool ink → scrim recipe in U4)
-  'rgba(5,9,22': 2,      // .screen base radial
-  'rgba(6,10,24': 2,     // celebrate scrim ink
-  'rgba(6,10,22': 1,     // inspect overlay ink
-  'rgba(2,4,10': 1,      // inspect overlay ink
-  'rgba(12,19,40': 1,    // celebrate card
+  '#1c2e5e': 0,          // page background (evicted → warm ink)
+  '#274a86': 0,          // load screen radial (→ warm ember radial)
+  '#101a36': 0,          // load screen radial + music disc
+  '#3a5a9a': 0,          // music disc
+  '#8a5aff': 0,          // .btn-daily purple (evicted → gold)
+  '#6a3ae0': 0,          // .btn-daily purple
+  '#c08aff': 0,          // .btn-daily purple
+  'rgba(10,20,42': 0,    // .load-bar, .hint pill, .race-bar
+  'rgba(8,18,38': 0,     // .bar chrome, .radio-name, …
+  'rgba(20,40,80': 0,    // .mute-btn
+  'rgba(60,120,200': 0,  // .mute-btn:hover
+  'rgba(12,20,44': 0,    // .revive-offer
+  'rgba(18,30,58': 0,    // .form-arrow
+  'rgba(40,62,104': 0,   // .form-arrow:hover
+  'rgba(20,48,86': 0,    // .nextup-card
+  'rgba(30,50,95': 0,    // celebrate overlay scrim
+  'rgba(28,44,86': 0,    // celebrate card
+  'rgba(40,70,120': 0,   // .hero-gear:hover
+  'rgba(10,20,40': 0,    // .inspect-btn, mission-bar
+  'rgba(40,70,130': 0,   // .inspect-btn:hover
+  'rgba(26,36,66': 0,    // inspect modal
+  'rgba(11,16,32': 0,    // inspect modal
+  'rgba(8,14,30': 0,     // inspect chrome / rothints / hero chips / share card
+  'rgba(10,18,38': 0,    // .inspect-nav
+  'rgba(18,28,56': 0,    // .inspect-nav:hover
+  'rgba(10,16,34': 0,    // .screen base radial (cool ink → scrim recipe, U4)
+  'rgba(5,9,22': 0,      // .screen base radial + topbar
+  'rgba(6,10,24': 0,     // celebrate scrim ink
+  'rgba(6,10,22': 0,     // inspect overlay ink
+  'rgba(2,4,10': 0,      // inspect overlay ink
+  'rgba(12,19,40': 0,    // celebrate card
 };
 {
   const all = sources.map(([, t]) => t.replace(/\s+/g, '')).join('\n');
