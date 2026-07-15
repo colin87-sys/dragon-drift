@@ -981,6 +981,7 @@ const WALL_TIERS = {
   shearToward: 0.03, shearZ: 0.22,                  // max shear toward channel (frac hw) / z jitter (frac hz)
   zStep: [0.35, 0.50], hStep: 0.06,                 // HARD alternating depth step (frac hz) + height stagger (frac h) between columns
   batter: 0.18, footMin: 0.22,                      // calved lean-back above band-top (frac hw, hw-proportional) / min foot height (frac h)
+  frostT: 0.32,                                     // ladder frost threshold for the wall bake (0.30 over-frosted the upper HALF → cap the top only)
   faceFloor: 0.90,                                  // fairness: body channel-face ≥ this·hw (cones tapered to ~0.5)
   crestBand: 0.60, bodyBandTop: 0.692, crestBandTop: 0.98,  // collider bands in unit-y (body y−3..15, crest 13.5..22.5 over h=26)
 };
@@ -1034,11 +1035,11 @@ function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
     // from height variance ABOVE that floor (0.98→1.14 ≈ 4 world units of ridge swing).
     const crestTop = botY + Math.max(WALL_TIERS.crestBandTop, Math.min(1.14, sky(ci, nc, rng))) * h;
     const bandTopW = botY + T.bodyBandTop * h;   // ~y15 — batter pivots here; below it the face stays proud (covered)
-    const mk = (faceFrac, yb, yt, shTowardFrac, noShear) => {
+    const mk = (faceFrac, yb, yt, shTowardFrac, noShear, shzScale = 1) => {
       const faceX = faceFrac * hw * channelSign;
       const w = Math.abs(faceX - backX), cx = (faceX + backX) / 2;
       const shx = noShear ? 0 : shTowardFrac * hw * channelSign;
-      const shz = noShear ? 0 : (rng() - 0.5) * T.shearZ * hz;   // foot stays ROOTED (no shear → no edge-on frost slivers)
+      const shz = noShear ? 0 : (rng() - 0.5) * T.shearZ * hz * shzScale;   // foot ROOTED; crest shzScale=0 (batter supplies the lean → no edge-on frost spikes)
       const g = shearBoxGeo(w, yt - yb, zspan, shx, shz);
       g.translate(cx, (yb + yt) / 2, zc);
       // BATTER: lean the channel face BACK above band-top (calved lean + tips upper faces
@@ -1053,7 +1054,7 @@ function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
     };
     parts.push(mk(rr(T.footFace), botY, footTop, 0, true));                                       // foot: rooted, no shear
     parts.push(mk(rr(T.bodyFace), footTop - 0.05 * h, bodyTop, T.shearToward * (0.5 + rng() * 0.5), false)); // re-flare overhang
-    if (crest) parts.push(mk(rr(T.crestFace), bodyTop - 0.05 * h, crestTop, (rng() - 0.5) * 2 * T.shearToward, false));
+    if (crest) parts.push(mk(rr(T.crestFace), bodyTop - 0.05 * h, crestTop, (rng() - 0.5) * 2 * T.shearToward, false, 0)); // shzScale 0: no crest z-spikes
   }
   return parts;
 }
@@ -1088,7 +1089,7 @@ export function buildCanyonWallMass(hw = 6, hz = 4, { crest = true, family = 0, 
   const parts = frozenWallParts(hw, hz, h, botY, channelSign, crest, family, rng);
   // frostT 0.30 (vs the shipped 0.35): the battered upper faces tip into frost, giving a
   // base-mid→top-frost gradient ON the face instead of one flat mid. Wall-bake only.
-  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: 0.30 });
+  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
   const mat = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
   return new THREE.Mesh(geo, mat);
 }
@@ -1179,26 +1180,39 @@ function buildRockGap(o, e) {
   // material — not a smooth blob. Merged to one mesh; collider hugs the lane band.
   const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T, crest = true) => {
     const h = topY - botY;
-    const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
-    const sr = (hw / n) * 1.15;                       // radius sized to fit WITHIN the wall
-    const span = Math.max(0, hw - sr);               // keep shard edges inside ±hw (no poking into the lane/channel)
-    const parts = [];
-    for (let i = 0; i < n; i++) {
-      const base = n > 1 ? -span + (i / (n - 1)) * 2 * span : 0;
-      const sx = base + (rng() - 0.5) * sr * 0.3;     // small jitter, stays contained
-      const r = sr * (0.85 + rng() * 0.25);
-      const sh = h * (0.62 + rng() * 0.42);           // uneven, jagged crest
-      parts.push(shardGeo(r, sh, sx, botY, (rng() - 0.5) * hzCol * 0.4, lean + (rng() - 0.5) * 0.16));
+    let merged;
+    if (bi === 2) {
+      // CALVED CANYON wall (Frozen, Fable 4.4) — stacked sheared calved ice blocks with
+      // the self-lit frost/mid/teal ladder, so the wall doesn't go black backlit like the
+      // old cone pickets. Family cycles per mass so consecutive walls differ. Collider
+      // (box() below) is UNCHANGED — the visible ice covers it (wallColliderCoverage).
+      const fam = (e.wallCount = (e.wallCount || 0) + 1);
+      const parts = frozenWallParts(hw, hzCol, h, botY, Math.sign(lean) || 1, crest, fam, rng);
+      merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
+      parts.forEach((g) => g.dispose());
+    } else {
+      const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
+      const sr = (hw / n) * 1.15;                       // radius sized to fit WITHIN the wall
+      const span = Math.max(0, hw - sr);               // keep shard edges inside ±hw (no poking into the lane/channel)
+      const parts = [];
+      for (let i = 0; i < n; i++) {
+        const base = n > 1 ? -span + (i / (n - 1)) * 2 * span : 0;
+        const sx = base + (rng() - 0.5) * sr * 0.3;     // small jitter, stays contained
+        const r = sr * (0.85 + rng() * 0.25);
+        const sh = h * (0.62 + rng() * 0.42);           // uneven, jagged crest
+        parts.push(shardGeo(r, sh, sx, botY, (rng() - 0.5) * hzCol * 0.4, lean + (rng() - 0.5) * 0.16));
+      }
+      merged = mergeGeometries(parts, false);
+      parts.forEach((g) => g.dispose());
+      merged.computeVertexNormals();
     }
-    const merged = mergeGeometries(parts, false);
-    parts.forEach((g) => g.dispose());
-    merged.computeVertexNormals();
-    // SEE-THROUGH spire: a per-instance translucent material (like the arches), faded
-    // per-spire by its own depth in updateObstacles — SOLID far out so you read the
+    // SEE-THROUGH wall: a per-instance translucent material (like the arches), faded
+    // per-mass by its own depth in updateObstacles — SOLID far out so you read the
     // winding channel ahead, TRANSLUCENT as it nears so you see the lateral path
     // THROUGH it (the fix for "blind at boost speed"). Floored so it never fully
-    // vanishes — it has a collider.
-    const smat = mats.body[bi].clone();
+    // vanishes — it has a collider. Frozen uses the self-lit ladder ice (re-wrapped
+    // after clone so onBeforeCompile survives); other biomes the flat body clone.
+    const smat = bi === 2 ? withLadderEmissive(mats.frostIce.clone()) : mats.body[bi].clone();
     smat.transparent = true; smat.depthWrite = false; smat.userData.perInstance = true;
     const m = new THREE.Mesh(merged, smat);
     m.position.set(cx, 0, z);
