@@ -10,6 +10,7 @@ import { weeklyTrials } from './weekly.js';
 import { equippedTitleName } from './titles.js';
 import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
+import { uiSound } from './uiSound.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
@@ -82,6 +83,7 @@ const ICONS = {
   feat:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.4 2.2l2.6 4.1 2.6-4.1"/><circle cx="9" cy="11" r="3.9"/></svg>',
   rush:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L4 10h4l-1 6 6-8h-4l1-6z"/></svg>',
   weekly:   '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2h7v2.6a3.5 3.5 0 0 1-7 0z"/><path d="M5.5 4.2H4a1.6 1.6 0 0 0 1.6 1.9M12.5 4.2H14a1.6 1.6 0 0 1-1.6 1.9"/><path d="M9 9.4v2.3M6.8 14.6h4.4l-.6-2.9H7.4z"/></svg>',
+  play:     '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M7 4.8c0-1 1.1-1.6 2-1.1l11 6.3c.9.5.9 1.8 0 2.3L9 18.6c-.9.5-2-.1-2-1.1z"/></svg>',
 };
 
 // Popup text IDs used across multiple popups
@@ -1606,7 +1608,7 @@ export const ui = {
           ${startNotice ? `<p class="start-notice">${startNotice}</p>` : ''}
           ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">«${title}»</button>` : ''}
           <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
-          <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">➤</span>TAKE OFF</button>
+          <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">${ICONS.play}</span>TAKE OFF</button>
           ${sub ? `<p class="hero-sub">${sub}</p>` : ''}
           <p class="action-key">${touch ? 'or tap anywhere to fly' : 'or press ENTER to fly'}</p>
         </div>
@@ -2424,8 +2426,14 @@ function wireScreenButtons(type) {
 
   if (type === 'start') {
     returnScreen = 'start';
+    // U11 (hero scope): the interface speaks — a tick under the finger on
+    // press, a whoosh as a panel opens over the world, a confirm on TAKE OFF.
+    for (const b of els.screen.querySelectorAll('.hero-rail-btn, .hero-gear, .hero-title-chip'))
+      b.addEventListener('pointerdown', () => uiSound.tick(), { passive: true });
+    for (const b of els.screen.querySelectorAll('.hero-rail-btn, .hero-gear'))
+      b.addEventListener('click', () => uiSound.whoosh(), { passive: true });
     const start = q('#btn-start');
-    if (start) start.onclick = stop(() => handlers.onStart && handlers.onStart('normal'));
+    if (start) start.onclick = stop(() => { uiSound.confirm(); handlers.onStart && handlers.onStart('normal'); });
     // Rail icons open their panels (never launch a run directly).
     const quests = q('#btn-quests');
     if (quests) quests.onclick = stop(() => ui.showScreen('quests'));

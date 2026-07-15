@@ -810,7 +810,10 @@ body[data-qtier="2"] .hud-sew { display: none; }
   justify-content: flex-start; /* safe-center via ::before/::after spacers below */
   text-align: center;
   background: radial-gradient(ellipse at 50% 38%, rgba(10,16,34,0.62), rgba(5,9,22,0.93));
-  backdrop-filter: blur(3px); overflow-y: auto;
+  /* U4/§A.4: NO backdrop-filter here — a full-screen blur over the live WebGL
+     scene re-blurs every frame (the #1 mobile-perf trap) AND turned the hero
+     scene into mush. Scrims + in-engine dim carry the mood instead. */
+  overflow-y: auto;
   padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
 .screen.visible { display: flex; pointer-events: auto; }
 /* Safe vertical centering: pseudo spacers split leftover height so short content
@@ -1406,9 +1409,7 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 
 /* ============ MOBILE ============ */
 @media (max-width: 700px) {
-  /* Remove backdrop-filter on mobile — iOS WebKit renders stale blur layers
-     when DOM grows post-paint inside a backdrop-filtered scroll container. */
-  .screen { backdrop-filter: none; }
+  /* (.screen backdrop-filter is gone globally now — U4/§A.4.) */
   /* Secondary run-stats hidden until MORE is tapped */
   .sec-stat { display: none; }
   #run-stats.expanded .sec-stat { display: flex; }
@@ -1850,8 +1851,13 @@ body[data-qtier="2"] .speedlines { display: none; }
    wordmark + one breathing TAKE OFF, and a bottom icon rail. The dragon and sky
    show through, so the scrim is lighter than other screens and the chrome is
    pinned to the edges (absolute) leaving the centre to the hero. */
-.screen.hero-screen { background: radial-gradient(ellipse at 50% 42%,
-  rgba(8,13,30,0.30) 0%, rgba(6,10,24,0.52) 52%, rgba(4,7,18,0.78) 100%); }
+/* U4 hero slice — the EMBERLINE scrim: warm ink (never navy), LIGHTER in the
+   centre than before so the live dragon reads sharp (the blur is dead), heavier
+   at the edges + a foot scrim seating the rail. */
+.screen.hero-screen { background:
+  var(--scrim-foot),
+  radial-gradient(ellipse at 50% 42%,
+    rgba(var(--scrim-ink),0.14) 0%, rgba(var(--scrim-ink),0.36) 55%, rgba(var(--scrim-ink),0.62) 100%); }
 
 /* Top bar — wallet on the left, settings gear on the right. */
 .hero-topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 4;
@@ -1859,20 +1865,29 @@ body[data-qtier="2"] .speedlines { display: none; }
   padding: calc(13px + env(safe-area-inset-top, 0px)) 16px 12px;
   animation: hero-bar-in 0.6s var(--ease-out) backwards; animation-delay: 0.15s; }
 .hero-wallet { display: flex; gap: 10px; }
-.hero-topbar .meta-chip { font-size: 13px; padding: 6px 13px;
-  background: rgba(40, 26, 18, 0.62); border-color: var(--rf-stroke); backdrop-filter: blur(6px); }
+.hero-topbar .meta-chip { font-size: var(--fs-label); letter-spacing: var(--track-caps);
+  font-variant-numeric: tabular-nums; padding: 6px 13px;
+  background: rgba(40, 26, 18, 0.62); border-color: var(--rf-stroke); }
 .hero-gear { pointer-events: auto; cursor: pointer; flex: 0 0 auto;
   width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
   justify-content: center; color: #ffe6c8; background: rgba(40, 26, 18, 0.6);
-  border: 1px solid var(--rf-stroke); backdrop-filter: blur(6px);
+  border: var(--panel-line);
   transition: transform var(--t-micro) var(--ease-out), background var(--t-micro); }
-.hero-gear:hover { background: rgba(40, 70, 120, 0.65); transform: rotate(30deg); }
+.hero-gear:hover { background: rgba(70, 44, 24, 0.7); transform: rotate(30deg); }
 .hero-gear:active { transform: scale(0.94); }
 @keyframes hero-bar-in { from { opacity: 0; transform: translateY(-12px); } }
 
-/* The centred hero stack. */
+/* The hero stack — TITLE AT THE TOP, CTA AT THE BOTTOM, and the CENTRE OF THE
+   FRAME LEFT CLEAR: the dragon is what the player grinds for, so the subject
+   is never obstructed by chrome (owner directive, 2026-07-15). The stack
+   stretches between the topbar and the rail; margin-top:auto on the CTA opens
+   the stage in the middle. */
+.screen.hero-screen::before, .screen.hero-screen::after { content: none; }
 .hero-core { position: relative; z-index: 3; display: flex; flex-direction: column;
-  align-items: center; padding: 0 16px; }
+  align-items: center; padding: 0 16px; flex: 1 1 auto; width: 100%;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 78px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 122px); }
+.hero-core .hero-cta { margin-top: auto; }
 .screen h1.hero-wordmark { font-size: 66px; letter-spacing: 11px; margin: 0 0 14px;
   filter: drop-shadow(0 0 34px rgba(255, 190, 80, 0.5)) drop-shadow(0 3px 6px rgba(0,0,0,0.65));
   animation: wordmark-shine 7s ease-in-out infinite, hero-word-in 1s var(--ease-out) backwards; }
@@ -1880,19 +1895,20 @@ body[data-qtier="2"] .speedlines { display: none; }
   from { opacity: 0; transform: translateY(16px) scale(0.94); letter-spacing: 26px; filter: blur(6px) drop-shadow(0 0 34px rgba(255,190,80,0.5)); }
 }
 .hero-title-chip { pointer-events: auto; cursor: pointer; font-family: inherit;
-  font-size: 12px; letter-spacing: 1.5px; color: #ffe0a6; margin: 0 0 12px;
+  font-size: var(--fs-micro); letter-spacing: var(--track-caps); color: #ffe0a6; margin: 0 0 12px;
   padding: 4px 14px; border-radius: 999px; background: rgba(40,28,8,0.5);
   border: 1px solid var(--gold-trim); animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.25s; }
 .hero-title-chip:hover { background: rgba(60,44,14,0.65); }
 
 /* The one primary action — large, gold, breathing, with a soft glow halo. */
-.btn-primary.hero-cta { font-size: 19px; letter-spacing: 3px; padding: 17px 52px;
+.btn-primary.hero-cta { font-size: 19px; letter-spacing: var(--track-disp); padding: 17px 52px;
   border-radius: var(--rf-swept); display: inline-flex; align-items: center; gap: 10px;
   animation: cta-breathe 2.8s ease-in-out infinite, hero-cta-in 0.7s var(--ease-spring) backwards;
   animation-delay: 0s, 0.35s; }
-.hero-cta .cta-glyph { font-size: 14px; transform: translateY(1px); opacity: 0.9; }
+.hero-cta .cta-glyph { display: inline-flex; transform: translateY(1px); opacity: 0.9; }
+.hero-cta .cta-glyph svg { width: 15px; height: 15px; }
 @keyframes hero-cta-in { from { opacity: 0; transform: translateY(20px) scale(0.9); } }
-.hero-core .hero-sub { font-size: 15px; color: var(--rf-ink-2); margin: 16px 0 2px; letter-spacing: 0.3px;
+.hero-core .hero-sub { font-size: var(--fs-body); color: var(--rf-ink-2); margin: 16px 0 2px; letter-spacing: var(--track-body);
   animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.45s; }
 .hero-core .action-key { color: var(--rf-ink-3); animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.55s; }
 .hero-core .start-notice, .hero-core .challenge { animation: hero-fade-in 0.7s var(--ease-out) backwards; }
@@ -1905,10 +1921,10 @@ body[data-qtier="2"] .speedlines { display: none; }
   animation: hero-rail-in 0.65s var(--ease-out) backwards; animation-delay: 0.4s; }
 .hero-rail-btn { position: relative; pointer-events: auto; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 5px;
-  min-width: 66px; padding: 10px 12px 9px; border-radius: 14px;
-  color: #ffe6c8; font-family: inherit; font-size: 10px; letter-spacing: 1.5px; font-weight: 700;
-  background: rgba(40, 26, 18, 0.55); border: 1px solid var(--rf-stroke);
-  backdrop-filter: blur(6px);
+  min-width: 66px; padding: 10px 12px 9px; border-radius: var(--r-m);
+  color: #ffe6c8; font-family: inherit; font-size: var(--fs-micro); letter-spacing: var(--track-caps); font-weight: 700;
+  background: rgba(40, 26, 18, 0.55); border: var(--panel-line);
+  box-shadow: var(--panel-inner);
   transition: transform var(--t-micro) var(--ease-out), background var(--t-micro), border-color var(--t-micro); }
 .hero-rail-btn svg { width: 20px; height: 20px; color: #ffd9ac; }
 .hero-rail-btn:hover { background: rgba(70, 44, 24, 0.7); border-color: var(--rf-stroke-hi);
@@ -2022,7 +2038,7 @@ body.splash-open #hud { display: none; }
 #splash .splash-top { position: relative; z-index: 2; margin-top: 4px; }
 #splash .splash-title {
   margin: 0; font-family: var(--font-display); font-weight: 400;
-  font-size: clamp(54px, 21vw, 116px); line-height: 0.9; letter-spacing: 4px;
+  font-size: clamp(54px, 21vw, 116px); line-height: 0.9; letter-spacing: 0.045em;
   background:
     linear-gradient(120deg, transparent 38%, rgba(255,255,255,0.85) 50%, transparent 62%),
     linear-gradient(180deg, #fff6dd, #ffd86a 55%, #ff9a3c);
@@ -2038,7 +2054,7 @@ body.splash-open #hud { display: none; }
 }
 #splash .splash-slogan {
   margin: 8px 0 0; font-family: 'Rajdhani', sans-serif; font-style: italic; font-weight: 600;
-  font-size: clamp(15px, 5vw, 22px); letter-spacing: 3px; color: #ffe9c2;
+  font-size: clamp(15px, 5vw, 22px); letter-spacing: 0.15em; color: #ffe9c2;
   text-shadow: 0 0 14px rgba(255,200,120,0.5);
   animation: splash-slogan-breathe 5s ease-in-out infinite;
 }
@@ -2054,7 +2070,7 @@ body.splash-open #hud { display: none; }
 }
 #splash .splash-tag {
   margin: 0; font-family: 'Rajdhani', sans-serif; font-weight: 600;
-  font-size: clamp(13px, 4vw, 17px); letter-spacing: 1.5px; color: #f3d9a6;
+  font-size: clamp(13px, 4vw, 17px); letter-spacing: 0.1em; color: #f3d9a6;
   text-shadow: 0 1px 6px rgba(0,0,0,0.65);
   animation: splash-tag-breathe 6s ease-in-out infinite;
 }
@@ -2062,7 +2078,7 @@ body.splash-open #hud { display: none; }
 #splash .splash-cta {
   pointer-events: auto; cursor: pointer; width: 100%; max-width: 420px;
   font-family: var(--font-display); font-weight: 400;
-  font-size: clamp(20px, 6.5vw, 30px); letter-spacing: 4px; color: #2a1700;
+  font-size: clamp(20px, 6.5vw, 30px); letter-spacing: var(--track-disp); color: #2a1700;
   padding: 18px 28px; border: none; border-radius: 16px;
   background: linear-gradient(135deg, #ffe27a, #ffb84d 60%, #ff9540);
   box-shadow: 0 0 0 1px rgba(255,220,150,0.7) inset, 0 10px 30px rgba(255,150,60,0.45), 0 0 40px rgba(255,170,70,0.35);
@@ -2080,7 +2096,7 @@ body.splash-open #hud { display: none; }
    first tap/keypress swells the intro theme in and reveals the CTA (.armed). */
 #splash .splash-begin {
   margin: 0; font-family: 'Rajdhani', sans-serif; font-weight: 600;
-  font-size: clamp(15px, 5vw, 21px); letter-spacing: 5px; color: #ffe9c2;
+  font-size: clamp(15px, 5vw, 21px); letter-spacing: 0.28em; color: #ffe9c2;
   text-shadow: 0 0 16px rgba(255,200,120,0.6);
   animation: splash-begin-pulse 2.4s ease-in-out infinite;
 }
@@ -2091,6 +2107,41 @@ body.splash-open #hud { display: none; }
 #splash.armed .splash-begin { display: none; }
 #splash.armed .splash-cta { display: block; animation: splash-cta-in 0.5s var(--ease-out), splash-cta-pulse 2.4s ease-in-out infinite 0.5s; }
 @keyframes splash-cta-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* U3 — LANDSCAPE REPAIR (phones held sideways). The splash title used to wrap
+   to two lines ≈230px of a 390px viewport and land on the dragon; the hub's
+   centered core rendered under the absolutely-positioned rail. Landscape is a
+   first-class citizen: one-line title, tightened stacks, reserved rail band. */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Splash: one-line wordmark, slogan tucked under it, hero left visible. */
+  #splash { padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px
+            calc(env(safe-area-inset-bottom, 0px) + 12px); }
+  #splash .splash-title br { display: none; }
+  #splash .splash-title { font-size: clamp(30px, 12vh, 58px); letter-spacing: 0.1em; }
+  #splash .splash-slogan { font-size: clamp(12px, 4.5vh, 16px); letter-spacing: 0.14em; margin-top: 4px; }
+  #splash .splash-top { margin-top: 0; }
+  #splash .splash-bottom { max-width: 340px; gap: 8px; }
+  #splash .splash-cta { font-size: clamp(16px, 7.5vh, 22px); padding: 12px 24px; border-radius: var(--r-m); }
+  #splash .splash-tag { font-size: var(--fs-micro); }
+  #splash .splash-begin { font-size: clamp(13px, 5vh, 17px); }
+
+  /* Hub: the stack compresses to fit 390px; the stretch layout + bottom
+     padding keep the CTA/hints clear of the rail and the centre clear.
+     The controls line is dropped here (390px of height has no room for two
+     hint lines — ENTER-to-fly remains, the rest teaches in-run). */
+  .hero-core { padding-top: calc(env(safe-area-inset-top, 0px) + 58px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); }
+  .hero-core .hero-sub { display: none; }
+  .screen h1.hero-wordmark { font-size: 38px; letter-spacing: 0.14em; margin-bottom: 8px; }
+  .btn-primary.hero-cta { font-size: 15px; padding: 12px 36px; }
+  .hero-core .hero-sub { margin: 10px 0 0; }
+  .hero-core .action-key { margin-top: 6px; }
+  .hero-title-chip { margin-bottom: 8px; }
+  .hero-rail { gap: 8px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .hero-rail-btn { min-width: 58px; padding: 8px 9px 7px; }
+  .hero-rail-btn svg { width: 17px; height: 17px; }
+  .hero-topbar { padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 8px; }
+}
 
 /* Take-off launch flash: a gold burst that blooms from the dragon and fades,
    masking the cut from the attract framing into gameplay. Top layer, no input. */
