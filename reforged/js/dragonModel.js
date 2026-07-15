@@ -24,6 +24,7 @@ import './dragonPhoenixMolten.js';  // Molten Phoenix (living magma): moltenPhoe
 import './dragonPhoenixReforged.js'; // Phoenix Ascendant REFORGED ("Sunhawk"): sunhawkKeelTorso + sunfeatherWings + sunpennantTail + sunhawkCrownHead (white-gold solar-ivory glow-up; coexists with `phoenix`)
 import './dragonVesper.js';         // Nightglass Vesper (knapped night-glass): knappedTorso + scallopCrescentWings + vesperCatHead + splitFanTail (FLAT-FACET night drake; NOT the retired organism/one-skin family)
 import './dragonRevenant.js';       // Gravelight Revenant (chalk-ivory bone lattice): ossuaryTorso + phalanxShroudWings + revenantSkullHead + vertebraeWhipTail (holes-in-the-black-fill SKELETON; light THROUGH bone — I0 stub, WRAITH-GRAVELIGHT §B)
+import './dragonTempest.js';        // Thunderhead Tempest (billowed charcoal cloud + the STORMFORK bolt-frame wing): cumulonimbusTorso + stormforkWings + stormbrowHead + virgaTail (living-thundercloud storm drake; the near-white STORM CIRCUIT flickers on the pulseTimer clock — I0 stub, TEMPEST-THUNDERHEAD §B/§D)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
@@ -325,6 +326,14 @@ export function buildDragonModel(def, opts = {}) {
   if (torsoResult.flareMats) for (const m of torsoResult.flareMats) flareMats.push(m);
   if (headResult.flareMats) for (const m of headResult.flareMats) flareMats.push(m);
   if (tailResult.flareMats) for (const m of tailResult.flareMats) flareMats.push(m);
+  // STORM-ARC mats (TEMPEST §5d): the near-white storm circuit — driven ONLY by the guarded
+  // storm tick in dragon.js (breathe + root→tip strikes + Surge). In NEITHER the rim (spineMats)
+  // NOR the flare loop (flareMats), so nothing else writes them. Nullable + additive: no other
+  // dragon publishes stormArcMats, so `parts.stormArcMats` is null elsewhere → roster byte-identical.
+  const stormArcMats = [];
+  for (const r of [torsoResult, wingsResult, headResult, tailResult]) {
+    if (r && r.stormArcMats) for (const m of r.stormArcMats) stormArcMats.push(m);
+  }
   const wingMat = wingsResult.wingMat;
   const {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
@@ -438,7 +447,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
+      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null },
       materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
       auraSprite,
     };
@@ -457,6 +466,7 @@ export function buildDragonModel(def, opts = {}) {
       wingRigL, wingRigR,
       coreGlow,
       wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength,
+      stormArcMats: stormArcMats.length ? stormArcMats : null,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
     auraSprite,

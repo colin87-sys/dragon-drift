@@ -106,6 +106,38 @@ function makeEdgeMat(color, intensity) {
   });
 }
 
+// Fold the vertex-colour ladder into the EMISSIVE term so it reads in ANY light
+// (vertex colours alone only modulate diffuse → they die backlit). frost faces →
+// emissive×(bright frost), belly faces → emissive×(deep teal): the ladder's self-lit
+// legibility floor. Not applied to moverIce (its coral warning must stay unmodulated).
+function withLadderEmissive(mat) {
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vColor.rgb;'
+    );
+  };
+  return mat;
+}
+
+// The rock-run walls / arch / mouth share ONE glacier-tuned ice material so the run reads as
+// the SAME luminous ice as the biome side-props the owner loves (bergwall/serac use
+// color 0xbfdce6 + emissive 0x357088 @0.42 — a teal glow that survives backlight), instead of
+// the chalky near-white the ladder floored at (0xcfe4f0). Same self-lit ladder architecture
+// (withLadderEmissive folds the vColor ladder into emissive); only the HUES change, and only
+// on a per-instance CLONE — the shared mats.frostIce (gated hazards) is untouched. Pair with
+// bakeIceLadder(..., { stops: _WALL_LADDER }) so the diffuse ladder matches the glow.
+function glacierWallMat() {
+  const m = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
+  m.color.setHex(0xbfdce6);          // glacier body tint (was flat white)
+  m.emissive.setHex(0x357088);       // the props' EXACT saturated teal (not a lighter 0x4f8ea6): the
+                                     // saturation is what makes shadow-side faces carry teal and stay
+                                     // alive in backlight like the props (fake transmission), not the intensity
+  m.emissiveIntensity = 0.45;        // trimmed from 0.5 so the frost caps (×vColor) don't clip toward LED
+  m.roughness = 0.30; m.metalness = 0.08;   // pick up the same per-facet sun glints as the props
+  return m;
+}
+
 export function initObstacles(s) {
   scene = s;
   const bodyOpts = { flatShading: true, roughness: 0.4, metalness: 0.1 };
@@ -127,6 +159,43 @@ export function initObstacles(s) {
       roughness: 0.25,
       emissive: 0xff5a47,
       emissiveIntensity: 0.9,
+    }),
+    // Frozen hazard-skin crevasse glow (PR-3): light escaping from INSIDE calved
+    // ice — recessed emissive slivers seated between proud walls (never a proud
+    // strip → that's the LED-strip/light-saber failure). Breathes in updateObstacles
+    // (shared — one write/frame) to restore the "live hazard" cue the skinned bar
+    // loses when its spin is killed.
+    frostGlow: new THREE.MeshStandardMaterial({
+      color: 0x6ec8ec, flatShading: true, roughness: 0.2, metalness: 0,
+      emissive: 0x1fb4ff, emissiveIntensity: 0.95,
+    }),
+    // Vertex-coloured ICE body for the Frozen hazard skins — the per-face VALUE
+    // LADDER (near-white frost on upward faces, mid ice on verticals, deep teal in
+    // the belly/shadow planes) that lifts flat-shaded ice from "one blue band" to
+    // premium. Base white so the baked vertex colours read as authored.
+    // vColor carries the frost/mid/teal ladder. Vertex colours only modulate the
+    // DIFFUSE term, so backlit against the bright sunset the whole body collapsed to
+    // near-black emissive and the ladder vanished (the owner's "less premium than the
+    // side props" — the hazards sit dead-centre in the sun corridor, the worst
+    // contrast spot). Fix: fold the ladder into EMISSIVE too (onBeforeCompile below),
+    // so frost faces stay bright and belly faces stay teal in ANY light — a self-lit
+    // legibility FLOOR for a material-history ladder, not a glow feature.
+    frostIce: withLadderEmissive(new THREE.MeshStandardMaterial({
+      color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.34, metalness: 0.02,
+      emissive: 0xcfe4f0, emissiveIntensity: 0.42,
+    })),
+    // Dark recess backing behind a crevasse glow — the near-black-teal socket that
+    // turns "strip stuck on a face" into "crack with light inside".
+    frostShadow: new THREE.MeshStandardMaterial({
+      color: 0x0e2630, flatShading: true, roughness: 0.6, metalness: 0,
+    }),
+    // Dynamic-shard material — the SAME vertex-coloured ice as frostIce but with a
+    // coral emissive that PULSES in updateObstacles: the ice ladder reads at the
+    // trough (clearly ice), coral dominates at the peak (clearly "this one moves").
+    // Keeps the reskin instead of the old full-body swap to a solid coral lump.
+    moverIce: new THREE.MeshStandardMaterial({
+      color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.3, metalness: 0.02,
+      emissive: 0xff5a47, emissiveIntensity: 0.9,
     }),
     // Ancient fossil bone for the Dragon Spine Canyon — warm ivory, faceted, a
     // touch of emissive so the skeleton reads (and blooms) against any biome sky.
@@ -314,17 +383,17 @@ function buildWindvault(gx, gy, j) {
 
 export function addObstacle(o) {
   const e = { ...o, object: null };
-  const body = mats.body[biomeIndexAt(o.dist)];
+  const bi = biomeIndexAt(o.dist);
   if (o.type === 'pillar') {
-    e.object = new THREE.Mesh(new THREE.ConeGeometry(o.r, o.h, 6), body);
+    e.object = hazardMesh('pillar', bi, { r: o.r, h: o.h });
     e.object.position.set(o.x, o.h / 2, -o.dist);
   } else if (o.type === 'shard') {
-    e.object = new THREE.Mesh(new THREE.OctahedronGeometry(o.r), o.dynamic ? mats.mover : body);
+    e.object = hazardMesh('shard', bi, { r: o.r, dynamic: o.dynamic });
     e.object.position.set(o.x, o.y, -o.dist);
   } else if (o.type === 'bar') {
-    e.object = new THREE.Mesh(new THREE.CylinderGeometry(o.r, o.r, 30, 8), body);
-    e.object.rotation.z = Math.PI / 2;
+    e.object = hazardMesh('bar', bi, { r: o.r });
     e.object.position.set(0, o.y, -o.dist);
+    if (e.object.userData.skinned) e.skinned = true;   // a calved shelf can't barrel-roll — kill the spin
   } else if (o.type === 'gate') {
     e.object = buildGate(o);
   }
@@ -461,6 +530,762 @@ function buildGate(o) {
   return group;
 }
 
+// --- HAZARD SKINS (PR-3) ---------------------------------------------------
+// Per-biome reskins of the in-lane hazards. A skin is a set of SHARED, normalized
+// geometries built once and reused by every instance (scaled per collider radius),
+// so N hazards cost one geometry. The COLLIDER in collision.js is untouched — the
+// skin only changes the mesh — and every skin is authored so its visible silhouette
+// stays OUTSIDE the collision envelope (proven with the studio's ghost + the
+// numeric coverage check below). Missing skin → null → the byte-identical primitive
+// fallback, so non-skinned biomes never change. Shared geos are tagged
+// userData.shared so removeAt never disposes them out from under the next instance.
+const BAR_REF = 0.85;   // reference collider radius the bar skin is authored at (gauntlet r; level.js spawns 0.7–1.1)
+
+// CALVED SHELF-BEAM — the Frozen bar (Fable pre-assess 2026-07-14). Five sheared,
+// interpenetrating flat-shaded ice sections fused into one tabular calving front
+// that overshoots the lane (±16.5), with a STEPPED top and belly (excess mass goes
+// up on some sections, down on others — never toward the collider), recessed
+// crevasse glow at the fracture seams (upper third), and clustered short icicle
+// teeth. No spin. Coverage invariant: every section's cross-section individually
+// contains the collider box (half-height BAR_REF*0.75=0.64, half-depth BAR_REF=0.85),
+// so the union covers the full lane with margin at any r. Sections carry small rolls
+// (rx, safe — uniform along the lane axis) and tiny slant (rz, bounded) for the
+// calved read; the numeric check asserts coverage holds.
+// [len, cx, h, cy, d, rx(roll), rz(slant)] — authored at BAR_REF. Half-heights are
+// kept ≥ 0.64(collider)+|cy|+roll-margin so every section covers the collider corner
+// even shifted/rolled (the numeric check enforces it); depth is uniform so the front
+// face can carry a consistent recessed crevasse channel.
+const BAR_BOXES = [
+  [7.4, -13.3, 2.06, 0.16, 2.20, 0.07, -0.05],   // end: tall, raw, steep slant
+  [9.4, -6.5, 2.12, -0.18, 2.20, -0.08, 0.04],   // belly-heavy (thick slab, low belly)
+  [7.6, 0.2, 2.00, 0.18, 2.20, 0.06, -0.03],     // mid: top-heavy
+  [9.4, 6.6, 2.12, -0.16, 2.20, 0.08, 0.05],     // belly-heavy
+  [7.4, 13.4, 2.08, 0.16, 2.20, -0.07, 0.06],    // end: tall, raw, steep slant
+];
+// Crevasse seams: [cx, cy, len, height] emissive slivers on the front (+z) face
+// (front at z≈+1.1), upper third, sitting just proud of the face but OVERHUNG by a
+// proud brow lip that shadows them → light escaping a fracture, NOT a proud LED
+// strip. Two short, seam-anchored segments (never one full run = the light-saber).
+const BAR_SEAMS = [
+  [-8.4, 0.30, 4.6, 0.22],
+  [4.2, 0.34, 4.2, 0.22],
+];
+// Icicle teeth hung under the belly — clustered, three length classes, never more
+// than 0.7 below the collider bottom. [cx, len, baseR]
+const BAR_TEETH = [
+  [-12.6, 0.46, 0.46], [-11.7, 0.68, 0.54], [-11.0, 0.40, 0.40],  // cluster L
+  [-4.5, 0.60, 0.50],  [-3.5, 0.80, 0.56],                        // cluster mid-L
+  [1.7, 0.48, 0.44],                                              // lone
+  [9.3, 0.78, 0.56], [10.2, 0.50, 0.46], [11.0, 0.64, 0.50],     // cluster R
+];
+
+function xf(geo, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0 } = {}) {
+  if (rx) geo.rotateX(rx);
+  if (ry) geo.rotateY(ry);
+  if (rz) geo.rotateZ(rz);
+  geo.translate(x, y, z);
+  return geo;
+}
+
+// The Frozen ICE VALUE LADDER — bake per-face vertex colours onto a merged,
+// non-indexed, flat-shaded geometry from each triangle's geometric normal: near-
+// white frost on upward faces, mid ice on verticals (hue nudged off the sky so the
+// silhouette always separates), deep teal in the belly/shadow planes. This is what
+// turns "one blue band" into premium low-poly ice at zero triangle cost.
+const _FROST = [0.82, 0.91, 0.99], _MIDICE = [0.36, 0.60, 0.75], _BELLY = [0.13, 0.32, 0.40];   // chalk-BLUE frost (not chalk-gray) — reads as ice, not concrete
+// Default (axis = world +Y) is a LIGHTING story: frost on sunlit up-faces, teal in the
+// shadowed belly — correct for STATIC props (bar/pillar). For a TUMBLING body pass a
+// per-chunk weathering `axis`: the same ladder becomes a MATERIAL-HISTORY story that is
+// orientation-invariant (frost = weathered rind, mid = fresh fracture plane, teal = deep
+// seam), so a spinning shard doesn't flicker its "sunlight" at the floor. Thresholds
+// default to the shipped bar/pillar values (byte-identical when called with no opts).
+// Glacier-tinted ladder stops for the ROCK-RUN walls/arch/mouth ONLY (pass via opts.stops):
+// mid nudged toward the side-props' luminous body (0xbfdce6), belly deepened toward their
+// teal glow (0x357088), frost kept near-white. This unifies the run with the biome props the
+// owner loves WITHOUT touching the shared hazard ladder (_FROST/_MIDICE/_BELLY, gated 4.4).
+const _WALL_LADDER = { frost: [0.84, 0.92, 0.99], mid: [0.42, 0.66, 0.78], belly: [0.10, 0.34, 0.44] };
+
+function bakeIceLadder(geo, opts = {}) {
+  const ax0 = opts.ax ?? 0, ay0 = opts.ay ?? 1, az0 = opts.az ?? 0;
+  const frostT = opts.frostT ?? 0.35, tealT = opts.tealT ?? -0.30;
+  const S = opts.stops, F = S ? S.frost : _FROST, M = S ? S.mid : _MIDICE, B = S ? S.belly : _BELLY;
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3);
+  const ax = new THREE.Vector3(), bx = new THREE.Vector3(), cx = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
+    e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
+    const d = nr.x * ax0 + nr.y * ay0 + nr.z * az0;
+    const c = d > frostT ? F : d < tealT ? B : M;
+    for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = c[0]; col[o + 1] = c[1]; col[o + 2] = c[2]; }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+function buildFrozenBar() {
+  const body = [], glow = [], shadow = [];
+  for (const [len, cx, h, cy, d, rx, rz] of BAR_BOXES) {
+    body.push(xf(new THREE.BoxGeometry(len, h, d), { x: cx, y: cy, rx, rz }));
+  }
+  // Teeth: tetrahedra (4 tris, no base cap needed — embedded), tip pointing down,
+  // hung off the FRONT-belly edge so they read against the sky. Beefy girth so they
+  // read as MASS, not fuzz. Capped so no tip drops > 0.7 below the collider bottom
+  // (a long opaque tooth in the under-gap reads as a collision bug). The value
+  // ladder tints their downward faces deep teal.
+  const colliderBottom = -BAR_REF * 0.75;   // -0.64
+  for (const [cx, len, baseR] of BAR_TEETH) {
+    const t = new THREE.TetrahedronGeometry(baseR);
+    t.scale(1, len / baseR, 1);             // stretch to a spike
+    t.rotateX(Math.PI);                     // point down
+    const topY = colliderBottom + 0.05;
+    const tipY = Math.max(colliderBottom - 0.7, topY - len);
+    xf(t, { x: cx, y: (topY + tipY) / 2, z: 0.86 });   // on the front-belly edge
+    body.push(t);
+  }
+  // Crevasse seams: an emissive sliver PROUD of the front face, set into a dark-teal
+  // recess backing (the socket that reads "crack with light inside it") and overhung
+  // by a proud brow lip. Faint + short + segmented → a lit fracture, never an LED strip.
+  for (const [cx, cy, len, hh] of BAR_SEAMS) {
+    shadow.push(xf(new THREE.PlaneGeometry(len + 0.5, hh + 0.28), { x: cx, y: cy, z: 1.13 })); // dark socket
+    glow.push(xf(new THREE.BoxGeometry(len, hh, 0.05), { x: cx, y: cy, z: 1.16 }));
+    body.push(xf(new THREE.BoxGeometry(len + 0.6, 0.16, 0.12), { x: cx, y: cy + hh / 2 + 0.18, z: 1.20 })); // brow lip
+  }
+  // Tetrahedron teeth are non-indexed while BoxGeometry is indexed — normalize so
+  // mergeGeometries can fuse them.
+  const norm = (arr) => arr.map((g) => g.index ? g.toNonIndexed() : g);
+  const bodyGeo = bakeIceLadder(mergeGeometries(norm(body), false)); bodyGeo.userData.shared = true;
+  const glowGeo = mergeGeometries(norm(glow), false); glowGeo.userData.shared = true;
+  const shadowGeo = mergeGeometries(norm(shadow), false); shadowGeo.userData.shared = true;
+  return { parts: [
+    { geo: bodyGeo, mat: mats.frostIce },
+    { geo: shadowGeo, mat: mats.frostShadow },
+    { geo: glowGeo, mat: mats.frostGlow },
+  ], ref: BAR_REF };
+}
+
+// SERAC SPUR — the Frozen pillar (Fable pre-assess 2026-07-14). A leaning zig-zag
+// stack of 4 sheared hex frustums + a blunt chisel cap, authored in UNIT space
+// (radius as fractions of r, height as fractions of h) so independent r/h scaling
+// stays coherent from squat h=8 to needle h=21. The seg-3 RE-FLARE (mass steps back
+// OUT on the way up) is the anti-spike move — its underside gives deep-teal overhang
+// faces so the value ladder shows all three rungs on one body. Coverage uses the hex
+// INRADIUS (0.866×circumR): 0.866*R − offset ≥ 0.67r keeps the visible ice around the
+// r*0.65 collider cylinder to ~80% height (a strict improvement over the needle cone,
+// whose top ~60% was hollow); the top ~20% tapers inside the collider by design.
+// A stack of sheared, yawed, offset ANGULAR ICE BLOCKS (boxes, not cylinders — hex
+// frustums read as a machined rocket; sharp-edged blocks read as calved ice, and
+// their flat top/bottom faces feed the frost/teal value ladder). Authored in UNIT
+// space (half-widths + offsets as fractions of r, heights as fractions of h). The
+// seg-3 RE-FLARE (a block wider than the one below, offset) throws a teal overhang;
+// the top block is a sheared blunt wedge (never a party-hat point).
+// [y0f, y1f, wx, wz, cx, cz, yaw, tiltZ] — half-widths & offsets in r; heights in h.
+const PILLAR_SEGS = [
+  [0.00, 0.32, 0.88, 0.84, 0.00, 0.00, 0.10, 0.00],   // rooted base
+  [0.28, 0.57, 0.82, 0.86, 0.12, 0.05, 0.55, 0.05],   // step + twist
+  [0.53, 0.80, 0.90, 0.82, -0.07, 0.09, 1.00, -0.04], // RE-FLARE (wider → teal overhang) + twist
+  [0.76, 0.93, 0.74, 0.70, 0.11, -0.05, 1.45, 0.06],  // narrower shoulder + twist
+  [0.90, 1.00, 0.48, 0.44, 0.14, 0.03, 1.85, 0.17],   // blunt sheared top (upright + small so it holds its silhouette vs pale sky)
+];
+const PILLAR_COVER_TO = 0.78;   // require collider coverage to 78% height; top exempt (tapers inside, per design)
+// A single narrow, slightly-diagonal crevasse crack on the +z (approach) face — a
+// thin lit fissure, NOT a rectangular window. [y0f, y1f, wide, radius, tilt]
+const PILLAR_SEAM = [0.34, 0.64, 0.12, 0.86, 0.28];
+// Foot rubble: a broken ARC biased to one side (not a ring), squat so the r-only
+// scale keeps them as chunks. [angle, dist, size]
+const PILLAR_RUBBLE = [
+  [-0.5, 1.00, 0.34], [-0.15, 1.14, 0.26], [0.2, 1.04, 0.30], [0.6, 1.20, 0.24], [1.0, 1.02, 0.28],
+];
+
+function buildFrozenPillar() {
+  const tower = [], glow = [], shadow = [], rubble = [];
+  for (const [y0f, y1f, wx, wz, cx, cz, yaw, tiltZ] of PILLAR_SEGS) {
+    const segH = y1f - y0f;
+    const b = new THREE.BoxGeometry(wx * 2, segH, wz * 2);
+    if (tiltZ) b.rotateZ(tiltZ);
+    if (yaw) b.rotateY(yaw);
+    b.translate(cx, (y0f + y1f) / 2 - 0.5, cz);   // centre the tower on y (base at -0.5)
+    tower.push(b);
+  }
+  // Crevasse crack — a thin lit fissure on the mid block's OWN front face (built in
+  // its local frame then given the block's yaw+offset, so it stays proud of the
+  // yawed face instead of being swallowed by it). Slim dark socket + a slightly
+  // tilted glow → a natural fracture, not a window pane.
+  {
+    const [by0, by1, , bwz, bcx, bcz, byaw] = PILLAR_SEGS[1];   // the mid block
+    const [sy0, sy1, wide, , tilt] = PILLAR_SEAM;
+    const cy = (sy0 + sy1) / 2 - (by0 + by1) / 2, hh = sy1 - sy0;   // seam y relative to the block centre
+    const front = bwz;                                             // block's local +z face
+    const mk = (geo, z) => { geo.rotateZ(tilt); geo.translate(0.05, cy, z); geo.rotateY(byaw); geo.translate(bcx, (by0 + by1) / 2 - 0.5, bcz); return geo; };
+    shadow.push(mk(new THREE.PlaneGeometry(wide + 0.10, hh), front + 0.01));
+    glow.push(mk(new THREE.PlaneGeometry(wide, hh - 0.05), front + 0.03));
+  }
+  // Foot rubble — squat ice chunks (own r-only scale in hazardMesh), tetrahedra (4
+  // tris) authored around y=0. Sunk ~20% into the floor so they read as calved debris.
+  for (const [ang, dist, size] of PILLAR_RUBBLE) {
+    const t = new THREE.TetrahedronGeometry(size);
+    t.scale(1, 0.6, 1);                         // squat
+    t.rotateY(ang * 1.7);
+    xf(t, { x: Math.cos(ang) * dist, y: -size * 0.2, z: Math.sin(ang) * dist });
+    rubble.push(t);
+  }
+  const norm = (arr) => arr.map((g) => g.index ? g.toNonIndexed() : g);
+  const towerGeo = bakeIceLadder(mergeGeometries(norm(tower), false)); towerGeo.userData.shared = true;
+  const glowGeo = mergeGeometries(norm(glow), false); glowGeo.userData.shared = true;
+  const shadowGeo = mergeGeometries(norm(shadow), false); shadowGeo.userData.shared = true;
+  const rubbleGeo = bakeIceLadder(mergeGeometries(norm(rubble), false)); rubbleGeo.userData.shared = true;
+  return {
+    tower: [
+      { geo: towerGeo, mat: mats.frostIce },
+      { geo: shadowGeo, mat: mats.frostShadow },
+      { geo: glowGeo, mat: mats.frostGlow },
+    ],
+    rubble: [{ geo: rubbleGeo, mat: mats.frostIce }],
+  };
+}
+
+// Numeric FAIRNESS check for the serac spur: sample the r*0.65 collider circle at a
+// ring of angles across heights 0→PILLAR_COVER_TO and assert every point sits inside
+// some frustum's hex cross-section (inradius test, yaw-aware). Scale-invariant (x/z
+// track r, y tracks h), so one unit-space pass covers all (r,h). Returns { ok, gaps }.
+export function pillarColliderCoverage() {
+  const R = 0.65;                       // collider radius in unit (r) space
+  // Each block is a yawed, offset box; tiltZ shifts the cross-section with height, so
+  // include it. A circle point is inside iff, in the block's local frame, |x|<wx & |z|<wz.
+  const inBox = (px, pz, seg, y) => {
+    const [y0f, y1f, wx, wz, cx, cz, yaw, tiltZ] = seg;
+    if (y < y0f - 1e-6 || y > y1f + 1e-6) return false;
+    let qx = px - cx, qz = pz - cz;
+    // undo yaw about Y
+    const cy2 = Math.cos(-yaw), sy2 = Math.sin(-yaw);
+    const x1 = qx * cy2 - qz * sy2, z1 = qx * sy2 + qz * cy2; qx = x1; qz = z1;
+    // tiltZ shifts x with height off the block centre; account for the worst-case shift
+    const dy = y - (y0f + y1f) / 2;
+    qx -= Math.tan(tiltZ || 0) * dy;
+    return Math.abs(qx) <= wx + 1e-6 && Math.abs(qz) <= wz + 1e-6;
+  };
+  const gaps = [];
+  for (let y = 0; y <= PILLAR_COVER_TO + 1e-9; y += 0.04) {
+    for (let k = 0; k < 20; k++) {
+      const a = (k / 20) * Math.PI * 2;
+      const px = R * Math.cos(a), pz = R * Math.sin(a);
+      if (!PILLAR_SEGS.some((s) => inBox(px, pz, s, y))) gaps.push([+y.toFixed(2), +(a).toFixed(2)]);
+    }
+  }
+  return { ok: gaps.length === 0, gaps: gaps.slice(0, 12), gapCount: gaps.length };
+}
+
+// CALVED BERG CHUNK — the Frozen shard (Fable pre-assess 2026-07-14). Three jittered,
+// interpenetrating icosahedra at a strong 1 : 0.55 : 0.38 hierarchy (never equal → that's
+// a fused-dice gem) plus a couple of micro-shards in the seam, so it reads as a tumbling
+// calved iceberg fragment. Because it SPINS, the value ladder is baked per-chunk against a
+// fixed WEATHERING AXIS (material-history, not lighting) so it never flickers. Uniform
+// r-scale. Same geometry for static & dynamic variants (dynamic just swaps to the coral-
+// pulsing moverIce material) so "same hazard, it moves" stays legible.
+// WIDER THAN TALL (~1.5 : 1) — a floating hazard you dodge by moving SIDEWAYS, so
+// lateral mass is the verb (the owner's note). The dominant chunk A stays centred and
+// big enough to carry the r*0.70 collider sphere on EVERY axis (measured post-scale);
+// B and C are pushed far out laterally so the fragments extend the mass to the flanks
+// (visual edge OUTSIDE the collider = forgiving fringe, the correct direction).
+// [circumR, [offX,offY,offZ], [sclX,sclY,sclZ], [axisX,axisY,axisZ]] in r units.
+const BERG_CHUNKS = [
+  [1.05, [0.00, 0.00, 0.00], [1.20, 0.90, 1.08], [0.28, 0.50, 0.62]],   // dominant — wide, centred on the collider
+  [0.66, [0.90, -0.16, 0.32], [1.05, 0.92, 1.00], [-0.7, 0.25, 0.6]],   // fragment flung to the RIGHT flank
+  [0.50, [-0.92, 0.20, -0.38], [1.00, 1.04, 0.95], [0.45, -0.6, -0.55]], // fragment flung to the LEFT (~130° from B)
+];
+const BERG_MICRO = [ [0.17, [0.70, 0.04, 0.50]], [0.15, [-0.42, -0.24, 0.34]] ];   // seam micro-shards
+let _bergSupport = 0;   // min face-plane distance of chunk A from centre (proven ≥ collider 0.70r)
+
+function buildFrozenShard() {
+  const rng = mulberry32(0x5e9c0de);
+  const parts = [];
+  // Coherent per-position jitter (hash unique local positions so the 5 face-copies of a
+  // shared icosahedron vertex move together — independent jitter would tear the mesh).
+  const jitter = (g, amt) => {
+    const p = g.attributes.position, jm = new Map();
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const k = `${x.toFixed(2)},${y.toFixed(2)},${z.toFixed(2)}`;
+      let j = jm.get(k); if (!j) { j = [(rng() - 0.5) * amt, (rng() - 0.5) * amt, (rng() - 0.5) * amt]; jm.set(k, j); }
+      p.setXYZ(i, x * (1 + j[0]), y * (1 + j[1]), z * (1 + j[2]));
+    }
+  };
+  let ai = 0;
+  for (const [rad, off, scl, axis] of BERG_CHUNKS) {
+    let g = new THREE.IcosahedronGeometry(rad, 0);
+    if (g.index) g = g.toNonIndexed();
+    jitter(g, 0.16);
+    g.scale(scl[0], scl[1], scl[2]);
+    if (ai === 0) {   // chunk A carries the collider — measure its inradius AFTER the
+      // (non-uniform) scale, so a squashed axis can't secretly drop below the sphere.
+      const p = g.attributes.position; let mind = Infinity;
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
+      for (let i = 0; i < p.count; i += 3) {
+        a.fromBufferAttribute(p, i); b.fromBufferAttribute(p, i + 1); c.fromBufferAttribute(p, i + 2);
+        e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
+        mind = Math.min(mind, Math.abs(nr.dot(a)));   // |plane offset| from origin
+      }
+      _bergSupport = mind;
+    }
+    g.translate(off[0], off[1], off[2]);
+    bakeIceLadder(g, { ax: axis[0], ay: axis[1], az: axis[2], frostT: 0.44, tealT: -0.42 });
+    parts.push(g); ai++;
+  }
+  for (const [rad, off] of BERG_MICRO) {
+    let g = new THREE.TetrahedronGeometry(rad);
+    jitter(g, 0.2);
+    g.translate(off[0], off[1], off[2]);
+    bakeIceLadder(g, { ax: off[0], ay: off[1], az: off[2], frostT: 0.2, tealT: -0.5 });
+    parts.push(g);
+  }
+  const geo = mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false);
+  geo.userData.shared = true;
+  return { geo };
+}
+// Fairness: chunk A's inradius must contain the r*0.70 collider sphere (in r units).
+export function shardColliderSupport() {
+  obstacleSkin(2, 'shard');   // ensure built (sets _bergSupport)
+  return _bergSupport;
+}
+
+const SKIN_BUILDERS = {
+  2: { bar: buildFrozenBar, pillar: buildFrozenPillar, shard: buildFrozenShard },   // Frozen
+};
+const _skinCache = {};
+function obstacleSkin(bi, type) {
+  const b = SKIN_BUILDERS[bi] && SKIN_BUILDERS[bi][type];
+  if (!b) return null;
+  const key = bi + ':' + type;
+  return (_skinCache[key] || (_skinCache[key] = b()));
+}
+
+// Unified hazard builder — used by BOTH addObstacle (game) and the studio, so what
+// is Fable-graded is what ships. Returns the object in its LOCAL frame (origin =
+// the collider anchor); the caller sets world position. Falls back to the shipped
+// primitive when no skin exists (byte-identical for non-skinned biomes).
+function hazardMesh(type, bi, p) {
+  if (type === 'bar') {
+    const skin = obstacleSkin(bi, 'bar');
+    if (skin) {
+      const g = new THREE.Group();
+      for (const part of skin.parts) g.add(new THREE.Mesh(part.geo, part.mat));
+      const s = p.r / skin.ref;
+      g.scale.set(1, s, s);            // x fixed (spans the lane); y/z track the collider
+      g.userData.skinned = true;
+      return g;
+    }
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(p.r, p.r, 30, 8), mats.body[bi]);
+    m.rotation.z = Math.PI / 2;
+    return m;
+  }
+  if (type === 'pillar') {
+    const skin = obstacleSkin(bi, 'pillar');
+    if (skin) {
+      const g = new THREE.Group();
+      // Tower scales r×h×r (centred, base on the floor); rubble scales r×r×r so it
+      // stays chunky no matter the height, seated at the foot (local y = −h/2).
+      for (const part of skin.tower) { const m = new THREE.Mesh(part.geo, part.mat); m.scale.set(p.r, p.h, p.r); g.add(m); }
+      for (const part of skin.rubble) { const m = new THREE.Mesh(part.geo, part.mat); m.scale.set(p.r, p.r, p.r); m.position.y = -p.h / 2; g.add(m); }
+      g.userData.skinned = true;
+      return g;
+    }
+    return new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 6), mats.body[bi]);
+  }
+  // shard
+  const skin = obstacleSkin(bi, 'shard');
+  if (skin) {
+    const m = new THREE.Mesh(skin.geo, p.dynamic ? mats.moverIce : mats.frostIce);
+    m.scale.setScalar(p.r);
+    return m;
+  }
+  return new THREE.Mesh(new THREE.OctahedronGeometry(p.r), p.dynamic ? mats.mover : mats.body[bi]);
+}
+
+// Numeric FAIRNESS check for the skinned bar: sample the collider outline
+// (|dz|<r, |y-cy|<r*0.75, full lane x) and assert every sample point sits INSIDE
+// some body section — i.e. the mesh never leaves a gap in the collision envelope
+// ("looks passable but kills"). Returns { ok, worstX, gaps }. Studio/tests call it.
+export function barColliderCoverage(r = BAR_REF) {
+  const s = r / BAR_REF;
+  const halfY = r * 0.75, halfZ = r;      // collider half-extents at this r
+  const LANE = CONFIG.laneHalfWidth;
+  const inBox = (px, py, pz, box) => {
+    const [len, cx, h, cy, d, rx, rz] = box;
+    // point in the section's local frame (built: rotateX(rx)→rotateZ(rz)→translate(cx,cy),
+    // then group-scaled by s in y,z). Undo scale, translate, rz, rx.
+    let x = px, y = py / s, z = pz / s;    // undo group y/z scale (x unscaled)
+    x -= cx; y -= cy;
+    // undo rotateZ
+    const cz = Math.cos(-rz), sz = Math.sin(-rz);
+    const x1 = x * cz - y * sz, y1 = x * sz + y * cz; x = x1; y = y1;
+    // undo rotateX
+    const cx2 = Math.cos(-rx), sx2 = Math.sin(-rx);
+    const y2 = y * cx2 - z * sx2, z2 = y * sx2 + z * cx2; y = y2; z = z2;
+    return Math.abs(x) <= len / 2 + 1e-4 && Math.abs(y) <= h / 2 + 1e-4 && Math.abs(z) <= d / 2 + 1e-4;
+  };
+  const gaps = [];
+  // sample the collider surface densely in x, at the worst-case corners in y,z
+  for (let ix = -LANE; ix <= LANE; ix += 0.25) {
+    for (const yy of [-halfY, 0, halfY]) {
+      for (const zz of [-halfZ, 0, halfZ]) {
+        const covered = BAR_BOXES.some((b) => inBox(ix, yy, zz, b));
+        if (!covered) gaps.push([+ix.toFixed(2), yy.toFixed(2), zz.toFixed(2)]);
+      }
+    }
+  }
+  return { ok: gaps.length === 0, gaps: gaps.slice(0, 12), gapCount: gaps.length };
+}
+
+// --- OBSTACLE STUDIO (tools/obstaclestudio) --------------------------------
+// The in-lane hazards (bar / pillar / shard) are shipped as generic primitives
+// (a cone, a horizontal cylinder "log", an octahedron) that don't read as ice —
+// the owner wants them reskinned per biome. Before touching a shipped pixel we
+// need a workbench: build ONE hazard in ISOLATION, at its REAL collider scale,
+// so a reskin can be Fable-gated AND proven "visual ≥ hitbox, never less". Inert
+// (never imported by the running game). Representative params (mid of level.js's
+// spawn ranges) so the studio read is honest, overridable via opts.params.
+const OBSTACLE_STUDIO_PARAMS = {
+  pillar: { r: 2.3, h: 15 },   // level.js: r 1.6–3.0, h 8–21
+  shard:  { r: 2.0, y: 0 },    // level.js: r 1.3–2.6
+  bar:    { r: 0.85, y: 0 },   // level.js: r 0.7–1.1, spans the full lane
+};
+// The VISUAL body — the SAME hazardMesh() the game builds (skin when present, else
+// primitive fallback), so what is Fable-graded here is exactly what ships. Applies
+// the game's local→world y offset (pillar base sits on the floor at y=h/2).
+function obstacleBody(type, bi, p) {
+  const m = hazardMesh(type, bi, p);
+  m.position.y = type === 'pillar' ? p.h / 2 : (p.y || 0);
+  return m;
+}
+// The COLLISION ENVELOPE as a wireframe ghost — the hazard-intrinsic term of the
+// collider from collision.js (player radius R is added at runtime; shown as 0
+// here). A reskin must keep its visible silhouette OUTSIDE this ghost everywhere
+// (never "looks passable but kills"), and the collider itself must stay byte-
+// identical, so these ghosts are the acceptance test rendered next to each skin.
+function obstacleColliderGhost(type, p) {
+  const mat = new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.6 });
+  let g;
+  if (type === 'pillar') {          // horiz < r*0.65  &&  y < h  → vertical cylinder from floor
+    g = new THREE.Mesh(new THREE.CylinderGeometry(p.r * 0.65, p.r * 0.65, p.h, 20), mat);
+    g.position.y = p.h / 2;
+  } else if (type === 'shard') {    // dist3 < r*0.70  → sphere
+    g = new THREE.Mesh(new THREE.SphereGeometry(p.r * 0.70, 20, 14), mat);
+    g.position.y = p.y || 0;
+  } else {                          // |dz| < r  &&  |y-cy| < r*0.75  → box, FULL lane in x (no x term)
+    g = new THREE.Mesh(new THREE.BoxGeometry(32, p.r * 1.5, p.r * 2), mat);
+    g.position.y = p.y || 0;
+  }
+  return g;
+}
+// Build one hazard for the studio. opts.hitbox overlays the collision-envelope
+// ghost; opts.params overrides the representative sizing; opts.dynamic renders the
+// oscillating shard (hot mover material). Returns a Group centred for framing.
+export function buildObstacleMesh(type, bi = 0, opts = {}) {
+  if (!mats) initObstacles({ add() {}, remove() {} });
+  const p = { ...(OBSTACLE_STUDIO_PARAMS[type] || {}), ...(opts.params || {}), dynamic: !!opts.dynamic };
+  const g = new THREE.Group();
+  g.add(obstacleBody(type, bi, p));
+  if (opts.hitbox) g.add(obstacleColliderGhost(type, p));
+  g.userData.params = p;
+  return g;
+}
+
+// --- CALVED CANYON wall kit (Fable pre-assess 2026-07-14) ------------------
+// Replaces the picket-fence of ConeGeometry shards with stacked, SHEARED calved ice
+// blocks for the Frozen rock run: recessed foot → proud re-flare bulge (throws a teal
+// underside) → stepped-back broken-ridge crest. Reuses the glacier kit — bakeIceLadder
+// + withLadderEmissive so the wall stays lit (frost caps / mid faces / teal belly) in
+// the backlit sunset instead of collapsing to a black silhouette. Authored in UNIT
+// space (x in hw, y in h, z in hz) so one fairness pass covers every mass size. SHEAR
+// (not rotate): a 0.15rad rotate on a 26-tall wall walks the top ~3u sideways into the
+// channel; shearing keeps top faces pointing UP (frost survives) and the ±hw check exact.
+const WALL_TIERS = {
+  footFace: [0.64, 0.74], footTop: [0.26, 0.36],   // deeply recessed undercut (deeper → the bulge underside reads teal from below)
+  bodyFace: [0.94, 0.97], bodyTop: [0.55, 0.72],   // proud calved bulge — juts over the foot; top staggered per column into shelves
+  crestFace: [0.80, 0.86],                          // clearly stepped back from the body
+  shearToward: 0.03, shearZ: 0.22,                  // max shear toward channel (frac hw) / z jitter (frac hz)
+  zStep: [0.35, 0.50], hStep: 0.06,                 // HARD alternating depth step (frac hz) + height stagger (frac h) between columns
+  batter: 0.18, footMin: 0.22,                      // calved lean-back above band-top (frac hw, hw-proportional) / min foot height (frac h)
+  frostT: 0.32,                                     // ladder frost threshold for the wall bake (0.30 over-frosted the upper HALF → cap the top only)
+  faceFloor: 0.90,                                  // fairness: body channel-face ≥ this·hw (cones tapered to ~0.5)
+  crestBand: 0.60, bodyBandTop: 0.692, crestBandTop: 0.98,  // collider bands in unit-y (body y−3..15, crest 13.5..22.5 over h=26)
+};
+// Skyline families → crest TOP (unit-y) per column, so each mass reads as a distinct
+// BROKEN RIDGE, never a comb. Height variance carries the drama; deep notches only in
+// outer columns. Chosen per mass by (stackCount % 3) so consecutive masses differ.
+const WALL_SKYLINES = [
+  (ci, nc, rng) => 1.10 - (ci / Math.max(nc - 1, 1)) * 0.34 + (rng() - 0.5) * 0.06, // PROW  — tall front tooth, steps down back
+  (ci, nc, rng) => 0.99 + Math.abs((ci / Math.max(nc - 1, 1)) - 0.5) * 0.30 + (rng() - 0.5) * 0.05, // SADDLE — high ends, low mid
+  (ci, nc, rng) => 1.07 - (ci / Math.max(nc - 1, 1)) * 0.30 + (rng() - 0.5) * 0.05, // STEP  — monotonic stair
+];
+
+// Shear a box by displacing x/z proportionally to height-from-base (top moves, base fixed).
+function shearBoxGeo(w, h, d, shx = 0, shz = 0) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  if (shx || shz) {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const t = p.getY(i) / h + 0.5;   // 0 at base → 1 at top
+      p.setX(i, p.getX(i) + t * shx);
+      p.setZ(i, p.getZ(i) + t * shz);
+    }
+  }
+  return g;
+}
+
+// Build the block geometries for ONE Frozen canyon wall mass (unit-authored, world-scaled).
+// channelSign = +1 puts the calved face toward +x; the caller passes sign(lean) so the
+// undercut always faces the channel. Returns non-indexed geos ready to merge.
+function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
+  const T = WALL_TIERS, parts = [];
+  const nc = Math.max(1, Math.min(4, Math.round(hw / 3.0)));
+  const sky = WALL_SKYLINES[((familyIdx % 3) + 3) % 3];
+  const rr = (a) => a[0] + rng() * (a[1] - a[0]);
+  const backX = -hw * channelSign;
+  for (let ci = 0; ci < nc; ci++) {
+    // HARD-STEP the columns in depth (front/back/front/back) so the grazing flight angle
+    // sees the side RETURN faces between them → real THICKNESS, not one flat sheet.
+    const zSign = (ci % 2) * 2 - 1;
+    const zc = zSign * (T.zStep[0] + rng() * (T.zStep[1] - T.zStep[0])) * hz + (rng() - 0.5) * 0.18 * hz;
+    const zspan = hz * (0.55 + rng() * 0.35);
+    const seam = (rng() - 0.5) * 0.10 * h;   // per-column seam stagger (kills fortress coursing)
+    // STAGGER the tier tops between neighbours so every block top is a SHELF against its
+    // lower neighbour — below the flight line those shelves face up (frost), above it they
+    // face down (teal): the ladder's own faces, now presented to the camera, zero new tris.
+    const hStep = zSign * T.hStep * h;
+    const footTop = Math.max(botY + T.footMin * h, botY + Math.min(0.5, rr(T.footTop) + 0.4 * (hStep / h)) * h + seam); // clamp ≥ min height (no degenerate slivers)
+    const bodyTop = botY + (rr(T.bodyTop) + hStep / h) * h + seam;
+    // Crest MUST reach the crest collider top (0.98) everywhere — a short crest leaves an
+    // invisible-kill gap where a high-flying player clips the collider. Skyline drama comes
+    // from height variance ABOVE that floor (0.98→1.14 ≈ 4 world units of ridge swing).
+    const crestTop = botY + Math.max(WALL_TIERS.crestBandTop, Math.min(1.14, sky(ci, nc, rng))) * h;
+    const bandTopW = botY + T.bodyBandTop * h;   // ~y15 — batter pivots here; below it the face stays proud (covered)
+    const mk = (faceFrac, yb, yt, shTowardFrac, noShear, shzScale = 1) => {
+      const faceX = faceFrac * hw * channelSign;
+      const w = Math.abs(faceX - backX), cx = (faceX + backX) / 2;
+      const shx = noShear ? 0 : shTowardFrac * hw * channelSign;
+      const shz = noShear ? 0 : (rng() - 0.5) * T.shearZ * hz * shzScale;   // foot ROOTED; crest shzScale=0 (batter supplies the lean → no edge-on frost spikes)
+      const g = shearBoxGeo(w, yt - yb, zspan, shx, shz);
+      g.translate(cx, (yb + yt) / 2, zc);
+      // BATTER: lean the channel face BACK above band-top (calved lean + tips upper faces
+      // toward frost). hw-PROPORTIONAL (not fixed-angle) so the recede scales with the crest
+      // collider margin → narrow masses' crests stay covered. Below band-top: untouched (proud).
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const y = p.getY(i);
+        if (y > bandTopW) p.setX(i, p.getX(i) - channelSign * T.batter * hw * (y - bandTopW) / (0.4 * h));
+      }
+      return g;
+    };
+    parts.push(mk(rr(T.footFace), botY, footTop, 0, true));                                       // foot: rooted, no shear
+    parts.push(mk(rr(T.bodyFace), footTop - 0.05 * h, bodyTop, T.shearToward * (0.5 + rng() * 0.5), false)); // re-flare overhang
+    if (crest) parts.push(mk(rr(T.crestFace), bodyTop - 0.05 * h, crestTop, (rng() - 0.5) * 2 * T.shearToward, false, 0)); // shzScale 0: no crest z-spikes
+  }
+  return parts;
+}
+
+// THE MIRROR STRAIT kit (Frozen overhaul) — the run stops being a canyon of tall walls and
+// becomes a lead of open water threaded through drifting PACK ICE, so the biome's sky/horizon/
+// mirror stay in frame. Two forms, both derived from the biome's tabular-berg language (broad,
+// weathered, NOT coursed) and skinned with the same glacierWallMat + ladder:
+//   • FLOE  (breath) — a LOW, WIDE tabular floe: covers the body collider (to ~y15) then a
+//     gently broken flat top BELOW the camera sightline, so you see OVER it to the sunset.
+//   • PROW  (pinch)  — a broad tabular BERG leaning into the channel, the only tall moments
+//     (2–4 per run): a wide base + a stepped shoulder, big masses not a comb of blocks.
+// Authored in world units around x=0 (faces within ±hw), y in [botY, botY+h], z around 0.
+function frozenStraitParts(hw, hz, h, botY, sign, pinch, rng) {
+  const parts = [];
+  const jz = () => (rng() - 0.5) * hz * 0.18;
+  const topY = botY + h;
+  // CANT + WEATHER the top face: raise the top ring of verts on a slant + jitter, so the cap is a
+  // canted, broken ice plane — never a flat machined lid catching light like plastic (Fable Dial B).
+  // Coverage-safe: callers build the covering mass with +1u margin over the collider and cant only
+  // RAISES (positive `lift`), so the visible top never dips below the collider top.
+  const cantTop = (g, lift, jit) => {
+    const p = g.attributes.position;
+    let maxY = -Infinity; for (let i = 0; i < p.count; i++) maxY = Math.max(maxY, p.getY(i));
+    for (let i = 0; i < p.count; i++) {
+      if (p.getY(i) > maxY - 0.6) p.setY(i, p.getY(i) + Math.abs(lift * p.getX(i) / Math.max(hw, 1)) + rng() * jit);
+    }
+    return g;
+  };
+  // Pull the TOP verts inward (truncated pyramid) so a mass narrows as it rises — a berg peak,
+  // with no parallel vertical slab faces (the "box"/"masonry" killer).
+  const taperCrown = (g, amt) => {
+    const p = g.attributes.position;
+    let minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < p.count; i++) { minY = Math.min(minY, p.getY(i)); maxY = Math.max(maxY, p.getY(i)); }
+    const H = Math.max(maxY - minY, 0.001);
+    for (let i = 0; i < p.count; i++) { const t = (p.getY(i) - minY) / H, s = 1 - amt * t; p.setX(i, p.getX(i) * s); p.setZ(i, p.getZ(i) * s); }
+    return g;
+  };
+  if (pinch) {
+    // Iceberg PEAK — a wide full-width BASE (covers the body collider to ~y15) TAPERING up to a
+    // narrow, leaning, broken CROWN. A truncated-pyramid crown has no parallel vertical slab
+    // faces, so it reads as a natural berg, never masonry/box. (The old calved WALL is deliberately
+    // not reused here — that's the form the owner rejected.)
+    const bandTop = Math.min(topY, 15);                 // base stays full-width up to the collider top
+    const baseH = bandTop - botY;
+    const base = shearBoxGeo(hw * 1.9, baseH, hz * 1.7, sign * hw * 0.12, jz());
+    cantTop(base, 1.0, 0.9);
+    base.translate(0, botY + baseH / 2, 0);
+    parts.push(base);
+    if (topY > bandTop + 1.5) {
+      // Tapering broken crown above the collider band — narrows to a ridge, leans inward.
+      const ch = topY - bandTop;
+      const crown = shearBoxGeo(hw * 1.4, ch, hz * 1.3, sign * hw * 0.22, jz());
+      taperCrown(crown, 0.55);                          // pull the top verts IN → berg peak, not a slab
+      cantTop(crown, 1.4, 1.1);                         // spall the crown (broken tooth, not a lid)
+      crown.rotateZ(sign * 0.10);                       // lean inward
+      crown.translate(sign * hw * 0.12, bandTop + ch / 2, (rng() - 0.5) * hz * 0.3);
+      parts.push(crown);
+    }
+  } else {
+    // Low wide FLOE — a THIN WIDE raft (≥4:1), canted+weathered top (no flat lid), plus a small
+    // tilted hummock so the silhouette drifts. Built +1u over the collider so the cant/jitter stay
+    // above it. The raft body stays axis-aligned (coverage-safe); the hummock tilts freely.
+    const raft = shearBoxGeo(hw * 2.0, h + 1, hz * 2.05, (rng() - 0.5) * hw * 0.05, jz());
+    cantTop(raft, 2.0, 1.4);
+    raft.translate(0, botY + (h + 1) / 2 - 0.5, 0);   // spans botY−0.5 .. topY+0.5 (covers the collider)
+    parts.push(raft);
+    const hum = shearBoxGeo(hw * 1.05, h * 0.42, hz * 1.4, 0, 0);
+    cantTop(hum, 1.2, 0.9);
+    hum.rotateZ((rng() - 0.5) * 0.16); hum.rotateX((rng() - 0.5) * 0.08);   // a drifting broken cap (no collider)
+    hum.translate((rng() - 0.5) * hw * 0.8, botY + h * 0.72, (rng() - 0.5) * hz * 0.55);
+    parts.push(hum);
+  }
+  return parts;
+}
+
+// Fairness check for the calved wall — validates the authoring invariants that keep the
+// visible ice covering the collider band (a direct sibling of pillarColliderCoverage).
+// Structural (the builder draws from these same ranges), so it can't drift from the code.
+export function wallColliderCoverage() {
+  const T = WALL_TIERS, issues = [];
+  if (T.bodyFace[0] < T.faceFloor) issues.push(`body channel-face ${T.bodyFace[0]} < fairness floor ${T.faceFloor}`);
+  const poke = Math.max(T.footFace[1], T.bodyFace[1], T.crestFace[1]) + T.shearToward;
+  if (poke > 1.0 + 1e-9) issues.push(`channel poke ${poke.toFixed(3)} > 1.0 (visual crosses ±hw into the channel)`);
+  // Crest face must cover the ±0.6hw crest collider AFTER the batter recedes it. Because
+  // the batter is hw-proportional (T.batter·hw at the crest top), this holds on EVERY mass
+  // size — a fixed-angle batter would uncover narrow crests (fixed-world recede vs hw-scaled margin).
+  if (T.crestFace[0] - T.batter < T.crestBand) issues.push(`crest face ${T.crestFace[0]} − batter ${T.batter} < crest band ${T.crestBand}`);
+  // The union foot∪body∪crest must cover y 0..crestBandTop with NO gap: tiers overlap by
+  // 0.05h (crest bottom = bodyTop−0.05 ≤ bodyTop; body bottom = footTop−0.05 ≤ footTop) and
+  // the crest is clamped to reach crestBandTop, so the body collider top (0.692) is always
+  // covered by the crest overlap even when body tops out at 0.66.
+  if (T.bodyTop[0] + 0.05 < T.footTop[0]) issues.push('body/foot y-bands leave a gap');   // body reaches down into foot
+  if (T.bodyTop[1] < T.bodyBandTop - 0.05) issues.push('body top too low for crest to bridge to the body collider top');
+  return { ok: issues.length === 0, issues };
+}
+
+// Build the Frozen OVERUNDER mass — a calved-ice ceiling GATEWAY (post-and-lintel) or a floor
+// pressure-RIDGE — as geometry parts + the collider box it must respect. Shared by the live
+// builder (iceArch, inside buildRockGap) and the headless ringClearance() audit, so the audit
+// measures the REAL visible geometry, not a restatement of constants. World-space around
+// (gx, gy). The ring sits at (gx, gy); the beam bottom (ceiling) / ridge top (floor) is pinned
+// to the collider face and jags AWAY from the ring, so visible ice never overshoots the collider
+// toward the reward ring. Caller bakes/merges/materials; this only shapes + reports the box.
+export function overunderMassParts(shelf, { gx = 0, gy = 9, H = CONFIG.canyonGapH, T = 4, ouHalf = 17, rng }) {
+  const ceiling = shelf !== 'floor';
+  const midY = ceiling ? gy + H + 3 : gy - H - 3;   // collider centre (UNCHANGED from the old lump)
+  const hh = 3, bot = -3;                            // collider half-height / sea surface
+  const parts = [];
+  let famN = 0; const fam = () => (famN += 1);
+  if (ceiling) {
+    const underY = midY - hh;                        // collider lower face — ice never dips below this
+    const topY = midY + hh;                           // collider upper face (beam must cover to here)
+    const beamThick = (topY - underY) + 0.8;          // ≥ collider thickness (+cover margin)
+    const pierH = (topY + 2.5) - bot;
+    for (const sgn of [-1, 1]) {
+      const pierX = gx + sgn * (ouHalf + 2.8);
+      const pp = frozenWallParts(2.8, 3.2, pierH, bot, -sgn, true, fam(), rng);
+      pp.forEach((g) => { g.translate(pierX, 0, (rng() - 0.5) * T * 0.4); parts.push(g); });
+    }
+    const half = ouHalf + 3.0, span = 2 * half, nb = 5, bw = span / nb;
+    for (const zr of [0.55, -0.55]) {                 // front + back rows → mass edge-on
+      for (let i = 0; i < nb; i++) {
+        const bx = gx - half + (i + 0.5) * bw;
+        const u = (i / (nb - 1)) * 2 - 1;              // −1..1 across the span
+        const bh = beamThick + 1.4 * (1 - u * u);      // low crown, flat bottom
+        const g = shearBoxGeo(bw * 1.18, bh, T * 1.4, (rng() - 0.5) * 0.22, (rng() - 0.5) * 0.14);
+        g.translate(bx + (rng() - 0.5) * 0.4, underY + bh / 2, zr * T + (rng() - 0.5) * T * 0.12);
+        parts.push(g);
+      }
+    }
+    for (let i = 0; i < 3; i++) {                      // fat crown caps over the centre
+      const cw = bw * 1.5, cx = gx + (i - 1) * cw * 0.8, ch = (i === 1 ? 3.6 : 3.0) + rng() * 1.0;
+      const g = shearBoxGeo(cw, ch, T * 1.6, (rng() - 0.5) * 0.3, (rng() - 0.5) * 0.2);
+      g.translate(cx, underY + beamThick + ch * 0.4, (rng() - 0.5) * T * 0.2);
+      parts.push(g);
+    }
+  } else {
+    const topY = midY + hh;                            // collider upper face — ice caps here, jags DOWN only
+    const half = ouHalf + 1.2, span = 2 * half, nb = 6, bw = span / nb;
+    for (const zr of [0.5, -0.5]) {
+      for (let i = 0; i < nb; i++) {
+        const bx = gx - half + (i + 0.5) * bw;
+        const u = (i / (nb - 1)) * 2 - 1;
+        const bh = (topY - bot) * (0.8 + 0.2 * (1 - u * u));   // crowned ridge, ≤ full height
+        const g = shearBoxGeo(bw * 1.18, bh, T * 1.45, (rng() - 0.5) * 0.3, (rng() - 0.5) * 0.15);
+        g.translate(bx + (rng() - 0.5) * 0.4, topY - bh / 2, zr * T + (rng() - 0.5) * T * 0.12);  // pin TOP, jag down
+        parts.push(g);
+      }
+    }
+  }
+  return { parts, box: { cx: gx, cy: midY, hw: ouHalf, hh, hz: T }, ceiling };
+}
+
+// FAIRNESS/POLISH check for the overunder: the visible ice must not overshoot its collider
+// TOWARD the reward ring (owner: "rings appear inside the rock ... needs clearance"). The
+// collider is frozen (gameplay), so the achievable contract is "visible ice ≤ collider face
+// toward the ring" — the beam bottom (ceiling) / ridge top (floor) is pinned to the collider
+// face and jags away, so nothing dips into the ring beyond the collider's own ~0.08u graze
+// (which the frozen collider already had). We measure the REAL merged geometry (via the shared
+// overunderMassParts), sampling only the ring's x/z footprint so the sea-rooted pillars (far
+// out in x, legitimately full-height) don't false-fail. The OLD lump overshot ~0.8u here.
+export function ringClearance() {
+  if (!mats) initObstacles({ add() {}, remove() {} });
+  const gy = 9, H = CONFIG.canyonGapH, R = CONFIG.ringRadius + 0.38;  // ring outer radius (tube 0.38)
+  const foot = R + 0.6;                                               // ring x/z footprint to sample
+  const issues = [];
+  const worst = {};
+  for (const shelf of ['ceiling', 'floor']) {
+    let overshoot = -Infinity;
+    for (let s = 1; s <= 8; s++) {                                    // sweep jitter seeds → worst case
+      const rng = mulberry32((s * 2654435761) >>> 0);
+      const { parts, box: cb } = overunderMassParts(shelf, { gx: 0, gy, H, T: 4, ouHalf: 17, rng });
+      let minY = Infinity, maxY = -Infinity;
+      for (const g of parts) {
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          if (Math.abs(p.getX(i)) < foot && Math.abs(p.getZ(i)) < foot) { const y = p.getY(i); if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        }
+        g.dispose();
+      }
+      const colBottom = cb.cy - cb.hh, colTop = cb.cy + cb.hh;
+      const ov = shelf === 'ceiling' ? (colBottom - minY) : (maxY - colTop);  // >0 = ice past collider toward ring
+      if (Number.isFinite(ov)) overshoot = Math.max(overshoot, ov);
+    }
+    worst[shelf] = overshoot;
+    if (overshoot > 0.05) issues.push(`${shelf} visible ice overshoots collider toward ring by ${overshoot.toFixed(2)}u`);
+  }
+  return { ok: issues.length === 0, issues, worst };
+}
+
+// Inert STUDIO export — build one Frozen wall mass in isolation (Fable checkpoint before
+// wiring into the canyon). Mirrors the in-canyon material path (self-lit ladder, faded).
+export function buildCanyonWallMass(hw = 6, hz = 4, { crest = true, family = 0, seed = 1, lean = 0.06 } = {}) {
+  if (!mats) initObstacles({ add() {}, remove() {} });
+  const rng = mulberry32((seed ^ 0x1a2b3c4d) >>> 0);
+  const h = 26, botY = -3, channelSign = Math.sign(lean) || 1;
+  const parts = frozenWallParts(hw, hz, h, botY, channelSign, crest, family, rng);
+  // frostT 0.30 (vs the shipped 0.35): the battered upper faces tip into frost, giving a
+  // base-mid→top-frost gradient ON the face instead of one flat mid. Wall-bake only.
+  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
+  const mat = glacierWallMat();
+  return new THREE.Mesh(geo, mat);
+}
+
 // --- Sky Canyon rock gates -------------------------------------------------
 // A canyon segment frames a safe aperture (centered on a reward ring) with rock
 // masses, an emissive aperture rim ("glowing crystal cracks"), and an additive
@@ -485,6 +1310,10 @@ function buildRockGap(o, e) {
   const LANE = CONFIG.laneHalfWidth;
   const CEIL = CONFIG.canyonCeilingY;
   const spine = o.run === 'spine';
+  // MIRROR STRAIT overhaul (Frozen only) — flagged coexistence while it's proven. When on, the
+  // Frozen rock run is built from low pack-ice floes + occasional tall berg prows (see
+  // frozenStraitParts) instead of the tall calved walls, and the crevasse sockets are off.
+  const strait = bi === 2 && (CONFIG.canyonStrait || (typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('strait')));
 
   // One per-instance base material for ALL solids in this gate → they dissolve
   // together near the camera. Bone for the Dragon Spine, biome rock otherwise.
@@ -547,37 +1376,104 @@ function buildRockGap(o, e) {
   // material — not a smooth blob. Merged to one mesh; collider hugs the lane band.
   const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T, crest = true) => {
     const h = topY - botY;
-    const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
-    const sr = (hw / n) * 1.15;                       // radius sized to fit WITHIN the wall
-    const span = Math.max(0, hw - sr);               // keep shard edges inside ±hw (no poking into the lane/channel)
-    const parts = [];
-    for (let i = 0; i < n; i++) {
-      const base = n > 1 ? -span + (i / (n - 1)) * 2 * span : 0;
-      const sx = base + (rng() - 0.5) * sr * 0.3;     // small jitter, stays contained
-      const r = sr * (0.85 + rng() * 0.25);
-      const sh = h * (0.62 + rng() * 0.42);           // uneven, jagged crest
-      parts.push(shardGeo(r, sh, sx, botY, (rng() - 0.5) * hzCol * 0.4, lean + (rng() - 0.5) * 0.16));
+    const straitPinch = h > 20;   // strait: tall mass = PROW (pinch); low mass = FLOE (breath)
+    let merged;
+    if (strait) {
+      // MIRROR STRAIT. PINCH = a tall iceberg PEAK (wide base tapering to a broken, leaning crown
+      // — nature, not masonry: NOT the old calved wall). BREATH = a low wide FLOE raft. No
+      // coursing, no sockets. Same glacier ladder skin, rationed to 2–3 pinches over open water.
+      const parts = frozenStraitParts(hw, hzCol, h, botY, Math.sign(lean) || 1, straitPinch, rng);
+      merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
+      parts.forEach((g) => g.dispose());
+    } else if (bi === 2) {
+      // CALVED CANYON wall (Frozen, Fable 4.4) — stacked sheared calved ice blocks with
+      // the self-lit frost/mid/teal ladder, so the wall doesn't go black backlit like the
+      // old cone pickets. Family cycles per mass so consecutive walls differ. Collider
+      // (box() below) is UNCHANGED — the visible ice covers it (wallColliderCoverage).
+      const fam = (e.wallCount = (e.wallCount || 0) + 1);
+      const parts = frozenWallParts(hw, hzCol, h, botY, Math.sign(lean) || 1, crest, fam, rng);
+      merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
+      parts.forEach((g) => g.dispose());
+    } else {
+      const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
+      const sr = (hw / n) * 1.15;                       // radius sized to fit WITHIN the wall
+      const span = Math.max(0, hw - sr);               // keep shard edges inside ±hw (no poking into the lane/channel)
+      const parts = [];
+      for (let i = 0; i < n; i++) {
+        const base = n > 1 ? -span + (i / (n - 1)) * 2 * span : 0;
+        const sx = base + (rng() - 0.5) * sr * 0.3;     // small jitter, stays contained
+        const r = sr * (0.85 + rng() * 0.25);
+        const sh = h * (0.62 + rng() * 0.42);           // uneven, jagged crest
+        parts.push(shardGeo(r, sh, sx, botY, (rng() - 0.5) * hzCol * 0.4, lean + (rng() - 0.5) * 0.16));
+      }
+      merged = mergeGeometries(parts, false);
+      parts.forEach((g) => g.dispose());
+      merged.computeVertexNormals();
     }
-    const merged = mergeGeometries(parts, false);
-    parts.forEach((g) => g.dispose());
-    merged.computeVertexNormals();
-    // SEE-THROUGH spire: a per-instance translucent material (like the arches), faded
-    // per-spire by its own depth in updateObstacles — SOLID far out so you read the
+    // SEE-THROUGH wall: a per-instance translucent material (like the arches), faded
+    // per-mass by its own depth in updateObstacles — SOLID far out so you read the
     // winding channel ahead, TRANSLUCENT as it nears so you see the lateral path
     // THROUGH it (the fix for "blind at boost speed"). Floored so it never fully
-    // vanishes — it has a collider.
-    const smat = mats.body[bi].clone();
+    // vanishes — it has a collider. Frozen uses the self-lit ladder ice (re-wrapped
+    // after clone so onBeforeCompile survives); other biomes the flat body clone.
+    const smat = bi === 2 ? glacierWallMat() : mats.body[bi].clone();
     smat.transparent = true; smat.depthWrite = false; smat.userData.perInstance = true;
     const m = new THREE.Mesh(merged, smat);
     m.position.set(cx, 0, z);
     group.add(m);
-    (e.spireFades || (e.spireFades = [])).push({ mat: smat, dist: o.dist - z });
+    (e.spireFades || (e.spireFades = [])).push({ mat: smat, dist: o.dist - z, floor: bi === 2 ? 0.75 : undefined });
     // Collider TAPERS with the spire so flying high to a ring doesn't clip the
     // full-width box where the rock is only thin tips: a solid lower body, then a
     // narrower crest pulled back up high — and the crest is DROPPED near a ring so
     // lunging up to grab a high ring never clips a thin tip.
-    box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width
-    if (crest) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
+    if (strait && !straitPinch) {
+      // Strait FLOE: the body collider covers only y bot..topY (the low visible raft), so it
+      // still bounds the flight line (topY = ring line + margin) without an invisible-but-solid
+      // band above the ice. No crest collider — the floe tops out below the sightline.
+      box(cx, (botY + topY) / 2, hw, (topY - botY) / 2, hzCol, z);
+    } else if (strait && straitPinch) {
+      // Berg PEAK: body collider bounds the pinch at flight height; the tapering crown above y15
+      // is a passable visual peak (the player threads the centre gap between the pair, not into it).
+      box(cx, 6, hw, 9, hzCol, z);
+    } else {
+      box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width (channel bound — UNCHANGED)
+      if (crest) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
+    }
+
+    // Crevasse SOCKET — a rationed lit fracture on the calved wall's re-flare face (Frozen
+    // only). Countdown-rationed (1 per 2–3 eligible masses); because L/R walls interleave
+    // the calls the sockets alternate sides. Sized in ABSOLUTE world units (never a fraction
+    // of hw — a proportional socket on an hw≈12 wall becomes a lit window). Dark backing
+    // stays OPAQUE (a hole with light inside) while the glow fades WITH the wall (same floor
+    // 0.75, pushed to the same spireFades list) so it can never float off as an LED strip.
+    if (bi === 2 && !strait && crest && hw >= 2.5) {
+      e.seamCountdown = (e.seamCountdown ?? (1 + Math.floor(rng() * 2))) - 1;
+      if (e.seamCountdown <= 0) {
+        e.seamCountdown = 2 + Math.floor(rng() * 2);
+        const chSign = Math.sign(lean) || 1;
+        const faceX = cx + 0.95 * hw * chSign;          // channel face of the mass
+        const cy = 8 + rng() * 3, sz = z + (rng() - 0.5) * hzCol * 0.5;
+        const tilt = chSign * (0.2 + rng() * 0.15);
+        // dark recess backing (opaque, faces the channel) — frames the wider glow pair.
+        const back = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 5.8).rotateY(chSign * Math.PI / 2), mats.frostShadow);
+        back.position.set(faceX + chSign * 0.02, cy, sz); back.rotation.z = tilt;
+        group.add(back);
+        // Two collinear glow slivers (a fracture propagates). WIDER (1.1) and PROUDER (0.18 vs
+        // the 0.02 backing) so at the range they're actually visible they have real pixel
+        // coverage and no depth ambiguity with the backing (killing the distant "flickery
+        // stick-line"). DISTANCE-LOD: instead of the wall's solid-far curve, the socket rides
+        // its OWN socketFades — invisible beyond ~150m (no sub-pixel horizon shimmer), resolving
+        // IN as you close (withheld-glow reveal). No collider → fully hiding it far is fair.
+        const gmat = mats.frostGlow.clone(); gmat.transparent = true; gmat.depthWrite = false; gmat.opacity = 0; gmat.userData.perInstance = true;
+        for (const dy of [-1.5, 1.5]) {
+          const g = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 2.4).rotateY(chSign * Math.PI / 2), gmat);
+          g.position.set(faceX + chSign * 0.18, cy + dy, sz); g.rotation.z = tilt;
+          group.add(g);
+        }
+        back.visible = false;   // hidden until inside LOD range (set live in updateObstacles)
+        (e.socketFades || (e.socketFades = [])).push({ mat: gmat, back, dist: o.dist - z });
+      }
+    }
   };
 
   // A continuous RUN of sea stacks: frequent towers alternating left/right that
@@ -674,8 +1570,15 @@ function buildRockGap(o, e) {
       // Fill from the PER-HALF effective lane edge (s.laneHW: wider in the run interior,
       // ±13 on the boundary halves) so the widened channel still reads as rock, not air.
       const lo = -s.laneHW - 3, ro = s.laneHW + 3;
-      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, -s.z, 0.06, hz, !s.noCrest);
-      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, -s.z, -0.06, hz, !s.noCrest);
+      // MIRROR STRAIT: EVERY mass is a low wide FLOE whose top is an ABSOLUTE world-Y (bot+11 ≈ y8),
+      // DECOUPLED from the ring altitude — so it can NEVER track up into a tall/narrow canyon
+      // (frame 2). No tall prow pinches at all (owner: the tall moments are what ruin it). With the
+      // rings clamped low (level.js), the floe top still covers the flight line while sitting under
+      // the sightline, so you always look OVER the pack ice at the sunset (frame 1). The "pinch"
+      // is now LATERAL — the winding lead (li/ri) narrows between the floes, not overhead.
+      const mTop = strait ? bot + 11 : top;
+      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, mTop, bot, -s.z, 0.06, hz, !s.noCrest);
+      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, mTop, bot, -s.z, -0.06, hz, !s.noCrest);
     }
     // Low sea-mist over the section span (same as v1, keyed to the abutting band).
     for (let m = 0; m < 2; m++) {
@@ -766,7 +1669,89 @@ function buildRockGap(o, e) {
     }
   };
 
+  // A calved-ice ARCH / pressure-ridge — the premium replacement for the old flat-tinted
+  // `lump` (owner: "floating log ... makes more sense as a pillar or arch"). CEILING → a
+  // post-and-lintel ICE GATEWAY: two piers rooted to the sea (so the span reads as
+  // SUPPORTED, never floating) rising to a lintel of calved blocks whose UNDERSIDE is
+  // pinned to the collider's lower face and jags UP only (so no ice ever dips into the
+  // ring below — the ring-clearance contract, verified by ringClearance()). FLOOR → a
+  // calved pressure-ridge shouldering out of the sea, capped AT the collider top (jags
+  // DOWN only). Built in the gated wall vocabulary (frozenWallParts + bakeIceLadder +
+  // withLadderEmissive, re-wrapped after clone) and merged to ONE mesh (one draw call).
+  // Piers/lintel visuals sit OUTSIDE the reachable lane (±canyonRockLaneHalfWidth) so they
+  // need no collider; the ONE box() below is byte-identical to the old lump → gameplay
+  // unchanged. Fades on the shared spireFades list (floor 0.75) with the depthWrite fix.
+  const iceArch = (shelf, ouHalf) => {
+    // Geometry (pillars + beam / ridge) + the collider box come from the shared module builder
+    // so the ringClearance() audit measures this EXACT mesh. Caller owns bake/merge/material.
+    const { parts, box: cb } = overunderMassParts(shelf, { gx, gy, H, T, ouHalf, rng });
+    const merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
+    parts.forEach((g) => g.dispose());
+    const amat = glacierWallMat();
+    amat.transparent = true; amat.depthWrite = false; amat.userData.perInstance = true;
+    group.add(new THREE.Mesh(merged, amat));
+    (e.spireFades || (e.spireFades = [])).push({ mat: amat, dist: o.dist, floor: 0.75 });
+    box(cb.cx, cb.cy, cb.hw, cb.hh, cb.hz);              // collider — IDENTICAL to the old lump
+  };
+
+  // Canyon MOUTH — collider-free dressing that makes a rock run OPEN instead of snap into
+  // existence (owner: "entering a rock run is pretty ugly"). The channel itself can't be
+  // reshaped (li/ri/heights carry the ramp-safety contract), so this is pure framing planted
+  // OUTSIDE the fatal lane: (1) two oversized calved HEADLAND capes angled toward the player
+  // that frame the slot and hide the sawn wall ends; (2) a CALVING FIELD of small grounded
+  // ice blocks stepping back over the ~80m approach — the biome's side-prop language literally
+  // breaking off into the canyon; (3) a threshold MIST veil the player punches through. All on
+  // one merged mesh (one draw call), faded with the run, NO colliders. Exit = headlands only,
+  // lighter, so the run releases rather than stops. Frozen-only (bi===2), rock runs only.
+  const iceMouth = (exit) => {
+    const LHW = CONFIG.canyonRockV2 ? CONFIG.canyonRockLaneHalfWidth : LANE;
+    const top = CEIL + 2, bot = -3;
+    const zSide = exit ? -1 : 1;                        // entry = approach side (local +z); exit = far side
+    const zBase = zSide * (T * 1.2 + 6);
+    const parts = [];
+    let famN = 100;
+    // HEADLAND capes — one oversized calved mass per side, outside the fatal lane, leaning
+    // ~10° toward the player so they frame the slot (SHEAR-free tilt is fine here: dressing,
+    // no collider, so walking the top a few u out of plane is intended, not a fairness risk).
+    for (const sgn of [-1, 1]) {
+      const capeX = gx + sgn * (LHW + 5.5);
+      const h = (top - bot) * (exit ? 0.72 : 0.96);
+      const pp = frozenWallParts(4.5, 5.0, h, bot, -sgn, true, ++famN, rng);
+      pp.forEach((g) => { g.rotateX(zSide * 0.17); g.translate(capeX, 0, zBase + (rng() - 0.5) * 3); parts.push(g); });
+    }
+    // CALVING FIELD — small grounded ice blocks scattered on the flanks over the approach
+    // (entry only): the side-prop → canyon handoff the owner is missing.
+    if (!exit) {
+      for (let i = 0; i < 6; i++) {
+        const sgn = i % 2 ? 1 : -1;
+        const bx = gx + sgn * (LHW + 8 + rng() * 10);
+        const bz = zBase + (12 + i * 9 + rng() * 5);   // step back toward the player over ~80m
+        const s = 1.4 + rng() * 2.0;
+        const g = shearBoxGeo(s * (1.4 + rng()), s * (1.0 + rng() * 1.4), s * (1.2 + rng()), (rng() - 0.5) * 0.5, (rng() - 0.5) * 0.5);
+        g.translate(bx, bot + s * 0.5 + rng() * 1.3, bz);
+        parts.push(g);
+      }
+    }
+    const merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
+    parts.forEach((g) => g.dispose());
+    const mmat = glacierWallMat();
+    mmat.transparent = true; mmat.depthWrite = false; mmat.userData.perInstance = true;
+    const mesh = new THREE.Mesh(merged, mmat); mesh.position.z = 0;
+    group.add(mesh);
+    (e.spireFades || (e.spireFades = [])).push({ mat: mmat, dist: o.dist - zBase, floor: 0.75 });
+    // THRESHOLD mist — a soft veil hanging in the mouth (entry only), reusing the biome mist.
+    if (!exit) {
+      const veil = new THREE.Mesh(new THREE.CircleGeometry(LHW * 1.3, 20), mats.mist);
+      veil.position.set(gx, bot + (top - bot) * 0.4, zBase - 2);
+      group.add(veil);
+    }
+  };
+
   // --- ROCK RUN -------------------------------------------------------------
+  if (bi === 2 && (o.kind === 'split' || o.kind === 'overunder')) {
+    if (o.runIdx === 0) iceMouth(false);                         // opening headlands + calving field + mist
+    else if (o.runTotal && o.runIdx === o.runTotal - 1) iceMouth(true);  // closing headlands (lighter)
+  }
   if (o.kind === 'split') {
     // v2: one threaded, slope-budgeted carved slot (weave only — the duck is the
     // 'overunder' beat). v1 (flag off): the old teleporting double-wall + arch-duck.
@@ -778,8 +1763,14 @@ function buildRockGap(o, e) {
     // spans the (v2-widened) rock lane so the wider corridor doesn't open a lateral
     // flank around the squeeze; the outer tips past the eased wall are unreachable.
     const ouHalf = (CONFIG.canyonRockV2 ? CONFIG.canyonRockLaneHalfWidth : LANE) + 1;
-    if (o.shelf === 'floor') lump(gx, gy - H - 3, ouHalf, 3, T, 0.5);
-    else lump(gx, gy + H + 3, ouHalf, 3, T, 0.5);
+    if (bi === 2) {
+      // Frozen: the calved-ice arch (ceiling) / pressure-ridge (floor) — no more floating log.
+      iceArch(o.shelf, ouHalf);
+    } else if (o.shelf === 'floor') {
+      lump(gx, gy - H - 3, ouHalf, 3, T, 0.5);
+    } else {
+      lump(gx, gy + H + 3, ouHalf, 3, T, 0.5);
+    }
 
   // --- DRAGON SPINE CANYON --------------------------------------------------
   } else if (o.kind === 'skull') {
@@ -903,8 +1894,12 @@ function buildRockGap(o, e) {
 }
 
 export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0) {
-  // Warning pulse on every moving shard (shared material, one write).
+  // Warning pulse on every moving shard (shared material, one write each).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
+  if (mats.moverIce) mats.moverIce.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;   // skinned berg-chunk warning
+  // Slow crevasse breathe on skinned Frozen hazards (shared, one write) — a ~0.5Hz
+  // "live hazard" cue that replaces the deleted bar spin.
+  if (mats.frostGlow) mats.frostGlow.emissiveIntensity = 0.95 + Math.sin(time * 3.0) * 0.4;
   // Skull soul-fire eyes breathe (shared material, one write) so the mouth reads as
   // "ancient, awake" — pulsing together across any skull instance.
   if (mats.soul) mats.soul.emissiveIntensity = 1.7 + Math.sin(time * 2.2) * 0.6;
@@ -950,7 +1945,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
         e.object.position.y = e.y + Math.sin(time * 1.4 + e.dist) * 0.4;
       }
     } else if (e.type === 'bar') {
-      e.object.rotation.x += dt * 0.5; // spin around its long axis
+      if (!e.skinned) e.object.rotation.x += dt * 0.5; // spin around its long axis (skinned calved shelf hangs still)
     } else if (e.type === 'gate') {
       // Phase shatter: blow the gate apart (scale + spin) then hide it. Transform
       // only — shared veil/ring materials are never touched here.
@@ -989,9 +1984,17 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
       const dz = e.dist - playerDist;
       const span = CONFIG.canyonFadeFar - CONFIG.canyonFadeNear;
       const fade = Math.min(1, Math.max(0, (dz - CONFIG.canyonFadeNear) / span));
+      // OCCLUSION FIX: every canyon mass is transparent:true, depthWrite:false from birth so
+      // it can fade near the camera — but a FULLY-SOLID (opacity 1) mass hundreds of metres
+      // out then sorts by centroid in the transparent pass and can paint OVER a nearer mass
+      // ("rocks appear over pillars"). An opacity-1 mesh looks IDENTICAL with depthWrite on or
+      // off, so we turn depthWrite ON precisely while a mass is fully solid and OFF the instant
+      // it starts fading — purely restoring occlusion, changing nothing about the shipped
+      // near-fade see-through. `dw()` is applied to every fade path below.
+      const dw = (mat, op) => { mat.depthWrite = op >= 0.999; };
       // Ribcage sections are long tubes of thin, open bone — fading the whole
       // section by its centre would vanish the ribs ahead, so they never fade.
-      if (e.fadeMat && !e.noDissolve) e.fadeMat.opacity = fade;
+      if (e.fadeMat) { if (!e.noDissolve) e.fadeMat.opacity = fade; dw(e.fadeMat, e.noDissolve ? 1 : fade); }
       // Overhead rock bridges fade INDIVIDUALLY (each by its own depth) as you
       // approach, so the near arch turns translucent and the next ones show
       // through it — caging silhouette far, clear view up close. The fade is a
@@ -1003,6 +2006,7 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
           // floor at 0.2 so a near arch stays faintly visible — it still has a
           // collider, so it must never become invisible-but-solid (unfair hit).
           a.mat.opacity = 0.2 + 0.8 * (t * t * (3 - 2 * t));
+          dw(a.mat, a.mat.opacity);
         }
       }
       // Sea-stack spires: SOLID far out (read the winding channel ahead), then
@@ -1013,7 +2017,25 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
         for (const s of e.spireFades) {
           let t = (s.dist - playerDist - 6) / 30;
           t = t < 0 ? 0 : t > 1 ? 1 : t;
-          s.mat.opacity = 0.35 + 0.65 * (t * t * (3 - 2 * t));
+          // Per-entry near-fade FLOOR: thin cone spike fields fade to 0.35 (see the weave
+          // THROUGH them at boost); a solid Frozen calved WALL keeps 0.75 (the channel is
+          // read from the gap, not through the wall — 0.35 just ghosts out the calved detail).
+          const f = s.floor ?? 0.35;
+          s.mat.opacity = f + (1 - f) * (t * t * (3 - 2 * t));
+          dw(s.mat, s.mat.opacity);
+        }
+      }
+      // Crevasse sockets: DISTANCE-LOD (opposite of the wall's solid-far curve). A lit fracture
+      // is legible detail up close but sub-pixel noise at the horizon (the "glitchy stick-line"),
+      // so it's invisible beyond ~150m and resolves IN as you close — a withheld-glow reveal.
+      // The opaque backing is hidden with it. No collider → hiding it far is fair.
+      if (e.socketFades) {
+        for (const s of e.socketFades) {
+          const d = s.dist - playerDist;
+          let t = (150 - d) / 90;           // 0 at 150m → 1 by ~60m
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          s.mat.opacity = t * t * (3 - 2 * t);
+          if (s.back) s.back.visible = t > 0.02;
         }
       }
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
@@ -1029,7 +2051,9 @@ function removeAt(i) {
   const e = entries[i];
   scene.remove(e.object);
   e.object.traverse((m) => {
-    if (m.geometry) m.geometry.dispose();
+    // Shared hazard-skin geometries are reused by every instance — never dispose
+    // them here or the next instance renders an emptied buffer.
+    if (m.geometry && !(m.geometry.userData && m.geometry.userData.shared)) m.geometry.dispose();
     // Most materials are shared (biome pools); only per-instance ones
     // (gate core-glow / beacon / motes) are owned by this object and disposed.
     const mat = m.material;

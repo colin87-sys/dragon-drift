@@ -9,6 +9,8 @@ import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv } from './wingFlapSolver.js';
 import { setFlapDebugPose, resolveWingDebug } from './wingDebugPose.js';
+import { createPulseTimer, mulberry32 } from './pulseTimer.js';
+import { createArcCrown } from './stormArcs.js';
 import { setActiveDetail } from './modelDetail.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
@@ -27,6 +29,16 @@ let activeRider = null;
 const WING_DEBUG = (typeof location !== 'undefined' && location.search)
   ? new URLSearchParams(location.search).get('wingDebug') : null;
 let wingDebugLogged = false;
+
+// `?strikePin=<t01>` STRIKE-PIN passthrough (TEMPEST §B.4b): freezes the shared
+// js/pulseTimer.js strike clock at a named phase so timed-spectacle captures are
+// pixel-comparable round-over-round (the MARROWCOIL determinism law extended to timed
+// spectacle). 0 = the standing/rest frame (no strike), 0.5 = a mid-window strike peak.
+// Parsed module-scope exactly like ?wingDebug; the guarded storm tick that reads it and
+// drives the Storm Circuit lands with the lightning at I4 (at I0 the Tempest has no timer
+// wired yet — this is the tooling landing before the geometry it captures, per §B.7 I0).
+const STRIKE_PIN = (typeof location !== 'undefined' && location.search && new URLSearchParams(location.search).has('strikePin'))
+  ? Number(new URLSearchParams(location.search).get('strikePin')) : null;
 let bodyFlapLift = 0;   // flap-coupled body pitch (chest lift at apex / compress on downstroke); set by the yoke solver
 
 let group = null;
@@ -82,6 +94,34 @@ let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let spineMats = [];       // spine/crest/seam/plate mats → flared AND rim-lit in Surge
 let spineFlareMats = [];  // spineMats + optional FLARE-ONLY mats (materials.flareMats): flared but NOT rim-lit — for dense fields (wing feathers) that the strong Surge rim would wash to cream
 let graveMatPulse = [];   // cached grave-light buckets (userData.gravePulseBucket set) — the Revenant gap-pulse tick; empty for every other dragon
+let stormArcMats = [];    // TEMPEST storm circuit — the guarded storm tick is their SINGLE writer (§5d); empty for every other dragon
+let stormTimer = null;    // the tempest's pulseTimer strike clock (null unless a storm dragon is equipped)
+let stormEnvHist = [];    // ring of recent { t, env } so a strike TRAVELS root→tip (bucket b reads env at t − 0.04·b)
+let stormCoreKick = 1;    // the strike kicks the dynamo — coreGlow.userData.base is scaled by this pre-read
+let arcCrown = null, arcBeat = -1, arcRestruck = false, motifAnchor = null;   // the Surge ARC CROWN (tempest only)
+let stormCrack = 0;       // #5 the thunder-crack scalar (0..1) shared to the eyes/wash so they flash on the beat
+const arcCamDir = new THREE.Vector3(0, 0.45, 1);   // toward the chase cam in dragon-local space (billboard axis)
+const _av1 = new THREE.Vector3(), _av2 = new THREE.Vector3(), _av3 = new THREE.Vector3(), _av4 = new THREE.Vector3();
+// The arc routes — leaps between her own anatomy. Over-the-back wingtip↔wingtip is the money arc (always
+// included); the rest are seeded so no two beats are identical. Endpoints re-sampled live (track the flap).
+function pickStormArcRoutes(seed) {
+  if (!(tipMarkerL && tipMarkerR && motifAnchor)) return [];
+  const rng = mulberry32(seed | 0);
+  const wl = () => tipMarkerL.getWorldPosition(_av1), wr = () => tipMarkerR.getWorldPosition(_av2),
+    dyn = () => motifAnchor.getWorldPosition(_av3),
+    tail = () => (tailSegs.length ? tailSegs[tailSegs.length - 1].getWorldPosition(_av4) : motifAnchor.getWorldPosition(_av4));
+  void tail;   // dynamo→tail dropped: from the chase cam it overlapped her silhouette and bloomed into an
+               // on-body smear, not an air leap (#5). The cage is now wingtip↔wingtip + wingtip→sternum.
+  const routes = [{ getA: wl, getB: wr, forks: 3 }];   // the over-the-back HERO arc — always
+  // a GUARANTEED second bolt wingtip→sternum so the "cage of storm" always shows ≥2 legible arcs, never
+  // one hero + two ghosts (#3); a seeded third from the OTHER wingtip keeps no two beats identical.
+  const first = rng() < 0.5;
+  routes.push(first ? { getA: wl, getB: dyn, forks: 2 } : { getA: wr, getB: dyn, forks: 2 });
+  if (rng() < 0.55) routes.push(first ? { getA: wr, getB: dyn, forks: 2 } : { getA: wl, getB: dyn, forks: 2 });
+  return routes;
+}
+const _stormBase = new THREE.Color();   // scratch: per-mat base emissive for the strike-peak hue lerp
+const _stormHot = new THREE.Color(0xf2f4ff);   // the near-white strike core (hue-lerp target at env>0.85)
 let surgeMix = 0;         // 0..1 damped Surge transition
 let prevFever = false;    // rising-edge detect for the Surge ignition flourish
 let surgeAnimT = 0;       // one-shot transformation timer (s)
@@ -213,15 +253,42 @@ export function createDragon(scene, def, riderDef) {
   spineMats = result.materials.spineMats || [];
   spineFlareMats = result.materials.flareMats ? spineMats.concat(result.materials.flareMats) : spineMats;   // flare-only mats join the flare loop but NOT the rim (applyRim below stays on spineMats)
   graveMatPulse = (result.materials.flareMats || []).filter((m) => m.userData && m.userData.gravePulseBucket != null);   // the Revenant gap-pulse buckets (empty for every other dragon)
+  // TEMPEST STORM CIRCUIT — cache the arc mats + build the deterministic strike clock. Duty (lit
+  // fraction) ramps with the CHARGING ladder via the form's arcDuty (0.06→0.18). Seeded so the
+  // schedule is reproducible (determinism is a deliverable); null for every other dragon.
+  stormArcMats = result.parts.stormArcMats || [];
+  stormTimer = stormArcMats.length
+    // ERRATIC idle crackle — real heat-lightning, not a metronome (owner: "more erratic instead of in
+    // beat, just like lightning"). A "flash" is an IRREGULAR cluster of 1–3 quick soft swells (each
+    // 0.10–0.30 s, tight 0.06–0.18 s stutter-gaps) then a LONG uneven quiet (the duty-solved rest ≥1.2 s
+    // varies with the cluster size → no two flashes land the same). Kept SMOOTH + near-zero flicker so it
+    // still WELLS not strobes (owner also disliked "flickers too fast"); the root→tip travel makes each
+    // flash read as current racing out the circuit to the wingtips.
+    ? createPulseTimer({ seed: (def.model.stormSeed ?? 0x7e57) | 0, duty: def.model.arcDuty ?? 0.10, windowMin: 0.10, windowMax: 0.30, burstMin: 1, burstMax: 3, gapMin: 0.06, gapMax: 0.18, smooth: true, flickerDepth: 0.05 })
+    : null;
+  stormEnvHist = [];
+  stormCoreKick = 1;
+  // ARC CROWN (Surge signature) — build it for a storm dragon, anchored to the wingtips/dynamo/tail.
+  if (arcCrown && arcCrown.group.parent) arcCrown.group.parent.remove(arcCrown.group);
+  arcCrown = null; arcBeat = -1;
+  motifAnchor = result.parts.motifAnchor || null;
+  if (stormArcMats.length && tipMarkerL && tipMarkerR && motifAnchor) {
+    arcCrown = createArcCrown(THREE, {});
+    group.add(arcCrown.group);
+  }
 
   // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
   // bright sky/water. Additive to outgoing light (independent of the emissive
   // Surge animation below). Cleared first so a shop rebuild doesn't leak the
   // old materials' uniform sets into the registry.
   resetRim();
-  applyRim(bodyMat, { strength: 0.0, power: 3.2, mul: def.rimBodyMul ?? 1 });
-  applyRim(wingMat, { strength: 0.0, power: 2.4 });
-  for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 });
+  // rimPowerMul tightens the Fresnel exponent per-dragon (higher = a thinner, hotter silhouette line
+  // rather than a broad wash the backlight averages away). The Tempest runs it hot so her cold storm
+  // edge clears bright water instead of collapsing to a silhouette (glow-up P1b).
+  const rpm = def.rimPowerMul ?? 1;
+  applyRim(bodyMat, { strength: 0.0, power: 3.2 * rpm, mul: def.rimBodyMul ?? 1 });
+  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm });
+  for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 * rpm });
   surgeMix = 0;
   surgeAnimT = 0;
   prevFever = false;
@@ -765,6 +832,12 @@ export function updateDragon(dt, player, time) {
     const apexRootF = (m.apexRoot ?? 0) * apexUp(phase);
     const apexMidF  = (m.apexMid  ?? 0) * apexUp(phase - midLag);
     const apexTipF  = (m.apexTip  ?? 0) * apexUp(phase - tipLag);
+    // APEX WRIST-SWEEP (opt-in via model.tipApexSweep): at the TOP of the upstroke the wing is near
+    // vertical, so the flap-axis (z) wrist fold points almost AT the chase camera and projects into
+    // DEPTH — invisible in silhouette. This sweeps the hand AFT in the wing's PLANE (+.y), driven by
+    // the ROOT's apex (unlagged) so it concentrates at recovery, turning the fold into a wrist DOGLEG
+    // the rear camera can actually see. Zero for any dragon without the dial (roster unchanged).
+    const apexTipSweepF = (m.tipApexSweep ?? 0) * apexUp(phase);
     const apexPitch = m.apexPitch ?? 0;
     const restLift  = m.restLift ?? 0;
     // ── BANKING via POSE BIAS ONLY — never a L/R phase delay. Both wings share the ONE
@@ -784,7 +857,7 @@ export function updateDragon(dt, player, time) {
       if (md) md.rotation.set(twMid + 0.05 * inside - apexPitch * apexMidF, upMid * 0.08 + 0.05 * outside, -(midF * amp) + apexMidF * amp + 0.10 * inside);
       // tip: smaller arc + apex lift (highest → forms the V) + feathers BACK (.y) + UP (.x) + folds up inside
       if (tp) { const tF = md ? tipF : (midF + tipF), aT = md ? apexTipF : (apexMidF + apexTipF);
-        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside, -(tF * amp) + aT * amp + 0.16 * inside); }
+        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside + apexTipSweepF, -(tF * amp) + aT * amp + 0.16 * inside); }
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
@@ -1145,9 +1218,100 @@ export function updateDragon(dt, player, time) {
   const baseWingOp = activeDef.model.wingOpacity ?? 0.82;
   const wingOpacity = player.feverActive ? baseWingOp - 0.12 : player.boosting ? baseWingOp - 0.05 : baseWingOp;
   wingMat.opacity = damp(wingMat.opacity, wingOpacity, 5, dt);
+  // ── TEMPEST STORM TICK (§5d) — the SINGLE writer for the storm circuit (parts.stormArcMats).
+  // Advances the deterministic strike clock, idles the garment at a breathing hum, lifts it to
+  // `peak` on the pulseTimer strikes TRAVELLING root→tip (each bucket reads the strike env delayed
+  // +0.04·bucket s, so the bolt arrives at the tips ~0.08 s after the sternum), and BREAKS it open
+  // on Surge. The arc mats sit in NEITHER the rim nor the flare loop, so nothing else writes them;
+  // stormTimer is null for every other dragon → roster untouched.
+  if (stormTimer && stormArcMats.length) {
+    stormTimer.pin(STRIKE_PIN);   // ?strikePin freezes the schedule for pixel-comparable captures (null = live)
+    stormTimer.setDuty(player.boosting || player.feverActive ? 2.2 : 1);   // boost/Surge: strikes fire ~2.2× as often (§5c)
+    const phase01 = ((phase / (Math.PI * 2)) % 1 + 1) % 1;   // flap phase → the downstroke-apex bias hint
+    stormTimer.tick(dt, phase01);
+    const ss = stormTimer.state();
+    const tNow = ss.t;
+    stormEnvHist.push({ t: tNow, e: ss.env01 });
+    while (stormEnvHist.length > 48) stormEnvHist.shift();
+    // env for a bucket = the pulse envelope delayed by its travel offset — a DEEP lag (0.16 s/bucket
+    // ≈0.32 s sternum→wingtip) so the current visibly RUNS from the central body out to the wing tips
+    // (owner). Live only; a pinned capture is a single static frame, so every bucket shows one env.
+    const envAt = (b) => {
+      if (STRIKE_PIN !== null || b === 0) return ss.env01;
+      const want = tNow - 0.16 * b;
+      let e = stormEnvHist.length ? stormEnvHist[0].e : 0;
+      for (let i = stormEnvHist.length - 1; i >= 0; i--) { if (stormEnvHist[i].t <= want) { e = stormEnvHist[i].e; break; } }
+      return e;
+    };
+    const breathe = 0.85 + 0.15 * Math.sin(2 * Math.PI * 0.5 * tNow);   // 0.5 Hz charge breathe (deterministic, pinnable)
+    const qGate = quality >= 1 ? 1 : 0.6;   // low adaptive quality softens the strike (photosensitivity headroom)
+    const fever = player.feverActive;
+    // ── THE THUNDERROLL — the Tempest's SURGE SIGNATURE (its "Haunting" equivalent). On Surge the
+    // circuit doesn't hold a flat blaze: it THUNDERS on a beat. Each ~1.15 s beat opens with a sharp
+    // CRACK that detonates and ROLLS root→tip (the wing bones light in sequence, 0.09 s/bucket), decays
+    // into a rolling rumble bed, and a shorter AFTER-CLAP follows — so it reads like real thunder, not a
+    // metronome. Deterministic + pinnable; beat ≈0.87 Hz + one afterclap → well under the 3 Hz cap.
+    const thunderAt = (b) => {
+      const T = tNow - 0.09 * b, beat = 1.15, ph = (((T % beat) + beat) % beat) / beat;
+      const crack = Math.pow(Math.max(0, 1 - ph / 0.85), 2.4);                                   // sharp attack at the beat, long decay tail
+      const afterclap = (ph > 0.34 && ph < 0.50) ? 0.5 * Math.pow(1 - (ph - 0.34) / 0.16, 2) : 0;  // the shorter second crack
+      return 0.42 + 1.25 * Math.max(crack, afterclap);                                            // rumble bed + the traveling cracks
+    };
+    // BREATHING-SURGE wave: the "alive" pulse under Surge — a slow breath + a faster shimmer, summed
+    // to an organic 0..1 (never a flat blaze). Per-bucket phase → the charge shimmers root→tip. This is
+    // the "charged, breathing lightning" read: the wing-colour waxing and waning, alive (owner).
+    const breatheSurge = (b) => {
+      const T = tNow - 0.05 * b;
+      const slow = 0.5 + 0.5 * Math.sin(2 * Math.PI * 0.55 * T);
+      const fast = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.6 * T + 2.1);
+      return 0.65 * slow + 0.35 * fast;
+    };
+    for (const m of stormArcMats) {
+      const u = m.userData;
+      const b = u.stormBucket || 0;
+      const hum = u.stormHum ?? 0.6, peak = u.stormPeak ?? 1.6, cap = u.stormCap ?? 2.0;
+      const env = envAt(b) * qGate;
+      // NORMAL: near-OFF idle hint + the periodic CRACKLE (the strike env flashes it toward peak, then
+      // it falls back to the dark hint — "capable of cracking", never a steady garment).
+      let ei = hum * breathe + env * (peak - hum);
+      let hot = Math.max(0, (env - 0.8) / 0.2);   // white-hot only at the crackle peak
+      if (fever) {
+        // SURGE — CHARGED, BREATHING lightning: the circuit comes ALIVE and pulses the wing-colour,
+        // waxing and waning between ~half and full (never flat, never off), with thunder CRACKS rolling
+        // root→tip on the beat riding on top. Ramped in by surgeMix so the awakening is smooth.
+        const breath = breatheSurge(b);
+        const crack = Math.max(0, thunderAt(b) - 0.42) / 1.25;      // 0..1 crack accent
+        const alive = peak * (0.5 + 0.5 * breath) + (cap - peak) * 0.7 * crack;   // breathe ~half→peak, cracks push past peak toward cap
+        ei = Math.max(ei, alive * (0.35 + 0.65 * surgeMix));
+        hot = Math.max(hot, surgeMix * Math.min(1, 0.3 + 0.5 * breath + crack));   // pale storm-white, whitest on the breath crest + cracks
+      }
+      m.emissiveIntensity = Math.min(cap * 1.02, ei);
+      _stormBase.setHex(u.baseEmissive ?? 0xd9deff);
+      m.emissive.copy(_stormBase).lerp(_stormHot, Math.min(1, hot));
+    }
+    // the sternum dynamo "turns over" on each strike AND BOOMS with every thunder-crack during Surge
+    stormCoreKick = 1 + 0.5 * ss.env01 + (fever ? 0.9 * Math.max(0, thunderAt(0) - 0.42) : 0);
+    // ── THE ARC CROWN — forked arcs leap between her body parts on each thunder crack (fire a fresh set
+    // on every beat + a re-strike at mid-beat; intensity rides the crack so they flash and vanish).
+    if (arcCrown) {
+      if (fever) {
+        const beat = Math.floor(tNow / 1.15), beatPh = (tNow / 1.15) - beat;
+        if (beat !== arcBeat) { arcBeat = beat; arcRestruck = false; arcCrown.fire((0x5721 ^ (beat * 2654435761)) | 0, pickStormArcRoutes((0x5721 ^ (beat * 2654435761)) | 0)); }
+        else if (!arcRestruck && beatPh > 0.5) { arcRestruck = true; const s = (0x91a3 ^ (beat * 40503)) | 0; arcCrown.fire(s, pickStormArcRoutes(s)); }   // the return-stroke
+        let crack = Math.min(1, Math.max(0, (thunderAt(0) - 0.6)));   // 0 in the rumble, ~1 at the crack peak
+        // debug capture seam only: pin the crack to full so every headless screenshot catches a live bolt
+        // (arcs otherwise flash ~0.2 s per 1.15 s beat). Undefined in normal play → zero gameplay effect.
+        if (typeof globalThis !== 'undefined' && globalThis.__ddArcForce) crack = 1;
+        arcCrown.render(arcCamDir, crack * surgeMix);
+        stormCrack = crack * surgeMix;   // #5 ONE CONDUCTOR — the eyes/wash flash on the SAME beat (set below)
+      } else if (arcBeat !== -1) { arcCrown.clear(); arcBeat = -1; stormCrack = 0; }
+    }
+  } else {
+    stormCoreKick = 1;
+  }
   // Violet core energy: pulses on boost, blazes + flashes on the Surge ignition.
   if (coreGlow) {
-    const cb = coreGlow.userData.base || 0.3;
+    const cb = (coreGlow.userData.base || 0.3) * stormCoreKick;
     const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
       : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4;   // PR-C: interior ember charges
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
@@ -1191,17 +1355,24 @@ export function updateDragon(dt, player, time) {
   // toward the per-dragon Surge highlight during a surge. Strength scales with
   // the adaptive quality factor so the lowest tier softens it. (updateRim is a
   // no-op until the materials compile — registry fills on first render.)
-  _rimCol.setHex(0xfff0d8);
+  // Cruise rim hue is per-dragon: a warm cream by default, but a COLD storm-steel for the Tempest so her
+  // charcoal reads OUTLINED with a cool identity in cruise instead of a warm-lit generic silhouette
+  // (glow-up: kill the flat-black read; a storm dragon's edge must be cold, not cream).
+  _rimCol.setHex(activeDef.rimCruise ?? 0xfff0d8);
   if (surgeMix > 0.002) {
     _rimHi.setHex(activeDef.surgeHi || 0xff66cc);
     _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));
   }
-  const rimStrength = (0.5 + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality;
+  const rimStrength = ((activeDef.rimCruiseBase ?? 0.5) + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality;
   updateRim(_rimCol, rimStrength);
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);
   eyeMat.emissive.setHex(player.feverActive ? (activeDef.feverEye ?? 0xff66ee) : activeDef.eye);
+  // #5 ONE CONDUCTOR — the eyes flash white-hot on each thunder crack (same beat as the arcs), so the
+  // Surge reads as one giant synchronized event. stormCrack is 0 for every non-storm dragon.
+  if (stormCrack > 0.001 && eyeMat.userData.stormEyeBase == null) eyeMat.userData.stormEyeBase = eyeMat.emissiveIntensity || 1;
+  if (eyeMat.userData.stormEyeBase != null) eyeMat.emissiveIntensity = eyeMat.userData.stormEyeBase * (1 + 2.0 * stormCrack);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
   const auraTarget = (player.feverActive

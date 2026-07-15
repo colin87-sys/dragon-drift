@@ -37,6 +37,14 @@ the tail-chain + wrist-fold MOTION kit (the −anchor + mirror rigging gotchas),
 component glow, the cruise-visible tier ladder, the Fable-critic-per-checkpoint process, and the
 verification harness. Read it so you start rich on turn one instead of building a stick dragon.
 
+**Tuning or building a WING-FLAP animation?** Read
+[`reforged/FLAP-DESIGN.md`](./reforged/FLAP-DESIGN.md) first — the flap playbook: the 3-segment
+articulated-wing rig, the full dial vocabulary, the design laws (kill the glide-hold "plank", deep
+lag so the wing curls not tilts, and THE DEPTH-PROJECTION TRAP — why a correct wrist fold is
+invisible at the top of the upstroke and how the in-plane apex-sweep fixes it), the tuning recipe,
+the reference dial sets (Vesper / Revenant / Tempest), and the verify harness (trust geometry over
+a critic's pixels). Read it before turning flap knobs, so you don't spend three rounds on one plank.
+
 **Designing or touching a BIOME / the environment?** Read
 [`reforged/BIOME-DESIGN.md`](./reforged/BIOME-DESIGN.md) first — the biome playbook: the
 8-biome lineup, the identity system (hazard + verb + anchor boss per biome), the
