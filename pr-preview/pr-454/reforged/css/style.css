@@ -841,9 +841,13 @@ body.hud-life-always #hud .health-hearts.rest { opacity: var(--hud-alpha); }
 body.hud-stamina-always #hud .g-arc.rest { opacity: var(--hud-alpha); }
 body.hud-surge-always #hud .gauntlet-surge.rest { opacity: var(--hud-alpha); }
 body.hud-score-always #hud .score.rest { opacity: var(--hud-alpha); }
-/* OFF — hide the element (paint stays for the safety floor below) */
+/* OFF — hide the element (paint stays for the safety floor below).
+   BOOST off targets ONLY the boost pieces (.g-arc + its seal), NOT the parent
+   .stamina-arc — that element is the whole Gauntlet container (life pips, surge
+   cells, multiplier), which BOOST-off must not touch. */
 body.hud-life-off #hud .health-hearts,
-body.hud-stamina-off #hud .stamina-arc,
+body.hud-stamina-off #hud .g-arc,
+body.hud-stamina-off #hud .stamina-seal,
 body.hud-surge-off #hud .gauntlet-surge,
 body.hud-score-off #hud .score,
 body.hud-distance-off #hud .hud-top-center,
@@ -854,9 +858,10 @@ body.hud-bell-off #hud .bell {
 /* safety floor — OFF can never remove these */
 body.hud-life-off.hud-critical #hud .health-hearts {
   opacity: var(--hud-alpha) !important; }
-body.hud-stamina-off.hud-critical #hud .stamina-arc,
-body.hud-stamina-off #hud .stamina-arc.sealed {
-  opacity: calc(0.9 * var(--hud-alpha)) !important; }
+/* the seal beat is a safety-floor element: it shows during a boss even when
+   BOOST is set OFF (the player still needs to read that boost is sealed). */
+body.hud-stamina-off #hud .stamina-arc.sealed .stamina-seal {
+  opacity: 1 !important; }
 
 /* ===== H6 — skyLuma bright-biome keyline swap (§0/§B). =====
    Over a bright sky (body.biome-bright, set per-biome in main.js — deterministic,
