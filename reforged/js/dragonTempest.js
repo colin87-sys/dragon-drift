@@ -1021,8 +1021,8 @@ function buildVirgaTail(def, model, mats, anchor) {
   const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * (0.7 + 0.5 * tScale), 0), M.heartCore);
   core.position.set(0, 0, 0); chainAdd(tb[2], core).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
   // soft halo shell — a larger, dim, always-lit near-white bloom source (unticked) so the point glows in cruise too
-  const halo = new THREE.Mesh(new THREE.OctahedronGeometry(0.185 * (0.7 + 0.5 * tScale), 0),
-    new THREE.MeshBasicMaterial({ color: 0xe8ecff, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
+  const halo = new THREE.Mesh(new THREE.OctahedronGeometry(0.185 * (0.7 + 0.5 * tScale), 2),   // detail 2 → a rounded glow, not a hard diamond
+    new THREE.MeshBasicMaterial({ color: 0xe8ecff, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
   chainAdd(tb[2], halo).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
 
   // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
