@@ -406,6 +406,7 @@ const ARCHETYPES = {
   // (|x| ≥ 24) so it never looms over or occludes a gameplay gate (clean lanes).
   icetower: {
     step: 170, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.0 }, // rarer + capped (Move 2: the Sun Gate is the tallest paired hero at a peak, not this)
+    deckSkim: 'park', // narrow vertical — reads as a tower even height-squashed; parks in strait2 run windows
     // The Fable studio gate (2.0/5) flagged this as the "man-made" repeat offense —
     // uniform taper + concentric coursing + aligned seams read as a water tower /
     // chimney / ziggurat. Rebuilt to BREAK the coursing: a fat tabular base, then
@@ -622,6 +623,7 @@ const ARCHETYPES = {
   // the ±16 gameplay-gate veil. Registered LAST so no band's render-rnd stream shifts.
   sungate: {
     step: 300, biomes: frozenNew, matIndex: 2, paired: true, hero: true,
+    deckSkim: 'park', // tall paired pylons — a squashed doorway reads broken; parks in strait2 run windows
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.CylinderGeometry(0.62, 0.72, 0.44, 6), { x: -0.14, y: 0.22, ry: 0.3 }) },     // FAT tabular base slab (~40% height — the mass), seated OUTward
       { mat: 0, geo: xform(new THREE.BoxGeometry(0.92, 0.34, 0.86), { x: -0.04, y: 0.55, ry: 0.12 }) },            // lower block — WIDER + DEEPER (chunk, not slab); grows toward the outer side
@@ -1080,7 +1082,8 @@ const HERO_PEAK_OFFSET = 45;   // frozenComp phase 0.15 lands at (dist % 300) ==
 // Render-only and pure (no rnd; rotY is cached on first write), so refreshing is
 // always safe. Never touched outside Frozen; empty list = byte-identical output.
 let deckSkimWindows = [];
-const DECK_SKIM_CAP_Y = 11;   // world-Y ceiling for band prop tops inside a window
+const DECK_SKIM_CAP_Y = 8.5;  // world-Y ceiling for band prop tops inside a window
+                              // (≈ RUN_KIT.frozen.heightCapY — bands never top the lane props)
 export function addDeckSkimWindow(a, b) {
   deckSkimWindows.push([a, b]);
   if (deckSkimWindows.length > 48) deckSkimWindows.splice(0, deckSkimWindows.length - 48);
@@ -1127,14 +1130,21 @@ function writeMatrix(band, i, d) {
     const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET) / (CONFIG.biomeLength / FROZEN_COMP_PERIODS));
     if (heroHash(peakIdx) >= 0.4) active = false;
   }
-  if (active) {
-    // Deck-skim clamp (see the window block above): world top = d.h·k·yMax − 0.5
-    // must stay under DECK_SKIM_CAP_Y inside a strait2 run window. Height only.
-    let hK = 1;
-    if (bi === 2 && deckSkimWindows.length && inDeckSkim(d.dist)) {
+  // Deck-skim rule (see the window block above), inside a strait2 run window:
+  // WIDE archetypes clamp world HEIGHT to the sightline (top = d.h·k·yMax − 0.5 ≤
+  // DECK_SKIM_CAP_Y — they squash into pack ice); NARROW verticals (icetower, the
+  // sungate pylons) can't be squashed out of reading as towers, so they PARK
+  // (`deckSkim:'park'`) — the same include/exclude rule the lane roster follows.
+  let hK = 1;
+  if (active && bi === 2 && deckSkimWindows.length && inDeckSkim(d.dist)) {
+    if (band.def.deckSkim === 'park') {
+      active = false;
+    } else {
       const capH = (DECK_SKIM_CAP_Y + 0.5) / (band.def._yMax || 1);
       if (d.h * k > capH) hK = capH / (d.h * k);
     }
+  }
+  if (active) {
     m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK, d.r * k));
   } else {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));

@@ -1725,7 +1725,12 @@ function buildRockGap(o, e) {
       // The biome's own decorative bands must respect the deck-skim sightline over
       // this section too (they'd otherwise loom as canyon walls — see environment.js
       // addDeckSkimWindow). +60m margins cover the entry/exit approach.
-      addDeckSkimWindow(o.dist - Math.max(plan.wb, plan.bk) - 60, o.dist + Math.max(plan.wf, plan.fw) + 60);
+      // +600 forward: bands render ~900m ahead but sections only spawn ~400 out, so
+      // without the long lead the unclamped leading edge shows as a distant "pillar
+      // pair" down the lead from INSIDE the run. 600 keeps the clamp ahead of the
+      // visible horizon (and bridges harness between-run gaps); the far rewrite is
+      // fog-sized, so the squash never reads as a pop.
+      addDeckSkimWindow(o.dist - Math.max(plan.wb, plan.bk) - 60, o.dist + Math.max(plan.wf, plan.fw) + 600);
       buildPropRun(plan, RUN_KIT.frozen, {
         rng, group, box, dist: o.dist,
         pushFade: (fd) => (e.spireFades || (e.spireFades = [])).push(fd),
@@ -1868,7 +1873,10 @@ function buildRockGap(o, e) {
     // no collider, so walking the top a few u out of plane is intended, not a fairness risk).
     for (const sgn of [-1, 1]) {
       const capeX = gx + sgn * (LHW + 5.5);
-      const h = (top - bot) * (exit ? 0.72 : 0.96);
+      // strait2 deck-skim: the gateway capes obey the same absolute sightline cap as
+      // everything else (top ≈ y8.5) — the threshold reads as a WIDE pack-ice sill,
+      // not a pillar pair (the last tall vertical the owner's low camera could meet).
+      const h = strait2 ? (exit ? 9.5 : 11.5) : (top - bot) * (exit ? 0.72 : 0.96);
       const pp = frozenWallParts(4.5, 5.0, h, bot, -sgn, true, ++famN, rng);
       pp.forEach((g) => { g.rotateX(zSide * 0.17); g.translate(capeX, 0, zBase + (rng() - 0.5) * 3); parts.push(g); });
     }
