@@ -21,6 +21,7 @@ import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { saveData } from './save.js';
 import { on } from './events.js';
+import { setHudGrade } from './postfx.js';
 
 const TICK_MS = 250;              // ≤4Hz relevance ticker
 const COMBAT_LINGER_MS = 4000;    // recent scoring event keeps hud-combat alive
@@ -98,8 +99,10 @@ export function initHudState(root) {
   els = {
     hearts: root.querySelector('#health-hearts'),
     score: root.querySelector('#score'),
-    staminaArc: root.querySelector('#stamina-arc'),
-    surge: root.querySelector('#surge-widget'),
+    // H3: rest targets the arc WRAPPER + the surge HORN — the gauntlet
+    // container hosts three independently-resting instruments.
+    staminaArc: root.querySelector('#g-arc') || root.querySelector('#stamina-arc'),
+    surge: root.querySelector('#surge-gems'),
   };
   prevHealth = game.health;
 
@@ -117,6 +120,8 @@ export function initHudState(root) {
     combatAt = earnAt = healthAt = stamActiveAt = -Infinity;
     prevHealth = game.health;
     setMode('cruise');
+    setBodyFlag('hud-critical', 'critical', false);
+    setHudGrade(0, 0);
   });
 }
 
@@ -135,7 +140,8 @@ export function updateHudState(player) {
     }
     prevHealth = game.health;
   }
-  const stamLow = player.boosting || game.stamina < CONFIG.staminaMax - 0.25;
+  // Fever pins the arc awake: it is the phase-through resource mid-Surge.
+  const stamLow = player.boosting || game.feverActive || game.stamina < CONFIG.staminaMax - 0.25;
   if (stamLow) {
     stamActiveAt = now;
     if (prevStamLow !== stamLow) setRest(els.staminaArc, 'stamRest', false);
@@ -159,17 +165,26 @@ export function updateHudState(player) {
 
   setRest(els.staminaArc, 'stamRest', !stamLow && now - stamActiveAt > STAM_REST_MS);
 
-  // Surge gems ghost at 0.30 unless near-full (≥ threshold−1 lit) or fever.
+  // Surge gems ghost at 0.30 unless near-full (≥ threshold−1 lit), fever, or
+  // a chain is actively building (U8: "full-strength only when a chain is
+  // active or near-full" — banked charge in quiet cruise ghosts; unlit cells
+  // at rest fall below read, which is Law 5's zero-counts-never-render).
   const lit = Math.min(game.consecutiveRings, game.feverThreshold);
-  const surgeLive = game.feverActive || lit >= game.feverThreshold - 1;
+  const surgeLive = game.feverActive || lit >= game.feverThreshold - 1 ||
+    (lit > 0 && now - combatAt < COMBAT_LINGER_MS);
   setRest(els.surge, 'surgeRest', !surgeLive);
 
   // §F player overrides ride the same tick (cheap; class writes are cached).
   setBodyFlag('hud-scorekeeper', 'scorekeeper', !!saveData.settings.scorekeeper);
   setBodyFlag('hud-immersive', 'immersive', !!saveData.settings.immersiveHud);
-  // Critical = last heart (safety floor for IMMERSIVE + the H3 VIGIL hook).
-  setBodyFlag('hud-critical', 'critical',
-    game.health > 0 && game.health <= CONFIG.obstacleDamage + 0.01);
+  // Critical = last heart: the VIGIL (H3 §B.1). The body class drives the
+  // CSS perimeter breathe; the postfx grade goes through the ONE arbiter
+  // (risk #9 — hudState is its only caller, HUD code never touches uniforms).
+  const critical = game.health > 0 && game.health <= CONFIG.obstacleDamage + 0.01;
+  // Re-asserted every tick (two number writes): updatePostFX zeroes the claim
+  // outside 'playing', so the 4Hz re-assert self-heals across pause/resume.
+  setHudGrade(critical ? 0.12 : 0, critical ? 0.10 : 0);
+  setBodyFlag('hud-critical', 'critical', critical);
 }
 
 // Test/debug introspection (read-only snapshot).

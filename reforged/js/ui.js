@@ -13,6 +13,7 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { uiSound } from './uiSound.js';
 import { ICONS } from './icons.js';
 import { initHudState, updateHudState, hudPoke } from './hudState.js';
+import { input } from './input.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
@@ -97,6 +98,11 @@ let chainStartScore = 0;       // score banked when the live chain began (the ri
 let chainPeakCombo = 1;
 let lastRaceYou = -1, lastRaceRival = -1, raceClose = false;
 let lastRaceLabel = '';
+// EMBERSIGHT H3 — gauntlet state
+let lastHeartsLit = -1;        // -1 = no baseline yet (no anim on the first frame)
+let lastDenied = false;        // boost-denial edge
+let lastDenyAt = 0;
+let wasSurgeReady = false;     // READY-ignition edge (boss manual surge)
 // `1 403 m` — tabular numerals, thin-space grouping (§B.6)
 const fmtNum = (n) => Math.floor(n).toLocaleString('en-US').replace(/,/g, '\u2009');
 let lastFFActive = false;
@@ -469,7 +475,6 @@ export const ui = {
     root.innerHTML = `
       <div class="hud-top-left">
         <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
-        <div class="health-hearts" id="health-hearts"><span></span><span></span><span></span><span></span></div>
       </div>
       <!-- EMBERSIGHT H2 — the TAPE (§B.6): the one permanent readout. A 160px
            hairline with ticks scrolling with distance (translateX, ≤4Hz), a
@@ -501,26 +506,47 @@ export const ui = {
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
       </div>
-      <!-- Stamina: an arc cradling the dragon (beauty-first, near the gaze) -->
-      <div class="stamina-arc" id="stamina-arc">
-        <svg viewBox="0 0 250 92" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
-            </linearGradient>
-          </defs>
-          <!-- THREE separate cell arcs with PHYSICAL gaps between them — each is a
-               third of the smile, so the bar ALWAYS reads as 3 notches on every
-               renderer (no dash-skip math to merge/drop). Each cell = a dim always-on
-               track + a bright fill drawn by its own stroke-dasharray (0..100 of its
-               own length). Each = one Surge phase; the whole bar ignites in Surge. -->
-          <path class="arc-trk" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
-          <path class="arc-trk" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
-          <path class="arc-trk" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
-          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="0 100" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
-          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 100" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
-          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 100" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+      <!-- EMBERSIGHT H3 — THE GAUNTLET (§B.1–B.3): ONE instrument cluster at the
+           shipped arc anchor. The 3-cell smile arc keeps its exact geometry (the
+           WebGL seal-chain beat still lines up; staminabar.mjs contract intact)
+           and grows two vertical terminals: LEFT = LIFE pips, RIGHT = SURGE
+           cells, with the multiplier slug under the keystone and the four
+           damage-direction arcs on a ring just outside. -->
+      <div class="stamina-arc gauntlet" id="stamina-arc" data-tier="0">
+        <!-- damage direction (§B.10): four 30° magenta segments, flight-plane
+             mapped (up = above you). Flashed from ui.damageFlash(impact). -->
+        <svg class="g-dmg" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <path class="gd-seg" id="gd-up"    pathLength="100" d="M 84.5 6.0  A 60 60 0 0 1 115.5 6.0"/>
+          <path class="gd-seg" id="gd-right" pathLength="100" d="M 152.0 44.5 A 60 60 0 0 1 160.0 75.5"/>
+          <path class="gd-seg" id="gd-down"  pathLength="100" d="M 115.5 114.0 A 60 60 0 0 1 84.5 114.0"/>
+          <path class="gd-seg" id="gd-left"  pathLength="100" d="M 40.0 75.5  A 60 60 0 0 1 48.0 44.5"/>
         </svg>
+        <div class="g-arc" id="g-arc">
+          <svg viewBox="0 0 250 92" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
+              </linearGradient>
+            </defs>
+            <!-- THREE separate cell arcs with PHYSICAL gaps between them — each is a
+                 third of the smile, so the bar ALWAYS reads as 3 notches on every
+                 renderer (no dash-skip math to merge/drop). Each cell = a dim always-on
+                 track + a bright fill drawn by its own stroke-dasharray (0..100 of its
+                 own length). Each = one Surge phase; the whole bar ignites in Surge. -->
+            <path class="arc-trk" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
+            <path class="arc-trk" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
+            <path class="arc-trk" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+            <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="0 100" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
+            <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 100" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
+            <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 100" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+            <!-- LAST HEART (§B.1 critical): a 2px danger hairline creeps along the
+                 whole gauntlet arc (stroke-dashoffset draw — never a layout prop). -->
+            <path class="arc-danger" pathLength="100" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
+            <path class="arc-danger" pathLength="100" style="animation-delay:0.35s" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
+            <path class="arc-danger" pathLength="100" style="animation-delay:0.7s" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+          </svg>
+          <span class="g-flash" aria-hidden="true"></span>
+        </div>
         <!-- Boost is SEALED in a boss (speed locked). The bar chains + dims rather
              than vanishing, so the second verb doesn't die silently; a one-time
              "BOOST SEALED" label fades in on the first boss entry. -->
@@ -534,12 +560,12 @@ export const ui = {
           </svg>
           <span class="seal-label">BOOST SEALED</span>
         </div>
-      </div>
-      <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
-      <div class="surge-min" id="surge-widget" data-tier="0">
-        <div class="surge-fx" id="surge-fx"><span class="flash"></span><span class="ember e1"></span><span class="ember e2"></span><span class="ember e3"></span><span class="ember e4"></span><span class="ember e5"></span></div>
-        <div class="surge-x" id="surge-x">×1.00</div>
-        <div class="surge-gems" id="surge-gems"></div>
+        <!-- LEFT horn — LIFE (§B.1): stroked heraldic-lozenge pips (♥ glyphs died) -->
+        <div class="gauntlet-life health-hearts" id="health-hearts"></div>
+        <!-- RIGHT horn — SURGE (§B.3): stroked diamond cells; fever = drain timer -->
+        <div class="gauntlet-surge" id="surge-gems"></div>
+        <!-- the multiplier slug under the keystone (one location, never at the reticle) -->
+        <div class="gauntlet-x" id="surge-x">×1.00</div>
       </div>
       <!-- FLOW crest ("Keystone Crest"): a miniature Windvault — cyan light climbs both
            legs of a forged-glass arch as the carve chain builds, meeting at the keystone
@@ -615,6 +641,12 @@ export const ui = {
       <div class="popup" id="popup"></div>
       <div class="gesture-overlay" id="gesture-overlay"></div>
       <div class="vignette" id="vignette"></div>
+      <!-- H3 §B.10: quadrant-weighted damage vignette — the struck side blooms -->
+      <div class="vignette-dir" id="vignette-dir"></div>
+      <!-- H3 §B.1 VIGIL (critical only): perimeter edgelight breathing inward —
+           dark warm scrim core + danger light on top (light carried on shadow,
+           readable on any sky). CSS-only; postfx grade rides the arbiter. -->
+      <div class="vigil" id="vigil" aria-hidden="true"><i class="vg-core"></i><i class="vg-light"></i></div>
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
       <div class="jade-flash" id="jade-flash"></div>
@@ -667,10 +699,17 @@ export const ui = {
       bcTimer:      root.querySelector('#bc-timer'),
       goldFlash:    root.querySelector('#gold-flash'),
       jadeFlash:    root.querySelector('#jade-flash'),
-      surgeWidget:  root.querySelector('#surge-widget'),
+      surgeWidget:  root.querySelector('#stamina-arc'),   // H3: the gauntlet IS the surge widget
       surgeX:       root.querySelector('#surge-x'),
       surgeGems:    root.querySelector('#surge-gems'),
-      surgeFx:      root.querySelector('#surge-fx'),
+      gArc:         root.querySelector('#g-arc'),
+      gdSegs: {
+        up:    root.querySelector('#gd-up'),
+        right: root.querySelector('#gd-right'),
+        down:  root.querySelector('#gd-down'),
+        left:  root.querySelector('#gd-left'),
+      },
+      vignetteDir:  root.querySelector('#vignette-dir'),
       healthHearts: root.querySelector('#health-hearts'),
       embersHud:    root.querySelector('#embers-hud'),
       ffChip:       root.querySelector('#ff-chip'),
@@ -699,6 +738,14 @@ export const ui = {
       revive:       root.querySelector('#revive-offer'),
       reviveCount:  root.querySelector('#revive-count'),
     };
+
+    // H3 §B.1 — LIFE pips: stroked heraldic lozenges, one per heart
+    // (healthMax / obstacleDamage), built once; ui.update toggles .full.
+    const heartCount = Math.max(1, Math.round(CONFIG.healthMax / CONFIG.obstacleDamage));
+    const LOZENGE = '<svg viewBox="0 0 14 16" width="12" height="14" aria-hidden="true">'
+      + '<path class="pip-o" d="M7 1L13 8 7 15 1 8z"/>'
+      + '<path class="pip-i" d="M7 4.4L10.2 8 7 11.6 3.8 8z"/></svg>';
+    els.healthHearts.innerHTML = Array.from({ length: heartCount }, () => `<span>${LOZENGE}</span>`).join('');
 
     // EMBERSIGHT H1 — the state machine + relevance ticker (hudState.js owns
     // the classification; it rides ui.update's existing call, never a new rAF).
@@ -760,11 +807,32 @@ export const ui = {
   },
 
   update(player) {
-    // Health = discrete hearts (healthMax 100 / obstacleDamage 25 = 4 hearts)
+    // Health = discrete LIFE pips on the gauntlet's left horn (healthMax 100 /
+    // obstacleDamage 25 = 4). H3 §B.1: the lost pip cracks + gutters (spring
+    // scale), a heal pip springs back; hudState carries the ≤150ms return.
     const heartUnit = CONFIG.obstacleDamage; // 25 -> 4 hearts
     const hearts = els.healthHearts.children;
-    for (let i = 0; i < hearts.length; i++)
-      hearts[i].classList.toggle('full', game.health > i * heartUnit + 0.01);
+    let heartsLit = 0;
+    for (let i = 0; i < hearts.length; i++) {
+      const full = game.health > i * heartUnit + 0.01;
+      if (full) heartsLit++;
+      hearts[i].classList.toggle('full', full);
+    }
+    if (lastHeartsLit >= 0 && heartsLit !== lastHeartsLit) {
+      const idx = Math.min(Math.max(heartsLit, lastHeartsLit) - 1, hearts.length - 1);
+      if (hearts[idx]) restartAnim(hearts[idx], heartsLit < lastHeartsLit ? 'pip-lost' : 'pip-gain');
+    }
+    lastHeartsLit = heartsLit;
+
+    // Boost DENIAL (§B.2): boost attempted on an empty tank → 1–2px transform
+    // shake on the arc (research: denial feedback). Edge-triggered + cooldown.
+    const denied = !game.inBoss && input.boost && game.stamina <= 0.01 && player.orbTimer <= 0;
+    const dNow = performance.now();
+    if (denied && !lastDenied && dNow - lastDenyAt > 900) {
+      restartAnim(els.gArc, 'g-deny');
+      lastDenyAt = dNow;
+    }
+    lastDenied = denied;
     // Stamina = 3 EQUAL notched cells, each one Dragon-Surge phase-through (a third
     // of the bar). Each cell fills LIVE (proportional to the stamina inside its
     // third), so boosting drains the bar smoothly right-to-left instead of snapping
@@ -828,25 +896,40 @@ export const ui = {
       for (let i = 0; i < threshold; i++) els.surgeGems.appendChild(document.createElement('i'));
       lastThreshold = threshold; lastSurgeLit = -1;
     }
-    const lit = game.feverActive ? threshold : surgeProgress;
+    // H3 §B.3: FEVER turns the cells into the visible drain timer — they empty
+    // left→right off the fever clock (today the timer was invisible).
+    const lit = game.feverActive
+      ? Math.max(0, Math.min(threshold, Math.ceil((game.feverTimer / CONFIG.feverDuration) * threshold)))
+      : surgeProgress;
     if (lit !== lastSurgeLit) {
       const gems = els.surgeGems.children;
       for (let i = 0; i < gems.length; i++) gems[i].classList.toggle('lit', i < lit);
       if (lit > lastSurgeLit && lit > 0 && lit <= gems.length) restartAnim(gems[lit - 1], 'gem-pop');
       lastSurgeLit = lit;
     }
+    // 4/5 desire state: the filled cells shimmer in sync one short of READY.
+    els.surgeWidget.classList.toggle('surge-near',
+      !game.feverActive && surgeProgress === threshold - 1 && threshold > 1);
     els.surgeWidget.dataset.tier = tier;
     els.surgeWidget.classList.toggle('fever', game.feverActive);
     els.surgeWidget.classList.toggle('active', game.combo > 1.001 || game.consecutiveRings > 0 || game.feverActive);
+    // The multiplier slug appears only when a combo is actually building (§B.3).
+    els.surgeWidget.classList.toggle('combo', game.combo > 1.001);
     els.surgeX.textContent = `×${game.combo.toFixed(2)}`;
-    if (game.feverActive && !wasFever) {           // the ignition moment
+    // THE IGNITION: fever start — or READY (boss: the meter fills but Surge is
+    // unleashed manually) — ignites the whole gauntlet once (--ease-spring
+    // 600ms + the U11 ping; the boss-note slot carries SURGE READY as today).
+    const surgeReadyNow = !game.feverActive && surgeProgress >= threshold;
+    if ((game.feverActive && !wasFever) || (surgeReadyNow && !wasSurgeReady)) {
       els.surgeWidget.classList.remove('igniting');
       void els.surgeWidget.offsetWidth;            // reflow -> restart the one-shot
       els.surgeWidget.classList.add('igniting');
       clearTimeout(surgeIgniteTO);
       surgeIgniteTO = setTimeout(() => els.surgeWidget.classList.remove('igniting'), 750);
+      if (surgeReadyNow && !wasSurgeReady) uiSound.ping();
     }
     wasFever = game.feverActive;
+    wasSurgeReady = surgeReadyNow;
     if (game.combo > lastCombo + 0.001) restartAnim(els.surgeX, 'combo-pop');
     lastCombo = game.combo;
 
@@ -1692,9 +1775,34 @@ export const ui = {
     this.bell('DRAGON SURGE', 'gold', { key: 'surge', dur: 1.6 });
   },
 
-  damageFlash(lethal = false) {
+  // H3 §B.10 — impact is { x, y } toward the impactor (flight-plane: up =
+  // above you), passed from the collision site (risk #11). null = source
+  // without side data → all-quadrant pulse.
+  damageFlash(lethal = false, impact = null) {
     els.vignette.classList.toggle('lethal', lethal);
     restartAnim(els.vignette, 'flash-anim');
+    if (!els.gdSegs) return;
+    const severity = impact && impact.severity >= 1 ? 'gd-hit gd-big' : 'gd-hit';
+    const dirOf = (im) => (Math.abs(im.x) >= Math.abs(im.y)
+      ? (im.x >= 0 ? 'right' : 'left') : (im.y >= 0 ? 'up' : 'down'));
+    if (impact && (impact.x || impact.y)) {
+      const dir = dirOf(impact);
+      const seg = els.gdSegs[dir];
+      seg.classList.remove('gd-hit', 'gd-big');
+      void seg.getBoundingClientRect();
+      seg.classList.add(...severity.split(' '));
+      // quadrant-weighted vignette: the struck side blooms to full alpha
+      els.vignetteDir.dataset.dir = dir;
+      restartAnim(els.vignetteDir, 'flash-anim');
+    } else {
+      // no side data → all-quadrant pulse (the specced fallback)
+      for (const k of ['up', 'right', 'down', 'left']) {
+        const seg = els.gdSegs[k];
+        seg.classList.remove('gd-hit', 'gd-big');
+        void seg.getBoundingClientRect();
+        seg.classList.add('gd-hit');
+      }
+    }
   },
 
   showScreen(type) {
@@ -2065,6 +2173,7 @@ export const ui = {
             <div class="set-range vol-row"><input type="range" id="set-hud-alpha" min="50" max="100" step="5" value="${Math.round((s.hudAlpha || 1) * 100)}"><span class="range-val" id="hud-alpha-val">${Math.round((s.hudAlpha || 1) * 100)}%</span></div>
           </div>
           ${swRow('assist', 'scorekeeper', 'SCOREKEEPER', 'Score and distance never fade — the classic corner readout.')}
+          ${swRow('assist', 'immersiveHud', 'IMMERSIVE HUD', 'Hides the readouts — just you, the dragon and the sky. Vital warnings still land.')}
           ${segGroup('COLORBLIND', 'Shifts the success and danger hues — the roles stay the same.',
             cbSeg('off', 'OFF') + cbSeg('deuter', 'DEUTER') + cbSeg('prot', 'PROT') + cbSeg('trit', 'TRIT'))}
 

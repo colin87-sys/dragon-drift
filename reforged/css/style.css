@@ -166,7 +166,6 @@ body.app-loaded > canvas { opacity: 1; }
 #hud.cine-hold .hud-top-center,
 #hud.cine-hold .hud-top-right,
 #hud.cine-hold .stamina-arc,
-#hud.cine-hold .surge-min,
 #hud.cine-hold .flow-crest,
 #hud.cine-hold .bell,
 #hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
@@ -184,12 +183,17 @@ body.app-loaded > canvas { opacity: 1; }
 
 /* ============ ORNATE BOTTOM BAR (Panzer Dragoon style) ============ */
 /* ============ HUD CORNER LAYOUT (WS6) ============ */
+/* H3: every anchor honors the U14 sliders — transform: scale(var(--hud-scale))
+   pinned to its own corner, opacity: var(--hud-alpha) (children's ghost floors
+   multiply through naturally). */
 .hud-top-left {
   position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; z-index: 5;
+  transform: scale(var(--hud-scale)); transform-origin: top left; opacity: var(--hud-alpha);
 }
 .hud-top-center {
   position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%;
-  transform: translateX(-50%); text-align: center; z-index: 5; pointer-events: none;
+  transform: translateX(-50%) scale(var(--hud-scale)); transform-origin: top center;
+  opacity: var(--hud-alpha); text-align: center; z-index: 5; pointer-events: none;
 }
 .hud-bottom-left {
   position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 14px; z-index: 5;
@@ -209,7 +213,8 @@ body.app-loaded > canvas { opacity: 1; }
 .bar-fill.stamina { background: linear-gradient(90deg, #2f9aff, #3fd8e8, #7fffe0); box-shadow: 0 0 8px rgba(60,210,255,0.55); width: 100%; }
 .bar-fill.stamina.depleted { background: #58606e; box-shadow: none; }
 /* ============ EMBERSIGHT H2 — THE TALLY (top-right column, §B.4) ============ */
-.hud-top-right { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; text-align: right; }
+.hud-top-right { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; text-align: right;
+  transform: scale(var(--hud-scale)); transform-origin: top right; opacity: var(--hud-alpha); }
 /* THE SLUG (§A Law 2): every numeral sits on a smoked lozenge — never glow-stacks. */
 .slug { display: inline-block; padding: 2px 9px 3px; border-radius: var(--r-s);
   background: rgba(12,8,6,0.28); border: 1px solid var(--rf-stroke);
@@ -476,18 +481,9 @@ body[data-qtier="2"] .hud-sew { display: none; }
 
 /* These vitals live only during a run — hide them whenever a menu/screen is up */
 #hud:has(#screen.visible) .stamina-arc,
-#hud:has(#screen.visible) .surge-min,
-#hud:has(#screen.visible) .flow-crest,
-#hud:has(#screen.visible) .health-hearts { opacity: 0 !important; pointer-events: none; }
+#hud:has(#screen.visible) .flow-crest { opacity: 0 !important; pointer-events: none; }
 
-/* hud-top-left now stacks the pause button + the hearts */
 .hud-top-left { display: flex; flex-direction: column; gap: 9px; align-items: flex-start; }
-.health-hearts { display: flex; gap: 5px; padding-left: 5px; }
-.health-hearts span { font-size: 15px; line-height: 1; color: rgba(255,160,150,0.22);
-  transition: color 0.2s, filter 0.2s; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.75)); }
-.health-hearts span::before { content: "\2665"; }
-.health-hearts span.full { color: #ff7a6b;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.85)) drop-shadow(0 0 5px rgba(255,90,80,0.45)); }
 
 /* ===== EMBERSIGHT H1 — the relevance table (HUD-REDESIGN §A Law 4) =====
    Every element declares its rest state here; hudState.js only writes classes.
@@ -498,13 +494,8 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .health-hearts.rest { opacity: 0; transition: opacity var(--t-ui) var(--ease-out); }
 .score.rest { opacity: 0.30;
   transition: transform 0.08s, color 0.3s, opacity var(--t-ui) var(--ease-out); }
-.stamina-arc.rest { opacity: 0.30;
-  transition: opacity var(--t-ui) var(--ease-out), transform 0.6s ease; }
-/* the seal/boss states outrank rest (boost sealed must stay legible / hidden) */
-.stamina-arc.rest.sealed { opacity: 0.32; }
-.stamina-arc.rest.boss-hidden { opacity: 0; }
-.surge-min { transition: opacity var(--t-micro) var(--ease-out); }
-.surge-min.rest { opacity: 0.30; transition: opacity var(--t-ui) var(--ease-out); }
+.g-arc.rest { opacity: 0.30; transition: opacity var(--t-ui) var(--ease-out); }
+.gauntlet-surge.rest { opacity: 0.30; transition: opacity var(--t-ui) var(--ease-out); }
 /* the ≤150ms return pulse on a value change (damage/heal/earn) */
 .hud-flash { animation: hud-flash 0.3s var(--ease-spring); }
 .health-hearts.hud-flash { transform-origin: left top; }
@@ -515,17 +506,21 @@ body.hud-scorekeeper .score.rest { opacity: 1; }
 /* Stamina arc — a compact bar just under the dragon, ~body-width (not wings),
    with a constant thickness (non-scaling stroke) so narrowing it never thins
    the line. Whispers the info; never fights the scene. */
-.stamina-arc { position: absolute; left: 50%; top: 64%; transform: translate(-50%,-50%);
-  width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none; opacity: 0.9;
+.stamina-arc { position: absolute; left: 50%; top: 64%;
+  transform: translate(-50%,-50%) scale(var(--hud-scale));
+  width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none;
+  opacity: calc(0.9 * var(--hud-alpha)); }
+/* the arc wrapper: the instrument that rests/seals/shakes independently of
+   the LIFE + SURGE horns sharing the cluster (H3) */
+.g-arc { position: absolute; inset: 0;
   /* H1: return from a rest-ghost in ≤150ms (the base rule is the return path) */
-  transition: opacity var(--t-micro) var(--ease-out), transform 0.6s ease; }
+  transition: opacity var(--t-micro) var(--ease-out); }
+.g-arc > svg { width: 100%; height: 100%; overflow: visible; }
 /* During a boss, boost is SEALED (speed locked / unlimited). Rather than vanish —
    which let the second verb die unnoticed — the bar CHAINS + dims so the seal is
-   legible, then restores on boss exit. (Kept the fade+shrink easing for grace.) */
-.stamina-arc.boss-hidden { opacity: 0; transform: translate(-50%,-50%) scale(0.82);
-  transition: opacity 0.6s ease, transform 0.6s ease; }
-.stamina-arc.sealed { opacity: 0.32; transform: translate(-50%,-50%) scale(0.9); filter: saturate(0.5);
-  transition: opacity 0.6s ease, transform 0.6s ease; }
+   legible, then restores on boss exit. Scoped to the ARC: the horns stay lit. */
+.stamina-arc.sealed .g-arc { opacity: 0.32; filter: saturate(0.5);
+  transition: opacity 0.6s ease; }
 /* The chain overlay: three interlinked rings, centred over the arc. Visible only
    while sealed; monochrome (no additive/emoji), whispers like the rest of the bar. */
 .stamina-seal { position: absolute; left: 50%; top: 44%; transform: translate(-50%,-50%);
@@ -543,7 +538,6 @@ body.hud-scorekeeper .score.rest { opacity: 1; }
   18%, 62% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-1px); } }
 .stamina-arc svg.seal-chain { width: 30px; height: 12px; overflow: visible; }
-.stamina-arc svg { width: 100%; height: 100%; overflow: visible; }
 /* Each of the 3 cells is its OWN arc with a real gap to its neighbour, so the bar
    always reads as 3 notches (no dash-skip math to merge or drop a segment). The dim
    always-on track shows the empty slots. */
@@ -573,7 +567,7 @@ body.hud-scorekeeper .score.rest { opacity: 1; }
   bottom: calc(max(clamp(46px, 9vh, 108px), env(safe-area-inset-bottom, 0px) + 38px) + 44px);
   transform: translateX(-50%); width: 116px; height: 62px; z-index: 5; pointer-events: none;
   opacity: 0; display: none; transition: opacity var(--t-ui) var(--ease-out); }
-.flow-crest.on { display: block; opacity: 1; }
+.flow-crest.on { display: block; opacity: var(--hud-alpha); }
 .flow-crest svg { width: 100%; height: 100%; overflow: visible; }
 .fc-trk { fill: none; stroke: rgba(90,150,210,0.28); stroke-width: 5; stroke-linecap: butt;
   vector-effect: non-scaling-stroke; }
@@ -640,70 +634,181 @@ body.hud-scorekeeper .score.rest { opacity: 1; }
   .fc-ghost { opacity: 0 !important; }
 }
 
-/* Surge — a bare gem row + quiet multiplier, centred low */
-.surge-min { position: absolute; left: 50%; bottom: clamp(46px, 9vh, 108px);
-  transform: translateX(-50%); z-index: 5; pointer-events: none;
-  display: flex; flex-direction: column; align-items: center; gap: 6px; }
-/* empty gems stay visible (the "rings to go" gauge); multiplier fades in only
-   once you're actually building a combo, so ×1.00 never sits there as noise */
-.surge-x { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 14px;
-  color: #ffd9ac; opacity: 0; transition: opacity 0.25s; letter-spacing: 1px; line-height: 1;
-  text-shadow: 0 0 10px rgba(255,160,70,0.6), 0 1px 3px rgba(0,0,0,0.7); }
-.surge-min.active .surge-x { opacity: 0.92; }
-.surge-min[data-tier="3"] .surge-x { color: #ffc070; }
-.surge-min[data-tier="4"] .surge-x { color: #ff9a5a; }
-.surge-min[data-tier="5"] .surge-x { color: #fff; }
-.surge-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
-.surge-min.fever .surge-x { animation: gem-blaze 0.9s ease-in-out infinite; color: #fff; }
+/* ===== EMBERSIGHT H3 — THE GAUNTLET (§B.1–B.3, §B.10) =====
+   One instrument: the 3-cell arc (geometry untouched) + LIFE pips on the left
+   horn + SURGE cells on the right + the multiplier slug under the keystone +
+   four damage-direction arcs on a ring outside. Grammar: hairline weights,
+   dual-stroke keylines, unlit 0.35 floors — the 0.18 sensor dust is dead. */
 
-/* gem row: pips light as you chain (this IS the "rings to go" readout) */
-.surge-gems { display: flex; gap: 6px; }
-.surge-gems i { width: 11px; height: 11px; clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
-  background: rgba(255,210,150,0.18); box-shadow: inset 0 0 0 1px rgba(255,210,150,0.3);
-  transition: background 0.15s, box-shadow 0.15s; }
-.surge-gems i.lit { background: linear-gradient(160deg,#ffe6a6,#ff8a3c);
-  box-shadow: 0 0 7px rgba(255,150,80,0.95), 0 0 2px rgba(255,225,160,0.9); }
-.surge-min.fever .surge-gems i.lit { animation: gem-blaze 1.3s ease-in-out infinite; }
-.surge-min.fever .surge-gems i:nth-child(2n).lit { animation-delay: 0.25s; }
-@keyframes gem-blaze { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.55)} }
-.surge-gems i.gem-pop { animation: gem-pop 0.3s var(--ease-out); }
+/* LEFT horn — LIFE pips (stroked heraldic lozenges; ♥ text glyphs died).
+   The pips CURVE up-and-outward from the arc's left tip — continuing the
+   smile's tangent, so the horn reads as one instrument, not an antenna.
+   Static per-index offsets (never animated — rule (d) safe); gem/pip pops
+   keep their transform animations untouched. */
+.gauntlet-life { position: absolute; left: 0; bottom: 76%; width: 0; height: 0;
+  transition: opacity var(--t-micro) var(--ease-out); }
+.gauntlet-life span { position: absolute; left: -8px; bottom: 0;
+  width: 12px; height: 14px; line-height: 0; }
+.gauntlet-life span:nth-child(2) { left: -13px; bottom: 13px; }
+.gauntlet-life span:nth-child(3) { left: -19px; bottom: 26px; }
+.gauntlet-life span:nth-child(4) { left: -26px; bottom: 39px; }
+.gauntlet-life span:nth-child(5) { left: -34px; bottom: 52px; }
+.gauntlet-life .pip-o { fill: none; stroke: rgba(255,224,186,0.35); stroke-width: 1.4;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
+.gauntlet-life .pip-i { fill: rgba(253,243,228,0); transition: fill var(--t-micro) var(--ease-out); }
+.gauntlet-life span.full .pip-o { stroke: rgba(255,238,212,0.9); }
+.gauntlet-life span.full .pip-i { fill: #fdf3e4;
+  filter: drop-shadow(0 0 3px rgba(255,220,170,0.55)); }
+/* damage: the lost pip cracks + gutters (spring 1.3→1, §B.1) */
+.gauntlet-life span.pip-lost { animation: pip-lost 0.4s var(--ease-spring); }
+@keyframes pip-lost {
+  0%   { transform: scale(1.3) rotate(10deg); filter: brightness(2); }
+  55%  { transform: scale(0.92) rotate(-4deg); }
+  100% { transform: scale(1) rotate(0deg); filter: brightness(1); } }
+.gauntlet-life span.pip-gain { animation: pip-gain 0.4s var(--ease-spring); }
+@keyframes pip-gain { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
+/* LAST HEART: the pip PINS (hudState never rests a non-full row) + magenta
+   pulse 1.2s; a 2px danger hairline creeps along the whole gauntlet arc. */
+body.hud-critical .gauntlet-life { opacity: 1 !important; }
+body.hud-critical .gauntlet-life span.full .pip-o { stroke: var(--tone-danger); }
+body.hud-critical .gauntlet-life span.full .pip-i { fill: var(--tone-danger); }
+body.hud-critical .gauntlet-life span.full { animation: pip-crit 1.2s ease-in-out infinite; }
+@keyframes pip-crit { 0%, 100% { filter: brightness(1); transform: scale(1); }
+  50% { filter: brightness(1.6); transform: scale(1.12); } }
+.arc-danger { fill: none; stroke: var(--tone-danger); stroke-width: 2;
+  vector-effect: non-scaling-stroke; stroke-dasharray: 100; stroke-dashoffset: 100;
+  opacity: 0; }
+body.hud-critical .arc-danger { opacity: 0.85;
+  animation: danger-creep 2.2s ease-in-out infinite; }
+@keyframes danger-creep { 0% { stroke-dashoffset: 100; } 45%, 70% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -100; } }
+
+/* RIGHT horn — SURGE cells (11px stroked diamonds; unlit 0.35 + keyline).
+   Mirrors the LIFE curve: cells climb the arc's right tangent (feverThreshold
+   can be 5 or 8 — the curve keeps a tall meter reading as a horn). */
+.gauntlet-surge { position: absolute; right: 0; bottom: 76%; width: 0; height: 0;
+  transition: opacity var(--t-micro) var(--ease-out); }
+.gauntlet-surge i { position: absolute; right: -8px; bottom: 0;
+  width: 11px; height: 11px;
+  clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
+  background: rgba(255,210,150,0.12); opacity: 0.35;
+  box-shadow: inset 0 0 0 1.2px rgba(255,210,150,0.75), inset 0 0 0 2.2px rgba(0,0,0,0.4); }
+/* NB: lit/unlit SNAPS (no per-cell fade) — the gem-pop carries the juice and
+   the fever drain-timer reads as discrete cells emptying, not a smear. */
+.gauntlet-surge i:nth-child(2) { right: -12px; bottom: 12px; }
+.gauntlet-surge i:nth-child(3) { right: -17px; bottom: 24px; }
+.gauntlet-surge i:nth-child(4) { right: -23px; bottom: 36px; }
+.gauntlet-surge i:nth-child(5) { right: -30px; bottom: 48px; }
+.gauntlet-surge i:nth-child(6) { right: -38px; bottom: 60px; }
+.gauntlet-surge i:nth-child(7) { right: -47px; bottom: 72px; }
+.gauntlet-surge i:nth-child(8) { right: -57px; bottom: 84px; }
+.gauntlet-surge i:nth-child(9) { right: -68px; bottom: 96px; }
+.gauntlet-surge i:nth-child(10) { right: -80px; bottom: 108px; }
+.gauntlet-surge i.lit { opacity: 1;
+  background: linear-gradient(160deg,#ffe6a6,#ff8a3c); }
+.gauntlet-surge i.gem-pop { animation: gem-pop 0.3s var(--ease-out); }
 @keyframes gem-pop { 0%{transform:scale(1)} 45%{transform:scale(1.6)} 100%{transform:scale(1)} }
-
-/* Surge killed by a hit: one-shot grey-out sweep on the whole widget (paired
-   with the surgeFizzle sfx) so the loss never reads as a silent state change */
-.surge-min.surge-fizzle { animation: surge-fizzle 0.7s ease-out; }
+/* 4/5 desire state: filled cells shimmer in sync */
+.gauntlet.surge-near .gauntlet-surge i.lit { animation: gem-blaze 1.1s ease-in-out infinite; }
+/* FEVER: the cells ARE the drain timer (ui.js empties them off the clock) */
+.gauntlet.fever .gauntlet-surge i.lit { animation: gem-blaze 1.3s ease-in-out infinite; }
+@keyframes gem-blaze { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.55)} }
+/* surge killed by a hit: grey-out sweep on the horn (paired with surgeFizzle) */
+.gauntlet.surge-fizzle .gauntlet-surge { animation: surge-fizzle 0.7s ease-out; }
 @keyframes surge-fizzle {
   0%   { filter: grayscale(0) brightness(1.3); }
   30%  { filter: grayscale(1) brightness(0.55); }
-  100% { filter: grayscale(0) brightness(1); }
-}
+  100% { filter: grayscale(0) brightness(1); } }
 
-/* fever glow behind the gems (subtle, not a box) */
-.surge-min.fever::before { content:""; position:absolute; left:50%; bottom:-6px;
-  transform:translateX(-50%); width:170px; height:60px; z-index:-1; pointer-events:none;
-  background: radial-gradient(closest-side, rgba(255,140,60,0.4), transparent 74%);
-  animation: surge-aura 1.6s ease-in-out infinite; }
-@keyframes surge-aura { 0%,100%{opacity:.45;transform:translateX(-50%) scale(.95)}
-  50%{opacity:.9;transform:translateX(-50%) scale(1.08)} }
+/* the multiplier slug under the arc keystone — combo > 1 only (§B.3) */
+.gauntlet-x { position: absolute; left: 50%; top: 96%; transform: translateX(-50%);
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-label); line-height: 1.3; letter-spacing: 0.03em;
+  padding: 1px 7px 2px; border-radius: var(--r-s);
+  background: rgba(12,8,6,0.28); border: 1px solid var(--rf-stroke);
+  color: #ffd9ac; opacity: 0; transition: opacity 0.25s, color 0.3s;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.7); }
+.gauntlet.combo .gauntlet-x { opacity: 1; }
+.gauntlet[data-tier="3"] .gauntlet-x { color: #ffc070; }
+.gauntlet[data-tier="4"] .gauntlet-x { color: #ff9a5a; }
+.gauntlet[data-tier="5"] .gauntlet-x { color: #fff; }
+.gauntlet.fever .gauntlet-x { color: #ffb8ff; }
+.gauntlet-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
 
-/* IGNITION + embers */
-.surge-fx { position: absolute; left:50%; bottom:-8px; transform:translateX(-50%);
-  width:170px; height:64px; pointer-events:none; }
-.surge-fx .flash { position:absolute; inset:0; opacity:0; border-radius:50%;
+/* READY / fever start: the WHOLE gauntlet ignites once (spring 600ms + ping) */
+.gauntlet.igniting .g-arc,
+.gauntlet.igniting .gauntlet-life,
+.gauntlet.igniting .gauntlet-surge { animation: g-ignite 0.6s var(--ease-spring); }
+@keyframes g-ignite { 0% { transform: scale(1); filter: brightness(1); }
+  30% { transform: scale(1.1); filter: brightness(1.9); }
+  100% { transform: scale(1); filter: brightness(1); } }
+.g-flash { position: absolute; inset: -20% -10%; opacity: 0; border-radius: 50%; pointer-events: none;
   background: radial-gradient(closest-side, rgba(255,247,214,0.92), rgba(255,180,90,0.22) 55%, transparent 75%); }
-.surge-fx .ember { position:absolute; bottom:12px; width:3px; height:3px; border-radius:50%;
-  background:#ffd9a0; box-shadow:0 0 6px rgba(255,180,100,0.9); opacity:0; }
-.surge-min.fever .ember { animation: surge-ember 1.9s ease-in infinite; }
-.surge-fx .ember.e1{left:14%;animation-delay:0s} .surge-fx .ember.e2{left:33%;animation-delay:.5s}
-.surge-fx .ember.e3{left:52%;animation-delay:.95s} .surge-fx .ember.e4{left:71%;animation-delay:1.35s}
-.surge-fx .ember.e5{left:88%;animation-delay:.25s}
-@keyframes surge-ember { 0%{opacity:0;transform:translateY(0) scale(1)} 18%{opacity:1}
-  100%{opacity:0;transform:translateY(-34px) scale(0.35)} }
-.surge-min.igniting { animation: surge-ignite 0.6s var(--ease-spring); }
-.surge-min.igniting .flash { animation: surge-flash 0.55s ease-out; }
-@keyframes surge-ignite { 0%{transform:translateX(-50%) scale(1)} 32%{transform:translateX(-50%) scale(1.14)}
-  100%{transform:translateX(-50%) scale(1)} }
+.gauntlet.igniting .g-flash { animation: surge-flash 0.55s ease-out; }
 @keyframes surge-flash { 0%{opacity:0} 25%{opacity:1} 100%{opacity:0} }
+
+/* boost DENIAL: a 1–2px transform shake on the arc (§B.2) */
+.g-arc.g-deny { animation: g-deny 0.3s ease-out; }
+@keyframes g-deny { 0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-1.5px); } 55% { transform: translateX(1.5px); }
+  80% { transform: translateX(-1px); } }
+
+/* DAMAGE DIRECTION (§B.10): four 30° magenta segments on a ring outside the
+   cluster; the struck side flashes 0.95 → fades 0.7s; stroke ×2 with severity. */
+.g-dmg { position: absolute; left: 50%; top: 50%; width: 148%; height: 250%;
+  transform: translate(-50%, -52%); pointer-events: none; overflow: visible; }
+.gd-seg { fill: none; stroke: var(--tone-danger); stroke-width: 3; stroke-linecap: round;
+  vector-effect: non-scaling-stroke; opacity: 0;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
+.gd-seg.gd-hit { animation: gd-hit 0.7s ease-out; }
+.gd-seg.gd-hit.gd-big { stroke-width: 6; }
+@keyframes gd-hit { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+
+/* quadrant-weighted damage vignette (§B.10): the struck side reaches full alpha */
+.vignette-dir { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.vignette-dir[data-dir="left"]  { background: linear-gradient(90deg, rgba(255,40,40,0.5), transparent 30%); }
+.vignette-dir[data-dir="right"] { background: linear-gradient(270deg, rgba(255,40,40,0.5), transparent 30%); }
+.vignette-dir[data-dir="up"]    { background: linear-gradient(180deg, rgba(255,40,40,0.45), transparent 30%); }
+.vignette-dir[data-dir="down"]  { background: linear-gradient(0deg, rgba(255,40,40,0.45), transparent 30%); }
+
+/* ===== H3 — VIGIL (§B.1 critical): perimeter edgelight breathing inward.
+   Two layers: a 24px dark warm scrim core + the danger light on top — light
+   carried on shadow, readable on any sky. Opacity/transform only; the postfx
+   desat/vignette ride the ONE grading arbiter (postfx.setHudGrade). ===== */
+.vigil { position: fixed; inset: 0; pointer-events: none; z-index: 38;
+  opacity: 0; transition: opacity 0.5s ease; }
+body.hud-critical .vigil { opacity: 1; }
+.vigil i { position: absolute; inset: 0; display: block; }
+.vigil .vg-core {
+  background:
+    linear-gradient(90deg,  rgba(12,8,6,0.62), transparent 26px),
+    linear-gradient(270deg, rgba(12,8,6,0.62), transparent 26px),
+    linear-gradient(180deg, rgba(12,8,6,0.62), transparent 26px),
+    linear-gradient(0deg,   rgba(12,8,6,0.62), transparent 26px);
+  animation: vigil-breathe 2.2s ease-in-out infinite; }
+.vigil .vg-light {
+  background:
+    linear-gradient(90deg,  color-mix(in srgb, var(--tone-danger) 45%, transparent), transparent 12px),
+    linear-gradient(270deg, color-mix(in srgb, var(--tone-danger) 45%, transparent), transparent 12px),
+    linear-gradient(180deg, color-mix(in srgb, var(--tone-danger) 45%, transparent), transparent 12px),
+    linear-gradient(0deg,   color-mix(in srgb, var(--tone-danger) 45%, transparent), transparent 12px);
+  animation: vigil-breathe 2.2s ease-in-out infinite reverse; }
+@keyframes vigil-breathe { 0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.006); } }
+
+/* ===== H3 — IMMERSIVE HUD (§F): hides everything except the safety floor —
+   LIFE at critical, the seal beat, and boss chrome/WARNING never hide. ===== */
+body.hud-immersive #hud .hud-top-center,
+body.hud-immersive #hud .hud-top-right,
+body.hud-immersive #hud .bell,
+body.hud-immersive #hud .flow-crest,
+body.hud-immersive #hud .popup,
+body.hud-immersive #hud .stamina-arc {
+  opacity: 0 !important; transition: opacity var(--t-ui) var(--ease-out); }
+/* safety floor: the gauntlet returns at critical and while boost is sealed */
+body.hud-immersive.hud-critical #hud .stamina-arc,
+body.hud-immersive #hud .stamina-arc.sealed {
+  opacity: calc(0.9 * var(--hud-alpha)) !important; }
 
 /* ============ TARGET RETICLE (nested squares) ============ */
 #reticle { position: absolute; left: 0; top: 0; width: 90px; height: 90px;
@@ -866,7 +971,9 @@ body.hud-scorekeeper .score.rest { opacity: 1; }
    One type style — a slug (smoked lozenge) with an accent underline by role.
    Enter = --t-ui rise+fade; exit = --t-exit; transform/opacity only. */
 .bell { position: absolute; top: 24%; left: 0; right: 0; z-index: 30;
-  display: flex; justify-content: center; pointer-events: none; }
+  display: flex; justify-content: center; pointer-events: none;
+  transform: scale(var(--hud-scale)); transform-origin: top center;
+  opacity: var(--hud-alpha); }
 .bell-slug { position: relative; max-width: min(420px, 84vw);
   padding: 6px 14px 7px; border-radius: var(--r-s);
   background: rgba(12,8,6,0.28);
@@ -1668,7 +1775,23 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .hud-top-center{ top: calc(10px + env(safe-area-inset-top, 0px)); }
   .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; }
   .stamina-arc   { top: 64%; width: min(38vw, 128px); }
-  .surge-x       { font-size: 13px; }
+  /* H3 §C portrait: the horns fold INWARD — LIFE left / SURGE right at the
+     same y (horizontal rows toward center), cluster ≤55vw, thumb zone clear. */
+  .gauntlet-life span:nth-child(1) { left: 2px; bottom: 4px; }
+  .gauntlet-life span:nth-child(2) { left: 16px; bottom: 4px; }
+  .gauntlet-life span:nth-child(3) { left: 30px; bottom: 4px; }
+  .gauntlet-life span:nth-child(4) { left: 44px; bottom: 4px; }
+  .gauntlet-life span:nth-child(5) { left: 58px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(1) { right: 2px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(2) { right: 15px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(3) { right: 28px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(4) { right: 41px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(5) { right: 54px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(6) { right: 67px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(7) { right: 80px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(8) { right: 93px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(9) { right: 106px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(10) { right: 119px; bottom: 4px; }
   .tape-strip    { width: 120px; }
   .tape-ticks    { display: none; }   /* portrait drops the tick strip (§C) */
   #reticle       { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
@@ -1921,6 +2044,16 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .hud-flash { animation: none; }
   .tape-flash .tape-strip, .race-strip.won .race-line { animation: none; }
   .race-you, .race-rival { transition: opacity var(--t-exit); }
+  /* H3: gauntlet motion collapses to state (fades keep working) */
+  .gauntlet-life span.pip-lost, .gauntlet-life span.pip-gain,
+  body.hud-critical .gauntlet-life span.full,
+  .gauntlet.igniting .g-arc, .gauntlet.igniting .gauntlet-life,
+  .gauntlet.igniting .gauntlet-surge, .gauntlet.igniting .g-flash,
+  .g-arc.g-deny, .gauntlet.surge-near .gauntlet-surge i.lit,
+  .gauntlet.fever .gauntlet-surge i.lit,
+  .vigil .vg-core, .vigil .vg-light { animation: none; }
+  body.hud-critical .arc-danger { animation: none; stroke-dashoffset: 0; }
+  .gd-seg.gd-hit { animation: gd-hit 0.7s ease-out; }   /* opacity-only already */
 }
 
 /* Mobile sizing for the new surfaces */

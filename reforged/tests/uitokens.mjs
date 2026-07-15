@@ -180,16 +180,16 @@ const NAVY_BASELINE = {
 // HUD selector families (grepped from style.css): hud-*, boss-*, surge-*,
 // lock*, race-*, lens2*, flow-crest, reticle, the vitals .bar/.bar-fill,
 // hearts. Layout/paint props next to the 60fps canvas are the §A.4 kill list.
-const HUD_RE = /(^|[\s,>+~(:])\.(hud-[\w-]*|boss[\w-]*|surge[\w-]*|lock[\w-]*|race-[\w-]*|lens2[\w-]*|flow-crest[\w-]*|reticle[\w-]*|bar(-fill)?|hearts?|bell[\w-]*|tape[\w-]*|tally[\w-]*|gauntlet[\w-]*|stamina[\w-]*|arc-[\w-]*|vigil[\w-]*|popup[\w-]*|dmg[\w-]*|health-hearts)\b/;
+const HUD_RE = /(^|[\s,>+~(:])\.(hud-[\w-]*|boss[\w-]*|surge[\w-]*|lock[\w-]*|race-[\w-]*|lens2[\w-]*|flow-crest[\w-]*|reticle[\w-]*|bar(-fill)?|hearts?|bell[\w-]*|tape[\w-]*|tally[\w-]*|gauntlet[\w-]*|stamina[\w-]*|arc-[\w-]*|vigil[\w-]*|vg-[\w-]*|vignette[\w-]*|popup[\w-]*|dmg[\w-]*|g-[\w-]*|gd-[\w-]*|pip[\w-]*|health-hearts)\b/;
 const LAYOUT_PROP = /(^|[\s;,])(max-|min-)?(width|height|top|left|right|bottom|margin[\w-]*|padding[\w-]*|box-shadow)\s*[\s:,]/;
 
 // Pre-existing violations, documented — NOT a license for new ones.
 // H2 deleted the .race-fill width transition (the navy race-bar died for the
-// two-caret tick-strip). TODO: .bar-fill is legacy chrome no live HUD markup
-// uses; delete with its CSS block. .surge-gems dies with the H3 gauntlet.
+// two-caret tick-strip); H3 deleted .surge-gems with the old gem row (the
+// GAUNTLET's cells transition background/opacity only). TODO: .bar-fill is
+// legacy chrome no live HUD markup uses; delete with its CSS block.
 const HUD_MOTION_EXCEPTIONS = [
   '.bar-fill | transition: width 0.12s linear',   // vitals meter fill (style.css:189)
-  '.surge-gems i | transition: background 0.15s, box-shadow 0.15s', // gem pip glow (style.css:570)
 ];
 
 // Minimal CSS walker: comments stripped, brace-depth stack; collects flat rules

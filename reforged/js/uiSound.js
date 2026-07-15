@@ -74,6 +74,12 @@ export const uiSound = {
   // upward blip for rewards/unlocks (gold/jade), a quieter tick for everything
   // else. Deliberately UNDER the gameplay sfx (rings/gates already chime) —
   // felt, never noticed.
+  // EMBERSIGHT H3 — the SURGE-READY ping (§B.3): one bright, short ring as the
+  // whole gauntlet ignites. Brighter than a tick, still under the gameplay sfx.
+  ping() {
+    blip({ type: 'sine', from: 1960, to: 2350, dur: 0.09, vol: 0.085 });
+    blip({ type: 'sine', from: 2940, to: 3520, dur: 0.09, vol: 0.045, delay: 0.02 });
+  },
   bell(role) {
     if (role === 'gold' || role === 'jade') {
       blip({ type: 'sine', from: 1480, to: 1720, dur: 0.05, vol: 0.05 });
