@@ -331,10 +331,14 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // (smoothstep-shaped) — full-color violet/pink/red for ~20–40s every few minutes at irregular intervals,
   // so quiet green/teal stretches make the rare eruption feel EARNED (the "wow"). `?auract=` overrides both.
   const actRaw = 0.5 + 0.5 * (0.62 * Math.sin(time * 0.05) + 0.38 * Math.sin(time * 0.0177 + 2.4));
-  // FLOW COUPLING: holding the flow carve (flowExcite = slipMix × auroraMix, damped) raises the activity
-  // FLOOR → the sky erupts violet/pink over you as your chain climbs (0.9 floor → a strong, not max,
-  // eruption at full carve). 0 outside the aurora / off the carve → act = actRaw → byte-inert. ?auract wins.
-  const act = actOverride != null ? actOverride : Math.max(actRaw, flowExcite * 0.9);
+  // FLOW COUPLING: a SUSTAINED flow chain HOLDS the eruption. (Owner: it flashed then vanished while the
+  // chain was held — because slipMix at a mid chain ≈ 0.6 gave 0.6×0.9 = 0.54, BELOW the 0.72 eruption
+  // threshold, so only a near-MAX chain erupted; what flashed was the rare natural drift, not the carve.)
+  // Remap so the eruption ONSETS at a modest chain (~5) and drives near-full by a strong one, and HOLDS as
+  // long as the chain does. Capped ≤ 0.96 (the eruption smoothstep needs act ≤ 1). flowExcite < 0.02 (off
+  // the carve) → no floor → act = actRaw → byte-inert. ?auract still wins.
+  const flowAct = flowExcite < 0.02 ? 0.0 : Math.min(0.96, 0.63 + flowExcite * 0.35);
+  const act = actOverride != null ? actOverride : Math.max(actRaw, flowAct);
   auroraUniforms.uAurAct.value = act;
   // ACTIVITY-KEYED CRAWL (Gate-9 dreaminess): accumulate phase at a variable rate instead of `time%4096`
   // — quiet stretches drift stately (~0.8×), an eruption visibly quickens (~1.25×), so motion tells the
@@ -342,7 +346,7 @@ export function applyAurora(env, playerDist, time, camera, dt) {
   // stay pinned); wraps at 4096 exactly like the old `%4096` (the uCloudDrift float32-precision lesson).
   _aurPhase = (_aurPhase + (dt || 0) * (0.7 + 0.6 * act)) % 4096;
   auroraUniforms.uAurPhase.value = _aurPhase;
-  const e = Math.max(0, (act - 0.72) / 0.28);
+  const e = Math.max(0, Math.min(1, (act - 0.72) / 0.28));   // clamp: the flow floor can now reach act 0.96
   // Peak 1.4 (owner pick) — a natural eruption shows the FULL altitude structure (violet→green→pink→
   // crimson, Gate-8); restraint comes from AREA + rarity (color rides the bands/rays, majority dark
   // between, ~30s every few min), NOT from deleting the hues. The single strength dial is this 1.4.
