@@ -1084,6 +1084,40 @@ function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
   return parts;
 }
 
+// THE MIRROR STRAIT kit (Frozen overhaul) — the run stops being a canyon of tall walls and
+// becomes a lead of open water threaded through drifting PACK ICE, so the biome's sky/horizon/
+// mirror stay in frame. Two forms, both derived from the biome's tabular-berg language (broad,
+// weathered, NOT coursed) and skinned with the same glacierWallMat + ladder:
+//   • FLOE  (breath) — a LOW, WIDE tabular floe: covers the body collider (to ~y15) then a
+//     gently broken flat top BELOW the camera sightline, so you see OVER it to the sunset.
+//   • PROW  (pinch)  — a broad tabular BERG leaning into the channel, the only tall moments
+//     (2–4 per run): a wide base + a stepped shoulder, big masses not a comb of blocks.
+// Authored in world units around x=0 (faces within ±hw), y in [botY, botY+h], z around 0.
+function frozenStraitParts(hw, hz, h, botY, sign, pinch, rng) {
+  const parts = [];
+  const jz = () => (rng() - 0.5) * hz * 0.18;
+  if (pinch) {
+    // Broad berg PROW — wide-based, leaning slightly inward (top drifts toward the channel),
+    // a big tabular cap. Two masses only (base + shoulder) so it reads as calved ice, not coursing.
+    const base = shearBoxGeo(hw * 1.92, h, hz * 1.7, sign * hw * 0.16, jz());
+    base.translate(-sign * hw * 0.04, botY + h / 2, 0);
+    parts.push(base);
+    const shoulder = shearBoxGeo(hw * 1.30, h * 0.52, hz * 1.35, sign * hw * 0.10, jz());
+    shoulder.translate(sign * hw * 0.22, botY + h * 0.70, (rng() - 0.5) * hz * 0.35);
+    parts.push(shoulder);
+  } else {
+    // Low wide FLOE — a flat tabular pack-ice shelf. Covers the body collider (top ~y15) then a
+    // second thinner shelf offset on top so the silhouette isn't one machined box.
+    const slab = shearBoxGeo(hw * 1.95, h, hz * 1.8, (rng() - 0.5) * hw * 0.06, jz());
+    slab.translate(0, botY + h / 2, 0);
+    parts.push(slab);
+    const shelf = shearBoxGeo(hw * 1.42, h * 0.34, hz * 1.3, (rng() - 0.5) * hw * 0.05, jz());
+    shelf.translate((rng() - 0.5) * hw * 0.5, botY + h * 0.84, (rng() - 0.5) * hz * 0.35);
+    parts.push(shelf);
+  }
+  return parts;
+}
+
 // Fairness check for the calved wall — validates the authoring invariants that keep the
 // visible ice covering the collider band (a direct sibling of pillarColliderCoverage).
 // Structural (the builder draws from these same ranges), so it can't drift from the code.
@@ -1237,6 +1271,10 @@ function buildRockGap(o, e) {
   const LANE = CONFIG.laneHalfWidth;
   const CEIL = CONFIG.canyonCeilingY;
   const spine = o.run === 'spine';
+  // MIRROR STRAIT overhaul (Frozen only) — flagged coexistence while it's proven. When on, the
+  // Frozen rock run is built from low pack-ice floes + occasional tall berg prows (see
+  // frozenStraitParts) instead of the tall calved walls, and the crevasse sockets are off.
+  const strait = bi === 2 && (CONFIG.canyonStrait || (typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('strait')));
 
   // One per-instance base material for ALL solids in this gate → they dissolve
   // together near the camera. Bone for the Dragon Spine, biome rock otherwise.
@@ -1299,8 +1337,15 @@ function buildRockGap(o, e) {
   // material — not a smooth blob. Merged to one mesh; collider hugs the lane band.
   const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T, crest = true) => {
     const h = topY - botY;
+    const straitPinch = h > 20;   // strait: tall mass = PROW (pinch); low mass = FLOE (breath)
     let merged;
-    if (bi === 2) {
+    if (strait) {
+      // MIRROR STRAIT: low wide FLOE (breath) or broad tall PROW (pinch) — pack ice over the
+      // mirror, no coursing, no sockets. Same glacier ladder skin as the props.
+      const parts = frozenStraitParts(hw, hzCol, h, botY, Math.sign(lean) || 1, straitPinch, rng);
+      merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
+      parts.forEach((g) => g.dispose());
+    } else if (bi === 2) {
       // CALVED CANYON wall (Frozen, Fable 4.4) — stacked sheared calved ice blocks with
       // the self-lit frost/mid/teal ladder, so the wall doesn't go black backlit like the
       // old cone pickets. Family cycles per mass so consecutive walls differ. Collider
@@ -1341,8 +1386,10 @@ function buildRockGap(o, e) {
     // full-width box where the rock is only thin tips: a solid lower body, then a
     // narrower crest pulled back up high — and the crest is DROPPED near a ring so
     // lunging up to grab a high ring never clips a thin tip.
-    box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width
-    if (crest) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
+    box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width (channel bound — UNCHANGED)
+    // Crest collider only where tall ice actually covers it: non-strait walls, or strait PROWS.
+    // A strait FLOE tops out ~y15, so a high crest collider would be invisible-but-solid.
+    if (crest && (!strait || straitPinch)) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
 
     // Crevasse SOCKET — a rationed lit fracture on the calved wall's re-flare face (Frozen
     // only). Countdown-rationed (1 per 2–3 eligible masses); because L/R walls interleave
@@ -1350,7 +1397,7 @@ function buildRockGap(o, e) {
     // of hw — a proportional socket on an hw≈12 wall becomes a lit window). Dark backing
     // stays OPAQUE (a hole with light inside) while the glow fades WITH the wall (same floor
     // 0.75, pushed to the same spireFades list) so it can never float off as an LED strip.
-    if (bi === 2 && crest && hw >= 2.5) {
+    if (bi === 2 && !strait && crest && hw >= 2.5) {
       e.seamCountdown = (e.seamCountdown ?? (1 + Math.floor(rng() * 2))) - 1;
       if (e.seamCountdown <= 0) {
         e.seamCountdown = 2 + Math.floor(rng() * 2);
@@ -1470,12 +1517,19 @@ function buildRockGap(o, e) {
     // maps local +z to a SMALLER dist (the approach side), so the exit half must sit at
     // -z (physical dist = o.dist + z) or each section's forward half lands on the backward
     // side and adjacent sections mismatch at rhythm changes (a wall across the slot).
+    let si = 0;
     for (const s of plan.slices) {
       // Fill from the PER-HALF effective lane edge (s.laneHW: wider in the run interior,
       // ±13 on the boundary halves) so the widened channel still reads as rock, not air.
       const lo = -s.laneHW - 3, ro = s.laneHW + 3;
-      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, top, bot, -s.z, 0.06, hz, !s.noCrest);
-      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, top, bot, -s.z, -0.06, hz, !s.noCrest);
+      // MIRROR STRAIT rhythm: most slices are LOW floes (top ~y15 → sky held above); a PINCH
+      // of tall prows lands every ~3rd non-ring slice (2–4 tall moments per run). Non-strait
+      // keeps the full-height wall.
+      const pinch = strait && !s.noCrest && (si % 3 === 1);
+      const mTop = strait ? (pinch ? top : bot + 18) : top;
+      if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, mTop, bot, -s.z, 0.06, hz, !s.noCrest);
+      if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, mTop, bot, -s.z, -0.06, hz, !s.noCrest);
+      si++;
     }
     // Low sea-mist over the section span (same as v1, keyed to the abutting band).
     for (let m = 0; m < 2; m++) {
