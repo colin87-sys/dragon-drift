@@ -256,6 +256,7 @@ function addBellyDeck(push, stations, M) {
 // silhouette becomes a serrated rank instead of a bare tube.
 function addDorsalRidge(push, stations, M, count) {
   const zTop = -2.20, zEnd = stations[stations.length - 1].z;   // occiput → tail-base (gate: the crest must run up the NECK, the head-crop money surface)
+  const crestPts = [];   // P4b: collect the vane crests → a CONTINUOUS charged ridge-line (not dim per-crest specks)
   const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); return { x: 0, y: (a.cy + a.ryU) + ((b.cy + b.ryU) - (a.cy + a.ryU)) * t, w: (a.rx + (b.rx - a.rx) * t) }; } } const l = stations[stations.length - 1]; return { x: 0, y: l.cy + l.ryU, w: l.rx }; };
   for (let u = 0; u < count; u++) {
     const t = u / (count - 1), z = zTop + (zEnd - zTop) * t;
@@ -279,22 +280,27 @@ function addDorsalRidge(push, stations, M, count) {
       // channel's glow pools into, never a strip on convexity).
       push(M.recess, [[-wB, at.y - 0.03, z + foot * 0.6], [-wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.012, z - foot * 0.4]],
                      [[-wB, at.y - 0.03, z + foot * 0.6], [wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.03, z + foot * 0.6]]);
-      // glow-up #3 (carried): an always-on charged FLECK at each vane crest → the serrated ridge itself reads
-      // as a charged storm-line from the rear-chase cam (the base ribbon alone was buried between the vanes).
-      const czf = z + foot * 0.3, cyT = at.y - 0.012 + H * 0.9, fw = wB * 0.85;
-      push(M.spineCharge, [[-fw, cyT, czf], [fw, cyT, czf], [0, cyT + H * 0.22, czf + 0.02]]);
+      // P4b: a bright always-on charged BLOOM riding each vane crest + record the crest for the ridge-line.
+      const czf = z + foot * 0.3, cyT = at.y - 0.012 + H * 0.92, fw = wB * 1.5;
+      push(M.spineCharge, [[-fw, cyT, czf], [fw, cyT, czf], [0, cyT + H * 0.26, czf + 0.02]], [[-fw, cyT, czf - 0.03], [fw, cyT, czf - 0.03], [0, cyT + H * 0.26, czf]]);
+      crestPts.push([0, cyT + H * 0.1, czf]);
     }
   }
-  // CHARGED SPINE LINE (glow-up #3) — a faint always-on cool additive ribbon along the ridge crest, so the
-  // BACK reads as a charged storm-line from the rear-chase cam instead of a dark sawtooth. A shallow tent
-  // (slightly raised centre) so it catches from behind-above. Runs occiput → tail-base.
-  const chN = 44, chW = 0.02;
-  let pL = null, pR = null, pT = null;
+  // CHARGED SPINE RIDGE-LINE (glow-up #3, P4b) — a CONTINUOUS always-on cool additive ribbon threaded
+  // through the vane CRESTS, so from the rear-chase cam the back reads as ONE charged storm-line tracing
+  // the serration, not a dark sawtooth. Horizontal width (catches from behind-above). Occiput → tail-base.
+  const chW = 0.03;
+  for (let i = 1; i < crestPts.length; i++) {
+    const p0 = crestPts[i - 1], p1 = crestPts[i];
+    push(M.spineCharge, [[p0[0] - chW, p0[1], p0[2]], [p1[0] - chW, p1[1], p1[2]], [p1[0] + chW, p1[1], p1[2]]],
+                        [[p0[0] - chW, p0[1], p0[2]], [p1[0] + chW, p1[1], p1[2]], [p0[0] + chW, p0[1], p0[2]]]);
+  }
+  // a faint low underglow strip along the whole ridge base too (fills the neck run where vanes are crest blades)
+  const chN = 40; let pL = null, pR = null;
   for (let s = 0; s <= chN; s++) {
-    const z = zTop + (zEnd - zTop) * (s / chN), at = sample(z);
-    const y = at.y + 0.012, l = [-chW, y, z], r = [chW, y, z], top = [0, y + 0.03, z];
-    if (pL) push(M.spineCharge, [pL, pT, top], [pL, top, l], [pR, top, pT], [pR, r, top]);
-    pL = l; pR = r; pT = top;
+    const z = zTop + (zEnd - zTop) * (s / chN), at = sample(z), y = at.y + 0.02, l = [-0.016, y, z], r = [0.016, y, z];
+    if (pL) push(M.spineCharge, [pL, pR, r], [pL, r, l]);
+    pL = l; pR = r;
   }
 }
 
@@ -920,7 +926,7 @@ function buildStormbrowHead(def, model, mats) {
     for (let k = 0; k < nR; k++) { const a = (k / nR) * Math.PI * 2; rim.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz]); lip.push([cx + Math.cos(a) * r * 1.28, cy + Math.sin(a) * r * 1.05, cz - 0.02 * hs]); }
     const floor = [cx, cy, cz + r * 0.7];   // SHALLOW cup — the ember reads, never swallowed
     for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; push(M.socketFloor, [rim[k], rim[k1], floor]); push(M.dorsal, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } };
-  eyeMat.emissiveIntensity = 0.9 + 1.8 * glow;   // glow-up #5: a hotter eye — the single luminous focal point
+  eyeMat.emissiveIntensity = 0.7 + 1.4 * glow;   // glow-up #5: a luminous eye — hot enough to be the focal point, NOT blown to a white smear (P4b: keep the cool tint)
   const eyeGlowCol = new THREE.Color(def.apexEye ?? 0xcfe0ff);
   for (const side of [1, -1]) {
     const cx = side * 0.135 * hs, cy = 0.06 * hs, cz = -0.14 * hs;
@@ -930,8 +936,9 @@ function buildStormbrowHead(def, model, mats) {
     const ep = [side * 0.155 * hs, cy, cz - 0.04 * hs];
     eye.position.set(ep[0], ep[1], ep[2]); eye.renderOrder = 3;   // PROUD of the narrow skull side, at the socket mouth
     group.add(eye);
-    // soft cool GLOW around the eye (nested additive shells) → a luminous focal point, not a flat shard
-    for (const [r, o] of [[0.16, 0.16], [0.24, 0.10]]) {
+    // soft cool GLOW around the eye (nested additive shells) → a luminous focal point, not a flat shard.
+    // P4b: smaller/dimmer outer shell so the cool 0xcfe0ff tint survives instead of clipping to a white smear.
+    for (const [r, o] of [[0.15, 0.13], [0.18, 0.06]]) {
       const g = new THREE.Mesh(new THREE.OctahedronGeometry(r * hs, 2),
         new THREE.MeshBasicMaterial({ color: eyeGlowCol, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
       g.position.set(ep[0] + side * 0.02 * hs, ep[1], ep[2]); g.renderOrder = 2; group.add(g);
