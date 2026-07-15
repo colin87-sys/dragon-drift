@@ -16,7 +16,7 @@ if (!globalThis.localStorage) { const s = new Map(); globalThis.localStorage = {
 if (!globalThis.location) globalThis.location = { search: '', origin: 'http://test', pathname: '/' };
 if (!globalThis.navigator) globalThis.navigator = { userAgent: 'node' };
 
-const { buildObstacleMesh, barColliderCoverage, pillarColliderCoverage, shardColliderSupport, wallColliderCoverage } = await import('../js/obstacles.js');
+const { buildObstacleMesh, barColliderCoverage, pillarColliderCoverage, shardColliderSupport, wallColliderCoverage, ringClearance } = await import('../js/obstacles.js');
 
 let pass = 0, fail = 0;
 const check = (label, ok) => { if (ok) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.error(`  ✗ FAIL: ${label}`); } };
@@ -54,6 +54,13 @@ for (const r of [0.7, 0.85, 1.0, 1.1]) {
 {
   const c = wallColliderCoverage();
   check(`canyon wall covers the collider band (${c.ok ? 'clean' : c.issues.join('; ')})`, c.ok);
+}
+
+// 1e. RING CLEARANCE — the overunder ice arch/ridge's visible geometry never overshoots its
+//     collider TOWARD the reward ring (the old flat lump poked ~0.8u through the ring's arc).
+{
+  const c = ringClearance();
+  check(`overunder ice clears the ring (ceiling ${(c.worst.ceiling ?? 0).toFixed(2)}u, floor ${(c.worst.floor ?? 0).toFixed(2)}u past collider)${c.ok ? '' : ' — ' + c.issues.join('; ')}`, c.ok);
 }
 
 // 2. BUDGET — each Frozen hazard skin ≤150 triangles (mobile 60fps budget).
