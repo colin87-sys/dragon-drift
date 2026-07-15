@@ -2060,9 +2060,15 @@ function applyReticle(timeLeft, time) {
     reticleFill.material.color.lerp(_focusCol, focusVis * 0.85);
     reticleTrack.material.color.lerp(_focusCol, focusVis * 0.5);
   }
+  // EMBERSIGHT H4 (§B.8) — THE LURE retires the WebGL ring's IDLE ornamental hoop:
+  // the always-on cyan circle framing the dragon carried no information and was the
+  // third at-the-gaze ornament the one-bracket LURE collapses. The two INFORMATIONAL
+  // jobs stay: the Surge DRAIN METER (pink time-left) and the FOCUS-hold warm (jade) —
+  // neither is duplicated by the DOM, so removing them would lose a read. Idle ⇒ ~0.
   reticleFill.material.opacity = surging
     ? 0.55 + Math.abs(Math.sin(time * 8)) * 0.18
-    : 0.32 + focusVis * (0.2 + Math.abs(Math.sin(time * 6)) * 0.1);
+    : focusVis * (0.24 + Math.abs(Math.sin(time * 6)) * 0.1);
+  reticleTrack.material.opacity = surging ? 0.14 : focusVis * 0.10;
   // Comet at the draining edge — only while it's a live meter (fully drawn + surging).
   if (surging && reticleOn > 0.99 && fillFrac > 0.004) {
     const a = Math.PI / 2 + fillFrac * Math.PI * 2;

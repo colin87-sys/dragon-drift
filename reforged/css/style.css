@@ -810,45 +810,65 @@ body.hud-immersive.hud-critical #hud .stamina-arc,
 body.hud-immersive #hud .stamina-arc.sealed {
   opacity: calc(0.9 * var(--hud-alpha)) !important; }
 
-/* ============ TARGET RETICLE (nested squares) ============ */
+/* ============ THE LURE — the ONE reticle instrument (EMBERSIGHT H4 §B.8) ============
+   The lens2 hollow-bracket becomes THE reticle for EVERY state: four corner
+   brackets (the outer square masked to its corners), the nested-squares .inner
+   retired, the dual-stroke keyline carried on a drop-shadow (the mask clips
+   box-shadow, so the glow + dark keyline move to `filter`). Hue roles kept:
+   gold rings / cyan-white gates / steel→mint boss. --ret-glow tints the bloom
+   per state. Re-stroked to a 2px hairline weight. */
 #reticle { position: absolute; left: 0; top: 0; width: 90px; height: 90px;
-  margin: -45px 0 0 -45px; opacity: 0; will-change: transform; }
-#reticle .rsq { position: absolute; inset: 0; border: 3px solid rgba(255, 200, 60, 0.9);
-  border-radius: 4px; box-shadow: 0 0 10px rgba(255, 170, 40, 0.5); animation: ret-spin 6s linear infinite; }
-#reticle .rsq.inner { inset: 18%; border-width: 2px; animation: ret-spin-rev 4s linear infinite; opacity: 0.85; }
-#reticle.locked .rsq { border-color: rgba(80, 255, 170, 0.95); box-shadow: 0 0 14px rgba(60, 255, 160, 0.7); }
+  margin: -45px 0 0 -45px; opacity: 0; will-change: transform;
+  --ret-glow: rgba(255, 170, 40, 0.55); }
+#reticle .rsq { position: absolute; inset: 0; border: 2px solid rgba(255, 200, 60, 0.92);
+  border-radius: 4px; animation: ret-spin 6s linear infinite;
+  --bk: 34%;                                     /* corner-bracket arm box, fraction of the side */
+  -webkit-mask:
+    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
+  mask:
+    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
+  /* dual-stroke keyline (§A Law 2): warm line = the border, dark drop = the
+     survival keyline; the second drop is the state-tinted bloom. */
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.72)) drop-shadow(0 0 4px var(--ret-glow)); }
+/* The nested inner square is retired for every state (one bracket instrument). */
+#reticle .rsq.inner { display: none; }
+#reticle.locked { --ret-glow: rgba(60, 255, 160, 0.7); }
+#reticle.locked .rsq { border-color: rgba(80, 255, 170, 0.95); }
 /* Gate reticle: a calm cool cyan-white that reads on every biome veil (warm or
    cool) and stays distinct from the warm gold ring reticle; faster spin too. */
-#reticle.gate .rsq { border-color: rgba(170, 230, 255, 0.92); box-shadow: 0 0 12px rgba(120, 210, 255, 0.55); animation: ret-spin 4s linear infinite; }
-#reticle.gate .rsq.inner { border-color: rgba(220, 245, 255, 0.85); animation: ret-spin-rev 2.5s linear infinite; }
-#reticle.gate.locked .rsq { border-color: rgba(235, 250, 255, 0.97); box-shadow: 0 0 16px rgba(150, 225, 255, 0.8); }
+#reticle.gate { --ret-glow: rgba(120, 210, 255, 0.55); }
+#reticle.gate .rsq { border-color: rgba(170, 230, 255, 0.92); animation: ret-spin 4s linear infinite; }
+#reticle.gate.locked { --ret-glow: rgba(150, 225, 255, 0.8); }
+#reticle.gate.locked .rsq { border-color: rgba(235, 250, 255, 0.97); }
 /* THE LANCE reticle — the in-boss SECOND job (aim-line on a boss organ). Made BOLD
    and legible (the first pass was too faint next to the dragon's cyan focus ring):
    a bright steel target that BREATHES, tints toward green as your dwell builds
    (--dwell 0..1, set per-frame), then SNAPS green with a ring-flash on lock — so
    "you're doing it right" reads instantly, visually and (via sfx) audibly. Still
    NOT the amber ring skin (parry-amber role collision §II.1.6); ashen when muted. */
+#reticle.boss { --ret-glow: rgba(150,210,240,0.5); }
 #reticle.boss .rsq {
-  border-width: 3.5px;
+  border-width: 2px;
   border-color: color-mix(in srgb, rgba(222,234,246,0.94), rgba(80,255,170,0.98) calc(var(--dwell,0) * 100%));
-  box-shadow: 0 0 12px rgba(150,210,240,0.45), 0 0 3px rgba(255,255,255,0.55);
   animation: ret-spin 6s linear infinite, ret-boss-breathe 1.5s ease-in-out infinite;
 }
-#reticle.boss .rsq.inner {
-  border-color: color-mix(in srgb, rgba(232,242,251,0.88), rgba(120,255,190,0.98) calc(var(--dwell,0) * 100%));
-}
-/* Building toward a lock: the glow swells with dwell progress. */
-#reticle.boss.aiming .rsq { box-shadow: 0 0 16px rgba(90,255,180,calc(0.3 + var(--dwell,0)*0.5)), 0 0 4px rgba(255,255,255,0.6); }
-/* Locked: full green, energised (spins faster), strong bloom. */
+/* Building toward a lock: the bloom swells with dwell progress (via --ret-glow). */
+#reticle.boss.aiming { --ret-glow: rgba(90,255,180,calc(0.35 + var(--dwell,0)*0.5)); }
+/* Locked: full mint-green, energised (spins faster), strong bloom. */
+#reticle.boss.locked { --ret-glow: rgba(60,255,160,0.85); }
 #reticle.boss.locked .rsq {
-  border-color: rgba(90,255,175,1); border-width: 4px;
-  box-shadow: 0 0 20px rgba(60,255,160,0.9), 0 0 6px rgba(200,255,230,0.9);
+  border-color: rgba(90,255,175,1); border-width: 2.5px;
   animation: ret-spin 3s linear infinite, ret-boss-breathe 1.5s ease-in-out infinite;
 }
-#reticle.boss.locked .rsq.inner { border-color: rgba(190,255,225,1); }
 /* Muted (slot 13): ashen, no green, no breathe. */
-#reticle.boss.sealed .rsq { border-color: rgba(150,160,175,0.42); box-shadow: none; animation: ret-spin 6s linear infinite; }
-#reticle.boss.sealed .rsq.inner { border-color: rgba(160,170,185,0.38); }
+#reticle.boss.sealed { --ret-glow: rgba(120,128,140,0.2); }
+#reticle.boss.sealed .rsq { border-color: rgba(150,160,175,0.42); animation: ret-spin 6s linear infinite; }
 /* The one-shot green ring flash fired on the lock snap. */
 .rsnap { position: absolute; inset: -6%; border: 3px solid rgba(120,255,190,0.95); border-radius: 8px;
   opacity: 0; pointer-events: none; }
@@ -862,25 +882,10 @@ body.hud-immersive #hud .stamina-arc.sealed {
    All scoped to .lens2 + .boss, so the shipped ring/gate reticle and every non-lens
    run are byte-identical. Three DOM/CSS interventions (see js/lensFlag.js). */
 
-/* (2) HOLLOW the boss reticle: drop the nested inner square and MASK the outer one to
-   four corner boxes — each shows an L of border = a bracket, the centre + mid-edges cut
-   to transparent. A bullet spawning on the muzzle is now born in clear pixels instead of
-   behind glowing chrome. Dwell tint, spin, breathe and every lock state still carry. */
-#reticle.lens2.boss .rsq.inner { display: none; }
-#reticle.lens2.boss .rsq {
-  --bk: 34%;                                     /* corner-bracket arm box, fraction of the side */
-  box-shadow: none;                              /* the mask (border-box) clips box-shadow away — glow moves to the ::before halo */
-  -webkit-mask:
-    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
-  mask:
-    linear-gradient(#000 0 0) 0 0 / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 100% 0 / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 0 100% / var(--bk) var(--bk) no-repeat,
-    linear-gradient(#000 0 0) 100% 100% / var(--bk) var(--bk) no-repeat;
-}
+/* (2) HOLLOW brackets are now the DEFAULT reticle skin for every state (the base
+   #reticle .rsq block above masks the outer square to four corner brackets + retires
+   the .inner square). This lens block only adds the boss-specific CUES on top:
+   the threat-yield halo, the telegraph chevrons, and the saturation split. */
 /* (3a) YIELD lives here, NOT on the brackets. An UNMASKED halo behind the brackets carries
    the whole bloom (a masked element's box-shadow never paints — it's clipped to the border
    box). Its opacity recedes with --yield so the glow steps back under threat while the

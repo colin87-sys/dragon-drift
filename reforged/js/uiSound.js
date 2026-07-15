@@ -80,6 +80,12 @@ export const uiSound = {
     blip({ type: 'sine', from: 1960, to: 2350, dur: 0.09, vol: 0.085 });
     blip({ type: 'sine', from: 2940, to: 3520, dur: 0.09, vol: 0.045, delay: 0.02 });
   },
+  // EMBERSIGHT H4 — the LURE lock grammar (§B.8 / U11): a soft high tick while a
+  // ring/gate is FRAMED (search), then ONE solid down-settling tone on the lock
+  // snap (lock = one voice). Under the gameplay chime, felt not announced.
+  search()  { blip({ type: 'triangle', from: 2600, to: 2500, dur: 0.028, vol: 0.05 }); },
+  lock()    { blip({ type: 'sine', from: 1560, to: 1180, dur: 0.09, vol: 0.075 });
+              blip({ type: 'sine', from: 2320, to: 1760, dur: 0.07, vol: 0.035, delay: 0.015 }); },
   bell(role) {
     if (role === 'gold' || role === 'jade') {
       blip({ type: 'sine', from: 1480, to: 1720, dur: 0.05, vol: 0.05 });
