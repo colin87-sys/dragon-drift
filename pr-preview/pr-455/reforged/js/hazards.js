@@ -117,7 +117,7 @@ export function updateHazards(dt, player, time) {
       const dx = player.position.x - v.x;
       const dz = player.dist - v.dist;
       if (dx * dx + dz * dz < (v.radius + R) * (v.radius + R)) {
-        hitPlayer(player, CONFIG.hazardDamage, 'geyser');
+        hitPlayer(player, CONFIG.hazardDamage, 'geyser', { x: 0, y: -1 });   // a geyser strikes from below
       }
     }
   }

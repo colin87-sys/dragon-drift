@@ -317,7 +317,11 @@ function awardNearMiss(collider, player) {
   emit('nearMiss');
 }
 
-function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shard') {
+// H3 §B.10 — `impact` is the direction TO the impactor in the flight plane
+// ({x,y} + severity = damage/obstacleDamage), read at the one moment the data
+// exists (risk #11). Derived from the knockback push (which points AWAY from
+// the impactor) or the cause for the fixed planes; null = all-quadrant pulse.
+function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shard', impact = null) {
   if (invuln > 0) return;
   // Barrel-roll i-frames: damage is dodged, and the near-miss checks above
   // keep firing — rolling through a cluster showers bonuses instead. The lane
@@ -329,7 +333,16 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
   if (pushX) player.velocity.x += pushX * 10;
   if (pushY) player.velocity.y += pushY * 8;
   cameraCtl.shake(0.8);
-  ui.damageFlash();
+  if (!impact) {
+    // Fixed planes / push-derived fallback: ground and ceiling are vertical
+    // facts; a knockback push points away from what hit you.
+    if (cause === 'ground') impact = { x: 0, y: -1 };
+    else if (cause === 'ceiling') impact = { x: 0, y: 1 };
+    else if (cause === 'wall') impact = { x: Math.sign(player.position.x) || 1, y: 0 };
+    else if (pushX || pushY) impact = { x: -pushX, y: -pushY };
+  }
+  if (impact) impact.severity = damage / CONFIG.obstacleDamage;
+  ui.damageFlash(false, impact);
   sfx.damage();
   const surgeBefore = game.feverActive;
   // Breaking a combo on damage
@@ -361,8 +374,10 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
 
 // Boss bullet damage — routed through hit() so it respects invuln + barrel-roll
 // i-frames exactly like every other hazard (dodging a bullet by rolling is free).
-export function hitPlayer(player, damage, cause = 'bullet') {
-  hit(player, 0, 0, damage, cause);
+// `impact` (H3 §B.10): the bullet's {x,y} offset from the player at the crossing
+// frame, when the caller has it — bossBullets does, a geyser passes from-below.
+export function hitPlayer(player, damage, cause = 'bullet', impact = null) {
+  hit(player, 0, 0, damage, cause, impact);
 }
 
 // Grazing a bullet — skimming it inside the graze band but NOT getting hit —
