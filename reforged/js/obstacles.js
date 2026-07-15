@@ -1566,22 +1566,19 @@ function buildRockGap(o, e) {
     // maps local +z to a SMALLER dist (the approach side), so the exit half must sit at
     // -z (physical dist = o.dist + z) or each section's forward half lands on the backward
     // side and adjacent sections mismatch at rhythm changes (a wall across the slot).
-    let si = 0;
     for (const s of plan.slices) {
       // Fill from the PER-HALF effective lane edge (s.laneHW: wider in the run interior,
       // ±13 on the boundary halves) so the widened channel still reads as rock, not air.
       const lo = -s.laneHW - 3, ro = s.laneHW + 3;
-      // MIRROR STRAIT rhythm: most slices are LOW floes whose top only just covers the ring line
-      // (so you look OVER them at the sunset — Dial A); a PAIR of tall prow pinches lands only
-      // every ~6th non-ring slice (2–3 per run — Dial C). Non-strait keeps the full-height wall.
-      const pinch = strait && !s.noCrest && (si % 6 === 3);
-      const floeTop = Math.max(bot + 12, Math.min(top, gy + 4));   // cover the flight line, stay low
-      // Berg peaks are CAPPED (~y20, just breaking the ceiling clamp) so they punctuate, never
-      // tower/fill the frame — the whole point of the pinch/breath rhythm.
-      const mTop = strait ? (pinch ? Math.min(top, bot + 23) : floeTop) : top;
+      // MIRROR STRAIT: EVERY mass is a low wide FLOE whose top is an ABSOLUTE world-Y (bot+11 ≈ y8),
+      // DECOUPLED from the ring altitude — so it can NEVER track up into a tall/narrow canyon
+      // (frame 2). No tall prow pinches at all (owner: the tall moments are what ruin it). With the
+      // rings clamped low (level.js), the floe top still covers the flight line while sitting under
+      // the sightline, so you always look OVER the pack ice at the sunset (frame 1). The "pinch"
+      // is now LATERAL — the winding lead (li/ri) narrows between the floes, not overhead.
+      const mTop = strait ? bot + 11 : top;
       if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, mTop, bot, -s.z, 0.06, hz, !s.noCrest);
       if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, mTop, bot, -s.z, -0.06, hz, !s.noCrest);
-      si++;
     }
     // Low sea-mist over the section span (same as v1, keyed to the abutting band).
     for (let m = 0; m < 2; m++) {
