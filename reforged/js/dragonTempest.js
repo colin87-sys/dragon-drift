@@ -157,6 +157,10 @@ function tempestMats(def, glow = 1) {
   // envMapIntensity 0.3). Keeps every bolt sculpted when the hum is at its floor (f0) and under the
   // warm-gold backdrop stress tile. Rides UNDER the arc overlays on the same crest nodes.
   const silverRim = std(0x9fb0c8, { emissive: 0x0a0e16, ei: 0.4, rough: 0.5, metal: 0.06 }); silverRim.envMapIntensity = 0.3;
+  // spineCharge — a FAINT always-on cool additive strip run along the dorsal ridge crest so the BACK reads
+  // as a charged line from the rear-chase cam (glow-up #3), not a dark sawtooth — the linear analog of the
+  // tuft halo. Unticked (not in stormArcMats): a persistent hint of charge, subtle so it never lanterns.
+  const spineCharge = new THREE.MeshBasicMaterial({ color: 0x8fb4ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true });
   // boltTiers[4] — the OPAQUE matte cloud-membrane the bolt is sewn to (near-black faceted planes,
   // §4b-d, the reference's dark storm-cloth). A dark charcoal base lerped a little toward a muted
   // steel-slate so the inboard bays catch a flat facet-value and the outboard crotch reads darkest.
@@ -166,7 +170,7 @@ function tempestMats(def, glow = 1) {
   // a faceted charged CLOUD — lit taut facets vs dark cups — not one flat near-black plane. A hair more
   // emissive charge (still far under the anti-lantern floor) gives the underside a faint stormlight.
   const boltTiers = [0.58, 0.34, 0.18, 0.05].map((f) => std(lerpHex(memBase, 0x808ea8, f), { emissive: 0x0c1120, ei: 0.55, rough: 0.9, metal: 0 }));
-  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, arcBloom, crest, heartCore, recess, socketFloor, silverRim, boltTiers, humFloor, peakFloor };
+  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, arcBloom, crest, heartCore, recess, socketFloor, silverRim, spineCharge, boltTiers, humFloor, peakFloor };
 }
 
 // Deterministic hash jitter (index-seeded — never Math.random, so builds are reproducible).
@@ -276,6 +280,17 @@ function addDorsalRidge(push, stations, M, count) {
       push(M.recess, [[-wB, at.y - 0.03, z + foot * 0.6], [-wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.012, z - foot * 0.4]],
                      [[-wB, at.y - 0.03, z + foot * 0.6], [wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.03, z + foot * 0.6]]);
     }
+  }
+  // CHARGED SPINE LINE (glow-up #3) — a faint always-on cool additive ribbon along the ridge crest, so the
+  // BACK reads as a charged storm-line from the rear-chase cam instead of a dark sawtooth. A shallow tent
+  // (slightly raised centre) so it catches from behind-above. Runs occiput → tail-base.
+  const chN = 44, chW = 0.02;
+  let pL = null, pR = null, pT = null;
+  for (let s = 0; s <= chN; s++) {
+    const z = zTop + (zEnd - zTop) * (s / chN), at = sample(z);
+    const y = at.y + 0.012, l = [-chW, y, z], r = [chW, y, z], top = [0, y + 0.03, z];
+    if (pL) push(M.spineCharge, [pL, pT, top], [pL, top, l], [pR, top, pT], [pR, r, top]);
+    pL = l; pR = r; pT = top;
   }
 }
 
@@ -942,10 +957,10 @@ function buildVirgaTail(def, model, mats, anchor) {
   const a = anchor ?? { y: 0.12, z: 1.62 };
   const T = (model.tailLength ?? 1) * 2.5 * (model.tailStretch ?? 1);
   const nSeg = Math.round(model.tailSegments ?? 8);
-  // glow-up #3 (mass): the tail read as a thin thread under giant wings. Beef the stem ~1.4× and hold mass
-  // longer (lower falloff exponent) so the body carries real silhouette PAST the wing roots — a muscular
-  // storm-tail, not a rope — while the tip still tapers to a shoulder for the tuft.
-  const rAt = (t) => 0.152 * Math.pow(1 - t * 0.80, 0.60) + 0.012;
+  // glow-up #3 (mass): the tail read as a thin thread under giant wings. Beef the stem and hold mass longer
+  // so girth SURVIVES the rear-chase foreshortening (P3b: profile won but the rear projection still read
+  // thin) — a muscular storm-tail, not a rope — while the tip still tapers to a shoulder for the tuft.
+  const rAt = (t) => 0.172 * Math.pow(1 - t * 0.78, 0.58) + 0.020;
   const curveY = (t) => -0.05 * T * Math.sin(Math.PI * t * 0.9);   // low counter-drop then flick
   const stem = [];
   for (let i = 0; i <= nSeg; i++) { const t = i / nSeg; stem.push({ z: a.z + t * T, rx: rAt(t), ry: rAt(t), cy: a.y + curveY(t) }); }
@@ -1003,27 +1018,39 @@ function buildVirgaTail(def, model, mats, anchor) {
     for (let k = 0; k < nR; k++) { const ang = (k / nR) * Math.PI * 2; rim.push([tb[0] + Math.cos(ang) * r, tb[1] + Math.sin(ang) * r, tb[2]]); lip.push([tb[0] + Math.cos(ang) * r * 1.25, tb[1] + Math.sin(ang) * r * 1.05, tb[2] - 0.03]); }
     const floor = [tb[0], tb[1], tb[2] - r * 1.2];
     for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; pushJ(tb[2], M.socketFloor, [rim[k], rim[k1], floor]); pushJ(tb[2], M.flank, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } }
+  const bellies = [];   // P3b: collect the belly points to WEB-FILL the gaps → one solid flame mass, not a spider
   for (let i = 0; i < tuftN; i++) {
     const isC = i === 0, ang = (i / tuftN) * Math.PI * 2 + 0.4;
-    const L = (isC ? 0.55 : 0.26 + 0.30 * ((i * 0.61) % 1)) * tScale, outR = isC ? 0.05 : 0.66;   // shorter + varied → broad flame-tongues, not needles
+    const L = (isC ? 0.42 : 0.24 + 0.26 * ((i * 0.61) % 1)) * tScale, outR = isC ? 0.05 : 0.66;   // shorter center → broad flame-tongues, not needles
     const dir = [Math.cos(ang) * outR, 0.32 + Math.sin(ang * 1.3) * 0.5, 0.66], dl = Math.hypot(dir[0], dir[1], dir[2]);
     const tt0 = [tb[0] + dir[0] / dl * L, tb[1] + dir[1] / dl * L, tb[2] + dir[2] / dl * L];
     const curl = 0.16 * L, tt = [tt0[0] + Math.cos(ang + 1.6) * curl, tt0[1] + 0.05 * L, tt0[2] + Math.sin(ang + 1.6) * curl * 0.5];   // a stronger flame CURL (a licking tongue)
     const kn = 0.42, Bm = [tb[0] + (tt[0] - tb[0]) * kn + Math.cos(ang) * 0.12 * L, tb[1] + (tt[1] - tb[1]) * kn + 0.05 * L, tb[2] + (tt[2] - tb[2]) * kn];   // the flame BELLY (low, where the tongue is widest)
-    const w = (isC ? 0.14 : 0.11) * (0.7 + 0.4 * tScale);   // BROADER still (Fable: tips read too pointy/bladey)
+    const w = (isC ? 0.21 : 0.17) * (0.7 + 0.4 * tScale);   // MUCH broader (P3b: tongues read as thin strings/wireframe)
     spikeJ(tb[2], tb, Bm, w * 0.72, w, 0.012, M.spine, M.arcSeam);   // narrow root → WIDE belly (a leaf/flame)
-    spikeJ(tb[2], Bm, tt, w, w * 0.28, 0.008, M.spine, M.arcCore);   // belly → a ROUNDED broad tip (not a needle point), arcCore brightest
+    spikeJ(tb[2], Bm, tt, w, w * 0.30, 0.008, M.spine, M.arcCore);   // belly → a ROUNDED broad tip (not a needle point), arcCore brightest
+    bellies.push(Bm);
   }
+  // WEB the gaps between adjacent tongue bellies back to the socket centre so the splay reads as ONE
+  // continuous flared flame (glow-up #6), not separate strings. arcSeam (hot) so it reads as flame body.
+  for (let i = 2; i < bellies.length; i++) pushJ(tb[2], M.arcSeam, [tb, bellies[i], bellies[i - 1]]);
+  if (bellies.length > 2) pushJ(tb[2], M.arcSeam, [tb, bellies[1], bellies[bellies.length - 1]]);
   // the ignition CORE node behind the lip (heartCore — the brightest tuft point). Glow-up #6: BIGGER +
   // an always-on soft glow SHELL around it, so the tuft is a hero POINT OF LIGHT the chase cam tracks
   // from every glide angle (the tuft was reading as a sparse splay with no anchor).
   const jt = jointOf(tb[2]), ja = jAnchor(jt);
   const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * (0.7 + 0.5 * tScale), 0), M.heartCore);
   core.position.set(0, 0, 0); chainAdd(tb[2], core).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
-  // soft halo shell — a larger, dim, always-lit near-white bloom source (unticked) so the point glows in cruise too
-  const halo = new THREE.Mesh(new THREE.OctahedronGeometry(0.185 * (0.7 + 0.5 * tScale), 2),   // detail 2 → a rounded glow, not a hard diamond
-    new THREE.MeshBasicMaterial({ color: 0xe8ecff, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
-  chainAdd(tb[2], halo).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
+  // soft halo — NESTED shells (P3b: a single additive octa clipped to a hard white DIAMOND). Each shell is
+  // faint; the additive accumulation is DENSE where they overlap (centre) and THIN at the outer rim (only
+  // the biggest, dimmest shell), so it reads as a soft radial glow with NO hard silhouette edge. Unticked
+  // (always-lit) so the tuft is a hero point of light in cruise; the tongues carry the Surge blaze.
+  const haloR = [0.12, 0.19, 0.27, 0.36], haloO = [0.13, 0.10, 0.075, 0.05];
+  for (let h = 0; h < haloR.length; h++) {
+    const sh = new THREE.Mesh(new THREE.OctahedronGeometry(haloR[h] * (0.7 + 0.5 * tScale), 2),
+      new THREE.MeshBasicMaterial({ color: 0xe8ecff, transparent: true, opacity: haloO[h], blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
+    chainAdd(tb[2], sh).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
+  }
 
   // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
   for (let j = 0; j < nChain; j++) { const m = perJ[j]; if (!m) continue; for (const [mat, tris] of m) chainAdd(jAnchor(j).z, flatTriMesh(tris, mat)); }
