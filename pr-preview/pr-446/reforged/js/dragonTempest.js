@@ -160,7 +160,7 @@ function tempestMats(def, glow = 1) {
   // spineCharge — a FAINT always-on cool additive strip run along the dorsal ridge crest so the BACK reads
   // as a charged line from the rear-chase cam (glow-up #3), not a dark sawtooth — the linear analog of the
   // tuft halo. Unticked (not in stormArcMats): a persistent hint of charge, subtle so it never lanterns.
-  const spineCharge = new THREE.MeshBasicMaterial({ color: 0x8fb4ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true });
+  const spineCharge = new THREE.MeshBasicMaterial({ color: 0x9cc0ff, transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true });
   // boltTiers[4] — the OPAQUE matte cloud-membrane the bolt is sewn to (near-black faceted planes,
   // §4b-d, the reference's dark storm-cloth). A dark charcoal base lerped a little toward a muted
   // steel-slate so the inboard bays catch a flat facet-value and the outboard crotch reads darkest.
@@ -279,6 +279,10 @@ function addDorsalRidge(push, stations, M, count) {
       // channel's glow pools into, never a strip on convexity).
       push(M.recess, [[-wB, at.y - 0.03, z + foot * 0.6], [-wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.012, z - foot * 0.4]],
                      [[-wB, at.y - 0.03, z + foot * 0.6], [wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.03, z + foot * 0.6]]);
+      // glow-up #3 (carried): an always-on charged FLECK at each vane crest → the serrated ridge itself reads
+      // as a charged storm-line from the rear-chase cam (the base ribbon alone was buried between the vanes).
+      const czf = z + foot * 0.3, cyT = at.y - 0.012 + H * 0.9, fw = wB * 0.85;
+      push(M.spineCharge, [[-fw, cyT, czf], [fw, cyT, czf], [0, cyT + H * 0.22, czf + 0.02]]);
     }
   }
   // CHARGED SPINE LINE (glow-up #3) — a faint always-on cool additive ribbon along the ridge crest, so the
@@ -893,9 +897,12 @@ function buildStormbrowHead(def, model, mats) {
   // + arcCore-glow, outer pairs shorter + arcSeam + splayed wider — a value ladder = depth, not a comb.
   // Blades stand PROUD (rise near-vertical off the dome, THEN sweep back) as a bold fan of distinct
   // blades — the tall inner pair dominant — not a flat thicket along the neck (gate polish).
-  const crownN = Math.round(model.maneSpikes ?? 6), HT = [0.34, 0.26, 0.19], AZ = [8, 22, 36];
+  // glow-up #5: a clear DOMINANT + DECAY fan (a tall inner pair, then a steep height/width decay out) so
+  // the crown reads as a hero storm-crown, not a thicket of equal spikes. Ladder indexed by pair (not
+  // clamped) → every pair is distinctly shorter/narrower/splayed-wider than the last.
+  const crownN = Math.round(model.maneSpikes ?? 6), HT = [0.44, 0.28, 0.17, 0.10], AZ = [6, 20, 34, 48];
   for (let p = 0; p < Math.floor(crownN / 2); p++) {
-    const h = HT[Math.min(p, 2)] * hs, azd = AZ[Math.min(p, 2)] * Math.PI / 180, glowMat = p === 0 ? M.arcCore : M.arcSeam, w = (0.05 - 0.009 * p) * hs;
+    const pc = Math.min(p, 3), h = HT[pc] * hs, azd = AZ[pc] * Math.PI / 180, glowMat = p === 0 ? M.arcCore : M.arcSeam, w = (0.058 - 0.011 * p) * hs;
     for (const side of [1, -1]) {
       const bx = side * (0.03 + 0.03 * p) * hs, base = [bx, 0.15 * hs, 0.30 * hs];
       const tip = [bx + side * Math.sin(azd) * h, base[1] + h, base[2] + 0.16 * hs];                 // rise (+Y) then a MODEST back-sweep (+Z)
@@ -913,14 +920,22 @@ function buildStormbrowHead(def, model, mats) {
     for (let k = 0; k < nR; k++) { const a = (k / nR) * Math.PI * 2; rim.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz]); lip.push([cx + Math.cos(a) * r * 1.28, cy + Math.sin(a) * r * 1.05, cz - 0.02 * hs]); }
     const floor = [cx, cy, cz + r * 0.7];   // SHALLOW cup — the ember reads, never swallowed
     for (let k = 0; k < nR; k++) { const k1 = (k + 1) % nR; push(M.socketFloor, [rim[k], rim[k1], floor]); push(M.dorsal, [rim[k], lip[k1], lip[k]], [rim[k], rim[k1], lip[k1]]); } };
-  eyeMat.emissiveIntensity = 0.7 + 1.6 * glow;
+  eyeMat.emissiveIntensity = 0.9 + 1.8 * glow;   // glow-up #5: a hotter eye — the single luminous focal point
+  const eyeGlowCol = new THREE.Color(def.apexEye ?? 0xcfe0ff);
   for (const side of [1, -1]) {
     const cx = side * 0.135 * hs, cy = 0.06 * hs, cz = -0.14 * hs;
     eyeSocket(cx, cy, cz, 0.06 * hs);
-    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.09 * hs, 0), eyeMat);   // a real bright lozenge, not a pinprick
-    eye.scale.set(1.4, 0.7, 1); eye.rotation.y = -side * 0.25;   // almond slit, toed-in forward
-    eye.position.set(side * 0.155 * hs, cy, cz - 0.04 * hs); eye.renderOrder = 3;   // PROUD of the narrow skull side (was buried inside), at the socket mouth
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.095 * hs, 1), eyeMat);   // detail 1 → a rounded almond, not a hard diamond
+    eye.scale.set(1.4, 0.72, 1); eye.rotation.y = -side * 0.25;   // almond slit, toed-in forward
+    const ep = [side * 0.155 * hs, cy, cz - 0.04 * hs];
+    eye.position.set(ep[0], ep[1], ep[2]); eye.renderOrder = 3;   // PROUD of the narrow skull side, at the socket mouth
     group.add(eye);
+    // soft cool GLOW around the eye (nested additive shells) → a luminous focal point, not a flat shard
+    for (const [r, o] of [[0.16, 0.16], [0.24, 0.10]]) {
+      const g = new THREE.Mesh(new THREE.OctahedronGeometry(r * hs, 2),
+        new THREE.MeshBasicMaterial({ color: eyeGlowCol, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
+      g.position.set(ep[0] + side * 0.02 * hs, ep[1], ep[2]); g.renderOrder = 2; group.add(g);
+    }
   }
 
   // ── RANKS: cheek/brow facet plates (angularity) + nostril pits (a second carved void).
