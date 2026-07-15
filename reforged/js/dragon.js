@@ -9,7 +9,8 @@ import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv } from './wingFlapSolver.js';
 import { setFlapDebugPose, resolveWingDebug } from './wingDebugPose.js';
-import { createPulseTimer } from './pulseTimer.js';
+import { createPulseTimer, mulberry32 } from './pulseTimer.js';
+import { createArcCrown } from './stormArcs.js';
 import { setActiveDetail } from './modelDetail.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
@@ -97,6 +98,23 @@ let stormArcMats = [];    // TEMPEST storm circuit — the guarded storm tick is
 let stormTimer = null;    // the tempest's pulseTimer strike clock (null unless a storm dragon is equipped)
 let stormEnvHist = [];    // ring of recent { t, env } so a strike TRAVELS root→tip (bucket b reads env at t − 0.04·b)
 let stormCoreKick = 1;    // the strike kicks the dynamo — coreGlow.userData.base is scaled by this pre-read
+let arcCrown = null, arcBeat = -1, arcRestruck = false, motifAnchor = null;   // the Surge ARC CROWN (tempest only)
+let stormCrack = 0;       // #5 the thunder-crack scalar (0..1) shared to the eyes/wash so they flash on the beat
+const arcCamDir = new THREE.Vector3(0, 0.45, 1);   // toward the chase cam in dragon-local space (billboard axis)
+const _av1 = new THREE.Vector3(), _av2 = new THREE.Vector3(), _av3 = new THREE.Vector3(), _av4 = new THREE.Vector3();
+// The arc routes — leaps between her own anatomy. Over-the-back wingtip↔wingtip is the money arc (always
+// included); the rest are seeded so no two beats are identical. Endpoints re-sampled live (track the flap).
+function pickStormArcRoutes(seed) {
+  if (!(tipMarkerL && tipMarkerR && motifAnchor)) return [];
+  const rng = mulberry32(seed | 0);
+  const wl = () => tipMarkerL.getWorldPosition(_av1), wr = () => tipMarkerR.getWorldPosition(_av2),
+    dyn = () => motifAnchor.getWorldPosition(_av3),
+    tail = () => (tailSegs.length ? tailSegs[tailSegs.length - 1].getWorldPosition(_av4) : motifAnchor.getWorldPosition(_av4));
+  const routes = [{ getA: wl, getB: wr, forks: 3 }];   // the over-the-back arc — always
+  const rest = [{ getA: wl, getB: dyn, forks: 2 }, { getA: wr, getB: dyn, forks: 2 }, { getA: dyn, getB: tail, forks: 2 }];
+  for (const r of rest) if (rng() < 0.6) routes.push(r);
+  return routes.slice(0, 3);
+}
 const _stormBase = new THREE.Color();   // scratch: per-mat base emissive for the strike-peak hue lerp
 const _stormHot = new THREE.Color(0xf2f4ff);   // the near-white strike core (hue-lerp target at env>0.85)
 let surgeMix = 0;         // 0..1 damped Surge transition
@@ -242,6 +260,14 @@ export function createDragon(scene, def, riderDef) {
     : null;
   stormEnvHist = [];
   stormCoreKick = 1;
+  // ARC CROWN (Surge signature) — build it for a storm dragon, anchored to the wingtips/dynamo/tail.
+  if (arcCrown && arcCrown.group.parent) arcCrown.group.parent.remove(arcCrown.group);
+  arcCrown = null; arcBeat = -1;
+  motifAnchor = result.parts.motifAnchor || null;
+  if (stormArcMats.length && tipMarkerL && tipMarkerR && motifAnchor) {
+    arcCrown = createArcCrown(THREE, {});
+    group.add(arcCrown.group);
+  }
 
   // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
   // bright sky/water. Additive to outgoing light (independent of the emissive
@@ -1253,6 +1279,18 @@ export function updateDragon(dt, player, time) {
     }
     // the sternum dynamo "turns over" on each strike AND BOOMS with every thunder-crack during Surge
     stormCoreKick = 1 + 0.5 * ss.env01 + (fever ? 0.9 * Math.max(0, thunderAt(0) - 0.42) : 0);
+    // ── THE ARC CROWN — forked arcs leap between her body parts on each thunder crack (fire a fresh set
+    // on every beat + a re-strike at mid-beat; intensity rides the crack so they flash and vanish).
+    if (arcCrown) {
+      if (fever) {
+        const beat = Math.floor(tNow / 1.15), beatPh = (tNow / 1.15) - beat;
+        if (beat !== arcBeat) { arcBeat = beat; arcRestruck = false; arcCrown.fire((0x5721 ^ (beat * 2654435761)) | 0, pickStormArcRoutes((0x5721 ^ (beat * 2654435761)) | 0)); }
+        else if (!arcRestruck && beatPh > 0.5) { arcRestruck = true; const s = (0x91a3 ^ (beat * 40503)) | 0; arcCrown.fire(s, pickStormArcRoutes(s)); }   // the return-stroke
+        const crack = Math.min(1, Math.max(0, (thunderAt(0) - 0.6)));   // 0 in the rumble, ~1 at the crack peak
+        arcCrown.render(arcCamDir, crack * surgeMix);
+        stormCrack = crack * surgeMix;   // #5 ONE CONDUCTOR — the eyes/wash flash on the SAME beat (set below)
+      } else if (arcBeat !== -1) { arcCrown.clear(); arcBeat = -1; stormCrack = 0; }
+    }
   } else {
     stormCoreKick = 1;
   }
@@ -1313,6 +1351,10 @@ export function updateDragon(dt, player, time) {
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);
   eyeMat.emissive.setHex(player.feverActive ? (activeDef.feverEye ?? 0xff66ee) : activeDef.eye);
+  // #5 ONE CONDUCTOR — the eyes flash white-hot on each thunder crack (same beat as the arcs), so the
+  // Surge reads as one giant synchronized event. stormCrack is 0 for every non-storm dragon.
+  if (stormCrack > 0.001 && eyeMat.userData.stormEyeBase == null) eyeMat.userData.stormEyeBase = eyeMat.emissiveIntensity || 1;
+  if (eyeMat.userData.stormEyeBase != null) eyeMat.emissiveIntensity = eyeMat.userData.stormEyeBase * (1 + 2.0 * stormCrack);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
   const auraTarget = (player.feverActive
