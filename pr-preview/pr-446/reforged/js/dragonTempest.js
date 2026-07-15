@@ -997,7 +997,7 @@ function buildVirgaTail(def, model, mats, anchor) {
   // count with ONE dominant center tongue — the point of light. Cool near-white only (no green/warm).
   // Scaled up ~1.8x so the tuft is the single brightest/largest event on the tail (the point of light
   // the chase cam tracks) — it must OUT-shine its own fringe from every glide angle (gate: hero dominance).
-  const tip = stem[nSeg], tb = [0, tip.cy, tip.z], tScale = 0.5 + 0.8 * glow, tuftN = Math.max(3, Math.round(2 + 3 * glow));   // fewer, BROADER tongues (owner: thin spikes read cheap)
+  const tip = stem[nSeg], tb = [0, tip.cy, tip.z], tScale = 0.5 + 0.8 * glow, tuftN = Math.max(5, Math.round(4 + 4 * glow));   // glow-up #6: a FULLER splay (was sparse from the chase cam) — broad tongues, more of them
   // socket lip at the tuft base (a bigger housing the tongues erupt from)
   { const nR = 6, r = 0.07 * (0.7 + 0.4 * tScale); const rim = [], lip = [];
     for (let k = 0; k < nR; k++) { const ang = (k / nR) * Math.PI * 2; rim.push([tb[0] + Math.cos(ang) * r, tb[1] + Math.sin(ang) * r, tb[2]]); lip.push([tb[0] + Math.cos(ang) * r * 1.25, tb[1] + Math.sin(ang) * r * 1.05, tb[2] - 0.03]); }
@@ -1014,9 +1014,16 @@ function buildVirgaTail(def, model, mats, anchor) {
     spikeJ(tb[2], tb, Bm, w * 0.72, w, 0.012, M.spine, M.arcSeam);   // narrow root → WIDE belly (a leaf/flame)
     spikeJ(tb[2], Bm, tt, w, w * 0.28, 0.008, M.spine, M.arcCore);   // belly → a ROUNDED broad tip (not a needle point), arcCore brightest
   }
-  // the ignition CORE node behind the lip (heartCore — the brightest tuft point, on the storm tick)
-  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.075 * (0.7 + 0.5 * tScale), 0), M.heartCore);
-  core.position.set(0, 0, 0); chainAdd(tb[2], core).position.set(tb[0] - jAnchor(jointOf(tb[2])).x, tb[1] - jAnchor(jointOf(tb[2])).y, tb[2] - jAnchor(jointOf(tb[2])).z);
+  // the ignition CORE node behind the lip (heartCore — the brightest tuft point). Glow-up #6: BIGGER +
+  // an always-on soft glow SHELL around it, so the tuft is a hero POINT OF LIGHT the chase cam tracks
+  // from every glide angle (the tuft was reading as a sparse splay with no anchor).
+  const jt = jointOf(tb[2]), ja = jAnchor(jt);
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * (0.7 + 0.5 * tScale), 0), M.heartCore);
+  core.position.set(0, 0, 0); chainAdd(tb[2], core).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
+  // soft halo shell — a larger, dim, always-lit near-white bloom source (unticked) so the point glows in cruise too
+  const halo = new THREE.Mesh(new THREE.OctahedronGeometry(0.185 * (0.7 + 0.5 * tScale), 0),
+    new THREE.MeshBasicMaterial({ color: 0xe8ecff, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true }));
+  chainAdd(tb[2], halo).position.set(tb[0] - ja.x, tb[1] - ja.y, tb[2] - ja.z);
 
   // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
   for (let j = 0; j < nChain; j++) { const m = perJ[j]; if (!m) continue; for (const [mat, tris] of m) chainAdd(jAnchor(j).z, flatTriMesh(tris, mat)); }
