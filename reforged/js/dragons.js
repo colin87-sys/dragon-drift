@@ -761,9 +761,9 @@ export const DRAGONS = {
       { spanScale: 0.90, glowLevel: 0.75, headScale: 1.14, rays: 4, tailStretch: 1.0,
         kinkKnuckles: 3, arcRun: 0.75, arcDuty: 0.14, maneSpikes: 4, virgaWisps: 4, heartScale: 0.85, billowAmp: 0.02,
         colors: { body: 0x2e3543, belly: 0x48505f, wingOuter: 0x2e3543, eye: 0xcfd8ff } },   // Thunderhead — third kink + the Y-FORK, forking arcs
-      { spanScale: 1.0, glowLevel: 1.00, headScale: 1.08, rays: 4, tailStretch: 1.0,
-        kinkKnuckles: 3, arcRun: 1.0, arcDuty: 0.18, maneSpikes: 6, virgaWisps: 5, heartScale: 1.0, billowAmp: 0.03,
-        colors: { body: 0x293040, belly: 0x434b5a, wingOuter: 0x293040, eye: 0xcfd8ff } },   // Tempest Unleashed — the full bolt-frame + fractal tree (DARKEST charcoal, apex)
+      { spanScale: 1.0, glowLevel: 1.00, headScale: 1.08, rays: 5, tailStretch: 1.0,
+        kinkKnuckles: 3, arcRun: 1.0, arcDuty: 0.18, maneSpikes: 8, virgaWisps: 7, heartScale: 1.0, billowAmp: 0.03,
+        colors: { body: 0x293040, belly: 0x434b5a, wingOuter: 0x293040, eye: 0xcfd8ff } },   // Tempest Unleashed — the full bolt-frame + fractal tree (DARKEST charcoal, apex). f3 crown gets its OWN silhouette step (Fable: f2→f3 read as density, not a leap): an extra aft ray-prong (rays 4→5, a change f2 lacks), a wider virga tail-rudder (5→7), a denser storm-crown (6→8)
     ],
     fx: { auraColor: '217,222,255', auraIdle: 0, auraIdleRamp: 0, sparkle: false },   // NO idle halo — the standing frame is diffuse-only by law (§B.4d); the strike owns the frame
     hasStyle: true,   // Surge stays a WHITE-VIOLET storm, never magenta
