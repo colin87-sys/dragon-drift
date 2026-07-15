@@ -211,11 +211,12 @@ function mergeParts(parts, biomeIdx) {
 // in silhouette), the verticals = near-black smouldering basalt. Zero triangle cost;
 // turns flat dark basalt into carved, bottom-lit mass. Caldera's OWN stops — never the
 // Frozen ice hues (the Part B leak the mechanical grep guards).
-const _CAL_BELLY = [0.86, 0.34, 0.12];   // hot ember catch-light (down-faces)  — THE BELLY GLOWS
-const _CAL_CRUST = [0.34, 0.29, 0.31];   // DARK ash grey-mauve cooled crust (up-faces), off-orange —
-                                         // the crown is dark (theology); distinct from the vertical basalt
-                                         // but clearly darker than the belly, so mass never reads light-topped.
-const _CAL_BASALT = [0.15, 0.11, 0.11];  // near-black warm basalt (verticals)  — the dark mass
+const _CAL_BELLY = [0.98, 0.30, 0.06];   // HOT saturated ember catch-light (down-faces) — THE BELLY GLOWS
+const _CAL_CRUST = [0.36, 0.31, 0.33];   // ash grey-mauve cooled crust (up-faces), off-orange — the crown,
+                                         // distinct from the near-black verticals so tops read as cooled crust.
+const _CAL_BASALT = [0.085, 0.06, 0.055]; // NEAR-BLACK warm basalt (verticals) — the dark mass; the wide
+                                          // value range from black flank to hot belly is what carries a
+                                          // dark-mass hero against the ember sky (Fable r1: verticals too light).
 function bakeCalderaLadder(geo) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -225,7 +226,9 @@ function bakeCalderaLadder(geo) {
     a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
     e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
     const d = -nr.y;                                             // world-DOWN axis: down-faces (nr.y<0) → d>0 → hot
-    const s = d > 0.35 ? _CAL_BELLY : d < -0.30 ? _CAL_CRUST : _CAL_BASALT;
+    // down-threshold 0.28 (was 0.35) so undercut/overhang faces (inverted plinth skirt,
+    // capstone + toppled undersides) catch the ember belly — the hot waterline seam.
+    const s = d > 0.28 ? _CAL_BELLY : d < -0.30 ? _CAL_CRUST : _CAL_BASALT;
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -558,29 +561,48 @@ const ARCHETYPES = {
   // spread in x AND z → broad from every yaw. flatShading hex facets give the vertical rib.
   colonnata: {
     step: 53, biomes: calderaNew, matIndex: 3,
-    build: () => mergeCalderaParts([
-      // A PACKED PALISADE of fused hex columns at DESCENDING heights (organ pipes broken
-      // mid-song) rising from a LOW subordinate plinth. The columns are the hero, not the
-      // base — chunky, tight-packed (interpenetrating ≥25%), spread in x AND z so the rib
-      // read survives any recycle yaw. flatShading on the hex facets gives the vertical rib.
-      // 1. Plinth — LOW cooled terrace welding the columns at the waterline (broad hot belly
-      //    for the mirror), deliberately subordinate so the columns dominate the silhouette.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.54, 0.13, 5), { y: 0.065, ry: 0.30, sx: 1.40, sz: 1.00 }) },
-      // 2. Column 1 (tall, left) — the crest's high note.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.24, 1.00, 6), { x: -0.30, z: 0.03, y: 0.52, sx: 1.15, sz: 0.95 }) },
-      // 3. Column 2 (tall-mid, offset BACK) — different ry so facet corners never align.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.23, 0.25, 0.84, 6), { x: -0.07, z: -0.15, y: 0.45, ry: 0.55, sx: 1.10, sz: 0.95 }) },
-      // 4. Column 3 (mid, offset FORWARD) — the fall continues.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.22, 0.24, 0.66, 6), { x: 0.16, z: 0.14, y: 0.36, ry: 0.95, sx: 1.10 }) },
-      // 5. Column 4 (low shoulder, right) — the crest lands.
-      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.20, 0.22, 0.50, 6), { x: 0.36, z: -0.05, y: 0.28, ry: 1.40, sx: 1.05 }) },
-      // 6. Toppled column — the collapse lying where it fell, half-buried across the plinth.
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.52, 0.18, 0.18), { x: 0.06, z: 0.30, y: 0.11, ry: 0.55, rz: 0.05 }) },
-      // 7. Capstone wedge — oversized overhang on column 1, opposite the crest's descent; the
-      //    one gesture that breaks any residual machined line.
-      { mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.15, 0.27), { x: -0.34, z: -0.03, y: 0.99, ry: 0.40, rz: -0.20 }) },
-    ]),
-    // Fairness AND composition (§9): draw r FIRST, couple x to it conservatively (ρ≈0.78;
+    // A PACKED PALISADE of SLENDER pentagonal basalt columns (Giant's Causeway) at a
+    // BROKEN, non-monotonic crest — organ pipes snapped mid-song, one toppled where it
+    // fell, an overhanging capstone. Columns are open-bottomed (buried in the plinth) +
+    // a matching pentagon top-cap (15 tris each) so 7 fit in budget → the vertical rib
+    // + the polygonal top-mosaic (the flying game's plan view) both read. The broken read
+    // is pure radial x/z OFFSET-stacking — never internal tilt (the (r,h,r) scale shears
+    // it flat). flatShading on the penta facets gives the fluting; the inverted-taper
+    // plinth undercut + the overhangs carry the hot ember belly at the waterline. (Fable
+    // r1 3.2→ deltas D1–D5: more/slimmer columns, break the staircase, fix the belly + plan.)
+    build: () => {
+      // [x, z, height, radius, yaw] — 7 slender columns, ~3.5:1, packed ≥35%, staggered
+      // front/back, crest NON-monotonic (1.05, 0.80, 0.92, 0.62, 0.28-stump, 0.50, 0.72).
+      const cols = [
+        [-0.34,  0.05, 1.05, 0.115, 0.20],
+        [-0.19, -0.14, 0.80, 0.125, 0.95],
+        [-0.05,  0.11, 0.92, 0.115, 1.65],
+        [ 0.11, -0.09, 0.62, 0.125, 0.50],
+        [ 0.03,  0.28, 0.28, 0.105, 2.20],   // the SNAPPED STUMP — the broken beat
+        [ 0.25,  0.09, 0.50, 0.120, 1.15],
+        [ 0.37, -0.07, 0.72, 0.110, 0.35],
+      ];
+      const parts = [];
+      for (const [x, z, h, r, ry] of cols) {
+        // open-ended penta shaft (10 tris) — sides are vertical → near-black basalt flank
+        parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(r, r, h, 5, 1, true), { x, z, y: h / 2, ry }) });
+        // matching penta top cap (5 tris), faces UP → ash crust; forms the plan-view mosaic
+        parts.push({ mat: 0, geo: xform(new THREE.CircleGeometry(r, 5), { x, z, y: h, rx: -Math.PI / 2, ry }) });
+      }
+      // Plinth — LOW subordinate cooled terrace, open-ended (10 tris; top hidden by the
+      // column pack, bottom at the waterline) with an INVERTED taper (rt>rb) so its
+      // overhanging undercut skirt faces DOWN → the hot ember waterline seam (Fable D4).
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.42, 0.32, 0.14, 5, 1, true), { y: 0.07, ry: 0.30, sx: 1.15, sz: 1.00 }) });
+      // Toppled column — a fallen shaft abutting the stump, lying full 90° (survives the
+      // (r,h,r) shear), capped both ends so the pentagon cross-section is the payoff.
+      parts.push({ mat: 0, geo: xform(new THREE.CylinderGeometry(0.115, 0.115, 0.46, 5), { x: -0.02, z: 0.33, y: 0.115, rz: Math.PI / 2, ry: 0.40 }) });
+      // Capstone — a broken slab sliding OFF the tall column to one side (asymmetric, well
+      // tilted — not a centred "T"/hammer); overhangs the right flank, its underside a small
+      // physically-motivated ember patch (belly, not accent — keep the crown dark).
+      parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(0.30, 0.11, 0.25), { x: -0.27, z: 0.01, y: 1.05, ry: 0.35, rz: -0.34 }) });
+      return mergeCalderaParts(parts);
+    },
+    // Fairness AND composition (§9): draw r FIRST, couple x to it conservatively (ρ≈0.75;
     // widen propclearance SCOPE_BIOME to 3 and re-tune). Inner edge = |x|−ρ·r ≥ 14.5.
     // Heroes stand PLUMB (tilt 0, explicit — a missing tilt is a NaN quaternion); the lean
     // lives in the geometry. h < world width always (wider than tall).
