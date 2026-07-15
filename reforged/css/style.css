@@ -1877,9 +1877,17 @@ body[data-qtier="2"] .speedlines { display: none; }
 .hero-gear:active { transform: scale(0.94); }
 @keyframes hero-bar-in { from { opacity: 0; transform: translateY(-12px); } }
 
-/* The centred hero stack. */
+/* The hero stack — TITLE AT THE TOP, CTA AT THE BOTTOM, and the CENTRE OF THE
+   FRAME LEFT CLEAR: the dragon is what the player grinds for, so the subject
+   is never obstructed by chrome (owner directive, 2026-07-15). The stack
+   stretches between the topbar and the rail; margin-top:auto on the CTA opens
+   the stage in the middle. */
+.screen.hero-screen::before, .screen.hero-screen::after { content: none; }
 .hero-core { position: relative; z-index: 3; display: flex; flex-direction: column;
-  align-items: center; padding: 0 16px; }
+  align-items: center; padding: 0 16px; flex: 1 1 auto; width: 100%;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 78px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 122px); }
+.hero-core .hero-cta { margin-top: auto; }
 .screen h1.hero-wordmark { font-size: 66px; letter-spacing: 11px; margin: 0 0 14px;
   filter: drop-shadow(0 0 34px rgba(255, 190, 80, 0.5)) drop-shadow(0 3px 6px rgba(0,0,0,0.65));
   animation: wordmark-shine 7s ease-in-out infinite, hero-word-in 1s var(--ease-out) backwards; }
@@ -2117,10 +2125,13 @@ body.splash-open #hud { display: none; }
   #splash .splash-tag { font-size: var(--fs-micro); }
   #splash .splash-begin { font-size: clamp(13px, 5vh, 17px); }
 
-  /* Hub: the ::after spacer reserves the rail band so "press ENTER to fly"
-     can never render under the buttons; the stack compresses to fit 390px. */
-  .screen.hero-screen::before { min-height: 42px; }
-  .screen.hero-screen::after { min-height: 106px; }
+  /* Hub: the stack compresses to fit 390px; the stretch layout + bottom
+     padding keep the CTA/hints clear of the rail and the centre clear.
+     The controls line is dropped here (390px of height has no room for two
+     hint lines — ENTER-to-fly remains, the rest teaches in-run). */
+  .hero-core { padding-top: calc(env(safe-area-inset-top, 0px) + 58px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); }
+  .hero-core .hero-sub { display: none; }
   .screen h1.hero-wordmark { font-size: 38px; letter-spacing: 0.14em; margin-bottom: 8px; }
   .btn-primary.hero-cta { font-size: 15px; padding: 12px 36px; }
   .hero-core .hero-sub { margin: 10px 0 0; }
