@@ -21,6 +21,11 @@ const CANYON_FORCE = _canyonParams.get('canyon')
 // and judged up close. Pair with ?biome=2 to see the Frozen skins. Off by default →
 // zero change to normal play or the gold-determinism fixture (it never touches rnd).
 const HAZLAB = _canyonParams.has('hazlab');
+// MIRROR STRAIT (Frozen rock-run overhaul) — when on, Frozen rock runs are a LOW deck-height
+// skim over the mirror: the reward rings clamp low (below) so the whole run sits under the
+// sightline and the ice masses (obstacles.js) never track UP into a claustrophobic canyon.
+// Flag-gated (?strait=1 / CONFIG.canyonStrait), OFF by default → zero change to normal play.
+const STRAIT = !!(CONFIG.canyonStrait || _canyonParams.has('strait'));
 // Three canyon set-pieces: a ROCK RUN (mixed split slabs + over-under shelves), a
 // DRAGON SPINE CANYON (skull → throat → ribcage → vertebrae → sky exit), and a FLOW
 // run (the Rhythm Flow-Tube: walls-free light-gates + an orb ribbon, a speed showcase).
@@ -683,6 +688,11 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
         canyon = startCanyon(ring, out, forceInBlock, bNext);
       }
       if (canyon) {
+        // MIRROR STRAIT: clamp Frozen rock-run rings into a LOW deck-skim band before the segment
+        // reads ring.y — this lowers the reward ring AND the mass geometry together (obstacles.js
+        // sizes the ice off gapY), so the whole run stays under the sightline (frame 1) and never
+        // rides up into the tall/narrow canyon (frame 2). prevY/nextY smoothing stays continuous.
+        if (STRAIT && canyon.type === 'rock' && biomeIndexAt(ring.dist) === 2) ring.y = clamp(ring.y, 5.0, 7.0);
         // BUILD the segment now (so canyonRnd draw order is byte-identical), but
         // EMIT it one ring later (`canyon.held`). Only then do we know the NEXT
         // segment's centre for real, so nextX/nextY are true values in per-frame
