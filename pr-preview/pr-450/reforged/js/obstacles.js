@@ -5,6 +5,7 @@ import { halves, band, centre, spineSway, rockSlicePlan, CORRIDOR_HALF, kindMult
 import { mulberry32 } from './util.js';
 import { bindAtmosphere } from './atmosphere.js';
 import { makeMarkerSurface, bakeGlowT, bakeConst, facetHash } from './markerSurface.js';
+import { buildPropArchetype, clonePropMaterial, addDeckSkimWindow } from './environment.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
 // Skyforged A/B kill-switch: the premium Windvault gate is ON by default;
@@ -1157,6 +1158,134 @@ function frozenStraitParts(hw, hz, h, botY, sign, pinch, rng) {
   return parts;
 }
 
+// ===== PROPS-IN-LANE ROCK RUN (strait2 — ROCKRUN-STRAIT-HANDOFF.md) ==========
+// The rock run stops being a bespoke set-piece and becomes THE BIOME ITSELF pulled
+// into the lane: the same prop archetypes that decorate the horizon, brought to the
+// lane edges, given fair under-fitting colliders, and pulsed by ONE tightness scalar
+// T(s) ∈ [0,1] — a breath phase-locked to the reward rings (ring plane z=0 is the
+// OPEN trough T≈0; the squeeze T≈1 lands BETWEEN rings at the section seams). Two
+// dials read T: edge padding (props pull in as T→1) and edge density (crowd as T→1,
+// thin/vanish as T→0). All rhythm/fairness/cap logic lives HERE once; a new biome
+// authors only its RUN_KIT data block.
+export const RUN_KIT = {
+  frozen: {
+    matIndex: 2,          // re-skin cross-biome borrows (berg/floe/skerry) to glacial ice
+    baseY: -3,            // rooted at the sea, like the strait floes
+    // THE HARD RULE: ABSOLUTE world-Y cap for every in-lane bounding-box top,
+    // DECOUPLED from ring altitude (== the strait floe deck, bot+11 ≈ y8, under the
+    // deck-skim sightline with rings clamped y5–7 in level.js). Tall verticals
+    // (icetower/glacierwall/iceFang) are excluded by roster AND could not fit anyway.
+    heightCapY: 8,
+    // Four unrelated silhouette families; anti-picket forbids same-family neighbours.
+    archetypes: [
+      // Fable gate round 1: width:height stays ≥ ~1.5:1 on everything near the lane
+      // (squeeze comes from LATERAL proximity, never wall height) — serac down-weighted
+      // and shortened (its stacked blocks read most vertical), pans/steps favoured.
+      { id: 'bergwall', w: 2, family: 'tabular', r: [5, 8],  h: [6, 8.5]  },
+      { id: 'serac',    w: 2, family: 'block',   r: [4, 7],  h: [4, 6.5]  },
+      { id: 'terrace',  w: 3, family: 'step',    r: [6, 10], h: [3, 6]    },
+      { id: 'berg',     w: 2, family: 'round',   r: [3, 6],  h: [3, 5]    },
+      { id: 'floe',     w: 3, family: 'pan',     r: [5, 9],  h: [2, 4]    },
+      { id: 'skerry',   w: 2, family: 'round',   r: [2, 4],  h: [1.5, 3]  },
+    ],
+    // Collider footprint as data (object-space, × the (r,h,r) instance scale) that
+    // UNDER-FITS the visual silhouette (authored from measured geometry bounds, see
+    // the Move-2 lesson): what looks passable is passable, what looks solid is solid.
+    colliderFootprints: {
+      bergwall: { half: { x: 0.50, y: 0.42, z: 0.45 }, yc: 0.44 },
+      serac:    { half: { x: 0.42, y: 0.40, z: 0.40 }, yc: 0.42 },
+      terrace:  { half: { x: 0.45, y: 0.30, z: 0.45 }, yc: 0.32 },
+      berg:     { half: { x: 0.36, y: 0.40, z: 0.34 }, yc: 0.42 },
+      floe:     { half: { x: 0.42, y: 0.34, z: 0.40 }, yc: 0.36 },
+      skerry:   { half: { x: 0.36, y: 0.40, z: 0.40 }, yc: 0.44 },
+    },
+    // openPad/tightPad: gap between the audited channel edge (li/ri) and the prop's
+    // worst-case visual inner edge — the visual can KISS the fair channel at T=1 but
+    // never cross it (center gold lead clear by construction). sparse/dense: along-z
+    // spacing between edge props at T=0 / T=1.
+    tightness: { openPad: 6, tightPad: 0.4, sparse: 34, dense: 9 },
+  },
+};
+
+// The shared, biome-agnostic generator. Walks the EXISTING rockSlicePlan li/ri weave
+// (untouched — the audited fair channel), computes T per slice, picks archetypes by
+// weight with anti-picket, scales each under kit.heightCapY, places at the edge, and
+// emits the visual instance (environment.js geometry + shared-material clones, so it
+// is tonally identical to the horizon bands by construction) + an under-fitting
+// collider + a per-section fade. `ctx` = closures from buildRockGap.
+function buildPropRun(plan, kit, ctx) {
+  const { rng, group, box, pushFade, dist } = ctx;
+  // One geometry + one fade-clone material pair per archetype PER SECTION (meshes
+  // share them). Clones are re-detailed (clonePropMaterial) and fade with the run.
+  const cache = new Map(), matClones = new Map();
+  const cloneFor = (m) => {
+    if (!matClones.has(m)) {
+      const c = clonePropMaterial(m);
+      c.transparent = true; c.depthWrite = false; c.userData.perInstance = true;
+      matClones.set(m, c);
+      pushFade({ mat: c, dist, floor: 0.75 });
+    }
+    return matClones.get(m);
+  };
+  const arch = (id) => {
+    if (!cache.has(id)) {
+      const built = buildPropArchetype(id, kit.matIndex);
+      const p = built.geometry.getAttribute('position');
+      let rho = 0, yMax = 0;
+      for (let i = 0; i < p.count; i++) {
+        rho = Math.max(rho, Math.hypot(p.getX(i), p.getZ(i)));
+        yMax = Math.max(yMax, p.getY(i));
+      }
+      const mats = built.materials.map(cloneFor);
+      cache.set(id, { geometry: built.geometry, mats: mats.length > 1 ? mats : mats[0], rho, yMax });
+    }
+    return cache.get(id);
+  };
+  const totalW = kit.archetypes.reduce((a, c) => a + c.w, 0);
+  const pickWeighted = () => {
+    let t = rng() * totalW;
+    for (const a of kit.archetypes) { t -= a.w; if (t <= 0) return a; }
+    return kit.archetypes[kit.archetypes.length - 1];
+  };
+  const capH = kit.heightCapY - kit.baseY;
+  const dz = (plan.wb + plan.wf) / Math.max(plan.slices.length, 1);
+  const lastFam = { '-1': null, '1': null };
+  const gap = { '-1': 1e9, '1': 1e9 };
+  for (const s of plan.slices) {
+    // T(s): 0 at the ring plane (z=0), 1 at the section seams (mid-between rings).
+    // sin² is smooth at both ends and continuous across sections (both halves hit 1).
+    const half = Math.max(s.z >= 0 ? plan.wf : plan.wb, 1);
+    const tw = Math.sin((Math.PI / 2) * Math.min(1, Math.abs(s.z) / half));
+    const T = tw * tw;
+    const spacing = kit.tightness.sparse + (kit.tightness.dense - kit.tightness.sparse) * T;
+    const pad = kit.tightness.tightPad + (kit.tightness.openPad - kit.tightness.tightPad) * (1 - T);
+    for (const side of [-1, 1]) {
+      gap[side] += dz;
+      if (gap[side] < spacing) continue;
+      if (T < 0.12 && rng() < 0.75) continue;    // open trough thins toward EMPTY water
+      gap[side] = 0;
+      let pick = pickWeighted();
+      for (let tries = 0; tries < 4 && pick.family === lastFam[side]; tries++) pick = pickWeighted();
+      lastFam[side] = pick.family;
+      const a = arch(pick.id);
+      const r = pick.r[0] + rng() * (pick.r[1] - pick.r[0]);
+      // THE HARD RULE applied per instance: bbox top = baseY + yMax·h ≤ heightCapY.
+      const h = Math.min(pick.h[0] + rng() * (pick.h[1] - pick.h[0]), capH / a.yMax);
+      // Worst-case inner edge (random rotY → radial reach ρ·r) sits pad outside the
+      // audited channel edge, so the plan's fair channel is never intruded on.
+      const edge = side < 0 ? s.li : s.ri;
+      const cx = edge + side * (pad + a.rho * r);
+      const mesh = new THREE.Mesh(a.geometry, a.mats);
+      mesh.position.set(cx, kit.baseY, -s.z);    // -s.z: same world mapping as the masses
+      mesh.scale.set(r, h, r);
+      mesh.rotation.y = rng() * Math.PI * 2;
+      group.add(mesh);
+      const fp = kit.colliderFootprints[pick.id];
+      box(cx, kit.baseY + fp.yc * h, fp.half.x * r, fp.half.y * h, fp.half.z * r, -s.z);
+    }
+  }
+}
+
 // Fairness check for the calved wall — validates the authoring invariants that keep the
 // visible ice covering the collider band (a direct sibling of pillarColliderCoverage).
 // Structural (the builder draws from these same ranges), so it can't drift from the code.
@@ -1299,6 +1428,7 @@ export function addCanyonSegment(o) {
   e.object = buildRockGap(o, e);
   scene.add(e.object);
   entries.push(e);
+  return e; // for headless audits (tests/proprun.mjs); the game ignores it
 }
 
 function buildRockGap(o, e) {
@@ -1314,6 +1444,10 @@ function buildRockGap(o, e) {
   // Frozen rock run is built from low pack-ice floes + occasional tall berg prows (see
   // frozenStraitParts) instead of the tall calved walls, and the crevasse sockets are off.
   const strait = bi === 2 && (CONFIG.canyonStrait || (typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('strait')));
+  // PROPS-IN-LANE overhaul (strait2, coexists with the v1 prototype above): the Frozen
+  // rock run is built by buildPropRun from the biome's own prop archetypes (RUN_KIT.frozen)
+  // instead of any bespoke mass kit. Keeps the level.js low-ring deck-skim clamp.
+  const strait2 = bi === 2 && !strait && (CONFIG.canyonStrait2 || (typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('strait2')));
 
   // One per-instance base material for ALL solids in this gate → they dissolve
   // together near the camera. Bone for the Dragon Spine, biome rock otherwise.
@@ -1556,10 +1690,7 @@ function buildRockGap(o, e) {
   // sections abut, and NO overhead arches (the vertical duck is the 'overunder'
   // beat's job — one axis at a time). Geometry is driven entirely by the shared
   // rockSlicePlan so the flow audit verifies the literal channel the player flies.
-  const stackRunV2 = () => {
-    const plan = rockSlicePlan(o);
-    e.depthHalf = Math.max(e.depthHalf || 0, plan.bk, plan.fw);
-    e.noDissolve = true;
+  const stackRunV2Walls = (plan) => {
     const top = CEIL + 2, bot = -3;
     const hz = ((plan.wb + plan.wf) / Math.max(plan.slices.length, 1)) * 0.6; // tiles along z
     // Place at -s.z: rockSlicePlan's z>0 is the exit half (toward nextX), but the world
@@ -1579,6 +1710,28 @@ function buildRockGap(o, e) {
       const mTop = strait ? bot + 11 : top;
       if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, mTop, bot, -s.z, 0.06, hz, !s.noCrest);
       if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, mTop, bot, -s.z, -0.06, hz, !s.noCrest);
+    }
+  };
+
+  // Rock Run v2 driver, split so strait2 swaps ONLY the mass emission: same plan, same
+  // broad-phase, same mist. The channel is no longer a solid wall — it's the biome's
+  // props crowding and thinning in a breath (open water between them is flyable; the
+  // rings in the open troughs are the pull back to the lead).
+  const stackRunV2 = () => {
+    const plan = rockSlicePlan(o);
+    e.depthHalf = Math.max(e.depthHalf || 0, plan.bk, plan.fw);
+    e.noDissolve = true;
+    if (strait2) {
+      // The biome's own decorative bands must respect the deck-skim sightline over
+      // this section too (they'd otherwise loom as canyon walls — see environment.js
+      // addDeckSkimWindow). +60m margins cover the entry/exit approach.
+      addDeckSkimWindow(o.dist - Math.max(plan.wb, plan.bk) - 60, o.dist + Math.max(plan.wf, plan.fw) + 60);
+      buildPropRun(plan, RUN_KIT.frozen, {
+        rng, group, box, dist: o.dist,
+        pushFade: (fd) => (e.spireFades || (e.spireFades = [])).push(fd),
+      });
+    } else {
+      stackRunV2Walls(plan);
     }
     // Low sea-mist over the section span (same as v1, keyed to the abutting band).
     for (let m = 0; m < 2; m++) {

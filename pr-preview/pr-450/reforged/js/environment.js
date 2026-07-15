@@ -794,6 +794,14 @@ export function buildPropArchetype(id, matIndex = null) {
   }
   return out;
 }
+// Per-consumer clone of a shared prop material (in-lane props need a per-section
+// fade clone). Material.clone() does NOT carry onBeforeCompile/customProgramCacheKey
+// (they're own-property assignments Material.copy skips), so the weathering detail
+// must be re-applied or the clone silently loses the noise/AO/atmos injection and
+// reads plastic next to the bands it must match.
+export function clonePropMaterial(m) {
+  return addPropDetail(m.clone());
+}
 // Placement metadata for the same archetype, so RUN_KIT/buildPropRun can reason
 // about it without reaching into the private table.
 export function propArchetypeMeta(id) {
@@ -958,6 +966,14 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
 function makeBand(scene, def) {
   const perSide = Math.ceil(WALL_WINDOW / def.step);
   const { geometry, materials } = def.build();
+  // Object-space top of this archetype (world top = h·yMax), cached for the
+  // deck-skim height clamp — measured from the real geometry so it can't drift.
+  if (def._yMax === undefined) {
+    const p = geometry.getAttribute('position');
+    let yMax = 0;
+    for (let i = 0; i < p.count; i++) yMax = Math.max(yMax, p.getY(i));
+    def._yMax = yMax || 1;
+  }
   // N15 guard: prop materials sample `aoBake`; a build path that skips mergeParts()
   // (or geometry with no normals) would leave it undefined → 0 → BLACK props when the
   // toggle is on. Unreachable today (all builds route through mergeParts), but cheap
@@ -1052,6 +1068,37 @@ function heroHash(n) {
 }
 const HERO_PEAK_OFFSET = 45;   // frozenComp phase 0.15 lands at (dist % 300) === 45 (the congregation peak)
 
+// --- Deck-skim sightline windows (props-in-lane rock run, strait2) -----------
+// Inside a strait2 rock run the camera deck-skims (rings clamped y5–7) and the
+// composition law is WIDE+LOW: nothing may run off the top of the frame. The
+// in-lane props are capped by RUN_KIT.heightCapY, but the biome's own decorative
+// BANDS (bergwall h up to ~38 at x≈32+) would still read as canyon walls at that
+// camera height — the "tall narrow claustrophobic" failure. So obstacles.js
+// registers each strait2 section's dist window here, and writeMatrix clamps band
+// prop WORLD HEIGHT (height axis only — radius keeps its size, so a tall berg
+// squashes into wide tabular pack ice, the north-star composition) inside them.
+// Render-only and pure (no rnd; rotY is cached on first write), so refreshing is
+// always safe. Never touched outside Frozen; empty list = byte-identical output.
+let deckSkimWindows = [];
+const DECK_SKIM_CAP_Y = 11;   // world-Y ceiling for band prop tops inside a window
+export function addDeckSkimWindow(a, b) {
+  deckSkimWindows.push([a, b]);
+  if (deckSkimWindows.length > 48) deckSkimWindows.splice(0, deckSkimWindows.length - 48);
+  // Re-write every live band matrix so instances already recycled into the new
+  // window pick up the cap immediately (pure — safe to run at any time).
+  for (const band of bands) {
+    for (let i = 0; i < band.data.length; i++) writeMatrix(band, i, band.data[i]);
+    band.mesh.instanceMatrix.needsUpdate = true;
+    band.foam.instanceMatrix.needsUpdate = true;
+    if (band.mesh.instanceColor) band.mesh.instanceColor.needsUpdate = true;
+  }
+}
+export function resetDeckSkimWindows() { deckSkimWindows = []; }
+function inDeckSkim(dist) {
+  for (const w of deckSkimWindows) if (dist >= w[0] && dist <= w[1]) return true;
+  return false;
+}
+
 const m4 = new THREE.Matrix4();
 const quat = new THREE.Quaternion();
 const eul = new THREE.Euler();
@@ -1081,7 +1128,14 @@ function writeMatrix(band, i, d) {
     if (heroHash(peakIdx) >= 0.4) active = false;
   }
   if (active) {
-    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k, d.r * k));
+    // Deck-skim clamp (see the window block above): world top = d.h·k·yMax − 0.5
+    // must stay under DECK_SKIM_CAP_Y inside a strait2 run window. Height only.
+    let hK = 1;
+    if (bi === 2 && deckSkimWindows.length && inDeckSkim(d.dist)) {
+      const capH = (DECK_SKIM_CAP_Y + 0.5) / (band.def._yMax || 1);
+      if (d.h * k > capH) hK = capH / (d.h * k);
+    }
+    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k * hK, d.r * k));
   } else {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }
@@ -1157,6 +1211,7 @@ function reseedBand(band) {
 
 export function resetEnvironment(seed) {
   if (seed !== undefined) rnd = mulberry32(seed + 99);
+  deckSkimWindows = [];     // strait2 run windows die with the run (re-registered on spawn)
   arenaPropsGate = false;   // ARENA (PR-A): a new-run reseed from a paused void frame reseats the bands VISIBLE (belt-and-braces to the self-healing per-frame restore)
   resetArenaSet();          // ARENA (PR-H1/H2): same belt-and-braces for the heaven furniture
   for (const band of bands) reseedBand(band);
