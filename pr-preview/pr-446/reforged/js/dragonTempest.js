@@ -266,7 +266,7 @@ function addDorsalRidge(push, stations, M, count) {
       // wing struts, so the body speaks the wing's lightning language, not a flat wire). Alternating
       // tall/short = a discharge-array waveform; the deep under-gap is a recess for glow to pool in.
       const alt = (u % 2 === 0);
-      const H = (alt ? 0.26 : 0.155) * fr + 0.05;           // vane height — silhouette-breaking (~30% body at the shoulder)
+      const H = (alt ? 0.31 : 0.185) * fr + 0.058;          // glow-up #3: taller vanes — the back reads as a pronounced charged serrated line (holds silhouette mass behind the wings)
       const foot = 0.11 * fr + 0.03, wB = 0.05 * fr + 0.018, lean = 0.05 + 0.03 * (u % 2);
       const a = [0, at.y - 0.012, z - foot * 0.4], b = [0, at.y - 0.012, z + foot];   // short fore-aft footprint, raised H
       const glow = (u % 3 === 0) ? M.arcCore : M.arcSeam;   // brightest vane every 3rd (a value ladder down the rank)
@@ -942,7 +942,10 @@ function buildVirgaTail(def, model, mats, anchor) {
   const a = anchor ?? { y: 0.12, z: 1.62 };
   const T = (model.tailLength ?? 1) * 2.5 * (model.tailStretch ?? 1);
   const nSeg = Math.round(model.tailSegments ?? 8);
-  const rAt = (t) => 0.11 * Math.pow(1 - t * 0.82, 0.7) + 0.010;   // holds mass to ~85% so the tuft has a shoulder
+  // glow-up #3 (mass): the tail read as a thin thread under giant wings. Beef the stem ~1.4× and hold mass
+  // longer (lower falloff exponent) so the body carries real silhouette PAST the wing roots — a muscular
+  // storm-tail, not a rope — while the tip still tapers to a shoulder for the tuft.
+  const rAt = (t) => 0.152 * Math.pow(1 - t * 0.80, 0.60) + 0.012;
   const curveY = (t) => -0.05 * T * Math.sin(Math.PI * t * 0.9);   // low counter-drop then flick
   const stem = [];
   for (let i = 0; i <= nSeg; i++) { const t = i / nSeg; stem.push({ z: a.z + t * T, rx: rAt(t), ry: rAt(t), cy: a.y + curveY(t) }); }
