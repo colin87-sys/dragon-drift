@@ -77,6 +77,7 @@ export function createPulseTimer(opts = {}) {
   const biasBudget = opts.biasBudget ?? 0.25;
 
   let rng;
+  let dutyScale = 1;  // runtime duty multiplier (boost ×2.2 shortens RESTS, never windows — §5c)
   let phase;          // 'window' | 'gap' | 'rest'
   let tInPhase;       // seconds elapsed in the current phase
   let plan;           // current burst plan: { windows:[], gaps:[], rest }
@@ -98,7 +99,10 @@ export function createPulseTimer(opts = {}) {
     for (let i = 0; i < n - 1; i++) gaps.push(gapMin + rng() * (gapMax - gapMin));
     const litSum = windows.reduce((s, w) => s + w, 0);
     const gapSum = gaps.reduce((s, g) => s + g, 0);
-    const rest = Math.max(restFloor, litSum / duty - litSum - gapSum);
+    // Boost (dutyScale>1) raises the effective duty by SHORTENING the rest, never the windows
+    // (§5c: window length is the photosensitivity floor; duty/rest are the drama levers).
+    const eff = duty * dutyScale;
+    const rest = Math.max(restFloor, litSum / eff - litSum - gapSum);
     return { windows, gaps, rest };
   }
 
@@ -196,5 +200,9 @@ export function createPulseTimer(opts = {}) {
   // standing (no-strike) frame; 0.5 = a mid-window strike peak. pin(null) releases it.
   function pin(t01) { pinned = (t01 === null || t01 === undefined) ? null : +t01; }
 
-  return { tick, state, pin, reseed };
+  // setDuty — runtime effective-duty multiplier (boost ×2.2). Applies to the NEXT planned burst's
+  // rest, so there is no mid-burst discontinuity; the restFloor cap still holds the ≥1.2 s floor.
+  function setDuty(mul) { dutyScale = (mul > 0 ? mul : 1); }
+
+  return { tick, state, pin, reseed, setDuty };
 }

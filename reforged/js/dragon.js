@@ -1185,6 +1185,7 @@ export function updateDragon(dt, player, time) {
   // stormTimer is null for every other dragon → roster untouched.
   if (stormTimer && stormArcMats.length) {
     stormTimer.pin(STRIKE_PIN);   // ?strikePin freezes the schedule for pixel-comparable captures (null = live)
+    stormTimer.setDuty(player.boosting || player.feverActive ? 2.2 : 1);   // boost/Surge: strikes fire ~2.2× as often (§5c)
     const phase01 = ((phase / (Math.PI * 2)) % 1 + 1) % 1;   // flap phase → the downstroke-apex bias hint
     stormTimer.tick(dt, phase01);
     const ss = stormTimer.state();
