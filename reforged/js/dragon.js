@@ -1291,7 +1291,10 @@ export function updateDragon(dt, player, time) {
         const beat = Math.floor(tNow / 1.15), beatPh = (tNow / 1.15) - beat;
         if (beat !== arcBeat) { arcBeat = beat; arcRestruck = false; arcCrown.fire((0x5721 ^ (beat * 2654435761)) | 0, pickStormArcRoutes((0x5721 ^ (beat * 2654435761)) | 0)); }
         else if (!arcRestruck && beatPh > 0.5) { arcRestruck = true; const s = (0x91a3 ^ (beat * 40503)) | 0; arcCrown.fire(s, pickStormArcRoutes(s)); }   // the return-stroke
-        const crack = Math.min(1, Math.max(0, (thunderAt(0) - 0.6)));   // 0 in the rumble, ~1 at the crack peak
+        let crack = Math.min(1, Math.max(0, (thunderAt(0) - 0.6)));   // 0 in the rumble, ~1 at the crack peak
+        // debug capture seam only: pin the crack to full so every headless screenshot catches a live bolt
+        // (arcs otherwise flash ~0.2 s per 1.15 s beat). Undefined in normal play → zero gameplay effect.
+        if (typeof globalThis !== 'undefined' && globalThis.__ddArcForce) crack = 1;
         arcCrown.render(arcCamDir, crack * surgeMix);
         stormCrack = crack * surgeMix;   // #5 ONE CONDUCTOR — the eyes/wash flash on the SAME beat (set below)
       } else if (arcBeat !== -1) { arcCrown.clear(); arcBeat = -1; stormCrack = 0; }

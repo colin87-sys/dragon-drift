@@ -15,11 +15,11 @@ await page.click('#gx-skip').catch(() => {});   // dismiss any gesture tutorial 
 // belt-and-braces: mark every hint taught on the LIVE save object too, so nothing re-triggers in flight
 await page.evaluate(() => { document.getElementById('gx-skip')?.click(); if (window.__dd?.save?.flags) window.__dd.save.flags.hintsSeen = 195; }).catch(() => {});
 await page.waitForTimeout(1800);   // climb into steady flight
-await page.evaluate(() => { if (window.__dd && window.__dd.game) { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 99999; } });
+await page.evaluate(() => { globalThis.__ddArcForce = true; if (window.__dd && window.__dd.game) { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 99999; } });
 await page.waitForTimeout(700);    // let Surge ramp (surgeMix damps up)
 const CLIP = { x: 250, y: 210, width: 600, height: 420 };
 for (let i = 0; i < N; i++) {
-  await page.evaluate(() => { if (window.__dd && window.__dd.game) { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 99999; } });
+  await page.evaluate(() => { globalThis.__ddArcForce = true; if (window.__dd && window.__dd.game) { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 99999; } });
   await page.screenshot({ path: `/tmp/arc-tempest-${String(i).padStart(2, '0')}.png`, clip: { ...CLIP } });
   await page.waitForTimeout(110);
 }
