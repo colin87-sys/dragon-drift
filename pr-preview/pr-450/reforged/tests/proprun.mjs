@@ -43,6 +43,10 @@ globalThis.location = { search: '?strait2=1', origin: 'http://test', pathname: '
 if (!globalThis.navigator) globalThis.navigator = { userAgent: 'node' };
 
 const THREE = await import('three');
+const { CONFIG } = await import('../js/config.js');
+// Rock is DISABLED in shipping play (config rock:0); force the pre-disable mixed
+// weight so this gate can still sample real Frozen split runs to build props in.
+CONFIG.canyonTypeWeights = { rock: 35, spine: 35, flow: 30 };
 const { initObstacles, addCanyonSegment, RUN_KIT } = await import('../js/obstacles.js');
 const { rockSlicePlan } = await import('../js/canyonMath.js');
 const { biomeIndexAt } = await import('../js/biomes.js');

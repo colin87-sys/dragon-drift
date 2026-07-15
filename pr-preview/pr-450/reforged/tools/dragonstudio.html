@@ -69,7 +69,30 @@
       // (replays dragon.js's surge tick for spineMats + wing/eye) so a withheld
       // motif can be judged as a matched cruise/surge PAIR on the SAME sky.
       surge: { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86, surge: true },
+      // HUM / STRIKE: the TEMPEST storm circuit frozen at a pinned point (pin 0 = the breathing
+      // idle hum, pin 0.5 = the strike peak) so the strike is judged as a matched HUM/STRIKE PAIR
+      // on the SAME sky, ember-free (the in-game capture flies through pickup rings). Replays the
+      // §5d tick's pinned per-mat write on parts.stormArcMats. No-op for dragons without them.
+      hum:    { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86, storm: 0 },
+      strike: { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86, storm: 0.5 },
     };
+    // Replay the storm tick's PINNED output (t01: 0 = hum, 0.5 = strike peak) on the arc mats.
+    // pinned env = sin(π·t01); ei = stormHum·breathe(≈1) + env·(stormPeak − stormHum). Studio has
+    // no UnrealBloom, so a VIZ_BOOST lifts the levels onto the dark tile WITHOUT changing the ratio
+    // (both hum + strike scale equally, so the strike:idle contrast reads true).
+    const VIZ_BOOST = 2.4, _shot = new THREE.Color(0xf2f4ff);
+    function applyStorm(b, t01) {
+      const mats = (b.parts && b.parts.stormArcMats) || [];
+      const env = t01 == null ? null : Math.sin(Math.PI * Math.max(0, Math.min(1, t01)));
+      for (const m of mats) {
+        const u = m.userData, hum = u.stormHum ?? 0.6, peak = u.stormPeak ?? 1.6;
+        if (env == null) { m.emissive.setHex(u.baseEmissive ?? 0xd9deff); m.emissiveIntensity = (u.baseIntensity ?? hum); continue; }
+        const ei = Math.min(u.stormCap ?? 2.0, hum + env * (peak - hum));
+        m.emissiveIntensity = ei * VIZ_BOOST;
+        const hot = Math.max(0, (env - 0.85) / 0.15);
+        _sc.setHex(u.baseEmissive ?? 0xd9deff); m.emissive.copy(_sc).lerp(_shot, Math.min(1, hot));
+      }
+    }
     const _sc = new THREE.Color(), _shi = new THREE.Color();
     function applySurge(b, on) {
       const mats = b.materials || {}, def = b.def;
@@ -186,6 +209,7 @@
       const b = load(o.key, o.tier);
       const st = STATE[o.state] || STATE.glide;
       applySurge(b, !!st.surge);   // light the withheld motif for the surge state; reset it otherwise
+      if (st.storm !== undefined) applyStorm(b, st.storm);   // TEMPEST hum/strike: pin the storm circuit
       setFlapDebugPose(b.parts || {}, b.def.model, st.pose);
       b.group.updateMatrixWorld(true);
       setBg(o.bg);
