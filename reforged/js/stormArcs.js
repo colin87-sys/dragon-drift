@@ -82,9 +82,9 @@ export function createArcCrown(THREE, opts = {}) {
   // BELOW the pink sky (247) — additive light can only brighten, so an additive halo can never read blue
   // over this sky. The halo therefore ALPHA-COMPOSITES this blue (NormalBlending): it TINTS the fringe
   // toward periwinkle, pulling R down, which is the only way to grow a real colored corona over pink.
-  const haloColor = new THREE.Color(opts.haloColor ?? 0x6690ff);
-  const CORE_W = opts.coreW ?? 0.024, HALO_MUL = 6.5, CORE_I = 3.4;
-  const HALO_A = 0.85;                                    // peak corona alpha (normal-blended tint strength)
+  const haloColor = new THREE.Color(opts.haloColor ?? 0x5182ff);
+  const CORE_W = opts.coreW ?? 0.024, HALO_MUL = 8.5, CORE_I = 3.4;
+  const HALO_A = 0.9;                                     // peak corona alpha (normal-blended tint strength)
   const FORK_HALO_MUL = 3.4;                              // forks get a slimmer corona so they glow, not stipple
   const MAXSEG = 640;                                     // total ribbon segments across all live arcs
   const group = new THREE.Group(); group.renderOrder = 6; group.frustumCulled = false;
