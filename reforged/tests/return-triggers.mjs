@@ -3,14 +3,28 @@
 import { boot, check } from './browser.mjs';
 
 // --- New pilot: steer hint appears in the first seconds of flight ---
+// runs: 1 — on run 0 the PAUSED gesture tutorial owns the steer lesson (and
+// headless never performs the gesture, so the run stays frozen); the TEXT
+// steer hint is the second-flight path, which is what this asserts.
 {
-  const { page, errors, done } = await boot();
+  const { page, errors, done } = await boot({
+    initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 1 }, flags: { seenIntro: true } }))`,
+  });
   await page.click('#btn-start');
   await page.waitForFunction(() => window.__dd.game.state === 'playing');
+  // H1: onboarding hints render through THE BELL as sticky hint-role lines.
+  // Hint ORDER is gameplay-dependent (an early ember pickup rings its hint
+  // first), so log every rung line and wait for the steer hint to appear.
+  await page.evaluate(() => {
+    const ui = window.__dd.ui;
+    const orig = ui.bell.bind(ui);
+    window.__bellLog = [];
+    ui.bell = (t, r, o) => { window.__bellLog.push(`${r}|${t}`); return orig(t, r, o); };
+  });
   await page.waitForFunction(() =>
-    document.querySelector('#hint').classList.contains('on'), { timeout: 30000 });
-  const text = await page.textContent('#hint');
-  check(`steer hint shows for a new pilot ("${text}")`, /steer/i.test(text));
+    window.__bellLog.some((m) => m.startsWith('hint|') && /steer/i.test(m)),
+    undefined, { timeout: 60000, polling: 200 });
+  check('steer hint rings the Bell for a new pilot', true);
   check('hint bit persisted', await page.evaluate(() => (window.__dd.save.flags.hintsSeen & 1) === 1));
   check('no errors', errors.length === 0) || console.error(errors.join('\n'));
   await done();

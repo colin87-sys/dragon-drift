@@ -1634,6 +1634,15 @@ export function setBossQuality(q) {
 
 export function bossActive() { return active; }
 
+// EMBERSIGHT H5 — the boss's live world position for the Mews plate's off-screen
+// threat chevrons (§B.9): bossBar.js projects this each frame; when it falls
+// outside the frustum a stroked chevron rides the screen edge at the bearing.
+// Returns `out` (copied) while a fight body exists, else null.
+export function bossWorldPos(out) {
+  if (!group) return null;
+  return out.copy(group.position);
+}
+
 // Render-only signal for the world-dim grade (postfx._bossMix / ambient's mote
 // budget): the dim rides the DANGER warning, not just the fight — so it starts
 // at 'warn' (the overlay's banner phase), holds through approach/fight, and
@@ -2060,9 +2069,15 @@ function applyReticle(timeLeft, time) {
     reticleFill.material.color.lerp(_focusCol, focusVis * 0.85);
     reticleTrack.material.color.lerp(_focusCol, focusVis * 0.5);
   }
+  // EMBERSIGHT H4 (§B.8) — THE LURE retires the WebGL ring's IDLE ornamental hoop:
+  // the always-on cyan circle framing the dragon carried no information and was the
+  // third at-the-gaze ornament the one-bracket LURE collapses. The two INFORMATIONAL
+  // jobs stay: the Surge DRAIN METER (pink time-left) and the FOCUS-hold warm (jade) —
+  // neither is duplicated by the DOM, so removing them would lose a read. Idle ⇒ ~0.
   reticleFill.material.opacity = surging
     ? 0.55 + Math.abs(Math.sin(time * 8)) * 0.18
-    : 0.32 + focusVis * (0.2 + Math.abs(Math.sin(time * 6)) * 0.1);
+    : focusVis * (0.24 + Math.abs(Math.sin(time * 6)) * 0.1);
+  reticleTrack.material.opacity = surging ? 0.14 : focusVis * 0.10;
   // Comet at the draining edge — only while it's a live meter (fully drawn + surging).
   if (surging && reticleOn > 0.99 && fillFrac > 0.004) {
     const a = Math.PI / 2 + fillFrac * Math.PI * 2;
@@ -2136,6 +2151,10 @@ function enterFight() {
   riderTimer = HP_REVEAL;
   model.notice?.();
   ui.bossTitleCard?.(def.name, def.epithet, def.accent);
+  // EMBERSIGHT H5 — the MEWS PLATE etches in stroke-by-stroke synced to the title
+  // card (§B.9). bossBar.js owns the DOM; this is its reveal cue at the fight beat
+  // (bossStart fired earlier, during the approach — too early for the etch).
+  emit('bossReveal', { id: def.id });
   beginCard(0);
   attackTimer = Math.max(attackTimer, 1.9);
   riderTimer = Math.max(riderTimer, 1.9);
@@ -3970,7 +3989,10 @@ function breakShield(player) {
     // MULTI-FORM boss (def.formLifebars): the defeated form's bar REFILLS to full for the next
     // form — you fought that form to 0, now the next one arrives at full health. The transition
     // beat (below) covers the refill. (Non-form bosses keep hp parked at the phase floor.)
-    if (def.formLifebars) { hp = hpMax; model.setHealth(hp / hpMax); hpRevealT = HP_REVEAL; }
+    if (def.formLifebars) { hp = hpMax; model.setHealth(hp / hpMax); hpRevealT = HP_REVEAL;
+      // EMBERSIGHT H5 — the Mews plate re-FORGES left→right (a deliberate shimmer that
+      // reads "new bar", never "healing"). Live-fight eyes still required (risk #2).
+      emit('bossFormRefill', { id: def.id, hpMax }); }
     // §5i: restart the phrase state at the phase seam (crescendo re-ramps per
     // card; the ambush/wall cluster restarts clean) — the amber-floor clock is
     // kept continuous across the transition inside the machine.

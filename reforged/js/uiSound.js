@@ -70,4 +70,29 @@ export const uiSound = {
   back()    { blip({ type: 'sine', from: 1180, to: 880, dur: 0.06, vol: 0.09 }); },
   // A screen breathing open over the world.
   whoosh()  { puff({ dur: 0.22, fromHz: 900, toHz: 3200, vol: 0.065 }); },
+  // EMBERSIGHT H1 — the Bell's per-role tone (HUD-REDESIGN §B.11): a soft
+  // upward blip for rewards/unlocks (gold/jade), a quieter tick for everything
+  // else. Deliberately UNDER the gameplay sfx (rings/gates already chime) —
+  // felt, never noticed.
+  // EMBERSIGHT H3 — the SURGE-READY ping (§B.3): one bright, short ring as the
+  // whole gauntlet ignites. Brighter than a tick, still under the gameplay sfx.
+  ping() {
+    blip({ type: 'sine', from: 1960, to: 2350, dur: 0.09, vol: 0.085 });
+    blip({ type: 'sine', from: 2940, to: 3520, dur: 0.09, vol: 0.045, delay: 0.02 });
+  },
+  // EMBERSIGHT H4 — the LURE lock grammar (§B.8 / U11): a soft high tick while a
+  // ring/gate is FRAMED (search), then ONE solid down-settling tone on the lock
+  // snap (lock = one voice). Under the gameplay chime, felt not announced.
+  search()  { blip({ type: 'triangle', from: 2600, to: 2500, dur: 0.028, vol: 0.05 }); },
+  lock()    { blip({ type: 'sine', from: 1560, to: 1180, dur: 0.09, vol: 0.075 });
+              blip({ type: 'sine', from: 2320, to: 1760, dur: 0.07, vol: 0.035, delay: 0.015 }); },
+  bell(role) {
+    if (role === 'gold' || role === 'jade') {
+      blip({ type: 'sine', from: 1480, to: 1720, dur: 0.05, vol: 0.05 });
+    } else if (role === 'magenta') {
+      blip({ type: 'triangle', from: 1150, to: 950, dur: 0.05, vol: 0.055 });
+    } else {
+      blip({ type: 'triangle', from: 2150, to: 1950, dur: 0.032, vol: 0.045 });
+    }
+  },
 };

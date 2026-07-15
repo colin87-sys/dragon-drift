@@ -12,6 +12,8 @@ import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { uiSound } from './uiSound.js';
 import { ICONS } from './icons.js';
+import { initHudState, updateHudState, hudPoke } from './hudState.js';
+import { input } from './input.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
@@ -71,8 +73,6 @@ function applyAccessibility() {
   if (s.colorblind && s.colorblind !== 'off') root.classList.add(`cb-${s.colorblind}`);
 }
 
-// Popup text IDs used across multiple popups
-let popupTimer = null;
 let lastCombo = 1;
 let lastChain = 0;
 let lastGraze = -1;
@@ -87,9 +87,24 @@ let lastSpeedlines = -1;
 let celebrateShownAt = 0;
 let assistFadeTimer = null;
 let lastAssistText = '';
-let bestRevealTimer = null;
-let lastBestReveal = '';
 let ffRevealTimer = null;
+// EMBERSIGHT H2 — TAPE + TALLY state (change-detected, transforms only)
+const TAPE_PXPM = 80 / 500;    // px per metre: PB caret spans ±500m over 80px
+let lastTapeAt = 0;            // ≤4Hz transform gate for the tick scroll + PB caret
+let lastDistShown = -1;
+let pbPassed = false;
+let pbLastX = null;
+let chainStartScore = 0;       // score banked when the live chain began (the ritual line)
+let chainPeakCombo = 1;
+let lastRaceYou = -1, lastRaceRival = -1, raceClose = false;
+let lastRaceLabel = '';
+// EMBERSIGHT H3 — gauntlet state
+let lastHeartsLit = -1;        // -1 = no baseline yet (no anim on the first frame)
+let lastDenied = false;        // boost-denial edge
+let lastDenyAt = 0;
+let wasSurgeReady = false;     // READY-ignition edge (boss manual surge)
+// `1 403 m` — tabular numerals, thin-space grouping (§B.6)
+const fmtNum = (n) => Math.floor(n).toLocaleString('en-US').replace(/,/g, '\u2009');
 let lastFFActive = false;
 let lastEmbersRun = 0;
 let emberDimTimer = null;
@@ -460,41 +475,78 @@ export const ui = {
     root.innerHTML = `
       <div class="hud-top-left">
         <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
-        <div class="health-hearts" id="health-hearts"><span></span><span></span><span></span><span></span></div>
       </div>
+      <!-- EMBERSIGHT H2 — the TAPE (§B.6): the one permanent readout. A 160px
+           hairline with ticks scrolling with distance (translateX, ≤4Hz), a
+           fixed center caret, the live numeral in a slug, and the PB caret
+           (gold ★) sliding in when the record is within ±500m. -->
       <div class="hud-top-center">
-        <div class="dist" id="dist">0 m</div>
-        <div class="best" id="best"></div>
+        <div class="tape" id="tape">
+          <div class="tape-strip" aria-hidden="true">
+            <svg class="tape-ticks" id="tape-ticks" viewBox="0 0 220 8" preserveAspectRatio="none">
+              <path d="M10 1V7M30 1V7M50 1V7M70 1V7M90 1V7M110 1V7M130 1V7M150 1V7M170 1V7M190 1V7M210 1V7"/>
+            </svg>
+            <i class="tape-caret"></i>
+            <i class="tape-pb" id="tape-pb"><svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true"><path fill="currentColor" d="M6 .8l1.5 3.2 3.5.4-2.6 2.4.7 3.4L6 8.5 2.9 10.2l.7-3.4L1 4.4l3.5-.4z"/></svg></i>
+          </div>
+          <div class="dist slug" id="dist">0 m</div>
+        </div>
       </div>
+      <!-- EMBERSIGHT H2 — the TALLY (§B.4): the top-right numbers column. -->
       <div class="hud-top-right">
-        <div class="score" id="score">0</div>
+        <div class="score slug" id="score" data-tier="0">0</div>
         <div class="embers-hud" id="embers-hud"></div>
-        <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
-        <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
+        <!-- race-vs-ghost: the two-caret tick-strip (§B.12; the navy race-bar died) -->
+        <div class="race-strip" id="race-bar">
+          <span class="race-target" id="race-target"></span>
+          <span class="race-line"><i class="race-you" id="race-you"></i><i class="race-rival" id="race-rival"></i></span>
+        </div>
+        <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span><span class="chain-cells" id="chain-cells" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
         <div class="chain graze-hud" id="graze-hud"><span class="chain-n" id="graze-n">0</span><span class="chain-word">SKIMS</span></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
       </div>
-      <!-- Stamina: an arc cradling the dragon (beauty-first, near the gaze) -->
-      <div class="stamina-arc" id="stamina-arc">
-        <svg viewBox="0 0 250 92" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
-            </linearGradient>
-          </defs>
-          <!-- THREE separate cell arcs with PHYSICAL gaps between them — each is a
-               third of the smile, so the bar ALWAYS reads as 3 notches on every
-               renderer (no dash-skip math to merge/drop). Each cell = a dim always-on
-               track + a bright fill drawn by its own stroke-dasharray (0..100 of its
-               own length). Each = one Surge phase; the whole bar ignites in Surge. -->
-          <path class="arc-trk" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
-          <path class="arc-trk" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
-          <path class="arc-trk" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
-          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="0 100" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
-          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 100" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
-          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 100" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+      <!-- EMBERSIGHT H3 — THE GAUNTLET (§B.1–B.3): ONE instrument cluster at the
+           shipped arc anchor. The 3-cell smile arc keeps its exact geometry (the
+           WebGL seal-chain beat still lines up; staminabar.mjs contract intact)
+           and grows two vertical terminals: LEFT = LIFE pips, RIGHT = SURGE
+           cells, with the multiplier slug under the keystone and the four
+           damage-direction arcs on a ring just outside. -->
+      <div class="stamina-arc gauntlet" id="stamina-arc" data-tier="0">
+        <!-- damage direction (§B.10): four 30° magenta segments, flight-plane
+             mapped (up = above you). Flashed from ui.damageFlash(impact). -->
+        <svg class="g-dmg" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <path class="gd-seg" id="gd-up"    pathLength="100" d="M 84.5 6.0  A 60 60 0 0 1 115.5 6.0"/>
+          <path class="gd-seg" id="gd-right" pathLength="100" d="M 152.0 44.5 A 60 60 0 0 1 160.0 75.5"/>
+          <path class="gd-seg" id="gd-down"  pathLength="100" d="M 115.5 114.0 A 60 60 0 0 1 84.5 114.0"/>
+          <path class="gd-seg" id="gd-left"  pathLength="100" d="M 40.0 75.5  A 60 60 0 0 1 48.0 44.5"/>
         </svg>
+        <div class="g-arc" id="g-arc">
+          <svg viewBox="0 0 250 92" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
+              </linearGradient>
+            </defs>
+            <!-- THREE separate cell arcs with PHYSICAL gaps between them — each is a
+                 third of the smile, so the bar ALWAYS reads as 3 notches on every
+                 renderer (no dash-skip math to merge/drop). Each cell = a dim always-on
+                 track + a bright fill drawn by its own stroke-dasharray (0..100 of its
+                 own length). Each = one Surge phase; the whole bar ignites in Surge. -->
+            <path class="arc-trk" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
+            <path class="arc-trk" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
+            <path class="arc-trk" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+            <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="0 100" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
+            <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 100" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
+            <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 100" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+            <!-- LAST HEART (§B.1 critical): a 2px danger hairline creeps along the
+                 whole gauntlet arc (stroke-dashoffset draw — never a layout prop). -->
+            <path class="arc-danger" pathLength="100" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
+            <path class="arc-danger" pathLength="100" style="animation-delay:0.35s" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
+            <path class="arc-danger" pathLength="100" style="animation-delay:0.7s" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+          </svg>
+          <span class="g-flash" aria-hidden="true"></span>
+        </div>
         <!-- Boost is SEALED in a boss (speed locked). The bar chains + dims rather
              than vanishing, so the second verb doesn't die silently; a one-time
              "BOOST SEALED" label fades in on the first boss entry. -->
@@ -508,12 +560,12 @@ export const ui = {
           </svg>
           <span class="seal-label">BOOST SEALED</span>
         </div>
-      </div>
-      <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
-      <div class="surge-min" id="surge-widget" data-tier="0">
-        <div class="surge-fx" id="surge-fx"><span class="flash"></span><span class="ember e1"></span><span class="ember e2"></span><span class="ember e3"></span><span class="ember e4"></span><span class="ember e5"></span></div>
-        <div class="surge-x" id="surge-x">×1.00</div>
-        <div class="surge-gems" id="surge-gems"></div>
+        <!-- LEFT horn — LIFE (§B.1): stroked heraldic-lozenge pips (♥ glyphs died) -->
+        <div class="gauntlet-life health-hearts" id="health-hearts"></div>
+        <!-- RIGHT horn — SURGE (§B.3): stroked diamond cells; fever = drain timer -->
+        <div class="gauntlet-surge" id="surge-gems"></div>
+        <!-- the multiplier slug under the keystone (one location, never at the reticle) -->
+        <div class="gauntlet-x" id="surge-x">×1.00</div>
       </div>
       <!-- FLOW crest ("Keystone Crest"): a miniature Windvault — cyan light climbs both
            legs of a forged-glass arch as the carve chain builds, meeting at the keystone
@@ -539,8 +591,11 @@ export const ui = {
         <div class="fc-x" id="fc-x">×1.0</div>
         <div class="fc-word">FLOW</div>
       </div>
-      <div class="milestone-banner" id="milestone-banner"></div>
       <div class="danger-glow" id="danger-glow"></div>
+      <!-- EMBERSIGHT H6 — the PB light-seam (§B.6): a single gold seam sweeps past
+           at the exact personal-best metre (fires once per run, deterministic). A
+           DOM horizon seam (the sanctioned fallback for the in-world billboard). -->
+      <div class="pb-seam" id="pb-seam" aria-hidden="true"></div>
       <!-- §5b WEFTWITCH HUD-SEW: golden threads stitch across the chrome ONCE at her
            entrance. RENDER-ORDER LAW: bullets live in the WebGL canvas BELOW all DOM,
            so this overlay must never run during 'fight' — the controller fires it
@@ -548,7 +603,7 @@ export const ui = {
            enterFight; the TIMING is the layering guarantee. -->
       <svg class="hud-sew" id="hud-sew" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="boss-warn" id="boss-warn">
-        <div class="boss-warn-alert">⚠ WARNING ⚠</div>
+        <div class="boss-warn-alert">${ICONS.warn} WARNING ${ICONS.warn}</div>
         <div class="boss-warn-name" id="boss-warn-name"></div>
       </div>
       <div class="boss-danger" id="boss-danger">DANGER</div>
@@ -576,12 +631,26 @@ export const ui = {
         <div class="bc-name" id="bc-name"></div>
         <div class="bc-timer" id="bc-timer"></div>
       </div>
+      <!-- EMBERSIGHT H1 — THE BELL: the ONE queued toast lane (HUD-REDESIGN §B.11).
+           popup2 / feat-toast / milestone-banner / hint all collapse into this
+           single anchored slot; queue depth 3 with coalescing (+50 ×3), min
+           display 900ms, one type style (slug + role accent underline). -->
+      <div class="bell" id="bell" aria-live="polite">
+        <div class="bell-slug" id="bell-slug" data-role="gold">
+          <span class="bell-text" id="bell-text"></span><span class="bell-x" id="bell-x"></span>
+          <span class="bell-motes" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        </div>
+      </div>
+      <!-- The perfect-ring micro-pop: the ONE sanctioned center event text (§B.11). -->
       <div class="popup" id="popup"></div>
-      <div class="popup popup2" id="popup2"></div>
-      <div class="feat-toast" id="feat-toast"></div>
-      <div class="hint" id="hint"></div>
       <div class="gesture-overlay" id="gesture-overlay"></div>
       <div class="vignette" id="vignette"></div>
+      <!-- H3 §B.10: quadrant-weighted damage vignette — the struck side blooms -->
+      <div class="vignette-dir" id="vignette-dir"></div>
+      <!-- H3 §B.1 VIGIL (critical only): perimeter edgelight breathing inward —
+           dark warm scrim core + danger light on top (light carried on shadow,
+           readable on any sky). CSS-only; postfx grade rides the arbiter. -->
+      <div class="vigil" id="vigil" aria-hidden="true"><i class="vg-core"></i><i class="vg-light"></i></div>
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
       <div class="jade-flash" id="jade-flash"></div>
@@ -634,34 +703,58 @@ export const ui = {
       bcTimer:      root.querySelector('#bc-timer'),
       goldFlash:    root.querySelector('#gold-flash'),
       jadeFlash:    root.querySelector('#jade-flash'),
-      surgeWidget:  root.querySelector('#surge-widget'),
+      surgeWidget:  root.querySelector('#stamina-arc'),   // H3: the gauntlet IS the surge widget
       surgeX:       root.querySelector('#surge-x'),
       surgeGems:    root.querySelector('#surge-gems'),
-      surgeFx:      root.querySelector('#surge-fx'),
+      gArc:         root.querySelector('#g-arc'),
+      gdSegs: {
+        up:    root.querySelector('#gd-up'),
+        right: root.querySelector('#gd-right'),
+        down:  root.querySelector('#gd-down'),
+        left:  root.querySelector('#gd-left'),
+      },
+      vignetteDir:  root.querySelector('#vignette-dir'),
       healthHearts: root.querySelector('#health-hearts'),
       embersHud:    root.querySelector('#embers-hud'),
       ffChip:       root.querySelector('#ff-chip'),
-      raceBar:      root.querySelector('#race-bar'),
-      raceFill:     root.querySelector('#race-fill'),
       raceTarget:   root.querySelector('#race-target'),
       assistChip:   root.querySelector('#assist-chip'),
       dist:         root.querySelector('#dist'),
-      best:         root.querySelector('#best'),
+      tape:         root.querySelector('#tape'),
+      tapeTicks:    root.querySelector('#tape-ticks'),
+      tapePb:       root.querySelector('#tape-pb'),
+      pbSeam:       root.querySelector('#pb-seam'),
+      chainCells:   root.querySelector('#chain-cells'),
+      raceStrip:    root.querySelector('#race-bar'),
+      raceYou:      root.querySelector('#race-you'),
+      raceRival:    root.querySelector('#race-rival'),
       popup:        root.querySelector('#popup'),
-      popup2:       root.querySelector('#popup2'),
-      featToast:    root.querySelector('#feat-toast'),
-      hint:         root.querySelector('#hint'),
+      bell:         root.querySelector('#bell'),
+      bellSlug:     root.querySelector('#bell-slug'),
+      bellText:     root.querySelector('#bell-text'),
+      bellX:        root.querySelector('#bell-x'),
       gestureOverlay: root.querySelector('#gesture-overlay'),
       vignette:     root.querySelector('#vignette'),
       blueFlash:    root.querySelector('#blue-flash'),
       feverOverlay: root.querySelector('#fever-overlay'),
       speedlines:   root.querySelector('#speedlines'),
-      milestoneBanner: root.querySelector('#milestone-banner'),
       screen:       root.querySelector('#screen'),
       celebrate:    root.querySelector('#celebrate'),
       revive:       root.querySelector('#revive-offer'),
       reviveCount:  root.querySelector('#revive-count'),
     };
+
+    // H3 §B.1 — LIFE pips: stroked heraldic lozenges, one per heart
+    // (healthMax / obstacleDamage), built once; ui.update toggles .full.
+    const heartCount = Math.max(1, Math.round(CONFIG.healthMax / CONFIG.obstacleDamage));
+    const LOZENGE = '<svg viewBox="0 0 14 16" width="12" height="14" aria-hidden="true">'
+      + '<path class="pip-o" d="M7 1L13 8 7 15 1 8z"/>'
+      + '<path class="pip-i" d="M7 4.4L10.2 8 7 11.6 3.8 8z"/></svg>';
+    els.healthHearts.innerHTML = Array.from({ length: heartCount }, () => `<span>${LOZENGE}</span>`).join('');
+
+    // EMBERSIGHT H1 — the state machine + relevance ticker (hudState.js owns
+    // the classification; it rides ui.update's existing call, never a new rAF).
+    initHudState(root);
 
     // Celebration overlay tap-shield: the global pointerdown listener in
     // main.js starts/restarts/resumes on blank taps — propagation must die
@@ -698,6 +791,17 @@ export const ui = {
       }
     });
 
+    // A fresh takeoff never inherits a stale toast (H1 — the Bell flushes)
+    // nor a stale TAPE/TALLY pose (H2 — PB caret, race carets, ritual state).
+    on('runStart', () => {
+      this.bellClear();
+      pbPassed = false; pbLastX = null; lastDistShown = -1;
+      els.tapePb.classList.remove('on', 'passed');
+      els.tapePb.style.transform = '';
+      lastRaceYou = lastRaceRival = -1; raceClose = false; lastRaceLabel = '';
+      els.raceStrip.classList.remove('won', 'close');
+    });
+
     // U7/U11 — the hub interaction grammar rolls out to every meta screen:
     // ONE delegated tick on pointerdown for nav/cards/switches (touch-first,
     // ≤50ms response; sliders excluded — no sound spam on drag).
@@ -708,11 +812,32 @@ export const ui = {
   },
 
   update(player) {
-    // Health = discrete hearts (healthMax 100 / obstacleDamage 25 = 4 hearts)
+    // Health = discrete LIFE pips on the gauntlet's left horn (healthMax 100 /
+    // obstacleDamage 25 = 4). H3 §B.1: the lost pip cracks + gutters (spring
+    // scale), a heal pip springs back; hudState carries the ≤150ms return.
     const heartUnit = CONFIG.obstacleDamage; // 25 -> 4 hearts
     const hearts = els.healthHearts.children;
-    for (let i = 0; i < hearts.length; i++)
-      hearts[i].classList.toggle('full', game.health > i * heartUnit + 0.01);
+    let heartsLit = 0;
+    for (let i = 0; i < hearts.length; i++) {
+      const full = game.health > i * heartUnit + 0.01;
+      if (full) heartsLit++;
+      hearts[i].classList.toggle('full', full);
+    }
+    if (lastHeartsLit >= 0 && heartsLit !== lastHeartsLit) {
+      const idx = Math.min(Math.max(heartsLit, lastHeartsLit) - 1, hearts.length - 1);
+      if (hearts[idx]) restartAnim(hearts[idx], heartsLit < lastHeartsLit ? 'pip-lost' : 'pip-gain');
+    }
+    lastHeartsLit = heartsLit;
+
+    // Boost DENIAL (§B.2): boost attempted on an empty tank → 1–2px transform
+    // shake on the arc (research: denial feedback). Edge-triggered + cooldown.
+    const denied = !game.inBoss && input.boost && game.stamina <= 0.01 && player.orbTimer <= 0;
+    const dNow = performance.now();
+    if (denied && !lastDenied && dNow - lastDenyAt > 900) {
+      restartAnim(els.gArc, 'g-deny');
+      lastDenyAt = dNow;
+    }
+    lastDenied = denied;
     // Stamina = 3 EQUAL notched cells, each one Dragon-Surge phase-through (a third
     // of the bar). Each cell fills LIVE (proportional to the stamina inside its
     // third), so boosting drains the bar smoothly right-to-left instead of snapping
@@ -736,6 +861,7 @@ export const ui = {
     // up visibly. transform-origin:right keeps the right-aligned digits firm.
     if (shownScore - lastShownScore >= CONFIG.JUICE.earnPopThreshold) {
       restartAnim(els.score, 'score-earn-pop');
+      hudPoke('earn');   // H1: a meaningful earn returns the ghosted score ≤150ms
     }
     lastShownScore = shownScore;
 
@@ -775,35 +901,65 @@ export const ui = {
       for (let i = 0; i < threshold; i++) els.surgeGems.appendChild(document.createElement('i'));
       lastThreshold = threshold; lastSurgeLit = -1;
     }
-    const lit = game.feverActive ? threshold : surgeProgress;
+    // H3 §B.3: FEVER turns the cells into the visible drain timer — they empty
+    // left→right off the fever clock (today the timer was invisible).
+    const lit = game.feverActive
+      ? Math.max(0, Math.min(threshold, Math.ceil((game.feverTimer / CONFIG.feverDuration) * threshold)))
+      : surgeProgress;
     if (lit !== lastSurgeLit) {
       const gems = els.surgeGems.children;
       for (let i = 0; i < gems.length; i++) gems[i].classList.toggle('lit', i < lit);
       if (lit > lastSurgeLit && lit > 0 && lit <= gems.length) restartAnim(gems[lit - 1], 'gem-pop');
       lastSurgeLit = lit;
     }
+    // 4/5 desire state: the filled cells shimmer in sync one short of READY.
+    els.surgeWidget.classList.toggle('surge-near',
+      !game.feverActive && surgeProgress === threshold - 1 && threshold > 1);
     els.surgeWidget.dataset.tier = tier;
     els.surgeWidget.classList.toggle('fever', game.feverActive);
     els.surgeWidget.classList.toggle('active', game.combo > 1.001 || game.consecutiveRings > 0 || game.feverActive);
+    // The multiplier slug appears only when a combo is actually building (§B.3).
+    els.surgeWidget.classList.toggle('combo', game.combo > 1.001);
     els.surgeX.textContent = `×${game.combo.toFixed(2)}`;
-    if (game.feverActive && !wasFever) {           // the ignition moment
+    // THE IGNITION: fever start — or READY (boss: the meter fills but Surge is
+    // unleashed manually) — ignites the whole gauntlet once (--ease-spring
+    // 600ms + the U11 ping; the boss-note slot carries SURGE READY as today).
+    const surgeReadyNow = !game.feverActive && surgeProgress >= threshold;
+    if ((game.feverActive && !wasFever) || (surgeReadyNow && !wasSurgeReady)) {
       els.surgeWidget.classList.remove('igniting');
       void els.surgeWidget.offsetWidth;            // reflow -> restart the one-shot
       els.surgeWidget.classList.add('igniting');
       clearTimeout(surgeIgniteTO);
       surgeIgniteTO = setTimeout(() => els.surgeWidget.classList.remove('igniting'), 750);
+      if (surgeReadyNow && !wasSurgeReady) uiSound.ping();
     }
     wasFever = game.feverActive;
+    wasSurgeReady = surgeReadyNow;
     if (game.combo > lastCombo + 0.001) restartAnim(els.surgeX, 'combo-pop');
     lastCombo = game.combo;
 
     // Chain counter: consecutive rings/windows without a miss. Appears from
     // 2 and pops on every link — the visible streak you don't want to drop.
+    // H2: a hairline underline fills in cells of 5, and a chain ≥5 ending
+    // rings THE TALLY RITUAL through the Bell (§B.4).
     const chain = game.consecutiveRings;
     els.chain.classList.toggle('on', chain >= 2);
     if (chain !== lastChain) {
       els.chainN.textContent = chain;
-      if (chain > lastChain && chain >= 2) restartAnim(els.chain, 'chain-pop');
+      const filled = chain > 0 ? ((chain - 1) % 5) + 1 : 0;
+      const cells = els.chainCells.children;
+      for (let i = 0; i < cells.length; i++) cells[i].classList.toggle('f', i < filled);
+      if (chain > lastChain) {
+        if (lastChain === 0) { chainStartScore = game.score; chainPeakCombo = game.combo; }
+        chainPeakCombo = Math.max(chainPeakCombo, game.combo);
+        if (chain >= 2) restartAnim(els.chain, 'chain-pop');
+      } else if (chain === 0 && lastChain >= 5) {
+        // THE TALLY RITUAL: the chain's banked points + peak multiplier,
+        // written into the Bell, dissolving upward as ember motes.
+        const pts = Math.max(0, Math.floor(game.score - chainStartScore));
+        this.bell(`+${fmtNum(pts)} · ×${chainPeakCombo.toFixed(1)} CHAIN`, 'gold',
+          { ritual: true, dur: 1.6, key: 'ritual' });
+      }
       lastChain = chain;
     }
 
@@ -825,38 +981,53 @@ export const ui = {
     const flowOn = game.canyonRun === 'flow' && !game.inBoss;
     if (flowOn !== lastFlowOn) { this.flowMeter.show(flowOn); lastFlowOn = flowOn; }
 
-    els.dist.textContent = `${Math.floor(player.dist)} m`;
-
-    // C1: BEST is a brief encouragement reveal near the record, not a
-    // persistent HUD stat. Full record context belongs in recap.
-    const nearBest = game.highScore > 0 && game.score >= 0.7 * game.highScore;
-    const bestText = nearBest ? '★ PB' : '';
-    if (bestText && bestText !== lastBestReveal) {
-      els.best.textContent = bestText;
-      els.best.classList.add('hud-reveal');
-      clearTimeout(bestRevealTimer);
-      bestRevealTimer = setTimeout(() => {
-        els.best.classList.remove('hud-reveal');
-        els.best.textContent = '';
-      }, 3000);
-      lastBestReveal = bestText;
-    } else if (!nearBest) {
-      clearTimeout(bestRevealTimer);
-      els.best.classList.remove('hud-reveal');
-      els.best.textContent = '';
-      lastBestReveal = '';
+    // H2 — the TAPE (§B.6): live numeral (change-detected), tick strip
+    // scrolling with distance + the PB caret, both transform-only at ≤4Hz.
+    const dm = Math.floor(player.dist);
+    if (dm !== lastDistShown) {
+      els.dist.textContent = `${fmtNum(dm)} m`;
+      lastDistShown = dm;
+    }
+    const tNow = performance.now();
+    if (tNow - lastTapeAt > 250) {
+      lastTapeAt = tNow;
+      els.tapeTicks.style.transform = `translateX(${(-((player.dist * TAPE_PXPM) % 20)).toFixed(1)}px)`;
+      const pb = game.bestDistance;
+      if (pb > 0 && !pbPassed) {
+        if (player.dist >= pb) {
+          // PASSING YOUR RECORD: caret snaps to center, gold flash, the Bell
+          // rings NEW BEST — and the caret rides center for the rest of the run.
+          pbPassed = true;
+          els.tapePb.classList.add('on', 'passed');
+          els.tapePb.style.transform = 'translateX(0px)';
+          restartAnim(els.tape, 'tape-flash');
+          this.bell('NEW BEST DISTANCE', 'gold', { key: 'record' });
+          // §B.6 the world echo: a gold light-seam sweeps past at the PB metre.
+          if (els.pbSeam) restartAnim(els.pbSeam, 'sweep');
+        } else {
+          const delta = pb - player.dist;
+          const on = delta <= 500;
+          els.tapePb.classList.toggle('on', on);
+          if (on) {
+            const x = Math.round(delta * TAPE_PXPM);
+            if (x !== pbLastX) { els.tapePb.style.transform = `translateX(${x}px)`; pbLastX = x; }
+          }
+        }
+      }
     }
 
-    // C3: Ember HUD — pop bright on pickup, dim after 2.5s idle
+    // C3: Ember HUD — SVG gem + tabular count; pop on pickup, dim after 2.5s
     const curEmbers = game.embersRun;
-    els.embersHud.textContent = curEmbers > 0 ? `◆ ${curEmbers}` : '';
-    if (curEmbers > lastEmbersRun) {
-      els.embersHud.classList.remove('dim');
-      restartAnim(els.embersHud, 'ember-pickup');
-      clearTimeout(emberDimTimer);
-      emberDimTimer = setTimeout(() => els.embersHud.classList.add('dim'), 2500);
+    if (curEmbers !== lastEmbersRun) {
+      els.embersHud.innerHTML = curEmbers > 0 ? `${ICONS.ember} ${fmtNum(curEmbers)}` : '';
+      if (curEmbers > lastEmbersRun) {
+        els.embersHud.classList.remove('dim');
+        restartAnim(els.embersHud, 'ember-pickup');
+        clearTimeout(emberDimTimer);
+        emberDimTimer = setTimeout(() => els.embersHud.classList.add('dim'), 2500);
+      }
+      lastEmbersRun = curEmbers;
     }
-    lastEmbersRun = curEmbers;
 
     // C2: Assist chip — short icon/value reveal only; pause/recap explain scoring.
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
@@ -874,18 +1045,31 @@ export const ui = {
       lastAssistText = newAssistText;
     }
 
-    // Challenge race bar: live progress against the friend's score, gold
-    // once beaten. Today's comparison shouldn't wait for the crash screen.
+    // H2 — race-vs-ghost (§B.12): the two-caret tick-strip. Your caret gold,
+    // the rival's white, on one 90px hairline; relevance-gated (full alpha
+    // within 15% of the target, ghosted otherwise); overtake = the rival
+    // caret falls off the end + gold flash + RIVAL BEATEN through the Bell.
     const racing = game.challengeScore > 0;
-    els.raceBar.classList.toggle('on', racing);
+    els.raceStrip.classList.toggle('on', racing);
     if (racing) {
-      const frac = Math.min(1, game.score / game.challengeScore);
-      els.raceFill.style.width = `${frac * 100}%`;
-      els.raceTarget.textContent = game.challengeBeaten ? 'BEATEN!' : `vs ${game.challengeScore}`;
-      els.raceBar.classList.toggle('won', game.challengeBeaten);
-      if (!game.challengeBeaten && game.score > game.challengeScore) {
+      const target = game.challengeScore;
+      const domain = Math.max(target * 1.15, game.score);
+      const you = Math.round(Math.min(1, game.score / domain) * 90);
+      const rival = Math.round(Math.min(1, target / domain) * 90);
+      if (you !== lastRaceYou) { els.raceYou.style.transform = `translateX(${you}px)`; lastRaceYou = you; }
+      if (!game.challengeBeaten && rival !== lastRaceRival) {
+        els.raceRival.style.transform = `translateX(${rival}px)`;
+        lastRaceRival = rival;
+      }
+      const close = game.challengeBeaten || game.score >= 0.85 * target;
+      if (close !== raceClose) { els.raceStrip.classList.toggle('close', close); raceClose = close; }
+      const label = game.challengeBeaten ? 'BEATEN' : `vs ${fmtNum(target)}`;
+      if (label !== lastRaceLabel) { els.raceTarget.textContent = label; lastRaceLabel = label; }
+      if (!game.challengeBeaten && game.score > target) {
         game.challengeBeaten = true;
-        this._popup('CHALLENGE BEATEN — KEEP FLYING!', 'gold');
+        els.raceStrip.classList.add('won');   // CSS: rival caret falls off + gold flash
+        this.bell('RIVAL BEATEN', 'gold');
+        emit('overtake');   // EMBERSIGHT H6 §B.12 — the WORLD echo: the trail flashes gold 1s
         sfx.record();
       }
     }
@@ -909,20 +1093,102 @@ export const ui = {
 
     // Fever overlay pulse
     els.feverOverlay.classList.toggle('active', game.feverActive);
+
+    // EMBERSIGHT H1 — the ≤4Hz relevance ticker (class writes only on change).
+    updateHudState(player);
+  },
+
+  // ══ THE BELL (EMBERSIGHT H1, HUD-REDESIGN §B.11) ═══════════════════════════
+  // The ONE queued toast lane. Every ephemeral line (pickups, feats, milestones,
+  // records, hints) rings here: one slot, queue depth 3, coalescing (`+50 ×3`),
+  // min display 900ms, role accent underline, U11 tone per role.
+  //   role: 'gold' reward · 'cyan' graze/info · 'jade' unlock · 'magenta' warning
+  //         · 'hint' onboarding (sticky — dismissed by hideHint or the 8s cap)
+  //   opts: { key, dur (s), sticky, ritual } — same-key messages coalesce.
+  bell(text, role = 'gold', opts = {}) {
+    if (!els.bell) return;   // headless / no-DOM: toasts no-op
+    const key = opts.key || `${role}|${text}`;
+    const m = {
+      text, role, key, count: 1,
+      sticky: !!opts.sticky,
+      ritual: !!opts.ritual,
+      dur: Math.max(900, (opts.dur || 0) * 1000 || 1100),
+    };
+    const cur = this._bellCur;
+    if (cur && cur.key === key && !cur.ritual) {
+      // Coalesce into the DISPLAYED message: bump ×N in place, extend the hold.
+      cur.count++;
+      cur.text = text;
+      els.bellText.innerHTML = cur.text;
+      els.bellX.textContent = `×${cur.count}`;
+      restartAnim(els.bellSlug, 'bell-pop');
+      this._bellArm(cur);
+      return;
+    }
+    const q = this._bellQ || (this._bellQ = []);
+    const tail = q[q.length - 1];
+    if (tail && tail.key === key && !tail.ritual) { tail.count++; tail.text = text; return; }
+    q.push(m);
+    if (q.length > 3) q.shift();   // depth 3 — the oldest queued line yields
+    this._bellPump();
+  },
+
+  _bellPump() {
+    if (!els.bell || this._bellCur) return;
+    const m = (this._bellQ || []).shift();
+    if (!m) return;
+    this._bellCur = m;
+    const slug = els.bellSlug;
+    slug.dataset.role = m.role;
+    slug.classList.toggle('bell-ritual', m.ritual);
+    els.bellText.innerHTML = m.text;
+    els.bellX.textContent = m.count > 1 ? `×${m.count}` : '';
+    slug.classList.add('show');
+    uiSound.bell(m.role);
+    this._bellArm(m);
+  },
+
+  _bellArm(m) {
+    clearTimeout(this._bellTO);
+    // Sticky (hints) hold until hideHint() — with an 8s starvation backstop.
+    this._bellTO = setTimeout(() => this._bellEnd(), m.sticky ? 8000 : m.dur);
+  },
+
+  _bellEnd() {
+    clearTimeout(this._bellTO);
+    this._bellTO = null;
+    if (!this._bellCur) return;
+    this._bellCur = null;
+    els.bellSlug.classList.remove('show', 'bell-ritual');
+    setTimeout(() => this._bellPump(), 180);   // let the --t-exit fade finish
+  },
+
+  // Flush the lane (run reset — no stale toast over a fresh takeoff).
+  bellClear() {
+    this._bellQ = [];
+    this._bellEnd();
+  },
+
+  // The at-center micro-pop — perfect-ring only (§B.11: the one sanctioned
+  // center event text; tiny, 500ms, no reticle coupling — H4 owns the Lure).
+  _centerPop(text) {
+    if (!els.popup) return;
+    els.popup.textContent = text;
+    restartAnim(els.popup, 'popup-anim');
   },
 
   ringPopup(points, perfect, streak = 0) {
     if (perfect) {
-      this._popup(streak > 1 ? `+${points} PERFECT ×${streak}!` : `+${points} PERFECT!`, 'gold');
+      this._centerPop(streak > 1 ? `+${points} PERFECT ×${streak}` : `+${points} PERFECT`);
     } else {
-      this._popup(`+${points}`, 'green');
+      this.bell(`+${points}`, 'gold', { key: 'earn:ring' });
     }
   },
 
-  // Flow-run carve chain: a low-noise multiplier pop at milestones (the SLIPSTREAM speed
-  // is the main feedback; this just names the climbing multiplier). color set by caller.
+  // Flow-run carve chain: a low-noise multiplier line at milestones (the
+  // SLIPSTREAM speed is the main feedback; this just names the multiplier).
   flowChainPop(text, color) {
-    this._popup(text, color);
+    this.bell(text, color === 'cyan' ? 'cyan' : 'gold', { key: 'flow' });
   },
 
   // The FLOW "Keystone Crest" meter — cyan light climbs both legs of a mini Windvault as the
@@ -999,65 +1265,55 @@ export const ui = {
     restartAnim(els.blueFlash, 'flash-anim');
   },
 
-  // Surge phase popup. Perfect = big violet banner (climbs with the streak);
-  // minor = a smaller "PHASE" tag; assisted = the one-time teaching coach line.
+  // Surge phase-through. Perfect climbs with the streak; assisted = the
+  // one-time teaching coach line (rings as a hint).
   phasePopup(points, perfect, streak = 0, assisted = false) {
-    if (assisted) { this._popup2('Like that! — roll to phase', 'orange'); return; }
+    if (assisted) { this.bell('Like that! — roll to phase', 'hint', { key: 'hint' }); return; }
     if (perfect) {
-      this._popup(streak > 1 ? `PERFECT PHASE ×${streak}! +${points}` : `PERFECT PHASE! +${points}`, 'phase');
+      this.bell(streak > 1 ? `PERFECT PHASE ×${streak} +${points}` : `PERFECT PHASE +${points}`, 'gold', { key: 'earn:phase' });
     } else {
-      this._popup2(`PHASE +${points}`, 'orange');
+      this.bell(`PHASE +${points}`, 'gold', { key: 'earn:phase' });
     }
   },
 
   nearMissPopup(points) {
-    this._popup2(`NEAR MISS +${points}`, 'orange');
+    this.bell(`NEAR MISS +${points}`, 'cyan', { key: 'earn:near' });
   },
 
   rollPopup(points) {
-    this._popup2(`BARREL ROLL +${points}`, 'gold');
+    this.bell(`BARREL ROLL +${points}`, 'gold', { key: 'earn:roll' });
   },
 
-  // Reflect/parry callout. A perfect parry gets the big violet banner with the
-  // climbing streak (like a perfect-phase); a normal parry is a quieter cyan pop.
+  // Reflect/parry callout. A perfect parry keeps the climbing streak read;
+  // a normal parry is a quieter cyan line.
   parryPopup(points, perfect, streak) {
-    if (perfect) this._popup(`★ PERFECT PARRY ×${streak} ★  +${points}`, 'fever');
-    else this._popup2(`PARRY +${points}`, 'cyan');
+    if (perfect) this.bell(`PERFECT PARRY ×${streak} +${points}`, 'gold', { key: 'earn:parry' });
+    else this.bell(`PARRY +${points}`, 'cyan', { key: 'earn:parry' });
   },
 
   gatePopup(points) {
-    this._popup(`THREADED +${points}`, 'cyan');
+    this.bell(`THREADED +${points}`, 'cyan', { key: 'earn:gate' });
   },
 
   // §5i.B THREAD-THE-GAP: threading a boss WALL's safe gap — same word/colour as the course
   // gate (it's the same skill), streak-aware like parryPopup. Boss.js owns the scoring.
   threadPopup(points, streak) {
-    this._popup(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan');
+    this.bell(streak > 1 ? `THREADED ×${streak} +${points}` : `THREADED +${points}`, 'cyan', { key: 'earn:gate' });
   },
 
   milestonePopup(metres) {
-    const b = els.milestoneBanner;
-    if (!b) { this._popup2(`${metres} m!`, 'gold'); return; }
-    b.textContent = `${metres} m!`;
-    b.classList.remove('ms-anim');
-    void b.offsetWidth;
-    b.classList.add('ms-anim');
+    this.bell(`${metres.toLocaleString()} m`, 'gold', { key: 'milestone' });
   },
 
   recordPopup() {
-    this._popup('★ NEW RECORD ★', 'gold');
+    this.bell('NEW RECORD', 'gold', { key: 'record' });
   },
 
   // First-ever Dragon Surge: a one-shot, non-blocking flourish (the run never
-  // pauses). Reuses the milestone banner's pop; the surge hint line and the
-  // sky-fire (feverStart) carry the rest, and recap.js names it at run end.
+  // pauses). The Bell carries it; the sky-fire (feverStart) and recap.js do
+  // the rest of the celebrating.
   surgeFlourish() {
-    const b = els.milestoneBanner;
-    if (!b) { this._popup('⚡ DRAGON SURGE ⚡', 'gold'); return; }
-    b.textContent = '⚡ DRAGON SURGE ⚡';
-    b.classList.remove('ms-anim');
-    void b.offsetWidth;
-    b.classList.add('ms-anim');
+    this.bell('DRAGON SURGE', 'gold', { key: 'surge', dur: 1.6 });
   },
 
   // Surge killed by a hit: one-shot dim/desaturate sweep over the gem row so
@@ -1068,7 +1324,7 @@ export const ui = {
   },
 
   biomePopup(name) {
-    this._popup(`— ${name} —`, 'cyan');
+    this.bell(`— ${name} —`, 'cyan', { key: 'biome' });
   },
 
   // Dramatic incoming-boss warning shown across the warn + approach beats: a
@@ -1348,37 +1604,37 @@ export const ui = {
   },
 
   radioPopup(name) {
-    this._popup2(`♪ Now playing: ${name}`, 'gold');
+    this.bell(`${ICONS.music} ${name}`, 'cyan', { key: 'radio' });
   },
 
   // Live personal-record break (throttled by records.js)
   newBestPopup(label, value) {
-    this._popup2(`★ NEW BEST ${label}: ${value} ★`, 'gold');
+    this.bell(`NEW BEST ${label} · ${value}`, 'gold');
     sfx.record();
   },
 
   goldEmberPopup(value) {
-    this._popup2(`✦ GOLDEN EMBER +◆${value} ✦`, 'gold');
+    this.bell(`GOLDEN EMBER +${EMBER_ICON}${value}`, 'gold', { key: 'goldember' });
   },
 
   pbMarkerPopup(bonus) {
-    this._popup(`⟡ PAST YOUR BEST FLIGHT +◆${bonus} ⟡`, 'gold');
+    this.bell(`PAST YOUR BEST +${EMBER_ICON}${bonus}`, 'gold');
   },
 
-  // Feat toast: short in-flight unlock; Pilot and recap carry the details.
+  // Feat unlock: one Bell line (jade = unlock role); Pilot + recap carry details.
   featToast(name, reward) {
-    els.featToast.innerHTML = `${ICONS.feat} FEAT UNLOCKED <b>◆${reward}</b>`;
-    restartAnim(els.featToast, 'feat-toast-anim');
+    this.bell(`FEAT · ${name} <b>${EMBER_ICON}${reward}</b>`, 'jade', { dur: 2.0 });
   },
 
-  // Onboarding hint line (hints.js drives show/hide)
+  // Onboarding hint line (hints.js drives show/hide). Renders through the Bell
+  // as a STICKY message — held until hideHint() or the 8s starvation backstop.
   showHint(text) {
-    els.hint.textContent = text;
-    els.hint.classList.add('on');
+    this.bell(text, 'hint', { key: 'hint', sticky: true });
   },
 
   hideHint() {
-    els.hint.classList.remove('on');
+    if (this._bellCur && this._bellCur.key === 'hint') { this._bellEnd(); return; }
+    if (this._bellQ) this._bellQ = this._bellQ.filter((m) => m.key !== 'hint');
   },
 
   // Paused gesture tutorial overlay (gestureTutorial.js drives show/hide while
@@ -1512,37 +1768,49 @@ export const ui = {
   },
 
   comboBreak() {
-    this._popup('COMBO LOST', 'red');
+    this.bell('COMBO LOST', 'magenta', { key: 'combolost' });
     // Soft red edge pulse — the damage vignette at lower stakes.
     els.vignette.classList.remove('lethal');
     restartAnim(els.vignette, 'flash-anim');
   },
 
   orbFlash() {
-    this._popup('SPEED SURGE!', 'cyan');
+    this.bell('SPEED SURGE', 'cyan', { key: 'orb' });
     restartAnim(els.blueFlash, 'flash-anim');
   },
 
   feverStart() {
-    this._popup('DRAGON SURGE!', 'fever');
+    this.bell('DRAGON SURGE', 'gold', { key: 'surge', dur: 1.6 });
   },
 
-  damageFlash(lethal = false) {
+  // H3 §B.10 — impact is { x, y } toward the impactor (flight-plane: up =
+  // above you), passed from the collision site (risk #11). null = source
+  // without side data → all-quadrant pulse.
+  damageFlash(lethal = false, impact = null) {
     els.vignette.classList.toggle('lethal', lethal);
     restartAnim(els.vignette, 'flash-anim');
-  },
-
-  _popup(text, color) {
-    if (!els.popup) return;   // headless / no-DOM: UI popups no-op (a boss can now score-pop mid-fight)
-    els.popup.textContent = text;
-    els.popup.dataset.color = color;
-    restartAnim(els.popup, 'popup-anim');
-  },
-
-  _popup2(text, color) {
-    els.popup2.textContent = text;
-    els.popup2.dataset.color = color;
-    restartAnim(els.popup2, 'popup2-anim');
+    if (!els.gdSegs) return;
+    const severity = impact && impact.severity >= 1 ? 'gd-hit gd-big' : 'gd-hit';
+    const dirOf = (im) => (Math.abs(im.x) >= Math.abs(im.y)
+      ? (im.x >= 0 ? 'right' : 'left') : (im.y >= 0 ? 'up' : 'down'));
+    if (impact && (impact.x || impact.y)) {
+      const dir = dirOf(impact);
+      const seg = els.gdSegs[dir];
+      seg.classList.remove('gd-hit', 'gd-big');
+      void seg.getBoundingClientRect();
+      seg.classList.add(...severity.split(' '));
+      // quadrant-weighted vignette: the struck side blooms to full alpha
+      els.vignetteDir.dataset.dir = dir;
+      restartAnim(els.vignetteDir, 'flash-anim');
+    } else {
+      // no side data → all-quadrant pulse (the specced fallback)
+      for (const k of ['up', 'right', 'down', 'left']) {
+        const seg = els.gdSegs[k];
+        seg.classList.remove('gd-hit', 'gd-big');
+        void seg.getBoundingClientRect();
+        seg.classList.add('gd-hit');
+      }
+    }
   },
 
   showScreen(type) {
@@ -1891,6 +2159,17 @@ export const ui = {
           <div class="seg-row">${rowHtml}</div>
         </div>`;
       const pct = (v) => Math.round(v * 100);
+      // EMBERSIGHT H6 §F — the per-element HUD override matrix. Each element is a
+      // labelled row with a 3-way ALWAYS / DYNAMIC / OFF segment (default DYNAMIC =
+      // the relevance table). Persists to saveData.settings.hudElements; hudState
+      // maps it onto body classes live.
+      const hudEls = s.hudElements || {};
+      const hudElRow = (key, label) => {
+        const mode = hudEls[key] || 'dynamic';
+        const seg3 = (v, l) => `<button class="seg-btn${mode === v ? ' sel' : ''}" data-hudel="${key}" data-mode="${v}">${l}</button>`;
+        return `<div class="set-row"><div class="set-info"><div class="settings-label">${label}</div></div>
+          <div class="seg-row seg-compact">${seg3('always', 'ALWAYS')}${seg3('dynamic', 'AUTO')}${seg3('off', 'OFF')}</div></div>`;
+      };
       // DEV MODE only surfaces under ?debug/?dev — or while it's already ON,
       // so a dev save can always be restored.
       const devVisible = /[?&](debug|dev)\b/.test(location.search) || s.dev;
@@ -1912,6 +2191,8 @@ export const ui = {
             <p class="set-sub">How present the in-flight readouts are.</p>
             <div class="set-range vol-row"><input type="range" id="set-hud-alpha" min="50" max="100" step="5" value="${Math.round((s.hudAlpha || 1) * 100)}"><span class="range-val" id="hud-alpha-val">${Math.round((s.hudAlpha || 1) * 100)}%</span></div>
           </div>
+          ${swRow('assist', 'scorekeeper', 'SCOREKEEPER', 'Score and distance never fade — the classic corner readout.')}
+          ${swRow('assist', 'immersiveHud', 'IMMERSIVE HUD', 'Hides the readouts — just you, the dragon and the sky. Vital warnings still land.')}
           ${segGroup('COLORBLIND', 'Shifts the success and danger hues — the roles stay the same.',
             cbSeg('off', 'OFF') + cbSeg('deuter', 'DEUTER') + cbSeg('prot', 'PROT') + cbSeg('trit', 'TRIT'))}
 
@@ -1939,6 +2220,17 @@ export const ui = {
           ${swRow('assist', 'bulletClarity', 'BULLET CLARITY', 'Boss fights: hollow lock reticle, bigger bullets, danger telegraphs.')}
           ${swRow('assist', 'slowMo', 'LAST-CHANCE SLOW-MO', `A heartbeat of slow time before a fatal hit. Off pays +${pct(CONFIG.slowMoOffBonus)}% score.`)}
           ${swRow('assist', 'glideAssist', 'GLIDE ASSIST', `Auto-flies to each ring and collects embers. Scores −${pct(1 - CONFIG.glideAssistScoreMult)}% while on.`)}
+
+          <div class="settings-section">HUD readouts</div>
+          <p class="set-sub" style="margin:-2px 0 8px">Per readout: ALWAYS on, AUTO (fades when quiet, returns on a change), or OFF. Vital warnings — a last heart, a sealed boost — always land.</p>
+          ${hudElRow('life', 'LIFE')}
+          ${hudElRow('stamina', 'BOOST')}
+          ${hudElRow('surge', 'SURGE')}
+          ${hudElRow('score', 'SCORE')}
+          ${hudElRow('distance', 'DISTANCE')}
+          ${hudElRow('chain', 'CHAIN')}
+          ${hudElRow('damageDir', 'DAMAGE DIR')}
+          ${hudElRow('bell', 'ALERTS')}
 
           <div class="settings-section">Audio</div>
           <div class="settings-group">
@@ -2835,6 +3127,17 @@ function wireScreenButtons(type) {
       (v) => document.documentElement.style.setProperty('--hud-scale', v));
     wireRange('#set-hud-alpha', '#hud-alpha-val', 'hudAlpha',
       (v) => document.documentElement.style.setProperty('--hud-alpha', v));
+    // H6 §F — per-element HUD override matrix: pick ALWAYS/AUTO/OFF, persist,
+    // repaint just this row's selection (hudState applies the body class live).
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-hudel]')) {
+      btn.onclick = stop(() => {
+        const key = btn.dataset.hudel;
+        if (!saveData.settings.hudElements) saveData.settings.hudElements = {};
+        saveData.settings.hudElements[key] = btn.dataset.mode;
+        persist();
+        selectSeg(btn);
+      });
+    }
     // Assist switches (reticle / clarity / slow-mo / glide / mouse): instant flip.
     for (const btn of els.screen.querySelectorAll('.sw[data-assist]')) {
       btn.onclick = stop(() => {
