@@ -282,9 +282,13 @@ export function createDragon(scene, def, riderDef) {
   // Surge animation below). Cleared first so a shop rebuild doesn't leak the
   // old materials' uniform sets into the registry.
   resetRim();
-  applyRim(bodyMat, { strength: 0.0, power: 3.2, mul: def.rimBodyMul ?? 1 });
-  applyRim(wingMat, { strength: 0.0, power: 2.4 });
-  for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 });
+  // rimPowerMul tightens the Fresnel exponent per-dragon (higher = a thinner, hotter silhouette line
+  // rather than a broad wash the backlight averages away). The Tempest runs it hot so her cold storm
+  // edge clears bright water instead of collapsing to a silhouette (glow-up P1b).
+  const rpm = def.rimPowerMul ?? 1;
+  applyRim(bodyMat, { strength: 0.0, power: 3.2 * rpm, mul: def.rimBodyMul ?? 1 });
+  applyRim(wingMat, { strength: 0.0, power: 2.4 * rpm });
+  for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 * rpm });
   surgeMix = 0;
   surgeAnimT = 0;
   prevFever = false;
