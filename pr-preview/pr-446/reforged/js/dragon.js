@@ -258,10 +258,13 @@ export function createDragon(scene, def, riderDef) {
   // schedule is reproducible (determinism is a deliverable); null for every other dragon.
   stormArcMats = result.parts.stormArcMats || [];
   stormTimer = stormArcMats.length
-    // ONE slow SMOOTH swell per pulse (burst 1, no rapid succession), near-zero flicker — the idle
-    // "crackle" is a single current-pulse that WELLS UP and fades, not a fast flash (owner: "flickers
-    // too fast"); the root→tip travel then makes it read as current running out the circuit.
-    ? createPulseTimer({ seed: (def.model.stormSeed ?? 0x7e57) | 0, duty: def.model.arcDuty ?? 0.10, windowMin: 0.34, windowMax: 0.55, burstMin: 1, burstMax: 1, smooth: true, flickerDepth: 0.04 })
+    // ERRATIC idle crackle — real heat-lightning, not a metronome (owner: "more erratic instead of in
+    // beat, just like lightning"). A "flash" is an IRREGULAR cluster of 1–3 quick soft swells (each
+    // 0.10–0.30 s, tight 0.06–0.18 s stutter-gaps) then a LONG uneven quiet (the duty-solved rest ≥1.2 s
+    // varies with the cluster size → no two flashes land the same). Kept SMOOTH + near-zero flicker so it
+    // still WELLS not strobes (owner also disliked "flickers too fast"); the root→tip travel makes each
+    // flash read as current racing out the circuit to the wingtips.
+    ? createPulseTimer({ seed: (def.model.stormSeed ?? 0x7e57) | 0, duty: def.model.arcDuty ?? 0.10, windowMin: 0.10, windowMax: 0.30, burstMin: 1, burstMax: 3, gapMin: 0.06, gapMax: 0.18, smooth: true, flickerDepth: 0.05 })
     : null;
   stormEnvHist = [];
   stormCoreKick = 1;
