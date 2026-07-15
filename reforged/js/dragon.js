@@ -1204,6 +1204,17 @@ export function updateDragon(dt, player, time) {
     const breathe = 0.85 + 0.15 * Math.sin(2 * Math.PI * 0.5 * tNow);   // 0.5 Hz charge breathe (deterministic, pinnable)
     const qGate = quality >= 1 ? 1 : 0.6;   // low adaptive quality softens the strike (photosensitivity headroom)
     const fever = player.feverActive;
+    // ── THE THUNDERROLL — the Tempest's SURGE SIGNATURE (its "Haunting" equivalent). On Surge the
+    // circuit doesn't hold a flat blaze: it THUNDERS on a beat. Each ~1.15 s beat opens with a sharp
+    // CRACK that detonates and ROLLS root→tip (the wing bones light in sequence, 0.09 s/bucket), decays
+    // into a rolling rumble bed, and a shorter AFTER-CLAP follows — so it reads like real thunder, not a
+    // metronome. Deterministic + pinnable; beat ≈0.87 Hz + one afterclap → well under the 3 Hz cap.
+    const thunderAt = (b) => {
+      const T = tNow - 0.09 * b, beat = 1.15, ph = (((T % beat) + beat) % beat) / beat;
+      const crack = Math.pow(Math.max(0, 1 - ph / 0.85), 2.4);                                   // sharp attack at the beat, long decay tail
+      const afterclap = (ph > 0.34 && ph < 0.50) ? 0.5 * Math.pow(1 - (ph - 0.34) / 0.16, 2) : 0;  // the shorter second crack
+      return 0.42 + 1.25 * Math.max(crack, afterclap);                                            // rumble bed + the traveling cracks
+    };
     for (const m of stormArcMats) {
       const u = m.userData;
       const b = u.stormBucket || 0;
@@ -1212,16 +1223,17 @@ export function updateDragon(dt, player, time) {
       let ei = hum * breathe + env * (peak - hum);
       let hot = Math.max(0, (env - 0.85) / 0.15);   // the strike CORE hue-shifts d9deff→f2f4ff at the peak
       if (fever) {
-        // Surge = "the Tempest breaks": continuous blaze toward the caps + a ≤3 Hz strobe alternating b1/b2
-        const strobe = b >= 1 ? 0.9 + 0.1 * Math.sin(2 * Math.PI * 3 * tNow + b * Math.PI) : 1;
-        ei = Math.max(ei, cap * strobe * (0.55 + 0.45 * surgeMix));
-        hot = Math.max(hot, surgeMix);
+        // Surge = "the Tempest breaks": the THUNDERROLL — cracks rolling root→tip over a rumble bed.
+        const th = thunderAt(b);
+        ei = Math.max(ei, cap * (0.5 + 0.5 * surgeMix) * th);
+        hot = Math.max(hot, surgeMix * Math.min(1, 0.35 + th * 0.5));   // near-white at the crack peaks, tinted in the rumble
       }
       m.emissiveIntensity = Math.min(cap * 1.02, ei);
       _stormBase.setHex(u.baseEmissive ?? 0xd9deff);
       m.emissive.copy(_stormBase).lerp(_stormHot, Math.min(1, hot));
     }
-    stormCoreKick = 1 + 0.5 * ss.env01;   // the sternum dynamo "turns over" on the strike (root bucket)
+    // the sternum dynamo "turns over" on each strike AND BOOMS with every thunder-crack during Surge
+    stormCoreKick = 1 + 0.5 * ss.env01 + (fever ? 0.9 * Math.max(0, thunderAt(0) - 0.42) : 0);
   } else {
     stormCoreKick = 1;
   }
