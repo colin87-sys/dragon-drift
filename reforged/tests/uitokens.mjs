@@ -58,11 +58,15 @@ check(`EMBERLINE :root tokens declared in ${cssFile} (§A.1)`, missing.length ==
 // Each migration phase DELETES entries; deleting one arms the rule for that file.
 const FS_ALLOWLIST = [cssFile, 'js/'];      // Phase 0: everything exempt (dormant)
 const TRACK_ALLOWLIST = [cssFile, 'js/'];   // Phase 0: everything exempt (dormant)
+// Phase 1+: files MIGRATED and armed even while a broader prefix stays exempt.
+// New UI files are born migrated — add them here on creation.
+const ENFORCED = ['js/splash.js', 'js/uiSound.js'];
 // Selector-level sanction (§A.1): the wordmark family keeps its bespoke sizes on
 // migrated screens. Matched against the ~2 lines of context around a violation.
 const WORDMARK_EXCEPTION = /splash-title|hero-wordmark|load-hint h1/;
 
-const exempt = (file, list) => list.some((p) => file === p || file.startsWith(p));
+const exempt = (file, list) =>
+  !ENFORCED.includes(file) && list.some((p) => file === p || file.startsWith(p));
 const lineOf = (text, idx) => text.slice(0, idx).split('\n').length;
 const contextOf = (text, idx) => {
   const from = text.lastIndexOf('\n', Math.max(0, text.lastIndexOf('\n', idx) - 1)) + 1;
