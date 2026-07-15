@@ -1096,24 +1096,44 @@ function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
 function frozenStraitParts(hw, hz, h, botY, sign, pinch, rng) {
   const parts = [];
   const jz = () => (rng() - 0.5) * hz * 0.18;
+  const topY = botY + h;
+  // CANT + WEATHER the top face: raise the top ring of verts on a slant + jitter, so the cap is a
+  // canted, broken ice plane — never a flat machined lid catching light like plastic (Fable Dial B).
+  // Coverage-safe: callers build the covering mass with +1u margin over the collider and cant only
+  // RAISES (positive `lift`), so the visible top never dips below the collider top.
+  const cantTop = (g, lift, jit) => {
+    const p = g.attributes.position, ay = g.boundingBox ? 0 : 0;
+    let maxY = -Infinity; for (let i = 0; i < p.count; i++) maxY = Math.max(maxY, p.getY(i));
+    for (let i = 0; i < p.count; i++) {
+      if (p.getY(i) > maxY - 0.6) p.setY(i, p.getY(i) + Math.abs(lift * p.getX(i) / Math.max(hw, 1)) + rng() * jit);
+    }
+    return g;
+  };
   if (pinch) {
-    // Broad berg PROW — wide-based, leaning slightly inward (top drifts toward the channel),
-    // a big tabular cap. Two masses only (base + shoulder) so it reads as calved ice, not coursing.
-    const base = shearBoxGeo(hw * 1.92, h, hz * 1.7, sign * hw * 0.16, jz());
+    // Broad berg PROW — wide-BASED (grows from a broad foot, never a bare tower), leaning inward,
+    // a canted broken cap. Two masses only so it reads as one calved berg, not coursing.
+    const base = shearBoxGeo(hw * 1.94, h, hz * 1.7, sign * hw * 0.16, jz());
+    cantTop(base, 1.8, 1.3);
     base.translate(-sign * hw * 0.04, botY + h / 2, 0);
     parts.push(base);
-    const shoulder = shearBoxGeo(hw * 1.30, h * 0.52, hz * 1.35, sign * hw * 0.10, jz());
-    shoulder.translate(sign * hw * 0.22, botY + h * 0.70, (rng() - 0.5) * hz * 0.35);
+    const shoulder = shearBoxGeo(hw * 1.28, h * 0.5, hz * 1.3, sign * hw * 0.1, jz());
+    cantTop(shoulder, 1.4, 1.0);
+    shoulder.rotateZ(sign * 0.06);
+    shoulder.translate(sign * hw * 0.24, botY + h * 0.72, (rng() - 0.5) * hz * 0.35);
     parts.push(shoulder);
   } else {
-    // Low wide FLOE — a flat tabular pack-ice shelf. Covers the body collider (top ~y15) then a
-    // second thinner shelf offset on top so the silhouette isn't one machined box.
-    const slab = shearBoxGeo(hw * 1.95, h, hz * 1.8, (rng() - 0.5) * hw * 0.06, jz());
-    slab.translate(0, botY + h / 2, 0);
-    parts.push(slab);
-    const shelf = shearBoxGeo(hw * 1.42, h * 0.34, hz * 1.3, (rng() - 0.5) * hw * 0.05, jz());
-    shelf.translate((rng() - 0.5) * hw * 0.5, botY + h * 0.84, (rng() - 0.5) * hz * 0.35);
-    parts.push(shelf);
+    // Low wide FLOE — a THIN WIDE raft (≥4:1), canted+weathered top (no flat lid), plus a small
+    // tilted hummock so the silhouette drifts. Built +1u over the collider so the cant/jitter stay
+    // above it. The raft body stays axis-aligned (coverage-safe); the hummock tilts freely.
+    const raft = shearBoxGeo(hw * 2.0, h + 1, hz * 2.05, (rng() - 0.5) * hw * 0.05, jz());
+    cantTop(raft, 2.0, 1.4);
+    raft.translate(0, botY + (h + 1) / 2 - 0.5, 0);   // spans botY−0.5 .. topY+0.5 (covers the collider)
+    parts.push(raft);
+    const hum = shearBoxGeo(hw * 1.05, h * 0.42, hz * 1.4, 0, 0);
+    cantTop(hum, 1.2, 0.9);
+    hum.rotateZ((rng() - 0.5) * 0.16); hum.rotateX((rng() - 0.5) * 0.08);   // a drifting broken cap (no collider)
+    hum.translate((rng() - 0.5) * hw * 0.8, botY + h * 0.72, (rng() - 0.5) * hz * 0.55);
+    parts.push(hum);
   }
   return parts;
 }
@@ -1386,10 +1406,15 @@ function buildRockGap(o, e) {
     // full-width box where the rock is only thin tips: a solid lower body, then a
     // narrower crest pulled back up high — and the crest is DROPPED near a ring so
     // lunging up to grab a high ring never clips a thin tip.
-    box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width (channel bound — UNCHANGED)
-    // Crest collider only where tall ice actually covers it: non-strait walls, or strait PROWS.
-    // A strait FLOE tops out ~y15, so a high crest collider would be invisible-but-solid.
-    if (crest && (!strait || straitPinch)) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
+    if (strait && !straitPinch) {
+      // Strait FLOE: the body collider covers only y bot..topY (the low visible raft), so it
+      // still bounds the flight line (topY = ring line + margin) without an invisible-but-solid
+      // band above the ice. No crest collider — the floe tops out below the sightline.
+      box(cx, (botY + topY) / 2, hw, (topY - botY) / 2, hzCol, z);
+    } else {
+      box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width (channel bound — UNCHANGED)
+      if (crest) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
+    }
 
     // Crevasse SOCKET — a rationed lit fracture on the calved wall's re-flare face (Frozen
     // only). Countdown-rationed (1 per 2–3 eligible masses); because L/R walls interleave
@@ -1522,11 +1547,12 @@ function buildRockGap(o, e) {
       // Fill from the PER-HALF effective lane edge (s.laneHW: wider in the run interior,
       // ±13 on the boundary halves) so the widened channel still reads as rock, not air.
       const lo = -s.laneHW - 3, ro = s.laneHW + 3;
-      // MIRROR STRAIT rhythm: most slices are LOW floes (top ~y15 → sky held above); a PINCH
-      // of tall prows lands every ~3rd non-ring slice (2–4 tall moments per run). Non-strait
-      // keeps the full-height wall.
-      const pinch = strait && !s.noCrest && (si % 3 === 1);
-      const mTop = strait ? (pinch ? top : bot + 18) : top;
+      // MIRROR STRAIT rhythm: most slices are LOW floes whose top only just covers the ring line
+      // (so you look OVER them at the sunset — Dial A); a PAIR of tall prow pinches lands only
+      // every ~6th non-ring slice (2–3 per run — Dial C). Non-strait keeps the full-height wall.
+      const pinch = strait && !s.noCrest && (si % 6 === 3);
+      const floeTop = Math.max(bot + 12, Math.min(top, gy + 4));   // cover the flight line, stay low
+      const mTop = strait ? (pinch ? top : floeTop) : top;
       if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, mTop, bot, -s.z, 0.06, hz, !s.noCrest);
       if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, mTop, bot, -s.z, -0.06, hz, !s.noCrest);
       si++;
