@@ -349,23 +349,31 @@ body[data-qtier="2"] .hud-sew { display: none; }
 /* Boss callout slot — ONE bottom-centre line, shows a single queued message at a
    time (never overlapping) and doubles as the persistent SURGE-READY prompt.
    Sits low where the eye rests during a fight, clear of the top HUD. */
-.boss-note { position: fixed; left: 0; right: 0; bottom: 28%; text-align: center;
+/* TOP-ANCHORED below the gauntlet's multiplier slug (worst-case audit 2026-07-15):
+   the old bottom:28% anchor grew the text UPWARD to the 72% line, which painted
+   "REFLECT ANYTHING" straight across the ×N.NN multiplier (portrait) and across the
+   whole gauntlet cluster (landscape). Landscape sits at 77% (clears the multiplier
+   at ~76% and the raised spell card); portrait override below. */
+.boss-note { position: fixed; left: 0; right: 0; top: 77%; text-align: center;
   pointer-events: none; opacity: 0; z-index: 45; transition: opacity 0.22s ease; }
 /* Keep the (often two-line, wide) tutorial subtitle from sprawling under the
    lower-right spell card — bounded + centred so the two never read as one clutter. */
 .boss-note .bn-main, .boss-note .bn-sub, .boss-note .bn-ready { max-width: 88vw; margin-left: auto; margin-right: auto; }
 .boss-note.show { opacity: 1; }
+/* vmin sizing (not vw): on a landscape phone 5.6vw was a 40px skyscraper that
+   swallowed the gauntlet band — vmin keeps the telegraph the same physical size
+   in both orientations. */
 .boss-note .bn-main { display: block; white-space: nowrap;
-  font: 900 clamp(20px,5.6vw,40px)/1.05 'Russo One', system-ui, sans-serif;
+  font: 900 clamp(18px,5.6vmin,40px)/1.05 'Russo One', system-ui, sans-serif;
   letter-spacing: 0.05em; color: #ffd86a;
   text-shadow: 0 0 20px rgba(255,190,70,0.85), 0 2px 10px #000; }
 .boss-note .bn-sub { display: block; margin-top: 5px;
-  font: 700 clamp(12px,3.4vw,20px)/1.2 'Russo One', system-ui, sans-serif;
+  font: 700 clamp(11px,3.4vmin,20px)/1.2 'Russo One', system-ui, sans-serif;
   letter-spacing: 0.14em; color: #ffe9b8; text-shadow: 0 2px 8px #000; }
 .boss-note[data-tone="fever"] .bn-main { color: #ff8fe6; text-shadow: 0 0 22px rgba(255,90,220,0.9), 0 2px 10px #000; }
 .boss-note[data-tone="phase"] .bn-main { color: #d59bff; text-shadow: 0 0 22px rgba(190,110,255,0.9), 0 2px 10px #000; }
 .boss-note .bn-ready { display: block; white-space: nowrap;
-  font: 800 clamp(15px,4.3vw,28px)/1 'Russo One', system-ui, sans-serif;
+  font: 800 clamp(14px,4.3vmin,28px)/1 'Russo One', system-ui, sans-serif;
   letter-spacing: 0.1em; color: #ff8fe6;
   text-shadow: 0 0 18px rgba(255,90,220,0.9), 0 2px 12px #000; }
 .boss-note.show:not(.ready) { animation: boss-note-anim 0.4s cubic-bezier(.2,.9,.3,1.2); }
@@ -419,7 +427,10 @@ body[data-qtier="2"] .hud-sew { display: none; }
    role-locked MAGENTA left hairline (boss set-pieces = danger), and a caret timer.
    The protected animations (bc-in / bc-capture / bc-survive / the timer tick) and the
    per-boss accent glow are untouched — only the skin changes. */
-.boss-card { position: fixed; right: 14px; bottom: 15%; z-index: 41; pointer-events: none;
+/* Landscape sits at bottom 24% (still the lower-right quadrant): at 15% on a
+   390px-tall frame the card's box crossed the telegraph lane below the gauntlet
+   (worst-case audit) — 24% clears the top-anchored boss-note; portrait keeps 15%. */
+.boss-card { position: fixed; right: 14px; bottom: 24%; z-index: 41; pointer-events: none;
   min-width: 156px; max-width: 46vw; padding: 8px 12px 8px 14px; text-align: right;
   border-left: 2px solid rgba(255, 43, 106, 0.92);
   border-radius: var(--r-s);
@@ -1035,12 +1046,19 @@ body.biome-bright #hud .bell {
   opacity: 0; transition: opacity var(--t-ui) var(--ease-out);
   --mp-mag: 255, 43, 106; --mp-gold: 255, 216, 106; }
 .mews-plate.show { opacity: var(--hud-alpha); }
-.mp-name { display: flex; align-items: baseline; justify-content: center; gap: 8px;
-  margin-bottom: 4px; text-align: center; white-space: nowrap; }
-.mp-title { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-title);
+/* Nameplate: STACKED like the protected title card (name over epithet) — the old
+   inline nowrap pair overflowed the plate on long epithets and ran into the Tally
+   (owner-hit bug: MARROWCOIL "WHAT THE SKY COULD NOT DIGEST" clipped the SKIMS
+   chip). Each line is centered + ellipsized as a safety net; with the current
+   roster (longest epithet 34ch ≈ 272px) nothing truncates at either plate width. */
+.mp-name { display: block; margin-bottom: 4px; text-align: center; }
+.mp-title { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-family: var(--font-display); font-weight: 400; font-size: var(--fs-title);
   letter-spacing: 0.12em; text-transform: uppercase; color: var(--rf-ink);
   text-shadow: 0 0 12px rgba(var(--mp-mag), 0.4), 0 2px 8px #000; line-height: 1; }
-.mp-epithet { font-family: 'Rajdhani', var(--font-display); font-weight: 700;
+.mp-epithet { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; margin-top: 3px;
+  font-family: 'Rajdhani', var(--font-display); font-weight: 700;
   font-size: var(--fs-micro); letter-spacing: 0.18em; text-transform: uppercase;
   color: rgba(var(--mp-mag), 0.92); text-shadow: 0 1px 4px #000; }
 /* the bar: a smoked housing with the etched hairline outline on top */
@@ -1092,9 +1110,15 @@ body.biome-bright #hud .bell {
   .mews-plate.reforge .mp-fill::after { animation: none; }
   .mp-fill { transition: opacity var(--t-micro) linear; }
 }
-/* portrait: the plate widens + the nameplate stacks above the bar (§C) */
+/* portrait: the plate widens AND DROPS BELOW THE TALLY'S WORST-CASE DEPTH (§C).
+   The top-right column can stack four rows in a dense boss moment (score /
+   embers / chain / skims ≈ 105px deep) — a full-width bar anywhere in that band
+   collides with SOME chip no matter how it's trimmed, so the plate's whole slot
+   sits beneath it (top 112px). The bar keeps its 84vw drama and is structurally
+   immune to any score width or chip count; the Bell (portrait 20% ≈ 169px)
+   stays clear beneath it. */
 @media (orientation: portrait) {
-  .mews-plate { width: 84vw; top: calc(72px + env(safe-area-inset-top, 0px)); }
+  .mews-plate { width: 84vw; top: calc(112px + env(safe-area-inset-top, 0px)); }
 }
 
 /* ============ AUDIO / PAUSE BUTTON ============ */
@@ -1954,6 +1978,10 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   #reticle       { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
   .popup         { top: 36%; }
   .bell          { top: 20%; }   /* portrait: the Bell rises (HUD-REDESIGN §C) */
+  /* Telegraph lane: just under the gauntlet's multiplier slug (~64% + arc + slug
+     ≈ 70%), ending clear of the spell card (bottom 15% → top ≈ 76%). */
+  .boss-note     { top: 70.5%; }
+  .boss-card     { bottom: 15%; }   /* portrait keeps the spec'd lower-right seat */
   .audio-btns    { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; gap: 6px; }
   .mute-btn      { width: 32px; height: 32px; }
   .screen h1     { font-size: 32px; letter-spacing: 4px; padding: 0 10px; }
@@ -1995,6 +2023,10 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   /* Law 3: on a 390px-tall frame, 24% sits inside the Lure's ~140px halo —
      the Bell rises clear of the reticle cluster. */
   .bell { top: 15%; }
+  /* …but in a BOSS the Mews plate owns 66→~115px: 15% (≈58px) would ring the
+     toast straight through the nameplate. The Bell drops just below the bar —
+     toasts are ephemeral, the plate is furniture; text never crosses text. */
+  body.hud-boss .bell { top: calc(120px + env(safe-area-inset-top, 0px)); }
   .flow-crest { width: 84px; height: 46px;
     bottom: calc(max(clamp(46px, 9vh, 108px), env(safe-area-inset-bottom, 0px) + 30px) + 32px); }
   .flow-crest .fc-x { font-size: 15px; }
