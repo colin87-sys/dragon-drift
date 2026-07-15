@@ -542,7 +542,9 @@ if (!cp1) {
     let dyn = 0, all = 0;
     for (const m of sam) { const w = m.userData.stormHum ?? 0; all += w; if (m.userData.stormBucket === 0) dyn += w; }
     ok(all > 0 && dyn / all <= 0.15 + 1e-6, `${key} f${f}: dynamo ≤15% of the circuit hum (${(100 * dyn / all).toFixed(0)}%)`);
-    for (const m of sam) { const r = m.userData.stormPeak / m.userData.stormHum; ok(r >= 2.2 - 1e-6 && r <= 4.0 + 1e-6, `${key} f${f}: strike:idle ${r.toFixed(2)} in [2.2,4.0]`); }
+    // NORMAL near-OFF (owner redirect): idle a faint hint (≤25% of cap), the crackle a strong event
+    // (peak:idle ≥3.5) — the reinstated withheld idle superseding the old generous-garment band.
+    for (const m of sam) { const u = m.userData; ok(u.stormHum <= 0.25 * u.stormCap + 1e-6, `${key} f${f}: idle near-OFF (${u.stormHum.toFixed(2)} ≤ 0.25·cap)`); ok(u.stormPeak / u.stormHum >= 3.5, `${key} f${f}: crackle a strong event (${(u.stormPeak / u.stormHum).toFixed(1)} ≥ 3.5)`); }
   }
   // FEVER FIREWALL: the Surge palette is the cold storm-white lane, NEVER magenta.
   const d = DRAGONS[key];

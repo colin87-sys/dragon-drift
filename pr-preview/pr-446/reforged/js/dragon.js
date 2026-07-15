@@ -1215,18 +1215,33 @@ export function updateDragon(dt, player, time) {
       const afterclap = (ph > 0.34 && ph < 0.50) ? 0.5 * Math.pow(1 - (ph - 0.34) / 0.16, 2) : 0;  // the shorter second crack
       return 0.42 + 1.25 * Math.max(crack, afterclap);                                            // rumble bed + the traveling cracks
     };
+    // BREATHING-SURGE wave: the "alive" pulse under Surge — a slow breath + a faster shimmer, summed
+    // to an organic 0..1 (never a flat blaze). Per-bucket phase → the charge shimmers root→tip. This is
+    // the "charged, breathing lightning" read: the wing-colour waxing and waning, alive (owner).
+    const breatheSurge = (b) => {
+      const T = tNow - 0.05 * b;
+      const slow = 0.5 + 0.5 * Math.sin(2 * Math.PI * 0.55 * T);
+      const fast = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.6 * T + 2.1);
+      return 0.65 * slow + 0.35 * fast;
+    };
     for (const m of stormArcMats) {
       const u = m.userData;
       const b = u.stormBucket || 0;
       const hum = u.stormHum ?? 0.6, peak = u.stormPeak ?? 1.6, cap = u.stormCap ?? 2.0;
       const env = envAt(b) * qGate;
+      // NORMAL: near-OFF idle hint + the periodic CRACKLE (the strike env flashes it toward peak, then
+      // it falls back to the dark hint — "capable of cracking", never a steady garment).
       let ei = hum * breathe + env * (peak - hum);
-      let hot = Math.max(0, (env - 0.85) / 0.15);   // the strike CORE hue-shifts d9deff→f2f4ff at the peak
+      let hot = Math.max(0, (env - 0.8) / 0.2);   // white-hot only at the crackle peak
       if (fever) {
-        // Surge = "the Tempest breaks": the THUNDERROLL — cracks rolling root→tip over a rumble bed.
-        const th = thunderAt(b);
-        ei = Math.max(ei, cap * (0.5 + 0.5 * surgeMix) * th);
-        hot = Math.max(hot, surgeMix * Math.min(1, 0.35 + th * 0.5));   // near-white at the crack peaks, tinted in the rumble
+        // SURGE — CHARGED, BREATHING lightning: the circuit comes ALIVE and pulses the wing-colour,
+        // waxing and waning between ~half and full (never flat, never off), with thunder CRACKS rolling
+        // root→tip on the beat riding on top. Ramped in by surgeMix so the awakening is smooth.
+        const breath = breatheSurge(b);
+        const crack = Math.max(0, thunderAt(b) - 0.42) / 1.25;      // 0..1 crack accent
+        const alive = peak * (0.5 + 0.5 * breath) + (cap - peak) * 0.7 * crack;   // breathe ~half→peak, cracks push past peak toward cap
+        ei = Math.max(ei, alive * (0.35 + 0.65 * surgeMix));
+        hot = Math.max(hot, surgeMix * Math.min(1, 0.3 + 0.5 * breath + crack));   // pale storm-white, whitest on the breath crest + cracks
       }
       m.emissiveIntensity = Math.min(cap * 1.02, ei);
       _stormBase.setHex(u.baseEmissive ?? 0xd9deff);

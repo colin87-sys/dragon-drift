@@ -9,6 +9,7 @@
 // Kept self-contained and modular so it can later grow into a full attract-mode
 // loop (slow auto-flight through biomes, ring streaks, a barrel roll) — the hook
 // is the camera splash framing in cameraController.js plus the live scene update.
+import { uiSound } from './uiSound.js';
 
 let root = null;
 let flashEl = null;
@@ -47,7 +48,7 @@ export function initSplash(h = {}) {
     <div class="splash-vignette"></div>
     <div class="splash-embers"></div>
     <div class="splash-top">
-      <h1 class="splash-title">DRAGON<br>DRIFT</h1>
+      <h1 class="splash-title">DRAGON <br>DRIFT</h1>
       <p class="splash-slogan">&#9670;&ensp;it's a skill issue&ensp;&#9670;</p>
     </div>
     <div class="splash-bottom">
@@ -73,7 +74,7 @@ export function initSplash(h = {}) {
   root.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
     if (!armed) igniteSplash();
-    else handlers.onTakeOff && handlers.onTakeOff();
+    else { uiSound.confirm(); handlers.onTakeOff && handlers.onTakeOff(); }
   });
 }
 
