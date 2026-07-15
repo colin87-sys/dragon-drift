@@ -8,6 +8,12 @@ import { boot, check } from './browser.mjs';
 
 const result = await boot().then(async ({ page, done }) => {
   const r = await page.evaluate(async () => {
+    const { CONFIG } = await import('./js/config.js');
+    // Rock is DISABLED in shipping play (config rock:0) but its channel geometry
+    // still exists and MUST stay audited — force the pre-disable mixed weight so this
+    // audit exercises rock + spine together (byte-identical layouts to the era this
+    // test's seed pins were chosen in, incl. seed 9's bridged split pair).
+    CONFIG.canyonTypeWeights = { rock: 35, spine: 35, flow: 30 };
     const { createLevelGen } = await import('./js/level.js');
     const { halves, band, centre, spineSway, rockSlicePlan, kindMult, CORRIDOR_HALF, BUDGET_X, BUDGET_Y } =
       await import('./js/canyonMath.js');

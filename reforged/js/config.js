@@ -171,7 +171,12 @@ export const CONFIG = {
   // through these). flow = the Rhythm Flow-Tube (a walls-free speed showcase). Setting
   // flow:0 renormalizes rock/spine to 50/50 = byte-identical to the pre-flow picker (the
   // rollback dial). The single-draw mapping keeps the canyonRnd stream aligned.
-  canyonTypeWeights: { rock: 35, spine: 35, flow: 30 },
+  // rock DISABLED in normal play (owner: the rock run detracts — spine + flow only).
+  // The type draw is STILL consumed (rock:0 → r < 0 never hits), so the canyonRnd
+  // stream stays aligned; natural rock runs simply remap to spine/flow. The whole
+  // rock-run kit (incl. the flag-gated strait2 props-in-lane build) is preserved and
+  // returns by restoring a nonzero rock weight. ?canyon=split still forces it for dev.
+  canyonTypeWeights: { rock: 0, spine: 35, flow: 30 },
   spineSegments: [15, 19],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
                               // (longer than [13,16] so it reads as a sustained speed tunnel)
   canyonSpineSlip: 1.325,     // SLIPSTREAM speed-up inside the SPINE speed tunnel (spine only, not
