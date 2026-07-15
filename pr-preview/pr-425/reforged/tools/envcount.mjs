@@ -64,7 +64,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 const THREE = await import('three');
 const { propDiag } = await import('../js/environment.js');
-const { initObstacles, addObstacle, setVeilStyle } = await import('../js/obstacles.js');
+const { initObstacles, addObstacle } = await import('../js/obstacles.js');
 const { BIOMES, CYCLE } = await import('../js/biomes.js');
 
 const DIR = dirname(fileURLToPath(import.meta.url));
@@ -76,10 +76,9 @@ const CAP = {
   biomeInst: 550,
   biomeTris: 50000,
   pairTris: 90000,         // worst adjacent live pair (an order under the measured-safe 400k)
-  gateVeilLayers: 1,       // AT MOST one blended (non-additive) veil layer — the overdraw rule.
-                           //   The serene light styles (swirl/wisp/curtain) have ZERO — lines/points only.
-  gateAdditivePlanes: 9,   // core + beacon + (crystal: 7 motes | serene: 1-2 spirit Points) — all cheap
-  gateLatticeSegments: 3200, // lines are OVERDRAW-EXEMPT (thin, 1 draw); the smooth ribbon curtain needs ~2.5k strand segments
+  gateVeilLayers: 1,       // exactly one blended veil layer — the absolute overdraw rule
+  gateAdditivePlanes: 9,   // core + beacon + 7 motes (the shipped layer-4 set)
+  gateLatticeSegments: 600,
 };
 
 // Grandfathered legacy archetypes that predate the 150-tri target (their
@@ -166,40 +165,40 @@ console.log(`\nWorst adjacent live pair: ${worstPairLbl} = ${worstPair} band tri
 if (worstPair > CAP.pairTris) fail(`worst adjacent pair ${worstPair} > ${CAP.pairTris}`);
 else ok(`adjacent-pair window under ${CAP.pairTris}`);
 
-// --- Phase Gate veil census (every switchable style) ------------------------
-console.log('\nPhase Gate (representative fixture-built gate, per veil style):');
+// --- Phase Gate veil census -------------------------------------------------
+console.log('\nPhase Gate (representative fixture-built gate):');
 try {
   const captured = [];
   const sceneStub = { add: (o) => captured.push(o) };
   initObstacles(sceneStub);
-  for (const style of ['crystal', 'swirl', 'wisp', 'curtain']) {
-    setVeilStyle(style);
-    captured.length = 0;
-    // A representative gate: centred aperture, mid-lane altitude — biome 0 skin.
-    addObstacle({ type: 'gate', dist: 100, gapX: 0, gapY: 8, gapW: 3, gapH: 3, run: 'normal' });
-    const gate = captured[captured.length - 1];
-    let veilMats = new Set();   // distinct transparent NormalBlending materials = blended layers
-    let veilMeshes = 0, additivePlanes = 0, latticeSegments = 0;
-    gate.traverse((o) => {
-      const m = o.material;
-      if (!m) return;
-      const isAdditive = m.blending === THREE.AdditiveBlending;
-      const isTransparent = m.transparent === true;
-      if (o.isLineSegments && o.geometry) {
-        const p = o.geometry.getAttribute('position');
-        if (p) latticeSegments += Math.floor(p.count / 2);
-        return;
-      }
-      if (isAdditive && m.depthWrite === false) { additivePlanes++; return; }  // additive planes AND Points
-      if (isTransparent && !isAdditive) { veilMeshes++; veilMats.add(m); }
-    });
-    console.log(`  [${style}] veil: ${veilMeshes} mesh / ${veilMats.size} blended layer(s); additive: ${additivePlanes}; line segs: ${latticeSegments}`);
-    if (veilMats.size > CAP.gateVeilLayers) fail(`gate[${style}] has ${veilMats.size} blended veil layers > ${CAP.gateVeilLayers} (no stacked transparent shell)`);
-    if (additivePlanes > CAP.gateAdditivePlanes) fail(`gate[${style}] has ${additivePlanes} additive > ${CAP.gateAdditivePlanes}`);
-    if (latticeSegments > CAP.gateLatticeSegments) fail(`gate[${style}] lines ${latticeSegments} > ${CAP.gateLatticeSegments}`);
-  }
-  setVeilStyle('swirl');
-  ok(`all veil styles within caps (≤${CAP.gateVeilLayers} blended layer, ≤${CAP.gateAdditivePlanes} additive, ≤${CAP.gateLatticeSegments} line segs)`);
+  // A representative gate: centred aperture, mid-lane altitude — biome 0 skin.
+  addObstacle({ type: 'gate', dist: 100, gapX: 0, gapY: 8, gapW: 3, gapH: 3, run: 'normal' });
+  const gate = captured[captured.length - 1];
+
+  let veilMats = new Set();   // distinct transparent NormalBlending materials = blended layers
+  let veilMeshes = 0, additivePlanes = 0, latticeSegments = 0;
+  gate.traverse((o) => {
+    const m = o.material;
+    if (!m) return;
+    const isAdditive = m.blending === THREE.AdditiveBlending;
+    const isTransparent = m.transparent === true;
+    if (o.isLineSegments && o.geometry) {
+      const p = o.geometry.getAttribute('position');
+      if (p) latticeSegments += Math.floor(p.count / 2);
+      return;
+    }
+    if (isAdditive && m.depthWrite === false) { additivePlanes++; return; }
+    if (isTransparent && !isAdditive) { veilMeshes++; veilMats.add(m); }
+  });
+
+  console.log(`  veil: ${veilMeshes} panel mesh(es) sharing ${veilMats.size} blended material(s); ` +
+    `additive planes: ${additivePlanes}; lattice segments: ${latticeSegments}`);
+  if (veilMats.size !== CAP.gateVeilLayers) fail(`gate has ${veilMats.size} blended veil layer(s), expected exactly ${CAP.gateVeilLayers} (no second stacked transparent shell)`);
+  else ok(`exactly ${CAP.gateVeilLayers} blended veil layer`);
+  if (additivePlanes > CAP.gateAdditivePlanes) fail(`gate has ${additivePlanes} additive planes > ${CAP.gateAdditivePlanes}`);
+  else ok(`additive planes ≤ ${CAP.gateAdditivePlanes} (${additivePlanes})`);
+  if (latticeSegments > CAP.gateLatticeSegments) fail(`gate lattice ${latticeSegments} segments > ${CAP.gateLatticeSegments}`);
+  else ok(`lattice segments ≤ ${CAP.gateLatticeSegments} (${latticeSegments})`);
 
   // The 0.30 alpha clamp is the legibility guarantee — string-assert it survives
   // in the veil fragment source (markers.mjs precedent for source asserts).

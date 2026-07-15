@@ -30,16 +30,14 @@ async function shoot(biome, tag) {
     }, d);
     await page.waitForTimeout(40);
     if (gateDist != null) {
-      // Park a few metres before the gate plane, freeze speed so it can't drift
-      // past during the settle, let the camera catch up, then stop time and shoot.
-      await page.evaluate((gd) => { const dd = window.__dd; dd.player.dist = gd - 10; dd.player.speed = 0; }, gateDist);
-      await page.waitForTimeout(400);
-      await page.evaluate((gd) => { window.__dd.player.dist = gd - 10; window.__dd.game.timeScale = 0; }, gateDist);
-      await page.waitForTimeout(150);
+      await page.evaluate((gd) => { window.__dd.player.dist = gd - 14; }, gateDist);
+      await page.waitForTimeout(500);
+      await page.evaluate(() => { window.__dd.game.timeScale = 0; });
+      await page.waitForTimeout(120);
       const p = `/tmp/veil-${tag}-${shots.length}.png`;
       writeFileSync(p, await page.screenshot());
       shots.push(p);
-      await page.evaluate(() => { window.__dd.game.timeScale = 1; window.__dd.player.speed = 40; }, gateDist);
+      await page.evaluate(() => { window.__dd.game.timeScale = 1; });
       if (shots.length >= 2) break;
       d = Math.ceil(gateDist) + 30; // skip past this gate to find the next
     }

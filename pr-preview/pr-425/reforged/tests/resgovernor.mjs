@@ -88,7 +88,7 @@ check('main: each rung applies saver THEN scale (saver is free, spent first)', /
 check('main: setPerfSaver flips the mirror + god-ray levers (no realloc)', /function setPerfSaver[\s\S]*?setWaterPerfSaver\(on\)[\s\S]*?setGodRaySamplesSaver\(on\)/.test(main));
 check('water: setWaterPerfSaver present; cruise mirror ½→¼ only under the saver (identity off)', /export function setWaterPerfSaver/.test(src('../js/water.js')) && /_perfSaver \? 3 : 1/.test(src('../js/water.js')));
 check('postfx: setGodRaySamplesSaver present; tier0 march 40→24 only under the saver (identity off)', /export function setGodRaySamplesSaver/.test(src('../js/postfx.js')) && /_grSaver \? 24 : 40/.test(src('../js/postfx.js')));
-check('save: dynRes default false (shipped identity)', /dynRes: false/.test(src('../js/save.js')));
+check('save: dynRes default TRUE (ships default-on; a no-op on devices with headroom)', /dynRes: true/.test(src('../js/save.js')));
 check('ui: ADAPTIVE RESOLUTION settings toggle present', /gfxToggle\('dynRes'\)/.test(src('../js/ui.js')));
 
 console.log(`\n${pass} passed, ${fail} failed`);

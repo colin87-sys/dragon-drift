@@ -100,8 +100,9 @@ check('applyAurora keys off the DAMPED camera forward (weave-lagged, world-ancho
 // main.js feeds slipMix × auroraMix() (0 in every other biome → byte-inert). act = max(actRaw, excite·0.9).
 check('main.js feeds the flow chain to the aurora (setAuroraFlowExcite(slipMix × auroraMix()))',
   /setAuroraFlowExcite\(\s*slipMix\s*\*\s*auroraMix\(\)\s*\)/.test(readFileSync(url('../js/main.js'), 'utf8')));
-check('act floors on the flow excite, actOverride still wins',
-  /const act = actOverride != null \? actOverride : Math\.max\(actRaw, flowExcite \* 0\.9\)/.test(auroraSrc));
+check('act floors on the flow excite (remapped so a SUSTAINED chain holds the eruption), actOverride wins',
+  /flowAct = flowExcite < 0\.02 \? 0\.0 : Math\.min\(0\.96, 0\.63 \+ flowExcite \* 0\.35\)/.test(auroraSrc)
+  && /const act = actOverride != null \? actOverride : Math\.max\(actRaw, flowAct\)/.test(auroraSrc));
 // FUNCTIONAL: with the carve held (excite→1), the activity floor lifts and the eruption blooms; released
 // (excite→0) it returns to the natural actRaw drift (byte-inert). ?biome-independent — driven via forced.
 setAuroraForced(true);
@@ -110,6 +111,11 @@ for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1)
 const hotAct = auroraUniforms.uAurAct.value, hotErupt = auroraUniforms.uAurErupt.value;
 check('holding the carve lifts activity to the ~0.9 floor (well above the natural drift)', hotAct > 0.88);
 check('holding the carve blooms the eruption (uAurErupt > 0.5)', hotErupt > 0.5);
+// A MID sustained chain (slipMix≈0.6, e.g. chain ~12) must HOLD an eruption, not sit below threshold —
+// the owner's "flashes then vanishes while I hold the chain" was exactly this level erupting at ~0 before.
+setAuroraFlowExcite(0.6);
+for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);
+check('a MID sustained chain HOLDS the eruption (uAurErupt > 0.3, was ~0 pre-fix)', auroraUniforms.uAurErupt.value > 0.3);
 setAuroraFlowExcite(0);
 for (let i = 0; i < 60; i++) applyAurora({ auroraMix: 1 }, 1000, 3.0, null, 0.1);   // release → excite decays to 0
 check('releasing the carve returns activity to the natural drift (no floor → byte-inert)',

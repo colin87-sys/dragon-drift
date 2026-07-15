@@ -14,16 +14,6 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 const _mkParams = (typeof window !== 'undefined' && window.location)
   ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const SKYFORGED = _mkParams.get('skyforged') !== '0';
-// Phase Gate VEIL STYLE — the serene-magical redesign of the "crystal wall" (the
-// full-lane barrier you thread the window in). Switchable for fly-testing:
-//   ?veil=curtain — a swaying aurora curtain of light-strands, parted at the window (DEFAULT, Fable's champion)
-//   ?veil=swirl   — a slow luminous spiral into a calm eye
-//   ?veil=wisp    — a field of drifting spirits, the window a soft-lit eye
-//   ?veil=crystal — the prior faceted fresnel membrane (kept for A/B)
-// All fill the lane (no fly-around — the collider is unchanged), stay see-through
-// (lines/points), and are cheap (additive lines/points, no full-lane transparent fill).
-let veilStyle = _mkParams.get('veil') || 'curtain';
-export function setVeilStyle(s) { veilStyle = s; }   // studio/tests override
 
 // Hazards, spawned ahead and culled behind the dragon:
 //   pillar — floor spike (health damage)
@@ -46,8 +36,7 @@ const markerFlow = { value: 0 };            // per-ROLE 0..1 driver (gate: slipM
 const markerTime = { value: 0 };            // globally shared clock (one write/frame)
 let gateFrameMats = null;                   // Phase Gate aperture frame — one per biome (Skyforged)
 const gateFlowRef = { value: 0 };           // gate-frame heat ← speedNorm (NEVER markerFlow — that's the flow slip)
-let rimMats = null;  // dim outer silhouette frame (secondary) — retired by the crack-lattice
-let latticeMat = null; // shared crystalline crack-lattice (vertexColors hot→dark; overdraw-exempt lines)
+let rimMats = null;  // dim outer silhouette frame (secondary)
 const entries = [];
 export const colliders = entries; // same objects, same array
 
@@ -75,39 +64,28 @@ function makeVeilMat(color, edge) {
       uColor: { value: new THREE.Color(color) },
       uEdge: { value: new THREE.Color(edge) },
       uAlpha: { value: 0.6 },
-      // View-space low-sun direction (ahead + slightly up) for the per-facet glint.
-      // Fixed approximation — the facets already vary the read as the camera flies.
-      uSun: { value: new THREE.Vector3(0.0, 0.25, -1.0).normalize() },
     },
     vertexShader: `
-      attribute float aFacet;
-      varying vec3 vN; varying vec3 vView; varying vec3 vPos; varying float vFacet;
+      varying vec3 vN; varying vec3 vView; varying vec3 vPos;
       void main() {
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vView = -mv.xyz;
         vN = normalMatrix * normal;
         vPos = position;
-        vFacet = aFacet;
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
-      uniform float uTime; uniform vec3 uColor; uniform vec3 uEdge; uniform float uAlpha; uniform vec3 uSun;
-      varying vec3 vN; varying vec3 vView; varying vec3 vPos; varying float vFacet;
+      uniform float uTime; uniform vec3 uColor; uniform vec3 uEdge; uniform float uAlpha;
+      varying vec3 vN; varying vec3 vView; varying vec3 vPos;
       void main() {
         vec3 N = normalize(vN);
         vec3 V = normalize(vView);
-        float ndv = clamp(dot(N, V), 0.0, 1.0);
-        float fres = pow(1.0 - ndv, 3.0);
-        // Per-facet sun GLINT: faceted panels flash sequentially as the camera flies
-        // and the (view-space) low sun sweeps across the differently-angled planes.
-        float glint = pow(max(dot(reflect(-V, N), normalize(uSun)), 0.0), 28.0);
-        float band = sin((vPos.y * 0.5 + vPos.x * 0.3) + vFacet * 6.28 - uTime * 1.5);
+        float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
+        float band = sin((vPos.y * 0.5 + vPos.x * 0.3) - uTime * 1.5);
         float shimmer = 0.85 + 0.15 * band;
-        float a = clamp(uAlpha * (0.30 + 0.70 * fres) * shimmer + 0.18 * glint, 0.0, 0.30);
+        float a = clamp(uAlpha * (0.30 + 0.70 * fres) * shimmer, 0.0, 0.30);
         vec3 col = mix(uColor, uEdge, clamp(fres * 0.85, 0.0, 1.0));
         col += uEdge * max(0.0, band) * 0.12;
-        col += uEdge * glint * 0.9;                 // hot spark on the sun-facing facet
-        col += uEdge * (vFacet - 0.5) * 0.05;       // faint per-facet tone so panes read distinct head-on
         gl_FragColor = vec4(col, a);
       }`,
     transparent: true,
@@ -116,53 +94,6 @@ function makeVeilMat(color, edge) {
     blending: THREE.NormalBlending,
   });
 }
-
-// Serene-veil animated materials (shared; one uTime write/frame). Additive light,
-// blooms in postfx, overdraw-cheap (thin lines / small round point sprites).
-// Per-vertex aColor carries the biome tint + the hot-near-window gradient.
-function makeVeilLineMat() {
-  return new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: `
-      attribute vec3 aColor; attribute float aPhase; attribute float aSway;
-      varying vec3 vCol; uniform float uTime;
-      void main(){
-        vCol = aColor;
-        vec3 p = position;
-        p.x += sin(uTime * 0.6 + aPhase + p.y * 0.14) * aSway;   // gentle strand sway (0 for the spiral)
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-      }`,
-    fragmentShader: `varying vec3 vCol; void main(){ gl_FragColor = vec4(vCol, 0.9); }`,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  });
-}
-function makeVeilPointMat() {
-  return new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: `
-      attribute vec3 aColor; attribute float aPhase; attribute float aSize;
-      varying vec3 vCol; uniform float uTime;
-      void main(){
-        vCol = aColor;
-        vec3 p = position;
-        p.x += sin(uTime * 0.45 + aPhase) * 0.7;                 // slow drift of each spirit
-        p.y += cos(uTime * 0.37 + aPhase * 1.3) * 0.55;
-        vec4 mv = modelViewMatrix * vec4(p, 1.0);
-        gl_PointSize = aSize * (260.0 / max(0.1, -mv.z));
-        gl_Position = projectionMatrix * mv;
-      }`,
-    fragmentShader: `
-      varying vec3 vCol;
-      void main(){
-        vec2 d = gl_PointCoord - 0.5; float r = dot(d, d);
-        if (r > 0.25) discard;
-        float a = smoothstep(0.25, 0.0, r);
-        gl_FragColor = vec4(vCol * a, a);
-      }`,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  });
-}
-let veilLineMat = null, veilPointMat = null;   // built in initObstacles
 
 // Emissive glow line for the frame/ring/brackets — blooms in postfx.
 function makeEdgeMat(color, intensity) {
@@ -173,6 +104,20 @@ function makeEdgeMat(color, intensity) {
     roughness: 0.4,
     metalness: 0,
   });
+}
+
+// Fold the vertex-colour ladder into the EMISSIVE term so it reads in ANY light
+// (vertex colours alone only modulate diffuse → they die backlit). frost faces →
+// emissive×(bright frost), belly faces → emissive×(deep teal): the ladder's self-lit
+// legibility floor. Not applied to moverIce (its coral warning must stay unmodulated).
+function withLadderEmissive(mat) {
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vColor.rgb;'
+    );
+  };
+  return mat;
 }
 
 export function initObstacles(s) {
@@ -210,10 +155,17 @@ export function initObstacles(s) {
     // LADDER (near-white frost on upward faces, mid ice on verticals, deep teal in
     // the belly/shadow planes) that lifts flat-shaded ice from "one blue band" to
     // premium. Base white so the baked vertex colours read as authored.
-    frostIce: new THREE.MeshStandardMaterial({
+    // vColor carries the frost/mid/teal ladder. Vertex colours only modulate the
+    // DIFFUSE term, so backlit against the bright sunset the whole body collapsed to
+    // near-black emissive and the ladder vanished (the owner's "less premium than the
+    // side props" — the hazards sit dead-centre in the sun corridor, the worst
+    // contrast spot). Fix: fold the ladder into EMISSIVE too (onBeforeCompile below),
+    // so frost faces stay bright and belly faces stay teal in ANY light — a self-lit
+    // legibility FLOOR for a material-history ladder, not a glow feature.
+    frostIce: withLadderEmissive(new THREE.MeshStandardMaterial({
       color: 0xffffff, vertexColors: true, flatShading: true, roughness: 0.34, metalness: 0.02,
-      emissive: 0x11384c, emissiveIntensity: 0.28,
-    }),
+      emissive: 0xcfe4f0, emissiveIntensity: 0.42,
+    })),
     // Dark recess backing behind a crevasse glow — the near-black-teal socket that
     // turns "strip stuck on a face" into "crack with light inside".
     frostShadow: new THREE.MeshStandardMaterial({
@@ -263,19 +215,6 @@ export function initObstacles(s) {
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
   edgeMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 1.4));
   rimMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 0.5));
-  // The crystalline crack-lattice — ONE shared line material (per-vertex hot→dark
-  // colour carries the biome tint + the fly-here gradient). Fogged so distant lines
-  // recede; overdraw-exempt, so it's free richness + the outer silhouette in one.
-  latticeMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.92, fog: true });
-  // Serene-veil shared materials (curtain/swirl strands + wisp spirits).
-  veilLineMat = makeVeilLineMat();
-  veilPointMat = makeVeilPointMat();
-  // Window-marker materials: iris loops (vertexColors, NORMAL blend so the dark
-  // under-stroke reads as a silhouette on bright skies while the bright loop blooms),
-  // and the dark faceted ice-petal wreath (neutral dark ice → the cores carry the tint).
-  markerLineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95 });
-  markerStoneMat = new THREE.MeshStandardMaterial({ color: 0x3a4a68, flatShading: true, roughness: 0.4, metalness: 0.2, emissive: 0x14203a, emissiveIntensity: 0.5 });
-  bindAtmosphere(markerStoneMat);
   // FLOW "Sky Gate" signature — FIXED slip-cyan / ice-white in EVERY biome (never
   // edgeMats[bi]) so a flow run reads as its own distinct place, not a recoloured ring.
   // Shared: the whole run pulses together with the slipstream (updateObstacles). Opaque
@@ -452,240 +391,10 @@ export function addObstacle(o) {
 //   4. reactive FX: core-glow locator, long-range beacon, drifting motes
 // Veil/ring/rim materials are shared per biome; core/beacon/motes are
 // per-instance (marked so removeAt disposes them).
-// A faceted crystal PANEL for the Phase Gate veil (graphics veil pass). Same
-// rectangular outline as the old flat box face, but the interior is a jittered
-// low-poly triangulation of FLAT facets, so the fresnel membrane reads as GROWN
-// crystal instead of a flat hologram pane: each facet catches the grazing light
-// and the low-sun glint differently, and the sun sweeps across them as
-// sequentially flashing planes as the camera flies. Boundary vertices are PINNED
-// (z = 0, exact outline, no XY jitter) so the four panels tile seamlessly against
-// each other and the frame with no cracks and never bulge into the gameplay
-// aperture. Carries a per-facet random attribute `aFacet` (same value on a
-// triangle's three verts). Non-indexed → computeVertexNormals yields true flat
-// facet normals. Uses Math.random like the motes below (a gate's VISUAL detail is
-// not determinism-tracked — the fixture tracks gameplay state, not mesh jitter).
-function facetedPanel(w, h, T) {
-  const nx = Math.max(1, Math.round(w / 3.0));
-  const ny = Math.max(1, Math.round(h / 3.0));
-  const cw = w / nx, ch = h / ny;
-  const V = [];
-  for (let j = 0; j <= ny; j++) {
-    for (let i = 0; i <= nx; i++) {
-      const edge = (i === 0 || i === nx || j === 0 || j === ny);
-      let x = -w / 2 + i * cw, y = -h / 2 + j * ch, z = 0;
-      if (!edge) {
-        x += (Math.random() - 0.5) * 0.6 * cw;
-        y += (Math.random() - 0.5) * 0.6 * ch;
-        z += (Math.random() - 0.5) * 0.84 * T;   // within the ±T/2 slab, never into the gap (panels sit outside it)
-      }
-      V.push({ x, y, z });
-    }
-  }
-  const vid = (i, j) => j * (nx + 1) + i;
-  const norm = (a, b, c) => {
-    const A = V[a], B = V[b], C = V[c];
-    const ux = B.x - A.x, uy = B.y - A.y, uz = B.z - A.z, vx = C.x - A.x, vy = C.y - A.y, vz = C.z - A.z;
-    let nx2 = uy * vz - uz * vy, ny2 = uz * vx - ux * vz, nz2 = ux * vy - uy * vx;
-    const l = Math.hypot(nx2, ny2, nz2) || 1; return [nx2 / l, ny2 / l, nz2 / l];
-  };
-  const tris = [];
-  for (let j = 0; j < ny; j++) {
-    for (let i = 0; i < nx; i++) {
-      const a = vid(i, j), b = vid(i + 1, j), c = vid(i + 1, j + 1), d = vid(i, j + 1);
-      if ((i + j) % 2 === 0) { tris.push([a, b, c]); tris.push([a, c, d]); }
-      else { tris.push([a, b, d]); tris.push([b, c, d]); }
-    }
-  }
-  const triN = tris.map((t) => norm(t[0], t[1], t[2]));
-  // Edge → adjacent triangles, to select the crystalline LATTICE: boundary edges
-  // (mesh outline = the gate silhouette) + interior edges whose dihedral angle
-  // exceeds ~9° (the facet crease network — line and shade agree → one material).
-  const emap = new Map();
-  const ek = (p, q) => (p < q ? p * 100000 + q : q * 100000 + p);
-  tris.forEach((t, ti) => { for (const [p, q] of [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]]) { const k = ek(p, q); (emap.get(k) || emap.set(k, []).get(k)).push(ti); } });
-  const lattice = [];
-  const cosThresh = Math.cos(9 * Math.PI / 180);
-  for (const [k, adj] of emap) {
-    const p = Math.floor(k / 100000), q = k % 100000;
-    let emit = adj.length === 1;   // boundary/outline edge
-    if (adj.length === 2) { const n0 = triN[adj[0]], n1 = triN[adj[1]]; if (n0[0] * n1[0] + n0[1] * n1[1] + n0[2] * n1[2] < cosThresh) emit = true; }
-    if (emit) { const A = V[p], B = V[q]; lattice.push(A.x, A.y, A.z, B.x, B.y, B.z); }
-  }
-  const pos = [], facet = [];
-  for (const t of tris) { const f = Math.random(); for (const vi of t) { const P = V[vi]; pos.push(P.x, P.y, P.z); facet.push(f); } }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('aFacet', new THREE.Float32BufferAttribute(facet, 1));
-  g.computeVertexNormals();
-  return { geo: g, lattice };
-}
-
-// ---- Serene veil STYLES: full-lane light barriers with a mandatory window (the
-// crystal-wall redesign). Each fills the lane box (±LX, 0..LTOP) around the
-// aperture, leaves the window clear, stays see-through (lines/points), and animates
-// via the shared veil shaders. Colour runs HOT (biome edge, blooms) near the window
-// → DIM biome tone at the periphery, so the window reads and the far field recedes.
-const LX = 16, LTOP = 24;
-function _veilGeo(pos, col, phase, extra, extraName) {
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('aColor', new THREE.Float32BufferAttribute(col, 3));
-  g.setAttribute('aPhase', new THREE.Float32BufferAttribute(phase, 1));
-  g.setAttribute(extraName, new THREE.Float32BufferAttribute(extra, 1));
-  return g;
-}
-// distance from a window-relative point to the window rect (0 inside), for colour.
-function _winDist(rx, ry, o) { return Math.hypot(Math.max(Math.abs(rx) - o.gapW, 0), Math.max(Math.abs(ry) - o.gapH, 0)); }
-
-// SWIRL — a slow luminous spiral into a calm eye. Built eye-relative so the whole
-// thing rotates gently about the window (updateObstacles).
-function buildVeilSwirl(o, skin) {
-  const hot = new THREE.Color(skin.edge), dim = new THREE.Color(skin.edge).multiplyScalar(0.28), _c = new THREE.Color();
-  const pos = [], col = [], phase = [], sway = [];
-  const arms = 7;
-  for (let a = 0; a < arms; a++) {
-    const a0 = a / arms * Math.PI * 2; let px = null, py = null;
-    for (let t = 0; t < 80; t++) {
-      const rr = o.gapW + 0.9 + Math.pow(t, 1.14) * 0.2, th = a0 + t * 0.1;
-      const x = Math.cos(th) * rr, y = Math.sin(th) * rr * 0.95;
-      if (rr > 26) break;
-      if (px != null) {
-        _c.copy(hot).lerp(dim, Math.min(_winDist(x, y, o) / 12, 1));
-        const b = Math.max(0.16, 1 - t / 40);
-        pos.push(px, py, 0, x, y, 0); col.push(_c.r * b, _c.g * b, _c.b * b, _c.r * b, _c.g * b, _c.b * b); phase.push(0, 0); sway.push(0, 0);
-      }
-      px = x; py = y;
-    }
-  }
-  const lines = new THREE.LineSegments(_veilGeo(pos, col, phase, sway, 'aSway'), veilLineMat);
-  lines.position.set(o.gapX, o.gapY, 0);
-  const motes = _veilMotes(o, skin, 100);
-  return { objects: [lines, motes], spin: lines };
-}
-
-// WISP — a still field of drifting spirits filling the lane, the window a calm eye
-// ringed by a soft halo of brighter wisps.
-function buildVeilWisp(o, skin) {
-  const hot = new THREE.Color(skin.edge), dim = new THREE.Color(skin.edge).multiplyScalar(0.5), _c = new THREE.Color();
-  const pos = [], col = [], phase = [], size = [];
-  for (let i = 0; i < 480; i++) {
-    let x, y; do { x = -LX + Math.random() * LX * 2; y = Math.random() * LTOP; } while (Math.abs(x - o.gapX) < o.gapW && Math.abs(y - o.gapY) < o.gapH);
-    _c.copy(hot).lerp(dim, Math.min(_winDist(x - o.gapX, y - o.gapY, o) / 14, 1));
-    pos.push(x, y, (Math.random() - 0.5) * 9); col.push(_c.r, _c.g, _c.b); phase.push(Math.random() * 6.28); size.push(0.7 + Math.random() * 0.9);
-  }
-  const field = new THREE.Points(_veilGeo(pos, col, phase, size, 'aSize'), veilPointMat);
-  // (the window ring is now the shared marker — iris loops + glacier-bloom wreath)
-  return { objects: [field] };
-}
-
-// CURTAIN — a swaying veil of light-RIBBONS filling the lane, drawn back at the window
-// (Fable's champion). Smooth, gently S-curved strands (no scratchy kinks), brightness
-// tapered to a SOFT fade at both ends (kills the hard top/bottom band seams), density
-// falling toward the window where the strands sweep aside — the parting doubles as an
-// arrow to the safe route.
-function buildVeilCurtain(o, skin) {
-  const hot = new THREE.Color(skin.edge), dim = new THREE.Color(skin.edge).multiplyScalar(0.4), _c = new THREE.Color();
-  const pos = [], col = [], phase = [], sway = [];
-  const N = 110, SEG = 26;
-  for (let i = 0; i < N; i++) {
-    const x0 = -LX + (i + Math.random() * 0.5) / N * LX * 2, ph = Math.random() * 6.28;
-    const near = Math.max(0, 1 - Math.abs(x0 - o.gapX) / (o.gapW * 2.4));
-    const amp = 0.3 + Math.random() * 0.4;
-    const scurve = (0.5 + Math.random()) * (Math.random() < 0.5 ? -1 : 1);  // gentle per-strand S-bend
-    const bright = 0.7 + Math.random() * 0.5;
-    let px = null, py = null, pE = 0;
-    for (let s = 0; s <= SEG; s++) {
-      const t = s / SEG, y = LTOP - t * LTOP;
-      const inWinY = y > o.gapY - o.gapH - 1.5 && y < o.gapY + o.gapH + 1.5;
-      const bow = (near > 0.1 && inWinY) ? near * (x0 < o.gapX ? -1 : 1) * o.gapW * 1.2 : near * (x0 < o.gapX ? -1 : 1) * o.gapW * 0.2;
-      const x = x0 + bow + Math.sin(t * Math.PI) * scurve;                  // smooth S-curve, zero at both ends
-      // soft brightness envelope: fades to 0 at top & bottom → no razor band edge
-      const env = Math.pow(Math.sin(t * Math.PI), 0.6) * bright;
-      const skip = near > 0.12 && inWinY;
-      if (px != null && !skip && pE > 0.02) {
-        _c.copy(hot).lerp(dim, Math.min(_winDist(x - o.gapX, y - o.gapY, o) / 11, 1));
-        col.push(_c.r * pE, _c.g * pE, _c.b * pE, _c.r * env, _c.g * env, _c.b * env);
-        pos.push(px, py, 0, x, y, 0); phase.push(ph, ph); sway.push(amp, amp);
-      }
-      px = x; py = y; pE = env;
-    }
-  }
-  const lines = new THREE.LineSegments(_veilGeo(pos, col, phase, sway, 'aSway'), veilLineMat);
-  return { objects: [lines, _veilMotes(o, skin, 90)] };
-}
-
-// ---- Window MARKER (Fable frame redesign): kill the rounded-square + corner
-// "viewfinder" brackets. The safe window is instead marked by (a) IRIS OF THE VEIL
-// — concentric SUPERELLIPSE (squircle, no hard corners) loops of the veil's own
-// light hugging the opening, with a dark under-stroke so the silhouette survives a
-// bright sky, and (b) a sparse GLACIER-BLOOM WREATH — a few dark faceted ice-petals
-// with a bright emissive core, giving mass + the game's recessed-glow material
-// language + bright-sky legibility. Beaded/petaled (not a plain ring) so a mandatory
-// gate never reads as an optional reward ring.
-let markerLineMat = null, markerStoneMat = null;
-function _superellipse(cx, cy, a, b, steps, n = 4) {
-  const p = [];
-  for (let i = 0; i < steps; i++) {
-    const th = i / steps * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
-    p.push(cx + a * Math.sign(c) * Math.pow(Math.abs(c), 2 / n), cy + b * Math.sign(s) * Math.pow(Math.abs(s), 2 / n));
-  }
-  return p;
-}
-function _loopSegs(cx, cy, a, b, steps, z, color, pos, col) {
-  const p = _superellipse(cx, cy, a, b, steps);
-  for (let i = 0; i < steps; i++) {
-    const j = (i + 1) % steps;
-    pos.push(p[i * 2], p[i * 2 + 1], z, p[j * 2], p[j * 2 + 1], z);
-    col.push(color.r, color.g, color.b, color.r, color.g, color.b);
-  }
-}
-function buildWindowMarker(o, skin) {
-  const objs = [];
-  const hot = new THREE.Color(skin.edge);
-  const white = new THREE.Color(skin.core);
-  const bright = hot.clone().multiplyScalar(2.2), faint = hot.clone().multiplyScalar(0.5), dark = hot.clone().multiplyScalar(0.12);
-  const pos = [], col = [], steps = 52;
-  _loopSegs(o.gapX, o.gapY, o.gapW + 0.42, o.gapH + 0.42, steps, -0.1, dark, pos, col);   // dark under-stroke → silhouette on bright sky
-  _loopSegs(o.gapX, o.gapY, o.gapW + 0.45, o.gapH + 0.45, steps, 0.06, bright, pos, col);  // bright boundary loop (blooms)
-  _loopSegs(o.gapX, o.gapY, o.gapW + 1.35, o.gapH + 1.35, steps, 0.0, faint, pos, col);    // faint outer echo loop
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  objs.push(new THREE.LineSegments(g, markerLineMat));
-  // wreath: small faceted ice-petals catching light, each with a BRIGHT glowing core
-  // (a beaded ring of light — the glow reads even where a dark body would; the core
-  // is white-hot skin.core so it blooms and is legible on any sky).
-  const wp = _superellipse(o.gapX, o.gapY, o.gapW + 0.9, o.gapH + 0.9, 14);
-  const shards = [], cpos = [], ccol = [], cph = [], csz = [];
-  const cw = white.clone().lerp(hot, 0.3);
-  for (let i = 0; i < 14; i++) {
-    const x = wp[i * 2], y = wp[i * 2 + 1], th = Math.atan2(y - o.gapY, x - o.gapX);
-    const sg = new THREE.IcosahedronGeometry(0.26, 0);
-    sg.scale(1.35, 0.6, 0.6); sg.rotateZ(th); sg.translate(x, y, 0);
-    shards.push(sg);
-    cpos.push(x, y, 0.2); ccol.push(cw.r, cw.g, cw.b); cph.push(Math.random() * 6.28); csz.push(2.8);
-  }
-  const wreath = new THREE.Mesh(mergeGeometries(shards, false), markerStoneMat);
-  shards.forEach((s) => s.dispose());
-  objs.push(wreath);
-  objs.push(new THREE.Points(_veilGeo(cpos, ccol, cph, csz, 'aSize'), veilPointMat));
-  return objs;
-}
-
-// shared drifting motes for the swirl/curtain (soft additive spirits away from the window)
-function _veilMotes(o, skin, n) {
-  const c = new THREE.Color(skin.mote), pos = [], col = [], phase = [], size = [];
-  for (let i = 0; i < n; i++) {
-    let x, y; do { x = -LX + Math.random() * LX * 2; y = Math.random() * LTOP; } while (Math.abs(x - o.gapX) < o.gapW && Math.abs(y - o.gapY) < o.gapH);
-    pos.push(x, y, (Math.random() - 0.5) * 7); col.push(c.r, c.g, c.b); phase.push(Math.random() * 6.28); size.push(0.5 + Math.random() * 0.7);
-  }
-  return new THREE.Points(_veilGeo(pos, col, phase, size, 'aSize'), veilPointMat);
-}
-
-function buildGate(o, biOverride) {
+function buildGate(o) {
   const group = new THREE.Group();
   group.userData.phaseGate = true;   // tag: lets tooling hide the harness-interleaved Phase Gate reliably
-  const bi = biOverride != null ? biOverride : biomeIndexAt(o.dist);
+  const bi = biomeIndexAt(o.dist);
   const skin = PHASE_SKINS[bi];
   const veilMat = veilMats[bi];
   const edgeMat = edgeMats[bi];
@@ -701,49 +410,17 @@ function buildGate(o, biOverride) {
   const W = o.gapW * 2;
   const H = o.gapH * 2;
 
-  // Layer 3 — the VEIL: the full-lane barrier you thread the window in. Default is a
-  // serene light barrier (swirl/wisp/curtain — the crystal-wall redesign); ?veil=crystal
-  // keeps the prior faceted fresnel membrane + crack-lattice for A/B.
-  if (veilStyle !== 'crystal') {
-    const veil = (veilStyle === 'wisp') ? buildVeilWisp(o, skin)
-      : (veilStyle === 'curtain') ? buildVeilCurtain(o, skin) : buildVeilSwirl(o, skin);
-    for (const obj of veil.objects) group.add(obj);
-    if (veil.spin) group.userData.veilSpin = veil.spin;
-  } else {
-  const latPos = [];
+  // Layer 3 — translucent phase field (veil panels around the aperture).
   const panel = (w, h, cx, cy) => {
     if (w <= 0.1 || h <= 0.1) return;
-    const { geo, lattice } = facetedPanel(w, h, T);
-    const mesh = new THREE.Mesh(geo, veilMat);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, T), veilMat);
     mesh.position.set(cx, cy, 0);
     group.add(mesh);
-    for (let i = 0; i < lattice.length; i += 3) latPos.push(lattice[i] + cx, lattice[i + 1] + cy, lattice[i + 2]);
   };
   panel(left + X, TOP, (left - X) / 2, TOP / 2); // left of gap
   panel(X - right, TOP, (right + X) / 2, TOP / 2); // right of gap
   panel(right - left, TOP - top, o.gapX, (top + TOP) / 2); // above gap
   panel(right - left, bottom, o.gapX, bottom / 2); // below gap
-
-  // The crack-lattice colours: HOT (biome edge) within ~1.5 cells of the aperture
-  // — reinforcing "fly here" and blooming — falling to a DARK biome tone at the
-  // periphery, which reads as a crisp silhouette even where the glow is invisible
-  // on a bright sky (the Frozen legibility fix). Replaces the 4 hairline rim bars.
-  const hot = new THREE.Color(skin.edge);
-  const dark = new THREE.Color(skin.edge).multiplyScalar(0.26);
-  const latCol = [];
-  const _lc = new THREE.Color();
-  for (let i = 0; i < latPos.length; i += 3) {
-    const dx = Math.max(Math.abs(latPos[i] - o.gapX) - o.gapW, 0);
-    const dy = Math.max(Math.abs(latPos[i + 1] - o.gapY) - o.gapH, 0);
-    const t = Math.min(Math.hypot(dx, dy) / 8, 1);
-    _lc.copy(hot).lerp(dark, t);
-    latCol.push(_lc.r, _lc.g, _lc.b);
-  }
-  const latGeo = new THREE.BufferGeometry();
-  latGeo.setAttribute('position', new THREE.Float32BufferAttribute(latPos, 3));
-  latGeo.setAttribute('color', new THREE.Float32BufferAttribute(latCol, 3));
-  group.add(new THREE.LineSegments(latGeo, latticeMat));
-  }
 
   const bar = (w, h, cx, cy, mat, z) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), mat);
@@ -751,27 +428,35 @@ function buildGate(o, biOverride) {
     group.add(mesh);
   };
 
-  // Layer 2 — the WINDOW MARKER. Serene styles: the redesigned iris + glacier-bloom
-  // wreath (no UI frame, no viewfinder brackets — the owner rejected those). Crystal
-  // (A/B): the prior Skyforged forged-glass frame + corner brackets, unchanged.
-  if (veilStyle !== 'crystal') {
-    for (const obj of buildWindowMarker(o, skin)) group.add(obj);
+  // Layer 1 — outer silhouette frame: a slim, dim glowing rim around the whole
+  // span so the gate reads as an intentional portal from a distance (secondary
+  // in the hierarchy, hence rimMat's lower emissive).
+  bar(2 * X, 0.3, 0, TOP - 0.15, rimMat, 0.15);
+  bar(2 * X, 0.3, 0, 0.15, rimMat, 0.15);
+  bar(0.3, TOP, -X + 0.15, TOP / 2, rimMat, 0.15);
+  bar(0.3, TOP, X - 0.15, TOP / 2, rimMat, 0.15);
+
+  // Layer 2 — aperture ring: the brightest element, framing the safe route. Skyforged (PR-4):
+  // ONE faceted forged-glass frame with a hot inner LIP on the collider boundary (per biome),
+  // replacing the four flat bars. Fallback (?skyforged=0): the exact shipped bars.
+  if (SKYFORGED) {
+    group.add(new THREE.Mesh(buildGateFrame(o), gateFrameMats[bi]));
   } else {
-    if (SKYFORGED) {
-      group.add(new THREE.Mesh(buildGateFrame(o), gateFrameMats[bi]));
-    } else {
-      bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
-      bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
-      bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
-      bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
-    }
-    const legLen = 1.2, gap = 0.75;
-    for (const sx of [-1, 1]) {
-      for (const sy of [-1, 1]) {
-        const cx = o.gapX + sx * (o.gapW + gap), cy = o.gapY + sy * (o.gapH + gap);
-        bar(legLen, 0.34, cx - sx * legLen / 2, cy, edgeMat, 0.5);
-        bar(0.34, legLen, cx, cy - sy * legLen / 2, edgeMat, 0.5);
-      }
+    bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
+    bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
+    bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
+    bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
+  }
+  // Corner brackets (viewfinder cue) opening toward the centre of the gap. UNTOUCHED in both
+  // modes (on edgeMat) — the highest-leverage safe-route affordance + its speed-aware breath.
+  const legLen = 1.2;
+  const gap = 0.75;
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      const cx = o.gapX + sx * (o.gapW + gap);
+      const cy = o.gapY + sy * (o.gapH + gap);
+      bar(legLen, 0.34, cx - sx * legLen / 2, cy, edgeMat, 0.5); // horizontal leg
+      bar(0.34, legLen, cx, cy - sy * legLen / 2, edgeMat, 0.5); // vertical leg
     }
   }
 
@@ -808,48 +493,23 @@ function buildGate(o, biOverride) {
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   moteMat.userData.perInstance = true;
+  const moteGeo = new THREE.PlaneGeometry(0.45, 0.45);
   const motes = [];
-  // The legacy drifting mesh-motes are the crystal style's atmosphere; the serene
-  // light styles bring their own additive spirits, and the additive budget is tight
-  // (core + beacon + the style's points must stay ≤ the cap), so skip them there.
-  if (veilStyle === 'crystal') {
-    const moteGeo = new THREE.PlaneGeometry(0.45, 0.45);
-    for (let i = 0; i < 7; i++) {
-      const m = new THREE.Mesh(moteGeo, moteMat);
-      const mx = o.gapX + (Math.random() * 2 - 1) * (X * 0.7);
-      const my = 2 + Math.random() * (TOP - 4);
-      m.position.set(mx, my, 0.4);
-      m.userData = { baseX: mx, baseY: my, phase: Math.random() * Math.PI * 2, sp: 0.5 + Math.random() * 0.7 };
-      m.layers.set(1);
-      group.add(m);
-      motes.push(m);
-    }
+  for (let i = 0; i < 7; i++) {
+    const m = new THREE.Mesh(moteGeo, moteMat);
+    const mx = o.gapX + (Math.random() * 2 - 1) * (X * 0.7);
+    const my = 2 + Math.random() * (TOP - 4);
+    m.position.set(mx, my, 0.4);
+    m.userData = { baseX: mx, baseY: my, phase: Math.random() * Math.PI * 2, sp: 0.5 + Math.random() * 0.7 };
+    m.layers.set(1);
+    group.add(m);
+    motes.push(m);
   }
   group.userData.motes = motes;
   group.userData.rise = skin.rise;
 
   group.position.z = -o.dist;
   return group;
-}
-
-// Inert STUDIO export (tools/veilstudio) — build ONE Phase Gate in ISOLATION for a
-// given biome so the veil ("crystal wall") can be judged close-up and reproducibly,
-// without the in-game camera/spawn fight (the propstudio pattern, for the gate).
-// Lazily builds the shared gate materials via a scene-less initObstacles, and lights
-// the approach-lit FX (core glow / beacon start at opacity 0 in-game) so the full
-// read shows. Never imported by the running game.
-export function buildStudioGate(bi = 0) {
-  if (!veilMats) initObstacles({ add() {}, remove() {} });
-  const g = buildGate({ dist: 0, gapX: 0, gapY: 11, gapW: 3.8, gapH: 3.4, thick: 1.5 }, bi);
-  if (g.userData.core) g.userData.core.material.opacity = 0.12;  // faint — the window is open AIR; the marker carries the read
-  if (g.userData.beacon) g.userData.beacon.visible = false;   // the far-range locator pillar distracts the close veil read
-  return g;
-}
-// Drive the veil shimmer (uTime) for the studio — called per frame by the driver.
-export function studioGateTick(t) {
-  if (veilMats) for (const m of veilMats) m.uniforms.uTime.value = t;
-  if (veilLineMat) veilLineMat.uniforms.uTime.value = t;
-  if (veilPointMat) veilPointMat.uniforms.uTime.value = t;
 }
 
 // --- HAZARD SKINS (PR-3) ---------------------------------------------------
@@ -1097,13 +757,18 @@ export function pillarColliderCoverage() {
 // fixed WEATHERING AXIS (material-history, not lighting) so it never flickers. Uniform
 // r-scale. Same geometry for static & dynamic variants (dynamic just swaps to the coral-
 // pulsing moverIce material) so "same hazard, it moves" stays legible.
+// WIDER THAN TALL (~1.5 : 1) — a floating hazard you dodge by moving SIDEWAYS, so
+// lateral mass is the verb (the owner's note). The dominant chunk A stays centred and
+// big enough to carry the r*0.70 collider sphere on EVERY axis (measured post-scale);
+// B and C are pushed far out laterally so the fragments extend the mass to the flanks
+// (visual edge OUTSIDE the collider = forgiving fringe, the correct direction).
 // [circumR, [offX,offY,offZ], [sclX,sclY,sclZ], [axisX,axisY,axisZ]] in r units.
 const BERG_CHUNKS = [
-  [0.98, [0.00, 0.00, 0.00], [1.00, 0.90, 1.07], [0.28, 0.50, 0.62]],   // dominant, centred on the collider
-  [0.60, [0.54, -0.28, 0.36], [1.06, 0.95, 1.00], [-0.7, 0.25, 0.6]],   // secondary fragment, poking clear of A
-  [0.44, [-0.56, 0.32, -0.42], [1.00, 1.06, 0.95], [0.45, -0.6, -0.55]], // ~130° from B (never 180 → mitosis)
+  [1.05, [0.00, 0.00, 0.00], [1.20, 0.90, 1.08], [0.28, 0.50, 0.62]],   // dominant — wide, centred on the collider
+  [0.66, [0.90, -0.16, 0.32], [1.05, 0.92, 1.00], [-0.7, 0.25, 0.6]],   // fragment flung to the RIGHT flank
+  [0.50, [-0.92, 0.20, -0.38], [1.00, 1.04, 0.95], [0.45, -0.6, -0.55]], // fragment flung to the LEFT (~130° from B)
 ];
-const BERG_MICRO = [ [0.17, [0.52, 0.06, 0.52]], [0.15, [-0.22, -0.30, 0.34]] ];   // seam micro-shards
+const BERG_MICRO = [ [0.17, [0.70, 0.04, 0.50]], [0.15, [-0.42, -0.24, 0.34]] ];   // seam micro-shards
 let _bergSupport = 0;   // min face-plane distance of chunk A from centre (proven ≥ collider 0.70r)
 
 function buildFrozenShard() {
@@ -1125,7 +790,9 @@ function buildFrozenShard() {
     let g = new THREE.IcosahedronGeometry(rad, 0);
     if (g.index) g = g.toNonIndexed();
     jitter(g, 0.16);
-    if (ai === 0) {   // measure chunk A's inradius (min face-plane distance to origin) BEFORE offset
+    g.scale(scl[0], scl[1], scl[2]);
+    if (ai === 0) {   // chunk A carries the collider — measure its inradius AFTER the
+      // (non-uniform) scale, so a squashed axis can't secretly drop below the sphere.
       const p = g.attributes.position; let mind = Infinity;
       const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nr = new THREE.Vector3();
       for (let i = 0; i < p.count; i += 3) {
@@ -1135,7 +802,6 @@ function buildFrozenShard() {
       }
       _bergSupport = mind;
     }
-    g.scale(scl[0], scl[1], scl[2]);
     g.translate(off[0], off[1], off[2]);
     bakeIceLadder(g, { ax: axis[0], ay: axis[1], az: axis[2], frostT: 0.44, tealT: -0.42 });
     parts.push(g); ai++;
@@ -1299,6 +965,135 @@ export function buildObstacleMesh(type, bi = 0, opts = {}) {
   return g;
 }
 
+// --- CALVED CANYON wall kit (Fable pre-assess 2026-07-14) ------------------
+// Replaces the picket-fence of ConeGeometry shards with stacked, SHEARED calved ice
+// blocks for the Frozen rock run: recessed foot → proud re-flare bulge (throws a teal
+// underside) → stepped-back broken-ridge crest. Reuses the glacier kit — bakeIceLadder
+// + withLadderEmissive so the wall stays lit (frost caps / mid faces / teal belly) in
+// the backlit sunset instead of collapsing to a black silhouette. Authored in UNIT
+// space (x in hw, y in h, z in hz) so one fairness pass covers every mass size. SHEAR
+// (not rotate): a 0.15rad rotate on a 26-tall wall walks the top ~3u sideways into the
+// channel; shearing keeps top faces pointing UP (frost survives) and the ±hw check exact.
+const WALL_TIERS = {
+  footFace: [0.64, 0.74], footTop: [0.26, 0.36],   // deeply recessed undercut (deeper → the bulge underside reads teal from below)
+  bodyFace: [0.94, 0.97], bodyTop: [0.55, 0.72],   // proud calved bulge — juts over the foot; top staggered per column into shelves
+  crestFace: [0.80, 0.86],                          // clearly stepped back from the body
+  shearToward: 0.03, shearZ: 0.22,                  // max shear toward channel (frac hw) / z jitter (frac hz)
+  zStep: [0.35, 0.50], hStep: 0.06,                 // HARD alternating depth step (frac hz) + height stagger (frac h) between columns
+  batter: 0.18, footMin: 0.22,                      // calved lean-back above band-top (frac hw, hw-proportional) / min foot height (frac h)
+  frostT: 0.32,                                     // ladder frost threshold for the wall bake (0.30 over-frosted the upper HALF → cap the top only)
+  faceFloor: 0.90,                                  // fairness: body channel-face ≥ this·hw (cones tapered to ~0.5)
+  crestBand: 0.60, bodyBandTop: 0.692, crestBandTop: 0.98,  // collider bands in unit-y (body y−3..15, crest 13.5..22.5 over h=26)
+};
+// Skyline families → crest TOP (unit-y) per column, so each mass reads as a distinct
+// BROKEN RIDGE, never a comb. Height variance carries the drama; deep notches only in
+// outer columns. Chosen per mass by (stackCount % 3) so consecutive masses differ.
+const WALL_SKYLINES = [
+  (ci, nc, rng) => 1.10 - (ci / Math.max(nc - 1, 1)) * 0.34 + (rng() - 0.5) * 0.06, // PROW  — tall front tooth, steps down back
+  (ci, nc, rng) => 0.99 + Math.abs((ci / Math.max(nc - 1, 1)) - 0.5) * 0.30 + (rng() - 0.5) * 0.05, // SADDLE — high ends, low mid
+  (ci, nc, rng) => 1.07 - (ci / Math.max(nc - 1, 1)) * 0.30 + (rng() - 0.5) * 0.05, // STEP  — monotonic stair
+];
+
+// Shear a box by displacing x/z proportionally to height-from-base (top moves, base fixed).
+function shearBoxGeo(w, h, d, shx = 0, shz = 0) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  if (shx || shz) {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const t = p.getY(i) / h + 0.5;   // 0 at base → 1 at top
+      p.setX(i, p.getX(i) + t * shx);
+      p.setZ(i, p.getZ(i) + t * shz);
+    }
+  }
+  return g;
+}
+
+// Build the block geometries for ONE Frozen canyon wall mass (unit-authored, world-scaled).
+// channelSign = +1 puts the calved face toward +x; the caller passes sign(lean) so the
+// undercut always faces the channel. Returns non-indexed geos ready to merge.
+function frozenWallParts(hw, hz, h, botY, channelSign, crest, familyIdx, rng) {
+  const T = WALL_TIERS, parts = [];
+  const nc = Math.max(1, Math.min(4, Math.round(hw / 3.0)));
+  const sky = WALL_SKYLINES[((familyIdx % 3) + 3) % 3];
+  const rr = (a) => a[0] + rng() * (a[1] - a[0]);
+  const backX = -hw * channelSign;
+  for (let ci = 0; ci < nc; ci++) {
+    // HARD-STEP the columns in depth (front/back/front/back) so the grazing flight angle
+    // sees the side RETURN faces between them → real THICKNESS, not one flat sheet.
+    const zSign = (ci % 2) * 2 - 1;
+    const zc = zSign * (T.zStep[0] + rng() * (T.zStep[1] - T.zStep[0])) * hz + (rng() - 0.5) * 0.18 * hz;
+    const zspan = hz * (0.55 + rng() * 0.35);
+    const seam = (rng() - 0.5) * 0.10 * h;   // per-column seam stagger (kills fortress coursing)
+    // STAGGER the tier tops between neighbours so every block top is a SHELF against its
+    // lower neighbour — below the flight line those shelves face up (frost), above it they
+    // face down (teal): the ladder's own faces, now presented to the camera, zero new tris.
+    const hStep = zSign * T.hStep * h;
+    const footTop = Math.max(botY + T.footMin * h, botY + Math.min(0.5, rr(T.footTop) + 0.4 * (hStep / h)) * h + seam); // clamp ≥ min height (no degenerate slivers)
+    const bodyTop = botY + (rr(T.bodyTop) + hStep / h) * h + seam;
+    // Crest MUST reach the crest collider top (0.98) everywhere — a short crest leaves an
+    // invisible-kill gap where a high-flying player clips the collider. Skyline drama comes
+    // from height variance ABOVE that floor (0.98→1.14 ≈ 4 world units of ridge swing).
+    const crestTop = botY + Math.max(WALL_TIERS.crestBandTop, Math.min(1.14, sky(ci, nc, rng))) * h;
+    const bandTopW = botY + T.bodyBandTop * h;   // ~y15 — batter pivots here; below it the face stays proud (covered)
+    const mk = (faceFrac, yb, yt, shTowardFrac, noShear, shzScale = 1) => {
+      const faceX = faceFrac * hw * channelSign;
+      const w = Math.abs(faceX - backX), cx = (faceX + backX) / 2;
+      const shx = noShear ? 0 : shTowardFrac * hw * channelSign;
+      const shz = noShear ? 0 : (rng() - 0.5) * T.shearZ * hz * shzScale;   // foot ROOTED; crest shzScale=0 (batter supplies the lean → no edge-on frost spikes)
+      const g = shearBoxGeo(w, yt - yb, zspan, shx, shz);
+      g.translate(cx, (yb + yt) / 2, zc);
+      // BATTER: lean the channel face BACK above band-top (calved lean + tips upper faces
+      // toward frost). hw-PROPORTIONAL (not fixed-angle) so the recede scales with the crest
+      // collider margin → narrow masses' crests stay covered. Below band-top: untouched (proud).
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const y = p.getY(i);
+        if (y > bandTopW) p.setX(i, p.getX(i) - channelSign * T.batter * hw * (y - bandTopW) / (0.4 * h));
+      }
+      return g;
+    };
+    parts.push(mk(rr(T.footFace), botY, footTop, 0, true));                                       // foot: rooted, no shear
+    parts.push(mk(rr(T.bodyFace), footTop - 0.05 * h, bodyTop, T.shearToward * (0.5 + rng() * 0.5), false)); // re-flare overhang
+    if (crest) parts.push(mk(rr(T.crestFace), bodyTop - 0.05 * h, crestTop, (rng() - 0.5) * 2 * T.shearToward, false, 0)); // shzScale 0: no crest z-spikes
+  }
+  return parts;
+}
+
+// Fairness check for the calved wall — validates the authoring invariants that keep the
+// visible ice covering the collider band (a direct sibling of pillarColliderCoverage).
+// Structural (the builder draws from these same ranges), so it can't drift from the code.
+export function wallColliderCoverage() {
+  const T = WALL_TIERS, issues = [];
+  if (T.bodyFace[0] < T.faceFloor) issues.push(`body channel-face ${T.bodyFace[0]} < fairness floor ${T.faceFloor}`);
+  const poke = Math.max(T.footFace[1], T.bodyFace[1], T.crestFace[1]) + T.shearToward;
+  if (poke > 1.0 + 1e-9) issues.push(`channel poke ${poke.toFixed(3)} > 1.0 (visual crosses ±hw into the channel)`);
+  // Crest face must cover the ±0.6hw crest collider AFTER the batter recedes it. Because
+  // the batter is hw-proportional (T.batter·hw at the crest top), this holds on EVERY mass
+  // size — a fixed-angle batter would uncover narrow crests (fixed-world recede vs hw-scaled margin).
+  if (T.crestFace[0] - T.batter < T.crestBand) issues.push(`crest face ${T.crestFace[0]} − batter ${T.batter} < crest band ${T.crestBand}`);
+  // The union foot∪body∪crest must cover y 0..crestBandTop with NO gap: tiers overlap by
+  // 0.05h (crest bottom = bodyTop−0.05 ≤ bodyTop; body bottom = footTop−0.05 ≤ footTop) and
+  // the crest is clamped to reach crestBandTop, so the body collider top (0.692) is always
+  // covered by the crest overlap even when body tops out at 0.66.
+  if (T.bodyTop[0] + 0.05 < T.footTop[0]) issues.push('body/foot y-bands leave a gap');   // body reaches down into foot
+  if (T.bodyTop[1] < T.bodyBandTop - 0.05) issues.push('body top too low for crest to bridge to the body collider top');
+  return { ok: issues.length === 0, issues };
+}
+
+// Inert STUDIO export — build one Frozen wall mass in isolation (Fable checkpoint before
+// wiring into the canyon). Mirrors the in-canyon material path (self-lit ladder, faded).
+export function buildCanyonWallMass(hw = 6, hz = 4, { crest = true, family = 0, seed = 1, lean = 0.06 } = {}) {
+  if (!mats) initObstacles({ add() {}, remove() {} });
+  const rng = mulberry32((seed ^ 0x1a2b3c4d) >>> 0);
+  const h = 26, botY = -3, channelSign = Math.sign(lean) || 1;
+  const parts = frozenWallParts(hw, hz, h, botY, channelSign, crest, family, rng);
+  // frostT 0.30 (vs the shipped 0.35): the battered upper faces tip into frost, giving a
+  // base-mid→top-frost gradient ON the face instead of one flat mid. Wall-bake only.
+  const geo = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
+  const mat = withLadderEmissive(mats.frostIce.clone());   // re-wrap AFTER clone (onBeforeCompile isn't copied)
+  return new THREE.Mesh(geo, mat);
+}
+
 // --- Sky Canyon rock gates -------------------------------------------------
 // A canyon segment frames a safe aperture (centered on a reward ring) with rock
 // masses, an emissive aperture rim ("glowing crystal cracks"), and an additive
@@ -1385,37 +1180,79 @@ function buildRockGap(o, e) {
   // material — not a smooth blob. Merged to one mesh; collider hugs the lane band.
   const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T, crest = true) => {
     const h = topY - botY;
-    const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
-    const sr = (hw / n) * 1.15;                       // radius sized to fit WITHIN the wall
-    const span = Math.max(0, hw - sr);               // keep shard edges inside ±hw (no poking into the lane/channel)
-    const parts = [];
-    for (let i = 0; i < n; i++) {
-      const base = n > 1 ? -span + (i / (n - 1)) * 2 * span : 0;
-      const sx = base + (rng() - 0.5) * sr * 0.3;     // small jitter, stays contained
-      const r = sr * (0.85 + rng() * 0.25);
-      const sh = h * (0.62 + rng() * 0.42);           // uneven, jagged crest
-      parts.push(shardGeo(r, sh, sx, botY, (rng() - 0.5) * hzCol * 0.4, lean + (rng() - 0.5) * 0.16));
+    let merged;
+    if (bi === 2) {
+      // CALVED CANYON wall (Frozen, Fable 4.4) — stacked sheared calved ice blocks with
+      // the self-lit frost/mid/teal ladder, so the wall doesn't go black backlit like the
+      // old cone pickets. Family cycles per mass so consecutive walls differ. Collider
+      // (box() below) is UNCHANGED — the visible ice covers it (wallColliderCoverage).
+      const fam = (e.wallCount = (e.wallCount || 0) + 1);
+      const parts = frozenWallParts(hw, hzCol, h, botY, Math.sign(lean) || 1, crest, fam, rng);
+      merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT });
+      parts.forEach((g) => g.dispose());
+    } else {
+      const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
+      const sr = (hw / n) * 1.15;                       // radius sized to fit WITHIN the wall
+      const span = Math.max(0, hw - sr);               // keep shard edges inside ±hw (no poking into the lane/channel)
+      const parts = [];
+      for (let i = 0; i < n; i++) {
+        const base = n > 1 ? -span + (i / (n - 1)) * 2 * span : 0;
+        const sx = base + (rng() - 0.5) * sr * 0.3;     // small jitter, stays contained
+        const r = sr * (0.85 + rng() * 0.25);
+        const sh = h * (0.62 + rng() * 0.42);           // uneven, jagged crest
+        parts.push(shardGeo(r, sh, sx, botY, (rng() - 0.5) * hzCol * 0.4, lean + (rng() - 0.5) * 0.16));
+      }
+      merged = mergeGeometries(parts, false);
+      parts.forEach((g) => g.dispose());
+      merged.computeVertexNormals();
     }
-    const merged = mergeGeometries(parts, false);
-    parts.forEach((g) => g.dispose());
-    merged.computeVertexNormals();
-    // SEE-THROUGH spire: a per-instance translucent material (like the arches), faded
-    // per-spire by its own depth in updateObstacles — SOLID far out so you read the
+    // SEE-THROUGH wall: a per-instance translucent material (like the arches), faded
+    // per-mass by its own depth in updateObstacles — SOLID far out so you read the
     // winding channel ahead, TRANSLUCENT as it nears so you see the lateral path
     // THROUGH it (the fix for "blind at boost speed"). Floored so it never fully
-    // vanishes — it has a collider.
-    const smat = mats.body[bi].clone();
+    // vanishes — it has a collider. Frozen uses the self-lit ladder ice (re-wrapped
+    // after clone so onBeforeCompile survives); other biomes the flat body clone.
+    const smat = bi === 2 ? withLadderEmissive(mats.frostIce.clone()) : mats.body[bi].clone();
     smat.transparent = true; smat.depthWrite = false; smat.userData.perInstance = true;
     const m = new THREE.Mesh(merged, smat);
     m.position.set(cx, 0, z);
     group.add(m);
-    (e.spireFades || (e.spireFades = [])).push({ mat: smat, dist: o.dist - z });
+    (e.spireFades || (e.spireFades = [])).push({ mat: smat, dist: o.dist - z, floor: bi === 2 ? 0.75 : undefined });
     // Collider TAPERS with the spire so flying high to a ring doesn't clip the
     // full-width box where the rock is only thin tips: a solid lower body, then a
     // narrower crest pulled back up high — and the crest is DROPPED near a ring so
     // lunging up to grab a high ring never clips a thin tip.
     box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width
     if (crest) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
+
+    // Crevasse SOCKET — a rationed lit fracture on the calved wall's re-flare face (Frozen
+    // only). Countdown-rationed (1 per 2–3 eligible masses); because L/R walls interleave
+    // the calls the sockets alternate sides. Sized in ABSOLUTE world units (never a fraction
+    // of hw — a proportional socket on an hw≈12 wall becomes a lit window). Dark backing
+    // stays OPAQUE (a hole with light inside) while the glow fades WITH the wall (same floor
+    // 0.75, pushed to the same spireFades list) so it can never float off as an LED strip.
+    if (bi === 2 && crest && hw >= 2.5) {
+      e.seamCountdown = (e.seamCountdown ?? (1 + Math.floor(rng() * 2))) - 1;
+      if (e.seamCountdown <= 0) {
+        e.seamCountdown = 2 + Math.floor(rng() * 2);
+        const chSign = Math.sign(lean) || 1;
+        const faceX = cx + 0.95 * hw * chSign;          // channel face of the mass
+        const cy = 8 + rng() * 3, sz = z + (rng() - 0.5) * hzCol * 0.5;
+        const tilt = chSign * (0.2 + rng() * 0.15);
+        // dark recess backing (opaque, faces the channel)
+        const back = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 5.6).rotateY(chSign * Math.PI / 2), mats.frostShadow);
+        back.position.set(faceX + chSign * 0.02, cy, sz); back.rotation.z = tilt;
+        group.add(back);
+        // two collinear glow slivers (a fracture propagates), proud, faded WITH the wall
+        const gmat = mats.frostGlow.clone(); gmat.transparent = true; gmat.depthWrite = false; gmat.userData.perInstance = true;
+        for (const dy of [-1.5, 1.5]) {
+          const g = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 2.2).rotateY(chSign * Math.PI / 2), gmat);
+          g.position.set(faceX + chSign * 0.06, cy + dy, sz); g.rotation.z = tilt;
+          group.add(g);
+        }
+        (e.spireFades || (e.spireFades = [])).push({ mat: gmat, dist: o.dist - z, floor: 0.75 });
+      }
+    }
   };
 
   // A continuous RUN of sea stacks: frequent towers alternating left/right that
@@ -1754,8 +1591,6 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
   // Phase Gate: flow the veil shimmer (shared per biome) and give the aperture
   // ring a gentle, speed-aware breath. Six writes each — negligible.
   for (const m of veilMats) m.uniforms.uTime.value = time;
-  if (veilLineMat) veilLineMat.uniforms.uTime.value = time;   // serene-veil strand sway
-  if (veilPointMat) veilPointMat.uniforms.uTime.value = time; // serene-veil spirit drift
   for (const m of edgeMats) m.emissiveIntensity = (1.25 + Math.sin(time * 2.4) * 0.18) * (1 + 0.4 * sn);
   // FLOW gate: the whole run's light BREATHES with the slipstream (slipMix 0..1).
   // WINDVAULT: two shared uniform writes drive the light climbing the arch (uFlow) +
@@ -1807,7 +1642,6 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
       }
       const ud = e.object.userData;
       const dz = e.dist - playerDist;
-      if (ud.veilSpin) ud.veilSpin.rotation.z = time * 0.12;   // serene SWIRL: a slow, calm rotation about the eye
       // Beacon: brightest far out, fades off as you arrive so it never blinds
       // the route up close.
       if (ud.beacon) {
@@ -1858,7 +1692,11 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
         for (const s of e.spireFades) {
           let t = (s.dist - playerDist - 6) / 30;
           t = t < 0 ? 0 : t > 1 ? 1 : t;
-          s.mat.opacity = 0.35 + 0.65 * (t * t * (3 - 2 * t));
+          // Per-entry near-fade FLOOR: thin cone spike fields fade to 0.35 (see the weave
+          // THROUGH them at boost); a solid Frozen calved WALL keeps 0.75 (the channel is
+          // read from the gap, not through the wall — 0.35 just ghosts out the calved detail).
+          const f = s.floor ?? 0.35;
+          s.mat.opacity = f + (1 - f) * (t * t * (3 - 2 * t));
         }
       }
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
