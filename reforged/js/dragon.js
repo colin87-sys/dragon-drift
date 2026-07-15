@@ -235,7 +235,10 @@ export function createDragon(scene, def, riderDef) {
   // schedule is reproducible (determinism is a deliverable); null for every other dragon.
   stormArcMats = result.parts.stormArcMats || [];
   stormTimer = stormArcMats.length
-    ? createPulseTimer({ seed: (def.model.stormSeed ?? 0x7e57) | 0, duty: def.model.arcDuty ?? 0.10, windowMin: 0.10, windowMax: 0.28, burstMin: 1, burstMax: 4 })
+    // ONE slow SMOOTH swell per pulse (burst 1, no rapid succession), near-zero flicker — the idle
+    // "crackle" is a single current-pulse that WELLS UP and fades, not a fast flash (owner: "flickers
+    // too fast"); the root→tip travel then makes it read as current running out the circuit.
+    ? createPulseTimer({ seed: (def.model.stormSeed ?? 0x7e57) | 0, duty: def.model.arcDuty ?? 0.10, windowMin: 0.34, windowMax: 0.55, burstMin: 1, burstMax: 1, smooth: true, flickerDepth: 0.04 })
     : null;
   stormEnvHist = [];
   stormCoreKick = 1;
@@ -1191,12 +1194,13 @@ export function updateDragon(dt, player, time) {
     const ss = stormTimer.state();
     const tNow = ss.t;
     stormEnvHist.push({ t: tNow, e: ss.env01 });
-    while (stormEnvHist.length > 24) stormEnvHist.shift();
-    // env for a bucket = the strike envelope delayed by its travel offset (live only; a pinned
-    // capture is a single static frame, so every bucket shows the same env).
+    while (stormEnvHist.length > 48) stormEnvHist.shift();
+    // env for a bucket = the pulse envelope delayed by its travel offset — a DEEP lag (0.16 s/bucket
+    // ≈0.32 s sternum→wingtip) so the current visibly RUNS from the central body out to the wing tips
+    // (owner). Live only; a pinned capture is a single static frame, so every bucket shows one env.
     const envAt = (b) => {
       if (STRIKE_PIN !== null || b === 0) return ss.env01;
-      const want = tNow - 0.04 * b;
+      const want = tNow - 0.16 * b;
       let e = stormEnvHist.length ? stormEnvHist[0].e : 0;
       for (let i = stormEnvHist.length - 1; i >= 0; i--) { if (stormEnvHist[i].t <= want) { e = stormEnvHist[i].e; break; } }
       return e;

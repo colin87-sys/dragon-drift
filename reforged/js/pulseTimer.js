@@ -44,14 +44,18 @@ const RISE = 0.030, FALL = 0.060;   // 30 ms up, 60 ms down (§B.4b)
 const FLICKER_HZ = 3;               // the photosensitivity ceiling, baked as the modulation rate
 const FLICKER_DEPTH = 0.16;         // shallow — a live shimmer, never a strobe
 
-function envelope(tIn, W) {
+function envelope(tIn, W, flickerDepth = FLICKER_DEPTH, smooth = false) {
   if (tIn <= 0 || tIn >= W) return 0;
   let base;
-  if (tIn < RISE) base = tIn / RISE;
+  if (smooth) {
+    // a single smooth BELL swell over the whole window (no rise-hold-fall plateau) — reads as
+    // current welling up and fading, not a hard flash. Used by the Tempest's idle current-pulse.
+    base = Math.pow(Math.sin(Math.PI * (tIn / W)), 0.8);
+  } else if (tIn < RISE) base = tIn / RISE;
   else if (tIn > W - FALL) base = Math.max(0, (W - tIn) / FALL);
   else base = 1;
   // ≤3 Hz cosine dip; peak (base=1, cos=1) stays exactly 1 so the strike core still hits its cap.
-  const dip = FLICKER_DEPTH * (0.5 - 0.5 * Math.cos(2 * Math.PI * FLICKER_HZ * tIn));
+  const dip = flickerDepth * (0.5 - 0.5 * Math.cos(2 * Math.PI * FLICKER_HZ * tIn));
   return base * (1 - dip);
 }
 
@@ -75,6 +79,8 @@ export function createPulseTimer(opts = {}) {
   const restFloor = opts.restFloor ?? 1.2;
   const downstrokeApex = opts.downstrokeApex ?? 0.5;
   const biasBudget = opts.biasBudget ?? 0.25;
+  const flickerDepth = opts.flickerDepth ?? FLICKER_DEPTH;   // 0 → a clean swell (no ≤3 Hz shimmer)
+  const smooth = opts.smooth ?? false;                        // true → a single bell swell per window
 
   let rng;
   let dutyScale = 1;  // runtime duty multiplier (boost ×2.2 shortens RESTS, never windows — §5c)
@@ -192,7 +198,7 @@ export function createPulseTimer(opts = {}) {
       };
     }
     const live = phase === 'window';
-    const env01 = live ? envelope(tInPhase, plan.windows[windowIdx]) : 0;
+    const env01 = live ? envelope(tInPhase, plan.windows[windowIdx], flickerDepth, smooth) : 0;
     return { live, env01, burstIdx, windowIdx, t: tGlobal, pinned: null };
   }
 
