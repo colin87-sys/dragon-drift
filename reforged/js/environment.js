@@ -765,6 +765,50 @@ export function propDiag() {
   });
 }
 
+// --- Runtime prop-instance factory (rock-run props-in-lane, Move 1) ----------
+// The ONE shared geometry source for both consumers of an archetype: the
+// decorative horizon bands (makeBand, below — untouched) and the in-lane
+// `buildPropRun` in obstacles.js. Returns the same `{geometry, materials}` a
+// band gets — materials are the SHARED `propMats.primary/accent[biomeIdx]`
+// singletons, so an in-lane instance is tonally indistinguishable from the
+// horizon by construction. Runtime callers run after createEnvironment (which
+// sets propMats); the lazy makeMats() init exists only so headless tools/tests
+// can call this without booting the whole environment (same idiom as
+// buildArchetypeMesh/propDiag). Additive-only: nothing else reads these.
+// `matIndex` (optional) re-skins the build to another biome's shared material
+// pair — build() bakes the archetype's HOME biome (e.g. berg/floe/skerry bake
+// aurora idx 6), but a RUN_KIT may borrow them into another biome's lane
+// (RUN_KIT.frozen wants idx 2 glacial ice). Remap is by material identity, so
+// it stays correct regardless of which of primary/accent a build emits.
+export function buildPropArchetype(id, matIndex = null) {
+  const def = ARCHETYPES[id];
+  if (!def) return null;
+  if (!propMats) propMats = makeMats();
+  const out = def.build(); // fresh geometry each call; caller owns disposal
+  if (matIndex != null) {
+    out.materials = out.materials.map((m) => {
+      if (propMats.primary.includes(m)) return propMats.primary[matIndex];
+      if (propMats.accent.includes(m)) return propMats.accent[matIndex];
+      return m;
+    });
+  }
+  return out;
+}
+// Placement metadata for the same archetype, so RUN_KIT/buildPropRun can reason
+// about it without reaching into the private table.
+export function propArchetypeMeta(id) {
+  const def = ARCHETYPES[id];
+  if (!def) return null;
+  return {
+    matIndex: def.matIndex,
+    step: def.step,
+    biomes: def.biomes.slice(),
+    comp: def.comp ? { ...def.comp } : null,
+    foam: def.foam !== undefined ? def.foam : null,
+    paired: !!def.paired,
+  };
+}
+
 export function createEnvironment(scene, seed = CONFIG.seed) {
   sceneRef = scene;
   rnd = mulberry32(seed + 99);
