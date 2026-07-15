@@ -1046,7 +1046,12 @@ body[data-qtier="2"] .hud-sew { display: none; }
   box-shadow: var(--panel-shadow), 0 0 50px rgba(255, 150, 70, 0.12), var(--panel-inner);
   /* §A.4: the pause card holds the ONE-blur budget (frozen world behind it) —
      ≤10px, @supports-gated, tinted glass above is the fallback. */
-  width: min(420px, 90vw); max-height: min(78vh, 660px); overflow-y: auto; }
+  /* U3: the CARD never scrolls — .pm-body is the scroll region, so RESUME,
+     the strip, the tabs and the FOOTER (wallet + PILOT/SETTINGS/SHOP/EXIT)
+     stay pinned. EXIT is always reachable, in every orientation. */
+  width: min(420px, 90vw); max-height: min(84vh, 660px); overflow: hidden; }
+.pm-body { overflow-y: auto; min-height: min(128px, 18vh); flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 @supports ((backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px))) {
   .pause-menu { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 }
@@ -1068,11 +1073,15 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .pm-tabs .seg-btn { padding: 9px 0; font-size: 10.5px; letter-spacing: 1.5px; }
 /* §14 — inline category icons sit on the text baseline next to their label. */
 .seg-btn svg, .btn-tertiary svg, .btn-secondary svg, .daily-title svg, .feat-toast svg, .weekly-head svg { vertical-align: -2px; margin-right: 4px; }
-.pm-body { display: flex; flex-direction: column; gap: 11px; min-height: 128px; }
+.pm-body { display: flex; flex-direction: column; gap: 11px; }
 .pm-hint { font-size: 10.5px; opacity: 0.55; text-align: center; letter-spacing: 0.5px; }
 .pm-footer { display: flex; align-items: center; gap: 10px; margin-top: 2px;
-  padding-top: 12px; border-top: 1px solid var(--rf-stroke); }
-.pm-wallet { flex: 1; font-size: 13px; text-align: left; color: var(--rf-ink-2); }
+  padding-top: 12px; border-top: 1px solid var(--rf-stroke);
+  /* U3 portrait fix: the wallet never word-wraps into a broken stack — if the
+     row is too narrow, the nav buttons wrap below it as a whole. */
+  flex-wrap: wrap; }
+.pm-wallet { flex: 1 1 auto; font-size: var(--fs-label); text-align: left; color: var(--rf-ink-2);
+  white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pm-wallet b { color: #ffd86a; }
 .pm-wallet .ember-ico { -webkit-text-fill-color: transparent; }
 .pm-shop-btn { padding: 10px 26px; }
@@ -1122,6 +1131,25 @@ body[data-qtier="2"] .hud-sew { display: none; }
 .toggle-seg { flex: 0 0 auto; width: 170px; }
 .toggle-seg .seg-btn { padding: 7px 0; font-size: 10.5px; }
 
+/* ===== U7 — svg glyph sizing at the evicted-emoji call-sites ===== */
+.celebrate-glyph svg { width: 56px; height: 56px; }
+.gx-skip svg { width: 11px; height: 11px; vertical-align: -1px; }
+.assist-chip svg, .ff-chip svg { width: 11px; height: 11px; vertical-align: -2px; }
+.feather svg { width: 12px; height: 12px; vertical-align: -2px; color: #ffce8a; }
+.daily-streak svg { width: 12px; height: 12px; vertical-align: -1px; }
+.streak-flames .flame svg { width: 14px; height: 14px; color: #ff9a4d; }
+.rush-lock svg { width: 10px; height: 10px; vertical-align: -1px; }
+.title-src svg { width: 11px; height: 11px; vertical-align: -2px; opacity: 0.7; }
+.seg-btn.locked svg { width: 11px; height: 11px; vertical-align: -2px; }
+.topbar-close svg { display: block; }
+
+/* U7 — the hub interaction grammar everywhere: a visible press on every
+   interactive meta element (touch-first; hover stays a bonus). */
+.topbar-close { transition: transform var(--t-micro) var(--ease-out), background var(--t-micro); }
+.skin-card:active, .hero-thumb:active, .title-row:active, .topbar-close:active,
+.weekly-head:active, .hero-seg:active, .form-btn:active:not(:disabled),
+.inspect-nav:active, .inspect-close:active, .mute-btn:active { transform: scale(0.97); }
+
 /* ============ HARDCORE / ASSIST BONUS ============ */
 /* C2: fade chip after 4s idle — JS adds .faded; removing the class resets transition */
 .assist-chip { font-size: 10.5px; letter-spacing: 1.5px; color: #ff9a5a; margin-top: 5px;
@@ -1158,7 +1186,10 @@ body[data-qtier="2"] .hud-sew { display: none; }
   font-size: 18px; color: var(--rf-ink); background: rgba(60,42,28,0.6);
   border: 1px solid var(--rf-stroke-hi); flex: 0 0 auto; }
 .screen-topbar .topbar-close:hover { background: rgba(80,54,32,0.7); }
-.screen:has(> .screen-topbar)::before { content: none; }
+/* U3: topbar screens keep a SMALL fixed spacer under the sticky bar (the old
+   `content:none` removal let the first content line render tucked under the
+   translucent topbar — the quests NEXT UP overlap, critique 3.5). */
+.screen:has(> .screen-topbar)::before { content: ''; flex: 0 0 auto; min-height: 10px; }
 
 .shop-tabs { width: min(440px, 88vw); margin: 10px 0 2px; }
 .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1444,7 +1475,15 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   background: linear-gradient(90deg, color-mix(in srgb, var(--haccent) 45%, #4a3a28), var(--haccent));
   box-shadow: 0 0 8px color-mix(in srgb, var(--haccent) 45%, transparent); }
 .hsval { width: 26px; text-align: right; font-family: var(--font-display); font-size: 13px; color: var(--rf-ink); }
-.dpick-cta { margin: 11px 0 4px; display: flex; justify-content: center; }
+.dpick-cta { margin: 11px 0 4px; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+/* U6 CTA de-overload: STATE is a jade badge, PROGRESS is a quiet meta row,
+   ACTION stays the one gold button. Jade rides the --tone token (U14). */
+.cta-state { display: inline-block; font-size: var(--fs-micro); font-weight: 800;
+  letter-spacing: var(--track-caps); color: #062013; padding: 4px 14px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--tone-jade-hi), var(--tone-jade));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--tone-jade) 30%, transparent); }
+.cta-meta { font-size: var(--fs-label); color: var(--rf-ink-3); letter-spacing: var(--track-body);
+  font-variant-numeric: tabular-nums; }
 .dpick-cta button { width: 100%; padding: 14px 0; border: none; border-radius: 13px; cursor: pointer; font-family: var(--font-display);
   font-size: 15px; letter-spacing: 2px; color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d);
   box-shadow: 0 6px 20px rgba(255,180,70,0.34); transition: transform 0.1s, box-shadow 0.2s; }
@@ -1471,7 +1510,13 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 .hero-thumb.on { border-color: var(--hthumb, #7fe0ff); transform: translateY(-2px);
   box-shadow: 0 0 0 1px var(--hthumb, #7fe0ff), 0 0 16px color-mix(in srgb, var(--hthumb, #7fe0ff) 45%, transparent); }
 .hero-thumb .tgem { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 3px; background: var(--tr); box-shadow: 0 0 6px var(--tr); z-index: 2; }
-.hero-thumb.locked::after { content: '🔒'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgba(4,8,16,0.5); z-index: 1; }
+/* U6/U7: locked rail dragons read as dark SILHOUETTES under an SVG lock —
+   the emoji padlock (platform-variable, the classic F2P-web tell) is gone. */
+.hero-thumb.locked canvas { filter: brightness(0.38) saturate(0.45); }
+.hero-thumb.locked::after { content: ''; position: absolute; inset: 0; z-index: 1;
+  background: rgba(var(--scrim-ink), 0.45)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none' stroke='%23ffe0aa' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='8' width='10' height='7.5' rx='1.6'/%3E%3Cpath d='M6 8V6a3 3 0 0 1 6 0v2'/%3E%3C/svg%3E")
+    center / 15px no-repeat; }
 .hero-thumb.equip-dot::before { content: '✓'; position: absolute; bottom: 1px; left: 0; right: 0; text-align: center; font-size: 9px; font-weight: 900; color: var(--tone-jade); z-index: 3; text-shadow: 0 1px 2px #000; }
 .revive-chip { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 2px 0 4px;
   padding: 10px 0; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 12px; color: #ffe0a8;
@@ -1666,10 +1711,13 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 .weekly-rows { max-height: 0; overflow: hidden; opacity: 0;
   transition: max-height 0.32s ease, opacity 0.25s ease; }
 .weekly-strip.expanded .weekly-rows { max-height: 260px; opacity: 1; margin-top: 6px; }
-.weekly-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
-.weekly-row .mission-bar { flex: 1; margin-top: 0; }
+/* U3: a real three-column grid — label / bar / reward share the same x per
+   row, so the bars stop starting at different offsets per label length. */
+.weekly-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(80px, 1fr) auto;
+  align-items: center; gap: 10px; margin: 4px 0; }
+.weekly-row .mission-bar { margin-top: 0; }
 .weekly-row.done .weekly-label { color: var(--tone-jade-hi); }
-.weekly-label { font-size: 12px; font-weight: 600; flex-basis: 52%; }
+.weekly-label { font-size: 12px; font-weight: 600; }
 .weekly-reward { font-size: 11.5px; color: #ffd86a; font-weight: 700; }
 .weekly-reward.earned { color: var(--tone-jade-hi); }
 .weekly-count { font-weight: 900; opacity: 0.7; margin-left: 4px; }
@@ -2216,6 +2264,55 @@ body.splash-open #hud { display: none; }
   .hero-topbar { padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 8px; }
 }
 
+/* U6/U3 — LANDSCAPE SHOP: two-column composition (critique shot 04 — name/
+   stats/CTA sat below the fold). The live dragon owns the LEFT of the frame
+   (.hero-stage is its reserved window; the subject owns its stage), the text
+   column stacks on the RIGHT over a side scrim — the dragon stays sharp,
+   the ink sits behind the text only (Genshin rule). */
+@media (max-height: 520px) and (orientation: landscape) {
+  .screen.shop-screen {
+    background: linear-gradient(270deg, rgba(var(--scrim-ink),0.8) 0%,
+      rgba(var(--scrim-ink),0.55) 26%, rgba(var(--scrim-ink),0.12) 52%, transparent 72%);
+  }
+  .hero-select { display: grid; width: min(840px, 96vw);
+    grid-template-columns: minmax(0, 1fr) min(340px, 46vw);
+    grid-template-areas: 'stage ident' 'stage forms' 'stage stats' 'stage cta' 'stage rail' 'stage revive';
+    column-gap: 16px; align-items: start; }
+  .hero-select .hero-stage, html.standalone .hero-select .hero-stage {
+    grid-area: stage; width: 100%; height: 100%; aspect-ratio: auto; min-height: 200px; }
+  .hero-select .hero-ident { grid-area: ident; margin-top: 2px; }
+  .hero-select .hero-forms { grid-area: forms; margin: 8px 0 2px; }
+  .hero-select .hero-stats { grid-area: stats; margin: 6px 0 2px; padding: 9px 12px; gap: 6px; }
+  .hero-select .dpick-cta { grid-area: cta; margin: 8px 0 2px; gap: 5px; }
+  .hero-select .dpick-cta button { padding: 11px 0; }
+  .hero-select .dpick-rail { grid-area: rail; margin: 6px 0 2px; }
+  .hero-select .revive-chip { grid-area: revive; margin: 4px 0; padding: 8px 0; }
+  .hero-thumb { flex-basis: 48px; width: 48px; height: 48px; }
+}
+
+/* U3 — LANDSCAPE META: quests/daily/boss-rush cards stop floating alone in a
+   dead void — two-column grids + wider cards fill the frame. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .mission-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px;
+    width: min(780px, 94vw); }
+  .weekly-strip, .nextup-card { width: min(780px, 94vw); }
+  .weekly-strip.expanded .weekly-rows { display: grid; grid-template-columns: 1fr 1fr;
+    column-gap: 22px; align-items: center; }
+  .daily-card { width: min(720px, 92vw); }
+}
+
+/* U3 — LANDSCAPE PAUSE: the card compresses instead of clipping (the old
+   min(78vh,660px) = a 304px card at 390px height, EXIT scrolled out of
+   existence). Wider card, tighter chrome; .pm-body scrolls, the footer stays. */
+@media (max-height: 430px) {
+  .screen h1.pause-title { font-size: 22px; margin-bottom: 0; }
+  .pause-menu { width: min(560px, 94vw); margin-top: 8px; padding: 12px 16px; gap: 8px;
+    max-height: calc(100svh - 84px); }
+  .pm-resume { padding: 10px 0; font-size: 14px; }
+  .pm-body { min-height: 56px; }
+  .pm-footer { padding-top: 8px; }
+}
+
 /* Take-off launch flash: a gold burst that blooms from the dragon and fades,
    masking the cut from the attract framing into gameplay. Top layer, no input. */
 #launch-flash {
@@ -2489,6 +2586,18 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
 .ins-owned { font-size: 12px; font-weight: 900; letter-spacing: 1.5px;
   color: color-mix(in srgb, var(--accent) 65%, #bfe7d0); }
 .ins-hint { font-size: 11px; color: #ffb0b0; }
+
+/* U6: one-line rarity legend on inspect — the gem grades finally get a key. */
+.rarity-legend { display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 2px 0 10px; font-size: 9px; font-weight: 800; letter-spacing: var(--track-caps);
+  color: var(--rf-ink-3); text-transform: uppercase; }
+.rarity-legend b { font-weight: 900; opacity: 0.55; }
+.rarity-legend b[data-fr="R"]    { color: #a0c8a0; }
+.rarity-legend b[data-fr="SR"]   { color: #60a8ff; }
+.rarity-legend b[data-fr="SSR"]  { color: #c080ff; }
+.rarity-legend b[data-fr="SSSR"] { color: #ffd86a; }
+.rarity-legend b.cur { opacity: 1; }
+.rarity-legend i { font-style: normal; opacity: 0.4; }
 
 /* dragon carousel dots */
 .inspect-dots { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; justify-content: center; }

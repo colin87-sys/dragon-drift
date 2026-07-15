@@ -60,7 +60,7 @@ const FS_ALLOWLIST = [cssFile, 'js/'];      // Phase 0: everything exempt (dorma
 const TRACK_ALLOWLIST = [cssFile, 'js/'];   // Phase 0: everything exempt (dormant)
 // Phase 1+: files MIGRATED and armed even while a broader prefix stays exempt.
 // New UI files are born migrated — add them here on creation.
-const ENFORCED = ['js/splash.js', 'js/uiSound.js'];
+const ENFORCED = ['js/splash.js', 'js/uiSound.js', 'js/icons.js'];
 // Selector-level sanction (§A.1): the wordmark family keeps its bespoke sizes on
 // migrated screens. Matched against the ~2 lines of context around a violation.
 const WORDMARK_EXCEPTION = /splash-title|hero-wordmark|load-hint h1/;

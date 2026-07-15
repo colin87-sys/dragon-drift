@@ -11,8 +11,9 @@ import { equippedTitleName } from './titles.js';
 import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { uiSound } from './uiSound.js';
+import { ICONS } from './icons.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
-import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
+import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase, setShowcaseZoom, showcaseDragStart, showcaseDragMove, showcaseDragEnd } from './preview.js';
 import { attachTrailPreviews } from './trailPreview.js';
@@ -57,46 +58,6 @@ const isTouch = () =>
 // CSS @media guard. Read once at load (matches how the rest of the HUD gates motion).
 const reduceMotion = !!(globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-const ICONS = {
-  ig:   '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.3" fill="currentColor"/></svg>',
-  x:    '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M18.9 2H22l-7.6 8.7L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8.1-9.3L1 2h7l4.8 6.3L18.9 2z"/></svg>',
-  tt:   '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.77.12V9.77a5.76 5.76 0 0 0-.77-.05 5.66 5.66 0 1 0 5.66 5.66V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.22-1.48z"/></svg>',
-  link: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.6 13.4a4 4 0 0 0 5.7 0l3-3a4 4 0 1 0-5.7-5.6l-1.2 1.2"/><path d="M13.4 10.6a4 4 0 0 0-5.7 0l-3 3a4 4 0 1 0 5.7 5.6l1.2-1.2"/></svg>',
-  music:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
-  musicOff: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><line x1="2" y1="3" x2="22" y2="21"/></svg>',
-  sfxOn:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
-  sfxOff:   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>',
-  radio:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="12" rx="2"/><path d="M5 9l13-6"/><circle cx="8" cy="15" r="2.5"/><path d="M15 13h4M15 17h4"/></svg>',
-  pause:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
-  inspect:  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.6-4.6"/></svg>',
-  prev:     '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h2v16H6zM20 4v16L9 12z"/></svg>',
-  next:     '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 4h2v16h-2zM4 4v16l11-8z"/></svg>',
-  // §14 — one consistent premium line-icon set for the section/category labels
-  // (matches the music/radio/inspect SVGs above, not the old grab-bag of emoji).
-  dragon:   '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.6c2.1 3 3.2 4.2 3.2 6.9A3.2 3.2 0 0 1 5.8 9.5c0-1.7 1-2.8 2-3.7 0 1.1.5 1.6 1 1.6-.5-2 .2-3.9.2-4.8z"/></svg>',
-  rider:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5.2" r="2.5"/><path d="M3.9 15c0-2.8 2.3-4.7 5.1-4.7s5.1 1.9 5.1 4.7"/></svg>',
-  style:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9 2.2l1.7 4.7 4.7 1.6-4.7 1.6L9 14.8l-1.7-4.7L2.6 8.5l4.7-1.6z"/></svg>',
-  shop:     '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 6h9.2l-.8 9.2H5.2z"/><path d="M6.6 6a2.4 2.4 0 0 1 4.8 0"/></svg>',
-  settings: '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><circle cx="11.5" cy="6" r="1.9"/><circle cx="6.5" cy="12" r="1.9"/></svg>',
-  pilot:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.6l5 3.1-5-1-5 1z"/><path d="M9 8.7l5 3.1-5-1-5 1z"/></svg>',
-  daily:    '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="12" height="10.5" rx="1.4"/><path d="M3 7.6h12M6 3v3M12 3v3"/></svg>',
-  feat:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.4 2.2l2.6 4.1 2.6-4.1"/><circle cx="9" cy="11" r="3.9"/></svg>',
-  rush:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L4 10h4l-1 6 6-8h-4l1-6z"/></svg>',
-  weekly:   '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2h7v2.6a3.5 3.5 0 0 1-7 0z"/><path d="M5.5 4.2H4a1.6 1.6 0 0 0 1.6 1.9M12.5 4.2H14a1.6 1.6 0 0 1-1.6 1.9"/><path d="M9 9.4v2.3M6.8 14.6h4.4l-.6-2.9H7.4z"/></svg>',
-  play:     '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M7 4.8c0-1 1.1-1.6 2-1.1l11 6.3c.9.5.9 1.8 0 2.3L9 18.6c-.9.5-2-.1-2-1.1z"/></svg>',
-  // U7 — emoji eviction: the platform-variable glyphs (🔒 ♪ 🪶 🔥 ☀ ⟲ ◀▶‹›✕)
-  // get consistent line-icon replacements in the established style.
-  lock:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="10" height="7.5" rx="1.6"/><path d="M6 8V6a3 3 0 0 1 6 0v2"/></svg>',
-  close:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5l9 9M13.5 4.5l-9 9"/></svg>',
-  chevL:    '<svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3.5L5.5 9l5.5 5.5"/></svg>',
-  chevR:    '<svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5L12.5 9 7 14.5"/></svg>',
-  chevD:    '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7L9 12.5 14.5 7"/></svg>',
-  chevU:    '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11L9 5.5 14.5 11"/></svg>',
-  rotate:   '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 9a5.5 5.5 0 1 1-1.8-4.1"/><path d="M14.7 1.8v3.4h-3.4"/></svg>',
-  flame:    '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.4c1.6 2.5 4.6 4.1 4.6 7.4A4.6 4.6 0 0 1 4.4 9.8c0-1.5.7-2.7 1.6-3.8 0 1.3.7 2 1.5 2C6.8 5.6 8.6 4.4 9 2.4z"/></svg>',
-  feather:  '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.6 3.4c-3.8-.6-8.2 1.6-9.6 5.6-.8 2.2-.6 4.6-.6 4.6s2.4.3 4.6-.6c4-1.4 6.2-5.8 5.6-9.6z"/><path d="M3.4 14.6L11 7"/></svg>',
-  sun:      '<svg viewBox="0 0 18 18" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="3.4"/><path d="M9 1.6v2M9 14.4v2M1.6 9h2M14.4 9h2M3.8 3.8l1.4 1.4M12.8 12.8l1.4 1.4M14.2 3.8l-1.4 1.4M5.2 12.8l-1.4 1.4"/></svg>',
-};
 
 // U14 — apply the persisted accessibility prefs to :root (HUD scale/alpha CSS
 // vars honored by the Phase 3 EMBERSIGHT HUD; colorblind class swaps the
@@ -262,17 +223,17 @@ function openInspect(startKey) {
   overlay.className = 'inspect-overlay';
   overlay.innerHTML = `
     <div class="inspect-modal">
-      <button class="inspect-close" id="inspect-close" title="Close" aria-label="Close">✕</button>
+      <button class="inspect-close" id="inspect-close" title="Close" aria-label="Close">${ICONS.close}</button>
       <div class="rarity-gem inspect-gem" id="inspect-gem"></div>
       <div class="inspect-viewport" id="inspect-viewport">
-        <button class="inspect-nav prev" id="inspect-dragon-prev" aria-label="Previous dragon">‹</button>
-        <button class="inspect-nav next" id="inspect-dragon-next" aria-label="Next dragon">›</button>
+        <button class="inspect-nav prev" id="inspect-dragon-prev" aria-label="Previous dragon">${ICONS.chevL}</button>
+        <button class="inspect-nav next" id="inspect-dragon-next" aria-label="Next dragon">${ICONS.chevR}</button>
         <div class="inspect-content" id="inspect-content">
           <div class="inspect-stage">
             <div class="inspect-glow"></div>
             <canvas class="inspect-canvas" width="640" height="640"></canvas>
             <div class="inspect-pedestal"></div>
-            <div class="inspect-rothint">⟲ drag to rotate</div>
+            <div class="inspect-rothint">${ICONS.rotate} drag to rotate</div>
           </div>
           <div class="inspect-name" id="inspect-name"></div>
           <div class="inspect-title" id="inspect-title"></div>
@@ -280,14 +241,16 @@ function openInspect(startKey) {
       </div>
       <div class="inspect-lower" id="inspect-lower">
         <div class="inspect-formbar">
-          <button class="form-btn" id="inspect-prev" aria-label="Previous form">◀</button>
+          <button class="form-btn" id="inspect-prev" aria-label="Previous form">${ICONS.chevL}</button>
           <div class="form-meta">
             <span class="form-name" id="inspect-formlabel"></span>
             <span class="form-rarity" id="inspect-formrarity"></span>
           </div>
-          <button class="form-btn" id="inspect-next" aria-label="Next form">▶</button>
+          <button class="form-btn" id="inspect-next" aria-label="Next form">${ICONS.chevR}</button>
         </div>
         <div class="form-pips" id="inspect-formpips"></div>
+        <div class="rarity-legend" id="inspect-legend" title="Rarity grades">RARITY
+          <b data-fr="R">R</b><i>→</i><b data-fr="SR">SR</b><i>→</i><b data-fr="SSR">SSR</b><i>→</i><b data-fr="SSSR">SSSR</b></div>
         <div class="inspect-stats" id="inspect-stats"></div>
         <div class="inspect-cta" id="inspect-cta"></div>
       </div>
@@ -316,7 +279,8 @@ function openInspect(startKey) {
   const renderCta = () => {
     const equipped = saveData.skins.equipped === key;
     if (owned && equipped) {
-      ctaEl.innerHTML = `<span class="ins-owned">✓ EQUIPPED</span>`;
+      // U6: state is a jade badge — never a dead gold button.
+      ctaEl.innerHTML = `<span class="cta-state">EQUIPPED</span>`;
       return;
     }
     if (owned) {
@@ -350,6 +314,7 @@ function openInspect(startKey) {
       ? '#' + d.previewAccent.toString(16).padStart(6, '0')
       : (FR_ACCENT[fr] || FR_ACCENT.SSSR));
     gem.textContent = fr; gem.dataset.fr = fr;
+    for (const b of overlay.querySelectorAll('#inspect-legend b')) b.classList.toggle('cur', b.dataset.fr === fr);
     nameEl.textContent = d.name;
     titleEl.textContent = d.title;
     formLabel.textContent = formTierLabel(tier);
@@ -732,6 +697,14 @@ export const ui = {
         sfx.featUnlock();
       }
     });
+
+    // U7/U11 — the hub interaction grammar rolls out to every meta screen:
+    // ONE delegated tick on pointerdown for nav/cards/switches (touch-first,
+    // ≤50ms response; sliders excluded — no sound spam on drag).
+    els.screen.addEventListener('pointerdown', (e) => {
+      const t = e.target.closest('button, .skin-card, .hero-thumb, .hero-seg, .title-row, .weekly-head');
+      if (t && !t.disabled) uiSound.tick();
+    }, { passive: true });
   },
 
   update(player) {
@@ -889,12 +862,12 @@ export const ui = {
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
     let newAssistText = '';
     if (saveData.settings.glideAssist) {
-      newAssistText = `🪶 −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%`;
+      newAssistText = `${ICONS.feather} −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%`;
     } else if (hcBonus > 0) {
       newAssistText = `⚔ +${hcBonus}%`;
     }
     if (newAssistText !== lastAssistText) {
-      els.assistChip.textContent = newAssistText;
+      els.assistChip.innerHTML = newAssistText;
       els.assistChip.classList.remove('faded');
       clearTimeout(assistFadeTimer);
       if (newAssistText) assistFadeTimer = setTimeout(() => els.assistChip.classList.add('faded'), 3000);
@@ -920,7 +893,7 @@ export const ui = {
     // First flight of the day: one short reveal; recap ledger explains/banks it.
     const ffActive = saveData.firstFlightDay !== todayUTC();
     if (ffActive && !lastFFActive) {
-      els.ffChip.textContent = `☀ ×${CONFIG.firstFlightMult}`;
+      els.ffChip.innerHTML = `${ICONS.sun} ×${CONFIG.firstFlightMult}`;
       els.ffChip.classList.add('hud-reveal');
       clearTimeout(ffRevealTimer);
       ffRevealTimer = setTimeout(() => {
@@ -1439,7 +1412,7 @@ export const ui = {
       demo = `<div class="gx-stage gx-keys gx-${g}">${keys}</div>`;
     }
     els.gestureOverlay.innerHTML = `<div class="gx-card">${demo}<div class="gx-text">${spec.text}</div>` +
-      `<button class="gx-skip" id="gx-skip">SKIP TUTORIAL ›</button></div>`;
+      `<button class="gx-skip" id="gx-skip">SKIP TUTORIAL ${ICONS.chevR}</button></div>`;
     els.gestureOverlay.classList.add('on');
     const skip = els.gestureOverlay.querySelector('#gx-skip');
     if (skip && spec.onSkip) {
@@ -1683,12 +1656,12 @@ export const ui = {
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">QUESTS</span>
-          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <p class="nextup-line">${nextUp.icon} NEXT UP — ${nextUp.label} <span class="nextup-line-sub">${nextUp.sub}</span></p>
         <div class="mission-list">${missions}</div>
         <div class="weekly-strip expanded">
-          <div class="weekly-head">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
+          <div class="weekly-head">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ` <span class="feather" title="Phoenix Feather — bridges one missed streak day">${ICONS.feather}</span>` : ''}</div>
           <div class="weekly-rows">
           ${trials.map((t) => `
             <div class="weekly-row${t.done ? ' done' : ''}">
@@ -1708,7 +1681,7 @@ export const ui = {
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">DAILY CHALLENGE</span>
-          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <div class="daily-card daily-panel">
           <div class="daily-info">
@@ -1717,7 +1690,7 @@ export const ui = {
             <div class="daily-sub">${dmod.brief}</div>
             ${dailyDone ? `<div class="daily-done">✓ Cleared today — best ${daily.bestScore}. New twist at UTC midnight.</div>` : ''}
           </div>
-          ${daily.streak > 1 ? `<div class="daily-streak">🔥 ${daily.streak}</div>` : ''}
+          ${daily.streak > 1 ? `<div class="daily-streak">${ICONS.flame} ${daily.streak}</div>` : ''}
           <button class="btn-secondary btn-daily${dailyDone ? '' : ' glow'}" id="btn-fly-daily">FLY DAILY</button>
         </div>
         <p class="share-hint">A fresh modifier every day · your daily score stays out of your main best.</p>`;
@@ -1733,7 +1706,7 @@ export const ui = {
       // are ??? teasers. The FLY button runs the whole gauntlet back-to-back.
       const chips = info.bosses.map((b) => b.unlocked
         ? `<button type="button" class="rush-chip pick" data-boss="${b.id}" style="--a:${hex(b.accent)}" title="Fight ${b.name} solo"><span class="rush-dot"></span>${b.name}</button>`
-        : `<div class="rush-chip locked"><span class="rush-dot"></span>??? <span class="rush-lock">🔒</span></div>`).join('');
+        : `<div class="rush-chip locked"><span class="rush-dot"></span>??? <span class="rush-lock">${ICONS.lock}</span></div>`).join('');
       const multi = info.unlockedCount > 1;
       // DEV STAGE-JUMP (?dev / ?rush=all): a multi-STAGE boss (THE UNMASKED: eclipse-eye →
       // seraph → the unveiling) can be pinned to a chosen stage so each is playtestable in a
@@ -1751,7 +1724,7 @@ export const ui = {
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">BOSS RUSH</span>
-          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <div class="daily-card rush-panel">
           <div class="daily-info">
@@ -1798,7 +1771,7 @@ export const ui = {
             <div class="hero-gem" id="hero-gem"></div>
             <canvas class="hero-canvas" id="hero-canvas" width="640" height="640"></canvas>
             <div class="hero-pedestal"></div>
-            <div class="hero-rothint">⟲ drag to rotate</div>
+            <div class="hero-rothint">${ICONS.rotate} drag to rotate</div>
           </div>
           <div class="hero-ident"><div class="hero-name" id="hero-name"></div><div class="dpick-sub" id="hero-sub"></div></div>
           <div class="hero-forms" id="hero-forms"></div>
@@ -1842,7 +1815,7 @@ export const ui = {
           return `
             <div class="skin-card track-card${playing ? ' equipped' : ''}${owned ? '' : ' locked'}"
                  data-track-i="${i}" style="--accent:${accent}">
-              <div class="track-disc${playing ? ' spin' : ''}">♪</div>
+              <div class="track-disc${playing ? ' spin' : ''}">${ICONS.music}</div>
               <div class="skin-name">${t.name}</div>
               <div class="skin-title">${t.desc} · ${t.bpm} BPM</div>
               <div class="skin-cost ${owned ? 'owned' : ''}">${playing ? `${eqBars} ON AIR` : owned ? 'TAP TO PLAY' : `◆ ${t.cost}`}</div>
@@ -1880,7 +1853,7 @@ export const ui = {
         <div class="screen-topbar">
           <span class="topbar-title">SHOP</span>
           <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
-          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <div class="shop-scroll">
           <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', `${ICONS.dragon} DRAGONS`)}${tabBtn('riders', `${ICONS.rider} RIDERS`)}${tabBtn('music', `${ICONS.music} MUSIC`)}${tabBtn('style', `${ICONS.style} STYLE`)}</div>
@@ -1924,7 +1897,7 @@ export const ui = {
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">SETTINGS</span>
-          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">✕</button>
+          <button class="topbar-close" id="btn-back" title="Back" aria-label="Back">${ICONS.close}</button>
         </div>
         <div class="settings-body">
           <div class="settings-section">Game</div>
@@ -2040,6 +2013,10 @@ export const ui = {
     els.screen.classList.toggle('scroll-screen', type === 'shop');
     els.screen.classList.toggle('hero-intro', type === 'start' && fresh && !saveData.flags.seenIntro);
     if (fresh) restartAnim(els.screen, 'screen-anim');
+    // U11 (Phase 2): ONE central whoosh as a panel opens over the world —
+    // fresh navigations only (tab re-renders stay silent), never on the hub
+    // itself (its entrance choreography owns that moment).
+    if (fresh && type !== 'start') uiSound.whoosh();
     // Title screen → the catchy menu theme (no-ops until audio is unlocked, and
     // bows out once the player has picked a Dragon Radio station).
     if (type === 'start') music.startMenuTheme();
@@ -2075,6 +2052,7 @@ export const ui = {
       if (Math.hypot(e.clientX - backDownX, e.clientY - backDownY) > 10) return; // a scroll/drag, not a tap
       if (type === 'shop' || type === 'settings' || type === 'pilot' ||
           type === 'quests' || type === 'daily' || type === 'rush') {
+        uiSound.back();
         if (returnScreen === 'pause') ui.showPauseOverlay();
         else ui.showScreen(returnScreen);
       }
@@ -2154,7 +2132,7 @@ export const ui = {
       body = `
         <div class="radio-row">
           <button class="mute-btn" id="pm-prev" title="Previous station">${ICONS.prev}</button>
-          <div class="radio-name" id="pm-track">♪ ${music.trackName}</div>
+          <div class="radio-name" id="pm-track">${ICONS.music}<span>${music.trackName}</span></div>
           <button class="mute-btn" id="pm-next" title="Next station">${ICONS.next}</button>
         </div>
         <div class="vol-row">
@@ -2203,7 +2181,7 @@ export const ui = {
           <div class="pm-quest-meta"><b>${Math.min(t.progress, t.def.target)}/${t.def.target}</b><span>◆ ${t.def.reward}</span></div>
         </div>`).join('');
       body = `${rows}
-        <div class="pm-weekly-head">WEEKLY TRIALS${saveData.weekly.feather ? ' 🪶' : ''}</div>
+        <div class="pm-weekly-head">WEEKLY TRIALS${saveData.weekly.feather ? ` <span class="feather">${ICONS.feather}</span>` : ''}</div>
         ${weekly}
         <p class="pm-hint">Quests pay when the run ends · weeklies reset Mondays (UTC).</p>`;
     }
@@ -2294,7 +2272,7 @@ export const ui = {
       const retune = (dir) => {
         const name = music.nextTrack(dir);
         sfx.radio();
-        trackEl.textContent = `♪ ${name}`;
+        trackEl.innerHTML = `${ICONS.music}<span>${name}</span>`;
       };
       els.screen.querySelector('#pm-prev').onclick = stop(() => retune(-1));
       els.screen.querySelector('#pm-next').onclick = stop(() => retune(1));
@@ -2421,12 +2399,9 @@ function wireScreenButtons(type) {
 
   if (type === 'start') {
     returnScreen = 'start';
-    // U11 (hero scope): the interface speaks — a tick under the finger on
-    // press, a whoosh as a panel opens over the world, a confirm on TAKE OFF.
-    for (const b of els.screen.querySelectorAll('.hero-rail-btn, .hero-gear, .hero-title-chip'))
-      b.addEventListener('pointerdown', () => uiSound.tick(), { passive: true });
-    for (const b of els.screen.querySelectorAll('.hero-rail-btn, .hero-gear'))
-      b.addEventListener('click', () => uiSound.whoosh(), { passive: true });
+    // U11: the press tick is now the DELEGATED #screen pointerdown listener
+    // (ui.init) and the open-whoosh fires centrally in showScreen — the
+    // Phase 1 per-button listeners are retired so nothing double-plays.
     const start = q('#btn-start');
     if (start) start.onclick = stop(() => { uiSound.confirm(); handlers.onStart && handlers.onStart('normal'); });
     // Rail icons open their panels (never launch a run directly).
@@ -2472,6 +2447,7 @@ function wireScreenButtons(type) {
   if (chipTitle) chipTitle.onclick = stop(() => { pilotTab = 'titles'; ui.showScreen('pilot'); });
   const back = q('#btn-back');
   if (back) back.onclick = stop(() => {
+    uiSound.back();
     // BACK from a pause-opened subscreen returns to the pause overlay.
     if (returnScreen === 'pause') ui.showPauseOverlay();
     else ui.showScreen(returnScreen);
@@ -2735,7 +2711,7 @@ function wireScreenButtons(type) {
           sfx.radio();
           ui.showScreen('shop');
           ui.celebrate({
-            kind: 'track', tier: 'small', glyph: '♪',
+            kind: 'track', tier: 'small', glyph: ICONS.music,
             title: t.name, subtitle: `${t.desc} · now on air`,
           });
         } else {
