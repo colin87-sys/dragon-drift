@@ -1217,7 +1217,7 @@ function buildRockGap(o, e) {
     const m = new THREE.Mesh(merged, smat);
     m.position.set(cx, 0, z);
     group.add(m);
-    (e.spireFades || (e.spireFades = [])).push({ mat: smat, dist: o.dist - z });
+    (e.spireFades || (e.spireFades = [])).push({ mat: smat, dist: o.dist - z, floor: bi === 2 ? 0.75 : undefined });
     // Collider TAPERS with the spire so flying high to a ring doesn't clip the
     // full-width box where the rock is only thin tips: a solid lower body, then a
     // narrower crest pulled back up high — and the crest is DROPPED near a ring so
@@ -1663,7 +1663,11 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0, slipMix = 0
         for (const s of e.spireFades) {
           let t = (s.dist - playerDist - 6) / 30;
           t = t < 0 ? 0 : t > 1 ? 1 : t;
-          s.mat.opacity = 0.35 + 0.65 * (t * t * (3 - 2 * t));
+          // Per-entry near-fade FLOOR: thin cone spike fields fade to 0.35 (see the weave
+          // THROUGH them at boost); a solid Frozen calved WALL keeps 0.75 (the channel is
+          // read from the gap, not through the wall — 0.35 just ghosts out the calved detail).
+          const f = s.floor ?? 0.35;
+          s.mat.opacity = f + (1 - f) * (t * t * (3 - 2 * t));
         }
       }
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
