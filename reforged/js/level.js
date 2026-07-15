@@ -16,6 +16,11 @@ const _canyonParams = new URLSearchParams(window.location.search);
 const CANYON_FORCE = _canyonParams.get('canyon')
   || (_canyonParams.has('rockrun') ? 'rock' : _canyonParams.has('ribcage') ? 'spine'
       : _canyonParams.has('flowrun') ? 'flow' : null);
+// Dev showcase: ?hazlab lines up one of every in-lane hazard (pillar, static shard,
+// dynamic shard, high bar, low bar) in the first ~350m so the reskins can be flown
+// and judged up close. Pair with ?biome=2 to see the Frozen skins. Off by default →
+// zero change to normal play or the gold-determinism fixture (it never touches rnd).
+const HAZLAB = _canyonParams.has('hazlab');
 // Three canyon set-pieces: a ROCK RUN (mixed split slabs + over-under shelves), a
 // DRAGON SPINE CANYON (skull → throat → ribcage → vertebrae → sky exit), and a FLOW
 // run (the Rhythm Flow-Tube: walls-free light-gates + an orb ribbon, a speed showcase).
@@ -64,6 +69,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // seed. A cursor walks the course; overlayBiomeHazards decides per site.
   const hazardRnd = mulberry32((seed ^ 0x3d81c94b) >>> 0);
   let nextHazardAt = 0;
+  let hazlabDone = false;   // ?hazlab showcase injected once (first chunk)
   // GUARANTEED AURORA FLOW RUN (supersedes the deferred PR-5 flowBiomeBias): the Aurora Shallows block
   // always contains exactly one flow run — the dreamy sky + the speed-tube as one signature moment. The
   // schedule is SNAPPED so a canyon starts at aurora-block-start + offset, its type forced to flow, and
@@ -443,6 +449,17 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       // A separate output array (never touches rings/obstacles) → fixture-safe.
       canyonObstacleSuppress: [],
     };
+    // Dev showcase (?hazlab): drop one of every in-lane hazard in the first stretch so
+    // the reskins can be flown and judged. Fixed dists, no rnd use → fixture-safe.
+    if (HAZLAB && !hazlabDone) {
+      hazlabDone = true;
+      out.obstacles.push({ type: 'pillar', dist: 130, x: -9, r: 2.4, h: 16 });               // serac spur, left flank
+      out.obstacles.push({ type: 'shard', dist: 180, x: 4, y: 11, r: 2.3 });                 // static berg chunk, mid
+      out.obstacles.push({ type: 'shard', dynamic: true, dist: 235, r: 2.1,                  // dynamic berg (oscillates + coral pulse)
+        baseX: -5, baseY: 11, amp: 4.5, speed: 1.4, phase: 0, x: -5, y: 11 });
+      out.obstacles.push({ type: 'bar', dist: 295, y: 17.5, r: 0.95 });                       // calved shelf-beam up high → fly UNDER
+      out.obstacles.push({ type: 'bar', dist: 355, y: 6.5, r: 0.9 });                         // calved shelf-beam low → fly OVER
+    }
     while (prev.dist < target) {
       // Authored first-flight opening takes over placement until it's spent.
       if (scripted && scriptIdx < FIRST_FLIGHT_BEATS.length && prev.dist < FIRST_FLIGHT_END) {

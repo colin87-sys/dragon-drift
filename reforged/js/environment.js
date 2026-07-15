@@ -133,7 +133,7 @@ function makeMats() {
     primary: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0x86b39c, emissive: 0x0e2018, emissiveIntensity: 0.25 }),
       new THREE.MeshStandardMaterial({ ...opts, color: 0xe2bd8a, emissive: 0x2a1a08, emissiveIntensity: 0.2 }),
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x6fb7e8, roughness: 0.32, metalness: 0.1, emissive: 0x123a55, emissiveIntensity: 0.25 }),
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xbfdce6, roughness: 0.30, metalness: 0.08, emissive: 0x357088, emissiveIntensity: 0.42 }),   // Sunset Glacier: LUMINOUS glacial ice — the emissive fakes transmission (glows from every side in backlight); weathering noise mottles it; low roughness → per-facet sun glints
       new THREE.MeshStandardMaterial({ ...opts, color: 0x352629, emissive: 0x4a1208, emissiveIntensity: 0.3 }),   // basalt w/ inner heat
       new THREE.MeshStandardMaterial({ ...opts, color: 0x1d4438, emissive: 0x0a3328, emissiveIntensity: 0.4 }),   // night moss
       new THREE.MeshStandardMaterial({ ...opts, color: 0x3a3a6a, emissive: 0x16164a, emissiveIntensity: 0.4 }),   // astral slate
@@ -142,7 +142,7 @@ function makeMats() {
     accent: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0xc08a50, roughness: 0.5, metalness: 0.25, emissive: 0x2a1505, emissiveIntensity: 0.25 }),
       new THREE.MeshStandardMaterial({ ...opts, color: 0xb56a40, emissive: 0x251005, emissiveIntensity: 0.2 }),
-      new THREE.MeshStandardMaterial({ ...opts, color: 0x9fd8f0, roughness: 0.3, emissive: 0x1c4a66, emissiveIntensity: 0.3 }),
+      new THREE.MeshStandardMaterial({ ...opts, color: 0xd8f6ff, roughness: 0.22, emissive: 0x3fc8e8, emissiveIntensity: 0.85 }),   // Sunset Glacier: the CYAN CORE — the light inside the ice (Candle slivers + Sail panes only; warm is NEVER emissive)
       new THREE.MeshStandardMaterial({ ...opts, color: 0xff5a20, roughness: 0.4, emissive: 0xff3a08, emissiveIntensity: 0.9 }),  // magma seams
       new THREE.MeshStandardMaterial({ ...opts, color: 0x4dffd0, roughness: 0.35, emissive: 0x18d0a0, emissiveIntensity: 1.0 }), // biolume caps
       new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
@@ -181,6 +181,42 @@ function mergeParts(parts, biomeIdx) {
   bakeAO(geometry); // N15: per-vertex AO attribute (gated by uAO at render)
   return { geometry, materials: mats };
 }
+
+// A RECESSED crevasse core — the Frozen kit's ONE accent language (Fable studio
+// gate P3 #6). The old kit stuck a bright cyan RECTANGLE flat on a face, which
+// read as a sticker / LED strip (the poverty pattern DRAGON-DESIGN.md kills on
+// sight). Instead this drops emissive (mat 1) slivers SET BACK at low z, broken
+// into `seg` vertical segments, to be seated in a NARROW GAP between two mat-0
+// blocks — the blocks are the chasm walls, so the glow reads as light escaping
+// from INSIDE the ice, never painted on it. Caller sizes the flanking blocks so
+// the core is proud-recessed (walls at higher z than `z`). Returns parts to spread
+// into a build([...]) list. Cost = seg×12 tris. All boxes → merges indexed.
+function crevasseCore({ x = 0, y = 0.45, z = 0.0, h = 0.5, w = 0.07, seg = 3, gap = 0.04 }) {
+  const parts = [];
+  const segH = (h - gap * (seg - 1)) / seg;
+  for (let i = 0; i < seg; i++) {
+    // brightest read comes from the middle segment being tallest; taper the ends
+    const t = seg > 1 ? Math.abs(i - (seg - 1) / 2) / ((seg - 1) / 2) : 0; // 0 mid → 1 ends
+    const sh = segH * (1 - 0.28 * t);
+    const sy = y - h / 2 + segH / 2 + i * (segH + gap);
+    parts.push({ mat: 1, geo: xform(new THREE.BoxGeometry(w, sh, 0.05), { x, z, y: sy }) });
+  }
+  return parts;
+}
+
+// A/B coexistence flag for the wall-props redesign (WALL-PROPS-REDESIGN.md §6),
+// same idiom as `?skyforged=0` (powerups.js:13-15). Default (v2) = the new premium
+// per-biome kits; `?props=v1` restores the legacy roster. The flip is a swap of the
+// two rosters' `biomes` whitelists at module init — a registered-but-unlisted
+// archetype parks every instance (writeMatrix) and the visible-gate kills its draw,
+// so both rosters coexist ~free until the legacy set is deleted in the §6 A8 cleanup.
+const _envParams = (typeof window !== 'undefined' && window.location)
+  ? new URLSearchParams(window.location.search) : new URLSearchParams();
+const PROPS_V1 = _envParams.get('props') === 'v1';
+// Per-biome whitelist helpers: FROZEN is the A1 biome (new kit default-on, legacy
+// parked). A biome not yet migrated returns its shipped whitelist unconditionally.
+const frozenNew = PROPS_V1 ? [] : [2];   // Sunset Glacier (no-spike glacier ice): bergwall/serac/terrace/icetower/glacierwall/sungate(hero)
+const frozenOld = PROPS_V1 ? [2] : [];   // crystal/crystalSmall (deleted in A8)
 
 const ARCHETYPES = {
   // Sanctuary: verdigris watchtower with a weathered bronze dome.
@@ -246,16 +282,21 @@ const ARCHETYPES = {
       return { x: side * (17 + r * 0.5 + rnd() * 14), h: 4.5 + rnd() * 3.5, r, tilt: 0 };
     },
   },
-  // Frozen Reach: the original big crystal spires.
+  // --- FROZEN REACH (A1 — WALL-PROPS-REDESIGN.md §4.2) ------------------------
+  // "The ribs of something enormous, not quite done being buried." Clustered
+  // blades + vertebral stacks, bone-white — the MARROWCOIL foreshadow made
+  // literal. Opposes Astral: hard/near/dense/rooted vs soft/vast/sparse/floating.
+  // Legacy single-cone crystals (now `frozenOld`, parked by default) stay
+  // registered until the §6 A8 cleanup; `?props=v1` swaps the rosters back.
   crystal: {
-    step: 13, biomes: [2], matIndex: 2,
+    step: 13, biomes: frozenOld, matIndex: 2,
     build: () => mergeParts([
       { mat: 0, geo: xform(new THREE.ConeGeometry(1, 1, 5), { y: 0.42, sy: 1 }) },
     ], 2),
     place: (side, rnd) => ({ x: side * (17 + rnd() * 8), h: 18 + rnd() * 32, r: 3.5 + rnd() * 5, tilt: side * (0.06 + rnd() * 0.1) }),
   },
   crystalSmall: {
-    step: 30, biomes: [2], matIndex: 2,
+    step: 30, biomes: frozenOld, matIndex: 2,
     build: () => mergeParts([
       { mat: 1, geo: xform(new THREE.ConeGeometry(1, 1, 5), { y: 0.42 }) },
     ], 2),
@@ -263,6 +304,152 @@ const ARCHETYPES = {
       const h = 2 + rnd() * 5;
       return { x: side * (13.5 + rnd() * 3), h, r: h * 0.35, tilt: side * rnd() * 0.3 };
     },
+  },
+  // ── THE SUNSET GLACIER (v2 — massive-first: 86% broad/chunky mass, ~14% vertical
+  // punctuation; real ice reads as scale through BREADTH, not height). ──
+  // THE BERG WALL — hero mass (~128 tris): a sheer tabular iceberg face, flat-topped,
+  // cliff-fronted, one stepped upper stratum + a calved block at its foot. COLOSSAL
+  // and BROAD (~1.2:1 wide) — the thing that makes you feel small. Its huge planar
+  // facets catch the low sun as single gold sheets while the shadow side glows blue;
+  // doubled in the mirror. ONE cyan crevasse seam (mat 1) recessed on the face.
+  bergwall: {
+    step: 70, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.12 }, // force-parks in breath; grows in congregation
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.52, 0.62, 0.64, 7), { y: 0.32, ry: 0.3, sx: 1.4, sz: 0.85 }) },  // main tabular mass
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.52, 0.38, 6), { x: -0.22, z: 0.06, y: 0.74, ry: 1.1, sx: 1.3, sz: 0.85 }) }, // upper stratum → the calving OVERHANG on the left (the best glacial gesture — kept)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.62, 0.16, 0.52), { x: -0.10, y: 0.90, ry: 0.15 }) },                  // crown cap A — ONE large tabular cap (consolidated, was crown clutter)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.40, 0.16, 0.36), { x: 0.24, z: -0.06, y: 0.70, ry: 0.5 }) },          // crown cap B — SEATED on the main top (was the floating chip; now overlaps)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.24, 0.30, 0.34, 5), { x: 0.56, z: 0.08, y: 0.17, ry: 3.1 }) },   // calved block at the foot (story beat)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.50, 0.13), { x: 0.02, z: 0.50, y: 0.44 }) },                    // crevasse rib L (proud of the face)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.50, 0.13), { x: 0.24, z: 0.50, y: 0.44 }) },                    // crevasse rib R (proud of the face)
+      // recessed crevasse core in the cleft between the ribs (the lit chasm, kit accent language)
+      ...crevasseCore({ x: 0.13, y: 0.44, z: 0.53, h: 0.42, w: 0.07, seg: 2 }),
+    ], 2),
+    // Gate-safety clamp (Move 2 pre-assess): bergwall's REAL footprint is ±0.95 (not
+    // ±0.6 — calved foot + upper stratum), and rotY is random, so the inner edge must
+    // clear the ±16 gameplay-gate veil from EITHER orientation. x = 17.5 + 0.95·r + …
+    // keeps the near edge ≥ 17.5 → props never intrude on a gate (the owner's complaint).
+    place: (side, rnd) => { const r = 15 + rnd() * 9; return { x: side * (17.5 + 0.95 * r + rnd() * 5), h: 22 + rnd() * 16, r, tilt: side * (rnd() * 0.03 - 0.015) }; },
+  },
+  // THE SERAC STACK — chunky faceted block-pile (~104 tris): three tilted icosahedral
+  // blocks stacked and toppling + a capstone rhomb (the Khumbu-icefall read), ~1:1
+  // chunky. flatShading gives ~90 flat facets each catching the sunset at a different
+  // angle — the richest per-tri surface in the kit. ONE lit fracture plate (mat 1) in
+  // a cleft. NON-INDEXED throughout (icosahedra + .toNonIndexed() boxes — the `berg` rule).
+  // THE SERAC STACK — a pile of SHEARED, interpenetrating ice BLOCKS (~120 tris).
+  // The Fable studio gate (2.4/5) killed the old icosahedral version as "rounded
+  // BOULDERS, not seracs" (icosa read as pebbles) with a detached FLOATING block and
+  // a plastic sticker accent. Real Khumbu seracs are toppling cubic blocks that lean
+  // ON each other — so this is now all BOXES, each rotated to a different shear and
+  // overlapping its neighbours ≥25% (nothing floats). The accent is a RECESSED
+  // crevasse (kit language), not a plate stuck on the surface. All boxes → indexed.
+  serac: {
+    step: 26, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.88, sMax: 1.10 }, // force-parks in breath
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.66, 0.56, 0.60), { y: 0.30, ry: 0.20, rz: 0.09 }) },            // main sheared block (deeper — a block, never a plane)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.54, 0.50, 0.52), { x: 0.30, z: -0.08, y: 0.38, ry: 0.6, rz: -0.20 }) }, // block leaning ON the main (topple)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.48, 0.46, 0.48), { x: -0.30, z: 0.12, y: 0.28, ry: 1.1, rz: 0.18 }) },  // flank block, sheared other way
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.42, 0.42), { x: 0.06, z: 0.04, y: 0.64, ry: 0.4, rz: 0.24 }) },   // upper block seated ON the pile (grounded, was the floater)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.32, 0.32, 0.32), { x: -0.12, z: -0.06, y: 0.70, ry: 0.9, rz: -0.30 }) },// small toppled capstone, overlapping
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.38, 0.28, 0.36), { x: 0.34, z: 0.22, y: 0.14, ry: 0.5, rz: 0.10 }) },   // foot rubble, half-buried
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.40, 0.26), { x: -0.06, z: 0.30, y: 0.40 }) },             // crevasse rib L (proud, DEEP — reads as ice, not a card)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.15, 0.40, 0.26), { x: 0.18, z: 0.30, y: 0.40 }) },              // crevasse rib R (proud, deep)
+      // recessed crevasse core in the cleft between the ribs (proud of the main block face)
+      ...crevasseCore({ x: 0.06, y: 0.40, z: 0.36, h: 0.34, w: 0.07, seg: 2 }),
+    ], 2),
+    // LANE-CLEARANCE (PR-1): inner edge = x − ρ·r·sMax must clear the ±13 fatal lane
+    // + the ±16 gate veil. serac ρ=0.712, sMax 1.10 → 0.79; floor 15.5 (MID class).
+    // Draw r FIRST then couple x to it (the shipped bergwall pattern) — same 4 draws.
+    place: (side, rnd) => { const r = 7 + rnd() * 4; return { x: side * (15.5 + 0.79 * r + rnd() * 6), h: 7 + rnd() * 6, r, tilt: side * (rnd() * 0.10 - 0.03) }; },
+  },
+  // THE ICE TERRACE — stepped shelf (~108 tris): a giant's staircase rising from the
+  // mirror — wide (3–8:1). Low h-rolls read as pack ice, high rolls as full terraces
+  // (one archetype, two reads). Each tread catches the gold rim, each riser holds blue
+  // shadow — free banding. The horizontal REST that makes the verticals read colossal.
+  terrace: {
+    step: 20, biomes: frozenNew, matIndex: 2, comp: { floor: 0.22, sMin: 0.85, sMax: 1.08 }, // keeps a floor of LOW pack-ice through the breath
+    // Fable studio gate (2.6/5): the plan view is good but in elevation it read as
+    // "one thin pancake" — no riser height → no blue shadow bands → no depth. Rebuilt
+    // with THICKER tiers (real risers that hold a shadow band) + 2 chunky serac boxes
+    // as pressure-ridge rubble to break the pancake silhouette, and a slightly higher
+    // floor so it reads as a low shelf with thickness, not paper.
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.62, 0.62, 0.32, 7), { y: 0.16, ry: 0.4, sx: 1.15, sz: 0.8 }) },  // base pan — STRAIGHT walls (vertical ice cliff, not a melting taper) + 30% thicker
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.46, 0.46, 0.30, 6), { x: 0.10, z: -0.06, y: 0.45, ry: 1.6, sx: 1.1 }) }, // tier 2 — straight-walled riser
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.30, 0.26, 6), { x: -0.14, z: 0.10, y: 0.70, ry: 3.0 }) },  // tier 3 — straight-walled
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.26, 0.24, 0.24), { x: 0.26, z: 0.16, y: 0.34, ry: 0.5, rz: 0.10 }) },// pressure-ridge rubble chunk
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.22, 0.22, 0.20), { x: -0.32, z: -0.10, y: 0.30, ry: 1.2 }) },        // pressure-ridge rubble chunk
+      // The accent is a RECESSED crevasse SLIT in the tread, not a flush pond decal
+      // (Fable: the wide pond read as a sticker from ABOVE — the primary read in a
+      // flying game). Two TALL proud mat-0 rims flank a CONTINUOUS 2-segment jagged
+      // emissive crack (segments overlap at the joint so the top-down projection is one
+      // unbroken high-aspect polyline, not two chips), sunk well below the rim tops so
+      // from above it reads as one glowing crack framed by shaded ice, and oblique rims
+      // occlude it. ~4:1 crack proportions, not a rectangle.
+      // On the EXPOSED tier-2 tread (clear of the tier-3 cap, which was occluding the
+      // old crack from above) and LONG — the lit floor runs the full ~0.38 polyline
+      // (~40% of the tread width) at ~5:1, so from gameplay altitude it still reads as
+      // a glowing crack, not a chip. Two proud rims frame it into a trench.
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.05, 0.16, 0.42), { x: 0.22, z: 0.02, y: 0.60, ry: 0.3 }) },          // crevasse rim L (proud → trench wall)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.05, 0.16, 0.42), { x: 0.39, z: 0.02, y: 0.60, ry: 0.3 }) },          // crevasse rim R
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.075, 0.06, 0.26), { x: 0.29, z: -0.08, y: 0.62, ry: 0.3 }) },        // lit crack segment 1 (full glowing floor)
+      { mat: 1, geo: xform(new THREE.BoxGeometry(0.075, 0.06, 0.16), { x: 0.33, z: 0.12, y: 0.62, ry: 0.3 }) },         // lit crack segment 2 — overlaps seg 1 → one continuous glowing crack spanning the tread
+    ], 2),
+    // LANE-CLEARANCE (PR-1): terrace ρ=0.704, sMax 1.08 → 0.76; floor 14.5 (LOW class,
+    // top ≤7 so it may hug the route but its widest pans now sit outside the ±13 wall).
+    place: (side, rnd) => { const r = 8 + rnd() * 8; return { x: side * (14.8 + 0.76 * r + rnd() * 6), h: 2.5 + rnd() * 4.5, r, tilt: side * (rnd() * 0.04 - 0.02) }; },
+  },
+  // THE ICE TOWER — a tall TABULAR ice column (~108 tris, step 130 = rare landmark).
+  // Real glaciers are flat-topped and blocky, NEVER spiky (research: tabular/blocky
+  // dominate; pinnacled spires are the rare exception) — so this is a STACK of offset
+  // ice blocks with a FLAT stepped top, not a spire. Placed FAR from the lane
+  // (|x| ≥ 24) so it never looms over or occludes a gameplay gate (clean lanes).
+  icetower: {
+    step: 170, biomes: frozenNew, matIndex: 2, comp: { floor: 0, sMin: 0.9, sMax: 1.0 }, // rarer + capped (Move 2: the Sun Gate is the tallest paired hero at a peak, not this)
+    // The Fable studio gate (2.0/5) flagged this as the "man-made" repeat offense —
+    // uniform taper + concentric coursing + aligned seams read as a water tower /
+    // chimney / ziggurat. Rebuilt to BREAK the coursing: a fat tabular base, then
+    // blocks of strongly VARIED heights with lateral offsets that ALTERNATE sides
+    // (a zig-zag silhouette, not a smooth taper), each yawed irregularly so the
+    // plan-view star symmetry dies, finished with one OVERSIZED overhanging capstone
+    // and a recessed crevasse seam (it was the only unlit prop).
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.44, 0.54, 0.44, 6), { y: 0.22, ry: 0.2, sx: 1.05 }) },          // FAT tabular base (~40% height)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.48, 0.42, 0.44), { x: -0.10, z: 0.04, y: 0.52, ry: 0.5 }) },          // block — offset LEFT, tall (deep overlap into the base → fused, not perched)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.34, 0.40), { x: 0.12, z: -0.06, y: 0.78, ry: -0.7 }) },         // block — offset RIGHT (zig-zag), overlapping heavily
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.56, 0.22, 0.50), { x: 0.04, y: 0.98, ry: 0.4, rz: 0.05 }) },          // OVERSIZED overhanging capstone (shaved a block — less totem-tall)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.44, 0.20), { x: -0.06, z: 0.30, y: 0.60 }) },                   // crevasse rib L (proud, deep)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.11, 0.44, 0.20), { x: 0.14, z: 0.30, y: 0.60 }) },                    // crevasse rib R (proud, deep)
+      ...crevasseCore({ x: 0.04, y: 0.58, z: 0.36, h: 0.38, w: 0.07, seg: 2 }),                                          // recessed crevasse (kit accent)
+    ], 2),
+    // LANE-CLEARANCE (PR-1): icetower ρ=0.56; floor 17.5 (TALL class) AND cap the inward
+    // lean so the top stays ≥ 16.5 (never leans over the ±16 gate veil). Same 4 draws.
+    place: (side, rnd) => { const r = 8 + rnd() * 4, h = 22 + rnd() * 14; return { x: side * (17.5 + 0.56 * r + rnd() * 12), h, r, tilt: side * Math.min(rnd() * 0.06 - 0.02, 1.0 / h) }; },
+  },
+  // THE GLACIER WALL — far massif on the fog line (~64 tris): a long tabular ice-shelf
+  // front, mass in the UPPER band so it FLOATS on the fog line (foam:false); peaks
+  // spread in x AND z (rotation-robust). Now at TRUE scale (~4–5:1 wide, 58–85 wide)
+  // — the world's edge dissolving into molten gold via the dual-fog. Fixes the far read.
+  glacierwall: {
+    step: 80, biomes: frozenNew, matIndex: 2,
+    // Fable studio gate (3.6/5 — the kit's best): right tabular-iceberg language, but
+    // the old FLAT top box read as a machined rebate/casting-mold slot, and the skyline
+    // was one unbroken flat line (reads as a wall, not a massif). Rebuilt as a bulk mass
+    // topped by THREE tabular slabs of descending height (left tall → centre lower →
+    // right lowest calved block) so the skyline STEPS DOWN like a real massif, plus one
+    // tilted wedge cap so no edge reads machined. Ice breaks in wedges and steps, never
+    // in neat right-angle rebates.
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.54, 0.62, 0.56, 5), { x: 0.05, y: 0.30, ry: 0.4, sx: 1.4, sz: 0.9 }) }, // bulk mass
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.70, 0.30, 0.48), { x: -0.30, y: 0.72, ry: 0.08 }) },                  // tall tabular slab (skyline high, left)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.60, 0.22, 0.46), { x: 0.28, z: -0.04, y: 0.60, ry: -0.06 }) },        // lower slab (skyline step-down, right)
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.30, 0.38, 0.30, 5), { x: 0.62, z: 0.10, y: 0.40, ry: 1.6 }) },   // lowest calved block (far right — the last step)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.34, 0.20, 0.30), { x: -0.56, z: 0.06, y: 0.66, ry: 0.5, rz: 0.20 }) },// tilted wedge cap (breaks the flat machined line)
+    ], 2),
+    // LANE-CLEARANCE (PR-1): glacierwall ρ=1.004 was the smoking gun — the "far massif"
+    // routinely sprawled across half the ±13 lane at flight height. Couple x to r (1.01)
+    // so inner edge ≥ 26 (BACKDROP class) — it stays the honest fog-line massif. 3 draws.
+    place: (side, rnd) => { const r = 34 + rnd() * 16; return { x: side * (26 + 1.01 * r + rnd() * 22), h: 14 + rnd() * 8, r, tilt: 0 }; },
   },
   // Emberfall Caldera: jagged basalt spire split by a glowing magma seam.
   basalt: {
@@ -405,6 +592,54 @@ const ARCHETYPES = {
     ], 6),
     place: (side, rnd) => ({ x: side * (28 + rnd() * 18), h: 5 + rnd() * 3.5, r: 20 + rnd() * 12, tilt: 0 }),
   },
+  // THE SUN GATE — the hero focal landmark (~108 tris, Move 2). Paired flat-topped
+  // TABULAR ice pylons (icetower/bergwall block vocabulary, NO spikes) that flank the
+  // lane and frame the low sun — a doorway of light. `hero:true` phase-LOCKS it to the
+  // composition congregation PEAK (frozenComp phase 0.15) via a fixed slot jitter, and
+  // a per-peak hash makes it RARE (one gate on ~40% of peaks). `paired:true` seats the
+  // left+right posts at the SAME distance. GATE-SAFE: at |x| 24-27 with the gap-facing
+  // (+x, mirrored inward by rotY) footprint ≤ 0.58, the inner edge stays ≥ 17 — clear of
+  // the ±16 gameplay-gate veil from any chase-cam pose (occlusion divergence proof). The
+  // gap carves real god-ray shafts (occlusion mask) and doubles in the water mirror.
+  // Registered LAST so no existing band's render-rnd stream shifts.
+  // THE SUN GATE — the hero focal landmark (~144 tris, rebuilt to the Fable studio
+  // gate P1). A pair of MASSIVE flat-topped ice pylons that flank the lane and frame
+  // the low sun as a doorway of light. The Fable studio gate killed the prior version
+  // (1.8/5) as "two skinny towers" (~6:1 obelisks, an LED stripe, no doorway). This
+  // rebuild answers its six points, ALL via offset-stacking (rotation gets sheared
+  // flat by the (r,h,r) instance scale — lateral OFFSET survives it):
+  //   • MASS: fat tabular base slab (~40% of height) + a wide footprint → ~2.5:1, not 6:1.
+  //   • LEAN toward the gap: every block's centre steps progressively toward +x (the
+  //     gap-facing side, mirrored inward by rotY), so the two pylons' silhouettes
+  //     CONVERGE — that convergence is what makes the sky between them read as a door.
+  //   • REACHING CAP: a wide capstone cantilevered furthest of all into the gap — the
+  //     implied broken lintel; the two caps nearly meet overhead.
+  //   • ROOTED FEET: half-buried serac chunks skirt the base (grows from an ice apron).
+  //   • CREVASSE CORE (not an LED strip): a recessed emissive chasm between two proud
+  //     ribs on the front face — light escaping the ice, per the kit accent language.
+  // +x = the gap-facing side (rotY = π mirrors it inward on the +x post). GATE-SAFE:
+  // max +x extent is the cap at 0.54; at r ≤ 15, x ≥ 27 → inner edge ≥ 18.9, clear of
+  // the ±16 gameplay-gate veil. Registered LAST so no band's render-rnd stream shifts.
+  sungate: {
+    step: 300, biomes: frozenNew, matIndex: 2, paired: true, hero: true,
+    build: () => mergeParts([
+      { mat: 0, geo: xform(new THREE.CylinderGeometry(0.62, 0.72, 0.44, 6), { x: -0.14, y: 0.22, ry: 0.3 }) },     // FAT tabular base slab (~40% height — the mass), seated OUTward
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.92, 0.34, 0.86), { x: -0.04, y: 0.55, ry: 0.12 }) },            // lower block — WIDER + DEEPER (chunk, not slab); grows toward the outer side
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.80, 0.40, 0.66), { x: 0.08, y: 0.80, ry: -0.10 }) },            // mid mass — fatter; steps toward the gap (convergence)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.48, 0.18), { x: 0.03, z: 0.30, y: 0.82 }) },              // crevasse rib L (thin + proud → a deep chasm, not fat ribs)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.14, 0.48, 0.18), { x: 0.25, z: 0.30, y: 0.82 }) },              // crevasse rib R (thin + proud)
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.64, 0.32, 0.54), { x: 0.16, y: 1.05, ry: 0.20 }) },             // upper block — fatter; steps further toward the gap
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.72, 0.18, 0.58), { x: 0.22, y: 1.23, ry: 0.10, rz: 0.06 }) },   // capstone CANTILEVERED + angled DOWN into the gap — the broken lintel reaching for its twin
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.46, 0.28, 0.42), { x: 0.24, z: 0.18, y: 0.13, ry: 0.5, rz: -0.05 }) },  // rooted foot rubble (gap side) — a grounded chunk, not a flare
+      { mat: 0, geo: xform(new THREE.BoxGeometry(0.44, 0.26, 0.40), { x: -0.34, z: -0.14, y: 0.12, ry: 1.0, rz: 0.06 }) }, // rooted foot rubble (outer side)
+      // recessed crevasse core — the SAME deep 2-segment chasm used on bergwall/serac (wider core, set well back so the ribs overhang it), not a thin single bar
+      ...crevasseCore({ x: 0.14, y: 0.80, z: 0.34, h: 0.44, w: 0.10, seg: 2 }),
+    ], 2),
+    // MASSIVE + gate-safe: r 12-15 (wide footprint for mass, not a pole), h 40-49
+    // (towers over the congregation), x 27-30 (inner edge ≥ 18.9). tilt is tiny — the
+    // convergence is carried by the offset-stack, not a shear-prone rotation.
+    place: (side, rnd) => ({ x: side * (27 + rnd() * 3), h: 38 + rnd() * 8, r: 13 + rnd() * 3, tilt: side * (-0.015 - rnd() * 0.01), rotY: side > 0 ? Math.PI : 0 }),
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -415,12 +650,120 @@ const ARCHETYPES = {
 const FOAM_CFG = {
   tower: { r: 0.7 }, column: { r: 0.6 }, archruin: { rx: 0.52, rz: 0.18 }, slab: { rx: 0.48, rz: 0.16 },
   obelisk: { r: 0.44 }, dome: { r: 0.58 }, crystal: { r: 1.1 }, crystalSmall: { r: 1.1 },
+  // Sunset Glacier kit (v2) — the waterline weld between silhouette + reflection;
+  // glacierwall floats on the fog line so it takes no collar.
+  bergwall: { r: 0.9 }, serac: { r: 0.7 }, terrace: { r: 0.9 }, icetower: { r: 0.8 }, glacierwall: false, sungate: { r: 0.8 },
   basalt: { r: 0.62 }, vent: { r: 0.72 }, glowcap: { r: 0.34 }, glowcapSmall: { r: 0.28 },
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
   ridge: false, // distant massif — a foam ring 30+ off-lane would be a bright artifact
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
+
+// --- Diagnostic export (tools/envcount.mjs) — BEHAVIOR-INERT -----------------
+// Builds every archetype headlessly and reports its geometry/material/instance
+// stats so the env-overdraw/geometry guard (WALL-PROPS-REDESIGN.md §8.2) can
+// assert against them. NEVER imported by the running game — `ARCHETYPES`,
+// `propMats` and `WALL_WINDOW` are module-private by design, and
+// `createEnvironment` is too heavy to run headless (it builds the sky shader,
+// arena, ambient and IBL probe), so the tool reaches the archetype geometry
+// through this one narrow, side-effect-free window instead. Calling it merely
+// lazily initialises the SAME `propMats` the game builds (no canvas/renderer
+// needed) — it changes nothing about runtime behaviour.
+// --- Studio export (tools/propstudio) — BEHAVIOR-INERT ----------------------
+// Builds ONE archetype as a live THREE.Mesh (or the L+R pair for a `paired`
+// hero) at a representative in-game instance scale (r,h,r), base at y=0, so a
+// prop can be judged in ISOLATION in a neutral studio (the dragonstudio pattern
+// applied to props). Uses a FIXED mid-range rnd so the render is reproducible.
+// The nonuniform (r,h,r) scale is applied exactly as writeMatrix does — that
+// shear IS part of how the prop reads in-game, so the studio must not hide it.
+// Never imported by the running game; like propDiag it just lazily builds the
+// SAME propMats the game builds.
+export function buildArchetypeMesh(key, opts = {}) {
+  if (!propMats) propMats = makeMats();
+  const def = ARCHETYPES[key];
+  if (!def) throw new Error('propstudio: no archetype "' + key + '"');
+  const group = new THREE.Group();
+  // Deterministic mid-range draw sequence (a real prop pulls 3-5 rnd()s per place()).
+  const seq = opts.rnd || [0.5, 0.35, 0.62, 0.5, 0.42, 0.58, 0.5, 0.48];
+  let ri = 0;
+  const rnd = () => seq[(ri++) % seq.length];
+  const makeOne = (side) => {
+    const { geometry, materials } = def.build();
+    const mesh = new THREE.Mesh(geometry, materials.length > 1 ? materials : materials[0]);
+    const p = def.place(side, rnd);
+    mesh.scale.set(p.r, p.h, p.r);          // world instance scale (r,h,r) — same as writeMatrix
+    // Paired hero: seat L/R at real ±x (gapScale 1 = honest in-game spacing; <1
+    // pulls the posts into a tighter doorway study). Single/non-paired: centre it.
+    const gs = opts.gapScale != null ? opts.gapScale : 1;
+    mesh.position.set(opts.single ? 0 : p.x * gs, 0, 0);
+    mesh.rotation.z = p.tilt || 0;
+    mesh.rotation.y = p.rotY != null ? p.rotY : 0;
+    group.add(mesh);
+  };
+  if (def.paired && opts.single !== true) { makeOne(-1); ri = 0; makeOne(1); }
+  else makeOne(1);
+  return group;
+}
+// The keys the studio iterates (the live Frozen kit), so the driver need not
+// hardcode a list that could drift from the roster.
+export function frozenPropKeys() {
+  return Object.entries(ARCHETYPES).filter(([, d]) => d.biomes.includes(2)).map(([k]) => k);
+}
+
+// --- Lane-clearance audit seam (tools/propclearance.mjs) — BEHAVIOR-INERT ------
+// For every archetype: the object-space max XZ radial extent ρ (the true reach
+// toward the lane, since instances get a random rotY), the geometry's yMax (top),
+// the comp sMax growth, and a brute-force sample of place() over a 4-draw rnd
+// lattice. The tool asserts each prop's worst-case inner edge (|x| − ρ·r·sMax −
+// lean) clears the ±13 fatal lane + the ±16 gate veil. Never imported by the game.
+export function propClearanceData() {
+  if (!propMats) propMats = makeMats();
+  const grid = [0.001, 0.25, 0.5, 0.75, 0.999];
+  return Object.entries(ARCHETYPES).map(([name, def]) => {
+    const { geometry } = def.build();
+    const p = geometry.getAttribute('position');
+    let rho = 0, yMax = 0, xMax = 0;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); rho = Math.max(rho, Math.hypot(x, z)); yMax = Math.max(yMax, p.getY(i)); xMax = Math.max(xMax, x); }
+    geometry.dispose();
+    const samples = [];
+    for (const a of grid) for (const b of grid) for (const c of grid) for (const d of grid) {
+      const seq = [a, b, c, d]; let i = 0; const rnd = () => seq[(i++) % 4];
+      samples.push(def.place(1, rnd));
+    }
+    return { name, biomes: def.biomes.slice(), rho, xMax, yMax, sMax: def.comp ? def.comp.sMax : 1, paired: !!def.paired, samples };
+  });
+}
+
+export function propDiag() {
+  if (!propMats) propMats = makeMats();
+  return Object.entries(ARCHETYPES).map(([name, def]) => {
+    // build() THROWS here on an indexed/non-indexed mergeGeometries mix or a
+    // `mat >= 2` part — i.e. this loop IS the headless boot-crash catch that a
+    // live createEnvironment would otherwise only surface in the browser.
+    const { geometry, materials } = def.build();
+    const pos = geometry.getAttribute('position');
+    const tris = Math.round((geometry.index ? geometry.index.count : pos.count) / 3);
+    const mats = materials.map((m) => ({
+      transparent: m.transparent === true,
+      depthWriteFalse: m.depthWrite === false,
+      additive: m.blending === THREE.AdditiveBlending,
+    }));
+    geometry.dispose();
+    return {
+      name,
+      biomes: def.biomes.slice(),
+      step: def.step,
+      instances: Math.ceil(WALL_WINDOW / def.step) * 2, // makeBand: perSide × 2
+      tris,
+      materials: mats,
+      // FOAM_CFG assigns `.foam` (possibly `false`) to every archetype it lists;
+      // an archetype missing from FOAM_CFG has `.foam === undefined` → its foam
+      // sibling would draw garbage. `!== undefined` is the completeness probe.
+      hasFoam: def.foam !== undefined,
+    };
+  });
+}
 
 export function createEnvironment(scene, seed = CONFIG.seed) {
   sceneRef = scene;
@@ -556,6 +899,7 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
   // --- Prop bands: one recycled InstancedMesh per archetype.
   bands = [];
   for (const key of Object.keys(ARCHETYPES)) {
+    ARCHETYPES[key]._salt = saltFromKey(key); // stable per-archetype salt for the composition hash (§Move 1)
     bands.push(makeBand(scene, ARCHETYPES[key]));
   }
 
@@ -581,10 +925,18 @@ function makeBand(scene, def) {
   // writeMatrix so it recycles + parks in lockstep with the props.
   const foam = makeFoamMesh(perSide * 2);
   const band = { mesh, foam, data: [], step: def.step, def };
+  // Paired archetypes: left+right of a slot must land at the SAME distance (shared
+  // jitter). HERO archetypes go further — a FIXED jitter that phase-locks every slot
+  // to the congregation peak: dist % period === HERO_PEAK_OFFSET (frozenComp 0.15).
+  // Stored on the band so reseedBand re-seats it identically (pairing survives restart).
+  const slotJit = def.hero ? new Array(perSide).fill((HERO_PEAK_OFFSET + 100) / def.step)
+    : def.paired ? Array.from({ length: perSide }, () => rnd()) : null;
+  band.slotJit = slotJit;
   let idx = 0;
   for (let side = -1; side <= 1; side += 2) {
     for (let i = 0; i < perSide; i++) {
-      const d = { side, slot: i, dist: i * def.step + rnd() * def.step - 100, ...def.place(side, rnd) };
+      const dj = slotJit ? slotJit[i] : rnd();
+      const d = { side, slot: i, dist: i * def.step + dj * def.step - 100, ...def.place(side, rnd) };
       band.data.push(d);
       writeMatrix(band, idx++, d);
     }
@@ -614,6 +966,48 @@ const BIOME_TINTS = [
   TINT_WHITE, TINT_WHITE, TINT_WHITE, TINT_WHITE,      // 2–5 — no shared archetypes today
 ];
 
+// --- Composition rhythm (Move 1, WALL-PROPS-REDESIGN §composition) -----------
+// A deterministic macro-rhythm over BLOCK-LOCAL distance for FROZEN props only:
+// CONGREGATION (dense, larger masses) → MIRROR-BREATH (near-empty: open fog-sea +
+// reflections + low pack-ice) → repeat. 5 periods per 1500m block so every biome
+// visit is IDENTICAL and the entry/exit beats are authored (first breath ~195m in,
+// last breath against the exit seam). Applied at WRITE time (park + uniform scale)
+// — a PURE function (no rnd), render-only, zero per-frame cost. Byte-identical
+// outside Frozen: only the Frozen archetypes carry a `comp` block, and the whole
+// term is gated on `bi === 2`. glacierwall carries NO comp → it stays the
+// unmodulated fog-line backdrop (the horizon must never breathe empty).
+const FROZEN_COMP_PERIODS = 5;
+function frozenComp(dist) {
+  const L = CONFIG.biomeLength;                              // 1500
+  const local = ((dist % L) + L) % L;                       // 0..L (negative-safe)
+  const seg = L / FROZEN_COMP_PERIODS;                       // 300m
+  const ph = (local % seg) / seg;                           // 0..1 within the period
+  // congregation weight g: 1 near ph=0.15 (dense), 0 near ph=0.65 (breath); smooth
+  // raised cosine so slots fade in/out along the ramp — a spatial fade, no pops.
+  return 0.5 + 0.5 * Math.cos(2 * Math.PI * (ph - 0.15));
+}
+// Stable per-instance keep value in [0,1) — a PURE hash of (archetype salt, side,
+// slot). Includes `side` so left/right slots don't park symmetrically (mirrored gaps).
+function compHash(salt, side, slot) {
+  let h = (salt ^ Math.imul(slot + 1, 2246822519) ^ (side > 0 ? 0x9e3779b9 : 0x85ebca6b)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 3266489917) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function saltFromKey(key) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619) >>> 0;
+  return h >>> 0;
+}
+// Hero-landmark rarity (Move 2): a PURE hash of the integer congregation-PEAK index →
+// [0,1). Side-agnostic so a paired hero keeps or parks BOTH posts together (no half-gate).
+function heroHash(n) {
+  let h = Math.imul(((n | 0) ^ 0x9e3779b9) >>> 0, 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 3266489917) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+const HERO_PEAK_OFFSET = 45;   // frozenComp phase 0.15 lands at (dist % 300) === 45 (the congregation peak)
+
 const m4 = new THREE.Matrix4();
 const quat = new THREE.Quaternion();
 const eul = new THREE.Euler();
@@ -623,18 +1017,34 @@ function writeMatrix(band, i, d) {
   // Park instances whose archetype doesn't belong to the biome at their
   // distance — they re-enter when recycled into a matching stretch.
   const bi = biomeIndexAt(Math.max(d.dist, 0));
-  const active = band.def.biomes.includes(bi);
-  eul.set(0, d.rotY ?? (d.rotY = rnd() * Math.PI), d.tilt);
+  let active = band.def.biomes.includes(bi);
+  eul.set(0, d.rotY ?? (d.rotY = rnd() * Math.PI), d.tilt); // rnd order MUST stay here (determinism outside Frozen)
   quat.setFromEuler(eul);
+  // Composition rhythm — FROZEN only, PURE (no rnd), evaluated AFTER the rotY init
+  // so no rnd() call order changes. Parks off-beat instances and scales the rest.
+  let k = 1;
+  if (active && bi === 2 && band.def.comp) {
+    const g = frozenComp(d.dist);
+    const c = band.def.comp;
+    const density = c.floor + (1 - c.floor) * g;            // fraction of this archetype's slots kept here
+    if (compHash(band.def._salt, d.side, d.slot) >= density) active = false; // park (off-beat)
+    else k = c.sMin + (c.sMax - c.sMin) * g;                // uniform SIZE scale (never the x POSITION)
+  } else if (active && bi === 2 && band.def.hero) {
+    // Hero landmark (Sun Gate): phase-locked to the congregation peak by its fixed
+    // slot jitter; a per-peak hash keeps it on only ~40% of peaks so it reads as THE
+    // hero. Renders at full size (k=1) or not at all — never the comp scale lottery.
+    const peakIdx = Math.round((d.dist - HERO_PEAK_OFFSET) / (CONFIG.biomeLength / FROZEN_COMP_PERIODS));
+    if (heroHash(peakIdx) >= 0.4) active = false;
+  }
   if (active) {
-    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r, d.h, d.r));
+    m4.compose(posV.set(d.x, -0.5, -d.dist), quat, sclV.set(d.r * k, d.h * k, d.r * k));
   } else {
     m4.compose(posV.set(d.x, -50, -d.dist), quat, sclV.set(0.0001, 0.0001, 0.0001));
   }
   band.mesh.setMatrixAt(i, m4);
   // N10c: write the foam ring at the same index — inherits the prop's active/parked
   // state (always written, so the toggle is a pure visibility flip, correct mid-run).
-  writeFoamMatrix(band.foam, i, d, band.def.foam, active);
+  writeFoamMatrix(band.foam, i, d, band.def.foam, active, k);
   // Shared archetypes (whitelisted in >1 biome) tint per dominant biome so the
   // same mesh reads verdigris in Sanctuary and sandstone in the Wastes.
   // Single-biome archetypes never allocate instanceColor — untouched.
@@ -662,7 +1072,10 @@ function recycleBand(band, playerDist) {
     const d = band.data[i];
     if (d.dist < playerDist - 100) {
       const fresh = band.def.place(d.side, rnd);
-      Object.assign(d, fresh, { dist: d.dist + WALL_WINDOW, rotY: rnd() * Math.PI });
+      const rjit = rnd() * Math.PI; // always draw (keep the shared stream count), but…
+      // …a paired/hero prop keeps its AUTHORED rotY (mirrored gate posts, seam-inward);
+      // dist += WALL_WINDOW (= 3 periods) preserves the phase-lock/pairing for free.
+      Object.assign(d, fresh, { dist: d.dist + WALL_WINDOW, rotY: fresh.rotY ?? rjit });
       writeMatrix(band, i, d);
       changed = true;
     }
@@ -682,9 +1095,13 @@ function recycleBand(band, playerDist) {
 function reseedBand(band) {
   for (let i = 0; i < band.data.length; i++) {
     const d = band.data[i];
-    Object.assign(d, band.def.place(d.side, rnd), {
-      dist: d.slot * band.step + rnd() * band.step - 100,
-      rotY: rnd() * Math.PI,
+    const fresh = band.def.place(d.side, rnd);
+    const djit = rnd();           // always draw (keep the shared stream count), but…
+    const rjit = rnd() * Math.PI; // …paired/hero bands re-seat from their stored slotJit
+    // (pairing + phase-lock survive restart) and keep their authored rotY.
+    Object.assign(d, fresh, {
+      dist: d.slot * band.step + (band.slotJit ? band.slotJit[d.slot] : djit) * band.step - 100,
+      rotY: fresh.rotY ?? rjit,
     });
     writeMatrix(band, i, d);
   }
