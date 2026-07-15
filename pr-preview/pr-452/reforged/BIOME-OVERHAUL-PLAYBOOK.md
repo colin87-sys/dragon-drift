@@ -1,5 +1,65 @@
 # BIOME-OVERHAUL-PLAYBOOK.md — how to bring an entire biome to premium
 
+---
+
+## ENGINEER AUDIT — 2026-07-15 (post-handoff hardening pass; claims verified against code)
+
+**Verified against the repo (cites added inline where a builder touches the seam):**
+all referenced tools/tests exist and run from `reforged/` (`tools/envcount.mjs --ci`,
+`tools/propclearance.mjs --ci`, `tools/frozenshot.mjs` / `frozenclose.mjs` /
+`hazshot.mjs`, `tools/propstudio.*` / `obstaclestudio.*`, `tools/stamp-sw.mjs`,
+`tools/tricount.mjs --ci`, `tests/hazardskin.mjs`, `tests/gold-determinism.mjs`,
+`tests/bulletcontrast.mjs`, `tests/biomecycle.mjs`, `tests/browser.mjs`); every
+envcount budget figure (envcount.mjs:73-90); the A2 material numbers
+(environment.js:95-155; obstacles.js:113-121, 183-199); the A3.8 tri arithmetic
+(measured against the repo's three.js: Cone = 3n, Cylinder = 4n, Icosa(_,0) = 20,
+Box = 12); the A4 collider facts and skin contracts (obstacles.js:866-991); the C3
+current state (biomes.js:109-138; environment.js:454-472); `CYCLE = [0,1,2,3,4,6,5]`
+(biomes.js:212); geyser plumbing (level.js:75, 593; hazards.js); all ten read-first
+lesson files exist in `leapfrog/lessons/`.
+
+**Corrected in this pass:**
+- **Clearance floors (A3.7):** the 14.5/15.5/17.5/26 "class floors" and the
+  `tilt ≤ 1/h` cap are FROZEN-TUNED per-archetype values (environment.js:330-452),
+  not universal classes. The universal facts are the ±13 fatal lane
+  (`CONFIG.laneHalfWidth`, config.js:4), the ±16 gate veil, and the 14.5 fairness
+  floor (`laneHalfWidth + 1.5`) audited by `tools/propclearance.mjs` — a tool the
+  draft never mentioned. ⚠ propclearance CI-enforces ONLY biome 2 today
+  (`SCOPE_BIOME`, propclearance.mjs:39); the overhaul PR must widen it.
+- **`bakeIceLadder` (A2.3/C5):** the `stops:{frost,mid,belly}` option ALREADY exists
+  (obstacles.js:608-611) — no generalization work needed — but omitted `stops`
+  silently defaults to Frozen's blue ice. Now a named trap + a mechanical Part B
+  checklist item.
+- **Skin registry symbol:** it is `SKIN_BUILDERS[bi]` (obstacles.js:851), not
+  `OBSTACLE_SKINS[bi]` — corrected everywhere. New trap documented: `hazardMesh`'s
+  skinned-shard branch hardcodes `mats.frostIce`/`mats.moverIce` (obstacles.js:897),
+  so a non-Frozen shard skin requires a small seam extension or it ships Frozen ice.
+- **`props` mirror:** it lives in each biome's `BIOMES[]` entry (Caldera's at
+  biomes.js:134, not ~96) and is documentation — the live spawn whitelist is the
+  archetype's `biomes:[n]` array.
+- **Caldera roster names (C4):** confirmed free placeholders (no code symbols), BUT
+  `WALL-PROPS-REDESIGN.md` §4.3 holds an older Caldera spec reusing the same names
+  with different roles/steps — an explicit supersede note was added.
+- **NaN scan (Stage 6):** no shipped harness exists; clarified as a check the builder
+  scripts (envcount never calls `place()`; the failure mode is environment.js:1021).
+- Removed the out-of-scope set-piece mention from A1 (this doc covers side props +
+  spawn content + hazards + materials ONLY).
+- C6: Caldera already ships `bullets:{dark:0xa84167}` (biomes.js:137).
+
+**Residual risks / assumptions to confirm at build time:**
+- Live counts move: envcount on 2026-07-15 measured Frozen 228 inst / ~29.4k band
+  tris and Caldera 144 / ~7.8k (Frozen+Caldera IS an adjacent pair in CYCLE — re-run
+  `envcount --ci` after every roster PR; the historical figures quoted in A3.6
+  (496→208) are lesson-era history, not current numbers).
+- `tests/hazardskin.mjs` coverage functions are Frozen-specific; Caldera authors its
+  own coverage exports (A4) — budget that work into PR-3.
+- `propstudio` iterates `frozenPropKeys()` (environment.js:710); cloning it for
+  another biome means parameterizing that key list.
+- The Fable/owner gate scores, redirect history, and studio-vs-in-game gaps cited
+  from the Frozen arc were taken from the ledger lessons, not re-derived.
+
+---
+
 **Audience: a fresh session tasked with a full BIOME OVERHAUL** — one biome's SIDE PROPS
 and everything that spawns in it (decorative masses, in-lane hazards, materials,
 atmosphere, ambient content) brought to the same premium bar Frozen Reach now holds.
@@ -25,7 +85,7 @@ Read-first stack (in order, before any code):
    `2026-07-15-restamp-sw-so-changes-ship`.
 4. `js/environment.js` (ARCHETYPES, `makeMats`/`addPropDetail`, `mergeParts`,
    `crevasseCore`, FOAM_CFG, `place()`/`writeMatrix`), `js/obstacles.js`
-   (`OBSTACLE_SKINS`/`hazardMesh`/`bakeIceLadder`/`buildObstacleMesh`), `js/hazards.js`
+   (`SKIN_BUILDERS`/`hazardMesh`/`bakeIceLadder`/`buildObstacleMesh`), `js/hazards.js`
    (the biome-hazard runtime), `js/biomes.js` (the biome's atmosphere entry).
 
 ---
@@ -35,7 +95,7 @@ Read-first stack (in order, before any code):
 ## A1. The end-to-end pipeline
 
 Frozen's final shape came from this loop. Run it per element-family (props → in-lane
-hazards → atmosphere → setpiece dressing), one PR each, coexist-flagged.
+hazards → atmosphere/ambient), one PR each, coexist-flagged.
 
 ### Stage 0 — Look at what's actually there (render FIRST, design second)
 
@@ -89,10 +149,13 @@ Every prop/hazard gets judged in isolation before it ships. The pattern
 (`tools/propstudio.{html,mjs}` for side props, `tools/obstaclestudio.{html,mjs}` for
 in-lane hazards — clone one for the new biome):
 
-- An **inert studio export** from the real module (`buildArchetypeMesh` /
-  `buildObstacleMesh`) so **what Fable grades is what ships** — same geometry, same
-  materials, at a representative in-game `(r,h,r)` instance scale. Studio-only exports,
-  never imported by the running game (zero shipped-pixel change).
+- An **inert studio export** from the real module (`buildArchetypeMesh`,
+  environment.js:682 / `buildObstacleMesh`, obstacles.js:983) so **what Fable grades is
+  what ships** — same geometry, same materials, at a representative in-game `(r,h,r)`
+  instance scale. Studio-only exports, never imported by the running game (zero
+  shipped-pixel change). Note: propstudio iterates `frozenPropKeys()`
+  (environment.js:710) — parameterize the key list (or add a per-biome export) when
+  cloning for a new biome.
 - Renders each element ISOLATED on a neutral stage through the game's real ACES
   pipeline, under **two rigs**: the biome's shipping key light (for Frozen that meant a
   raking low sun) + a flat neutral rig. Multi-angle: context ¾ + silhouette + **plan
@@ -109,17 +172,22 @@ in-lane hazards — clone one for the new biome):
 ### Stage 3 — Build, behind a coexistence flag
 
 - New archetypes register in `ARCHETYPES` with `biomes:[n]`, `build()`, `place()`,
-  ≤2 materials (the `mergeParts` hard cap — a part with `mat >= 2` THROWS at build).
+  ≤2 materials (the `mergeParts` hard cap, environment.js:170 — a part with `mat >= 2`
+  throws at build (`groups[p.mat]` is undefined); `envcount` builds every archetype
+  headless to catch exactly this before it takes down every biome's boot).
 - **The whitelist FLIP is the coexistence mechanism, and its polarity matters:**
   default = new kit holds `[n]`, legacy roster PARKED at `[]`; `?props=v1` swaps the
   two rosters' whitelists at module init (the shipped `frozenNew`/`frozenOld` idiom in
   `environment.js`). **Never both rosters holding the biome** — that doubles density
   and reds the envcount cap. envcount's shim forces `location.search=''`, so CI always
   audits the default (new) roster.
-- Every new archetype gets a `FOAM_CFG` entry — a `{r}` waterline collar (the weld
-  between silhouette and reflection) or explicit `false` for fog-line massifs (a foam
-  ring 30+ off-lane is a bright artifact). Update the `props` mirror in the biome's
-  `biomes.js` entry alongside.
+- Every new archetype gets a `FOAM_CFG` entry (environment.js:650) — a `{r}` waterline
+  collar (the weld between silhouette and reflection; elliptical `{rx,rz}` for thin
+  footprints) or explicit `false` for fog-line massifs (a foam ring 30+ off-lane is a
+  bright artifact). Update the `props: [...]` mirror array in the biome's `BIOMES[]`
+  entry alongside (biomes.js — Caldera's is line ~134). The mirror is documentation;
+  the LIVE spawn whitelist is the archetype's own `biomes:[n]` array — keep both in
+  sync or the doc lies to the next session.
 - Prime `step` values, mutually coprime across the biome's roster (anti-tiling).
 
 ### Stage 4 — In-context render (the stage that catches what the studio can't)
@@ -146,13 +214,24 @@ not vibes. Record verdicts in the PR body + the Gate Log.
 
 From `reforged/`, every PR:
 
-- `node tools/envcount.mjs --ci` — per-archetype tris ≤150, per-biome ≤550 inst /
-  ≤50k band-tris, adjacent-pair ≤90k, **side-prop additive/transparent surfaces = 0**,
-  FOAM_CFG completeness.
-- A **runtime `createEnvironment` NaN scan of every instanceMatrix** — envcount only
-  calls `build()`, never `place()`; a `place()` that omits `tilt` produces NaN
-  quaternions that corrupt the whole band and NO headless geometry tool catches it.
-  Exercise the `place()`+`writeMatrix` path explicitly.
+- `node tools/envcount.mjs --ci` — per-archetype tris ≤150 AND instances ≤170
+  (2×ceil(900/step)), per-biome ≤550 inst / ≤50k band-tris, adjacent-pair ≤90k
+  (walked over `CYCLE`), **side-prop additive/transparent surfaces = 0**, FOAM_CFG
+  completeness (caps: envcount.mjs:73-90; the GRANDFATHER tri list is frozen — never
+  add an entry).
+- `node tools/propclearance.mjs --ci` — the lane-clearance audit (A3.7): worst-case
+  inner edge vs the 14.5 fairness floor + the ±16 gate veil, computed from each
+  archetype's measured ρ over a brute-force `place()` lattice. ⚠ It CI-enforces ONLY
+  biome 2 today (`SCOPE_BIOME`, propclearance.mjs:39) — the overhaul PR must widen
+  enforcement to its biome and clear that biome's pre-existing "stray" rows instead of
+  inheriting them.
+- A **runtime NaN scan of every instanceMatrix** — there is NO shipped harness for
+  this: envcount only calls `build()`, never `place()`. A `place()` that omits `tilt`
+  produces NaN quaternions (`writeMatrix` seats `d.tilt` straight into `eul.set`,
+  environment.js:1021) that corrupt the whole band, and no headless geometry tool sees
+  it. Script the check yourself (the propclearance 4-draw `place()` lattice is the
+  pattern — assert every returned `x/h/r/tilt` is finite) AND eyeball a booted
+  `?biome=N` render.
 - `node tests/gold-determinism.mjs` — byte-identical (props are render-only; hazards
   ride their own RNG stream — see A4).
 - `node tests/bulletcontrast.mjs` — on EVERY palette/fog/grade change.
@@ -192,11 +271,18 @@ its own theology sentence** — never another biome's hues (Part B).
    never crush to black spots) AND modulates emissive (×0.78–1.22). Free surface
    richness on every prop, no textures. New biome materials get this automatically —
    don't reimplement it, just route through `makeMats`.
-3. **The value-ladder technique** (generalized from `bakeIceLadder` in `obstacles.js`):
-   bake a **3-stop vertex-color ladder from each face's GEOMETRIC normal** onto the
-   merged flat-shaded geometry — a LIGHT stop, a MID stop, a DEEP stop. One flat band
-   of color becomes carved, lit mass at zero triangle cost. Generalize per biome by
-   asking: **where does this biome's light come from, and what does its material
+3. **The value-ladder technique** (`bakeIceLadder(geo, opts)`, obstacles.js:608 —
+   already biome-parameterizable, no generalization work needed: `opts` takes the
+   key axis `{ax,ay,az}` (default world +Y), the two thresholds `{frostT,tealT}`
+   (defaults 0.35/−0.30), and the three stop colors `stops:{frost,mid,belly}`): bake a
+   **3-stop vertex-color ladder from each face's GEOMETRIC normal** onto the merged
+   flat-shaded geometry — a LIGHT stop, a MID stop, a DEEP stop. One flat band of color
+   becomes carved, lit mass at zero triangle cost. ⚠ **FROZEN TRAP: when `stops` is
+   omitted the function defaults to Frozen's `_FROST/_MIDICE/_BELLY` blue-ice hues
+   (obstacles.js:595)** — every non-Frozen call site MUST pass `stops` explicitly, at
+   every call. (The stop KEYS are just names; what is NOT parameterizable is the
+   structure — exactly three hard-thresholded stops, per-face flat assignment.)
+   Derive the ladder per biome by asking: **where does this biome's light come from, and what does its material
    history look like?** Frozen keyed frost/ice/shadow off world-up (sun logic); a biome
    lit from BELOW inverts the axis; a TUMBLING body must key off a fixed per-chunk
    *weathering axis* instead of world-up (orientation-invariant "material history" —
@@ -204,11 +290,15 @@ its own theology sentence** — never another biome's hues (Part B).
    stop's hue OFF the biome's sky so silhouettes always separate.
 4. **The self-lit legibility floor** (the backlight survival trick): vertex colors only
    modulate the diffuse term, so a ladder DIES against a bright backlight (faces
-   collapse to near-black emissive). Fold the ladder into emissive too — one
+   collapse to near-black emissive). Fold the ladder into emissive too — the shipped
+   `withLadderEmissive(mat)` helper (obstacles.js:113) is exactly this one
    `onBeforeCompile` line: `totalEmissiveRadiance *= vColor.rgb;` — and set the
-   material's emissive to a bright ladder-neutral base at intensity ~0.35–0.5. Now the
-   ladder reads with zero scene light. **Exempt warning/telegraph materials** (their
-   pulse must stay hot and unmodulated). Counter-intuitively, raising the body's
+   material's emissive to a bright ladder-neutral base at intensity ~0.35–0.5
+   (Frozen's `frostIce` ships `0xcfe4f0 @ 0.42`, obstacles.js:183 — that HUE is
+   Frozen's; a new biome builds its OWN `vertexColors:true` material and wraps it,
+   never clones `frostIce`). Now the ladder reads with zero scene light. **Exempt
+   warning/telegraph materials** (`moverIce` is deliberately un-wrapped — its pulse
+   must stay hot and unmodulated). Counter-intuitively, raising the body's
    emissive floor LOWERS the LED-strip risk on accents (it's a contrast-ratio failure).
 5. **Fake transmission that survives backlight**: the primary material's emissive IS
    the "lit from within" read (Frozen: luminous ice; the technique: emissive in the
@@ -264,14 +354,25 @@ its own theology sentence** — never another biome's hues (Part B).
 6. **Restraint is the awe multiplier.** Frozen dropped from 496 instances/46.5k tris
    (ossuary clutter) to 208/15.8k (Sunset Glacier) and got BETTER. Fewer, bigger,
    with negative space.
-7. **`place()` / lane-clearance discipline** (the fairness law): inner edge
-   `x − ρ·r·sMax` must clear the ±13 fatal lane AND the ±16 gate veil. Compute each
-   archetype's plan-radius ratio ρ from its geometry; class floors: LOW ≈14.5 (top ≤7
-   may hug the route), MID ≈15.5, TALL ≈17.5 **plus an inward-tilt cap so the top never
-   leans over ±16** (`tilt ≤ 1/h`), BACKDROP ≥26 with x coupled to r. Draw r FIRST,
-   then couple x to it. **`place()` MUST return `tilt` explicitly** (`tilt: 0`, never
-   omitted) — a missing tilt is a NaN quaternion that corrupts the band and no headless
-   geometry tool sees it.
+7. **`place()` / lane-clearance discipline** (the fairness law). The UNIVERSAL,
+   code-enforced facts: the fatal lane is ±13 (`CONFIG.laneHalfWidth`, config.js:4),
+   the Phase-Gate veil is ±16, and the worst-case inner edge
+   `|x| − ρ·r·sMax − lean(h·yMax·|tilt|)` must clear the fairness floor
+   `laneHalfWidth + 1.5 = 14.5` — all audited by `tools/propclearance.mjs`, which
+   measures each archetype's true plan-radius ρ from its geometry and brute-forces
+   `place()` over a 4-draw rnd lattice (run the tool; don't hand-derive ρ). The quoted
+   "class floors" — LOW ≈14.5 (terrace; its top ≤7 lets it hug the route), MID ≈15.5
+   (serac), TALL ≈17.5 (icetower) **plus an inward-tilt cap so the top never leans over
+   ±16** (icetower implements it as `tilt ≤ 1/h`, environment.js:427), BACKDROP
+   26 + 1.01·r (glacierwall, whose ρ≈1.0 forced the strong coupling) — are
+   **FROZEN-TUNED per-archetype values from the PR-1 lane fix (environment.js:330-452),
+   NOT universal engine classes.** A new biome derives its own floors the same way:
+   draw r FIRST, couple x to r using the archetype's own measured ρ, keep the inner
+   edge ≥14.5, and re-verify with propclearance (⚠ which CI-enforces only biome 2
+   today — `SCOPE_BIOME`, propclearance.mjs:39 — widen it in the overhaul PR).
+   **`place()` MUST return `tilt` explicitly** (`tilt: 0`, never omitted) — a missing
+   tilt is a NaN quaternion (`writeMatrix`, environment.js:1021) that corrupts the band
+   and no headless geometry tool sees it.
 8. **Tri budget + merge truths**: ≤150 tris per archetype (envcount-enforced);
    `ConeGeometry(r,h,n)` = **3n** tris (not 2n), `Cylinder` = 4n, `Icosahedron(_,0)` =
    20, `Box` = 12. Mixed indexed/non-indexed parts must `.toNonIndexed()` before
@@ -296,16 +397,32 @@ output array, consumption below the `inBoss`/grace returns, cursor reset in
 kinematic verbs. FX: slim opaque core + rim particles, never an enclosing additive
 shell.
 
-**(b) The in-lane obstacles** (`js/obstacles.js` — the three collider archetypes:
-full-lane horizontal beam, vertical column, tumbling body). The COLLIDERS are engine
-facts and stay byte-identical; the SKIN is 100% biome fiction. A premium biome reskins
-all three via `OBSTACLE_SKINS[bi]` + the `hazardMesh(type, bi, opts)` seam (skin when
-present, byte-identical primitive fallback otherwise — so ungraded biomes are provably
-unchanged). **The skin answers: "what, in THIS biome's world, is a beam / a column / a
-tumbling mass?"** Frozen answered with calved-ice forms; another biome must answer
-from its OWN geology — never by recoloring another biome's answer (Part B).
+**(b) The in-lane obstacles** (`js/obstacles.js` — three collider archetypes, type
+keys and envelopes: `bar` = full-lane horizontal beam (box: `|dz| < r`,
+`|y−cy| < r·0.75`, **NO x-term**), `pillar` = vertical column (cylinder from the
+floor: horiz `< r·0.65`, `y < h`), `shard` = tumbling body (sphere: dist `< r·0.70`);
+spawn ranges bar r 0.7–1.1, pillar r 1.6–3.0 / h 8–21, shard r 1.3–2.6 —
+obstacles.js:947-951). The COLLIDERS are engine facts and stay byte-identical; the
+SKIN is 100% biome fiction. A premium biome reskins all three by registering a builder
+trio in `SKIN_BUILDERS[bi]` (obstacles.js:851 — module-private; Frozen's `2:` entry is
+the only one) behind the `hazardMesh(type, bi, p)` seam (skin when present,
+byte-identical primitive fallback otherwise — so ungraded biomes are provably
+unchanged). Skin return contracts (obstacles.js:866-902): bar →
+`{ parts: [{geo, mat}…], ref }`, group-scaled `(1, s, s)` with `s = r/ref` (x spans
+the lane); pillar → `{ tower, rubble }` part lists (tower scales `r×h×r`, rubble
+`r×r×r` seated at the foot); shard → `{ geo }` (uniform r scale). ⚠ **FROZEN-LEAK
+TRAP: the skinned-shard branch of `hazardMesh` HARDCODES `mats.frostIce` /
+`mats.moverIce` (obstacles.js:897)** — a new biome's shard skin must extend that seam
+to per-biome materials or it silently ships Frozen's ice on its own geometry. **The
+skin answers: "what, in THIS biome's world, is a beam / a column / a tumbling
+mass?"** Frozen answered with calved-ice forms; another biome must answer from its
+OWN geology — never by recoloring another biome's answer (Part B).
 
-Fairness invariants (each one has bitten; all are enforced in `tests/hazardskin.mjs`):
+Fairness invariants (each one has bitten; the Frozen instances are enforced in
+`tests/hazardskin.mjs` — the coverage functions there are Frozen-specific, so a new
+biome authors its OWN numeric coverage exports mirroring `barColliderCoverage`
+(obstacles.js:908) / `pillarColliderCoverage` / `shardColliderSupport` and adds its
+own test entries):
 
 - **The visible silhouette contains the collider everywhere.** The beam collider has
   NO x-term — it's a full-lane wall; any visual gap = "looks passable but kills".
@@ -389,7 +506,15 @@ gates; the tools (cloned and re-rigged per biome).
   biome's own geology.
 - **Palette.** Frozen's hues (luminous blue ice `0xbfdce6`, cyan core `0x3fc8e8`,
   rose-quartz/gold sunset fog) belong to Frozen. A new biome's ladder stops, accent
-  hue, fog melt and water tint all derive from ITS theology sentence.
+  hue, fog melt and water tint all derive from ITS theology sentence. The mechanical
+  leak paths are NAMED, and each is a silent default — guard them explicitly:
+  (1) `bakeIceLadder` without an explicit `stops:` defaults to Frozen's
+  `_FROST/_MIDICE/_BELLY` blue ice (obstacles.js:595,611); (2) the skinned-shard
+  branch of `hazardMesh` hardcodes `mats.frostIce`/`mats.moverIce`
+  (obstacles.js:897); (3) cloning `frostIce` / `glacierWallMat` or reusing
+  `_WALL_LADDER` imports Frozen's emissive base and wall stops; (4) reusing
+  `crevasseCore` imports Frozen's accent GEOMETRY (generalize the recess grammar,
+  never the crack shape — A2.7).
 - **Hazard forms.** Each biome's hazards are their own creatures, invented from that
   biome's identity triple. A hazard concept that can be described as "<Frozen hazard>
   but <new material>" is banned by construction. The colliders are shared engine
@@ -423,6 +548,12 @@ Gate-2 Fable agent MUST run it explicitly on the contact sheets + in-context cap
       (Frozen, Aurora)? If two biomes could swap screenshots, one of them changes.
 - [ ] State the biome's theology sentence and Frozen's next to each other: different
       subjects, different light sources, different verbs?
+- [ ] MECHANICAL GREP (run it, don't eyeball — this is the check that catches a
+      silent recolor): in the new kit's diff, every `bakeIceLadder(` call passes an
+      explicit `stops:`; zero references to `_FROST`, `_MIDICE`, `_BELLY`,
+      `_WALL_LADDER`, `mats.frostIce`, `mats.moverIce`, `glacierWallMat`,
+      `crevasseCore`, or Frozen's hex literals (`0xbfdce6`, `0x3fc8e8`, `0x357088`,
+      `0xcfe4f0`, `0xd8f6ff`).
 
 Any unchecked box = RETHINK, not REVISE. Distinctness is a ship-blocking requirement,
 equal in rank to determinism and 60fps.
@@ -436,7 +567,7 @@ equal in rank to determinism and 60fps.
 1. **Play order continuity.** In the current cycle players fly Frozen → Caldera
    (`CYCLE` interim order `[0,1,2,3,4,6,5]`: biome 2 hands directly into biome 3). The
    now-premium Frozen raises the bar and then the very next biome drops back to
-   two 3-primitive archetypes — the contrast is the game's most visible quality cliff.
+   two ≤3-primitive archetypes — the contrast is the game's most visible quality cliff.
 2. **The mechanics are already premium; only the visuals lag.** Caldera is
    BIOME-DESIGN's hero biome: `anchor:'ashtalon'` shipped, the geyser hazard shipped
    (`hazard:{type:'geyser'}` + `js/hazards.js`), dual-fog `fogFarColor` + `heightK`
@@ -469,10 +600,13 @@ WITHIN-THROUGH-CRACKS; mass is dark; motion is upward. (Frozen's inverse on all 
 ## C3. Current state (what you're replacing)
 
 - **Side props:** two legacy archetypes only — `basalt` (3 primitives: two frustums +
-  an accent collar, step 18) and `vent` (cone + glowing throat collar, step 42). This
-  is exactly the poverty class Frozen's cones were.
+  an accent collar, step 18) and `vent` (cone + glowing throat collar, step 42) —
+  environment.js:455-472; mirrored as `props: ['basalt','vent']` at biomes.js:134.
+  This is exactly the poverty class Frozen's cones were. (envcount 2026-07-15:
+  Caldera 144 inst / ~7.8k band tris — huge headroom under the 550/50k caps.)
 - **In-lane obstacles:** the untouched primitive bar/pillar/shard tinted by
-  `mats.body[3]` — `OBSTACLE_SKINS[3]` does not exist yet.
+  `mats.body[3]` — `SKIN_BUILDERS[3]` does not exist yet (obstacles.js:851 holds only
+  the Frozen `2:` entry).
 - **Materials:** `primary[3]` basalt-with-inner-heat `0x352629`/em `0x4a1208`@0.3,
   `accent[3]` magma seam `0xff5a20`/em `0xff3a08`@0.9 — usable starting hues, but flat
   (no ladder, default roughness 0.7 → no facet glints, no self-lit floor).
@@ -481,6 +615,16 @@ WITHIN-THROUGH-CRACKS; mass is dark; motion is upward. (Frozen's inverse on all 
   fire-moths). The retheme here is refinement, not rebuild.
 
 ## C4. The prop roster — fresh VOLCANIC geology, zero ice DNA
+
+> **Authority note:** `WALL-PROPS-REDESIGN.md` §4.3 contains an OLDER Caldera roster
+> spec that reuses several of these names (`colonnata`/`riftfang`/`fumarole`/
+> `clinker`/`riftwall`) with different roles and steps. **THIS playbook supersedes it
+> for the Caldera overhaul.** None of the names below exist in code (only a "fumarole
+> cone" comment at environment.js:464) — they are placeholders the Stage-1 art
+> director is free to redefine. One fact from the older doc IS worth keeping: geyser
+> hazards spawn from level data (`level.js#overlayBiomeHazards`), not from the `vent`
+> archetype, so retiring `vent` cannot touch the hazard (gold-determinism proves it
+> anyway).
 
 Reference doctrine (research real volcanic landforms before building, as Frozen
 researched real glaciers): columnar-jointed basalt (Giant's Causeway / Svartifoss —
@@ -511,8 +655,9 @@ build obeys A3; steps prime + coprime; ≤150 tris each):
 - **`clinker`** — the FOIL: bare aa-rubble mound / breadcrust boulder pile, NO glow,
   desaturated warm-dark. Makes every ember accent earned; dark punctuation across the
   lava-lit water.
-- **`riftwall`** — the BACKDROP MASSIF (|x| ≥ 26, x coupled to r, `foam:false` if it
-  rides the height-fog): the caldera rim — a long, dark, flat-topped escarpment with
+- **`riftwall`** — the BACKDROP MASSIF (backdrop floor derived from its OWN measured ρ
+  per A3.7 — Frozen's glacierwall needed `26 + 1.01·r` because its ρ≈1.0; couple x to
+  r, verify with propclearance, `foam:false` if it rides the height-fog): the caldera rim — a long, dark, flat-topped escarpment with
   stepped colonnade bands and ONE glowing fissure high on its face, sinking into the
   scorched-dark far fog. 4–6:1 wide.
 - **`riftfang`** (punctuation ONLY — largest step, rare): a leaning volcanic
@@ -537,8 +682,10 @@ massif); update the `props` mirror in `biomes.js` entry 3.
     nudged off the ember sky so silhouettes separate);
   - **MID/verticals**: near-black basalt with a warm cast.
   Bake per-face from geometric normals, exactly the `bakeIceLadder` machinery with
-  Caldera stops + axis (it already takes `{ax,ay,az,frostT,tealT}`-style options;
-  generalize the stop names, don't fork the function). For tumbling bodies use the
+  Caldera stops + axis (the function already takes
+  `{ax, ay, az, frostT, tealT, stops:{frost, mid, belly}}` — obstacles.js:608; pass
+  the Caldera stops via `stops:` at EVERY call site, because omitting it silently
+  defaults to Frozen's blue ice; don't fork the function). For tumbling bodies use the
   fixed weathering-axis variant (crusted rind / fresh black fracture / glowing seam
   zone — a material history that is proudly volcanic).
 - **Self-lit floor**: fold the ladder into emissive (A2.4) so the hot belly still
@@ -576,7 +723,8 @@ Shipped bones are good (C3). The premium pass, all standard levers (A5):
 - `bulletcontrast.mjs` after every change: magenta-vs-ember is this biome's hardest
   legibility case in the game (hot palette adjacent to the danger hue). If magenta
   ever struggles, the per-biome `bullets:{light,mid,dark}` override exists for exactly
-  this — tune legibility there, never by desaturating the biome.
+  this — Caldera ALREADY ships a lifted dark band (`bullets: { dark: 0xa84167 }`,
+  biomes.js:137): retune legibility there, never by desaturating the biome.
 
 ## C7. Hazards — Caldera's own creatures
 
@@ -587,7 +735,7 @@ the premium treatment (slim opaque core + rim-lit particles per the overdraw law
 no additive shells), and hazard vent sites should read as the same fumarole family as
 the props so the world explains the danger. Score it in-context (Stage 4).
 
-**The in-lane obstacle skins (`OBSTACLE_SKINS[3]`) — invented from volcanic identity**
+**The in-lane obstacle skins (`SKIN_BUILDERS[3]`) — invented from volcanic identity**
 (concepts for Stage 1/Stage 2 to gate; colliders byte-identical; all A4 invariants):
 
 - **Beam (full-lane horizontal): the COLLAPSED COLONNADE SPAN** — a fallen palisade of
@@ -621,8 +769,10 @@ verb, eruption weather events. The overhaul is a look arc; verbs are owner-gated
    in-context flythrough (`frozenclose` pattern re-pinned to `?biome=3`) → Fable ≥4.2
    per archetype → owner preview.
 3. **PR-3: obstacle skins** — `obstaclestudio` sheets with collider ghosts →
-   `OBSTACLE_SKINS[3]` trio + `tests/hazardskin.mjs` coverage entries → in-context
-   hazshot pass (score in the ember backlight) → Fable ≥4.2 each.
+   `SKIN_BUILDERS[3]` trio (+ the per-biome shard-material seam extension from A4 —
+   `hazardMesh` hardcodes Frozen ice for skinned shards today) + Caldera coverage
+   exports + `tests/hazardskin.mjs` entries → in-context hazshot pass (score in the
+   ember backlight) → Fable ≥4.2 each.
 4. **PR-4: geyser presentation + cohesion pass** — vent-site/fumarole family unify,
    telegraph FX polish, final gameshots montage, Gate-2 on the compound result.
 
