@@ -708,8 +708,8 @@ function buildStormforkWings(def, model, attach, _giM) {
   M.wingMat = M.boltTiers[0];
   M.edgeMat = new THREE.MeshStandardMaterial({ color: 0xc9d0e8, emissive: 0xd9deff, emissiveIntensity: M.humFloor * 0.6, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.55 });   // dimmer/thinner rim → cloud dominant in daylight (gate polish #2)
   M.edgeMat.envMapIntensity = 0.3; M.edgeMat.userData.baseEmissive = 0xd9deff; M.edgeMat.userData.baseIntensity = M.humFloor * 0.6;
-  M.edgeMat.userData.stormBucket = 2; M.edgeMat.userData.stormCap = 2.0; M.edgeMat.userData.stormRel = 0.80;   // TIPS bucket — the knife-edge rides the strike out to the wingtip
-  M.edgeMat.userData.stormHum = M.humFloor * 0.80; M.edgeMat.userData.stormPeak = Math.min(2.0, M.peakFloor * 2.0 / 2.4);
+  M.edgeMat.userData.stormBucket = 2; M.edgeMat.userData.stormCap = 2.0; M.edgeMat.userData.stormRel = 0.85;   // TIPS bucket — the knife-edge rides the strike out to the wingtip
+  M.edgeMat.userData.stormHum = M.humFloor * 0.85; M.edgeMat.userData.stormPeak = Math.min(2.0, M.peakFloor * 2.0 / 2.4);   // rel 0.85 keeps the strike:idle ratio ≤4.0 at the dim f0 floor
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
