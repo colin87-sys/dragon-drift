@@ -355,18 +355,18 @@ body[data-qtier="2"] .hud-sew { display: none; }
    lower-right spell card — bounded + centred so the two never read as one clutter. */
 .boss-note .bn-main, .boss-note .bn-sub, .boss-note .bn-ready { max-width: 88vw; margin-left: auto; margin-right: auto; }
 .boss-note.show { opacity: 1; }
-.boss-note .bn-main { display: block;
-  font: 900 clamp(22px,6.5vw,44px)/1.05 'Russo One', system-ui, sans-serif;
-  letter-spacing: 0.06em; color: #ffd86a;
+.boss-note .bn-main { display: block; white-space: nowrap;
+  font: 900 clamp(20px,5.6vw,40px)/1.05 'Russo One', system-ui, sans-serif;
+  letter-spacing: 0.05em; color: #ffd86a;
   text-shadow: 0 0 20px rgba(255,190,70,0.85), 0 2px 10px #000; }
 .boss-note .bn-sub { display: block; margin-top: 5px;
   font: 700 clamp(12px,3.4vw,20px)/1.2 'Russo One', system-ui, sans-serif;
   letter-spacing: 0.14em; color: #ffe9b8; text-shadow: 0 2px 8px #000; }
 .boss-note[data-tone="fever"] .bn-main { color: #ff8fe6; text-shadow: 0 0 22px rgba(255,90,220,0.9), 0 2px 10px #000; }
 .boss-note[data-tone="phase"] .bn-main { color: #d59bff; text-shadow: 0 0 22px rgba(190,110,255,0.9), 0 2px 10px #000; }
-.boss-note .bn-ready { display: block;
-  font: 800 clamp(16px,4.6vw,30px)/1 'Russo One', system-ui, sans-serif;
-  letter-spacing: 0.12em; color: #ff8fe6;
+.boss-note .bn-ready { display: block; white-space: nowrap;
+  font: 800 clamp(15px,4.3vw,28px)/1 'Russo One', system-ui, sans-serif;
+  letter-spacing: 0.1em; color: #ff8fe6;
   text-shadow: 0 0 18px rgba(255,90,220,0.9), 0 2px 12px #000; }
 .boss-note.show:not(.ready) { animation: boss-note-anim 0.4s cubic-bezier(.2,.9,.3,1.2); }
 .boss-note.ready { animation: surge-ready-throb 0.7s ease-in-out infinite; }
@@ -1024,9 +1024,14 @@ body.biome-bright #hud .bell {
    --fs-micro caps — card→plate is one voice). The housing ETCHES in stroke-by-stroke
    (stroke-dashoffset, the hud-sew grammar) synced to the title card. All motion is
    transform / opacity / dashoffset — no layout-prop animation. */
-.mews-plate { position: fixed; left: 50%; bottom: 31%;
-  transform: translateX(-50%) scale(var(--hud-scale)); transform-origin: bottom center;
-  width: min(46vw, 420px); z-index: 41; pointer-events: none;
+/* The boss health bar lives at the TOP, under the Tape — the bottom-centre band
+   is owned by the gauntlet + the boss-note attack telegraphs (REFLECT ANYTHING,
+   SURGE READY) + the spell card, and a bar down there both crowded them and
+   crossed the dragon. Top-anchored, it sits near the boss (ahead + above in the
+   chase cam) and never touches the subject or the telegraphs. */
+.mews-plate { position: fixed; left: 50%; top: calc(66px + env(safe-area-inset-top, 0px));
+  transform: translateX(-50%) scale(var(--hud-scale)); transform-origin: top center;
+  width: min(52vw, 460px); z-index: 41; pointer-events: none;
   opacity: 0; transition: opacity var(--t-ui) var(--ease-out);
   --mp-mag: 255, 43, 106; --mp-gold: 255, 216, 106; }
 .mews-plate.show { opacity: var(--hud-alpha); }
@@ -1089,7 +1094,7 @@ body.biome-bright #hud .bell {
 }
 /* portrait: the plate widens + the nameplate stacks above the bar (§C) */
 @media (orientation: portrait) {
-  .mews-plate { width: 82vw; bottom: 30%; }
+  .mews-plate { width: 84vw; top: calc(72px + env(safe-area-inset-top, 0px)); }
 }
 
 /* ============ AUDIO / PAUSE BUTTON ============ */
@@ -1924,24 +1929,26 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .hud-top-left  { top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; }
   .hud-top-center{ top: calc(10px + env(safe-area-inset-top, 0px)); }
   .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; }
-  .stamina-arc   { top: 64%; width: min(38vw, 128px); }
-  /* H3 §C portrait: the horns fold INWARD — LIFE left / SURGE right at the
-     same y (horizontal rows toward center), cluster ≤55vw, thumb zone clear. */
+  /* H3 §C portrait: LIFE (left) and SURGE (right) fold into horizontal rows.
+     The cluster is WIDENED so each horn gets its own half with a clear centre
+     gap for the seal/multiplier — the two rows must never build into each other
+     (they used to overlap on a 128px arc + collide with the ○○○ seal). */
+  .stamina-arc   { top: 64%; width: min(56vw, 210px); }
   .gauntlet-life span:nth-child(1) { left: 2px; bottom: 4px; }
-  .gauntlet-life span:nth-child(2) { left: 16px; bottom: 4px; }
-  .gauntlet-life span:nth-child(3) { left: 30px; bottom: 4px; }
-  .gauntlet-life span:nth-child(4) { left: 44px; bottom: 4px; }
-  .gauntlet-life span:nth-child(5) { left: 58px; bottom: 4px; }
+  .gauntlet-life span:nth-child(2) { left: 15px; bottom: 4px; }
+  .gauntlet-life span:nth-child(3) { left: 28px; bottom: 4px; }
+  .gauntlet-life span:nth-child(4) { left: 41px; bottom: 4px; }
+  .gauntlet-life span:nth-child(5) { left: 54px; bottom: 4px; }
   .gauntlet-surge i:nth-child(1) { right: 2px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(2) { right: 15px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(3) { right: 28px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(4) { right: 41px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(5) { right: 54px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(6) { right: 67px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(7) { right: 80px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(8) { right: 93px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(9) { right: 106px; bottom: 4px; }
-  .gauntlet-surge i:nth-child(10) { right: 119px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(2) { right: 12px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(3) { right: 22px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(4) { right: 32px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(5) { right: 42px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(6) { right: 52px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(7) { right: 62px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(8) { right: 72px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(9) { right: 82px; bottom: 4px; }
+  .gauntlet-surge i:nth-child(10) { right: 92px; bottom: 4px; }
   .tape-strip    { width: 120px; }
   .tape-ticks    { display: none; }   /* portrait drops the tick strip (§C) */
   #reticle       { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
