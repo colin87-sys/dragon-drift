@@ -107,14 +107,27 @@ function tempestMats(def, glow = 1) {
   // the no-bloom studio. The hum MULTIPLIER is pushed up so the worn circuit reads as clearly-lit
   // near-white even without bloom (in-game bloom then blazes it; the I4 storm tick will cap the
   // peak). This is a studio-legibility lift, not a game-brightness spec.
-  const mkArc = (col, mul, w) => { const m = std(col, { emissive: col, ei: humFloor * mul, rough: 0.45, metal: 0 }); m.userData.baseEmissive = col; m.userData.baseIntensity = humFloor * mul; m.userData.flareIntensityWeight = w ?? 0.5; return m; };
-  const arcSeam = mkArc(0xd9deff, 2.4);                   // the storm-white circuit (spine + sternum veins)
-  const arcCore = mkArc(0xf2f4ff, 3.0);                   // the ONE true near-white — vein cores + strike-peak tips
-  const crest = mkArc(0xd9deff, 2.0, 0.4);                // the horn-crest strips (reads, a step under the veins)
+  // I4 STORM-TICK params: the strike PEAK ceiling ramps with the ladder like humFloor
+  // (peak 1.2/1.6/2.0/2.4 for glow 0.25/0.5/0.75/1.0). hum·breathe idles the strip; the
+  // pulseTimer strike lifts it toward `peak` (§5a/§5d). Ratio peak/hum ∈ [2.2,4.0] by design.
+  const peakFloor = 1.2 + 1.6 * (glow - 0.25);
+  // `stormBucket` = the root→tip travel stage (0 root · 1 mid · 2 tips); the storm tick offsets
+  // each bucket's strike envelope +0.04·bucket s so the bolt TRAVELS out over ~0.12 s (§5b).
+  // `stormCap` = the absolute emissive ceiling (glare discipline §5a); `stormRel` = the idle
+  // value-ladder weight (core/heart read brighter, so idle a touch lower to stay under the cap).
+  // stormHum = the idle base (humFloor·rel, the value-ladder weight); stormPeak = the strike
+  // target (peakFloor·cap/2.4, so the apex form lands exactly on the cap and lower rungs scale
+  // down). The tick reads these directly (no form lookup): ei = stormHum·breathe + env·(peak−hum).
+  const mkStorm = (m, bucket, cap, rel) => { m.userData.stormBucket = bucket; m.userData.stormCap = cap; m.userData.stormRel = rel; m.userData.stormHum = humFloor * rel; m.userData.stormPeak = Math.min(cap, peakFloor * cap / 2.4); return m; };
+  const mkArc = (col, mul, w, bucket, cap, rel) => { const m = std(col, { emissive: col, ei: humFloor * mul, rough: 0.45, metal: 0 }); m.userData.baseEmissive = col; m.userData.baseIntensity = humFloor * mul; m.userData.flareIntensityWeight = w ?? 0.5; return mkStorm(m, bucket, cap, rel); };
+  const arcSeam = mkArc(0xd9deff, 2.4, 0.5, 1, 2.4, 1.00);   // the storm-white circuit (spine + sternum veins) — MID bucket
+  const arcCore = mkArc(0xf2f4ff, 3.0, 0.5, 2, 2.0, 0.92);   // the ONE true near-white — vein cores + strike-peak tips — TIPS bucket
+  const crest = mkArc(0xd9deff, 2.0, 0.4, 1, 2.0, 0.85);     // the horn-crest strips (a step under the veins) — MID bucket
   // THE STORM-HEART dynamo core — the brightest node, on the coreGlow hook (transparent; opacity
-  // ticked). Near-white, hum-lit; ≤15% of cruise emissive (the anti-lantern lock, §3.3).
+  // ticked). Near-white, hum-lit; ≤15% of cruise emissive (the anti-lantern lock, §3.3). ROOT bucket.
   const heartCore = std(0xd9deff, { emissive: 0xf2f4ff, ei: humFloor * 3.2, rough: 0.4, metal: 0, transparent: true, opacity: 0.7 + 0.2 * glow, depthWrite: false });
   heartCore.userData.baseEmissive = 0xf2f4ff; heartCore.userData.baseIntensity = humFloor * 3.2;
+  mkStorm(heartCore, 0, 1.6, 0.75);
   // CARVED-DEPTH tiers (Revenant richness): near-black RECESS walls + a darker SOCKET FLOOR.
   const recess = std(lerpHex(base, 0x000000, 0.55), { emissive: 0x000000, rough: 0.9 });
   const socketFloor = std(0x05070c, { emissive: 0x000000, rough: 0.95 });
@@ -129,7 +142,7 @@ function tempestMats(def, glow = 1) {
   // NEVER translucent/additive — the frame owns 100% of the light, the membrane emits nothing.
   const memBase = lerpHex(base, 0x05070c, 0.30);   // darker than the dorsal shell (the recessed floor)
   const boltTiers = [0.42, 0.28, 0.16, 0.05].map((f) => std(lerpHex(memBase, 0x6a7488, f), { emissive: 0x090c14, ei: 0.5, rough: 0.9, metal: 0 }));
-  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, crest, heartCore, recess, socketFloor, silverRim, boltTiers, humFloor };
+  return { spine, dorsal, flank, bellyCore, bellyMid, bellyEdge, bolt, arcSeam, arcCore, crest, heartCore, recess, socketFloor, silverRim, boltTiers, humFloor, peakFloor };
 }
 
 // Deterministic hash jitter (index-seeded — never Math.random, so builds are reproducible).
@@ -468,7 +481,10 @@ function buildCumulonimbusTorso(def, model, _bodyMat) {
   // in cruise (the flare loop's else-branch holds them at userData.baseIntensity = humFloor),
   // Surge-flared, warm-rim-exempt; the belly tiers are now DIFFUSE (glow lives on the strips). The
   // storm tick becomes the single writer at I4 (breathing + strikes). spineMats [] .
-  return { group, attach, spinePoints, spineMats: [], flareMats: [M.arcSeam, M.arcCore, M.crest, M.heartCore], mats: { bodyMat: M.dorsal }, coreGlow: core };
+  // The near-white CIRCUIT mats go to stormArcMats — the storm tick (dragon.js §5d) is their
+  // SINGLE writer (breathe + strikes + Surge). NOT flareMats (else-reset erases the tick) and
+  // NOT spineMats (the warm cruise rim is poison for the 255° near-white family).
+  return { group, attach, spinePoints, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.crest, M.heartCore], mats: { bodyMat: M.dorsal }, coreGlow: core };
 }
 registerTorso('cumulonimbusTorso', buildCumulonimbusTorso);
 
@@ -692,6 +708,8 @@ function buildStormforkWings(def, model, attach, _giM) {
   M.wingMat = M.boltTiers[0];
   M.edgeMat = new THREE.MeshStandardMaterial({ color: 0xc9d0e8, emissive: 0xd9deff, emissiveIntensity: M.humFloor * 0.6, flatShading: true, roughness: 0.5, metalness: 0.04, side: THREE.DoubleSide, transparent: true, opacity: 0.55 });   // dimmer/thinner rim → cloud dominant in daylight (gate polish #2)
   M.edgeMat.envMapIntensity = 0.3; M.edgeMat.userData.baseEmissive = 0xd9deff; M.edgeMat.userData.baseIntensity = M.humFloor * 0.6;
+  M.edgeMat.userData.stormBucket = 2; M.edgeMat.userData.stormCap = 2.0; M.edgeMat.userData.stormRel = 0.80;   // TIPS bucket — the knife-edge rides the strike out to the wingtip
+  M.edgeMat.userData.stormHum = M.humFloor * 0.80; M.edgeMat.userData.stormPeak = Math.min(2.0, M.peakFloor * 2.0 / 2.4);
 
   const pivots = {}, wingElements = [];
   for (const side of [1, -1]) {
@@ -717,7 +735,7 @@ function buildStormforkWings(def, model, attach, _giM) {
   // flareMats = the wing's hum-lit near-white GARMENT (strut frame + knife-edge) — held at humFloor by
   // the flare loop's else-branch in cruise, Surge-flared, warm-rim-exempt. The I4 storm tick takes
   // over as the single writer (breathing + strikes). NOT in spineMats (that gets the warm rim).
-  return { group, spineMats: [], flareMats: [M.arcSeam, M.arcCore, M.edgeMat], wingMat: M.wingMat,
+  return { group, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.edgeMat], wingMat: M.wingMat,
     parts: { ...pivots, wingElements } };
 }
 registerWings('stormforkWings', buildStormforkWings);
@@ -829,7 +847,7 @@ function buildStormbrowHead(def, model, mats) {
   for (const [mat, tris] of byMat) group.add(flatTriMesh(tris, mat));
   const motifAnchor = new THREE.Object3D(); motifAnchor.position.set(0, 0.16 * hs, 0.20 * hs); group.add(motifAnchor);
   // flareMats = the crown/mane near-white garment (hum-lit); the eye is EXCLUDED (the fever firewall).
-  return { group, spineMats: [], flareMats: [M.arcSeam, M.arcCore, M.crest], motifAnchor, headLength };
+  return { group, spineMats: [], stormArcMats: [M.arcSeam, M.arcCore, M.crest], motifAnchor, headLength };
 }
 registerHead('stormbrowHead', buildStormbrowHead);
 
@@ -916,6 +934,6 @@ function buildVirgaTail(def, model, mats, anchor) {
   // flush every joint's accumulated ranks into one mesh per (joint, material), binned via chainAdd.
   for (let j = 0; j < nChain; j++) { const m = perJ[j]; if (!m) continue; for (const [mat, tris] of m) chainAdd(jAnchor(j).z, flatTriMesh(tris, mat)); }
 
-  return { group, segs: joints, accentMats: [M.crest, M.arcSeam, M.arcCore] };
+  return { group, segs: joints, stormArcMats: [M.crest, M.arcSeam, M.arcCore] };
 }
 registerTail('virgaTail', buildVirgaTail);

@@ -326,6 +326,14 @@ export function buildDragonModel(def, opts = {}) {
   if (torsoResult.flareMats) for (const m of torsoResult.flareMats) flareMats.push(m);
   if (headResult.flareMats) for (const m of headResult.flareMats) flareMats.push(m);
   if (tailResult.flareMats) for (const m of tailResult.flareMats) flareMats.push(m);
+  // STORM-ARC mats (TEMPEST §5d): the near-white storm circuit — driven ONLY by the guarded
+  // storm tick in dragon.js (breathe + root→tip strikes + Surge). In NEITHER the rim (spineMats)
+  // NOR the flare loop (flareMats), so nothing else writes them. Nullable + additive: no other
+  // dragon publishes stormArcMats, so `parts.stormArcMats` is null elsewhere → roster byte-identical.
+  const stormArcMats = [];
+  for (const r of [torsoResult, wingsResult, headResult, tailResult]) {
+    if (r && r.stormArcMats) for (const m of r.stormArcMats) stormArcMats.push(m);
+  }
   const wingMat = wingsResult.wingMat;
   const {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
@@ -439,7 +447,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
+      parts: { head, tailSegs, tailFins, emberEmitters, spineSegs, bodySegs, bodyWave, tailOrbiters, pyreTrain, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength, stormArcMats: stormArcMats.length ? stormArcMats : null },
       materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
       auraSprite,
     };
@@ -458,6 +466,7 @@ export function buildDragonModel(def, opts = {}) {
       wingRigL, wingRigR,
       coreGlow,
       wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength,
+      stormArcMats: stormArcMats.length ? stormArcMats : null,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats, flareMats: flareMats.length ? flareMats : null },
     auraSprite,
