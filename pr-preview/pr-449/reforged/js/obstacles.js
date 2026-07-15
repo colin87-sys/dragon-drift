@@ -1102,25 +1102,44 @@ function frozenStraitParts(hw, hz, h, botY, sign, pinch, rng) {
   // Coverage-safe: callers build the covering mass with +1u margin over the collider and cant only
   // RAISES (positive `lift`), so the visible top never dips below the collider top.
   const cantTop = (g, lift, jit) => {
-    const p = g.attributes.position, ay = g.boundingBox ? 0 : 0;
+    const p = g.attributes.position;
     let maxY = -Infinity; for (let i = 0; i < p.count; i++) maxY = Math.max(maxY, p.getY(i));
     for (let i = 0; i < p.count; i++) {
       if (p.getY(i) > maxY - 0.6) p.setY(i, p.getY(i) + Math.abs(lift * p.getX(i) / Math.max(hw, 1)) + rng() * jit);
     }
     return g;
   };
+  // Pull the TOP verts inward (truncated pyramid) so a mass narrows as it rises — a berg peak,
+  // with no parallel vertical slab faces (the "box"/"masonry" killer).
+  const taperCrown = (g, amt) => {
+    const p = g.attributes.position;
+    let minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < p.count; i++) { minY = Math.min(minY, p.getY(i)); maxY = Math.max(maxY, p.getY(i)); }
+    const H = Math.max(maxY - minY, 0.001);
+    for (let i = 0; i < p.count; i++) { const t = (p.getY(i) - minY) / H, s = 1 - amt * t; p.setX(i, p.getX(i) * s); p.setZ(i, p.getZ(i) * s); }
+    return g;
+  };
   if (pinch) {
-    // Broad berg PROW — wide-BASED (grows from a broad foot, never a bare tower), leaning inward,
-    // a canted broken cap. Two masses only so it reads as one calved berg, not coursing.
-    const base = shearBoxGeo(hw * 1.94, h, hz * 1.7, sign * hw * 0.16, jz());
-    cantTop(base, 1.8, 1.3);
-    base.translate(-sign * hw * 0.04, botY + h / 2, 0);
+    // Iceberg PEAK — a wide full-width BASE (covers the body collider to ~y15) TAPERING up to a
+    // narrow, leaning, broken CROWN. A truncated-pyramid crown has no parallel vertical slab
+    // faces, so it reads as a natural berg, never masonry/box. (The old calved WALL is deliberately
+    // not reused here — that's the form the owner rejected.)
+    const bandTop = Math.min(topY, 15);                 // base stays full-width up to the collider top
+    const baseH = bandTop - botY;
+    const base = shearBoxGeo(hw * 1.9, baseH, hz * 1.7, sign * hw * 0.12, jz());
+    cantTop(base, 1.0, 0.9);
+    base.translate(0, botY + baseH / 2, 0);
     parts.push(base);
-    const shoulder = shearBoxGeo(hw * 1.28, h * 0.5, hz * 1.3, sign * hw * 0.1, jz());
-    cantTop(shoulder, 1.4, 1.0);
-    shoulder.rotateZ(sign * 0.06);
-    shoulder.translate(sign * hw * 0.24, botY + h * 0.72, (rng() - 0.5) * hz * 0.35);
-    parts.push(shoulder);
+    if (topY > bandTop + 1.5) {
+      // Tapering broken crown above the collider band — narrows to a ridge, leans inward.
+      const ch = topY - bandTop;
+      const crown = shearBoxGeo(hw * 1.4, ch, hz * 1.3, sign * hw * 0.22, jz());
+      taperCrown(crown, 0.55);                          // pull the top verts IN → berg peak, not a slab
+      cantTop(crown, 1.4, 1.1);                         // spall the crown (broken tooth, not a lid)
+      crown.rotateZ(sign * 0.10);                       // lean inward
+      crown.translate(sign * hw * 0.12, bandTop + ch / 2, (rng() - 0.5) * hz * 0.3);
+      parts.push(crown);
+    }
   } else {
     // Low wide FLOE — a THIN WIDE raft (≥4:1), canted+weathered top (no flat lid), plus a small
     // tilted hummock so the silhouette drifts. Built +1u over the collider so the cant/jitter stay
@@ -1360,8 +1379,9 @@ function buildRockGap(o, e) {
     const straitPinch = h > 20;   // strait: tall mass = PROW (pinch); low mass = FLOE (breath)
     let merged;
     if (strait) {
-      // MIRROR STRAIT: low wide FLOE (breath) or broad tall PROW (pinch) — pack ice over the
-      // mirror, no coursing, no sockets. Same glacier ladder skin as the props.
+      // MIRROR STRAIT. PINCH = a tall iceberg PEAK (wide base tapering to a broken, leaning crown
+      // — nature, not masonry: NOT the old calved wall). BREATH = a low wide FLOE raft. No
+      // coursing, no sockets. Same glacier ladder skin, rationed to 2–3 pinches over open water.
       const parts = frozenStraitParts(hw, hzCol, h, botY, Math.sign(lean) || 1, straitPinch, rng);
       merged = bakeIceLadder(mergeGeometries(parts.map((g) => g.index ? g.toNonIndexed() : g), false), { frostT: WALL_TIERS.frostT, stops: _WALL_LADDER });
       parts.forEach((g) => g.dispose());
@@ -1411,6 +1431,10 @@ function buildRockGap(o, e) {
       // still bounds the flight line (topY = ring line + margin) without an invisible-but-solid
       // band above the ice. No crest collider — the floe tops out below the sightline.
       box(cx, (botY + topY) / 2, hw, (topY - botY) / 2, hzCol, z);
+    } else if (strait && straitPinch) {
+      // Berg PEAK: body collider bounds the pinch at flight height; the tapering crown above y15
+      // is a passable visual peak (the player threads the centre gap between the pair, not into it).
+      box(cx, 6, hw, 9, hzCol, z);
     } else {
       box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width (channel bound — UNCHANGED)
       if (crest) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
@@ -1552,7 +1576,9 @@ function buildRockGap(o, e) {
       // every ~6th non-ring slice (2–3 per run — Dial C). Non-strait keeps the full-height wall.
       const pinch = strait && !s.noCrest && (si % 6 === 3);
       const floeTop = Math.max(bot + 12, Math.min(top, gy + 4));   // cover the flight line, stay low
-      const mTop = strait ? (pinch ? top : floeTop) : top;
+      // Berg peaks are CAPPED (~y20, just breaking the ceiling clamp) so they punctuate, never
+      // tower/fill the frame — the whole point of the pinch/breath rhythm.
+      const mTop = strait ? (pinch ? Math.min(top, bot + 23) : floeTop) : top;
       if (s.li - lo > 1.4) seaStack((lo + s.li) / 2, (s.li - lo) / 2, mTop, bot, -s.z, 0.06, hz, !s.noCrest);
       if (ro - s.ri > 1.4) seaStack((ro + s.ri) / 2, (ro - s.ri) / 2, mTop, bot, -s.z, -0.06, hz, !s.noCrest);
       si++;
