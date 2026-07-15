@@ -243,13 +243,20 @@ function addDorsalRidge(push, stations, M, count) {
       const r0 = [cant - 0.03, at.y, z], r1 = [cant + 0.03, at.y, z];
       const kink = [cant, at.y + len * 0.55, z + 0.09], tip = [cant, at.y + len * 0.4, z + len * 0.95];
       push(M.crest, [r0, kink, r1], [r1, kink, tip], [r0, tip, kink]);
-    } else {           // BACK → a peaked charcoal scute (a raised tent-plate) with a dark under-gap
-      const hw = 0.05 * fr + 0.02, h = 0.09 * fr + 0.03, back = 0.05;
-      const bl = [-hw, at.y - 0.01, z - 0.04], br = [hw, at.y - 0.01, z - 0.04];
-      const peak = [0, at.y + h, z + back];
-      push(M.spine, [bl, br, peak]);                        // the lit scute roof (two faces)
-      push(M.spine, [bl, peak, [-hw * 0.6, at.y + h * 0.4, z + back + 0.04]], [br, [hw * 0.6, at.y + h * 0.4, z + back + 0.04], peak]);
-      push(M.recess, [bl, [-hw, at.y - 0.02, z + 0.05], br], [br, [-hw, at.y - 0.02, z + 0.05], [hw, at.y - 0.02, z + 0.05]]);   // dark under-strip (the recess gap)
+    } else {           // BACK → a LIGHTNING-ROD VANE: a tall kinked charcoal bolt-blade with a
+      // near-white glow cap + silver-rim leading edge (the shared stormSpike — the SAME bone as the
+      // wing struts, so the body speaks the wing's lightning language, not a flat wire). Alternating
+      // tall/short = a discharge-array waveform; the deep under-gap is a recess for glow to pool in.
+      const alt = (u % 2 === 0);
+      const H = (alt ? 0.26 : 0.155) * fr + 0.05;           // vane height — silhouette-breaking (~30% body at the shoulder)
+      const foot = 0.11 * fr + 0.03, wB = 0.05 * fr + 0.018, lean = 0.05 + 0.03 * (u % 2);
+      const a = [0, at.y - 0.012, z - foot * 0.4], b = [0, at.y - 0.012, z + foot];   // short fore-aft footprint, raised H
+      const glow = (u % 3 === 0) ? M.arcCore : M.arcSeam;   // brightest vane every 3rd (a value ladder down the rank)
+      stormSpike(push, 1, a, b, wB, 0.012, H, M.spine, glow, M.silverRim, 0.66);
+      // the DEEP under-gap flanking the vane base → a charcoal recess (depth; the trough the spine
+      // channel's glow pools into, never a strip on convexity).
+      push(M.recess, [[-wB, at.y - 0.03, z + foot * 0.6], [-wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.012, z - foot * 0.4]],
+                     [[-wB, at.y - 0.03, z + foot * 0.6], [wB, at.y - 0.012, z - foot * 0.4], [wB, at.y - 0.03, z + foot * 0.6]]);
     }
   }
 }
@@ -331,9 +338,19 @@ function addRibbon(push, mat, pts, halfW, dy = 0.015) {
 // THE SPINE CIRCUIT — one near-white seam occiput→tail-root along the dorsal centerline (bucket b2),
 // riding the same spine nodes the ridge uses (weld by construction — it can't float off).
 function addSpineCircuit(push, stations, M) {
-  const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); return (a.cy + a.ryU) + ((b.cy + b.ryU) - (a.cy + a.ryU)) * t; } } return stations[stations.length - 1].cy; };
-  const pts = []; for (let z = -2.16; z <= 1.55; z += 0.12) pts.push([0, sample(z) + 0.005, z]);   // tight pitch → CONTINUOUS seam, not dashes
-  addRibbon(push, M.arcSeam, pts, 0.03, 0.055);   // wider + lifted proud of the scutes so it reads continuous
+  // The dorsal circuit is NOT a straight surface ribbon (that read as a strip of LEDs and fought the
+  // wing's kinked-bolt identity). It's a JAGGING channel that zigzags side-to-side down the spine and
+  // sits LOW (dy<0) so the glow pools in the trough BETWEEN the raised vanes — a lightning bolt run
+  // down the back, in a recess, not a wire on a tube. Forks a short branch toward each shoulder.
+  const sample = (z) => { for (let j = 0; j < stations.length - 1; j++) { const a = stations[j], b = stations[j + 1]; if (z >= a.z && z <= b.z) { const t = (z - a.z) / (b.z - a.z || 1); const L = (p, q) => p + (q - p) * t; return { y: L(a.cy + a.ryU, b.cy + b.ryU), w: L(a.rx, b.rx) }; } } const l = stations[stations.length - 1]; return { y: l.cy + l.ryU, w: l.rx }; };
+  const zig = []; let s = 1;
+  for (let z = -2.16; z <= 1.55; z += 0.16) { const at = sample(z); zig.push([s * at.w * 0.14, at.y - 0.03, z]); s = -s; }   // low + side-to-side jag = the bolt in the trough
+  addRibbon(push, M.arcSeam, zig, 0.026, -0.005);
+  // the two shoulder FORKS (branch off toward each wing root — the wing bolts continue INTO the body)
+  for (const side of [1, -1]) {
+    const at = sample(-1.0);
+    push(M.arcSeam, [[side * at.w * 0.12, at.y - 0.03, -1.05], [side * at.w * 0.5, at.y - 0.02, -0.92], [side * at.w * 0.34, at.y - 0.05, -0.88]]);
+  }
 }
 // THE STERNUM VEINS — the branching near-white circuit worn on the pale belly (bucket b1): one
 // bright core vein down the ventral centerline dynamo→tail-root + a branch to each wing root + two
@@ -897,12 +914,17 @@ function buildVirgaTail(def, model, mats, anchor) {
   // ── RANK: the dorsal CREST FRINGE — a descending rank of glowing near-white crest blades down the
   // top of the stem (the serrated silhouette + the reference's glowing tail crest), each with a dark
   // under-gap recess. Continues the body's spine circuit aft. Binned per joint (whips with the tail).
-  const fringeN = Math.max(3, Math.round(4 + 5 * glow));
-  for (let i = 0; i < fringeN; i++) { const t = 0.05 + 0.82 * (i / (fringeN - 1)), s = sampleStem(t),
-    taper = t > 0.6 ? Math.max(0.22, 1 - (t - 0.6) / 0.4 * 0.85) : 1,   // ramp DOWN over the last stretch → the fringe hands off to the tuft, never competes (gate: hero hierarchy)
-    len = (0.085 - 0.05 * t) * (0.6 + 0.4 * glow) * taper, yTop = s.cy + s.r;
-    spikeJ(s.z, [0, yTop, s.z], [0, yTop + len, s.z + 0.05], 0.016, 0.004, 0.008, M.spine, M.crest);
-    pushJ(s.z, M.recess, [[-0.018, yTop - 0.006, s.z], [0.018, yTop - 0.006, s.z], [0, yTop - 0.006, s.z + 0.045]]); }
+  // The SAME lightning-rod vane rank as the torso back, continued down the tail — tall alternating
+  // charcoal bolt-blades with a near-white cap + silver rim, RAMPED DOWN toward the tuft (hero
+  // hierarchy: the fringe leads the eye to the burst, never competes). This is what turns the "rope"
+  // into a spined storm-tail (art-director note).
+  const fringeN = Math.max(4, Math.round(5 + 6 * glow));
+  for (let i = 0; i < fringeN; i++) { const t = 0.04 + 0.80 * (i / (fringeN - 1)), s = sampleStem(t),
+    taper = t > 0.55 ? Math.max(0.16, 1 - (t - 0.55) / 0.45 * 0.9) : 1,   // ramp DOWN over the last stretch → hands off to the tuft
+    alt = (i % 2 === 0), H = (alt ? 0.15 : 0.085) * (0.6 + 0.4 * glow) * taper + 0.015, foot = 0.05 * taper + 0.02, yTop = s.cy + s.r * 0.9,
+    glowMat = (i % 3 === 0) ? M.arcCore : M.crest;
+    spikeJ(s.z, [0, yTop, s.z - foot * 0.35], [0, yTop, s.z + foot], 0.02 * taper + 0.008, 0.004, H, M.spine, glowMat);
+    pushJ(s.z, M.recess, [[-0.02, yTop - 0.012, s.z + foot * 0.5], [0.02, yTop - 0.012, s.z + foot * 0.5], [0, yTop - 0.012, s.z - foot * 0.35]]); }
 
   // ── RANK: flank scute cards — small cupped charcoal cards down each flank (alternating value), a
   // dark shadow gap under each so the stem isn't a bare tube. Binned per joint.
