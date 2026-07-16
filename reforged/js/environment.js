@@ -378,7 +378,8 @@ const _TMP_AXIS = (() => {
 })();
 const _TMP_SCOUR = [0.557, 0.604, 0.627];   // #8e9aa0 wind-facing scour (high dot) — the pale wind-bitten faces
 const _TMP_DAMP = [0.294, 0.329, 0.361];    // #4b545c body — the standard wet slate
-const _TMP_SOAKED = [0.137, 0.169, 0.192];  // #232b31 waterline belly (low-y) — the SOAKED undercut storm-tell
+const _TMP_WETCORE = [0.072, 0.094, 0.112]; // #12181c drowned contact — the near-black WET METER where rock meets sea
+const _tmpWet = [0, 0, 0];
 function bakeTempestLadder(geo) {
   const pos = geo.attributes.position, n = pos.count;
   const col = new Float32Array(n * 3);
@@ -389,9 +390,22 @@ function bakeTempestLadder(geo) {
     e1.subVectors(b, a); e2.subVectors(c, a); nr.crossVectors(e1, e2).normalize();
     const dot = nr.dot(_TMP_AXIS);                          // scour axis: high dot = wind-facing (bitten) face
     const yc = (a.y + b.y + c.y) / 3;                        // face-centroid height (unit space, pre-scale)
-    // The SOAKED belly holds the low waterline undercut (yc ≤ 0.20); above it the wind decides:
-    // faces turned INTO the down-wind scour axis (dot > 0.32) go pale SCOUR, the lee/body stays DAMP.
-    const s = yc <= 0.20 ? _TMP_SOAKED : dot > 0.32 ? _TMP_SCOUR : _TMP_DAMP;
+    // WATERLINE ANCHORING (Fable gate R2 #4): the base was a flat SOAKED plateau (hard cutoff) that read
+    // as a prow sitting ON the water like a toy on glass. Replace it with a WET-CONTACT GRADIENT — darkest
+    // (near-black drowned rock) right at the waterline, easing UP into the damp body over the bottom ~0.24
+    // of the prow. The value drop is what makes the stone read as rising OUT of the sea, wet, not placed.
+    // Above the wet band the wind decides: faces into the down-wind scour axis (dot > 0.32) go pale SCOUR,
+    // the lee/body stays DAMP.
+    let s;
+    if (yc <= 0.24) {
+      const t = Math.min(1, yc / 0.24);                     // 0 at the sea contact → 1 at the top of the wet meter
+      _tmpWet[0] = _TMP_WETCORE[0] + (_TMP_DAMP[0] - _TMP_WETCORE[0]) * t;
+      _tmpWet[1] = _TMP_WETCORE[1] + (_TMP_DAMP[1] - _TMP_WETCORE[1]) * t;
+      _tmpWet[2] = _TMP_WETCORE[2] + (_TMP_DAMP[2] - _TMP_WETCORE[2]) * t;
+      s = _tmpWet;
+    } else {
+      s = dot > 0.32 ? _TMP_SCOUR : _TMP_DAMP;
+    }
     for (let k = 0; k < 3; k++) { const o = (i + k) * 3; col[o] = s[0]; col[o + 1] = s[1]; col[o + 2] = s[2]; }
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -1880,37 +1894,70 @@ const ARCHETYPES = {
       // sits far downwind + small, so the top surface reads as one long dip-slope rising ~32° from the
       // horizontal across ~75% of the length — a leaning prow, not a blocky barge. Crest footprint ≤35%
       // of the belly; stratum 1 overhangs the recessed belly (the waterline undercut).
+      // De-ziggurat (Fable gate R2 #2): the 6th column is a per-stratum YAW twist (ry). Under the
+      // (r,h,r) instance scale the xz axes scale UNIFORMLY, so a Y-rotation is NOT sheared flat (only
+      // rx/rz tilts would be) — the twists survive instancing. No two strata now sit parallel, so the
+      // stack stops reading as evenly-milled crates and reads as fractured, wind-torn rock. Heights are
+      // also varied (0.15–0.18) — this DEEPENS the interpenetration so the twists never open a gap.
       const strata = [
-        [-0.48, 0.07, 0.40, 0.15, 0.44],   // 0 WATERLINE belly — windward, low, narrow + recessed → undercut
-        [-0.32, 0.19, 0.60, 0.15, 0.56],   // 1 overhangs the belly downwind (the storm undercut)
-        [-0.14, 0.31, 0.54, 0.15, 0.50],   // 2
-        [ 0.06, 0.43, 0.46, 0.15, 0.44],   // 3
-        [ 0.28, 0.55, 0.34, 0.15, 0.36],   // 4
-        [ 0.50, 0.67, 0.14, 0.15, 0.26],   // 5 CREST — sharp, small (≤35% of the belly), far downwind
+        [-0.48, 0.07, 0.42, 0.17, 0.44,  0.06],   // 0 WATERLINE belly — windward, low, narrow + recessed → undercut
+        [-0.32, 0.19, 0.60, 0.16, 0.57, -0.09],   // 1 overhangs the belly downwind (the storm undercut)
+        [-0.14, 0.31, 0.52, 0.18, 0.49,  0.05],   // 2
+        [ 0.06, 0.43, 0.47, 0.15, 0.45, -0.07],   // 3
+        [ 0.28, 0.55, 0.33, 0.17, 0.35,  0.10],   // 4
+        [ 0.50, 0.67, 0.14, 0.15, 0.26, -0.05],   // 5 CREST — sharp, small (≤35% of the belly), far downwind
       ];
-      for (const [x, y, w, h, d] of strata) {
-        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y }) });
+      for (const [x, y, w, h, d, ry] of strata) {
+        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }) });
       }
       // Protruding ledge slabs riding the windward DIP-SLOPE — thin, wider in z → horizontal scour
-      // ledges (the STRATIFICATION tell) stepping up the long diagonal, plus a crest splinter.
+      // ledges (the STRATIFICATION tell) stepping up the long diagonal, plus a crest splinter. Each
+      // carries its OWN yaw twist (larger than the strata's) + varied depth/overhang, so the shelves
+      // catch the light at different angles instead of a stack of identical parallel steps (the tell
+      // Fable flagged on the tall hero prows read close-up).
       const ledges = [
-        [-0.44, 0.15, 0.26, 0.045, 0.46],
-        [-0.26, 0.27, 0.26, 0.045, 0.44],
-        [-0.06, 0.39, 0.24, 0.045, 0.40],
-        [ 0.18, 0.51, 0.20, 0.045, 0.34],
-        [ 0.50, 0.75, 0.10, 0.09, 0.22],   // crest splinter — sharpens the peak
+        [-0.44, 0.15, 0.27, 0.05, 0.47,  0.11],
+        [-0.26, 0.27, 0.24, 0.04, 0.42, -0.14],
+        [-0.06, 0.39, 0.26, 0.05, 0.38,  0.09],
+        [ 0.18, 0.51, 0.18, 0.045, 0.33, -0.12],
+        [ 0.50, 0.75, 0.10, 0.09, 0.22,  0.06],   // crest splinter — sharpens the peak
       ];
-      for (const [x, y, w, h, d] of ledges) {
-        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y }) });
+      for (const [x, y, w, h, d, ry] of ledges) {
+        parts.push({ mat: 0, geo: xform(new THREE.BoxGeometry(w, h, d), { x, y, ry }) });
       }
       return mergeTempestParts(parts);
     },
-    // Fairness + composition: draw r FIRST, couple x to the footprint ρ (~0.52, measured from the
-    // geometry) so the inner edge = |x| − ρ·r·sMax − lean stays well clear. Mid-field |x| ~30–40.
+    // Fairness + composition: draw r FIRST, couple x to the footprint ρ (~0.68, measured from the
+    // geometry) so the inner edge = |x| − ρ·r·sMax − lean HUGS the fatal side wall. The base course
+    // kills laterally at |x| > laneHalfWidth (13), so the prows must SIT at that boundary to read as
+    // real sidewalls — floated out at |x|~26 (the old mid-field placement) they framed nothing and the
+    // player died in open water with no wall in sight. Base pulled 28→17 so the inner edge lands
+    // ~15–17, just outside the 14.5 fairness floor: a tight walled corridor that MARKS the death line.
     // tilt leans AWAY from the lane (side*negative, sungate idiom); ALWAYS numeric (a missing tilt
     // → NaN quaternion → invisible). rotY pinned 0 so the wedge diagonal reads broadside down-lane
-    // and the baked wind-scour stays aligned. CONSTANT 3 rnd() draws (r, x-jitter, h).
-    place: (side, rnd) => { const r = 8 + rnd() * 6; return { x: side * (28 + 0.72 * r + rnd() * 5), h: 9 + rnd() * 5, r, tilt: side * -0.06, rotY: 0 }; },  // ρ grew with the longer wedge (~0.68); coupled x keeps inner ≥14.5 (verified propclearance --ci)
+    // and the baked wind-scour stays aligned. ROOFLINE RHYTHM (Fable gate R1 fix #1): a ruler-flat
+    // wall of same-height wedges reads as a harbor breakwater — nothing in Tsushima/BotW gives an
+    // unbroken horizontal. `sel` picks ~1-in-4 as a HERO prow towering to h 20–32 (2–3× the low
+    // body h 7–13), so the crest-line breaks into a low-low-HIGH silhouette. Height is independent
+    // of x, so clearance is unaffected. CONSTANT 4 rnd() draws (r, x-jitter, sel, hv).
+    place: (side, rnd) => { const r = 8 + rnd() * 6; const x = side * (18 + 0.72 * r + rnd() * 3); const sel = rnd(); const hv = rnd(); const h = sel > 0.76 ? 20 + hv * 12 : 7 + hv * 6; return { x, h, r, tilt: side * -0.06, rotY: 0 }; },  // inner edge hugs the |x|=13 death wall (verified propclearance --ci)
+  },
+
+  // TEMPEST REACH — DEPTH BACK-RANK (Fable gate R1 fix #2). Pulling the near prow wall in to hug the
+  // |x|=13 death line (the fairness fix) emptied the mid-field to bare ocean — the scene collapsed
+  // from a layered vista to ONE depth plane, "a corridor in a void." This restores the second plane:
+  // sparse, TALLER wedges far off-lane (|x| ~32–48) that the storm fog fades to pale ghost sea-stacks
+  // on the horizon — the NatGeo / monumental read the mid-field placement used to carry. PURE SCENERY:
+  // far beyond the fatal wall it can never touch the player, so there is no clearance concern, and a
+  // foam collar 30+ off-lane would be a bright artifact (riftwall/ridge/arcade precedent → foam:false).
+  // Reuses the near wall's exact wind-carved geology (shared builder — same strata, same baked scour)
+  // so the two ranks read as one coherent coastline; only the scale (taller aspect) + fog separate
+  // them. step 29 is coprime with the near wall's 17 → no lattice co-beat between the ranks. rotY
+  // pinned 0 = every prow leans the SAME down-wind way as the near rank. CONSTANT 3 rnd() draws.
+  stormprowFar: {
+    step: 29, biomes: tempestNew, matIndex: 7, arrivalPark: true, comp: { floor: 0.22, sMin: 0.95, sMax: 1.20 },
+    build: () => ARCHETYPES.stormprow.build(),
+    place: (side, rnd) => { const r = 12 + rnd() * 10; return { x: side * (34 + 0.90 * r + rnd() * 10), h: 24 + rnd() * 22, r, tilt: side * -0.05, rotY: 0 }; },  // x coupled to the big footprint so the far rank sits BEHIND the near wall (inner ≥ ~34), never clipping the lane
   },
 };
 
@@ -1951,7 +1998,8 @@ const FOAM_CFG = {
   glowshroom: { r: 0.46 }, glowbloom: false, // shroom = a warm waterline collar on the fat cap footprint; bloom stalks too thin for a ring
   // Tempest Reach kit — stormprow: an ELLIPTICAL collar wrapping the sheared wedge's footprint
   // (wider in x along the dip-slope than in z), so the wet storm-shoreline weld hugs the base.
-  stormprow: { rx: 0.72, rz: 0.34 },
+  stormprow: { rx: 0.86, rz: 0.44 },   // R2 #4: widened the wet-weld skirt so the base reads WELDED into the heaving sea, not placed on it
+  stormprowFar: false,   // distant back-rank on the fog line — a collar 30+ off-lane is a bright artifact
 };
 for (const [name, cfg] of Object.entries(FOAM_CFG)) if (ARCHETYPES[name]) ARCHETYPES[name].foam = cfg;
 // DEBUG-ONLY (default off): with `?hero=<archetype>`, strip biome 0 from every OTHER archetype so the
