@@ -391,7 +391,7 @@ function bakeTideLadder(geo, waterY = 0.0, bandH = 0.22) {
       ax.fromBufferAttribute(pos, i); bx.fromBufferAttribute(pos, i + 1); cx.fromBufferAttribute(pos, i + 2);
       e1.subVectors(bx, ax); e2.subVectors(cx, ax); nr.crossVectors(e1, e2).normalize();
       const u = Math.min(1, Math.max(0, (-nr.y - 0.15) / 0.6));   // 0 for up/side faces → 1 for straight-down overhang
-      const uf = 1 - 0.42 * u;
+      const uf = 1 - 0.58 * u;                                    // Fable karstfang Stage-2: +1 stop (front-lit sun didn't shadow the overhang) → the undercut reads as a real dark band
       s[0] = _LAG_BLEACH[0] * (1 + 0.10 * t) * uf; s[1] = _LAG_BLEACH[1] * (1 + 0.09 * t) * uf; s[2] = _LAG_BLEACH[2] * (1 + 0.06 * t) * uf;
     } else if (yc < waterY) {
       const t = Math.min(1, (waterY - yc) / 0.4);             // darken into the wet shadow core at the base
@@ -1862,7 +1862,7 @@ const ARCHETYPES = {
         { r: 0.28, y: 0.00 },   // foot (sinks below the waterline weld)
         { r: 0.23, y: 0.12 },   // NOTCH pinch — the marine undercut at the waterline (narrowest)
         { r: 0.29, y: 0.22 },   // edge loop AT the band top (jade band below is dead-level)
-        { r: 0.47, y: 0.54 },   // mid-belly — bowed CONVEX (above the straight line → a bulging flank, not a funnel)
+        { r: 0.44, y: 0.58 },   // mid-belly — bowed CONVEX + set high so the flare to the shoulder is STEEP (Fable Stage-2: a steeper overhang → more down-facing area → the undercut band reads)
         { r: 0.58, y: 0.74 },   // SHOULDER — MAX radius, hard overhang (top-heavy; underside → dark undercut band)
         { r: 0.34, y: 0.90 },   // taper in to the summit
       ];
@@ -1874,13 +1874,14 @@ const ARCHETYPES = {
       // single-nub/smooth-cone read). Fat bases (r0.18+) → rock knobs, not thin fins. Tide-laddered → honey.
       parts.push({ mat: 0, geo: frustumBetween([0.10, 0.84, 0.05], [0.015, 1.16, 0.11], 0.20, 0.06, 6) });    // taller horn, leans +z as it rises (12)
       parts.push({ mat: 0, geo: frustumBetween([-0.15, 0.86, -0.05], [-0.17, 1.00, -0.02], 0.18, 0.12, 6) });  // broken blunt stub (12)
-      // GREEN SCRUB CROWN — 2 wind-flagged DOMED scrub pads (bake:'lily' → the 3-stop foliage), the third
-      // silhouette signal (Fable r1 killed the k2 floating frisbee). Parasol/scrub law: DOME height ≈
-      // 0.36× radius (a real bush, not a disc), seated in the shoulder/summit SADDLE with the base sunk
-      // ~20% BELOW the rock so occlusion welds it (the knobs poke through — scrub clinging to the peak).
-      // Wind-flagged: both lean rz+ toward the biome down-lane.
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.ConeGeometry(0.42, 0.15, 7), { x: 0.00, z: 0.05, y: 0.90, sx: 1.12, sz: 0.84, rz: 0.12, ry: 0.4 }) });  // main scrub dome, over both knob bases (seated ~0.06 into the summit)
-      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.ConeGeometry(0.30, 0.11, 6), { x: 0.14, z: 0.18, y: 0.74, sx: 1.10, sz: 0.82, rz: 0.20, rx: 0.10 }) }); // lower drape on the shoulder shelf, edge sunk into the stone
+      // GREEN SCRUB CROWN — 2 ROUNDED scrub blobs (low-poly icosa spheres, bake:'lily' → the 3-stop
+      // foliage), the third silhouette signal. Fable Stage-2 killed the flat pad twice (frisbee, then hat-
+      // brim): karst scrub is not a parasol — it is bushy vegetation CLINGING to the rock. So a green
+      // MOUND caps the summit (the twin peaks poke THROUGH it) and a second smaller bush hugs the upper
+      // shoulder flank, both squashed (sy<1 → sit low, not balls) with their bases sunk into the stone
+      // (occlusion weld). Rounded masses read as vegetation at cruise where a thin pad vanished edge-on.
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.40, 0), { x: 0.02, z: 0.04, y: 0.82, sx: 1.06, sy: 0.70, sz: 0.94 }) });   // main scrub mound over the summit (peaks poke through the top)
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.IcosahedronGeometry(0.26, 0), { x: 0.22, z: 0.12, y: 0.72, sx: 1.02, sy: 0.74, sz: 0.90 }) });   // bush clinging to the upper +x shoulder flank (base sunk into the rock)
       return mergeLagoonParts(parts);
     },
     // MID sea-stack, ~1.6:1 TALL + top-heavy (a fenglin tower rises but reads MASSIVE, not a rocket): r
