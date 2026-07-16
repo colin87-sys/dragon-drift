@@ -131,6 +131,22 @@ export function setFlapDebugPose(parts, model, state) {
     };
     poseWing(parts.wingPivotR, parts.wingMidR, parts.wingTipR, bank);
     poseWing(parts.wingPivotL, parts.wingMidL, parts.wingTipL, -bank);
+    // STILETTO four-wing HUM — port of dragon.js's aux loop (hind pair at a beat offset).
+    // Nullable: absent for every shipped dragon → studio/flapstrip byte-identical.
+    if (parts.auxWingPivots) {
+      const poseAux = (pv, aRootF, ins) => {
+        if (!pv) return;
+        const inside = Math.max(0, ins), outside = Math.max(0, -ins);
+        const amp = 1 - 0.34 * ins;
+        const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;
+        pv.rotation.set(0.14 + feather * 0.16 + climbBias, -0.18, -(aRootF * amp) + restLift + baseZ + rollFold);
+      };
+      for (const a of parts.auxWingPivots) {
+        const aRootF = shape(phase - (a.phase ?? 0)) * rootA * (a.ampScale ?? 1);
+        poseAux(a.pivotR, aRootF, bank);
+        poseAux(a.pivotL, aRootF, -bank);
+      }
+    }
     return r;
   }
 

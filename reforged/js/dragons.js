@@ -790,6 +790,93 @@ export const DRAGONS = {
     trail: 0x7a84b8, boostTrail: 0xaab4e8,
   },
 
+  // ── BELLADONNA STILETTO — "Venom, patiently brewed" (VENOM-BELLADONNA-BUILDSHEET §1-§10
+  // + BELLADONNA-ARTDIRECTION-LOCK) ──────────────────────────────────────────────────
+  // A lethal wasp-DRAGON: the roster's ONLY insectoid construction, ONLY four-wing, ONLY
+  // concave wasp-waist silhouette break, ONLY magenta-family emissive (UV-orchid 292°), and
+  // ONLY filling-vessel motif. THE LAW: the skeleton is a dragon; the anatomy kit is wasp —
+  // dragon FORWARD (skull-mask head, collared neck, one raptorial forelimb pair), wasp AFT
+  // (waist, 3-window venom gaster, needle stinger, four wings). Gloss violet-black lacquer;
+  // the venom is a VESSEL not a glow (the gaster sacs FILL up the BREWING ladder — luminosity
+  // earned by VOLUME, never intensity). Glow lives ONLY in {3 sac fills, eyes, drip bead (f2+),
+  // stinger channel (f3), pterostigma ×4 (f3)}. Body value DARKENS up the ladder. Fully additive.
+  // BUILD STATE: I0 STUB — the four builders in dragonStiletto.js are contract-satisfying
+  // violet-black faceted placeholders carrying the aux-pivot four-wing hook; the real anatomy
+  // (torso+venom still, fore wings, hind pair+HUM, skull-mask+needle+fever firewall) lands I1-I4.
+  stiletto: {
+    name: 'Belladonna Stiletto',
+    title: 'Venom, patiently brewed',
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2400,
+    accentHue: 0xd936ff,   // §9 law-9 carrier: UV-orchid (292°), emissive-only, the roster's only magenta family
+    lanceTint: 0xd936ff, lanceRune: 'venomStill',   // Eternal wisp: UV-orchid (the roster's only magenta family — a hex venom sac + barbed needle sigil)
+    parts: { torso: 'chitinWaspTorso', wings: 'gossamerDoubletWings', head: 'stilettoMaskHead', tail: 'stingerLanceTail', surface: { shader: [] } },
+    // The roster's DART — fast + twitchy, thirstier + slower to refill (a striker, not a cruiser).
+    stats: { speed: 1.14, handling: 1.18, drain: 0.90, regen: 1.08 },
+    // Apex reference dials (all nullable / default-off in dragonStiletto.js). The full BREWING
+    // ladder (sacFill / waistPinch / hind pair / drip / antennae) is dialed per rung in forms[].
+    model: {
+      scale: 1.12, tailStretch: 1.0, headScale: 1.0, eyeScale: 0.7, glowLevel: 1.0, igniteStage: 3,
+      // Torso / venom still apex dials.
+      waistPinch: 0.34, gasterSegments: 4, antennaeLen: 1.0, sacFill: 1.0, dripStage: 2,
+      // Wing apex dials: four TRUE wings (fore + hind), span 2.2× body, chord 0.26× length.
+      spanScale: 2.2, forewingChord: 0.26, forewingCells: 5, hindwingScale: 0.62,
+      // WING MOTION (THE HUM) — a quick, shallow, stiff INSECT beat on the wingParts cascade;
+      // pivot (shoulder) + tip (the hand fold at the 0.38-span node). Bespoke vs Vesper/Revenant/
+      // Tempest (failure mode 13). The hind pair rides parts.auxWingPivots at a 0.35-cycle offset.
+      wingParts: 2, flapBias: 1.15, flapAmp: 0.7, rootAmp: 0.7, tipAmp: 0.12, tipLag: 0.55,
+      glidePow: 1.4, restLift: 0.04,
+      // TAIL MOTION — the gaster+stinger ride the Vesper isBone 3-joint chain: a slow menacing
+      // UNDER-CURL presenting the needle up-toward the chase lens; banks = the stinger rudders
+      // INTO the turn. A coiled spring, not a flame-whip.
+      tailWhip: true, tailLagScale: 0.10, tailUndulateX: 0.22, tailRudderScale: 0.5, stingerPresent: 0.4,
+    },
+    // THE BREWING LADDER (§6): the still FILLS (sacFill ↑ exact), the waist TIGHTENS (waistPinch ↓,
+    // its own unique monotonic), the hind pair buds then grows, the drip begins, the dart sharpens.
+    // Body value DARKENS up the rungs (apex = darkest). f0 Glass Larva · f1 First Ferment ·
+    // f2 Half-Brew · f3 Belladonna.
+    forms: [
+      { spanScale: 1.5, glowLevel: 0.25, eyeScale: 1.30, headScale: 1.20, igniteStage: 0,
+        sacFill: 0.05, gasterSegments: 2, waistPinch: 0.50, hindwingScale: 0, forewingCells: 3,
+        forewingChord: 0.28, dripStage: 0, antennaeLen: 0.4, wingParts: 1, tipAmp: 0, glidePow: 1.0,
+        colors: { body: 0x241430, belly: 0x2f1a38, wingOuter: 0x241430, eye: 0xd936ff } },
+      { spanScale: 1.8, glowLevel: 0.50, eyeScale: 1.05, headScale: 1.12, igniteStage: 1,
+        sacFill: 0.30, gasterSegments: 3, waistPinch: 0.42, hindwingScale: 0.45, forewingCells: 4,
+        forewingChord: 0.27, dripStage: 0, antennaeLen: 0.6, wingParts: 2, tipAmp: 0.08, glidePow: 1.2,
+        colors: { body: 0x1f1129, belly: 0x2b1734, wingOuter: 0x1f1129, eye: 0xd936ff } },
+      { spanScale: 2.0, glowLevel: 0.75, eyeScale: 0.85, headScale: 1.06, igniteStage: 2,
+        sacFill: 0.60, gasterSegments: 4, waistPinch: 0.38, hindwingScale: 0.62, forewingCells: 5,
+        forewingChord: 0.26, dripStage: 1, antennaeLen: 0.8, wingParts: 2, tipAmp: 0.10, glidePow: 1.3,
+        colors: { body: 0x1a0e23, belly: 0x281530, wingOuter: 0x1a0e23, eye: 0xd936ff } },
+      { spanScale: 2.2, glowLevel: 1.00, eyeScale: 0.70, headScale: 1.00, igniteStage: 3,
+        sacFill: 1.00, gasterSegments: 4, waistPinch: 0.34, hindwingScale: 0.62, forewingCells: 5,
+        forewingChord: 0.26, dripStage: 2, antennaeLen: 1.0, wingParts: 2, tipAmp: 0.12, glidePow: 1.4,
+        colors: { body: 0x150b1d, belly: 0x2f1a38, wingOuter: 0x150b1d, eye: 0xd936ff } },
+    ],
+    fx: { auraColor: '217,54,255', auraIdle: 0, sparkle: false },   // no idle halo — the venom still is the light
+    hasStyle: true,   // keep the violet trail in Surge (never warmed to white)
+    // VENOM OVERDRIVE (Surge) — the FILL emissive ×surgeGlowMultiplier + bead motes; the WINGS
+    // STAY DARK (feverWing kill-switch) and the FULL fever palette overrides the rig's magenta
+    // defaults (the venom family is 292°, never the rig's hot-pink). Eyes stay OUT of surge arrays.
+    feverWing: 0x000000,          // the kill-switch — wings stay silhouette on Surge (the still is the spectacle)
+    wingEmissive: 0x000000, wingMembraneEmissive: 0x000000,   // glass stays glass (kills the cruise/boost membrane-glow target)
+    feverEye: 0xe86aff,           // eyes blaze fill-line orchid, never rig magenta
+    surgeHi: 0xef8aff,            // every flared venom mat lerps toward the drip-hi, never white-gold
+    feverWash: [0.07, 0.02, 0.10],  // blacklight wash (proposed; owner call #4)
+    surgeGlowMultiplier: 4,       // the fill emissive scaling on Venom Overdrive (volume is the read; a modest lift)
+    hideRiderGlow: true,          // the gaster owns the rear frame
+    // Cool venom-identity cruise rim (the anti-flat-black lever): a cold steel-violet edge so the
+    // near-black chitin reads OUTLINED, not a silhouette. Wings are flat panels → drop their rim.
+    rimCruise: 0x7a5a9a, rimCruiseBase: 1.0, rimPowerMul: 1.4, rimWingMul: 0.3,
+    body: 0x150b1d, belly: 0x2f1a38,
+    wingInner: 0x1a0e23, wingOuter: 0x150b1d,
+    horn: 0x241430, scales: 0x2f1a38,   // dark-plum tones for the shared horn/scute mats (kept off the white default)
+    eye: 0xd936ff,
+    apexEye: 0xd936ff, apexSeam: 0xd936ff,
+    trail: 0x7a2494, boostTrail: 0xb43ae8,
+  },
+
   phoenix: {
     name: 'Phoenix Ascendant',
     lanceTint: 0xff7a1a, lanceRune: 'phoenixFlame',   // Eternal wisp: blazing orange (PR8)

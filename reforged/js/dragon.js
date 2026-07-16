@@ -78,6 +78,7 @@ let wingLobePivotsL = null;  // jade silk-fin per-lobe furl pivots ({pivot,idx,s
 let wingLobePivotsR = null;
 let wingBladePivotsL = null;  // blade-feather comb per-blade lag pivots, null otherwise
 let wingBladePivotsR = null;
+let auxWingPivots = null;     // Stiletto four-wing HUM: nullable [{pivotL,pivotR,phase,ampScale}], null otherwise
 let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
 let head = null;
 let tailSegs = [];
@@ -252,6 +253,7 @@ export function createDragon(scene, def, riderDef) {
   wingRigR = result.parts.wingRigR || null;
   wingBladePivotsL = result.parts.wingBladePivotsL || null;
   wingBladePivotsR = result.parts.wingBladePivotsR || null;
+  auxWingPivots = result.parts.auxWingPivots || null;   // Stiletto hind-wing pair (four-wing HUM); null → zero writes → roster byte-identical
   wingLobePivotsL = result.parts.wingLobePivotsL || null;
   wingLobePivotsR = result.parts.wingLobePivotsR || null;
   tailFins = result.parts.tailFins || [];
@@ -887,6 +889,25 @@ export function updateDragon(dt, player, time) {
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
+    // ── STILETTO FOUR-WING HUM — the hind pair rides the SAME glide-hold waveform at a
+    // beat-phase offset (radians) / scaled amplitude, so fore + hind shimmer out of phase
+    // (the roster's only four-wing motion). Rigid single-segment blades → 2 rotation writes.
+    // Reuses the branch's own locals (shape / rootA / featR / climbBias / restLift / bank /
+    // rollFold). Nullable: null for every shipped dragon → zero writes → roster byte-identical.
+    if (auxWingPivots) {
+      const poseAux = (pv, aRootF, ins) => {
+        if (!pv) return;
+        const inside = Math.max(0, ins), outside = Math.max(0, -ins);
+        const amp = 1 - 0.34 * ins;
+        const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;
+        pv.rotation.set(0.14 + featR * 0.16 + climbBias, -0.18, -(aRootF * amp) + restLift + baseZ + rollFold);
+      };
+      for (const a of auxWingPivots) {
+        const aRootF = shape(phase - (a.phase ?? 0)) * rootA * (a.ampScale ?? 1);
+        poseAux(a.pivotR, aRootF, bank);
+        poseAux(a.pivotL, aRootF, -bank);
+      }
+    }
   } else if (wingLobePivotsL || wingLobePivotsR) {
     // ── JADE silk-fin fans — a fully SYMMETRIC koi beat ──────────────────────────────
     // The user's ask: the N lobes per side beat so L1↔R1, L2↔R2, L3↔R3 fire TOGETHER.
