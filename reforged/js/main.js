@@ -6,7 +6,7 @@ import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh, debugArenaProps, debugSkyDim, setSkyProbeEnabled, skyProbeEnabled, setPropAO, setAtmosphereEnabled, atmosphereEnabled, setAtmosphereQuality, setSkyCloudsEnabled, skyCloudsEnabled, setSkyCloudQuality, getCloudSunCover, setArenaSetQuality, debugArenaSet, setWaterFoam, setWaterFoamQuality, setAuroraForced, setAuroraQuality, auroraForced, auroraMix, setAuroraActOverride, setAuroraEruptOverride, setAuroraFlowExcite, godrayMul, godrayTint } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
-import { setVitals } from './dragonBond.js';
+import { setVitals, setSurge } from './dragonBond.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle, setMarkRune, markRune } from './reticle.js';
 import { initBossBar, updateBossBar } from './bossBar.js';
@@ -1831,6 +1831,22 @@ function tick() {
         gatherPulse(_muzzleV, wispTint(), (CONFIG.LOCK.gatherCountBase ?? 2) * Math.max(1, lh.pips || 0) / 2, fuse01);
       }
     }
+    // EMBERSIGHT H7/H8 — DRAGON VITALS: feed the bondChannel seam BEFORE
+    // updateDragon so the dragon fires FRAME 0 (Law 1's Bond-Echo rhythm — the
+    // DOM gem echoes +120ms via CSS). A plain state write — free, and a no-op
+    // visual unless the settings toggle is ON. `active` gates the living gauge
+    // to live flight so the hub/shop dragon never wears run-state glow.
+    setVitals({
+      active: game.state === 'playing',
+      health: game.health, healthMax: CONFIG.healthMax,
+      stamina: game.stamina, staminaMax: CONFIG.staminaMax,
+      boosting: player.boosting, sealed: game.inBoss,
+    });
+    setSurge({
+      lit: Math.min(game.consecutiveRings, game.feverThreshold),
+      max: game.feverThreshold, fever: game.feverActive,
+      comboT: Math.max(0, Math.min(1, (game.combo - 1) / 1.4)),
+    });
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
     // Normalize the slip envelope by the ACTIVE run's max slip (flow ramps to a different
@@ -1875,17 +1891,6 @@ function tick() {
       ui.gauntletFollow(_dragonProj.z > 1 ? null
         : (_dragonProj.x * 0.5 + 0.5) * window.innerWidth, dt);
     }
-    // EMBERSIGHT H7 — DRAGON VITALS: feed the bondChannel seam every frame
-    // (dragon.js consumes it inside its existing material pass; a plain state
-    // write — free, and a no-op visual unless the settings toggle is ON).
-    // `active` gates the living gauge to live flight so the hub/shop dragon
-    // never wears run-state glow.
-    setVitals({
-      active: game.state === 'playing',
-      health: game.health, healthMax: CONFIG.healthMax,
-      stamina: game.stamina, staminaMax: CONFIG.staminaMax,
-      boosting: player.boosting, sealed: game.inBoss,
-    });
     updateBossBar();   // EMBERSIGHT H5 — drain-lag ease + off-screen threat chevrons
     // LANCE dwell hum (PR7): drive the acquisition-progress whisper from HERE,
     // not reticle.js — the reticle early-returns when disabled, and this cue's

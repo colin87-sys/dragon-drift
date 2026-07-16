@@ -54,6 +54,23 @@ const BOND_ASH = 0x4a4f55;         // cold-ash target for the wounded body lerp 
 const BOND_DANGER = 0xff2f8e;      // danger-magenta heartbeat hue (magenta role)
 const BOND_NUB_EMISSIVE = 0x6fd6ff; // wing-charge cyan (the stamina role colour)
 
+// ── EMBERSIGHT H8 — SPINE-IGNITION surge (§B.3) ──────────────────────────────
+// Five dorsal surge nodes ignite nose→tail, one per chained ring; all lit = the
+// tail-tip node blazes gold. THE SHAPE-AGNOSTIC FALLBACK CONTRACT (risk #5 —
+// roster-safe on day one, author heroes incrementally):
+//   1. AUTHORED dorsal markers: any Object3D in the model with
+//      `userData.vitalsSurgeNode = <order>` (0 = nose-most). A recipe publishes
+//      up to 5; fewer is fine (the ladder compresses).
+//   2. TAIL-CHAIN fallback: nodes distribute along tailSegs (every roster
+//      dragon with a tail gets spine ignition for free).
+//   3. CORE-GLOW fallback (tail-less/GLB shapes): the chained charge rides
+//      coreGlow as stepped brightness — never an error, never a missing channel.
+let bondSurgeMats = [];      // 5 per-node materials (nodes light independently)
+let bondSurgeMode = '';      // 'markers' | 'tail' | 'core' (debug/tests)
+let bondSurgeAdd = 0;        // coreGlow fallback term — exactly 0 when flag OFF
+const BOND_SURGE_GOLD = 0xffc24a;   // surge role gold (matches the DOM gem ramp)
+const BOND_TRAIL_GOLD = 0xffd86a;   // trail-as-combo tint target (§B.4, lerp cap 0.5)
+
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
 // glow). disposeDragon/rebuildDragon let the shop swap either mid-session.
@@ -239,8 +256,17 @@ let aeroShearTimer = 0;
 function pickTrailHex(fallback) {
   if (trailGoldT > 0) return OVERTAKE_GOLD;   // H6 §B.12 the 1s overtake gold flash overrides the tint
   const pal = activeDef && activeDef.trailPalette;
-  if (pal && pal.length) return pal[trailPaletteIdx++ % pal.length];
-  return fallback;
+  const hex = (pal && pal.length) ? pal[trailPaletteIdx++ % pal.length] : fallback;
+  // H8 §B.4 trail-as-combo (flag-gated): the trail lerps toward ember-gold with
+  // the combo tier — LERP CAP 0.5 so it never overrides the dragon's identity
+  // hue (risk #7). Exactly the authored hex when the toggle is OFF or combo=1.
+  const bs = bondState();
+  if (bs.enabled && bs.vitals.active && bs.surge.comboT > 0.01) {
+    _bondC1.setHex(hex);
+    _bondC2.setHex(BOND_TRAIL_GOLD);
+    return _bondC1.lerp(_bondC2, 0.5 * bs.surge.comboT).getHex();
+  }
+  return hex;
 }
 
 // Ice-burst death particles
@@ -352,6 +378,9 @@ export function createDragon(scene, def, riderDef) {
   bondBodyMul = 1;
   bondCoreAdd = 0;
   bondDangerMix = 0;
+  bondSurgeMats = [];
+  bondSurgeMode = '';
+  bondSurgeAdd = 0;
 
   // Per-dragon Surge wash hue (def.feverWash): the Phoenix Rebirth washes warm
   // gold, the Sovereign eclipse washes cool blue, the rest keep the magenta default.
@@ -605,6 +634,22 @@ export function __trailDebug() {
   };
 }
 
+// H7/H8 debug seam: bond-channel FX introspection for the roster-fallback proof
+// (which fallback tier the surge nodes resolved to, and the live stud/node
+// intensities). Read-only; flag-OFF reports the un-built state.
+export function __bondDebug() {
+  return {
+    built: bondNubsBuilt,
+    surgeMode: bondSurgeMode,
+    surgeNodes: bondSurgeMats.length,
+    surgeLevels: bondSurgeMats.map((m) => +m.emissiveIntensity.toFixed(3)),
+    nubLevels: bondNubMats.map((m) => +m.emissiveIntensity.toFixed(3)),
+    bodyMul: +bondBodyMul.toFixed(3),
+    coreAdd: +(bondCoreAdd + bondSurgeAdd).toFixed(3),
+    dragon: activeDef && activeDef.name,
+  };
+}
+
 // Lethal crashes (wall/gate) explode hot coral-red; health deaths stay icy.
 export function triggerDeathBurst(position, lethal = false) {
   burstActive = true;
@@ -687,6 +732,45 @@ function bondEnsureFx() {
       bondNubMeshes.push(m);
     }
   }
+  // ── H8 SPINE-IGNITION nodes (§B.3) — the fallback contract in code. ──
+  // Resolve anchors: authored dorsal markers → tail-chain segments → coreGlow
+  // steps (bondSurgeMode 'core' skips geometry entirely; the stepped charge
+  // rides bondSurgeAdd in the update pass).
+  const markers = [];
+  group.traverse((o) => { if (o.userData && o.userData.vitalsSurgeNode != null) markers.push(o); });
+  markers.sort((a, b) => a.userData.vitalsSurgeNode - b.userData.vitalsSurgeNode);
+  let nodeAnchors = null;
+  if (markers.length >= 2) {
+    bondSurgeMode = 'markers';
+    nodeAnchors = markers.slice(0, 5).map((m) => ({ parent: m, off: 0 }));
+  } else if (tailSegs.length >= 2) {
+    bondSurgeMode = 'tail';
+    nodeAnchors = [];
+    const n = tailSegs.length;
+    for (let j = 0; j < 5; j++) {
+      const si = Math.round((j * (n - 1)) / 4);
+      nodeAnchors.push({ parent: tailSegs[si], off: j * 0.001 });   // tiny z stagger de-dupes short chains
+    }
+  } else {
+    bondSurgeMode = 'core';   // no geometry — stepped coreGlow charge
+  }
+  if (nodeAnchors) {
+    const nodeGeo = new THREE.OctahedronGeometry(0.10, 0);
+    for (let j = 0; j < nodeAnchors.length; j++) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0x181008, emissive: BOND_SURGE_GOLD, emissiveIntensity: 0,
+        roughness: 0.5, metalness: 0.2,
+      });
+      bondSurgeMats.push(mat);
+      const m = new THREE.Mesh(nodeGeo, mat);
+      m.scale.set(0.9, 1.25, 0.9);
+      // dorsal seat: a whisker above the anchor's spine line (markers sit exact)
+      m.position.set(0, nodeAnchors[j].parent.userData.vitalsSurgeNode != null ? 0 : 0.22, nodeAnchors[j].off);
+      m.visible = false;
+      nodeAnchors[j].parent.add(m);
+      bondNubMeshes.push(m);   // rides the same show/hide + teardown bookkeeping
+    }
+  }
   // Ember-bleed pool (§B.1): scene-level like the other FX pools; disposed
   // alongside them in disposeDragon.
   const bleedTex = makeGlowTexture('255,140,70', '255,220,180');
@@ -724,8 +808,10 @@ function updateBondVitals(dt, time) {
       coreGlow.material.color.setHex(bondCoreBaseHex);
       bondCoreWriting = false;
     }
+    bondSurgeAdd = 0;
     if (bondNubsBuilt) {
       for (const m of bondNubMats) m.emissiveIntensity = 0;
+      for (const m of bondSurgeMats) m.emissiveIntensity = 0;
       for (const n of bondNubMeshes) n.visible = false;
       for (const s of bondBleedMotes) {
         if (s.visible) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
@@ -798,6 +884,28 @@ function updateBondVitals(dt, time) {
     s.material.opacity = s.userData.life * 0.7;
     const sz = 0.18 + (1 - s.userData.life) * 0.3;
     s.scale.set(sz, sz, 1);
+  }
+
+  // ── H8 SPINE-IGNITION (§B.3): nodes ignite nose→tail, one per chained ring,
+  // frame 0 (the DOM gem echoes +120ms via CSS). All lit / fever = the
+  // tail-tip node blazes gold with a slow pulse — the "crest gem" beat, played
+  // shape-agnostically on whatever anchor the fallback contract resolved.
+  const { surge } = bondState();
+  const litNodes = surge.fever ? 5 : Math.floor((Math.min(surge.lit, surge.max) / surge.max) * 5 + 1e-6);
+  if (bondSurgeMats.length) {
+    const nN = bondSurgeMats.length;
+    const allLit = litNodes >= 5 || surge.fever;
+    for (let j = 0; j < nN; j++) {
+      // compress the 5-slot ladder onto however many nodes this shape authored
+      const slotLit = litNodes > Math.floor((j * 5) / nN);
+      let target = slotLit ? 2.0 : 0;
+      if (allLit && j === nN - 1) target = 3.0 + 0.6 * Math.sin(time * 3);   // the tip-gem blaze
+      bondSurgeMats[j].emissiveIntensity = damp(bondSurgeMats[j].emissiveIntensity, target, 12, dt);
+    }
+    bondSurgeAdd = 0;
+  } else {
+    // core fallback: the chained charge rides coreGlow as stepped brightness
+    bondSurgeAdd = 0.07 * litNodes + (litNodes >= 5 ? 0.12 + 0.1 * Math.sin(time * 3) : 0);
   }
 
   // 1-HEART HEARTBEAT (§B.1): at the last heart the coreGlow recolors
@@ -1579,7 +1687,8 @@ export function updateDragon(dt, player, time) {
     const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
       : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm + inhale01 * 0.4   // PR-C: interior ember charges
       + swallow01 * 0.5   // the ember swallow: a brief core flare as it's eaten
-      + bondCoreAdd;      // H7: the 1-heart heartbeat (exactly 0 with DRAGON VITALS off)
+      + bondCoreAdd       // H7: the 1-heart heartbeat (exactly 0 with DRAGON VITALS off)
+      + bondSurgeAdd;     // H8: the core-fallback surge steps (exactly 0 with the flag off)
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
   }
   // THE HAUNTING gap-pulse (Revenant): walk a brightness wave tail→head across the 3 dorsal
