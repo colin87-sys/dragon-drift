@@ -473,8 +473,8 @@ function bakeTempleLadder(geo, waterY = 0.0, bandH = 0.22) {
 // hue the roster otherwise lacks. Normal-keyed like the foliage: a lit petal catch on up-faces → a
 // deeper blush body in shadow, so a bud reads as a rounded bloom (two value zones), never a flat pink
 // blob. Diffuse only (no emissive — a flower is not a lantern; gilt stays the only warm emitter).
-const _LAG_BLOOM = [0.949, 0.780, 0.651];  // 0xf2c7a6 sunlit blush petal (up-facing catch)
-const _LAG_BLOOM_D = [0.788, 0.541, 0.431]; // 0xc98a6e deeper blush body (shadow side of the bloom)
+const _LAG_BLOOM = [0.937, 0.647, 0.541];  // 0xefa58a warm ROSE-blush petal (up-facing catch) — deepened + more saturated so it reads as a clear 2nd warm hue, not pale cream (still off the magenta danger-bullet lane)
+const _LAG_BLOOM_D = [0.760, 0.443, 0.376]; // 0xc27160 deeper rose body (shadow side of the bloom)
 // PR-2 (Fable figgate r1): the WOOD bake — fig trunk + strangler roots via `bake:'wood'`. Dark BARK-BROWN,
 // deliberately a DIFFERENT hue+value slot from the moss-verdigris waterline and the green canopy (Fable: the
 // old green roots merged into "generic moss" and the strangle read vanished). Normal-keyed like the foliage:
@@ -2084,6 +2084,44 @@ const ARCHETYPES = {
       return p;
     },
   },
+
+  // lotusraft — LOW REST / nature (§7.3.5): a raft of flat lily pads flush with the mirror + STANDING lotus
+  // blooms and a seed-pod spear. Fills the flat near-water VOID (Fable in-game review: the lower third read
+  // as an empty teal plain) and brings the roster's SECOND warm hue — blush lotus blooms (bake:'bloom',
+  // NOT magenta: that lane is role-locked to danger bullets) — plus the vertical accent the flat pads lack.
+  // No stone, no gilt. The only prop that touches all three greens + the blush.
+  lotusraft: {
+    step: 19, biomes: lagoonV3, matIndex: 0, comp: { floor: 0.14, sMin: 0.9, sMax: 1.06 }, // low rest commons: scatters over the open near-water, near-empty in the breaths
+    build: () => {
+      const parts = [];
+      // LILY PADS — paper-thin water-conforming discs (bake:'lily' → olive top), flush with the mirror.
+      // Varied sizes; the main pad gets a radial NOTCH (the Victoria-amazonica aerial signature).
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.36, 8, 0.55, 2 * Math.PI - 1.0), { y: 0.02, rx: -Math.PI / 2 }) }); // main pad, notched
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.24, 7), { x: 0.44, z: -0.16, y: 0.015, rx: -Math.PI / 2 }) });      // sibling pad
+      parts.push({ mat: 0, bake: 'lily', geo: xform(new THREE.CircleGeometry(0.16, 6), { x: -0.32, z: 0.30, y: 0.02, rx: -Math.PI / 2 }) });        // young pad
+      // LOTUS BLOOMS — 4 standing blush buds/blooms on thin green stems: the vertical accent + the 2nd hue.
+      // A bud is an ogive (narrow, tall); an open bloom is wider + shallower; the last is a flat-topped SEED
+      // POD (the sharpest spear). bake:'bloom' (warm blush) / green stems. Cheap cones (a tiny cruise dot).
+      const bloom = (x, z, h, r, kind) => {   // kind: 'bud' tall / 'open' wide-shallow / 'pod' flat-topped
+        parts.push({ mat: 0, bake: 'lily', geo: frustumBetween([x, 0.0, z], [x, h, z], 0.019, 0.015, 2) });   // green stem (thin)
+        const ch = kind === 'bud' ? r * 2.4 : kind === 'open' ? r * 1.3 : r * 0.7;   // pod = flat
+        parts.push({ mat: 0, bake: 'bloom', geo: xform(new THREE.ConeGeometry(r, ch, 4), { x, z, y: h + ch * 0.5, rx: kind === 'pod' ? Math.PI : 0 }) });
+      };
+      bloom(0.05, 0.09, 0.27, 0.055, 'bud');    // tall bud
+      bloom(-0.13, -0.05, 0.20, 0.062, 'open'); // open bloom (wider)
+      bloom(0.21, 0.19, 0.16, 0.045, 'bud');    // short bud
+      bloom(-0.05, -0.24, 0.25, 0.05, 'pod');   // seed-pod spear (flat head)
+      return mergeLagoonParts(parts);
+    },
+    // LOW hugger, flush with the water: h ≤ ~1.3 world. tilt 0 EXPLICIT (a raft conforms to the water; a
+    // tilted raft is a floe, and a missing tilt is a NaN quaternion). Draw r first, couple x.
+    place: (side, rnd) => {
+      const r = 3.5 + rnd() * 3;
+      const p = { x: side * (15 + 0.72 * r + rnd() * 5), h: 0.9 + rnd() * 0.35, r, tilt: 0 };
+      if (HERO_SET.has('lotusraft')) p.rotY = 0;
+      return p;
+    },
+  },
 };
 
 // N10c foam-collar config per archetype: `r` = ring radius as a multiple of the
@@ -2113,6 +2151,7 @@ const FOAM_CFG = {
   figgate: { rx: 0.62, rz: 0.30 },   // Lost Lagoon v3 gateway — elliptical collar wraps the wide thin footprint (roots + jambs enter the water)
   mangrovehold: { r: 0.55 },         // Lost Lagoon v3 mangrove islet — a round jade tide collar where the crinoline of stilt-root feet meets the mirror (the jade anklet)
   prasat: { r: 0.78 },               // Lost Lagoon v3 hero temple — a broad jade tide collar at the base tier waterline (the drowned temple-mountain doubling in the mirror)
+  lotusraft: false,                  // Lost Lagoon v3 lotus raft — NO collar: the pads ARE the waterline event; a foam ring on flat pads reads as an artifact (lilyraft precedent)
 
   spirevine: { r: 0.26 }, monolith: { r: 0.4 }, arcshard: { r: 0.55 },
   floe: { r: 0.72 }, iceFang: { r: 0.62 }, berg: { r: 0.62 }, skerry: { r: 0.55 }, // aurora ice — the waterline weld between silhouette + reflection
