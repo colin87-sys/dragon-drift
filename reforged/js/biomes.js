@@ -37,26 +37,37 @@ export const SUN_DIR = new THREE.Vector3(-0.22, 0.1, -1).normalize();
 
 export const BIOMES = [
   {
-    // Dusk sanctuary: deep teal-indigo sky, warm gold compressed to a narrow
-    // horizon band — gameplay elements (rings/orbs/gates/dragon) pop against
-    // the cool ground. Biome 1 becomes the designated bright world.
-    // Light-dark rhythm across the 6-biome cycle: dusk→blaze→cold→inferno→night→cosmos.
-    name: 'SUNKEN SANCTUARY',
+    // THE LOST LAGOON (LOST-LAGOON-BIBLE.md): a lost, hidden watery paradise of drowned
+    // holy ruins reclaimed by a garden at golden hour. Theology — "the light claims nothing;
+    // it only passes THROUGH, window by window, down to the water." Its own identity, distinct
+    // from Frozen (blue ice) and Caldera (black fire): jade lagoon mirror + rose-apricot humid
+    // horizon + the only GREEN/vegetation in the cycle. PR-1 = the atmosphere/materials substrate.
+    name: 'THE LOST LAGOON',
     keyShift: 0,
-    stars: 0.15,
-    sky: { top: C(0x0d1f3c), mid: C(0x1e4060), horizon: C(0xe8a040), sun: C(0xffd080),
-      // N9 clouds: warm dusk cumulus — sunlit tops, cool blue-grey undersides.
+    stars: 0.15,   // first stars at dusk
+    sky: { top: C(0x0d1f3c), mid: C(0x235058), horizon: C(0xffb060), sun: C(0xffd080),
+      // N9 clouds: warm dusk cumulus — sunlit tops, cool blue undersides.
       cloud: { amount: 0.85, lit: C(0xffe4b8), shadow: C(0x1e2c46) } },
-    fog: { color: C(0x1a3050), near: 75, far: 400 },
-    light: { sun: C(0xff9a40), sunI: 1.5, hemiSky: C(0x7ab0d8), hemiGround: C(0x1a3828) },
-    water: { deep: C(0x061828), shallow: C(0x1a5a6a), waveAmp: 1.0 },
-    ambient: { color: C(0xc8ec96), fall: 1.2, sway: 2.6, size: 0.34, opacity: 0.75 },
-    fauna: { color: C(0xd0c8e8), scale: 1.0, flap: 1.0 },
-    faunaFlyby: true, // foreground gull flyby pass visible over the lane
+    // Dual-fog: NEAR = dusk warm-teal (the lagoon reads humid/cool); FAR melts to rose-apricot —
+    // one step rosier + softer than Frozen's molten gold, so the horizon reads humid, not molten.
+    fog: { color: C(0x2a5a62), near: 70, far: 400 },   // humid dusk-teal; L≈0.31 sits in the layered-read window so the magenta danger bullet (role-locked) + band-dark clear it (bulletcontrast)
+    fogFarColor: C(0xffb877),
+    atmos: { heightK: 0.03 },   // evening mist pooling on the water; dive = into the hush, climb = clear gold
+    // Low sun dead ahead, but the STORY is transmission. hemiGround = JADE LAGOON BOUNCE (undersides
+    // pick up cool water-green — the inverse of Caldera's ember bounce, unlike Frozen's rose fog-sea).
+    light: { sun: C(0xffb060), sunI: 1.55, hemiSky: C(0x86b4d0), hemiGround: C(0x1e4438) },
+    water: { deep: C(0x07262e), shallow: C(0x2b7a70), waveAmp: 0.42 }, // jade lagoon; calmed so the ruins double in the mirror (a lagoon breathes — not Frozen's 0.22 dead-calm)
+    // PETAL WIND (the Tsushima signature): warm blossom-gold petals with the strongest LATERAL drift
+    // in the cycle — wind as a composition device. Nothing rises (Caldera), nothing hangs (Frozen).
+    ambient: { color: C(0xffcf9a), fall: 0.5, sway: 3.0, size: 0.32, opacity: 0.7 },
+    // EGRETS: slow pale waders skimming the mirror down-lane (the NatGeo frame; HOLLOWGATE's pale
+    // "children" over dark water — the boss's value inversion rehearsed by the wildlife).
+    fauna: { color: C(0xf6ead8), scale: 1.25, flap: 0.55 },
+    faunaFlyby: true, // foreground egret flyby pass visible over the lane
     props: ['tower', 'column', 'archruin', 'slab', 'dome'],
-    matIndex: 0, // verdigris stone
-    // Contrast gate: the dark/deep band (L≈0.16) reads too close to this
-    // biome's dark teal fog (L≈0.18) — lifted toward a lighter deep-rose.
+    matIndex: 0, // verdigris stone (legacy props until the roster lands in PR-2+)
+    // Contrast gate: the dark/deep band vs this biome's teal fog — lifted toward a lighter
+    // deep-rose (re-run bulletcontrast after the jade-water retune).
     bullets: { dark: 0xaf4f73 },
   },
   {
